@@ -24,6 +24,8 @@
  * 故 `agentId?: string` 出现在每个判别成员的元信息中,而非独立事件。
  */
 
+import type { GoalStatus } from '@ihui/types'
+
 /** SSE 事件名常量(单一事实源)。值即实际 wire 上的事件判别名。 */
 export const SSE_EVENTS = {
   CHUNK: 'chunk',
@@ -85,6 +87,14 @@ export const SSE_EVENTS = {
   // (上方第 3 条实测证据仍然成立),且 Python 侧 SSE_EVENTS 里也只有 form_request,
   // 并两条会让跨语言 parity 对账 0 直接红。
   FORM_REQUEST: 'form_request',
+  // D152(2026-09-29 立,用户拍板「服务化但存会话元数据、不建新表」):会话目标状态的
+  // 下行帧。**单帧带 status:'cleared'**(不建 goal_cleared 第二帧)。生产点
+  // ai-service `POST /llm/sessions/{session_id}/goal`(写服务端主副本后推进该会话的
+  // 活跃流)+ **流首**带出当前目标(新接入的端不必等下一次 set)。上行出口是 REST,
+  // 不进本集合。必须与 apps/ai-service/app/core/sse_contract.py 同步。
+  // 六档状态是**第三个域**,与 AGENT_TASK_STATUSES / WORKSPACE_AGENT_TASK_STATUSES
+  // 不得并集(AGENTS §30 + 守门 check-agent-status-vocabulary-parity)。
+  GOAL_UPDATED: 'goal_updated',
 } as const
 
 /**
@@ -309,6 +319,27 @@ export type SSEEventPayload =
   // 数喂进去会直接 TS2344。改成与 `SSEEventMeta` 直接求交 ⇒ 同一个 agentId? 定义、零复制,
   // 只绕开那条对本类型不成立的约束。
   | (FormRequestFramePayload & SSEEventMeta & { type: 'form_request' })
+  // 会话目标状态更新(D152,2026-09-29 立):服务端主副本变了就发这一帧。
+  // **单帧承载清除**:`status:'cleared'` 即"目标已清除"(拍板:不建 goal_cleared 第二帧)。
+  // 生产点 ai-service `POST /llm/sessions/{session_id}/goal` 与**流首**(新端接入即见当前目标)。
+  // ⚠️ `sessionId` 恒在:上行出口路径里带 {session_id},帧不给它前端只能猜,而猜错的表现是
+  // "点了什么都没发生且不报错"(D151 的 terminal_interaction 同一课)。
+  // `status` 的封闭集在 `@ihui/types` 的 `GOAL_STATUSES`(六档 + cleared 是**线格式**的
+  // 第七个判别值,只代表"已清除",不落库为状态 —— 库里清除就是整键消失)。
+  | SSEEventWithMeta<{
+      type: 'goal_updated'
+      /** 会话 id(= 上行出口路径里的 {session_id});空串 = 服务端当轮没有会话 id */
+      sessionId: string
+      status: GoalStatus | 'cleared'
+      /** 目标原文;status==='cleared' 时缺省(清除后没有目标可带) */
+      objective?: string
+      /** 累计耗时(ms),GoalCard 的 D89 耗时条取它 */
+      elapsedMs?: number
+      /** 累计 token 用量(与 usage 帧同族口径,由服务端计量,不是本地估算) */
+      tokenUsage?: number
+      /** 服务端写入时刻(epoch 秒),多端据此判"谁的更新更新"(最后写入以库为准) */
+      updatedAt?: number
+    }>
   // 流结束(含 usage)
   | SSEEventWithMeta<{
       type: 'done'
