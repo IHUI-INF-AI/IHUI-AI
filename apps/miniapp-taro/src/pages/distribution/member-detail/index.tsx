@@ -158,12 +158,12 @@ export default function MemberDetail() {
                 >
                   {m.avatar ? (
                     <Image
-                      className="w-[96rpx] h-[96rpx] rounded-full flex-shrink-0"
+                      className="w-[96rpx] h-[96rpx] rounded-2xl flex-shrink-0"
                       src={m.avatar}
                       mode="aspectFill"
                     />
                   ) : (
-                    <View className="w-[96rpx] h-[96rpx] rounded-full bg-primary items-center justify-center flex-shrink-0">
+                    <View className="w-[96rpx] h-[96rpx] rounded-2xl bg-primary items-center justify-center flex-shrink-0">
                       <Text className="text-[length:44rpx] font-semibold text-[var(--color-primary-foreground)]">
                         {m.nickname.charAt(0) || '?'}
                       </Text>

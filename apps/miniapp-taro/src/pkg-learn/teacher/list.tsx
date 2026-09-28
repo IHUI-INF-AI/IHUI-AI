@@ -91,12 +91,12 @@ export default function TeacherList() {
               >
                 {item.avatar ? (
                   <Image
-                    className="w-[120rpx] h-[120rpx] rounded-full bg-muted flex-shrink-0"
+                    className="w-[120rpx] h-[120rpx] rounded-2xl bg-muted flex-shrink-0"
                     src={item.avatar}
                     mode="aspectFill"
                   />
                 ) : (
-                  <View className="w-[120rpx] h-[120rpx] rounded-full bg-muted flex-shrink-0 flex items-center justify-center">
+                  <View className="w-[120rpx] h-[120rpx] rounded-2xl bg-muted flex-shrink-0 flex items-center justify-center">
                     <Text className="text-[length:44rpx] font-semibold text-muted-foreground">
                       {item.name.slice(0, 1)}
                     </Text>
