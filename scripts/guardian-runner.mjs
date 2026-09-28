@@ -1890,7 +1890,7 @@ const checks = [
   // 判据 A:四处档位表逐档同值(preset 必须写 `borderRadius: RADIUS_REM`,不得重新内联)。
   // 判据 B:端内取用必须引用档位(rnRadius.<step> / var(--radius-*) / rounded-<step>),
   //   数字字面量、rpx()、每文件自定 *_RADIUS 常量、rounded-[任意值] 一律红;
-  //   几何圆(头像/装饰点/胶囊)须显式 `radius-exempt:` 注释,不得静默。存量走基线棘轮只减不增。
+  //   几何圆(头像/装饰点/胶囊)由盒形量证(正方+半边=真圆出射程,非正方+半边=胶囊判红)。豁免标记族已于 2026-09-29 O81 票㊵ 整体废除,写它由 B8 判红。存量走 HEAD 棘轮只减不增。
   {
     id: '77',
     label: '📐  圆角单一源头对账(blocking,全 8 端:档位表一致 + 端内取用必须引用档位)',
@@ -1904,7 +1904,7 @@ const checks = [
       '     RN/内联 style : borderRadius: rnRadius.lg      (import { rnRadius } from \'@ihui/design-tokens\')',
       '     CSS/SCSS      : border-radius: var(--radius-lg)',
       '     类名          : rounded-lg(禁止 rounded-[24rpx] 这类任意值)',
-      '     真圆/头像/胶囊: 保留形状并加同行注释 radius-exempt: <原因>(不得静默写死数字)',
+      '     真圆/头像/胶囊: 用 size/2 几何表达式或等于档位值的档;项目不允许胶囊,也没有豁免标记 —— 写标记本门 B8 判红',
       '     档位漂移      : 改 radius.js 一处后跑 node scripts/check-radius-single-source.mjs --self-test,',
       '                     CSS 端同步 tokens.css 并按端内脚本重跑 design-tokens 同步。',
       '     自检:node scripts/check-radius-single-source.mjs --self-test',
@@ -4077,7 +4077,7 @@ const checks = [
       '  修法只有一个:改成 packages/design-tokens/src/radius.js 的 RADIUS_ROLES 指定的那一档',
       '  (tiny→xs / control→sm / chip→md / card→lg / panel→xl / hero→2xl)。',
       '  确属新元素类别 ⇒ 先在 RADIUS_ROLES 加角色并同笔给出消费方,不得为消红放宽判据。',
-      '  行内出口 radius-role-exempt: <原因>(须带原因,只救本行/紧邻上行,不得用它清存量)。',
+      '  圆角豁免通道已整体废除(2026-09-29 O81 票㊵):标记不改变任何结论,而写标记本身由守门 77 的 B8 判红。',
       '  自验:node scripts/check-radius-role-conformance.mjs --files <你改的文件>;',
       '  存量还剩多少:同命令加 --json(数字一律现读,勿照文档抄)。',
       '  紧急跳过:HUSKY_SKIP_RADIUS_ROLE_CONFORMANCE=1(仅限红确属他人文件时)。',
