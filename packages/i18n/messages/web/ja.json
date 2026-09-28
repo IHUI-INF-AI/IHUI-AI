@@ -27441,5 +27441,8 @@
     "hintConfirm": "確定",
     "hintClose": "閉じる",
     "clearAriaLabel": "検索をクリア"
+  },
+  "statusPage": {
+    "incidentsUnavailable": "直近 30 日間のインシデント情報は一時的に取得できません"
   }
 }
