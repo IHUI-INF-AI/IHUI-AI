@@ -20,6 +20,7 @@ import { test } from 'node:test'
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { buildBlockDedupe, healStopReasons, verifyBlockDedupe, buildMerge, __test__ } from '../plan-tasks-merge.mjs'
+import { forkPreserved } from '../lib/plan-merge-annotation.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const gitQ = (cwd, args) =>
@@ -82,7 +83,15 @@ test('T1 独立仓 A 臂:有分叉 ⇒ 产出恰好一枚只含计划文档的�
     if (r.code !== 0) throw new Error(`exit 应为 0,实得 ${r.code}:${r.out}`)
     if (!/自愈落地/.test(r.out)) throw new Error(`输出未点名落地:${r.out.trim()}`)
     const after = gitQ(env.dir, ['show', 'HEAD:PROJECT_PLAN.md'])
-    if (!after.includes('**[归并]**')) throw new Error('HEAD 里副本行未翻勾')
+    if (!after.includes('[归并]')) throw new Error('HEAD 里副本行未翻勾(注记缺失)')
+    // G-307(a):落地后的那一行必须仍是"正文逐字保留"的翻勾 —— 用与生产侧同一份剥取实现核对,
+    // 不在测试里抄第二份判据(§22c);它红 = 归并层产出了守门 71 会回捞的形态 = 循环复活。
+    const turned = after
+      .split('\n')
+      .find((l) => l.includes('D9 同一件事') && /^\s*- \[x\]/.test(l) && /\[归并\]/.test(l))
+    if (!turned) throw new Error(`找不到被翻勾的那一行:${after}`)
+    if (!forkPreserved('- [ ] **D9 同一件事**:另一侧还挂着未勾。', turned))
+      throw new Error(`翻勾行正文不再逐字相等 ⇒ 守门 71 将回捞未勾原行(循环输入):\n${turned}`)
     if (!after.includes('- [ ] **D8 真待办**:还没人做。')) throw new Error('真待办被误动')
     const nl = (s) => s.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n').length
     if (nl(after) !== nl(PLAN_A)) throw new Error(`行数发生变化(应一行不加不删):${nl(PLAN_A)} → ${nl(after)}`)
@@ -232,4 +241,33 @@ test('T10 落地调度锁:早退判据必须看见 F4b,结论数字必须回读�
     throw new Error(`早退判据没把 F4b 算进去 ⇒ 无主键孪生行永远修不掉:${guard[0].slice(0, 90)}`)
   if (/F1\/F2\/F3\/F4 = 0\/0\/0\/0/.test(src))
     throw new Error('落地结论写着死的 0/0/0/0,而不是回读落地那枚提交的现读数字')
+})
+
+/**
+ * G-307(a) 成对判据的镜像臂:两代注记形态都必须剥回同一份正文;而"整行替换/截断"的
+ * 产物必须被抓住。正向与反向各两条 —— 只有正向的判据等于没有判据(§22c)。
+ */
+test('T11 正文逐字保留:两代形态各一对正反例,判据与被测实现共用 lib 的同一份剥取', () => {
+  const BEFORE = '- [ ] G-9 一条待办:这段正文在翻勾与追加注记后必须逐字活着,不许截断。'
+  const NEW = __test__.rewriteFork(BEFORE, 'G-9#一条待办', '2026-09-28')
+  const LEGACY =
+    '- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-9 · 一条待办」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 G-9 一条待办:这段正文在翻勾与追加注记后必须逐字活着,不许截断。'
+  if (!forkPreserved(BEFORE, NEW)) throw new Error(`现行后置式被判截断:\n${NEW}`)
+  if (!forkPreserved(BEFORE, LEGACY)) throw new Error('legacy 前置式(HEAD 存量)必须同样判"正文保住"')
+  if (forkPreserved(BEFORE, NEW.slice(0, 30))) throw new Error('截断产物必须被抓住 ⇒ 判据无牙')
+  if (forkPreserved(BEFORE, LEGACY.slice(0, LEGACY.indexOf(' G-9 一条'))))
+    throw new Error('legacy 形态砍掉正文后必须判截断(只留注记空壳不算保住)')
+  // 生产形态锁:新翻勾行必须"正文在行首、注记在行尾",不得回到"注记整行替换正文"的旧形
+  if (!/^- \[x\] ✅\(2026-09-28\) G-9 一条待办/.test(NEW))
+    throw new Error(`翻勾行正文未留在行首:${NEW.slice(0, 50)}`)
+  if (!/（\[归并\] 本行.*）$/.test(NEW)) throw new Error('注记必须整体括在行尾全角括号里(短正文的标题切分依赖它)')
+  // 两闸都要装:healStopReasons(落地)与 verifyMerge(报告)必须都引 forkPreserved
+  const src = readFileSync(path.resolve(ROOT, 'scripts', 'plan-tasks-merge.mjs'), 'utf8')
+  for (const fn of ['healStopReasons', 'verifyMerge']) {
+    const seg = src.slice(src.indexOf(`export function ${fn}`), src.indexOf(`export function ${fn}`) + 2600)
+    if (!seg.includes('forkPreserved')) throw new Error(`${fn} 未接正文逐字判据 —— 只装一道闸,另一道将来会漂`)
+  }
+  // 反向锁:旧"整行替换"的产出形状不得回来(VERDICT_TAG 前置模板已删)
+  if (src.includes('**[${VERDICT_TAG}]**') || src.includes('。 ${body}'))
+    throw new Error('legacy 前置模板仍在某处生产新行 —— 守门 71 的循环会复活')
 })
