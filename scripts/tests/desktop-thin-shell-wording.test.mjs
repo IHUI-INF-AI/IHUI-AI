@@ -315,21 +315,20 @@ test('受检集合必须真的覆盖本票点名的载体(否则"没检出"只�
  *  ② 新句喂进去 ⇒ 零命中(它不把"承认薄壳 + 线上站点"的正确写法误判成违规)。
  */
 test('T8 成对证明:旧那句"build 时加载 web/out 静态产物"必须被抓,新那句正确写法必须不被抓', () => {
-  const OLD =
-    '| 8806 | ~~Desktop(Vite+Tauri)~~ 已废弃(A 套壳:Desktop 通过 `tauri.conf.json` `devUrl:8801` 加载 web dev server,build 时加载 `web/out` 静态产物,不再需要独立 Vite 端口。启动:`pwsh -File scripts/start-dev.ps1 -Desktop` = api+ai-service+desktop,desktop 自带 web 8801,脚本自动注入 cargo PATH,与 web 互斥)| apps/desktop | `apps/desktop/src-tauri/tauri.conf.json` `devUrl: http://localhost:8801` | — |'
-  // 两条都是**构造面文本**,不读仓库 —— 本条证明的是"判据抓旧句、不抓新句"这件事本身;
-  // "仓库里现在到底是新句"由上面那条「真仓 HEAD 面」断言负责(两者判的东西不同,混在一起
-  // 就会把仓库瞬时状态当恒定前提,那是本仓记过多次的失效型)。
-  const NEW =
-    '| 8806 | ~~Desktop(Vite+Tauri)~~ 已废弃(A 薄壳:Desktop 的 `tauri.conf.json` `devUrl:8801` 只在**开发期**加载 web dev server;打包态**不内嵌前端产物** —— `beforeBuildCommand` 为空、`frontendDist` = `src-tauri/shell` 占位页、窗口 `url` 直指线上站点,2026-09-17 `f10258c8f6`「终极薄壳」定稿,详见 D148/G-723。因此不再需要独立 Vite 端口。启动:`pwsh -File scripts/start-dev.ps1 -Desktop` = api+ai-service+desktop,desktop 自带 web 8801,脚本自动注入 cargo PATH,与 web 互斥)| apps/desktop | `apps/desktop/src-tauri/tauri.conf.json` `devUrl: http://localhost:8801` | — |'
-  const hitOld = scanThinShellWording({
+  // ① 形状命中:不带历史框架的旧句(这才是"回潮"的形态 —— 有人把已废机制当成现状写)
+  const SHAPE =
+    '| 8806 | Desktop(Vite+Tauri)(A 套壳:Desktop 通过 `tauri.conf.json` `devUrl:8801` 加载 web dev server,build 时加载 `web/out` 静态产物)| apps/desktop |'
+  const hitShape = scanThinShellWording({
     beforeBuildCommand: '',
-    entries: [{ path: 'docs/port-management.md', text: OLD }],
+    entries: [{ path: 'docs/port-management.md', text: SHAPE }],
   })
   assert.ok(
-    hitOld.findings.some((f) => f.id === 'T8'),
-    `旧句没被 T8 抓到 ⇒ 这条判据是装饰品(实测 findings=${JSON.stringify(hitOld.findings.map((f) => f.id))})`,
+    hitShape.findings.some((f) => f.id === 'T8'),
+    `旧句形状没被 T8 抓到 ⇒ 这条判据是装饰品(实测 findings=${JSON.stringify(hitShape.findings.map((f) => f.id))})`,
   )
+  // ② 正确写法不抓(否则本判据过宽,而"按规矩写就红"的门唯一结局是逼人绕过它)
+  const NEW =
+    '| 8806 | ~~Desktop(Vite+Tauri)~~ 已废弃(A 薄壳:Desktop 的 `tauri.conf.json` `devUrl:8801` 只在**开发期**加载 web dev server;打包态**不内嵌前端产物** —— `beforeBuildCommand` 为空、`frontendDist` = `src-tauri/shell` 占位页、窗口 `url` 直指线上站点,2026-09-17 `f10258c8f6`「终极薄壳」定稿,详见 D148/G-723。因此不再需要独立 Vite 端口。启动:`pwsh -File scripts/start-dev.ps1 -Desktop` = api+ai-service+desktop,desktop 自带 web 8801,脚本自动注入 cargo PATH,与 web 互斥)| apps/desktop | `apps/desktop/src-tauri/tauri.conf.json` `devUrl: http://localhost:8801` | — |'
   const hitNew = scanThinShellWording({
     beforeBuildCommand: '',
     entries: [{ path: 'docs/port-management.md', text: NEW }],
@@ -338,6 +337,26 @@ test('T8 成对证明:旧那句"build 时加载 web/out 静态产物"必须被�
     hitNew.findings,
     [],
     `改后的正确写法被判红(实测 ${JSON.stringify(hitNew.findings.map((f) => [f.id, f.text]))})—— 判据过宽就会逼人绕过它`,
+  )
+  /**
+   * ③ **射程边界必须报名,不得只报数**:同那一句旧话,只要它挂着"已废弃/不再"这类历史框架词,
+   * 就被 `isHistoricalFraming` 整行放过 —— 而 `docs/port-management.md` 那一行**原本就是这种形态**
+   * (那句旧话前面写着"~~Desktop(Vite+Tauri)~~ 已废弃"、后面写着"不再需要独立 Vite 端口",
+   * 二者说的都是**端口**已废,不是**机制**已废,但行级判据分不开这两件事)。
+   * 所以 T8 的牙只长在"把旧机制当现状写"的回潮形态上;对"挂着废弃字样的旧描述"它按设计闭嘴。
+   * 把这条写死成断言,是因为不写的话下一个读测试的人会以为"这一族都被看着了"(§12f:
+   * "只报数不报名"与"把没判写成判过了"是本仓记过最多次的两种失效)。
+   */
+  const FRAMED =
+    '| 8806 | ~~Desktop(Vite+Tauri)~~ 已废弃(A 套壳:Desktop 通过 `tauri.conf.json` `devUrl:8801` 加载 web dev server,build 时加载 `web/out` 静态产物,不再需要独立 Vite 端口)| apps/desktop |'
+  const hitFramed = scanThinShellWording({
+    beforeBuildCommand: '',
+    entries: [{ path: 'docs/port-management.md', text: FRAMED }],
+  })
+  assert.deepEqual(
+    hitFramed.findings,
+    [],
+    '历史框架那一档按设计放过;若有人收紧 isHistoricalFraming,这条断言会红并提醒他同步改这段说明',
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
