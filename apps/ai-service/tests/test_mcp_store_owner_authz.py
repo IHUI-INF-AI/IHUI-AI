@@ -35,8 +35,8 @@ from app.services import mcp_server, mcp_stdio_bridge, mcp_store
 from app.services.mcp_store import (
     ADMIN_ROLE_ID,
     MUTATE_BY_ADMIN,
-    MUTATE_DENIED,
     MUTATE_MISSING,
+    MUTATE_NEEDS_ADMIN,
     OWNER_FIELD,
 )
 
@@ -210,7 +210,7 @@ def test_ownerless_record_is_admin_only(store_path: Path, bridge_spy) -> None:
     # 2026-09-29 机主拍板把无主档收紧成"只有管理员能改":原先的回退档(任何已登录主体可改)
     # 翻红,必须是 MUTATE_DENIED;管理员那一档单独存在,是为了让平台装的 Server 出故障时
     # 有人能停 —— 端点侧必须留痕,不得静默。
-    assert mcp_store.mutate_decision("legacy", USER_B) == MUTATE_DENIED
+    assert mcp_store.mutate_decision("legacy", USER_B) == MUTATE_NEEDS_ADMIN
     assert mcp_store.mutate_decision("legacy", USER_B, ADMIN_ROLE_ID) == MUTATE_BY_ADMIN
     # "没这条"与"不是你的"不同形:布尔投影会把这两档压平,所以判据只返回枚举
     assert mcp_store.mutate_decision("no-such-server", USER_B) == MUTATE_MISSING
