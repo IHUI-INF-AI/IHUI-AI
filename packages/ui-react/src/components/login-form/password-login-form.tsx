@@ -56,6 +56,18 @@ export interface PasswordLoginFormProps {
    * false 时:向后兼容(不显示 checkbox,账号输入框普通 Input 无下拉)。
    */
   enableCredentialPersistence?: boolean
+  /**
+   * 这一次渲染**是否允许**用记住的凭据自动提交表单。必填,且没有默认值 ——
+   * 缺省安全方向必须是"不自动登录":一个静默把用户登回去的表单,比一个停在登录页
+   * 多一次的表单严重得多(2026-09-29 实测到的第三径路:组件只读 `loadAutoLogin()` 的
+   * 持久标志,从不问"用户刚刚是不是主动退出了",于是 web 端点完退出、落到登录页,
+   * 300ms 后自己把账密提交上去又登回去了 —— 把共享层判据修好的那两条路全绕过了)。
+   *
+   * 正确写法是把决策交给跨端唯一判据,不要在这里写 `() => true` 应付类型:
+   *   `canAutoSubmitCredentials={() => canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut })}`
+   * 调用方确实没有"登出标记"概念时(如扩展弹窗)才传 `() => true`,并在旁边写明为什么。
+   */
+  canAutoSubmitCredentials: () => boolean
 }
 
 /**
@@ -91,6 +103,7 @@ export function PasswordLoginForm({
   onForgotPassword,
   forgotPasswordHref,
   enableCredentialPersistence = false,
+  canAutoSubmitCredentials,
 }: PasswordLoginFormProps) {
   // 启用持久化时,从 localStorage 预读记住的账号密码 + 自动登录标志
   const remembered = React.useMemo(
@@ -134,8 +147,11 @@ export function PasswordLoginForm({
     if (captchaEnabled) void refreshCaptcha()
   }, [captchaEnabled, refreshCaptcha])
 
-  // 自动登录:加载时 autoLogin 为 true 且已有记住的凭据,则自动提交表单
+  // 自动登录:加载时 autoLogin 为 true 且已有记住的凭据,则自动提交表单。
+  // canAutoSubmitCredentials 排在最前:持久标志只说明"用户勾过自动登录",它压不过
+  // "用户刚刚主动点了退出"——后者必须由调用方那侧的登出标记回答(见 props 注释)。
   React.useEffect(() => {
+    if (!canAutoSubmitCredentials()) return
     if (!enableCredentialPersistence) return
     if (!autoLogin) return
     if (!remembered?.account || !remembered?.password) return
