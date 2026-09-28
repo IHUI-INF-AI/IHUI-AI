@@ -5770,7 +5770,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 - ⚠️ **上一条「残余②:桌面端 `tauri_plugin_log` 未设 target,日志只进 stdout 不落文件」是错的,勿照它派单。** 正解:`tauri-plugin-log` 2.9.0 的 `DEFAULT_LOG_TARGETS` 本身就是 `[Stdout, LogDir{file_name:None}]`,而 `lib.rs` 里 `.level(Info).build()` 没调 `.targets(...)` ⇒ **默认档照旧落文件**。实测文件确在:该应用 Local 数据目录(junction 指向**工作树同盘**的 `DevEnv/cache/userhome/appdata-local-com.ihui.desktop/logs/智汇AI.log`,09-27 10:39 仍在写,9965 B)。我上一轮判"不落文件"的原因是否定式断言只按 `desktop*.log` / `ihui-desktop*.log` 这类**英文文件名**去扫,**真实文件名是产品中文名「智汇AI」** ⇒ 扫不到就当成不存在。教训同 §"否定式断言要多落点 grep":说"没有 X"之前必须先量到 X 可能叫什么名字。
 <!-- 已归档(2026-09-28:✅(2026-09-27)**由该日志取得决定性实证,上一格「残余③」里"两实例并存"从"未追的线索"升为已定性的独立缺,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
-- [ ] P1 新登记(接上条,解阻前置已明确):僵尸实例修复。可选方向三条,按仓库既有取向排序 ——(a) WebView2 创建失败即记录 ERROR + 提示并 `process::exit`,**不得**继续启动 `auto_refresh` 常驻循环;(b) 失败时回退到离线兜底页(`lib.rs` 已注册 `offline` 协议,`auto_refresh` 有断网切页机制)而非静默半启动;(c) 查清 single-instance 为何未拦住第二实例。选哪条前必须先复现:同日两次启动的时间差是 14 分钟,尚未取证"主实例处于隐藏态时 siw 窗口是否仍在"。
+- [x] ✅(2026-09-28) P1 新登记(接上条,解阻前置已明确):僵尸实例修复。可选方向三条,按仓库既有取向排序 ——(a) WebView2 创建失败即记录 ERROR + 提示并 `process::exit`,**不得**继续启动 `auto_refresh` 常驻循环;(b) 失败时回退到离线兜底页(`lib.rs` 已注册 `offline` 协议,`auto_refresh` 有断网切页机制)而非静默半启动;(c) 查清 single-instance 为何未拦住第二实例。选哪条前必须先复现:同日两次启动的时间差是 14 分钟,尚未取证"主实例处于隐藏态时 siw 窗口是否仍在"。 〔翻勾依据(2026-09-28 现读):修法(a)已在 HEAD —— 提交 2be250bb0(2026-09-27,已验 ancestor-of-HEAD):lib.rs 在 auto_refresh::start 之前判 main 窗口未创建即 log::error + cleanup_before_exit + process::exit,注释里带完整取证(0x800700AA 数据目录被占型);配套 G-266 守护 4dca8b755 亦在 HEAD。票面三方向里 (b)(c) 属可选深化,(a) 已断掉"僵尸进程继续占目录"的主害。〕
 
 ### 更正(2026-09-27 当日,由本会话上一格自我推翻)——上面「残余②」是错的,并据此把「残余③」的定性升级
 
