@@ -469,6 +469,37 @@ export function describeInPlace({ chk, anchorLines, head, families }) {
 }
 
 /**
+ * 畸形登记编号检测(纯函数)。2026-09-28 立,由一次真实复发链逼出:同一行被三次修回 `D128`,
+ * 每次并发合并又把它带回 `DD128` —— 因为**没有任何尺子看编号形态**:畸形号是"新增行",
+ * 防丢门(守门 71)结构上只查"行消失",对它完全失明。本器正是产出该形态的工具
+ * (取号令牌展开后已含族名,正文再手写一个 `D` 就成 `DD128`;`G-` + `{{NEXT_ID:G}}` 同型产 `G-G-334`),
+ * 所以判据必须由它自己兑现 —— 判据不覆盖自己产出的形态,就等于只拦得住别人、拦不住自己(§4 同一条)。
+ * 判据锚在"族名在编号段里出现两次"这一形状上,两种形态同视;不做白名单、不认具体族名,
+ * 因此新增任何一族都自动被覆盖(白名单必然腐烂,见 §4 对 RN_ONLY_BRAND_KEYS 的教训)。
+ */
+export const MALFORMED_ID_RE = /^-\s\[[ xX]\]\s*\**\s*([A-Za-z]{1,4})[-－]?\1[-－]?\d/
+export function findMalformedIds(text = '') {
+  const out = []
+  for (const l of String(text).split(/\r?\n/)) {
+    const m = l.match(MALFORMED_ID_RE)
+    if (m) out.push({ line: l.trim().slice(0, 90), family: m[1] })
+  }
+  return out
+}
+/**
+ * 只拦"本次新引入"的畸形行,存量只报数。
+ * 这一条是本判据不沦为恒红门的全部前提(§12e:与本次改动无关的红,唯一结局是逼人 --no-verify
+ * 并连带废掉全部守门):台账里由他人历史留下的畸形号不能钉红每一次落地,但必须打印出来,
+ * 否则"存量"和"我刚造的"在账面上长得一样。
+ */
+export function newMalformed(baselineText = '', landedText = '') {
+  const norm = (arr) => new Set(arr.map((x) => x.line))
+  const before = norm(findMalformedIds(baselineText))
+  const after = findMalformedIds(landedText)
+  return { added: after.filter((x) => !before.has(x.line)), preexisting: after.filter((x) => before.has(x.line)) }
+}
+
+/**
  * 索引对齐这一步的结论 ⇒ 退出码与措辞的唯一出口(纯函数 —— 这类"两个方向"的行为只能在构造面上钉,
  * 端到端一次只能造出一个方向;头注 G-321② 那条分档判据的全部牙齿都在这里)。
  *  ① 没落地 ⇒ 1:这一档绝不能被 ② 顺手洗绿(否则"内容没进库"读起来像"只是索引的事")。
@@ -694,6 +725,27 @@ async function main() {
       process.exit(1)
     }
     nextCount = built.next.length
+    // 畸形登记编号防线(2026-09-28 立;同一行 D128↔DD128 第四次来回逼出)。
+    // 为什么必须在**写 blob 之前**而不是落地之后:内容一旦 commit,再 exit 1 就是把"已入库"谎报成
+    // "没落地",而"没落地"的唯一反应就是重跑 —— 那正是本器 G-321 花两档退出码要消灭的混淆。
+    // 为什么存量只报数:由他人历史留下的畸形号钉红每一次落地,结局是逼人绕开本器改用 pathspec 硬交,
+    // 那是拿一个更危险的出口换一个账面好看(§12e 恒红门同一条)。
+    {
+      const mal = newMalformed(baseContent, built.next.join('\n'))
+      if (mal.added.length > 0) {
+        console.error(`❌ 本次要写入的内容里有 ${mal.added.length} 行畸形登记编号(族名在编号段出现两次)⇒ 拒绝落地:`)
+        for (const x of mal.added.slice(0, 4)) console.error(`   · ${x.line}`)
+        console.error(
+          `   成因固定:取号令牌 {{NEXT_ID:X}} 展开值**本身已含族名**,正文再手写一个字面 X 就产出 XX123` +
+            `(本仓在案另一形态 G-G-334 同源)。改法:删掉正文里那一个字面族名,只留令牌。`,
+        )
+        process.exit(1)
+      }
+      if (mal.preexisting.length > 0)
+        console.log(
+          `ℹ 台账存量畸形编号 ${mal.preexisting.length} 行(父提交里已在 ⇒ 只报数不拦,与本次落地无关;逐条清偿另计批)`,
+        )
+    }
     const blob = writeBlob(built.next.join('\n'), { root })
     const { commit } = commitTreeWithIndex({
       root,
@@ -790,5 +842,8 @@ export const __test__ = {
   blockInPlaceCheck,
   describeInPlace,
   alignOutcome,
+  findMalformedIds,
+  newMalformed,
+  MALFORMED_ID_RE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
@@ -512,4 +512,19 @@ test('staged 模式(已修复): 空暂存区(无 .ts/.tsx 变更) → exit 0 跳
     rmScratch(dir)
   }
 })
+
+/**
+ * 形状尺只能有一份实现(2026-09-28 票㉚)。盒形几何抽进 `scripts/lib/box-geometry.mjs` 之后,
+ * 本门与守门 150 都从它取值 —— 谁在门里再写一遍 `boxShape`/`boxDims`,两把尺子就会在窗口范围、
+ * rpx 折算、同表达式判方形这些细节上各自漂开,而漂移的表现是"一端判胶囊、另一端判正圆"。
+ * 反向锁与正向锁成对:本地不得再声明,引用必须真在。
+ */
+test('形状尺只有一份实现:门内不得再声明 boxShape/boxDims,必须引 lib/box-geometry', () => {
+  const src = readFileSync(SCRIPT_PATH, "utf8")
+  assert.ok(!/function boxShape\(/.test(src), '门内不得再声明 boxShape(它是 lib 的投影)')
+  assert.ok(!/function boxDims\(/.test(src), '门内不得再声明 boxDims(同上)')
+  assert.match(src, /from '\.\/lib\/box-geometry\.mjs'/, '必须从共用层引形状尺')
+  assert.match(src, /from '\.\/lib\/radius-tokens\.mjs'/, '档位换算必须复用 radius-tokens,不得再解析一遍 radius.js')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
