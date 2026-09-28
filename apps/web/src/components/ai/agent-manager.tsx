@@ -41,7 +41,7 @@ export function AgentManager({ agents, onSelect, onCreate, selectedId }: AgentMa
   const active = agents.filter((a) => a.status === 'running').length
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border bg-card">
+    <div className="flex h-full flex-col overflow-hidden ui-card rounded-lg border bg-card">
       <div className="flex items-center justify-between bg-muted/30 p-3">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-primary" />
