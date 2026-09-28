@@ -57,7 +57,7 @@ const styles: Record<string, CSSProperties> = {
     flex: 1,
     margin: '0 6rpx',
     height: '52rpx',
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.sm,
     color: 'var(--color-foreground)',
     fontSize: '28rpx',
     fontWeight: 'bold',

@@ -98,7 +98,7 @@ export default function Comment({
       {inputVisible && (
         <View className="flex items-center px-3 py-2 bg-card mt-2">
           <Input
-            className="flex-1 px-3 py-2 text-sm bg-muted rounded-md"
+            className="flex-1 px-3 py-2 text-sm bg-muted rounded-sm"
             placeholder={tt('comment.placeholder', '写评论...')}
             value={inputValue}
             onInput={(e) => onInput?.(e.detail.value)}

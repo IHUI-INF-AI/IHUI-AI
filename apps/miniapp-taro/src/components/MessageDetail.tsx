@@ -75,7 +75,7 @@ export default function MessageDetail({
           value={inputValue}
           onInput={(e) => onInput(e.detail.value)}
           placeholder={tt('message.inputPlaceholder', '输入消息...')}
-          className="flex-1 bg-muted rounded-md px-4 py-2 text-sm"
+          className="flex-1 bg-muted rounded-sm px-4 py-2 text-sm"
           maxlength={500}
           autoHeight
         />

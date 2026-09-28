@@ -85,7 +85,7 @@ export default function IcpRecord() {
 
         <View className="pt-[8rpx] pb-[8rpx]">
           <Button
-            className="w-full h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-primary-foreground)] rounded-xl text-[length:32rpx] font-semibold m-0 after:border-0"
+            className="w-full h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-primary-foreground)] rounded-sm text-[length:32rpx] font-semibold m-0 after:border-0"
             onClick={onQuery}
           >
             {tt('about.icpRecord.query', '前往工信部查询')}
