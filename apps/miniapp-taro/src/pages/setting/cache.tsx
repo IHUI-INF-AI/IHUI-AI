@@ -149,7 +149,6 @@ export default function CachePage() {
 
         {clearing ? (
           <View className="mx-[20rpx] mt-[32rpx] rounded-lg bg-card p-[24rpx] dark:bg-muted">
-            {/* radius-exempt: 进度条胶囊(轨道高 12rpx,半径 6rpx=高度一半,方档会破坏形状) */}
             <View className="h-[12rpx] w-full overflow-hidden rounded-[6rpx] bg-border">
               <View
                 className="h-full bg-primary transition-[width] duration-100"

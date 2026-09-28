@@ -217,7 +217,7 @@
 .agent-h-avatar-wrap {
   width: 88rpx;
   height: 88rpx;
-  border-radius: 44rpx; /* radius-exempt: 88rpx 方形头像容器的真圆,半径=边长一半 */
+  border-radius: 44rpx;
   overflow: hidden;
   background-color: var(--color-muted);
   border: 2rpx solid var(--color-border, var(--color-border));
@@ -529,7 +529,7 @@
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  border-radius: 34rpx; /* radius-exempt: 68rpx 圆形悬浮按钮,半径=边长一半 */
+  border-radius: 34rpx;
   margin: 0 auto;
   pointer-events: auto;
   background: var(--color-card);

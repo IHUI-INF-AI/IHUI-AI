@@ -111,7 +111,6 @@
   width: 10rpx;
   height: 10rpx;
   background: var(--color-primary);
-  /* radius-exempt: 5px 日程装饰点,圆点不得方档化(§4 装饰点豁免族) */
   border-radius: var(--radius-sm);
   margin-top: 6rpx;
 }

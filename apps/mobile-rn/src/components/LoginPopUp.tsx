@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: LOGIN_POPUP_DRAG_BAR_WIDTH_PX,
     height: LOGIN_POPUP_DRAG_BAR_HEIGHT_PX,
-    borderRadius: LOGIN_POPUP_DRAG_BAR_HEIGHT_PX / 2, // radius-exempt: 拖拽把手胶囊(高 4dp/2)
+    borderRadius: LOGIN_POPUP_DRAG_BAR_HEIGHT_PX / 2,
     backgroundColor: tokens.border.light,
     marginBottom: LOGIN_POPUP_DRAG_BAR_MARGIN_BOTTOM_PX,
   },
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
     right: LOGIN_POPUP_CLOSE_INSET_PX,
     width: LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX,
     height: LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX,
-    borderRadius: LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX / 2, // radius-exempt: 关闭按钮几何正圆(32dp 直径/2)
+    borderRadius: LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -638,7 +638,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: LOGIN_POPUP_AVATAR_BOX_PX,
     height: LOGIN_POPUP_AVATAR_BOX_PX,
-    borderRadius: LOGIN_POPUP_AVATAR_BOX_PX / 2, // radius-exempt: 头像几何正圆(70dp 直径/2)
+    borderRadius: LOGIN_POPUP_AVATAR_BOX_PX / 2,
     borderWidth: AVATAR_BORDER_WIDTH,
     borderColor: tokens.border.medium,
     backgroundColor: tokens.surface.card,
@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
   iconBadge: {
     width: LOGIN_POPUP_ICON_BADGE_SIZE_PX,
     height: LOGIN_POPUP_ICON_BADGE_SIZE_PX,
-    borderRadius: LOGIN_POPUP_ICON_BADGE_SIZE_PX / 2, // radius-exempt: 行首图标徽标几何正圆(20dp 直径/2)
+    borderRadius: LOGIN_POPUP_ICON_BADGE_SIZE_PX / 2,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.medium,
