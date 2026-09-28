@@ -704,7 +704,7 @@ export default function LoginSecurityPage() {
                     <button
                       type="button"
                       onClick={() => copyRecoveryCode(code)}
-                      className="cursor-pointer rounded-md border bg-muted/30 px-3 py-1.5 text-left font-mono text-xs hover:bg-muted/60"
+                      className="cursor-pointer rounded-sm border bg-muted/30 px-3 py-1.5 text-left font-mono text-xs hover:bg-muted/60"
                     >
                       {code}
                     </button>
