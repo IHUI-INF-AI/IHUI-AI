@@ -483,6 +483,18 @@
     "captchaRefresh": "認証コードを更新"
   },
   "chat": {
+    "mcp": {
+      "state": {
+        "connecting": "{server} に接続中…",
+        "failed": "{server} の接続に失敗しました",
+        "reconnecting": "{server} を再接続中（{attempt}/{maxAttempts} 回目）"
+      },
+      "action": {
+        "retry": "今すぐ再接続",
+        "openSettings": "MCP 設定を開く"
+      },
+      "mobileSettingsHint": "MCP の接続はデスクトップ版または Web 版で管理してください"
+    },
     "meta": {
       "changedElsewhere": "この会話の{field}は他のデバイスで「{value}」に更新されました",
       "pullOnly": "ミニプログラム側では次回開いたときにこの変更が同期されます",
