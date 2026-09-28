@@ -465,4 +465,27 @@ test('T22 基线里不得再有工具面键(存量债必须是真豁免,prose �
     `基线含 ${tool.length} 个工具面键(跑 --update-baseline 下调):${tool.slice(0, 5).join(', ')}`,
   )
 })
+
+// T25 存档面(`.ihui-agent/archive/**`)与记账面**成对**。立因是本仓把 3 份 09-26 去重归档件入库
+// (枚 f2b06a395)之后,门 108 的 E2 立刻在归档件里一条**早已撤销**的豁免上判红 —— 那批文件是
+// AGENTS §1 要求的"被删原文逐字归档",把它算成当下生效的出口,等于让"把证据入库"这个正确动作变红,
+// 而后果定是逼人绕开门。成对方向必须钉死:同一行文字在**活文件**里仍无条件判 E2,
+// 否则"不红"就只是判据失效(本仓最高频那型假绿)。
+test('T25 存档面只报数不入账,但活文件同一条过期豁免照旧判 E2(成对)', () => {
+  const TXT = '// radius-exempt: 头像要纯圆 until 2020-01-01'
+  const arch = gate.scanFile('.ihui-agent/archive/PROJECT_PLAN_dedup-2026-09-26.md', TXT)
+  const live = gate.scanFile('apps/demo/src/a.ts', TXT)
+  assert.equal(arch.entries.length, 1, '存档面也必须被扫到(不是不读,是不入账)')
+  assert.equal(arch.entries[0].archiveFace, true)
+  assert.equal(live.entries[0].archiveFace, false)
+  // 形状锁:三处判定都必须显式带上存档面,漏一处就是"半接线"(E2 / 无日期账 / E4)
+  for (const [name, re] of [
+    ['E2 过期判定', /!e\.toolFace\s*&&\s*!e\.archiveFace\s*&&\s*isPast/],
+    ['无日期入账', /if \(e\.expiry \|\| e\.toolFace \|\| e\.archiveFace\) continue/],
+    ['E4 未登记族', /if \(e\.toolFace \|\| e\.archiveFace \|\| isFamilyRegistered/],
+  ])
+    assert.match(SRC, re, `判据缺"存档面"半边:${name}`)
+  // 报数不得静默并入别的档
+  assert.match(SRC, /archiveFace: entries\.filter\(\(e\) => e\.archiveFace\)\.length/, 'totals 缺存档面计数')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
