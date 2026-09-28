@@ -270,15 +270,41 @@ if (!run('🛡️ 运行守门脚本批量检查...', 'node scripts/guardian-run
 // 🌐 i18n 死 key 扫描挂 pre-commit 阻塞(2026-07-26 立,PROJECT_PLAN.md §1 后续任务收尾)
 // 背景:scan-dead-i18n-keys.mjs 之前仅在 pre-push dry-run + i18n-dead-key-audit.yml paths 触发,
 //      漏掉"main 分支全量 PR"场景;本步在每次 commit 都跑全量扫描,死 key > 0 立即阻断。
-// 跳过方法(紧急,本任务挂载时已知 40 个现存死 key):HUSKY_SKIP_I18N_DEAD_KEY=1 git commit ...
-// 性能:web 端 3261 文件全量扫描 ~3.5s,在 guardian-runner 之后跑,不影响前置检查流。
+// 判定面(2026-09-28 收口,守门 70/118 同口径):本步改为 `--staged` ⇒ **索引 blob**。
+//      旧形态按磁盘判 locale JSON 与参照语料,并行会话**未暂存**的半编辑态(实测 2026-09-28:
+//      apps/web/app/status/page.tsx 短暂 orphan `statusPage.*`)会把本步判红 —— 而它是批外
+//      blocking,各会话唯一出路是 --no-verify,一次绕过约等于链上全部守门对该提交作废(§12e/§12f)。
+//      索引面上"别人的在飞改动"结构上不存在(未 add 即不进索引),红点从此只可能来自本次提交。
+//      面上取不到 ⇒ 脚本 exit 2「未判定」:不冒红也不记绿,提交同样阻止(未判定≠通过),
+//      但文案点名"取材失败≠仓库有死 key",归因层可据此区分。
+// 跳过方法(紧急):HUSKY_SKIP_I18N_DEAD_KEY=1 git commit ...(本步在跑之前真读该 env,见下一行判据)
+// 性能(web 端 4460 个语料文件,2026-09-28 现测):磁盘档 ~1.7s;--staged 档 ~1.4s
+//      (git ls-files 一次 + cat-file --batch 一次读满,反而省掉逐文件 readFileSync)。
 if (process.env.HUSKY_SKIP_I18N_DEAD_KEY !== '1') {
-  if (
-    !run(
-      '🌐 i18n 死 key 扫描(死 key > 0 阻断 commit,2026-07-26 立)',
-      'node scripts/scan-dead-i18n-keys.mjs --exit 1',
+  console.log(
+    '🌐 i18n 死 key 扫描(判定面=索引 blob;死 key > 0 阻断 commit,2026-07-26 立 / 2026-09-28 收面)',
+  )
+  let deadKeyStatus = 0
+  try {
+    execSync('node scripts/scan-dead-i18n-keys.mjs --staged --exit 1', {
+      stdio: 'inherit',
+      cwd: process.cwd(),
+      windowsHide: true,
+    })
+  } catch (e) {
+    deadKeyStatus = typeof e.status === 'number' ? e.status : 1
+  }
+  if (deadKeyStatus === 2) {
+    console.error('❌ i18n 死 key 扫描【未判定】(exit 2):索引面取材失败,提交已阻止。')
+    console.error(
+      '   这不是"仓库有死 key",是这次判不了 —— 先修 git 取材(索引锁 / 对象库)再 commit;',
     )
-  ) {
+    console.error(
+      '   未判定 ≠ 通过。确属环境故障需应急时,用 HUSKY_SKIP_I18N_DEAD_KEY=1(会在账面留下跳门痕迹)。',
+    )
+    process.exit(1)
+  }
+  if (deadKeyStatus !== 0) {
     console.error(
       '❌ i18n 死 key 扫描发现死 key,提交已阻止(请清理 packages/i18n/messages/* 中未引用的 key 后再 commit)',
     )
@@ -292,13 +318,17 @@ if (process.env.HUSKY_SKIP_I18N_DEAD_KEY !== '1') {
 // 背景:web 端已 blocking(上方 HUSKY_SKIP_I18N_DEAD_KEY 段),其余 3 端死 key 比例高
 //      (miniapp-taro 66.9% / mobile-rn 36.4% / extension 43.1%),立即 blocking 会阻塞所有 commit。
 // 策略:warn-only 起步(用 || true 吞掉 exit 1),1 周后(2026-08-02)评估升级 blocking。
+// 2026-09-28:与 web 步同口径收面 —— 也走 `--staged`(判索引 blob;别人的磁盘半编辑态
+//      不得再进这一档的结论,升级 blocking 时才不会复刻今天这次批外恒红)。
 // 跳过方法:HUSKY_SKIP_I18N_DEAD_KEY_OTHER=1 git commit ...
 // 注:3 端扫描器内置 5 语言 JSON 加载,key 不一致会直接报错(隐式 parity 校验)。
 if (process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER !== '1') {
-  console.log('🌐 4 端 i18n 死 key 扫描(miniapp-taro/mobile-rn/extension,warn-only)')
+  console.log(
+    '🌐 4 端 i18n 死 key 扫描(miniapp-taro/mobile-rn/extension,warn-only,判定面=索引 blob)',
+  )
   for (const target of ['miniapp-taro', 'mobile-rn', 'extension']) {
     try {
-      execSync(`node scripts/scan-${target}-dead-i18n-keys.mjs --exit 1`, {
+      execSync(`node scripts/scan-${target}-dead-i18n-keys.mjs --staged --exit 1`, {
         stdio: 'inherit',
         cwd: process.cwd(),
         windowsHide: true,
