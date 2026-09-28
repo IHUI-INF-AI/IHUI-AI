@@ -2030,14 +2030,29 @@ export function verdictOf(findings, baseline) {
  * 从此那笔债没人再问责,而账面读起来像"已按实测重锚"。上升与消失都指向同一件事:
  * 这轮产出的不是更紧的锚点,是一次无人察觉的放松。
  *
+ * **带有效豁免的族不参与本核对(与 `verdictOf` 同一条豁免短路)**:
+ * `verdictOf` 对豁免过的族 `continue` ⇒ 它的三维锚点在提交链上从不被比较,是一笔**惰性记账**。
+ * 对惰性记账判"上升=放松存量"是一台空转的尺子:它拦不住任何真实债务(债务只在未豁免族上生效),
+ * 却会把一次合法的重锚整体拒之门外 —— 连带让同族**下降**的几何锚(实测 DrawerComponent 19→17)
+ * 也写不进去,T8 因此长期红。所以这里的豁免短路**缩小的是假阳,不是保护**:
+ * 未豁免族的上升/消失**照旧逐条拒绝**(由自检㊗钉死),豁免坏(空理由)时短路不生效(㊜)。
+ * 关键:是否豁免取的是**待覆盖台账(prior)自己**登记的豁免,与 `verdictOf` 用的是同一份判定
+ * (`waiverProblem`),绝不另写一套豁免规则 —— 两处算同一件事必漂移,本仓记过最多次。
+ *
  * @returns {string[]} 空数组 = 可以落盘;否则每条是一个必须人工解释的破口。
  */
 export function anchorRegression(prior, next) {
   const out = []
+  const waivers = prior?.waivers ?? {}
+  // 只豁免"prior 里带了有效理由"的族 —— 与 verdictOf 的 `w && !waiverProblem(w)` 逐字同形。
+  const waivedNames = new Set(
+    Object.keys(waivers).filter((n) => waivers[n] && !waiverProblem(waivers[n])),
+  )
   for (const key of ['counts', 'radiusCounts', 'elementRadiusCounts']) {
     const before = prior?.[key] ?? {}
     const after = next?.[key] ?? {}
     for (const [name, v] of Object.entries(before)) {
+      if (waivedNames.has(name)) continue
       if (!(name in after)) {
         out.push(`${key}.${name} 整键消失(锚点消失 = 该族下一次分叉自带免费额度)`)
         continue
@@ -3025,6 +3040,108 @@ function runSelfTest() {
         gone.every((x) => x.includes('整键消失')) &&
         fell.length === 0 &&
         fresh.length === 0
+      )
+    })(),
+  )
+  /**
+   * S22 是票"排除几何档"的**成对正反例**(Step 5 要求的"匹配对"):同一份夹具,只在第二腿多一处取用 ——
+   *  - NEG:那一处是 `width: 20, height: 20, borderRadius: 10`(边长的一半 = 真圆,§4 规定的写法)
+   *        ⇒ RD 维**不得**把它当成端上多出来的一档;否则门 77 认定为"规范真圆"的每一处都会在这一维
+   *          凭空记一笔,而另一端根本没有对应元素 ⇒ 假分叉(实测 UserInfoCard 头像 24、ModelList check 10)。
+   *  - POS:把它换成 `rnRadius.xl`(12, 同值档位但**是档位取用**)⇒ 必须**仍判红**,
+   *        且红在 RD 这一维(over 含"圆角")。
+   * 两条一红一绿才算"排除的是形状、没顺手把维度改瞎"。只留 NEG 就是替"判据失明"发合格证。
+   */
+  t(
+    'S22 RD 成对:co-located size/2 真圆不得计入档集(NEG 圆角 0 档、无圆角红),换成同位 rnRadius.xl 档必须仍红(POS)',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const p = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
+      // 两腿都有 card=lg(8);差异只在第二腿那"一处"的写法(同 20×20 盒)。
+      const aBase = 'card: { borderRadius: rnRadius.lg },\n'
+      const neg = audit(
+        p,
+        {
+          'a/Foo.tsx': aBase,
+          'b/Foo.tsx': aBase + 'dot: { width: 20, height: 20, borderRadius: 10 },\n',
+        },
+        {},
+        {},
+        tbl,
+      )
+      const pos = audit(
+        p,
+        {
+          'a/Foo.tsx': aBase,
+          'b/Foo.tsx': aBase + 'chip: { width: 20, height: 20, borderRadius: rnRadius.xl },\n',
+        },
+        {},
+        {},
+        tbl,
+      )
+      const overMentions = (v, kw) => v.red.some((r) => (r.over || []).join('').includes(kw))
+      return (
+        // NEG:圆角被排除 ⇒ 圆角一维 0 档、无"圆角"红(几何那处 20×20 仍成 finding 是另一维,不冲突)
+        radiusCount(neg.findings[0]) === 0 &&
+        !overMentions(neg, '圆角') &&
+        // POS:同位真档 ⇒ 圆角计 1 处差且红在圆角维
+        radiusCount(pos.findings[0]) === 1 &&
+        overMentions(pos, '圆角')
+      )
+    })(),
+  )
+  /**
+   * S23 是 anchorRegression 豁免短路的**成套正反例**(缩小假阳,不动真保护):
+   *  - 未豁免族上升 ⇒ 必拒(与改动前逐字同形;这条是本核对存在的全部理由,绝不能被豁免短路连带放宽)。
+   *  - 带**有效**豁免(prior.waivers 里理由足 6 字)的族上升 ⇒ 放行(它在 verdictOf 里本就 continue,
+   *    锚点是惰性记账)。
+   *  - 理由不足(waiverProblem 非空)的"豁免" ⇒ 不短路 ⇒ 仍拒 —— 否则填个空理由就能给放松开门。
+   *  - 同族的**下降**在未豁免时也照旧放行(单调性只拦上升/消失)。
+   */
+  t(
+    'S23 anchorRegression 豁免短路只缩假阳:未豁免上升必拒、有效豁免上升放行、空理由豁免仍拒、下降恒放行',
+    (() => {
+      const priorW = {
+        counts: { A: 1 },
+        radiusCounts: { A: 1 },
+        elementRadiusCounts: { A: 0 },
+        waivers: { A: { reason: '两端不是同一套子元素', until: '2027-01-01' } },
+      }
+      // A 已带有效豁免 ⇒ counts/radiusCounts 两维上升都应放行(elementRadius 持平本就不拦)
+      const rose2 = { counts: { A: 5 }, radiusCounts: { A: 4 }, elementRadiusCounts: { A: 0 } }
+      const waivedRose = anchorRegression(priorW, rose2)
+      // 把豁免理由改成不足 6 字 ⇒ 短路失效 ⇒ 两条上升全部回来(与未豁免同形)
+      const badWaiver = {
+        ...priorW,
+        waivers: { A: { reason: '短', until: '2027-01-01' } },
+      }
+      const badRose = anchorRegression(badWaiver, rose2)
+      // 完全没有 waivers 字段(未豁免)⇒ 与旧行为逐字一致,两条上升都拒
+      const noWaiver = {
+        counts: { A: 1 },
+        radiusCounts: { A: 1 },
+        elementRadiusCounts: { A: 0 },
+      }
+      const rose = anchorRegression(noWaiver, rose2)
+      // 有效豁免族的**下降**也放行(单调性只拦上升/消失,这里本就是下降)
+      const fell = anchorRegression(priorW, {
+        counts: { A: 0 },
+        radiusCounts: { A: 0 },
+        elementRadiusCounts: { A: 0 },
+      })
+      // 未豁免族的**下降**恒放行(保护不变:下降不是放松)
+      const fellUnwaived = anchorRegression(noWaiver, {
+        counts: { A: 0 },
+        radiusCounts: { A: 0 },
+        elementRadiusCounts: { A: 0 },
+      })
+      return (
+        waivedRose.length === 0 &&
+        badRose.length === 2 &&
+        badRose.every((x) => x.includes('上升')) &&
+        rose.length === 2 &&
+        fell.length === 0 &&
+        fellUnwaived.length === 0
       )
     })(),
   )
