@@ -199,7 +199,7 @@ export default function RankingIndex() {
                 >
                   {logo ? (
                     <Image
-                      className="w-[88rpx] h-[88rpx] rounded-full border-[length:3rpx] border-solid border-border bg-[var(--color-muted)] shrink-0"
+                      className="w-[88rpx] h-[88rpx] rounded-2xl border-[length:3rpx] border-solid border-border bg-[var(--color-muted)] shrink-0"
                       src={logo}
                       mode="aspectFill"
                     />

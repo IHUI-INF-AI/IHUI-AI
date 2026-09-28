@@ -130,7 +130,7 @@
 .ci-user-avatar {
   width: 96rpx;
   height: 96rpx;
-  border-radius: 48rpx;
+  border-radius: var(--radius-2xl);
   background: var(--color-muted);
 }
 
@@ -383,7 +383,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-brand);
-  border-radius: 52rpx;
+  border-radius: var(--radius-2xl);
   z-index: 10;
 }
 

@@ -617,12 +617,12 @@ export function Drawer(props: DrawerProps) {
                   {user.avatar ? (
                     <Image
                       source={{ uri: user.avatar }}
-                      className="rounded-full"
+                      className="rounded-2xl"
                       style={{ width: 60, height: 60 }}
                     />
                   ) : (
                     <View
-                      className="rounded-full items-center justify-center"
+                      className="rounded-2xl items-center justify-center"
                       style={{ backgroundColor: tokens.surface.muted, width: 60, height: 60 }}
                     >
                       <Text
