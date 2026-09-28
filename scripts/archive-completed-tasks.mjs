@@ -2150,6 +2150,44 @@ function runSelfTest() {
     })(),
   )
 
+  /**
+   * S26 覆盖面自证:分区判据必须扫到自测**自己造的每一个块**,期望值一律由夹具现算。
+   *
+   * 立据(2026-09-28 实测的同一型,当时账面全绿而不变量从未执行):守恒类断言把"期望条数"
+   * 写成常量,而块列表是自测一路 push 出来的(后来者还在往里加)⇒ 两侧必然脱钩。当天真实数字
+   * 是"扫到 237 个块名、其中 15 个同名幻影",那条按常量比的守恒断言因此**恒不成立**,
+   * 一次也没执行过 —— 判据失效的表现永远是安静,不是吵闹。
+   *
+   * 三条互不冗余的断言把它钉住:
+   *  ① `candidates === N ∧ blocked + movable === N` ⇒ 没有任何块在两道筛选之间被静默丢掉;
+   *  ② 块名**两两不同**且数量等于造出的 N ⇒ 夹具自己不许长幻影名(上一型的直接病灶);
+   *  ③ 所有期望值都由同一个 N 现算,断言里**不出现任何块数常量** ⇒ 后来者加用例时它跟着变,
+   *     不会退化成"只对今天这组数字成立"的假证(那是 §22c 记过的"测试从防线变成掩体")。
+   */
+  {
+    const N = 6
+    const fixtureBlocks = []
+    for (let i = 1; i <= N; i++) {
+      // 奇数块体内混一条未勾选登记(不许搬),偶数块干净(许搬)—— 两侧各 N/2 是**算出来的**
+      const inner = i % 2 === 1 ? [`- [ ] S26 夹具第 ${i} 块里别人正开着的活`] : ['- [x] S26 夹具第 ' + i + ' 块的已完成登记']
+      fixtureBlocks.push([`### S26 夹具块 ${i}(已完成 ✅ 2026-09-28)`, ...inner].join('\n'))
+    }
+    const fixture = ['# plan', '', fixtureBlocks.join('\n'), ''].join('\n')
+    const p = partitionPlanBlocks(fixture)
+    const titles = p.tasks.map((t) => t.title)
+    ok(
+      'S26 覆盖面自证:每个夹具块都被分区扫到、块名无幻影、期望值全部由夹具现算',
+      p.tasks.length === N &&
+        p.candidates.length === N &&
+        p.blocked.length + p.movable.length === p.candidates.length &&
+        p.blocked.length === N - Math.floor(N / 2) &&
+        p.movable.length === Math.floor(N / 2) &&
+        new Set(titles).size === N &&
+        titles.every((t) => String(t ?? '').trim() !== ''),
+      `tasks=${p.tasks.length} candidates=${p.candidates.length} blocked=${p.blocked.length} movable=${p.movable.length} 去重块名=${new Set(titles).size}(应为 ${N})`,
+    )
+  }
+
   let failed = 0
   for (const r of results) {
     if (r.pass) console.log(`${C.dim}✅ ${r.name}${C.reset}`)
