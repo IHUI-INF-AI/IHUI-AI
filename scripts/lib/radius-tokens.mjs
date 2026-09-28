@@ -19,6 +19,13 @@
 /** 剥掉块注释与行注释后的等行文本(行号不变 —— 判红要指得回原文行,删字符会错位)。 */
 import { RPX_PER_PX, lengthToPx, constantMapOf, constExprPx } from './length-units.mjs'
 /**
+ * "这条半径相对它自己那个盒是几何真圆/胶囊还是档位取用"的判定**只有一份实现**,住在
+ * `lib/box-geometry.mjs`(守门 77 的 B1/C6 用的就是它)。RD 维要排除真圆/胶囊时必须调它,
+ * 不得在本文件另写一份 `radius == box/2` 的等式 —— 两处算同一件事必漂移(§22c/守门 135 记过多次)。
+ * 无环:box-geometry 只依赖 length-units,本文件也依赖 length-units,半径层引入几何层不成回边。
+ */
+import { classifyRadiusGeometry } from './box-geometry.mjs'
+/**
  * 单位折算与常量归集**住在 `lib/length-units.mjs`**,本文件只再导出(既有调用方的 import 一行都不用改):
  * 半径侧与盒形侧量的是同一个物理量,写两份折算必然漂移;而几何层只需要单位层,不该被拖进本文件的
  * 圆角专属逻辑(radiusLookup / 标记识别)—— 那会让每一个按文件清单搭的几何夹具都得复制圆角层。
@@ -167,31 +174,39 @@ export function radiusOperandPx(text, table, consts, depth = 0) {
   return constExprPx(t, consts, depth)
 }
 
-export function radiusPxInLine(line, table, consts) {
+/**
+ * 一行源码里的圆角取用 → `[{px, raw}]`。`raw` 是**源码原文**(档名 / 数值 / `<被除数> / <数>`),
+ * 供 RD 维按 `classifyRadiusGeometry(lines, i, raw)` 判这条半径是几何真圆/胶囊还是档位取用。
+ * 之所以要带原文而不是只回 px:几何判据是**字面同形**比较(`width: 48, borderRadius: 24` 认得出,
+ * `width: 96rpx` 与折算后的 48px 不互比 —— 拿折算值比会把胶囊读成真圆,见 box-geometry 头注),
+ * 折成 px 再分类就等于把"作者写的是不是同一个量"这一维抹掉。
+ * `radiusPxInLine` 现在是它到 px 的投影(既有调用方一字不动)。
+ */
+export function radiusItemsInLine(line, table, consts) {
   const out = []
-  const push = (v) => {
-    if (Number.isFinite(v) && v > 0) out.push(Math.round(v * 100) / 100)
+  const push = (v, raw) => {
+    if (Number.isFinite(v) && v > 0) out.push({ px: Math.round(v * 100) / 100, raw })
   }
   for (const m of line.matchAll(/\brounded-(?:(?:tr|tl|br|bl|[tblr])-)?(xs|sm|md|lg|xl|2xl)\b/g)) {
-    if (table[m[1]] !== undefined) push(table[m[1]])
+    if (table[m[1]] !== undefined) push(table[m[1]], m[1])
   }
   for (const m of line.matchAll(/\brounded-\[\s*(\d+(?:\.\d+)?)(rpx|px)?\s*\]/g)) {
-    push(m[2] === 'rpx' ? Number(m[1]) / RPX_PER_PX : Number(m[1]))
+    push(m[2] === 'rpx' ? Number(m[1]) / RPX_PER_PX : Number(m[1]), `${m[1]}${m[2] || ''}`)
   }
   for (const m of line.matchAll(/var\(--radius-(xs|sm|md|lg|xl|2xl)\)(?!\s*\/)/g)) {
-    if (table[m[1]] !== undefined) push(table[m[1]])
+    if (table[m[1]] !== undefined) push(table[m[1]], m[1])
   }
   for (const m of line.matchAll(
     /\brnRadius\s*(?:\.\s*(xs|sm|md|lg|xl|2xl)\b|\[\s*['"](2xl|xs|sm|md|lg|xl)['"]\s*\])(?!\s*\/)/g,
   )) {
     const step = m[1] || m[2]
-    if (table[step] !== undefined) push(table[step])
+    if (table[step] !== undefined) push(table[step], step)
   }
   for (const m of line.matchAll(
     /\brnRadiusFor\s*(?:\.\s*(\w+)\b|\[\s*['"](\w+)['"]\s*\])(?!\s*\/)/g,
   )) {
     const role = m[1] || m[2]
-    if (table[`role:${role}`] !== undefined) push(table[`role:${role}`])
+    if (table[`role:${role}`] !== undefined) push(table[`role:${role}`], role)
   }
   /**
    * 裸数字半径 —— **不得把除法的被除数当成半径**。旧实现只看 `(?![\w.])`,而 `borderRadius: 60 / 2`
@@ -203,7 +218,7 @@ export function radiusPxInLine(line, table, consts) {
   for (const m of line.matchAll(
     /\bborder(?:Top|Bottom)?(?:Left|Right)?Radius\s*:\s*(\d+(?:\.\d+)?)(?![\w.])(?!\s*\/)/g,
   ))
-    push(Number(m[1]))
+    push(Number(m[1]), m[1])
   /**
    * 除法形态 `borderRadius: <被除数> / <数>`(`60 / 2`、`rnRadius.lg / 2`、`rpx(40) / 2`、
    * `SIZE_PX / 2`)。被除数经 `radiusOperandPx` 折 px 再除右值;**解不到整条不 push**
@@ -214,7 +229,7 @@ export function radiusPxInLine(line, table, consts) {
   )) {
     const left = radiusOperandPx(m[1], table, consts)
     if (left === null) continue
-    push(left / Number(m[2]))
+    push(left / Number(m[2]), `${m[1].trim()} / ${m[2]}`)
   }
   /**
    * CSS 声明形态:`border-radius: 8px` / `border-radius: 24rpx` / 四值简写
@@ -228,8 +243,8 @@ export function radiusPxInLine(line, table, consts) {
     /\bborder(?:-top|bottom)?-(?:left|right)?radius\s*:\s*(\d+(?:\.\d+)?)(rpx|px|%)?(?!\s*\/)(?:\s|;|\*|$)/g,
   )) {
     if (m[2] === '%') continue
-    if (m[2] === undefined || m[2] === 'px') push(Number(m[1]))
-    else push(Number(m[1]) / RPX_PER_PX)
+    if (m[2] === undefined || m[2] === 'px') push(Number(m[1]), `${m[1]}${m[2] || ''}`)
+    else push(Number(m[1]) / RPX_PER_PX, `${m[1]}${m[2] || ''}`)
   }
   /**
    * CSS 侧除法形态(`border-radius: 60rpx / 2`):与 JS 侧共用 `radiusOperandPx` 那一份算术,
@@ -240,7 +255,7 @@ export function radiusPxInLine(line, table, consts) {
   )) {
     const left = radiusOperandPx(m[1], table, consts)
     if (left === null) continue
-    push(left / Number(m[2]))
+    push(left / Number(m[2]), `${m[1].trim()} / ${m[2]}`)
   }
   // 四值/两值简写:每个长度档都要看见(只取第一个数 = 横向档整族隐身,票⑫同一记实测教训)
   for (const m of line.matchAll(
@@ -248,10 +263,31 @@ export function radiusPxInLine(line, table, consts) {
   )) {
     for (const v of m[1].trim().split(/\s+/)) {
       if (/%$/.test(v)) continue
-      push(/rpx$/.test(v) ? Number(v.replace('rpx', '')) / RPX_PER_PX : Number(v.replace('px', '')))
+      push(
+        /rpx$/.test(v) ? Number(v.replace('rpx', '')) / RPX_PER_PX : Number(v.replace('px', '')),
+        v,
+      )
     }
   }
   return out
+}
+
+/** 一行源码里的圆角取档 → px 数组(`radiusItemsInLine` 到 px 的投影;既有调用方口径不变)。 */
+export function radiusPxInLine(line, table, consts) {
+  return radiusItemsInLine(line, table, consts).map((it) => it.px)
+}
+
+/**
+ * 真圆/胶囊那一型:半径由盒的边长决定(`size / 2` 或字面量 `边长`/2),**不是"这一类元素该取哪一档"
+ * 的判断**。守门 77 的 B1/C6 用同一把尺(`classifyRadiusGeometry`)认它,只是那道判据的产物是"放行/判红",
+ * RD 维的产物是"别把它当成端上多出来的一档"。两者必须共用那一份几何判定 —— 否则门 128 会替门 77 已
+ * 认定为"规范真圆写法"的 `IMAGE_REMOVE_SIZE / 2`(HEAD 实测 37 处该族)凭空记上一档,
+ * 而那一档在另一端根本没有对应元素 ⇒ 假分叉。几何档只从 RD 档集里排除,RE 维(按元素名配对)不动。
+ */
+const GEOMETRY_KINDS = new Set(['circle', 'capsule', 'rounded-end'])
+function isGeometricRadius(lines, i, raw) {
+  if (raw === undefined || raw === null) return false
+  return GEOMETRY_KINDS.has(classifyRadiusGeometry(lines, i, raw))
 }
 
 /** 整份源码 → 圆角档集合。返回排序后的去重数组。 */
@@ -269,7 +305,15 @@ export function radiusSetOf(src, table) {
      * 当注释吃掉(守门 70 的 `'https://x/*'` 假绿同型),那需要一份字符串感知的遮罩,另票做。
      */
     if (/^(\/\/|\/\*|\*|\{\/\*|<!--)/.test(t)) continue
-    for (const px of radiusPxInLine(lines[i], table, consts)) set.add(px)
+    /**
+     * RD 维排除真圆/胶囊:逐取用点问 `classifyRadiusGeometry`(那份唯一的几何判定)是几何还是档位。
+     * 只按 px 值分不了(UserInfoCard 头像 24 = 48 边 / 2,而 rnRadius.xl 也 = 12 —— 同值两义),
+     * 必须带着源码原文与同一作用域的边长量。排除只发生在这里(RD 档集);RE 维按元素名配对另有判据。
+     */
+    for (const it of radiusItemsInLine(lines[i], table, consts)) {
+      if (isGeometricRadius(lines, i, it.raw)) continue
+      set.add(it.px)
+    }
   }
   return [...set].sort((a, b) => a - b)
 }
