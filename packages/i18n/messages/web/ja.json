@@ -7158,6 +7158,9 @@
       "todo": "未着手",
       "transition": "遷移",
       "triage": "トリアージ",
+      "terminatedCancelled": "キャンセル済み",
+      "terminatedQuotaExceeded": "割り当て超過",
+      "terminatedPreempted": "プリエンプト",
       "worker": "ワーカー",
       "workspace": "ワークスペース",
       "low": "低",
@@ -13371,8 +13374,30 @@
       "title": "ショートドラマエディタ"
     }
   },
+  "aiApprovedRules": {
+    "title": "コマンド許可ルール",
+    "description": "承認時に作成されたコマンドプレフィックスの許可ルール。90 日で自動失効し、いつでも取り消せます。",
+    "empty": "許可ルールはありません",
+    "prefixHeader": "コマンドプレフィックス",
+    "createdAtHeader": "作成日時",
+    "expiresAtHeader": "失効日時",
+    "neverExpires": "無期限",
+    "revoke": "取り消す",
+    "revokeConfirmTitle": "このルールを取り消しますか?",
+    "revokeConfirmContent": "取り消すと、プレフィックス「{prefix}」のコマンドは再度手動承認が必要になります。",
+    "revokeFailed": "取り消しに失敗しました。再試行してください",
+    "loadFailed": "許可ルールの読み込みに失敗しました",
+    "refresh": "更新",
+    "scopeAlways": "長期有効",
+    "scopeSession": "このセッション"
+  },
   "editor": {
     "toolApproval": {
+      "grantRuleToggle": "承認してこの種のコマンドを許可に追加",
+      "grantRuleDesc": "コマンドプレフィックス「{prefix}…」を対象とする許可ルールを作成します。90 日後に自動失効し、許可ルールパネルからいつでも取り消せます。",
+      "grantRuleConfirmTitle": "高リスクコマンドを許可しますか?",
+      "grantRuleConfirmContent": "コマンド「{prefix}…」は高リスク操作に該当します。許可すると 90 日間は類似コマンドで再度確認されません。使用に伴うリスクはご自身の責任となります。",
+      "grantRuleConfirmCancel": "キャンセル",
       "approve": "承認",
       "argsPreview": "引数プレビュー",
       "description": "AI が次の高リスク操作の実行を要求しています。実行を許可するか確認してください。",
