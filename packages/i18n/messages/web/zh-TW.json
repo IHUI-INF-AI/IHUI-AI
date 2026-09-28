@@ -7158,6 +7158,9 @@
       "todo": "待辦",
       "transition": "狀態轉換",
       "triage": "待分類",
+      "terminatedCancelled": "已取消",
+      "terminatedQuotaExceeded": "配額超限",
+      "terminatedPreempted": "被搶佔",
       "worker": "執行者",
       "workspace": "工作區",
       "low": "低",
@@ -13371,8 +13374,30 @@
       "title": "短劇編輯器"
     }
   },
+  "aiApprovedRules": {
+    "title": "命令放行規則",
+    "description": "審批時產生的命令前綴放行規則;90 天自動過期,可隨時撤銷",
+    "empty": "暫無放行規則",
+    "prefixHeader": "命令前綴",
+    "createdAtHeader": "建立時間",
+    "expiresAtHeader": "到期時間",
+    "neverExpires": "永不過期",
+    "revoke": "撤銷",
+    "revokeConfirmTitle": "撤銷放行規則?",
+    "revokeConfirmContent": "撤銷後,前綴「{prefix}」的命令將重新需要人工審批。",
+    "revokeFailed": "撤銷失敗,請重試",
+    "loadFailed": "載入放行規則失敗",
+    "refresh": "重新整理",
+    "scopeAlways": "長期生效",
+    "scopeSession": "本次對話"
+  },
   "editor": {
     "toolApproval": {
+      "grantRuleToggle": "批准並把這類命令加入放行",
+      "grantRuleDesc": "以命令前綴「{prefix}…」為作用域產生放行規則,90 天後自動過期,可隨時在放行規則面板撤銷",
+      "grantRuleConfirmTitle": "確認放行高風險命令?",
+      "grantRuleConfirmContent": "命令「{prefix}…」命中高風險操作。放行後 90 天內同類命令將不再詢問,使用風險需自行承擔。",
+      "grantRuleConfirmCancel": "取消",
       "approve": "批准",
       "argsPreview": "參數預覽",
       "description": "AI 要求執行以下高風險操作,請確認是否允許",
