@@ -198,6 +198,9 @@ export interface ToolPermissionContract {
   /**
    * 无论多宽松都必须问。**只覆盖放行分支,绝不覆盖拒绝分支** ——
    * 被静态规则拒绝的调用不得因为 alwaysAsk 而变成"问一次再放行"。
+   *
+   * 消费者(此前全仓零消费者,声明等于空支票):
+   * `apps/cli/src/tools/index.ts` 的 `requiresUserConfirmation()` —— 唯一实现,只认显式 `true`。
    */
   alwaysAsk?: boolean
   matchSources?: readonly ToolMatchSource[]
@@ -239,6 +242,27 @@ export interface ToolContract {
 }
 
 /**
+ * 免批两轴的**声明面**(2026-09-28 立,第三方工具面专用)。
+ *
+ * 它钉的是这一型漏洞:第三方工具能不能免批,过去只看一档危险级别(**单轴**),于是
+ * "只读但会把请求打到外部世界"与"不碰外部世界但会写"在批准闸上长得一模一样。
+ * 口径(用户 2026-09-28 拍板):**只有「只读」且「不碰外部世界」同时成立才允许免批**,
+ * 任一不成立就必须问。
+ *
+ * 两条**独立**字段,刻意不合成一个布尔,也不借用 `riskLevel`/`dangerLevel` 冒充 ——
+ * 一档风险级别回答的是"这一档多危险",而这里要的是两条可各自取证、各自为假的事实
+ * (合并即"把两轴压回一轴",正是本票要消灭的形态)。
+ * 判据(两者的合取)只住一处:`apps/cli/src/tools/index.ts` 的 `requiresUserConfirmation()`;
+ * 声明方(如 `tools/mcp-runtime.ts`)只抄事实,不得自己判"免不免批"。
+ */
+export interface ApprovalExemptionAxes {
+  /** 轴 A(只读):true = 被声明为只读取数据、不产生状态变更;false/缺席 = 未证明 ⇒ 按非只读处置 */
+  readonly readonlyAxis: boolean
+  /** 轴 B(不碰外部世界):true = 被声明为不触达外部世界;false/缺席 = 未证明 ⇒ 按"碰"处置 */
+  readonly closedWorldAxis: boolean
+}
+
+/**
  * 契约挂载位:各端 `Tool` 接口 `extends` 它。
  *
  * **可选是本阶段的刻意设计**(第二阶段翻缺省语义时才收紧):本阶段"没挂契约"必须由
@@ -247,6 +271,17 @@ export interface ToolContract {
  */
 export interface ToolContractMount {
   contract?: ToolContract
+  /**
+   * 免批两轴的声明位(见 `ApprovalExemptionAxes`)。
+   *
+   * 为什么住在挂载位而不是塞进 `contract.permission`:后者要求同时填满 `shape` 与
+   * `resultBudget` 才能构造,而第三方工具**没有**声明过结果预算 —— 为了一条批准判据
+   * 去伪造一份 `resultBudget`,等于顺手给该工具的输出加一道裁剪(执行器边界按契约截断),
+   * 那是本票明确禁止的"顺手改缺省语义"。两轴因此独立成一份只声明事实的挂载位。
+   *
+   * **缺席 = 本判据不适用**(内建工具行为逐字不变),不是"两轴都不成立"。
+   */
+  approvalExemption?: ApprovalExemptionAxes
 }
 
 /** 契约形状的最小视图:两个谓词只需要 `contract?.permission.effectScope`。 */
