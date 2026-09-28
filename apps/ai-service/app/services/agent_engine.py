@@ -4741,10 +4741,17 @@ class AgentEngine:
                 json.dumps(m, ensure_ascii=False, default=str) for m in transcript
             )
         )
+        # G-742(2026-09-29):派生子线程必须继承父线程**已由承载层盖章**的身份键。
+        # 漏了它,`_handle_thread_start` 取 `params["userId"]` 拿到 None ⇒ 派生出一条
+        # 既无内存属主也无落库属主的线程;而 `_principal_allows` 对"无属主"的语义是
+        # "无从对账 ⇒ 维持改动前行为",于是任何已登录连接都能往这条正在跑的审查线程里
+        # prompt。身份只能从已在手的 thread 事实继承(`_identity_of` 那一份实现),
+        # 绝不能由模型或客户端填。
         sub_params: dict[str, Any] = {
             "input": prompt,
             "permissionMode": thread.permission_mode,
             "maxIterations": 2,
+            **_identity_of(thread),
         }
         if thread.model:
             sub_params["model"] = thread.model
@@ -5311,10 +5318,13 @@ class AgentEngine:
                 return {
                     "error": f"role 非法: {role!r},须为 {sorted(_AGENT_ROLE_TEMPLATES)} 之一"
                 }
+            # G-742:同一形状的第二处 —— 内置 `spawn_subagent` 每轮都派生一条**持久**线程。
+            # 与 `_handle_thread_review` 共用 `_identity_of` 那一份实现,不在此重抄键名判断。
             sub_params: dict[str, Any] = {
                 "input": prompt.strip(),
                 "permissionMode": thread.permission_mode,
                 "maxIterations": max(1, min(int(args.get("maxIterations") or 6), 12)),
+                **_identity_of(thread),
             }
             if role is not None:
                 sub_params["role"] = role
