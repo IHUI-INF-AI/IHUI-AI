@@ -118,7 +118,7 @@ node scripts/check-doc-numbers.mjs --strict --description -   # 连仓库简介�
 | 工程守门 | 188 | `guardianGates` |
 | — blocking | 170 | `guardianBlocking` |
 | — warn | 18 | `guardianWarn` |
-| 跟踪文件 | 13410 | `trackedFiles` |
+| 跟踪文件 | 13420 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-09-28。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
