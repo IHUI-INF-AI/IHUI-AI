@@ -2709,6 +2709,7 @@ E1-E5 五层防御体系,从密码学到运行时全链路防护:
 | **E4 零信任**   | mTLS + 网络分段 + 服务间认证 | 双向证书 + 5 维度策略评估 + CIDR 黑名单                                         | 插件级 + 路由级配置                     |
 | **E5 反自动化** | 异常检测 + CAPTCHA + IP 信誉 | 6 维度行为评分(AnomalyDetector 中间件已激活)+ GeoIP 跨城市判断 + 扫描器即时封禁 | `/api/security/*`                       |
 **CLI → 审计链的摄入通道**(2026-09-28 立,补 E3 的 CLI 半边):`POST /api/cli/audit/tool-invokes`(86A2,工具调用证据流水)与 `POST /api/cli/audit/tool-approvals`(86H,agent 审批决策 flag/approval/denial)共用同一个唯一写入器 `recordAuditLog` 落 `audit_logs_chain`(HMAC 链 + advisory lock),主体一律取令牌主体、请求体由 strict schema 拒任何自报身份(userId/user_id ⇒ 400 且零写入),且**入参原文不上线** —— 决策行只记 {sessionId, toolName, route, cause?}。
+**CLI → 审计链的摄入通道**(2026-09-28 立,补 E3 的 CLI 半边):`POST /api/cli/audit/tool-invokes`(86A2,工具调用证据流水)与 `POST /api/cli/audit/tool-approvals`(86H,agent 审批决策 flag/approval/denial)共用同一个唯一写入器 `recordAuditLog` 落 `audit_logs_chain`(HMAC 链 + advisory lock),主体一律取令牌主体、请求体由 strict schema 拒任何自报身份(userId/user_id ⇒ 400 且零写入),且**入参原文不上线** —— 决策行只记 {sessionId, toolName, route, cause?}。
 
 ### 设备维度风控全链路(2026-08-02 立)
 
