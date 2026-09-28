@@ -23,7 +23,6 @@ import { ROLE_STEMS, radiusFormsInLine, rolesOfName } from '../lib/radius-roles.
 const SRC = join(import.meta.dirname, '..', 'check-radius-role-conformance.mjs')
 const LIB = join(import.meta.dirname, '..', 'lib', 'radius-roles.mjs')
 const MASK_LIB = join(import.meta.dirname, '..', 'lib', 'code-mask.mjs')
-const RUNNER = join(import.meta.dirname, '..', 'guardian-runner.mjs')
 const REPO = join(import.meta.dirname, '..', '..')
 /** 形状锁一律比归一化空白后的文本:prettier 折行不得造出与正确性无关的假红。 */
 const norm = (t) => String(t).replace(/s+/g, ' ')
@@ -116,8 +115,23 @@ test('T3 取材面形状锁:内容必须走 face-reader 的 catBatch,枚举必�
   assert.ok(!/readdirSync\(|statSync\(/.test(src), '枚举不得按磁盘扫(归档锚点那一型:面里没有的路径不构成结论)')
   assert.match(src, /ls-tree', '-r', '--name-only', 'HEAD'/, '全量档枚举面必须是 HEAD 树')
   assert.match(src, /face === 'staged' \? \['ls-files'\]/, '索引面枚举只能走 ls-files(ls-tree 不认 --cached)')
-  // 清单与内容同面同轮:表 + 台账 + 正文必须进同一次 catBatch
-  assert.match(src, /\[\.\.\.files, RADIUS_TABLE_REL, BASELINE_REL\]/, '档位表/台账必须与正文同一次批量读')
+  // 清单与内容同面同轮:正文 + 具名档来源 + 档位表 + 台账必须进**同一次** catBatch。
+  // 中间允许 `...tierFiles` —— 除法形态半径的被除数常常定义在 geometry.js / spec 里,那批文件
+  // 一旦改成"另开一次读盘"就与正文不同面(表读盘 + 内容读 HEAD 会产出自洽却错位的尺子,门 83/101 同条)。
+  assert.match(
+    src,
+    /\[\.\.\.files,[^\]]*RADIUS_TABLE_REL,[^\]]*BASELINE_REL\]/,
+    '档位表/台账必须与正文同一次批量读',
+  )
+  assert.match(
+    src,
+    /\[\.\.\.files,\s*\.\.\.tierFiles,/,
+    '具名档来源必须与正文同面同轮取(另起一次读盘 = 半接线)',
+  )
+  assert.ok(
+    !/readFileSync\([^)]*geometry\.js/.test(src) && !/SPEC_SRC_RE|readdirSync\(['"]packages/.test(src),
+    '具名档不得按磁盘单独扫',
+  )
 })
 
 test('T4 遮罩实现只能有一份,且判据面与锚点面两面齐备', () => {
