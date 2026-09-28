@@ -641,6 +641,25 @@ function selfTest() {
   eq('无分隔符可切的命中行(裸嵌 token)整行打码', redactChildOutput('Bearer eyJhbGciOiJIUzI1Ni5x'), '[已脱敏]')
   eq('空输出如实标注(不得伪装成有内容)', redactChildOutput('   \n'), '(无输出)')
   eq('超长输出截断(日志不被撑爆)', redactChildOutput('x'.repeat(500)).endsWith('…(截断)'), true)
+  // O86附⑦ 末格:告警正文的 detail 必须过闸,但**不得**被截断、也不得把散文整行打码
+  // (第一版直接复用子进程那道闸 ⇒ "取不到形状合法的 token" 这类正常诊断被抹成
+  //  [已脱敏],等于拿泄露修复换一个看不懂的告警;闸必须判"值形状",不判"有没有提到 token")
+  const leaky = redactAlertDetail('http=401 {"access_token":"ghp_SUPERSECRETVVALUE"} 上游响应体')
+  eq('正文脱敏:凭据值必须消失,键名与 http 状态仍可读',
+    [/\*\*\*|\[已脱敏\]/.test(leaky), leaky.includes('ghp_SUPERSECRETVVALUE'), leaky.includes('access_token')],
+    [true, false, true])
+  eq('正文脱敏:assignment 形态留键名抹值(RESEND_API_KEY=…)',
+    redactAlertDetail('RESEND_API_KEY=re-secret-value-123'), 'RESEND_API_KEY=***')
+  const longDetail = `CI 现已装**0 字节配额探针**:实测被拒的全量推送每轮仍向服务端堆 ~135MB ${'详'.repeat(420)}`
+  eq('正文不截断:500+ 字的诊断必须整条留在邮件里(完整性优先,不是泄露面)',
+    redactAlertDetail(longDetail).length, longDetail.length)
+  eq('散文逐字不改:提到 token/key 不等于泄露,不得整行打码',
+    redactAlertDetail('gitee apikey.txt 取不到形状合法的 token(注意同目录的 _冲突文件_ 副本不可用)')
+      .includes('取不到形状合法的 token'), true)
+  eq('反向对照:40 位 git sha / 十六进制指纹不是凭据,不得被抹(否则部署停摆告警不可归因)',
+    redactAlertDetail('线上构建 3fab392c704d1416c532c840c6fa75913f240874 vs origin/main'),
+    '线上构建 3fab392c704d1416c532c840c6fa75913f240874 vs origin/main')
+  eq('空 detail 明写"(无详情)"而不是静默变空(静默变短=伪造完整性)', redactAlertDetail(''), '(无详情)')
   eq('dry-run:任一条通道齐备即算可用', judgeDryRunChannel('[dry-run] 通道判定 SMTP: 不可用(缺 SMTP_HOST)\n[dry-run] 通道判定 Resend: 可用(回落通道)'), true)
   eq('dry-run:两条都不可用必须判不可用("不可用"三字不得被当成可用)', judgeDryRunChannel('[dry-run] 通道判定 SMTP: 不可用(缺 SMTP_HOST)\n[dry-run] 通道判定 Resend: 不可用(缺 RESEND_API_KEY)'), false)
   eq('dry-run:无输出不算可用', judgeDryRunChannel(''), false)
@@ -842,8 +861,13 @@ export function buildBrandMailArgv({ to, title, severity, messageFile, plain = f
  * token)整行打码 —— 宁可不给诊断,不给泄露面。
  */
 const SECRETISH_RE = /(api[_-]?key|token|secret|passw|authorization|bearer)/i
-export function redactChildOutput(raw, limit = 300) {
-  const kept = String(raw ?? '')
+/**
+ * 只脱敏、不截断 —— 给"必须留全诊断"的正文组装用(O86附⑦ 末格)。
+ * 截断与脱敏是两件事:此前两者焊死在一个函数里,于是"把 detail 接进闸门"这个修法
+ * 会顺手把 500 字的 CI 探针诊断砍成 300 字 —— 那是拿泄露修复换一个不可处置的告警。
+ */
+export function redactSecretishLines(raw) {
+  return String(raw ?? '')
     .split(/\r?\n/)
     .map((l) => {
       const line = l.trimEnd()
@@ -853,6 +877,22 @@ export function redactChildOutput(raw, limit = 300) {
     })
     .filter((l) => l !== '')
     .join(' / ')
+}
+
+/** 告警正文里的一条 detail:只抹"值形状"的东西,不把提到 token/key 的散文整行打码。 */
+const ALERT_ASSIGN_RE =
+  /((?:api[_-]?key|access[_-]?key|secret[_-]?key|token|secret|passw(?:or)?d|authorization|bearer)\s*[=:]\s*["']?)([^\s,;)"']+)/gi
+const ALERT_LITERAL_RE =
+  /\b(gh[pousr]_[A-Za-z0-9]{8,}|xox[baprs]-[A-Za-z0-9-]{6,}|AKIA[A-Z0-9]{8,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{6,}\.)\b/g
+export function redactAlertDetail(detail) {
+  const s = String(detail ?? '')
+  // 先 assignment 再 literal:assignment 已经把值换成 *** 后,字面量那条不会再命中同一处
+  const masked = s.replace(ALERT_ASSIGN_RE, '$1***').replace(ALERT_LITERAL_RE, '[已脱敏]')
+  return masked || '(无详情)'
+}
+
+export function redactChildOutput(raw, limit = 300) {
+  const kept = redactSecretishLines(raw)
   if (!kept) return '(无输出)'
   return kept.length > limit ? `${kept.slice(0, limit)}…(截断)` : kept
 }
@@ -933,8 +973,8 @@ async function maybeAlert(results, dryRun) {
   const severity = recovered ? 'info' : 'critical'
   const desp = recovered
     ? `上一轮失效项已恢复: ${prev.sig}\n\n全部检查: ${results.map((r) => `${r.level} ${r.name}`).join('\n')}`
-    : `失效项(${fails.length}):\n${fails.map((f) => `- ${f.name}\n  ${f.detail}`).join('\n')}\n\n` +
-      `全部结果:\n${results.map((r) => `- [${r.level}] ${r.name} — ${r.detail}`).join('\n')}\n\n` +
+    : `失效项(${fails.length}):\n${fails.map((f) => `- ${f.name}\n  ${redactAlertDetail(f.detail)}`).join('\n')}\n\n` +
+      `全部结果:\n${results.map((r) => `- [${r.level}] ${r.name} — ${redactAlertDetail(r.detail)}`).join('\n')}\n\n` +
       `处置:更新对应凭据后**必须同步服务环境块**(nssm AppEnvironmentExtra),` +
       `再跑 node scripts/check-credential-health.mjs 复验。限流/网络不可达不算失效。\n` +
       `来源:本机即生产机(D:/IHUI-AI 上跑 IHUI-API / IHUI-DEPLOYLOOP)。`
