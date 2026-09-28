@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from ..core.jwt_auth import require_request_user_id
+from ..core.jwt_auth import require_request_user_id, resolve_request_role_id
 from ..services import capability_market as capability_market_module
 from ..services import capability_market_store
 from ..services import mcp_server as mcp_server_module
@@ -137,7 +137,7 @@ async def call_tool(req: ToolCallRequest, request: Request) -> dict[str, Any]:
     - role_id: 传给 mcp_server.call_tool 做 admin 专属工具权限校验
     - user_id: G6(2026-07-26)透传给 knowledge_lookup 查 long_term_memory 源
     """
-    user_role = getattr(request.state, "role_id", 0) or 0
+    user_role = resolve_request_role_id(request)
     user_id = getattr(request.state, "user_id", None)
     result = await mcp_server.call_tool(
         req.name, req.arguments, user_role=user_role, user_id=user_id
@@ -539,6 +539,37 @@ async def call_external_tool(
 # ---------------------------------------------------------------------------
 
 
+def _store_mutate_gate(
+    name: str, user_id: str, request: Request, *, denied_error: str
+) -> JSONResponse | None:
+    """商店写侧的**唯一闸门**:把 `mcp_store.mutate_decision` 的结论翻成 HTTP。
+
+    返回 None ⇒ 放行;否则就是该回的错误响应(404=没这条 / 403=没权限)。归属判断**不住在
+    这里**(端点各写一遍必然与 store 层漂开),这一层只做两件事:
+
+    ① 403 文案由调用方整句传入 —— 覆盖/卸载/启用/停用四处既有措辞不同,不得为省事合并;
+    ② **管理员越档不得静默**:改别人的或无主的安装都记 warning 点名是谁改的 ——
+       否则"谁把我的 Server 停了"这件事事后无从查起(与本仓"失败必须响"同一条禁令)。
+
+    角色只经 `resolve_request_role_id` 那一份出口取(store 层不碰 HTTP 对象,故作为入参传下去)。
+    """
+    from ..services import mcp_store
+
+    decision = mcp_store.mutate_decision(name, user_id, resolve_request_role_id(request))
+    if decision == mcp_store.MUTATE_MISSING:
+        return JSONResponse(status_code=404, content={"error": f"MCP Server 未安装: {name}"})
+    if decision == mcp_store.MUTATE_DENIED:
+        return JSONResponse(status_code=403, content={"error": denied_error})
+    if decision == mcp_store.MUTATE_BY_ADMIN:
+        logger.warning(
+            "管理员越档变更商店安装记录: %s(记录属主 %s;管理员 user_id=%s)",
+            name,
+            mcp_store.owner_of(name) or "(无主)",
+            user_id,
+        )
+    return None
+
+
 @router.get("/mcp/store", response_model=None)
 async def list_mcp_store() -> dict[str, Any]:
     """MCP 商店合并列表:目录条目 + 安装状态(一个接口渲染整页)。
@@ -588,6 +619,7 @@ async def list_mcp_store() -> dict[str, Any]:
 @router.post("/mcp/store/install", response_model=None)
 async def install_mcp_store_server(
     req: McpStoreInstallRequest,
+    request: Request,
     user_id: str = Depends(require_request_user_id),
 ) -> dict[str, Any] | JSONResponse:
     """商店安装:目录条目 → 热挂载(官方 SDK stdio)→ 持久化。
@@ -640,13 +672,17 @@ async def install_mcp_store_server(
         # 那是外部工具命名空间 `mcp:{server}__{tool}` 的约定)。统一用 key。
         name = req.key
         existing = mcp_store.get_installed(name)
-        if existing is not None and not mcp_store.can_mutate(name, user_id):
-            # 复用同名记录等于**把别人的 env/args 整条换掉**(不只是"再装一次"),
-            # 所以覆盖与启停/卸载同判:只有安装者(或存量的回退档)能做。
-            return JSONResponse(
-                status_code=403,
-                content={"error": f"MCP Server 已由他人安装,不能覆盖其配置: {name}"},
+        if existing is not None:
+            gate = _store_mutate_gate(
+                name,
+                user_id,
+                request,
+                denied_error=f"MCP Server 已由他人安装,不能覆盖其配置: {name}",
             )
+            if gate is not None:
+                # 复用同名记录等于**把别人的 env/args 整条换掉**(不只是"再装一次"),
+                # 所以覆盖与启停/卸载同判:只有安装者、或管理员(无主/他人档)能做。
+                return gate
         if existing and existing.get("enabled"):
             return JSONResponse(
                 status_code=409,
@@ -694,23 +730,26 @@ async def install_mcp_store_server(
 
 @router.post("/mcp/store/{name}/uninstall", response_model=None)
 async def uninstall_mcp_store_server(
-    name: str, user_id: str = Depends(require_request_user_id)
+    name: str, request: Request, user_id: str = Depends(require_request_user_id)
 ) -> dict[str, Any] | JSONResponse:
     """商店卸载:关闭子进程 + 移除注入工具 + 删除持久化记录。
 
-    只有安装者能卸(存量无属主记录走 `can_mutate` 的回退档,见 mcp_store 模块文档串)。
+    只有安装者能卸;**无属主的存量记录只有管理员能卸**(2026-09-29 机主拍板收紧,判据与
+    留痕都在 `_store_mutate_gate` / `mcp_store.mutate_decision`)。
     判据顺序是"先 404 再 403":这一面的商店列表全站可见,装看不见别人的安装会与列表自相矛盾。
     """
     try:
         from ..services import mcp_store
         from ..services.mcp_stdio_bridge import remove_stdio_server
 
-        if mcp_store.get_installed(name) is None:
-            return JSONResponse(status_code=404, content={"error": f"MCP Server 未安装: {name}"})
-        if not mcp_store.can_mutate(name, user_id):
-            return JSONResponse(
-                status_code=403, content={"error": f"MCP Server 由他人安装,无权卸载: {name}"}
-            )
+        gate = _store_mutate_gate(
+            name,
+            user_id,
+            request,
+            denied_error=f"MCP Server 由他人安装,无权卸载: {name}",
+        )
+        if gate is not None:
+            return gate
         tool_names = await remove_stdio_server(name)
         removed_tools = mcp_server_module.unregister_external_tools(tool_names)
         mcp_store.remove_installed(name)
@@ -723,9 +762,9 @@ async def uninstall_mcp_store_server(
 
 @router.post("/mcp/store/{name}/enable", response_model=None)
 async def enable_mcp_store_server(
-    name: str, user_id: str = Depends(require_request_user_id)
+    name: str, request: Request, user_id: str = Depends(require_request_user_id)
 ) -> dict[str, Any] | JSONResponse:
-    """启用已安装但停用的 Server:重新热挂载并注入工具(只有安装者能启)。"""
+    """启用已安装但停用的 Server:重新热挂载并注入工具(只有安装者能启;无主记录只有管理员能启)。"""
     try:
         from ..services import mcp_store
         from ..services.mcp_stdio_bridge import add_stdio_server_tool
@@ -733,10 +772,14 @@ async def enable_mcp_store_server(
         rec = mcp_store.get_installed(name)
         if rec is None:
             return JSONResponse(status_code=404, content={"error": f"MCP Server 未安装: {name}"})
-        if not mcp_store.can_mutate(name, user_id):
-            return JSONResponse(
-                status_code=403, content={"error": f"MCP Server 由他人安装,无权启用: {name}"}
-            )
+        gate = _store_mutate_gate(
+            name,
+            user_id,
+            request,
+            denied_error=f"MCP Server 由他人安装,无权启用: {name}",
+        )
+        if gate is not None:
+            return gate
         if rec.get("enabled"):
             return {
                 "ok": True,
@@ -769,11 +812,12 @@ async def enable_mcp_store_server(
 
 @router.post("/mcp/store/{name}/disable", response_model=None)
 async def disable_mcp_store_server(
-    name: str, user_id: str = Depends(require_request_user_id)
+    name: str, request: Request, user_id: str = Depends(require_request_user_id)
 ) -> dict[str, Any] | JSONResponse:
     """停用已启用的 Server:关闭子进程 + 移除注入工具(保留持久化记录)。
 
     只有安装者能停 —— 停别人的 Server 会把它注入的工具从**别人的会话**里抽走。
+    无属主的存量记录只有管理员能停(2026-09-29 机主拍板;判据在 `mcp_store.mutate_decision`)。
     """
     try:
         from ..services import mcp_store
@@ -782,10 +826,14 @@ async def disable_mcp_store_server(
         rec = mcp_store.get_installed(name)
         if rec is None:
             return JSONResponse(status_code=404, content={"error": f"MCP Server 未安装: {name}"})
-        if not mcp_store.can_mutate(name, user_id):
-            return JSONResponse(
-                status_code=403, content={"error": f"MCP Server 由他人安装,无权停用: {name}"}
-            )
+        gate = _store_mutate_gate(
+            name,
+            user_id,
+            request,
+            denied_error=f"MCP Server 由他人安装,无权停用: {name}",
+        )
+        if gate is not None:
+            return gate
         if not rec.get("enabled"):
             return {"ok": True, "name": name, "enabled": False}
         tool_names = await remove_stdio_server(name)
@@ -860,7 +908,10 @@ async def review_mcp_store_server(
     try:
         from ..services import mcp_market_review
 
-        user_role = getattr(request.state, "role_id", 0) or 0
+        # 角色只走 `resolve_request_role_id` 那一份出口(与本文件商店闸门同源)。此前这里
+        # 手抄 `int(getattr(request.state, "role_id", 0) or 0)`,而 jwt_auth 的头注明确记着
+        # "抄漏一个就把管理员降成普通用户且完全不报错" —— 同一文件里已经换了两次,不该再留三处。
+        user_role = resolve_request_role_id(request)
         if user_role < 1:
             return JSONResponse(
                 status_code=403,
@@ -995,7 +1046,10 @@ async def enable_capability(cap_id: str, request: Request) -> JSONResponse:
                 status_code=404,
                 content=_envelope(404, "CAPABILITY_NOT_FOUND", None),
             )
-        user_role = getattr(request.state, "role_id", 0) or 0
+        # 角色只走 `resolve_request_role_id` 那一份出口(与本文件商店闸门同源)。此前这里
+        # 手抄 `int(getattr(request.state, "role_id", 0) or 0)`,而 jwt_auth 的头注明确记着
+        # "抄漏一个就把管理员降成普通用户且完全不报错" —— 同一文件里已经换了两次,不该再留三处。
+        user_role = resolve_request_role_id(request)
         if cap["permission"] == "admin" and user_role < 1:
             return JSONResponse(
                 status_code=403,
@@ -1029,7 +1083,10 @@ async def disable_capability(cap_id: str, request: Request) -> JSONResponse:
                 status_code=404,
                 content=_envelope(404, "CAPABILITY_NOT_FOUND", None),
             )
-        user_role = getattr(request.state, "role_id", 0) or 0
+        # 角色只走 `resolve_request_role_id` 那一份出口(与本文件商店闸门同源)。此前这里
+        # 手抄 `int(getattr(request.state, "role_id", 0) or 0)`,而 jwt_auth 的头注明确记着
+        # "抄漏一个就把管理员降成普通用户且完全不报错" —— 同一文件里已经换了两次,不该再留三处。
+        user_role = resolve_request_role_id(request)
         if cap["permission"] == "admin" and user_role < 1:
             return JSONResponse(
                 status_code=403,

@@ -107,6 +107,45 @@ def test_existing_owner_is_not_overwritten_without_reassign(tmp_path: Path, caps
     assert "已属主、未动" in capsys.readouterr().out
 
 
+def test_duplicate_key_is_refused_and_its_owned_sibling_survives(
+    tmp_path: Path, capsys
+) -> None:
+    """同一 key 有两条 ⇒ 拒绝回填,且**已属主那条一个字节都不动**。
+
+    立因(2026-09-29,`scripts/owner-claim.mjs` 的前台巡检实测抓到):旧实现把记录按
+    `by_key[key] = rec` 建模(每条 key 只留最后一条),于是"已有属主不动"的检查只看得到
+    其中一条,而 `apply_plan` 是**按 key 写**的 —— 同一 key 里 owner=7 那条被顺手改成 42,
+    而 dry-run 打印的仍是「改写已有属主 0 条」。按 key 回填在这个文件里表达不了"改哪一条"
+    (没有第二个判别位),所以整型只能拒绝并点名,交人工先合条。
+    """
+    store = tmp_path / "connector_store.json"
+    _write_store(store, [_rec("yuque:docs", owner="7"), _rec("yuque:docs", owner="")])
+
+    rc = main(["--store", str(store), "--claim", "yuque:docs=42", "--apply"])
+    assert rc == 0, "拒绝某一条不该把整次执行判成失败(其余可回填的照落)"
+
+    records = _read_store(store)
+    assert [r.get("owner_user_id") or "" for r in records] == ["7", ""], (
+        "重复 key 的两条都必须原样保留 —— 已属主那条被顺手改写就是本判据要防的事故"
+    )
+    out = capsys.readouterr().out
+    assert "同一 key 有多条记录" in out and "1 个" in out, out
+
+
+def test_duplicate_key_refusal_does_not_spill_onto_clean_keys(tmp_path: Path) -> None:
+    """反向对照:拒绝只作用于重复的那条 key,单条的照常回填。
+
+    只判前一条的话,"整表一律不落"也能绿 —— 那等于把工具判废了再夸它安全。
+    """
+    store = tmp_path / "connector_store.json"
+    _write_store(store, [_rec("dup:a", owner="7"), _rec("dup:a"), _rec("solo:b")])
+
+    main(["--store", str(store), "--claim", "dup:a=42", "--claim", "solo:b=42", "--apply"])
+
+    records = _read_store(store)
+    assert [r.get("owner_user_id") or "" for r in records] == ["7", "", "42"]
+
+
 def test_reassign_must_name_the_key(tmp_path: Path, capsys) -> None:
     store = tmp_path / "connector_store.json"
     _write_store(store, [_rec("yuque:docs", owner="7")])
