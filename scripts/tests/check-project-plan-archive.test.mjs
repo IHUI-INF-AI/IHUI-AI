@@ -422,7 +422,13 @@ test('A4 真实标题形态:占位与同一条目并存 ⇒ 判本次引入的�
   )
   const ph = head.split('\n').find((l) => /^<!-- 已归档/.test(l))
   assert.ok(ph, 'HEAD 版计划文档里应能找到至少一条归档占位(找不到说明本用例的尺子失效)')
-  const title = ph.slice(ph.indexOf('):') + 2, ph.lastIndexOf(',完整内容在')).trim()
+  // 标题提取必须按**归档器实际生成的形态**(archiver:397 = `<!-- 已归档(日期:标题,完整内容在 …`),
+  // 不是 AGENTS 散文里那个"(日期):标题"旧形 —— 旧提取式 `indexOf('):')` 在现形占位上得 -1,
+  // slice(1,…) 取出一串不含 ✅ 的垃圾"标题",判据 0 命中而本用例恒红(2026-09-28 实测,A4 当场翻红)。
+  // 日期固定 YYYY-MM-DD 形态,所以"日期后那个冒号"是安全锚点;标题内部自带的冒号不受影响。
+  const phTitle = /<!-- 已归档\(\d{4}-\d{2}-\d{2}:([\s\S]*),完整内容在 /.exec(ph)
+  assert.ok(phTitle, '占位行不符合归档器现行生成形态(日期:标题,完整内容在)⇒ 本用例与生成器有一边漂了,先对齐再跑')
+  const title = phTitle[1].trim()
   const face = `### ${title}\n正文一行\n${ph}\n`
 
   const r = resurrectionVerdict('', face)

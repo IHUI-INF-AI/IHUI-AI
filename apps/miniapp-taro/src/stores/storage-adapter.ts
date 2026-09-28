@@ -20,6 +20,12 @@
  *    完全一致(用独立 key 'ihui-auth-user',不与 token / userInfo 冲突)。
  *
  * 使用场景(只用于持久化 user;isAuthenticated 不落盘、由 token 派生,token 一律不落盘):
+ * 使用场景(只用于持久化 user 资料,token 一律不落盘;登录态不入库,由 hydrate 派生):
+ *   ↑ 上面两行是 2026-09-28 两个并行会话对同一次收口(G-456)的两种表述,语义同向、不互斥:
+ *     持久化面上只有 user 资料;isAuthenticated 一律不落盘,其真值由「有没有 token」在 hydrate
+ *     时重算(实现:packages/shared/src/stores/auth-store.ts 的 partialize 只取 user + hydrate 按
+ *     tokenStore.getToken() 派生)。两行分别点名「来源(token)」与「时机(hydrate)」,逐字保留只为
+ *     不丢任一侧的登记,不得读成"盘上另有登录态"。
  * - zustand persist 写入 user 字段:经 createJSONStorage → PersistTransport
  *   → Taro.storage.setStorageSync('ihui-auth-user', json)
  * - hydrate 时:从 Taro.storage.getStorageSync('ihui-auth-user') 读出 JSON 字符串

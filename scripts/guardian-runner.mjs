@@ -3998,9 +3998,30 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 凭据在场即豁免对账(1 项,blocking)---
+  // --- 🔐 按凭据存在性豁免对账(blocking,G-459:头名在场即跳过安全判定必须逐条裁过)(1 项,blocking)---
   {
     id: '157',
+    label:
+      '🔐 按凭据存在性豁免对账(blocking,G-459:头名在场即跳过安全判定必须逐条裁过)',
+    script: 'check-credential-presence-bypass.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CREDENTIAL_PRESENCE_BYPASS',
+    stagedTriggers: ['apps/api/src/plugins,apps/api/src/routes,apps/api/src/utils'],
+    onFailHint: [
+      '',
+      '  💡 出路只有两条:行内 credential-presence-exempt: <原因>,或台账 scripts/data/credential-presence-exemptions.json 带 file+anchor+reason+reviewBy。不得为消红放宽判据。',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 凭据在场即豁免对账(1 项,blocking)---
+  // 编号说明(union 收敛当日):本条目与上一条是**同一天两个会话各立的同型门**(都判「安全钩子里
+  // 凭据头名在场即裸放行」)。两侧已各自入库,删任一道等于替别人卸闸,故两道全留;撞号按
+  // 「后来者改号」处置 —— 上一条已占远端号,本侧尚未推送 ⇒ 本侧让号。是否把两道合成一道属
+  // 各判据持有人的裁决,不在收敛票范围内。编号一律以 runner 现值为准,不得照文档派单。
+  {
+    id: '158',
     label:
       '🛡️ 凭据在场即豁免对账(blocking,拦「安全钩子里只要带了某个头就直接跳过校验」—— 票#23 CSRF 现场收口后无人看守的那一型)',
     script: 'check-gate-presence-exemption.mjs',

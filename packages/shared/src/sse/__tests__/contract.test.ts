@@ -29,9 +29,11 @@ import {
 // ============ 1. 事件名集合完整性 ============
 
 describe('SSE_EVENTS 事件名集合', () => {
-  it('包含全部 30 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta;V3 #63: + form_request)', () => {
-    expect(Object.keys(SSE_EVENTS)).toHaveLength(30)
-    expect(SSE_EVENT_NAMES).toHaveLength(30)
+  it('包含全部 31 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta;V3 #63: + form_request;D151: + terminal_interaction)', () => {
+    expect(Object.keys(SSE_EVENTS)).toHaveLength(31)
+    expect(SSE_EVENT_NAMES).toHaveLength(31)
+    // 光有计数会放过"删了别的、加了这个",新帧必须点名在位:
+    expect(SSE_EVENTS.TERMINAL_INTERACTION).toBe('terminal_interaction')
   })
 
   // V3 #63(2026-09-27 落地生产者):form_request 按 contract.ts 自己写在
@@ -111,8 +113,10 @@ describe('isSSEEventName', () => {
 // ============ 4. 判别联合对齐 ============
 
 /**
- * 编译期穷尽性:每个 SSE_EVENTS 键必须在 SSEEventPayload 判别联合中有
- * 对应 type 成员。新增事件漏写 payload 类型时此处 tsc/vitest 编译报错。
+ * 这张表只证明两件事:键集与 SSE_EVENTS 一致(Record<keyof typeof SSE_EVENTS, …> 要求穷尽),
+ * 以及映射值是合法事件名。**它不检查判别联合里有没有对应成员** —— 所以新增事件名而漏写
+ * payload 类型时,这一段连同它原先的注释("新增事件漏写 payload 类型时此处编译报错")一起恒绿。
+ * 真·穷尽性在下面 UNION_MEMBER_BY_NAME,由 2026-09-28 D132 那票补上。
  */
 const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
   CHUNK: 'chunk',
@@ -133,6 +137,8 @@ const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
   TERMINAL_END: 'terminal_end',
   // V3 #48(2026-09-26)补登:终端逐行增量 / agent 流执行开始
   TERMINAL_DELTA: 'terminal_delta',
+  // D151(2026-09-29):命令在等键盘输入的一帧
+  TERMINAL_INTERACTION: 'terminal_interaction',
   START: 'start',
   // V3 #58(2026-09-26):主聊天流工具审批帧
   TOOL_APPROVAL: 'tool-approval',
@@ -155,7 +161,57 @@ const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
   RETRY_SCHEDULED: 'retry_scheduled',
 }
 
+/**
+ * 真·穷尽性(2026-09-28 立,承 D132)。两个方向都有牙:
+ *  - **漏一名**:判别联合里没有 `type: 'usage'` 这一成员时,该值不在
+ *    `SSEEventPayload['type']` 的值域内 ⇒ `pnpm --filter @ihui/shared typecheck` 直接红;
+ *    键写漏同理(`Record<SSEEventName, …>` 要求键穷尽)。
+ *  - **值写错**:下面那条运行时断言红(把任一值改成别的名字即可复现,这是本断言的反向对照)。
+ * 上一段那张表管不住第一种,它只保证"映射值 ∈ 事件名集"。
+ */
+const UNION_MEMBER_BY_NAME: Record<SSEEventName, SSEEventPayload['type']> = {
+  budget: 'budget',
+  chunk: 'chunk',
+  citations: 'citations',
+  compaction: 'compaction',
+  done: 'done',
+  error: 'error',
+  fallback: 'fallback',
+  form_request: 'form_request',
+  injection_applied: 'injection_applied',
+  'plan-step': 'plan-step',
+  plan_updated: 'plan_updated',
+  question: 'question',
+  reasoning: 'reasoning',
+  retry_scheduled: 'retry_scheduled',
+  start: 'start',
+  steer: 'steer',
+  subagent_end: 'subagent_end',
+  subagent_progress: 'subagent_progress',
+  subagent_spawn: 'subagent_spawn',
+  terminal_delta: 'terminal_delta',
+  // D151(2026-09-29):命令在等键盘输入的一帧(判别联合成员见 contract.ts)
+  terminal_interaction: 'terminal_interaction',
+  terminal_end: 'terminal_end',
+  terminal_start: 'terminal_start',
+  thinking: 'thinking',
+  'tool-approval': 'tool-approval',
+  'tool-call-start': 'tool-call-start',
+  'tool-delegate': 'tool-delegate',
+  'tool-delta': 'tool-delta',
+  'tool-result': 'tool-result',
+  'tool-summary': 'tool-summary',
+  usage: 'usage',
+}
+
 describe('SSEEventPayload 判别联合对齐', () => {
+  it('每个事件名都必须在判别联合里有成员(键数对齐 + 逐名同值)', () => {
+    expect(Object.keys(UNION_MEMBER_BY_NAME)).toHaveLength(SSE_EVENT_NAMES.length)
+    for (const [name, member] of Object.entries(UNION_MEMBER_BY_NAME)) {
+      expect(member).toBe(name)
+    }
+  })
+
   it('键→事件名映射与 SSE_EVENTS 值一致(编译期穷尽 + 运行时校验)', () => {
     for (const [key, name] of Object.entries(PAYLOAD_TYPE_BY_KEY)) {
       expect(SSE_EVENTS[key as keyof typeof SSE_EVENTS]).toBe(name)

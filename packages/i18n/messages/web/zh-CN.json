@@ -7158,6 +7158,10 @@
       "todo": "待办",
       "transition": "状态转换",
       "triage": "待分类",
+      "terminatedCancelled": "已取消",
+      "terminatedQuotaExceeded": "配额超限",
+      "terminatedPreempted": "被抢占",
+      "unrecognizedStatus": "未识别",
       "worker": "执行者",
       "workspace": "工作区",
       "low": "低",
@@ -8382,6 +8386,10 @@
         "MULTIPLE_MATCHES": {
           "title": "参数不完整或无效",
           "action": "修改后重试"
+        },
+        "NEEDS_INPUT_TIMEOUT": {
+          "title": "命令等待输入超时",
+          "action": "补答后重试"
         },
         "NESTING_DEPTH_EXCEEDED": {
           "title": "结构层级超出可处理范围",
@@ -13371,8 +13379,30 @@
       "title": "短剧编辑器"
     }
   },
+  "aiApprovedRules": {
+    "title": "命令放行规则",
+    "description": "审批时生成的命令前缀放行规则;90 天自动过期,可随时撤销",
+    "empty": "暂无放行规则",
+    "prefixHeader": "命令前缀",
+    "createdAtHeader": "创建时间",
+    "expiresAtHeader": "过期时间",
+    "neverExpires": "永不过期",
+    "revoke": "撤销",
+    "revokeConfirmTitle": "撤销放行规则?",
+    "revokeConfirmContent": "撤销后,前缀「{prefix}」的命令将重新需要人工审批。",
+    "revokeFailed": "撤销失败,请重试",
+    "loadFailed": "加载放行规则失败",
+    "refresh": "刷新",
+    "scopeAlways": "长期生效",
+    "scopeSession": "本次会话"
+  },
   "editor": {
     "toolApproval": {
+      "grantRuleToggle": "批准并把这类命令加入放行",
+      "grantRuleDesc": "以命令前缀「{prefix}…」为作用域生成放行规则,90 天后自动过期,可随时在放行规则面板撤销",
+      "grantRuleConfirmTitle": "确认放行高危命令?",
+      "grantRuleConfirmContent": "命令「{prefix}…」命中高危操作。放行后 90 天内同类命令将不再询问,使用风险需自行承担。",
+      "grantRuleConfirmCancel": "取消",
       "approve": "批准",
       "argsPreview": "参数预览",
       "description": "AI 请求执行以下高危操作,请确认是否允许",

@@ -25,7 +25,7 @@ import type {
   LecturerDetailScreenProps,
 } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 
 /** 讲师详情共享屏 — props 注入式跨端组件 */
 export type {
