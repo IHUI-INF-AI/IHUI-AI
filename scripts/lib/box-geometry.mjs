@@ -306,9 +306,19 @@ export function dimsFromText(win) {
     if (m[1] === 'w') w = Math.max(w, v)
     else h = Math.max(h, v)
   }
-  for (const m of win.matchAll(/\b(?:width|height)\s*[:=]\s*(\d+(?:\.\d+)?)/g)) {
-    if (m[0].startsWith('w')) w = Math.max(w, Number(m[1]))
-    else h = Math.max(h, Number(m[1]))
+  for (const m of win.matchAll(/\b(?:width|height)\s*[:=]\s*(rpx\(\s*[0-9.]+\s*\)|[0-9.]+(?:px|rpx|rem)?)/g)) {
+    /**
+     * **单位必须折成同一套**。本函数对 Tailwind 形态是折的(`w-[96rpx]` → 48px),而这一支从前
+     * 直接取原值(`width: 96rpx` → 96)—— 同一个几何量在两种书写下差 2 倍,于是
+     * `width: 96rpx; height: 96rpx; border-radius: 48rpx` 这种**写得最规范的真圆**永远证不出来
+     * (96 vs 半径 24 在 px 空间,而盒按 96 在 rpx 空间),HEAD 实测 57 处因此卡在"量不到/不在档"。
+     * 折算口径与 `radiusPxInLine` 同:rpx 是 750 稿半单位,rem 按 16px。
+     */
+    const raw = m[1]
+    const v = raw.startsWith('rpx(') ? Number(raw.slice(4, -1)) / 2 : raw.endsWith('rpx') ? Number(raw.slice(0, -3)) / 2 : raw.endsWith('rem') ? Number(raw.slice(0, -3)) * 16 : Number(raw.replace(/px$/, ''))
+    if (!Number.isFinite(v) || v <= 0) continue
+    if (m[0].startsWith('w')) w = Math.max(w, v)
+    else h = Math.max(h, v)
   }
   const dims = [...win.matchAll(/\b(width|height)\s*[:=]\s*([^,}\n]+)/g)].map((m) => ({
     axis: m[1] === 'width' ? 'w' : 'h',
