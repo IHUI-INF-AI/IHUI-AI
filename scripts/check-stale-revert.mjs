@@ -14,6 +14,29 @@
  *
  * R1(blocking):暂存内容 != HEAD 内容,且**字节级等于该路径某个祖先提交的版本**
  *   → 本次提交不是新工作,而是把历史版本原样写回。真新编辑不可能恰好等于历史 blob,误报率极低。
+ * R1r(blocking,**差值棘轮**):**复活行**。R1 的前提是"暂存内容 == 某个祖先版本",而真实事故里
+ *   调用方**还在陈旧副本上又改了自己的东西**(活文档追加、语言包补键)⇒ 暂存 blob = `祖先 ⊕ 新增`
+ *   ⇒ 逐字节不等于任何祖先 ⇒ R1 的条件**永不成立** ⇒ 整型隐身。2026-09-28 用私有探针索引实测过
+ *   这一格:把 `PROJECT_PLAN.md` 的工作树副本(比 HEAD 多 7150 行、并带着已被归档搬走的 2410 条
+ *   已勾选行)只放进临时 `GIT_INDEX_FILE`、按 `--staged` 喂本门 ⇒ **RC=0 且打印"✅ 反回退守门通过"**,
+ *   而任何人一次 `git add` + 一条不带 pathspec 的普通提交就能把已入库的搬运成果整批写回旧态。
+ *   判据不在本文件重写:它与落地器(`object-space-land.mjs`)用的是**同一份实现**,住在
+ *   `scripts/lib/stale-content-analysis.mjs` —— 一行同时满足 ①不在 HEAD 里 ②在暂存内容里
+ *   ③在该路径某个祖先版本里 ⇒ 它是被搬回来的旧内容,不是新写的内容(真新编辑只造 ①②,
+ *   陈旧拼接才造 ①②③;这个不对称就是判据的牙)。
+ *   **定级是差值棘轮,不是零容忍**:锚点 = 该文件在 **HEAD 侧自身的复活行数**(把 HEAD^→HEAD 这一步
+ *   喂同一条判据量到的数;那一次比对的祖先窗口**必须**剔掉 HEAD 与 HEAD^,否则"HEAD 新加的行"会在
+ *   窗口里的 HEAD 正文中被找到、锚点恒等于 HEAD 自己的新增行数 ⇒ 棘轮被它自己喂饱)。只有"本次把
+ *   复活量加大"或"新引入复活路径"才判红,存量只报数。理由(§12f/§12e,本仓反复记过):共享工作区对
+ *   HEAD 常年滞后上千个路径,当场零容忍就是一台与任何提交都无关的恒红门 ⇒ 每个会话每次提交都
+ *   **合法地**走 `--no-verify` ⇒ 提交链上全部守门对每一次提交作废。恒红门的代价不是"多几条红",
+ *   是这道链整体不再被执行。
+ *   **三态绝不并桶**:判红 / 只报数(存量、未覆盖)/ **未判定**(取不到祖先清单、正文读取失败、
+ *   超过门档读取预算、仓库无 HEAD^ 等)—— 最后一态逐条点名原因,且**不得被写成"通过"**:结论行会
+ *   带上"其中 U 处未判定",让"没判"与"判过"在账面上长得不一样。
+ *   覆盖面如实登记:R1r **只判索引面**(全量档判的是工作树副本 = 机器状态,不是本次提交的内容,
+ *   拿它判红同样是恒红门);正文超过行级尺寸护栏的路径落"未覆盖"—— 那 3.9MB 的活文档仍由 R1 的
+ *   整 blob 那一支护着(它比 sha,不读正文,不受护栏影响)。
  * R2(warn,不计失败):暂存删除了 HEAD 里存在的路径。宿主层会静默删工作区文件(实测一次
  *   137 个),这类删除被顺手提交同样是回滚;但删除也可能是真意图(`git rm` 合法),
  *   按「宁漏不误报」只告警。
@@ -35,7 +58,17 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { Undetermined, catBatchOids, gitRaw } from './lib/face-reader.mjs'
+import {
+  Undetermined,
+  catBatch,
+  catBatchOids,
+  catBatchSizes,
+  gitRaw,
+} from './lib/face-reader.mjs'
+// R1r 的行级复活判据与尺寸/证据行护栏:与落地器 `object-space-land.mjs` 共用**这一份**实现。
+// 两处各写一遍必然漂开(本仓记过最多次的失败型),而漂开的后果不是"数字不一致",是同一枚提交
+// 在两道尺子下一红一绿。本层是纯函数层 —— 取材一律走下面的 face-reader,不得在 lib 里读 git。
+import { resurrectAnalysis } from './lib/stale-content-analysis.mjs'
 
 export const SKIP_ENV = 'HUSKY_SKIP_STALE_REVERT_GUARD'
 export const ANCESTOR_WINDOW = 40
@@ -275,6 +308,316 @@ export function analyzeMerge(repoRoot, paths, mergeHead, { source = 'index' } = 
   return violations
 }
 
+function firstLine(e) {
+  return String(e?.message ?? e ?? '').split('\n')[0] || '(无输出)'
+}
+
+/**
+ * R1r 的成本政策(门档自己的参数,**不是**判据的松紧):
+ *  - `RESURRECT_GATE_MAX_BLOB_BYTES`:门档愿意读的单份正文上限。lib 那道 2MB 护栏是**落地器**的
+ *    成本档;本门必须把活文档放进去判 —— 实测 HEAD 面 `PROJECT_PLAN.md` = 5,751,784 B、
+ *    `README.md` = 3,125,548 B(2026-09-28 现读),沿 2MB 就会让**本票立项那一型**整族落"未覆盖",
+ *    等于把尺子立在离案发现场最近的那条路上。抬到 8MB,超出的仍判"未覆盖"并点名。
+ *  - `RESURRECT_PATH_BUDGET_BYTES`:单路径最多读多少祖先正文。超了就**按时间从近到远截断**
+ *    (不是整条放弃)—— 截断只会少认几行复活 ⇒ 偏保守(可能漏判红,绝不凭空造红),
+ *    且报告必须写出"取了最近 K/N 枚"。
+ *  - `RESURRECT_RUN_BUDGET_BYTES`:一枚提交的总读取上限,超出的路径落**未判定**并点名。
+ * 为什么要有这三个数而不是"全读":本门跑在 pre-commit 上,一台把提交拖到分钟级的门与一台恒红的门
+ * 结局相同 —— 各会话走 --no-verify,连带全部守门对该提交作废(§12e/§12f)。
+ */
+export const RESURRECT_GATE_MAX_BLOB_BYTES = 8 << 20
+export const RESURRECT_PATH_BUDGET_BYTES = 96 << 20
+export const RESURRECT_RUN_BUDGET_BYTES = 192 << 20
+
+/** 安全取一枚 ref 的 sha;取不到返回 null(由调用方按"无从对齐"处理,不猜)。 */
+function revParseOr(repoRoot, ref) {
+  try {
+    return git(['-C', repoRoot, 'rev-parse', '--verify', ref]).trim() || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * R1r 主体:对**索引面**逐路径量"复活行",并与该文件在 HEAD 侧自身的存量比(差值棘轮)。
+ *
+ * 返回四个互不相交的桶(调用方必须分开渲染,不得合并且不得把任何一桶当"通过"):
+ *  - `red`          复活行数 > 该文件 HEAD 侧存量 ⇒ 判红(本次把复活量加大 / 新引入复活路径)
+ *  - `stock`        复活行数 ≤ 存量 ⇒ **只报数**(存量债不是本次提交带进来的,拦它=恒红门)
+ *  - `uncovered`    按定义不在这条规则的射程(正文超行级尺寸护栏 / 二进制 / 无祖先版本)
+ *  - `undetermined` 该判而没判成(git 派生失败、预算耗尽、无 HEAD^ 可比存量)—— 逐条点名原因
+ *
+ * 取材面纪律(守门 118):内容一律经 `face-reader`(`catBatchOids`/`catBatchSizes`/`catBatch`),
+ * 且**同面同轮**(清单与正文在同一次运行里从同一个面取满),不散写 `git show`、不按磁盘读。
+ * 成本:先用一次 `--batch-check` 把"暂存==HEAD"与超护栏的路径摘掉(绝大多数),只对真要判的
+ * 路径读正文;祖先正文与 HEAD 正文走同一次 `cat-file --batch`。
+ */
+export function analyzeResurrect(
+  repoRoot,
+  paths,
+  {
+    mergeHead = null,
+    maxBlobBytes = RESURRECT_GATE_MAX_BLOB_BYTES,
+    pathBudgetBytes = RESURRECT_PATH_BUDGET_BYTES,
+    runBudgetBytes = RESURRECT_RUN_BUDGET_BYTES,
+  } = {},
+) {
+  const buckets = { red: [], stock: [], uncovered: [], undetermined: [] }
+  const pushU = (p, reason) => buckets.undetermined.push({ path: p, reason })
+  if (!paths.length) return buckets
+
+  // ① 只问 oid(一次 --batch-check):暂存与 HEAD 逐字节相同的路径不可能有复活,先摘掉。
+  const oidSpecs = []
+  for (const p of paths) {
+    oidSpecs.push(`:${p}`, `HEAD:${p}`)
+    if (mergeHead) oidSpecs.push(`${mergeHead}:${p}`)
+  }
+  let oids
+  try {
+    oids = catBatchOids(repoRoot, oidSpecs)
+  } catch (e) {
+    for (const p of paths) pushU(p, `oid 取材失败:${firstLine(e)}`)
+    return buckets
+  }
+  const cand = []
+  for (const p of paths) {
+    const cur = oids.get(`:${p}`)
+    const head = oids.get(`HEAD:${p}`)
+    if (!cur || !head) {
+      // 新增文件(HEAD 侧无此路径)/ 暂存删除 / unmerged:行级判据按定义无从对齐。
+      // 与 R1 同向**不判红**,但必须**逐条报名** —— 只报一个计数就等于把"没判"藏进汇总里。
+      buckets.uncovered.push({
+        path: p,
+        reason: !head ? 'HEAD 侧没有该路径(新增文件)⇒ 无"已删的行"可复活' : '暂存侧取不到 blob(删除态 / unmerged)⇒ 无从比对',
+      })
+      continue
+    }
+    if (cur === head) continue // 暂存 == HEAD ⇒ 无事发生
+    if (mergeHead) {
+      // 合并上下文里与 R1m 同一条窄判据:两父本就不同时,合并有权产出任一/融合结果。
+      const theirs = oids.get(`${mergeHead}:${p}`)
+      if (!theirs || theirs !== head) continue
+    }
+    cand.push(p)
+  }
+  if (!cand.length) return buckets
+
+  // ② 祖先窗口:走 R1 用的同一个出口(窗口长度住在它内部,本门不重复数字)。
+  const winMap = new Map()
+  const logFailed = new Set()
+  for (const p of cand) {
+    try {
+      winMap.set(p, ancestorCommits(repoRoot, p))
+    } catch {
+      winMap.set(p, [])
+      logFailed.add(p) // "读不到祖先"与"没有祖先"是两件事,后者才可能真是浅历史
+    }
+  }
+
+  // ③ 一次 --batch-check 问齐所有可能要读的正文大小 ⇒ 读之前就把预算定下来
+  const sizeSpecs = []
+  for (const p of cand) {
+    sizeSpecs.push(`:${p}`, `HEAD:${p}`, `HEAD^:${p}`)
+    for (const c of winMap.get(p)) sizeSpecs.push(`${c}:${p}`)
+  }
+  let sizes
+  try {
+    sizes = catBatchSizes(repoRoot, sizeSpecs)
+  } catch (e) {
+    for (const p of cand) pushU(p, `正文大小取不到:${firstLine(e)}`)
+    return buckets
+  }
+
+  const toRead = new Map()
+  const winUsed = new Map() // path -> { used: sha[], total } —— 截断必须被报名,不得静默少扫
+  const budgetSkipped = []
+  let usedBytes = 0
+  for (const p of cand) {
+    if (logFailed.has(p)) {
+      pushU(p, '祖先提交清单取不到(git log 未能运行)⇒ 复活行数无从量')
+      continue
+    }
+    const sc = sizes.get(`:${p}`)
+    const sh = sizes.get(`HEAD:${p}`)
+    if (typeof sc !== 'number' || typeof sh !== 'number') {
+      pushU(p, '暂存或 HEAD 侧正文取不到大小 ⇒ 无从判该路径是否在射程内')
+      continue
+    }
+    if (Math.max(sc, sh) > maxBlobBytes) {
+      buckets.uncovered.push({
+        path: p,
+        reason: `正文 ${Math.max(sc, sh)}B 超过门档单份正文上限 ${maxBlobBytes}B ⇒ 未读祖先(整 blob 判据 R1 仍照判)`,
+      })
+      continue
+    }
+    // 从**最近**的祖先往远处装箱:超预算就截断,而不是整条放弃。截断只少认复活行 ⇒ 偏保守,
+    // 但它必须被写进报告(否则"用 3 枚祖先判"读起来像"用 40 枚判过")。
+    const all = winMap.get(p) ?? []
+    const used = []
+    let bytes = 0
+    for (const c of all) {
+      const s = sizes.get(`${c}:${p}`) ?? 0
+      if (bytes + s > pathBudgetBytes) break
+      bytes += s
+      used.push(c)
+    }
+    if (used.length === 0 && all.length > 0) {
+      // **有**祖先却一枚都读不进预算 ⇒ 这是"没判",不是"没有可对照的历史"(后者才是 out-of-scope)。
+      // 两者混成一桶就是把"没读到"写成"查过了",本仓最高频的失效型。
+      pushU(p, `单路径预算 ${pathBudgetBytes}B 不足以读最近一枚祖先正文(${sizes.get(`${all[0]}:${p}`) ?? '?'}B)⇒ 未判定`)
+      continue
+    }
+    if (usedBytes + bytes > runBudgetBytes) {
+      budgetSkipped.push(p)
+      continue
+    }
+    usedBytes += bytes
+    winUsed.set(p, { used, total: all.length })
+    toRead.set(p, [`:${p}`, `HEAD:${p}`, ...used.map((c) => `${c}:${p}`)])
+  }
+  for (const p of budgetSkipped) pushU(p, `门档本轮总读取预算(${RESURRECT_RUN_BUDGET_BYTES}B)已耗尽 ⇒ 未判定(不是"没有复活")`)
+
+  let texts = new Map()
+  if (toRead.size) {
+    try {
+      texts = catBatch(repoRoot, [...toRead.values()].flat())
+    } catch (e) {
+      for (const p of toRead.keys()) pushU(p, `正文批量读取失败:${firstLine(e)}`)
+      return buckets
+    }
+  }
+
+  const flagged = []
+  for (const p of toRead.keys()) {
+    const { used, total } = winUsed.get(p)
+    const r = resurrectAnalysis({
+      baseText: texts.get(`HEAD:${p}`) ?? null,
+      newText: texts.get(`:${p}`) ?? null,
+      maxBlobBytes,
+      ancestors: used.map((c) => ({ commit: c.slice(0, 9), sha: c, text: texts.get(`${c}:${p}`) ?? null })),
+    })
+    if (r.status === 'undetermined') pushU(p, r.reason)
+    else if (r.status === 'out-of-scope') buckets.uncovered.push({ path: p, reason: r.reason })
+    else if (r.count > 0) flagged.push({ path: p, ...r, usedShas: used, total })
+    else if (used.length < total) {
+      // 量到 0 行**但窗口被预算截断过** ⇒ 这是一个更弱的结论,不得与"用满窗口判过且干净"混成一色
+      // (把"少看了"写成"看过了",与本仓最高频失效型同一条禁令)。
+      buckets.uncovered.push({
+        path: p,
+        reason: `复活 0 行,但祖先窗口按预算只取最近 ${used.length}/${total} 枚 ⇒ 该结论覆盖不全`,
+      })
+    }
+  }
+  if (!flagged.length) return buckets
+
+  // ④ 差值棘轮的锚点:同一把尺子量该文件**在 HEAD 侧自身**的复活行数(base=HEAD^,new=HEAD)。
+  //    刻意把 HEAD/HEAD^ 从这一对的祖先窗口里剔掉 —— 不剔就会在窗口里的 HEAD 正文中找到"HEAD
+  //    自己新加的行",anchor 恒等于 HEAD 的新增行数,棘轮被它自己喂饱(那是最隐蔽的一种假绿:
+  //    门看起来在判,实则永远判不出"加大")。
+  const headSha = revParseOr(repoRoot, 'HEAD')
+  const headParentSha = revParseOr(repoRoot, 'HEAD^')
+  let anchorTexts
+  try {
+    anchorTexts = catBatch(repoRoot, flagged.map((f) => `HEAD^:${f.path}`))
+  } catch (e) {
+    for (const f of flagged) pushU(f.path, `HEAD^ 侧正文读取失败:${firstLine(e)} ⇒ 存量无从对齐`)
+    return buckets
+  }
+  for (const f of flagged) {
+    // 锚点那一次用的是**同一份**祖先正文(上面那一次 catBatch 已经读满,不重复派生),
+    // 但窗口要剔掉 HEAD 与 HEAD^(理由见上 —— 不剔就是把棘轮喂给自己)。截断后的两侧同窗,
+    // 所以比较仍然是同一把尺子的两端,只是两端的尺子都短一点(偏保守,且已在报告里报名)。
+    const older = f.usedShas
+      .filter((sha) => sha !== headSha && sha !== headParentSha)
+      .map((sha) => ({ commit: sha.slice(0, 9), sha, text: texts.get(`${sha}:${f.path}`) ?? null }))
+    const truncated = f.usedShas.length < f.total
+    let anchor
+    if (!headParentSha) {
+      pushU(f.path, `复活 ${f.count} 行,但仓库没有 HEAD^(只有一枚提交)⇒ 无从量 HEAD 侧存量,不计红也不计绿`)
+      continue
+    }
+    if (older.length === 0) {
+      // 窗口里比 HEAD^ 更早、且动过这条路径的提交为零 ⇒ HEAD 那一步结构上没有"更早可搬"的来源。
+      anchor = { status: 'judged', count: 0, sample: [], commits: [] }
+    } else {
+      anchor = resurrectAnalysis({
+        baseText: anchorTexts.get(`HEAD^:${f.path}`) ?? null,
+        newText: texts.get(`HEAD:${f.path}`) ?? null,
+        maxBlobBytes,
+        ancestors: older,
+      })
+    }
+    if (anchor.status !== 'judged') {
+      pushU(f.path, `复活 ${f.count} 行,但 HEAD 侧存量未判定:${anchor.reason ?? '(无原因)'}`)
+      continue
+    }
+    const entry = {
+      path: f.path,
+      count: f.count,
+      anchor: anchor.count,
+      sample: f.sample,
+      commits: f.commits,
+      truncated,
+      windowUsed: f.usedShas.length,
+      windowTotal: f.total,
+    }
+    if (f.count > anchor.count) buckets.red.push(entry)
+    else buckets.stock.push(entry)
+  }
+  return buckets
+}
+
+/** R1r 的四个桶渲染成报告行。顺序固定:红 → 存量 → 未覆盖 → 未判定,汇总行永远在最后。 */
+function renderResurrect(rr) {
+  const lines = []
+  if (rr.red.length) {
+    lines.push(
+      `❌ [R1r] 检出 ${rr.red.length} 个路径把「HEAD 已删、祖先版本写过」的行搬进了暂存内容(混合体回写;整 blob 判据 R1 对这一型看不见):`,
+    )
+    for (const v of rr.red.slice(0, 30)) {
+      const win = v.truncated ? `  [祖先窗口按预算取最近 ${v.windowUsed}/${v.windowTotal} 枚 ⇒ 只会少认,不会多认]` : ''
+      lines.push(`   - ${v.path}  复活 ${v.count} 行(HEAD 侧自身存量 ${v.anchor} 行)${v.commits.length ? `  ← 见于祖先 ${v.commits.slice(0, 3).join(', ')}` : ''}${win}`)
+      for (const l of v.sample) lines.push(`       ↺ 复活: ${l}`)
+    }
+    if (rr.red.length > 30) lines.push(`   ... 另有 ${rr.red.length - 30} 个`)
+    lines.push('   成因与 R1 同族(共享工作区滞后 HEAD 的副本被 `git add`),但**这一型 R1 看不见**:')
+    lines.push('   暂存内容并不等于任何祖先版本,它是"滞后副本 ⊕ 本次新增"的混合体 ⇒ 只有行级比对认得出。')
+    lines.push('   出口 ① 取 HEAD 形态重新施加你的改动(活文档一律走 `node scripts/merge-live-doc.mjs --file <文档>`)')
+    lines.push('   出口 ② 旁路落地用 `node scripts/object-space-land.mjs`(它带同一条行级守卫,不碰共享工作树)')
+    lines.push(`   出口 ③ 确属有意搬回这些行 → 显式 \`git revert\`/前向提交,或 ${SKIP_ENV}=1 并在提交信息写明理由`)
+  }
+  if (rr.stock.length) {
+    lines.push(
+      `ℹ️  [R1r 只报数] ${rr.stock.length} 个路径的复活行数**不超过它在 HEAD 侧自身的存量**(差值棘轮:存量是别人欠的账,不是本次提交带进来的 ⇒ 当场判红就是一台恒红门):`,
+    )
+    for (const v of rr.stock.slice(0, 15))
+      lines.push(
+        `   - ${v.path}  复活 ${v.count} 行(HEAD 侧存量 ${v.anchor} 行)${v.truncated ? ` [祖先窗口取最近 ${v.windowUsed}/${v.windowTotal} 枚]` : ''}`,
+      )
+    if (rr.stock.length > 15) lines.push(`   ... 另有 ${rr.stock.length - 15} 个`)
+  }
+  if (rr.uncovered.length) {
+    lines.push(`ℹ️  [R1r 未覆盖] ${rr.uncovered.length} 个路径不在这条行级判据的射程内(**未覆盖 ≠ 通过**;整 blob 那一支仍照判):`)
+    for (const v of rr.uncovered.slice(0, 15)) lines.push(`   - ${v.path}: ${v.reason}`)
+    if (rr.uncovered.length > 15) lines.push(`   ... 另有 ${rr.uncovered.length - 15} 个`)
+  }
+  if (rr.undetermined.length) {
+    lines.push(`❓ [R1r 未判定] ${rr.undetermined.length} 个路径**没读到结论**(不是"检查过且干净",不得被读成通过):`)
+    for (const v of rr.undetermined.slice(0, 15)) lines.push(`   - ${v.path}: ${v.reason}`)
+    if (rr.undetermined.length > 15) lines.push(`   ... 另有 ${rr.undetermined.length - 15} 个`)
+  }
+  return lines
+}
+
+/** 结论行:有未判定/未覆盖时**必须带着它**,否则账面读起来像"全部判过且干净"。 */
+function verdictLine(modifiedCount, rr) {
+  const tail = []
+  if (rr?.undetermined.length) tail.push(`${rr.undetermined.length} 处未判定`)
+  if (rr?.uncovered.length) tail.push(`${rr.uncovered.length} 处未覆盖`)
+  if (rr?.stock.length) tail.push(`${rr.stock.length} 处复活只报数(存量)`)
+  return `✅ 反回退守门通过(判定 ${modifiedCount} 个文件,无历史版本回写)${tail.length ? ` —— 但其中 ${tail.join('、')},见上` : ''}`
+}
+
 function audit(repoRoot, { staged }) {
   const { modified, deleted } = staged
     ? stagedPaths(repoRoot)
@@ -314,6 +657,23 @@ function audit(repoRoot, { staged }) {
       `⚠️  合并上下文中:R1 未整轮豁免,改判"两父一致而暂存内容等于历史版本"(theirs=${mergeHead.slice(0, 9)}) —— 待判 ${judged.length} 个路径,命中 ${violations.length} 枚`,
     )
   } else lines.push('⚠️  处于 cherry-pick/revert/rebase 上下文,R1 本轮豁免')
+  /**
+   * R1r(复活行)—— 只判**索引面**。全量档判的是工作树副本,而"盘上的副本长什么样"是机器状态,
+   * 提交者结构上满足不了(AGENTS §12e:与本次提交无关的恒红门唯一结局是各会话 --no-verify,
+   * 连带废掉全部守门)。cherry-pick/revert/rebase 仍随 R1 一并豁免(取历史内容本就是其语义);
+   * 合并上下文里走同一条窄判据(两父一致才判),由 analyzeResurrect 的 mergeHead 分支实现。
+   */
+  let rr = null
+  if (staged) {
+    if (!exempt || mergeHead) rr = analyzeResurrect(repoRoot, judged, mergeHead ? { mergeHead } : {})
+    else lines.push('⚠️  [R1r] 随 R1 一并豁免(cherry-pick/revert/rebase 上下文)')
+    if (rr) {
+      lines.push(...renderResurrect(rr))
+      if (rr.red.length) failed = true
+    }
+  } else if (!exempt || mergeHead) {
+    lines.push('ℹ️  [R1r] 复活行判据只判索引面(--staged);全量档的工作树副本属机器状态,判红即恒红门')
+  }
   if (violations.length) {
     failed = true
     lines.push(
@@ -358,8 +718,7 @@ function audit(repoRoot, { staged }) {
     lines.push(`        或 ${SKIP_ENV}=1 并在提交信息里写明理由。`)
   }
   if (deleted.length) lines.push(...deleteWarn(deleted))
-  if (!failed)
-    lines.push(`✅ 反回退守门通过(判定 ${modified.length} 个文件,无历史版本回写)`)
+  if (!failed) lines.push(verdictLine(modified.length, rr))
   return { code: failed ? 1 : 0, lines }
 }
 
@@ -530,6 +889,9 @@ if (isDirectRun) {
 export const __test__ = {
   analyze,
   analyzeMerge,
+  analyzeResurrect,
+  renderResurrect,
+  verdictLine,
   classifyWorktree,
   mergeHeadSha,
   stagedPaths,
@@ -541,5 +903,8 @@ export const __test__ = {
   SKIP_ENV,
   ANCESTOR_WINDOW,
   MAX_FILES,
+  RESURRECT_GATE_MAX_BLOB_BYTES,
+  RESURRECT_PATH_BUDGET_BYTES,
+  RESURRECT_RUN_BUDGET_BYTES,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

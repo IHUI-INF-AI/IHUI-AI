@@ -64,6 +64,14 @@ import {
 } from './lib/bypass-git.mjs'
 import { analyze as staleAncestorAnalysis, ancestorCommits } from './check-stale-revert.mjs'
 import { catBatch, readWorktreeFile } from './lib/face-reader.mjs'
+// 行级复活/计行判据的**单一实现**(2026-09-28 提取到 lib:守门 84 的 R1r 要用同一把尺子,
+// 两处各写一遍必然漂开 —— 本层只留 import 与再导出,不再持有第二份计数口径)。
+import {
+  lineDelta,
+  resurrectAnalysis,
+  RESURRECT_MAX_BLOB_BYTES,
+  RESURRECT_MIN_LINE_LEN,
+} from './lib/stale-content-analysis.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 // 水印 CLI 与本器同目录:用它而不是拼 cwd 相对路径,理由见 watermarkPreflight 内注释。
@@ -93,181 +101,9 @@ export function clobberedPaths(paths, baseMap, headNow, { root }) {
   return paths.filter((p) => headBlobOf(headNow, p, { root }) !== baseMap.get(p))
 }
 
-/** 证据采样上限与单行截断宽度:报告要能读,不能把终端刷成一份 diff。 */
-const SAMPLE_LINES = 8
-const SAMPLE_COL = 100
-
-/** 行级祖先比对只服务于"文本行",所以有两条**必须报名**的边界(见 resurrectAnalysis 的三态): */
-const RESURRECT_MAX_BLOB_BYTES = 2 << 20
-/**
- * 证据行下限(去首尾空白后)。这个 12 不是审美,是 2026-09-28 在真仓在飞脏文件上量出来的拐点:
- * 同一判据不加下限 ⇒ 33 条待判路径里 17 条被判复活;加 12 ⇒ 15 条,而**真阳性一条不减**
- * (`apps/cli/src/commands/spec-drift.ts` 两种口径下都是 46 行复活、`i18n-key-removals.json` 11 行),
- * 减掉的恰好是 `return (`(9)、`labels:`(7)、`</div>`(6) 这类每个版本都在的骨架行。
- * 20 会继续吃掉真信号(spec-drift 46→39),6 挡不住 `annotations:`(12) —— 所以取 12。
- */
-const RESURRECT_MIN_LINE_LEN = 12
-
-/**
- * 计行口径**只有一份**(lineDelta 与 resurrectAnalysis 共用)。两处各写一遍必然漂开 ——
- * 剥尾部 `\r` 与"文末换行符不是一行"这两条都是踩过才写进来的,少一条就把同一次落地在两道
- * 判据里读成两种结论(守门 13c 的 CRLF 同型)。
- */
-function linesOf(s) {
-  if (s === '') return []
-  const parts = s.split('\n')
-  if (parts.length > 1 && parts[parts.length - 1] === '') parts.pop()
-  return parts.map((l) => l.replace(/\r$/, ''))
-}
-
-/** 行 → 重数(多重集,不是集合:同一行被搬回两份就得算两份)。`key` 只做**键变换**,不另起一套分行口径。 */
-function tallyLines(s, key = (l) => l) {
-  const m = new Map()
-  for (const l of linesOf(s)) {
-    const k = key(l)
-    m.set(k, (m.get(k) ?? 0) + 1)
-  }
-  return m
-}
-
-/**
- * 复活判据的键:**剥掉行尾逗号**。
- * 实测这一条不是审美 —— 往 JSON / 列表里追加条目时,原本最后一行必然从 `"x"` 变成 `"x",`,
- * 于是那一行的**文本**在 HEAD 里查不到、却在祖先里成串存在,被按"回潮"计数:
- * `scripts/data/i18n-key-removals.json` 这种"纯追加一条声明"的正当编辑会因此被拒,
- * 而拒绝的后果不是拦下缺陷,是使用者开始挂 `LAND_ALLOW_STALE` —— 那道闸连事故那一型也一起放行
- * (AGENTS §12e:逼人来绕的尺子等于没有尺子)。真回潮的形态(整段文本 HEAD 里一个字都没有)
- * 不受这个键变换影响:事故那 5 行 `"quitChecking": "…"` 去逗号后在 HEAD 里照样不存在。
- * 只对 `key` 生效,`lineDelta`(消失/多出计数)仍按原口径,两处不得混用。
- */
-const resurrectKey = (l) => l.replace(/,+$/, '')
-
-/**
- * 行级**多重集**差(纯函数,构造面可证)。
- *
- * 刻意不做位置对齐的 diff:判"这次落地会抹掉基线里哪些行"只需要计数,而位置对齐会把
- * "整段搬家"读成大量删除 —— 那是假阳,后果和恒红门一样(人开始怀疑工具、开始加放行)。
- * 计行前剥尾部 `\r`:共享工作树的副本常是 CRLF 而被审 blob 是 LF,不剥会把"整文件换行符不同"
- * 读成"每一行都被删"(守门 13c 记过同一条)。文末换行符同理**不是一行**:不剥就会让
- * "只是少了个行尾换行"的内容凭空多出 1 行消失 ⇒ 把该放行的判成该拒绝(假阳,代价是逼人加放行)。
- *
- * 任一侧取不到正文 ⇒ vanished/appeared 记 **null**(不是 0):"没量到"与"量到零"是两件事,
- * 后者可放行、前者必须按未判定处理 —— 本仓最高频的失效型就是"把没判写成判过了"。
- */
-export function lineDelta(baseText, newText, { sampleLines = SAMPLE_LINES, sampleCol = SAMPLE_COL } = {}) {
-  if (typeof baseText !== 'string' || typeof newText !== 'string')
-    return { vanished: null, appeared: null, vanishedSample: [], appearedSample: [] }
-  const base = tallyLines(baseText)
-  const next = tallyLines(newText)
-  const extras = (from, against) => {
-    const out = []
-    for (const [line, count] of from) {
-      const d = count - (against.get(line) ?? 0)
-      for (let i = 0; i < d; i++) out.push(line)
-    }
-    return out
-  }
-  const vanished = extras(base, next)
-  const appeared = extras(next, base)
-  const clip = (l) => (l.length > sampleCol ? `${l.slice(0, sampleCol)}…` : l)
-  return {
-    vanished: vanished.length,
-    appeared: appeared.length,
-    vanishedSample: vanished.slice(0, sampleLines).map(clip),
-    appearedSample: appeared.slice(0, sampleLines).map(clip),
-  }
-}
-
-/**
- * **行级复活**判据(纯函数):落地内容相对基准**多出来**的行里,有多少是"某个祖先版本写过、
- * 而基准已删掉"的旧内容。三条同时成立才算一行复活(缺任一即不算,这是它不误伤人真删除的理由):
- *  ① 该行在待落地内容里的重数 > 在基准 blob 里的重数(不是"搬家",是"新增")
- *  ② 该行确实出现在要落地的内容里(由 ① 隐含)
- *  ③ 该行出现在该路径**某个**祖先版本里(窗口由守门 84 的 ancestorCommits 决定,本器不重复数字)
- * 复活份数取 `min(①的超出重数, 各祖先里该行重数的最大值)` —— 一行落地加 3 份、祖先只有 1 份时,
- * 另 2 份是真新内容,不得跟着算成旧账(把新账算成旧账 = 逼人放行,与恒红门同罪)。
- *
- * 噪声行不计证据,两条门槛都要(缺一即真仓在飞文件上满天误报):
- *  ① 去首尾空白后必须**含至少一个字母**(空行、纯括号/逗号/运算符不算)——它们在几乎每个祖先版本里都在;
- *  ② 去首尾空白后长度 ≥ `RESURRECT_MIN_LINE_LEN`(常量旁记着 12 这个数是**怎么量出来的**)。
- * 这两条只收窄"哪些行算证据",**不改 ①②③ 判据本身**;真仓实测它们减掉的是 `return (`、`labels:`、
- * `</div>` 一类骨架行,而一条真阳性都不减。残余误报如实登记在头注(值同键的 YAML/CSS 行,如
- * `severity: warning`),那一类与事故里的 `"quitSkip": "跳过",` 在行局部信息上同形,不再靠更窄的规则硬分。
- *
- * 三态,不并桶:
- *  - `judged`:count 是量到的数(>0 即参与拒绝)。
- *  - `undetermined`(判据**该跑而没跑成**):基准正文读不到 / 祖先清单非空却一条正文都没读到 /
- *    批量派生失败。这一态**参与拒绝**,与整 blob 判据抛异常时的既有行为同向(绝不把"没判"写成"判过了")。
- *  - `out-of-scope`(按定义**不在这条规则的射程**):二进制正文、超过尺寸护栏、祖先窗口里没有该路径的
- *    任何版本。这一态**不拒**,但逐条大声报名并在汇总行写"未覆盖 ≠ 通过"。
- *    为什么不拒(2026-09-28 真仓量出来的):本器最常落的两条路径正是 `PROJECT_PLAN.md`(实测 3.9MB)
- *    与 `README.md`(3.09MB),天然超护栏 ⇒ 按拒处理就是每台每次必红,唯一出路是人长期带着
- *    `LAND_ALLOW_STALE=1` 跑它,那连事故那一型也一起放行(AGENTS §12e 恒红门同型)。
- *    这两个文件仍由整 blob 那一支看守 —— 它比 sha,不读正文,不受尺寸护栏影响。
- */
-export function resurrectAnalysis({
-  baseText,
-  newText,
-  ancestors = [],
-  maxBlobBytes = RESURRECT_MAX_BLOB_BYTES,
-  minLineLen = RESURRECT_MIN_LINE_LEN,
-  sampleLines = SAMPLE_LINES,
-  sampleCol = SAMPLE_COL,
-} = {}) {
-  const clip = (l) => (l.length > sampleCol ? `${l.slice(0, sampleCol)}…` : l)
-  const undetermined = (reason) => ({ status: 'undetermined', reason, count: null, sample: [], commits: [] })
-  const outOfScope = (reason) => ({ status: 'out-of-scope', reason, count: null, sample: [], commits: [] })
-  if (typeof newText !== 'string') return outOfScope('待落地内容不是文本(二进制或取不到)⇒ 行级判据不适用')
-  if (typeof baseText !== 'string') return undetermined('基准 blob 正文取不到 ⇒ 无从判"这行是不是新加的"')
-  if (!Array.isArray(ancestors) || ancestors.length === 0)
-    return outOfScope('祖先窗口里没有该路径的任何版本(浅历史 / 刚建的文件)⇒ 无可对照')
-  const usable = ancestors.filter((a) => typeof a?.text === 'string')
-  if (usable.length === 0) return undetermined(`祖先清单有 ${ancestors.length} 枚,但正文一枚都没读到`)
-  if (baseText.length > maxBlobBytes || newText.length > maxBlobBytes)
-    return outOfScope(
-      `正文 ${Math.max(baseText.length, newText.length)}B 超过行级扫描尺寸护栏 ${maxBlobBytes}B(整 blob 判据仍照判)`,
-    )
-
-  const baseT = tallyLines(baseText, resurrectKey)
-  const newT = tallyLines(newText, resurrectKey)
-  const ancT = usable.map((a) => ({ commit: a.commit, m: tallyLines(a.text, resurrectKey) }))
-  let count = 0
-  const sample = []
-  const commits = []
-  const seenCommit = new Set()
-  const newLines = linesOf(newText)
-  const clipBy = new Map(newLines.map((l) => [resurrectKey(l), l])) // 报名时报**原文**,不报去逗号后的键
-  for (const [line, cNew] of newT) {
-    // ① 必须是**基准 blob 里根本没有这一行**(按上面的键比)。这里刻意不用"多重集多出"——
-    //    实测误伤面正是那一族:往登记表里再加同形条目时,该行的文本在 HEAD 里本来就有,
-    //    只是次数变多,而"多出 N 次 + 祖先也含此行"会被算成复活 N 行 ⇒ 正当编辑被拒 ⇒
-    //    使用者只能挂 LAND_ALLOW_STALE,那连事故那一型也一起放行(AGENTS §12e 恒红门同型)。
-    if (baseT.has(line)) continue
-    const extra = cNew
-    if (extra <= 0) continue
-    const rawLine = clipBy.get(line) ?? line
-    const t = rawLine.trim()
-    if (!/\p{L}/u.test(t) || t.length < minLineLen) continue // 噪声行/骨架行不配当证据(见上 ①②)
-    let best = 0
-    let bestCommit = null
-    for (const { commit, m } of ancT) {
-      const a = m.get(line) ?? 0
-      if (a > best) {
-        best = a
-        bestCommit = commit
-      }
-    }
-    if (best === 0) continue // ③ 没有任何祖先含这一行 ⇒ 它是真新内容,不是回潮
-    count += Math.min(extra, best)
-    if (bestCommit && !seenCommit.has(bestCommit)) {
-      seenCommit.add(bestCommit)
-      commits.push(bestCommit)
-    }
-    for (let i = 0; i < Math.min(extra, best) && sample.length < sampleLines; i++) sample.push(clip(rawLine))
-  }
-  return { status: 'judged', reason: null, count, sample, commits }
-}
-
+/* 计行口径与行级复活判据(linesOf / tallyLines / resurrectKey / lineDelta / resurrectAnalysis)
+ * 已于 2026-09-28 提取到 scripts/lib/stale-content-analysis.mjs —— 守门 84 的 R1r 与本器必须用
+ * **同一把尺子**,所以本文件不再持有实现,只 import 上面那一份。 */
 /**
  * 陈旧落地守卫。两条互相补盲的判据,任一条成立即**拒绝**:
  *
