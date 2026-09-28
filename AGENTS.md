@@ -2389,3 +2389,4 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
   ③ `width` 写死时,加多少内边距都改不了盒宽(不得把 648 处真圆顶成胶囊红)。
   同批补齐 RN 的 `paddingHorizontal` / `paddingLeft|Right` 取材 —— 旧实现只认 Tailwind 的 `px-N`,
   同一件事两种书写只跟一半,这一型在尺子上是**静默**的(与"改了 web 忘了 App"同因)。
+- **跳门次数只有一个真值来源:`.workbuddy/safe-commit-attestation.jsonl`**(每条含 `kind`=mine/not-ours/unattributed、`failedGates`、`ranFullBatch`、`declaredFiles`)。要回答"这周有多少次提交是在检查全废的状态下进的库",从这里量,不凭感觉;`ranFullBatch=false` 比跳门更严重(那一批检查压根没跑)。**此前全仓没有任何一处统计过这个总量**,所以"修好三道"完全可能只是"修好我恰好看到的三道"——量算入口 `scripts/alert-volume-report.mjs`(该文件不在位即属**未交付**,调用方必须报"未判定",不得拿 0 当结论)。

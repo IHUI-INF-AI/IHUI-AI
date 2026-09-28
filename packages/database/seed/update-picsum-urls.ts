@@ -9,15 +9,12 @@ import { liveChannels } from '../src/schema/live.js'
 import { circles } from '../src/schema/community.js'
 import { newsArticles } from '../src/schema/news.js'
 import { eq } from 'drizzle-orm'
-import {
-  DOMESTIC_IMAGE_POOL,
-  isOverseasImageUrl,
-} from '../../shared/src/constants/image-source-pool.js'
+import { DOMESTIC_IMAGE_POOL, isOverseasImageUrl } from './image-source-pool.js'
 import type { PgTable, PgColumn } from 'drizzle-orm/pg-core'
 
 const db = createDb(process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui')
 
-// 替换目标 = 境内可达图源池唯一真相源(packages/shared/src/constants/image-source-pool.ts)。
+// 替换目标 = 境内可达图源池(本包 seed/image-source-pool.ts 是 shared 那份的镜像,由根层 scripts/check-image-source-domains.mjs 强制等值)。
 // 旧版这里的 5 条"真实 CDN"里有 2 条是境外域(images.ctfassets.net / cdn.sanity.io),
 // 直接跑它等于换个境外源,不解决国内移动网络可达性 —— 故整池改引同一份境内常量。
 const urlPool = [...DOMESTIC_IMAGE_POOL]

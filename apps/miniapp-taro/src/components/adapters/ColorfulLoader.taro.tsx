@@ -76,7 +76,7 @@ const dotStyle = (
   // 圆点半径 = 自己边长的一半,与 RN 端同一式(RN 写 `borderRadius: size / 2`)。
   // 刻意不写档名:写 `rnRadius['2xl']` 会让"小程序这一端出现 16 档、RN 端只有动态式"
   // 被跨端尺读成分叉,而两端等效半径本来就是同一个数(共享源给的 dotSize)。
-  borderRadius: toRpx(dotSize / 2),
+  borderRadius: '50%',
   backgroundColor: color,
   transform: `rotate(${angle}deg) translateY(-${toRpx(radius)})`,
 })
