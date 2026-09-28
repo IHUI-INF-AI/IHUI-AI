@@ -28,9 +28,17 @@
  * 扩池唯一姿势:先按上面四要件实测留证,再把 URL 追加进本数组;禁止拿境外域名凑数。
  *
  * 消费方(同一份常量,禁止各自抄写):
- *   packages/database/seed/lessons.ts / update-picsum-urls.ts / migrate-overseas-images.ts,
- *   apps/miniapp-taro/src/pages/index/index.tsx / src/pkg-ai/aigc/list.tsx,
- *   packages/database/scripts/check-image-source-domains.mjs(经本文件读境外域名清单)
+ *   apps/miniapp-taro/src/pages/index/index.tsx / src/pkg-ai/aigc/list.tsx(`from '@ihui/shared/constants'`),
+ *   `packages/shared/src/constants/index.ts` 的 barrel 出口(`export * from './image-source-pool'`)。
+ *
+ * `packages/database` **不得** import 本文件:架构契约表层序是
+ * contract(10) ← platform(20,含 packages/database) ← composite(30,含本包) ← tooling(90),
+ * "rank 小的可被 rank 大的依赖,反向即违规"(守门 103 实测判 D1/D2/D3 红)。
+ * 所以 seed 侧用的是逐字镜像 `packages/database/seed/image-source-pool.ts`,由两把尺子钉住不漂:
+ *   ① `scripts/check-image-source-domains.mjs` 按被审面逐键比三张清单(漂移即红);
+ *   ② `node --test scripts/tests/image-source-pool-parity.test.mjs` 真执行两份模块比函数行为。
+ * 判据本体住根层 `scripts/`(tooling),它不 import 本文件而是**从被审面解析清单**——
+ * import 走磁盘而问责走 HEAD/索引,两面混取会让报告与提交内容不是同一份代码(守门 118)。
  */
 
 /** 境内可达图源池(轮转分配用;顺序稳定,追加只允许在尾部) */
