@@ -504,3 +504,53 @@ test('全量档不得默认读磁盘副本 —— 判定面必须是 HEAD blob',
   assert.match(body, /'head'/, "缺省判定面必须显式是 head")
 })
 
+/**
+ * G-307 闭环端到端:归并器把 F1 分叉的未勾副本翻成带注记的已完成行后,
+ * 防丢层(本门全量档 + 它的 --heal 回捞)**不得**把那行读成"整行消失"。
+ * 两臂各测一时代形态:legacy 前置式(HEAD 存量)与现行后置式(G-307 修法 a)。
+ * 修前该夹具在 legacy 臂上 exit 1(循环的第一半),修后两臂都 exit 0;
+ * 反向对照臂(整行真删 + 别处一句散文引用)在两代形态下都必须仍 exit 1 ——
+ * 证明"识别合法改写"没有被放宽成"编号在任何地方出现就算活"。
+ */
+test('端到端(G-307):翻勾+注记的两种形态都不得触发回捞;整行真删仍必须判丢', () => {
+  const PLAIN =
+    '- [ ] G-256 一条**环境相关红**,归因未定:`tests/x.py::t` 在工作树红而在干净检出绿。解阻判据:带与不带 `.env` 各跑一次同一文件即可定性。'
+  const LEGACY =
+    '- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-256 · 一条」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 G-256 一条**环境相关红**,归因未定:`tests/x.py::t` 在工作树红而在干净检出绿。解阻判据:带与不带 `.env` 各跑一次同一文件即可定性。'
+  const SUFFIXED =
+    '- [x] ✅(2026-09-28) G-256 一条**环境相关红**,归因未定:`tests/x.py::t` 在工作树红而在干净检出绿。解阻判据:带与不带 `.env` 各跑一次同一文件即可定性。 （[归并] 本行与已完成登记同题(主键 「G-256 · 一条」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、正文逐字保留于前、不删行、不重复计账）'
+  const v1 = ['# 计划', '', PLAIN, ''].join('\n')
+  for (const [name, turned] of [
+    ['legacy 前置式', LEGACY],
+    ['现行后置式', SUFFIXED],
+  ]) {
+    const dir = tempPlanRepo(v1)
+    try {
+      writeFileSync(join(dir, 'PROJECT_PLAN.md'), ['# 计划', '', turned, ''].join('\n'), 'utf8')
+      git(dir, 'add', 'PROJECT_PLAN.md')
+      git(dir, 'commit', '-m', `fixture: ${name} 翻勾`)
+      const r = runGate(dir, [])
+      assert.equal(
+        r.status,
+        0,
+        `${name}:被合法翻勾的登记行不得判丢(判丢即触发回捞 ⇒ F1 再红 ⇒ 循环):\nstdout:${r.stdout}\nstderr:${r.stderr}`,
+      )
+    } finally {
+      rmScratch(dir)
+    }
+  }
+  // 反向对照:整行真删,只在别处留一句带同样文字的散文引用 ⇒ 必须仍判丢(两代形态同判)
+  const erased = ['# 计划', '', '- 说明:曾有过 G-256 一条**环境相关红** 的登记,现状以别处为准,本行只是转述引用。', ''].join('\n')
+  const dir = tempPlanRepo(v1)
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), erased, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-m', 'fixture: 整行真删只留散文引用')
+    const r = runGate(dir, [])
+    assert.equal(r.status, 1, `整段被删不得被"改写识别"洗白:\nstdout:${r.stdout}`)
+    assert.match(`${r.stdout}${r.stderr}`, /G-256/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
