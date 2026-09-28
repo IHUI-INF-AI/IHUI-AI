@@ -8,6 +8,8 @@
 //  2. `git()` 默认剥 GIT_INDEX_FILE —— 否则 caller shell 里残留的临时索引会把"对齐共享主索引"写歪;
 //  3. commitTreeWithIndex 全程零触碰主索引与工作树(对象空间的定义,由断言"索引没变/盘没变"证明);
 //  4. alignSharedIndex 的归属纪律成对对照:索引==父提交 ⇒ 必须对齐;索引==别人真暂存 ⇒ 必须不动并点名。
+//     删除档同判据(T11/T12):新 HEAD 无此路径且索引==父提交 ⇒ 必须清掉索引残留(否则一次普通提交就把
+//     刚删的文件加回 HEAD,本仓一枚孤儿组件因此连着复活四次);别人真暂存过 ⇒ 仍不代删。
 // 临时仓一律经 scripts/lib/scratch-dir.mjs(§26 唯一夹具落点),git 写操作只发生在临时仓内。
 
 import { execFileSync } from 'node:child_process'
@@ -157,5 +159,64 @@ test('T10 alignSharedIndex:索引里没有该路径(旁路提交的新文件) �
   const res = bg.alignSharedIndex({ root: dir, paths: ['brand-new.txt'], parentRef: head })
   assert.equal(res.moved.length, 1)
   assert.notEqual(bg.indexBlobOf('brand-new.txt', { root: dir }), bg.ABSENT)
+})
+
+// 删除档:与 T8/T9 同一条判据的第三种形态。旧实现在这里落 `undetermined`(HEAD 里没有 ⇒ "无法对齐"),
+// 于是索引里留着旧 blob、status 显 ` D `,此后任何一次不带 pathspec 的普通提交都会把刚删的死文件加回 HEAD。
+// 本仓一枚孤儿组件(QuitUpdateOverlay.tsx)因此连着复活四次,每次复活都让引用它的语言包判据红在干净 HEAD 上
+// —— 恒红门的唯一结局是各会话跳钩子、连带全部守门作废(AGENTS §12e)。
+test('T11 alignSharedIndex 删除档·正向:新 HEAD 无此路径且索引==父提交 ⇒ 清掉索引残留,且普通提交不得把它加回来', (t) => {
+  const dir = makeRepo(t)
+  const head = bg.git(['rev-parse', 'HEAD'], { root: dir })
+  const idx = join(dir, '.git', 'tmp-align-idx')
+  const runIdx = (args) =>
+    execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-C', dir, ...args], {
+      ...runOpts,
+      env: { ...process.env, GIT_INDEX_FILE: idx },
+    }).trim()
+  // 只在这把私有索引上动 —— 主索引此刻必须仍是"留着 a.txt"的幽灵态
+  runIdx(['read-tree', 'HEAD'])
+  runIdx(['update-index', '--force-remove', '--', 'a.txt'])
+  const tree = runIdx(['write-tree'])
+  const commit = runIdx(['commit-tree', tree, '-p', head, '-m', 'obj: delete a.txt'])
+  assert.equal(bg.casUpdateRef(commit, head, { root: dir }), true)
+  assert.equal(bg.headBlobOf('HEAD', 'a.txt', { root: dir }), bg.ABSENT, '提交面必须真删掉了')
+  assert.notEqual(bg.indexBlobOf('a.txt', { root: dir }), bg.ABSENT, '对齐前主索引仍留着幽灵')
+
+  const res = bg.alignSharedIndex({ root: dir, paths: ['a.txt'], parentRef: head })
+  assert.deepEqual(res.moved, ['a.txt'], '索引==父提交态 ⇒ 必须清掉')
+  assert.equal(res.undetermined.length, 0, '删除不是"判不出":旧版在这里落 undetermined,正是复活根因')
+  assert.equal(bg.indexBlobOf('a.txt', { root: dir }), bg.ABSENT)
+
+  // 有牙证明:此后一次普通的 `git commit -a`(别人改了自己的文件)不得把 a.txt 带回 HEAD
+  const st = runGit(dir, ['status', '--porcelain', '--', 'a.txt'])
+  assert.match(st, /^\?\?/, '盘上那份只能是不在跟踪中的 ??,不能是 D(在跟踪 = 一次普通提交就复活)')
+  writeFileSync(join(dir, 'sub', 'keep.txt'), 'keep changed\n')
+  runGit(dir, ['commit', '-q', '-a', '-m', 'plain commit by someone else'])
+  assert.equal(bg.headBlobOf('HEAD', 'a.txt', { root: dir }), bg.ABSENT, '普通提交不得复活已删路径')
+})
+
+test('T12 alignSharedIndex 删除档·反向:索引里是别人真暂存的内容(≠父提交) ⇒ 不代删,并保留他的暂存', (t) => {
+  const dir = makeRepo(t)
+  const head = bg.git(['rev-parse', 'HEAD'], { root: dir })
+  const idx = join(dir, '.git', 'tmp-align-idx2')
+  const runIdx = (args) =>
+    execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-C', dir, ...args], {
+      ...runOpts,
+      env: { ...process.env, GIT_INDEX_FILE: idx },
+    }).trim()
+  runIdx(['read-tree', 'HEAD'])
+  runIdx(['update-index', '--force-remove', '--', 'a.txt'])
+  const commit = runIdx(['commit-tree', runIdx(['write-tree']), '-p', head, '-m', 'obj: delete a.txt'])
+  assert.equal(bg.casUpdateRef(commit, head, { root: dir }), true)
+  // 别人在这条路径上暂存了新内容(索引=v2 ≠ 父提交 v1)
+  writeFileSync(join(dir, 'a.txt'), 'v2\n')
+  runGit(dir, ['add', '--', 'a.txt'])
+
+  const res = bg.alignSharedIndex({ root: dir, paths: ['a.txt'], parentRef: head })
+  assert.equal(res.moved.length, 0, '别人真暂存过 ⇒ 一律不动')
+  assert.equal(res.skipped.length, 1)
+  assert.match(res.skipped[0].reason, /归属他人/)
+  assert.equal(bg.indexBlobOf('a.txt', { root: dir }), bg.writeBlob('v2\n', { root: dir }), '他的 v2 必须原样留着')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

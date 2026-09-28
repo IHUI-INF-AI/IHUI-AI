@@ -978,4 +978,60 @@ test('M23 反向锁(裸 SQL 写链这一维):SQL 动词表只许一份、RETURNI
   if (self.includes(verbNeedle))
     throw new Error('镜像测试里出现了第二份裸 SQL 动词表 ⇒ 判据与取证各说各话')
 })
+
+/**
+ * M24(票 守门134 条件性扩面①,2026-09-28):B2 那一跳的**裸 SQL 维触发条件**可复跑测量。
+ * 票面判据逐字:任一 ack 落点的最小函数体 await 了一个"体内含无 RETURNING 裸 SQL 写"的具名函数
+ * ⇒ 必补 B2 裸 SQL 维;未达即判据不动。测量住在门本体 measureB2RawSqlTrigger(与判据共用同一份
+ * findRawSqlWriteChains / findBooleanAckSends / parseImportBindings,这里不另写第二份)。
+ * 三条各钉一件事:
+ *   阳性对照(夹具仓:委托腿裸 SQL 写无 RETURNING ⇒ 恰命中 1 并点名两侧)—— 没有它,"真仓 0"
+ *     与"测量瞎了读 0"同形(M11 那把控制尺的同族教训);
+ *   阴性对照(同一腿补 RETURNING ⇒ 0)—— 库答复住在模板串里,不得当罪证;
+ *   真仓 HEAD 现读 hits=0 ⇒ 触发条件未达。命中 >0 时本条**当场红并喊"必补"** —— 这是接线索
+ *     (tripwire),不是恒红锁:它只在票面形状出现的那天红,而那天判据本来就必须接上。
+ *     刻意不钉 hops/undetermined 的下限(第二十九批 M11 的教训:把存量数写进断言 = 清完债那天
+ *     冒出与任何提交无关的红)。
+ */
+test('M24 票134 触发条件可复跑:B2 裸 SQL 维普查(阳性恰命中/RETURNING 腿不命中/真仓 HEAD 现读 0)', () => {
+  const dir = mkScratch('b2-raw-trigger-')
+  try {
+    writeRepo(dir, { commit: false })
+    put(dir, T.B2_CALLER, T.B2_FIXTURES.delegated)
+    put(dir, T.B2_CALLEE, T.B2_FIXTURES.calleeRawNoReturning)
+    gitIn(dir, ['add', '-A'])
+    gitIn(dir, ['commit', '-q', '-m', 'trigger-fixture'])
+    const hit = T.measureB2RawSqlTrigger(dir, 'head')
+    if (hit.hits.length !== 1)
+      throw new Error(
+        `阳性对照(被调腿裸 SQL 写、无 RETURNING)必须恰命中 1,实得 ${hit.hits.length}(hops=${hit.hops},判不出=${hit.undetermined.length})⇒ 测量对这一型失明,真仓量出的 0 不可信:${JSON.stringify(hit.hits)}`,
+      )
+    const h = hit.hits[0]
+    if (h.caller !== T.B2_CALLER || h.callee !== T.B2_CALLEE || h.fn !== 'deleteThing')
+      throw new Error(`命中必须点名调用方、被调文件与具名函数,实得 ${JSON.stringify(h)}`)
+    // 阴性对照:同一条腿补 RETURNING ⇒ 库答复住在模板串里,不是触发。
+    put(dir, T.B2_CALLEE, T.B2_FIXTURES.calleeRawReturning)
+    gitIn(dir, ['add', '-A'])
+    gitIn(dir, ['commit', '-q', '-m', 'returning-leg'])
+    const letgo = T.measureB2RawSqlTrigger(dir, 'head')
+    if (letgo.hits.length !== 0)
+      throw new Error(
+        `带 RETURNING 的被调腿被判成触发:${JSON.stringify(letgo.hits)} ⇒ 测量把"证据在别处"当罪证,真仓读数会虚高`,
+      )
+  } finally {
+    rmScratch(dir)
+  }
+  const real = T.measureB2RawSqlTrigger(resolve(SCRIPTS_DIR, '..'), 'head')
+  console.log(
+    `    · 真仓 HEAD 面触发条件普查:ack 一跳 ${real.hops} 条 / 命中 ${real.hits.length} / 判不出 ${real.undetermined.length}`,
+  )
+  if (real.hits.length !== 0)
+    throw new Error(
+      `票 守门134 触发条件已达(${real.hits.length} 处):\n` +
+        real.hits
+          .map((x) => `  · ${x.caller}:${x.line}〈${x.key}〉→ ${x.callee}#${x.fn} 裸写 ${x.bareWrites} 条`)
+          .join('\n') +
+        '\n⇒ B2 那一跳必须接裸 SQL 维:复用 findRawSqlWriteChains 一份实现,被调正文读 indexExportedFns 的 rawBodyText;不得再挂"零存量"。',
+    )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

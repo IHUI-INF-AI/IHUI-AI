@@ -197,6 +197,90 @@ function fatalTargetLines(lines) {
 const CFG = resolveTarget(TARGET, fatalTargetLines)
 if (!CFG) process.exit(2) // resolveTarget 已 exit;这一行只给控制流一个显式终点,不另立结论
 
+/**
+ * 端目录 ↔ TARGET_CONFIG 漂移对账(2026-09-28 G-304 的另一半;承另一路实现的判据)。
+ *
+ * 表是"target → 目录"的**唯一出口**(不能再把 argv 校验挂回目录清单,否则两处算同一件事必漂移),
+ * 但一张静态表会腐烂:`packages/i18n/messages/` 下多出一个没进表的目录 = 那一族在本门上**零覆盖**,
+ * 而账面读起来仍是"七个端都扫过了" —— 与 G-304 立因同型。所以这里用端目录的**实际清单**反查表:
+ *   · 清单取不到 ⇒ **按有没有显式 --target 分两手**:没指名 ⇒ 只喊"漂移对账未判定"(空仓 / 部分
+ *     checkout / 尚未建 messages 目录是合法形态,判死就是一台与本次提交无关的恒红门,AGENTS §12e);
+ *     指名了要查哪一端而根目录读不到 ⇒ exit 2 —— 那正是 G-304 立因的那一型("没扫过却打印通过"),
+ *     另一路实现把它整片判死、本路整片放过,合并不得把两者折成一个开关(此格两侧原为待拍板分歧,
+ *     现按"分歧的两半各归其位"收口:处置动作不同的两种输入,不许共用一个结论)。
+ *   · 目录不在表里 ⇒ 默认档大声点名 + 计数(它可能正是别人在飞的新端),`--strict` 才 exit 2。
+ *
+ * 这一块的输出**刻意不用**下面的颜色常量 `C`:`reportEndpointDrift` 在模块装载期就被调用,
+ * 而 `C` 声明在更下方 —— 引它就是给门自己的初始化路径埋 TDZ(语法能过、装载即炸)。
+ */
+const MESSAGES_ROOT_REL = 'packages/i18n/messages'
+const MESSAGES_ROOT = join(REPO_ROOT, MESSAGES_ROOT_REL)
+const isStrictFlag = process.argv.includes('--strict')
+function readEndpointDirs(root) {
+  try {
+    return readdirSync(root, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+  } catch {
+    return null
+  }
+}
+/**
+ * @param {string[]|null} endpointDirs messages 根下的实际端目录名;null = 取不到(不判红、不称已对账)
+ * @returns {{kind: 'undetermined'|'drift'|'ok', unlisted: string[]}}
+ */
+function classifyEndpointDrift(endpointDirs) {
+  if (endpointDirs === null) return { kind: 'undetermined', unlisted: [] }
+  const unlisted = endpointDirs.filter((d) => !VALID_TARGETS.includes(d))
+  return { kind: unlisted.length ? 'drift' : 'ok', unlisted }
+}
+function reportEndpointDrift(endpointDirs, opts = {}) {
+  const drift = classifyEndpointDrift(endpointDirs)
+  if (drift.kind === 'undetermined') {
+    // 两条分支的处置动作不同,所以分开判(这是两侧实现真正的分歧点,收敛成一条就把另一侧的修复关掉):
+    //   · **没有**显式 --target ⇒ 空仓 / 部分 checkout / messages 目录尚未建立是合法形态,判死就是一台
+    //     与本次提交无关的恒红门(AGENTS §12e),所以只喊"漂移对账未判定",不声称已对账;
+    //   · **有**显式 --target(2026-09-28 G-304 的另一半)⇒ 调用方指名要查那一端,而根目录都读不到,
+    //     等于"那一族一次也没被扫过"却回身打印通过 —— 回落就是把没判写成判过了,故按"无法判定"判死。
+    if (opts.explicitTarget && !opts.help && !opts.selfTest) {
+      console.error(
+        `[i18n 键检查] ❌ 显式指定了 --target 却取不到 ${MESSAGES_ROOT_REL}/ 的端目录 ⇒ 无法判定,不冒绿也不回落到 web(问责口径同 i18n-diff)。`,
+      )
+      process.exit(2)
+    }
+    if (!opts.quiet)
+      console.log(
+        `[i18n 键检查] ⚠️ 端目录漂移对账未判定:${MESSAGES_ROOT_REL}/ 取不到 ⇒ 不据此判红,也不声称已对账`,
+      )
+    return drift
+  }
+  for (const d of drift.unlisted) {
+    console.error(
+      `[i18n 键检查] ❌ ${MESSAGES_ROOT_REL}/${d} 未登记进 TARGET_CONFIG ⇒ 这一族语言包在本门上零覆盖(表是 target→目录 的唯一出口)。`,
+    )
+    console.error(
+      `   出路只有一条:在 TARGET_CONFIG 补一行(dir / parityOnly / mergeShared / stagedMessages / stagedSource / label),` +
+        `不得为了让本门闭嘴而删目录或把该端从清单里抹掉。`,
+    )
+  }
+  if (drift.kind === 'drift') {
+    if (opts.strict) {
+      console.error(`[i18n 键检查] --strict ⇒ 端目录未进表,按"未判定"判死(exit 2)。`)
+      process.exit(2)
+    }
+    console.error(
+      `[i18n 键检查] ⚠️ 端目录未进表:${drift.unlisted.join(' / ')} —— 默认档只点名不判红(可能是别人的在飞新端),问责跑 --strict`,
+    )
+  }
+  return drift
+}
+reportEndpointDrift(readEndpointDirs(MESSAGES_ROOT), {
+  strict: isStrictFlag,
+  explicitTarget: TARGET_IS_EXPLICIT,
+  help: process.argv.includes('--help'),
+  selfTest: process.argv.includes('--self-test'),
+})
+
 // 端形态判据全部由表给(2026-09-28 G-304):此前这里是 5 个 `TARGET === 'x'` 布尔 +
 // 两处 `isMobileRn || isMiniappTaro` 的手写端名单 —— 加一端忘改 if 链,正是 api 静默落回 web
 // 的同一型成因,所以一个布尔都不留。
