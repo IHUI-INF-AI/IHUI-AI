@@ -43,6 +43,24 @@ from typing import Any
 import asyncpg
 
 from ..core.db_pool import get_shared_pool
+from ._load_lifecycle import (
+    DECISION_BACKOFF as _DECISION_BACKOFF,
+)
+from ._load_lifecycle import (
+    DECISION_GAVE_UP as _DECISION_GAVE_UP,
+)
+from ._load_lifecycle import (
+    decide_attempt as _decide_attempt,
+)
+from ._load_lifecycle import (
+    monotonic as _monotonic,
+)
+from ._load_lifecycle import (
+    state_after_failure as _state_after_failure,
+)
+from ._load_lifecycle import (
+    state_after_success as _state_after_success,
+)
 from .failure_clusterer import failure_clusterer
 from .self_evaluator import self_evaluator
 
@@ -77,6 +95,12 @@ class MetaLearner:
         # meta_lessons 是全局数据(非用户维度),用 _loaded 标记首次访问后全量加载
         self._loaded: bool = False
         self._loaded_lock: asyncio.Lock = asyncio.Lock()
+        # G-748(2026-09-29):读失败不再固化 —— 失败计数 + 退避窗口 + 放弃留痕。
+        # _loaded=False ∧ _load_failures>0 ⇒ "读不到",与"读到但为空"结构上可区分;
+        # 判定与数值住在 _load_lifecycle(唯一一份实现)。
+        self._load_failures: int = 0
+        self._load_next_attempt_s: float = 0.0
+        self._load_give_up_logged: bool = False
 
     # ==================================================================
     # P1 修复:按需懒加载(替代启动时全量 hydrate)
@@ -92,7 +116,14 @@ class MetaLearner:
         故用 _loaded 布尔标记,首次访问时全量加载一次。
 
         线程安全:asyncio.Lock 防止并发首次访问重复加载。
-        加载失败也标记为已加载(避免每次调用都重试,DB 异常时降级空内存)。
+
+        G-748(2026-09-29,取代旧口径"加载失败也标记为已加载、从此不再重试"):
+        旧写法把一次瞬时 DB 故障永久固化成"确实没有 lessons"且余生不再重试 ——
+        与 G-702 在 ab_test_tracker 上修掉的那一处同型。判定住在 _load_lifecycle
+        (与 ab_test_tracker 共用那一份实现):
+        - 读到成功(含读到空表)⇒ 置 loaded,不再打 DB —— 权威的空允许固化;
+        - 读失败 ⇒ **不置 loaded**,指数退避重试(底 1s、封顶 60s);
+        - 连续失败达上限 ⇒ 停止自动重试(有界),loaded 仍 False —— "没读到"≠"没有数据"。
         """
         if self._loaded:
             return
@@ -100,18 +131,42 @@ class MetaLearner:
             # double-check:拿到锁后再次确认(可能在等锁期间被其他协程加载)
             if self._loaded:
                 return
+            now = _monotonic()
+            decision = _decide_attempt(
+                loaded=self._loaded,
+                failures=self._load_failures,
+                next_attempt_s=self._load_next_attempt_s,
+                now=now,
+            )
+            if decision == _DECISION_GAVE_UP:
+                if not self._load_give_up_logged:
+                    self._load_give_up_logged = True
+                    logger.warning(
+                        "[meta_learner] _ensure_loaded 连续 %d 次读取失败,停止自动重试"
+                        "(状态=读不到,非空表;恢复靠下一次进程重启或人工触发)",
+                        self._load_failures,
+                    )
+                return
+            if decision == _DECISION_BACKOFF:
+                return  # 退避窗口内:本次调用不打 DB
+            # L5-11(2026-08-12):自愈建表——agent_meta_lessons 表此前从未创建,
+            # 导致 lessons UPSERT 一直降级仅内存(重启即丢自进化知识)。
+            # G-748:建表失败同样算"这一轮没读到",不得越过退避去固化空内存。
             try:
-                # L5-11(2026-08-12):自愈建表——agent_meta_lessons 表此前从未创建,
-                # 导致 lessons UPSERT 一直降级仅内存(重启即丢自进化知识)。
                 await self._ensure_lesson_table()
-                await self.load_all_lessons()
             except Exception as e:
-                logger.warning(
-                    "[meta_learner] _ensure_loaded 加载失败(降级空内存): %s", e
+                logger.warning("[meta_learner] _ensure_lesson_table 失败: %s", e)
+                ok = False
+            else:
+                ok, _count = await self._try_load_all_lessons()
+            if ok:
+                self._loaded, self._load_failures, self._load_next_attempt_s = (
+                    _state_after_success()
                 )
-            finally:
-                # 无论成功失败都标记已加载(避免重复重试)
-                self._loaded = True
+            else:
+                self._load_failures, self._load_next_attempt_s = _state_after_failure(
+                    self._load_failures, now
+                )
 
     # ==================================================================
     # 元学习主流程
@@ -589,16 +644,28 @@ class MetaLearner:
         return merged
 
     async def load_all_lessons(self, limit: int = 500) -> int:
-        """启动时从 DB 全量 hydrate meta_lessons 到内存。
+        """公开计数投影:成功返回条数,失败返回 0。
 
-        由 main.py lifespan 调用,失败不阻塞启动(返回 0 + warning)。
+        ⚠️ 这里的 0 **分不出**"读到空表"与"读取失败"(失败也被投成 0)——
+        内部判定必须走 _try_load_all_lessons 的二元组(G-748:口径同
+        ab_test_tracker.load_active_tests,不得拿本函数返回值当"确实没有"的证据)。
+        """
+        ok, count = await self._try_load_all_lessons(limit)
+        return count if ok else 0
+
+    async def _try_load_all_lessons(self, limit: int = 500) -> tuple[bool, int]:
+        """从 DB 全量 hydrate meta_lessons,并把"读不到"与"读到但为空"分开返回。
+
+        由 main.py lifespan(经 load_all_lessons)/ _ensure_loaded 消费;
         limit 默认 500,防止超大用户量一次性加载爆内存。
+
+        返回 (read_ok, count):
+        - (False, 0) ⇒ 连接/查询异常 = "读不到",**不得**固化为权威的空;
+        - (True, 0)  ⇒ 查询成功且结果集为空 = **权威的空**,可以固化。
+        失败不抛(调用方按 read_ok 决定退避)。
 
         Args:
             limit: 最大加载条数(默认 500)
-
-        Returns:
-            加载到内存的 lesson 条数
         """
         try:
             pool = await _get_pool()
@@ -623,9 +690,9 @@ class MetaLearner:
                 )
         except Exception as e:
             logger.warning(
-                "[meta_learner] load_all_lessons 失败(降级空内存): %s", e
+                "[meta_learner] _try_load_all_lessons 读取失败(不固化为空): %s", e
             )
-            return 0
+            return False, 0
 
         count = 0
         for row in rows:
@@ -656,7 +723,7 @@ class MetaLearner:
             self._lessons[lesson_id] = lesson
             self._title_index[(lesson_type, title)] = lesson_id
             count += 1
-        return count
+        return True, count
 
     async def delete_lesson(self, lesson_id: str) -> bool:
         """从 DB 删除 meta_lesson(用于手动清理低质量 lesson)。

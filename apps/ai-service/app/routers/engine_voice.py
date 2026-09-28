@@ -32,10 +32,11 @@ import time
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
-from .engine import ENGINE
+from ..core.jwt_auth import require_request_user_id, resolve_request_role_id
+from .engine import ENGINE, _bind_principal, _mcp_principal_scope
 
 logger = logging.getLogger(__name__)
 
@@ -142,23 +143,71 @@ async def _synthesize_speech(text: str, voice: str) -> bytes:
     return b"".join(chunks)
 
 
+def _require_own_session(sid: str, user_id: str) -> dict[str, Any]:
+    """取**自己的**语音会话;别人的 sid 与"没这个会话"回同一句 404、同一个文案。
+
+    为什么刻意同形:`sid` 是 `vse_` + 12 位随机 hex,它本身是把手而不是公开清单 ——
+    但"存在而不属于你"与"不存在"若在文案上可分,这个端点就变成 sid 枚举预言机
+    (AGENTS §5「可清除的是业务元数据,不是授权凭据」同一条口径)。
+
+    **行为变化如实登记**:本次之前建的会话没有 `owner_user_id` 键,升级后按"不是你的"
+    处理 ⇒ 正在进行的语音会话会 404 一次。这不是数据损失 —— 会话表是进程内内存态、
+    TTL 1h、重启即清,客户端重新 `POST /sessions` 就拿回一个带属主的新会话;反过来若给
+    无主会话开"维持改动前行为"的口子,那等于把"没人认领就能被任何人用"永久写进这条链。
+    """
+    session = _sessions.get(sid)
+    if session is None or session.get("owner_user_id") != user_id:
+        raise HTTPException(status_code=404, detail=f"语音会话不存在: {sid}")
+    return session
+
+
+async def _engine_call(message: dict[str, Any], user_id: str, role_id: int) -> Any:
+    """带**本请求的令牌主体**向引擎发一次合成报文(与 HTTP/WS 两条传输走同一条绑定路径)。
+
+    两件事一起做,缺任何一条都不算修:
+
+    ① `_bind_principal` 把 `params.userId` / `params.roleId` 写成宿主事实。此前这一支发的是
+       **裸 params**(没有 `userId`),于是引擎侧 `_connection_principal` 恒为 `None`,
+       而属主对账对 `None` 的规矩是"承载层没给身份 ⇒ 维持改动前行为" —— 那不是许可,
+       但结果就是:任何已登录用户都能拿**别人的 threadId** 建语音会话,并在他人线程上
+       发起 `thread.prompt`;新建的线程也没有属主,重启后任何人可继续用它对话(AGENTS §5
+       记过的"认证不等于授权"成批形态,这一格是**同一身份的第二条通道没绑主体**)。
+    ② `_mcp_principal_scope` 让无参回调 `tool_lister` 读到同一个主体。漏了这一条,语音会话
+       的工具清单只剩部署级 server,用户自己注册的外部工具在语音链上静默消失(过度收窄
+       同样是行为变更,而且账面全绿)。
+    """
+    bound = _bind_principal(message, user_id, role_id)
+    with _mcp_principal_scope(bound):
+        return await ENGINE.handle_message(bound)
+
+
 @router.post("/sessions")
-async def create_voice_session(req: VoiceSessionCreate) -> dict[str, Any]:
-    """创建语音会话:绑定既有引擎线程,或自动新建一个。"""
+async def create_voice_session(
+    req: VoiceSessionCreate,
+    request: Request,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """创建语音会话:绑定既有引擎线程,或自动新建一个(两者都**带着令牌主体**去问引擎)。"""
+    role_id = resolve_request_role_id(request)
     _prune_sessions()
     if len(_sessions) >= _MAX_VOICE_SESSIONS:
         raise HTTPException(status_code=429, detail=f"语音会话数已达上限({_MAX_VOICE_SESSIONS})")
     thread_id = req.threadId
     if thread_id:
-        state = await ENGINE.handle_message(
+        state = await _engine_call(
             {"jsonrpc": "2.0", "id": 1, "method": "thread.state",
-             "params": {"threadId": thread_id}}
+             "params": {"threadId": thread_id}},
+            user_id,
+            role_id,
         )
         if state is None or "error" in state:
+            # 与"线程不存在"同一句文案:别人的 threadId 走到这里也是 404,不给枚举信号
             raise HTTPException(status_code=404, detail=f"线程不存在: {thread_id}")
     else:
-        started = await ENGINE.handle_message(
-            {"jsonrpc": "2.0", "id": 1, "method": "thread.start", "params": {}}
+        started = await _engine_call(
+            {"jsonrpc": "2.0", "id": 1, "method": "thread.start", "params": {}},
+            user_id,
+            role_id,
         )
         assert started is not None and "error" not in started
         thread_id = str(started["result"]["threadId"])
@@ -166,6 +215,9 @@ async def create_voice_session(req: VoiceSessionCreate) -> dict[str, Any]:
     _sessions[sid] = {
         "id": sid,
         "threadId": thread_id,
+        # 语音会话是**归属型记录**(它挂着一条线程的使用权)。缺这一格,sid 一旦泄露
+        # 就等于把别人的线程交出去,而 sid 会出现在日志与客户端状态里。
+        "owner_user_id": user_id,
         "stt_language": req.sttLanguage,
         "tts_voice": req.ttsVoice,
         "turns": 0,
@@ -178,13 +230,14 @@ async def create_voice_session(req: VoiceSessionCreate) -> dict[str, Any]:
 @router.post("/sessions/{sid}/turn")
 async def voice_turn(
     sid: str,
+    request: Request,
     file: UploadFile = File(..., description="音频文件(wav/mp3/webm 等)"),
     language: str | None = Form(None, description="覆盖会话级 STT 语言"),
+    user_id: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """一轮语音对话:音频 → STT → 引擎线程 → TTS → 音频。"""
-    session = _sessions.get(sid)
-    if session is None:
-        raise HTTPException(status_code=404, detail=f"语音会话不存在: {sid}")
+    session = _require_own_session(sid, user_id)
+    role_id = resolve_request_role_id(request)
     audio_bytes = await file.read()
     if not audio_bytes:
         raise HTTPException(status_code=400, detail="音频内容为空")
@@ -217,13 +270,15 @@ async def voice_turn(
     prompt_input = _voice_wrap_delegation(
         transcript, first_turn=int(session.get("turns", 0)) == 0
     )
-    response = await ENGINE.handle_message(
+    response = await _engine_call(
         {
             "jsonrpc": "2.0",
             "id": 2,
             "method": "thread.prompt",
             "params": {"threadId": session["threadId"], "input": prompt_input},
-        }
+        },
+        user_id,
+        role_id,
     )
     if response is None or "error" in response:
         detail = str((response or {}).get("error", {}).get("message", "引擎执行失败"))
@@ -255,11 +310,11 @@ async def voice_turn(
 
 
 @router.get("/sessions/{sid}")
-async def voice_session_state(sid: str) -> dict[str, Any]:
-    """语音会话状态(轮次/配置/绑定线程)。"""
-    session = _sessions.get(sid)
-    if session is None:
-        raise HTTPException(status_code=404, detail=f"语音会话不存在: {sid}")
+async def voice_session_state(
+    sid: str, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any]:
+    """语音会话状态(轮次/配置/绑定线程)——只回自己的。"""
+    session = _require_own_session(sid, user_id)
     return {
         "sessionId": sid,
         "threadId": session["threadId"],
@@ -271,9 +326,11 @@ async def voice_session_state(sid: str) -> dict[str, Any]:
 
 
 @router.delete("/sessions/{sid}")
-async def close_voice_session(sid: str) -> dict[str, Any]:
-    """关闭语音会话(引擎线程保留,可继续用 RPC 文本对话)。"""
-    if _sessions.pop(sid, None) is None:
-        raise HTTPException(status_code=404, detail=f"语音会话不存在: {sid}")
+async def close_voice_session(
+    sid: str, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any]:
+    """关闭语音会话(引擎线程保留,可继续用 RPC 文本对话)——只能关自己的。"""
+    _require_own_session(sid, user_id)
+    _sessions.pop(sid, None)
     return {"sessionId": sid, "closed": True}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

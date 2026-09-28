@@ -19,8 +19,13 @@ const repoName = 'IHUI-AI'
 // 不再跟随 NODE_ENV。原因:
 //   - 生产服务端模式(next build + next start)需要 rewrites 代理 /api/* → 8802/8803,
 //     而静态导出模式 rewrites/headers/middleware 全部不生效 → 登录/模型接口会 404。
-//   - Tauri 桌面端(frontendDist: ../../web/out)与 GitHub Pages CI 仍需要静态导出,
-//     它们通过 EXPORT_STATIC=true / GITHUB_PAGES=true 显式触发,互不影响。
+//   - GitHub Pages CI 仍需要静态导出,通过 GITHUB_PAGES=true 显式触发。
+//   - 桌面端不是本配置的消费者(2026-09-17 终极薄壳化,现行为准):桌面端 = Tauri 薄壳 + 直连线上站点:
+//     frontendDist 指向 src-tauri/shell 占位页,窗口 url 直接加载 https://aizhs.top/agents
+//     (V3 #72 拍板,桌面端不打包本地 web 产物)。tauri.conf.json 的 build.beforeBuildCommand
+//     为空串,apps/desktop/scripts/ensure-web-out.mjs 仅是手动问责/条件重建入口、不在构建链。
+//     历史:曾以 frontendDist("../../web/out") 复用本端静态导出产物,该配置已废。
+//     EXPORT_STATIC=true 现仅服务该手动入口,与 GITHUB_PAGES 互不影响。
 const isStaticExport = process.env.EXPORT_STATIC === 'true' || process.env.GITHUB_PAGES === 'true'
 // 2026-09-06 安全加固:CSP connect-src 对本机(localhost/127.0.0.1)的放行仅限开发模式。
 // 生产环境(next build + next start, NODE_ENV=production)下默认收紧,禁止浏览器直连本机服务,

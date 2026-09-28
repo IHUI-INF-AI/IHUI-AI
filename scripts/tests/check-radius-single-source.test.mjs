@@ -90,7 +90,7 @@ const GUARD_REL = 'scripts/check-radius-single-source.mjs'
  * ERR_MODULE_NOT_FOUND(第一版四条端到端全被这一条咬红)。**门依赖层**这件事因此
  * 由夹具形态本身证明:缺依赖链就跑不起来,而不是"引了层却没用它"。
  */
-const GUARD_DEPS = ['scripts/lib/face-reader.mjs', 'scripts/lib/gitdir.mjs', 'scripts/lib/scratch-dir.mjs', 'scripts/lib/box-geometry.mjs', 'scripts/lib/length-units.mjs']
+const GUARD_DEPS = ['scripts/lib/face-reader.mjs', 'scripts/lib/gitdir.mjs', 'scripts/lib/scratch-dir.mjs', 'scripts/lib/box-geometry.mjs', 'scripts/lib/length-units.mjs', 'scripts/lib/radius-exempt-marker.mjs']
 function copyGuardWithDeps(base) {
   const g = writeAt(base, GUARD_REL, readFileSync(GUARD, 'utf8'))
   for (const d of GUARD_DEPS) writeAt(base, d, readFileSync(join(ROOT, ...d.split('/')), 'utf8'))
@@ -379,4 +379,37 @@ test('T-DEPS 夹具清单必须覆盖门→lib 的传递 import 闭包(少一个
   assert.deepEqual(missing, [], `在依赖闭包里、却不在 GUARD_DEPS 的清单上:${missing.join(', ')} ⇒ 夹具跑不起来`)
   const extra = [...have].filter(p => !closure.has(p))
   assert.deepEqual(extra, [], `GUARD_DEPS 里多出不存在的依赖(清单腐烂):${extra.join(', ')}`)
+})
+
+/**
+ * T-B8 豁免通道的"两半"必须都在(2026-09-29 O81 票㊵)。
+ * 立因:票㉜ 把 47 处存量标记摘干净之后,HEAD 上又长出过 2 处新标记 —— 只拆出口(判序不再看标记)
+ * 而不拦回写,通道就会被下一个人一行注释悄悄接回来,而且账面毫无动静("摘完了"与"又长回来了"
+ * 在报告里长得一样)。所以这里锁两件事:
+ *  ① **出口确实没了**:本门不得再有任何"看见标记就 continue/return"的放行支路;
+ *  ② **回写确实被拦**:B8 必须真的挂在逐行判据上,且识别式来自那一份 lib,不是本门自己抄的正则。
+ * 两条都是源码级形状锁 —— 行为级用例只能证明"此刻会红",证明不了"半年后还在"。
+ */
+test('T-B8 豁免放行支路不得回来,而 B8 判红必须装车且共用那一份识别式', () => {
+  const src = readFileSync(join(ROOT, ...GUARD_REL.split('/')), 'utf8')
+  assert.match(src, /rule: 'B8'/, 'B8 没挂进逐行判据 ⇒ 回写无人拦')
+  assert.match(src, /from '\.\/lib\/radius-exempt-marker\.mjs'/, '识别式必须来自 lib 那一份')
+  assert.ok(
+    !/const\s+RADIUS_EXEMPT_MARKER_RE\s*=/.test(src),
+    '本门里抄了第二份识别式 ⇒ 两处算同一件事必漂移(一边判红、一边当不存在)',
+  )
+  assert.ok(
+    !/\bif\s*\([^)]*[Ee]xempt[^)]*\)\s*(continue|return)\b/.test(src),
+    '出现"看见标记就放行"的支路 ⇒ 豁免通道被悄悄接回来了(项目定档:不允许任何豁免)',
+  )
+  // B8 判的是**原文行**:放在"整行注释 return"之后,整族标记就一处也看不见。
+  const atMarker = src.indexOf("rule: 'B8'")
+  // 锚点取那行正则里独有一段(整行注释的提前 return),不复制整串 —— 复制来的锚点会跟着判据一起漂。
+  const atCommentSkip = src.indexOf('<!--|#\\s|;;')
+  assert.ok(atMarker > 0, 'B8 判据不在位')
+  assert.ok(atCommentSkip > 0, '找不到"整行注释提前 return"那一行 ⇒ 锚点变了,本锁必须跟着改,不能默认放过')
+  assert.ok(
+    atMarker < atCommentSkip,
+    'B8 被放在"整行注释直接 return"之后 ⇒ 标记活在注释里,门对该族全盲',
+  )
 })

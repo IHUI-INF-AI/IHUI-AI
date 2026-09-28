@@ -9,7 +9,9 @@
  *   1. loadMcpCredentials 在文件不存在时返回 {}
  *   2. saveMcpCredentials + loadMcpCredentials 往返一致
  *   3. getCredential / setCredential / deleteCredential 行为
- *   4. JSON 解析失败回退空对象(降级,不抛错)
+ *   4. 读盘故障(解析失败 / 形状不合)⇒ 抛 `McpCredentialStoreError`;只有 ENOENT 返回 {}
+ *      (G-709;此前这一条断言的是"回退空对象",那正是会被一次保存清空其它凭据的缺陷档。
+ *      完整的三态/隔离件/变更锁判据在 tests/mcp-credentials-corrupt-store.test.ts)
  *   5. 文件权限 0600(POSIX 才能真正验证,Windows 验证不抛错)
  *   6. isExpired 在不同 expiresAt / skewMs 下的行为
  */
@@ -25,6 +27,9 @@ import {
   deleteCredential,
   isExpired,
   getCredentialsPath,
+  readCredentialStoreSnapshot,
+  readMcpCredentialStoreProblem,
+  McpCredentialStoreError,
   type McpCredentials,
 } from '../src/tools/mcp-credentials.js';
 
@@ -116,28 +121,32 @@ describe('mcp-credentials 凭证持久化', () => {
     expect(deleted).toBe(false);
   });
 
-  it('JSON 解析失败回退空对象(降级,不抛错)', async () => {
+  // G-709 就地改写:这三条原本把"读坏"断言成"回退空对象",而那个降级档正是缺陷本体
+  // —— 整文件读-改-写遇到半截 JSON 时,第一次保存会清空其它 server 的凭据。
+  // 现行判据与夹具(隔离件、三态、锁)集中在 tests/mcp-credentials-corrupt-store.test.ts,
+  // 这里只保留"同一入口的两个方向"的最小对照,不得再断言回退空对象。
+  it('JSON 解析失败 ⇒ 抛存储故障(不再回退空对象),ENOENT 才允许空对象', async () => {
     const p = getCredentialsPath();
     await fs.mkdir(path.dirname(p), { recursive: true });
     await fs.writeFile(p, '{not valid json', 'utf-8');
-    const creds = await loadMcpCredentials();
-    expect(creds).toEqual({});
+    await expect(loadMcpCredentials()).rejects.toBeInstanceOf(McpCredentialStoreError);
+    expect(readMcpCredentialStoreProblem(await loadMcpCredentials().catch((e: unknown) => e))).toBe('corrupt');
   });
 
-  it('文件内容为非对象(JSON 数组)时回退空对象', async () => {
+  it('文件内容为非对象(JSON 数组)⇒ 抛,不折成空对象', async () => {
     const p = getCredentialsPath();
     await fs.mkdir(path.dirname(p), { recursive: true });
     await fs.writeFile(p, '["not", "an", "object"]', 'utf-8');
-    const creds = await loadMcpCredentials();
-    expect(creds).toEqual({});
+    await expect(loadMcpCredentials()).rejects.toBeInstanceOf(McpCredentialStoreError);
   });
 
-  it('文件内容为 null 时回退空对象', async () => {
+  it('文件内容为 null ⇒ 抛,不折成空对象(与"文件不存在"是两个态)', async () => {
     const p = getCredentialsPath();
     await fs.mkdir(path.dirname(p), { recursive: true });
     await fs.writeFile(p, 'null', 'utf-8');
-    const creds = await loadMcpCredentials();
-    expect(creds).toEqual({});
+    const snap = await readCredentialStoreSnapshot();
+    expect(snap.state).toBe('corrupt');
+    expect(snap.reasonCode).toBe('payload-not-object');
   });
 
   it('saveMcpCredentials 设置文件权限 0600(POSIX)或不抛错(Windows)', async () => {

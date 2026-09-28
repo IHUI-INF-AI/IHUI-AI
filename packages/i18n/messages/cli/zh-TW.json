@@ -98,8 +98,22 @@
       "dangerous": "⚠ 危險命令被攔截：命令匹配危險模式 {pattern}\n如確需執行，請設定 IHUI_YOLO=1",
       "alwaysConfirm": "⚠ 命令被攔截：它屬於\"永遠需要確認\"檔（刪除 / 強推 / rebase / 發布一類難以撤銷的操作），IHUI_YOLO 不得靜默放行。\n去掉 IHUI_YOLO 後重試，由你逐條確認。"
     },
-    "goalNotAchieved": "獨立校驗未通過:本次執行不得宣布完成",
-    "truncatedByLength": "本輪輸出已達長度上限被截斷,回覆可能不完整;可讓我分次繼續,或調高 max_tokens 後重試。"
+    "sandbox": {
+      "spawnError": "命令未能啟動({code})—— 子進程從未執行,這不是\"跑完了但沒有輸出\";請檢查命令與當前工作目錄({cwd})是否存在。",
+      "outputLimit": "輸出超過 {maxOutputBytes} 位元組上限({code}),進程被終止、輸出被截斷 —— 這是\"輸出過長\"的獨立終態,不是超時;要拿全量請調高 maxOutputBytes 或收窄命令輸出。",
+      "statusMissing": "缺失",
+      "unattributed": "失敗類型未判定(保留原始資訊:{raw})—— 未歸為超時,也未歸為正常完成,請人工確認後再重試。",
+      "fsProbeUnavailable": "命令空輸出且以 {status} 退出,但檔案系統狀態無法查詢({why})—— 未判定:既未定為\"空間/inode 已盡\",也未當作\"什麼都沒發生\"。",
+      "fsExhaustedSpace": "根因診斷:命令空輸出且以 {status} 退出,而 {cwd} 所在檔案系統實測空間已盡(bavail×bsize≈{availMB}MB,低於 10MB 診斷閾)—— 大概率是磁碟寫滿導致輸出/落盤失敗;請清理磁碟空間後重試。",
+      "fsExhaustedInodes": "根因診斷:命令空輸出且以 {status} 退出,而 {cwd} 所在檔案系統實測 inode 已盡(ffree={freeInodes},低於 1000 診斷閾)—— 目錄項已滿;請清理大量小文件/目錄,或檢查該檔案系統的 inode 配額後重試。"
+    },
+    "goalNotAchieved": "獨立校驗未通過:本次執行不得宣佈完成",
+    "truncatedByLength": "本輪輸出已達長度上限被截斷,回覆可能不完整;可讓我分次繼續,或調高 max_tokens 後重試。",
+    "mcpCredentials": {
+      "storePlaintext": "MCP 憑證目前以明文存於 {path}(本機降階)",
+      "storeEncrypted": "MCP 憑證已加密儲存(後端:{backend})",
+      "migrationFailed": "憑證遷移未完成,已保留原檔案且未覆蓋({reason})"
+    }
   },
   "waiting": {
     "agent": {

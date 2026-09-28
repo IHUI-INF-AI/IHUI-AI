@@ -1077,15 +1077,13 @@ function main() {
           log(C.green, `↻ merge-tree 冲突已由 union-converge 归并,转下一轮复核\n${uni.trim()}`)
           continue
         }
-        // "未判定"与"判了、需人工"是两件不同的事,混成一句就会把一次 fetch 说成一次归并失败
-        // (G-473:本器先 fetch 过才走到这里,但 --theirs 由调用方直给 union-converge 的路径没有)。
-        if (uni.includes('未判定:')) {
+        // 先分"没资格判",再谈"需人工":顺序反过来就等于把一次网络失败说成一次内容裁决,
+        // 而下一条路会把人引去手工解冲突(那时两侧的行确实都得保住,但没有可判的内容可保)。
+        if (uni.includes('UNDETERMINED')) {
           log(
             C.red,
-            `❌ 本轮未判定(不是归并结论):union-converge 说对象不在本机。\n  它给出的出路:${uni
-              .split('\n')
-              .filter((l) => l.includes('未判定:'))
-              .join('\n')}`,
+            `❌ union-converge 判"无法判定"(远端真值/对象不在本机)⇒ 本轮不推进。这不是内容裁决:\n` +
+              `   先按它给的出口补一次 fetch(或喂一个本地可达的 --theirs sha),再重跑本器。\n原始输出:\n${uni.trim()}`,
           )
           process.exit(1)
         }
@@ -1116,6 +1114,14 @@ function main() {
             `↻ 状态放大已由 union-converge 归并,转下一轮复核\n${uniOut.trim().split('\n').slice(-2).join('\n')}`,
           )
           continue
+        }
+        if (uniOut.includes('UNDETERMINED')) {
+          log(
+            C.red,
+            '❌ union-converge 判"无法判定"(远端真值/对象不在本机)⇒ 本轮不推进;这不是内容裁决,' +
+              '先按它给的出口补一次 fetch 或喂本地可达的 --theirs sha 再重跑。',
+          )
+          process.exit(1)
         }
         log(
           C.red,

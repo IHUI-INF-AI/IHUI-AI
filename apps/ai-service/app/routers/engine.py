@@ -69,7 +69,15 @@ def _make_loop_factory() -> Any:
         # 这里再过一次 _coerce_role_id 是**刻意的纵深**:工厂是 spec → 循环的唯一装配点,
         # 任何漏填/畸形值都在这里落成最严的 0,而不是被当成"没限制"传下去。
         user_role = _coerce_role_id(spec.get("role_id", 0))
-        tools = await _build_loop_v2_tools(spec.get("tool_names"), user_role=user_role)
+        # G-371 格①(2026-09-29):主体也必须过桥 —— 工具池按它收窄外部 MCP server 的可见集。
+        # `spec["user_id"]` 与 role_id 同源,都只可能来自承载层绑定的已验证身份
+        # (`agent_engine._spec(thread)` ← `_bind_principal`),不是请求里的自报值。
+        # 取不到 ⇒ 空串 ⇒ 只看得到部署级 server(fail-closed),不是"没限制"。
+        tools = await _build_loop_v2_tools(
+            spec.get("tool_names"),
+            user_role=user_role,
+            user_id=str(spec.get("user_id") or ""),
+        )
         # 负向工具过滤(2026-09-18 第二批,对标 Codex per-app omit_tools_from)
         deny = spec.get("deny_tools") or []
         if deny:
@@ -104,12 +112,20 @@ def _make_loop_factory() -> Any:
 
 
 async def _default_tool_lister() -> list[dict[str, Any]]:
-    """工具清单:优先 MCP 超级工具池(去重/仲裁后的统一 manifest),否则内置清单。"""
+    """工具清单:优先 MCP 超级工具池(去重/仲裁后的统一 manifest),否则内置清单。
+
+    G-371 格①(2026-09-29,机主拍"隔离"):主体从 `_mcp_principal_scope` 取 —— 那一个由各
+    传输入口在**已绑定 `params.userId` 之后**压入。这一支是"对宿主广播工具池"的清单口,
+    `tool_lister` 的契约是无参回调(且挂在模块级单例 ENGINE 上),拿不到形参通道,所以走
+    上下文而不是改 `agent_engine.py` 的回调签名。作用域没绑上 ⇒ 空主体 ⇒ 只广播部署级
+    (fail-closed),不会退化成"把别人注册的工具名与入参格式贴到别人的选择器上"。
+    """
     try:
+        from ..services.mcp_client import current_mcp_principal
         from ..services.mcp_tool_aggregator import MCPSuperToolAggregator
         from .agents import _build_supertool_pool
 
-        pool = await _build_supertool_pool(None)
+        pool = await _build_supertool_pool(None, current_mcp_principal())
         if pool is not None:
             manifest = MCPSuperToolAggregator().manifest(pool)
             return [
@@ -213,7 +229,10 @@ async def _sse_stream(payload: dict[str, Any]) -> Any:
     async def _emit(message: dict[str, Any]) -> None:
         await queue.put(message)
 
-    task = asyncio.ensure_future(ENGINE.handle_message(payload, _emit))
+    with _mcp_principal_scope(payload):
+        # Task 在**创建时**复制当前上下文,所以作用域只需覆盖到派生这一行;
+        # tool_lister 在任务内被 await 时读到的就是这一帧的主体。
+        task = asyncio.ensure_future(ENGINE.handle_message(payload, _emit))
     try:
         while not task.done() or not queue.empty():
             try:
@@ -266,6 +285,30 @@ def _request_role_id(request: Request) -> int:
     不得各写一遍 —— 本仓记过多次:各写一遍必然漂移,而漂移表现为"看起来有判据")。
     """
     return _coerce_role_id(getattr(request.state, "role_id", 0))
+
+
+@contextlib.contextmanager
+def _mcp_principal_scope(message: Any) -> Any:
+    """把**这一帧已绑定的连接主体**放进上下文,供无参回调(`tool_lister`)读取。
+
+    为什么要上下文而不是形参:`AgentEngine.tool_lister` 的契约是无参回调,且挂在模块级
+    单例 `ENGINE` 上(不是每连接一个),没有形参通道;而工具清单必须按主体收窄(G-371 格①,
+    机主 2026-09-29 拍"隔离:每个会话只看自己注册的 + 平台级的")。按空主体取会把用户自己
+    注册的外部 server 从**他自己的**会话里抹掉 —— 那是过度收窄,不是隔离。
+
+    读的是 `params.userId`,而它只可能由 `_bind_principal` 用**令牌主体**写入(客户端自述值
+    在那一步已被覆盖),所以这里是宿主事实。四个入口(HTTP 单发 / HTTP 批量 / SSE 流式 /
+    WS 每帧)都必须过这一层,漏一个就等于那一格的清单退回"只有部署级"。
+    """
+    from ..services.mcp_client import bind_mcp_principal, reset_mcp_principal
+
+    params = message.get("params") if isinstance(message, dict) else None
+    raw = params.get("userId") if isinstance(params, dict) else None
+    token = bind_mcp_principal(str(raw or ""))
+    try:
+        yield
+    finally:
+        reset_mcp_principal(token)
 
 
 @router.post("/rpc")
@@ -321,7 +364,8 @@ async def engine_rpc(request: Request) -> Any:
                     }
                 )
                 continue
-            results.append(await ENGINE.handle_message(message))
+            with _mcp_principal_scope(message):
+                results.append(await ENGINE.handle_message(message))
         return JSONResponse([r for r in results if r is not None])
 
     if not isinstance(body, dict):
@@ -344,7 +388,8 @@ async def engine_rpc(request: Request) -> Any:
                 "X-Accel-Buffering": "no",
             },
         )
-    response = await ENGINE.handle_message(body)
+    with _mcp_principal_scope(body):
+        response = await ENGINE.handle_message(body)
     if response is None:
         return JSONResponse({"jsonrpc": "2.0", "id": None, "result": None})
     return JSONResponse(response)
@@ -386,7 +431,8 @@ async def _handle_ws_frame(
         message: Any = raw
         with contextlib.suppress(ValueError, UnicodeDecodeError):
             message = _bind_principal(json.loads(raw), principal, role)
-        response = await ENGINE.handle_message(message, emit)
+        with _mcp_principal_scope(message):
+            response = await ENGINE.handle_message(message, emit)
         if response is not None:
             await emit(response)
     finally:
