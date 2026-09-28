@@ -34,7 +34,12 @@ import { fileURLToPath } from 'node:url'
 
 import { createExclusionPredicate, LedgerUnavailable } from './lib/third-party-roots.mjs'
 import { coverageFileSet } from './lib/watermark-scope.mjs'
-import { isBannerLine } from './lib/watermark-lines.mjs'
+import {
+  CANONICAL_BANNER_LINES,
+  hasVisibleCopyright,
+  isBannerLine,
+  isInvisibleMarkLine,
+} from './lib/watermark-lines.mjs'
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..')
 
@@ -64,10 +69,7 @@ function exclusion() {
 // ---------- 水印配置 ----------
 const WATERMARK_TEXT = 'IHUI-AI·智汇AI·李春川·LC·aizhs.top·PROVENANCE-2026'
 const BANNER_ID = 'IHUI-AI-PROVENANCE'
-const BANNER_LINES = [
-  '© 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top',
-  'Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。',
-]
+const BANNER_LINES = CANONICAL_BANNER_LINES // 文案唯一实现住在 lib(两处抄必漂移)
 
 // ---------- 零宽字符编解码 ----------
 const ZWSP = '\u200b' // 0
@@ -344,12 +346,19 @@ function injectFile(absPath, { reseatTail = false } = {}) {
   //   ① 可见横幅整块不见了 —— 横幅是归属主张,它没了等于作品失去署名(2026-09-29 实测两份
   //      归档件即此型,而当时 verify 把它们算进"完好",L3 的用途被反过来用成了免检理由);
   //   ② 尾部隐写行被后来的追加内容顶离末行 —— 仅当调用方带 --reseat-tail(追加型生成器)。
-  // 两种都落到下面的"清洗重注"通道:cleanFile 把残留的横幅/隐写行扫净,再按当前形态重注。
-  let reseatOnly = false
+  // ① 落到下面的"清洗重注"通道(必须整块重写才补得回横幅);
+  // ② **不走清洗重注**:那条通道会跑 cleanFile 的块注释状态机,而它删掉的行**不止**隐写行 ——
+  //    实测一次带旗注入把紧随其后的条目标题一起吞了(13MB 归档件的第二轮追加)。归位只做一件事:
+  //    把纯隐写行摘掉、在末尾补一条,其余行按序列原样送回;自证不过就拒写。
   if (INVISIBLE_RE.test(text) && payloadIntact(text)) {
-    const withBanner = BANNER_LINES.some((l) => text.includes(l))
-    if (withBanner && !(reseatTail && !tailIsSeated(text, style))) return 'skip-done'
-    if (withBanner) reseatOnly = true
+    const withBanner = hasVisibleCopyright(text)
+    if (!withBanner) {
+      // 继续往下走清洗重注
+    } else if (!reseatTail || tailIsSeated(text, style)) {
+      return 'skip-done'
+    } else {
+      return reseatInPlace(absPath, text, style) ? 'reseated' : 'reseat-refused'
+    }
   }
   // 注意: 本工具自身源码包含横幅常量定义, clean 会"自噬", 故跳过自身
   if (absPath === fileURLToPath(import.meta.url)) return 'skip-self'
@@ -387,12 +396,50 @@ function injectFile(absPath, { reseatTail = false } = {}) {
   const tail = tailFor(style)
 
   // 统一去末尾换行再追加,保证注入时 L3 恒为独立末行(绝不与末行内容拼接,也不落在中间空行)
-  // 正文若已以空行起始,横幅后不再补分隔空行 → clean→inject 往返零漂移
+  // **末尾必须自带换行**:少这个 \n,下一次 append 会把新内容直接粘到水印行后面 ——
+  // 那行既不再是"独立隐写行",而清洗它时会连带把粘在后面的正文一起吃掉(实测把条目标题弄丢)。
   const sep = text.startsWith('\n') ? '' : '\n'
   const body = (shebang + xmlDecl + banner + sep + text).replace(/\r?\n$/, '')
-  const out = body + '\n' + tail
+  const out = body + '\n' + tail + '\n'
   writeFileSync(absPath, out, 'utf8')
-  return reseatOnly ? 'reseated' : 'injected'
+  return 'injected'
+}
+
+/**
+ * 只做"把纯隐写行移到末行"这一件事,并**自证其它行一字未动**;不过就拒写。
+ *
+ * 为什么不能借道 cleanFile:它是块注释状态机,删的是"横幅块 + 隐写行",而归档件里隐写行的
+ * **下一行往往是正文**(追加时没有空行隔开),状态机把两者一起吞过一次(实测丢掉一个条目标题)。
+ * 归位要的是最小动作:摘掉纯隐写行 → 末尾补一条 → 其余行按原序列原样写回。
+ *
+ * @returns {boolean}  true = 已归位;false = 自证不过(调用方必须看见这个失败,不得静默)
+ */
+function reseatInPlace(absPath, text, style) {
+  const lines = String(text).split('\n')
+  const kept = lines.filter((l) => !isInvisibleMarkLine(l))
+  const moved = lines.length - kept.length
+  if (moved > 1) {
+    console.error(
+      `[watermark:reseat] 拒绝归位:发现 ${moved} 行纯隐写行(只预期 1 行)⇒ 交人工看,不猜哪行该删`,
+    )
+    return false
+  }
+  const bodyText = kept.join('\n').replace(/\r?\n$/, '')
+  const out = bodyText + '\n' + tailFor(style) + '\n'
+  const sameExceptMarks = (a, b) => {
+    const strip = (t) =>
+      t
+        .split('\n')
+        .filter((l) => !isInvisibleMarkLine(l))
+        .join('\n')
+    return strip(a) === strip(b)
+  }
+  if (!sameExceptMarks(text, out)) {
+    console.error('[watermark:reseat] 拒绝归位:重写后"非隐写行"与原文件不等值 ⇒ 一个字节都不写')
+    return false
+  }
+  writeFileSync(absPath, out, 'utf8')
+  return true
 }
 
 /**
@@ -587,7 +634,7 @@ function scanCoverage(scope) {
       // 动作在门禁上等价于"没问题" —— 而 L3(独立隐写末行)的设计理由恰恰是"删除可见横幅仍可
       // 检出"。判据只查"载荷在不在",等于把 L3 的存在意义反着用了(2026-09-29 实测 HEAD 面
       // 两份文件即此型,其中一份 34,580 行的归档件通篇无横幅)。
-      const withBanner = BANNER_LINES.some((l) => text.includes(l))
+      const withBanner = hasVisibleCopyright(text)
       if (withBanner) marked++
       else {
         bannerless++
@@ -691,7 +738,13 @@ if (cmd === 'inject') {
       console.log(`[watermark:inject] ${relative(ROOT, abs).replaceAll('\\', '/')} → ${r}`)
       // 'skip-third-party' 也计红:有人(或某个生成器)显式点名要把横幅打进已登记的
       // 第三方内容,这是一次需要被看见的拒绝,不是一次静默的"好的已经处理完了"。
-      if (r === 'skip-type' || r === 'skip-binary' || r === 'skip-third-party') process.exitCode = 1
+      if (
+        r === 'skip-type' ||
+        r === 'skip-binary' ||
+        r === 'skip-third-party' ||
+        r === 'reseat-refused'
+      )
+        process.exitCode = 1
     }
   } else {
     let n = 0,
