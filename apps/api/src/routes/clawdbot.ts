@@ -321,6 +321,8 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   server.get('/clawdbot/system/logs', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
     const query = req.query as never
+    // 这里不加 uuid 形状闸:query 是整条查询对象(limit/level 这类筛选项),不是任何一个 id,
+    // 喂给 isUuidString 恒为 false 会把这条路由变成"永远 404"(普查复核时抓到)。
     return success(getSystemService().getLogs(query))
   })
 

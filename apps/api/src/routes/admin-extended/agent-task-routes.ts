@@ -24,6 +24,7 @@ import {
 import { acquireWorkspaceLock } from '../../services/workspace-lock.js'
 import { broadcastSSEEvent } from '../../services/agent-sse-bus.js'
 import { idParamSchema } from './_shared.js'
+import { isUuidString } from '../../utils/uuid.js'
 
 const createAgentTaskSchema = z.object({
   agentId: z.uuid(),
@@ -65,6 +66,7 @@ export const agentTaskRoutes: FastifyPluginAsync = async (server) => {
   })
   server.put('/admin/agent-task/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
+    if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const body = parseOrThrow(updateAgentTaskSchema, request.body)
 
     const [current] = await db.select().from(agentTasks).where(eq(agentTasks.id, id)).limit(1)
@@ -123,6 +125,10 @@ export const agentTaskRoutes: FastifyPluginAsync = async (server) => {
   })
   server.delete('/admin/agent-task/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     // P0-2:删除前统一释放锁(停心跳 + 凭 token 释放 + 清审计字段 + 广播),
     // 防止 payload 里的 workspaceLockToken 随行删除而锁悬挂
     await releaseTaskLockByTaskId(id)
