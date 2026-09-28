@@ -77,13 +77,40 @@ const isCli = TARGET === 'cli'
 const isMobileRn = TARGET === 'mobile-rn'
 // 2026-09 新增:miniapp-taro 端 parity + tt() 引用键缺失检测(与 mobile-rn 同构)
 const isMiniappTaro = TARGET === 'miniapp-taro'
+// 2026-09-28 G-304:`--target=api` 曾静默 fall through 到 web(实测把 web 的 23831 键数原样打第二遍),
+// 于是 `messages/api/**` 这一族在门 [2] 上零 parity 覆盖,而账面读起来像"查过了"。
+// 回落就是把"没判"写成"判过了"(本仓最高频失效型),现改为:白名单从 messages/ 的**实际目录**现读
+// (不另抄一份会腐烂的端名单),未知 target ⇒ exit 2 并点名 + 列出可用端;目录本身取不到 ⇒ 同样判死。
+const MESSAGES_ROOT = join(REPO_ROOT, 'packages/i18n/messages')
+let knownTargets = null
+try {
+  knownTargets = readdirSync(MESSAGES_ROOT, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
+} catch {
+  knownTargets = null
+}
+if (!knownTargets) {
+  console.error(
+    `❌ [check-i18n-keys] 无法判定:取不到 ${relative(REPO_ROOT, MESSAGES_ROOT)}/ 的端目录 ⇒ 不冒绿,也不回落到 web`,
+  )
+  process.exit(2)
+}
+if (targetArg && !knownTargets.includes(TARGET)) {
+  console.error(
+    `❌ [check-i18n-keys] 未知 --target=${TARGET}:${relative(REPO_ROOT, MESSAGES_ROOT)}/${TARGET} 不存在,` +
+      `不再回落到 web(那等于给没扫的端发合格证)。可用 target:${knownTargets.join(', ')}`,
+  )
+  process.exit(2)
+}
+const isApi = TARGET === 'api'
 // 2026-07-26: --parity-only 强制仅做 5 语言 parity 校验(不扫描源文件)
 // 用途:guardian-runner 2n-web 项,即使暂存区无 i18n JSON 改动也强制跑 parity
 const isParityOnlyFlag = process.argv.includes('--parity-only')
 // parity-only 模式:仅做 5 语言 key parity 校验,跳过源码使用检测与翻译完整性检测
 // (extension / mobile-rn / cli 用各自 namespace 提取不适用;shared 为跨端共享基础 key 无源码消费方;
 //  --parity-only 用于 guardian-runner 2n-web 项兜底,防止 i18n JSON 没动时 parity 漂移漏检)
-const isParityOnly = isExtension || isShared || isCli || isParityOnlyFlag
+const isParityOnly = isExtension || isShared || isCli || isApi || isParityOnlyFlag
 const WEB_DIR = join(REPO_ROOT, 'apps/web')
 // 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
 // 2026-08-19:补充 mobile-rn 分支(原 fall through 到 web,守护形同虚设)
@@ -97,6 +124,8 @@ const MESSAGES_DIR = isExtension
         ? join(REPO_ROOT, 'packages/i18n/messages/mobile-rn')
         : isMiniappTaro
           ? join(REPO_ROOT, 'packages/i18n/messages/miniapp-taro')
+          : isApi
+            ? join(REPO_ROOT, 'packages/i18n/messages/api')
           : join(REPO_ROOT, 'packages/i18n/messages/web')
 // shared 目录:web/extension 非 shared 模式下与 MESSAGES_DIR 合并校验(方案 A)
 // shared 模式下 MESSAGES_DIR === SHARED_DIR,二者相同
@@ -112,6 +141,8 @@ const STAGED_MESSAGES_PREFIXES = isShared
       ? ['packages/i18n/messages/mobile-rn/', 'packages/i18n/messages/shared/']
       : isMiniappTaro
         ? ['packages/i18n/messages/miniapp-taro/', 'packages/i18n/messages/shared/']
+        : isApi
+          ? ['packages/i18n/messages/api/', 'packages/i18n/messages/shared/']
         : isExtension
           ? ['packages/i18n/messages/extension/', 'packages/i18n/messages/shared/']
           : ['packages/i18n/messages/web/', 'packages/i18n/messages/shared/']
@@ -1304,7 +1335,7 @@ function findDuplicateKeys(text) {
 
 if (dottedKeyIssues.length > 0) {
   console.log(
-    `${C.red}[i18n 键检查] 发现 ${dottedKeyIssues.length} 个含点键 —— next-intl 按 "." 解析路径,这类 key 永不渲染,UI 会回显原始键名${C.reset}`,
+    `${C.red}[i18n 键检查] ❌ 发现 ${dottedKeyIssues.length} 个含点键 —— next-intl 按 "." 解析路径,这类 key 永不渲染,UI 会回显原始键名${C.reset}`,
   )
   for (const line of dottedKeyIssues.slice(0, 20)) console.log(`  ${C.yellow}${line}${C.reset}`)
   if (dottedKeyIssues.length > 20) {
@@ -1316,7 +1347,7 @@ if (dottedKeyIssues.length > 0) {
 
 if (dupKeyIssues.length > 0) {
   console.log(
-    `${C.red}[i18n 键检查] 发现 ${dupKeyIssues.length} 处同层重复 key —— JSON.parse 静默保留最后一个,前面的值被遮蔽(AGENTS.md §18)${C.reset}`,
+    `${C.red}[i18n 键检查] ❌ 发现 ${dupKeyIssues.length} 处同层重复 key —— JSON.parse 静默保留最后一个,前面的值被遮蔽(AGENTS.md §18)${C.reset}`,
   )
   for (const line of dupKeyIssues.slice(0, 20)) console.log(`  ${C.yellow}${line}${C.reset}`)
   if (dupKeyIssues.length > 20) {
@@ -1328,7 +1359,7 @@ if (dupKeyIssues.length > 0) {
 
 if (dynamicPrefixIssues.length > 0) {
   console.log(
-    `${C.red}[i18n 键检查] 发现 ${dynamicPrefixIssues.length} 处动态键的静态前缀不可达 —— t(\`prefix.\${x}\`) 会走 MISSING_MESSAGE,UI 上直接回显键名${C.reset}`,
+    `${C.red}[i18n 键检查] ❌ 发现 ${dynamicPrefixIssues.length} 处动态键的静态前缀不可达 —— t(\`prefix.\${x}\`) 会走 MISSING_MESSAGE,UI 上直接回显键名${C.reset}`,
   )
   for (const line of dynamicPrefixIssues.slice(0, 20)) console.log(`  ${C.yellow}${line}${C.reset}`)
   if (dynamicPrefixIssues.length > 20) {
@@ -1478,7 +1509,7 @@ if (krUndetermined) {
 }
 if (removalIssues.length) {
   console.log(
-    `${C.red}[i18n 键检查] 发现 ${removalIssues.length} 处**语言包相对其父提交丢键**(五语言一致缩水时 parity 完全看不见):${C.reset}`,
+    `${C.red}[i18n 键检查] ❌ 发现 ${removalIssues.length} 处**语言包相对其父提交丢键**(五语言一致缩水时 parity 完全看不见):${C.reset}`,
   )
   for (const line of removalIssues.slice(0, 12)) console.log(`  ${C.yellow}${line}${C.reset}`)
   if (removalIssues.length > 12) console.log(`  ${C.yellow}… 还有 ${removalIssues.length - 12} 处${C.reset}`)
@@ -1520,7 +1551,7 @@ if (shouldBlock) {
     `${C.dim}[i18n 键检查] 统计: 检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 (${langNames.join(', ')})${C.reset}`,
   )
   console.log(
-    `${C.red}[i18n 键检查] 发现 ${
+    `${C.red}[i18n 键检查] ❌ 发现 ${
       parityIssues.length > 0
         ? 'parity 问题'
         : missingKeyIssues.length > 0
