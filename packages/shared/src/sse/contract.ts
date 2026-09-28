@@ -240,6 +240,10 @@ export type SSEEventPayload =
       truncated?: boolean
       /** 截断前的原始字符数;未截断时等于 output 长度 */
       totalChars?: number
+      /** D151(2026-09-29):本轮被用户代答过几次。**仅 >0 时下发** —— 零交互的旧帧形状一字不变。
+       *  计数原本只活在 tool-result 的 dict 里(模型看得见、用户看不见),而"我刚才替它答过
+       *  一次"是用户复盘这条命令时的第一个问题。 */
+      interactionCount?: number
       /**
        * formattedOutput 已于第 39 轮删除:我方无生产点也无消费方(后端不做输出排版,
        * stdout/stderr 的结构化由 tool-result 帧分别承载),契约里不留空壳字段。
