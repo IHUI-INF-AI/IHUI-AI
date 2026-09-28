@@ -6,6 +6,7 @@ import 'dotenv/config'
 import type { Worker } from 'bullmq'
 import type { FastifyInstance } from 'fastify'
 import { buildServer } from './server.js'
+import { createShutdownSignalHandler } from './lib/shutdown-signals.js'
 import { startWorkers } from './workers/index.js'
 import { startSchedulerWorker } from './workers/scheduler-worker.js'
 import { initVendorConfigs } from './lifecycle/init-vendor-configs.js'
@@ -310,8 +311,19 @@ async function start() {
   }
 
   // P1 修复(2026-08-02):改 on 为 once,避免重复触发 shutdown;二次信号走默认强制退出
-  process.once('SIGTERM', () => shutdown('SIGTERM'))
-  process.once('SIGINT', () => shutdown('SIGINT'))
+  // —— 但"默认强制退出"的死法**不产出任何退出码**(G-611,2026-09-29):本仓消费侧
+  // (scripts/lib/signal-exit.mjs 的 128+N 族)已经按码区分"被杀 ≠ 结论",而我方作为
+  // 被监管/被派生的一方从不产出它。现改回带闩的 on:第一下照常有序停机(shutdown 内部
+  // 的 shuttingDown 守卫仍在,双保险),第二下立即产出 128+N(SIGTERM→143 / SIGINT→130)。
+  // 注意:装了 on 就不许把第二下折进 no-op —— 那等于进程永不退出,比旧行为更糟;
+  // 闩的第二支必须显式 exit,由 apps/api/tests/shutdown-signals.test.ts 钉住。
+  const onShutdownSignal = createShutdownSignalHandler({
+    shutdown: (signal) => shutdown(signal),
+    exit: (code) => process.exit(code),
+    warn: (message, fields) => server.log.warn(fields ?? {}, message),
+  })
+  process.on('SIGTERM', () => onShutdownSignal('SIGTERM'))
+  process.on('SIGINT', () => onShutdownSignal('SIGINT'))
 }
 
 // P0 修复(2026-07-31):全局未捕获错误处理 — 记录明确日志便于诊断,

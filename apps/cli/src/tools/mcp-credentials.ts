@@ -12,7 +12,8 @@
  *   - Windows 兼容:fs.chmod 仅设置 owner 权限,POSIX 才有 group/other
  *
  * 数据结构:McpCredentials 按 serverUrl 为 key 索引,
- * 每个 entry 含 accessToken / refreshToken / expiresAt / scope / obtainedAt。
+ * 每个 entry 含 accessToken / refreshToken / expiresAt / scope / obtainedAt / generation。
+ * generation 是"换代计数器"(跨进程单飞刷新的 CAS 锚点),缺省视为 0。
  */
 
 import { promises as fs } from 'node:fs';
@@ -35,10 +36,31 @@ export interface McpCredentialEntry {
   scope?: string[];
   /** 获取时间(ms epoch) */
   obtainedAt: number;
+  /**
+   * 代次(单飞刷新的 CAS 锚点,2026-09-28 票A 引入)。
+   * 语义:每次**换发凭据**单调 +1 —— setCredential(交互授权/兼容写)与
+   * commitCredentialCas(锁内刷新提交)都会推进它,旧条目缺省视为 0。
+   * 刷新单飞在取锁**前**观察它、锁内**再**读它:值变了 ⇒ 别的进程已经换代,
+   * 绝不再发第二次 refresh_token 请求(reuse-detection 会撤销整个 token family),
+   * 直接复用 winner 落库的结果。它不是时间戳,也不承载任何凭据内容。
+   */
+  generation?: number;
 }
 
 export interface McpCredentials {
   [serverUrl: string]: McpCredentialEntry;
+}
+
+/** 读取指定 server 的凭证与其代次(不存在 ⇒ entry=undefined, generation=0) */
+export async function getCredentialWithGeneration(
+  serverUrl: string,
+): Promise<{ entry: McpCredentialEntry | undefined; generation: number }> {
+  const all = await loadMcpCredentials();
+  const entry = all[serverUrl];
+  const raw = entry?.generation;
+  // 非有限数/负数 ⇒ 按 0(缺省档),绝不让损坏的代次把 CAS 变成"永远不等"
+  const generation = typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 0;
+  return { entry, generation };
 }
 
 /**
@@ -91,14 +113,50 @@ export async function getCredential(
   return all[serverUrl];
 }
 
-/** 设置单个 server 的凭证(合并写入,不影响其他 server) */
+/**
+ * 设置单个 server 的凭证(合并写入,不影响其他 server)。
+ * 代次推进(票A):调用方未显式携带 generation 时,一律在当前值上 +1 ——
+ * 交互授权完成、兼容路径覆写都必须让并发刷新观察得到"换代了",
+ * 否则单飞的锁内复核看不见变化,会继续用旧 refresh_token 发第二次请求。
+ */
 export async function setCredential(
   serverUrl: string,
   cred: McpCredentialEntry,
 ): Promise<void> {
   const all = await loadMcpCredentials();
-  all[serverUrl] = cred;
+  const prev = all[serverUrl];
+  const prevGen =
+    typeof prev?.generation === 'number' && Number.isFinite(prev.generation) && prev.generation >= 0
+      ? Math.floor(prev.generation)
+      : 0;
+  all[serverUrl] = { ...cred, generation: cred.generation ?? prevGen + 1 };
   await saveMcpCredentials(all);
+}
+
+/**
+ * 代次 CAS 提交(票A 唯一合法的程序化写入口):
+ * 当前 generation 仍等于 expectedGeneration 才写入,并把代次推进 1;
+ * 不等 ⇒ **不落盘**,原样带回当前 entry 供调用方复用(winner 的结果优先)。
+ * 文件级读-改-写非原子,原子性由调用侧的跨进程单飞锁
+ * (mcp-oauth.ts 的 mcp-refresh.lock)保证;锁被抢占等极端并发下,
+ * expectedGeneration 这道判据是最后一道"不把别人的结果覆盖掉"的闸。
+ */
+export async function commitCredentialCas(
+  serverUrl: string,
+  cred: McpCredentialEntry,
+  expectedGeneration: number,
+): Promise<{ committed: boolean; generation: number; current: McpCredentialEntry | undefined }> {
+  const all = await loadMcpCredentials();
+  const current = all[serverUrl];
+  const raw = current?.generation;
+  const curGen = typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 0;
+  if (curGen !== expectedGeneration) {
+    return { committed: false, generation: curGen, current };
+  }
+  const nextGen = curGen + 1;
+  all[serverUrl] = { ...cred, generation: nextGen };
+  await saveMcpCredentials(all);
+  return { committed: true, generation: nextGen, current: all[serverUrl] };
 }
 
 /** 删除单个 server 的凭证,不存在返回 false,删除成功返回 true */
