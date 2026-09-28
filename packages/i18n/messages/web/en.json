@@ -8387,6 +8387,10 @@
           "title": "Parameters are incomplete or invalid",
           "action": "Fix and retry"
         },
+        "NEEDS_INPUT_TIMEOUT": {
+          "title": "Command timed out waiting for input",
+          "action": "Answer the prompt and retry"
+        },
         "NESTING_DEPTH_EXCEEDED": {
           "title": "Nesting is deeper than we can handle",
           "action": "Simplify and retry"
