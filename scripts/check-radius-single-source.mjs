@@ -23,8 +23,12 @@
  *     旧写法"值里出现 var( 就整条放行"会让这类混写整条隐身;任意属性形态 `[border-radius:6rpx]`
  *     (Tailwind/小程序 className)同样在射程内。
  *  B4 `rounded-[...]` 任意值 → 必须换档位类(或 var(--radius-*))
- *     唯一放行:`0` / `none` / `inherit` / 同行或紧邻上行含 `radius-exempt:` 标记(真圆、头像、
- *     装饰点、胶囊等几何圆按 AGENTS §4 豁免清单本就不该方档化,但必须写明原因,不得静默)。
+ *     唯一放行:`0` / `none` / `inherit` / **可证的几何真圆**(见 `circleVerdict` 与
+ *     `lib/box-geometry.mjs` 的 `isGeometricCircle` / `isHalfOfDeclaredSide`)。
+ *     ⚠️ 2026-09-28 起 `radius-exempt:` 标记**不再是任何一判据的出口**(用户定档:"不允许有任何豁免")。
+ *     原先它把"真圆/头像/装饰点/胶囊"一律交给人写一句话放行,而"胶囊"恰是项目明令禁止的形状 ——
+ *     于是标记既当豁免又当掩盖,而门从不量形状。现在形状由盒尺寸量出来:正方+半边=几何(放行),
+ *     非正方+半边=胶囊(判红,不吃标记),量不出=判不出(判红,出路是把尺寸写进同一作用域)。
  *  B5 SVG `rx`/`ry`:静态 .svg 须等于档位值(没有 JS 通道),JSX 内联须引用 rnRadius.<step>。
  *  B6 引用了 `rnRadius` / `RADIUS_CSS_PX` 却没在本文件 import 它们 → 红。
  *     本门判的是 HEAD 内容,而 `pnpm typecheck` 只跑 worktree —— 悬空标识符属于"两边都不红"
@@ -60,6 +64,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
 
 import { catBatch, Undetermined } from './lib/face-reader.mjs'
+import { objectDims, boxDims, scopeDimTexts, isHalfOfDeclaredSide, classifyRadiusGeometry } from './lib/box-geometry.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_FILE = join(ROOT, 'scripts/radius-single-source-baseline.json')
@@ -183,7 +188,7 @@ const isDoc = (f) => /\.(md|json|snap)$/.test(f)
 /** 生成"应写成什么"的提示(档位名唯一来源仍是 table,守门不复制表) */
 function targetOf(table, px) {
   const step = table.stepOf(px)
-  if (step === null) return `档位表无 ${px}px(就近 ${table.nearest(px)};几何圆请加 radius-exempt)`
+  if (step === null) return `档位表无 ${px}px(就近 ${table.nearest(px)};几何真圆请写成与边长同形的 <边长> / 2 或 50%)`
   return step === '2xl' ? "rnRadius['2xl']" : `rnRadius.${step}`
 }
 const skipped = (rel) => rel.split('/').some((seg) => SKIP_DIRS.has(seg)) || /\.(test|spec)\.[jt]sx?$/.test(rel)
@@ -201,6 +206,23 @@ export const OUT_OF_SCOPE = [
   {
     re: /(^|\/)(assets|public|static)\//,
     why: '静态美术资产:svg/图片里的 rx/ry 是图形轮廓本身,不是 UI 容器圆角,方档化等于改美术',
+    // bExempt = 这条声明同时把文件**从 B 判据里摘出去**。过去只有判据 C 认这张表,而 B 照扫 ——
+    // 于是 vendored .svg 与 lucide 字形数据被迫挂满 `radius-exempt` 标记,去平息一道自己
+    // 已经声明过"不适用"的门。声明式范围必须两半同形,否则"范围外"只是台账上一句空话。
+    // ⚠️ 这里刻意写成**扩展名**而不是 `true`:目录名叫 assets/public/static 的树里也可能长出
+    // 真正的界面代码(实测 HEAD 面那 5 个 .tsx/.css/.js 就是),整目录摘出去等于给未来开一个
+    // 静默逃逸的口 —— 范围只按"这条声明说的是什么东西"生效。
+    bExempt: /\.(svg|png|jpe?g|webp|gif|ico)$/i,
+  },
+  {
+    re: /^apps\/miniapp-taro\/src\/components\/LineIcon\/icons\.ts$/,
+    why: '第三方 lucide 字形数据(rx/ry 是 24 格 viewBox 单位,吸附档位会改坏图标形状;来源归属见守门 107 第三方台账)',
+    bExempt: true,
+  },
+  {
+    re: /^apps\/miniapp-taro\/scripts\/gen-line-icons\.mjs$/,
+    why: '上面那份字形数据的生成器(写入的是 lucide 原始 path 文本,不是本仓 UI 的圆角取用)',
+    bExempt: true,
   },
   { re: /^packages\/design-tokens\//, why: '档位表自身(radius.js / tailwind-preset / tokens.css),由 A 判据负责其一致性' },
   {
@@ -212,6 +234,22 @@ export const OUT_OF_SCOPE = [
 ]
 
 const RADIUS_TOKEN_RE = /(border(?:-top|-bottom)?(?:-left|-right)?-radius|borderRadius|\brounded-\[|\b(?:rx|ry)\s*[=:])/
+
+/**
+ * B7 的方向词表:`rounded-t` / `rounded-tr-sm` 这类"只写方向"或"方向+档位"都是合法类名。
+ * 档位名**不写在这里** —— 见 scanText 里的 `classStepNames`(从 radius.js 的表现取,
+ * 抄一份固定名单就是第二份真相:表改档时 B7 会拿旧名单判新代码)。
+ */
+const CLASS_DIR_NAMES = new Set(['t', 'b', 'l', 'r', 'tl', 'tr', 'bl', 'br', 'ss', 'se', 'es', 'ee', 's', 'e'])
+
+/**
+ * 判据 C 的"范围外"声明里带 `bExempt` 的那些,**同时把文件从 B 的取材清单摘出去**。
+ * 过去只有 C 认这张表,B 照扫不误 —— 于是 vendored .svg 与 lucide 字形数据只能靠挂
+ * `radius-exempt` 标记去平息一道自己已经声明过"不适用"的门(实测 24 处标记就是这么来的)。
+ * 数量在结论行如实打印:摘出去多少必须报名,不得让"少扫了文件"读成"没有违规"。
+ */
+const B_EXEMPT = OUT_OF_SCOPE.filter((o) => o.bExempt)
+const isBExcluded = (rel) => B_EXEMPT.some((o) => o.re.test(rel) && (o.bExempt === true || o.bExempt.test(rel)))
 
 /** 纯函数(便于自检注入文件清单):返回 { red:[{file,why}], exempt:[{file,category}] } */
 export function coverageAudit(trackedFiles, readFile) {
@@ -299,7 +337,36 @@ export function scanText(rel, text, table) {
   const bad = []
   const lines = text.split('\n')
   const steps = Object.entries(table.RADIUS_STEPS).map(([, v]) => v)
-  const marked = (i) => /radius-exempt/.test(lines[i]) || (i > 0 && /radius-exempt/.test(lines[i - 1]))
+  // B7 的档位名单**从 radius.js 的表现取**;`DEFAULT` 是数值兜底键、不是类名后缀,留着它
+  // 就等于把"看起来像类名"当成"是类名",而那正是 B7 要防的同一型。
+  const classStepNames = new Set([...Object.keys(table.RADIUS_STEPS).filter((k) => k !== 'DEFAULT'), 'full', 'none'])
+  /**
+   * 纯圆相对式(`50%` / `9999px`)的放行判据从"有没有标记"换成"**量出来的形状**":
+   *  - 同一作用域里 `width === height` ⇒ 真圆是几何,不是"绕档位表写死数字",不需要任何标记;
+   *  - 量得出来但不等 ⇒ 胶囊 / 椭圆 —— 本项目不允许胶囊形态,**没有豁免通道**(用户定档:零豁免);
+   *  - 量不出来 ⇒ 判"几何无法确认",出路是把盒尺寸写进同一作用域,而不是挂一行标记。
+   * 只看"两侧数值是否同形"不看单位,是因为 `50%` 的定义就是"各自边长的一半";dims 取材与门 150 的
+   * C6 共用 `lib/box-geometry.mjs` 那一份实现(两把尺子各算一遍形状必漂,本仓记过最多次)。
+   */
+  /**
+   * 一条半径相对自己那个盒的几何定性(实现只有一份,住在 lib/box-geometry.mjs,与门 150 的 C6 同一把尺)。
+   * 'circle' / 'rounded-end' 算几何 ⇒ 不是"绕档位表写死数字";
+   * 'capsule' 是本项目禁止的形状;'tier' 就是普通圆角取用,必须走档位表。
+   */
+  const geoPass = (idx, radiusText, anchor) => ['circle', 'rounded-end'].includes(classifyRadiusGeometry(lines, idx, radiusText, anchor))
+  const circleVerdict = (i) => {
+    // 作者把宽高写成同一个值(常量、rpx(N)、toRpx(x) 都算)⇒ 盒子是正方,这是比数值更强的证据:
+    // 它不依赖 dims 的单位折算口径。
+    const dt = scopeDimTexts(lines, i)
+    if (dt.length >= 2 && new Set(dt).size === 1) return 'circle'
+    const d = [objectDims(lines, i), boxDims(lines, i)].find(
+      (x) => x && Number.isFinite(x.w) && Number.isFinite(x.h) && x.w > 0 && x.h > 0,
+    )
+    if (!d) return 'unproven'
+    // 严格数值等值,不用 `shape === 'square'` —— 那一档在 dims 实现里是"长短边比 ≤1.35 就算方",
+    // 16×12 也落在里面;相对式 50% 在这种盒上渲染出来是椭圆/胶囊,不能按真圆放行。
+    return d.w === d.h ? 'circle' : 'capsule'
+  }
   lines.forEach((line, i) => {
     const t = line.trim()
     if (/^(\/\/|\*|\/\*|<!--|#\s|;;)/.test(t)) return
@@ -318,7 +385,18 @@ export function scanText(rel, text, table) {
         if (/^(?:inherit|none|0)$/i.test(val)) {
           // 整值就是关键字/零,没有可判的字面量
         } else if (/50%|9999px/.test(val)) {
-          if (!marked(i)) bad.push({ line: i + 1, rule: 'B3-circle', raw: val, hint: '真圆/胶囊须加 /* radius-exempt: 原因 */' })
+          // 纯圆/胶囊:**形状量出来才放行,标记不再起作用**(项目定档:不允许胶囊、不允许豁免)。
+          const v = circleVerdict(i)
+          if (v === 'circle') return
+          bad.push({
+            line: i + 1,
+            rule: v === 'capsule' ? 'B3-capsule' : 'B3-unproven',
+            raw: val,
+            hint:
+              v === 'capsule'
+                ? '非正方盒上的 50% / 9999px 渲染成胶囊 —— 本项目不允许胶囊形态,改取该元素类别的角色档(见 radius.js 的 RADIUS_ROLES)'
+                : '同一作用域里量不到等值的 width/height,门无法确认它是几何真圆还是胶囊 ⇒ 把盒尺寸写在这个作用域里',
+          })
         } else {
           // **逐值判,不按整串短路**:旧写法只要值里出现 `var(--radius` 就整条放行,于是
           // `border-radius: var(--radius-xl) 24rpx 0 0` 这种"第一个角引用档位、其余角写死字面量"
@@ -327,12 +405,12 @@ export function scanText(rel, text, table) {
             if (/^(?:var\(|calc\(|inherit|none|auto$)/i.test(part) || /^0(?:\.[0-9]+)?(?:px|rpx|rem|em|%)?$/i.test(part)) continue
             const mm = /^([0-9.]+)(rpx|px|rem|em)$/.exec(part)
             if (!mm) continue
+            // 与 B1 同一条尺子:等式成立才算几何,不是绕档(实现只有一份,见 lib/box-geometry.isGeometricCircle)。
+            if (geoPass(i, part)) continue
             const px = mm[2] === 'rpx' ? Number(mm[1]) / 2 : mm[2] === 'px' ? Number(mm[1]) : Number(mm[1]) * 16
             if (px === 0) continue
-            if (!marked(i)) {
-              if (steps.includes(px)) bad.push({ line: i + 1, rule: 'B3', raw: part, hint: `应写 var(--radius-*)(${table.stepOf(px) ?? px})` })
-              else bad.push({ line: i + 1, rule: 'B3-off', raw: part, hint: `偏档字面量;就近档位 = ${table.nearest(px)}` })
-            }
+            if (steps.includes(px)) bad.push({ line: i + 1, rule: 'B3', raw: part, hint: `应写 var(--radius-*)(${table.stepOf(px) ?? px})` })
+            else bad.push({ line: i + 1, rule: 'B3-off', raw: part, hint: `偏档字面量;就近档位 = ${table.nearest(px)}` })
           }
         }
       }
@@ -347,22 +425,49 @@ export function scanText(rel, text, table) {
       if (m) {
         if (m[1].startsWith('rpx(') || /^-?[0-9.]+$/.test(m[1])) {
           const raw = m[1]
-          const px = raw.startsWith('rpx(') ? Number(raw.slice(4, -1)) / 2 : Number(raw)
+          const isRpx = raw.startsWith('rpx(')
+          const declared = Number(isRpx ? raw.slice(4, -1) : raw)
+          const px = isRpx ? declared / 2 : declared
           if (px === 0) return
-          if (marked(i)) return
-          bad.push({ line: i + 1, rule: raw.startsWith('rpx(') ? 'B1-rpx' : 'B1', raw, hint: `应写 ${targetOf(table, px)}(几何圆请加 radius-exempt)` })
+          /**
+           * "半径由盒尺寸算出来"的两种几何写法在此放行,合起来就是 §4 推荐的那一种:
+           *  - `<边长> / 2`:**分子必须等于同一作用域量得到的正方边长** —— 写 `/ 2` 只是*声称*在算一半,
+           *    40×40 的盒上写 `10 / 2` 仍是绕档(声称不等于证明);
+           *  - 数值恰为正方边长的一半(`48×48` 上的 `24`)。
+           * B2 那条本地常量判据早就带同款排除(`(?![0-9.]*\s*\/)`),B1 漏了 ⇒ HEAD 实测 22 处
+           * **按规矩写出来的站点**被本门判红,而门给出的出路是"加 radius-exempt 标记" ——
+           * 用豁免盖住门自己推荐的形态,失效方向是逼人挂标记而不是逼人改正(§22c 同族)。
+           * 只在"半径与盒形都不带单位"时判等(RN StyleSheet 的 dp):`dimsFromText` 对不同书写形态的
+           * 单位折算口径不同(`w-[96rpx]` 折半、`width: 96rpx` 取原值),跨形态比数值会造出假方形。
+           * 判不出来就不是放行 —— 落回下面的红,出路是写成相对式(`50%`)或把盒尺寸写进同一作用域。
+           */
+          const halfForm = /^\s*\/\s*2\b/.test(line.slice(m.index + m[0].length))
+          if (halfForm ? isHalfOfDeclaredSide(lines, i, raw) : geoPass(i, raw)) return
+          bad.push({ line: i + 1, rule: isRpx ? 'B1-rpx' : 'B1', raw, hint: `应写 ${targetOf(table, px)}(几何圆请写成 <边长> / 2 或 50%)` })
         } else {
           const val = (m[3] || '').trim()
           if (/var\(--radius|inherit|none/.test(val)) return
           if (/50%|9999px/.test(val)) {
-            if (!marked(i)) bad.push({ line: i + 1, rule: 'B1-circle', raw: m[1], hint: '字符串形态的纯圆/胶囊同样要 radius-exempt 标记' })
+            // 与 B3 同一条尺子:形状量出来才算几何,标记在这一侧不起作用(见 circleVerdict 注释)。
+            const v = circleVerdict(i)
+            if (v === 'circle') return
+            bad.push({
+              line: i + 1,
+              rule: v === 'capsule' ? 'B1-capsule' : 'B1-unproven',
+              raw: m[1],
+              hint:
+                v === 'capsule'
+                  ? '非正方盒上的 50% / 9999px 渲染成胶囊 —— 本项目不允许胶囊形态,改取该元素类别的角色档(见 radius.js 的 RADIUS_ROLES)'
+                  : '同一作用域里量不到等值的 width/height,门无法确认它是几何真圆还是胶囊 ⇒ 把盒尺寸写进这个作用域',
+            })
             return
           }
           for (const part of val.split(/\s+/)) {
             const mm = /^([0-9.]+)(rpx|px|rem|em)$/.exec(part)
             if (!mm) continue
+            if (geoPass(i, part)) continue
             const px = mm[2] === 'rpx' ? Number(mm[1]) / 2 : mm[2] === 'px' ? Number(mm[1]) : Number(mm[1]) * 16
-            if (px === 0 || marked(i)) continue
+            if (px === 0) continue
             bad.push({ line: i + 1, rule: 'B1-string', raw: part, hint: `应写数值档位 ${targetOf(table, px)}(不要字符串字面量)` })
           }
         }
@@ -374,7 +479,7 @@ export function scanText(rel, text, table) {
       //   · SNIPPET_RADIUS —— 确实叫 RADIUS 但是字符窗口,属命名债,靠改名解决(见下)
       // 误报的代价是把业务常量吸附成档位值(5 轮→4 轮、60 字符→16 字符),比漏判严重得多。
       const mc = /^\s*(?:const|let)\s+([A-Za-z0-9_]*(?:RADIUS|Radius|CORNER|Corner)(?:[A-Za-z0-9_]*|\b)|(?:(?:[A-Za-z0-9_]+_)?(?:RX|RY|Rx|Ry)(?:_[A-Za-z0-9_]+)?))(?![A-Za-z0-9_])\s*=\s*([0-9.]+)(?![0-9.]*\s*\/)/.exec(line)
-      if (mc && !marked(i)) bad.push({ line: i + 1, rule: 'B2', raw: `${mc[1]}=${mc[2]}`, hint: '本地圆角/圆点半径常量应直接引用 rnRadius.<step>' })
+      if (mc) bad.push({ line: i + 1, rule: 'B2', raw: `${mc[1]}=${mc[2]}`, hint: '本地圆角/圆点半径常量应直接引用 rnRadius.<step>' })
     }
     // B5:SVG 圆角矩形 —— rx/ry 同样产生圆角,原先完全无判据(.svg 还被当资产整体跳过)
     //   静态 .svg 资产里没有 JS/CSS 变量通道,故只要求「取值等于档位」或带 radius-exempt 标记;
@@ -386,15 +491,46 @@ export function scanText(rel, text, table) {
       // 分支 1(rx="8")命中组 2;分支 2(rx={8})命中组 5 —— 下标取错会算出 NaN
       const raw = r5[2] ?? r5[5]
       const px = Number(raw)
-      if (!Number.isFinite(px) || px === 0 || marked(i)) continue
+      if (!Number.isFinite(px) || px === 0 || geoPass(i, raw, /\b(?:rx|ry)\s*[=:]/)) continue
       if (staticSvg && steps.includes(px)) continue
-      bad.push({ line: i + 1, rule: 'B5', raw: `${r5[1] || r5[4]}=${raw}`, hint: staticSvg ? `静态 SVG 圆角须等于档位值(${table.nearest(px)})或加 radius-exempt 注释` : `SVG 圆角应引用档位 ${targetOf(table, px)}` })
+      bad.push({ line: i + 1, rule: 'B5', raw: `${r5[1] || r5[4]}=${raw}`, hint: staticSvg ? `静态 SVG 圆角须等于档位值(${table.nearest(px)}) —— 项目不留豁免标记,确属图形轮廓则把该资产目录声明进 OUT_OF_SCOPE` : `SVG 圆角应引用档位 ${targetOf(table, px)}` })
     }
     const arb = /\brounded(?:-[a-z0-9]+)*-\[([^\]]+)\]/g
     let a
     while ((a = arb.exec(line))) {
-      if (/var\(--radius/.test(a[1]) || marked(i)) continue
-      bad.push({ line: i + 1, rule: 'B4', raw: a[0], hint: '任意值须换档位类 rounded-<step>' })
+      if (/var\(--radius/.test(a[1]) || geoPass(i, a[1], /rounded-/)) continue
+      bad.push({ line: i + 1, rule: 'B4', raw: a[0], hint: '任意值须换档位类 rounded-<step>(几何真圆请写成与边长同形的 <边长> / 2,门能认出它)' })
+    }
+    /**
+     * B7:类名**解析不到任何工具类**时,圆角其实是 0,而账面什么都看不出来。
+     * 立判据的实例不是假想:HEAD 上曾有 9 处 `rounded-$1-xl` / `rounded-$1-2xl`(批量 codemod
+     * 的替换串里 `$1` 没被展开,方向字母被吃掉)—— 底部弹层与角标的圆角**当场失效**,
+     * 而 B3/B4/门 150 全都看不见:B3 只看 `border-radius:`、B4 只认 `rounded-[…]` 方括号形态,
+     * `rounded-$1-xl` 长得"像个类名"。唯一暴露它的是门 128 的一条真仓阳性对照恰好失败
+     * (**阳性对照顺带充当了哨兵**),否则这批会带着 9 个死类名一直绿下去。
+     * 判据刻意只扫"类名属性里的词元",并且跳过插值/方括号/斜杠修饰三型 ——
+     * 把它们算进来就是几百处假红(散文里的 `rounded-lg/rounded-sm`、模板里的 `rounded-md${status}`),
+     * 而假红的代价永远是各会话跳钩子、连带全部守门作废(§12e 同型)。
+     */
+    if (isJsx(rel) || isDocLike) {
+      const attr = /class(?:Name)?\s*=\s*(?:\{\s*)?['"`]([^'"`]*)['"`]/g
+      let am
+      while ((am = attr.exec(line))) {
+        for (const rawTok of am[1].split(/\s+/)) {
+          let tok = rawTok
+          const colon = tok.lastIndexOf(':')
+          if (colon > 0) tok = tok.slice(colon + 1)
+          if (!tok.startsWith('rounded')) continue
+          if (tok.includes('${') || tok.includes('[') || tok.includes('/')) continue
+          const segs = tok.split('-').slice(1)
+          let why = ''
+          if (!segs.length) continue
+          else if (segs.every((s) => CLASS_DIR_NAMES.has(s))) continue
+          else if (!classStepNames.has(segs[segs.length - 1])) why = `尾段 "${segs[segs.length - 1]}" 不是档位名`
+          else if (!segs.slice(0, -1).every((s) => CLASS_DIR_NAMES.has(s))) why = `中段 "${segs.find((s) => !CLASS_DIR_NAMES.has(s))}" 不是方向/角`
+          if (why) bad.push({ line: i + 1, rule: 'B7-dead-class', raw: tok, hint: `${why} ⇒ Tailwind 不产出任何规则,这一处的圆角实际是 0(死类名)` })
+        }
+      }
     }
   })
   // B6:引用了档位出口(rnRadius / RADIUS_CSS_PX)却没在本文件 import 它们。
@@ -500,7 +636,11 @@ async function selfTest() {
     { name: 'B1 RN 数字字面量必拦', f: 'packages/app/src/x.tsx', s: 'const st = { a: { borderRadius: 8 } }', red: true },
     { name: 'B1 rnRadius 引用放行', f: 'packages/app/src/x.tsx', s: "import { rnRadius } from '@ihui/design-tokens'\nconst st = { a: { borderRadius: rnRadius.lg } }", red: false },
     { name: 'B1 0 放行', f: 'packages/app/src/x.tsx', s: 'const st = { a: { borderRadius: 0 } }', red: false },
-    { name: 'B1 几何圆带标记放行', f: 'packages/app/src/x.tsx', s: 'const st = { a: { borderRadius: 24 } } // radius-exempt: 48dp 头像正圆', red: false },
+    { name: 'B1 `<边长> / 2` 且分子等于同一作用域的正方边长 ⇒ §4 推荐的几何式,放行', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 20, height: 20, borderRadius: 20 / 2 } }', red: false },
+    { name: 'B1 反向:`/ 2` 只是声称在算一半 —— 分子与盒尺寸不符(10 vs 40×40)不得放行', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 40, height: 40, borderRadius: 10 / 2 } }', red: true },
+    { name: 'B1 反向:量不到盒形的 `/ 2` 不得放行(声称不等于证明)', f: 'packages/app/src/x.tsx', s: 'const st = { a: { borderRadius: 20 / 2 } }', red: true },
+    { name: 'B1 数值真圆:同一作用域量到 48×48 且半径=边长一半 ⇒ 放行(形状量出来,与标记无关)', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 48, height: 48, borderRadius: 24 } }', red: false },
+    { name: 'B1 反向:量不到盒形时标记**不再**替几何背书(零豁免)', f: 'packages/app/src/x.tsx', s: 'const st = { a: { borderRadius: 24 } } // radius-exempt: 48dp 头像正圆', red: true },
     { name: 'B1 rpx 绕档必拦', f: 'apps/mobile-rn/src/x.tsx', s: 'const st = { a: { borderRadius: rpx(16) } }', red: true },
     { name: 'B2 本地常量必拦', f: 'apps/mobile-rn/src/x.tsx', s: 'const CARD_RADIUS = 12', red: true },
     { name: 'B2 引用档位放行', f: 'apps/mobile-rn/src/x.tsx', s: "import { rnRadius } from '@ihui/design-tokens'\nconst CARD_RADIUS = rnRadius.xl", red: false },
@@ -519,10 +659,16 @@ async function selfTest() {
       red: false,
     },
     {
-      name: 'B3 任意属性形态 [border-radius:6rpx] 必拦(前导 [ 旧字符类漏掉,值 6rpx=3px 还偏档)',
+      name: 'B3 任意属性形态 [border-radius:6rpx] 必拦(前导 [ 旧字符类漏掉;40rpx 的边上 6rpx 既不是档位也不是几何半边)',
+      f: 'apps/miniapp-taro/src/a.tsx',
+      s: '  <View className="w-[40rpx] h-[40rpx] [border-radius:6rpx] bg-primary" />',
+      red: true,
+    },
+    {
+      name: 'B3 反向配对:同一条 6rpx 落在 12rpx 见方盒上 = 几何真圆 ⇒ 放行,且不需要任何标记',
       f: 'apps/miniapp-taro/src/a.tsx',
       s: '  <View className="w-[12rpx] h-[12rpx] [border-radius:6rpx] bg-primary" />',
-      red: true,
+      red: false,
     },
     {
       name: 'B3 任意属性形态引用档位必须放行(与 B4 的 rounded-[var(--radius-lg)] 同口径)',
@@ -531,12 +677,38 @@ async function selfTest() {
       red: false,
     },
     { name: 'B3 圆形无标记必拦', f: 'apps/web/app/x.css', s: '  border-radius: 50%;', red: true },
-    { name: 'B3 圆形带标记放行', f: 'apps/web/app/x.css', s: '  border-radius: 50%; /* radius-exempt: 头像 */', red: false },
+    {
+      name: 'B7 死类名必拦(codemod 把方向字母吃成 $1 ⇒ Tailwind 不产出任何规则,圆角其实是 0)',
+      f: 'apps/miniapp-taro/src/x.tsx',
+      s: '<View className="relative rounded-$1-xl bg-card" />',
+      red: true,
+    },
+    {
+      name: 'B7 反向:方向类名 / 变体前缀 / 任意值 / 插值一律不得误伤',
+      f: 'apps/miniapp-taro/src/y.tsx',
+      s: '<View className="rounded-t hover:rounded-md rounded-tr-sm rounded-[var(--radius-lg)] rounded-md${size}" />',
+      red: false,
+    },
+    {
+      name: 'B7 反向:档位名之外的词一律拦(名单不外溢成"看着像类名就算")',
+      f: 'apps/miniapp-taro/src/z.tsx',
+      s: '<View className="rounded-pill" />',
+      red: true,
+    },
+    {
+      name: 'B7 档位名单来自 radius.js:表里有的档不得被读成死类名(改档时 B7 跟着走)',
+      f: 'apps/miniapp-taro/src/w.tsx',
+      s: '<View className="rounded-xs rounded-2xl" />',
+      red: false,
+    },
+    { name: 'B3 反向:量不到盒形时标记**不再**放行(零豁免 —— 形状是量出来的,不是谁声明的)', f: 'apps/web/app/x.css', s: '  border-radius: 50%; /* radius-exempt: 头像 */', red: true },
+    { name: 'B3 可证正方 + 50% ⇒ 真圆放行(不需要任何标记)', f: 'apps/web/app/x.css', s: '  width: 96rpx;\n  height: 96rpx;\n  border-radius: 50%;', red: false },
     { name: 'B3 注释行放行', f: 'apps/web/app/x.css', s: '  /* border-radius: 24rpx; */', red: false },
     { name: 'B3 tokens.css 自身定义行放行', f: 'packages/design-tokens/src/styles/tokens.css', s: '  border-radius: 8px;', red: false },
     { name: 'B4 任意值必拦', f: 'apps/miniapp-taro/src/a.tsx', s: '<View className="rounded-[24rpx]" />', red: true },
     { name: 'B4 var 形式放行', f: 'apps/miniapp-taro/src/a.tsx', s: '<View className="rounded-[var(--radius-lg)]" />', red: false },
-    { name: 'B3 一行多声明也要看见(width…; border-radius: 50%)', f: 'apps/desktop/src-tauri/offline/index.html', s: '    width: 16px; height: 16px; border-radius: 50%;', red: true },
+    { name: 'B3 一行多声明也要看见(width…; border-radius: 50%)—— 非正方 ⇒ 胶囊判红', f: 'apps/desktop/src-tauri/offline/index.html', s: '    width: 16px; height: 12px; border-radius: 50%;', red: true },
+    { name: 'B3 同一行的 width/height 必须被读到(正方 ⇒ 真圆放行)', f: 'apps/desktop/src-tauri/offline/index.html', s: '    width: 16px; height: 16px; border-radius: 50%;', red: false },
     { name: 'B3 TS 模板里生成的 CSS 字面量必拦', f: 'apps/cli/src/commands/share.ts', s: '  .meta { background: #f6f8fa; border-radius: 6px; padding: 1rem; }', red: true },
     { name: 'B1 带引号字符串值必拦(原判据盲区:54 处 borderRadius: "8px")', f: 'apps/web/src/components/common/Toaster.tsx', s: 'const t = { borderRadius: "8px" }', red: true },
     { name: 'B1 字符串多值必拦', f: 'apps/web/app/(main)/design/InspectorPanel.tsx', s: 'style={{ borderRadius: "6px 6px 0 0" }}', red: true },
@@ -742,18 +914,32 @@ async function main() {
     mod,
   }
   const files = []
+  let bExcludedCount = 0
   if (FILES_MODE) {
-    for (const f of fileList) if (!skipped(f.replaceAll('\\', '/'))) files.push(f.replaceAll('\\', '/'))
+    for (const f of fileList)
+      if (!skipped(f.replaceAll('\\', '/'))) {
+        const rel = f.replaceAll('\\', '/')
+        if (isBExcluded(rel)) {
+          bExcludedCount++
+          continue
+        }
+        files.push(rel)
+      }
   } else if (isStaged) {
     if (!STAGED_SET) {
       console.error('❌ [radius-guard] 无法判定:git diff --cached 未能执行,--staged 无法收窄到暂存区 —— 判据未能执行,不计通过')
       return 2
     }
-    for (const f of STAGED_SET) if (!skipped(f) && !isDoc(f)) files.push(f)
+    for (const f of STAGED_SET) if (!skipped(f) && !isDoc(f) && !isBExcluded(f)) files.push(f)
   } else {
     for (const d of SCAN_DIRS) for (const abs of walk(join(ROOT, d))) {
       const rel = relative(ROOT, abs).replaceAll('\\', '/')
       if (skipped(rel) || isDoc(rel) || /(^|\/)\.d\.ts$/.test(rel)) continue
+      // 摘出去多少要报名:判据 C 的声明式范围若静默生效,读报告的人会把"没扫"当成"没有违规"。
+      if (isBExcluded(rel)) {
+        bExcludedCount++
+        continue
+      }
       files.push(rel)
     }
   }
@@ -857,7 +1043,7 @@ async function main() {
   }
 
   console.log(
-    `[radius-guard] 扫描 ${files.length} 文件 | 违规 ${violations.length} 处(HEAD 自身/基线容忍 ${violations.length - fresh.length} / 新增 ${fresh.length})| 基线已修 ${healed.length} 处 | 覆盖面对账:范围外已声明 ${cov.exempt.length} 个、未归类 ${cov.red.length} 个`,
+    `[radius-guard] 扫描 ${files.length} 文件(B 射程外按声明摘除 ${bExcludedCount} 个)| 违规 ${violations.length} 处(HEAD 自身/基线容忍 ${violations.length - fresh.length} / 新增 ${fresh.length})| 基线已修 ${healed.length} 处 | 覆盖面对账:范围外已声明 ${cov.exempt.length} 个、未归类 ${cov.red.length} 个`,
   )
   if (tableErrors.length) {
     console.error('\n❌ 档位表漂移(单一源头被破,必须修):')
