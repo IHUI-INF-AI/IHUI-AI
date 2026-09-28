@@ -32,11 +32,13 @@
  *     信任层只认不透明字符串 —— 两侧同一份实现的说明写在那儿。
  *   - readTrustedFolderRecord / listTrustedFolderRecords:读记录(含摘要)
  *   - checkFolderContentTrust(folder, bundleDigest, hookName, declDigest):内容判定
- *   - gateHook(spec, absCwd, trustFileText?):组合判断 — 派发前一次性调用
+ *   - gateHook(spec, absCwd, trustFileText?, overridesText?):组合判断 — 派发前一次性调用
+ *   - grantHumanHookOverride / hasHumanHookOverride / listHumanHookOverrides:人工放行层
+ *     (被规则拒绝的钩子留一条带理由、留痕的可调用出口 —— 拒绝是判定,不是永久禁止,§30)
  */
 
 import { readFileSync, appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
-import { join, resolve, isAbsolute } from 'node:path'
+import { join, resolve, isAbsolute, dirname } from 'node:path'
 import { homedir } from 'node:os'
 // 规范化器只认这一份实现(AGENTS「两处算同一 key 必须共用一份实现」):
 // apps/cli/src/stream-tool-ledger.ts 的 canonicalizeArgs(递归按 key 排序)。
@@ -399,6 +401,180 @@ export function saveTrustedFolderRecord(
   }
 }
 
+// ==================== 人工放行层(拆终态票 2026-09-29:拒绝是判定,不是永久禁止) ====================
+
+/**
+ * 人工放行台账:`~/.ihui/hook-overrides.jsonl`,一行一条 JSON 记录。
+ *
+ * 为什么必须有这一层(AGENTS §30 原文口径):钩子被**规则/机器代批拒绝**(目录没批过、
+ * 内容与批准时那份不一致)是一次**判定**,不是永久禁止 —— 拒绝之后必须留一条**人工放行**
+ * 入口,否则"闸门误判"与"真有恶意"在用户手里长成同一个死局。本节给的就是那条入口,
+ * 并且它把 trust.ts 已有的信任档机制**扩**了一格,而不是另建一套判定:
+ * 放行只发生在 gateHook 的 folder/content 两支拒绝上(disabled-in-config / disabled-by-user
+ * 是用户自己的开关,机器无权"替他复活",所以不接受放行)。
+ *
+ * 三条不可静默的规矩(全部落在实现里,不落在调用方的自觉里):
+ *  ① **必须带理由** —— `reason` 为空/全空白的 grant 直接拒绝写入,放行永远有话说得出原因;
+ *  ② **必须留痕** —— 每条放行落盘(时间、持有者身份恒为 `human`、钩子名、目录、当时那份
+ *     束摘要与可选单条摘要、理由),`readHumanHookOverrides` 就是回读口;
+ *  ③ **绑被拒那一刻的内容** —— 匹配以 `bundleDigest` 逐字相等为准;之后钩子内容再变,
+ *     旧放行不覆盖新内容(放行授权的对象是"我看到的那份",不是"这个目录永远")。
+ */
+const HOOK_OVERRIDES_PATH = join(homedir(), '.ihui', 'hook-overrides.jsonl')
+
+/** 供展示/测试引用台账路径(不得在别处再拼一遍 `~/.ihui/hook-overrides.jsonl`)。 */
+export function hookOverridesPath(): string {
+  return HOOK_OVERRIDES_PATH
+}
+
+export interface HumanHookOverrideRecord {
+  /** 放行发生的时刻(ISO 8601) —— 留痕的时间位 */
+  grantedAt: string
+  /** 身份恒为 `human`:这一层存在的意义就是"这是人点的,不是规则自动批的"。 */
+  grantedBy: 'human'
+  hookName: string
+  folder: string
+  /** 放行那一刻的束摘要;匹配逐字相等(见上③) */
+  bundleDigest: string
+  /** 省略 = 人对整束放行;给了 = 只对这一条声明放行 */
+  declarationDigest?: string
+  /** 必填(见上①);空理由在 grant 侧直接拒写 */
+  reason: string
+}
+
+function parseHumanHookOverrideLine(rawLine: string): HumanHookOverrideRecord | null {
+  const line = rawLine.trim()
+  if (!line || line.startsWith('#')) return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(line)
+  } catch {
+    return null
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+  const r = parsed as Record<string, unknown>
+  if (typeof r.hookName !== 'string' || typeof r.folder !== 'string') return null
+  if (typeof r.bundleDigest !== 'string' || r.bundleDigest === '') return null
+  if (typeof r.reason !== 'string' || r.reason.trim() === '') return null
+  if (r.grantedBy !== 'human') return null
+  const rec: HumanHookOverrideRecord = {
+    grantedAt: typeof r.grantedAt === 'string' ? r.grantedAt : '',
+    grantedBy: 'human',
+    hookName: r.hookName,
+    folder: r.folder,
+    bundleDigest: r.bundleDigest,
+    reason: r.reason,
+  }
+  if (typeof r.declarationDigest === 'string' && r.declarationDigest !== '') {
+    rec.declarationDigest = r.declarationDigest
+  }
+  return rec
+}
+
+/**
+ * 读台账(可注入文本用于测试/诊断;缺省读 `hookOverridesPath()`)。
+ * 坏行**跳过不判红也不放行**(fail-closed:读不出理由的记录不配当放行凭据),但如实计数。
+ */
+export function readHumanHookOverrides(
+  overridesText?: string,
+  overridesPath: string = HOOK_OVERRIDES_PATH,
+): { records: HumanHookOverrideRecord[]; malformed: number } {
+  let content = overridesText
+  if (content === undefined) {
+    if (!existsSync(overridesPath)) return { records: [], malformed: 0 }
+    try {
+      content = readFileSync(overridesPath, 'utf-8')
+    } catch {
+      return { records: [], malformed: 0 }
+    }
+  }
+  const records: HumanHookOverrideRecord[] = []
+  let malformed = 0
+  for (const rawLine of content.split('\n')) {
+    const t = rawLine.trim()
+    if (!t || t.startsWith('#')) continue
+    const rec = parseHumanHookOverrideLine(t)
+    if (rec) records.push(rec)
+    else malformed += 1
+  }
+  return { records, malformed }
+}
+
+/**
+ * 是否存在覆盖"这一次被拒"的人工放行。匹配口径见本节头注③:
+ * 钩子名逐字 + 目录 normalizeFolderPath 同值 + 束摘要逐字等值;
+ * 记录带 declarationDigest 时,当前声明摘要也必须等值(记录没带 = 人对整束放行)。
+ */
+export function hasHumanHookOverride(
+  hookName: string,
+  folderPath: string,
+  bundleDigest: string,
+  declarationDigest?: string,
+  overridesText?: string,
+  overridesPath: string = HOOK_OVERRIDES_PATH,
+): boolean {
+  if (!bundleDigest) return false
+  const target = normalizeFolderPath(isAbsolute(folderPath) ? folderPath : resolve(folderPath))
+  const { records } = readHumanHookOverrides(overridesText, overridesPath)
+  return records.some((rec) => {
+    if (rec.hookName !== hookName) return false
+    if (normalizeFolderPath(isAbsolute(rec.folder) ? rec.folder : resolve(rec.folder)) !== target) return false
+    if (rec.bundleDigest !== bundleDigest) return false
+    if (rec.declarationDigest !== undefined) return rec.declarationDigest === declarationDigest
+    return true
+  })
+}
+
+export interface HumanHookOverrideGrantSpec {
+  hookName: string
+  folder: string
+  bundleDigest: string
+  declarationDigest?: string
+  /** 必填 —— 空理由直接拒写(规矩①) */
+  reason: string
+}
+
+/**
+ * 人工放行的唯一写入出口:校验 → 落一行 JSONL(留痕)→ 回执给出台账路径。
+ * 只读诊断/测试请用 `readHumanHookOverrides(overridesText)` 注入,不要往真实台账写。
+ */
+export function grantHumanHookOverride(
+  spec: HumanHookOverrideGrantSpec,
+  overridesPath: string = HOOK_OVERRIDES_PATH,
+): { ok: boolean; error?: string; tracePath: string; record?: HumanHookOverrideRecord } {
+  if (spec.hookName.trim() === '') return { ok: false, error: 'hook-name-required', tracePath: overridesPath }
+  if (spec.bundleDigest.trim() === '') {
+    return { ok: false, error: 'bundle-digest-required', tracePath: overridesPath }
+  }
+  if (spec.reason.trim() === '') {
+    // 无"我批准了"但说不出为什么的放行 —— 静默放行正是本层要禁的东西。
+    return { ok: false, error: 'reason-required', tracePath: overridesPath }
+  }
+  const abs = isAbsolute(spec.folder) ? spec.folder : resolve(spec.folder)
+  const record: HumanHookOverrideRecord = {
+    grantedAt: new Date().toISOString(),
+    grantedBy: 'human',
+    hookName: spec.hookName,
+    folder: abs,
+    bundleDigest: spec.bundleDigest,
+    ...(spec.declarationDigest ? { declarationDigest: spec.declarationDigest } : {}),
+    reason: spec.reason.trim(),
+  }
+  try {
+    const dir = dirname(overridesPath)
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+    appendFileSync(overridesPath, `${JSON.stringify(record)}\n`, 'utf-8')
+    return { ok: true, tracePath: overridesPath, record }
+  } catch {
+    return { ok: false, error: 'write-failed', tracePath: overridesPath }
+  }
+}
+
+/** 台账全量回读(展示/审计用)。 */
+export function listHumanHookOverrides(overridesPath: string = HOOK_OVERRIDES_PATH): HumanHookOverrideRecord[] {
+  return readHumanHookOverrides(undefined, overridesPath).records
+}
+
 /**
  * 内容信任判定 —— 目录已批准之后**必须**再问这一句。
  *
@@ -516,6 +692,11 @@ export interface HookGateResult {
     | 'content-not-confirmed'
   /** 详细说明(给用户/日志看) */
   detail?: string
+  /**
+   * 仅当"本应拒绝、被**人工放行台账**逐条核对后放行"时出现 —— 值恒为 'human'。
+   * 这一格不得省略成布尔:调用方/展示面要能说出"这次派发靠的是人工放行,不是自动批准"。
+   */
+  overridden?: 'human'
 }
 
 /**
@@ -543,8 +724,31 @@ const CONTENT_TRUST_SKIP_ENV = 'IHUI_HOOK_TRUST_ALLOW_STALE'
  *   4. 内容摘要与批准时那份不符 → skip(content-not-confirmed)— security P0(A20)
  *      第 4 条与第 3 条**不可合并**:目录没批过 = "先决定信不信这个目录";
  *      批过而内容变了 = "你批的那份已经被换掉了"。混成一句提示,用户无从判断该看什么。
+ *   5. 第 3/4 支拒绝前先看人工放行台账(`hook-overrides.jsonl`)—— 拒绝是判定不是永久禁止,
+ *      台账按"钩子名 + 目录 + 被拒那一刻的束摘要(可选单条摘要) + 理由"逐字匹配;
+ *      第 1/2 支(disabled)**不接受**放行,那是用户自己的开关。
  */
-export function gateHook(spec: HookSpecLite, absCwd: string, trustFileText?: string): HookGateResult {
+export function gateHook(
+  spec: HookSpecLite,
+  absCwd: string,
+  trustFileText?: string,
+  overridesText?: string,
+): HookGateResult {
+  // 人工放行的匹配素材:束摘要缺失(半套/没接)时无从核对"放的是哪份内容" → 台账不参与。
+  const overrideBundleDigest = spec.bundleDigest ?? ''
+  const overrideDeclaration = spec.hookName !== undefined ? spec.declarationDigest : undefined
+  const humanOverride =
+    overrideBundleDigest !== '' &&
+    hasHumanHookOverride(spec.name, absCwd, overrideBundleDigest, overrideDeclaration, overridesText)
+  const overrideResult = (why: string): HookGateResult => ({
+    allowed: true,
+    overridden: 'human',
+    // 出路必须真实存在(§26"文档不得写跑不通的出路"):台账的读出口是本文件的
+    // readHumanHookOverrides()/listHumanHookOverrides(),落盘路径 hookOverridesPath()。
+    detail:
+      `人工放行覆盖本次拒绝(${why});逐条理由与时刻可用 listHumanHookOverrides() 回读,` +
+      `台账文件 = ${HOOK_OVERRIDES_PATH}`,
+  })
   if (spec.enabled === false) {
     return {
       allowed: false,
@@ -560,6 +764,7 @@ export function gateHook(spec: HookSpecLite, absCwd: string, trustFileText?: str
     }
   }
   if (!isFolderTrusted(absCwd, trustFileText)) {
+    if (humanOverride) return overrideResult('目录未信任,但人工对该目录该束内容放行了这一次')
     return {
       allowed: false,
       reason: 'folder-not-trusted',
@@ -595,6 +800,9 @@ export function gateHook(spec: HookSpecLite, absCwd: string, trustFileText?: str
   }
   const verdict = checkFolderContentTrust(absCwd, bundleDigest, hookName, declarationDigest, trustFileText)
   if (!verdict.allowed) {
+    // 拒绝的一次性原则(§30):内容判红是"这一份没被批过",不是"这个钩子永远不许跑"。
+    // 人工看过这份内容并放行 → 台账命中即过;没台账 → 与改动前逐字同形地拒绝。
+    if (humanOverride) return overrideResult('内容与批准时那份不一致,但人工对这份束放行了这一次')
     return {
       allowed: false,
       reason: 'content-not-confirmed',
