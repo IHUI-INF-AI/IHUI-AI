@@ -225,9 +225,16 @@ _APPROVAL_KEEPALIVE_INTERVAL = 15  # 秒:等待期间发 SSE 注释行,防前端
 _approval_sessions: dict[str, dict[str, dict[str, Any]]] = {}
 
 # 会话内「总是允许」授权缓存(内存 dict;轻量对齐 agent_loop_v2 审批缓存语义):
-# key = f"{session_id}::{tool_name}" -> scope('session'|'always')。
+# session_id -> {tool_name -> scope('session'|'always')}。
 # once 不落缓存;进程重启即失效(session/always 均为内存态,V3 #58 先落地主链路)。
-_tool_approval_grants: dict[str, str] = {}
+# 桶形(2026-09-28 改,原先是平铺 `f"{session_id}::{tool_name}"` 键):流收尾必须能把
+# 这一个 session 的授权整桶收回,平铺键做不到"按会话清"——`_delegate_sessions` /
+# `_form_sessions` / `_steer_sessions` 三个同级注册表都在 gen() 的 finally 里清,
+# 只有这一张没人清,于是每个授权过的 (轮 × 工具) 永久留一格,直到进程重启。
+# 而"永久留着"并不放行任何东西:`streamSessionId` 由网关**每轮**新生成
+# (`apps/api/src/routes/ai-chat-stream.ts` 的 `randomUUID()`,缺省时本文件 2684 行另生成 uuid),
+# 下一轮换一个 id,根本读不到上一轮那格。
+_tool_approval_grants: dict[str, dict[str, str]] = {}
 
 # =============================================================================
 # V3 #63(2026-09-27 立):主对话流业务表单帧 form_request / 应答端点 form-response
@@ -3733,8 +3740,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 if session_id is None:
                                     # 兜底:理论上 gen() 开始时已生成(与 delegate 分支同防御)
                                     session_id = str(uuid.uuid4())
-                                _grant_key = f"{session_id}::{tool_name}"
-                                if _tool_approval_grants.get(_grant_key) in ("session", "always"):
+                                _grant_scope = _tool_approval_grants.get(session_id, {}).get(tool_name)
+                                if _grant_scope in ("session", "always"):
                                     # 会话内「总是允许」命中:免弹窗(与 agent_loop_v2 审批缓存同语义)
                                     _approval_needed = False
                             if _approval_needed:
@@ -3801,7 +3808,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     _approval_sessions.get(session_id, {}).pop(_approval_id, None)
                                 if _decision == "approve" and _scope in ("session", "always"):
                                     # 落会话内授权缓存(once 不落,下次同工具仍弹窗)
-                                    _tool_approval_grants[_grant_key] = _scope
+                                    _tool_approval_grants.setdefault(session_id, {})[tool_name] = _scope
                                 if _decision is None or _decision != "approve":
                                     _is_timeout = _decision is None
                                     _denied_why = (
@@ -4577,6 +4584,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 端点此后对本 session 返回 404)
             if session_id:
                 _steer_sessions.pop(session_id, None)
+            # 审批授权缓存(V3 #58,2026-09-28 补这一格):与上面三个注册表同时收尾。
+            # 语义不变:session_id 每轮都是新 uuid(见 _tool_approval_grants 头注),
+            # 下一轮本来就读不到这桶,所以清掉它不改变任何一次放行判断,只把"内存里
+            # 永远长着一格"改成"随流收尾归零" —— 声明的寿命与执行的寿命必须同形。
+            if session_id:
+                _tool_approval_grants.pop(session_id, None)
             # D1(2026-09-19 立):流收尾处发出消息级 usage 计量帧(event: usage)。
             # 覆盖所有收尾路径(正常 done / 异常 error / 客户端断开),确保每条回复结束都能拿到
             # 本条消息的 token 用量与耗时。独立 try:计量帧失败/生成器关闭绝不影响主链路。
