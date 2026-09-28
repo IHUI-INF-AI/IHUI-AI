@@ -92,7 +92,7 @@ export default function PackageCard({
         type="button"
         onClick={() => onBuy?.(pkg.id)}
         className={cn(
-          'mt-5 w-full rounded-md px-4 py-2 text-sm transition-colors',
+          'mt-5 w-full rounded-sm px-4 py-2 text-sm transition-colors',
           pkg.popular ? 'bg-cta text-cta-foreground hover:bg-cta/90' : 'border hover:bg-muted',
         )}
       >

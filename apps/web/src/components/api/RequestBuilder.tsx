@@ -64,7 +64,7 @@ export default function RequestBuilder({
           onChange={(e) =>
             onMethodChange?.(e.target.value as Exclude<RequestBuilderProps['method'], undefined>)
           }
-          className="rounded-md border bg-background px-2 py-1.5 text-sm outline-none"
+          className="rounded-sm border bg-background px-2 py-1.5 text-sm outline-none"
         >
           {METHODS.map((m) => (
             <option key={m} value={m}>
@@ -77,13 +77,13 @@ export default function RequestBuilder({
           value={path}
           onChange={(e) => onPathChange?.(e.target.value)}
           placeholder="/v1/..."
-          className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1.5 font-mono text-sm outline-none"
+          className="min-w-0 flex-1 rounded-sm border bg-background px-2 py-1.5 font-mono text-sm outline-none"
         />
         <button
           type="button"
           onClick={onSend}
           disabled={loading}
-          className="flex shrink-0 items-center gap-1 rounded-md bg-cta px-3 py-1.5 text-sm text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
+          className="flex shrink-0 items-center gap-1 rounded-sm bg-cta px-3 py-1.5 text-sm text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
         >
           {loading ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -100,7 +100,7 @@ export default function RequestBuilder({
             value={headerText}
             onChange={(e) => handleHeaderChange(e.target.value)}
             rows={6}
-            className="w-full resize-none rounded-md border bg-background p-2 font-mono text-xs outline-none"
+            className="w-full resize-none rounded-sm border bg-background p-2 font-mono text-xs outline-none"
             spellCheck={false}
           />
         </div>
@@ -112,7 +112,7 @@ export default function RequestBuilder({
             rows={6}
             disabled={method === 'GET'}
             placeholder={method === 'GET' ? 'GET 请求无 body' : '{ }'}
-            className="w-full resize-none rounded-md border bg-background p-2 font-mono text-xs outline-none disabled:opacity-60"
+            className="w-full resize-none rounded-sm border bg-background p-2 font-mono text-xs outline-none disabled:opacity-60"
             spellCheck={false}
           />
         </div>

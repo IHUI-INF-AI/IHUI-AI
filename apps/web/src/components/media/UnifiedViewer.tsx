@@ -90,7 +90,7 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
             <button
               onClick={toggleFullscreen}
               aria-label={isFullscreen ? t('exitFullscreen') : t('fullscreen')}
-              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               <Maximize2 className="h-4 w-4" />
             </button>

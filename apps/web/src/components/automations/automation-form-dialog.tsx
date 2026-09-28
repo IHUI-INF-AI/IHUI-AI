@@ -257,7 +257,7 @@ export function AutomationFormDialog({ open, onOpenChange, editing, onSaved }: P
                   aria-pressed={form.scheduleType === value}
                   onClick={() => patch({ scheduleType: value })}
                   className={cn(
-                    'rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
+                    'rounded-sm border px-3 py-1.5 text-xs font-medium transition-colors',
                     form.scheduleType === value
                       ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                       : 'border-border bg-foreground/5 text-muted-foreground hover:bg-foreground/10',
@@ -323,7 +323,7 @@ export function AutomationFormDialog({ open, onOpenChange, editing, onSaved }: P
                           aria-pressed={active}
                           onClick={() => toggleDay(code)}
                           className={cn(
-                            'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
+                            'rounded-sm border px-2.5 py-1 text-xs font-medium transition-colors',
                             active
                               ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                               : 'border-border bg-foreground/5 text-muted-foreground hover:bg-foreground/10',
