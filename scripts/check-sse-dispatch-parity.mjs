@@ -89,12 +89,25 @@ function git(args, opts = {}) {
   })
 }
 
-/** 从 client.ts 源码里取出现的 onXxx 候选(权威帧清单 = 本集合 - toolCallbacks) */
+/**
+ * 从 client.ts 源码里取出现的 onXxx 候选(权威帧清单 = 本集合 - toolCallbacks)。
+ *
+ * ⚠️ **必须先遮掉注释与字符串**(2026-09-28 修,本门自己的假绿/假红双型现场):命中侧
+ * `filterHitsToCodeFace` 早就是"遮完再找",而清单侧此前拿的是**未遮罩原文** ⇒ 两侧不同形。
+ * 后果不是少判,是**凭空造出一条没人要求的帧**:`client.ts:2225` 的注释里写着
+ * "…与 onToolDelta/onInjection 同口径",而真成员叫 `onInjectionApplied`(wire 事件
+ * `injection_applied`,见 `app/core/sse_contract.py:103`)—— 于是五个端各被判红一次
+ * (`onInjection` 未注册且未声明理由),而**这一帧结构上不可能被注册**:它不存在。
+ * 该红挂在 blocking 批里,使每次提交都要合法跳一次钩子(§12f 那一型)。
+ * 同一个函数同时供清单与帧集(`resolveFrameCallbacks`),所以遮罩只能加在这里 —— 加在调用点
+ * 会漏掉另一条路径。反向锁见 `--self-test` 的 S10/S11 与镜像测试。
+ */
 export function extractCallbackNames(source) {
   const names = new Set()
   const re = /\b(on[A-Z][A-Za-z]*)\b/gu
+  const face = maskCommentsAndStrings(source)
   let m
-  while ((m = re.exec(source)) !== null) names.add(m[1])
+  while ((m = re.exec(face)) !== null) names.add(m[1])
   return names
 }
 
@@ -697,6 +710,28 @@ function selfTest() {
     (() => {
       const kept = filterHitsToCodeFace(cfHits, () => null)
       return kept.length === cfHits.length && kept.undetermined.length === 3
+    })(),
+  ])
+  // S10/S11:清单侧与命中侧必须同形(都看代码面)。立因是本仓实测的"凭空帧":client.ts 的
+  // 注释里写着 `…与 onToolDelta/onInjection 同口径`,而真成员叫 onInjectionApplied ⇒ 未遮罩的
+  // 清单侧把这条散文当成一帧需求,五个端各判红一次(那一帧结构上不可能被注册,因为它不存在)。
+  cases.push([
+    'S10 清单侧必须遮注释与字符串:只在注释里出现的 onZzz 不得进权威帧清单(真仓那条评论的形态)',
+    (() => {
+      const src =
+        '// …与 onToolDelta/onZzzPhantom 同口径\n' +
+        'const c = "别把 onStrPhantom 写进字符串"\n' +
+        'export type H = { onRealFrame: (x: unknown) => void }\n'
+      const names = [...extractCallbackNames(src)].sort().join(',')
+      return names === 'onRealFrame'
+    })(),
+  ])
+  cases.push([
+    'S11 反向锁(有牙):同一名字写成真代码 ⇒ 必须回到清单里(证明 S10 不是判据失明)',
+    (() => {
+      const src = 'const h = { onZzzPhantom: noop }\nexport type H = { onRealFrame: f }\n'
+      const names = [...extractCallbackNames(src)].sort().join(',')
+      return names === 'onRealFrame,onZzzPhantom'
     })(),
   ])
 
