@@ -3451,15 +3451,41 @@ export interface CourseDetailScreenProps {
 }
 
 /**
+ * 课程难度取值域。与 `packages/database/src/schema/learn.ts` 的 `LESSON_DIFFICULTIES`
+ * 同形(服务端写入校验用的就是那份常量),`lessons.difficulty` 列于
+ * 迁移 20260928050000_lessons_difficulty 落地后可空 —— 未标注的行在本类型上是 null。
+ */
+export type LessonDifficulty = 'beginner' | 'intermediate' | 'advanced'
+
+/** 课程列表价格轴的**服务端**档位(公开端点 price= 只认这两个值;'全部' 由"不下传该参数"表达)。 */
+export type LessonPriceAxis = 'free' | 'paid'
+
+/** 价格筛选轴档位('all' = 不下传该参数)。 */
+export type CoursePriceFilter = 'all' | LessonPriceAxis
+
+/** 难度筛选轴档位。 */
+export type CourseDifficultyFilter = 'all' | LessonDifficulty
+
+/** 分类轴选项:直接来自 GET /api/learn/categories 的真实行(中文 name + UUID id)。 */
+export interface CourseFilterCategoryOption {
+  id: string
+  name: string
+}
+
+/**
  * 课程筛选项。
- * 刻意没有 level —— lessons 表不存在难度列,也没有对应查询参数;
- * 摆一个渲染不出来的轴等于让用户点一个不会生效的按钮。
+ * 2026-09-28 前这里"刻意没有 level",理由写在原注释里:lessons 表不存在难度列。
+ * 列已加、查询轴已开(迁移 20260928050000 + findPublishedLessons),所以那句话的前提
+ * 不再成立,现按实际字段补上;但**nullable 保真** —— 服务端回 null 就渲染 null,
+ * 不得用任何默认档位把"未标注"洗成"入门"。
  */
 export interface CourseFilterItem {
   id: string
   title: string
   instructor: string
   price: number
+  difficulty: LessonDifficulty | null
+  categoryName: string | null
 }
 
 /** CourseFilterScreen props */
@@ -3468,9 +3494,20 @@ export interface CourseFilterScreenProps {
   items: CourseFilterItem[]
   loading: boolean
   refreshing: boolean
+  /** 取下一页中(列表底部提示用);与 loading 分开 —— 首屏与翻页的观感不是一回事 */
+  loadingMore: boolean
   error: string
-  priceTab: 'all' | 'free' | 'paid'
-  onPriceTabChange: (p: CourseFilterScreenProps['priceTab']) => void
+  priceTab: CoursePriceFilter
+  onPriceTabChange: (p: CoursePriceFilter) => void
+  difficultyTab: CourseDifficultyFilter
+  onDifficultyTabChange: (d: CourseDifficultyFilter) => void
+  /** 分类轴选项;空数组 = 服务端当前没有可用分类(渲染如实提示,不造选项) */
+  categories: CourseFilterCategoryOption[]
+  /** 'all'(未选)或 learn_categories.id(UUID) */
+  categoryId: string
+  onCategoryChange: (id: string) => void
+  /** 列表触底 —— 分页由服务端取下一页,不得再对已取回的一页做二次过滤 */
+  onLoadMore: () => void
   onApply: () => void
   onReset: () => void
   onRefresh: () => void
