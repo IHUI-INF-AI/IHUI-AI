@@ -478,12 +478,54 @@ const SECRET_SCAN_STDERR = [
   'error: failed to push some refs',
 ].join('\n')
 
+/** 凭据不可得的真实回显(逐字取自 .workbuddy/git-push-guard-async.log 2026-09-27 的失败块)。 */
+const AUTH_UNAVAILABLE_STDERR = [
+  'bash: line 1: /dev/tty: No such device or address',
+  'error: failed to execute prompt script (exit code 1)',
+  "fatal: could not read Username for 'https://github.com': No such file or directory",
+].join('\n')
+
 /** 每个导出的 kind 都必须有一条**真命中它**的输入 —— 名单不得是死表(守门 120 那一型)。 */
+/**
+ * 分支保护拒收的**真实回显**(2026-09-27 17:2x 逐字取自 .workbuddy/git-push-guard-async.log:8533 起)。
+ * 留着它是因为这一型的全部难点都在"同一段文本里同时出现 `[remote rejected]`"——
+ * 旧分诊按那个特征判成并发分叉,于是每个会话去跑 `git-sync-converge.mjs`(3 轮 × 全量门)
+ * 而收敛器修不了一个仓库设置。**夹具必须用被审面的真实原文**,自造文本只会让这条锁跟着判据一起漂(§22c)。
+ */
+const PROTECTED_BRANCH_STDERR = [
+  'remote: error: GH006: Protected branch update failed for refs/heads/main.        ',
+  'remote: ',
+  'remote: - Required status check "CI / lint-typecheck-test (pull_request)" is expected.        ',
+  "To https://github.com/IHUI-INF-AI/IHUI-AI.git",
+  ' ! [remote rejected]       main -> main (protected branch hook declined)',
+  "error: failed to push some refs to 'https://github.com/IHUI-INF-AI/IHUI-AI.git'",
+  '',
+].join('\n')
+
+/**
+ * 远端 ref 竞态的**真实回显**(2026-09-28 05:23Z / 06:2xZ 两次实测,逐字取自 git 与远端输出)。
+ * 难点全在"同一段里同时出现旁路通知与 `Required status check`":管理员有权直推时,GitHub 打的
+ * `Bypassed rule violations` 两行是**旁路成功**的通知,而这一趟真正的死因是下面那句 CAS 锁失败
+ * (别的会话同秒推了)。旧判序让 `Required status check` 先命中 ⇒ 出路写成"去改仓库设置/走 PR",
+ * 方向完全反了。夹具用真原文,不用自造文本(§22c)。
+ */
+const REMOTE_REF_RACE_STDERR = [
+  'remote: Bypassed rule violations for refs/heads/main:        ',
+  'remote: ',
+  'remote: - Required status check "CI / lint-typecheck-test (push)" is expected.        ',
+  'To https://github.com/IHUI-INF-AI/IHUI-AI.git',
+  " ! [remote rejected]       main -> main (cannot lock ref 'refs/heads/main': is at 6b8cd0f6aa11 but expected c12612dc9f02)",
+  "error: failed to push some refs to 'https://github.com/IHUI-INF-AI/IHUI-AI.git'",
+].join('\n')
+
 const FIXTURES_BY_KIND = {
   'pushed-ok': { status: 0, stdout: '   1111111..2222222  main -> main\n' },
   'up-to-date': { status: 0, stdout: 'Everything up-to-date\n', remoteEqualsLocal: true },
+  'remote-ref-race': { status: 1, stderr: REMOTE_REF_RACE_STDERR },
+  'protected-branch': { status: 1, stderr: PROTECTED_BRANCH_STDERR },
   'non-fast-forward': { status: 1, stderr: NFF_STDERR },
   'secret-scan-blocked': { status: 1, stderr: SECRET_SCAN_STDERR },
+  'credentials-unavailable': { status: 128, stderr: AUTH_UNAVAILABLE_STDERR },
   'hook-failed': { status: 1, stderr: HOOK_SUMMARY_STDERR },
   other: {
     status: 1,
@@ -511,6 +553,60 @@ test('分诊·成对:non-fast-forward 必判分叉,且**绝不**产生 --no-veri
   // 反向对照:同一份文本里若真含钩子痕迹,也不许被"分叉"吃掉顺序(先 secret-scan、再分叉)
   const mixed = triagePushAttempt({ status: 1, stderr: `${HOOK_SUMMARY_STDERR}\n${NFF_STDERR}` })
   assert.equal(mixed.kind, 'non-fast-forward', '两型同现时按远端裁定优先,不得被洗成"可跳门"')
+})
+
+test('分诊·成对:分支保护不得被误标成并发分叉,且出路不得指向收敛器(本次修复的全部理由)', () => {
+  const v = triagePushAttempt(FIXTURES_BY_KIND['protected-branch'])
+  assert.equal(v.kind, 'protected-branch', `真实 GH006 回显必须落在这一档。实得:${v.kind}`)
+  assert.notEqual(v.kind, 'non-fast-forward', '同一段文本里的 [remote rejected] 不得把它判成分叉')
+  assert.equal(v.terminalStatus, 'failed', '本地没错,落 failed 让下一次 guard 自动重试,不伪装成"推出去了"')
+  assert.notEqual(v.nextCommand, CONVERGE_COMMAND, '出路指向收敛器就是引人到死路上反复跑(它修不了仓库设置)')
+  assert.equal(v.allowNoVerifyRetry, false, '--no-verify 只跳本地钩子,改变不了服务器侧策略')
+  assert.equal(v.allowHookRetry, false, '再跑一趟 270s 的门也仍然被策略拒收')
+  // 反向对照:真并发分叉仍必须走 converger —— 本档不得把两类合并
+  const nff = triagePushAttempt(FIXTURES_BY_KIND['non-fast-forward'])
+  assert.equal(nff.kind, 'non-fast-forward')
+  assert.equal(nff.nextCommand, CONVERGE_COMMAND, '收紧分支保护之后,真分叉那一支的出路必须一字未动')
+  // 顺序锁:两型同现时按服务器侧策略优先(策略在,推多少次都是 GH006)
+  const mixed = triagePushAttempt({ status: 1, stderr: `${NFF_STDERR}\n${PROTECTED_BRANCH_STDERR}` })
+  assert.equal(mixed.kind, 'protected-branch', '策略拒收优先于分叉,否则修复了策略之后仍然一路报"去收敛"')
+})
+
+/**
+ * 2026-09-28:竞态 / 策略 / 分叉 三档必须**互不顶结论**(本票的核心红线 = "不得合并两档")。
+ * 竞态与策略的出路是相反的:一个"先取真值再重推、别动仓库设置",一个"动仓库设置或改走 PR"。
+ * 判据本体与成对反证的完整一套住在 scripts/tests/push-attempt-triage.test.mjs;
+ * 这里只锁"三档同现时的优先序",因为它决定 guard 实际会打印哪一条出路。
+ */
+test('分诊·成对:ref 锁竞态不得被误标成分支保护,也不得被并进分叉', () => {
+  const v = triagePushAttempt(FIXTURES_BY_KIND['remote-ref-race'])
+  assert.equal(v.kind, 'remote-ref-race', `真回显必须落在竞态档。实得:${v.kind}`)
+  assert.notEqual(v.kind, 'protected-branch', '旁路通知里的 Required status check 不是拒收证据')
+  assert.notEqual(
+    v.kind,
+    'non-fast-forward',
+    'CAS 没抢到 ≠ 两边各走各的,把人赶去收敛器同样是错方向',
+  )
+  assert.notEqual(v.nextCommand, CONVERGE_COMMAND, '竞态的第一步是取网络真值,不是收敛')
+  assert.equal(v.allowNoVerifyRetry, false, '与质量门无关:竞态绝不产生 --no-verify 计划')
+  assert.equal(v.allowHookRetry, false, '再跑一趟 270s 的门也仍然抢不到那个 ref')
+  assert.equal(
+    v.terminalStatus,
+    'failed',
+    '通道没坏 ⇒ 落 failed 让下一次 guard 重试,不冒充 diverged',
+  )
+  // 反向对照 1:纯策略拒收仍必须留在策略档(竞态档不得把它吃掉)
+  assert.equal(triagePushAttempt(FIXTURES_BY_KIND['protected-branch']).kind, 'protected-branch')
+  // 反向对照 2:真分叉仍必须走 converger(既有语义一字未动)
+  const nff = triagePushAttempt(FIXTURES_BY_KIND['non-fast-forward'])
+  assert.equal(nff.kind, 'non-fast-forward')
+  assert.equal(nff.nextCommand, CONVERGE_COMMAND)
+  // 反向对照 3:三型同现时按"最具体者胜"——git 自己的 CAS 原话排在最前
+  const allThree = triagePushAttempt({
+    status: 1,
+    stderr: `${NFF_STDERR}\n${PROTECTED_BRANCH_STDERR}\n${REMOTE_REF_RACE_STDERR}`,
+  })
+  assert.equal(allThree.kind, 'remote-ref-race', '判序:竞态必须先于策略与分叉命中')
 })
 
 test('分诊·成对:真守门批汇总必判 hook-failed 且保留原重试链', () => {
@@ -550,6 +646,48 @@ test('分诊·成对:secret-scan 不得被并进 hook-failed;other 保持改动�
   assert.equal(o.allowNoVerifyRetry, true)
   const empty = triagePushAttempt({ status: 1, stdout: '', stderr: '' })
   assert.equal(empty.kind, 'other', '空输出不得被猜成分叉或钩子(宁窄不误)')
+})
+
+test('分诊·成对:凭据不可得的 git 原话必判 credentials-unavailable;别的 128 仍落 other', () => {
+  // 正向:逐字取自 git-push-guard-async.log 的回显(此前被报成"分诊=other — 无可辨认特征")
+  const v = triagePushAttempt({ status: 128, stderr: AUTH_UNAVAILABLE_STDERR })
+  assert.equal(v.kind, 'credentials-unavailable')
+  assert.match(
+    v.why,
+    /could not read Username/,
+    'why 必须点出据以分类的 git 原话特征,便于复核分诊对不对',
+  )
+  assert.match(v.nextCommand ?? '', /check-credential-health/, '出路必须点名凭据巡检入口,不得空着')
+  // 另一形态(GIT_TERMINAL_PROMPT=0 时的尾串不同,前段特征相同)
+  assert.equal(
+    triagePushAttempt({
+      status: 128,
+      stderr: "fatal: could not read Username for 'https://github.com': terminal prompts disabled",
+    }).kind,
+    'credentials-unavailable',
+  )
+  // 重试策略与退出码**不得**被这一档改变(与 other 同旗 —— 本票只改分类与出路)
+  assert.equal(v.allowHookRetry, true, 'allowHookRetry 必须与 other 相同,push-gate 链不动')
+  assert.equal(v.allowNoVerifyRetry, true, 'allowNoVerifyRetry 必须与 other 相同')
+  assert.equal(v.terminalStatus, null, '终态仍由验证段落,分诊不越权')
+  // 反向成对:同为 exit 128 但无凭据特征的失败(网络断)必须仍落 other
+  const net = triagePushAttempt({
+    status: 128,
+    stderr: 'fatal: unable to access https://github.com/: Failed to connect to 127.0.0.1 port 7897',
+  })
+  assert.equal(net.kind, 'other', '认不出的一律 other —— 新档不得宽到把网络错也吃掉')
+  // 反向成对 2:真分叉里混进凭据字样也不得被凭据档抢走顺序(secret→nff 在前)
+  const mixed = triagePushAttempt({
+    status: 1,
+    stderr: `${NFF_STDERR}\n${AUTH_UNAVAILABLE_STDERR}`,
+  })
+  assert.equal(mixed.kind, 'non-fast-forward', '分类优先级(远端裁定在前)不得被新档打乱')
+  // guard 侧:失败分支必须真的为本档产出出路文案(判据在、没人打印 = 没有,守门 70/76 同型)
+  assert.match(
+    GUARD_SRC,
+    /credentials-unavailable/,
+    'guard 未对 credentials-unavailable 打印处置文案 ⇒ 分类加了没人喊出路',
+  )
 })
 
 test('装车反向锁:guard 必须真的调用分诊,且 --no-verify 只活在受分诊放行的分支里', () => {
