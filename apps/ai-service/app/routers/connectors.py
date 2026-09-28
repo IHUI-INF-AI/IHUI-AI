@@ -16,10 +16,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from ..core.jwt_auth import require_request_user_id
 from ..services import connector_store
 from ..services.connectors import SUPPORTED_TYPES, get_connector
 
@@ -105,10 +106,21 @@ def _error(status: int, message: str) -> JSONResponse:
 
 
 @router.get("", response_model=None)
-async def list_connectors() -> dict[str, Any] | JSONResponse:
-    """列出全部连接器配置(脱敏)。"""
+async def list_connectors(
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
+    """列出**当前主体**的连接器配置(脱敏)。
+
+    历史遗留、无属主的记录不列给任何人,只在服务端日志里报条数 ——
+    响应体里不带这个数,免得又开一个"数得清别人有多少配置"的口。
+    """
     try:
-        records = connector_store.list_all()
+        unclaimed = connector_store.ownerless_count()
+        if unclaimed:
+            logger.warning(
+                "连接器存储里有 %d 条无属主遗留记录(不对任何主体可见),需人工认领或清理", unclaimed
+            )
+        records = connector_store.list_owned(user_id)
         items = [_safe(rec) for rec in records]
         return {"connectors": items, "count": len(items)}
     except Exception as e:  # noqa: BLE001 - 内部异常降级,不裸抛
@@ -117,12 +129,19 @@ async def list_connectors() -> dict[str, Any] | JSONResponse:
 
 
 @router.post("/config", response_model=None)
-async def save_connector_config(req: ConnectorConfigRequest) -> dict[str, Any] | JSONResponse:
-    """新增或覆盖连接器配置;返回脱敏条目。"""
+async def save_connector_config(
+    req: ConnectorConfigRequest,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
+    """新增或覆盖**当前主体**的连接器配置;返回脱敏条目。
+
+    属主由承载层注入的 user_id 盖章(见 connector_store.save),请求体自报的同名字段一律不采信;
+    同名 key 在两个主体下各自成条,不会互相覆盖。
+    """
     try:
         if req.type not in SUPPORTED_TYPES:
             return _error(400, f"不支持的连接器类型: {req.type}")
-        existing = connector_store.get(req.key)
+        existing = connector_store.get(user_id, req.key)
         if existing is not None:
             # app_secret 空串保留旧值(防前端回显覆盖密钥);app_id 同样防覆盖
             app_secret = req.app_secret if req.app_secret else str(existing.get("app_secret") or "")
@@ -146,7 +165,7 @@ async def save_connector_config(req: ConnectorConfigRequest) -> dict[str, Any] |
             "last_error": str((existing or {}).get("last_error") or ""),
             "sync_items": list((existing or {}).get("sync_items") or []),
         }
-        saved = connector_store.save(record)
+        saved = connector_store.save(user_id, record)
         if saved is None:
             return _error(500, "保存连接器配置失败")
         logger.info("连接器配置保存成功: %s(%s)", req.key, req.type)
@@ -157,12 +176,15 @@ async def save_connector_config(req: ConnectorConfigRequest) -> dict[str, Any] |
 
 
 @router.post("/sync", response_model=None)
-async def sync_connector(req: ConnectorSyncRequest) -> dict[str, Any] | JSONResponse:
+async def sync_connector(
+    req: ConnectorSyncRequest,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
     """同步连接器数据源:调模块 sync,结果持久化。
     成功记 last_sync_at + sync_items;失败记 last_error。
     """
     try:
-        rec = connector_store.get(req.key)
+        rec = connector_store.get(user_id, req.key)
         if rec is None:
             return _error(404, f"连接器不存在: {req.key}")
         if not _safe(rec)["configured"]:
@@ -176,9 +198,9 @@ async def sync_connector(req: ConnectorSyncRequest) -> dict[str, Any] | JSONResp
         items = list(raw_items) if isinstance(raw_items, list) else []
         last_sync_at = str(result.get("last_sync_at") or "")
         if ok:
-            connector_store.set_sync_state(req.key, last_sync_at, "", items=items)
+            connector_store.set_sync_state(user_id, req.key, last_sync_at, "", items=items)
         else:
-            connector_store.set_sync_state(req.key, "", str(result.get("message") or "同步失败"))
+            connector_store.set_sync_state(user_id, req.key, "", str(result.get("message") or "同步失败"))
         logger.info("连接器同步 %s: ok=%s", req.key, ok)
         return {
             "ok": ok,
@@ -195,11 +217,13 @@ async def sync_connector(req: ConnectorSyncRequest) -> dict[str, Any] | JSONResp
 
 @router.post("/{key}/fetch", response_model=None)
 async def fetch_connector_document(
-    key: str, req: ConnectorFetchRequest
+    key: str,
+    req: ConnectorFetchRequest,
+    user_id: str = Depends(require_request_user_id),
 ) -> dict[str, Any] | JSONResponse:
-    """拉取单篇文档转纯文本(对齐 parse_document 语义)。"""
+    """拉取单篇文档转纯文本(对齐 parse_document 语义;只认自己名下的连接器)。"""
     try:
-        rec = connector_store.get(key)
+        rec = connector_store.get(user_id, key)
         if rec is None:
             return _error(404, f"连接器不存在: {key}")
         if not _safe(rec)["configured"]:
@@ -217,12 +241,15 @@ async def fetch_connector_document(
 
 
 @router.post("/{key}/enable", response_model=None)
-async def enable_connector(key: str) -> dict[str, Any] | JSONResponse:
+async def enable_connector(
+    key: str,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
     """启用连接器。"""
     try:
-        if connector_store.get(key) is None:
+        if connector_store.get(user_id, key) is None:
             return _error(404, f"连接器不存在: {key}")
-        updated = connector_store.set_enabled(key, True)
+        updated = connector_store.set_enabled(user_id, key, True)
         if updated is None:
             return _error(500, "更新启用状态失败")
         return _safe(updated)
@@ -232,12 +259,15 @@ async def enable_connector(key: str) -> dict[str, Any] | JSONResponse:
 
 
 @router.post("/{key}/disable", response_model=None)
-async def disable_connector(key: str) -> dict[str, Any] | JSONResponse:
+async def disable_connector(
+    key: str,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
     """停用连接器(保留持久化记录)。"""
     try:
-        if connector_store.get(key) is None:
+        if connector_store.get(user_id, key) is None:
             return _error(404, f"连接器不存在: {key}")
-        updated = connector_store.set_enabled(key, False)
+        updated = connector_store.set_enabled(user_id, key, False)
         if updated is None:
             return _error(500, "更新启用状态失败")
         return _safe(updated)
@@ -247,12 +277,15 @@ async def disable_connector(key: str) -> dict[str, Any] | JSONResponse:
 
 
 @router.delete("/{key}", response_model=None)
-async def delete_connector(key: str) -> dict[str, Any] | JSONResponse:
-    """删除连接器配置。"""
+async def delete_connector(
+    key: str,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
+    """删除连接器配置(只删自己名下的;别人的记录与"没这条"同形返回 404)。"""
     try:
-        if connector_store.get(key) is None:
+        if connector_store.get(user_id, key) is None:
             return _error(404, f"连接器不存在: {key}")
-        connector_store.remove(key)
+        connector_store.remove(user_id, key)
         logger.info("连接器已删除: %s", key)
         return {"ok": True}
     except Exception as e:  # noqa: BLE001
