@@ -40,9 +40,24 @@ function makeRepo(t) {
 }
 
 test('T1 导出面(§22c phase B):plumbing 原语必须全部可取', () => {
-  for (const k of ['git', 'headBlobOf', 'indexBlobOf', 'writeBlob', 'writeBlobOfWorktree', 'commitTreeWithIndex', 'casUpdateRef', 'sameLines', 'alignSharedIndex', 'resolveHeadRef', 'sleepMs']) {
+  for (const k of ['git', 'headBlobOf', 'indexBlobOf', 'writeBlob', 'writeBlobOfWorktree', 'commitTreeWithIndex', 'casUpdateRef', 'sameLines', 'alignSharedIndex', 'resolveHeadRef', 'sleepMs', 'isAncestor']) {
     assert.equal(typeof bg[k], 'function', `bypass-git.${k} 缺失`)
   }
+})
+
+test('T1b isAncestor 三态:是祖先 true / 不是 false / 对象取不到 null(未判定不得折叠成"不是")', (t) => {
+  const dir = makeRepo(t)
+  const c1 = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  writeFileSync(join(dir, 'a.txt'), 'v2\n')
+  runGit(dir, ['add', '-A'])
+  runGit(dir, ['commit', '-q', '-m', 'second'])
+  const c2 = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  assert.equal(bg.isAncestor(c1, c2, { root: dir }), true, '第一枚必须在第二枚的历史里(同枚也算)')
+  assert.equal(bg.isAncestor(c2, c1, { root: dir }), false, '反向必须读 false —— 这正是推送验证要问的那一格')
+  assert.equal(bg.isAncestor(c1, c1, { root: dir }), true, 'a===b 也算被包含')
+  // 128 档:对象不存在 ⇒ git 说的是"我判不了",不是"不是祖先"
+  assert.equal(bg.isAncestor('f'.repeat(40), c2, { root: dir }), null, '取不到对象必须落未判定')
+  assert.equal(bg.isAncestor('', c2, { root: dir }), null, '空输入不猜')
 })
 
 test('T2 git() 默认剥 GIT_INDEX_FILE:caller 残留的幽灵索引不得改变取材面', (t) => {
