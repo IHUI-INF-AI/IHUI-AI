@@ -443,4 +443,32 @@ test('T21 类名取证不得越界采兄弟属性,也不得因此漏采同一属
   assert.equal(classStringsInLine(two, two).length, 2, '同一 class 属性的第二段漏采 ⇒ 门对该形态失明')
 })
 
+
+/**
+ * T22 C6 判红路径必须**真的存在**(行为证明,不是形状证明)。
+ * 立因:票㉚ 第一版把胶囊写成"只进队列",而登记文本已经写了"判红"—— 账面与实现分叉时,
+ * 只有行为用例能发现;而更早在同一批里,8 条用例因把箭头函数当断言传给 t() 而**从未求值**
+ * (t 取的是布尔,!!fn 恒真),所以"全绿"里混着空断言。两条一起钉。
+ */
+test('T22 C6:短边达标的角色件胶囊必须进 violations 且不吃豁免;细于阈值的装饰条只进队列', async () => {
+  const { auditFileText } = await import(pathToFileURL(SRC).href)
+  const table = radiusLookup(readFileSync(join(REPO, 'packages/design-tokens/src/radius.js'), 'utf8'))
+  const pill = 'const s = { card: { width: 40, height: 16, borderRadius: rnRadius.lg } }'
+  const r1 = auditFileText('x/Pill.tsx', pill, table)
+  assert.equal(r1.violations.filter((v) => v.reason === 'capsule').length, 1, '短边 16 的角色件胶囊必须判红')
+  const r2 = auditFileText('x/Pill2.tsx', pill + ' // radius-role-exempt: 想免检', table)
+  assert.equal(r2.violations.filter((v) => v.reason === 'capsule').length, 1, '豁免标记不得让胶囊消失')
+  assert.ok(r2.exemptionIgnored >= 1, '被忽略的标记必须计出来,不能静默')
+  const thin = 'const s = { card: { width: 60, height: 8, borderRadius: rnRadius.sm } }'
+  const r3 = auditFileText('x/Thin.tsx', thin, table)
+  assert.equal(r3.violations.filter((v) => v.reason === 'capsule').length, 0, '细于可点尺寸的装饰条不得判红(§4 保护装饰族)')
+  assert.equal(r3.capsuleFindings.length, 1, '但它必须留在队列里,不得静默消失')
+})
+
+test('T23 自检 harness 不得接受"函数当断言"(空断言锁)', () => {
+  const src = readFileSync(SRC, 'utf8')
+  assert.match(src, /typeof cond === 'function'/, 'harness 必须拒绝未求值的断言(否则 ✅ 可能是空断言)')
+  assert.ok(!/^\s+t\('[^']*', \(\) => \{$/m.test(src), '不得再有 t(name, () => {...}) 这种从不求值的用例形态')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
