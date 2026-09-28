@@ -225,16 +225,98 @@ _APPROVAL_KEEPALIVE_INTERVAL = 15  # 秒:等待期间发 SSE 注释行,防前端
 _approval_sessions: dict[str, dict[str, dict[str, Any]]] = {}
 
 # 会话内「总是允许」授权缓存(内存 dict;轻量对齐 agent_loop_v2 审批缓存语义):
-# session_id -> {tool_name -> scope('session'|'always')}。
+# bucket -> {tool_name -> (scope('session'|'always'), 到期时刻)}。
 # once 不落缓存;进程重启即失效(session/always 均为内存态,V3 #58 先落地主链路)。
+#
 # 桶形(2026-09-28 改,原先是平铺 `f"{session_id}::{tool_name}"` 键):流收尾必须能把
-# 这一个 session 的授权整桶收回,平铺键做不到"按会话清"——`_delegate_sessions` /
-# `_form_sessions` / `_steer_sessions` 三个同级注册表都在 gen() 的 finally 里清,
-# 只有这一张没人清,于是每个授权过的 (轮 × 工具) 永久留一格,直到进程重启。
-# 而"永久留着"并不放行任何东西:`streamSessionId` 由网关**每轮**新生成
-# (`apps/api/src/routes/ai-chat-stream.ts` 的 `randomUUID()`,缺省时本文件 2684 行另生成 uuid),
-# 下一轮换一个 id,根本读不到上一轮那格。
-_tool_approval_grants: dict[str, dict[str, str]] = {}
+# 一个归属的授权整桶收回,平铺键做不到"按会话清"。
+#
+# 归属键(同日第二次改,把 "session" 档从"本轮"升成"本会话"):
+# 上一版键取 `session_id`,而 `streamSessionId` 由网关**每轮**新生成
+# (`apps/api/src/routes/ai-chat-stream.ts` 的 `randomUUID()`,缺省时本文件另生成 uuid4)
+# —— 于是用户点了「本会话总是允许」,下一轮换一个 id 就读不到那格,同一个工具下一轮
+# 又弹一次。声明的档位与执行的寿命不同形,这一档等于没实现。
+# 现在按 **令牌主体 + conversationId** 落桶(见 `_grant_bucket_key`):同一会话的后续轮次
+# 命中,跨用户/跨会话都不命中;主体只从 JWT 派生,绝不从 `metadata.userId` 取 ——
+# 那是客户端自报字段(本文件 P0-9 那条修复讲的正是同一型)。归属不齐时退回本轮桶,
+# 行为与改前逐字一致(不新增放行面)。
+# 主体身份链(现读确认,免得下一个人重新猜):8802 网关在 `/chat/stream` 上把调用方的
+# `Authorization` 头**原样转发**给本服务(`apps/api/src/routes/ai-chat-stream.ts`),
+# 由 `core/jwt_auth.py` 验签后写 `request.state.user_id` ⇒ 这条链上 `_resolve_owner_uuid`
+# 拿到的就是终端用户,不是 `system-worker`(`apps/api/src/utils/ai-service-fetch.ts` 的
+# 系统级凭证是另一条链路 —— v1 工具面走那个,那条上共享桶的害处已登记在
+# `v1-knowledge-tools.ts` 的头注里)。
+# 内存上界由 `_GRANT_TTL_SECONDS`(滑动)与 `_GRANT_MAX_BUCKETS` 两条一起兜,
+# 不再依赖"每轮换 id + 流收尾删桶"那种巧合。
+_tool_approval_grants: dict[str, dict[str, tuple[str, float]]] = {}
+
+_GRANT_TTL_SECONDS = 1800.0
+_GRANT_MAX_BUCKETS = 512
+
+
+def _grant_bucket_key(
+    owner_uuid: str | None, conversation_id: str | None, turn_id: str | None
+) -> str:
+    """审批授权的落点键:归属齐备走会话桶,否则走本轮桶。
+
+    返回值形如 `conv::<主体>::<会话>` 或 `turn::<本轮 session_id>`,前缀即档别 ——
+    收尾清理只认 `turn::` 那一档(见 `_grant_drop_if_turn_scoped`),
+    会话桶必须活过本轮,否则本次改动就白做。
+    """
+    uid = str(owner_uuid or "").strip()
+    conv = str(conversation_id or "").strip()
+    if uid and conv:
+        return f"conv::{uid}::{conv}"
+    return f"turn::{turn_id or ''}"
+
+
+def _grant_lookup(bucket: str, tool_name: str, now: float) -> str | None:
+    """读一次授权;命中即滑动续期,过期条目就地丢弃(空桶跟着收掉)。"""
+    inner = _tool_approval_grants.get(bucket)
+    if not inner:
+        return None
+    hit = inner.get(tool_name)
+    if hit is None:
+        return None
+    scope, expires_at = hit
+    if expires_at <= now:
+        inner.pop(tool_name, None)
+        if not inner:
+            _tool_approval_grants.pop(bucket, None)
+        return None
+    inner[tool_name] = (scope, now + _GRANT_TTL_SECONDS)
+    return scope
+
+
+def _grant_record(bucket: str, tool_name: str, scope: str, now: float) -> None:
+    """落一次授权。桶按"最近被触碰"排序(evict 的淘汰序即实际使用序)。"""
+    _grant_evict(now)
+    inner = _tool_approval_grants.setdefault(bucket, {})
+    inner[tool_name] = (scope, now + _GRANT_TTL_SECONDS)
+    _tool_approval_grants[bucket] = _tool_approval_grants.pop(bucket)
+
+
+def _grant_evict(now: float) -> None:
+    """清扫整桶到期的归属,并把总桶数压回上限(最久未触碰的先走)。"""
+    for b in [b for b, inner in _tool_approval_grants.items() if all(exp <= now for _, exp in inner.values())]:
+        _tool_approval_grants.pop(b, None)
+    while len(_tool_approval_grants) >= _GRANT_MAX_BUCKETS:
+        oldest = next(iter(_tool_approval_grants), None)
+        if oldest is None:
+            return
+        _tool_approval_grants.pop(oldest, None)
+
+
+def _grant_drop_if_turn_scoped(bucket: str) -> bool:
+    """流收尾清理:只收本轮桶。返回 True = 确实删掉了一格。
+
+    会话桶不得在这里删 —— 它的定义就是"活过本轮"。改前那一句无条件 pop 之所以
+    看起来无害,只因为当时所有桶都是本轮的(每轮换 id),那一行同时承担着"声明的
+    寿命"与"内存回收"两件事;归属升成会话级之后必须把它拆开,否则跨轮放行永不成立。
+    """
+    if not bucket.startswith("turn::"):
+        return False
+    return _tool_approval_grants.pop(bucket, None) is not None
 
 # =============================================================================
 # V3 #63(2026-09-27 立):主对话流业务表单帧 form_request / 应答端点 form-response
@@ -2696,6 +2778,19 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # steer 端点据此区分 200(流活跃,入队)/404(流不存在或已结束)。
         if session_id:
             _steer_sessions[session_id] = []
+
+        def _grants_bucket() -> str:
+            """本轮审批授权的落点桶(见 `_grant_bucket_key` 头注)。
+
+            刻意写成闭包而不是把键存成变量:`session_id` 在两个惰性兜底处会从 None
+            变成新 uuid4,存下来的键会与真正用于回传的那个 id 分叉。
+            归属(owner/conv)齐 ⇒ 会话桶(跨轮存活);缺 ⇒ 本轮桶(与改前逐字同形)。
+            """
+            return _grant_bucket_key(
+                owner_uuid,
+                str((req.metadata or {}).get("conversationId") or ""),
+                session_id,
+            )
         # 2026-08-31 原生 function calling:标记服务端 agent tool loop 是否执行。
         # 执行过则 messages 已归一化且工具循环结束,generic astream 不再带 tools;
         # 未执行(generic 路径)则透传请求体的 tools/tool_choice 给 astream。
@@ -3740,7 +3835,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 if session_id is None:
                                     # 兜底:理论上 gen() 开始时已生成(与 delegate 分支同防御)
                                     session_id = str(uuid.uuid4())
-                                _grant_scope = _tool_approval_grants.get(session_id, {}).get(tool_name)
+                                _grant_scope = _grant_lookup(
+                                    _grants_bucket(), tool_name, time.monotonic()
+                                )
                                 if _grant_scope in ("session", "always"):
                                     # 会话内「总是允许」命中:免弹窗(与 agent_loop_v2 审批缓存同语义)
                                     _approval_needed = False
@@ -3808,7 +3905,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     _approval_sessions.get(session_id, {}).pop(_approval_id, None)
                                 if _decision == "approve" and _scope in ("session", "always"):
                                     # 落会话内授权缓存(once 不落,下次同工具仍弹窗)
-                                    _tool_approval_grants.setdefault(session_id, {})[tool_name] = _scope
+                                    _grant_record(
+                                        _grants_bucket(), tool_name, _scope, time.monotonic()
+                                    )
                                 if _decision is None or _decision != "approve":
                                     _is_timeout = _decision is None
                                     _denied_why = (
@@ -4584,12 +4683,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 端点此后对本 session 返回 404)
             if session_id:
                 _steer_sessions.pop(session_id, None)
-            # 审批授权缓存(V3 #58,2026-09-28 补这一格):与上面三个注册表同时收尾。
-            # 语义不变:session_id 每轮都是新 uuid(见 _tool_approval_grants 头注),
-            # 下一轮本来就读不到这桶,所以清掉它不改变任何一次放行判断,只把"内存里
-            # 永远长着一格"改成"随流收尾归零" —— 声明的寿命与执行的寿命必须同形。
-            if session_id:
-                _tool_approval_grants.pop(session_id, None)
+            # 审批授权缓存(V3 #58,2026-09-28 两次改):收尾**只收本轮桶**。
+            # 改前这里无条件 pop session_id,当时所有桶都是本轮的(网关每轮换 id),
+            # 所以那一行同时干了"声明的寿命"与"内存回收"两件事。归属升成会话级之后
+            # 两件事必须拆开:会话桶删在这里删就等于把「本会话总是允许」又降回「本轮」,
+            # 而内存上界改由 `_GRANT_TTL_SECONDS` + `_GRANT_MAX_BUCKETS` 兜(见 `_grant_evict`)。
+            _grant_drop_if_turn_scoped(_grants_bucket())
             # D1(2026-09-19 立):流收尾处发出消息级 usage 计量帧(event: usage)。
             # 覆盖所有收尾路径(正常 done / 异常 error / 客户端断开),确保每条回复结束都能拿到
             # 本条消息的 token 用量与耗时。独立 try:计量帧失败/生成器关闭绝不影响主链路。
