@@ -370,7 +370,7 @@ const createStyles = (tk: RnThemeTokens) =>
     checkbox: {
       width: rpx(40),
       height: rpx(40),
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.sm,
       borderWidth: 1.5,
       borderColor: tk.border.medium,
       alignItems: 'center',
