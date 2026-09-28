@@ -40,34 +40,6 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
     requiresParams: false,
   },
   {
-    path: '/pages/login/login',
-    title: '登录',
-    tab: false,
-    subPackageRoot: '',
-    requiresParams: false,
-  },
-  {
-    path: '/pages/forgot-password/index',
-    title: '找回密码',
-    tab: false,
-    subPackageRoot: '',
-    requiresParams: false,
-  },
-  {
-    path: '/pages/webview/index',
-    title: '智汇AI',
-    tab: false,
-    subPackageRoot: '',
-    requiresParams: true,
-  },
-  {
-    path: '/pages/register/index',
-    title: '注册',
-    tab: false,
-    subPackageRoot: '',
-    requiresParams: false,
-  },
-  {
     path: '/pages/user/index',
     title: '我的',
     tab: true,
@@ -167,7 +139,7 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
   },
   {
     path: '/pkg-ai/ai-assistant/index',
-    title: '智汇AI',
+    title: '智汇AI助手',
     tab: false,
     subPackageRoot: 'pkg-ai',
     requiresParams: true,
@@ -608,7 +580,7 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
   },
   {
     path: '/pkg-user/message/index',
-    title: '智汇AI',
+    title: '消息中心',
     tab: false,
     subPackageRoot: 'pkg-user',
     requiresParams: false,
@@ -1088,6 +1060,34 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
     tab: false,
     subPackageRoot: 'pages/setting',
     requiresParams: false,
+  },
+  {
+    path: '/pages/login/login',
+    title: '登录',
+    tab: false,
+    subPackageRoot: 'pages/login',
+    requiresParams: false,
+  },
+  {
+    path: '/pages/register/index',
+    title: '注册',
+    tab: false,
+    subPackageRoot: 'pages/register',
+    requiresParams: false,
+  },
+  {
+    path: '/pages/forgot-password/index',
+    title: '找回密码',
+    tab: false,
+    subPackageRoot: 'pages/forgot-password',
+    requiresParams: false,
+  },
+  {
+    path: '/pages/webview/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pages/webview',
+    requiresParams: true,
   },
 ]
 
