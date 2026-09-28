@@ -24,7 +24,9 @@
  *  GATE_SKIP_ENV  必填,skipEnv 字段(如 HUSKY_SKIP_FOO)
  *  GATE_SECTION   可选,块抬头注释用的短名(缺省 = 整条 GATE_LABEL,不做 slice 截断 —— wire-gate
  *                 的 slice(0,24) 曾把注释截成半句,由 fix-runner-block 善后)
- *  GATE_TRIGGERS  可选,`;` 分隔的 stagedTriggers
+ *  GATE_TRIGGERS  可选,`;` 分隔的 stagedTriggers;**不设时整个键都不写**(不是写 `[]` —— 空数组会让
+ *                 scripts/lib/guardian-triggers.mjs 归一时当场抛错,runner 的 for 循环没有 catch,
+ *                 于是一次注册把整条 pre-commit 弄崩;守门 89 的 R8 判这一格,2026-09-28 实测咬到)
  *  GATE_MODE      可选,条目定级;值域恰好 {blocking | warn},**缺省 blocking**(= 本工具既有行为,逐字不变)。
  *                 定级同时落进块抬头注释的"(1 项,<定级>)"与 mode 字段 —— 两处必须同值,否则注册表里
  *                 的注释会对一条 warn 门宣称 blocking(本仓"名字承诺与实现兑现"同型)。缺省档两处逐字同形。
@@ -112,7 +114,10 @@ export function buildEntry({ id, section, label, script, skipEnv, triggers = [],
     '    args: [],',
     `    mode: ${jsQ(mode)},`,
     `    skipEnv: ${jsQ(skipEnv)},`,
-    triggers.length > 0 ? `    stagedTriggers: [${triggers.map((t) => jsQ(t)).join(', ')}],` : '    stagedTriggers: [],',
+    // 没有 triggers 就**整个键都不写**,而不是写 `stagedTriggers: []` —— 空数组交给
+    // scripts/lib/guardian-triggers.mjs 归一时当场抛错,而 runner 的 for (const check of effectiveChecks)
+    // 没有 catch,一次抛错 = 整条 pre-commit 中止(守门 89 的 R8 就是判这一格;2026-09-28 实测咬到)。
+    ...(triggers.length > 0 ? [`    stagedTriggers: [${triggers.map((t) => jsQ(t)).join(', ')}],`] : []),
     '    onFailHint: [',
     "      '',",
     ...hint.map((l) => `      ${jsQ(l)},`),
