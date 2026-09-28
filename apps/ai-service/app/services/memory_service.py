@@ -6,6 +6,8 @@
 
 四层架构:
 1. working_memory    — 当前会话消息缓冲(内存 dict[session_id] -> OrderedDict,LRU 上限 50 条)
+                        自 2026-09-28 起条目带 `userId`(属主,由承载层显式入参 `owner` 写入);
+                        收口之前写入的存量条目无该键 ⇒ 由 scripts/backfill_working_owner.py 回填
 2. episodic_memory   — 历史会话片段(PostgreSQL agent_memory_episodic 表,支持遗忘曲线衰减)
 3. semantic_memory   — 向量检索知识(PostgreSQL agent_memory_semantic + pgvector 1536 维)
 4. procedural_memory — 技能/工具用法模式(PostgreSQL agent_memory_procedural,success/failure 计数)
@@ -22,11 +24,13 @@ LLM/embedding 调用复用 llm_gateway 单例。
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import logging
 import math
 import os
 from collections import OrderedDict
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -202,6 +206,18 @@ def _parse_jsonb(raw: Any) -> dict[str, Any]:
     return {}
 
 
+def working_entry_owner(msg: Mapping[str, Any]) -> str | None:
+    """working 条目上记录的属主 —— **唯一一份**这个判据(读侧过滤与回填器共用)。
+
+    非字符串 / 空串一律算"无主"(不是"属主是空字符串")。回填侧
+    (`scripts/backfill_working_owner.py`)直接 import 本函数,不得再抄一条 ——
+    两处对"什么算有属主"的定义一旦漂开,回填器写进去的东西读侧会判不出(或反过来
+    把已回填的条目再当无主补一遍,幂等性就是纸上的)。
+    """
+    raw = msg.get("userId")
+    return raw if isinstance(raw, str) and raw else None
+
+
 class MemoryService:
     """四层记忆服务。
 
@@ -227,10 +243,31 @@ class MemoryService:
         role: str,
         content: str,
         metadata: dict[str, Any] | None = None,
+        *,
+        owner: str | None = None,
     ) -> dict[str, Any]:
-        """向 working memory 追加一条消息(LRU 上限 50,超出丢弃最旧)。"""
+        """向 working memory 追加一条消息(LRU 上限 50,超出丢弃最旧)。
+
+        2026-09-28 写侧收口(机主拍板"写侧补属主 + 回填再收紧"):owner 是这条记录的
+        **属主**,由承载层用显式入参传进来(AGENTS §5「认证不等于授权」:身份只能从承载层
+        入参进来,不得从被操作记录反推,更不得接受请求体里自报的 user_id)。落点与 episodic
+        同构 —— 属主记在**条目自身**上(`agent_memory_episodic` 是行上的 `user_id` 列,
+        这里是内存条目里的 `userId` 键),不另立第二份登记表。
+        * 必须在 `_working_lock` **之内**把 owner 烘进 msg 再入桶:此前的写法是
+          `save()` 拿到返回值之后补一句 `msg["userId"] = user_id`(旧 :683),那是一次
+          **锁外的后置改写** —— 并发读能在"条目已入桶、属主还没落"的窗口里看见无主形态,
+          于是读侧判成"无主桶 ⇒ 维持旧行为",收紧在自家写入路径上被绕过。
+        * `owner` 缺席(None / 空串)⇒ **不写 `userId` 键**,而不是写一个假的身份。
+          无主条目按定义进"回填"这一族(见 scripts/backfill_working_owner.py),
+          而把 None 落成字符串会把"推不出 owner"伪装成"owner 已知"。
+
+        已知既存风险(本票**不改**,只登记):`msg_id` 取 `{session_id}:{timestamp}`,
+        Windows 的时间戳精度不足以区分同一微秒内的两次写入 ⇒ 同桶第二条会**静默覆盖**
+        第一条(`tests/test_memory_service.py::test_lru_limit_50` 早已用 sleep 绕开它,
+        本票的测试也被它咬到过一次)。改 id 形态会动到返回给调用方的 `id` 契约,属另一票。
+        """
         msg_id = f"{session_id}:{datetime.now(UTC).timestamp()}"
-        msg = {
+        msg: dict[str, Any] = {
             "id": msg_id,
             "layer": "working",
             "sessionId": session_id,
@@ -239,6 +276,8 @@ class MemoryService:
             "metadata": metadata or {},
             "createdAt": datetime.now(UTC).isoformat(),
         }
+        if owner:
+            msg["userId"] = owner
         async with self._working_lock:
             bucket = self._working.setdefault(session_id, OrderedDict())
             bucket[msg_id] = msg
@@ -246,13 +285,74 @@ class MemoryService:
                 bucket.popitem(last=False)  # 弹出最旧
         return msg
 
-    async def get_working(self, session_id: str, limit: int = 50) -> list[dict[str, Any]]:
-        """读取 working memory 最近 limit 条消息。"""
+    # ------------------------------------------------------------------
+    # working memory 的属主判据(唯一一份实现)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def entry_visible_to(entry_owner: str | None, requester: str | None) -> bool:
+        """这一条 working 条目能否被 `requester` 读到 —— **读写两侧共用的唯一判据**。
+
+        三条分支,顺序不可调:
+        1. `requester is None` —— 调用方根本没带身份(内部路径 / 开发降级态,见
+           `api/memory.py` 里"DEV 主体 ⇒ 不作为 requester 传入"的注释)。
+           ⇒ 维持**改动前行为**。这是回退,不是授权结论:那条路径上不存在两个租户,
+              判"拒"只会把开发单机打成不可用,不减少任何真实敞口。
+        2. `entry_owner` 为空(无主存量条目:键缺席 / None / 空串都算,见
+           `working_entry_owner`)⇒ 同样维持改动前行为,由回填票逐步补上属主。
+           把无主当"拒绝"会让存量 working 记忆对所有人生效性丢失,那是用功能换账面干净。
+        3. 其余(条目记了非空属主)⇒ **必须**与请求主体逐字相等,否则不可见(fail-closed)。
+
+        判据吃的是"已经归一过的属主",但这里对空串再兜一道:调用方若绕过
+        `working_entry_owner` 直接传原始值,空串也不该被当成一个可比对的身份去拒绝
+        (那会把"回退档"悄悄改成"锁死档",而账面看不出谁改的)。
+        """
+        if requester is None:
+            return True
+        if not entry_owner:
+            return True
+        return entry_owner == requester
+
+    async def working_has_visible_entries(self, session_id: str, requester: str | None) -> bool:
+        """该桶对这一主体**是否存在任何可见条目** —— 只回答可见性,不返回任何内容。
+
+        存在的唯一理由是"少发一次内容读取":整桶都对调用方不可见时,端点可以直接回
+        与「session 不存在」**同一个形状**(见 `api/memory.py::get_working` 的同形口径),
+        连内容都不用读出来。
+
+        它**不是第二条判据**:可见性逐字复用 `entry_visible_to`,与 `get_working` 内的
+        过滤同源。曾经这里想过一个"取全桶一致属主再比对"的版本(桶里 49 条无主 + 1 条
+        属于 A 时对 B 整桶拒),那会让本函数与逐条过滤在"部分有主"的桶上给出**不同答案** ——
+        两处算同一件事必漂移,且漂移方向是"更严的那个悄悄改掉回退档"。现在部分有主的桶
+        按定义走回退分支:无主条目照旧可见,有主且非己的条目不可见。
+        """
+        async with self._working_lock:
+            bucket = self._working.get(session_id)
+            if not bucket:
+                return False
+            return any(
+                self.entry_visible_to(working_entry_owner(msg), requester)
+                for msg in bucket.values()
+            )
+
+    async def get_working(
+        self, session_id: str, limit: int = 50, *, requester: str | None = None
+    ) -> list[dict[str, Any]]:
+        """读取 working memory 最近 limit 条消息。
+
+        `requester` 是**令牌主体**(不是请求里自报的 id)。判据只有一份,
+        即 `entry_visible_to`;`requester=None` 时逐条判据恒真 ⇒ 返回值与本参数
+        引入之前**逐字相同**(内部/开发路径的行为不变,不是"已授权")。
+        """
         async with self._working_lock:
             bucket = self._working.get(session_id)
             if not bucket:
                 return []
-            items = list(bucket.values())
+            items = [
+                msg
+                for msg in bucket.values()
+                if self.entry_visible_to(working_entry_owner(msg), requester)
+            ]
         return items[-limit:] if limit < len(items) else items
 
     async def clear_working(self, session_id: str) -> int:
@@ -260,6 +360,74 @@ class MemoryService:
         async with self._working_lock:
             bucket = self._working.pop(session_id, None)
             return len(bucket) if bucket else 0
+
+    # ------------------------------------------------------------------
+    # 供回填器使用的最小快照出口(scripts/backfill_working_owner.py)
+    # ------------------------------------------------------------------
+
+    async def snapshot_working(self) -> dict[str, list[dict[str, Any]]]:
+        """当前进程 working 桶的**深拷贝快照**(回填前的现场存档 / 回滚依据)。
+
+        刻意返回副本:回填是"读→判→写"三步,拿住原 dict 就等于在锁外改活数据。
+        """
+        async with self._working_lock:
+            return {
+                session_id: [copy.deepcopy(msg) for msg in bucket.values()]
+                for session_id, bucket in self._working.items()
+            }
+
+    async def restore_working(self, snapshot: dict[str, list[dict[str, Any]]]) -> None:
+        """用快照**整体替换**当前桶(回填的回滚出口)。
+
+        只接受 `snapshot_working()` 的形态:条目必须是 dict,否则拒绝并原样不动 ——
+        半份快照落盘等于把用户的会话缓冲换成残缺数据,那比不改更糟。
+        """
+        rebuilt: dict[str, OrderedDict[str, dict[str, Any]]] = {}
+        for session_id, entries in snapshot.items():
+            bucket: OrderedDict[str, dict[str, Any]] = OrderedDict()
+            for msg in entries:
+                if not isinstance(msg, dict):
+                    raise TypeError(f"快照条目不是 dict(session={session_id}),拒绝回滚")
+                msg_id = str(msg.get("id") or f"{session_id}:{len(bucket)}")
+                bucket[msg_id] = copy.deepcopy(msg)
+            rebuilt[session_id] = bucket
+        async with self._working_lock:
+            self._working.clear()
+            self._working.update(rebuilt)
+
+    async def backfill_working_owner(
+        self, owners_by_session: dict[str, str], *, overwrite_existing: bool = False
+    ) -> tuple[int, int, int]:
+        """按 `session_id -> owner` 给**无主**条目补属主,返回
+        `(补上的条目数, 因已有不同属主而跳过的条目数, 桶不存在而被忽略的会话数)`。
+
+        * 默认 `overwrite_existing=False`:已有属主的条目**一律不动**(幂等的根 ——
+          跑第二次三项都归零),`True` 只留给"确认原属主写错"的人工修复,不在本票路径上。
+        * 桶不存在 ⇒ 不凭空造桶:那等于替一个已经没有会话的 id 复活数据。
+        """
+        stamped = 0
+        skipped_conflict = 0
+        missing_session = 0
+        async with self._working_lock:
+            for session_id, owner in owners_by_session.items():
+                if not owner:
+                    continue
+                bucket = self._working.get(session_id)
+                if bucket is None:
+                    missing_session += 1
+                    continue
+                for msg in bucket.values():
+                    current = working_entry_owner(msg)
+                    if current is None:
+                        msg["userId"] = owner
+                        stamped += 1
+                    elif current != owner:
+                        if not overwrite_existing:
+                            skipped_conflict += 1
+                        else:
+                            msg["userId"] = owner
+                            stamped += 1
+        return stamped, skipped_conflict, missing_session
 
     # ------------------------------------------------------------------
     # episodic memory(历史会话片段,PostgreSQL)
@@ -677,11 +845,13 @@ class MemoryService:
         if layer == "working":
             if not session_id:
                 raise ValueError("working 层需要 session_id")
-            msg = await self.add_working(
-                session_id, "user", content, metadata=metadata
+            # 2026-09-28 写侧收口:owner 由 add_working 在**锁内**烘进条目(旧写法是先
+            # 入桶、再对返回值补 `msg["userId"]`,那是一次锁外后置改写,并发读能撞进
+            # "条目已存在而属主未落"的窗口 ⇒ 读侧判成无主桶)。`user_id` 形参本身来自
+            # 端点解析出的**令牌主体**(api/memory.py::_resolve_owner),不是请求自报值。
+            return await self.add_working(
+                session_id, "user", content, metadata=metadata, owner=user_id
             )
-            msg["userId"] = user_id
-            return msg
         if layer == "episodic":
             if not session_id:
                 raise ValueError("episodic 层需要 session_id")
