@@ -27430,5 +27430,8 @@
     "hintConfirm": "확인",
     "hintClose": "닫기",
     "clearAriaLabel": "검색 지우기"
+  },
+  "statusPage": {
+    "incidentsUnavailable": "최근 30일 이벤트 데이터를 일시적으로 가져올 수 없습니다"
   }
 }
