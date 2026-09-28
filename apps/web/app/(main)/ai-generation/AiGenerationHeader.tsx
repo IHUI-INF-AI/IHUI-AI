@@ -46,7 +46,7 @@ export function AiGenerationHeader({ type, setType, currentMode, onSubTabClick }
                   type="button"
                   onClick={() => onSubTabClick(tab.value)}
                   className={cn(
-                    'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
+                    'rounded-sm border px-2.5 py-1 text-xs font-medium transition-colors',
                     tab.value === currentMode
                       ? 'border-brand-accent-deep bg-primary/10 text-primary'
                       : 'border-border bg-card text-muted-foreground hover:bg-accent',
