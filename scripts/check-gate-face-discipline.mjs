@@ -46,10 +46,26 @@ import {
   readWorktreeFile,
   selectFace,
 } from './lib/face-reader.mjs'
+// 遮噪层**只有一份实现**,住在 `./lib/code-mask.mjs`(2026-09-28 上收:本文件曾自带一台
+// 认正则的分词器,而 `lib/code-mask.mjs` 里是另一台不认正则的 —— 两台机器一条规则就是本仓
+// 记过最多次的漂移成因(§22c / 守门 103 的"取源只能有一份实现")。上收后本门只留判据。
+// 下面这几个名字既被本门内部使用,也由 `__test__` 交给镜像测试(§22d/§22c:测试 import 判据,
+// 不得在测试里再抄一份)。
+import {
+  blankByMask,
+  blankStrings,
+  maskComments,
+  regexCanStart,
+  scanLiterals,
+  scanSpans,
+} from './lib/code-mask.mjs'
+
+export { blankByMask, blankStrings, maskComments, regexCanStart, scanLiterals, scanSpans }
 // 遮噪**不复用** `check-compaction-denominator.mjs` 的 `markHidden`:那一档连字符串一起抹,
 // 而本门要区分"模块说明符 / git 动词是字符串"(必须保留)与"readFileSync 是调用"(必须抹字符串)。
-// 两处判的不是同一件事 —— 下面 maskComments / blankStrings 各管一层。曾经 import 着却没用,
-// eslint 的 no-unused-vars 把每一个碰这个文件的人挡在提交链外(HEAD 里躺了几轮没人发现)。
+// 两处判的不是同一件事 —— 上面 maskComments / blankStrings 各管一层,但共用同一台分词器。
+// 曾经 import 着却没用,eslint 的 no-unused-vars 把每一个碰这个文件的人挡在提交链外
+// (HEAD 里躺了几轮没人发现)。
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符) */
@@ -178,9 +194,13 @@ const REPO_ANCHOR_RE = /(?:join|resolve|normalize|dirname|isAbsolute)\s*\([^)]{0
  * 不剩(实测那道门原文 4 处 → 遮噪后 0 处;HEAD 面共 **24 道门**中招)。归因错了,修法就会错 ——
  * 只补"常量→读取"这一型的话,尺子本身还是盲的。
  * **2026-09-26 本票已把遮噪层收成一份**:`blankStrings` 现在是 `scanLiterals` 的投影,
- * `maskComments` 与它共用同一个 `scanSpans`(见下方遮噪层头注),所以这一型由**两条** loose-fs
+ * `maskComments` 与它共用同一个 `scanSpans`,所以这一型由**两条** loose-fs
  * 现场同时可见:旧合取与预拼常量规则各都能判出来。旧的"新判据自带第二遍遮噪"那种绕法
  * 已删除 —— 两条实现一条规则正是本仓记的最多的漂移成因(§22c)。
+ * **2026-09-28 这一台分词器整体搬到 `scripts/lib/code-mask.mjs`**(本文件只留判据):它当时是本门
+ * 私有的,而共用层里另有一台不认正则的朴素机器 —— 同一件事两台尺子,正是上面那段话点名的形态。
+ * 上收后共用层的旧导出**行为逐字节不变**(兼容性由 `scripts/tests/code-mask.test.mjs` 的 M1 钉住),
+ * 需要认正则的那一侧(守门 156)改用新导出 `maskCommentsStringsAndRegex`。
  *
  * 判据三条**同时**成立才算:
  *   ① 模块作用域(第 0 列)的 `const <UPPER_SNAKE> = <初值>`:初值按括号深度走到表达式结束,故跨行的
@@ -230,224 +250,6 @@ export const REPO_CONTENT_FILE_RE =
 /** 本规则的读取词汇表:FS_LOOSE_RE 只认 readFileSync,新判据按票面扩到同一族读取(不改旧判据)。 */
 const FS_READ_FNS = ['readFileSync', 'readFile', 'openSync', 'createReadStream']
 const PREJOINED_DECL_RE = /^(?:export\s+)?const\s+([A-Z][A-Z0-9_]*)\s*=/gm
-
-/**
- * ─── 遮噪层:**一份**分词器,两个投影 ────────────────────────────────────────────
- * 本文件只有一台字面量/注释扫描器 `scanSpans`。两层遮噪都是它的投影:
- *  - `maskComments` 只把注释换掉(字符串原文必须保留 —— 模块说明符与 git 动词本身就是字符串);
- *  - `blankStrings` 清空字符串与正则字面量的**体**(标识符还在,串内假调用不可见)。
- *
- * 为什么必须收成一份(2026-09-26 实测缺陷,本票的立项理由):此前这里是**两台机器**,朴素那台
- * `blankStrings` 不认正则字面量 —— 实测 `check-tool-activity-coverage.mjs` 第 75 行写着
- * `const re = /:\s*(["'])((?:tool|action)[A-Za-z0-9_]*)\1/gu`,那个 `'` 被当成字符串开头,
- * 一路找不到配对 ⇒ 后半份文件被吞进一个永不闭合的串 ⇒ `readFileSync(` 这个 token 在遮噪后的文本里
- * **一个都不剩**(原文 4 处 → 遮噪后 0 处;HEAD 面共 **24 道门**中招,全被判成 no-content)。
- * 上一版新判据**自带**一遍认正则的遮噪来绕开它,于是"引了层 / 散写"那一侧仍用着盲掉的尺子 ——
- * 两条实现一条规则 = 本仓记录最多的漂移成因(见 §22c、守门 103 的"取源只能有一份实现")。
- * 现在所有判定都跑在同一台机器上,不存在"这半边看见、那半边瞎"的可能。
- *
- * 判"这个 `/` 是正则还是除法"的方式只看**上一个有效 token**:
- * 落在 `( , = : ; [ ! & | ? { } + - * % ~ ^ < >` 或文首,或刚写完 `return/typeof/case/…` 这类
- * 关键字时才算正则起始;其余(`)` / 标识符 / 字面量之后)按除法处理。字符类 `[...]` 里的 `/`
- * 不闭合(所以 `/[/"']/` 这种形态能正确识别)。**认不出(跨行没闭合)就当除法,且什么都不清** ——
- * 误判方向因此只会是"少遮"(可能多报),绝不会是"把真调用吞掉"。
- * 单引号/双引号串**不许跨行**(JS 里非法):遇换行即当作没开,免得一个奇数 apostrophe 吞掉半份文件。
- */
-const REGEX_ALLOWED_AFTER = new Set([
-  '(',
-  ',',
-  '=',
-  ':',
-  ';',
-  '[',
-  '!',
-  '&',
-  '|',
-  '?',
-  '{',
-  '}',
-  '+',
-  '-',
-  '*',
-  '%',
-  '~',
-  '^',
-  '<',
-  '>',
-  '',
-])
-/**
- * 关键字之后 `/` 必为正则(`return /x/`、`case '/':` 除外 —— 后者先被字符串判据接走)。
- * 只看"上一个有效字符"会把 `return /x/` 认成除法(上一字符是 `n`),那不是保守而是**看不见**;
- * 这一小张表是纯语法事实,不是豁免清单(它不描述任何被审内容,不会腐烂成"某个门在名单里")。
- */
-const REGEX_ALLOWED_KEYWORDS = new Set([
-  'return',
-  'typeof',
-  'instanceof',
-  'in',
-  'of',
-  'new',
-  'delete',
-  'void',
-  'case',
-  'do',
-  'else',
-  'yield',
-  'await',
-])
-function isBlankish(c) {
-  return c === ' ' || c === '\t' || c === '\n' || c === '\r'
-}
-/** 纯函数(导出给镜像测试,§22c 禁止在测试里再抄一份判据):该 token 位置上 `/` 是否可为正则起始 */
-export function regexCanStart(lastSig, lastWord) {
-  return REGEX_ALLOWED_AFTER.has(lastSig) || REGEX_ALLOWED_KEYWORDS.has(lastWord)
-}
-
-/** 字符串字面量:从起始引号 i 走到闭合(或换行/EOF)。bodyStart..bodyEnd 是**内部**区间。 */
-function readStringSpan(text, i) {
-  const q = text[i]
-  let j = i + 1
-  let body = ''
-  while (j < text.length) {
-    if (text[j] === '\\') {
-      body += text[j] + (text[j + 1] ?? '')
-      j += 2
-      continue
-    }
-    if (text[j] === q)
-      return { bodyStart: i + 1, bodyEnd: j, end: j + 1, body, closed: true, isTemplate: q === '`' }
-    // 非模板串不跨行:判到这里说明引号不成对,宁可放过也不吞掉后半份文件
-    if (text[j] === '\n' && q !== '`')
-      return { bodyStart: i + 1, bodyEnd: j, end: j, body, closed: false, isTemplate: false }
-    body += text[j]
-    j += 1
-  }
-  return { bodyStart: i + 1, bodyEnd: j, end: j, body, closed: false, isTemplate: q === '`' }
-}
-
-/** 正则字面量:从起始 `/` 走到闭合 `/` + flags。认不出(closed:false)由调用方按除法处理。 */
-function readRegexSpan(text, i) {
-  let j = i + 1
-  let inClass = false
-  while (j < text.length) {
-    const d = text[j]
-    if (d === '\n') break
-    if (d === '\\') {
-      j += 2
-      continue
-    }
-    if (inClass) {
-      if (d === ']') inClass = false
-    } else if (d === '[') inClass = true
-    else if (d === '/') {
-      j += 1
-      let k = j
-      while (k < text.length && /[dgimsuvyx]/i.test(text[k])) k += 1
-      return { bodyStart: i + 1, bodyEnd: k, end: k, closed: true }
-    }
-    j += 1
-  }
-  return { bodyStart: i + 1, bodyEnd: j, end: j, closed: false }
-}
-
-/**
- * 单遍分词:产出注释 / 字符串 / 正则三类 span(区间语义统一:`start` 含定界符,
- * `bodyStart..bodyEnd` 是需要清空或需要判定的内部区间)。
- * `//` 与块注释开栏 **无条件**当注释,不受 token 位置影响 —— JS 词法本身如此:空正则必须写成
- * `/(?:)/`,而"`/*` 再补一个斜杠"在 JS 里是未闭合的块注释而不是正则。
- * (这一句本身踩过坑:注释里逐字写出那三个字符会**提前终结本块注释**,于是说明文字变成代码。)
- * 所以注释判定不受 lastSig 影响;正则判定只在字符串之外才问。
- */
-export function scanSpans(text) {
-  const spans = []
-  let i = 0
-  let lastSig = ''
-  let lastWord = ''
-  while (i < text.length) {
-    const c = text[i]
-    if (c === '/' && text[i + 1] === '/') {
-      let j = i
-      while (j < text.length && text[j] !== '\n') j += 1
-      spans.push({ kind: 'line', start: i, end: j, bodyStart: i, bodyEnd: j })
-      i = j
-      continue
-    }
-    if (c === '/' && text[i + 1] === '*') {
-      let j = i + 2
-      while (j < text.length && !text.startsWith('*/', j)) j += 1
-      const end = Math.min(j + 2, text.length)
-      spans.push({ kind: 'block', start: i, end, bodyStart: i, bodyEnd: end })
-      i = end
-      continue
-    }
-    if (c === "'" || c === '"' || c === '`') {
-      const r = readStringSpan(text, i)
-      spans.push({ kind: 'string', start: i, ...r })
-      i = r.end
-      lastSig = c
-      lastWord = ''
-      continue
-    }
-    if (
-      c === '/' &&
-      regexCanStart(lastSig, lastWord) &&
-      text[i + 1] !== undefined &&
-      text[i + 1] !== ' '
-    ) {
-      const r = readRegexSpan(text, i)
-      if (r.closed) {
-        spans.push({ kind: 'regex', start: i, ...r })
-        i = r.end
-        lastSig = '/'
-        lastWord = ''
-        continue
-      }
-      // 闭合不了 ⇒ 按除法,且**不清任何东西**(宁可少遮,绝不吞掉真 token)
-      i += 1
-      lastSig = '/'
-      lastWord = ''
-      continue
-    }
-    if (!isBlankish(c)) {
-      lastSig = c
-      lastWord = /[\w$]/.test(c) ? lastWord + c : ''
-    }
-    i += 1
-  }
-  return spans
-}
-
-/**
- * 字面量掩码(遮注释之后的那一遍):产出「该字符是否在**字面量体内**」的掩码,外加字符串原文
- * (供首段白名单判据用)。正则字面量的体同样计入掩码 —— 正则里的 `readFileSync(` 是模式不是调用。
- */
-export function scanLiterals(text) {
-  const mask = new Uint8Array(text.length)
-  const strings = []
-  for (const s of scanSpans(text)) {
-    if (s.kind === 'string') {
-      for (let j = s.bodyStart; j < s.bodyEnd; j++) mask[j] = 1
-      strings.push({
-        start: s.start,
-        end: s.end,
-        body: s.body,
-        closed: s.closed,
-        isTemplate: s.isTemplate,
-      })
-    } else if (s.kind === 'regex') {
-      for (let j = s.bodyStart; j < s.bodyEnd; j++) mask[j] = 1
-    }
-  }
-  return { mask, strings, blanked: blankByMask(text, mask) }
-}
-
-/** 按掩码把字面量体清空(保留引号本身与换行),用于"标识符还在、串内假调用不可见"的那一遍。 */
-export function blankByMask(text, mask) {
-  let out = ''
-  for (let i = 0; i < text.length; i++) out += mask[i] && text[i] !== '\n' ? ' ' : text[i]
-  return out
-}
 
 /**
  * 从 `from` 起走到"这个表达式结束":深度 >0 时跨行继续(所以多行 join(...) 是一个整体),
@@ -523,50 +325,7 @@ export function readsPrejoinedConst(text, names) {
   return hit
 }
 
-/**
- * 只遮注释、**保留字符串字面量**的那一层遮噪。
- *
- * 为什么不复用现成的 `markHidden`:那一档把字符串内容一起抹掉(它服务的判据是"变量名/调用
- * 不能被注释或夹具字符串冒充"),而本门要认的两样东西**本身就是字符串** ——
- * `from './lib/face-reader.mjs'` 的模块说明符,和 `['cat-file', …]` 的 git 动词。
- * 直接套 `markHidden` 的结果是第一版自检 F1/F2 双双假绿:合规的门被读成"没导入",
- * 散写的门被读成"没读 git"。两处判的不是同一件事,所以各有一层遮噪,`markHidden`
- * 仍用于"是否真的读了文件"那一半(见 classify 里的 noStrings)。
- *
- * **注释区间取自 `scanSpans`(与 `blankStrings` 同一台机器)**,不是另写一遍状态机。
- * 这件事本身修掉一个真实缺陷:旧实现自己追引号且**不认正则字面量**,于是
- * `const re = /["']/g` 里那个 `"` 被当成字符串开头,一路找到下一个真正的 `"` 才罢休 ——
- * 中间那段里的 `//` 注释**不会被遮掉**,而是逐字留在"代码面"上。也就是说,一句写在
- * 注释里的 `execFileSync(GIT_BIN, ['show', …])` 或 `from './lib/face-reader.mjs'` 能让
- * 一道不合规的门被判成合规(**放行方向**,比漏报更贵:它替人做出"这层已经走了"的判断)。
- * 现在两个方向都收在同一份分词结果上。
- */
-export function maskComments(src) {
-  let out = ''
-  let pos = 0
-  for (const s of scanSpans(src)) {
-    if (s.kind !== 'line' && s.kind !== 'block') continue
-    out += src.slice(pos, s.start)
-    // 行注释整段删掉(与旧实现同形);块注释逐字符换空白但保住换行,列位与行号不漂
-    const body = src.slice(s.start, s.end)
-    out += s.kind === 'line' ? '' : body.replace(/[^\n]/g, ' ')
-    pos = s.end
-  }
-  return out + src.slice(pos)
-}
 
-/**
- * 在已遮注释的文本上再把**字符串与正则字面量的体**清空(保留引号本身与换行)。
- * 用于"标识符还在、串内假调用不可见"的那一遍。
- *
- * 这一层**以前是另一台不认正则的朴素状态机**,`const re = /["']/g` 会让它把后半份文件吞进
- * 一个永不闭合的串,`readFileSync(` 这种 token 在遮噪后的文本里一个不剩(HEAD 面实测 24 道门
- * 因此被判成 no-content)。现在它是 `scanLiterals` 的一行投影 —— **本文件只剩一台分词器**,
- * 不存在"这一半判定看得见、那一半看不见"的可能(§22c / 守门 103 的"取源只能有一份实现")。
- */
-export function blankStrings(text) {
-  return scanLiterals(text).blanked
-}
 
 /**
  * 单文件定性。返回 `{ kind, why }`:
