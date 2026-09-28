@@ -22,13 +22,13 @@ export function SpecBranchesTab({ p }: { p: SpecPanelApi }) {
           value={p.newBranchName}
           onChange={(e) => p.setNewBranchName(e.target.value)}
           placeholder={t('branchNamePlaceholder')}
-          className="h-7 flex-1 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
+          className="h-7 flex-1 rounded-sm border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
         />
         <Tooltip content={t('baselineVersion')}>
           <select
             value={p.branchBaseVersion}
             onChange={(e) => p.setBranchBaseVersion(e.target.value)}
-            className="h-7 rounded-md border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
+            className="h-7 rounded-sm border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
           >
             <option value="latest">最新</option>
             {p.history.map((h) => (
@@ -43,7 +43,7 @@ export function SpecBranchesTab({ p }: { p: SpecPanelApi }) {
           onClick={p.handleCreateBranch}
           disabled={p.branchLoading || !p.newBranchName.trim()}
           className={cn(
-            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-xs font-medium transition-colors',
             'bg-cta text-cta-foreground hover:bg-cta/90',
             (p.branchLoading || !p.newBranchName.trim()) && 'cursor-not-allowed opacity-60',
           )}
@@ -58,7 +58,7 @@ export function SpecBranchesTab({ p }: { p: SpecPanelApi }) {
         <button
           type="button"
           onClick={p.refreshBranches}
-          className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60"
+          className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60"
         >
           <History className="h-3 w-3" />
           <span>刷新</span>
@@ -152,7 +152,7 @@ export function SpecBranchesTab({ p }: { p: SpecPanelApi }) {
                       type="button"
                       onClick={() => void p.handleMergeBranch(b.name)}
                       disabled={p.branchLoading || b.status !== 'active'}
-                      className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-foreground hover:bg-muted/60 disabled:opacity-60"
+                      className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-sm border border-border bg-background px-2 text-[10px] text-foreground hover:bg-muted/60 disabled:opacity-60"
                     >
                       <GitMerge className="h-3 w-3" />
                       <span>合并</span>
@@ -163,7 +163,7 @@ export function SpecBranchesTab({ p }: { p: SpecPanelApi }) {
                       type="button"
                       onClick={() => void p.handleDiffBranch(b.name)}
                       disabled={p.branchLoading}
-                      className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-foreground hover:bg-muted/60 disabled:opacity-60"
+                      className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-sm border border-border bg-background px-2 text-[10px] text-foreground hover:bg-muted/60 disabled:opacity-60"
                     >
                       <GitCompare className="h-3 w-3" />
                       <span>对比</span>
@@ -174,7 +174,7 @@ export function SpecBranchesTab({ p }: { p: SpecPanelApi }) {
                       type="button"
                       onClick={() => void p.handleAbandonBranch(b.name)}
                       disabled={p.branchLoading || b.status !== 'active'}
-                      className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-red-600 hover:bg-red-500/10 disabled:opacity-60"
+                      className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-sm border border-border bg-background px-2 text-[10px] text-red-600 hover:bg-red-500/10 disabled:opacity-60"
                     >
                       <Square className="h-3 w-3" />
                       <span>废弃</span>

@@ -197,7 +197,7 @@ function CodeRunOutput({ result, onClose }: { result: RunResult; onClose: () => 
           type="button"
           onClick={onClose}
           data-testid="code-run-close"
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={t('codeRun.close')}
         >
           <span className="text-xs leading-none">×</span>
@@ -306,8 +306,13 @@ const CodeBlockImpl = function CodeBlock({
     void runCodeBlock({ language: lang, code })
   }, [runResult, runCodeBlock, lang, code])
 
-  // mermaid 块交给 MermaidDiagram 客户端渲染
-  if (language === 'mermaid') {
+  // mermaid 块交给 MermaidDiagram 客户端渲染。
+  // 判据取已小写的 `lang` 而非原始 `language`:此前这里是 `language === 'mermaid'`,
+  // 于是 ```Mermaid(首字母大写,模型很常这么写)匹配不到、整块掉进 Prism 高亮分支,
+  // 既不走图表也不受 MermaidDiagram 内的渲染预算管 —— 唯一出口上开了一个 bypass。
+  // 预算只在 MermaidDiagram 一处判(它是 web 端唯一的 mermaid 渲染点),这里负责
+  // 保证"该进那道闸的都进得去"。
+  if (lang === 'mermaid') {
     return <MermaidDiagram code={debouncedCode} />
   }
 
@@ -408,7 +413,7 @@ const CodeBlockImpl = function CodeBlock({
     <button
       type="button"
       onClick={() => setCollapsed((prev) => !prev)}
-      className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-md border border-border/60 bg-float-indicator-bg px-2 py-1 text-xs text-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-sm border border-border/60 bg-float-indicator-bg px-2 py-1 text-xs text-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={collapsed ? '展开代码' : '收起代码'}
     >
       {collapsed ? `展开 (${codeLines.length} 行)` : '收起'}
@@ -518,7 +523,7 @@ function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
     <button
       type="button"
       onClick={handleOpen}
-      className="my-0 block max-w-full overflow-hidden rounded-md bg-streamed-container-bg transition-colors hover:bg-streamed-container-bg-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+      className="my-0 block max-w-full overflow-hidden rounded-sm bg-streamed-container-bg transition-colors hover:bg-streamed-container-bg-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
       aria-label={alt ? `图片: ${alt}` : '点击放大图片'}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- AI 返回的图片 URL 可能是任意来源,不走 next/image 优化 */}

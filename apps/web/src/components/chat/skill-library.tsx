@@ -384,7 +384,7 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
               setEditing(null)
               setCreating(true)
             }}
-            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <Plus className="h-3 w-3" />
             <span>{t('create')}</span>
@@ -492,7 +492,7 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
                   type="button"
                   onClick={() => handlePickBuiltin(skill)}
                   className={cn(
-                    'flex w-full items-start gap-2 rounded-md px-2 py-2 text-left transition-colors',
+                    'flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left transition-colors',
                     'hover:bg-accent hover:text-accent-foreground',
                   )}
                 >
@@ -664,7 +664,7 @@ function CustomSkillItem({
           type="button"
           onClick={() => onToggleEnabled(!skill.enabled)}
           aria-label={skill.enabled ? t('disable') : t('enable')}
-          className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           {skill.enabled ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
         </button>
@@ -672,7 +672,7 @@ function CustomSkillItem({
           type="button"
           onClick={onEdit}
           aria-label={t('edit')}
-          className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <Pencil className="h-3 w-3" />
         </button>
@@ -680,7 +680,7 @@ function CustomSkillItem({
           type="button"
           onClick={onDelete}
           aria-label={t('delete')}
-          className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          className="flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
         >
           <Trash2 className="h-3 w-3" />
         </button>
@@ -729,7 +729,7 @@ function SkillEditDialog({ skill, onCancel, onSave }: SkillEditDialogProps) {
           type="button"
           onClick={onCancel}
           aria-label={t('cancel')}
-          className="flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <X className="h-3 w-3" />
         </button>
@@ -741,14 +741,14 @@ function SkillEditDialog({ skill, onCancel, onSave }: SkillEditDialogProps) {
         placeholder={t('namePlaceholder')}
         aria-label={t('namePlaceholder')}
         maxLength={128}
-        className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-foreground/20"
+        className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs outline-none focus:border-foreground/20"
       />
       <div className="flex gap-1">
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value as ChatSkillCategory)}
           aria-label={t('category')}
-          className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs outline-none"
+          className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-xs outline-none"
         >
           <option value="custom">{t('tabCustom')}</option>
           <option value="template">{t('tabTemplate')}</option>
@@ -761,7 +761,7 @@ function SkillEditDialog({ skill, onCancel, onSave }: SkillEditDialogProps) {
           value={scenario}
           onChange={(e) => setScenario(e.target.value as ChatSkillScenario)}
           aria-label={t('scenario')}
-          className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs outline-none"
+          className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-xs outline-none"
         >
           <option value="custom">{t('scenarioCustom')}</option>
           <option value="writing">{t('scenarioWriting')}</option>
@@ -777,13 +777,13 @@ function SkillEditDialog({ skill, onCancel, onSave }: SkillEditDialogProps) {
         aria-label={t('promptPlaceholder')}
         maxLength={10000}
         rows={4}
-        className="thin-scroll w-full resize-none rounded-md border border-border bg-background px-2 py-1 text-xs leading-snug outline-none focus:border-foreground/20"
+        className="thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1 text-xs leading-snug outline-none focus:border-foreground/20"
       />
       <div className="flex items-center justify-end gap-1">
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="rounded-sm px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           {t('cancel')}
         </button>
@@ -792,7 +792,7 @@ function SkillEditDialog({ skill, onCancel, onSave }: SkillEditDialogProps) {
           onClick={handleSave}
           disabled={saving || !name.trim() || !prompt.trim()}
           className={cn(
-            'rounded-md px-2 py-1 text-[11px] transition-colors',
+            'rounded-sm px-2 py-1 text-[11px] transition-colors',
             saving || !name.trim() || !prompt.trim()
               ? 'cursor-not-allowed bg-muted text-muted-foreground/50'
               : 'bg-cta text-cta-foreground hover:bg-cta/90',
@@ -826,7 +826,7 @@ function AiSkillItem({ skill, onPick }: AiSkillItemProps) {
       type="button"
       onClick={onPick}
       className={cn(
-        'flex w-full items-start gap-2 rounded-md px-2 py-2 text-left transition-colors',
+        'flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left transition-colors',
         'hover:bg-accent hover:text-accent-foreground',
       )}
     >
@@ -1021,7 +1021,7 @@ export function AiSkillInvokeDialog({
                 maxLength={maxLen}
                 rows={key === 'content' || key === 'text' ? 3 : 2}
                 className={cn(
-                  'thin-scroll w-full resize-none rounded-md border bg-background px-2 py-1 text-xs leading-snug outline-none placeholder:text-muted-foreground/60 focus:border-foreground/20',
+                  'thin-scroll w-full resize-none rounded-sm border bg-background px-2 py-1 text-xs leading-snug outline-none placeholder:text-muted-foreground/60 focus:border-foreground/20',
                   isMissing ? 'border-destructive/60' : 'border-border',
                 )}
               />
@@ -1046,7 +1046,7 @@ export function AiSkillInvokeDialog({
                 placeholder={td(placeholderKey)}
                 aria-label={td(labelKey)}
                 className={cn(
-                  'w-full rounded-md border bg-background px-2 py-1 text-xs outline-none placeholder:text-muted-foreground/60 focus:border-foreground/20',
+                  'w-full rounded-sm border bg-background px-2 py-1 text-xs outline-none placeholder:text-muted-foreground/60 focus:border-foreground/20',
                   isMissing ? 'border-destructive/60' : 'border-border',
                 )}
               />
@@ -1063,7 +1063,7 @@ export function AiSkillInvokeDialog({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="rounded-sm px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           {t('invokeBackToList')}
         </button>
@@ -1072,7 +1072,7 @@ export function AiSkillInvokeDialog({
           onClick={handleSubmit}
           disabled={running}
           className={cn(
-            'rounded-md px-2 py-1 text-[11px] transition-colors',
+            'rounded-sm px-2 py-1 text-[11px] transition-colors',
             running
               ? 'cursor-not-allowed bg-muted text-muted-foreground/50'
               : 'bg-cta text-cta-foreground hover:bg-cta/90',
@@ -1144,7 +1144,7 @@ export function AiSkillResultDialog({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="rounded-sm px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           {t('invokeBackToList')}
         </button>
@@ -1155,7 +1155,7 @@ export function AiSkillResultDialog({
               onSendToChat(result.content)
               onClose()
             }}
-            className="rounded-md bg-cta px-2 py-1 text-[11px] text-cta-foreground transition-colors hover:bg-cta/90"
+            className="rounded-sm bg-cta px-2 py-1 text-[11px] text-cta-foreground transition-colors hover:bg-cta/90"
           >
             {t('invokeSendToChat')}
           </button>
@@ -1163,7 +1163,7 @@ export function AiSkillResultDialog({
         <button
           type="button"
           onClick={() => onFillInput(result.content)}
-          className="rounded-md bg-cta px-2 py-1 text-[11px] text-cta-foreground transition-colors hover:bg-cta/90"
+          className="rounded-sm bg-cta px-2 py-1 text-[11px] text-cta-foreground transition-colors hover:bg-cta/90"
         >
           {t('invokeFillInput')}
         </button>
