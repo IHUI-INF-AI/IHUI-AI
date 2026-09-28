@@ -14087,3 +14087,13 @@ services 归档/分享/HTTP 层)判"值得抄"的 **26 条**逐条立项(每条�
 
 - `packages/rpc/src/channels.shared.ts:33-55`(逐行读到体)把 `PromiseError.data` 的 `code/kind/status/retryAfterMs/traceId/taskId` 全列进 wire 契约 —— 我方 **HTTP 面已有等价**(`git show HEAD:packages/types/src/api.ts` `:23` 失败分支带 `status/errorCode/retryAfter`),缺的只有桌面 Tauri IPC 面(已立 G-715),不得据此说"我方全丢"。
 - `packages/rpc/src/delayedChannel.ts:4-16`(逐行读到体)的 `Relay` 在 promise 未 resolve 前挂监听:**这段窗口内的事件是静默丢的**(它只把 `input` 接上,不做缓冲)—— 与我方第十九批里"有界缓冲区必须暴露 dropped(静默变短等于伪造完整性)"那一票是同一条禁令,**判不抄其形**,只作为"通道延迟期丢事件"的第二例反例留档。
+
+### ZCode 吸收线 · 第二十三轮:G-683/684 落地后的两处随附账(2026-09-29)
+
+实现代理交付后由主会话独立复验再落地(`pnpm --filter @ihui/cli exec vitest run` 5 张测试文件 RC=0,落地 `d98d4556f`)。
+本轮另记两格**代理如实登记的残余**,它们不在原票射程内,不得算已完成:
+
+- [ ] G-728 插件装载诊断**造好没装车**:`loadPluginsWithDiagnostics` 已在包入口可达(`apps/cli/src/plugins/index.ts` 已 re-export),但生产面 `apps/cli/src/commands/agent.ts` 仍调数组薄封装 `loadPlugins()` ⇒ 坏清单/同名弃权今天仍然**不会报到人前**,与守门 64/70/81/115/138 同型("判据/出口在位而无人调用")。落点 `apps/cli/src/commands/agent.ts` 的装载调用点 + 一处 logger 派发(按 severity 决定 warn/error);验收 `git grep -c "loadPluginsWithDiagnostics" HEAD -- apps/cli/src/commands` 由 0 → ≥1,且新增用例断言"一份坏清单 ⇒ 装载继续但日志里点名该文件"。**顺带补 `docs/CLI.md` 的加载流程示例**(现仍只写 `loadPlugins(...)`,不提诊断入口)。(代理交付报告 2026-09-29)
+- [ ] G-729 `/tool` 活动卡片的行内预览仍是**未脱敏的第二处**:`apps/cli/src/commands/repl.ts` 里 `argStr`/`argDisplay` 那条 `JSON.stringify(args)` + `slice(0,100)` 与 G-701 修掉的 `currentToolArgsJson` 是同型(形状档都没有,更别说键名档),而 `slice` 截断还可能把凭据切成半截使其形状不再成立。落点同文件该预览行改走 `redactObjectDeepKeyed` 后再按**码位**截;验收 `git show HEAD:apps/cli/src/commands/repl.ts | grep -c "JSON.stringify(args)"` 由现读 ≥2 降为 0(除唯一出口内),并补一条"半截 token 也不得外泄"用例。(代理交付报告 2026-09-29)
+
+**一条通用口径(写在这里,后续派单照抄)**:票面的验收命令必须**在该包的真实测试入口上跑通**才算验收 —— 本仓 `apps/cli` 是 vitest(`package.json` `"test": "vitest run"`、`tsconfig.json` `exclude: ["tests"]`),`node --test` 跑的是 `scripts/tests/**` 那套镜像测试;把两种入口混写会让"验收通过"变成一句无法复现的话。已在 G-683 的行内就地改对,新票一律按 `pnpm --filter @ihui/<pkg> exec vitest run <file>` 或 `node --test scripts/tests/<file>` 二选其一写死。
