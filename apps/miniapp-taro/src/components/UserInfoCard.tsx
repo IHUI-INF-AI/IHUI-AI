@@ -169,12 +169,13 @@ export default function UserInfoCard({
         <View hoverClass="opacity-85" onClick={onClick}>
           <View className="flex items-center" style={HEADER_GAP_STYLE}>
             {/* 头像:有 avatar 用 avatar,无则用原项目默认头像 daixaodiming.png(可点击编辑) */}
-            {/* 头像块是"方档图块"而非正圆(48dp 盒、圆角取卡片档 lg=8),与 RN 端
-                avatarWrap / avatarFallback 同一档;这里此前写 md(6) ⇒ 同一头像两端各一档 */}
+            {/* 头像取**真圆**:§4 把头像列在"真圆/装饰件"族(明令不得方档化),RN 端同一元素
+                写的是 `USER_INFO_CARD_AVATAR_PX / 2`(=24dp)⇒ 两端同一形状。这里旧写法是
+                `rounded-lg`(8dp 方档),即"同一头像两端各一档"的那一格(此前误记为"与 RN 同档") */}
             <Image
               src={avatar || defaultAvatarImg}
               mode="aspectFill"
-              className="rounded-lg bg-muted"
+              className="rounded-full bg-muted"
               style={AVATAR_STYLE}
             />
             <View className="flex-1 min-w-0">
