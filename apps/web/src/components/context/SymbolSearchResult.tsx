@@ -38,7 +38,7 @@ export function SymbolSearchResult({ symbol, selected, onSelect }: SymbolSearchR
       type="button"
       onClick={() => onSelect?.(symbol)}
       className={cn(
-        'flex w-full items-start gap-2 rounded-md border bg-card px-3 py-2 text-left transition-colors hover:bg-accent/60',
+        'flex w-full items-start gap-2 rounded-sm border bg-card px-3 py-2 text-left transition-colors hover:bg-accent/60',
         selected && 'border-primary/40 bg-accent',
       )}
     >

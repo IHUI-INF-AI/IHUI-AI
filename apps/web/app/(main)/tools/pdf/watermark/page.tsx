@@ -150,7 +150,7 @@ export default function PdfWatermarkPage() {
               type="button"
               onClick={() => setPosition(p.key)}
               className={cn(
-                'rounded-md border px-3 py-2 text-sm transition-colors',
+                'rounded-sm border px-3 py-2 text-sm transition-colors',
                 position === p.key
                   ? 'border-brand-accent-deep bg-primary/10 text-primary'
                   : 'hover:bg-accent',
