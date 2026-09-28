@@ -17,7 +17,18 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
-import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import {
+  Undetermined,
+  catBatch,
+  catBatchOids,
+  gitRaw,
+  readWorktreeFile,
+  selectFace,
+} from './lib/face-reader.mjs'
+// 遮罩判据只引这一份实现(守门 131/135 同族规矩:两处实现必漂移)。本门新加的"一跳常量解析"
+// 要在**代码面**上找 `const X =` 声明与 import 绑定 —— 按原文找会把注释里的示例声明当真声明
+// (守门 70 的 URL 假注释态同型),而 code-mask 等长遮罩保证行/列号不漂。
+import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 
 /**
  * ROOT 由脚本自身位置推导(§15)。此前是 `process.cwd()` —— "扫哪棵树"由调用者站哪决定,
@@ -389,14 +400,372 @@ function cliPositionalMethod(lines, idx) {
   return null
 }
 
+// ===== CLI 变量路径的「一跳常量解析」(2026-09-27 判据扩面票) =====
+/**
+ * 背景:上一段把 `apiRequest(baseUrl, <变量>)` 整族记为「未判定」(HEAD 面实测 12 处)。
+ * 逐条读原文后这些变量分两类(分类见交付报告):
+ *   A. **同文件一条 const/let 声明**,初始化式是「单个字符串/模板字面量」或「三元 cond ? lit : lit」
+ *      (两个分支各是一条字面量 ⇒ 该调用点运行时打的就是这两条路径之一,逐条对账不是猜);
+ *   B. **跨文件 import 的导出常量**(同一被审面上的目标文件里 `export const X = <字面量>`)。
+ * 判据红线:回溯不到 / 跨多跳(初始化式是函数调用)/ 运行时拼接 / 形态歧义 ⇒ **继续留在未判定
+ * 桶并点名原因**。未判定可以不掉,但不许被伪装成"判过了",也不许造合成路径。
+ * 取材纪律:跨文件回溯读的是**同一判定面**(prefetch 扩展批,见主流程),不落磁盘、不散派生 git。
+ * 声明定位一律用 code-mask 的等长遮罩面(注释里的示例 `const path = '/ghost'` 不得被当真声明)。
+ */
+const CLI_VAR_DECL_WINDOW_LINES = 12
+const CLI_VAR_INIT_MAX_CHARS = 400
+
+function regexEscapeIdent(name) {
+  return name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** 工厂调用正则的唯一构造点(提取器与预扫描共用,两处各写一份必然漂移) */
+function cliFactoryCallRe(name) {
+  return new RegExp(`\\b${name}\\(\\s*([^,()]*?)\\s*,\\s*`, 'g')
+}
+
+/** 第二实参起点处的「裸变量名 token」判定:唯一实现,提取器与预扫描共用 */
+function cliVarArgToken(src, argStart) {
+  const tok = src.slice(argStart, argStart + 60).split(/[,),]/)[0]
+  return /^[A-Za-z_$][A-Za-z0-9_$.]*$/.test(tok) ? tok : null
+}
+
+/** 列出该文件里工厂调用第二实参为裸标识符(含成员访问)的 token —— 预扫描找 import 目标用 */
+function cliVarArgNames(src, factory) {
+  const names = []
+  if (!factory) return names
+  for (const name of factory.callNames) {
+    const callRe = cliFactoryCallRe(name)
+    let c
+    while ((c = callRe.exec(src)) !== null) {
+      const argStart = c.index + c[0].length
+      const ch = src[argStart]
+      if (ch === "'" || ch === '"' || ch === '`') continue // 字面量分支不占 import 名额
+      const tok = cliVarArgToken(src, argStart)
+      if (tok) names.push(tok)
+    }
+  }
+  return names
+}
+
+/** 助手函数体的配平上限(超过即判不出,不做无界扫描)。 */
+const CLI_HELPER_BODY_MAX = 4000
+
+/**
+ * 具名助手的函数体(大括号配平);配不平、超上限或本文件没有该声明 ⇒ null(不猜)。
+ * 名字里的 `$` 要转义,否则会被当成正则元字符。
+ */
+function cliHelperBody(src, name) {
+  const safe = name.replace(/\$/g, '\\$')
+  const dm = new RegExp(`function\\s+${safe}\\s*\\(`).exec(src)
+  if (!dm) return null
+  const open = src.indexOf('{', dm.index + dm[0].length)
+  if (open < 0) return null
+  let depth = 0
+  for (let j = open; j < src.length && j - open <= CLI_HELPER_BODY_MAX; j++) {
+    const c = src[j]
+    if (c === '{') depth++
+    else if (c === '}') {
+      depth--
+      if (depth === 0) return src.slice(open + 1, j)
+    }
+  }
+  return null
+}
+
+/**
+ * 初始化式是不是"只会产出查询串的助手调用"。三条同时成立才算:
+ *  ① 形态是 `name(…)`,且**同文件**有该函数声明(import 进来的属二跳,刻意不追);
+ *  ② 函数体里每条 return 都带字面量,且这些字面量要么为空、要么以 `?` 开头;
+ *  ③ 至少一条以 `?` 开头(全是空串证不出形状)。
+ * 任一条判不出 ⇒ null ⇒ 交回未判定。**为什么不按函数名认**(`buildQueryString` 一律当查询串):
+ * 本仓同名助手有三份各自定义(chat-subcommands / memory / mcp-market),返回值形状不由名字保证 ——
+ * 名字类判据必然漏掉名字最无辜的那一处,而按形状判可以同时放过三者并拦住"名字对、形状不对"。
+ */
+function cliQueryOnlyCallToShape(src, expr) {
+  const m = /^([A-Za-z_$][\w$]*)\s*\(/.exec(expr)
+  if (!m) return null
+  const body = cliHelperBody(src, m[1])
+  if (body === null) return null
+  const returns = [...body.matchAll(/\breturn\b([^;\n]*)/g)].map((x) => x[1])
+  if (!returns.length) return null
+  let sawQuestion = false
+  for (const r of returns) {
+    const lits = [...r.matchAll(/'([^']*)'|"([^"]*)"|`([^`]*)`/g)].map((x) => x[1] ?? x[2] ?? x[3])
+    if (!lits.length) return null
+    for (const lit of lits) {
+      if (lit === '') continue
+      if (lit.startsWith('?')) {
+        sawQuestion = true
+        continue
+      }
+      return null
+    }
+  }
+  return sawQuestion ? { queryOnly: true } : null
+}
+
+/**
+ * 从 `=` 下标起读初始化式,只在**字面量外**收集分隔文本;返回形态分类:
+ *  - 'literal'  : 恰好 1 条字面量且两侧无其他代码 ⇒ 单值;
+ *  - 'ternary'  : 恰好 2 条字面量且外部文本形如 `cond ? : `(cond 里没有第二个 `?`/`:`);
+ *  - 'none'     : 没有字面量(函数调用 / 数字 / 成员引用 ⇒ 判不出,交回未判定);
+ *  - 'query-only':没有字面量,但初始化式是**同文件**助手的调用,而该助手每条 return 的字面量
+ *                 要么空、要么以 `?` 开头 ⇒ 整条 URL 的路由部分就是工厂前缀(判据见
+ *                 `cliQueryOnlyCallToShape`,按形状判而非按函数名判);
+ *  - 'unknown'  : 拼接、嵌套三元、引号未配平等一切其他形态。
+ * 不猜:配平不了(findLiteralEnd = -1)一律 unknown。
+ */
+function classifyCliVarInit(src, eqIdx, stopIdx) {
+  let i = eqIdx + 1
+  const segs = []
+  const lits = []
+  let cur = ''
+  let guard = 0
+  while (i < stopIdx && guard++ < CLI_VAR_INIT_MAX_CHARS) {
+    const ch = src[i]
+    if (ch === ';') break
+    if (ch === "'" || ch === '"' || ch === '`') {
+      const close = findLiteralEnd(src, i)
+      if (close === -1 || close >= stopIdx) return { kind: 'unknown' }
+      segs.push(cur)
+      cur = ''
+      lits.push(src.slice(i + 1, close))
+      i = close + 1
+      continue
+    }
+    cur += ch
+    i++
+  }
+  segs.push(cur)
+  if (lits.length === 0) {
+    // 初始化式里没有字面量 ⇒ 先试"查询串助手"这一档(实测 cli 三处 `const qs = buildQueryString(query)`
+    // 就是这一型:函数只可能返回 `?k=v` 或空串,所以整条 URL 的路由部分**恰好等于工厂前缀**)。
+    // 这一档必须按助手返回值里的字面量形状判,不按函数名判 —— 名字相同而返回值不同的两份
+    // buildQueryString 在本仓同时存在(chat-subcommands / mcp-market / memory 各自定义)。
+    const expr = src.slice(eqIdx + 1, stopIdx).split(';')[0].trim()
+    return cliQueryOnlyCallToShape(src, expr) ? { kind: 'query-only' } : { kind: 'none' }
+  }
+  if (lits.length === 1 && segs[0].trim() === '' && segs[1].trim() === '') {
+    return { kind: 'literal', contents: lits }
+  }
+  if (lits.length === 2) {
+    const s0 = segs[0].trim()
+    const s1 = segs[1].trim()
+    const s2 = (segs[2] || '').trim()
+    if (
+      s0.endsWith('?') &&
+      !s0.slice(0, -1).includes('?') &&
+      !s0.includes(':') &&
+      s1 === ':' &&
+      s2 === ''
+    ) {
+      return { kind: 'ternary', contents: lits }
+    }
+  }
+  return { kind: 'unknown' }
+}
+
+/** 初始化式形态 → 完整候选路径集合(相对路径拼工厂前缀;任一分支解析不出 ⇒ 整条不判) */
+function cliInitToPaths(shape, factory) {
+  if (shape.kind === 'query-only') {
+    // 助手只产 `?k=v` / 空串 ⇒ URL 的路由部分恰好就是工厂前缀本身。
+    // 没有前缀可拼(该文件用完整路径调用)⇒ 证不出,交回未判定而不是猜一条根路径。
+    if (!factory) return { reason: '查询串档而本文件无工厂前缀可拼' }
+    const full = factory.prefix.replace(/\/+$/, '')
+    if (!full) return { reason: '工厂前缀为空串,查询串档无法定路径' }
+    return { paths: [full] }
+  }
+  if (shape.kind === 'none') {
+    return { reason: '初始化式不是字面量(函数调用/二跳/运行时值)' }
+  }
+  if (shape.kind === 'unknown') {
+    return { reason: '初始化式形态不认识(拼接/嵌套三元/引号不配平)' }
+  }
+  const out = []
+  for (const content of shape.contents) {
+    const parsed = cliPathFromLiteralContent(content)
+    if (!parsed) return { reason: '字面量不是可识别的路径形状' }
+    if (parsed.relative && !factory) return { reason: '相对路径而本文件无工厂前缀可拼' }
+    out.push(parsed.relative ? `${factory.prefix}${parsed.path}` : parsed.path)
+  }
+  return { paths: [...new Set(out)].map((p) => p.replace(/\/+$/, '')) }
+}
+
+/**
+ * 在**遮罩行**上向前找该变量的唯一声明:
+ *  - 窗口 ≤ CLI_VAR_DECL_WINDOW_LINES 行(同函数体内声明紧邻使用;超窗不猜);
+ *  - 声明行本身含 `function`/`=>` ⇒ 那是形参默认值不是常量,拒;
+ *  - 声明与调用之间出现重赋值或函数边界 ⇒ 值不再由初始化式决定,拒。
+ */
+function findCliVarDeclLine(maskedLines, varName, callLineIdx) {
+  const esc = regexEscapeIdent(varName)
+  const declRe = new RegExp(`^[ \\t]*(?:const|let|var)\\s+${esc}\\s*=(?!=)`)
+  const reassignRe = new RegExp(`^[ \\t]*${esc}\\s*(?:\\+=|-=|\\*=|\\/=|%=|\\|=|&=|\\?\\?=|=[^=>])`)
+  const boundaryRe = /\bfunction\b|=>/
+  const from = Math.max(0, callLineIdx - CLI_VAR_DECL_WINDOW_LINES)
+  for (let i = callLineIdx - 1; i >= from; i--) {
+    const ml = maskedLines[i] || ''
+    if (declRe.test(ml)) {
+      if (boundaryRe.test(ml)) return { kind: 'boundary' }
+      for (let k = i + 1; k < callLineIdx; k++) {
+        const l = maskedLines[k] || ''
+        if (reassignRe.test(l)) return { kind: 'reassigned' }
+        if (boundaryRe.test(l)) return { kind: 'boundary' }
+      }
+      return { kind: 'decl', line: i }
+    }
+    if (reassignRe.test(ml)) return { kind: 'reassigned' }
+    if (boundaryRe.test(ml)) return { kind: 'boundary' }
+  }
+  return { kind: 'notfound' }
+}
+
+/** `import { A, B as C } from '<spec>'` 的本地名 → {spec, imported};名单来自遮罩面,串取自原文同位 */
+function cliImportBindings(src, masked) {
+  const out = new Map()
+  // 判序注意:遮罩会把**整条说明符串(含引号)**抹成空格 —— 若正则尾上 `\s+`(或 `\s*`+引号),
+  // 贪婪空白会一路吞到下一个真字符(分号),定位就错位、说明符整条丢失(第一版即在夹具上栽在这里,
+  // 表现为"有 import 却永远走不到一跳")。所以锚点只写到 `from` 本身,说明符从**原文同位**再读。
+  const re = /\bimport\s+(?:type\s+)?\{([^}]*)\}\s*from/g
+  let m
+  while ((m = re.exec(masked)) !== null) {
+    let fromPos = m.index + m[0].length
+    while (fromPos < src.length && /\s/.test(src[fromPos])) fromPos++
+    const q = src[fromPos]
+    if (q !== "'" && q !== '"' && q !== '`') continue
+    const close = findLiteralEnd(src, fromPos)
+    if (close === -1) continue
+    const spec = src.slice(fromPos + 1, close)
+    for (const rawName of m[1].split(',')) {
+      let n = rawName.trim()
+      if (!n) continue
+      n = n.replace(/^type\s+/, '').trim()
+      const asParts = n.split(/\s+as\s+/)
+      const local = (asParts.length > 1 ? asParts[1] : asParts[0]).trim()
+      if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(local) && !out.has(local)) {
+        out.set(local, { spec, imported: (asParts[0] || '').trim() })
+      }
+    }
+  }
+  return out
+}
+
+/** 相对 import 说明符 → 仓内候选路径(有序;`.js`↔`.ts` 是本仓 ESM 写法,多解时由调用方按存在性裁) */
+function cliImportCandidates(fileRel, spec) {
+  if (!spec.startsWith('./') && !spec.startsWith('../')) return []
+  const dir = fileRel.includes('/') ? fileRel.slice(0, fileRel.lastIndexOf('/')) : ''
+  const parts = dir ? dir.split('/') : []
+  for (const seg of spec.split('/')) {
+    if (seg === '.' || seg === '') continue
+    if (seg === '..') parts.pop()
+    else parts.push(seg)
+  }
+  const base = parts.join('/')
+  if (!base) return []
+  const out = []
+  if (base.endsWith('.js')) out.push(`${base.slice(0, -3)}.ts`, `${base.slice(0, -3)}.tsx`, base)
+  else out.push(`${base}.ts`, `${base}.tsx`, base, `${base}/index.ts`)
+  return out
+}
+
+/** 目标文件里的 `export const NAME = <字面量>`;唯一命中才算,多条同名导出按歧义拒 */
+function cliExportedConstPath(targetSrc, exportedName) {
+  const masked = maskCommentsAndStrings(targetSrc)
+  const esc = regexEscapeIdent(exportedName)
+  const re = new RegExp(`^[ \\t]*export\\s+(?:const|let|var)\\s+${esc}\\s*=(?!=)`, 'gm')
+  const hits = []
+  let m
+  while ((m = re.exec(masked)) !== null) hits.push(m)
+  if (hits.length === 0) {
+    return { reason: '目标文件没有该名字的 `export const <字面量>`(可能是再导出/函数/类型)' }
+  }
+  if (hits.length > 1) return { reason: '目标文件里该导出名出现多次(歧义,不猜)' }
+  const eqIdx = hits[0].index + hits[0][0].length - 1
+  const stop = Math.min(targetSrc.length, eqIdx + CLI_VAR_INIT_MAX_CHARS)
+  return classifyCliVarInit(targetSrc, eqIdx, stop)
+}
+
+/**
+ * 一跳解析总出口。返回 `{ paths }`(全部分支都解析成功)或 `{ reason }`(交回未判定桶点名)。
+ * `importInfo` = 预扫描算好的 {target(面内存在的目标路径|null), src(已 prefetch 的内容|null), imported}。
+ */
+function resolveCliVarPathOneHop({ src, maskedLines, lineStart, callLineIdx, varName, factory, importInfo }) {
+  if (varName.includes('.')) {
+    return { reason: '成员访问形态,不是可回溯的单一常量' }
+  }
+  const decl = findCliVarDeclLine(maskedLines, varName, callLineIdx)
+  if (decl.kind === 'decl') {
+    const maskedLine = maskedLines[decl.line] || ''
+    const nameRe = new RegExp(`^[ \\t]*(?:const|let|var)\\s+${regexEscapeIdent(varName)}\\s*(=)`)
+    const mm = nameRe.exec(maskedLine)
+    if (!mm) return { reason: '声明行定位失败(遮罩与原文错位?)' }
+    const eqIdx = lineStart[decl.line] + mm.index + mm[0].length - 1
+    const stopIdx = Math.min(
+      src.length,
+      lineStart[decl.line] + CLI_VAR_INIT_MAX_CHARS * 4,
+      lineStart[callLineIdx] ?? src.length,
+    )
+    const shape = classifyCliVarInit(src, eqIdx, stopIdx)
+    const r = cliInitToPaths(shape, factory)
+    if (r.paths) return r
+    // 本地声明存在但解析不出 ⇒ 不回退到 import(同名 import 会被局部声明遮蔽,回退就是猜)
+    return r
+  }
+  // 重赋值 ⇒ 局部变量存在但值不由初始化式决定;同名 import 已被它遮蔽,同样不许回退
+  if (decl.kind === 'reassigned') {
+    return { reason: '声明与调用之间存在重赋值,值不由初始化式决定' }
+  }
+  // 'boundary' / 'notfound' ⇒ 本地一跳不成立,但 import 绑定是模块作用域的,仍可一跳
+  if (!importInfo) {
+    return {
+      reason:
+        decl.kind === 'boundary'
+          ? '窗口内跨函数边界(形参默认值不算常量),且无 import 绑定'
+          : '一跳范围内没有常量声明(形参/运行时值/多跳)',
+    }
+  }
+  if (importInfo.why) return { reason: importInfo.why }
+  if (!importInfo.target) {
+    return { reason: 'import 目标在本面解析不到唯一文件(多解或路径不在面里)' }
+  }
+  if (importInfo.src === null || importInfo.src === undefined) {
+    return { reason: `import 目标取不到内容(${importInfo.target})` }
+  }
+  const shape = cliExportedConstPath(importInfo.src, importInfo.imported)
+  return cliInitToPaths(shape, factory)
+}
+
+/** 行首偏移表(一次构建,一跳解析全程复用) */
+function buildLineStartOffsets(src) {
+  const offs = [0]
+  for (let i = 0; i < src.length; i++) if (src[i] === '\n') offs.push(i + 1)
+  return offs
+}
+
 /**
  * CLI 三条形态的产出:`{ calls, unresolved }`。
- * `unresolved` = 调用点确实存在、路径住在变量里 ⇒ **未判定**(逐条点名,不记通过)。
+ * `unresolved` = 调用点确实存在、路径一跳也回溯不出 ⇒ **未判定**(逐条点名 + 点名原因,不记通过)。
+ * `importInfoByName`(2026-09-27 一跳解析):主流程预扫描算好的 Map(varName → {target, src, imported}),
+ * 目标内容已在**同一判定面**的 prefetch 扩展批里读满;此处只消费,不再取材。
  */
-function extractCliShapeCalls(src, file, factory) {
+function extractCliShapeCalls(src, file, factory, importInfoByName) {
   const calls = []
   const unresolved = []
+  // 变量站点的总数与"解析出路径的条数"必须分别数:只报"未判定 0 处"分不清
+  // "全解析出来了"与"这一族一条都没有"(空扫与真干净同形,是本仓最高频的假绿)。
+  let varSites = 0
+  let varPaths = 0
   const lines = src.split('\n')
+  /** 遮罩面/行首偏移按文件惰性算一次:只有出现变量实参才需要(全量档不必为 0 站点付费) */
+  let maskedView = null
+  const getMaskedView = () => {
+    if (!maskedView) {
+      const masked = maskCommentsAndStrings(src)
+      maskedView = { maskedLines: masked.split('\n'), lineStart: buildLineStartOffsets(src) }
+    }
+    return maskedView
+  }
   // ① `${base}/api/x` —— 与通用 pathRe 天然不相交(那边要求引号紧邻 /api/)
   const tplRe = /(['"`])\$\{/g
   let m
@@ -429,7 +798,7 @@ function extractCliShapeCalls(src, file, factory) {
   // ② `apiRequest(baseUrl, '/rel')` —— 拼文件级前缀;第三个实参里的 method 仍走既有推断
   if (factory) {
     for (const name of factory.callNames) {
-      const callRe = new RegExp(`\\b${name}\\(\\s*([^,()]*?)\\s*,\\s*`, 'g')
+      const callRe = cliFactoryCallRe(name)
       let c
       while ((c = callRe.exec(src)) !== null) {
         const argStart = c.index + c[0].length
@@ -451,18 +820,40 @@ function extractCliShapeCalls(src, file, factory) {
           })
           continue
         }
-        // 第二个实参是变量 ⇒ 判不了,点名(例:mcp-market.ts 的 `apiRequest(baseUrl, qs, …)`)
-        if (/^[A-Za-z_$][A-Za-z0-9_$.]*$/.test(src.slice(argStart, argStart + 60).split(/[,),]/)[0])) {
-          unresolved.push({
-            file,
-            line,
-            site: `${name}(${c[1]}, <变量路径>)`,
+        // 第二个实参是变量 ⇒ 先做「一跳常量解析」;解析不出才点名(带原因)
+        const tok = cliVarArgToken(src, argStart)
+        if (tok) {
+          const { maskedLines, lineStart } = getMaskedView()
+          const r = resolveCliVarPathOneHop({
+            src,
+            maskedLines,
+            lineStart,
+            callLineIdx: line - 1,
+            varName: tok,
+            factory,
+            importInfo: importInfoByName ? importInfoByName.get(tok) : undefined,
           })
+          if (r.paths) {
+            varSites++
+            varPaths += r.paths.length
+            const method = cliPositionalMethod(lines, line - 1) || inferMethodAtLine(lines, line - 1)
+            for (const p of r.paths) {
+              calls.push({ method, path: p, file, line, shape: 'cli-var-path-1hop' })
+            }
+          } else {
+            varSites++
+            unresolved.push({
+              file,
+              line,
+              site: `${name}(${c[1]}, <变量路径>)`,
+              reason: r.reason,
+            })
+          }
         }
       }
     }
   }
-  return { calls, unresolved }
+  return { calls, unresolved, varSites, varPaths }
 }
 
 
@@ -1454,6 +1845,235 @@ function runSelfTest() {
   } finally {
     rmScratch(cliVarPathRoot)
   }
+
+  // ===== CLI 变量路径「一跳常量解析」(2026-09-27 判据扩面票;正反成对) =====
+  // 21. 正例:同文件三元两条分支都注册 ⇒ 不得再落未判定、不得判红
+  //     (夹具逐字取自 HEAD 面 context.ts 的 listContext/clearContext 形态)
+  const cliTernaryOkRoot = makeSelfTestRoot({
+    [BASELINE_FILE_REL]: EMPTY_BASELINE,
+    'apps/api/src/routes/ter.ts': [
+      "server.get('/api/tertest/list', async () => ({}))",
+      "server.get('/api/tertest/session/:sessionId', async () => ({}))",
+      '',
+    ].join('\n'),
+    'apps/cli/src/commands/ter.ts': [
+      "const API_PREFIX = '/api/tertest';",
+      'const apiRequest = createApiRequest(API_PREFIX, 1000);',
+      'async function listT(baseUrl, session, apiKey) {',
+      '  const path = session',
+      '    ? `/session/${encodeURIComponent(session)}`',
+      '    : `/list?pageSize=${LIST_PAGE_SIZE}`;',
+      '  const resp = await apiRequest(baseUrl, path, { apiKey });',
+      '  return resp',
+      '}',
+      '',
+    ].join('\n'),
+  })
+  try {
+    const r = runGateIn(cliTernaryOkRoot)
+    eq(
+      '三元两分支(都注册)⇒ 判红 0 且不再落未判定',
+      [0, true, false],
+      [r.status, /通过/.test(r.out), /未判定\(CLI 变量路径调用点\)/.test(r.out)],
+    )
+  } finally {
+    rmScratch(cliTernaryOkRoot)
+  }
+  // 22. 反例:三元只注册一条分支 ⇒ 另一条必须被点名判红(证明**每条分支都进对账**,不是挑一条)
+  const cliTernaryBadRoot = makeSelfTestRoot({
+    [BASELINE_FILE_REL]: EMPTY_BASELINE,
+    'apps/api/src/routes/ter.ts': "server.get('/api/tertest/list', async () => ({}))\n",
+    'apps/cli/src/commands/ter.ts': [
+      "const API_PREFIX = '/api/tertest';",
+      'const apiRequest = createApiRequest(API_PREFIX, 1000);',
+      'async function listT(baseUrl, session, apiKey) {',
+      '  const path = session',
+      '    ? `/session/${encodeURIComponent(session)}`',
+      '    : `/list?pageSize=${LIST_PAGE_SIZE}`;',
+      '  const resp = await apiRequest(baseUrl, path, { apiKey });',
+      '  return resp',
+      '}',
+      '',
+    ].join('\n'),
+  })
+  try {
+    const r = runGateIn(cliTernaryBadRoot)
+    eq(
+      '三元未注册分支必须逐条判红并点名(GET /api/tertest/session/:param)',
+      [1, true],
+      [r.status, /GET \/api\/tertest\/session\/:param/.test(r.out)],
+    )
+  } finally {
+    rmScratch(cliTernaryBadRoot)
+  }
+  // 23. 单行 const 模板 + 第三个实参 method:'POST' ⇒ 拼前缀、认 POST、判红点名
+  const cliVarDeadRoot = makeSelfTestRoot({
+    [BASELINE_FILE_REL]: EMPTY_BASELINE,
+    'apps/api/src/routes/none.ts': "server.get('/api/nothing', async () => ({}))\n",
+    'apps/cli/src/commands/deadv.ts': [
+      "const API_PREFIX = '/api/deadvar';",
+      'const apiRequest = createApiRequest(API_PREFIX, 1000);',
+      'async function go(baseUrl, x) {',
+      '  const path = `/thing/${encodeURIComponent(x)}`;',
+      "  const resp = await apiRequest(baseUrl, path, { method: 'POST' });",
+      '  return resp',
+      '}',
+      '',
+    ].join('\n'),
+  })
+  try {
+    const r = runGateIn(cliVarDeadRoot)
+    eq(
+      '单值 const 模板解析后必须带真 method 参与对账(POST /api/deadvar/thing/:param)',
+      [1, true],
+      [r.status, /POST \/api\/deadvar\/thing\/:param/.test(r.out)],
+    )
+  } finally {
+    rmScratch(cliVarDeadRoot)
+  }
+  // 23b. 反向锁:声明与调用之间出现重赋值 ⇒ 不许按初始化式判(回到未判定 + 点名原因)
+  const cliVarReassignRoot = cliFixture({
+    'apps/cli/src/commands/reas.ts': [
+      "const API_PREFIX = '/api/reas';",
+      'const apiRequest = createApiRequest(API_PREFIX, 1000);',
+      'const path = `/one`;',
+      'path = other();',
+      'const r = await apiRequest(baseUrl, path, { apiKey })',
+      '',
+    ].join('\n'),
+  })
+  try {
+    const r = runGateIn(cliVarReassignRoot)
+    eq(
+      '声明后被重赋值的变量必须留在未判定(初始化式不再决定调用值)',
+      [0, true, true],
+      [r.status, /未判定\(CLI 变量路径调用点\)/.test(r.out), /重赋值/.test(r.out)],
+    )
+  } finally {
+    rmScratch(cliVarReassignRoot)
+  }
+  // 23c. 形参不归因:函数签名的形参名与别处的 const 同名,不许把别人的常量算到这一站
+  const cliVarParamRoot = cliFixture({
+    'apps/cli/src/commands/prm.ts': [
+      "const API_PREFIX = '/api/prm';",
+      'const apiRequest = createApiRequest(API_PREFIX, 1000);',
+      "async function outer() { const path = '/inner-const-not-mine'; }",
+      'async function inner(baseUrl, path) {',
+      '  const resp = await apiRequest(baseUrl, path, { apiKey });',
+      '  return resp',
+      '}',
+      '',
+    ].join('\n'),
+  })
+  try {
+    const r = runGateIn(cliVarParamRoot)
+    eq(
+      '形参 path 的调用点 ⇒ 未判定(跨函数边界不猜),且不得拼出 /api/prm/inner-const-not-mine',
+      [0, true, false],
+      [
+        r.status,
+        /未判定\(CLI 变量路径调用点\)/.test(r.out),
+        /prm\/inner-const-not-mine/.test(r.out),
+      ],
+    )
+  } finally {
+    rmScratch(cliVarParamRoot)
+  }
+  // 24. import 一跳:目标文件 export const = 绝对路径字面量 ⇒ 拼进对账(正反成对)
+  const impFiles = {
+    'apps/cli/src/lib/impv.ts': "export const STATUS_PATH = '/api/impv/status';\n",
+    'apps/cli/src/commands/imp.ts': [
+      "import { STATUS_PATH } from '../lib/impv.js';",
+      "const API_PREFIX = '/api/impv';",
+      'const apiRequest = createApiRequest(API_PREFIX, 1000);',
+      'async function go(baseUrl, apiKey) {',
+      '  const resp = await apiRequest(baseUrl, STATUS_PATH, { apiKey });',
+      '  return resp',
+      '}',
+      '',
+    ].join('\n'),
+  }
+  const cliImportOkRoot = makeSelfTestRoot({
+    [BASELINE_FILE_REL]: EMPTY_BASELINE,
+    'apps/api/src/routes/impv.ts': "server.get('/api/impv/status', async () => ({}))\n",
+    ...impFiles,
+  })
+  try {
+    const r = runGateIn(cliImportOkRoot)
+    eq(
+      'import 一跳解析 + 已注册 ⇒ exit 0 且该站不落未判定',
+      [0, false],
+      [r.status, /imp\.ts:5/.test(r.out) && /未判定\(CLI 变量路径调用点\)/.test(r.out)],
+    )
+  } finally {
+    rmScratch(cliImportOkRoot)
+  }
+  const cliImportBadRoot = makeSelfTestRoot({
+    [BASELINE_FILE_REL]: EMPTY_BASELINE,
+    'apps/api/src/routes/none.ts': "server.get('/api/nothing', async () => ({}))\n",
+    ...impFiles,
+  })
+  try {
+    const r = runGateIn(cliImportBadRoot)
+    eq(
+      'import 一跳解析 + 未注册 ⇒ 必须判红点名(证明 import 面真的进了对账)',
+      [1, true],
+      [r.status, /GET \/api\/impv\/status @ apps\/cli\/src\/commands\/imp\.ts:5/.test(r.out)],
+    )
+  } finally {
+    rmScratch(cliImportBadRoot)
+  }
+  // 25. import 目标不在面上(路径写歪)⇒ 仍是未判定并点名原因,不得静默也不得造路径
+  const cliImportMissRoot = cliFixture({
+    'apps/cli/src/commands/impmiss.ts': [
+      "import { GONE_PATH } from '../lib/nope.js';",
+      "const API_PREFIX = '/api/impmiss';",
+      'const apiRequest = createApiRequest(API_PREFIX, 1000);',
+      'const r = await apiRequest(baseUrl, GONE_PATH, { apiKey })',
+      '',
+    ].join('\n'),
+  })
+  try {
+    const r = runGateIn(cliImportMissRoot)
+    eq(
+      'import 目标解析不到 ⇒ 未判定 + 点名(import 目标),不判红不记通过',
+      [0, true, true],
+      [
+        r.status,
+        /未判定\(CLI 变量路径调用点\)1 处/.test(r.out),
+        /import 目标/.test(r.out),
+      ],
+    )
+  } finally {
+    rmScratch(cliImportMissRoot)
+  }
+  // 26. 注释里的示例声明不得被当真声明(端到端证明一跳解析确实工作**在遮罩面**上):
+  //     块注释里放一条**行首即 `const qs = '/api/...'`** 的示例 —— 若解析器按原文扫,它会命中这条
+  //     "声明"并把站点判掉;遮罩生效时该行整行变空白,站点必须仍落未判定。
+  //     (注释行本身会被通用 pathRe 当 ANY 字面量,所以后端注册该路径,保证退出码只由这一格决定)
+  const cliVarCommentRoot = makeSelfTestRoot({
+    [BASELINE_FILE_REL]: EMPTY_BASELINE,
+    'apps/api/src/routes/cmt.ts': "server.get('/api/cmt/from-comment', async () => ({}))\n",
+    'apps/cli/src/commands/cmt.ts': [
+      "const API_PREFIX = '/api/cmt';",
+      'const apiRequest = createApiRequest(API_PREFIX, 1000);',
+      '/*',
+      "const qs = '/api/cmt/from-comment';",
+      '*/',
+      'const r = await apiRequest(baseUrl, qs, { apiKey })',
+      '',
+    ].join('\n'),
+  })
+  try {
+    const r = runGateIn(cliVarCommentRoot)
+    eq(
+      '块注释形态的 const 不得被一跳解析命中(该站仍是未判定 1 处)',
+      [0, true],
+      [r.status, /未判定\(CLI 变量路径调用点\)1 处/.test(r.out)],
+    )
+  } finally {
+    rmScratch(cliVarCommentRoot)
+  }
   return { failures, assertions }
 }
 
@@ -1579,6 +2199,114 @@ const baseInputs = new Set([
 ])
 prefetch([...frontendRels, ...baseInputs])
 
+/**
+ * ===== CLI 变量路径 import 一跳的目标扩展预读(2026-09-27 判据扩面票) =====
+ * 「一跳」的目标文件必须与其余内容**同判定面**:这里用一次 `cat-file --batch-check` 问候选
+ * 存在性(head/staged 档)或 existsSync(工作树人工档),只把**面上存在**的那份加入第二个
+ * prefetch 批。说清一个措辞:文件头"一次 cat-file --batch 读满"的不变量是**同面** —— 这次
+ * 扩展批仍是同一 FACE 的显式批量读(规格与首批同法构造),不是"现场补一次散派生"那种被禁止
+ * 的形态(那才会把退化伪装成正常)。为什么必须预扫描后再读:哪些 import 要拉是**内容决定**的,
+ * 只有先读完 CLI 文件本身才知道。
+ * 结果 `cliImportInfo: Map(fileRel -> Map(varName -> {target, src, imported} | null))`
+ * 由主循环原样喂给 extractCliShapeCalls —— 解析判据只有 extractCliShapeCalls 一处消费方。
+ */
+const cliImportInfo = new Map()
+{
+  const pending = [] // { map, varName, candidates[] }
+  for (const rel of frontendRels) {
+    if (endByFile.get(rel) !== CLI_END_NAME) continue
+    const src = readSource(rel)
+    if (src === null || src === undefined) continue
+    const factory = resolveCliRequestFactory(src)
+    if (!factory) continue
+    const names = [...new Set(cliVarArgNames(src, factory))]
+    if (names.length === 0) continue
+    const bindings = cliImportBindings(src, maskCommentsAndStrings(src))
+    const map = new Map()
+    cliImportInfo.set(rel, map)
+    for (const n of names) {
+      const b = bindings.get(n)
+      if (!b) {
+        map.set(n, null) // 没有 import 绑定:本地一跳由解析器自己判,这里无需预读
+        continue
+      }
+      const cands = cliImportCandidates(rel, b.spec)
+      if (cands.length === 0) {
+        map.set(n, {
+          target: null,
+          src: null,
+          imported: b.imported,
+          spec: b.spec,
+          why: 'import 说明符非相对路径(跨包/别名刻意不在一跳射程)',
+        })
+        continue
+      }
+      pending.push({ map, varName: n, candidates: cands, imported: b.imported, spec: b.spec })
+    }
+  }
+  if (pending.length > 0) {
+    const specs = []
+    for (const p of pending) {
+      for (const cand of p.candidates) {
+        specs.push({ key: `${p.varName}::${cand}`, path: cand })
+      }
+    }
+    const existing = new Map() // key -> 是否有面内容
+    if (FACE === 'worktree') {
+      for (const s of specs) {
+        existing.set(
+          s.key,
+          existsSync(join(ROOT, ...s.path.split('/'))) &&
+            statSync(join(ROOT, ...s.path.split('/'))).isFile(),
+        )
+      }
+    } else {
+      const oids = catBatchOids(
+        ROOT,
+        specs.map((s) => (FACE === 'staged' ? `:${s.path}` : `HEAD:${s.path}`)),
+        { timeout: GIT_BATCH_TIMEOUT },
+      )
+      specs.forEach((s) => {
+        const spec = FACE === 'staged' ? `:${s.path}` : `HEAD:${s.path}`
+        existing.set(s.key, Boolean(oids.get(spec)))
+      })
+    }
+    const toFetch = new Set()
+    for (const p of pending) {
+      const hits = p.candidates.filter((c) => existing.get(`${p.varName}::${c}`))
+      if (hits.length === 1) {
+        p.map.set(p.varName, { target: hits[0], src: null, imported: p.imported, spec: p.spec })
+        toFetch.add(hits[0])
+      } else if (hits.length > 1) {
+        // 同名多解(.ts 与 .js 并存等)—— 挑一个就是猜,交回未判定点名
+        p.map.set(p.varName, {
+          target: null,
+          src: null,
+          imported: p.imported,
+          spec: p.spec,
+          why: 'import 目标在面上多解(候选同名不止一个),不猜',
+        })
+      } else {
+        p.map.set(p.varName, {
+          target: null,
+          src: null,
+          imported: p.imported,
+          spec: p.spec,
+          why: 'import 目标文件不在本面(路径写歪或文件搬家)',
+        })
+      }
+    }
+    if (toFetch.size > 0) {
+      prefetch([...toFetch])
+      for (const [, map] of cliImportInfo) {
+        for (const info of map.values()) {
+          if (info && info.target && info.src === null) info.src = readSource(info.target)
+        }
+      }
+    }
+  }
+}
+
 const { routes: backendRoutes, prefixes } = extractBackendRoutes()
 const compositePrefixes = buildCompositePrefixes(prefixes)
 
@@ -1658,6 +2386,9 @@ const TRANSPORT_RE =
 const unreadCode = []
 /** CLI 端"调用点确实在、路径住在变量里"的站点 ⇒ 未判定,逐条点名(不记通过、也不判红) */
 const cliUnresolved = []
+/** 变量站点总数 / 一跳解析出的路径条数(报告行要区分"全解析出来"与"一条都没有")。 */
+let cliVarSites = 0
+let cliVarPaths = 0
 for (const rel of frontendRels) {
   const end = endByFile.get(rel)
   const isCli = end === CLI_END_NAME
@@ -1675,9 +2406,11 @@ for (const rel of frontendRels) {
     // ① 型(`${base}/api/x`)不需要工厂绑定就能判,所以**不绑在 cliFactory 上** ——
     //    第一版把整段挂在 `if (cliFactory)` 里,结果 registry-client.ts 等 11 个文件
     //    一处没抽(扩了面却仍失明,正是本票要防的那一型)。
-    const extra = extractCliShapeCalls(src, rel, cliFactory)
+    const extra = extractCliShapeCalls(src, rel, cliFactory, cliImportInfo.get(rel))
     calls.push(...extra.calls)
     cliUnresolved.push(...extra.unresolved)
+    cliVarSites += extra.varSites
+    cliVarPaths += extra.varPaths
   }
   st.calls += calls.length
   if (calls.length === 0 && TRANSPORT_RE.test(src)) st.shapeUnknown++
@@ -2020,14 +2753,24 @@ console.log(
  */
 if (cliUnresolved.length > 0) {
   console.log(
-    `${C.yellow}[API 路由比对] ⚠️ 未判定(CLI 变量路径调用点)${cliUnresolved.length} 处 —— 调用在、路径拼不出,本轮既不判红也不记通过:${C.reset}`,
+    `${C.yellow}[API 路由比对] ⚠️ 未判定(CLI 变量路径调用点)${cliUnresolved.length} 处 —— 调用在、路径拼不出(一跳常量解析已尽力),本轮既不判红也不记通过:${C.reset}`,
   )
   for (const u of cliUnresolved.slice(0, 25)) {
-    console.log(`${C.dim}    ${u.site} @ ${u.file}:${u.line}${C.reset}`)
+    console.log(
+      `${C.dim}    ${u.site} @ ${u.file}:${u.line}${u.reason ? ` —— ${u.reason}` : ''}${C.reset}`,
+    )
   }
   if (cliUnresolved.length > 25) {
     console.log(`${C.dim}    ... 还有 ${cliUnresolved.length - 25} 处${C.reset}`)
   }
+} else {
+  // 0 也要出声,并且要说清是"哪一种 0":只报"未判定 0 处"会把"这一族一条都没枚举到"
+  // 洗成"全部解析成功"(本仓反复记过的空扫型假绿)。
+  console.log(
+    cliVarSites === 0
+      ? `${C.dim}[API 路由比对] ℹ️ 未判定(CLI 变量路径调用点)0 处,且**变量站点也是 0** —— 本面没看到任何变量形态调用点,这不是"全部解析成功"${C.reset}`
+      : `${C.dim}[API 路由比对] ℹ️ 未判定(CLI 变量路径调用点)0 处 —— 变量站点 ${cliVarSites} 条全部由一跳解析给出 ${cliVarPaths} 条路径${C.reset}`,
+  )
 }
 if (opaqueUndetermined.length > 0) {
   console.log(
