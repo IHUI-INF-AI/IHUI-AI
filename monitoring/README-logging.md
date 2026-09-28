@@ -18,7 +18,7 @@
        │ 写入本机日志文件（如 apps/api/logs/*.log、D:\DevEnv\logs\svc-*.log）
        ▼
 Promtail（原生进程，监听 127.0.0.1:9080，抓取本机日志文件 + 解析 + 打标签）
-       │  - static_configs 抓取本机应用日志文件（api-app-logs 等 job）
+       │  - static_configs 抓取本机应用日志文件(job=api / ai-service / applogs,取自 promtail 现配置)
        │  - pipeline_stages: json 解析 → 提取 level/timestamp/requestId
        │  - 推送地址：127.0.0.1:3100（localhost——绝对不能用 docker 服务名 loki）
        ▼
@@ -41,19 +41,19 @@ Grafana Explore（LogQL 查询 + 可视化，127.0.0.1:8816）
 
 > 这是运维查看、配置数据源、抓取 /metrics、推送日志时**唯一以实际端口为准**的对照表（原生部署，监听 loopback 127.0.0.1）。
 
-| 服务                 | 端口（127.0.0.1） | 说明                                                   | 对应 docker 语义端口 |
-| -------------------- | ----------------- | ------------------------------------------------------ | -------------------- |
-| web（next）          | 8801              | 前端（next start -H 127.0.0.1 -p 8801）                | —                    |
-| api（Fastify）       | 8802              | 业务后端，暴露 /metrics                                | —                    |
-| ai-service           | 8803              | FastAPI AI 服务（uvicorn 127.0.0.1:8803）              | —                    |
-| Prometheus           | **8815**          | 抓取 /metrics，PromQL/告警规则、/targets               | 9090（容器内）       |
-| Grafana              | **8816**          | 仪表盘 + Explore 入口                                  | 8816                 |
-| Loki                 | **3100**          | 日志推送 / 查询 / /ready / /metrics                    | 3100                 |
-| Promtail             | **9080**          | 自身指标 /health / /targets（抓取目标）                | 9080                 |
-| Alertmanager         | **9093**          | 告警分组/抑制/路由                                     | 9093                 |
+| 服务                 | 端口（127.0.0.1） | 说明                                                  | 对应 docker 语义端口 |
+| -------------------- | ----------------- | ----------------------------------------------------- | -------------------- |
+| web（next）          | 8801              | 前端（next start -H 127.0.0.1 -p 8801）               | —                    |
+| api（Fastify）       | 8802              | 业务后端，暴露 /metrics                               | —                    |
+| ai-service           | 8803              | FastAPI AI 服务（uvicorn 127.0.0.1:8803）             | —                    |
+| Prometheus           | **8815**          | 抓取 /metrics，PromQL/告警规则、/targets              | 9090（容器内）       |
+| Grafana              | **8816**          | 仪表盘 + Explore 入口                                 | 8816                 |
+| Loki                 | **3100**          | 日志推送 / 查询 / /ready / /metrics                   | 3100                 |
+| Promtail             | **9080**          | 自身指标 /health / /targets（抓取目标）               | 9080                 |
+| Alertmanager         | **9093**          | 告警分组/抑制/路由                                    | 9093                 |
 | alert-webhook-bridge | 9096              | 告警转运维邮件（见 monitoring/alertbridge/README.md） | —                    |
-| otel-collector       | 8888              | 当前**未部署**（无进程）                               | 8812/8813            |
-| Jaeger               | 16686             | 当前**未部署**（无进程）                               | 8814                 |
+| otel-collector       | 8888              | 当前**未部署**（无进程）                              | 8812/8813            |
+| Jaeger               | 16686             | 当前**未部署**（无进程）                              | 8814                 |
 
 > 注意：Prometheus 容器内监听 9090，但**原生部署在 8815**。凡文档/配置里看到服务名端口（如 `prometheus:9090`、`loki:3100`、`alertmanager:9093`），这些都是 docker 网络语义，**在原生 Windows 部署下必须替换成 `127.0.0.1` + 上表真实端口**。
 
@@ -94,11 +94,11 @@ nssm restart ihui-promtail
 
 生产环境 Promtail **不采集 docker 容器日志**，也不依赖 `docker.sock`，而是用 `static_configs` 抓取**本机应用日志文件**。核心 job：
 
-| job            | 采集对象                                                    | 关键标签                                   |
-| -------------- | ----------------------------------------------------------- | ------------------------------------------ |
-| `api-app-logs` | 应用写入的 `*.log`（如 `apps/api/logs/*.log`）              | job=api-app，host=ihui-ai，level/requestId |
-| `nginx`        | 反代/Nginx 日志（Linux 布局，Windows 原生可自行改绝对路径） | job=nginx，method/status                   |
-| `journal`      | systemd journal（仅 Linux，Windows 不使用）                 | unit/hostname                              |
+| job       | 采集对象                                                    | 关键标签                                           |
+| --------- | ----------------------------------------------------------- | -------------------------------------------------- |
+| `api`     | NSSM 托管的 api 服务日志 `svc-api-nssm*.log`(stdout+stderr) | job=api(**level/requestId 标签当前不成立,见下注**) |
+| `nginx`   | 反代/Nginx 日志（Linux 布局，Windows 原生可自行改绝对路径） | job=nginx，method/status                           |
+| `journal` | systemd journal（仅 Linux，Windows 不使用）                 | unit/hostname                                      |
 
 新增采集时，在 `monitoring/promtail/promtail-config.yml` 的 `scrape_configs` 增加一个 `static_configs`，把 `__path__` 指向目标本机日志文件即可（并配好 json/regex pipeline 解析）。
 
@@ -117,44 +117,63 @@ nssm restart ihui-promtail
 # === 基础查询 ===
 
 # 查 api 应用日志文件的 ERROR 日志
-{job="api-app"} |= "ERROR"
+{job="api"} |= "ERROR"
 
 # 查 ai-service 异常
 {host="ihui-ai"} |= "Traceback|Exception"
 
 # 全部应用日志（含 level 标签）
-{job=~"api-app|api"} | json | level="error"
+{job=~"api|ai-service"} | json | level="error"
 
 # === 字段过滤 ===
 
 # 按 requestId 追踪一条请求的完整日志链
-{job="api-app"} | json | requestId="abc-123-def"
+{job="api"} | json | requestId="abc-123-def"
 
-# 按 level 过滤
-{job="api-app"} | json | level="error"
-{job="api-app"} | json | level=~"error|fatal"
+# 按 level 过滤 —— ⚠️ 下面两条 `| json | level=…` 在**当前生产日志形态下永不成立**:
+# 现读 `svc-api-nssm.log` 19/235,906 行以 `{` 开头、`svc-api-nssm-err.log` 0/162,512 行,
+# 即 promtail 的 json 阶段对 api 流基本解析不到东西 ⇒ `level` 标签是空的。
+# 要按级别过滤请用**文本锚点**(级别词 + 出处词,两条一起用,理由见本节末"两个坑"):
+{job="api"} |~ "(?i)\\b(ERROR|FATAL)\\b" |~ "<再说一个出处/组件词,如 routes/ 或 collector.go>"
 
 # === 多条件组合 ===
 
 # 包含 ERROR 但不含 timeout
-{job="api-app"} |= "ERROR" != "timeout"
+{job="api"} |= "ERROR" != "timeout"
 
 # 正则匹配异常堆栈
-{job="api-app"} |~ "Traceback|Exception|Error"
+{job="api"} |~ "Traceback|Exception|Error"
 
 # === 聚合统计 ===
 
 # 5 分钟内 api 应用日志计数
-count_over_time({job="api-app"}[5m])
+count_over_time({job="api"}[5m])
 
 # 按级别分组统计 1 小时日志量
-sum by (level) (count_over_time({job="api-app"}[1h]))
+sum by (level) (count_over_time({job="api"}[1h]))
 
 # === 时间范围 ===
 
 # 最近 15 分钟所有 ERROR
-{job=~"api-app|api"} |= "ERROR" [15m]
+{job=~"api|ai-service"} |= "ERROR" [15m]
 ```
+
+> #### 两个坑(2026-09-28 实测,抄示例前先读这两条)
+>
+> 1. **job 名只能从 `monitoring/promtail/promtail-config.yml` 现读**,不要从本文抄 —— 本文此前写的
+>    `job="api-app"` 在流里**根本不存在**(现有 job 只有 `api` / `ai-service` / `applogs` /
+>    `windows-app-stdout` / `windows-app-stderr`),照它查得到的是"空结果",而空结果读起来像"没有错误"。
+>    同理 `| json | level="error"` 也不成立(api 流实测 19/235,906 行是 JSON)。
+> 2. **`job="applogs"` 里混着监控组件自己的日志**:promtail 用一条
+>    `__path__: 'D:/DevEnv/logs/svc-*-nssm-err.log'` 把 loki / promtail / prometheus / alertmanager /
+>    alert-bridge / 各 exporter 的 stderr 也打成了 `job=applogs`。后果是 Loki 会把**别人发给它的查询
+>    语句原样**记进它自己的 querier INFO 行(`component=querier … query="…"`,现读该文件 472 行含 `query=`),
+>    再由 promtail 收进 `applogs` —— 于是"按关键字计数"的判据会**数到自己刚查过什么**:
+>    同一条 `|~ "collector failed"` 连发两次,第二次的计数就变大。
+>    规矩:**日志型判据必须同时带 ①来源(哪个服务/文件)②级别词 ③出处词 三样**;只要关键字的先修再用。
+>    把监控自身另立一个 job(如 `monitorlogs`)是根治方向,但它是**流分区改动**,
+>    会同时影响面板与告警的可见性,归监控面持有人在核对后做;
+>    **不得**用"关掉 Loki 查询日志"消噪(那是拿可审计性换账面)。台账 G-472 记了机制与本条复现法。
 
 ### LogQL 语法速查
 
@@ -237,7 +256,9 @@ Get-NetTCPConnection -LocalPort 9080 -State Listen -ErrorAction SilentlyContinue
 
 1. 查看 Loki 限流指标:`GET http://127.0.0.1:3100/metrics` 中搜 `loki_request`
 2. 仍不够则在 `loki-config.yml` 继续调高 `ingestion_rate_mb` 与 `ingestion_burst_size_mb`,重启 Loki。
-3. 查看具体哪个 stream 被限流:查 Loki 运行日志中的 `429` / `rate_limited`。
+3. 查看具体哪个 stream 被限流:用 **Loki 自己的指标**,不要读它的运行日志 ——
+   `sum by (route) (rate(loki_request_duration_seconds_count{status_code="429"}[5m]))`;
+   读日志找 `429` 会撞上"查询回声自引用"那一型(见上文 LogQL 示例后的"两个坑")。
 
 **配置位置:** `monitoring/loki/loki-config.yml` 中 `limits_config.ingestion_rate_mb` 和 `ingestion_burst_size_mb`。
 
