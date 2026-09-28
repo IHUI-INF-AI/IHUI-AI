@@ -2296,3 +2296,22 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **自动归档**:`scripts/archive-completed-tasks.mjs` 扫描**已完成**条目(默认阈值 0 = 完成即归档;`--days N` 是降速档,不是默认),post-commit 钩子自动 `--auto-commit`。归档 commit 设 `IHUI_ARCHIVE_COMMIT=1` 防递归。
   - **大批量阀门只挡自动档,但"全批或不动"是错的默认**(2026-09-28 改):旧写法在积压 >25 条或 >256 KB 时整批拒绝,于是超阈值之后**每次自动档重算同一批再拒绝** —— 实测 HEAD 面积压 3 条 / 592,001 B,归档机制对存量结构性失效而账面一路绿(参照 §5c 水印门"单次缺口 >200 拒绝自动回写"同一条设计,但那条阀只能对**一次动作**生效,不能当常态)。现 `selectWithinBudget` 按**最旧优先贪心取前缀**(单批仍不超 500 段 / 256 KB —— 段数上限只是"格式又漂了一次"的哨兵,真正把关的是字节,余量点名并报数、下一轮继续),只有"最旧一条自身就超预算"才回到拒绝路径且不拆条目搬(2026-09-28 同日把段数上限从 25 提到 500:bullet 级纳入后一段常常只有一行,25 段/轮只搬得动 100 KB,卡的不再是它想防的"半本活文档被重写");退出码仍 0(自动档少做一件事不是错误,不得把钩子链弄红),`--allow-mass` 只放宽字节预算这一件事。
   - **占位必须带上随块搬走的"归并落账注记"(`〔【归并】…落账:复测 日期〕`)**(2026-09-28 立):台账门 130 的 F5 存续性棘轮数的就是这批注记,而它们原本挂在 `- [x]` 行上 —— bullet 级纳入归档后,行一进归档,计划文档面上的计数直接掉到 0,门按"整文件写回旧版"那一型喊红。它分不清"随块归档"与"被抹掉",而**这是归档器造成的形态,不该靠放宽门解决**(§12e:修红不得顺手削判据)。故占位新增字段「随块带走的归并落账注记: …」,注记正则取自台账 lib 的 `MERGE_NOTE_RE` 那一份实现;字段插在「完整内容在 …」之**前**,使 13c 反查文件名的"最后一个逗号段"形态一字不变,且无注记时占位与旧形态**逐字相同**(成对自检 S17b/S17c)。
+- **对外能力白名单对账(2026-09-28 立,拍板②"按能力目录逐项放开"的尺子)**:`scripts/check-public-exposure-list.mjs`
+  钉四件事 —— X1 每条 `@public-exposure` 申报必须配对一个**精确** `location =`(前缀/正则型一律红,AGENTS §5
+  那条"兜底正则连静态子路由一起放行"的失效型就是它要防的);X2 站点壳与 docker 壳按 **(capability, method,**
+  upstream)** 同批(两侧 zone/map 名必须 `docker_` 前缀错开,重名是 nginx **启动失败**不是警告;公网 path 命名空间
+  分离:`/ai-service/api/mcp` 而非 `/api/mcp`,后者被 `packages/api-client` 的 MCP **项目** CRUD 占着);X3 资格
+  (申报的 scope 必须在 `packages/types/generated/capabilities.json` 里 `host:'ai-service'` ∧ `thirdPartyEligible:true`
+  ∧ `dataClass≠platform`);X4 每个开放 location 必须剥掉 `X-IHUI-Principal` / `X-Api-Key`(公网能携带内网身份头
+  = 冒名面);X7 **已放开的每一条必须回查 ai-service 的 handler 真的解析身份** —— 身份出口名单从
+  `app/core/jwt_auth.py` / `app/services/capability_gate.py` 的顶层函数**现读推导**(不抄第二份名字,空名单判
+  "未判定"),允许同文件一跳委托,解析不到一律点名"未判定";刻意**只对开放集判红**(HEAD 面 266 条可解析路由里
+  212 条不引用身份出口,全量判红就是恒红门)。
+  **定级与问责入口(不要写一个跑不通的出路)**:手动 / 只读档 —— `node scripts/check-public-exposure-list.mjs`
+  (缺省判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工),取证 `--self-test` 与
+  `node --test scripts/tests/check-public-exposure-list.test.mjs`。**刻意不接提交链**(它判跨面一致性,一次只改
+  一份配置的提交结构上满足不了 ⇒ 挂 blocking 就是每台每次被逼 `--no-verify`,连带废掉全部守门,§12e 同型),
+  这条定级由镜像测试 T6 钉住:**它一旦被接进 `guardian-runner`,那条测试就红** —— 想接必须先带着
+  "为什么现在能接"的证据改那条测试,而不是悄悄接线。
+- **自动归档**:`scripts/archive-completed-tasks.mjs` 扫描**已完成**条目(阈值以脚本缺省为准:2026-09-28 起缺省 0 = '完成即归档',这是用户当天的决定,不是缺陷),post-commit 钩子自动 `--auto-commit`,归档 commit 设 `IHUI_ARCHIVE_COMMIT=1` 防递归。
+- **自动归档**:`scripts/archive-completed-tasks.mjs` 扫描**已完成**条目(阈值以脚本缺省为准:2026-09-28 起缺省 0 = '完成即归档',这是用户当天的决定,不是缺陷),post-commit 钩子自动 `--auto-commit`。归档 commit 设 `IHUI_ARCHIVE_COMMIT=1` 防递归。

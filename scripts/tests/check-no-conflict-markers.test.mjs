@@ -149,14 +149,26 @@ test('7 judgeBuffer:违规点名路径,跳过项只计数不静默', () => {
   assert.equal(s3.selfExempt, 1)
   assert.equal(s3.judged, 0)
 
-  // 大文件护栏
+  // 大文件护栏 —— 2026-09-28 拆成两条,原来那条"体积优先"把台账挡在射程外了。
+  // (a) 大 + 无标记线索:仍按护栏跳过并计数。
   const s4 = src.newStats()
-  const big = Buffer.concat([
-    Buffer.from([OPEN, ''].join('\n'), 'utf8'),
+  const bigClean = Buffer.alloc(src.MAX_BYTES + 16, 0x61)
+  assert.equal(src.judgeBuffer('assets/huge.txt', bigClean, s4).length, 0)
+  assert.equal(s4.tooLarge, 1, '无标记线索的大文件仍应被护栏放过并计数')
+  assert.equal(s4.judged, 0)
+  // (b) 大 + 成对标记:必须照判。`PROJECT_PLAN.md` 常年 >2MB,而它是多会话唯一会真撞车的
+  //     文件 —— 实测枚 b54c79c36 把带未解标记的工作树副本提交进台账时,本门对着那一枚报绿,
+  //     汇总里只留下一句"跳过 >2MB 大文件=1"。断言方向反过来是为了让那一型不再可能。
+  const s4b = src.newStats()
+  const bigDirty = Buffer.concat([
+    Buffer.from([OPEN, 'a', SEP, 'b', END].join('\n'), 'utf8'),
     Buffer.alloc(src.MAX_BYTES, 0x61),
   ])
-  assert.equal(src.judgeBuffer('assets/huge.bin.txt', big, s4).length, 0)
-  assert.equal(s4.tooLarge, 1)
+  const bigViolations = src.judgeBuffer('PROJECT_PLAN.md', bigDirty, s4b)
+  assert.equal(bigViolations.length, 1, '>2MB 但含成对标记 ⇒ 必须判红,不得静默跳过')
+  assert.equal(s4b.tooLarge, 0)
+  assert.equal(s4b.largeWithMarkers, 1, '"照判不误"必须自己报出来,否则读者以为护栏生效了')
+  assert.equal(s4b.judged, 1)
 
   // 二进制护栏
   const s5 = src.newStats()
