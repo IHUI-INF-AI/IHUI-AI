@@ -2,10 +2,10 @@
   "$comment": "SSE 帧端内 dispatch 覆盖台账(守门 scripts/check-sse-dispatch-parity.mjs 读取,D107)。帧清单**不写在这里** —— 由守门每次从 packages/api-client/src/client.ts 的 onXxx 成员自动提取并减去 toolCallbacks,故本文件不可能与代码脱节。baseline[端] = 该端命中数下限(ratchet,只挡倒退不挡增长;新增接入后请同步上调);missing[端] = 该端**未命中**的帧,键集合必须**精确等于**实测未命中集合,值直接写理由或指向 groups 里的复用分组。口径:帧回调名在该端源码出现即算已处理(不按写法区分,精度靠'精确等于'兜)。",
   "toolCallbacks": ["onAbort"],
   "baseline": {
-    "web": 30,
+    "web": 31,
     "extension": 20,
-    "miniapp-taro": 23,
-    "mobile-rn": 20,
+    "miniapp-taro": 24,
+    "mobile-rn": 21,
     "cli": 15
   },
   "endpoints": {
@@ -31,6 +31,7 @@
   "missing": {
     "web": {},
     "extension": {
+      "onTerminalInteraction": "该端终端卡**是在的**(onTerminalStart/onTerminalDelta/onTerminalEnd 三条都不在本端 missing 里,现读 HEAD 面),缺的是等待态与输入行:sidepanel 的终端渲染件尚无 chat.terminal.* 展示位,也没有把键入送回的口 ⇒ 帧到本端会被静默丢弃,按 D107 口径显式登记。解阻判据:与 web 同形接 onTerminalInteraction(载荷已带 sessionId 与 maxInputChars,postTerminalInput 可直接复用),补 waitingInput + 单行输入 + 失败态;接入后从本 missing 删除并把该端 baseline 由 20 上调到 21。",
       "onAgentDelta": "no-agent-delta-ui",
       "onBudget": "no-budget-ui",
       "onFallback": "no-fallback-ui",
@@ -64,6 +65,7 @@
       "onToolApproval": "V3 #58(2026-09-26 立)当日只落了两侧:api-client 的解析开关(`onToolApproval 注册才解析`)+ web 宿主(send-message.ts:1004)。本端源码里没有该回调名 ⇒ 帧到本端会被**静默丢弃**,故按 D107 口径显式登记而非不写。解阻判据:该端把工具审批落到已有批准面上(mobile-rn/共享屏层走工具确认弹窗、miniapp-taro 走页内确认卡、extension 走 sidepanel 审批位、cli 走 REPL 内联批准提示),接上后从本 missing 删除并把该端 baseline 上调 —— 四端各自的渲染位是否存在,须在接的那一票里当场证,不得凭此条推断\"该端本就不该有\"。"
     },
     "cli": {
+      "onTerminalInteraction": "no-terminal-stream-ui",
       "onAgentDelta": "no-agent-delta-ui",
       "onCompaction": "no-compaction-ui",
       "onFallback": "no-fallback-ui",
