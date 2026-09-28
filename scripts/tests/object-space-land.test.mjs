@@ -14,6 +14,14 @@
 //    T10 LAND_ALLOW_STALE=1 ⇒ 放行且大声留痕;T11 只复活不删除 ⇒ 只报不拦;
 //    T12 形状锁:判据只能 import 守门 84 那一份,不得在本器里出现第二份祖先判定;
 //    T13 lineDelta 纯函数面:多重集计数 / CRLF 不算删除 / 取不到正文不得折成 0。
+//  + 活文档编号形态闸(2026-09-29 补,票面六道成对判据):
+//    T19 正向:父提交没有、本次内容有畸形号 ⇒ rc=1 并点名该行(且拒绝路径上水印预检与 write-tree 都没跑到);
+//    T20 同一性:本器用的 newMalformed / LIVE_DOCS 必须与宿主是**同一个对象**(不是复制品);
+//    T21 形状锁:必须 import live-doc-edit 的那一份并真调用,代码面不得出现第二份 MALFORMED_*_RE 或重抄的活文档清单;
+//    T22 反向(存量):父提交里已在的畸形行逐字带着 ⇒ rc=0 且打印"存量 N 行…只报数";
+//    T23 反向(射程):同一形态写在非活文档路径 ⇒ 不判,并喊出"这是射程,不是判过且干净";
+//    T24 应急出口:LAND_ALLOW_MALFORMED_ID=1 ⇒ 落地成功但大声放行并点名判据;而 '0'/'true' 这类非 '1' 真值仍拒;
+//    T25 父提交取不到 ⇒ 落"未判定",既不判红也绝不静默当零存量。
 // git 写操作只发生在 scripts/lib/scratch-dir.mjs 的临时仓内(§26/§15b 唯一夹具落点),绝不碰真仓。
 
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -104,12 +112,21 @@ function makeLocaleRepo(t) {
   return { dir, ancestor9: ancestor.slice(0, 9) }
 }
 
-function runLand(dir, { paths = '', msg = 'chore: e2e land', baseRef, allowStale } = {}) {
+function runLand(dir, { paths = '', msg = 'chore: e2e land', baseRef, allowStale, skipWatermark, allowMalformedId, malformedIdRaw } = {}) {
   const env = { ...process.env, LAND_ROOT: dir, LAND_PATHS: paths, LAND_MSG: msg }
   if (baseRef) env.LAND_BASE_REF = baseRef
   else delete env.LAND_BASE_REF
   if (allowStale) env.LAND_ALLOW_STALE = '1'
   else delete env.LAND_ALLOW_STALE
+  // 编号形态闸排在水印预检**之前**,而"放行/存量/未判定"那几档要走到落地这一步才量得到 ——
+  // 夹具是无横幅的 .md,那一道预检会先把整个落地拦下(与本案无关的第二个理由)。
+  // 这里按既有的显式应急出口跳过它,并在断言里只判编号形态这一维;跳过行会照常被打印。
+  if (skipWatermark) env.IHUI_LAND_SKIP_WATERMARK = '1'
+  else delete env.IHUI_LAND_SKIP_WATERMARK
+  if (allowMalformedId) env.LAND_ALLOW_MALFORMED_ID = '1'
+  else delete env.LAND_ALLOW_MALFORMED_ID
+  // malformedIdRaw:造"非 '1' 的真值"现场(如 '0' / 'true'),钉"默认关闭"不是"非空即放行"
+  if (malformedIdRaw !== undefined) env.LAND_ALLOW_MALFORMED_ID = malformedIdRaw
   return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
 }
 
@@ -518,6 +535,190 @@ test('T17 未覆盖(二进制):照样落地,但报告必须点名"未覆盖 ≠ 
   assert.match(r.stdout, /行级复活判据未覆盖此路径/, '必须逐条报名是哪个路径没被行级判据覆盖')
   assert.match(r.stdout, /未覆盖 ≠ 通过/, '汇总行必须写清"没判"不等于"判过了"')
   assert.match(r.stdout, /提交面回读 1\/1 路径在树/)
+})
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * 活文档编号形态闸(2026-09-29):畸形登记编号(`G-G-334`/`DD128` 这种族名在编号段出现两次)的
+ * 唯一判据住在 `live-doc-edit.mjs`,而旁路落地**不跑任何钩子** —— 这一族用例钉的就是"落地点也问了
+ * 那一份实现,而且只问那一份"。六条成对:正向拦 / 存量放 / 射程外不伤 / 应急出口大声 / 无父提交不猜 /
+ * 同一性与形状各锁一遍。
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+// 两型畸形号都取真仓在案的形状(G- 族双写、D 族连写),再加一行合法登记当对照。
+const MAL_GG = '- [ ] G-G-390 **W4-W7 四波覆盖票** —— 族名在编号段出现两次的畸形登记行'
+const MAL_DD = '- [ ] DD128 另一族同型:并发取号把同一个号改派过三次就会留下这种行'
+const OK_ROW = '- [ ] O81 跨端 UI 单一源:这一行形态合法,只作对照用'
+const HONEST_NEW = '- [ ] V3-77 本次真写的新登记:合法形态,不该被任何一档算成畸形'
+
+/** 造一个"活文档已在 HEAD 里、内容干净"的仓,再单独提交把畸形行写进**父提交**(存量档用)。 */
+function makePlanRepo(t, headContent) {
+  const dir = makeRepo(t)
+  writeFileSync(join(dir, 'PROJECT_PLAN.md'), headContent)
+  runGit(dir, ['add', '--', 'PROJECT_PLAN.md'])
+  runGit(dir, ['commit', '-q', '-m', 'P: 活文档基线形态'])
+  return dir
+}
+
+test('T19 正向:父提交没有、本次内容里有畸形号 ⇒ rc=1 点名该行,且水印预检与 write-tree 都没被跑到', (t) => {
+  const dir = makePlanRepo(t, `# PROJECT_PLAN\n\n${OK_ROW}\n`)
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
+  writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# PROJECT_PLAN\n\n${OK_ROW}\n${MAL_GG}\n${MAL_DD}\n`)
+  const r = runLand(dir, { paths: 'PROJECT_PLAN.md', msg: 'docs(plan): 加两行(含畸形号)' })
+  const out = r.stderr + r.stdout
+  assert.equal(r.status, 1, `编号形态闸必须拦,实得 ${r.status}:${out}`)
+  assert.match(out, /活文档编号形态闸/)
+  assert.match(out, /本次要落地的内容里有 2 行畸形登记编号/, '结论行必须给数')
+  assert.match(out, /本次新增 2 行/, '逐文件行必须给该文件自己的数')
+  assert.ok(out.includes('G-G-390'), `必须点名到那一行原文,实得:\n${out}`)
+  assert.ok(out.includes('DD128'), '两型都要点名(G 族双写与 D 族连写同判)')
+  assert.match(out, /LAND_ALLOW_MALFORMED_ID/, '拒绝时必须给出显式应急出口的名字')
+  // 位置证明:闸排在水印预检与 write-tree/commit-tree **之前** ⇒ 拒绝路径上既没花那次 verify 派生,
+  // 也没新建提交。少了这一断言,"落地之后再 exit 1"那种实现(把已入库谎报成没落地)照样全绿。
+  assert.ok(!/水印预检/.test(out), '拒绝不得先跑水印预检(闸必须排在它之前)')
+  assert.ok(!/CAS 成功/.test(out), '拒绝路径上不得新建提交')
+  assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before, 'HEAD 必须一步没动(不留半截提交)')
+  assert.equal(headBlobOf('HEAD', 'PROJECT_PLAN.md', { root: dir }), writeBlob(`# PROJECT_PLAN\n\n${OK_ROW}\n`, { root: dir }))
+})
+
+test('T20 同一性:本器用的 newMalformed / LIVE_DOCS 必须与宿主是同一个对象(不是改名复制品)', async () => {
+  const host = await import('../live-doc-edit.mjs')
+  const conv = await import('../union-converge.mjs')
+  assert.equal(typeof host.newMalformed, 'function', '判据宿主的出口必须在位(不在即红,不得写 ?? 兜底)')
+  assert.equal(__test__.newMalformed, host.newMalformed, '本器必须引那一个函数,不是抄一份')
+  assert.equal(__test__.LIVE_DOCS, conv.LIVE_DOCS, '活文档清单必须是 union-converge 导出的那一份数组')
+  // 宿主的判据本身也要有牙:两型畸形各命中一次,合法行一条都不命中(否则本器引的是一把空尺子)
+  assert.deepEqual(host.findMalformedIds(MAL_GG).map((x) => x.family), ['G'])
+  assert.deepEqual(host.findMalformedIds(MAL_DD).map((x) => x.family), ['D'])
+  assert.equal(host.findMalformedIds(OK_ROW).length, 0, '合法形态不得被算成畸形(误伤就是一台恒红门)')
+})
+
+test('T21 形状锁:编号形态判据只能 import live-doc-edit 那一份;代码面不得出现第二份 MALFORMED_*_RE 或重抄的清单', () => {
+  const src = readFileSync(TOOL, 'utf8')
+  const code = maskCommentsAndStrings(src) // 判"实现"看遮掉注释/字符串后的代码面,否则说明文字会被判成违规
+  assert.match(
+    src,
+    /import\s*\{[^}]*\bnewMalformed\b[^}]*\}\s*from\s*['"]\.\/live-doc-edit\.mjs['"]/,
+    '必须从活文档编辑器 import 那一份判据',
+  )
+  assert.match(code, /newMalformed\s*\(/, 'import 了却没调用 = 判据仍是自写的(假接线)')
+  assert.match(
+    src,
+    /import\s*\{\s*LIVE_DOCS\s*\}\s*from\s*['"]\.\/union-converge\.mjs['"]/,
+    '活文档清单必须引 union-converge 导出的那一份',
+  )
+  assert.match(code, /LIVE_DOCS\.includes\(/, '清单没被用来收窄射程(引了不判)同样是假接线')
+  // 第二份实现的三种形状,一条都不许出现在代码面
+  for (const secondImpl of [/MALFORMED_ID_RE/, /MALFORMED_BODY_RE/, /findMalformedIds\s*\(/, /function\s+newMalformed\b/])
+    assert.ok(!secondImpl.test(code), `代码面出现第二份编号形态判据的形状:${secondImpl}`)
+  // 注释里点名宿主实现是**允许的**(要说清依据从哪来),所以必须能区分两面 —— 两面同色就等于本锁在判散文
+  assert.match(src, /MALFORMED_ID_RE/, '反向对照:注释里引用宿主正则名应当留在原文面,被遮掉才算锁住了代码面')
+  // 不得重抄清单字面量(那是第四本的开端)
+  assert.ok(
+    !/PROJECT_PLAN\.md['"],\s*['"]AGENTS\.md/.test(code),
+    '本器里不得再写一份活文档清单字面量 —— 清单只有 union-converge 那一份',
+  )
+})
+
+test('T22 反向(存量不判红):父提交里已在的畸形行逐字带着落地 ⇒ rc=0,且 stdout 喊"存量 N 行…只报数"', (t) => {
+  const dir = makePlanRepo(t, `# PROJECT_PLAN\n\n${OK_ROW}\n${MAL_GG}\n${MAL_DD}\n`)
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
+  // 本次只加一行真新登记,畸形行是别人历史留下的 ⇒ 不得钉红本次落地(§12e 恒红门同一条)
+  writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# PROJECT_PLAN\n\n${OK_ROW}\n${MAL_GG}\n${MAL_DD}\n${HONEST_NEW}\n`)
+  const r = runLand(dir, { paths: 'PROJECT_PLAN.md', msg: 'docs(plan): 加一行合法登记', skipWatermark: true })
+  const out = r.stderr + r.stdout
+  assert.equal(r.status, 0, `存量不得判红,实得 ${r.status}:${out}`)
+  assert.match(out, /存量畸形登记编号 2 行/, '存量必须报名并给数,否则"存量"与"我刚造的"同形')
+  assert.match(out, /只报数/)
+  assert.match(out, /已判 1 本活文档\(本次新增畸形 0 行\)/, '跑了且干净必须给出"跑了"的正向句')
+  assert.match(r.stdout, /IHUI_LAND_SKIP_WATERMARK=1/, '跳过水印那道也要大声留痕')
+  assert.notEqual(git(['rev-parse', 'HEAD'], { root: dir }), before, '这一档是真落地,HEAD 必须前进')
+})
+
+test('T23 反向(不许顺手放宽):同一畸形形态写在**非活文档**路径 ⇒ 不判,并喊出"这是射程,不是判过且干净"', (t) => {
+  const dir = makeRepo(t)
+  writeFileSync(join(dir, 'notes.md'), `# 说明\n\n${MAL_GG}\n${MAL_DD}\n`)
+  const r = runLand(dir, { paths: 'notes.md', msg: 'docs: 普通说明文件', skipWatermark: true })
+  const out = r.stderr + r.stdout
+  assert.equal(r.status, 0, `清单外路径不得被判红,实得 ${r.status}:${out}`)
+  assert.match(out, /本次声明路径不含活文档/)
+  assert.match(out, /不进射程,这是\*\*射程\*\*,不是/)
+  assert.ok(!/新增畸形登记编号/.test(out), '射程外不得产出任何"畸形号"结论 —— 全局误伤就是这台闸的死法')
+  // 同一条判据在**清单内**路径上必须仍然拦(两臂只差路径名,两臂同色才证明判据是按清单走的)
+  const dir2 = makePlanRepo(t, `# PROJECT_PLAN\n\n${OK_ROW}\n`)
+  writeFileSync(join(dir2, 'PROJECT_PLAN.md'), `# PROJECT_PLAN\n\n${OK_ROW}\n${MAL_GG}\n`)
+  const r2 = runLand(dir2, { paths: 'PROJECT_PLAN.md', msg: 'docs(plan): 同一形态,这次在清单内' })
+  assert.equal(r2.status, 1, `清单内必须拦,实得 ${r2.status}:${r2.stderr}|${r2.stdout}`)
+  assert.match(r2.stderr + r2.stdout, /G-G-390/)
+})
+
+test('T24 应急出口:LAND_ALLOW_MALFORMED_ID=1 ⇒ 落地成功但大声放行并点名判据;非 "1" 的真值("0"/"true"/"yes")仍拒', (t) => {
+  const dir = makePlanRepo(t, `# PROJECT_PLAN\n\n${OK_ROW}\n`)
+  writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# PROJECT_PLAN\n\n${OK_ROW}\n${MAL_GG}\n`)
+  const r = runLand(dir, {
+    paths: 'PROJECT_PLAN.md',
+    msg: 'docs(plan): 人工放行畸形号',
+    skipWatermark: true,
+    allowMalformedId: true,
+  })
+  const out = r.stderr + r.stdout
+  assert.equal(r.status, 0, `显式放行必须能落,实得 ${r.status}:${out}`)
+  assert.match(r.stdout, /本次由人工放行 1 行畸形登记编号落地/, '放行行必须大声、给数')
+  assert.match(r.stdout, /LAND_ALLOW_MALFORMED_ID=1/, '必须点名是哪条旗标放行的')
+  assert.match(r.stdout, /live-doc-edit\.newMalformed/, '必须点名被放过的判据名字')
+  assert.match(r.stdout, /放行不等于判过/)
+  assert.match(r.stdout, /G-G-390/, '放行时同样要逐条点名放了什么行,便于事后归因')
+  /**
+   * "默认关闭"的牙:每次造**新仓**,不复用上面那枚 —— 上一次落地已把那行畸形号写进 HEAD,
+   * 复用会让"本次新增"退化成"存量",rc 反而因为另一条拒绝(声明无差异)变 1 ⇒ 断言过了但过的不是本案。
+   */
+  for (const raw of ['0', 'true', 'yes', '']) {
+    const d = makePlanRepo(t, `# PROJECT_PLAN\n\n${OK_ROW}\n`)
+    writeFileSync(join(d, 'PROJECT_PLAN.md'), `# PROJECT_PLAN\n\n${OK_ROW}\n${MAL_GG}\n`)
+    const rr = runLand(d, {
+      paths: 'PROJECT_PLAN.md',
+      msg: 'docs(plan): 非 1 真值',
+      skipWatermark: true,
+      malformedIdRaw: raw,
+    })
+    assert.equal(rr.status, 1, `LAND_ALLOW_MALFORMED_ID=${JSON.stringify(raw)} 不得被当成放行,实得 ${rr.status}:${rr.stderr}|${rr.stdout}`)
+    assert.match(rr.stderr + rr.stdout, /拒绝落地/)
+  }
+  const src = readFileSync(TOOL, 'utf8')
+  assert.equal(
+    (src.match(/process\.env\.LAND_ALLOW_MALFORMED_ID\s*===\s*'1'/g) ?? []).length,
+    1,
+    '旗标读取必须恰好一处且是严格等于 "1"',
+  )
+  assert.ok(!/if\s*\(\s*process\.env\.LAND_ALLOW_MALFORMED_ID\s*\)/.test(src), '出现"非空即放行"的写法就等于默认放行,禁止')
+})
+
+test('T25 父提交取不到(新增活文档):落"未判定",既不判红也绝不静默当零存量', (t) => {
+  // 纯函数面**先跑**,并且用另一枚仓:CLI 那一档如果落成了,HEAD 就带上这个文件了,
+  // 再拿同一个 dir 问判据问到的已是"存量"而不是"取不到" —— 那种断言不是测本案,只是恰好不红。
+  const pure = makeRepo(t)
+  writeFileSync(join(pure, 'PROJECT_PLAN.md'), `# PROJECT_PLAN\n\n${MAL_GG}\n`)
+  writeFileSync(join(pure, 'notes.md'), `# 说明\n\n${MAL_DD}\n`)
+  const g = __test__.detectMalformedLiveDocIds({ root: pure, paths: ['PROJECT_PLAN.md', 'notes.md'], baseRef: 'HEAD' })
+  assert.equal(g.scanned, 1, '只有清单内的路径算射程')
+  assert.equal(g.ok, true, '未判定不得被折成拒绝(那是恒红门那一型)')
+  assert.equal(g.undetermined.length, 1, '未判定必须逐条报名,不许只报一个数')
+  assert.equal(g.offenders.length, 0)
+  assert.equal(g.stock.length, 0, '判不出时"存量"必须是空数组,不是 0 行那个假数')
+  assert.match(g.undetermined[0].reason, /新文件/)
+
+  const dir = makeRepo(t) // a.txt/sub/keep.txt 都在,PROJECT_PLAN.md 从未进过任何提交 ⇒ 父提交面取不到
+  writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# PROJECT_PLAN\n\n${MAL_GG}\n`)
+  const r = runLand(dir, { paths: 'PROJECT_PLAN.md', msg: 'docs(plan): 新建活文档,带一行畸形号', skipWatermark: true })
+  const out = r.stderr + r.stdout
+  assert.equal(r.status, 0, `无父提交不得判红,实得 ${r.status}:${out}`)
+  assert.match(out, /未判定/, '必须点名"未判定"这一态')
+  assert.match(out, /取不到该路径正文\(新文件 \/ 对象不可读 \/ 二进制\)/, '原因要写清,不能只喊一句"未判定"')
+  assert.match(out, /更不得当"零存量"/, '并把"这不等于存量是零"写进同一句,否则读报告的人会拿它当放行凭据')
+  assert.ok(!/本次新增畸形/.test(out), '未判定那一档不得同时产出"新增畸形"结论(那是判得出时才有的话)')
+  assert.ok(
+    !/已判 1 本活文档\(本次新增畸形 0 行\)/.test(out),
+    '"跑了且干净"那句在判不出时不得出现 —— 出现就等于给没判的东西发合格证',
+  )
 })
 
 

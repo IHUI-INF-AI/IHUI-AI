@@ -22,9 +22,11 @@
  *  LAND_ROOT   测试/换仓通道:被落地的仓库根(缺省 = 本脚本所在仓根)
  *  LAND_BASE_REF 取证通道:防覆盖对账的基线 ref(缺省 HEAD;只有测试用它造"别人已改过"的现场)
  *  LAND_ALLOW_STALE 显式放行"陈旧落地"(见 staleLandingGuard 的成因),放行时必打一行留痕
+ *  LAND_ALLOW_MALFORMED_ID 显式放行"活文档新增畸形登记编号"(默认关闭;打开时逐条点名放过了什么行)
  * 退出码:0 = 已落地且回读通过(对齐的 skipped/未判定只在 stdout 点名);
  *        1 = 业务拒绝(某目标路径被别人改过 ⇒ 需重新归并 / 声明路径无差异 / 盘上副本等于祖先版本且会抹掉基线里活着的行 /
  *            落地内容里存在"基线已删、祖先版本写过"的复活行,或该维判据未判定 ⇒ 未判定不等于通过 /
+ *            活文档里本次新增畸形登记编号(父提交里的存量只报数;父提交取不到落"未判定"不判红)/
  *            CAS 12 次未抢到 / 提交面回读缺路径 / 索引锁龄超上限);
  *        2 = 用法或环境错(空清单 / 空消息 / 声明路径不在盘上 / 根不可当仓库问)。
  *
@@ -45,6 +47,14 @@
  * 陈旧拼接才造 ①②③ —— 这个不对称就是判据的牙(镜像测试两臂各钉一边,两臂同色即判据无牙)。
  * 祖先窗口**不在本器重复数字**:走守门 84 的 `ancestorCommits` 那一个出口(窗口长度住在它内部);
  * 一个路径的全部祖先正文经 `face-reader.catBatch` **一次批量**读完(不逐行、不逐 blob 派生)。
+ *
+ * 2026-09-29 补的第四道拒绝(判据不在本器,只在落地点问一次):活文档的**畸形登记编号**(族名在编号段
+ * 出现两次,如 `G-G-334`/`DD128`)那条唯一实现住在活文档编辑器 `live-doc-edit.mjs`,而**旁路落地不跑任何
+ * 钩子** —— 拿一份陈旧工作树副本经本器交台账时,畸形号能一路进 HEAD 而全程无人拦(守门 71 头注 :54 记了
+ * 那次复发;存量现值一律跑本器或 `live-doc-edit` 那把尺子读,本行**不**钉数字 —— 钉死的数下次收紧就成假账)。
+ * 现由本器在水印预检与 write-tree **之前**问那一份实现一次:只拦"父提交里没有、本次内容里有"的新增行,
+ * 他人历史存量只报数;父提交取不到 ⇒ 未判定(不判红,也不当零存量)。显式出口
+ * `LAND_ALLOW_MALFORMED_ID=1`,默认关闭,放行必大声留痕。
  */
 
 import { existsSync } from 'node:fs'
@@ -74,6 +84,26 @@ import {
 } from './lib/stale-content-analysis.mjs'
 // G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
+/**
+ * 畸形登记编号判据的**唯一实现**(2026-09-29 立)。
+ * 判据住在活文档编辑器 `live-doc-edit.mjs` 的 `newMalformed`(:534,它内部再引 `MALFORMED_ID_RE`
+ * /`MALFORMED_BODY_RE` 与 `bodyOfRow` 那一份)—— 守门 71 的头注(:48/:90)就写着"编号形态判据的
+ * 唯一实现住在活文档编辑器里"。**本器不得再写一份正则**:两处各写一遍"什么算畸形号"必然漂开,
+ * 而漂开的表现永远是安静(本仓记过最多次的失败型)。
+ * 补这道闸的理由是那条唯一实现**只覆盖跑得到钩子的那条面**:守门 71 的编号形态维在 `--staged` 档
+ * 判本次新增(G-722 接入提交链),而旁路落地**不跑任何钩子** —— 拿一份陈旧工作树副本经本器交台账时,
+ * 畸形号照样能一路进 HEAD 而全程无人拦(守门 71 头注 :54 记的那次事故就是同一批畸形号被并发旧底稿
+ * 带回;存量现值一律跑本器现读,本注**不**钉数字)。
+ */
+import { newMalformed } from './live-doc-edit.mjs'
+/**
+ * 活文档清单的**权威出处** = `scripts/union-converge.mjs:94` 的 `export const LIVE_DOCS`。
+ * 为什么不是任务书点名的那两处:`scripts/merge-live-doc.mjs` 走 `--file <单个路径>`、通篇没有清单;
+ * `scripts/check-plan-line-loss.mjs:98` 只有 `const PLAN = 'PROJECT_PLAN.md'`(单本,未导出)。
+ * 全仓唯一导出这三本之处就是 union-converge,且它的用法也是 `LIVE_DOCS.includes(p)` 精确匹配(:475/:501/:693)。
+ * 本器复用那一份,**不新立第四本、不在这里重抄一遍名字**。
+ */
+import { LIVE_DOCS } from './union-converge.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 // 水印 CLI 与本器同目录:用它而不是拼 cwd 相对路径,理由见 watermarkPreflight 内注释。
@@ -329,6 +359,144 @@ function appendSamples(lines, entry) {
 }
 
 /**
+ * 活文档编号形态复核(2026-09-29 立;本器是"畸形号绕过唯一判据进 HEAD"那条通道的唯一拦截点)。
+ *
+ * 只对**活文档路径**生效:清单不自己造,取 `union-converge.mjs` 导出的那一份 `LIVE_DOCS`
+ * (依据写在文件顶部 import 处)。非清单路径不进射程 —— 同一形态写在 `.ts` 或别的 `.md` 里不判,
+ * 这是射程不是遗漏:判据按清单走,全局误伤会让本器对每次普通落地都喊红。
+ *
+ * 只拦**本次新引入**:判据本体 `newMalformed(baseText, landedText)` 给两档 ——
+ *  - `added`      = 落地内容里有、父提交(CAS 基线 `baseRef`)那份里没有的畸形行 ⇒ 拒绝
+ *  - `preexisting`= 落地内容里有、父提交里**已在**的畸形行 ⇒ 只报数不拦
+ * 存量为什么不拦(§12e 恒红门同一条):他人历史留下的畸形号钉红每一次落地,唯一结局是逼人绕开本器
+ * 改用 pathspec 硬交 —— 拿一个更危险的出口换一个账面好看。但必须打印出来,否则"存量"与"我刚造的"
+ * 在账面上同形(本仓最高频失效型就是"把没判写成判过了",而这里连"没分家"都读不出来)。
+ *
+ * **未判定既不判红也不记绿**(与 `detectStaleLanding` 把未判定算进 offenders 刻意不同,按本票票面):
+ * 父提交里取不到该路径正文(新文件 / 对象不可读 / 二进制)时,存量这一维结构上无从对齐,把它当
+ * "零存量"直接判红就是替本次改动无关的债造恒红门;而沉默不喊等于把"没判"写成"判过了"。
+ * 所以这一格落 `undetermined` 并逐条报名。
+ *
+ * @param {{ root: string, paths: string[], baseRef?: string }} a
+ * @returns {{ ok: boolean,
+ *   offenders: Array<{ path: string, added: Array<{ line: string, family: string }> }>,
+ *   stock: Array<{ path: string, preexisting: Array<{ line: string, family: string }> }>,
+ *   undetermined: Array<{ path: string, reason: string }>,
+ *   scanned: number }}
+ */
+export function detectMalformedLiveDocIds({ root, paths, baseRef = 'HEAD' }) {
+  const docs = paths.filter((p) => LIVE_DOCS.includes(p))
+  const gate = { ok: true, offenders: [], stock: [], undetermined: [], scanned: docs.length }
+  if (docs.length === 0) return gate
+  // 父提交那一面**一次批量读满**(face-reader 的 cat-file --batch,守门 118 的取材面纪律:
+  // 枚举与内容同面同轮,不逐 blob 派生)。maxBuffer 给足 1<<28 —— 整面文档不得用默认值,
+  // face-reader 头注第 5 条记过"真仓语言包 1,080,001 字节被默认 1MB 截成'读不出/仓库坏了'"那一型,
+  // 而 PROJECT_PLAN.md 现 4.7MB。
+  let texts
+  try {
+    texts = catBatch(
+      root,
+      docs.map((p) => `${baseRef}:${p}`),
+      { maxBuffer: 1 << 28 },
+    )
+  } catch (e) {
+    for (const p of docs)
+      gate.undetermined.push({
+        path: p,
+        reason: `父提交面(${baseRef})批量取材失败 ⇒ 存量无从对齐:${firstLine(e)}`,
+      })
+    return gate
+  }
+  for (const p of docs) {
+    const baseText = texts.get(`${baseRef}:${p}`) ?? null
+    if (baseText === null) {
+      gate.undetermined.push({
+        path: p,
+        reason:
+          `父提交 ${baseRef} 里取不到该路径正文(新文件 / 对象不可读 / 二进制)⇒ 存量这一维**未判定**,` +
+          '不据此判红,更不得当"零存量"',
+      })
+      continue
+    }
+    let landedText
+    try {
+      landedText = readWorktreeFile(root, p)
+    } catch (e) {
+      gate.undetermined.push({
+        path: p,
+        reason: `要落地的正文读不到:${firstLine(e)} ⇒ 未判定(不记通过)`,
+      })
+      continue
+    }
+    if (landedText === null) {
+      gate.undetermined.push({
+        path: p,
+        reason: '要落地的正文读不到或含 NUL(二进制)⇒ 行形态判据按定义不适用,未判定(不记通过)',
+      })
+      continue
+    }
+    const mal = newMalformed(baseText, landedText)
+    if (mal.added.length > 0) gate.offenders.push({ path: p, added: mal.added })
+    if (mal.preexisting.length > 0) gate.stock.push({ path: p, preexisting: mal.preexisting })
+  }
+  gate.ok = gate.offenders.length === 0
+  return gate
+}
+
+/**
+ * 编号形态闸的措辞出口(纯函数,与 `staleReport` 同取向:话说在哪儿,只在一种场合说一次)。
+ * 三态不并桶 —— "射程外"、"未判定"、"存量只报数"、"新增拒绝"各有句式,读报告的人据此才知道该动哪一手。
+ * "跑了且干净"那句**只在真有判定结果时**才印:未判定存在却照印,就是把"没判"写成"判过了"(本仓最高频失效型)。
+ */
+export function malformedIdReport(gate, { allowMalformed = false, baseRef = 'HEAD' } = {}) {
+  const lines = []
+  // "没跑这一维"与"跑了且干净"必须**可读出来不同形**(本仓"只报数不报名"记过多次):
+  // 两种情形各给一句,免得下一个接手的人把沉默读成合格证。
+  if (gate.scanned === 0)
+    lines.push(
+      `ℹ 活文档编号形态闸:本次声明路径不含活文档(${LIVE_DOCS.join(' / ')})⇒ 不进射程,这是**射程**,不是"判过且干净"`,
+    )
+  for (const u of gate.undetermined)
+    lines.push(`ℹ️ ${u.path}:未判定 —— ${u.reason}(未判定 ≠ 零存量,也 ≠ 查过了且干净)`)
+  for (const s of gate.stock)
+    lines.push(
+      `ℹ 活文档存量畸形登记编号 ${s.preexisting.length} 行(${s.path}:父提交 ${baseRef} 里已在 ⇒ ` +
+        '只报数不拦,与本次落地无关;逐条清偿另计批)',
+    )
+  if (gate.ok && gate.scanned > 0 && gate.undetermined.length === 0)
+    lines.push(`✅ 活文档编号形态闸:已判 ${gate.scanned} 本活文档(本次新增畸形 0 行)`)
+  if (!gate.ok) {
+    const total = gate.offenders.reduce((a, o) => a + o.added.length, 0)
+    lines.push(
+      allowMalformed
+        ? `⚠️ LAND_ALLOW_MALFORMED_ID=1 ⇒ 本次由人工放行 ${total} 行畸形登记编号落地` +
+            '(判据:object-space-land.detectMalformedLiveDocIds → live-doc-edit.newMalformed;' +
+            '放行不等于判过 —— 下面这些行会真进 HEAD,该行输出即留痕)'
+        : `❌ 活文档编号形态闸:本次要落地的内容里有 ${total} 行畸形登记编号(族名在编号段出现两次)⇒ 拒绝落地`,
+    )
+    for (const o of gate.offenders) {
+      lines.push(
+        `   - ${o.path} 本次新增 ${o.added.length} 行(畸形号会让台账撞号维 F9 把它多计一个"编号挂两个标题",替别人造债):`,
+      )
+      for (const x of o.added.slice(0, 4)) lines.push(`       · [族 ${x.family}] ${x.line}`)
+      if (o.added.length > 4) lines.push(`       · …另 ${o.added.length - 4} 行未逐条打印`)
+    }
+    if (!allowMalformed) {
+      lines.push(
+        '   成因固定:取号令牌 {{NEXT_ID:X}} 的展开值**本身已含族名**,正文再手写一个字面 X 就产出 XX123(在案另一形态 G-G-334 同源)。',
+      )
+      lines.push(
+        '   改法:删掉正文里那一个字面族名,只留令牌。判据只有 live-doc-edit.mjs 那一份,本器不写第二份。',
+      )
+      lines.push(
+        '   应急出口(默认关闭):LAND_ALLOW_MALFORMED_ID=1 重跑本器 ⇒ 大声留痕,不会静默放行。',
+      )
+    }
+  }
+  return lines
+}
+
+/**
  * 溯源水印预检(G-253,2026-09-27 立)。
  *
  * 为什么落地点归本器管、而不该由 pre-commit 那道 `check-watermark-coverage` 管:
@@ -437,6 +605,30 @@ async function main() {
   }
   if (refusing) process.exit(1)
 
+  /**
+   * 活文档编号形态闸(2026-09-29 立):判据只有一份,住在 `live-doc-edit.mjs` 的 `newMalformed`
+   * (本器只 import 不重写 —— 见文件顶部与 detectMalformedLiveDocIds 的依据)。
+   * 位置刻意排在**祖先回写/行级复活两道拒绝之后、水印预检与 write-tree/commit-tree 之前**:
+   *  - 排在它们之后:陈旧落地那一型先把内容整批写回旧态,编号形态在那份内容上谈"本次新引入"没有意义;
+   *  - 排在水印预检之前:与上面守卫同一条理由 —— 拒绝路径上不必先花一次 verify 派生去为一个
+   *    注定不落地的内容做证;而且**必须在 write-tree/commit-tree 之前**:内容一旦 commit,
+   *    再 exit 1 就是把"已入库"谎报成"没落地",而"没落地"的唯一反应是重跑(本器 G-321 花两档
+   *    退出码要消灭的正是这一混淆)。
+   * 失败时对象库、ref、索引都还没被碰过 ⇒ 不留半截索引,也不留半截提交。
+   */
+  const allowMalformed = process.env.LAND_ALLOW_MALFORMED_ID === '1'
+  if (allowMalformed)
+    console.log(
+      '⚠️ LAND_ALLOW_MALFORMED_ID=1 ⇒ 活文档编号形态闸只做报告、不参与拒绝(该行输出即留痕)',
+    )
+  const malGate = detectMalformedLiveDocIds({ root, paths, baseRef })
+  const malRefusing = !malGate.ok && !allowMalformed
+  for (const line of malformedIdReport(malGate, { allowMalformed, baseRef })) {
+    if (malRefusing) console.error(line)
+    else console.log(line)
+  }
+  if (malRefusing) process.exit(1)
+
   let landed = ''
   let parentSha = ''
   // 水印预检(G-253):旁路提交不跑钩子,这道检查是"无横幅文件进 HEAD"的唯一拦截点。
@@ -543,5 +735,18 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { parseArgs, clobberedPaths, lineDelta, resurrectAnalysis, detectStaleLanding, staleReport }
+export const __test__ = {
+  parseArgs,
+  clobberedPaths,
+  lineDelta,
+  resurrectAnalysis,
+  detectStaleLanding,
+  staleReport,
+  detectMalformedLiveDocIds,
+  malformedIdReport,
+  // 再导出**判据宿主那一个函数对象**(不是包一层的复制品)—— 镜像测试 T19 用它做同一性锁:
+  // 形状锁只能证明源码里没有第二份"形状",拷贝一份再改名就绕过去了;同一对象 ⇒ 结构上不可能有两份。
+  newMalformed,
+  LIVE_DOCS,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
