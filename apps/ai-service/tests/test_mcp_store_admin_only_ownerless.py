@@ -43,6 +43,7 @@ from app.services.mcp_store import (
     MUTATE_BY_OWNER,
     MUTATE_DENIED,
     MUTATE_MISSING,
+    MUTATE_NEEDS_ADMIN,
     OWNER_FIELD,
 )
 
@@ -171,7 +172,7 @@ def test_mutate_decision_three_states(store_path: Path) -> None:
     assert mcp_store.mutate_decision("mine", OTHER) != MUTATE_BY_OWNER
 
     # 档②:无主记录 —— 普通用户红、管理员绿(本次收紧的那一格)
-    assert mcp_store.mutate_decision("legacy", PLAIN) == MUTATE_DENIED
+    assert mcp_store.mutate_decision("legacy", PLAIN) == MUTATE_NEEDS_ADMIN
     assert mcp_store.mutate_decision("legacy", PLAIN, ADMIN_ROLE_ID) == MUTATE_BY_ADMIN
 
     # 档③:别人的记录 —— 普通用户红、属主绿、管理员绿(管理员档不得静默,留痕在端点侧)
@@ -197,9 +198,9 @@ def test_admin_threshold_is_fail_closed(store_path: Path) -> None:
 
     assert mcp_store.mutate_decision("legacy", PLAIN, ADMIN_ROLE_ID) == MUTATE_BY_ADMIN
     for not_admin in (0, -1, True, None, "9"):
-        assert mcp_store.mutate_decision("legacy", PLAIN, not_admin) == MUTATE_DENIED  # type: ignore[arg-type]
+        assert mcp_store.mutate_decision("legacy", PLAIN, not_admin) == MUTATE_NEEDS_ADMIN  # type: ignore[arg-type]
     # 空主体不得与无主记录"同属主":owner == "" 那一档只有管理员进得去
-    assert mcp_store.mutate_decision("legacy", "") == MUTATE_DENIED
+    assert mcp_store.mutate_decision("legacy", "") == MUTATE_NEEDS_ADMIN
 
 
 def test_no_boolean_projection_of_the_decision() -> None:
@@ -237,6 +238,30 @@ def test_ownerless_plain_user_403_and_no_side_effects(
     assert un.status_code == 403, un.text
     assert en.status_code == 403, en.text
     assert _snapshot() == before
+    assert bridge_spy == {"add": [], "remove": []}
+
+
+def test_the_two_denials_say_different_things(
+    store_path: Path, bridge_spy, clean_registry
+) -> None:
+    """两档拒绝的**句子**必须不同 —— 收紧无主档后同一条 403 说的不是一回事。
+
+    2026-09-29 第一版把两档压成同一个 MUTATE_DENIED,于是四处端点对"无属主的存量安装"
+    回的是「MCP Server 由他人安装,无权停用」:那台**根本没有"他人"**,提示把人引导成
+    "去找装它的人",而正确出路是"找管理员"。同形只该用在会泄露存在性的场合 —— 商店清单
+    本来就全站可见,拿同形当省事就是把话说错。
+    """
+    _seed("legacy")  # 无属主的存量安装
+    _seed("theirs", owner=OTHER)  # 别人装的:同一个 403,但该说的是"由他人安装"
+
+    b = _plain()
+    ownerless = b.post("/api/mcp/store/legacy/disable").json()
+    foreign = b.post("/api/mcp/store/theirs/disable").json()
+
+    assert "无属主" in ownerless["error"] and "管理员" in ownerless["error"], ownerless
+    assert "他人" in foreign["error"], foreign
+    assert ownerless["error"] != foreign["error"], "两档拒绝又被合成同一句"
+    # 桥接器一次都没被叫(拒绝发生在任何副作用之前)
     assert bridge_spy == {"add": [], "remove": []}
 
 
