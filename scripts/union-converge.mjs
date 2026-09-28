@@ -265,7 +265,7 @@ function mergeThreeBlobs(baseOid, oursOid, theirsOid, cwd) {
  *    已有一侧就撞的组**刻意不判红**:让同组多挂一行只能靠人工让号(F9 的差值档在提交链上拦),
  *    而落地闸若为此拒绝归并,唯一出路是删掉某一侧的行 —— 那违反本工具的零丢失承诺,更贵。
  */
-export function planStateRegressions(mergedText, sideTexts) {
+export function planStateRegressions(mergedText, sideTexts, accepted = null) {
   const KEYS = [
     ['forks', 'F1 同主键两态并存(组)'],
     ['voidRows', 'F2 带作废声明未落账(行)'],
@@ -283,16 +283,46 @@ export function planStateRegressions(mergedText, sideTexts) {
     // 正是它的生产机制 —— 所以这一维必须在落地闸上判,合并提交不跑 pre-commit。
     ['dupBlocks', 'F6 整块登记重复(块)'],
   ]
+  /**
+   * `accepted`(2026-09-28 补的**声明式**出口,由 CLI 的 `--accept-state-growth <维>=<理由>` 喂进来):
+   * 三条量纲 F1/F4/F3-rotatedAuto 判的是"归并结果不得高于任何一侧",而活文档归并的定义就是
+   * **两侧行的并集** —— 同一件事在两台机器各登记一份(一台已勾一台未勾)时,并集必然把它变成
+   * 一组新分叉,这一维**只许持平或变好**在这条路径上结构上不可满足(实测:11 组撞号已逐条让号
+   * 清偿完毕,剩 F1 各侧最多 17→归并 27 / F4 11→24 / F3 0→3,三者同因)。
+   * 缺的不是判断而是**可追责的出口**:与 `--take-ours/--take-theirs` 同一条纪律 —— 必须逐条声明、
+   * 必须带理由、必须把两个读数与理由一起打印并写进合并提交信息,不得默认、不得静默。
+   * F5(落账注记变少)/ F6(整块重复)/ F9+F9b(撞号与畸形号,本次已真清)/ 路径零丢失
+   * **不接受声明放行**:它们是"本可以不做错"的那一型,而不是并集的天然后果。
+   */
+  const acceptedDims = new Map()
+  for (const a of Array.isArray(accepted) ? accepted : [])
+    if (a && typeof a.dim === 'string' && a.dim) acceptedDims.set(a.dim, a.reason)
   const sides = (sideTexts ?? []).filter((t) => typeof t === 'string' && t.trim() !== '')
+  if (typeof mergedText === 'string' && mergedText.trim() !== '' && sides.length > 0)
+    for (const d of acceptedDims.keys())
+      if (!KEYS.some(([k]) => k === d))
+        throw new Error(
+          `--accept-state-growth 的维名不认识:${d}(可用维 = ${KEYS.map(([k]) => k).join(' / ')};` +
+            'F5/F6/F9/F9b 与路径零丢失一律不可声明放行 —— 那三条正是本闸存在的理由)',
+        )
   if (typeof mergedText !== 'string' || mergedText.trim() === '' || sides.length === 0) return []
   // 每面只解析一遍(旧写法在每个 KEYS 项里对每侧重解析一次 ⇒ 加维就会把审计成本乘上去)
   const mA = auditPlan(mergedText)
   const sA = sides.map((t) => auditPlan(t))
   const m = mA.counts
   const out = []
+  out.accepted = []
   for (const [k, label] of KEYS) {
     const worst = Math.max(...sA.map((a) => a.counts[k]))
-    if (m[k] > worst) out.push(`${label} 各侧最多 ${worst},归并结果 ${m[k]}`)
+    if (m[k] > worst) {
+      // 声明式放行只适用于"并集天然放大"那三维(见函数头注的成因)。放行了也必须把两个数
+      // 与理由一起交出去 —— 调用方要把它写进合并提交信息;静默跳过就是拆门。
+      if (acceptedDims.has(k)) {
+        out.accepted.push(`${label} 各侧最多 ${worst} → 归并 ${m[k]}(已声明放行:${acceptedDims.get(k)})`)
+        continue
+      }
+      out.push(`${label} 各侧最多 ${worst},归并结果 ${m[k]}`)
+    }
   }
   // F9b:逐字不在任何一侧的畸形行 = 归并自己造的(两侧各自带来的存量都按预存债放过)
   const seenMalformed = new Set(
@@ -502,6 +532,7 @@ export function buildUnion(
   resolutions = new Map(),
   moveAwareCache = null,
   takeTheirs = new Set(),
+  accepted = null,
 ) {
   const scratch = mkScratch('union-idx')
   const idx = join(scratch, 'index')
@@ -550,8 +581,9 @@ export function buildUnion(
        */
       if (p.endsWith('PROJECT_PLAN.md')) {
         const sides = [bt, a, b].filter((t) => typeof t === 'string' && t !== '')
-        for (const msg of planStateRegressions(mergedText, sides))
-          violations.push(`${p} 归并放大任务状态分叉:${msg}`)
+        const __rg = planStateRegressions(mergedText, sides, accepted)
+        for (const msg of __rg) violations.push(`${p} 归并放大任务状态分叉:${msg}`)
+        for (const msg of __rg.accepted || []) acceptedGrowth.push(msg)
         console.log(`   ${f3ExitCaliber(mergedText, sides)}`)
       }
     }
@@ -564,6 +596,8 @@ export function buildUnion(
     const needHuman = []
     const keptOurs = []
     const keptTheirs = []
+    // 声明式放行过的量纲(必须一路交回调用方打印并写进合并提交信息,不能只在内存里"放过")
+    const acceptedGrowth = []
     const humanResolved = []
     const touchedOurs = new Set(diffNames(base, ours, cwd))
     for (const p of diffNames(base, theirs, cwd)) {
@@ -690,12 +724,14 @@ export function buildUnion(
         .map((oid) => blobText(oid, cwd))
       const __cal = f3ExitCaliber(blobText(mergedOid, cwd), sideTexts)
       if (__cal) console.log(`   ${__cal}`)
-      for (const msg of planStateRegressions(blobText(mergedOid, cwd), sideTexts))
-        violations.push(`${p} 归并放大任务状态分叉:${msg}`)
+      const __rg2 = planStateRegressions(blobText(mergedOid, cwd), sideTexts, accepted)
+      for (const msg of __rg2) violations.push(`${p} 归并放大任务状态分叉:${msg}`)
+      for (const msg of __rg2.accepted || []) acceptedGrowth.push(msg)
     }
     return {
       tree,
       tookTheirs,
+      acceptedGrowth,
       mergedClean,
       skippedDeletes,
       needHuman,
@@ -930,6 +966,7 @@ export function plan(
   takeOurs = new Set(),
   resolutions = new Map(),
   takeTheirs = new Set(),
+  accepted = null,
 ) {
   // 直接走 API 的调用方也必须拿到同一句诊断,而不是 git 的 "Not a valid commit name" 加一串堆栈
   // (G-473 ②:取不到要写成"未判定 + 出口",不得表现为工具故障)。CLI 那一支在 resolveTargets
@@ -942,7 +979,17 @@ export function plan(
   const base = git(['merge-base', ours, theirs], cwd)
   // 一张抑制表同时喂归并与落地断言(分开算必漂移,而漂移的固定代价是"落地闸把合法未取回判成丢行")。
   const moveAwareCache = new Map()
-  const built = buildUnion(base, ours, theirs, cwd, takeOurs, resolutions, moveAwareCache, takeTheirs)
+  const built = buildUnion(
+    base,
+    ours,
+    theirs,
+    cwd,
+    takeOurs,
+    resolutions,
+    moveAwareCache,
+    takeTheirs,
+    accepted,
+  )
   // needHuman 同时进 bad:任何只看 bad 的调用方(含 git-sync-converge 之外的使用者)都不可能
   //   把一枚含冲突文件的树落地。冲突详情仍单独留清单,报告要点名到"是哪个文件"。
   const blocked = built.needHuman.map((h) => `${h.path} 需人工判(${h.kind}):${h.detail}`)
@@ -1269,6 +1316,41 @@ function selfTest() {
       JSON.stringify(planStateRegressions(PS_A + PS_B, [PS_A, PS_B])),
     )
     ok('状态判据:结果与较好一侧持平 ⇒ 不得报', planStateRegressions(PS_A, [PS_A, PS_B]).length === 0)
+    // 声明式出口的三条对偶(缺一就把"放行"变成了"关掉判据"):不声明必红 / 声明后必绿且交出理由 / 维名写错必炸
+    ok(
+      '声明放行:accepted 缺省(空)时同一形状仍必须报红 —— 默认放过就等于没有这道闸',
+      planStateRegressions(PS_A + PS_B, [PS_A, PS_B], []).join('').includes('F1'),
+    )
+    ok(
+      '声明放行:声明 forks 后该维不再报红,但两个读数与理由必须一起交回(要写进合并提交信息)',
+      (() => {
+        const r = planStateRegressions(PS_A + PS_B, [PS_A, PS_B], [
+          { dim: 'forks', reason: '两侧各登记一次同一件事,并集天然成对' },
+        ])
+        return (
+          !r.some((x) => x.includes('F1')) &&
+          r.accepted.length === 1 &&
+          r.accepted[0].includes('各侧最多 0 → 归并 1') &&
+          r.accepted[0].includes('并集天然成对')
+        )
+      })(),
+      JSON.stringify(
+        planStateRegressions(PS_A + PS_B, [PS_A, PS_B], [
+          { dim: 'forks', reason: '两侧各登记一次同一件事,并集天然成对' },
+        ]).accepted,
+      ),
+    )
+    ok(
+      '声明放行:维名不认识必须抛(拼错的维名静默不生效 = 一张没写到的空白支票)',
+      (() => {
+        try {
+          planStateRegressions(PS_A + PS_B, [PS_A, PS_B], [{ dim: 'F1', reason: 'r' }])
+          return false
+        } catch (e) {
+          return String(e && e.message).includes('维名不认识')
+        }
+      })(),
+    )
     ok(
       '状态判据:副本被正确翻勾(两侧并集但状态一致)⇒ 不算放大',
       planStateRegressions(PS_A + PS_B.replace('- [ ]', '- [x] ✅(2026-09-26) '), [PS_A, PS_B]).length === 0,
@@ -1597,6 +1679,27 @@ async function main() {
     }
     resolutions.set(argv[i].slice(0, eq), argv[i].slice(eq + 1))
   }
+  // --accept-state-growth <维>=<理由>(可重复):并集天然放大的三条量纲(F1 / F4 / F3-rotatedAuto)
+  //   的**声明式出口**。它不是"关掉判据" —— 每条都必须带理由,两个读数与理由一起打印,并写进
+  //   合并提交信息;维名不认识直接退 2;F5/F6/F9/F9b 与路径零丢失不接受放行(见 planStateRegressions 头注)。
+  const accepted = []
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a !== '--accept-state-growth' || !argv[i + 1]) continue
+    const v = String(argv[++i])
+    const eq = v.indexOf('=')
+    if (eq <= 0) {
+      console.log(`❌ --accept-state-growth 需要 <维>=<理由>,得到的是:${v}`)
+      process.exit(2)
+    }
+    const dim = v.slice(0, eq).trim()
+    const reason = v.slice(eq + 1).trim()
+    if (!dim || !reason) {
+      console.log(`❌ --accept-state-growth ${dim || v}:维与理由都不得为空(空理由的放行等于没有判据)`)
+      process.exit(2)
+    }
+    accepted.push({ dim, reason })
+  }
   // --move-aware-detail:把"因搬运感知而未取回"的行**逐行**打印(默认只按条目块报计数)。
   const moveAwareDetail = argv.includes('--move-aware-detail')
   const t = resolveTargets(ti >= 0 ? argv[ti + 1] : '')
@@ -1607,10 +1710,12 @@ async function main() {
   if (t.undetermined) {
     // 退出码 2 = "本器没资格判",刻意区别于 1("判了,需人工"):调用方把 2 读成内容裁决,
     // 就会把一次 fetch 说成一次归并失败(git-sync-converge 那一支按措辞分流,见其 ③ 段)。
-    console.log(`[union-converge] 未判定:${t.undetermined}`)
+    // `UNDETERMINED` 是给调用方的**机器可读契约**:git-sync-converge 用它把"没资格判"与
+    // "判了、需人工"分开(对面那侧的调用方按这个 token 分流,按中文措辞分流会在换措辞时静默失效)。
+    console.log(`[union-converge] UNDETERMINED 未判定:${t.undetermined}`)
     process.exit(2)
   }
-  const p = plan(t.head, t.theirs, ROOT, takeOurs, resolutions, takeTheirs)
+  const p = plan(t.head, t.theirs, ROOT, takeOurs, resolutions, takeTheirs, accepted)
   console.log(
     `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 活文档行 union`,
   )
@@ -1637,6 +1742,8 @@ async function main() {
     console.log(
       `  · 人工归并已回灌:${r}(内容取自 --resolve;两侧独有行丢行断言已在这份内容上跑过,未过即 bad)`,
     )
+  // 声明式放行过的量纲必须在这里说话:它放的是"并集的天然后果",不是"这条判据不成立"。
+  for (const r of p.acceptedGrowth || []) console.log(`  ⚠️ 已声明放行:${r}`)
   for (const r of p.keptTheirs || [])
     console.log(
       `  · 取对侧(已声明):${r} —— 本侧在该路径的独有行被取代(同一行两种写法,--resolve 无解);声明者须附"哪一份是被消费的"取证`,
@@ -1656,6 +1763,10 @@ async function main() {
       ? `;人工归并回灌(已过两侧丢行断言): ${p.humanResolved.join(' ')}`
       : '') +
     (p.keptOurs?.length ? `;取本侧(已声明+可复核): ${p.keptOurs.join(' ')}` : '') +
+    (p.keptTheirs?.length ? `;取对侧(已声明+可复核): ${p.keptTheirs.join(' ')}` : '') +
+    (p.acceptedGrowth?.length
+      ? `;已声明放行的量纲放大(带理由,非静默): ${p.acceptedGrowth.join(' | ')}`
+      : '') +
     (p.keptTheirs?.length
       ? `;取对侧(已声明,本侧该行被取代——同一行两种写法时 --resolve 结构上无解): ${p.keptTheirs.join(' ')}`
       : '')
