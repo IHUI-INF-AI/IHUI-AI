@@ -90,7 +90,7 @@ const GUARD_REL = 'scripts/check-radius-single-source.mjs'
  * ERR_MODULE_NOT_FOUND(第一版四条端到端全被这一条咬红)。**门依赖层**这件事因此
  * 由夹具形态本身证明:缺依赖链就跑不起来,而不是"引了层却没用它"。
  */
-const GUARD_DEPS = ['scripts/lib/face-reader.mjs', 'scripts/lib/gitdir.mjs']
+const GUARD_DEPS = ['scripts/lib/face-reader.mjs', 'scripts/lib/gitdir.mjs', 'scripts/lib/scratch-dir.mjs']
 function copyGuardWithDeps(base) {
   const g = writeAt(base, GUARD_REL, readFileSync(GUARD, 'utf8'))
   for (const d of GUARD_DEPS) writeAt(base, d, readFileSync(join(ROOT, ...d.split('/')), 'utf8'))
@@ -106,9 +106,20 @@ function writeAt(base, rel, content) {
   writeFileSync(p, content)
   return p
 }
+/**
+ * 夹具的档位表必须**两半齐**(radius.js + 它的 .d.ts):A4 从 2026-09-28 起比"角色名两处一致",
+ * 只写 js 半边会让每个端到端用例都红在 A4 上 —— 那是判据有牙,不是夹具坏了。
+ */
+const FIX_RADIUS_JS =
+  "export const RADIUS_STEPS = { xs: 2, sm: 4, DEFAULT: 8, md: 6, lg: 8, xl: 12, '2xl': 16 }\n" +
+  "export const RADIUS_ROLES = { tiny: 'xs', control: 'sm', chip: 'md', card: 'lg', panel: 'xl', hero: '2xl' }\n"
+const FIX_RADIUS_DTS =
+  "export type RadiusStep = 'xs' | 'sm' | 'DEFAULT' | 'md' | 'lg' | 'xl' | '2xl'\n" +
+  "export type RadiusRole = 'tiny' | 'control' | 'chip' | 'card' | 'panel' | 'hero'\n"
 /** 造一个最小可判定的 git 仓夹具:档位表四处齐 + 一个无违规源码文件;withViolation 再加一处 B1 */
 function mkFixtureRepo(base, { withViolation, extra = {} }) {
-  writeAt(base, 'packages/design-tokens/src/radius.js', "export const RADIUS_STEPS = { xs: 2, sm: 4, DEFAULT: 8, md: 6, lg: 8, xl: 12, '2xl': 16 }\n")
+  writeAt(base, 'packages/design-tokens/src/radius.js', FIX_RADIUS_JS)
+  writeAt(base, 'packages/design-tokens/src/radius.d.ts', FIX_RADIUS_DTS)
   writeAt(base, 'packages/design-tokens/src/styles/tokens.css', '@theme {\n  --radius: 0.5rem;\n  --radius-xs: 0.125rem;\n  --radius-sm: 0.25rem;\n  --radius-md: 0.375rem;\n  --radius-lg: 0.5rem;\n  --radius-xl: 0.75rem;\n  --radius-2xl: 1rem;\n}\n')
   writeAt(base, 'packages/design-tokens/src/tailwind-preset.js', 'const RADIUS_REM = {}\nexport const preset = { theme: { borderRadius: RADIUS_REM } }\n')
   writeAt(base, 'apps/web/src/card.tsx', 'export const card = { a: { borderRadius: 0 } }\n')
@@ -238,4 +249,49 @@ test('反向锁:B3 不得回到"值里出现 var( 就整条放行"的旧形状',
     '值字符类必须排除右方括号,否则任意属性形态会把后半串 className 当成一个值读',
   )
 })
+
+/**
+ * A4 端到端(2026-09-28 O81 票㉙)。五态纯函数在门自己的 --self-test 里已经钉过,这里证的是
+ * **另一件事**:角色漂移能一路走到提交链上把提交挡下,而不是只有函数会答话。
+ * 立因是本票给 radius.js 加了 popover/bubble,而 .d.ts 是手抄的第二份 —— 运行时取到值、
+ * TS 消费方 TS2339、`pnpm typecheck` 只在 worktree 跑,没人写那一行就永远不红。
+ */
+test("A4 端到端:radius.js 有新角色而 .d.ts 未跟上 ⇒ exit 1 并点名缺档", () => {
+  const base = mkScratch('r77-a4')
+  try {
+    copyGuardWithDeps(base)
+    mkFixtureRepo(base, {})
+    const js = join(base, 'packages/design-tokens/src/radius.js')
+    writeFileSync(js, readFileSync(js, 'utf8').replace("hero: '2xl' }", "hero: '2xl', popover: 'md' }"))
+    git(base, ['add', '-A'])
+    git(base, [
+      '-c',
+      'user.name=radius-guard-fixture',
+      '-c',
+      'user.email=guard-fixture@invalid',
+      'commit',
+      '-m',
+      'a4-drift',
+    ])
+    const r = runGuard(join(base, ...GUARD_REL.split('/')))
+    assert.equal(r.status, 1, `角色漂移必须判红,实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`)
+    assert.match(r.stderr + r.stdout, /RadiusRole 缺 'popover'/, '红线必须点名缺的是哪个角色')
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('A4 端到端反向:两侧同值的同一夹具 ⇒ 判绿且不出现角色对账红线(与上一条成对)', () => {
+  const base = mkScratch('r77-a4ok')
+  try {
+    copyGuardWithDeps(base)
+    mkFixtureRepo(base, {})
+    const r = runGuard(join(base, ...GUARD_REL.split('/')))
+    assert.equal(r.status, 0, `一致面必须绿,实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`)
+    assert.doesNotMatch(r.stdout + r.stderr, /RadiusRole/, '一致时不该出现角色对账的红线')
+  } finally {
+    rmScratch(base)
+  }
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
