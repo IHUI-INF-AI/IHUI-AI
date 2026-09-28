@@ -267,6 +267,19 @@ function TerminalTaskItem({
           {t('ai.cards.terminal.exitCode', { code: task.exitCode ?? 1 })}
         </Text>
       ) : null}
+      {/* D151:命令停在"等键盘输入"。本端刻意只交代不代答(理由写在 cards/types.ts 的
+          awaitingInput 注释里)—— 没有这一行,界面上就只是"命令一直在跑",用户只能整轮停止。 */}
+      {task.awaitingInput ? (
+        <View className="ai-card-term-waiting">
+          <Text className="ai-card-term-waiting-title">{t('chat.terminal.waitingInput')}</Text>
+          {task.awaitingInput.promptTail ? (
+            <Text className="ai-card-term-waiting-prompt">
+              {t('chat.terminal.promptLabel', { prompt: task.awaitingInput.promptTail })}
+            </Text>
+          ) : null}
+          <Text className="ai-card-term-waiting-hint">{t('chat.terminal.mobileUnsupported')}</Text>
+        </View>
+      ) : null}
     </View>
   )
 }

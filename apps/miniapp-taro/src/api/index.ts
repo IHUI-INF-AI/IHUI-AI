@@ -54,6 +54,9 @@ import type {
 import type { TerminalDeltaEvent } from '@ihui/api-client'
 // D113:tool-delta(工具流中 diff 预览)同一纪律 —— 载荷口径以 api-client 为唯一真值。
 import type { ToolDeltaEvent } from '@ihui/api-client'
+// D151:terminal_interaction(命令在等键盘输入)同一纪律 —— 载荷复用 api-client 的 TerminalInteractionEvent,
+// 不在端内抄第二份字段表(§3 共享层优先;字段口径以 api-client 为唯一真值)。
+import type { TerminalInteractionEvent } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
 import type { AICardsData } from '@/pkg-ai/ai/cards/types'
@@ -318,6 +321,9 @@ export interface StreamEventCallbacks {
   onTerminalStart?: (evt: TerminalStartEvent) => void
   /** D19 终端实时输出增量(terminal_delta):载荷类型复用 @ihui/api-client,与共享 sse-parse 的 evt.terminalDelta 同构 */
   onTerminalDelta?: (evt: TerminalDeltaEvent) => void
+  /** D151 命令「等待键盘输入」(terminal_interaction):载荷复用 @ihui/api-client 的 TerminalInteractionEvent。
+   *  本端**只呈现不代答**(手机没有可用的代答通道,理由见 cards/types.ts 的 awaitingInput 注释)。 */
+  onTerminalInteraction?: (evt: TerminalInteractionEvent) => void
   /** D113 工具流中 diff 预览(tool-delta):同一纪律 —— 载荷复用 @ihui/api-client 的 ToolDeltaEvent */
   onToolDelta?: (evt: ToolDeltaEvent) => void
   /** 终端任务结束 */
@@ -476,6 +482,12 @@ export const chatStream = async (
       // 这里只承接已认领的 evt.terminalDelta —— 与 api-client 的 onTerminalDelta 专用通道同语义。
       case 'terminal_delta':
         if (evt.terminalDelta) callbacks?.onTerminalDelta?.(evt.terminalDelta)
+        break
+      // D151:terminal_interaction。共享 sse-parse 已把该帧在兜底抽取链之前认领(它不带
+      // text/content/delta,原状是走到末尾 return null = 帧到设备却被静默丢掉);
+      // 这里把它接到端内回调表 —— 不注册就等于没接(守门 90 的存在理由)。
+      case 'terminal_interaction':
+        if (evt.terminalInteraction) callbacks?.onTerminalInteraction?.(evt.terminalInteraction)
         break
       case 'terminal_end':
         if (evt.terminalEnd) callbacks?.onTerminalEnd?.(evt.terminalEnd)
