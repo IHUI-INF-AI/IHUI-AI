@@ -8,6 +8,7 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 import { db } from '../db/index.js'
 import { customerServiceTickets, customerServiceComments, users } from '@ihui/database'
 import { eq, desc, sql, ilike, and, type SQL } from 'drizzle-orm'
+import { isUuidString } from '../utils/uuid.js'
 
 // 客服工单(admin/support/tickets)路由 - 4 个端点,接 customerServiceTickets + customerServiceComments 表。
 // status mapping: 前端 'open'|'processing'|'closed'|'resolved' ↔ 后端 'pending'|'open'|'resolved'|'closed'|'rejected'
@@ -108,6 +109,7 @@ const adminSupportTicketsRoutes: FastifyPluginAsync = async (server) => {
     if (!parsedParams.success) {
       return reply.status(400).send(error(400, parsedParams.error.issues[0]?.message ?? '参数错误'))
     }
+    if (!isUuidString(parsedParams.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const parsed = statusBodySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -192,6 +194,10 @@ const adminSupportTicketsRoutes: FastifyPluginAsync = async (server) => {
     if (!parsedParams.success) {
       return reply.status(400).send(error(400, parsedParams.error.issues[0]?.message ?? '参数错误'))
     }
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(parsedParams.data.id)) return reply.status(404).send(error(404, '工单不存在'))
     const parsed = listQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

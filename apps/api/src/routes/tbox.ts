@@ -11,6 +11,7 @@ import { tboxDevice, tboxCommand, tboxAgentChannel } from '@ihui/database'
 import { success, error, parseOrThrow } from '../utils/response.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { config as env } from '../config/index.js'
+import { isUuidString } from '../utils/uuid.js'
 
 const registerSchema = z.object({
   deviceNo: z.string().min(1).max(100),
@@ -78,6 +79,7 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
     await requireAdmin(req, reply)
     if (reply.sent) return
     const { id } = req.params as { id: string }
+    if (!isUuidString(id)) return reply.status(404).send(error(404, '设备不存在'))
     const device = await db.select().from(tboxDevice).where(eq(tboxDevice.id, id)).limit(1)
     if (!device[0]) return reply.status(404).send(error(404, '设备不存在'))
     return reply.send(success(device[0]))
@@ -118,6 +120,10 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
     await requireAdmin(req, reply)
     if (reply.sent) return
     const { id } = req.params as { id: string }
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(id)) return reply.status(404).send(error(404, '设备不存在'))
     const list = await db
       .select()
       .from(tboxCommand)
