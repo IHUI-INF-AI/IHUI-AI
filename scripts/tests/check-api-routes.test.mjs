@@ -9,6 +9,8 @@ import { mkdirSync, readFileSync, existsSync, writeFileSync, rmSync } from 'node
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// 遮噪必须引 lib 那一份实现(§22c:测试里不得再抄一台分词器,否则"测试跟着实现一起漂绿")
+import { maskComments } from '../lib/code-mask.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -775,6 +777,228 @@ test('--dump-backend --not-a-path(以 - 开头的值):同样不写文件并点�
   }
 })
 
+// ═══════════════════════════════════════════════════════════
+// 通道等价(CE)维 —— 2026-09-29,G-466 换维后的新格子
+// 夹具里的 transport 逐字照 HEAD 面 `packages/api-client/src/client.ts:404-416` 的 normalizeUrl
+// 形态写,只把改写档换成票面那一型(`/admin`→`/console`);守卫照 Fastify preHandler 真写法。
+// 门读的是**这些文件的内容**,不是自带的第二张表 —— 该不变量由 T-CE-3 的源码反向锁钉住。
+// ═══════════════════════════════════════════════════════════
+
+const CE_TRANSPORT = [
+  'export async function fetchApi<T>(url: string): Promise<T> {',
+  '  const normalizedUrl = normalizeUrl(url)',
+  '  return normalizedUrl as T',
+  '}',
+  'function normalizeUrl(url: string): string {',
+  '  if (/^https?:\\/\\//i.test(url)) return url',
+  '  const normalized = (() => {',
+  "    if (url.startsWith('/api/') || url.startsWith('/uploads/') || url.startsWith('/ws/')) return url",
+  "    if (url.startsWith('/admin')) {",
+  "      return url.replace(/^\\/admin/, '/console')",
+  '    }',
+  "    if (url.startsWith('/')) return `/api${url}`",
+  '    return `/api/${url}`',
+  '  })()',
+  '  return normalized',
+  '}',
+  '',
+].join('\n')
+/** 三条件里的②:读到客户端自报的通道头,且对 GET 有意放行 */
+const CE_GUARD = [
+  'export async function clientChannelGuard(server) {',
+  "  server.addHook('preHandler', async (req, reply) => {",
+  "    const channel = req.headers['x-client-channel']",
+  "    const enforce = process.env.CHANNEL_ENFORCE === '1'",
+  '    if (!enforce) return',
+  "    if (req.method === 'GET') return",
+  "    if (channel !== 'admin') {",
+  "      return reply.code(403).send({ message: 'forbidden channel' })",
+  '    }',
+  '  })',
+  '}',
+  '',
+].join('\n')
+/** 同一个守卫,但没有按方法放行那一档 ⇒ ②不成立(这是"不得把正确实现钉死"的对照) */
+const CE_GUARD_NO_EXEMPT = CE_GUARD.replace("    if (req.method === 'GET') return\n", '')
+/** 同一份守卫代码,只是整段躺在块注释里 ⇒ 遮噪证明:注释不得给实现发合格证 */
+const CE_GUARD_COMMENTED = [
+  '/**',
+  CE_GUARD.replace(/\n{2,}/g, '\n'),
+  ' */',
+  'export async function unusedGuard(server) {}',
+  '',
+].join('\n')
+const CE_ROUTES =
+  "server.get('/api/nothing', async () => ({}))\n" +
+  "server.get('/api/admin/secret', async () => ({}))\n" +
+  "server.get('/api/console/secret', async () => ({}))\n"
+const CE_SITE = "export const load = () => fetchApi('/admin/secret')\n"
+const CE_EMPTY_LEDGER = JSON.stringify({ version: 1, declared: [] })
+
+/** 通道等价夹具:临时根里把三份事实源都摆齐 */
+function ceRoot(extraFiles, overrides = {}) {
+  const dir = createTempRoot()
+  writeFile(dir, 'scripts/api-routes-baseline.json', baselineWith({}))
+  writeFile(dir, 'scripts/data/channel-equiv-baseline.json', CE_EMPTY_LEDGER)
+  writeFile(dir, 'packages/api-client/src/client.ts', CE_TRANSPORT)
+  writeFile(dir, 'apps/api/src/plugins/ce-guard.ts', CE_GUARD)
+  writeFile(dir, 'apps/api/src/routes/ce.ts', CE_ROUTES)
+  writeFile(dir, 'apps/mobile-rn/src/screens/Ce.tsx', CE_SITE)
+  for (const [rel, content] of Object.entries(extraFiles || {})) writeFile(dir, rel, content)
+  for (const [rel, content] of Object.entries(overrides)) writeFile(dir, rel, content)
+  return dir
+}
+
+// ─── T-CE-1 阳性对照(本票立项那一型):三条件齐备 ⇒ 判红并点名等价对 ───
+test('通道等价:改写档+放行档+两侧都在册 ⇒ exit 1 且点名"两种拼写等价"', () => {
+  const dir = ceRoot()
+  try {
+    const r = runScript(dir)
+    assert.equal(r.status, 1, `三条件齐备必须判红,实得 exit=${r.status}\n${r.out}`)
+    assert.match(
+      r.out,
+      /GET \/admin\/secret ≡ \/console\/secret/,
+      '必须点名等价对与出处,否则读报告的人不知道该收哪一侧',
+    )
+    assert.match(r.out, /ce-guard\.ts/, '必须点名"放行依据"是哪一处守卫')
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── T-CE-2 反向对照一:守卫没有按方法放行的那一档 ⇒ 不得判红 ───
+// 只删一行(`if (req.method === 'GET') return`),其余逐字不变 ⇒ 这一例证的是"②确有牙",
+// 不是"夹具里恰好写了个红"。
+test('通道等价:缺②(守卫全方法执行)⇒ 不判红,并点名缺 ②-c', () => {
+  const dir = ceRoot({}, { 'apps/api/src/plugins/ce-guard.ts': CE_GUARD_NO_EXEMPT })
+  try {
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `②不成立不得判红,实得 exit=${r.status}\n${r.out}`)
+    assert.match(r.out, /未判定\(通道等价 CE\):②/, '必须点名缺的是②')
+    assert.doesNotMatch(r.out, /≡/, '不得出现旁路点名(判据不能只是把正确实现改坏一次就红)')
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── T-CE-3 遮噪双向锁:同一份守卫文本只躺在注释里 ⇒ 必绿 ───
+// 与 T-CE-1 是**同一份代码**,差别只是注释符。只留"真代码必红"这一臂,就等于允许
+// "注释里写过所以算实现"的假阳;只留"注释必绿"这一臂,就等于允许门瞎掉。两条同时成立才算有牙。
+test('通道等价:注释里的通道头与放行档既不算②也不算站点', () => {
+  const dir = ceRoot({}, { 'apps/api/src/plugins/ce-guard.ts': CE_GUARD_COMMENTED })
+  try {
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `注释形态不得判红,实得 exit=${r.status}\n${r.out}`)
+    assert.doesNotMatch(r.out, /≡/, '注释里的守卫不得被当成②的在册证据')
+    assert.match(r.out, /通道等价\(CE\)② 通道守卫:.*在册 0 个/, '读数行必须如实报"在册 0 个"')
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── T-CE-4 台账写明理由 ⇒ 判绿,并且必须说清是"已交代"而不是"没判" ───
+test('通道等价:站点在台账里逐条写明理由 ⇒ exit 0 且报"已交代"', () => {
+  const dir = ceRoot()
+  writeFile(
+    dir,
+    'scripts/data/channel-equiv-baseline.json',
+    JSON.stringify({
+      version: 1,
+      declared: [
+        {
+          file: 'apps/mobile-rn/src/screens/Ce.tsx',
+          path: '/admin/secret',
+          reason: '只读公开路由:该入口返回字段与 /console 侧同集合,无租户数据',
+        },
+      ],
+    }),
+  )
+  try {
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `已交代不得再判红,实得 exit=${r.status}\n${r.out}`)
+    assert.match(r.out, /逐条写明理由/, '必须报"已交代",不能把这一格读成"没判"')
+    assert.doesNotMatch(r.out, /≡/, '交代过的站点不该再出现在旁路清单里')
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── T-CE-5 缺首锚台账 ⇒ 未判定(不判红也不记绿),同本门 BASELINE_FILE 缺档手法 ───
+test('通道等价:台账缺档 ⇒ 该维未判定并点名,不判红', () => {
+  const dir = ceRoot()
+  rmSync(join(dir, 'scripts', 'data', 'channel-equiv-baseline.json'), { force: true })
+  try {
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `无首锚不得判红,实得 exit=${r.status}\n${r.out}`)
+    assert.match(r.out, /首锚台账缺档|不在 .*面上 ⇒ 无首锚/, '缺档必须点名')
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── T-CE-6 真仓 HEAD 面现读:该维必须是"未判定"而不是"已判过",且整体不得因此变红 ───
+// 这一例是"票面现场在本仓不成立"的**入库载体**:三条件里的②在本仓零命中,
+// 所以本维今天只能报未判定。它同时是防恒红的锁 —— 谁把这台门改成对现状判红,这里就红。
+test('真仓 HEAD 面:通道等价维必须现读出现写档、守卫 0 个,并落"未判定"', () => {
+  const r = spawnSync('node', [SCRIPT_PATH], {
+    cwd: dirname(SCRIPT_PATH),
+    encoding: 'utf8',
+    timeout: 420000,
+    windowsHide: true,
+  })
+  const out = (r.stdout || '').replace(/\x1b\[[0-9;]*m/g, '')
+  assert.equal(r.status, 0, `真仓 HEAD 面不得因本维变红(新增恒红 = 逼人 --no-verify)\n${out.slice(0, 800)}`)
+  assert.match(
+    out,
+    /通道等价\(CE\)① 归一改写档\(读自 head 面 packages\/api-client\/src\/client\.ts::normalizeUrl\):\/cozeZhsApi→\/api/,
+    '①的读数必须逐字来自真 normalizeUrl 的改写档(空档要看得见)',
+  )
+  assert.match(out, /通道等价\(CE\)② 通道守卫:.*在册 0 个/, '②必须如实报"在册 0 个"')
+  assert.match(out, /未判定\(通道等价 CE\)/, '三条件不齐 ⇒ 必须喊未判定,不得静默也不得记通过')
+  assert.doesNotMatch(out, /通道等价\(CE\)已判过/, '"已判过"只允许在三条件齐备时出现')
+})
+
+// ─── T-CE-7 形状锁:CE 必须装车,事实源只有那一份,门内不得有第二张改写表 ───
+test('形状锁:通道等价三维必须挂在主流程,且不得自带第二份改写表/守卫清单', () => {
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.match(src, /function\s+readUrlAliasRules\s*\(/, '① 归一档解析器必须在位')
+  assert.match(src, /function\s+readChannelGuards\s*\(/, '② 通道守卫解析器必须在位')
+  assert.match(src, /function\s+findLiveAliasSites\s*\(/, '③ 站点判据必须在位')
+  assert.match(src, /function\s+collectAliasSiteUndetermined\s*\(/, '③ 的"看得见但判不了"档必须在位')
+  // 装车:三个解析器都必须被主流程真的调用(定义了没人调 = 提交链上一路绿灯)
+  assert.match(src, /readUrlAliasRules\(readSource\(CLIENT_TRANSPORT_FILE\)\)/, '① 必须按判定面取 transport')
+  assert.match(src, /readChannelGuards\(guardEntries\)/, '② 必须吃插件面的 entries')
+  assert.match(src, /findLiveAliasSites\(\{/, '③ 必须挂在执行段上')
+  assert.match(src, /collectAliasSiteUndetermined\(\{/, '③ 的未判定档必须真被采集')
+  // 同面同轮:transport 与台账必须进同一次 prefetch(否则 readSource 抛"未经 prefetch 就取材")
+  assert.match(src, /CLIENT_TRANSPORT_FILE,\r?\n\s*CHANNEL_EQUIV_BASELINE_REL,/, '两份事实源必须进 prefetch')
+  // 反向锁:门内不得出现第二份硬编码改写表 / 守卫清单
+  // 反向锁:判定层不得出现任何通道头**具体名字** —— 名字必须由守卫面的代码现读。
+  // 判"整份源码里没有这个名字"是错的(自测夹具逐字写着它,那正是 §22c 要求的"输入取自真实形态"),
+  // 所以按**区段 + 遮噪面**判:runSelfTest 之前 = 判定层,把它遮掉注释后仍出现任何 header 名,
+  // 就是硬编码。遮噪必须引 lib 那一份实现,测试里不得再抄一台分词器(§22c)。
+  const judgeLayerStart = src.indexOf('function runSelfTest')
+  assert.ok(judgeLayerStart > 1000, '判定层区段必须切得出来(runSelfTest 之前)')
+  const judgeCode = maskComments(src.slice(0, judgeLayerStart))
+  assert.doesNotMatch(judgeCode, /x-client-channel/i, '判定层不得写死通道头名(注释里的说明性提及不计)')
+  assert.doesNotMatch(judgeCode, /['"]\/admin['"]/, '判定层不得写死别名前缀(事实源只能是 transport)')
+  // 方法白名单也不得写死成表:放行档必须由守卫里的 `.method` 比较式读出来
+  assert.doesNotMatch(judgeCode, /EXEMPT_METHODS\s*=\s*\[/, '不得留一张自带放行方法表')
+  // 判据必须走**遮注释面**读三份事实源(注释里的通道头/放行档不得给实现发合格证)
+  const maskHits = judgeCode.match(/maskComments\(/g) || []
+  assert.ok(maskHits.length >= 3, `事实源取材必须逐份遮噪(实测 ${maskHits.length} 处)`)
+
+
+  // 遮噪只引那一份实现
+  assert.match(src, /from '\.\/lib\/code-mask\.mjs'/, '遮噪必须引 lib 那一份')
+  assert.doesNotMatch(src, /function\s+maskComments\s*\(/, '门内不得自带第二份遮噪实现')
+  // 三态文案齐备:缺①/缺②/缺③/无首锚 四种未判定都必须有各自的说辞
+  for (const phrase of ['①归一实现读不出', '②通道守卫不在册', '③面上没有一处调用点', '无首锚']) {
+    assert.ok(src.includes(phrase), `未判定档必须点名到"${phrase}"这一型`)
+  }
+})
+
+// 只判源码形状(§22c:行为由 32/33 与既有 5/6 证,测试不复抄判据)。
 // ─── 34. 形状锁:--dump-* 取值必须走唯一出口,不得退回裸 argv[indexOf(...)+1] ──
 // 只判源码形状(§22c:行为由 32/33 与既有 5/6 证,测试不复抄判据)。
 test('形状锁:dump 旗标取值单点化,旧的两行裸索引形态不得回来', () => {
