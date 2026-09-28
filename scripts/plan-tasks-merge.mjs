@@ -53,16 +53,13 @@ import {
   auditPlan,
   compositeKeyOf,
 } from './lib/plan-task-index.mjs'
+// 翻勾注记的形态与"剥注记后正文逐字相等"的成对判据,生产侧与看守侧(守门 71)共用这一份实现
+// (G-307:两层自愈互咬的根因之一就是"注记长什么样"在两边各写一遍)。
+import { buildForkedLine, forkPreserved, anchorOf } from './lib/plan-merge-annotation.mjs'
 import { alignSharedIndex, casUpdateRef, commitTreeWithIndex } from './lib/bypass-git.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PLAN_REL = 'PROJECT_PLAN.md'
-const VERDICT_TAG = '归并'
-/** 幂等判据必须认**自己的标记形态**,不能认裸词:HEAD 里有一整批上一轮留下的
- *  `- [ ] **本行是并发 union 归并留下的裸副本**…` 行,正文天然含"归并"二字却**根本没落账**
- *  (勾还是空的)。按裸词判"已处理"会把这 6 行判成"无可施加的改写"——恰好把本工具要修的
- *  那一型当成已完成。 */
-const ALREADY_TAGGED = `**[${VERDICT_TAG}]**`
 const LABEL = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(逃生舱)' }
 
 function readPlan(root, face) {
@@ -77,30 +74,19 @@ function readPlan(root, face) {
   return text
 }
 
-/** 内容锚点:主键是"编号 + 标题前缀",而标题前缀常以同一编号开头(`D99复合主键正例`)
- *  ⇒ 拼锚点时把重复的编号剥掉,否则读起来是「D99 · D99复合主键正例」这种自复制。 */
-const anchorOf = (key) => {
-  const [id, rest = ''] = String(key).split('#')
-  return `「${id}${rest && !rest.startsWith(id) ? ' · ' + rest : ''}」`
-}
-
+/**
+ * 内容锚点出口已上移到 `scripts/lib/plan-merge-annotation.mjs`(2026-09-28 G-307)——
+ * 注记句子由该层生成,锚点形状若在这里再抄一份,剥注记的那一侧迟早对不上。
+ */
+/**
+ * F1/F2 翻勾:**正文逐字保留在行首**,注记一律追加在行尾(G-307 修法 (a))。
+ * 旧形态把注记**前置**在正文之前(`- [x] ✅(日期) **[归并]** …。 <正文>`),于是守门 71 的
+ * "行首编号"判活路径看不见被翻勾的那一行 —— 防丢层把合法翻勾读成"整行消失",回捞未勾原行,
+ * F1 又红,再翻勾…… 两小时 24 枚"恢复型"提交就是这么来的(3/3 复现,登记为 G-307)。
+ * 形态、幂等与"剥注记后正文相等"的判据都住在唯一实现层,本函数只是它的薄调用点。
+ */
 function rewriteFork(line, key, today) {
-  if (/^- \[x\]/.test(line)) return line
-  let body = line.replace(/^- \[ \]\s*/, '')
-  if (body.includes(ALREADY_TAGGED)) return line
-  /**
-   * 翻勾必须同时摘牌 —— AGENTS §1 写的是"完成后改 `[x] ✅(日期)` 并删除 `（进行中）`",
-   * 而这里过去只翻勾不摘牌,于是产出的行**同时**是 `[x]` 又挂着 `（进行中@…）`。
-   * 守门 109 的 CL3 正是判这一型 ⇒ 归并工具每跑一次就往 HEAD 里种几颗红点,
-   * 而 PROJECT_PLAN.md 是 `stagedTriggers` 文件:谁下一次提交计划文档都被这台恒红门拦住,
-   * 唯一出路是 `--no-verify`(连带废掉全部守门 —— §12e 那条本仓最高反面教训)。
-   * 两道机制互咬时,修的是**生产者**,不是把 6 行手抹掉。
-   */
-  body = body.replace(/（进行中(?:@[^）]*)?）\s*/g, '')
-  const why = key
-    ? `本行与已完成登记同题(主键 ${anchorOf(key)}),是被并发并集留下的未翻勾副本`
-    : '本行正文自带作废/已完成声明,却仍挂着未勾选 ⇒ 状态与正文两相矛盾'
-  return `- [x] ✅(${today}) **[${VERDICT_TAG}]** ${why} ⇒ 只落状态、不删行、不重复计账。 ${body}`
+  return buildForkedLine(line, key, today)
 }
 
 /**
@@ -678,22 +664,52 @@ export function dedupeAndLand(maxAttempts = 8) {
 
 /** 自愈的"该不该停手"判据 —— 抽成纯函数,否则这一层最要紧的安全断言只能在真仓上验一次。 */
 export function healStopReasons(srcText, merged, changed, refusedCount) {
+  // 与 verifyMerge 同一处理:F1+F3 那一型里 F3 的锚点替换是本工具授权的改写,先折回 before,
+  // 再交给下面那条一字未动的逐字判据(否则归并对这一型永久停手,那条 F1 再也修不掉)。
+  changed = normalizeForkedBefore(changed)
   const a0 = String(srcText).split('\n')
   const a1 = String(merged).split('\n')
   const touched = new Set(changed.map((c) => c.line))
   const after = auditPlan(merged).counts
+  // G-307(a) 落地闸(healAndLand 走的是这一支,不是 verifyMerge):任何 F1/F2 翻勾若没有
+  // "剥复选框/装饰/租约/注记后正文逐字相等",整批停手 —— 截断正文的实现进不了 HEAD。
+  const bodyBroken = changed.some(
+    (c) =>
+      /(?:^|\+)F[12](?:\+|$)/.test(c.kind) &&
+      /^\s*[-*]\s\[ \]/.test(c.before) &&
+      !forkPreserved(c.before, c.after),
+  )
   return [
     refusedCount ? `拒写 ${refusedCount} 项` : null,
     a0.length !== a1.length ? `行数不等 ${a0.length}→${a1.length}` : null,
     a0.some((l, i) => !touched.has(i + 1) && l !== a1[i]) ? '有未登记行被改动' : null,
+    bodyBroken ? '有翻勾行未逐字保留正文(剥注记后必须相等)' : null,
     after.forks || after.voidRows || after.rotatedAuto || after.dupOpenCopies
       ? '归并后未归零'
       : null,
   ].filter(Boolean)
 }
 
+/**
+ * F1+F3 落在**同一行**时,F3 那句「腐烂行号 → 内容锚点」的替换是本工具自己授权的改写,
+ * 它动的是行内指针短语,不是正文。两侧能力合并后才出现这一型(任何一侧单独跑都测不到):
+ * 逐字判据若拿「指针未修之前」的整行去比,会把自家刚写的合法锚点读成「正文被改」,
+ * 于是归并对这一型永久停手 —— 停手是安全的,但那条 F1 就再也修不掉。
+ * 这里只把 before 先过一遍同一份 rewritePointer(键的推导与 buildMerge 里 F3 那一支逐字相同),
+ * 再交给下面的判据:判据本体一字未动 —— 截断、整行替换、装饰乱改仍然一处也躲不过。
+ */
+function normalizeForkedBefore(changed) {
+  if (!Array.isArray(changed)) return changed
+  return changed.map((c) =>
+    /(?:^|\+)F3(?:\+|$)/.test(c.kind ?? '') && /(?:^|\+)F[12](?:\+|$)/.test(c.kind ?? '')
+      ? { ...c, before: rewritePointer(c.before, compositeKeyOf(c.before) ?? '') }
+      : c,
+  )
+}
+
 /** 零损失对账:行数相等 ∧ 未被改写的行逐字不变(多重集),外加"三条判据必须归零"。 */
 export function verifyMerge(original, merged, changed) {
+  changed = normalizeForkedBefore(changed)
   const problems = []
   const o = original.split('\n')
   const m = merged.split('\n')
@@ -706,6 +722,17 @@ export function verifyMerge(original, merged, changed) {
   if (untouchedDiff) problems.push(`${untouchedDiff} 行未参与改写却被改动`)
   const lost = o.filter((l, i) => !touched.has(i + 1) && !m.includes(l)).length
   if (lost) problems.push(`${lost} 行在输出里找不到`)
+  /**
+   * G-307(a):每一条 F1/F2 翻勾都必须通过"剥复选框/装饰/租约/本层注记后正文逐字相等"。
+   * 这不是自检里的装饰 —— 它是落地闸:实现若退回"用注记文案整行替换"或截断正文,
+   * `healAndLand` 当场停手,坏形态进不了 HEAD,守门 71 的回捞层也就不会被喂出循环。
+   */
+  for (const c of changed) {
+    if (/(?:^|\+)F[12](?:\+|$)/.test(c.kind) && /^\s*[-*]\s\[ \]/.test(c.before) && !forkPreserved(c.before, c.after))
+      problems.push(
+        `行 ${c.line}(${c.kind})翻勾把正文改了:剥掉复选框与本工具注记后两侧必须逐字相等(截断/整行替换都不许落地)`,
+      )
+  }
   const after = auditPlan(merged)
   if (after.counts.forks) problems.push(`F1 未归零:${after.counts.forks} 组`)
   if (after.counts.voidRows) problems.push(`F2 未归零:${after.counts.voidRows} 行`)
@@ -767,6 +794,47 @@ function selfTest() {
     '什么都不改(分叉仍在)必须停手 —— 否则自愈会变成"跑过一次就算修好"',
   )
   ok(healStopReasons(src, r.text, r.changed, 2).join().includes('拒写'), '有拒写项必须停手')
+  /**
+   * G-307(a) 成对判据:翻勾前后,剥掉复选框与本工具追加的注记之后,两侧正文必须逐字相等。
+   * 正向 = 现行后置式与 legacy 前置式都判"保住了";反向 = "整行替换/截断"的实现必须被炸出来
+   * (两代形态都过同一条 forkPreserved,看守侧与生产侧共用 lib 里那一份剥取实现)。
+   */
+  const G0 = '- [ ] G-307 一条待办:这段正文在翻勾后必须一字不差地活着。'
+  const G0F = rewriteFork(G0, 'G-307#一条待办', '2026-09-28')
+  ok(/^- \[x\] ✅\(2026-09-28\) G-307 一条待办/.test(G0F), `新形态必须把正文留在行首、注记追加行尾:${G0F.slice(0, 60)}`)
+  ok(forkPreserved(G0, G0F), '正当翻勾必须判"正文逐字保留"')
+  ok(
+    forkPreserved(
+      G0,
+      '- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-307 · 一条待办」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 G-307 一条待办:这段正文在翻勾后必须一字不差地活着。',
+    ),
+    'legacy 前置式(HEAD 存量形态)剥注记后同样必须逐字相等',
+  )
+  // 反向对照:"用注记文案整行替换"(循环肇因里被怀疑的形态)必须让本判据红
+  ok(
+    !forkPreserved(
+      G0,
+      '- [x] ✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「G-307 · 一条待办」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 G-307 一条待办:这段正文被',
+    ),
+    '把正文截断的实现必须被 forkPreserved 抓住(变异对照,不得恒真)',
+  )
+  {
+    // 两条落地闸(healStopReasons 与 verifyMerge)必须各自拦住"截断正文"的产物 ——
+    // 只装一道,等于另一道将来可以随便漂(§12"两处算同一件事必漂移"同一条理由)。
+    const trunc = [...r.changed]
+    const first = trunc.findIndex((c) => /(?:^|\+)F[12](?:\+|$)/.test(c.kind) && /^\s*- \[ \]/.test(c.before))
+    trunc[first] = { ...trunc[first], after: trunc[first].after.slice(0, 20) }
+    const txt = r.text.split('\n')
+    txt[trunc[first].line - 1] = trunc[first].after
+    ok(
+      healStopReasons(src, txt.join('\n'), trunc, 0).some((x) => x.includes('逐字保留')),
+      'healStopReasons 必须拦下截断正文的那一行(自愈落地档)',
+    )
+    ok(
+      verifyMerge(src, txt.join('\n'), trunc).problems.some((x) => x.includes('逐字相等')),
+      'verifyMerge 对同一形态也必须点名(报告档,两闸不得只装一个)',
+    )
+  }
   /**
    * F6 块级收口:四条各钉一个方向。缺任何一条,这一型就会退化成
    * "要么删不掉,要么把唯一份删掉"—— 后者比前者贵得多(§1 禁止无声删除)。

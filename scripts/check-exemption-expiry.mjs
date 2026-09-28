@@ -130,6 +130,15 @@ const FAMILY_LIFETIME_DAYS = {
    */
   'double-header-exempt': 30,
   /**
+   * 守门 156(自检登记函数求值对账 `check-selftest-registrant-evaluates`)的行内出口。取 **30 天** ——
+   * 它是**待偿债**:该出口只救"这一处登记函数确实不求值"的情况,出路是把登记侧改成求值或直接传
+   * 函数结果(门自己头注写的两条正当形态),不是 `back-label-exempt` 那种结构性定性(那种取 365,
+   * 短周期到期只会逼人删标记、删了又被原判据红,两道门互咬)。刻意不给 `DEFAULT_LIFETIME_DAYS`
+   * 的 90 天默认档:156 与它守的那一型同走"先报数、存量清零后才谈 blocking"的路线,豁免档必须
+   * 与那条路线同寿命 —— 给长周期等于把一处"暂时不求值"登记成永久惯例。判据侧要求带原因、只救本行。
+   */
+  'selftest-registrant-exempt': 30,
+  /**
    * `check-batch-write-count-honesty` 的 B1/B2 判据(假删除 ack)的合法例外通道:确属"该 delete/update
    * 由触发器/UPSERT 语义保证必命中一行"时才允许保留字面量 `deleted: true`。取 **30 天**,与
    * `glyph-arrow-exempt` / `statusbar-exempt` / `api-error-exempt` 同档 —— 这一族是**待偿的迁移债**,
@@ -280,7 +289,7 @@ export function scanFile(rel, text) {
         fileScoped,
         toolFace,
         lifetimeDays: FAMILY_LIFETIME_DAYS[family] ?? DEFAULT_LIFETIME_DAYS,
-        registered: Object.prototype.hasOwnProperty.call(FAMILY_LIFETIME_DAYS, family),
+        registered: isFamilyRegistered(family),
       })
     }
   }
@@ -330,6 +339,33 @@ export function undatedCountsOf(entries) {
 }
 
 /**
+ * 族是否已登记 —— "登记"的唯一真相源就是 FAMILY_LIFETIME_DAYS 的键集,判法只许这一处。
+ * scanFile 的 `registered` 标记与 E4 的集合判据都走它:两处各写一次 `hasOwnProperty` 早晚会漂,
+ * 而漂了的后果是"门给自己发合格证"(观测侧认为已登记、E4 侧认为没有,或反过来)。
+ */
+export function isFamilyRegistered(family) {
+  return Object.prototype.hasOwnProperty.call(FAMILY_LIFETIME_DAYS, family)
+}
+
+/**
+ * 一组账条目 → **被豁免侧**(非工具面)用到的未登记族集合。E4 的观测面与 HEAD 锚点面共用它 ——
+ * 两侧必须同一个函数,否则"观测按新口径、锚点按旧口径"就产出一条没有合法出口的假红
+ * (与 undatedCountsOf 那条 G01/G02 对称性同一条规矩)。
+ * 登记与否按 `isFamilyRegistered` 现读,不读条目上的 `registered` 旗 —— 构造面少给一个字段就会
+ * 让已登记族被算成未登记(U07 是这一格的阳性对照:判据不得依赖调用方记得填的旗)。
+ * 刻意排除工具面:`scripts/**` 里的标记字面量是门在描述自己的出口(判据正则 / 头注 / 自检夹具),
+ * 新立一道带豁免出口的门必然先在那一面写出族名,把它算成"用了一次未登记豁免"就等于没有合法出口。
+ */
+export function unregisteredUsedFamiliesOf(entries) {
+  const out = new Set()
+  for (const e of entries) {
+    if (e.toolFace || isFamilyRegistered(e.family)) continue
+    out.add(e.family)
+  }
+  return out
+}
+
+/**
  * E1 的锚点到底取哪一份计数 —— 抽成纯函数,好让三种情形都能被单测钉住
  * (证明锚点/取材面这类行为不能依赖仓库瞬时状态,见守门 103 的同款教训)。
  *
@@ -347,7 +383,14 @@ export function resolveAnchor({ face, entries, headEntries }) {
   return undatedCountsOf(headEntries)
 }
 
-export function analyze({ entries, suppressionsByFile, baseline, today, headCounts }) {
+export function analyze({
+  entries,
+  suppressionsByFile,
+  baseline,
+  today,
+  headCounts,
+  headUnregisteredFamilies,
+}) {
   const grandfather = String(baseline?.grandfatherUntil || '')
   const grandfatherOpen = grandfather !== '' && !isPast(grandfather, today)
   const baseCounts = baseline?.undatedCounts || {}
@@ -399,6 +442,31 @@ export function analyze({ entries, suppressionsByFile, baseline, today, headCoun
   }
   const stockUndated = Object.values(baseCounts).reduce((a, b) => a + Number(b || 0), 0)
 
+  // ②b 未登记族被**真的用上**:把"新豁免族必须同笔登记进存活期表"从散文变成判据。
+  //    锚点 = HEAD 面上同一份集合(与 E1 同型:面=head 时调用方不传,自己比自己 ⇒ 结构上不响,
+  //    所以全量审计不会因存量红变成人人绕钩子 —— §12e 那条最高反面教训)。
+  //    存量解阻前置(HEAD 面现读,跑 `--all` 复核,勿照抄本注释):被豁免侧正在用的未登记族
+  //    只有 route-declare-exempt 一处(守门 127),它把"该出口属永久惯例还是待偿"定了性却没进表;
+  //    清偿 = 给它补一个带理由的档位,或把它改成带显式 until 的豁免。其余未登记族只活在
+  //    scripts/** 那一面(门在描述自己),按上面的口径天然不入射程。
+  //    已知边界(如实登记,不当作已判):E4 问的是"族的出现与否",不问"族被用了多少次";
+  //    一个未登记族被**更多次**使用由 E1 管(不带到期日时),带到期日的重复使用只报数 ——
+  //    那一格要么由补登记消除,不得靠放宽 E4 掩盖。
+  const obsUnregUsed = unregisteredUsedFamiliesOf(entries)
+  const anchorUnregUsed = headUnregisteredFamilies || obsUnregUsed
+  for (const fam of [...obsUnregUsed].sort()) {
+    if (anchorUnregUsed.has(fam)) continue
+    red.push({
+      code: 'E4',
+      family: fam,
+      msg:
+        `新引入的未登记豁免族:${fam} —— 它出现在被豁免侧(真有一次生效的豁免),` +
+        '但 HEAD 面上没有这一族的未登记存量,也没进 FAMILY_LIFETIME_DAYS。' +
+        `按 DEFAULT_LIFETIME_DAYS=${DEFAULT_LIFETIME_DAYS} 天兜底不算登记:那个默认值只保证"新族不隐身",` +
+        '族值必须由立它的那道门同笔写进存活期表,并附一句"取这几天是因为它是待偿债还是结构性定性"。',
+    })
+  }
+
   // ③ 基线自身到期:未销账则整门红 —— 让"过期未销账**自己**变红"
   if (!grandfatherOpen && stockUndated > 0) {
     red.push({
@@ -447,6 +515,10 @@ export function analyze({ entries, suppressionsByFile, baseline, today, headCoun
       suppressTotals,
       suppressFiles,
       unregisteredFamilies: [...new Set(entries.filter((e) => !e.registered).map((e) => e.family))],
+      /** 被豁免侧真的用到的未登记族(E4 的观测面)。`unregisteredFamilies` 含工具面,两者不得混用。 */
+      unregisteredUsedFamilies: [...obsUnregUsed].sort(),
+      /** 本轮 E4 的锚点是否来自 HEAD;'head-self' 表示全量档,E4 在该档结构上不响。 */
+      e4Anchor: headUnregisteredFamilies ? 'head-measured' : 'head-self',
       staleKeys: Object.keys(baseCounts).filter((k) => !(k in obsUndated)).length,
       grandfather,
       grandfatherOpen,
@@ -585,12 +657,20 @@ const F_FUTURE = '// brand-new-gate-exempt: 某道新门刚加的族'
 const F_ESLINT =
   '/* eslint-disable no-console */\n// eslint-disable-next-line @x/y\n// @ts-ignore\n'
 
-function detail(entries, undated, gf, today, sup, headCounts) {
+function detail(entries, undated, gf, today, sup, headCounts, headUnregFam) {
   const baseline = { grandfatherUntil: gf ?? '2099-01-01', undatedCounts: undated || {} }
-  return analyze({ entries, suppressionsByFile: sup || {}, baseline, today: today ?? TODAY, headCounts })
+  return analyze({
+    entries,
+    suppressionsByFile: sup || {},
+    baseline,
+    today: today ?? TODAY,
+    headCounts,
+    headUnregisteredFamilies: headUnregFam,
+  })
 }
 
 const redOf = (r) => (r.red.length > 0 ? r.red[0].code : '')
+const hasRed = (r, code) => r.red.some((x) => x.code === code)
 const es = (t, n) => scanFile(n ?? 't.tsx', t).entries
 const e0 = (t, n) => es(t, n)[0]
 const fams = (t, n) =>
@@ -763,6 +843,48 @@ function selfTest() {
   ok(
     'U02 基线里本轮未观测到的键计 staleKeys(不删、只喊)',
     detail([], { 'gone.ts::radius-exempt': 2 }).totals.staleKeys === 1,
+  )
+  // U03–U08:E4「新豁免族必须同笔登记」从散文变成判据。**每一格"不红"都要有对面那一格"红"**
+  // 反向钉住,否则"不红"完全可能只是判据失效(本仓最高频那型假绿)。
+  // 条目一律带远期到期日 ⇒ E1 不响,红只能来自 E4 自己(两型判据不得互相顶名)。
+  const U_FAM = 'brand-new-gate-exempt'
+  const uApp = E({ family: U_FAM, file: 'apps/demo/src/a.ts', expiry: '2099-12-31' })
+  const uTool = E({
+    family: U_FAM,
+    file: 'scripts/check-demo.mjs',
+    expiry: '2099-12-31',
+    toolFace: true,
+  })
+  const uReg = E({ family: 'radius-exempt', file: 'apps/demo/src/a.ts', expiry: '2099-12-31' })
+  const uScanTool = es(F_FUTURE, 'scripts/check-demo.mjs')
+  const uScanApp = es(F_FUTURE, 'apps/demo/src/a.ts')
+  ok(
+    'U03 被豁免侧用了 HEAD 没有的未登记族 ⇒ E4 红并点名族',
+    hasRed(detail([uApp], {}, undefined, undefined, undefined, {}, new Set()), 'E4'),
+  )
+  ok(
+    'U04 同一族在 HEAD 锚点集合里 ⇒ 绿(存量只报数,绝不当场造恒红门 —— §12e)',
+    detail([uApp], {}, undefined, undefined, undefined, {}, new Set([U_FAM])).red.length === 0,
+  )
+  ok(
+    'U05 同一行文字在 scripts/** 面 ⇒ E4 不响(否则新立一道带豁免出口的门没有合法出口)',
+    detail([uTool], {}, undefined, undefined, undefined, {}, new Set()).red.length === 0 &&
+      unregisteredUsedFamiliesOf([uTool]).size === 0,
+  )
+  const u6 = detail([uApp], {}, undefined, undefined, undefined, {}, undefined)
+  ok(
+    'U06 未传锚点(面=head)⇒ E4 不响且如实标 head-self',
+    !hasRed(u6, 'E4') && u6.totals.e4Anchor === 'head-self',
+  )
+  ok(
+    'U07 已登记族 ⇒ E4 不响(表里有就是登记过,不得连"族在用"一起判红)',
+    detail([uReg], {}, undefined, undefined, undefined, {}, new Set()).red.length === 0,
+  )
+  ok(
+    'U08 真扫出来的未登记族:apps 面进 E4 射程、scripts 面不进(与 U03/U05 成对,防"不红=判据失效")',
+    unregisteredUsedFamiliesOf(uScanApp).has(U_FAM) &&
+      unregisteredUsedFamiliesOf(uScanTool).size === 0 &&
+      hasRed(detail(uScanApp, {}, undefined, undefined, undefined, {}, new Set()), 'E4'),
   )
   const mb = mergeBaseline(
     { noteBy: '他人写的台账注释', undatedCounts: { keepMe: 9, downMe: 5 } },
@@ -978,6 +1100,14 @@ function report(res, opts) {
   const gState = t.grandfatherOpen ? '存量豁免仍只报数' : '已过期:缺日期即红'
   const g = t.grandfather || '(缺失)'
   console.log(`  未登记族:${fams2};基线 stale 键 ${t.staleKeys};grandfatherUntil=${g} (${gState})`)
+  const used2 = t.unregisteredUsedFamilies.length ? t.unregisteredUsedFamilies.join(',') : '(无)'
+  console.log(
+    `  其中被豁免侧真在用:${used2}(E4 锚点=${t.e4Anchor};` +
+      (t.e4Anchor === 'head-self'
+        ? '全量档 —— "本次"即 HEAD 自身,E4 不响,存量由本行报数管'
+        : '提交链档 —— 取 HEAD 现测的族集合当锚点,新增未登记族即红') +
+      ';解阻前置 = 给在用族补 FAMILY_LIFETIME_DAYS 档位 + 一句理由,之后 E4 才谈收进 blocking 语义)',
+  )
   console.log(`  候选文件 ${t.scannedFiles} 个,其中取不到内容 ${t.unreadable} 个`)
   if (opts.all) {
     for (const [fam, n] of Object.entries(t.byFamily).sort((a, b) => b[1] - a[1])) {
@@ -1005,17 +1135,23 @@ function cliRun(opts) {
     } catch (e) {
       console.log(
         `  ⚠️ HEAD 锚点取不到(${e.message.slice(0, 70)})⇒ E1 退回"只看基线存量"口径,` +
-          '此时若基线被历史低估,可能产出一条抬不动的恒红(见 PROJECT_PLAN G-174)',
+          '此时若基线被历史低估,可能产出一条抬不动的恒红(见 PROJECT_PLAN G-174);' +
+          'E4 同批退回"族集合自己比自己"⇒ 该档不判红(不冒红也不假装判过)',
       )
     }
   }
   const headCounts = resolveAnchor({ face, entries: got.entries, headEntries })
+  // E4 的锚点与 E1 同一份取材(同面同轮):两次 collect 会各自看见不同的仓库瞬间,产出"观测来自
+  // 索引、锚点来自上一秒的 HEAD"这种自洽却错位的尺子。面=head 时不取,自己比自己必然相等。
+  const headUnregisteredFamilies =
+    face === 'head' || !headEntries ? null : unregisteredUsedFamiliesOf(headEntries)
   const res = analyze({
     entries: got.entries,
     suppressionsByFile: got.suppressionsByFile,
     baseline,
     today,
     headCounts,
+    headUnregisteredFamilies,
   })
   res.totals.face = face
   res.totals.anchor =
@@ -1075,6 +1211,8 @@ export const __test__ = {
   mergeBaseline,
   resolveAnchor,
   undatedCountsOf,
+  isFamilyRegistered,
+  unregisteredUsedFamiliesOf,
   undatedKey,
   loadBaseline,
   MARKER_RE,
