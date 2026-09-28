@@ -35,7 +35,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type * as fsType from 'node:fs';
 
-import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs';
+import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §26 唯一落点(禁 os.tmpdir/裸 mkdtemp),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
 
 /**
  * 并发写者的模拟开关。`node:fs` 的 readFileSync 被本文件 mock 了一层:命中 target 且到达指定
@@ -85,7 +85,7 @@ import {
 } from '../src/hooks/trust.js';
 
 // 反向锁用的判据 = 那道 blocking 守门自己的实现(§22c:测试不得再抄一份)
-import { __test__ as writeSafety } from '../../../scripts/check-file-write-safety.mjs';
+import { __test__ as writeSafety } from '../../../scripts/check-file-write-safety.mjs'; // arch-exempt: §22c 镜像测试必须 import 被判门体本身(禁止在测试里抄第二份判据),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
 
 const { analyzeFile } = writeSafety;
 
