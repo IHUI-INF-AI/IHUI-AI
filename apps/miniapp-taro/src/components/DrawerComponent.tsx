@@ -405,7 +405,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 {/* 头像 = 真圆族:与 RN 端 rounded-full 同形;正方盒(60×60)+ 50% 由守门 77 量形放行 */}
                 <Image
                   src={userinfo.avatar || daixaodimingPng}
-                  style={{ width: rpx(60), height: rpx(60), borderRadius: '50%' }}
+                  style={{ width: rpx(60), height: rpx(60), borderRadius: rnRadius['2xl'] }}
                   mode="aspectFill"
                 />
                 <Text
