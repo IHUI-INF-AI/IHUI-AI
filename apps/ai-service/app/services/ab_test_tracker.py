@@ -42,6 +42,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 import uuid as _uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -56,6 +57,18 @@ logger = logging.getLogger(__name__)
 _DEFAULT_SHADOW_RATIO = 0.1
 _DEFAULT_MIN_SAMPLE_SIZE = 30
 _DEFAULT_SIGNIFICANCE_LEVEL = 0.05
+
+# G-702(2026-09-29 立):读失败的有界退避参数 —— 失败**不**置 loaded,按指数间隔重试,
+# 连续失败到上限才停自动重试(防每次调用打爆 DB IO);两种状态经 _try_load_active_tests
+# 与 get_status 可区分,"读不到"永远不等于"确实没有 running 测试"。
+_LOAD_BACKOFF_BASE_S = 1.0
+_LOAD_BACKOFF_MAX_S = 60.0
+_LOAD_MAX_CONSECUTIVE_FAILURES = 5
+
+
+def _monotonic() -> float:
+    """单调钟取用出口:单测替换它以模拟退避窗口流逝,不用真 sleep。"""
+    return time.monotonic()
 
 
 def _empty_stats() -> dict[str, Any]:
@@ -144,6 +157,12 @@ class ABTestTracker:
         # A/B 测试数据是按 skill 维度(非 user 维度),用 _loaded 标记首次访问后全量加载
         self._loaded: bool = False
         self._loaded_lock: asyncio.Lock = asyncio.Lock()
+        # G-702(2026-09-29):读失败不再固化 —— 失败计数 + 退避窗口 + 放弃留痕。
+        # _loaded=False ∧ _load_failures>0 ⇒ "读不到"(待重试/已放弃自动重试),
+        # 与 _loaded=True ∧ 内存空 ⇒ "权威的空" 结构上可区分。
+        self._load_failures: int = 0
+        self._load_next_attempt_s: float = 0.0
+        self._load_give_up_logged: bool = False
 
     # ==================================================================
     # P1 修复:按需懒加载(替代启动时全量 hydrate)
@@ -155,11 +174,16 @@ class ABTestTracker:
         P1 修复:原 main.py lifespan 调 load_active_tests() 全量加载所有 running 测试,
         导致启动慢 + 内存峰值高。改为首次访问时才加载。
 
-        注意:A/B 测试数据是按 skill 维度(非 user 维度),无法按 user_id 懒加载,
-        故用 _loaded 布尔标记,首次访问时全量加载一次。
-
         线程安全:asyncio.Lock 防止并发首次访问重复加载。
-        加载失败也标记为已加载(避免每次调用都重试)。
+
+        G-702(2026-09-29 改造,取代旧口径"失败也置已加载、从此不再重试"):
+        旧实现把一次瞬时 DB 故障永久固化成"确实没有 running 测试"且再不重试,
+        与本仓"undetermined 不得当成通过"的口径直接矛盾。新口径两头都要:
+        - 读到成功(含"读到空表")⇒ 置 _loaded,不再打 DB —— 权威的空允许固化;
+        - 读失败 ⇒ **不置 _loaded**,指数退避重试(底 1s、封顶 60s);
+        - 连续失败达 _LOAD_MAX_CONSECUTIVE_FAILURES ⇒ 停止自动重试(有界,防每次调用
+          打爆 IO),但 _loaded 仍为 False,状态经 _load_failures/get_status 可查 ——
+          "试了 N 次都失败"不等于"没有数据"。
         """
         if self._loaded:
             return
@@ -167,15 +191,30 @@ class ABTestTracker:
             # double-check:拿到锁后再次确认(可能在等锁期间被其他协程加载)
             if self._loaded:
                 return
-            try:
-                await self.load_active_tests()
-            except Exception as e:
-                logger.warning(
-                    "[ab_test_tracker] _ensure_loaded 加载失败(降级空内存): %s", e
-                )
-            finally:
-                # 无论成功失败都标记已加载(避免重复重试)
+            if self._load_failures >= _LOAD_MAX_CONSECUTIVE_FAILURES:
+                if not self._load_give_up_logged:
+                    self._load_give_up_logged = True
+                    logger.warning(
+                        "[ab_test_tracker] _ensure_loaded 连续 %d 次读取失败,停止自动重试"
+                        "(状态=读不到,非空表;恢复靠下一次进程重启或人工触发)",
+                        self._load_failures,
+                    )
+                return
+            now = _monotonic()
+            if now < self._load_next_attempt_s:
+                return  # 退避窗口内:本次调用不打 DB
+            ok, _count = await self._try_load_active_tests()
+            if ok:
                 self._loaded = True
+                self._load_failures = 0
+                self._load_next_attempt_s = 0.0
+            else:
+                self._load_failures += 1
+                delay = min(
+                    _LOAD_BACKOFF_BASE_S * (2 ** (self._load_failures - 1)),
+                    _LOAD_BACKOFF_MAX_S,
+                )
+                self._load_next_attempt_s = now + delay
 
     # ==================================================================
     # 创建 / 查询
@@ -469,12 +508,22 @@ class ABTestTracker:
         return count
 
     async def load_active_tests(self, limit: int = 100) -> int:
-        """启动时从 DB 全量 hydrate running 测试到内存。
+        """公开计数入口(lifespan/测试兼容):成功返回条数,失败返回 0。
 
-        由 main.py lifespan 调用,失败不阻塞启动(返回 0 + warning)。
+        ⚠️ 这里的 0 **分不出**"读到空表"与"读取失败"(失败也被投成 0)——
+        内部判定必须走 _try_load_active_tests 的二元组(G-702:把两态分开的那份实现
+        只有一份,本函数只是旧外部语义要求的"条数"投影,不得再拿它当"确实没有"的证据)。
+        """
+        ok, count = await self._try_load_active_tests(limit)
+        return count if ok else 0
 
-        Returns:
-            加载到内存的测试数
+    async def _try_load_active_tests(self, limit: int = 100) -> tuple[bool, int]:
+        """从 DB hydrate running 测试,并把"读不到"与"读到但为空"分开返回。
+
+        返回 (read_ok, count):
+        - (False, 0) ⇒ 连接/查询异常 = "读不到",瞬时故障,**不得**固化为权威的空;
+        - (True, 0)  ⇒ 查询成功且结果集为空 = **权威的空**,可以固化。
+        由 main.py lifespan / _ensure_loaded 消费;失败不抛(调用方按 read_ok 决定退避)。
         """
         try:
             pool = await _get_pool()
@@ -504,9 +553,9 @@ class ABTestTracker:
                 )
         except Exception as e:
             logger.warning(
-                "[ab_test_tracker] load_active_tests 失败(降级空内存): %s", e
+                "[ab_test_tracker] _try_load_active_tests 读取失败(不固化为空): %s", e
             )
-            return 0
+            return False, 0
 
         count = 0
         for row in rows:
@@ -551,10 +600,10 @@ class ABTestTracker:
             count += 1
         if count:
             logger.info(
-                "[ab_test_tracker] load_active_tests 从 DB hydrate %d 条 running 测试",
+                "[ab_test_tracker] _try_load_active_tests 从 DB hydrate %d 条 running 测试",
                 count,
             )
-        return count
+        return True, count
 
     async def _persist_test_to_db(
         self,
@@ -660,15 +709,31 @@ class ABTestTracker:
     # ==================================================================
 
     def get_status(self) -> dict[str, Any]:
-        """返回当前 tracker 状态摘要(供 API / 前端查看)。"""
+        """返回当前 tracker 状态摘要(供 API / 前端查看)。
+
+        G-702:`loaded`/`loadFailures` 把"读不到"与"读到但为空"分开报 ——
+        loaded=False ∧ loadFailures>0 是"读不到"(瞬时故障/已放弃自动重试),
+        **不得被读成**"确实没有 running 测试";loadState 给单一判读字段。
+        """
         running_count = sum(
             1 for t in self._tests.values() if t.get("status") == "running"
         )
         total_count = len(self._tests)
+        if self._loaded:
+            load_state = "loaded"  # 含"读到空表"——权威的空
+        elif self._load_failures == 0:
+            load_state = "never_tried"
+        elif self._load_failures >= _LOAD_MAX_CONSECUTIVE_FAILURES:
+            load_state = "gave_up"  # 读不到,且已停止自动重试
+        else:
+            load_state = "retry_backoff"  # 读不到,退避中
         return {
             "totalTests": total_count,
             "runningTests": running_count,
             "activeSkills": list(self._skill_active_index.keys()),
+            "loaded": self._loaded,
+            "loadFailures": self._load_failures,
+            "loadState": load_state,
         }
 
 
