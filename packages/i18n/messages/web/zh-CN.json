@@ -10448,6 +10448,9 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "attachRejectType": "类型不支持,已跳过 {count} 个文件:{names}",
+    "attachRejectSize": "文件超过大小上限({max}MB),已跳过 {count} 个文件:{names}",
+    "attachRejectCount": "附件最多 {max} 个,本次被拒 {count} 个",
     "mentionEngine": {
       "tabFile": "文件",
       "tabFolder": "文件夹",
