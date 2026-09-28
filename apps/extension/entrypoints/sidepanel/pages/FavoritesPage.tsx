@@ -47,7 +47,7 @@ export default function FavoritesPage() {
         <button
           type="button"
           onClick={load}
-          className="px-2 py-1 rounded-md border border-destructive bg-transparent text-destructive text-xs cursor-pointer hover:bg-destructive/10"
+          className="px-2 py-1 rounded-sm border border-destructive bg-transparent text-destructive text-xs cursor-pointer hover:bg-destructive/10"
         >
           {t('common.retry')}
         </button>
