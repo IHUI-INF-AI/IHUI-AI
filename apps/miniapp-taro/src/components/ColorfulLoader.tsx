@@ -55,15 +55,19 @@ export default function ColorfulLoader({
       {dots.map((_, i) => {
         const angle = (360 / COLORFUL_LOADER_DOT_COUNT) * i
         // 保留:colorful loader 72 点 HSL 动态着色(按索引循环色相);动态计算色无法 token 化,共享源给公式
-        // 豁免 0b: 装饰圆点(72 点 HSL 循环色相,典型 rounded-full 装饰元素)
         const color = colorfuleLoaderDotColor(i)
         return (
           <View
             key={i}
-            className="absolute rounded-2xl"
+            className="absolute"
             style={{
               width: `${dotSize}rpx`,
               height: `${dotSize}rpx`,
+              // 圆点半径 = 自己边长的一半,与 RN 端同一式(RN 写 `borderRadius: size / 2`)。
+              // 不写档名:写 `rounded-2xl` 会让"这一端有 16 这一档、那一端只有动态式"读成跨端分叉,
+              // 而两端等效半径本来就是同一个数(共享源给的 dotSize)。
+              borderRadius: `${dotSize / 2}rpx`,
+
               top: '50%',
               left: '50%',
               marginLeft: `-${dotSize / 2}rpx`,
