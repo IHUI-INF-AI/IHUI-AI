@@ -598,7 +598,7 @@ function createStyles(tk: AppThemeTokens) {
     fabCircle: {
       width: 50,
       height: 50,
-      borderRadius: 50 / 2, // radius-exempt: 50dp 见方悬浮按钮,半径=边长一半为真圆,改方档会变成方块
+      borderRadius: 50 / 2,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

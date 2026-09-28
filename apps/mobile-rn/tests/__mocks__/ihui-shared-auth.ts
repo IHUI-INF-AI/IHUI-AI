@@ -2,42 +2,29 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// Stub for @ihui/shared/auth - vitest mock
-// Provides createInMemoryTokenStore and TokenStore for useAuth tests.
-
-export interface TokenStore {
-  getToken(): string | null
-  getRefreshToken(): string | null
-  setToken(token: string | null): void
-  setRefreshToken(token: string | null): void
-  clearAll(): void
-}
-
-export interface TokenStoreConfig {
-  initial?: { token?: string; refreshToken?: string }
-}
-
-export function createInMemoryTokenStore(config?: TokenStoreConfig): TokenStore {
-  let _token: string | null = config?.initial?.token ?? null
-  let _refreshToken: string | null = config?.initial?.refreshToken ?? null
-
-  return {
-    getToken() {
-      return _token
-    },
-    getRefreshToken() {
-      return _refreshToken
-    },
-    setToken(t) {
-      _token = t
-    },
-    setRefreshToken(t) {
-      _refreshToken = t
-    },
-    clearAll() {
-      _token = null
-      _refreshToken = null
-    },
-  }
-}
+/**
+ * `@ihui/shared/auth` 的 vitest 替身 —— 只转发,不自述(2026-09-28 G-364 收口)
+ *
+ * 历史(与 ihui-shared-auth-sso-core.ts 同型,留在这里是因为它正是本文件要防的那一型):
+ * 这份替身曾自己实现一份同步版 `createInMemoryTokenStore`,与真实工厂三处不同形:
+ *   ① 忽略 `onSetToken` / `onSetRefreshToken` / `onClearAll` 全部持久化回调
+ *      —— 真实工厂靠这三个回调把凭据下放到 SecureStore,替身把它们吞了;
+ *   ② 没有 `setCachedWithoutPersist` —— 真实 `src/lib/token.ts` 的 `initApi()` 走
+ *      hydrate 路径要调它,用替身跑真会 TypeError(当时 auth-cold-start 那一族用例
+ *      因此必须自己再补一段 `vi.mock('@ihui/shared/auth')` 才测得到实现);
+ *   ③ 只声明 `TokenStoreConfig`,而真实类型名是 `InMemoryTokenStoreOptions`,
+ *      `TokenStoreWithUserInfo` 整个缺失。
+ * 别名指到这里 ⇒ "看起来覆盖了凭据链路"的用例实际测的是一份虚构 API。
+ *
+ * 现在别名直指真实 barrel(vitest.config.ts 中 `'@ihui/shared/auth'` 那条),
+ * 本文件不再被任何人引用。**不直接删**的理由同 ihui-shared-auth-sso-core.ts:
+ * 删除要动共享索引/提交链,而本票禁止;降级成纯转发后,即使有人把别名再指回这里,
+ * 拿到的也是真实工厂,不会重新长出第二份凭据实现。
+ *
+ * 常驻锁:`tests/shared-auth-alias-fidelity.test.ts`。
+ * 真实 auth 四个子模块(sso-core / token-store / auto-refresh / auth-utils)都不碰平台 API
+ * —— 存储差异本来就由 `InMemoryTokenStoreOptions` 的回调注入表达(锁里另有一条断言守着
+ * "真实面确实平台无关",所以这里没有"必须自述"的例外)。
+ */
+export * from '../../../../packages/shared/src/auth'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

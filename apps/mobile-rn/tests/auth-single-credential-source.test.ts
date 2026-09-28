@@ -43,7 +43,7 @@ const { apiClient, capturedProvider } = vi.hoisted(() => {
 vi.mock('@ihui/api-client', () => apiClient)
 vi.mock('@ihui/shared/stores', async () => {
   const real = await import('../../../packages/shared/src/stores/auth-store')
-  return { createAuthStore: real.createAuthStore }
+  return { createAuthStore: real.createAuthStore, selectIsAuthenticated: real.selectIsAuthenticated }
 })
 
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -106,8 +106,13 @@ describe('RN 凭据单一数据源', () => {
     expect(getRefreshToken()).toBeNull()
     expect(rnAuthStore.getState().token).toBeNull()
     expect(rnAuthStore.getState().isAuthenticated).toBe(false)
+    // 持久化块不得携带 isAuthenticated(2026-09-28 收口:登录态唯一真相是 token,
+    // 盘上第二份只会漂移)。键集合断言 = "持久化写入不含该键"常驻锁的 RN 侧一半。
+    // —— 对侧(G-456)对同一收口的措辞,语义相同,并陈于此以免丢账:
     // 持久化快照结构位不得含 isAuthenticated(G-456:登录态是「有没有 token」的派生值,
     // 入库即第二份真相;旧断言期望它落在快照里,正是被收口的那份形态)
+    expect(persistedSnapshot()?.state?.isAuthenticated).toBeUndefined()
+    expect(Object.keys(persistedSnapshot()?.state ?? {})).toEqual(['user'])
     expect(Object.keys(persistedSnapshot()?.state ?? {})).not.toContain('isAuthenticated')
   })
 
@@ -142,7 +147,50 @@ describe('RN 凭据单一数据源', () => {
     expect(getRefreshToken()).toBeNull()
     expect(rnAuthStore.getState().token).toBeNull()
     expect(rnAuthStore.getState().isAuthenticated).toBe(false)
+    expect(persistedSnapshot()?.state?.isAuthenticated).toBeUndefined()
+    expect(Object.keys(persistedSnapshot()?.state ?? {})).toEqual(['user'])
     expect(Object.keys(persistedSnapshot()?.state ?? {})).not.toContain('isAuthenticated')
+  })
+
+  it('旧 storage 块迁移现场:升级后首启(新 store 实例 rehydrate)忽略残留 isAuthenticated,不产生"无 token 却已登录"', async () => {
+    // 收口(2026-09-28)之前的块形态是 {state:{user,isAuthenticated:true}}。
+    // zustand persist 的 rehydrate 发生在 store 实例创建时(模拟"App 重启后重新 require"),
+    // 单例 rnAuthStore 在本文件 import 时已对空 storage 完成首灌,所以迁移现场必须
+    // 用"预置旧块 + 新建实例"来复现 —— 与端上升级后首启同一条代码路径。
+    await initApi()
+    await clearToken()
+    resetAsyncStorageMock()
+    storageMock.__store.set(
+      PERSIST_KEY,
+      JSON.stringify({
+        state: { user: { id: 'u1', nickname: 'tester', avatar: '' }, isAuthenticated: true },
+        version: 1,
+      }),
+    )
+
+    const { createAsyncStorageTransport } = await import('../src/stores/storage-adapter')
+    const { tokenStore: realTokenStore } = await import('../src/lib/token')
+    const { createAuthStore: realCreateAuthStore } = await import('../../../packages/shared/src/stores/auth-store')
+    const rebooted = realCreateAuthStore({
+      tokenStore: realTokenStore,
+      userTransport: createAsyncStorageTransport(),
+      userPersistKey: PERSIST_KEY,
+    })
+    await new Promise((r) => setTimeout(r, 30))
+
+    const s = rebooted.getState()
+    // ① 读取不报错(rehydrate 走完了,ready 由 onRehydrateStorage 置真)
+    expect(s.ready).toBe(true)
+    // ② 残留的 isAuthenticated=true 不得复活:token 不在,登录态就是 false
+    expect(getToken()).toBeNull()
+    expect(s.token).toBeNull()
+    expect(s.isAuthenticated).toBe(false)
+    // ③ user 照常恢复(旧块不被整块丢弃 —— 不 bump version 的理由)
+    expect(s.user).toEqual({ id: 'u1', nickname: 'tester', avatar: '' })
+    // ④ 重启后的首次落盘被重写为新形态:isAuthenticated 从持久化面消失
+    s.setUser(USER)
+    await new Promise((r) => setTimeout(r, 30))
+    expect(Object.keys(persistedSnapshot()?.state ?? {})).toEqual(['user'])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
