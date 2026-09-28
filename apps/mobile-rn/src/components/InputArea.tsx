@@ -903,7 +903,7 @@ const styles = StyleSheet.create({
     right: -6,
     width: 18,
     height: 18,
-    borderRadius: 18 / 2, // radius-exempt: 缩略图删除角标正圆(18dp 直径/2)
+    borderRadius: 18 / 2,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1071,7 +1071,6 @@ const styles = StyleSheet.create({
   },
   voiceBar: {
     width: 3,
-    // radius-exempt: 3dp 宽录音竖条取近半宽只为圆头端点,不是"容器该取哪档";对侧同元素在 miniapp src/app.css 的 .voice-bar-animation .line 已带同形豁免
     borderRadius: rnRadius.xs,
     backgroundColor: tokens.danger.DEFAULT,
   },
@@ -1191,7 +1190,7 @@ const styles = StyleSheet.create({
   collapsedFab: {
     width: 56,
     height: 56,
-    borderRadius: 56 / 2, // radius-exempt: 折叠态 FAB 几何正圆(56dp 直径/2)
+    borderRadius: 56 / 2,
     backgroundColor: tokens.brand.cta, // 悬浮加号,前景在同一元素的 <Plus color={tokens.brand.ctaForeground}/>
     alignItems: 'center',
     justifyContent: 'center',
@@ -1209,7 +1208,7 @@ const styles = StyleSheet.create({
     right: INPUT_AREA_CONTROL_RIGHT_PX,
     width: 24,
     height: 24,
-    borderRadius: 24 / 2, // radius-exempt: 折叠态「×」钮几何正圆(24dp 直径/2),不得方档化
+    borderRadius: 24 / 2,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,

@@ -221,11 +221,11 @@ function createStyles(tk: AppThemeTokens) {
     backBtn: { marginRight: 12 },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     avatarWrap: { alignItems: 'center', paddingVertical: 16, gap: 8 },
-    avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: tk.surface.light }, // radius-exempt: 48x48 圆形头像,半径=边长一半
+    avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: tk.surface.light },
     avatarFallback: {
       width: 48,
       height: 48,
-      borderRadius: 24, // radius-exempt: 48x48 圆形头像兜底,半径=边长一半
+      borderRadius: 24,
       backgroundColor: tk.border.light,
       alignItems: 'center',
       justifyContent: 'center',

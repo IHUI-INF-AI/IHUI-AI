@@ -477,7 +477,7 @@ const createStyles = (tk: RnThemeTokens) =>
     userAvatar: {
       width: rpx(96),
       height: rpx(96),
-      borderRadius: rpx(48), // radius-exempt: 圆形头像,半径=宽高一半
+      borderRadius: rpx(48),
       backgroundColor: tk.surface.muted,
     },
     avatarFallback: {},
@@ -532,7 +532,7 @@ const createStyles = (tk: RnThemeTokens) =>
     avatar: {
       width: rpx(56),
       height: rpx(56),
-      borderRadius: rpx(28), // radius-exempt: 圆形头像,半径=宽高一半
+      borderRadius: rpx(28),
       backgroundColor: tk.surface.muted,
     },
     author: {
@@ -626,7 +626,7 @@ const createStyles = (tk: RnThemeTokens) =>
       bottom: rpx(64),
       width: rpx(104),
       height: rpx(104),
-      borderRadius: rpx(52), // radius-exempt: 圆形发布悬浮按钮,半径=宽高一半
+      borderRadius: rpx(52),
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

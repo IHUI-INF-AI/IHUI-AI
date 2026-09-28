@@ -1427,7 +1427,7 @@ button[data-state='closed']:focus-visible {
  * hover 槽位时显示半透明空心预览(引导可点击)。 */
 .ihui-breakpoint-glyph {
   background: hsl(0 72% 51%);
-  border-radius: 50%; /* radius-exempt: 11px 断点装饰红点,几何正圆 */
+  border-radius: 50%;
   margin-left: 7px;
   height: 11px;
   width: 11px;

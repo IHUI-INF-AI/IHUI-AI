@@ -73,7 +73,7 @@ const dotStyle = (
   left: '50%',
   marginLeft: toRpx(-dotSize / 2),
   marginTop: toRpx(-dotSize / 2),
-  borderRadius: '50%', // radius-exempt: 旋转加载装饰点正圆(指示点本体,非容器,不得方档化)
+  borderRadius: '50%',
   backgroundColor: color,
   transform: `rotate(${angle}deg) translateY(-${toRpx(radius)})`,
 })
