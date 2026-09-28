@@ -508,6 +508,16 @@
       "flowState": "{state, select, running {{count, plural, =0 {對話流執行中，暫無待處理工具} other {對話流執行中，已排程 {count} 個工具}}} paused {對話流已暫停} failed {執行失敗：<b>{reason}</b>}}"
     },
     "send": "發送",
+    "goal": {
+      "status": {
+        "active": "進行中",
+        "paused": "已暫停",
+        "blocked": "已阻塞",
+        "done": "已完成",
+        "usageLimited": "額度受限",
+        "budgetLimited": "預算受限"
+      }
+    },
     "terminal": {
       "waitingInput": "等待你的輸入",
       "promptLabel": "命令提示：{{prompt}}",
