@@ -158,7 +158,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     switchTrackOn: { backgroundColor: tk.success.DEFAULT },
     switchTrackOff: { backgroundColor: tk.text.tertiary },
-    switchThumb: { width: 20, height: 20, borderRadius: 20 / 2, backgroundColor: tk.surface.light }, // radius-exempt: Switch 拇指 20dp 见方,半径=边长一半为真圆(项目规则豁免)
+    switchThumb: { width: 20, height: 20, borderRadius: 20 / 2, backgroundColor: tk.surface.light },
     switchThumbOn: { alignSelf: 'flex-end' },
     switchThumbOff: { alignSelf: 'flex-start' },
     submitBtn: {

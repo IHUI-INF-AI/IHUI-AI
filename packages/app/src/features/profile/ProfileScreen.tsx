@@ -159,7 +159,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 56,
       height: 56,
-      borderRadius: 56 / 2, // radius-exempt: 用户头像几何正圆(56dp 直径/2)
+      borderRadius: 56 / 2,
       backgroundColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

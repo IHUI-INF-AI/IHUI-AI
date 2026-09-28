@@ -81,7 +81,7 @@ export function ColorfulLoader({
           {
             width: size,
             height: size,
-            borderRadius: size / 2, // radius-exempt: 装饰加载圆点几何正圆,恒取直径一半
+            borderRadius: size / 2,
             borderWidth: colorfuleLoaderRingBorderPx(size),
             borderColor: tokens.border.light,
             borderTopColor: tokens.brandAccent.deep,
