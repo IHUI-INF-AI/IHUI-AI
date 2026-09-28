@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   card: {
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.xl,
     padding: 12,
     shadowColor: tokens.gray.black,
     shadowOpacity: 0.1,

@@ -90,7 +90,7 @@ export default function TaskReceiverPageClient() {
           <button
             type="button"
             onClick={onCopyDeviceId}
-            className="rounded-md border border-border bg-card px-2 py-1 font-mono text-xs text-muted-foreground transition-colors hover:bg-muted"
+            className="rounded-sm border border-border bg-card px-2 py-1 font-mono text-xs text-muted-foreground transition-colors hover:bg-muted"
           >
             {t('deviceLabel')} {deviceId.slice(0, 8)}…
           </button>
@@ -146,7 +146,7 @@ export default function TaskReceiverPageClient() {
                         type="button"
                         onClick={() => onExecute(task)}
                         disabled={busyId === task.id}
-                        className="rounded-md bg-cta px-3 py-1 text-xs text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
+                        className="rounded-sm bg-cta px-3 py-1 text-xs text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
                       >
                         {busyId === task.id ? t('loading') : t('execute')}
                       </button>
@@ -155,7 +155,7 @@ export default function TaskReceiverPageClient() {
                       <button
                         type="button"
                         onClick={() => onDownload(task.id)}
-                        className="rounded-md border border-border px-3 py-1 text-xs transition-colors hover:bg-muted"
+                        className="rounded-sm border border-border px-3 py-1 text-xs transition-colors hover:bg-muted"
                       >
                         {task.filePayload.filename}
                       </button>

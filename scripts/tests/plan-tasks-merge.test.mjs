@@ -26,6 +26,7 @@ import {
 } from '../lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { buildBlockDedupe, healStopReasons, verifyBlockDedupe, buildMerge, __test__ } from '../plan-tasks-merge.mjs'
+import { forkPreserved } from '../lib/plan-merge-annotation.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const gitQ = (cwd, args) =>
@@ -88,7 +89,15 @@ test('T1 独立仓 A 臂:有分叉 ⇒ 产出恰好一枚只含计划文档的�
     if (r.code !== 0) throw new Error(`exit 应为 0,实得 ${r.code}:${r.out}`)
     if (!/自愈落地/.test(r.out)) throw new Error(`输出未点名落地:${r.out.trim()}`)
     const after = gitQ(env.dir, ['show', 'HEAD:PROJECT_PLAN.md'])
-    if (!after.includes('**[归并]**')) throw new Error('HEAD 里副本行未翻勾')
+    if (!after.includes('[归并]')) throw new Error('HEAD 里副本行未翻勾(注记缺失)')
+    // G-307(a):落地后的那一行必须仍是"正文逐字保留"的翻勾 —— 用与生产侧同一份剥取实现核对,
+    // 不在测试里抄第二份判据(§22c);它红 = 归并层产出了守门 71 会回捞的形态 = 循环复活。
+    const turned = after
+      .split('\n')
+      .find((l) => l.includes('D9 同一件事') && /^\s*- \[x\]/.test(l) && /\[归并\]/.test(l))
+    if (!turned) throw new Error(`找不到被翻勾的那一行:${after}`)
+    if (!forkPreserved('- [ ] **D9 同一件事**:另一侧还挂着未勾。', turned))
+      throw new Error(`翻勾行正文不再逐字相等 ⇒ 守门 71 将回捞未勾原行(循环输入):\n${turned}`)
     if (!after.includes('- [ ] **D8 真待办**:还没人做。')) throw new Error('真待办被误动')
     const nl = (s) => s.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n').length
     if (nl(after) !== nl(PLAN_A)) throw new Error(`行数发生变化(应一行不加不删):${nl(PLAN_A)} → ${nl(after)}`)
@@ -246,6 +255,35 @@ test('T10 落地调度锁:早退判据必须看见 F4b,结论数字必须回读�
 })
 
 /**
+ * G-307(a) 成对判据的镜像臂:两代注记形态都必须剥回同一份正文;而"整行替换/截断"的
+ * 产物必须被抓住。正向与反向各两条 —— 只有正向的判据等于没有判据(§22c)。
+ */
+test('T11 正文逐字保留:两代形态各一对正反例,判据与被测实现共用 lib 的同一份剥取', () => {
+  const BEFORE = '- [ ] G-9 一条待办:这段正文在翻勾与追加注记后必须逐字活着,不许截断。'
+  const NEW = __test__.rewriteFork(BEFORE, 'G-9#一条待办', '2026-09-28')
+  const LEGACY =
+    '- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-9 · 一条待办」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 G-9 一条待办:这段正文在翻勾与追加注记后必须逐字活着,不许截断。'
+  if (!forkPreserved(BEFORE, NEW)) throw new Error(`现行后置式被判截断:\n${NEW}`)
+  if (!forkPreserved(BEFORE, LEGACY)) throw new Error('legacy 前置式(HEAD 存量)必须同样判"正文保住"')
+  if (forkPreserved(BEFORE, NEW.slice(0, 30))) throw new Error('截断产物必须被抓住 ⇒ 判据无牙')
+  if (forkPreserved(BEFORE, LEGACY.slice(0, LEGACY.indexOf(' G-9 一条'))))
+    throw new Error('legacy 形态砍掉正文后必须判截断(只留注记空壳不算保住)')
+  // 生产形态锁:新翻勾行必须"正文在行首、注记在行尾",不得回到"注记整行替换正文"的旧形
+  if (!/^- \[x\] ✅\(2026-09-28\) G-9 一条待办/.test(NEW))
+    throw new Error(`翻勾行正文未留在行首:${NEW.slice(0, 50)}`)
+  if (!/（\[归并\] 本行.*）$/.test(NEW)) throw new Error('注记必须整体括在行尾全角括号里(短正文的标题切分依赖它)')
+  // 两闸都要装:healStopReasons(落地)与 verifyMerge(报告)必须都引 forkPreserved
+  const src = readFileSync(path.resolve(ROOT, 'scripts', 'plan-tasks-merge.mjs'), 'utf8')
+  for (const fn of ['healStopReasons', 'verifyMerge']) {
+    const seg = src.slice(src.indexOf(`export function ${fn}`), src.indexOf(`export function ${fn}`) + 2600)
+    if (!seg.includes('forkPreserved')) throw new Error(`${fn} 未接正文逐字判据 —— 只装一道闸,另一道将来会漂`)
+  }
+  // 反向锁:旧"整行替换"的产出形状不得回来(VERDICT_TAG 前置模板已删)
+  if (src.includes('**[${VERDICT_TAG}]**') || src.includes('。 ${body}'))
+    throw new Error('legacy 前置模板仍在某处生产新行 —— 守门 71 的循环会复活')
+})
+
+/**
  * T11 指针族的"判得到 ⇔ 修得了"必须成套,且出口一律不再产行号。
  * 立项凭据(2026-09-28 现读):HEAD 面 244 条 `另一条登记在 L<行号>` 是**本工具自己写的**,
  * 而 F3 当时只认 `存活于 L<行号>`(该族现读 0 条)⇒ 账面 F3=0、指针全在烂(§1 明文禁止行号指针)。
@@ -386,7 +424,14 @@ test('T13 --write-to 合法路径:真写出、内容就是归并后的候选文�
     if (!/候选文本已写到/.test(r.out)) throw new Error(`未宣称写到目标:${r.out.trim().slice(0, 200)}`)
     if (!existsSync(target)) throw new Error('宣称已写到而文件不在(打印与磁盘分叉)')
     const written = readFileSync(target, 'utf8')
-    if (!written.includes('**[归并]**')) throw new Error('写出的不是归并后的候选文本(副本行未翻勾)')
+    // 「翻勾注记长什么样」两侧各写了一份,按「同一想法只留一份」保留较新的一侧:
+    //   · 对侧这一行判的是**前置式** `**[归并]** …`(注记在正文之前);
+    //   · 本侧 G-307 已把注记迁到**行尾全角括号式** `（[归并] …）`、正文留在行首,并由上面那条
+    //     T11 加了反向锁禁止前置模板再生产新行(前置式正是守门 71 回捞循环那 24 枚恢复型提交的成因)。
+    // 判据的**意图**一字未松,反而更严:现在要求「已翻勾 + 当日日期 + 正文回到行首 + 归并注记成套」,
+    // 缺任一项即红。真待办未被吞、内容与输入不同、文档本体未被碰这三条断言逐字未动。
+    if (!/^- \[x\] ✅\(\d{4}-\d{2}-\d{2}\) \*\*D9 同一件事\*\*.*（\[归并\] 本行与已完成登记同题/m.test(written))
+      throw new Error('写出的不是归并后的候选文本(副本行未翻勾)')
     if (!written.includes('- [ ] **D8 真待办**:还没人做。')) throw new Error('真待办被吞')
     if (written === PLAN_A) throw new Error('内容与输入逐字相同 ⇒ 什么都没归并')
     if (readFileSync(path.join(env.dir, 'PROJECT_PLAN.md'), 'utf8') !== PLAN_A) throw new Error('写候选文本却碰了文档本体')

@@ -17,7 +17,7 @@ export function SpecCodegenTab({ p }: { p: SpecPanelApi }) {
           onClick={p.handleApply}
           disabled={p.applyLoading}
           className={cn(
-            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-xs font-medium transition-colors',
             'bg-cta text-cta-foreground hover:bg-cta/90',
             p.applyLoading && 'cursor-not-allowed opacity-60',
           )}
@@ -35,7 +35,7 @@ export function SpecCodegenTab({ p }: { p: SpecPanelApi }) {
             onClick={p.handleApplyConfirm}
             disabled={p.confirmLoading}
             className={cn(
-              'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md border border-border bg-background px-3 text-xs text-foreground hover:bg-muted/60',
+              'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm border border-border bg-background px-3 text-xs text-foreground hover:bg-muted/60',
               p.confirmLoading && 'cursor-not-allowed opacity-60',
             )}
           >
