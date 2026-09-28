@@ -11,6 +11,7 @@
     "name": "filesystem",            # 唯一标识(与 stdio 热挂载名一致,2026-09-02 起用 key
                                      # 而非 mcp:{key}——bridge 名校验禁冒号)
     "key": "filesystem",             # 目录条目 key
+    "owner_user_id": "42",           # 安装者(承载层注入的令牌主体);"" = 存量/部署级,见 can_mutate
     "transport": "stdio",
     "command": "npx",
     "args": [...],
@@ -21,6 +22,12 @@
     "tool_count": 0,
     "last_error": ""
   }
+- **启停/卸载的归属判据(2026-09-29 落,G-371 格②)**:安装记录今天全站可见(它挂的是进程级
+  stdio 工具池,不是个人配置),但**改它**必须有归属:只有安装者能 enable/disable/uninstall。
+  装到一半还能把别人的 `env` 整条覆盖掉的那一支(`install` 复用同名记录)同样按归属挡。
+  存量记录没有属主键 ⇒ `can_mutate` 对 `owner == ""` **维持改动前行为**(任何已登录主体可改),
+  这是**回退不是结论**:它只保证"这一枚提交不会把谁已经能做的事变成不能做",收紧的前置是
+  先由人把存量逐条认领(出口同 `scripts/backfill_connector_owner.py` 那一型)。
 - 读写失败降级:读失败返回空列表/None,写失败返回 False,不抛异常不崩服务
 - 进程内加锁防止并发写坏文件(跨进程并发不在本模块职责内)
 """
@@ -32,6 +39,8 @@ import threading
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from .connector_store import OWNER_FIELD as OWNER_FIELD  # 显式 re-export:属主键名只有一份定义
 
 # apps/ai-service/data/mcp_store.json(父目录不存在时自动创建)
 _STORE_PATH = Path(__file__).resolve().parents[2] / "data" / "mcp_store.json"
@@ -137,4 +146,27 @@ def set_enabled(name: str, enabled: bool) -> dict[str, Any] | None:
                     return dict(rec)
                 return None
     return None
+
+
+def owner_of(name: str) -> str | None:
+    """该安装记录的属主;"" = 存量/部署级;未安装返回 None。"""
+    rec = get_installed(name)
+    if rec is None:
+        return None
+    return str(rec.get(OWNER_FIELD) or "")
+
+
+def can_mutate(name: str, caller_user_id: str) -> bool:
+    """当前主体能否启停/卸载/覆盖这条安装记录 —— **唯一一份判据**,端点不得各写一遍。
+
+    三态:未安装 ⇒ False(调用方回 404);`owner == ""` ⇒ True(**回退档**,存量无属主
+    只能维持改动前的行为,收紧要先有人认领);其余 ⇒ 只有安装者可改。
+    返回值不区分"不是你的"与"没这条"是本模块的选择,但**这一面刻意区分**:商店列表全站
+    可见(它反映的是进程级工具池),所以再对详情装同形只会与列表自相矛盾 —— 与外部 server
+    那三支同形与否,按各自清单是否泄露存在性判,不套同一个模板。
+    """
+    owner = owner_of(name)
+    if owner is None:
+        return False
+    return owner == "" or owner == caller_user_id
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
