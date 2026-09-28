@@ -124,8 +124,21 @@ vi.mock('../src/db/index.js', () => ({
   dbRead: { select: vi.fn() },
 }))
 
+// G-727:v1-public 的占用改走 acquireUserConcurrencyForResponse(占用即登记 + 幂等释放闩)。
+// mock 必须提供那一出口,否则路由拿到 undefined ⇒ TypeError,本测试整片打挂。
 vi.mock('../src/services/user-concurrency-service.js', () => ({
-  tryAcquireUserConcurrency: vi.fn(() => ({ ok: true, current: 1, limit: 10 })),
+  tryAcquireUserConcurrency: vi.fn(() => ({
+    ok: true,
+    current: 1,
+    limit: 10,
+    release: vi.fn(),
+  })),
+  acquireUserConcurrencyForResponse: vi.fn(() => ({
+    ok: true,
+    current: 1,
+    limit: 10,
+    release: vi.fn(),
+  })),
   releaseUserConcurrency: vi.fn(),
 }))
 
