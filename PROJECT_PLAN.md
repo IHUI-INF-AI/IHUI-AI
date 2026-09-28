@@ -6866,6 +6866,24 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
     去会话归属 ⇒ 2 例红、去作用域包裹 ⇒ 围栏 1d 红),还原均 `cmp` 逐字节一致;mypy/ruff 0 错。
     **这一格值得留下的不是漏洞而是形状**:签名收紧 + 一条只看单文件的判据,合起来会把"同一身份
     的第二条通道"完整漏掉而账面全绿 —— 覆盖面必须由枚举给出,不能由立项时想到的那几个文件给出。
+- [ ] G-740 **relay `POST /continue/{thread_id}` 派生的新线程不继承属主 —— 一条常驻回归在干净 HEAD 上恒红(2026-09-29 现读;归属:relay/session_store 那笔在飞改动,不是新功能)**:
+    症状是 `tests/test_thread_identity_immutable.py::test_relay_continue_inherits_owner` 红,报
+    `app/routers/relay.py:60` 抛 `404: thread 不存在`;其余 9 例全绿。
+    **归属是靠 A/B 量出来的,不是猜的**:同一枚测试在当下 HEAD 与在本波第一枚提交之前那枚提交
+    (`ec62ba30a8`,用 `git worktree add --detach` 建干净检出、拿主树 venv 的 python 跑,用完即
+    `git worktree remove --force`)上**都是同一条红** ⇒ 与本波 G-371 的四拍板提交无关。
+    根因现读两处:`git show HEAD:apps/ai-service/app/routers/relay.py | grep -c carry_engine_owned_keys`
+    = 0 且 `git show HEAD:apps/ai-service/app/services/session_store.py` 同样 = 0,即 relay 已经挂上
+    了 `_owned_thread`(别人的会话与"不存在"同形 404,这是对的),但 `/continue/{id}` **派生新线程时
+    没把属主带过去**,于是新线程无主 ⇒ 下一步按属主校验就 404。
+    **等的是谁**:另一会话此刻正把工作树版 `session_store.py` 里那 +78 行 `carry_engine_owned_keys`
+    在飞(该文件 `git status` 为 ` M`,按 §12 归属纪律我不碰、不代落、不重实现)。
+    落地判据(谁做谁自验):`pytest tests/test_thread_identity_immutable.py -q -o addopts=""` 末行
+    `10 passed`,且**正向对照必须保留** —— 只把测试改绿(例如放宽断言或删掉那一例)等于制造第二张
+    合格证,本仓"把没判写成判过了"是同一条禁令。
+    顺带登记一条**别再照抄的旧口径**:`relay.py` 头注写着"本模块四个端点此前一个身份依赖都没挂",
+    那描述的是**它自己立项时**的状态;现在四个端点里三个已挂属主闸,剩那一格就是本条 —— 按旧注
+    派单会去找已经不存在的洞。
 - [ ] G-391 **守门 37 的两格已知盲区(2026-09-28 随 G-225 出路②落地时如实登记,等下一票做,不是遗漏)**:① **取材面仍是磁盘/暂存,未迁 HEAD blob 口径** —— 本仓 §12e/守门 118 那族要求"全量判 HEAD blob、`--staged` 判索引 blob、两面旗同给判死、取不到判未判定",而 37 仍按工作树内容判;后果是共享工作树滞后 HEAD 时同一份代码在恒红/假绿之间来回跳(与守门 83 的 R3 登记被整文件回退三次同型)。迁移时要连 `[CALLER]` 的枚举面一起改(清单来自索引而内容来自磁盘 = 自洽却错位的尺子)。② **调用侧只判 JS/TS 系**:`.ps1/.sh/.bat/.vbs` 里的调用点结构上不判(`code-mask` 不认其注释语法,套上去就会把门自己头注里的例子判成违规)。补这一族需要的是各语言的遮噪语义,不是放宽判据。③ 另附一条当轮外因:全量档现 RC=1 的红点来自仓库根那个**未跟踪**的 `.nav-probe/fix-rdp-online.ps1`(他人现场,按 §12 只报不删),它让这道门的全量档对谁都红 —— 归属该目录持有人处置。
 - [ ] 重启宿主/开机后 `%TEMP%` 才会真指 `D:\DevEnv\Temp`;在此之前任何未接 `scratch-dir` 的 〔【归并】重复登记副本(2026-09-28):逐字相同的另一条登记在 L5733(本行无编号主键),派单以那条为准,本行不再单独派单。〕
 - [ ] O19b 剩余 4 列**故意不并**,各有明确理由:① `users/projects/files.search_vector` 是触发器自管的 tsvector 列(drizzle 0.38 无该类型,且 ORM 绝不该写触发器属主列),并回会让 `drizzle-kit generate` 把它们变成可写列 ⇒ **永久豁免**;② `ai_model_config_models.metadata` 与 TS 里已声明的 `extraMetadata` **语义撞车**(两个 jsonb 自由袋,迁移侧还各带一个 GIN 索引),仓内没有"哪个是权威"的证据 ⇒ 需 owner 拍板,不猜。另:`oauth_apps` 无任何外键引用(实测),而本条排查中发现迁移文件被并行会话改动会让"按 hash 判未应用"误报(须按 journal 序号界定)。 〔【归并】重复登记副本(2026-09-28):同主键的另一条登记 「O19b」,派单以那条为准,本行不再单独派单。〕
