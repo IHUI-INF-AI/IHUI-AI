@@ -11,16 +11,23 @@
  * 并且**任何一条零损失断言不过 ⇒ 整批不落**。
  */
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, it } from 'node:test'
 
+import { git as bypassGit } from '../lib/bypass-git.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   KNOWN_FLAGS,
+  buildOpenRowDedupe,
   buildRowDedupe,
+  findOpenRowRefusals,
+  findOpenRowTwins,
   findRowTwins,
   inspectArgs,
+  openRowsDedupeAndLand,
+  verifyOpenRowDedupe,
   verifyRowDedupe,
 } from '../plan-tasks-merge.mjs'
 
@@ -205,6 +212,186 @@ describe('第④条:注记判"种类是否整类消失",不判"份数有没有�
     assert.ok(!/after\.mergeNotes\s*<\s*before\.mergeNotes/.test(fn), '又按份数比判了 —— 孪生指针行一删就恒拒')
     assert.ok(/countMergeNotes\(distinct\(/.test(fn), '第④条必须走"去重后的种类"这把同源尺子(且复用 lib 那一份 countMergeNotes)')
     assert.match(SRC, /import \{[\s\S]*?\bcountMergeNotes\b[\s\S]*?\} from '\.\/lib\/plan-task-index\.mjs'/)
+  })
+})
+
+// ══ R5 未勾单行等值副本档(G-741,2026-09-29 立)════════════════════════
+// 上面那一档的第①条门槛写死了 `^- \[x\]`,于是**未勾选**的逐字孪生行到今天仍无任何出口:
+// F1 要两态并存、F4 的处置是"加指针不删行"(加完两份都带同一句指针 ⇒ 行仍在)、F4b 刻意排除带指针
+// 与有主键的行、F6 只认 ≥3 行连续块、守门 71 只防丢不防重。真仓 HEAD 现读 220 组 / 1148 份,
+// 而后果不是难看是功能被卡死:任何按该行内容定位的自动动作都按"锚点命中≠1 不猜"拒绝插入。
+// 本档比已完成档**多一道第⑤条门槛**(必须已带「【归并】重复登记副本」指针)—— 那一条把
+// "什么算副本"这一问交还给尺子自己的 claimable 排除,并由第⑥条"活数一枚不少"当场反证。
+const O_TWIN =
+  '- [ ] **G-900 未勾等值副本**:〔【归并】重复登记副本 2026-09-29·派单以另一条为准〕三份逐字相同的未勾选副本,长度越过噪声阈。'
+const O_NOPTR =
+  '- [ ] **G-901 未带指针的等值孪生**:两份逐字相同 —— 那一族是 F4/F4b 的当次活账,出口是 --heal 加注记,本档不得删。'
+const O_DRA = '- [ ] **G-902 同主键漂移**:第一段正文,长度足够越过噪声阈以便证明它不是被长度筛掉的。'
+const O_DRB = '- [ ] **G-902 同主键漂移**:第二段正文,与甲同复合主键而正文不同 ⇒ 机器折半即有损,必须交人工。'
+const O_SHORT = '- [ ] G-903 短〔【归并】重复登记副本〕'
+const O_IND =
+  '  - [ ] G-904 缩进的未勾副本〔【归并】重复登记副本〕长度足够越过噪声阈,所以它不是被长度筛掉而是被顶层判据筛掉的。'
+
+const openFixture = () =>
+  ['# 台账', '', O_TWIN, O_TWIN, O_TWIN, O_NOPTR, O_NOPTR, O_SHORT, O_SHORT, O_DRA, O_DRB, O_IND, O_IND, ''].join('\n')
+
+describe('R5 判据第⑤条(指针)是本档唯一的安全论据', () => {
+  it('五条件同时成立才纳组:未勾选 ∧ 顶层 ∧ ≥40 ∧ 逐字相同 ∧ 已带重复登记指针', () => {
+    const g = findOpenRowTwins(openFixture())
+    assert.equal(g.length, 1, `应只命中 1 组,实得 ${g.length}`)
+    assert.equal(g[0].copies, 3)
+    assert.equal(g[0].line, O_TWIN)
+  })
+
+  it('已完成行一律不纳(那是 --dedupe-rows 的地盘,两档不得互相顶名额)', () => {
+    const src = ['# t', DONE_A, DONE_A, ''].join('\n')
+    assert.equal(findOpenRowTwins(src).length, 0, '未勾档吃掉已完成行 = 同一对孪生被两把尺子各折一遍')
+    assert.equal(findRowTwins(src).length, 1, '已完成那一族仍由原档负责,原判据一字未动')
+  })
+
+  it('三态各自报名,绝不静默成一桶:可删 / 交 --heal / 交人工', () => {
+    const ref = findOpenRowRefusals(openFixture())
+    assert.equal(ref.noPointer.length, 1, '未带指针的等值孪生必须点名(它的出口是 --heal,不是删)')
+    assert.equal(ref.drifted.length, 1, '同主键而正文已漂开必须点名交人工')
+    assert.ok(ref.drifted[0].at.length === 2, '漂移组必须报到行级,否则拿到数字的人无从定位')
+    const r = buildOpenRowDedupe(openFixture())
+    assert.ok(r.text.includes(O_NOPTR) && r.text.includes(O_DRA) && r.text.includes(O_DRB), '两族刻意不删的一份都不许少')
+  })
+
+  it('短行/缩进两个噪声阈照旧有牙(与已完成档同形)', () => {
+    assert.equal(findOpenRowTwins([O_SHORT, O_SHORT, ''].join('\n')).length, 0)
+    assert.equal(findOpenRowTwins([O_IND, O_IND, ''].join('\n')).length, 0)
+  })
+})
+
+describe('R5 四条零损失断言各配一条"故意做坏必须拒"', () => {
+  const src = openFixture()
+  const r = buildOpenRowDedupe(src)
+
+  it('纯删除 ⇒ 全过,且删的是第 2..N 份、保留首次出现', () => {
+    assert.equal(r.deletedCount, 2)
+    assert.deepEqual(r.removed.map((x) => x.at), [4, 5])
+    assert.deepEqual(verifyOpenRowDedupe(src, r.text, r.deletedCount, null, r.droppedLines), [])
+    assert.equal(r.text.split('\n').filter((l) => l === O_TWIN).length, 1)
+  })
+
+  it('①漏保留行 ⇒ 必拒(删掉唯一幸存份等于把这条活从台账抹了)', () => {
+    const lost = r.text.split('\n').filter((l) => l !== O_TWIN).join('\n')
+    assert.ok(verifyOpenRowDedupe(src, lost, r.deletedCount, null, r.droppedLines).some((p) => p.includes('一份都不剩')))
+  })
+
+  it('②多删一行(吃掉一条真待办)⇒ 必拒,且第⑥条"活数不变"必须真的会响', () => {
+    const over = r.text.replace(`${O_DRA}\n`, '')
+    assert.equal(over.split('\n').length, r.text.split('\n').length - 1, '夹具必须真的多删了一行')
+    const problems = verifyOpenRowDedupe(src, over, r.deletedCount, null, r.droppedLines)
+    assert.ok(problems.length > 0, '多删一行必须被拦住')
+    assert.ok(problems.some((p) => p.includes('活数') || p.includes('逐行等值')), `拦截理由必须落在活数/逐行等值上,实得:${problems.join('|')}`)
+  })
+
+  it('③产物含新增行 ⇒ 必拒(只断"不删"会造出重复行而账面全绿)', () => {
+    const grown = `${r.text}\n- [ ] 凭空新增的一行待办,长度足够越过噪声阈以便证明它不是被长度筛掉的。`
+    assert.ok(verifyOpenRowDedupe(src, grown, r.deletedCount, null, r.droppedLines).some((p) => p.includes('新增')))
+    // 同值被"重放式追加" ⇒ 走的是"无值变多"那一臂(src 里只有一份,产物里变两份)
+    assert.ok(verifyOpenRowDedupe(src, `${r.text}\n${O_DRA}`, r.deletedCount, null, r.droppedLines).some((p) => p.includes('变多')))
+  })
+
+  it('④行数减少量 ≠ 声明删除量 ⇒ 必拒(声明与产物必须互相咬合)', () => {
+    assert.ok(verifyOpenRowDedupe(src, r.text, r.deletedCount + 1, null, r.droppedLines).some((p) => p.includes('行数差')))
+  })
+
+  it('幂等:清完之后第二次必须报"无可归并"而不是重复删除', () => {
+    assert.equal(findOpenRowTwins(r.text).length, 0, '一次清理后仍有副本 ⇒ 实现漏了一份')
+    assert.equal(buildOpenRowDedupe(r.text).deletedCount, 0)
+  })
+})
+
+describe('R5 端到端(独立临时仓,拿真 git 问 HEAD)', () => {
+  /** 造一枚只含 PROJECT_PLAN.md 的临时仓;夹具 = 3 份逐字相同 + 1 对同主键漂移。 */
+  function makeRepo(text) {
+    const dir = mkScratch('g741-e2e-')
+    try {
+      bypassGit(['init', '-q', '.'], { root: dir })
+      bypassGit(['config', 'user.email', 'e2e@example.invalid'], { root: dir })
+      bypassGit(['config', 'user.name', 'e2e-fixture'], { root: dir })
+      writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), text, 'utf8')
+      bypassGit(['add', 'PROJECT_PLAN.md'], { root: dir })
+      bypassGit(['commit', '-q', '-m', 'seed'], { root: dir })
+      return dir
+    } catch (e) {
+      rmScratch(dir)
+      throw e
+    }
+  }
+  const showHead = (dir) => bypassGit(['show', 'HEAD:PROJECT_PLAN.md'], { root: dir, raw: true })
+
+  it('只删第 2..N 份、漂移那一对原地不动、提交只含台账、工作树不被触碰', () => {
+    const dir = makeRepo(openFixture())
+    try {
+      const head0 = bypassGit(['rev-parse', 'HEAD'], { root: dir })
+      assert.equal(openRowsDedupeAndLand(null, 8, { root: dir }), 0, '落地必须返回 0')
+      assert.notEqual(bypassGit(['rev-parse', 'HEAD'], { root: dir }), head0, 'HEAD 必须前进一枚')
+      const after = showHead(dir)
+      assert.equal(after.split('\n').filter((l) => l === O_TWIN).length, 1, '三份等值副本必须只留一份')
+      assert.ok(after.includes(O_DRA) && after.includes(O_DRB), '漂移副本一份都不许动')
+      assert.ok(after.includes(O_NOPTR), '未带指针的等值孪生必须整族留在面上')
+      assert.equal(bypassGit(['show', '--name-only', '--format=', 'HEAD'], { root: dir }), 'PROJECT_PLAN.md', '落地提交只允许含台账一个路径')
+      // 底稿取被审面(HEAD blob),工作树那份不许被本档改写 —— 它是别人的现场
+      assert.ok(bypassGit(['status', '--porcelain'], { root: dir }).includes('PROJECT_PLAN.md'), '临时仓的工作树副本保持原样(不 checkout)')
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  it('第二次连跑:报"无可归并"且不得再产提交(计数一律按当次 HEAD 现算)', () => {
+    const dir = makeRepo(openFixture())
+    try {
+      assert.equal(openRowsDedupeAndLand(null, 8, { root: dir }), 0)
+      const head1 = bypassGit(['rev-parse', 'HEAD'], { root: dir })
+      assert.equal(openRowsDedupeAndLand(null, 8, { root: dir }), 0, '第二次也必须 rc=0(无话可说不是失败)')
+      assert.equal(bypassGit(['rev-parse', 'HEAD'], { root: dir }), head1, '第二次不得造出空提交')
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  it('只有漂移族/只有未带指针孪生时:rc=0 且 HEAD 一步不前进(不得为"看起来修过"造提交)', () => {
+    const dir = makeRepo(['# 台账', '', O_DRA, O_DRB, O_NOPTR, O_NOPTR, ''].join('\n'))
+    try {
+      const head0 = bypassGit(['rev-parse', 'HEAD'], { root: dir })
+      assert.equal(openRowsDedupeAndLand(null, 8, { root: dir }), 0)
+      assert.equal(bypassGit(['rev-parse', 'HEAD'], { root: dir }), head0, '没有可折的副本就不该有提交')
+    } finally {
+      rmScratch(dir)
+    }
+  })
+})
+
+describe('R5 装车证明与形状锁', () => {
+  it('--dedupe-open-rows 进旗标白名单(否则 inspectArgs 把它当未知参数整条拒收)', () => {
+    assert.ok(KNOWN_FLAGS.includes('--dedupe-open-rows'), '未进 KNOWN_FLAGS ⇒ 该档结构上跑不起来')
+    const { unknown } = inspectArgs(['--dedupe-open-rows', '--match', '某段原文锚点', '--commit'])
+    assert.deepEqual(unknown, [])
+  })
+
+  it('主档必须真的接上落地函数,且 --commit 才动手;非 HEAD 面一律拒绝落地', () => {
+    assert.match(SRC, /return openRowsDedupeAndLand\(match, 8, \{ root: ROOT, allowMass: has\('--allow-mass'\) \}\)/)
+    assert.match(SRC, /if \(!has\('--commit'\)\)[\s\S]{0,200}return openRowsDedupeAndLand/)
+    assert.match(SRC, /selO\.face !== 'head'[\s\S]{0,600}return 2/, '索引/工作树面只许出报告,拒落地(§12 污染型)')
+  })
+
+  it('落地只走 lib/bypass-git 那一份 plumbing(同一套代码本仓手写过 6 份并漂开)', () => {
+    const body = SRC.slice(SRC.indexOf('export function openRowsDedupeAndLand'), SRC.indexOf('// ── 同题不同编号的孪生登记折叠档'))
+    assert.ok(body.length > 800, '取不出本档落地函数体 ⇒ 这条锁对着空气判绿')
+    assert.ok(!/commit-tree|read-tree|update-index/.test(body), '本档内不得再自派生 plumbing 命令')
+    assert.ok(/commitTreeWithIndex\(\{/.test(body) && /casUpdateRef\(/.test(body) && /alignSharedIndex\(\{/.test(body), '三个出口必须都用上')
+    assert.ok(/catBatch\(root,/.test(body), '底稿必须经 face-reader 按 root 取被审面(不得 readFileSync 工作树)')
+    assert.ok(!/readFileSync\(/.test(body), '落地函数里出现 readFileSync = 把滞后的工作树当判定输入')
+  })
+
+  it('两档共用同一份零损失核(出现第二份断言实现就红,不靠人记得同步)', () => {
+    assert.match(SRC, /export function verifyRowDedupeCore\(/)
+    assert.match(SRC, /verifyRowDedupeCore\(srcText, outText, deletedCount, match, findRowTwins\)/)
+    assert.match(SRC, /verifyRowDedupeCore\(srcText, outText, deletedCount, match, findOpenRowTwins\)/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
