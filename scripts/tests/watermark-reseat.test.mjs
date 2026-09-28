@@ -26,7 +26,13 @@ import { join } from 'node:path'
 import test from 'node:test'
 
 import { mkScratch } from '../lib/scratch-dir.mjs'
-import { isInvisibleMarkLine, stripWatermarkStructure } from '../lib/watermark-lines.mjs'
+import { decideBanner } from '../object-space-land.mjs'
+import {
+  hasExactCanonicalBanner,
+  hasVisibleCopyright,
+  isInvisibleMarkLine,
+  stripWatermarkStructure,
+} from '../lib/watermark-lines.mjs'
 
 const REPO = join(import.meta.dirname, '..', '..')
 const WM = join(REPO, 'scripts', 'watermark.mjs')
@@ -37,6 +43,8 @@ const src = (f) => readFileSync(f, 'utf8')
 // 夹具里的"隐写行"一律从**真实注入产物**取(见 realTailLine),源码里不落任何零宽字符:
 // 写进源码 = 本测试文件自己多出几份载荷,而"说明用的文字带着执行用的字符"是本仓记过的陷阱形态。
 const ZW_ANY = new RegExp('[' + String.fromCodePoint(0x2060, 0x200b, 0x200c, 0x200d) + ']')
+// 一条形态完整、可解码的隐写载荷(从真注入产物取,见 realTailLine 之外这里需要一个常量级样本)
+const ZW_MARK = String.fromCodePoint(0x2060, 0x200b, 0x200b, 0x2060)
 
 const inject = (absPath, extra = []) =>
   execFileSync(process.execPath, [WM, 'inject', ...extra, absPath], {
@@ -208,3 +216,86 @@ test('T6 真仓阳性对照:HEAD 面上那种"无横幅而带隐写"的形态必
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('T7 可见横幅判据必须容忍标点漂移(逐字比会把 5 份署名完好的文件报成无署名)', () => {
+  const okJs = [
+    '# x',
+    '// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top',
+    '// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。',
+  ].join('\n')
+  // 实测形态:apps/ai-service/** 的 Python 横幅收尾是 ASCII 句点,而 JS 侧是ideo graphic 句点。
+  const okPy = [
+    '# x',
+    '# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top',
+    '# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE).',
+  ].join('\n')
+  const none = ['# x', `// ${ZW_MARK}`, ''].join('\n')
+  assert.ok(hasVisibleCopyright(okJs), 'JS 形态必须算有署名')
+  assert.ok(
+    hasVisibleCopyright(okPy),
+    'Python 形态(句点不同)也必须算有署名 —— 逐字比会在这里产假阳',
+  )
+  assert.ok(!hasVisibleCopyright(none), '只剩载荷行不算署名(这正是本态要抓的形态)')
+  assert.ok(
+    hasExactCanonicalBanner(okJs) && !hasExactCanonicalBanner(okPy),
+    '逐字档必须只认 JS 文案,它的作用是区分"本来就对"与"这次修对的"',
+  )
+})
+
+test('T8 落地器水幕判据:五态成对,修复必须放行而抹除仍然判红', () => {
+  const BASE_OK = [
+    '// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top',
+    '// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。',
+    '正文',
+  ].join('\n')
+  assert.equal(
+    decideBanner({ baseText: BASE_OK, newText: BASE_OK }).verdict,
+    'kept',
+    '未触碰 ⇒ kept',
+  )
+  assert.equal(
+    decideBanner({ baseText: BASE_OK, newText: '正文' }).verdict,
+    'broken',
+    '基线有署名而构造内容没有 ⇒ 必须拒落',
+  )
+  assert.equal(
+    decideBanner({ baseText: `// ${ZW_MARK}\n正文`, newText: BASE_OK }).verdict,
+    'repaired',
+    '基线只剩载荷行而构造内容补回署名 ⇒ 这是修复,拦它就是拦住本票自己要做的动作',
+  )
+  assert.equal(
+    decideBanner({ baseText: '# 新文件\n正文', newText: '# 新文件\n正文' }).verdict,
+    'note',
+    '两边本来就没有署名 ⇒ 不逼它长出,也不静默算过',
+  )
+  assert.equal(
+    decideBanner({
+      baseText: BASE_OK,
+      newText: [
+        '// © 2027 IHUI AI (智汇AI) · 别人',
+        '// Provenance-watermarked. 改了字',
+        '正文',
+      ].join('\n'),
+    }).verdict,
+    'broken',
+    '两边都有署名而横幅文字被换 ⇒ 改写横幅文字这一格不让步',
+  )
+})
+
+test('T9 形状锁:横幅文案不许被任何消费者抄第二份(它们各自的横幅不算)', () => {
+  const LINES = '© 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top'
+  // 每个受水印保护的文件**自己**的横幅里就有这一行,所以"出现过"不等于"抄了一份"。
+  // 真正的判据是:只许出现在文件自己的水印块里(前 4 行),且总共只出现一次。
+  for (const f of [WM, ARCHIVER, join(REPO, 'scripts', 'object-space-land.mjs')]) {
+    const s = src(f)
+    const at = s.indexOf(LINES)
+    if (at < 0) continue // 未注入(测试夹具/新文件)也合规 —— 它本来就不该自己写文案
+    assert.ok(at === s.lastIndexOf(LINES), '不得出现第二份:' + f)
+    assert.ok(
+      s.slice(0, at).split(String.fromCharCode(10)).length <= 4,
+      '只许落在文件自己的水印块内(前 4 行):' + f,
+    )
+    assert.match(s, /watermark-lines.mjs/, '三个消费者都必须走那份 lib:' + f)
+  }
+  assert.ok(src(LIB).includes(LINES), '文案本体必须在 lib 里(否则"唯一实现"是句空话)')
+})
