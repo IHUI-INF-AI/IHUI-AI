@@ -19,38 +19,59 @@
  *  ⑦ 审计的库清单读自 runner 的 $backupDatabases:解析不出 ⇒ **未判定**,绝不静默退回单库;
  *    判据有牙用真仓 runner 原文当正例(§22c"夹具只复读实现就是复读机"),并用一份 fixture runner
  *    的 A/B(同一套夹具,唯一差别是有没有那行)证明红来自那一行而不是管道。
- *  ⑧ 统计**按库分开**:小库(0.2 MB 量级)的档不得被大库的中位数判成"骤缩";缺席判定 likewise 逐库。
+ *    G-297 又把"退回单库"这最后一格堵死:源码里不得存在任何默认库名(掩码后的源码级反向锁)、
+ *    空清单(含测试通道注入的空数组)一律按未判定处理、审计面为空时逐日一律 UNAUDITED 且目录里的
+ *    疑似备份档必须带数量报名 —— "没看着"既不许写成 ok 也不许悄悄消失。
+ *  ⑧ 统计**按库分开**:小库(0.2 MB 量级)的档不得被大库的中位数判成"骤缩";缺席判定 likewise 逐库,
+ *    并含一条主案正例(两个库 + 大小差两个数量级 + 小库缺一天 ⇒ 点名小库、大库齐不得顶成满分)。
  *  ⑨ 新库不得造出追溯性假红:起判日派生自目录实存,起判之前的日子记 PRE_START
- *    (既不算缺席、也不算齐),而起判之后缺一天 ⇒ 必须 MISSING。
+ *    (既不算缺席、也不算齐),而起判之后缺一天 ⇒ 必须 MISSING;起判日必须写进人读报告。
+ * ⑩ 量不到的每一格(表数 / 代表档大小 / 骤缩邻日)都要点名到"日子 + 原因",不得静默算通过。
+ * ⑪ --json 输出必须真能被 JSON.parse,且 --strict 与默认档只差退出码、判读逐字相同。
+ * ⑫ --self-test 是一条真出路(指向镜像测试)而不是一枚空开关。
  * 外加两条反向锁:FOREIGN 归属它自己那个库(不得替别的库作证)、逐日 rollup 不得让 ok 盖掉 MISSING。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as A } from '../pg-backup-cadence-audit.mjs'
 
 const TODAY = '20260927'
 const WINDOW = A.enumerateWindow(TODAY, 7)
+/** 测试夹具用的一台库名。刻意放在**测试**里而不是源码里 —— 源码不留默认库(G-297 的正身) */
+const MAIN = 'ihui_dev'
+const MAIN_ONLY = [MAIN]
 
 /** 构造"文件"记录(纯数据,决策层只吃这些);dbs 只用于分类,不进记录 */
-function f(name, { dbs, ...over } = {}) {
+function f(name, { dbs = MAIN_ONLY, ...over } = {}) {
   const cls = A.classifyFileName(name, dbs)
   return { name, family: cls.family, db: cls.db, ymd: cls.ymd, hms: cls.hms, stamp: (cls.ymd || '') + (cls.hms || ''), size: 90_000_000, verdict: 'complete', reasons: [], ...over }
 }
-const dumpName = (ymd, hms = '030003') => `ihui_dev_${ymd}_${hms}.dump`
+const dumpName = (ymd, hms = '030003') => `${MAIN}_${ymd}_${hms}.dump`
 
 // ──────────────────────────── ① 命名族识别 ────────────────────────────
 
 test('家族分类:下划线族=每晚链、连字符族=旁生产者、.sql.gz=旧形态、其余不相关', () => {
-  assert.equal(A.classifyFileName(dumpName('20260927', '030003')).family, 'dump')
-  assert.equal(A.classifyFileName('ihui-dev-20260924-073532.dump').family, 'dump-foreign')
-  assert.equal(A.classifyFileName('ihui_dev-20260906-065559.sql.gz').family, 'sqlgz')
-  assert.equal(A.classifyFileName('backup.log').family, 'unrelated')
-  assert.equal(A.classifyFileName('pg_hba.conf.pre-admin-20260925-031645').family, 'unrelated')
-  // 不传清单 ⇒ 兜底只认 ihui_dev ⇒ keycloak 的档仍是 unrelated(它曾这样静默消失在每一条序列之外)
+  assert.equal(A.classifyFileName(dumpName('20260927', '030003'), MAIN_ONLY).family, 'dump')
+  assert.equal(A.classifyFileName('ihui-dev-20260924-073532.dump', MAIN_ONLY).family, 'dump-foreign')
+  assert.equal(A.classifyFileName('ihui_dev-20260906-065559.sql.gz', MAIN_ONLY).family, 'sqlgz')
+  assert.equal(A.classifyFileName('backup.log', MAIN_ONLY).family, 'unrelated')
+  assert.equal(A.classifyFileName('pg_hba.conf.pre-admin-20260925-031645', MAIN_ONLY).family, 'unrelated')
+  // 不传清单 ⇒ 一个库都不认 ⇒ keycloak 的档仍是 unrelated(它曾这样静默消失在每一条序列之外)
   assert.equal(A.classifyFileName('keycloak_20260927_030003.dump').family, 'unrelated')
+  // **同一型对主库也成立**:不传清单时连 ihui_dev 的档都不认 —— 源码里没有"默认库"这回事
+  assert.equal(A.classifyFileName(dumpName('20260927')).family, 'unrelated', '无清单 ⇒ 不猜默认库')
+  assert.equal(A.classifyFileName(dumpName('20260927'), []).family, 'unrelated')
+})
+
+test('清单归一:空进空出,绝不长出任何默认库;重复与空白被去掉', () => {
+  assert.deepEqual(A.normalizeDatabases(undefined), [])
+  assert.deepEqual(A.normalizeDatabases(null), [])
+  assert.deepEqual(A.normalizeDatabases([]), [])
+  assert.deepEqual(A.normalizeDatabases(['  ', '']), [], '空字面量不算一个库')
+  assert.deepEqual(A.normalizeDatabases([MAIN, 'keycloak', MAIN, ' keycloak ']), [MAIN, 'keycloak'])
 })
 
 test('家族分类·清单驱动:keycloak 的三种命名各归各位,且 db 字段指向它自己那个库', () => {
@@ -82,11 +103,12 @@ test('⑦ 命名族按清单逐库识别:keycloak 的档只在清单含它时才
   assert.equal(A.classifyFileName('keycloak_20260906_065559.sql.gz', ['keycloak']).family, 'sqlgz')
 })
 
-test('⑦ 模式生成器只有一份实现:对兜底库逐字复现 drill 的 DUMP_NAME_RE', () => {
+test('⑦ 模式生成器只有一份实现:对主库逐字复现 drill 的 DUMP_NAME_RE,另两族形状由字面锁住', () => {
   // 泛化不能漂:两条模式的字面 source 必须相同,否则"同一个文件名两边判成不同族"就没人看见了
-  assert.equal(A.dumpNameReFor('ihui_dev').source, A.DUMP_NAME_RE.source)
-  assert.equal(A.DASH_DUMP_RE.source, A.dashDumpReFor('ihui_dev').source)
-  assert.equal(A.SQLGZ_RE.source, A.sqlGzReFor('ihui_dev').source)
+  assert.equal(A.dumpNameReFor(MAIN).source, A.DUMP_NAME_RE.source)
+  // 旁族/旧族的形状写成**测试里的字面量**(而不是源码再导出一份常量):形状漂了这里红,而导出的常量被顺手删掉时无人红
+  assert.equal(A.dashDumpReFor(MAIN).source, '^ihui[-_]dev-(\\d{8})-(\\d{6})\\.dump$')
+  assert.equal(A.sqlGzReFor(MAIN).source, '^ihui[-_]dev[-_](\\d{8})[-_](\\d{6})\\.sql\\.gz$')
   // 库名里的正则元字符必须被转义(否则 my.db 那点号会当通配)
   assert.equal(A.classifyFileName('myXdb_20260927_030003.dump', ['my.db']).family, 'unrelated')
   assert.equal(A.classifyFileName('my.db_20260927_030003.dump', ['my.db']).family, 'dump')
@@ -273,6 +295,17 @@ test('⑦ 正例:真仓 runner 原文解析出 ihui_dev + keycloak($dbName 走�
   assert.equal(r.parsed, true, r.reason)
   assert.deepEqual(r.databases, ['ihui_dev', 'keycloak'])
   assert.equal(r.primaryLiteral, 'ihui_dev', '主库字面值必须来自 if (-not $dbName) 那一行,不是抄进本工具')
+})
+
+test('⑦ "被执行的那份"与入库源必须给同一个清单(§5e 取径;影子副本缺失时如实报未判定)', (t) => {
+  // 工具读清单的顺序是 prod-bundle 优先。非部署机没有那份(整目录被 gitignore)⇒
+  // 这里只能"未判定",不得把它读成"两份一致"。两份都在却清单不同 ⇒ 红(那正是影子副本过期的形态)。
+  const shadow = new URL('../../deploy/prod-bundle/pg-backup.ps1', import.meta.url)
+  if (!existsSync(shadow))
+    return t.skip('本机没有 deploy/prod-bundle/pg-backup.ps1(非部署机是常态)⇒ 本维未判定,不记为通过')
+  const s = A.parseBackupDatabases(readFileSync(shadow, 'utf8'))
+  assert.equal(s.parsed, true, `被执行的那份解析不出清单:${s.reason}`)
+  assert.deepEqual(s.databases, A.parseBackupDatabases(REAL_RUNNER_TEXT).databases, '两份 runner 的审计面不同 ⇒ 工具审的不是在跑的那个面')
 })
 
 test('⑦ 反例:四种"读不出清单"一律 parsed=false,绝不给出半个清单冒充完整', () => {
@@ -590,6 +623,46 @@ test('端到端⑦·反例:fixture runner 里没有 $backupDatabases 行 ⇒ 未
   assert.equal(A.buildReport({ cli: cli({ days: 3, strict: true }), deps: t.deps }).exitCode, 1, '--strict 下 undetermined 归 1,但原判读仍写 undetermined')
   assert.match(r.databasesNote, /未判定:备份清单无从解析/)
   assert.match(A.renderHuman(r), /未判定:备份清单无从解析/)
+  // **不许退回单库**:审计面直接为空,一个库都不审
+  assert.deepEqual(r.databases, [], '解析不出 ⇒ 空面,而不是偷偷填一台库')
+  assert.equal(r.databasesAudited, 0)
+  assert.equal(r.byDatabase.length, 0)
+  assert.deepEqual(r.dayRows.map((d) => d.status), ['UNAUDITED', 'UNAUDITED', 'UNAUDITED'], '没看着的日子不得被 worstStatus([])="ok" 冒充成"齐了"')
+  assert.ok(!r.dayRows.some((d) => d.status === 'ok'), '逐日表里出现一个 ok 就等于给未审的面发了合格证')
+  assert.ok(!r.findings.some((x) => x.code === 'MISSING'), '面都没定,谈什么缺席?MISSING 只能是假结论')
+  // 目录里真有的档必须报名(不能因为"没审"就静默消失)
+  const obs = r.observations.join('\n')
+  assert.match(obs, /目录里 3 个长得像备份档的文件全部未参与判定/, '报名要带数量,不能只说"这些"')
+  assert.match(obs, new RegExp(`${MAIN}_20260927_030003\\.dump`), '报名要点名到文件')
+  const text = A.renderHuman(r)
+  assert.match(text, /一个都没有/, '人读报告也要说清"没有可审的库"')
+  assert.match(text, /UNAUDITED/)
+  t.cleanup()
+})
+
+test('反向锁(G-297 正身):源码里不得再出现"默认库名"这种形态 —— 静默缩面的载体', () => {
+  // 判据的对象是**真实文件的形态**(§22c),不是夹具:把兜底库名加回源码即红。
+  const src = readFileSync(new URL('../pg-backup-cadence-audit.mjs', import.meta.url), 'utf8')
+  // 剥掉注释与字符串再找,免得把"解释这条禁令的注释"读成违规(本仓同型:门给自己发合格证)
+  const code = src
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^\s*\/\/.*$/gm, ' ')
+    .replace(/(['"`])(?:\\.|(?!\1)[\s\S])*?\1/g, '""')
+  assert.doesNotMatch(code, /LEGACY_CHAIN_DB/, '兜底库名的标识符不得回来')
+  assert.doesNotMatch(code, /\bDEFAULT_DB\b|\bfallbackDb\b/i, '换个名字的默认库同样是默认库')
+  // normalizeDatabases 的函数体里不得出现任何字面库名(空进空出,由上一条单元锁钉住)
+  const fn = /function normalizeDatabases\([\s\S]*?\n\}/.exec(code)
+  assert.ok(fn, 'normalizeDatabases 必须还在(判据没有旁路出口)')
+  assert.doesNotMatch(fn[0], /[A-Za-z][A-Za-z0-9]*_(dev|db|database)\b/i, '归一函数不得凭空长出一个库名')
+})
+
+test('反向锁:注入空清单也不等于"全都齐了"—— 一律按未判定处理', () => {
+  const t = makeFixture({ days: 3, databases: [] })
+  const r = A.buildReport({ cli: cli({ days: 3 }), deps: t.deps })
+  assert.equal(r.databasesParsed, false)
+  assert.equal(r.verdict, 'undetermined', JSON.stringify(r.findings))
+  assert.ok(r.findings.some((x) => x.code === 'BACKUP_LIST_UNDETERMINED'))
+  assert.match(r.findings.find((x) => x.code === 'BACKUP_LIST_UNDETERMINED').text, /空清单/)
   t.cleanup()
 })
 
@@ -645,6 +718,80 @@ test('端到端⑧:小库(300 B)不得被大库(9 KB)的中位数判成骤缩 �
   const rm = A.buildReport({ cli: cli({ days: 4 }), deps: mixed.deps })
   assert.ok(rm.findings.some((x) => x.code === 'SIZE_SHRINK'), JSON.stringify(rm.findings))
   mixed.cleanup()
+  t.cleanup()
+})
+
+test('端到端·G-297 主案·正例:两个库(9 KB + 300 B)里小库缺一天 ⇒ 点名小库,大库齐不得顶成满分', () => {
+  // 这正是修掉的那一型:keycloak 曾被判 unrelated,于是"某天一份都没有"在账面上是 ok
+  const t = makeFixture({
+    days: 4,
+    databases: ['ihui_dev', 'keycloak'],
+    extraDb: 'keycloak',
+    extraDbDays: ['20260924', '20260925', /* 缺 20260926 */ '20260927'],
+    extraSize: 300,
+  })
+  const r = A.buildReport({ cli: cli({ days: 4 }), deps: t.deps })
+  const miss = r.findings.filter((x) => x.code === 'MISSING')
+  assert.equal(miss.length, 1, JSON.stringify(r.findings))
+  assert.equal(miss[0].db, 'keycloak', '缺席必须归属到缺的那一库')
+  const kc = r.byDatabase.find((d) => d.db === 'keycloak')
+  assert.deepEqual(
+    Object.fromEntries(kc.dayRows.map((x) => [x.ymd, x.status])),
+    { '20260924': 'ok', '20260925': 'ok', '20260926': 'MISSING', '20260927': 'ok' },
+    '缺的正是那一天,且前后照常 ok(不是整库被判坏)',
+  )
+  assert.equal(r.verdict, 'broken', '另一库天天齐 ⇒ 绝不能记 ok')
+  assert.notEqual(r.exitCode, 0)
+  const ihui = r.byDatabase.find((d) => d.db === 'ihui_dev')
+  assert.deepEqual(ihui.dayRows.map((x) => x.status), ['ok', 'ok', 'ok', 'ok'], '对照:大库这一条腿本来就没问题')
+  // 大小差两个数量级也不得顺手把小库自己那条序列判成骤缩(它四天都是 300 B)
+  assert.equal(r.findings.filter((x) => x.code === 'SIZE_SHRINK').length, 0, JSON.stringify(r.findings))
+  assert.match(A.renderHuman(r), /keycloak 20260926 保留窗口内无任何 dump/, '人读报告要点名到库 + 日')
+  const strict = A.buildReport({ cli: cli({ days: 4, strict: true }), deps: t.deps })
+  assert.equal(strict.exitCode, 1)
+  assert.equal(strict.verdict, 'broken', '--strict 只改退出码,不改判读')
+  t.cleanup()
+})
+
+test('端到端:量不到的格子必须点名 —— 表数 / 骤缩各自的"未判定"不得静默', () => {
+  // 20260926 那一份 TOC 解析失败 ⇒ 表数量不到;20260925 整天无档 ⇒ 代表档大小量不到、骤缩也判不出
+  const t = makeFixture({ days: 4, truncateDay: '20260926', skipDay: '20260925' })
+  const r = A.buildReport({ cli: cli({ days: 4 }), deps: t.deps })
+  const obs = r.observations.join('\n')
+  assert.match(obs, /TABLE DATA 条数在 2 个日子量不到:/, JSON.stringify(r.observations))
+  assert.match(obs, /20260926\(TOC 未判\)/, '量不到的原因要点名,不能只给一个数')
+  assert.match(obs, /20260925\(当日无代表档\)/)
+  assert.match(obs, /骤缩规则在 1 个日子判不出:20260925\(代表文件量不到大小\)/)
+  assert.match(obs, /不算通过/)
+  assert.ok(r.findings.some((x) => x.code === 'MISSING' && x.db === 'ihui_dev'), '跳过的那天仍要判缺席 —— 点名未判定不等于放过缺失')
+  const d = r.dayRows.find((x) => x.ymd === '20260926')
+  assert.notEqual(d.status, 'ok', '量不到的那一天不得被算成通过')
+  t.cleanup()
+})
+
+test('--self-test 是一条真出路,不是一枚冒充"已验证"的空开关', () => {
+  // 它刻意不在本进程跑判据(判据要注入假 pg_restore 与临时目录,那都在镜像测试里)
+  const r = A.main(['--self-test'])
+  assert.equal(r.code, 0)
+  assert.match(r.out.help, /node --test scripts\/tests\/pg-backup-cadence-audit\.test\.mjs/, '打印的必须是能真跑通的那条命令')
+  assert.match(r.out.help, /不构成"已验证"/, '这一枚 0 不得被读成合格证')
+  assert.ok(!r.out.verdict, '自测档不得顺手产出一份审计结论')
+})
+
+test('端到端:--json 的输出必须真能被 JSON.parse(且与 --strict 差的是退出码不是判读)', () => {
+  const t = makeFixture({ days: 3, cloudSkip: '20260926' })
+  const plain = A.main(['--json', '--days', '3'], t.deps)
+  assert.equal(plain.json, true, 'json 标志要随返回值出去,否则 --json 形同没实现')
+  const parsed = JSON.parse(JSON.stringify(plain.out))
+  assert.equal(parsed.days, 3)
+  assert.deepEqual(parsed.databases, ['ihui_dev'], '审计面必须在 json 里也如实给出')
+  assert.equal(parsed.verdict, 'degraded')
+  assert.equal(parsed.exitCode, 0, '默认档:degraded 只点名')
+  const strict = A.main(['--json', '--days', '3', '--strict'], t.deps)
+  const sp = JSON.parse(JSON.stringify(strict.out))
+  assert.equal(sp.exitCode, 1)
+  assert.equal(sp.verdict, parsed.verdict, '--strict 不得改判读,只改退出码')
+  assert.deepEqual(sp.reasons, parsed.reasons)
   t.cleanup()
 })
 
