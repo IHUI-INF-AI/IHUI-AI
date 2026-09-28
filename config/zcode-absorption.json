@@ -120,8 +120,17 @@
       "path": "packages/ui/src",
       "status": "windowed",
       "files": 1492,
-      "read": 113,
-      "notes": "lib n-z 16、lib a-m 46(W2-5 整文件读完 46/90)、settings 17、v4 10(W2-8)、ToolCallBlocks+app-shell+store+root+mentions 18(W3-9)、components+hooks 6(W3-5)。这是最大的一块未闭合面:剩余 messageTelemetry 后半 1300 行、ai-elements 42、ui 根 44、workflow-timeline 39、hooks 97。"
+      "read": 191,
+      "notes": "lib n-z 16、lib a-m 46(W2-5 整文件读完 46/90)、settings 17、v4 10(W2-8)、ToolCallBlocks+app-shell+store+root+mentions 18(W3-9)、components+hooks 6(W3-5);W4 四路新增整文件读到体 115:hooks 28/98、components/ai-elements 32/46、components 其余 +13、ToolCallBlocks+chat-input-toolbar +8、store/workspace +12、v4 +6、顶层散件 6/138、quickpick 5/7、git-graph 3/6、presentation 2/6。⚠️ read=191 是【下界】:W3 旧登记的 24 个(ToolCallBlocks/store/root/mentions 18 + components/hooks 6)按目录判定全部落在 W4 集合内,而 W4 内部 components 与 components/ai-elements 至多重叠 13 —— 交集无法从台账推出,真实区间 [191,228];派单请跑 `node scripts/zcode-absorption-matrix.mjs` 看末行现值,不得照本字段做减法核账。⚠️ 口径更正:旧 notes 写的『ui 根 44』与现量不同口径 —— 顶层散件按 `git ls-files packages/ui/src` 行级过滤现量为 138(`*` 通配会递归,那是另一个口径,第一版据此量出 1492)。这是最大的一块未闭合面。",
+      "remaining": "message 渲染族与 messageTelemetry 后半 1300 行、workflow-timeline 39、v4 余 197、hooks 余 70、components 余 140、ToolCallBlocks 余 67、store 余 30、顶层散件余 132;quickpick 余 TaskFindDialog.tsx 389、git-graph 余 Pane/Dialog/CommitDetail 620、presentation 余 elementModel/pptxEngine/pdfPrintExport/textSelection 988。DeveloperToolsPane.tsx 与 App.tsx 仅段读,不计 read。",
+      "evidence": [
+        "packages/ui/src/store/StoreProvider.tsx:56",
+        "packages/ui/src/useTheme.ts:37",
+        "packages/ui/src/git-graph/layoutAlgorithm.ts:22",
+        "packages/ui/src/quickpick/taskFindNavigationState.ts:32",
+        "packages/ui/src/presentation/types.ts:8"
+      ],
+      "tickets": ["G-384", "G-387"]
     },
     {
       "path": "packages/server/src",
@@ -162,9 +171,20 @@
       "path": "apps/zcode-cli/packages/core/src",
       "status": "windowed",
       "files": 500,
-      "read": 44,
-      "notes": "a-m 9/79、n-z 6/413、tool/handlers 4/120(W3-1)、runtime/helpers+subagent+system-reminder 11/78(W3-3)、runtime/methods 14/98(W3-2)。大头未动:handlers 正文、session-fork 1487/rewind-message 740/file-rewind 717/compact-active 725 等 80 个方法文件、attachment-*/media-* 63、workflow 31、memory 10。",
-      "tickets": ["G-373", "G-375"]
+      "read": 248,
+      "notes": "W5 四路按互斥目录读到体:tool 176/72(根17+executor22+handlers33;窗口6:call-runner/permission-flow/result-serialization/read/edit/bash;仅结构1:generated/bash-command-registry.ts 系 1.8MB ISC 数据块)、runtime 164/25(窗口2:events/streaming-tool-coordinator)、workflow+subagent+context+agent+memory 89/85(subagent/runner.ts 与 agent/ 三件仅窗口读,不计 read)、小而密长尾 71/66(hooks19/19、permission6/6、compact6/6、runtime-task5/5、plugin-reference4/4、session-context4/4、mcp3/3、system-reminder3/3、embedded-search2/2、errors·model·telemetry 各1/1、顶层散件4/4、browser-client7/3、repl5/4)。⚠️ read=248 是【下界】不是相加值:W3 旧登记的 44 个按 notes 判定全部落在上述目录内(tool/handlers 4、runtime/methods 14、runtime/helpers+subagent+system-reminder 11、a-m/n-z 15),父子相加会双计;真实区间 [248,292]。⚠️ 刻意不新增子切片条目:M1 只判覆盖不判互斥,而头条按切片求和 ⇒ 父子并存等于给覆盖数发合格证;目录明细只写在本字段。W5-A 报的『审批等待吃掉执行预算』已三面证伪(runToolInner/requestToolApproval 全仓零命中),不得重新提出。",
+      "remaining": "约 251 未读。tool 余 97:background-tasks.ts 1198、result-display 461、read-session-context 440、edit-matchers/node-repl/create-workflow 411、store/read-pdf/cron/bash-command-permission-policy 38x。runtime 余 137:session-fork 1487、steering 1403、types 924、subagent 915、turn 872、turn-model-step 803、rewind-message 740、compact-active 725、file-rewind 717、agent-runtime 664、turn-tools 527、model 518。窗口读过的 events.ts / streaming-tool-coordinator.ts / subagent/runner.ts / agent 三件需回读补体。",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-egress-guard.ts:77",
+        "apps/zcode-cli/packages/core/src/runtime/methods/turn-output-token-continuation.ts:15",
+        "apps/zcode-cli/packages/core/src/runtime/methods/streaming-tool-coordinator.ts:38",
+        "apps/zcode-cli/packages/core/src/hooks/display-metadata.ts:35",
+        "apps/zcode-cli/packages/core/src/system-reminder/incoming-message.ts:6",
+        "apps/zcode-cli/packages/core/src/mcp/name.ts:3",
+        "apps/zcode-cli/packages/core/src/subagent/profile-frontmatter.ts:76",
+        "apps/zcode-cli/packages/core/src/context/sections/workflow-actor.ts:24"
+      ],
+      "tickets": ["G-373", "G-375", "G-422", "G-423", "G-424", "G-425", "G-426", "G-427", "G-428"]
     },
     {
       "path": "apps/zcode-cli/packages/bootstrap",
