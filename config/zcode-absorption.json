@@ -191,34 +191,102 @@
       "status": "windowed",
       "files": 232,
       "read": 13,
+      "remaining": "W6-A 本轮整文件读到体 13 枚,但上轮那 13 枚未留文件名 ⇒ 两批重叠不可计算 ⇒ read 取 max(13) 不取和(真实区间 [13,26])。本轮 13 枚点名:auth-login-polling / auth-login-abort / telemetry-bootstrap / startup-logging / tool-call-product-visibility / zcode-protocol-entrypoint / app-config-options / runtime-config / embedded-search-backend / script-workflow-child-runtime / startup-resource / runtime-cleanup / process-child-processes。未读 219,最大块:product-projection 5477、server-operations 4057、v4-gateway 3454、transcript-hydration 1953、session-mapper 1530、plugins 1457、create-app 1290、conversation-topic-publisher 1131。",
+      "evidence": [
+        "apps/zcode-cli/packages/bootstrap/src/zcode-protocol/runtime-cleanup.ts:25",
+        "apps/zcode-cli/packages/bootstrap/src/zcode-protocol/startup-resource.ts:24",
+        "apps/zcode-cli/packages/bootstrap/src/telemetry-bootstrap.ts:16",
+        "apps/zcode-cli/packages/bootstrap/src/app/runtime-config.ts:93"
+      ],
       "notes": "可抄:auth-login-polling 双向夹紧、env capture-then-scrub、开关落点清单。否证:serverSources 台账零读取方、untrustedProjectMcpServers 恒空穿四层、CuaBrokerToken 解析恒 undefined。",
-      "tickets": ["G-377"]
+      "tickets": ["G-377", "G-465"]
     },
     {
       "path": "apps/zcode-cli/packages/adapters",
       "status": "windowed",
       "files": 202,
       "read": 10,
+      "remaining": "193 未整读(6 个仅窗口碰过)。本轮 W6-B 整读到体 9 枚:model/retry-budget、stream-retry-boundary、retry-policy、offpeak-retry、failure-tls、errors、proxy-fetch、public-egress-policy、empty-completion-retry ⇒ read 取 max(10) 不取和(与上轮 10 枚的重叠不可计算,真实区间 [10,19])。最大未读块:model/runner-stream 1655、model-execution 1080、runner-debug 905、plugins/marketplace 2724、mcp/index 1950、fs/index 余下 1118、storage/sqlite-session-store 1022、migrations 930、repositories/usage 745。",
+      "evidence": [
+        "apps/zcode-cli/packages/adapters/src/model/retry-budget.ts:8",
+        "apps/zcode-cli/packages/adapters/src/model/offpeak-retry.ts:6",
+        "apps/zcode-cli/packages/adapters/src/model/failure-inspection.ts:292",
+        "apps/zcode-cli/packages/adapters/src/http/public-egress-policy.ts:108",
+        "apps/zcode-cli/packages/adapters/src/network/proxy-fetch.ts:29"
+      ],
+      "rejectedEvidence": ["apps/zcode-cli/packages/adapters/src/fs/index.ts:740"],
+      "rejectedNote": "fs/index.ts:735-753 是**反例**:rename 外套裸 catch 后用 O_CREAT|O_TRUNC 原地重写真身 ⇒ ENOSPC/EACCES 时先删临时文件再截断用户原文件;Windows 目标被占用时 rename 回 EPERM(守门 122 头注已记为实测事实)⇒ 最常见机型上每次并发保存都走非原子原地写且调用方无信号。我方 atomic-write.ts 全文件 O_TRUNC 零命中并由守门 122 R2/R3 判接线 ⇒ 该格我方严格优于上游,登记为 122 判据合理性的外部证据,不得抄。",
       "notes": "失败分类/重试预算/出站策略。反例:上游把 rename 失败静默降级成 O_TRUNC 原地写 ⇒ 我方守门 122 反向不得引入 fallback-to-truncate。剩余 exec 24/mcp 19/plugins 15/storage 仓储面 ≈30/config 7/model 40。"
     },
     {
       "path": "apps/zcode-cli/packages/contracts",
       "status": "windowed",
       "files": 113,
-      "read": 7,
+      "read": 18,
+      "remaining": "95 未读:interfaces 22(dynamic-workflow-run.port.ts 1037、session.events.ts 1238 仅窗口读)、tools 38、events 5、model 6、hooks/workspace-hook-trust.ts 324 余下。read 只算净新增:W6-C 整读到体 13 枚,其中 contract.ts 与 capabilities/index.ts 与旧 read=7 重叠 ⇒ 净 +11,不重复计。",
+      "evidence": [
+        "apps/zcode-cli/packages/contracts/src/tools/contract.ts:174",
+        "apps/zcode-cli/packages/contracts/src/tools/json-schema.ts:35",
+        "apps/zcode-cli/packages/contracts/src/hooks/workspace-hook-trust.ts:123"
+      ],
+      "tickets": ["G-464"],
       "notes": "W3-8:工具结果元数据/契约/能力表/工作区钩子信任存储/工件端口读到体。剩余 interfaces 22、tools 38、events 5、model 6。反例:capabilities 整体是 export {} 却仍发布 ./capabilities 子路径且零 importer = 空心公开入口。"
     },
     {
       "path": "apps/zcode-cli/packages/dynamic-workflow",
       "status": "windowed",
-      "files": 97,
-      "read": 4,
+      "files": 94,
+      "read": 19,
+      "remaining": "75 未读:analysis 52 整目录(单独一票)、engine 21(engine/types.ts 944、concurrency.ts 265 仅窗口读)、schema 7、facade 5。⚠️ 分母由 97 改为现量 94(ts/tsx 口径;全文件口径是 102)——登记原值 97 与两个现量口径都不等,按 97 派单会去找 3 枚不存在的文件;97 的出处待表主人确认后再回改。read 由 4→19:旧 4 枚(hash / scheduler-submit / run-terminal / engine-settlement)全部落在本轮新集内 ⇒ 不重复计。",
+      "evidence": [
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/errors.ts:14",
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/engine-launch.ts:26",
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler-submit.ts:82",
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/imported-cache-types.ts:19"
+      ],
+      "tickets": ["G-462", "G-463"],
       "notes": "W3-8:engine 的 hash/scheduler-submit/run-terminal/engine-settlement 读到体。剩余 analysis 52 整目录未读(单独一票)、engine 21、schema 7、facade 5。"
     },
-    { "path": "apps/zcode-cli/packages/tui", "status": "unread", "files": 92, "read": 0 },
-    { "path": "apps/zcode-cli/packages/cli", "status": "unread", "files": 97, "read": 0 },
-    { "path": "apps/zcode-cli/scripts", "status": "unread", "files": 4, "read": 0 },
-    { "path": "apps/zcode-cli/tools", "status": "unread", "files": 11, "read": 0 },
+    {
+      "path": "apps/zcode-cli/packages/tui",
+      "status": "windowed",
+      "files": 92,
+      "read": 8,
+      "notes": "终端截断/测量是纯函数且按 cell 计量(CJK 算 2 列)、键位归属走封闭意图枚举且默认显式 pass、主题色经 Proxy 每次现读活跃档(无硬编码 ANSI)。⚠️ 分母按尺子 SOURCE_EXT 现量才是 92(只 grep ts/tsx 会得 91,漏 .mjs)。",
+      "remaining": "84 未整读;app-input.ts(327)、app-keyboard.ts(423) 仅窗口读。",
+      "evidence": [
+        "apps/zcode-cli/packages/tui/src/app-terminal-width.ts:59",
+        "apps/zcode-cli/packages/tui/src/app-sidebar-shortcut.ts:28",
+        "apps/zcode-cli/packages/tui/src/theme/legacy-palette.ts:34"
+      ]
+    },
+    {
+      "path": "apps/zcode-cli/packages/cli",
+      "status": "windowed",
+      "files": 97,
+      "read": 1,
+      "notes": "parseArgs strict:true + 失败即 stderr/help/exit 1,且注释显式先摘掉自 re-exec 的末位入口路径(否则严格解析误报未知参数)。我方 commander 侧已有 modeUnknown + exit(1)(不构成缺陷,登记意识)。",
+      "remaining": "96 未整读;run.ts(587)仅窗口读。",
+      "evidence": ["apps/zcode-cli/packages/cli/src/arguments.ts:108"]
+    },
+    {
+      "path": "apps/zcode-cli/scripts",
+      "status": "windowed",
+      "files": 4,
+      "read": 2,
+      "notes": "生成器自带 --check(与已入库件逐字节比)、第三方包版本≠登记即 throw、源全量 sha256 烘进产物头、超字节预算拒生成。我方已由 check-token-sync-registry + provenance-ledger P3 覆盖大半,增量只剩「源内容 hash 烘进生成件头」。",
+      "remaining": "shadow-replay.mjs、count-ts-lines.mjs 仅窗口读。",
+      "evidence": ["apps/zcode-cli/scripts/generate-bash-command-registry.mjs:41"]
+    },
+    {
+      "path": "apps/zcode-cli/tools",
+      "status": "windowed",
+      "files": 11,
+      "read": 4,
+      "notes": "prompt-trajectory 族的连续性/账本/投影四件读到体;cache_control 忽略逻辑属 Anthropic 提示缓存漂移字段,我方 provider 侧无此形状 ⇒ 不抄。",
+      "remaining": "7 未整读。",
+      "evidence": ["apps/zcode-cli/tools/prompt-trajectory/src/message-ledger.ts:21"]
+    },
     {
       "path": ".agents",
       "status": "windowed",
