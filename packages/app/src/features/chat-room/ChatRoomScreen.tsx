@@ -344,11 +344,9 @@ function Avatar({
 }) {
   const initial = (name || '友').trim().charAt(0) || '友'
   if (uri) {
-    // radius-exempt: 成员头像正圆=直径一半(几何圆表达式,size/2 已是同源写法)
     return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />
   }
   return (
-    // radius-exempt: 头像兜底正圆=直径一半(几何圆表达式,与上方 Image 同规格)
     <View style={[styles.avatarFallback, { width: size, height: size, borderRadius: size / 2 }]}>
       <Text style={[styles.avatarFallbackText, { fontSize: size / 2.4 }]}>{initial}</Text>
     </View>
