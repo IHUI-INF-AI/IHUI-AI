@@ -1,6 +1,6 @@
 {
   "version": "0.0.0",
-  "generatedAt": "2026-09-25T01:06:05.177Z",
+  "generatedAt": "2026-09-28T06:10:31.356Z",
   "dataClasses": [
     "compute",
     "scoped-read",
@@ -1323,9 +1323,9 @@
       "dataClass": "scoped-read",
       "risk": "low",
       "billable": false,
-      "thirdPartyEligible": true,
+      "thirdPartyEligible": false,
       "idempotencyRequired": false,
-      "description": "外部连接器/MCP server 清单与能力",
+      "description": "外部连接器/MCP server 清单与能力(实现侧无属主过滤 ⇒ 暂不对第三方开放)",
       "routes": [
         "GET /api/connectors",
         "GET /api/mcp/external/servers"
