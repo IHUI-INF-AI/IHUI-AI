@@ -19,7 +19,7 @@
  * 退出码:
  *   0 = 全部通过
  *   1 = 有测试失败
- *   2 = dev server 未启动 (需要先 pnpm dev)
+ *   2 = dev server 未启动 (需要先 pnpm dev) / 用法错误(--spec 没收到有效值)
  *   3 = Playwright 未安装
  *
  * 触发规则 (参见 user_profile.md "UI 改动交付前自验强制规则"):
@@ -37,8 +37,40 @@ const projectRoot = resolve(__dirname, '..')
 const webRoot = resolve(projectRoot, 'apps/web')
 
 const args = process.argv.slice(2)
-const specFilter = args.includes('--spec') ? args[args.indexOf('--spec') + 1] : null
+/**
+ * 带值旗标的取值(2026-09-28 修 `--spec --staged` 这一型;**口径照抄枚 380431ffc / 636c28f58 /
+ * 8832e73a4,不另发明**):紧邻的下一个 token 必须**存在、非空且不以 `-` 开头**,才算该旗标的值。
+ * 旧写法 `args[args.indexOf('--spec') + 1]` 无条件取下一个 token,于是 `--spec --staged` 会把
+ * `--staged` 当成正则喂给 `pnpm playwright test --grep`,结果 **0 条测试匹配 ⇒ Playwright 报
+ * "no tests / all passed" ⇒ 本脚本 exit 0** —— AGENTS §17 的"假验收"形态(它替代的正是人工浏览器自验)。
+ * 无效值一律**大声拒绝**(exit 2 + 点名实得 token),绝不退化成"没给过滤条件"去跑全量还报成功。
+ * 硬约束:不带 --spec 与 --spec <合法值> 时的默认行为一字未改。
+ */
+function flagValue(list, flag) {
+  if (!Array.isArray(list) || !list.includes(flag)) return { present: false, valid: false, value: null, token: null }
+  const raw = list[list.indexOf(flag) + 1]
+  const token = typeof raw === 'string' ? raw : null
+  const valid = token !== null && token !== '' && !token.startsWith('-')
+  return { present: true, valid, value: valid ? token : null, token }
+}
+const specFlag = flagValue(args, '--spec')
+const specFilter = specFlag.value
 const checkServerOnly = args.includes('--check-server')
+
+function usageError(lines) {
+  for (const line of lines) console.error(line)
+  process.exit(2)
+}
+
+if (specFlag.present && !specFlag.valid) {
+  usageError([
+    `❌ [verify-ui] --spec 没有收到有效的过滤串 —— 紧邻的 token 实得:` +
+      (specFlag.token === null ? '(其后没有任何参数)' : JSON.stringify(specFlag.token)),
+    `   带值旗标的值必须存在、非空且不以 - 开头;否则 --spec --staged 会把 --staged 当正则喂给 --grep,`,
+    `            0 条测试匹配会被读成"全部通过"(exit 0),即 §17 的假验收。`,
+    `   已拒绝执行(未探测 dev server、未派生 Playwright);要跑全部视觉测试就直接省略 --spec。`,
+  ])
+}
 
 function log(msg, color = '\x1b[0m') {
   console.log(`${color}${msg}\x1b[0m`)
