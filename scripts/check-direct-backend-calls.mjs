@@ -66,7 +66,13 @@
  *   node scripts/check-direct-backend-calls.mjs                  # 全量扫描 + 基线对账
  *   node scripts/check-direct-backend-calls.mjs --staged          # 只判暂存文件(pre-commit;暂存集空则回退全量)
  *   node scripts/check-direct-backend-calls.mjs --list            # 打印全部命中(含基线内),定位存量用
- *   node scripts/check-direct-backend-calls.mjs --json <out.json> # 机器可读报告
+ *   node scripts/check-direct-backend-calls.mjs --json <out.json> # 机器可读报告写到文件
+ *   node scripts/check-direct-backend-calls.mjs --json            # 不带路径 ⇒ JSON 打到 stdout(纯 JSON,可直接 JSON.parse)
+ *     注意:`--json` 只在**紧邻的下一个 token 存在且不以 `-` 开头**时才算"写文件"。
+ *     runner(`scripts/guardian-runner.mjs`)会给每道门追加 `--staged`,所以 `--json --staged` 走的是
+ *     **stdout 档** —— 旧实现在这里把 `--staged` 当路径,在仓库根写出一个名叫 `--staged` 的文件
+ *     (违反 §28 根目录整洁铁律),同时 stdout 只剩人读文本 ⇒ 调用方拿不到结论(2026-09-28 修)。
+ *     stdout 档把一切非 JSON 人读文本改打 stderr;文件档的 stdout 行为一字未变。
  *   node scripts/check-direct-backend-calls.mjs --update-baseline # 用当前全量命注重写基线(收紧额度)
  *   node scripts/check-direct-backend-calls.mjs --self-test       # 判据内建自检(内存语料,不碰真实源码)
  *   node scripts/check-direct-backend-calls.mjs --root <dir>      # 指定扫描根(测试/审计缝,同 check-pwsh-version 口径)
@@ -993,8 +999,57 @@ function stagedFiles(root) {
 
 const argv = process.argv.slice(2)
 
+/**
+ * 带值旗标的取值。判据照抄第一处(scripts/scan-hardcoded-zh.mjs)的口径,不得另发明一套语义:
+ * **紧邻的下一个 token 必须存在且不以 `-` 开头**才算该旗标的值,否则视为"没带值"。
+ *
+ * 旧写法是 `localArgv[localArgv.indexOf('--json') + 1] ?? null`,**无条件**把下一个 token 当路径。
+ * 而 scripts/guardian-runner.mjs 会给每道门追加 `--staged`,于是任何人手跑
+ * `node scripts/check-direct-backend-calls.mjs --json --staged` 时:
+ * ① JSON 报告被 `resolve(root, '--staged')` 写进**仓库根一个名叫 `--staged` 的文件**
+ *    (违反 AGENTS §28 根目录整洁铁律,`git status` 只显 `?? --staged`,其余判据都不喊这一型);
+ * ② 调用方按本文件头注的用法以为 `--json` 有机器可读出口,实际 stdout 里只有人读文本 ⇒ 解析不到结论。
+ * 现:带真路径 ⇒ 写文件(既有行为一字不改);不带值 / 下一个 token 是别的旗标 ⇒ JSON 打到 stdout。
+ */
+function flagValue(list, flag) {
+  if (!list.includes(flag)) return null
+  const v = list[list.indexOf(flag) + 1]
+  return typeof v === 'string' && v !== '' && !v.startsWith('-') ? v : null
+}
+
+/** 人读文本的去向:JSON-stdout 档必须把一切非 JSON 文本挪出 stdout,否则调用方 JSON.parse(stdout) 直接失败。
+ *  其余档(人读 / `--json <文件>`)的 stdout 行为一字未变。console.warn / console.error 本来就在 stderr,不动。 */
+function emitHuman(jsonStdout, msg) {
+  if (jsonStdout) console.error(msg)
+  else console.log(msg)
+}
+
+/**
+ * JSON 结论的唯一落盘/落 stdout 出口(与 buildJsonPayload 配对)。两档都必须"能看出自己走的是哪档":
+ * 说明行一律 stderr,绝不混进 stdout 的 JSON;文件档的 stdout 行为与改动前逐字相同(此前该档不打
+ * 任何关于文件的行,现在多打一行到 stderr,stdout 一个字节没变)。
+ */
+function emitJsonReport(opts, payload) {
+  if (opts.jsonOut) {
+    writeFileSync(resolve(opts.root, opts.jsonOut), payload, 'utf8')
+  } else if (opts.jsonStdout) {
+    console.log(payload)
+  }
+  if (opts.jsonStdout)
+    console.error(
+      '[check-direct-backend-calls] JSON 报告已打到 stdout(未写文件;要写文件请用 --json <路径>)',
+    )
+  else if (opts.jsonOut)
+    console.error(
+      `[check-direct-backend-calls] JSON 报告已写入文件 ${resolve(opts.root, opts.jsonOut)}`,
+    )
+}
+
 export function main({ root = DEFAULT_ROOT, argv: localArgv = argv, corpus: injectedCorpus } = {}) {
   const flags = new Set(localArgv)
+  const jsonOut = flagValue(localArgv, '--json')
+  const jsonStdout = flags.has('--json') && jsonOut === null
+  const say = (msg) => emitHuman(jsonStdout, msg)
   if (flags.has('--help') || flags.has('-h')) {
     console.log(
       [
@@ -1034,9 +1089,22 @@ export function main({ root = DEFAULT_ROOT, argv: localArgv = argv, corpus: inje
         if (set.has(f)) scoped.set(f, text)
       }
       if (scoped.size === 0) {
-        console.log(
+        say(
           `[check-direct-backend-calls] 暂存区无 in-scope 源码文件,跳过(全语料 ${corpus.size} 文件已解析)`,
         )
+        // 这一格同样要给 JSON 调用方一个结论 —— 否则 stdout 空、文件不写,调用方无法区分
+        // "这一轮没判" 与 "这一轮判了且零命中"。note 明写它不是零命中的合格证。
+        if (jsonOut || jsonStdout)
+          emitJsonReport(
+            { root, jsonOut, jsonStdout },
+            buildJsonPayload({
+              scanned: corpus.size,
+              hits: [],
+              added: [],
+              exempt: [],
+              note: `--staged 口径:暂存集中无 in-scope 源码文件(全语料 ${corpus.size} 文件已解析),本轮未对基线作判定`,
+            }),
+          )
         return 0
       }
       const full = analyzeCorpus(corpus, root)
@@ -1050,10 +1118,12 @@ export function main({ root = DEFAULT_ROOT, argv: localArgv = argv, corpus: inje
           scanned: corpus.size,
           quiet: flags.has('--quiet') || flags.has('-q'),
           list: flags.has('--list'),
+          jsonOut,
+          jsonStdout,
         },
       )
     }
-    console.log('[check-direct-backend-calls] --staged 但暂存集为空 → 回退全量口径(防空暂存恒绿)')
+    say('[check-direct-backend-calls] --staged 但暂存集为空 → 回退全量口径(防空暂存恒绿)')
   }
 
   const result = analyzeCorpus(effective, root)
@@ -1063,12 +1133,36 @@ export function main({ root = DEFAULT_ROOT, argv: localArgv = argv, corpus: inje
     quiet: flags.has('--quiet') || flags.has('-q'),
     list: flags.has('--list'),
     updateBaseline: flags.has('--update-baseline'),
-    jsonOut: localArgv[localArgv.indexOf('--json') + 1] ?? null,
+    jsonOut,
+    jsonStdout,
   })
+}
+
+/**
+ * JSON 报告体的唯一构造出口(两处调用:report() 与 `--staged` 的"暂存区无 in-scope 源码文件"早退)。
+ * 必须只有一份:早退如果另拼一份字段,调用方就无法区分"这一轮没有命中"与"这一轮根本没判定",
+ * 而 --json 的整个用途就是把结论交给不看人读文本的一方。
+ */
+function buildJsonPayload({ scanned, hits, added, exempt, note }) {
+  return JSON.stringify(
+    {
+      scannedFiles: scanned,
+      total: hits.length,
+      inBaseline: hits.length - added.length,
+      added: added.length,
+      exempt: exempt.length,
+      hits,
+      exemptList: exempt,
+      ...(note ? { note } : {}),
+    },
+    null,
+    2,
+  )
 }
 
 function report(result, opts) {
   const { hits, exempt } = result
+  const say = (msg) => emitHuman(!!opts.jsonStdout, msg)
   const baseline = readBaseline(opts.root)
   // **按次数**配对,不是按 key 集合:同一文件里两处形态完全相同的绕过(实测
   // apps/cli/src/commands/login.ts:75 与 :158 都是 fetch(url) + 同一个 url 定义)
@@ -1091,45 +1185,28 @@ function report(result, opts) {
       bypasses: [...hits.map((h) => h.key)].sort(),
     }
     writeFileSync(join(opts.root, BASELINE_REL), `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
-    console.log(`✅ 基线已重写:${payload.bypasses.length} 处存量绕过 → ${BASELINE_REL}`)
+    say(`✅ 基线已重写:${payload.bypasses.length} 处存量绕过 → ${BASELINE_REL}`)
     return 0
   }
 
-  if (opts.jsonOut) {
-    writeFileSync(
-      resolve(opts.root, opts.jsonOut),
-      JSON.stringify(
-        {
-          scannedFiles: opts.scanned,
-          total: hits.length,
-          inBaseline: hits.length - added.length,
-          added: added.length,
-          exempt: exempt.length,
-          hits,
-          exemptList: exempt,
-        },
-        null,
-        2,
-      ),
-      'utf8',
-    )
-  }
+  // 报告体只算一次:文件档写盘,stdout 档把同一份 JSON 打到 stdout(此刻 opts.jsonStdout 为真,
+  // 本函数其余人读文本已经全部改走 stderr,所以 stdout 单独可 JSON.parse)。
+  emitJsonReport(opts, buildJsonPayload({ scanned: opts.scanned, hits, added, exempt }))
 
   if (opts.list || !opts.quiet) {
     for (const h of hits) {
       const mark = addedSet.has(h) ? '🆕 基线外' : allowed.has(h.key) ? '☑ 基线内' : '?'
       if (opts.list)
-        console.log(
+        say(
           `  ${mark} ${h.file}:${h.line} <${h.kind}> ${h.urlExpr.slice(0, 90)}\n         依据: ${h.evidence}`,
         )
     }
     for (const e of exempt) {
-      if (opts.list)
-        console.log(`  🚫 豁免 ${e.file}:${e.line} <${e.kind}> ${e.urlExpr} → ${e.reason}`)
+      if (opts.list) say(`  🚫 豁免 ${e.file}:${e.line} <${e.kind}> ${e.urlExpr} → ${e.reason}`)
     }
   }
 
-  console.log(
+  say(
     `[check-direct-backend-calls] 扫了 ${opts.scanned ?? hits.length} 个源文件 | 后端直连命中 ${hits.length} 处(基线内 ${hits.length - added.length} / 新增 ${added.length})| adapter 豁免 ${exempt.length} 处` +
       (opts.scopedTo
         ? ` | 本轮为 --staged 口径:只报告暂存集(${opts.scopedTo} 个文件)内的命中,污点回溯仍用全语料`
@@ -1172,7 +1249,7 @@ function report(result, opts) {
   if (baseline.missing && hits.length === 0) {
     console.warn('⚠️  基线缺失且零命中:确认这是"存量已清零"的真实状态,而不是扫描范围出错。')
   }
-  console.log('[PASS] 无新增端内直连后端(存量基线内放行,只减不增)')
+  say('[PASS] 无新增端内直连后端(存量基线内放行,只减不增)')
   return 0
 }
 
@@ -1312,6 +1389,9 @@ if (isDirectRun) {
 
 // AGENTS.md §22c:暴露核心判据给镜像测试直接 import(禁止复制判据)
 export const __test__ = {
+  main,
+  flagValue,
+  emitHuman,
   scanCode,
   stripComments,
   findCallSites,

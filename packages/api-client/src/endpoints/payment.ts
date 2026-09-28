@@ -538,15 +538,17 @@ export async function requestWithdrawal(input: {
   )
 }
 
-/** 获取提现审批状*/
-export async function getWithdrawalStatus(
-  nickname: string,
-  openId: string,
-): Promise<ApiResult<WithdrawalRecord>> {
-  return fetchApi<WithdrawalRecord>('/api/finance/withdrawal/getWithdrawal', {
-    method: 'POST',
-    body: JSON.stringify({ nickname, openId }),
-  })
+/** 获取当前登录用户的提现汇总与可提额度。
+ * 门 8 死调用清账(2026-09-28):上一版 POST /api/finance/withdrawal/getWithdrawal 带
+ * {nickname, openId} —— 该路由**从未注册 POST**,后端真实现是 GET 且按会话身份取数
+ * (withdrawal-routes.ts:94 用 request.userId,两参从未被读),所以死参数一并摘掉,
+ * 不留"能按昵称查别人提现"的假象。返回体 = { withdrawal: { totalWithdrawn, pendingAmount, available } }。 */
+export async function getWithdrawalStatus(): Promise<
+  ApiResult<{ withdrawal: { totalWithdrawn: number; pendingAmount: number; available: number } }>
+> {
+  return fetchApi<{
+    withdrawal: { totalWithdrawn: number; pendingAmount: number; available: number }
+  }>('/api/finance/withdrawal/getWithdrawal')
 }
 
 /** 获取当前用户自己的提现记*/

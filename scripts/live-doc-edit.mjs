@@ -23,6 +23,11 @@
  *                    `- [x] ✅(日期) …`并补证据",插入模式做不到,而按 pathspec 交工作树等于
  *                    把别人已入库的行整批写回旧态(§12 一夜三次自伤)。判据与插入档同源:
  *                    `before` 在 HEAD 版必须**恰好命中 1 次**(0 = 文案已漂,>1 = 有歧义,都不猜),
+ *                    除非该项显式带 `all: true` —— 那表示"这份文本在台账里有 N 个逐字相同的孪生副本,
+ *                    每一条都要施加同一个改写"(2026-09-28 立:摘过期认领牌/翻勾归并注记对 16/27 行会因
+ *                    同文副本被拒,而半新半旧比不改更糟)。`all` 只放宽"命中 N 次",**0 次仍拒**;
+ *                    任一 `before` 等于另一项的 `after` 一律拒(顺序替换会把自己刚改出的行再改一遍);
+ *                    命中数在成功行里逐条打印,不留静默。
  *                    且替换后"除这些行以外逐行等值、总行数不变" ⇒ 才准落盘。
  *  LIVE_MSG          必填,提交信息
  *  LIVE_ROOT         测试/换仓通道:仓库根(缺省 = 本脚本所在仓根)
@@ -33,6 +38,11 @@
  *  "提交前查一次占用"挡不住别人事后取同一个号(与守门编号撞号同族)。为什么必须**递增**而不是
  *  每个令牌都算 max+1:一次登记两件事是常态,那样本器自己就会产出它要防的那一型。
  *  该族一条登记行都没有 ⇒ exit 2 拒绝落地,绝不给 "<族>-1"。
+ *
+ *  号段基准(G-313 出路②,2026-09-28 加):基准 = **max(本地 HEAD 底稿该族 max, 远端那一份该族
+ *  max)**。只问 `git ls-remote` + 本机对象库;远端 tip 的对象**本地没有就不 fetch、不写任何 ref**,
+ *  如实打印"号段基准未含远端(对象不在本地,原因:…)"后按本地基准落盘。远端**只抬高、不压低**,
+ *  所以远端与本地同 max(或远端问不到)时取号与改动前逐字同形。降级一律喊出来,不得静默。
  * 退出码:0 = 已落地且回读证明本块每一条非空行都在 HEAD 里(索引对齐未尽只点名不判红);
  *        1 = 业务拒绝(锚点命中 0 或 >1 / 结构等值不成立 / 文档不在 HEAD / CAS 12 次未抢到 / 回读缺行 / 索引锁龄超上限);
  *        2 = 用法或环境错(缺必填 env / 锚点或正文块为空 / 根不可当仓库问)。
@@ -68,18 +78,160 @@ import { usedIdsOfPrefix } from './lib/plan-task-index.mjs'
  */
 const ID_TOKEN_RE = /\{\{NEXT_ID:([A-Za-z]+)\}\}/g
 
-export function resolveIdTokens(lines, baseContent) {
-  const families = new Set()
+/**
+ * 号段基准的两条来源:本地 HEAD 底稿 + **远端那一份底稿**(G-313 出路②,2026-09-28 立)。
+ *
+ * 为什么"每次重试重取本地 HEAD"仍不够(G-313 票面,主会话亲历):本会话两行确实由令牌在 23:50Z
+ * 那次 CAS 里按当次 HEAD 现算成 `G-302`/`G-303`(当时该族 max=301),撞号来自**另一侧** —— 那批
+ * 作者时刻更早、正文里**手填** `G-300..G-309`,却在本会话之后才并入 HEAD ⇒ 同一号段被两批各自认领。
+ * "并发批次带着旧底稿并入"这一型里,本地 HEAD 与远端可以各差一批(本仓 `origin` 常年被后台 worker
+ * 推进),只看本地那一份结构上看不见对面那批号。
+ *
+ * 三条不许漂的写法:
+ *  ① 远端 tip 只经 `git ls-remote <remote> <ref>` 问(远端真值唯一来源);判据仍只有一份 ——
+ *     远端那份底稿的该族 max 也走 `usedIdsOfPrefix`,不另写"什么算一个号"。
+ *  ② 该 tip 的对象**本地没有 ⇒ 不 fetch、不写任何 ref**,直接降级到本地基准并**点名原因**。
+ *     AGENTS §5b 实测:本仓嵌套 remote-tracking ref(`refs/remotes/**`)会被宿主清理层删掉,而
+ *     `git update-ref` 对嵌套 ref **返回 0 却不落盘** —— 为一个号段基准去动 refs 是拿仓库存续性换便利。
+ *  ③ 任何一步问不到都**只降级、不失败**(取号必须仍然落得了地),但降级必须喊出来:把"没判"写成
+ *     "判过了"是本仓最高频失效型,静默降级就等于伪装成"已与远端对齐"。
+ *  远端只用来**抬高**基准,永不用来压低 ⇒ 远端与本地同 max 时取号与改动前逐字同形(镜像 N2/N3 钉住)。
+ */
+const LS_REMOTE_TIMEOUT_MS = 20_000
+const REMOTE_READ_TIMEOUT_MS = 30_000
+
+/** 远端与 ref 可换(`LIVE_ID_REMOTE` / `LIVE_ID_REMOTE_REF`),缺省 origin/main —— 现读,不在模块期烘死。 */
+function remoteTarget() {
+  return {
+    remote: process.env.LIVE_ID_REMOTE || 'origin',
+    ref: process.env.LIVE_ID_REMOTE_REF || 'refs/heads/main',
+  }
+}
+
+const oneLine = (e) =>
+  String(e?.message ?? e)
+    .split(/\r?\n/)[0]
+    .slice(0, 200)
+
+/**
+ * 远端读取的传输面(唯一一处派生)。三个 git 调用各自带数字 `timeout`(本仓实测过无超时挂 80 分钟),
+ * `windowsHide` 与绝对路径 git 候选由 `lib/bypass-git.mjs` 的 `git()` 负责 —— 它复用的解析链与
+ * `lib/face-reader.mjs` 的 `gitBinary` 同出一份(`lib/gitdir.mjs` 的 `resolveGitBin`),**不再抄第三份候选表**。
+ */
+export const REMOTE_ID_TRANSPORT = {
+  tipSha({ root, remote = remoteTarget().remote, ref = remoteTarget().ref } = {}) {
+    const out = git(['ls-remote', remote, ref], { root, timeout: LS_REMOTE_TIMEOUT_MS })
+    const sha = String(out ?? '')
+      .trim()
+      .split(/\s+/)[0]
+    if (!sha) return { ok: false, reason: `${remote} 上没有 ${ref}` }
+    return { ok: true, sha, remote, ref }
+  },
+  /** 该 commit 对象本机是否已有;没有就抛(**绝不为取号去 fetch、绝不写任何 ref**)。 */
+  hasCommit({ root, sha }) {
+    git(['cat-file', '-e', `${sha}^{commit}`], { root, timeout: REMOTE_READ_TIMEOUT_MS })
+    return true
+  },
+  docContent({ root, sha, doc }) {
+    return git(['show', `${sha}:${doc}`], { root, raw: true, timeout: REMOTE_READ_TIMEOUT_MS })
+  },
+}
+
+/**
+ * 现读远端那一份底稿的号段基准。返回 `{ max:{族:远端该族 max}, notes:[降级原因], tipSha, remote, ref }`。
+ * 每条 notes 都对应"远端这一维没判到",调用方必须逐条打印 —— 只印 max 不印 notes,就是把"没判"
+ * 写成"判过了"的那一型。测试经 `transport` 注入构造值,不真发网络(生产缺省走真 ls-remote)。
+ */
+export function readRemoteIdBasis({ root, doc, families, transport = REMOTE_ID_TRANSPORT } = {}) {
+  const { remote, ref } = remoteTarget()
+  const out = { max: {}, notes: [], tipSha: '', remote, ref }
+  if (!Array.isArray(families) || families.length === 0) return out
+  let tip
+  try {
+    tip = transport.tipSha({ root, remote, ref })
+  } catch (e) {
+    out.notes.push(`远端不可问(${remote} ${ref}),原因:${oneLine(e)}`)
+    return out
+  }
+  if (!tip || tip.ok !== true || !tip.sha) {
+    out.notes.push(`远端不可问(${remote} ${ref}),原因:${tip?.reason ?? 'tipSha 没给出结论'}`)
+    return out
+  }
+  out.tipSha = tip.sha
+  try {
+    transport.hasCommit({ root, sha: tip.sha })
+  } catch (e) {
+    out.notes.push(`对象不在本地,原因:${oneLine(e)}`)
+    return out
+  }
+  let content
+  try {
+    content = transport.docContent({ root, sha: tip.sha, doc })
+  } catch (e) {
+    out.notes.push(`远端 tip ${tip.sha.slice(0, 8)} 里读不到 ${doc},原因:${oneLine(e)}`)
+    return out
+  }
+  if (typeof content !== 'string') {
+    out.notes.push(
+      `远端 tip ${tip.sha.slice(0, 8)} 里读不到 ${doc},原因:transport 没返回文本(判不出,不算已对齐)`,
+    )
+    return out
+  }
+  for (const f of families) {
+    const used = usedIdsOfPrefix(content, f)
+    if (used === null) {
+      out.notes.push(
+        `${f} 族在远端那份 ${doc} 里一条登记行都没有 ⇒ 不构成上界(读到了而这一族为空,不是降级)`,
+      )
+      continue
+    }
+    out.max[f] = used.max
+  }
+  return out
+}
+
+/** 正文里出现了哪些取号族(按出现顺序去重)—— 族集合由正文推得,不在别处硬写清单。 */
+export function idTokenFamilies(lines) {
+  const found = []
   for (const l of lines)
-    for (const m of String(l).matchAll(ID_TOKEN_RE)) families.add(m[1].toUpperCase())
-  if (families.size === 0) return { ok: true, lines, assigned: null }
+    for (const m of String(l).matchAll(ID_TOKEN_RE)) {
+      const f = m[1].toUpperCase()
+      if (!found.includes(f)) found.push(f)
+    }
+  return found
+}
+
+/**
+ * "号段基准"那一行的唯一措辞出口:三条读数(本地 max / 远端 max / 采用的基准)一起给 ——
+ * 只印最终值就分不清"远端把这一段顶开了"与"远端压根没参与",而后者必须读成**未与远端对齐**。
+ */
+export function describeIdBasis(b, remote) {
+  const head = `   号段基准:${b.family}=${b.chosenMax}(本地 HEAD 该族 max=${b.localMax}`
+  if (b.remoteMax === null) return `${head} / 远端未参与:原因见上一行 ⇒ 未与远端对齐)`
+  const rel = b.remoteMax > b.localMax ? '⇒ 取较大,新号跳过远端那段' : '⇒ 与本地同值,与改动前同形'
+  return `${head} / 远端 ${remote?.ref ?? '?'} max=${b.remoteMax} ${rel})`
+}
+
+/**
+ * 第三参 `remote` 缺省 null ⇒ 只看本地底稿,与改动前逐字同形;传入时远端**只能抬高**游标
+ * (`max(本地, 远端)`),永不压低 —— 所以镜像 N2 的"同 max"那一条要求行为与旧版完全一致。
+ */
+export function resolveIdTokens(lines, baseContent, remote = null) {
+  const families = idTokenFamilies(lines)
+  if (families.length === 0) return { ok: true, lines, assigned: null, basis: [] }
   const cursor = new Map()
   const template = new Map()
+  const basis = []
   for (const f of families) {
     const used = usedIdsOfPrefix(baseContent, f)
     if (used === null) return { ok: false, reason: `no-such-family:${f}` }
-    cursor.set(f, used.max)
+    const remoteMax = Number.isFinite(remote?.max?.[f]) ? remote.max[f] : null
+    const chosenMax = remoteMax !== null && remoteMax > used.max ? remoteMax : used.max
+    cursor.set(f, chosenMax)
     template.set(f, used.template)
+    // 三条读数一起交出:报告里"号段基准"那一行必须能说清号是从哪一侧算出来的,
+    // 只印最终值就分不清"远端把这一段顶开了"与"远端压根没参与"。
+    basis.push({ family: f, localMax: used.max, remoteMax, chosenMax })
   }
   const got = []
   // **逐个令牌递增取号**:一条块里登记两件事是常态,若两个令牌都算成 max+1,本器就会自己
@@ -94,7 +246,7 @@ export function resolveIdTokens(lines, baseContent) {
       return id
     }),
   )
-  return { ok: true, lines: out, assigned: [...new Set(got)].join(',') }
+  return { ok: true, lines: out, assigned: [...new Set(got)].join(','), basis }
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -133,6 +285,8 @@ export function readInputs(env = process.env) {
         return { error: `第 ${i + 1} 项含换行 ⇒ 本档只作**整行**替换(多行请拆成多项)` }
       if (p.before === p.after)
         return { error: `第 ${i + 1} 项 before == after ⇒ 无事可做,剔除后再跑` }
+      if ('all' in p && p.all !== true)
+        return { error: `第 ${i + 1} 项的 all 只允许写 true(缺省=恰好命中 1 次;放宽成任意真值就等于没有这条锁)` }
     }
     if (!resolveHeadRef({ root }))
       return { error: `${root} 不是可用仓库(HEAD 不可解析或 detached)⇒ 无法判定,不落` }
@@ -204,34 +358,44 @@ export function assemble(baseLinesIn, block, anchorLines) {
 }
 
 /**
- * 整行改写档:每项 `before` 必须**恰好命中 1 次**,替换后总行数不变、且除被改的那几行以外逐行等值。
- * 两条自证各防一型:命中数防"锚点文案已漂 / 有歧义"(0 与 >1 都不猜);逐位等值防"替换式顺手把
- * 别的行顶掉"(与插入档的结构等值是同一条禁令,不是新发明)。
+ * 整行改写档:默认每项 `before` 必须**恰好命中 1 次**;带 `all: true` 的那项允许命中 N 次并**全部**替换
+ * (0 次仍然拒 —— "文案已漂"与"有歧义"是两件事,只有前者在任何档下都不可猜)。
+ * 为什么需要 `all`(2026-09-28 由活文档清账逼出):台账里有一批**逐字相同的孪生登记行**(同一句话被并发
+ * 并集复制成 2..10 份),要施加的改写对每一份都完全相同(摘掉过期认领牌 / 翻勾归并注记)。此时"改哪一份"
+ * 语义上没有区别,而按"必须命中 1 次"就会 16/27 行落不了地,只能留成半新半旧的两个面孔 —— 那比不改更糟。
+ * 三条护栏:① `all` 必须显式声明,缺省仍是恰好 1 次(旧的"不猜"语义一字未松);② 任一 `before` 不得等于
+ * 另一项的 `after`(逐项顺序替换,否则前一项的产物会被后一项再改一遍,而声明里没这件事);③ 命中数如实
+ * 打印并计入 `hits`,所以"除被改的行以外逐行等值 + 总行数不变"这条结构等值照旧全覆盖。
+ * 两条自证各防一型:命中数防"锚点文案已漂"(0 一律拒);逐位等值防"替换式顺手把别的行顶掉"。
  */
 export function applyReplacements(baseLines, pairs) {
   const next = baseLines.slice()
   const hits = new Set()
   for (const [i, p] of pairs.entries()) {
+    for (const [j, q] of pairs.entries()) {
+      if (i === j) continue
+      if (p.before === q.after) return { ok: false, reason: `chain-hit#${i + 1}<-${j + 1}`, next: null }
+    }
+  }
+  const multi = []
+  for (const [i, p] of pairs.entries()) {
     const idxs = []
     for (let k = 0; k < next.length; k++) if (next[k] === p.before) idxs.push(k)
-    if (idxs.length !== 1)
-      return {
-        ok: false,
-        reason:
-          idxs.length === 0
-            ? `replace-not-found#${i + 1}`
-            : `replace-multi-hit#${i + 1}:${idxs.length}`,
-        next: null,
-      }
-    next[idxs[0]] = p.after
-    hits.add(idxs[0])
+    if (idxs.length === 0) return { ok: false, reason: `replace-not-found#${i + 1}`, next: null }
+    if (idxs.length !== 1 && !p.all)
+      return { ok: false, reason: `replace-multi-hit#${i + 1}:${idxs.length}`, next: null }
+    if (idxs.length > 1) multi.push({ item: i + 1, count: idxs.length })
+    for (const at of idxs) {
+      next[at] = p.after
+      hits.add(at)
+    }
   }
   if (next.length !== baseLines.length)
     return { ok: false, reason: 'line-count-changed', next: null }
   for (let k = 0; k < baseLines.length; k++)
     if (!hits.has(k) && next[k] !== baseLines[k])
       return { ok: false, reason: `untouched-line-drift@${k + 1}`, next: null }
-  return { ok: true, next, hits: [...hits] }
+  return { ok: true, next, hits: [...hits], multi }
 }
 
 async function main() {
@@ -263,10 +427,12 @@ async function main() {
     // 令牌**在每次尝试里重算**:别人先推进了 HEAD,下一轮算出的空闲号自然跟着变 ——
     // 这正是把取号放进 CAS 的意义(提交前"查一次占用"在高并发仓里不构成证据)。
     const baseContent = baseLines.join('\n')
-    const tok = resolveIdTokens(
-      replacements ? replacements.map((p) => p.after) : block,
-      baseContent,
-    )
+    const targetLines = replacements ? replacements.map((p) => p.after) : block
+    const families = idTokenFamilies(targetLines)
+    // 号段基准**也在每次尝试里重算**:HEAD 会动,远端 tip 也会动(origin 常年被后台 worker 推进)。
+    // 提到循环外就等于把"远端那一份"烘成一次性读数 —— 镜像测试 N5 用源码锁钉住这一型。
+    const remote = families.length ? readRemoteIdBasis({ root, doc, families }) : null
+    const tok = resolveIdTokens(targetLines, baseContent, remote)
     if (!tok.ok) {
       console.error(
         `❌ 令牌取号判不出(${tok.reason})⇒ 拒绝落地:该族在这份 HEAD 底稿里一条登记行都没有,` +
@@ -274,6 +440,10 @@ async function main() {
       )
       process.exit(2)
     }
+    // 降级必须逐条喊出来(远端这一维没判到 ≠ 已与远端对齐);顺序在基准行之前,便于"见上一行"指代。
+    for (const n of remote?.notes ?? [])
+      console.log(`⚠️ 号段基准未含远端(${n})⇒ 仍按本地 HEAD 底稿落号,**未与远端对齐**`)
+    for (const b of tok.basis ?? []) console.log(describeIdBasis(b, remote))
     if (tok.assigned) assigned = tok.assigned
     effBlock = tok.assigned && !replacements ? tok.lines : block
     effReplacements =
@@ -289,8 +459,10 @@ async function main() {
       console.error(
         built.reason === 'not-found'
           ? `❌ HEAD 版里找不到锚点(锚点文案已漂或本块已在位)⇒ 不猜,拒绝写盘`
-          : String(built.reason || '').startsWith('replace-not-found')
-            ? `❌ 第 ${String(built.reason).replace('replace-not-found#', '')} 项的 before 在 HEAD 版里找不到(该行已被别人改写或本来不逐字等值)⇒ 不猜,拒绝写盘`
+          : String(built.reason || '').startsWith('chain-hit')
+            ? `❌ 第 ${String(built.reason).replace('chain-hit#', '').split('<')[0]} 项的 before 等于另一项的 after ⇒ 逐项顺序替换会把前一项刚改出的行再改一遍,而声明里没有这件事,拒绝写盘(${built.reason})`
+            : String(built.reason || '').startsWith('replace-not-found')
+              ? `❌ 第 ${String(built.reason).replace('replace-not-found#', '')} 项的 before 在 HEAD 版里找不到(该行已被别人改写或本来不逐字等值)⇒ 不猜,拒绝写盘`
             : String(built.reason || '').startsWith('replace-multi-hit')
               ? `❌ 第 ${String(built.reason).replace('replace-multi-hit#', '').replace(/:.*/, '')} 项的 before 命中 ${String(built.reason).split(':').pop()} 次 ⇒ 无法确定改哪一行,交人工`
               : String(built.reason || '').startsWith('untouched-line-drift') ||
@@ -318,6 +490,14 @@ async function main() {
         `✅ 第 ${attempt} 次 CAS 成功 HEAD=${commit}(${mode}) ${doc} 行数 ${baseCount} → ${nextCount}` +
           (assigned === null ? '' : ` / 令牌取号(由该次 HEAD 底稿现算)=${assigned}`),
       )
+      // 同文全改必须点名:命中 1 次与命中 9 次在"总行数不变"这条断言上完全同形,不印出来就等于
+      // 让"顺手多改了别人那份"没有证人(与"失效方向必须是多要一次说明"同一条禁令)。
+      if (built.multi && built.multi.length)
+        console.log(
+          `   声明为 all 的项共 ${built.multi.length} 项,逐条命中数:` +
+            built.multi.map((m) => `第${m.item}项×${m.count}`).join(' ') +
+            `(合计改写 ${built.hits.length} 行)`,
+        )
       break
     }
     console.log(`⚠️ 第 ${attempt} 次 CAS 失败(别人先推进了 HEAD),重取 HEAD 底稿重试`)
@@ -388,5 +568,10 @@ export const __test__ = {
   assemble,
   applyReplacements,
   resolveIdTokens,
+  readRemoteIdBasis,
+  idTokenFamilies,
+  describeIdBasis,
+  remoteTarget,
+  REMOTE_ID_TRANSPORT,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

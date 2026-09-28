@@ -39,6 +39,8 @@ import { request as httpRequest } from 'node:http'
 import { resolveGitBin } from './lib/gitdir.mjs'
 import { resolveRemoteHead } from './lib/face-reader.mjs'
 import { keyFile, resolveKeyDir, firstExisting } from './lib/key-dir.mjs'
+// .env 解析复用现役实现(该脚本有 §22d isDirectRun 守卫,被 import 时不触发 CLI 副作用)
+import { parseEnvText } from './check-env-drift.mjs'
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const TASK_NAME = 'IHUI credential-health'
@@ -343,6 +345,73 @@ async function mirrorLivenessCheck() {
   ]
 }
 
+/**
+ * ⑥ 应用 .env 关键凭据**齐备性**(2026-09-27 立)。
+ *
+ * 为什么本门原有各条都看不见它:①②③④判的是"凭据在不在、还有效吗",全部指向**外部**凭据
+ * (服务环境块 / 同步盘 key 文件 / GitHub / Gitee);而 `apps/api/.env` 里"某个键值为空 ⇒ 某条
+ * 生产链路 fail-closed 静默拒客"这一型零覆盖。实测形状就是 2026-09-26 那次 `.env` 被整体替换清空
+ * 之后,`USDT_WEBHOOK_SECRET` 空着从 08-08 起就一直空着 —— 唯一痕迹是启动时一条 ERROR 日志
+ * (apps/api/src/routes/payment-usdt.ts:186),此后每个回调静默收 401,而到人链路上
+ * alert-check-service(审计日志计数 + 备份新鲜度)/ alertbridge / 本门**没有一条**会因它喊人。
+ * "读不到值却静默降级"与本门立项理由("凭据过期只以下游失败形态出现")是同一个病。
+ *
+ * 三条判据取向(与上文各条的防假红纪律同形):
+ *   · `.env` 缺失或读不到 ⇒ **unknown**,不判红也不记通过(CI / 干净检出上 .env 按设计不存在);
+ *   · `.env` 空但 IHUI-API 服务环境块有值 ⇒ **ok**(值由别处注入不是故障,拿 nssm 那份算数);
+ *   · 两处都空 ⇒ **fail**,detail 只写键名与后果,**绝不写值**(含"有值"那一支也不写)。
+ * 已知边界(如实登记,不假装周全):若某台部署把值由 compose 环境变量注入而 `.env` 里留空,本条会
+ * 误报 fail —— 本机实测形态是 nssm + apps/api/.env(dotenv 加载),故按此判;换部署形态要改这里。
+ * 判"空/非空"的解析复用 `scripts/check-env-drift.mjs` 的 `parseEnvText`(dotenv last-wins 同形),
+ * **不再抄第三份 .env 解析**(两处算同一件事必漂移,是本仓记过最多次的失效型)。
+ */
+const APP_ENV_FILE = join(REPO, 'apps', 'api', '.env')
+/** 只收"缺失即静默 fail-closed 真实流量"的键 —— 不是"env 全都查一遍",那会把未启用功能变成天天发邮件 */
+const APP_ENV_REQUIRED_KEYS = [
+  {
+    key: 'USDT_WEBHOOK_SECRET',
+    gates: 'POST /payment/usdt/callback/:network 的强制验签(payment-usdt.ts:184)',
+    consequence: '回调 100% 收 401,现象只有启动时一条 ERROR,之后每次静默拒收',
+  },
+  {
+    key: 'OIDC_CLIENT_SECRET',
+    gates: 'isOidcConfigured()(packages/auth/src/providers/oidc.ts:85)',
+    consequence: '前端「企业 SSO」按钮点了恒返回「OIDC 未配置」400(按钮本身照常渲染)',
+  },
+]
+
+/** 纯函数:构造面即可证明三态与脱敏,不依赖本机 .env 此刻有什么(§103 T12 那一课) */
+export function judgeAppEnvCredentials({
+  envText,
+  required = APP_ENV_REQUIRED_KEYS,
+  resolveServiceValue,
+}) {
+  if (envText === null || envText === undefined) {
+    return [
+      {
+        name: '应用 .env 关键凭据',
+        level: 'unknown',
+        detail: `${APP_ENV_FILE} 不存在或读不到 ⇒ 不判定(干净检出/CI 上本就没有 .env,不得据此报失效)`,
+      },
+    ]
+  }
+  const { values } = parseEnvText(envText)
+  return required.map((r) => {
+    const fromDotenv = (values.get(r.key) ?? '').trim()
+    if (fromDotenv) return { name: `.env ${r.key}`, level: 'ok', detail: '已配置(本行及任何输出都不打印值)' }
+    const fromService = String(resolveServiceValue?.(r.key) ?? '').trim()
+    if (fromService)
+      return { name: `.env ${r.key}`, level: 'ok', detail: '.env 留空但 IHUI-API 服务环境块有值 ⇒ 认已配置(来源:服务块)' }
+    return {
+      name: `.env ${r.key}`,
+      level: 'fail',
+      detail:
+        `值为空(${values.has(r.key) ? '键在而值空' : '键整条缺失'}) ⇒ ${r.gates} 走 fail-closed;${r.consequence}。` +
+        `处置:填回 ${APP_ENV_FILE} 的 ${r.key}(历史值可在 .ihui-agent/env-backup/ 里找),或明确停用该功能并从本清单摘掉该键`,
+    }
+  })
+}
+
 /** 主巡检:返回结果数组,不直接打印(便于 --json / 告警复用) */
 export async function runChecks() {
   const out = []
@@ -432,6 +501,13 @@ export async function runChecks() {
   //    为什么测结果而不是查 ff/凭据/构建:今天停摆有两层原因(口令过期 + 脏树挡 ff),
   //    任何一种都可能再变出第三种;只有"线上产物是否等于当前 tip"是不会骗人的判据。
   out.push(...deployStallCheck())
+  // ⑥ 应用 .env 里"空值即静默 fail-closed"的关键凭据(见上方判据说明)
+  out.push(
+    ...judgeAppEnvCredentials({
+      envText: readFileSyncOr(APP_ENV_FILE),
+      resolveServiceValue: (k) => readServiceEnv('IHUI-API', k),
+    }),
+  )
   out.push(...(await mirrorLivenessCheck()))
   return out
 }
@@ -574,6 +650,34 @@ function selfTest() {
   eq('key 缺失(null)判空串而非抛错', pickKey(null, /^[0-9a-f]{32}$/), '')
   eq('形状不合判空(同目录冲突副本不可用)', pickKey('a97fghp_0123456789abcdef0123456789abcdef', /^[0-9a-f]{32}$/), '')
   eq('形状合 ⇒ 去空白取原值', pickKey(' 0123456789abcdef0123456789abcdef\n', /^[0-9a-f]{32}$/), '0123456789abcdef0123456789abcdef')
+  // ── ⑥ 应用 .env 关键凭据齐备性(2026-09-27 立)── 全部走构造面,不读本机 .env(§103 T12 那一课:
+  //    证明取材面/降级分支这类行为只能用纯函数 + 构造输入,不得依赖仓库此刻的真实状态)
+  const REQ = [{ key: 'K_CANARY', gates: '某闸口', consequence: '某后果' }]
+  const lvl = (rows) => rows.map((r) => r.level).join(',')
+  const CANARY = 'LEAK-CANARY-9f3a1b'
+  eq('.env 不存在/读不到 ⇒ unknown(不冒红也不记通过)', lvl(judgeAppEnvCredentials({ envText: null, required: REQ })), 'unknown')
+  eq('键在而值为空 ⇒ fail(就是 09-26 清空事故的形状)', lvl(judgeAppEnvCredentials({ envText: 'K_CANARY=\n', required: REQ })), 'fail')
+  eq('键整条缺失 ⇒ fail(与空值同后果)', lvl(judgeAppEnvCredentials({ envText: 'OTHER=1\n', required: REQ })), 'fail')
+  eq('有值 ⇒ ok', lvl(judgeAppEnvCredentials({ envText: `K_CANARY=${CANARY}\n`, required: REQ })), 'ok')
+  eq(
+    '脱敏硬底线:ok 与 fail 两档的全部输出字段都不得含值本身',
+    JSON.stringify([
+      ...judgeAppEnvCredentials({ envText: `K_CANARY=${CANARY}\n`, required: REQ }),
+      ...judgeAppEnvCredentials({ envText: `OTHER=${CANARY}\nK_CANARY=\n`, required: REQ }),
+    ]).includes(CANARY),
+    false,
+  )
+  eq('detail 必须报名键名与后果(只喊"有一项红"不可处置)', judgeAppEnvCredentials({ envText: 'K_CANARY=\n', required: REQ })[0].detail.includes('K_CANARY') && judgeAppEnvCredentials({ envText: 'K_CANARY=\n', required: REQ })[0].detail.includes('某闸口'), true)
+  eq('.env 空但 IHUI-API 服务环境块有值 ⇒ ok(假红护栏)', lvl(judgeAppEnvCredentials({ envText: 'K_CANARY=\n', required: REQ, resolveServiceValue: () => 'x' })), 'ok')
+  eq(
+    '阳性对照:上一条判据不是恒假 —— 值真被带出时它必须翻红',
+    JSON.stringify([{ name: '.env K_CANARY', level: 'ok', detail: `已配置 ${CANARY}` }]).includes(CANARY),
+    true,
+  )
+  eq('反向对照:两处都拿不到 ⇒ 仍 fail(护栏不得吞掉真故障)', lvl(judgeAppEnvCredentials({ envText: 'K_CANARY=\n', required: REQ, resolveServiceValue: () => null })), 'fail')
+  eq('export 前缀 + 成对引号按 dotenv 同形判非空', lvl(judgeAppEnvCredentials({ envText: 'export K_CANARY="v v"\n', required: REQ })), 'ok')
+  eq('空引号 "" 仍判 fail(不得被当成有值)', lvl(judgeAppEnvCredentials({ envText: 'K_CANARY=""\n', required: REQ })), 'fail')
+  eq('缺省清单就两键(扩表须逐条给"缺失即静默拒客"的证据)', APP_ENV_REQUIRED_KEYS.map((r) => r.key).join(','), 'USDT_WEBHOOK_SECRET,OIDC_CLIENT_SECRET')
   let bad = 0
   for (const [label, pass, why] of cases) {
     if (!pass) bad++

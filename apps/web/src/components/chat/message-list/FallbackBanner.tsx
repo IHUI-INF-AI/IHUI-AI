@@ -71,12 +71,14 @@ export function FallbackBanner({
   // D39 重试倒计时(消费 retry_scheduled 帧;缺失优雅降级)
   const remaining = useRetryCountdown(retryInfo?.retryInMs)
   const retryView =
-    retryInfo != null ? buildRetryCountdownView(retryInfo, t as TFunction, remaining) : null
+    retryInfo !== null && retryInfo !== undefined
+      ? buildRetryCountdownView(retryInfo, t as TFunction, remaining)
+      : null
   const showRetryRow =
-    retryView != null &&
-    (retryView.scheduleLabel != null ||
-      retryView.httpStatusLabel != null ||
-      retryView.noResponseLabel != null)
+    retryView !== null &&
+    ((retryView.scheduleLabel !== null && retryView.scheduleLabel !== undefined) ||
+      (retryView.httpStatusLabel !== null && retryView.httpStatusLabel !== undefined) ||
+      (retryView.noResponseLabel !== null && retryView.noResponseLabel !== undefined))
   const noticeText = isQuotaEquivalent
     ? t('fallbackNoticeQuota', {
         primary: fallbackNotice.primaryModel,
@@ -155,13 +157,13 @@ export function FallbackBanner({
           data-testid="fallback-retry-row"
           className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200"
         >
-          {retryView!.scheduleLabel != null && (
+          {retryView!.scheduleLabel !== null && retryView!.scheduleLabel !== undefined && (
             <span data-testid="fallback-retry-schedule">{retryView!.scheduleLabel}</span>
           )}
-          {retryView!.httpStatusLabel != null && (
+          {retryView!.httpStatusLabel !== null && retryView!.httpStatusLabel !== undefined && (
             <span data-testid="fallback-retry-http">{retryView!.httpStatusLabel}</span>
           )}
-          {retryView!.noResponseLabel != null && (
+          {retryView!.noResponseLabel !== null && retryView!.noResponseLabel !== undefined && (
             <span data-testid="fallback-retry-noresponse">{retryView!.noResponseLabel}</span>
           )}
         </div>

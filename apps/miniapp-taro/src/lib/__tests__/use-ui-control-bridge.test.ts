@@ -165,7 +165,10 @@ beforeEach(async () => {
   mocks.stack.length = 0
   mocks.stack.push({ route: 'pages/login/login', options: {} })
   bridge = await import('../../hooks/use-ui-control-bridge')
-})
+  // 冷 CI 首枚 resetModules+import 要现算 bridge 模块图,默认 10s hookTimeout 不够
+  // (2026-09-27 PR#65 run 36343143040 "start 立即上报" 红于 Hook timed out in 10000ms;
+  //  本地热盘全绿)。预算 60s,断言零改动。
+}, 60_000)
 
 afterEach(() => {
   vi.useRealTimers()

@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, copyFileSync } from 'node:fs'
+import { writeFileSync, mkdirSync, copyFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -21,7 +21,7 @@ const SOURCE_SCRIPT = join(__dirname, '..', 'check-mypy.mjs')
 // 读取 STUB_MYPY_EXIT / STUB_MYPY_OUT 环境变量实现可控退出码与输出,
 // 使测试不依赖真实 mypy 安装,结果确定性。
 function createTempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-mypy-'))
+  const dir = mkScratch('ihui-mypy-')
   execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
@@ -104,7 +104,7 @@ test('CLI: --help → exit 0 + 打印用法', () => {
     assert.match(r.out, /--staged/)
     assert.match(r.out, /mypy/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -115,7 +115,7 @@ test('CLI: -h 别名 → exit 0 + 打印用法', () => {
     assert.equal(r.status, 0, `-h 应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /用法/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -129,7 +129,7 @@ test('Skip: HUSKY_SKIP_MYPY=1 → exit 0 + 跳过提示', () => {
     assert.match(r.out, /已跳过/)
     assert.match(r.out, /HUSKY_SKIP_MYPY=1/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -142,7 +142,7 @@ test('Skip 优先级: --help + HUSKY_SKIP_MYPY=1 → exit 0 + 用法(help 优先
     assert.match(r.out, /用法/, '应打印 help 用法')
     assert.ok(!r.out.includes('已跳过'), 'help 优先,不应打印跳过提示')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -155,7 +155,7 @@ test('--staged: 无 staged 文件 → exit 0 + 跳过', () => {
     assert.equal(r.status, 0, `无 staged 应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -167,7 +167,7 @@ test('--staged: staged .ts(非 Python)→ exit 0 + 跳过', () => {
     assert.equal(r.status, 0, `非 Python staged 应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -181,7 +181,7 @@ test('--staged: staged .py 不在 apps/ai-service/(apps/api/)→ exit 0 + 跳过
     assert.equal(r.status, 0, `apps/api/ 下 .py 不匹配前缀\nstdout: ${r.out}`)
     assert.match(r.out, /跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -202,7 +202,7 @@ test('--staged: staged .py 在 apps/ai-service/ + mypy success → exit 0 + ✅'
     assert.match(r.out, /✅.*mypy 守门通过/)
     assert.match(r.out, /apps\/ai-service\/app\/main\.py/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -221,7 +221,7 @@ test('--staged: staged .py 在 apps/ai-service/ 子目录 → 触发 mypy(子目
     assert.match(r.out, /检测到 1 个 Python 文件改动/)
     assert.match(r.out, /apps\/ai-service\/app\/services\/deep\.py/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -240,7 +240,7 @@ test('--staged: staged .py + mypy fail → exit 1 + ❌ + 错误输出 + 修复�
     assert.match(r.out, /Incompatible types/)
     assert.match(r.out, /修复方法/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -260,7 +260,7 @@ test('--staged: 混合(1 .py + 1 .ts)→ 检测计数 1 + 不列 .ts', () => {
     // .ts 文件不应出现在 Python 检测列表中
     assert.ok(!r.out.includes('util.ts'), `不应列出 .ts 文件\nstdout: ${r.out}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -281,7 +281,7 @@ test('--staged: 12 个 .py → 截断提示 "... 及其他 2 个文件"', () => 
     assert.match(r.out, /检测到 12 个 Python 文件改动/)
     assert.match(r.out, /\.\.\. 及其他 2 个文件/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -300,7 +300,7 @@ test('默认: 无 --staged → mypy success → exit 0 + ✅ + 全量检查提�
     assert.match(r.out, /全量检查/)
     assert.match(r.out, /✅.*mypy 守门通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -317,7 +317,7 @@ test('默认: 无 --staged → mypy fail → exit 1 + ❌ + 错误输出', () =>
     assert.match(r.out, /❌.*mypy 守门失败/)
     assert.match(r.out, /Some type error/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -342,7 +342,7 @@ test('环境缺失: mypy --version 探测失败 → exit 0 + 明示未安装(不
     assert.ok(!r.out.includes('SENTINEL-real-mypy-ran'), `不应执行真实检查\nstdout: ${r.out}`)
     assert.ok(!r.out.includes('❌'), `环境缺失不应报类型错误\nstdout: ${r.out}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -362,7 +362,7 @@ test('Skip 优先级: --staged + HUSKY_SKIP_MYPY=1 + staged .py → exit 0 + 跳
     // 不应出现检测计数(说明在 staged 检测之前就跳过了)
     assert.ok(!r.out.includes('检测到'), `skip 应在 staged 检测前\nstdout: ${r.out}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

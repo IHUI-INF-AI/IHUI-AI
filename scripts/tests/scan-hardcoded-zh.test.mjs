@@ -8,7 +8,7 @@
  *   检测 apps/web/app + apps/web/src/components 下 .ts/.tsx 文件中的
  *   硬编码中文字符串(未走 t()/next-intl 的代码行)。
  *
- *   测试用临时 fixture(在 os.tmpdir() 下创建项目结构 + spawnSync cwd 模拟项目根),
+ *   测试用临时 fixture(scratch-dir 落点下创建项目结构 + spawnSync cwd 模拟项目根),
  *   不污染项目,符合 AGENTS.md §23(目录用 tests/)。
  *
  *   覆盖场景:
@@ -31,10 +31,10 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync, existsSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync, existsSync, rmSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -42,7 +42,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'scan-hardcoded-zh.mjs')
 
 // ─── 辅助:创建临时项目根目录 ─────────────────────────────
 function createTempProject() {
-  return mkdtempSync(join(tmpdir(), 'ihui-scan-zh-'))
+  return mkScratch('ihui-scan-zh-')
 }
 
 // 辅助:在临时项目根下写文件(自动创建父目录)
@@ -83,7 +83,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(r.stdout, /含硬编码中文的文件: 0/)
       assert.match(r.stdout, /硬编码中文行数: 0/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -109,7 +109,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(r.stdout, /你好世界/)
       assert.match(r.stdout, /提交按钮/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -125,7 +125,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.equal(r.status, 0)
       assert.match(r.stdout, /含硬编码中文的文件: 0/, 'apps/web/src/lib 不在 TARGETS 内,不应被扫描')
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -141,7 +141,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.equal(r.status, 0)
       assert.match(r.stdout, /含硬编码中文的文件: 0/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -160,7 +160,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.equal(r.status, 0)
       assert.match(r.stdout, /含硬编码中文的文件: 0/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -176,7 +176,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.equal(r.status, 0)
       assert.match(r.stdout, /含硬编码中文的文件: 0/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -194,7 +194,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.equal(r.status, 0)
       assert.match(r.stdout, /含硬编码中文的文件: 0/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -211,7 +211,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.equal(r.status, 0)
       assert.match(r.stdout, /含硬编码中文的文件: 0/, '含 useTranslations/getTranslations token 的行应被 SKIP_TOKEN_RE 跳过')
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -232,7 +232,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       // 其他行无中文 → 0 命中
       assert.match(r.stdout, /含硬编码中文的文件: 0/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -249,7 +249,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.equal(r.status, 1, `--exit 1 有命中应 exit 1,实际 ${r.status}`)
       assert.match(r.stderr, /--exit 1.*发现硬编码中文|pre-commit 拒绝/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -263,7 +263,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       const r = runScript(['--exit', '1'], { cwd: root })
       assert.equal(r.status, 0, `--exit 1 无命中应 exit 0,实际 ${r.status}`)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -293,7 +293,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       // file 字段为相对路径,跨平台用 regex 匹配
       assert.match(hit.file, /apps[\\\/]web[\\\/]app[\\\/]page\.tsx/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -313,7 +313,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.equal(r.status, 0)
       assert.match(r.stdout, /含硬编码中文的文件: 0/, '__tests__/ + .test.tsx + admin/ 均应被排除')
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -334,7 +334,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(r.stdout, /含硬编码中文的文件: 1/)
       assert.match(r.stdout, /硬编码中文行数: 2/, '第 2、3 行含中文,第 4 行英文不计,应 2 处命中')
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -366,7 +366,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
         assert.ok(m, `${c.name}: 未解析到命中数\n${r.stdout}\n${r.stderr}`)
         assert.equal(Number(m[1]), c.want, `${c.name} 命中数应为 ${c.want},实际 ${m[1]}\nstdout:${r.stdout}\nstderr:${r.stderr}`)
       } finally {
-        rmSync(root, { recursive: true, force: true })
+        rmScratch(root)
       }
     }
   })
@@ -388,7 +388,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(r.stdout, /内容文案豁免/, '必须可见地报出"有文件被豁免",不得静默')
       assert.match(r.stdout, /page\.tsx \(2 处\)/, '必须逐文件给出被放行的命中数')
     } finally {
-      rmSync(r1root, { recursive: true, force: true })
+      rmScratch(r1root)
     }
 
     // ② 反例:空标记 → 不生效(防"写一行注释就白免")
@@ -399,7 +399,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(r.stdout, /硬编码中文行数:\s*2/, '无理由的标记不得生效')
       assert.doesNotMatch(r.stdout, /内容文案豁免/, '未生效时不得报成已豁免')
     } finally {
-      rmSync(r2root, { recursive: true, force: true })
+      rmScratch(r2root)
     }
 
     // ③ 反例:声明躲到命中行旁边(第 40 行之后) → 不生效
@@ -411,7 +411,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(r.stdout, /硬编码中文行数:\s*1/, '声明必须在文件头;躲在尾部不得生效')
       assert.doesNotMatch(r.stdout, /内容文案豁免/, '同上:未生效就不该出现豁免段')
     } finally {
-      rmSync(r3root, { recursive: true, force: true })
+      rmScratch(r3root)
     }
   })
 
@@ -422,7 +422,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
   //  夹具用**真 git 临时仓**:脚本的 HEAD 维度按 ROOT 取,而 ROOT 可由 --root 指到夹具,
   //  于是能造出"基线文件不存在(额度 0)+ 文件在 HEAD 里本来就有中文"这一精确形态。
   function createGitProject() {
-    const root = mkdtempSync(join(tmpdir(), 'ihui-scan-zh-git-'))
+    const root = mkScratch('ihui-scan-zh-git-')
     const GIT = 'C:/Program Files/Git/cmd/git.exe'
     const git = (args) =>
       spawnSync(GIT, ['-c', `user.name=t`, '-c', 'user.email=t@t', '-c', 'safe.directory=*', ...args], {
@@ -456,7 +456,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       //  若退回只看清单,这里会变成"4 处 > 基线 0 处(新增 4)"—— 把既有债全算成本次新增。
       assert.match(both, /repl\.ts: 4 处 > 基线 3 处\(新增 1\)/)
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -504,7 +504,7 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(fullOut, /face-probe\.tsx: 2 处 > 基线 1 处\(新增 1\)/, '全量档的数必须来自**工作树**(2)——与 --staged 的 3 不同面不同数')
       assert.match(fullOut, /判定面\(命中数取的是哪一份\): 工作树磁盘/, '全量档必须点名判定面')
     } finally {
-      rmSync(root, { recursive: true, force: true })
+      rmScratch(root)
     }
   })
 
@@ -526,6 +526,199 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
     assert.ok(!/['"]cat-file['"]/.test(code), "不得再自己拼 `cat-file`(取材层的存在就是为了不再各写一遍)")
     assert.ok(!/execFileSync\('git'/.test(code), "不得再裸 execFileSync('git')(服务账户 / GUI 宿主 PATH 不通)")
     assert.ok(!/const GIT_BIN = 'C:/.test(code), '不得再写死 Git 安装目录这种盘符绝对路径(AGENTS §15)')
+  })
+
+  // ─── 20/21/22. 一枚"全是删除"的提交不得被退回磁盘判(2026-09-28 立,真仓实测事故)───
+  // 事故形状:`--diff-filter=ACMR` 把只含 D 的索引读成空集 ⇒ 旧写法退磁盘全量判 ⇒
+  // 点名**别人未提交**的文件 ⇒ 归因层正确判"红但未点名本次文件"⇒ 各会话 --no-verify ⇒
+  // 一次绕过约等于链上全部守门对该提交作废。三条用例的方向不同,少一条都退化:
+  //   ⑯ 只暂存删除 ⇒ exit 0 且必须点名"不判"的原因,且**不得**出现那枚在飞文件的名字;
+  //   ⑰ 同夹具改成暂存"新增中文的修改" ⇒ 仍判红(证明这次收紧没有把门做成装饰品);
+  //   ⑱ 索引**真的**空(人工裸跑)而磁盘脏 ⇒ 仍退磁盘判红(保住"空暂存恒绿是假通过"那条既有设计)。
+  test('暂存集只含删除 ⇒ 不判、不退磁盘,且在飞文件不得被点名(反假归因)', () => {
+    const { root, git } = createGitProject()
+    try {
+      const doomed = 'apps/web/app/doomed.tsx'
+      const dirty = 'apps/web/app/in-flight.tsx'
+      mkdirSync(join(root, 'apps/web/app'), { recursive: true })
+      writeFileSync(join(root, doomed), `export const A = '确定'\n`, 'utf8')
+      writeFileSync(join(root, dirty), `export const A = '确定'\n`, 'utf8')
+      git(['add', '-A'])
+      git(['commit', '-q', '-m', 'init'])
+      // ① 索引里只留一条删除
+      rmSync(join(root, doomed), { force: true })
+      git(['add', '-A', '--', doomed])
+      // ② 另一枚文件在**磁盘**上新增中文,但一次都没 add —— 那正是别人的在飞现场
+      writeFileSync(join(root, dirty), `export const A = '确定'\nexport const B = '取消'\nexport const C = '关闭'\n`, 'utf8')
+
+      const r = runScript(['--staged', '--exit', '1'], { cwd: root })
+      const out = `${r.stdout}\n${r.stderr}`
+      assert.equal(r.status, 0, `只含删除的提交不得被磁盘上的在飞文件钉红。实得:\n${out}`)
+      assert.match(out, /没有任何可扫正文/, '必须点名"本次不判"的原因,不许静默绿')
+      assert.match(out, /刻意不退磁盘/, '原因里必须写清"不退磁盘"这条决策,否则下一个人会以为是漏判')
+      assert.ok(!out.includes('in-flight.tsx'), `在飞文件不得被点名(那属于别人的现场):${out}`)
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('同一夹具改成暂存"新增中文的修改" ⇒ 仍判红(证明上一条没有把门做成装饰品)', () => {
+    const { root, git } = createGitProject()
+    try {
+      const rel = 'apps/web/app/edited.tsx'
+      mkdirSync(join(root, 'apps/web/app'), { recursive: true })
+      writeFileSync(join(root, rel), `export const A = '确定'\n`, 'utf8')
+      git(['add', '-A'])
+      git(['commit', '-q', '-m', 'init'])
+      writeFileSync(join(root, rel), `export const A = '确定'\nexport const B = '取消'\n`, 'utf8')
+      git(['add', '--', rel])
+      const r = runScript(['--staged', '--exit', '1'], { cwd: root })
+      const out = `${r.stdout}\n${r.stderr}`
+      assert.equal(r.status, 1, `暂存集里有 ACMR 时必须照判红。实得:\n${out}`)
+      assert.match(out, /edited\.tsx: 2 处 > 基线 1 处/, '命中面必须仍取自索引 blob')
+      assert.ok(!/没有任何可扫正文/.test(out), '不得走"不判"那一支')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('索引**真的**空而磁盘脏 ⇒ 仍退磁盘判红(保住"空暂存恒绿是假通过"的既有设计)', () => {
+    const { root, git } = createGitProject()
+    try {
+      const rel = 'apps/web/app/bare.tsx'
+      mkdirSync(join(root, 'apps/web/app'), { recursive: true })
+      writeFileSync(join(root, rel), `export const A = '确定'\n`, 'utf8')
+      git(['add', '-A'])
+      git(['commit', '-q', '-m', 'init'])
+      // 只改磁盘、一次都不 add ⇒ 索引为空(不是"只含删除")
+      writeFileSync(join(root, rel), `export const A = '确定'\nexport const B = '取消'\nexport const C = '关闭'\n`, 'utf8')
+      const r = runScript(['--staged', '--exit', '1'], { cwd: root })
+      const out = `${r.stdout}\n${r.stderr}`
+      assert.equal(r.status, 1, `索引真空时不得免判。实得:\n${out}`)
+      assert.match(out, /索引确实空/, '必须写明退回的是"真空索引"那一支,与"只含删除"区分开')
+      assert.match(out, /bare\.tsx: 3 处/, '退磁盘后仍要量到在飞中文')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('形状锁:删除/重命名的判定必须有两条不同枚举,不得合成一条', () => {
+    const code = readFileSync(SCRIPT_PATH, 'utf8')
+    assert.match(code, /--diff-filter=ACMR/, '可扫集必须仍按 ACMR 筛(删除没有正文)')
+    assert.match(code, /\['diff', '--cached', '--name-only'\]/, '必须另有一条**不筛状态**的枚举来判断"索引到底空不空"')
+    assert.match(
+      code,
+      /const deletionOnlyCommit =[\s\S]{0,160}stagedAny[^\n]*\.size > 0/,
+      '两支的分流必须**以"索引非空"为凭**存在,否则又回到"空集 ⇒ 退磁盘";写成常量 false 也必须在被拦之列(变异实测过)',
+    )
+  })
+
+  // ─── 15. 带值旗标:`--json` / `--top` 不得把**下一个旗标**当成值 ───
+  // 立项因由(2026-09-28 主会话实测复现):runner 给每道门追加 `--staged`,而旧解析**无条件**取
+  // 紧邻的下一个 token 当值 ⇒ 人手跑 `--json --staged` 会把 JSON 写进仓库根一个名叫 `--staged`
+  // 的文件(违反 AGENTS §28),且调用方按头注拿到的 stdout 是空的。三条规矩各由一条**正向**用例
+  // 钉住,并由两条**反向**用例保证"改成永远 stdout"这类破坏既有行为的写法蒙混不过去。
+  const twoHitFixture = () => {
+    const root = createTempProject()
+    writeFile(root, 'apps/web/app/a.tsx', ["export default function A() {", "  return <div>你好</div>", "}"].join('\n'))
+    writeFile(root, 'apps/web/app/b.tsx', ["export default function B() {", "  return <div>再见</div>", "}"].join('\n'))
+    return root
+  }
+
+  test('`--json --staged` ⇒ JSON 走 stdout(可单独 JSON.parse)且**不写出任何文件**', () => {
+    const root = twoHitFixture()
+    try {
+      const r = runScript(['--json', '--staged'], { cwd: root })
+      assert.equal(r.status, 0, `不带 --exit 1 必须永远 exit 0(既有语义),实际 ${r.status}`)
+      assert.equal(existsSync(join(root, '--staged')), false, '不得在 cwd 下写出名叫 --staged 的文件')
+      // 夹具不是 git 仓 ⇒ 本门会打"判定面退回提示";它必须落在 stderr,否则 stdout 就不是纯 JSON
+      let data = null
+      assert.doesNotThrow(() => {
+        data = JSON.parse(r.stdout)
+      }, `stdout 必须是**单独可 parse** 的 JSON,实得 stdout 前 200 字:${String(r.stdout).slice(0, 200)}`)
+      assert.ok(data && typeof data === 'object', 'parse 结果应为对象')
+      assert.equal(data.totalFiles, 2, 'stdout 档的量必须与文件档一致(2 个文件)')
+      assert.ok(Array.isArray(data.files) && Array.isArray(data.targets), '结构与其他档同形')
+      assert.match(r.stderr, /stdout/, 'stdout 档必须在输出里能看出用的是哪一档(提示走 stderr,不脏 stdout)')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('反向对照:`--json <真路径>` 仍然**写文件**(不得把整档改成"永远 stdout")', () => {
+    const root = twoHitFixture()
+    const jsonOut = join(root, 'report.json')
+    try {
+      const r = runScript(['--json', jsonOut], { cwd: root })
+      assert.equal(r.status, 0, `文件档 exit 码未变,实际 ${r.status}`)
+      assert.equal(existsSync(jsonOut), true, '带真路径时 --json 必须仍写文件')
+      const data = JSON.parse(readFileSync(jsonOut, 'utf8'))
+      assert.equal(data.totalFiles, 2)
+      assert.throws(
+        () => JSON.parse(r.stdout),
+        '反面对照:文件档的 stdout **不是** JSON(仍是 "Wrote … to …" 一行)—— 若这里能 parse,说明写文件那一支被摘掉、只剩 stdout 档',
+      )
+      assert.match(r.stdout, /Wrote 2 files .* to /, '文件档必须仍在 stdout 点名写出的路径')
+      assert.match(r.stdout, new RegExp(String(jsonOut).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), '路径必须逐字出现在提示行里')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('`--json` 作为末位旗标(后面没有值)⇒ 同样走 stdout,不产生名叫 undefined 的文件', () => {
+    const root = twoHitFixture()
+    try {
+      const r = runScript(['--root', root, '--json'], { cwd: root })
+      assert.equal(r.status, 0)
+      const data = JSON.parse(r.stdout)
+      assert.equal(data.totalFiles, 2, '末位 --json 也必须是 JSON 档')
+      const stray = ['undefined', '--json'].filter((n) => existsSync(join(root, n)))
+      assert.deepEqual(stray, [], `不得写出以旗标/undefined 命名的文件(实得:${stray})`)
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('`--top` 只认纯数字:`--top --staged` ⇒ 退回 30 并在人读面点名"忽略无效"', () => {
+    const root = twoHitFixture()
+    try {
+      const r = runScript(['--top', '--staged'], { cwd: root })
+      const out = `${r.stdout}\n${r.stderr}`
+      assert.match(out, /忽略无效的 --top 值/, 'NaN 阈值不得静默:必须写明忽略了什么')
+      assert.match(r.stdout, /=== 硬编码中文 TOP 30 文件/, '必须退回默认 30(表头即档名)')
+      assert.throws(() => JSON.parse(r.stdout), '无效 --top 只影响阈值,不得把输出换成 JSON 档')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('正向对照:`--top 1` 仍生效(表头 TOP 1 且只列 1 个文件)', () => {
+    const root = twoHitFixture()
+    try {
+      const r = runScript(['--top', '1'], { cwd: root })
+      assert.match(r.stdout, /=== 硬编码中文 TOP 1 文件/, '合法数字必须照旧生效')
+      assert.ok(!/忽略无效/.test(r.stdout), '合法值不得报无效')
+      const listed = (r.stdout.match(/\n\s+\d+ 处 \| /g) || []).length
+      assert.equal(listed, 1, `TOP 1 只该列 1 个文件,实得 ${listed}`)
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('形状锁:带值旗标必须拒绝"下一个 token 是旗标",且 stdout 档的提示必须走 stderr', () => {
+    const code = readFileSync(SCRIPT_PATH, 'utf8')
+    assert.match(
+      code,
+      /!v\.startsWith\('-'\)/,
+      'flagValue 必须保留"以 - 开头即不算值"这条判据(摘掉它就回到本次立项那一型)',
+    )
+    assert.match(code, /\/\^\\d\+\$\/\.test\(TOP_RAW\)/, '--top 必须按纯数字判(旧写法 parseInt 会把旗标折成 NaN)')
+    assert.match(
+      code,
+      /function notice\(msg\) \{\s*\n\s*if \(JSON_STDOUT\) console\.error\(msg\)/,
+      'JSON-stdout 档的一切提示必须改打 stderr,否则 stdout 不再是纯 JSON',
+    )
+    assert.match(code, /if \(JSON_OUT \|\| JSON_STDOUT\) \{[\s\S]{0,400}fs\.writeFileSync\(JSON_OUT, payload/, '文件档必须真的还在写盘')
   })
 
 })
