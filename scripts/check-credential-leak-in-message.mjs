@@ -11,6 +11,14 @@
 //   注释豁免同时认 `//` 与 `#`。
 // 守门:拦截「上游**凭据/令牌类**响应体被 stringify 后塞进 4xx/5xx 错误 message」的外泄路径。
 //
+// 2026-09-29 新增**第二维 AT(at-rest,D146)**:同一文件里「写盘的对象含 accessToken /
+// refreshToken / client_secret」而**没走信封出口** ⇒ 磁盘上是能 `cat` 出来的明文凭据。
+// 这一维与 A–F 判的**不是同一件事**(A–F 判传输语义,AT 判落盘形态),但**刻意挂在本门身上而不是
+// 新立一道凭据落盘门**:票第 3 栏④写得很清楚 —— 新建就会与 67/107 各判一半,而门 107 判第三方
+// 来源台账、本门原判错误体外泄,**两者都不是"磁盘上是否明文"这一型**,硬塞只会让它们的判据变形。
+// AT 的三条放过通道(信封出口在位 / 测试面 / 注释形态)与「HEAD 自身存量」棘轮各有正反用例钉住,
+// 未取证语法面(Python 写盘)只声明射程边界,不冒充覆盖。
+//
 // 为什么需要(实测事实,非推测):
 //   1) apps/api/src/plugins/response-sanitizer.ts:496
 //      `if (reply.statusCode < 200 || reply.statusCode >= 300) return payload`
@@ -83,6 +91,11 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, extname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
+// 遮罩实现只有一份(AGENTS 守门 135 的同一课:两处遮罩必漂移)。AT 维只遮注释、**保留字符串**:
+// 载荷里的 `"accessToken":` 常以字符串形态出现(手写 JSON 模板),连字符串一起抹就失明;
+// 而"把同一段只写进注释"必须归绿 —— 注释遮罩是唯一关掉误报的那一层。
+import { maskComments } from './lib/code-mask.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_PATH = resolve(ROOT, 'scripts', 'credential-leak-baseline.json')
@@ -600,6 +613,200 @@ export function partitionByTestPath(items) {
   return { prod, test }
 }
 
+// ==================== AT 维(at-rest,D146 2026-09-29 新增) ====================
+//
+// 判的是**另一件事**,与 A–F(传输语义:凭据被拼进错误 message)不重叠:
+//   AT = 写盘的那个对象含 `accessToken|refreshToken|client_secret`,而同一文件**没有**经过
+//   D146 的信封出口(`sealCredentialEnvelope` / 桌面端 `sealVaultText`)⇒ 磁盘上是可 `cat` 的明文。
+// 为什么挂在本门而不是新立一道门(票第 3 栏④):新建凭据落盘门就会与 67/107 各判一半,
+// 本仓同型事故已记多次;而 107 判第三方来源台账、67 判错误体外泄,**两者都不是"磁盘上是否明文"**。
+// 所以 AT 只加在本门身上,并且**只判 JS/TS 的写盘形态**(Python `open(...,'w').write` 语法另计,
+// 未取证就不判 —— 判据不许假装覆盖了它没读过的语言)。
+//
+// 三条放过通道(各有正反用例钉住):
+//   ① 同文件调用了信封出口(本门要拦的是"没封就写",不是"写了凭据");
+//   ② 测试面(TEST_PATH;mock 凭据不是真实落盘 —— 与既有 A–F 的分桶同一口径);
+//   ③ 注释形态:`maskComments` 后的代码面才参与判定(写进注释必须归绿)。
+// 无行内豁免通道:新立豁免族却不进守门 108 的存活期表 = 造一条没人看管的出口
+// (`radius-role-exempt` 那一课),所以这里宁可只留①②③三条**可判**的放过。
+export const AT_WRITE_SRC = String.raw`\b(?:writeFileSync|writeFile)\s*\(`
+export const AT_CRED_KEY_SRC = String.raw`["']?(?:accessToken|refreshToken|client_secret)["']?\s*:`
+/** 信封出口的唯一名单(与 apps/cli/src/tools/mcp-credentials.ts、apps/web/src/lib/local-vault.ts 的导出同名) */
+export const AT_ENVELOPE_OUTLET_SRC = String.raw`\b(?:sealCredentialEnvelope|sealVaultText)\s*\(`
+/** 单次写盘调用的实参扫描上限:超过即判"读不出载荷",落未判定而不是猜 */
+const AT_ARG_SCAN_LIMIT = 4000
+
+const AT_WRITE_RE = new RegExp(AT_WRITE_SRC, 'g')
+const AT_CRED_KEY_RE = new RegExp(AT_CRED_KEY_SRC, 'g')
+const AT_ENVELOPE_OUTLET_RE = new RegExp(AT_ENVELOPE_OUTLET_SRC, 'g')
+
+/** 取 `(` 所在下标之后的顶层实参数组(引号感知;扫不过平衡就返回 null,交调用方落未判定)。 */
+export function topLevelArgsOfCall(text, openParenIndex) {
+  if (text[openParenIndex] !== '(') return null
+  const limit = Math.min(text.length, openParenIndex + AT_ARG_SCAN_LIMIT)
+  const args = []
+  // depth 从 1 起算:游标已经在被扫描那次调用的圆括号**内部**。
+  // 从 0 起算的写法会让顶层逗号一个都切不出来(args 恒为 1 项)⇒ 载荷判不出 ⇒ 整维静默失明。
+  let depth = 1
+  let start = openParenIndex + 1
+  let i = start
+  while (i < limit) {
+    const ch = text[i]
+    if (ch === '"' || ch === "'" || ch === '`') {
+      i = advanceQuoted(text, i)
+      continue
+    }
+    if (ch === '(' || ch === '[' || ch === '{') depth++
+    else if (ch === ')' || ch === ']' || ch === '}') {
+      depth--
+      if (depth === 0) {
+        args.push(text.slice(start, i))
+        return args.map((a) => a.trim()).filter((a) => a.length > 0)
+      }
+    } else if (ch === ',' && depth === 1) {
+      args.push(text.slice(start, i))
+      start = i + 1
+    }
+    i++
+  }
+  return null // 括号没配平(或被扫描上限截断):判不出,不猜
+}
+
+/** 文本里的凭据对象键(引号可选;`{accessToken: t}` 与 `{"accessToken": t}` 同视)。 */
+function credKeysIn(text) {
+  AT_CRED_KEY_RE.lastIndex = 0
+  const out = new Set()
+  for (const m of text.matchAll(AT_CRED_KEY_RE)) out.add(m[0].replace(/["':\s]/g, ''))
+  return [...out].sort()
+}
+
+/**
+ * AT 判据主体。
+ * @param {string} src 文件**原文**(遮罩在本函数内做,调用方不得预先遮罩 —— 遮罩两遍会改变行号)
+ * @param {string} file 仓库相对路径
+ * @returns {{violations: Array<object>, undetermined: Array<object>}}
+ */
+export function scanAtRest(src, file) {
+  if (file.endsWith('.py')) return { violations: [], undetermined: [] } // 未取证的语法面,不冒充覆盖
+  const code = maskComments(src)
+  AT_ENVELOPE_OUTLET_RE.lastIndex = 0
+  if (AT_ENVELOPE_OUTLET_RE.test(code)) return { violations: [], undetermined: [] } // 放过①
+  const fileHintsCredentialShape = new RegExp(AT_CRED_KEY_SRC).test(code)
+  const decls = collectDeclarations(code)
+  const violations = []
+  const undetermined = []
+  AT_WRITE_RE.lastIndex = 0
+  for (const m of code.matchAll(AT_WRITE_RE)) {
+    const openIdx = m.index + m[0].length - 1
+    const args = topLevelArgsOfCall(code, openIdx)
+    const line = code.slice(0, m.index).split('\n').length
+    if (args === null || args.length < 2) {
+      // 只在这文件**确实**带凭据形状时才对"读不出载荷"点名,否则任何一次 writeFile 都会上榜
+      if (fileHintsCredentialShape) {
+        undetermined.push({ file, line, reason: args === null ? '写盘调用的实参读不出(未配平/超扫描上限)' : '写盘调用只有一个实参(载荷不可见)' })
+      }
+      continue
+    }
+    const payload = args[1]
+    const keys = credKeysIn(payload)
+    if (keys.length) {
+      violations.push(makeAtRecord(file, line, keys, payload))
+      continue
+    }
+    // 载荷是标识符或 JSON.stringify(ID):沿声明一跳看右侧对象字面量(与 D 通道同一回溯深度,不追传递闭包)
+    const inner = findStringifyArgs(payload)
+    const candidates = inner.length ? inner : [payload]
+    let hit = false
+    let opaque = false
+    for (const c of candidates) {
+      const expr = c.replace(/\s+/g, ' ').trim()
+      if (!IDENT_RE.test(expr)) {
+        opaque = opaque || expr.length > 0
+        continue
+      }
+      const rhs = resolveDeclaredRhs(decls, expr, line)
+      if (rhs === null) {
+        opaque = true
+        continue // 形参/外部值:结构上判不出 ⇒ 未判定,不冒红也不记绿
+      }
+      const rhsKeys = credKeysIn(rhs)
+      if (rhsKeys.length) {
+        violations.push(makeAtRecord(file, line, rhsKeys, `${expr}←${norm(rhs).slice(0, 80)}`))
+        hit = true
+        break
+      }
+    }
+    if (!hit && opaque && fileHintsCredentialShape) {
+      undetermined.push({ file, line, reason: `载荷取自判不出的表达式:${norm(payload).slice(0, 60)}` })
+    }
+  }
+  return { violations, undetermined }
+}
+
+/** AT 记录:key 形态与 A–F 同构(`<路径>::<kind>|<证据>`,不含行号 ⇒ 上方增删行不会让豁免静默失效)。 */
+function makeAtRecord(file, line, keys, payloadText) {
+  const evidence = keys.join(',')
+  const kind = 'at-rest-credential-write'
+  const snippet = `${kind}|${evidence}`
+  return {
+    file,
+    line,
+    kind,
+    evidence,
+    snippet,
+    key: `${file}::${snippet}`,
+    excerpt: norm(payloadText).slice(0, 160),
+    contexts: 1,
+    lines: [line],
+    at: true,
+  }
+}
+
+/** 取 HEAD blob(只给"本次有 AT 命中"的文件调,逐文件、带超时)。 */
+export function readHeadBlob(file) {
+  try {
+    return execFileSync('git', ['-c', 'safe.directory=*', 'show', `HEAD:${file}`], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      timeout: 20_000,
+      windowsHide: true,
+    })
+  } catch {
+    return null // 取不到(新文件/改名/异常)⇒ null,调用方按"HEAD 无存量"处理并如实报出
+  }
+}
+
+/**
+ * AT 棘轮:锚点 = **该文件 HEAD 自身的 AT 存量**。
+ * 只拦"这次改动把未封装的凭据写盘加回来了",不追存量 —— 存量当场判红就是一台与任何提交
+ * 都无关的恒红门,唯一结局是逼人 `--no-verify` 连带废掉全部守门(AGENTS §12f 同型)。
+ */
+export function applyAtRatchet(atFindings, readFileForAnchor) {
+  const byFile = new Map()
+  for (const v of atFindings) {
+    const list = byFile.get(v.file) || []
+    list.push(v)
+    byFile.set(v.file, list)
+  }
+  const fresh = []
+  const stock = []
+  const anchorUnknown = []
+  for (const [file, list] of byFile) {
+    const headSrc = readFileForAnchor(file)
+    if (headSrc === null) {
+      // 锚点取不到:不冒红也不放绿 —— 整组进"未判定"清单并点名原因
+      anchorUnknown.push({ file, count: list.length, reason: 'HEAD blob 取不到(新建/改名/仓库异常)' })
+      fresh.push(...list)
+      continue
+    }
+    const headCount = scanAtRest(headSrc, file).violations.length
+    if (list.length > headCount) fresh.push(...list)
+    else stock.push(...list)
+  }
+  return { fresh, stock, anchorUnknown }
+}
+
 function gitLines(args) {
   return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
     cwd: ROOT,
@@ -810,6 +1017,65 @@ export function evalCase(src, file = 'selftest.ts') {
   return r.violations.length ? 'violation' : r.candidates.length ? 'candidate' : 'none'
 }
 
+/**
+ * AT 维的成对正反例(每条正例都配一条"只差一点点"的反例 —— 单向证明等于没有证明)。
+ * want: 'violation' | 'undetermined' | 'none'
+ */
+export const AT_SELFTEST_CASES = [
+  {
+    name: 'AT 正例:writeFileSync 写出的对象含 accessToken 且同文件无信封出口 → 违规',
+    src: "fs.writeFileSync(p, JSON.stringify({ accessToken: tok }), 'utf-8')",
+    want: 'violation',
+  },
+  {
+    name: 'AT 反例:同一段只写进注释 → 必绿(遮罩关掉的是误报,不是判据)',
+    src: '// fs.writeFileSync(p, JSON.stringify({ accessToken: tok }), "utf-8")\nconst a = 1',
+    want: 'none',
+  },
+  {
+    name: 'AT 反例:同文件调用了信封出口(先封再写)→ 放过(本维拦的是"没封就写")',
+    src: 'const text = sealCredentialEnvelope(JSON.stringify(creds), key, kid);\nfs.writeFileSync(p, JSON.stringify({ accessToken: tok }))',
+    want: 'none',
+  },
+  {
+    name: 'AT 正例:载荷经同文件声明一跳(body = {accessToken,…})→ 违规',
+    src: 'const body = { accessToken: t, refreshToken: r }\nawait fs.promises.writeFile(p, JSON.stringify(body), "utf-8")',
+    want: 'violation',
+  },
+  {
+    name: 'AT 正例:模板串里手写 JSON 的引号键也算凭据载荷',
+    src: 'fs.writeFileSync(p, `{"accessToken":"${tok}"}`)',
+    want: 'violation',
+  },
+  {
+    name: 'AT 未判定:载荷取自判不出的表达式(形参),而该文件确实带凭据形状 → 点名不判红',
+    src: 'const known = { refreshToken: x }\nexport function persist(creds) {\n  fs.writeFileSync(p, JSON.stringify(creds))\n}',
+    want: 'undetermined',
+  },
+  {
+    name: 'AT 反例:载荷是判不出的表达式但该文件毫无凭据形状 → 不点名(settings 类写盘)',
+    src: 'export function persist(settings) {\n  fs.writeFileSync(p, JSON.stringify(settings))\n}',
+    want: 'none',
+  },
+  {
+    name: 'AT 反例:单实参 writeFileSync(p) → 载荷不可见,不冒红',
+    src: 'fs.writeFileSync(p)',
+    want: 'none',
+  },
+  {
+    name: 'AT 射程边界:Python 写盘形态未取证 → 整条不判(不得把没读过的语言写成已覆盖)',
+    src: "with open(p, 'w') as f:\n    f.write(json.dumps({'accessToken': tok}))",
+    want: 'none',
+    file: 'app/services/x.py',
+  },
+]
+
+/** AT 单例求解:violation / undetermined / none(违规优先)。 */
+export function evalAtCase(src, file = 'at-selftest.ts') {
+  const r = scanAtRest(src, file)
+  return r.violations.length ? 'violation' : r.undetermined.length ? 'undetermined' : 'none'
+}
+
 function selfTest() {
   // 下面每条 src 是故意构造的判据样例(带 cred 语义应被抓住,不带的只做候选/放过)。
   let bad = 0
@@ -820,8 +1086,21 @@ function selfTest() {
     console.log(`${ok ? '✅' : '❌'} ${c.name}(期望 ${c.want},实得 ${got})`)
   }
   const n = SELFTEST_CASES.length
-  console.log(bad === 0 ? `\nself-test 全通过(${n} 例)` : `\nself-test 失败 ${bad}/${n} 例`)
-  return bad === 0
+  let atBad = 0
+  for (const c of AT_SELFTEST_CASES) {
+    const got = evalAtCase(c.src, c.file)
+    const ok = got === c.want
+    if (!ok) atBad++
+    console.log(`${ok ? '✅' : '❌'} ${c.name}(期望 ${c.want},实得 ${got})`)
+  }
+  const atN = AT_SELFTEST_CASES.length
+  const fails = bad + atBad
+  if (fails === 0) {
+    console.log(`\nself-test 全通过(A–F ${n} 例 + AT ${atN} 例 = ${n + atN} 例)`)
+  } else {
+    console.log(`\nself-test 失败 ${fails}/${n + atN} 例(A–F 错 ${bad}、AT 错 ${atBad})`)
+  }
+  return fails === 0
 }
 
 function printHelp() {
@@ -834,10 +1113,17 @@ function printHelp() {
       '',
       '选项:',
       '  --staged            仅扫描暂存区文件(pre-commit 模式)',
-      '  --quiet             只输出结论,不打印低置信候选清单',
-      '  --update-baseline   把当前高危违规写入基线(存量豁免,只减不增)',
-      '  --self-test         跑内置判据自检',
+      '  --quiet             只输出结论,不打印低置信候选/AT 未判定清单',
+      '  --update-baseline   把当前高危违规写入基线(存量豁免,只减不增;**不含 AT 维**)',
+      '  --self-test         跑内置判据自检(A–F 传输维 + AT 落盘维)',
       '  --help              显示本帮助',
+      '',
+      '拦截两类凭据外泄(两类判据互不重叠):',
+      '  A–F 传输维:上游凭据/令牌类响应体被 JSON.stringify 后塞进 4xx/5xx 错误 message',
+      '              (非 2xx 响应不经 response-sanitizer 脱敏,拼进 message 即绕过脱敏。)',
+      '  AT 落盘维 :写盘的那个对象含 accessToken/refreshToken/client_secret,而同一文件没走',
+      '              信封出口(sealCredentialEnvelope / sealVaultText)⇒ 磁盘上是能 cat 出来的明文。',
+      '              棘轮锚点 = 该文件 HEAD 自身 AT 存量,只拦新增;Python 写盘形态不在射程(未取证)。',
       '',
       '退出码: 0 通过 / 1 检出违规 / 2 脚本自身异常',
     ].join('\n'),
@@ -863,15 +1149,28 @@ async function main(argv = process.argv.slice(2)) {
   const files = listCandidatesToScan(staged)
   const violations = []
   const candidates = []
+  /** AT 维(落盘明文)单独成组:它的判据、豁免通道与棘轮都和 A–F 不同,不得混进同一个计数桶 */
+  const atFindings = []
+  const atUndetermined = []
   for (const f of files) {
     const abs = resolve(ROOT, f)
     if (!existsSync(abs)) continue
-    const found = scanSource(readFileSync(abs, 'utf8'), f, exempt)
+    const src = readFileSync(abs, 'utf8')
+    const found = scanSource(src, f, exempt)
     violations.push(...found.violations)
     candidates.push(...found.candidates)
+    const at = scanAtRest(src, f)
+    for (const v of at.violations) if (!exempt.has(v.key)) atFindings.push(v)
+    atUndetermined.push(...at.undetermined)
   }
   const mode = staged ? '--staged' : '全量'
   const { prod, test } = partitionByTestPath(violations)
+  // AT 棘轮:锚点 = 该文件 HEAD 自身的 AT 存量(只拦"这次把未封装的凭据写盘加回来")
+  const atRatcheted = applyAtRatchet(atFindings, readHeadBlob)
+  const atPartitioned = partitionByTestPath(atRatcheted.fresh)
+  const atProd = atPartitioned.prod
+  const atTest = atPartitioned.test
+  const redTotal = prod.length + atProd.length
   if (prod.length) {
     console.log(
       `❌ [check-credential-leak-in-message ${mode}] ${prod.length} 处凭据体外泄进错误 message:`,
@@ -887,10 +1186,50 @@ async function main(argv = process.argv.slice(2)) {
     console.log(
       '   修复:message 只留厂商/状态码/白名单错误字段,上游响应体不得整体 stringify 回传。',
     )
-  } else {
+  }
+  if (atProd.length) {
     console.log(
-      `✅ [check-credential-leak-in-message ${mode}] 扫描 ${files.length} 文件,凭据外泄高危 0 处`,
+      `❌ [check-credential-leak-in-message ${mode} · AT 落盘维] ${atProd.length} 处凭据对象未过信封出口就写盘:`,
     )
+    for (const v of atProd.slice(0, 40)) {
+      console.log(`   ${v.file}:${v.line} [${v.kind}] 写出的对象含 ${v.evidence}`)
+      console.log(`     ${v.excerpt}`)
+    }
+    if (atProd.length > 40) console.log(`   ... 其余 ${atProd.length - 40} 处`)
+    console.log(
+      '   修复:写盘前过信封出口(`sealCredentialEnvelope` / 桌面端 `sealVaultText`);' +
+        '确需明文(降级档)必须由状态出口落档并打印路径+原因,不得静默写。',
+    )
+  }
+  if (!redTotal) {
+    console.log(
+      `✅ [check-credential-leak-in-message ${mode}] 扫描 ${files.length} 文件,凭据外泄高危 0 处、AT 落盘新增 0 处`,
+    )
+  }
+  if (atTest.length) {
+    console.log(`⚠️  AT:测试代码 ${atTest.length} 处命中(warn-only:mock 凭据非真实落盘路径)`)
+  }
+  // 三态必须分开报:把"存量/判不出"折进"通过"就是本仓最高频的失效型
+  if (atRatcheted.stock.length) {
+    console.log(
+      `ℹ️  AT 存量(等于该文件 HEAD 自身存量,只报数不判红)${atRatcheted.stock.length} 处:` +
+        (quiet ? '(--quiet 已省略清单)' : [...new Set(atRatcheted.stock.map((v) => v.file))].slice(0, 10).join(', ')),
+    )
+  }
+  if (atRatcheted.anchorUnknown.length) {
+    for (const a of atRatcheted.anchorUnknown) {
+      console.log(`⚠️  AT 锚点取不到:${a.file}(${a.count} 处,${a.reason})—— 按新增对待,请核对该路径是否新建/改名`)
+    }
+  }
+  if (atUndetermined.length) {
+    console.log(
+      `ℹ️  AT 未判定 ${atUndetermined.length} 处(载荷读不出对象形状,不冒红也不记绿)` +
+        (quiet ? '(--quiet 已省略清单):' : ':'),
+    )
+    if (!quiet) {
+      for (const u of atUndetermined.slice(0, 20)) console.log(`   ${u.file}:${u.line}  ${u.reason}`)
+      if (atUndetermined.length > 20) console.log(`   ... 其余 ${atUndetermined.length - 20} 处`)
+    }
   }
   if (test.length) {
     console.log(`⚠️  测试代码 ${test.length} 处命中(warn-only:mock 凭据非真实外泄路径)`)
@@ -904,11 +1243,16 @@ async function main(argv = process.argv.slice(2)) {
     if (candidates.length > 40) console.log(`   ... 其余 ${candidates.length - 40} 处`)
   }
   if (argv.includes('--update-baseline')) {
+    // 刻意**只**写 A–F(传输维)的键:AT 的存量出口是"该文件 HEAD 自身存量"这把棘轮,
+    // 把 AT 也写进基线就等于给它第二条消红通道 —— 而基线文件不会随代码演进收紧(§4 对
+    // 豁免清单"必然腐烂"的同一条教训)。
     writeBaseline(prod.map((v) => v.key))
-    console.log(`✅ 基线已写入 ${prod.length} 条(只减不增,新增违规仍会被拦)`)
+    console.log(
+      `✅ 基线已写入 ${prod.length} 条(只减不增,新增违规仍会被拦;AT 维不吃基线,走 HEAD 棘轮)`,
+    )
     return 0
   }
-  return prod.length ? 1 : 0
+  return redTotal ? 1 : 0
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
@@ -940,6 +1284,16 @@ export const __test__ = {
   classifyStringifyArg,
   evalCase,
   SELFTEST_CASES,
+  // --- AT 维(2026-09-29 D146):判据、出口名单、棘轮与取证夹具都必须是导出的同一份实现 ---
+  scanAtRest,
+  evalAtCase,
+  AT_SELFTEST_CASES,
+  topLevelArgsOfCall,
+  applyAtRatchet,
+  readHeadBlob,
+  AT_WRITE_SRC,
+  AT_CRED_KEY_SRC,
+  AT_ENVELOPE_OUTLET_SRC,
   listCandidatesToScan,
   partitionByTestPath,
   readBaselineRaw,

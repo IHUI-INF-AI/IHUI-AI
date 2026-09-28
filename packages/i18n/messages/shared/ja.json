@@ -483,6 +483,15 @@
     "captchaRefresh": "認証コードを更新"
   },
   "chat": {
+    "meta": {
+      "changedElsewhere": "この会話の{field}は他のデバイスで「{value}」に更新されました",
+      "pullOnly": "ミニプログラム側では次回開いたときにこの変更が同期されます",
+      "field": {
+        "title": "タイトル",
+        "archive": "アーカイブ状態",
+        "model": "モデル"
+      }
+    },
     "icuProbe": {
       "flowState": "{state, select, running {{count, plural, =0 {ストリーム実行中、待機ツールなし} other {ストリーム実行中、{count} 個のツールをスケジュール}}} paused {ストリーム一時停止} failed {実行失敗：<b>{reason}</b>}}"
     },
