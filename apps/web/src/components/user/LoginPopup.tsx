@@ -83,21 +83,21 @@ export default function LoginPopup({
             <button
               type="button"
               onClick={() => onLogin?.('phone')}
-              className="w-full rounded-md bg-cta px-4 py-2.5 text-sm text-cta-foreground hover:bg-cta/90"
+              className="w-full rounded-sm bg-cta px-4 py-2.5 text-sm text-cta-foreground hover:bg-cta/90"
             >
               手机号登录
             </button>
             <button
               type="button"
               onClick={() => onLogin?.('email')}
-              className="w-full rounded-md border px-4 py-2.5 text-sm hover:bg-muted"
+              className="w-full rounded-sm border px-4 py-2.5 text-sm hover:bg-muted"
             >
               邮箱登录
             </button>
             <button
               type="button"
               onClick={() => onLogin?.('wechat')}
-              className="w-full rounded-md border px-4 py-2.5 text-sm hover:bg-muted"
+              className="w-full rounded-sm border px-4 py-2.5 text-sm hover:bg-muted"
             >
               微信登录
             </button>

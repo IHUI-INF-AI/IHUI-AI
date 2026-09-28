@@ -186,7 +186,7 @@ export default function TeamMemoryPage() {
                 setKindFilter(k)
                 if (scopeId.trim()) void load(scopeId, k, keyword)
               }}
-              className={`rounded px-2 py-1 text-xs ${
+              className={`rounded-sm px-2 py-1 text-xs ${
                 kindFilter === k ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground'
               }`}
             >

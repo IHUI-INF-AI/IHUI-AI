@@ -922,7 +922,7 @@ export function AISidePanel() {
           }}
           aria-label={tc('title')}
           className={cn(
-            'fixed z-sticky flex items-center justify-center rounded-xl border border-border bg-card shadow-lg transition-all hover:scale-105 hover:shadow-xl',
+            'fixed z-sticky flex items-center justify-center rounded-sm border border-border bg-card shadow-lg transition-all hover:scale-105 hover:shadow-xl',
             // 手机:FAB 更大(56px 适合触屏),固定左下角(与桌面端浮窗默认位置一致)
             isMobileSmall
               ? 'h-14 w-14 bottom-4 left-4'

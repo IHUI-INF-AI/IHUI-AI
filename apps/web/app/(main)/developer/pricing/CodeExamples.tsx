@@ -89,7 +89,7 @@ export function CodeExamples(): React.JSX.Element {
           </pre>
           <button
             onClick={() => copyCode(active)}
-            className="absolute right-2 top-2 rounded-md bg-zinc-800 p-1.5 text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100"
+            className="absolute right-2 top-2 rounded-sm bg-zinc-800 p-1.5 text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100"
             aria-label={t('copyAria')}
           >
             {copied === active ? (

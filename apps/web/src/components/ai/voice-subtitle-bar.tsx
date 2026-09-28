@@ -147,7 +147,7 @@ export function VoiceSubtitleBar({
               aria-pressed={v === view}
               onClick={() => onViewChange?.(toggleSummaryView(view))}
               className={cn(
-                'inline-flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors',
+                'inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 transition-colors',
                 v === view
                   ? 'bg-primary/10 font-medium text-primary'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
