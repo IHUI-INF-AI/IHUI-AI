@@ -41,6 +41,12 @@ import {
   twinFoldNote,
   twinFoldRejectReason,
   KNOWN_FLAGS,
+  auditPointerTerminals,
+  stripMergeNotes,
+  restoreMergeNote,
+  buildRestoreTerminals,
+  verifyRestoreTerminals,
+  pointerVisibilityRegression,
   __test__,
 } from '../plan-tasks-merge.mjs'
 import { forkPreserved } from '../lib/plan-merge-annotation.mjs'
@@ -860,4 +866,122 @@ test('A3 --fold-twins 的三态输出必须分开打,判不出不得被写成通
   } finally {
     rmScratch(env.dir)
   }
+})
+
+/**
+ * T23 接线锁(源码级)。为什么行为测试不够:`pointerVisibilityRegression` 是差值护栏,
+ * 它写在文件里而**两处落地闸没调它**时,行为测试照样绿(函数自己会算),提交链却一路放行
+ * "把一族最后一个代表标上指针"的归并 —— 守门 70/76/81/115 记过多次的同一型。
+ * 取号旗标也在这里钉:旗标进了分支而没进 KNOWN_FLAGS 会被 inspectArgs 拒成 exit 2,
+ * 症状是"命令不存在",而没人会去查白名单。
+ */
+test('T23 差值护栏必须挂在两处落地闸上,恢复旗标必须在白名单里', () => {
+  const src = readFileSync(path.resolve(ROOT, 'scripts', 'plan-tasks-merge.mjs'), 'utf8')
+  const body = (name) => {
+    const at = src.indexOf(`export function ${name}(`)
+    if (at < 0) throw new Error(`找不到 ${name}(改名要同步本锁)`)
+    const next = src.indexOf('\nexport ', at + 1)
+    return src.slice(at, next < 0 ? src.length : next)
+  }
+  for (const fn of ['healStopReasons', 'verifyMerge'])
+    if (!/pointerVisibilityRegression\(/.test(body(fn)))
+      throw new Error(`${fn} 没调用差值护栏 ⇒ 提交链上等于没有这条判据`)
+  if (!KNOWN_FLAGS.includes('--restore-terminals'))
+    throw new Error('--restore-terminals 不在 KNOWN_FLAGS ⇒ 会被 inspectArgs 拒成"命令不存在"')
+  // 兜底键必须走剥注记那一份实现;回到行内正则就等于让 97 行不同任务并成一个假族
+  const audit = body('auditPointerTerminals')
+  if (!/stripMergeNotes\(/.test(audit))
+    throw new Error('auditPointerTerminals 的兜底键不再剥注记 ⇒ 假族回来(编号取不回、二层失明)')
+  // 走权威入口再量一次判据本身(§"验判据必须走权威入口"):源码里写了调用点不等于判据算得对,
+  // 两头都要钉 —— 上一枚提交就是因为只钉了文字而把一条恒不成立的断言当成交付。
+  const GK = ' 〔【归并】重复登记副本(2026-09-28):同主键的另一条登记,派单以那条为准,本行不再单独派单。〕'
+  const oneLive = ['- [ ] G-910. 活。', `- [ ] G-910. 活。${GK}`].join('\n')
+  const allPointed = [`- [ ] G-910. 活。${GK}`, `- [ ] G-910. 活。${GK}`].join('\n')
+  if (pointerVisibilityRegression(oneLive, allPointed) === null)
+    throw new Error('抹掉一族唯一代表的改动必须被差值护栏点名 —— 它不点名就等于这条判据不存在')
+  if (pointerVisibilityRegression(oneLive, `${oneLive}\n- [ ] G-911. 另一件新登记`) !== null)
+    throw new Error('没有弄丢任何代表的改动不得被护栏拦(拦正当动作 = 逼下一个人跳门)')
+})
+
+/**
+ * T24 端到端(独立仓):恢复档三态各钉一次。
+ *  报告档 ⇒ 零写盘、零提交、必须点名那一族;
+ *  落地档 ⇒ 一枚只含台账的提交,落地面该行不再带指针、该族不再隐形;
+ *  复跑 ⇒ 0 edits(幂等),再落一枚空提交就是"跑过一次就算修好"的反面。
+ * 另配一条**拒绝臂**:裸形态(无闭符)那一族一行都不许动,且退出码仍为 0(少做一件事不是错)。
+ */
+test('T24 端到端 --restore-terminals:报告零写盘、落地真的把该族救回派单、复跑幂等、裸形态拒动', () => {
+  const NOTE =
+    ' 〔【归并】重复登记副本(2026-09-28):同主键的另一条登记,派单以那条为准,本行不再单独派单。〕'
+  const L = '- [ ] G-900. 被两行互指遮住的活:题面在注记之前。'
+  const plan = ['# 计划', '', `${L}${NOTE}`, `${L}${NOTE}`, ''].join('\n')
+  const env = fixtureRepo(plan, 'fixture: 一族两行全部带副本指针 ⇒ 对派单彻底隐形')
+  try {
+    const a0 = auditPointerTerminals(plan)
+    if (a0.hiddenFamilies !== 1) throw new Error(`夹具本身没造出隐形族(hidden=${a0.hiddenFamilies})⇒ 本锁无牙`)
+    const report = runCli(env, ['--restore-terminals'])
+    if (report.code !== 0) throw new Error(`报告档应 exit 0,实得 ${report.code}:${report.out}`)
+    if (!/可自动恢复 1 行/.test(report.out))
+      throw new Error(`报告档没数对:${report.out.trim().slice(0, 160)}`)
+    if (countCommits(env.dir) !== 1) throw new Error('报告档写盘了')
+    if (report.added.length !== 0) throw new Error(`报告档留下文件 ${JSON.stringify(report.added)}`)
+    const land = runCli(env, ['--restore-terminals', '--commit'])
+    if (land.code !== 0) throw new Error(`落地档应 exit 0,实得 ${land.code}:${land.out}`)
+    if (!/恢复档落地/.test(land.out)) throw new Error(`输出未点名落地:${land.out.trim().slice(0, 200)}`)
+    if (countCommits(env.dir) !== 2) throw new Error(`落地档应只多一枚提交,实得 ${countCommits(env.dir)}`)
+    const files = gitQ(env.dir, ['show', '--name-only', '--format=', 'HEAD']).split(/\r?\n/).filter(Boolean)
+    if (files.length !== 1 || files[0] !== 'PROJECT_PLAN.md')
+      throw new Error(`落地提交含别人的路径:${JSON.stringify(files)}`)
+    const head = gitQ(env.dir, ['show', 'HEAD:PROJECT_PLAN.md'])
+    if (auditPointerTerminals(head).hiddenFamilies !== 0)
+      throw new Error(`落地后仍被判隐形(而输出说成功了):${head.split(/\r?\n/)[2]}`)
+    const again = runCli(env, ['--restore-terminals', '--commit'])
+    if (countCommits(env.dir) !== 2) throw new Error(`复跑又落了一枚 ⇒ 幂等失败:${again.out.trim().slice(0, 160)}`)
+    if (!/无可自动恢复/.test(again.out)) throw new Error(`复跑应明说没事可做:${again.out.trim().slice(0, 160)}`)
+    // 拒绝臂:裸形态一行都不许动
+    const BARE = '- [ ] **[归并]** 【归并】重复登记副本:本行与同标题登记 L7 重复。本行不进派单口径。'
+    const env2 = fixtureRepo([BARE, BARE, ''].join('\n'), 'fixture: 裸形态注记(无闭符)')
+    try {
+      const r2 = runCli(env2, ['--restore-terminals', '--commit'])
+      if (r2.code !== 0) throw new Error(`拒落应仍 exit 0(少做一件事不是错),实得 ${r2.code}`)
+      if (countCommits(env2.dir) !== 1) throw new Error(`裸形态被动了 ⇒ 按行尾剥会吃作者正文:${r2.out.slice(0, 160)}`)
+      if (!/结构边界/.test(r2.out)) throw new Error(`拒绝必须点名理由:${r2.out.trim().slice(0, 200)}`)
+    } finally {
+      rmScratch(env2.dir)
+    }
+  } finally {
+    rmScratch(env.dir)
+  }
+})
+
+/**
+ * T25 剥除器的安全性:注记里套同种括号必须按**深度配平**走完,不能停在第一个闭符;
+ * 注记后面紧跟的作者正文必须逐字留下(真仓有 3 处 `〔进展@…〕` 就写在注记之后)。
+ * 这一条是恢复动作唯一的"不吃正文"证明,少了它整个出口就是不可审计的。
+ */
+test('T25 stripMergeNotes:嵌套同种括号配平、尾随作者正文逐字保留、裸形态与未闭合一律拒绝', () => {
+  const nested = '- [ ] G-901. 活。〔【归并】重复登记副本(2026-09-28):逐字相同的另一条登记 (与本行正文逐字相同,可按正文检索),派单以那条为准。〕'
+  const s1 = stripMergeNotes(nested)
+  if (s1.refused || s1.text !== '- [ ] G-901. 活。')
+    throw new Error(`嵌套半角括号必须走配平,实测 refused=${s1.refused} text=${JSON.stringify(s1.text)}`)
+  const trailed = nested + '〔进展@2026-09-28/主会话:这条是作者自己写的,一个字都不许动〕'
+  const s2 = stripMergeNotes(trailed)
+  if (!s2.text.endsWith('〔进展@2026-09-28/主会话:这条是作者自己写的,一个字都不许动〕'))
+    throw new Error(`尾随的作者正文被吞了:${JSON.stringify(s2.text)}`)
+  const bare = stripMergeNotes('- [ ] **[归并]** 【归并】重复登记副本:本行与同标题登记 L7 重复。')
+  if (!bare.refused) throw new Error('裸形态(无开括号紧贴)必须 refused,不许按行尾剥')
+  const unclosed = stripMergeNotes('- [ ] G-902. 活。〔【归并】重复登记副本(2026-09-28):没有闭符')
+  if (!unclosed.refused) throw new Error('未闭合必须 refused —— 猜行尾就是猜作者的正文边界')
+  const r = restoreMergeNote(trailed)
+  if (r.text === undefined || !/进展@/.test(r.text) || DUP_POINTER_RE.test(r.text))
+    throw new Error(`恢复单行必须只剥副本注记并留下进展,实测 ${JSON.stringify(r)}`)
+  if (restoreMergeNote('- [ ] 本来就干净的行').text !== undefined)
+    throw new Error('不带指针的行不得被当成恢复对象')
+  if (buildRestoreTerminals('# 标题\n\n- [ ] 只有一行且不带指针\n').edits.length !== 0)
+    throw new Error('没有隐形族时不得凭空造出改动')
+  const bad = buildRestoreTerminals(
+    ['- [ ] G-903. 活。', '- [ ] G-903. 活。 〔【归并】重复登记副本(2026-09-28):同主键的另一条登记,派单以那条为准,本行不再单独派单。〕'].join('\n'),
+  )
+  if (verifyRestoreTerminals(bad.text, bad.text.replace('G-903. 活。', 'G-903. 活了'), bad.edits).problems.length === 0)
+    throw new Error('零损失对账必须拒绝"顺手改正文"')
 })
