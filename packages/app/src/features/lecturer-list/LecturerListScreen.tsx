@@ -257,7 +257,7 @@ function createStyles(tk: AppThemeTokens) {
       margin: 12, // rpx(24)
       paddingHorizontal: 12, // rpx(24)
       height: 36, // rpx(72)
-      borderRadius: 36 / 2, // rpx(36) radius-exempt: 胶囊搜索框,半径=高度一半
+      borderRadius: rnRadius.sm, // 搜索框是控件 ⇒ control 档 sm(项目不允许胶囊)
       backgroundColor: tk.surface.card,
     },
     searchInput: {
@@ -284,7 +284,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 60, // rpx(120)
       height: 60, // rpx(120)
-      borderRadius: 60 / 2, // rpx(60) radius-exempt: 圆形讲师头像,半径=宽高一半
+      borderRadius: 60 / 2, // rpx(60) 圆形讲师头像:半径=宽高一半即几何真圆
       backgroundColor: tk.surface.muted,
     },
     avatarFallback: {

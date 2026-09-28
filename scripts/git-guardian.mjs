@@ -214,6 +214,88 @@ function gitUsable() {
 }
 
 /**
+ * 工作树视角是否可用 —— 与 gitUsable() **不是同一件事**,这一格此前无人看守。
+ *
+ * 实测事故(2026-09-28 18:29):`D:/IHUI-AI-git-repo/config` 的 `core.bare` 被翻成 `true`,
+ * 于是守护自评 `pointerOk:true / gitdirOk:true / gitUsable:true / dirty:0`,而工作树里
+ * **每一条** git 命令都报 `fatal: this operation must be run in a work tree` ——
+ * 提交、钩子、落地器、推送门全部不可用,而账面全绿。`rev-parse HEAD` 在裸仓库下照样成功,
+ * 所以"git 可用"从来推不出"这个仓库还能被工作树使用"。
+ *
+ * 为什么会带上裸档:§5b 的恢复是 `cpSync(BACKUP → GITDIR)`,而备份是整份 gitdir 副本 ——
+ * 它自己的 `core.bare=true` 会随任何一次恢复**注回**活仓库。故本自愈同时归一两侧,
+ * 只修活仓库等于留一颗定时炸弹。
+ */
+function worktreeUsable() {
+  return git(['rev-parse', '--is-inside-work-tree'], true) === 'true'
+}
+
+/**
+ * 核心健康判据 —— main 与 daemon **共用这一份实现**(两处各写必然漂移)。
+ *
+ * 漂移的实证:`core.bare=true` 时 `pointerOk / gitdirOk / gitUsable` **三条全绿**
+ * (`rev-parse` 在裸档下照样成功),所以旧表达式把这一型判成"健康"、直接进健康分支早退,
+ * `remediate()` 结构上到不了 —— 我先前落进 `remediate()` 的自愈**在提交链上生效次数为 0**,
+ * 实测活仓库带裸档跑了数小时而守护每 2 分钟一趟、每趟都把其余 heal* 跑完再 return 0。
+ * "函数在、判据对、调度路径不经过它"与本仓反复登记的「造好没装车」是同一型(守门 70/76/81)。
+ */
+function coreHealthy(s) {
+  return Boolean(s.pointerOk && s.gitdirOk && s.gitUsable && s.worktreeUsable)
+}
+
+/** 用显式 `--git-dir` 读写某个 gitdir 的 core.bare(裸档下 `-C 工作树` 这条路是走不通的) */
+function readBareFlag(gitdir = GITDIR) {
+  const bin = resolveGitBin()
+  if (!bin) return null
+  try {
+    return execFileSync(bin, [...GIT_SAFE_ARGS, '--git-dir', gitdir, 'config', '--get', 'core.bare'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 60000,
+      windowsHide: true,
+    }).trim()
+  } catch {
+    return null
+  }
+}
+
+function writeBareFalse(gitdir = GITDIR) {
+  const bin = resolveGitBin()
+  if (!bin) return false
+  try {
+    execFileSync(bin, [...GIT_SAFE_ARGS, '--git-dir', gitdir, 'config', 'core.bare', 'false'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 60000,
+      windowsHide: true,
+    })
+    return readBareFlag(gitdir) === 'false'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 把"活仓库 + 本地恢复源"两侧的 `core.bare` 一起归一为 false。
+ * 恢复源不修:下一次 cpSync 恢复就把裸档注回来,同一故障必然复发。
+ * `gitdir` / `backup` / `probeUsable` 仅供镜像测试在临时仓库上取证 —— 生产调用一律走默认值。
+ */
+function healWorktreeBare({ gitdir = GITDIR, backup = BACKUP, probeUsable = worktreeUsable } = {}) {
+  const liveWas = readBareFlag(gitdir)
+  const backupWas = existsSync(join(backup, 'config')) ? readBareFlag(backup) : null
+  if (liveWas !== 'true' && backupWas !== 'true') return probeUsable()
+  const liveOk = writeBareFalse(gitdir)
+  const backupOk = backupWas === 'true' ? writeBareFalse(backup) : true
+  const usable = probeUsable()
+  log(
+    `${usable && liveOk && backupOk ? '修复' : '修复失败'}: core.bare 归一为 false ` +
+      `(活仓库 ${liveWas}→${readBareFlag(gitdir)},恢复源 ${backupWas}→${existsSync(join(backup, 'config')) ? readBareFlag(backup) : '无 config'})` +
+      ` | 工作树可用=${usable}`,
+  )
+  return usable && liveOk && backupOk
+}
+
+/**
  * 重建 `.git` 指针文件(原子写 + 回读校验)。
  * 安全护栏(2026-09-15):仅当 needsGitdirPointer()=true(separate-git-dir 形态)才执行。
  * 常规仓库的 `.git` 是真实目录,若误执行会删除整个 gitdir → 不可逆删库,故直接跳过。
@@ -1649,15 +1731,23 @@ function archiveGitdir(tag) {
  */
 function remediate(before) {
   if (!before.gitdirOk) {
-    return !!(healFromBackup() || healFromRemote())
+    const ok = !!(healFromBackup() || healFromRemote())
+    // 恢复源是整份 gitdir 副本 ⇒ cpSync 会把它自己的 core.bare 一起带回来,恢复后必须再归一一次
+    if (ok && !worktreeUsable()) return healWorktreeBare()
+    return ok
   }
   if (!before.pointerOk) healPointer()
   if (!gitUsable()) healEnv()
   if (!gitUsable()) healHead()
   if (!gitUsable()) {
     if (!archiveGitdir(Date.now())) return false
-    return !!(healFromBackup() || healFromRemote())
+    const ok = !!(healFromBackup() || healFromRemote())
+    if (ok && !worktreeUsable()) return healWorktreeBare()
+    return ok
   }
+  // git 可用 ≠ 工作树可用:core.bare=true 时 rev-parse 成功而每条工作树命令都失败;
+  // 放在恢复阶梯之后跑,任何一次 cpSync 恢复带回来的裸档都在这里被归一(活仓库 + 恢复源两侧)
+  if (!worktreeUsable()) healWorktreeBare()
   // git 可用 ≠ 健康:宿主会单独清理 depth>=2 的嵌套 ref 目录(见上文事故注释)
   if (!refsOk()) healRefs()
   return true
@@ -1729,6 +1819,9 @@ function status() {
     pointerOk: pointerOk(),
     gitdirOk: gitdirOk(),
     gitUsable: gitUsable(),
+    // 与 gitUsable 分开的第二把尺子:裸档(config.core.bare=true)下 rev-parse 照样成功,
+    // 而工作树里每条 git 命令都失败 —— 只看 gitUsable 会把"仓库不可用"报成"一切正常"。
+    worktreeUsable: worktreeUsable(),
     gitBin: GIT_BIN,
     gitVersion: GIT_VERSION,
     head: git(['rev-parse', '--short', 'HEAD'], true),
@@ -1751,7 +1844,9 @@ function anomalyLine(h) {
       ? ` | HEAD=${JSON.stringify(headContent().slice(0, 60))}`
       : ''
   const refsHint = h.refsOk === false ? ` | 缺失嵌套 ref ${(h.refsMissing || []).length} 个` : ''
-  return `⚠️ 检测到 .git 异常: pointer=${h.pointerOk} gitdir=${h.gitdirOk} git=${h.gitUsable}${hint}${refsHint}`
+  // 单独点名"裸档"这一型:它让其余四项全绿,却是唯一让全队 git 命令失效的那一格
+  const bareHint = h.gitUsable && h.worktreeUsable === false ? ' | core.bare=true(工作树不可用)' : ''
+  return `⚠️ 检测到 .git 异常: pointer=${h.pointerOk} gitdir=${h.gitdirOk} git=${h.gitUsable} worktree=${h.worktreeUsable}${hint}${refsHint}${bareHint}`
 }
 
 // —— 计划任务必须跑在非交互会话(2026-09-22 立「任务漂移自检」,2026-09-23 换 S4U 根治) ——
@@ -2070,7 +2165,7 @@ function main() {
     registerTask()
   }
 
-  const coreOk = before.pointerOk && before.gitdirOk && before.gitUsable
+  const coreOk = coreHealthy(before)
   if (coreOk && before.refsOk) {
     // `.git` 与嵌套 ref 都健康 ≠ 工作区健康:宿主会成批删除工作区里的已跟踪文件
     // (实测同日三轮 137→27→1)。计划任务跑的是本单轮路径(startDaemon 未启用),
@@ -2106,7 +2201,8 @@ function main() {
     if (!CHECK_ONLY) watchWatchdog()
     // 幂等确保自身是 S4U(已是则内部秒退,不重建任务、不产生抖动)
     if (!CHECK_ONLY) ensureS4u()
-    if (CHECK_ONLY) console.log('✅ .git 健康(pointer + gitdir + git 可用 + 嵌套 ref 完整)')
+    if (CHECK_ONLY)
+      console.log('✅ .git 健康(pointer + gitdir + git 可用 + 工作树可用 + 嵌套 ref 完整)')
     return 0
   }
 
@@ -2124,7 +2220,8 @@ function main() {
   remediate(before)
 
   const after = status()
-  const ok = after.pointerOk && after.gitdirOk && after.gitUsable && after.refsOk
+  const ok =
+    after.pointerOk && after.gitdirOk && after.gitUsable && after.refsOk && after.worktreeUsable
   log(ok ? `✅ 自愈成功(HEAD=${after.head})` : '❌ 自愈失败,需人工介入')
   return ok ? 0 : 1
 }
@@ -2140,15 +2237,13 @@ function startDaemon() {
   const tick = () => {
     try {
       const h = status()
-      const coreOk = h.pointerOk && h.gitdirOk && h.gitUsable
+      const coreOk = coreHealthy(h)
       if (!coreOk) {
         log(anomalyLine(h))
         remediate(h)
         const a = status()
         log(
-          a.pointerOk && a.gitdirOk && a.gitUsable && a.refsOk
-            ? `✅ 自愈成功(HEAD=${a.head})`
-            : '❌ 自愈失败,需人工介入',
+          coreHealthy(a) && a.refsOk ? `✅ 自愈成功(HEAD=${a.head})` : '❌ 自愈失败,需人工介入',
         )
       } else if (!h.refsOk) {
         // 核心健康但嵌套 ref 被宿主清理(实测高频) → 离线重建, 不打扰人
@@ -2210,6 +2305,11 @@ export const __test__ = {
   envDriftDetail,
   homeHealDue,
   readProbeVerdict,
+  // 裸档自愈(2026-09-28 立):测试在临时仓库上取证,不碰活仓库
+  readBareFlag,
+  writeBareFalse,
+  healWorktreeBare,
+  coreHealthy,
   NOTIFY_DEFAULT_WINDOW_MS,
   NOTIFY_DEFAULT_FAIL_COOLDOWN_MS,
 }

@@ -157,7 +157,7 @@
   flex: none;
   width: 48rpx;
   height: 48rpx;
-  border-radius: 50%; /* radius-exempt: 圆形头像 fallback,直径=宽 */
+  border-radius: 50%;
   background: var(--color-muted);
   overflow: hidden;
   display: flex;
@@ -292,7 +292,7 @@
 .pza-fab-icon {
   width: 100rpx;
   height: 100rpx;
-  border-radius: 50%; /* radius-exempt: 圆形发布按钮,直径=宽 */
+  border-radius: 50%;
   background: var(--color-brand);
   color: var(--color-primary-foreground);
   font-size: 56rpx;

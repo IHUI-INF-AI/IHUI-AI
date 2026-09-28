@@ -127,7 +127,7 @@ function createStyles(tk: AppThemeTokens) {
       minWidth: 18,
       paddingHorizontal: 5,
       paddingVertical: 2,
-      borderRadius: 9, // radius-exempt: 未读计数胶囊徽章,半径≈minWidth 一半
+      borderRadius: rnRadius.md, // 数字计数徽章按 §4 模板取 chip 档 md(项目不允许胶囊)
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

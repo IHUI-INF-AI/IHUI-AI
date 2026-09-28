@@ -480,11 +480,14 @@ test('T22 圆角按元素归属的解析只许一份实现(遮罩/豁免在别�
  */
 test('T20 方向形态真仓阳性对照 + 窄正则不得回来(漏计一侧 = 造出假分叉)', () => {
   const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
-  const drawer = git(['show', 'HEAD:apps/miniapp-taro/src/components/DrawerComponent.tsx']).stdout
-  assert.ok(drawer.includes('rounded-t-xl'), '真仓那一处站点搬家了 ⇒ 本对照失效,要换成现役站点而不是删测试')
+  // 现役站点:票㉜ 把 DrawerComponent 的档位从 xl 收到 lg(角色表 card→lg),方向形态本身没变;
+  // 这一族里 `rounded-t-2xl` 仍在的两处是弹层底,取第一个。**阳性对照要的是"这一型还在射程内",
+  // 不是某一行**——所以要换现役站点而不是把测试删掉。
+  const drawer = git(['show', 'HEAD:apps/miniapp-taro/src/components/VipBenefitsPopup.tsx']).stdout
+  assert.ok(drawer.includes('rounded-t-2xl'), '真仓那一处站点搬家了 ⇒ 本对照失效,要换成现役站点而不是删测试')
   assert.ok(
-    radiusSetOf(drawer, tbl).includes(12),
-    'rounded-t-xl 读不出 12 ⇒ 门会把小程序的 12 报成"仅 RN 有 12",凭空一对分叉',
+    radiusSetOf(drawer, tbl).includes(16),
+    'rounded-t-2xl 读不出 16 ⇒ 门会把小程序的 16 报成"仅 RN 有 16",凭空一对分叉',
   )
   const libSrc = readFileSync(resolve(ROOT, 'scripts/lib/radius-tokens.mjs'), 'utf8')
   assert.match(libSrc, /tr\|tl\|br\|bl/, '方向分支被退回窄正则 ⇒ 整族底部弹层再次隐身,而账面只会变好看')
@@ -592,8 +595,21 @@ test('T25 同侧多候选不得只查一侧;选腿比较器与出口链只许一
   )
   assert.ok(!/cands\.reduce\(/.test(txt), '"取候选里最后一个"还留着 ⇒ 同一族在两处能选到不同份')
   assert.ok(/EXIT_BARRELS/.test(txt), '出口桶被摘线 ⇒ 第二顺位凭空消失,退化成猜')
+  // 锁的是**语义**而非某个字面写法:出口链只认"再导出"与"星号导出"两种形态。
+  // 上一版把断言写成 `k === 're' || k === 'star'` 这一具体形状,而实现是两个分支各判一次
+  // —— 于是这条锁在 HEAD 上就恒红(过拟合的锁不但不防回归,还会让下一个改这里的人以为门坏了)。
+  assert.ok(/=== 're'/.test(txt) && /=== 'star'/.test(txt), '出口链的两种形态被削弱 ⇒ "被 import 过"会被当成出口')
+  // 重出台账不得把判断类登记表冲掉:waivers 是"这一族为什么允许不同形"的记录
+  // (AGENTS O81:waivers 恒空本身就是违规),ledgerVersion 是格式版本。
   assert.ok(
-    /k === 're' \|\| k === 'star'/.test(txt),
-    '出口链不再只认再导出 ⇒ 会把"被 import 过"当成出口,反向对照失去意义',
+    /out\.waivers = waivers/.test(txt) && /prior\.waivers/.test(txt),
+    'emitBaseline 又回到 waivers: {} 清零 —— 一次重锚会冲掉全部带理由的豁免登记',
+  )
+  assert.ok(/prior\.ledgerVersion/.test(txt), 'ledgerVersion 未随重出带过 ⇒ 台账不再自述它是哪一版格式')
+  // 属性名必须整体取(允许连字符),不得退回"跳过连字符前缀"那版过头修法:
+  // 那会把 `max-width: 320rpx` 这类合法长度档一起跳掉,凭空造出分叉(实测 CategoryBar 1→4)。
+  assert.ok(
+    txt.includes("[a-z][\\w]*(?:-[a-z0-9]+)*"),
+    '连字符属性不再整体取键 ⇒ line-height 会被读成 height、max-width 会被跳掉(两个方向都错过)',
   )
 })
