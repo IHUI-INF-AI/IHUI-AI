@@ -123,7 +123,7 @@ export function ChatWindow({ roomId, onClose }: Props) {
       <button
         type="button"
         onClick={handleOpen}
-        className="fixed bottom-6 right-6 z-modal flex h-12 w-12 items-center justify-center rounded-xl bg-cta text-cta-foreground shadow-lg transition-transform hover:scale-105"
+        className="fixed bottom-6 right-6 z-modal flex h-12 w-12 items-center justify-center rounded-sm bg-cta text-cta-foreground shadow-lg transition-transform hover:scale-105"
         aria-label={t('openCustomerService')}
       >
         <MessageCircle className="h-6 w-6" />
@@ -146,7 +146,7 @@ export function ChatWindow({ roomId, onClose }: Props) {
         <div className="flex items-center gap-1">
           <button
             onClick={() => setIsMinimized(true)}
-            className="rounded p-1 transition-colors hover:bg-white/10"
+            className="rounded-sm p-1 transition-colors hover:bg-white/10"
             aria-label={t('minimize')}
           >
             <Minus className="h-4 w-4" />
@@ -187,14 +187,14 @@ export function ChatWindow({ roomId, onClose }: Props) {
             onKeyDown={handleKeyDown}
             placeholder="Enter 发送，Shift+Enter 换行"
             rows={1}
-            className="max-h-24 flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+            className="max-h-24 flex-1 resize-none rounded-sm border bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
           />
           <button
             type="button"
             onClick={handleSend}
             disabled={sending || !input.trim()}
             className={cn(
-              'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors',
+              'flex h-9 w-9 shrink-0 items-center justify-center rounded-sm transition-colors',
               sending || !input.trim()
                 ? 'cursor-not-allowed bg-muted text-muted-foreground/50'
                 : 'bg-cta text-cta-foreground hover:bg-cta/90',

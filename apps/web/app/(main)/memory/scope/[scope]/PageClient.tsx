@@ -120,7 +120,7 @@ export default function MemoryScopePage() {
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             placeholder="搜索分类或内容..."
-            className="w-full rounded-md border border-border bg-background py-1.5 pl-8 pr-3 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
+            className="w-full rounded-sm border border-border bg-background py-1.5 pl-8 pr-3 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
           />
         </div>
       </div>

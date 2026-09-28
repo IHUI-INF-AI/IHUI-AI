@@ -56,7 +56,7 @@ export default function GlobalError({
               alignItems: 'center',
               gap: '8px',
               padding: '8px 16px',
-              borderRadius: rnRadius.md,
+              borderRadius: rnRadius.sm,
               border: '1px solid var(--color-border)',
               background: '#fff',
               cursor: 'pointer',

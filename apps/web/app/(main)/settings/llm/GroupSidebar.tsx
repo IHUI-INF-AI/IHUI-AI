@@ -168,7 +168,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
       <button
         type="button"
         onClick={() => onChange('__all__')}
-        className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors ${
+        className={`flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors ${
           activeGroup === '__all__'
             ? 'bg-primary/10 text-primary'
             : 'text-foreground hover:bg-muted'
@@ -187,7 +187,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
         <button
           type="button"
           onClick={() => onChange('__ungrouped__')}
-          className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors ${
+          className={`flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors ${
             activeGroup === '__ungrouped__'
               ? 'bg-primary/10 text-primary'
               : 'text-foreground hover:bg-muted'

@@ -45,7 +45,7 @@ export function RecordingDrawer({ recordings, onRefresh, onPlay, onDelete }: Rec
         <button
           type="button"
           className={cn(
-            'flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors',
+            'flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors',
             'hover:bg-background hover:text-foreground',
             open && 'bg-background text-foreground',
           )}
@@ -67,7 +67,7 @@ export function RecordingDrawer({ recordings, onRefresh, onPlay, onDelete }: Rec
         side="bottom"
         align="end"
         gap={4}
-        className="w-80 overflow-hidden rounded-md border border-border bg-popover shadow-md"
+        className="w-80 overflow-hidden rounded-xl border border-border bg-popover shadow-md"
       >
         <div className="flex items-center justify-between bg-muted/40 px-2.5 py-1.5">
           <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -110,7 +110,7 @@ export function RecordingDrawer({ recordings, onRefresh, onPlay, onDelete }: Rec
                 <Tooltip content={t('terminalTabBar.play')}>
                   <button
                     type="button"
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100"
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100"
                     onClick={(e) => {
                       e.stopPropagation()
                       onPlay(rec.id)
@@ -124,7 +124,7 @@ export function RecordingDrawer({ recordings, onRefresh, onPlay, onDelete }: Rec
                 <Tooltip content={t('terminalTabBar.delete')}>
                   <button
                     type="button"
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/15 hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100"
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/15 hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100"
                     onClick={(e) => {
                       e.stopPropagation()
                       onDelete(rec.id)

@@ -31,14 +31,14 @@ export function BottomBar({
     <div className="fixed inset-x-0 bottom-0 z-header flex gap-2.5 bg-background px-2.5 py-2.5">
       <button
         onClick={openMiniProgram}
-        className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-muted py-3 text-sm text-foreground transition-colors hover:bg-muted/80"
+        className="flex flex-1 items-center justify-center gap-1.5 rounded-sm bg-muted py-3 text-sm text-foreground transition-colors hover:bg-muted/80"
       >
         <ExternalLink className="h-4 w-4" />
         打开小程序
       </button>
       <button
         onClick={copyLink}
-        className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-primary py-3 text-sm text-white transition-colors hover:bg-primary/90"
+        className="flex flex-1 items-center justify-center gap-1.5 rounded-sm bg-primary py-3 text-sm text-white transition-colors hover:bg-primary/90"
       >
         <LinkIcon className="h-4 w-4" />
         {copied ? '已复制' : '复制链接'}
