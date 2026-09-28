@@ -146,7 +146,7 @@ export function IntegrationsPanel() {
       <div
         key={ch}
         data-testid={`integrations-channel-${ch}`}
-        className="space-y-1.5 rounded-md border px-2 py-2 text-xs"
+        className="space-y-1.5 rounded-xl border px-2 py-2 text-xs"
       >
         <div className="flex items-center gap-1.5">
           <Icon className="h-3.5 w-3.5" />
