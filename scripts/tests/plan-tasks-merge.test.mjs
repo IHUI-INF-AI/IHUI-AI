@@ -424,3 +424,40 @@ test('T16 --write-to PROJECT_PLAN.md:原有那格拒绝与原文案未被替换'
     rmScratch(env.dir)
   }
 })
+
+// —— 未识别参数不得降级成"无参"(2026-09-28 立,由一条写进台账的幻影出口逼出)——
+// 旧形态只判 includes(已知旗标),不认识的一律静默忽略 ⇒ `--dedupe-done-twins`(从未实现的出口)
+// 会落进默认报告档并打出「✅ 零损失对账通过…派单口径 403 → 403」,读的人没有理由怀疑那个操作
+// 根本没发生。本会话就据此把一条假出口写进了台账 —— 与 i18n-apply 把 --help 当"无参"进写盘模式
+// 同族,只是失效方向从"误写盘"变成"误发合格证"。
+test('A1 inspectArgs:未识别旗标必须点名;合法旗标与两类合法位置参数不得误判', async () => {
+  const mod = await import('../plan-tasks-merge.mjs')
+  const assert = (await import('node:assert/strict')).default
+  const inspectArgs = mod.inspectArgs ?? mod.__test__?.inspectArgs
+  const KNOWN_FLAGS = mod.KNOWN_FLAGS ?? mod.__test__?.KNOWN_FLAGS
+  assert.ok(typeof inspectArgs === 'function' && Array.isArray(KNOWN_FLAGS), '出口必须从模块直接可取(不得靠 __test__ 凑第二份)')
+  assert.deepEqual(inspectArgs(['--dedupe-done-twins']).unknown, ['--dedupe-done-twins'])
+  assert.deepEqual(inspectArgs(['--heal', '--commit']).unknown, [])
+  assert.deepEqual(inspectArgs(['--write-to', 'cand.json', '2026-09-28']).unknown, [])
+  assert.deepEqual(inspectArgs(['--staged', 'oops.json']).unknown, ['oops.json'])
+  assert.ok(KNOWN_FLAGS.includes('--dedupe-blocks'), '已实现的出口必须在白名单里')
+})
+
+test('A2 端到端:从未实现的出口 ⇒ rc=2、原样点名,且绝不打出"通过"档口的结论', async () => {
+  const assert = (await import('node:assert/strict')).default
+  let status = 0
+  let out = ''
+  try {
+    out = execFileSync(
+      process.execPath,
+      [path.join(ROOT, 'scripts', 'plan-tasks-merge.mjs'), '--dedupe-done-twins'],
+      { encoding: 'utf8', cwd: ROOT, timeout: 120000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
+    )
+  } catch (e) {
+    status = e.status
+    out = `${e.stdout ?? ''}${e.stderr ?? ''}`
+  }
+  assert.equal(status, 2, `未识别参数必须 exit 2(无法判定),实得 ${status}:${out.slice(0, 200)}`)
+  assert.match(out, /未识别的参数:"--dedupe-done-twins"/, '必须原样点名收到的那个 token')
+  assert.doesNotMatch(out, /✅ 零损失对账通过|派单口径/, '拒绝那一趟不得同时打出成功档口的结论')
+})
