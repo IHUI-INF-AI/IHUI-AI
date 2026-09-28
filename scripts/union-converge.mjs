@@ -1508,7 +1508,11 @@ async function main() {
     // 退出码 2 = "本器没资格判",刻意区别于 1("判了,需人工"):调用方把 2 读成内容裁决,
     // 就会把一次 fetch 说成一次归并失败(git-sync-converge 那一支按措辞分流,见其 ③ 段)。
     // 出路必须**逐行成文**(文案里已带出口①②③),不得压成一行让人只看得到半句命令。
-    console.log('[union-converge] 未判定 ⇒ 本次没有任何可落地的结论(不是"无事可做",也不是"需人工"):')
+    // `UNDETERMINED` 是给调用方的**稳定标记**,不是措辞:调用方(git-sync-converge)必须按它分流,
+    // 否则一次"没资格判"会被它写成"union 亦判需人工" —— 归因错到内容裁决上,而人看到的是同一条红。
+    console.log(
+      '[union-converge] UNDETERMINED 未判定 ⇒ 本次没有任何可落地的结论(不是"无事可做",也不是"需人工"):',
+    )
     for (const line of String(t.undetermined).split('\n')) console.log(`  ${line}`)
     process.exit(2)
   }
