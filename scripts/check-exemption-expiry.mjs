@@ -213,6 +213,16 @@ const SELF_EXEMPT_RE = /^scripts[/\\](?:tests[/\\])?check-exemption-expiry(?:\.t
  * packages/ 里的任何一条,所以 G02/G03 成对用例钉的是"同一行文字换个路径就必须入账"。
  */
 const TOOL_FACE_RE = /^scripts\//
+/**
+ * 「存档面」= `.ihui-agent/archive/**` 里那些**被逐字搬走的原文副本**(AGENTS §1 的归档机制:删除
+ * 必须走"搬到归档件 + 留占位",且归档锚点必须受版本控制,否则"A 机归档过"能授权"B 机删行")。
+ * 归档件里的一行 `alpha-plugin-exempt: … until 2026-09-25` 描述的是一条**已撤销的豁免** ——
+ * 它是历史证词,不是当下生效的出口。把它算进 E2 会让"把归档锚点入库"这个正确动作当场变红,
+ * 于是门替人做出"别把证据入库"的选择(实测:枚 f2b06a395 把 3 份 09-26 去重归档件入库后,
+ * E2 立刻在 `PROJECT_PLAN_dedup-2026-09-26.md.new:661` 判红一条到期豁免)。
+ * 边界由 G09/G10 与镜像 T25 成对钉住:**活文件**里同一条过期豁免必须照旧无条件判红。
+ */
+const ARCHIVE_FACE_RE = /^\.ihui-agent\/archive\//
 const SUPPRESS_KINDS = {
   'eslint-disable': /\beslint-disable(?:-next-line|-line|-unrestricted)?\b/g,
   'ts-ignore': /@ts-(?:ignore|nocheck)\b/g,
@@ -258,6 +268,7 @@ export function scanFile(rel, text) {
   const suppressions = {}
   if (typeof text !== 'string' || text === '') return { entries, suppressions }
   const toolFace = TOOL_FACE_RE.test(String(rel).replace(/\\/g, '/'))
+  const archiveFace = ARCHIVE_FACE_RE.test(String(rel).replace(/\\/g, '/'))
   const seenFileScoped = new Set()
   for (const [i, line] of String(text).split(/\r?\n/).entries()) {
     if (!line) continue
@@ -288,6 +299,7 @@ export function scanFile(rel, text) {
         hasReason: reason.length > 0,
         fileScoped,
         toolFace,
+        archiveFace,
         lifetimeDays: FAMILY_LIFETIME_DAYS[family] ?? DEFAULT_LIFETIME_DAYS,
         registered: isFamilyRegistered(family),
       })
@@ -331,7 +343,7 @@ export function undatedKey(e) {
 export function undatedCountsOf(entries) {
   const out = {}
   for (const e of entries) {
-    if (e.expiry || e.toolFace) continue
+    if (e.expiry || e.toolFace || e.archiveFace) continue
     const k = undatedKey(e)
     out[k] = (out[k] || 0) + 1
   }
@@ -359,7 +371,7 @@ export function isFamilyRegistered(family) {
 export function unregisteredUsedFamiliesOf(entries) {
   const out = new Set()
   for (const e of entries) {
-    if (e.toolFace || isFamilyRegistered(e.family)) continue
+    if (e.toolFace || e.archiveFace || isFamilyRegistered(e.family)) continue
     out.add(e.family)
   }
   return out
@@ -400,7 +412,9 @@ export function analyze({
 
   // ① 已过期:E2 **无条件红**,基线救不了它("临时豁免=借来的时间"与"永久出口"的分界)。
   //    工具面不判(G03b 与 G03a 成对:同一行带过期日期的文字,换到 apps/ 就必须红)。
-  const expired = entries.filter((e) => e.expiry && !e.toolFace && isPast(e.expiry, today))
+  const expired = entries.filter(
+    (e) => e.expiry && !e.toolFace && !e.archiveFace && isPast(e.expiry, today),
+  )
   for (const e of expired) {
     const msg = `豁免已到期仍在生效:${e.family}@${e.file}:${e.line} 的到期日 ${e.expiry} < ${today}`
     red.push({ code: 'E2', file: e.file, line: e.line, family: e.family, msg })
@@ -503,11 +517,12 @@ export function analyze({
     totals: {
       entries: entries.length,
       toolFace: entries.filter((e) => e.toolFace).length,
+      archiveFace: entries.filter((e) => e.archiveFace).length,
       files: new Set(entries.map((e) => e.file)).size,
       families: new Set(entries.map((e) => e.family)).size,
       dated: entries.filter((e) => e.expiry).length,
       expired: expired.length,
-      undated: entries.filter((e) => !e.expiry && !e.toolFace).length,
+      undated: entries.filter((e) => !e.expiry && !e.toolFace && !e.archiveFace).length,
       stockUndated,
       reasonless: entries.filter((e) => !e.hasReason).length,
       byFamily: countBy((e) => e.family),
@@ -790,6 +805,26 @@ function selfTest() {
     'G08 判据正则字面量里的标记同属工具面(门 93 R8 那一型)',
     es("export const RE = /handcopy-token-exempt:\\s*\\S/", 'scripts/check-cross-end-tokens.mjs')[0]
       .toolFace === true,
+  )
+  // G09–G12 存档面(`.ihui-agent/archive/**` = 被逐字搬走的原文副本)。成对方向同 G01–G08:
+  // 每一格"不红"都必须由对面那一格"仍红"钉住,否则不红就只是判据失效。
+  const xpArch = es(`${G_TXT} until 2020-01-01`, '.ihui-agent/archive/PROJECT_PLAN_dedup-2026-09-26.md')
+  ok(
+    'G09 存档面带已过期日期 ⇒ 不判 E2(被撤销的豁免是证词,不是当下出口)',
+    redOf(detail(xpArch)) === '' && xpArch[0].archiveFace === true,
+  )
+  ok(
+    'G10 活文件带同一过期日期 ⇒ E2 照旧无条件红(与 G09 成对:存档面不削弱记账面)',
+    redOf(detail(xpApp)) === 'E2' && xpApp[0].archiveFace === false,
+  )
+  ok(
+    'G11 存档面的无日期豁免不入账,但 totals.archiveFace 如实报数(不静默并账)',
+    redOf(detail(es(G_TXT, '.ihui-agent/archive/x.md'))) === '' &&
+      detail(xpArch).totals.archiveFace === 1,
+  )
+  ok(
+    'G12 存档面的未登记族 ⇒ 不触发 E4(E4 只判被豁免侧真在用的活出口)',
+    redOf(detail(es('// brand-mail-exempt: x', '.ihui-agent/archive/y.md'))) === '',
   )
   // A01–A03:HEAD 现测锚点(G-174 的出口)。三条要一起读 —— A03 是 A01 的反证:同一组输入
   // 不给锚点必须红,否则 A01 的绿可能只是判据没跑起来。
@@ -1082,6 +1117,8 @@ function report(res, opts) {
   )
   console.log(
     `  工具面(scripts/** 的说明书 / 判据正则 / 自检夹具)${t.toolFace} 处 —— 只报数,不入账也不判红` +
+      `;存档面(.ihui-agent/archive/** 的逐字副本)${t.archiveFace} 处同权只报数(被撤销的豁免是证词不是出口;` +
+      `活文件里同一条过期豁免照旧判红 —— G09/G10 与镜像 T25 成对钉住)` +
       `(E1 锚点与观测同用 undatedCountsOf,两侧对称,不会因本条产出假红)`,
   )
   console.log(
@@ -1219,6 +1256,7 @@ export const __test__ = {
   PREFILTER_RE,
   SELF_EXEMPT_RE,
   TOOL_FACE_RE,
+  ARCHIVE_FACE_RE,
   FAMILY_LIFETIME_DAYS,
   DEFAULT_LIFETIME_DAYS,
   BASELINE_REL,
