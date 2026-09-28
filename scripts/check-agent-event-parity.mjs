@@ -67,6 +67,7 @@
 import { readdirSync, readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { catBatch, gitRaw } from './lib/face-reader.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -598,6 +599,142 @@ console.log(
   `  EventSource 文件 ${feStats.eventSourceFiles} 个: 命名监听 ${feStats.namedListeners} 处, onmessage type 分支 ${feStats.unnamedBranches} 处`,
 );
 console.log(`  api-client SSE 分发器 case 分支 ${feStats.apiClientCases} 处`);
+
+// —— 2c. 端能力对账(D139,2026-09-28 立):六端消费面 + 档案表放行 ——
+// 口径三条,先说清楚再判:
+//   ① 取材面 = HEAD(face-reader 的 catBatch),不是磁盘 —— 共享工作树常年滞后,按磁盘判
+//      会让同一份代码在"恒红/假绿"之间跳(守门 118 全仓记过的那一型);
+//   ② 消费判定 = "提及口径":注释剥除后的源码字符串里出现该事件名。它**宽于**真监听 ——
+//      所以本维第一轮只点名(warning),不判红;收口成硬判据前须逐端核成"监听口径"。
+//      宁可宽着点名,也不能把"提及"当"没做"——那会把六端一整片打成假缺口。
+//   ③ 已声明未做 ≠ 失败:档案表(config/agent-event-end-capability.json)声明过的帧报名放行,
+//      没写档案的端**零豁免**逐条点名 —— 留空档案等于默认放行,那正是本维要防的静默。
+const END_CAPABILITY_DIRS = {
+  'apps/miniapp-taro/src': '小程序',
+  'apps/mobile-rn/src': 'App(RN)',
+  'packages/app/src': '共享屏层',
+  'apps/extension': '浏览器扩展',
+  'apps/desktop': '桌面端',
+  'apps/cli/src': 'CLI',
+};
+const PROFILE_PATH = 'config/agent-event-end-capability.json';
+
+function escapeRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+function scanEndConsumption() {
+  // backendEvents 是 Map(名→出处),取键集;错拿整个 entry 展开会让交替正则里混进 "[object Object]"
+  const nameAlt = [...backendEvents.keys()].sort().map(escapeRe).join('|');
+  const mentionRe = new RegExp(`["'\`](${nameAlt})["'\`]`, 'g');
+  const out = new Map();
+  for (const [dir, label] of Object.entries(END_CAPABILITY_DIRS)) {
+    let files = [];
+    try {
+      files = gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', dir], ROOT)
+        .split('\n').map((s) => s.trim()).filter((f) => f && /\.(ts|tsx|js|jsx|mjs)$/.test(f));
+    } catch (e) {
+      out.set(dir, { label, files: 0, consumed: new Set(), error: String(e?.message ?? e).split('\n')[0] });
+      continue;
+    }
+    const consumed = new Set();
+    try {
+      const revs = files.map((f) => `HEAD:${f}`);
+      const texts = catBatch(ROOT, revs, { maxBuffer: 512e6 });
+      for (const t of texts.values()) {
+        const s = stripTsComments(t);
+        for (const m of s.matchAll(mentionRe)) consumed.add(m[1]);
+      }
+    } catch (e) {
+      out.set(dir, { label, files: files.length, consumed: new Set(), error: String(e?.message ?? e).split('\n')[0] });
+      continue;
+    }
+    out.set(dir, { label, files: files.length, consumed });
+  }
+  return out;
+}
+
+function loadEndProfile() {
+  try {
+    const t = catBatch(ROOT, [`HEAD:${PROFILE_PATH}`]).get(`HEAD:${PROFILE_PATH}`);
+    if (typeof t !== 'string') return null;
+    return JSON.parse(t);
+  } catch {
+    return null;
+  }
+}
+
+const SELF_TEST = process.argv.includes('--self-test');
+const TODAY = new Date().toISOString().slice(0, 10);
+console.log(`\n${C.cyan}端能力对账(D139 六端;HEAD 面;提及口径=剥注释后字符串中出现)${C.reset}`);
+const endConsumption = scanEndConsumption();
+const endProfile = loadEndProfile();
+if (!endProfile) {
+  errors.push(
+    `端能力档案表 ${PROFILE_PATH} 在 HEAD 面取不到或解析失败 —— 取不到必须显式红,` +
+      `不得静默当"无档案"放行(表在 config/ 下,登记不等于生效的反面是丢了也不许装看不见)`,
+  );
+}
+let endGapTotal = 0;
+for (const [dir, info] of endConsumption) {
+  const declared = endProfile?.profiles?.find((p) => p.app === dir || dir.startsWith(p.app + '/')) ?? null;
+  if (declared) {
+    if (!declared.reason || !declared.until) errors.push(`档案 ${dir} 缺 reason/until —— 半个声明比没有更危险`);
+    if (typeof declared.until === 'string' && declared.until < TODAY)
+      warnings.push(`档案 ${dir} 已过期(${declared.until})—— 到期要续或删,不得静默续命`);
+    for (const n of declared.events ?? []) {
+      if (!backendEvents.has(n)) errors.push(`档案 ${dir} 声明了契约不存在的事件 "${n}" —— 台账腐烂`);
+    }
+  }
+  const gaps = [];
+  let declaredSkip = 0;
+  for (const n of backendEvents.keys()) {
+    if (info.consumed.has(n)) continue;
+    if (declared?.events?.includes(n)) declaredSkip += 1;
+    else gaps.push(n);
+  }
+  endGapTotal += gaps.length;
+  const tag = declared ? `档案声明未做 ${declaredSkip}` : '无档案 ⇒ 零豁免';
+  console.log(
+    `  ${info.error ? '❓' : '·'} ${dir}(${info.label}): 文件 ${info.files}, 提及 ${info.consumed.size}/${backendEvents.size}, ${tag}, 点名未做 ${gaps.length}` +
+      (gaps.length ? ` — ${gaps.slice(0, 8).join(', ')}${gaps.length > 8 ? ' …' : ''}` : ''),
+  );
+  if (info.error) warnings.push(`端 ${dir} 取材失败:${info.error}(未判定,不是通过)`);
+}
+console.log(
+  `  六端点名合计 ${endGapTotal} 处 —— 本轮按已批口径只点名不判红(第一轮存量),` +
+    `收口成硬判据须逐端把"提及"核成"监听"并按该文件 HEAD 自身存量走棘轮`,
+);
+feStats.endGapTotal = endGapTotal;
+
+if (SELF_TEST) {
+  const st = [];
+  const totalConsumed = [...endConsumption.values()].reduce((a, v) => a + v.consumed.size, 0);
+  const mini = endConsumption.get('apps/miniapp-taro/src');
+  st.push([
+    'ST1 六端 HEAD 清单非空且判据真吃得到信号(阳性对照,防正则空转)',
+    [...endConsumption.values()].every((v) => v.files > 0) && totalConsumed >= 5 && (mini?.consumed.size ?? 0) >= 3,
+    `文件数 ${[...endConsumption.values()].map((v) => v.files).join('/')}, 提及合计 ${totalConsumed}, 小程序 ${mini?.consumed.size ?? '?'}`,
+  ]);
+  st.push([
+    'ST2 档案表可解析、事件名全在契约上、reason/until 齐备未过期',
+    !!endProfile &&
+      Array.isArray(endProfile.profiles) &&
+      endProfile.profiles.every(
+        (p) => p.reason && typeof p.until === 'string' && p.until >= TODAY && (p.events ?? []).every((n) => backendEvents.has(n)),
+      ),
+    endProfile ? `条目 ${endProfile.profiles?.length ?? 0}` : '解析失败',
+  ]);
+  const ownSrc = readFileSync(new URL(import.meta.url), 'utf8');
+  st.push([
+    'ST3 形状锁:端目录表与 catBatch 取材面都在源码里(被退回只扫 web 必红)',
+    Object.keys(END_CAPABILITY_DIRS).every((d) => ownSrc.includes(d)) && ownSrc.includes('catBatch(') && ownSrc.includes(PROFILE_PATH),
+    '退回只扫 web 时本条红 —— 这是 T1 镜像测试的牙',
+  ]);
+  for (const [name, ok, got] of st) console.log(`${ok ? '✅' : '❌'} ${name}${ok ? '' : ' —— 实得: ' + got}`);
+  const bad = st.filter((x) => !x[1]).length;
+  console.log(`# 自检 ${st.length - bad}/${st.length} 通过`);
+  process.exit(bad ? 1 : 0);
+}
+
 
 // ============================================================================
 // [3/4] 扫描器自失效防护(防空转变绿)
