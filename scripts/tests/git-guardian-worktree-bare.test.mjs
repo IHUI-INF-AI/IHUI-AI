@@ -131,4 +131,45 @@ test('④ 装车证明:这一维真被 status/remediate/anomalyLine 消费,不�
   assert.equal(restoreCalls.length, 2, `两条恢复分支各须归一一次,实到 ${restoreCalls.length}`)
   assert.match(src, /core\.bare=true\(工作树不可用\)/, 'anomalyLine 必须点名裸档这一型')
 })
+
+/**
+ * ⑤ 是 ④ 的补集,也是这次真实复发的原因。
+ *
+ * ④ 断言的是「healWorktreeBare 在 remediate 体内被调用」—— 它绿了整整一轮,而自愈在提交链上
+ * 生效次数为 0:main 与 daemon 都把 `coreOk` 算成 pointer+gitdir+gitUsable 三项,裸档下这三项
+ * **全为真**(rev-parse 成功),于是每一趟都走健康分支、把 remediate 整个跳过。
+ * 邻接锁证明的是"链的中段连着",证明不了"这条链会被走上去"。
+ * 所以这一例把判据抽成纯函数,直接喂**故障现场那份读数**。
+ */
+test('⑤ 核心健康判据必须认裸档这一型:三项全真而工作树不可用 ⇒ 判不健康(故障现场读数)', () => {
+  const bare = { pointerOk: true, gitdirOk: true, gitUsable: true, worktreeUsable: false }
+  assert.equal(G.coreHealthy(bare), false, 'core.bare=true 时守护必须判不健康,否则会早退跳过 remediate')
+  const healthy = { pointerOk: true, gitdirOk: true, gitUsable: true, worktreeUsable: true }
+  assert.equal(G.coreHealthy(healthy), true, '四维齐备才算健康(反向对照:不得判成永假)')
+  for (const missing of ['pointerOk', 'gitdirOk', 'gitUsable', 'worktreeUsable']) {
+    const partial = { ...healthy, [missing]: false }
+    assert.equal(G.coreHealthy(partial), false, `缺 ${missing} 不得被算成健康`)
+  }
+})
+
+/**
+ * ⑥ 反向锁:健康判据只许有一份实现。
+ * 两处调用点(main 与 daemon)一旦各自手抄那三项,漂移就会重演 —— 本次事故的确切形状是
+ * daemon 那侧照旧、main 那侧也照旧,而函数体已经修好了。
+ */
+test('⑥ 健康判据不得被两处调用点各自重抄:必须走 coreHealthy(),旧三项式不得回来', () => {
+  const src = readFileSync(
+    join(import.meta.dirname ? import.meta.dirname : process.cwd(), '..', 'git-guardian.mjs'),
+    'utf8',
+  )
+  const sites = src.match(/const coreOk = coreHealthy\(\w+\)/g) || []
+  assert.equal(sites.length, 2, `main 与 daemon 各须一处 coreHealthy(),实到 ${sites.length}`)
+  const inlined = src.match(/const coreOk = \w+\.pointerOk && \w+\.gitdirOk && \w+\.gitUsable/g) || []
+  assert.equal(inlined.length, 0, '旧三项式内联写法不得回来(它会漏掉 worktreeUsable)')
+  assert.match(
+    src,
+    /after\.pointerOk && after\.gitdirOk && after\.gitUsable && after\.refsOk && after\.worktreeUsable/,
+    '自愈后的成功判定也必须含工作树可用(否则"自愈成功"日志会对裸档撒谎)',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
