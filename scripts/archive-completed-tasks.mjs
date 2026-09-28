@@ -80,14 +80,17 @@
  *   1 = 错误(读写失败 / 被审面读不到正文 / 零损失断言拒绝落地 / 写通道不可用 / 落地回读不符)
  *   2 = 脚本自身异常(main 抛出未捕获错误;与 §22d 的"业务失败 vs 脚本异常"退出码约定一致)
  */
-import { existsSync, mkdirSync, appendFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, appendFileSync, writeFileSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { pathToFileURL } from 'node:url'
+import { pathToFileURL, fileURLToPath } from 'node:url'
 // 底稿取的是**被审面**(HEAD blob),不是磁盘副本 —— 取正文只有取材层这一条路(守门 118 判的
 // 正是"门脚本绕过这层自己派生 git 读内容");`readWorktreeFile` 只服务于"工作树档"那一支
 // (非 git 夹具 / 显式 --plan-face worktree)与落地后的磁盘对齐前置比较。
 import { catBatch, readWorktreeFile } from './lib/face-reader.mjs'
+// 冲突标记的判据只有守门 79 那一份实现:归档器要在自己写盘前问同一句"这文档带着未解标记吗",
+// 自己再抄一遍 `<<<<<<< / ======= / >>>>>>>` 的配对逻辑就是第二个真相(本仓记过最多次的漂移型)。
+import { findMarkerPairs } from './check-no-conflict-markers.mjs'
 // 对象空间落地的 plumbing **只有一份**(scripts/lib/bypass-git.mjs,2026-09-27 收口)。
 // 本脚本刻意不再手写第二份 read-tree/commit-tree/CAS —— 同一会话手写 6 份并漂开正是它入库的理由。
 import {
@@ -1158,7 +1161,32 @@ async function main() {
     process.exit(1)
   }
 
+  // ── 冲突标记闸(2026-09-28 立,由实测事故补上)────────────────────────────
+  // 归档器写的是**工作树副本**,而共享工作区里 `PROJECT_PLAN.md` 偶尔会带着别人未解完的
+  // 冲突标记(`<<<<<<< ours` / `=======` / `>>>>>>> theirs`)。旧版没有任何一道闸看这件事,
+  // 于是它把标记连同搬运结果一起 `--no-verify` 提交进台账 —— 实测枚 `b54c79c36`(09-28 00:23)
+  // 就是这么进去的;而守门 79 当时因">2MB 先跳过"对台账全盲(那道护栏同日已改成
+  // "先问有没有标记线索、再谈体积"),所以整条链一声不响。
+  // 判据不另写一份:直接引守门 79 的 `findMarkerPairs`(两处各写一遍必然漂移)。
+  const scars = findMarkerPairs(newContent).pairs
+  if (scars.length > 0) {
+    console.error(
+      C.red +
+        `❌ 计划文档里带着 ${scars.length} 对未解冲突标记 ⇒ 拒绝归档并拒绝提交(自动档少做一件事不是错误,但把标记提交进台账是)` +
+        C.reset,
+    )
+    for (const s of scars.slice(0, 5))
+      console.error(`     行 ${s.startLine}–${s.endLine}  |  ${String(s.startText).trim()}`)
+    console.error(
+      C.yellow +
+        '   先解冲突(按 §12b 协作收尾重新归并,禁止手删三行标记当作已解决),再重跑归档。' +
+        C.reset,
+    )
+    process.exit(1)
+  }
+
   writeFileSync(PLAN_FILE, newContent, 'utf8')
+
 
   console.log(`${C.green}✅ 已归档 ${toArchive.length} 个条目${C.reset}`)
   console.log(
@@ -1541,6 +1569,22 @@ function runSelfTest() {
       twoNotes.includes('O9 落账:复测 2026-09-27') &&
       twoNotes.trim().split(/\s(?=〔【归并】)/).length === 2,
     twoNotes,
+  )
+
+  // S18 归档器写的是**工作树副本**:带未解冲突标记时它会把标记一起提交进台账(实测枚
+  // b54c79c36)。判据用守门 79 那一份实现,不在这里抄第二遍配对逻辑。
+  ok(
+    'S18 冲突标记配对:成对必命中、干净文本不误判(与守门 79 同一份实现)',
+    findMarkerPairs('a\n<<<<<<< ours\nb\n=======\nc\n>>>>>>> theirs\n').pairs.length === 1 &&
+      findMarkerPairs('a\n干净内容\n<<<<<<< 这不是标记(后缺空格)\n').pairs.length === 0,
+  )
+  // 装车证明:光有判据函数不算接上 —— 必须钉在"写 PLAN_FILE 之前"那一步上
+  // (守门 70/76/81 同型:判据在、没人调,表现是永远绿灯)。
+  ok(
+    'S18b 装车锁:main() 写计划文档之前必须先过冲突标记闸',
+    /const scars = findMarkerPairs\(newContent\)\.pairs[\s\S]{0,700}?writeFileSync\(PLAN_FILE, newContent/.test(
+      readFileSync(fileURLToPath(import.meta.url), 'utf8'),
+    ),
   )
 
   let failed = 0
