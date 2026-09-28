@@ -82,6 +82,7 @@ export function LoginForm(props: LoginFormProps) {
     qrComponent,
     qrPlatforms,
     enableCredentialPersistence = false,
+    canAutoSubmitCredentials,
     thirdPartyFeaturedPlatform,
     thirdPartyFeaturedBackground,
     phoneDefaultAccount,
@@ -144,6 +145,8 @@ export function LoginForm(props: LoginFormProps) {
     buttonClassName,
     // 2026-07-30:3 个 tab 共用同一份账号历史(email/phone/password 登录成功都写入同一 localStorage)
     enableCredentialPersistence,
+    // 必填:自动提交凭据的准入判定由调用方给(判据住在 @ihui/shared/auth/auto-login-policy)
+    canAutoSubmitCredentials,
   }
 
   return (

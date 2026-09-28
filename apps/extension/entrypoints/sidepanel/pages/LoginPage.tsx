@@ -162,6 +162,8 @@ export default function LoginPage({ onSuccess }: Props) {
         <LoginForm
           t={t}
           apiClient={loginApiClient}
+          // 同 popup:本表面未启用凭据持久化,自动提交分支不会走到;显式写出来不留隐形缺省。
+          canAutoSubmitCredentials={() => true}
           thirdParty={thirdParty.config}
           showAgreement
           agreementMode="notice-dialog"
