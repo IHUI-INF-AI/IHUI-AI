@@ -28,7 +28,7 @@ import {
   type Session,
 } from '../commands/session.js';
 import type { PermissionMode } from '../tools/permissions.js';
-import { createDangerGate } from '../tools/danger-gate.js';
+import { createAuditedDangerGate } from '../tools/danger-gate-audit.js';
 
 export interface AgentCoreOptions {
   workspacePath: string;
@@ -125,7 +125,10 @@ export class AgentCore {
         allowDangerous: this.opts.allowDangerous,
       },
       // 策略收口到唯一出口:本端无人可问 ⇒ 无 prompt,flag 未开即 denied(fail-closed,与旧行为逐路径等价)
-      confirmDangerous: createDangerGate({
+      // 86H 覆盖面如实登记:闸门在 ensureAgent() 里**跨会话复用**(sharedCtx 缓存),
+      // 构造时刻没有"当前会话"可归属,故决策落 'cli-default' —— 要按会话归因得先让
+      // core 跟踪活动会话,那是另一件事,不在本票(不为此假造一个归属)。
+      confirmDangerous: createAuditedDangerGate({
         allowDangerous: this.opts.allowDangerous,
         silent: true,
       }),

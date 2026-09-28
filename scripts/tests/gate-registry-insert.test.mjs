@@ -300,7 +300,10 @@ test('T12 (b) 不带 GATE_MODE ⇒ 产物与改动前逐字同形(整块按字�
     '    args: [],',
     "    mode: 'blocking',",
     "    skipEnv: 'HUSKY_SKIP_E2E_GATE',",
-    '    stagedTriggers: [],',
+    // 这一行(原 `stagedTriggers: [],`)被 2026-09-28 的 R8 收口**摘掉**:空数组交给
+    // scripts/lib/guardian-triggers.mjs 归一时当场抛错,而 runner 的 for (const check of effectiveChecks)
+    // 没有 catch ⇒ 整条 pre-commit 中止。本块因此**故意不等于**该工具改动前的原文 ——
+    // 留这一句是为了让下一个人知道"逐字同形"这条断言在哪一格被有意放宽过,以及为什么。
     '    onFailHint: [',
     "      '',",
     "      '',",
@@ -363,4 +366,23 @@ test('T14 源码级反向锁:mode 行不得再是写死的字面量,必须由变
   const domainLines = src.split('\n').filter((l) => l.includes("'blocking'") && l.includes("'warn'"))
   assert.equal(domainLines.length, 1, `值域 {blocking, warn} 只许写在一处(GATE_MODES),实测 ${domainLines.length} 处:${domainLines}`)
   assert.match(domainLines[0], /export const GATE_MODES/, '那一处必须是导出的 GATE_MODES,供测试复用而不是被测试重抄')
+})
+
+test('T15 (d) 没有 triggers 就整个键都不写 —— 空数组会让归一层当场抛错,一次抛错 = 整条 pre-commit 中止(守门 89 的 R8)', () => {
+  const args = { id: '24', section: '测试门', label: '🧪 测试门(样例)', script: 'check-e2e-gate.mjs', skipEnv: 'HUSKY_SKIP_E2E_GATE' }
+  const without = __test__.buildEntry(args).join('\n')
+  assert.ok(!without.includes('stagedTriggers'), '缺省(无 triggers)必须整个键都不写,而不是写一个 []')
+  const withT = __test__.buildEntry({ ...args, triggers: ['apps/web/src/', 'packages/'] }).join('\n')
+  assert.ok(
+    withT.includes("    stagedTriggers: ['apps/web/src/', 'packages/'],"),
+    `有 triggers 时必须照旧逐条写出(本锁不许把另一头一起关掉)。实得:\n${withT}`,
+  )
+})
+
+test('T16 源码级反向锁:注册器不得再产出 `stagedTriggers: [],` 这个字面量(R8 那一崩点的形状防线)', () => {
+  const src = norm(readFileSync(TOOL, 'utf8'))
+  assert.ok(
+    !/ {4}stagedTriggers: \[\],/.test(src),
+    '空数组形态回来 = 下一次"不带 triggers 的注册"又会把整条 pre-commit 弄崩(runner 的 for 循环没有 catch)',
+  )
 })

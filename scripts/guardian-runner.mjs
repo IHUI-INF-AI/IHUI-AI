@@ -153,13 +153,13 @@ const checks = [
   // 检测目标:apps/web/src/ 下所有 .tsx(8 个共享登录组件:LoginForm/EmailCodeLoginForm/
   //   PhoneCodeLoginForm/PasswordLoginForm/AgreementCheckbox/AgreementNoticeDialog/
   //   ThirdPartyLoginButtons/QrTab)
-  // 升级 blocking 评估:1 周观察期(2026-08-03)若无误报 → 改 mode: 'blocking'
+  // 升级 blocking 评估:观察期已满 —— 2026-09-28 全量档实测 803 个文件 0 违规,已翻 blocking
   {
     id: '2g-web',
     label: '🔍 i18n 命名空间传递(web→共享组件)',
     script: 'check-i18n-namespace-passing.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '3',
@@ -222,7 +222,7 @@ const checks = [
     label: '📐 圆角溢出(父 rounded + 子 bg 贴边)',
     script: 'check-rounded-overflow.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '11c',
@@ -710,10 +710,10 @@ const checks = [
   },
   {
     id: '2f-ext',
-    label: '🌐 [extension] i18n 键完整性(warn-only)',
+    label: '🌐 [extension] i18n 键完整性(blocking,2026-09-28 由 warn 升档)',
     script: 'check-i18n-keys.mjs',
     args: ['--target=extension'],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '2f-shared',
@@ -724,24 +724,24 @@ const checks = [
   },
   {
     id: '2g-ext',
-    label: '🔍 [extension] zh-TW 简体字残留(warn-only)',
+    label: '🔍 [extension] zh-TW 简体字残留(blocking,2026-09-28 由 warn 升档)',
     script: 'scan-i18n-zh-residue.mjs',
     args: ['zh-TW', '--target=extension'],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '2h-ext',
-    label: '🔍 [extension] ko.json 中文残留(warn-only)',
+    label: '🔍 [extension] ko.json 中文残留(blocking,2026-09-28 由 warn 升档)',
     script: 'scan-i18n-zh-residue.mjs',
     args: ['ko', '--target=extension'],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '2i-ext',
-    label: '🔍 [extension] en.json 破碎英文(warn-only)',
+    label: '🔍 [extension] en.json 破碎英文(blocking,2026-09-28 由 warn 升档)',
     script: 'check-i18n-broken-en.mjs',
     args: ['--target=extension'],
-    mode: 'warn',
+    mode: 'blocking',
   },
   // --- shared 守门(5 项,2026-07-26 i18n shared/ 抽取重构前置条件) ---
   // 与 2f-shared(已存在,跑 check-i18n-keys.mjs --target=shared)独立,不冲突
@@ -820,13 +820,13 @@ const checks = [
   //   实际检查的是 packages/i18n/messages/web/ 而非 mobile-rn/。
   //   要让本守门真正生效,需在 check-i18n-keys.mjs 增加 mobile-rn 分支(类似 cli 分支),
   //   当前为占位项,warn-only 不阻塞 commit。修复后此项才有实际防护意义。
-  // 升级 blocking 评估:待 check-i18n-keys.mjs 补 mobile-rn 分支后再评估。
+  // 升级 blocking 评估:该前置早已满足 —— check-i18n-keys.mjs 有 mobile-rn 分支,mobile-rn 的 parity-only 档
   {
     id: '2f-mobile-rn',
     label: '🌐 mobile-rn i18n parity 守门(warn-only 起步,2026-07-28 立)',
     script: 'check-i18n-keys.mjs',
     args: ['--target=mobile-rn', '--parity-only'],
-    mode: 'warn',
+    mode: 'blocking',
     onFailHint: [
       '',
       '  💡 mobile-rn 端 5 语言 i18n key 集合不一致。',
@@ -3924,6 +3924,55 @@ const checks = [
       '  ① 现读:node scripts/check-principal-consumed.mjs [--json|--staged|--worktree]',
       '  ② 镜像:node --test scripts/tests/check-principal-consumed.test.mjs',
       '  紧急跳过(不推荐):HUSKY_SKIP_PRINCIPAL_CONSUMED=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 服务二进制路径存续性对账(1 项,warn)---
+  {
+    id: '153',
+    label:
+      '🛡️ 服务二进制路径存续性对账(判机器状态:nssm 各服务 Application 绝对路径存在性;三态不并桶,§12e 只能 warn)',
+    script: 'check-service-binary-paths.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_SERVICE_BINARY_PATHS',
+    onFailHint: [
+      '',
+      '本门判的是"这台机装了什么",不是本次提交改了什么 ⇒ 定级 warn:',
+      '  挂 blocking 会让每台每次提交被逼 --no-verify,一次绕过等于全部守门对该提交作废(§12e)。',
+      '三态:可判存在 / 确认缺失 / 未判定;枚举不到 nssm 服务时如实报未判定,不冒充通过。',
+      '问责跑 --strict;应急跳过 HUSKY_SKIP_SERVICE_BINARY_PATHS=1。',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 临时夹具 scratch 根二阶嵌套巡检(只报不删,三态含未判定)(1 项,warn)---
+  {
+    id: '154',
+    label:
+      '临时夹具 scratch 根二阶嵌套巡检(只报不删,三态含未判定)',
+    script: 'check-scratch-root-no-nesting.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_SCRATCH_NESTING',
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 镜像测试临时夹具落点对账(默认只报名,--strict 才判红)(1 项,warn)---
+  {
+    id: '155',
+    label:
+      '镜像测试临时夹具落点对账(默认只报名,--strict 才判红)',
+    script: 'check-fixture-tmpdir.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_FIXTURE_TMPDIR',
+    onFailHint: [
+      '',
       '',
     ].join('\n'),
   },
