@@ -31,6 +31,17 @@
  *   (2026-09-27 补:`credentials-unavailable` 是唯一的**不减少跳门**的新增档 —— 它的
  *   allow* 与 other 完全相同,只换取"分类名 + 出路文案"更准;当时的 --no-verify 重试
  *   对凭据断点无害也无用,行为不变是为了不动 §5b push-gate 链,出路文案负责教人对因。)
+ *
+ * 2026-09-28 补第三档(`remote-ref-race`)的立因 —— 同一型误判当天实测两次(05:23Z / 06:2xZ):
+ *   管理员凭据直推被 GitHub **放行**时,远端会先打一句信息行
+ *     `remote: Bypassed rule violations for refs/heads/main:`
+ *     `remote: - Required status check "CI / lint-typecheck-test (push)" is expected.`
+ *   这是"旁路成功"的通知,不是拒绝;真正把这一趟打死的是它下面那句
+ *     ` ! [remote rejected] main -> main (cannot lock ref 'refs/heads/main': is at <A> but expected <B>)`
+ *   —— 含义是**别的会话在同一秒推了**(远端 ref 前移 ⇒ CAS 失败),与分支保护无关。
+ *   旧判序里 `Required status check` 先命中,于是给用户/agent 的出路写成"改 GitHub 设置 / 走 PR,
+ *   别跑收敛器"——方向完全反了(正解是先取网络真值再重推一次;第二次实测窗口内直推即成功)。
+ *   ⇒ **竞态必须排在策略之前**:两档的出路是相反的,合并或错序就等于把人引到死路上。
  */
 import { pathToFileURL } from 'node:url'
 
@@ -38,6 +49,7 @@ import { pathToFileURL } from 'node:url'
 export const PUSH_TRIAGE_KINDS = Object.freeze([
   'pushed-ok',
   'up-to-date',
+  'remote-ref-race',
   'protected-branch',
   'non-fast-forward',
   'secret-scan-blocked',
@@ -48,6 +60,14 @@ export const PUSH_TRIAGE_KINDS = Object.freeze([
 
 /** 唯一指向性出路(§5b「🔄 主动收敛」规定的入口;本模块不跑它,只报出来)。 */
 export const CONVERGE_COMMAND = 'node scripts/git-sync-converge.mjs'
+
+/**
+ * 竞态档的**第一步**出路:先取网络真值,再判几何关系 —— 两半的结论指向两条相反的出路,
+ * 所以出路必须写成"先问这个问题",而不是直接叫人跑收敛器(那是祖先不成立时才对的动作)。
+ * 2026-09-28 实测:第一次被误判挡住没跑这两步,第二次在同一窗口直推成功。
+ */
+export const RACE_RECHECK_COMMAND =
+  'git ls-remote origin refs/heads/main && git merge-base --is-ancestor <远端tip> HEAD'
 
 /** 什么都没推的两种回显(远端 tip 已含本次要推的内容)。 */
 export const UP_TO_DATE_RE = /everything up-to-date|\[up to date\]/i
@@ -61,6 +81,28 @@ export const SECRET_SCAN_RE =
   /repository rule violations|secret-scanning|Secret scanning|push declined due to/i
 
 /**
+ * 远端 ref **竞态**(git 自己的 CAS 锁失败:远端 ref 在这一趟期间前移了)。
+ * 特征串逐字取自 2026-09-28 两次实测的 git 原话:
+ *   ` ! [remote rejected] main -> main (cannot lock ref 'refs/heads/main': is at <A> but expected <B>)`
+ *   ` ! [rejected] main -> main (stale info)`
+ * 两串说的是同一件事:**本地拿到的远端值已经过期**,与"谁的质量门""谁的仓库设置"都无关。
+ * `stale info` 此前挂在 NON_FAST_FORWARD_RE 里(2026-09-28 移出):它是竞态而不是分叉 ——
+ * 判成分叉会让人去跑收敛器(3 轮 × 全量门 ≈ 15 分钟),而正解只是"重取真值再推一次"。
+ * ⚠ 判序上必须**先于** PROTECTED_BRANCH_RE:管理员旁路成功时 GitHub 照打
+ *   `Bypassed rule violations` + `Required status check … is expected` 两行信息,
+ *   而拒收原因是 cannot lock ref —— 按策略档判就会给出完全相反的出路(本次修复的全部理由)。
+ */
+export const REMOTE_REF_RACE_RE = /cannot lock ref|stale info/i
+
+/**
+ * GitHub 的**旁路通知**(不是拒绝):受保护分支被 admin/凭据有权者推过去时打这一行。
+ * 本模块只用它来留证与造夹具(§22c:夹具必须用被审面的真实原文),真正的分档由
+ * REMOTE_REF_RACE_RE / PROTECTED_BRANCH_RE 决定 —— 看到这一行就把推送判成失败,
+ * 与"看到 Required status check 就判策略拒收"是同一条错误。
+ */
+export const RULE_BYPASS_NOTICE_RE = /bypassed rule violations/i
+
+/**
  * 远端**分支保护策略**拒收(2026-09-27 17:1x 起本机实测,成因不是并发也不是质量门):
  *   `remote: error: GH006: Protected branch update failed for refs/heads.main.`
  *   `remote: - Required status check "CI / lint-typecheck-test (pull_request)" is expected.`
@@ -69,6 +111,8 @@ export const SECRET_SCAN_RE =
  *   而 `NON_FAST_FORWARD_RE` 认这个特征 ⇒ 旧分诊把它报成"并发分叉",
  *   于是每个会话照着出路去跑 `git-sync-converge.mjs`(实测 3 轮 × 每轮全量门,约 15 分钟白跑),
  *   而收敛器**结构上修不了一个仓库设置**。分诊错一档的代价不是措辞,是把人引到一条死路上反复跑。
+ * ⚠ 但它**又必须排在 remote-ref-race 之后**(2026-09-28):旁路成功的通知里同样出现
+ *   `Required status check`,而那一趟真正的死因是 ref 锁竞态 ⇒ 两档不得互相顶结论。
  * 判据只用服务器侧的原话特征(GH006 / protected branch / Required status check),
  * 不含 `[remote rejected]` —— 那一串在真分叉与钩子失败里都会出现,拿它当分支保护证据就是又一轮误标。
  */
@@ -80,9 +124,11 @@ export const PROTECTED_BRANCH_RE =
  * 与 `hint: Updates were rejected because ...`;`fetch first` 是 GitLab/GitHub 侧常见回显。
  * 刻意不含 `error: failed to push some refs` —— 钩子失败时 git 打的是同一句,拿它当
  * 分叉证据就是把跳门换了个理由。
+ * 2026-09-28:`stale info` 已移出本式,归 remote-ref-race 档(那是"CAS 没抢到",
+ * 不是"两边各走各的");其余四个特征一字未动 ⇒ 既有 non-fast-forward 语义完整保留。
  */
 export const NON_FAST_FORWARD_RE =
-  /non-fast-forward|fetch first|updates were rejected|\[rejected\]|\[remote rejected\]|stale info/i
+  /non-fast-forward|fetch first|updates were rejected|\[rejected\]|\[remote rejected\]/i
 
 /**
  * 凭据**不可得**(≠凭据失效 —— 根本没拿到,而不是拿到了被拒)。特征串逐字取自
@@ -181,6 +227,30 @@ export function triagePushAttempt({
   }
 
   // ── 失败侧(顺序即优先级:secret-scan 的 `[rejected]` 形态与分叉同形,必须先判) ──
+  // 2026-09-28 的判序更正:**竞态在最前**。理由不是偏好而是"谁说的话更具体":
+  //   `cannot lock ref` / `stale info` 是 git 自己对远端 ref 做 CAS 时打的原话,
+  //   服务器侧的规则拒收(GH006 / push protection)结构上不会产出这一串;
+  //   而反过来,旁路成功的信息行里**必然**出现 `Required status check` ——
+  //   把竞态放在策略之后,就等于让每一趟"别人刚推过"的失败都被报成"去改仓库设置"。
+  if (REMOTE_REF_RACE_RE.test(text)) {
+    return verdict({
+      kind: 'remote-ref-race',
+      // 与质量门无关:再跑一趟 270s 的门、或 --no-verify 关掉门,都改变不了"远端已前移"
+      allowHookRetry: false,
+      allowNoVerifyRetry: false,
+      // 落 failed(不是 diverged):通道本身是通的,下一步动作是"重取真值再推一次",
+      // 而 diverged 会被下游读成"必须收敛、别再推"(check-push-sync 的 diverged 档就是照这个措辞写的)。
+      terminalStatus: 'failed',
+      nextCommand: RACE_RECHECK_COMMAND,
+      why:
+        '远端 ref **竞态**(git 原话 cannot lock ref / stale info)⇒ 别的会话在这一秒已推进 refs/heads/' +
+        'main,本次 CAS 没抢到。这**不是**分支保护拒收:同一段回显里的 `Bypassed rule violations` + ' +
+        '`Required status check … is expected` 是**旁路成功的通知**,不是拒绝 —— 按策略档判会把出路写成' +
+        '"改仓库设置 / 走 PR",方向完全反了。出路两步(先问,别先动设置):' +
+        `① ${RACE_RECHECK_COMMAND} —— 远端 tip 是本地祖先 ⇒ 本地什么都没丢,直接重推即可(不要动仓库设置、不要跑收敛器);` +
+        `② 祖先不成立 ⇒ 才是真分叉,走 ${CONVERGE_COMMAND}`,
+    })
+  }
   if (SECRET_SCAN_RE.test(text)) {
     return verdict({
       kind: 'secret-scan-blocked',
@@ -200,7 +270,8 @@ export function triagePushAttempt({
       terminalStatus: 'failed',
       // 出路**刻意不指向收敛器**:收敛器修的是"远端已推进",而这里远端根本没动。
       // 先自证不是分叉(本地已含远端 tip),再交机主在仓库侧决定(放开直推 / 或改走 PR)。
-      nextCommand: 'git ls-remote origin refs/heads/main && git merge-base --is-ancestor <远端SHA> HEAD',
+      nextCommand:
+        'git ls-remote origin refs/heads/main && git merge-base --is-ancestor <远端SHA> HEAD',
       why:
         '远端**分支保护策略**拒收(GH006 / protected branch hook declined / Required status check expected)' +
         ' ⇒ 这不是并发分叉,也不是质量门:本地已包含远端 tip 时快进推送依然被策略挡下。' +
@@ -262,6 +333,126 @@ export function describeVerdict(v) {
   return parts.join(' — ')
 }
 
+/** push-state 读数被视为"当下量的"的窗口(与 guard 的 PUSH_STATE_STALE_MS 同值,5min)。 */
+export const PUSH_STATE_FRESH_MS = 5 * 60 * 1000
+
+/** 年龄串:小时档必须有(s/min 两个量级会把"四小时前的残留"印成"213min",
+ *  读的人看不出那是隔夜的东西)。**不**与 check-push-sync 的 ageText 共用:那一处是
+ *  门禁放行文案(只看是否 <5min,量级用不到小时),本处是**读数出处**陈述,消费面不同;
+ *  两处若哪天要合并,先合的是判据而不是文案。 */
+function ageTextAbs(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return '未知时长'
+  const s = Math.round(ms / 1000)
+  if (s < 60) return `${s}s`
+  if (s < 3600) return `${Math.round(s / 60)}min`
+  const h = Math.floor(s / 3600)
+  const m = Math.round((s % 3600) / 60)
+  return m > 0 ? `${h}h${m}min` : `${h}h`
+}
+
+/** SHA 归一比较(记录里存的是全 sha,调用方手里的可能是缩写;大小写不敏感)。 */
+function sameSha(a, b) {
+  const norm = (x) => (typeof x === 'string' ? x.trim().toLowerCase() : '')
+  const la = norm(a)
+  const lb = norm(b)
+  if (!la || !lb) return false
+  if (la === lb) return true
+  const shorter = la.length <= lb.length ? la : lb
+  const longer = la.length <= lb.length ? lb : la
+  return shorter.length >= 7 && longer.startsWith(shorter)
+}
+
+/**
+ * 一条 `.workbuddy/push-state.json` 读数**相对当前 HEAD** 的出处判定 —— 纯函数,零副作用。
+ *
+ * 立因(2026-09-28):`git-push-converge.mjs` 报 `PUSH_FAILED` / `SKIP` / `DIVERGED` 时,
+ * 依据的是状态文件里**几小时前**的那条记录(`headSha` 还停在更早的提交),而它自己
+ * 那一刻并没有现推。账面读起来却像"当下量的故障"—— 与 AGENTS 反复登记的"把没判写成
+ * 判过了""历史读数冒充本次结论"是同一条失真。本出口把三件事一次说清:
+ *   ① 记录**关于哪枚提交**(headSha 是否等于当前 HEAD);
+ *   ② **多旧**(带小时档);
+ *   ③ 由此得到的定性:当下依据 / 历史残留(未现推) / 无读数 / 形状不可判。
+ * 措辞由 `text` 单点产出,调用方**不得**再自己拼一份(两处算同一件事必漂移)。
+ *
+ * @param {{pushState?: {status?: string, headSha?: string, ts?: number}|null,
+ *          localHead?: string, now?: number, freshMs?: number}}
+ * @returns {{state:'current'|'stale-record'|'absent'|'malformed', isCurrent:boolean,
+ *            label:string, sameHead:boolean, status:string, headSha:string,
+ *            ageMs:number|null, ageText:string, text:string}}
+ */
+export function pushStateProvenance({
+  pushState = null,
+  localHead = '',
+  now = Date.now(),
+  freshMs = PUSH_STATE_FRESH_MS,
+} = {}) {
+  const short = (s) => (typeof s === 'string' ? s.trim().slice(0, 7) : '')
+  if (!pushState || typeof pushState !== 'object') {
+    return {
+      state: 'absent',
+      isCurrent: false,
+      label: '无读数',
+      sameHead: false,
+      status: '无',
+      headSha: '',
+      ageMs: null,
+      ageText: '未知时长',
+      text: 'push-state 读数:无(文件缺失或不可 parse)⇒ 本行结论不以任何历史推送为据',
+    }
+  }
+  const status = typeof pushState.status === 'string' ? pushState.status : '(未知值)'
+  const headSha = typeof pushState.headSha === 'string' ? pushState.headSha : ''
+  if (typeof pushState.ts !== 'number' || !Number.isFinite(pushState.ts)) {
+    return {
+      state: 'malformed',
+      isCurrent: false,
+      label: '未判定(ts 不是数)',
+      sameHead: false,
+      status,
+      headSha,
+      ageMs: null,
+      ageText: '未知时长',
+      text:
+        `push-state 读数:status=${status} headSha=${short(headSha) || '(无)'} 但 ts 不是数 ⇒ ` +
+        '年龄无从算,**未判定**(不得据此行确认本次推送状态)',
+    }
+  }
+  const ageMs = Math.max(0, now - pushState.ts)
+  const age = ageTextAbs(ageMs)
+  const isSame = sameSha(headSha, localHead)
+  const fresh = ageMs < freshMs
+  const base = `push-state 读数:status=${status} headSha=${short(headSha) || '(无)'} 距今 ${age}(当前 HEAD ${short(localHead) || '(未取到)'})`
+  if (isSame && fresh) {
+    return {
+      state: 'current',
+      isCurrent: true,
+      label: '当下量的',
+      sameHead: true,
+      status,
+      headSha,
+      ageMs,
+      ageText: age,
+      text: `${base} ⇒ headSha == 当前 HEAD 且在 ${Math.round(freshMs / 60000)}min 窗口内 = **当下量的**`,
+    }
+  }
+  const reason = !isSame
+    ? `该记录关于**另一枚提交**(${short(headSha) || '(空)'}),与当前 HEAD 无关`
+    : `同一枚提交但读数已 ${age},超出 ${Math.round(freshMs / 60000)}min 窗口`
+  return {
+    state: 'stale-record',
+    isCurrent: false,
+    // 定性只在这里产一次:调用方按 `isCurrent` / `label` 分支即可,**不得**自己再比一次
+    // headSha 或 age(两处算同一件事必漂移,本仓记过多次)。
+    label: '历史残留/未现推',
+    sameHead: isSame,
+    status,
+    headSha,
+    ageMs,
+    ageText: age,
+    text: `${base} ⇒ ${reason} = **历史残留/未现推**,不得读成当下故障`,
+  }
+}
+
 // ─── --self-test(零副作用;例数以末行现测为准,不写死防漂移) ───
 // §22d:根判据必须经 pathToFileURL 归一 —— Windows 反斜杠路径直接拼 `file:///`
 // 永远不等于 import.meta.url,那样 CLI 永不触发、自检静默失效。
@@ -270,6 +461,34 @@ const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process
 if (isDirectRun && process.argv.includes('--self-test')) {
   const NFF =
     "To https://github.com/x/y.git\n ! [rejected]        main -> main (non-fast-forward)\nerror: failed to push some refs to 'https://github.com/x/y.git'\nhint: Updates were rejected because the tip of your current branch is behind"
+  // ── 2026-09-28 三型夹具:文本逐字取自被审面的真实回显(§22c:自造文本只会让锁跟着判据一起漂) ──
+  /** (a) 旁路通知 + ref 锁竞态 ⇒ **必须**判竞态(带不带 Required status check 那行都判竞态)。 */
+  const BYPASS_ONLY = [
+    'remote: Bypassed rule violations for refs/heads/main:        ',
+    'remote: ',
+    'To https://github.com/IHUI-INF-AI/IHUI-AI.git',
+    " ! [remote rejected]       main -> main (cannot lock ref 'refs/heads/main': is at 6b8cd0f6aa1 but expected c12612dc9f0)",
+    "error: failed to push some refs to 'https://github.com/IHUI-INF-AI/IHUI-AI.git'",
+  ].join('\n')
+  /** (a2) 真实完整回显:旁路通知 + `Required status check` + cannot lock ref ⇒ 仍是竞态,不是策略。 */
+  const BYPASS_WITH_CHECK = [
+    'remote: Bypassed rule violations for refs/heads/main:        ',
+    'remote: ',
+    'remote: - Required status check "CI / lint-typecheck-test (push)" is expected.        ',
+    'To https://github.com/IHUI-INF-AI/IHUI-AI.git',
+    " ! [remote rejected]       main -> main (cannot lock ref 'refs/heads/main': is at 6b8cd0f6aa1 but expected c12612dc9f0)",
+    "error: failed to push some refs to 'https://github.com/IHUI-INF-AI/IHUI-AI.git'",
+  ].join('\n')
+  /** (b) 纯策略拒收(GH006)⇒ 必须仍判策略,不得被竞态档吃掉。 */
+  const GH006 = [
+    'remote: error: GH006: Protected branch update failed for refs/heads/main.        ',
+    'remote: ',
+    'remote: - Required status check "CI / lint-typecheck-test (pull_request)" is expected.        ',
+    ' ! [remote rejected]       main -> main (protected branch hook declined)',
+  ].join('\n')
+  /** 竞态的另一形态:--force-with-lease / 过期 tracking ref 打的是 stale info。 */
+  const STALE_INFO =
+    'To https://github.com/x/y.git\n ! [rejected]        main -> main (stale info)\nerror: failed to push some refs'
   /** [名称, 实际值, 期望值] —— 期望值逐条写死,免得判据自己给自己发合格证。 */
   const cases = [
     [
@@ -347,6 +566,109 @@ if (isDirectRun && process.argv.includes('--self-test')) {
       }).kind,
       'other',
     ],
+    // ── 2026-09-28:竞态 / 策略 / 分叉 三档的成对反证(任务要求的 (a)(b)(c) 三条,退化一条即红) ──
+    [
+      '(a) 旁路通知 + cannot lock ref ⇒ 竞态',
+      triagePushAttempt({ status: 1, stderr: BYPASS_ONLY }).kind,
+      'remote-ref-race',
+    ],
+    [
+      '(a2) 旁路通知 + Required status check + cannot lock ref ⇒ **仍**竞态(判序先于策略)',
+      triagePushAttempt({ status: 1, stderr: BYPASS_WITH_CHECK }).kind,
+      'remote-ref-race',
+    ],
+    [
+      '(b) GH006 protected branch hook declined ⇒ 策略',
+      triagePushAttempt({ status: 1, stderr: GH006 }).kind,
+      'protected-branch',
+    ],
+    [
+      '(c) (non-fast-forward) ⇒ 分叉(既有语义一字未动)',
+      triagePushAttempt({ status: 1, stderr: NFF }).kind,
+      'non-fast-forward',
+    ],
+    [
+      '(d) (stale info) ⇒ 竞态,不再被当成叉',
+      triagePushAttempt({ status: 1, stderr: STALE_INFO }).kind,
+      'remote-ref-race',
+    ],
+    [
+      '竞态出路=先取网络真值,不得径指收敛器',
+      triagePushAttempt({ status: 1, stderr: BYPASS_WITH_CHECK }).nextCommand,
+      RACE_RECHECK_COMMAND,
+    ],
+    [
+      '竞态 why 必须同时给出两条分支(祖先成立⇒重推 / 不成立⇒收敛)',
+      /merge-base[\s\S]*git-sync-converge\.mjs/.test(
+        triagePushAttempt({ status: 1, stderr: BYPASS_WITH_CHECK }).why,
+      ),
+      true,
+    ],
+    [
+      '竞态不得计划 --no-verify',
+      triagePushAttempt({ status: 1, stderr: BYPASS_WITH_CHECK }).allowNoVerifyRetry,
+      false,
+    ],
+    [
+      '竞态落 failed(通道没坏),不冒充 diverged',
+      triagePushAttempt({ status: 1, stderr: BYPASS_WITH_CHECK }).terminalStatus,
+      'failed',
+    ],
+    [
+      '成对反向:真策略那趟的出路仍不得指向收敛器',
+      triagePushAttempt({ status: 1, stderr: GH006 }).nextCommand === CONVERGE_COMMAND,
+      false,
+    ],
+    // ── 2026-09-28:push-state 读数出处(历史残留不得冒充当下结论) ──
+    [
+      'provenance:headSha==当前 HEAD 且新鲜 ⇒ current',
+      pushStateProvenance({
+        pushState: { status: 'failed', headSha: 'a'.repeat(40), ts: 1_000_000 },
+        localHead: 'a'.repeat(40),
+        now: 1_000_000 + 30_000,
+      }).state,
+      'current',
+    ],
+    [
+      'provenance:headSha 是别的提交 ⇒ stale-record 且点名"历史残留"',
+      pushStateProvenance({
+        pushState: { status: 'failed', headSha: 'b'.repeat(40), ts: 1_000_000 },
+        localHead: 'a'.repeat(40),
+        now: 1_000_000 + 4 * 3600_000,
+      }).state,
+      'stale-record',
+    ],
+    [
+      'provenance:年龄要有小时档(4h 不得被印成 240min)',
+      pushStateProvenance({
+        pushState: { status: 'failed', headSha: 'b'.repeat(40), ts: 1_000_000 },
+        localHead: 'a'.repeat(40),
+        now: 1_000_000 + 4 * 3600_000,
+      }).ageText,
+      '4h',
+    ],
+    [
+      'provenance:同一枚但读数过期 ⇒ 仍是 stale-record',
+      pushStateProvenance({
+        pushState: { status: 'done', headSha: 'a'.repeat(40), ts: 1_000_000 },
+        localHead: 'a'.repeat(40),
+        now: 1_000_000 + 6 * 60_000,
+      }).state,
+      'stale-record',
+    ],
+    [
+      'provenance:无读数 ⇒ absent(不猜)',
+      pushStateProvenance({ pushState: null, localHead: 'a'.repeat(40) }).state,
+      'absent',
+    ],
+    [
+      'provenance:ts 不是数 ⇒ malformed/未判定,不得冒充 current',
+      pushStateProvenance({
+        pushState: { status: 'failed', headSha: 'a'.repeat(40), ts: 'x' },
+        localHead: 'a'.repeat(40),
+      }).state,
+      'malformed',
+    ],
   ]
   let bad = 0
   for (const [name, got, want] of cases) {
@@ -356,5 +678,28 @@ if (isDirectRun && process.argv.includes('--self-test')) {
   }
   console.log(`自检 ${cases.length - bad}/${cases.length} 通过`)
   process.exit(bad === 0 ? 0 : 1)
+}
+
+/**
+ * §22c:暴露给镜像测试的核心判据(`scripts/tests/push-attempt-triage.test.mjs` 直接 import
+ * 这一份,**不得**在测试里再抄一份正则/判序 —— 两处算同一件事必漂移)。
+ * 命名导出与这里指向**同一批函数对象**,不是副本。
+ */
+export const __test__ = {
+  triagePushAttempt,
+  describeVerdict,
+  pushStateProvenance,
+  PUSH_TRIAGE_KINDS,
+  CONVERGE_COMMAND,
+  RACE_RECHECK_COMMAND,
+  UP_TO_DATE_RE,
+  SECRET_SCAN_RE,
+  PROTECTED_BRANCH_RE,
+  REMOTE_REF_RACE_RE,
+  RULE_BYPASS_NOTICE_RE,
+  NON_FAST_FORWARD_RE,
+  CREDENTIALS_UNAVAILABLE_RE,
+  HOOK_TRACE_RE,
+  PUSH_STATE_FRESH_MS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
