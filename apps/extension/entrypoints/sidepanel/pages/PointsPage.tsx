@@ -70,7 +70,7 @@ export default function PointsPage() {
         <button
           type="button"
           onClick={load}
-          className="px-2 py-1 rounded-md border border-destructive bg-transparent text-destructive text-xs cursor-pointer hover:bg-destructive/10"
+          className="px-2 py-1 rounded-sm border border-destructive bg-transparent text-destructive text-xs cursor-pointer hover:bg-destructive/10"
         >
           {t('common.retry')}
         </button>
@@ -96,7 +96,7 @@ export default function PointsPage() {
                 <button
                   type="button"
                   disabled
-                  className="mt-1 px-3 py-1 text-xs rounded-md border border-border bg-muted/50 text-muted-foreground cursor-not-allowed"
+                  className="mt-1 px-3 py-1 text-xs rounded-sm border border-border bg-muted/50 text-muted-foreground cursor-not-allowed"
                 >
                   <Check className="h-3.5 w-3.5 inline-block -mt-0.5" aria-hidden />{' '}
                   {t('page.points.todaySigned')}
@@ -105,7 +105,7 @@ export default function PointsPage() {
                 <button
                   type="button"
                   onClick={onSignIn}
-                  className="mt-1 px-3 py-1 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="mt-1 px-3 py-1 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
                 >
                   {t('page.points.signIn')}
                 </button>

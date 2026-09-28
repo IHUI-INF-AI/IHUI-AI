@@ -262,13 +262,13 @@ export default function ShareCreationPage() {
 
         <View className="mx-[16rpx] mt-[24rpx] mb-[48rpx] flex gap-[16rpx]">
           <Button
-            className="flex-1 text-[length:28rpx] rounded-xl !bg-primary !text-[var(--color-primary-foreground)]"
+            className="flex-1 text-[length:28rpx] rounded-sm !bg-primary !text-[var(--color-primary-foreground)]"
             onClick={onRegenerate}
           >
             {t('share.creation.regenerate')}
           </Button>
           <Button
-            className="flex-1 text-[length:28rpx] rounded-xl !bg-muted !text-foreground"
+            className="flex-1 text-[length:28rpx] rounded-sm !bg-muted !text-foreground"
             onClick={onShareFriend}
           >
             {t('share.creation.shareFriend')}

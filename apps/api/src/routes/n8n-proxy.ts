@@ -29,8 +29,13 @@ import { sql } from 'drizzle-orm'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
 import { ensureSafeFetchUrl } from '../utils/ssrf-guard.js'
+// issue #71:n8n **基址**的 env 读取只有一个出口(本面历史上读 N8N_DOMAIN,故以它为主名,
+// N8N_BASE_URL 只作别名兜底)。禁止在本文件再直接写 process.env.N8N_DOMAIN / N8N_BASE_URL;
+// N8N_API_KEY 只有一个名字、两侧同值,不属这一型,仍就地读。
+import { readN8nBaseUrl, readN8nCredentials, n8nNotConfiguredHint } from '../utils/n8n-env.js'
 
 const PREFIX = '/cozeZhsApi/n8n'
+const N8N_ENV_PRIMARY = 'N8N_DOMAIN' as const
 
 // ==================== Zod schemas ====================
 
@@ -85,7 +90,10 @@ export const n8nProxyRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { n8n_domain, api_key } = parsed.data
-      const domain = n8n_domain || process.env.N8N_DOMAIN
+      // 请求体优先(两条 schema 都是 min(1) 必填,所以这里的 env 回退实际走不到 ——
+      // 保留只为不改变既有语义);env 那一档现在经唯一出口,别名同样生效。
+      const envBase = readN8nBaseUrl(N8N_ENV_PRIMARY)
+      const domain = n8n_domain || envBase?.origin
       const key = api_key || process.env.N8N_API_KEY
       // 真实透传 (R81): 当 n8n_domain + api_key 都有时, 真实 fetch n8n REST API
       if (domain && key) {
@@ -269,23 +277,28 @@ export const n8nProxyRoutes: FastifyPluginAsync = async (server) => {
   // 本面的是模板串,门 8 按字面量比对时两边都不入同一桶,于是"从未注册"这个前提
   // 被当成事实写了进来(2026-09-27 实测:并存 ⇒ Fastify 启动即抛 ⇒ 整个后端下线)。
   // 消费者是 apps/mobile-rn/src/screens/N8nModelScreen.tsx(list/create/update/toggle 四操作)。
-  // 与 /cozeZhsApi/n8n 代理同一上游、同一 env 纪律(N8N_DOMAIN/N8N_API_KEY):
-  //   - list 未配置 ⇒ stub + notAvailable(与 miniapp-compat 的 GET /workflows/n8n 同语义);
+  // 与 /cozeZhsApi/n8n 代理同一上游、同一 env 纪律(主名 N8N_DOMAIN,别名 N8N_BASE_URL,
+  // 取值一律经 utils/n8n-env.ts 那唯一一份出口):
+  //   - list 未配置:本面原设计是 stub + notAvailable,但 list/create 已归 proxy-tools(见下方
+  //     注释),所以这一档今天在提交链上不由本面执行;
   //   - 写操作未配置 ⇒ 503 —— 桩成功会把"没执行"写成"执行过了",绝不。
   // SSRF:域名来自 env(非用户可控),仍照既有纪律过 ensureSafeFetchUrl(防御 env 被污染)。
   // ==========================================================================
   const AI_PREFIX = '/ai/n8n'
-  const n8nEnv = (): { domain: string; key: string } | null => {
-    const domain = process.env.N8N_DOMAIN
-    const key = process.env.N8N_API_KEY
-    return domain && key ? { domain: domain.replace(/^https?:\/\//, ''), key } : null
+  const n8nEnv = (): { origin: string; key: string } | null => {
+    // 取值、"是否已配置"、scheme 归一、尾斜杠 —— 全部在 utils/n8n-env.ts 那一份出口里,
+    // 本面不再自己拼 https:// 或剥 scheme(别名 N8N_BASE_URL 带协议、主名 N8N_DOMAIN 裸主机,
+    // 两种书写习惯都必须落同一个 origin)。
+    const cred = readN8nCredentials(N8N_ENV_PRIMARY)
+    if (!cred) return null
+    return { origin: cred.origin, key: cred.apiKey }
   }
   const n8nFetch = async (
-    env: { domain: string; key: string },
+    env: { origin: string; key: string },
     path: string,
     init?: { method?: string; body?: unknown },
   ) => {
-    const url = `https://${env.domain}/api/v1${path}`
+    const url = `${env.origin}/api/v1${path}`
     await ensureSafeFetchUrl(url)
     return fetch(url, {
       method: init?.method ?? 'GET',
@@ -307,16 +320,26 @@ export const n8nProxyRoutes: FastifyPluginAsync = async (server) => {
     tags: w.tags ?? [],
   })
   const notConfigured = (reply: FastifyReply) =>
-    reply.status(503).send(error(503, '未配置 N8N_DOMAIN/N8N_API_KEY,n8n 工作流写操作不可用'))
+    reply
+      .status(503)
+      .send(error(503, `${n8nNotConfiguredHint(N8N_ENV_PRIMARY)},n8n 工作流写操作不可用`))
 
   // GET / POST `${AI_PREFIX}/workflows` 刻意不在这里注册:ai-vendors/proxy-tools.ts 已把
   // GET 与 POST `/n8n/workflows` 挂在同一个 `/api/ai` 前缀下,两处并存会让 Fastify
   // 启动即抛 FST_ERR_DUPLICATED_ROUTE —— 不是这一族 404,而是整个后端起不来(2026-09-27
   // 实测 IHUI-API 反复退出、服务被 nssm 挂到 PAUSED、8802 无监听)。
-  // 两侧语义并不等价(这里的 list 未配置回 notAvailable 空态 / create 走服务端 env 凭据;
-  // proxy-tools 的 GET 用 N8N_BASE_URL+N8N_API_KEY 直查、POST 是"凭据从请求体传入"的查询),
-  // 所以换哪一边都是对外契约决策,不由值守修复代做。下面的 PUT :id 与 POST toggle 在
-  // proxy-tools 里确实从未注册,保留注册 —— 那两条才是本票要补的真缺口。
+  // 两侧语义不等价(issue #71)。已收口的一格:**env 变量名** —— 过去 proxy-tools 只认
+  // N8N_BASE_URL、本面只认 N8N_DOMAIN,配了另一个名字的那一面就静默按"未配置"办事;
+  // 现在两侧都经 utils/n8n-env.ts 认两个名字(各自主名优先,故"主名已配"时取值逐字不变)。
+  // 仍未收口、且不由值守修复代裁的三格(统一哪一边属对外契约决策,归该面持有者):
+  //   ① list 未配置档:本面原设计 stub+notAvailable(200),proxy-tools 现行为 503;
+  //   ② list 载荷形状:proxy-tools 回 `data: 裸数组`,而唯一的客户端调用点
+  //      (api-client misc.ts getN8nWorkflows → N8nModelScreen.tsx:109 读 data.list)
+  //      声明并读的是 PageData `{list,total}` —— 形状不匹配,现网即便配置成功也渲染空列表;
+  //   ③ create 语义:同名 POST 在 proxy-tools 是"凭据从请求体传入的**查询**",而客户端
+  //      createN8nWorkflow 发的是 `{name,description}` ⇒ 必落 400 "n8nDomain 和 apiKey 为必填",
+  //      且这条路由从不向 n8n 发创建请求。
+  // 下面的 PUT :id 与 POST toggle 在 proxy-tools 里确实从未注册,保留注册 —— 那两条是已补的真缺口。
 
   // PUT /ai/n8n/workflows/:id — 更新。n8n 的 PUT 要求**完整 workflow 定义**,
   // 所以先 GET 现件、合并 name、再 PUT 回(fetch-merge-put),不是部分字段 PATCH 语义。

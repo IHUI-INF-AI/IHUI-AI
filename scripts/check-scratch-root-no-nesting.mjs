@@ -37,11 +37,14 @@
  * 已知两条二阶落点生产者(现读证据见 G-286 交付报告):
  *   P1 `scripts/lib/scratch-dir.mjs` 旧推导「脚本自身位置向上两级」⇒ 形态
  *      `<scratch 根>/DevEnv/Temp/ihui-scratch`;已由 `05ba0cb06` 改盘根锚定 + 建侧守卫;
- *   P2 `scripts/lib/gitdir.mjs` 的 `gitArchiveDir()` 仍是同款 `resolve(wt,'..','..')` 推导:
+ *   P2 `scripts/lib/gitdir.mjs` 的 `gitArchiveDir()` 曾按同款 `resolve(wt,'..','..')` 两级推导:
  *      工作树落在 `<scratch 根>/<前缀>/wt*` 这种**两层深**夹具时(如
  *      `scripts/tests/git-backup-refresh.test.mjs` 的 makeFixture 形态),归档根正好 = scratch
- *      根本身 ⇒ 长出 `<scratch 根>/DevEnv/backups/git/…`。**本门只点名不代修**:改它属另一票
- *      (动的是全局锁与恢复源的落点口径,不在本票受影响文件清单内)。
+ *      根本身 ⇒ 长出 `<scratch 根>/DevEnv/backups/git/…`。**该生产者已于 2026-09-28 收口**:
+ *      解析改盘根锚定(`parse(wt).root`,与 P1 同形)+ 夹具闸(路径里含 §26 的 `ihui-scratch` 段
+ *      ⇒ 返回 null 由调用方兜底),并把"建目录"从解析面移走到唯一写出口 `gitdirArchivePath()`
+ *      ⇒ **解析一个路径不再在盘上造东西**(旧版每问一次就 mkdir 一次)。**本门仍只点名不代删**:
+ *      盘上那份残留属 §5b 的恢复现场,清不清、何时清由人决定。
  *
  * 用法:
  *   node scripts/check-scratch-root-no-nesting.mjs [--json] [--root <dir>]
@@ -298,8 +301,8 @@ export function formatLines(res, state) {
   limits()
   out.push('  含义:某处「向上 N 级」的落点推导把夹具当成了仓根。')
   out.push('  · P1 = 被闭包拷进夹具的 scratch-dir(已由 05ba0cb06 改盘根锚定 + 建侧守卫)')
-  out.push('  · P2 = gitdir.mjs 的 gitArchiveDir()(按工作树向上两级算归档根,**尚未修** ——')
-  out.push('         工作树在两层深夹具里时归档根 = scratch 根,所以清完还会长)')
+  out.push('  · P2 = gitdir.mjs 的 gitArchiveDir()(2026-09-28 已收口:盘根锚定 + 夹具闸,建目录移到写出口)')
+  out.push('         ⇒ 现在清完**不会再长**;盘上那份残留属 §5b 恢复现场,仍交人决定,本工具不代删。')
   out.push('  出路:① 先修生产者;② 再由**人**决定清理这份残留。本工具两步都不做。')
   if (res.truncated || res.unreadable.length > 0) {
     out.push(

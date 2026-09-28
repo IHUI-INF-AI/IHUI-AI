@@ -181,7 +181,7 @@ export default function OrderRefund() {
             {tt('order.refund.descLabel', '退款说明')}
           </Text>
           <Textarea
-            className="w-full min-h-[160rpx] py-[16rpx] px-[28rpx] bg-[var(--color-muted)] rounded-xl border-[length:2rpx] border-border text-[length:32rpx] text-foreground box-border"
+            className="w-full min-h-[160rpx] py-[16rpx] px-[28rpx] bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-border text-[length:32rpx] text-foreground box-border"
             value={desc}
             onInput={(e) => setDesc(e.detail.value)}
             placeholder={tt('order.refund.descPlaceholder', '请补充退款说明(选填)')}
@@ -194,7 +194,7 @@ export default function OrderRefund() {
             {tt('order.refund.contactLabel', '联系方式')}
           </Text>
           <Input
-            className="w-full h-[88rpx] py-[16rpx] px-[28rpx] bg-[var(--color-muted)] rounded-xl border-[length:2rpx] border-border text-[length:32rpx] text-foreground box-border"
+            className="w-full h-[88rpx] py-[16rpx] px-[28rpx] bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-border text-[length:32rpx] text-foreground box-border"
             value={contact}
             onInput={(e) => setContact(e.detail.value)}
             placeholder={tt('order.refund.contactPlaceholder', '请输入手机号或邮箱')}
@@ -202,7 +202,7 @@ export default function OrderRefund() {
         </View>
 
         <Button
-          className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] rounded-xl text-[length:32rpx] font-semibold text-center border-none p-0 ${
+          className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] rounded-sm text-[length:32rpx] font-semibold text-center border-none p-0 ${
             disabled ? 'opacity-50' : ''
           } bg-cta text-cta-foreground`}
           disabled={disabled}

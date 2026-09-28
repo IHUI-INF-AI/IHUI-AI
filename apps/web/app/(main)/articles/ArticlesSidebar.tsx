@@ -29,7 +29,7 @@ export function ArticlesSidebar({ categories, categoryId, onSelectCategory }: Pr
             type="button"
             onClick={() => onSelectCategory('all')}
             className={cn(
-              'block w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors',
+              'block w-full rounded-sm px-3 py-1.5 text-left text-sm transition-colors',
               categoryId === 'all'
                 ? 'bg-primary/10 font-medium text-primary'
                 : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -43,7 +43,7 @@ export function ArticlesSidebar({ categories, categoryId, onSelectCategory }: Pr
               type="button"
               onClick={() => onSelectCategory(c.id)}
               className={cn(
-                'block w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors',
+                'block w-full rounded-sm px-3 py-1.5 text-left text-sm transition-colors',
                 categoryId === c.id
                   ? 'bg-primary/10 font-medium text-primary'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',

@@ -2929,7 +2929,14 @@ pub fn run() {
                 }
             }
             if startup_prefs.show_tray_icon {
-                let _ = build_tray(app.handle());
+                // 建不出来必须喊:托盘不在 ⇒ `close_behavior=hide` 会被归一成 quit、`ask` 直接 quit,
+                // 用户勾的是"收进托盘",实际得到"退出"。旧写法 `let _ =` 把这个分歧整条吞掉。
+                if let Err(e) = build_tray(app.handle()) {
+                    log::warn!(
+                        "[desktop-prefs] show_tray_icon=true 但托盘创建失败({e})\
+                         ⇒ 本次「隐藏到托盘/每次询问」都会退化成直接退出"
+                    );
+                }
                 // 2026-09-02 #2:托盘图标写入 Win11 任务栏常驻(IsPromoted=1),
                 // 解决"新身份图标默认被丢进右下角隐藏溢出区、需反复手动拖拽"的问题。
                 // 2026-09-28:挪进本分支 —— 它在命中变更时会**重建**托盘,用户明确不要托盘时
