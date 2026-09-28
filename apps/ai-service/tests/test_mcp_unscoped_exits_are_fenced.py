@@ -57,6 +57,11 @@ MCP_CLIENT_PATH: Final = APP_DIR / "services" / "mcp_client.py"
 # 引擎传输层:`tool_lister` 那一个无参回调的主体就是从这一格的作用域里取的,
 # 所以它既是"装配链"的一部分(判据 1c),也是**绑定点**(判据 1d)。
 ENGINE_PATH: Final = APP_DIR / "routers" / "engine.py"
+# 语音承载(第五个引擎入口):它自己合成 JSON-RPC 报文发给同一个 ENGINE,历史上那些
+# params 里连 userId 都没有 ⇒ 属主对账拿到 None 就按"维持改动前行为"放过。判据 1d 的
+# 闭合枚举专门为了盯住"再加一个承载却没人对账"这一型。
+ENGINE_VOICE_PATH: Final = APP_DIR / "routers" / "engine_voice.py"
+ENGINE_TRANSPORT_PATHS: Final = (ENGINE_PATH, ENGINE_VOICE_PATH)
 
 # 两个"不判属主"的兄弟出口。G-371 格①(2026-09-29,机主拍"隔离")把它们**整个删掉**了:
 # 会话工具池改由承载层主体收窄,于是"内部路径"这个借口没有出口可选了。
@@ -517,38 +522,70 @@ _PRINCIPAL_ARG_RE: Final = re.compile(
 
 
 def test_engine_entries_bind_the_principal_scope():
-    """判据 1d:`tool_lister` 读的那个作用域必须**真的有人绑**。
+    """判据 1d:`tool_lister` 读的那个作用域必须**真的有人绑**,而且绑的覆盖面必须闭合。
 
     为什么单列一条:`_default_tool_lister` 是**无参回调**,它的主体来自
     `mcp_client.current_mcp_principal()` 这个 ContextVar。上下文最容易犯的错不是传错,
     而是**压根没绑** —— 那样它恒为默认空串,清单永远只报部署级,而 1c 那条判据看起来
     仍然满足(参数位确实写了取主体的表达式)。这就是本仓反复记过的"看起来有、其实没装车"。
 
-    判两条结构事实(都在同一份遮噪后的代码面上):
-    ① `ENGINE.handle_message(` 的每一个入口都被 `with _mcp_principal_scope(...)` 包着
-       (四个:HTTP 单发 / HTTP 批量 / SSE 派生 task / WS 每帧);
-    ② 那个作用域助手自己必须 bind+reset 成对,且取的是 `params` 里的 `userId` ——
-       那一个由 `_bind_principal` 用令牌主体覆盖过客户端自述值;读别的字段就是读自报身份。
+    三条结构事实(都在同一份遮噪后的代码面上判):
+    ① **闭合**:全仓 `app/**.py` 里凡出现 `ENGINE.handle_message(` 的文件,都必须在被审清单里。
+       这一条是本轮当场逼出来的 —— 原版只审 `routers/engine.py`,而 `routers/engine_voice.py`
+       是**第五个承载**(自己合成 JSON-RPC 报文发给同一个 ENGINE,原先连 `params.userId` 都没有),
+       对它的失明正是"门只覆盖自己立项那一型"那一族(守门 102 左向箭头 / 门 77 B6 括号形态同根)。
+       新出现一个承载而没进清单 ⇒ 本判据红,而不是安静地少审一个文件。
+    ② **逐文件配对**:每个承载文件里 `with _mcp_principal_scope(` 的次数 ≥ 它 `ENGINE.handle_message(`
+       的次数(语音那侧是"一个包了三站的出口函数",1 对 1 成立 —— 判的是结构不是站点数)。
+    ③ **助手自身**:bind+reset 必须成对,且取的是 `params` 里的 `userId` —— 那一个由
+       `_bind_principal` 用令牌主体覆盖过客户端自述值;读别的字段就是读自报身份。
     """
-    assert ENGINE_PATH.is_file(), f"取不到被审文件:{ENGINE_PATH}"
-    masked = mask_non_code(ENGINE_PATH.read_text(encoding="utf-8-sig"))
-
-    entries = _call_count(masked, r"ENGINE\.handle_message\(")
-    scopes = _call_count(masked, r"_mcp_principal_scope\(") - 1  # 减掉 def 那一处
-    assert entries > 0, "ENGINE.handle_message 一个都没扫到 —— 尺子失明,不是通过"
-    assert scopes >= entries, (
-        f"引擎入口 {entries} 个,而 _mcp_principal_scope 只用了 {scopes} 处:"
-        "没绑作用域的那一格会让 tool_lister 恒按空主体取清单(只报部署级)"
+    callers = _engine_transport_files()
+    assert callers, "全仓 app/ 下一个 ENGINE.handle_message 都没扫到 —— 尺子失明,不是通过"
+    unlisted = sorted(callers - {p.relative_to(SERVICE_ROOT).as_posix() for p in ENGINE_TRANSPORT_PATHS})
+    assert unlisted == [], (
+        "出现了没有纳入对账的引擎承载文件(它发引擎报文却不绑主体作用域 ⇒ tool_lister 只报部署级,"
+        "而账面全绿):\n  - " + "\n  - ".join(unlisted)
     )
 
-    helper = _span_after(mask_prose(ENGINE_PATH.read_text(encoding="utf-8-sig")),
-                         r"def _mcp_principal_scope\(")
+    for path in ENGINE_TRANSPORT_PATHS:
+        assert path.is_file(), f"取不到被审文件:{path}"
+        rel = path.relative_to(SERVICE_ROOT).as_posix()
+        masked = mask_non_code(path.read_text(encoding="utf-8-sig"))
+        entries = _call_count(masked, r"ENGINE\.handle_message\(")
+        uses = _call_count(masked, r"with\s+_mcp_principal_scope\(")
+        assert entries > 0, f"{rel} 里一个引擎入口都没扫到(文件搬家或被摘线)"
+        assert uses >= entries, (
+            f"{rel}:引擎入口 {entries} 个,而 with _mcp_principal_scope( 只有 {uses} 处 —— "
+            "没绑作用域的那一格会让 tool_lister 恒按空主体取清单(只报部署级)"
+        )
+
+    helper = _span_after(
+        mask_prose(ENGINE_PATH.read_text(encoding="utf-8-sig")),
+        r"def _mcp_principal_scope\(",
+    )
     assert helper, "engine.py 里找不到 _mcp_principal_scope 的定义"
     assert re.search(r"\bbind_mcp_principal\(", helper), "作用域助手没有 bind"
     assert re.search(r"\breset_mcp_principal\(", helper), "作用域助手没有 reset(泄漏上一层作用域)"
     assert re.search(r"""["']userId["']""", helper), (
         "作用域助手取的不是 params 里的 userId —— 那等于从别处找主体"
     )
+
+
+def _engine_transport_files() -> set[str]:
+    """枚举 `app/**.py` 里真会派生引擎调用的文件(遮噪后的代码面,注释/docstring 不计)。
+
+    判"有没有第四个承载"只能靠枚举,不能靠清单 —— 清单过期与本门没装是同一件事。
+    """
+    found: set[str] = set()
+    for path in sorted(APP_DIR.rglob("*.py")):
+        try:
+            masked = mask_non_code(path.read_text(encoding="utf-8-sig"))
+        except (OSError, UnicodeDecodeError):
+            continue
+        if re.search(r"ENGINE\.handle_message\(", masked):
+            found.add(path.relative_to(SERVICE_ROOT).as_posix())
+    return found
 
 
 def _call_span(masked: str, lineno: int) -> str:
