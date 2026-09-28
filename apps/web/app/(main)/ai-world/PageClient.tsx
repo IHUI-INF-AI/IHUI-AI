@@ -108,7 +108,7 @@ export default function AiWorldPage() {
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key)}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm transition-colors ${
                 active
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
@@ -123,7 +123,7 @@ export default function AiWorldPage() {
         <button
           type="button"
           onClick={() => openPanel()}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-cta px-3 py-1.5 text-sm text-cta-foreground transition-colors hover:bg-cta/90"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-sm bg-cta px-3 py-1.5 text-sm text-cta-foreground transition-colors hover:bg-cta/90"
         >
           <Sparkles className="h-4 w-4" />
           <span>AI 对话</span>

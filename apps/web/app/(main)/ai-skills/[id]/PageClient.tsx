@@ -275,7 +275,7 @@ export default function AiSkillDetailPage() {
               toast.error(t('exportError'))
             }
           }}
-          className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-accent"
+          className="inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-accent"
         >
           <Download className="h-3.5 w-3.5" />
           {t('exportBtn')}
@@ -357,7 +357,7 @@ export default function AiSkillDetailPage() {
                       maxLength={maxLen}
                       rows={key === 'content' || key === 'text' ? 4 : 3}
                       className={cn(
-                        'thin-scroll w-full resize-none rounded-md border bg-background px-3 py-1.5 text-sm leading-snug outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30',
+                        'thin-scroll w-full resize-none rounded-sm border bg-background px-3 py-1.5 text-sm leading-snug outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30',
                         isMissing ? 'border-destructive/60' : 'border-border',
                       )}
                     />
@@ -382,7 +382,7 @@ export default function AiSkillDetailPage() {
                       placeholder={t(placeholderKey)}
                       aria-label={t(labelKey)}
                       className={cn(
-                        'w-full rounded-md border bg-background px-3 py-1.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30',
+                        'w-full rounded-sm border bg-background px-3 py-1.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30',
                         isMissing ? 'border-destructive/60' : 'border-border',
                       )}
                     />
@@ -405,7 +405,7 @@ export default function AiSkillDetailPage() {
               onClick={handleSubmit}
               disabled={running}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors',
+                'inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm transition-colors',
                 running
                   ? 'cursor-not-allowed bg-muted text-muted-foreground/60'
                   : 'bg-cta text-cta-foreground hover:bg-cta/90',
@@ -456,7 +456,7 @@ export default function AiSkillDetailPage() {
             <button
               type="button"
               onClick={() => sendToChat(result.content)}
-              className="inline-flex items-center gap-1 rounded-md bg-cta px-3 py-1.5 text-xs text-cta-foreground transition-colors hover:bg-cta/90"
+              className="inline-flex items-center gap-1 rounded-sm bg-cta px-3 py-1.5 text-xs text-cta-foreground transition-colors hover:bg-cta/90"
             >
               <MessageSquare className="h-3 w-3" />
               {t('sendToChat')}
@@ -610,7 +610,7 @@ function FeedbackSection({
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder={t('feedbackCommentPlaceholder')}
-              className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
+              className="w-full rounded-sm border border-border bg-background px-3 py-1.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
             />
           </div>
           {/* 提交按钮 */}
@@ -620,7 +620,7 @@ function FeedbackSection({
               onClick={handleSubmit}
               disabled={submitting}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors',
+                'inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm transition-colors',
                 submitting
                   ? 'cursor-not-allowed bg-muted text-muted-foreground/60'
                   : 'bg-cta text-cta-foreground hover:bg-cta/90',

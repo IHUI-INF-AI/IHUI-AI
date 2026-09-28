@@ -223,7 +223,7 @@ export function ApiRelaysSection() {
               <button
                 type="button"
                 onClick={() => setActiveVendor(null)}
-                className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                className={`rounded-sm px-1.5 py-0.5 text-[10px] transition-colors ${
                   activeVendor === null
                     ? 'bg-cta text-cta-foreground'
                     : 'bg-muted text-muted-foreground hover:bg-accent'
@@ -236,7 +236,7 @@ export function ApiRelaysSection() {
                   key={v}
                   type="button"
                   onClick={() => setActiveVendor((cur) => (cur === v ? null : v))}
-                  className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                  className={`rounded-sm px-1.5 py-0.5 text-[10px] transition-colors ${
                     activeVendor === v
                       ? 'bg-cta text-cta-foreground'
                       : 'bg-muted text-muted-foreground hover:bg-accent'
@@ -254,7 +254,7 @@ export function ApiRelaysSection() {
                   key={f.key}
                   type="button"
                   onClick={() => setActiveBilling((cur) => (cur === f.key ? 'all' : f.key))}
-                  className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                  className={`rounded-sm px-1.5 py-0.5 text-[10px] transition-colors ${
                     activeBilling === f.key
                       ? 'bg-foreground text-background'
                       : 'bg-muted text-muted-foreground hover:bg-accent'
@@ -275,7 +275,7 @@ export function ApiRelaysSection() {
               <button
                 type="button"
                 onClick={() => toggleRelaySort('name')}
-                className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                className={`inline-flex items-center gap-0.5 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors ${
                   sortField === 'name'
                     ? 'bg-foreground text-background'
                     : 'bg-muted text-muted-foreground hover:bg-accent'
@@ -293,7 +293,7 @@ export function ApiRelaysSection() {
               <button
                 type="button"
                 onClick={() => toggleRelaySort('billing')}
-                className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                className={`inline-flex items-center gap-0.5 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors ${
                   sortField === 'billing'
                     ? 'bg-foreground text-background'
                     : 'bg-muted text-muted-foreground hover:bg-accent'
@@ -312,7 +312,7 @@ export function ApiRelaysSection() {
                 <button
                   type="button"
                   onClick={() => toggleRelaySort('speed')}
-                  className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                  className={`inline-flex items-center gap-0.5 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors ${
                     sortField === 'speed'
                       ? 'bg-foreground text-background'
                       : 'bg-muted text-muted-foreground hover:bg-accent'
@@ -332,7 +332,7 @@ export function ApiRelaysSection() {
                 type="button"
                 onClick={handleSpeedTestAll}
                 disabled={testing || filtered.length === 0}
-                className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-cta/10 disabled:opacity-50"
+                className="inline-flex items-center gap-0.5 rounded-sm px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-cta/10 disabled:opacity-50"
               >
                 <Gauge className={`h-2.5 w-2.5 ${testing ? 'animate-spin' : ''}`} />
                 <span>{testing ? t('speedTesting') : t('speedTest')}</span>
@@ -399,7 +399,7 @@ export function ApiRelaysSection() {
                   <button
                     type="button"
                     onClick={() => handleRelayImport(relay.baseUrl, relay.name)}
-                    className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-cta/20"
+                    className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-cta/20"
                   >
                     <Zap className="h-2.5 w-2.5" />
                     <span>{t('import')}</span>
