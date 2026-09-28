@@ -237,7 +237,6 @@ function createStyles(tk: AppThemeTokens) {
       bottom: -4,
       width: 24,
       height: 24,
-      // radius-role-exempt: 头像上的编辑徽标是 24dp 圆(半径=半高),与头像同形不可方档化 until 2026-11-26
       borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
