@@ -16,6 +16,56 @@ import { parsePath } from '../utils/http-normalize.js'
 // SQL 查询耗时桶（秒）：1ms ~ 30s
 const SQL_DURATION_SECONDS_BUCKETS = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30] as const
 
+/**
+ * HTTP 响应时间桶的上界(毫秒)。`+Inf` 由 count 补齐,不列在这里。
+ * 顺序必须与记录侧的分支顺序同形(见 `cumulativeResponseTimeBuckets` 的 BAND_ORDER),
+ * 否则桶会算错累计值。
+ */
+export const RESPONSE_TIME_BUCKET_BOUNDS_MS = [10, 50, 100, 500, 1000, 5000] as const
+
+/** 记录侧的分档名(互斥计数,不是累计)。 */
+const RESPONSE_TIME_BAND_ORDER = [
+  '<10ms',
+  '<50ms',
+  '<100ms',
+  '<500ms',
+  '<1s',
+  '<5s',
+  '>=5s',
+] as const
+
+/**
+ * 把记录侧的**互斥分档**换算成 Prometheus 直方图要求的**累计 le 计数**。
+ *
+ * 为什么要这个出口:此前 /metrics 直接打印 `http_response_time_bucket{le="<10ms"}` 这种
+ * **字符串 le**,而且值是互斥计数。两者都不是 Prometheus 直方图合法的形态 ——
+ * `le` 必须是数字、`_bucket` 必须是"≤le 的累计数"。后果不是"少一个指标",而是
+ * `histogram_quantile()` 对该序列**恒返回空 series**:面板/告警写了 p95 也拿不到数,
+ * 而读报告的人看到的是"没有数据",不是"这道能力坏了"(2026-09-28 实测:`histogram_quantile(0.95,
+ * sum by (le) (rate(http_response_time_bucket[30m])))` 空,而进程内确实统计着 531 笔请求)。
+ * 同仓另一侧 `ihui_ai_latency_seconds_bucket`、`bullmq_duration_seconds_bucket` 都是合法直方图,
+ * 所以本文件是这一族里唯一的例外。
+ *
+ * 判序:第 i 个 le 的累计值 = 前 i 档之和;`+Inf` = 总计数(**不用**各档相加,
+ * 因为 sum/count 由钩子独立维护,取 count 才不会因两边不同步而给出"累计 > 总数")。
+ */
+export function cumulativeResponseTimeBuckets(
+  bands: Record<string, number>,
+  count: number,
+): Array<{ le: string; cumulative: number }> {
+  const out: Array<{ le: string; cumulative: number }> = []
+  let acc = 0
+  for (let i = 0; i < RESPONSE_TIME_BUCKET_BOUNDS_MS.length; i++) {
+    const band = bands[RESPONSE_TIME_BAND_ORDER[i]!] ?? 0
+    acc += band
+    out.push({ le: String(RESPONSE_TIME_BUCKET_BOUNDS_MS[i]), cumulative: acc })
+  }
+  // `+Inf` 取 count 与累计的较大者:两侧由同一钩子维护,理论上相等;若某一侧因重启/漂移短一点,
+  // 也要保证序列单调,否则 histogram_quantile 会把整个直方图判坏。
+  out.push({ le: '+Inf', cumulative: Math.max(count, acc) })
+  return out
+}
+
 // 2026-07-22 P0 Round 3 鲁棒性加固:Map 大小限制 + 定期清理
 // 防止 dynamic route params / table|operation 组合爆炸导致内存泄漏
 const MAP_MAX_SIZE = 2000 // 每个 Map 最多 2000 个 key,超过时清理最旧的 10%
@@ -204,21 +254,25 @@ const metricsPluginInner: FastifyPluginAsync = async (server: FastifyInstance) =
       lines.push(`http_requests_by_status{status="${status}"} ${count}`)
     }
 
-    // 响应时间
-    lines.push('# HELP http_response_time_ms Response time in milliseconds')
-    lines.push('# TYPE http_response_time_ms summary')
+    // 响应时间 —— **一个合法的 histogram family**,不再另出 summary:
+    // 同一个 family 里 `# TYPE` 只能声明一次,`_sum`/`_count` 也只能各出现一次,
+    // 否则 Prometheus 解析该 scrape 直接报错(scrape 失败比"少一个分位数"严重得多)。
+    // `_avg` 作为独立 gauge 保留 —— 已有查询在用它的名字,删它是无收益的破坏。
     const avgTime =
       metrics.responseTimeCount > 0 ? metrics.responseTimeSum / metrics.responseTimeCount : 0
+    lines.push('# HELP http_response_time_ms Response time in milliseconds (histogram)')
+    lines.push('# TYPE http_response_time_ms histogram')
+    for (const b of cumulativeResponseTimeBuckets(
+      metrics.responseTimeBuckets,
+      metrics.responseTimeCount,
+    )) {
+      lines.push(`http_response_time_ms_bucket{le="${b.le}"} ${b.cumulative}`)
+    }
     lines.push(`http_response_time_ms_sum ${metrics.responseTimeSum.toFixed(2)}`)
     lines.push(`http_response_time_ms_count ${metrics.responseTimeCount}`)
+    lines.push('# HELP http_response_time_ms_avg Mean response time in milliseconds')
+    lines.push('# TYPE http_response_time_ms_avg gauge')
     lines.push(`http_response_time_ms_avg ${avgTime.toFixed(2)}`)
-
-    // 响应时间桶
-    lines.push('# HELP http_response_time_bucket Response time buckets')
-    lines.push('# TYPE http_response_time_bucket histogram')
-    for (const [bucket, count] of Object.entries(metrics.responseTimeBuckets)) {
-      lines.push(`http_response_time_bucket{le="${bucket}"} ${count}`)
-    }
 
     // 运行时间
     lines.push('# HELP process_uptime_seconds Process uptime in seconds')
