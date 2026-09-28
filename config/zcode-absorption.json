@@ -269,12 +269,13 @@
       "status": "deep",
       "files": 6,
       "read": 6,
-      "notes": "全表面 SDK、无 per-role 能力面(需拍板项)。",
+      "notes": "全表面 SDK、无 per-role 能力面(需拍板项)。 ｜09-29 主会话自验(M7 清):remoteServiceAccess.ts :98-104 亲读到\"Host 已注册 media-preview channel 而 renderer proxy 遗漏 ⇒ 静默回退到 8 MiB 的 file.readMediaPreview,大 MP4 打不开\"那一格(这一型 = **静默降级到能力更小的路径**,与本仓 §5d\"读不到被下游报成失效\"同族);websocket.ts :43-49 亲读到 `write()` 仅在 `readyState === OPEN` 时 send、否则**静默丢字节**。notes 那句\"全表面 SDK、无 per-role 能力面\"由 `grep -naE \"role|scope|capabilit|permission\" remoteServiceAccess.ts` = **0 命中**当场证成。⇒ 该结论可当已证事实引用;\"要不要给 SDK 分能力面\"仍属需拍板项,不因本格 self 而变成待办。",
       "evidence": [
         "packages/client/src/remoteServiceAccess.ts:100-104",
         "packages/client/src/websocket.ts:45-49"
       ],
-      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 1 枚,其中 2 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针)"
+      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 1 枚,其中 2 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针)",
+      "verified": "self"
     },
     {
       "path": "packages/web",
@@ -489,12 +490,13 @@
       "status": "deep",
       "files": 4,
       "read": 4,
-      "notes": "生成器自带 --check(与已入库件逐字节比)、第三方包版本≠登记即 throw、源全量 sha256 烘进产物头、超字节预算拒生成。我方已由 check-token-sync-registry + provenance-ledger P3 覆盖大半,增量只剩「源内容 hash 烘进生成件头」。",
+      "notes": "生成器自带 --check(与已入库件逐字节比)、第三方包版本≠登记即 throw、源全量 sha256 烘进产物头、超字节预算拒生成。我方已由 check-token-sync-registry + provenance-ledger P3 覆盖大半,增量只剩「源内容 hash 烘进生成件头」。 ｜09-29 主会话自验(M7 清):逐条当轮亲读 —— generate-bash-command-registry.mjs 的 `--check` 在 :41、第三方包版本不等于登记即 throw 在 :52-54、源内容 sha256 在 :201、**超字节预算拒生成**在 :16(`MAX_GENERATED_BYTES = 3 * 1024 * 1024`)与 :85-88(Buffer.byteLength 超限即 throw);shadow-replay.mjs :187-241 是\"可寻址性守恒\"段(每条 transcript row 的 entity/productTurn/message target 与每个已发布 action 都必须由同一次 cold materialization 的 resolver 精确命中,否则 UI 显示按钮而命令必然 stale;`actionByFlag` 把 canEdit/canRetry/canFork/canRewindFiles 映射到具体命令名)。⇒ notes 里那四条声称**全部兑现**,增量结论\"我方只差『源 hash 烘进生成件头』\"可当已证事实派单。",
       "remaining": "shadow-replay.mjs、count-ts-lines.mjs 仅窗口读。 ｜09-29 第十九轮回填:本轮具名整读到体 2 枚,其中 1 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针)",
       "evidence": [
         "apps/zcode-cli/scripts/generate-bash-command-registry.mjs:41",
         "apps/zcode-cli/scripts/shadow-replay.mjs:187-241"
-      ]
+      ],
+      "verified": "self"
     },
     {
       "path": "apps/zcode-cli/tools",
