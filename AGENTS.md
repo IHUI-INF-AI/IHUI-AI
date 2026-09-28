@@ -431,8 +431,8 @@ tail -20 .workbuddy/git-guardian.log        # 自愈审计流水(健康时不写
 
 ## 5c. 溯源水印与生成产物(强制,2026-09-12 立)
 
-**三层水印**(`scripts/watermark.mjs`):L1 可见横幅(`// © 2026 IHUI AI …` + `// Provenance-watermarked. …`)、L2 横幅内零宽载荷(`// [IHUI-AI-PROVENANCE]:<zw>`)、L3 文件末尾独立不可见行。
-**判据(2026-09-12 加严)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。四态:`完好` / `残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/ `未覆盖`。后三者 `watermark.mjs verify` 与 `check-watermark-coverage` 均 **exit 1**。
+**署名横幅 v2(2026-09-28 收口,唯一产出形态)**(`scripts/watermark.mjs`):**只有两行可见文本** —— 第一行版权 + 版权所有者 + 归属 URL,第二行 `Provenance-watermarked.` + Apache-2.0 许可。**不再写入任何零宽字符,也不再有 L2 载荷行与 L3 尾行**:外部审计点名"每个源文件里嵌零宽字符 ⇒ 企业用户与外部贡献者看到即放弃",而旧第二行"未授权商用可被溯源追责"与纯 Apache-2.0 许可证自相矛盾(许可证那半已由另一枚提交收口,水印这半收在本条)。旧三层形态(L1 可见横幅 + L2 `// [IHUI-AI-PROVENANCE]:<zw>` + L3 文件末尾不可见行)仍是**可识别、可升级**的输入,判据见下一条。
+**判据(v2 兼容矩阵,2026-09-28)**:四档 = `current`(两行 v2 横幅且无载荷)/ `legacy`(带 v1 零宽载荷)/ `legacyCorrupt`(载荷存在但解码不符 —— 就是 144 文件那次事故那一型)/ `missing`(既无横幅也无载荷)。`watermark.mjs verify` 与 `check-watermark-coverage` **只对 `missing` 判红**;`legacy` / `legacyCorrupt` 是**待升级存量**:只报数、必须点名数量与出口(`list-legacy` / 剥离器),不判红、也不得被自愈改写。两条禁令同在这一格,少任何一条门就是错的:旧形态**不得被静默放过**(报数 + 给出口),也**不得被静默判红** —— HEAD 面现读仍有 11,511 个文件带 v1 载荷,把它算进缺口 = 一台与任何提交都无关的恒红门 ⇒ 各会话走应急跳门 ⇒ 约 190 道守门对该提交整体作废(§12e 同型),而且 11k > `MAX_AUTOFIX=200` 会当场顶爆自愈安全闸。全仓剥离是一次性、单独落地、由人挑时机的动作,不是提交链的副产品。
 
 - 新建源文件后必跑:`node scripts/watermark.mjs inject <file>`;然后 `node scripts/check-watermark-coverage.mjs`(pre-commit + CI 门禁,只统计 git 跟踪文件)。
 - **门禁是自愈式(2026-09-12 立,根治"恒红只能靠跳过"的历史痛点)**:`check-watermark-coverage.mjs` 检出缺口后**自动 `clean+inject` 回写并 `git add` 回暂存区**,修复后 `exit 0`。因此**任何**来源(生成器 / `sed` / 批量脚本 / 手工编辑)产出的无水印或载荷损坏文件,都不可能进入提交 —— 无需再 `HUSKY_SKIP_WATERMARK_GUARD=1`。
@@ -451,7 +451,7 @@ tail -20 .workbuddy/git-guardian.log        # 自愈审计流水(健康时不写
   - 参考实现:`apps/miniapp-taro/scripts/gen-i18n-compressed.mjs`。
   - 事故:该生成器此前不写横幅 → 产物 `src/i18n/generated/remote-locales.gen.ts` 长期缺载,使 `check-watermark-coverage` 对已跟踪文件恒红,提交只能靠 `HUSKY_SKIP_WATERMARK_GUARD=1` 绕过。
 
-- **禁止对含载荷文件做文本级批量改写**(reflow、空白归一、正则替换、`sed -i`、编码往返、批量重写):`U+200B`/`U+200C`/`U+200D`/`U+2060` 属 Unicode **Cf 类**不可见字符,会被这类操作静默改写。
+- **禁止对含载荷文件做文本级批量改写**(reflow、空白归一、正则替换、`sed -i`、编码往返、批量重写):`U+200B`/`U+200C`/`U+200D`/`U+2060` 属 Unicode **Cf 类**不可见字符,会被这类操作静默改写。批量剥离**只有一个出口**:`node scripts/watermark-strip-payload.mjs` —— 默认 `--dry-run` 零写盘;`--apply` 幂等、CRLF/BOM 逐行原样、只删"载荷行 + 纯零宽尾行"、只改"横幅第二行文本",脏文件与台账登记的第三方内容一律不碰,取不到 git 状态即 exit 2 判"无法判定"(不得把"没判"写成"判过了");取证跑 `--self-test`(临时 git 仓端到端,落点走 `scripts/lib/scratch-dir.mjs`)。**禁止手搓第二份剥离脚本** —— 那正是本条要防的那一型。
   - 事故:`apps/ai-service/**` 等 **144 个已跟踪文件、218 处载荷**被破坏,解码成 `PROVENCE-2026` / `IHUHU-AI` / `IIUIUIUI-AI` / 混入控制字符 —— 旧版门禁只验存在性,损坏长期隐形。修复后 `verify` 新增"载荷损坏"计数并阻断。
   - 需批量改名/改动时:先 `clean` → 改 → 再 `inject`;或直接 `inject`(工具已能识别损坏并清洗重注)。
 - 注入是**幂等**的(同一载荷 → 同一字节),重复生成不产生 diff;`clean → inject` 往返**零漂移**(已回归验证:可见内容逐字节不变)。
