@@ -11,7 +11,8 @@
  * 本脚本把「从远端重建本地 .git」全流程自动化:
  *   1. 健康检查(git cat-file 校验 HEAD commit/tree)
  *   2. 损坏 → 备份 .git 为 .git.broken-<ts>(保留现场)
- *   3. 从 origin clone --no-checkout 到系统 Temp(注:不要在盘根目录 clone,Windows 会失败)
+ *   3. 从 origin clone --no-checkout 到 §26 唯一夹具落点(DevEnv/Temp/ihui-scratch 下,
+ *    与真 gitdir 同盘、在仓库树外;注:不要在盘根目录 clone,Windows 会失败)
  *   4. 用健康 .git 替换损坏 .git
  *   5. git reset 重建 index —— 工作区文件完全不动
  *   6. 输出后续操作指引(git status 查看差异 → 重新 add/commit 未推送改动)
@@ -29,9 +30,12 @@
  */
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { gitdirArchivePath } from './lib/gitdir.mjs'
+// §26:临时夹具唯一落点。旧写法把 544MB 的重建克隆落 `os.tmpdir()`,而活进程的 TEMP
+// 可能仍钉在 C 盘(§26 实测:盘根 `C:\c` 就是这样套出 515MB 的 origin 克隆)。
+// scratch 根与真 gitdir 同盘、在仓库树外,且带 IHUI_SCRATCH_DIR 逃生舱。
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 /**
  * 外部 gitdir 的真值由仓库根推导,不得硬编码盘符:
@@ -199,7 +203,7 @@ function main() {
   // 旧写法 `${targetGitDir}.broken-<ts>` 每次重建都必然在盘根长出一个兄弟目录(实测累计 1.94GB)。
   const archiveDir =
     gitdirArchivePath(`${basename(targetGitDir)}.broken-${ts}`) || `${targetGitDir}.broken-${ts}`
-  const cloneDir = join(tmpdir(), `ihui-git-rebuild-${ts}`)
+  const cloneDir = mkScratch('ihui-git-rebuild-')
 
   console.log('🔧 检测到仓库异常,开始从远端重建...')
   console.log(`   远端: ${url}`)
@@ -251,9 +255,9 @@ function main() {
   console.log('   ④ 恢复完整远端与仓库配置')
   restoreConfig(repoRoot)
 
-  // 5. 清理 clone 临时目录
+  // 5. 清理 clone 临时目录(§26 唯一落点:rmScratch 自带 EPERM 重试与嵌套 scratch 根守卫)
   console.log('   ⑤ 清理临时目录')
-  rmSync(cloneDir, { recursive: true, force: true })
+  rmScratch(cloneDir)
 
   console.log('')
   console.log('✅ 重建完成。工作区文件完好,未推送改动需重新提交:')
