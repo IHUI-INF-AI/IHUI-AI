@@ -198,7 +198,7 @@ describe('createAuthStore 工厂', () => {
     expect(s.isAuthenticated).toBe(true)
   })
 
-  it('持久化:仅持久化 user + isAuthenticated,不持久化 token(安全)', async () => {
+  it('持久化:仅持久化 user 资料,不持久化 token / isAuthenticated(安全 + 登录态单一真相)', async () => {
     const persistTransport = createMemoryTransport()
     const auth = createAuthStore({
       tokenStore,
@@ -214,7 +214,9 @@ describe('createAuthStore 工厂', () => {
     // 关键:不包含 token 字段
     expect(parsed.state.token).toBeUndefined()
     expect(parsed.state.user).toEqual(mockUser)
-    expect(parsed.state.isAuthenticated).toBe(true)
+    // G-456(2026-09-28):登录态不入库 —— 它是「有没有 token」的派生值,入库即第二份真相,
+    // 失效形态是 token 已清而 blob 里仍 true ⇒ UI 认为已登录、请求全 401。
+    expect(parsed.state.isAuthenticated).toBeUndefined()
   })
 })
 
