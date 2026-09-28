@@ -31,7 +31,7 @@ import { execSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
-import { boxShape, boxDims } from './lib/box-geometry.mjs'
+import { boxShape, boxDims, constsForLines } from './lib/box-geometry.mjs'
 import { radiusLookup, radiusPxInLine } from './lib/radius-tokens.mjs'
 import { catBatch } from './lib/face-reader.mjs'
 import { COLORS as C } from './lib/logger.mjs'
@@ -584,7 +584,7 @@ for (let fi = 0; fi < keptRel.length; fi++) {
      */
     if (VIOLATION_PATTERNS.some(({ re }) => re.test(line))) return
     if (!RADIUS_TABLE) return
-    const radii = radiusPxInLine(line, RADIUS_TABLE)
+    const radii = radiusPxInLine(line, RADIUS_TABLE, constsForLines(lines))
     if (!radii.length) return
     c2.tierChecked++
     const dims = boxDims(lines, idx)
