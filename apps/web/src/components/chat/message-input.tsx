@@ -147,7 +147,7 @@ export function PromptPolishEntry({ state, disabled, onPolish }: PromptPolishEnt
       onClick={onPolish}
       aria-label={t('ariaLabel')}
       title={`${t('entryLabel')} · ${phaseLabel[state.phase]}`}
-      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
     >
       <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
       <span>{t('entryLabel')}</span>
@@ -1196,7 +1196,7 @@ export function MessageInput({
                       <button
                         type="button"
                         onClick={() => setInfoMode('bypass-permissions')}
-                        className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-md text-amber-700 hover:bg-amber-500/15 dark:text-amber-400"
+                        className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-sm text-amber-700 hover:bg-amber-500/15 dark:text-amber-400"
                         aria-label={t('permission.infoButtonLabel')}
                         data-testid="permission-mode-info-button"
                       >
@@ -1288,7 +1288,7 @@ export function MessageInput({
                 disabled={isStreaming}
                 onClick={() => setUnifiedOpen((o) => !o)}
                 className={cn(
-                  'inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none',
+                  'inline-flex h-8 min-w-0 items-center gap-1.5 rounded-sm px-2 text-xs font-medium leading-none',
                   'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                   'disabled:cursor-not-allowed disabled:opacity-50',
                 )}
@@ -1339,7 +1339,7 @@ export function MessageInput({
                           onClick={() => void steer()}
                           disabled={!value.trim()}
                           className={cn(
-                            'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+                            'inline-flex h-8 w-8 items-center justify-center rounded-sm transition-colors',
                             value.trim()
                               ? 'bg-amber-500 text-white hover:bg-amber-600'
                               : 'cursor-not-allowed bg-muted text-muted-foreground/50',
@@ -1355,7 +1355,7 @@ export function MessageInput({
                       <button
                         type="button"
                         onClick={onStop}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-sky-500 text-white hover:bg-sky-600"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-sm bg-sky-500 text-white hover:bg-sky-600"
                         aria-label={stopLabel ?? t('stop')}
                       >
                         <Square className="h-3.5 w-3.5" fill="currentColor" />
@@ -1371,7 +1371,7 @@ export function MessageInput({
                         onClick={() => void submit()}
                         disabled={!canSend}
                         className={cn(
-                          'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+                          'inline-flex h-8 w-8 items-center justify-center rounded-sm transition-colors',
                           canSend
                             ? 'bg-cta text-cta-foreground hover:bg-cta/90'
                             : 'cursor-not-allowed bg-muted text-muted-foreground/50',

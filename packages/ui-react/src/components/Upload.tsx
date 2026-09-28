@@ -380,7 +380,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
                   type="button"
                   onClick={() => handleRemoveUrl(idx)}
                   aria-label={labels.removeUploadedAriaLabel}
-                  className="absolute right-0 top-0 flex h-5 w-5 items-center justify-center rounded-bl-md bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                  className="absolute right-0 top-0 flex h-5 w-5 items-center justify-center rounded-$1-sm bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -410,7 +410,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
             void handleFiles(e.dataTransfer.files)
           }}
           className={cn(
-            'flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors',
+            'flex w-full flex-col items-center justify-center gap-2 rounded-sm border-2 border-dashed px-4 py-8 text-center transition-colors',
             dragging
               ? 'border-brand-accent-deep bg-primary/5'
               : 'border-border hover:border-primary/50 hover:bg-accent/30',
