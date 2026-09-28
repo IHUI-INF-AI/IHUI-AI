@@ -145,7 +145,7 @@ export function GoalCard() {
               }
             }}
             aria-label={t('editAriaLabel')}
-            className="min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
+            className="min-w-0 flex-1 rounded-sm border bg-transparent px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
           />
         ) : (
           <p className="min-w-0 flex-1 break-words font-medium">{goal.text}</p>
@@ -166,7 +166,7 @@ export function GoalCard() {
               data-testid="goal-edit-save"
               aria-label={t('editSave')}
               onClick={saveEditing}
-              className="shrink-0 rounded-md bg-cta px-2 py-1 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+              className="shrink-0 rounded-sm bg-cta px-2 py-1 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
             >
               {t('editSave')}
             </button>
@@ -175,7 +175,7 @@ export function GoalCard() {
               data-testid="goal-edit-cancel"
               aria-label={t('editCancel')}
               onClick={() => setEditing(false)}
-              className="shrink-0 rounded-md border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent"
+              className="shrink-0 rounded-sm border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent"
             >
               {t('editCancel')}
             </button>
@@ -187,7 +187,7 @@ export function GoalCard() {
               data-testid="goal-edit"
               aria-label={t('editAriaLabel')}
               onClick={startEditing}
-              className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <Pencil className="h-3.5 w-3.5" />
             </button>
@@ -197,7 +197,7 @@ export function GoalCard() {
               aria-label={expanded ? t('collapse') : t('expand')}
               aria-expanded={expanded}
               onClick={() => setExpanded(!expanded)}
-              className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               {expanded ? (
                 <ChevronUp className="h-3.5 w-3.5" />
@@ -245,7 +245,7 @@ export function GoalCard() {
                 type="button"
                 data-testid="goal-progress-dec"
                 onClick={() => advance(-10)}
-                className="rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent"
+                className="rounded-sm border px-2 py-1 text-xs transition-colors hover:bg-accent"
               >
                 -10
               </button>
@@ -253,7 +253,7 @@ export function GoalCard() {
                 type="button"
                 data-testid="goal-progress-inc"
                 onClick={() => advance(10)}
-                className="rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent"
+                className="rounded-sm border px-2 py-1 text-xs transition-colors hover:bg-accent"
               >
                 +10
               </button>
@@ -261,7 +261,7 @@ export function GoalCard() {
                 type="button"
                 data-testid="goal-progress-set"
                 onClick={() => setProgress(goal.progress >= 100 ? 0 : 100)}
-                className="rounded-md border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent"
+                className="rounded-sm border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent"
               >
                 {goal.progress >= 100 ? t('resetProgress') : t('fullProgress')}
               </button>
@@ -286,7 +286,7 @@ export function GoalCard() {
                   data-testid={`goal-blocker-remove-${i}`}
                   aria-label={t('blockerRemove')}
                   onClick={() => removeBlocker(i)}
-                  className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className="shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -304,13 +304,13 @@ export function GoalCard() {
                   }
                 }}
                 placeholder={t('blockerPlaceholder')}
-                className="min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+                className="min-w-0 flex-1 rounded-sm border bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
               />
               <button
                 type="button"
                 data-testid="goal-blocker-add"
                 onClick={handleAddBlocker}
-                className="flex shrink-0 items-center gap-0.5 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent"
+                className="flex shrink-0 items-center gap-0.5 rounded-sm border px-2 py-1 text-xs transition-colors hover:bg-accent"
               >
                 <Plus className="h-3 w-3" />
                 {t('blockerAdd')}
@@ -324,7 +324,7 @@ export function GoalCard() {
               type="button"
               data-testid="goal-continue"
               onClick={handleContinue}
-              className="flex items-center gap-1 rounded-md bg-cta px-2.5 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+              className="flex items-center gap-1 rounded-sm bg-cta px-2.5 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
             >
               <Zap className="h-3 w-3" />
               {t('continue')}
@@ -334,7 +334,7 @@ export function GoalCard() {
                 type="button"
                 data-testid="goal-resume"
                 onClick={() => setStatus('active')}
-                className="flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
+                className="flex items-center gap-1 rounded-sm border px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
               >
                 <Play className="h-3 w-3" />
                 {t('resume')}
@@ -344,7 +344,7 @@ export function GoalCard() {
                 type="button"
                 data-testid="goal-pause"
                 onClick={() => setStatus('paused')}
-                className="flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
+                className="flex items-center gap-1 rounded-sm border px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
               >
                 <Pause className="h-3 w-3" />
                 {t('pause')}
@@ -354,7 +354,7 @@ export function GoalCard() {
               type="button"
               data-testid="goal-done"
               onClick={() => setStatus('done')}
-              className="flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
+              className="flex items-center gap-1 rounded-sm border px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
             >
               <CheckCircle2 className="h-3 w-3" />
               {t('done')}
@@ -366,7 +366,7 @@ export function GoalCard() {
                 clear()
                 toast.success(t('cleared'))
               }}
-              className="ml-auto flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              className="ml-auto flex items-center gap-1 rounded-sm border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
             >
               <Trash2 className="h-3 w-3" />
               {t('clear')}
