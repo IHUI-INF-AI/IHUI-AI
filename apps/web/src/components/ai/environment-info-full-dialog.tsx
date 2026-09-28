@@ -61,7 +61,7 @@ export function EnvironmentInfoFullDialog() {
         <button
           type="button"
           onClick={() => closeFullView()}
-          className="inline-flex h-8 items-center justify-center rounded-md bg-foreground px-4 text-xs font-medium text-background transition-opacity hover:opacity-90"
+          className="inline-flex h-8 items-center justify-center rounded-xl bg-foreground px-4 text-xs font-medium text-background transition-opacity hover:opacity-90"
           data-testid="env-full-close"
         >
           {tcommon('close')}
@@ -75,7 +75,7 @@ export function EnvironmentInfoFullDialog() {
             type="button"
             onClick={() => void fetchStatus(workspacePath)}
             disabled={loading || !workspacePath}
-            className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
+            className="inline-flex h-7 items-center gap-1 rounded-sm border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
             data-testid="env-full-refresh"
           >
             <RefreshCw className={cn('h-3 w-3', loading && 'animate-spin')} aria-hidden />

@@ -18,7 +18,7 @@ export function SpecImpactTab({ p }: { p: SpecPanelApi }) {
           onClick={p.handleAnalyzeImpact}
           disabled={p.impactLoading}
           className={cn(
-            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-xs font-medium transition-colors',
             'bg-cta text-cta-foreground hover:bg-cta/90',
             p.impactLoading && 'cursor-not-allowed opacity-60',
           )}
@@ -36,7 +36,7 @@ export function SpecImpactTab({ p }: { p: SpecPanelApi }) {
         onChange={(e) => p.setImpactInput(e.target.value)}
         placeholder={t('proposedChangePlaceholder')}
         rows={5}
-        className="w-full rounded-md border border-border bg-background p-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
+        className="w-full rounded-sm border border-border bg-background p-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
       />
       {p.impactResult && (
         <div className="max-h-[45vh] space-y-2 overflow-auto rounded-md border border-border bg-background p-2">

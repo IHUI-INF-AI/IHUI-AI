@@ -65,7 +65,7 @@ function PrivacyRow({ option }: { option: PrivacyOption }) {
         onClick={toggle}
         aria-pressed={enabled}
         className={cn(
-          'relative h-5 w-9 shrink-0 rounded-md transition-colors',
+          'relative h-5 w-9 shrink-0 rounded-sm transition-colors',
           enabled ? 'bg-primary' : 'bg-muted',
         )}
       >

@@ -213,7 +213,7 @@ export function UnifiedSuggestionPanel({
       align="start"
       gap={8}
       testId="unified-suggestion-panel"
-      className="flex w-96 flex-col overflow-hidden rounded-md border border-border bg-popover shadow-md"
+      className="flex w-96 flex-col overflow-hidden rounded-xl border border-border bg-popover shadow-md"
     >
       <SearchInput
         ref={inputRef}
@@ -294,7 +294,7 @@ export function UnifiedSuggestionPanel({
                     onClick={() => onSelect(item)}
                     onMouseEnter={() => idx >= 0 && setActiveIndex(idx)}
                     className={cn(
-                      'relative flex w-full items-start gap-2.5 rounded-md px-3 py-1.5 text-left transition-colors',
+                      'relative flex w-full items-start gap-2.5 rounded-sm px-3 py-1.5 text-left transition-colors',
                       isActive
                         ? 'bg-accent text-accent-foreground'
                         : 'text-foreground hover:bg-accent/50',

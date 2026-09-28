@@ -42,7 +42,7 @@ export default function ShareCodePage() {
         </p>
         <button
           onClick={() => refetch()}
-          className="rounded-md bg-primary px-7 py-2.5 text-sm text-white transition-colors hover:bg-primary/90"
+          className="rounded-sm bg-primary px-7 py-2.5 text-sm text-white transition-colors hover:bg-primary/90"
         >
           重试
         </button>

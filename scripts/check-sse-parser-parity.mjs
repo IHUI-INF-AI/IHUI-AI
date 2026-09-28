@@ -48,6 +48,9 @@
  * **判据语义(比什么、什么算漂移)与本票之前逐字一致** —— 本票只换取材面,不改一条臂。
  * 唯一新增的出口:被审面上输入取不到 / 台账不是合法 JSON ⇒ 从"崩一个栈"变成 exit 2 点名,
  * 因为那种情况下本门**没有结论**,而"没有结论"不得被读成"没有违规"。
+ * 面错判的代价不止于结论错:**② 那条 ratchet 的基线就是台账里的数字**,按滞后的磁盘判一次、
+ * 再照着那个读数上调基线,等于把下一个人的基准也一起调歪(本侧 dceba62c69 登记的同一件事)。
+ * 面 → `cat-file` 规格这一跳是**纯函数** `faceSpecPrefix`,未知面直接抛而不是猜一个面继续跑。
  */
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -144,7 +147,22 @@ export const FACE_TXT = {
 }
 
 /**
+ * 纯函数:面 → `cat-file --batch` 的规格前缀(本侧收口时立的第二层纯函数,合并自 dceba62c69)。
+ * worktree 走磁盘分支所以返回 null;**未知面抛 `Undetermined`** —— 拿"猜一个面"继续跑,
+ * 就是替一次拼错的调用发一张合格证(本仓铁律:把没判写成判过了)。这一格只能由构造面证明:
+ * 结论行会被人改,函数不会。
+ */
+export function faceSpecPrefix(face) {
+  if (face === 'staged') return ':'
+  if (face === 'head') return 'HEAD:'
+  if (face === 'worktree') return null
+  throw new Undetermined(`未知取材面:${String(face)}`)
+}
+
+/**
  * 按判定面取**全部四份**输入:一次 `cat-file --batch` 同面同轮读满,再逐条取。
+ * 面 → 规格这一跳只经 `faceSpecPrefix`,不在这里再抄一遍 `staged ? ':' : 'HEAD:'`(两处
+ * 算同一件事必漂移,本仓记过多次)。
  * `read()` 之前必须 `catBatch()` 预取 —— 共用层的这一设计是刻意的:未预取即读会**抛**
  * 而不是偷偷补一次派生,否则"退回散写"这种退化会被掩盖成正常。
  * 任一份取不到 ⇒ 抛 `Undetermined` 并**逐条点名**(调用方折成 exit 2);**不回落**另一个面。
@@ -153,7 +171,8 @@ export const FACE_TXT = {
 export function readFaceInputs(repoRoot, face) {
   const rels = Object.values(INPUT_RELS)
   const out = {}
-  if (face === 'worktree') {
+  const prefix = faceSpecPrefix(face)
+  if (prefix === null) {
     const missing = []
     for (const rel of rels) {
       const text = readWorktreeFile(repoRoot, rel)
@@ -164,7 +183,6 @@ export function readFaceInputs(repoRoot, face) {
       throw new Undetermined(`${FACE_TXT.worktree} 取不到 ${missing.join(' / ')}`)
     return out
   }
-  const prefix = face === 'staged' ? ':' : 'HEAD:'
   const specs = rels.map((rel) => prefix + rel)
   const got = catBatch(repoRoot, specs, { maxBuffer: 1 << 28 })
   const missing = []
@@ -453,9 +471,10 @@ export const __test__ = {
   extractContractEvents,
   extractHandledEvents,
   runChecks,
-  // 收口后新增的四个出口:面选择 / 取材 / 台账解析 / 判据本体 —— 镜像测试因此能分别证明
-  // "默认档不是磁盘""取不到不回落""三面各答各的",而不是只能整跑一次 CLI 看结论。
+  // 收口后新增的五个出口:面选择 / 面→规格 / 取材 / 台账解析 / 判据本体 —— 镜像测试因此能分别证明
+  // "默认档不是磁盘""取不到不回落""未知面不猜面""三面各答各的",而不是只能整跑一次 CLI 看结论。
   faceFromArgv,
+  faceSpecPrefix,
   readFaceInputs,
   parseLedger,
   analyze,

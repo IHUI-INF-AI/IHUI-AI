@@ -1979,7 +1979,7 @@ export function AgentTaskProgressPane() {
                 type="button"
                 onClick={jumpToLatest}
                 aria-label={t('followEvents')}
-                className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-md border border-border bg-popover px-2 text-[10px] text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-accent-foreground"
+                className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-sm border border-border bg-popover px-2 text-[10px] text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-accent-foreground"
                 data-testid="pane-jump-latest"
               >
                 <ArrowDown className="h-2.5 w-2.5" />

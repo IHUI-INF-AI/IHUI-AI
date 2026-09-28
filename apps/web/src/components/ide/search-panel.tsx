@@ -185,7 +185,7 @@ export function SearchPanel() {
       <div className="flex items-center gap-1 px-2 py-1.5">
         <button
           onClick={() => setShowReplace(!showReplace)}
-          className="rounded p-1 text-muted-foreground hover:bg-muted/50"
+          className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50"
           aria-label={t('searchPanel.toggleReplace')}
         >
           <ChevronRight
@@ -233,17 +233,17 @@ export function SearchPanel() {
               value={replaceValue}
               onChange={(e) => setReplaceValue(e.target.value)}
               placeholder={t('searchPanel.replacePlaceholder')}
-              className="w-full rounded-md border border-border bg-background py-1 pl-7 pr-2 text-xs focus:outline-none"
+              className="w-full rounded-sm border border-border bg-background py-1 pl-7 pr-2 text-xs focus:outline-none"
             />
           </div>
           <button
-            className="rounded p-1 text-muted-foreground hover:bg-muted/50"
+            className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50"
             aria-label={t('searchPanel.replace')}
           >
             <Replace className="h-3.5 w-3.5" />
           </button>
           <button
-            className="rounded p-1 text-muted-foreground hover:bg-muted/50"
+            className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50"
             aria-label={t('searchPanel.replaceAll')}
           >
             <ReplaceAll className="h-3.5 w-3.5" />
@@ -259,7 +259,7 @@ export function SearchPanel() {
               key={f.id}
               onClick={() => setFileType(f.id)}
               className={cn(
-                'flex items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors',
+                'flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs transition-colors',
                 fileType === f.id
                   ? 'bg-muted text-foreground'
                   : 'text-muted-foreground hover:bg-muted/50',
@@ -298,7 +298,7 @@ export function SearchPanel() {
                 <div key={filename} className="mb-0.5">
                   <button
                     onClick={() => toggleFile(filename)}
-                    className="flex w-full items-center gap-1 rounded px-1.5 py-1 text-xs hover:bg-muted/40"
+                    className="flex w-full items-center gap-1 rounded-sm px-1.5 py-1 text-xs hover:bg-muted/40"
                   >
                     {collapsed ? (
                       <ChevronRight className="h-3 w-3 shrink-0" />

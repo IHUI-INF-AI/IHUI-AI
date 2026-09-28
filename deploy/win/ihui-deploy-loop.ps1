@@ -53,6 +53,31 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'   # 本层不因下层退出码中断,交给日志判定
+
+# ── 本进程输出编码 = UTF-8(G-305,2026-09-28)────────────────────────────────
+# 与 ihui-deploy.ps1 同一型病灶的**另一半**:LocalSystem 上下文里
+# `[Console]::OutputEncoding` 默认 gb2312(CP936)。子进程那一半已按"写的一侧定死
+# UTF-8"修掉(它每轮被新起,下一轮即生效);本层这一半只管一件事,如实说清:
+#   catch 里的兜底分支 `& $PwshExe … | ForEach-Object` 是**管道**形态 —— 子进程写、
+#   本进程按 [Console]::OutputEncoding 解码,不设就是仍按 GBK 解(主路径走文件重定向 +
+#   显式 UTF-8 StreamReader,不经过这一条)。
+# 本层自己 Log 的中文行**不是**受害者(实测 2026-09-28 的 deploy-loop.log:
+# 守护自己写的「———— 部署轮询开始 ————」逐字完好,而同一文件里所有 `[deploy]` 前缀
+# (从子进程转写来的)行成串乱码)—— 因为脚本字面量由 PS7 按 UTF-8 读入,而
+# Add-Content 在 PS7 默认就是 utf8NoBOM。写侧无需改,这里设编码只为把**读**的那一跳对齐。
+# ⚠️ 生效时机:本文件由 IHUI-DEPLOYLOOP **服务进程在启动时一次性读进内存** ——
+#    现读证据:该守护的 pwsh 进程 pid=10440 启动于 2026-09-26 11:09:10,而本文件本次
+#    改动落盘于 2026-09-28 00:51 ⇒ 驻留的那份必然是改动前的脚本,**不重启不生效**。
+#    重启会连带 api/web 换流(实测窗口内本地也拒连数秒),归机主择时,命令见文件末。
+#    子进程那半(ihui-deploy.ps1)每轮从磁盘新起读取 ⇒ **下一轮部署即生效**,不必等重启;
+#    这一句不是推测:三条姿势的实测见交付报告(仅子进程修好 ⇒ U+FFFD 已从 47 归 0)。
+try {
+    [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+} catch {
+    Write-Warning 'WARN console-output-encoding NOT set to UTF-8 (takes effect only after service restart anyway)'
+}
+
 $Root     = 'D:\IHUI-AI'
 $WinDir   = Join-Path $Root 'deploy\win'
 $LockFile = Join-Path $WinDir '.deploy-loop.lock'
@@ -161,7 +186,16 @@ function Invoke-PollOnce {
                     if ($len -le $seen) { continue }
                     try {
                         $fs = [System.IO.File]::Open($f, 'Open', 'Read', 'ReadWrite')
-                        $sr = New-Object System.IO.StreamReader($fs)
+                        # 编码**写死 UTF-8**,不再用 `StreamReader($fs)` 的默认值(G-305):
+                        # 默认档在 .NET 里就是 UTF-8,但"靠默认"意味着任何宿主差异
+                        # (Console/环境回落到 CP936)都会把这一跳静默变成二次损坏 ——
+                        # deploy-loop.log 里那 129 处 U+FFFD 就是这种"两侧各自默认、中间没人对齐"的产物。
+                        # detectEncodingFromByteOrderMarks=$true:万一有人手工补了 BOM,它被吃掉而不是落进日志。
+                        # 已知残留(如实登记,本票不顺手改):增量尾读按"当前文件长度"截,
+                        # 若子进程恰好把一个多字节字符写到一半就 flush,这一拍会解出 U+FFFD。
+                        # 触发条件:日志里出现**成对的** U+FFFD 且下一拍没有重复该字符(即字符被吃掉而非重放);
+                        # 修法是把 $seen 退到最后一个 0x0A(只解完整行),不要改成"整文件重读"。
+                        $sr = New-Object System.IO.StreamReader($fs, [System.Text.UTF8Encoding]::new($false), $true)
                         [void]$sr.BaseStream.Seek($seen, 'Begin')
                         while (-not $sr.EndOfStream) {
                             $line = $sr.ReadLine()
@@ -230,4 +264,23 @@ if ($Daemon) {
     Invoke-LogRotate
     Invoke-PollOnce
 }
+
+# =============================================================================
+# 给机主的一条命令(G-305 的第二半,本票**没有**代跑)
+#
+# 本文件顶部的 `[Console]::OutputEncoding = UTF-8` 与 StreamReader 写死编码两处,
+# 只有在 IHUI-DEPLOYLOOP **重启后**才生效 —— PowerShell 在进程启动时把整份 .ps1 读进内存,
+# 改磁盘不改动已驻留的守护。子进程那半(ihui-deploy.ps1)每轮新起,**下一轮即生效**。
+#
+# 为什么不自己重启:重启会 stop/start api 与 web(实测换流窗口 6-9s 内本地也拒连、登录页 500),
+# 且部署环一启动就立刻跑一轮 ⇒ 时机属生产决策,不属编码修复。
+#
+# 建议时机:低峰、且 `git status` 干净(无人在飞提交)时执行一次:
+#     nssm restart IHUI-DEPLOYLOOP
+#   然后现读验证是否已经不再产生新的乱码(只看重启后的新行):
+#     Select-String -Path deploy\win\deploy-loop.log -Pattern ([char]0xFFFD) | Measure-Object
+#   期望:重启之后新增行里 U+FFFD 计数不再上升(历史行不会自动变好 —— 原始字节已丢,
+#   GBK 落盘的中文无法从当前日志逆推,别去"清洗"历史行,那会把别人的现场也改一遍)。
+# 判据不依赖这件事:本仓定位靠 ASCII 标记(GATE-ITER / HEALTH / behind= / OK / FAIL)。
+# =============================================================================
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -125,7 +125,7 @@ export function TaskMonitorZonesView({
                       data-testid={`ai-panel-tab-${key}`}
                       onClick={() => onSelectTab(key)}
                       className={cn(
-                        'rounded-md px-2.5 py-1 text-xs transition-colors',
+                        'rounded-sm px-2.5 py-1 text-xs transition-colors',
                         activeTab === key
                           ? 'bg-accent font-medium text-accent-foreground'
                           : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',

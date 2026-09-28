@@ -523,7 +523,7 @@ export default function EduAiVideoComposePage() {
                       type="button"
                       onClick={() => setViewTaskId(task.id)}
                       className={cn(
-                        'flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors hover:bg-accent',
+                        'flex w-full items-center gap-3 rounded-sm px-2 py-2.5 text-left transition-colors hover:bg-accent',
                         isViewing && 'bg-accent',
                       )}
                     >

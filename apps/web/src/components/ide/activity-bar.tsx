@@ -61,7 +61,7 @@ export function ActivityBar() {
                 aria-label={t(item.labelKey)}
                 aria-pressed={isActive}
                 className={cn(
-                  'relative rounded-md p-2 transition-colors',
+                  'relative rounded-sm p-2 transition-colors',
                   isActive
                     ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
@@ -86,7 +86,7 @@ export function ActivityBar() {
         <button
           onClick={() => setActiveTopTab('settings')}
           aria-label={t('activityBar.settings')}
-          className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+          className="rounded-sm p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
         >
           <Settings className="h-5 w-5" />
         </button>

@@ -12,7 +12,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
@@ -362,6 +362,37 @@ test('T16 hero 这类纯尺寸档不得由名字认领,而 card 仍须由名字�
   assert.ok(!rolesOfName('compactionBanner').includes('hero'), '提示条叫 banner 不是"特大主卡片"')
   assert.ok(!rolesOfName('heroSection').includes('hero'))
   assert.ok(rolesOfName('userCard').includes('card'), '把整条名字判据一起关掉不叫收窄,那叫失明')
+})
+
+test('T17 C4 的容器维必须真装在判据链上(摘线不得被读成已合规)', () => {
+  const src = readFileSync(SRC, 'utf8')
+  const scopeLib = join(import.meta.dirname, '..', 'lib', 'jsx-scope.mjs')
+  assert.ok(
+    /from\s*'[\./\w-]*jsx-scope\.mjs'/.test(src) && /scanJsx\(/.test(src),
+    '门体不得再自带一份 JSX 解析,也不得 import 了却不调用(§22c:两处实现必漂移)',
+  )
+  assert.ok(
+    /classifySurfaces\(/.test(src) && /from\s*'[\./\w-]*radius-roles\.mjs'/.test(src),
+    '容器分类被摘线后,自称 card 的模态面会一路报绿 —— 那正是票⑳ 立项要防的那一格',
+  )
+  assert.ok(existsSync(scopeLib), 'jsx-scope 是唯一容器作用域出口,文件不在位 ⇒ 门结构上无法判')
+  const rl = readFileSync(LIB, 'utf8')
+  assert.ok(
+    /export function classifySurfaces/.test(rl) && /MODAL_TAG_SUFFIXES/.test(rl),
+    '分类实现不得从 lib 消失(消失了门会静默退化而不是喊红)',
+  )
+})
+
+test('T18 出处对照必须钉清偿前的 ref,不得改回 HEAD(账还完那天阳性对照会一起消失)', () => {
+  const src = readFileSync(SRC, 'utf8')
+  assert.ok(
+    /PROBE_REF\s*=/.test(src) && /IHUI_RADIUS_PROBE_REF/.test(src),
+    '真仓阳性对照的取材 ref 必须是可覆盖的出处常量,不能硬写 HEAD',
+  )
+  assert.ok(
+    !/catBatch\(repoRoot,\s*\[\s*`HEAD:\$\{SURF_PROBE\}`/.test(src),
+    '把出处对照改回 HEAD 面 = 让自检在清偿当天集体失效(§22c 复读机型)',
+  )
 })
 
 test('T16b 真仓 radius.js 逐角色可解,显式 rnRadiusFor.hero 必须读得出 16', () => {

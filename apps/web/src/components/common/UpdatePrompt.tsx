@@ -200,14 +200,14 @@ export function UpdatePrompt() {
                   <button
                     type="button"
                     onClick={() => void postponeRestart()}
-                    className="h-8 flex-1 rounded-lg border border-border bg-card px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="h-8 flex-1 rounded-sm border border-border bg-card px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
                     {t('restartLater')}
                   </button>
                   <button
                     type="button"
                     onClick={() => void restartNow()}
-                    className="h-8 flex-1 rounded-lg bg-cta px-3 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+                    className="h-8 flex-1 rounded-sm bg-cta px-3 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
                   >
                     {t('restartNow')}
                   </button>
