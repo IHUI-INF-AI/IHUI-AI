@@ -262,6 +262,10 @@ export type SSEEventPayload =
   | SSEEventWithMeta<{
       type: 'terminal_interaction'
       terminalId: string
+      /** 上行出口路径里带 {session_id}(POST /llm/complete/stream/{session_id}/terminal-input),
+       *  所以帧必须自带它 —— 前端只知道自己那条流的上下文,不带就只能猜,而猜错的表现为
+       *  "点了发送什么都没发生且不报错"。空串 = 服务端当轮没有会话 id(未鉴权开发态)。 */
+      sessionId: string
       promptTail: string
       /** 从判定"在等人"到发帧的毫秒数(观察器每 0.5s 一轮,故这是量出来的值不是装饰) */
       waitingSinceMs: number
