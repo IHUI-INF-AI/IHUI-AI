@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
   identityAvatar: {
     width: 56,
     height: 56,
-    borderRadius: 56 / 2,
+    borderRadius: rnRadius['2xl'],
     backgroundColor: tokens.surface.muted,
     overflow: 'hidden',
   } as ImageStyle,

@@ -205,12 +205,15 @@ async def test_tool_enumeration_follows_the_same_visibility_predicate():
     seen_b = sorted(t.server_name for t in await manager.list_available_tools_async(USER_B))
     assert seen_a == ["mine", "shared"]
     assert seen_b == ["shared", "theirs"]
-    # 未收窄的那一支(对话装配链在用)必须仍然看得见全部 —— 它不是"更严的别名",
-    # 名字本身就是要暴露的缺口;这条断言防止有人把它当 scoped 版顺手替换。
-    assert sorted(t.server_name for t in await manager.list_available_tools_unscoped()) == [
-        "mine",
-        "shared",
-        "theirs",
-    ]
+    # 收窄后的空主体那一支:看得到部署级,看不到任何人的 —— 这是 fail-closed 的正确形态,
+    # 也是 `engine._default_tool_lister` 在作用域没绑上时的兜底答案。
+    seen_none = sorted(t.server_name for t in await manager.list_available_tools_async(""))
+    assert seen_none == ["shared"]
+    # G-371 格①(2026-09-29,机主拍"隔离"):曾经"看得见全部"的那一支(_unscoped)已被**删除**,
+    # 装配链与端点现在共用同一个带主体的出口。这条断言防的是有人把"按主体收窄"当性能优化,
+    # 再"顺手加回一个不设限的快速版本"。
+    assert not hasattr(manager, "list_available_tools_unscoped"), (
+        "不判属主的枚举出口被加了回来 —— 工具名/描述/入参格式本身就是配置内容"
+    )
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

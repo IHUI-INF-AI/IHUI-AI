@@ -128,7 +128,7 @@ export default function CompanyPage() {
                 key={i}
                 className="flex flex-row items-center rounded-xl border border-border p-[28rpx]"
               >
-                <View className="w-[88rpx] h-[88rpx] rounded-full bg-[var(--color-muted)] flex-shrink-0" />
+                <View className="w-[88rpx] h-[88rpx] rounded-2xl bg-[var(--color-muted)] flex-shrink-0" />
                 <View className="flex-1 ml-[20rpx] mr-[16rpx]">
                   <View className="h-[24rpx] w-[60%] rounded-sm bg-[var(--color-muted)]" />
                   <View className="h-[20rpx] w-[40%] rounded-sm bg-[var(--color-muted)] mt-[16rpx]" />
@@ -153,12 +153,12 @@ export default function CompanyPage() {
               >
                 {m.avatar ? (
                   <Image
-                    className="w-[88rpx] h-[88rpx] rounded-full flex-shrink-0"
+                    className="w-[88rpx] h-[88rpx] rounded-2xl flex-shrink-0"
                     src={m.avatar}
                     mode="aspectFill"
                   />
                 ) : (
-                  <View className="w-[88rpx] h-[88rpx] rounded-full bg-[var(--color-muted)] items-center justify-center flex-shrink-0">
+                  <View className="w-[88rpx] h-[88rpx] rounded-2xl bg-[var(--color-muted)] items-center justify-center flex-shrink-0">
                     <Text className="text-[length:36rpx] font-semibold text-muted-foreground">
                       {m.nickname.charAt(0)}
                     </Text>

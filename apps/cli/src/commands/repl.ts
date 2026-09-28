@@ -80,6 +80,8 @@ import {
 import type { PluginRegistry } from '../plugins/index.js';
 import { readTodoList } from '../tools/todo-write.js';
 import { createToolDeltaPreviewStore, pickToolDeltaPreviewText } from '../tools/file-edit-preview.js';
+// G-701:/tool 回看记录的入参必须走键名档出口 —— 值形状档对「键名是凭据而值不像」的入参整类失明
+import { redactObjectDeepKeyed } from '../redact.js';
 import { findSkill, type Skill } from '../skills/index.js';
 import {
   getMemoryStore,
@@ -2652,7 +2654,7 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         if (!event.citations.length) return
         state.statusLine.noteLine(
           citationNoteText(
-            event.citations.map((x) => ({ source: x.source, label: x.label })),
+            event.citations.map((x: { source: string; label: string }) => ({ source: x.source, label: x.label })),
           ),
         )
       },
@@ -2774,7 +2776,10 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         const argStr = Object.keys(args).length > 0 ? JSON.stringify(args) : chalk.dim('(无参数)');
         const argDisplay = argStr.length > 100 ? `${argStr.slice(0, 100)}…` : argStr;
         // W10 记录完整参数(/tool 回看用)
-        currentToolArgsJson = Object.keys(args).length > 0 ? JSON.stringify(args) : '(无参数)';
+        // G-701:此处曾是裸 `JSON.stringify(args)` 原文入 toolLog,`/tool`(:1267 逐行原样回显)
+        // 会把「值形状不像凭据而键名是凭据语义」的明文(如 {"api_key":"abc"})整类原样打出;
+        // 换走 redactObjectDeepKeyed(键名档 ∪ 形状档 ∪ 大文本档,并集非替换)。
+        currentToolArgsJson = Object.keys(args).length > 0 ? JSON.stringify(redactObjectDeepKeyed(args)) : '(无参数)';
         currentToolArgs = args;
         lastToolCallName = name;
         // 活动行语言:功能名 · 对象(单一真相源 describeToolCall,禁直显英文码名)

@@ -483,6 +483,27 @@
     "captchaRefresh": "重新整理驗證碼"
   },
   "chat": {
+    "mcp": {
+      "state": {
+        "connecting": "正在連線 {server}…",
+        "failed": "{server} 連線失敗",
+        "reconnecting": "第 {attempt}/{maxAttempts} 次重連 {server}"
+      },
+      "action": {
+        "retry": "立即重連",
+        "openSettings": "開啟 MCP 設定"
+      },
+      "mobileSettingsHint": "請在桌面端或網頁端管理 MCP 連線"
+    },
+    "meta": {
+      "changedElsewhere": "此對話的{field}已在其他裝置更新為「{value}」",
+      "pullOnly": "小程式端將於下次開啟時同步該變更",
+      "field": {
+        "title": "標題",
+        "archive": "歸檔狀態",
+        "model": "模型"
+      }
+    },
     "icuProbe": {
       "flowState": "{state, select, running {{count, plural, =0 {對話流執行中，暫無待處理工具} other {對話流執行中，已排程 {count} 個工具}}} paused {對話流已暫停} failed {執行失敗：<b>{reason}</b>}}"
     },

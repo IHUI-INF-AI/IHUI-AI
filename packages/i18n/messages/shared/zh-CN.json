@@ -483,6 +483,27 @@
     "captchaRefresh": "刷新验证码"
   },
   "chat": {
+    "mcp": {
+      "state": {
+        "connecting": "正在连接 {server}…",
+        "failed": "{server} 连接失败",
+        "reconnecting": "第 {attempt}/{maxAttempts} 次重连 {server}"
+      },
+      "action": {
+        "retry": "立即重连",
+        "openSettings": "打开 MCP 设置"
+      },
+      "mobileSettingsHint": "请在桌面端或网页端管理 MCP 连接"
+    },
+    "meta": {
+      "changedElsewhere": "此会话的{field}已在其他设备更新为「{value}」",
+      "pullOnly": "小程序端将在下次打开时同步该改动",
+      "field": {
+        "title": "标题",
+        "archive": "归档状态",
+        "model": "模型"
+      }
+    },
     "icuProbe": {
       "flowState": "{state, select, running {{count, plural, =0 {对话流运行中，暂无待处理工具} other {对话流运行中，已调度 {count} 个工具}}} paused {对话流已暂停} failed {执行失败：<b>{reason}</b>}}"
     },

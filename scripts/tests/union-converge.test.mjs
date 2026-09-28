@@ -12,8 +12,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { join, dirname, resolve, relative } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as U } from '../union-converge.mjs'
@@ -27,6 +27,7 @@ import {
   PLACEHOLDER_TITLE_TRUNC,
 } from '../lib/ledger-move-aware.mjs'
 import { parseCompletedTaskBlocks } from '../lib/plan-task-headings.mjs'
+import { maskComments } from '../lib/code-mask.mjs'
 
 const GIT = 'C:/Program Files/Git/cmd/git.exe'
 
@@ -759,3 +760,302 @@ test('中文路径不得被 quotePath 转义成"丢失",且每个 git 派生点�
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * ── 「远端 sha 已取到、但该对象不在本机」这一格(G-473 的收口)──────────────────────
+ *
+ * 这一族判据要钉的不是"函数返回什么",而是**三个方向的错向各有一条锁**:
+ *  ① 错向一(最贵):把"判不了"报成"无事可做" ⇒ exit 0 + "无需合并"。明明有待合并,
+ *     调用方据此跳过一整轮收敛,账面全绿而分叉永久留着 —— 本仓记过最多次的失效型。
+ *  ② 错向二:把"判不了"报成"工具坏了" ⇒ 一串 Node 堆栈加 `Not a valid commit name`,
+ *     现场的人既得不到结论也得不到出路(这正是三次实测复现时账面看到的东西)。
+ *  ③ 错向三:为了让它别崩,悄悄改用**跟踪 ref 的残值**继续往下合 —— 那会对着一个
+ *     早已不存在的分叉做合并,比崩掉坏得多。这一条由源码级反向锁钉死(见 R-C-3),
+ *     因为"没写出来的东西"结构上无法用行为用例证明。
+ * 三条都有牙证明:① 用构造面断 exit 码与文案;② 用 CLI 端到端断 stderr 无堆栈;
+ * ③ 用变异自证 —— 把禁写的回落真写进去,那条锁必须翻红。
+ */
+
+/** 大括号配对取出顶层函数体(形状锁用它:否则"函数在文件里"会被读成"判据在函数里")。 */
+function topLevelBody(src, header) {
+  const at = src.indexOf(header)
+  assert.notEqual(at, -1, `源文件里找不到 ${header}`)
+  let depth = 0
+  for (let j = src.indexOf('{', at); j < src.length; j++) {
+    if (src[j] === '{') depth++
+    else if (src[j] === '}') {
+      depth--
+      if (depth === 0) return src.slice(src.indexOf('{', at), j + 1)
+    }
+  }
+  return assert.fail(`${header} 的括号没配平`)
+}
+
+/** 出路文案的判据输入全走构造面 —— 不依赖仓库恰好处于哪种状态。 */
+const BOGUS_SHA = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+const srcOfTool = () =>
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'union-converge.mjs'), 'utf8')
+
+test('R-A 出路文案:对侧 sha 不可达 ⇒ 只给按分支取的 fetch,并给得出免联网出口', () => {
+  const g = U.unreachableObjectGuidance({
+    missing: [BOGUS_SHA],
+    theirs: BOGUS_SHA,
+    head: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    branch: 'main',
+  })
+  assert.match(g, /git fetch origin main/, '必须给得出**按分支**取的命令(带真实分支名)')
+  assert.match(g, /--theirs/, '必须同时给得出免联网出口(显式喂本地已可达的 sha)')
+  assert.match(g, /不代跑 fetch/, '必须写明本器不代跑 fetch(写操作归属留给调用方)')
+  // 关键的反向锁:文案里**不得**把"按 sha 直取"包装成一条可执行命令 ——
+  // 公共托管默认拒绝未公布对象,而该 sha 是否还公布着恰恰在并发高峰最先失效,
+  // 给出去就是第二条"文档写了却跑不通的出路"。
+  assert.doesNotMatch(
+    g,
+    /fetch[^\n]*origin [0-9a-f]{7,40}/,
+    `出路里不得出现「fetch … origin <具体 sha>」这种跑不通的命令:\n${g}`,
+  )
+})
+
+test('R-B 出路文案:缺的是本地 HEAD ⇒ 不许喊 fetch,按 §5b 指向 gitdir/refs 体检', () => {
+  const g = U.unreachableObjectGuidance({
+    missing: [BOGUS_SHA],
+    theirs: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    head: BOGUS_SHA,
+    branch: 'main',
+  })
+  assert.match(g, /git-refs-heal|gitdir/, '本地 HEAD 不可达属 gitdir/refs 受损,必须指向该出口')
+  assert.ok(!/出口①/.test(g), '这一型绝不能告诉人去 fetch 本机 HEAD 的 sha(无效且掩盖更重现场)')
+})
+
+test('R-C 出路文案:分支名取不到时宁可留占位,也不得印出「fetch origin HEAD」', () => {
+  const g = U.unreachableObjectGuidance({ missing: [BOGUS_SHA], theirs: BOGUS_SHA, head: '', branch: '' })
+  assert.match(g, /<当前分支名>/, '拿不到分支名要打占位,让人自己补')
+  assert.ok(!/fetch origin HEAD/.test(g), 'detached 时 --abbrev-ref 回 "HEAD",照抄会产出一条必然失败的命令')
+})
+
+test('R-D 构造面三态:可达 / 不可达 / 已同步,各走各的出口', () => {
+  const { dir, run } = fixture()
+  try {
+    // 造一个**分叉**且对侧可达的形态。两条都必须成立,缺一这条用例就是假的:
+    //  · HEAD 必须停在 ours(否则 theirs==head,resolveTargets 会判"已同步"而不是"该合并");
+    //  · HEAD 必须落在**具名分支**上(detached 时 --abbrev-ref 回 "HEAD",出路文案只能打占位,
+    //    于是"分支名取自被审仓库"这一维根本没被证明)。所以分叉长在另一条分支上,再切回来。
+    const base = run('rev-parse', 'HEAD')
+    writeFileSync(join(dir, 'ours.txt'), 'o\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'ours')
+    const ours = run('rev-parse', 'HEAD')
+    run('checkout', '-q', '-b', 'theirs-side', base)
+    writeFileSync(join(dir, 'theirs.txt'), 't\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'theirs')
+    const theirs = run('rev-parse', 'HEAD')
+    run('checkout', '-q', 'main')
+    assert.equal(run('rev-parse', '--abbrev-ref', 'HEAD'), 'main', '夹具自证:HEAD 必须回到具名分支')
+    assert.notEqual(ours, theirs, '夹具自证:两侧必须真的分叉')
+
+    // ① 可达 ⇒ 既不是 skip 也不是 undetermined,正常交给 plan
+    const ok = U.resolveTargets(theirs, dir)
+    assert.equal(ok.skip, null, `可达时不该给 skip:${ok.skip}`)
+    assert.equal(ok.undetermined, undefined, '可达时不该判未判定 —— 否则本票把正常路径改坏了')
+    assert.equal(ok.theirs, theirs)
+    const p = U.plan(ours, theirs, dir)
+    assert.match(p.base, /^[0-9a-f]{40}$/, 'plan 必须真算出共同祖先而不是抛堆栈')
+
+    // ② 不可达 ⇒ 未判定,且**不得**继续把 sha 交给祖先判据
+    const bad = U.resolveTargets(BOGUS_SHA, dir)
+    assert.equal(bad.skip, null, '不可达不是"无事可做",绝不能落进 skip')
+    assert.equal(typeof bad.undetermined, 'string', '必须给出未判定文案')
+    assert.match(bad.undetermined, /git fetch origin main/, '文案里的分支名必须来自被审的那个仓')
+
+    // ③ 已同步 ⇒ 文案与退出路数一字不动(反向对照)
+    const same = U.resolveTargets(ours, dir) // cwd=dir → head===ours → 已同步
+    assert.equal(same.skip, '已同步')
+    assert.equal(same.undetermined, undefined)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('R-E 端到端:同一判据在 CLI 上落成的退出码是 2 / 0,且 stderr 没有 Node 堆栈', () => {
+  // 夹具必须**自带一份脚本闭包**:脚本的 ROOT 由自身位置推导,不复制进去子进程就会去问真仓,
+  // 那条用例测的就不是构造面(§22c「夹具复刻的是实现的形状」那一族的反面教材)。
+  const { dir, run } = fixture()
+  try {
+    const here = dirname(fileURLToPath(import.meta.url))
+    const root = join(here, '..')
+    // 沿相对 import 说明符走一遍闭包(键取绝对路径,免做分隔符归一 —— 归一是本仓记过的坑)。
+    // **不得**用"说明符里含 .. 就跳过"当越界判据:`lib/plan-task-index.mjs` 正是以
+    // `'../check-plan-line-loss.mjs'` 往回摸根脚本的,那样跳会把闭包走漏成 8/10,
+    // 子进程随即 ERR_MODULE_NOT_FOUND 以 exit 1 崩掉 —— 而本用例判的正是 exit 2,
+    // 一条测具缺陷会伪装成"判据没生效"。越界一律按**解析后的相对位置**判。
+    const copied = new Set()
+    const walk = (abs) => {
+      if (copied.has(abs)) return
+      copied.add(abs)
+      const src = readFileSync(abs, 'utf8')
+      for (const m of src.matchAll(/from\s+['"](\.[^'"]+)['"]/g)) {
+        let t = resolve(dirname(abs), m[1])
+        if (!existsSync(t) && existsSync(`${t}.mjs`)) t = `${t}.mjs`
+        if (!existsSync(t)) continue
+        if (relative(root, t).startsWith('..')) continue // 真越出 scripts/ 才不拷
+        walk(t)
+      }
+    }
+    walk(join(root, 'union-converge.mjs'))
+    assert.ok(copied.size > 3, `闭包只走到 ${copied.size} 个文件 ⇒ 走漏了,子进程会 ERR_MODULE_NOT_FOUND`)
+    for (const abs of copied) {
+      const dest = join(dir, 'scripts', relative(root, abs))
+      mkdirSync(dirname(dest), { recursive: true })
+      writeFileSync(dest, readFileSync(abs), 'utf8')
+    }
+    const cli = (...args) =>
+      spawnSync(process.execPath, ['scripts/union-converge.mjs', ...args], {
+        cwd: dir,
+        encoding: 'utf8',
+        windowsHide: true, // §5b:漏此参数在钩子/守护派生下必弹控制台窗
+        timeout: 120000,
+      })
+
+    const dead = cli('--theirs', BOGUS_SHA)
+    assert.ok(
+      !/ERR_MODULE_NOT_FOUND/.test(dead.stderr),
+      `闭包走漏,子进程根本没跑到判据:${dead.stderr.split('\n').slice(0, 4).join('\n')}`,
+    )
+    assert.equal(dead.status, 2, `不可达必须 exit 2(无法判定),实测 ${dead.status}\n${dead.stdout}`)
+    assert.ok(!/无需合并/.test(dead.stdout), '不得沿用 exit 0 那一支的"无需合并"措辞')
+    assert.ok(/git fetch origin main/.test(dead.stdout), '出路必须逐行打出来')
+    assert.ok(/--theirs/.test(dead.stdout), '免联网出口必须一起给出')
+    assert.ok(
+      !/Not a valid commit name|at (git|plan|main) .*union-converge\.mjs/.test(dead.stdout + dead.stderr),
+      `不得把一次 fetch 缺失表现成工具故障堆栈:\n${dead.stdout}\n${dead.stderr}`,
+    )
+
+    const synced = cli('--theirs', run('rev-parse', 'HEAD'))
+    assert.equal(synced.status, 0, `已同步仍须 exit 0,实测 ${synced.status}\n${synced.stdout}`)
+    assert.match(synced.stdout, /已同步 ⇒ 无需合并/, '正常路径文案一字不动')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('R-G 构造面:detached HEAD 下不可达,出路不得印出「fetch origin HEAD」这条必败命令', () => {
+  // R-C 只测了纯函数的 branch:'' 入参,测不到 resolveTargets 里那次归一 —— 变异自证 M8 抓到这一点:
+  // 把 `branch && branch !== "HEAD" ? branch : ""` 简化成 `branch`,纯函数用例照样全绿,
+  // 而真仓 detached(收敛/守护链的常见现场)下文案会印出 `git fetch origin HEAD`,一条必然失败的命令。
+  const { dir, run } = fixture()
+  try {
+    writeFileSync(join(dir, 'x.txt'), 'x\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'second')
+    run('checkout', '-q', 'HEAD~1') // 进入 detached
+    assert.equal(run('rev-parse', '--abbrev-ref', 'HEAD'), 'HEAD', '夹具自证:必须真的处于 detached')
+    const bad = U.resolveTargets(BOGUS_SHA, dir)
+    assert.equal(typeof bad.undetermined, 'string', 'detached 不影响"不可达"这一判据')
+    assert.ok(
+      !/fetch origin HEAD/.test(bad.undetermined),
+      `detached 时 --abbrev-ref 回的 "HEAD" 不是分支名:\n${bad.undetermined}`,
+    )
+    assert.match(bad.undetermined, /<当前分支名>/, '拿不到分支名必须落到占位,让人自己补')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('R-F 反向锁(源码级):不可达之后不得回落到跟踪 ref 残值继续合并', () => {
+  const body = topLevelBody(srcOfTool(), 'export function resolveTargets(')
+  // 判据必须**真挂在函数上**:函数在而没人调 = 提交链上一路绿灯(守门 70/76/81 同型)
+  assert.match(body, /hasCommit\(/, '可达性判据必须住在 resolveTargets 里')
+  assert.match(body, /unreachableObjectGuidance\(/, '出路文案必须复用同一份实现,不得两处各写一遍')
+  assert.match(body, /undetermined:/, '判不了要落成未判定字段')
+  // 顺序锁:可达性判据必须先于任何祖先判据 —— 否则未判定形同虚设
+  assert.ok(
+    body.indexOf('hasCommit(') < body.indexOf('isAncestor('),
+    'hasCommit 必须排在 isAncestor 之前,否则缺对象时祖先判据先跑就会静默走到 plan',
+  )
+  // 禁写回落:取跟踪 ref 残值 / FETCH_HEAD / @{upstream} 当目标继续往下合
+  for (const bad of [/refs\/remotes/, /@\{u/, /FETCH_HEAD/])
+    assert.ok(!bad.test(body), `resolveTargets 里不得出现回落取值 ${bad}:${body.slice(0, 80)}…`)
+  // 判完不可达之后不得再改写 theirs
+  const after = body.slice(body.indexOf('hasCommit('))
+  assert.ok(!/theirs\s*=[^=]/.test(after), '不可达之后不得重新赋值 theirs —— 那正是"悄悄换个目标接着合"')
+
+  // 同一条判据的**另一半**:plan() 是给 import 者的那道闸,它也必须复用同一份出路实现。
+  // 只锁 resolveTargets 的话,把 plan() 里那句换成随手写的第二份措辞照样全绿 ——
+  // 而"两处各写一遍必漂"正是本仓记过最多次的失败型(变异自证 M10 抓到这一格)。
+  const planBody = topLevelBody(srcOfTool(), 'export function plan(')
+  assert.match(planBody, /hasCommit\(/, 'plan() 侧也必须自带可达性判据(import 者不经过 resolveTargets)')
+  assert.match(
+    planBody,
+    /unreachableObjectGuidance\(/,
+    'plan() 的出路文案必须复用同一份实现,不得各写一遍(CLI 用户与 import 者拿到的指导不能不一样)',
+  )
+})
+
+test('R-H 出路文案:远端真值根本没问到 ⇒ 三出口齐备,且不得复用"无需合并"那套措辞', () => {
+  const text = U.unreachableObjectGuidance({
+    noRemoteTruth: 'ls-remote 超时',
+    branch: 'main',
+  })
+  // 三出口:联网取分支 / 免联网喂可达 sha / refs 存续体检
+  assert.match(text, /git fetch origin main/, '缺出口①(按分支 fetch)')
+  assert.match(text, /--theirs/, '缺出口②(免联网;本轮实测就是靠它落成的,不给就等于没有)')
+  assert.match(text, /git-refs-heal/, '缺出口③(连续问不到时先查 refs,而不是反复重跑)')
+  // 这一型不是"无事可做":沿用旧措辞就会把网络失败说成同步完成
+  assert.ok(!text.includes('无需合并'), '"无需合并"属于 skip 分支的措辞,未判定不得复用')
+  // 分支名取不到时留占位,绝不印出 `fetch origin HEAD` 这条必败命令(与 R-C/R-G 同一规矩)
+  const detached = U.unreachableObjectGuidance({ noRemoteTruth: 'x', branch: '' })
+  assert.match(detached, /git fetch origin <当前分支名>/)
+  assert.ok(!/git fetch origin HEAD/.test(detached), '不得给出取 HEAD 的 fetch 指令')
+})
+
+test('R-I 反向锁(源码级):"取不到远端真值"两支不得再塞进 skip(否则头注又成空承诺)', () => {
+  const body = topLevelBody(srcOfTool(), 'export function resolveTargets(')
+  // 本票修的正是这一格:头注写着 "2 = 无法判定:…或取不到远端真值",而实现把这两支给了 skip,
+  // 于是 CLI 打印"无需合并"并 exit 0 —— 调用方据此跳过一整轮收敛,账面全绿。
+  assert.doesNotMatch(
+    body,
+    /skip:\s*`取不到/,
+    '「取不到远端真值」必须落 undetermined(exit 2),不得回 skip(exit 0)',
+  )
+  assert.doesNotMatch(
+    body,
+    /skip:\s*`取远端/,
+    '「取远端异常」必须落 undetermined(exit 2),不得回 skip(exit 0)',
+  )
+  assert.equal(
+    (body.match(/noRemoteTruth:/g) || []).length,
+    2,
+    '两支都要走同一份出路实现(noRemoteTruth 入参),少一支就是又分叉了',
+  )
+})
+
+test('R-J 稳定标记:未判定那一支必须打出可被调用方分流的标记(不得只靠中文措辞)', () => {
+  const src = srcOfTool()
+  assert.match(
+    src,
+    /\[union-converge\] UNDETERMINED 未判定/,
+    '未判定输出必须带 UNDETERMINED 标记 —— 调用方按它分流;只靠措辞的话,改一个字就把归因换掉',
+  )
+  // 标记只能出现在未判定那一支:出现在 skip 支就会把"无事可做"也分流走。
+  // 计数只认**输出语句里**的标记 —— 头注/说明文字也会写出这个词,把它算进去等于
+  // 让判据把自己说的话当成证据(本仓"注释里不得有执行性字符"的同族)。
+  const marks = (src.match(/\[union-converge\] UNDETERMINED 未判定/g) || []).length
+  assert.equal(marks, 1, `输出面标记应恰好一处(实测 ${marks}),多出来就是有人在别处也喊未判定`)
+})
+
+test('R-K 调用方分流顺序:git-sync-converge 必须先认 UNDETERMINED 再谈"亦判需人工"', () => {
+  // 必须先在**代码面**上比:本仓那份头注里就原样写着「亦判需人工」(它描述的是这一型缺陷),
+  // 不剥注释就会拿说明文字当调用点,顺序判据立刻反过来变成误红 —— 与 R-J 数标记是同一条教训。
+  const conv = maskComments(
+    readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'git-sync-converge.mjs'), 'utf8'),
+  )
+  const undIdx = conv.indexOf("includes('UNDETERMINED')")
+  assert.ok(undIdx > 0, '调用方必须按标记分流,否则一次网络失败会被写成内容裁决')
+  const humanIdx = conv.indexOf('亦判需人工')
+  assert.ok(humanIdx > 0, '真需人工那条路必须还在(不得静默)')
+  // 顺序判据:两支同在一个 catch/分支里时,"没资格判"必须先判 —— 反序即归因错
+  assert.ok(undIdx < humanIdx, '分流顺序颠倒 ⇒ 未判定永远读不到,归因恒错')
+  const branches = (conv.match(/includes\('UNDETERMINED'\)/g) || []).length
+  assert.equal(branches, 2, `两处归并出口都要分流(实测 ${branches}):冲突分支与状态放大分支同型`)
+})
