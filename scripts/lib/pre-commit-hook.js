@@ -86,6 +86,16 @@ setupRestoreOnExit(INITIAL_STAGED_SNAPSHOT, {
 auditStagingFiles()
 
 // 5. lint-staged：对暂存文件运行 eslint --fix 和 prettier --write
+// 🚫 2026-09-28:`md` 已从根 package.json 的 lint-staged prettier 任务里摘掉,**不得加回**。
+//   实测原因:`prettier --check AGENTS.md` 对 HEAD 版本本身就判 not formatted(README 同),
+//   所以"提交前格式化活文档"从来不是"格式化通过",而是每次提交先把提交者**根本没碰**的若干行
+//   改写一遍 —— 一枚"只给 AGENTS.md 加一行"的提交实测重排 4 行(把两条独立登记并成 1,929
+//   字符的一行)并插入 3 条空行;那些行从此与 HEAD 不再逐字相等,于是 `scripts/merge-live-doc.mjs`
+//   判"真丢失"并拒绝一次正常提交(§12 活文档对账)。写回式格式化在多会话共享的活文档上结构性
+//   不可用,替代它的是一条**只读**判据:guardian 的 `check-readme-table-integrity.mjs`
+//   (FE1 未闭合围栏 / TI1 竖排续行超锚点 / TI4 本次改动行里的碎表),只点名不改动任何字节。
+//   PROJECT_PLAN.md 早已因同一理由躺在 .prettierignore 里(那条的措辞就是"格式化噪声与并行
+//   会话追加动作持续冲突")—— 本条把那一次的人工豁免变成对全部 .md 的默认行为,不再逐文件登记。
 // ⚠️ 必须带 --no-stash(2026-09-12 立,事故根治):
 //   lint-staged 默认在跑任务前用 `git stash` 备份现场。本机存在「宿主清理 gitdir 嵌套目录」
 //   的病理,而 **git stash 路径会连带删掉工作区之外的整个 gitdir** —— 2026-09-12 当天两次

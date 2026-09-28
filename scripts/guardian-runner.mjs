@@ -3806,21 +3806,26 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- README 表格完整性对账(TI1 竖排续行判红/T-B 只报数/棘轮锚基线)(1 项,blocking)---
+  // --- 活文档 Markdown 结构对账(TI1 竖排续行判红/TI4 改动行碎表判红/FE1 未闭合围栏判红/T-B 只报数)(1 项,blocking)---
   {
     id: '146',
     label:
-      'README 表格完整性对账(TI1 竖排续行判红/T-B 只报数/棘轮锚基线)',
+      '活文档 Markdown 结构对账(TI1 竖排续行/TI4 改动行碎表/FE1 未闭合围栏/T-B 只报数/棘轮锚基线)',
     script: 'check-readme-table-integrity.mjs',
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_README_TABLE_INTEGRITY',
-    stagedTriggers: ['README.md'],
+    // 两个触发面 = 门体的两份在审文档(README.md + AGENTS.md)。2026-09-28 起提交链不再对 .md 跑
+    // prettier --write(它会把提交者没碰的行改写掉,见门体头注),本门是那条写回通道唯一替代物 ——
+    // 只写 README 的 triggers 就等于"AGENTS 那半没有判据"(判据存在而永不调用 = 没有)。
+    stagedTriggers: ['README.md', 'AGENTS.md'],
     onFailHint: [
       '',
       'T-A 竖排续行超锚点:node scripts/readme-table-unwrap.mjs --file README.md --dry-run(默认零写盘,自证零内容损失后才 --apply)',
+      'TI4 点名的是**本次新增/改动的行**里那一行竖排续行(孤立单行也算)—— 把它并回宿主行的最后一个单元格,或按下一条写豁免',
+      'FE1 未闭合代码围栏:补一行同字符(且不少于开栏长度)的闭栏;这一型没有豁免通道',
       '确属有意保留:<!-- table-cell-exempt: <原因> --> 写在宿主行或该 run 内任一行(须带原因,守门 108 管 30 天到期)',
-      'T-B 半截行与孤立 2 竖线行只报数不判红(要逐案判语义,不归本门)',
+      'T-B 半截行与"整档维"的孤立 2 竖线行只报数不判红(要逐案判语义);同一形状落在改动行上由 TI4 判',
       '',
     ].join('\n'),
   },

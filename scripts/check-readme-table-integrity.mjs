@@ -8,15 +8,47 @@
 // 单元格里不能有换行,而 prettier 会把散文里的 `|` 当列分隔符重排 ⇒ 产出的行竖线数与本表
 // 基准不同,渲染出来是碎的。此前只有人肉修:修完这一格,同一张表别处又长出下一格。
 //
-// 破损有两种形态,本门只判第一种:
-//  - **T-A(射程内,判据 TI1)**:一个表格簇内出现 ≥2 行**连续**的 2 竖线行(`| 散文片段 |`),
+// 2026-09-28 起本门是**提交链上唯一的 Markdown 结构闸**(只读判据,不写回)。同批把 `md` 从
+// lint-staged 的 prettier 任务里摘掉,原因是实测:`prettier --check AGENTS.md` 对 **HEAD 版本本身**
+// 就判 not formatted(README 同),所以"提交前格式化"从来不是"格式化通过",而是**每次提交都先把
+// 提交者根本没碰的若干行改写一遍** —— 一枚"只加一行 AGENTS.md"的提交实测重排 4 行(把两条独立
+// 登记并成 1,929 字符的一行)并插入 3 条空行,而那些行从此与 HEAD 不再逐字相等,活文档对账
+// (`scripts/merge-live-doc.mjs`)判"真丢失"并拒绝一次正常提交。写回式格式化在多会话共享的
+// 活文档上结构性不可用(§12),所以替代它的是**判**而不是**修**:FE1/TI1/TI4 只点名不改动任何字节。
+//
+// 判据分三维,量的是三件不同的事,锚点各自独立(一台尺子只量一段,但**一段不得没人量**):
+//  - **T-A(判据 TI1,整文件棘轮)**:一个表格簇内出现 ≥2 行**连续**的 2 竖线行(`| 散文片段 |`),
 //    而该簇主竖线数(本面多数)≥3 ⇒ 它们是上一行最后一个单元格的竖排续行。纯机械可判:
 //    剥掉首尾竖线与多余空白后按序拼接,应当能回到那一格的完整内容 —— 修复出口写进失败提示,
 //    是真可跑的命令(`scripts/readme-table-unwrap.mjs`,默认 --dry-run 零写盘)。
-//  - **T-B(不归本门)**:行竖线数比本簇主竖线数少 1(如 4 vs 5),多为重复了首列 id 的半截行。
+//  - **T-A 形状但落在"本次改动的行"上(判据 TI4,逐行,2026-09-28 补)**:TI1 要求"连续 ≥2 行"
+//    才成 run,所以**单独一行**竖排续行(既有口径里的 `lone`)整档都不判红 —— 那是给"存量不追"
+//    让路的取舍。可一旦这一行是**本次新增/修改**的,就没有任何存量理由放过它,而"该列填什么"
+//    在 TI1 里也早已不作为不判红的理由(T-A run 同样不问语义)。TI4 因此把同一条形状判据
+//    (`classifyCluster` 一份实现,TI1/TI4 共用)套到"与 HEAD 逐行比对后新增/改动的行"上,
+//    含孤立单行 ⇒ 新写的碎表必被点名,而 HEAD 里已有的碎表不会被追溯判红(§12e)。
+//  - **未闭合代码围栏(判据 FE1,文件级,零容忍,2026-09-28 补)**:开栏(``` 或 ~~~)之后到
+//    文件尾没有等长或更长的同字符闭栏 ⇒ 整篇后半被当成代码渲染。围栏解析**只有**
+//    `maskMarkdownStructure` 一份实现,判据读它多带出来的 `unclosedFenceAt`,不得另写一遍。
+//    立门前先量存量:HEAD 面 README 与 AGENTS 的未闭合围栏均为 0 ⇒ 零容忍不产生恒红面。
+//  - **T-B(不归任何判据)**:行竖线数比本簇主竖线数少 1(如 4 vs 5),多为重复了首列 id 的半截行。
 //    "该列填什么"要逐案判语义 ⇒ 只报数不判红,并在输出里点名"这是 T-B,不属于本型"。
-//  - 另有一类**孤立** 2 竖线行(不成 run,不满足"连续 ≥2"):按 TI1 的措辞不判红,单列计数
-//    报出 —— 绝不静默,也绝不把"没判"写成"判过了"。
+//  - 另有一类**孤立** 2 竖线行(不成 run,不满足"连续 ≥2"):**整文件档(TI1)**不判红、单列计数
+//    报出;**逐行档(TI4)**判红(见上)。绝不静默,也绝不把"没判"写成"判过了"。
+//
+// 射程(两份名单,刻意分开):
+//  - `DOC_TARGETS` = 本门**审**的活文档 = README.md + AGENTS.md(FE1/TI4 对其全部生效)。
+//  - `TI1_TARGETS` = 受 `readme-table-integrity-baseline.json` 每文件额度管辖的名单(现仅 README)。
+//    AGENTS.md 的 HEAD 面**确有** 2 行 T-A 存量(§5b 那张"现状结构"表里被竖排的两行),而给它登记
+//    额度要改基线文件(不在本票允许改动面内),硬套 cap=0 就是在造一台与任何提交都无关的恒红门 ——
+//    所以 AGENTS 的 TI1 维**只报数并大声写明"不在 TI1 射程"**,FE1/TI4 照判。名单是判据输入,
+//    改动必须同批改 `analyze`,不得在别处再抄一份。`--file` 显式点名的文件按 TI1 射程判
+//    (既有自检"新文件不在基线 ⇒ cap=0 判红"的语义一字未动)。
+//
+// 提交链上 runner 一律追加 `--staged`:本轮没碰任何在审文档时**退回 HEAD 全量档并喊出来**
+// (门 135 同课 —— 判"无法判定"就是替每一次无关提交挡路 ⇒ 各会话跳门 ⇒ 全部守门作废)。
+// 但"本轮未触及"与"本轮把它删了"是两件事:`git rm --cached` 那一格仍是 **exit 2 不回落 HEAD**
+// (既有自检钉着,回落就是把"没判"写成"判过了")。
 //
 // 口径同 70/77/83/98/101/103/118:全量判 **HEAD blob**、`--staged` 判**索引 blob**、
 // `--worktree` 仅人工逃生舱;两面旗同给 ⇒ exit 2;目标文件在本面取不到 ⇒ exit 2 **不回落**
@@ -38,6 +70,8 @@
 // 行内出口:`table-cell-exempt: <原因>`(**必须带原因**,裸标记不放行,`*/`/`-->` 不得冒充
 // 原因 —— 守门 102 同锁),生效范围 = 该 T-A run 的任一行,或 run 的**宿主行**(run 首行的
 // 紧邻上一行)—— 与 GA4"标记写在块上必须生效"同一课:只认同行会让人按直觉写错位置而恒红。
+// TI4 沿用**同一条**通道与同一份 `hasExemptReason`(只认命中行与其紧邻上一行),不新建第二个
+// 豁免族 —— 一个缺陷两种量纲不该有两个出口。**FE1 没有出口**:未闭合围栏没有"确属有意"的形态。
 // 已登记进守门 108 的 `FAMILY_LIFETIME_DAYS`(30 天:待偿债务,不是结构性定性)。
 //
 // 用法:node scripts/check-readme-table-integrity.mjs
@@ -62,7 +96,12 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_REL = 'scripts/readme-table-integrity-baseline.json'
-const DEFAULT_TARGETS = ['README.md']
+/** 本门**审**的活文档(FE1 文件级 + TI4 逐行对其全部生效);顺序即报告顺序,README 必须居首。 */
+const DOC_TARGETS = ['README.md', 'AGENTS.md']
+/** 受基线额度管辖的 TI1 射程(见头注「射程」段);`--file` 显式点名的文件不受此名单限制。 */
+const TI1_TARGETS = ['README.md']
+/** 默认目标 = 在审文档全集(保持 `DEFAULT_TARGETS` 这个名字:镜像测试与既有自检都按它取)。 */
+const DEFAULT_TARGETS = DOC_TARGETS
 /** TI1 阈值:连续 2 竖线行 ≥ 此数才成 run;本簇主竖线数 ≥ 此数才纳判 */
 const MIN_RUN_LINES = 2
 const MIN_MODE_PIPES = 3
@@ -100,6 +139,8 @@ export function countPipes(line) {
  * 结构遮罩:HTML 注释与 fenced code block 整段变空白,行数不变、每行长度不变(保留列位)。
  * 围栏:行首 ≤3 空格 + ≥3 个反引号或波浪号;闭合须同字符且不少于开栏长度、其后仅空白。
  * 未闭合的围栏开到文件尾(CommonMark 语义)—— 不得半途把示例表放回判据面。
+ * 同一遍扫描顺手量 **FE1 的输入** `unclosedFenceAt`(扫到文件尾仍未闭合的那道开栏行号,可为 null):
+ * 围栏语义只许这一份实现,判据若再自己扫一遍 ``` 就是第二份真相(本仓"两处算同一件事必漂移"同课)。
  */
 export function maskMarkdownStructure(text) {
   const lines = String(text ?? '').split('\n')
@@ -108,50 +149,53 @@ export function maskMarkdownStructure(text) {
   let inComment = false
   let fenceBlocks = 0
   let commentSpans = 0
-  for (const raw of lines) {
+  lines.forEach((raw, i) => {
     const t = raw.replace(/\r$/, '')
     if (fence) {
       const closeRe = new RegExp('^ {0,3}' + (fence.char === '`' ? '`' : '~') + '{' + fence.len + ',}\\s*$')
       if (closeRe.test(t)) fence = null
       out.push(' '.repeat(t.length))
-      continue
+      return
     }
     const open = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(t)
     if (open && !inComment) {
-      fence = { char: open[1][0], len: open[1].length }
+      fence = { char: open[1][0], len: open[1].length, line: i + 1 }
       fenceBlocks++
       out.push(' '.repeat(t.length))
-      continue
+      return
     }
     let res = ''
-    let i = 0
+    let k = 0
     let sawComment = false
-    while (i < t.length) {
-      if (!inComment && t.startsWith('<!--', i)) {
+    while (k < t.length) {
+      if (!inComment && t.startsWith('<!--', k)) {
         inComment = true
         sawComment = true
         res += '    '
-        i += 4
+        k += 4
         continue
       }
       if (inComment) {
-        if (t.startsWith('-->', i)) {
+        if (t.startsWith('-->', k)) {
           inComment = false
           res += '   '
-          i += 3
+          k += 3
         } else {
           res += ' '
-          i++
+          k++
         }
         continue
       }
-      res += t[i]
-      i++
+      res += t[k]
+      k++
     }
     if (sawComment) commentSpans++
     out.push(res)
+  })
+  return {
+    masked: out,
+    stats: { fenceBlocks, commentSpans, unclosedFenceAt: fence ? fence.line : null },
   }
-  return { masked: out, stats: { fenceBlocks, commentSpans } }
 }
 
 /** 表格簇 = 遮罩面上连续的"以竖线开头"的行(空白/散文/围栏/注释都会切断它)。 */
@@ -188,17 +232,24 @@ export function clusterMode(rows) {
 }
 
 /**
- * 单簇分箱(TI1 / T-B / 孤立):
+ * 单簇分箱(TI1 / TI4 形状 / T-B / 孤立):
  *  - taRuns:mode≥3 的簇内,连续 2 竖线行 ≥MIN_RUN_LINES 行成 run;run 带合法豁免标记
  *    (本 run 任一行,或 run 首行的**紧邻上一行** = 宿主行)⇒ ent.exempt=true,不判红只报数。
  *  - tb:mode≥3 的簇内,竖线数 == mode-1 且不在任何 run 里的行(T-B,只报数)。
- *  - lone:mode≥3 的簇内不成 run 的孤立 2 竖线行(既不判 T-A 也不折进 T-B,单列报数)。
+ *  - lone:mode≥3 的簇内不成 run 的孤立 2 竖线行(TI1 不判,但**是** TI4 的形状判据)。
+ *  - shortRows:taRuns 的行 ∪ lone 的行,逐行带 `exempt` —— TI1 与 TI4 因此共用**同一份**形状判据,
+ *    第二处再写一遍"2 竖线且 mode≥3"就迟早漂(本仓最高频失效型)。
  */
 export function classifyCluster(cluster) {
   const mode = clusterMode(cluster.rows)
-  const res = { mode, taRuns: [], tb: [], lone: [] }
+  const res = { mode, taRuns: [], tb: [], lone: [], shortRows: [] }
   if (mode < MIN_MODE_PIPES) return res
   let run = []
+  const rowExempt = (n) => {
+    const self = cluster.rows.find((x) => x.n === n)
+    const prev = cluster.rows.find((x) => x.n === n - 1)
+    return Boolean((self && hasExemptReason(self.raw)) || (prev ? hasExemptReason(prev.raw) : false))
+  }
   const runIsExempt = (r) => {
     const prev = cluster.rows.find((x) => x.n === r[0].n - 1)
     return r.some((x) => hasExemptReason(x.raw)) || (prev ? hasExemptReason(prev.raw) : false)
@@ -208,8 +259,10 @@ export function classifyCluster(cluster) {
       const ent = { hostLine: run[0].n - 1, lines: run.map((x) => x.n) }
       if (runIsExempt(run)) ent.exempt = true
       res.taRuns.push(ent)
+      for (const x of run) res.shortRows.push({ line: x.n, exempt: Boolean(ent.exempt) })
     } else if (run.length === 1) {
       res.lone.push(run[0].n)
+      res.shortRows.push({ line: run[0].n, exempt: rowExempt(run[0].n) })
     }
     run = []
   }
@@ -237,6 +290,7 @@ export function auditText(text) {
   let tbRows = 0
   let loneRows = 0
   const sites = []
+  const shortRows = []
   for (const p of per) {
     for (const r of p.cls.taRuns) {
       if (r.exempt) {
@@ -250,17 +304,22 @@ export function auditText(text) {
     }
     tbRows += p.cls.tb.length
     loneRows += p.cls.lone.length
+    for (const s of p.cls.shortRows) shortRows.push({ ...s, clusterStart: p.start, mode: p.cls.mode })
   }
   return {
     clusters: clusters.length,
     fenceBlocks: stats.fenceBlocks,
     commentSpans: stats.commentSpans,
+    /** FE1 输入:到文件尾仍未闭合的开栏行号(null = 闭合齐备)。 */
+    unclosedFenceAt: stats.unclosedFenceAt ?? null,
     taRuns,
     taRows,
     exemptRuns,
     tbRows,
     tbLines: per.flatMap((p) => p.cls.tb),
     loneRows,
+    /** TI4 输入:T-A 形状的行(含孤立单行),逐行带 exempt 标记。 */
+    shortRows,
     sites: sites.slice(0, 12),
   }
 }
@@ -305,6 +364,53 @@ export function mergeBaseline(base, headCounts) {
 }
 
 /**
+ * 解析 `git diff -U0` 的**新侧**新增行号集合(TI4 的"本次改动的行"就是这么来的)。
+ * 返回 `Set<number>`;输出里出现过 `@@` 却解不出新侧行号 ⇒ 返回 **null** = 判"未判定"
+ * (把"没看清"当成"这次没改行",就等于给 TI4 发合格证)。空输出 = 真没有改动 ⇒ 空集。
+ */
+export function parseAddedLineRanges(diffText) {
+  const out = new Set()
+  for (const l of String(diffText ?? '').split('\n')) {
+    if (!l.startsWith('@@')) continue
+    const m = /^@@+(?: -\d+(?:,\d+)?)? \+(\d+)(?:,(\d+))? @@/.exec(l)
+    if (!m) return null
+    const start = Number(m[1])
+    const len = m[2] === undefined ? 1 : Number(m[2])
+    for (let k = 0; k < len; k++) out.add(start + k)
+  }
+  return out
+}
+
+/** 本轮暂存区里被"记为改动"的路径集合(含暂存删除 —— 它与"本轮没碰"是两件事,见头注)。 */
+export function stagedTouchedPaths(root) {
+  const out = gitRaw(['diff', '--cached', '--name-only', '--no-ext-diff'], root, { timeout: 120000 })
+  return new Set(
+    String(out ?? '')
+      .split('\n')
+      .map((s) => s.replace(/\r$/, '').trim())
+      .filter(Boolean),
+  )
+}
+
+/** 某文件"本次新增/改动的行号":staged 拿 `git diff --cached`,worktree 拿 `git diff HEAD`。 */
+function changedLines(root, face, file) {
+  if (face === 'head') return { lines: null, na: true } // 全量档没有"改动"这一维
+  const args =
+    face === 'staged'
+      ? ['diff', '--cached', '--no-ext-diff', '-U0', '--no-color', '--', file]
+      : ['diff', '--no-ext-diff', '-U0', '--no-color', 'HEAD', '--', file]
+  let text
+  try {
+    text = gitRaw(args, root, { timeout: 120000 })
+  } catch (e) {
+    return { lines: null, na: false, error: `git diff 取不到:${String(e && e.message ? e.message : e).slice(0, 160)}` }
+  }
+  const parsed = parseAddedLineRanges(text)
+  if (parsed === null) return { lines: null, na: false, error: 'diff 输出里有 @@ 却解不出新侧行号(判未判定,不当成"没改行")' }
+  return { lines: parsed, na: false }
+}
+
+/**
  * 同面同轮取内容:一次 catBatch 把每个目标的 `HEAD:<f>`(锚点)与 `:<f>`(索引 blob)读满,
  * 不在判据里再自己拼 git show —— 只 import face-reader 而内容仍由自派生 git 取,
  * 会被守门 118 判"半接线"并在提交档判红。
@@ -331,20 +437,32 @@ function readFace(root, face, targets) {
 }
 
 /**
- * 主判据。返回 { exit, face, perFile, reds, undetermined, emptyScan, fixHint, ... }。
- * exit:0 通过(存量只报数)/ 1 棘轮回归(新增 T-A)/ 2 无法判定。
+ * 主判据。返回 { exit, face, perFile, reds, undetermined, notes, emptyScan, retreated, ... }。
+ * exit:0 通过(存量只报数)/ 1 判红(新增 T-A / TI4 逐行碎表 / FE1 未闭合围栏)/ 2 无法判定。
+ *
+ * `opts.explicitTargets` = true 时(`--file` 点名)TI1 对点名文件生效 —— 既有语义"新文件不在
+ * 基线 ⇒ cap=0 判红"一字未动;只有走默认名单才按 `TI1_TARGETS` 分射程。
  */
-export function analyze(face, root = ROOT, targets = DEFAULT_TARGETS, { updateBaseline = false } = {}) {
+export function analyze(
+  face,
+  root = ROOT,
+  targets = DEFAULT_TARGETS,
+  { updateBaseline = false, explicitTargets = false } = {},
+) {
   const r = {
     gate: 'readme-table-integrity',
     face,
+    /** 实际用来判的那一面:--staged 退回时与 `face` 不同,报告里的"锚点"字样必须跟着它走。 */
+    judgedFace: face,
     targets,
     perFile: [],
     reds: [],
     undetermined: [],
+    notes: [],
     baselineMissingKeys: [],
     baselineNotes: [],
     emptyScan: false,
+    retreated: false,
     exit: 0,
     fixHint: `node scripts/readme-table-unwrap.mjs --file ${targets[0] || 'README.md'} --dry-run`,
   }
@@ -362,63 +480,113 @@ export function analyze(face, root = ROOT, targets = DEFAULT_TARGETS, { updateBa
     return r
   }
   const caps = (base && base.taCounts) || {}
+  let workedFace = face
+  let touched = null
+  if (face === 'staged') {
+    try {
+      touched = stagedTouchedPaths(root)
+    } catch (e) {
+      r.undetermined.push({ file: null, reason: `暂存清单取不到:${String(e && e.message ? e.message : e).slice(0, 160)}` })
+      r.exit = 2
+      return r
+    }
+    // runner 对每道门都追加 --staged,所以"本轮一份在审文档都没碰"必须是常态而非"无法判定"
+    // (门 135 同课:与提交内容无关的恒红/恒挡,唯一结局是各会话跳门 ⇒ 全部守门对该提交作废)。
+    if (!targets.some((f) => touched.has(f))) {
+      r.retreated = true
+      r.notes.push('--staged 档本轮未触及任何在审文档 ⇒ 退回 HEAD 全量档判(已如实点名,不静默)')
+      workedFace = 'head'
+    }
+  }
+  r.judgedFace = workedFace
   let texts
   try {
-    texts = readFace(root, face, targets)
+    texts = readFace(root, workedFace, targets)
   } catch (e) {
     r.undetermined.push({ file: null, reason: `本面取材失败:${e.message}` })
     r.exit = 2
     return r
   }
+  let audited = 0
   for (const f of targets) {
     const got = texts.get(f) || {}
-    const faceText = face === 'staged' ? got.index : got.head
-    if (typeof faceText !== 'string') {
-      r.undetermined.push({ file: f, reason: `${face} 面取不到内容(不回落其他面,不猜)` })
+    const faceText = workedFace === 'staged' ? got.index : got.head
+    const inTi1 = explicitTargets || TI1_TARGETS.includes(f)
+    if (workedFace === 'staged' && !touched.has(f)) {
+      r.notes.push(`${f}:本轮暂存区未触及 ⇒ 逐行(TI4)无新行可判,整档维(TI1/FE1)沿用 HEAD 现读报数`)
+      // 没碰的文件仍要量 FE1:它判的是"这篇文档现在是否已碎",不是"谁改的"。
+      if (typeof got.head === 'string') {
+        const a = auditText(got.head)
+        if (a.clusters > 0) audited++
+        r.perFile.push(fileEntry(f, got.head, a, null, { cap: Number(caps[f]) || 0, inTi1, untouched: true }))
+        if (a.unclosedFenceAt) {
+          r.reds.push({ file: f, kind: 'FE1', line: a.unclosedFenceAt })
+        }
+      } else {
+        r.notes.push(`${f}:HEAD 面上没有这份文档(本仓未纳管该文件 ⇒ 不计入判据,也不记为通过)`)
+      }
       continue
     }
-    if (face === 'staged' && typeof got.head !== 'string') {
+    if (typeof faceText !== 'string') {
+      if (workedFace === 'staged') {
+        // 走到这里说明本轮**确实碰过**它却拿不到索引 blob(典型 = 暂存删除)⇒ 未判定,
+        // 绝不借 HEAD 内容凑数(回落就是把"没判"写成"判过了",守门 36/124 那一课)。
+        r.undetermined.push({ file: f, reason: `${workedFace} 面取不到内容(不回落其他面,不猜)` })
+      } else {
+        // 整档档(HEAD / worktree)上"这份文档本仓没有"≠"判据取不到":夹具与瘦检出是常态。
+        // 仍要报名字,并且一个都没量到时由下方 audited===0 兜成"无法判定",绝不静默记绿。
+        r.notes.push(`${f}:${workedFace} 面上没有这份文档 ⇒ 不计入判据,也不记为通过`)
+      }
+      continue
+    }
+    if (workedFace === 'staged' && typeof got.head !== 'string') {
       r.undetermined.push({ file: f, reason: `${f} 不在 HEAD 里,没有锚点可比(新文件请走全量档:不在基线即 cap=0)` })
       continue
     }
+    const ch = changedLines(root, workedFace, f)
+    if (ch.error) {
+      r.undetermined.push({ file: f, reason: ch.error })
+      continue
+    }
     const idx = auditText(faceText)
-    const headAnchor = face === 'staged' ? auditText(got.head).taRows : idx.taRows
+    const headAnchor = workedFace === 'staged' ? auditText(got.head).taRows : idx.taRows
     if (idx.clusters === 0) {
       r.emptyScan = true
       continue
     }
-    if (!(f in caps)) r.baselineMissingKeys.push(f)
+    audited++
+    if (inTi1 && !(f in caps)) r.baselineMissingKeys.push(f)
     const cap = Number(caps[f]) || 0
-    const ent = {
-      file: f,
-      clusters: idx.clusters,
-      fenceBlocks: idx.fenceBlocks,
-      commentSpans: idx.commentSpans,
-      taRuns: idx.taRuns,
-      taRows: idx.taRows,
-      headTaRows: headAnchor,
-      exemptRuns: idx.exemptRuns,
-      tbRows: idx.tbRows,
-      loneRows: idx.loneRows,
-      cap,
-      red: false,
-      sites: idx.sites.map((s) => ({ ...s, file: f })),
+    const ent = fileEntry(f, faceText, idx, ch.lines, { cap, inTi1, headAnchor, anchor: workedFace === 'staged' ? headAnchor : cap })
+    if (idx.unclosedFenceAt) {
+      ent.fe1Red = true
+      r.reds.push({ file: f, kind: 'FE1', line: idx.unclosedFenceAt })
     }
-    if (face === 'staged') {
-      if (idx.taRows > headAnchor) {
+    if (inTi1) {
+      if (workedFace === 'staged') {
+        if (idx.taRows > headAnchor) {
+          ent.red = true
+          r.reds.push({ file: f, kind: 'TI1', from: headAnchor, to: idx.taRows })
+        }
+      } else if (idx.taRows > cap) {
         ent.red = true
-        r.reds.push({ file: f, from: headAnchor, to: idx.taRows })
+        r.reds.push({ file: f, kind: 'TI1', from: cap, to: idx.taRows })
       }
-    } else if (idx.taRows > cap) {
-      ent.red = true
-      r.reds.push({ file: f, from: cap, to: idx.taRows })
+    } else if (idx.taRows > 0) {
+      r.notes.push(`${f}:TI1 不在射程(该文件无基线额度键)⇒ T-A 存量 ${idx.taRows} 行只报数,FE1/TI4 照判`)
     }
+    if (ent.ti4Red) r.reds.push({ file: f, kind: 'TI4', lines: ent.ti4.map((x) => x.line) })
     r.perFile.push(ent)
   }
   if (r.perFile.length === 0 && !r.emptyScan && r.undetermined.length === 0) r.emptyScan = true
+  if (audited === 0 && !r.emptyScan && r.undetermined.length === 0)
+    r.emptyScan = true // 一个文件都没量到 ⇒ 与"0 个表格簇"同型,判死不是通过
   if (updateBaseline) {
     const headCounts = {}
-    for (const ent of r.perFile) headCounts[ent.file] = ent.headTaRows
+    // 注意字段名:读数存在 `ti1InScope`(fileEntry 产出的那一面),不是局部的 inTi1 ——
+    // 两处不同名就是"消费方永远读到 undefined",基线会静默永不收紧(本条由自检 TI2 的
+    // "5→0 必须真下调"逮到,已作为反向锁留在 --self-test 里)。
+    for (const ent of r.perFile) if (ent.ti1InScope) headCounts[ent.file] = ent.headTaRows
     const { merged, notes } = mergeBaseline(base, headCounts)
     r.wouldWrite = merged
     r.baselineNotes = notes
@@ -429,6 +597,47 @@ export function analyze(face, root = ROOT, targets = DEFAULT_TARGETS, { updateBa
   else if (r.reds.length) r.exit = 1
   else r.exit = 0
   return r
+}
+
+/** 把单文件的三维读数收敛成一条报告/JSON 记录(TI4 只在拿到"改动行集"时才产站点)。 */
+function fileEntry(file, text, idx, changedSet, { cap, inTi1, headAnchor, anchor, untouched = false }) {
+  const ti4 = []
+  let ti4Exempt = 0
+  if (changedSet) {
+    for (const s of idx.shortRows) {
+      if (!changedSet.has(s.line)) continue
+      if (s.exempt) {
+        ti4Exempt++
+        continue
+      }
+      ti4.push({ line: s.line, clusterStart: s.clusterStart, mode: s.mode })
+    }
+  }
+  return {
+    file,
+    clusters: idx.clusters,
+    fenceBlocks: idx.fenceBlocks,
+    commentSpans: idx.commentSpans,
+    unclosedFenceAt: idx.unclosedFenceAt,
+    ti1InScope: inTi1,
+    untouchedThisRound: untouched,
+    taRuns: idx.taRuns,
+    taRows: idx.taRows,
+    headTaRows: headAnchor === undefined ? idx.taRows : headAnchor,
+    shortRows: idx.shortRows.length,
+    exemptShortRows: idx.shortRows.filter((s) => s.exempt).length,
+    ti4ExemptRows: ti4Exempt,
+    ti4,
+    ti4Red: ti4.length > 0,
+    fe1Red: false,
+    exemptRuns: idx.exemptRuns,
+    tbRows: idx.tbRows,
+    loneRows: idx.loneRows,
+    cap,
+    anchor: anchor === undefined ? cap : anchor,
+    red: false,
+    sites: idx.sites.map((s) => ({ ...s, file })),
+  }
 }
 
 /* ------------------------------ --self-test ------------------------------ */
@@ -599,7 +808,14 @@ function selfTest() {
     w('README.md', FIXTURES.taLong + '\n')
     gitIn(scratch, ['add', 'README.md'])
     const jUp = JSON.parse(runGate(['--staged', '--json']).out)
-    ok('棘轮③索引比 HEAD 多出 T-A ⇒ exit 1,点名文件、行数与站点', jUp.exit === 1 && jUp.reds.length === 1 && jUp.reds[0].file === 'README.md' && jUp.perFile[0].sites.length > 0)
+    ok(
+      '棘轮③索引比 HEAD 多出 T-A ⇒ exit 1,点名文件、行数与站点(TI1 整档维与 TI4 逐行维各一条红)',
+      jUp.exit === 1 &&
+        jUp.reds.filter((x) => x.kind === 'TI1').length === 1 &&
+        jUp.reds.some((x) => x.kind === 'TI4') &&
+        jUp.reds[0].file === 'README.md' &&
+        jUp.perFile[0].sites.length > 0,
+    )
     w('README.md', FIXTURES.twoCol + '\n')
     gitIn(scratch, ['add', 'README.md'])
     const jDown = JSON.parse(runGate(['--staged', '--json']).out)
@@ -654,6 +870,108 @@ function selfTest() {
   } finally {
     if (scratch) rmScratch(scratch)
   }
+  // —— FE1 / TI4 / 退回档:第二座临时仓(与上一块的 README 状态互不污染)——
+  let s2 = null
+  try {
+    s2 = mkScratch('readme-table-gate2-')
+    mkdirSync(join(s2, 'scripts'), { recursive: true })
+    const w2 = (rel, content) => writeFileSync(join(s2, rel), content, { encoding: 'utf8' })
+    const gate2 = join(ROOT, 'scripts', 'check-readme-table-integrity.mjs')
+    const run2 = (args) => {
+      try {
+        return {
+          code: 0,
+          out: execFileSync(process.execPath, [gate2, ...args, '--root', s2], {
+            cwd: s2,
+            encoding: 'utf8',
+            windowsHide: true,
+            timeout: 180000,
+            maxBuffer: 32 << 20,
+            stdio: ['ignore', 'pipe', 'pipe'],
+          }),
+        }
+      } catch (e) {
+        return { code: typeof e.status === 'number' ? e.status : 2, out: String(e.stdout ?? '') }
+      }
+    }
+    const commit2 = (m) => gitIn(s2, ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', m])
+    gitIn(s2, ['init', '-q', '.'])
+    gitIn(s2, ['config', 'user.email', 'gate@local'])
+    gitIn(s2, ['config', 'user.name', 'gate'])
+    // README 先放一份"围栏齐备 + 表格完整"的干净底,好让 FE1/TI4 各自只在被改动的那一侧响
+    const cleanReadme = ['| a | b | c |', '| - | - | - |', '| 1 | 2 | 3 |', '', '```bash', 'echo 开了也关了', '```', ''].join('\n')
+    w2('README.md', cleanReadme)
+    w2(join('scripts', 'readme-table-integrity-baseline.json'), JSON.stringify({ taCounts: { 'README.md': 0 } }, null, 2))
+    gitIn(s2, ['add', 'README.md', 'scripts/readme-table-integrity-baseline.json'])
+    commit2('readme-clean')
+    // —— FE1 正反成对 ——
+    const openFence = ['| a | b | c |', '| - | - | - |', '| 1 | 2 | 3 |', '', '```bash', 'echo 这道栏没人关', ''].join('\n')
+    w2('README.md', openFence)
+    gitIn(s2, ['add', 'README.md'])
+    commit2('fe1-open')
+    const jFe1 = JSON.parse(run2(['--json']).out)
+    ok(
+      'FE1:代码围栏未闭合 ⇒ 全量档判红并点名开栏行(它不落在任何表格簇上 —— TI1 结构上看不见这一型)',
+      jFe1.exit === 1 && jFe1.reds.some((x) => x.kind === 'FE1' && x.line === 5) && jFe1.perFile[0].unclosedFenceAt === 5,
+    )
+    const closedFence = ['| a | b | c |', '| - | - | - |', '| 1 | 2 | 3 |', '', '```bash', 'echo 这道栏有人关', '```', ''].join('\n')
+    w2('README.md', closedFence)
+    gitIn(s2, ['add', 'README.md'])
+    commit2('fe1-closed')
+    const jFe1b = JSON.parse(run2(['--json']).out)
+    ok('FE1 反向对照:同一篇补上闭栏 ⇒ exit 0 且 unclosedFenceAt 归 null(红的是判据,不是一台恒红门)', jFe1b.exit === 0 && jFe1b.perFile[0].unclosedFenceAt === null)
+    // —— 退回档:--staged 而本轮没碰任何在审文档 ⇒ 不得判"无法判定" ——
+    const jRetreat = JSON.parse(run2(['--staged', '--json']).out)
+    ok(
+      '--staged 本轮未触及在审文档 ⇒ 退回 HEAD 全量档 + retreated 标记 + exit 0(判"无法判定"就是替每一次无关提交挡路)',
+      jRetreat.retreated === true &&
+        jRetreat.exit === 0 &&
+        jRetreat.judgedFace === 'head' &&
+        jRetreat.notes.some((n) => /退回 HEAD/.test(n)),
+    )
+    // —— TI4:孤立单行碎表(TI1 整档维放过的那一型)落在改动行上必须判红 ——
+    const hostPlain = '| 1 | 2 | 3 |'
+    const hostMarked = '| 1 | 2 | 3 <!-- table-cell-exempt: 下一格确实是一行登记，待挪出表格 --> |'
+    const agentsBase = ['# AGENTS', '', '| a | b | c |', '| - | - | - |', hostPlain, ''].join('\n')
+    const agentsBad = ['# AGENTS', '', '| a | b | c |', '| - | - | - |', hostPlain, '| 没带出口的竖排续行 |', ''].join('\n')
+    const agentsExempt = ['# AGENTS', '', '| a | b | c |', '| - | - | - |', hostMarked, '| 带豁免的竖排续行 |', ''].join('\n')
+    w2('AGENTS.md', agentsBase)
+    gitIn(s2, ['add', 'AGENTS.md'])
+    commit2('agents-base')
+    w2('AGENTS.md', agentsBad)
+    gitIn(s2, ['add', 'AGENTS.md'])
+    const jTi4 = JSON.parse(run2(['--staged', '--json']).out)
+    const ti4 = jTi4.reds.find((x) => x.kind === 'TI4')
+    ok(
+      'TI4:新增的一行竖排续行(孤立、不成 run)⇒ --staged 判红并点名行号(同型的 HEAD 存量整档维仍只报数,不追溯)',
+      jTi4.exit === 1 && Boolean(ti4) && ti4.file === 'AGENTS.md' && ti4.lines.includes(6) && jTi4.perFile.some((p) => p.file === 'AGENTS.md' && p.taRows === 0 && p.ti1InScope === false),
+    )
+    w2('AGENTS.md', agentsExempt)
+    gitIn(s2, ['add', 'AGENTS.md'])
+    const jTi4e = JSON.parse(run2(['--staged', '--json']).out)
+    ok(
+      'TI4 豁免通道与 TI1 共用同一条(标记写在宿主行必须生效)⇒ 同一形状带原因即不判红,且如实计数',
+      jTi4e.exit === 0 && jTi4e.perFile.some((p) => p.file === 'AGENTS.md' && p.ti4.length === 0 && p.ti4ExemptRows === 1),
+    )
+    // "本轮未触及"与"本轮把它删了"是两件事:前者只报名,后者仍是未判定(上方索引取不到那例已钉)
+    const jUntouched = JSON.parse(run2(['--staged', '--json']).out)
+    ok(
+      '只改 AGENTS 时 README 走"本轮未触及"分支:报名 + 仍量 FE1,不判"无法判定"也不静默当作已通过',
+      jUntouched.perFile.some((p) => p.file === 'README.md' && p.untouchedThisRound === true) &&
+        jUntouched.notes.some((n) => /本轮暂存区未触及/.test(n)),
+    )
+  } catch (e) {
+    ok(`FE1/TI4 端到端整体跑通(异常:${String((e && e.message) || e).slice(0, 200)})`, false)
+  } finally {
+    if (s2) rmScratch(s2)
+  }
+  // —— diff 解析器自身的三态(构造面,不靠仓库瞬时状态)——
+  const pGood = parseAddedLineRanges(['diff --git a/x.md b/x.md', 'index 111..222 100644', '--- a/x.md', '+++ b/x.md', '@@ -5,0 +6,2 @@', '+a', '+b'].join('\n'))
+  ok('parseAddedLineRanges:新式与旧式 hunk 头都取**新侧**行号(6,7)', pGood instanceof Set && pGood.size === 2 && pGood.has(6) && pGood.has(7))
+  const pEmpty = parseAddedLineRanges('')
+  ok('parseAddedLineRanges:空输出 = 真没有改动 ⇒ 空集(不是"未判定")', pEmpty instanceof Set && pEmpty.size === 0)
+  ok('parseAddedLineRanges:出现 @@ 却解不出行号 ⇒ null = 判"未判定"(把没看清当成没改行就是给 TI4 发合格证)', parseAddedLineRanges('@@ 完全不像 hunk @@\n') === null)
+  ok('parseAddedLineRanges:省略 ",N" 的单行 hunk 按 1 行算(新侧 +7 @@)', (() => { const s = parseAddedLineRanges('@@ -3 +7 @@'); return s instanceof Set && s.size === 1 && s.has(7) })())
   // —— 真仓现读(阳性对照)——
   try {
     const real = analyze('head', ROOT, DEFAULT_TARGETS)
@@ -668,6 +986,12 @@ function selfTest() {
     }
     ok('真仓 HEAD 全量档不得因存量判红(锚点=基线;判红=与提交无关的恒红门)', real.exit !== 1)
     ok('真仓 README 确有表格簇(枚举 0 簇 = 判据失明,不是"没有破损")', first ? first.clusters > 0 : false)
+    const agentsEnt = real.perFile.find((p) => p.file === 'AGENTS.md')
+    ok(
+      '真仓 AGENTS 已进在审面(FE1 量得到 = 现读未闭合 0;TI1 依设计不在射程,其 T-A 存量只报数)',
+      Boolean(agentsEnt) && agentsEnt.unclosedFenceAt === null && agentsEnt.ti1InScope === false && agentsEnt.clusters > 0,
+    )
+    console.log(`ℹ️ 真仓 AGENTS 现读 T-A 存量 ${agentsEnt ? agentsEnt.taRows : '未取到'} 行 / T-A 形状行合计 ${agentsEnt ? agentsEnt.shortRows : '未取到'} —— 只报数,不清账也不代收口费`)
     ok('analyze 结果整体可 JSON 往返', (() => {
       const j = JSON.parse(JSON.stringify(real))
       return j.gate === 'readme-table-integrity' && Array.isArray(j.perFile)
@@ -722,7 +1046,7 @@ function main() {
   }
   const targets = list.length ? list : DEFAULT_TARGETS
   const update = argv.includes('--update-baseline')
-  const r = analyze(picked.face, root, targets, { updateBaseline: update })
+  const r = analyze(picked.face, root, targets, { updateBaseline: update, explicitTargets: list.length > 0 })
   if (update) {
     if (r.exit === 2 || r.undetermined.length) {
       console.error('❌ 基线未刷新(本面存在"无法判定"项,拒绝写出部分结论):')
@@ -741,28 +1065,57 @@ function main() {
     process.exitCode = r.exit
     return
   }
+  console.log(
+    `[readme-table-integrity] 面:${r.face}${r.retreated ? '(由 --staged 退回,本轮未触及在审文档)' : ''} · 在审文档 ${r.targets.join(' ')} · TI1 射程 ${r.targets.filter((f) => explicitOrTi1(f, list.length > 0)).join(' ')}`,
+  )
   for (const f of r.perFile) {
     console.log(
-      `[readme-table-integrity] 面:${picked.face} ${f.file}: 表格簇 ${f.clusters}(整段跳过 围栏 ${f.fenceBlocks} / 注释 ${f.commentSpans})` +
-        ` · TI1 T-A run ${f.taRuns} / 行 ${f.taRows}(锚点:${picked.face === 'staged' ? `HEAD 自身 ${f.headTaRows}` : `基线 ${f.cap}`})` +
-        ` · 豁免 run ${f.exemptRuns} · T-B 半截行 ${f.tbRows}(这是 T-B,不属于本型,只报数)· 孤立 2 竖线候选 ${f.loneRows}(单列报数,不判)`,
+      `  ${f.file}: 表格簇 ${f.clusters}(整段跳过 围栏 ${f.fenceBlocks} / 注释 ${f.commentSpans})` +
+        ` · FE1 未闭合围栏 ${f.unclosedFenceAt ? `开栏在第 ${f.unclosedFenceAt} 行 ⇒ 判红` : '0'}` +
+        ` · TI1 T-A run ${f.taRuns} / 行 ${f.taRows}` +
+        `${f.ti1InScope ? `(锚点:${r.judgedFace === 'staged' ? `HEAD 自身 ${f.headTaRows}` : `基线 ${f.cap}`})` : '(不在 TI1 射程 ⇒ 存量只报数)'}` +
+        ` · T-A 形状行合计 ${f.shortRows}(豁免 ${f.exemptShortRows})` +
+        ` · TI4 本次改动的碎表行 ${f.ti4.length}${f.ti4ExemptRows ? `(另有带豁免 ${f.ti4ExemptRows})` : ''}` +
+        ` · 豁免 run ${f.exemptRuns} · T-B 半截行 ${f.tbRows}(这是 T-B,不属于本型,只报数)· 孤立 2 竖线候选 ${f.loneRows}(整档维不判;落在改动行上由 TI4 判)`,
     )
+    for (const s of f.ti4) console.log(`     TI4 站点 ${f.file}:${s.line}(簇起 ${s.clusterStart},主竖线 ${s.mode})`)
   }
-  if (r.reds.length) {
+  const fe1 = r.reds.filter((x) => x.kind === 'FE1')
+  const ti1 = r.reds.filter((x) => x.kind === 'TI1')
+  const ti4 = r.reds.filter((x) => x.kind === 'TI4')
+  if (ti1.length) {
     console.log('❌ TI1 违规(超出锚点 —— 本次改动把竖排续行加回来了):')
     for (const f of r.perFile.filter((x) => x.red)) {
       for (const s of f.sites) console.log(`   - ${s.file}:${s.line}(宿主行 ${s.hostLine},簇起 ${s.clusterStart},主竖线 ${s.mode})`)
     }
+  }
+  if (ti4.length) {
+    console.log('❌ TI4 违规(本次新增/改动的行里有 T-A 形状的碎表行,含孤立单行):')
+    for (const x of ti4) for (const line of x.lines) console.log(`   - ${x.file}:${line}`)
+  }
+  if (fe1.length) {
+    console.log('❌ FE1 违规(代码围栏未闭合,整篇后半会被当代码渲染;无豁免通道):')
+    for (const x of fe1) console.log(`   - ${x.file}:开栏在第 ${x.line} 行,到文件尾没有闭栏`)
+  }
+  if (r.reds.length) {
     console.log('   修复出口(默认 --dry-run 零写盘;归并前后自证字符多重集守恒才允许 --apply):')
     console.log(`     ${r.fixHint}`)
-    console.log('   行内出口:<!-- table-cell-exempt: <原因> --> 写在宿主行或该 run 内任一行(须带原因)')
+    console.log('   行内出口:<!-- table-cell-exempt: <原因> --> 写在宿主行或该 run 内任一行(须带原因;FE1 无出口)')
   } else if (r.exit === 0) {
-    console.log('✅ 无新增 TI1。T-B 与孤立续行是"只报数"族(要逐案判语义,不归本门)—— 现数以本行为准,勿引用文档旧数。')
+    console.log(
+      '✅ FE1 未闭合围栏 0 · TI1 无新增 · TI4 改动行无碎表。T-B 半截行是"只报数"族(要逐案判语义)—— 现数以本行为准,勿引用文档旧数。',
+    )
   }
+  for (const n of r.notes) console.log(`ℹ️ ${n}`)
   if (r.baselineMissingKeys.length)
-    console.log(`⚠️ 目标不在基线里(违规按 cap=0 判红;登记须人工写键,--update-baseline 不代登记):${r.baselineMissingKeys.join(' ')}`)
+    console.log(`⚠️ 目标不在基线里(TI1 在射程时按 cap=0 判红;登记须人工写键,--update-baseline 不代登记):${r.baselineMissingKeys.join(' ')}`)
   for (const u of r.undetermined) console.log(`❌ 无法判定:${u.file || '(全局)'} —— ${u.reason}`)
   process.exitCode = r.exit
+}
+
+/** TI1 射程的判定:显式 --file 点名的文件在射程内,否则只认 TI1_TARGETS(与 analyze 同一份名单)。 */
+function explicitOrTi1(f, explicit) {
+  return explicit || TI1_TARGETS.includes(f)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -786,10 +1139,15 @@ export const __test__ = {
   auditText,
   loadBaseline,
   mergeBaseline,
+  parseAddedLineRanges,
+  stagedTouchedPaths,
   analyze,
+  fileEntry,
   FIXTURES,
   BASELINE_REL,
   DEFAULT_TARGETS,
+  DOC_TARGETS,
+  TI1_TARGETS,
   MIN_RUN_LINES,
   MIN_MODE_PIPES,
 }
