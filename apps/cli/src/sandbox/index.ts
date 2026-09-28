@@ -17,6 +17,12 @@ import { spawnSync, spawn, type SpawnSyncOptions, type SpawnOptions, type ChildP
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 
+// 失败归因/安全边界文案走 cli 语言包(AGENTS §19)。与 tools/command-safety.ts 同一既有形态
+// (端内同层 import,不新建跨层依赖)。失效方向:t() 取不到键时回显键名,且各条 note 的
+// ASCII 机器码前缀(spawn_error / output_limit / unattributed / fs_probe_unavailable /
+// fs_exhausted.*)留在模板里、不进词表 —— 取词失败时行仍读得出"没配上",不是"没发生"。
+import { t } from '../i18n/index.js';
+
 export interface SandboxOptions {
   cwd: string;
   timeoutMs?: number;
@@ -151,6 +157,38 @@ export function resolveSandboxOptions(
   return { ...profileConfig.overrides, ...userOpts };
 }
 
+/**
+ * 沙盒同步结算的失败分型 —— 归因词表唯一定义处(判据/结算/审计读同一份)。
+ *
+ * 为什么必须分型而不是一个 `timedOut` 布尔:HEAD 实测 spawnSync 在撞 maxBuffer 时返回
+ * `error.code='ENOBUFS' + signal=SIGTERM + status=null`(本机 Node v24 现测),而旧结算只按
+ * signal 判超时 ⇒ **没超时却报超时**,真因(输出撞上限)整条丢失;ENOENT 时 `status=null,
+ * stdout=undefined` 又被读成"跑了且无输出"。
+ *
+ * 归因序(票面口径):`spawn_error > timed_out > cancelled > output_limit`。
+ * "互不塌缩"不靠顺序本身实现,而是每一档证据自我收窄 —— 见 classifySpawnSyncFailure。
+ * 失效方向恒为"多喊一次":判不出类型的落 `unattributed` 并保留原始信息,
+ * **绝不**把未知归成 `timed_out` 或归成正常完成(null)。
+ */
+export type SandboxFailureKind =
+  /** 子进程根本没被拉起(ENOENT/EACCES/…,命令与 cwd 其中之一不存在) */
+  | 'spawn_error'
+  /** 真超时(ETIMEDOUT,或无归因错误码时被 SIGTERM/SIGKILL 杀掉) */
+  | 'timed_out'
+  /** 调用方主动终止(同步路径结构上没有取消源,此档为共享词汇/注入面保留) */
+  | 'cancelled'
+  /** 输出撞 maxBuffer 上限(ENOBUFS)—— 独立终态,不折进超时 */
+  | 'output_limit'
+  /** 空输出 + 非零退出 + 现场 statfs 量到文件系统空间/inode 已尽 */
+  | 'fs_exhausted'
+  /** 命令自己跑完并以非零码退出(exit code 即结论) */
+  | 'failed'
+  /** 归因不出:保留原始信息、追加"未判定"喊话,不冒充任何已知终态 */
+  | 'unattributed';
+
+/** fs_exhausted 的根因维度:space=字节已尽 / inodes=inode 已尽 / both=两轴都尽。 */
+export type SandboxFsExhaustion = 'space' | 'inodes' | 'both';
+
 export interface SandboxResult {
   stdout: string;
   stderr: string;
@@ -159,6 +197,10 @@ export interface SandboxResult {
   truncated: boolean;
   blocked: boolean;
   blockReason?: string;
+  /** 失败分型归因(null=正常完成 exitCode 0);blocked=true 的拒绝分支不参与,保持 undefined。 */
+  failureKind?: SandboxFailureKind | null;
+  /** 仅 failureKind==='fs_exhausted' 时在场:哪个轴量到了已尽。 */
+  fsExhaustion?: SandboxFsExhaustion;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -348,6 +390,10 @@ export interface SandboxAuditEntry {
   truncated: boolean;
   blocked: boolean;
   blockReason?: string;
+  /** 失败分型归因(见 SandboxFailureKind 词表注释);blocked 分支与旧版调用可不带。 */
+  failureKind?: SandboxFailureKind | null;
+  /** failureKind==='fs_exhausted' 时点名的维度。 */
+  fsExhaustion?: SandboxFsExhaustion;
   durationMs: number;
 }
 
@@ -364,6 +410,256 @@ export function appendSandboxAuditLog(entry: SandboxAuditEntry): void {
   } catch {
     /* 审计写失败不阻塞执行 */
   }
+}
+
+/**
+ * 超时被杀的信号档:spawnSync `timeout` 到期后按 killSignal(默认 SIGTERM)终止。
+ * 注意 ENOBUFS 的返回里 signal **同样** 是 SIGTERM(本机 Node v24.19.0 现测),
+ * 所以这一档只能作为"错误码归因不上的那一次 signal"的证据,不得先于错误码判。
+ */
+const TIMEOUT_KILL_SIGNALS: ReadonlySet<string> = new Set(['SIGTERM', 'SIGKILL']);
+
+/** 输出撞 maxBuffer 上限的错误码(实测形态:ENOBUFS + signal=SIGTERM + status=null)。 */
+const OUTPUT_LIMIT_ERROR_CODES: ReadonlySet<string> = new Set(['ENOBUFS', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER']);
+
+/** "子进程没能拉起"的特定错误码(Node 文档化集合)。未知错误码**不**并入本档 ——
+ *  不得把"不知道"打扮成"知道是 spawn 失败";未知码落 unattributed 并保留原文。 */
+const SPAWN_LAUNCH_ERROR_CODES: ReadonlySet<string> = new Set([
+  'ENOENT',
+  'EACCES',
+  'EPERM',
+  'ENOTDIR',
+  'ENAMETOOLONG',
+  'EINVAL',
+  'EMFILE',
+  'ENFILE',
+  'ELOOP',
+  'ENOEXEC',
+]);
+
+/** shell 惯例的"被信号杀死"退出码哨兵(128+9=SIGKILL,如 OOM-kill):另有归因,
+ *  不进"空输出 ⇒ 文件系统已尽"的诊断门(票面口径 code!==137)。 */
+const EXIT_SIGKILL_SENTINEL = 137;
+
+/** 诊断阈(票面口径):bavail×bsize 折算 <10MB ⇒ 空间已尽;ffree <1000 ⇒ inode 已尽。 */
+const FS_MIN_FREE_BYTES = 10n * 1024n * 1024n;
+const FS_MIN_FREE_INODES = 1000n;
+
+/** spawnSync 返回体里归因消费到的字段子集(与 SpawnSyncReturns<string|Buffer> 结构兼容;
+ *  错误态时 Node 实测不写 stdout/stderr,故允许 undefined/null)。 */
+export interface SpawnSyncOutcomeLike {
+  error?: Error;
+  status?: number | null;
+  signal?: NodeJS.Signals | null;
+  stdout?: string | NodeJS.ArrayBufferView | null;
+  stderr?: string | NodeJS.ArrayBufferView | null;
+}
+
+/** statfs 探针的归一读数:null 表示该轴**测不到**,不是"已尽"(判不出不得写成结论)。 */
+export interface FsSpaceProbeResult {
+  /** bavail×bsize 折算的可用字节;null=文件系统不报 bsize/bavail。 */
+  availableBytes: bigint | null;
+  /** ffree 空闲 inode 数;null=该文件系统不上报 inode 维度。
+   *  实测:NTFS 上 statfsSync 的 files=0、ffree=0(本机 G: 盘现测),"全零"意味着
+   *  **不报数**,不得读成"inode 已尽"—— 否则 Windows 上每一次空输出非零退出都会被误诊。 */
+  freeInodes: bigint | null;
+}
+
+/** 文件系统探针出口(可注入):生产默认走 fs.statfsSync(bigint:true)。 */
+export type StatfsSyncProbe = (path: string) => FsSpaceProbeResult;
+
+function defaultStatfsProbe(target: string): FsSpaceProbeResult {
+  const s = fs.statfsSync(target, { bigint: true });
+  return {
+    availableBytes: s.bsize > 0n ? s.bavail * s.bsize : null,
+    freeInodes: s.files > 0n ? s.ffree : null,
+  };
+}
+
+function spawnErrorInfo(error: Error | undefined): { code: string | undefined; message: string | undefined } {
+  if (!error) return { code: undefined, message: undefined };
+  const code = (error as NodeJS.ErrnoException).code;
+  return { code: typeof code === 'string' ? code : undefined, message: error.message };
+}
+
+function appendStderrNote(base: string, note: string): string {
+  return base ? `${base}\n${note}` : note;
+}
+
+/** 结算归一的取文:本沙盒恒传 encoding:'utf-8'(文本),Buffer 形态是给复用者的兜底,
+ *  解码为 utf-8 而非静默丢 —— 把"看得见的字节"读成空字符串,等于伪造"跑了且无输出"。 */
+function outcomeText(v: string | NodeJS.ArrayBufferView | null | undefined): string {
+  if (typeof v === 'string') return v;
+  if (v === null || v === undefined) return '';
+  return Buffer.from(v.buffer, v.byteOffset, v.byteLength).toString('utf8');
+}
+
+/**
+ * 归因序:`spawn_error > timed_out > cancelled > output_limit`。
+ *
+ * 每档证据自我收窄,互不塌缩:
+ *  - ETIMEDOUT 先于一切 signal 判(现测:真超时必带该码,Node 24);
+ *  - 其余错误码里只有文档化的 spawn 失败族算 spawn_error,ENOBUFS/maxBuffer 族留给
+ *    output_limit,未知码 ⇒ unattributed(不冒充任何一种"已知失败类型");
+ *  - "signal 被超时杀"只在**错误码归因不上**时成立 —— 这正是 ENOBUFS 不再被折进
+ *    timed_out 的地方(HEAD 现症:撞上限产出 timedOut:true);
+ *  - cancelled 需要调用方**显式**盖章(同步路径结构上无取消源)。
+ */
+export function classifySpawnSyncFailure(
+  outcome: SpawnSyncOutcomeLike,
+  opts: { cancelled?: boolean } = {},
+): SandboxFailureKind | null {
+  const { code } = spawnErrorInfo(outcome.error);
+  if (code === 'ETIMEDOUT') return 'timed_out';
+  if (code !== undefined && !OUTPUT_LIMIT_ERROR_CODES.has(code)) {
+    return SPAWN_LAUNCH_ERROR_CODES.has(code) ? 'spawn_error' : 'unattributed';
+  }
+  // 到这里 code 要么 undefined,要么属输出上限族。
+  if (outcome.signal) {
+    if (code === undefined && !opts.cancelled) {
+      return TIMEOUT_KILL_SIGNALS.has(outcome.signal) ? 'timed_out' : 'unattributed';
+    }
+    if (opts.cancelled) return 'cancelled';
+    return 'output_limit';
+  }
+  if (code !== undefined) return 'output_limit';
+  if (outcome.status === null || outcome.status === undefined) return 'unattributed';
+  return outcome.status !== 0 ? 'failed' : null;
+}
+
+export interface SpawnSyncSettlementOptions {
+  /** 命令工作目录 —— 文件系统诊断量这条路径(命令真正落盘/写输出的"现场")。 */
+  cwd: string;
+  /** 喂给 maxBuffer 的**字节**预算:截断标志必须与之同量纲(票面判据②)。 */
+  maxOutputBytes: number;
+  /** 调用方已盖章"是我主动终止"(同步路径无取消源;为异步复用与测试注入保留)。 */
+  cancelled?: boolean;
+  /** 文件系统探针注入口:生产恒缺省(真 statfsSync);"满盘/inode 尽"成对对照只能经注入面证明。 */
+  statfs?: StatfsSyncProbe;
+}
+
+/** settleSpawnSyncOutcome 的输出 —— runSandboxed 的同步返回即由它逐字段映射。 */
+export interface SpawnSyncSettlement {
+  stdout: string;
+  stderr: string;
+  exitCode: number | null;
+  timedOut: boolean;
+  truncated: boolean;
+  failureKind: SandboxFailureKind | null;
+  fsExhaustion?: SandboxFsExhaustion;
+}
+
+/**
+ * 同步结算的唯一实现:把 spawnSync 原始返回归因、补人话、量文件系统,产出 SandboxResult。
+ * 与 runSandboxed 同受测试直接问责(生产出口 = runSandboxed,结算函数 = 本函数,
+ * 测试内**不得**内联第二份归因逻辑)。
+ */
+export function settleSpawnSyncOutcome(
+  outcome: SpawnSyncOutcomeLike,
+  opts: SpawnSyncSettlementOptions,
+): SpawnSyncSettlement {
+  const stdout = outcomeText(outcome.stdout);
+  const stderrBase = outcomeText(outcome.stderr);
+  const kind = classifySpawnSyncFailure(outcome, { cancelled: opts.cancelled });
+  // reported:文件系统现场诊断可把 'failed' 升级为 'fs_exhausted'(点名具体根因);
+  // 其余分型不改写 —— 分型判据(kind)与对外结论(reported)在此分账,不得混写。
+  let reported: SandboxFailureKind | null = kind;
+  const { code, message } = spawnErrorInfo(outcome.error);
+
+  // 与 maxBuffer 同量纲:**字节**。实测 1000 个汉字 length=1000 / Buffer.byteLength=3000,
+  // 旧写法 `stdout.length >= maxOutput` 对中文为主的输出(本仓常态)系统性漏报截断。
+  const truncated =
+    kind === 'output_limit' ||
+    Buffer.byteLength(stdout, 'utf8') >= opts.maxOutputBytes ||
+    Buffer.byteLength(stderrBase, 'utf8') >= opts.maxOutputBytes;
+
+  let stderr = stderrBase;
+  let fsExhaustion: SandboxFsExhaustion | undefined;
+
+  if (kind === 'spawn_error') {
+    // 原文形态 `(${code}${message ? `:${message}` : ''})` 收进词表参数,占位符 {code} 由调用方拼好
+    const codeWithDetail = message ? `${code}:${message}` : `${code}`;
+    stderr = appendStderrNote(
+      stderr,
+      `⛔ spawn_error: ${t('cli.sandbox.spawnError', { code: codeWithDetail, cwd: opts.cwd })}`,
+    );
+  } else if (kind === 'output_limit') {
+    stderr = appendStderrNote(
+      stderr,
+      `⚠ output_limit: ${t('cli.sandbox.outputLimit', { maxOutputBytes: opts.maxOutputBytes, code: code ?? 'ENOBUFS' })}`,
+    );
+  } else if (kind === 'unattributed') {
+    const raw = [
+      code ? `code=${code}` : '',
+      message ? `error=${message}` : '',
+      outcome.signal ? `signal=${outcome.signal}` : `status=${outcome.status ?? t('cli.sandbox.statusMissing')}`,
+    ]
+      .filter(Boolean)
+      .join(', ');
+    stderr = appendStderrNote(
+      stderr,
+      `⚠ unattributed: ${t('cli.sandbox.unattributed', { raw })}`,
+    );
+  } else if (kind === 'failed') {
+    const status = outcome.status ?? 0;
+    // 票面判据③的准入:空输出 + 非零 + 非 SIGKILL 哨兵,才去现场量文件系统;
+    // 正常无输出的命令(如 touch)走"两轴健康 ⇒ 一字不加"分支,不得被诊断成丢失。
+    if (stdout === '' && stderrBase === '' && status !== EXIT_SIGKILL_SENTINEL) {
+      const probe = opts.statfs ?? defaultStatfsProbe;
+      let read: FsSpaceProbeResult | null = null;
+      try {
+        read = probe(opts.cwd);
+      } catch (e) {
+        const why = e instanceof Error ? e.message || String(e) : String(e);
+        stderr = appendStderrNote(
+          stderr,
+          `⚠ fs_probe_unavailable: ${t('cli.sandbox.fsProbeUnavailable', { status, why })}`,
+        );
+      }
+      if (read) {
+        const spaceExhausted = read.availableBytes !== null && read.availableBytes < FS_MIN_FREE_BYTES;
+        const inodesExhausted = read.freeInodes !== null && read.freeInodes < FS_MIN_FREE_INODES;
+        if (spaceExhausted || inodesExhausted) {
+          // 升级对外结论:不是"什么都没发生",而是量到了具体根因。
+          reported = 'fs_exhausted';
+          if (spaceExhausted && inodesExhausted) {
+            fsExhaustion = 'both';
+            stderr = appendStderrNote(
+              stderr,
+              `${fsExhaustedNote(status, opts.cwd, read, 'space')} ${fsExhaustedNote(status, opts.cwd, read, 'inodes')}`,
+            );
+          } else if (spaceExhausted) {
+            fsExhaustion = 'space';
+            stderr = appendStderrNote(stderr, fsExhaustedNote(status, opts.cwd, read, 'space'));
+          } else {
+            fsExhaustion = 'inodes';
+            stderr = appendStderrNote(stderr, fsExhaustedNote(status, opts.cwd, read, 'inodes'));
+          }
+        }
+        // 两轴都健康(或都测不到)⇒ 不点名:空输出+非零就是命令自身行为,诊断不越权。
+      }
+    }
+  }
+
+  return {
+    stdout,
+    stderr,
+    exitCode: outcome.status ?? null,
+    // timedOut 只在归因到 timed_out 时为 true:撞上限(ENOBUFS)/未知类型都不得冒充超时。
+    timedOut: kind === 'timed_out',
+    truncated,
+    failureKind: reported,
+    fsExhaustion,
+  };
+}
+
+/** fs_exhausted 的人话根因:点名实测数字与阈值,并给出可执行的出路。 */
+function fsExhaustedNote(status: number, cwd: string, read: FsSpaceProbeResult, axis: 'space' | 'inodes'): string {
+  if (axis === 'space') {
+    const availMB = read.availableBytes !== null ? Number(read.availableBytes / (1024n * 1024n)) : null;
+    return `⛔ fs_exhausted.space: ${t('cli.sandbox.fsExhaustedSpace', { status, cwd, availMB: String(availMB) })}`;
+  }
+  return `⛔ fs_exhausted.inodes: ${t('cli.sandbox.fsExhaustedInodes', { status, cwd, freeInodes: String(read.freeInodes) })}`;
 }
 
 export function runSandboxed(commandLine: string, opts: SandboxOptions): SandboxResult {
@@ -449,27 +745,31 @@ export function runSandboxed(commandLine: string, opts: SandboxOptions): Sandbox
 
   const result = spawnSync(commandLine, spawnOpts);
 
-  const stdout = typeof result.stdout === 'string' ? result.stdout : '';
-  const stderr = typeof result.stderr === 'string' ? result.stderr : '';
+  // 结算唯一实现:分型归因 + 字节量纲截断 + 空输出非零退出时的文件系统现场诊断。
+  const settled = settleSpawnSyncOutcome(result, { cwd: opts.cwd, maxOutputBytes: maxOutput });
 
   appendSandboxAuditLog({
     timestamp: new Date().toISOString(),
     command: commandLine,
     cwd: opts.cwd,
-    exitCode: result.status,
-    timedOut: result.signal === 'SIGTERM' || result.signal === 'SIGKILL',
-    truncated: stdout.length >= maxOutput || stderr.length >= maxOutput,
+    exitCode: settled.exitCode,
+    timedOut: settled.timedOut,
+    truncated: settled.truncated,
     blocked: false,
+    failureKind: settled.failureKind,
+    fsExhaustion: settled.fsExhaustion,
     durationMs: Date.now() - startedAt,
   });
 
   return {
-    stdout,
-    stderr,
-    exitCode: result.status,
-    timedOut: result.signal === 'SIGTERM' || result.signal === 'SIGKILL',
-    truncated: stdout.length >= maxOutput || stderr.length >= maxOutput,
+    stdout: settled.stdout,
+    stderr: settled.stderr,
+    exitCode: settled.exitCode,
+    timedOut: settled.timedOut,
+    truncated: settled.truncated,
     blocked: false,
+    failureKind: settled.failureKind,
+    fsExhaustion: settled.fsExhaustion,
   };
 }
 
