@@ -3962,6 +3962,21 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 镜像测试临时夹具落点对账(默认只报名,--strict 才判红)(1 项,warn)---
+  {
+    id: '155',
+    label:
+      '镜像测试临时夹具落点对账(默认只报名,--strict 才判红)',
+    script: 'check-fixture-tmpdir.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_FIXTURE_TMPDIR',
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
