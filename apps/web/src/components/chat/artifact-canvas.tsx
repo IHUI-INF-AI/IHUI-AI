@@ -229,6 +229,10 @@ export function ArtifactCanvas({ artifact, turnMessageId }: ArtifactCanvasProps)
         ) : (
           <iframe
             title={artifact.name ?? 'artifact-preview'}
+            /* iframe-sandbox-relax: srcDoc 是模型产出、且用户可在同屏改写的 artifact 正文,
+               不给 allow-scripts 预览就是一片空白。档值 = MODEL_CONTENT_SANDBOX
+               (packages/ui-react/src/components/webview-frame.tsx 的唯一实现),
+               刻意**不含** allow-same-origin ⇒ 帧内 opaque origin,读不到本站 Cookie/存储。 */
             sandbox="allow-scripts"
             srcDoc={applied}
             className={cn(PREVIEW_HEIGHT, 'w-full bg-background')}

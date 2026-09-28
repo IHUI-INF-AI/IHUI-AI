@@ -15,7 +15,7 @@
  * 设计原则:
  * 1. 零运行时依赖:除 zustand 外不依赖任何端特定 API(@ihui/api-client 仅类型)
  * 2. 依赖注入:所有 IO(持久化 + token 存储)由各端注入
- * 3. 安全优先:auth store 不持久化 token,只持久化 user + isAuthenticated
+ * 3. 安全优先:auth store 不持久化 token,持久化 blob 只存 user 资料(登录态由 hydrate 从 token 派生)
  *    遵循 web 端 2026-07-21 安全审计结论
  * 4. 非破坏性:与已有 useAuth hook(stage 4)平行存在,共享同一 TokenStore
  */

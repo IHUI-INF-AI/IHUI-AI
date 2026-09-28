@@ -33,7 +33,7 @@
 | 附录 C | codeBlockLabels(匿名) | `codeBlockLabels(匿名).collapse` | 收起代码 | L1 | 源码字面量 |
 | 附录 C | codeBlockLabels(匿名) | `codeBlockLabels(匿名).streaming` | 生成中 | L1 | aiGeneration.statusGenerating |
 | 附录 C | codeBlockLabels(匿名) | `codeBlockLabels(匿名).tone` | inherit | skip |  |
-| 附录 C | codeBlockLabels(匿名) | `codeBlockLabels(匿名).style` | material | MISS |  |
+| 附录 C | codeBlockLabels(匿名) | `codeBlockLabels(匿名).style` | material | skip |  |
 | 附录 C | markdownImage/Table | `markdownImage/Table.copyImage` | 复制为图片 | MISS |  |
 | 附录 C | markdownImage/Table | `markdownImage/Table.copyMarkdown` | 复制 Markdown | L1 | chat.permission.contextMenu.copyMarkdown |
 | 附录 C | markdownImage/Table | `markdownImage/Table.copiedImage` | 图片已复制 | L1 | ai.pane.elementPack.imagePreview.copySuccess |
@@ -41,9 +41,9 @@
 | 附录 C | markdownImage/Table | `markdownImage/Table.copyImageFailed` | 图片复制失败，重试 | L2 | ai.pane.elementPack.imagePreview.copyFailed (J=0.71) |
 | 附录 C | markdownImage/Table | `markdownImage/Table.copyMarkdownFailed` | Markdown 复制失败，重试 | L2 | chat.permission.contextMenu.copyMarkdown (J=0.57) |
 | 附录 C | markdownImage/Table | `markdownImage/Table.phase` | idle | skip |  |
-| 附录 C | markdownImage/Table | `markdownImage/Table.phase` | copying | MISS |  |
-| 附录 C | markdownImage/Table | `markdownImage/Table.phase` | copied | MISS |  |
-| 附录 C | markdownImage/Table | `markdownImage/Table.phase` | failed | L3 | 子串同形:admin.announcements.maintenanceNotice.resultSent |
+| 附录 C | markdownImage/Table | `markdownImage/Table.phase` | copying | skip |  |
+| 附录 C | markdownImage/Table | `markdownImage/Table.phase` | copied | skip |  |
+| 附录 C | markdownImage/Table | `markdownImage/Table.phase` | failed | skip |  |
 | 附录 C | markdownImage/Table | `markdownImage/Table.className` | size-3.5 | skip |  |
 | 附录 C | markdownImage/Table | `markdownImage/Table.className` | size-3.5 | skip |  |
 | 附录 C | markdownImage/Table | `markdownImage/Table.className` | size-3.5 | skip |  |
@@ -69,11 +69,11 @@
 | 附录 C | linkFileActions(匿名) | `linkFileActions(匿名).copyFileContent` | 复制文件内容 | MISS |  |
 | 附录 C | linkFileActions(匿名) | `linkFileActions(匿名).revealFile` | 在文件管理器中显示 | MISS |  |
 | 附录 C | linkFileActions(匿名) | `linkFileActions(匿名).animation` | blurIn | skip |  |
-| 附录 C | linkFileActions(匿名) | `linkFileActions(匿名).easing` | ease-out | MISS |  |
-| 附录 C | linkFileActions(匿名) | `linkFileActions(匿名).sep` | word | L2 | aiCareerPage.export.word (J=0.60) |
-| 附录 C | linkFileActions(匿名) | `linkFileActions(匿名).http` | &&t1.protocol!== | MISS |  |
-| 附录 C | linkFileActions(匿名) | `linkFileActions(匿名).https` | )return e1;const n1=t1.hostname?.replace(/^www | MISS |  |
-| 附录 C | linkFileActions(匿名) | `linkFileActions(匿名).http` | &&r1.protocol!== | MISS |  |
+| 附录 C | linkFileActions(匿名) | `linkFileActions(匿名).easing` | ease-out | skip |  |
+| 附录 C | linkFileActions(匿名) | `linkFileActions(匿名).sep` | word | skip |  |
+| 附录 C | linkFileActions(匿名) | `linkFileActions(匿名).http` | &&t1.protocol!== | skip |  |
+| 附录 C | linkFileActions(匿名) | `linkFileActions(匿名).https` | )return e1;const n1=t1.hostname?.replace(/^www | skip |  |
+| 附录 C | linkFileActions(匿名) | `linkFileActions(匿名).http` | &&r1.protocol!== | skip |  |
 | 附录 C | defaultLabels$2 | `defaultLabels$2.panel` | 终端面板 | MISS |  |
 | 附录 C | defaultLabels$2 | `defaultLabels$2.tabs` | 终端列表 | MISS |  |
 | 附录 C | defaultLabels$2 | `defaultLabels$2.create` | 新建终端 | L1 | aiChat.terminalDock.newSession |
@@ -87,21 +87,21 @@
 | 附录 C | defaultLabels$2 | `defaultLabels$2.switchToLight` | 切换为亮色终端 | MISS |  |
 | 附录 C | defaultLabels$2 | `defaultLabels$2.className` | text-[var(--qdd6e93)] | skip |  |
 | 附录 C | defaultLabels$2 | `defaultLabels$2.className` | text-[var(--q716791)] | skip |  |
-| 附录 C | defaultLabels$2 | `defaultLabels$2.role` | tablist | MISS |  |
+| 附录 C | defaultLabels$2 | `defaultLabels$2.role` | tablist | skip |  |
 | 附录 C | defaultLabels$2 | `defaultLabels$2.className` | flex shrink-0 items-center gap-1 | skip |  |
-| 附录 C | defaultLabels$2 | `defaultLabels$2.placement` | top | L2 | aiGeneration.topP (J=0.67) |
+| 附录 C | defaultLabels$2 | `defaultLabels$2.placement` | top | skip |  |
 | 附录 C | defaultLabels$2 | `defaultLabels$2.variant` | ghost | skip |  |
-| 附录 C | defaultLabels$2 | `defaultLabels$2.size` | sm | MISS |  |
-| 附录 C | defaultLabels$2 | `defaultLabels$2.placement` | top | L2 | aiGeneration.topP (J=0.67) |
+| 附录 C | defaultLabels$2 | `defaultLabels$2.size` | sm | skip |  |
+| 附录 C | defaultLabels$2 | `defaultLabels$2.placement` | top | skip |  |
 | 附录 C | defaultLabels$2 | `defaultLabels$2.variant` | ghost | skip |  |
-| 附录 C | defaultLabels$2 | `defaultLabels$2.size` | sm | MISS |  |
+| 附录 C | defaultLabels$2 | `defaultLabels$2.size` | sm | skip |  |
 | 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.collapseSidebar` | 收起侧导航 | MISS |  |
 | 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.expandSidebar` | 展开侧导航 | MISS |  |
 | 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.goBack` | 后退 | L1 | workPanel.back |
 | 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.goForward` | 前进 | L1 | workPanel.forward |
-| 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.type` | button | L3 | 子串同形:workPanel.runJsPlaceholder |
+| 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.type` | button | skip |  |
 | 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.variant` | ghost | skip |  |
-| 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.size` | md | MISS |  |
+| 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.size` | md | skip |  |
 | 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.className` | [-webkit-app-region:no-drag] | skip |  |
 | 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.position` | left | skip |  |
 | 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.className` | flex shrink-0 items-center [-webkit-app-region | skip |  |
@@ -110,24 +110,24 @@
 | 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.className` | size-3 rounded-full bg-warning | skip |  |
 | 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.className` | size-3 rounded-full bg-success | skip |  |
 | 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.className` | flex items-center gap-0.5 [-webkit-app-region: | skip |  |
-| 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.placement` | bottom | MISS |  |
-| 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.placement` | bottom | MISS |  |
-| 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.type` | button | L3 | 子串同形:workPanel.runJsPlaceholder |
+| 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.placement` | bottom | skip |  |
+| 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.placement` | bottom | skip |  |
+| 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.type` | button | skip |  |
 | 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.variant` | ghost | skip |  |
-| 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.size` | md | MISS |  |
+| 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.size` | md | skip |  |
 | 附录 C | DEFAULT_LABELS$3 | `DEFAULT_LABELS$3.className` | [-webkit-app-region:no-drag] | skip |  |
-| 附录 C | defaultFileTreeLabels | `defaultFileTreeLabels.density` | default | MISS |  |
-| 附录 C | defaultFileTreeLabels | `defaultFileTreeLabels.folderActivation` | toggle | MISS |  |
-| 附录 C | defaultFileTreeLabels | `defaultFileTreeLabels.role` | tree | L3 | 子串同形:ai.pane.worktree.title |
-| 附录 C | defaultFileTreeLabels | `defaultFileTreeLabels.role` | group | MISS |  |
+| 附录 C | defaultFileTreeLabels | `defaultFileTreeLabels.density` | default | skip |  |
+| 附录 C | defaultFileTreeLabels | `defaultFileTreeLabels.folderActivation` | toggle | skip |  |
+| 附录 C | defaultFileTreeLabels | `defaultFileTreeLabels.role` | tree | skip |  |
+| 附录 C | defaultFileTreeLabels | `defaultFileTreeLabels.role` | group | skip |  |
 | 附录 C | defaultFileTreeLabels | `defaultFileTreeLabels.className` | qoder-file-tree-material-icon | skip |  |
 | 附录 C | defaultFileTreeLabels | `defaultFileTreeLabels.tone` | inherit | skip |  |
-| 附录 C | defaultFileTreeLabels | `defaultFileTreeLabels.style` | material | MISS |  |
-| 附录 C | SuggestionBanner | `SuggestionBanner.d` | M12.667 8 10 12h4l-2.667 4 | MISS |  |
-| 附录 C | SuggestionBanner | `SuggestionBanner.initial` | normal | L3 | 子串同形:selfHealing.taskPlaceholder |
+| 附录 C | defaultFileTreeLabels | `defaultFileTreeLabels.style` | material | skip |  |
+| 附录 C | SuggestionBanner | `SuggestionBanner.d` | M12.667 8 10 12h4l-2.667 4 | skip |  |
+| 附录 C | SuggestionBanner | `SuggestionBanner.initial` | normal | skip |  |
 | 附录 C | SuggestionBanner | `SuggestionBanner.className` | size-4 | skip |  |
 | 附录 C | SuggestionBanner | `SuggestionBanner.className` | text-primary | skip |  |
-| 附录 C | SuggestionBanner | `SuggestionBanner.type` | button | L3 | 子串同形:workPanel.runJsPlaceholder |
+| 附录 C | SuggestionBanner | `SuggestionBanner.type` | button | skip |  |
 | 附录 C | tagPill | `tagPill.className` | size-full object-cover | skip |  |
 | 附录 C | tagPill | `tagPill.className` | flex min-w-0 flex-1 flex-col gap-1 | skip |  |
 | 附录 C | tagPill | `tagPill.className` | flex min-w-0 items-center gap-2 | skip |  |
@@ -138,6 +138,6 @@
 | 附录 C | tagPill | `tagPill.className` | flex min-w-0 items-center gap-2 | skip |  |
 | 附录 C | tagPill | `tagPill.className` | flex min-w-0 flex-1 items-center gap-1 | skip |  |
 | 附录 C | tagPill | `tagPill.className` | flex size-3 shrink-0 items-center justify-cent | skip |  |
-| 附录 C | tagPill | `tagPill.dir` | ltr | MISS |  |
+| 附录 C | tagPill | `tagPill.dir` | ltr | skip |  |
 | 附录 C | tagPill | `tagPill.className` | block min-w-0 max-w-full truncate text-[13px]  | skip |  |
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

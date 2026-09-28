@@ -73,6 +73,7 @@ from ..services.agent_events import (
     SSE_SUBAGENT_SPAWN,
     SSE_TERMINAL_DELTA,
     SSE_TERMINAL_END,
+    SSE_TERMINAL_INTERACTION,
     SSE_TERMINAL_START,
     SSE_TOOL_CALL_START,
     SSE_TOOL_DELEGATE,
@@ -90,6 +91,7 @@ from ..services.mcp_server import (
     get_registered_tool_names,
     reset_terminal_stream_context,
     set_terminal_stream_context,
+    settle_terminal_input,
 )
 from ..services.project_memory import build_system_prompt
 from ..services.user_quota import user_trial_quota
@@ -223,6 +225,62 @@ _APPROVAL_KEEPALIVE_INTERVAL = 15  # 秒:等待期间发 SSE 注释行,防前端
 # 与 _delegate_sessions 同生命周期模式:条目仅在人工弹窗等待窗口内存在,
 # 决策/超时后由等待方清理(防内存泄漏)。
 _approval_sessions: dict[str, dict[str, dict[str, Any]]] = {}
+
+
+def _persist_grant_rule(entry: dict[str, Any] | None, tool_name: str, session_id: str) -> None:
+    """D158:审批条目带 grant_rule 且工具是 run_command 时,把 argv 前缀落成放行规则。
+
+    键空间唯一实现:approval_persistence.normalize_exec_key(与 mcp_server 共用);
+    TTL=90 天(用户批的预填口径);登记失败只 warn,不阻断本次已批准的执行 ——
+    宁可下次同类命令再问一次,也不因规则落库失败把用户批准的执行打断。
+    """
+    if not isinstance(entry, dict):
+        return
+    gr = entry.get("grant_rule")
+    if not (isinstance(gr, dict) and gr.get("kind") == "exec_prefix"):
+        return
+    if tool_name != "run_command":
+        return
+    argv = entry.get("argv") or []
+    if not isinstance(argv, (list, tuple)) or len(argv) < 1:
+        return
+    try:
+        from app.services import approval_persistence as _ap
+
+        tokens = max(1, min(4, int(gr.get("tokens", 2))))
+        cache_key = _ap.normalize_exec_key([str(x) for x in argv[:tokens]])
+        _ap.grant("always", cache_key, "exec_prefix", ttl_days=90)
+        logger.info(
+            "D158 前缀放行规则已登记(session=%s, argv前缀=%s, ttl=90d)",
+            session_id,
+            list(argv[:tokens]),
+        )
+    except Exception:  # noqa: BLE001 - 登记失败不阻断已批准的执行
+        logger.warning(
+            "D158 前缀放行规则登记失败(session=%s, tool=%s)",
+            session_id,
+            tool_name,
+            exc_info=True,
+        )
+
+
+def _exec_prefix_grant_hits(argv: list[str] | tuple[str, ...]) -> bool:
+    """D158:命令 argv 是否命中任一已登记的前缀放行规则(持久层,经 approval_persistence)。
+
+    匹配键空间与 mcp_server._matches_exec_prefix 同一份(normalize_exec_key);
+    本函数是主对话流(run_command 工具)的**判定出口**,mcp 侧继续用它自己的内存表+持久层
+    双查 —— 两处共用"键怎么算"这一份实现,不共内存表(两套生命周期,各自兜底)。
+    fail-closed:持久层查询异常视为未命中(宁可多问一次,不放行)。
+    """
+    try:
+        from app.services import approval_persistence as _ap
+
+        for _n in range(1, min(4, len(argv)) + 1):
+            if _ap.check(_ap.normalize_exec_key([str(x) for x in argv[:_n]]), "exec_prefix"):
+                return True
+        return False
+    except Exception:  # noqa: BLE001
+        return False
 
 # 会话内「总是允许」授权缓存(内存 dict;轻量对齐 agent_loop_v2 审批缓存语义):
 # bucket -> {tool_name -> (scope('session'|'always'), 到期时刻)}。
@@ -3841,6 +3899,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 if _grant_scope in ("session", "always"):
                                     # 会话内「总是允许」命中:免弹窗(与 agent_loop_v2 审批缓存同语义)
                                     _approval_needed = False
+                                # D158:run_command 额外查前缀放行规则(第四档批准时登记的
+                                # 持久层规则;跨会话、跨重启有效)。命中免弹窗,规则长期
+                                # 有效但可经审批授予列表撤销(见 revoke 出口)。
+                                if (
+                                    _approval_needed
+                                    and tool_name == "run_command"
+                                    and _exec_prefix_grant_hits(args.get("argv") or [])
+                                ):
+                                    _approval_needed = False
                             if _approval_needed:
                                 # 类型收窄兜底(与 delegate 分支同一模式):走到本块 ⇒ 上方 grant
                                 # 块必已执行且未置 False,session_id 在那时已被保证非 None,
@@ -3858,6 +3925,13 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "decision": None,
                                     "scope": None,
                                     "reason": None,
+                                    # D158 UI 半张补(2026-09-28):_persist_grant_rule 从
+                                    # 条目读 argv 落前缀规则,而条目此前不含 argv ⇒ 第四档
+                                    # 批准在生产链路上永远落空(测试夹具带 argv,生产条目
+                                    # 没有 —— 上一批遗漏)。补齐后规则才真正落库;
+                                    # 非 run_command / argv 缺失时 _persist_grant_rule 自行跳过。
+                                    "argv": args.get("argv") if isinstance(args, dict) else None,
+                                    "tool_name": tool_name,
                                 }
                                 # 发 tool-approval SSE 帧(帧名/payload 见模块头注释,与
                                 # agent 任务流同形,前端 ToolApprovalDialog 可复用解析)
@@ -3908,6 +3982,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     _grant_record(
                                         _grants_bucket(), tool_name, _scope, time.monotonic()
                                     )
+                                # D158:第四档「批准并生成放行规则」—— 只对 run_command 生效,
+                                # 按 argv 前 N 个 token 落**前缀**规则(持久层,90 天 TTL,
+                                # 与 mcp_server 的 exec_prefix 同一键空间)。落规则提成
+                                # _persist_grant_rule(可单测;失败不阻断本次执行)。
+                                if _decision == "approve":
+                                    _persist_grant_rule(_entry, tool_name, session_id)
                                 if _decision is None or _decision != "approve":
                                     _is_timeout = _decision is None
                                     _denied_why = (
@@ -4229,10 +4309,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     _term_token = None
                                     if _is_terminal_tool and _terminal_id:
                                         _delta_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+                                        # D151(2026-09-29):user_id 走**令牌主体**注入 ——
+                                        # 交互式命令的代答待决项在注册点盖章,结算点只比对
+                                        # 该值;模型参数与请求体都碰不到它(§5 认证≠授权)。
                                         _term_token = set_terminal_stream_context(
                                             session_id=session_id or "",
                                             iteration=_tool_iter + 1,
                                             tool_call_id=_terminal_id,
+                                            user_id=owner_uuid,
+                                            messageId=message_id,
                                             push=_delta_queue.put_nowait,
                                         )
                                     if _term_token is not None:
@@ -4259,12 +4344,19 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                                     continue
                                                 while not _delta_queue.empty():
                                                     _d = _delta_queue.get_nowait()
-                                                    if _d and _d.get("text"):
+                                                    # D151:同一 push 通道现在有两种帧。按 payload 的
+                                                    # type 分流,**不得**再靠"有没有 text 字段"判 ——
+                                                    # 那样交互帧会被静默丢掉(前端永远等不到)。
+                                                    if _d and _d.get("type") == "terminal_interaction":
+                                                        yield _sse(SSE_TERMINAL_INTERACTION, _d)
+                                                    elif _d and _d.get("text"):
                                                         yield _sse(SSE_TERMINAL_DELTA, _d)
                                             # 任务结束后排空残余 delta 帧
                                             while not _delta_queue.empty():
                                                 _d = _delta_queue.get_nowait()
-                                                if _d and _d.get("text"):
+                                                if _d and _d.get("type") == "terminal_interaction":
+                                                    yield _sse(SSE_TERMINAL_INTERACTION, _d)
+                                                elif _d and _d.get("text"):
                                                     yield _sse(SSE_TERMINAL_DELTA, _d)
                                             exec_result = _call_task.result()
                                         finally:
@@ -4831,8 +4923,18 @@ async def post_tool_approval_response(session_id: str, body: dict[str, Any] = Bo
     scope = str(body.get("scope") or "once").strip().lower()
     if scope not in ("once", "session", "always"):
         scope = "once"
+    # D158(2026-09-28,用户批"按预填上"):正交扩展 grant_rule —— 与三档 scope 语义并行,
+    # 不新增第四个 scope 字符串。approve 时附带 = "顺手把这类命令写成前缀放行规则"。
+    grant_rule_raw = body.get("grant_rule")
+    grant_rule: dict[str, Any] | None = None
+    if isinstance(grant_rule_raw, dict):
+        _gk = str(grant_rule_raw.get("kind") or "")
+        _gt = grant_rule_raw.get("tokens", 2)
+        if _gk == "exec_prefix" and (isinstance(_gt, int) and 1 <= _gt <= 4):
+            grant_rule = {"kind": "exec_prefix", "tokens": int(_gt)}
     entry["decision"] = decision
     entry["scope"] = scope
+    entry["grant_rule"] = grant_rule  # None = 未要求生成规则(旧客户端语义不变)
     reason = body.get("reason")
     entry["reason"] = str(reason)[:500] if reason else None  # 截断与网关 schema 上限对齐
     entry["event"].set()
@@ -4919,6 +5021,44 @@ async def post_form_response(
     ev = entry["event"]
     ev.set()
     return {"ok": True, "accepted": True, "requestId": request_id, "action": action}
+
+
+@router.post("/llm/complete/stream/{session_id}/terminal-input", response_model=None)
+async def post_terminal_input(
+    request: Request,
+    session_id: str,
+    body: dict[str, Any] = Body(...),
+) -> dict[str, Any]:
+    """D151(2026-09-29 立,用户批「默认开 + 单次等待 300s」):把用户键入送回正在等的命令。
+
+    上行形状是 **snake_case**(`terminal_id` / `text`),与同通道的 form-response、
+    tool-result 同族 —— 注意**下行**的 `terminal_interaction` 帧是 camelCase。
+
+    归属判定只认**令牌主体**,不读 body 里的任何 userId;比对发生在 mcp_server 的
+    唯一结算出口 `settle_terminal_input`(那里存的是带主记录的待决项)。
+    "没这条"与"不是你的"**同形回包** —— 否则本端点会变成存在性预言机。
+
+    刻意**不回显 text**:键入内容可能是密码,而返回值会进访问日志与响应体。
+    """
+    terminal_id = str(body.get("terminal_id") or body.get("terminalId") or "")
+    text = body.get("text")
+    if not terminal_id or not isinstance(text, str):
+        # 形状不对也不告诉调用方差在哪一位:与"not found"同形,少一条可枚举的差异。
+        return {"ok": False, "error": "terminal input request not found"}
+    outcome = settle_terminal_input(
+        session_id=session_id,
+        terminal_id=terminal_id,
+        text=text,
+        caller_user_id=_resolve_owner_uuid(request),
+    )
+    if not outcome.get("settled"):
+        logger.info(
+            "terminal-input 未结算(session=%s, terminal=%s)—— 不存在或不属于本调用方",
+            session_id,
+            terminal_id,
+        )
+        return {"ok": False, "error": "terminal input request not found"}
+    return {"ok": True, "accepted": True, "terminalId": terminal_id}
 
 
 @router.post("/llm/complete/stream/{session_id}/steer", response_model=None)
@@ -6245,4 +6385,106 @@ async def compaction_demo(
     except Exception as e:
         logger.exception("compaction_demo 内部异常: %s", e)
         return _error_json(f"compaction failed: {type(e).__name__}: {e}", 500)
+
+
+# =============================================================================
+# D158 UI 半张(2026-09-28):前缀放行规则的管理出口(列表 + 撤销)
+# =============================================================================
+# 前端 ApprovedRulesPanel(apps/web)经 @ihui/api-client 的 listApprovalGrants /
+# revokeApprovalGrant 调用本端点,管理审批第四档「批准并生成放行规则」落库的前缀规则。
+# 鉴权复用本文件既有模式:JWT 中间件已把令牌主体注入 request.state.user_id
+# (与 _resolve_owner_uuid / _ensure_restricted_model_access 同一来源),
+# 缺失即 401;不接受请求体/Query 自报身份。
+
+# 本出口只管前缀规则(exec_prefix);其余 kind(exec_once / mcp_tool)不经这里删。
+_APPROVAL_GRANT_MANAGED_KINDS = ("exec_prefix",)
+
+
+def _readable_exec_prefix(cache_key: str) -> str:
+    """把 normalize_exec_key 的 \\x1f 连接键还原成可读形态(``git\\x1fpush`` → ``git push``)。"""
+    return cache_key.replace("\x1f", " ").strip()
+
+
+@router.get("/llm/approval-grants", response_model=None)
+async def list_approval_grants(request: Request) -> dict[str, Any]:
+    """D158:列出前缀放行规则(审批第四档授予的持久层规则)。
+
+    未过期判定复用 approval_persistence.list_keys 的权威集(单一实现,不复制第二份
+    过期过滤逻辑);created_at / expires_at 明细是 list_keys 没有的投影,经同一把
+    连接锁做只读 SELECT —— 本票约束不改 approval_persistence,也不新建存储层,
+    借用其私有连接出口是刻意为之(单一 DB 路径,不抄第二份 _DB_PATH 解析)。
+    """
+    if not getattr(request.state, "user_id", None):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        from app.services import approval_persistence as _ap
+
+        unexpired = set(_ap.list_keys("exec_prefix"))
+        conn = _ap._get_conn()
+        with _ap._lock:
+            rows = conn.execute(
+                "SELECT cache_key, scope, created_at, expires_at FROM approval_grants "
+                "WHERE kind='exec_prefix'"
+            ).fetchall()
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001 - 持久层异常不炸路由,显式失败标记回给面板
+        logger.warning("D158 approval-grants 列表查询失败: %s", e)
+        return {"ok": False, "error": "query failed", "grants": []}
+    by_key: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        key = str(row["cache_key"])
+        if key not in unexpired:
+            # 已过期/未登记:以 list_keys 权威集为准(过期行留给 purge 清理)
+            continue
+        grant = by_key.setdefault(
+            key,
+            {
+                "cacheKey": key,
+                "prefix": _readable_exec_prefix(key),
+                "tokenCount": len([t for t in key.split("\x1f") if t]),
+                "kind": "exec_prefix",
+                "scopes": [],
+                "createdAt": None,
+                "expiresAt": None,
+            },
+        )
+        if row["scope"] not in grant["scopes"]:
+            grant["scopes"].append(str(row["scope"]))
+        created = row["created_at"]
+        expires = row["expires_at"]
+        if created and (grant["createdAt"] is None or str(created) < str(grant["createdAt"])):
+            grant["createdAt"] = created
+        # 同键多行取最晚过期(展示最长有效期;NULL = 永不过期,保持 NULL)
+        if expires and (grant["expiresAt"] is None or str(expires) > str(grant["expiresAt"])):
+            grant["expiresAt"] = expires
+    grants = sorted(by_key.values(), key=lambda g: str(g["createdAt"] or ""), reverse=True)
+    return {"ok": True, "grants": grants}
+
+
+@router.delete("/llm/approval-grants", response_model=None)
+async def revoke_approval_grant(request: Request) -> dict[str, Any] | JSONResponse:
+    """D158:按 cache_key + kind 精确撤销一条放行规则(面板单条撤销按钮)。
+
+    撤销复用 approval_persistence.revoke(单一实现,按 cache_key+kind 复合键删);
+    kind 白名单只放行本出口覆盖的 exec_prefix(宁窄不误)。"没这条"与"删了"都回
+    ok(幂等),不给存在性探针 —— 面板撤销后自行刷新列表即可看到结果。
+    """
+    if not getattr(request.state, "user_id", None):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    cache_key = str(request.query_params.get("cache_key") or "")
+    kind = str(request.query_params.get("kind") or "exec_prefix")
+    if not cache_key:
+        return JSONResponse(status_code=422, content={"ok": False, "error": "cache_key required"})
+    if kind not in _APPROVAL_GRANT_MANAGED_KINDS:
+        return JSONResponse(status_code=422, content={"ok": False, "error": "kind not allowed"})
+    try:
+        from app.services import approval_persistence as _ap
+
+        _ap.revoke(cache_key, kind)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("D158 放行规则撤销失败(kind=%s): %s", kind, e)
+        return {"ok": False, "error": "revoke failed"}
+    logger.info("D158 放行规则已撤销(kind=%s, key=%s)", kind, cache_key[:64])
+    return {"ok": True}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

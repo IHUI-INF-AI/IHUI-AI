@@ -50,11 +50,11 @@
     },
     {
       "path": "packages/services/src/credential",
-      "status": "windowed",
+      "status": "deep",
       "files": 3,
       "read": 3,
       "evidence": ["packages/services/src/credential/providers/credentialCipherProvider.ts:24"],
-      "notes": "机派生兜底密钥(platform:homedir:username 拼串 sha256)。历轮判'我方 getKey 无 key 即抛更强';本条出处未经主会话复验。"
+      "notes": "机派生兜底密钥(platform:homedir:username 拼串 sha256)。历轮判'我方 getKey 无 key 即抛更强';本条出处未经主会话复验。2026-09-29 升 deep 的依据是**算术**(主会话现量 find 计数=3,与 read=3 等值),而'read 3 枚'这个读数本身仍来自取证代理当轮、主会话未逐枚复验 ⇒ 这一格是'数字闭合'不是'已亲验',复验入口:逐枚打开这 3 个文件。"
     },
     {
       "path": "packages/services/src",
@@ -144,7 +144,7 @@
       "status": "windowed",
       "files": 20,
       "read": 20,
-      "notes": "src+examples 全部读到体;但 Layer4/6 全仓零生产调用 ⇒ '有 ACK/重放'只是库素材,不是能力。"
+      "notes": "src+examples 全部读到体;但 Layer4/6 全仓零生产调用 ⇒ '有 ACK/重放'只是库素材,不是能力。2026-09-29 试过升 deep 被尺子本人拒(M2:deep 必须带出处指针,而这一条通篇没有 evidence)⇒ 已回退 windowed。**这一格的真实状态是'read=20 无人可兑现'**:数字与尺子现量等值(主会话 find 按 SOURCE_EXT 口径=20),但既没有 file:line 出处、也不是主会话逐枚复验的读数 —— 要升 deep 的解阻前置是逐枚打开这 20 个文件并留下 ≥1 条 evidence 指针,不是改状态字段。"
     },
     {
       "path": "packages/zcode-server-cli/src",
@@ -235,9 +235,9 @@
     {
       "path": "apps/zcode-cli/packages/dynamic-workflow",
       "status": "windowed",
-      "files": 94,
+      "files": 97,
       "read": 19,
-      "remaining": "75 未读:analysis 52 整目录(单独一票)、engine 21(engine/types.ts 944、concurrency.ts 265 仅窗口读)、schema 7、facade 5。⚠️ 分母由 97 改为现量 94(ts/tsx 口径;全文件口径是 102)——登记原值 97 与两个现量口径都不等,按 97 派单会去找 3 枚不存在的文件;97 的出处待表主人确认后再回改。read 由 4→19:旧 4 枚(hash / scheduler-submit / run-terminal / engine-settlement)全部落在本轮新集内 ⇒ 不重复计。",
+      "remaining": "78 未读:analysis 52 整目录(单独一票)、engine 21(engine/types.ts 944、concurrency.ts 265 仅窗口读)、schema 7、facade 5。2026-09-29 主会话现量把分母定回**尺子自己的口径**(`scripts/zcode-absorption-matrix.mjs` 的 `SOURCE_EXT` = ts|tsx|js|jsx|mjs|cjs|py|rs|swift|java|kt|go ⇒ 97),并写下三种口径的现量以免再漂:尺子口径 97 / 纯 ts|tsx 口径 94 / 全文件口径 102。此前登记的 94 是按 ts|tsx 窄口径算的,而尺子按 97 判漂 ⇒ **分母必须与尺子同口径**,否则每次跑矩阵都点名一个「已改对」的数字。read 由 4→19:旧 4 枚(hash / scheduler-submit / run-terminal / engine-settlement)全部落在本轮新集内 ⇒ 不重复计。",
       "evidence": [
         "apps/zcode-cli/packages/dynamic-workflow/src/engine/errors.ts:14",
         "apps/zcode-cli/packages/dynamic-workflow/src/engine/engine-launch.ts:26",

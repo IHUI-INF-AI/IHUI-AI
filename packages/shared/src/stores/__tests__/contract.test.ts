@@ -200,6 +200,10 @@ describe('createAuthStore 工厂', () => {
     expect(s.isAuthenticated).toBe(true)
   })
 
+  /* 待人工裁决(互斥项 c4-M1):两侧给同一个用例各起了一个标题,语义相同。现行取下面那一行
+     (与 c3/c6 本侧命名同形:「都不落盘(安全 + 单一真相)」);对侧标题原文逐字留档如下。
+  it('持久化:仅持久化 user 资料,不持久化 token / isAuthenticated(安全 + 登录态单一真相)', async () => {
+  */
   it('持久化:仅持久化 user,token 与 isAuthenticated 都不落盘(安全 + 单一真相)', async () => {
     const persistTransport = createMemoryTransport()
     const auth = createAuthStore({
@@ -218,6 +222,9 @@ describe('createAuthStore 工厂', () => {
     expect(parsed.state.user).toEqual(mockUser)
     // 关键(2026-09-28 收口):持久化键集合里不得有 isAuthenticated ——
     // 它是登录态的第二份真相,只许由 token 派生,写盘即漂移(本用例是常驻锁)。
+    // —— 对侧(G-456)对同一收口的措辞,语义相同,并陈于此以免丢账:
+    // G-456(2026-09-28):登录态不入库 —— 它是「有没有 token」的派生值,入库即第二份真相,
+    // 失效形态是 token 已清而 blob 里仍 true ⇒ UI 认为已登录、请求全 401。
     expect(parsed.state.isAuthenticated).toBeUndefined()
     expect(Object.keys(parsed.state)).toEqual(['user'])
   })
