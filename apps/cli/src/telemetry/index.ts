@@ -139,6 +139,10 @@ const DEFAULT_FLUSH_INTERVAL_MS = 60_000;
 const DEFAULT_MAX_BATCH_SIZE = 50;
 /** flush 失败时队列最多保留多少条(防止无限增长) */
 const MAX_QUEUE_ON_FAILURE = 100;
+/** 单次 flush 请求的传输预算(端点不回字节时最迟这么久放弃)。 */
+const FLUSH_TIMEOUT_MS = 5_000;
+/** shutdown 里"最后一次 flush"的总预算:比 FLUSH_TIMEOUT_MS 更短,因为那是在退出路径上等人。 */
+const SHUTDOWN_FLUSH_MAX_MS = 1_200;
 
 /**
  * TelemetryClient — 极简批量上报客户端。
@@ -152,6 +156,13 @@ const MAX_QUEUE_ON_FAILURE = 100;
  */
 export class TelemetryClient {
   private queue: TelemetryEvent[] = [];
+  /**
+   * 正在路上的那一批(shutdown 的预算放弃时靠它知道"丢了几条")。
+   * flush 结束(成功/失败/异常)后在 finally 里清掉 —— 不留悬挂引用。
+   */
+  private inFlightBatch: TelemetryEvent[] | null = null;
+  /** 因退出预算而被丢弃的事件累计数(丢弃必须可查,不得静默)。 */
+  private droppedOnShutdownCount = 0;
   private flushTimer: NodeJS.Timeout | null = null;
   private readonly config: Required<Pick<TelemetryConfig, 'enabled' | 'batchSize' | 'flushIntervalMs'>> &
     Pick<TelemetryConfig, 'endpoint' | 'fetchImpl'>;
@@ -199,29 +210,76 @@ export class TelemetryClient {
     if (this.queue.length === 0) return;
     if (!this.config.endpoint) return;
     const batch = this.queue.splice(0, this.queue.length);
+    this.inFlightBatch = batch;
     try {
+      // **必须带超时**:此前这条 fetch 没有任何 signal,端点 stall(连接建了但不再回字节)
+      // 时这个 await 永不返回 —— 而 `shutdown()` 就在下面 await 它,调用点注释写着
+      // "telemetry 失败不阻塞退出"(commands/agent.ts),那句承诺当时只对 **throw** 成立。
+      // 遥测是附属品,不许把它的不健康变成进程的不退出。
       const res = await this.fetchFn(this.config.endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ events: batch }),
+        signal: AbortSignal.timeout(FLUSH_TIMEOUT_MS),
       });
       if (!res.ok) {
         // HTTP 非 2xx:把事件放回队列(最多保留 100 条)
         this.queue.unshift(...batch.slice(-MAX_QUEUE_ON_FAILURE));
       }
     } catch {
-      // 网络错误:把事件放回队列(最多保留 100 条)
+      // 网络错误/超时:把事件放回队列(最多保留 100 条)
       this.queue.unshift(...batch.slice(-MAX_QUEUE_ON_FAILURE));
+    } finally {
+      this.inFlightBatch = null;
     }
   }
 
-  /** 关闭客户端:清理 timer + 最后一次 flush */
+  /**
+   * 关闭客户端:清理 timer + 最后一次 flush。
+   *
+   * 最后一次 flush 被**硬预算**包住:`flush()` 内部虽有 FLUSH_TIMEOUT_MS,但那只管 fetch 一段
+   * —— 若 fetchImpl 根本不观测 signal(第三方实现、旧桩、被代理包装过的那一层),await 仍会永远
+   * 挂着。退出路径不能把"能不能退出"交给附属品的实现细节,所以这里再套一层 race。
+   * 计时器 unref:它是"最迟这时走",不是"至少活到这时"——不能反过来自己把进程按住。
+   */
   async shutdown(): Promise<void> {
     if (this.flushTimer !== null) {
       this.clearIntervalFn(this.flushTimer);
       this.flushTimer = null;
     }
-    await this.flush();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let budgetExpired = false;
+    // flush() 内部已自带 try/catch,不会 reject;这里再加一道 catch 只是防止
+    // 未来有人把某条分支改成抛出后,变成"没人听的 rejection"把进程炸掉。
+    const flushPromise = this.flush().catch(() => {});
+    await Promise.race([
+      flushPromise,
+      new Promise<void>((resolve) => {
+        timer = setTimeout(() => {
+          budgetExpired = true;
+          resolve();
+        }, SHUTDOWN_FLUSH_MAX_MS);
+        timer.unref?.();
+      }),
+    ]);
+    if (timer) clearTimeout(timer);
+    // 预算用完而 flush 仍挂着 ⇒ 这一批是**真的丢了**(进程即将退出,不再等它)。
+    // 丢了多少必须留下计数并当场喊出来:静默变短等于伪造"事件都送达了"
+    // (AGENTS §30「没有终态就写已完成」与守门 129「被省略必留计数」同一条禁令)。
+    if (budgetExpired) {
+      const lost = this.inFlightBatch?.length ?? 0;
+      if (lost > 0) {
+        this.droppedOnShutdownCount += lost;
+        console.warn(
+          `[telemetry] 退出预算 ${SHUTDOWN_FLUSH_MAX_MS}ms 用完,${lost} 条事件未送达即丢弃(累计 ${this.droppedOnShutdownCount} 条)`,
+        );
+      }
+    }
+  }
+
+  /** 因退出预算被丢弃的事件累计数(测试与自检用)。 */
+  getDroppedOnShutdownCount(): number {
+    return this.droppedOnShutdownCount;
   }
 
   /** 当前队列长度(测试用) */
