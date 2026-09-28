@@ -73,7 +73,7 @@ export function MemoryCards() {
               data-testid={`memory-tab-${cat}`}
               onClick={() => setActive(cat)}
               className={cn(
-                'flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
+                'flex items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors',
                 active === cat
                   ? 'bg-accent font-medium text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',
@@ -113,7 +113,7 @@ export function MemoryCards() {
                 data-testid={`memory-item-remove-${i}`}
                 aria-label={t('remove')}
                 onClick={() => remove(e.id)}
-                className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-destructive"
+                className="shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-destructive"
               >
                 <Trash2 className="h-3 w-3" />
               </button>
@@ -135,13 +135,13 @@ export function MemoryCards() {
             }
           }}
           placeholder={t('placeholder')}
-          className="min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+          className="min-w-0 flex-1 rounded-sm border bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
         />
         <button
           type="button"
           data-testid="memory-add"
           onClick={handleAdd}
-          className="flex shrink-0 items-center gap-0.5 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent"
+          className="flex shrink-0 items-center gap-0.5 rounded-sm border px-2 py-1 text-xs transition-colors hover:bg-accent"
         >
           <Plus className="h-3 w-3" />
           {t('add')}
@@ -154,7 +154,7 @@ export function MemoryCards() {
         data-testid="memory-copy-yaml"
         onClick={() => void handleCopyYaml()}
         disabled={items.length === 0}
-        className="flex w-full items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Copy className="h-3 w-3" />
         {t('copyYaml')}

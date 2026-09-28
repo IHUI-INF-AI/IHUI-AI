@@ -153,7 +153,7 @@ export function HunkToolbar({
         onClick={onApplySelected}
         disabled={!canApply}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[10px] font-medium',
+          'inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-[10px] font-medium',
           canApply
             ? 'bg-green-600 text-white hover:bg-green-700'
             : 'bg-muted text-muted-foreground/60',

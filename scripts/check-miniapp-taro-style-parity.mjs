@@ -28,27 +28,132 @@
  * 退出码:0 = 全部通过(含 WARN,不阻塞);1 = 出现 BLOCK 级失败(阻塞)。
  *
  * 用法:
- *   node scripts/check-miniapp-taro-style-parity.mjs           # 全量校验
+ *   node scripts/check-miniapp-taro-style-parity.mjs           # 全量校验(判定面 = 工作树磁盘)
  *   node scripts/check-miniapp-taro-style-parity.mjs --quiet   # 仅输出失败
  *   node scripts/check-miniapp-taro-style-parity.mjs --help    # 帮助
+ *   node scripts/check-miniapp-taro-style-parity.mjs --staged  # 提交链档:判定面 = 索引 blob
+ *   node scripts/check-miniapp-taro-style-parity.mjs --worktree# 显式磁盘档(人工逃生舱)
+ *   node scripts/check-miniapp-taro-style-parity.mjs --root <d># 显式仓库根(测试/夹具通道,仅 --worktree 档)
+ *
+ * 判定面(2026-09-28 收口,与守门 70/118 及 2i 死 key 扫描同口径):
+ *   本步是**批外 blocking**(不在 guardian-runner 里,拿不到它统一追加的面旗),且旧形态把
+ *   pages/components/app.css **整片按磁盘读** ⇒ 并行会话任意一个未暂存的 miniapp 页面就能把
+ *   本次提交钉红,而各会话唯一出路是 --no-verify(一次绕过约等于链上全部守门对该提交作废,
+ *   AGENTS §12e/§12f)。现 `--staged` ⇒ 清单(`git ls-files -z -- apps/miniapp-taro/src`)与
+ *   内容(一次 `cat-file --batch` 读满)**同面同轮**;别人没 `git add` 的东西结构上不在索引里。
+ *   面上取材失败 ⇒ **exit 2「未判定」并点名原因,绝不回退磁盘、绝不记为通过**。
+ *   两面旗同给 ⇒ exit 2(互斥,取哪一面都会把另一面洗成假绿)。
+ *   缺省 / `--worktree` ⇒ 工作树磁盘,既有全量行为逐字不变(CI 与 check:all 走这档)。
  */
 
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { dirname, join, relative, resolve } from 'node:path'
+import { Undetermined, assertRepoRoot, catBatch, gitRaw, selectFace } from './lib/face-reader.mjs'
+
+// ─── CLI 解析(先解析 --root,再推导路径:§15 不硬编码盘符,也不按 process.cwd() 定根) ───
+const argv = process.argv.slice(2)
+const quiet = argv.includes('--quiet') || argv.includes('-q')
+const showHelp = argv.includes('--help') || argv.includes('-h')
+
+/**
+ * `--root <dir>` 与 `--root=<dir>` 两种形态都必须认:早期只认空格形态时
+ * `--root=<不存在的目录>` 被静默忽略 ⇒ 夹具扫的是真仓,红绿都不作数(守门 70 那一型)。
+ * @returns {{root:string|null, error:string|null}}
+ */
+function resolveRootArg(list) {
+  const eq = list.find((a) => a.startsWith('--root='))
+  if (eq !== undefined) {
+    const v = eq.slice('--root='.length)
+    return v ? { root: resolve(v), error: null } : { root: null, error: '--root= 缺目录值' }
+  }
+  const i = list.indexOf('--root')
+  if (i < 0) return { root: null, error: null }
+  const v = list[i + 1]
+  if (!v || v.startsWith('-')) return { root: null, error: '--root 必须带目录值' }
+  return { root: resolve(v), error: null }
+}
+const rootArg = resolveRootArg(argv)
+if (rootArg.error) {
+  console.error(`[check-miniapp-taro-style-parity] 无法判定(exit 2,未判定): ${rootArg.error}`)
+  process.exit(2)
+}
+const root = rootArg.root ?? join(dirname(fileURLToPath(import.meta.url)), '..')
+
+// 判定面选择:与守门 70/103/118 共用同一条 selectFace(两面旗同给 = 自相矛盾,判死不取任何一面)。
+const facePick = selectFace({
+  staged: argv.includes('--staged'),
+  worktree: argv.includes('--worktree'),
+  def: 'worktree',
+})
+if (facePick.error) {
+  console.error(`[check-miniapp-taro-style-parity] 无法判定(exit 2,未判定): ${facePick.error}`)
+  process.exit(2)
+}
+const FACE = facePick.face
+// `--root <dir>` 与 `--staged` **可以**同用:git 一律 `-C <root>`,取的就是那棵树自己的索引
+// (镜像测试靠这条通道把夹具仓喂进来,与 scan-dead-i18n-keys 的 --root 通道同形)。
+// 真正的危险是"root 是仓库的**子目录**"⇒ ls-files 的路径与 join(root, rel) 错位,
+// 那由 ensureFaceIndex 里的 assertRepoRoot 判死,不在这里靠猜。
+const FACE_LABEL_TEXT = FACE === 'staged' ? '索引 blob' : '工作树磁盘'
+
+/** 索引面预载:rel(仓库根相对、正斜杠) → blob 文本。null 表示"未预载"。 */
+let faceIndex = null
+
+/** 仓库根相对路径(正斜杠),索引面的 Map 键。 */
+function relKey(p) {
+  return relative(root, p).replace(/\\/g, '/')
+}
+
+function failUndetermined(what) {
+  console.error(`[check-miniapp-taro-style-parity] 无法判定(exit 2,未判定): ${what}`)
+  console.error('   这不是"仓库有违规",是这次判不了。**未判定 ≠ 通过**,也绝不回退磁盘。')
+  process.exit(2)
+}
+
+/** 索引面一次性枚举 + 读满(清单与内容同面同轮;混着取会产出自洽却错位的尺子,守门 118)。 */
+function ensureFaceIndex() {
+  if (faceIndex) return
+  const srcRel = relKey(SRC)
+  let listing
+  try {
+    assertRepoRoot(root, '本门')
+    listing = gitRaw(['ls-files', '-z', '--', srcRel], root, { timeout: 120000 }).split('\0')
+  } catch (e) {
+    if (e instanceof Undetermined) failUndetermined(`索引面枚举失败:${e.message}`)
+    throw e
+  }
+  const rels = listing.filter(Boolean)
+  // 枚举到 0 个可扫文件 = 判据失明,不是"这一端干净"(空扫不记绿,守门 70/77/118 同一条)。
+  if (rels.length === 0) failUndetermined(`索引面在 ${relKey(SRC)} 下枚举到 0 个跟踪文件`)
+  let got
+  try {
+    got = catBatch(root, rels.map((r) => `:${r}`), { maxBuffer: 1 << 28, timeout: 180000 })
+  } catch (e) {
+    if (e instanceof Undetermined)
+      failUndetermined(`索引面取材失败(**不回退磁盘**):${e.message}`)
+    throw e
+  }
+  faceIndex = new Map()
+  const absent = []
+  for (const r of rels) {
+    const t = got.get(`:${r}`)
+    if (typeof t === 'string') faceIndex.set(r, t)
+    else absent.push(r) // unmerged / 非 blob:索引面上"没有可读正文",由 faceExists 决定语义
+  }
+  if (absent.length > 0) {
+    failUndetermined(
+      `索引面有 ${absent.length} 个路径取不到正文(unmerged / 非 blob),首个:${absent[0]}`,
+    )
+  }
+}
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码中文绝对路径) ───
-const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SRC = join(root, 'apps/miniapp-taro/src')
 const APP_CSS_PATH = join(SRC, 'app.css')
 const APP_CONFIG_PATH = join(SRC, 'app.config.ts')
 const PAGES_DIR = join(SRC, 'pages')
 const COMPONENTS_DIR = join(SRC, 'components')
-
-// ─── CLI 解析 ───
-const argv = process.argv.slice(2)
-const quiet = argv.includes('--quiet') || argv.includes('-q')
-const showHelp = argv.includes('--help') || argv.includes('-h')
 
 if (showHelp) {
   console.log(`
@@ -60,6 +165,9 @@ check-miniapp-taro-style-parity.mjs — miniapp-taro 跨端样式一致性守门
 选项:
   --quiet, -q    仅输出失败(BLOCK 级)信息
   --help, -h     显示此帮助
+  --staged       判定面 = 索引 blob(pre-commit 用这一档;清单与内容同面同轮)
+  --worktree     判定面 = 工作树磁盘(缺省档,人工 / CI 全量审计)
+  --root <dir>   显式仓库根(**仅** --worktree 档,供测试夹具)
 
 校验内容:
   RULE-1a (BLOCK) 页面/组件 CSS 禁用深色科技风色板
@@ -73,6 +181,7 @@ check-miniapp-taro-style-parity.mjs — miniapp-taro 跨端样式一致性守门
 退出码:
   0 = 通过(含 WARN)
   1 = BLOCK 级失败
+  2 = 无法判定(未判定:索引面取材失败 / 参数矛盾)—— 既非通过也非违规
 `)
   process.exit(0)
 }
@@ -156,11 +265,30 @@ const PLATFORM_COLORS = new Set([
 
 // ─── 工具函数 ───
 
-/** 读取文本并去除 BOM。 */
+/**
+ * 读取文本并去除 BOM。**按判定面分派**:
+ *  - `--staged` ⇒ 预载的索引 blob(路径不在索引面 ⇒ null,由 `exists()` 先挡住);
+ *  - 缺省 / `--worktree` ⇒ 磁盘(既有全量行为逐字不变)。
+ */
 function readText(p) {
-  let s = readFileSync(p, 'utf8')
+  let s
+  if (FACE === 'staged') {
+    ensureFaceIndex()
+    const t = faceIndex.get(relKey(p))
+    if (typeof t !== 'string') return null
+    s = t
+  } else {
+    s = readFileSync(p, 'utf8')
+  }
   if (s.charCodeAt(0) === 0xfeff) s = s.slice(1)
   return s
+}
+
+/** 路径在**判定面**上是否存在(索引面 = 索引里有这条路径且取到了正文)。 */
+function exists(p) {
+  if (FACE !== 'staged') return existsSync(p)
+  ensureFaceIndex()
+  return faceIndex.has(relKey(p))
 }
 
 /** 去除 CSS 块注释 /* ... *\/。 */
@@ -175,8 +303,21 @@ function stripTsComments(text) {
     .replace(/(^|[^:])\/\/.*$/gm, '$1')
 }
 
-/** 递归收集目录下所有指定后缀文件。 */
+/**
+ * 递归收集目录下所有指定后缀文件。**索引面走枚举,不走磁盘**:
+ * 别人未 `git add` 的新文件进不了本次提交,也不该参与本次判定。
+ */
 function walk(dir, exts, out = []) {
+  if (FACE === 'staged') {
+    ensureFaceIndex()
+    const prefix = relKey(dir) + '/'
+    for (const rel of faceIndex.keys()) {
+      if (!rel.startsWith(prefix)) continue
+      const ext = rel.slice(rel.lastIndexOf('.') + 1)
+      if (exts.includes(ext)) out.push(join(root, rel))
+    }
+    return out
+  }
   if (!existsSync(dir)) return out
   for (const entry of readdirSync(dir)) {
     if (entry === 'node_modules' || entry.startsWith('.')) continue
@@ -203,7 +344,11 @@ function extractHexes(cleanText) {
 
 /** @returns {number} exit code */
 function main() {
-  if (!quiet) console.log('[check-miniapp-taro-style-parity] 跨端样式一致性守门...')
+  // 判定面**总是**印(不受 --quiet 影响):归因层与人都要能区分"判的是哪一份",
+  // 否则 --quiet 档的绿与索引面的绿在日志里长得一样。
+  console.log(
+    `[check-miniapp-taro-style-parity] 跨端样式一致性守门…(判定面:${FACE_LABEL_TEXT}${FACE === 'staged' ? ' = 索引 blob,本次提交真正会带走的那一份' : ''})`,
+  )
   let blocking = 0
   const warnings = 0
 
@@ -251,7 +396,7 @@ function main() {
   }
 
   // ── RULE-2:app.css 深色科技风回归 ──
-  if (existsSync(APP_CSS_PATH)) {
+  if (exists(APP_CSS_PATH)) {
     const clean = stripCssComments(readText(APP_CSS_PATH))
     const bannedInApp = extractHexes(clean).filter((h) => BANNED_DARKTECH.has(h))
     // 深色全局覆盖签名:page{...} 含背景十六进制,或 *{font-family...!important}
@@ -272,7 +417,7 @@ function main() {
   }
 
   // ── RULE-3:路由页必须挂载 <ThemeRoot> ──
-  if (existsSync(APP_CONFIG_PATH)) {
+  if (exists(APP_CONFIG_PATH)) {
     const cfg = readText(APP_CONFIG_PATH)
     const m = cfg.match(/pages:\s*\[([\s\S]*?)\]/)
     if (m) {
@@ -282,7 +427,7 @@ function main() {
       const missing = []
       for (const p of pages) {
         const tsx = join(SRC, p + '.tsx')
-        if (!existsSync(tsx)) continue
+        if (!exists(tsx)) continue
         if (!/ThemeRoot/.test(readText(tsx))) missing.push(p)
       }
       if (missing.length > 0) {
@@ -445,7 +590,7 @@ function main() {
   const spacePseudoRe = new RegExp(':[ \\t]+(' + PSEUDO_KW.join('|') + ')\\b', 'g')
   const spacePseudoHits = []
   for (const f of [...allCss, APP_CSS_PATH]) {
-    if (!existsSync(f)) continue
+    if (!exists(f)) continue
     const selectorText = collectSelectorHeads(readText(f))
     let m
     const re = new RegExp(spacePseudoRe.source, 'g')
@@ -461,15 +606,36 @@ function main() {
 
   // ── 汇总 ──
   if (blocking > 0) {
-    console.error(`\n❌ 跨端样式一致性守门失败:${blocking} 项 BLOCK 级问题(已阻塞)`)
+    console.error(
+      `\n❌ 跨端样式一致性守门失败:${blocking} 项 BLOCK 级问题(已阻塞;判定面:${FACE_LABEL_TEXT})`,
+    )
     return 1
   }
   if (!quiet) {
-    if (warnings > 0) console.log(`\n✅ 跨端样式一致性守门通过(${warnings} 项 WARN,不阻塞)`)
-    else console.log('\n✅ 跨端样式一致性守门通过(无 WARN)')
+    if (warnings > 0)
+      console.log(`\n✅ 跨端样式一致性守门通过(${warnings} 项 WARN,不阻塞;判定面:${FACE_LABEL_TEXT})`)
+    else console.log(`\n✅ 跨端样式一致性守门通过(无 WARN;判定面:${FACE_LABEL_TEXT})`)
   }
   return 0
 }
 
-process.exit(main())
+// ─── §22d 双形态入口守护 ───
+// 下面那段是 CLI 副作用(索引面取材 + process.exit)。测试 import 本文件只为拿纯判据,
+// 若不加守护,import 一次就等于把整道门跑完并杀掉测试进程。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  try {
+    if (FACE === 'staged') ensureFaceIndex()
+    process.exit(main())
+  } catch (e) {
+    if (e instanceof Undetermined) {
+      failUndetermined(`索引面取材失败(**不回退磁盘**):${e.message}`)
+      process.exit(2)
+    }
+    throw e
+  }
+}
+
+export const __test__ = { resolveRootArg, selectFace, relKeyOf: () => relKey, getFace: () => FACE }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

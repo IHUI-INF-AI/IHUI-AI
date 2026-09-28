@@ -179,7 +179,7 @@ export function CloudRunsView() {
         <button
           onClick={() => void loadList(data?.page ?? 1)}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition hover:bg-muted disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-sm border px-3 py-1.5 text-sm transition hover:bg-muted disabled:opacity-40"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -211,7 +211,7 @@ export function CloudRunsView() {
               <li key={run.run_id}>
                 <button
                   onClick={() => void openDetail(run)}
-                  className="w-full rounded-xl border p-3 text-left transition hover:border-primary/50 hover:bg-muted/30"
+                  className="w-full rounded-sm border p-3 text-left transition hover:border-primary/50 hover:bg-muted/30"
                 >
                   <div className="mb-1 flex items-center justify-between gap-3">
                     <code className="truncate rounded bg-muted px-1 text-xs text-muted-foreground">
@@ -245,7 +245,7 @@ export function CloudRunsView() {
               <button
                 onClick={() => void loadList(Math.max(1, (data.page ?? 1) - 1))}
                 disabled={(data.page ?? 1) <= 1}
-                className="rounded-lg border px-3 py-1 transition hover:bg-muted disabled:opacity-40"
+                className="rounded-sm border px-3 py-1 transition hover:bg-muted disabled:opacity-40"
               >
                 {t('prev')}
               </button>
@@ -255,7 +255,7 @@ export function CloudRunsView() {
               <button
                 onClick={() => void loadList(Math.min(totalPages, (data.page ?? 1) + 1))}
                 disabled={(data.page ?? 1) >= totalPages}
-                className="rounded-lg border px-3 py-1 transition hover:bg-muted disabled:opacity-40"
+                className="rounded-sm border px-3 py-1 transition hover:bg-muted disabled:opacity-40"
               >
                 {t('next')}
               </button>

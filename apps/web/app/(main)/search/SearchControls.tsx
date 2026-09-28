@@ -34,7 +34,7 @@ export function SearchControls({ tab, setTab, sort, setSort }: Props) {
             key={tabItem.value}
             onClick={() => setTab(tabItem.value)}
             className={cn(
-              'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              'shrink-0 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
               tab === tabItem.value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',

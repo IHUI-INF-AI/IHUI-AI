@@ -720,7 +720,7 @@ export function CdpBrowserView({
       <button
         type="button"
         onClick={() => setDevToolsOpen((o) => !o)}
-        className="absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-md border border-border bg-background/90 px-2 py-1 text-[10px] text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
+        className="absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-sm border border-border bg-background/90 px-2 py-1 text-[10px] text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
         aria-label={t('devTools')}
       >
         <span className="font-mono font-semibold">{'</>'}</span>
@@ -732,7 +732,7 @@ export function CdpBrowserView({
         onClick={() => setPickMode((o) => !o)}
         aria-pressed={pickMode}
         data-testid="pick-element-toggle"
-        className={`absolute right-2 top-9 z-20 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] shadow-sm transition-colors ${
+        className={`absolute right-2 top-9 z-20 inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-[10px] shadow-sm transition-colors ${
           pickMode
             ? 'border-primary/40 bg-cta text-cta-foreground'
             : 'border-border bg-background/90 text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -782,7 +782,7 @@ export function CdpBrowserView({
               type="button"
               onClick={runJs}
               disabled={!jsCode.trim()}
-              className="mt-1 rounded-md bg-cta px-2 py-1 text-[10px] font-medium text-cta-foreground disabled:opacity-50"
+              className="mt-1 rounded-sm bg-cta px-2 py-1 text-[10px] font-medium text-cta-foreground disabled:opacity-50"
             >
               {t('run')}
             </button>
