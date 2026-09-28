@@ -77,7 +77,7 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
           data-testid="password-toggle"
           className={cn(
             'absolute right-2 top-0 flex h-10 w-10 items-center justify-center overflow-visible',
-            'rounded-r-md text-foreground/60 transition-colors duration-200',
+            'rounded-$1-sm text-foreground/60 transition-colors duration-200',
             'hover:text-foreground focus-visible:outline-none',
           )}
         >

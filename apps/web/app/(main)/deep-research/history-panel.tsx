@@ -88,7 +88,7 @@ export function HistoryPanel({ activeId, onSelect }: HistoryPanelProps) {
               type="button"
               onClick={() => onSelect(it)}
               className={cn(
-                'w-full rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent',
+                'w-full rounded-sm px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent',
                 activeId === it.researchId && 'bg-accent',
               )}
             >

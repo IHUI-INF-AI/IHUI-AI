@@ -80,7 +80,7 @@ export function DesignLeftPanel({
                 textAlign: 'left',
                 padding: '6px 8px',
                 border: '1px solid var(--border)',
-                borderRadius: rnRadius.md,
+                borderRadius: rnRadius.sm,
                 background:
                   currentPreviewId === p.id
                     ? 'var(--accent-soft, rgba(0,0,0,0.04))'

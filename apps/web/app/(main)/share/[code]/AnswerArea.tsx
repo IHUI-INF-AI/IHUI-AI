@@ -117,7 +117,7 @@ function ImageGrid({ images }: { images: string[] }) {
           <button
             key={url}
             onClick={() => setPreviewIndex(idx)}
-            className="overflow-hidden rounded-2xl"
+            className="overflow-hidden rounded-sm"
           >
             <Image
               src={url}
@@ -184,7 +184,7 @@ function ImagePreview({
               e.stopPropagation()
               setCurrent((c) => (c - 1 + images.length) % images.length)
             }}
-            className="absolute left-4 flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white transition-colors hover:bg-white/20"
+            className="absolute left-4 flex h-10 w-10 items-center justify-center rounded-sm bg-white/10 text-white transition-colors hover:bg-white/20"
             aria-label={t('prev')}
           >
             <ChevronLeft className="h-5 w-5" />
@@ -194,7 +194,7 @@ function ImagePreview({
               e.stopPropagation()
               setCurrent((c) => (c + 1) % images.length)
             }}
-            className="absolute right-4 top-1/2 flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white transition-colors hover:bg-white/20"
+            className="absolute right-4 top-1/2 flex h-10 w-10 items-center justify-center rounded-sm bg-white/10 text-white transition-colors hover:bg-white/20"
             aria-label={t('next')}
           >
             <ChevronRight className="h-5 w-5" />
@@ -303,7 +303,7 @@ function ListsContent({ lists }: { lists: ShareListItem[] }) {
             <button
               key={`list-${idx}`}
               onClick={() => window.open(item.content, '_blank')}
-              className="block overflow-hidden rounded-2xl"
+              className="block overflow-hidden rounded-sm"
             >
               <Image
                 src={item.content}

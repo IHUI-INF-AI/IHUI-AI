@@ -43,8 +43,8 @@ export function DetailModeSwitcher() {
             onClick={() => setMode(m)}
             className={
               mode === m
-                ? 'rounded-lg bg-cta px-2.5 py-0.5 text-xs text-cta-foreground transition-colors'
-                : 'rounded-lg px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground'
+                ? 'rounded-sm bg-cta px-2.5 py-0.5 text-xs text-cta-foreground transition-colors'
+                : 'rounded-sm px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground'
             }
           >
             {t(MODE_LABEL_KEYS[m])}

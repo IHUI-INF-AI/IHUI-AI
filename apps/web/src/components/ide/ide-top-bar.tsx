@@ -65,7 +65,7 @@ export function IDETopBar() {
       <button
         onClick={() => setActiveTopTab('editor')}
         className={cn(
-          'flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors',
+          'flex items-center gap-1.5 rounded-sm px-3 py-1 text-xs font-medium transition-colors',
           activeTopTab === 'editor'
             ? 'bg-background text-foreground'
             : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',

@@ -124,7 +124,7 @@ export function AiTutorPanel() {
                     setMode(m.value)
                     resetResults()
                   }}
-                  className={`flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border text-xs font-medium leading-none transition-colors ${
+                  className={`flex h-8 flex-1 items-center justify-center gap-1.5 rounded-sm border text-xs font-medium leading-none transition-colors ${
                     active
                       ? 'border-primary/30 bg-primary/10 text-primary'
                       : 'border-border hover:bg-accent'

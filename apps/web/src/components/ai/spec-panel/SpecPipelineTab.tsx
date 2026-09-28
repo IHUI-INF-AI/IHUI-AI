@@ -22,7 +22,7 @@ export function SpecPipelineTab({ p }: { p: SpecPanelApi }) {
           onClick={p.handleRunPipeline}
           disabled={p.pipelineLoading || !p.result?.spec}
           className={cn(
-            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+            'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm px-3 text-xs font-medium transition-colors',
             'bg-cta text-cta-foreground hover:bg-cta/90',
             (p.pipelineLoading || !p.result?.spec) && 'cursor-not-allowed opacity-60',
           )}
@@ -48,12 +48,12 @@ export function SpecPipelineTab({ p }: { p: SpecPanelApi }) {
           value={p.pipelineIdInput}
           onChange={(e) => p.setPipelineIdInput(e.target.value)}
           placeholder="pipeline ID(查询用)"
-          className="h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
+          className="h-7 rounded-sm border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
         />
         <button
           type="button"
           onClick={p.handleRefreshPipelineStatus}
-          className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60"
+          className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60"
         >
           <History className="h-3 w-3" />
           <span>刷新状态</span>
@@ -63,7 +63,7 @@ export function SpecPipelineTab({ p }: { p: SpecPanelApi }) {
             type="button"
             onClick={p.handleRollback}
             disabled={p.pipelineLoading}
-            className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-60"
+            className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm border border-border bg-background px-2 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-60"
           >
             <RotateCcw className="h-3 w-3" />
             <span>回滚</span>

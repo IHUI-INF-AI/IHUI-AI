@@ -115,7 +115,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
             placeholder={t('agent.runtimeInputPlaceholder')}
             editable={status !== 'running'}
             multiline
-            className="h-auto min-h-[120px] min-h-[60px] flex-1 rounded-md border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 text-sm text-gray-900 dark:text-neutral-100"
+            className="h-auto min-h-[120px] min-h-[60px] flex-1 rounded-sm border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 text-sm text-gray-900 dark:text-neutral-100"
           />
           {status === 'running' ? (
             <Pressable
