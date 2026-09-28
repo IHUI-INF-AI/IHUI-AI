@@ -13,9 +13,23 @@
  *   - 每个子 agent 一个 fork() 子进程,入口 worker-entry.ts
  *   - 主进程通过 IPC channel 收子进程 heartbeat,超 heartbeatTimeoutSeconds(默认 60s)无心跳标记 dead
  *   - 超时:timeoutSeconds 到期 SIGTERM 子进程,标记 failed
+ *   - 无活动超时(2026-09-27 票,见 getLifecycleStatus / awaitResult):
+ *       最后一次"任务活动"(子进程 stdout/stderr 输出、progress IPC)距今超过阈值 ⇒
+ *       **转后台** —— spawn Promise 以 wire 形态 status='running' 提前 resolve,
+ *       生命周期状态机落 `detached_idle`(中间态,**不是** completed/failed/cancelled,
+ *       见 types.ts 状态机注释与 AGENTS.md §30);子进程**不被杀死**,终态仍可经
+ *       `awaitResult(subagentId)` 取回。
+ *     · 活动信号只认真实事件,heartbeat **刻意不计活动**:worker-entry 无条件每 5s 发
+ *       heartbeat(事件循环活着就发,与任务是否推进无关),把它算作活动 ⇒ 判据对本型恒不触发
+ *       = 空转尺子;而"心跳也停了"的真卡死已由上面的 heartbeat watchdog SIGKILL 兜住。
+ *     · 阈值唯一出口 `resolveSubagentIdleTimeoutMs`(常量只写这一处):默认 120s,
+ *       远大于正常一次工具调用/provider 往返,也大于 heartbeat 窗口(60s)——即只有
+ *       "进程活着但任务持续无输出"才会被挪到后台。env `IHUI_SUBAGENT_IDLE_TIMEOUT_MS`
+ *       覆盖:`=0` 显式关闭(回退出口),非法值回落默认档,上界 30min 封顶(无上界的
+ *       可调项会把默认档带跑,与 §12e"运行时版恒红事故"同理)。
  *   - maxWorkers 限制并发(排队),非抢占式
  *   - isolation='worktree' 时调用现有 createWorktree,子进程在隔离工作区跑
- *   - 优雅关闭:SIGTERM → 5s → SIGKILL
+ *   - 优雅关闭:SIGTERM → 5s → SIGKILL,清理 worktree
  *
  * 仅依赖 Node.js 内置 + 现有 worktree 模块,不引入新依赖。
  */
@@ -38,6 +52,14 @@ import type {
 // 并发档位一律经单一出口解析(见 concurrency-budget.ts 头注:本文件不得再出现并发字面量)
 import { notePoolClosed, notePoolCreated, resolveMaxConcurrency } from './concurrency-budget.js'
 
+// 生命周期状态词汇的唯一声明处在 types.ts(本文件只引用,不另抄名单)
+import {
+  SUBAGENT_DETACH_REASON,
+  SUBAGENT_STATUS_DETACHED_IDLE,
+  isSubagentTerminalStatus,
+  type SubagentLifecycleStatus,
+} from './types.js'
+
 // ───────────────────────────── 常量 ─────────────────────────────
 
 const HEARTBEAT_INTERVAL_MS = 5_000;
@@ -48,6 +70,36 @@ const DEFAULT_MAX_QUEUE_SIZE = 100;
 const MAX_STDOUT_BUF_BYTES = 1_048_576; // 1MB
 const MAX_STDERR_BUF_BYTES = 1_048_576; // 1MB
 const STDERR_RATE_LIMIT_LINES_PER_SEC = 100;
+
+// ── 无活动超时 ⇒ 自动转后台(阈值唯一出口,判据见文件头"无活动超时"条) ──
+
+/**
+ * 默认档 120s:选"明显异常"那一档 —— 远大于正常一次工具调用/provider 往返(秒级到几十秒,
+ * 期间 stdout 持续有 NDJSON 事件),且大于 heartbeat watchdog 窗口(60s),
+ * 所以触发它的只有"进程活着但任务持续无任何输出"这一型(即本票立因的挂住场景)。
+ */
+export const SUBAGENT_IDLE_TIMEOUT_DEFAULT_MS = 120_000;
+
+/** 上界 30min:没有上界的可调项会把默认档带跑(前台实际又变回无限等)。 */
+export const SUBAGENT_IDLE_TIMEOUT_MAX_MS = 1_800_000;
+
+/** env 覆盖出口名;`IHUI_SUBAGENT_IDLE_TIMEOUT_MS=0` = 显式关闭转后台(回退出口)。 */
+export const SUBAGENT_IDLE_TIMEOUT_ENV = 'IHUI_SUBAGENT_IDLE_TIMEOUT_MS';
+
+/**
+ * 无活动超时阈值唯一解析出口(形态对齐 concurrency-budget.ts 的 resolveMaxConcurrency:
+ * 常量只写这一处,调用点不得再算)。
+ * - 未设 / 空 / 非数字 / 负数 ⇒ 默认档(非法值不得把行为带偏)
+ * - 显式 0 ⇒ 关闭转后台(回退出口)
+ * - 正数 ⇒ 钳到 MAX
+ */
+export function resolveSubagentIdleTimeoutMs(raw?: string): number {
+  if (raw === undefined || raw.trim() === '') return SUBAGENT_IDLE_TIMEOUT_DEFAULT_MS;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) return SUBAGENT_IDLE_TIMEOUT_DEFAULT_MS;
+  if (parsed === 0) return 0;
+  return Math.min(parsed, SUBAGENT_IDLE_TIMEOUT_MAX_MS);
+}
 
 // ───────────────────────────── 类型 ─────────────────────────────
 
@@ -78,6 +130,19 @@ interface WorkerEntry {
   proc: ChildProcess;
   startedAt: number;
   lastHeartbeatAt: number;
+  /**
+   * 最后一次"任务活动"时刻(ms epoch)。来源只允许是**真实事件**:
+   * 子进程 stdout/stderr 输出、progress IPC。heartbeat **刻意不计入**(见文件头设计说明:
+   * worker-entry 每 5s 无条件发 heartbeat,事件循环空闲即发,与任务是否推进无关;
+   * 把它算作活动 ⇒ 判据永不触发 = 空转尺子)。单一写入点见 markActivity。
+   */
+  lastActivityAt: number;
+  /** 生命周期状态机当前值(唯一清单见 types.ts SUBAGENT_LIFECYCLE_STATUSES) */
+  lifecycle: SubagentLifecycleStatus;
+  /** 是否已因无活动超阈被挪到后台(spawn Promise 已提前 resolve) */
+  idleDetached: boolean;
+  /** 后台终态 awaiter(awaitResult 在真正 exit 前登记的回调) */
+  finalResolvers: Array<(resp: SubagentSpawnResponse) => void>;
   state: WorkerState;
   worktree?: WorktreeInfo;
   resolver?: (resp: SubagentSpawnResponse) => void;
@@ -116,13 +181,65 @@ export class SubagentWorkerPool {
   private shutDown = false;
   /** 心跳超时 ms(从 config.heartbeatTimeoutSeconds 读,默认 60s) */
   private readonly heartbeatTimeoutMs: number;
+  /** 无活动超时阈值 ms(唯一出口 resolveSubagentIdleTimeoutMs 解析;0=关闭转后台) */
+  private readonly idleTimeoutMs: number;
+  /**
+   * 已转后台 worker 的最终响应缓存(subagentId → exit 时写入)。
+   * 只在转后台路径写:正常 await spawn 的调用方不需要它,不加缓存面
+   * (缓存有界 = 本次池生命周期内转后台的任务数,量级 = workers 本身)。
+   */
+  private readonly detachedFinalResults = new Map<string, SubagentSpawnResponse>();
+  /**
+   * 已退出子 agent 的终态记录(含未转后台的正常路径),让 getLifecycleStatus 对
+   * "本池任一生平管理过的 subagent"口径一致。值只有枚举字符串,上界 = 池生命周期内任务数。
+   */
+  private readonly finishedLifecycles = new Map<string, SubagentLifecycleStatus>();
 
   constructor(config: WorkerPoolConfig) {
     this.config = config;
     this.entryPath = resolveWorkerEntryPath();
     this.heartbeatTimeoutMs = (config.heartbeatTimeoutSeconds ?? 60) * 1000;
+    this.idleTimeoutMs = resolveSubagentIdleTimeoutMs(process.env[SUBAGENT_IDLE_TIMEOUT_ENV]);
     // 可观测:并发总量 = 各池 maxWorkers 之和,池数是那个"2×maxWorkers"放大倍数的来源
     notePoolCreated();
+  }
+
+  /**
+   * 查询子 agent 的生命周期状态机当前值(唯一状态视图)。
+   * - 运行中 ⇒ 'running';无活动超阈已转后台 ⇒ 'detached_idle'(**中间态,不是终态**);
+   * - 已退出 ⇒ 'completed' / 'failed';
+   * - 池内查无此 id ⇒ undefined。
+   * 判"钩子/后台迁移无终态"的消费端一律走这里 + isSubagentTerminalStatus,
+   * 不得自行内联三档终态名单(AGENTS.md §30「钩子无终态不得渲染成"完成"」)。
+   */
+  getLifecycleStatus(subagentId: string): SubagentLifecycleStatus | undefined {
+    const w = this.workers.get(subagentId);
+    if (w) return w.lifecycle;
+    return this.finishedLifecycles.get(subagentId);
+  }
+
+  /**
+   * 取回已转后台子 agent 的**最终**结果(真正的 completed/failed + stdout 解析输出)。
+   * - 已 exit ⇒ 立即 resolve 缓存的最终响应;
+   * - 仍在后台运行 ⇒ 登记 awaiter,exit 时 resolve;
+   * - 池内查无此 id ⇒ resolve not-found(形态对齐 getStatus)。
+   * 语义要点:转后台 ≠ 杀死 —— 本方法的存在就是"没有丢终态"的出口。
+   */
+  awaitResult(subagentId: string): Promise<SubagentSpawnResponse> {
+    const final = this.detachedFinalResults.get(subagentId);
+    if (final) return Promise.resolve(final);
+    const w = this.workers.get(subagentId);
+    if (!w) {
+      return Promise.resolve({
+        subagentId,
+        pid: 0,
+        status: 'failed',
+        error: `subagent ${subagentId} not found`,
+      });
+    }
+    return new Promise<SubagentSpawnResponse>((resolve) => {
+      w.finalResolvers.push(resolve);
+    });
   }
 
   /** fork 一个子进程跑子 agent,返回 spawn 响应(子进程完成后 resolve) */
@@ -152,6 +269,14 @@ export class SubagentWorkerPool {
   /** 并行 spawn 多个子进程(限 maxWorkers 并发,超出排队) */
   async spawnParallel(reqs: SubagentSpawnRequest[]): Promise<SubagentSpawnResponse[]> {
     return Promise.all(reqs.map((r) => this.spawn(r)));
+  }
+
+  /**
+   * 当前仍在池内跟踪的 subagent id(含已转后台、进程仍在跑的)。
+   * 只读观测面:判"转后台后进程没有被杀死、仍被跟踪"用这个出口,不得靠内部 Map 结构。
+   */
+  activeSubagentIds(): string[] {
+    return [...this.workers.keys()];
   }
 
   /** 查询子进程状态 */
@@ -310,6 +435,10 @@ export class SubagentWorkerPool {
       proc,
       startedAt,
       lastHeartbeatAt: startedAt,
+      lastActivityAt: startedAt,
+      lifecycle: 'running',
+      idleDetached: false,
+      finalResolvers: [],
       state: {
         workerId,
         type: 'cli-subprocess',
@@ -348,11 +477,17 @@ export class SubagentWorkerPool {
             );
           }
         }
+        // 注意:heartbeat 是"存活信号"而非"任务活动信号",**不更新 lastActivityAt**。
+        // worker-entry 无条件每 5s 发(事件循环空闲即发),把它计入活动 ⇒ 判据永不触发。
+      } else if (msg.type === 'progress') {
+        // progress IPC = 真实任务事件(状态变更),计活动
+        this.markActivity(entry);
       }
     });
 
     // stdout 收集(NDJSON 事件流)
     proc.stdout?.on('data', (chunk: Buffer) => {
+      this.markActivity(entry);
       const text = chunk.toString();
       // P0-3 修复:buffer 加 1MB 上限,超出截断保留尾部(防长跑多 subagent OOM 主进程)
       if (entry.stdoutBuf.length + text.length > MAX_STDOUT_BUF_BYTES) {
@@ -366,6 +501,8 @@ export class SubagentWorkerPool {
 
     // stderr 收集(日志,转发到主进程 stderr)
     proc.stderr?.on('data', (chunk: Buffer) => {
+      // stderr 输出同样是真实任务事件(诊断/进度日志),计活动
+      this.markActivity(entry);
       const text = chunk.toString();
       // P0-3 修复:buffer 加 1MB 上限
       if (entry.stderrBuf.length + text.length > MAX_STDERR_BUF_BYTES) {
@@ -397,21 +534,34 @@ export class SubagentWorkerPool {
     // 若不在此补清理,activeCount 永久占位 → drainQueue 条件 activeCount < maxWorkers 永远少一格
     // → worker 池容量逐次缩减至 0
     proc.on('error', (err) => {
+      // exit 已收口(或 error 重放)时不得覆盖真实终态 —— 原实现靠"resolver 已被消费"
+      // 达成,现靠生命周期终态标志,方向一致:后到的信号不改写先落定的终态
+      if (isSubagentTerminalStatus(entry.lifecycle)) return;
+      const errResp: SubagentSpawnResponse = {
+        subagentId,
+        pid: proc.pid ?? 0,
+        status: 'failed',
+        error: `process error: ${err.message}`,
+        durationMs: Date.now() - startedAt,
+      };
+      // 终态收口与 handleWorkerExit 同形:转后台过的条目终态也要能经 awaitResult 取回
+      entry.lifecycle = 'failed';
+      if (entry.idleDetached) {
+        this.detachedFinalResults.set(subagentId, errResp);
+      }
       if (entry.resolver) {
-        entry.resolver({
-          subagentId,
-          pid: proc.pid ?? 0,
-          status: 'failed',
-          error: `process error: ${err.message}`,
-          durationMs: Date.now() - startedAt,
-        });
+        entry.resolver(errResp);
         entry.resolver = undefined;
+      }
+      for (const resolveFinal of entry.finalResolvers.splice(0)) {
+        resolveFinal(errResp);
       }
       // 防御重复清理(handleWorkerExit 可能已执行)
       if (!this.workers.has(subagentId)) return;
       if (entry.timeoutTimer) clearTimeout(entry.timeoutTimer);
       if (entry.heartbeatTimer) clearInterval(entry.heartbeatTimer);
       this.workers.delete(subagentId);
+      this.finishedLifecycles.set(subagentId, entry.lifecycle);
       this.activeCount--;
       // 清理 worktree(spawn 失败时 worktree 已创建但子进程未启动)
       if (entry.worktree) {
@@ -445,7 +595,52 @@ export class SubagentWorkerPool {
     // 心跳超时检测(每 5s 检查)
     entry.heartbeatTimer = setInterval(() => {
       this.checkHeartbeat(entry);
+      // 无活动超时检测与心跳检测同频(复用同一个 5s 轮询,不新起定时器)
+      this.checkIdleTimeout(subagentId, entry);
     }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  /** 活动信号唯一写入点(判"有没有活动"只读 lastActivityAt,别处不得另记一份) */
+  private markActivity(entry: WorkerEntry): void {
+    entry.lastActivityAt = Date.now();
+  }
+
+  /**
+   * 无活动超时 ⇒ 自动转后台(状态迁移,非杀死)。
+   * 触发条件全部成立才迁移:阈值已设(>0)、未转过后台、未进终态、距最后一次真实
+   * 任务事件超过 idleTimeoutMs。迁移动作:
+   *   - lifecycle → 'detached_idle'(中间态,**不进** completed/failed/cancelled);
+   *   - 提前 resolve spawn Promise,wire 状态用**既有档位** 'running'(不新增 SSE 事件名、
+   *     不改 wire 契约字段词汇 —— 'running' 语义本就是"仍在执行");
+   *   - **不 kill 子进程、不清 timeoutTimer** —— 后台继续跑,taskTimeout/心跳 watchdog
+   *     仍是它的最终边界,真终态经 awaitResult()/detachedFinalResults 取回。
+   */
+  private checkIdleTimeout(subagentId: string, entry: WorkerEntry): void {
+    if (this.idleTimeoutMs <= 0) return;
+    if (entry.idleDetached) return;
+    if (entry.lifecycle !== 'running') return;
+    if (Date.now() - entry.lastActivityAt <= this.idleTimeoutMs) return;
+    this.detachToBackground(subagentId, entry);
+  }
+
+  /** checkIdleTimeout 的迁移动作(单独成函数:测试与人工核验都能对同一份实现问责) */
+  private detachToBackground(subagentId: string, entry: WorkerEntry): void {
+    entry.idleDetached = true;
+    entry.lifecycle = SUBAGENT_STATUS_DETACHED_IDLE;
+    process.stderr.write(
+      `[subagent ${subagentId}] ${SUBAGENT_DETACH_REASON}: ` +
+        `无任务事件超过 ${this.idleTimeoutMs}ms,已转后台(进程未被杀死,awaitResult 可取回终态)\n`,
+    );
+    if (entry.resolver) {
+      // 前台从此不再等待:wire 状态如实回 'running'(仍在执行),不得写成任何终态
+      entry.resolver({
+        subagentId,
+        pid: entry.proc.pid ?? 0,
+        status: 'running',
+        durationMs: Date.now() - entry.startedAt,
+      });
+      entry.resolver = undefined;
+    }
   }
 
   /** 心跳检查:超过 heartbeatTimeoutMs 无心跳 → 标记 dead,SIGKILL */
@@ -503,25 +698,35 @@ export class SubagentWorkerPool {
     const parsed = parseWorkerStdout(entry.stdoutBuf);
     const output = parsed.assistantText || (entry.stderrBuf.trim().slice(-2000) || undefined);
 
+    // 生命周期终态落档:'running' / 'detached_idle' 都只在此处收口为 completed/failed。
+    // 已转后台的条目 spawn Promise 早以 'running' resolve 过,真终态只走
+    // detachedFinalResults + finalResolvers(= awaitResult 的出口),不冒充、不丢失。
+    entry.lifecycle = isFailed ? 'failed' : 'completed';
+    const resp: SubagentSpawnResponse = {
+      subagentId,
+      pid: entry.proc.pid ?? 0,
+      status: isFailed ? 'failed' : 'completed',
+      output,
+      error: isFailed
+        ? (isTimeout
+            ? `timeout (exit code ${code})`
+            : isOOM
+              ? `[OOM] worker self-OOM exit, stdout: ${entry.stdoutBuf.slice(-500)}`
+              : isCpuLimit
+                ? `[CPU_LIMIT] worker CPU limit exit, stdout: ${entry.stdoutBuf.slice(-500)}`
+                : (entry.stderrBuf.trim().slice(-500) || `exit code ${code} signal ${signal}`))
+        : undefined,
+      durationMs,
+    };
+    if (entry.idleDetached) {
+      this.detachedFinalResults.set(subagentId, resp);
+    }
     if (entry.resolver) {
-      const resp: SubagentSpawnResponse = {
-        subagentId,
-        pid: entry.proc.pid ?? 0,
-        status: isFailed ? 'failed' : 'completed',
-        output,
-        error: isFailed
-          ? (isTimeout
-              ? `timeout (exit code ${code})`
-              : isOOM
-                ? `[OOM] worker self-OOM exit, stdout: ${entry.stdoutBuf.slice(-500)}`
-                : isCpuLimit
-                  ? `[CPU_LIMIT] worker CPU limit exit, stdout: ${entry.stdoutBuf.slice(-500)}`
-                  : (entry.stderrBuf.trim().slice(-500) || `exit code ${code} signal ${signal}`))
-          : undefined,
-        durationMs,
-      };
       entry.resolver(resp);
       entry.resolver = undefined;
+    }
+    for (const resolveFinal of entry.finalResolvers.splice(0)) {
+      resolveFinal(resp);
     }
 
     // P1-4 修复:worktree 清理策略
@@ -540,6 +745,7 @@ export class SubagentWorkerPool {
     }
 
     this.workers.delete(subagentId);
+    this.finishedLifecycles.set(subagentId, entry.lifecycle);
     this.activeCount--;
     void this.drainQueue();
   }

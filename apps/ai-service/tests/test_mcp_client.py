@@ -683,7 +683,7 @@ async def test_manager_call_external_tool():
         asyncio.create_task(
             _feed_after_delay(reader, f"{call_resp}\n".encode()),
         )
-        result = await manager.call_external_tool("svr", "my_tool", {"x": 1})
+        result = await manager.call_external_tool_unscoped("svr", "my_tool", {"x": 1})
 
     assert result == {"content": [{"type": "text", "text": "done"}]}
     await manager.disconnect_all()
@@ -693,7 +693,7 @@ async def test_manager_call_external_tool():
 async def test_manager_call_external_tool_unknown_server():
     """调用未知 Server 的工具返回错误。"""
     manager = MCPClientManager()
-    result = await manager.call_external_tool("unknown_svr", "tool", {})
+    result = await manager.call_external_tool_unscoped("unknown_svr", "tool", {})
     assert result["ok"] is False
     assert "未知" in result["error"]
 
@@ -704,7 +704,7 @@ async def test_manager_call_external_tool_not_connected():
     manager = MCPClientManager()
     manager.register(MCPClientConfig(name="svr", transport=TRANSPORT_STDIO, command="echo"))
     # 不调用 connect_all
-    result = await manager.call_external_tool("svr", "tool", {})
+    result = await manager.call_external_tool_unscoped("svr", "tool", {})
     assert result["ok"] is False
     assert "未连接" in result["error"]
 
@@ -735,7 +735,7 @@ async def test_manager_list_available_tools_async():
         asyncio.create_task(
             _feed_after_delay(reader, f"{tools_resp}\n".encode()),
         )
-        tools = await manager.list_available_tools_async()
+        tools = await manager.list_available_tools_unscoped()
 
     assert len(tools) == 1
     assert tools[0].name == "t1"
@@ -782,7 +782,7 @@ def test_get_mcp_client_manager_singleton():
 async def test_list_available_tools_async_no_connections():
     """无任何连接时 list_available_tools_async 返回空列表且不抛异常。"""
     manager = MCPClientManager()
-    tools = await manager.list_available_tools_async()
+    tools = await manager.list_available_tools_unscoped()
     assert tools == []
 
 
@@ -807,17 +807,26 @@ async def test_manager_unregister_async():
 
 @pytest.mark.asyncio
 async def test_manager_list_registered():
-    """list_registered 返回已注册 Server 摘要(含连接状态)。"""
+    """list_registered 按**可见集**返回摘要(自己的 + 部署级;含连接状态)。"""
     manager = MCPClientManager()
     manager.register(MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command="echo"))
+    manager.register(
+        MCPClientConfig(name="svr-other", transport=TRANSPORT_STDIO, command="echo"),
+        owner_user_id="user-b",
+    )
 
-    servers = manager.list_registered()
-    assert len(servers) == 1
-    assert servers[0]["name"] == "svr1"
+    servers = manager.list_registered("user-a")
+    # svr1 未带属主 ⇒ 部署级,对任何已登录主体可见;user-b 的用户级不对 user-a 列
+    assert [s["name"] for s in servers] == ["svr1"]
+    assert [s["name"] for s in manager.list_registered("user-b")] == ["svr1", "svr-other"]
     assert servers[0]["transport"] == TRANSPORT_STDIO
     assert servers[0]["connected"] is False
     # 敏感字段不暴露
     assert "env" not in servers[0]
+    # 属主判据只有一份:能看见 ≠ 能注销(部署级谁都动不了)
+    assert manager.can_mutate("svr1", "user-a") is False
+    assert manager.can_mutate("svr-other", "user-b") is True
+    assert manager.can_mutate("svr-other", "user-a") is False
 
 
 # =============================================================================
@@ -877,7 +886,7 @@ def test_manager_list_registered_exposes_negotiated():
     client._negotiated_protocol = "2025-06-18"
     client._server_info = {"name": "s", "version": "2"}
     client._capabilities = {"tools": {}}
-    servers = manager.list_registered()
+    servers = manager.list_registered("user-a")  # 上面那条未带属主 = 部署级,对任何主体可见
     assert len(servers) == 1
     s = servers[0]
     assert s["connected"] is True

@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi, fetchText } from '../client.js'
+import { fetchApi, fetchText, aiServiceBaseUrl, getToken } from '../client.js'
 
 export type ChatRole = 'user' | 'assistant' | 'system'
 
@@ -311,6 +311,14 @@ export interface ConversationHistoryTurn {
 }
 
 /**
+ * 断点存续性(服务端结论)。取值与 `@ihui/shared/chat` 的 `HistoryCursorState` 同集,
+ * 本包**刻意不 import 那个类型**(与 `GetConversationHistoryParams.direction` 同一处置:
+ * 为一个类型把 `@ihui/shared` 拖进发布物依赖不划算)。
+ */
+export type ConversationHistoryCursorState =
+  { status: 'ok' } | { status: 'stale'; reason: 'anchor-missing' }
+
+/**
  * D35:会话历史 turn 分片响应。投影语义(合并去重/边界判定)**不在本包实现**,
  * 一律交 `@ihui/shared/chat` 的 `history-projection` —— 本包只做传输,
  * 否则三端各拼一份时间线就是"手机上改了 web 没改"的成因(AGENTS §3)。
@@ -322,6 +330,11 @@ export interface ConversationHistoryResult {
   nextCursor: string | null
   /** 会话投影状态透传;null = 尚未投影。本包不解释其形状。 */
   projectionState: unknown
+  /**
+   * 断点存续性:`status:'stale'` 时 turns=[] / nextCursor=null(服务端刻意不给半真窗口),
+   * 调用方必须整段重锚。缺省 = 本次请求没带游标 / 服务端未升级 —— **不等于**"断点已被验证"。
+   */
+  cursorState?: ConversationHistoryCursorState | null
 }
 
 /** D35 turn 分片拉取 — GET /api/chat/conversations/:id/history */
@@ -602,4 +615,81 @@ export async function rateChatMessage(input: {
   })
   if (!res.success) throw new Error(res.error ?? '反馈提交失败')
   return res.data
+}
+
+// ============================================================================
+// D158(2026-09-28):命令放行规则管理出口(审批第四档「批准并生成放行规则」配套)
+//
+// 直连 ai-service(GET/DELETE /llm/approval-grants),与 postToolApprovalResponse 同
+// 一条 ai-service 通道;不走网关 fetchApi —— 网关没有这两条代理,按本仓既有直连
+// 通道口径(aiServiceBaseUrl + Bearer token,cookie 兜底)走。
+// ============================================================================
+
+/** 一条前缀放行规则(GET /llm/approval-grants 的行形态,字段 camelCase) */
+export interface ApprovalGrant {
+  /** 规范化存储键(\x1f 连接,原样返回,供 DELETE 精确撤销) */
+  cacheKey: string
+  /** 可读前缀(git push 形态,服务端已把 \x1f 还原为空格) */
+  prefix: string
+  /** 前缀 token 数(1..4,登记时 argv[:N] 的 N) */
+  tokenCount: number
+  /** 规则类型(当前恒 exec_prefix) */
+  kind: string
+  /** 生效 scope 集合(['always'] / ['session'] / 两者) */
+  scopes: string[]
+  /** 创建时间(ISO 字符串;同键多行取最早) */
+  createdAt: string | null
+  /** 过期时间(ISO 字符串;null = 永不过期的历史行) */
+  expiresAt: string | null
+}
+
+/** 列出未过期的命令前缀放行规则;服务端异常时抛错(面板展示失败态,不静默空列表)。 */
+export async function listApprovalGrants(): Promise<ApprovalGrant[]> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const token = getToken()
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const resp = await fetch(`${aiServiceBaseUrl()}/llm/approval-grants`, {
+    method: 'GET',
+    headers,
+    // cookie 兜底(与 streamChat 同口径):ai-service 中间件读 HttpOnly auth_token
+    credentials: 'include',
+  })
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '')
+    throw new Error(
+      `listApprovalGrants failed: HTTP ${resp.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`,
+    )
+  }
+  const data = (await resp.json().catch(() => null)) as { ok?: boolean; grants?: unknown } | null
+  if (!data || data.ok !== true || !Array.isArray(data.grants)) {
+    throw new Error('listApprovalGrants failed: invalid response shape')
+  }
+  // 形状收窄:逐条校验必需字段,脏行丢弃而非整列表报废
+  return data.grants.filter(
+    (g): g is ApprovalGrant =>
+      typeof g === 'object' &&
+      g !== null &&
+      typeof (g as ApprovalGrant).cacheKey === 'string' &&
+      typeof (g as ApprovalGrant).prefix === 'string',
+  )
+}
+
+/** 撤销一条放行规则(cache_key + kind 精确删,服务端幂等);kind 缺省 exec_prefix。 */
+export async function revokeApprovalGrant(cacheKey: string, kind = 'exec_prefix'): Promise<void> {
+  if (!cacheKey) throw new Error('revokeApprovalGrant: cacheKey required')
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const token = getToken()
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const qs = new URLSearchParams({ cache_key: cacheKey, kind })
+  const resp = await fetch(`${aiServiceBaseUrl()}/llm/approval-grants?${qs.toString()}`, {
+    method: 'DELETE',
+    headers,
+    credentials: 'include',
+  })
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '')
+    throw new Error(
+      `revokeApprovalGrant failed: HTTP ${resp.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`,
+    )
+  }
 }

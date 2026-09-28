@@ -11,7 +11,25 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback/Tooltip'
 import { CenteredText } from '@/components/common/CenteredText'
 import { formatRelativeTime } from '@/lib/date-utils'
-import type { AgentTaskStatus, KanbanTask } from '@ihui/types'
+import type { AgentTaskStatus, AgentTaskTermination, KanbanTask } from '@ihui/types'
+import {
+  TERMINATION_LABEL_KEYS,
+  UNRECOGNIZED_STATUS_LABEL_KEY,
+  i18nLeafKey,
+  isUnrecognizedKanbanTask,
+} from '@ihui/types'
+
+/**
+ * 次级标记的 i18n 键末段:`agents.kanban.terminatedCancelled` → `terminatedCancelled`。
+ * 命名空间由 `useTranslations('agents.kanban')` 绑定,键表本身只在 @ihui/types 有一份 ——
+ * 在这里再写一份 `{cancelled:'…'}` 就是第二个真相(它过期时端上只会显示键名,不报错)。
+ */
+function terminationLabelSegment(termination: AgentTaskTermination): string {
+  return i18nLeafKey(TERMINATION_LABEL_KEYS[termination])
+}
+
+/** 未识别档的徽章文案键末段(取末段与终态标记共用一份实现,不各写一遍 slice) */
+const UNRECOGNIZED_LABEL_LEAF = i18nLeafKey(UNRECOGNIZED_STATUS_LABEL_KEY)
 
 // ---------------------------------------------------------------------------
 // 共享常量(供 KanbanColumn / TaskDetailDialog 复用)
@@ -25,6 +43,13 @@ export const STATUS_BADGE_CLASS: Record<AgentTaskStatus, string> = {
   blocked: 'bg-red-500/15 text-red-600 dark:text-red-400',
   done: 'bg-green-500/15 text-green-600 dark:text-green-400',
 }
+
+/**
+ * "未识别"档的取样(独立呈现):刻意不复用任何已知档的颜色 ——
+ * 借 done/blocked 的语义色就等于替一个没人认得的值判定成功或失败。
+ * 中性灰只表达一件事:库里这个状态串不在六档内。
+ */
+export const UNRECOGNIZED_BADGE_CLASS = 'bg-muted text-muted-foreground'
 
 export const PRIORITY_THRESHOLDS = { high: 10, medium: 1 } as const
 
@@ -74,6 +99,10 @@ export function KanbanTaskCard({ task, onSelect }: KanbanTaskCardProps) {
   const t = useTranslations('agents.kanban')
   const locale = useLocale()
   const level = getPriorityLevel(task.priority)
+  // 未识别档:原始状态串不在六档内(api 侧只在未识别时挂 rawStatus)。
+  // 这一档必须独立呈现:既不能落进 STATUS_BADGE_CLASS 的某个已知档(那才是"静默当成已知"),
+  // 也不能把 rawStatus 当文案渲染(它是外部可写的值 —— 界面文案位就是注入面)。
+  const unrecognized = isUnrecognizedKanbanTask(task)
 
   return (
     <button
@@ -95,11 +124,30 @@ export function KanbanTaskCard({ task, onSelect }: KanbanTaskCardProps) {
             <span
               className={cn(
                 'inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium leading-none',
-                STATUS_BADGE_CLASS[task.status],
+                unrecognized ? UNRECOGNIZED_BADGE_CLASS : STATUS_BADGE_CLASS[task.status],
               )}
+              data-testid={unrecognized ? 'kanban-status-unrecognized' : undefined}
+              data-unrecognized-status={unrecognized ? task.rawStatus : undefined}
+              aria-label={
+                unrecognized ? `${t(UNRECOGNIZED_LABEL_LEAF)}: ${task.rawStatus ?? ''}` : undefined
+              }
             >
-              {t(task.status)}
+              {unrecognized ? t(UNRECOGNIZED_LABEL_LEAF) : t(task.status)}
             </span>
+            {/* 2026-09-28 拍板:六档状态枚举不动,但被折叠成 blocked 的三种终态要能点名 ——
+                「已取消 / 配额超限 / 被抢占」重跑大概率就好,「待解阻塞」要先去解阻塞;
+                两者同形会把用户的下一步动作指错方向。文案键取自 @ihui/types 那一张表,
+                不在端内抄第二份名字表(§3 共享层优先)。 */}
+            {task.termination && (
+              <Tooltip content={t(terminationLabelSegment(task.termination))}>
+                <span
+                  data-testid={`kanban-termination-${task.termination}`}
+                  className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground"
+                >
+                  {t(terminationLabelSegment(task.termination))}
+                </span>
+              </Tooltip>
+            )}
             {/* 2-2 工作区锁徽标:任务持锁(进入 in_progress 抢到工作区锁)时显示 */}
             {task.lockedBy && (
               <Tooltip content={`${t('locked')}: ${task.lockedBy}`}>

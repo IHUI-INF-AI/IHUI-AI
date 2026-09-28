@@ -11,7 +11,7 @@
  *
  * 设计要点:
  * - **不存 token**:token/refreshToken/expiresIn 仍由本端 tokenStore(SecureStore 优先,
- *   AsyncStorage fallback)管理,这里只负责 user + isAuthenticated 的非敏感持久化。
+ *   AsyncStorage fallback)管理,这里只负责 user 资料的非敏感持久化(登录态不入库,G-456)。
  *   遵循 web 端 2026-07-21 安全审计结论,token 一律不落 AsyncStorage。
  * - **零运行时开销**:createAsyncStorageTransport() 调用一次,
  *   后续 set/get 直接 await AsyncStorage,无中间序列化层。
