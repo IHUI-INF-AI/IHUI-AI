@@ -82,10 +82,18 @@ describe('G-299① GET /api/subagents/all', () => {
 })
 
 describe('G-299②③ /api/ai/n8n/workflows*(路由归属 + 未配置档)', () => {
-  const saved = { d: process.env.N8N_DOMAIN, k: process.env.N8N_API_KEY }
+  // issue #71 之后,n8n-proxy 面的基址认两个名字(N8N_DOMAIN 主名 + N8N_BASE_URL 别名)。
+  // "未配置 ⇒ 503" 这两条例子的前提因此必须是**两个名字都不在位**,只删一个就成了
+  // "别名还在位却期待 503"的假红(反过来,只测一个名字也钉不出别名已生效)。
+  const saved = {
+    d: process.env.N8N_DOMAIN,
+    b: process.env.N8N_BASE_URL,
+    k: process.env.N8N_API_KEY,
+  }
   let app: FastifyInstance
   beforeEach(async () => {
     delete process.env.N8N_DOMAIN
+    delete process.env.N8N_BASE_URL
     delete process.env.N8N_API_KEY
     app = Fastify()
     await app.register(n8nProxyRoutes, { prefix: '/api' })
@@ -94,7 +102,11 @@ describe('G-299②③ /api/ai/n8n/workflows*(路由归属 + 未配置档)', () =
   afterEach(async () => {
     await app.close()
     if (saved.d) process.env.N8N_DOMAIN = saved.d
+    else delete process.env.N8N_DOMAIN
+    if (saved.b) process.env.N8N_BASE_URL = saved.b
+    else delete process.env.N8N_BASE_URL
     if (saved.k) process.env.N8N_API_KEY = saved.k
+    else delete process.env.N8N_API_KEY
   })
 
   // 归属事实(2026-09-28 摘除重复注册那枚提交的现行口径):GET 与 POST
