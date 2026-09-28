@@ -36,6 +36,14 @@ const git = (args, cwd) =>
     ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', ...args],
     { cwd, encoding: 'utf8', windowsHide: true, timeout: 60000 },
   )
+/** 真仓阳性对照按**出处**取 —— 账还完那天 HEAD 上就不再有这条违规,钉 HEAD 的对照会在清偿当天集体失效(票㉗ T18 同一条)。 */
+const PROBE_REF = process.env.IHUI_RADIUS_PROBE_REF || 'acf1927e96'
+const probeBlob = (rel) =>
+  execFileSync(
+    'git',
+    ['-c', 'safe.directory=*', 'show', PROBE_REF + ':' + rel],
+    { cwd: REPO, encoding: 'utf8', windowsHide: true, timeout: 60000 },
+  )
 const headBlob = (rel) =>
   execFileSync('git', ['-c', 'safe.directory=*', 'show', `HEAD:${rel}`], {
     cwd: REPO,
@@ -136,14 +144,14 @@ test('T5 档位表/角色表不得被抄进门里(表一改,抄数的门就对�
   assert.match(src, /RADIUS_TABLE_REL/, '表路径要按被审面取(与正文同面同轮)')
 })
 
-test('T6 真仓 HEAD 阳性对照:同一方向形态,写在代码里必命中、只写进注释必不命中', () => {
+test('T6 真仓出处阳性对照:同一方向形态,写在代码里必命中、只写进注释必不命中', () => {
   const rel = 'apps/miniapp-taro/src/components/DrawerComponent.tsx'
-  const src = headBlob(rel)
+  const src = probeBlob(rel)
   assert.ok(src.includes('rounded-t-xl'), `夹具前提变了:${rel} 已不含 rounded-t-xl —— 要重写本例,不是删掉`)
   const table = TABLE()
   const r = T.auditFileText(rel, src, table)
   const hit = [...r.violations, ...r.weakFindings].find((v) => v.form.includes('rounded-t-xl'))
-  assert.ok(hit, '真仓 HEAD 的方向形态没被点名 ⇒ 判据对该形态失明(任务书第 7 条禁止复制的盲区)')
+  assert.ok(hit, '出处面的方向形态没被点名 ⇒ 判据对该形态失明(任务书第 7 条禁止复制的盲区)')
   assert.equal(hit.role, 'card')
   assert.equal(hit.actualStep, 'xl')
   assert.equal(hit.expectedStep, 'lg')
