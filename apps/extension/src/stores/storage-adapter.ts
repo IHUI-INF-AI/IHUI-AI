@@ -16,7 +16,7 @@
  * 4. 严格只读 chrome.storage.local,不使用 session / sync / managed,确保
  *    与 lib/token.ts 的存储区域完全一致(跨 background/popup/sidepanel 共享)。
  *
- * 使用场景(只用于持久化 user + isAuthenticated,token 一律不落盘):
+ * 使用场景(只用于持久化 user 资料,token 一律不落盘;登录态不入库,由 hydrate 派生):
  * - zustand persist 写入 user 字段:经 createJSONStorage → PersistTransport
  *   → chrome.storage.local.set({ 'ihui-auth-user': json })
  * - hydrate 时:从 chrome.storage.local.get('ihui-auth-user') 读出 JSON 字符串

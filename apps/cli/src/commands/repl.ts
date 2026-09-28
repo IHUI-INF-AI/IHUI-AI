@@ -109,6 +109,8 @@ import {
   stopLoop,
   clearAllLoops,
 } from '../tools/background-registry.js';
+// 后台任务台账:跨进程"只报不恢复"。状态判据一律住在 background-ledger,本文件不复写任何推断。
+import { drainLedgerAlerts, ledgerStateLabel, summarizeLedger } from '../tools/background-ledger.js';
 import { runSandboxedAsync } from '../sandbox/index.js';
 import { estimateMessagesTokens } from '../context.js';
 import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook } from '../hooks/index.js';
@@ -886,6 +888,63 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
   });
 }
 
+/**
+ * 后台任务台账的呈现点 —— **只报不恢复**。
+ *
+ * 为什么所有判断都不在这里:`classifyLedgerRecord()` 是"是不是 detached-unknown"的唯一实现,
+ * 呈现层再算一次就是第二份真相(本仓最高频的失效型就是两份判据漂移)。
+ * 这里只做一件事:把已经判好的东西逐条念出来,并且**绝不**把它念成"完成"。
+ */
+function printBackgroundLedger(liveIds: readonly string[]): void {
+  const ledger = summarizeLedger({ liveIds });
+  const c = ledger.counts;
+  console.info(chalk.cyan(`\n╭─ background ledger · ${ledger.total} record(s) @ ${ledger.path}`));
+  console.info(
+    chalk.dim(
+      `│  settled: succeeded=${c.succeeded} failed=${c.failed} cancelled=${c.cancelled} ended-unknown=${c['ended-unknown']}`,
+    ),
+  );
+  const unsettledCount =
+    c['detached-unknown'] + c['outcome-unknown'] + c['owned-elsewhere'] + c['running-here'];
+  if (unsettledCount > 0) {
+    console.info(
+      chalk.yellow(
+        `│  NOT completed (${unsettledCount}): detached-unknown=${c['detached-unknown']} ` +
+          `outcome-unknown=${c['outcome-unknown']} owned-elsewhere=${c['owned-elsewhere']} running-here=${c['running-here']}`,
+      ),
+    );
+    for (const e of ledger.unsettled.slice(0, 10)) {
+      const basis = e.basis ? chalk.dim(`  ${e.basis}`) : '';
+      console.info(
+        `│    ${chalk.bold(e.record.id)}  ${ledgerStateLabel(e.state)}  kind=${e.record.kind} ` +
+          `${chalk.dim(`since=${e.record.startedAt} lastSeen=${e.record.lastSeenAt}`)}` +
+          `${chalk.dim(` exit=${e.record.exitCode ?? '-'}`)}${basis}`,
+      );
+    }
+    if (ledger.unsettled.length > 10) {
+      console.info(chalk.dim(`│    …${ledger.unsettled.length - 10} more unsettled record(s)`));
+    }
+    console.info(
+      chalk.dim('│  report-only ledger: nothing here gets re-run, re-labelled as a terminal state, or deleted'),
+    );
+  }
+  if (ledger.malformedLines > 0) {
+    console.info(chalk.yellow(`│  malformed ledger line(s) skipped: ${ledger.malformedLines}`));
+  }
+  if (ledger.oversize) {
+    console.info(
+      chalk.red(
+        `│  LEDGER OVER LIMIT: ${ledger.oversize.lines} lines / ${ledger.oversize.bytes} B — ` +
+          `AUTO-CLEAN REFUSED. Clean it by hand: pruneLedger({ confirm: true })`,
+      ),
+    );
+  }
+  console.info(chalk.cyan('╰─ /bg ledger re-reads it at any time'));
+  console.info('');
+  // 写不上账 / 规模闸 / 人工清理都只在这里喊一次 —— 静默降级等于伪造完整性(AGENTS §30)。
+  for (const alert of drainLedgerAlerts()) console.info(chalk.red(`⚠ ${alert}`));
+}
+
 async function handleSlashCommand(input: string, state: ReplState, rl: readline.Interface): Promise<void> {
   const [cmdRaw, ...args] = input.slice(1).split(/\s+/);
   const cmd = cmdRaw ?? '';
@@ -1495,7 +1554,7 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
     case 'background': {
       const sub = args[0] ?? '';
       if (!sub) {
-        console.info(chalk.dim('用法:/bg <cmd> | /bg list | /bg live <id> | /bg out <id> [N] | /bg wait <id> [ms] | /bg kill <id>'));
+        console.info(chalk.dim('用法:/bg <cmd> | /bg list | /bg ledger | /bg live <id> | /bg out <id> [N] | /bg wait <id> [ms] | /bg kill <id>'));
         break;
       }
       if (sub === 'list') {
@@ -1515,6 +1574,12 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
           console.info(chalk.cyan('╰─ /bg out <id> 查看输出 · /bg wait <id> 等待 · /bg kill <id> 终止'));
           console.info('');
         }
+        // ---- 后台任务台账(跨进程可见)----
+        // 只报不恢复:进程重启后遗留任务在这里被逐条点名,状态一律由 background-ledger 判,
+        // 本处不做任何"进程不在就算失败/完成"的推断(AGENTS §30)。
+        printBackgroundLedger(list.filter((t) => t.status === 'running').map((t) => t.id));
+      } else if (sub === 'ledger') {
+        printBackgroundLedger(listTasks().filter((t) => t.status === 'running').map((t) => t.id));
       } else if (sub === 'live') {
         // W11 后台任务 live tail:增量跟随输出直至退出(对标 Claude Code 后台任务实时流)
         const id = args[1] ?? '';

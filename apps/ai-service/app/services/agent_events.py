@@ -65,6 +65,9 @@ SSE_TOOL_SUMMARY = "tool-summary"        # 工具汇总(_build_tool_summary 产�
 SSE_TERMINAL_START = "terminal_start"    # 终端命令开始(前端 TerminalSection)
 SSE_TERMINAL_END = "terminal_end"        # 终端命令结束(exitCode/duration)
 SSE_TERMINAL_DELTA = "terminal_delta"    # 终端命令逐行增量(实时 stdout/stderr)
+# D151(2026-09-29 立,用户批"默认开 + 单次等待 300s"):命令在等键盘输入时的一帧。
+# 与 terminal_delta 的区别:后者是"它在输出",前者是"它停住了、在等你敲一行"。
+SSE_TERMINAL_INTERACTION = "terminal_interaction"
 
 # ---------------------------------------------------------------------------
 # 子 agent 事件(_tool_dispatch_subagent 委托链)

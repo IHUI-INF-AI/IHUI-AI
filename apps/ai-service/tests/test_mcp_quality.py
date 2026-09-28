@@ -374,7 +374,9 @@ async def test_call_external_tool_records_metrics():
 
     manager = MCPClientManager()
     manager._clients["ext"] = FakeClient()  # type: ignore[assignment]
-    result = await manager.call_external_tool("ext", "t", {})
+    # 直接塞进 _clients ⇒ 没有 _owners 条目 = 属主空串 = 部署级,对任何主体可见。
+    # 这里刻意走**带主体的出口**(G-371 之后它是默认入口),这样"收窄后指标照记"也被覆盖。
+    result = await manager.call_external_tool("ext", "t", {}, caller_user_id="user-1")
     assert result["ok"] is True
     m = mcp_quality.get_server_metrics("ext")
     assert m["calls"] == 1
