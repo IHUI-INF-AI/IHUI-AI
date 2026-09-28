@@ -10,7 +10,7 @@
 - POST   /api/memory/dream      触发梦境固化(consolidate:episodic → semantic + procedural)
 - GET    /api/memory/topics     查询梦境主题(LLM 总结最近 10 条 semantic)
 - DELETE /api/memory/forget     触发遗忘曲线衰减(episodic importance < threshold 删除)
-- GET    /api/memory/working    辅助:查询 working memory
+- GET    /api/memory/working    辅助:查询 working memory(按条目属主过滤,2026-09-28 收口)
 - GET    /api/memory/episodic   辅助:查询 episodic memory
 - GET    /api/memory/procedural 辅助:查询 procedural memory
 
@@ -28,15 +28,18 @@ UUID 就能读/改/删别人的记忆(认证 ≠ 授权)。现每个带 user_id 
   DEV_ANONYMOUS_PRINCIPAL,此时才放行请求参数(开发单机无租户可保护,非放宽)。
 归属判定只有一个出口 `_resolve_owner`,它**返回**最终归属而不只是"校验通过与否" ——
 调用方一律用返回值喂服务层,杜绝"校验了 A、却仍拿参数里的 B 去查库"的两张皮。
-`/memory/working` 无 user_id 参数(仅 session_id 句柄),不在本票对齐面内
-(session_id 归属另记,见交付报告"同型面")。
-现读补充(2026-09-27 安全票,常驻取证):该端点今日既无端点级鉴权地板也无属主过滤;
-仓内唯一入口是 apps/api v1 网关转发(v1-knowledge-tools.ts:2315-2336,不传
-session_id ⇒ 本路由 422 ⇒ 网关 503,结构死路),且 working 桶不记属主
-(services/memory_service.py:217/:229-240,save() 的 working 分支 :677-680 丢弃
-已解析 owner)⇒ session↔owner 权威来源缺失,**未收紧**。现状钉桩见
-tests/test_memory_authz.py 的 WORKING_PENDING_LEDGER 与 test_working_* 系列;
-收紧前须先定权威来源,不得凭猜造一份,也不得为消红削守门 117 的判据。
+`/memory/working` 于 2026-09-28 收口(机主拍板"写侧补属主 + 回填再收紧"):该端点不收
+user_id 参数,句柄是 session_id,所以对齐点是**条目自身的属主**而非请求参数 ——
+写侧 `memory_service.add_working(owner=…)` 在锁内把属主烘进条目(旧实现是 `save()`
+拿到返回值后在锁外补 `msg["userId"]`,而直接调 `add_working` 的写入路径根本没有属主参数),
+读侧由 `entry_visible_to` 这一份判据逐条裁:有 owner ⇒ 必须等于令牌主体;
+无 owner(收口前的存量)⇒ 维持改动前行为,由 `scripts/backfill_working_owner.py`
+从 `agent_memory_episodic` 的 (session_id, user_id) 权威列幂等回填,推不出的保持无主。
+"无主 ⇒ 照旧可读"这一格是**回退不是授权结论**,写在
+`memory_service.entry_visible_to` 的分支注释里,不得读成"已收紧完成"。
+"不是你的"与"不存在"**同形回包**(200 + 空桶),否则端点退化成存在性预言机。
+现状钉桩(tests/test_memory_authz.py 的 test_working_* 一组与 WORKING_PENDING_LEDGER)
+已随本票逐条改判为断言拒绝,台账须恒为空。
 """
 
 from __future__ import annotations
@@ -216,9 +219,32 @@ async def forget_memory(
 async def get_working(
     session_id: str = Query(..., description="会话 ID"),
     limit: int = Query(50, ge=1, le=200, description="返回条数上限"),
+    principal: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
-    """查询 working memory(当前会话内存缓冲)。"""
-    items = await memory_service.get_working(session_id, limit=limit)
+    """查询 working memory(当前会话内存缓冲)—— 2026-09-28 收口为"任何读取都与令牌主体对齐"。
+
+    身份只从承载层进来:`require_request_user_id`(仓里现成出口,本票未改它)解析出的
+    主体即归属,端点**不接受**任何自报的 user_id 参数 —— 句柄是 session_id,而"这个
+    session 属于谁"由条目自身的属主记录决定,不由调用方声称。
+
+    requester 的取值刻意经过一次"DEV 主体 → None"的翻译,理由是**行为不变优先于账面严格**:
+    本进程根本没启用 JWT 校验时(`auth_globally_enforced()` 为假)主体是
+    `DEV_ANONYMOUS_PRINCIPAL`,那是一个"无租户可保护"的哨兵值,把它当成真实属主去比对会
+    让开发单机与所有以 ASGI in-process 跑的既有测试整片读不到自己的 working 记忆,
+    而这不减少任何真实敞口(与本文件 `_resolve_owner` 的 DEV 分支是同一条判断)。
+    ⇒ None 走的是服务层 `entry_visible_to` 的第 1 分支,那里写明"这是回退,不是授权结论"。
+
+    两条同形口径(防存在性预言机,AGENTS §5):"这条 session 不是你的"与"这条 session
+    不存在"**必须回同一个形状**(200 + `data: []`)。差别只在日志层面可谈:若改成
+    一个回 403、一个回空桶,调用方就能拿这个端点枚举"哪些 session_id 真实存在且不属于我"。
+    短路判据 `working_has_visible_entries()` 只回答"有没有可见条目"、**不返回任何内容**,
+    且与 `get_working` 里的逐条过滤共用同一份 `entry_visible_to` —— 它是少发一次内容读取的
+    优化,不是第二道判据(两处各写一道必然漂移,本仓记过太多次)。
+    """
+    requester: str | None = None if principal == DEV_ANONYMOUS_PRINCIPAL else principal
+    if not await memory_service.working_has_visible_entries(session_id, requester):
+        return {"code": 0, "message": "ok", "data": []}
+    items = await memory_service.get_working(session_id, limit=limit, requester=requester)
     return {"code": 0, "message": "ok", "data": items}
 
 
