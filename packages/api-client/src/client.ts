@@ -446,9 +446,16 @@ export function deriveFailureFromBody(
   }
   if (parsed) {
     // FastAPI 的错误体是 {detail:"..."};只认 message 会让 toast 直接显示整段原始 JSON 文本。
+    // 多结论端点的标准写法是形态② {detail:{errorCode,message}}(如 /agents/{sid}/pause|resume,
+    // V3 #65 契约测试钉住"errorCode 原样带回,不折成一句失败"):detail 是字典时从壳内取,
+    // 否则结论在派生出口这一层就丢了。优先级仍是顶层 message 先、detail 后。
+    const detailDict =
+      parsed.detail && typeof parsed.detail === 'object' ? (parsed.detail as Record<string, unknown>) : undefined
     if (typeof parsed.message === 'string' && parsed.message.trim()) message = parsed.message
     else if (typeof parsed.detail === 'string' && parsed.detail.trim()) message = parsed.detail
+    else if (typeof detailDict?.message === 'string' && detailDict.message.trim()) message = detailDict.message
     if (typeof parsed.errorCode === 'string') errorCode = parsed.errorCode
+    else if (typeof detailDict?.errorCode === 'string') errorCode = detailDict.errorCode
   }
   return { message, errorCode }
 }
@@ -3655,6 +3662,22 @@ export async function postToolApprovalResponse(input: {
     }
     throw new Error(
       `postToolApprovalResponse failed: HTTP ${resp.status} (session=${input.sessionId}, approval=${input.approvalId})${detail ? `: ${detail}` : ''}`,
+    )
+  }
+  // 接受与否**必须读包体**:该端点对"会话不存在/已过期"与"审批条目不存在"回的都是
+  // HTTP 200 + `{ok:false,error:…}`(`apps/ai-service/app/routers/llm.py` 的
+  // `post_tool_approval_response` 前两个 return)。只看 `resp.ok` 会把它读成"已送达"——
+  // 调用方(扩展侧栏 / web 对话框)据此收起横幅,而后端要等满 `_APPROVAL_TIMEOUT` 才按
+  // "未批准"收尾:用户点了「允许」,AI 那边永远等超时。
+  let accepted: { ok?: boolean; error?: string } | null = null
+  try {
+    accepted = (await resp.json()) as { ok?: boolean; error?: string }
+  } catch {
+    accepted = null
+  }
+  if (!accepted || accepted.ok !== true) {
+    throw new Error(
+      `postToolApprovalResponse not accepted: ${accepted?.error ?? '响应体不是可判定的 JSON'} (session=${input.sessionId}, approval=${input.approvalId})`,
     )
   }
 }
