@@ -50,7 +50,7 @@ export function PromptTemplates({
               type="button"
               onClick={() => onSelect(tpl.content)}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5',
+                'inline-flex items-center gap-1.5 rounded-sm border bg-background px-3 py-1.5',
                 'text-xs font-medium text-foreground/80 transition-all',
                 'hover:border-primary/40 hover:bg-accent hover:text-foreground hover:-translate-y-px',
               )}
@@ -72,7 +72,7 @@ export function PromptTemplates({
           type="button"
           onClick={() => onSelect(tpl.content)}
           className={cn(
-            'group flex items-start gap-2 rounded-lg border bg-card p-2.5 text-left transition-colors',
+            'group flex items-start gap-2 rounded-sm border bg-card p-2.5 text-left transition-colors',
             'hover:border-primary/40 hover:bg-accent',
           )}
         >

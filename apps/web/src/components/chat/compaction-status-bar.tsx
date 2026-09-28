@@ -180,7 +180,7 @@ export function CompactionStatusBar() {
             <button
               type="button"
               onClick={() => setArchiveOpen(true)}
-              className="shrink-0 rounded font-medium underline underline-offset-2 transition-opacity hover:opacity-80"
+              className="shrink-0 rounded-sm font-medium underline underline-offset-2 transition-opacity hover:opacity-80"
             >
               {t('compaction.viewArchived', { count: omittedCount })}
             </button>
@@ -321,7 +321,7 @@ function ArchiveViewerDialog({
               <button
                 type="button"
                 onClick={() => openDetail(a.id)}
-                className="w-full rounded-md border border-border px-3 py-2 text-left text-xs transition-colors hover:bg-muted/50"
+                className="w-full rounded-sm border border-border px-3 py-2 text-left text-xs transition-colors hover:bg-muted/50"
               >
                 <span className="font-medium">{t('viewArchived', { count: a.messageCount })}</span>
                 <span className="ml-2 text-muted-foreground">

@@ -136,7 +136,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
               onClick={onClear}
               disabled={isStreaming}
               className={cn(
-                'absolute right-2 top-1 inline-flex h-6 w-6 items-center justify-center rounded-md',
+                'absolute right-2 top-1 inline-flex h-6 w-6 items-center justify-center rounded-sm',
                 'text-muted-foreground transition-opacity',
                 'opacity-0 hover:bg-accent hover:text-accent-foreground',
                 'group-hover:opacity-100 focus-visible:opacity-100',

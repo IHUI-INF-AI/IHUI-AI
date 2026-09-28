@@ -209,7 +209,7 @@ export function QueueInteractionBar({
             {editing ? (
               <>
                 <input
-                  className="min-w-0 flex-1 rounded border bg-background px-1.5 py-0.5 text-xs"
+                  className="min-w-0 flex-1 rounded-sm border bg-background px-1.5 py-0.5 text-xs"
                   value={editDraft}
                   ref={editInputRef}
                   data-queue-op="editInput"
