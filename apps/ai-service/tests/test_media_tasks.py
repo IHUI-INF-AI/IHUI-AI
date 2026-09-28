@@ -104,6 +104,49 @@ async def test_persist_db_error_not_raised():
     assert ok is False
 
 
+async def test_persist_ownerless_row_is_loudly_warned(caplog):
+    """G-754②:无主体通道铸出的空属主行必须**喊出来**,但本步不改行为。
+
+    读侧闸门把 `user_uuid=''` 的行对任何登录用户放开,其注释称这是"历史行为";而只要还有
+    一条不带主体的通道在跑工具,这类行就在持续新增 —— 那行注释的前提已不成立。这里钉的是
+    "从此不静默":有告警、仍照常落库、返回值不变(收紧可见性是产品决策,不在一行日志里顺手做掉)。
+    """
+    mock_conn = AsyncMock()
+    mock_conn.fetch = AsyncMock(return_value=[{"id": 7}])
+    with caplog.at_level("WARNING"), patch(
+        "app.services.media_tasks.get_db_conn", return_value=mock_conn
+    ):
+        ok = await mt.persist_media_task(
+            "music_generation",
+            {"ok": True, "task_id": "t-anon-1", "provider": "token6688"},
+            user_uuid="",
+        )
+    assert ok is True, "本步刻意不改行为:仍照常落库"
+    joined = "\n".join(r.getMessage() for r in caplog.records)
+    assert "无属主媒体任务行" in joined
+    assert "t-anon-1" in joined
+
+
+async def test_persist_with_owner_does_not_warn(caplog):
+    """反向对照:告警不是"每次都喊" —— 带主体时这条线必须安静。
+
+    缺了这一条,上一例等于"日志里永远出现该串",什么也没排除(本仓最高频的
+    "把没判写成判过了"同型)。
+    """
+    mock_conn = AsyncMock()
+    mock_conn.fetch = AsyncMock(return_value=[{"id": 8}])
+    with caplog.at_level("WARNING"), patch(
+        "app.services.media_tasks.get_db_conn", return_value=mock_conn
+    ):
+        ok = await mt.persist_media_task(
+            "music_generation",
+            {"ok": True, "task_id": "t-owned-1", "provider": "token6688"},
+            user_uuid="real-user",
+        )
+    assert ok is True
+    assert "无属主媒体任务行" not in "\n".join(r.getMessage() for r in caplog.records)
+
+
 # ---------------------------------------------------------------------------
 # 服务层:query / get / update
 # ---------------------------------------------------------------------------
