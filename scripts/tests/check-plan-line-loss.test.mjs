@@ -554,3 +554,98 @@ test('端到端(G-307):翻勾+注记的两种形态都不得触发回捞;整行�
   }
 })
 
+// ── 名额判活(multiset):同一编号多处登记、被吞其中一行(2026-09-27 补)──────────────
+// 现场逐字取自真实事故:`7c22d68d09b` 入库一整节 `### O61 领票前逐条实测…`,下一枚
+// `85e07c9e70b` 按旧基线整文件回写把它吞掉;而 HEAD 里另有 `## O61 safe-commit…` 顶着同一个
+// 编号 ⇒ 旧判据(`headingIdSet(候选).has(id)`)判活,717 条历史登记行照报"无缺失,无需回捞"。
+const O43_A = '## O43 名额判活夹具甲节:与乙节共用同一个编号;旧基线回写之后这一行仍然留在文档里。'
+const O43_B = '### O43 名额判活夹具乙节:同一编号的第二处登记,被下一枚提交按旧基线整文件回写时最先被吞。'
+const V_MULTI = ['# 计划', '', O43_A, '', O43_B, '', '### 另一节', OTHER, ''].join('\n')
+const STALE_MULTI = V_MULTI.split('\n').filter((l) => l !== O43_B).join('\n')
+
+test('判据(阳性对照):同编号两处登记、吞其一 ⇒ 必须点名;旧集合判据在同一现场判活', () => {
+  const lost = G.lostMarkers(V_MULTI, STALE_MULTI)
+  // 这两句是"改动确实修好了什么"的证据,不是装饰:旧判据的谓词正是集合成员判定
+  assert.equal(G.headingIdSet(STALE_MULTI).has('O43'), true, '前提:旧集合判据会把这一型判活')
+  assert.equal(G.headIdSet(STALE_MULTI).has('O43'), true, '前提:大集合同样含该编号')
+  assert.equal(lost.length, 1, `应只点名乙节那一条,实得 ${JSON.stringify(lost.map((x) => x.marker))}`)
+  assert.equal(lost[0].shape, 'heading')
+  assert.equal(lost[0].id, 'O43')
+  assert.equal(lost[0].multiSlot, true, '同编号仍有登记点 ⇒ 必须打 multiSlot 标记(回捞侧靠它刹车)')
+})
+
+test('判据(不误伤):同编号两处登记都只改写措辞、编号仍占行首 ⇒ 一条都不报', () => {
+  const reworded = V_MULTI
+    .replace(O43_A, '## O43 名额判活夹具甲节被重写了一遍,编号照旧待在行首,长度也够入选登记行。')
+    .replace(O43_B, '### O43 名额判活夹具乙节也被重写了一遍,编号照旧待在行首,长度也够入选登记行。')
+  assert.deepEqual(G.lostMarkers(V_MULTI, reworded), [])
+})
+
+test('端到端(提交链):旧基线写回吞掉同编号第二行 → --staged exit 1,并写明"不自动回捞"', () => {
+  const dir = tempPlanRepo(V_MULTI)
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE_MULTI, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    const r = runGate(dir, ['--staged'])
+    assert.equal(r.status, 1, `应 exit 1,实际 ${r.status}\n${r.stdout}\n${r.stderr}`)
+    assert.match(r.stderr, /条目标题 O43/)
+    assert.match(r.stderr, /只点名,不进自动回捞/, 'multiSlot 那一类必须写明不许自动插回台账')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端(归档豁免成对):同一行在已入库归档件里逐字可寻 ⇒ 正当移除,--staged 必须绿', () => {
+  const archiveRel = '.ihui-agent/archive/PROJECT_PLAN_2026-09-27.md'
+  const a = tempPlanRepo(V_MULTI) // 归档副本只躺在盘上,从未进索引 ⇒ 不构成凭据
+  const b = tempPlanRepo(V_MULTI) // 同一份内容,多一次 git add ⇒ 构成凭据
+  try {
+    for (const dir of [a, b]) {
+      const dst = join(dir, archiveRel)
+      mkdirSync(dirname(dst), { recursive: true })
+      writeFileSync(dst, ['# 归档(2026-09-27)', '', O43_B, ''].join('\n'), 'utf8')
+      writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE_MULTI, 'utf8')
+      git(dir, 'add', 'PROJECT_PLAN.md')
+    }
+    git(b, 'add', archiveRel)
+    assert.equal(runGate(a, ['--staged']).status, 1, '归档件未入库时不得放行(G-183 同条纪律)')
+    const green = runGate(b, ['--staged'])
+    assert.equal(green.status, 0, `已入库的归档副本必须放行:\n${green.stderr}`)
+  } finally {
+    rmScratch(a)
+    rmScratch(b)
+  }
+})
+
+test('端到端(回捞侧两种处置):编号整体消失才回插;同编号仍有登记点只点名、一个字节都不写', () => {
+  const dirA = tempPlanRepo(V_MULTI)
+  const sole = '### O44 名额判活夹具丁节:这一处编号只有一行登记,被旧基线吞掉之后应当被自动回捞回来。'
+  // 语料必须够"肥":规模安全闸按 missing/seen 比例判异常(默认 40%),只放 2 条登记行的夹具
+  // 会被它正确地拒掉 ⇒ 本例要测的是"回捞动作",不是那道闸(那道闸另有自己的成对用例)。
+  const V_SOLE = ['# 计划', '', sole, '', HEADING, SIBLING_BOLD, SIBLING_CB, '', '### 另一节', OTHER, ''].join('\n')
+  const STALE_SOLE = V_SOLE.split('\n').filter((l) => l !== sole).join('\n')
+  const dirB = tempPlanRepo(V_SOLE)
+  try {
+    writeFileSync(join(dirA, 'PROJECT_PLAN.md'), STALE_MULTI, 'utf8')
+    const ra = runGate(dirA, ['--heal'])
+    assert.equal(ra.status, 0, `--heal 应正常收尾,实际 ${ra.status}\n${ra.stdout}\n${ra.stderr}`)
+    assert.equal(
+      readFileSync(join(dirA, 'PROJECT_PLAN.md'), 'utf8'),
+      STALE_MULTI,
+      'multiSlot 那一类绝不允许被自动插回(那等于替台账长出重复登记)',
+    )
+    assert.match(`${ra.stdout}\n${ra.stderr}`, /O43/, '但它必须被点名,不得静默')
+
+    writeFileSync(join(dirB, 'PROJECT_PLAN.md'), STALE_SOLE, 'utf8')
+    const rb = runGate(dirB, ['--heal'])
+    assert.equal(rb.status, 0, `对照:--heal 应 exit 0\n${rb.stderr}`)
+    assert.ok(
+      readFileSync(join(dirB, 'PROJECT_PLAN.md'), 'utf8').includes(sole),
+      '对照:编号整体消失那一类必须被回插,否则本次收紧只是把回捞能力削掉了',
+    )
+  } finally {
+    rmScratch(dirA)
+    rmScratch(dirB)
+  }
+})
+
