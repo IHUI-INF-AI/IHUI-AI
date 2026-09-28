@@ -81,7 +81,18 @@ export default defineConfig({
       ),
       '@ihui/shared/utils': resolve(__dirname, 'tests/__mocks__/ihui-shared-utils.ts'),
       '@ihui/shared/hooks': resolve(__dirname, 'tests/__mocks__/ihui-shared-hooks.ts'),
-      '@ihui/shared/stores': resolve(__dirname, 'tests/__mocks__/ihui-shared-stores.ts'),
+      // 2026-09-27 收口:stores 从"手写替身"改为直指真实工厂。
+      // 旧替身自己实现了一份 createAuthStore/createThemeStore,与真实工厂**语义不同形**——
+      // 最要命的是 hydrate:替身对 tokenStore 返回 null 是"跳过保留旧值"
+      // (`if (t !== null) _token = t`),真实工厂是"覆盖并派生 isAuthenticated: !!token"。
+      // 于是任何用替身写的凭据用例证明的都是 mock 而不是实现(登录态清没清、
+      // isAuthenticated 有没有跟着 token 走,两条都判反),而这条正是"显式登出后冷启动
+      // 会不会自动登录"要用的那条链 —— 与 @ihui/shared/utils/app-control-intent 同一条规矩:
+      // 给它写 mock,测的就是 mock。
+      // 真实 stores 按自身文件头声明"零运行时依赖:除 zustand 外不依赖任何端特定 API
+      // (@ihui/api-client 仅类型)",所以它不需要替身;各端的存储差异本来就靠注入
+      // transport / tokenStore adapter 表达(内存版见 packages/shared/src/stores/transport.ts)。
+      '@ihui/shared/stores': resolve(__dirname, '../../packages/shared/src/stores/index.ts'),
       '@ihui/shared/notifications/notification-store': resolve(
         __dirname,
         'tests/__mocks__/ihui-shared-notif-store.tsx',
