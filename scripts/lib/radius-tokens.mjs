@@ -10,16 +10,18 @@
  *  1. **档位表取值**:唯一真相源是 `packages/design-tokens/src/radius.js`。门若把 `lg=8` 抄进
  *     自己的判据,档位表一改(2026-09-23 就把 sm 从 2px 改成 4px)门就悄悄在对着旧表打分。
  *     所以这里**解析被审面上的那份表**,而不是 import 磁盘常量 —— 与"清单与内容同面同轮"同一条规矩。
- *  2. **`radius-exempt` 的生效范围**:真圆/装饰点/胶囊按"同行或紧邻上一行有标记"放行。77 与 128
- *     若各写一遍,同一处豁免会一边认、一边判红 —— 那是台必然恒红的尺子。
+ *  2. **圆角豁免标记**:该族标记曾是"真圆/装饰点/胶囊按同行或紧邻上行放行"的出口。出口已于
+ *     O81 票㊵ **整体废除**(项目定档「不允许有任何豁免」),本文件里那道按行放行的判断随之删除;
+ *     剩下的"认出哪里写过它"住在 `lib/radius-exempt-marker.mjs`,由门 77(判红)与门 150(报名)
+ *     共用那一份 —— 两处各写一遍正则,同一枚标记就会一边被判红、一边被当成不存在。
  */
 
-/** 剥掉块注释与行注释后的等行文本(行号不变 —— 豁免规则按行生效,删字符会错位)。 */
+/** 剥掉块注释与行注释后的等行文本(行号不变 —— 判红要指得回原文行,删字符会错位)。 */
 import { RPX_PER_PX, lengthToPx, constantMapOf, constExprPx } from './length-units.mjs'
 /**
  * 单位折算与常量归集**住在 `lib/length-units.mjs`**,本文件只再导出(既有调用方的 import 一行都不用改):
  * 半径侧与盒形侧量的是同一个物理量,写两份折算必然漂移;而几何层只需要单位层,不该被拖进本文件的
- * 圆角专属逻辑(radiusLookup / 豁免判断)—— 那会让每一个按文件清单搭的几何夹具都得复制圆角层。
+ * 圆角专属逻辑(radiusLookup / 标记识别)—— 那会让每一个按文件清单搭的几何夹具都得复制圆角层。
  */
 export { RPX_PER_PX, lengthToPx, constantMapOf, constExprPx }
 
@@ -110,13 +112,10 @@ export function radiusLookup(radiusSrc) {
 }
 
 /**
- * `radius-exempt` 是否覆盖第 i 行(0 基)。规则与守门 77 原文同形:本行或紧邻上一行。
- * 不得放宽成"整块/整个文件豁免" —— 一个标记救一棵子树,等于没有这条豁免。
+ * 圆角豁免标记族的识别式住在 `lib/radius-exempt-marker.mjs`(该族的放行语义已由 O81 票㊵ 整体废除,
+ * 只剩"认出哪里写过它"这一半,被门 77 判红与门 150 报名共用那一份)。本文件不再转它:
+ * 单位折算层与档位表层都不该因为一个禁令正则而多一个依赖面。
  */
-export function isRadiusExemptAt(lines, i) {
-  if (/radius-exempt/.test(lines[i] || '')) return true
-  return i > 0 && /radius-exempt/.test(lines[i - 1] || '')
-}
 
 
 /**
@@ -255,13 +254,12 @@ export function radiusPxInLine(line, table, consts) {
   return out
 }
 
-/** 整份源码 → 圆角档集合(按行遮豁免)。返回排序后的去重数组。 */
+/** 整份源码 → 圆角档集合。返回排序后的去重数组。 */
 export function radiusSetOf(src, table) {
   const lines = (src || '').split('\n')
   const consts = constantMapOf(src)
   const set = new Set()
   for (let i = 0; i < lines.length; i++) {
-    if (isRadiusExemptAt(lines, i)) continue
     const t = lines[i].trim()
     /**
      * 整行注释一律跳过:注释里出现 `rounded-2xl` / `border-radius: 50%` 是在**说明规则或对齐
@@ -330,7 +328,6 @@ export function blockOwnerOf(prelude) {
  * @returns {{ entries: Record<string, number[]>, unnamed: number, cssNames: string[] }}
  */
 export function radiusEntriesOf(src, table) {
-  const originalLines = (src || '').split('\n')
   const lines = maskComments(src || '').split('\n')
   const entries = {}
   const cssNames = new Set()
@@ -378,8 +375,6 @@ export function radiusEntriesOf(src, table) {
      * 下一票要不要扩配对判据的唯一输入,报错的数比不报更坏。
      */
     if (/\bclass(?:Name)?\s*=/.test(raw)) continue
-    // 豁免标记活在注释里 ⇒ 判据看遮罩面、豁免看原文面(两处同一件事不得各遮一套)。
-    if (isRadiusExemptAt(originalLines, i)) continue
     if (!names.length) {
       unnamed += pxs.length
       continue
@@ -400,7 +395,6 @@ export function radiusEntriesOf(src, table) {
     const text = lits.join(' ')
     const pxs = radiusPxInLine(text, table, consts)
     if (!pxs.length) continue
-    if (isRadiusExemptAt(originalLines, i)) continue
     const toks = new Set(text.split(/[\s{}]+/).filter(Boolean))
     const known = [...toks].filter((k) => cssNames.has(k))
     if (!known.length) {
