@@ -86,6 +86,8 @@ import {
   classifySurfaces,
   headToken,
   isRoleExemptAt,
+  isModalTag,
+  isOverlayName,
   declarationRanges,
   maskFaces,
   radiusFormsInLine,
@@ -100,6 +102,12 @@ import {
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const RADIUS_TABLE_REL = 'packages/design-tokens/src/radius.js'
 const BASELINE_REL = 'scripts/radius-role-conformance-baseline.json'
+/**
+ * 真仓阳性对照的取材 ref —— **钉清偿前的出处提交,不钉 HEAD**:账还完那天"HEAD 上还能量到这条违规"
+ * 这条前提当场失效,阳性对照会跟着一起消失而自检照绿(票㉗ 由镜像 T18 钉死;票㉘ 用例 69 又踩一次)。
+ * 可用 env 覆盖,便于出处搬家时不改代码。
+ */
+const PROBE_REF = process.env.IHUI_RADIUS_PROBE_REF || 'acf1927e96'
 const FACE_TXT = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(磁盘)' }
 
 /**
@@ -176,7 +184,14 @@ export function auditFileText(rel, src, table) {
   let surfaces = null
   if (hasJsxShape(kept)) {
     scope = scanJsx(kept, { strings })
-    surfaces = classifySurfaces(scope.elements, { roleOf: rolesOfName })
+    // C4 只在**浮层组件自己的文件**里启用(理由见 classifySurfaces 头注:页面文件里的 `<Card>`
+    // 是对话框内容区的数据卡,不是浮层体 —— 一律启用会造出假阳与 contested 死锁)
+    const base = rel.split('/').pop() || ''
+    const stemName = base.replace(/\.[^.]+$/, '')
+    // 浮层身份用**同一套词表**(MODAL_TAG_SUFFIXES / OVERLAY_KEY_STEMS)判定 ——
+    // 面板词干里刻意没收 'popup'(它是标签后缀不是角色词干),各写一份就会漏掉 LoginPopUp 这类真目标
+    const modalFile = rolesOfName(stemName).includes('panel') || isModalTag(stemName) || isOverlayName(stemName)
+    surfaces = classifySurfaces(scope.elements, { roleOf: rolesOfName, modalFile })
     out.scopeCorrupt = scope.corrupt
     for (const k of surfaces.contestedKeys) out.contested.push({ file: rel, key: k })
   }
@@ -278,10 +293,6 @@ export function auditFileText(rel, src, table) {
     const isJsxRoot = !!(info && !info.ambiguous && (info.ancestors?.length || 0) === 0)
     /** 组件名档按**最内层声明**归属 ⇒ 同文件内联的小组件不会被外层名字顶判 */
     const compOwner = isJsxRoot ? rolesOfOwner(i + 1) : null
-    if (isJsxRoot && !compOwner) {
-      const own = ownerOfLine(declRanges, i + 1)
-      if (own) out.componentUndetermined.push({ file: rel, line: i + 1, owner: own.name })
-    }
     if (info && !info.ambiguous) {
       for (const r of rolesOfName(info.selfName)) strong.add(r)
       for (const k of info.keys) for (const r of rolesOfName(k)) strong.add(r)
@@ -308,6 +319,14 @@ export function auditFileText(rel, src, table) {
     if (ident.roles.size) {
       out.identityEvidence++
       if (!strong.size) for (const r of ident.roles) strong.add(r)
+    }
+    /**
+     * "组件名判不出"的报名**必须排在身份通道之后** —— 身份已经给出类别的行再报一次
+     * "组件名判不出"是同一格计两遍债,读数会被读成两倍待办(本仓"报数也要报得能看懂"那条)。
+     */
+    if (isJsxRoot && !compOwner && !strong.size && !ident.roles.size && !forms.some((x) => x.role)) {
+      const own = ownerOfLine(declRanges, i + 1)
+      if (own) out.componentUndetermined.push({ file: rel, line: i + 1, owner: own.name })
     }
     const ownerName = names.length ? names[names.length - 1] : null
     const keyIsSurface = !!(surfaces && ownerName && surfaces.surfaceKeys.has(ownerName))
@@ -1003,7 +1022,7 @@ export async function selfTest(repoRoot = ROOT) {
   })())
   // —— 真仓阳性对照(关键):同一条违规,写在代码里必命中、只写进注释必不命中
   const PROBE = 'apps/miniapp-taro/src/components/DrawerComponent.tsx'
-  const probeSrc = catBatch(repoRoot, [`HEAD:${PROBE}`], { maxBuffer: 1 << 26 }).get(`HEAD:${PROBE}`)
+  const probeSrc = catBatch(repoRoot, [`${PROBE_REF}:${PROBE}`], { maxBuffer: 1 << 26 }).get(`${PROBE_REF}:${PROBE}`)
   let hit = null
   let blind = false
   if (probeSrc) {
@@ -1016,7 +1035,7 @@ export async function selfTest(repoRoot = ROOT) {
     const again = A(rewritten)
     blind = ![...again.violations, ...again.weakFindings].some((v) => v.form.includes('rounded-t-xl'))
   }
-  t(`69 真仓 HEAD 阳性对照:${PROBE} 的 rounded-t-xl 必须被点名`, !!hit, hit ? `角色 ${hit.role} / 实际 ${hit.actualStep} / 应为 ${hit.expectedStep}` : '未命中 = 判据失明')
+  t(`69 真仓出处阳性对照(${PROBE_REF.slice(0, 9)}):${PROBE.split(String.fromCharCode(47)).pop()} 的 rounded-t-xl 必须被点名`, !!hit, hit ? `角色 ${hit.role} / 实际 ${hit.actualStep} / 应为 ${hit.expectedStep}` : '未命中 = 判据失明')
   t('70 同一形态只写进注释 ⇒ 必不命中(否则遮罩关掉的是判据)', !!probeSrc && blind)
   /**
    * 71–73:角色表**值支**必须认得数字开头的档名(`hero: '2xl'`)。
@@ -1077,8 +1096,32 @@ export default function Pop() {
     </Modal>
   )
 }`
+  /**
+   * C4 的用例必须在**以浮层命名的文件**里跑 —— 门现在把"自称 card 的盒子按 panel 判"限制在
+   * 浮层组件文件内(页面文件里的 <Card> 是对话框内容区的数据卡)。这条边界本身就是一条用例,
+   * 所以这里同时留正例(浮层文件 ⇒ 改判)与反例(页面文件 ⇒ 不改判),不让启发式单方面说了算。
+   */
+  const AM = (src) => auditFileText('x/LoginModal.tsx', src, table)
+  const AP = (src) => auditFileText('x/ManagementPage.tsx', src, table)
+  t('73b 页面文件里对话框内的 <Card> 不被改判(它是内容卡,不是浮层体)', () => {
+    const src = [
+      'export function ManagementPage() {',
+      '  return (',
+      '    <Dialog>',
+      '      <DialogContent>',
+      '        <div className="grid gap-2">',
+      '          <Card className="rounded-lg">x</Card>',
+      '        </div>',
+      '      </DialogContent>',
+      '    </Dialog>',
+      '  )',
+      '}',
+    ].join('\n')
+    const r = AP(src)
+    return r.violations.length === 0 && r.undetermined.length === 0 && r.surfaceOverrides === 0
+  })
   t('74 自称 card 而容器是模态面 ⇒ 按 panel 判(xl 合规)并记 via=surface', (() => {
-    const r = A(MODAL_FX)
+    const r = AM(MODAL_FX)
     return (
       r.violations.length === 0 &&
       r.compliant === 1 &&
@@ -1089,7 +1132,7 @@ export default function Pop() {
   t(
     '75 同一段声明换一个**非模态**容器 ⇒ 仍按 card 判红(容器判据不是免罪通道)',
     (() => {
-      const r = A(MODAL_FX.replace('<Modal visible>', '<Pressable onPress={x}>').replace('</Modal>', '</Pressable>'))
+      const r = AM(MODAL_FX.replace('<Modal visible>', '<Pressable onPress={x}>').replace('</Modal>', '</Pressable>'))
       return r.violations[0]?.role === 'card' && r.surfaceOverrides === 0
     })(),
   )
@@ -1110,7 +1153,7 @@ export default function P() {
     </Modal>
   )
 }`
-      const r = A(nested)
+      const r = AM(nested)
       return r.compliant === 1 && r.violations.length === 1 && r.violations[0].role === 'card'
     })(),
   )
@@ -1128,7 +1171,7 @@ export default function P() {
     </View>
   )
 }`
-      const r = A(noModal)
+      const r = AM(noModal)
       return r.compliant === 1 && r.surfaceOverrides === 1
     })(),
   )
@@ -1151,7 +1194,7 @@ export default function P() {
     </View>
   )
 }`
-      const r = A(contested)
+      const r = AM(contested)
       return (
         r.surfaceOverrides === 0 &&
         r.contested.length === 1 &&
@@ -1163,7 +1206,7 @@ export default function P() {
   t(
     '79 层叠档名不得冒充类别:`z-popover` + `bg-card` 只给一个 card 弱证据(不再 role-conflict)',
     (() => {
-      const r = A('<div className="z-popover min-w-[16rem] rounded-xl border bg-card p-1" />')
+      const r = AM('<div className="z-popover min-w-[16rem] rounded-xl border bg-card p-1" />')
       return r.undetermined.length === 0 && r.weakFindings[0]?.role === 'card'
     })(),
   )
@@ -1183,6 +1226,37 @@ export default function P() {
       return r.scopeAmbiguous >= 1 && r.scopeFallback >= 1 && r.undetermined[0]?.reason === 'role-conflict'
     })(),
   )
+  // —— 身份通道(票㉘):ARIA role / data-testid / ui-<role> / bg-popover —— 每条都要有"能命中"与"不得命中"两只
+  t('98 身份标记 ui-panel:rounded-xl 合规,rounded-md 必须判红(标记不是豁免)', () => {
+    const ok = A5('<div className="ui-panel rounded-xl">x</div>', 'x/T.tsx')
+    const bad = A5('<div className="ui-panel rounded-md">x</div>', 'x/T.tsx')
+    return ok.violations.length === 0 && ok.compliant === 1 && bad.violations[0]?.role === 'panel' && bad.violations[0]?.expectedStep === 'xl'
+  })
+  t('99 ARIA role 是身份:role=menu 判 popover、role=dialog 判 panel(不靠颜色猜)', () => {
+    const menu = A5('<div role="menu" className="rounded-xl">x</div>', 'x/T.tsx').violations[0]
+    const dlg = A5('<div role="dialog" className="rounded-xl">x</div>', 'x/T.tsx')
+    return menu?.role === 'popover' && menu?.expectedStep === 'md' && dlg.violations.length === 0 && dlg.compliant === 1
+  })
+  t('100 data-testid 是作者给盒子起的名字:plan-review-panel 压过 bg-card(票㉖ 那处 role-conflict 的实形)', () => {
+    const r = A5('<div className="rounded-xl border bg-card" data-testid="plan-review-panel">x</div>', 'x/ReviewPanel.tsx')
+    return r.undetermined.length === 0 && r.violations.length === 0 && r.compliant === 1
+  })
+  t('101 bg-popover 算身份(浮层类族),rounded-xl 的浮层要降到 md', () => {
+    const v = A5('<div className="rounded-xl border bg-popover">x</div>', 'x/T.tsx').violations[0]
+    return v?.role === 'popover' && v?.expectedStep === 'md'
+  })
+  t('102 反向:bg-card 仍只是背景档 —— 不得被升成身份(否则颜色又开始替元素定性)', () => {
+    const r = A5('<div className="rounded-md bg-card">x</div>', 'x/T.tsx')
+    return r.violations.length === 0 && r.weakFindings.length === 1 && r.weakFindings[0].role === 'card'
+  })
+  t('103 StyleSheet 裸串里的标记也要认(没有 className= 锚点那一型)', () => {
+    const r = A5("const s = { sheet: { a: 'flex ui-card rounded-lg bg-card' } }", 'x/T.tsx')
+    return r.violations.length === 0 && r.compliant === 1
+  })
+  t('104 反向:注释里写的 ui-panel 不得算身份(遮罩面之外判据就成自证)', () => {
+    const r = A5('// ui-panel\n<div className="rounded-md">x</div>', 'x/Panel.tsx')
+    return r.violations.filter((v) => v.role === 'panel').length === 0
+  })
   // —— C5:组件名档(根容器按**它自己的**组件名判,内联小组件不被外层顶判)
   const A5 = (src, rel) => auditFileText(rel || 'x/T.tsx', src, table)
   const C5_ROOT = [
@@ -1263,7 +1337,6 @@ export default function P() {
    */
   const SURF_PROBE = 'apps/mobile-rn/src/components/LoginPopUp.tsx'
   const NOTSURF_PROBE = 'packages/app/src/features/course-detail/CourseDetailScreen.tsx'
-  const PROBE_REF = process.env.IHUI_RADIUS_PROBE_REF || 'acf1927e96'
   const surfSrc = catBatch(repoRoot, [`${PROBE_REF}:${SURF_PROBE}`], { maxBuffer: 1 << 27 }).get(
     `${PROBE_REF}:${SURF_PROBE}`,
   )
@@ -1272,7 +1345,7 @@ export default function P() {
   )
   let surfOk = false
   if (surfSrc) {
-    const r = A(surfSrc)
+    const r = auditFileText(SURF_PROBE, surfSrc, table)
     const overridden = r.compliant + r.violations.filter((v) => v.role === 'panel').length
     // 面成立的两条同时要看:改判确实发生,且 16px 的模态面**仍被判红**(panel 应 xl=12)
     surfOk =
@@ -1298,7 +1371,7 @@ export default function P() {
     `83 真仓反向对照:${NOTSURF_PROBE.split(String.fromCharCode(47)).pop()} 的 btn/tag 不得被容器判据吃掉`,
     (() => {
       if (!notsurfSrc) return false
-      const r = A(notsurfSrc)
+      const r = auditFileText(NOTSURF_PROBE, notsurfSrc, table)
       const roles = new Set(r.violations.map((v) => v.role))
       return roles.has('control') && roles.has('chip') && r.surfaceOverrides === 0
     })(),
