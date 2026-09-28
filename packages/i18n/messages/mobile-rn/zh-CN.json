@@ -1035,6 +1035,8 @@
   "courseFilter": {
     "title": "筛选课程",
     "subtitle": "按条件找到适合你的课",
+    "categoryRange": "分类",
+    "difficultyRange": "难度",
     "priceRange": "价格区间",
     "reset": "重置",
     "apply": "确定",
@@ -1043,9 +1045,15 @@
     "instructor": "讲师",
     "free": "免费",
     "loadFailed": "加载筛选失败",
+    "loadingMore": "正在加载更多",
     "price_all": "全部",
     "price_free": "免费",
-    "price_paid": "付费"
+    "price_paid": "付费",
+    "difficulty_all": "全部",
+    "difficulty_beginner": "入门",
+    "difficulty_intermediate": "进阶",
+    "difficulty_advanced": "高级",
+    "noCategories": "暂无可选分类"
   },
   "courseQAAsk": {
     "title": "课程提问",
