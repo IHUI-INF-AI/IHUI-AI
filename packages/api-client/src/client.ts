@@ -3664,6 +3664,22 @@ export async function postToolApprovalResponse(input: {
       `postToolApprovalResponse failed: HTTP ${resp.status} (session=${input.sessionId}, approval=${input.approvalId})${detail ? `: ${detail}` : ''}`,
     )
   }
+  // 接受与否**必须读包体**:该端点对"会话不存在/已过期"与"审批条目不存在"回的都是
+  // HTTP 200 + `{ok:false,error:…}`(`apps/ai-service/app/routers/llm.py` 的
+  // `post_tool_approval_response` 前两个 return)。只看 `resp.ok` 会把它读成"已送达"——
+  // 调用方(扩展侧栏 / web 对话框)据此收起横幅,而后端要等满 `_APPROVAL_TIMEOUT` 才按
+  // "未批准"收尾:用户点了「允许」,AI 那边永远等超时。
+  let accepted: { ok?: boolean; error?: string } | null = null
+  try {
+    accepted = (await resp.json()) as { ok?: boolean; error?: string }
+  } catch {
+    accepted = null
+  }
+  if (!accepted || accepted.ok !== true) {
+    throw new Error(
+      `postToolApprovalResponse not accepted: ${accepted?.error ?? '响应体不是可判定的 JSON'} (session=${input.sessionId}, approval=${input.approvalId})`,
+    )
+  }
 }
 
 /**
