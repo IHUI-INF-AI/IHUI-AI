@@ -29,6 +29,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -399,16 +400,39 @@ describe('86H 装车:路由必须真被注册,且 CLI 侧常量与之等值', ()
   })
 
   it('CLI 的 TOOL_APPROVAL_AUDIT_INGEST_PATH 必须逐字等于本测试打的路径', () => {
-    const cliSrc = readFileSync(path.resolve(HERE, '../../cli/src/commands/agent.ts'), 'utf8')
+    // 读 tools/danger-gate-audit.ts —— 它是五个 CLI 站点共用的落链出口,常量住在那里;
+    // 判"路径等值"要钉常量本体,钉某个 import 行的形状会在下一次文件搬家时无辜变红。
+    const cliSrc = readFileSync(
+      path.resolve(HERE, '../../cli/src/tools/danger-gate-audit.ts'),
+      'utf8',
+    )
     const m = /TOOL_APPROVAL_AUDIT_INGEST_PATH = '([^']+)'/.exec(cliSrc)
     expect(m?.[1]).toBe(INGEST_PATH)
   })
 
-  it('runAgent 的 danger-gate 必须把决策喂给上报函数(接线由代码面证明,不靠注释)', () => {
-    const cliSrc = readFileSync(path.resolve(HERE, '../../cli/src/commands/agent.ts'), 'utf8')
-    expect(cliSrc).toMatch(
-      /onDecision:\s*\(\s*\{[^}]*route[^}]*\}\s*\)\s*=>\s*\{[\s\S]{0,400}?reportToolApprovalDecisionToAudit\(/,
+  it('CLI 侧不得存在第二份上报实现(两处算同一件事必漂移)', () => {
+    // 路径必须从本文件的 HERE 现推 —— vitest 的 cwd 随调用方式变(repo root 或 apps/api),
+    // 写 ../../apps/cli/src 会在其中一种 cwd 下直接 git 报错,把"判据跑不动"伪装成"判据通过"。
+    const cliSrcRoot = path.resolve(HERE, '../../cli/src')
+    const out = execFileSync(
+      'git',
+      [
+        '-c',
+        'safe.directory=*',
+        'grep',
+        '-l',
+        '--no-index',
+        'function reportToolApprovalDecisionToAudit',
+        '--',
+        cliSrcRoot,
+      ],
+      { encoding: 'utf8', windowsHide: true },
     )
+    const files = out.split('\n').filter(Boolean)
+    expect(
+      files.length,
+      `工作树面有 ${files.length} 份实现: ${files.join(', ')}`,
+    ).toBeLessThanOrEqual(1)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
