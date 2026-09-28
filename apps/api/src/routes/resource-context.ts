@@ -9,6 +9,7 @@ import { db } from '../db/index.js'
 import { resourceContexts, resourceContextBindings } from '@ihui/database'
 import { success, error } from '../utils/response.js'
 import { requireAuth } from '../plugins/require-permission.js'
+import { isUuidString } from '../utils/uuid.js'
 
 /**
  * 资源上下文管理接口(7 端点)— 真实 DB 查询。
@@ -84,6 +85,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.get('/api/resource-context/:id', { preHandler: requireAuth }, async (req, reply) => {
     const parsed = idParam.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    if (!isUuidString(parsed.data.id)) return reply.status(404).send(error(404, '资源上下文不存在'))
 
     const [row] = await db
       .select()
@@ -107,6 +109,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.put('/api/resource-context/:id', { preHandler: requireAuth }, async (req, reply) => {
     const paramParsed = idParam.safeParse(req.params)
     if (!paramParsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    if (!isUuidString(paramParsed.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const bodyParsed = updateBody.safeParse(req.body ?? {})
     if (!bodyParsed.success) {
       return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
@@ -125,6 +128,10 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.delete('/api/resource-context/:id', { preHandler: requireAuth }, async (req, reply) => {
     const parsed = idParam.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(parsed.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
 
     const [deleted] = await db
       .delete(resourceContexts)

@@ -9,7 +9,8 @@
  * - 容器:浅色 surface.card 底 + 顶部 1px border,flex row,底部对齐
  * - 多行 TextInput:自动撑高(上限 120,放大后无上限),1px 边框 + 圆角 sm(4)
  * - 发送按钮:40×40(放大态 44×44),品牌色底,圆角 sm(4) —— 角色档 control;
- *   本文件唯一的正圆是 24dp 折叠「×」钮与 56dp 折叠 FAB,各自写成 边长/2 并带 radius-exempt
+ *   本文件唯一的正圆是 24dp 折叠「×」钮与 56dp 折叠 FAB,各自写成 边长/2:半径等于见方盒边长
+ *   的一半就是几何真圆,守门按盒形定性即认,本项目不允许任何圆角标记
  * - 字数统计:输入框内右下角浮层,超过 90% 警告色
  *
  * 2026-07-30:对齐历史项目 InputArea(微信小程序 miniapp-taro 版本),
@@ -903,7 +904,7 @@ const styles = StyleSheet.create({
     right: -6,
     width: 18,
     height: 18,
-    borderRadius: 18 / 2, // radius-exempt: 缩略图删除角标正圆(18dp 直径/2)
+    borderRadius: 18 / 2,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1071,7 +1072,6 @@ const styles = StyleSheet.create({
   },
   voiceBar: {
     width: 3,
-    // radius-exempt: 3dp 宽录音竖条取近半宽只为圆头端点,不是"容器该取哪档";对侧同元素在 miniapp src/app.css 的 .voice-bar-animation .line 已带同形豁免
     borderRadius: rnRadius.xs,
     backgroundColor: tokens.danger.DEFAULT,
   },
@@ -1191,7 +1191,7 @@ const styles = StyleSheet.create({
   collapsedFab: {
     width: 56,
     height: 56,
-    borderRadius: 56 / 2, // radius-exempt: 折叠态 FAB 几何正圆(56dp 直径/2)
+    borderRadius: 56 / 2,
     backgroundColor: tokens.brand.cta, // 悬浮加号,前景在同一元素的 <Plus color={tokens.brand.ctaForeground}/>
     alignItems: 'center',
     justifyContent: 'center',
@@ -1209,7 +1209,7 @@ const styles = StyleSheet.create({
     right: INPUT_AREA_CONTROL_RIGHT_PX,
     width: 24,
     height: 24,
-    borderRadius: 24 / 2, // radius-exempt: 折叠态「×」钮几何正圆(24dp 直径/2),不得方档化
+    borderRadius: 24 / 2,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,

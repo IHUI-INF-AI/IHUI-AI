@@ -103,6 +103,7 @@ import {
   extractExt,
 } from '../utils/file-type-validator.js'
 import { deriveModelCapabilities } from './v1-shared.js'
+import { isUuidString } from '../utils/uuid.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致) */
 interface ApiKeyContext {
@@ -986,6 +987,10 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
+      // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+      // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+      // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+      if (!isUuidString(id)) return reply.status(404).send(error(404, 'Agent not found'))
       const [row] = await dbRead.select().from(agents).where(eq(agents.agentId, id)).limit(1)
 
       if (!row || row.status !== 'published') {
