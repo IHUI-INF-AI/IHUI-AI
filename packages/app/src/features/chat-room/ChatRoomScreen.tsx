@@ -504,8 +504,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     searchInput: {
       height: 32, // rpx(64)
-      // radius-role-exempt: 半高胶囊搜索框(32dp 高,半径=半高),方档化会把形状改坏 until 2026-11-26
-      borderRadius: rnRadius['2xl'], // 历史 rounded 搜索框
+      borderRadius: rnRadiusFor.control,
       backgroundColor: tk.surface.inputBg,
       paddingHorizontal: 12, // rpx(24)
       fontSize: 14, // rpx(28)
@@ -537,8 +536,7 @@ function createStyles(tk: AppThemeTokens) {
     unreadBadge: {
       minWidth: 16, // rpx(32)
       height: 16, // rpx(32)
-      // radius-role-exempt: 未读计数红点须整圆(16dp 高,半径=半高) until 2026-11-26
-      borderRadius: rnRadius.lg, // rpx(16)
+      borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
