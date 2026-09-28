@@ -12,7 +12,7 @@
  * §5c 溯源水印:本文件受 `scripts/watermark.mjs` 管理。
  */
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
@@ -285,4 +285,142 @@ test('T11 指针族表与修复出口成套,且改写后不留任何行号指针
   if (auditPlan(merged.text).counts.rotatedPointers !== 0)
     throw new Error('buildMerge 之后 F3 必须归零(否则"跑过一次"会被读成"修好了")')
   if (/登记在\s*L\d/.test(merged.text)) throw new Error('输出里仍残留行号指针')
+})
+
+/**
+ * 跑 CLI 一次,并把**工作目录未跟踪清单的前后差集**一起返回。
+ * 为什么必须量这一维:旗标吞噬那一型的全部症状都在这格里 —— `--write-to --staged` 会在
+ * cwd 写出一个名叫 `--staged` 的文件(§28 禁止形态),而期望路径没被写、程序还打印"已写到"。
+ * 只看退出码和 stdout 什么都看不见(归并器自认为写完了),差集才是唯一的物证。
+ */
+function runCli(env, args) {
+  const untracked = () =>
+    gitQ(env.dir, ['status', '--porcelain', '-uall'])
+      .split('\n')
+      .filter((l) => l.startsWith('?? '))
+      .map((l) => l.slice(3))
+      .sort()
+  const before = untracked()
+  let code = 0
+  let out = ''
+  try {
+    out = execFileSync(process.execPath, [env.entry, ...args], {
+      cwd: env.dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120000,
+    })
+  } catch (e) {
+    code = e.status ?? 1
+    out = `${e.stdout ?? ''}${e.stderr ?? ''}`
+  }
+  return { code, out, added: untracked().filter((p) => !before.includes(p)) }
+}
+
+/**
+ * T12 (a) 臂:`--write-to --staged` ⇒ 大声拒绝 + 点名收到的 token + **一个文件都不产**。
+ * 立项凭据:改动前该形态把候选文本写成 cwd 下一个名叫 `--staged` 的文件并打印"已写到 --staged",
+ * 期望路径没写、台账没更新,而退出码是 0 —— "判据失效的表现永远是安静"那一型。
+ */
+test('T12 --write-to 被别的旗标顶上:非零退出 + 点名 token + 工作目录零新增文件', () => {
+  const env = fixtureRepo()
+  try {
+    const r = runCli(env, ['--write-to', '--staged'])
+    if (r.code === 0) throw new Error(`无效值必须非零退出,实得 0(等于自认为写完了):${r.out.trim().slice(0, 200)}`)
+    if (!r.out.includes('--staged')) throw new Error(`拒绝必须点名**真实收到的** token:${r.out.trim().slice(0, 200)}`)
+    if (/候选文本已写到/.test(r.out)) throw new Error('拒绝档不得同时宣称已写到')
+    if (r.added.length !== 0) throw new Error(`工作目录多出 ${JSON.stringify(r.added)} —— §28 禁止形态,而它只有 git status 看得见`)
+    if (existsSync(path.join(env.dir, '--staged'))) throw new Error('写出了名叫 --staged 的文件(修复未生效)')
+    // 拒绝也不是回落:文档本体与 HEAD 都必须一字未动
+    if (readFileSync(path.join(env.dir, 'PROJECT_PLAN.md'), 'utf8') !== PLAN_A) throw new Error('拒绝档却改写了文档本体')
+    if (countCommits(env.dir) !== 1) throw new Error('报告档不得产出任何提交')
+  } finally {
+    rmScratch(env.dir)
+  }
+})
+
+/**
+ * T13 (b) 臂:合法路径必须**真的写出且内容正确**。
+ * 只留 T12 会让判据退化成"永远拒" —— 那与放行同样糟(归并器从此交不出候选文本)。
+ */
+test('T13 --write-to 合法路径:真写出、内容就是归并后的候选文本、文档本体没被碰', () => {
+  const env = fixtureRepo()
+  try {
+    const target = path.join(env.dir, 'out', 'candidate.md')
+    mkdirSync(path.dirname(target), { recursive: true })
+    const r = runCli(env, ['--write-to', target])
+    if (r.code !== 0) throw new Error(`合法路径应 exit 0,实得 ${r.code}:${r.out.trim().slice(0, 200)}`)
+    if (!/候选文本已写到/.test(r.out)) throw new Error(`未宣称写到目标:${r.out.trim().slice(0, 200)}`)
+    if (!existsSync(target)) throw new Error('宣称已写到而文件不在(打印与磁盘分叉)')
+    const written = readFileSync(target, 'utf8')
+    if (!written.includes('**[归并]**')) throw new Error('写出的不是归并后的候选文本(副本行未翻勾)')
+    if (!written.includes('- [ ] **D8 真待办**:还没人做。')) throw new Error('真待办被吞')
+    if (written === PLAN_A) throw new Error('内容与输入逐字相同 ⇒ 什么都没归并')
+    if (readFileSync(path.join(env.dir, 'PROJECT_PLAN.md'), 'utf8') !== PLAN_A) throw new Error('写候选文本却碰了文档本体')
+  } finally {
+    rmScratch(env.dir)
+  }
+})
+
+/**
+ * T14 (c) 臂:`--write-to` 后面什么都不给 ⇒ 与改动前同形(非零 + 拒写),
+ * **绝不得**回落到某个默认路径去写别处(落错地方比不落更糟)。
+ */
+test('T14 --write-to 缺值:保持改动前的拒绝语义,不回落到默认路径', () => {
+  const env = fixtureRepo()
+  try {
+    const r = runCli(env, ['--write-to'])
+    if (r.code !== 1) throw new Error(`缺值应 exit 1(与改动前一致),实得 ${r.code}:${r.out.trim().slice(0, 200)}`)
+    if (!/❌/.test(r.out)) throw new Error(`必须大声拒绝:${r.out.trim().slice(0, 200)}`)
+    if (r.added.length !== 0) throw new Error(`缺值却写出了文件 ${JSON.stringify(r.added)} —— 回落写错地方`)
+    if (existsSync(path.join(env.dir, 'PROJECT_PLAN.md.bak')) || existsSync(path.join(env.dir, 'candidate.md')))
+      throw new Error('存在默认路径回落(本工具不允许)')
+  } finally {
+    rmScratch(env.dir)
+  }
+})
+
+/**
+ * T15 (d) 臂:源码级反向锁 + 判据本身的行为锁。
+ * 为什么两条都要:§22c 记过"镜像测试只复读实现就是复读机" —— 只锁源码文本会跟着漂绿,
+ * 只测行为又防不住有人把裸 `argv[indexOf()+1]` 抄回来却在别处调一个别的谓词。
+ * 判据一律用**从源文件 import 的那一份**(`__test__.flagValue`),不在测试里重写。
+ */
+test('T15 反向锁:裸 argv[indexOf()] 取值不得回来,且取值判据就是源里那一份', () => {
+  const src = readFileSync(new URL('../plan-tasks-merge.mjs', import.meta.url), 'utf8')
+  if (/argv\[argv\.indexOf\('--write-to'\)/.test(src))
+    throw new Error('又回到"把紧邻的下一个 token 当值"的裸取值 —— 本票要修的正是这一格')
+  if (!/flagValue\(argv,\s*'--write-to'\)/.test(src))
+    throw new Error('main() 没有走取值判据(判据在而无人调用 = 没有,守门 70/76/81 同族)')
+  if (!/export function flagValue/.test(src)) throw new Error('判据未 export ⇒ 测试只能自己抄一份(§22c 禁止)')
+  // 无效值那一支必须既点名又非零退出,不得静默忽略旗标
+  const branch = /if \(wt\.present && !wt\.valid\)\s*\{[\s\S]{0,600}?\n  \}/.exec(src)
+  if (!branch) throw new Error('找不到"无效值"那一格拒绝分支(形态变了,本锁需同步)')
+  if (!/return 1/.test(branch[0])) throw new Error('拒绝分支没有非零退出码 ⇒ 调用方读成"跑成功了"')
+  if (!/wt\.token/.test(branch[0])) throw new Error('拒绝分支没点名真实收到的 token')
+  // 判据行为四态(成对:合法值必须放行,否则本校验只是"永远拒")
+  const f = __test__.flagValue
+  if (typeof f !== 'function') throw new Error('__test__.flagValue 未导出 ⇒ 上面那条 export 锁是空的')
+  if (f(['--write-to', '--staged'], '--write-to').valid) throw new Error('- 开头的 token 被判成了合法值')
+  if (f(['--write-to'], '--write-to').valid) throw new Error('缺值被判成了合法值')
+  if (f(['--write-to', ''], '--write-to').valid) throw new Error('空串被判成了合法值')
+  if (f(['--write-to', 'a/b.md'], '--write-to').value !== 'a/b.md') throw new Error('合法路径被拒 ⇒ 归并器交不出候选文本')
+  if (f(['--all'], '--write-to').present) throw new Error('旗标缺席却报"值为空"')
+})
+
+/**
+ * T16 既有的第二格拒绝(PROJECT_PLAN.md 本体)语义一字未动 —— 新校验加在**拒绝链前面**,
+ * 不是替换它。改动前该臂 exit 1 + 那句原文,改动后必须仍是。
+ */
+test('T16 --write-to PROJECT_PLAN.md:原有那格拒绝与原文案未被替换', () => {
+  const env = fixtureRepo()
+  try {
+    const r = runCli(env, ['--write-to', 'PROJECT_PLAN.md'])
+    if (r.code !== 1) throw new Error(`应 exit 1,实得 ${r.code}`)
+    if (!/不允许直接写文档本体/.test(r.out)) throw new Error(`原拒绝文案漂了:${r.out.trim().slice(0, 200)}`)
+    if (r.added.length !== 0) throw new Error(`多出文件 ${JSON.stringify(r.added)}`)
+    if (readFileSync(path.join(env.dir, 'PROJECT_PLAN.md'), 'utf8') !== PLAN_A) throw new Error('文档本体被写')
+  } finally {
+    rmScratch(env.dir)
+  }
 })
