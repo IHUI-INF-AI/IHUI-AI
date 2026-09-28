@@ -347,10 +347,22 @@ function Invoke-Step { param([string]$name,[scriptblock]$body)
     return $LASTEXITCODE
 }
 
+# ── 探测的"操作级"硬上限(2026-09-27 加,实测 LocalSystem 下 -TimeoutSec 不被尊重)──────
+# 关键实测(本机 powershell.exe 与 pwsh.exe 都是 7.6.2,`(Get-Command Invoke-WebRequest)
+# .Parameters` 现读):`TimeoutSec` **是 `ConnectionTimeoutSeconds` 的别名**,不是第三个维度
+# —— 它只封"连不上"这一段,封不住"连上了但对端不回应/回得极慢"。所以把 `-TimeoutSec` 原样
+# 保留(不改既有语义),另加 `OperationTimeoutSeconds`;两者同传合法,而 `-TimeoutSec` 与
+# `-ConnectionTimeoutSeconds` **同传会直接绑定报错**("specified more than once",实测),
+# 故此处绝不换成 ConnectionTimeoutSeconds。
+# 为什么必须加:健康门禁探的是公网 URL(经 Cloudflare Tunnel),2026-09-27 实测两次整轮挂死
+# 38.6 / 38.5 分钟(日志零行、CPU 增量 0ms ⇒ 阻塞非空转),而同一批 URL 从交互账户 1.1–1.3s
+# 返回 200 —— 故障在 LocalSystem 那份网络栈,不在站点侧。见 Test-HealthGate 的单轮预算。
+$ProbeOpSec = 15    # 与两处 -TimeoutSec 15 同值:连接 + 操作,单次探测最坏 30s
+$LoginOpSec = 20   # 登录取探测令牌是 POST,与其 -TimeoutSec 20 同值
 function Test-Http {
     param([string]$url,[string]$contains='')
     try {
-        $r = Invoke-WebRequest -Uri $url -TimeoutSec 15 -ErrorAction Stop -UseBasicParsing
+        $r = Invoke-WebRequest -Uri $url -TimeoutSec 15 -OperationTimeoutSeconds $ProbeOpSec -ErrorAction Stop -UseBasicParsing
         if ($contains -and $r.Content -notmatch [regex]::Escape($contains)) { return $false }
         return ($r.StatusCode -ge 200 -and $r.StatusCode -lt 400)
     } catch { return $false }
@@ -369,7 +381,7 @@ function BackendLogin-Token {
     try {
         $b = @{ username='admin'; password=$adminPwd } | ConvertTo-Json
         $login = Invoke-RestMethod -Uri "$PublicWeb/api/auth/login/username" -Method Post `
-                        -Body $b -ContentType 'application/json' -TimeoutSec 20 -ErrorAction Stop
+                        -Body $b -ContentType 'application/json' -TimeoutSec 20 -OperationTimeoutSeconds $LoginOpSec -ErrorAction Stop
         if ($login.data.accessToken) { return $login.data.accessToken }
         if ($login.token.accessToken) { return $login.token.accessToken }
         if ($login.accessToken) { return $login.accessToken }
@@ -409,7 +421,11 @@ function Invoke-Probe {
     try {
         $hdr = @{}
         if ($Token) { $hdr['Authorization'] = "Bearer $Token" }
-        $resp = Invoke-WebRequest -Uri $Url -TimeoutSec 15 -Headers $hdr -ErrorAction Stop -UseBasicParsing -SkipHttpErrorCheck
+        # -OperationTimeoutSeconds 是给"连上了但不回应"封顶的那一道(见本文件上方
+        # $ProbeOpSec / $LoginOpSec 那段实测注释:
+        # -TimeoutSec 实为 ConnectionTimeoutSeconds 的别名,只管连接段)。异常一律落
+        # Verdict='unknown' —— 超时**不**产生"健康"结论,也不产生"失败"结论,由调用方按未知处理。
+        $resp = Invoke-WebRequest -Uri $Url -TimeoutSec 15 -OperationTimeoutSeconds $ProbeOpSec -Headers $hdr -ErrorAction Stop -UseBasicParsing -SkipHttpErrorCheck
     } catch {
         return @{ Verdict = 'unknown'; Status = 0; Reason = "传输不可达($($_.Exception.Message))" }
     }
@@ -445,9 +461,22 @@ function Test-LlmGateway {
 function Test-HealthGate {
     [int]$Tries  = 8
     [int]$GapSec = 12
+    # 单轮墙钟预算(2026-09-27 加):上一段那次实测里,一次门禁迭代耗了 2312–2315 秒(38.5–38.6
+    # 分钟)且**一行日志都不出**,整轮被外层 taskkill 冻死。这里给"一轮"有界上限,并让"卡住"
+    # 在日志里数得出来(GATE-ITER / GATE-ITER-STALLED 两枚标记均为纯 ASCII —— 实测 deploy-loop.log
+    # 的中文经 LocalSystem 子进程管道后已损坏成 U+FFFD,只有 ASCII 片段还看得见)。
+    # 两道防线的分工必须如实理解:单次探测**之内**的硬阻塞由上面的 OperationTimeoutSeconds 断,
+    # 本预算只断"三次探测各自没超时但加起来超预算"这一型;两者都失效时仍由外层
+    # ihui-deploy-loop.ps1 的 RunBudgetMin=45 分钟兜底(未改,那是机主的 tuning)。
+    # env 覆盖:IHUI_DEPLOY_GATE_ITER_BUDGET_SEC(仅接受非负整数,否则回落 120)。
+    [int]$IterBudgetSec = 120
+    if ($env:IHUI_DEPLOY_GATE_ITER_BUDGET_SEC -and $env:IHUI_DEPLOY_GATE_ITER_BUDGET_SEC -match '^\d+$') {
+        $IterBudgetSec = [int]$env:IHUI_DEPLOY_GATE_ITER_BUDGET_SEC
+    }
     $lastFails = @(); $lastUnknown = @()
     for ($i = 1; $i -le $Tries; $i++) {
         Update-DeployLockHeartbeat   # 门禁每轮续心跳(8 轮 × 12s + 探测超时,最长约 9.6 分钟)
+        $iterStart = Get-Date       # 本轮起点(含 12s 退避),用于 GATE-ITER elapsed 与预算判定
         Start-Sleep -Seconds $GapSec
         $w = Invoke-Probe -Url $PublicWeb -Contains '<!DOCTYPE html'
         $a = Invoke-Probe -Url $ApiHealth -Contains '"status":"ok"'
@@ -461,8 +490,19 @@ function Test-HealthGate {
         if ($fails.Count)   { $tail += " 失败=[$($fails -join ' ')]" }
         if ($unknown.Count) { $tail += " 未知=[$($unknown -join ' ')]" }
         Log "健康门禁 第 $i/$Tries 轮: web=$($w.Verdict) api=$($a.Verdict) llm=$l$tail"
+        # ASCII 标记:每完成一轮都打一行(含通过那一轮),便于事后按秒数复原分布、定位卡在哪一轮
+        $iterSec = [int]((Get-Date) - $iterStart).TotalSeconds
+        Log ("GATE-ITER {0}/{1} elapsed={2}s budget={3}s" -f $i, $Tries, $iterSec, $IterBudgetSec)
         # 成功条件不放宽:三项全部真绿才算通过("未知"也不算绿,继续下一轮重试)
         if ($fails.Count -eq 0 -and $unknown.Count -eq 0) { return $true }
+        if ($iterSec -gt $IterBudgetSec) {
+            # 方向性要求:超预算**不**判失败、**不**判健康 —— 跳出到下方既有的
+            # "无明确失败项 ⇒ unknown ⇒ 放行、不回滚"返回。若此前某轮拿得出明确失败项,
+            # 既有判据仍先 return $false(那是真证据,不因本 break 而被洗成放行)。
+            Log ("GATE-ITER-STALLED {0}/{1} elapsed={2}s budget={3}s items=[web={4} api={5} llm={6}]" -f $i, $Tries, $iterSec, $IterBudgetSec, $w.Verdict, $a.Verdict, $l)
+            Log "WARN  健康门禁第 $i/$Tries 轮超单轮预算 $IterBudgetSec 秒(探测被阻塞的特征)→ 停止继续轮询;不判健康、不判失败、不回滚,按既有'未知即放行'语义收尾并继续重启 api/ai-service"
+            break
+        }
     }
     if ($lastFails.Count -gt 0) {
         Log "健康门禁 ${Tries} 轮未全绿,最后一轮存在明确失败项:[$($lastFails -join ' ')] → 判定失败"
@@ -1350,6 +1390,25 @@ try {
 Start-Web
 Start-Sleep -Seconds 8
 
+# ── 成功标记写到"它成立的那一刻"(2026-09-27 从收尾移到此处)────────────────────
+# 此刻 .next 逐字节就是 HEAD 的构建(交换已完成),标记说的就是事实。
+# 旧位置在门禁 + api/ai-service 重启**之后**(实测中位 +73 秒,门禁挂死时 +45 分钟),所以一次
+# 被杀/被回滚前退出的轮次结束时,.next 是一份完整构建却**没有**标记 → 下一轮 Get-BuildStale
+# 判"构建非当前提交产物" → 强制整包重建(重建 9 个包 dist + next build)。实测 09-27 两次正是
+# 这一型:14:42:15 taskkill → 14:43:27 触发原因=构建新鲜度;17:29:37 taskkill → 17:30:47 同样触发。
+# 守住的两条不变量:
+#   ① 构建失败在交换**之前**就已 exit 1(见上方 catch 段),失败的构建永远走不到这里 ⇒ 不落标记;
+#   ② 门禁未过 → Do-Rollback 用 .rollback 整份副本替换 .next,而 .rollback 自带上一份成功标记
+#      (实测两文件同为 bed001c83c…)⇒ 回滚后标记 = 上一个成功 sha,既没消失也没假指 HEAD。
+# 如实登记新残余:被杀的轮次现在会留下"标记=HEAD 但健康未经证明"。且**下一轮不会重新走门禁**
+# —— behind=0 且 marker==HEAD 会命中主流程那条 `if ($behind -eq 0 -and -not $deployLatest
+#    -and -not (Get-BuildStale))` 的"无需部署"跳过判定,整轮不跑。这与旧行为的差别是:
+# 旧的要付一次 7–13 分钟整包重建(重建顺带把门禁重跑了一遍),新的不付,代价是那段时间
+# 没有人证明过这个构建活着。要闭掉这一格需要第二份 .next/IHUI_INSTALLED_SHA 并把
+# Get-BuildStale 拆成"需重建 / 只需重新验证 / 跳过"三态(改上面那条跳过判定),属更大的
+# 控制流改动,已作为补丁提案单独登记,未随本票写入。
+Set-BuildMarker
+
 # 4) 健康门禁(web + api + llm)
 Log "健康门禁检查"
 if (-not (Test-HealthGate)) {
@@ -1419,10 +1478,11 @@ if (-not (Test-HealthGate)) {
         Log "未找到 ai-service 服务(候选:IHUI-AI-SERVICE/ihui-ai-service/svc-ai),跳过重启"
     }
 }
-# 收尾写成功标记(2026-09-21 语义变更):只有部署成功(或显式 -force)才会流到这里,
-# marker 语义 = 「.next 是该 HEAD 的成功构建」。失败路径(构建异常/门禁回滚)均已提前
-# 退出或改记冷却,绝不写 marker —— 这是本次「误判新鲜永久跳过」事故的根治点。
-Set-BuildMarker
+# 标记的唯一写入点已在"交换完成 + Start-Web 之后"(见上一段 Set-BuildMarker 及其注释),此处不再重复写。
+# 原收尾写入的语义(2026-09-21 立):只有成功轮才写 marker、失败轮一律不写(旧写法在失败轮
+# 也写 → marker=HEAD → 误判新鲜 → 永久跳过,是那一次部署停滞的根因)。移到交换后仍然成立:
+# 构建失败在交换前 exit 1、门禁失败走 Do-Rollback 后 exit 0,两条失败路径都**不会**把标记
+# 留在 HEAD 上 —— 前者从未写过,后者被 .rollback 自带的旧 sha 覆盖回去。
 Write-Host ""
 Log "=== 部署完成,HEAD=$(git rev-parse --short HEAD | Out-String).Trim() 活跃组=win(8801/8802/8803) ==="
 Release-DeployLock

@@ -22,10 +22,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync, readdirSync } from 'node:fs'
+import { writeFileSync, existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -39,7 +39,7 @@ function stripAnsi(s) {
 
 // ─── 辅助:创建临时目录(fixture 隔离,不污染项目) ─────────
 function createTempDir(prefix = 'ihui-migrate-') {
-  return mkdtempSync(join(tmpdir(), prefix))
+  return mkScratch(prefix)
 }
 
 // ─── 辅助:运行脚本(stdout/stderr 去 ANSI) ────────────────
@@ -73,7 +73,7 @@ test('CLI --help → exit 0 + 显示用法', () => {
     assert.match(r.out, /--redact/, '应含 --redact 说明')
     assert.match(r.out, /--backup/, '应含 --backup 说明')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -85,7 +85,7 @@ test('CLI -h 是 --help 别名 → exit 0', () => {
     assert.equal(r.status, 0, `-h 应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /用法:/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -97,7 +97,7 @@ test('CLI 输入文件不存在 → exit 1', () => {
     assert.equal(r.status, 1, `应 exit 1,实际 ${r.status}\nstderr: ${r.err}`)
     assert.match(r.err, /输入文件不存在/, 'stderr 应含错误说明')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -110,7 +110,7 @@ test('CLI --strip-flat 无 --apply → exit 2', () => {
     assert.equal(r.status, 2, `应 exit 2,实际 ${r.status}\nstderr: ${r.err}`)
     assert.match(r.err, /--strip-flat 必须配合 --apply/, 'stderr 应含提示')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -135,7 +135,7 @@ test('基础迁移:openai + anthropic 写纯 JSON', () => {
     assert.equal(json.anthropic.api_key, 'sk-ant-abcdef123456')
     assert.equal(json.anthropic.api_base, 'https://api.anthropic.com')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -152,7 +152,7 @@ test('别名规则:GEMINI_API_KEY 迁移到 google', () => {
     assert.equal(json.google.api_key, 'AIza-sy-test-key')
     assert.ok(!json.gemini, '不应有 gemini key(canonical 名是 google)')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -173,7 +173,7 @@ test('别名规则:cloudflare/github 用 _TOKEN 字段', () => {
     assert.equal(json.cloudflare.api_key, 'cf-token-abc123')
     assert.equal(json.github.api_key, 'ghp_token_xyz789')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -191,7 +191,7 @@ test('仅 api_base(kilo)→ 仍迁移,api_key 为空', () => {
     assert.equal(json.kilo.api_key, '', 'api_key 应为空字符串')
     assert.equal(json.kilo.api_base, 'https://api.kilo.ai/v1')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -209,7 +209,7 @@ test('无 provider 匹配 → 警告但 exit 0', () => {
     const json = JSON.parse(readFileSync(outPath, 'utf8'))
     assert.equal(Object.keys(json).length, 0, '应为空对象')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -225,7 +225,7 @@ test('--dry-run 不写输出文件', () => {
     assert.ok(!existsSync(outPath), '不应创建输出文件')
     assert.match(r.out, /"openai"/, '应在 stdout 预览 providers')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -250,7 +250,7 @@ test('--dry-run --redact 脱敏 api_key(三种长度规则)', () => {
     // api_base 不脱敏
     assert.match(r.out, /"api_base":\s*"https:\/\/kilo\.ai"/, 'api_base 应保持原样')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -274,7 +274,7 @@ test('--apply 写完整 .env 含 LLM_PROVIDERS=', () => {
     const parsed = JSON.parse(jsonMatch[1])
     assert.equal(parsed.openai.api_key, 'sk-test-1234567890')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -295,7 +295,7 @@ test('--backup 创建 <input>.bak.<timestamp> 备份文件', () => {
     const bakContent = readFileSync(join(dir, bakFiles[0]), 'utf8')
     assert.equal(bakContent, 'OPENAI_API_KEY=sk-test-1234567890\n', '备份内容应等于原文件')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -333,7 +333,7 @@ test('--strip-flat --apply 删除扁平字段,保留注释与非 LLM 字段', ()
     // LLM_PROVIDERS 应被追加
     assert.match(content, /LLM_PROVIDERS='/, '应含 LLM_PROVIDERS= 行')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -353,7 +353,7 @@ test('parseEnv 剥离单/双引号包裹的值', () => {
     assert.equal(json.openai.api_key, 'sk-double-quoted-12345678', '应剥离双引号')
     assert.equal(json.anthropic.api_key, 'sk-single-quoted-abcdef', '应剥离单引号')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

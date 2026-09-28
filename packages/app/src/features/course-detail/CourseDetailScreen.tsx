@@ -11,13 +11,21 @@ import {
   View,
   StyleSheet,
 } from 'react-native'
+import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseDetailScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
-import { BackChevron } from '../../components/BackChevron'
 
-/** 课程详情共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
+/**
+ * 课程详情共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API)。
+ *
+ * 页头归属(2026-09-27,双层页头收敛,同 SettingsScreen 先例):本组件**不渲染内置页头/返回键**,
+ * 页头(标题 + 返回)由宿主 NavBar 提供 —— RN 端生产页(apps/mobile-rn/src/screens/CourseDetailScreen.tsx)
+ * 渲染 NavBar(标题取课程名,加载期就有返回键)。此前组件自带 BackChevron + 标题,与宿主 NavBar
+ * 同屏两条返回键两个标题(守门 102 GA7 / 守门 145 DH2 判定型)。
+ * onBack 仍留在 props 契约中(错误态按钮「返回」在用)。
+ */
 export type { CourseDetailScreenProps }
 
 export function CourseDetailScreen({
@@ -48,9 +56,8 @@ export function CourseDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error || t('courseDetail.loadFailed')}</Text>
-        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
-        <TouchableOpacity style={styles.btn} onPress={onBack}>
-          <Text style={styles.btnText}>{t('common.back')}</Text>
+        <TouchableOpacity style={styles.btn} onPress={onBack} accessibilityLabel={t('common.back')}>
+          <ChevronLeft size={16} color={tk.surface.light} />
         </TouchableOpacity>
       </View>
     )
@@ -59,8 +66,6 @@ export function CourseDetailScreen({
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>{item.title}</Text>
         <View style={styles.tagRow}>
           <View style={styles.tag}>
             <Text style={styles.tagText}>{item.categoryName}</Text>
@@ -155,25 +160,24 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.cta,
     },
     btnDisabled: { opacity: 0.5 },
     btnText: { color: tk.surface.light, fontSize: 16 },
-    header: { paddingHorizontal: 10, paddingBottom: 16 },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    header: { paddingHorizontal: 10, paddingTop: 12, paddingBottom: 16 },
     tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
     tag: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     tagText: { fontSize: 12, color: tk.text.medium },
     body: { paddingHorizontal: 10 },
     card: {
       padding: 14,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -191,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
     enrolledBadge: {
       paddingHorizontal: 12,
       paddingVertical: 4,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.success.lighter,
     },
     enrolledText: { fontSize: 12, color: tk.success.deepText },

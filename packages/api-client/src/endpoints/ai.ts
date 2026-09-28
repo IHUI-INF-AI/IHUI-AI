@@ -285,13 +285,9 @@ export async function getAiChatTypes(
   return fetchApi<PageData<AiChatType>>(`/api/ai/chat-types${buildQs(query)}`)
 }
 
-/** 创建 AI 聊天类型 */
-export async function createAiChatType(input: Partial<AiChatType>): Promise<ApiResult<AiChatType>> {
-  return fetchApi<AiChatType>('/api/ai/chat-types', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-}
+/** 创建 AI 聊天类型 —— 2026-09-28 门 8 死调用清账:删除。
+ * POST /api/ai/chat-types 后端从未注册(chat-types 面只有 GET 列表/改删,见 ai-modules-routes.ts),
+ * 本仓零消费方;留一个必 404 的导出 = 假可用。恢复走 git 历史。 */
 
 /** 更新 AI 聊天类型 */
 export async function updateAiChatType(
@@ -323,15 +319,7 @@ export async function getAiCommunityDetail(id: string): Promise<ApiResult<AiComm
   return fetchApi<AiCommunityItem>(`/api/ai/community/${id}`)
 }
 
-/** 创建 AI 社区帖子 */
-export async function createAiCommunity(
-  input: Partial<AiCommunityItem>,
-): Promise<ApiResult<AiCommunityItem>> {
-  return fetchApi<AiCommunityItem>('/api/ai/community', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-}
+/** 创建 AI 社区帖子 —— 2026-09-28 门 8 死调用清账:删除(POST /api/ai/community 从未注册、零消费方)。 */
 
 // ===================== ai-education =====================
 
@@ -392,13 +380,7 @@ export async function getAiTeamDetail(id: string): Promise<ApiResult<AiTeamItem>
   return fetchApi<AiTeamItem>(`/api/ai/team/${id}`)
 }
 
-/** 创建 AI 团队 */
-export async function createAiTeam(input: Partial<AiTeamItem>): Promise<ApiResult<AiTeamItem>> {
-  return fetchApi<AiTeamItem>('/api/ai/team', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-}
+/** 创建 AI 团队 —— 2026-09-28 门 8 死调用清账:删除(POST /api/ai/team 从未注册、零消费方)。 */
 
 /** 更新 AI 团队 */
 export async function updateAiTeam(

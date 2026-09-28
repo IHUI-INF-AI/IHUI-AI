@@ -138,7 +138,9 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
           type: 'object',
           required: ['userId'],
           properties: {
-            userId: { type: 'string', format: 'uuid', description: '目标用户 ID' },
+            // G-261(同 G-257 口径):type-only,uuid 由 userIdParam(Zod)校验;
+            // format:'uuid' 走 ajv 先拒会被 400 响应 schema(code:number)掩盖成 500
+            userId: { type: 'string', description: '目标用户 ID(UUID,服务端 Zod 校验)' },
           },
         },
         response: {
@@ -235,7 +237,8 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
           type: 'object',
           required: ['userId'],
           properties: {
-            userId: { type: 'string', format: 'uuid', description: '目标用户 ID' },
+            // G-261:type-only,uuid 由 userIdParam(Zod)校验(同 POST /follows/:userId)
+            userId: { type: 'string', description: '目标用户 ID(UUID,服务端 Zod 校验)' },
           },
         },
         response: buildResponseSchema(400, 401, 404),

@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, copyFileSync } from 'node:fs'
+import { writeFileSync, mkdirSync, copyFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -20,7 +20,7 @@ const SOURCE_SCRIPT = join(__dirname, '..', 'check-ts-ignore.mjs')
 // 从而 git diff --cached 与 readFileSync 都在临时仓库内闭环。
 // 源脚本只读不改,仅运行副本。
 function createTempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-ts-ignore-'))
+  const dir = mkScratch('ihui-ts-ignore-')
   execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
@@ -65,7 +65,7 @@ test('CLI: --help → exit 0 + 打印用法', () => {
     assert.match(r.out, /用法/)
     assert.match(r.out, /--staged/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -76,7 +76,7 @@ test('CLI: 无参数(无 --staged)→ exit 0 + "无 staged 文件"', () => {
     assert.equal(r.status, 0, `无参数应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /无 staged 文件/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -87,7 +87,7 @@ test('--staged: 无 staged 文件 → exit 0 + "无 staged 文件"', () => {
     assert.equal(r.status, 0, `空 staged 应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /无 staged 文件/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -102,7 +102,7 @@ test('违规: .ts 含 // @ts-ignore → exit 1 + 报告文件路径', () => {
     assert.match(r.out, /@ts-ignore/)
     assert.match(r.out, /apps\/web\/foo\.ts/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -114,7 +114,7 @@ test('违规: .ts 含 // @ts-nocheck → exit 1', () => {
     assert.equal(r.status, 1, `检测到 @ts-nocheck 应 exit 1\nstdout: ${r.out}`)
     assert.match(r.out, /@ts-nocheck/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -126,7 +126,7 @@ test('违规: .tsx 含 // @ts-ignore → exit 1(扩展名覆盖)', () => {
     assert.equal(r.status, 1, `.tsx 应被检测\nstdout: ${r.out}`)
     assert.match(r.out, /@ts-ignore/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -138,7 +138,7 @@ test('违规: .mjs 含 // @ts-ignore → exit 1(扩展名覆盖)', () => {
     assert.equal(r.status, 1, `.mjs 应被检测\nstdout: ${r.out}`)
     assert.match(r.out, /@ts-ignore/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -150,7 +150,7 @@ test('违规: .ts 含 /* @ts-ignore */ 块注释形式 → exit 1', () => {
     assert.equal(r.status, 1, `块注释形式应被检测\nstdout: ${r.out}`)
     assert.match(r.out, /@ts-ignore/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -165,7 +165,7 @@ test('非违规: .ts 含 // @ts-expect-error → exit 0(不在检测范围)', ()
     assert.equal(r.status, 0, `@ts-expect-error 不在检测范围\nstdout: ${r.out}`)
     assert.match(r.out, /无新增 @ts-ignore/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -177,7 +177,7 @@ test('非违规: .ts 无 @ts-ignore → exit 0 + "无新增"', () => {
     assert.equal(r.status, 0, `无违规应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /无新增 @ts-ignore/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -189,7 +189,7 @@ test('非违规: .py 文件(非目标扩展名)→ exit 0 + "无目标文件"', 
     assert.equal(r.status, 0, `.py 不在目标扩展名\nstdout: ${r.out}`)
     assert.match(r.out, /无目标文件/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -202,7 +202,7 @@ test('非违规: apps/e2e/ 下 .ts 含 @ts-ignore → exit 0(白名单跳过)', 
     assert.equal(r.status, 0, `e2e/ 白名单应跳过\nstdout: ${r.out}`)
     assert.match(r.out, /无目标文件/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -219,7 +219,7 @@ test('非违规: 字符串内含 @ts-ignore(非注释行首)→ exit 0', () => {
     assert.equal(r.status, 0, `字符串内 @ts-ignore 不应被检测\nstdout: ${r.out}`)
     assert.match(r.out, /无新增 @ts-ignore/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -236,7 +236,7 @@ test('非违规: JSDoc 延续行 * @ts-ignore(非行首 // 或 /*)→ exit 0', (
     assert.equal(r.status, 0, `JSDoc 内描述性提及不应被检测\nstdout: ${r.out}`)
     assert.match(r.out, /无新增 @ts-ignore/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -257,7 +257,7 @@ test('批量: 2 文件(1 违规 + 1 干净)→ exit 1 + 仅报告违规文件', 
       `干净文件不应出现在违规输出中\nstdout: ${r.out}`,
     )
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

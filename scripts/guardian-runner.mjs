@@ -153,13 +153,13 @@ const checks = [
   // 检测目标:apps/web/src/ 下所有 .tsx(8 个共享登录组件:LoginForm/EmailCodeLoginForm/
   //   PhoneCodeLoginForm/PasswordLoginForm/AgreementCheckbox/AgreementNoticeDialog/
   //   ThirdPartyLoginButtons/QrTab)
-  // 升级 blocking 评估:1 周观察期(2026-08-03)若无误报 → 改 mode: 'blocking'
+  // 升级 blocking 评估:观察期已满 —— 2026-09-28 全量档实测 803 个文件 0 违规,已翻 blocking
   {
     id: '2g-web',
     label: '🔍 i18n 命名空间传递(web→共享组件)',
     script: 'check-i18n-namespace-passing.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '3',
@@ -222,7 +222,7 @@ const checks = [
     label: '📐 圆角溢出(父 rounded + 子 bg 贴边)',
     script: 'check-rounded-overflow.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '11c',
@@ -710,10 +710,10 @@ const checks = [
   },
   {
     id: '2f-ext',
-    label: '🌐 [extension] i18n 键完整性(warn-only)',
+    label: '🌐 [extension] i18n 键完整性(blocking,2026-09-28 由 warn 升档)',
     script: 'check-i18n-keys.mjs',
     args: ['--target=extension'],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '2f-shared',
@@ -724,24 +724,24 @@ const checks = [
   },
   {
     id: '2g-ext',
-    label: '🔍 [extension] zh-TW 简体字残留(warn-only)',
+    label: '🔍 [extension] zh-TW 简体字残留(blocking,2026-09-28 由 warn 升档)',
     script: 'scan-i18n-zh-residue.mjs',
     args: ['zh-TW', '--target=extension'],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '2h-ext',
-    label: '🔍 [extension] ko.json 中文残留(warn-only)',
+    label: '🔍 [extension] ko.json 中文残留(blocking,2026-09-28 由 warn 升档)',
     script: 'scan-i18n-zh-residue.mjs',
     args: ['ko', '--target=extension'],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '2i-ext',
-    label: '🔍 [extension] en.json 破碎英文(warn-only)',
+    label: '🔍 [extension] en.json 破碎英文(blocking,2026-09-28 由 warn 升档)',
     script: 'check-i18n-broken-en.mjs',
     args: ['--target=extension'],
-    mode: 'warn',
+    mode: 'blocking',
   },
   // --- shared 守门(5 项,2026-07-26 i18n shared/ 抽取重构前置条件) ---
   // 与 2f-shared(已存在,跑 check-i18n-keys.mjs --target=shared)独立,不冲突
@@ -820,13 +820,13 @@ const checks = [
   //   实际检查的是 packages/i18n/messages/web/ 而非 mobile-rn/。
   //   要让本守门真正生效,需在 check-i18n-keys.mjs 增加 mobile-rn 分支(类似 cli 分支),
   //   当前为占位项,warn-only 不阻塞 commit。修复后此项才有实际防护意义。
-  // 升级 blocking 评估:待 check-i18n-keys.mjs 补 mobile-rn 分支后再评估。
+  // 升级 blocking 评估:该前置早已满足 —— check-i18n-keys.mjs 有 mobile-rn 分支,mobile-rn 的 parity-only 档
   {
     id: '2f-mobile-rn',
     label: '🌐 mobile-rn i18n parity 守门(warn-only 起步,2026-07-28 立)',
     script: 'check-i18n-keys.mjs',
     args: ['--target=mobile-rn', '--parity-only'],
-    mode: 'warn',
+    mode: 'blocking',
     onFailHint: [
       '',
       '  💡 mobile-rn 端 5 语言 i18n key 集合不一致。',
@@ -3393,7 +3393,7 @@ const checks = [
   {
     id: '130',
     label:
-      '🗂  任务状态分叉对账(blocking,差值棘轮:一次提交不得让"同一件事既已完成又挂着未勾"变多,也不得带入没有交代的登记行 —— 既有防护全在防丢,没有一道防错)',
+      '🗂  任务状态分叉对账(blocking,差值棘轮:一次提交不得让"同一件事既已完成又挂着未勾"变多,不得带入没有交代的登记行,也不得新增撞号组(F9,存量只报数) —— 既有防护全在防丢,没有一道防错)',
     script: 'plan-tasks.mjs',
     args: ['--gate'],
     mode: 'blocking',
@@ -3402,6 +3402,10 @@ const checks = [
     onFailHint: [
       '',
       '  💡 本门拦的是"这次改动让状态分叉变多",不是"文档里有存量分叉"。存量(F1/F2/F3)默认只报数。',
+      '     F9 撞号(2026-09-27 G-267):同一编号挂 >1 个不同标题前缀即点名("编号 G-x 被 N 个不同标题共用")。',
+      '     存量绝大多数是子项命名惯例(D30① 一族)⇒ F9 只报数、连 --strict 也不判红(防恒红门,§12e);',
+      '     棘轮只拦**本次新增的撞号组**。修法:登记新任务前先取号(node scripts/plan-tasks.mjs --next-id G),',
+      '     或把两行的标题改成逐字等值(那本来就该是 F1/F4 的同题副本)。禁止给编号加豁免清单(§4)。',
       '     为什么必须有:§1 让每个 agent 往计划文档追加登记,但文档**没有主键约束** ——',
       '     同一任务编号被不同批次各登记一次,做完时只翻自己那一批的那份,其余副本永久烂成"未勾选";',
       '     而既有防护链全部**单向防丢**(门 71 防丢行 / 84 防写回旧版 / 100 防合并吞文件 / 工作区自愈',
@@ -3889,6 +3893,86 @@ const checks = [
     onFailHint: [
       '',
       '成员集合的单一真相源 = packages/types/src/agent-runtime.ts 的 AGENT_TASK_STATUSES\\n端内一律 import 它(或由它派生);Python 侧改 KANBAN_TASK_STATUSES + Literal 两处同笔\\n六档值是对外契约:不得改名、不得删成员、不得为变绿放宽判据、不得写豁免清单消账\\n新增一档必须同枚提交补齐 agents.kanban.* 五语言(AGENTS §30)\\n判不出 ⇒ exit 2 报无法判定,不冒红也不记绿',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 身份消费对账(1 项,blocking)---
+  {
+    id: '152',
+    label:
+      '🔐 ai-service 身份消费对账(blocking,拦「端点取到已验证身份却一次都没用它」—— 认证不等于授权;判据单一真相在 apps/ai-service/scripts/audit_principal_consumed.py,本门只物化被审面并派生那把尺子)',
+    script: 'check-principal-consumed.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PRINCIPAL_CONSUMED',
+    stagedTriggers: ['apps/ai-service/'],
+    onFailHint: [
+      '',
+      '  💡 本门守的是「取到已验证身份却一次都没用它」这一型(认证≠授权):签名带身份依赖',
+      '     默认值而整个函数体既不读该参数、也不经 request.state.user_id 通道消费、也不把',
+      '     request 一跳委托给"自己读 state.user_id"的仓内 helper ⇒ 判未消费。',
+      '  棘轮锚点 = 该文件在锚点面(HEAD 档比 HEAD^、--staged 档比 HEAD)自身的存量,',
+      '     只拦"本次改动带进来的新账"与"豁免清单腐烂",存量不因无关提交判红。',
+      '  机器态不判红:拿不到 Python/尺子没产出结论 ⇒ 未判定 exit 0(末行如实,不出具',
+      '     "全部已判"合格证);被审面取材不到/枚举 0 个 ⇒ exit 2 判死,不静默。',
+      '  修复出口(二选一,不得为消红削判据):① 端点真的消费身份 —— 属主取令牌主体',
+      '     (app/core/jwt_auth.py 的 require_request_user_id)或归属比对走',
+      '     app/services/session_store.py 的 owner_scoped_allows,或把 request 一跳',
+      '     委托给 _owner_filter 形态的既有 helper;② 确属无归属轴的公共面 ⇒ 在尺子内',
+      '     PRINCIPAL_EXEMPTIONS 逐条登记 file+func+理由(禁止按目录整片放行)。',
+      '  ① 现读:node scripts/check-principal-consumed.mjs [--json|--staged|--worktree]',
+      '  ② 镜像:node --test scripts/tests/check-principal-consumed.test.mjs',
+      '  紧急跳过(不推荐):HUSKY_SKIP_PRINCIPAL_CONSUMED=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 服务二进制路径存续性对账(1 项,warn)---
+  {
+    id: '153',
+    label:
+      '🛡️ 服务二进制路径存续性对账(判机器状态:nssm 各服务 Application 绝对路径存在性;三态不并桶,§12e 只能 warn)',
+    script: 'check-service-binary-paths.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_SERVICE_BINARY_PATHS',
+    onFailHint: [
+      '',
+      '本门判的是"这台机装了什么",不是本次提交改了什么 ⇒ 定级 warn:',
+      '  挂 blocking 会让每台每次提交被逼 --no-verify,一次绕过等于全部守门对该提交作废(§12e)。',
+      '三态:可判存在 / 确认缺失 / 未判定;枚举不到 nssm 服务时如实报未判定,不冒充通过。',
+      '问责跑 --strict;应急跳过 HUSKY_SKIP_SERVICE_BINARY_PATHS=1。',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 临时夹具 scratch 根二阶嵌套巡检(只报不删,三态含未判定)(1 项,warn)---
+  {
+    id: '154',
+    label:
+      '临时夹具 scratch 根二阶嵌套巡检(只报不删,三态含未判定)',
+    script: 'check-scratch-root-no-nesting.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_SCRATCH_NESTING',
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 镜像测试临时夹具落点对账(默认只报名,--strict 才判红)(1 项,warn)---
+  {
+    id: '155',
+    label:
+      '镜像测试临时夹具落点对账(默认只报名,--strict 才判红)',
+    script: 'check-fixture-tmpdir.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_FIXTURE_TMPDIR',
+    onFailHint: [
+      '',
       '',
     ].join('\n'),
   },

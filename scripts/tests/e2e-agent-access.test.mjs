@@ -16,10 +16,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'e2e-agent-access.mjs')
@@ -97,7 +97,7 @@ const DECLARATIONS = {
 })
 
 test('stripComments + countScopedCallSites:注释与 import 行不算调用点,闸实现文件排除', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-o17-scoped-'))
+  const dir = mkScratch('ihui-o17-scoped-')
   try {
     mkdirSync(join(dir, 'routes'), { recursive: true })
     mkdirSync(join(dir, 'db'), { recursive: true })
@@ -116,7 +116,7 @@ test('stripComments + countScopedCallSites:注释与 import 行不算调用点,�
     assert.equal(hits.length, 3, `真实调用点应为 3(2 处 a.ts + 1 处 b.ts),实际 ${hits.length}`)
     assert.ok(hits.every((h) => !h.includes('db/index.ts')), '闸实现文件不得计入调用点')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 

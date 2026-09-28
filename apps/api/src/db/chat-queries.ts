@@ -699,7 +699,12 @@ export async function historyTurnAnchorExists(
   const rows = await db
     .select({ id: chatMessages.id })
     .from(chatMessages)
-    .where(and(eq(chatMessages.conversationId, conversationId), eq(chatMessages.turnOrdinal, turnOrdinal)))
+    .where(
+      and(
+        eq(chatMessages.conversationId, conversationId),
+        eq(chatMessages.turnOrdinal, turnOrdinal),
+      ),
+    )
     .limit(1)
   return rows.length > 0
 }
@@ -730,7 +735,10 @@ export async function findHistoryTurnPage(
     opts.cursorTurnOrdinal !== null &&
     opts.cursorTurnOrdinal !== undefined
   if (cursorConsumed) {
-    const anchorExists = await historyTurnAnchorExists(conversationId, opts.cursorTurnOrdinal as number)
+    const anchorExists = await historyTurnAnchorExists(
+      conversationId,
+      opts.cursorTurnOrdinal as number,
+    )
     if (!anchorExists) {
       return {
         turns: [],
@@ -1053,9 +1061,17 @@ export interface CreateMessageInput {
 export async function createMessage(input: CreateMessageInput): Promise<ChatMessage> {
   return db.transaction(async (tx) => {
     // D35(2026-09-24):turn 序号补齐 —— user 消息开启新轮(会话内 max+1),
-    // assistant/system 沿用当前轮(无轮时归 turn 1)。并发容忍:同会话并发写
-    // 可能读到同一 max 导致 turn 边界重叠,第一段按尽力而为处理,严格串行化
-    // (行锁/重试)待增量回放段落接线时评估。
+    // assistant/system 沿用当前轮(无轮时归 turn 1)。
+    // O82 续四(2026-09-28)收紧:真库实测"读 max 再 +1"在同会话并发双插下撞号率
+    // 100%(60 对全撞,见 apps/api/tests/turn-ordinal-concurrency.test.ts),
+    // "尽力而为"不再是可接受形态。先锁会话行(SELECT ... FOR UPDATE)再读 max,
+    // 同会话插入按会话行粒度串行;跨会话互不影响。事务末尾本就 UPDATE 这行,
+    // 锁序一致无死锁面。
+    await tx
+      .select({ id: chatConversations.id })
+      .from(chatConversations)
+      .where(eq(chatConversations.id, input.conversationId))
+      .for('update')
     const turnRows = await tx
       .select({ maxTurn: sql<number | null>`max(${chatMessages.turnOrdinal})` })
       .from(chatMessages)

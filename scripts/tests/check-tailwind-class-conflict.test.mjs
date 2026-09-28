@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -16,7 +16,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-tailwind-class-conflict.mjs')
 
 // ─── 辅助:创建临时扫描目录(含 apps/ 结构,用于全量模式) ─
 function createTempScanDir(files) {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-tw-'))
+  const dir = mkScratch('ihui-tw-')
   for (const [relPath, content] of Object.entries(files)) {
     const fullPath = join(dir, relPath)
     mkdirSync(join(fullPath, '..'), { recursive: true })
@@ -45,7 +45,7 @@ function runStaged(cwd) {
 
 // 辅助:创建临时 git repo(含 baseline commit),用于 staged 模式测试
 function createTempGitRepo(files) {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-tw-git-'))
+  const dir = mkScratch('ihui-tw-git-')
   spawnSync('git', ['init', '-q'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
   spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
   spawnSync('git', ['config', 'user.name', 'Test'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
@@ -98,7 +98,7 @@ test('合法: 纯字符串 className="h-4 w-1.5" → 无违规(无模板字面�
     assert.equal(r.status, 0)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -111,7 +111,7 @@ test('合法: 纯三元 cond ? "h-4 w-1.5" : "h-2 w-2" → 无违规(分支互�
     assert.equal(r.status, 0)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -124,7 +124,7 @@ test('合法: cn() 函数调用 → 无违规(无法静态分析,放过)', () =>
     assert.equal(r.status, 0)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -137,7 +137,7 @@ test('合法: 模板字面量 BASE=h-4 BRANCH=h-4(同值,Set 去重后无差异)
     assert.equal(r.status, 0)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -153,7 +153,7 @@ test('违规: h 轴冲突 BASE=h-4 BRANCH=h-2 → stdout 报告 [h], exit 0(warn
     assertHasViolation(r, /\[h\]/)
     assert.match(r.stdout, /HConflict\.tsx/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -166,7 +166,7 @@ test('违规: w 轴冲突 BASE=w-1.5 BRANCH=w-2 → stdout 报告 [w]', () => {
     assert.equal(r.status, 0)
     assertHasViolation(r, /\[w\]/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -179,7 +179,7 @@ test('违规: h + w 同时冲突 → 报告 2 处违规', () => {
     assert.equal(r.status, 0)
     assert.match(r.stdout, /违规数:\s+2\s+处/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -194,7 +194,7 @@ test('豁免: 行内 // tailwind-class-conflict-allow → 无违规', () => {
     assert.equal(r.status, 0)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -207,7 +207,7 @@ test('豁免: 行内 /* tailwind-class-conflict-allow */ → 无违规', () => {
     assert.equal(r.status, 0)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -220,7 +220,7 @@ test('豁免: 上一行 // tailwind-class-conflict-allow → 无违规', () => {
     assert.equal(r.status, 0)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -235,19 +235,19 @@ test('边界: 空 .tsx 文件 → 无违规', () => {
     assert.equal(r.status, 0)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
 test('边界: 无 apps/packages 目录 → 扫描 0 文件 exit 0', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-tw-empty-'))
+  const dir = mkScratch('ihui-tw-empty-')
   try {
     const r = runScript(dir)
     assert.equal(r.status, 0)
     assert.match(r.stdout, /扫描文件: 0/)
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -262,7 +262,7 @@ test('staged 模式: 空暂存区(无 .ts/.tsx 变更)→ exit 0 跳过', () => 
     assert.equal(r.status, 0, '空暂存区应 exit 0')
     assert.match(r.stdout, /跳过|暂存区无/, '应显示跳过消息')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -283,7 +283,7 @@ test('staged 模式: 暂存含 h 轴冲突违规 → exit 1 并报告 [h] + Bad.
     assert.match(r.stdout, /\[h\]/, 'stdout 应报告 [h] 冲突')
     assert.match(r.stdout, /Bad\.tsx/, 'stdout 应列出违规文件 Bad.tsx')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

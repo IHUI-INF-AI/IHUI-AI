@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * 前端 API 调用 vs 后端路由注册比对脚本。
  *
@@ -119,7 +118,6 @@ const CONTENT = new Map()
 let CONTENT_READY = false
 /** 内容取不到的路径(不静默:结论行必须喊出来) */
 const unreadable = new Set()
-
 
 /** 面内的路径清单(git 档走 ls-tree/ls-files,磁盘档走递归) */
 function listFace(relDir, exts) {
@@ -319,8 +317,7 @@ function extractFrontendCalls(src, file) {
       // 场景:跨文件 wrapper(useProcessApi)、多行函数签名(const run = async (\n...) =>)、
       //       同文件 wrapper 链(srsPost → explainConcept)等自动推断失效时
       const annotRe = /\/\/\s*method\s*:\s*(get|post|put|patch|delete)\b/i
-      const annotMatch =
-        (lines[idx] || '').match(annotRe) || (lines[idx - 1] || '').match(annotRe)
+      const annotMatch = (lines[idx] || '').match(annotRe) || (lines[idx - 1] || '').match(annotRe)
       if (annotMatch) {
         method = annotMatch[1].toUpperCase()
       }
@@ -610,9 +607,15 @@ function extractBackendRoutes() {
   if (files.length === 0) return { routes: [], prefixes }
   // 已知 scoped instance 变量名: server.register(async (VAR) => {...})
   // 项目实际使用: server / s (admin-sys) / child (exam) / scope (live) / authed (member) / fastify (zhs-course 等)
+  // / sub (admin-sys/role-routes.ts:99 的嵌套 authUser 子路由)—— 2026-09-28 补:漏 `sub` 让
+  //   嵌套子路由整型看不见,后端真实册的路由被判死(假阳性;方向:把正确实现钉红)。
   const methodRe =
-    /\b(?:server|s|child|scope|authed|instance|app|fastify)\.(get|post|put|patch|delete)\(\s*['"`]([^'"`]*)['"`]/g
-  // registerCrud(VAR, 'basePath', ...) 工厂: 展开为 GET/POST/PUT/:id/DELETE/:id/DELETE(batch) 共 5 条
+    /\b(?:server|s|sub|child|scope|authed|instance|app|fastify)\.(get|post|put|patch|delete)\(\s*['"`]([^'"`]*)['"`]/g
+  // registerCrud(VAR, 'basePath', ...) 工厂: 展开为 GET list/GET :id/POST/PUT :id/DELETE :id/DELETE(batch) 共 6 条
+  // (2026-09-28 根修:上一版漏了 GET `${basePath}/:id` —— 工厂在 admin/_shared.ts:276 真注册了
+  //  getById,漏展开让三枚 GET :id 前端调用被假判死调用(台账豁免文件里 admin/courses 那条
+  //  就是这一型的自首记录)。补上后该型不再复发, courses 豁免条目随之撤销——留着它=替
+  //  已经不存在的分析器缺陷继续背书。)
   const crudRe = /registerCrud\(\s*\w+\s*,\s*['"`]([^'"`]+)['"`]/g
   for (const rel of files) {
     const src = readSource(rel)
@@ -630,6 +633,7 @@ function extractBackendRoutes() {
     while ((m = crudRe.exec(src)) !== null) {
       const basePath = m[1]
       routes.push({ method: 'GET', localPath: basePath, file: rel })
+      routes.push({ method: 'GET', localPath: `${basePath}/:id`, file: rel })
       routes.push({ method: 'POST', localPath: basePath, file: rel })
       routes.push({ method: 'PUT', localPath: `${basePath}/:id`, file: rel })
       routes.push({ method: 'DELETE', localPath: `${basePath}/:id`, file: rel })
@@ -666,7 +670,8 @@ function extractBackendRoutes() {
     const includePrefixMap = new Map() // router变量名 -> prefix
     const mainSrc = readSource(AI_SERVICE_MAIN_FILE)
     if (mainSrc !== null && mainSrc !== undefined) {
-      const includeRe = /app\.include_router\(\s*(\w+)\.router\s*,\s*prefix\s*=\s*['"`]([^'"`]+)['"`]/g
+      const includeRe =
+        /app\.include_router\(\s*(\w+)\.router\s*,\s*prefix\s*=\s*['"`]([^'"`]+)['"`]/g
       let im
       while ((im = includeRe.exec(mainSrc)) !== null) {
         includePrefixMap.set(im[1], im[2])
@@ -690,7 +695,8 @@ function extractBackendRoutes() {
       // 如果仍无 prefix，使用空字符串
       const prefixes2 = routerPrefixes.length > 0 ? routerPrefixes : ['']
       // 提取 @router.xxx("/path") 注册
-      const fastApiMethodRe = /@router\.(get|post|put|patch|delete|options)\(\s*['"`]([^'"`]+)['"`]/g
+      const fastApiMethodRe =
+        /@router\.(get|post|put|patch|delete|options)\(\s*['"`]([^'"`]+)['"`]/g
       let fm
       while ((fm = fastApiMethodRe.exec(src)) !== null) {
         const method = fm[1].toUpperCase()
@@ -930,11 +936,7 @@ function runSelfTest() {
   const overRoot = rnFixture(baseAt(0))
   try {
     const r = runGateIn(overRoot)
-    eq(
-      '棘轮:超出基线额度 ⇒ exit 1 且点名新增',
-      [1, true],
-      [r.status, /新增/.test(r.out)],
-    )
+    eq('棘轮:超出基线额度 ⇒ exit 1 且点名新增', [1, true], [r.status, /新增/.test(r.out)])
   } finally {
     rmScratch(overRoot)
   }
@@ -947,11 +949,7 @@ function runSelfTest() {
     eq(
       '缺基线而有死调用 ⇒ exit 0 且如实喊"未判定"并逐条列出',
       [0, true, true],
-      [
-        r.status,
-        /未判定/.test(r.out),
-        /apps\/mobile-rn\/src\/dead\.ts/.test(r.out),
-      ],
+      [r.status, /未判定/.test(r.out), /apps\/mobile-rn\/src\/dead\.ts/.test(r.out)],
     )
   } finally {
     rmScratch(noBaseRoot)
@@ -1000,9 +998,7 @@ function runSelfTest() {
 if (process.argv.includes('--self-test')) {
   const { failures: selfFailures, assertions } = runSelfTest()
   if (selfFailures.length === 0) {
-    console.log(
-      `${C.green}[API 路由比对] --self-test 通过(${assertions} 例判据断言)${C.reset}`,
-    )
+    console.log(`${C.green}[API 路由比对] --self-test 通过(${assertions} 例判据断言)${C.reset}`)
     process.exit(0)
   }
   console.log(`${C.red}[API 路由比对] --self-test 失败 ${selfFailures.length} 例:${C.reset}`)
@@ -1019,7 +1015,9 @@ if (process.argv.includes('--self-test')) {
  */
 process.on('uncaughtException', (e) => {
   if (e instanceof Undetermined) {
-    console.log(`${C.red}[API 路由比对] ⚠️ 无法判定(不是"没有违规",是"取不到判定面"):${C.reset} ${e.message}`)
+    console.log(
+      `${C.red}[API 路由比对] ⚠️ 无法判定(不是"没有违规",是"取不到判定面"):${C.reset} ${e.message}`,
+    )
     process.exit(2)
   }
   throw e
@@ -1027,6 +1025,11 @@ process.on('uncaughtException', (e) => {
 
 const WARN_ONLY = process.argv.includes('--warn-only')
 const UPDATE_BASELINE = process.argv.includes('--update-baseline')
+// 1510 行的提示语早就指向 --dump-missing,但该旗从未实现(2026-09-28 现读:全文件只有
+// 提示语这一处提到它)⇒ 提示是个死指针,"逐条见 X"而 X 不存在 = 把人往不存在的出口引。
+// 现把它装上:逐条打印**所有**面上量到的死调用(web 零容忍 + 棘轮存量/新增/无锚点),
+// 判据/退出码/豁免一字不动 —— 这是清账工具的取数口,不是第二台尺子。
+const DUMP_MISSING = process.argv.includes('--dump-missing')
 
 /**
  * 判定面(2026-09-26 收口):默认 **HEAD blob**、`--staged` 判**索引 blob**、`--worktree` 只作
@@ -1116,13 +1119,37 @@ prefetch([...frontendRels, ...baseInputs])
 const { routes: backendRoutes, prefixes } = extractBackendRoutes()
 const compositePrefixes = buildCompositePrefixes(prefixes)
 
-const backendDumpIdx = process.argv.indexOf('--dump-backend')
-if (backendDumpIdx !== -1 && process.argv[backendDumpIdx + 1]) {
+/**
+ * 带值旗标的取值(2026-09-28 修 `--dump-* --staged` 这一型;口径照抄枚 `380431ffc`,不另发明):
+ * **紧邻的下一个 token 必须存在且不以 `-` 开头**才算该旗标的值,否则视为"没带值"。
+ * `scripts/guardian-runner.mjs` 会给每道门追加 `--staged`,而旧写法是**无条件**的
+ * `process.argv[idx + 1]`,于是 `--dump-missing --staged` 把 `--staged` 当输出路径,
+ * 在当前工作目录写出一个名叫 `--staged` 的文件(违反 AGENTS §28 根目录整洁;
+ * `check-root-dir-clean --staged` 看不见未跟踪产物,不会自己现形),同时 stdout 结论照打
+ * ⇒ 调用方以为没写盘。无效值(token 存在但以 `-` 开头)**不得静默按未给值处理**:
+ * 点名一行到 stderr。判据、棘轮、`--staged` 降级语义、退出码、文件档字节形态一字未动。
+ * 两处 `--dump-*` 站点共用这一份实现,不得各写一遍(两处算同一件事必漂移)。
+ */
+function dumpFlagValue(flag) {
+  const i = process.argv.indexOf(flag)
+  if (i === -1) return null
+  const v = process.argv[i + 1]
+  if (typeof v === 'string' && v !== '') {
+    if (!v.startsWith('-')) return v
+    console.error(`[API 路由比对] 忽略无效的 ${flag} 值: ${v}`)
+  }
+  return null
+}
+
+const backendDumpPath = dumpFlagValue('--dump-backend')
+if (backendDumpPath) {
   writeFileSync(
-    process.argv[backendDumpIdx + 1],
+    backendDumpPath,
     JSON.stringify(
       backendRoutes.map((r) => {
-        const fullPaths = compositePrefixes.map((p) => `${r.method} ${normalizePath(p, r.localPath)}`)
+        const fullPaths = compositePrefixes.map(
+          (p) => `${r.method} ${normalizePath(p, r.localPath)}`,
+        )
         return { ...r, fullPaths }
       }),
       null,
@@ -1256,6 +1283,11 @@ const OPAQUE_MOUNT_PREFIXES = [
     prefix: '/api/mcp/export/',
     evidence: 'apps/ai-service/app/main.py:924 `mcp_export.mount_to_app(app)`(非装饰器挂载)',
   },
+  {
+    prefix: '/api/admin-saas/',
+    evidence:
+      "apps/api/src/routes/admin-saas-proxy.ts:88 `server.route({method:[GET/POST/PATCH/PUT/DELETE/HEAD/OPTIONS],url:'/*'})` 通配代理(透传 admin-api,注册面结构上看不见具体子路径)",
+  },
 ]
 const opaqueUndetermined = []
 const missing = []
@@ -1309,9 +1341,9 @@ for (const call of allCalls) {
   }
 }
 
-const dumpIdx = process.argv.indexOf('--dump-missing')
-if (dumpIdx !== -1 && process.argv[dumpIdx + 1]) {
-  writeFileSync(process.argv[dumpIdx + 1], JSON.stringify(missing, null, 2), 'utf8')
+const dumpMissingPath = dumpFlagValue('--dump-missing')
+if (dumpMissingPath) {
+  writeFileSync(dumpMissingPath, JSON.stringify(missing, null, 2), 'utf8')
 }
 
 // 读取 ignore 配置(**按判定面取,不读磁盘**)
@@ -1338,9 +1370,10 @@ if (ignoreSrc === null || ignoreSrc === undefined) {
 function matchesIgnore(call) {
   return ignorePatterns.some((p) => {
     if (!p || !p.pathPattern) return false
-    if (p.method && p.method !== 'ANY' && call.method !== 'ANY' && p.method !== call.method) return false
+    if (p.method && p.method !== 'ANY' && call.method !== 'ANY' && p.method !== call.method)
+      return false
     const pattern = p.pathPattern
-    if (pattern.startsWith('^') || pattern.endsWith('$') ||pattern.includes('\\')) {
+    if (pattern.startsWith('^') || pattern.endsWith('$') || pattern.includes('\\')) {
       try {
         return new RegExp(pattern).test(call.path)
       } catch {
@@ -1379,7 +1412,9 @@ if (UPDATE_BASELINE) {
       '逐文件新增 /api/ 字面量 0 条(实测),所以它们是从写下起就没人对账过的存量。',
     ends: [...RATCHET_ENDS].sort(),
     face: FACE,
-    perFileCount: Object.fromEntries([...countsByFile.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))),
+    perFileCount: Object.fromEntries(
+      [...countsByFile.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)),
+    ),
   }
   const outAbs = join(ROOT, ...BASELINE_FILE_REL.split('/'))
   writeFileSync(outAbs, JSON.stringify(payload, null, 2) + '\n', 'utf8')
@@ -1434,7 +1469,7 @@ for (const [file, n] of countsByFile) {
   }
   const allowed = Number(baselineCounts[file]) || 0
   if (n > allowed) ratchetNew.push({ file, count: n, allowed, calls })
-  else if (n > 0) ratchetStock.push({ file, count: n, allowed })
+  else if (n > 0) ratchetStock.push({ file, count: n, allowed, calls })
 }
 const staleLedger = Object.keys(baselineCounts).filter((f) => !countsByFile.has(f))
 
@@ -1507,13 +1542,28 @@ if (ratchetStock.length > 0) {
     console.log(`${C.dim}    ${s.file}:存量 ${s.count} 处(基线允许 ${s.allowed})${C.reset}`)
   }
   if (ratchetStock.length > 20) {
-    console.log(`${C.dim}    ... 还有 ${ratchetStock.length - 20} 个文件(逐条见 --dump-missing)${C.reset}`)
+    console.log(
+      `${C.dim}    ... 还有 ${ratchetStock.length - 20} 个文件(逐条见 --dump-missing)${C.reset}`,
+    )
   }
 }
 if (staleLedger.length > 0) {
   console.log(
     `${C.yellow}  (登记)基线里有 ${staleLedger.length} 个文件已不再命中(清单该收紧了):${C.reset} ${staleLedger.slice(0, 5).join(', ')}`,
   )
+}
+
+if (DUMP_MISSING) {
+  const dump = []
+  for (const v of webViolations)
+    dump.push(`${v.method} ${v.path} @ ${v.file}:${v.line} [web 零容忍]`)
+  for (const s of [...ratchetStock, ...ratchetNew, ...ratchetNoAnchor])
+    for (const c of s.calls || [])
+      dump.push(
+        `${c.method} ${c.path} @ ${c.file}:${c.line} [棘轮${s.allowed !== undefined ? `存量/允许 ${s.count}/${s.allowed}` : '无锚点'}]`,
+      )
+  console.log(`[API 路由比对] --dump-missing 逐条死调用(${dump.length} 处):`)
+  for (const d of dump) console.log(`    ${d}`)
 }
 
 if (webViolations.length === 0 && ratchetNew.length === 0) {

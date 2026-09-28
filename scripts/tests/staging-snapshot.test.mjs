@@ -5,10 +5,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync, existsSync, readFileSync } from 'node:fs'
+import { writeFileSync, rmSync, mkdirSync, existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // 动态导入 .js 模块(CommonJS → ESM 互操作)
 const { takeStagingSnapshot, restoreStaging } = await import('../lib/staging-snapshot.js')
@@ -23,7 +23,7 @@ function runInChild(script, cwd) {
 
 // ─── 测试辅助:创建临时 git 仓库 ─────────────────────────────
 function createTempGitRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-staging-snap-'))
+  const dir = mkScratch('ihui-staging-snap-')
   execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
@@ -67,7 +67,7 @@ test('takeStagingSnapshot: 空 staging area → 空集', () => {
     assert.ok(snapshot instanceof Set)
     assert.equal(snapshot.size, 0)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -81,7 +81,7 @@ test('takeStagingSnapshot: 含 staged 文件 → 正确返回路径集合', () =
     assert.ok(snapshot.has('file1.ts'))
     assert.ok(snapshot.has('apps/web/page.tsx'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -94,17 +94,17 @@ test('takeStagingSnapshot: Windows 反斜杠路径 → 归一化为 POSIX', () =
       assert.ok(!f.includes('\\'), `路径应归一化为 POSIX: ${f}`)
     }
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
 test('takeStagingSnapshot: 非 git 环境 → 返回 null', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-non-git-'))
+  const dir = mkScratch('ihui-non-git-')
   try {
     const snapshot = takeStagingSnapshot({ cwd: dir })
     assert.equal(snapshot, null)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -118,7 +118,7 @@ test('takeStagingSnapshot: 不含 Deleted 文件(只 ACMR)', () => {
     const snapshot = takeStagingSnapshot({ cwd: dir })
     assert.equal(snapshot.size, 0)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -136,7 +136,7 @@ test('restoreStaging: 快照==当前 staged → 无操作', () => {
     const staged = getStagedFiles(dir)
     assert.equal(staged.length, 2)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -155,7 +155,7 @@ test('restoreStaging: hook 期间新增 staged 文件 → unstage 新增', () =>
     assert.ok(staged.includes('file1.ts'))
     assert.ok(!staged.includes('file2.ts'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -173,7 +173,7 @@ test('restoreStaging: hook 期间新增多个文件 → 全部 unstage', () => {
     assert.equal(staged.length, 1)
     assert.ok(staged.includes('task-file.ts'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -206,7 +206,7 @@ test('restoreStaging: 大批量非预期 staged(250 个长路径)→ 仍须全�
     assert.equal(staged.length, 1)
     assert.ok(staged.includes('task-file.ts'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -217,7 +217,7 @@ test('restoreStaging: null 快照 → 跳过(skipped=true)', () => {
     assert.equal(result.skipped, true)
     assert.equal(result.restored.length, 0)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -232,7 +232,7 @@ test('restoreStaging: options.skip=true → 跳过', () => {
     assert.equal(result.restored.length, 0)
     assert.equal(getStagedFiles(dir).length, 2)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -246,7 +246,7 @@ test('restoreStaging: 空快照 + 新增文件 → unstage 全部新增', () => 
     assert.equal(result.restored.length, 1)
     assert.equal(getStagedFiles(dir).length, 0)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -259,7 +259,7 @@ test('restoreStaging: working tree 保留(unstage 非破坏性)', () => {
     restoreStaging(snapshot, { cwd: dir, silent: true })
     assert.ok(existsSync(join(dir, 'file2.ts')))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -276,7 +276,7 @@ test('restoreStaging: lint-staged 修改已 staged 文件内容 → 不 unstage(
     assert.equal(staged.length, 1)
     assert.ok(staged.includes('file1.ts'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -297,7 +297,7 @@ test('restoreStaging: 模拟真实事故场景(c3c864131 类似)', () => {
     assert.equal(staged.length, 1)
     assert.ok(staged[0].includes('seo.tsx'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -321,7 +321,7 @@ test('E2E: 正常 commit 流程(单文件)不受影响', () => {
     assert.equal(lastCommitFiles.length, 1)
     assert.ok(lastCommitFiles[0].includes('task.ts'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -348,7 +348,7 @@ test('E2E: 多文件正常 commit 不受影响', () => {
       .filter(Boolean)
     assert.equal(lastCommitFiles.length, 3)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -373,7 +373,7 @@ test('E2E: 还原后 commit 不含被 unstage 的文件', () => {
     assert.ok(lastCommitFiles[0].includes('task.ts'))
     assert.ok(!lastCommitFiles.some((f) => f.includes('pollution.ts')))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -420,7 +420,7 @@ test('setupRestoreOnExit: 正常退出(process.exit(0))时还原 staging area', 
     assert.equal(staged.length, 1, 'file2.ts 应被 unstage')
     assert.ok(staged[0].includes('file1.ts'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -443,7 +443,7 @@ test('setupRestoreOnExit: options.skip=true 时不还原 staging area', () => {
     const staged = getStagedFiles(dir)
     assert.equal(staged.length, 2, 'skip=true 时不应 unstage')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -479,7 +479,7 @@ test('setupRestoreOnExit: 未捕获异常后仍还原 staging area', () => {
     assert.equal(staged.length, 1, 'file2.ts 应被 unstage(异常后还原)')
     assert.ok(staged[0].includes('file1.ts'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -504,7 +504,7 @@ test('setupRestoreOnExit: process.exit(1) 时仍还原 staging area', () => {
     assert.equal(staged.length, 1, 'file2.ts 应被 unstage(exit(1) 后还原)')
     assert.ok(staged[0].includes('file1.ts'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -533,7 +533,7 @@ test('setupRestoreOnExit: 多文件 hook 期间新增 → 全部 unstage', () =>
     assert.ok(staged.some((f) => f.includes('task2.ts')))
     assert.ok(!staged.some((f) => f.includes('pollution')))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -554,7 +554,7 @@ test('restoreStaging: 含空格的文件路径 → 正确 unstage', () => {
     assert.ok(staged[0].includes('task-file.ts'))
     assert.ok(!staged.some((f) => f.includes('my file.ts')))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -573,12 +573,12 @@ test('restoreStaging: 含中文的文件路径 → 正确 unstage(路径归一�
     assert.ok(staged[0].includes('task-file.ts'))
     assert.ok(!staged.some((f) => f.includes('任务文件.ts')))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
 test('restoreStaging: git restore 失败时不阻塞(非 git cwd + 非 null 快照 → fallback)', () => {
-  const nonGitDir = mkdtempSync(join(tmpdir(), 'ihui-non-git-restore-'))
+  const nonGitDir = mkScratch('ihui-non-git-restore-')
   try {
     // 非 null 快照(模拟 takeStagingSnapshot 在 git 环境取到的快照)
     const snapshot = new Set(['existing-file.ts'])
@@ -591,7 +591,7 @@ test('restoreStaging: git restore 失败时不阻塞(非 git cwd + 非 null 快�
     // catch 分支设置 skipped=true(non-git-env)
     assert.equal(result.skipped, true)
   } finally {
-    rmSync(nonGitDir, { recursive: true, force: true })
+    rmScratch(nonGitDir)
   }
 })
 
@@ -616,7 +616,7 @@ test('setupRestoreOnExit: 含中文路径文件在子进程中被还原', () => 
     assert.ok(staged[0].includes('task-file.ts'))
     assert.ok(!staged.some((f) => f.includes('任务文件.ts')))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -645,7 +645,7 @@ test('restoreStaging: HUSKY_STAGING_RESTORE_LOG=1 时写入监控日志(JSON Lin
   } finally {
     if (originalEnv === undefined) delete process.env.HUSKY_STAGING_RESTORE_LOG
     else process.env.HUSKY_STAGING_RESTORE_LOG = originalEnv
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -665,7 +665,7 @@ test('restoreStaging: silent 模式不写监控日志(即使 HUSKY_STAGING_RESTO
   } finally {
     if (originalEnv === undefined) delete process.env.HUSKY_STAGING_RESTORE_LOG
     else process.env.HUSKY_STAGING_RESTORE_LOG = originalEnv
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -683,7 +683,7 @@ test('auditStagingFiles: 空 staging area → 不打印审计清单', () => {
     assert.equal(result.status, 0)
     assert.ok(!result.stdout.includes('📋'), '空 staging 不应打印审计清单')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -701,7 +701,7 @@ test('auditStagingFiles: 单文件 → 打印清单无警告', () => {
     assert.ok(result.stdout.includes('page.tsx'), '应列出文件名')
     assert.ok(!result.stdout.includes('⚠️'), '单文件不应有警告')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -730,7 +730,7 @@ test('auditStagingFiles: 同目录多文件 → 打印污染警告(核心场景)
       '应提示用 safe-commit.mjs 重新提交',
     )
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -749,7 +749,7 @@ test('auditStagingFiles: 文件数 > 5 → 打印严重警告', () => {
     assert.ok(result.stdout.includes('📋'), '应打印审计清单')
     assert.ok(result.stdout.includes('> 5'), '应有文件数 > 5 严重警告')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -766,7 +766,7 @@ test('auditStagingFiles: silent=true → 不打印', () => {
     assert.equal(result.status, 0)
     assert.equal(result.stdout.trim(), '', 'silent 模式不应打印任何内容')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -784,12 +784,12 @@ test('auditStagingFiles: HUSKY_SKIP_STAGING_AUDIT=1 → 跳过', () => {
     assert.ok(result.stdout.includes('⏭'), '应打印跳过提示')
     assert.ok(!result.stdout.includes('📋'), '不应打印审计清单')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
 test('auditStagingFiles: 非 git 环境 → 不报错', () => {
-  const nonGitDir = mkdtempSync(join(tmpdir(), 'ihui-non-git-audit-'))
+  const nonGitDir = mkScratch('ihui-non-git-audit-')
   try {
     const script = `
       const { auditStagingFiles } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
@@ -798,7 +798,7 @@ test('auditStagingFiles: 非 git 环境 → 不报错', () => {
     const result = runInChild(script, nonGitDir)
     assert.equal(result.status, 0, '非 git 环境应正常退出不报错')
   } finally {
-    rmSync(nonGitDir, { recursive: true, force: true })
+    rmScratch(nonGitDir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

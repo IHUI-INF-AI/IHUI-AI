@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync, statSync } from 'node:fs'
+import { writeFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -18,7 +18,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-project-plan-size.mjs')
 const WARN_BYTES = 500 * 1024 // 500KB
 
 function createTempRoot() {
-  return mkdtempSync(join(tmpdir(), 'ihui-plan-size-'))
+  return mkScratch('ihui-plan-size-')
 }
 
 // 运行脚本并去除 ANSI 颜色码
@@ -46,7 +46,7 @@ test('CLI: --help 不崩溃(脚本未实现 --help,按默认模式运行)', () =
     assert.ok(r.status === 0, `--help 应 exit 0(warn-only 始终 exit 0),实际 ${r.status}`)
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生 Error`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -59,7 +59,7 @@ test('PROJECT_PLAN.md 不存在 → exit 0 + 跳过消息', () => {
     assert.equal(r.status, 0, `文件不存在应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -75,7 +75,7 @@ test('PROJECT_PLAN.md 体积 < 500KB → exit 0 + ✅ 通过', () => {
     assert.match(r.out, /体积信息/)
     assert.match(r.out, /warn-only/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -87,7 +87,7 @@ test('空文件(0 字节)→ exit 0', () => {
     assert.equal(r.status, 0, `空文件应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /0\.00 KB/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -105,7 +105,7 @@ test('PROJECT_PLAN.md 体积 > 500KB → exit 1(warn-only)+ ⚠️ 警告', () =
     assert.match(r.err, /体积偏大/)
     assert.match(r.err, /warn-only/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -135,7 +135,7 @@ test('warn 的出路必须实测:给出归档器实测量或明写未判定,不�
     // 未判定时必须自带原因,不许只说"跑不了"
     if (/未判定/.test(r.err)) assert.match(r.err, /未判定\(.+\)/, '未判定必须带括号里的原因')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -154,7 +154,7 @@ test('边界: 体积刚好 = 500KB → 不触发 warn(源脚本用 > 严格大�
     assert.match(r.out, /体积信息/)
     assert.doesNotMatch(r.err, /体积偏大/, '刚好等于阈值不应触发 warn')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -170,7 +170,7 @@ test('边界: 体积 = 500KB + 1 字节 → 触发 warn', () => {
     assert.match(r.err, /体积偏大/)
     assert.match(r.err, /warn-only/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -186,7 +186,7 @@ test('体积计算: statSync().size 字节数正确转换为 KB(2 位小数)', (
     // 源脚本:(stats.size / 1024).toFixed(2)
     assert.match(r.out, /1\.00 KB/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -203,7 +203,7 @@ test('输出格式: 含 KB 数值 + 软参考阈值 + warn-only 标记', () => {
     assert.match(r.out, /软参考 500 KB/)
     assert.match(r.out, /warn-only/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

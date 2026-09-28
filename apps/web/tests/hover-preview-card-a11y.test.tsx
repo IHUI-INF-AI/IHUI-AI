@@ -7,7 +7,7 @@
  * HoverPreviewCard a11y 单元测试(Phase 22,2026-07-29 立)
  *
  * 覆盖:
- * - Esc 关闭(6 test):visible/false、preventDefault、stopPropagation、状态切换、防抖
+ * - Esc 关闭(6 test):visible/false、preventDefault、层栈协议(仅栈顶消费)、状态切换、防抖
  * - 焦点陷阱(6 test):Tab 循环、Shift+Tab 反向、无可聚焦元素、visible=false、role/aria
  * - 综合(6 test):Esc 后焦点回 body、自动聚焦、3+ 元素循环、tabIndex、aria-modal、tooltip 模式
  */
@@ -16,6 +16,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { HoverPreviewCard } from '../src/components/ai/progress-sections/hover-preview-card'
+import { pushOverlay, popOverlay } from '../src/lib/overlay-stack'
 
 describe('HoverPreviewCard a11y — Esc 关闭', () => {
   afterEach(() => {
@@ -77,8 +78,9 @@ describe('HoverPreviewCard a11y — Esc 关闭', () => {
     expect(event.defaultPrevented).toBe(true)
   })
 
-  // 4. Esc 事件 stopPropagation 被调用
-  it('Esc 事件 stopPropagation 被调用', () => {
+  // 4. Esc 无层栈协议(68ebf302b 起以注册式层栈取代逐处 stopPropagation):
+  //    只有栈顶层消费 Esc —— 有更新层压栈时本卡不关,弹回栈顶后恢复可关。
+  it('Esc 仅由栈顶层消费:被新层压住时不关,出栈后恢复关闭', () => {
     const onClose = vi.fn()
     const { container } = render(
       <HoverPreviewCard
@@ -90,10 +92,16 @@ describe('HoverPreviewCard a11y — Esc 关闭', () => {
       />,
     )
     const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
-    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
-    const spy = vi.spyOn(event, 'stopPropagation')
-    card.dispatchEvent(event)
-    expect(spy).toHaveBeenCalled()
+    pushOverlay('test-overlay-above-card')
+    card.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    )
+    expect(onClose).not.toHaveBeenCalled()
+    popOverlay('test-overlay-above-card')
+    card.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    )
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   // 5. Esc 后 visible 变为 false(卡片从 DOM 消失)

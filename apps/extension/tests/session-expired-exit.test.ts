@@ -96,7 +96,10 @@ describe('扩展端会话失效统一出口', () => {
     const { initApi } = await import('../lib/token')
     await initApi()
     expect(typeof getUnauthorizedHandler()).toBe('function')
-  })
+    // 冷 CI 上首枚 await import('@ihui/api-client') 要现算整个 api-client 变换图,
+    // 默认 5s testTimeout 不够(2026-09-27 PR#65 run 36341940386 实红于超时,本地热盘 4/4 绿)。
+    // 预算抬到 30s;后续 ②③ 复用已缓存模块图,不受影响。断言零改动。
+  }, 30_000)
 
   it('② 处理器在有派发目标时喊出会话失效事件,在无派发目标时不抛', async () => {
     const { initApi, SESSION_EXPIRED_EVENT } = await import('../lib/token')

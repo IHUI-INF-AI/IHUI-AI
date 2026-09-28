@@ -359,7 +359,11 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
           type: 'object',
           required: ['id'],
           properties: {
-            id: { type: 'string', format: 'uuid', description: '用户 ID' },
+            // G-261(同 G-257 口径):JSON Schema 只声明类型,uuid 校验一律由 idParamSchema(Zod)做。
+            // 此前 format:'uuid' 让 ajv 先拒,Fastify 默认错误体的 code 是字符串,与本路由 400 响应
+            // schema(code:number)序列化不匹配 ⇒ 客户端错误被掩盖成 500(探针已证:
+            // tests/g261-validation.test.ts 修复前 GET/PATCH/DELETE /users/not-a-uuid 实得 500)。
+            id: { type: 'string', description: '用户 ID(UUID,服务端 Zod 校验)' },
           },
         },
         response: buildResponseSchema(400, 401, 403, 404),
@@ -390,14 +394,16 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
           type: 'object',
           required: ['id'],
           properties: {
-            id: { type: 'string', format: 'uuid', description: '用户 ID' },
+            // G-261:type-only,uuid 由 idParamSchema(Zod)校验(同 GET /users/:id)
+            id: { type: 'string', description: '用户 ID(UUID,服务端 Zod 校验)' },
           },
         },
         body: {
           type: 'object',
           properties: {
-            role: { type: 'integer', minimum: 0, description: '角色 ID' },
-            status: { type: 'integer', minimum: 0, description: '用户状态' },
+            // G-261:minimum 属校验型约束(非法值走 ajv 先拒 ⇒ 500),一律交 updateUserBodySchema(Zod,int+min0)
+            role: { type: 'integer', description: '角色 ID(服务端 Zod 校验)' },
+            status: { type: 'integer', description: '用户状态(服务端 Zod 校验)' },
             deptId: { type: 'integer', nullable: true, description: '部门 ID' },
           },
         },
@@ -512,7 +518,8 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
           type: 'object',
           required: ['id'],
           properties: {
-            id: { type: 'string', format: 'uuid', description: '用户 ID' },
+            // G-261:type-only,uuid 由 idParamSchema(Zod)校验(同 GET /users/:id)
+            id: { type: 'string', description: '用户 ID(UUID,服务端 Zod 校验)' },
           },
         },
         response: {

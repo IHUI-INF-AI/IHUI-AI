@@ -30,6 +30,9 @@ vi.mock('@ihui/api-client', () => ({
   streamChat: vi.fn(),
   setStreamBaseUrl: vi.fn(),
   setDeviceFingerprintProvider: vi.fn(),
+  // 2026-09-25 接线:api.ts 无条件注册 401 处理器,mock 面必须补上同名导出,
+  // 否则模块求值即抛 "No export is defined on the mock"。
+  setUnauthorizedHandler: vi.fn(),
 }))
 
 vi.mock('@/lib/login-dialog-trigger', () => ({

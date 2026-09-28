@@ -7,9 +7,9 @@
  * nssm 轮转副本的保留策略量算仪(默认只读;`--apply` 才删)。
  *
  * 为什么需要它(2026-09-27 实测):给 ihui-loki / ihui-pg-exporter 配上 AppRotate* 之后,
- * nssm 会把写满的那份**改名**成 `svc-<名>-nssm-<err|out>-<时间戳>.log` 再起新文件 —— 它只封顶
- * 单文件体积,**一个都不删**。现读 `D:\DevEnv\logs` 已有 48 份这类副本、目录 1.19GB/385 文件,
- * 且没有任何一处有保留策略。"轮转配好了"读起来像这一维已收口,实际是把无界增长从
+ * nssm 会把写满的那份**改名**成带时间戳的副本(分双流时名字含 `-err-`/`-out-`,合写一份文件时不含)
+ * 再起新文件 —— 它只封顶单文件体积,**一个都不删**。当时现读 `D:\DevEnv\logs` 已有 48 份这类副本、
+ * 目录 1.19GB/385 文件,且没有任何一处有保留策略。"轮转配好了"读起来像这一维已收口,实际是把无界增长从
  * "单个文件无限大"换成"副本数无限多"—— 必须显式写出来。
  *
  * 判据全部抽成纯函数 `planPrune`,使"保留几份 / 什么算副本 / 大批量阀门"可在构造面上证明,
@@ -21,8 +21,13 @@
  *   node scripts/prune-rotated-nssm-logs.mjs --json
  *
  * 安全边界(任一条不成立就不删,而不是删了再解释):
- *  ① 只认 `svc-<service>-nssm-<err|out>-<14位以上时间戳>.log` 这一种**已轮转**的名字形态;
- *     正在写的那份(名字里没有时间戳)永不进候选。
+ *  ① 认两种**已轮转**的名字形态:`svc-<名>-nssm-<err|out>-<时间戳>.log` 与
+ *     `svc-<名>-nssm-<时间戳>.log`(后者是 nssm 在 stdout/stderr 指向同一个文件时产出的形态,
+ *     没有流段)。正在写的那份(名字里没有时间戳)两种都永不进候选。
+ *     ⚠ 2026-09-27 实测:旧判据只认带流段那一种,于是 `D:\DevEnv\logs` 里 164 份 / 1,004MB
+ *     (svc-api 97 份 734MB、svc-ai 27 份 270MB,另 prometheus/rsshub 各 20 份)整族隐身,
+ *     而工具打印的是"可回收候选 20 份 / 0.1 MB" —— 一份诚实却只量了一小层的报告,
+ *     比没有报告更糟,因为它替人做出"这一维已经收口了"的判断。
  *  ② 刚轮转下来的文件可能仍被句柄占着 ⇒ mtime 距今不足 1 小时的一律跳过。
  *  ③ 大批量阀门:单次 >40 份或 >512MB 时 `--apply` 拒绝执行(需要 `--allow-mass`),
  *     与归档器 `archive-completed-tasks.mjs` 的"大批量只挡自动档"是同一条设计。
@@ -37,7 +42,9 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const WORKTREE_DRIVE = resolve(HERE, '..').slice(0, 1).toUpperCase()
 const LOGS_DIR = join(`${WORKTREE_DRIVE}:\\`, 'DevEnv', 'logs')
 
-const ROTATED_RE = /^svc-(.+)-nssm-(err|out)-(\d{8}T\d{6}(?:\.\d{1,3})?)\.log$/
+// 流段可选:带 `-err-`/`-out-` 的是分双流配置,不带的是 stdout/stderr 合写一份文件的配置。
+// 时间戳仍是必需的那一格 —— 它才是"已轮转"的唯一凭据,活文件名里没有它。
+const ROTATED_RE = /^svc-(.+)-nssm-(?:(err|out)-)?(\d{8}T\d{6}(?:\.\d{1,3})?)\.log$/
 const MIN_AGE_MS = 60 * 60 * 1000
 const MASS_FILES = 40
 const MASS_BYTES = 512 * 1024 * 1024
@@ -63,8 +70,9 @@ export function planPrune(entries, opts = {}) {
       continue
     }
     // 分组键是"服务 + 流"两个维度 —— 只按服务分会把 err 的份数额度让 out 占掉,
-    // 于是查故障时最需要的那几份先被删了。
-    const key = `${m[1]}|${m[2]}`
+    // 于是查故障时最需要的那几份先被删了。合写一份文件的服务没有流段,归到 'log' 档,
+    // 不得与同服务的 err/out 组共用额度(否则合写型会把分流型的保留名额吃光)。
+    const key = `${m[1]}|${m[2] || 'log'}`
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key).push(e)
   }
@@ -166,7 +174,25 @@ export function __selfTest() {
   // 6 幂等:同一批输入乱序喂,候选集合不变
   const shuf = [...e1].reverse()
   ok(planPrune(shuf, { keep: 3, nowMs: now }).candidate.map((c) => c.name).sort().join() === r1.candidate.map((c) => c.name).sort().join(), '用例6:结果不得依赖输入顺序')
-  console.info(`--self-test: ${fails === 0 ? '✅ 全部通过' : `❌ 失败 ${fails} 条`} (6 组用例)`)
+  // 7 无流段形态(nssm 把 stdout/stderr 合写一份文件时产出的轮转名)必须被认下来
+  const rotNo = (svc, ts) => `svc-${svc}-nssm-${ts}.log`
+  const e7 = []
+  for (let i = 1; i <= 5; i++) e7.push(mk(rotNo('api', `202609${String(i).padStart(2, '0')}T010000.620`), 1000, i * day))
+  const r7 = planPrune(e7, { keep: 2, nowMs: now })
+  ok(r7.groups === 1 && r7.kept.length === 2 && r7.candidate.length === 3, '用例7:无流段的轮转副本必须进射程(旧判据整族看不见 164 份/1004MB)')
+  // 7b 无流段的**活文件**(名字里没时间戳)同样永不进候选 —— 放宽形态不得把这一格一起放开
+  const live7 = 'svc-api-nssm.log'
+  const r7b = planPrune([mk(live7), mk(rotNo('api', '20260901T010000.620'))], { keep: 0, nowMs: now })
+  ok(!r7b.candidate.some((c) => c.name === live7) && r7b.notRotatedCount === 1, '用例7b:无流段的活文件不得是删除候选')
+  // 7c 合写型与分流型是两个独立额度,前者不得吃掉后者的保留名额
+  const r7c = planPrune(
+    [...Array(6)].map((_, i) => mk(rotNo('api', `202609${String(i + 1).padStart(2, '0')}T010000.620`), 10, (i + 1) * day)).concat(
+      mk(rot('api', 'err', '20260901T010000'), 10, day),
+    ),
+    { keep: 1, nowMs: now },
+  )
+  ok(r7c.groups === 2 && r7c.kept.some((k) => k.name.includes('-err-')), '用例7c:同服务的合写组不得顶掉 err 组的额度')
+  console.info(`--self-test: ${fails === 0 ? '✅ 全部通过' : `❌ 失败 ${fails} 条`} (7 组用例)`)
   return fails === 0 ? 0 : 1
 }
 
