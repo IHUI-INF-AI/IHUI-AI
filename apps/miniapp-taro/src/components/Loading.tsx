@@ -43,7 +43,7 @@ export default function Loading({
   const spinner = (
     <View className="flex flex-col items-center justify-center">
       <View
-        className="border-2 border-border border-t-muted-foreground rounded-full animate-spin"
+        className="border-2 border-border border-t-muted-foreground rounded-2xl animate-spin"
         style={SPINNER_BOX_STYLE}
       />
       {text ? (

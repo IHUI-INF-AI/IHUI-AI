@@ -1169,7 +1169,7 @@ export default function UserIndex() {
                           />
                         ) : null}
                         <View className="absolute inset-0 flex items-center justify-center">
-                          <View className="w-[120rpx] h-[120rpx] rounded-full bg-[var(--color-black-50)] flex items-center justify-center">
+                          <View className="w-[120rpx] h-[120rpx] rounded-2xl bg-[var(--color-black-50)] flex items-center justify-center">
                             <LineIcon
                               name="play"
                               size={60}
