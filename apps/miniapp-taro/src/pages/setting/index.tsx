@@ -208,7 +208,7 @@ export default function SettingIndexPage() {
             文字 16dp→32rpx semibold + danger(对齐 RN danger.DEFAULT,亮暗随 --color-danger);
             上边距 logoutBtn marginTop 8dp + body gap 16dp = 24dp→48rpx */}
         <Button
-          className="mx-[20rpx] mt-[48rpx] flex h-[100rpx] items-center justify-center rounded-lg bg-card text-[length:32rpx] font-semibold dark:bg-muted"
+          className="mx-[20rpx] mt-[48rpx] flex h-[100rpx] items-center justify-center rounded-sm bg-card text-[length:32rpx] font-semibold dark:bg-muted"
           style={{ color: 'var(--color-danger)' }}
           onClick={onLogout}
         >

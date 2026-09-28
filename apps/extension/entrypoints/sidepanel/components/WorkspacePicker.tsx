@@ -2,104 +2,89 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * ChatFavoritesPage — 收藏的对话列表(2026-07-25 立)。
- *
- * 数据源:GET /api/chat/favorites(分页 PageData<ChatFavorite>)。
- * 列表项:对话标题 + 收藏时间 + 摘要,点击 chrome.tabs.create 跳 web 详情。
- */
 import { useEffect, useState } from 'react'
-import { fetchApi, type PageData } from '@ihui/api-client'
-import { Card, CardContent } from '@ihui/ui-react'
+import { X } from 'lucide-react'
 import { useI18n } from '../../../src/i18n'
-import { fmtDateOnly as fmtDate } from '../../../lib/date-utils'
-import { openInWeb as openItemInWeb } from '../../../lib/open-in-web'
+import {
+  clearActiveWorkspace,
+  pickWorkspaceDirectory,
+  subscribeActiveWorkspace,
+  type ActiveWorkspace,
+  type WorkspaceFailure,
+  type WorkspaceFailureKind,
+} from '../../../lib/workspace-store'
 
-interface ChatFavorite {
-  id: string
-  title: string
-  summary?: string | null
-  createdAt?: string | null
+/**
+ * 侧栏的"选择本地工作区目录"入口(票㉑ 展示层)。
+ *
+ * 状态与取句柄都在 lib/workspace-store(唯一真相源),本文件只做两件事:
+ * 订阅活动工作区并在用户手势里把 pick 交出去。
+ */
+
+/**
+ * 失败态要不要出文案 —— aborted / unsupported 一律不出:
+ * 取消不是故障,能力缺失时本端今天的行为就是"点了没反应",这里不新造一套提示语。
+ * 唯一允许出的两档(denied / not-writable)也只回显 DOMException 的 name,
+ * 因为界面文案必须走语言包,而这里没有为它登记任何新键。
+ */
+export function shouldShowFailure(kind: WorkspaceFailureKind): boolean {
+  return kind === 'denied' || kind === 'not-writable'
 }
 
-export default function ChatFavoritesPage() {
+export function WorkspacePicker() {
   const { t } = useI18n()
-  const [items, setItems] = useState<ChatFavorite[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [workspace, setWorkspace] = useState<ActiveWorkspace | null>(null)
+  const [failure, setFailure] = useState<WorkspaceFailure | null>(null)
 
-  const load = async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const res = await fetchApi<PageData<ChatFavorite>>('/api/chat/favorites', {
-        params: { page: 1, pageSize: 30 },
-      })
-      if (res.success) setItems(res.data.list)
-      else setError(res.error || t('common.failed'))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t('common.failed'))
-    } finally {
-      setLoading(false)
-    }
+  // subscribeActiveWorkspace 的返回值就是取消函数,必须原样交给 React 做卸载清理,
+  // 否则换一个目录时 emit 会打到已经卸载的面板。
+  useEffect(() => subscribeActiveWorkspace(setWorkspace), [])
+
+  const handlePick = async (): Promise<void> => {
+    const outcome = await pickWorkspaceDirectory()
+    setFailure(outcome.failure)
   }
 
-  useEffect(() => {
-    void load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时加载一次,load 依赖 t/setState 但无需重跑
-  }, [])
-
-  if (loading) {
+  if (workspace) {
     return (
-      <div className="text-center text-muted-foreground py-8 px-4 text-sm">
-        {t('common.loading')}
-      </div>
-    )
-  }
-  if (error) {
-    return (
-      <div className="m-2 flex flex-col items-center gap-2">
-        <div className="bg-destructive/10 text-destructive px-2.5 py-2 rounded-md border border-destructive text-xs text-center">
-          {error}
-        </div>
+      <div
+        className="flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1.5 text-xs"
+        data-testid="ext-workspace-picker"
+      >
+        <span className="min-w-0 flex-1 truncate text-foreground">{workspace.name}</span>
         <button
           type="button"
-          onClick={() => void load()}
-          className="px-3 py-1.5 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+          aria-label={t('agent.permission')}
+          className="shrink-0 cursor-pointer rounded-sm border border-border bg-transparent p-1 text-muted-foreground hover:bg-muted/60"
+          data-testid="ext-workspace-clear"
+          onClick={() => clearActiveWorkspace()}
         >
-          {t('common.retry')}
+          <X className="h-3 w-3" aria-hidden />
         </button>
       </div>
     )
   }
 
   return (
-    <div className="p-3 md:p-4 flex flex-col gap-2.5">
-      <div className="flex items-center justify-between pb-2 border-b border-border">
-        <h3 className="m-0 text-sm font-semibold">{t('apps.favorites')}</h3>
-        <span className="text-xs text-muted-foreground tabular-nums">{items.length}</span>
-      </div>
-      {items.length === 0 ? (
-        <div className="text-center text-muted-foreground py-8 px-4 text-sm">
-          {t('common.empty')}
-        </div>
-      ) : (
-        items.map((f) => (
-          <Card
-            key={f.id}
-            className="rounded-lg border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors"
-            onClick={() => openItemInWeb(`/chat/favorites/${encodeURIComponent(f.id)}`)}
-          >
-            <CardContent className="p-3 min-[640px]:p-3">
-              <div className="font-medium text-sm truncate">{f.title || '—'}</div>
-              {f.summary ? (
-                <p className="m-0 mt-1 text-xs text-muted-foreground line-clamp-2">{f.summary}</p>
-              ) : null}
-              <div className="mt-1.5 text-[11px] text-muted-foreground">{fmtDate(f.createdAt)}</div>
-            </CardContent>
-          </Card>
-        ))
-      )}
+    <div className="flex flex-col" data-testid="ext-workspace-picker">
+      <button
+        type="button"
+        className="w-fit cursor-pointer rounded-sm border border-border bg-transparent px-2 py-1 text-xs text-muted-foreground hover:bg-muted/60"
+        data-testid="ext-workspace-pick"
+        onClick={() => {
+          void handlePick()
+        }}
+      >
+        <span>{t('apps.workspace')}</span>
+      </button>
+      {failure && shouldShowFailure(failure.kind) ? (
+        <p
+          className="mt-1 font-mono text-[11px] text-muted-foreground"
+          data-testid="ext-workspace-failure"
+        >
+          {failure.detail}
+        </p>
+      ) : null}
     </div>
   )
 }
