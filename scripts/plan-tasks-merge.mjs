@@ -610,9 +610,62 @@ export function flagValue(list, flag) {
   return { present: true, valid, value: valid ? token : null, token }
 }
 
+/**
+ * 旗标白名单校验(2026-09-28 立,由一次真实的" phantom 出口"事故逼出)。
+ *
+ * 旧形态只判 `argv.includes(已知旗标)`,**不认识的 token 一律被静默忽略**,于是
+ * `node scripts/plan-tasks-merge.mjs --dedupe-done-twins`(一个从未实现过的出口)会直接
+ * 落进默认报告档,末行打出「✅ 零损失对账通过…派单口径 403 → 403」—— 读的人有充分理由
+ * 以为那个操作真跑了。本会话就据此把那条命令写进了台账,直到现读才发现 F10 根本不在 HEAD。
+ * 这与本仓已修过的 `i18n-apply --help` 进写盘模式同族:**未知参数降级成"无参"就是造合格证**。
+ *
+ * 因此:不认识的旗标、以及不该出现在那个位置的位置参数 ⇒ **拒绝并非零退出(2)并原样点名**,
+ * 绝不回落到任何一档。`--write-to` 的紧邻值与一枚 `YYYY-MM-DD` 日期是仅有的两类合法位置参数。
+ */
+export const KNOWN_FLAGS = [
+  '--self-test',
+  '--heal',
+  '--commit',
+  '--dedupe-blocks',
+  '--staged',
+  '--worktree',
+  '--all',
+  '--write-to',
+]
+
+/** @returns {{unknown:string[], notes:string[]}} unknown 非空即必须拒绝执行 */
+export function inspectArgs(list) {
+  const unknown = []
+  const notes = []
+  for (let i = 0; i < list.length; i++) {
+    const t = list[i]
+    if (typeof t !== 'string' || t === '') continue
+    if (t.startsWith('-')) {
+      if (!KNOWN_FLAGS.includes(t)) unknown.push(t)
+      continue
+    }
+    // 位置参数只允许两形态:--write-to 的值,与一枚日期
+    if (list[i - 1] === '--write-to') continue
+    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) continue
+    unknown.push(t)
+    notes.push(`位置参数 ${JSON.stringify(t)} 既不是 --write-to 的值也不是 YYYY-MM-DD 日期`)
+  }
+  return { unknown, notes }
+}
+
 function main() {
   const argv = process.argv.slice(2)
   const has = (f) => argv.includes(f)
+  const { unknown, notes } = inspectArgs(argv)
+  if (unknown.length) {
+    console.log(
+      `❌ 未识别的参数:${unknown.map((u) => JSON.stringify(u)).join(' ')} —— 本工具**不会**把它当"无参"降级执行,` +
+        `因为静默忽略会对着一个从未存在的出口打出"✅ 通过"那样格式的结论。\n` +
+        `   可用旗标:${KNOWN_FLAGS.join(' ')};位置参数只接受一枚日期(YYYY-MM-DD)或 --write-to 的路径值。\n` +
+        (notes.length ? `   另:${notes.join(';')}\n` : ''),
+    )
+    return 2
+  }
   if (has('--self-test')) return selfTest()
   if (has('--heal') && has('--commit')) return healAndLand()
   if (has('--heal')) {
