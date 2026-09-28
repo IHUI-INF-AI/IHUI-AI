@@ -123,7 +123,7 @@ export function ApplicationsPanel() {
         <button
           onClick={() => setShowForm(!showForm)}
           className={cn(
-            'ml-auto rounded p-1 transition-colors',
+            'ml-auto rounded-sm p-1 transition-colors',
             showForm ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50',
           )}
           aria-label={t('applications.newConfig')}
@@ -138,7 +138,7 @@ export function ApplicationsPanel() {
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder={t('applications.configNamePlaceholder')}
-            className="mb-1 w-full rounded border border-border bg-background px-1.5 py-1 text-xs focus:outline-none"
+            className="mb-1 w-full rounded-sm border border-border bg-background px-1.5 py-1 text-xs focus:outline-none"
           />
           <div className="mb-1 flex gap-1">
             {(Object.keys(TYPE_META) as ConfigType[]).map((typeKey) => {
@@ -148,7 +148,7 @@ export function ApplicationsPanel() {
                   key={typeKey}
                   onClick={() => setForm({ ...form, type: typeKey })}
                   className={cn(
-                    'flex items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors',
+                    'flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs transition-colors',
                     form.type === typeKey
                       ? 'bg-muted text-foreground'
                       : 'text-muted-foreground hover:bg-muted/50',
@@ -165,13 +165,13 @@ export function ApplicationsPanel() {
             onChange={(e) => setForm({ ...form, command: e.target.value })}
             onKeyDown={(e) => e.key === 'Enter' && submitForm()}
             placeholder={t('applications.commandPlaceholder')}
-            className="mb-1.5 w-full rounded border border-border bg-background px-1.5 py-1 text-xs focus:outline-none"
+            className="mb-1.5 w-full rounded-sm border border-border bg-background px-1.5 py-1 text-xs focus:outline-none"
           />
           <div className="flex justify-end gap-1">
             <CloseButton aria-label={t('applications.cancel')} onClick={() => setShowForm(false)} />
             <button
               onClick={submitForm}
-              className="flex items-center gap-1 rounded bg-foreground px-2 py-1 text-xs text-background hover:bg-foreground/90"
+              className="flex items-center gap-1 rounded-sm bg-foreground px-2 py-1 text-xs text-background hover:bg-foreground/90"
             >
               <Check className="h-3 w-3" />
               <span>{t('applications.add')}</span>
@@ -200,14 +200,14 @@ export function ApplicationsPanel() {
               <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                 <button
                   onClick={() => runConfig(config)}
-                  className="rounded p-1 text-green-600 hover:bg-muted/50"
+                  className="rounded-sm p-1 text-green-600 hover:bg-muted/50"
                   aria-label={t('applications.run')}
                 >
                   <Play className="h-3.5 w-3.5" />
                 </button>
                 <button
                   onClick={() => runConfig(config)}
-                  className="rounded p-1 text-amber-600 hover:bg-muted/50"
+                  className="rounded-sm p-1 text-amber-600 hover:bg-muted/50"
                   aria-label={t('applications.debug')}
                 >
                   <Bug className="h-3.5 w-3.5" />

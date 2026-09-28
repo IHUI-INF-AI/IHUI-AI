@@ -86,7 +86,7 @@ export function AiDiagnoseOverlay({
                 <Tooltip content={t('terminalPanel.autoFixTitle')}>
                   <button
                     type="button"
-                    className="flex shrink-0 items-center gap-1 rounded bg-accent px-1.5 py-0.5 text-[10px] text-accent-foreground transition-colors hover:bg-accent/80"
+                    className="flex shrink-0 items-center gap-1 rounded-sm bg-accent px-1.5 py-0.5 text-[10px] text-accent-foreground transition-colors hover:bg-accent/80"
                     onClick={onAutoFix}
                   >
                     <Wand2 className="h-2.5 w-2.5" />
