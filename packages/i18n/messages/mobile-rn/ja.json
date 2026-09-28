@@ -1035,6 +1035,8 @@
   "courseFilter": {
     "title": "コース絞り込み",
     "subtitle": "条件に合うコースを探します",
+    "categoryRange": "カテゴリ",
+    "difficultyRange": "難易度",
     "priceRange": "価格帯",
     "reset": "リセット",
     "apply": "確定",
@@ -1043,9 +1045,15 @@
     "instructor": "講師",
     "free": "無料",
     "loadFailed": "フィルターの読み込みに失敗",
+    "loadingMore": "読み込み中",
     "price_all": "全て",
     "price_free": "無料",
-    "price_paid": "有料"
+    "price_paid": "有料",
+    "difficulty_all": "全て",
+    "difficulty_beginner": "初級",
+    "difficulty_intermediate": "中級",
+    "difficulty_advanced": "上級",
+    "noCategories": "利用可能なカテゴリがありません"
   },
   "courseQAAsk": {
     "title": "コース質問",
