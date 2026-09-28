@@ -553,13 +553,13 @@ export default function AgentDetailPage() {
           {agent && (
             <View className="mx-[20rpx] my-[24rpx] flex gap-[24rpx]">
               <Button
-                className="flex-1 bg-[var(--color-primary)] text-[var(--color-surface-light)] text-[length:32rpx] font-semibold rounded-xl h-[100rpx] leading-[100rpx]"
+                className="flex-1 bg-[var(--color-primary)] text-[var(--color-surface-light)] text-[length:32rpx] font-semibold rounded-sm h-[100rpx] leading-[100rpx]"
                 onClick={onChat}
               >
                 {t('ai.agentDetail.startChat')}
               </Button>
               <Button
-                className={`px-[40rpx] text-[length:28rpx] rounded-xl h-[100rpx] leading-[100rpx] ${favorited ? 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]' : 'bg-muted text-muted-foreground'}`}
+                className={`px-[40rpx] text-[length:28rpx] rounded-sm h-[100rpx] leading-[100rpx] ${favorited ? 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]' : 'bg-muted text-muted-foreground'}`}
                 onClick={onToggleFavorite}
               >
                 {favorited ? t('ai.agentDetail.favorited') : t('ai.agentDetail.favoriteAgent')}

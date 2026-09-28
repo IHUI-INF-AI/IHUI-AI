@@ -27,6 +27,9 @@ const WORDS: Record<string, string> = {
   officeTooLarge: 'W_TOO_LARGE_BODY',
   officeExpired: 'W_EXPIRED_BODY',
   officeUnsupported: 'W_UNSUPPORTED_BODY',
+  // 渲染视图自己的失败文案:本用例用它当"这一轮加载已落定"的锚(见下方 解析失败 用例),
+  // 不写进表就会退化成键名 'officeFailed' 摆在屏幕上,读不出这是文案还是缺词。
+  officeFailed: 'W_OFFICE_FAILED',
   csvPreviewMeta: 'W_CSV_META',
   csvLoading: 'W_CSV_LOADING',
   csvExpand: 'W_CSV_EXPAND',
@@ -309,10 +312,19 @@ describe('OfficePreview preview ↔ 源码切换', () => {
   it('解析失败有可见文案:坏 zip 落 failed,不静默空白', async () => {
     stubFetch({ headSize: 100, body: new ArrayBuffer(8) })
     render(<OfficePreview src="https://x/broken.pptx" ext="pptx" />)
-    await waitFor(() =>
-      expect(screen.getByTestId('office-preview').getAttribute('data-office-state')).toBe('ready'),
-    )
+    // 先等**渲染视图走到它自己的终态**(坏 zip ⇒ office 解析失败文案),再碰切换按钮。
+    // 只等 data-office-state='ready' 不够:ready 那次提交刚落地、加载期 effect 链还在收尾时,
+    // 这一次点击有概率根本不被派发成状态更新 —— 实测(2026-09-28,本机 CPU 争用下复现 CI
+    // run 36368531472 的同签名红):事件完整走完 capture/target/bubble 到 window、按钮
+    // disabled=false 且 isConnected=true、节点上 __reactFiber$/__reactProps$ 俱在,而
+    // data-preview-view **一次都没有变过**(连中间态都没有),于是本用例只能等到 waitFor
+    // 超时,报"找不到 preview-source-text",而这句话完全不指向"点击没生效"。
+    // 等终态不是猜时长:它是组件自己给出的"我这一轮加载已经落定"的可观测事实,
+    // 同文件其余每条要点开源码档的用例都先等渲染视图的终态(pptx-outline),所以它们从未红过。
+    await screen.findByText('W_OFFICE_FAILED')
     fireEvent.click(sourceBtn())
+    // 点击是否生效必须自己说话:先确认视图切过去了,再断言源码视图的失败文案。
+    await waitFor(() => expect(viewAttr()).toBe('source'))
     await waitFor(() =>
       expect((screen.getByTestId('preview-source-text') as HTMLElement).dataset.sourceState).toBe(
         'failed',

@@ -66,8 +66,30 @@ const Z_INDEX = 9999
 // Toaster 无几何),且它所在样式根本不被引用 ⇒ 不在本票"收档"范围,须记 waiver(见交付报告)。
 const ICON_FONT_SIZE = 16
 const MAX_WIDTH_RATIO = 0.8
-const TEXT_COLOR = tokens.surface.light
-const BG_COLOR = 'rgba(0,0,0,0.85)'
+
+/**
+ * toast 的**载体固定档对**:底色与前景必须同进同退,所以成对声明、成对消费。
+ *
+ * 底色 `rgba(0,0,0,0.85)` 是不随主题翻转的固定深底(浮层压在内容之上,语义属 `overlay`
+ * 那一族,不属 `surface` 那一族)。它的**前景因此同样不得取随主题翻转的档** —— 原写法是
+ * `TEXT_COLOR = tokens.surface.light`,而 `surface.light` 在深色档案里被改成 `#262626`
+ * (见 `packages/design-tokens/src/rn-tokens.ts` 的 `rnDarkTokens.surface`)。于是深色档案下
+ * 这条 toast 是「85% 黑 × #262626 字」:85% 黑压在页面底 #242424 上合成 ≈ rgb(5,5,5),
+ * 对比度 **1.34:1**;压在白卡片(#FFFFFF)上时合成 ≈ rgb(38,38,38) = 与字色**同一个值**,
+ * 对比度 **1.00:1**(WCAG 正文下限 4.5:1)⇒ 整条文案隐形,屏幕上只剩一枚状态图标坐在黑块里
+ * —— 与真机实拍「纯黑方块内一个红叉」同一形态。浅色档案下 `surface.light` = #FFFFFF
+ * (15.1:1–20.5:1)一切正常,所以这一型只在深色模式复现,这也是它长期没被归因到色档的原因。
+ *
+ * 出路取 `gray[50]`(#FAFAFA):本表里**两态同值**的最亮中性档(与 `gray.100`…`gray.900`
+ * 同属不翻转灰阶)。实测它对上述每一种底层都是 14.4:1–19.7:1(原纯白是 15.1:1–20.5:1,
+ * 观感差可忽略),而"底色不翻 ⇒ 前景不翻"这条不变量成立,且不引入任何端内色值字面量。
+ * 刻意不用 `brand.foreground` / `brand.ctaForeground`:它们在深色档案翻成黑,
+ * 压在固定黑底上会以另一种方向再犯同一型(AGENTS §4「跨档配对仍计」同一条判序)。
+ */
+export const FLOAT_BOX_TOAST_SURFACE = {
+  bg: 'rgba(0,0,0,0.85)',
+  fg: tokens.gray[50],
+} as const
 
 const TYPE_ICONS: Readonly<Record<FloatBoxType, LucideIcon>> = {
   success: Check,
@@ -188,7 +210,7 @@ const styles = StyleSheet.create({
     top: FLOAT_BOX_TOAST_TOP_OFFSET_PX,
     alignSelf: 'center',
     zIndex: Z_INDEX,
-    backgroundColor: BG_COLOR,
+    backgroundColor: FLOAT_BOX_TOAST_SURFACE.bg,
     paddingHorizontal: FLOAT_BOX_TOAST_PADDING_X_PX,
     paddingVertical: FLOAT_BOX_TOAST_PADDING_Y_PX,
     borderRadius: rnRadius.lg,
@@ -208,7 +230,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FLOAT_BOX_FONT_SIZE_PX,
     lineHeight: FLOAT_BOX_TEXT_LINE_HEIGHT_PX,
-    color: TEXT_COLOR,
+    color: FLOAT_BOX_TOAST_SURFACE.fg,
   } as TextStyle,
 })
 
