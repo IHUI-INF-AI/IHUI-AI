@@ -61,25 +61,68 @@ const sendGiftSchema = z.object({
   quantity: z.coerce.number().int().min(1).max(999).default(1),
 })
 
+/** 目录行的类型别名 —— 下面四个 catalog 落点在 try 外接收结果时要写得出类型。 */
+type CatalogRow = typeof liveGiftCatalog.$inferSelect
+
 // =============================================================================
 // 路由插件
 // =============================================================================
 
 export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
+  // 注册期兜底建表的结论(plugin 作用域,一次注册一份,不与别的 app 共享):
+  // null = 建表已执行;非 null = 失败原因文本,后面的端点据此给可归因的失败响应。
+  let catalogBootstrapFailure: string | null = null
+
   // 幂等建表(测试环境 db 被 mock,execute 直接放行)。
   // 失败**不得**向上抛:2026-09-26 07:58 线上哑火就是这句在 PG 崩溃恢复窗口
   // ("the database system is starting up")抛错,而它跑在 avvio 注册期 ——
   // 注册期抛错 = 整棵插件树 boot 失败 = server.listen() 永不 bind,
   // 进程却被 unhandledRejection 处理器留下,于是"RUNNING + 端口没人听"46 分钟。
-  // 建表只是兜底(真表已在共享 schema / migration 里),读写路径自带错误,
-  // 所以这里只留痕、不打断启动。
+  // 但"不打断启动"不等于"安静":这一格必须 error 级留痕并给出**可复制的处置线索**,
+  // 因为 nssm 只看得到子进程没退出、看不到它没进 listen —— 安静就等于没人知道。
+  // 建表只是兜底(真表已在 @ihui/database 的 live-extended schema 里),所以失败期间
+  // 不预先把端点打死(那会把"表其实已经存在"的正常情形变成人为故障),而是记下根因,
+  // 由 catalog 读写真被打回时回显式 503(见 catalogUnavailableReply)。
   try {
     await db.execute(CREATE_CATALOG_SQL)
   } catch (err) {
-    server.log.warn(
-      { err },
-      '[live-gifts] live_gift_catalog 兜底建表未执行完(依赖未就绪?),跳过 —— 不影响启动',
+    catalogBootstrapFailure = err instanceof Error ? err.message : String(err)
+    server.log.error(
+      {
+        err,
+        scope: 'live-gifts:register',
+        table: 'live_gift_catalog',
+        impact:
+          'HTTP 面照常 bind(本函数按设计不得向上抛);live_gift_catalog 视为未就绪,' +
+          '本插件四个目录端点在读写真被打回时回 503(不是泛化的 500"服务器错误")',
+        remediation:
+          '① 部署机确认 PostgreSQL 已结束崩溃恢复: psql "$DATABASE_URL" -c \'SELECT 1\'  ' +
+          '② 就绪后重启 api 服务重跑本兜底建表(生产服务名 IHUI-API)  ' +
+          '③ 想彻底不再依赖注册期建表:把它并入 packages/database 的 migration(归属另计一票,本文件不做)',
+      },
+      '[live-gifts] 注册期兜底建表失败 —— 已按非致命处理(进程继续 listen),但 live_gift_catalog 未就绪',
     )
+  }
+
+  /**
+   * 把"这一条 catalog 查询被打回"归因给注册期兜底建表失败。
+   *
+   * 返回已写好的 reply ⇒ 调用方直接 return;返回 undefined ⇒ 建表当初是成功的,
+   * 这次失败与本判据无关,**原样抛出**交给全局 errorHandler —— 行为一字不变。
+   * 四个 catalog 落点共用这一份实现,禁止在各 handler 里各抄一遍。
+   */
+  function catalogUnavailableReply(reply: FastifyReply, err: unknown): FastifyReply | undefined {
+    if (catalogBootstrapFailure === null) return undefined
+    server.log.error(
+      {
+        err,
+        scope: 'live-gifts:catalog-query',
+        table: 'live_gift_catalog',
+        rootCause: catalogBootstrapFailure,
+      },
+      '[live-gifts] live_gift_catalog 读写失败,且注册期兜底建表已失败 —— 回 503(处置线索见本插件注册期那条 error)',
+    )
+    return reply.status(503).send(error(503, '礼物目录暂不可用:数据库尚未就绪,请稍后重试'))
   }
 
   // ----- 礼物列表(默认只返回上架 status=1;管理端可传 status=0 或 all=1) -----
@@ -93,20 +136,30 @@ export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
     if (all !== '1') conds.push(eq(liveGiftCatalog.status, status ?? 1))
     const where = conds.length ? and(...conds) : undefined
 
-    const [rows, totalRows] = await Promise.all([
-      db
-        .select()
-        .from(liveGiftCatalog)
-        .where(where)
-        .orderBy(desc(liveGiftCatalog.createdAt))
-        .limit(pageSize)
-        .offset((page - 1) * pageSize),
-      db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(liveGiftCatalog)
-        .where(where),
-    ])
-    return reply.send(paginatedSuccess(rows, totalRows[0]?.count ?? 0, { page, pageSize }))
+    let rows: CatalogRow[]
+    let total: number
+    try {
+      const [rowsResult, totalResult] = await Promise.all([
+        db
+          .select()
+          .from(liveGiftCatalog)
+          .where(where)
+          .orderBy(desc(liveGiftCatalog.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(liveGiftCatalog)
+          .where(where),
+      ])
+      rows = rowsResult
+      total = totalResult[0]?.count ?? 0
+    } catch (err) {
+      const handled = catalogUnavailableReply(reply, err)
+      if (handled) return handled
+      throw err
+    }
+    return reply.send(paginatedSuccess(rows, total, { page, pageSize }))
   })
 
   // ----- 新增礼物(管理端) -----
@@ -118,16 +171,23 @@ export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const rows = await db
-        .insert(liveGiftCatalog)
-        .values({
-          name: parsed.data.name,
-          icon: parsed.data.icon ?? null,
-          price: String(parsed.data.price),
-          status: parsed.data.status,
-        })
-        .returning()
-      const gift = rows[0]
+      let gift: CatalogRow | undefined
+      try {
+        const rows = await db
+          .insert(liveGiftCatalog)
+          .values({
+            name: parsed.data.name,
+            icon: parsed.data.icon ?? null,
+            price: String(parsed.data.price),
+            status: parsed.data.status,
+          })
+          .returning()
+        gift = rows[0]
+      } catch (err) {
+        const handled = catalogUnavailableReply(reply, err)
+        if (handled) return handled
+        throw err
+      }
       if (!gift) return reply.status(500).send(error(500, '创建礼物失败'))
       return reply.status(201).send(success({ gift }))
     },
@@ -153,12 +213,19 @@ export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
       if (parsed.data.status !== undefined) set.status = parsed.data.status
       set.updatedAt = new Date()
 
-      const rows = await db
-        .update(liveGiftCatalog)
-        .set(set)
-        .where(eq(liveGiftCatalog.id, idParsed.data.id))
-        .returning()
-      const gift = rows[0]
+      let gift: CatalogRow | undefined
+      try {
+        const rows = await db
+          .update(liveGiftCatalog)
+          .set(set)
+          .where(eq(liveGiftCatalog.id, idParsed.data.id))
+          .returning()
+        gift = rows[0]
+      } catch (err) {
+        const handled = catalogUnavailableReply(reply, err)
+        if (handled) return handled
+        throw err
+      }
       if (!gift) return reply.status(404).send(error(404, '礼物不存在'))
       return reply.send(success({ gift }))
     },
@@ -181,12 +248,19 @@ export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
       const userId = request.userId
       if (!userId) return reply.status(401).send(error(401, '请先登录'))
 
-      const giftRows = await dbRead
-        .select()
-        .from(liveGiftCatalog)
-        .where(and(eq(liveGiftCatalog.id, idParsed.data.id), eq(liveGiftCatalog.status, 1)))
-        .limit(1)
-      const gift = giftRows[0]
+      let gift: CatalogRow | undefined
+      try {
+        const giftRows = await dbRead
+          .select()
+          .from(liveGiftCatalog)
+          .where(and(eq(liveGiftCatalog.id, idParsed.data.id), eq(liveGiftCatalog.status, 1)))
+          .limit(1)
+        gift = giftRows[0]
+      } catch (err) {
+        const handled = catalogUnavailableReply(reply, err)
+        if (handled) return handled
+        throw err
+      }
       if (!gift) return reply.status(404).send(error(404, '礼物不存在或已下架'))
 
       const price = Number(gift.price)
