@@ -168,7 +168,73 @@ export function redactObject(obj: Record<string, unknown>): Record<string, unkno
   return result;
 }
 
-// ===================== 5. 仅用于测试的辅助 =====================
+// ===================== 5. 键名档 + 大文本档深脱敏(G-701) =====================
+
+/**
+ * G-701:未登记工具的入参在 REPL `/tool` 回看与 TUI 卡片上是"逐键打印"的,
+ * 而上面 `redactObject` 只递归套**值形状**规则 —— 形状不像凭据的明文凭据
+ * (典型:`{"api_key": "abc"}`,值是普通串、键名才是凭据语义)整类失明。
+ * 键名档与形状档是**并集不是替换**:`redactObject` 的行为一字未动(它有自己的既有用例),
+ * 新出口在其形状匹配之上叠两档:
+ *   ① 键名档 —— 键名命中封闭词根集 ⇒ 整个值替换为 `[redacted]`(不再看值形状);
+ *   ② 大文本档 —— `content`/`old_string`/`new_string` 这类写文件/编辑入参只印 `[N chars]`,
+ *      回看只需认出"是哪一次调用",整段正文既无用又可能内嵌凭据。
+ * 参考上游 zcode `app-tool-transcript.ts` 的 `SENSITIVE_KEY_PATTERN` + `LARGE_TEXT_KEYS` 设计。
+ */
+
+/**
+ * 键名档敏感词根(封闭常量:不得在别处再抄一份判据,新增词根须回到本票验收口径)。
+ * 语义逐词根:token(含 accessToken/refresh_token)、secret、password、api_key/apiKey/api-key、
+ * authorization、credential、cookie。大小写不敏感;无 g 旗标,`test` 无 lastIndex 累积问题。
+ */
+const SENSITIVE_KEY_PATTERN = /token|secret|password|api[_-]?key|authorization|credential|cookie/i;
+
+/** 大文本档键名(封闭集合,精确匹配,不做模糊包含 —— 误把普通串压成字符数比漏印更难排查) */
+const LARGE_TEXT_KEYS: ReadonlySet<string> = new Set(['content', 'old_string', 'new_string']);
+
+/** 键名档命中后的占位值(与形状档的 `***REDACTED***` 刻意不同形:一眼可辨是"键名整值遮蔽") */
+const KEYED_REDACTED_PLACEHOLDER = '[redacted]';
+
+/** 递归单元:按 (键名, 值) 决定遮蔽形态;键名档优先,其后并集走形状档与大文本档 */
+function redactValueKeyed(key: string, value: unknown): unknown {
+  // ① 键名档:键名带凭据语义 ⇒ 整值遮蔽。值为嵌套对象/数组时同样遮蔽为字符串占位,
+  //    不得继续序列化 —— 否则原始键名与值会随结构原样回到回看输出里。
+  if (SENSITIVE_KEY_PATTERN.test(key)) return KEYED_REDACTED_PLACEHOLDER;
+  if (typeof value === 'string') {
+    // ② 大文本档:只印字符数(非字符串值的 content 不在此档,继续按形状档/递归处理)
+    if (LARGE_TEXT_KEYS.has(key)) return `[${value.length} chars]`;
+    // ③ 形状档(并集的下半):与 redactObject 同一份 10 类正则 + URL query + 用户路径出口
+    return redactSecrets(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      typeof item === 'string'
+        ? redactSecrets(item)
+        : item && typeof item === 'object' && !Array.isArray(item)
+          ? redactObjectDeepKeyed(item as Record<string, unknown>)
+          : item,
+    );
+  }
+  if (value && typeof value === 'object') {
+    return redactObjectDeepKeyed(value as Record<string, unknown>);
+  }
+  return value;
+}
+
+/**
+ * 递归深脱敏(键名档 ∪ 形状档 ∪ 大文本档)。
+ * 与 `redactObject` 的区别只在上半:多出键名档与大文本档;非敏感键的字符串值仍走同一
+ * `redactSecrets` 出口,普通无凭据对象逐字不变(防止把可读回看输出打废)。
+ */
+export function redactObjectDeepKeyed(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    result[key] = redactValueKeyed(key, value);
+  }
+  return result;
+}
+
+// ===================== 6. 仅用于测试的辅助 =====================
 
 /** 重置 home/user 缓存(仅测试用) */
 export function _resetPathCachesForTest(): void {
