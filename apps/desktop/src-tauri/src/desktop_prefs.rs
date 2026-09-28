@@ -242,7 +242,11 @@ pub fn load_prefs_from(path: &Path) -> DesktopPrefs {
         // 首次运行没有这个文件属正常形态,不报警(但也不得把"没读到"当成"读到了空的")。
         Err(_) => return normalize_prefs(DesktopPrefs::default()),
     };
-    match serde_json::from_slice::<DesktopPrefs>(&raw) {
+    // BOM 只剥这一个:Windows 侧任何非 Rust 的写手(PowerShell 5.1 的 `-Encoding utf8`、记事本)
+    // 都会在文件头留 U+FEFF,而 serde_json 见 BOM 即整份解析失败 ⇒ 用户的全部偏好静默回退默认值。
+    // 本票的真机采样就撞上过一次:五轮读数全成 vis=1,看着像"开关失效",其实是量具换了编码。
+    let body = raw.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(&raw);
+    match serde_json::from_slice::<DesktopPrefs>(body) {
         Ok(parsed) => normalize_prefs(parsed),
         Err(e) => {
             log::warn!(
@@ -567,6 +571,32 @@ mod tests {
             !should_migrate_launch_minimized(true, false, false),
             "不带 --minimized(手动双击)⇒ 迁了就是把窗口藏起来,像程序没启动"
         );
+    }
+
+    // ── 编码陷阱:非 Rust 写手留下的 BOM 不得让整份偏好静默回退默认值 ──
+
+    #[test]
+    fn bom_prefixed_file_still_loads_the_users_values() {
+        let dir = scratch_dir("bom-ok");
+        let path = dir.join("desktop-behavior.json");
+        let wanted = prefs(false, CloseBehavior::Quit);
+        let mut bytes = vec![0xEFu8, 0xBB, 0xBF];
+        bytes.extend_from_slice(serde_json::to_string(&wanted).expect("serialize").as_bytes());
+        std::fs::write(&path, &bytes).expect("write bom prefs");
+        assert_eq!(load_prefs_from(&path), wanted);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn bom_prefixed_garbage_still_falls_back_to_defaults() {
+        // 剥 BOM 不等于放宽判据:内容坏照样整份回默认(负向对照,防"为容编码把判据削穿")。
+        let dir = scratch_dir("bom-bad");
+        let path = dir.join("desktop-behavior.json");
+        let mut bytes = vec![0xEFu8, 0xBB, 0xBF];
+        bytes.extend_from_slice(b"{ not json");
+        std::fs::write(&path, &bytes).expect("write broken prefs");
+        assert_eq!(load_prefs_from(&path), DesktopPrefs::default());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
