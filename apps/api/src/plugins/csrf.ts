@@ -7,6 +7,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply 
 import fp from 'fastify-plugin'
 import { config } from '../config/index.js'
 import { parsePath, matchesAnyPrefix } from '../utils/http-normalize.js'
+import { isVerifiedInternalMachineCall } from '../utils/internal-principal.js'
 
 /**
  * CSRF 防护（双提交 Cookie 模式）。
@@ -225,7 +226,19 @@ const csrfPlugin: FastifyPluginAsync<CsrfPluginOptions> = async (
     if (authToken) return
 
     // Internal service token 请求豁免(服务间调用,非浏览器,无 CSRF 风险)
-    if (request.headers['x-internal-service-token']) return
+    // ⚠️ #23 收口(2026-09-27):原先这里是 `if (request.headers['x-internal-service-token'])
+    // return` —— **头名在场即豁免**,等于把防线换成一个字符串:任何进程带这个头(值随意)
+    // 就能整块跳过 CSRF。现要求密钥**验真通过**才豁免,判定与路由侧
+    // (internal-service-token.ts 的 checkInternalServiceToken / agent-control.ts /execute)
+    // 共用 utils/internal-principal 这一份实现(secretsEqual 定长散列 + timingSafeEqual,
+    // 密钥未配置时 fail-closed)。覆盖两族内部凭据:
+    //  ① X-Internal-Service-Token == AI_CALLBACK_SECRET(ai-service → /api/memory 等);
+    //  ② Authorization: Bearer == AGENT_CONTROL_INTERNAL_SECRET(控制面 /execute)。
+    //  第 ② 族正是 #23 现场:裸密钥既非三段 JWT 也非 `ihui_` 前缀,走不到上面的
+    //  isPlausibleBearerCredential 形态豁免,而本钩子注册在 **onRequest**(早于路由
+    //  preHandler/handler 内的鉴权),于是合法内部调用被 403 拦在自己的密钥校验之前。
+    //  这不是按路径放行:同一请求换一把错密钥即不豁免,继续落到 CSRF/路由双层拒。
+    if (await isVerifiedInternalMachineCall(request)) return
 
     // Gemini 协议入站豁免(2026-09-13):Gemini SDK 默认用 x-goog-api-key 头或
     // ?key= 查询参数携带 API Key(非浏览器自动携带的凭证,与 Bearer 同级防 CSRF),
