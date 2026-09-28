@@ -1289,6 +1289,27 @@ export function verifyTwinFold(srcText, outText, edits, refused = []) {
   }
   if (after.mergeNotes < before.mergeNotes)
     problems.push(`归并落账注记由 ${before.mergeNotes} 掉到 ${after.mergeNotes}(不得随折叠一起丢)`)
+  /**
+   * ⑦(2026-09-29 补,由本会话一次真实自伤逼出):折叠**不得**让一个族失去"当前状态行"。
+   * 枚 `b3f73e2b37e` 之后现读:5 个族的非指针行数为 0(同一锚点在 `b3f73e2b37e^` 还有 1 条),
+   * 也就是活账全部被折成"重复登记副本"指针 ⇒ 派单口径看不见它,而账面 F1/F2/F4/F6 全绿、
+   * 前六条零损失断言一条都不红 —— **这套断言只证"没删内容",没证"还有主人"**。
+   * 判据只认结构位:被折过的每个题面,产物里必须仍存在一条未勾选且 `titleOf` 能取回该题面的行
+   * (指针行的题面会被全角括号闸切成空串,所以它不可能冒充持有行)。
+   */
+  {
+    const touchedTitles = new Set(edits.map((e) => e.title).filter(Boolean))
+    const keeperless = []
+    for (const t of touchedTitles) {
+      if (!b.some((l) => /^\s*-\s\[ \]/.test(l) && titleOf(l) === t)) keeperless.push(t)
+    }
+    if (keeperless.length)
+      problems.push(
+        `折叠后有 ${keeperless.length} 族失去当前状态行(全族只剩指针 ⇒ 活账无人认领、派单口径永不可见)⇒ 拒落:${keeperless
+          .slice(0, 3)
+          .join(' / ')}`,
+      )
+  }
   return { problems, before, after }
 }
 
@@ -2022,6 +2043,33 @@ function selfTest() {
   /** 正对照:注记里出现 `G-<数字>` 且落在主键窗口内 ⇒ 尺子**必须**取得到键,否则上面的 null 断言是同义反复。 */
   const poisoned = twLines[1].replace(/^- \[ \] /, '- [ ] （【归并】副本·持有行 G-999）')
   ok(keyOfRow(poisoned) !== null, '正对照失效:把编号写进注记前 48 字符,真尺子竟取不到主键 ⇒ 这条断言没有牙')
+  /**
+   * ⑦ 的两条成对用例(2026-09-29,由本会话一次真实自伤立):
+   *  正向 —— 正常折叠(折副本、留持有行)必须**没有**"失去当前状态行"这一红;
+   *  反向 —— 把产物里的持有行也换成指针行(正是枚 b3f73e2b37e 落出来的形状),第七断言必须点名。
+   *  少了正向,这条锁会退化成"只要折叠就红";少了反向,它可以在什么都不防的状态下恒绿。
+   */
+  {
+    const src = [
+      '- [ ] **G-701. 一件活账**:甲。',
+      '- [ ] **G-702. 一件活账**:乙。',
+      '- [ ] **G-703. 一件活账**:丙。',
+    ].join('\n')
+    const tw = foldTwins(src.split('\n'), '2026-09-29')
+    const landed = [...src.split('\n')]
+    for (const e of tw.edits) landed[e.line - 1] = e.after
+    const ok7 = verifyTwinFold(src, landed.join('\n'), tw.edits, tw.refused)
+    ok(
+      tw.edits.length === 2 && ok7.problems.length === 0,
+      `正向对照红:折 2 留 1 的正常折叠被第七断言误判,实测 edits=${tw.edits.length} problems=${JSON.stringify(ok7.problems)}`,
+    )
+    const broken = landed.map((l) => (/^- \[ \]/.test(l) ? l.replace(/^- \[ \] /, '- [ ] （【归并】重复登记副本·同题不同编号·2026-09-29·摘号留指针）') : l))
+    const bad7 = verifyTwinFold(src, broken.join('\n'), tw.edits, tw.refused)
+    ok(
+      bad7.problems.some((p) => p.includes('失去当前状态行')),
+      `反向对照失效:全族折成指针时第七断言没喊红,实测 ${JSON.stringify(bad7.problems.slice(0, 2))}`,
+    )
+  }
   ok(
     (twinFoldRejectReason(twLines[1], poisoned) || '').includes('主键'),
     `编号写进注记必须被拒折判据点名,实得:${twinFoldRejectReason(twLines[1], poisoned)}`,
