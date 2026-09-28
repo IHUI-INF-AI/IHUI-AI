@@ -11,14 +11,40 @@
  *   T1 表自洽性(声明与现实脱节即红)
  *   C1 单文件行上限 / C2 契约文件行上限 / C3 对外公开出口数
  *   D1 未声明的跨模块依赖 / D2 依赖方向违反层序 / D3 穿透公开入口的深导入 / D4 现实 import 成环
+ *   X1 表级例外缺到期日 / X2 表级例外已过期(2026-09-27 补:豁免只有出生、没有死亡)
+ *   DC 纳管模块内新增裸 lint 抑制(2026-09-27 补;棘轮锚点 = **该文件 HEAD 自身存量**)
  *
  * 渐进收口(设计前提:**不得造出一台恒红的机器**)
  *   - 违规归属"发起 import 的那个文件所在模块";模块 managed:false ⇒ 只报数、不计退出码。
- *   - 全仓即时判红只有两条:C1(阈值高于 HEAD 实测最大文件)与 T1。存量债不得转嫁成无关提交的红。
+ *   - 不套 managed 开关、全仓即时的判红:C1(阈值高于 HEAD 实测最大文件)与 T1;本片另加一条同类
+ *     X2(例外已过期 —— 现读存量 0 条,且它是时刻事件不是"本次提交改了表",棘轮救不了它)。
+ *     DC 是**锚点上升才红**的棘轮判据,在两种档位下都不会把存量转嫁成无关提交的红。
  *   - 翻 managed:true 之前先跑 `--managed-trial <id>` 看看到底几条。
+ *
+ * X1 的存量与收紧方式(照抄本仓锚点规矩,不另发明):锚点 = **锚点面(HEAD 那份表)里同样没有合法
+ *   `until` 的例外 id 集合**。全量档内容与锚点同面 ⇒ 存量恒只报数(HEAD 面因此不新增任何一格红);
+ *   `--staged` 档锚点取 HEAD,所以"这一次新登记一条无日期例外"当场判红 —— 要求(必须有到期日)由提交链
+ *   强制,而存量 EX-C2-1 那条**不**被转嫁成每次提交的红。它的 reason 原文只有一个**事件条件**
+ *   ("按业务域拆成多入口前,不得把该模块翻 managed:true"),全文没有一个日期 ⇒ **不得凭记忆给它编一个
+ *   到期日**(编出来的日期会替下一个接手人做出"这笔债到某年就自动合法"的判断),所以它留在待裁面,
+ *   解阻动作 = 那把收口票的三步同枚提交(拆 `packages/types/src/app.ts` → 删 `EX-C2-1` → 翻
+ *   `managed:true` 并同步镜像测试 T13 的 `MANAGED_FALSE_LEDGER`),缺任一步都留下一道恒红门。
+ *   问责走 `--strict`(它把待裁存量也判红),与本门 E2"未齐备默认只报数"同一套制度。
+ *   X2 刻意**不套棘轮**:过期是一个**时刻事件**而不是"本次提交改了表",且现读存量 0 条 ——
+ *   与守门 108 的 E2(已过期仍生效 ⇒ 判红、只点名不自动摘除)是同一条口径。
+ *
+ * DC 为什么进架构判据:`@ts-ignore` / `eslint-disable` 那道守门(34)是 warn 级,而守门 108 的 E3
+ *   对这一族**只报数**,所以"每加一条抑制,该文件的规则覆盖永久归零"在账面上是绿的。纳管模块
+ *   (managed:true)既然声明了契约,就必须把"契约是否仍被执行"一起报出来。计数实现**只有一份**:
+ *   直接 import 守门 108 的 `scanFile()`(同一件事两处各写一遍必漂移,那是本仓记过最多次的失效型),
+ *   喂给它的是 `blankStrings(text)` 之后的面 —— 抑制指令住在注释里(所以不能剥注释),但字符串/正则
+ *   字面量里的同名样例会被算成抑制(真仓实测:`scripts/tests/check-ts-ignore.test.mjs` 原始面 34 处、
+ *   清空字面量后 3 处;门把自己写的散文判成违规那一型,守门 131 同日刚踩过)。
  *
  * 内容口径(与本仓高阶门同取向):全量判 **HEAD blob**,`--staged` 判**索引 blob**。
  *   共享工作树常年滞后 HEAD,按磁盘算会在恒红/假绿之间来回跳。
+ *   DC 的**锚点面恒为 HEAD**(棘轮),取锚只为"当前面确有抑制"的那几个文件二次 `catBatch`,
+ *   不整面重读;取不到(新增文件)按存量 0 起算 ⇒ 新文件里的裸抑制同样拦。
  *
  * 用法:
  *   node scripts/check-architecture-policy.mjs                  # 全量(判 HEAD)
@@ -34,12 +60,32 @@ import { dirname as pDirname, resolve as pResolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, gitRaw } from './lib/face-reader.mjs'
+import { blankStrings } from './lib/code-mask.mjs'
+// DC 的计数实现与守门 108 共用**同一份** `scanFile()`(两处算同一件事必漂移,本仓最高频失效型);
+// "到期日当天仍有效、次日才判红"这条方向也直接取它那份 `isPast()` —— 守门 108 的作者在写它时
+// 恰恰把方向弄反过一次(表现是 9 条自检一起红),所以这里不再抄第二遍判序。
+// 生产面跨 check-*.mjs 导入在本仓有先例(check-admin-gate-consistency / check-baseline-freshness /
+// heal-worktree-tracked 都 import 兄弟门的导出),且被 import 的这两个函数都是**纯函数**、
+// 该模块 import 时零副作用(实测 import 后无任何输出、不读基线、不派生 git)。
+import { scanFile as scanExemptionLedger, __test__ as expiryKit } from './check-exemption-expiry.mjs'
 
 const ROOT = pResolve(pDirname(fileURLToPath(import.meta.url)), '..')
 const POLICY_REL = 'config/architecture-policy.yaml'
 const SELF_SKIP = 'HUSKY_SKIP_ARCH_POLICY'
 const SRC_RE = /\.(ts|tsx|js|jsx|mjs|cjs)$/
 const GIT_TIMEOUT = 180000
+/** 表级例外到期日的**唯一**格式:`20YY-MM-DD`(年份值域与守门 108 的 `DATE_RE` 逐字同族,两把尺子
+ *  不得对"什么叫一个日期"给出两种答案)。非法月日判"没有日期",绝不进 NaN 比较
+ *  (NaN 与任何日期比较都是 false ⇒ 一条写歪的到期日会永久不红,守门 108 同一条禁令)。
+ *  世纪被钉在 `20` 开头是**刻意的**:`until: '2999-12-31'` 这种"把永久豁免写成有日期"的形态按格式拒绝,
+ *  它会落进 X1(无合法到期日)而不是被当成"还有九百多年"放过。 */
+const UNTIL_RE = /^(20\d{2})-(\d{2})-(\d{2})$/
+/**
+ * DC 预筛:必须是判据字面量的**严格超集** —— 守门 108 的 `SUPPRESS_KINDS` 认的两个形态
+ * (`eslint-disable[-next-line|-line|-unrestricted]` 与 `@ts-(ignore|nocheck)`)都必然含下面两个串之一。
+ * 预筛漏字面量 = 门对整型缺陷全盲而账面报绿(守门 102/113 各记过一次,由"预筛必须是超集"的对账钉住)。
+ */
+const SUPPRESS_PREFILTER = ['eslint-disable', '@ts-']
 const RULES = {
   'table-integrity': 'T1 策略表与现实脱节',
   'file-lines': 'C1 单文件行上限',
@@ -55,6 +101,12 @@ const RULES = {
   // D3 就对着空气工作(判据存在而审的是不存在的对象 = 没有)。
   'entrypoint-missing': 'E1 声明的公开入口在取材面里不存在',
   'contract-artifact-missing': 'E2 纳管模块缺契约工件/声明的契约文件不存在',
+  // ── 豁免/抑制的"寿命"两判(2026-09-27 补,与守门 108 的 E1/E2 同一个母题型:只有出生、没有死亡)──
+  // 表级例外此前只要求 id/rule/reason(见 auditPolicy 的畸形条目判据),登记一次就永久豁免;
+  // lint 抑制此前只由守门 34(warn)与 108 的 E3(只报数)看着,加一条等于该文件契约覆盖永久归零而账面全绿。
+  'exception-no-until': 'X1 表级例外缺合法到期日 until(存量按锚点棘轮只报数,新增即红;问责走 --strict)',
+  'exception-expired': 'X2 表级例外的 until 已过期(即时判红并点名 id)',
+  'lint-suppression-growth': 'DC 纳管模块内该文件新增裸 lint 抑制(锚点 = 该文件 HEAD 自身存量)',
 }
 /** 不受 managed 开关约束、全仓即时判红的规则 */
 const ALWAYS_RED = new Set(['table-integrity', 'file-lines'])
@@ -311,6 +363,108 @@ export function unusedExceptions(P, hitIds, face) {
   return (P.exceptions || []).filter((e) => e && e.id && !hitIds.has(e.id)).map((e) => e.id)
 }
 
+/** 例外条目的 `until` 是否是合法日期字符串(格式 + 月日值域;见 UNTIL_RE 的 NaN 禁令)。 */
+export function validUntil(v) {
+  if (typeof v !== 'string') return false
+  const m = UNTIL_RE.exec(v.trim())
+  if (!m) return false
+  const mo = Number(m[2])
+  const dy = Number(m[3])
+  return mo >= 1 && mo <= 12 && dy >= 1 && dy <= 31
+}
+
+/** 一张表里"没有合法到期日"的例外 id 集合 —— X1 的锚点面与判据面共用这一份实现(两处各算必漂移)。 */
+export function undatedExceptionIds(P) {
+  return new Set((P.exceptions || []).filter((e) => e && e.id && !validUntil(e.until)).map((e) => e.id))
+}
+
+/** DC 的廉价预筛(必须是判据字面量的超集,见 SUPPRESS_PREFILTER)。 */
+export function mayHaveSuppression(text) {
+  return typeof text === 'string' && SUPPRESS_PREFILTER.some((k) => text.includes(k))
+}
+
+/**
+ * 一个文件里的 lint 抑制**条数**。
+ * 判据面 = `blankStrings(text)`(剥字符串/正则字面量的**体**、保住注释与行号)喂给守门 108 的
+ * `scanFile()` 的 `suppressions` 计数 —— 抑制指令住在注释里,所以**不能**剥注释(剥了就等于门对
+ * 自己立项那一型全盲);而字面量里的同名样例必须剥,否则"解释这条禁令的散文"会被算成违规
+ * (真仓实测:`scripts/tests/check-ts-ignore.test.mjs` 原始面 34 处 / 清空后 3 处)。
+ * 与守门 108 的 E3 读数因此**刻意可以不同**(它按原始面只报数),但**计数规则只有一份**。
+ */
+export function suppressionCount(text) {
+  if (!mayHaveSuppression(text)) return 0
+  const sup = scanExemptionLedger('virtual', blankStrings(text)).suppressions
+  return Object.values(sup).reduce((a, b) => a + (Number(b) || 0), 0)
+}
+
+/**
+ * X1 / X2:表级例外的寿命判据。纯函数,锚点由调用方注入(证明取材面行为只能用构造面)。
+ *
+ * 三条判序,每条都由自检成对钉住:
+ *  - **合法 until 且已过期** ⇒ X2 判红并点名 id。不套棘轮:过期是**时刻**事件而不是"本次改了表",
+ *    棘轮(锚点=HEAD 那份表)会把它洗成"别人欠的、与我无关",而唯一的修复出口(续期或删条目)
+ *    恰恰需要有人被拦住一次。现读存量 0 条 ⇒ 今天不产生任何恒红面。
+ *  - **没有合法 until** ⇒ 该 id 在锚点面上同样没有合法 until ⇒ 存量,只报数(`--strict` 才判红);
+ *    锚点面上不是存量(即本次新增)⇒ X1 判红。锚点取不到(`null`)⇒ **不设基线**,一律按新增问责,
+ *    与本门 `filterNewTableDefects` 注释里那句"宁可多报,绝不静默放过"同一条,并且必须大声说明。
+ *  - **合法 until 且未过期** ⇒ 不判红,只计数(这条是"到期日当天仍有效、次日才判红"的
+ *    `isPast()` 口径的直接投影,方向由守门 108 的 D01–D03 钉着,本门不重抄判序)。
+ *  调用方给的 `today` 本身不是合法日期 ⇒ 整条"过期与否"判不了 ⇒ 记 `expiryUndetermined` 并报名,
+ *  **既不冒红也不记绿**(把没判写成判过了是本仓最高频的失效型)。
+ *
+ * @param {ReturnType<loadPolicy>} P 当前取材面的策略表
+ * @param {{anchorUndatedIds?:Set<string>|null,today:string,strict?:boolean}} opts
+ *   anchorUndatedIds=null 表示锚点面(HEAD 那份表)取不到/解不开
+ */
+export function auditExceptionExpiry(P, opts = {}) {
+  const today = typeof opts.today === 'string' ? opts.today.trim() : ''
+  // `today` 自身不合法 ⇒ "过期与否"这一维**判不了**。绝不冒红,也绝不记成"未过期"(那正是把没判
+  // 写成判过了);它进 expiryUndetermined 计数并由输出面大声报名(与本仓"取不到判无法判定"同一条)。
+  const todayOk = UNTIL_RE.test(today)
+  const strict = opts.strict === true
+  const anchorMissing = opts.anchorUndatedIds === null || opts.anchorUndatedIds === undefined
+  const anchor = anchorMissing ? null : opts.anchorUndatedIds
+  const hard = []
+  const soft = []
+  const counters = { exceptions: 0, dated: 0, undated: 0, undatedStock: 0, expired: 0, anchorMissing: anchorMissing ? 1 : 0, malformed: 0, expiryUndetermined: 0 }
+  const push = (rule, msg, isSoft) => {
+    const v = { rule, file: POLICY_REL, line: 0, managed: true, msg }
+    if (isSoft) v.soft = true
+    ;(isSoft ? soft : hard).push(v)
+  }
+  for (const e of P.exceptions || []) {
+    if (!e || !e.id) {
+      // 连 id 都没有的条目由 T1 的畸形判据点名(它必须"必须带 id/rule/reason"),这里不重复计债,
+      // 但也不能当"没有例外"放过 —— 它进 malformed 计数,由输出面报名。
+      counters.malformed++
+      continue
+    }
+    counters.exceptions++
+    if (!validUntil(e.until)) {
+      counters.undated++
+      const stock = anchor ? anchor.has(e.id) : false
+      if (stock) counters.undatedStock++
+      push(
+        'exception-no-until',
+        `例外 ${e.id} 没有合法的 until(YYYY-MM-DD)。表级豁免现在等于**永久**豁免 —— ${stock ? '它是锚点面(HEAD 那份表)已有的存量,本片只报数不判红(存量不得转嫁成无关提交的红),要问责跑 --strict;解阻动作是给它一个有出处的到期日,或直接删掉这条已经不需要了的例外' : '它是本次新登记的(锚点面没有同 id 的无日期例外)⇒ 判红:登记一条表级豁免必须同时写下它到什么时候为止(reason 里那句"拆完之前"是事件条件,不是日期)'}`,
+        stock && !strict,
+      )
+      continue
+    }
+    counters.dated++
+    const iso = String(e.until).trim()
+    if (!todayOk) {
+      counters.expiryUndetermined++
+      continue
+    }
+    if (expiryKit.isPast(iso, today)) {
+      counters.expired++
+      push('exception-expired', `例外 ${e.id} 的到期日 ${iso} 已过(今天 ${today})却仍挂在表上 ⇒ 判红并点名:id=${e.id}。处置只有两条 —— 续期(改日期并说明为什么还开着)或删除该条;**门不替你勾掉它**`, false)
+    }
+  }
+  return { hard, soft, counters }
+}
+
 /** public_entrypoints 是"子路径白名单":'.' 只对应裸包名(不走本判据),'./x' 精确、'./x/*' 前缀 */
 export function matchEntrypoint(m, sub) {
   return m.entrypoints.some((p) => {
@@ -511,6 +665,9 @@ export function auditDeclarations(P, ctx, opts = {}) {
 export function analyze(P, files, opts = {}) {
   const trial = new Set(opts.trialModules || [])
   const isManaged = (m) => !!m && (m.managed || trial.has(m.id))
+  // DC 的锚点面:null ⇒ 锚点与内容同面(全量档 / 空暂存回退档的内容就是 HEAD,因此恒不等值上升);
+  //   Map ⇒ 内容取索引、锚点取这份 Map 里的 HEAD 计数(缺项 = 该文件 HEAD 里没有 = 本次新增文件 ⇒ 按 0 起算)。
+  const suppressionAnchors = opts.suppressionAnchors === undefined ? null : opts.suppressionAnchors
   const excluded = mkMatcher(P.scanExcludes)
   const isContract = mkMatcher(P.contractPatterns)
   const testExempt = mkMatcher(P.testExempts)
@@ -522,7 +679,23 @@ export function analyze(P, files, opts = {}) {
   }
   const V = []
   const edges = new Map()
-  const stats = { scanned: 0, unowned: new Set(), unknownPkg: new Set(), exempted: 0, invalidExempt: 0, policyExceptions: 0, exceptionIds: new Set(), foreign: 0 }
+  // DC 报账:suppress* = 纳管块(managed:true)射程内;all* = 整面扫到的数,含未收口块 ——
+  // 分开计是防"未收口块里的抑制被读成已判过"那一类假账;两个数都必须打进输出面,不得只印一个。
+  const stats = {
+    scanned: 0,
+    unowned: new Set(),
+    unknownPkg: new Set(),
+    exempted: 0,
+    invalidExempt: 0,
+    policyExceptions: 0,
+    exceptionIds: new Set(),
+    foreign: 0,
+    suppressions: 0,
+    suppressionFiles: 0,
+    suppressionsAll: 0,
+    suppressionFilesAll: 0,
+    suppressionGrowthFiles: 0,
+  }
   const add = (rule, path, line, mod, msg) => V.push({ rule, file: path, line, module: mod ? mod.id : null, managed: isManaged(mod), msg })
   /** 表级例外:放过**并计数**,并记下命中的 id —— 一条都不命中的例外就是清单腐烂 */
   const exPass = (rule, path) => {
@@ -542,6 +715,29 @@ export function analyze(P, files, opts = {}) {
     if (lines > P.maxFileLines) add('file-lines', path, 0, mod, `${lines} 行 > 上限 ${P.maxFileLines}`)
     if (isContract(path) && lines > P.maxContractLines && !exPass('contract-file-lines', path))
       add('contract-file-lines', path, 0, mod, `契约文件 ${lines} 行 > 上限 ${P.maxContractLines}`)
+    // ── DC:纳管块内的裸 lint 抑制(棘轮锚点 = 该文件在锚点面自身的条数) ──────────────
+    // 计数只在预筛命中后才走重路径(见 SUPPRESS_PREFILTER 的超集要求);未收口块只报数不判红,
+    // 但**两个数都要打进输出面**,否则读报告的人会把"纳管块 0 处"看成"全仓 0 处"。
+    const suppressOwn = suppressionCount(text)
+    if (suppressOwn) {
+      stats.suppressionsAll += suppressOwn
+      stats.suppressionFilesAll++
+      if (isManaged(mod)) {
+        stats.suppressions += suppressOwn
+        stats.suppressionFiles++
+        const suppressAnchor = suppressionAnchors ? (suppressionAnchors.get(path) ?? 0) : suppressOwn
+        if (suppressOwn > suppressAnchor) {
+          stats.suppressionGrowthFiles++
+          add(
+            'lint-suppression-growth',
+            path,
+            0,
+            mod,
+            `该文件裸 lint 抑制 ${suppressOwn} 处 > 其锚点面(HEAD)自身存量 ${suppressAnchor} 处(本次 +${suppressOwn - suppressAnchor})—— 每加一条 eslint-disable / @ts-ignore,该文件对应规则的覆盖**永久归零**,而 typecheck、lint、其余守门一路报绿。纳管块(managed:true)既然声明了契约,契约是否仍被**执行**必须一起报出来。出口只有两条:修到不需要抑制,或把这次关闭写进策略表 exceptions 并带 until(表级豁免有日期,文件级豁免没有)。`,
+          )
+        }
+      }
+    }
     for (const { spec, line } of extractSpecs(text)) {
       if (/[${}]/.test(spec)) continue // 生成器拼出来的占位说明符不是真导入
       let target = null
@@ -897,7 +1093,12 @@ function main(argv) {
   const table = [...policyTable, ...decl.violations]
   // 表自洽性的提交链棘轮(见 filterNewTableDefining 的注释):HEAD 那份表**已有**的缺陷
   // 不得转嫁给本次提交;HEAD 那份读不出/解不开时不设基线(宁可多报,绝不静默放过)。
+  // X1 的锚点与它同一条制度:锚点面 = HEAD 那份表里"同样没有合法 until"的例外 id 集合。
+  //   全量档内容与锚点同面(都是 HEAD)⇒ 无日期存量恒只报数;`--staged` 档取 HEAD 那份表 ⇒ 本次新登记的
+  //   无日期例外当场判红(所以"必须有到期日"这条要求在提交链上是生效的,不是散文)。
+  //   HEAD 那份取不到/解不开 ⇒ anchorUndated 留 null = **不设基线**,一律按新增问责并大声说明。
   let baselineMsgs = new Set()
+  let anchorUndated = isStaged ? null : undatedExceptionIds(P)
   if (isStaged) {
     try {
       const headText = readFace('HEAD', [POLICY_REL]).get(POLICY_REL)
@@ -907,16 +1108,35 @@ function main(argv) {
         for (const v of auditPolicy(PH, headPaths)) if (!v.soft) baselineMsgs.add(v.msg)
         // 齐备性(E1/E2)同样走棘轮:HEAD 那份表本来就解析不到的入口,不得转嫁给本次提交
         for (const v of auditDeclarations(PH, declarationContext(PH, headPaths, 'HEAD'), { trialModules, strict }).violations) if (!v.soft) baselineMsgs.add(v.msg)
+        anchorUndated = undatedExceptionIds(PH)
       }
     } catch {
       baselineMsgs = new Set()
+      anchorUndated = null
     }
   }
-  const hardTable = isStaged ? filterNewTableDefects(table, baselineMsgs) : table.filter((x) => !x.soft)
-  const res = analyze(P, files, { trialModules })
+  // DC 的锚点面**恒为 HEAD**。全量档内容本身就是 HEAD ⇒ 不二次读(一遍 catBatch 约 500MB,
+  // 一个"比较"不该付两遍);只有 `--staged` 的窄口径才需要为"当前面确有抑制"的文件补一次 HEAD 读,
+  // 按预筛挑文件而不是整面重读。取不到的文件 = HEAD 里没有这一份 ⇒ 按存量 0 起算(新文件里的裸抑制照判)。
+  let suppressionAnchors = null
+  let suppressionAnchorNote = '与内容同面(HEAD ⇒ 恒等,不产生增长红)'
+  if (isStaged && scopeMode === 'staged') {
+    const need = [...files.keys()].filter((p) => mayHaveSuppression(files.get(p)))
+    suppressionAnchors = new Map()
+    try {
+      for (const [p, t] of readFace('HEAD', need)) suppressionAnchors.set(p, suppressionCount(t))
+    } catch (e) {
+      console.error(`❌ 无法判定:DC 锚点面(HEAD)取不到 —— ${e.message};DC 判据在缺锚点时不得冒判"没有增长",也不得静默跳过`)
+      return 2
+    }
+    suppressionAnchorNote = `HEAD(按当前面预筛补读 ${need.length} 个文件,取到的 ${suppressionAnchors.size} 个;其余按存量 0 起算)`
+  }
+  const exc = auditExceptionExpiry(P, { anchorUndatedIds: anchorUndated, today: new Date().toISOString().slice(0, 10), strict })
+  const hardTable = [...(isStaged ? filterNewTableDefects(table, baselineMsgs) : table.filter((x) => !x.soft)), ...exc.hard]
+  const res = analyze(P, files, { trialModules, suppressionAnchors })
   const hard = [...hardTable, ...res.red]
-  // 被棘轮放过的那几条表缺陷也必须出现在报数面里,不得静默
-  const softTable = [...table.filter((x) => x.soft), ...table.filter((x) => !x.soft && !hardTable.includes(x))]
+  // 被棘轮放过的那几条表缺陷也必须出现在报数面里,不得静默;X1 的待裁存量同理(它进 soft 面,不静默)。
+  const softTable = [...table.filter((x) => x.soft), ...table.filter((x) => !x.soft && !hardTable.includes(x)), ...exc.soft]
   const soft = res.violations.filter((x) => !hard.includes(x))
   const tally = (arr) => arr.reduce((o, x) => ((o[x.rule] = (o[x.rule] || 0) + 1), o), {})
   const managedIds = [...P.modules.values()].filter((m) => m.managed).map((m) => m.id)
@@ -924,18 +1144,25 @@ function main(argv) {
 
   const fellBack = scopeMode === 'staged-empty-fallback-full'
   if (json) {
-    console.log(JSON.stringify({ face: isStaged ? (fellBack ? 'index-fallback-head' : 'index') : 'HEAD', stagedFallback: fellBack, policyFace, modules: P.modules.size, managed: managedIds, scanned: res.stats.scanned, edges: res.edges.size, byRule: tally(res.violations), redByRule: tally(hard), hard: hard.slice(0, 80), softTotal: soft.length, unowned: [...res.stats.unowned], unknownPkg: [...res.stats.unknownPkg], exempted: res.stats.exempted, policyExceptions: res.stats.policyExceptions, invalidExempt: res.stats.invalidExempt, staleExceptions: softTable.length, declarations: decl.counters, unparsedManifests: declCtx.unparsed }, null, 2))
+    console.log(JSON.stringify({ face: isStaged ? (fellBack ? 'index-fallback-head' : 'index') : 'HEAD', stagedFallback: fellBack, policyFace, modules: P.modules.size, managed: managedIds, scanned: res.stats.scanned, edges: res.edges.size, byRule: tally(res.violations), redByRule: tally(hard), hard: hard.slice(0, 80), softTotal: soft.length, unowned: [...res.stats.unowned], unknownPkg: [...res.stats.unknownPkg], exempted: res.stats.exempted, policyExceptions: res.stats.policyExceptions, invalidExempt: res.stats.invalidExempt, staleExceptions: softTable.filter((x) => x.rule === 'table-integrity').length, softTableTotal: softTable.length, exceptionLifetime: exc.counters, lintSuppressions: { managedTotal: res.stats.suppressions, managedFiles: res.stats.suppressionFiles, allTotal: res.stats.suppressionsAll, allFiles: res.stats.suppressionFilesAll, growthFiles: res.stats.suppressionGrowthFiles, anchorFace: suppressionAnchorNote }, declarations: decl.counters, unparsedManifests: declCtx.unparsed }, null, 2))
     return hard.length ? 1 : 0
   }
   console.log(`[arch-policy] 内容取材口径:${faceDesc}`)
   const notice = policyFaceNotice(policyFace, policyOids)
   if (notice) console.log(`[arch-policy] ${notice.level === 'warn' ? '⚠️' : 'ℹ️'} ${notice.msg}`)
   console.log(`[arch-policy] 模块 ${P.modules.size} 个 | managed:true ${managedIds.length ? managedIds.join(', ') : '0 个(存量一律只报数)'} | 扫描 ${res.stats.scanned} 文件 | 跨模块边 ${res.edges.size} 条 | 非本表射程的说明符 ${res.stats.foreign} 处(第三方/别名,不判但如实计数)`)
-  console.log(`[arch-policy] 违规合计 ${res.violations.length + table.length} 处:` + Object.entries({ ...tally(res.violations), ...tally(table) }).map(([k, n]) => ` ${(RULES[k] || k).split(' ')[0]}=${n}`).join(''))
+  console.log(`[arch-policy] 违规合计 ${res.violations.length + table.length + exc.hard.length + exc.soft.length} 处:` + Object.entries({ ...tally(res.violations), ...tally(table), ...tally([...exc.hard, ...exc.soft]) }).map(([k, n]) => ` ${(RULES[k] || k).split(' ')[0]}=${n}`).join(''))
   console.log(`[arch-policy] 齐备性对账:E1 公开入口 ${decl.counters.entrypointsChecked} 条已核 → 解析不到 ${decl.counters.entrypointMissing} 条 | E2 契约工件:声明失踪 ${decl.counters.contractDeclaredMissing} 处、未齐备模块 ${decl.counters.contractAbsentModules} 块(未齐备这一档默认只报数 —— HEAD 实测存量十几块,即时判红就是恒红门;要按它问责跑 --strict)`)
+  console.log(
+    `[arch-policy] 例外寿命对账(X1/X2):表级例外 ${exc.counters.exceptions} 条 | 带合法 until ${exc.counters.dated} 条 | 无到期日 ${exc.counters.undated} 条(其中锚点面已是存量 ${exc.counters.undatedStock} 条 → 默认只报数、--strict 才判红;非存量 = 本次新增 → X1 判红)| 已过期 ${exc.counters.expired} 条(X2 即时判红,不套棘轮)` +
+      (exc.counters.anchorMissing ? ' | ⚠️ 锚点面(HEAD 那份表)取不到 ⇒ X1 不设基线,一律按新增问责(宁可多报,绝不静默放过)' : '') +
+      (exc.counters.expiryUndetermined ? ` | ⚠️ ${exc.counters.expiryUndetermined} 条带日期的例外**判不了过期与否**(today=${JSON.stringify(new Date().toISOString().slice(0, 10))} 不是合法日期)—— 未判定不得读成未过期` : '') +
+      (exc.counters.malformed ? ` | 连 id 都没有的畸形条目 ${exc.counters.malformed} 条(由 T1 点名,这里不重复计债)` : ''),
+  )
+  console.log(`[arch-policy] lint 抑制对账(DC):纳管块内 ${res.stats.suppressions} 处 / ${res.stats.suppressionFiles} 文件(判红口径:该文件当前数 > 其锚点面自身存量,只拦新增;本次上升 ${res.stats.suppressionGrowthFiles} 文件)| 含未收口块全量 ${res.stats.suppressionsAll} 处 / ${res.stats.suppressionFilesAll} 文件(未收口块不在 DC 射程,但必须报名 —— 不得把"纳管块 0 处"读成"全仓 0 处")| 锚点面:${suppressionAnchorNote}`)
   if (declCtx.unparsed.length) console.log(`[arch-policy] ⚠️ ${declCtx.unparsed.length} 份包清单 JSON.parse 失败(会被算成"入口解析不到",先修清单再看 E1):${declCtx.unparsed.join(', ')}`)
   const staleExc = softTable.filter((x) => x.rule === 'table-integrity').length
-  console.log(`[arch-policy] 判红 ${hard.length} 处(C1/T1 全仓即时 + 已收口模块的契约违规;E1/E2 的红只按 managed:true 问责)| 报数 ${soft.length} 处(managed:false 存量,不判红)` + (res.stats.exempted ? ` | 行内 arch-exempt 放过 ${res.stats.exempted} 处` : '') + (res.stats.policyExceptions ? ` | 策略表 exceptions 放过 ${res.stats.policyExceptions} 处` : '') + (res.stats.invalidExempt ? ` | arch-exempt 缺原因(不生效)${res.stats.invalidExempt} 处` : '') + (staleExc ? ` | 待清理的失效例外 ${staleExc} 条` : '') + (decl.counters.contractAbsentModules ? ` | E2 未齐备模块 ${decl.counters.contractAbsentModules} 块(默认只报数)` : ''))
+  console.log(`[arch-policy] 判红 ${hard.length} 处(C1/T1 全仓即时 + 已收口模块的契约违规 + X2 例外已过期;E1/E2 的红只按 managed:true 问责;DC 只在"该文件当前数 > 其锚点面存量"时红)| 报数 ${soft.length} 处(managed:false 存量,不判红)` + (res.stats.exempted ? ` | 行内 arch-exempt 放过 ${res.stats.exempted} 处` : '') + (res.stats.policyExceptions ? ` | 策略表 exceptions 放过 ${res.stats.policyExceptions} 处` : '') + (res.stats.invalidExempt ? ` | arch-exempt 缺原因(不生效)${res.stats.invalidExempt} 处` : '') + (staleExc ? ` | 待清理的失效例外 ${staleExc} 条` : '') + (exc.soft.length ? ` | 待裁的无到期日例外 ${exc.soft.length} 条` : '') + (decl.counters.contractAbsentModules ? ` | E2 未齐备模块 ${decl.counters.contractAbsentModules} 块(默认只报数)` : ''))
   if (res.stats.unowned.size) console.log(`[arch-policy] ⚠️ 含源文件却未登记进表的目录 ${res.stats.unowned.size} 个(只报数):${[...res.stats.unowned].slice(0, 12).join(', ')}${res.stats.unowned.size > 12 ? ' …' : ''}`)
   const staleIds = unusedExceptions(P, res.stats.exceptionIds, isStaged ? 'index' : 'HEAD')
   if (staleIds.length) console.log(`[arch-policy] ⚠️ 本轮一条都没命中的例外 ${staleIds.length} 条(清单腐烂候补,确认后可删):${staleIds.join(', ')}`)
@@ -1270,7 +1497,80 @@ modules:
   eq('与上条成对:主入口 "." 无清单时按 index 约定命中', resolveEntrypoint(mKinds, '.', faceOf(['packages/kinds/src/index.ts'])).path, 'packages/kinds/src/index.ts')
   eq('E2 模块根下的自述文档(README/AGENTS/CONTEXT)是合法契约工件', moduleContractArtifacts(EON.modules.get('packages/loose'), faceOf(['packages/loose/AGENTS.md']), EON).sufficient ? 1 : 0, 1)
   eq('E1 报账拆分:纳管块的红与未纳管块的报数各归各(不得互相顶替)', `${hardOf(noAlpha).filter((x) => x.module === 'packages/kinds').length}/${noAlpha.violations.filter((x) => x.soft && x.rule === 'entrypoint-missing').length}`, '1/1')
-  console.log(fail ? `\n❌ 自检 ${fail} 例失败` : `\n全部 ${ran} 例通过(成对正反例 + T1 表自洽 + E1/E2 声明齐备性 + 两面口径差异 + 空暂存回退 + 取材面提示语 + 解析器大声失败 + glob/relFrom)`)
+  // ── X1 / X2:表级例外的寿命(2026-09-27 补)。全部走**构造面**,不拿仓库瞬时状态当前提 ──
+  const exTable = (entries) => `
+version: 1
+constraints:
+  max_file_lines: 100
+  max_contract_file_lines: 40
+  max_public_exports: 5
+layers:
+  - id: 'contract'
+    rank: 10
+modules:
+  - id: 'packages/a'
+    package: '@ihui/a'
+    layer: 'contract'
+    exported: true
+    managed: true
+    roots:
+      - 'packages/a'
+    requires: []
+    public_entrypoints: []
+exceptions:
+${entries}
+`
+  const EX = (entries) => loadPolicy(parseYaml(exTable(entries), 'X'))
+  const exOf = (id) => `  - id: '${id}'\n    rule: 'file-lines'\n    module: 'packages/a'\n    status: 'debt'\n`
+  const withUntil = (id, until) => `${exOf(id)}    until: '${until}'\n    reason: '自检夹具:带到期日的例外'\n`
+  const noUntil = (id) => `${exOf(id)}    reason: '自检夹具:没有到期日的例外'\n`
+  const X = (P, o) => auditExceptionExpiry(P, { today: '2026-09-28', ...o })
+  const xRules = (r) => [...r.hard.map((x) => x.rule), ...r.soft.map((x) => `soft:${x.rule}`)]
+  eq('X2 已过期 ⇒ 判红并点名 id(不是只报数)', xRules(X(EX(withUntil('EX-GONE', '2020-01-01')), {})).join(','), 'exception-expired')
+  eq('X2 的判红必须把 id 打进消息里(否则修复者不知道该续哪一条)', /EX-GONE/.test(X(EX(withUntil('EX-GONE', '2020-01-01')), {}).hard[0].msg) ? 1 : 0, 1)
+  const okRun = X(EX(withUntil('EX-OK', '2099-12-31')), {})
+  eq('与上条成对:未过期 ⇒ 0 判红、只计数(dated=1)', `${okRun.hard.length}/${okRun.counters.dated}`, '0/1')
+  eq('到期日**当天仍有效**(与守门 108 的 isPast 同一条方向)', X(EX(withUntil('EX-D', '2020-01-01')), { today: '2020-01-01' }).hard.length, 0)
+  eq('与上条成对:次日即判红(方向反了就等于永久豁免)', X(EX(withUntil('EX-D', '2020-01-01')), { today: '2020-01-02' }).hard.length, 1)
+  eq('X1 缺 until + 锚点面(HEAD 那份表)已有同一条 ⇒ 存量只报数(不得转嫁成无关提交的红)', xRules(X(EX(noUntil('EX-STOCK')), { anchorUndatedIds: new Set(['EX-STOCK']) })).join(','), 'soft:exception-no-until')
+  eq('与上条成对:同一份表而锚点面没有该 id(= 本次新登记)⇒ X1 判红 —— "必须有到期日"在提交链上是生效的', xRules(X(EX(noUntil('EX-NEW')), { anchorUndatedIds: new Set() })).join(','), 'exception-no-until')
+  eq('--strict 把待裁存量也判红(默认只报数不是永久豁免;解阻动作见门头的 EX-C2-1 段)', X(EX(noUntil('EX-STOCK')), { anchorUndatedIds: new Set(['EX-STOCK']), strict: true }).hard.length, 1)
+  eq('锚点面取不到(null)⇒ 不设基线:无日期一律按新增问责,并在 counters 里留下 anchorMissing=1', `${X(EX(noUntil('EX-STOCK')), { anchorUndatedIds: null }).hard.length}/${X(EX(noUntil('EX-STOCK')), { anchorUndatedIds: null }).counters.anchorMissing}`, '1/1')
+  eq('非法月日判"没有日期"而不是 NaN 比较(NaN 与任何日期比较都是 false ⇒ 写歪一条就永不红)', xRules(X(EX(withUntil('EX-BAD', '2026-13-40')), { anchorUndatedIds: new Set() })).join(','), 'exception-no-until')
+  eq('把"永久"伪装成日期(2999-12-31)同样按格式拒绝 ⇒ 落 X1,不进 dated 计数', `${xRules(X(EX(withUntil('EX-FOREVER', '2999-12-31')), { anchorUndatedIds: new Set() })).join(',')}/${X(EX(withUntil('EX-FOREVER', '2999-12-31')), {}).counters.dated}`, 'exception-no-until/0')
+  eq('无 id 的畸形条目由 T1 点名,X1 只计 malformed、不重复判红(两道判据不得互相顶名额)', xRules(X(EX(`  - rule: 'file-lines'\n    module: 'packages/a'\n    reason: '自检夹具:缺 id 的畸形条目'\n`)), { anchorUndatedIds: new Set() }).join(','), '')
+  eq('与上条成对:同一条畸形在 T1 那里必须仍是红', auditPolicy(EX(`  - rule: 'file-lines'\n    module: 'packages/a'\n    reason: '自检夹具:缺 id 的畸形条目'\n`), ['packages/a/src/x.ts']).filter((x) => !x.soft).length, 1)
+  // 三条判据互不顶替:同一条例外可以既"永不命中"又"没有到期日",两边都必须各自报名
+  const bothP = ON
+  const bothX = X(bothP, { anchorUndatedIds: undatedExceptionIds(bothP) })
+  eq('既有行为不回退:永不命中的例外仍由 unusedExceptions 点名(X1/X2 不接管它)', unusedExceptions(bothP, new Set(['EX-DEBT-1']), 'HEAD').join(','), 'EX-STALE-1')
+  eq('既有行为不回退:同一张表里 X1 的存量档只报数(ON 的两条例外都无 until)', xRules(bothX).join(','), 'soft:exception-no-until,soft:exception-no-until')
+  eq('undatedExceptionIds 只收无合法 until 的 id(它是锚点与判据共用的唯一一份实现)', [...undatedExceptionIds(EX(`${withUntil('EX-A', '2099-01-01')}${noUntil('EX-B')}`))].join(','), 'EX-B')
+  eq('today 自身不是合法日期 ⇒ 整条"过期与否"判不了:记 expiryUndetermined 并报名,既不冒红也不记成未过期', (() => { const r = X(EX(withUntil('EX-EVIL', '2000-01-01')), { today: 'not-a-date' }); return `${r.hard.length}/${r.counters.expiryUndetermined}/${r.counters.expired}` })(), '0/1/0')
+  eq('与上条成对:同一份表给一个合法 today ⇒ 立刻判红(证明上一条的 0 是"判不了",不是"判了说没问题")', X(EX(withUntil('EX-EVIL', '2000-01-01')), { today: '2026-09-28' }).hard.length, 1)
+  // ── DC:纳管块内的 lint 抑制棘轮(锚点 = 该文件在锚点面自身的条数) ─────────────────
+  const dcPath = 'packages/kit/src/dc.ts'
+  const dcComment = "// eslint-disable-next-line no-console\nexport const a = 1\n"
+  const dcBlock = "/* eslint-disable */\nexport const a = 1\n"
+  const dcTsIgnore = "// @ts-ignore 自检夹具\nexport const a = 1\n"
+  const dcTsNocheck = "// @ts-nocheck\nexport const a = 1\n"
+  const dcInString = "export const s = '@ts-ignore'\nexport const re = /eslint-disable/\n"
+  const dcReds = (r) => r.red.filter((x) => x.rule === 'lint-suppression-growth').length
+  eq('DC 纳管块新增裸 eslint-disable(锚点面该文件 0 处 = 新文件)⇒ 判红', dcReds(analyze(ON, F({ [dcPath]: dcComment }), { suppressionAnchors: new Map() })), 1)
+  eq('与上条成对:同一份内容而锚点面已有 1 处 ⇒ 只报数不判红(存量不得转嫁)', dcReds(analyze(ON, F({ [dcPath]: dcComment }), { suppressionAnchors: new Map([[dcPath, 1]]) })), 0)
+  eq('DC 下降(别人删了抑制)同样不判红 —— 棘轮只拦上升', dcReds(analyze(ON, F({ [dcPath]: dcComment }), { suppressionAnchors: new Map([[dcPath, 5]]) })), 0)
+  eq('全量档(锚点与内容同面 ⇒ 恒等)不得因存量判红:这一条就是"真仓 HEAD 面不新增红"的机制证明', dcReds(analyze(ON, F({ [dcPath]: dcComment.repeat(4) }), {})), 0)
+  eq('报账不被静默:未判红也要把条数打进 stats(否则"没看见"与"没有"在账面上同形)', analyze(ON, F({ [dcPath]: dcComment }), { suppressionAnchors: new Map([[dcPath, 1]]) }).stats.suppressions, 1)
+  eq('块级豁免:未收口块(managed:false)的抑制不在 DC 射程 ⇒ 0 判红、0 纳管计数,但全量计数必须报名', (() => { const r = analyze(OFF, F({ [dcPath]: dcComment }), { suppressionAnchors: new Map() }); return `${dcReds(r)}/${r.stats.suppressions}/${r.stats.suppressionsAll}` })(), '0/0/1')
+  eq('字面量里的同名样例不得算抑制(门不得把自己写的散文判成违规;守门 131 同型)', suppressionCount(dcInString), 0)
+  eq('与上条成对:同一批字样写进注释必须算(证明清空只关掉字符串那一格,不是把判据关掉)', `${suppressionCount(dcTsIgnore)}/${suppressionCount(dcTsNocheck)}`, '1/1')
+  eq('块注释形态必须被看见(与行注释同权)', suppressionCount(dcBlock), 1)
+  eq('预筛必须是判据字面量的超集:@ts-nocheck 也得进重路径(漏了它,门对该形态全盲而一路报绿)', mayHaveSuppression(dcTsNocheck) ? 1 : 0, 1)
+  eq('与上条成对:不含任何判据字面量的文本必须被预筛挡下(否则预筛等于没筛)', mayHaveSuppression('export const a = 1\n') ? 1 : 0, 0)
+  eq('预筛串必须逐字覆盖守门 108 认的两族字面量(它扩族而本门不跟,DC 就对新形态失明)', `${SUPPRESS_PREFILTER.join(',')}|${scanExemptionLedger('virtual', blankStrings(dcTsNocheck + dcComment)).suppressions['ts-ignore']}/${scanExemptionLedger('virtual', blankStrings(dcTsNocheck + dcComment)).suppressions['eslint-disable']}`, 'eslint-disable,@ts-|1/1')
+  eq('计数实现只有一份:DC 的数必须等于守门 108 scanFile 在同一个遮罩面上的读数', suppressionCount(dcComment + dcTsIgnore) === Object.values(scanExemptionLedger('virtual', blankStrings(dcComment + dcTsIgnore)).suppressions).reduce((a, b) => a + b, 0) ? 1 : 0, 1)
+  eq('analyze 未收口块也不得把增长红算进 red:同一份 import 违规 + 抑制上升,两类各归各', analyze(OFF, F({ [dcPath]: dcComment }), { suppressionAnchors: new Map() }).red.length, 0)
+  console.log(fail ? `\n❌ 自检 ${fail} 例失败` : `\n全部 ${ran} 例通过(成对正反例 + T1 表自洽 + E1/E2 声明齐备性 + X1/X2 例外寿命 + DC lint 抑制棘轮 + 两面口径差异 + 空暂存回退 + 取材面提示语 + 解析器大声失败 + glob/relFrom)`)
   process.exit(fail ? 1 : 0)
 }
 
@@ -1291,5 +1591,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { parseYaml, loadPolicy, analyze, auditPolicy, auditDeclarations, resolveEntrypoint, moduleContractArtifacts, declarationContext, extractSpecs, globToRe, mkMatcher, matchEntrypoint, relFrom, pickPolicySource, policyFaceOrder, planStagedScope, policyFaceNotice, registrationOf, unusedExceptions, RULES, ALWAYS_RED, POLICY_REL }
+export const __test__ = { parseYaml, loadPolicy, analyze, auditPolicy, auditDeclarations, resolveEntrypoint, moduleContractArtifacts, declarationContext, extractSpecs, globToRe, mkMatcher, matchEntrypoint, relFrom, pickPolicySource, policyFaceOrder, planStagedScope, policyFaceNotice, registrationOf, unusedExceptions, validUntil, undatedExceptionIds, mayHaveSuppression, suppressionCount, auditExceptionExpiry, RULES, ALWAYS_RED, POLICY_REL, SUPPRESS_PREFILTER, UNTIL_RE }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
