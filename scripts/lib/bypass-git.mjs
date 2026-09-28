@@ -180,6 +180,9 @@ function indexLockPath({ root }) {
  * 把共享主索引逐路径对齐到新 blob。**只有一条实现**(land-r24 与 reconcile-index 曾各写一份并漂开):
  * 动某路径 ⇔ 索引里没有它,或索引 blob == **父提交**(= 本次 CAS 的旧值那一枚提交)在该路径的 blob。
  * 两者都不成立 ⇒ 别人已真暂存 ⇒ 一律不动并点名"归属他人"。锁在位时按轮等待;锁龄超上限不代删。
+ * **删除与改动同判据**:新 HEAD 里没有这条路径时,"索引==父提交态"就清掉索引里的残留(不留 `D ` 幽灵,
+ * 否则任何人一次不带 pathspec 的提交会把刚删的文件加回 HEAD —— 本仓一枚孤儿组件因此连着复活四次);
+ * "索引里没有"算已就位;"索引≠父提交态"仍归他人不动。
  * 返回 { moved, already, skipped:[{path,reason}], undetermined:[{path,reason}], lockAbandoned, failed }。
  */
 export function alignSharedIndex({
@@ -212,11 +215,35 @@ export function alignSharedIndex({
     try {
       for (const p of paths) {
         const want = headBlobOf('HEAD', p, { root })
+        const cur = indexBlobOf(p, { root })
         if (want === ABSENT) {
-          undetermined.push({ path: p, reason: 'HEAD 里没有这条 ⇒ 无法对齐,先核对提交面' })
+          // 本次提交把这条路径**删掉**了 ⇒ 索引里也不该再留着它。
+          // 判据与"改动"档同形,不是另立一套:索引没有 ⇒ 已就位;索引==父提交态 ⇒ 是本次删除的残留,清掉;
+          // 否则别人真暂存过 ⇒ 归属他人,一律不动。
+          // 为什么不能像旧版那样一句"HEAD 里没有这条 ⇒ 无法对齐"就放过:那会让索引留着旧 blob、
+          // `git status` 显一条 `D `,此后任何人一次不带 pathspec 的普通提交就把刚删的死文件**加回 HEAD**
+          // —— 本仓一枚孤儿组件被这样连着复活四次(2026-09-27 至 09-28),而每次复活都让引用它的
+          // 语言包判据红在干净 HEAD 上(恒红门 ⇒ 各会话被逼跳门 ⇒ 全部守门作废)。
+          if (cur === UNKNOWN) {
+            undetermined.push({ path: p, reason: '索引问不到(git 不可达) ⇒ 删除残留无从判定' })
+            continue
+          }
+          if (cur === ABSENT) {
+            already.push(p)
+            continue
+          }
+          const parentBlobForDelete = headBlobOf(parentRef, p, { root })
+          if (cur === parentBlobForDelete) {
+            git(['update-index', '--force-remove', '--', p], { root })
+            moved.push(p)
+          } else {
+            skipped.push({
+              path: p,
+              reason: `索引=${String(cur).slice(0, 9)} ≠ 父提交态 ⇒ 别人已暂存,归属他人,不代删`,
+            })
+          }
           continue
         }
-        const cur = indexBlobOf(p, { root })
         if (cur === UNKNOWN) {
           undetermined.push({ path: p, reason: '索引问不到(git 不可达)' })
           continue
