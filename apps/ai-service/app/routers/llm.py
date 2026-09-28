@@ -224,10 +224,73 @@ _APPROVAL_KEEPALIVE_INTERVAL = 15  # 秒:等待期间发 SSE 注释行,防前端
 # 决策/超时后由等待方清理(防内存泄漏)。
 _approval_sessions: dict[str, dict[str, dict[str, Any]]] = {}
 
+
+def _persist_grant_rule(entry: dict[str, Any] | None, tool_name: str, session_id: str) -> None:
+    """D158:审批条目带 grant_rule 且工具是 run_command 时,把 argv 前缀落成放行规则。
+
+    键空间唯一实现:approval_persistence.normalize_exec_key(与 mcp_server 共用);
+    TTL=90 天(用户批的预填口径);登记失败只 warn,不阻断本次已批准的执行 ——
+    宁可下次同类命令再问一次,也不因规则落库失败把用户批准的执行打断。
+    """
+    if not isinstance(entry, dict):
+        return
+    gr = entry.get("grant_rule")
+    if not (isinstance(gr, dict) and gr.get("kind") == "exec_prefix"):
+        return
+    if tool_name != "run_command":
+        return
+    argv = entry.get("argv") or []
+    if not isinstance(argv, (list, tuple)) or len(argv) < 1:
+        return
+    try:
+        from app.services import approval_persistence as _ap
+
+        tokens = max(1, min(4, int(gr.get("tokens", 2))))
+        cache_key = _ap.normalize_exec_key([str(x) for x in argv[:tokens]])
+        _ap.grant("always", cache_key, "exec_prefix", ttl_days=90)
+        logger.info(
+            "D158 前缀放行规则已登记(session=%s, argv前缀=%s, ttl=90d)",
+            session_id,
+            list(argv[:tokens]),
+        )
+    except Exception:  # noqa: BLE001 - 登记失败不阻断已批准的执行
+        logger.warning(
+            "D158 前缀放行规则登记失败(session=%s, tool=%s)",
+            session_id,
+            tool_name,
+            exc_info=True,
+        )
+
+
+def _exec_prefix_grant_hits(argv: list[str] | tuple[str, ...]) -> bool:
+    """D158:命令 argv 是否命中任一已登记的前缀放行规则(持久层,经 approval_persistence)。
+
+    匹配键空间与 mcp_server._matches_exec_prefix 同一份(normalize_exec_key);
+    本函数是主对话流(run_command 工具)的**判定出口**,mcp 侧继续用它自己的内存表+持久层
+    双查 —— 两处共用"键怎么算"这一份实现,不共内存表(两套生命周期,各自兜底)。
+    fail-closed:持久层查询异常视为未命中(宁可多问一次,不放行)。
+    """
+    try:
+        from app.services import approval_persistence as _ap
+
+        for _n in range(1, min(4, len(argv)) + 1):
+            if _ap.check(_ap.normalize_exec_key([str(x) for x in argv[:_n]]), "exec_prefix"):
+                return True
+        return False
+    except Exception:  # noqa: BLE001
+        return False
+
 # 会话内「总是允许」授权缓存(内存 dict;轻量对齐 agent_loop_v2 审批缓存语义):
-# key = f"{session_id}::{tool_name}" -> scope('session'|'always')。
+# session_id -> {tool_name -> scope('session'|'always')}。
 # once 不落缓存;进程重启即失效(session/always 均为内存态,V3 #58 先落地主链路)。
-_tool_approval_grants: dict[str, str] = {}
+# 桶形(2026-09-28 改,原先是平铺 `f"{session_id}::{tool_name}"` 键):流收尾必须能把
+# 这一个 session 的授权整桶收回,平铺键做不到"按会话清"——`_delegate_sessions` /
+# `_form_sessions` / `_steer_sessions` 三个同级注册表都在 gen() 的 finally 里清,
+# 只有这一张没人清,于是每个授权过的 (轮 × 工具) 永久留一格,直到进程重启。
+# 而"永久留着"并不放行任何东西:`streamSessionId` 由网关**每轮**新生成
+# (`apps/api/src/routes/ai-chat-stream.ts` 的 `randomUUID()`,缺省时本文件 2684 行另生成 uuid),
+# 下一轮换一个 id,根本读不到上一轮那格。
+_tool_approval_grants: dict[str, dict[str, str]] = {}
 
 # =============================================================================
 # V3 #63(2026-09-27 立):主对话流业务表单帧 form_request / 应答端点 form-response
@@ -3733,9 +3796,18 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 if session_id is None:
                                     # 兜底:理论上 gen() 开始时已生成(与 delegate 分支同防御)
                                     session_id = str(uuid.uuid4())
-                                _grant_key = f"{session_id}::{tool_name}"
-                                if _tool_approval_grants.get(_grant_key) in ("session", "always"):
+                                _grant_scope = _tool_approval_grants.get(session_id, {}).get(tool_name)
+                                if _grant_scope in ("session", "always"):
                                     # 会话内「总是允许」命中:免弹窗(与 agent_loop_v2 审批缓存同语义)
+                                    _approval_needed = False
+                                # D158:run_command 额外查前缀放行规则(第四档批准时登记的
+                                # 持久层规则;跨会话、跨重启有效)。命中免弹窗,规则长期
+                                # 有效但可经审批授予列表撤销(见 revoke 出口)。
+                                if (
+                                    _approval_needed
+                                    and tool_name == "run_command"
+                                    and _exec_prefix_grant_hits(args.get("argv") or [])
+                                ):
                                     _approval_needed = False
                             if _approval_needed:
                                 # 类型收窄兜底(与 delegate 分支同一模式):走到本块 ⇒ 上方 grant
@@ -3801,7 +3873,13 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     _approval_sessions.get(session_id, {}).pop(_approval_id, None)
                                 if _decision == "approve" and _scope in ("session", "always"):
                                     # 落会话内授权缓存(once 不落,下次同工具仍弹窗)
-                                    _tool_approval_grants[_grant_key] = _scope
+                                    _tool_approval_grants.setdefault(session_id, {})[tool_name] = _scope
+                                # D158:第四档「批准并生成放行规则」—— 只对 run_command 生效,
+                                # 按 argv 前 N 个 token 落**前缀**规则(持久层,90 天 TTL,
+                                # 与 mcp_server 的 exec_prefix 同一键空间)。落规则提成
+                                # _persist_grant_rule(可单测;失败不阻断本次执行)。
+                                if _decision == "approve":
+                                    _persist_grant_rule(_entry, tool_name, session_id)
                                 if _decision is None or _decision != "approve":
                                     _is_timeout = _decision is None
                                     _denied_why = (
@@ -4577,6 +4655,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 端点此后对本 session 返回 404)
             if session_id:
                 _steer_sessions.pop(session_id, None)
+            # 审批授权缓存(V3 #58,2026-09-28 补这一格):与上面三个注册表同时收尾。
+            # 语义不变:session_id 每轮都是新 uuid(见 _tool_approval_grants 头注),
+            # 下一轮本来就读不到这桶,所以清掉它不改变任何一次放行判断,只把"内存里
+            # 永远长着一格"改成"随流收尾归零" —— 声明的寿命与执行的寿命必须同形。
+            if session_id:
+                _tool_approval_grants.pop(session_id, None)
             # D1(2026-09-19 立):流收尾处发出消息级 usage 计量帧(event: usage)。
             # 覆盖所有收尾路径(正常 done / 异常 error / 客户端断开),确保每条回复结束都能拿到
             # 本条消息的 token 用量与耗时。独立 try:计量帧失败/生成器关闭绝不影响主链路。
@@ -4719,8 +4803,18 @@ async def post_tool_approval_response(session_id: str, body: dict[str, Any] = Bo
     scope = str(body.get("scope") or "once").strip().lower()
     if scope not in ("once", "session", "always"):
         scope = "once"
+    # D158(2026-09-28,用户批"按预填上"):正交扩展 grant_rule —— 与三档 scope 语义并行,
+    # 不新增第四个 scope 字符串。approve 时附带 = "顺手把这类命令写成前缀放行规则"。
+    grant_rule_raw = body.get("grant_rule")
+    grant_rule: dict[str, Any] | None = None
+    if isinstance(grant_rule_raw, dict):
+        _gk = str(grant_rule_raw.get("kind") or "")
+        _gt = grant_rule_raw.get("tokens", 2)
+        if _gk == "exec_prefix" and (isinstance(_gt, int) and 1 <= _gt <= 4):
+            grant_rule = {"kind": "exec_prefix", "tokens": int(_gt)}
     entry["decision"] = decision
     entry["scope"] = scope
+    entry["grant_rule"] = grant_rule  # None = 未要求生成规则(旧客户端语义不变)
     reason = body.get("reason")
     entry["reason"] = str(reason)[:500] if reason else None  # 截断与网关 schema 上限对齐
     entry["event"].set()
