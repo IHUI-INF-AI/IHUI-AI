@@ -75,7 +75,7 @@ export function WebhookDialog({
                   type="button"
                   onClick={() => onToggleEvent(ev)}
                   className={cn(
-                    'rounded-md border px-2.5 py-1 text-xs transition-colors',
+                    'rounded-sm border px-2.5 py-1 text-xs transition-colors',
                     events.includes(ev)
                       ? 'border-brand-accent-deep bg-primary/10 text-primary'
                       : 'text-muted-foreground hover:bg-accent',

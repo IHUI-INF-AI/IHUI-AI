@@ -93,7 +93,7 @@ export default function ChatTemplatesPage() {
           <button
             onClick={() => setActiveCat('all')}
             className={cn(
-              'rounded-md px-3 py-1 text-xs font-medium transition-colors',
+              'rounded-sm px-3 py-1 text-xs font-medium transition-colors',
               activeCat === 'all'
                 ? 'bg-cta text-cta-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-accent',
@@ -106,7 +106,7 @@ export default function ChatTemplatesPage() {
               key={c.id}
               onClick={() => setActiveCat(c.id)}
               className={cn(
-                'rounded-md px-3 py-1 text-xs font-medium transition-colors',
+                'rounded-sm px-3 py-1 text-xs font-medium transition-colors',
                 activeCat === c.id
                   ? 'bg-cta text-cta-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-accent',
