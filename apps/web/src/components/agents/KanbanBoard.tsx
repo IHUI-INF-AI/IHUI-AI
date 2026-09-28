@@ -39,7 +39,12 @@ import {
   getKanbanStreamUrl,
 } from '@/lib/agent-kanban-api'
 import type { KanbanColumn as KanbanColumnData, KanbanTask } from '@ihui/types'
-import { AGENT_TASK_STATUSES } from '@ihui/types'
+import {
+  AGENT_TASK_STATUSES,
+  UNRECOGNIZED_STATUS_LABEL_KEY,
+  countUnrecognizedTasks,
+  i18nLeafKey,
+} from '@ihui/types'
 import { KanbanColumn } from './KanbanColumn'
 import { TaskDetailDialog } from './TaskDetailDialog'
 
@@ -49,6 +54,14 @@ import { TaskDetailDialog } from './TaskDetailDialog'
 // 改任一侧即静默分叉且全仓无判据 —— 取证见 docs/d6-convergence-audit-2026-09-27.md §2.3。
 // 尺子:scripts/check-agent-status-vocabulary-parity.mjs(SV3 判"端内第二份成员清单")。
 const COLUMN_STATUSES = AGENT_TASK_STATUSES
+
+/**
+ * "未识别"档的文案键末段(2026-09-28 立)。键名住在 @ihui/types,端内只取末段 ——
+ * 在这里再抄一份裸字面量当键名就是第二份真相(它漂移时界面只显示键名)。
+ * 这一档刻意**不进 COLUMN_STATUSES**:六档是对外契约,未识别项也不得被塞进任何已知列,
+ * 它只以一枚计数存在(AGENTS §30「没有终态就写已完成是本仓最高频的失效型」)。
+ */
+const UNRECOGNIZED_LABEL_LEAF = i18nLeafKey(UNRECOGNIZED_STATUS_LABEL_KEY)
 const PRIORITY_OPTIONS = [
   { value: '10', labelKey: 'high' },
   { value: '5', labelKey: 'medium' },
@@ -65,6 +78,8 @@ const KANBAN_LABEL_KEY: Record<string, string> = {
 export function KanbanBoard() {
   const t = useTranslations('agent')
   const tc = useTranslations('common')
+  // 未识别档的徽章文案与列头同命名空间(agents.kanban.*),不另开一套键(AGENTS §19)
+  const tk = useTranslations('agents.kanban')
   const queryClient = useQueryClient()
   const { success } = useToast()
 
@@ -74,15 +89,26 @@ export function KanbanBoard() {
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['agents-kanban', activeTeamId ?? 'all'],
-    queryFn: async (): Promise<KanbanColumnData[]> => {
+    // 列数组 + "未识别"计数:计数与列**分家带**,绝不混进任何一列的 tasks(那等于按已知档统计)。
+    queryFn: async (): Promise<{ columns: KanbanColumnData[]; unrecognizedCount: number }> => {
       // 2-2 团队过滤:选了团队时走 tasks?teamId= 再前端组列;未选走默认 6 列视图
-      if (!activeTeamId) return fetchKanbanColumns()
+      if (!activeTeamId) {
+        const columns = await fetchKanbanColumns()
+        return {
+          columns,
+          unrecognizedCount: countUnrecognizedTasks(columns.flatMap((column) => column.tasks)),
+        }
+      }
       const tasks = await fetchKanbanTasks(undefined, activeTeamId)
-      return COLUMN_STATUSES.map((status) => ({
-        status,
-        titleKey: `agents.kanban.${status}`,
-        tasks: tasks.filter((task) => task.status === status),
-      }))
+      return {
+        columns: COLUMN_STATUSES.map((status) => ({
+          status,
+          titleKey: `agents.kanban.${status}`,
+          tasks: tasks.filter((task) => task.status === status),
+        })),
+        // 未识别项刻意不进上面任何一列,只在这一维计数
+        unrecognizedCount: countUnrecognizedTasks(tasks),
+      }
     },
   })
 
@@ -173,7 +199,8 @@ export function KanbanBoard() {
     }
   }
 
-  const columns = data ?? []
+  const columns = data?.columns ?? []
+  const unrecognizedCount = data?.unrecognizedCount ?? 0
 
   return (
     <div className="px-4 py-4 flex h-full flex-col space-y-4">
@@ -339,6 +366,26 @@ export function KanbanBoard() {
           </Dialog>
         </div>
       </div>
+
+      {/* 未识别档只报数(2026-09-28 立):库里被写进六档之外的状态值,
+          既不能被静默当成某个已知档(含"完成/失败"),也不能不吭声地不进任何列。
+          计数与列分开渲染,原始状态串不进界面文案位(它是外部可写的值 —— 文案位即注入面)。 */}
+      {unrecognizedCount > 0 && (
+        <div
+          className="flex items-center gap-2 rounded-md bg-muted px-3 py-1.5 text-xs text-muted-foreground"
+          data-testid="kanban-unrecognized-summary"
+        >
+          {/* 数字计数徽章按 AGENTS §4 的确定性居中模板(inline-flex + justify-center +
+              leading-none + min-w + tabular-nums),否则位数一变就在色块里偏位 */}
+          <span
+            className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-background px-1 text-[10px] font-semibold leading-none tabular-nums"
+            data-testid="kanban-unrecognized-count"
+          >
+            {unrecognizedCount}
+          </span>
+          <span>{tk(UNRECOGNIZED_LABEL_LEAF)}</span>
+        </div>
+      )}
 
       {/* 看板区域 */}
       {isLoading ? (
