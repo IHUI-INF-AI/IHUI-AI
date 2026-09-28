@@ -3928,6 +3928,26 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 服务二进制路径存续性对账(1 项,warn)---
+  {
+    id: '153',
+    label:
+      '🛡️ 服务二进制路径存续性对账(判机器状态:nssm 各服务 Application 绝对路径存在性;三态不并桶,§12e 只能 warn)',
+    script: 'check-service-binary-paths.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_SERVICE_BINARY_PATHS',
+    stagedTriggers: [],
+    onFailHint: [
+      '',
+      '本门判的是"这台机装了什么",不是本次提交改了什么 ⇒ 定级 warn:',
+      '  挂 blocking 会让每台每次提交被逼 --no-verify,一次绕过等于全部守门对该提交作废(§12e)。',
+      '三态:可判存在 / 确认缺失 / 未判定;枚举不到 nssm 服务时如实报未判定,不冒充通过。',
+      '问责跑 --strict;应急跳过 HUSKY_SKIP_SERVICE_BINARY_PATHS=1。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
