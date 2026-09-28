@@ -19,6 +19,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import time
 from typing import Any
 
@@ -48,6 +50,19 @@ MEMORY_ENDPOINTS: tuple[tuple[str, str, dict[str, Any]], ...] = (
     ("get", "/api/memory/episodic", {"params": {"user_id": USER_B}}),
     ("get", "/api/memory/procedural", {"params": {"user_id": USER_B}}),
     ("post", "/api/memory/procedural", {"json": {"user_id": USER_B, "pattern": "p"}}),
+)
+
+# 只挂身份地板、**不收 user_id** 的端点(GET /memory/working:句柄是 session_id,
+# 归属由条目自身的属主决定,见 services/memory_service.py::entry_visible_to)。
+# 它进不了 MEMORY_ENDPOINTS —— 那组的 403 用例靠"请求里带别人的 user_id"构造,
+# 这个端点根本没这个参数;但"缺身份必 401"两条对它是**同样成立**的判据。
+IDENTITY_ONLY_ENDPOINTS: tuple[tuple[str, str, dict[str, Any]], ...] = (
+    ("get", "/api/memory/working", {"params": {"session_id": "any-session"}}),
+)
+
+# 参与"缺身份 → 401"两条参数化用例的全集
+ALL_PROTECTED_ENDPOINTS: tuple[tuple[str, str, dict[str, Any]], ...] = (
+    MEMORY_ENDPOINTS + IDENTITY_ONLY_ENDPOINTS
 )
 
 
@@ -157,14 +172,14 @@ async def probe_client() -> Any:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("method,path,kwargs", MEMORY_ENDPOINTS)
+@pytest.mark.parametrize("method,path,kwargs", ALL_PROTECTED_ENDPOINTS)
 async def test_missing_identity_is_401(bare_client: AsyncClient, method: str, path: str, kwargs: dict[str, Any]) -> None:
     """生产态(jwt_secret 非空)无任何身份 → 端点级 require_request_user_id 必 401。"""
     resp = await getattr(bare_client, method)(path, **kwargs)
     assert resp.status_code == 401, f"{method.upper()} {path} 缺端点级鉴权地板(实得 {resp.status_code})"
 
 
-@pytest.mark.parametrize("method,path,kwargs", MEMORY_ENDPOINTS)
+@pytest.mark.parametrize("method,path,kwargs", ALL_PROTECTED_ENDPOINTS)
 async def test_anonymous_through_middleware_is_401(probe_client: AsyncClient, method: str, path: str, kwargs: dict[str, Any]) -> None:
     """真实中间件下匿名请求同样 401(中间件层,与端点层互为冗余)。"""
     resp = await getattr(probe_client, method)(path, **kwargs)
@@ -220,77 +235,92 @@ async def test_same_owner_request_reaches_service(probe_client: AsyncClient, met
 
 
 # ===========================================================================
-# GET /api/memory/working —— 属主绑定缺口的**现状钉桩**(2026-09-27 安全票)
+# GET /api/memory/working —— 2026-09-28 收紧落地:下面这组**原为「现状钉桩」**
+# (2026-09-27 安全票),当时该端点既无端点级 401 地板、也无属主过滤。
+# 按票面纪律,这些测试**一条都不删**,只把断言从「泄漏成立」逐条改判为「泄漏被封」;
+# 原文记录的现状一并留在下面这张清单里,免得下一个人把「曾经是什么样」读成猜测。
 #
-# 为什么单列一段而不是并进 MEMORY_ENDPOINTS:该端点今日**既无端点级 401 地板
-# (整层不挂 Depends)、也无属主过滤**(memory.py:208-215 只收 session_id;
-# memory_service.get_working 是 `self._working.get(session_id)`,services/
-# memory_service.py:249-256),并入会立刻红在"它回 200 不回 403"上 —— 那是把
-# 未收口面伪装成已收口。现读结论(派单口径,勿照抄本段做二次派单):
-#   ① 仓内**无活读调用方**:全仓 `git grep memory/working` 唯一指向 ai-service 的
-#      入口是 apps/api v1 网关转发(v1-knowledge-tools.ts:2315-2336),其 handler
-#      为 `async (_request, reply)`(入站请求根本没用),path 是定值字符串、init
-#      不带 query ⇒ 到 ai-service 时缺必填 session_id ⇒ 422 ⇒ forwardAiService
-#      折叠成 503 —— 结构死路(该文件 :2333-2335 注释与其测试
-#      apps/api/tests/v1-memory-principal.test.ts:306-319 均自述"主体豁免")。
-#      SDK(webapi/go/java/python/dotnet)的 working() 都走该死网关;CLI 只写
-#      (tools/memory.ts:295 save layer=working,会话号为宿主进程内 randomUUID,
-#      模型不可填)不读;api-client 的 ai-service 直连基址(client.ts:3549-3557)
-#      只用于 tool-result/form 上行,零 memory 端点。
-#   ② session↔owner **权威来源缺失**,故本票**不改行为**:working 桶条目不落属主
-#      (memory_service.py:217 键只有 session_id、:229-240 的 msg 无 user 字段,
-#      save() 的 working 分支 :677-680 把已解析的 owner 直接丢弃);
-#      agent_memory_episodic 虽有 (session_id,user_id) 列(:288-289),但只覆盖
-#      写过 episodic 的会话,working-only 桶(CLI 每进程随机会话号)无行可查;
-#      session_store 的 threads 是另一 id 命名空间且无 user_id 列(属主只在
-#      metadata JSON,session_store.py:270)。不得凭猜造一份。
-# 下面的钉桩成对存在:反向两条把"他人可读"记成机器可见的事实,**收紧落地时必须
-# 逐条改成断言拒绝并留本段(禁止删测试** —— 删掉等于把漏洞行为当没发生过);
-# 正向对照(自己读自己)在收紧后必须仍是 200,它们同时是"未发出查询"式断言的
-# 非恒真证明(与本文件既有 doctrine 同一条禁令)。
-# 同形口径(收紧时的建议,归持有人拍板):今日"不存在"回 200+空桶
-# (test_working_unknown_session_is_empty_today),故"不是你的"应与"不存在"**同形**
-# (空桶),否则端点变成存在性预言机;差别须写进落地注释,不得抄成 403 了事。
+# 原状(2026-09-27 现读,已由本票逐条改判):
+#   ① 端点不挂 Depends ⇒ 匿名请求直接打到服务层并 200(原 test_working_no_identity_
+#      reaches_store_today 记的就是这一格);
+#   ② 服务层是 `self._working.get(session_id)`、零属主过滤 ⇒ A 持合法令牌填 B 的
+#      session_id 即可读到 B 的工作记忆,且到达服务层的参数只有 {session_id, limit}
+#      —— 属主从未穿过服务边界(原 test_working_cross_session_read_leaks_under_valid_token);
+#   ③ working 条目不落属主:旧 `add_working` 没有 owner 形参;旧 `save()` 的 working 分支
+#      是「先入桶、再对返回值补 msg['\''userId'\'']」(锁外后置改写,并发读能撞进无主窗口);
+#   ④ 「不存在」回 200 + 空桶(原 test_working_unknown_session_is_empty_today)—— 这一条
+#      不是漏洞,而是**同形口径的基准**:「不是你的」必须与它回同一个形状,否则端点
+#      退化成存在性预言机(§5「两条同形的拒绝口径」)。
+#   ⑤ 权威来源:agent_memory_episodic 的 (session_id, user_id) 列;session_store 的
+#      threads 是另一个 id 命名空间且无 user_id 列,不得当权威。本票按此把 owner 写进
+#      条目、存量走 scripts/backfill_working_owner.py 幂等回填,推不出的**保持无主**
+#      —— 无主条目按 `entry_visible_to` 分支 2 维持改动前行为,**这是回退不是授权结论**。
 # ===========================================================================
 
 WORKING_METHOD_PATH = "get /api/memory/working"
 
-# 待对齐台账:路径 → 为什么还开着(归属四态之一:等"权威来源"定夺)。
-# 收紧落地时:该条必须整行删除,且端点移入 MEMORY_ENDPOINTS + 上方钉桩改判拒绝。
-WORKING_PENDING_LEDGER: dict[str, str] = {
-    WORKING_METHOD_PATH: (
-        "session↔owner 权威来源缺失(working 桶不记属主;episodic 的 (session_id,"
-        "user_id) 只覆盖写过 episodic 的会话;session_store threads 是另一 id 命名空间)"
-        "⇒ 现状由本文件 test_working_* 钉桩;定权威来源前禁止并入 MEMORY_ENDPOINTS"
-    ),
-}
+# 待对齐台账:收紧落地后**必须恒为空**。留着这个空字典而不是删掉,是因为它同时是
+# 「清单存续性锁」的三选一出口 —— 哪天新增一条既没收口、又进不了上面两组的 /memory/*
+# 路由,补进这里必须连现状钉桩一起写,并且本文件 `test_memory_endpoint_ledger_*`
+# 会因为「台账非空」当场红:那是**故意**的,未收口面不该能安静地挂进台账。
+WORKING_PENDING_LEDGER: dict[str, str] = {}
 
 _SESSION_OF_B = "session-of-user-b-working-pin"
 _OWN_SESSION_OF_A = "session-owned-by-user-a-working-pin"
-_B_SECRET_CONTENT = "B 的私有工作记忆(越权现状钉桩标记)"
+_LEGACY_SESSION = "legacy-unowned-session-working-pin"
+_MIXED_SESSION = "mixed-owner-session-working-pin"
+_B_SECRET_CONTENT = "B 的私有工作记忆(越权钉桩标记)"
 _A_OWN_CONTENT = "A 自己的 working 记忆(正向对照)"
+_LEGACY_CONTENT = "收口前写入的无主条目(回退档正向对照)"
 
 
-def _working_stub_factory(
+def _install_working_service(
     monkeypatch: pytest.MonkeyPatch,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """按真实 get_working 的语义(查不到 = 空列表)造可观测桶。
+) -> tuple[Any, list[dict[str, Any]]]:
+    """把**真实** MemoryService 装到端点的模块属性上,并记录每一次内容读取(不预置数据)。
 
-    返回 (calls, buckets 无关) —— calls 逐次记录服务层收到的参数,让
-    "owner 从未穿过服务边界"成为可断言的事实,而不是只断响应码。
+    为什么用真服务而不是手写桶 stub:本票要判的是「读侧过滤真的封住了越权」,而过滤逻辑
+    在 `MemoryService.entry_visible_to` / `get_working` 里 —— stub 掉它,测试判的就只是
+    「端点调了一个假函数」(§22c「镜像测试只复读实现就是复读机」同一条禁令)。
+    working 层全程不碰 DB(§5 测试隔离铁律由本文件 `_forbid_production_db` 兜底:
+    这些用例一次都不会去建连接池)。
+
+    刻意不在这里 seed:`add_working` 是协程,而 async 用例已在跑动的 loop 里 ——
+    在夹具里 asyncio.run 会直接 RuntimeError,所以 seeding 交给 `await _seed_buckets(svc)`
+    (同一条 sync 降级用例把 seed+请求放进同一个 asyncio.run 里跑)。
     """
+    from app.services.memory_service import MemoryService
+
+    svc = MemoryService(gateway=object())
     calls: list[dict[str, Any]] = []
+    original_get = svc.get_working
 
-    async def _get_working(session_id: str, limit: int = 50) -> list[dict[str, Any]]:
-        calls.append({"session_id": session_id, "limit": limit})
-        if session_id == _SESSION_OF_B:
-            return [{"id": "b1", "sessionId": _SESSION_OF_B, "content": _B_SECRET_CONTENT}]
-        if session_id == _OWN_SESSION_OF_A:
-            return [{"id": "a1", "sessionId": _OWN_SESSION_OF_A, "content": _A_OWN_CONTENT}]
-        return []
+    async def _spy(session_id: str, limit: int = 50, **kwargs: Any) -> list[dict[str, Any]]:
+        calls.append({"session_id": session_id, "limit": limit, **kwargs})
+        return await original_get(session_id, limit, **kwargs)
 
-    monkeypatch.setattr(memory_api.memory_service, "get_working", _get_working)
-    return calls
+    monkeypatch.setattr(svc, "get_working", _spy)
+    monkeypatch.setattr(memory_api, "memory_service", svc)
+    return svc, calls
+
+
+async def _seed_buckets(svc: Any) -> None:
+    """四种形态各写一次:他人桶 / 自己桶 / 无主存量桶 / 混属主桶。
+
+    每条之间睡 20ms:`add_working` 的 msg_id 是 `f"{session_id}:{timestamp}"`,Windows
+    的时间戳精度不足以区分同一微秒内的两次写入 —— 不睡则**同桶第二条会静默覆盖第一条**
+    (`tests/test_memory_service.py::test_lru_limit_50` 早已记过同一坑)。混属主那一格
+    正好要在同一个桶里写两条,所以这里不是可选的加固,而是那一条用例能否存在的前提。
+    """
+    await svc.add_working(_SESSION_OF_B, "user", _B_SECRET_CONTENT, owner=USER_B)
+    await asyncio.sleep(0.02)
+    await svc.add_working(_OWN_SESSION_OF_A, "user", _A_OWN_CONTENT, owner=USER_A)
+    await asyncio.sleep(0.02)
+    await svc.add_working(_LEGACY_SESSION, "user", _LEGACY_CONTENT)  # 无主:收口前的存量
+    await asyncio.sleep(0.02)
+    await svc.add_working(_MIXED_SESSION, "user", "A 的那一条", owner=USER_A)
+    await asyncio.sleep(0.02)
+    await svc.add_working(_MIXED_SESSION, "user", "B 的那一条", owner=USER_B)
 
 
 def _registered_memory_routes() -> set[str]:
@@ -308,101 +338,271 @@ def _registered_memory_routes() -> set[str]:
     return keys
 
 
+# ---------------------------------------------------------------------------
+# 清单存续性锁
+# ---------------------------------------------------------------------------
+
+
 def test_memory_endpoint_ledger_covers_every_registered_route() -> None:
-    """清单存续性锁(票面点名的"反向锁"):router 上每条 /api/memory/* 路由都必须
-    要么在 MEMORY_ENDPOINTS(已对齐,跨用户必 403 族),要么在 WORKING_PENDING_LEDGER
-    (现状钉桩族);两边都不在 ⇒ 红。这条存在的理由:MEMORY_ENDPOINTS 是手工清单,
-    新增端点忘了登记时,其余参数化用例只会"少跑一条",账面全绿而新端点零看守
-    (本仓"一条门只管自己立项那一型"同族)。同时判两个方向的腐烂:台账点名了
-    router 上不存在的路径也红(清单过期比没有清单更糟)。
+    """每条已注册路由必须落在三组之一:收 user_id 的 403 族 / 只挂身份地板族 / 待对齐台账。
+
+    这条存在的理由不变(手工清单少登记一条 ⇒ 其余参数化用例只是「少跑一条」,账面全绿
+    而新端点零看守),但**判据方向在本票翻了一面**:待对齐台账现在必须恒为空 ——
+    未收口面不再允许安静地挂进台账;真要挂,就得连现状钉桩一起写并被这条点名。
     """
     registered = _registered_memory_routes()
     assert registered, "memory router 枚举到 0 条路由 ⇒ 存续性锁失效,空扫不算通过"
     aligned = {f"{m} {p}" for m, p, _kwargs in MEMORY_ENDPOINTS}
+    identity_only = {f"{m} {p}" for m, p, _kwargs in IDENTITY_ONLY_ENDPOINTS}
     pending = set(WORKING_PENDING_LEDGER)
-    uncovered = registered - aligned - pending
+    assert pending == set(), (
+        f"待对齐台账必须为空(working 已于 2026-09-28 收口);又挂进来了:{sorted(pending)}"
+    )
+    uncovered = registered - aligned - identity_only - pending
     assert not uncovered, (
-        f"以下已注册路由既不在 MEMORY_ENDPOINTS 也不在待对齐台账(新增端点必须二选一:"
-        f"已收口→进清单并补跨用户 403 用例;未收口→进台账并补现状钉桩):{sorted(uncovered)}"
+        "以下已注册路由三组都不在(新增端点必须立刻归组:收 user_id→MEMORY_ENDPOINTS、"
+        "只挂身份地板→IDENTITY_ONLY_ENDPOINTS、真未收口→另开票并补现状钉桩):"
+        f"{sorted(uncovered)}"
     )
-    stale = (aligned | pending) - registered
+    stale = (aligned | identity_only) - registered
     assert not stale, f"台账点名了 router 上不存在的路径(清单腐烂):{sorted(stale)}"
-    assert pending == {WORKING_METHOD_PATH}, (
-        "待对齐台账只许容纳 /memory/working 这一格;别的端点混进来 = 把已收口面重新放出去"
-    )
-    assert WORKING_METHOD_PATH not in aligned, (
-        "working 尚未对齐就进了 MEMORY_ENDPOINTS ⇒ 上面 401/403 参数化用例会红在这里;"
-        "正确顺序是先定 session↔owner 权威来源、改 behavior、再把现状钉桩逐条改成断言拒绝"
+    assert WORKING_METHOD_PATH in identity_only, (
+        "working 必须留在「只挂身份地板」组 —— 挪进 MEMORY_ENDPOINTS 会让 403 族拿一个"
+        "它结构上没有的参数(user_id)去构造用例,那是判据自伤不是收紧"
     )
 
 
-async def test_working_no_identity_reaches_store_today(bare_client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """现状钉桩①a:不挂中间件的最小 app 上,该端点**没有任何鉴权地板** ——
-    匿名请求直接打到服务层并 200(其余 8 端点同场景必 401,见上方参数化用例)。
+# ---------------------------------------------------------------------------
+# 改判①:缺身份 → 401(原状:匿名直达服务层并 200)
+# ---------------------------------------------------------------------------
 
-    收紧落地时本条必须改:断言 401(require_request_user_id 生产态),且 calls 为空。
+
+async def test_working_no_identity_reaches_store_today(
+    bare_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """【2026-09-28 由现状钉桩改判为拒绝】不挂中间件的最小 app 上,该端点现在有端点级
+    `require_request_user_id` 地板 ⇒ 匿名必 401,且**内容读取一次都没发出**。
+
+    原名保留(断言已反向):它是票面「禁止删测试」那条纪律的载体 —— 删掉它等于把
+    「这里曾经匿名可读」当没发生过。名字里的 `today` 现在指**判据在位的今天**。
     """
-    calls = _working_stub_factory(monkeypatch)
+    _svc, calls = _install_working_service(monkeypatch)
+    await _seed_buckets(_svc)
     resp = await bare_client.get("/api/memory/working", params={"session_id": _SESSION_OF_B})
-    assert resp.status_code == 200, f"现状应有记录:实得 {resp.status_code}"
-    assert len(calls) == 1 and calls[0]["session_id"] == _SESSION_OF_B, (
-        f"钉桩失效(查询没被发出):{calls}"
-    )
-    assert _B_SECRET_CONTENT in resp.text, "匿名可达却读不到内容 ⇒ 桩没接上,本条断言会变空"
+    assert resp.status_code == 401, f"收紧后匿名仍可达(实得 {resp.status_code})"
+    assert calls == [], f"401 之前已把请求打到服务层(鉴权地板晚于查库):{calls}"
+    assert _B_SECRET_CONTENT not in resp.text, "被拒的回答里带着 B 的内容"
+
+
+# ---------------------------------------------------------------------------
+# 改判②:跨用户读 → 同形拒绝 + 短路(原状:200 且响应体带着 B 的内容)
+# ---------------------------------------------------------------------------
 
 
 async def test_working_cross_session_read_leaks_under_valid_token(
     probe_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """现状钉桩①b(主案):A 持合法令牌,用 B 的 session_id 即可读到 B 的工作记忆。
+    """【2026-09-28 由现状钉桩改判为拒绝】A 持合法令牌填 B 的 session_id ⇒ 读不到 B 的任何内容。
 
-    三重记录,缺一不可:
-      - 响应码 200 且**响应体逐字含 B 的内容**(泄漏真的到了调用方,不是只到服务层);
-      - 服务层恰被调用一次(**非恒真断言** —— 收紧后"未发出查询"若无人证今天这条,
-        它就会在"桩没接上"的世界里永远成立,与本文件 test_same_owner_request_reaches_service
-        是同一条禁令);
-      - 到达服务层的参数只有 {session_id, limit}:属主**从未**穿过服务边界,这就是
-        "无属主过滤"在 service 边界上的形状。收紧若选择"把 owner 喂进服务层",
-        必须显式改这一条,而不是让它悄悄红。
-    收紧落地时本条必须改:同请求断言被拒/空桶且 calls == [](副作用未发生),
-    **禁止删除本测试**。
+    四条断言各防一种「看起来收了」的假状:
+      1. 200 + `data == []` —— **同形口径**:「不是你的」与「不存在」回同一个形状,否则
+         端点变成存在性预言机(见下面那条逐字同形对照);
+      2. 响应体不含 B 的内容 —— 判「到了调用方」,不是只判「服务层返回了空」;
+      3. `get_working` **一次都没被调用** —— 短路生效(读侧的「未发出查询」式断言);
+      4. 混属主那一格由 test_working_mixed_bucket_exposes_only_own_entries 单独判。
+    第 3 条的非恒真由 test_working_same_owner_read_is_200 钉住(同主必须真的调它)。
     """
-    calls = _working_stub_factory(monkeypatch)
+    _svc, calls = _install_working_service(monkeypatch)
+    await _seed_buckets(_svc)
     resp = await probe_client.get(
         "/api/memory/working", params={"session_id": _SESSION_OF_B}, headers=_auth(USER_A)
     )
-    assert resp.status_code == 200, f"现状应有记录:实得 {resp.status_code}"
-    assert _B_SECRET_CONTENT in resp.text, "跨会话读没把 B 的内容带到响应体 ⇒ 桩没接上"
-    assert len(calls) == 1 and calls[0]["session_id"] == _SESSION_OF_B
-    assert set(calls[0].keys()) == {"session_id", "limit"}, (
-        f"get_working 收到了本不该存在的第三参数:{calls[0]} —— 若为收紧而改签名,请显式更新本断言"
+    assert resp.status_code == 200, f"同形口径应回 200+空桶(实得 {resp.status_code})"
+    assert resp.json()["data"] == [], f"跨用户读没被折叠成空桶:{resp.json()}"
+    assert _B_SECRET_CONTENT not in resp.text, "B 的内容仍随响应体出网"
+    assert calls == [], f"端点未走短路,把整桶内容读出来了:{calls}"
+
+
+async def test_working_cross_user_and_unknown_are_indistinguishable(
+    probe_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """存在性预言机对照:同一主体问「别人的 session」与问「根本没这个 session」响应**逐字同形**。
+
+    这条不是把上一条换个说法:上一条判「读不到内容」,这一条判「两种情况长得一样」。
+    只留前者,把 403/404 加回来仍然绿 —— 而 §5 明令禁止那种可区分的回包。
+    """
+    _svc, _calls = _install_working_service(monkeypatch)
+    await _seed_buckets(_svc)
+    foreign = await probe_client.get(
+        "/api/memory/working", params={"session_id": _SESSION_OF_B}, headers=_auth(USER_A)
+    )
+    unknown = await probe_client.get(
+        "/api/memory/working",
+        params={"session_id": "no-such-session-anyone"},
+        headers=_auth(USER_A),
+    )
+    assert foreign.status_code == unknown.status_code == 200
+    assert foreign.text == unknown.text, (
+        f"「不是你的」与「不存在」不同形(前者 {foreign.text[:120]} / 后者 {unknown.text[:120]})"
+        "⇒ 端点可被用来枚举哪些 session 真实存在且不属于调用者"
     )
 
 
-async def test_working_same_owner_read_is_200(probe_client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """正向对照(自己读自己):今日 200,收紧落地后**必须仍是 200**。
+# ---------------------------------------------------------------------------
+# 正向对照(收紧不是一刀切拒绝;同时是「未发出查询」式断言的非恒真证明)
+# ---------------------------------------------------------------------------
 
-    票面"刻意不当场修"的风险就钉在这里 —— 收紧若让真实会话读不到自己的 working
-    记忆,本条第一个红;它是"绑定不是恒拒"的装车证明,收紧 PR 不得顺手删。
-    """
-    calls = _working_stub_factory(monkeypatch)
+
+async def test_working_same_owner_read_is_200(
+    probe_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """自己读自己:200 + 内容 + 服务层**真的被调用了一次**(证明上面那条 `calls == []` 有牙)。"""
+    _svc, calls = _install_working_service(monkeypatch)
+    await _seed_buckets(_svc)
     resp = await probe_client.get(
         "/api/memory/working", params={"session_id": _OWN_SESSION_OF_A}, headers=_auth(USER_A)
     )
     assert resp.status_code == 200, f"自己读自己被拒(实得 {resp.status_code})"
     assert _A_OWN_CONTENT in resp.text
-    assert len(calls) == 1 and calls[0]["session_id"] == _OWN_SESSION_OF_A
+    assert len(calls) == 1 and calls[0]["session_id"] == _OWN_SESSION_OF_A, (
+        f"正向对照没落到服务层 ⇒ 「未发出查询」在桩没接上时也会永远成立:{calls}"
+    )
+    assert calls[0].get("requester") == USER_A, (
+        f"服务层收到了请求却没拿到主体:{calls[0]} —— 逐条过滤那一层就没人喂了"
+    )
 
 
-async def test_working_unknown_session_is_empty_today(probe_client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """现状钉桩②:"不存在"今日回 200 + 空 data —— 这就是收紧时**同形口径**的基准:
-    "不是你的"应与"不存在"回同一形状(200+空桶),否则端点退化为存在性预言机
-    (§5 认证≠授权条:两条同形的拒绝口径)。落地时在处理器注释里写明该差别与本条基准。
+async def test_working_unowned_bucket_read_is_unchanged(
+    probe_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """无主存量条目(收口前写入的)⇒ **维持改动前行为**,逐字与「不喂主体」时一致。
+
+    这条是「回退不是授权结论」的机器载体:`entry_visible_to` 分支 2 若被顺手改成
+    「无主即拒」,本条第一个红 —— 而那会让存量 working 记忆对所有人生效性丢失
+    (用功能换账面干净)。真正的补法在回填票,不在读侧判据里。
     """
-    calls = _working_stub_factory(monkeypatch)
+    svc, _calls = _install_working_service(monkeypatch)
+    await _seed_buckets(svc)
     resp = await probe_client.get(
-        "/api/memory/working", params={"session_id": "no-such-session-anyone"}, headers=_auth(USER_A)
+        "/api/memory/working", params={"session_id": _LEGACY_SESSION}, headers=_auth(USER_A)
+    )
+    assert resp.status_code == 200 and _LEGACY_CONTENT in resp.text
+    with_none = await svc.get_working(_LEGACY_SESSION)
+    with_a = await svc.get_working(_LEGACY_SESSION, requester=USER_A)
+    assert with_none == with_a, "无主桶在「喂不喂主体」两种调用下形状不同 ⇒ 回退档被改严了"
+
+
+async def test_working_mixed_bucket_exposes_only_own_entries(
+    probe_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """混属主桶:短路放行(确实有可见条目),逐条过滤必须只留下自己那一条。
+
+    原状钉桩①b 当年断言「到达服务层的参数只有 {session_id, limit}」—— 那正是「无属主
+    过滤」在 service 边界上的形状;现在这一格由**这一条**判:B 的那一条不再出现在 A 的响应里。
+    """
+    _svc, calls = _install_working_service(monkeypatch)
+    await _seed_buckets(_svc)
+    resp = await probe_client.get(
+        "/api/memory/working", params={"session_id": _MIXED_SESSION}, headers=_auth(USER_A)
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert [d["content"] for d in data] == ["A 的那一条"], f"混属主桶漏了别人的条目:{data}"
+    assert len(calls) == 1, "混属主桶该走逐条过滤(有可见条目 ⇒ 不短路),不是整桶拒绝"
+
+
+# ---------------------------------------------------------------------------
+# 变异取证:两处绑定各拆一刀,同一条越权请求必须复现(证明红来自判据而不是夹具)
+# ---------------------------------------------------------------------------
+
+
+async def test_mutation_evidence_read_binding_removed(
+    probe_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """同时拆掉「端点短路」与「逐条过滤」两处判据 ⇒ B 的内容必须真的能被 A 读到。
+
+    只拆一处不算证据:短路判据(`working_has_visible_entries`)与过滤判据(`entry_visible_to`)
+    是纵深,任一在位都拦得住这条请求 —— 而「改一处就红」恰恰说明另一处也在起作用。摘掉两处仍
+    读不到,就说明红来自夹具而不是判据(与本文件既有的变异取证条目同一条纪律)。
+    """
+    svc, calls = _install_working_service(monkeypatch)
+    await _seed_buckets(svc)
+
+    async def _always_visible(session_id: str, requester: str | None) -> bool:
+        return True
+
+    monkeypatch.setattr(svc, "working_has_visible_entries", _always_visible)
+    monkeypatch.setattr(
+        type(svc), "entry_visible_to", staticmethod(lambda entry_owner, requester: True)
+    )
+    _SEEN.clear()
+    resp = await probe_client.get(
+        "/api/memory/working", params={"session_id": _SESSION_OF_B}, headers=_auth(USER_A)
+    )
+    assert resp.status_code == 200
+    assert (
+        _B_SECRET_CONTENT in resp.text
+    ), "变异未复现越权 ⇒ 收紧另有出处,本组用例的根不在这两处判据"
+    assert len(calls) == 1 and calls[0]["requester"] == USER_A
+
+
+# ---------------------------------------------------------------------------
+# 同形基准(2026-09-27 写下时是「现状」,收紧后它是参照物)
+# ---------------------------------------------------------------------------
+
+
+async def test_working_unknown_session_is_empty_today(
+    probe_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """「不存在」回 200 + 空 data —— 上面那条逐字同形对照的基准就在这里。
+
+    收紧落地后它与「不是你的」连**服务层调用次数**都一致(都是 0 次:两者都在可见性
+    短路处折叠成空桶)—— 所以这里的断言是 `calls == []`,而 2026-09-27 写这条时它是
+    「照样发一次查询」(原状④)。翻面本身就是这条测试继续存在的理由。
+    """
+    _svc, calls = _install_working_service(monkeypatch)
+    await _seed_buckets(_svc)
+    resp = await probe_client.get(
+        "/api/memory/working",
+        params={"session_id": "no-such-session-anyone"},
+        headers=_auth(USER_A),
     )
     assert resp.status_code == 200 and resp.json()["data"] == []
-    assert len(calls) == 1, "空桶语义今日就是'照样发查询'——收紧后此条随钉桩①b 一并改判"
-# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+    assert calls == [], f"不存在的 session 不该再发一次内容读取(与「不是你的」同形):{calls}"
+
+
+# ---------------------------------------------------------------------------
+# 开发降级态:本进程根本没启用 JWT 校验时,该端点不得把自己打成不可用
+# ---------------------------------------------------------------------------
+
+
+def test_working_dev_principal_is_not_treated_as_an_owner(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`DEV_ANONYMOUS_PRINCIPAL` 是「本进程没做 JWT 校验」的哨兵,不是真实属主。
+
+    把它当 requester 喂进过滤,开发单机与所有以 ASGI in-process 跑的既有测试会整片读不到
+    自己的 working 记忆(与 `_resolve_owner` 的 DEV 分支是同一条判断,不新造第二种)。
+    判据打在端点函数上:进服务层之前就必须把 DEV 主体折成 None。
+    """
+    monkeypatch.setattr(settings, "jwt_secret", "")
+    monkeypatch.setattr(jwt_auth.settings, "jwt_secret", "")
+    monkeypatch.setattr(settings, "node_env", "development")
+    monkeypatch.setattr(jwt_auth.settings, "node_env", "development")
+
+    svc, calls = _install_working_service(monkeypatch)
+    app = FastAPI()
+    app.include_router(memory_api.router, prefix="/api")  # 不挂中间件 ⇒ 走 DEV 降级分支
+
+    async def _go() -> dict[str, Any]:
+        await _seed_buckets(svc)
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://dev-fallback.test") as ac:
+            resp = await ac.get("/api/memory/working", params={"session_id": _SESSION_OF_B})
+            assert resp.status_code == 200, f"开发降级态被收紧打成非 200:{resp.status_code}"
+            body: dict[str, Any] = resp.json()
+            return body
+
+    body = asyncio.run(_go())
+    assert calls and calls[-1]["requester"] is None
+    assert _B_SECRET_CONTENT in json.dumps(body, ensure_ascii=False), (
+        "DEV 主体被当成真实属主去比对了 —— 那会让开发单机不可用,不是收紧"
+    )

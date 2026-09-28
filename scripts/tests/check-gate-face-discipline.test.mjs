@@ -6,7 +6,7 @@
  * 守门 118 的门侧对账(§22c:测试**直接 import 源函数**,不留第二份镜像真相)。
  * 判三件事:判据有牙、编号在 runner 里恰好一次且 blocking、文档点名。
  */
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -21,6 +21,8 @@ const {
   decide,
   usesLayerRead,
   gitContentReads,
+  flagValue,
+  resolveRootArg,
   GATE_GLOB,
   prejoinedRepoConsts,
   readsPrejoinedConst,
@@ -516,4 +518,117 @@ test('T22 白名单两处"已知漏报"的前提必须仍然成立(前提一变�
     )
   }
 })
+
+// ─── T25–T30 `--root` 的取值与「判不出」的**形态**(2026-09-28,G-322 第三处收尾)───────
+// 立因是实测,不是读码推测。改前三条(HEAD 版跑出来的原文,逐条留档):
+//   `--root --staged`  ⇒ 抛 face-reader 的 `Undetermined: git rev-parse 失败: … ENOENT`
+//                        **裸栈 + RC=1** —— `--staged` 档同时被吞掉;
+//   `--root scripts`   ⇒ 抛 assertRepoRoot 的 Undetermined **裸栈 + RC=1**(旧 try 只包 analyze);
+//   `--root`(结尾无值)⇒ 经 `|| '.'` **静默**当成没给值,RC=0 且照常出结论。
+// 本仓对「判不出」的口径是 **exit 2 + 点名原因**(同文件 analyze 的 catch 就是这条),所以这里
+// 收成的**只有形态**:分类判据 / 棘轮 / 遮噪层一律未动 —— 那一半由 T28 的「合法 --root 与不带
+// --root 的结论逐字同形」钉住,T29 钉「新代码真被 main 调用」(函数在而无人调 = 提交链上一路绿灯)。
+const GATE_PATH = resolve(ROOT, 'scripts/check-gate-face-discipline.mjs')
+function runGate(args) {
+  const r = spawnSync(process.execPath, [GATE_PATH, ...args], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+    maxBuffer: 1 << 28,
+  })
+  return { rc: r.status, out: r.stdout ?? '', err: r.stderr ?? '' }
+}
+// 裸栈指纹:V8 的栈帧行(`    at …`)。判"不冒红也不记绿"的形态时,这条必须不存在。
+const STACK_FRAME_RE = /^\s+at\s+\S/m
+
+test('T25 --root --staged ⇒ exit 2 + 点名实得 token,且不跑判据、不打裸栈', () => {
+  const r = runGate(['--root', '--staged'])
+  assert.equal(r.rc, 2, `应 exit 2(判不出),实得 ${r.rc}\nstderr:\n${r.err}`)
+  assert.match(r.err, /无法判定/, '必须按"判不出"口径说话,不冒红也不记绿')
+  assert.match(r.err, /"--staged"/, `必须点名实得 token,实得:\n${r.err}`)
+  assert.ok(!STACK_FRAME_RE.test(r.err), `不得再打裸栈:\n${r.err}`)
+  // 关键:它在**任何分类之前**就停了 —— stdout 一个结论都不许有,否则账面读起来像"跑过了"。
+  assert.equal(r.out.trim(), '', `不该产出任何分类结论:\n${r.out}`)
+})
+
+test('T26 --root <非仓库根> ⇒ exit 2 + 转述 assertRepoRoot 原话,不打裸栈', () => {
+  const r = runGate(['--root', 'scripts'])
+  assert.equal(r.rc, 2, `应 exit 2,实得 ${r.rc}\nstderr:\n${r.err}`)
+  assert.match(r.err, /不是仓库根/, '必须把基准错位的原话转述出来')
+  assert.ok(!STACK_FRAME_RE.test(r.err), `Undetermined 不该再逃出 main:\n${r.err}`)
+  assert.equal(r.out.trim(), '', `判不出时不得产出结论:\n${r.out}`)
+})
+
+test('T27 --root 结尾无值 ⇒ exit 2 点名"其后没有任何参数"(旧版是静默回落 .)', () => {
+  const r = runGate(['--root'])
+  assert.equal(r.rc, 2, `不得静默当没给值(旧版这里 RC=0 且照常出结论),实得 ${r.rc}`)
+  assert.match(r.err, /\(其后没有任何参数\)/, `必须如实说"没给值",实得:\n${r.err}`)
+  assert.ok(!STACK_FRAME_RE.test(r.err), `不得打裸栈:\n${r.err}`)
+})
+
+test('T28 正向对照:合法 --root 与不带 --root 的结论逐字同形(证明只改了形态)', () => {
+  const bare = runGate([])
+  const dot = runGate(['--root', '.'])
+  const abs = runGate(['--root', ROOT])
+  assert.equal(bare.rc, 0, `不带 --root 必须照旧 exit 0\n${bare.err}`)
+  assert.equal(dot.rc, 0, `--root . 必须照旧 exit 0\n${dot.err}`)
+  assert.equal(abs.rc, 0, `--root <仓库根绝对路径> 必须照旧 exit 0\n${abs.err}`)
+  // 逐字同形:分类读数一字不改是这张票的硬约束(改前/改后的同一份读数也已在交付报告里贴出)。
+  assert.equal(dot.out, bare.out, '--root . 的结论与不带旗标不同形 ⇒ 判据被动过')
+  assert.equal(abs.out, bare.out, '--root <仓库根> 的结论与不带旗标不同形 ⇒ 判据被动过')
+})
+
+test('T29 装车锁:resolveRootArg 必须真被 main 调用,旧的两处写法不得回来', () => {
+  const src = readFileSync(GATE_PATH, 'utf8')
+  assert.ok(
+    /const \{ root, errorLines \} = resolveRootArg\(argv\)/.test(src),
+    'main() 没调用 resolveRootArg ⇒ 新校验是死代码,提交链上一路绿灯(守门 70/76/81 同型)',
+  )
+  assert.ok(
+    /function main\(argv\) \{\s*\n\s*const \{ root, errorLines \} = resolveRootArg\(argv\)/.test(src),
+    'resolveRootArg 必须是 main 的第一件事(在它之前不许有裸 assertRepoRoot / 裸取 root)',
+  )
+  // 旧的吞值写法与"裸调用"写法都不得回来
+  assert.ok(
+    !/argv\.includes\('--root'\)\s*\?\s*resolve\(argv\[argv\.indexOf\('--root'\) \+ 1\]/.test(src),
+    '旧的 `argv[argv.indexOf(--root) + 1] || .` 取值形态又回来了',
+  )
+  const mainBody = src.slice(src.indexOf('function main(argv)'), src.indexOf('\nfunction ', src.indexOf('function main(argv)') + 1))
+  assert.ok(
+    !/^\s*assertRepoRoot\(root, '本门'\)$/m.test(mainBody),
+    'main() 里不得再**裸**调 assertRepoRoot(抛出的 Undetermined 会逃成裸栈 + RC=1)',
+  )
+})
+
+test('T30 纯函数面:flagValue 四态 + resolveRootArg 三态(§22c:import 判据,不抄第二份)', () => {
+  // flagValue 的四格 —— 缺旗标 / 合法值 / 紧邻是另一个旗标 / 结尾无值
+  assert.deepEqual(flagValue(['--staged'], '--root'), {
+    present: false,
+    valid: false,
+    value: null,
+    token: null,
+  })
+  assert.equal(flagValue(['--root', 'some/dir'], '--root').valid, true)
+  assert.deepEqual(flagValue(['--root', '--staged'], '--root'), {
+    present: true,
+    valid: false,
+    value: null,
+    token: '--staged',
+  })
+  assert.equal(flagValue(['--root'], '--root').token, null)
+  // 空串也算无效(不能把 `--root ""` 读成"根是空串")
+  assert.equal(flagValue(['--root', ''], '--root').valid, false)
+
+  const bad = resolveRootArg(['--root', '--staged'])
+  assert.equal(bad.root, null)
+  assert.ok(bad.errorLines.length > 0 && /"--staged"/.test(bad.errorLines.join('\n')))
+
+  const noValue = resolveRootArg(['--root'])
+  assert.equal(noValue.root, null, '`--root` 结尾不得回落成仓库根')
+
+  const ok = resolveRootArg([])
+  assert.equal(ok.root, ROOT, '不给 --root 时按脚本自身位置推导仓库根(与改前同形)')
+  assert.deepEqual(ok.errorLines, [])
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
