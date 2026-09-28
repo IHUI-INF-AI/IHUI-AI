@@ -561,16 +561,16 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 ## 9b. 单分支开发强制规则(强制)
 
-- **禁止创建乱七八糟分支,所有改动统一往 main 合并**。除 main 之外**不允许**新建任何本地/远程分支(`feat/*` / `fix/*` / `hotfix/*` / `add-*` / `rescue/*` / 自定义前缀全部禁止)。
+- **禁止创建乱七八糟分支,所有改动统一往 main 合并**。除 main 之外**不允许**新建任何本地/远程分支(`feat/*` / `fix/*` / `hotfix/*` / `add-*` / `rescue/*` / 自定义前缀全部禁止)。**前提已于 2026-09-27 改变(2026-09-28 就地补注,勿照旧文执行)**:origin/main 开了分支保护(受保护检查上下文 = `CI / lint-typecheck-test (push)`,`enforce_admins: false`)。这条在本机有**两半事实,不得只读一半**:① 持 admin 凭据的会话**仍可直推 main**(2026-09-28 实测:提交后 push 成功并 `git ls-remote` 回读一致);② 走 PR 的通道受那条检查约束,而 **main 自身 CI 一红就把整条 PR 通道堵住**(同日实测 `main@3fab392c7` 的 `lint-typecheck-test` job failure)—— 所以"main 的 CI 红"从账面难看升级为全队交付阻塞。按本条字面执行(任何旁支都判红)会让每台每次提交都被守门 41 拦住,唯一结局是各会话 `--no-verify` 连带废掉约 186 道门(§12e/§12f 同型)。现行口径:本条防的是**旁支长期滞留**,不是"存在旁支"—— 在飞窗口(默认 48h,`IHUI_SINGLE_BRANCH_GRACE_HOURS` 可调)内的 PR 工作分支不判红、超窗仍判;`backup/` 与 `ihui-backup/` 引用**永不判红**(§5b 明令禁止删除备份、§22 要求备份引用本地+远端双留,门喊"删掉它"等于替人犯 §5b 的禁令)。两类豁免都只报数并**逐条点名**,不静默。
 - **唯一例外**:`/goal` 模式目标条件强制要求独立分支时,允许创建 `goal/<目标名>` 临时分支(AGENTS.md §8);`goal/*` 完成后**必须立即删除**,不留历史快照。
 - **必要分支判断标准**:**单次任务无法在 main 上原子完成**才允许创建(如 8 端并行多 subagent、紧急 hotfix 需独立回滚通道);**普通功能开发、Bug 修复、refactor、文档/守门脚本改动一律禁止创建分支**,全部在 main 上直接 commit。
 - **已合并分支立即删除**:任务合并后**本会话内**完成 `git branch -d <已合并>`(本地) + `git push origin --delete <已合并>`(远程),不留"历史快照"分支污染 main 分支列表。
 - **删除未合并分支前必须 tag 备份**(AGENTS.md §22 配套):`git tag backup/cleanup-<date>-<branch> <branch>` → `git push origin --atomic refs/tags/backup/cleanup-*` → 再 `git branch -D`。tag 必须本地+远端双备份,防 git gc 清理。
 - **fetch + prune 是日常**:`git fetch origin --prune` 在每个 push 周期跑一次,清理已删远程分支的本地 stale 引用。
 - **守门**(2026-07-30 立,2026-08-02 落地):
-  - `scripts/check-single-branch.mjs`:检测 `git branch -a` 列表中除 main / upstream 外的分支,发现任意 1 个 → exit 1 阻塞 commit。
+  - `scripts/check-single-branch.mjs`:检测 `git branch -a` 列表中除 main / upstream 外的分支,发现任意 1 个 → exit 1 阻塞 commit。**2026-09-28 口径已改**:先过"在飞窗口 + 备份引用"两类豁免(逐条报名不静默),剩下的才判红 —— 阳性对照 `IHUI_SINGLE_BRANCH_GRACE_HOURS=0 node scripts/check-single-branch.mjs` 必须把全部旁支翻回判红(**条数一律当次现读,不得照任何文档里的数字派单**)。同批修掉该门自带的两处"报绿却不看守":① `--self-test` 的登记函数写成 `!!ok`,而 13 条用例全部传箭头函数 ⇒ `!!fn` 恒真 ⇒ 它一路打印"13/13 通过"却连一条都没判过;② 在飞年龄把**秒差**除以 3,600,000(每毫秒的小时数)⇒ 结果小 1000 倍,48h 窗口实际约等于 5.5 年,即它自己那条"超窗仍判(豁免不得变成永久放行)"的反向对照在生产面**永不触发**。两处必须同枚修:只修①会让那条恒绿的反向对照当场翻红,只修②则没有任何尺子看得见它。现由 `scripts/tests/check-single-branch.test.mjs`(§22c 镜像 13 例,该门此前没有镜像测试)的 T4/T6/T13 钉住,三条各有变异对照(还原旧写法即翻红)。
   - 集成位置:`scripts/guardian-runner.mjs` id 41(blocking),守门不通过则禁止 commit + push。
-  - 豁免:§8 goal 模式临时分支(必须带 `goal/` 前缀,且在 `.ihui-agent/goal-runtime/STATE.md` 标注 `active` 状态才算合法)。
+  - 豁免:§8 goal 模式临时分支(必须带 `goal/` 前缀,且在 `.ihui-agent/goal-runtime/STATE.md` 标注 `active` 状态才算合法)。2026-09-28 起与之并列的还有:linked worktree 的 checkout 分支及其 `origin/` 镜像(§12d)、镜像远端与幻影引用(既有)、**在飞窗口内的 PR 分支**、**`backup/` 与 `ihui-backup/` 引用** —— 后两类只报数并逐条点名,因为"让门喊人删备份引用"与 §5b 的禁删令直接冲突。**不得**把当下那几条旁支名抄进门体当白名单消红(名单必然腐烂,§4 对 `RN_ONLY_BRAND_KEYS` 记过同型;已由镜像 T10 反向钉死)。
 - **历史教训**(2026-07-30 立):仓库曾积累 12 个分支(本地 6 + 远程 7 + 1 upstream),其中 `add-ihui-ai` / `goal/*` / `rescue/*` 等 13 个无价值分支全部已合并或已被 main 覆盖;3 个未合并分支的内容(LLM 三提供商/i18n 五端/console.log→logger/awesome-prs)均已在 main 后续 commit 中包含或演进,merge 会回退 main 功能。教训:**分支不是"工作单元",是"协作单元"**——单 agent 单任务无需分支,直接 main 提交即可。
 
 ---
