@@ -9,7 +9,12 @@
  * 以便 ChatMessage(api/index.ts)以纯类型方式引用,避免反向依赖 ai-cards.tsx 的 React/Taro 运行时。
  */
 import type { ToolCall } from '@ihui/types/chat'
-import type { TerminalDeltaEvent, ToolCallEvent, ToolDeltaEvent } from '@ihui/api-client'
+import type {
+  TerminalDeltaEvent,
+  TerminalInteractionEvent,
+  ToolCallEvent,
+  ToolDeltaEvent,
+} from '@ihui/api-client'
 import type { PlanStepStatus } from '@ihui/types'
 
 export type { ToolCallEvent } from '@ihui/api-client'
@@ -152,6 +157,15 @@ export interface TerminalTaskView {
   totalChars?: number
   durationMs?: number
   exitCode?: number
+  /**
+   * D151(2026-09-29 立):命令停在"等键盘输入"时的呈现态(promptTail 是命令自己打出的
+   * 提示尾巴,如 `Password:` / `(y/n)`)。本端**刻意只呈现不代答**:手机键盘要把一整行
+   * 送进一个正在跑的子进程,需要与 web 同款的"输入行 + ack 回读 + 失败留字"闭环,
+   * 而小程序没有那条通道(键入内容还可能就是口令,拿聊天输入框代填等于把它送进正文历史)。
+   * 所以这里只交代"在等什么 + 该去哪个端处理",文案取共享词包 `chat.terminal.*`(五语言已在)。
+   * 终态由 terminal_end 清掉 —— 留着的等待态会一直显示"在等你输入",而那条命令其实已经跑完。
+   */
+  awaitingInput?: { promptTail: string }
 }
 
 /** D19:terminal_delta 实时输出累加上限,对齐 web store appendTerminalOutput 的 20000 字符/键(防长命令刷爆 setData) */
@@ -185,6 +199,49 @@ export function appendTerminalDelta(
       ? merged.slice(merged.length - MAX_TERMINAL_LIVE_CHARS)
       : merged
   return tasks.map((x, i) => (i === idx ? { ...x, output: clipped } : x))
+}
+
+/**
+ * D151(本票):把 terminal_interaction 帧归并进 terminalTasks(纯函数,chat.tsx 消费)。
+ *
+ * 与 appendTerminalDelta 同一条"帧自洽"纪律:start 帧缺失时按 terminalId 自建 running 任务,
+ * 因为该帧本身就知道"哪条命令在等",而端内丢帧的表现是"界面一动不动"。
+ * 已结束的任务不再标等待(命令都跑完了还挂"等你输入"是假信号);terminalId 缺即无操作(宁丢不造)。
+ * 只落 promptTail(命令自己打出的提示尾巴)—— 它是**内容**,渲染时原样显示,不做措辞拼装。
+ */
+export function applyTerminalInteraction(
+  tasks: readonly TerminalTaskView[],
+  evt: Pick<TerminalInteractionEvent, 'terminalId' | 'promptTail'>,
+): TerminalTaskView[] {
+  if (!evt.terminalId) return [...tasks]
+  const awaiting = { promptTail: evt.promptTail ?? '' }
+  const idx = tasks.findIndex((x) => x.id === evt.terminalId)
+  if (idx < 0) {
+    return [
+      ...tasks,
+      { id: evt.terminalId, command: '', status: 'running', awaitingInput: awaiting },
+    ]
+  }
+  const task = tasks[idx]
+  if (!task || task.status !== 'running') return [...tasks]
+  return tasks.map((x, i) => (i === idx ? { ...x, awaitingInput: awaiting } : x))
+}
+
+/**
+ * D151:terminal_end 到 ⇒ 清除等待态。
+ * 唯一理由:那条待决项已被服务端结算(或超时),再显示"等待你的输入"就是把已发生的事写成没发生。
+ * 刻意对不存在的 id 也是无操作(与 clearTerminalInteraction 的 web 同口径)。
+ */
+export function clearTerminalInteraction(
+  tasks: readonly TerminalTaskView[],
+  terminalId: string,
+): TerminalTaskView[] {
+  if (!terminalId) return [...tasks]
+  return tasks.map((x) => {
+    if (x.id !== terminalId || !x.awaitingInput) return x
+    const { awaitingInput: _dropped, ...rest } = x
+    return rest as TerminalTaskView
+  })
 }
 
 /**

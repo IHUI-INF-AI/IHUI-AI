@@ -13,8 +13,8 @@
  * 安全性:所有文本均以 React 子节点渲染(React 自动对文本做 HTML 转义,不注入 innerHTML),
  * 链接仅放行 http(s) / mailto / # 协议,其余降级为纯文本,杜绝 javascript: 注入。
  */
-import { type ComponentType, useMemo, type ReactNode } from 'react'
-import { Check, CircleDashed, Loader2, Terminal, X } from 'lucide-react'
+import { type ComponentType, useMemo, useState, type ReactNode } from 'react'
+import { Check, CircleDashed, Keyboard, Loader2, Terminal, X } from 'lucide-react'
 import {
   buildRenderModel,
   describeMcpToolActivity,
@@ -33,7 +33,7 @@ import {
   type ToolSubjectKind,
 } from '@ihui/shared'
 import { formatTokenCount } from '@ihui/shared/utils'
-import { ContextInjectionList } from '@ihui/ui-react'
+import { Button, ContextInjectionList, Input } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 
 /** i18n 翻译函数签名(与 useI18n 的 t 一致) */
@@ -729,9 +729,114 @@ export function PlanStepsView({ steps, explanation }: PlanStepsViewProps) {
 export interface MessageContentProps {
   message: ChatMessage
   streaming?: boolean
+  /**
+   * D151:命令「等待键盘输入」的呈现态(键 = **原始 terminalId**,不是渲染块的复合 id)。
+   * 刻意不折进 render model —— `TerminalRenderBlock.id` 是 `${messageId}:terminal:${task.id||index}`
+   * 这种复合串(task.id 缺失时退化成下标),拿它当寻址键会在缺 id 的流里指错命令。
+   * 因此本组件自己按 `message.terminalTasks[].id` 对齐,只给**确实还在本条消息里**的任务出行。
+   */
+  terminalInteractions?: Record<string, TerminalInteractionView>
+  /** 上行回调:由宿主(ChatPage)经 @ihui/api-client 的 postTerminalInput 送出,本组件不自行发请求 */
+  onTerminalInputSubmit?: (terminalId: string, text: string) => void
 }
 
-export function MessageContent({ message, streaming = false }: MessageContentProps) {
+/**
+ * D151 单条命令的等待态(视图层)。`sessionId` 留在宿主侧(ChatPage)—— 它是寻址凭据,
+ * 渲染层拿到也没有能发的通道,少传一份就少一处可能猜错的地方。
+ */
+export interface TerminalInteractionView {
+  promptTail: string
+  maxInputChars: number
+  submitting: boolean
+  failed: boolean
+}
+
+/**
+ * TerminalInputRow — D151「命令在等键盘输入」的输入行(与 web terminal-section 同口径)。
+ *
+ * 三条硬边界(照抄 web 的理由,不是风格偏好):
+ * - 键入只存在本组件本地 state:不落 store / 不进会话历史 / 不进任何日志 —— 它可能就是
+ *   `Password:` 后面要输的那行口令,任何"顺手复制一份"的通道都是泄露面。
+ * - 发送后**不清空**输入框:失败时用户不必重打;成功即由宿主摘掉等待态 ⇒ 本行卸载。
+ * - 提交中禁用,一帧只送一次(重复提交会往同一个子进程喂两行)。
+ */
+function TerminalInputRow({
+  terminalId,
+  interaction,
+  onSubmit,
+  t,
+}: {
+  terminalId: string
+  interaction: TerminalInteractionView
+  onSubmit?: (terminalId: string, text: string) => void
+  t: Translate
+}) {
+  const [text, setText] = useState('')
+  const { promptTail, maxInputChars, submitting, failed } = interaction
+  return (
+    <form
+      className="mt-1 flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1"
+      data-testid={`terminal-interaction-${terminalId}`}
+      onSubmit={(event) => {
+        event.preventDefault()
+        if (submitting) return
+        onSubmit?.(terminalId, text)
+      }}
+    >
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex items-center gap-1 text-[10px] leading-none text-muted-foreground">
+          <Keyboard className="h-3 w-3 shrink-0" aria-hidden />
+          {t('chat.terminal.waitingInput')}
+        </span>
+        {promptTail ? (
+          <span
+            className="truncate font-mono text-[10px] leading-none text-muted-foreground"
+            data-testid={`terminal-interaction-prompt-${terminalId}`}
+          >
+            {t('chat.terminal.promptLabel', { prompt: promptTail })}
+          </span>
+        ) : null}
+        {failed ? (
+          // 只在点过发送之后出现:没有提交就挂「失败」是给没发生的事下结论
+          <span
+            className="text-[10px] leading-none text-destructive"
+            data-testid={`terminal-interaction-failed-${terminalId}`}
+          >
+            {t('feedback.failed')}
+          </span>
+        ) : null}
+      </div>
+      <Input
+        type="text"
+        value={text}
+        onChange={(event) => {
+          const next = event.target.value
+          setText(maxInputChars > 0 ? next.slice(0, maxInputChars) : next)
+        }}
+        maxLength={maxInputChars > 0 ? maxInputChars : undefined}
+        disabled={submitting}
+        aria-label={t('chat.terminal.waitingInput')}
+        className="h-7 min-w-0 flex-1 text-xs"
+        data-testid={`terminal-interaction-input-${terminalId}`}
+      />
+      <Button
+        type="submit"
+        size="xs"
+        disabled={submitting}
+        data-testid={`terminal-interaction-submit-${terminalId}`}
+      >
+        {t('chat.terminal.submit')}
+      </Button>
+    </form>
+  )
+}
+
+export function MessageContent({
+  message,
+  streaming = false,
+  terminalInteractions,
+  onTerminalInputSubmit,
+}: MessageContentProps) {
   const { t } = useI18n()
   const tTool = useMemo(() => makeToolTranslate(t), [t])
   const model = useMemo(() => buildRenderModel(message, { streaming }), [message, streaming])
@@ -741,6 +846,16 @@ export function MessageContent({ message, streaming = false }: MessageContentPro
   const stampedTier =
     typeof message.metadata?.permissionMode === 'string' ? message.metadata.permissionMode : null
   const firstTerminalIdx = model.blocks.findIndex((b) => b.kind === 'terminal')
+  // D151:等待输入的行只给**本条消息里确实存在**的任务出(顺序取 terminalTasks 的原序,
+  // 不取 Object.keys —— 后者会把同一轮两条命令按字典序打乱,与终端块顺序不一致)。
+  const pendingTerminalInputs = terminalInteractions
+    ? (message.terminalTasks ?? [])
+        .map((task) => ({ id: task.id, interaction: terminalInteractions[task.id] }))
+        .filter(
+          (row): row is { id: string; interaction: TerminalInteractionView } =>
+            !!row.id && !!row.interaction,
+        )
+    : []
   return (
     <div className="flex flex-col gap-1.5" data-testid="message-content">
       {stampedTier !== null && (
@@ -778,6 +893,15 @@ export function MessageContent({ message, streaming = false }: MessageContentPro
             return null
         }
       })}
+      {pendingTerminalInputs.map((row) => (
+        <TerminalInputRow
+          key={`terminal-input-${row.id}`}
+          terminalId={row.id}
+          interaction={row.interaction}
+          onSubmit={onTerminalInputSubmit}
+          t={t}
+        />
+      ))}
       {model.isEmpty && message.role === 'assistant' ? (
         <span className="text-muted-foreground">...</span>
       ) : null}

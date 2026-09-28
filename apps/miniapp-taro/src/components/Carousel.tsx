@@ -151,7 +151,7 @@ export default function Carousel({
                   </View>
                 ) : null}
                 {meta ? (
-                  // 守门 128:「course 变体叠加层」(p-3/gap-2/mt-1/px-2/py-0.5/text-sm/text-xs 折出
+                  // 守门 128:「course 变体叠加层」(p-3/gap-2/mt-1/px-2/py-[4rpx]/text-sm/text-xs 折出
                   // 12/8/4/8/2/14/12)同为小程序端独有渲染:variant='course'/courseMeta 只在小程序
                   // 组件入参存在,RN 侧课程卡是另一枚组件(CourseCarousel),不在本配对面上。
                   // 处置同上方兜底块 —— 数字留在类名可见,收口前置见 carousel-spec 头注。
@@ -164,11 +164,11 @@ export default function Carousel({
                     {meta.isFree || meta.price !== undefined || meta.tag ? (
                       <View className="flex items-center gap-2 mt-1">
                         {meta.isFree ? (
-                          <Text className="text-xs text-success-foreground bg-success px-2 py-0.5 rounded-sm">
+                          <Text className="text-xs text-success-foreground bg-success px-2 py-[4rpx] rounded-sm">
                             {tt('course.free', '免费')}
                           </Text>
                         ) : meta.price !== undefined ? (
-                          <Text className="text-xs text-cta-foreground bg-cta px-2 py-0.5 rounded-sm">
+                          <Text className="text-xs text-cta-foreground bg-cta px-2 py-[4rpx] rounded-sm">
                             ¥{meta.price}
                           </Text>
                         ) : null}

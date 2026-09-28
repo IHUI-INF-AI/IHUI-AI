@@ -342,7 +342,7 @@ export default function VipBenefitsPopup({
                   <View className="flex-1">
                     <Text className="block text-sm font-medium vip-text">{b.title}</Text>
                     {b.desc && (
-                      <Text className="block text-xs vip-text-muted mt-0.5">{b.desc}</Text>
+                      <Text className="block text-xs vip-text-muted mt-[4rpx]">{b.desc}</Text>
                     )}
                   </View>
                 </View>

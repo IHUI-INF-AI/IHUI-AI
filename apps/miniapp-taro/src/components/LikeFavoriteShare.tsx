@@ -36,7 +36,7 @@ export default function LikeFavoriteShare({
           size={36}
           color={liked ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
         />
-        <Text className={`text-xs mt-0.5 ${liked ? 'text-primary' : 'text-muted-foreground'}`}>
+        <Text className={`text-xs mt-[4rpx] ${liked ? 'text-primary' : 'text-muted-foreground'}`}>
           {likeCount > 0 ? likeCount : tt('action.like', '点赞')}
         </Text>
       </View>
@@ -46,13 +46,15 @@ export default function LikeFavoriteShare({
           size={36}
           color={favorited ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
         />
-        <Text className={`text-xs mt-0.5 ${favorited ? 'text-primary' : 'text-muted-foreground'}`}>
+        <Text
+          className={`text-xs mt-[4rpx] ${favorited ? 'text-primary' : 'text-muted-foreground'}`}
+        >
           {favoriteCount > 0 ? favoriteCount : tt('action.favorite', '收藏')}
         </Text>
       </View>
       <View className="flex flex-col items-center" onClick={onShare} hoverClass="opacity-60">
         <LineIcon name="share-2" size={36} color="var(--color-muted-foreground)" />
-        <Text className="text-xs mt-0.5 text-muted-foreground">
+        <Text className="text-xs mt-[4rpx] text-muted-foreground">
           {shareCount > 0 ? shareCount : tt('action.share', '分享')}
         </Text>
       </View>

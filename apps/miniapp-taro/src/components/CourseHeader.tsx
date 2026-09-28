@@ -40,7 +40,7 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
             {data.tags.map((tag, i) => (
               <Text
                 key={i}
-                className="text-[length:22rpx] px-2 py-0.5 mr-1.5 mb-1 rounded bg-primary/10 text-primary"
+                className="text-[length:22rpx] px-2 py-[4rpx] mr-[12rpx] mb-1 rounded bg-primary/10 text-primary"
               >
                 {tag}
               </Text>
