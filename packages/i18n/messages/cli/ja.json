@@ -108,7 +108,12 @@
       "fsExhaustedInodes": "根本原因の診断: コマンドは出力なしで {status} で終了しましたが、{cwd} のファイルシステムは実測で inode が枯渇しています(ffree={freeInodes}、1000 の診断閾値未満)—— ディレクトリエントリが満杯です。小さいファイル/ディレクトリを整理するか、ファイルシステムの inode 割り当て上限を確認してから再試行してください。"
     },
     "goalNotAchieved": "独立検証に合格しなかったため、この実行を完了として報告できません",
-    "truncatedByLength": "出力が長さ上限に達して切り詰められました。応答は不完全な可能性があります。分割して続きを求めるか、max_tokens を上げて再試行してください。"
+    "truncatedByLength": "出力が長さ上限に達して切り詰められました。応答は不完全な可能性があります。分割して続きを求めるか、max_tokens を上げて再試行してください。",
+    "mcpCredentials": {
+      "storePlaintext": "MCP 認証情報が {path} に平文で保存されています（このマシンでは平文に降格）",
+      "storeEncrypted": "MCP 認証情報は暗号化して保存されています（バックエンド：{backend}）",
+      "migrationFailed": "認証情報の移行が完了していません。元のファイルを保持し上書きしていません（{reason}）"
+    }
   },
   "waiting": {
     "agent": {

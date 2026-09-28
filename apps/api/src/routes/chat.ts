@@ -5,6 +5,13 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { sql, and, eq, inArray } from 'drizzle-orm'
+// D153(2026-09-29 立):会话元数据变更的 per-user 下行广播。
+// 事件形态与构造的唯一出口在 @ihui/types(三个消费面共用一份描述),
+// 路由内不得手拼 `{event,data}` 字面量,也不得把"哪些字段真的变了"照抄请求体键名。
+import {
+  conversationUpdatedEvent,
+  type ConversationMetaField,
+} from '@ihui/types'
 import {
   compressContextIfNeeded,
   estimateMessagesTokens,
@@ -388,6 +395,67 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     return { conversation }
   }
 
+  /**
+   * D153(2026-09-29 立)会话元数据变更的 per-user 下行广播 —— 本文件**唯一**发射口。
+   *
+   * 三条不可漂的写法:
+   *  ① **只在写库成功之后调用**(票第 3 栏)。写在 await 之前 = 推一个库里没有的状态,
+   *     另一端按它渲染就成了新的分叉源,比不推更糟。
+   *  ② `fields` 一律按**落库结果与写前那份行的差集**算,不得照抄请求体键名 ——
+   *     请求带 `title:"新对话"` 而库里本来就是这句时,照抄键名会推一帧"标题变了",
+   *     消费端就会给自己刚写的字段弹一条"其他设备改过"的假提示。
+   *  ③ 广播失败**不得**改响应:这一帧丢了,另一端退化为"下次打开才同步"(既有拉取制),
+   *     而把 200 变成 500 是把"下行没到"伪装成"写库失败"—— 症状与病因都会被判错。
+   *     所以这里 catch 之后必须出声(request.log.warn),不得静默(§5e「失败必须响」)。
+   */
+  const broadcastConversationMeta = (
+    request: FastifyRequest,
+    userId: string,
+    conversationId: string,
+    fields: ConversationMetaField[],
+    at: Date | string,
+    values?: Partial<Record<ConversationMetaField, string | boolean | null>>,
+  ): void => {
+    if (fields.length === 0) return
+    try {
+      const evt = conversationUpdatedEvent({ conversationId, fields, changedBy: userId, at, values })
+      server.broadcastToUser(userId, evt.event, evt.data)
+    } catch (err) {
+      request.log.warn(
+        { err, userId, conversationId, fields },
+        'D153 会话元数据广播发射失败(写库已成功,另一端退回下次打开时同步)',
+      )
+    }
+  }
+
+  /** 会话行 → 本次变更字段的**新值**(@ihui/types 的 `values` 成员;验收①要靠它落 UI) */
+  const conversationMetaValues = (row: {
+    title: string
+    model: string | null
+    archivedAt: Date | null
+  }): Partial<Record<ConversationMetaField, string | boolean | null>> => ({
+    title: row.title,
+    model: row.model,
+    archive: row.archivedAt !== null,
+  })
+
+  /**
+   * 写前后两行 → 本次**真正**变化的可同步字段集合(D153 判据②的实现)。
+   * 只覆盖服务端持有主副本的三列;`pinned` / `metadata` 不在封闭字段集里,
+   * 那是另一型(置顶排序与挂起态),要同步得先扩 @ihui/types 的 CONVERSATION_META_FIELDS。
+   */
+  const diffConversationMetaFields = (
+    before: { title: string; model: string | null; archivedAt: Date | null },
+    after: { title: string; model: string | null; archivedAt: Date | null },
+  ): ConversationMetaField[] => {
+    const fields: ConversationMetaField[] = []
+    if (before.title !== after.title) fields.push('title')
+    if (before.model !== after.model) fields.push('model')
+    // 归档按"有没有归档时刻"比,不比 Date 对象本身(两行各 new Date() 必然不等)
+    if (Boolean(before.archivedAt) !== Boolean(after.archivedAt)) fields.push('archive')
+    return fields
+  }
+
   // POST /conversations - 创建对话
   server.post(
     '/conversations',
@@ -538,6 +606,15 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     if (!owned.conversation) return
 
     const updated = await updateConversation(id, parsed.data)
+    // D153:写库成功后按"库里到底变了哪一列"广播(见 broadcastConversationMeta 判据②)
+    broadcastConversationMeta(
+      request,
+      userId,
+      id,
+      diffConversationMetaFields(owned.conversation, updated),
+      updated.updatedAt,
+      conversationMetaValues(updated),
+    )
     return reply.send(success({ conversation: serializeConversation(updated) }))
   })
 
@@ -579,6 +656,11 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     if (!updated) {
       return reply.status(404).send(error(404, '对话不存在'))
     }
+    // D153:自动标题**也**要下行。这一型最容易漏,因为它是后台 fire-and-forget 写的,
+    // 用户没在任何端按"重命名" —— 另一端侧栏于是长期挂着「新对话」而无人喊。
+    broadcastConversationMeta(request, userId, id, ['title'], updated.updatedAt, {
+      title: updated.title,
+    })
     return reply.send(success({ ok: true, title, updated: true }))
   })
 
@@ -648,6 +730,23 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         case 'unarchive':
           affected = await setConversationsArchivedBatch(userId, ids, false)
           break
+      }
+      // D153(2026-09-29):归档是"另一台设备最看不出来"的一类变更 —— 侧栏少一行没有报错,
+      // 只有沉默分叉。所以只对**库里真的被这次写命中**的那些 id 发帧:上面的归属预查询
+      // (ownedRows)就是命中集,别人的 id / 已删的 id / 写错的 id 一条都不推
+      // (守门 134 的同一条判据:回报集合取库侧确认集,不取请求侧数组)。
+      // 时机:写在 switch 之后 ⇒ 五个 action 的写链都已 await 完成。
+      if (action === 'archive' || action === 'unarchive') {
+        for (const row of ownedRows) {
+          broadcastConversationMeta(
+            request,
+            userId,
+            row.id,
+            ['archive'],
+            new Date(),
+            { archive: action === 'archive' },
+          )
+        }
       }
       return reply.send(success({ action, affected, missedIds }))
     } catch (err) {
@@ -1140,6 +1239,10 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     if (!owned.conversation) return
 
     const updated = await archiveConversation(id)
+    // D153:归档态是沉默分叉最重的一型(另一端侧栏里这行还在,点开才发现已归档)
+    broadcastConversationMeta(request, userId, id, ['archive'], updated.updatedAt, {
+      archive: true,
+    })
     return reply.send(success({ conversation: serializeConversation(updated) }))
   })
 
@@ -1154,6 +1257,10 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     if (!owned.conversation) return
 
     const updated = await unarchiveConversation(id)
+    // D153:与归档同形 —— 取消归档同样是"另一端看不出来"的沉默变更
+    broadcastConversationMeta(request, userId, id, ['archive'], updated.updatedAt, {
+      archive: false,
+    })
     return reply.send(success({ conversation: serializeConversation(updated) }))
   })
 

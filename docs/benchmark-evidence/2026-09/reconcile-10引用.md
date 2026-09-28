@@ -10,9 +10,13 @@
 
 四态口径：**L1 逐字 / L2 近义(Jaccard≥0.5) 不算差距**；L3=需人工核（键同名或子串同形，形似不等于等同）；MISS=候选缺失，须逐条定性后才可写进台账。控制测量在运行前已通过，故 MISS 不是匹配器空转的产物。
 
+> 族级归属：430 行全部归到某个族，族级计数可用于归因。
+
+> 不计 MISS 的 skip 明细（逐档报名）：非中文原文(不计 MISS，只报数) 8 条 / 枚举/样式值非文案(值层主筛) 3 条
+
 | 节 | 族 | 竞品键 | 竞品原文 | 判定 | 我方对应 |
 | --- | --- | --- | --- | --- | --- |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.addedFolderCount` | {{name}} +{{count}} | skip |  |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.addedFolderCount` | {{name}} +{{count}} | skip | 非中文原文(不计 MISS，只报数) |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.selectionActions.ariaLabel` | 选中文本操作 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.selectionActions.copyText` | 复制文本 | L1 | chat.contextMenu.copyText |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.selectionActions.addToChat` | 添加到任务 | L1 | ai.pane.annotationAnchors.addToTask |
@@ -37,16 +41,16 @@
 | 10 引用与来源（@ / | chatSession.* | `chatSession.selectionAnnotations.skipComment` | 暂不评论 | L2 | ai.pane.elementPack.feedbackSurvey.dismiss (J=0.50) |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.selectionAnnotations.save` | 保存 | L1 | teamMemory.saveBtn |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.selectionAnnotations.cancel` | 取消 | L1 | teamMemory.cancelBtn |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.selectionAnnotations.edit` | 编辑批注 {{index}} | MISS |  |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.selectionAnnotations.edit` | 编辑批注 {{index}} | L3 | 键末段同名+词头同形:我方 knowledgeCard.edit=「编辑」 |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.selectionAnnotations.removeOne` | 移除批注 {{index}} | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.selectionAnnotations.removeAll` | 移除全部划词批注 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.selectionAnnotations.marker` | 批注 {{index}} | L2 | answerArea.audio.alt (J=0.50) |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.selectionAnnotations.directiveLabel` | 批注 {{index}} | L2 | answerArea.audio.alt (J=0.50) |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.open` | 打开速记板 | MISS |  |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.close` | 关闭速记板 | MISS |  |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.title` | Quick Notes | skip |  |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.open` | 打开速记板 | L3 | 键末段同名+词头同形:我方 ide.fileTreeNode.open=「打开」 |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.close` | 关闭速记板 | L3 | 键末段同名+词头同形:我方 a11y.close=「关闭」 |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.title` | Quick Notes | skip | 非中文原文(不计 MISS，只报数) |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.description` | 保存从 Agent 回复中摘出的片段。 | L3 | 子串同形:agentCanvas.typeAgent |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.search` | 搜索速记板 | L3 | 键末段同名，原文待核 |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.search` | 搜索速记板 | L3 | 键末段同名+词头同形:我方 knowledgeCard.search=「搜索」 |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.searchPlaceholder` | 搜索笔记… | L2 | notes.search (J=0.75) |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.closeSearch` | 退出搜索 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.addPlaceholder` | 记下点什么… | L2 | note.placeholder (J=0.50) |
@@ -128,7 +132,7 @@
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.emptyDescription` | 在 Agent 回复里划选内容，然后添加到速记板。 | L3 | 子串同形:agentCanvas.typeAgent |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.sourceChat` | 来自“{{title}}” | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.sourceUnknownChat` | 来自任务 | MISS |  |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.copy` | 复制速记 | MISS |  |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.copy` | 复制速记 | L3 | 键末段同名+词头同形:我方 a11y.copy=「复制」 |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.copied` | 已复制速记 | L2 | workPanel.linkCopied (J=0.50) |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.copyFailed` | 复制速记失败 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.copyRecord` | 复制 | L1 | a11y.copy |
@@ -147,8 +151,8 @@
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.onboardingNote` | 这是你的第一条速记 🌲。 | L3 | 子串同形:user.public.isYou |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.onboardingTitle` | 这是你的第一条速记 🌲。 | L3 | 子串同形:user.public.isYou |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.onboardingUnderline` | 还没准备发送的 | MISS |  |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.onboardingTagline` | Catch it before it slips. | skip |  |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.noSourceGroup` | No Source | skip |  |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.onboardingTagline` | Catch it before it slips. | skip | 非中文原文(不计 MISS，只报数) |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.noSourceGroup` | No Source | skip | 非中文原文(不计 MISS，只报数) |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.archiveRecord` | 归档速记 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.restoreRecord` | 恢复速记 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.archived` | 已归档 | L1 | teamKnowledge.status.archived |
@@ -159,7 +163,7 @@
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.today` | 今天 | L1 | aiChat.today |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.yesterday` | 昨天 | L1 | aiNews.feed.yesterday |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.unknownTime` | 时间未知 | MISS |  |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.delete` | 删除速记 | MISS |  |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.delete` | 删除速记 | L3 | 键末段同名+词头同形:我方 knowledgeCard.delete=「删除」 |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.deleteRecord` | 删除 | L1 | knowledgeCard.delete |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.deleteConfirmTitle` | 删除这条速记？ | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.deleteConfirmDescription` | 正文和图片附件将永久删除，此操作无法撤销。 | MISS |  |
@@ -206,14 +210,14 @@
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.colors.blue` | 蓝色 | L1 | eduSchedule.colors.blue |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.colors.teal` | 青色 | L1 | eduSchedule.colors.teal |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.colors.green` | 绿色 | L1 | eduSchedule.colors.green |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.open` | 打开任务监控 | MISS |  |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.open` | 打开任务监控 | L3 | 键末段同名+词头同形:我方 ide.fileTreeNode.open=「打开」 |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.title` | 任务监控 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.linkedIssue` | 关联 Issue | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.empty` | 还没有有价值的内容 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.emptyDescription` | 整个任务中产生的文件、网页和来源会持续汇总在这里，帮助跟踪任务进展。 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.loadFailed` | 任务监控暂时无法读取。 | MISS |  |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.pin` | 固定任务监控 | MISS |  |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.unpin` | 取消固定任务监控 | L3 | 子串同形:common.unpin |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.pin` | 固定任务监控 | L3 | 键末段同名+词头同形:我方 common.pin=「固定」 |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.unpin` | 取消固定任务监控 | L3 | 键末段同名+词头同形:我方 common.unpin=「取消固定」 |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.switchToFloating` | 切换为 Floating 模式 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.showFixed` | 显示任务监控 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.hideFixed` | 隐藏任务监控 | MISS |  |
@@ -233,7 +237,7 @@
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.openSourceFileFailed` | 无法在 Qoder 中预览来源文件。 | L3 | 子串同形:cliImport.sourceQoder |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.title` | 任务回顾 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.updatedAt` | 更新于 {{time}} | L2 | deliveryReview.generatedAt (J=0.50) |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.expand` | 展开任务回顾 | MISS |  |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.expand` | 展开任务回顾 | L3 | 键末段同名+词头同形:我方 a11y.expand=「展开」 |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.moreActions` | 任务回顾更多操作 | L3 | 子串同形:aiChat.actions.menu |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.handoff.menuItem` | 移交到新任务 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.handoff.title` | 移交到新任务 | MISS |  |
@@ -241,7 +245,7 @@
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.handoff.previewDescription` | 检查交接内容后，可以在文件位置查看，或直接创建一个新任务继续工作。 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.handoff.purposeLabel` | 交接目的 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.handoff.purposePlaceholder` | 例如：验证新的任务回顾生成逻辑，并补齐相关测试。 | MISS |  |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.handoff.generate` | 生成交接文档 | MISS |  |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.handoff.generate` | 生成交接文档 | L3 | 键末段同名+词头同形:我方 repoWiki.generate=「生成」 |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.handoff.generating` | 正在生成… | L1 | aiAssistantN8n.streaming |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.handoff.waitingPreview` | 正在准备交接内容… | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.handoff.phase.collecting` | 正在整理任务回顾、相关文件和任务上下文… | L3 | 子串同形:ai.pane.overview.context |
@@ -258,7 +262,7 @@
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.environment.changes` | 变更 | L1 | ai.pane.overview.changes |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.environment.noChanges` | 无变更 | L1 | aiChat.envInfo.noChanges |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.environment.local` | 本地 | L1 | aiChat.envInfo.local |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.environment.worktree` | Worktree | skip |  |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.environment.worktree` | Worktree | skip | 枚举/样式值非文案(值层主筛) |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.environment.executionModeSwitchUnavailable` | 已创建的任务暂不支持切换本地或 Worktree 模式 | L3 | 子串同形:ecosystem.capUnsupported |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.environment.branch` | 分支 | L1 | aiChat.envInfo.branchDetails |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.environment.switchBranch` | 检出分支 | L3 | 子串同形:ai.pane.moveToWorktree.subtitle |
@@ -276,12 +280,12 @@
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.environment.pullRequest` | 拉取请求 | L1 | aiChat.envInfo.pullRequest |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.environment.pullRequestUnavailable` | 无法获取拉取请求状态 | L1 | aiChat.envInfo.prUnavailable |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.group.artifact` | 产出 | MISS |  |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.group.browser` | 网页查阅 | L3 | 键末段同名，原文待核 |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.group.browser` | 网页查阅 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.group.runtime` | 技能与 MCP | L3 | 子串同形:chat.skillLibrary.tabMcp |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.group.source` | 来源 | L1 | admin.edu.certificate.colSource |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.group.memory` | 记忆 | L1 | aiToolsPanel.tabs.memory |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.emptyGroup.artifact` | 暂无产出数据 :) | MISS |  |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.emptyGroup.browser` | 暂无网页查阅数据 :) | L3 | 键末段同名，原文待核 |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.emptyGroup.browser` | 暂无网页查阅数据 :) | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.emptyGroup.runtime` | 暂无技能与 MCP 数据 :) | L3 | 子串同形:chat.skillLibrary.tabMcp |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.emptyGroup.source` | 暂无来源数据 :) | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.emptyGroup.memory` | 暂无记忆数据 :) | MISS |  |
@@ -293,18 +297,18 @@
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.linkDialog.title` | 添加链接 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.linkDialog.description` | 将一个 HTTP 或 HTTPS 链接加入输入框，发送后会记录为来源。 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.linkDialog.label` | 链接地址 | L2 | workPanel.copyLink (J=0.60) |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.linkDialog.placeholder` | https://example.com | skip |  |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.linkDialog.placeholder` | https://example.com | skip | 枚举/样式值非文案(值层主筛) |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.linkDialog.invalid` | 请输入以 http:// 或 https:// 开头的有效链接。 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.linkDialog.cancel` | 取消 | L1 | teamMemory.cancelBtn |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.linkDialog.add` | 添加 | L1 | admin.eduClassMembers.add |
 | 10 引用与来源（@ / | composer.* | `composer.referencePreview.description` | 复制已发送消息或划选完整标签，粘贴后再编辑、发送，检查引用是否保持一致。 | L3 | 子串同形:admin.notificationLogs.sent |
 | 10 引用与来源（@ / | composer.* | `composer.referencePreview.available` | 模拟能力可用 | MISS |  |
 | 10 引用与来源（@ / | composer.* | `composer.referencePreview.message` | 已发送消息 | L2 | unifiedDashboard.toastSent (J=0.60) |
-| 10 引用与来源（@ / | composer.* | `composer.referencePreview.edit` | 编辑此消息 | MISS |  |
+| 10 引用与来源（@ / | composer.* | `composer.referencePreview.edit` | 编辑此消息 | L3 | 键末段同名+词头同形:我方 knowledgeCard.edit=「编辑」 |
 | 10 引用与来源（@ / | composer.* | `composer.referencePreview.editor` | 能力引用输入框 | MISS |  |
 | 10 引用与来源（@ / | composer.* | `composer.referencePreview.placeholder` | 粘贴完整引用或输入 @名称… | MISS |  |
-| 10 引用与来源（@ / | composer.* | `composer.referencePreview.send` | 发送预览 | MISS |  |
-| 10 引用与来源（@ / | composer.* | `composer.referencePreview.select` | 选择示例能力 | MISS |  |
+| 10 引用与来源（@ / | composer.* | `composer.referencePreview.send` | 发送预览 | L3 | 键末段同名+词头同形:我方 a11y.send=「发送」 |
+| 10 引用与来源（@ / | composer.* | `composer.referencePreview.select` | 选择示例能力 | L3 | 键末段同名+词头同形:我方 chatHistory.select=「选择」 |
 | 10 引用与来源（@ / | composer.* | `composer.referencePreview.clear` | 新建输入 | MISS |  |
 | 10 引用与来源（@ / | composer.* | `composer.referencePreview.authorization` | 此预览不请求模型。标签展示不会新增执行授权。 | MISS |  |
 | 10 引用与来源（@ / | composer.* | `composer.referencePreview.source` | 原始输入正文 | MISS |  |
@@ -347,7 +351,7 @@
 | 10 引用与来源（@ / | composer.* | `composer.actions.recordingNote` | 录音纪要 | L3 | 子串同形:ai.pane.voiceSubtitles.conflict |
 | 10 引用与来源（@ / | composer.* | `composer.actions.recordingNoteLiveVoiceUnavailable` | Live Voice 任务中不可使用录音纪要 | MISS |  |
 | 10 引用与来源（@ / | composer.* | `composer.actions.recordingNoteCreateFailed` | 无法创建录音纪要，请重试。 | MISS |  |
-| 10 引用与来源（@ / | composer.* | `composer.actions.betaTag` | Beta | skip |  |
+| 10 引用与来源（@ / | composer.* | `composer.actions.betaTag` | Beta | skip | 枚举/样式值非文案(值层主筛) |
 | 10 引用与来源（@ / | composer.* | `composer.actions.polishPrompt` | 润色提示词 | L1 | ai.pane.promptPolish.ariaLabel |
 | 10 引用与来源（@ / | composer.* | `composer.actions.polishPromptFailed` | 暂时无法润色提示词，草稿已保留。 | L1 | ai.pane.promptPolish.failureDraftKept |
 | 10 引用与来源（@ / | composer.* | `composer.actions.polishPromptRestartRequired` | 提示词润色需要重启 Qoder 后生效，草稿已保留。 | L3 | 子串同形:ai.toolCall.prompt |
@@ -383,7 +387,7 @@
 | 10 引用与来源（@ / | composer.* | `composer.attachments.removeInvalid` | 请先移除不可用的附件。 | L3 | 子串同形:eduScheduling.timeEntryDialog.unavailable |
 | 10 引用与来源（@ / | composer.* | `composer.attachments.requiresSession` | 请先创建任务，再在任务中添加附件。 | L3 | 子串同形:eduAi.outbound.createCampaign |
 | 10 引用与来源（@ / | composer.* | `composer.attachments.dropError` | 无法读取拖入的文件或文件夹。 | L3 | 子串同形:aiChat.org.folderLabel |
-| 10 引用与来源（@ / | composer.* | `composer.chatSessionDrop.prompt` | 松开以引用会话 | L3 | 键末段同名，原文待核 |
+| 10 引用与来源（@ / | composer.* | `composer.chatSessionDrop.prompt` | 松开以引用会话 | MISS |  |
 | 10 引用与来源（@ / | composer.* | `composer.chatSessionDrop.disabled` | 输入框当前不可编辑，暂时无法引用会话。 | MISS |  |
 | 10 引用与来源（@ / | composer.* | `composer.chatSessionDrop.loading` | 正在确认会话引用能力，请稍后重试。 | L3 | 子串同形:ai.pane.errorCatalog.API_BRIDGE_ERROR.action |
 | 10 引用与来源（@ / | composer.* | `composer.chatSessionDrop.unsupported` | 当前会话不支持引用其他会话。 | L3 | 子串同形:ecosystem.capUnsupported |
@@ -407,7 +411,7 @@
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.connectorDescription.pluginWithProvider` | 由 {{provider}} 插件提供的 MCP Server | L3 | 子串同形:chat.skillLibrary.tabMcp |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.connectorDescription.plugin` | 由插件提供的 MCP Server | L2 | mcpStore.registeredTitle (J=0.50) |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.connectorDescription.marketWithProvider` | 由 {{provider}} 提供的 MCP Server | L3 | 子串同形:chat.skillLibrary.tabMcp |
-| 10 引用与来源（@ / | composer.* | `composer.suggestion.connectorDescription.market` | 来自扩展市场的 MCP Server | L3 | 键末段同名，原文待核 |
+| 10 引用与来源（@ / | composer.* | `composer.suggestion.connectorDescription.market` | 来自扩展市场的 MCP Server | L3 | 子串同形:chat.skillLibrary.tabMcp |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.connectorDescription.userLocal` | 用户配置的本地 MCP Server | L3 | 子串同形:chat.skillLibrary.tabMcp |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.connectorDescription.userRemote` | 用户配置的远程 MCP Server | L3 | 子串同形:chat.skillLibrary.tabMcp |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.connectorDescription.user` | 用户配置的 MCP Server | L2 | mcpStore.registeredTitle (J=0.53) |
@@ -415,7 +419,7 @@
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.connectorDescription.projectRemote` | 当前项目配置的远程 MCP Server | L3 | 子串同形:chat.skillLibrary.tabMcp |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.connectorDescription.project` | 当前项目配置的 MCP Server | L3 | 子串同形:chat.skillLibrary.tabMcp |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.connectorDescription.builtin` | Qoder 内置 MCP Server | L3 | 子串同形:chat.skillLibrary.tabMcp |
-| 10 引用与来源（@ / | composer.* | `composer.suggestion.connectorDescription.generic` | MCP Server | skip |  |
+| 10 引用与来源（@ / | composer.* | `composer.suggestion.connectorDescription.generic` | MCP Server | skip | 非中文原文(不计 MISS，只报数) |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.connectorSource` | 连接器来源：{{source}} | L3 | 子串同形:commandPalette.commands.connectors.label |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.agentNoDescription` | 暂无描述 | L1 | agent.noDescription |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.agentSource` | Agent 来源：{{source}} | L3 | 子串同形:agentCanvas.typeAgent |
@@ -427,12 +431,12 @@
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.partialErrorAll` | 扩展能力和 Workspace 文件暂时无法加载。 | L3 | 子串同形:unifiedSuggestion.sourceFailedTag |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.removeSkill` | 移除 Skill {{skill}} | L3 | 子串同形:commandPalette.commands.skill.keywords.1 |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.unavailableReference` | {{name}}（不可用） | L2 | chat.sampling.clearParam (J=0.50) |
-| 10 引用与来源（@ / | composer.* | `composer.suggestion.skillTag` | Skill {{skill}} | skip |  |
+| 10 引用与来源（@ / | composer.* | `composer.suggestion.skillTag` | Skill {{skill}} | skip | 非中文原文(不计 MISS，只报数) |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.pluginTag` | 插件 {{plugin}} | L2 | taskStatus.activityPlugin (J=0.57) |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.connectorTag` | 连接器 {{name}} | L2 | chat.sampling.clearParam (J=0.50) |
-| 10 引用与来源（@ / | composer.* | `composer.suggestion.agentTag` | Agent {{name}} | skip |  |
+| 10 引用与来源（@ / | composer.* | `composer.suggestion.agentTag` | Agent {{name}} | skip | 非中文原文(不计 MISS，只报数) |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.chatSessionTag` | 任务 {{title}} | MISS |  |
-| 10 引用与来源（@ / | composer.* | `composer.suggestion.issueReferenceTag` | Issue {{identifier}} | skip |  |
+| 10 引用与来源（@ / | composer.* | `composer.suggestion.issueReferenceTag` | Issue {{identifier}} | skip | 非中文原文(不计 MISS，只报数) |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.fileTag` | 项目文件 {{file}} | MISS |  |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.removedUnavailableSkills` | 已移除当前上下文中不可用的 Skill：{{skills}} | L3 | 子串同形:ai.pane.overview.context |
 | 10 引用与来源（@ / | composer.* | `composer.suggestion.hint` | ↑↓ 选择 · Enter/Tab 添加 · Esc 关闭 | MISS |  |
