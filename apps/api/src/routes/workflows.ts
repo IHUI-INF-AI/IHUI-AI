@@ -408,13 +408,16 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
           type: 'object',
           required: ['id'],
           properties: {
-            id: { type: 'string', format: 'uuid', description: '工作流 ID' },
+            // G-261(同 G-257 口径):type-only,uuid 由 idParamSchema(Zod)校验;
+            // format:'uuid' 走 ajv 先拒会被 400 响应 schema(code:number)掩盖成 500
+            id: { type: 'string', description: '工作流 ID(UUID,服务端 Zod 校验)' },
           },
         },
         body: {
           type: 'object',
+          // G-261:type-only,projectId uuid 由 triggerSchema(Zod)校验
           properties: {
-            projectId: { type: 'string', format: 'uuid', description: '关联项目 ID(可选)' },
+            projectId: { type: 'string', description: '关联项目 ID(可选,UUID,服务端 Zod 校验)' },
             context: {
               type: 'object',
               additionalProperties: true,

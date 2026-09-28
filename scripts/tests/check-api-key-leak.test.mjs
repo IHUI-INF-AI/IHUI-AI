@@ -5,24 +5,18 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-api-key-leak.mjs')
 
-// ─── 辅助:创建临时项目根 ─────────────────────────────────
-function createTempProject() {
-  const root = mkdtempSync(join(tmpdir(), 'ihui-apikey-'))
-  return root
-}
-
-// 辅助:创建临时 git 仓库(--staged 模式需要)
+// ─── 辅助:创建临时 git 仓库(--staged 模式需要) ──────────
 function createTempRepo() {
-  const root = mkdtempSync(join(tmpdir(), 'ihui-apikey-repo-'))
+  const root = mkScratch('ihui-apikey-repo-')
   execSync('git init -b main', { cwd: root, stdio: 'pipe' })
   execSync('git config user.email test@test.com', { cwd: root, stdio: 'pipe' })
   execSync('git config user.name test', { cwd: root, stdio: 'pipe' })
@@ -40,6 +34,12 @@ function writeAndStage(root, relPath, content) {
   writeFileSync(fullPath, content)
   // Windows 路径分隔符在 git add 中需用 / 或转义;用引号包裹避免空格问题
   execSync(`git add "${relPath.replace(/\\/g, '/')}"`, { cwd: root, stdio: 'pipe' })
+}
+
+// 辅助:写入文件并提交(默认档判 **HEAD blob**,2026-09-27 守门 118 迁移后夹具必须入库)
+function writeAndCommit(root, relPath, content) {
+  writeAndStage(root, relPath, content)
+  execSync('git commit -m fixture', { cwd: root, stdio: 'pipe' })
 }
 
 // 辅助:运行脚本(stdout/stderr 去除 ANSI 颜色码)
@@ -84,7 +84,7 @@ function assertFail(r, pattern) {
 
 // ─── 1. CLI --help 不崩溃(脚本未实现 --help,按默认模式运行) ───
 test('CLI: --help 不崩溃(脚本未实现 --help,直接走默认全量扫描)', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
     const r = runScript(root, ['--help'])
     assert.ok(
@@ -93,199 +93,206 @@ test('CLI: --help 不崩溃(脚本未实现 --help,直接走默认全量扫描)'
     )
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生未捕获 Error`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 2. 无 .example 文件(非 staged)→ 通过 ───────────────
 test('合法: 非 staged 模式无 .example 文件 → 通过(0 文件扫描)', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 3. .example 文件用 <your-xxx> 占位符 → 通过 ──────────
 test('合法: .env.example 用 <your-openai-api-key> 占位符 → 通过', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
-    writeFileSync(
-      join(root, '.env.example'),
+    writeAndCommit(
+      root,
+      '.env.example',
       'OPENAI_API_KEY=<your-openai-api-key>\n Anthropic_API_KEY=<your-anthropic-key>\n',
     )
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 4. .example 文件含 sk-[32 字符] → 检测到 ─────────────
 test('违规: .env.example 含 sk-[32+ 字符] 真实 key → 检测到', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
     // sk- + 32 个字母数字 = 35 字符,匹配 /sk-[A-Za-z0-9]{32,}/
     const fakeKey = 'sk-' + 'a'.repeat(40)
-    writeFileSync(join(root, '.env.example'), `OPENAI_API_KEY=${fakeKey}\n`)
+    writeAndCommit(root, '.env.example', `OPENAI_API_KEY=${fakeKey}\n`)
     const r = runScript(root)
     assertFail(r, /API Key 泄露|泄露位置/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 5. .example 文件含已知前缀 sk-irJTb1 → 检测到 ────────
 test('违规: .env.example 含已知前缀 sk-irJTb1 → 检测到', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
-    writeFileSync(
-      join(root, '.env.example'),
+    writeAndCommit(
+      root,
+      '.env.example',
       'AGNES_API_KEY=sk-irJTb1XXXXXXXXXXXXXXXXXXXXXXXX\n',
     )
     const r = runScript(root)
     assertFail(r, /sk-irJTb1/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 6. .example 文件含已知前缀 5iFfF0dl → 检测到 ────────
 test('违规: .env.example 含已知前缀 5iFfF0dl → 检测到', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
-    writeFileSync(
-      join(root, '.env.example'),
+    writeAndCommit(
+      root,
+      '.env.example',
       'STEPFUN_API_KEY=5iFfF0dlABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcd\n',
     )
     const r = runScript(root)
     assertFail(r, /5iFfF0dl/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 7. .example 文件含 64 位字母数字 → 检测到 ────────────
 test('违规: .env.example 含 64 位字母数字 key → 检测到', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
     const fakeKey = 'a'.repeat(64)
-    writeFileSync(join(root, '.env.example'), `STEPFUN_API_KEY=${fakeKey}\n`)
+    writeAndCommit(root, '.env.example', `STEPFUN_API_KEY=${fakeKey}\n`)
     const r = runScript(root)
     assertFail(r, /API Key 泄露|泄露位置/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 8. .example 文件用 ${API_KEY} 变量引用 → 通过 ────────
 test('合法: .env.production.example 用 ${OPENAI_API_KEY} 变量引用 → 通过', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
-    writeFileSync(
-      join(root, '.env.production.example'),
+    writeAndCommit(
+      root,
+      '.env.production.example',
       'OPENAI_API_KEY=${OPENAI_API_KEY}\n',
     )
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 9. .example 文件用空值 API_KEY= → 通过 ───────────────
 test('合法: .env.example 用空值 OPENAI_API_KEY= → 通过', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
-    writeFileSync(join(root, '.env.example'), 'OPENAI_API_KEY=\n')
+    writeAndCommit(root, '.env.example', 'OPENAI_API_KEY=\n')
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 10. AWS key (AKIAxxx)→ 不检测(脚本未实现此模式) ────
 test('行为: .env.example 含 AWS AKIA key → 不检测(脚本只识别 sk- / 64 位 / 已知前缀)', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
     // AWS access key id 格式:AKIA + 16 字符
-    writeFileSync(join(root, '.env.example'), 'AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE\n')
+    writeAndCommit(root, '.env.example', 'AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE\n')
     const r = runScript(root)
     // 脚本不检测 AKIA 模式 → 通过
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 11. GitHub PAT (ghp_xxx)→ 不检测(脚本未实现此模式) ──
 test('行为: .env.example 含 GitHub PAT ghp_xxx → 不检测(脚本未实现此模式)', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
-    writeFileSync(join(root, '.env.example'), 'GITHUB_TOKEN=ghp_1234567890abcdefghijklmnopqrstuvwxyz\n')
+    writeAndCommit(
+      root,
+      '.env.example',
+      'GITHUB_TOKEN=ghp_1234567890abcdefghijklmnopqrstuvwxyz\n',
+    )
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 12. Google API key (AIzaxxx)→ 不检测(脚本未实现) ──
 test('行为: .env.example 含 Google API key AIzaXxx → 不检测(脚本未实现此模式)', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
-    writeFileSync(join(root, '.env.example'), 'GOOGLE_API_KEY=AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890\n')
+    writeAndCommit(
+      root,
+      '.env.example',
+      'GOOGLE_API_KEY=AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890\n',
+    )
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 13. .env 文件(非 .example)含真实 key → 不检测(默认不扫) ──
 test('行为: .env 文件含真实 key → 不检测(脚本默认只扫 .example 文件)', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
     const fakeKey = 'sk-' + 'a'.repeat(40)
     // .env 文件不在非 staged 模式默认检查列表中
-    writeFileSync(join(root, '.env'), `OPENAI_API_KEY=${fakeKey}\n`)
+    writeAndCommit(root, '.env', `OPENAI_API_KEY=${fakeKey}\n`)
     const r = runScript(root)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 14. apps/api/.env.example 含真实 key → 检测到 ────────
 test('违规: apps/api/.env.example 含真实 key → 检测到', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
     const fakeKey = 'sk-' + 'a'.repeat(40)
-    mkdirSync(join(root, 'apps', 'api'), { recursive: true })
-    writeFileSync(join(root, 'apps', 'api', '.env.example'), `OPENAI_API_KEY=${fakeKey}\n`)
+    writeAndCommit(root, 'apps/api/.env.example', `OPENAI_API_KEY=${fakeKey}\n`)
     const r = runScript(root)
     assertFail(r, /API Key 泄露|泄露位置/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 15. apps/ai-service/.env.example 含真实 key → 检测到 ──
 test('违规: apps/ai-service/.env.example 含已知前缀 → 检测到', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
-    mkdirSync(join(root, 'apps', 'ai-service'), { recursive: true })
-    writeFileSync(
-      join(root, 'apps', 'ai-service', '.env.example'),
-      'AGNES_API_KEY=sk-irJTb1XXX\n',
-    )
+    writeAndCommit(root, 'apps/ai-service/.env.example', 'AGNES_API_KEY=sk-irJTb1XXX\n')
     const r = runScript(root)
     assertFail(r, /sk-irJTb1/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -307,7 +314,7 @@ test('staged: 暂存 .ts 文件含 sk- 真实 key → 检测到', () => {
     // 这是脚本行为(只检查 .env 风格 KEY=value,不检查代码字符串)
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -322,7 +329,7 @@ test('staged: 暂存 .env 文件 KEY= 真实 key → 检测到', () => {
     // + value 长度 ≥ 32 + 非占位符 + 匹配 /sk-[A-Za-z0-9]{32,}/ → 检测到
     assertFail(r, /API Key 泄露|泄露位置/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -339,7 +346,7 @@ test('staged: 暂存 .ts 含已知前缀 sk-irJTb1 → 检测到(任何文件类
     // 已知前缀 sk-irJTb1 在任何行都检测(不限于 KEY= 赋值行)
     assertFail(r, /sk-irJTb1/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -350,7 +357,7 @@ test('staged: 空暂存区(baseline 之后无 staged)→ 通过', () => {
     const r = runScript(root, ['--staged'])
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -367,20 +374,17 @@ test('staged: 暂存脚本自身 → 跳过(SELF 过滤,不报自身泄露)', ()
     // 脚本会过滤自身(SELF = join(ROOT, 'scripts', 'check-api-key-leak.mjs'))
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 21. 64 位 key 不在 KEY= 赋值行 → 不检测(脚本行为) ──
 test('行为: 64 位字母数字不在 KEY= 赋值行 → 不检测(脚本只检查 KEY= 赋值行)', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
     const fakeKey = 'a'.repeat(64)
     // 行 `const token = "aaaa..."` 不匹配 KEY= 赋值正则
-    writeFileSync(
-      join(root, '.env.example'),
-      `TOKEN_REF=${fakeKey}\n`,
-    )
+    writeAndCommit(root, '.env.example', `TOKEN_REF=${fakeKey}\n`)
     const r = runScript(root)
     // TOKEN_REF 不匹配 `^[A-Z_]*API_KEY[A-Z_]*\s*=` 也不匹配 `^[A-Z_]*_KEY\s*=`
     // → 不进入 KEY= 检查分支 → 不检测
@@ -390,23 +394,86 @@ test('行为: 64 位字母数字不在 KEY= 赋值行 → 不检测(脚本只检
     // 此处变量名 TOKEN_REF 不含 API_KEY 也不以 _KEY 结尾 → 不匹配 KEY= 赋值正则 → 不检测
     assertPass(r)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
 // ─── 22. 注释中的 key → 检测到(脚本不区分注释) ──────────
 test('违规: .env.example 注释行含已知前缀 # AGNES_API_KEY=sk-irJTb1... → 检测到', () => {
-  const root = createTempProject()
+  const root = createTempRepo()
   try {
-    writeFileSync(
-      join(root, '.env.example'),
+    writeAndCommit(
+      root,
+      '.env.example',
       '# AGNES_API_KEY=sk-irJTb1FakeRestOfKey1234567890abcdefghijklmnopqrstuvwxyz\n',
     )
     const r = runScript(root)
     // 已知前缀在任何行都检测(脚本不区分注释)
     assertFail(r, /sk-irJTb1/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
+  }
+})
+
+// ─── 23. --staged 模式: 本门镜像测试自身进暂存区 → 跳过(2026-09-27 豁免) ──
+test('staged: 暂存本门镜像测试文件 → 跳过(SELF_FILES 豁免,夹具不是泄露)', () => {
+  const root = createTempRepo()
+  try {
+    // 模拟本测试文件被修改后进暂存区(G-284 迁移当天实测:不豁免则这道门自己的
+    // 测试永远提不进去 —— 夹具里的已知前缀会被 --staged 档当真泄露判红)
+    const srcContent = `const FIXTURE = 'sk-irJTb1FakeRestOfKey'\nconst P = ['5iFfF0dl']\n`
+    writeAndStage(root, 'scripts/tests/check-api-key-leak.test.mjs', srcContent)
+    const r = runScript(root, ['--staged'])
+    assertPass(r)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+// ─── 24. 反向对照: 豁免只点名两个文件,其他测试文件含前缀照样判红 ──
+test('staged: 其他测试文件含已知前缀 → 仍检测到(豁免不开 scripts/tests/ 目录口子)', () => {
+  const root = createTempRepo()
+  try {
+    writeAndStage(
+      root,
+      'scripts/tests/some-other-gate.test.mjs',
+      `const LEAKED = 'sk-irJTb1FakeRestOfKey1234567890abcdefghijklmnopqrstuvwxyz'\n`,
+    )
+    const r = runScript(root, ['--staged'])
+    assertFail(r, /sk-irJTb1/)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+// ─── 25. 三面真读(守门 118 迁移的判据证明):盘上未提交的泄露,默认档看不见、--worktree 看得见 ──
+test('face: HEAD 面放过未提交泄露 / worktree 面判红 —— 两面对同一磁盘态给出不同读数', () => {
+  const root = createTempRepo()
+  try {
+    // 先提交一份干净的 .env.example(HEAD 面无泄露)
+    writeAndCommit(root, '.env.example', 'OPENAI_API_KEY=<your-openai-api-key>\n')
+    // 再只在磁盘上改脏(不 add 不 commit)——模拟"盘上随后改错"
+    writeFileSync(join(root, '.env.example'), 'OPENAI_API_KEY=sk-irJTb1XXXXXXXXXXXXXXXXXXXXXXXX\n')
+    // 默认档判 HEAD blob ⇒ 看不见盘上脏内容
+    const rh = runScript(root)
+    assertPass(rh)
+    // --worktree 逃生舱判磁盘 ⇒ 看得见
+    const rw = runScript(root, ['--worktree'])
+    assertFail(rw, /sk-irJTb1/)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+// ─── 26. 两面旗同给 = 自相矛盾 ⇒ exit 2 拒绝出具合格证 ──
+test('face: --staged 与 --worktree 同给 → exit 2(不得任选一面当假绿)', () => {
+  const root = createTempRepo()
+  try {
+    const r = runScript(root, ['--staged', '--worktree'])
+    assert.equal(r.status, 2, `应 exit 2,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+    assert.match(`${r.stdout}\n${r.stderr}`, /不得同用/)
+  } finally {
+    rmScratch(root)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

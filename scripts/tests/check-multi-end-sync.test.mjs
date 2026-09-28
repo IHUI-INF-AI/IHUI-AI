@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -17,7 +17,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-multi-end-sync.mjs')
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
 // check-multi-end-sync.mjs 调用 git diff --cached 读取 staged 文件,需 git 环境
 function createTempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-multi-end-'))
+  const dir = mkScratch('ihui-multi-end-')
   const opt = { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
   spawnSync('git', ['init', '-b', 'main'], opt)
   spawnSync('git', ['config', 'user.email', 'test@ihui.local'], opt)
@@ -70,19 +70,19 @@ test('CLI: --help 不崩溃(脚本未实现 --help,按默认模式运行)', () =
     assert.equal(r.status, 0, `应 exit 0,实际 ${r.status}\nstderr: ${r.stderr}`)
     assert.ok(!r.stderr.includes('Error:'), `不应产生未捕获 Error`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
 // ─── 2. 非 git: 非 git 仓库目录 → exit 0(getStagedFiles catch 返回空) ──
 test('非 git: 非 git 仓库目录 → exit 0(跳过)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-nongit-'))
+  const dir = mkScratch('ihui-nongit-')
   try {
     const r = runScript({ cwd: dir })
     assert.equal(r.status, 0, `非 git 应 exit 0,实际 ${r.status}`)
     assert.match(r.out, /无 staged 文件|跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -95,7 +95,7 @@ test('空 staged: git 仓库无 staged 文件 → exit 0(跳过)', () => {
     assert.match(r.out, /无 staged 文件|跳过/)
     assert.ok(!r.out.includes('warn-only'), '空 staged 不应触发警告')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -113,7 +113,7 @@ test('场景1: 纯 scripts/ 文件 → exit 0 pass(豁免,非端代码)', () => 
     assert.match(r.out, /豁免/)
     assert.ok(!r.out.includes('warn-only'), '纯 scripts/ 不应触发警告')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -130,7 +130,7 @@ test('场景1: 纯根目录文件(README.md + package.json)→ exit 0 pass(豁�
     assert.match(r.out, /豁免/)
     assert.ok(!r.out.includes('warn-only'), '根目录文件不应触发警告')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -150,7 +150,7 @@ test('场景2: 仅 packages/types + 无 PROJECT_PLAN.md → exit 0 warn(未标�
     assert.match(r.out, /共享包改动未标注跨端验证/)
     assert.ok(!r.out.includes('豁免'), '不应走场景1 豁免路径')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -168,7 +168,7 @@ test('场景2: 仅 packages/ui + PROJECT_PLAN.md 标注"共享包" → exit 0 pa
     assert.match(r.out, /已标注共享包|pass/)
     assert.ok(!r.out.includes('warn-only'), '已标注不应触发警告')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -186,7 +186,7 @@ test('场景2: 仅 packages/database + PROJECT_PLAN.md 标注"packages/*" → ex
     assert.match(r.out, /已标注共享包|pass/)
     assert.ok(!r.out.includes('warn-only'), '标注 packages/* 不应触发警告')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -202,7 +202,7 @@ test('场景2: 仅 packages/auth + PROJECT_PLAN.md 未标注 → exit 0 warn', (
     assert.match(r.out, /warn-only/)
     assert.match(r.out, /共享包改动未标注跨端验证/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -220,7 +220,7 @@ test('场景3: apps/web + apps/api(2 端)→ exit 0 pass(满足跨端连通)', (
     assert.match(r.out, /满足跨端连通|2 端/)
     assert.ok(!r.out.includes('warn-only'), '2 端连通不应触发警告')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -241,7 +241,7 @@ test('场景3: 3 端(web + api + ai-service)→ exit 0 pass(满足跨端连通)'
     assert.match(r.out, /ai-service/, '应列出端名 ai-service')
     assert.ok(!r.out.includes('warn-only'), '3 端连通不应触发警告')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -260,7 +260,7 @@ test('场景4: 仅 apps/web + PROJECT_PLAN.md 标注"平台独占" → exit 0 pa
     assert.match(r.out, /已标注平台独占|pass/)
     assert.ok(!r.out.includes('warn-only'), '已标注不应触发警告')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -275,7 +275,7 @@ test('场景4: 仅 apps/web + 标注"跨端:仅 web 端" → exit 0 pass(端名�
     assert.match(r.out, /已标注平台独占|pass/)
     assert.ok(!r.out.includes('warn-only'), '端名匹配不应触发警告')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -293,7 +293,7 @@ test('场景4: 仅 apps/api + 标注"web 独占"(端不匹配)→ exit 0 warn', 
     assert.match(r.out, /单端改动未标注平台独占/)
     assert.match(r.out, /api/, '应报告触及 api 端')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -311,7 +311,7 @@ test('场景4 边界: apps/web + packages/ui(1 端 + 共享)+ 无标注 → exit
     assert.match(r.out, /warn-only/)
     assert.match(r.out, /单端改动未标注平台独占/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -12,7 +12,8 @@
  * 用来钉"共享层解码器与服务端解码器认同一批串" —— 镜像测试只复读实现就是复读机
  * (AGENTS §22c),所以这里判的是对方产物的真实字节,不是自造串。
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
@@ -557,34 +558,44 @@ describe('接线锁:barrel 真导出 + 存在非测试面 importer', () => {
     expect(hookSrc).not.toMatch(/\bfetch\(/)
   })
 
-  it('全仓只有一份投影实现(端内不得各写一份分页算术)', () => {
-    const projectionSymbols =
-      /export function (mergeHistoryTurnPages|projectHistoryPage|deriveHistoryBoundary)\b/
-    const owners: string[] = []
-    const walk = (dir: string, depth: number) => {
-      if (depth > 6) return
-      for (const entry of readdirSync(dir)) {
-        if (entry === 'node_modules' || entry === '.next' || entry.startsWith('.')) continue
-        const p = join(dir, entry)
-        const st = statSync(p)
-        if (st.isDirectory()) walk(p, depth + 1)
-        else if (
-          /\.tsx?$/.test(entry) &&
-          !entry.endsWith('.d.ts') &&
-          projectionSymbols.test(readFileSync(p, 'utf8'))
-        )
-          owners.push(p)
-      }
-    }
-    for (const root of [join(repoRoot, 'apps'), join(repoRoot, 'packages')]) {
+  it(
+    '全仓只有一份投影实现(端内不得各写一份分页算术)',
+    () => {
+      // 用 `git grep <rev>` 判"定义处唯一":带 rev 时 git 直接读对象库,不做工作树 stat 刷新
+      // (无 rev 的工作树搜索在 14k 文件的仓里要逐文件核对 mtime,CI 冷 runner 上三版实现
+      //  ——readdir 游走 / git ls-files 逐读 / 无 rev 的 git grep——全部超 5s testTimeout,
+      //  见 PR#65 runs 36340731749 / 36343143040 / 36344582247,均为超时红而非双实现)。
+      // 判据正则与原 readdir 版逐字同形(该正则不匹配本测试文件自身的括号写法,无自指命中)。
+      let out = ''
       try {
-        walk(root, 0)
-      } catch {
-        /* 根不存在 ⇒ 不判(环境缺失不等于重复实现) */
+        out = execFileSync(
+          'git',
+          [
+            '-C',
+            repoRoot,
+            'grep',
+            '-E',
+            '-l',
+            'export function (mergeHistoryTurnPages|projectHistoryPage|deriveHistoryBoundary)\\b',
+            'HEAD',
+          ],
+          { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 },
+        )
+      } catch (e) {
+        const err = e as { status?: number; stdout?: string }
+        if (err.status === 1 && !err.stdout) out = '' // git grep 无命中时 exit 1,属合法结果
+        else throw e
       }
-    }
-    // 唯一允许的定义处 = 本模块自身
-    expect(owners).toEqual([join(__dirname, '..', 'history-projection.ts')])
-  })
+      const owners = out
+        .split('\n')
+        .map((l) => l.replace(/^HEAD:/, '').trim())
+        .filter((l) => l)
+        .filter((rel) => /\.tsx?$/.test(rel) && !rel.endsWith('.d.ts'))
+        .map((rel) => join(repoRoot, rel))
+      // 唯一允许的定义处 = 本模块自身
+      expect(owners).toEqual([join(__dirname, '..', 'history-projection.ts')])
+    },
+    30_000,
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

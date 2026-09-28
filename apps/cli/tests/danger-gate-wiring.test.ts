@@ -109,7 +109,8 @@ describe('W1 棘轮:任何 src 文件的就地旁路数不得多于该文件自�
     // 现值如实喊出来(供交付报告核对):L7905 收口后应只剩 config-cmd.ts 的 settings getter 1 处
     console.info(`[danger-gate-wiring] 就地旁路现值: ${remaining.join(', ') || '(全零)'}`)
     expect(offenders).toEqual([])
-  })
+  }, 180_000) // 逐文件起一次 git show(src 全量数百次进程 spawn),单跑实测 35s,并行下更慢;
+  // 棘轮断言本身一字未动,抬的只是进程型测试的时间预算
 })
 
 describe('W2 装车证明:四个已迁移调用方真的走唯一出口', () => {
@@ -118,14 +119,34 @@ describe('W2 装车证明:四个已迁移调用方真的走唯一出口', () => 
     expect(src).toMatch(/export function createDangerGate\s*\(/)
   })
 
+  // 86H 起,站点的唯一构造方式换成"带审计的包装器 createAuditedDangerGate"
+  // (commands/agent.ts 再包一层 buildAgentDangerGate,是为了让"silent 只关提示不关落链"
+  // 这条能被行为断言钉,而不是被文本顺序钉)。这**不是放宽**:策略出口仍是 createDangerGate,
+  // 且包装器必须真调它 —— 由下面那条独立断言钉住;站点直连策略出口则当场红。
   for (const rel of MIGRATED) {
-    it(`${rel}: import 唯一出口 + 真调用 + 就地旁路归零`, () => {
+    it(`${rel}: 经带审计的包装器构造(不得直连策略出口)+ 就地旁路归零`, () => {
       const src = readFileSync(path.join(srcRoot, rel), 'utf-8')
-      expect(src).toMatch(/import\s*\{[^}]*createDangerGate[^}]*\}\s*from\s*'[^']*danger-gate\.js'/)
-      expect(src).toMatch(/createDangerGate\s*\(\s*\{/)
+      expect(src).toMatch(
+        /import\s*\{[^}]*createAuditedDangerGate[^}]*\}\s*from\s*'[^']*danger-gate-audit\.js'/,
+      )
+      if (rel === 'commands/agent.ts') {
+        expect(src).toMatch(/confirmDangerous:\s*buildAgentDangerGate\(\s*\{/)
+        expect(src).toMatch(/createAuditedDangerGate\s*\(\s*\{/)
+      } else {
+        expect(src).toMatch(/confirmDangerous:\s*createAuditedDangerGate\(\s*\{/)
+      }
+      // 站点绕开包装器 = 决策静默不落链(86H 要终结的那一型),反向钉住
+      expect(src).not.toMatch(/createDangerGate\s*\(/)
       expect(countInlineDecisions(src)).toBe(0)
     })
   }
+
+  it('包装器必须把策略原样委托给 createDangerGate 并落链(出口可以被包,不能被换掉)', () => {
+    const src = readFileSync(path.join(srcRoot, 'tools', 'danger-gate-audit.ts'), 'utf-8')
+    expect(src).toMatch(/export function createAuditedDangerGate\s*\(/)
+    expect(src).toMatch(/createDangerGate\s*\(\s*\{/)
+    expect(src).toMatch(/reportToolApprovalDecisionToAudit\(/)
+  })
 })
 
 describe('W3 阳性对照:两种旁路形态必须都被同一把尺子抓到', () => {
@@ -169,14 +190,15 @@ describe('W5 L7905 收口:会话级 flag 随 ctx 下发,工具层披露可追溯
   it('commands/agent.ts: setupAgentTools 的 ctx 携带 allowDangerous,且就地旁路归零', () => {
     const src = readFileSync(path.join(srcRoot, 'commands', 'agent.ts'), 'utf-8')
     expect(src).toMatch(/const ctx: ToolContext = \{[\s\S]{0,300}?allowDangerous: opts\.allowDangerous,/)
-    expect(src).toMatch(/createDangerGate\s*\(\s*\{/)
+    // 86H:构造方式换成带审计的包装器(判据本体"必须经唯一出口"一字未松,见 W2 的同名改造)
+    expect(src).toMatch(/createAuditedDangerGate\s*\(\s*\{/)
     expect(countInlineDecisions(src)).toBe(0)
   })
 
   it('server/agent-core.ts: setupAgentTools 调用携带 allowDangerous(与 gate 同源)', () => {
     const src = readFileSync(path.join(srcRoot, 'server', 'agent-core.ts'), 'utf-8')
     expect(src).toMatch(
-      /setupAgentTools\(\{[\s\S]{0,400}?allowDangerous: this\.opts\.allowDangerous,[\s\S]{0,400}?confirmDangerous: createDangerGate\(/,
+      /setupAgentTools\(\{[\s\S]{0,400}?allowDangerous: this\.opts\.allowDangerous,[\s\S]{0,400}?confirmDangerous: createAuditedDangerGate\(/,
     )
   })
 

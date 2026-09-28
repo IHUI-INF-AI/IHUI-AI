@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync, execSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -30,7 +30,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-port-registry.mjs')
 // ─── 辅助:创建临时 git 仓库(含 baseline commit) ───
 // 注:始终写入 baseline README.md,保证 git commit 有内容可提交
 function createTempGitRepo(files = {}) {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-port-'))
+  const dir = mkScratch('ihui-port-')
   execSync('git init -b main', { cwd: dir, encoding: 'utf8', stdio: 'pipe' })
   execSync('git config user.email "test@test.com"', { cwd: dir, encoding: 'utf8', stdio: 'pipe' })
   execSync('git config user.name "test"', { cwd: dir, encoding: 'utf8', stdio: 'pipe' })
@@ -89,7 +89,7 @@ test('合法: localhost:8801(已注册 88xx)→ ✅ 无违规', () => {
     const r = runScript(dir, ['--all'])
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -101,7 +101,7 @@ test('合法: localhost:8849(注册表末位)→ ✅ 无违规', () => {
     const r = runScript(dir, ['--all'])
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -117,7 +117,7 @@ test('合法: localhost:5432(PostgreSQL 豁免)→ ✅ 无违规', () => {
     const r = runScript(dir, ['--all'])
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -135,7 +135,7 @@ test('违规: localhost:7777(非 88xx 非豁免)→ ⚠️ 非 88xx 端口', () 
     assert.match(r.stdout, /7777/, `stdout 应含端口 7777\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /非 88xx 端口/, `stdout 应含"非 88xx 端口"原因\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -156,7 +156,7 @@ test('违规: localhost:8800(88xx 未注册)→ ⚠️ 88xx 未在注册表中�
     // 不应误报为"非 88xx 端口"
     assert.doesNotMatch(r.stdout, /非 88xx 端口 8800/, `不应误报为"非 88xx 端口"\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -170,7 +170,7 @@ test('违规: localhost:8899(88xx 末位未注册)→ ⚠️ 违规', () => {
     assert.match(r.stdout, /8899/, `stdout 应含端口 8899\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /88xx.*未在注册表中注册/, `stdout 应含"88xx 未在注册表中注册"\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -186,7 +186,7 @@ test('鲁棒: 127.0.0.1:8801(IP 格式)→ 匹配,✅ 无违规', () => {
     const r = runScript(dir, ['--all'])
     assertPass(r)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -210,7 +210,7 @@ test('批量: 单文件含 2 处违规端口(7777 + 8800)→ 全部报告', () =
     // 扫描统计应体现 2 处
     assert.match(r.stdout, /2\s+处端口引用/, `stdout 应含"2 处端口引用"\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -228,7 +228,7 @@ test('豁免: docs/ 路径含违规端口 7777 → 不扫描', () => {
     assert.equal(r.status, 0, `应 exit 0\nstdout: ${r.stdout}`)
     assert.doesNotMatch(r.stdout, /7777/, `docs/ 豁免不应扫描 7777\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -241,7 +241,7 @@ test('豁免: .github/workflows/ 路径含违规端口 7777 → 不扫描', () =
     assert.equal(r.status, 0, `应 exit 0\nstdout: ${r.stdout}`)
     assert.doesNotMatch(r.stdout, /7777/, `.github/workflows/ 豁免不应扫描 7777\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -254,7 +254,7 @@ test('豁免: apps/api/tests/ 路径含违规端口 7777 → 不扫描', () => {
     assert.equal(r.status, 0, `应 exit 0\nstdout: ${r.stdout}`)
     assert.doesNotMatch(r.stdout, /7777/, `apps/api/tests/ 豁免不应扫描 7777\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -274,7 +274,7 @@ test('staged 模式: staged 文件含违规端口 7777 → ⚠️ 报告', () =>
     assert.match(r.stdout, /7777/, `stdout 应含 7777\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /staged-bad\.ts/, `stdout 应含违规文件名\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -283,7 +283,7 @@ test('staged 模式: staged 文件含违规端口 7777 → ⚠️ 报告', () =>
 // 一次挂死 80 分钟的守门(见 scripts/check-port-registry.mjs 注释)若再遇到 git 调用失败,
 // 全量审计会"绿着漏过"。现在失败必须**出声**并退到 staged 口径,同时不得声称"扫描通过"。
 test('非 git 环境 --all 模式: git ls-files 失败 → 显式告警并回退 staged,不静默判绿', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-port-nogit-'))
+  const dir = mkScratch('ihui-port-nogit-')
   try {
     // 不 init git,直接跑 --all
     const r = runScript(dir, ['--all'])
@@ -299,7 +299,7 @@ test('非 git 环境 --all 模式: git ls-files 失败 → 显式告警并回退
       `git 取文件失败时不得声称"扫描通过"(静默判绿)\nstdout: ${r.stdout}`,
     )
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -316,7 +316,7 @@ test('正则字符类 localhost:880[23] 不得被报成端口 880(实测假阳),
     assert.doesNotMatch(r.stdout, /非 88xx 端口 880/, `字符类被当成端口 ⇒ 假阳复发\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /正则字符类引用 1 处已跳过/, `跳过了却不报数 = 静默丢判据面\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -332,7 +332,7 @@ test('反向对照:真端口 localhost:8840 仍必须被报出来(证明上一�
     assert.match(r.stdout, /8840/, `真端口被一起吞掉了\nstdout: ${r.stdout}`)
     assert.doesNotMatch(r.stdout, /已跳过/, `本夹具里没有字符类,不该出现跳过计数\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

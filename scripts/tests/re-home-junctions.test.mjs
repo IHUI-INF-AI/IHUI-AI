@@ -16,7 +16,6 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   readdirSync,
   rmSync,
@@ -26,6 +25,7 @@ import {
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as R } from '../re-home-junctions.mjs'
 import { __test__ as GATE96 } from '../check-home-junctions.mjs'
 import { __test__ as GUARD } from '../git-guardian.mjs'
@@ -35,7 +35,7 @@ const { audit } = GATE96
 const CMD = 'C:\\Windows\\System32\\cmd.exe'
 
 function fixture() {
-  const root = mkdtempSync(join(tmpdir(), 'ihui-rehome-it-'))
+  const root = mkScratch('ihui-rehome-it-')
   const src = join(root, 'src', '.demo')
   const dst = join(root, 'dst', '.demo')
   mkdirSync(join(src, 'nested'), { recursive: true })
@@ -61,7 +61,7 @@ test('端到端:真复制 + 真建 junction + 经链接回读一致 + stash 已�
       'D 侧内容被递归删除穿透了 —— junction 只能断链,不许穿透删',
     )
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -79,7 +79,7 @@ test('目标里有上次失败留下的残留:只清目标、绝不动源,清完
     assert.ok(!existsSync(join(dst, 'rogue.txt')), '残留只允许从**目标**清掉')
     assert.equal(R.fingerprintTree(dst).size, 2, '目标最终必须与源逐文件一致')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -97,7 +97,7 @@ test('字节不同 = 真没复制对,不得当成残留清掉后硬收敛(判据
     assert.equal(d.onlyA.length, 0)
     assert.equal(d.onlyB.length, 0)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -109,7 +109,7 @@ test('dry 模式零副作用:不建目标、不改源', () => {
     assert.ok(!existsSync(dst), 'dry 不得创建目标')
     assert.ok(statSync(src).isDirectory() && !lstatSync(src).isSymbolicLink(), 'dry 不得改源')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -122,7 +122,7 @@ test('幂等:改道完成后再跑一次,必须报"已是指针"而不是重复�
     assert.ok(again.ok)
     assert.equal(readFileSync(join(src, 'a.txt'), 'utf8'), 'hello', '二次运行不得破坏已改道结果')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -167,7 +167,7 @@ test('真机 cmd 可用(mklink 走的是绝对路径 cmd.exe,不依赖 PATH)', (
 
 test('冷却表:文件缺失/坏 JSON 一律退回空表,不得抛(守护链上抛错等于整轮不修)', () => {
   assert.deepEqual(R.readCooldown(join(tmpdir(), 'ihui-no-such-cooldown-file.json')), {})
-  const root = mkdtempSync(join(tmpdir(), 'ihui-rehome-cool-'))
+  const root = mkScratch('ihui-rehome-cool-')
   try {
     const bad = join(root, 'cool.json')
     writeFileSync(bad, '{not json', 'utf8')
@@ -175,7 +175,7 @@ test('冷却表:文件缺失/坏 JSON 一律退回空表,不得抛(守护链上�
     writeFileSync(bad, '{"C:\\\\Users\\\\x\\\\.codex":99999999999999}', 'utf8')
     assert.equal(Object.keys(R.readCooldown(bad)).length, 1, '正常表必须读得出来')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -302,7 +302,7 @@ test('改道树被外部删掉(junction 悬空)⇒ 门 96 判红必须被自愈�
     assert.ok(lstatSync(src).isSymbolicLink(), '只许补目标,不得把用户的链接删掉')
     assert.equal(audit(fakeRegistry).violations.length, 0, '修完门必须转绿 —— 红→修→绿 不闭合等于没有自愈')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -323,7 +323,7 @@ test('repairOne 的判序:isLink 必须在 existsSync(src) 之前(悬空 junctio
  * 这里换成按前缀枚举,并给每一型配正/反对照(link 断链 / 目录须证明无独有内容 / 判不准就不删)。
  */
 test('stash 清理按类型分流,且断链绝不穿透目标内容', () => {
-  const root = mkdtempSync(join(tmpdir(), 'ihui-stash-it-'))
+  const root = mkScratch('ihui-stash-it-')
   const home = join(root, 'home')
   const dst = join(root, 'dstside')
   try {
@@ -416,7 +416,7 @@ test('stash 清理按类型分流,且断链绝不穿透目标内容', () => {
     assert.equal(r2[0].action, 'kept', r2[0].note)
     assert.ok(existsSync(stash2) && existsSync(join(src2, 'orig.bin')), '源未改道时不得动 stash')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 

@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -16,7 +16,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-staged-pollution.mjs')
 
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
 function createTempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-staged-'))
+  const dir = mkScratch('ihui-staged-')
   execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
@@ -55,14 +55,14 @@ function stripAnsi(s) {
 
 // ─── 1. 非 git: 非 git 仓库目录 → exit 0(getStagedFiles catch 返回空) ──
 test('非 git: 非 git 仓库目录 → exit 0(跳过)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-nongit-'))
+  const dir = mkScratch('ihui-nongit-')
   try {
     const r = runScript({ cwd: dir })
     assert.equal(r.status, 0, `非 git 应 exit 0,实际 ${r.status}`)
     const out = stripAnsi(r.stdout)
     assert.match(out, /无 staged 文件|跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -76,7 +76,7 @@ test('空 staged: git 仓库无 staged 文件 → exit 0(跳过)', () => {
     assert.match(out, /无 staged 文件|跳过/)
     assert.ok(!out.includes('warn-only'), '空 staged 不应触发警告')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -91,7 +91,7 @@ test('单文件: 1 个 apps/web 文件 → exit 0(未触发)', () => {
     assert.match(out, /未触发/)
     assert.ok(!out.includes('warn-only'), '单文件不应触发警告')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -110,7 +110,7 @@ test('单目录多文件: 3 个 apps/web 文件(1 组)→ exit 0(未触发)', ()
     assert.match(out, /未触发/)
     assert.ok(!out.includes('warn-only'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -125,7 +125,7 @@ test('跨 2 目录小改: 1 apps/web + 1 apps/api → exit 0(未触发)', () => 
     assert.match(out, /未触发/)
     assert.ok(!out.includes('warn-only'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -140,7 +140,7 @@ test('跨 3 目录小改(边界): 3 文件 3 目录 → exit 0(未触发,groups 
     assert.match(out, /未触发/)
     assert.ok(!out.includes('warn-only'), '3 组 < 4 不应触发')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -163,7 +163,7 @@ test('违规: 跨 4 目录(4 文件)→ 触发污染预警(warn-only, exit 1)', 
     assert.match(out, /跨 4 个一级子目录/)
     assert.ok(!out.includes('未触发'), '触发时不应输出未触发')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -184,7 +184,7 @@ test('违规: 跨 3 目录 + 16 文件(>15 且 ≥3)→ 触发污染预警', () 
     assert.match(out, /warn-only/)
     assert.match(out, /跨 3 个一级子目录/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -203,7 +203,7 @@ test('边界: 跨 3 目录 + 15 文件(=15, not > 15)→ exit 0(未触发)', () 
     assert.match(out, /未触发/)
     assert.ok(!out.includes('warn-only'), '=15 不应触发(需 > 15)')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -221,7 +221,7 @@ test('边界: 跨 2 目录 + 20 文件(20>15 但仅 2 组)→ exit 0(未触发)'
     assert.match(out, /未触发/)
     assert.ok(!out.includes('warn-only'), '2 组 < 3 不应触发第二条')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -238,7 +238,7 @@ test('单目录 + 20 文件(单 agent 大改)→ exit 0(未触发)', () => {
     assert.match(out, /未触发/)
     assert.ok(!out.includes('warn-only'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -265,7 +265,7 @@ test('违规: 混合 apps/web + apps/api + packages/ui + scripts → 4 组触发
     assert.match(out, /packages\/ui/)
     assert.match(out, /scripts/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -281,7 +281,7 @@ test('边界: 全 .md 文件跨 2 目录(docs + README.md)→ exit 0(未触发)'
     assert.match(out, /未触发/)
     assert.ok(!out.includes('warn-only'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -300,7 +300,7 @@ test('根目录文件: README.md(modified) + LICENSE(added)→ 2 组 → exit 0(
     assert.match(out, /未触发/)
     assert.ok(!out.includes('warn-only'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

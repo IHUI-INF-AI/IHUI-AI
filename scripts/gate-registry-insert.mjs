@@ -24,13 +24,22 @@
  *  GATE_SKIP_ENV  必填,skipEnv 字段(如 HUSKY_SKIP_FOO)
  *  GATE_SECTION   可选,块抬头注释用的短名(缺省 = 整条 GATE_LABEL,不做 slice 截断 —— wire-gate
  *                 的 slice(0,24) 曾把注释截成半句,由 fix-runner-block 善后)
- *  GATE_TRIGGERS  可选,`;` 分隔的 stagedTriggers
+ *  GATE_TRIGGERS  可选,`;` 分隔的 stagedTriggers;**不设时整个键都不写**(不是写 `[]` —— 空数组会让
+ *                 scripts/lib/guardian-triggers.mjs 归一时当场抛错,runner 的 for 循环没有 catch,
+ *                 于是一次注册把整条 pre-commit 弄崩;守门 89 的 R8 判这一格,2026-09-28 实测咬到)
+ *  GATE_MODE      可选,条目定级;值域恰好 {blocking | warn},**缺省 blocking**(= 本工具既有行为,逐字不变)。
+ *                 定级同时落进块抬头注释的"(1 项,<定级>)"与 mode 字段 —— 两处必须同值,否则注册表里
+ *                 的注释会对一条 warn 门宣称 blocking(本仓"名字承诺与实现兑现"同型)。缺省档两处逐字同形。
+ *                 设了就必须落在值域内:空串 / `warn-only` / `Warn` / `error` 等一律业务拒绝(exit 1)并点名收到的值 ——
+ *                 **绝不静默回落缺省档**,静默回落就是把"没判"写成"判过了"(与本仓 §5c/守门 77 同一条禁令)。
+ *                 归属纪律一句话:判**机器/服务状态**的门(提交者结构上满足不了)只能 warn,接成 blocking 每台每次
+ *                 都被逼 --no-verify,一次绕过等于全部守门对该提交作废(§12e)。
  *  GATE_HINT      可选,多行 onFailHint(每行一条,行间以 \n 连接)
  *  GATE_MSG       可选,提交信息(缺省 "feat(gates): 新守门 <script> 接进提交链")
  *  GATE_TARGET    可选,目标注册表路径(缺省 scripts/guardian-runner.mjs;测试通道)
  *  GATE_ROOT      测试/换仓通道:仓库根(缺省 = 本脚本所在仓根)
  * 退出码:0 = 已落地且回读证明单引号 id 行在位(stdout 最后一行只打新 id,便于接力);
- *        1 = 业务拒绝(锚点缺失/不止一处 / 结构等值不成立 / node --check 不过 / CAS 未抢到 / 回读缺失或见双引号残留 / 索引锁龄超上限);
+ *        1 = 业务拒绝(锚点缺失/不止一处 / 结构等值不成立 / node --check 不过 / CAS 未抢到 / 回读缺失或见双引号残留 / 索引锁龄超上限 / GATE_MODE 值域外);
  *        2 = 用法或环境错(缺必填 env / 根不可当仓库问)。
  *
  * ⚠️ 本工具只**插块**,不改 runner 其余任何行;它自己不是守门,头注不得声称"已接提交链"。
@@ -58,6 +67,10 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
 const MAX_CAS_ATTEMPTS = 12
 const DEFAULT_TARGET = 'scripts/guardian-runner.mjs'
+/** 定级值域恰好这两个(与 runner 里既有条目同形:4 空格缩进 + 单引号字符串,由 jsQ 生成,不得再写死)。 */
+export const GATE_MODES = ['blocking', 'warn']
+/** 缺省档 = 本工具上线以来的既有行为,不得因引入 GATE_MODE 而变。 */
+export const DEFAULT_GATE_MODE = 'blocking'
 const ANCHOR_RE = /^\s*\/\/ --- info \(1 项\) ---\s*$/
 const ID_RE = /^\s*id:\s*(['"])(.*?)\1[,\s]*$/
 
@@ -78,19 +91,33 @@ export function nextIdOf(text) {
   return { nextId: String((used.length ? Math.max(...used) : 0) + 1), used: used.length, dupes }
 }
 
+/**
+ * GATE_MODE 判据(值域只在这里写一次,测试经 __test__ 复用 —— §22c 禁止测试再抄一份源判据)。
+ * 只有「**未设**」才落缺省档;设了就必须逐字落在 GATE_MODES 内(空串也算设了且非法)。
+ * 非法 ⇒ 返回 error,由 main 走业务拒绝 exit 1;**不静默回落**,那等于把"没判"写成"判过了"。
+ */
+export function normalizeGateMode(raw) {
+  if (raw === undefined) return { mode: DEFAULT_GATE_MODE }
+  if (GATE_MODES.includes(raw)) return { mode: raw }
+  return { error: `GATE_MODE=${JSON.stringify(raw)} 不在值域 {${GATE_MODES.join(' | ')}} ⇒ 拒绝执行(不静默回落缺省档 ${DEFAULT_GATE_MODE})` }
+}
+
 /** 生成注册块(行数组),形态与仓内既有块逐字同形(单引号、label 换行缩进 6、onFailHint join)。 */
-export function buildEntry({ id, section, label, script, skipEnv, triggers = [], hint = [] }) {
+export function buildEntry({ id, section, label, script, skipEnv, triggers = [], hint = [], mode = DEFAULT_GATE_MODE }) {
   return [
-    `  // --- ${section}(1 项,blocking)---`,
+    `  // --- ${section}(1 项,${mode})---`,
     '  {',
     `    id: ${jsQ(id)},`,
     '    label:',
     `      ${jsQ(label)},`,
     `    script: ${jsQ(script)},`,
     '    args: [],',
-    "    mode: 'blocking',",
+    `    mode: ${jsQ(mode)},`,
     `    skipEnv: ${jsQ(skipEnv)},`,
-    triggers.length > 0 ? `    stagedTriggers: [${triggers.map((t) => jsQ(t)).join(', ')}],` : '    stagedTriggers: [],',
+    // 没有 triggers 就**整个键都不写**,而不是写 `stagedTriggers: []` —— 空数组交给
+    // scripts/lib/guardian-triggers.mjs 归一时当场抛错,而 runner 的 for (const check of effectiveChecks)
+    // 没有 catch,一次抛错 = 整条 pre-commit 中止(守门 89 的 R8 就是判这一格;2026-09-28 实测咬到)。
+    ...(triggers.length > 0 ? [`    stagedTriggers: [${triggers.map((t) => jsQ(t)).join(', ')}],`] : []),
     '    onFailHint: [',
     "      '',",
     ...hint.map((l) => `      ${jsQ(l)},`),
@@ -142,8 +169,11 @@ export function readGateArgs(env = process.env) {
   const hint = String(env.GATE_HINT ?? '').split('\n').map(norm).filter((l) => l.trim() !== '')
   const msg = env.GATE_MSG || `feat(gates): 新守门 ${script} 接进提交链`
   if (!label || !script || !skipEnv) return { error: '缺 GATE_LABEL / GATE_SCRIPT / GATE_SKIP_ENV ⇒ 拒绝执行' }
+  const gateMode = normalizeGateMode(env.GATE_MODE)
+  // 值域外 ⇒ 业务拒绝(1),不是用法错(2):必填三项齐了、根也可用,只是定级写错了,注册表一行都不该动
+  if (gateMode.error) return { modeError: gateMode.error }
   if (!resolveHeadRef({ root })) return { error: `${root} 不是可用仓库(HEAD 不可解析或 detached)⇒ 无法判定,不落` }
-  return { root, target, label, script, skipEnv, section, triggers, hint, msg }
+  return { root, target, label, script, skipEnv, section, triggers, hint, msg, mode: gateMode.mode }
 }
 
 async function main() {
@@ -152,7 +182,11 @@ async function main() {
     console.error(`❌ ${a.error}`)
     process.exit(2)
   }
-  const { root, target, label, script, skipEnv, section, triggers, hint, msg } = a
+  if (a.modeError) {
+    console.error(`❌ ${a.modeError}`)
+    process.exit(1)
+  }
+  const { root, target, label, script, skipEnv, section, triggers, hint, msg, mode } = a
 
   let landed = ''
   let parentSha = ''
@@ -188,7 +222,7 @@ async function main() {
     if (taken.dupes.length > 0) {
       console.log(`⚠️ HEAD 版 runner 已有重复数字 id(与本票无关,先登记):${[...new Set(taken.dupes)].join(', ')} ⇒ 请人工裁决后再插号`)
     }
-    const entry = buildEntry({ id: newId, section, label, script, skipEnv, triggers, hint })
+    const entry = buildEntry({ id: newId, section, label, script, skipEnv, triggers, hint, mode })
     // 生成块自身必须是单引号风格(本票立项那一型的正向锁):块里出现 `id: "` 直接拒,不写盘
     if (entry.some((l) => l.includes('id: "')) || !entry.includes(`    id: ${jsQ(newId)},`)) {
       console.error('❌ 生成的注册块不是单引号 id 形态 ⇒ 内部错位,拒绝落地')
@@ -271,5 +305,5 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { jsQ, nextIdOf, buildEntry, spliceInto, checkSyntax, readGateArgs }
+export const __test__ = { jsQ, nextIdOf, buildEntry, spliceInto, checkSyntax, readGateArgs, normalizeGateMode, GATE_MODES, DEFAULT_GATE_MODE }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

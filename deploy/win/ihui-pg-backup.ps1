@@ -5,8 +5,10 @@
 # =============================================================================
 # IHUI-AI PostgreSQL 定时备份脚本(Windows)
 # =============================================================================
-# 备份:pg_dump -Fc 全库 → D:\DevEnv\backups\pg\ihui_dev_YYYYMMDD_HHMMSS.dump(并复制到网盘同步目录)
-# 清理:仅保留最近 7 天备份
+# 备份:pg_dump -Fc 逐库导出 → D:\DevEnv\backups\pg\<库名>_YYYYMMDD_HHMMSS.dump(并补齐网盘同步目录的缺口)
+#       清单 = ihui_dev + keycloak(2026-09-28 起;为何是这两个、为何不含测试库,见下方 $backupDatabases 注释)
+# 清理:本地与云侧同窗轮转(最近 7 天);识别式只认 ihui*/keycloak* 的 .dump/.sql.gz,
+#       所以同目录里的 pg_hba 现场存档与 backup.log 不会被顺手带走
 # 用法(手动): powershell -ExecutionPolicy Bypass -File deploy\prod-bundle\pg-backup.ps1
 # 调度:由 nssm 服务 IHUI-PG-BACKUP 常驻跑同级 pg-backup-scheduler.ps1 —— **不是** Windows 任务计划程序
 #       (实测 schtasks 全量列表里没有备份任务);调度器启动即备份一次,之后每天 03:00 一轮。
@@ -15,12 +17,23 @@
 $ErrorActionPreference = "Stop"
 # 本部署包专用于本机 D:\IHUI-AI,使用绝对路径(嵌套调用时 MyInvocation 不可靠)
 $ProjectRoot = "D:\IHUI-AI"
-$psql = "D:\DevEnv\runtimes\pgsql\bin\psql.exe"
-$pgDump = "D:\DevEnv\runtimes\pgsql\bin\pg_dump.exe"
-$backupDir = "D:\DevEnv\backups\pg"
+# G-298(2026-09-28)落点解析:DevEnv 族不再把盘符字面当唯一真相 —— 环境变量
+# IHUI_DEVENV_ROOT 优先,否则按 $ProjectRoot 所在盘符派生(<drive>:\DevEnv),
+# 与 scripts/seal-c-root-stray.mjs 的 devEnvRoot() 同一条纪律(覆盖 + 派生,两档)。
+# 本机两档算出的结果与收口前的字面值逐字符相同(D:\DevEnv),行为零漂移;
+# 换卷/挪盘时改一处机器级 env 即可,不必再动本脚本与影子副本两处。
+$DevEnvRoot = if ($env:IHUI_DEVENV_ROOT) { $env:IHUI_DEVENV_ROOT } else { (Split-Path -Qualifier $ProjectRoot) + '\DevEnv' }
+$psql = Join-Path $DevEnvRoot 'runtimes\pgsql\bin\psql.exe'
+$pgDump = Join-Path $DevEnvRoot 'runtimes\pgsql\bin\pg_dump.exe'
+$backupDir = Join-Path $DevEnvRoot 'backups\pg'
 $retentionDays = 7
 # 云备份同步(2026-08-05 加):复制到百度网盘同步盘 = 异地容灾(同步盘自动云同步)
+# 字面默认值保持"首行直赋"形态:pg-backup-cadence-audit.mjs 的 parseCloudDir 对本 runner
+# 文本做正则首匹配取该赋值(§5b:配置读被执行的那份)—— 改形态要先改解析器,注释里也
+# 不得复刻该形态(首匹配会先命中说明文字,把配置读成假值)。
 $cloudDir = "D:\BaiduSyncdisk\IHUI-PG-BACKUP"
+# G-298:网盘挂载点换址时的覆盖口(与 DevEnv 同一取向:不设 env 则逐字节维持现状)
+if ($env:IHUI_BACKUP_CLOUD_DIR) { $cloudDir = $env:IHUI_BACKUP_CLOUD_DIR }
 
 function Resolve-NodeExe {
     # 本脚本由 nssm 服务 IHUI-PG-BACKUP 以 LocalSystem 身份跑,而**机器级 PATH 里那串 node 目录是死的**
@@ -124,39 +137,81 @@ $env:PGPASSWORD = $dbPw
 
 if (-not (Test-Path $backupDir)) { New-Item -ItemType Directory -Force -Path $backupDir | Out-Null }
 
+# ── 备份清单:这一行承载"哪些库必须被备份"的决定 ────────────────────────────
+# 2026-09-28 加入 keycloak,依据是当日现读量化(只读 SELECT/目录表,零写入):
+#   它是本机唯一**非再生、且此前完全没有备份**的库 —— 全仓 *.yml/yaml/json 对 keycloak 零命中
+#   (没有 realm-export、没有 kc.sh、没有 compose 服务),realm `ihui` 只活在这个库里,
+#   而 OIDC discovery 现回 200、库里有 live JDBC_PING 连接 ⇒ SSO 身份提供方的状态在跑,丢了就是登录入口。
+#   代价实测:整库 13.6MB / 87 张表,日增导出量 57KB 级(对比 ihui_dev 每日 ~4.5MB)。
+#   ihui_ci_test / ihui_e2e **不**进清单:与生产零 user-UUID 重叠、可分别从 drizzle 迁移与 e2e 重放重建
+#   (scripts/check-migration-from-zero.mjs 就是这个动作),备份它们只是把过期测试流量抄两份。
+# 角色前提:**不需要**任何新的授权。实测(2026-09-28,只读)
+#   has_database_privilege('beifen','keycloak','CONNECT') = t 且该库 87 张表读得到 ——
+#   keycloak 的 pg_database.datacl 为 NULL(PUBLIC 默认 CONNECT/TEMP),而 ihui_dev 虽已收紧成
+#   `{=Tc/ihui, ihui=CTc/ihui, beifen=c/ihui}`(字面上没有 CONNECT 位),beifen 照样连得上:
+#   PostgreSQL 里库级 CREATE 隐含 CONNECT。所以"给 beifen 补一条 GRANT CONNECT"是多余动作,
+#   别照着某个代理的报告去做它——它把"没有显式授权"读成了"没有权限"。
+#   真缺权限时不会静默少一份档:下面的逐库 [复核] 会点名报错。
+$backupDatabases = @($dbName, 'keycloak') | Select-Object -Unique
+
+# 备份文件的统一识别式:本地与云盘两侧共用一份,防止"清理逻辑匹配不到自己产出的文件"
+# (2026-09-28 实测后果:旧写法写死 -Filter "ihui_dev_*.dump",而目录里躺着 dash 命名的
+#  `ihui-dev-20260924-073532.dump` 与两份 `.sql.gz` ⇒ 161,263,150 B 永久清不掉,
+#  云盘目录更是**零清理代码**,以 36.7 GiB/年 累积)。
+# 刻意只认 ihui/keycloak 前缀 + 这两种扩展名:同目录里的 pg_hba.conf.pre-admin-* 与 backup.log
+# 是改配置前的现场存档,不属于备份轮转对象,不得被清理顺手带走。
+function Get-BackupArtifacts([string]$dir) {
+    if (-not (Test-Path -LiteralPath $dir)) { return @() }
+    @(Get-ChildItem -LiteralPath $dir -File | Where-Object { $_.Name -match '^(ihui|keycloak)[-_].*\.(dump|sql\.gz)$' })
+}
+
 $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$outFile = "$backupDir\ihui_dev_$stamp.dump"
+$failures = @()
 
-Write-Host "[1/3] 备份中: $dbName@localhost:$dbPort(角色 $dbUser) → $outFile" -ForegroundColor Cyan
-# -Fc = 自定义压缩格式(pg_restore 可直接还原,自带压缩);$dbUser 带 BYPASSRLS,不会漏被 RLS 遮蔽的行
-# -w = 禁止回落交互式口令提示(见文件头:scram 下无口令会挂在控制台上,而非快速失败)
-& $pgDump -w -Fc -h localhost -p $dbPort -U $dbUser -d $dbName --no-owner -f $outFile
+foreach ($db in $backupDatabases) {
+    $outFile = Join-Path $backupDir "$($db)_$stamp.dump"
+    Write-Host "[备份] $db @ localhost:$dbPort(角色 $dbUser)→ $outFile" -ForegroundColor Cyan
+    # -Fc = 自定义压缩格式(pg_restore 可直接还原,自带压缩);$dbUser 带 BYPASSRLS,不会漏被 RLS 遮蔽的行
+    # --no-owner 只重映射属主;ACL **必须**保留(2026-09-27 实测教训:同批多带一个 --no-privileges
+    # 会把 5 条表级授权从每一份档里抹掉,恢复后应用角色 ihui_app 的读写路径静默失效)
+    # -w = 禁止回落交互式口令提示(见文件头:scram 下无口令会挂在控制台上,而非快速失败)
+    & $pgDump -w -Fc -h localhost -p $dbPort -U $dbUser -d $db --no-owner -f $outFile
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $outFile)) {
+        Write-Host "[ERROR] 备份失败: $db(exit=$LASTEXITCODE)" -ForegroundColor Red
+        Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue
+        $failures += "pg_dump $db"
+        continue
+    }
+    $sizeMB = [math]::Round((Get-Item -LiteralPath $outFile).Length / 1MB, 2)
+    Write-Host "[OK] $db 备份完成: $sizeMB MB" -ForegroundColor Green
 
-if ($LASTEXITCODE -ne 0 -or -not (Test-Path $outFile)) {
-    Write-Host "[ERROR] 备份失败" -ForegroundColor Red
-    # 删除本次失败产生的残留(空)文件,避免污染备份目录与云同步
-    Remove-Item -Path $outFile -Force -ErrorAction SilentlyContinue
-    exit 1
+    # 逐库复核可连通 + 读得到表:这一步是"备份角色对**这个**库到底有没有权限"的现读判据。
+    # 新增一个库而没有先授 CONNECT 时,pg_dump 会直接失败,而这里再量一次 psql 是为了把原因说准:
+    # 上一份档存在 ≠ 这个角色读得到这个库。
+    # 原先这里是 `2>$null` 且不看退出码:psql 失败时 $check 为 $null,而 $null.Trim() 在
+    # $ErrorActionPreference=Stop 下抛一句与原因无关的 RuntimeException,把"连不上/口令错"
+    # 伪装成"脚本自身出错"。本票要根治的就是这类静默,故此处改为如实报原因。
+    $check = & $psql -w -h localhost -p $dbPort -U $dbUser -d $db -t -A -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';"
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($check)) {
+        Write-Host "[ERROR] 复核查询失败: $db(exit=$LASTEXITCODE)—— 角色 $dbUser 可能缺少该库的 CONNECT,见 deploy\win\ihui-pg-backup-role.sql" -ForegroundColor Red
+        $failures += "复核 $db"
+        continue
+    }
+    Write-Host "  $db public 表数量: $($check.Trim())"
 }
-$sizeMB = [math]::Round((Get-Item $outFile).Length / 1MB, 2)
-Write-Host "[OK] 备份完成: $sizeMB MB" -ForegroundColor Green
 
-Write-Host "[2/3] 复核数据库可连通 + 表数量..." -ForegroundColor Cyan
-# 原先这里是 `2>$null` 且不看退出码:psql 失败时 $check 为 $null,而 $null.Trim() 在
-# $ErrorActionPreference=Stop 下抛一句与原因无关的 RuntimeException,把"连不上/口令错"
-# 伪装成"脚本自身出错"。本票要根治的就是这类静默,故此处改为如实报原因。
-$check = & $psql -w -h localhost -p $dbPort -U $dbUser -d $dbName -t -A -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';"
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($check)) {
-    Write-Host "[ERROR] 复核查询失败(exit=$LASTEXITCODE):角色 $dbUser 可能缺少 CONNECT / SELECT 权限,见 deploy\win\ihui-pg-backup-role.sql" -ForegroundColor Red
-    exit 1
-}
-Write-Host "  public 表数量: $($check.Trim())"
-
-Write-Host "[3/3] 清理 $retentionDays 天前旧备份..." -ForegroundColor Cyan
 $cutoff = (Get-Date).AddDays(-$retentionDays)
-Get-ChildItem $backupDir -Filter "ihui_dev_*.dump" | Where-Object { $_.LastWriteTime -lt $cutoff } | Remove-Item -Force
-$remaining = (Get-ChildItem $backupDir -Filter "ihui_dev_*.dump").Count
-Write-Host "[OK] 当前保留备份数: $remaining" -ForegroundColor Green
+
+Write-Host "[清理] 本地保留 $retentionDays 天..." -ForegroundColor Cyan
+$expired = @(Get-BackupArtifacts $backupDir | Where-Object { $_.LastWriteTime -lt $cutoff })
+$reclaimed = 0
+foreach ($f in $expired) {
+    $reclaimed += $f.Length
+    Remove-Item -LiteralPath $f.FullName -Force -ErrorAction SilentlyContinue
+    Write-Host "  删除过期档:$($f.Name)"
+}
+$kept = @(Get-BackupArtifacts $backupDir)
+Write-Host "[OK] 本地保留 $($kept.Count) 份,回收 $([math]::Round($reclaimed/1MB,1)) MB" -ForegroundColor Green
 
 # 云备份同步(异地容灾):把保留窗口内**每一份**还没进同步盘的 dump 补过去(同步盘自动云同步)
 #
@@ -168,7 +223,7 @@ Write-Host "[OK] 当前保留备份数: $remaining" -ForegroundColor Green
 if ($cloudDir) {
     try {
         if (-not (Test-Path $cloudDir)) { New-Item -ItemType Directory -Force -Path $cloudDir | Out-Null }
-        $pending = @(Get-ChildItem $backupDir -Filter "ihui_dev_*.dump" |
+        $pending = @(Get-BackupArtifacts $backupDir |
             Where-Object { $_.LastWriteTime -ge $cutoff -and -not (Test-Path -LiteralPath "$cloudDir\$($_.Name)") })
         if ($pending.Count -eq 0) { Write-Host "[OK] 云备份同步:窗口内无缺口" -ForegroundColor Green }
         foreach ($f in $pending) {
@@ -185,10 +240,29 @@ if ($cloudDir) {
             }
             Write-Host "[OK] 云备份同步完成: $cloudDir\$($f.Name)" -ForegroundColor Green
         }
+        # 云侧也要轮转:此前这条腿**完全没有清理代码**,15 份档 1.44GB 且在以 36.7 GiB/年 累积 ——
+        # 网盘配额是别人给的额度,撞顶的后果不是报错而是同步客户端静默停止上传,
+        # 那时异地腿的失败形态与"从没配过"一模一样。窗口与本地一致(7 天),只认同一识别式。
+        $cloudExpired = @(Get-BackupArtifacts $cloudDir | Where-Object { $_.LastWriteTime -lt $cutoff })
+        $cloudReclaimed = 0
+        foreach ($f in $cloudExpired) {
+            # 只删**本地已不再有**的那份:本地仍在窗口内而云侧过期,说明这是同一轮的时钟差,
+            # 宁可多留一天也不能把异地腿删得比本地还少。
+            if (Test-Path -LiteralPath (Join-Path $backupDir $f.Name)) { continue }
+            $cloudReclaimed += $f.Length
+            Remove-Item -LiteralPath $f.FullName -Force -ErrorAction SilentlyContinue
+            Write-Host "  删除云侧过期档:$($f.Name)"
+        }
+        Write-Host "[OK] 云侧保留 $(@(Get-BackupArtifacts $cloudDir).Count) 份,回收 $([math]::Round($cloudReclaimed/1MB,1)) MB" -ForegroundColor Green
     } catch {
         Write-Host "[WARN] 云备份同步失败(不影响本地备份): $_" -ForegroundColor Yellow
     }
 }
 
 Write-Host "`n备份目录: $backupDir" -ForegroundColor Cyan
+if ($failures.Count -gt 0) {
+    # 一个库失败不能让另一个库的成功被读成"整轮成功";调度器就是按本脚本退出码打"备份完成/失败"的。
+    Write-Host "[ERROR] 本轮有 $($failures.Count) 项失败:$($failures -join '; ')" -ForegroundColor Red
+    exit 1
+}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
