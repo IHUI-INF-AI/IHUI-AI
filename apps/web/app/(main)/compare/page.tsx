@@ -440,7 +440,7 @@ export default function CompareIndexPage() {
                     <Link
                       key={slug}
                       href={`/compare/ihui-vs-${slug}`}
-                      className="inline-flex items-center rounded-md border bg-card px-2.5 py-1 text-xs transition-colors hover:border-primary/40 hover:bg-primary/5"
+                      className="inline-flex items-center ui-control rounded-sm border bg-card px-2.5 py-1 text-xs transition-colors hover:border-primary/40 hover:bg-primary/5"
                     >
                       {LABELS[slug] ?? slug}
                     </Link>

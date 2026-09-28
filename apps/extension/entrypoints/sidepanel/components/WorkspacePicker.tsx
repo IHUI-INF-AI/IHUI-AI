@@ -54,7 +54,7 @@ export function WorkspacePicker() {
   if (workspace) {
     return (
       <div
-        className="flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1.5 text-xs"
+        className="flex items-center gap-1.5 ui-control rounded-sm border border-border bg-muted px-2 py-1.5 text-xs"
         data-testid="ext-workspace-picker"
       >
         <span className="min-w-0 flex-1 truncate text-foreground">{workspace.name}</span>

@@ -67,7 +67,7 @@ export default function SupportedRegionsPage() {
             {SUPPORTED_REGIONS.map((key) => (
               <div
                 key={key}
-                className="rounded-md border bg-card px-3 py-2 text-sm text-foreground"
+                className="ui-card rounded-lg border bg-card px-3 py-2 text-sm text-foreground"
               >
                 {t(key)}
               </div>
@@ -97,7 +97,7 @@ export default function SupportedRegionsPage() {
             {PAYMENTS.map((key) => (
               <div
                 key={key}
-                className="rounded-md border bg-card px-3 py-2 text-sm text-foreground"
+                className="ui-card rounded-lg border bg-card px-3 py-2 text-sm text-foreground"
               >
                 {t(key)}
               </div>
@@ -112,7 +112,7 @@ export default function SupportedRegionsPage() {
             {LANGUAGES.map((key) => (
               <div
                 key={key}
-                className="rounded-md border bg-card px-3 py-1.5 text-sm text-foreground"
+                className="ui-card rounded-lg border bg-card px-3 py-1.5 text-sm text-foreground"
               >
                 {t(key)}
               </div>

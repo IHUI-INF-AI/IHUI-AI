@@ -121,7 +121,7 @@ export default function LoginPopUp({
       <View className="absolute inset-0 bg-[var(--color-black-50)]" />
       {/* 弹窗主体 */}
       <View
-        className="relative bg-card rounded-2xl w-[85%]"
+        className="relative bg-card ui-bubble rounded-2xl w-[85%]"
         style={{
           paddingTop: toUnit(LOGIN_POPUP_DIALOG_PADDING_TOP_PX),
           paddingLeft: toUnit(LOGIN_POPUP_CARD_PADDING_X_PX),
