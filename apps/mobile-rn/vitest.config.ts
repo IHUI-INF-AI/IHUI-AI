@@ -57,11 +57,27 @@ export default defineConfig({
       'react-native-restart': resolve(__dirname, 'tests/__mocks__/react-native-restart.ts'),
       '@ihui/api-client': resolve(__dirname, 'tests/__mocks__/ihui-api-client.ts'),
       // Sub-path aliases must come BEFORE their parent/base alias (longest match first)
+      // 2026-09-28 收口(G-364):sso-core 从"手写替身"改为直指真实源码 —— 与同文件
+      // app-control-intent / stores 那两条同一条规矩(纯逻辑模块,给它写 mock 测的就是 mock)。
+      // 旧替身 ihui-shared-auth-sso-core.ts 只导出 startSSOFlow / parseSSOResponse /
+      // SsoCoreOptions,这三个在真实 packages/shared/src/auth/sso-core.ts 里根本不存在;
+      // 而本端真实消费方 src/lib/sso.ts 引的是 exchangeSsoCode / extractSsoCode /
+      // buildSsoLoginUrl —— 替身一个都没导出,指到替身就是 undefined。sso-core 文件头自述
+      // "纯逻辑,零平台依赖,仅依赖 fetch + URL"(jsdom 下具备),所以它不需要替身。
       '@ihui/shared/auth/sso-core': resolve(
         __dirname,
-        'tests/__mocks__/ihui-shared-auth-sso-core.ts',
+        '../../packages/shared/src/auth/sso-core.ts',
       ),
-      '@ihui/shared/auth': resolve(__dirname, 'tests/__mocks__/ihui-shared-auth.ts'),
+      // 2026-09-28 收口(G-364):auth 同上,从"手写替身"改为直指真实工厂(barrel index.ts)。
+      // 旧替身 ihui-shared-auth.ts 与本端真实实现三处不同形,任一处都会让"测替身"伪装成
+      // "测实现":① createInMemoryTokenStore 是同步版,忽略 onSetToken/onSetRefreshToken/
+      // onClearAll 全部持久化回调;② 没有 setCachedWithoutPersist(真实 src/lib/token.ts 的
+      // initApi() 靠它做 hydrate ⇒ 用替身跑真会 TypeError);③ 只声明 TokenStoreConfig,而
+      // 真实类型名是 InMemoryTokenStoreOptions(TokenStoreWithUserInfo 也缺)。
+      // 证据:auth-cold-start-after-logout.test.ts / auth-single-credential-source.test.ts
+      // 的文件头"取材纪律"明写"别名仍是手写替身 ⇒ 必须自带 vi.mock 才测得到实现",
+      // 本条收口正是把那个 vi.mock 绕道补成默认正确。
+      '@ihui/shared/auth': resolve(__dirname, '../../packages/shared/src/auth/index.ts'),
       '@ihui/shared/utils/date-utils': resolve(
         __dirname,
         'tests/__mocks__/ihui-shared-utils-date-utils.ts',
@@ -81,7 +97,18 @@ export default defineConfig({
       ),
       '@ihui/shared/utils': resolve(__dirname, 'tests/__mocks__/ihui-shared-utils.ts'),
       '@ihui/shared/hooks': resolve(__dirname, 'tests/__mocks__/ihui-shared-hooks.ts'),
-      '@ihui/shared/stores': resolve(__dirname, 'tests/__mocks__/ihui-shared-stores.ts'),
+      // 2026-09-27 收口:stores 从"手写替身"改为直指真实工厂。
+      // 旧替身自己实现了一份 createAuthStore/createThemeStore,与真实工厂**语义不同形**——
+      // 最要命的是 hydrate:替身对 tokenStore 返回 null 是"跳过保留旧值"
+      // (`if (t !== null) _token = t`),真实工厂是"覆盖并派生 isAuthenticated: !!token"。
+      // 于是任何用替身写的凭据用例证明的都是 mock 而不是实现(登录态清没清、
+      // isAuthenticated 有没有跟着 token 走,两条都判反),而这条正是"显式登出后冷启动
+      // 会不会自动登录"要用的那条链 —— 与 @ihui/shared/utils/app-control-intent 同一条规矩:
+      // 给它写 mock,测的就是 mock。
+      // 真实 stores 按自身文件头声明"零运行时依赖:除 zustand 外不依赖任何端特定 API
+      // (@ihui/api-client 仅类型)",所以它不需要替身;各端的存储差异本来就靠注入
+      // transport / tokenStore adapter 表达(内存版见 packages/shared/src/stores/transport.ts)。
+      '@ihui/shared/stores': resolve(__dirname, '../../packages/shared/src/stores/index.ts'),
       '@ihui/shared/notifications/notification-store': resolve(
         __dirname,
         'tests/__mocks__/ihui-shared-notif-store.tsx',

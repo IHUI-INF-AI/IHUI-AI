@@ -10,9 +10,12 @@
 // 错误可报。修复(lib/token.ts 的会话代次 + 写入串行化)必须让这条变绿;第 2、3 条
 // 钉住修复不得把正当链路改坏(登录能持久、登出后冷启动确实为空)。
 //
-// 取材纪律:@ihui/shared/stores 与 @ihui/shared/auth 在本端 vitest 配置里被整体别名
-// 到测试替身,而替身的 hydrate/持久化语义与真实工厂并不逐字同形(替身 hydrate 对 null
-// 是"跳过",真实工厂是"覆盖")。测这份缺陷必须跑真实工厂,否则测的是 mock。
+// 取材纪律:@ihui/shared/auth 与 @ihui/shared/stores 在本端 vitest 配置里**都已直指真实工厂**
+// (auth 由 G-364 收口,stores 由票#20 收口),所以本文件不再需要"绕开别名去 import 真实
+// token-store"的替身段 —— 替身的 hydrate/持久化语义与真实工厂并不逐字同形(替身 hydrate 对
+// null 是"跳过",真实工厂是"覆盖"),而这份缺陷必须跑真实工厂才复现得出来,否则测的是 mock。
+// 本文件仍留着一组 @ihui/shared/stores 的覆盖,那是别名指真之后不再改变语义的冗余段,
+// 归属票#20 那一族清(不在本票射程,故只点名不顺手删)。
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const { apiClient, capturedProvider } = vi.hoisted(() => {
@@ -38,13 +41,6 @@ const { apiClient, capturedProvider } = vi.hoisted(() => {
 })
 
 vi.mock('@ihui/api-client', () => apiClient)
-vi.mock('@ihui/shared/auth', async () => {
-  const real = await import('../../../packages/shared/src/auth/token-store')
-  return {
-    bindTokenStoreToApiClient: real.bindTokenStoreToApiClient,
-    createInMemoryTokenStore: real.createInMemoryTokenStore,
-  }
-})
 vi.mock('@ihui/shared/stores', async () => {
   const real = await import('../../../packages/shared/src/stores/auth-store')
   return { createAuthStore: real.createAuthStore }
