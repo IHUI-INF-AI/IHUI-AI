@@ -8,13 +8,27 @@
  * 两组判据,缺一组都会留下"看着齐了其实空转"的口子:
  *  ① store 行为:pick 成功才登记执行代理、四种失败一种都不登记、clear 必须收回 ——
  *     闸门(`workspace-capability.fileToolsAllowed`)读的就是这个登记结果;
+ *     收回执行代理之外还必须收回共享层那份工作区上下文缓存(补账②),否则换一个目录
+ *     仍可能吃到上一个目录的快照;
  *  ② ChatPage 源码级接线:委托回调 / 上下文上行 / 审批回传 / 流末收回,
  *     任一条被摘掉即红(本仓最高频失效型是"造好没装车",守门 64/70/81/115 同族)。
  */
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { invalidateWorkspaceContextCache } from '@ihui/shared/chat/workspace-context-loader'
+
+/**
+ * 缓存出口做成 spy:本端 store 与该缓存的**关系**就是要判的行为(换目录必须收回旧快照),
+ * 而把它按真身跑进这里判不了"到底有没有被叫到"。
+ * 判据面(源码级)那条在 `packages/shared/src/chat/__tests__/workspace-context-cache.test.ts` ⑥,
+ * 两条互补:那条防"搬家搬一半",这条防"搬完了但没接"。
+ */
+vi.mock('@ihui/shared/chat/workspace-context-loader', () => ({
+  invalidateWorkspaceContextCache: vi.fn(),
+}))
 
 import {
   clearActiveWorkspace,
@@ -113,6 +127,19 @@ describe('① store:执行代理只在真有可写句柄时登记', () => {
   })
 })
 
+describe('①′ 换目录 / 清目录必须收回共享缓存那一份快照', () => {
+  it('pick 第二个目录时清第一个的名字,clear 时清当前名字', async () => {
+    const spy = vi.mocked(invalidateWorkspaceContextCache)
+    spy.mockClear()
+    await pickWorkspaceDirectory(fakeWin(writableHandle('first')))
+    await pickWorkspaceDirectory(fakeWin(writableHandle('second')))
+    // 缓存按目录名建索引,而 name 只是键不是身份:不清就得等签名恰好全等才重载
+    expect(spy).toHaveBeenCalledWith('first')
+    clearActiveWorkspace()
+    expect(spy).toHaveBeenCalledWith('second')
+  })
+})
+
 describe('② ChatPage 接线:摘掉任一条即红', () => {
   const src = readFileSync(CHAT_PAGE, 'utf8')
   const flat = src.replace(/\s+/g, ' ')
@@ -120,7 +147,10 @@ describe('② ChatPage 接线:摘掉任一条即红', () => {
   it('workspaceContext 与 workspacePath 真被带上,且来自同一句读到的活动工作区', () => {
     expect(flat).toContain('workspacePath: workspace?.name')
     expect(flat).toContain('workspaceContext,')
-    expect(flat).toContain('loadWorkspaceContext(workspace.handle)')
+    // 票㉑ 补账②:请求路径必须走**带缓存**的那一份。无缓存版本每轮全扫一遍目录树,
+    // 大工作区下"发一句话"要先等一次遍历 —— 而它不会因为"结果一样"而报错,只会慢。
+    expect(flat).toContain('loadWorkspaceContextCached(workspace.handle)')
+    expect(flat).not.toContain('loadWorkspaceContext(workspace.handle)')
   })
 
   it('onToolDelegate:有句柄走共享执行器,没句柄也必须回传错误(不得让后端干等)', () => {
