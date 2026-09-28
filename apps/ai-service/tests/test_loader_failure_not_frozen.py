@@ -15,14 +15,26 @@
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pytest
 
 from app.services import ab_test_tracker as att_mod
+from app.services import federated_learner as fed_mod
+from app.services import memory_decay as md_mod
+from app.services import meta_learner as meta_mod
+from app.services import user_profile as up_mod
+from app.services._load_lifecycle import LOAD_BACKOFF_BASE_S as _BASE_S
+from app.services._load_lifecycle import LOAD_BACKOFF_MAX_S as _MAX_S
 from app.services.ab_test_tracker import ABTestTracker
 from app.services.agent_card import _scope_meta_index
+from app.services.federated_learner import FederatedLearner
+from app.services.memory_decay import MemoryDecayManager
+from app.services.meta_learner import MetaLearner
+from app.services.user_profile import UserProfileBuilder
 
 
 class _FakeConn:
@@ -36,14 +48,29 @@ class _FakeConn:
         self._outcomes = list(outcomes)
         self.calls = 0
 
-    async def fetch(self, *args: Any) -> list[Any]:
+    def _pop(self, kind: str) -> Any:
         self.calls += 1
         if not self._outcomes:
-            raise AssertionError("fetch 在已无预设结果时被再次调用(不应再打 DB)")
+            raise AssertionError(
+                f"{kind} 在已无预设结果时被再次调用(不应再打 DB)"
+            )
         out = self._outcomes.pop(0)
         if isinstance(out, BaseException):
             raise out
         return out
+
+    async def fetch(self, *args: Any) -> list[Any]:
+        return self._pop("fetch")
+
+    async def fetchrow(self, *args: Any) -> Any:
+        return self._pop("fetchrow")
+
+    async def execute(self, *args: Any) -> None:
+        """DDL / 自愈建表通道:不消耗预设、不计入 calls。
+
+        用例断言的是"读了几次数据",建表这类写操作不得混进计数里。
+        """
+        return None
 
 
 class _AcquireCtx:
@@ -203,4 +230,225 @@ def test_agent_card_read_failure_differs_from_authoritative_empty(tmp_path: Path
     )
     index, ok = _scope_meta_index(with_entries)
     assert ok is True and "files:read" in index
+
+# ======================================================================
+# G-748(2026-09-29):同族 4 处"读失败也置已加载"收到**同一份**判据上。
+# 语义与上面 ab_test_tracker 那两条成对验收逐字同形:
+#   ① 注入一次读异常 ⇒ 该对象仍**非** loaded,退避窗口过后真重试并固化;
+#   ② 正向对照:读到空结果 ⇒ 置 loaded 且此后不再打库(权威的空允许固化)。
+# 全程注入假连接,零 DB 句柄(conftest 的 autouse 兜底之外再显式注入自己的)。
+# ======================================================================
+
+
+def _inject_for(monkeypatch: pytest.MonkeyPatch, *mods: Any, conn: _FakeConn) -> _FakeClock:
+    """把 _get_pool / _monotonic 换成假件;_monotonic 是各模块自己的别名绑定,可分块替换。"""
+    clock = _FakeClock()
+    for mod in mods:
+        monkeypatch.setattr(mod, "_monotonic", clock)
+
+        async def _get_pool() -> _FakePool:
+            return _FakePool(conn)
+
+        monkeypatch.setattr(mod, "_get_pool", _get_pool)
+    return clock
+
+
+async def test_federated_read_failure_is_not_frozen_and_retried(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """成对①(联邦):一次读失败 ⇒ 不置 loaded;窗口内不打库;窗口过后真重试并固化。"""
+    conn = _FakeConn([ConnectionError("transient db down"), []])
+    clock = _inject_for(monkeypatch, fed_mod, conn=conn)
+    fl = FederatedLearner()
+
+    await fl._ensure_loaded()
+    assert conn.calls == 1
+    assert fl._loaded is False  # 旧实现在这里已被 finally 置 True
+    assert fl._load_failures == 1
+
+    await fl._ensure_loaded()
+    await fl._ensure_loaded()
+    assert conn.calls == 1  # 退避窗口内:不得打爆 IO
+
+    clock.advance(_BASE_S + 0.01)
+    await fl._ensure_loaded()
+    assert conn.calls == 2
+    assert fl._loaded is True
+    assert fl._load_failures == 0
+
+
+async def test_federated_authoritative_empty_freezes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """成对②(联邦):读到空表 ⇒ 固化 loaded,后续零次再打库。"""
+    conn = _FakeConn([[]])
+    clock = _inject_for(monkeypatch, fed_mod, conn=conn)
+    fl = FederatedLearner()
+
+    await fl._ensure_loaded()
+    assert fl._loaded is True
+    assert conn.calls == 1
+
+    clock.advance(10_000.0)
+    await fl._ensure_loaded()
+    await fl._ensure_loaded()
+    assert conn.calls == 1
+
+
+async def test_meta_read_failure_is_not_frozen_and_retried(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """成对①(元学习):建表后读失败 ⇒ 不固化;窗口过后真重试。"""
+    conn = _FakeConn([ConnectionError("transient db down"), []])
+    clock = _inject_for(monkeypatch, meta_mod, conn=conn)
+    ml = MetaLearner()
+
+    await ml._ensure_loaded()
+    assert conn.calls == 1
+    assert ml._loaded is False
+    assert ml._load_failures == 1
+
+    await ml._ensure_loaded()
+    assert conn.calls == 1
+
+    clock.advance(_BASE_S + 0.01)
+    await ml._ensure_loaded()
+    assert conn.calls == 2
+    assert ml._loaded is True
+    assert ml._load_failures == 0
+
+
+async def test_meta_authoritative_empty_freezes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """成对②(元学习):空表 ⇒ loaded 且不再打库。"""
+    conn = _FakeConn([[]])
+    clock = _inject_for(monkeypatch, meta_mod, conn=conn)
+    ml = MetaLearner()
+
+    await ml._ensure_loaded()
+    assert ml._loaded is True
+    assert conn.calls == 1
+
+    clock.advance(10_000.0)
+    await ml._ensure_loaded()
+    assert conn.calls == 1
+
+
+async def test_memory_decay_read_failure_is_not_frozen_and_retried(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """成对①(衰减状态):某用户一次读失败 ⇒ 该用户记录仍非 loaded;窗口过后真重试。"""
+    uid = str(uuid4())
+    conn = _FakeConn([ConnectionError("transient db down"), []])
+    clock = _inject_for(monkeypatch, md_mod, conn=conn)
+    md = MemoryDecayManager()
+
+    await md._ensure_loaded(uid)
+    rec = md._load_records[uid]
+    assert conn.calls == 1
+    assert rec.loaded is False  # 旧实现在这里已 add 进 _loaded_users,余生不再重试
+    assert rec.failures == 1
+    assert rec.state_label() in ("retry_backoff",)
+
+    await md._ensure_loaded(uid)
+    assert conn.calls == 1
+
+    clock.advance(_BASE_S + 0.01)
+    await md._ensure_loaded(uid)
+    assert conn.calls == 2
+    assert rec.loaded is True
+    assert rec.failures == 0
+
+
+async def test_memory_decay_authoritative_empty_freezes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """成对②(衰减状态):该用户确无状态行 ⇒ 固化,后续不再打库。"""
+    uid = str(uuid4())
+    conn = _FakeConn([[]])
+    clock = _inject_for(monkeypatch, md_mod, conn=conn)
+    md = MemoryDecayManager()
+
+    await md._ensure_loaded(uid)
+    assert md._load_records[uid].loaded is True
+    assert conn.calls == 1
+
+    clock.advance(10_000.0)
+    await md._ensure_loaded(uid)
+    await md._ensure_loaded(uid)
+    assert conn.calls == 1
+
+
+async def test_user_profile_read_failure_is_not_frozen_and_retried(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """成对①(用户画像):fetchrow 抛 ⇒ 该用户仍非 loaded;窗口过后真重试并固化。"""
+    uid = str(uuid4())
+    conn = _FakeConn([ConnectionError("transient db down"), None])
+    clock = _inject_for(monkeypatch, up_mod, conn=conn)
+    up = UserProfileBuilder()
+
+    await up._ensure_loaded(uid)
+    rec = up._load_records[uid]
+    assert conn.calls == 1
+    assert rec.loaded is False
+    assert rec.failures == 1
+
+    await up._ensure_loaded(uid)
+    assert conn.calls == 1
+
+    clock.advance(_BASE_S + 0.01)
+    await up._ensure_loaded(uid)
+    assert conn.calls == 2
+    assert rec.loaded is True  # 第二次读到"该行不存在"= 权威的空,允许固化
+
+
+async def test_user_profile_authoritative_empty_freezes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """成对②(用户画像):无画像行 ⇒ 固化;损坏 JSON 则**不得**固化。"""
+    ok_uid = str(uuid4())
+    conn = _FakeConn([None])
+    clock = _inject_for(monkeypatch, up_mod, conn=conn)
+    up = UserProfileBuilder()
+
+    await up._ensure_loaded(ok_uid)
+    assert up._load_records[ok_uid].loaded is True
+    assert conn.calls == 1
+
+    clock.advance(10_000.0)
+    await up._ensure_loaded(ok_uid)
+    assert conn.calls == 1
+
+    bad_uid = str(uuid4())
+    conn2 = _FakeConn([{"profile": "{ not json"}])
+    clock2 = _inject_for(monkeypatch, up_mod, conn=conn2)
+    up2 = UserProfileBuilder()
+    await up2._ensure_loaded(bad_uid)
+    # 行在、内容读不出来 ⇒ "读不到",绝不能固化成"这个用户没有画像"
+    assert up2._load_records[bad_uid].loaded is False
+    assert up2._load_records[bad_uid].failures == 1
+    assert clock2 is not None
+    assert _MAX_S == 60.0
+
+
+def test_no_second_copy_of_the_lifecycle_numbers() -> None:
+    """形状锁:退避数值与指数式只许住在 _load_lifecycle 一处。
+
+    本票的全部理由就是"两处算同一件事必漂移";这条断言防止下一个人在某个模块里
+    顺手把 1.0/60.0/5 再抄一遍(抄一遍的那次改动,另一处不会跟着变)。
+    """
+    mods = (att_mod, fed_mod, meta_mod, md_mod, up_mod)
+    for mod in mods:
+        src = inspect.getsource(mod)
+        assert "_load_lifecycle" in src, f"{mod.__name__} 未接共享判据"
+        for literal in (
+            "LOAD_BACKOFF_BASE_S = 1.0",
+            "LOAD_BACKOFF_MAX_S = 60.0",
+            "LOAD_MAX_CONSECUTIVE_FAILURES = 5",
+            "2 ** (",
+        ):
+            assert literal not in src, f"{mod.__name__} 又抄了一份判据:{literal!r}"
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
