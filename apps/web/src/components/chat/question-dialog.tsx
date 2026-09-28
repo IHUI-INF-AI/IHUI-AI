@@ -123,7 +123,7 @@ export function QuestionDialog({ question, onSubmit, onSkip }: QuestionDialogPro
                   type="button"
                   onClick={() => toggleOption(opt.id)}
                   className={cn(
-                    'flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors',
+                    'flex w-full items-center justify-between rounded-sm border px-3 py-2 text-left text-sm transition-colors',
                     selected
                       ? 'outline outline-1 outline-border bg-primary/5 text-foreground'
                       : 'border-border bg-background text-foreground hover:bg-accent hover:border-accent-foreground/20',
