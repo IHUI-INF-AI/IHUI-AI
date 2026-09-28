@@ -868,6 +868,18 @@ export function buildRowDedupe(content, match = null) {
 }
 
 /**
+ * 幂等判据的"本轮范围"取集合出口 —— **只有一份**。分块档传 Set,也允许传数组(取证时手搭夹具更省事),
+ * 但两者都必须走这里:一处用 `has`、另一处用 `includes` 就会在"整行文本 vs 子串"上漂开,
+ * 而漂开的表现不是报错,是"某一组被算进范围却没被真删而账面判绿"。
+ * 集合成员是**整行原文**(不是锚点子串)—— 与 findXxxTwins 产物的 `g.line` 同一物,不做归一。
+ */
+function scopeSetOf(scopeLines) {
+  if (scopeLines instanceof Set) return scopeLines
+  if (Array.isArray(scopeLines)) return new Set(scopeLines)
+  throw new Undetermined('scopeLines 必须是 Set 或整行文本数组(收到别的东西就是调用方写错了,不猜)')
+}
+
+/**
  * 单行副本档的零损失断言 —— 五条同时成立才允许落地。
  * 与块级档**同源但不等值**:块级要证"F6 必降",这里要证"这一档自己清干净了(幂等)"。
  *
@@ -880,7 +892,7 @@ export function verifyRowDedupe(srcText, outText, deletedCount, match = null) {
   return verifyRowDedupeCore(srcText, outText, deletedCount, match, findRowTwins)
 }
 
-export function verifyRowDedupeCore(srcText, outText, deletedCount, match, findTwins) {
+export function verifyRowDedupeCore(srcText, outText, deletedCount, match, findTwins, scopeLines = null) {
   const problems = []
   const a = String(srcText).split('\n')
   const b = String(outText).split('\n')
@@ -938,7 +950,19 @@ export function verifyRowDedupeCore(srcText, outText, deletedCount, match, findT
     problems.push(`归并落账注记的种类由 ${kindsBefore} 掉到 ${kindsAfter}(不得整类消失;份数变少不算,那正是本档在做的事)`)
   // ⑤ 幂等:做完之后**本档范围内**的等值副本必须清零(带 --match 时只核该子集),
   //    否则要么没删净、要么判据自己错了。取组函数由调用方喂进来,不在这里二次判档。
-  const left = findTwins(outText).filter((g) => !match || g.line.includes(match))
+  //
+  //    `scopeLines` 是分块档专用的**第三种子集口径**:调用方把"本轮真的选中并删除的那些组的整行
+  //    文本"交进来,幂等只在**这个集合**上判。为什么必须换口径而不是换阈值:分块之后必然还有
+  //    没轮到的组留在面上,按"本档清零"判就是一台**每次分块都恒拒**的尺子 —— 它拦不住任何
+  //    错误(没选中的组本来就不该在本轮消失),只保证分块这条路一步都走不通。
+  //    它**不放宽任何一条对已选组的判据**:被选中的组若没删净,set 里那一条照样还在 findTwins
+  //    的产物里 ⇒ 当场红。放宽的只有"本轮没认领的组算不算未清",而那一条由 ①②③④⑥⑦⑧
+  //    七条共同兜住(它们判的是"没被选中的行必须逐字活着",与幂等是两个问题)。
+  //    没给 scopeLines 时走原来的 match 语义,**逐字不变**(已完成档与旧调用方的结论不得因本
+  //    参数存在而改变 —— 那是同一把尺子的两个使用者,不是两个判据)。
+  const left = scopeLines
+    ? findTwins(outText).filter((g) => scopeSetOf(scopeLines).has(g.line))
+    : findTwins(outText).filter((g) => !match || g.line.includes(match))
   if (deletedCount > 0 && left.length > 0)
     problems.push(`删了 ${deletedCount} 行而仍有 ${left.length} 组等值副本未清 ⇒ 不闭合,交人工`)
   return problems
@@ -1121,12 +1145,79 @@ export function findOpenRowRefusals(content) {
   return { noPointer, drifted }
 }
 
-/** 只删第 2..N 份;`match` 是内容锚点(整行子串,不认行号),不命中的组一份不动。 */
-export function buildOpenRowDedupe(content, match = null) {
+/**
+ * 分块贪心的**唯一**实现(2026-09-29 分块档立)。取组函数已按首次出现行号升序排好,
+ * 所以这里只做两件事:**按序整组装填到装不下就另起一块**、**单组超上限的整组挪出去报名**。
+ *
+ * 三条不可漂的写法,每条都有实测理由:
+ *  ① **组不切半**。`cost = g.at.length - 1` 必须整组计入或整组不计。切一半会让"每个被删值都有
+ *     同文幸存份"那条断言失去意义(它证的是"这一族还剩一份",而不是"这一族还剩几份"),
+ *     而失去意义的判据比没有判据更糟 —— 它会替被切的那一半发合格证。
+ *  ② **单组超上限 ⇒ 跳过它继续装后面的组,并逐条报名**(2026-09-29 由"停手"改成这一套,理由是量出来的:
+ *     真仓 215 组里有一组 cost=37 > 上限且排在首次出现序很前,纯前缀贪心下**它和它后面的 1102 行
+ *     永远进不了任何块** —— 于是"分块"这项能力对全档 96% 的账一条都不生效,而账面看起来合规)。
+ *     跳过不是放过:每一组都进 `oversized` 清单,报告与拒批量分支逐条点名它,出路仍是
+ *     `--match` 定向清它或人工 `--allow-mass` 整批放行 —— **永不静默**。
+ *     块内与块间顺序仍按首次出现升序,所以"保留每组首次出现"那条判据不受装填策略影响。
+ *  ③ `maxRows` 为 null ⇒ 一整块装全部,与分块之前的行为**逐字等值**(不是"近似等值":
+ *     同一输入跑两遍产物字符串必须全等,由镜像测试钉住)。
+ *
+ * @param {Array<{line:string,copies:number,at:number[]}>} groups 已按首次出现升序
+ * @param {number|null} maxRows 单块拟删行数上限;null = 不分块
+ * @returns {{chunks:Array<{groups:Array,rows:number}>,oversized:Array<{line:string,copies:number,cost:number}>,totalRows:number,remainingRows:number}}
+ *   `remainingRows` = **进不了任何块**的行数(即全部 oversized 组的可删份数之和);
+ *   `oversized` = 单组 cost 就超上限的那些组,逐条报名 —— 它们不是"被放过",是"这条路装不下,
+ *   必须换 `--match` 或人工 `--allow-mass`"。清单为空才叫"全档都能被块覆盖"。
+ */
+export function planOpenRowChunks(groups, maxRows = null) {
+  const list = Array.isArray(groups) ? groups.slice() : []
+  const costOf = (g) => g.at.length - 1
+  const totalRows = list.reduce((s, g) => s + costOf(g), 0)
+  if (maxRows === null || maxRows === undefined) {
+    return {
+      chunks: list.length ? [{ groups: list, rows: totalRows }] : [],
+      oversized: [],
+      totalRows,
+      remainingRows: 0,
+    }
+  }
+  const oversized = []
+  const fit = []
+  for (const g of list) {
+    if (costOf(g) > maxRows) oversized.push({ line: g.line, copies: g.copies, cost: costOf(g) })
+    else fit.push(g)
+  }
+  const chunks = []
+  let cur = null
+  for (const g of fit) {
+    if (!cur || cur.rows + costOf(g) > maxRows) {
+      cur = { groups: [], rows: 0 }
+      chunks.push(cur)
+    }
+    cur.groups.push(g)
+    cur.rows += costOf(g)
+  }
+  return {
+    chunks,
+    oversized,
+    totalRows,
+    remainingRows: oversized.reduce((s, o) => s + o.cost, 0),
+  }
+}
+
+/**
+ * 只删第 2..N 份;`match` 是内容锚点(整行子串,不认行号),不命中的组一份不动。
+ * `maxRows` 给定时**只取第一个块**(见 planOpenRowChunks);返回的 `groups` 仍是"锚点命中的全部组"
+ * (既有调用方与镜像按它判锚点命中数,语义不得动),实际纳入的部分在 `selectedGroups` 里。
+ */
+export function buildOpenRowDedupe(content, match = null, maxRows = null) {
   const groups = findOpenRowTwins(content).filter((g) => !match || g.line.includes(match))
+  const plan = planOpenRowChunks(groups, maxRows)
+  const selectedGroups = plan.chunks.length ? plan.chunks[0].groups : []
+  const selectedLines = new Set(selectedGroups.map((g) => g.line))
   const drop = new Set()
   const removed = []
-  for (const g of groups) {
+  for (const g of selectedGroups) {
     for (const ln of g.at.slice(1)) {
       if (drop.has(ln)) throw new Undetermined(`未勾单行副本判据自相矛盾:L${ln} 被两组同时认领`)
       drop.add(ln)
@@ -1134,7 +1225,16 @@ export function buildOpenRowDedupe(content, match = null) {
     }
   }
   const out = String(content).split('\n').filter((_, i) => !drop.has(i + 1))
-  return { text: out.join('\n'), removed, droppedLines: drop, deletedCount: drop.size, groups }
+  return {
+    text: out.join('\n'),
+    removed,
+    droppedLines: drop,
+    deletedCount: drop.size,
+    groups,
+    selectedGroups,
+    selectedLines,
+    plan,
+  }
 }
 
 /**
@@ -1144,9 +1244,11 @@ export function buildOpenRowDedupe(content, match = null) {
  *  ⑦ 未勾选行数减量必须与声明删除数吻合(删的全是 `- [ ]` 行,不许顺手吃掉别的形态);
  *  ⑧ 不越界:没带指针的等值孪生必须一份不少地留着(那一族的出口是 --heal,不是本档)。
  * `droppedLines` 给定时再补一条最硬的:产物必须逐行等于"原文件减去声明的那几行"。
+ * `scopeLines`(分块档)只把**第⑤条幂等**收窄到"本轮认领的那些组",其余七条一字不动 ——
+ * 它们判的恰好是"本轮没认领的行必须逐字活着",与分块方向一致,不存在"顺手放宽"的余地。
  */
-export function verifyOpenRowDedupe(srcText, outText, deletedCount, match = null, droppedLines = null) {
-  const problems = verifyRowDedupeCore(srcText, outText, deletedCount, match, findOpenRowTwins)
+export function verifyOpenRowDedupe(srcText, outText, deletedCount, match = null, droppedLines = null, scopeLines = null) {
+  const problems = verifyRowDedupeCore(srcText, outText, deletedCount, match, findOpenRowTwins, scopeLines)
   if (droppedLines) {
     const expect = String(srcText)
       .split('\n')
@@ -1173,7 +1275,11 @@ export function verifyOpenRowDedupe(srcText, outText, deletedCount, match = null
 }
 
 /**
- * 未勾档的落地:底稿**一律取被审面上的 HEAD blob**(经 face-reader 的 catBatch,绝不 readFileSync
+ * 未勾档落地的**单轮**出口(一轮 = 至多一枚提交)。返回结构化结论而不是裸退出码:
+ * 外层轮次循环需要知道"这一轮是没活干、还是被阀门拒了、还是判据没过",三者处置动作不同
+ * (前者正常收尾、后两者必须停下并把原因原样带出去 —— 把失败收敛成"跑完了"就是造合格证)。
+ *
+ * 底稿**一律取被审面上的 HEAD blob**(经 face-reader 的 catBatch,绝不 readFileSync
  * 工作树当判定输入),写盘只走 `lib/bypass-git.mjs` 已有的三个出口 —— 同一套 plumbing 在本仓被手写
  * 过 6 份并互相漂开,其中一份把"重复行计数"当零损失判据,一次也没落地成功。
  *
@@ -1181,44 +1287,78 @@ export function verifyOpenRowDedupe(srcText, outText, deletedCount, match = null
  * 内容,把它连我的删除一起交出去就是 §12 的污染型。这一格宁可不做,不可代交。
  *
  * 每次 CAS 尝试都按**当次 HEAD** 重算组与行号(并发会话一天推进几十枚提交,行号必挪位),
- * 落地后回读复核"本档清零 ∧ 活数未变",任一条不符即 CAS 回退到 parent,不留半落地现场。
+ * 落地后回读复核"本轮认领的组清零 ∧ 活数未变",任一条不符即 CAS 回退到 parent,不留半落地现场。
+ *
+ * @returns {{kind:'landed'|'empty'|'refused'|'failed'|'undetermined',deletedCount:number,
+ *   sha:string|null,remainingGroups:number,remainingRows:number,reason?:string}}
  */
-export function openRowsDedupeAndLand(match = null, maxAttempts = 8, opts = {}) {
+function openRowsDedupeOnce(match = null, maxAttempts = 8, opts = {}) {
   const root = opts.root ?? ROOT
   const allowMass = !!opts.allowMass
+  const maxRows = opts.maxRows ?? null
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const spec = `HEAD:${PLAN_REL}`
     const src = catBatch(root, [spec], { maxBuffer: 1 << 28 }).get(spec)
     if (src === null || src === undefined) {
       console.log('未勾单行副本档未判定 —— 被审面取不到 PROJECT_PLAN.md(不记为已修)')
-      return 2
+      return { kind: 'undetermined', deletedCount: 0, sha: null, remainingGroups: 0, remainingRows: 0 }
     }
     const groups = findOpenRowTwins(src).filter((g) => !match || g.line.includes(match))
     if (!groups.length) {
       console.log(
         `✅ 无"已写明重复登记副本"的未勾选等值单行副本(本档=0),不动任何东西${attempt > 1 ? ` (第 ${attempt} 轮)` : ''}`,
       )
-      return 0
+      return { kind: 'empty', deletedCount: 0, sha: null, remainingGroups: 0, remainingRows: 0 }
     }
     let r
     try {
-      r = buildOpenRowDedupe(src, match)
+      r = buildOpenRowDedupe(src, match, maxRows)
     } catch (e) {
       console.log(`❌ 未勾单行副本档停手 —— ${e instanceof Undetermined ? e.message : String(e?.message ?? e)}`)
-      return 1
+      return { kind: 'failed', deletedCount: 0, sha: null, remainingGroups: groups.length, remainingRows: 0 }
+    }
+    // 分块一个组都没选中 ⇒ **所有**组都单组超上限(装不下任何组)。组不得切半,所以这不是
+    // "再多跑几轮"能解决的:它必须换出口(--match 定向清某一组,或 --allow-mass 人工放行整批)。
+    // 注意这一分支**不等于**"跳过超上限组后无事可做"——那种情况 planOpenRowChunks 已把装得下的
+    // 组装进块里了,只有"没有一组装得下"才会走到这里,此时喊停才是对的(不落就是不落,
+    // 不造"跑了但没东西可跑"的假动作)。
+    if (maxRows !== null && r.selectedGroups.length === 0) {
+      const ov = r.plan.oversized
+      const first = ov[0]
+      console.log(
+        `❌ 分块停手:${ov.length} 组**每一组**单组就要删 > --max-rows ${maxRows},而组**不得切半** ⇒ 没有任何块装得下它们。\n` +
+          `   本轮认领 0 组 / 0 行,一分未落。\n` +
+          `   出路二选一:① \`--dedupe-open-rows --match "<该行的一段原文>" --max-rows ${first ? first.cost : 'N'}\` 定向清某一组;` +
+          `② 人工复核后加 --allow-mass 整批放行(它会原样写进落地提交信息)。\n` +
+          `   超上限的组(最多点名 5 条):${
+            ov
+              .slice(0, 5)
+              .map((o) => `${o.copies} 份/需删 ${o.cost} 行/「${String(o.line).slice(0, 44)}…」`)
+              .join(' ; ') || '(取不到)'
+          }`,
+      )
+      return {
+        kind: 'refused',
+        deletedCount: 0,
+        sha: null,
+        remainingGroups: groups.length,
+        remainingRows: r.plan.remainingRows,
+      }
     }
     if (r.deletedCount > ROW_MASS_LIMIT && !allowMass) {
       console.log(
         `❌ 拒批量:本次拟删 ${r.deletedCount} 行 > 单批上限 ${ROW_MASS_LIMIT} 行 —— 活文档上一次删几百行没人复核得动。\n` +
+          `   分块做法:\`--dedupe-open-rows --max-rows ${ROW_MASS_LIMIT} [--rounds N]\` 自动按 ≤${ROW_MASS_LIMIT} 行/组完整切块,每块一枚可 revert 的提交;\n` +
           `   逐批做法:\`--dedupe-open-rows --match "<该行的一段原文>"\` 看清范围,确认断言后加 --commit;确要整档放开再显式加 --allow-mass。`,
       )
-      return 1
+      return { kind: 'refused', deletedCount: 0, sha: null, remainingGroups: groups.length, remainingRows: 0 }
     }
-    const problems = verifyOpenRowDedupe(src, r.text, r.deletedCount, match, r.droppedLines)
+    const scope = maxRows === null ? null : r.selectedLines
+    const problems = verifyOpenRowDedupe(src, r.text, r.deletedCount, match, r.droppedLines, scope)
     if (problems.length) {
       console.log('❌ 未勾单行副本档停手(现场保留,交人工):')
       for (const p of problems.slice(0, 10)) console.log('   ' + p)
-      return 1
+      return { kind: 'failed', deletedCount: 0, sha: null, remainingGroups: groups.length, remainingRows: 0 }
     }
     const c0 = auditPlan(src).counts
     const parent = bypassGit(['rev-parse', 'HEAD'], { root })
@@ -1227,10 +1367,15 @@ export function openRowsDedupeAndLand(match = null, maxAttempts = 8, opts = {}) 
       '',
       `触发时被审面 HEAD 现读:${groups.length} 组等值副本 / 共 ${groups.reduce((s, g) => s + g.copies, 0)} 份` +
         `${match ? ';本次按内容锚点定向执行(锚点=整行子串,不含行号)' : ';本次为全档清理'}${allowMass ? ';--allow-mass 已由人工放行' : ''}。`,
+      maxRows === null
+        ? '本次不分块(一次一整批),零损失断言按"本档清零"判。'
+        : `本次为**分块落地**:单块上限 ${maxRows} 行,本轮取 ${r.selectedGroups.length} 组共 ${r.deletedCount} 行(按首次出现升序、组不切半);` +
+          `幂等只在本轮认领的 ${r.selectedGroups.length} 组上判,其余 ${groups.length - r.selectedGroups.length} 组留给后续块 —— ` +
+          `分块不降低任何一条断言,只改变"一次落多少";这一枚提交是本块的唯一审计单位,可单独 git revert。`,
       `删去第 2..N 份共 ${r.deletedCount} 行,保留每组首次出现(两份逐字节相同 ⇒ 保留哪一份不改内容)。`,
       '只折**已写明「【归并】重复登记副本」指针**的未勾选行:尺子的派单口径早已把带该指针的行算作同一条活的副本,所以本档不改活数(落地前后各跑一次同一把尺子当场反证)。',
       '刻意不删并逐条点名的两族:① 未带指针的逐字等值孪生(出口是 --heal 加注记,一行不删);② 同主键而正文已漂开的副本(机器折半即有损,交人工)。',
-      `零损失判据(八条,任一不过即整批不落):行数差=待删数 ∧ 输出是输入的顺序子序列 ∧ 每个被删值仍有同文幸存份 ∧ 无任何值变多 ∧ 产物不含新增行 ∧ 除声明删除行外逐行等值 ∧ F1/F2/F3/F4/F6 无一上涨且归并注记种类不整类消失 ∧ 派单口径活数不变 ∧ 未带指针的等值孪生组数不变 ∧ 本档清零(幂等)。`,
+      `零损失判据(八条,任一不过即整批不落):行数差=待删数 ∧ 输出是输入的顺序子序列 ∧ 每个被删值仍有同文幸存份 ∧ 无任何值变多 ∧ 产物不含新增行 ∧ 除声明删除行外逐行等值 ∧ F1/F2/F3/F4/F6 无一上涨且归并注记种类不整类消失 ∧ 派单口径活数不变 ∧ 未带指针的等值孪生组数不变 ∧ 本轮认领的组清零(幂等,分块时按本轮范围判)。`,
       `行数 ${src.split('\n').length} → ${r.text.split('\n').length};claimable ${c0.claimable} → 由落地后回读复核。`,
     ].join('\n')
     let landed
@@ -1244,7 +1389,7 @@ export function openRowsDedupeAndLand(match = null, maxAttempts = 8, opts = {}) 
       })
     } catch (e) {
       console.log(`❌ 未勾单行副本档停手 —— 候选树建不出来:${String(e?.message ?? e).slice(0, 160)}`)
-      return 1
+      return { kind: 'failed', deletedCount: 0, sha: null, remainingGroups: groups.length, remainingRows: 0 }
     }
     if (!casUpdateRef(landed.commit, parent, { root })) {
       console.log(`↻ 第 ${attempt} 次 CAS 失败(HEAD 被并发推进),整轮按新 HEAD 重算副本位置再来`)
@@ -1255,31 +1400,98 @@ export function openRowsDedupeAndLand(match = null, maxAttempts = 8, opts = {}) 
     if (landedText === null || landedText === undefined) {
       console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
       casUpdateRef(parent, landed.commit, { root })
-      return 1
+      return { kind: 'failed', deletedCount: 0, sha: null, remainingGroups: 0, remainingRows: 0 }
     }
-    const leftAfter = findOpenRowTwins(landedText).filter((g) => !match || g.line.includes(match))
+    const leftAll = findOpenRowTwins(landedText)
+    const leftAfter = scope ? leftAll.filter((g) => scope.has(g.line)) : leftAll.filter((g) => !match || g.line.includes(match))
     const after = auditPlan(landedText).counts
     if (leftAfter.length > 0 || after.claimable !== c0.claimable) {
       console.log(
-        `❌ 落地后回读不闭合(本档残留 ${leftAfter.length} 组 / 活数 ${c0.claimable}→${after.claimable}),回退到 ${parent.slice(0, 11)}`,
+        `❌ 落地后回读不闭合(本轮认领的组残留 ${leftAfter.length} 组 / 活数 ${c0.claimable}→${after.claimable}),回退到 ${parent.slice(0, 11)}`,
       )
       casUpdateRef(parent, landed.commit, { root })
-      return 1
+      return { kind: 'failed', deletedCount: 0, sha: null, remainingGroups: 0, remainingRows: 0 }
     }
     const align = alignSharedIndex({ root, paths: [PLAN_REL], parentRef: parent })
     const nOf = (v) => (Array.isArray(v) ? v.length : Number(v) || 0)
+    const restGroups = leftAll.filter((g) => !scope || !scope.has(g.line))
+    const restRows = restGroups.reduce((s, g) => s + g.at.length - 1, 0)
     console.log(
-      `✅ 未勾单行副本档落地 ${landed.commit.slice(0, 11)}:删 ${r.deletedCount} 行(保留首次出现),` +
+      `✅ 未勾单行副本档落地 ${landed.commit.slice(0, 11)}:删 ${r.deletedCount} 行(保留首次出现)${
+        maxRows === null ? '' : `,本轮取 ${r.selectedGroups.length} 组`
+      },` +
         `claimable ${c0.claimable} 未变,F1–F4/F6 ${[after.forks, after.voidRows, after.rotatedAuto, after.dupOpenCopies, after.dupBlocks].join('/')} 未涨` +
+        `${maxRows === null ? '' : `;当次 HEAD 现算仍剩 ${restGroups.length} 组 / ${restRows} 行`}` +
         `;共享索引 移动 ${nOf(align.moved)} / 已就位 ${nOf(align.already)}` +
         `${nOf(align.skipped) ? ` / 归属他人未动 ${align.skipped.map((s) => s.path).join(',')}` : ''}` +
         `${nOf(align.undetermined) ? ` / 未判定 ${nOf(align.undetermined)}` : ''}` +
         `${align.lockAbandoned || align.failed ? '(共享索引未对齐 ⇒ 必须复跑一次,否则下一次普通提交会写回旧版)' : ''}`,
     )
-    return 0
+    return {
+      kind: 'landed',
+      deletedCount: r.deletedCount,
+      sha: landed.commit,
+      remainingGroups: restGroups.length,
+      remainingRows: restRows,
+    }
   }
   console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
-  return 1
+  return { kind: 'failed', deletedCount: 0, sha: null, remainingGroups: 0, remainingRows: 0 }
+}
+
+/**
+ * 外层的**轮次循环**。每一轮都重新按当次 HEAD 现算载荷,绝不复用上一轮的组/行号 ——
+ * 这台机的 HEAD 一天推进几十枚,行号在任何一次 append 后都会挪位(§1 规矩 3:证据指针禁止写行号)。
+ *
+ * 退出码规则(三条,不得并桶):
+ *  ① 真的落过地且没有中途失败 ⇒ 0;
+ *  ② 一分文未落而报 empty(本就没有可删的副本)⇒ 0(没活干不是失败,但也不是"修好了");
+ *  ③ 失败**原样传播**退出码:拒批量 / 断言不过 / CAS 抢不到 ⇒ 1,被审面取不到 ⇒ 2
+ *     (把 2 收敛成 1 就是把"没判"写成"判过了",本仓最高频失效型)。
+ *
+ * 中途失败即停,**不回滚已落的块**:每块都是独立、可单独 `git revert` 的前向提交,
+ * 把它们集体撤掉反而制造"什么都没发生"的假象 —— 台账要的是能指出第几块停在哪里。
+ */
+export function openRowsDedupeAndLand(match = null, maxAttempts = 8, opts = {}) {
+  const rounds = Math.max(1, Math.floor(Number(opts.rounds) || 1))
+  const maxRows = opts.maxRows ?? null
+  let landedCount = 0
+  let totalDeleted = 0
+  let lastSha = null
+  let lastRemaining = null
+  for (let round = 1; round <= rounds; round++) {
+    if (rounds > 1)
+      console.log(
+        `── 第 ${round}/${rounds} 轮${maxRows === null ? '' : `(单块上限 ${maxRows} 行,按当次 HEAD 现算,不复用上一轮载荷)`}`,
+      )
+    const res = openRowsDedupeOnce(match, maxAttempts, opts)
+    if (res.kind === 'landed') {
+      landedCount++
+      totalDeleted += res.deletedCount
+      lastSha = res.sha
+      lastRemaining = { groups: res.remainingGroups, rows: res.remainingRows }
+      continue
+    }
+    if (res.kind === 'empty') return 0
+    if (res.kind === 'undetermined') return 2
+    // refused / failed:已落的块保留(每块独立可 revert),这里只把原因原样带出去
+    console.log(
+      `⏹ 停在第 ${round} 轮(原因见上一行)${
+        landedCount ? `:此前已落 ${landedCount} 枚提交 / 共删 ${totalDeleted} 行,均保留,可逐枚 git revert` : ':一分未落'
+      }`,
+    )
+    return 1
+  }
+  if (landedCount === 0) return 0
+  const tail =
+    lastRemaining && lastRemaining.groups > 0
+      ? `当次面上仍剩 ${lastRemaining.groups} 组 / ${lastRemaining.rows} 行 —— 轮数用完不是"已清完",加大 --rounds 再跑一次`
+      : '台账本轮认领的组已全部清零'
+  console.log(
+    `✅ 分块档共落 ${landedCount} 枚提交 / 删 ${totalDeleted} 行,末枚 ${String(lastSha).slice(0, 11)};${tail}` +
+      `(每块单独一枚提交,任一块都可单独 git revert —— 这是这条路径的唯一审计单位)`,
+  )
+  return 0
 }
 
 // ── 同题不同编号的孪生登记折叠档(F10,2026-09-28 立)─────────────────
@@ -2410,6 +2622,81 @@ function selfTest() {
     '行数减少量必须等于声明删除量',
   )
   /**
+   * 分块 + 轮次(2026-09-29 立)。这一族的全部风险是"为了跑得动而把判据放宽",所以断言成对:
+   * 块必须**按组完整**取(切半会让第②条"幸存份在位"失去意义)、幂等只允许在"本轮认领的组"上换口径
+   * (不降任何一条别的判据)、maxRows=null 必须与旧行为**逐字等值**(防止我为了分块偷偷改选取顺序)。
+   */
+  const C_A =
+    '- [ ] **G-750 四份一组的夹具**:〔【归并】重复登记副本 2026-09-29·派单以另一条为准〕四份逐字相同,cost=3,长度越过噪声阈。'
+  const C_B =
+    '- [ ] **G-751 两份一组的夹具**:〔【归并】重复登记副本 2026-09-29·派单以另一条为准〕两份逐字相同,cost=1,长度同样越过噪声阈。'
+  const cSrc = ['# 台账', '', C_A, C_A, C_A, C_A, C_B, C_B, ''].join('\n')
+  const cGroups = findOpenRowTwins(cSrc)
+  ok(cGroups.length === 2 && cGroups[0].copies === 4 && cGroups[1].copies === 2, `夹具必须恰好两组(4 份 + 2 份),实得 ${JSON.stringify(cGroups.map((g) => g.copies))}`)
+  // (a) 块不切组:maxRows=3 ⇒ 第一组整组(cost 3)进块,第二组(cost 1)装不进 ⇒ 整组保留
+  const c3 = buildOpenRowDedupe(cSrc, null, 3)
+  ok(c3.deletedCount === 3, `maxRows=3 应取满第一组的 3 行而一组不落第二组,实得 ${c3.deletedCount}`)
+  ok(c3.selectedGroups.length === 1 && c3.selectedGroups[0].line === C_A, '块里只许有整组:第一组完整入块')
+  ok(c3.text.split('\n').filter((l) => l === C_A).length === 1, '第一组必须留首次出现那一份(幸存份在位)')
+  ok(c3.text.split('\n').filter((l) => l === C_B).length === 2, '第二组必须整份原样保留 —— 切半等于让"幸存份在位"失去意义')
+  ok(
+    verifyOpenRowDedupe(cSrc, c3.text, c3.deletedCount, null, c3.droppedLines, c3.selectedLines).length === 0,
+    '分块后仍有未轮到的组 ⇒ 幂等不得误拒(这是 scopeLines 存在的唯一理由,不放宽其余七条)',
+  )
+  ok(
+    verifyOpenRowDedupe(cSrc, c3.text, c3.deletedCount, null, c3.droppedLines, new Set([C_B])).some((p) => p.includes('不闭合')),
+    '反向对照:scopeLines 传错(不含已选组)⇒ 必红 —— 只有正向那条的"放宽"无从证明它是放宽了范围而不是关了判据',
+  )
+  // (b) 单组超上限 ⇒ 跳过它**但后面的组照样装填**,且超上限那组必须逐条报名(不得静默)
+  const c2 = buildOpenRowDedupe(cSrc, null, 2)
+  ok(
+    c2.selectedGroups.length === 1 && c2.selectedGroups[0].line === C_B && c2.deletedCount === 1,
+    `上限 2 时 cost=3 的首组整组跳过、cost=1 的次组必须仍被装上(旧"前缀停手"口径会把这 1 行也判成无路可走),` +
+      `实得 选中 ${c2.selectedGroups.length} 组 / ${c2.deletedCount} 行`,
+  )
+  ok(
+    c2.plan.oversized.length === 1 && c2.plan.oversized[0].copies === 4 && c2.plan.oversized[0].cost === 3,
+    '超上限的组必须报名到"几份/几行",而不是从账面上消失',
+  )
+  ok(c2.plan.remainingRows === 3, `跳过的那组留 3 行无路可装,实得 ${c2.plan.remainingRows}`)
+  ok(
+    c2.text.split('\n').filter((l) => l === C_A).length === 4,
+    '被跳过的组一份都不许动(它是"换出口"的对象,不是本轮的对象)',
+  )
+  // (c) 投影轮数与 build 同源:同一面、同一上限,块数与行数必须互洽
+  const cProj = planOpenRowChunks(cGroups, 3)
+  ok(cProj.chunks.length === 2 && cProj.chunks.map((x) => x.rows).join(',') === '3,1', `投影应给 2 块(3 行 + 1 行),实得 ${JSON.stringify(cProj.chunks.map((x) => x.rows))}`)
+  ok(cProj.totalRows === 4 && cProj.remainingRows === 0, '全组都能进块时 remainingRows 必须为 0')
+  ok(planOpenRowChunks(cGroups, null).chunks.length === 1, 'maxRows=null ⇒ 一整块装全部(与分块前逐字同义)')
+  // (d) null 与旧行为逐字等值 + 确定性:同一输入两跑产物必须字节全等
+  ok(buildOpenRowDedupe(oSrc, null, null).text === oR.text, 'maxRows=null 的产物必须与不带该参数逐字等值')
+  ok(buildOpenRowDedupe(oSrc, null, 9999).text === oR.text, '上限大到一个块装得下全部 ⇒ 产物必须与不分块逐字等值')
+  ok(
+    buildOpenRowDedupe(cSrc, null, 3).text === c3.text,
+    '同一输入重复跑必须给出同一块(选取顺序不许带随机性,否则落地与报告对不上)',
+  )
+  ok(
+    planOpenRowChunks([], 5).chunks.length === 0 && planOpenRowChunks([], 5).oversized.length === 0,
+    '空组集必须给出"0 块 + 无堵塞",不得凭空造块(空扫判绿是本仓最高频失效型)',
+  )
+  // (e) 整数取值判据成对:合法值必放行、四类非法值必拒且带回实得
+  ok(parsePositiveInt('25').ok === true && parsePositiveInt('25').value === 25, '合法整数必须放行')
+  ok(parsePositiveInt('0').ok === false, '0 不构成一块/一轮(它必须由 empty 报出,不能由旗标伪装)')
+  ok(parsePositiveInt('-5').ok === false, '负数必须拒')
+  ok(parsePositiveInt('25.9').ok === false, '小数不是整数块大小 —— parseInt 会把它读成 25,那叫静默改语义')
+  ok(parsePositiveInt('1e3').ok === false, '科学计数法不是块大小(Number 会读成 1000)')
+  ok(parsePositiveInt('abc').ok === false && parsePositiveInt(null).ok === false, '非数字与缺值必须拒')
+  // (f) 旗标成套性:白名单、值旗标表、inspectArgs 三处必须同时认识 --max-rows/--rounds
+  for (const f of ['--max-rows', '--rounds', '--help']) {
+    ok(KNOWN_FLAGS.includes(f), `${f} 未进 KNOWN_FLAGS ⇒ inspectArgs 会把整条命令拒掉`)
+  }
+  for (const f of ['--max-rows', '--rounds']) {
+    ok(VALUE_FLAGS.includes(f), `${f} 未进 VALUE_FLAGS ⇒ 它的值会被当未知位置参数拒掉(白名单认识、值不认识=自相矛盾)`)
+  }
+  ok(inspectArgs(['--dedupe-open-rows', '--max-rows', '25', '--rounds', '60', '--commit']).unknown.length === 0, '分块档的完整命令行必须被 inspectArgs 放行')
+  ok(inspectArgs(['--dedupe-open-rows', '--max-rows']).unknown.length === 0, '裸 --max-rows 缺值是 flagValue 的地面,不是 inspectArgs 的 —— 本判据不得顺手把它当未知参数')
+  ok(inspectArgs(['--dedupe-open-rows', '25']).unknown.includes('25'), '没有被值旗标领着的裸位置参数必须拒(它多半是漏写旗标的 25)')
+  /**
    * 带值旗标的取值判据(枚 380431ffc 同族口径)。成对,单向断言等于没有:
    * 只判"坏的必被拒"会让它退化成"永远拒",而 (b) 那一臂证明合法路径照写。
    */
@@ -2444,6 +2731,25 @@ export function flagValue(list, flag) {
 }
 
 /**
+ * 带值旗标的整数取值判据 —— `--max-rows` / `--rounds` 共用**这一份**。
+ *
+ * 为什么不复用 `Number(x)` 那一套:`Number('25abc')` 是 NaN、`Number('1e3')` 是 1000、
+ * `parseInt('25.9')` 是 25,三种都会让"我给了个奇怪的值"静默变成一个**看起来合理**的块大小。
+ * 本函数只认非负整数字面量,其余一律 `{ok:false, reason}` 并把**原样实得**带回报告 ——
+ * 拒绝时必须点名收到的是什么,否则调用方分不清"漏写值"与"写了个错值"。
+ * `≥1` 是硬下界:0 行的块不存在,0 轮等于什么都没做,而"什么都没做"必须由 empty 报出来,
+ * 不能由一个旗标伪装成"跑完了"。
+ */
+export function parsePositiveInt(raw) {
+  if (typeof raw !== 'string' || raw.trim() === '') return { ok: false, reason: `需要一个整数值(实得 ${JSON.stringify(raw)})` }
+  const t = raw.trim()
+  if (!/^\d+$/.test(t)) return { ok: false, reason: `不是非负整数字面量(实得 ${JSON.stringify(raw)})` }
+  const v = Number(t)
+  if (!Number.isInteger(v) || v < 1) return { ok: false, reason: `必须是 ≥1 的整数(实得 ${JSON.stringify(raw)})` }
+  return { ok: true, value: v }
+}
+
+/**
  * 旗标白名单校验(2026-09-28 立,由一次真实的" phantom 出口"事故逼出)。
  *
  * 旧形态只判 `argv.includes(已知旗标)`,**不认识的 token 一律被静默忽略**,于是
@@ -2453,10 +2759,15 @@ export function flagValue(list, flag) {
  * 这与本仓已修过的 `i18n-apply --help` 进写盘模式同族:**未知参数降级成"无参"就是造合格证**。
  *
  * 因此:不认识的旗标、以及不该出现在那个位置的位置参数 ⇒ **拒绝并非零退出(2)并原样点名**,
- * 绝不回落到任何一档。`--write-to` 的紧邻值与一枚 `YYYY-MM-DD` 日期是仅有的两类合法位置参数。
+ * 绝不回落到任何一档。`--write-to`/`--match`/`--max-rows`/`--rounds` 的紧邻值与一枚
+ * `YYYY-MM-DD` 日期是仅有的合法位置参数 —— 合法值旗标只有 `VALUE_FLAGS` 这一份名单:
+ * 白名单与"谁能吃位置参数"分两处写,迟早出现"旗标认识、值被当成未知位置参数"的自相矛盾
+ * (实测 `--max-rows 25` 若只加进 KNOWN_FLAGS 而没进值旗标表,inspectArgs 会把 `25` 判成
+ * 未知位置参数并拒掉整条命令 —— 一道拒绝误用的判据把自己的合法用法拒了,方向比漏判更糟)。
  */
 export const KNOWN_FLAGS = [
   '--self-test',
+  '--help',
   '--heal',
   '--commit',
   '--dedupe-blocks',
@@ -2467,12 +2778,17 @@ export const KNOWN_FLAGS = [
   '--restore-terminals',
   '--json',
   '--match',
+  '--max-rows',
+  '--rounds',
   '--allow-mass',
   '--staged',
   '--worktree',
   '--all',
   '--write-to',
 ]
+
+/** 吃"紧邻下一个 token 作为值"的旗标 —— inspectArgs 与各处 flagValue 共用这一份名单。 */
+export const VALUE_FLAGS = ['--write-to', '--match', '--max-rows', '--rounds']
 
 /** @returns {{unknown:string[], notes:string[]}} unknown 非空即必须拒绝执行 */
 export function inspectArgs(list) {
@@ -2485,14 +2801,53 @@ export function inspectArgs(list) {
       if (!KNOWN_FLAGS.includes(t)) unknown.push(t)
       continue
     }
-    // 位置参数只允许两形态:--write-to 的值,与一枚日期
-    if (list[i - 1] === '--write-to') continue
-    if (list[i - 1] === '--match') continue
+    // 位置参数只允许两类形态:值旗标的紧邻值,与一枚日期
+    if (VALUE_FLAGS.includes(list[i - 1])) continue
     if (/^\d{4}-\d{2}-\d{2}$/.test(t)) continue
     unknown.push(t)
-    notes.push(`位置参数 ${JSON.stringify(t)} 既不是 --write-to 的值也不是 YYYY-MM-DD 日期`)
+    notes.push(`位置参数 ${JSON.stringify(t)} 既不是 ${VALUE_FLAGS.join('/')} 的值也不是 YYYY-MM-DD 日期`)
   }
   return { unknown, notes }
+}
+
+/**
+ * `--help` 出口(2026-09-29 立)。此前本脚本没有 --help:`inspectArgs` 把它当未知参数拒掉,
+ * 顺带打出 `可用旗标:${KNOWN_FLAGS.join(' ')}` —— 那是**一份没有解释的名单**,读的人知道有
+ * `--max-rows` 这个 token,却不知道它吃什么值、与 `ROW_MASS_LIMIT` 是什么关系,而这条命令
+ * 动的是 13900 行活文档。名单会随并发会话腐烂(新旗标进不来、旧旗标删不掉),所以帮助文本
+ * 必须**从 KNOWN_FLAGS/VALUE_FLAGS 派生**而不是另抄一份旗标清单。
+ */
+function printHelp() {
+  console.log(
+    [
+      'plan-tasks-merge.mjs —— PROJECT_PLAN.md 任务台账的归并/清偿出口(守门 130 的修法侧)',
+      '',
+      '常用档(默认一律只出报告,加 --commit 才走对象空间落地:临时索引 + commit-tree + CAS,**绝不碰共享工作树**):',
+      '  --heal                F1/F2/F3/F4 归并落账(只改行内状态与注记,一行不删)',
+      '  --dedupe-blocks       连续 ≥3 行的逐字相同登记块,只删第 2..N 份(F6)',
+      '  --dedupe-rows         已完成(- [x])的逐字相同单行,只删第 2..N 份',
+      '  --dedupe-open-rows    未勾选(- [ ])且已带「【归并】重复登记副本」指针的逐字相同单行(八条零损失断言)',
+      '  --fold-twins          F10 同题不同编号的孪生登记折叠(摘主键位编号 + 只写题面指针)',
+      '  --audit-pointers      只读:点名"全族都带副本指针 ⇒ 对派单口径隐形"的主键族',
+      '  --restore-terminals   为隐形主键族恢复一行终端代表(只报名,/commit 才落)',
+      '',
+      '取值旗标(紧邻的下一个 token 必须是值,且不以 - 开头;值无效 ⇒ 拒绝执行,不回落到默认):',
+      '  --match "<整行子串>"      内容锚点定向执行(不认行号 —— 行号在任何一次 append 后都会挪位)',
+      '  --max-rows <N>            分块单块拟删行数上限:N 必须是 ≥1 的整数;N > 25(ROW_MASS_LIMIT)且未带',
+      '                            --allow-mass ⇒ 判死(把上限调到阀门之上等于用"设上限"绕过阀门)。',
+      '                            组**不得切半**,贪心按首次出现升序取到装不下即停;每组各落一枚可单独 git revert 的提交。',
+      '  --rounds <N>              轮次循环上限:N 必须是 ≥1 的整数。带 --max-rows 而未给 ⇒ 按本轮面的块投影',
+      '                            自动给一个"够跑完"的数并写明最多几轮(HEAD 会被并发推进,块数只在该面上成立)。',
+      '  --write-to <path>         把候选文本写到指定路径(禁止指向 PROJECT_PLAN.md 本体)',
+      '',
+      '其他旗标:--commit 才落地 · --allow-mass 人工放行大批量(会原样写进提交信息) ·',
+      '  --staged/--worktree 换判定面(落地一律只认 HEAD blob;--staged 只许出报告,§12 污染型)',
+      '  --all 全列报名 · --json 机器可读 · --self-test 判据自检 · --help 本文',
+      '',
+      '退出码:0 = 通过/无事可做 · 1 = 断言不过或拒批量(现场保留) · 2 = 无法判定或参数不成立(不出具合格证)',
+    ].join('\n'),
+  )
+  return 0
 }
 
 function main() {
@@ -2509,6 +2864,7 @@ function main() {
     return 2
   }
   if (has('--self-test')) return selfTest()
+  if (has('--help')) return printHelp()
   /**
    * 只读诊断:点名"全族都带副本指针 ⇒ 对派单口径隐形"的主键族。
    * 刻意**不改一行、不判红**(退出码恒 0):存量 19 族若当场 blocking,就是一台与任何提交都无关的
@@ -2803,6 +3159,26 @@ function main() {
    * 删行是活文档上最危险的动作,自动档只做"改行内状态"那一类(--heal 的翻勾/加注记)。
    * 它补的是那一档的第①条门槛(行首必须是 `- [x]`)留下的整格:真仓 HEAD 现读 220 组 / 1148 份
    * 带指针的未勾选逐字孪生,派单口径已排除、锚点唯一性却永久坏掉。
+   *
+   * ── 分块 + 轮次(2026-09-29 立,`--max-rows` / `--rounds`)──
+   * 本档有一道大批量阀门 `ROW_MASS_LIMIT = 25`:一次拟删超过 25 行就拒批量。设计意图不变 ——
+   * 活文档上一次删几百行没人复核得动。清 1143 行若只能靠人工逐批,那是约 46 次调用,而**46 次
+   * 人工调用本身才是最大的错误源**(这台机 HEAD 一天推进几十枚,每次都得重新定位行号 —— §1 早已
+   * 判过"证据指针禁止写行号")。所以这里把"分批"做成机器动作,而不是把它留给人:
+   *  ① **分块不降低任何一条断言**,只改变"一次落多少"。八条零损失断言逐块照跑;唯一换口径的是
+   *     第⑤条幂等 —— 它从"本档全部清零"改成"**本轮认领的组**清零",因为分块之后必然还有没轮到的
+   *     组留在面上,按原口径判就是一台每次分块都恒拒的尺子(它拦不住任何错误,只保证这条路走不通)。
+   *     被选中的组若没删净,set 里那条照样还在 ⇒ 当场红。①②③④⑥⑦⑧ 七条一字未动,而它们判的恰好
+   *     是"本轮没认领的行必须逐字活着",与分块方向一致 —— 所以这不是把判据削短。
+   *  ② **每块单独一枚提交,可单独 `git revert`**。这是这条路径的唯一审计单位:第 7 块出问题,
+   *     撤的是第 7 块,不是把前 6 块一起抹掉(那等于制造"什么都没发生"的假象)。
+   *  ③ **任一块断言不过就停在那里,不留半落地现场**:块内仍是"建树→CAS→回读复核",复核不过即回退
+   *     该块;已落的前几块保留(它们是独立前向提交),退出码原样传播(拒批量=1、无法判定=2)。
+   *  ④ 组**不得切半**(cost 整组计或整组不计),贪心按首次出现升序取到装不下即停。真仓实测这一条
+   *     不是抽象要求:有一组 cost=37 > 25 且排在序里很前面 —— 纯贪心前缀下它和后面的组永远进不了
+   *     任何块。工具必须**报名堵住的那一组并喊停**,不得静默跳过它继续清后面的(那会把语义偷换成
+   *     另一套,"一轮清 1107 行"与"一轮清 42 行"两种答案都自称遵守分块)。出路是 `--match` 定向
+   *     或人工 `--allow-mass`。
    */
   if (has('--dedupe-open-rows')) {
     const mv = flagValue(argv, '--match')
@@ -2813,6 +3189,49 @@ function main() {
       return 2
     }
     const match = mv.value
+    // 分块两旗:取值判据与 --match 同形(缺失/被别的旗标顶上 = 大声拒绝,绝不回落到默认值)。
+    const mxR = flagValue(argv, '--max-rows')
+    if (mxR.present && !mxR.valid) {
+      console.log(
+        `❌ --max-rows 需要一个非旗标整数值(实得 ${JSON.stringify(mxR.token)})—— 把空值当"不分块"会一次删上千行,方向反了。`,
+      )
+      return 2
+    }
+    let maxRows = null
+    if (mxR.present) {
+      const p = parsePositiveInt(mxR.value)
+      if (!p.ok) {
+        console.log(`❌ --max-rows ${p.reason}(0 行/负数/非整数字面量都不构成"块",本档拒绝执行)`)
+        return 2
+      }
+      maxRows = p.value
+      // 方向不许反:--max-rows 是"必须分块"这句话的具体化,把它调到超过阀门又不带 --allow-mass,
+      // 读起来像"我设了个上限"而实际是"我绕过了上限"。判死并说明出路。
+      if (maxRows > ROW_MASS_LIMIT && !has('--allow-mass')) {
+        console.log(
+          `❌ --max-rows ${maxRows} > 单批上限 ${ROW_MASS_LIMIT} 且没带 --allow-mass —— 这条上限就是"必须分块"的意思,\n` +
+            `   把它调到阀门之上等于用"设上限"的名义绕过上限,本档拒绝执行(不是"自动收敛到 ${ROW_MASS_LIMIT}",那会替你改变块大小)。\n` +
+            `   要整档放行请用 --allow-mass(它会原样写进落地提交信息);要按块清就用 --max-rows ${ROW_MASS_LIMIT}。`,
+        )
+        return 2
+      }
+    }
+    const rdR = flagValue(argv, '--rounds')
+    if (rdR.present && !rdR.valid) {
+      console.log(
+        `❌ --rounds 需要一个非旗标整数值(实得 ${JSON.stringify(rdR.token)})—— 把它当"缺省 1 轮"会只清一块而账面读起来像跑完了。`,
+      )
+      return 2
+    }
+    let roundsArg = null
+    if (rdR.present) {
+      const p = parsePositiveInt(rdR.value)
+      if (!p.ok) {
+        console.log(`❌ --rounds ${p.reason}(0 轮等于什么都没做,而"什么都没做"必须用 empty 报,不能用一个旗标报)`)
+        return 2
+      }
+      roundsArg = p.value
+    }
     const selO = selectFace({ staged: has('--staged'), worktree: has('--worktree'), def: 'head' })
     if (selO.error) {
       console.log(`⚠️ 无法判定 —— ${selO.error}`)
@@ -2858,31 +3277,67 @@ function main() {
       )
       return 0
     }
+    const totalRemovableO = groupsO.reduce((s, g) => s + g.at.length - 1, 0)
+    // 轮数投影与 build 用**同一份**贪心实现(planOpenRowChunks)—— 报告与落地算出两套块,
+    // 就是"预计 N 轮跑完"与"实际第 2 轮就停"各说各话,而这种报告正是人决定要不要放行的依据。
+    const projO = planOpenRowChunks(groupsO, maxRows)
     let rO
     try {
-      rO = buildOpenRowDedupe(srcO, match)
+      rO = buildOpenRowDedupe(srcO, match, maxRows)
     } catch (e) {
       console.log(`❌ 未勾单行副本档停手 —— ${e instanceof Undetermined ? e.message : String(e?.message ?? e)}`)
       return 1
     }
-    for (const g of groupsO.slice(0, has('--all') ? 9999 : 10))
+    if (maxRows !== null) {
+      const ovO = projO.oversized
+      console.log(
+        `分块口径:单块上限 ${maxRows} 行(按组完整取,组已按首次出现升序 ⇒ **绝不切半**;` +
+          `单组就超上限的整组跳过并逐条报名,不静默)\n` +
+          `  还剩多少行可删:${totalRemovableO} 行 / ${groupsO.length} 组(本面现读)\n` +
+          `  本轮会取:${rO.selectedGroups.length} 组,共 ${rO.deletedCount} 行\n` +
+          `  预计轮数:${projO.chunks.length} 轮${
+            projO.chunks.length ? `(各块行数 ${projO.chunks.slice(0, 12).map((c) => c.rows).join(', ')}${projO.chunks.length > 12 ? ', …' : ''})` : '(0 轮)'
+          }${
+            ovO.length
+              ? ` —— ⚠️ ${ovO.length} 组**单组**就要删 > 上限 ${maxRows} 行,它们进不了任何块(合计 ${projO.remainingRows} 行):\n` +
+                ovO
+                  .slice(0, 5)
+                  .map((o) => `     · 需删 ${o.cost} 行 / ${o.copies} 份,正文起「${String(o.line).slice(0, 60)}…」`)
+                  .join('\n') +
+                `${ovO.length > 5 ? `     · 另 ${ovO.length - 5} 组未列出(跑 --json 取全量)\n` : '\n'}     出路:--match 定向清它们,或人工复核后 --allow-mass 整批放行;多跑几轮不解决这一部分。\n`
+              : ''
+          }`,
+      )
+    }
+    for (const g of (maxRows === null ? groupsO : rO.selectedGroups).slice(0, has('--all') ? 9999 : 10))
       console.log(`  - ${g.copies} 份 @ L${g.at.join(',L')}: ${g.line.slice(0, 60)}`)
-    const pO = verifyOpenRowDedupe(srcO, rO.text, rO.deletedCount, match, rO.droppedLines)
+    const pO = verifyOpenRowDedupe(srcO, rO.text, rO.deletedCount, match, rO.droppedLines, maxRows === null ? null : rO.selectedLines)
     if (pO.length) {
       console.log('❌ 零损失断言未过,拒交付:')
       for (const x of pO) console.log('   ' + x)
       return 1
     }
     console.log(
-      `拟删第 2..N 份共 ${rO.deletedCount} 行;✅ 零损失断言全过(纯删除 / 幸存份在位 / 无新增行 / F1–F4+F6 不涨、注记种类不整类消失 / 派单口径活数不变=${cO.claimable} / 未带指针组数不变 / 幂等清零)`,
+      `拟删第 2..N 份共 ${rO.deletedCount} 行;✅ 零损失断言全过(纯删除 / 幸存份在位 / 无新增行 / F1–F4+F6 不涨、注记种类不整类消失 / 派单口径活数不变=${cO.claimable} / 未带指针组数不变 / ${
+        maxRows === null ? '幂等清零' : `幂等按本轮认领的 ${rO.selectedGroups.length} 组判(分块不降低其余七条)`
+      })`,
     )
     if (rO.deletedCount > ROW_MASS_LIMIT && !has('--allow-mass')) {
       console.log(
         `❌ 拒批量:本次拟删 ${rO.deletedCount} 行 > 单批上限 ${ROW_MASS_LIMIT} 行 —— 这不是错误,是"必须由人一次一批放行"。\n` +
+          `   分块做法:\`--dedupe-open-rows --max-rows ${ROW_MASS_LIMIT} [--rounds N]\` 自动按 ≤${ROW_MASS_LIMIT} 行/组完整切块,每块一枚可 revert 的提交;\n` +
           `   逐批做法:\`--dedupe-open-rows --match "<该行的一段原文>"\` 确认该批断言后加 --commit;确要整档放开再显式加 --allow-mass(它会原样写进落地提交信息)。`,
       )
       return 1
     }
+    // 带 --max-rows 而没带 --rounds ⇒ 默认给一个"够跑完"的数(按本轮面的块投影),并写清最多跑几轮。
+    // 刻意不写"跑到干净为止":HEAD 会被并发推进,块数只在该面上成立;真正的停止条件是 empty。
+    const rounds = roundsArg ?? (maxRows === null ? 1 : Math.max(1, projO.chunks.length))
+    if (maxRows !== null)
+      console.log(
+        `落地节奏:${rounds} 轮 × 每轮 ≤${maxRows} 行${roundsArg === null ? '(轮数由本轮面块投影自动给出;要指定请 --rounds N)' : '(--rounds 由人工指定)'}` +
+          ` —— 每块单独一枚提交,可逐块 git revert;任一块断言不过即停在那里,不回滚已落的块。`,
+      )
     if (selO.face !== 'head') {
       console.log(
         `❌ 本档只从 **HEAD 面**落地(当前判定面=${LABEL[selO.face]}):索引里的 PROJECT_PLAN.md 含别人 staged 的内容,` +
@@ -2895,7 +3350,12 @@ function main() {
       console.log('ℹ️ 未加 --commit:只出报告,一行未删。确认后再跑 --dedupe-open-rows --commit')
       return 0
     }
-    return openRowsDedupeAndLand(match, 8, { root: ROOT, allowMass: has('--allow-mass') })
+    return openRowsDedupeAndLand(match, 8, {
+      root: ROOT,
+      allowMass: has('--allow-mass'),
+      maxRows,
+      rounds,
+    })
   }
   const sel = selectFace({ staged: has('--staged'), worktree: has('--worktree'), def: 'head' })
   if (sel.error) {
@@ -2996,5 +3456,9 @@ export const __test__ = {
   TWIN_GROUP_MAX,
   /** 测试直接 import 这一份判据(§22c:镜像测试不得再抄一份源判据,抄了就跟着一起漂绿) */
   flagValue,
+  /** 分块档的贪心与整数取值判据 —— 镜像测试必须用**同一份**实现算块,不得自己再贪心一遍 */
+  planOpenRowChunks,
+  parsePositiveInt,
+  VALUE_FLAGS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
