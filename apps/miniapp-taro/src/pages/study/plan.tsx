@@ -155,7 +155,7 @@ export default function StudyPlan() {
             onClick={() => setShowAdd(false)}
           >
             <View
-              className="mx-6 w-full max-w-[600rpx] bg-card rounded-xl border border-border p-[28rpx]"
+              className="mx-6 w-full max-w-[600rpx] bg-card ui-card rounded-lg border border-border p-[28rpx]"
               hoverClass="opacity-60"
               onClick={(e) => e.stopPropagation()}
             >

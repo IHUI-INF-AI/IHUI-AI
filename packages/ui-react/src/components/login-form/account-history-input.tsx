@@ -167,7 +167,7 @@ export function AccountHistoryInput({
         历史账号可在输入框获得焦点后双击展开,或键入字符时按 ArrowDown 打开。
       */}
       {showHistory && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-lg border border-border bg-popover shadow-md">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden ui-popover rounded-md border border-border bg-popover shadow-md">
           {loginHistory.length > 0 ? (
             <>
               {loginHistory.map((account, idx) => (
