@@ -108,7 +108,12 @@
       "fsExhaustedInodes": "Root-cause diagnosis: the command exited with status {status} and no output, and the filesystem holding {cwd} measured exhausted inodes (ffree={freeInodes}, below the 1000 diagnostic threshold) — the directory-entry table is full. Delete many small files/directories, or check this filesystem's inode quota, then retry."
     },
     "goalNotAchieved": "Independent verification did not pass: this run must not be reported as complete",
-    "truncatedByLength": "Output hit the length limit and was truncated; the reply may be incomplete. Ask me to continue in parts, or raise max_tokens and retry."
+    "truncatedByLength": "Output hit the length limit and was truncated; the reply may be incomplete. Ask me to continue in parts, or raise max_tokens and retry.",
+    "mcpCredentials": {
+      "storePlaintext": "MCP credentials are currently stored in plaintext at {path} (degraded on this machine)",
+      "storeEncrypted": "MCP credentials are stored encrypted (backend: {backend})",
+      "migrationFailed": "Credential migration did not complete; the original file was kept and not overwritten ({reason})"
+    }
   },
   "waiting": {
     "agent": {

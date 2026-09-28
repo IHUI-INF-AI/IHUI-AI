@@ -21,6 +21,8 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import { createApiRequest, extractData, handleError, printJson, resolveApiKeyAsync, resolveBaseUrl } from './http-utils.js';
 import { missingTokenHint } from './token-manager.js';
+import { describeCredentialStore, loadMcpCredentials } from '../tools/mcp-credentials.js';
+import { maskSecret } from '../config/credentials.js';
 
 const API_PREFIX = '/api/v1/ai/capabilities';
 const DEFAULT_REMOTE_SERVER = 'http://localhost:8888';
@@ -244,6 +246,63 @@ async function autoMatch(
   console.info(`置信度: ${bar} ${pct}%`);
 }
 
+// ==================== 本机运行时档位(D146:凭据落盘的可见化出口) ====================
+
+/**
+ * `capabilities`(不带 local/remote 子命令)答的是**本机**那一格:
+ * MCP 凭据现在存在哪、用哪一档、为什么是这一档。
+ * 判据来自 `describeCredentialStore()` 那**一个**出口 —— 这里不得再算一遍档位,
+ * 否则"报告说的档"与"写入用的档"会分叉(本仓同型事故记过多次)。
+ *
+ * 为什么这个命令能当探针用:票第 6 栏要求"任何一次运行都能回答",而 CLI 里
+ * 唯一"每次都跑、不依赖后端"的状态面就是它。降级档**不接受"没打印"**。
+ */
+interface LocalCredentialSummary {
+  store: Awaited<ReturnType<typeof describeCredentialStore>>;
+  /** 每条授权只出"掩码 + 长度",token 原文永不进 stdout(§5d / 守门 67 同条禁令) */
+  entries: Array<{ serverUrl: string; accessTokenMasked: string | undefined; expiresAt: number | null }>;
+}
+
+async function collectLocalCredentialSummary(): Promise<LocalCredentialSummary> {
+  const store = await describeCredentialStore();
+  const all = await loadMcpCredentials();
+  const entries = Object.entries(all).map(([serverUrl, entry]) => ({
+    serverUrl,
+    accessTokenMasked: maskSecret(entry?.accessToken),
+    expiresAt: typeof entry?.expiresAt === 'number' ? entry.expiresAt : null,
+  }));
+  return { store, entries };
+}
+
+function printLocalCredentialsHuman(summary: LocalCredentialSummary): void {
+  const { store } = summary;
+  console.info('');
+  console.info(chalk.bold('凭据落盘状态(MCP OAuth)'));
+  console.info(`  档位: ${chalk.cyan(store.backend)}`);
+  console.info(`  路径: ${store.path}`);
+  if (store.keyPath) console.info(`  主密钥: ${store.keyPath}`);
+  console.info(`  原因: ${store.reason}`);
+  console.info(chalk.dim(`  依据: reason=${store.reasonCode} ${store.detail}`));
+  console.info(
+    `  盘上形态: ${
+      store.unreadableAtRest
+        ? '❌ 信封在但本机解不开(换机/主密钥被清)—— 不会覆盖,需重新授权'
+        : store.envelopeAtRest
+          ? '信封(已加密)'
+          : store.plaintextAtRest
+            ? '⚠️ 仍可被 JSON.parse 直接读出 token'
+            : '无凭据文件'
+    }（已授权 ${summary.entries.length} 条）`,
+  );
+  for (const e of summary.entries) {
+    console.info(`    - ${e.serverUrl} access_token=${e.accessTokenMasked ?? '(无)'} expiresAt=${e.expiresAt ?? '(未设)'}`);
+  }
+  if (store.backend === 'plaintext-file' || store.plaintextAtRest) {
+    console.info(chalk.yellow('  ⚠️ 明文档已如实落档;退出码保持 0(状态命令不因机器状态而红),但这一行不得省。'));
+  }
+  console.info(chalk.dim('\n子命令: capabilities local … / capabilities remote …(见 --help)'));
+}
+
 // ==================== 命令注册 ====================
 
 interface RemoteOptions {
@@ -268,7 +327,20 @@ interface LocalOptions {
 export function registerCapabilitiesCommand(program: Command): void {
   const capsCmd = program
     .command('capabilities')
-    .description('统一能力查询与调用 (local / remote)');
+    .description('统一能力查询与调用 (local / remote);不带子命令时打印本机运行时档位')
+    .option('--json', '以 JSON 格式输出本机运行时档位(含 credentialStore)')
+    .action(async (opts: { json?: boolean }) => {
+      try {
+        const summary = await collectLocalCredentialSummary();
+        if (opts.json) {
+          printJson({ ok: true, credentialStore: summary.store, storedCredentials: summary.entries });
+          return;
+        }
+        printLocalCredentialsHuman(summary);
+      } catch (err) {
+        handleError('capabilities (local runtime)', err);
+      }
+    });
 
   // ---------- local ----------
   const localCmd = capsCmd.command('local').description('本地后端能力 (使用全局 --api-url 或 settings.json)');
