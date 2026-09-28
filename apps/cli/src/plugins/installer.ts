@@ -12,12 +12,21 @@
  *   - uninstallPlugin(name):删除安装目录 + 可选保留 plugin-data
  *   - Registry 持久化到 ~/.ihui/installed-plugins/registry.json,支持去重短路
  *   - 路径安全:拒 `..` 越界、符号链接逃逸
+ *   - **安装落盘有提交点**:新副本先完整复制进 staging,才进入提交序列
+ *     (旧副本原子改名挪开 → 新副本落位 → 事务号核对后才处置旧副本)。
+ *     复制失败 / 取消 / 落盘失败 ⇒ 旧副本一律仍在位。
+ *
+ * 修复缘由(实测缺陷,2026-09-28):旧实现在覆盖安装里先 `rmSync(dest)` 再 `copyDirRecursive`,
+ * 于是"复制/移动失败或被取消"时**最后可用副本已被删掉**,用户侧表现是"插件突然没了"。
+ * 现在 dest 只在提交点之后、且新副本已在 staging 完整备好时才被换掉。
  *
  * 安装目录布局:
  *   ~/.ihui/installed-plugins/
  *     <plugin-name>/          ← 插件文件(从源复制)
  *       plugin.json
- *     registry.json           ← 全局安装记录
+ *     <plugin-name>.staging-<pid>-<n>/    ← 在途新副本(提交点之前唯一可动)
+ *     <plugin-name>.superseded-<pid>/     ← 旧副本归档(权威状态落盘 + 事务号核对后才删)
+ *     registry.json           ← 全局安装记录(经 util/atomic-write 原子落盘)
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -26,7 +35,15 @@ import {
   getPluginDataDir,
   getRegistryPath,
 } from './paths.js';
-import { getOrCloneGitCache } from './cache.js';
+import {
+  getOrCloneGitCache,
+  commitStagedSwap,
+  discardStagingDirectory,
+  isUsableDirectoryCopy,
+  prepareStagingDirectory,
+  PluginSwapCancelledError,
+} from './cache.js';
+import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
 import {
   scanMarketplace,
   findPluginInIndex,
@@ -120,14 +137,17 @@ export function loadInstallRegistry(): InstallRegistry {
 }
 
 /**
- * 保存安装注册表(原子写:先写临时文件再 rename)。
+ * 保存安装注册表 —— 一律走全仓唯一的原子写出口 `util/atomic-write.ts`
+ * (同目录 tmp + rename + 读后写基线校验)。
+ *
+ * 旧形态是 `writeFileSync(tmp)` + `renameSync(tmp, p)` 的手搓第二份:没有读后写校验,
+ * 并行会话交错时双方都报成功而其中一份被静默抹掉;而且它在插件里另写了一遍 rename 重试面
+ * (AGENTS §4「两处算同一件事必漂移」)。出口已带 Windows EPERM 退避重试,这里不得再抄。
  */
 export function saveInstallRegistry(reg: InstallRegistry): void {
   const p = getRegistryPath();
   fs.mkdirSync(path.dirname(p), { recursive: true });
-  const tmp = `${p}.tmp.${process.pid}.${Date.now()}`;
-  fs.writeFileSync(tmp, JSON.stringify(reg, null, 2), 'utf-8');
-  fs.renameSync(tmp, p);
+  commitAtomicWrite(captureWriteBaseline(p), JSON.stringify(reg, null, 2));
 }
 
 // ==================== 路径安全检查 ====================
@@ -257,15 +277,37 @@ function isLocalSourceString(source: string): boolean {
  * @param opts.trust 信任源(预留,暂未使用)
  * @param opts.ref Git 分支/tag(浅克隆)
  * @param opts.sha Git commit SHA(pin)
+ * @param opts.signal 取消通道:只在提交点之前生效(越过提交点后不回退已生效的插件)
  */
 export async function installPlugin(
   source: string,
-  opts?: { trust?: boolean; ref?: string; sha?: string },
+  opts?: { trust?: boolean; ref?: string; sha?: string; signal?: AbortSignal },
 ): Promise<InstallOutcome> {
   if (isLocalSourceString(source)) {
-    return installLocal(source, process.cwd());
+    return installLocal(source, process.cwd(), opts?.signal);
   }
   return installGit(source, opts);
+}
+
+/**
+ * 把 sourceDir 落成 destDir —— 唯一的"复制到 staging → 提交"实现。
+ *
+ * 三条失败形态(复制失败 / 取消 / 落盘失败)一律只动 staging,旧副本仍在位;
+ * local 与 git:url 两条腿共用它,不得各写一遍(两处实现必漂移)。
+ */
+function installFromDirectory(sourceDir: string, destDir: string, signal?: AbortSignal): void {
+  // 提交点之前:取消 = 什么都不动,直接上抛
+  if (signal?.aborted) throw new PluginSwapCancelledError(destDir);
+  const staging = prepareStagingDirectory(destDir);
+  try {
+    copyDirRecursive(sourceDir, staging);
+  } catch (e) {
+    // 复制失败(含符号链接逃逸):目标目录一步没动
+    discardStagingDirectory(staging);
+    throw e;
+  }
+  // 越过提交点:此后不回退(取消也不回退)
+  commitStagedSwap(destDir, staging, { signal });
 }
 
 /**
@@ -273,8 +315,13 @@ export async function installPlugin(
  *
  * @param localPath 本地路径(相对或绝对)
  * @param baseDir 基准目录(路径安全校验的根)
+ * @param signal 取消通道(提交点之前)
  */
-async function installLocal(localPath: string, baseDir: string): Promise<InstallOutcome> {
+async function installLocal(
+  localPath: string,
+  baseDir: string,
+  signal?: AbortSignal,
+): Promise<InstallOutcome> {
   // 安全校验
   if (isPathUnsafe(localPath, baseDir)) {
     throw new PluginPathUnsafeError(`不安全的本地路径: ${localPath}`);
@@ -288,12 +335,13 @@ async function installLocal(localPath: string, baseDir: string): Promise<Install
   const manifest = readPluginManifest(resolvedSrc);
   const dest = getPluginInstallPath(manifest.name);
 
-  // 已装短路:按 name + sourcePath 去重
+  // 已装短路:按 name + sourcePath 去重。"已装"必须过可用性判据 ——
+  // 只问 existsSync 会把"空目录/半成品"报成装好了(与缓存降级同一型)。
   const reg = loadInstallRegistry();
   const existing = reg.records.find(
     (r) => r.name === manifest.name && r.sourceType === 'local' && r.sourcePath === resolvedSrc,
   );
-  if (existing && fs.existsSync(dest)) {
+  if (existing && isUsableDirectoryCopy(dest)) {
     return {
       name: manifest.name,
       version: manifest.version,
@@ -303,9 +351,8 @@ async function installLocal(localPath: string, baseDir: string): Promise<Install
     };
   }
 
-  // 复制
-  if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true, force: true });
-  copyDirRecursive(resolvedSrc, dest);
+  // 复制到 staging → 提交点替换(复制失败/取消 ⇒ 旧副本仍在位)
+  installFromDirectory(resolvedSrc, dest, signal);
 
   // 写 registry
   reg.records.push({
@@ -315,7 +362,7 @@ async function installLocal(localPath: string, baseDir: string): Promise<Install
     sourcePath: resolvedSrc,
     installedAt: new Date().toISOString(),
   });
-  saveInstallRegistry(reg);
+  saveInstallRegistryChecked(reg, dest);
 
   return {
     name: manifest.name,
@@ -327,11 +374,33 @@ async function installLocal(localPath: string, baseDir: string): Promise<Install
 }
 
 /**
+ * 写安装记录,并把"文件已就位而记录没写上"这一格说清 ——
+ * 插件文件此刻已是权威状态,不回退(那会抹掉刚生效的插件),但也不许静默。
+ */
+function saveInstallRegistryChecked(reg: InstallRegistry, dest: string): void {
+  try {
+    saveInstallRegistry(reg);
+  } catch (e) {
+    throw new Error(
+      `插件文件已就位(${dest}),但安装记录未写入:重跑一次安装即可补上记录。原始错误:${e instanceof Error ? e.message : String(e)}`,
+      { cause: e },
+    );
+  }
+}
+
+/**
  * Git URL 安装(内部)。
  */
-async function installGit(url: string, opts?: { ref?: string; sha?: string }): Promise<InstallOutcome> {
+async function installGit(
+  url: string,
+  opts?: { ref?: string; sha?: string; signal?: AbortSignal },
+): Promise<InstallOutcome> {
   // 获取缓存(或新 clone)
-  const { localPath: cachePath } = await getOrCloneGitCache(url, { ref: opts?.ref, sha: opts?.sha });
+  const { localPath: cachePath } = await getOrCloneGitCache(url, {
+    ref: opts?.ref,
+    sha: opts?.sha,
+    signal: opts?.signal,
+  });
 
   // 在 cache 中查找 plugin.json(根目录或一级子目录,支持多插件 repo)
   const pluginSubdir = findPluginSubdir(cachePath);
@@ -339,7 +408,7 @@ async function installGit(url: string, opts?: { ref?: string; sha?: string }): P
   const manifest = readPluginManifest(pluginDir);
   const dest = getPluginInstallPath(manifest.name);
 
-  // 已装短路:按 name + sourceUrl + pluginSubdir 去重
+  // 已装短路:按 name + sourceUrl + pluginSubdir 去重(同 local,须可用才算已装)
   const reg = loadInstallRegistry();
   const existing = reg.records.find(
     (r) =>
@@ -348,7 +417,7 @@ async function installGit(url: string, opts?: { ref?: string; sha?: string }): P
       r.sourceUrl === url &&
       r.pluginSubdir === pluginSubdir,
   );
-  if (existing && fs.existsSync(dest)) {
+  if (existing && isUsableDirectoryCopy(dest)) {
     return {
       name: manifest.name,
       version: manifest.version,
@@ -358,9 +427,8 @@ async function installGit(url: string, opts?: { ref?: string; sha?: string }): P
     };
   }
 
-  // 复制
-  if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true, force: true });
-  copyDirRecursive(pluginDir, dest);
+  // 复制到 staging → 提交点替换(复制失败/取消 ⇒ 旧副本仍在位)
+  installFromDirectory(pluginDir, dest, opts?.signal);
 
   // 写 registry
   reg.records.push({
@@ -372,7 +440,7 @@ async function installGit(url: string, opts?: { ref?: string; sha?: string }): P
     installedAt: new Date().toISOString(),
     sha: opts?.sha,
   });
-  saveInstallRegistry(reg);
+  saveInstallRegistryChecked(reg, dest);
 
   return {
     name: manifest.name,
@@ -419,11 +487,13 @@ function findPluginSubdir(cachePath: string): string | undefined {
  * @param name 插件名
  * @param marketplaceRoot marketplace 仓库本地路径(含 .ihui-plugin/marketplace.json 等)
  * @param qualifier 别名限定(tags/keywords/domains/category)
+ * @param opts.signal 取消通道(只在提交点之前生效)
  */
 export async function installMarketplacePlugin(
   name: string,
   marketplaceRoot: string,
   qualifier?: string,
+  opts?: { signal?: AbortSignal },
 ): Promise<InstallOutcome> {
   const scan = scanMarketplace(marketplaceRoot);
   if (!scan.found || !scan.index) {
@@ -433,23 +503,24 @@ export async function installMarketplacePlugin(
   if (!entry) {
     throw new Error(`插件 ${name}${qualifier ? ` (qualifier=${qualifier})` : ''} 未在 marketplace 中找到`);
   }
-  return installFromMarketplaceEntry(entry, marketplaceRoot);
+  return installFromMarketplaceEntry(entry, marketplaceRoot, opts?.signal);
 }
 
 /** 根据 marketplace 条目的 source 类型分流安装 */
 async function installFromMarketplaceEntry(
   entry: MarketplacePluginEntry,
   marketplaceRoot: string,
+  signal?: AbortSignal,
 ): Promise<InstallOutcome> {
   const src: MarketplaceSource = entry.source;
   if (isGitSource(src)) {
-    return installPlugin(src.url, { ref: src.ref, sha: src.sha });
+    return installPlugin(src.url, { ref: src.ref, sha: src.sha, signal });
   }
   if (isLocalSource(src)) {
     const localPath = typeof src === 'string' ? src : src.path;
     // 相对路径以 marketplaceRoot 为基准解析,然后按绝对路径安装(marketplaceRoot 为安全根)
     const resolved = path.resolve(marketplaceRoot, localPath);
-    return installLocal(resolved, marketplaceRoot);
+    return installLocal(resolved, marketplaceRoot, signal);
   }
   throw new Error(`未知的 source 类型: ${JSON.stringify(src)}`);
 }
