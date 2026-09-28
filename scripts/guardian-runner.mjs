@@ -4053,6 +4053,27 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 图源池与境外图片 URL 对账(1 项,blocking)---
+  {
+    id: '159',
+    label:
+      '图源池与境外图片 URL 对账:渲染与 seed 路径不得再出现境外图片域名的完整 URL,且 database 侧镜像必须与 shared 逐字等值',
+    script: 'check-image-source-domains.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_IMAGE_SOURCE_POOL',
+    stagedTriggers: ['packages/database/', 'apps/', 'packages/shared/', 'packages/app/', 'packages/ui-react/'],
+    onFailHint: [
+      '',
+      '',
+      '修法只有一条:把该 URL 换成境内可达图源池成员(packages/shared/src/constants/image-source-pool.ts,新增须按头注四要件实测入池);镜像漂移则两侧同批改那三张清单。禁止放宽域名清单或删镜像消红',
+      '单独复现:node scripts/check-image-source-domains.mjs --staged',
+      '自检/行为对账:node scripts/check-image-source-domains.mjs --self-test 与 node --test scripts/tests/image-source-pool-parity.test.mjs',
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
