@@ -28,6 +28,7 @@ mock 策略:hook_engine 单例在测试中替换为 fake(记录 emit context,不
 from __future__ import annotations
 
 import asyncio
+import importlib
 import types
 
 import pytest
@@ -93,24 +94,38 @@ def _last_approval(emitted: list[dict]) -> dict:
 
 
 def test_is_high_risk_tool_true():
-    """写文件/命令/电脑控制/浏览器交互/删除写库 → True。"""
-    for name in (
+    """写文件/命令/电脑控制/浏览器交互/写库 → True。
+
+    2026-09-29 清掉四个**幽灵名**(file_batch_edit / edit_file / create_file / delete_file):
+    它们在 `_TOOLS` 注册面根本不存在,而"高危名单里写一个不存在的工具名"唯一效果是把
+    "这类操作已被盖住"变成错觉 —— 与本仓反复登记的"把没判写成判过了"同型。名单是否含幽灵
+    由 `test_high_risk_tool_list.py` 机器锁定(那条在 HEAD 上是绿的),本用例不再是名字的权威;
+    所以下面额外断言"本用例点名的每个名字都必须在注册面或 computer_ 前缀内",
+    否则本文件会在下一次有人往名单里塞幻影时继续一路绿。
+    """
+    expected = (
         "write_file",
         "file_edit",
-        "file_batch_edit",
-        "edit_file",
-        "create_file",
-        "delete_file",
+        "resolve_conflict",
         "run_command",
         "computer_mouse_click",
-        "computer_key_type",
-        "computer_screenshot",
+        "computer_keyboard_type",
+        "computer_screenshot_screen",
         "browser_click_element",
         "browser_type_text",
         "git_operations",
         "db_query",
-    ):
+    )
+    for name in expected:
         assert AgentLoopV2._is_high_risk_tool(name) is True, name
+
+    # 延迟导入(与 test_high_risk_tool_list.py 同形):模块导入顺序不影响判定
+    mcp = importlib.import_module("app.services.mcp_server")
+    registered = {t.name for t in mcp._TOOLS}
+    ghosts = sorted(
+        n for n in expected if n not in registered and not n.startswith("computer_")
+    )
+    assert ghosts == [], f"本用例点名了注册面不存在的工具(幽灵名):{ghosts}"
 
 
 def test_is_high_risk_tool_false():

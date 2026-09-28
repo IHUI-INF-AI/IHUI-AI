@@ -125,9 +125,20 @@ def sdk_mock(monkeypatch):
     return state
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def clean_registry():
-    """测试后清理注册表新增的工具/连接,避免污染其他测试。"""
+    """测试后清理注册表新增的工具/连接,避免污染其他测试。
+
+    必须是 **autouse**:此前它靠每个用例在签名里显式请求,而
+    `test_real_filesystem_server_roundtrip` 漏写了 —— 它经真实 npx 起官方
+    filesystem server,把 `list_directory` / `search_files` 注册进进程全局
+    `mcp_server._TOOL_HANDLERS` 且从不拆除(`finally` 里的 `shutdown_all()` 只停
+    子进程,不摘 handler)。后果是跨文件顺序污染:后跑的
+    `tests/test_tool_alias_single_source.py::TestValueDomain::
+    test_alias_keys_do_not_shadow_registered_tools` 把这两个残留名当成"已注册
+    真工具",别名键遮蔽断言当场翻红,而该用例单独跑是绿的。改成 autouse 后
+    "忘了请求清理夹具"这一型结构上不可能再发生。
+    """
     before_handlers = set(mcp_server._TOOL_HANDLERS.keys())
     before_tool_names = {t.name for t in mcp_server._TOOLS}
     before_servers = dict(mcp_stdio_bridge._STDIO_SERVERS)
