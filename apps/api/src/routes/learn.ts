@@ -109,7 +109,7 @@ import {
 } from '../db/learn-extended-queries.js'
 import { success, error } from '../utils/response.js'
 import { db } from '../db/index.js'
-import { learnHomework } from '@ihui/database'
+import { learnHomework, LESSON_DIFFICULTIES } from '@ihui/database'
 import { eduLessonTopicCategories } from '@ihui/database'
 import { eq, and, sql as dsql } from 'drizzle-orm'
 
@@ -128,6 +128,13 @@ const chapterParamSchema = z.object({
   chapterId: z.uuid({ error: '无效的章节 ID' }),
 })
 
+/**
+ * 公开课程列表的查询轴。
+ * 未知键被 Zod 剥掉(仓库既有形态),所以**每加一根轴都必须在这里显式登记**,
+ * 否则前端传了、服务端静默忽略 —— 那种"看着有、其实没"的洞 typecheck 与 200 都不红。
+ * 三根可选轴(categoryId / difficulty / price)一律走"空串归一为 undefined"同一形态,
+ * 与 categoryId 既有写法逐字同形(不新增第二套空值语义)。
+ */
 const lessonsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -137,6 +144,16 @@ const lessonsQuerySchema = z.object({
     .pipe(z.uuid({ error: '无效的分类 ID' }).optional())
     .optional(),
   search: z.string().max(200).optional(),
+  difficulty: z
+    .unknown()
+    .transform((v) => (v === '' || v === null || v === undefined ? undefined : v))
+    .pipe(z.enum(LESSON_DIFFICULTIES, { error: '无效的难度' }).optional())
+    .optional(),
+  price: z
+    .unknown()
+    .transform((v) => (v === '' || v === null || v === undefined ? undefined : v))
+    .pipe(z.enum(['free', 'paid'], { error: '无效的价格筛选' }).optional())
+    .optional(),
 })
 
 const myLessonsQuerySchema = z.object({
@@ -200,6 +217,7 @@ const createLessonSchema = z.object({
   categoryId: z.uuid().nullable().optional(),
   lecturerId: z.uuid().nullable().optional(),
   lecturerName: z.string().max(100).nullable().optional(),
+  difficulty: z.enum(LESSON_DIFFICULTIES, { error: '无效的难度' }).nullable().optional(),
   price: z
     .string()
     .regex(/^\d+(\.\d{1,2})?$/, '价格格式错误')
@@ -222,6 +240,7 @@ const updateLessonSchema = z.object({
   categoryId: z.uuid().nullable().optional(),
   lecturerId: z.uuid().nullable().optional(),
   lecturerName: z.string().max(100).nullable().optional(),
+  difficulty: z.enum(LESSON_DIFFICULTIES, { error: '无效的难度' }).nullable().optional(),
   price: z
     .string()
     .regex(/^\d+(\.\d{1,2})?$/, '价格格式错误')
@@ -591,6 +610,8 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /learn/lessons - 已发布课程列表（分页，公开）
+  // 查询轴:page/pageSize/categoryId/search/difficulty/price —— 全部由服务端实现,
+  // 客户端不得再对"已取回的一页"做二次过滤(那会让分页与筛选互斥)。
   server.get('/learn/lessons', async (request, reply) => {
     const parsed = lessonsQuerySchema.safeParse(request.query)
     if (!parsed.success) {
@@ -1132,7 +1153,7 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
 
   // ----- Lessons Admin -----
 
-  // GET /learn/lessons - 管理员课程列表（含未发布，支持 categoryId 筛选与搜索）
+  // GET /learn/lessons - 管理员课程列表（含未发布，与公开列表同一套筛选轴:categoryId/difficulty/price/search）
   server.get('/learn/lessons', async (request, reply) => {
     const parsed = lessonsQuerySchema.safeParse(request.query)
     if (!parsed.success) {
