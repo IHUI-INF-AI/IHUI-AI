@@ -31,6 +31,10 @@
  *  4. 幂等只认自己的标记形态 `**[归并]**`,不认裸词"归并"(HEAD 里那批未落账的
  *     "union 归并裸副本"行正文天然含该词 —— 按裸词判会恰好漏掉本工具要修的那一型)。
  *  5. 默认只出报告;`--write-to` 只往**指定路径**落候选文本,绝不碰 PROJECT_PLAN.md。
+ *     取值判据(同族口径见枚 `380431ffc`):**紧邻的下一个 token 必须存在且不以 `-` 开头**才算
+ *     本旗标的值 —— 否则 `--write-to --staged` 会在当前工作目录写出一个名叫 `--staged` 的文件
+ *     (§28 禁止形态)而期望路径没被写,归并器还会自认为"已写到"。无效值 ⇒ 大声拒绝 + 非零退出,
+ *     **不回落到任何默认路径**。
  *
  * §5c 溯源水印:本文件受 `scripts/watermark.mjs` 管理。
  */
@@ -99,7 +103,7 @@ function rewriteFork(line, key, today) {
  * 判据能看见而出口修不了,等于把红永久留给下一个人。
  */
 const POINTER_REPAIRS = {
-  alive: (key) => (m) =>
+  alive: (key) => (_m) =>
     `存活于同主键登记 ${key ? anchorOf(key) : '(与本行正文逐字相同,可按正文检索)'}`,
   dup: (key) => (m) => {
     const prefix = String(m).startsWith('逐字相同') ? '逐字相同的另一条登记' : '同主键的另一条登记'
@@ -572,8 +576,38 @@ function selfTest() {
     healStopReasons(f4src, f4src, f4.changed, 0).join().includes('未归零'),
     'F4 未归零时自愈必须停手 —— 否则"跑过一次"会被当成"修好了"',
   )
+  /**
+   * 带值旗标的取值判据(枚 380431ffc 同族口径)。成对,单向断言等于没有:
+   * 只判"坏的必被拒"会让它退化成"永远拒",而 (b) 那一臂证明合法路径照写。
+   */
+  ok(flagValue(['--write-to', '--staged'], '--write-to').valid === false, '紧跟的 - 旗标不得被当成本旗标的值')
+  ok(flagValue(['--write-to'], '--write-to').valid === false, '其后没有参数不得被当成有值')
+  ok(flagValue(['--write-to', ''], '--write-to').valid === false, '空串不是路径')
+  ok(flagValue(['--write-to', 'out/cand.md'], '--write-to').value === 'out/cand.md', '合法路径必须放行(否则本校验变成永拒)')
+  ok(flagValue(['--all'], '--write-to').present === false, '旗标缺席时不得判成"值为空"')
   console.log(`\n自检:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
+}
+
+/**
+ * 带值旗标的取值判据 —— 口径照抄同族已修的两处(枚 `380431ffc`),不另发明:
+ * **值必须存在且不以 `-` 开头,才算这个旗标的值**。
+ *
+ * 为什么"存在"不够:`--staged` 这类 token 是真值、还"含路径形状",能过掉任何只看真假/形状的
+ * 旧校验 ⇒ `writeFileSync('--staged')` 在**当前工作目录**写出一个名叫 `--staged` 的文件
+ * (§28 禁止形态,`git status` 之外几乎无判据会喊),而期望路径**没被写**。对本工具来说第二层
+ * 更贵:归并器自认为写完了 —— 活文档候选文本落到错地方、台账没更新,账面却报"已归并 N 条",
+ * 同一个分叉下一次还会被重新"修"一遍(本仓"判据失效的表现永远是安静"那一型)。
+ *
+ * 返回 {present, valid, value, token}:token 把**真实收到的东西**原样带回去,拒绝时必须点名它
+ * (调用方漏写值与被别的旗标顶上,是两种不同的修法,不能合成一句"参数错")。
+ */
+export function flagValue(list, flag) {
+  if (!Array.isArray(list) || !list.includes(flag)) return { present: false, valid: false, value: null, token: null }
+  const raw = list[list.indexOf(flag) + 1]
+  const token = typeof raw === 'string' ? raw : null
+  const valid = token !== null && token !== '' && !token.startsWith('-')
+  return { present: true, valid, value: valid ? token : null, token }
 }
 
 function main() {
@@ -665,13 +699,24 @@ function main() {
     return 1
   }
   console.log(`\n✅ 零损失对账通过;归并后 F1/F2/F3/F4 = ${v.after.forks}/${v.after.voidRows}/${v.after.rotatedPointers}/${v.after.dupOpenCopies},派单口径 ${counts0.open} → ${v.after.open}`)
-  const out = argv[argv.indexOf('--write-to') + 1]
-  if (has('--write-to') && out && !out.includes(PLAN_REL)) {
-    writeFileSync(out, r.text, 'utf8')
-    console.log(`候选文本已写到 ${out}(没有碰 ${PLAN_REL};落地由主会话按活文档规矩走对象空间)`)
-  } else if (has('--write-to')) {
+  // 拒绝链三格,顺序即严格度:① 值不成其为值(缺失/以 - 开头)② 值是文档本体 ③ 才允许写盘。
+  // ①②都**大声拒绝并非零退出**,不得静默忽略旗标、更不得回落到任何默认路径去写别处
+  // (落错地方比不落更糟 —— 那正是本格要修的缺陷本身)。
+  const wt = flagValue(argv, '--write-to')
+  if (wt.present && !wt.valid) {
+    console.log(
+      `❌ --write-to 没有收到有效路径 —— 紧邻的 token 实得:${wt.token === null ? '(其后没有任何参数)' : JSON.stringify(wt.token)}` +
+        `。以 - 开头的 token 是**别的旗标**,不构成本旗标的值;本工具不回落到默认路径,拒绝写出。`,
+    )
+    return 1
+  }
+  if (wt.present && wt.value.includes(PLAN_REL)) {
     console.log('❌ --write-to 必须给一个不是 PROJECT_PLAN.md 的路径(本工具不允许直接写文档本体)')
     return 1
+  }
+  if (wt.present) {
+    writeFileSync(wt.value, r.text, 'utf8')
+    console.log(`候选文本已写到 ${wt.value}(没有碰 ${PLAN_REL};落地由主会话按活文档规矩走对象空间)`)
   }
   return 0
 }
@@ -687,5 +732,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 }
 
 /** §22c:镜像测试直接 import 判据函数,不得复制一份实现 */
-export const __test__ = { rewriteFork, rewritePointer, rewriteDup, anchorOf, POINTER_REPAIRS }
+export const __test__ = {
+  rewriteFork,
+  rewritePointer,
+  rewriteDup,
+  anchorOf,
+  POINTER_REPAIRS,
+  /** 测试直接 import 这一份判据(§22c:镜像测试不得再抄一份源判据,抄了就跟着一起漂绿) */
+  flagValue,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
