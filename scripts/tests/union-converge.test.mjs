@@ -27,6 +27,7 @@ import {
   PLACEHOLDER_TITLE_TRUNC,
 } from '../lib/ledger-move-aware.mjs'
 import { parseCompletedTaskBlocks } from '../lib/plan-task-headings.mjs'
+import { maskComments } from '../lib/code-mask.mjs'
 
 const GIT = 'C:/Program Files/Git/cmd/git.exe'
 
@@ -1027,4 +1028,34 @@ test('R-I 反向锁(源码级):"取不到远端真值"两支不得再塞进 skip
     2,
     '两支都要走同一份出路实现(noRemoteTruth 入参),少一支就是又分叉了',
   )
+})
+
+test('R-J 稳定标记:未判定那一支必须打出可被调用方分流的标记(不得只靠中文措辞)', () => {
+  const src = srcOfTool()
+  assert.match(
+    src,
+    /\[union-converge\] UNDETERMINED 未判定/,
+    '未判定输出必须带 UNDETERMINED 标记 —— 调用方按它分流;只靠措辞的话,改一个字就把归因换掉',
+  )
+  // 标记只能出现在未判定那一支:出现在 skip 支就会把"无事可做"也分流走。
+  // 计数只认**输出语句里**的标记 —— 头注/说明文字也会写出这个词,把它算进去等于
+  // 让判据把自己说的话当成证据(本仓"注释里不得有执行性字符"的同族)。
+  const marks = (src.match(/\[union-converge\] UNDETERMINED 未判定/g) || []).length
+  assert.equal(marks, 1, `输出面标记应恰好一处(实测 ${marks}),多出来就是有人在别处也喊未判定`)
+})
+
+test('R-K 调用方分流顺序:git-sync-converge 必须先认 UNDETERMINED 再谈"亦判需人工"', () => {
+  // 必须先在**代码面**上比:本仓那份头注里就原样写着「亦判需人工」(它描述的是这一型缺陷),
+  // 不剥注释就会拿说明文字当调用点,顺序判据立刻反过来变成误红 —— 与 R-J 数标记是同一条教训。
+  const conv = maskComments(
+    readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'git-sync-converge.mjs'), 'utf8'),
+  )
+  const undIdx = conv.indexOf("includes('UNDETERMINED')")
+  assert.ok(undIdx > 0, '调用方必须按标记分流,否则一次网络失败会被写成内容裁决')
+  const humanIdx = conv.indexOf('亦判需人工')
+  assert.ok(humanIdx > 0, '真需人工那条路必须还在(不得静默)')
+  // 顺序判据:两支同在一个 catch/分支里时,"没资格判"必须先判 —— 反序即归因错
+  assert.ok(undIdx < humanIdx, '分流顺序颠倒 ⇒ 未判定永远读不到,归因恒错')
+  const branches = (conv.match(/includes\('UNDETERMINED'\)/g) || []).length
+  assert.equal(branches, 2, `两处归并出口都要分流(实测 ${branches}):冲突分支与状态放大分支同型`)
 })
