@@ -677,18 +677,18 @@ function runCheck(asJson: boolean): number {
       ? [...result.undetermined, '上一面(HEAD)登记表取不到 ⇒ R4(退而被删)这一维未判定']
       : result.undetermined
   if (asJson) {
-    console.log(JSON.stringify({ ...result, undetermined }, null, 2))
+    console.info(JSON.stringify({ ...result, undetermined }, null, 2))
     return result.exitCode
   }
-  console.log(
+  console.info(
     `[audit-export-key-registry] 今日=${result.today} 生效公钥=${String(result.tableSize)} 项 信封保留期=${String(result.retentionDays)} 天 上一面=${result.previousFace}`,
   )
   for (const issue of result.issues)
-    console.log(`  ❌ ${issue.code} kid=${issue.kid}:${issue.message}`)
-  for (const line of undetermined) console.log(`  ⚠️ 未判定:${line}`)
-  for (const line of result.notices) console.log(`  ℹ️ ${line}`)
+    console.info(`  ❌ ${issue.code} kid=${issue.kid}:${issue.message}`)
+  for (const line of undetermined) console.info(`  ⚠️ 未判定:${line}`)
+  for (const line of result.notices) console.info(`  ℹ️ ${line}`)
   if (result.issues.length === 0 && undetermined.length === 0) {
-    console.log('  ✅ 登记表自洽(表为空时这句只代表"无事可判",不代表"轮换已备好")')
+    console.info('  ✅ 登记表自洽(表为空时这句只代表"无事可判",不代表"轮换已备好")')
   }
   return result.exitCode
 }
@@ -700,7 +700,7 @@ function runCheck(asJson: boolean): number {
 function main(): number {
   const args = process.argv.slice(2)
   if (args.includes('--check')) return runCheck(args.includes('--json'))
-  console.log('用法:--self-test | --check [--json](本模块未接提交链)')
+  console.info('用法:--self-test | --check [--json](本模块未接提交链)')
   return 0
 }
 
