@@ -14756,3 +14756,28 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - **判为不抄、带否证(比做更值得留)**:① `provider` / `provider-node` 的包粒度切分 —— 现测 `node:` 内置导入在 provider 侧 0 处、provider-node 侧 6 文件 12 处,且 `packages/{web,ui,client}` 对 provider-node 零 import,与我方 §3"工厂 + 平台 adapter 注入"是同一原则的另一种命名(包粒度 vs hook 工厂),不是新机制;② `facades.ts` 不构成第二份真相 —— 私有字段只有 `#source`/`#mutations`/`#providerMutationTails`(队列不是事实),全部 view 由 `requireSnapshot` 现推,`providerOrder` 由 resolver 单点算;③ 机派生兜底密钥(`credentialCipherProvider.ts:24-38`:缺 `ZCODE_CREDENTIAL_SECRET` 时用 `platform:homedir:username` 拼串 sha256)—— 同机任意进程可重算 ⇒ 静态加密退化为混淆,我方 `getKey` 无 key 即抛是**更强**的失效方向;④ 整份非 JSON 响应体塞进 `ApiError.message`(`apiJson.ts:44-46`)正是我方守门 67 的判红形态;⑤ 配额撞顶到人 —— 上游 `usage-stats` + `model-provider` 全链 `grep -niE "smtp|nodemailer|webhook|resend|sendMail"` 现读**零命中**,只有屏内 banner,而我方是 `notify-deploy-failure.ts` 邮件单通道 + UNDELIVERED 留痕,此维**我方更强**,不构成缺口。
 - **两处代理结论被我复验改判(登记,防下一个人照它派单)**:① 取证代理称"门 33 注释引用了已删除的 `_PROVIDER_KEY_ALIASES` ⇒ 该符号不存在"—— 实际它以"已删除"的**注释形态**写在 `config.py:50`,"引用了不存在的符号"不成立;成立的那半句是"把它当成了取源之一",已按这一条改注释。② 代理称 `accountProviderTeamPlanRequestKey.ts` 是"短时票/幂等键、可对照我方 30s TTL 先 delete 再比 TTL"—— 逐行读完确认它是**运行期 API Key 投影**(每次远端取 `apiKey.secretKey`,15s 超时、无 TTL、无清理表),题面前提错位;真正的 TTL/CAS 与幂等键分别住在 `zaiStartPlanBilling.ts:113-122` 与 `codingPlanQuotaResetCoordinator.ts:307-329`。照原结论派单就是编造。
 - **本枚提交的门禁事实(不粉)**:`safe-commit` 首次 commit 被批外步骤"i18n 死 key 扫描"挡住(web 目标 exit 1),逐道复跑归因 = **守门批 156 道跑完、blocking 失败 0**,该批外步骤未点名本次任何文件 ⇒ 按 §12 应急路径以 `--no-verify` 落地并留痕。**那一步的红是别人在飞的语言包现场,不是不存在**,谁碰 i18n 谁随后清偿。
+
+- [x] ✅(2026-09-28) G-G-360 **未解冲突标记被自动归档提交进台账:两道同型缺陷一起修(守门 79 的体积护栏 + 归档器写盘前不加闸)**
+  起因不是猜的:清台账时逐跳回溯 `git log -S` 找 `<<<<<<< ours` 在 `PROJECT_PLAN.md` 里的首次出现,
+  落点是自动归档提交 `b54c79c36`(09-28 00:23;其父版本该行计数 0、该枚起为 1)。它能过去是两件事叠在一起:
+  ① **守门 79 的 G2 大文件护栏"体积优先"** —— `PROJECT_PLAN.md` 常年 >2MB,于是多会话唯一会真撞车的那份文件
+     整块在射程外;实测 `node scripts/check-no-conflict-markers.mjs --rev 94ae115de` 当时报"未检出成对标记",
+     汇总里唯一的痕迹是一句没人读的 `跳过 >2MB 大文件=1`。② **归档器写的是工作树副本、又带 `--no-verify` 提交**
+     —— 别人未解完的标记被它一起打包进台账,而它自己的零损失闸只管"搬走的内容是否真进了归档件",
+     不看"底稿带没带伤口"。
+  **修法(两处都不放宽判据)**:① 判序改成"先问有没有标记线索(两次 `Buffer.includes`,零字符串化),没有才按
+     体积放过";有线索的大文件一律照判,并新增 `stats.largeWithMarkers` 在汇总里**自己报出**"照判不误"几个 ——
+     只报体积数字等于让读者把护栏读成"这一维什么都没判"。② 归档器写盘前先过**同一份**配对判据(直接 import
+     守门 79 的 `findMarkerPairs`,不抄第二遍),带标记即拒绝写盘 + exit 1,点名行号与出口(按 §12b 重新归并,
+     **禁止手删三行标记当作已解决**)。③ 台账里那三行已按"两侧内容逐行全保留、只删标记"清理(枚 `d77e9824e`):
+     落地前自证 ours 25 行逐字全等、theirs 侧为空块,并把成因写成 HTML 注释留在原位而不是无声删掉。
+  **取证(全部当轮现跑,退出码单独取不读管道尾部)**:`--rev 94ae115de` 现读 **RC=1** 并点名
+  `PROJECT_PLAN.md:7915/7941/7942`(修复前同一枚是 RC=0 —— 这就是这道门的有牙证明);`--rev HEAD` RC=0;
+  守门 79 `--self-test` **27 例全绿**(20 号断言方向**反转**成"大文件含成对标记必红",另加 20b 守住
+  "大而无线索仍按护栏跳过");镜像 `node --test scripts/tests/check-no-conflict-markers.test.mjs` **11/11**;
+  归档器 `--self-test` **41 条全绿**(新增 S18 配对 + S18b **装车锁**:钉住 `findMarkerPairs(newContent)` 必须出现在
+  `writeFileSync(PLAN_FILE, newContent)` 之前 —— "函数在而无人调"是本仓最高频的假防);四条变异各自翻红后
+  按字节还原(去掉归档器调用 ⇒ S18b 红;把大文件含标记改回直接 return ⇒ 20/T7b 红;去掉 largeWithMarkers 计数 ⇒ 同上)。
+  枚 `fb6e403fd`(守门 79 + 镜像 + 归档器三文件同枚,注册与脚本同批入库)。
+  **只报不碰的一格**:此刻工作树那份 `PROJECT_PLAN.md` 仍带着别的会话未解完的标记(13266–13294 一带),
+  按 §12/§16 不代裁、不代解 —— 与之前的区别是**从现在起它若被提交会被守门 79 拦住**,而这一枚之前是无声通过的。
