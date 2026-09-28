@@ -41,6 +41,8 @@ interface Chain {
   values(v: unknown): Chain
   set(obj: Row): Chain
   returning(): Chain
+  // O82 续四:createMessage 事务内先 SELECT ... FOR UPDATE 锁会话行,链上多出 .for()
+  for(lock: string): Chain
   then(
     onfulfilled: ((value: Row[]) => unknown) | undefined,
     onrejected?: ((reason: unknown) => unknown) | undefined,
@@ -121,6 +123,7 @@ const { fakeState, fakeDb, reset } = vi.hoisted(() => {
         limit: () => self,
         offset: () => self,
         groupBy: () => self,
+        for: () => self,
         values: () => self,
         set: () => self,
         returning: () => self,
@@ -156,6 +159,7 @@ const { fakeState, fakeDb, reset } = vi.hoisted(() => {
         limit: () => self,
         offset: () => self,
         groupBy: () => self,
+        for: () => self,
         set: () => self,
         returning: () => {
           apply()
@@ -182,6 +186,7 @@ const { fakeState, fakeDb, reset } = vi.hoisted(() => {
         limit: () => self,
         offset: () => self,
         groupBy: () => self,
+        for: () => self,
         values: () => self,
         returning: () => self,
         set: (obj) => {
@@ -206,6 +211,7 @@ const { fakeState, fakeDb, reset } = vi.hoisted(() => {
         limit: () => self,
         offset: () => self,
         groupBy: () => self,
+        for: () => self,
         values: () => self,
         set: () => self,
         returning: () => self,
