@@ -115,6 +115,7 @@ import {
   isArchivableTaskHeading,
   extractCompletedTaskHeadings,
   countBulletCompleted,
+  OPEN_ROW_RE,
 } from './lib/plan-task-headings.mjs'
 
 const ROOT = process.cwd()
@@ -129,6 +130,10 @@ const allMode = args.includes('--all')
 const autoCommit = args.includes('--auto-commit')
 const selfTest = args.includes('--self-test')
 const noBullets = args.includes('--no-bullets')
+// 只读诊断出口(2026-09-28 立):把"为什么这一整块搬不走"从**人读日志**变成机器可查、可派单的输入。
+// 它不写盘、不落提交、不受 HUSKY_SKIP_ARCHIVE 影响 —— 跳过归档的开关不该同时关掉"看看卡在哪"。
+const listBlocked = args.includes('--list-blocked')
+const jsonOut = args.includes('--json')
 // 大批量(格式漂移/积压)时的显式人工放行口 —— 自动档(pre-commit 钩子)没有这个开关就走阀门
 const allowMass = args.includes('--allow-mass')
 const daysIdx = args.indexOf('--days')
@@ -216,6 +221,49 @@ function shouldArchive(task) {
   // `--days N` 仍可回到"只搬满 N 天的"节奏(取证或降速时用)。
   if (!task.date) return daysThreshold <= 0 // 阈值为 0 时不需要年龄判据 ⇒ 无日期也搬;>0 时不猜生日
   return dateDiffDays(task.date) >= daysThreshold
+}
+
+/**
+ * 把"已完成候选"分成**可搬**与**因体内还有活账所以不搬**两堆的唯一实现(2026-09-28 立)。
+ *
+ * 为什么必须抽出来:这条分区判据原先内联在 main() 里三行,而"为什么搬不走"是人工裁决与
+ * 派单的输入 —— 让诊断出口另抄一遍筛选,两份迟早漂开(本仓最高频失效型),后果是"日志说
+ * 卡住 29 块、交给代理裁决的是另一批 29 块"这种自洽却错位的清单。main() 与 --list-blocked
+ * 现在都只调这一个函数。
+ * @returns {{tasks:object[],candidates:object[],blocked:object[],movable:object[]}}
+ */
+export function partitionPlanBlocks(content) {
+  const tasks = parseCompletedTaskBlocks(content)
+  const candidates = tasks.filter(shouldArchive)
+  const blocked = candidates.filter((t) => entryHasOpenRows(t.bodyLines))
+  const movable = candidates.filter((t) => !entryHasOpenRows(t.bodyLines))
+  return { tasks, candidates, blocked, movable }
+}
+
+/**
+ * 把一个被卡住的块摊成**可逐行裁决**的结构:块边界(被审面 1-based 行号)+ 体内每一条
+ * 未完成登记的行号与原文。行号以主流程同一份 content 为基准,与 parseCompletedTaskBlocks
+ * 的 startLine 同源;不得另读磁盘(那会造出"块取自 HEAD、行号取自工作树"的混合尺子)。
+ * 未完成行的正则用 lib 那一份 OPEN_ROW_RE,与 entryHasOpenRows 逐字同形。
+ * @returns {{headingLine:number,endLine:number,level:number,title:string,date:(string|null),
+ *   bodyBytes:number,openRowCount:number,openRows:{line:number,text:string}[]}}
+ */
+export function describeBlockedBlock(t, content) {
+  const lines = String(content ?? '').split(/\r?\n/)
+  const openRows = []
+  for (let i = t.startLine; i <= t.endLine && i < lines.length; i++) {
+    if (OPEN_ROW_RE.test(lines[i])) openRows.push({ line: i + 1, text: lines[i] })
+  }
+  return {
+    headingLine: t.startLine + 1,
+    endLine: t.endLine + 1,
+    level: t.level,
+    title: t.titleText,
+    date: t.date ?? null,
+    bodyBytes: Buffer.byteLength(t.bodyLines.join('\n'), 'utf8'),
+    openRowCount: openRows.length,
+    openRows,
+  }
 }
 
 const BULLET_DONE_RE = /^\s*[-*+] \[[xX]\]/
@@ -924,7 +972,7 @@ async function landThroughObjectSpace({ base, toArchive }) {
 async function main() {
   // 应急通道**在本脚本里真被读取**(2026-09-28 补):此前只有 .husky/post-commit:108 读它,
   // 于是 AGENTS §1 那句"跳过用 HUSKY_SKIP_ARCHIVE=1"对手动直跑与任何非钩子调用方是空头支票。
-  if (process.env.HUSKY_SKIP_ARCHIVE === '1') {
+  if (process.env.HUSKY_SKIP_ARCHIVE === '1' && !listBlocked) {
     console.log(`${C.dim}⏭  HUSKY_SKIP_ARCHIVE=1 ⇒ 跳过归档(钩子内外同一把开关,不再只靠钩子侧兜)${C.reset}`)
     process.exit(0)
   }
@@ -947,26 +995,58 @@ async function main() {
     console.log(`${C.dim}⏭  PROJECT_PLAN.md 不存在(或被取材层判为非文本),跳过归档 —— ${base.why}${C.reset}`)
     process.exit(0)
   }
-  console.log(
-    C.dim +
-      `   底稿面:${base.face}${base.headSha ? `(${String(base.headSha).slice(0, 9)})` : ''}` +
-      `${base.auto ? ' — 自动退化' : ''}${base.explicit ? ' — 显式逃生舱(取证专用)' : ''}:${base.why}` +
-      C.reset,
-  )
+  // `--list-blocked --json` 的面必须是**可 JSON.parse 的纯 JSON**:上面那行"底稿面"是人读输出,
+  // 混进去就让消费方(代理/脚本)直接 parse 失败 —— 本仓为这类缺陷记过多次"给了旗标却不生效"。
+  // 取材面的信息不丢:它进 JSON 的 face / faceWhy 两个字段。
+  if (!(listBlocked && jsonOut)) {
+    console.log(
+      C.dim +
+        `   底稿面:${base.face}${base.headSha ? `(${String(base.headSha).slice(0, 9)})` : ''}` +
+        `${base.auto ? ' — 自动退化' : ''}${base.explicit ? ' — 显式逃生舱(取证专用)' : ''}:${base.why}` +
+        C.reset,
+    )
+  }
   const content = base.text
   if (content === null || content === '') {
     console.log(`${C.dim}⏭  PROJECT_PLAN.md 读取失败或为空文件,跳过归档${C.reset}`)
     process.exit(0)
   }
-  const tasks = parseCompletedTaskBlocks(content)
+  // 分区判据只有 partitionPlanBlocks 这一份实现:主流程与本文件的 --list-blocked 诊断出口
+  // 共用它,所以"日志说卡住 N 块"与"交给裁决的清单"结构上不可能分叉。
   // 「标题带 ✅ 但体内还裹着未完成登记」的**假条目**一律不搬(2026-09-28 实测 HEAD 面:
   // 一条 `## P1 侧边栏底部 5 工具按钮…立并完成 ✅` 之后再无同级标题 ⇒ 块一路吞到文件末尾 =
   // 771 行 / 575,577 B,块内 `- [ ]` 237 条)。搬走它等于把别人正开着的 237 件活账归档,
   // 派单口径静默少 237 行 —— 那比"积压没清"严重得多。
   // 本判据与体积阀**正交**:`--allow-mass` 只放宽"一次搬多少字节",不放宽"这一条能不能搬"。
-  const candidates = tasks.filter(shouldArchive)
-  const blocked = candidates.filter((t) => entryHasOpenRows(t.bodyLines))
-  let toArchive = candidates.filter((t) => !entryHasOpenRows(t.bodyLines))
+  const { tasks, candidates, blocked, movable } = partitionPlanBlocks(content)
+  if (listBlocked) {
+    const blocks = blocked.map((t) => describeBlockedBlock(t, content))
+    const openRowTotal = blocks.reduce((n, b) => n + b.openRowCount, 0)
+    const faceTag = `${base.face}${base.headSha ? `(${String(base.headSha).slice(0, 9)})` : ''}`
+    if (jsonOut) {
+      console.log(
+        JSON.stringify(
+          { face: faceTag, faceWhy: base.why, blockedCount: blocks.length, movableCount: movable.length, openRowTotal, blocks },
+          null,
+          2,
+        ),
+      )
+    } else {
+      console.log(
+        `${C.yellow}🔎 只读诊断(未写盘、未落提交):卡住的块 ${blocks.length} 个 / 体内未完成登记合计 ${openRowTotal} 条;另有 ${movable.length} 块可直接搬${C.reset}`,
+      )
+      for (const b of blocks) {
+        console.log(
+          C.yellow +
+            `   L${b.headingLine}..L${b.endLine}(lvl=${b.level})未勾选 ${b.openRowCount} 条 / 整块 ${b.bodyBytes} B —— ${String(b.title).slice(0, 70)}` +
+            C.reset,
+        )
+        for (const r of b.openRows) console.log(`      L${r.line}  ${r.text}`)
+      }
+    }
+    process.exit(0)
+  }
+  let toArchive = movable
   if (blocked.length > 0) {
     console.log(
       C.yellow +
@@ -974,7 +1054,7 @@ async function main() {
         C.reset,
     )
     for (const t of blocked) {
-      const openN = t.bodyLines.filter((l) => /^[-*+] \[ \]/.test(l)).length
+      const openN = t.bodyLines.filter((l) => OPEN_ROW_RE.test(l)).length
       console.log(
         C.yellow +
           `   L${t.startLine + 1}(lvl=${t.level})体内未勾选 ${openN} 条 / 整块 ${Buffer.byteLength(t.bodyLines.join('\n'), 'utf8')} B —— ${String(t.titleText).slice(0, 60)}` +
@@ -1587,6 +1667,59 @@ function runSelfTest() {
     ),
   )
 
+  // S19 分区判据只许有一份。诊断出口若另抄一遍筛选,两份迟早漂开,而漂开的表现不是报错,
+  // 是"日志说卡住 29 块、交给人工/代理裁决的是另外 29 块"这种自洽却错位的清单。
+  // ⚠ 夹具里**不得出现 ✅ 字样来表示"没有完成标记"**:判据是"标题含 ✅ 即算已完成条目",
+  //   写"标题没有 ✅"会让这一行真的带着 ✅ 而被收进条目集 —— 本仓"说明性文字带执行性字符"那一型。
+  const s19Doc = [
+    '# 计划',
+    '',
+    '## 甲(已完成 ✅ 2026-09-28)',
+    '- [x] ✅ 甲做完的一条',
+    '- [ ] 甲块里混着的活账',
+    '',
+    '## 乙(已完成 ✅ 2026-09-28)',
+    '- [x] ✅ 乙做完的一条',
+    '',
+    '## 丙 仍在进行的小节(不带完成标记)',
+    '- [ ] 丙的活',
+  ].join('\n')
+  const s19 = partitionPlanBlocks(s19Doc)
+  ok(
+    'S19 分区:标题带 ✅ 而体内有未勾选 ⇒ 进 blocked,不得混入可搬集',
+    s19.blocked.length === 1 &&
+      s19.movable.length === 1 &&
+      String(s19.blocked[0].titleText).includes('甲') &&
+      String(s19.movable[0].titleText).includes('乙'),
+    `blocked=${s19.blocked.map((t) => t.titleText)} movable=${s19.movable.map((t) => t.titleText)}`,
+  )
+  const s19d = describeBlockedBlock(s19.blocked[0], s19Doc)
+  ok(
+    'S19b 行号必须落在被审面那一行本体(逐字等值,偏一行即红)',
+    s19d.headingLine === 3 &&
+      s19d.openRowCount === 1 &&
+      s19d.openRows[0].text === s19Doc.split(/\r?\n/)[s19d.openRows[0].line - 1],
+    JSON.stringify(s19d.openRows),
+  )
+  ok(
+    'S19c 干净块(体内无未勾选)不得被判成卡住 —— 反向对照,防把整族一律判红',
+    describeBlockedBlock(s19.movable[0], s19Doc).openRows.length === 0,
+  )
+  const s19src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+  // 锁的范围必须切到 main() 体内:全文件级"不得出现 entryHasOpenRows"会打到
+  // partitionPlanBlocks 自己那一行 —— 那是判据的唯一合法居所,把它判红等于要求门自杀。
+  const s19MainStart = s19src.indexOf('async function main()')
+  const s19MainEnd = s19src.indexOf('function runSelfTest')
+  const s19Main = s19MainStart >= 0 && s19MainEnd > s19MainStart ? s19src.slice(s19MainStart, s19MainEnd) : ''
+  ok(
+    'S19d 装车锁:main() 只走 partitionPlanBlocks(体内不得留第二份分区筛选),且 --json 诊断面不得混入人读行',
+    s19Main.length > 500 &&
+      /const \{ tasks, candidates, blocked, movable \} = partitionPlanBlocks\(content\)/.test(s19Main) &&
+      !/entryHasOpenRows\(/.test(s19Main) &&
+      /if \(!\(listBlocked && jsonOut\)\) \{/.test(s19src),
+    `main 体切片长度=${s19Main.length}`,
+  )
+
   let failed = 0
   for (const r of results) {
     if (r.pass) console.log(`${C.dim}✅ ${r.name}${C.reset}`)
@@ -1626,6 +1759,8 @@ export const __test__ = {
   blockLandsContiguously,
   resolveRequestedFace,
   resolvePlanBase,
+  partitionPlanBlocks,
+  describeBlockedBlock,
 }
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
