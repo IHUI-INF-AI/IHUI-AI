@@ -21,13 +21,14 @@
 //      —— 台账不在触发面上,这次修复就永远进不了提交链(守门 81「判据存在而永不调用=没有」同型)。
 //
 // 已知边界(如实登记,不假装覆盖):
-//   · 本门按**磁盘**取三份源码 + 台账(见其 runChecks 的 readFileSync),不是 HEAD blob。
-//     所以「真仓当前结论为绿」那一臂判的是提交链真正会判的那一面;跨面漂移由 ② 的 HEAD 断言钉。
+//   · 本门按**判定面**取四份输入(默认 HEAD blob / `--staged` 索引 blob / `--worktree` 仅人工),
+//     2026-09-27 G-303 收口前它按磁盘取且**不认** runner 追加的 `--staged`。三面各答各的由
+//     下面 F1–F3 端到端证明(F3 专门钉"该面取不到 ⇒ exit 2 且不回落到另一个面")。
 //   · 本门只看**两个** TS 解析器(api-client / sse-parse)。Python 侧契约与 SSE 派发另有
 //     check-sse-dispatch-parity / check-agent-event-parity 两道同族门,不在本文件射程。
 
 import { execFileSync, spawnSync } from 'node:child_process'
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
@@ -35,11 +36,14 @@ import { test } from 'node:test'
 
 import { __test__ as gate } from '../check-sse-parser-parity.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
-const GATE_SCRIPT = join(REPO, 'scripts', 'check-sse-parser-parity.mjs')
+const SCRIPTS_DIR = join(REPO, 'scripts')
+const GATE_REL = 'check-sse-parser-parity.mjs'
+const GATE_SCRIPT = join(SCRIPTS_DIR, GATE_REL)
 const GIT_BIN = resolveGitBin() || 'git'
 
 const P_CONTRACT = 'packages/shared/src/sse/contract.ts'
@@ -74,28 +78,57 @@ function parserSource(events) {
   return `export function parseSse(t) {\n  switch (t) {\n${cases}\n    default:\n      return null\n  }\n}\n`
 }
 
+/** 临时仓里的 git:绝对路径 + safe.directory + windowsHide(与本仓所有 git 调用同形)。 */
+function gitAt(dir, args) {
+  return execFileSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', dir, ...args], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60_000,
+  })
+}
+
+function put(dir, rel, text) {
+  const abs = join(dir, rel)
+  mkdirSync(dirname(abs), { recursive: true })
+  writeFileSync(abs, text, 'utf8')
+}
+
 /**
- * 在临时目录里造一棵「看起来像本仓」的最小树,并把**真实的那份门脚本**拷进去。
- * 该门把 ROOT 由自身位置推导(scripts/check-*.mjs ⇒ 上一级),所以拷一份就等于换了被审面;
- * 判据仍是同一份实现 —— 本文件不重写任何一条臂(§22c「两份真相必漂移」)。
+ * 在临时目录里造一棵**真的 git 仓**、「看起来像本仓」的最小树,并把**真实的那份门脚本**
+ * (连同它的相对 import 闭包)拷进去。
+ *
+ * 两件必须同时成立的事:
+ *   ① 门把 ROOT 由自身位置推导(scripts/check-*.mjs ⇒ 上一级),所以拷一份就等于换了被审面;
+ *      判据仍是同一份实现 —— 本文件不重写任何一条臂(§22c「两份真相必漂移」)。
+ *   ② 收口后默认档判 **HEAD blob**,所以夹具**必须**是 git 仓并把四份输入提交进去 ——
+ *      否则跑出来的是 exit 2「无法判定」,而"夹具跑不通"绝不等于"判据通过"
+ *      (scratch-module-closure 头注记过同型:夹具失效会被读成判据绿)。
+ * 闭包清单由 scratch-module-closure **推导**,不手抄。
+ *
+ * @param commit 是否 add + commit(默认 true;false ⇒ 文件只在工作树,HEAD 面取不到)
+ * @param ledger 对象会被 stringify;给字符串则原样写入(用来造"台账不是合法 JSON"那一格)
  */
-function buildFixture({ contract, client, parse, ledger }) {
+function buildFixture({ contract, client, parse, ledger, commit = true }) {
   const dir = mkScratch('sse-parser-parity-')
-  const script = join(dir, 'scripts', 'check-sse-parser-parity.mjs')
-  for (const rel of [
-    'scripts/data',
-    'packages/shared/src/sse',
-    'packages/shared/src/utils',
-    'packages/api-client/src',
-  ]) {
-    mkdirSync(join(dir, rel), { recursive: true })
+  gitAt(dir, ['init', '-q'])
+  gitAt(dir, ['config', 'user.email', 'gate@fixture.local'])
+  gitAt(dir, ['config', 'user.name', 'gate-fixture'])
+  gitAt(dir, ['config', 'commit.gpgsign', 'false'])
+  // 夹具里三面互异是判据本体:autocrlf 会把"索引 blob vs 工作树 blob"的差异糊成换行符差异。
+  gitAt(dir, ['config', 'core.autocrlf', 'false'])
+  copyScriptWithClosure(SCRIPTS_DIR, GATE_REL, join(dir, 'scripts'), [
+    'lib/face-reader.mjs',
+    'lib/gitdir.mjs',
+  ])
+  put(dir, P_CONTRACT, contract)
+  put(dir, P_CLIENT, client)
+  put(dir, P_PARSE, parse)
+  put(dir, P_LEDGER, typeof ledger === 'string' ? ledger : `${JSON.stringify(ledger, null, 2)}\n`)
+  if (commit) {
+    gitAt(dir, ['add', '-A'])
+    gitAt(dir, ['commit', '-q', '-m', 'fixture'])
   }
-  copyFileSync(GATE_SCRIPT, script)
-  writeFileSync(join(dir, P_CONTRACT), contract)
-  writeFileSync(join(dir, P_CLIENT), client)
-  writeFileSync(join(dir, P_PARSE), parse)
-  writeFileSync(join(dir, P_LEDGER), JSON.stringify(ledger, null, 2) + '\n')
-  return { dir, script }
+  return { dir, script: join(dir, 'scripts', GATE_REL) }
 }
 
 /**
@@ -143,7 +176,10 @@ function runFixture({ script }, args = ['--json']) {
     env: { ...process.env, HUSKY_SKIP_SSE_PARSER_PARITY: '' },
   })
   const json = leadingJson(r.stdout)
-  assert.ok(json, `门在夹具上没有产出可读 JSON 结论 ⇒ 这条测试本身失效了:\n${r.stdout}\n${r.stderr}`)
+  assert.ok(
+    json,
+    `门在夹具上没有产出可读 JSON 结论 ⇒ 这条测试本身失效了:\n${r.stdout}\n${r.stderr}`,
+  )
   return { code: r.status, json, out: r.stdout, err: r.stderr ?? '' }
 }
 
@@ -294,12 +330,20 @@ test('② 变异对照:抹掉那一行守卫 ⇒ 不得再算已接(门不是被
 
 test('② 台账不得再挂一条"其实已接"的登记(本票回归本体)', () => {
   const res = gate.runChecks()
-  const declared = new Set((JSON.parse(readFileSync(join(REPO, P_LEDGER), 'utf8')).webOnly ?? []).map((x) => x.event))
+  // 台账与两份解析器**同面**取(判 HEAD 就三处都判 HEAD)—— 混面读会产出与真实提交相反的结论,
+  // 而账面自洽:这正是 G-303 收口这一型在测试侧的同款错误。
+  const declared = new Set((JSON.parse(showHead(P_LEDGER)).webOnly ?? []).map((x) => x.event))
   const stillParsed = [...declared].filter((e) => res.parseHandled.includes(e))
   assert.deepEqual(stillParsed, [], `这些帧已被 sse-parse 解析却仍挂着 webOnly 登记:${stillParsed}`)
   // 另一半:每一个"只在一侧解析"的帧都必须有登记 —— 缺一即小程序静默丢帧。
-  const unaccounted = res.clientHandled.filter((e) => !res.parseHandled.includes(e) && !declared.has(e))
-  assert.deepEqual(unaccounted, [], `api-client 已解析、sse-parse 未解析且未交代归属:${unaccounted}`)
+  const unaccounted = res.clientHandled.filter(
+    (e) => !res.parseHandled.includes(e) && !declared.has(e),
+  )
+  assert.deepEqual(
+    unaccounted,
+    [],
+    `api-client 已解析、sse-parse 未解析且未交代归属:${unaccounted}`,
+  )
 })
 
 // ───────────────────────── ③ 装车证明(判 HEAD 面) ─────────────────────────
@@ -335,5 +379,196 @@ test('③ 装车证明:runner(HEAD)里确有本门,且**台账文件在 stagedTr
   for (const p of [P_CONTRACT, P_CLIENT, P_PARSE]) {
     assert.ok(entry.includes(p), `输入面 ${p} 必须也在 stagedTriggers 里`)
   }
+})
+
+// ══════════════════ F ─ 取材面(G-303 收口)══════════════════
+//
+// 这一组证明的**不是**"比什么"(那由 ① 的三条臂管),而是"在哪一份内容上比"。
+// 三面互异必须在**临时 git 仓**里造 —— 真仓的 HEAD/索引/磁盘三者此刻恰好相同,
+// 拿它当夹具等于什么都没判(§22c:镜像测试只复读实现就是复读机)。
+// 每一条都配成对:只留"坏那一支"的话,"门瞎了"与"门判红"在账面上长得一模一样。
+
+const LEDGER_OK = { parseCoverageBaseline: 3, webOnly: [] }
+const LEDGER_STALE = {
+  parseCoverageBaseline: 3,
+  webOnly: [{ event: 'gamma_frame', why: GOOD_WHY }],
+}
+const SRC_OK = () => ({
+  contract: contractSource(EVENTS),
+  client: parserSource(EVENTS),
+  parse: parserSource(EVENTS),
+})
+
+/** 与 runFixture 的分工:这一个**不要求**有 JSON —— exit 2「无法判定」那一支本来就不产结论。 */
+function runRaw(f, args = ['--json']) {
+  const r = spawnSync(process.execPath, [f.script, ...args], {
+    encoding: 'utf8',
+    timeout: 120_000,
+    windowsHide: true,
+    cwd: f.dir,
+    env: { ...process.env, HUSKY_SKIP_SSE_PARSER_PARITY: '' },
+  })
+  return { code: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}`, json: leadingJson(r.stdout) }
+}
+
+test('F1 HEAD 绿 / 索引脏红 / 磁盘脏红:三面各读各的,且 --staged 读的是索引不是磁盘', () => {
+  const f = buildFixture({ ...SRC_OK(), ledger: LEDGER_OK })
+  try {
+    // 只把"过期登记"改到盘上并暂存 ⇒ HEAD 仍是好的
+    put(f.dir, P_LEDGER, `${JSON.stringify(LEDGER_STALE, null, 2)}\n`)
+    gitAt(f.dir, ['add', '--', P_LEDGER])
+
+    const head = runRaw(f)
+    assert.equal(head.code, 0, `默认档判 HEAD,盘上未提交的脏不得进账:${head.out}`)
+    assert.equal(
+      head.json && head.json.face,
+      'head',
+      '默认档必须是 head —— 结论里要能看出判的哪一面',
+    )
+    const staged = runRaw(f, ['--json', '--staged'])
+    assert.equal(staged.code, 1, `索引已带上脏 ⇒ --staged 必红:${staged.out}`)
+    assert.equal(staged.json && staged.json.face, 'staged')
+    assert.equal(runRaw(f, ['--json', '--worktree']).code, 1, '--worktree 必须看得见同一条脏')
+
+    // 反假绿的要害:摘掉暂存(索引回到 HEAD 那份),盘上仍是脏的。
+    // 若 --staged 偷偷看了磁盘,这一支就会跟着红 —— 那正是"回落"的另一种写法。
+    gitAt(f.dir, ['reset', '-q', '--', P_LEDGER])
+    const staged2 = runRaw(f, ['--json', '--staged'])
+    assert.equal(staged2.code, 0, `索引已干净 ⇒ --staged 必绿(红了就是它在偷看磁盘):${staged2.out}`)
+    assert.equal(
+      runRaw(f, ['--json', '--worktree']).code,
+      1,
+      '同一时刻磁盘仍脏 ⇒ 三面必须各答各的,不是同一个答案读三遍',
+    )
+  } finally {
+    rmScratch(f.dir)
+  }
+})
+
+test('F2 方向反过来:HEAD 脏而索引已修好 ⇒ 默认档仍红、--staged 绿(盘上改对不算修好)', () => {
+  const f = buildFixture({ ...SRC_OK(), ledger: LEDGER_STALE }) // HEAD 里就是过期登记
+  try {
+    put(f.dir, P_LEDGER, `${JSON.stringify(LEDGER_OK, null, 2)}\n`)
+    gitAt(f.dir, ['add', '--', P_LEDGER])
+    const head = runRaw(f)
+    assert.equal(head.code, 1, `HEAD 仍挂着过期登记 ⇒ 全量档必红:${head.out}`)
+    assert.equal(runRaw(f, ['--json', '--staged']).code, 0, '本次提交会带走的是修好的那一份')
+  } finally {
+    rmScratch(f.dir)
+  }
+})
+
+test('F3 该面取不到 ⇒ exit 2「无法判定」,绝不回落到另一个面(回落=把没判写成判过了)', () => {
+  // commit:false ⇒ 四份输入只在工作树上,HEAD 面一份都读不到;而磁盘面判据是绿的。
+  const f = buildFixture({ ...SRC_OK(), ledger: LEDGER_OK, commit: false })
+  try {
+    assert.equal(
+      runRaw(f, ['--json', '--worktree']).code,
+      0,
+      '前提自检:磁盘面此刻内容合法。它不绿就说明夹具本身没造对,后面的 2 也就没有意义',
+    )
+    const und = runRaw(f)
+    assert.equal(
+      und.code,
+      2,
+      `HEAD 面取不到却回了 ${und.code} ⇒ 要么记绿要么冒红,两者都错:${und.out}`,
+    )
+    assert.match(und.out, /无法判定/, '必须喊"无法判定",不能只留一个非零码')
+    assert.match(und.out, /scripts\/data\/sse-parser-coverage\.json/, '要点名取不到的是哪一份输入')
+    assert.ok(!/✅/.test(und.out), '取不到那一面绝不许输出通过结论')
+    assert.equal(
+      runRaw(f, ['--json', '--staged']).code,
+      2,
+      '索引面同样没有内容 ⇒ 也不许借 HEAD 或磁盘凑一份自洽的尺子',
+    )
+  } finally {
+    rmScratch(f.dir)
+  }
+})
+
+test('F4 两面旗同给 ⇒ exit 2 判死(取任一都会让另一面成为假绿)', () => {
+  const f = buildFixture({ ...SRC_OK(), ledger: LEDGER_OK })
+  try {
+    const both = runRaw(f, ['--json', '--staged', '--worktree'])
+    assert.equal(both.code, 2, both.out)
+    assert.match(both.out, /不得同用/)
+  } finally {
+    rmScratch(f.dir)
+  }
+})
+
+test('F5 台账不是合法 JSON ⇒ exit 2,不得被读成"没有违规"(旧写法是崩一个栈,账面同样是噪音)', () => {
+  const f = buildFixture({
+    ...SRC_OK(),
+    ledger: '{ "parseCoverageBaseline": 3, "webOnly": [',
+    commit: true,
+  })
+  try {
+    const und = runRaw(f)
+    assert.equal(und.code, 2, `坏台账判成了 ${und.code}:${und.out}`)
+    assert.match(und.out, /不是合法 JSON|无法判定/)
+    assert.equal(runRaw(f, ['--json', '--worktree']).code, 2, '坏 JSON 在哪个面都是"没有输入"')
+  } finally {
+    rmScratch(f.dir)
+  }
+})
+
+test('F6 判定面四态是纯函数(缺省 head / --staged / --worktree / 两旗判死),不靠人读结论文字', () => {
+  assert.equal(gate.faceFromArgv([]).face, 'head', '默认档回到磁盘 = 本门又在判滞后工作树')
+  assert.equal(gate.faceFromArgv(['--staged']).face, 'staged')
+  assert.equal(gate.faceFromArgv(['--worktree']).face, 'worktree')
+  const both = gate.faceFromArgv(['--staged', '--worktree'])
+  assert.equal(both.face, null)
+  assert.match(String(both.error), /互斥/)
+  assert.ok(
+    gate.FACE_TXT.head && gate.FACE_TXT.staged && gate.FACE_TXT.worktree,
+    '三面文案都得在位',
+  )
+})
+
+test('F7 输入清单本身就是判据的枚举面:少一份 = 判据对那一格失明,不得静默', () => {
+  const rels = Object.values(gate.INPUT_RELS)
+  assert.deepEqual(
+    [...rels].sort(),
+    [P_CONTRACT, P_CLIENT, P_PARSE, P_LEDGER].sort(),
+    '四份输入必须与门读的那四份逐字同集(台账不在里面 ⇒ 判据在自洽的错位上跑)',
+  )
+  // 阳性对照:真仓 HEAD 面四份都要读得到,且内容非空(读不到就是 exit 2,不是"通过")
+  const inputs = gate.readFaceInputs(REPO, 'head')
+  for (const rel of rels) {
+    assert.ok(
+      typeof inputs[rel] === 'string' && inputs[rel].length > 0,
+      `HEAD 面 ${rel} 取到空内容`,
+    )
+  }
+})
+
+test('F8 形状锁:取材必须走共用层的 catBatch,散写回潮由机器发现', () => {
+  const src = readFileSync(GATE_SCRIPT, 'utf8')
+  assert.match(
+    src,
+    /from '\.\/lib\/face-reader\.mjs'/,
+    '取材必须经共用层(否则绝对路径/stdio/maxBuffer 那四条坑会各写一遍)',
+  )
+  assert.match(
+    src,
+    /catBatch\(/,
+    '内容必须由一次批量读满得到 —— 未预取即读要抛,而不是偷偷补一次派生',
+  )
+  assert.match(src, /selectFace\(/, '面旗标语义不得自己再抄一份(两面旗同给判死是层的行为)')
+  // 反向锁:收口前的三种散写形态,一种都不许回来
+  assert.doesNotMatch(src, /readFileSync\s*\(/, '又按磁盘取被审内容了')
+  assert.doesNotMatch(src, /existsSync\s*\(/, '用磁盘存在性代替被审面取材 = 换一个面判绿')
+  assert.doesNotMatch(
+    src,
+    /\bshow\b/,
+    '自派生 git 取正文(裸 git show)= 绕过共用层的绝对路径与缓冲区护栏',
+  )
+  assert.doesNotMatch(src, /process\.cwd\(\)/, '定根不得依赖调用者站在哪(§15 路径纪律)')
+  assert.doesNotMatch(
+    src,
+    /return\s+null\s*\)\s*.*gitShow/,
+    '取不到就回落另一个面 = 把"没判"写成"判过了"',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
