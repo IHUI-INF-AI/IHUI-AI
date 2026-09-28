@@ -820,7 +820,7 @@ const checks = [
   //   实际检查的是 packages/i18n/messages/web/ 而非 mobile-rn/。
   //   要让本守门真正生效,需在 check-i18n-keys.mjs 增加 mobile-rn 分支(类似 cli 分支),
   //   当前为占位项,warn-only 不阻塞 commit。修复后此项才有实际防护意义。
-  // 升级 blocking 评估:待 check-i18n-keys.mjs 补 mobile-rn 分支后再评估。
+  // 升级 blocking 评估:该前置早已满足 —— check-i18n-keys.mjs 有 mobile-rn 分支,mobile-rn 的 parity-only 档
   {
     id: '2f-mobile-rn',
     label: '🌐 mobile-rn i18n parity 守门(warn-only 起步,2026-07-28 立)',
