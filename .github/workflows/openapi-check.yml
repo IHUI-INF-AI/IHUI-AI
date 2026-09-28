@@ -45,29 +45,36 @@ jobs:
 
     steps:
       - name: Checkout
+        id: checkout
         uses: actions/checkout@v4
 
       - name: Setup pnpm
+        id: setup-pnpm
         uses: pnpm/action-setup@v6
 
       - name: Setup Node
+        id: setup-node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
 
       - name: Install dependencies
+        id: install
         run: pnpm install --frozen-lockfile
 
       - name: Capability manifest matches catalog source (O8b)
+        id: capabilities-manifest
         # TS 目录(capability-catalog.ts)与生成产物(capabilities.json)不一致即红:
         # 这是"改代码不改登记表"能在本地蒙混过关的那道缝。
         run: pnpm capabilities:check
 
       - name: Run OpenAPI check
+        id: openapi-check
         run: node scripts/openapi-check.mjs
 
       - name: Build workspace packages the export graph imports
+        id: build-deps
         # `openapi:export` 启动的是**真实 Fastify 依赖图**(不监听端口/不连库),而图里
         # packages/shared/src/auth/token-store.ts → `@ihui/api-client` 走的是该包 package.json
         # 的 `main`(指向 dist/index.js)。CI 的 `pnpm install --frozen-lockfile` 从不构建
@@ -81,6 +88,7 @@ jobs:
         run: pnpm --filter "@ihui/api^..." run build
 
       - name: Assert committed contract has no drift (O8 [E])
+        id: assert-contract
         # committed 的 apps/api/openapi.json 是入库产物(见 .gitignore 的 negation)。
         # 这里从当前代码重新导出一份,逐键比对 —— 只校验 committed 产物的话,
         # "改了路由不重跑 export"照样能过,漂移判据就形同虚设。
@@ -91,5 +99,24 @@ jobs:
         run: |
           pnpm openapi:export --out "$GITHUB_WORKSPACE/.ihui-agent/tmp/openapi.fresh.json"
           node scripts/openapi-check.mjs --fresh "$GITHUB_WORKSPACE/.ihui-agent/tmp/openapi.fresh.json"
+
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      # 立因与行为契约见该脚本头注;边界:只在 failure() 分支跑,不碰上面任何步骤的判据
+      # 严格程度(无 continue-on-error、不删步骤、不扩 permissions、不新增 secret)。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/openapi-check.yml
+          TRIAGE_IDS: checkout setup-pnpm setup-node install capabilities-manifest openapi-check build-deps assert-contract
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_SETUP_PNPM: ${{ steps.setup-pnpm.outcome }}
+          O_SETUP_NODE: ${{ steps.setup-node.outcome }}
+          O_INSTALL: ${{ steps.install.outcome }}
+          O_CAPABILITIES_MANIFEST: ${{ steps.capabilities-manifest.outcome }}
+          O_OPENAPI_CHECK: ${{ steps.openapi-check.outcome }}
+          O_BUILD_DEPS: ${{ steps.build-deps.outcome }}
+          O_ASSERT_CONTRACT: ${{ steps.assert-contract.outcome }}
+        run: bash scripts/ci-failure-triage.sh
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
