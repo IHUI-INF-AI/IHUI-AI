@@ -436,7 +436,7 @@ export default function AdminRelayParamOpsPage() {
                 value={form.opsText}
                 onChange={(e) => setForm((f) => ({ ...f, opsText: e.target.value }))}
                 rows={10}
-                className="w-full rounded-md border border-border bg-background p-2 font-mono text-xs"
+                className="w-full rounded-sm border border-border bg-background p-2 font-mono text-xs"
                 placeholder='[{"op":"set","path":"temperature","value":0.2}]'
               />
             </div>
@@ -474,7 +474,7 @@ export default function AdminRelayParamOpsPage() {
                 value={sampleBody}
                 onChange={(e) => setSampleBody(e.target.value)}
                 rows={8}
-                className="w-full rounded-md border border-border bg-background p-2 font-mono text-xs"
+                className="w-full rounded-sm border border-border bg-background p-2 font-mono text-xs"
               />
             </div>
             <Button size="sm" onClick={() => dryRunMut.mutate()} disabled={dryRunMut.isPending}>

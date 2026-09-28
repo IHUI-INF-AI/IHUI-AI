@@ -192,7 +192,7 @@
   margin-right: 12rpx;
   flex-shrink: 0;
   padding: 12rpx 20rpx;
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-sm);
   background: var(--color-muted);
   cursor: pointer;
   transition: all 0.3s ease;

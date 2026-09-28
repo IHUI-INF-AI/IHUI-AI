@@ -335,7 +335,7 @@
   width: 600rpx;
   background: var(--color-card);
   border: 1px solid var(--vip-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: 40rpx;
 }
 .pp-title {

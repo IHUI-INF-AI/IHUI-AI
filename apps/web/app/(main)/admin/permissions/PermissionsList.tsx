@@ -83,7 +83,7 @@ export function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy 
                         <button
                           type="button"
                           onClick={() => onCopy(p)}
-                          className="group inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-xs transition-colors hover:bg-muted/70"
+                          className="group inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-xs transition-colors hover:bg-muted/70"
                         >
                           <code>{p.name}</code>
                           {copiedId === p.id ? (
