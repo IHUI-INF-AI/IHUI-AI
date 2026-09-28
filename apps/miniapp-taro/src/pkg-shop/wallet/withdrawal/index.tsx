@@ -146,7 +146,7 @@ export default function WithdrawalPage() {
         </View>
 
         <Button
-          className="mt-[40rpx] bg-cta text-cta-foreground rounded-xl text-[length:32rpx] font-semibold"
+          className="mt-[40rpx] bg-cta text-cta-foreground rounded-sm text-[length:32rpx] font-semibold"
           loading={submitting}
           disabled={submitting}
           onClick={onSubmit}

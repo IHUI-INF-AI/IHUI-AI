@@ -36,7 +36,7 @@ export function RefundFilter({
             key={tb.value}
             onClick={() => onStatusChange(tb.value)}
             className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              'rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
               status === tb.value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',

@@ -143,7 +143,7 @@ export default function StudyPlan() {
           </View>
         )}
         <Button
-          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-2xl text-[length:32rpx] font-semibold text-center"
+          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-sm text-[length:32rpx] font-semibold text-center"
           onClick={onAdd}
         >
           {t('study.planPage.add')}
@@ -164,14 +164,14 @@ export default function StudyPlan() {
               </Text>
               {/* 输入框对齐 RN fieldStyles.input:border light / radius 12dp→24rpx / h 50dp→100rpx / px 12dp→24rpx / bg surface.muted */}
               <Input
-                className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-xl text-[length:32rpx] text-foreground mb-[24rpx]"
+                className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-sm text-[length:32rpx] text-foreground mb-[24rpx]"
                 placeholder={t('study.publish.titlePlaceholder')}
                 value={newTitle}
                 onInput={(e) => setNewTitle(e.detail.value)}
               />
               <View className="flex items-center mb-[24rpx]">
                 <Input
-                  className="flex-1 h-[100rpx] px-[24rpx] bg-muted border border-border rounded-xl text-[length:32rpx] text-foreground"
+                  className="flex-1 h-[100rpx] px-[24rpx] bg-muted border border-border rounded-sm text-[length:32rpx] text-foreground"
                   type="number"
                   placeholder={t('study.planPage.target', { n: 30 })}
                   value={newTarget}
@@ -180,13 +180,13 @@ export default function StudyPlan() {
               </View>
               <View className="flex gap-[16rpx]">
                 <Button
-                  className="flex-1 h-[100rpx] leading-[100rpx] bg-muted text-foreground rounded-xl text-[length:32rpx] text-center"
+                  className="flex-1 h-[100rpx] leading-[100rpx] bg-muted text-foreground rounded-sm text-[length:32rpx] text-center"
                   onClick={() => setShowAdd(false)}
                 >
                   {t('common.cancel')}
                 </Button>
                 <Button
-                  className="flex-1 h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-xl text-[length:32rpx] font-semibold text-center"
+                  className="flex-1 h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-sm text-[length:32rpx] font-semibold text-center"
                   loading={saving}
                   disabled={saving}
                   onClick={submitAdd}

@@ -316,7 +316,7 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
                 <button
                   type="button"
                   onClick={handleQuickImport}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md bg-cta px-3 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-sm bg-cta px-3 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
                 >
                   <Zap className="h-3 w-3" />
                   <span>{t('quickImport')}</span>

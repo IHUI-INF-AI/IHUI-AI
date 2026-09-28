@@ -94,7 +94,7 @@ export default function ClawdbotMessagesPage() {
           wrapperClassName="flex-1 min-w-0"
         />
         <select
-          className="h-9 rounded-md border bg-background px-3 text-sm"
+          className="h-9 rounded-sm border bg-background px-3 text-sm"
           value={intentFilter}
           onChange={(e) => setIntentFilter(e.target.value)}
         >
