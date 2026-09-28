@@ -8,6 +8,7 @@
  * 路径(server.ts 用 prefix:'/api' 注册 → 最终 /api/subagents/*):
  *  - POST   /subagents/dispatch       创建派单(调 ai-service agent_orchestrator)
  *  - GET    /subagents/active         列出 pending/running 派单
+ *  - GET    /subagents/all            全量派单(新→旧,支持 status/limit 透传;G-299①)
  *  - POST   /subagents/:id/cancel     取消派单
  *  - POST   /subagents/:id/resume     从 checkpoint 恢复(深化 v2 新增)
  *  - GET    /subagents/topology       Swarm 拓扑(节点 + 边)
@@ -37,6 +38,7 @@ import { success, error } from '../utils/response.js'
 import { subagentDispatchService } from '../services/subagent-dispatch-service.js'
 import { findAgentTasksByAgentId } from '../db/agent-queries.js'
 import type { AgentTask } from '@ihui/database'
+import { isUuidString } from '../utils/uuid.js'
 
 export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   // 注入 Redis 客户端(fastify.decorate 挂载后,服务初始化时从 app 拿取)
@@ -432,6 +434,23 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ dispatches }))
   })
 
+  // ---------- GET /subagents/all ----------
+  // G-299①(2026-09-28):agent-teams 页(apps/web/app/(main)/agent-teams/page.tsx)要**全量**
+  // 派单历史(含 completed/failed/cancelled),/subagents/active 只是 pending/running 子集 ——
+  // 客户端改道 active 会把"页面少了历史"写成"已修",所以补这条真面。
+  // 形状与 active 同({dispatches}),排序取新→旧(消费方按列表直读);status/limit 透传自查询串。
+  server.get('/subagents/all', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const q = request.query as { status?: string; limit?: string }
+    let dispatches = subagentDispatchService.listAll().slice().reverse()
+    if (q.status) dispatches = dispatches.filter((d) => d.status === q.status)
+    const limit = Number(q.limit)
+    if (Number.isFinite(limit) && limit >= 1) dispatches = dispatches.slice(0, limit)
+    return reply.send(success({ dispatches }))
+  })
+
   // ---------- POST /subagents/:id/cancel ----------
 
   server.post('/subagents/:id/cancel', async (request, reply) => {
@@ -513,6 +532,10 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
 
     const { agentId } = request.params as { agentId: string }
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(agentId)) return reply.status(404).send(error(404, '派单不存在'))
     if (!agentId) {
       return reply.status(400).send(error(400, 'agentId 不能为空'))
     }

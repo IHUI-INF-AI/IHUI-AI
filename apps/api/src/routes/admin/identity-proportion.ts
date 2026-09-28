@@ -14,6 +14,7 @@ import { eq, desc, sql } from 'drizzle-orm'
 import { paginationSchema, idParamSchema } from './_shared.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
+import { isUuidString } from '../../utils/uuid.js'
 
 const createIdentityProportionSchema = z.object({
   status: z.coerce.number().int().min(0).default(0),
@@ -60,6 +61,7 @@ const identityProportionRoutes: FastifyPluginAsync = async (server) => {
   server.put('/identity-proportion/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const parsed = updateIdentityProportionSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数校验失败'))
@@ -79,6 +81,10 @@ const identityProportionRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/identity-proportion/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const removed = await db
       .delete(identityProportions)
       .where(eq(identityProportions.id, p.data.id))

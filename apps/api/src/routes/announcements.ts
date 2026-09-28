@@ -6,6 +6,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { findAnnouncements, findAnnouncementById } from '../db/content-queries.js'
 import { success, error } from '../utils/response.js'
+import { isUuidString } from '../utils/uuid.js'
 
 /**
  * P2-2 公告系统 — CLI 专用轻量端点。
@@ -57,6 +58,10 @@ export const announcementsRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(parsed.data.id)) return reply.status(404).send(error(404, '公告不存在'))
     try {
       const a = await findAnnouncementById(parsed.data.id)
       if (!a || !a.isPublished) {

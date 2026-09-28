@@ -33,6 +33,7 @@ import {
   type AlertMetric,
 } from '../../services/relay-alert-rules-service.js'
 import { runAlertRuleEvaluation } from '../../jobs/relay-alert-rules-evaluation.js'
+import { isUuidString } from '../../utils/uuid.js'
 
 const ruleBodySchema = z.object({
   name: z.string().min(1).max(100),
@@ -104,6 +105,7 @@ const adminRelayAlertRulesRoutes: FastifyPluginAsync = async (server) => {
   server.patch('/relay/alert-rules/:id', async (request, reply) => {
     const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) return reply.status(400).send(error(400, '规则 id 不合法'))
+    if (!isUuidString(idParsed.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const parsed = rulePatchSchema.safeParse(request.body ?? {})
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数不合法'))
@@ -122,6 +124,7 @@ const adminRelayAlertRulesRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/relay/alert-rules/:id', async (request, reply) => {
     const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) return reply.status(400).send(error(400, '规则 id 不合法'))
+    if (!isUuidString(idParsed.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     try {
       const okDeleted = await deleteAlertRule(idParsed.data.id)
       if (!okDeleted) return reply.status(404).send(error(404, '规则不存在'))
@@ -197,6 +200,10 @@ const adminRelayAlertRulesRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/relay/alert-silences/:id', async (request, reply) => {
     const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) return reply.status(400).send(error(400, '静默 id 不合法'))
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(idParsed.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     try {
       const okDeleted = await deleteAlertSilence(idParsed.data.id)
       if (!okDeleted) return reply.status(404).send(error(404, '静默不存在'))
