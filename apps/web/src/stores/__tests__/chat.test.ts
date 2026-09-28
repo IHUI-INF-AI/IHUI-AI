@@ -537,5 +537,228 @@ describe('useChatStore', () => {
       expect(useChatStore.getState().followUpQueueMode).toBe('queue')
     })
   })
+
+  // ============ G-703(2026-09-29 立)运行域状态一次性回收 ============
+  //
+  // 票面诊断的那一型:`setStreaming` 是裸写单键,而 `aiStreamSessionId`(postTerminalInput 的
+  // 唯一上行寻址凭据)除初值与 clearMessages 外**没有任何清除点** —— 于是回合进终态后,
+  // 上一轮的 sessionId 继续被下一轮的消费点拿去用(假"还在跑" + 把输入送到一条已死的流)。
+  // 所以这里的用例分成三件事:① 终态真的把三键并列回收;② 出口只有一个(两条路径同形);
+  // ③ 回收**不越界**(非运行域键不得被顺手清 —— 票面同样明令禁止)。
+
+  describe('G-703 终态一次性回收运行域寻址凭据', () => {
+    beforeEach(() => {
+      useChatStore.setState({
+        isStreaming: false,
+        streamingAssistantId: null,
+        aiStreamSessionId: null,
+      })
+    })
+
+    /** 把"一轮正在跑"的运行域凭据摆齐(与 send-message 的真实顺序同形:
+     *  先 setStreaming(true),再登记 steer 目标与观察到的流会话 ID)。 */
+    const seedRunningRound = (): void => {
+      const store = useChatStore.getState()
+      store.setStreaming(true)
+      store.setStreamingAssistantId('msg-1')
+      store.noteStreamSessionId('sess-old')
+    }
+
+    const runScopedSnapshot = () => {
+      const s = useChatStore.getState()
+      return {
+        isStreaming: s.isStreaming,
+        streamingAssistantId: s.streamingAssistantId,
+        aiStreamSessionId: s.aiStreamSessionId,
+      }
+    }
+
+    it('setStreaming(false) 同事务回收三键(票面点名的 aiStreamSessionId 必须有清除点)', () => {
+      seedRunningRound()
+      expect(runScopedSnapshot()).toEqual({
+        isStreaming: true,
+        streamingAssistantId: 'msg-1',
+        aiStreamSessionId: 'sess-old',
+      })
+
+      useChatStore.getState().setStreaming(false)
+
+      expect(runScopedSnapshot()).toEqual({
+        isStreaming: false,
+        streamingAssistantId: null,
+        aiStreamSessionId: null,
+      })
+    })
+
+    it('clearRunScopedState() 与 setStreaming(false) 必须同形(单一出口,不是两套复位逻辑)', () => {
+      seedRunningRound()
+      useChatStore.getState().clearRunScopedState()
+      const viaExit = runScopedSnapshot()
+
+      seedRunningRound()
+      useChatStore.getState().setStreaming(false)
+      const viaSetter = runScopedSnapshot()
+
+      expect(viaExit).toEqual(viaSetter)
+      expect(viaSetter).toEqual({
+        isStreaming: false,
+        streamingAssistantId: null,
+        aiStreamSessionId: null,
+      })
+    })
+
+    it('setStreaming(true) 只置运行标志,不得顺手抹掉本轮已登记的凭据(正向对照)', () => {
+      // 真实顺序:send-message 先 setStreaming(true),sessionId 是**之后**由同源帧观察登记的;
+      // 若 true 侧也走复位集合,每一轮刚开始就把刚登记的地址清掉了 —— 那是另一种丢状态。
+      useChatStore.getState().noteStreamSessionId('sess-keep')
+      useChatStore.getState().setStreamingAssistantId('msg-keep')
+      useChatStore.getState().setStreaming(true)
+      const s = useChatStore.getState()
+      expect(s.isStreaming).toBe(true)
+      expect(s.aiStreamSessionId).toBe('sess-keep')
+      expect(s.streamingAssistantId).toBe('msg-keep')
+    })
+
+    it('clearMessages 同样回收运行域三键(新建对话不继承上一轮)', () => {
+      useChatStore.getState().addMessage({ role: 'user', content: 'a', model: 'm' })
+      seedRunningRound()
+      useChatStore.getState().clearMessages()
+      expect(useChatStore.getState().messages).toEqual([])
+      expect(runScopedSnapshot()).toEqual({
+        isStreaming: false,
+        streamingAssistantId: null,
+        aiStreamSessionId: null,
+      })
+    })
+
+    it('回收不得越界:终端缓冲 / 中断续接键 / 消息本体都不在运行域清单里', () => {
+      // 票面另一半约束("不得顺手清非运行域的键")。这一条防的是下一次有人"顺手把清单加大":
+      // terminalOutputs 是**终态渲染**要取的更完整缓冲(见 chat.ts :295-308 原注释),
+      // interruptedMessageId 是 #21「中断后追加指令继续」在流结束后仍要读的键。
+      const id = useChatStore.getState().addMessage({ role: 'assistant', content: 'x', model: 'm' })
+      useChatStore.getState().appendTerminalOutput('t-1', '命令输出')
+      useChatStore.getState().setTerminalInteraction('t-1', {
+        promptTail: 'Password:',
+        waitingSinceMs: 1_000,
+        maxInputChars: 8,
+        submitting: false,
+        failed: false,
+      })
+      useChatStore.getState().setInterruptedMessage(id)
+      seedRunningRound()
+
+      useChatStore.getState().setStreaming(false)
+
+      const s = useChatStore.getState()
+      expect(s.terminalOutputs['t-1']).toBe('命令输出')
+      expect(s.terminalInteractions['t-1']).toBeDefined()
+      expect(s.interruptedMessageId).toBe(id)
+      expect(s.messages).toHaveLength(1)
+    })
+  })
+
+  // ============ G-704(2026-09-29 立)值等价即不写 ============
+  //
+  // 要防的是"回声写":高频 SSE 写入位(send-message 每 800ms 写一次 meta.usage)每帧都**新造**
+  // 一个对象交给 store,store 无条件产出新 state ⇒ 订阅侧收到"变了" ⇒ store→effect→set 自环。
+  // 用例判的就是"确实没写"这一件事:相等时 **state 引用必须逐字不变**(`toBe`,不是 toEqual),
+  // 并且每条短路都配一条"值真变了 ⇒ 必须写"的阳性对照 —— 否则一台恒不写的尺子也能全绿。
+
+  describe('G-704 值等价即不写(高频 SSE 写入位)', () => {
+    beforeEach(() => {
+      useChatStore.setState({ messages: [], memoryUpdateNotices: [] })
+    })
+
+    const addAssistant = (): string =>
+      useChatStore.getState().addMessage({ role: 'assistant', content: '', model: 'm' })
+
+    it('updateMessageMeta:同一帧写两次 ⇒ state 引用不变(连消息对象都不重建)', () => {
+      const id = addAssistant()
+      useChatStore
+        .getState()
+        .updateMessageMeta(id, { usage: { total: 6, prompt: 4, completion: 2 } })
+      const afterFirst = useChatStore.getState()
+      const messageAfterFirst = afterFirst.messages[0]
+      expect(messageAfterFirst).toBeDefined()
+
+      // 第二帧:全新造的对象、逐字段等值、键序刻意不同(比较器必须键序无关)
+      useChatStore.getState().updateMessageMeta(id, {
+        usage: { prompt: 4, completion: 2, total: 6 },
+      })
+
+      expect(useChatStore.getState()).toBe(afterFirst)
+      expect(useChatStore.getState().messages).toBe(afterFirst.messages)
+      expect(useChatStore.getState().messages[0]).toBe(messageAfterFirst)
+    })
+
+    it('updateMessageMeta:嵌套里一个叶子真变了 ⇒ 必须写(阳性对照:短路不得吞掉更新)', () => {
+      const id = addAssistant()
+      useChatStore.getState().updateMessageMeta(id, { usage: { total: 6, prompt: 4 } })
+      const before = useChatStore.getState()
+
+      useChatStore.getState().updateMessageMeta(id, { usage: { total: 7, prompt: 4 } })
+
+      const after = useChatStore.getState()
+      expect(after).not.toBe(before)
+      expect(after.messages[0]?.meta).toEqual({ usage: { total: 7, prompt: 4 } })
+    })
+
+    it('updateMessageMeta:新增兄弟键 ⇒ 必须写,且不动既有键', () => {
+      const id = addAssistant()
+      useChatStore.getState().updateMessageMeta(id, { usage: { total: 6 } })
+      useChatStore.getState().updateMessageMeta(id, { durationMs: 1_200 })
+      expect(useChatStore.getState().messages[0]?.meta).toEqual({
+        usage: { total: 6 },
+        durationMs: 1_200,
+      })
+    })
+
+    it('updateMessageMeta:空 meta 且目标本就没有 meta ⇒ 不产出幻影键(等价即不写)', () => {
+      const id = addAssistant()
+      const before = useChatStore.getState()
+      useChatStore.getState().updateMessageMeta(id, {})
+      expect(useChatStore.getState()).toBe(before)
+      expect(useChatStore.getState().messages[0]?.meta).toBeUndefined()
+    })
+
+    it('updateMessageMeta:未知 messageId 仍是 no-op(既有早退语义未被等价短路改变)', () => {
+      addAssistant()
+      const before = useChatStore.getState()
+      useChatStore.getState().updateMessageMeta('no-such-message-id', { usage: { total: 1 } })
+      expect(useChatStore.getState()).toBe(before)
+    })
+
+    it('appendMemoryNotice:同批 items 重放 ⇒ state 引用不变(done 重放 / 历史与 done 先后到齐)', () => {
+      useChatStore.getState().appendMemoryNotice('m-1', ['已记住 A'])
+      const before = useChatStore.getState()
+      const noticesBefore = before.memoryUpdateNotices
+
+      useChatStore.getState().appendMemoryNotice('m-1', ['已记住 A'])
+
+      expect(useChatStore.getState()).toBe(before)
+      expect(useChatStore.getState().memoryUpdateNotices).toBe(noticesBefore)
+      expect(useChatStore.getState().memoryUpdateNotices).toHaveLength(1)
+    })
+
+    it('appendMemoryNotice:确有新条目 ⇒ 照写并合并去重(阳性对照)', () => {
+      useChatStore.getState().appendMemoryNotice('m-1', ['已记住 A'])
+      const before = useChatStore.getState()
+
+      useChatStore.getState().appendMemoryNotice('m-1', ['已记住 B', '已记住 A'])
+
+      const after = useChatStore.getState()
+      expect(after).not.toBe(before)
+      expect(after.memoryUpdateNotices).toHaveLength(1)
+      expect(after.memoryUpdateNotices[0]?.items).toEqual(['已记住 A', '已记住 B'])
+    })
+
+    it('appendMemoryNotice:不同 messageId ⇒ 各写一条(等价短路只作用于同一条目)', () => {
+      useChatStore.getState().appendMemoryNotice('m-1', ['同一句话'])
+      const before = useChatStore.getState()
+      useChatStore.getState().appendMemoryNotice('m-2', ['同一句话'])
+      expect(useChatStore.getState()).not.toBe(before)
+      expect(useChatStore.getState().memoryUpdateNotices).toHaveLength(2)
+    })
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

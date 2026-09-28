@@ -303,7 +303,8 @@
   right: 20%;
   height: 4rpx;
   background: var(--color-link);
-  border-radius: 2rpx;
+  /* 装饰条族:半径取档位表最小档(2px),在 4rpx 高的条上仍等于条高一半 ⇒ 圆头端点;旧写法是档位外的字面量 */
+  border-radius: var(--radius-xs);
 }
 
 /* 素材列表滚动区 */

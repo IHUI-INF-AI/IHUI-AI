@@ -21,6 +21,11 @@ import { readdirSync, statSync, rmSync, existsSync, readFileSync } from 'node:fs
 import { join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+// G-611 产出侧:本脚本正是 check-typecheck:454 那套"族码 ⇒ 临时失败"集合的**被派生方**。
+// 装之前,POSIX 信号杀走默认动作(无码),消费侧集合判据对它结构上失明;装之后,
+// 可捕获的信号(SIGINT/SIGTERM/SIGPIPE/SIGBREAK)一律产出 128+N,父侧按同一把尺子归因。
+// 集合/分类的唯一实现住 scripts/lib/signal-exit.mjs —— 不得在本文件再写一份。
+import { installSignalExit } from './lib/signal-exit.mjs'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -66,7 +71,7 @@ export function pickStalePackages(entries) {
 /** 递归取目录内文件的最新 mtime(跳过依赖与缓存目录);目录不存在返回 -1。 */
 function newestMtimeMs(dir) {
   let out = -1
-  let stack = [dir]
+  const stack = [dir] // stack 只 push/pop 不重赋值 —— prefer-const(eslint --fix 同形)
   while (stack.length) {
     const cur = stack.pop()
     let entries = []
@@ -195,6 +200,13 @@ if (process.env.IHUI_TYPECHECK_FULL_CHILD === '1') {
   process.exit(0)
 }
 process.env.IHUI_TYPECHECK_FULL_CHILD = '1' // 传给 pnpm -r 子进程链
+
+// G-611 产出侧装配(装在再入守卫之后、锁与主流程之前 —— 等锁/清缓存/派生全程都在射程内)。
+// 说明:下方主派生是 spawnSync(阻塞事件循环),阻塞期间信号由 libuv 排队、监听器在阻塞
+// 返回后才跑;组杀(CTRL_C / 进程组信号)时 pnpm 子进程同死,阻塞随即返回,码产出不迟。
+// 不可捕获的强杀(TerminateProcess/taskkill /F)任何进程都产不出码 —— 与装本模块前一致,
+// 增益在于"可捕获的那一半现在必有码",而锁清理仍由既有 process.on('exit') 兜住。
+installSignalExit({ label: 'typecheck:full' })
 function _pidAlive(pid) {
   if (!pid) return true
   try {

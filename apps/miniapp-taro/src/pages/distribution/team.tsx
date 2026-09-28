@@ -225,12 +225,12 @@ export default function DistributionTeam() {
                   <View className="relative w-[88rpx] h-[88rpx]">
                     {m.avatar ? (
                       <Image
-                        className="w-[88rpx] h-[88rpx] rounded-full"
+                        className="w-[88rpx] h-[88rpx] rounded-2xl"
                         src={m.avatar}
                         mode="aspectFill"
                       />
                     ) : (
-                      <View className="w-[88rpx] h-[88rpx] rounded-full bg-[var(--color-muted)] items-center justify-center">
+                      <View className="w-[88rpx] h-[88rpx] rounded-2xl bg-[var(--color-muted)] items-center justify-center">
                         <Text className="text-[length:36rpx] font-semibold text-muted-foreground">
                           {m.nickname.charAt(0) || '?'}
                         </Text>

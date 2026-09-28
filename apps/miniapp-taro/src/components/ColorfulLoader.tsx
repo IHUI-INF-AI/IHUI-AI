@@ -55,15 +55,18 @@ export default function ColorfulLoader({
       {dots.map((_, i) => {
         const angle = (360 / COLORFUL_LOADER_DOT_COUNT) * i
         // 保留:colorful loader 72 点 HSL 动态着色(按索引循环色相);动态计算色无法 token 化,共享源给公式
-        // 豁免 0b: 装饰圆点(72 点 HSL 循环色相,典型 rounded-full 装饰元素)
         const color = colorfuleLoaderDotColor(i)
         return (
           <View
             key={i}
-            className="absolute rounded-full"
+            className="absolute"
             style={{
               width: `${dotSize}rpx`,
               height: `${dotSize}rpx`,
+              // 圆点半径 = 自己边长的一半:相对式即几何真圆,与 RN 端 `borderRadius: size / 2` 同形。
+              // 这里不用档名/类名 —— 72 颗点共享同一个 dotSize,写成固定档会让"盒比档小"时
+              // 被 CSS 夹持、盒比档大时被裁成非真圆,而相对式在两种尺寸下都是真圆。
+              borderRadius: `${dotSize / 2}rpx`,
               top: '50%',
               left: '50%',
               marginLeft: `-${dotSize / 2}rpx`,
