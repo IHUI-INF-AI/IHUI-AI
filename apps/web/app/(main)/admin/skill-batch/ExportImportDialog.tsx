@@ -124,7 +124,7 @@ export function ExportImportDialog({
               accept=".json"
               onChange={handleFileChange}
               disabled={importing}
-              className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary hover:file:bg-primary/20"
+              className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-sm file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary hover:file:bg-primary/20"
             />
             {importing && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">

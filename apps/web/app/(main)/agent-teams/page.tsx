@@ -98,7 +98,7 @@ export default function AgentTeamsPage() {
           type="button"
           onClick={() => void refresh()}
           aria-label={t('refresh')}
-          className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-sm bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
         >
           <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
         </button>
@@ -131,7 +131,7 @@ export default function AgentTeamsPage() {
               type="button"
               onClick={() => setFilter(f)}
               className={cn(
-                'rounded-md border px-3 py-1 text-xs transition-colors',
+                'rounded-sm border px-3 py-1 text-xs transition-colors',
                 filter === f
                   ? 'border-brand-accent-deep bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:bg-accent',
@@ -159,7 +159,7 @@ export default function AgentTeamsPage() {
                     type="button"
                     onClick={() => setSelectedId(d.id)}
                     className={cn(
-                      'w-full rounded-md px-2 py-2 text-left transition-colors hover:bg-accent',
+                      'w-full rounded-sm px-2 py-2 text-left transition-colors hover:bg-accent',
                       selectedId === d.id && 'bg-accent',
                     )}
                   >

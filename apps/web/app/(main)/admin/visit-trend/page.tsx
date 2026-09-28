@@ -82,7 +82,7 @@ export default function VisitTrendPage() {
               type="button"
               onClick={() => setGranularity(g.value)}
               className={cn(
-                'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+                'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
                 granularity === g.value
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground',
