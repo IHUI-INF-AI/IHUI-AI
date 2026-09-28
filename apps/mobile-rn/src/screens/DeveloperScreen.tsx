@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   logo: {
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: rnRadius['2xl'],
   } as ImageStyle,
   userName: {
     fontSize: 17,
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
   iconBody: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: rnRadius['2xl'],
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
