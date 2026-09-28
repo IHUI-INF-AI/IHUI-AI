@@ -12,7 +12,7 @@
  * ProviderConfig schema(apps/ai-service/app/core/provider_config.py),
  * 提前发现 JSON 格式错 / 字段类型错 / 未知 provider,避免运行时 ValidationError。
  *
- * 校验规则(7 条):JSON 解析 / 顶层对象 / 31 个 provider 白名单 /
+ * 校验规则(7 条):JSON 解析 / 顶层对象 / provider 白名单(条数以 PROVIDER_WHITELIST 现值为准) /
  *   字段类型(api_key=str / api_base=str|null / enabled=bool / models=str[] /
  *   default_model=str|null) / 未知字段透传 / 空值检查 / 重复 provider 检测。
  *
@@ -30,7 +30,12 @@ const C = {
   cyan: '\x1b[36m', dim: '\x1b[2m', bold: '\x1b[1m', reset: '\x1b[0m',
 }
 
-// 32 个 provider name 白名单(config.py LLM_PROVIDERS 动态识别 + _PROVIDER_KEY_ALIASES)
+// provider name 白名单 —— 本门手工维护的一份副本(条数现读 `PROVIDER_WHITELIST.size`,勿在注释里写死)。
+// 事实来源:apps/ai-service/app/core/config.py 已完全字典化,唯一配置源是 .env 的 LLM_PROVIDERS 并由其自动识别,
+// 旧 24+7 扁平字段与 `_PROVIDER_KEY_ALIASES` 均已删除 —— 所以这里**没有**可投影的机器源。
+// 后果:按 config.py 的设计"新增 provider 零代码改动",而本门会把它判成未知 provider。
+// 收口方向(另计一票):由 .env/服务端能力清单单向投影出白名单,或让 ai-service 暴露名单出口;
+// 在此之前新增 provider 必须同步这里,不得为消红删判据。
 const PROVIDER_WHITELIST = new Set([
   'openai', 'anthropic', 'groq', 'gemini', 'openrouter', 'agnes', 'stepfun',
   'cloudflare', 'nvidia', 'github', 'vercel', 'opencode', 'modal', 'inference_net',
@@ -87,7 +92,7 @@ function printHelp() {
 
 校验规则(7 条):
   1. JSON 解析必须合法  2. 顶层必须是对象
-  3. provider name 不在 31 个白名单 → warning(--strict 升级为 error)
+  3. provider name 不在白名单(条数见 PROVIDER_WHITELIST) → warning(--strict 升级为 error)
   4. 字段类型:api_key=str / api_base=str|null / enabled=bool /
               models=str[] / default_model=str|null
   5. 未知字段:允许(透传到 extra),info 提示
