@@ -131,7 +131,10 @@ test('M2 两档的分界可测:正则体在新档被遮、在兼容档逐字留�
   const bal = (x) => (x.match(/\(/g) || []).length - (x.match(/\)/g) || []).length
   const legacy = maskCommentsAndStrings(src)
   const strict = maskCommentsStringsAndRegex(src)
-  assert.ok(bal(legacy) > 0, '兼容档把正则里的 `(` 当代码 ⇒ 开括号凭空多一个(156 的"配不平"就是这么来的)')
+  assert.ok(
+    bal(legacy) > 0,
+    '兼容档把正则里的 `(` 当代码 ⇒ 开括号凭空多一个(156 的"配不平"就是这么来的)',
+  )
   assert.equal(bal(strict), 0, '新档必须遮掉正则体让配平恢复,否则那 3 处未判定收不掉')
   // 反向:真调用与真字符串不得因为"更聪明"而被吞掉
   assert.ok(strict.includes('.test('), '正则之后的真代码必须逐字可见')
@@ -139,7 +142,9 @@ test('M2 两档的分界可测:正则体在新档被遮、在兼容档逐字留�
 })
 
 test('M3 两个导出都等长且行数不漂(各门按行回溯归属的坐标不能动)', () => {
-  for (const src of corpus().slice(0, 40).map((f) => f.text)) {
+  for (const src of corpus()
+    .slice(0, 40)
+    .map((f) => f.text)) {
     for (const fn of [maskCommentsAndStrings, maskCommentsStringsAndRegex]) {
       const m = fn(src)
       assert.equal(m.length, src.length, '遮罩改变了长度 ⇒ 列位与偏移全部漂移')
@@ -170,7 +175,7 @@ test('M6 maskComments 只遮注释、保留字符串;注释里的正则形态不
   const src =
     "import { catBatch } from './lib/face-reader.mjs'\n" +
     "// 建议改成 from './lib/other.mjs'\n" +
-    "const re = /['\"]/g\n"
+    'const re = /[\'"]/g\n'
   const masked = maskComments(src)
   assert.ok(masked.includes("from './lib/face-reader.mjs'"), '模块说明符本身就是字符串,不得被遮掉')
   assert.ok(!masked.includes("from './lib/other.mjs'"), '注释里的提及不得被读成装车(放行方向的红)')
@@ -191,7 +196,9 @@ test('M7 正则档的两头都钉住:真除法不得开正则状态,认得出的
   assert.equal(rx.length, 1, '正则字面量必须被识别成一个 span')
   assert.equal(rx[0].kind, 'regex')
   assert.ok(
-    !/readFileSync\s*\(/.test(maskCommentsStringsAndRegex('const re = /readFileSync\\(join\\(ROOT/g\n')),
+    !/readFileSync\s*\(/.test(
+      maskCommentsStringsAndRegex('const re = /readFileSync\\(join\\(ROOT/g\n'),
+    ),
     '正则体内的假调用必须不可见,否则 M2 的绿只是"遮罩整体关掉"的假象',
   )
 })
@@ -280,7 +287,13 @@ test('M10 消费方接线锁:守门 156 必须真的改用认正则那一档(改
   // 上收的另一半:118 只许留判据
   const g118 = readFileSync(join(ROOT, 'scripts', 'check-gate-face-discipline.mjs'), 'utf8')
   assert.match(g118, /from '\.\/lib\/code-mask\.mjs'/, '118 必须引这一层')
-  for (const def of ['scanSpans', 'readStringSpan', 'readRegexSpan', 'maskComments', 'blankStrings']) {
+  for (const def of [
+    'scanSpans',
+    'readStringSpan',
+    'readRegexSpan',
+    'maskComments',
+    'blankStrings',
+  ]) {
     assert.ok(
       !new RegExp(`function ${def}\\s*\\(`).test(g118),
       `118 里还留着 \`function ${def}(\` —— 遮噪器必须住在 lib,不得再分叉第二台`,

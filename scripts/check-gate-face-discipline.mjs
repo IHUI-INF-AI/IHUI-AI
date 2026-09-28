@@ -325,8 +325,6 @@ export function readsPrejoinedConst(text, names) {
   return hit
 }
 
-
-
 /**
  * 单文件定性。返回 `{ kind, why }`:
  *  - `face`        调用过取材层的读取入口取内容 ⇒ 合规
@@ -484,7 +482,8 @@ export function analyze(root, face) {
  * **存在、非空且不以 `-` 开头**,才算该旗标的值。
  */
 export function flagValue(list, flag) {
-  if (!Array.isArray(list) || !list.includes(flag)) return { present: false, valid: false, value: null, token: null }
+  if (!Array.isArray(list) || !list.includes(flag))
+    return { present: false, valid: false, value: null, token: null }
   const raw = list[list.indexOf(flag) + 1]
   const token = typeof raw === 'string' ? raw : null
   const valid = token !== null && token !== '' && !token.startsWith('-')
@@ -525,7 +524,8 @@ export function resolveRootArg(argv) {
     assertRepoRoot(root, '本门')
   } catch (e) {
     // Undetermined = "判不出"(按口径转述原因,不打栈);其它异常 = 脚本自身故障,保留栈可诊断。
-    if (e instanceof Undetermined) return { root: null, errorLines: [`❌ 无法判定(exit 2): ${e.message}`] }
+    if (e instanceof Undetermined)
+      return { root: null, errorLines: [`❌ 无法判定(exit 2): ${e.message}`] }
     return {
       root: null,
       errorLines: [`❌ 无法判定(exit 2): ${e?.message ?? String(e)}`, e?.stack ?? ''],
