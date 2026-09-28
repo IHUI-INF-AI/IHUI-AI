@@ -339,6 +339,13 @@ export function maskFaces(src) {
 /**
  * 一行里 `className=` / `class=` 属性的**字符串字面量内容**。
  * 锚点取自 `code` 面(证明属性是真的),内容取自原文(类名活在字符串里)。
+ *
+ * 两个字面量之间必须**仍在同一个 class 表达式里** —— 实测原写法靠"距离 ≤60 字符"连采 3 段,
+ * 于是 `className="rounded-xl border bg-card" data-testid="plan-review-panel"` 把**兄弟属性**的值
+ * 也当类名收了,产出一条根本不存在的 `panel` 弱证据,和 `bg-card` 的 card 撞成 `role-conflict`。
+ * 判据越界的表现不是"多算一个角色",而是**把能判的格写成判不出**。
+ * 允许继续采集的间隔只可能是 `cn(` / `,` / `||` / `? :` / `+` 这类表达式连接符;
+ * 出现 `=`(新属性)、`>`(开标签结束)、`}`(表达式收尾)一律停。
  */
 export function classStringsInLine(codeLine, rawLine) {
   const out = []
@@ -347,15 +354,69 @@ export function classStringsInLine(codeLine, rawLine) {
   while ((m = RE.exec(codeLine))) {
     const rest = rawLine.slice(m.index)
     let taken = 0
+    let prevEnd = -1
     for (const lit of rest.matchAll(/(["'`])([^"'`\n]*)\1/g)) {
       if (lit.index > 60) break // 离锚点太远的那段字符串不属于这个属性
+      if (prevEnd >= 0 && /[=>}]/.test(rest.slice(prevEnd, lit.index))) break // 已离开本属性
       if (lit[2] && /\S/.test(lit[2])) {
         out.push(lit[2])
+        prevEnd = lit.index + lit[0].length
         if (++taken >= 3) break
+      } else {
+        prevEnd = lit.index + lit[0].length
       }
     }
   }
   return out
+}
+
+/**
+ * 声明作用域表:`function X(...){}` / `const X = () => {}` / `const X = function` 的**行区间**。
+ * 取材面必须是已抹注释与字符串的 code 面(否则注释里的假声明会造出不存在的区间)。
+ * 括号配平失败(不闭合)⇒ 该声明**不记**,判"归属判不出"而不是猜一个范围。
+ * @returns {{name:string, start:number, end:number, exported:boolean}[]} 按 start 升序
+ */
+export function declarationRanges(codeSource) {
+  const lines = String(codeSource || '').split('\n')
+  const RE =
+    /(?:^|\s)(export\s+)?(?:default\s+)?(?:async\s+)?(?:function\*?\s+|const\s+|let\s+|var\s+)([A-Z][\w$]*)\s*(?:[=(:]|\s*function)/
+  const found = []
+  for (let i = 0; i < lines.length; i++) {
+    const m = RE.exec(lines[i])
+    if (!m) continue
+    if (!/^[A-Z]/.test(m[2])) continue // 只有 PascalCase 才是"这是个界面元素"的主张
+    let depth = 0
+    let seen = false
+    let end = -1
+    for (let j = i; j < lines.length; j++) {
+      for (const ch of lines[j]) {
+        if (ch === '{') {
+          depth++
+          seen = true
+        } else if (ch === '}') {
+          depth--
+          if (seen && depth === 0) {
+            end = j + 1
+            break
+          }
+        }
+      }
+      if (end > 0) break
+      if (j - i > 1200) break // 病态文件护栏:配平不到就判"判不出",不扫全文件
+    }
+    if (end > 0) found.push({ name: m[2], start: i + 1, end, exported: Boolean(m[1]) })
+  }
+  return found
+}
+
+/** 某行的**内层**声明归属(取区间最小者 = 最内层);没有 ⇒ null(判不出,不是"没有组件")。 */
+export function ownerOfLine(ranges, line) {
+  let best = null
+  for (const r of ranges || []) {
+    if (line < r.start || line > r.end) continue
+    if (!best || r.end - r.start < best.end - best.start) best = r
+  }
+  return best
 }
 
 /** px → 档位名列表(同值可能不止一档:`DEFAULT` 与 `lg` 都是 8)。 */export function stepsForPx(table, px) {
