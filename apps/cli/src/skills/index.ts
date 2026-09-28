@@ -98,6 +98,12 @@ export interface LoadSkillsOptions {
   cwd: string;
   /** 仓库根目录(可选,缺省从 cwd 向上找 .git) */
   repoRoot?: string;
+  /**
+   * 扫描过程的可见记录出口(G-408③)。缺省落 console.warn(stderr)。
+   * "拒绝跟随符号链接/junction"不得表现为静默跳过 —— 静默与"没有链接"在账面上同形,
+   * 那是本仓记过最多次的失效型("判据/功能失效的表现永远是安静")。
+   */
+  onNotice?: (message: string) => void;
 }
 
 /**
@@ -396,6 +402,23 @@ function realKey(file: string): string {
 }
 
 /**
+ * 该路径本身是否为符号链接 / Windows junction(重解析点)。G-408③ 的显式判据。
+ *
+ * 必须用 **lstat** 而不是 stat:`stat`/`existsSync` 会**跟随**重解析点去报告目标的状态,
+ * 链接本体反而看不见(AGENTS §26 实测:Node 侧 `lstatSync(p).isSymbolicLink()` 对 Windows
+ * junction 也返回 true,不需要它是 POSIX symlink)。
+ * lstat 自身失败(无权限/竞态)返回 false ⇒ 交回调用方按"该路径不可读"的既有路径处理 ——
+ * 不得把"判不出"伪装成"确实是链接"而静默拒绝。
+ */
+function isReparseLink(p: string): boolean {
+  try {
+    return fs.lstatSync(p).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 扫描单个目录下的技能,返回 Skill 数组。两种形态都收:
  *   ① 平铺 `<dir>/<name>.md`                      —— 本仓历史形态
  *   ② 目录包 `<dir>/<name>/SKILL.md`(只下一层) —— 社区/行业 Agent 技能包的实际落地形态
@@ -412,8 +435,23 @@ function realKey(file: string): string {
  *  - 只下钻一层、且只认 `SKILL.md` 这一个文件名:再深就是别人的资源目录
  *    (`references/`、`scripts/`、`assets/`),把它们当技能读会污染提示词。
  */
-function scanDir(dir: string, priority: number): Skill[] {
-  if (!fs.existsSync(dir)) return [];
+function scanDir(dir: string, priority: number, onNotice: (message: string) => void): Skill[] {
+  // G-408③:此前"不跟随链接"是 Dirent.isFile()/isDirectory() 对重解析点恰好返回 false 的
+  // **偶然行为** —— 无注释、无判据,libuv 的 dtype 映射哪天变了,这里就静默变成跨根穿透。
+  // 现把"一律不跟随符号链接/junction"落成三粒度的显式拒绝(根、子项候选、技能文件本体),
+  // 每处遇到都留可见记录。理由同 AGENTS §26:递归遍历穿透 junction 曾把"清理工具"变成
+  // "清空真实目标"的事故现场;技能扫描读的是**仓库内容**,别人放一个指向 ~/.ssh 或
+  // 用户主目录的链接,跟随=把任意第三方文件读进 system prompt,那是外读通道不是容错。
+  let rootLink: boolean;
+  try {
+    rootLink = fs.lstatSync(dir).isSymbolicLink();
+  } catch {
+    return []; // 根不存在:正常跳过,不是"拒绝"
+  }
+  if (rootLink) {
+    onNotice(`[skills] 拒绝跟随符号链接/junction(扫描根本体),该根整根不扫: ${dir}`);
+    return [];
+  }
   const skills: Skill[] = [];
   const seen = new Set<string>();
   let entries: fs.Dirent[];
@@ -423,6 +461,12 @@ function scanDir(dir: string, priority: number): Skill[] {
     return [];
   }
   const push = (file: string, fallbackName: string): void => {
+    // 第三粒度:根下条目都是真目录时,`<dir>/<name>/SKILL.md` 本体仍可能是链接
+    // (readdir 只看过根的一层子项,没看过这个文件)。
+    if (isReparseLink(file)) {
+      onNotice(`[skills] 拒绝跟随符号链接/junction(技能文件本体),不读取: ${file}`);
+      return;
+    }
     const key = realKey(file);
     if (seen.has(key)) return;
     const skill = readSkillFile(file, fallbackName, priority);
@@ -433,16 +477,22 @@ function scanDir(dir: string, priority: number): Skill[] {
   // 排序保证同一目录内的遍历顺序稳定(否则 readdirSync 的顺序会让"同一文件被两个形态命中"
   // 时保留哪一份变成随机的)
   for (const entry of [...entries].sort((a, b) => (a.name < b.name ? -1 : 1))) {
+    const full = path.join(dir, entry.name);
+    // 第二粒度:根下子项候选(Dirent 与 lstat 双查,任一判为链接即拒 —— 判据不得只信一面)
+    if (entry.isSymbolicLink() || isReparseLink(full)) {
+      onNotice(`[skills] 拒绝跟随符号链接/junction(扫描根子项),不进目录: ${full}`);
+      continue;
+    }
     if (entry.isFile()) {
       if (!entry.name.endsWith('.md')) continue;
       const fileStem = entry.name.slice(0, -3);
       if (!fileStem || fileStem.startsWith('_')) continue;
-      push(path.join(dir, entry.name), fileStem);
+      push(full, fileStem);
       continue;
     }
     if (!entry.isDirectory()) continue;
     if (entry.name.startsWith('_')) continue;
-    push(path.join(dir, entry.name, 'SKILL.md'), entry.name);
+    push(path.join(full, 'SKILL.md'), entry.name);
   }
   return skills;
 }
@@ -475,9 +525,10 @@ export function loadSkills(opts: LoadSkillsOptions): Skill[] {
   }
   scanLocations.push({ dir: path.join(home, USER_SKILL_DIR), priority });
 
+  const onNotice = opts.onNotice ?? ((m: string) => console.warn(m));
   const all: Skill[] = [];
   for (const loc of scanLocations) {
-    all.push(...scanDir(loc.dir, loc.priority));
+    all.push(...scanDir(loc.dir, loc.priority, onNotice));
   }
 
   // 按优先级去重(低 priority 值 = 高优先级,覆盖高 priority 值)

@@ -38,6 +38,24 @@
  *   既有的 30min 硬上限(`--owner-pid` + HARD_CAP_MS)**保留不动**,它现在是第二道兜底
  *   而不是唯一出路:有身份凭据时确证得更早,没凭据时仍按原兜底逃生。
  *
+ * 单调量第二判据(2026-09-28 立,G-412;deploy-lock 的"锁龄恒 0"与"锁永远新"都不许没出路):
+ *   `age = max(0, now - ts)` 只解决"算出负数"这一半。未来 ts 若只被 clamp 成 0 ⇒ 硬上限
+ *   `age > HARD_CAP` 永不触发 ⇒ 叠加"pid 名义存活"就是 2026-09-25 冻结生产 11h50m 的那组条件
+ *   (G-193),而"永远新"只是把无限等待换了个形态。现补一条**墙钟之外**的对账:
+ *   `writeMeta` 落 `bootMs = now - os.uptime()*1000`(单调钟反推的开机时刻,不受墙钟步进影响);
+ *   读取侧 `monotonicAgeVerdict` 三态 —— `contradiction/future-ts`(ts 超容差地在未来,且按单调
+ *   推算落在本机当前开机会话内 ⇒ 墙钟在写入后被回拨,**"ts 不可信(未来 N 秒)"必须点名**),
+ *   `contradiction/session-ended`(现推开机时刻晚于 meta 记录的锚点超容差 ⇒ 写入后本机重启过
+ *   或墙钟被大幅前移 ⇒ 记录的持有者不可能还活过这次开机 —— 这一型墙钟读数完全正常,旧判据只会
+ *   一路 wait),`consistent` / `unverifiable`(别机持有 / 旧 meta 无 host / uptime 量不到 ⇒
+ *   **维持改动前行为并报名**,不据此抢,也不静默记成"已核过")。
+ *   出路(全部先归档现场、二次确认,人工出口 `break-stale --reason "<理由>"`):
+ *   contradiction 两支都落在 `steal + immediate:false`(= 与硬上限同档,等效"等待上限已到"),
+ *   绝不静默恒等、绝不无限 wait。代价如实登记:墙钟被**前移**超过容差(而非重启)时
+ *   session-ended 会误抢一把活锁 —— 那种钟本身已不可信,且现场有档;反向的选择才是已付过
+ *   11h50m 学费的那一型。`check` 只读快路径**不派生 PowerShell**(S48 纪律不变),但会现读
+ *   `os.uptime()`(进程内调用)把同一结论打印出来。
+ *
  * 锁的状态认识论(2026-09-26 立,第九轮 ZCode 吸收 A9-3):
  *   `readMeta()` 返回**穷尽四态**,因为"读不到"与"确实没有"是两件不同的事,
  *   把它们混成一态(null)会产出本仓最贵的一类故障——**判不出来就当没人持锁**:
@@ -61,6 +79,7 @@
  *   node scripts/deploy-lock.mjs acquire [--mode <build|dev>] [--timeout <ms>] [--stale <ms>] [--owner-pid <pid>]
  *   node scripts/deploy-lock.mjs release [--mode <build|dev>]
  *   node scripts/deploy-lock.mjs check            # 只读:exit 0=无锁 1=有锁(打印持锁信息)
+ *   node scripts/deploy-lock.mjs break-stale --reason "<人工确认的理由>"   # G-412 人工出口:先归档再断
  *   node scripts/deploy-lock.mjs --self-test      # 临时夹具内自检,绝不触碰真实 .deploy.lock
  *   通用选项:--lock-dir <path>(默认项目根 .deploy.lock;测试/夹具专用)
  *
@@ -79,7 +98,7 @@ import {
   copyFileSync,
 } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
-import { hostname } from 'node:os'
+import { hostname, uptime } from 'node:os'
 // 抢占算法的唯一实现(2026-09-26 合并:本脚本与 git-lock.mjs 曾各写一份 claimStaleLock)。
 import { claimStaleLockCore } from './lib/stale-lock-claim.mjs'
 // 进程身份三元组(pid + pidStart + host)。裸 pid 判活是无效的:
@@ -133,7 +152,7 @@ function metaFile(dir) {
  *
  * @param {string|null|undefined} rawText 文件内容文本;传 null 表示"文件不存在"(absent)
  * @returns {{kind:'absent',reason:string}
- *          | {{kind:'ok'},meta:{mode:string,pid:number,ownerPid:number,ts:number,host:string,pidStart:number}}
+ *          | {{kind:'ok'},meta:{mode:string,pid:number,ownerPid:number,ts:number,host:string,pidStart:number,bootMs:number}}
  *          | {kind:'invalid'|'unreadable',raw:string|null,reason:string}}
  */
 function classifyMeta(rawText) {
@@ -173,6 +192,11 @@ function classifyMeta(rawText) {
   const host = typeof parsed.host === 'string' ? parsed.host : ''
   const pidStartRaw = Number(parsed.pidStart)
   const pidStart = Number.isFinite(pidStartRaw) && pidStartRaw > 0 ? pidStartRaw : 0
+  // 单调量锚点(G-412 第二判据):`bootMs` = 写下这份 meta 那一刻由 `os.uptime()` 反推的**开机时刻**。
+  // 缺失/非法 ⇒ 0 ⇒ 判读侧落 unverifiable = **维持改动前行为**(与 host/pidStart 同一纪律:
+  // "没有凭据"不等于"可以抢",更不等于"已核过没问题")。
+  const bootMsRaw = Number(parsed.bootMs)
+  const bootMs = Number.isFinite(bootMsRaw) && bootMsRaw > 0 ? bootMsRaw : 0
   return {
     kind: 'ok',
     meta: {
@@ -184,6 +208,7 @@ function classifyMeta(rawText) {
       ts: Number.isFinite(ts) && ts > 0 ? ts : 0,
       host,
       pidStart,
+      bootMs,
     },
   }
 }
@@ -242,17 +267,29 @@ function writeMeta(dir, mode, opts = {}) {
   // 可以是 ownerPid(见上)。用错主体的话每次对账都必然 mismatch,那条"确证"就成了
   // "确证可以抢",比没有身份更糟。这里只借 lib 的两个更小的出口:host 与量的动作。
   const started = processStartEpoch(subjectPid, opts.run ? { run: opts.run } : {})
+  // G-412 第二判据的**记录侧**:开机时刻由单调时钟(`os.uptime()`,不受墙钟跳变影响)反推。
+  // 量不到(理论上不该发生)⇒ 整键不写 ⇒ 与旧 meta 同形,判读侧落 unverifiable、维持原判据。
+  const nowMs = opts.now ?? Date.now()
+  const uptimeMsRaw = opts.uptimeMs ?? uptime() * 1000
+  const bootMs =
+    Number.isFinite(nowMs) && Number.isFinite(uptimeMsRaw) && uptimeMsRaw > 0
+      ? Math.round(nowMs - uptimeMsRaw)
+      : undefined
   const meta = {
     mode: mode ?? '',
     pid: process.pid,
     ownerPid,
-    ts: Date.now(),
+    ts: nowMs,
     host: hostname(),
+    // 单调量锚点:见 classifyMeta 的读取侧说明。`ts` 之外的唯一墙钟派生态,
+    // 它的价值在**读取时**与当时的 `now - uptime` 对账(墙钟被回拨/机器重启都骗不了这个差)。
+    bootMs,
     // 量不到 ⇒ undefined ⇒ JSON.stringify 整键丢掉 ⇒ 与改动前的 meta 形态逐字相同
     pidStart: started.epoch ?? undefined,
-    // 只在**推断**出来的那一档才多写一个键:调用方自己声明 owner(经 `--owner-pid`)时
-    // 落盘字节与改动前逐字同形 —— 这条"没有新行为就不改字节"是本仓幂等纪律。
+    // 只在**推断**出来的那一档才多写一个键:调用方自己声明 owner(经 `--owner-pid`)时不写它 ——
     // 判读侧靠它区分"人明确说了 owner 是谁"与"我们按父进程猜的",后者不得被读成确证。
+    // (注:G-412 起所有新写 meta 都多出 `bootMs` 键,这是本票新增的单调量锚点;
+    //  此前"ownerPidSource 缺席 ⇒ 落盘键集与改动前逐字同形"的说法只对**这一键**成立,不再及整份 meta。)
     ownerPidSource: inferred > 0 && declared === 0 ? 'inferred-ppid' : undefined,
   }
   writeFileSync(metaFile(dir), JSON.stringify(meta), 'utf8')
@@ -431,9 +468,12 @@ function lockAgeMs(dir, state, now = Date.now()) {
       // ⇒ 硬上限永远到不了;叠加"pid 名义存活"就是 2026-09-25 冻结部署环 11h50m 的那组条件。
       // 身份三元组(2026-09-27)能治 pid 复用那一半,但旧 meta 没记身份两元、或锁由别机持有时,
       // 只剩"年龄"这一维兜底 —— 所以异常必须显式标出来交给 decideSteal,而不是夹成 0 当正常读数。
+      // G-412:把"未来多少秒"量出来随读数一起带走,出路文案与自检都能点名它,不许静默恒等。
+      const futureMs = state.meta.ts - now
       return {
         ageMs: 0,
-        source: `不可判定(meta.ts 在未来 ${Math.round((state.meta.ts - now) / 1000)}s)`,
+        futureMs,
+        source: `ts 不可信(未来 ${Math.round(futureMs / 1000)}s;meta.ts 与墙钟矛盾,锁龄无法由墙钟推得)`,
         clockAnomalous: true,
       }
     }
@@ -442,7 +482,12 @@ function lockAgeMs(dir, state, now = Date.now()) {
   try {
     const m = statSync(dir).mtimeMs
     if (m > now + FUTURE_TS_TOLERANCE_MS)
-      return { ageMs: 0, source: '不可判定(锁目录 mtime 在未来)', clockAnomalous: true }
+      return {
+        ageMs: 0,
+        futureMs: m - now,
+        source: `ts 不可信(锁目录 mtime 在未来 ${Math.round((m - now) / 1000)}s)`,
+        clockAnomalous: true,
+      }
     return {
       ageMs: Math.max(0, now - m),
       source: '锁目录 mtime(降级信号,不如 pid 可靠)',
@@ -450,6 +495,80 @@ function lockAgeMs(dir, state, now = Date.now()) {
   } catch {
     return { ageMs: 0, source: '不可测(锁目录 stat 失败)' }
   }
+}
+
+/**
+ * G-412 第二判据:用**单调量**给这把锁一个墙钟之外的"绝对存活时刻上限"。
+ *
+ * 为什么 clamp 不够:`age = max(0, now - ts)` 让未来 ts 变成"0 岁"——硬上限不再触发,
+ * 于是"无限等待"只是从"锁龄恒 0"换成了"锁永远新"。本函数拿 `os.uptime()`(单调时钟,
+ * 不受墙钟步进/回拨影响)反推当前开机时刻 `curBoot = now - uptime`,与 meta 对账出三态:
+ *   - `contradiction / future-ts`   ts 超过容差地落在未来,且按单调推算落**在本机当前开机
+ *     会话之内**(墙钟说"还没发生",单调说"已经在本次开机之后")⇒ 墙钟在写下这把锁之后被
+ *     回拨过 ⇒ ts 不可信(未来 N 秒),年龄维作废。
+ *   - `contradiction / session-ended` meta 记着写入时的开机锚点 `bootMs`,而现推开机时刻
+ *     **晚于**它超过容差 ⇒ 自写入后本机要么重启过、要么墙钟被大幅前移过;两种解释都说明
+ *     "这把锁在本次开机里不可能还活着这么久"⇒ 记录的持有者不可信地存活。
+ *   - `consistent`                  墙钟与单调钟没有可判的矛盾(年龄维按原判据走)。
+ *   - `unverifiable`                没有凭据可比:uptime 量不到 / 别机持有(host≠本机) /
+ *     旧 meta 没记 host。**维持改动前行为,不据此抢,也不静默记为"已核过"**(§5b/G-193
+ *     与 verifyHolder 的三态纪律同形:抢错 = 两次构建同写 .next,少抢 = 只多等一轮)。
+ *
+ * 纯函数:now/uptimeMs/localHost 全部由调用方注入(自检与镜像测试拿假值喂它,
+ * 绝不为取证真等待机器重启)。容差**复用** FUTURE_TS_TOLERANCE_MS —— 不得另抄第二个数。
+ *
+ * @param {{meta:{ts:number,host:string,bootMs:number}, now:number, uptimeMs:number, localHost:string}} in
+ * @returns {{kind:'consistent'}
+ *          | {kind:'contradiction',mode:'future-ts',futureMs:number,curBootMs:number,why:string}
+ *          | {kind:'contradiction',mode:'session-ended',driftMs:number,curBootMs:number,why:string}
+ *          | {kind:'unverifiable',reason:string}}
+ */
+function monotonicAgeVerdict({ meta, now, uptimeMs, localHost }) {
+  const m = meta || {}
+  const ts = Number(m.ts) || 0
+  if (!Number.isFinite(now) || !Number.isFinite(uptimeMs) || !(uptimeMs > 0))
+    return { kind: 'unverifiable', reason: 'os.uptime() 量不到 ⇒ 单调推算无从谈起' }
+  const host = typeof m.host === 'string' ? m.host : ''
+  if (host && host !== localHost)
+    return {
+      kind: 'unverifiable',
+      reason: `锁由别机持有(host=${host} ≠ ${localHost})⇒ 本机单调钟推算对它没有意义`,
+    }
+  if (!host)
+    return {
+      kind: 'unverifiable',
+      reason: '旧 meta 未记 host ⇒ 无法确认这把锁写在本机上,单调判据不冒用(维持改动前行为)',
+    }
+  const curBoot = Math.round(now - uptimeMs)
+  // ① 未来 ts(超过容差)且按单调推算落在"本机当前开机之后" —— 对同机锁这几乎是必然的
+  //   (curBoot < now < ts),它的作用是把"墙钟回拨"这一解释钉成**证据**而不是猜测。
+  if (ts > now + FUTURE_TS_TOLERANCE_MS && ts >= curBoot) {
+    const futureSec = Math.round((ts - now) / 1000)
+    return {
+      kind: 'contradiction',
+      mode: 'future-ts',
+      futureMs: ts - now,
+      curBootMs: curBoot,
+      why: `ts 不可信(未来 ${futureSec}s):墙钟说这把锁还没被写下,单调推算(开机时刻=${new Date(curBoot).toISOString()} + uptime)说它落在本机当前开机会话内 ⇒ 墙钟在写入后被回拨,锁龄维判不出来`,
+    }
+  }
+  // ② 绝对存活时刻上限:meta.bootMs 是**写入当时**反推的开机时刻;若现推的开机时刻比它晚
+  //   超过容差,则自写入起本机已换过开机会话(重启)或墙钟被大幅前移 —— 两种情况下
+  //   "pid 名义存活"都与"这把锁还活着"再无因果(重启会把任何 pid 发给新进程)。
+  const bootMs = Number(m.bootMs) || 0
+  if (bootMs > 0 && curBoot > bootMs + FUTURE_TS_TOLERANCE_MS) {
+    return {
+      kind: 'contradiction',
+      mode: 'session-ended',
+      driftMs: curBoot - bootMs,
+      curBootMs: curBoot,
+      why:
+        `这把锁的绝对存活时刻已过:meta 记录写入时开机=${new Date(bootMs).toISOString()},` +
+        `而现推开机=${new Date(curBoot).toISOString()} 晚 ${(Math.round((curBoot - bootMs) / 1000))}s(容差 ${FUTURE_TS_TOLERANCE_MS / 1000}s)` +
+        ' ⇒ 自写入后本机重启过或墙钟被大幅前移,记录的持有者不可能在本次开机里活着',
+    }
+  }
+  return { kind: 'consistent' }
 }
 
 /** 现场归档根目录:只走本仓既有落点(§15b 批准的临时/归档面),禁止硬编码盘符(§5b/§15b 前例)。 */
@@ -528,7 +647,18 @@ function archiveScene(dir, state, why) {
  *   - `steal`     可抢占(调用方仍须二次确认 + 归档现场)
  *   - `wait`      继续等
  */
-function decideSteal({ dir, mode, staleMs, hardCapMs = HARD_CAP_MS, now = Date.now(), identity }) {
+function decideSteal({
+  dir,
+  mode,
+  staleMs,
+  hardCapMs = HARD_CAP_MS,
+  now = Date.now(),
+  identity,
+  // G-412 单调判据的可注入面:默认现取(uptime 是进程内系统调用,不派生 PowerShell,
+  // 因此不违反 S48 那条"快路径不派生"的纪律);自检/镜像测试喂假值,绝不为取证真重启。
+  uptimeMs = uptime() * 1000,
+  localHost = hostname(),
+}) {
   const state = readMeta(dir)
   const age = lockAgeMs(dir, state, now)
   const info = { state, ageMs: age.ageMs, ageSource: age.source }
@@ -576,21 +706,54 @@ function decideSteal({ dir, mode, staleMs, hardCapMs = HARD_CAP_MS, now = Date.n
           `(锁龄 ${age.ageMs}ms / 硬上限 ${hardCapMs}ms ⇒ 不必等年龄兜底,归档现场后抢占)`,
       }
     }
+    // G-412 第二判据的现算结果(墙钟之外的绝对存活上限;三态,unverifiable 一律维持原判据)。
+    const mono = monotonicAgeVerdict({ meta: state.meta, now, uptimeMs, localHost })
     /**
      * 时钟读数异常(ts 或 mtime 落在未来)⇒ **年龄这一维已经判不出来**,而"无限 wait"不是可接受的
      * 兜底(§5b/G-193 那条判断:宁可抢一把明显超时的锁并先归档现场,不可让生产一直不更新)。
      * 排在身份确据之后、硬上限之前:`immediate:false` ⇒ 与硬上限同形,先归档现场再抢。
+     * G-412:单调钟给出的证据(future-ts 时点名"ts 不可信(未来 N 秒)")随 why 一起落到
+     * acquire/check/超时文案 —— 不许把这把锁继续读成"刚刚建的、很新",那是无限等待换了个形态。
      */
     if (age.clockAnomalous) {
+      const monoNote =
+        mono.kind === 'contradiction'
+          ? `;单调判据同向:${mono.why}`
+          : mono.kind === 'unverifiable'
+            ? `;单调判据=无法核对(${mono.reason})⇒ 仅按墙钟异常这一维处置`
+            : ';单调判据=一致(仅墙钟读数异常)'
       return {
         action: 'steal',
         immediate: false,
         holderAlive: alive,
         clockAnomalous: true,
+        futureMs: age.futureMs,
+        monotonic: mono,
         ...info,
         why:
-          `持有者 ${who} 名义存活,但锁龄判不出来(${age.source})` +
-          ' ⇒ 年龄兜底这一维失效,不能因此无限 wait;按硬上限同一档位归档现场后抢占',
+          `持有者 ${who} 名义存活,但 ${age.source}` +
+          monoNote +
+          ' ⇒ 年龄兜底这一维失效,不能因此无限 wait;出路:归档现场后抢占(等效硬上限已到),人工出口:`deploy-lock.mjs break-stale --reason "<理由>"`',
+      }
+    }
+    /**
+     * G-412 新增:单调钟判出"这把锁的绝对存活时刻已过"(写入后本机重启过 / 墙钟被大幅前移),
+     * 而墙钟读数本身**没有**越出未来容差 —— 这一格旧判据会一路 wait(锁在墙钟上看起来"正常地旧"、
+     * 未超硬上限),pid 名义存活又压着不放手。`immediate:false` ⇒ 与硬上限同形:先归档再抢。
+     * 接受的代价如实登记:墙钟在写入后被**前移**超过容差(而非重启)时这里会误抢一把活锁 ——
+     * 那种墙钟本身已不可信,且现场有档 + acquire 侧二次确认兜底;反向的选择(继续等)正是
+     * G-193 那次 11h50m 冻结的形状,两边不可能都零风险,取"有出路"这一边。
+     */
+    if (mono.kind === 'contradiction' && mono.mode === 'session-ended') {
+      return {
+        action: 'steal',
+        immediate: false,
+        holderAlive: alive,
+        monotonic: mono,
+        ...info,
+        why:
+          `持有者 ${who} 名义存活(锁龄 ${age.ageMs}ms / 硬上限 ${hardCapMs}ms),但 ${mono.why}` +
+          ' ⇒ 年龄维与存活维矛盾且单调钟站"矛盾"一边;出路:归档现场后抢占,人工出口:`deploy-lock.mjs break-stale --reason "<理由>"`',
       }
     }
     /**
@@ -616,6 +779,7 @@ function decideSteal({ dir, mode, staleMs, hardCapMs = HARD_CAP_MS, now = Date.n
       action: 'wait',
       holderAlive: alive,
       identityKind: identity?.kind,
+      monotonic: mono,
       ...info,
       why: `持有者 ${who} 仍在运行(锁龄 ${age.ageMs}ms / 硬上限 ${hardCapMs}ms)${identityNote(identity)}`,
     }
@@ -897,21 +1061,43 @@ function release({ mode, dir = lockDir() } = {}) {
 }
 
 /** 只读检查:exit 0=无锁,1=有锁(不可判定态必须如实喊出"无法判定",禁止打印成空字段) */
-function check({ dir = lockDir(), log = (...a) => console.log(...a) } = {}) {
+function check({
+  dir = lockDir(),
+  log = (...a) => console.log(...a),
+  // G-412:单调对账只读 `os.uptime()`(进程内系统调用,**不派生 PowerShell**,与 S48
+  // "check 不现测身份"的纪律不冲突 —— 那条禁的是派生,不是本地读数)。可注入仅供测试。
+  now = Date.now(),
+  uptimeMs = uptime() * 1000,
+  localHost = hostname(),
+} = {}) {
   if (!existsSync(dir)) return 0
   const state = readMeta(dir)
-  const age = lockAgeMs(dir, state)
+  const age = lockAgeMs(dir, state, now)
   if (state.kind === 'ok') {
     const alive = isProcessAlive(holderPid(state.meta))
+    const mono = monotonicAgeVerdict({ meta: state.meta, now, uptimeMs, localHost })
     // 身份两元**只如实打印锁里记着什么**,不在这里现测(见头注:check 是只读快路径)。
-    const id = ` host=${state.meta.host || '(未记)'} pidStart=${state.meta.pidStart || '(未记)'}`
+    const id = ` host=${state.meta.host || '(未记)'} pidStart=${state.meta.pidStart || '(未记)'} bootMs=${state.meta.bootMs || '(未记)'}`
+    // G-412 红线:ts 不可信不得被读成"锁很新"。点名未来多少秒 + 出路,不许静默恒等。
+    const clockNote = age.clockAnomalous
+      ? ` ⇒ ⚠️ ${age.source};出路:下一次 acquire 会按"年龄维失效"归档现场后抢占,人工出口 \`deploy-lock.mjs break-stale --reason "<理由>"\``
+      : mono.kind === 'contradiction' && mono.mode === 'session-ended'
+        ? ` ⇒ ⚠️ 单调判据:${mono.why};这把锁在本次开机里不可能还活着,下一次 acquire 会归档并抢占`
+        : ''
     log(
       `locked: mode=${state.meta.mode} pid=${state.meta.pid}${Number(state.meta.ownerPid) > 0 ? ` ownerPid=${state.meta.ownerPid}` : ''} 判活对象=${holderPid(state.meta)}${id} alive=${alive} ts=${state.meta.ts ? new Date(state.meta.ts).toISOString() : '(无)'} age=${age.ageMs}ms 锁龄来源=${age.source}` +
-        (alive && age.ageMs > HARD_CAP_MS
-          ? ` ⇒ ⚠️ 名义存活而锁龄超硬上限 ${HARD_CAP_MS}ms:该 pid 极可能已被复用,acquire 侧会归档并抢占`
-          : state.meta.pidStart
-            ? '(check 只读:未现测启动时间,身份未对账)'
-            : '(旧 meta 无 pidStart ⇒ 身份无从对账,acquire 侧维持原判据)'),
+        (age.clockAnomalous
+          ? clockNote
+          : alive && age.ageMs > HARD_CAP_MS
+            ? ` ⇒ ⚠️ 名义存活而锁龄超硬上限 ${HARD_CAP_MS}ms:该 pid 极可能已被复用,acquire 侧会归档并抢占`
+            : mono.kind === 'contradiction' && mono.mode === 'session-ended'
+              ? clockNote
+              : state.meta.pidStart
+                ? '(check 只读:未现测启动时间,身份未对账)'
+                : '(旧 meta 无 pidStart ⇒ 身份无从对账,acquire 侧维持原判据)') +
+        (mono.kind === 'unverifiable' && !age.clockAnomalous
+          ? `;单调对账=无法核对(${mono.reason})⇒ 不据此下任何结论,不是"已核过没问题"`
+          : ''),
     )
     return 1
   }
@@ -919,9 +1105,55 @@ function check({ dir = lockDir(), log = (...a) => console.log(...a) } = {}) {
     `locked: 无法判定(${state.kind})——原因:${state.reason}。` +
       `锁龄 ${age.ageMs}ms(来源:${age.source})。` +
       `注意:这不是"没有进程持锁",也不是"持锁进程已退出";` +
-      'acquire 侧只会等锁龄超 stale 阈值后归档并抢占,不会凭猜测删锁。',
+      'acquire 侧只会等锁龄超 stale 阈值后归档并抢占,不会凭猜测删锁。' +
+      (age.clockAnomalous
+        ? `另:锁目录 mtime 的读数本身异常(${age.source})——年龄兜底这一维此刻也判不出来,人工出口 \`deploy-lock.mjs break-stale --reason "<理由>"\`。`
+        : ''),
   )
   return 1
+}
+
+/**
+ * G-412 人工出口 `break-stale` —— **显式、带理由、留现场**的断锁动作。
+ *
+ * 为什么自动出路之外还要这一格:单调/墙钟判据把"不可信"喊出来之后,出路仍要过 acquire 的
+ * 轮询与二次确认;而当判据落在 unverifiable(别机持有、旧 meta 无凭据)时自动档**刻意**不抢
+ * —— 那时现场只剩两条路:继续无限等(= G-193 那一型),或人确认后显式断锁。
+ * 红线:① 必须带 `--reason`(空理由即拒绝,一个字都不碰锁);② 动手前先归档现场,归档失败
+ * 即放弃(与 acquire 同一条"不得静默覆盖"的纪律);③ 删除只走 `claimStaleLock` 的原子改名,
+ * 绝不 `removeLock`(判与删之间别人可能已换新锁 —— 8-09 两个构建同写 .next 的那一型)。
+ */
+function breakStale({ dir = lockDir(), reason, log = (...a) => console.log(...a) } = {}) {
+  const why = typeof reason === 'string' ? reason.trim() : ''
+  if (!why)
+    return {
+      ok: false,
+      why: '拒绝:断锁是破坏性动作,必须给 --reason "<人读得懂的理由>"(空理由不改任何状态)',
+    }
+  if (!existsSync(dir))
+    return { ok: true, why: `无锁可断:${dir} 不存在,未创建、未删除任何东西` }
+  const state = readMeta(dir)
+  const age = lockAgeMs(dir, state)
+  // 现场说明里带上此刻的单调对账结论 —— 人工断的往往正是"判不出"的锁,现场档必须说清当时看到了什么。
+  const mono =
+    state.kind === 'ok'
+      ? monotonicAgeVerdict({ meta: state.meta, now: Date.now(), uptimeMs: uptime() * 1000, localHost: hostname() })
+      : { kind: 'unverifiable', reason: `元数据不可判定(${state.kind})⇒ 单调对账无从下手` }
+  const archived = archiveScene(
+    dir,
+    { ...state, ageMs: age.ageMs, ageSource: age.source },
+    `人工 break-stale(理由:${why};单调对账=${mono.kind}${mono.reason ? `:${mono.reason}` : mono.why ? `:${mono.why}` : ''})`,
+  )
+  if (archived === null)
+    return { ok: false, why: `拒绝:归档现场失败,不得静默覆盖(原始 meta 已逐字打到 stderr),锁 ${dir} 未被触碰` }
+  const claim = claimStaleLock(
+    dir,
+    state,
+    `人工 break-stale:${why}(执行前四态=${state.kind},锁龄 ${age.ageMs}ms 来源 ${age.source})`,
+    { suffix: 'break-stale' },
+  )
+  log(claim.log)
+  return { ok: claim.ok, why: claim.ok ? `已断锁,现场=${claim.archived}` : `未断:${claim.log}` }
 }
 
 /**
@@ -1430,6 +1662,236 @@ async function runSelfTest() {
         holderIdentity({ pid: 7, ownerPid: 0, pidStart: 0, host: '' }).pidStart === undefined &&
         holderIdentity({ pid: 7, ownerPid: 0, pidStart: 0, host: '' }).host === undefined,
     )
+
+    // —— 50..57) G-412 第二判据:单调量"绝对存活时刻上限"与"ts 不可信(未来 N 秒)"的人工出口。
+    // 全部用**固定 now + 注入 uptimeMs**,绝不为取证真改系统时钟或真重启机器。
+    const NOW_FIX = 1_800_000_000_000
+    const MIN = 60_000
+    const HOST_L = hostname()
+    const UP_1H = 3_600_000 // 假 uptime:1 小时 ⇒ curBoot = NOW_FIX - 1h
+    const CUR_BOOT = NOW_FIX - UP_1H
+
+    // —— 50) 注入未来 ts ⇒ 判"不可信"并给出出路(红线:不得判成"锁很新所以继续无界等")
+    const d50 = freshDir()
+    putMeta(
+      d50,
+      JSON.stringify({ mode: 'build', pid: process.pid, ownerPid: process.pid, ts: NOW_FIX + 10 * MIN }),
+    )
+    const age50 = lockAgeMs(d50, readMeta(d50), NOW_FIX)
+    t(
+      'S50a 未来 ts ⇒ clockAnomalous 且读数点名"ts 不可信(未来 N 秒)",N 就是量到的 futureMs',
+      age50.clockAnomalous === true &&
+        Math.abs(age50.futureMs - 10 * MIN) < 1_000 &&
+        /ts 不可信\(未来 600s/.test(age50.source),
+      JSON.stringify(age50),
+    )
+    const dec50 = decideSteal({
+      dir: d50,
+      mode: 'build',
+      staleMs: 600_000,
+      hardCapMs: HARD_CAP_MS,
+      now: NOW_FIX,
+    })
+    t(
+      'S50b 未来 ts ⇒ 有出路(steal,先归档再抢),绝不 wait;why 带"未来 N 秒"与人工出口 break-stale',
+      dec50.action === 'steal' &&
+        (dec50.immediate ?? false) === false &&
+        /ts 不可信\(未来 600s/.test(dec50.why) &&
+        /break-stale/.test(dec50.why),
+      `${dec50.action} / ${dec50.why}`,
+    )
+    t(
+      'S50c 旧 meta(无 host)⇒ 单调对账必须在结论里喊"无法核对",不得静默当成已核',
+      /单调判据=无法核对/.test(dec50.why),
+      dec50.why,
+    )
+
+    // —— 51) 回归对照:正常 ts ⇒ 与改动前**逐字同结论**(clamp 语义、来源、wait 全部不变)
+    const d51 = freshDir()
+    putMeta(
+      d51,
+      JSON.stringify({ mode: 'build', pid: process.pid, ownerPid: process.pid, ts: NOW_FIX - 60_000 }),
+    )
+    const age51 = lockAgeMs(d51, readMeta(d51), NOW_FIX)
+    t(
+      'S51a 正常 ts ⇒ ageMs 精确按 meta.ts 计、来源仍是 "meta.ts"、不标异常(改动前语义原样)',
+      age51.ageMs === 60_000 && age51.source === 'meta.ts' && !age51.clockAnomalous,
+      JSON.stringify(age51),
+    )
+    const dec51 = decideSteal({
+      dir: d51,
+      mode: 'build',
+      staleMs: 600_000,
+      hardCapMs: HARD_CAP_MS,
+      now: NOW_FIX,
+    })
+    t(
+      'S51b 正常 ts + 持有者存活 ⇒ wait,文案与改动前同形(新判据不得自己长出授权)',
+      dec51.action === 'wait' && /仍在运行\(锁龄 60000ms/.test(dec51.why),
+      `${dec51.action} / ${dec51.why}`,
+    )
+
+    // —— 52) 单调判据纯函数:三态成对(contradiction / consistent / unverifiable 各带正反)
+    const mv = (meta, over = {}) =>
+      monotonicAgeVerdict({ meta: { ts: 0, host: HOST_L, bootMs: 0, ...meta }, now: NOW_FIX, uptimeMs: UP_1H, localHost: HOST_L, ...over })
+    t(
+      'S52a 同机 + 未来 ts ⇒ contradiction/future-ts,why 给出"未来 N 秒"与墙钟回拨这一解释',
+      (() => {
+        const v = mv({ ts: NOW_FIX + 10 * MIN })
+        return v.kind === 'contradiction' && v.mode === 'future-ts' && /ts 不可信\(未来 600s/.test(v.why)
+      })(),
+    )
+    t(
+      'S52b 同机 + 正常 ts + 开机锚点与现推一致 ⇒ consistent(单调判据不得凭空造抢占授权)',
+      mv({ ts: NOW_FIX - 1000, bootMs: CUR_BOOT }).kind === 'consistent',
+    )
+    t(
+      'S52c 别机持有的锁 ⇒ unverifiable(本机单调钟推算对它没有意义;维持原判据)',
+      (() => {
+        const v = mv({ ts: NOW_FIX + 10 * MIN, host: '别的机器-不匹配' })
+        return v.kind === 'unverifiable' && /别机持有/.test(v.reason)
+      })(),
+    )
+    t(
+      'S52d 旧 meta 没记 host ⇒ unverifiable(无法确认写在本机,不冒用单调判据)',
+      (() => {
+        const v = mv({ ts: NOW_FIX - 1000, host: '' })
+        return v.kind === 'unverifiable' && /host/.test(v.reason)
+      })(),
+    )
+    t(
+      'S52e uptime 量不到 ⇒ unverifiable(判不出必须报名,不得折叠成 consistent)',
+      mv({ ts: NOW_FIX - 1000 }, { uptimeMs: NaN }).kind === 'unverifiable' &&
+        mv({ ts: NOW_FIX - 1000 }, { uptimeMs: 0 }).kind === 'unverifiable',
+    )
+    t(
+      'S52f 墙钟完全正常,但开机锚点前移超容差 ⇒ contradiction/session-ended(第二判据独立生效,点名"绝对存活时刻")',
+      (() => {
+        const v = mv({ ts: NOW_FIX - 1000, bootMs: CUR_BOOT - 10 * MIN })
+        return v.kind === 'contradiction' && v.mode === 'session-ended' && /绝对存活时刻/.test(v.why)
+      })(),
+    )
+    t(
+      'S52g 开机锚点漂移在容差之内(NTP 微步进)⇒ consistent(不得把秒级校时读成重启)',
+      mv({ ts: NOW_FIX - 1000, bootMs: CUR_BOOT - 60_000 }).kind === 'consistent',
+    )
+
+    // —— 53) 端到端判据接线:session-ended ⇒ steal(归档后抢,非秒抢),且带人工出口
+    const d53 = freshDir()
+    putMeta(
+      d53,
+      JSON.stringify({
+        mode: 'build',
+        pid: process.pid,
+        ownerPid: process.pid,
+        ts: NOW_FIX - 1000, // 墙钟读数完全正常(不触发 clockAnomalous)
+        host: HOST_L,
+        bootMs: CUR_BOOT - 10 * MIN, // 写入时的开机锚点比现推早 10 分钟 ⇒ 已换会话
+      }),
+    )
+    const dec53 = decideSteal({
+      dir: d53,
+      mode: 'build',
+      staleMs: 600_000,
+      hardCapMs: HARD_CAP_MS,
+      now: NOW_FIX,
+      uptimeMs: UP_1H,
+      localHost: HOST_L,
+    })
+    t(
+      'S53 单调第二判据:墙钟正常而开机锚点前移 ⇒ steal + immediate:false + why 点名绝对存活上限与 break-stale',
+      dec53.action === 'steal' &&
+        dec53.immediate === false &&
+        /绝对存活时刻/.test(dec53.why) &&
+        /break-stale/.test(dec53.why),
+      `${dec53.action} / ${dec53.why}`,
+    )
+    // —— 54) 成对反向对照:同一夹具只把锚点改回同会话 ⇒ 必须回到 wait
+    const d54 = freshDir()
+    putMeta(
+      d54,
+      JSON.stringify({
+        mode: 'build',
+        pid: process.pid,
+        ownerPid: process.pid,
+        ts: NOW_FIX - 1000,
+        host: HOST_L,
+        bootMs: CUR_BOOT, // 与现推开机时刻一致 = 同会话、钟没大步
+      }),
+    )
+    const dec54 = decideSteal({
+      dir: d54,
+      mode: 'build',
+      staleMs: 600_000,
+      hardCapMs: HARD_CAP_MS,
+      now: NOW_FIX,
+      uptimeMs: UP_1H,
+      localHost: HOST_L,
+    })
+    t('S54 反向对照:bootMs 与现推开机一致 ⇒ wait(第二判据不得变成秒抢判据)', dec54.action === 'wait', dec54.why)
+
+    // —— 55) 记录侧:writeMeta 落 bootMs;量不到 ⇒ 整键不写(读侧落 unverifiable,不造假锚点)
+    const d55 = freshDir()
+    writeMeta(d55, 'build', { ownerPid: process.pid, now: NOW_FIX, uptimeMs: UP_1H, run: () => null })
+    const m55 = JSON.parse(readFileSync(metaFile(d55), 'utf8'))
+    t(
+      'S55a writeMeta 落单调锚点 bootMs = now - uptime(可注入,自检不依赖真时钟)',
+      m55.bootMs === CUR_BOOT && m55.ts === NOW_FIX,
+      JSON.stringify(m55),
+    )
+    const d56 = freshDir()
+    writeMeta(d56, 'build', { ownerPid: process.pid, now: NOW_FIX, uptimeMs: NaN, run: () => null })
+    const m56 = JSON.parse(readFileSync(metaFile(d56), 'utf8'))
+    t(
+      'S55b uptime 量不到 ⇒ bootMs 键整体不写(回落旧形态;读侧据此 unverifiable,绝不伪造锚点)',
+      m56.bootMs === undefined,
+      JSON.stringify(m56),
+    )
+    const c56 = classifyMeta(JSON.stringify({ mode: 'build', pid: 4321, ts: 1, host: HOST_L, bootMs: CUR_BOOT }))
+    t(
+      'S55c classifyMeta 归一 bootMs;缺省 ⇒ 0(被读成"没有锚点",不是"锚点是 0 时刻")',
+      c56.meta.bootMs === CUR_BOOT && classifyMeta('{"pid":7,"ts":1}').meta.bootMs === 0,
+    )
+
+    // —— 57) break-stale 人工出口成对:空理由 ⇒ 拒绝且一字不动;带理由 ⇒ 先归档再原子断锁
+    const d57 = freshDir()
+    const raw57 = putMeta(
+      d57,
+      JSON.stringify({ mode: 'build', pid: process.pid, ownerPid: process.pid, ts: Date.now() }),
+    )
+    const br57a = breakStale({ dir: d57, reason: '   ', log: () => {} })
+    t(
+      'S57a 空/纯空白 reason ⇒ 拒绝,锁的字节与目录一字未动(破坏性动作没有理由就不许发生)',
+      br57a.ok === false && existsSync(metaFile(d57)) && readFileSync(metaFile(d57), 'utf8') === raw57,
+      JSON.stringify(br57a),
+    )
+    const br57b = breakStale({ dir: d57, reason: '自检夹具:人工断锁出路对照', log: () => {} })
+    const sceneHasBreak = (() => {
+      try {
+        return readdirSync(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR).some((n) => n.includes('break-stale'))
+      } catch {
+        return false
+      }
+    })()
+    t(
+      'S57b 带 reason ⇒ 断锁成功:原路径消失(原子改名,不是 removeLock)且现场已入归档面',
+      br57b.ok === true && !existsSync(d57) && sceneHasBreak,
+      JSON.stringify(br57b),
+    )
+    const br57c = breakStale({ dir: join(base, 'no-such-lock-57c'), reason: '自检:无锁面', log: () => {} })
+    t(
+      'S57c 无锁可断 ⇒ ok 且**未创建任何东西**(出路不是"造一把锁再删")',
+      br57c.ok === true && !existsSync(join(base, 'no-such-lock-57c')),
+      JSON.stringify(br57c),
+    )
+    t(
+      'S57d 单调对账进 check 的打印面:未来 ts 的锁在 check 输出里必须喊"ts 不可信"并给出路',
+      (() => {
+        let out57 = ''
+        check({ dir: d50, log: (s) => (out57 += s), now: NOW_FIX })
+        return /ts 不可信\(未来 600s/.test(out57) && /break-stale/.test(out57)
+      })(),
+    )
   } finally {
     rmScratch(base)
   }
@@ -1471,11 +1933,19 @@ async function main() {
       })
     } else if (cmd === 'release') {
       release({ mode: getOpt('--mode') ?? 'build', ...(dir ? { dir } : {}) })
-    } else if (cmd === 'check') {
+    } else if (cmd === 'break-stale') {
+      // G-412 人工出口:显式断锁必须带理由;判据见 breakStale 头注(空理由不碰任何状态)。
+      const r = breakStale({ ...(dir ? { dir } : {}), reason: getOpt('--reason') })
+      console.log(`[deploy-lock] break-stale ⇒ ${r.ok ? '✅' : '🚫'} ${r.why}`)
+      process.exit(r.ok ? 0 : 1)
+    } else if (cmd === 'check' || args.includes('--check')) {
+      // `--check` 与裸 `check` 同形(对称于 `--self-test` 的两形态接受史):G-412 的票面
+      // 验证命令写的就是 `--check`,判据不因写法不同而换答案。
       process.exit(check(dir ? { dir } : {}))
     } else {
       console.error(
         '用法: deploy-lock.mjs acquire|release|check [--mode <build|dev>] [--timeout <ms>] [--stale <ms>] [--lock-dir <path>]\n' +
+          '      deploy-lock.mjs break-stale --reason "<人工确认的理由>" [--lock-dir <path>]\n' +
           '      deploy-lock.mjs --self-test',
       )
       process.exit(1)
@@ -1519,5 +1989,8 @@ export const __test__ = {
   identityNote,
   // 时钟容差也是判据的一部分:测试必须引这一份,不得在测试里另抄一个 5 分钟(§22c 同源理由)。
   FUTURE_TS_TOLERANCE_MS,
+  // G-412 第二判据(单调量"绝对存活时刻上限")与人工出口:镜像测试直接判这两件,不得抄第二份。
+  monotonicAgeVerdict,
+  breakStale,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
