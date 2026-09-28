@@ -3947,6 +3947,21 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 临时夹具 scratch 根二阶嵌套巡检(只报不删,三态含未判定)(1 项,warn)---
+  {
+    id: '154',
+    label:
+      '临时夹具 scratch 根二阶嵌套巡检(只报不删,三态含未判定)',
+    script: 'check-scratch-root-no-nesting.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_SCRATCH_NESTING',
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
