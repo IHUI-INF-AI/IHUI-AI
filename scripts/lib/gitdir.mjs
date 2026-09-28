@@ -26,8 +26,11 @@
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, parse, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+// 夹具判据只有一份实现(scratch-dir.mjs 是 §26 批准的临时物唯一落点,段名与计数都住在那儿)。
+// 在别处再抄一遍 `ihui-scratch` 字面量 = 名字一改本闸整族失明,与 §3「两处实现必漂移」同一条禁令。
+import { countScratchSegments } from './scratch-dir.mjs'
 
 // ── git 可执行文件解析:不依赖 PATH(服务账户如 LocalSystem 可能没有 PATH) ──
 // D57 卫生项:旧硬编码 `.../PortableGit/versions/1.2.0/cmd/git.exe` 版本升级即失效,
@@ -257,18 +260,72 @@ export function needsGitdirPointer(worktree, gitdir) {
 }
 
 /**
- * gitdir 类归档在项目外的**唯一**落点(AGENTS.md §15b)。按工作树所在盘动态推导、不写死盘符:
- * 工作树 `X:/IHUI-AI` ⇒ 归档根 `X:/DevEnv/backups/git`。不可用时返回 null 由调用方兜底。
+ * 归档根推导的**纯函数**(零副作用:不建目录、不写盘、不派生进程)。
+ *
+ * 锚定方式 = 盘根(与 `scripts/lib/scratch-dir.mjs` 在 G-286 之后的写法同形):
+ *   工作树 `X:/…` ⇒ 归档根 `X:/DevEnv/backups/git`,**与工作树在目录树里的第几层无关**。
+ *
+ * 为什么不是「工作树向上两级」(旧写法,2026-09-28 前):
+ *   `resolve(wt,'..','..')` 只对「仓库恰好躺在 `<盘>:/<仓名>`」这一种布局成立,
+ *   而本模块会被 `lib/scratch-module-closure` 连闭包拷进演练仓,拷进去之后"向上两级"
+ *   就跟着夹具走。实测深度矩阵(工作树在夹具里 0/1/2/3 层)四个答案各不相同:
+ *     depth=0 → `G:/DevEnv/Temp/DevEnv/backups/git`(连 scratch 根都不是)
+ *     depth=1 → `G:/DevEnv/Temp/ihui-scratch/DevEnv/backups/git`(= scratch 根,
+ *               即盘上那 5 个 `ihui-git-write.lock.stale-*` 的来路:提交链上的 git-lock 抢占)
+ *     depth=2 → `<夹具>/DevEnv/backups/git`        depth=3 → `<夹具>/L0/DevEnv/backups/git`
+ *   而 §5b/§15b 说这是"现场归档唯一出口"(git-guardian / git-rebuild-local /
+ *   git-backup-refresh / git-lock 都读它)—— 落点随深度漂,等于把恢复现场放进宿主清理层的射程。
+ *   真仓一直解析正确,只是因为 `G:/IHUI-AI` 恰好在盘根下一级,不是推导本身对。
+ *
+ * 夹具闸(第二半,不可或缺):盘根锚定让**任何**同盘路径都解析到同一个生产归档根,
+ * 所以单靠锚定反而比旧写法更糟 —— 测试会直接往生产归档里写东西。故工作树路径里出现
+ * `ihui-scratch` 段(§26 唯一批准的临时物落点,判据只有 `countScratchSegments` 一份)
+ * ⇒ 返回 null:那是一次演练/测试现场,本模块不替它交出生产落点。
+ * 调用方对 null 的兜底早已存在且方向安全(git-guardian/git-rebuild-local 退到 gitdir 同级、
+ * git-lock 退到锁目录同父改名、retire-git-archive 与 refreshBackup 明写"无法判定/不强行")。
+ *
+ * 能力边界(如实登记,别当已封闭):只认 scratch 段名。落在 scratch 之外的临时目录
+ * (例如直接 `os.tmpdir()` 手搓的现场)本闸结构上看不见 —— 依据是 §26/§15b 那条
+ * "夹具只用 scripts/lib/scratch-dir.mjs";要扩这一维得先有第二处实测站点,不是先加名字。
+ *
+ * @param {string} [worktree] 显式工作树(测试注入用);缺省取 resolveWorktree()
+ * @returns {string|null} 归一化(正斜杠)归档根,或 null(夹具 / 无法交出落点)
  */
-export function gitArchiveDir() {
-  const wt = resolveWorktree()
-  const root = join(resolve(wt, '..', '..'), 'DevEnv', 'backups', 'git')
+export function gitArchiveRootFor(worktree) {
+  const wt = normalizePath(worktree || resolveWorktree())
+  if (countScratchSegments(wt) > 0) return null
+  return normalizePath(join(parse(wt).root, 'DevEnv', 'backups', 'git'))
+}
+
+/**
+ * 建目录的**唯一**落点:只由"马上要写归档"的出口 `gitdirArchivePath()` 调用。
+ * 本模块的解析函数一律无副作用 —— 旧写法在 `gitArchiveDir()` 里 mkdir,
+ * 于是每一次**只读**询问(守护 `--status` 的 resolveBackupDir、git-lock 的默认参数、
+ * retire-git-archive 的体检)都会在被问到的位置长出一棵 `DevEnv/backups/git`。
+ * 导出是为了能被真取证喂一个临时根去验"缺目录时确实建得出"(生产根恒在,拿它验不出这一格)。
+ * @param {string} root 已归一化的归档根
+ * @returns {boolean} 目录此刻是否可用
+ */
+export function ensureGitArchiveDir(root) {
+  if (!root) return false
   try {
     mkdirSync(root, { recursive: true })
   } catch {
-    /* 换机/只读环境下退回兄弟命名 */
+    /* 换机/只读环境:此处不喊,由调用方"归档失败即放弃破坏性覆盖"那一条大声失败 */
   }
-  return existsSync(root) ? root.replace(/\\/g, '/') : null
+  return existsSync(root)
+}
+
+/**
+ * gitdir 类归档在项目外的**唯一**落点(AGENTS.md §15b)。按工作树所在**盘根**锚定、不写死盘符:
+ * 工作树 `X:/IHUI-AI` ⇒ 归档根 `X:/DevEnv/backups/git`(与目录深度无关,推导见
+ * `gitArchiveRootFor()` 头注)。夹具工作树与不可用环境返回 null,由调用方兜底。
+ * **无 mkdir 副作用**(建目录在 `gitdirArchivePath()`,即真正写归档的那一刻)。
+ * @param {string} [worktree] 显式工作树;此前签名不收参数,而 `git-backup-refresh.mjs:198`
+ *   一直在按 `gitArchiveDir(worktree)` 传 —— 那个入参被静默丢弃,传进来的夹具工作树从不生效。
+ */
+export function gitArchiveDir(worktree) {
+  return gitArchiveRootFor(worktree)
 }
 
 /**
@@ -277,12 +334,27 @@ export function gitArchiveDir() {
  * 根因:两处原来都写成 `${GITDIR}.broken-<ts>`,而 GITDIR = `D:/IHUI-AI-git-repo`
  * ⇒ 每次守护/重建归档**必然在盘根长出一个新兄弟目录**(实测累计 3 个 / 1.94GB),
  * 违反 §15b「项目外落点唯一制」。现统一落 `DevEnv/backups/git/`;拿不到该目录时才退回旧命名。
+ *
+ * 本出口是被审面里**唯一**建归档目录的地方:它的调用点只有两处真写现场
+ * (`git-guardian.mjs` archiveGitdir 的 cpSync、`git-rebuild-local.mjs` 的 `cp -r`),
+ * 后者走的是 shell `cp -r`,父目录不存在即失败,所以 ensure 必须在这里、不能下放到调用方
+ * (那两个文件不在本票改区)。
+ *
+ * **建不出来时仍返回路径**(与改前不同,方向是刻意的):改前 mkdir 失败 ⇒ 返回 null ⇒
+ * 两个调用点各自落到 `${GITDIR}.broken-<ts>` = gitdir 同级 = 盘根,而 §5b 明写"现场归档
+ * mv 到一级目录等于把恢复现场送回宿主清理层的射程内"(实测留过 7 项 / 3.2MB)。
+ * 现在落点始终是 §15b 那个根,盘不可写就让 cpSync/`cp -r` 大声失败,失败即放弃破坏性覆盖
+ * (guardian 的"归档失败⇒放弃恢复"、rebuild 的"归档失败⇒放弃重建"两条兜底都已在位)。
  * @param {string} baseName 形如 `IHUI-AI-git-repo.broken-2026-09-23T…`
+ * @param {string} [worktree] 显式工作树(缺省取当前仓)
  */
-export function gitdirArchivePath(baseName) {
-  const root = gitArchiveDir()
-  return root ? `${root}/${baseName}` : null
+export function gitdirArchivePath(baseName, worktree) {
+  const root = gitArchiveRootFor(worktree)
+  if (!root) return null
+  ensureGitArchiveDir(root)
+  return `${root}/${baseName}`
 }
+
 
 /**
  * 本地 gitdir 备份目录(兜底恢复用)。优先级:§15b 唯一备份目录下的新位置 →
@@ -294,7 +366,10 @@ export function resolveBackupDir(worktree) {
   const wt = worktree || resolveWorktree()
   const name = `${basename(wt)}.git-backup-20260912`
   const cands = []
-  const root = gitArchiveDir()
+  // 把 wt 传下去:本函数收 worktree 却不传,等于"注入的工作树只用来算名字、不用来算落点"
+  // —— 与 `git-backup-refresh.mjs:198` 那处被静默丢弃的入参同一条缺陷的第二格。
+  // 夹具工作树经此处一律解析不到生产归档根(夹具闸 ⇒ null),候选只剩仓根同级。
+  const root = gitArchiveDir(wt)
   if (root) cands.push(`${root}/${name}`)
   cands.push(join(dirname(wt), name))
   for (const c of cands) {
