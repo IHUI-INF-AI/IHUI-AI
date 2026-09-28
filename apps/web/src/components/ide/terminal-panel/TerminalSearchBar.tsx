@@ -86,7 +86,7 @@ export function TerminalSearchBar({
         <Tooltip content={t('terminalPanel.prevMatchTitle')}>
           <button
             type="button"
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+            className="flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
             onClick={() => doSearch(false)}
             disabled={!searchTerm}
             aria-label={t('terminalPanel.prevMatchAria')}
@@ -97,7 +97,7 @@ export function TerminalSearchBar({
         <Tooltip content={t('terminalPanel.nextMatchTitle')}>
           <button
             type="button"
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+            className="flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
             onClick={() => doSearch(true)}
             disabled={!searchTerm}
             aria-label={t('terminalPanel.nextMatchAria')}
@@ -108,7 +108,7 @@ export function TerminalSearchBar({
         <Tooltip content={t('terminalPanel.closeSearchTitle')}>
           <button
             type="button"
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             onClick={handleClose}
             aria-label={t('terminalPanel.closeSearchAria')}
           >
@@ -122,7 +122,7 @@ export function TerminalSearchBar({
           <button
             type="button"
             className={cn(
-              'flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 text-[10px] transition-colors',
+              'flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded-sm px-1.5 text-[10px] transition-colors',
               searchOpts.regex
                 ? 'bg-accent text-foreground'
                 : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -137,7 +137,7 @@ export function TerminalSearchBar({
           <button
             type="button"
             className={cn(
-              'flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 text-[10px] transition-colors',
+              'flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded-sm px-1.5 text-[10px] transition-colors',
               searchOpts.wholeWord
                 ? 'bg-accent text-foreground'
                 : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -152,7 +152,7 @@ export function TerminalSearchBar({
           <button
             type="button"
             className={cn(
-              'flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 text-[10px] transition-colors',
+              'flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded-sm px-1.5 text-[10px] transition-colors',
               searchOpts.caseSensitive
                 ? 'bg-accent text-foreground'
                 : 'text-muted-foreground hover:bg-accent hover:text-foreground',

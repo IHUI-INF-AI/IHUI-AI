@@ -86,7 +86,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
       <button
         type="button"
         className={cn(
-          'flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors',
+          'flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors',
           'hover:bg-background hover:text-foreground',
           loading && 'pointer-events-none opacity-40',
         )}
@@ -99,7 +99,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
       <button
         type="button"
         className={cn(
-          'flex h-6 w-4 items-center justify-center rounded-md text-muted-foreground transition-colors',
+          'flex h-6 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors',
           'hover:bg-background hover:text-foreground',
           loading && 'pointer-events-none opacity-40',
         )}
@@ -119,7 +119,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
         side="bottom"
         align="start"
         gap={4}
-        className="w-64 overflow-hidden rounded-md border border-border bg-popover shadow-md"
+        className="w-64 overflow-hidden rounded-xl border border-border bg-popover shadow-md"
       >
         {/* 连接类型单选 */}
         <div className="bg-muted/40 px-2.5 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -129,7 +129,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
           <button
             type="button"
             className={cn(
-              'flex flex-1 items-center justify-center gap-1 rounded px-2 py-1 text-xs transition-colors',
+              'flex flex-1 items-center justify-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors',
               connectKind === 'local'
                 ? 'bg-accent text-foreground'
                 : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -142,7 +142,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
           <button
             type="button"
             className={cn(
-              'flex flex-1 items-center justify-center gap-1 rounded px-2 py-1 text-xs transition-colors',
+              'flex flex-1 items-center justify-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors',
               connectKind === 'ssh'
                 ? 'bg-accent text-foreground'
                 : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -190,7 +190,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                 value={sshForm.host}
                 onChange={(e) => setSshField({ host: e.target.value })}
                 placeholder={t('terminalTabBar.hostPlaceholder')}
-                className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+                className="h-6 rounded-sm border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
               />
             </label>
             <label className="flex flex-col gap-0.5">
@@ -201,7 +201,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                 max={65535}
                 value={sshForm.port}
                 onChange={(e) => setSshField({ port: e.target.value })}
-                className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+                className="h-6 rounded-sm border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
               />
             </label>
             <label className="flex flex-col gap-0.5">
@@ -213,7 +213,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                 value={sshForm.username}
                 onChange={(e) => setSshField({ username: e.target.value })}
                 placeholder="root"
-                className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+                className="h-6 rounded-sm border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
               />
             </label>
             {/* 认证方式单选 */}
@@ -221,7 +221,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
               <button
                 type="button"
                 className={cn(
-                  'flex flex-1 items-center justify-center rounded px-2 py-0.5 text-[10px] transition-colors',
+                  'flex flex-1 items-center justify-center rounded-sm px-2 py-0.5 text-[10px] transition-colors',
                   sshForm.authMethod === 'password'
                     ? 'bg-accent text-foreground'
                     : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -233,7 +233,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
               <button
                 type="button"
                 className={cn(
-                  'flex flex-1 items-center justify-center rounded px-2 py-0.5 text-[10px] transition-colors',
+                  'flex flex-1 items-center justify-center rounded-sm px-2 py-0.5 text-[10px] transition-colors',
                   sshForm.authMethod === 'privateKey'
                     ? 'bg-accent text-foreground'
                     : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -252,7 +252,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                   type="password"
                   value={sshForm.password}
                   onChange={(e) => setSshField({ password: e.target.value })}
-                  className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+                  className="h-6 rounded-sm border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
                 />
               </label>
             ) : (
@@ -265,11 +265,11 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                   onChange={(e) => setSshField({ privateKey: e.target.value })}
                   placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
                   rows={3}
-                  className="rounded border border-border bg-background p-1.5 font-mono text-[10px] outline-none focus:border-ring/50"
+                  className="rounded-sm border border-border bg-background p-1.5 font-mono text-[10px] outline-none focus:border-ring/50"
                 />
                 <button
                   type="button"
-                  className="flex items-center gap-1 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className="flex items-center gap-1 rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   onClick={() => privateKeyFileRef.current?.click()}
                 >
                   <FileText className="h-3 w-3" />
@@ -290,7 +290,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                     type="password"
                     value={sshForm.passphrase}
                     onChange={(e) => setSshField({ passphrase: e.target.value })}
-                    className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+                    className="h-6 rounded-sm border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
                   />
                 </label>
               </label>
