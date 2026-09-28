@@ -243,7 +243,7 @@ export function SourceControlPanel() {
     return (
       <div
         key={file.id}
-        className="group flex items-center gap-1.5 rounded px-2 py-1 text-xs hover:bg-muted/30"
+        className="group flex items-center gap-1.5 rounded-xl px-2 py-1 text-xs hover:bg-muted/30"
       >
         <Icon className={cn('h-3.5 w-3.5 shrink-0', getFileColor(file.filename))} />
         <span className="truncate">{file.filename.split('/').pop()}</span>

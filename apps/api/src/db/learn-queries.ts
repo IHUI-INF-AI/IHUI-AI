@@ -2,7 +2,12 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc, asc, sql, ilike } from 'drizzle-orm'
+import { eq, and, or, not, lte, desc, asc, sql, ilike } from 'drizzle-orm'
+import type { SQL } from 'drizzle-orm'
+// 价格轴档位与客户端 / 路由 Zod 校验**共用这一份定义**(两处各写一遍同一组字面量,
+// 是本仓记过最多次的漂移型)。难度轴的权威在 @ihui/database 的 LESSON_DIFFICULTIES ——
+// 它是列的取值域,服务端写入校验用的就是那个常量。
+import type { LessonPriceAxis } from '@ihui/types'
 import { db } from './index.js'
 import {
   learnCategories,
@@ -16,6 +21,7 @@ import {
   type LessonChapter,
   type LessonChapterSection,
   type LessonSignUp,
+  type LessonDifficulty,
 } from '@ihui/database'
 
 // =============================================================================
@@ -102,11 +108,19 @@ export async function deleteLearnCategory(id: string): Promise<void> {
 // Lessons
 // =============================================================================
 
+/**
+ * 价格轴档位**不在这里再定义一遍** —— 与路由 Zod 校验、客户端筛选屏共用 `@ihui/types`
+ * 那一份(两处各写一份同一组字面量,是本仓记过最多次的漂移型)。
+ */
 export interface FindPublishedLessonsOpts {
   page: number
   pageSize: number
   categoryId?: string
   search?: string
+  /** 难度轴。NULL(未标注)的行不会被任何难度值命中 —— 这是"如实"而不是缺陷。 */
+  difficulty?: LessonDifficulty
+  /** 价格轴;undefined = 不筛。 */
+  price?: LessonPriceAxis
 }
 
 export interface LessonWithCategory extends Lesson {
@@ -114,16 +128,51 @@ export interface LessonWithCategory extends Lesson {
 }
 
 /**
+ * 价格轴「免费」的唯一判据:**不需要付钱**= isFree=true ∨ price ≤ 0。
+ *
+ * 这不是新发明的语义,是两处既有事实的并集:
+ *  - 下单出口 `routes/miniapp-compat-routes.ts:2549`:`if (course.isFree || coursePrice <= 0)`
+ *    直接回 status:'free' 且不扣余额 —— 这是**钱**的判据;
+ *  - App 筛选屏既有取数 `apps/mobile-rn/src/lib/course-filter-price.ts priceOf`:
+ *    price ≤ 0 / 非数 / 缺值一律按免费看 —— 这是**列表展示**的判据。
+ * 第三处 `routes/learn/get-lesson-video.ts:42` 只看 isFree,但它管的是"要不要先报名"
+ * (报名本身免费),不是"要不要付钱",所以不构成对这一档的反对证据。
+ * 出口只此一处:`paid` 取它的 `NOT`(两列均 notNull ⇒ 补集精确,不存在第三态)。
+ */
+export function lessonFreeCondition(): SQL {
+  return or(eq(lessons.isFree, true), lte(lessons.price, '0')) as SQL
+}
+
+/**
+ * 课程列表的可选筛选谓词 —— 公开列表与 admin 列表**共用这一份实现**。
+ * 两处各写一遍必然漂移(本仓最高频失效型),所以这里只产出条件数组,
+ * 发布态谓词仍由各函数自己决定(公开面强制,admin 面不强制)。
+ */
+function lessonFilterConditions(opts: FindPublishedLessonsOpts): SQL[] {
+  const conds: SQL[] = []
+  if (opts.categoryId) conds.push(eq(lessons.categoryId, opts.categoryId))
+  if (opts.search) conds.push(ilike(lessons.title, `%${opts.search}%`))
+  if (opts.difficulty) conds.push(eq(lessons.difficulty, opts.difficulty))
+  if (opts.price === 'free') conds.push(lessonFreeCondition())
+  else if (opts.price === 'paid') conds.push(not(lessonFreeCondition()))
+  return conds
+}
+
+/**
  * 分页查询已发布课程（isPublished=true, status=1）。
- * 支持 categoryId 筛选与 title 模糊搜索。
+ * 支持 categoryId / difficulty / price 筛选与 title 模糊搜索。
+ * 列表与计数用的是**同一个 WHERE 对象**(分页与总数口径必须一致,否则会出现
+ * 「total 说还有、下一页却空」这类无法归因的漂移)。
  */
 export async function findPublishedLessons(
   opts: FindPublishedLessonsOpts,
 ): Promise<{ list: LessonWithCategory[]; total: number; page: number; pageSize: number }> {
-  const { page, pageSize, categoryId, search } = opts
-  const conds = [eq(lessons.isPublished, true), eq(lessons.status, 1)]
-  if (categoryId) conds.push(eq(lessons.categoryId, categoryId))
-  if (search) conds.push(ilike(lessons.title, `%${search}%`))
+  const { page, pageSize } = opts
+  const where = and(
+    eq(lessons.isPublished, true),
+    eq(lessons.status, 1),
+    ...lessonFilterConditions(opts),
+  )
 
   const rows = await db
     .select({
@@ -132,7 +181,7 @@ export async function findPublishedLessons(
     })
     .from(lessons)
     .leftJoin(learnCategories, eq(lessons.categoryId, learnCategories.id))
-    .where(and(...conds))
+    .where(where)
     .orderBy(asc(lessons.sort), desc(lessons.createdAt))
     .limit(pageSize)
     .offset((page - 1) * pageSize)
@@ -146,23 +195,21 @@ export async function findPublishedLessons(
   const countRows = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(lessons)
-    .where(and(...conds))
+    .where(where)
   const total = countRows[0]?.count ?? 0
 
   return { list, total, page, pageSize }
 }
 
 /**
- * 分页查询所有课程（admin 用，含未发布），支持 categoryId 筛选与 title 模糊搜索。
+ * 分页查询所有课程（admin 用，含未发布），支持与公开列表同一套筛选轴。
  */
 export async function findAllLessons(
   opts: FindPublishedLessonsOpts,
 ): Promise<{ list: LessonWithCategory[]; total: number; page: number; pageSize: number }> {
-  const { page, pageSize, categoryId, search } = opts
-  const conds = []
-  if (categoryId) conds.push(eq(lessons.categoryId, categoryId))
-  if (search) conds.push(ilike(lessons.title, `%${search}%`))
-  const whereCond = conds.length ? and(...conds) : undefined
+  const { page, pageSize } = opts
+  const filters = lessonFilterConditions(opts)
+  const where = filters.length ? and(...filters) : undefined
 
   const rows = await db
     .select({
@@ -171,7 +218,7 @@ export async function findAllLessons(
     })
     .from(lessons)
     .leftJoin(learnCategories, eq(lessons.categoryId, learnCategories.id))
-    .where(whereCond)
+    .where(where)
     .orderBy(asc(lessons.sort), desc(lessons.createdAt))
     .limit(pageSize)
     .offset((page - 1) * pageSize)
@@ -184,7 +231,7 @@ export async function findAllLessons(
   const countRows = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(lessons)
-    .where(whereCond)
+    .where(where)
   const total = countRows[0]?.count ?? 0
 
   return { list, total, page, pageSize }
@@ -223,6 +270,8 @@ export interface CreateLessonInput {
   categoryId?: string | null
   lecturerId?: string | null
   lecturerName?: string | null
+  /** 难度轴;不传即 NULL(未标注),不得用默认值冒充任何一档。 */
+  difficulty?: LessonDifficulty | null
   price?: string
   originalPrice?: string | null
   isFree?: boolean
@@ -241,6 +290,7 @@ export async function createLesson(data: CreateLessonInput): Promise<Lesson> {
       categoryId: data.categoryId,
       lecturerId: data.lecturerId,
       lecturerName: data.lecturerName,
+      difficulty: data.difficulty,
       price: data.price,
       originalPrice: data.originalPrice,
       isFree: data.isFree,
@@ -261,6 +311,7 @@ export interface UpdateLessonInput {
   categoryId?: string | null
   lecturerId?: string | null
   lecturerName?: string | null
+  difficulty?: LessonDifficulty | null
   price?: string
   originalPrice?: string | null
   isFree?: boolean
@@ -282,6 +333,7 @@ export async function updateLesson(
       ...(data.categoryId !== undefined ? { categoryId: data.categoryId } : {}),
       ...(data.lecturerId !== undefined ? { lecturerId: data.lecturerId } : {}),
       ...(data.lecturerName !== undefined ? { lecturerName: data.lecturerName } : {}),
+      ...(data.difficulty !== undefined ? { difficulty: data.difficulty } : {}),
       ...(data.price !== undefined ? { price: data.price } : {}),
       ...(data.originalPrice !== undefined ? { originalPrice: data.originalPrice } : {}),
       ...(data.isFree !== undefined ? { isFree: data.isFree } : {}),
