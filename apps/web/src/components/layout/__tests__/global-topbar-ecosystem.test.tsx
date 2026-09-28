@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import React from 'react'
-import { render, cleanup, fireEvent, screen } from '@testing-library/react'
+import { render, cleanup, fireEvent, screen, waitFor, act } from '@testing-library/react'
 
 /**
  * D17 生态统一入口 — 顶栏那一半的回归测试(2026-09-25)
@@ -69,6 +69,7 @@ const { MESSAGES, mockLocale } = vi.hoisted(() => ({
       ecosystemHub: '生态市场',
       minimize: '最小化',
       maximize: '最大化',
+      restore: '还原',
       close: '关闭',
     },
     ecosystem: {
@@ -122,14 +123,45 @@ vi.mock('../TagsView', () => ({
   TagsViewChevronButton: () => null,
 }))
 
-vi.mock('@/hooks/use-desktop', () => ({ useDesktop: () => ({ isDesktop: false }) }))
+vi.mock('@/hooks/use-desktop', () => ({ useDesktop: () => ({ isDesktop: mockDesktop.value }) }))
+
+/**
+ * 最大化初值补查的行为桩(2026-09-28 随本票加入):
+ * resize 事件只报"变化"不报现状,而 Rust 侧启动时按持久化键直接 maximize
+ * (apps/desktop/src-tauri/src/lib.rs:1354-1357),所以顶栏必须挂载时补查一次初值。
+ * 这两例判的就是「补查在位」与「晚回来的初值不得覆盖已发生的事件」,均为行为断言而非文本形状。
+ */
+const mockDesktop = vi.hoisted(() => ({ value: false }))
+const maximizeHarness = vi.hoisted(() => ({
+  /** 组件订阅到的回调(每个 render 一个) */
+  listeners: [] as Array<(maximized: boolean) => void>,
+  /** 初值查询返回的 promise,由用例决定它是"已定值"还是"仍 pending"" */
+  init: Promise.resolve(false) as Promise<boolean>,
+  settle: (_v: boolean) => {},
+}))
+
+function maximizeScenario(initial: boolean | 'pending') {
+  let settle: (v: boolean) => void = () => {}
+  const init = new Promise<boolean>((r) => {
+    settle = r
+  })
+  maximizeHarness.listeners = []
+  maximizeHarness.init = init
+  maximizeHarness.settle = settle
+  if (initial !== 'pending') settle(initial)
+  return initial
+}
 
 vi.mock('@/lib/tauri-bridge', () => ({
   minimizeWindow: vi.fn(),
   toggleMaximizeWindow: vi.fn(),
   closeWindow: vi.fn(),
   startResize: vi.fn(),
-  onMaximizeChange: () => () => {},
+  onMaximizeChange: (cb: (maximized: boolean) => void) => {
+    maximizeHarness.listeners.push(cb)
+    return () => {}
+  },
+  isWindowMaximized: () => maximizeHarness.init,
   onWindowFocusChange: () => () => {},
   isWindowFocused: () => Promise.resolve(true),
 }))
@@ -299,6 +331,61 @@ describe('GlobalTopBar / 生态市场单入口(D17)', () => {
         expect(value, `${locale} 缺键 ${ns}.${key}`).toBeTruthy()
       }
     }
+  })
+})
+
+describe('GlobalTopBar / 最大化初值补查与事件闩锁(2026-09-28)', () => {
+  afterEach(() => {
+    cleanup()
+    mockDesktop.value = false
+  })
+
+  it('窗口挂载时就已最大化 ⇒ 按钮必须是「还原」,且 8 向缩放区不得挂上', async () => {
+    mockDesktop.value = true
+    maximizeScenario(true)
+    render(<GlobalTopBar />)
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: '还原' })).not.toBeNull()
+    })
+    expect(screen.queryByRole('button', { name: '最大化' })).toBeNull()
+    expect(document.querySelector('.cursor-n-resize')).toBeNull()
+  })
+
+  it('事件先到达、初值后回来 ⇒ 晚到的初值不得覆盖刚发生的事件(缺闩锁即翻红)', async () => {
+    mockDesktop.value = true
+    maximizeScenario('pending')
+    render(<GlobalTopBar />)
+
+    // 阳性对照:组件确实订阅上了,否则下面两行都在对空数组说话
+    const listener = maximizeHarness.listeners[0]
+    if (!listener) throw new Error('组件未订阅 onMaximizeChange ⇒ 本用例后续断言会空转')
+
+    // 事件说「已还原」
+    act(() => {
+      listener(false)
+    })
+    // 迟到的初值说「最大化」—— 它描述的是订阅之前那一瞬间,必须被丢弃
+    act(() => {
+      maximizeHarness.settle(true)
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: '最大化' })).not.toBeNull()
+    })
+    expect(screen.queryByRole('button', { name: '还原' })).toBeNull()
+    expect(document.querySelector('.cursor-n-resize')).not.toBeNull()
+  })
+
+  it('非桌面端一律不订阅、不补查(浏览器端零开销,行为与本票改动前一致)', async () => {
+    mockDesktop.value = false
+    maximizeScenario(true)
+    const subscribed = maximizeHarness.listeners
+    render(<GlobalTopBar />)
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(subscribed.length).toBe(0)
+    expect(document.querySelector('.cursor-n-resize')).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
