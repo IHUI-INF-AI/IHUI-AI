@@ -52,6 +52,8 @@ import { SessionDiffDialog } from '@/components/ai/session-diff-dialog'
 import { runManualCompact } from '@/hooks/use-chat/manual-compact'
 // P3 #30(2026-09-16 立):待发送 diff 评审意见提示条(输入框上方常驻提示 + 一键清空)
 import { DiffCommentsBar } from '@/components/chat/diff-comments-bar'
+// D154(2026-09-30 立):MCP 连接状态行 —— 连不上/重连中在对话里给一句可操作的话(数据来自 WS 常连)
+import { McpStatusNotice } from '@/components/chat/mcp-status-notice'
 // 任务进度常驻状态条:输入框上方动态显示"在做什么 / 第几步 / 改了多少文件",plan_updated 驱动
 import { TaskStatusBar } from '@/components/ai/task-status-bar'
 import { AddMenuPopover } from '@/components/chat/add-menu-popover'
@@ -905,6 +907,8 @@ export function MessageInput({
         <TaskStatusBar />
         {/* P3 #30:diff 待发送意见提示条(有意见时才渲染,无意见时返回 null 零占位) */}
         <DiffCommentsBar />
+        {/* D154:MCP 连不上/重连中的对话内状态行(帧来自 /ws/broadcast,常态零占位) */}
+        <McpStatusNotice />
         {/* D82 润色保稿提示(失败 / 空草稿被拒 / 需重启生效;均带「草稿已保留」语义,无内容零占位) */}
         <PromptPolishNotice state={polish} onRetry={handlePolish} />
         {allReferences.length > 0 && (
