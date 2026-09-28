@@ -56,7 +56,7 @@ export default function StudyRank() {
             {/* 第 2 名:rankColor(2)= text.tertiary */}
             <View className="flex-1 flex flex-col items-center p-[28rpx] rounded-xl bg-muted">
               <Image
-                className="w-[96rpx] h-[96rpx] rounded-full bg-background border-2 border-[var(--color-text-tertiary)]"
+                className="w-[96rpx] h-[96rpx] rounded-2xl bg-background border-2 border-[var(--color-text-tertiary)]"
                 src={list[1]!.avatar || '/static/default-avatar.png'}
                 mode="aspectFill"
               />
@@ -73,7 +73,7 @@ export default function StudyRank() {
             {/* 第 1 名:rankColor(1)= warning.amber,底色 warning.amberLight */}
             <View className="flex-1 flex flex-col items-center p-[28rpx] rounded-xl bg-[var(--color-warning-amber-light)]">
               <Image
-                className="w-[96rpx] h-[96rpx] rounded-full bg-background border-2 border-[var(--color-warning-amber)]"
+                className="w-[96rpx] h-[96rpx] rounded-2xl bg-background border-2 border-[var(--color-warning-amber)]"
                 src={list[0]!.avatar || '/static/default-avatar.png'}
                 mode="aspectFill"
               />
@@ -90,7 +90,7 @@ export default function StudyRank() {
             {/* 第 3 名:rankColor(3)= warning.amberText */}
             <View className="flex-1 flex flex-col items-center p-[28rpx] rounded-xl bg-muted">
               <Image
-                className="w-[96rpx] h-[96rpx] rounded-full bg-background border-2 border-[var(--color-warning-amber-text)]"
+                className="w-[96rpx] h-[96rpx] rounded-2xl bg-background border-2 border-[var(--color-warning-amber-text)]"
                 src={list[2]!.avatar || '/static/default-avatar.png'}
                 mode="aspectFill"
               />
@@ -119,7 +119,7 @@ export default function StudyRank() {
                   #{i + 4}
                 </Text>
                 <Image
-                  className="w-[88rpx] h-[88rpx] rounded-full bg-muted border-[length:3rpx] border-[var(--color-muted-foreground)]"
+                  className="w-[88rpx] h-[88rpx] rounded-2xl bg-muted border-[length:3rpx] border-[var(--color-muted-foreground)]"
                   src={u.avatar || '/static/default-avatar.png'}
                   mode="aspectFill"
                 />

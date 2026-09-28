@@ -101,7 +101,7 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
                       style={{
                         width: rpx(40),
                         height: rpx(40),
-                        borderRadius: '50%',
+                        borderRadius: rnRadius['2xl'],
                         marginRight: rpx(8),
                       }}
                     />
