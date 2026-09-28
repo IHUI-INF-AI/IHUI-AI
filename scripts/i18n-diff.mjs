@@ -41,7 +41,7 @@
  * 退出码:
  *   0 = 无 pending
  *   1 = 有 pending(用于守门,warn-only 场景不阻塞)
- *   2 = 用法错误(未知 --target / --target 指向的目录不存在)
+ *   2 = 用法错误(未知 --target / --target 指向的目录不存在 / --output 没收到有效路径)
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -50,8 +50,24 @@ import { execSync } from 'node:child_process'
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
 const isQuiet = process.argv.includes('--quiet')
-const outputIdx = process.argv.indexOf('--output')
-const customOutput = outputIdx >= 0 ? process.argv[outputIdx + 1] : null
+/**
+ * 带值旗标的取值(2026-09-28 修 `--output --staged` 这一型;**口径照抄枚 380431ffc / 636c28f58 /
+ * 8832e73a4,不另发明**):紧邻的下一个 token 必须**存在、非空且不以 `-` 开头**,才算该旗标的值。
+ * 旧写法 `process.argv[outputIdx + 1]` **无条件**把下一个 token 当路径,于是 runner 追加的
+ * `--staged` 会被当成输出路径 ⇒ 在工作目录写出一个名叫 `--staged` 的文件,而 `DEFAULT_OUTPUT`
+ * 不更新 ⇒ 2f-web / 2f-miniapp-taro / 2f-shared-diff 三道 blocking 复验仍去读默认路径,
+ * 流水线报"翻译流水线通过"而 pending 内容根本没刷新 —— 这一层比写出垃圾文件更糟。
+ * 无效值一律**大声拒绝**(exit 2 + 点名实得 token),绝不静默回落默认路径写别处。
+ * 硬约束:**默认输出路径(DEFAULT_OUTPUT)与不带 --output 时的默认行为一字未改**,三道门就按它读。
+ */
+function flagValue(list, flag) {
+  if (!Array.isArray(list) || !list.includes(flag)) return { present: false, valid: false, value: null, token: null }
+  const raw = list[list.indexOf(flag) + 1]
+  const token = typeof raw === 'string' ? raw : null
+  const valid = token !== null && token !== '' && !token.startsWith('-')
+  return { present: true, valid, value: valid ? token : null, token }
+}
+const outputFlag = flagValue(process.argv.slice(2), '--output')
 const targetArg = process.argv.find((a) => a.startsWith('--target='))
 const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
 // 调用方是否**显式**传了 --target —— 决定"目录不存在"是否判死(见 resolveTarget 内注释)
@@ -154,6 +170,20 @@ function fatalUsage(lines) {
   for (const line of lines) console.error(line)
   process.exit(2)
 }
+
+// --output 收到了一个不是值的 token(其后没有参数 / 空串 / 是另一个旗标)⇒ 大声拒绝,不静默回落。
+// 刻意不回落 DEFAULT_OUTPUT:那会把"没收到路径"伪装成"按默认路径写好了",而调用方以为自己指定过;
+// 默认档(不带 --output)的行为与默认输出路径 DEFAULT_OUTPUT 一字未改,三道 2f-* blocking 门照旧读它。
+if (outputFlag.present && !outputFlag.valid) {
+  fatalUsage([
+    `❌ [i18n] --output 没有收到有效路径 —— 紧邻的 token 实得:` +
+      (outputFlag.token === null ? '(其后没有任何参数)' : JSON.stringify(outputFlag.token)),
+    `   带值旗标的值必须存在、非空且不以 - 开头;否则 --output --staged 会写出一个名叫 --staged 的文件,`,
+    `            而三道 2f-* blocking 门仍去读默认路径 ⇒ 流水线"通过"而 pending 根本没刷新。`,
+    `   已拒绝执行(未读任何语言包、未写任何文件);要按默认路径写就直接省略 --output。`,
+  ])
+}
+const customOutput = outputFlag.value
 
 const TARGET_CFG = resolveTarget(TARGET, ROOT, TARGET_IS_EXPLICIT, fatalUsage).cfg
 
