@@ -1689,6 +1689,28 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             void opts.onDelta?.(delta);
           },
         });
+        /**
+         * 输出被长度上限截断**必须让用户看得见**。
+         *
+         * 立因:`streamOpenAiCompatible` 早就把 `choice.finish_reason` 收进了结果
+         * (`provider/local.ts` 的 `acc.finishReason`),但本消费点此前只取 `result.error`,
+         * 结束原因被原地丢弃 —— 于是模型话说一半就停,终端看起来与"正常说完"逐字相同,
+         * 用户把残缺回复当成完整回复(本仓"静默变短等于伪造完整性"同一条禁令,
+         * 见本文件 [doom-loop] pattern 超长那处的写法)。
+         *
+         * 口径:只认 `finishReason === 'length'`(provider 明示"因长度上限而停")。
+         * `stop` / `tool_calls` / 上游根本没发 三档**一律不喊**,所以本提示不会误报;
+         * 远端 `streamChat` 那一侧今天拿不到这个字段(内部 SSE 契约不携带 stop/length 原因),
+         * 属 ai-service 契约那一格,不在本票射程。
+         *
+         * 形态选择:沿用本文件既有同类提示(`[context-guard]` / `[native-fc]` / `[doom-loop]`)
+         * 的 stderr + chalk 一档,不新增 SSE 事件、不改 local.ts 的解析语义;措辞走
+         * `cli.truncatedByLength` 词表(五语言)—— 这一族的界面措辞在本端已收进语言包
+         * (与 `cli.steerApplied` / `cli.citationSources` 同形),不在此写死中文。
+         */
+        if (result.finishReason === 'length') {
+          process.stderr.write(chalk.yellow(`[truncated] ${t('cli.truncatedByLength')}\n`));
+        }
         for (const tc of result.toolCalls) {
           nativeToolEvents.push({ name: tc.name, arguments: tc.arguments });
           pendingToolCallIds.push(tc.id);
