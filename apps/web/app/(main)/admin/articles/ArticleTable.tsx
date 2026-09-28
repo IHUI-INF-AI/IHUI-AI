@@ -92,7 +92,7 @@ export function ArticleTable(props: ArticleTableProps) {
               key={s}
               onClick={() => setStatus(s)}
               className={cn(
-                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                'rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
                 status === s
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground',
@@ -160,7 +160,7 @@ export function ArticleTable(props: ArticleTableProps) {
                         onClick={() => onToggle(a)}
                         disabled={togglePending}
                         className={cn(
-                          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
+                          'inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-medium transition-colors',
                           published
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 hover:bg-emerald-500/20'
                             : 'bg-muted text-muted-foreground hover:bg-muted/70',
