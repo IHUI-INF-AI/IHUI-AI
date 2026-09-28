@@ -734,6 +734,43 @@ export function stripEmptyMarkerTriples(bodyText) {
   return { text: out.join('\n'), removed }
 }
 
+/**
+ * 归档件"已有内容"的取材校准:磁盘副本 与 被审面(HEAD)做行多重集比对,返回三态。
+ *
+ * 为什么必须有这一步:本器最后取归档件正文走的是 `writeBlobOfWorktree(archiveRel)` ——
+ * blob 直接来自磁盘那份文件。共享工作树的磁盘副本常年滞后 HEAD,于是"追加 N 条"在提交面上
+ * 变成"整份退回滞后态 ⊕ 新块",滞后多少就丢多少。实测枚 `3e19e1097f`
+ * 「chore(auto): 归档 58 个已完成任务条目」把 30,879 行的归档件写成 13,342 行(净丢 17,537 行),
+ * 而门 71/13c 只核占位与标题行、归档器自己的零损失闸只看"被搬块是否落进将要提交的那份文本"
+ * —— 三条判据都以"将要提交的那份"为准,而那份本身就是旧的,所以一路无声。
+ *
+ * 三态与处置(判序保守,不猜):
+ *  - fresh     磁盘 ⊇ HEAD(等值,或别人刚追加还没提交)⇒ 照常追加,不动别人现场;
+ *  - stale     磁盘 ⊂ HEAD(滞后,或整份缺失)⇒ 以 HEAD 面为底重建再追加(可证零独有数据);
+ *  - divergent 两侧各有对方没有的行 ⇒ 不代裁,交人工(磁盘那部分属"别人在飞")。
+ */
+export function reconcileArchiveBase(headText, diskText) {
+  const multiset = (s) => {
+    const m = new Map()
+    for (const l of String(s ?? '').split('\n')) m.set(l, (m.get(l) || 0) + 1)
+    return m
+  }
+  const head = multiset(headText)
+  const disk = multiset(diskText)
+  let headOnly = 0
+  for (const [l, n] of head) {
+    const d = disk.get(l) || 0
+    if (d < n) headOnly += n - d
+  }
+  let diskOnly = 0
+  for (const [l, n] of disk) {
+    const h = head.get(l) || 0
+    if (h < n) diskOnly += n - h
+  }
+  const verdict = headOnly > 0 && diskOnly > 0 ? 'divergent' : headOnly > 0 ? 'stale' : 'fresh'
+  return { verdict, headOnly, diskOnly }
+}
+
 /** 一段块正文是否**逐行连续**地出现在目标文本里(§1 第二步"完整内容进归档文件"的证据判据)。 */
 function blockLandsContiguously(haystackText, bodyText) {
   if (!bodyText) return false
@@ -808,7 +845,39 @@ async function landThroughObjectSpace({ base, toArchive }) {
     console.error(C.yellow + '   先按 §12d 归并解冲突(`--ours/--theirs` 或重新三方合并),禁止手删三行标记当作已解决。' + C.reset)
     process.exit(1)
   }
-  const existingArchive = existsSync(archiveFile) ? readWorktreeFile(ROOT, archiveRel) : null
+  // 归档件的"已有内容"先按**被审面校准**再谈追加:本函数末尾的 blob 取自磁盘
+  // (`writeBlobOfWorktree(archiveRel)`),磁盘滞后多少,提交面就缩水多少 —— 实测丢 17,537 行。
+  // 取材仍走 face-reader 的 `catBatch`(自拼 git show 是守门 118 判的"门脚本自己派生 git 读正文")。
+  const norm = (s) => String(s ?? '').replace(/\r\n/g, '\n').replace(/\n+$/, '')
+  const headSpec = `${base.headSha}:${archiveRel}`
+  const diskArchive = existsSync(archiveFile) ? readWorktreeFile(ROOT, archiveRel) : null
+  const headArchive = norm(catBatch(ROOT, [headSpec]).get(headSpec))
+  const rec = reconcileArchiveBase(headArchive, norm(diskArchive))
+  if (rec.verdict === 'divergent') {
+    console.error(
+      C.red +
+        `❌ 归档件磁盘副本与被审面互相独有(HEAD 多 ${rec.headOnly} 行 / 磁盘多 ${rec.diskOnly} 行)⇒ 拒绝落地` +
+        C.reset,
+    )
+    console.error(
+      C.yellow +
+        `   两侧都有对方没有的内容时,"追加"会静默决定保留哪一侧 —— 那是裁决不是搬运。` +
+        `先人工归并这一份(参照 §12d:git show ${base.headSha.slice(0, 9)}:${archiveRel} 与盘上那份做行级 union),再重跑。` +
+        C.reset,
+    )
+    console.error(C.dim + '   计划文档一字未动、未落提交、归档文件也未创建。' + C.reset)
+    process.exit(1)
+  }
+  const archiveBaseText = rec.verdict === 'stale' ? (headArchive ?? '') : (diskArchive ?? '')
+  if (rec.verdict === 'stale') {
+    console.log(
+      C.yellow +
+        `⚠️ 归档件磁盘副本比被审面少 ${rec.headOnly} 行(工作区滞后)⇒ 以 HEAD 面为底重建后再追加,` +
+        `否则本次"归档"会把已入库正文整批写回旧态` +
+        C.reset,
+    )
+  }
+  const existingArchive = archiveBaseText === '' ? null : archiveBaseText
   const archiveWouldBe = (existingArchive ?? '') + chunk
   const placeholderOf = (t) =>
     placeholderLine(today, t.titleText, archiveBaseName, mergeNotesOf(t.bodyLines))
@@ -851,10 +920,31 @@ async function landThroughObjectSpace({ base, toArchive }) {
       C.reset,
   )
 
-  // ③b 现在才真写归档文件(追加语义 appendFileSync 保持不变),写完立刻复核落盘字节:
+  // ③b 现在才真写归档文件,写完立刻复核落盘字节:
   //     "我以为要豁免"的证据必须真的在盘上,否则一次失败的追加就把豁免建立在虚空上。
   if (!existsSync(ARCHIVE_DIR)) mkdirSync(ARCHIVE_DIR, { recursive: true })
-  appendFileSync(archiveFile, chunk, 'utf8')
+  // 下笔之前再量一次磁盘:判据算的是"将要落的那一份",期间被第三方追加过就不再是同一份了
+  // (本文件由每一路会话的 post-commit 钩子写,同一轮里判据取材与下笔之间它完全可能被别人追加过)。
+  // 此时整写等于吞掉别人的追加,只有"内容没动"才允许按判据的结果落盘。
+  const diskNow = existsSync(archiveFile) ? readWorktreeFile(ROOT, archiveRel) : null
+  if ((diskNow ?? '') !== (existingArchive ?? '')) {
+    console.error(
+      C.red + '❌ 归档件在"判据取材"与"下笔"之间被第三方改动 ⇒ 不落(整写会吞掉别人的追加)' + C.reset,
+    )
+    console.error(
+      C.dim +
+        `   判据时=${existingArchive === null ? '(文件不存在)' : `${existingArchive.split('\n').length} 行`} / 现在=${diskNow === null ? '(文件不见了)' : `${diskNow.split('\n').length} 行`}` +
+        C.reset,
+    )
+    console.error(C.dim + '   计划文档一字未动、未落提交。下一轮(或先按 §12d 归并盘上那份)再跑。' + C.reset)
+    process.exit(1)
+  }
+  if (rec.verdict === 'stale') {
+    // 滞后面整写 = HEAD 面 ⊕ 本次搬运:HEAD 面 ⊇ 盘上面(判据已证),故不丢任何一侧的独有行。
+    writeFileSync(archiveFile, archiveBaseText + chunk, 'utf8')
+  } else {
+    appendFileSync(archiveFile, chunk, 'utf8')
+  }
   const archiveAfter = readWorktreeFile(ROOT, archiveRel) ?? ''
   const notLanded = toArchive.filter((t, i) => !blockLandsContiguously(archiveAfter, bodies[i]))
   if (notLanded.length > 0) {
@@ -1081,7 +1171,7 @@ async function main() {
   // 771 行 / 575,577 B,块内 `- [ ]` 237 条)。搬走它等于把别人正开着的 237 件活账归档,
   // 派单口径静默少 237 行 —— 那比"积压没清"严重得多。
   // 本判据与体积阀**正交**:`--allow-mass` 只放宽"一次搬多少字节",不放宽"这一条能不能搬"。
-  const { tasks, candidates, blocked, movable } = partitionPlanBlocks(content)
+  const { tasks, blocked, movable } = partitionPlanBlocks(content)
   if (listBlocked) {
     const blocks = blocked.map((t) => describeBlockedBlock(t, content))
     const openRowTotal = blocks.reduce((n, b) => n + b.openRowCount, 0)
@@ -1788,10 +1878,65 @@ function runSelfTest() {
   ok(
     'S19d 装车锁:main() 只走 partitionPlanBlocks(体内不得留第二份分区筛选),且 --json 诊断面不得混入人读行',
     s19Main.length > 500 &&
-      /const \{ tasks, candidates, blocked, movable \} = partitionPlanBlocks\(content\)/.test(s19Main) &&
+      /const \{ tasks, blocked, movable \} = partitionPlanBlocks\(content\)/.test(s19Main) &&
       !/entryHasOpenRows\(/.test(s19Main) &&
       /if \(!\(listBlocked && jsonOut\)\) \{/.test(s19src),
     `main 体切片长度=${s19Main.length}`,
+  )
+
+  // ── S23 归档件取材校准:磁盘滞后 / 双方互斥 / 等值,三种形态各配正反例 ──
+  // 立因:枚 3e19e1097f「chore(auto): 归档 58 个已完成任务条目」把 30,879 行的当日归档件
+  // 写成 13,342 行 —— 归档器按**滞后的磁盘副本**追加,而提交 blob 取自磁盘(`writeBlobOfWorktree`)。
+  const headA = 'h1\nh2\nh3\n'
+  ok(
+    'S23a stale:磁盘是被审面的真子集 ⇒ 判 stale 并报出 HEAD 独有条数(此时必须以 HEAD 面为底重建)',
+    JSON.stringify(reconcileArchiveBase(headA, 'h1\nh3\n')) ===
+      JSON.stringify({ verdict: 'stale', headOnly: 1, diskOnly: 0 }),
+    JSON.stringify(reconcileArchiveBase(headA, 'h1\nh3\n')),
+  )
+  ok(
+    'S23b fresh:磁盘 ⊇ 被审面(别人刚追加还没提交)⇒ 照常追加,不许把别人的在飞内容整写掉',
+    JSON.stringify(reconcileArchiveBase(headA, 'h1\nh2\nh3\nnew\n')) ===
+      JSON.stringify({ verdict: 'fresh', headOnly: 0, diskOnly: 1 }),
+    JSON.stringify(reconcileArchiveBase(headA, 'h1\nh2\nh3\nnew\n')),
+  )
+  ok(
+    'S23c 等值 ⇒ fresh(两个计数都 0;这是绝大多数轮次的形态,判错就等于每轮都整写 12MB)',
+    JSON.stringify(reconcileArchiveBase(headA, headA)) ===
+      JSON.stringify({ verdict: 'fresh', headOnly: 0, diskOnly: 0 }),
+    JSON.stringify(reconcileArchiveBase(headA, headA)),
+  )
+  ok(
+    'S23d divergent:两侧各有对方没有的行 ⇒ 交人工,不代裁(那种磁盘内容属"别人在飞")',
+    JSON.stringify(reconcileArchiveBase(headA, 'h1\nzzz\n')) ===
+      JSON.stringify({ verdict: 'divergent', headOnly: 2, diskOnly: 1 }),
+    JSON.stringify(reconcileArchiveBase(headA, 'h1\nzzz\n')),
+  )
+  ok(
+    'S23e 磁盘整份缺失(被宿主清理层删掉)⇒ stale,不得当 fresh 空追加',
+    reconcileArchiveBase(headA, '').verdict === 'stale' &&
+      reconcileArchiveBase(headA, null).verdict === 'stale',
+  )
+  ok(
+    'S23f 同一行多份按**重数**判,不按"这行见过没有"判(归档件里天然有重复行)',
+    reconcileArchiveBase('d\nd\nd\n', 'd\n').verdict === 'stale' &&
+      reconcileArchiveBase('d\n', 'd\nd\n').verdict === 'fresh',
+  )
+  ok(
+    'S23g 装车锁:landThroughObjectSpace 必须真用该出口,且滞后面走整写、fresh 才走追加',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      const s = src.indexOf('async function landThroughObjectSpace')
+      const e = src.indexOf('\nfunction ', s + 10)
+      const body = s >= 0 ? src.slice(s, e > s ? e : src.length) : ''
+      return (
+        /reconcileArchiveBase\(headArchive/.test(body) &&
+        /if \(rec\.verdict === 'stale'\) \{[\s\S]{0,200}writeFileSync\(archiveFile, archiveBaseText \+ chunk/.test(
+          body,
+        ) &&
+        /else \{\s*\n\s*appendFileSync\(archiveFile, chunk/.test(body)
+      )
+    })(),
   )
 
   let failed = 0
@@ -1831,6 +1976,7 @@ export const __test__ = {
   buildNewPlanText,
   buildArchiveChunk,
   blockLandsContiguously,
+  reconcileArchiveBase,
   resolveRequestedFace,
   resolvePlanBase,
   partitionPlanBlocks,
