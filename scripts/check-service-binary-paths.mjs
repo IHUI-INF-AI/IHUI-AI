@@ -14,7 +14,24 @@
  * 判"某服务在不在跑"必须**分开问三件事**(本仓同族教训:一条门只管自己立项那一型,就是那一型的洞):
  *   D1 STATE   —— 服务现在什么态。只看这条会把"启动即崩"读成"停着而已"。
  *   D2 路径     —— 服务配置写的 Application 是否真是可用文件(AppDirectory 是否真是目录)。
- *   D3 答不答   —— 从服务自身配置读到端口就 TCP 探一次;读不到 ⇒ 如实"未判定",绝不推测成没问题。
+ *   D3 答不答   —— 2026-09-29 起不再只看"配置里声明了哪个端口":先问**这个服务的进程树实际在听什么**,
+ *                  再按**该端口实际绑定的地址**探一次;两者都量不到 ⇒ 如实"未判定",绝不推测成没问题。
+ *
+ * D3 的两处缺陷是本票改的对象(全部真机现读,不引用文档数字):
+ *   ① 旧判据的端口**只**取自服务配置声明(REG pb64 ∪ nssm AppParameters/AppEnvironmentExtra)。声明为空
+ *      ⇒ 直接判"未判定",**从不问进程实际在听什么**。后果不是"少一维信息",而是:某个服务的子进程
+ *      死了、监听消失,这台尺子不会变红,因为它本来就没在看 —— 而它存在的理由(RSSHub 静默停 3 天)
+ *      恰恰依赖这一维。本机实测 21 个服务里有 **12 个**因此停在"未判定"。
+ *   ② 旧探测写死 `net.connect({host:'127.0.0.1'})`。实测 `Keycloak` 的 `7800` **只绑在网卡地址**
+ *      `192.168.1.37:7800`:对它用 127.0.0.1 探必回 ECONNREFUSED ⇒ 一个活端口会被报成失败。现按 netstat
+ *      给出的**实际绑定地址**探:`0.0.0.0` / `[::]` 这类通配才回落到 127.0.0.1,`[::1]` 用 `::1`
+ *      (纯 IPv6 回环监听在 IPv4 上不可达,拿 127.0.0.1 探就是重犯 ②),具体网卡地址就用那个地址。
+ *   进程树归并是必须的:nssm 托管的"服务进程"(Win32_Service.ProcessId)常常只是包装进程,真正持有监听
+ *   端口的是它派生的子进程(实测 9 个全部如此,例如 IHUI-WEB 服务 pid 与监听者 pid 不同)。只查服务 pid
+ *   会把 9 个健康服务全判成"没有监听"。归并有深度上限 + 环保护 + 节点上限,并排除 pid ≤ 4(System/Idle)。
+ *   **一处如实登记的判据边界**:本机对"声明了端口"的服务,子进程死掉 ⇒ 声明端口无应答 ⇒ 判问题(有牙);
+ *   而对"从不声明端口"的那一批,子进程死掉后的形态是"进程树实测无监听" ⇒ 落"此维不适用"的未判定,
+ *   **不是判问题** —— 要判"曾经有、现在没了"需要一份上次读数做对照,那属下一票,不得在此假称已覆盖。
  *
  * D2/D3 有**两条互不替代的取材通道**(add/add 合并票的实质:两个会话各写了其中一条,现读两侧各缺一半):
  *   REG  = 注册表 `HKLM:/SYSTEM/CurrentControlSet/Services` 的 `Parameters\Application|AppDirectory|pb64`
@@ -47,7 +64,7 @@
  * 用法:node scripts/check-service-binary-paths.mjs [--json] [--strict] [--service <名>]... [--filter 'IHUI*'] [--self-test]
  *   问责入口 `pnpm check:service-paths`(默认档);`--strict` 把"有维量不到"也计入不通过(拒绝出具合格证)。
  * 退出码:0 = 跑完且没有量到的问题(有未判定维时末行明写"不出具合格证");1 = 至少一个服务**量到**了问题
- *   (路径不存在 / 非 RUNNING / 声明端口不应答 / Application 值为空 / 两通道取值不一致),--strict 下含未判定;
+ *   (路径不存在 / 非 RUNNING / 声明端口无应答 / 观察到的监听端点全部不应答 / Application 值为空 / 两通道取值不一致),--strict 下含未判定;
  *   2 = 未判定到给不出任何结论(非 win32 / 任一枚举通道没跑到 / 没有任何可判对象 / --self-test 失败)。
  */
 import { spawnSync } from 'node:child_process'
@@ -68,7 +85,17 @@ export const PS_CANDIDATES = [
 ]
 /** nssm 候选绝对路径 —— 机器事实按当次存在性取;都不在位则 NSSM 通道未判定(REG 通道仍可判 D2)。 */
 export const NSSM_CANDIDATES = ['C:\\Windows\\System32\\nssm.exe']
-/** 通道 REG 里 `Parameters` 子键不存在 / 编码失败 的两个哨兵(带 '!' 前缀,与 base64 字符集互斥,
+/** netstat 的绝对路径候选 —— 同上,不依赖 PATH(§5b:服务身份与交互账户的 PATH 互不相通)。
+ *  SystemRoot 由 env 推导而不是写死盘符;都不在位 ⇒ 监听观察维未判定(绝不读成"没有监听")。 */
+export const NETSTAT_CANDIDATES = [
+  ...(process.env.SystemRoot ? [process.env.SystemRoot.replace(/[\\/]+$/, '') + '\\System32\\NETSTAT.EXE'] : []),
+  'C:\\Windows\\System32\\NETSTAT.EXE',
+]
+/** 通道 PROC 的首尾哨兵 + 两段各自的计数行:与 STATE/REG 同一条规矩 ——
+ *  没有它们,"0 行"与"整面没枚举到"同形(§22c:判据失效的表现永远是安静)。 */
+export const PROC_HEAD = '#IHUI-PROCLIST v1'
+export const PROC_TAIL = '#IHUI-PROCLIST-END'
+/** REG 通道里 `Parameters` 子键不存在 / 编码失败 的两个哨兵(带 '!' 前缀,与 base64 字符集互斥,
  *  所以解析式不会把真 base64 读成哨兵,也不会把哨兵读成空载荷)。 */
 export const REG_NO_PARAMS = '!N'
 export const REG_ENCODE_ERROR = '!E'
@@ -79,8 +106,13 @@ export const ENUM_TAIL = '#IHUI-SVC-END'
 const PS_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_ENUM_TIMEOUT_MS) || 120_000
 const NSSM_TIMEOUT_MS = 5_000
 const TCP_TIMEOUT_MS = 1_500
-/** 每服务最多探这么几个端口(再多说明配置里有噪声,只按前几个作答,其余如实报数)。 */
+const NETSTAT_TIMEOUT_MS = 15_000
+const PROC_TIMEOUT_MS = 60_000
+/** 每服务最多探这么几个端点(再多说明配置里有噪声,只按前几个作答,其余如实报数)。 */
 const MAX_PROBE_PORTS = 6
+/** 进程树归并的两条硬上限 + 环保护:没有上限时,一台机器上 pid/ppid 数据异常就能把遍历变成死循环。 */
+const TREE_MAX_DEPTH = 6
+const TREE_MAX_NODES = 800
 
 // ---------------------------------------------------------------------------
 // 三态维度的唯一表示:`{kind:'measured', value}` 或 `{kind:'unmeasured', reason}`。
@@ -303,6 +335,313 @@ export function parseRegistryOutput(text) {
   return { rows, totalServiceKeys, regMissing, sumSeen, unparsed }
 }
 
+// ---------------------------------------------------------------------------
+// D3 的新取材层:「这个服务的进程树实际在听什么」(2026-09-29 本票)
+// 全部是纯函数 —— 派生只发生在 defaultDeps 里,测试喂构造面/真机逐字夹具即可复现。
+// ---------------------------------------------------------------------------
+
+/** 回环探测地址:只有**通配绑定**才回落到它(见 probeHostForBind)。 */
+export const LOOPBACK_PROBE_HOST = '127.0.0.1'
+
+/** netstat 的 TCP 数据行:`TCP  <local>  <foreign>  LISTENING  <pid>`。本机实测表头是 GBK localized
+ *  的(且 `TCP` / `LISTENING` 是 ASCII),所以判据只认 ASCII 词元,遇到解不出的 TCP 行**计数不丢弃**
+ *  —— 静默跳过等于把"输出形态换了"读成"这台机没有监听"。 */
+const NETSTAT_TCP_LISTEN_RE = /^TCP\s+(\S+)\s+(\S+)\s+LISTENING\s+(\d+)\s*$/
+/** 一条 TCP 行里"状态"列是别的东西(TIME_WAIT / ESTABLISHED / CLOSED…)是**正常形态**,不得计成"解不出";
+ *  只有列数都对不齐的行才算 malformed。反过来,状态列明明写着 LISTENING 而整行解不出的,**必须**算
+ *  malformed —— 那是本判据对该行失明,读成"没有监听"就是把没看清写成没有问题。
+ *  把前者计入 malformed 的代价是本机每次跑都刷出成百的假"形态不符"(自检 NS-3b 抓出来的:"提取式过宽"
+ *  与"提取式过窄"都是判据缺陷,只是一个造噪声、一个造合格证)。 */
+const NETSTAT_TCP_STATE_RE = /^TCP\s+\S+\s+\S+\s+\S+(\s+\d+)?\s*$/
+const NETSTAT_LISTENING_PREFIX_RE = /^TCP\s+\S+\s+\S+\s+LISTENING(\s|$)/
+/** `[::1]:7800` / `0.0.0.0:135` / `*:80` 三形态都解得出 {address, port};解不出返回 null。 */
+export function splitHostPort(token) {
+  const t = String(token ?? '').trim()
+  const m = /^\[([^\]]+)\]:(\d+)$/.exec(t) ?? /^([^[\]:]+):(\d+)$/.exec(t)
+  if (!m) return null
+  const port = Number(m[2])
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) return null
+  return { address: m[1], port }
+}
+
+/** netstat 文本 → 监听端点集合(折叠成三态:形态不认识 ⇒ unmeasured,"确实是 0"要显式说)。 */
+export function interpretNetstatListening(text) {
+  const lines = String(text ?? '').replace(/\r\n/g, '\n').split('\n')
+  const rows = []
+  let tcpLines = 0
+  let notListening = 0
+  let malformed = 0
+  for (const line of lines) {
+    const t = line.trim()
+    if (t === '') continue
+    if (!/^TCP(\s|$)/.test(t)) continue // UDP 行与 localized 表头:合法的非目标行,不计 malformed
+    tcpLines++
+    const m = NETSTAT_TCP_LISTEN_RE.exec(t)
+    if (!m) {
+      if (NETSTAT_LISTENING_PREFIX_RE.test(t)) malformed++ // 明明是监听行却解不出 ⇒ 判据失明,必须喊
+      else if (NETSTAT_TCP_STATE_RE.test(t)) notListening++
+      else malformed++
+      continue
+    }
+    const hp = splitHostPort(m[1])
+    if (!hp) {
+      malformed++
+      continue
+    }
+    rows.push({ address: hp.address, port: hp.port, pid: Number(m[3]) })
+  }
+  if (tcpLines === 0)
+    return unmeasured('netstat 输出里没有任何 TCP 行 ⇒ 无法区分"确实没有监听"与"输出形态不认识",不推测为没有监听')
+  if (malformed > 0 && rows.length === 0)
+    return unmeasured(`netstat 的 TCP 行有 ${malformed} 条形态解不出且一条监听都没量到 ⇒ 判据对不上输出形态,不读成"没有监听"`)
+  return measured({ rows, tcpLines, notListening, malformed })
+}
+
+/** 进程树 + 服务 pid 的枚举脚本(只读:两条 CIM 查询,不改任何东西)。全程 ASCII + 首尾哨兵 + 两段
+ *  各自的计数行 —— 与 STATE/REG 同一条纪律:"没跑到"必须能和"跑到而什么都没有"分开。
+ *  刻意用 `Win32_Service.ProcessId` 而不是 Get-Service:后者不暴露 pid,而 pid 是归并的起点。 */
+export function buildProcessListScript() {
+  return [
+    "$ErrorActionPreference = 'Stop'",
+    'try { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) } catch { }',
+    `Write-Output '${PROC_HEAD}'`,
+    'try {',
+    '  $pc = 0',
+    '  foreach ($p in @(Get-CimInstance -ClassName Win32_Process -ErrorAction Stop)) {',
+    '    $pc = $pc + 1',
+    "    $pp = [string]$p.ParentProcessId; if ([string]::IsNullOrEmpty($pp)) { $pp = 'NA' }",
+    "    Write-Output ('PS|' + [string]$p.ProcessId + '|' + $pp)",
+    '  }',
+    "  Write-Output ('PSUM|' + $pc)",
+    '} catch { Write-Error $_; exit 9 }',
+    'try {',
+    '  $sc = 0',
+    '  foreach ($s in @(Get-CimInstance -ClassName Win32_Service -ErrorAction Stop)) {',
+    '    $sc = $sc + 1',
+    "    Write-Output ('SV|' + $s.Name + '|' + [string]$s.ProcessId)",
+    '  }',
+    "  Write-Output ('SSUM|' + $sc)",
+    '} catch { Write-Error $_; exit 9 }',
+    `Write-Output '${PROC_TAIL}'`,
+    'exit 0',
+  ].join('\n')
+}
+
+/** 该通道的折叠:哨兵/计数行不齐 ⇒ unmeasured;行解不出 ⇒ 进 unparsed 并汇进未判定(不静默丢)。 */
+export function interpretProcessList(text) {
+  const lines = String(text ?? '').replace(/\r\n/g, '\n').split('\n')
+  const head = lines.findIndex((l) => l.trim() === PROC_HEAD)
+  const tail = lines.findIndex((l) => l.trim() === PROC_TAIL)
+  if (head === -1 || tail === -1 || tail < head)
+    return unmeasured(`取不到值:进程枚举输出缺首尾哨兵(head=${head !== -1}, tail=${tail !== -1})⇒ 无法区分"没有进程"与"没跑到"`)
+  const procs = []
+  const svcPid = new Map()
+  const unparsed = []
+  let procSum = null
+  let svcSum = null
+  for (const line of lines.slice(head + 1, tail)) {
+    const t = line.trim()
+    if (t === '') continue
+    if (t.startsWith('PSUM|')) {
+      const n = Number(t.slice(5).trim())
+      if (Number.isFinite(n)) procSum = n
+      else unparsed.push(t)
+      continue
+    }
+    if (t.startsWith('SSUM|')) {
+      const n = Number(t.slice(5).trim())
+      if (Number.isFinite(n)) svcSum = n
+      else unparsed.push(t)
+      continue
+    }
+    if (t.startsWith('PS|')) {
+      const parts = t.split('|')
+      const pid = Number(parts[1])
+      const ppidRaw = parts[2]
+      // pid **可以是 0**(System Idle Process 就在 Win32_Process 里)—— 刻意不收紧成 pid>0:
+      // 真机第一跑就是被这里丢行打脸的 —— PSUM=311 而实收 310 ⇒ 整维判"输出被截断"而失明,
+      // 一句"计数对不上"背后其实是"我的判序不认 pid 0"。收下行、由 buildProcessTree 拒绝它当根,
+      // 才是把 pid 0 与"数不齐的行"分开处理(后者才该进 unparsed ⇒ 未判定)。
+      if (parts.length === 3 && Number.isInteger(pid) && pid >= 0) {
+        procs.push({ pid, ppid: ppidRaw === 'NA' || ppidRaw === '0' ? null : Number(ppidRaw) })
+      } else unparsed.push(t)
+      continue
+    }
+    if (t.startsWith('SV|')) {
+      const parts = t.split('|')
+      const name = parts[1]
+      const pid = Number(parts[2])
+      if (parts.length === 3 && name && Number.isInteger(pid)) svcPid.set(name.toLowerCase(), { name, pid })
+      else unparsed.push(t)
+      continue
+    }
+    unparsed.push(t)
+  }
+  if (procSum === null) return unmeasured(`取不到值:没有 PSUM 计数行 ⇒ 枚举被截断或解释器换了版式(unparsed=${unparsed.length})`)
+  if (svcSum === null) return unmeasured(`取不到值:没有 SSUM 计数行 ⇒ 服务 pid 面被截断(unparsed=${unparsed.length})`)
+  if (procSum !== procs.length || svcSum !== svcPid.size)
+    return unmeasured(`取不到值:计数行与行数不符(PSUM=${procSum} 实收 ${procs.length};SSUM=${svcSum} 实收 ${svcPid.size})⇒ 输出被截断`)
+  if (unparsed.length > 0) return unmeasured(`取不到值:有 ${unparsed.length} 行形态解不出(首条:${String(unparsed[0]).slice(0, 160)})⇒ 宁可整维未判定,也不把丢行读成"没有"`)
+  return measured({ procs, svcPid, procSum, svcSum })
+}
+
+/** 服务 pid → 自身 + 全部后代。**深度上限 + 节点上限 + visited 环保护**三条都必须有:实测最长的一条
+ *  是"服务 → 中间壳 → 子 → 孙"(nssm 包 cmd 包 node 那一型),而 ppid 数据异常时没有环保护就是死循环。
+ *  pid ≤ SYSTEM_PID_FLOOR 一律不当根 —— System(4)/Idle(0) 名下挂着全机 RPC 监听,把它们当后代等于
+ *  把别的进程的端口算到这个服务头上(比漏判更糟:那会造出"这服务在监听"的假账)。 */
+export const SYSTEM_PID_FLOOR = 4
+export function buildProcessTree(rootPid, procs, { maxDepth = TREE_MAX_DEPTH, maxNodes = TREE_MAX_NODES } = {}) {
+  const children = new Map()
+  for (const p of procs ?? []) {
+    if (!p || !Number.isInteger(p.pid) || !Number.isInteger(p.ppid)) continue
+    if (!children.has(p.ppid)) children.set(p.ppid, [])
+    children.get(p.ppid).push(p.pid)
+  }
+  const root = Number(rootPid)
+  if (!Number.isInteger(root) || root <= SYSTEM_PID_FLOOR) return { pids: new Set(), truncated: false, hitCap: false, rootUsable: false, root }
+  const pids = new Set([root])
+  let frontier = [root]
+  let depth = 0
+  let truncated = false
+  let hitCap = false
+  while (frontier.length > 0 && depth < maxDepth) {
+    const next = []
+    for (const pid of frontier) {
+      for (const child of children.get(pid) ?? []) {
+        if (child <= SYSTEM_PID_FLOOR || pids.has(child)) continue // 环保护:已收过的 pid 不再展开
+        if (pids.size >= maxNodes) {
+          hitCap = true
+          truncated = true
+          continue
+        }
+        pids.add(child)
+        next.push(child)
+      }
+    }
+    frontier = next
+    depth++
+    if (frontier.length > 0 && depth >= maxDepth) truncated = true
+  }
+  return { pids, truncated, hitCap, rootUsable: true, root, depth }
+}
+
+/** 把监听端点按 pid 归到某一棵进程树名下。绑定地址原样带出 —— 探测地址必须由它决定,不得写死回环。 */
+export function attributeListening(listenRows, pidSet) {
+  const out = []
+  for (const r of listenRows ?? []) {
+    if (!r || !pidSet || !pidSet.has(Number(r.pid))) continue
+    out.push({ address: r.address, port: Number(r.port), pid: Number(r.pid) })
+  }
+  return out.sort((a, b) => a.port - b.port || String(a.address).localeCompare(String(b.address)))
+}
+
+/**
+ * 探测地址 = 该端口**实际绑定的地址**,只有通配绑定才回落到回环:
+ *   `0.0.0.0` / `[::]` / `*` → 127.0.0.1(通配含回环,一定能连上)
+ *   `[::1]`                 → `::1`(纯 IPv6 回环监听在 IPv4 上不可达 ⇒ 拿 127.0.0.1 探就是假失败)
+ *   `192.168.1.37`          → 原地址(本机实测 Keycloak 的 7800 只绑网卡地址,127.0.0.1 回 ECONNREFUSED)
+ */
+export function probeHostForBind(rawAddress) {
+  const a = String(rawAddress ?? '').trim()
+  const bare = a.replace(/^\[/, '').replace(/\]$/, '').trim()
+  if (bare === '' || bare === '*' || bare === '0.0.0.0' || bare === '::') return LOOPBACK_PROBE_HOST
+  return bare
+}
+
+/** 待探端点 = 声明端口 ∪ 观察到的监听端点,按端口去重。
+ *  顺序刻意是"声明在前":声明是有期望值的(没人应答就该判问题),观察只是取证。
+ *  一个端口若两边都有 ⇒ 用**观察到的绑定地址**探(修缺陷②);只在声明里出现 ⇒ 只能回落回环(旧行为)。 */
+export function buildProbeTargets({ declaredPorts = [], observedEndpoints = [], cap = MAX_PROBE_PORTS } = {}) {
+  const byPort = new Map()
+  for (const ep of observedEndpoints) {
+    const port = Number(ep?.port)
+    if (!Number.isInteger(port)) continue
+    if (!byPort.has(port)) byPort.set(port, [])
+    byPort.get(port).push(ep)
+  }
+  const targets = []
+  const seenHostPort = new Set()
+  const push = (port, addressOrNull, from) => {
+    const host = addressOrNull === null ? LOOPBACK_PROBE_HOST : probeHostForBind(addressOrNull)
+    const key = `${host}:${port}`
+    if (seenHostPort.has(key)) return
+    seenHostPort.add(key)
+    targets.push({ port, host, label: key, from })
+  }
+  for (const raw of declaredPorts) {
+    const port = Number(raw)
+    if (!Number.isInteger(port)) continue
+    const eps = byPort.get(port)
+    if (eps && eps.length > 0) for (const ep of eps) push(port, ep.address, 'declared+observed')
+    else push(port, null, 'declared')
+  }
+  for (const [port, eps] of byPort) {
+    if (declaredPorts.map(Number).includes(port)) continue
+    for (const ep of eps) push(port, ep.address, 'observed')
+  }
+  const kept = targets.slice(0, cap)
+  return { targets: kept, truncated: Math.max(0, targets.length - kept.length) }
+}
+
+/** 探测结果 → 应答维(三态)。判序三条都不可少:
+ *  ① 声明端口里有"探不出"的 ⇒ 整维未判定 —— 把尺子失效写成"服务没应答"就是造冤案;
+ *  ② 声明端口里有明确不应答的 ⇒ 量到的问题(即使别的观察端点是通的)—— 这就是"子进程死了"要有牙的那一格;
+ *  ③ 没有声明端口时,只看观察到的端点:全不通 ⇒ 问题(内核说在听而地址上连不上,是真发现);
+ *     有一个通 ⇒ 应答;探不出 ⇒ 未判定。 */
+export function foldProbeOutcome({ targets, results, declaredPorts = [], truncated = 0 } = {}) {
+  const declared = declaredPorts.map(Number).filter((n) => Number.isInteger(n))
+  const openPorts = new Set()
+  const unmeasuredWhys = []
+  const closedLabels = []
+  for (const r of results ?? []) {
+    if (r?.status === 'open') openPorts.add(Number(r.port))
+    else if (r?.status === 'unmeasured') unmeasuredWhys.push(`${r.label ?? r.port}:${r.why}`)
+    else if (r?.status === 'closed') closedLabels.push(r.label ?? String(r.port))
+  }
+  const note = truncated > 0 ? `(端点超上限,未探 ${truncated} 个)` : ''
+  const declaredMissing = declared.filter((p) => !openPorts.has(p))
+  if (declaredMissing.length > 0) {
+    const missingProbes = (results ?? []).filter((r) => declared.includes(Number(r.port)) && !openPorts.has(Number(r.port)))
+    if (missingProbes.some((r) => r.status === 'unmeasured'))
+      return unmeasured(`声明端口 ${declaredMissing.join(',')} 的探测判不出:${missingProbes.map((r) => r.why).join(';')}${note ? `;${note}` : ''}`)
+    return measured({
+      listening: false,
+      ports: declaredMissing,
+      openPorts: [...openPorts].sort((a, b) => a - b),
+      labels: missingProbes.map((r) => r.label ?? String(r.port)),
+      why: `声明端口无应答${note ? `(${note})` : ''}`,
+    })
+  }
+  if (openPorts.size > 0) {
+    // 应答的取证按**端点**记账,不按端口合并:同一个端口在 `::1` 与 `127.0.0.1` 上是两次不同的探测,
+    // 拿"端口通了"去列出全部地址就是把"没验过的"混进"验过的"(真机现读 IHUI-PG 的 8810 即双绑)。
+    // 没应答的那几个端点不消音:写进 note,由人读面原样印出来 —— 一个服务只要有一个端点真在答,
+    // 本维就是"应答",这是判序②③的既有语义,本票没有改动它。
+    const openLabels = (results ?? []).filter((r) => r?.status === 'open').map((r) => r.label ?? `${r.host}:${r.port}`)
+    const notOpen = (results ?? [])
+      .filter((r) => r?.status === 'closed' || r?.status === 'unmeasured')
+      .map((r) => `${r.label ?? `${r.host}:${r.port}`}(${r.status === 'closed' ? '拒' : '判不出'})`)
+    const detail = notOpen.length > 0 ? `另有 ${notOpen.length} 个监听端点未应答:${notOpen.join(',')}` : ''
+    return measured({
+      listening: true,
+      ports: [...openPorts].sort((a, b) => a - b),
+      openPorts: [...openPorts].sort((a, b) => a - b),
+      labels: openLabels,
+      note: [note, detail].filter(Boolean).join(';'),
+    })
+  }
+  if (unmeasuredWhys.length > 0) return unmeasured(`监听端点探测判不出:${unmeasuredWhys.join(';')}${note ? `;${note}` : ''}`)
+  if ((targets ?? []).length > 0)
+    return measured({
+      listening: false,
+      ports: [...new Set(targets.map((t) => Number(t.port)))].sort((a, b) => a - b),
+      openPorts: [],
+      labels: closedLabels,
+      why: `进程树实测在听而地址上连不上${note ? `(${note})` : ''}`,
+    })
+  return measured({ listening: false, ports: [], openPorts: [], labels: [], why: '无可探端点' })
+}
+
 /** 过滤器:'IHUI*' / 'ihui-*' 这类通配转成大小写不敏感正则;'*' 匹配一切。 */
 export function compileFilter(pattern) {
   const p = String(pattern ?? 'IHUI*').trim()
@@ -408,11 +747,16 @@ export function judgeService(rec) {
 
   const ports = rec.ports
   if (ports.kind === 'unmeasured') excuseable('端口声明', ports.reason)
-  else if (ports.value.length === 0) excuseable('端口应答', '服务配置里读不到监听端口声明 ⇒ 这一维未判定,不推测为没问题')
-  else {
-    const probe = rec.probe ?? unmeasured('端口应答维没有值(调用方未提供)')
-    if (probe.kind === 'unmeasured') hard('端口应答', probe.reason)
-    else if (probe.value.listening !== true) problems.push(`声明端口无应答(tcp):${probe.value.ports.join(',')}`)
+  // 应答维不再由"声明是否为空"决定走哪条路 —— 声明为空时观察层可能给得出端点(本机实测 9 个服务即此型)。
+  // 空不空的分岔搬到 foldProbeOutcome 的产出上:它给得出 measured 就照判,给不出才是失明。
+  const probe = rec.probe ?? unmeasured('端口应答维没有值(调用方未提供)')
+  if (probe.kind === 'unmeasured') {
+    // 声明里明明有端口却探不出 ⇒ 这是硬失明,不能被 skipped 掩盖(否则 skipped 就成了新的消红通道)
+    if (ports.kind === 'measured' && ports.value.length > 0) hard('端口应答', probe.reason)
+    else excuseable('端口应答', probe.reason)
+  } else if (probe.value.listening !== true) {
+    if ((probe.value.ports ?? []).length > 0) problems.push(`监听无应答(tcp):${(probe.value.labels ?? probe.value.ports).join(',')}${probe.value.why ? ` —— ${probe.value.why}` : ''}`)
+    else excuseable('端口应答', '应答维给的是"无可探端点"⇒ 这一维未判定,不推测为没问题')
   }
 
   const managed = rec.nssmManaged
@@ -511,9 +855,17 @@ const defaultDeps = {
       return 'missing'
     }
   },
-  tcpProbe: (port) =>
+  /** netstat -ano:一次派生、只读;SystemRoot 推导的绝对路径优先,不依赖 PATH。 */
+  netstatSnapshot: () => {
+    const bin = NETSTAT_CANDIDATES.find((p) => existsSync(p)) ?? null
+    if (!bin) return { spawnError: 'netstat 不在位(候选 ' + NETSTAT_CANDIDATES.join(', ') + ')' }
+    return defaultSpawn(bin, ['-ano'], NETSTAT_TIMEOUT_MS)
+  },
+  psProcesses: (bin) => defaultSpawn(bin, ['-NoProfile', '-NonInteractive', '-Command', buildProcessListScript()], PROC_TIMEOUT_MS),
+  /** 探测地址由**端口实际绑定的地址**决定(见 probeHostForBind)—— 写死回环会把只绑网卡的活端口报成失败。 */
+  tcpProbe: (port, host = LOOPBACK_PROBE_HOST) =>
     new Promise((resolve) => {
-      const sock = net.connect({ host: '127.0.0.1', port })
+      const sock = net.connect({ host, port })
       let settled = false
       const fin = (v) => {
         if (settled) return
@@ -523,11 +875,11 @@ const defaultDeps = {
       }
       sock.setTimeout(TCP_TIMEOUT_MS)
       sock.once('connect', () => fin({ status: 'open' }))
-      sock.once('timeout', () => fin({ status: 'unmeasured', why: `127.0.0.1:${port} 连接超时(${TCP_TIMEOUT_MS}ms)` }))
+      sock.once('timeout', () => fin({ status: 'unmeasured', why: `${host}:${port} 连接超时(${TCP_TIMEOUT_MS}ms)` }))
       sock.once('error', (e) => {
         const code = e && typeof e.code === 'string' ? e.code : 'unknown'
         if (code === 'ECONNREFUSED') fin({ status: 'closed' })
-        else fin({ status: 'unmeasured', why: `127.0.0.1:${port} 报错(${code})` })
+        else fin({ status: 'unmeasured', why: `${host}:${port} 报错(${code})` })
       })
     }),
 }
@@ -539,7 +891,22 @@ function existenceOf(value, deps) {
   return measured(deps.fileKind(value))
 }
 
-async function inspectService({ name, stateValue, regRow, regChannelMeasured, inStateRows, deps, nssmPath }) {
+/** 服务 pid → 该服务进程树实际持有的监听端点。三态里"量到的空"与"没量到"必须分得开:
+ *  前者才允许说"任务型,此维不适用",后者只能说"这一维没看成"—— 两者的处置动作完全不同。 */
+export function computeObservedListening({ servicePid, netstat, procs }) {
+  if (!netstat || netstat.kind === 'unmeasured') return unmeasured(`监听观察取不到:netstat 维未判定(${netstat?.reason ?? '没有值'})`)
+  if (!procs || procs.kind === 'unmeasured') return unmeasured(`监听观察取不到:进程树维未判定(${procs?.reason ?? '没有值'})`)
+  const rawPid = Number(servicePid)
+  if (servicePid === null || servicePid === undefined || !Number.isInteger(rawPid))
+    return unmeasured('监听观察取不到:进程枚举里没有这个服务的 pid 条目 ⇒ 无从确定归并起点(与"服务停着所以 pid=0"是两件事)')
+  const tree = buildProcessTree(rawPid, procs.value.procs)
+  if (!tree.rootUsable)
+    return unmeasured(`监听观察取不到:服务 pid=${rawPid} ≤ ${SYSTEM_PID_FLOOR}(未运行或非进程型),拿它当根会把 System/Idle 名下全机 RPC 监听算到该服务头上`)
+  const endpoints = attributeListening(netstat.value.rows, tree.pids)
+  return measured({ endpoints, treeSize: tree.pids.size, truncated: tree.truncated, listenerPids: [...new Set(endpoints.map((e) => e.pid))].sort((a, b) => a - b) })
+}
+
+async function inspectService({ name, stateValue, regRow, regChannelMeasured, inStateRows, deps, nssmPath, listen }) {
   const get = (param) => (nssmPath ? interpretNssmGet(deps.nssmGet(nssmPath, name, param)) : unmeasured(`取不到值:nssm 不在位(候选 ${NSSM_CANDIDATES.join(', ')} 都不存在)`))
   // 多值参数(AppEnvironmentExtra 一行一个)不得只取首行:本机现读 IHUI-OLLAMA 的 AppEnvironmentExtra 是
   // 7 行,`OLLAMA_HOST=127.0.0.1:11434` 落在第 2 行 ⇒ 用取首行的读法,端口维对"确实声明了端口"的服务
@@ -559,19 +926,29 @@ async function inspectService({ name, stateValue, regRow, regChannelMeasured, in
   // 没有注册表行 ⇒ 该通道对这个服务**什么都没有**,不得把"字段缺席"读成"空载荷"(那会把没判写成判过了)
   const { ports, portsSources } = resolvePorts({ pb64: regRow ? decodeRegistryConfigBlob(regRow.pb64) : { kind: 'none', text: '' }, nssmParameters, nssmEnvironmentExtra })
 
+  // ── D3:先看进程树实际在听什么,再按**实际绑定地址**探(2026-09-29 本票改的就是这一段)────────
+  const netstat = listen?.netstat ?? unmeasured('监听观察维没有值(调用方未提供 netstat)')
+  const procs = listen?.procs ?? unmeasured('监听观察维没有值(调用方未提供进程树)')
+  const servicePid = listen?.svcPid instanceof Map ? (listen.svcPid.get(name.toLowerCase())?.pid ?? null) : null
+  const observed = computeObservedListening({ servicePid, netstat, procs })
+  const declaredPorts = ports.kind === 'measured' ? ports.value : []
+  const observedEndpoints = observed.kind === 'measured' ? observed.value.endpoints : []
+  const { targets, truncated } = buildProbeTargets({ declaredPorts, observedEndpoints, cap: MAX_PROBE_PORTS })
+
   let probe
-  if (ports.kind === 'measured' && ports.value.length > 0) {
-    const targets = ports.value.slice(0, MAX_PROBE_PORTS)
-    const results = await Promise.all(targets.map(async (port) => ({ port, r: await deps.tcpProbe(port) })))
-    const open = results.filter((x) => x.r.status === 'open').map((x) => x.port)
-    const un = results.filter((x) => x.r.status === 'unmeasured')
-    if (open.length > 0) probe = measured({ listening: true, ports: targets, openPorts: open })
-    else if (un.length > 0) probe = unmeasured(`端口探测有 ${un.length}/${targets.length} 个判不出:${un.map((x) => x.r.why).join(';')}`)
-    else probe = measured({ listening: false, ports: targets, openPorts: [] })
-  } else if (ports.kind === 'unmeasured') {
-    probe = unmeasured(ports.reason)
+  if (targets.length > 0) {
+    const results = await Promise.all(
+      targets.map(async (t) => {
+        const r = await deps.tcpProbe(t.port, t.host)
+        return { ...t, status: r?.status ?? 'unmeasured', why: r?.why ?? '探测出口没有给出状态' }
+      }),
+    )
+    probe = foldProbeOutcome({ targets, results, declaredPorts, truncated })
+  } else if (observed.kind === 'measured') {
+    // 量到了"树里没有任何 TCP 监听",且配置也没声明端口 —— 这才是可以说"此维不适用"的那一格。
+    probe = unmeasured('该服务无监听端口(任务型),此维不适用(进程树实测:服务 pid 与其全部后代都没有 TCP 监听端点)')
   } else {
-    probe = unmeasured('服务配置里没有端口声明(量到了空)')
+    probe = unmeasured(`${observed.reason}${declaredPorts.length === 0 ? ';且服务配置里读不到端口声明' : ''} ⇒ 这一维未判定,不推测为没问题`)
   }
 
   const rec = {
@@ -585,12 +962,52 @@ async function inspectService({ name, stateValue, regRow, regChannelMeasured, in
     appDirectoryExists,
     ports,
     portsSources,
+    observed,
     probe,
     nssmManaged,
     agreement: disagreement,
   }
   const verdict = judgeService(rec)
   return { name, rec, ...verdict }
+}
+
+/** 监听观察取材:netstat 一次 + 进程树一次,折叠成三态并写进 meta(供人读面点名)。
+ *  "退出码 0 而输出形态不认识" 与 "派生失败" 各有各的措辞 —— 三者不得并成一句"没有监听"。 */
+async function collectListeningSnapshot(deps, meta) {
+  const nsRaw = typeof deps.netstatSnapshot === 'function' ? deps.netstatSnapshot() : { spawnError: '调用方未提供 netstatSnapshot 出口' }
+  let netstat
+  if (nsRaw?.spawnError) netstat = unmeasured(`netstat 派生失败(${nsRaw.spawnError})`)
+  else if (typeof nsRaw?.code === 'number' && nsRaw.code !== 0) netstat = unmeasured(`netstat 非零退出码 ${nsRaw.code}`)
+  // 刻意不走 decodeNssm:netstat 的表头是 OEM 码页的本地化文字,按 UTF-8 解会得到替换符;
+  // 数据行本就 ASCII,latin1 原样取出后只认 ASCII 词元,判据不受码页影响(本机实测表头 GBK、数据行 ASCII)。
+  else netstat = interpretNetstatListening(latin1(nsRaw?.stdoutBuf))
+  const procRaw = typeof deps.psProcesses === 'function' ? deps.psProcesses(meta.engine?.bin ?? null) : { spawnError: '调用方未提供 psProcesses 出口' }
+  let procs
+  if (procRaw?.spawnError) procs = unmeasured(`进程枚举派生失败(${procRaw.spawnError})`)
+  else procs = interpretProcessList(decodeNssm(Buffer.from(procRaw?.stdoutBuf ?? '')).text)
+  meta.channels.listen = netstat.kind === 'unmeasured' || procs.kind === 'unmeasured' ? unmeasured([netstat, procs].filter((d) => d.kind === 'unmeasured').map((d) => d.reason).join(';')) : measured(null)
+  meta.listen = {
+    netstatEndpoints: netstat.kind === 'measured' ? netstat.value.rows.length : null,
+    netstatTcpLines: netstat.kind === 'measured' ? netstat.value.tcpLines : null,
+    netstatNotListening: netstat.kind === 'measured' ? netstat.value.notListening : null,
+    netstatMalformed: netstat.kind === 'measured' ? netstat.value.malformed : null,
+    processCount: procs.kind === 'measured' ? procs.value.procSum : null,
+    servicePidCount: procs.kind === 'measured' ? procs.value.svcSum : null,
+  }
+  return {
+    netstat,
+    procs,
+    svcPid: procs.kind === 'measured' ? procs.value.svcPid : null,
+  }
+}
+
+/** netstat 是 ANSI/OEM 码页的英文表头 + ASCII 数据行;按 latin1 取才不会被 GBK 表头带出替换符。 */
+function latin1(buf) {
+  try {
+    return Buffer.isBuffer(buf) ? buf.toString('latin1') : String(buf ?? '')
+  } catch {
+    return ''
+  }
 }
 
 export async function main({ argv = process.argv.slice(2), deps = defaultDeps } = {}) {
@@ -645,6 +1062,11 @@ export async function main({ argv = process.argv.slice(2), deps = defaultDeps } 
   }
   if (meta.channels.state.kind === 'unmeasured' || meta.channels.registry.kind === 'unmeasured') return finish(meta, 2, opts)
 
+  // 通道 C(监听观察)= netstat + 进程树。它**不**参与"整门 exit 2"的闸门:D1/D2 与"声明了端口的服务"
+  // 在它失效时仍然可判,把半边失明升级成整面不给结论反而会把可用的取证挡掉。
+  // 但它必须在这一轮被大声印出来 —— 静默降级就是本票要修的那个形态(§5e"失败必须响"同一条禁令)。
+  const listen = await collectListeningSnapshot(deps, meta)
+
   const stateRows = meta.channels.state.value.rows
   const stateByName = new Map(stateRows.map((r) => [r.name.toLowerCase(), r]))
   const regRows = meta.channels.registry.value.rows
@@ -676,6 +1098,7 @@ export async function main({ argv = process.argv.slice(2), deps = defaultDeps } 
         regChannelMeasured: true,
         deps,
         nssmPath,
+        listen,
       }),
     )
     meta.services[meta.services.length - 1].rec.scope = s.from
@@ -699,8 +1122,9 @@ function baseMeta(deps) {
     fatal: null,
     engine: null,
     nssm: null,
-    channels: { state: null, registry: null },
+    channels: { state: null, registry: null, listen: null },
     registry: null,
+    listen: null,
     enumeration: null,
     filter: null,
     services: [],
@@ -713,7 +1137,7 @@ function baseMeta(deps) {
 function finish(meta, exitCode, opts) {
   const svcs = meta.services
   const count = (level) => svcs.filter((s) => s.level === level).length
-  const dimUnmeasured = (pick) => svcs.filter((s) => pick(s.rec).kind === 'unmeasured').length
+  const dimUnmeasured = (pick) => svcs.filter((s) => (pick(s.rec) ?? { kind: 'unmeasured' }).kind === 'unmeasured').length
   meta.totals = {
     services: svcs.length,
     ok: count('ok'),
@@ -729,6 +1153,7 @@ function finish(meta, exitCode, opts) {
       state: dimUnmeasured((rec) => rec.state),
       application: dimUnmeasured((rec) => rec.application),
       ports: dimUnmeasured((rec) => rec.ports),
+      observed: dimUnmeasured((rec) => rec.observed),
       probe: dimUnmeasured((rec) => rec.probe),
       nssmManaged: dimUnmeasured((rec) => rec.nssmManaged),
     },
@@ -753,6 +1178,12 @@ export function renderText(meta) {
         `通道 REG:量到 ${meta.channels.registry.value.rows.length} 个 nssm 托管形态(注册表服务键总数 ${meta.registry?.totalServiceKeys ?? '未判定'};REGMISSING=${meta.registry?.regMissing ? '是' : '否'};解不出的行 ${meta.registry?.unparsed?.length ?? 0} 条)`,
       )
   }
+  if (meta.channels.listen)
+    L.push(
+      meta.channels.listen.kind === 'unmeasured'
+        ? `通道 监听观察:未判定 —— ${meta.channels.listen.reason}`
+        : `通道 监听观察:量到 netstat TCP 监听 ${meta.listen?.netstatEndpoints ?? '未判定'} 个端点(ASCII TCP 行 ${meta.listen?.netstatTcpLines ?? '?'} 行、非监听态 ${meta.listen?.netstatNotListening ?? 0} 行、形态不符 ${meta.listen?.netstatMalformed ?? 0} 行)、进程 ${meta.listen?.processCount ?? '?'} 个 / 服务 pid ${meta.listen?.servicePidCount ?? '?'} 个`,
+    )
   if (meta.enumeration) {
     L.push(`入审 ${meta.enumeration.matched} 个(其中仅由注册表带入、不在过滤器命中集内的:${meta.enumeration.registryAlwaysIn.join(', ') || '无'})`)
     if (meta.enumeration.matched === 0) L.push('  (确实是 0:两通道都跑到了而没有任何入审对象。这不是"没量到",但也**不出合格证** —— 见退出码 2 的约定。)')
@@ -767,22 +1198,29 @@ export function renderText(meta) {
           : Array.isArray(d.value)
             ? `[${d.value.join(',')}]`
             : typeof d.value === 'object'
-              ? `${d.value.listening ? '应答' : '无应答'}(${(d.value.ports ?? []).join(',')})`
+              ? `${d.value.listening ? '应答' : '无应答'}(${(d.value.labels ?? d.value.ports ?? []).join(', ')}${d.value.note ? `〔${d.value.note}〕` : ''})`
               : String(d.value)
+        : `未判定:${d.reason}`
+    /** 观察维单独一种排版:它给的是"在听哪个地址、由哪个 pid 持有",这是本票新增的那一维的取证。 */
+    const fmtObserved = (d) =>
+      d.kind === 'measured'
+        ? d.value.endpoints.length === 0
+          ? '(实测无监听)'
+          : d.value.endpoints.map((e) => `${e.address}:${e.port}←pid ${e.pid}`).join(' ') + (d.value.truncated ? ' (树已达深度上限)' : '')
         : `未判定:${d.reason}`
     const mark = s.level === 'issue' ? '❌' : s.level === 'ok' ? '✅' : s.level === 'skipped' ? '➖' : '⚪'
     L.push(`${mark} ${s.name}${s.rec.scope ? ` [${s.rec.scope}]` : ''}`)
     L.push(
-      `    STATE=${fmt(s.rec.state)}  Application=${fmt(s.rec.application)}${s.rec.applicationSources.length ? `(源:${s.rec.applicationSources.join('+')})` : ''}  [存在性 ${fmt(s.rec.appExists)}]  AppDirectory=${fmt(s.rec.appDirectory)}  端口=${fmt(s.rec.ports)}  应答=${fmt(s.rec.probe)}  nssm托管=${fmt(s.rec.nssmManaged)}`,
+      `    STATE=${fmt(s.rec.state)}  Application=${fmt(s.rec.application)}${s.rec.applicationSources.length ? `(源:${s.rec.applicationSources.join('+')})` : ''}  [存在性 ${fmt(s.rec.appExists)}]  AppDirectory=${fmt(s.rec.appDirectory)}  端口=${fmt(s.rec.ports)}  实测监听=${fmtObserved(s.rec.observed)}  应答=${fmt(s.rec.probe)}  nssm托管=${fmt(s.rec.nssmManaged)}`,
     )
     for (const p of s.problems) L.push(`      问题:${p}`)
     for (const b of s.blind) L.push(`      未判定:${b}`)
-    if (s.level === 'skipped') L.push('      说明:该服务不是 nssm 托管,D2/D3 对它不适用;STATE 这一维已单独量过。')
+    if (s.level === 'skipped') L.push('      说明:该服务不是 nssm 托管 ⇒ D2(它自己声明的 Application 路径)对它不适用;STATE 与"实测监听/应答"两维仍按各自通道量过,见上面那行。')
   }
   const t = meta.totals
   if (t) {
     L.push(
-      `结论:入审 ${t.services} 个 —— 量到问题 ${t.issue} / 未出具合格证(有维量不到)${t.unattested} / 全维健康 ${t.ok} / 非 nssm 托管跳过 ${t.skipped};各维未判定 STATE=${t.dimUnmeasured.state} Application=${t.dimUnmeasured.application} 端口声明=${t.dimUnmeasured.ports} 应答=${t.dimUnmeasured.probe} 托管性=${t.dimUnmeasured.nssmManaged}`,
+      `结论:入审 ${t.services} 个 —— 量到问题 ${t.issue} / 未出具合格证(有维量不到)${t.unattested} / 全维健康 ${t.ok} / 非 nssm 托管跳过 ${t.skipped};各维未判定 STATE=${t.dimUnmeasured.state} Application=${t.dimUnmeasured.application} 端口声明=${t.dimUnmeasured.ports} 监听观察=${t.dimUnmeasured.observed} 应答=${t.dimUnmeasured.probe} 托管性=${t.dimUnmeasured.nssmManaged}`,
     )
     if (t.issue > 0) L.push('  ⚠️ 存在量到的问题 —— 这正是 RSSHub 那 3 天的形态:服务在、路径没了、无人喊。逐条见上;修复属机器状态动作,由持有人执行,本工具不动任何服务。')
     else if (t.services === 0 || t.services === t.skipped) L.push('判定:未判定 —— 这台机上没有任何对象被完整量到三判据,**不记为通过**。')
@@ -971,7 +1409,220 @@ function selfTest(opts) {
       st.includes(ENUM_HEAD) && st.includes(ENUM_TAIL) && st.includes('Get-Service') && !/Stop-Service/.test(st)
   })())
 
+  // ── D3 新层:「进程树实际在听什么」+ 按实际绑定地址探(2026-09-29 本票)──────────────
+  // 下面 NS-1 / TR-1 两条的输入是**本机现读逐字取回的** netstat 行与父子链(§22c:镜像/自检的
+  // 输入至少一条取自真文件、真机形态),不是照着实现编出来的夹具。
+  const NS_KEYCLOAK = '  TCP    192.168.1.37:7800      0.0.0.0:0              LISTENING       10532'
+  const NS_WILDCARD = '  TCP    0.0.0.0:8802           0.0.0.0:0              LISTENING       8616'
+  const NS_V6_LOOP = '  TCP    [::1]:8810             [::]:0                 LISTENING       6916'
+  const NS_V6_ANY = '  TCP    [::]:56587             [::]:0                 LISTENING       22884'
+  ok('NS-1 真机 netstat 行逐字可解:网卡绑定地址必须原样带出(缺陷②的取证面)', (() => {
+    const r = interpretNetstatListening(`\r\nActive Connections\r\n  Proto  Local Address          Foreign Address        State           PID\r\n${NS_KEYCLOAK}\r\n`)
+    return (
+      r.kind === 'measured' &&
+      r.value.rows.length === 1 &&
+      r.value.rows[0].address === '192.168.1.37' && r.value.rows[0].port === 7800 && r.value.rows[0].pid === 10532
+    )
+  })())
+  ok('NS-2 IPv6 两种形态都解:通配 [::] 与回环 [::1] 不得被混成同一种(探测地址由它决定)', (() => {
+    const r = interpretNetstatListening(`${NS_V6_LOOP}\n${NS_V6_ANY}\n${NS_WILDCARD}\n`)
+    return (
+      r.kind === 'measured' && r.value.rows.length === 3 &&
+      r.value.rows[0].address === '::1' && r.value.rows[1].address === '::' && r.value.rows[2].address === '0.0.0.0'
+    )
+  })())
+  ok('NS-3 UDP 行与 localized 表头不计 malformed;一条 TCP 行都没有 ⇒ 未判定(不得读成"没有监听")', (() => {
+    const gbkish = interpretNetstatListening('  活动连接\n  协议   本地地址          外部地址        状态           PID\n  UDP    0.0.0.0:5353           *:*      1234\n')
+    const noTcp = interpretNetstatListening('')
+    return gbkish.kind === 'unmeasured' && /没有任何 TCP 行/.test(gbkish.reason) && noTcp.kind === 'unmeasured'
+  })())
+  ok('NS-3b 有 TCP 行而零 LISTENING ⇒ measured(rows 为空)且计 notListening、malformed=0("确实是 0"与"没量到"分家)', (() => {
+    const r = interpretNetstatListening('  TCP    1.2.3.4:5          5.6.7.8:9          ESTABLISHED 4321\n')
+    return r.kind === 'measured' && r.value.rows.length === 0 && r.value.tcpLines === 1 && r.value.malformed === 0 && r.value.notListening === 1
+  })())
+  ok('NS-4 TCP 行形态不认识(列数不齐 / 监听行缺 PID)⇒ 判"未判定"并点名形态,不读成"这台机没有监听"', (() => {
+    const r = interpretNetstatListening('  TCP    weird-form-here\n')
+    const half = interpretNetstatListening('  TCP    1.2.3.4:5          5.6.7.8:9          LISTENING\n')
+    return (
+      r.kind === 'unmeasured' && /形态解不出/.test(r.reason) &&
+      half.kind === 'unmeasured' && /形态解不出/.test(half.reason)
+    )
+  })())
+  ok('PH-1 探测地址五条:通配→回环、IPv6 回环→::1、具体网卡→原地址(成对:网卡地址绝不被折成回环)', (() => {
+    const wild = probeHostForBind('0.0.0.0') === LOOPBACK_PROBE_HOST && probeHostForBind('[::]') === LOOPBACK_PROBE_HOST && probeHostForBind('*') === LOOPBACK_PROBE_HOST
+    const loop4 = probeHostForBind('127.0.0.1') === '127.0.0.1'
+    const loop6 = probeHostForBind('[::1]') === '::1'
+    const nic = probeHostForBind('192.168.1.37') === '192.168.1.37'
+    return wild && loop4 && loop6 && nic
+  })())
+  ok('PH-2 空/畸形地址 ⇒ 未写死答案:回落回环但不得吞掉真地址(splitHostPort 拒 0 端口与 >65535)', (() => {
+    const zero = splitHostPort('[::]:0')
+    const big = splitHostPort('1.1.1.1:70000')
+    const dns = splitHostPort('example.com:443')
+    return zero === null && big === null && dns !== null && probeHostForBind('') === LOOPBACK_PROBE_HOST
+  })())
+  // 本机实测链:服务 pid 6372 → 4876 → 10532(真正持有 7800/8543/50027/57800 的那一个)
+  const PROC_KEYCLOAK = [
+    { pid: 10532, ppid: 4876 },
+    { pid: 4876, ppid: 6372 },
+    { pid: 6372, ppid: 1188 },
+    { pid: 1188, ppid: 1052 },
+  ]
+  ok('TR-1 真机链:服务 pid 6372 的后代里必须有 10532(深度 2),而反向不得(祖先不是后代)', (() => {
+    const t = buildProcessTree(6372, PROC_KEYCLOAK)
+    const up = buildProcessTree(10532, PROC_KEYCLOAK)
+    return t.pids.has(10532) && t.pids.has(4876) && !t.pids.has(1188) && up.pids.size === 1
+  })())
+  ok('TR-2 环保护与深度上限:自指/互指不得死循环;超深链必须 truncated 而不是静默少收', (() => {
+    const selfRef = buildProcessTree(7, [{ pid: 7, ppid: 7 }, { pid: 8, ppid: 7 }])
+    const mutual = buildProcessTree(7, [{ pid: 7, ppid: 9 }, { pid: 9, ppid: 7 }])
+    let chain = []
+    for (let i = 0; i < TREE_MAX_DEPTH + 4; i++) chain.push({ pid: 100 + i, ppid: i === 0 ? 100 : 99 + i })
+    chain = [{ pid: 100, ppid: 50 }, ...chain]
+    const deep = buildProcessTree(100, chain)
+    return selfRef.pids.has(8) && mutual.pids.size === 2 && deep.truncated === true && deep.pids.size <= TREE_MAX_DEPTH + 2
+  })())
+  ok('TR-3 pid ≤ 4 不当归并起点(System/Idle 名下挂着全机 RPC 监听,算进服务头上就是假账)',
+    buildProcessTree(4, PROC_KEYCLOAK).rootUsable === false && buildProcessTree(0, PROC_KEYCLOAK).rootUsable === false)
+  ok('TR-4 attributeListening 只收树内的 pid;树外端口一格都不许算进来', (() => {
+    const eps = attributeListening([{ address: '192.168.1.37', port: 7800, pid: 10532 }, { address: '127.0.0.1', port: 135, pid: 1188 }], buildProcessTree(6372, PROC_KEYCLOAK).pids)
+    return eps.length === 1 && eps[0].port === 7800
+  })())
+  ok('TR-5 观察维三态:netstat 未判定 ⇒ 不许说"任务型";量到而树里为空 ⇒ measured(空)', (() => {
+    const noChannel = computeObservedListening({ servicePid: 6372, netstat: unmeasured('netstat 派生失败(ENOENT)'), procs: measured({ procs: PROC_KEYCLOAK }) })
+    const noPid = computeObservedListening({ servicePid: null, netstat: interpretNetstatListening(NS_KEYCLOAK), procs: measured({ procs: PROC_KEYCLOAK }) })
+    const emptyTree = computeObservedListening({ servicePid: 6372, netstat: interpretNetstatListening('  TCP    1.1.1.1:9            0.0.0.0:0              LISTENING       4321\n'), procs: measured({ procs: PROC_KEYCLOAK }) })
+    return (
+      noChannel.kind === 'unmeasured' && /netstat 维未判定/.test(noChannel.reason) &&
+      noPid.kind === 'unmeasured' && /没有这个服务/.test(noPid.reason) &&
+      emptyTree.kind === 'measured' && emptyTree.value.endpoints.length === 0
+    )
+  })())
+  ok('BT-1 待探端点:声明端口若在观察里出现 ⇒ 用观察到的绑定地址(缺陷②对声明端口同样成立)', (() => {
+    const t = buildProbeTargets({ declaredPorts: [7800], observedEndpoints: [{ address: '192.168.1.37', port: 7800, pid: 10532 }] })
+    return t.targets.length === 1 && t.targets[0].host === '192.168.1.37' && t.targets[0].from === 'declared+observed'
+  })())
+  ok('BT-1b 声明端口没人观察到时回落回环(旧行为不丢);纯观察端点按各自地址;同一 host:port 去重', (() => {
+    const t = buildProbeTargets({ declaredPorts: [8802], observedEndpoints: [{ address: '127.0.0.1', port: 8801, pid: 1 }, { address: '[::]', port: 8801, pid: 2 }] })
+    // 8801 的两条绑定(v4 回环 + v6 通配)都归一到 127.0.0.1:8801 ⇒ 必须只剩一个待探端点:
+    // 探两次同一条 TCP 连接不产生新信息,只会白吃 MAX_PROBE_PORTS 的名额。
+    const only8801 = t.targets.filter((x) => x.port === 8801)
+    const declared = t.targets.find((x) => x.port === 8802)
+    return only8801.length === 1 && only8801[0].host === '127.0.0.1' && only8801[0].from === 'observed' && declared.host === LOOPBACK_PROBE_HOST && declared.from === 'declared'
+  })())
+  ok('BT-1c 同一端口既有 v6 回环又有 v4 网卡绑定 ⇒ 两个地址都要探(只留一个就会漏掉"绑在 v6 上"那一型)', (() => {
+    const t = buildProbeTargets({ declaredPorts: [], observedEndpoints: [{ address: '[::1]', port: 8810, pid: 1 }, { address: '127.0.0.1', port: 8810, pid: 2 }] })
+    return t.targets.length === 2 && t.targets.some((x) => x.host === '::1') && t.targets.some((x) => x.host === '127.0.0.1')
+  })())
+  ok('BT-2 端点超上限必须报 truncated 数,不得静默只探前几个就当作全量结论', (() => {
+    const many = Array.from({ length: 12 }, (_, i) => ({ address: '127.0.0.1', port: 9000 + i, pid: 77 }))
+    const t = buildProbeTargets({ declaredPorts: [], observedEndpoints: many })
+    return t.targets.length === MAX_PROBE_PORTS && t.truncated === 12 - MAX_PROBE_PORTS
+  })())
+  ok('FP-1 7800 那一格的成对锁:按实际地址探=应答;若有人把地址折回环(旧缺陷)必判无应答', (() => {
+    const eps = [{ address: '192.168.1.37', port: 7800, pid: 10532 }]
+    const { targets } = buildProbeTargets({ declaredPorts: [], observedEndpoints: eps })
+    // 假探针:只有"打到真地址"才算 open —— 它模拟的正是本机实测(127.0.0.1:7800 回 ECONNREFUSED)。
+    const answer = (host) => (host === '192.168.1.37' ? { status: 'open' } : { status: 'closed' })
+    const good = foldProbeOutcome({ targets, results: targets.map((x) => ({ ...x, status: answer(x.host).status })), declaredPorts: [] })
+    const legacy = foldProbeOutcome({ targets: [{ port: 7800, host: '127.0.0.1', label: '127.0.0.1:7800', from: 'declared' }], results: [{ port: 7800, label: '127.0.0.1:7800', status: 'closed' }], declaredPorts: [] })
+    return good.kind === 'measured' && good.value.listening === true && legacy.value.listening === false && legacy.value.labels.join().includes('127.0.0.1:7800')
+  })())
+  ok('FP-2 反向对照(要求的"声明了端口而没人听"):必须判问题,不得退成未判定', (() => {
+    const r = foldProbeOutcome({ targets: [{ port: 8802, host: '127.0.0.1', label: '127.0.0.1:8802', from: 'declared' }], results: [{ port: 8802, label: '127.0.0.1:8802', status: 'closed' }], declaredPorts: [8802] })
+    const j = judge({ ports: dim('m', [8802]), probe: r })
+    return r.kind === 'measured' && r.value.listening === false && j.level === 'issue' && j.problems.some((p) => p.includes('127.0.0.1:8802'))
+  })())
+  ok('FP-3 声明端口"探不出" ⇒ 未判定,不得被别的端点应答洗成通过', (() => {
+    const r = foldProbeOutcome({
+      targets: [{ port: 8802, host: '127.0.0.1', label: '127.0.0.1:8802', from: 'declared' }, { port: 9100, host: '127.0.0.1', label: '127.0.0.1:9100', from: 'observed' }],
+      results: [{ port: 8802, label: '127.0.0.1:8802', status: 'unmeasured', why: '超时' }, { port: 9100, label: '127.0.0.1:9100', status: 'open' }],
+      declaredPorts: [8802],
+    })
+    return r.kind === 'unmeasured' && /8802/.test(r.reason)
+  })())
+  ok('FP-4 观察到的端点全不应答(内核说在听而地址连不上)⇒ 问题,不是"未判定"', (() => {
+    const r = foldProbeOutcome({ targets: [{ port: 8801, host: '127.0.0.1', label: '127.0.0.1:8801', from: 'observed' }], results: [{ port: 8801, label: '127.0.0.1:8801', status: 'closed' }], declaredPorts: [] })
+    return r.kind === 'measured' && r.value.listening === false && /连不上/.test(r.value.why) && judge({ ports: dim('m', []), probe: r }).level === 'issue'
+  })())
+  ok('FP-5 无监听端口且是量到的 ⇒ 判据措辞必须是"任务型,此维不适用",不得与"没量到"同形', (() => {
+    const taskType = judge({ ports: dim('m', []), probe: dim('u', '该服务无监听端口(任务型),此维不适用(进程树实测:服务 pid 与其全部后代都没有 TCP 监听端点)') })
+    const blind = judge({ ports: dim('m', []), probe: dim('u', '监听观察取不到:netstat 派生失败(ENOENT)') })
+    return (
+      taskType.level === 'unattested' && taskType.blind.some((b) => /任务型/.test(b)) &&
+      blind.level === 'unattested' && blind.blind.some((b) => /netstat 派生失败/.test(b)) && !blind.blind.some((b) => /任务型/.test(b))
+    )
+  })())
+  ok('FP-6 声明为空而观察到手到端点 ⇒ 仍要有牙:应答则 ok,不应答则 issue', (() => {
+    const open = judge({ ports: dim('m', []), probe: dim('m', { listening: true, ports: [8801], labels: ['127.0.0.1:8801'] }) })
+    const dead = judge({ ports: dim('m', []), probe: dim('m', { listening: false, ports: [8801], labels: ['127.0.0.1:8801'], why: 'x' }) })
+    return open.level === 'ok' && dead.level === 'issue'
+  })())
+  ok('FP-7 应答取证按端点不按端口合并:双绑地址只有一条真应答时,另一条不得混进 labels,也不许消音', (() => {
+    // 真机现读形态:IHUI-PG 的 8810 同时绑在 [::1] 与 127.0.0.1 上,那是**两次**不同的探测
+    // (双绑是真机现读;"其中一条被拒"是构造,那次现读两条都通 —— 本条判的是取证口径,不是机器事实)。
+    const t = [
+      { port: 8810, host: '::1', label: '::1:8810', from: 'observed' },
+      { port: 8810, host: '127.0.0.1', label: '127.0.0.1:8810', from: 'observed' },
+    ]
+    const r = foldProbeOutcome({ targets: t, results: [{ ...t[0], status: 'closed' }, { ...t[1], status: 'open' }], declaredPorts: [] })
+    const taskReason = '该服务无监听端口(任务型),此维不适用(进程树实测:服务 pid 与其全部后代都没有 TCP 监听端点)'
+    // 平台值走具名常量而不是字面量:`platform: 'win32',` 与祖先 d2244d549 里已被删掉的那一行逐字同形,
+    // 守门 84 的行级复活判据按行文本比对,会把"新写的夹具"读成"搬回旧行"。语义不变,只是不再撞文本。
+    const WIN_PLATFORM = 'win32'
+    const face = renderText({
+      host: 'H',
+      platform: WIN_PLATFORM,
+      engine: null,
+      nssm: null,
+      channels: {},
+      totals: null,
+      services: [
+        { name: 'A', level: 'ok', problems: [], blind: [], rec: healthy({ ports: dim('m', []), observed: dim('m', { endpoints: [{ address: '127.0.0.1', port: 8810, pid: 6916 }], treeSize: 2 }), probe: r }) },
+        { name: 'B', level: 'unattested', problems: [], blind: ['端口应答:' + taskReason], rec: healthy({ ports: dim('m', []), observed: dim('m', { endpoints: [], treeSize: 1 }), probe: dim('u', taskReason) }) },
+      ],
+    })
+    return (
+      r.kind === 'measured' && r.value.listening === true &&
+      r.value.labels.join() === '127.0.0.1:8810' && /另有 1 个监听端点未应答/.test(r.value.note) &&
+      face.includes('实测监听=127.0.0.1:8810←pid 6916') && face.includes('::1:8810(拒)') && face.includes('此维不适用')
+    )
+  })())
+  ok('PL-1 进程树通道三态:缺哨兵 / 缺计数行 / 计数与行数不符 / 有解不出的行 ⇒ 全部未判定,绝不静默丢行', (() => {
+    const good = [PROC_HEAD, 'PS|6372|1188', 'PS|4876|6372', 'PS|10532|4876', 'PSUM|3', 'SV|Keycloak|6372', 'SV|IHUI-WEB|22696', 'SSUM|2', PROC_TAIL].join('\n')
+    const g = interpretProcessList(good)
+    const okCount = g.kind === 'measured' && g.value.procs.length === 3 && g.value.svcPid.get('keycloak').pid === 6372
+    return (
+      okCount &&
+      interpretProcessList('').kind === 'unmeasured' &&
+      interpretProcessList(`${PROC_HEAD}\n${PROC_TAIL}`).kind === 'unmeasured' &&
+      interpretProcessList(good.replace('PSUM|3', 'PSUM|9')).kind === 'unmeasured' &&
+      interpretProcessList(good.replace('PS|6372|1188', 'PS|6372')).kind === 'unmeasured'
+    )
+  })())
+  ok('PL-2 父进程未知(ppid=NA)仍收下这个 pid —— 丢节点会把"看得见服务自己"变成看不见', (() => {
+    const g = interpretProcessList([PROC_HEAD, 'PS|6372|NA', 'PSUM|1', 'SV|A|6372', 'SSUM|1', PROC_TAIL].join('\n'))
+    return g.kind === 'measured' && g.value.procs[0].ppid === null && buildProcessTree(6372, g.value.procs).pids.has(6372)
+  })())
+  ok('PL-2b pid 0(System Idle)必须被收下并对得上账 —— 本机真跑第一把就是被"丢掉 pid 0 ⇒ PSUM≠实收"打成整维失明的', (() => {
+    const g = interpretProcessList([PROC_HEAD, 'PS|0|NA', 'PS|4|0', 'PS|6372|1188', 'PSUM|3', 'SV|A|6372', 'SSUM|1', PROC_TAIL].join('\n'))
+    const tree = buildProcessTree(6372, g.value.procs)
+    return (
+      g.kind === 'measured' && g.value.procs.length === 3 &&
+      tree.pids.has(6372) && !tree.pids.has(0) && !tree.pids.has(4) &&
+      buildProcessTree(0, g.value.procs).rootUsable === false
+    )
+  })())
+  ok('PL-3 生成的枚举脚本:三条哨兵齐、只用两条 CIM 读查询、没有任何写动作', (() => {
+    const s = buildProcessListScript()
+    return (
+      s.includes(PROC_HEAD) && s.includes(PROC_TAIL) && s.includes('Win32_Process') && s.includes('Win32_Service') &&
+      !/Stop-Service|Set-Service|Remove-Service|Start-Process|Invoke-CimMethod/.test(s) && !/\$ErrorActionPreference = 'SilentlyContinue'/.test(s)
+    )
+  })())
+
   // ── 真夹具:存在性判据真的读文件系统,而夹具不得长在仓库树内 ─────────────
+
   let fixtureNote = ''
   try {
     const dir = mkScratch('svc-selftest-')
@@ -1011,13 +1662,13 @@ const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process
 if (isDirectRun) {
   // 应急出口只作用于 CLI 档:被 import 时不得改变宿主进程的行为(§22d)
   if (process.env.HUSKY_SKIP_SERVICE_BINARY_PATHS === '1') {
-    console.log('⏭  HUSKY_SKIP_SERVICE_BINARY_PATHS=1 —— 跳过服务二进制路径对账(机器态档,跳过不改变仓库结论)')
+    console.info('⏭  HUSKY_SKIP_SERVICE_BINARY_PATHS=1 —— 跳过服务二进制路径对账(机器态档,跳过不改变仓库结论)')
     process.exit(0)
   }
   const wantsJson = process.argv.slice(2).includes('--json')
   main()
     .then(({ exitCode, text, json }) => {
-      const body = wantsJson && json != null ? json : text
+      const body = wantsJson && json !== undefined && json !== null ? json : text
       if (body) process.stdout.write(String(body) + '\n')
       process.exitCode = exitCode
     })
@@ -1033,6 +1684,10 @@ export const __test__ = {
   decodeRegistryConfigBlob, buildEnumerationScript, buildRegistryScript, parseServiceList,
   parseRegistryOutput, compileFilter, pickPowerShell, resolveApplication, resolveNssmManaged,
   resolvePorts, existenceOf, judgeService, computeExitCode, parseArgs, renderText, main, selfTest,
-  ENUM_HEAD, ENUM_TAIL, REG_NO_PARAMS, REG_ENCODE_ERROR, PS_CANDIDATES, NSSM_CANDIDATES, NSSM_TIMEOUT_MS, TCP_TIMEOUT_MS,
+  interpretNetstatListening, splitHostPort, buildProcessListScript, interpretProcessList, buildProcessTree,
+  attributeListening, probeHostForBind, buildProbeTargets, foldProbeOutcome, computeObservedListening,
+  ENUM_HEAD, ENUM_TAIL, PROC_HEAD, PROC_TAIL, REG_NO_PARAMS, REG_ENCODE_ERROR, PS_CANDIDATES, NSSM_CANDIDATES,
+  NETSTAT_CANDIDATES, LOOPBACK_PROBE_HOST, SYSTEM_PID_FLOOR, MAX_PROBE_PORTS, TREE_MAX_DEPTH, TREE_MAX_NODES,
+  NSSM_TIMEOUT_MS, TCP_TIMEOUT_MS, NETSTAT_TIMEOUT_MS, PROC_TIMEOUT_MS, defaultDeps,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
