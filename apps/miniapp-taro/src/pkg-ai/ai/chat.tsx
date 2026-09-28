@@ -56,6 +56,9 @@ import {
   appendCitations,
   appendSteerNotice,
   appendTerminalDelta,
+  // D151:命令在等键盘输入的两个纯归并器(标记 / 清除),与 appendTerminalDelta 同一纪律
+  clearTerminalWaiting,
+  markTerminalWaiting,
   backfillSteerNoticesFromMetadata,
   toSteerNotice,
   type AICardsData,
@@ -752,10 +755,26 @@ export default function ChatPage() {
                 terminalTasks: appendTerminalDelta(c.terminalTasks, evt),
               }))
             },
+            // D151(2026-09-29 立):命令在等键盘输入。此前**该帧在共享解析器上无人认领**,
+            // 被泛化 sessionId 兜底折成 meta ⇒ 本端结构上看不见"它在等人"(认领见
+            // packages/shared/src/utils/sse-parse.ts 的 terminal_interaction 分支)。
+            // 本端**不接输入口**:手机键盘送不进 ai-service 那条进程,给一个按了没反应的
+            // 输入框是假 affordance;只标状态,文案见 ai-cards.tsx 的 chat.terminal.* 两行。
+            onTerminalInteraction: (evt) => {
+              if (!evt.terminalId) return
+              upsertCard((c) => ({
+                ...c,
+                terminalTasks: markTerminalWaiting(c.terminalTasks, evt.terminalId),
+              }))
+            },
             onTerminalEnd: (evt) => {
               upsertCard((c) => ({
                 ...c,
-                terminalTasks: c.terminalTasks.map((x) =>
+                // D151:终态归并后再过一道 clearTerminalWaiting —— 命令都结束了还挂着
+                // "在等你输入"就是假态,而把它写进上面那个对象字面量里会有第二种真相;
+                // 清除只有一处出口。
+                terminalTasks: clearTerminalWaiting(
+                  c.terminalTasks.map((x) =>
                   x.id === evt.terminalId
                     ? {
                         ...x,
@@ -770,6 +789,8 @@ export default function ChatPage() {
                         durationMs: evt.durationMs,
                       }
                     : x,
+                  ),
+                  evt.terminalId,
                 ),
               }))
               pushStreamActivity(t('ai.stream.terminal', { status: evt.status }))
