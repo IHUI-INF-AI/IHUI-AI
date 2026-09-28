@@ -872,18 +872,41 @@ class MCPClientManager:
 
     def __init__(self) -> None:
         self._clients: dict[str, MCPClient] = {}
+        # 注册者身份(name -> user_id;"" = 部署级,由 main.py 启动时注入)
+        self._owners: dict[str, str] = {}
 
-    def register(self, config: MCPClientConfig) -> str:
-        """注册一个外部 MCP Server 配置。"""
+    def register(self, config: MCPClientConfig, *, owner_user_id: str = "") -> str:
+        """注册一个外部 MCP Server 配置,并盖章注册者。
+
+        `owner_user_id=""` 是**部署级**(启动时由 main.py 注入):它对任何已登录主体
+        都可见,但**谁都注销不了**(否则一个成员就能摘掉平台配的 server)。
+        用户自己注册的必须带身份 —— 端点侧的属主来自 `require_request_user_id`,
+        不接受请求体自报(AGENTS §5"认证不等于授权")。
+        名字仍是全站共享命名空间:跨用户同名会被 409 挡下而不是覆盖别人的配置,
+        代价是"这个名字存在"可被探测(见 routers/mcp.py 的登记注释)。
+        """
         name = config.name
         if name in self._clients:
             logger.warning("MCP Client 已存在，覆盖: %s", name)
+        self._owners[name] = owner_user_id
         self._clients[name] = MCPClient(config)
         logger.info("MCP Client 已注册: %s[%s]", name, config.transport)
         return name
 
+    def owner_of(self, name: str) -> str | None:
+        """该 server 的注册者;"" 表示部署级;未注册返回 None。""" 
+        if name not in self._clients:
+            return None
+        return self._owners.get(name, "")
+
+    def can_mutate(self, name: str, caller_user_id: str) -> bool:
+        """当前主体能否注销/改连这台 server —— **唯一一份判据**,端点不得各写一遍。"""
+        owner = self.owner_of(name)
+        return owner is not None and owner != "" and owner == caller_user_id
+
     def unregister(self, name: str) -> None:
         """注销并断开指定 Client。"""
+        self._owners.pop(name, None)
         client = self._clients.pop(name, None)
         if client is not None:
             try:
@@ -896,6 +919,7 @@ class MCPClientManager:
 
     async def unregister_async(self, name: str) -> None:
         """注销并等待断开完成(异步上下文,如 HTTP 端点)。"""
+        self._owners.pop(name, None)
         client = self._clients.pop(name, None)
         if client is not None:
             try:
@@ -932,12 +956,18 @@ class MCPClientManager:
             "capabilities": client.capabilities(),
         }
 
-    def list_registered(self) -> list[dict[str, Any]]:
-        """列出所有已注册 Server 的摘要信息(含连接状态,不含 env 等敏感字段)。"""
+    def list_registered(self, caller_user_id: str) -> list[dict[str, Any]]:
+        """列出该主体**看得见**的 Server 摘要(含连接状态,不含 env 等敏感字段)。
+
+        可见集 = 自己注册的 + 部署级(owner 为空串)的。别人的用户级 server 不列 ——
+        这才是 `connectors:read` 敢被放开的唯一前提;属主判据与 `can_mutate` 同住在
+        本类,端点侧不得再抄一份(两处算同一件事必漂移)。
+        """
         return [
             status
             for name in self._clients
-            if (status := self.client_status(name)) is not None
+            if self.owner_of(name) in ("", caller_user_id)
+            and (status := self.client_status(name)) is not None
         ]
 
     async def connect_all(self) -> None:
