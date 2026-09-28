@@ -59,7 +59,17 @@
  *   node scripts/union-converge.mjs --self-test      # 真临时仓取证(含"选边必判失败"反向对照)
  *   node scripts/union-converge.mjs --move-aware-detail
  *       # 把"因搬运感知而未取回"的行**逐行**打印(默认只按条目块给计数 + 出处归档件路径)。
- * 退出码:0 = 无需合并或已落地且复核干净;1 = 判据不过/两侧同改冲突需人工/CAS 失败;2 = 脚本自身异常。
+ *
+ * 退出码三态(§22d 约定,不得合流 —— 本仓最高频失效型就是"把没判写成判过了"):
+ *   0 = 无事可做(已同步 / 目标已被本地包含 / 本地纯落后),或已落地且复核干净
+ *   1 = 判过了:落地闸不过 / 两侧同改冲突需人工 / CAS 失败(内容裁决与并发写冲突)
+ *   2 = **无法判定**:向远端问到了 sha 但该对象不在本机(差一次 fetch),或取不到远端真值;
+ *       以及脚本自身异常(uncaught 一律落到这里,不冒充内容结论)。
+ *       "对象不在本机"这一态一定**逐行打印可执行出路**(按分支 fetch / 免联网喂 --theirs /
+ *       gitdir 受损查 refs),它绝不能退化成 exit 0 的"无需合并" —— 那时明明有待合并,
+ *       只是本器还没资格判。
+ *       本器**永不代跑 fetch**:写操作的归属留给调用方(§12/§5b),且自动 fetch 会把
+ *       "并发高峰追不上远端"从可见问题变成隐式行为。
  */
 import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -766,13 +776,70 @@ export function formatMoveAwareReport(list, { detail = false, maxEntries = 25 } 
 export function hasCommit(sha, cwd = ROOT) {
   if (!/^[0-9a-f]{7,40}$/.test(String(sha || ''))) return false
   return (
-    spawnSync(GIT, ['-c', 'safe.directory=*', 'cat-file', '-e', `${sha}^{commit}`], {
-      cwd,
-      windowsHide: true,
-      timeout: 60000,
-      encoding: 'utf8',
-    }).status === 0
+    // `core.quotepath=false` 不是装饰:本文件所有带 safe.directory 的 git 派生都必须同带该开关
+    // (tests 里的形状锁判这一格)—— 漏一处,枚举面就会把非 ASCII 路径回成 `\346\240\274` 八进制
+    // 转义形态,而转义名与被审内容不再同一字符串,归并/断言两面会各自算出"看不见"的结果。
+    spawnSync(
+      GIT,
+      ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'cat-file', '-e', `${sha}^{commit}`],
+      {
+        cwd,
+        windowsHide: true,
+        timeout: 60000,
+        encoding: 'utf8',
+      },
+    ).status === 0
   )
+}
+
+/** 当前分支名;detached 或取不到一律回 ''——出路文案随后会退化成 `<当前分支名>` 占位,绝不猜一个分支去让人 fetch。 */
+function currentBranch(cwd = ROOT) {
+  try {
+    const b = git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
+    return b && b !== 'HEAD' ? b : ''
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * 「对象不在本机」的**出路文案** —— 唯一一份实现,`resolveTargets()` 与 `plan()` 都调它
+ * (两处各写一遍必漂,而漂了的文案比没有文案更坏:人会照第一条跑不通的命令去跑)。
+ *
+ * 为什么这一格非抽成纯函数不可:上一版喊的是「出口:git fetch --no-tags origin <sha>」,
+ * 而**那句话自己就是一条跑不通的出路**(本仓记过不止一次"文档写了一个跑不通的出路"):
+ *  ① 按 sha 直取要求服务端开 `uploadpack.allowAnySHA1InWant`(公共托管默认不开),否则回
+ *    `Server does not allow request for unadvertised object`;
+ *  ② 更根本的是**这一型的发生条件恰恰就是那条命令的失败条件**:并发高峰期远端每隔几分钟前进
+ *    一次,刚问到的 sha 随即从"已公布的 ref tip"退化成"未公布的对象" —— 让我们去 fetch 它,
+ *    等于把工具自己没走通的出路再交给现场的人走一遍。能稳定成功的只有**按分支取**。
+ *  ③ 若缺失的是**本地 HEAD**,那根本不是"差一次 fetch"而是 gitdir/refs 受损(§5b):
+ *    对着本机 HEAD 喊 fetch 既无效又掩盖了更严重的现场 ⇒ 文案按缺失侧分流。
+ * 取不到可信分支名时宁可打印 `<当前分支名>` 占位,也不得回落到跟踪 ref 残值继续往下判。
+ */
+export function unreachableObjectGuidance({ missing, theirs, head, branch } = {}) {
+  const list = [...(missing || [])].filter(Boolean)
+  const names = list.map((s) => String(s).slice(0, 11)).join('、') || '(未点名)'
+  const out = [
+    `对象不在本机(${names})⇒ 本器不代跑 fetch,也不拿跟踪 ref 的残值继续合并`,
+  ]
+  if (theirs && list.includes(theirs)) {
+    out.push(
+      `出口① 联网取**分支**而非取 sha:git fetch origin ${branch || '<当前分支名>'} —— 取完重跑本器(它会重新问一次远端真值,不沿用上一步拿到的 sha)`,
+    )
+    out.push(
+      '      · 刻意不给「git fetch origin <sha>」这种写法:公共托管默认拒绝未公布对象,而该 sha 是否还在公布名单里恰好不稳定(见本器头注 G-473)',
+    )
+    out.push(
+      '出口② 免联网:显式喂一个**本地已可达**的目标 —— node scripts/union-converge.mjs --theirs <本地已可达的 sha>(可先自证:git cat-file -e <sha>^{commit})',
+    )
+  }
+  if (head && list.includes(head)) {
+    out.push(
+      '出口③ 缺的是本地 HEAD ⇒ 这不是「差一次 fetch」,按 §5b 查 gitdir/refs 存续:node scripts/git-refs-heal.mjs --status 与 node scripts/git-guardian.mjs --status',
+    )
+  }
+  return out.join('\n')
 }
 
 /** 找一对需要合并的输入;skip 非空表示无事可做,undetermined 非空表示"这一步还没资格判"。 */
@@ -806,13 +873,20 @@ export function resolveTargets(theirsArg, cwd = ROOT) {
   // "已被本地包含 / 纯落后"两条一起被跳过,一路走到 plan() 的 merge-base 才抛 Node 堆栈
   // (G-473:读起来像工具坏了,而真相只是"还差一次 fetch")。这里显式判"未判定":
   // 既不冒红(它不是内容裁决,不该和真冲突混在一张单子上),也不记绿(它什么都没判)。
+  // 文案的唯一实现是 unreachableObjectGuidance() —— 它必须给得出**跑得通**的出路,
+  // 而绝不允许在这里回落到跟踪 ref 残值继续往下判(残值==本地会假报"已同步")。
   const missing = [theirs, head].filter((s) => s && !hasCommit(s, cwd))
   if (missing.length)
     return {
       head,
       theirs,
       skip: null,
-      undetermined: `对象不在本机(${missing.map((s) => String(s).slice(0, 11)).join('、')})⇒ 本器不代跑 fetch;出口:git fetch --no-tags origin ${missing[0]} 后重跑`,
+      undetermined: unreachableObjectGuidance({
+        missing,
+        theirs,
+        head,
+        branch: branch && branch !== 'HEAD' ? branch : '',
+      }),
     }
   if (isAncestor(theirs, head, cwd)) return { head, theirs, skip: '目标已被本地包含' }
   if (isAncestor(head, theirs, cwd))
@@ -834,11 +908,12 @@ function isAncestor(a, b, cwd) {
 export function plan(ours, theirs, cwd = ROOT, takeOurs = new Set(), resolutions = new Map()) {
   // 直接走 API 的调用方也必须拿到同一句诊断,而不是 git 的 "Not a valid commit name" 加一串堆栈
   // (G-473 ②:取不到要写成"未判定 + 出口",不得表现为工具故障)。CLI 那一支在 resolveTargets
-  // 已经拦下,这条是给 import 者的 —— 两处判据同一份实现(hasCommit)。
+  // 已经拦下,这条是给 import 者的 —— 两处判据与**两处出路文案**同一份实现(hasCommit +
+  // unreachableObjectGuidance),否则 import 者拿到的指导会比 CLI 用户拿到的更少、更容易跑空。
   const miss = [ours, theirs].filter((s) => s && !hasCommit(s, cwd))
   if (miss.length)
     throw new Error(
-      `未判定:对象不在本机(${miss.map((s) => String(s).slice(0, 11)).join('、')})⇒ 本器不代跑 fetch;出口:git fetch --no-tags origin ${miss[0]} 后重跑`,
+      `未判定:${unreachableObjectGuidance({ missing: miss, theirs, head: ours, branch: currentBranch(cwd) })}`,
     )
   const base = git(['merge-base', ours, theirs], cwd)
   // 一张抑制表同时喂归并与落地断言(分开算必漂移,而漂移的固定代价是"落地闸把合法未取回判成丢行")。
@@ -1397,6 +1472,11 @@ async function main() {
   // --move-aware-detail:把"因搬运感知而未取回"的行**逐行**打印(默认只按条目块报计数)。
   const moveAwareDetail = argv.includes('--move-aware-detail')
   const t = resolveTargets(ti >= 0 ? argv[ti + 1] : '')
+  // 三态各自落地,不得合流(§22d 退出码约定:0 成功 / 1 业务失败 / 2 无法判定):
+  //   skip        —— 已同步、目标已被本地包含、本地纯落后 ⇒ 确实无事可做,维持原文案 + exit 0
+  //   undetermined —— "问到了远端 sha 但对象不在本机"这类**判不了**:它既不是无事可做(明明有待
+  //                  合并),也不是内容裁决,绝不能沿用 skip 的"无需合并"+exit 0 —— 那正是本仓
+  //                  记过最多次的失效型「把没判写成判过了」,而且调用方据此会跳过一整轮收敛。
   if (t.skip) {
     console.log(`[union-converge] ${t.skip} ⇒ 无需合并`)
     process.exit(0)
@@ -1404,7 +1484,9 @@ async function main() {
   if (t.undetermined) {
     // 退出码 2 = "本器没资格判",刻意区别于 1("判了,需人工"):调用方把 2 读成内容裁决,
     // 就会把一次 fetch 说成一次归并失败(git-sync-converge 那一支按措辞分流,见其 ③ 段)。
-    console.log(`[union-converge] 未判定:${t.undetermined}`)
+    // 出路必须**逐行成文**(文案里已带出口①②③),不得压成一行让人只看得到半句命令。
+    console.log('[union-converge] 未判定 ⇒ 本次没有任何可落地的结论(不是"无事可做",也不是"需人工"):')
+    for (const line of String(t.undetermined).split('\n')) console.log(`  ${line}`)
     process.exit(2)
   }
   const p = plan(t.head, t.theirs, ROOT, takeOurs, resolutions)
@@ -1498,6 +1580,7 @@ export const __test__ = {
   verifyUnion,
   resolveTargets,
   hasCommit,
+  unreachableObjectGuidance,
   plan,
   listPaths,
   show,
