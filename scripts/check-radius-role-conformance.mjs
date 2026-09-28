@@ -78,6 +78,7 @@ import { isRadiusExemptAt, radiusLookup, blockOwnerOf } from './lib/radius-token
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { scanJsx, hasJsxShape } from './lib/jsx-scope.mjs'
+import { boxDims, objectDims, boxDimsOwn } from './lib/box-geometry.mjs'
 import {
   CORNER_NAMES,
   ROLE_STEMS,
@@ -86,6 +87,8 @@ import {
   classifySurfaces,
   headToken,
   isRoleExemptAt,
+  isModalTag,
+  isOverlayName,
   declarationRanges,
   maskFaces,
   radiusFormsInLine,
@@ -100,6 +103,17 @@ import {
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const RADIUS_TABLE_REL = 'packages/design-tokens/src/radius.js'
 const BASELINE_REL = 'scripts/radius-role-conformance-baseline.json'
+/**
+ * 真仓阳性对照的取材 ref —— **钉清偿前的出处提交,不钉 HEAD**:账还完那天"HEAD 上还能量到这条违规"
+ * 这条前提当场失效,阳性对照会跟着一起消失而自检照绿(票㉗ 由镜像 T18 钉死;票㉘ 用例 69 又踩一次)。
+ * 可用 env 覆盖,便于出处搬家时不改代码。
+ */
+const PROBE_REF = process.env.IHUI_RADIUS_PROBE_REF || 'acf1927e96'
+/**
+ * 短边达到这个数才算可点/可读的盒子,细于它的是 §4 保护的装饰族(进度条 4px、骨架行 12px、
+ * 指示点 6px)—— 那些形态任何档位半径都会两端全圆,判红等于逼设计改方角。
+ */
+const CAPSULE_MIN_SHORT = Number(process.env.IHUI_CAPSULE_MIN_SHORT || 16)
 const FACE_TXT = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(磁盘)' }
 
 /**
@@ -157,10 +171,22 @@ export function auditFileText(rel, src, table) {
     componentEvidence: 0,
     identityEvidence: 0,
     componentUndetermined: [],
+    /** C6 胶囊候选队列(只点名不判红,升级前置见判定处注释) */
+    capsuleFindings: [],
     scopeFallback: 0,
     scopeAmbiguous: 0,
     scopeCorrupt: 0,
     contested: [],
+    /**
+     * C6 几何定性(票㉚)的三个计数:
+     *  trueCircle = 正方盒 + 半径取到半边 ⇒ 真圆装饰件(点/红点/圆头像),不在角色档射程;
+     *  capsule = 非正方盒 + 半径取到半边 ⇒ **胶囊**,判红且**不吃任何豁免标记**;
+     *  dimsUndetermined = 有圆角取用但量不出盒形 ⇒ 只报名(不得静默算通过)。
+     */
+    trueCircle: 0,
+    capsule: 0,
+    dimsUndetermined: 0,
+    exemptionIgnored: 0,
   }
   const rawLines = src.split('\n')
   // 注释与字符串的抹法只有一份实现(lib/code-mask.mjs);本门要的两面都由它派生(见 radius-roles)。
@@ -176,7 +202,14 @@ export function auditFileText(rel, src, table) {
   let surfaces = null
   if (hasJsxShape(kept)) {
     scope = scanJsx(kept, { strings })
-    surfaces = classifySurfaces(scope.elements, { roleOf: rolesOfName })
+    // C4 只在**浮层组件自己的文件**里启用(理由见 classifySurfaces 头注:页面文件里的 `<Card>`
+    // 是对话框内容区的数据卡,不是浮层体 —— 一律启用会造出假阳与 contested 死锁)
+    const base = rel.split('/').pop() || ''
+    const stemName = base.replace(/\.[^.]+$/, '')
+    // 浮层身份用**同一套词表**(MODAL_TAG_SUFFIXES / OVERLAY_KEY_STEMS)判定 ——
+    // 面板词干里刻意没收 'popup'(它是标签后缀不是角色词干),各写一份就会漏掉 LoginPopUp 这类真目标
+    const modalFile = rolesOfName(stemName).includes('panel') || isModalTag(stemName) || isOverlayName(stemName)
+    surfaces = classifySurfaces(scope.elements, { roleOf: rolesOfName, modalFile })
     out.scopeCorrupt = scope.corrupt
     for (const k of surfaces.contestedKeys) out.contested.push({ file: rel, key: k })
   }
@@ -246,7 +279,63 @@ export function auditFileText(rel, src, table) {
     const forms = radiusFormsInLine(line, table)
     if (!forms.length) continue
     out.usages += forms.length
-    if (isRoleExemptAt(rawLines, i) || isRadiusExemptAt(rawLines, i)) {
+    /**
+     * C6 · 几何定性,**排在豁免判定之前** —— 形状是量出来的事实,不是一个可以被谁豁免掉的偏好。
+     * 半径取到短边一半时只剩两种形状:正方盒 ⇒ **真圆装饰件**(点 / 红点 / 圆头像 / 编辑徽标),
+     * 它从来不在"容器该取哪一档"的射程里(旧写法给人挂 `radius-role-exempt` 标记,共 8 处 ——
+     * 标记既掩盖真形也拦不住回潮);非正方盒 ⇒ **胶囊**,正是用户点名要根除的形态,零豁免。
+     *
+     * 取属性区分两路:JSX 行走**该元素自己的**属性区(`boxDimsOwn`,不确定闭合就不判),StyleSheet / CSS 行走**所属对象内部**
+     * (`objectDims`)。拿 JSX 窗口去量 StyleSheet 会 blead 邻行尺寸 —— 实测把一枚 8×8 圆点
+     * 量成 40×8 并报成胶囊;假阳比漏报贵,它指使人去改本来对的东西。
+     * 量材的文本用**原文**:`w-[690rpx]` / `width: 8` 常常就写在 className 字符串里,遮罩面看不见。
+     */
+    const gd = (() => {
+      const gi = scope ? scope.byLine.get(i + 1) : undefined
+      if (gi && !gi.ambiguous) {
+        /**
+         * 两把尺子,方向不同,不许互换:
+         *  - `wide`(宽窗)只用于**圆点排除**。它可能把父子的尺寸混在一起,但那最多让一个真圆装饰件
+         *    少一次豁免性归类、退回角色档比对(= 本门改前的既有行为),不会凭空造出红点之外的红。
+         *  - `own`(窄窗,必须能确定开标签闭合)才用于**胶囊判红**。宽窗会把 `<Icon className="h-4 w-4">`
+         *    算进父盒(HEAD 现读 14 处候选里 9 处就是这么假阳的);而没有 JSX 词法器时"找闭合"又会把
+         *    `[&>svg]`、字符串里的 `>` 读断 —— 判红一侧只用它,不确定就计入 dimsUndetermined(报名不判)。
+         */
+        const own = boxDimsOwn(rawLines, i)
+        const wide = boxDims(rawLines, i)
+        return { own: own.confident ? own : null, wide }
+      }
+      const o = objectDims(rawLines, i)
+      return { own: o, wide: o }
+    })()
+    const shortOf = (d) =>
+      d.shape === 'square' || d.shape === 'wide'
+        ? Math.min(d.w || Number.POSITIVE_INFINITY, d.h || Number.POSITIVE_INFINITY)
+        : Number.NaN
+    const ownShort = gd.own ? shortOf(gd.own) : Number.NaN
+    const wideShort = shortOf(gd.wide)
+    /** 宽窗只用于"正方真圆"的排除(方向性理由见上)。 */
+    const isTrueCircle = (f) =>
+      Number.isFinite(f.px) &&
+      Number.isFinite(wideShort) &&
+      gd.wide.shape === 'square' &&
+      f.px >= wideShort / 2
+    /**
+     * 胶囊判红的三个必要条件,缺一即只进队列:
+     *  ① 属性区能确定闭合且量出**非正方**盒 —— 否则父子尺寸混在一起,菜单/按钮会被量成细条;
+     *  ② 短边 ≥ `CAPSULE_MIN_SHORT` —— 细于它的(进度条 4px、骨架行 12px、指示点 6px)在 §4 里属于
+     *     "不得方档化把形状改坏"的装饰族,任何档位半径都会让它两端全圆,判红等于逼设计改成方角;
+     *  ③ 半径 ≥ 短边一半。
+     */
+    const geomShort = Number.isFinite(ownShort) ? ownShort : wideShort
+    const halfHit = (f) => Number.isFinite(f.px) && Number.isFinite(geomShort) && f.px >= geomShort / 2
+    const capsuleWide = (f) => !!gd.own && gd.own.shape === 'wide' && halfHit(f)
+    const capsuleRed = (f) => capsuleWide(f) && ownShort >= CAPSULE_MIN_SHORT
+    if (!gd.wide.shape && !(gd.own && gd.own.shape)) out.dimsUndetermined += 1
+    const marked = isRoleExemptAt(rawLines, i) || isRadiusExemptAt(rawLines, i)
+    const capsuleHere = forms.some(capsuleRed)
+    if (marked && capsuleHere) out.exemptionIgnored += forms.length
+    if (marked && !capsuleHere) {
       out.exempted += forms.length
       continue
     }
@@ -278,10 +367,6 @@ export function auditFileText(rel, src, table) {
     const isJsxRoot = !!(info && !info.ambiguous && (info.ancestors?.length || 0) === 0)
     /** 组件名档按**最内层声明**归属 ⇒ 同文件内联的小组件不会被外层名字顶判 */
     const compOwner = isJsxRoot ? rolesOfOwner(i + 1) : null
-    if (isJsxRoot && !compOwner) {
-      const own = ownerOfLine(declRanges, i + 1)
-      if (own) out.componentUndetermined.push({ file: rel, line: i + 1, owner: own.name })
-    }
     if (info && !info.ambiguous) {
       for (const r of rolesOfName(info.selfName)) strong.add(r)
       for (const k of info.keys) for (const r of rolesOfName(k)) strong.add(r)
@@ -308,6 +393,14 @@ export function auditFileText(rel, src, table) {
     if (ident.roles.size) {
       out.identityEvidence++
       if (!strong.size) for (const r of ident.roles) strong.add(r)
+    }
+    /**
+     * "组件名判不出"的报名**必须排在身份通道之后** —— 身份已经给出类别的行再报一次
+     * "组件名判不出"是同一格计两遍债,读数会被读成两倍待办(本仓"报数也要报得能看懂"那条)。
+     */
+    if (isJsxRoot && !compOwner && !strong.size && !ident.roles.size && !forms.some((x) => x.role)) {
+      const own = ownerOfLine(declRanges, i + 1)
+      if (own) out.componentUndetermined.push({ file: rel, line: i + 1, owner: own.name })
     }
     const ownerName = names.length ? names[names.length - 1] : null
     const keyIsSurface = !!(surfaces && ownerName && surfaces.surfaceKeys.has(ownerName))
@@ -388,6 +481,38 @@ export function auditFileText(rel, src, table) {
       rec.actualStep = stepNameForPx(table, f.px)
       rec.expectedStep = want.step
       rec.expectedPx = want.px
+      /**
+       * C6 的两条几何结论(排在角色档比对**之前**,因为形状一旦成立,比档位已经没意义):
+       *  ① 正方 + 半径≥半边 ⇒ 这是**真圆装饰件**。它不属于"容器该取哪档"那一问,直接出了本门射程
+       *     (计 trueCircle,不判红也不计合规) —— 这一格替掉的是原先 8 处人挂的 `radius-role-exempt`。
+       *  ② 非正方 + 半径≥半边 ⇒ **胶囊**。有类别证据就判红;只有颜色弱证据时仍进队列不判红,
+       *     与"低置信只开队列"那条一致(实测拿 `bg-card` 冒充按钮那一型,判红就是把人往错方向推)。
+       *     两种情形**都不吃豁免标记**:标记是人的断言,形状是量出来的事实。
+       */
+      if (isTrueCircle(f)) {
+        out.trueCircle += 1
+        rec.circle = true
+        continue
+      }
+      if (capsuleRed(f)) {
+        out.capsule += 1
+        rec.reason = 'capsule'
+        rec.detail = `盒 ${gd.own.w || '?'}×${gd.own.h || '?'} / 半径 ${f.px} ≥ 短边一半 ⇒ 胶囊型(本项目不允许,且不吃豁免)`
+        /**
+         * 判红要三个条件同时成立(见 `capsuleWide` / `CAPSULE_MIN_SHORT`):属性区闭合可确定、
+         * 盒形非正方、短边 ≥ 16。这是票㉚ 那条前置的落地 —— 宽窗会把子节点 `h-4 w-4` 算进父盒
+         * (HEAD 现读 14 处候选里 9 处就是这么假阳的),所以判红一侧只认窄窗;窄窗不确定就计"未判定"
+         * 报名。短边细于 16 的只进队列不判红 —— §4 明令进度条/骨架行/指示点"不得方档化把形状改坏",
+         * 对它们判红等于逼设计改方角,那是拿尺子改设计。
+         */
+        if (evidence === 'weak') out.weakFindings.push(rec)
+        else out.violations.push(rec)
+        continue
+      }
+      if (capsuleWide(f)) {
+        out.capsuleFindings.push(rec)
+        continue
+      }
       if (f.px === want.px) out.compliant += 1
       else if (rec.evidence === 'weak') out.weakFindings.push(rec)
       else out.violations.push(rec)
@@ -525,9 +650,14 @@ export function runAudit(repoRoot, face, { only } = {}) {
   let componentEvidence = 0
   let identityEvidence = 0
   const componentUndetermined = []
+  const capsuleFindings = []
   let scopeFallback = 0
   let scopeAmbiguous = 0
   let scopeCorrupt = 0
+  let trueCircle = 0
+  let capsule = 0
+  let dimsUndetermined = 0
+  let exemptionIgnored = 0
   for (const rel of files) {
     const src = got.get(face === 'staged' ? `:${rel}` : `HEAD:${rel}`)
     if (src === null || src === undefined)
@@ -540,9 +670,14 @@ export function runAudit(repoRoot, face, { only } = {}) {
     componentEvidence += r.componentEvidence
     identityEvidence += r.identityEvidence
     componentUndetermined.push(...r.componentUndetermined)
+    capsuleFindings.push(...r.capsuleFindings)
     scopeFallback += r.scopeFallback
     scopeAmbiguous += r.scopeAmbiguous
     scopeCorrupt += r.scopeCorrupt
+    trueCircle += r.trueCircle
+    capsule += r.capsule
+    dimsUndetermined += r.dimsUndetermined
+    exemptionIgnored += r.exemptionIgnored
     contested.push(...r.contested)
     violations.push(...r.violations)
     undetermined.push(...r.undetermined)
@@ -566,9 +701,14 @@ export function runAudit(repoRoot, face, { only } = {}) {
     componentEvidence,
     identityEvidence,
     componentUndetermined,
+    capsuleFindings,
     scopeFallback,
     scopeAmbiguous,
     scopeCorrupt,
+    trueCircle,
+    capsule,
+    dimsUndetermined,
+    exemptionIgnored,
     red: applyRatchet(countByKey(violations), baseline.anchors || {}),
     roleTableProblems: roleTableProblems(table),
   }
@@ -610,9 +750,14 @@ function runAuditWorktree(repoRoot, only) {
   let componentEvidence = 0
   let identityEvidence = 0
   const componentUndetermined = []
+  const capsuleFindings = []
   let scopeFallback = 0
   let scopeAmbiguous = 0
   let scopeCorrupt = 0
+  let trueCircle = 0
+  let capsule = 0
+  let dimsUndetermined = 0
+  let exemptionIgnored = 0
   for (const rel of files) {
     const src = readWorktreeFile(repoRoot, rel)
     if (src === null) continue
@@ -624,9 +769,14 @@ function runAuditWorktree(repoRoot, only) {
     componentEvidence += r.componentEvidence
     identityEvidence += r.identityEvidence
     componentUndetermined.push(...r.componentUndetermined)
+    capsuleFindings.push(...r.capsuleFindings)
     scopeFallback += r.scopeFallback
     scopeAmbiguous += r.scopeAmbiguous
     scopeCorrupt += r.scopeCorrupt
+    trueCircle += r.trueCircle
+    capsule += r.capsule
+    dimsUndetermined += r.dimsUndetermined
+    exemptionIgnored += r.exemptionIgnored
     contested.push(...r.contested)
     violations.push(...r.violations)
     undetermined.push(...r.undetermined)
@@ -650,9 +800,14 @@ function runAuditWorktree(repoRoot, only) {
     componentEvidence,
     identityEvidence,
     componentUndetermined,
+    capsuleFindings,
     scopeFallback,
     scopeAmbiguous,
     scopeCorrupt,
+    trueCircle,
+    capsule,
+    dimsUndetermined,
+    exemptionIgnored,
     red: applyRatchet(countByKey(violations), baseline.anchors || {}),
     roleTableProblems: roleTableProblems(table),
   }
@@ -732,9 +887,14 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
         identityEvidence: res.identityEvidence,
         componentAmbiguous: res.componentUndetermined.length,
         componentUndetermined: res.componentUndetermined,
+        capsuleFindings: res.capsuleFindings,
         scopeFallback: res.scopeFallback,
         scopeAmbiguous: res.scopeAmbiguous,
         scopeCorrupt: res.scopeCorrupt,
+        trueCircle: res.trueCircle,
+        capsule: res.capsule,
+        dimsUndetermined: res.dimsUndetermined,
+        exemptionIgnored: res.exemptionIgnored,
         contested: res.contested,
         roleTableProblems: res.roleTableProblems,
         baselineAnchors: Object.keys(res.baseline?.anchors || {}).length,
@@ -802,12 +962,29 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
         `闭合失配 ${res.scopeCorrupt} 处。退回与失配都**不是通过**:那些行仍按原逐行判序判,` +
         '只是容器这一维对它们不生效(判不出必须报名,不得静默当成"没有祖先")。',
     )
+    console.log(
+      `◦ 几何定性(C6):真圆装饰件(正方盒 + 半径=半边)${res.trueCircle} 处 ⇒ 出了角色档射程,` +
+        `不再需要任何标记;胶囊判红 ${res.capsule} 处(三个条件同时成立才判:属性区闭合可确定 + 非正方盒 + ` +
+        `短边 ≥ ${CAPSULE_MIN_SHORT}px;半径≥短边一半即两端全圆,本项目不允许,且**不吃豁免标记**` +
+        `—— 本轮 ${res.exemptionIgnored} 处标记因形状成立而被忽略);` +
+        `另有 ${res.capsuleFindings.length} 处细于可点尺寸的装饰条/骨架行进队列不判红(§4 明令装饰族不得方档化,` +
+        `对它判红等于逼设计改方角);量不出盒形 ${res.dimsUndetermined} 行 ⇒ 只报名,不记通过。`,
+    )
     if (argv.includes('--all') && res.componentUndetermined.length) {
     console.log('◦ 组件名档判不出(根容器所在组件名给不出唯一角色),逐条报名:')
     for (const u of res.componentUndetermined.slice(0, 60)) {
       console.log('     ' + u.file + ':' + u.line + ' 组件 ' + u.owner)
     }
     if (res.componentUndetermined.length > 60) console.log('     …其余 ' + (res.componentUndetermined.length - 60) + ' 条见 --json')
+  }
+  if (res.capsuleFindings.length) {
+    console.log(
+      `◦ C6 胶囊候选 ${res.capsuleFindings.length} 处(队列,不判红 —— 盒形量算会被子节点污染,升级前置写在判定处注释):`,
+    )
+    if (argv.includes('--all'))
+      for (const u of res.capsuleFindings.slice(0, 60)) {
+        console.log('     ' + u.file + ':' + u.line + ' ' + u.form + '  ' + u.detail)
+      }
   }
   if (res.contested.length) {
       console.log('   contested(不改判,逐条报名):')
@@ -833,10 +1010,23 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
 /** 自检:构造面 + 真仓 HEAD 阳性对照(两条同时成立才叫"遮罩关掉的是误报、不是判据")。 */
 export async function selfTest(repoRoot = ROOT) {
   const results = []
-  const t = (name, cond, extra = '') => results.push({ name, ok: !!cond, extra })
+  const t = (name, cond, extra = '') => {
+    /**
+     * 断言必须已经被求值。`t('...', () => {...})` 传进来的是**函数**,`!!fn` 恒真 ⇒ 这条用例
+     * 从上线起就没判过任何东西,而账面永远 ✅(本会话就造出过 5 条这样的空断言)。
+     * 与其修一次,不如把这条路堵死:传函数直接判失败并点名,谁再写这种形态都会当场红。
+     */
+    if (typeof cond === 'function') {
+      results.push({ name, ok: false, extra: 'cond 是函数 ⇒ 断言从未求值(应写成 (() => {...})() )' })
+      return
+    }
+    results.push({ name, ok: !!cond, extra })
+  }
   const got = catBatch(repoRoot, [`HEAD:${RADIUS_TABLE_REL}`], { maxBuffer: 1 << 26 })
   const tableSrc = got.get(`HEAD:${RADIUS_TABLE_REL}`)
   const table = tableSrc ? radiusLookup(tableSrc) : null
+  /** 全部用例共用;**声明必须在使用点之前** —— 上一版写在第 1400 行,而最早的使用点在 1269 行。 */
+  const A5 = (src, rel) => auditFileText(rel || 'x/T.tsx', src, table)
   t('00 档位表从被审面解析得到(自检不得靠手抄数字跑)', !!table && table.lg === 8 && table.xl === 12)
   if (!table) {
     for (const r of results) console.log(`${r.ok ? '✅' : '❌'} ${r.name}${r.extra ? ` —— ${r.extra}` : ''}`)
@@ -1003,7 +1193,7 @@ export async function selfTest(repoRoot = ROOT) {
   })())
   // —— 真仓阳性对照(关键):同一条违规,写在代码里必命中、只写进注释必不命中
   const PROBE = 'apps/miniapp-taro/src/components/DrawerComponent.tsx'
-  const probeSrc = catBatch(repoRoot, [`HEAD:${PROBE}`], { maxBuffer: 1 << 26 }).get(`HEAD:${PROBE}`)
+  const probeSrc = catBatch(repoRoot, [`${PROBE_REF}:${PROBE}`], { maxBuffer: 1 << 26 }).get(`${PROBE_REF}:${PROBE}`)
   let hit = null
   let blind = false
   if (probeSrc) {
@@ -1016,7 +1206,7 @@ export async function selfTest(repoRoot = ROOT) {
     const again = A(rewritten)
     blind = ![...again.violations, ...again.weakFindings].some((v) => v.form.includes('rounded-t-xl'))
   }
-  t(`69 真仓 HEAD 阳性对照:${PROBE} 的 rounded-t-xl 必须被点名`, !!hit, hit ? `角色 ${hit.role} / 实际 ${hit.actualStep} / 应为 ${hit.expectedStep}` : '未命中 = 判据失明')
+  t(`69 真仓出处阳性对照(${PROBE_REF.slice(0, 9)}):${PROBE.split(String.fromCharCode(47)).pop()} 的 rounded-t-xl 必须被点名`, !!hit, hit ? `角色 ${hit.role} / 实际 ${hit.actualStep} / 应为 ${hit.expectedStep}` : '未命中 = 判据失明')
   t('70 同一形态只写进注释 ⇒ 必不命中(否则遮罩关掉的是判据)', !!probeSrc && blind)
   /**
    * 71–73:角色表**值支**必须认得数字开头的档名(`hero: '2xl'`)。
@@ -1077,8 +1267,32 @@ export default function Pop() {
     </Modal>
   )
 }`
+  /**
+   * C4 的用例必须在**以浮层命名的文件**里跑 —— 门现在把"自称 card 的盒子按 panel 判"限制在
+   * 浮层组件文件内(页面文件里的 <Card> 是对话框内容区的数据卡)。这条边界本身就是一条用例,
+   * 所以这里同时留正例(浮层文件 ⇒ 改判)与反例(页面文件 ⇒ 不改判),不让启发式单方面说了算。
+   */
+  const AM = (src) => auditFileText('x/LoginModal.tsx', src, table)
+  const AP = (src) => auditFileText('x/ManagementPage.tsx', src, table)
+  t('73b 页面文件里对话框内的 <Card> 不被改判(它是内容卡,不是浮层体)', (() => {
+    const src = [
+      'export function ManagementPage() {',
+      '  return (',
+      '    <Dialog>',
+      '      <DialogContent>',
+      '        <div className="grid gap-2">',
+      '          <Card className="rounded-lg">x</Card>',
+      '        </div>',
+      '      </DialogContent>',
+      '    </Dialog>',
+      '  )',
+      '}',
+    ].join('\n')
+    const r = AP(src)
+    return r.violations.length === 0 && r.undetermined.length === 0 && r.surfaceOverrides === 0
+  })())
   t('74 自称 card 而容器是模态面 ⇒ 按 panel 判(xl 合规)并记 via=surface', (() => {
-    const r = A(MODAL_FX)
+    const r = AM(MODAL_FX)
     return (
       r.violations.length === 0 &&
       r.compliant === 1 &&
@@ -1089,7 +1303,7 @@ export default function Pop() {
   t(
     '75 同一段声明换一个**非模态**容器 ⇒ 仍按 card 判红(容器判据不是免罪通道)',
     (() => {
-      const r = A(MODAL_FX.replace('<Modal visible>', '<Pressable onPress={x}>').replace('</Modal>', '</Pressable>'))
+      const r = AM(MODAL_FX.replace('<Modal visible>', '<Pressable onPress={x}>').replace('</Modal>', '</Pressable>'))
       return r.violations[0]?.role === 'card' && r.surfaceOverrides === 0
     })(),
   )
@@ -1110,7 +1324,7 @@ export default function P() {
     </Modal>
   )
 }`
-      const r = A(nested)
+      const r = AM(nested)
       return r.compliant === 1 && r.violations.length === 1 && r.violations[0].role === 'card'
     })(),
   )
@@ -1128,7 +1342,7 @@ export default function P() {
     </View>
   )
 }`
-      const r = A(noModal)
+      const r = AM(noModal)
       return r.compliant === 1 && r.surfaceOverrides === 1
     })(),
   )
@@ -1151,7 +1365,7 @@ export default function P() {
     </View>
   )
 }`
-      const r = A(contested)
+      const r = AM(contested)
       return (
         r.surfaceOverrides === 0 &&
         r.contested.length === 1 &&
@@ -1163,7 +1377,7 @@ export default function P() {
   t(
     '79 层叠档名不得冒充类别:`z-popover` + `bg-card` 只给一个 card 弱证据(不再 role-conflict)',
     (() => {
-      const r = A('<div className="z-popover min-w-[16rem] rounded-xl border bg-card p-1" />')
+      const r = AM('<div className="z-popover min-w-[16rem] rounded-xl border bg-card p-1" />')
       return r.undetermined.length === 0 && r.weakFindings[0]?.role === 'card'
     })(),
   )
@@ -1183,8 +1397,92 @@ export default function P() {
       return r.scopeAmbiguous >= 1 && r.scopeFallback >= 1 && r.undetermined[0]?.reason === 'role-conflict'
     })(),
   )
+  // —— 身份通道(票㉘):ARIA role / data-testid / ui-<role> / bg-popover —— 每条都要有"能命中"与"不得命中"两只
+  t('98 身份标记 ui-panel:rounded-xl 合规,rounded-md 必须判红(标记不是豁免)', (() => {
+    const ok = A5('<div className="ui-panel rounded-xl">x</div>', 'x/T.tsx')
+    const bad = A5('<div className="ui-panel rounded-md">x</div>', 'x/T.tsx')
+    return ok.violations.length === 0 && ok.compliant === 1 && bad.violations[0]?.role === 'panel' && bad.violations[0]?.expectedStep === 'xl'
+  })())
+  t('99 ARIA role 是身份:role=menu 判 popover、role=dialog 判 panel(不靠颜色猜)', (() => {
+    const menu = A5('<div role="menu" className="rounded-xl">x</div>', 'x/T.tsx').violations[0]
+    const dlg = A5('<div role="dialog" className="rounded-xl">x</div>', 'x/T.tsx')
+    return menu?.role === 'popover' && menu?.expectedStep === 'md' && dlg.violations.length === 0 && dlg.compliant === 1
+  })())
+  t('100 data-testid 是作者给盒子起的名字:plan-review-panel 压过 bg-card(票㉖ 那处 role-conflict 的实形)', (() => {
+    const r = A5('<div className="rounded-xl border bg-card" data-testid="plan-review-panel">x</div>', 'x/ReviewPanel.tsx')
+    return r.undetermined.length === 0 && r.violations.length === 0 && r.compliant === 1
+  })())
+  t('101 bg-popover 算身份(浮层类族),rounded-xl 的浮层要降到 md', (() => {
+    const v = A5('<div className="rounded-xl border bg-popover">x</div>', 'x/T.tsx').violations[0]
+    return v?.role === 'popover' && v?.expectedStep === 'md'
+  })())
+  t('102 反向:bg-card 仍只是背景档 —— 不得被升成身份(否则颜色又开始替元素定性)', (() => {
+    const r = A5('<div className="rounded-md bg-card">x</div>', 'x/T.tsx')
+    return r.violations.length === 0 && r.weakFindings.length === 1 && r.weakFindings[0].role === 'card'
+  })())
+  t('103 StyleSheet 裸串里的标记也要认(没有 className= 锚点那一型)', (() => {
+    const r = A5("const s = { row: { a: 'flex ui-card rounded-lg bg-card' } }", 'x/T.tsx')
+    return r.violations.length === 0 && r.compliant === 1
+  })())
+  t('104 反向:注释里写的 ui-panel 不得算身份(遮罩面之外判据就成自证)', (() => {
+    const r = A5('// ui-panel\n<div className="rounded-md">x</div>', 'x/Panel.tsx')
+    return r.violations.filter((v) => v.role === 'panel').length === 0
+  })())
+  /**
+   * —— C6 几何定性。五条成对读:①"正方⇒不判"必须由"同档半径落在扁盒上⇒进队列"钉住,
+   * 否则不判可能只是判据没跑;②"胶囊不吃标记"必须由"真圆带同样标记⇒标记照旧生效"钉住,
+   * 否则 exemptionIgnored 可能是个恒真的计数器。
+   */
   // —— C5:组件名档(根容器按**它自己的**组件名判,内联小组件不被外层顶判)
-  const A5 = (src, rel) => auditFileText(rel || 'x/T.tsx', src, table)
+
+  t('106 正方盒 + 半径=半边 ⇒ 判真圆装饰件:不判红、不计合规、也不需要任何标记', (() => {
+    const r = A5('const s = { card: { width: 16, height: 16, borderRadius: rnRadius.lg } }', 'x/Dot.tsx')
+    return r.trueCircle === 1 && r.violations.length === 0 && r.compliant === 0 && r.capsuleFindings.length === 0
+  })())
+  t('107 同档半径落在 40×16 的扁盒上 ⇒ **判红** reason=capsule(短边达到可点尺寸)', (() => {
+    const r = A5('const s = { card: { width: 40, height: 16, borderRadius: rnRadius.lg } }', 'x/Bar.tsx')
+    return r.violations.length === 1 && r.violations[0].reason === 'capsule' && r.capsuleFindings.length === 0
+  })())
+  t('108 胶囊不吃豁免:挂 radius-role-exempt 的扁盒仍判红,并计 exemptionIgnored', (() => {
+    const r = A5(
+      'const s = { card: { width: 40, height: 16, borderRadius: rnRadius.lg } } // radius-role-exempt: 想免检',
+      'x/Bar2.tsx',
+    )
+    return r.violations.length === 1 && r.exemptionIgnored >= 1 && r.exempted === 0
+  })())
+  t('109 反向:同样标记落在正方真圆上 ⇒ 标记照旧生效(忽略只给形状成立那一侧)', (() => {
+    const r = A5(
+      'const s = { card: { width: 16, height: 16, borderRadius: rnRadius.lg } } // radius-role-exempt: 圆点',
+      'x/Dot2.tsx',
+    )
+    return r.exemptionIgnored === 0 && r.exempted >= 1
+  })())
+  t('110 量不出盒形 ⇒ 计 dimsUndetermined 报名,绝不静默当成"判过了"', (() => {
+    const r = A5('const s = { card: { borderRadius: rnRadius.lg } }', 'x/NoDims.tsx')
+    return r.dimsUndetermined >= 1 && r.trueCircle === 0 && r.violations.length === 0
+  })())
+  t('111 短边低于可点尺寸(60×8 指示条)⇒ 只进队列不判红 —— §4 明令装饰族不得方档化', (() => {
+    const r = A5('const s = { card: { width: 60, height: 8, borderRadius: rnRadius.sm } }', 'x/Thin.tsx')
+    return r.capsuleFindings.length === 1 && r.violations.length === 0
+  })())
+  /**
+   * 这条是"判红一侧只认窄窗"的存在理由:宽窗会把子节点 `<Icon className="h-4 w-4">` 的尺寸算进
+   * 父元素,于是 `w-40 rounded-md` 的浮层被量成 160×10 的"胶囊"。HEAD 现读 14 处候选里 9 处就是
+   * 这一型假阳 —— 把它们判红,唯一结局是各会话跳门、连带全部守门作废。
+   */
+  t('112 子节点尺寸不得算进父盒:带 h-4 w-4 子图标的 w-40 rounded-md 浮层 ⇒ 不判红', (() => {
+    const src = [
+      'export function Menu() {',
+      '  return (',
+      '    <div className="w-40 rounded-md border">',
+      '      <Icon className="h-4 w-4" />',
+      '    </div>',
+      '  )',
+      '}',
+    ].join('\n')
+    const r = A5(src, 'x/Menu.tsx')
+    return r.violations.filter((v) => v.reason === 'capsule').length === 0
+  })())
   const C5_ROOT = [
     'export function ConfigPanel() {',
     '  return (',
@@ -1263,7 +1561,6 @@ export default function P() {
    */
   const SURF_PROBE = 'apps/mobile-rn/src/components/LoginPopUp.tsx'
   const NOTSURF_PROBE = 'packages/app/src/features/course-detail/CourseDetailScreen.tsx'
-  const PROBE_REF = process.env.IHUI_RADIUS_PROBE_REF || 'acf1927e96'
   const surfSrc = catBatch(repoRoot, [`${PROBE_REF}:${SURF_PROBE}`], { maxBuffer: 1 << 27 }).get(
     `${PROBE_REF}:${SURF_PROBE}`,
   )
@@ -1272,7 +1569,7 @@ export default function P() {
   )
   let surfOk = false
   if (surfSrc) {
-    const r = A(surfSrc)
+    const r = auditFileText(SURF_PROBE, surfSrc, table)
     const overridden = r.compliant + r.violations.filter((v) => v.role === 'panel').length
     // 面成立的两条同时要看:改判确实发生,且 16px 的模态面**仍被判红**(panel 应 xl=12)
     surfOk =
@@ -1298,7 +1595,7 @@ export default function P() {
     `83 真仓反向对照:${NOTSURF_PROBE.split(String.fromCharCode(47)).pop()} 的 btn/tag 不得被容器判据吃掉`,
     (() => {
       if (!notsurfSrc) return false
-      const r = A(notsurfSrc)
+      const r = auditFileText(NOTSURF_PROBE, notsurfSrc, table)
       const roles = new Set(r.violations.map((v) => v.role))
       return roles.has('control') && roles.has('chip') && r.surfaceOverrides === 0
     })(),

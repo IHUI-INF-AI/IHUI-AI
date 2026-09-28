@@ -36,6 +36,14 @@ const git = (args, cwd) =>
     ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', ...args],
     { cwd, encoding: 'utf8', windowsHide: true, timeout: 60000 },
   )
+/** 真仓阳性对照按**出处**取 —— 账还完那天 HEAD 上就不再有这条违规,钉 HEAD 的对照会在清偿当天集体失效(票㉗ T18 同一条)。 */
+const PROBE_REF = process.env.IHUI_RADIUS_PROBE_REF || 'acf1927e96'
+const probeBlob = (rel) =>
+  execFileSync(
+    'git',
+    ['-c', 'safe.directory=*', 'show', PROBE_REF + ':' + rel],
+    { cwd: REPO, encoding: 'utf8', windowsHide: true, timeout: 60000 },
+  )
 const headBlob = (rel) =>
   execFileSync('git', ['-c', 'safe.directory=*', 'show', `HEAD:${rel}`], {
     cwd: REPO,
@@ -136,14 +144,14 @@ test('T5 档位表/角色表不得被抄进门里(表一改,抄数的门就对�
   assert.match(src, /RADIUS_TABLE_REL/, '表路径要按被审面取(与正文同面同轮)')
 })
 
-test('T6 真仓 HEAD 阳性对照:同一方向形态,写在代码里必命中、只写进注释必不命中', () => {
+test('T6 真仓出处阳性对照:同一方向形态,写在代码里必命中、只写进注释必不命中', () => {
   const rel = 'apps/miniapp-taro/src/components/DrawerComponent.tsx'
-  const src = headBlob(rel)
+  const src = probeBlob(rel)
   assert.ok(src.includes('rounded-t-xl'), `夹具前提变了:${rel} 已不含 rounded-t-xl —— 要重写本例,不是删掉`)
   const table = TABLE()
   const r = T.auditFileText(rel, src, table)
   const hit = [...r.violations, ...r.weakFindings].find((v) => v.form.includes('rounded-t-xl'))
-  assert.ok(hit, '真仓 HEAD 的方向形态没被点名 ⇒ 判据对该形态失明(任务书第 7 条禁止复制的盲区)')
+  assert.ok(hit, '出处面的方向形态没被点名 ⇒ 判据对该形态失明(任务书第 7 条禁止复制的盲区)')
   assert.equal(hit.role, 'card')
   assert.equal(hit.actualStep, 'xl')
   assert.equal(hit.expectedStep, 'lg')
@@ -406,4 +414,61 @@ test('T16b 真仓 radius.js 逐角色可解,显式 rnRadiusFor.hero 必须读得
     '显式取用也读不出 16 ⇒ 这一档在尺子上仍然不存在,判红/合规都轮不到它',
   )
 })
+test('T19 C5 组件名档必须真装在判据链上(声明作用域归属被摘线时,门不得继续报"已合规")', () => {
+  const src = readFileSync(SRC, 'utf8')
+  assert.match(src, /declarationRanges\(/, '声明区间解析没被调用 ⇒ 内联小组件会重新被外层名字顶判')
+  assert.match(src, /ownerOfLine\(/, '逐行归属没被调用 ⇒ 根容器判不出所属组件')
+  assert.match(src, /componentUndetermined/, '判不出的根容器必须逐条报名,不得只留一个计数')
+})
+
+test('T20 词法器必须认 `return <X/>` 无括号形态,同时不得把比较式建成元素(成对)', async () => {
+  const { scanJsx } = await import(pathToFileURL(join(import.meta.dirname, '..', 'lib', 'jsx-scope.mjs')).href)
+  const { maskFaces } = await import(pathToFileURL(LIB).href)
+  const mk = (code) => {
+    const { kept, strings } = maskFaces(code)
+    return scanJsx(kept, { strings })
+  }
+  const a = mk('function E(){\n  return <div className="b">x</div>\n}')
+  assert.ok(a.elements.some((e) => e.base === 'div'), '「return <div/>」不被识别时整个文件的容器维静默失效(实测 99 个文件在这一型上是 corrupt)')
+  assert.equal(a.corrupt, 0, '该形态不得计成闭合失配')
+  const b = mk('const ok = a < b ? 1 : 2')
+  assert.equal(b.elements.length, 0, '比较式被认成 JSX ⇒ 会凭空长出幽灵祖先,这比漏判更贵')
+})
+
+test('T21 类名取证不得越界采兄弟属性,也不得因此漏采同一属性的多段形态(成对)', async () => {
+  const { classStringsInLine } = await import(pathToFileURL(LIB).href)
+  const one = '<div className="rounded-xl border bg-card" data-testid="plan-review-panel">'
+  assert.deepEqual(classStringsInLine(one, one), ['rounded-xl border bg-card'], '兄弟属性的值被当类名 ⇒ 造出一条根本不存在的类别证据')
+  const two = '<div className={cn("rounded-xl bg-card", "px-3 py-2")}>'
+  assert.equal(classStringsInLine(two, two).length, 2, '同一 class 属性的第二段漏采 ⇒ 门对该形态失明')
+})
+
+
+/**
+ * T22 C6 判红路径必须**真的存在**(行为证明,不是形状证明)。
+ * 立因:票㉚ 第一版把胶囊写成"只进队列",而登记文本已经写了"判红"—— 账面与实现分叉时,
+ * 只有行为用例能发现;而更早在同一批里,8 条用例因把箭头函数当断言传给 t() 而**从未求值**
+ * (t 取的是布尔,!!fn 恒真),所以"全绿"里混着空断言。两条一起钉。
+ */
+test('T22 C6:短边达标的角色件胶囊必须进 violations 且不吃豁免;细于阈值的装饰条只进队列', async () => {
+  const { auditFileText } = await import(pathToFileURL(SRC).href)
+  const table = radiusLookup(readFileSync(join(REPO, 'packages/design-tokens/src/radius.js'), 'utf8'))
+  const pill = 'const s = { card: { width: 40, height: 16, borderRadius: rnRadius.lg } }'
+  const r1 = auditFileText('x/Pill.tsx', pill, table)
+  assert.equal(r1.violations.filter((v) => v.reason === 'capsule').length, 1, '短边 16 的角色件胶囊必须判红')
+  const r2 = auditFileText('x/Pill2.tsx', pill + ' // radius-role-exempt: 想免检', table)
+  assert.equal(r2.violations.filter((v) => v.reason === 'capsule').length, 1, '豁免标记不得让胶囊消失')
+  assert.ok(r2.exemptionIgnored >= 1, '被忽略的标记必须计出来,不能静默')
+  const thin = 'const s = { card: { width: 60, height: 8, borderRadius: rnRadius.sm } }'
+  const r3 = auditFileText('x/Thin.tsx', thin, table)
+  assert.equal(r3.violations.filter((v) => v.reason === 'capsule').length, 0, '细于可点尺寸的装饰条不得判红(§4 保护装饰族)')
+  assert.equal(r3.capsuleFindings.length, 1, '但它必须留在队列里,不得静默消失')
+})
+
+test('T23 自检 harness 不得接受"函数当断言"(空断言锁)', () => {
+  const src = readFileSync(SRC, 'utf8')
+  assert.match(src, /typeof cond === 'function'/, 'harness 必须拒绝未求值的断言(否则 ✅ 可能是空断言)')
+  assert.ok(!/^\s+t\('[^']*', \(\) => \{$/m.test(src), '不得再有 t(name, () => {...}) 这种从不求值的用例形态')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
