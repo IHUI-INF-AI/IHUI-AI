@@ -8387,6 +8387,10 @@
           "title": "パラメータが不完全または無効です",
           "action": "修正して再試行"
         },
+        "NEEDS_INPUT_TIMEOUT": {
+          "title": "コマンドの入力待ちが時間切れです",
+          "action": "入力して再試行"
+        },
         "NESTING_DEPTH_EXCEEDED": {
           "title": "構造の階層が処理可能な範囲を超えています",
           "action": "簡略化して再試行"
