@@ -14,7 +14,8 @@
  * 行为合同(8 条,4 端均必须满足):
  * 1. setAuth 后 token/refreshToken/expiresIn 正确镜像
  * 2. user 通过 transport 持久化
- * 3. token/refreshToken/expiresIn **不**通过 transport 持久化(安全契约)
+ * 3. token/refreshToken/expiresIn **不**通过 transport 持久化(安全契约);
+ *    isAuthenticated 同样**不**落盘、读回也不复活(2026-09-28 收口:登录态只由 token 派生)
  * 4. logout 后 token/user 全部清空
  * 5. transport.getItem 失败时不抛错(让业务侧处理)
  * 6. 同名 transport.setItem 覆盖旧值
@@ -174,9 +175,11 @@ for (const ep of endpoints) {
       const raw = await transport.getItem('ihui-auth-user')
       expect(raw).not.toBeNull()
       const parsed = JSON.parse(raw!)
-      // 持久化内容应只含 user + isAuthenticated,不含 token/refreshToken/expiresIn
+      // 持久化内容应只含 user:token 不落盘(安全),isAuthenticated 不落盘
+      // (2026-09-28 收口:登录态唯一判据是 token,盘上再存一份必然漂移)
       expect(parsed.state.user).toEqual(testUser('1', 'Bob'))
-      expect(parsed.state.isAuthenticated).toBe(true)
+      expect(parsed.state.isAuthenticated).toBeUndefined()
+      expect(Object.keys(parsed.state)).toEqual(['user'])
       expect(parsed.state.token).toBeUndefined()
       expect(parsed.state.refreshToken).toBeUndefined()
       expect(parsed.state.expiresIn).toBeUndefined()

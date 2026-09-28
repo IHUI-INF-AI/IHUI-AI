@@ -5,9 +5,10 @@
 /**
  * @ihui/shared/stores contract tests
  *
- * 覆盖范围(2026-07-25 立,18 场景):
+ * 覆盖范围(2026-07-25 立;2026-09-28 收口 isAuthenticated 后 auth 段扩为 9 场景):
  * 1. transport 抽象(5 场景):memory/sync/async/ssr-safe/json-decorator
- * 2. auth-store 工厂(6 场景):初始态/setAuth/setUser/logout/hydrate/persist
+ * 2. auth-store 工厂(9 场景):初始态/setAuth/setUser/logout/hydrate/persist(仅 user)/
+ *    isAuthenticated 派生只读/旧持久化块迁移兼容
  * 3. user-store 工厂(4 场景):初始态/setProfile/updateProfile/persist
  * 4. theme-store 工厂(3 场景):初始态/setTheme/onChange/toggleHighContrast
  *
@@ -22,6 +23,7 @@ import {
   createJsonTransport,
   createSSRSafeTransport,
   createAuthStore,
+  selectIsAuthenticated,
   createUserStore,
   createThemeStore,
   type PersistTransport,
@@ -198,7 +200,7 @@ describe('createAuthStore 工厂', () => {
     expect(s.isAuthenticated).toBe(true)
   })
 
-  it('持久化:仅持久化 user + isAuthenticated,不持久化 token(安全)', async () => {
+  it('持久化:仅持久化 user,token 与 isAuthenticated 都不落盘(安全 + 单一真相)', async () => {
     const persistTransport = createMemoryTransport()
     const auth = createAuthStore({
       tokenStore,
@@ -214,7 +216,52 @@ describe('createAuthStore 工厂', () => {
     // 关键:不包含 token 字段
     expect(parsed.state.token).toBeUndefined()
     expect(parsed.state.user).toEqual(mockUser)
-    expect(parsed.state.isAuthenticated).toBe(true)
+    // 关键(2026-09-28 收口):持久化键集合里不得有 isAuthenticated ——
+    // 它是登录态的第二份真相,只许由 token 派生,写盘即漂移(本用例是常驻锁)。
+    expect(parsed.state.isAuthenticated).toBeUndefined()
+    expect(Object.keys(parsed.state)).toEqual(['user'])
+  })
+
+  it('isAuthenticated 是派生只读:setState 携带该键被忽略,登录态只由 token 决定', () => {
+    const auth = createAuthStore({ tokenStore, userTransport })
+    // 无 token 时强行写 isAuthenticated=true ⇒ 被剥除并重算为 false(不产生"假已登录")
+    auth.setState({ isAuthenticated: true })
+    expect(auth.getState().isAuthenticated).toBe(false)
+    expect(auth.getState().token).toBeNull()
+    // 写 token ⇒ 派生自动跟到 true;清 token(不带 isAuthenticated)⇒ 跟回 false
+    auth.setState({ token: 'tk-derived' })
+    expect(auth.getState().isAuthenticated).toBe(true)
+    auth.setState({ token: null })
+    expect(auth.getState().isAuthenticated).toBe(false)
+    // 选择器与派生字段必须同判据(同一件事只许有一份实现)
+    auth.setState({ token: 'tk-again' })
+    expect(selectIsAuthenticated(auth.getState())).toBe(auth.getState().isAuthenticated)
+  })
+
+  it('旧持久化块兼容:storage 残留 isAuthenticated=true 时 rehydrate 忽略该键,不产生"无 token 却已登录"', async () => {
+    // 迁移现场:收口前(2026-09-28 之前)各端 storage 里已有 {state:{user,isAuthenticated}} 形态的块。
+    // 读回必须 ① 不报错 ② user 照常恢复 ③ isAuthenticated 不得从盘上复活。
+    const legacyTransport = createMemoryTransport()
+    legacyTransport.setItem(
+      'legacy-auth',
+      JSON.stringify({ state: { user: mockUser, isAuthenticated: true }, version: 1 }),
+    )
+    // tokenStore 为空 ⇒ 该设备上其实没有凭据(旧块里的 true 正是会漂移的那份第二真相)
+    const auth = createAuthStore({
+      tokenStore: createMockTokenStore(),
+      userTransport: legacyTransport,
+      userPersistKey: 'legacy-auth',
+    })
+    await new Promise((r) => setTimeout(r, 10))
+    const s = auth.getState()
+    expect(s.user).toEqual(mockUser)
+    expect(s.token).toBeNull()
+    expect(s.isAuthenticated).toBe(false)
+    // 后续落盘被重写为新形态:isAuthenticated 键彻底从持久化面消失
+    auth.getState().setUser(mockUser)
+    await new Promise((r) => setTimeout(r, 10))
+    const persisted = JSON.parse(legacyTransport.getItem('legacy-auth') as string)
+    expect(Object.keys(persisted.state)).toEqual(['user'])
   })
 })
 
