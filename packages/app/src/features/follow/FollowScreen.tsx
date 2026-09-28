@@ -196,13 +196,13 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 48,
       height: 48,
-      borderRadius: 48 / 2,
+      borderRadius: rnRadius['2xl'],
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.muted,
       overflow: 'hidden',
     },
-    avatarImg: { width: '100%', height: '100%', borderRadius: '50%' }, // 跟随见方容器:相对式即几何真圆(门 77 量得出等值宽高,不需要标记)保持圆形
+    avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius['2xl']}, // 跟随见方容器:相对式即几何真圆(门 77 量得出等值宽高,不需要标记)保持圆形
     avatarInitial: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
     cardInfo: { flex: 1, marginLeft: 12 },
     cardName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
