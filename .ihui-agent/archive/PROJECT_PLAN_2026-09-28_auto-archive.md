@@ -720,7 +720,6 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 ---
 
 ## P0 AI 对话输入框上方任务进度状态条(2026-09-21 立并完成 ✅,跨端:packages/shared + packages/i18n + apps/web + apps/extension + apps/cli;miniapp-taro/mobile-rn 接线待键落地后继续,desktop=Tauri 薄壳自动跟随)
-
 - 用户对标 Qoder「输入框上方常驻任务卡 / 步骤 X/Y · N 个文件已修改 ±行 / 子任务清单」功能块,要求"最重要的消息都在这里动态更新显示"。
 - 单一真相源:`packages/shared/src/chat/task-status.ts` `deriveTaskStatusBar`(态势优先级:实时流 > 会话终态 > 步骤级推断;无步骤+无变更+非流式返回 null 零占位);i18n 13 键 ×5 语言落 `packages/i18n/messages/shared` 顶层 `taskStatus` 命名空间(surgical Edit 落键,不用 i18n-apply 以免整体重排)。
 - web:`apps/web/src/components/ai/task-status-bar.tsx` 挂 `message-input.tsx` 输入框正上方,双数据源(LangGraph 会话级 useAgentProgress + 普通对话消息级 planSteps/toolCalls——只接会话级会让普通对话永不显示,已修)。测试:shared 派生层 20 用例 + web 组件 12 用例全绿。
@@ -728,21 +727,16 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - cli:`task-status-line.ts` + repl 接线(beginTurn / onToolCall / onToolResult / todo_write 步骤通道 / endTurn 终态)+ `agent.ts` onPlanUpdate 透传;typecheck / test(2437) 全绿。
 - desktop 为 Tauri 薄壳直载线上 web(tauri.conf.json url=aizhs.top)→ 自动跟随,平台独占豁免。
 - 教训:并行会话的 git restore 把本任务已验证的 tracked 改动整体还原过一次(未提交工作清零后全部重打)——验证全绿后必须立刻 commit,不得攒批。
-
-<!-- 已归档占位与水印尾行见文件末尾 -->
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
 
 ---
 
 ## P0 消息流活动区统一设计语言(2026-09-21 立并完成 ✅,web + packages/shared + i18n;跨端渲染层跟进见下)
-
 用户反馈:"流式对话框内的内容、样式跟 Qoder / Trae / Codex 差太多,都不一致"。诊断出的根因不是单点配色,
 而是**同一个气泡里六类过程信息各写各的**:字号五档(9/10/11/12/13px)、圆角三档、状态色表四份、徽章各自手搓,
 过程区被 `rounded-lg + border + bg-muted` 大盒子包成卡片;更关键的是**行内只有功能名没有对象**,
 读不出"对哪个文件、搜了什么、结果多大",而 Qoder/Trae/Codex 都是一行一事把对象与度量摊开。
-
 **落地**(三笔提交:`1f89e91217` 基元 + 工具卡、`67cf8fc5ea` 六类区段、本次 e2e 闸):
-
 - **共享层单一真相源** `packages/shared/src/chat/tool-display.ts` 新增 `describeToolCall()`:
   一次工具调用 → `{nameKey, subject, subjectKind, metricKind, metricValue, added, removed, writesFile}`,
   即"功能名 + 对象 + 结果度量"的口径;功能名映射从 14 个扩到 55 个(含端侧操控桥 `web_ui_*`/`api_*`、
@@ -769,7 +763,6 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **§17 真机取证**:8801 上跑的是 ~20:10 的**生产构建**(`pnpm start`),不含我 20:10 后的两处改动 →
   另起私有 dev 实例 8877 复跑,`6 passed (16.2s)`;取证完成后按监听 PID 8776 精确 `taskkill /T /F` 关闭该树,
   8801 未受影响(仍 200)。全量 web `vitest` 143 文件 / **1973 passed**,`tsc --noEmit` **0 错误**。
-
 **残余收口(2026-09-21 同日全部做完,证据在各端提交信息内)**:
 ① 三端 + CLI 已接 `describeToolCall` 的"对象 + 结果度量":extension 新增 `makeToolTranslate`
 (修真实缺陷:共享层给未限定键,端内 t 走点号全路径且缺键回显键名,原实现把 `read_file`
@@ -788,14 +781,11 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
    开发机到 G 盘,两端同一份脚本);`.next` 备份根目录由写死 `C:\tmp` 改为 `$env:TEMP\ihui-next-backup`
    (§26 C 盘防护:单份备份实测 4.7GB,且旧清理逻辑只保留 1 份仍可能瞬时翻倍),
    错误提示里的 `D:\IHUI-AI\.deploy.lock` 同步去掉盘符。PowerShell 7 解析器静态校验 `SYNTAX_ERRORS=0`。
-
 **新增两条机制闸(同日)**:第 55 项 `check-tool-name-display-coverage` 与第 56 项
 `check-tool-display-resolvable`(91 个工具功能名 ×5 语言 ×(shared + 5 端合并视图 + 小程序离线包)
 = 3094 项解析全绿;`node --test scripts/tests/check-tool-display-resolvable.test.mjs` 4 例自检
 锁住"只遍历 base 键会吞掉端命名空间""坏载荷必须判 null 不得抛错放过"两条教训)。
-
 **2026-09-22 收口轮(把上一条"残余"里仍未闭环的三件事全部做完,现无遗留)**:
-
 - **extension 枚举原值本地化**(`c9a2b6e6cd`):审批面板 `decision`(allow/ask/deny)、`dangerLevel`
   (read/write/dangerous/high/medium/low)、`mode`(default/plan/acceptEdits/bypassPermissions/manual)
   与子代理角色 `type`(validator/reviewer/… 10 项)此前把英文原值直接摊在界面上。新增共用
@@ -844,51 +834,12 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
   **ko 只写了 14** 且 ko.json 尚未被其 staged),这些文件在我提交时处于他人未提交状态,与本会话改动无关
   (`git show HEAD:` 复核本轮删除的 10 个孤儿键在 HEAD 与工作区均 0 命中,未被他人覆盖回灌)。
   解阻判据:他人会话提交其 ai-service/api 改动后 `node scripts/guardian-runner.mjs` 全量转绿。
-
-
-
 **2026-09-21 晚更新(状态条 P1 两项进展)**:
 - **② 各端工具功能名化已完成 ✅**:extension(5 渲染点)/ mobile-rn(3 渲染点)/ miniapp-taro(5 渲染点)全部接入共享 `toolDisplayKey`/`humanizeToolText`,三端 typecheck+test(139/365/双守门)全绿。taro remote-locales 生成产物暂无新键(有 zh-CN 回退,不显裸键),待上游重生成自动补齐。
 - **① planSteps 持久化——零迁移方案已探明**:落库链 = ai-chat-stream 流结束 `replaceMessages(conversationId, result.messages)`,**该函数已支持逐条 `metadata`(jsonb)**,无需 DB 迁移。剩余工作:① ai-service llm.py 在 tool loop 终态把 plan 快照挂到 assistant message 的 metadata.planSteps(result.messages 组装处);② web 历史加载路径把 metadata.planSteps 映射回 message.planSteps。两处均为小改,但 llm.py 为 3000+ 行并行会话热点文件,留待独立会话执行。
 
 ---
 
-## P1 侧边栏底部 5 工具按钮收进用户行下拉菜单(2026-09-21 立并完成 ✅,平台独占:仅 apps/web)
-
-- 用户诉求(附 Qoder 截图):侧边栏底部 `div` 内 5 个工具按钮(站内消息/语言/下载客户端/主题切换/设置)全部挪进用户头像行 `button` 的下拉菜单,Qoder 风格 = 普通项 + 「语言 ›」「下载客户端 ›」子菜单。
-- **平台独占豁免依据(AGENTS.md §9)**:desktop 为 Tauri 薄壳直载 web(8801)→ 自动跟随;`apps/mobile-rn/src` grep `Sidebar` 0 命中(无侧边栏形态);`apps/miniapp-taro` 用原生 tabBar + 设置页主题切换,无对应底部工具条。故本任务不涉跨端同步。
-- 主体落地(commit `374de0cbcc`,12 文件):`feedback/Dropdown.tsx` 的 `DropdownItems` 递归渲染支持 `children`(Radix `Sub` + `Portal`/`SubContent`)与 `trailing`(未读徽章 / 当前语言勾选);`SidebarUserRow.tsx` 承载 5 工具项 + 站内消息 Modal(内挂 `NotificationCenter`)+ 下载平台 disabled/版本徽章;删除 `SidebarActions.tsx`(410 行)与 `.sidebar-actions` 样式;`Sidebar.tsx` / barrel `sidebar.tsx` / `nav-data.ts` / `GlobalTopBar.tsx` / `GlobalShell.tsx` 清引用。
-- **本会话续做(交付时该子菜单用例实测 1/4 偶发红,已定位并根治)**:
-  - `e2e/sidebar-visual.spec.ts` 语言子菜单用例两条竞态:① Radix `Sub` 只在指针位于 SubTrigger **或** SubContent 内时保持展开,主菜单从 153→160px 的沉降重排会让"静止指针"触发 pointerleave → 300ms 后子菜单自行关闭(失败 a11y 快照实证"主菜单在、子菜单已无");② trace 实证 `locator.boundingBox()` 只等 `state:"attached"` 不等 visible,故"逐项 round trip 量首项/末项"必留两次读取之间菜单已关的窗口。改法:hover 展开后把指针移进子菜单第一项(即真实用户鼠标路径),再在页面内**一次性原子读取**徽章尺寸/首末项坐标/子菜单宽度,并对"测量时子菜单必须仍在"显式断言。
-  - `e2e/theme-toggle.spec.ts` `openUserMenu`:trigger 由 SSR 渲染,DOM 里先"可见"但 React 水合前点击会被事件系统丢弃(实测撞出 30s 用例超时)→ 改为 `expect.poll` 有界重试,判据取 trigger 自身 `aria-expanded === "true"`(证明这一次点击真被接住;不看菜单可见性也就不会把已开着的菜单再点关),15s 上限明显小于用例超时。
-  - `apps/api/scripts/seed-test-users.ts` + `seed-e2e-knowledge.ts` 生产库防呆误判(阻断本机全部登录态 e2e):原判据 `DATABASE_URL.includes('ihui_dev')` 命中的其实是**口令前缀** `ihui_dev_`(本机库名实为 `ihui`,`url.includes` 为真),于是 seed 恒拒绝 → `global-setup` 只 warn → `test@aizhs.top` 永不存在 → 所有 `authenticatedPage` 用例死在 fixture 登录。改为比对 URL 的**库名**段,仅在 URL 解析失败时回退整串匹配(保持 fail-closed)。修后 seed 成功、setup 2/2 绿。
-- 验证:三套受影响 e2e **23/23 全绿**;稳定性专测 语言子菜单 `--repeat-each=8 --retries=0` **8/8**、theme-toggle `--repeat-each=3` **15/15**;`pnpm --filter @ihui/web typecheck` 与 `@ihui/api typecheck` exit 0;eslint + prettier 改动文件 0 问题。README 免更(§21 豁免:未改对外能力清单,README 亦无该工具条条目)。
-      - **守门 71 自愈面(第 57 轮续)**:`.husky/post-commit` 第 6 段每次提交后自动回捞被抹掉的登记行(`--heal --commit`,基线一律取 HEAD 不代收他人未提交内容,`IHUI_PLAN_HEAL_COMMIT=1` 防递归、`HUSKY_SKIP_PLAN_HEAL=1` 可跳)。必须有这一层而不是只靠 pre-commit 闸的原因:并发会话 routinely 用 `--no-verify` 提交,pre-commit #71 会被一并跳过,而今天一小时内"旧基线整文件提交"抹掉别人已入库登记行发生两次。新增 `collectMissing()`(扫最近 60 个提交收集登记行、报出当前缺失、归档目录命中则按 §1 放行)与 `healContent()`(插回历史里的前一行之后,邻居也缺席则追加;幂等不重复插)。判据有效性:self-test 8 例(原 5 + 邻居插回 / 追加兜底 / 幂等)+ 真实历史集成测试(从 HEAD 摘掉一条已知登记行喂 `collectMissing` → 恰检出 1 条且标记正确)。写闸过程又修掉两个自造假阳:① 标记重拼把 `D107b` 拆成源文本里不存在的 `D107 b`;② `**P2-F.4**(评估触发)…` 这类"编号后紧跟闭合星号"的行被吃进标记 —— **都是"判据自身缺陷产出假阳"这一族,与新写入记忆的 presence-only 幂等守卫同一母题**。
-- **2026-09-21 追加(同一侧边栏,用户即时报修)**:折叠态左上角 logo **去掉遮罩容器圆角**——`SidebarHeader.tsx` 折叠分支 button 原带 `overflow-hidden rounded-xl`、img 原带 `rounded-xl`,而 `/images/logo.png` 自身已是 22% 圆角 + 四角透明的成品图(2534px 上约 558px 半径,缩到 36px ≈ 8px),CSS 12px 半径比图自身更圆 → 黑底四角被切出缺口露出底色。两层圆角全部去掉,button 只保留尺寸与焦点环。取证:折叠态 aside=60px 下 `getComputedStyle` 实测 btn.radius=0px / overflow=visible / img.radius=0px(36×36,natural 2534×2534 已加载),亮暗两态截图核毕;平台独占(仅 web,desktop=Tauri 薄壳跟随,miniapp-taro/mobile-rn 无侧边栏形态)。
-
----
-
-
-
-
----
-
-
-
-
----
-
-
-
----
----
----
----
----
----
----
----
----
 - [x] ✅ **A 组 = 纯冗余,已删(`C:\c` 整目录 515MB)**。`C:\c` 是 2026-08-06 某会话把 `/c/tmp/...`
   当**相对路径**用、在 C 盘里套出来的 MSYS 错位目录。删前逐条证零独有内容:
   ① 全仓 `scripts/ deploy/ docs/ .github/ apps/ packages/` 对 `C:\c` **零引用**,计划任务零指向;
@@ -906,6 +857,9 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
   目录内写了 `README.md` 说明每子的来源与判定依据。**注意**:`recreate_engine_key.ps1`、
   `token_impersonate.ps1` 名字含 key/token,但属该会话的 PS 引擎注册表/Windows 令牌语境,
   且本组是"移动可逆"而非删除 —— 未误碰任何真凭据目录。
+
+---
+
 - [x] ✅ **A 组 = 纯冗余,已删(`C:\c` 整目录 515MB)**。`C:\c` 是 2026-08-06 某会话把 `/c/tmp/...`
   当**相对路径**用、在 C 盘里套出来的 MSYS 错位目录。删前逐条证零独有内容:
   ① 全仓 `scripts/ deploy/ docs/ .github/ apps/ packages/` 对 `C:\c` **零引用**,计划任务零指向;
@@ -949,6 +903,9 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
   **本条已由用户拍板收口(「要彻底根治」),逐子项现状见下方第三阶段。** 其中
   `C:\ai_zhs`、`C:\Youku Files` 本轮复核**盘根已不存在**(同日 A/B 组处置与 03:00 计划任务的结果),
   清单在这两处已过期;但"`cert`/`密钥` 类目录一律不靠近"这条铁律**不得随条目关闭而撤**。
+
+---
+
 - [x] ✅ **逐项定性(每项都有可复算证据,不靠猜)**
   - `C:\common_attachment` = **剪映 JianyingPro** 写歪的草稿缓存。判据:盘根文件
     `attachment_clipflow_cache.json` 的键形(`task_id`/`state`/`algorithm_type`/`node_infos`)与
@@ -1082,6 +1039,9 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
   (含"`$_.AllocatedBaseSize` 必须出现、`$_.AllocBaseSize` 不得出现"的源码级防回归)。
   ② 那 7 个仍走 `os.tmpdir()` 的 `--self-test`(见下方「遗留」)——
   盘根已封口,它们再落 `C:\tmp` 也只会进 D 盘目标, urgency 下降,但 TEMP 漂移仍在报。
+
+---
+
 - [x] ✅(2026-09-21)**D54 工具名本地化覆盖率收口(G-80,第 5 轮已定档——原判"我方可能没词表"是幻影,已自证推翻)**:实测我方**已有**词表 `packages/shared/src/chat/tool-display.ts`(`TOOL_DISPLAY_KEYS`,`read_file→toolReadFile`,i18n 值在 `packages/i18n/messages/shared/zh-CN.json:3`),渲染走 `describeToolCall`/`toolDisplayKey`(`tool-call-card.tsx:16,830`)。真差距是**覆盖率**:`mcp_server.py` 唯一工具 **87** / 词表键 **65** / **37 个工具回落英文原名**,其中 **`browser_*` 14 个、`computer_*` 9 个 覆盖数为 0**(对标 Trae `browser_action` 100 键、Qoder `toolNames` 27 + `browser.*` 16 全中文)。**验收**:脚本判据 87/87 覆盖 + 五语言 parity 守门绿 + browser/computer 两族优先 + 未知工具名回落原文不误译
 - [x] ✅(2026-09-24 复核) **D55 机器代批决策条(G-66,P0 首批,低成本反超项)**:我方后端 1-1 已产出 `decision`/`reason` 八类推导(`agent_loop_v2._derive_step_decision` + `_decision_hints`),**对话流里却没有这条徽章**。补「自动审查中 / 已自动批准 / 已拒绝 / 请求用户确认 + 理由：」四态卡,~~数据零新增、只补渲染位~~(第 61 轮实测**作废**:缺 5 层,见下方进度行)。**验收**:四态各一用例 + 与 D34 `injection_applied` 帧不重复计数 + 现有 timeline 测试不回退
 - [x] ✅(2026-09-24 复核) **D55 机器代批决策条(G-66,P0 首批,低成本反超项)**:我方后端 1-1 已产出 `decision`/`reason` 八类推导(`agent_loop_v2._derive_step_decision` + `_decision_hints`),**对话流里却没有这条徽章**。补「自动审查中 / 已自动批准 / 已拒绝 / 请求用户确认 + 理由：」四态卡,~~数据零新增、只补渲染位~~(第 61 轮实测**作废**:缺 5 层,见下方进度行)。**验收**:四态各一用例 + 与 D34 `injection_applied` 帧不重复计数 + 现有 timeline 测试不回退
@@ -1096,13 +1056,22 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
   - **权限档存值迁移状态定档(第 62 轮,承 commit `6e495bb3`)**:**第①步写侧已翻正** —— `apps/api/src/routes/workspace-permissions.ts` 入参 `z.enum` 同时接受 kebab∪camel(两份清单派生自 `packages/types` 真源,零抄写),落库经 `normalizePermissionMode` 写 camel,新增 `toWirePermission()` 把此前直吐库行原值的 GET/PUT 三处显式归一 ⇒ 对外契约不变;`manual` 继续 400;混合态安全网 `apps/api/tests/workspace-permissions-mode-storage.test.ts` 23 例(遗留 kebab 行与新 camel 行出参同为 kebab、脏值不降级 default),双向变异各咬 5 红。**第②步工具已就位并主动按住** —— `scripts/perm-wire-backfill.mjs` + 17 例:默认只生成 SQL、UPDATE 前同事务导出 `(id,before,after)` CSV、`--rollback` 按 id+当前值双限定、SQL 无 DDL/INSERT/DELETE 且不触 `__drizzle_migrations`/journal,三闸各自拒(缺 `--confirm` 精确串 / dsn 命中 `aizhs|8810`(须 `--target=prod --window`)/ 缺 `--since` 观察窗口起点),不连库时估算段自己写明"行数=需连库,禁止估算",判据有效性由内置变异断言(摘掉 confirm 校验必红)。**四段顺序不可颠倒,当前状态:① 已完、②"旧拼写新增写入=0"未量到 ⇒ ③ 回填不执行;生产库本轮零连接。** 待 owner 定档:`packages/types` 是否导出 `permissionModeId()` 与 `PERMISSION_MODE_PERSISTABLE_IDS`(现由调用方 `Object.values(PERMISSION_MODE_WIRE)` 拼 400 文案,Partial 使值含 undefined);ACP 侧 `workspace.ts:684,695` 仍只收 kebab;真库混合行的 HTTP 实盘取证须在回填前后各跑一次。
   - **第⑥步 avoidSeed 已进消费端 + 第⑦步 wire 副本收敛 + D78 审计线索更正(第 62 轮,三路并行收尾)**:① **avoidSeed 不再是"有闸没引水"** —— web 由 `TypingIndicator` 持 `useRef` 记"上一帧实际渲染的池 seed"、render 只读 / `useEffect` 写(不在 render 阶段写 ref、无新增 state、无模块级状态,SSR 首帧无 prev ⇒ 与接线前逐字节一致),cli 加可选 `previousPrompt` 并由 `repl.ts:2137` 从 `state.history.findLast(user)` 派生(不新造状态源)。三处变异各自咬红:摘 web 透传 → 新用例 2 红;摘 cli 透传 → 1 红;摘 repl 传参 → 静态取证例红;`md5sum -c` 证还原。② **wire 档位词表收敛**:`apps/api/src/services/clawdbot/permission-guard.ts` 是全仓最后一份**同角色**(wire/规范档)手抄副本(5 camel 与真源集合逐字相同 ⇒ 零行为变更),改 import `PermissionModeId`+`PERMISSION_MODE_SET`;新增 `packages/types/tests/permission-mode-vocabulary.test.ts` 用**发现式全仓扫描**(不写死文件名,免得像守门 68 的 `KNOWN_CONVERSANTS` 那样漏扫新消费者)+ wire↔规范**双射/无遗漏/无多余/"无落库语义"差异必须显式声明**,注入回退副本 + 删一条映射 ⇒ 3 条断言同时红并点名文件行号。**未合并的两类不同角色**(合并会把两个概念绑死):`types/workspace.ts:59` 的 `PromptMode`(提示模式)与 `apps/web/src/hooks/use-permission-mode-cycle.ts:27` 的 4 值数组 —— 后者承载的是**轮转顺序**不是词表,留待 owner 定档,只登记测试基线。③ **D78 判改**:审计线索"extension 词包 `reconnect` 有键无取词"**经实测不成立**(extension 五语言 0 命中,那个行号指 web 包;shared `chatReconnecting` 是 WS 聊天重连且有消费面)⇒ 严禁按错误线索回收一个活键;extension 全目录 `connector|connectorName|reconnect` 0 命中,该端**没有连接器授权面**,D78 对 extension 改判"未开始"。④ 我自己的一次回修:`message-item-waiting-wiring.test.tsx` 带着 2 处 TS2322(`matched![1]` 是 `string | undefined`)**已经躺在 HEAD 里** —— 本地 typecheck 当时全绿是因为 tsc 读工作区不是提交树(项目记忆第 11 条同一类错第四次),现改为真实窄化(`if (!matched || typeof matched[1] !== "string" ...) throw`)而非 `as` 断言。**残余**:web 侧未做 §17 浏览器运行时自验(纯文案池,已由 jsdom 渲染级钉住);`apps/api` 的 12 条 typecheck 错误全在他人 in-flight 的 `ai-callback.ts` 等文件,不属本票。
 - [x] ✅(2026-09-23) **D56 额度与权益元素族(G-67,与 G-45 合并实施)**:补额度恢复后"是否继续刚才中断的任务?"续跑询问、优先通道/速通徽章、按 token vs 按次计费口径透出、企业用量四分账视图。落点 `session-usage-badge.tsx` + `FallbackBanner.tsx`。**验收**:四元素各一用例 + **不得破坏 2026-09-21 三轮"不充值可用心智"边界**(免费档可用时不弹付费诱导)
+
+---
+
 - [x] ✅(2026-09-21) **D80 待自证定档完成**,四条判定全部出结论(报告 §14,逐条带我方代码文件:行):①**G-96 撤销**——`permission-mode-popover.tsx:76,88-100` 已有 `mode.askDesc/autoDesc/fullDesc` 三档说明句 + `risk` 分级,我方**不缺失**;②**G-92 收窄为两态**——权限切换失败我方 `:231-242` 已有 toast **且带撤销动作(强于 Qoder 纯提示,属反超点,禁止"补齐"成弱版本)**,仍缺的是**模型切换失败**(grep 零命中)与**停止生成失败**(`use-chat` 仅 `isAbortError` 静默 return);③**G-95 重定义**——我方 `skill-library.tsx:257 tpl-polish` 是"插入润色模板",对手是"对草稿**就地改写 + 失败保稿**",差距按后者表述;④**G-110 转正**——`grep 'orchestration|workflow' apps/web/src/components/chat/` = **0**,工作流未内联进消息流;但 `MessageItem.tsx:37,920` 已内联渲染 `ArtifactCanvas`,证明"流内业务对象"通道已打通 → 属**增量**非新建
 - [x] ✅(2026-09-23) **D82 就地润色与失败保稿(G-95 重定义后)**:输入框草稿的一键润色(**改写当前内容**而非插入模板)+ 失败时**明确保留原稿**(`暂时无法润色提示词，草稿已保留。` 同族语义)+ 需要重启生效时的保稿提示。**复用**现有模板/命令基建,不新建提示词栈。**验收**:润色成功替换草稿 / 失败保留原稿 / 二次失败仍可重试 三用例 __收口(2026-09-23):prompt-polish(四相位/失败草稿字节级不变/空草稿拒绝/二次失败仍可重试)+ message-input 接线(复用既有 polish 提示词与 runBestOfN 通道,未新建提示词栈)+ ai.pane.promptPolish 11 键×5 语言;shared 33 + web 17 全绿;剩余=重启生效原因码后端尚未产出__
+
+---
+
 - [x] ✅(2026-07-30) **P0 ai_pricing 数据状态收尾** — 验证 `ai_pricing.step-3.7-flash` 价格回退到 StepFun 官方价位。**结果**:数据库实测 `input=1分, output=2分`(seed 文件 `stepfun/step-3.5-flash` 也是 1/1),已是 StepFun flash 模型典型价位 1~2 分范围,**无需任何改动**(前序报告"临时调整 100 分"在数据库中不成立,可能已被回退或描述与实际不符)。**取消该任务**(无源码改动,无 commit)
 - [x] ✅(2026-07-30) **P1 Cloudflare base_url 模板替换** — 验证 BYOK 配置 resolve 阶段是否需要补 `account_id` 占位符注入。**结果**:Read `apps/ai-service/app/core/llm_gateway.py:591-599` 确认现有设计已合理——代码注释明确"cloudflare_account_id 字段已删除,api_base 必须配置完整 URL(含 account_id,如 https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1)",`_resolve_from_db` 行 321 直接用 `row["base_url"]` 字段。用户在 `ai_model_config.base_url` 填完整 URL 即可,系统原样传给 LiteLLM。**取消该任务**(现有设计已合理,无源码改动)
 - [x] ✅(2026-07-30) **P1 reset-admin-password.ts 补齐** — `apps/api/package.json:17` 声明 `reset:admin-password: tsx scripts/reset-admin-password.ts` 但文件缺失。**Subagent A** 新建 `apps/api/scripts/reset-admin-password.ts`(76 行):① 从 `argv[2]` 读取新密码;② `hashPassword(argon2id)` 生成 hash;③ 先尝试直接 UPDATE,失败走降级路径 `DISABLE TRIGGER ALL` → UPDATE → `ENABLE TRIGGER ALL`(try/finally 保证触发器必定重新启用);④ 查询 admin 用户名+邮箱确认,打印结果;⑤ `process.exit(0/1)`。TypeScript 类型零技术债(无 `any`,错误用 `e: unknown` + `errMsg()` 类型守卫);`pnpm --filter @ihui/api typecheck` exit 0
 - [x] ✅(2026-07-30) **P2 PATCH 201 状态码 UX** — 后端 PATCH `/admin/relay/commission/:providerCode` 已升级为 upsert(HTTP 200=update / 201=insert),前端 `updateCommission.onSuccess` 只显示统一 toast "抽成率已更新",无法区分。**Subagent B** 改造 `apps/web/app/(main)/admin/relay/page.tsx`(345 → 385 行,+40):① 探查 `packages/types/src/api.ts` 确认 `ApiResult<T>` success 分支不含 `status` 字段;② `mutationFn` 改用原生 `fetch` 直读 `response.status`,返回类型显式标注 `{ data: {...}; status: number }`;③ `onSuccess` 区分 `status === 201` → "已为新 provider 创建默认抽成配置 (xxx)" / 200 → "抽成率已更新 (xxx)";④ Tauri 环境检测 + Token 注入与 `apps/web/src/lib/api.ts` 完全一致;⑤ `pnpm --filter @ihui/web typecheck` 本任务文件 0 错误
 - [x] ✅(2026-07-30) **P2 守门脚本增强 + subagent 行为约束** — 防污染事故复发(2026-07-30 真实事故:agent 只 add 1 个文件,commit 实际包含 8 个文件,污染 7 个其他 agent 改的 M 文件,post-commit 钩子自动 push 到 origin)。**Subagent C** 新建 `scripts/check-staged-files-count.mjs`(65 行):① 读取 `git diff --cached --name-only` 统计 staged 文件数;② 默认阈值 10,超过打印警告到 stderr(不阻断,exit 0);③ CLI 参数 `--max=N` / `--strict`(超过阈值 exit 1)/ `--quiet` / `HUSKY_SKIP_STAGED_COUNT=1`;④ `.husky/pre-commit` 集成在 `takeStagingSnapshot()` 之前(第 0 项,最早执行),try/catch 兜底;⑤ 5 个测试用例全过(`--max=1`/`--max=10`/`--quiet`/`--strict`/skip env)。**主 agent** 修改 `AGENTS.md` §11 联动规则,新增 2 条:(a) subagent 完成任务后必须 `git status --short` 自检,发现意外文件立即停止报告主 agent;(b) subagent 执行 `git stash push/pop/apply` 后必须用 Read 验证任务清单内文件内容完整,防止 stash 误操作吞文件。**与现有 staging-snapshot 机制互补**:staging-snapshot 在 hook 退出前自动 unstage 新增文件(被动防御),本机制在 hook 入口显式预检(主动告警)
+
+---
+
 - [x] ✅(2026-08-01) **P0-1 API Key 安全粒度 4 字段 + 鉴权强制执行**(subagent-1,平台独占:apps/api + packages/database)— `developer_api_keys` 表加 `expiresAt`/`allowedIps`/`allowedModels`/`maxTokensPerReq` 4 字段 + 迁移 SQL + api-key-auth.ts preHandler 强制校验(过期拒绝/IP 不匹配拒绝/模型不在白名单拒绝/单次 token 超限拒绝)+ developer-api-keys-service.ts createKey 接受 4 字段 + admin/web UI 暴露配置入口
 - [x] ✅(2026-08-01) **P0-2 /v1/messages Anthropic 原生格式**(subagent-2,平台独占:apps/api)— 新建 `apps/api/src/routes/v1-messages.ts`,接收 Anthropic Messages 格式请求,内部转 OpenAI 格式走现有 v1-public.ts relay 调用链 + relay-billing-service 计费,响应转回 Anthropic 格式;路由前缀 `/v1/anthropic` 避免与 v1-knowledge-tools.ts POST /v1/messages 冲突
 - [x] ✅(2026-08-01) **P0-3 prompt cache 折扣计费**(subagent-3,平台独占:apps/api + apps/ai-service)— `relay-billing-service.ts` `calculateCost` + `recordCall` 支持 cache_read_input_tokens / cache_creation_input_tokens 字段,cache hit 按 10% 价计费,cache creation 按 125% 价计费;`llm_call_logs` 表加 `cacheReadTokens`/`cacheCreationTokens` + 8 个审计字段(apiKeyId/providerCode/configId/keyPoolId/clientIp/costCents/httpStatus/ttftMs)
@@ -1111,6 +1080,9 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-08-01) **P0-6 API 订阅包产品化**(subagent-6,平台独占:apps/api + apps/web)— orderType=6 表示 API 订阅包,新增 3 档 API 订阅方案 seed;order-service.ts activateOrderSubscription 加 orderType===6 分支调 activateApiSubscription
 - [x] ✅(2026-08-01) **P0-7 4 份法律文档**(subagent-7,平台独占:apps/web)— 新建 `apps/web/app/(main)/legal/` 目录 4 个静态页(terms/usage-policy/supported-regions/service-specific-terms),i18n 5 语言同步
 - [x] ✅(2026-08-01) **P0-8 Playground 内置在线测试页**(subagent-8,平台独占:apps/web)— 新建 `apps/web/app/(main)/playground/` 在线测试页(模型选择/消息构造/参数调节/SSE 流式/markdown 渲染/代码生成/历史记录)
+
+---
+
 - [x] ✅(2026-08-01) **P0-17 /v1/responses 端点(OpenAI Responses API 兼容)**(subagent-1,平台独占:apps/api)— `apps/api/src/routes/v1-responses.ts` 已实现(698 行,stream + 内置工具 + 鉴权 + 计费),`routes/index.ts:1059` 已注册 `server.register(v1ResponsesRoutes, { prefix: '/v1' })`
 - [x] ✅(2026-08-01) **P0-18 /v1/batch + /v1/messages/batches 端点(批量异步 API,50% 折扣)**(subagent-2,平台独占:apps/api)— `apps/api/src/routes/v1-batches.ts` 已实现(OpenAI Batch + Anthropic Messages Batches CRUD + BullMQ 异步 + 50% 折扣计费),`routes/index.ts` 已注册 `server.register(v1Batches, { prefix: '/v1' })`,batch-worker.ts + batch-queue.ts 队列模块就绪
 - [x] ✅(2026-08-01) **P0-19 /v1/assistants + /v1/threads + /v1/runs 端点(Assistants API v2 兼容)**(subagent-3,平台独占:apps/api)— `apps/api/src/routes/v1-assistants.ts` 已实现(Assistants/Threads/Messages/Runs/RunSteps CRUD + Redis 存储 + 鉴权 + 计费),`routes/index.ts:1061` 已注册 `server.register(v1Assistants, { prefix: '/v1' })`
@@ -1127,10 +1099,22 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-07-31) **P0-14 OIDC + Discord / LinuxDO / Telegram 社交登录**(subagent-6,平台独占:apps/api + packages/auth + apps/web)— 修改 `apps/api/src/routes/auth-extended.ts` 追加 4 个 OAuth handler(`/auth/oauth/oidc` / `/auth/oauth/discord` / `/auth/oauth/linuxdo` / `/auth/oauth/telegram`);新建 `packages/auth/src/providers/oidc.ts` / `discord.ts` / `linuxdo.ts` / `telegram.ts` 4 个 provider;修改 `apps/web/src/components/login/ThirdPartyLoginButtons.tsx` 添加 4 个登录按钮;修改 `.env.example` 追加 4 组 OAuth 配置
 - [x] ✅(2026-07-31) **P0-15 日志脱敏 + MCP 网关对外暴露**(subagent-7,平台独占:apps/api)— 新建 `apps/api/src/services/log-sanitizer.ts`(对调用日志中的 API Key/user content/email/phone 做 redaction);修改 `apps/api/src/routes/admin/relay-logs.ts` 集成脱敏(默认开启,admin 可关闭查看原始);新建 `apps/api/src/routes/v1-mcp-gateway.ts`(对外暴露 `/v1/mcp/tools` + `/v1/mcp/tools/call`,鉴权走 api-key-auth,内部转发到 ai-service 的 MCP server)
 - [x] ✅(2026-07-31) **P0-16 Midjourney-Proxy 标准接口 + 多租户 API Key 关联**(subagent-8,平台独占:apps/api + packages/database)— 新建 `apps/api/src/routes/v1-midjourney.ts`(对接 midjourney-proxy 的 `/mj/submit/imagine` + `/mj/task/:id` 转换成 OpenAI `/v1/images/generations` 格式);新建 `packages/database/drizzle/20260801010010_add_tenant_id_to_developer_api_keys.sql`(developer_api_keys 表加 `tenant_id` 字段 + 外键);修改 `packages/database/src/schema/developer-api-keys.ts` 同步字段;修改 `apps/api/src/routes/admin/relay-api-keys.ts` 支持按 tenant 过滤 + 关联
+
+---
+
 - [x] ✅(2026-08-04) **P1: auth.ts QR 扫码登录**(2 端点 501 → 真实实装 + 新增 /qr/confirm)
+
+---
+
 - [x] ✅(2026-08-04) **P0: user_token_balance 表补建**(预先存在的 schema 缺口导致 500)
+
+---
+
 - [x] ✅(2026-07-30) **P2-F.1**(本批次立即):已完成 H1-H5,4 适配层 + barrel + README + typecheck 全绿
 - [x] ✅(2026-07-30) **P2-F.2** + **P2-F.3** 合并完成:9 屏共享组件 Taro 适配层一次性落地(9 subagent 并行派发,共 2921 行)
+
+---
+
 - [x] ✅ **逐项定性(每项都有可复算证据,不靠猜)**
   - `C:\common_attachment` = **剪映 JianyingPro** 写歪的草稿缓存。判据:盘根文件
     `attachment_clipflow_cache.json` 的键形(`task_id`/`state`/`algorithm_type`/`node_infos`)与
@@ -9214,6 +9198,78 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 ---
 
 - [x] ✅(2026-09-28) G-342 **本轮第二台"会让全队每次提交合法跳门"的恒红门已解除 —— 守门 130 的 F9 基线层被三组新增撞号点亮(`74` / `G-278` / `G-328`)**:三组逐组定性后**都不是**"两个任务抢一个号",而是**同一件事被并发并集各抄一份、标题前缀漂开** ⇒ F1 的复合主键是"编号+标题逐字等值",对这一型结构性失明(它报 0 而账面真藏着副本),而 F9 的键集锚点看得见 —— 这正是 G-312 把 F9 锚点从"组数"换成"键集合"要抓的那一型,本票是它上线后第一次产出真实修复而不是一批红。① **处置**:按台账既有先例(HEAD 面已有 3 条同形先例可抄)把注记前置成 `**[归并]** 本行与已完成登记同题(…)` 再逐字保留原文 ⇒ `titleOf` 在该行切到空标题 ⇒ 该行不再参与撞号分组,而"不删行、不重复计账"的 §1 规矩 2 同时成立;其中两行挂着**过期状态**并已翻勾摘牌:`G-278` 那行写"四个生产 surface 仍刻意未接"已被枚 `483e5c691` 取代(其末尾点名的两格在主行明标"另票",未随翻勾消失),`G-328` 那行的两项未验点已被枚 `13428a3f8` + `120a7744d` 的主行取证满足(本行自设的收口判据"连采 5 趟 `all=1 ∧ vis=0` 恒成立"恰是主行报出的读数;`auto_refresh` 那次无条件 `show()` 就是"某处在我看不到的时刻把它 show 了出来"的成因),它正文里"`devUrl` 覆盖在薄壳模式下不生效"那格**仍留在原文里未解决**,不得随翻勾被读成已收口。② **取证**(全部当轮实跑,经 `scripts/run-evidence.mjs` 落件并 `--verify` 读回):落地前用**同一把尺子**(`lib/plan-task-index.mjs` 的 `auditPlan`)双喂 HEAD 面与候选面 ⇒ 撞号组 73→70、消失键恰为这三组、新增键 0、F1/F2/F4/F4b/F6 全维恒 0;落地后 `--gate` / `--gate --staged` / `--gate --strict` 三档 `#EVIDENCE-RC=0`;基线 `plan-task-state-baseline.json` 的 F9 是 71 键数组且不含这三键 ⇒ 清偿后**无需** `--update-baseline`(它只许收窄,把新键写进去等于关掉这一维)。③ **一条判断边界值得留着**:F9 这一维的红有**两种语义**(真撞号 / 同题副本标题漂),机械批量处置必然错 —— 前者要改号、后者要归并,而"改号"对后者是制造新分叉,所以只能逐组读原文定性(G-312 明令不得批量改号,本票照办)。④ **同轮全链复测**:`guardian-runner --staged` 跑完 186 项,唯一 blocking 红是守门 29(push 同步,原因是当轮确有 1 枚未推提交),现 `git-push-converge` 读回 `origin=ALREADY`;守门 41 / 89 / 118 / 130 四面读回 rc=0。⑤ **残余(派单在飞,归属点名)**:守门 156 的豁免族 `selftest-registrant-exempt` 尚未进守门 108 的族寿命表(没有到期档的豁免出口=无人看管的出口),156 自身还有 4 处"未判定"来自 `lib/code-mask.mjs` 的正则字面量盲区(守门 118 留着一份更好的私有遮噪器 = "两处实现一条规矩"那一型)—— 两票已并行派出,本行不替它们声称已收口。
+
+---
+
+- [x] ✅ **A 组 = 纯冗余,已删(`C:\c` 整目录 515MB)**。`C:\c` 是 2026-08-06 某会话把 `/c/tmp/...`
+  当**相对路径**用、在 C 盘里套出来的 MSYS 错位目录。删前逐条证零独有内容:
+  ① 全仓 `scripts/ deploy/ docs/ .github/ apps/ packages/` 对 `C:\c` **零引用**,计划任务零指向;
+  ② `ihui-clone2` 的 tip `f37d63c` **及其 3703 条完整历史已在本仓对象集**(本仓非浅克隆、7513 提交);
+  ③ `ihui-clone`(125MB)无任何 ref、HEAD 已损坏 = 中断克隆的残骸;
+  ④ `ihui-fresh{,2}` 的 `1283e51` 本仓对象集里**确实没有** ⇒ 先打成
+  `D:\DevEnv\backups\git\c-root-clone-ihui-fresh-2026-09-24.bundle`(`git bundle verify` 通过)再删,
+  且其改动内容在本仓有 4 条同义提交(`dd9c17717` 等,代码行就在 `build-next-prod.ps1` 的 `robocopy /MT:16`);
+  ⑤ 那 136MB 的 `C:\c\Users\Administrator\AppData\Roaming\npm\node_modules\@mimo-ai\mimocode-windows-x64`
+  是 npm 装到错位前缀的副本 —— 真前缀里 `@mimo-ai/cli`(271MB)完好,且副本**没有 bin 垫片、从未在 PATH 生效**。
+  删后 C 盘 43G → **44G**。
+
+---
+
+- [x] ✅ **A 组 = 纯冗余,已删(`C:\c` 整目录 515MB)**。`C:\c` 是 2026-08-06 某会话把 `/c/tmp/...`
+  当**相对路径**用、在 C 盘里套出来的 MSYS 错位目录。删前逐条证零独有内容:
+  ① 全仓 `scripts/ deploy/ docs/ .github/ apps/ packages/` 对 `C:\c` **零引用**,计划任务零指向;
+  ② `ihui-clone2` 的 tip `f37d63c` **及其 3703 条完整历史已在本仓对象集**(本仓非浅克隆、7513 提交);
+  ③ `ihui-clone`(125MB)无任何 ref、HEAD 已损坏 = 中断克隆的残骸;
+  ④ `ihui-fresh{,2}` 的 `1283e51` 本仓对象集里**确实没有** ⇒ 先打成
+  `D:\DevEnv\backups\git\c-root-clone-ihui-fresh-2026-09-24.bundle`(`git bundle verify` 通过)再删,
+  且其改动内容在本仓有 4 条同义提交(`dd9c17717` 等,代码行就在 `build-next-prod.ps1` 的 `robocopy /MT:16`);
+  ⑤ 那 136MB 的 `C:\c\Users\Administrator\AppData\Roaming\npm\node_modules\@mimo-ai\mimocode-windows-x64`
+  是 npm 装到错位前缀的副本 —— 真前缀里 `@mimo-ai/cli`(271MB)完好,且副本**没有 bin 垫片、从未在 PATH 生效**。
+  删后 C 盘 43G → **44G**。
+
+---
+
+- [x] ✅(2026-09-21)**D54 工具名本地化覆盖率收口(G-80,第 5 轮已定档——原判"我方可能没词表"是幻影,已自证推翻)**:实测我方**已有**词表 `packages/shared/src/chat/tool-display.ts`(`TOOL_DISPLAY_KEYS`,`read_file→toolReadFile`,i18n 值在 `packages/i18n/messages/shared/zh-CN.json:3`),渲染走 `describeToolCall`/`toolDisplayKey`(`tool-call-card.tsx:16,830`)。真差距是**覆盖率**:`mcp_server.py` 唯一工具 **87** / 词表键 **65** / **37 个工具回落英文原名**,其中 **`browser_*` 14 个、`computer_*` 9 个 覆盖数为 0**(对标 Trae `browser_action` 100 键、Qoder `toolNames` 27 + `browser.*` 16 全中文)。**验收**:脚本判据 87/87 覆盖 + 五语言 parity 守门绿 + browser/computer 两族优先 + 未知工具名回落原文不误译
+
+---
+
+- [x] ✅(2026-09-21) **D80 待自证定档完成**,四条判定全部出结论(报告 §14,逐条带我方代码文件:行):①**G-96 撤销**——`permission-mode-popover.tsx:76,88-100` 已有 `mode.askDesc/autoDesc/fullDesc` 三档说明句 + `risk` 分级,我方**不缺失**;②**G-92 收窄为两态**——权限切换失败我方 `:231-242` 已有 toast **且带撤销动作(强于 Qoder 纯提示,属反超点,禁止"补齐"成弱版本)**,仍缺的是**模型切换失败**(grep 零命中)与**停止生成失败**(`use-chat` 仅 `isAbortError` 静默 return);③**G-95 重定义**——我方 `skill-library.tsx:257 tpl-polish` 是"插入润色模板",对手是"对草稿**就地改写 + 失败保稿**",差距按后者表述;④**G-110 转正**——`grep 'orchestration|workflow' apps/web/src/components/chat/` = **0**,工作流未内联进消息流;但 `MessageItem.tsx:37,920` 已内联渲染 `ArtifactCanvas`,证明"流内业务对象"通道已打通 → 属**增量**非新建
+
+---
+
+- [x] ✅(2026-07-30) **P0 ai_pricing 数据状态收尾** — 验证 `ai_pricing.step-3.7-flash` 价格回退到 StepFun 官方价位。**结果**:数据库实测 `input=1分, output=2分`(seed 文件 `stepfun/step-3.5-flash` 也是 1/1),已是 StepFun flash 模型典型价位 1~2 分范围,**无需任何改动**(前序报告"临时调整 100 分"在数据库中不成立,可能已被回退或描述与实际不符)。**取消该任务**(无源码改动,无 commit)
+- [x] ✅(2026-07-30) **P1 Cloudflare base_url 模板替换** — 验证 BYOK 配置 resolve 阶段是否需要补 `account_id` 占位符注入。**结果**:Read `apps/ai-service/app/core/llm_gateway.py:591-599` 确认现有设计已合理——代码注释明确"cloudflare_account_id 字段已删除,api_base 必须配置完整 URL(含 account_id,如 https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1)",`_resolve_from_db` 行 321 直接用 `row["base_url"]` 字段。用户在 `ai_model_config.base_url` 填完整 URL 即可,系统原样传给 LiteLLM。**取消该任务**(现有设计已合理,无源码改动)
+- [x] ✅(2026-07-30) **P1 reset-admin-password.ts 补齐** — `apps/api/package.json:17` 声明 `reset:admin-password: tsx scripts/reset-admin-password.ts` 但文件缺失。**Subagent A** 新建 `apps/api/scripts/reset-admin-password.ts`(76 行):① 从 `argv[2]` 读取新密码;② `hashPassword(argon2id)` 生成 hash;③ 先尝试直接 UPDATE,失败走降级路径 `DISABLE TRIGGER ALL` → UPDATE → `ENABLE TRIGGER ALL`(try/finally 保证触发器必定重新启用);④ 查询 admin 用户名+邮箱确认,打印结果;⑤ `process.exit(0/1)`。TypeScript 类型零技术债(无 `any`,错误用 `e: unknown` + `errMsg()` 类型守卫);`pnpm --filter @ihui/api typecheck` exit 0
+- [x] ✅(2026-07-30) **P2 PATCH 201 状态码 UX** — 后端 PATCH `/admin/relay/commission/:providerCode` 已升级为 upsert(HTTP 200=update / 201=insert),前端 `updateCommission.onSuccess` 只显示统一 toast "抽成率已更新",无法区分。**Subagent B** 改造 `apps/web/app/(main)/admin/relay/page.tsx`(345 → 385 行,+40):① 探查 `packages/types/src/api.ts` 确认 `ApiResult<T>` success 分支不含 `status` 字段;② `mutationFn` 改用原生 `fetch` 直读 `response.status`,返回类型显式标注 `{ data: {...}; status: number }`;③ `onSuccess` 区分 `status === 201` → "已为新 provider 创建默认抽成配置 (xxx)" / 200 → "抽成率已更新 (xxx)";④ Tauri 环境检测 + Token 注入与 `apps/web/src/lib/api.ts` 完全一致;⑤ `pnpm --filter @ihui/web typecheck` 本任务文件 0 错误
+- [x] ✅(2026-07-30) **P2 守门脚本增强 + subagent 行为约束** — 防污染事故复发(2026-07-30 真实事故:agent 只 add 1 个文件,commit 实际包含 8 个文件,污染 7 个其他 agent 改的 M 文件,post-commit 钩子自动 push 到 origin)。**Subagent C** 新建 `scripts/check-staged-files-count.mjs`(65 行):① 读取 `git diff --cached --name-only` 统计 staged 文件数;② 默认阈值 10,超过打印警告到 stderr(不阻断,exit 0);③ CLI 参数 `--max=N` / `--strict`(超过阈值 exit 1)/ `--quiet` / `HUSKY_SKIP_STAGED_COUNT=1`;④ `.husky/pre-commit` 集成在 `takeStagingSnapshot()` 之前(第 0 项,最早执行),try/catch 兜底;⑤ 5 个测试用例全过(`--max=1`/`--max=10`/`--quiet`/`--strict`/skip env)。**主 agent** 修改 `AGENTS.md` §11 联动规则,新增 2 条:(a) subagent 完成任务后必须 `git status --short` 自检,发现意外文件立即停止报告主 agent;(b) subagent 执行 `git stash push/pop/apply` 后必须用 Read 验证任务清单内文件内容完整,防止 stash 误操作吞文件。**与现有 staging-snapshot 机制互补**:staging-snapshot 在 hook 退出前自动 unstage 新增文件(被动防御),本机制在 hook 入口显式预检(主动告警)
+- [x] ✅(2026-08-01) **P0-1 API Key 安全粒度 4 字段 + 鉴权强制执行**(subagent-1,平台独占:apps/api + packages/database)— `developer_api_keys` 表加 `expiresAt`/`allowedIps`/`allowedModels`/`maxTokensPerReq` 4 字段 + 迁移 SQL + api-key-auth.ts preHandler 强制校验(过期拒绝/IP 不匹配拒绝/模型不在白名单拒绝/单次 token 超限拒绝)+ developer-api-keys-service.ts createKey 接受 4 字段 + admin/web UI 暴露配置入口
+- [x] ✅(2026-08-01) **P0-2 /v1/messages Anthropic 原生格式**(subagent-2,平台独占:apps/api)— 新建 `apps/api/src/routes/v1-messages.ts`,接收 Anthropic Messages 格式请求,内部转 OpenAI 格式走现有 v1-public.ts relay 调用链 + relay-billing-service 计费,响应转回 Anthropic 格式;路由前缀 `/v1/anthropic` 避免与 v1-knowledge-tools.ts POST /v1/messages 冲突
+- [x] ✅(2026-08-01) **P0-3 prompt cache 折扣计费**(subagent-3,平台独占:apps/api + apps/ai-service)— `relay-billing-service.ts` `calculateCost` + `recordCall` 支持 cache_read_input_tokens / cache_creation_input_tokens 字段,cache hit 按 10% 价计费,cache creation 按 125% 价计费;`llm_call_logs` 表加 `cacheReadTokens`/`cacheCreationTokens` + 8 个审计字段(apiKeyId/providerCode/configId/keyPoolId/clientIp/costCents/httpStatus/ttftMs)
+- [x] ✅(2026-08-01) **P0-4 模型映射功能**(subagent-4,平台独占:apps/api + packages/database)— 新建 `ai_model_mappings` 表(user_id nullable/api_key_id nullable/source_model/target_model/priority/enabled),admin 可配全局映射,用户可配 Key 级映射;model-mapping-service.ts 实现 resolveModelMapping;v1-public.ts 集成映射调用
+- [x] ✅(2026-08-01) **P0-5 兑换码充值系统**(subagent-5,平台独占:apps/api + apps/web + packages/database)— 新建 `redemption_codes` 表 + admin 批量生成端点 + 用户兑换端点(POST /developer/relay/redeem)+ admin 兑换记录查询
+- [x] ✅(2026-08-01) **P0-6 API 订阅包产品化**(subagent-6,平台独占:apps/api + apps/web)— orderType=6 表示 API 订阅包,新增 3 档 API 订阅方案 seed;order-service.ts activateOrderSubscription 加 orderType===6 分支调 activateApiSubscription
+- [x] ✅(2026-08-01) **P0-7 4 份法律文档**(subagent-7,平台独占:apps/web)— 新建 `apps/web/app/(main)/legal/` 目录 4 个静态页(terms/usage-policy/supported-regions/service-specific-terms),i18n 5 语言同步
+- [x] ✅(2026-08-01) **P0-8 Playground 内置在线测试页**(subagent-8,平台独占:apps/web)— 新建 `apps/web/app/(main)/playground/` 在线测试页(模型选择/消息构造/参数调节/SSE 流式/markdown 渲染/代码生成/历史记录)
+- [x] ✅(2026-08-01) **P0-17 /v1/responses 端点(OpenAI Responses API 兼容)**(subagent-1,平台独占:apps/api)— `apps/api/src/routes/v1-responses.ts` 已实现(698 行,stream + 内置工具 + 鉴权 + 计费),`routes/index.ts:1059` 已注册 `server.register(v1ResponsesRoutes, { prefix: '/v1' })`
+- [x] ✅(2026-08-01) **P0-18 /v1/batch + /v1/messages/batches 端点(批量异步 API,50% 折扣)**(subagent-2,平台独占:apps/api)— `apps/api/src/routes/v1-batches.ts` 已实现(OpenAI Batch + Anthropic Messages Batches CRUD + BullMQ 异步 + 50% 折扣计费),`routes/index.ts` 已注册 `server.register(v1Batches, { prefix: '/v1' })`,batch-worker.ts + batch-queue.ts 队列模块就绪
+- [x] ✅(2026-08-01) **P0-19 /v1/assistants + /v1/threads + /v1/runs 端点(Assistants API v2 兼容)**(subagent-3,平台独占:apps/api)— `apps/api/src/routes/v1-assistants.ts` 已实现(Assistants/Threads/Messages/Runs/RunSteps CRUD + Redis 存储 + 鉴权 + 计费),`routes/index.ts:1061` 已注册 `server.register(v1Assistants, { prefix: '/v1' })`
+- [x] ✅(2026-08-01) **P0-20 参数覆盖系统(高级 operations JSON DSL)**(subagent-4,平台独占:apps/api)— `apps/api/src/services/relay-param-ops.ts` 纯函数库已交付(15 种 op + 条件判断 + JSON 路径 + 内置变量),P0-20b 转发层集成已完成(v1-public/v1-messages applyParamOpsToBody + admin/relay-param-ops CRUD + dry-run + admin UI 页面)
+- [x] ✅(2026-08-01) **P0-21 充值金额阶梯折扣 + 自定义充值选项(运营关键)**(subagent-5,平台独占:apps/api + apps/web)— `apps/api/src/services/topup-discount-service.ts` + `apps/api/src/routes/admin/topup-config.ts` 已实现,`routes/index.ts` 已注册 adminTopupConfigRoutes,前端 billing 页面已集成阶梯折扣 UI
+- [x] ✅(2026-08-01) **P0-22 Passkey 无密码登录(WebAuthn/FIDO2)**(subagent-6,平台独占:apps/api + packages/auth + packages/database + apps/web)— `apps/api/src/routes/auth-passkey.ts`(4 端点)+ `packages/database/src/schema/user-passkeys.ts` + migration + `packages/auth/src/providers/passkey.ts` 已实现,`routes/index.ts` 已注册 authPasskeyRoutes,前端 ThirdPartyLoginButtons + settings/security 已集成
+- [x] ✅(2026-08-01) **P0-23 USDT 加密货币支付网关(国际化必备)**(subagent-7,平台独占:apps/api + packages/database + apps/web)— `apps/api/src/services/payment-usdt-service.ts` + `apps/api/src/routes/admin/payment-usdt.ts` + `apps/api/src/routes/payment-usdt-callback.ts` + `packages/database/src/schema/usdt-payments.ts` + migration 已实现,`routes/index.ts` 已注册 paymentUsdtRoutes,前端 billing 已集成 USDT 充值选项
+- [x] ✅(2026-08-01) **P0-24 OpenAI 协议完整性补齐(MJ describe/shorten/blend + /v1/audio/translations + /v1/images/variations + /v1/fine_tuning/jobs + /v1/files 完整 CRUD)**(subagent-8,平台独占:apps/api)— `apps/api/src/routes/v1-protocol-completeness.ts` 已实现(MJ 扩展 + Whisper 翻译 + DALL-E 变体 + 微调 CRUD + /v1/files CRUD),`routes/index.ts` 已注册 v1ProtocolCompleteness
+- [x] ✅(2026-07-31) **P0-9 /v1/rerank + /v1/moderations 端点**(subagent-1,平台独占:apps/api)— 新建 `apps/api/src/routes/v1-rerank-moderations.ts`,实现 `/v1/rerank`(Cohere/Jina 兼容,接收 query/documents/top_n,走 relay-channel-router 调用上游)和 `/v1/moderations`(OpenAI 兼容,接收 input,返回 categories/category_scores)。两个端点都接 api-key-auth 鉴权 + relay-billing-service 计费
+- [x] ✅(2026-07-31) **P0-10 /v1/realtime WebSocket 标准端点**(subagent-2,平台独占:apps/api)— 新建 `apps/api/src/routes/v1-realtime.ts`,实现 OpenAI Realtime API 兼容的 WebSocket 端点(`/v1/realtime?model=xxx`),支持 audio_delta/audio_transcript_delta 增量事件,走 relay-channel-router 选择上游 OpenAI Compatible realtime 渠道
+- [x] ✅(2026-07-31) **P0-11 响应缓存(Redis)省钱大法**(subagent-3,平台独占:apps/api)— 新建 `apps/api/src/services/relay-response-cache.ts`,实现基于 Redis 的响应缓存:对非流式 /v1/chat/completions 请求,以 `model+messages+params` hash 为 cache key,命中缓存直接返回(不调用上游不计费),支持 TTL 配置 + 缓存跳过 header `X-Cache-Bypass: true` + 管理端统计(命中数/节省成本)
+- [x] ✅(2026-07-31) **P0-12 渠道亲和性 + 最小连接数路由 + 用户级模型限流**(subagent-4,平台独占:apps/api)— 修改 `apps/api/src/services/relay-channel-router.ts` 追加 2 个路由策略(`session-affinity` 相同用户走同一渠道 + `least-connections` 最小连接数);修改 `apps/api/src/plugins/api-key-auth.ts` 追加 per-user model rate limit(每个 API Key 单模型 RPM/TPM 限制,防单用户刷爆)
+- [x] ✅(2026-07-31) **P0-13 渠道批量启停 + 连通性测试**(subagent-5,平台独占:apps/api + apps/web)— 修改 `apps/api/src/routes/admin/relay-channels.ts` 追加 `POST /admin/relay/channels/batch-toggle`(批量启停)+ `POST /admin/relay/channels/:id/test`(连通性测试,模拟一次 /v1/chat/completions 探活);修改 `apps/web/app/(main)/admin/relay/channels/page.tsx` 增加批量操作工具栏 + 测试按钮
+- [x] ✅(2026-07-31) **P0-14 OIDC + Discord / LinuxDO / Telegram 社交登录**(subagent-6,平台独占:apps/api + packages/auth + apps/web)— 修改 `apps/api/src/routes/auth-extended.ts` 追加 4 个 OAuth handler(`/auth/oauth/oidc` / `/auth/oauth/discord` / `/auth/oauth/linuxdo` / `/auth/oauth/telegram`);新建 `packages/auth/src/providers/oidc.ts` / `discord.ts` / `linuxdo.ts` / `telegram.ts` 4 个 provider;修改 `apps/web/src/components/login/ThirdPartyLoginButtons.tsx` 添加 4 个登录按钮;修改 `.env.example` 追加 4 组 OAuth 配置
+- [x] ✅(2026-07-31) **P0-15 日志脱敏 + MCP 网关对外暴露**(subagent-7,平台独占:apps/api)— 新建 `apps/api/src/services/log-sanitizer.ts`(对调用日志中的 API Key/user content/email/phone 做 redaction);修改 `apps/api/src/routes/admin/relay-logs.ts` 集成脱敏(默认开启,admin 可关闭查看原始);新建 `apps/api/src/routes/v1-mcp-gateway.ts`(对外暴露 `/v1/mcp/tools` + `/v1/mcp/tools/call`,鉴权走 api-key-auth,内部转发到 ai-service 的 MCP server)
+- [x] ✅(2026-07-31) **P0-16 Midjourney-Proxy 标准接口 + 多租户 API Key 关联**(subagent-8,平台独占:apps/api + packages/database)— 新建 `apps/api/src/routes/v1-midjourney.ts`(对接 midjourney-proxy 的 `/mj/submit/imagine` + `/mj/task/:id` 转换成 OpenAI `/v1/images/generations` 格式);新建 `packages/database/drizzle/20260801010010_add_tenant_id_to_developer_api_keys.sql`(developer_api_keys 表加 `tenant_id` 字段 + 外键);修改 `packages/database/src/schema/developer-api-keys.ts` 同步字段;修改 `apps/api/src/routes/admin/relay-api-keys.ts` 支持按 tenant 过滤 + 关联
+- [x] ✅(2026-08-04) **P1: auth.ts QR 扫码登录**(2 端点 501 → 真实实装 + 新增 /qr/confirm)
+- [x] ✅(2026-08-04) **P0: user_token_balance 表补建**(预先存在的 schema 缺口导致 500)
+- [x] ✅(2026-07-30) **P2-F.1**(本批次立即):已完成 H1-H5,4 适配层 + barrel + README + typecheck 全绿
+- [x] ✅(2026-07-30) **P2-F.2** + **P2-F.3** 合并完成:9 屏共享组件 Taro 适配层一次性落地(9 subagent 并行派发,共 2921 行)
 
 ---
 
