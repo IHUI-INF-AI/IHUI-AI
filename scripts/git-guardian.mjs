@@ -1492,6 +1492,111 @@ function watchWatchdog() {
 }
 
 /**
+ * 公网路径与换流窗口的**常驻**探测派发点(台账票 G-301;尺子本体 = `scripts/check-public-path-probe.mjs`)。
+ *
+ * 为什么挂在这里而不是新建计划任务:该机有明令"注册计划任务属影响全机的自动动作,须机主授权",
+ * 而本守护已经是全部运维告警的派发点(每 2 分钟一趟、自身分层自愈、已升 S4U)。
+ * 挂点语义与 healWorktreeTracked / watchWatchdog 同一条:**健康轮次的早退之前 + `!CHECK_ONLY`** ——
+ * 挂进 CHECK_ONLY 分支等于永不执行(本文件已两次踩过,见上方注释)。
+ *
+ * 三条不可漂的写法:
+ *  ① **节流而非封量**:两次真实探测之间隔 `PUBLIC_PROBE_INTERVAL_MS`(默认 30 分钟),
+ *     这是"别每 2 分钟打一次公网"的**节奏**控制,**不是**每日封顶 —— §5e 写死了
+ *     "第三方额度是别人的配额,自设上限等于把告警静默再复制一遍"。
+ *  ② 告警一律经 `notifyGuardRed()`:按 alert 身份 + 内容指纹去重、失败写 UNDELIVERED 标记、
+ *     **不在此文件自拼 SMTP/Resend**(守门 81 硬拦的就是这个)。
+ *  ③ 判"未判定"与"没跑到"**不得静默**:尺子 exit 3 或 JSON 取不到时只写日志、不发信 ——
+ *     发一封"我什么都没量到"的邮件是把噪音冒充成告警;但日志必须点名原因,不得沉默。
+ */
+const PUBLIC_PROBE_TICK = join(WORKTREE, '.workbuddy', 'public-path-probe-tick.ts')
+const PUBLIC_PROBE_LAST = join(WORKTREE, '.workbuddy', 'public-path-probe-last.json')
+const PUBLIC_PROBE_INTERVAL_MS = Number(process.env.IHUI_PUBLIC_PROBE_INTERVAL_MS || 30 * 60 * 1000)
+/** 尺子最坏墙钟:90 次公网 × 上限 15s 的极端不可能全中,但一次守护不能被网络拖死 ⇒ 硬超时 */
+const PUBLIC_PROBE_TIMEOUT_MS = Number(process.env.IHUI_PUBLIC_PROBE_TIMEOUT_MS || 240_000)
+
+/** 节流判定(纯函数):距上次派发是否已够一个间隔。取不到 tick 文件 ⇒ 视为**该跑了**。 */
+export function publicProbeDue(nowMs, tickMs, intervalMs = PUBLIC_PROBE_INTERVAL_MS) {
+  if (!Number.isFinite(tickMs)) return true
+  return nowMs - tickMs >= intervalMs
+}
+
+export function auditPublicPathProbe(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = PUBLIC_PROBE_INTERVAL_MS,
+    tickFile = PUBLIC_PROBE_TICK,
+    lastFile = PUBLIC_PROBE_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-public-path-probe.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 公网路径探测:尺子脚本不在位(scripts/check-public-path-probe.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call = runner || (() => {
+      try {
+        const out = execFileSync(process.execPath, [script, '--burst', '--sequence', 'both', '--json'], {
+          cwd: WORKTREE,
+          encoding: 'utf8',
+          windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+          timeout: PUBLIC_PROBE_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+          maxBuffer: 1 << 22,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        return { status: 0, stdout: String(out || ''), stderr: '' }
+      } catch (e) {
+        return { status: typeof e.status === 'number' ? e.status : 2, stdout: String(e.stdout || ''), stderr: String(e.stderr || e.message || '') }
+      }
+    })()
+    const v = readProbeVerdict(call)
+    if (!v.parsed) {
+      // 只写日志不发信:没量到 ≠ 出事了(§5e 的"失败必须响"针对的是**投递失败**,不是"没跑")
+      logger(`⚠️ 公网路径探测未产出结论(未判定,不记为已探测):${v.why}`)
+      return { ran: true, judged: false, why: v.why }
+    }
+    const results = v.parsed.results && typeof v.parsed.results === 'object' ? v.parsed.results : {}
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify({ at: new Date(now).toISOString(), rc: v.parsed.rc, results }, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响 --status 的可见性,不影响告警本身 */
+    }
+    let breaches = 0
+    let unjudged = 0
+    for (const [key, r] of Object.entries(results)) {
+      const verdict = String(r?.verdict || '')
+      const reasons = Array.isArray(r?.reasons) ? r.reasons : []
+      if (verdict === 'breach') {
+        breaches += 1
+        // alert 身份**按序列+目标分开**:A(换流窗口)与 B(常态公网)是两个不同的故障,
+        // 合并成一个身份会让先响的那条把后响的那条压掉 —— 正是票面禁止的"互相掩盖"。
+        notify(`公网路径探测越阈值:${key}`, `${String(r?.numbers || '(无读数控)')}\n${reasons.join('\n')}\n\n尺子:scripts/check-public-path-probe.mjs 序列 ${key}(A=换流窗口 / B=常态公网)。取证回读:node scripts/check-public-path-probe.mjs --report .ihui-agent/tmp/probers/public-path-burst.jsonl`, { severity: 'warning' })
+      } else if (verdict === 'unjudged') {
+        unjudged += 1
+        logger(`ℹ️ 公网路径探测 ${key}:未判定 —— ${reasons.join(' | ') || '(无原因)'}`)
+      }
+    }
+    if (breaches === 0 && unjudged === 0) logger('✅ 公网路径探测:已判定且未越阈值(A/B 两条序列各自的结论见 .workbuddy/public-path-probe-last.json)')
+    return { ran: true, judged: true, breaches, unjudged }
+  } catch (e) {
+    logger('⚠️ 公网路径探测派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
+/**
  * 把本守护的计划任务确保为 S4U(幂等;已是 S4U 时脚本自己秒退)。
  * 为什么必须做:两个看门任务原先是 InteractiveToken ⇒ **无人登录时它们根本不跑**,
  * 于是 .git 存续守护与凭据告警会在"机器重启后没人登录"这段时间里同时静默 ——
@@ -1992,6 +2097,9 @@ function main() {
     // 收敛器收尾对齐停摆喊人(票 O74):收敛器一次性进程只写状态,派发点在此(与
     // heal*/watchWatchdog 同一真正会执行的分支;挂进 CHECK_ONLY 早退分支等于永不执行)。
     if (!CHECK_ONLY) checkConvergeAlignStall()
+    // 公网路径与换流窗口的常驻探测(票 G-301):两条序列互不顶账,节流 30 分钟,
+    // 判"未判定"只写日志不喊人;它不改本守护退出码 —— 探测失败不等于 .git 失败。
+    if (!CHECK_ONLY) auditPublicPathProbe()
     // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 失效时它**自己不会喊**(故障形态是"安静",正是今天两天冻结的同类)。本守护每 2 分钟
     // 一趟且自身分层自愈,由它盯心跳最省。--check 仍零副作用。
