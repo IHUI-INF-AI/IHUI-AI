@@ -450,3 +450,101 @@ test('身份·release 遇到"名义存活但超上限":不代删别人的锁,但
     rmScratch(base)
   }
 })
+
+// ─────────  七、G-412 单调量第二判据:"锁龄恒 0"换成"锁永远新"也不许没有出路  ─────────
+//
+// clamp(`max(0, now - ts)`)只解决"算出负数"这一半;另一半是**未来 ts 让硬上限永不触发**。
+// 现判据用 `os.uptime()`(单调钟)反推开机时刻做对账,三态:contradiction / consistent /
+// unverifiable。镜像测试直接 import `__test__`(§22c:不在这里复制第二份判据实现),
+// 并成对钉:①未来 ts ⇒ 判"不可信"且出路点名(绝不 wait);②正常 ts ⇒ **与改动前逐字同结论**。
+const G412_NOW = 1_800_000_000_000
+const G412_MIN = 60_000
+const G412_UP = 3_600_000
+const G412_BOOT = G412_NOW - G412_UP
+
+test('G-412·成对:注入未来 ts ⇒ "ts 不可信(未来 N 秒)"+出路,而正常 ts 与改动前逐字同结论(wait)', () => {
+  const base = mkScratch('dl-g412-pair-')
+  try {
+    const aliveMeta = (ts, extra = {}) => okMeta({ pid: process.pid, ownerPid: process.pid, ts, ...extra })
+
+    // ① 未来 ts(旧形态 meta:无 host/bootMs ⇒ 单调对账必须**报名**"无法核对",不许静默)
+    const dFuture = lockFixture(base, aliveMeta(G412_NOW + 10 * G412_MIN))
+    const ageF = L.lockAgeMs(dFuture, L.readMeta(dFuture), G412_NOW)
+    assert.equal(ageF.clockAnomalous, true)
+    assert.equal(ageF.futureMs, 10 * G412_MIN, '未来多少秒必须作为**量**随读数带走,不是只进文案')
+    assert.match(ageF.source, /ts 不可信\(未来 600s/)
+    const decF = L.decideSteal({ dir: dFuture, mode: 'build', staleMs: 600_000, hardCapMs: L.HARD_CAP_MS, now: G412_NOW })
+    assert.equal(decF.action, 'steal', '年龄维失效时不得无限 wait(这正是冻结 11h50m 的那一型)')
+    assert.equal(decF.immediate ?? false, false, '先归档现场再抢,不走秒抢通道')
+    assert.match(decF.why, /ts 不可信\(未来 600s/)
+    assert.match(decF.why, /单调判据=无法核对/, '没有单调凭据时必须喊出来,不得读成"已核过没问题"')
+    assert.match(decF.why, /break-stale/, '结论里要带人工出口,不是一句"判不出来"')
+
+    // ② 回归对照:同夹具只把 ts 改回正常 ⇒ 读数与结论必须**与改动前同形**(meta.ts / wait)
+    const dCalm = lockFixture(base, aliveMeta(G412_NOW - 60_000))
+    const ageC = L.lockAgeMs(dCalm, L.readMeta(dCalm), G412_NOW)
+    assert.equal(ageC.ageMs, 60_000)
+    assert.equal(ageC.source, 'meta.ts', '正常读数的来源文案一字不许动(镜像代读判据漂移的直落点)')
+    assert.equal(ageC.clockAnomalous, undefined)
+    const decC = L.decideSteal({ dir: dCalm, mode: 'build', staleMs: 600_000, hardCapMs: L.HARD_CAP_MS, now: G412_NOW })
+    assert.equal(decC.action, 'wait')
+    assert.match(decC.why, /仍在运行\(锁龄 60000ms/, `wait 文案必须与改动前同形,实得 ${decC.why}`)
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('G-412·单调三态是纯判据:同机未来 ⇒ contradiction;别机/无 host/量不到 ⇒ unverifiable;一致 ⇒ consistent', () => {
+  const HOST = 'this-machine'
+  const v = (meta, over = {}) =>
+    L.monotonicAgeVerdict({ meta: { ts: 0, host: HOST, bootMs: 0, ...meta }, now: G412_NOW, uptimeMs: G412_UP, localHost: HOST, ...over })
+  assert.equal(v({ ts: G412_NOW + 10 * G412_MIN }).mode, 'future-ts')
+  assert.equal(v({ ts: G412_NOW - 1000, bootMs: G412_BOOT }).kind, 'consistent', '同会话一致时第二判据不得凭空造出抢占')
+  assert.equal(v({ ts: G412_NOW - 1000, bootMs: G412_BOOT - 60_000 }).kind, 'consistent', '容差内的 NTP 微步进不得读成重启(否则秒抢活锁)')
+  assert.match(v({ ts: G412_NOW + 10 * G412_MIN, host: 'other' }).reason, /别机持有/)
+  assert.equal(v({ ts: G412_NOW - 1000, host: '' }).kind, 'unverifiable', '旧 meta 没记 host ⇒ 不冒用本机单调钟')
+  assert.equal(v({ ts: G412_NOW - 1000 }, { uptimeMs: NaN }).kind, 'unverifiable', 'uptime 量不到 ⇒ 报名,不折叠成 consistent')
+  const se = v({ ts: G412_NOW - 1000, bootMs: G412_BOOT - 10 * G412_MIN })
+  assert.equal(se.mode, 'session-ended', '墙钟正常而开机锚点前移超容差 ⇒ 第二判据独立生效(旧判据在这一格只会 wait)')
+  assert.match(se.why, /绝对存活时刻/)
+})
+
+test('G-412·记录侧:writeMeta 落 bootMs=now-uptime;量不到 ⇒ 整键不写(读侧落 unverifiable,不造假锚点)', () => {
+  const base = mkScratch('dl-g412-write-')
+  try {
+    const d1 = join(base, 'w1')
+    mkdirSync(d1, { recursive: true })
+    L.writeMeta(d1, 'build', { ownerPid: process.pid, now: G412_NOW, uptimeMs: G412_UP, run: () => null })
+    const m1 = JSON.parse(readFileSync(join(d1, 'meta.json'), 'utf8'))
+    assert.equal(m1.bootMs, G412_BOOT)
+    const d2 = join(base, 'w2')
+    mkdirSync(d2, { recursive: true })
+    L.writeMeta(d2, 'build', { ownerPid: process.pid, now: G412_NOW, uptimeMs: NaN, run: () => null })
+    const m2 = JSON.parse(readFileSync(join(d2, 'meta.json'), 'utf8'))
+    assert.equal(m2.bootMs, undefined, '量不到就不写 —— 伪造一个锚点等于给判据喂假证据')
+    assert.equal(L.classifyMeta(JSON.stringify(m2)).meta.bootMs, 0, '缺省归一为 0 = "没有锚点"')
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('G-412·break-stale 人工出口成对:空理由 ⇒ 拒绝且字节一字不动;带理由 ⇒ 活锁也先归档再原子断', () => {
+  const base = mkScratch('dl-g412-break-')
+  try {
+    // 名义**存活**的持有者(自己的 pid):自动档在这一格绝不抢,人工出口的语义正是"人确认后断"。
+    const raw = okMeta({ pid: process.pid, ownerPid: process.pid, ts: Date.now() })
+    const dir = lockFixture(base, raw)
+    const denied = L.breakStale({ dir, reason: '   ', log: () => {} })
+    assert.equal(denied.ok, false, '空/纯空白理由必须即拒绝 —— 破坏性动作没有理由不改任何状态')
+    assert.equal(readFileSync(join(dir, 'meta.json'), 'utf8'), raw, '拒绝分支不得碰锁的字节')
+    assert.ok(existsSync(dir))
+    const done = L.breakStale({ dir, reason: '镜像测试夹具:人工确认后的断锁出路对照', log: () => {} })
+    assert.equal(done.ok, true, `带理由应断锁成功,实得 ${JSON.stringify(done)}`)
+    assert.ok(!existsSync(dir), '断锁 = 原子改名到归档面,原路径必须消失(不是 removeLock 的直删)')
+    const scene = readdirSync(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR).filter((n) => n.includes('break-stale'))
+    assert.ok(scene.length >= 1, '现场必须落进归档面(改名后的目录本身就带现场说明)')
+  } finally {
+    rmScratch(base)
+  }
+})
+
