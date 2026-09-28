@@ -57,6 +57,7 @@ import {
   POINTER_FAMILIES,
   POINTER_NO_AUTO_REPAIR,
   auditPlan,
+  countMergeNotes,
   compositeKeyOf,
   keyOfRow,
   parseTaskRows,
@@ -907,9 +908,16 @@ export function verifyRowDedupe(srcText, outText, deletedCount, match = null) {
   ]) {
     if (get(after) > get(before)) problems.push(`${k} 由 ${get(before)} 涨到 ${get(after)}`)
   }
-  // ④ 归并落账注记不得随副本一起丢
-  if (after.mergeNotes < before.mergeNotes)
-    problems.push(`归并落账注记由 ${before.mergeNotes} 掉到 ${after.mergeNotes}(不得随副本一起丢)`)
+  // ④ 归并落账注记不得随副本一起丢 —— 判的是"**种类**是否整类消失",不是"份数有没有变少"。
+  //    本档删的正是逐字相同的孪生**指针行**,按份数比等于禁止本档存在:2026-09-29 真仓
+  //    `--dedupe-rows` 一跑就报"253 掉到 244"(那 9 条同文指针就是它自己要清的东西)⇒
+  //    判据与它要修的那一型互咬,结果不是"少清一点",而是这一维在真账面上**永远落不了地**。
+  //    "每个被删值都有同文幸存份"已由 ② 逐行证明,这里只补一条更弱的:注记文本不得整类不见。
+  const distinct = (arr) => Array.from(new Set(arr)).join('\n')
+  const kindsBefore = countMergeNotes(distinct(a))
+  const kindsAfter = countMergeNotes(distinct(b))
+  if (kindsAfter < kindsBefore)
+    problems.push(`归并落账注记的种类由 ${kindsBefore} 掉到 ${kindsAfter}(不得整类消失;份数变少不算,那正是本档在做的事)`)
   // ⑤ 幂等:做完之后**本档范围内**的等值副本必须清零(带 --match 时只核该子集),
   //    否则要么没删净、要么判据自己错了。
   const left = findRowTwins(outText).filter((g) => !match || g.line.includes(match))
