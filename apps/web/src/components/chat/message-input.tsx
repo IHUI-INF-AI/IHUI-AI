@@ -62,7 +62,7 @@ import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission
 import { useSlashCommands } from '@/hooks/use-slash-commands'
 import { usePermissionModeCycle } from '@/hooks/use-permission-mode-cycle'
 import { useSlashAction } from '@/hooks/use-slash-action'
-import { useMessageReferences } from '@/hooks/use-message-references'
+import { CHAT_ATTACHMENT_ACCEPT, useMessageReferences } from '@/hooks/use-message-references'
 import { useContextSelector } from '@/hooks/use-context-selector'
 // V3 第 61 票:`@` 与 `#` 的「有哪些维度」与「触发符怎么解」都归到引擎那一份表,
 // 本组件不再自写触发正则、不再自持九类目表、也不再自持一份 # 侧 chip 局部 state。
@@ -293,8 +293,17 @@ export function MessageInput({
   // - addFileReference / addTextReference / addCodeReference 三种类型添加
   // - removeReference 移除 + 释放 objectURL
   // - resetReferences 发送后清空
-  const { references, addFileReference, addTextReference, removeReference, resetReferences } =
-    useMessageReferences()
+  // G-833(2026-09-29):附件三档校验批量入口与预筛/提交拆分(选/拖/贴入口聚合提示用)
+  const {
+    references,
+    addFileReference,
+    addFileReferences,
+    screenAttachments,
+    commitFileReference,
+    addTextReference,
+    removeReference,
+    resetReferences,
+  } = useMessageReferences()
   // 强制加载工作区所有 agent 规则文件(AGENTS.md/CLAUDE.md 等,任意层级)作为可见参考块(2026-08-29)
   const agentMdRefs = useAgentMdReference()
   // 被用户手动移除的 agent 参考块 id(仅隐藏展示,不影响 workspaceContext 注入)
@@ -375,6 +384,10 @@ export function MessageInput({
     references,
     resetReferences,
     addFileReference,
+    // G-833:批量校验 + 预筛/提交拆分入口,供选/拖/贴三入口"先聚合再报"
+    addFileReferences,
+    screenAttachments,
+    commitFileReference,
     addTextReference,
     onSend,
     inputCoreRef,
@@ -1314,8 +1327,10 @@ export function MessageInput({
               <input
                 ref={fileInputRef}
                 type="file"
-                // 矩阵 A #19:与 use-message-references UPLOADABLE_EXTENSIONS 白名单对齐
-                accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.json,.zip,.odt,.rtf,.epub"
+                // G-833:accept 不再写死串 —— 由 use-message-references 的 UPLOADABLE_EXTENSIONS
+                // 唯一白名单派生(CHAT_ATTACHMENT_ACCEPT),两处漂移即消除;拖拽/粘贴路径的
+                // 同口径校验(浏览器 accept 可被拖拽绕过)已由 screenAttachmentFiles 三档判据兜住
+                accept={CHAT_ATTACHMENT_ACCEPT}
                 multiple
                 onChange={handleFileInputChange}
                 className="hidden"
