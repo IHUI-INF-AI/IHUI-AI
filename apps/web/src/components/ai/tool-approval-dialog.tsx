@@ -190,7 +190,7 @@ export function ToolApprovalDialog() {
             onClick={() => void handleDecision('reject', scope, reason)}
             disabled={state.sending}
             data-testid="tool-approval-reject"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
           >
             <AlertTriangle className="h-4 w-4" />
             {t('reject')}
@@ -200,7 +200,7 @@ export function ToolApprovalDialog() {
             onClick={() => void handleDecision('approve', scope, reason)}
             disabled={state.sending}
             data-testid="tool-approval-approve"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-cta px-4 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-cta px-4 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
           >
             {state.sending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -243,7 +243,7 @@ export function ToolApprovalDialog() {
                   aria-checked={scope === opt.value}
                   onClick={() => setScope(opt.value)}
                   data-testid={`tool-approval-scope-${opt.value}`}
-                  className={`inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors ${
+                  className={`inline-flex h-7 items-center rounded-sm border px-2.5 text-xs font-medium transition-colors ${
                     scope === opt.value
                       ? 'border-primary/40 bg-primary/10 text-primary'
                       : 'border-border bg-background text-muted-foreground hover:bg-accent'
@@ -270,7 +270,7 @@ export function ToolApprovalDialog() {
               maxLength={500}
               rows={2}
               data-testid="tool-approval-reason"
-              className="w-full resize-none rounded-md border border-border bg-background px-2.5 py-1.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-border"
+              className="w-full resize-none rounded-sm border border-border bg-background px-2.5 py-1.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-border"
             />
           </div>
           {pendingCount > 0 && (
