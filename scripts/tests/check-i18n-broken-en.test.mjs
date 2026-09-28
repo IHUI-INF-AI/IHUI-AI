@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -16,7 +16,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-i18n-broken-en.mjs')
 
 // ─── 辅助:创建临时项目根目录 ─────────────────────────────
 function createTempProject() {
-  return mkdtempSync(join(tmpdir(), 'ihui-broken-en-'))
+  return mkScratch('ihui-broken-en-')
 }
 
 // 辅助:写入 web en.json(默认 target=web)
@@ -73,7 +73,7 @@ test('CLI: --help 不崩溃(无 en.json → 跳过 exit 0)', () => {
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生未捕获 Error`)
     assert.match(r.stdout, /跳过|文件不存在/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -89,7 +89,7 @@ test('通过: en.json 全英文无中文 → exit 0', () => {
     assert.equal(r.status, 0, `全英文应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /✅.*通过|0 处破碎英文/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -105,7 +105,7 @@ test('违规: en.json value 含中文字符 → exit 1 (zh-residue)', () => {
     assert.match(r.stdout, /zh-residue|破碎机翻英文/)
     assert.match(r.stdout, /greeting/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -123,7 +123,7 @@ test('违规: BigModelAppDevTest (4 CamelCase 词) → exit 1 (no-space-concat)'
     assert.equal(r.status, 1, `BigModelAppDevTest 应 exit 1,实际 ${r.status}`)
     assert.match(r.stdout, /no-space-concat|破碎机翻英文/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -138,7 +138,7 @@ test('违规: BigModelAppDev (3 CamelCase 词) → exit 1 (no-space-concat)', ()
     assert.equal(r.status, 1, `BigModelAppDev 应 exit 1,实际 ${r.status}`)
     assert.match(r.stdout, /no-space-concat/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -156,7 +156,7 @@ test('违规: AgentDevPlatform (3 CamelCase 词) 不再被 ORM 子串误豁免 �
     assert.equal(r.status, 1, `AgentDevPlatform 应检测为 no-space-concat,实际 ${r.status}`)
     assert.match(r.stdout, /no-space-concat/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -173,7 +173,7 @@ test('违规: M3SubAI 不再被 M3 子串误豁免 → exit 1 (case-chaos)', () 
     assert.equal(r.status, 1, `M3SubAI 应检测为 case-chaos,实际 ${r.status}`)
     assert.match(r.stdout, /case-chaos/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -188,7 +188,7 @@ test('豁免: GPT-4 连字符复合词(GPT 在白名单)→ exit 0', () => {
     const r = runScript([], { cwd: root })
     assert.equal(r.status, 0, `GPT-4 应豁免,实际 ${r.status}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -203,7 +203,7 @@ test('豁免: M3 单独(完整 token 等于白名单项)→ exit 0', () => {
     const r = runScript([], { cwd: root })
     assert.equal(r.status, 0, `M3 单独应豁免,实际 ${r.status}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -217,7 +217,7 @@ test('通过: userRole (2 段复合词,合法驼峰) → exit 0', () => {
     const r = runScript([], { cwd: root })
     assert.equal(r.status, 0, `UserRole (2 段) 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -236,7 +236,7 @@ test('通过: 品牌名 OpenAI / Anthropic / ChatGPT → exit 0', () => {
     const r = runScript([], { cwd: root })
     assert.equal(r.status, 0, `品牌名应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -253,7 +253,7 @@ test('通过: 占位符 {name} / {{count}} 保留 → exit 0', () => {
     const r = runScript([], { cwd: root })
     assert.equal(r.status, 0, `占位符应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -269,7 +269,7 @@ test('范围: zh-CN.json 含破碎英文但 en.json 干净 → exit 0(只扫 en.
     assert.equal(r.status, 0, `只扫 en.json,不应扫 zh-CN.json,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /✅.*通过|0 处破碎英文/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -290,7 +290,7 @@ test('批量: 多 key 含违规 → 报告全部 violations', () => {
     assert.match(r.stdout, /no-space-concat/)
     assert.match(r.stdout, /zh-residue/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -312,7 +312,7 @@ test('嵌套: 深层嵌套对象中的违规 → 被检测到', () => {
     // path 应反映嵌套层级
     assert.match(r.stdout, /level1\.level2\.level3\.deep/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -325,7 +325,7 @@ test('空 JSON: {} 无 leaf value → exit 0', () => {
     assert.equal(r.status, 0, `空 JSON 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /✅.*通过|0 处破碎英文/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -342,7 +342,7 @@ test('JSON 解析失败: 损坏 JSON → exit 1', () => {
     // 注:JSON 解析失败消息输出到 stderr(console.error)
     assert.match(r.stderr, /JSON 解析失败/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -356,7 +356,7 @@ test('--target=extension: 切换到 extension en.json', () => {
     assert.equal(r.status, 1, `extension target 含中文应 exit 1,实际 ${r.status}`)
     assert.match(r.stdout, /zh-residue/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -370,7 +370,7 @@ test('--readme: 扫描 README.en.md 检测破碎英文', () => {
     assert.equal(r.status, 1, `README 含破碎英文应 exit 1,实际 ${r.status}`)
     assert.match(r.stdout, /no-space-concat|破碎英文/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -394,7 +394,7 @@ test('--readme: 代码块内破碎英文被跳过(``` fence)', () => {
     assert.equal(r.status, 0, `代码块内破碎英文应跳过,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /✅.*通过|0 处破碎英文/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -408,7 +408,7 @@ test('--staged: 无 git repo → 跳过 exit 0', () => {
     assert.equal(r.status, 0, `--staged 无 git 应跳过 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /跳过/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -423,7 +423,7 @@ test('--staged: en.json 已 staged → 触发扫描', () => {
     assert.equal(r.status, 1, `staged en.json 含违规应 exit 1,实际 ${r.status}`)
     assert.match(r.stdout, /zh-residue/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -437,7 +437,7 @@ test('豁免: "IHUI AI (智汇 AI)" 括号内品牌名 → exit 0', () => {
     const r = runScript([], { cwd: root })
     assert.equal(r.status, 0, `括号内品牌名应豁免,实际 ${r.status}\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -455,7 +455,7 @@ test('豁免: "简体中文" / "日本語" 语言本名 → exit 0', () => {
     const r = runScript([], { cwd: root })
     assert.equal(r.status, 0, `语言本名应豁免,实际 ${r.status}\nstdout: ${r.stdout}`)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
@@ -468,7 +468,7 @@ test('--fix: 含违规时提供诊断建议(不自动写文件)', () => {
     assert.equal(r.status, 1, `--fix 含违规仍 exit 1,实际 ${r.status}`)
     assert.match(r.stdout, /--fix 模式|不自动写文件|诊断/)
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

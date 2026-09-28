@@ -12,6 +12,7 @@ import {
   View,
   StyleSheet,
 } from 'react-native'
+import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseScreenProps } from '../../types'
 
@@ -103,15 +104,17 @@ export function CourseScreen({
         ListFooterComponent={
           totalPages > 1 ? (
             <View style={styles.pagination}>
-              {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
               <Pressable
                 onPress={() => onPageChange(Math.max(1, page - 1))}
                 disabled={page <= 1}
                 hitSlop={8}
+                accessibilityLabel={t('common.back')}
               >
-                <Text style={[styles.pageBtn, page <= 1 && styles.pageBtnDisabled]}>
-                  {t('common.back')}
-                </Text>
+                <ChevronLeft
+                  size={16}
+                  color={tk.text.primary}
+                  style={page <= 1 && styles.pageBtnDisabled}
+                />
               </Pressable>
               <Text style={styles.pageIndicator}>
                 {page} / {totalPages}

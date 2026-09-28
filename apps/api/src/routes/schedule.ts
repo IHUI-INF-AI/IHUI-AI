@@ -138,10 +138,16 @@ export const scheduleRoutes: FastifyPluginAsync = async (server) => {
         tags: ['schedule'],
         querystring: {
           type: 'object',
+          // G-261(同 G-257 口径):querystring 一律 type:'string'(ajv 的 integer 强转/minimum/
+          // maximum/default/format 同属校验行为,非法值先拒 ⇒ 400 被掩盖成 500);
+          // 真实校验一律 listLogsQuery(Zod:page/pageSize coerce+min/max/default,taskId uuid)
           properties: {
-            page: { type: 'integer', minimum: 1, default: 1 },
-            pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
-            taskId: { type: 'string', format: 'uuid', description: '任务ID筛选' },
+            page: { type: 'string', description: '页码(整数,默认 1;服务端 Zod 校验)' },
+            pageSize: {
+              type: 'string',
+              description: '每页条数(1-100,默认 20;服务端 Zod 校验)',
+            },
+            taskId: { type: 'string', description: '任务ID筛选(UUID,服务端 Zod 校验)' },
             status: { type: 'string', description: '状态筛选: running/success/failed/timeout' },
           },
         },

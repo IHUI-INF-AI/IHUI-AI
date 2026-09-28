@@ -371,13 +371,17 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
         tags: ['notifications'],
         body: {
           type: 'object',
-          required: ['title', 'content', 'channels', 'msgType'],
+          // G-261(同 G-257 口径):JSON Schema 只声明类型;required/enum/maxLength/minItems/
+          // format:'uuid' 一律交 sendTargetedSchema(Zod:title 1-255,content 1-5000,
+          // userIds uuid 数组≤500 可空,channels enum 1-20,msgType enum + 二选一 refine)。
+          // 此前任一非法值被 ajv 先拒 ⇒ 默认错误体 code 为字符串,与 400 响应 schema(code:number)
+          // 序列化不匹配 ⇒ 400 被掩盖成 500(探针已证,见 tests/g261-validation.test.ts)。
           properties: {
-            title: { type: 'string', maxLength: 255 },
-            content: { type: 'string', maxLength: 5000 },
+            title: { type: 'string', description: '标题(1-255 字符,服务端 Zod 校验)' },
+            content: { type: 'string', description: '正文(1-5000 字符,服务端 Zod 校验)' },
             userIds: {
               type: 'array',
-              items: { type: 'string', format: 'uuid' },
+              items: { type: 'string', description: 'UUID(服务端 Zod 校验)' },
               nullable: true,
               description: '指定用户 ID 列表(为 null 时按 roleFilter)',
             },
@@ -389,12 +393,15 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
             },
             channels: {
               type: 'array',
-              items: { type: 'string', enum: ['in_app', 'email', 'sms'] },
-              minItems: 1,
+              items: {
+                type: 'string',
+                description: 'in_app / email / sms(服务端 Zod 校验)',
+              },
+              description: '派发渠道(1-20 个,服务端 Zod 校验)',
             },
             msgType: {
               type: 'string',
-              enum: ['system', 'order', 'project', 'comment', 'mention', 'follow'],
+              description: 'system/order/project/comment/mention/follow(服务端 Zod 校验)',
             },
           },
         },

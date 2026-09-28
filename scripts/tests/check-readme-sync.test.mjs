@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -17,7 +17,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-readme-sync.mjs')
 // ─── 辅助:创建临时 git 仓库(含初始 commit,README.md 已纳入版本控制) ──
 // check-readme-sync.mjs 通过 git diff 读取 staged/working 文件,需 git 环境
 function createTempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-readme-sync-'))
+  const dir = mkScratch('ihui-readme-sync-')
   const opt = { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
   spawnSync('git', ['init', '-b', 'main'], opt)
   spawnSync('git', ['config', 'user.email', 'test@ihui.local'], opt)
@@ -72,13 +72,13 @@ function runScript(opts = {}) {
 
 // ─── 1. 非 git: 非 git 仓库目录 + --staged → exit 0(getStagedFiles catch 返回空) ──
 test('非 git: 非 git 仓库目录 + --staged → exit 0(跳过,无 warn)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-nongit-'))
+  const dir = mkScratch('ihui-nongit-')
   try {
     const r = runScript({ cwd: dir })
     assert.equal(r.status, 0, `非 git 应 exit 0,实际 ${r.status}`)
     assert.ok(!r.err.includes('[check-readme-sync]'), '非 git 不应触发 warn')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -90,7 +90,7 @@ test('空 staged: git 仓库无 staged 文件 → exit 0(无 trigger,无 warn)',
     assert.equal(r.status, 0, `空 staged 应 exit 0,实际 ${r.status}`)
     assert.ok(!r.err.includes('[check-readme-sync]'), '空 staged 不应触发 warn')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -108,7 +108,7 @@ test('pass: staged apps/web/src 功能代码 + README.md 已同步 → exit 0,�
     assert.equal(r.status, 0, `README 已同步应 exit 0,实际 ${r.status}`)
     assert.ok(!r.err.includes('[check-readme-sync]'), 'README 已同步不应 warn')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -122,7 +122,7 @@ test('pass: staged packages/ui/src 共享包代码 + README.md 已同步 → exi
     assert.equal(r.status, 0)
     assert.ok(!r.err.includes('[check-readme-sync]'), 'packages + README 同步不应 warn')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -135,7 +135,7 @@ test('pass: staged 仅 scripts/ 改动(豁免,非功能代码)→ exit 0,无 war
     assert.equal(r.status, 0)
     assert.ok(!r.err.includes('[check-readme-sync]'), 'scripts/ 豁免不应 warn')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -148,7 +148,7 @@ test('pass: staged 仅 README.md(modified,无功能代码)→ exit 0,无 warn', 
     assert.equal(r.status, 0)
     assert.ok(!r.err.includes('[check-readme-sync]'), '仅 README.md 不应 warn')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -169,7 +169,7 @@ test('warn: staged apps/web/src 功能代码,无 README.md → exit 0 + warn', (
     assert.match(r.err, /warn-only/, '应标明 warn-only')
     assert.match(r.err, /apps\/web\/src\/page\.tsx/, '应列出触发文件')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -186,7 +186,7 @@ test('warn: staged packages/ui/src 共享包代码,无 README.md → exit 0 + wa
     assert.match(r.err, /warn-only/, '应标明 warn-only')
     assert.match(r.err, /packages\/ui\/src\/button\.tsx/, '应列出 packages 触发文件')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -203,7 +203,7 @@ test('warn: staged apps/ai-service/app/api/ 改动,无 README.md → exit 0 + wa
     assert.match(r.err, /warn-only/, '应标明 warn-only')
     assert.match(r.err, /apps\/ai-service\/app\/api\/route\.py/, '应列出 ai-service api 触发文件')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -220,7 +220,7 @@ test('warn: staged apps/ai-service/app/services/ 改动,无 README.md → exit 0
     assert.match(r.err, /warn-only/, '应标明 warn-only')
     assert.match(r.err, /apps\/ai-service\/app\/services\/llm\.py/, '应列出 ai-service services 触发文件')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -237,7 +237,7 @@ test('边界 pass: staged apps/web/src/foo.test.ts(测试文件豁免)→ exit 0
     assert.equal(r.status, 0)
     assert.ok(!r.err.includes('[check-readme-sync]'), '测试文件豁免不应 warn')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -250,7 +250,7 @@ test('边界 pass: staged apps/web/src/guide.md(md 豁免,TRIGGER+EXEMPT 抵消)
     assert.equal(r.status, 0)
     assert.ok(!r.err.includes('[check-readme-sync]'), 'md 文件豁免不应 warn')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -263,7 +263,7 @@ test('边界 pass: staged apps/web/foo.ts(不在 src/,非 trigger)→ exit 0,无
     assert.equal(r.status, 0)
     assert.ok(!r.err.includes('[check-readme-sync]'), '非 src 路径不触发')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -282,7 +282,7 @@ test('边界 warn: staged 6 个 trigger 文件(>5)→ exit 0 + warn,含"还有 1
     assert.match(r.err, /6 个功能文件/, '应报告 6 个功能文件')
     assert.match(r.err, /还有 1 个/, '应输出截断提示"还有 1 个"')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -300,7 +300,7 @@ test('非 staged 模式: 默认模式(无 --staged)读取 working tree 改动,�
     assert.match(r.err, /README\.md 未同步/)
     assert.match(r.err, /warn-only/, '应标明 warn-only')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
