@@ -11,17 +11,14 @@
  *  ② 装车锁:`RootNavigator.tsx` 里必须真的调用 `authArrivalAction(` 并接 `navigationRef.reset`,
  *     且判据读的是**剥掉注释后的代码面** —— 否则"只在注释里提一句"就能骗过这条锁,
  *     而那正是守门 70/76/81/115 反复记过的失效形态。
+ *     **这一半住在 `scripts/tests/auth-arrival-navigation-wiring.test.mjs`**(2026-09-28 挪):
+ *     它要用全仓唯一那份遮罩实现 `scripts/lib/code-mask.mjs`,而架构契约的门 103 判"端 import
+ *     根工具层"为向上依赖(D2 只比 rank,补 `requires` 也消不掉)。把锁挪到不反向的那一层
+ *     才是合规出路 —— 抄一份遮罩进端内会造出第二份真相,登记例外等于给架构表开口子。
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 import { authArrivalAction } from '../src/navigation/auth-arrival'
-import { maskComments } from '../../../scripts/lib/code-mask.mjs'
-
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const NAV_FILE = path.resolve(HERE, '..', 'src', 'navigation', 'RootNavigator.tsx')
 
 describe('authArrivalAction —— 令牌到达那一次的落点', () => {
   it('① 无→有 且停在 Login ⇒ 送回 Main', () => {
@@ -44,27 +41,10 @@ describe('authArrivalAction —— 令牌到达那一次的落点', () => {
     expect(authArrivalAction({ hadToken: false, hasToken: true, routeName: 'Chat' })).toBe('none')
   })
   it('⑥ 导航器未就绪(routeName 缺失)⇒ 不动,也不猜', () => {
-    expect(authArrivalAction({ hadToken: false, hasToken: true, routeName: undefined })).toBe('none')
+    expect(authArrivalAction({ hadToken: false, hasToken: true, routeName: undefined })).toBe(
+      'none',
+    )
     expect(authArrivalAction({ hadToken: false, hasToken: true, routeName: null })).toBe('none')
-  })
-})
-
-describe('装车锁 —— 判据必须真被 RootNavigator 调用', () => {
-  // 读工作树而非 HEAD:这条锁断言的是"本次交付把线接上了",而 HEAD 在那之前结构上不可能含它
-  // (读 HEAD 会让任何新增调用点都先红一轮 —— 与本仓"判据不得替人做出『还没做』的判断"同取向)。
-  const src = readFileSync(NAV_FILE, 'utf8')
-  const code = maskComments(src)
-
-  it('调用点在场:authArrivalAction( 出现在代码面而非注释里', () => {
-    expect(code).toMatch(/authArrivalAction\(\s*\{/)
-    expect(src).not.toBe(code) // 夹具自证:这文件确实有注释可被剥(否则"剥注释"这一步是空操作)
-  })
-  it('出口在场:判定为 reset-to-main 时走 navigationRef.reset 到 Main', () => {
-    expect(code).toMatch(/action !== 'reset-to-main'\) return/)
-    expect(code).toMatch(/navigationRef\.reset\(\{\s*index: 0, routes: \[\{ name: 'Main' \}\]/)
-  })
-  it('prevToken 初值取当前 token(冷启动已登录不得被判成"刚到")', () => {
-    expect(code).toMatch(/useRef<string \| null>\(token\)/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
