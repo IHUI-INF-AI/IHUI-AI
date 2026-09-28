@@ -1861,7 +1861,7 @@ const styles = StyleSheet.create({
     bottom: 76, // TabBar 上方
     width: 34,
     height: 34,
-    borderRadius: 17, // radius-exempt: 返回顶部按钮 34×34 正圆(直径一半)
+    borderRadius: 17,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2010,7 +2010,7 @@ const styles = StyleSheet.create({
     marginLeft: rpx(-60),
     width: 60,
     height: 60,
-    borderRadius: 30, // radius-exempt: 视频播放按钮 60×60 正圆(直径一半,对齐 Uniapp 50%)
+    borderRadius: 30,
     backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2308,7 +2308,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: 72,
     height: 72,
-    borderRadius: rnRadius.xl, // radius-exempt: 72dp 头像底,12 为有意圆角方(头像族不得方档化成 4)
+    borderRadius: rnRadius.xl,
     overflow: 'hidden',
   },
   editProfileAvatar: {

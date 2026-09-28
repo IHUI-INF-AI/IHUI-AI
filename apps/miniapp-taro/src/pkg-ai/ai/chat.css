@@ -870,7 +870,7 @@
 .loader-dot {
   width: 12rpx;
   height: 12rpx;
-  border-radius: 50%; /* radius-exempt: 12rpx 见方加载装饰点,按项目规则真圆豁免 */
+  border-radius: 50%;
   background: var(--color-card);
   animation: loaderpulse 1.5s infinite ease-in-out;
 }

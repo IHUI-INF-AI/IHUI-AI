@@ -28,7 +28,7 @@
 .tdetail-avatar {
   width: 128rpx;
   height: 128rpx;
-  border-radius: 64rpx; /* radius-exempt: 128rpx 讲师头像真圆,半径=边长一半 */
+  border-radius: 64rpx;
   background: var(--color-muted);
   flex-shrink: 0;
 }
