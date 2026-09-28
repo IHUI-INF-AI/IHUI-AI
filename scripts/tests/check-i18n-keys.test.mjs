@@ -103,12 +103,13 @@ const PARITY_OK = {
 test('CLI: --help 不崩溃(脚本未实现 --help,按默认模式运行)', () => {
   const root = createTempProject()
   try {
-    // 无 messages 目录 → 脚本输出 "messages 文件不存在或不完整,跳过" 并 exit 0
+    // G-304(2026-09-28)改判:无 messages 目录不再"跳过 exit 0",而是 exit 2「无法判定」——
+    // 空输入记通过正是本仓反复记过的假绿型(守门 70/105「空扫不记绿」同一条禁令)。
     const r = runScript(['--help'], { cwd: root })
     assert.equal(
       r.status,
-      0,
-      `--help 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+      2,
+      `--help 在无 messages 目录时必须 exit 2(未判定),实得 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
     )
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生未捕获 Error`)
   } finally {
@@ -1174,5 +1175,51 @@ test('KR-5 跨层形状锁:每条判红结论行必须被归因层认作结论(�
     blind.map((l) => l.trim().slice(0, 90)),
     [],
     '这些判红结论行归因层看不见 ⇒ 本门自己的红会被判成 not-ours 并放行跳门',
+  )
+})
+
+// —— G-304(2026-09-28 立):未知 --target 不得静默回落到 web;api 这一族必须有自身覆盖 ——
+// 立项实测:`--target=api` 曾把 web 的键数原样打第二遍 ⇒ messages/api/** 五语言在门 [2] 上
+// 零 parity 覆盖,而账面读起来像"查过了"。回落就是把"没判"写成"判过了"(本仓最高频失效型)。
+test('G-304 未知 --target ⇒ exit 2 并点名可用端,且同一趟不得打出任何通过读数', () => {
+  const r = runFaceScript(['--target=__no_such_end__'])
+  assert.equal(
+    r.status,
+    2,
+    `未知 target 必须判死,实得 status=${r.status} stderr=${String(r.stderr || '').slice(0, 160)}`,
+  )
+  assert.match(r.stderr || '', /未知 --target=__no_such_end__/, '结论行必须点名那个 target')
+  assert.match(r.stderr || '', /可用 target:/, '必须列出可用端,否则报错等于没给出路')
+  assert.doesNotMatch(
+    `${r.stdout || ''}${r.stderr || ''}`,
+    /parity OK|通过,parity 比对/,
+    '判死那一趟同时打出「通过」= 两态同屏的自相矛盾合格证',
+  )
+})
+
+test('G-304 阳性对照:--target=api 与 --target=web 必须各自报自己的键数(同数即回落复活)', () => {
+  const api = runFaceScript(['--target=api', '--parity-only'])
+  const web = runFaceScript(['--target=web', '--parity-only'])
+  assert.equal(api.status, 0, `api 档应通过,stderr=${String(api.stderr || '').slice(0, 200)}`)
+  assert.equal(web.status, 0, `web 档应通过,stderr=${String(web.stderr || '').slice(0, 200)}`)
+  const numOf = (out) => (String(out).match(/parity 比对 5 语言 × (\d+) 键路径/) || [])[1]
+  const a = numOf(api.stdout)
+  const w = numOf(web.stdout)
+  assert.ok(a && w, `两档都必须量到自己的键路径数,实得 api=${a} web=${w}(量不到=判据看不见那一族)`)
+  assert.notEqual(a, w, `api 与 web 报了同一个数(${a})⇒ 静默回落回来了,本票的立项事故形态`)
+})
+
+test('G-304 形状锁:target 白名单必须从 messages/ 实际目录现读,未知值必须有判红出口', () => {
+  const code = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.match(code, /readdirSync\(MESSAGES_ROOT/, '白名单必须现读端目录(手工清单必然腐烂)')
+  assert.match(
+    code,
+    /if \(targetArg && !knownTargets\.includes\(TARGET\)\)/,
+    '未知 target 的判红出口必须挂在 argv 上;缺它就等于允许 fall through 到默认端',
+  )
+  assert.match(
+    code,
+    /if \(!knownTargets\)[\s\S]{0,240}process\.exit\(2\)/,
+    '端目录本身取不到 ⇒ 同样判死(无法判定不等于通过)',
   )
 })
