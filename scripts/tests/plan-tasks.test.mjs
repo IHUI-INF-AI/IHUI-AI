@@ -29,6 +29,8 @@ import {
   keyOfRow,
   titleIsDegenerate,
   titleOf,
+  usedIdsOfPrefix,
+  bodyOfRow,
 } from '../lib/plan-task-index.mjs'
 import { gitRaw } from '../lib/face-reader.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -1166,4 +1168,180 @@ test('M20 粗尺与不变量:两参调用方(converge)照旧判 F9,而非 F9 各
   if (!/unmigrated[\s\S]{0,400}return 2/.test(body))
     throw new Error('"形状未迁移"没有落成非零退出 ⇒ 静默放行,等于把这一维关掉')
   if (!body.includes('f9GroupLine(')) throw new Error('gate 没走逐组点名的唯一文案出口(两处各写一遍必漂移)')
+})
+// ── M24..M28:装饰括注后的编号位必须算进取号(2026-09-29,`（待派/QODER-O81）G-627` 一族)─────
+//
+// 本票修的是一天内两次当场自伤的取号缺陷:台账登记行把编号写在**行首括注之后**
+// (`（待派/持有者）G-627` / `（【归并】…长注…）G-619` / `〔【归并】…〕G-189` / `✅(超长嵌套括注) **G-223**`),
+// 而旧解析只认"词形"装饰(租约/✅(日期)/已完成),括注留在正文里 —— 后果分两种:
+//  ① 括注里恰好有**别的族的号**(`QODER-O81` 里的 O81)⇒ keyOfRow 取到的是被引号,真编号整行隐身;
+//  ② 括注够长 ⇒ 真编号被推出 48 字主键窗口 ⇒ 整行无主键。
+// 两种都让 `usedIdsOfPrefix` 低估号段 max ⇒ 取号器把**已经用过的号再发一遍**(落地面同号挂两个标题,
+// F9 当场把它抓成新增撞号)。这是"判据锚钉在复选框之后立刻是编号"那同一条雷的第三个位置
+// (前两处:门 71 的 headIdOf、F9 的编号位收窄,见台账 D168/G-417)。
+// 修法住在**解析**(`plan-task-index.bodyOfRow` 括注档,最长锚定前缀),取号与幂等判据吃的仍是同一份出口。
+
+/** 逐字取自 HEAD 面的真实形态(正文裁短,括注形状一字未动)。 */
+const M24_MASKED = '- [ ]（待派/QODER-O81）G-777 **守门 149(包入口 barrel 漏 re-export)对"端内 barrel"整片失明** —— 立票凭据不是推理。'
+const M24_LONGPUSH =
+  '- [ ]（【归并】重复登记副本·同题不同编号·2026-09-28·本行与同题登记的持有行重复,现摘掉编号只留指针,不翻勾、不并抄、正文逐字保留,派单以持有行为准）G-778 **另一条长括注推窗口的题面** —— 说明。'
+const M24_NESTEDJIA =
+  '- [ ]〔【归并】重复登记副本(2026-09-28,幂等折叠):这一行与同题的另一条登记逐字相同,派单以那条为准,本行只留指针不翻勾。〕G-779 **方括注形** —— 说明。'
+const M24_NESTEDPAREN =
+  '- [x] ✅(2026-09-27 翻勾:三格全部有归宿 —— ① 成因面已由 **G-780** 取证坐实(先写根 `./.env` 再复制成 `apps/api/.env`,同一次事故的双面),诱饵快照已搬离源码根) **G-781 嵌套长括注之后的真正题面** —— 说明。'
+
+test('M24 正向(本票主案):行首装饰括注之后的编号必须被取号与主键认出,括注内的被引号不得顶位', () => {
+  if (keyOfRow(M24_MASKED) !== 'G-777')
+    throw new Error(`括注掩蔽型必须取到真编号,实测 ${keyOfRow(M24_MASKED)}(旧解析给 O81/整族隐身)`)
+  if (keyOfRow(M24_LONGPUSH) !== 'G-778') throw new Error(`长括注推窗口型实测 ${keyOfRow(M24_LONGPUSH)}`)
+  if (keyOfRow(M24_NESTEDJIA) !== 'G-779') throw new Error(`〔…〕嵌套型实测 ${keyOfRow(M24_NESTEDJIA)}`)
+  if (keyOfRow(M24_NESTEDPAREN) !== 'G-781')
+    throw new Error(`✅+嵌套长括注型实测 ${keyOfRow(M24_NESTEDPAREN)}(不得取到括注里的 G-780)`)
+  // 复合主键必须落在"括注之后的真题面"上(F1/F4/F9 从此看得见这一族)
+  const c = compositeKeyOf(M24_MASKED)
+  if (!c || !c.startsWith('G-777#守门149')) throw new Error(`题面必须从括注后开始,实测 ${JSON.stringify(c)}`)
+  const doc = [
+    '# p',
+    '- [ ] **G-700 基准行**:先给该族一个已用号。',
+    M24_MASKED,
+    M24_LONGPUSH,
+    M24_NESTEDJIA,
+    M24_NESTEDPAREN,
+  ].join('\n')
+  const u = usedIdsOfPrefix(doc, 'G')
+  if (!u || u.max < 781)
+    throw new Error(`号段基准必须被装饰行顶到 ≥781(旧尺子只给 700 ⇒ 重发 777),实测 ${u && u.max}`)
+  // 括注里的被引号**不得**成为 O 族成员:整份文档没有任何 O 族编号位行 ⇒ null(判不出),不是 [81]
+  if (usedIdsOfPrefix(doc, 'O') !== null)
+    throw new Error(`O81 是持有者短名不是 O 族登记 ⇒ 取号集合必须为空,实测 ${JSON.stringify(usedIdsOfPrefix(doc, 'O'))}`)
+})
+
+test('M25 反向(顶高红线):行文引用不得算编号位;窗口语义的已知残留必须按现值钉住', () => {
+  const doc = [
+    '# p',
+    '- [ ] **G-700 基准行**:唯一的已用号。',
+    // ① 纯散文引用,且落在 48 字窗口之外 —— 不得顶高。
+    '- [ ] ' + '无编号题面的中文垫子'.repeat(8) + ',后文才提到 G-777 —— 只是行文引用,不得顶高开号(垫子保证引用起点 >48 字,不靠点数)',
+    // ② 本行有自己行首编号,G-777 在窗口内也只算引用(keyOfRow 取行首那一个)。
+    '- [ ] **D70 与 G-290 无关的另一件事**:正文里提到 G-777 也只是引用,不得顶高 G 段。',
+  ].join('\n')
+  const u = usedIdsOfPrefix(doc, 'G')
+  if (!u || u.max !== 700) throw new Error(`散文引用不得顶高号段,实测 max=${u && u.max}`)
+  // ③ 括注**后面没有编号**的引用行:括注剥不动(最长锚定前缀回退),窗口照旧把 G-777 当 key。
+  //    这是刻意保留的既有语义(宁顶号不空段;拆它要连 M20 的窗口锁一起裁),钉成现值防止无感漂移。
+  const refInBrackets = '- [ ]（见 G-777 收口）另立一事,题面本身不含自身编号'
+  if (keyOfRow(refInBrackets) !== 'G-777')
+    throw new Error(`回退档的窗口语义被改动(须连同 M20/M27 一起裁,不许单动),实测 ${keyOfRow(refInBrackets)}`)
+  if (!bodyOfRow(refInBrackets).startsWith('（见'))
+    throw new Error('括注后无编号⇒不得吃(归并产物依赖这一半),实测括注被剥掉了')
+  // ④ 全空的族不得给 0 号(与"取不到判不出"同口径)
+  if (usedIdsOfPrefix('- [ ]（待派）本行题面没有任何编号形态', 'G') !== null)
+    throw new Error('该族零成员必须 null,不得当"0 已用"')
+})
+
+test('M26 逐行条件不变量·真仓台账面(§22c:输入逐字取自被审面;每行两侧不一致即点名)', () => {
+  // 一把与生产解析**不同构造**的独立尺子(测试本地,仅用于取证,不参与任何生产路径):
+  // 行首成对括注(四种,深度感知)+ 词形装饰/强调记号全部跳过后,正文开头若就是编号形态 ⇒ 该行"编号位在行首"。
+  const ID = String.raw`G-\d+[a-z]?|D\d+[a-z]?|O\d+[a-z]*\d*|B\d+[a-z]?|P\d+(?:-[A-Za-z]+)?(?:\.\d+)?|W\d+|守门\s*\d+[a-z]?|V3-\d+[a-z]?`
+  const PAIRS = { '（': '）', '(': ')', '【': '】', '〔': '〕' }
+  const NOISE = new Set(['*', '`', ' ', '\t', ':', '：', '✅', '　'])
+  function indepAnchor(line) {
+    const m = /^\s*[-*]\s\[(?: |x|X)\]\s*/.exec(line)
+    if (!m) return null
+    const body = line.slice(m[0].length)
+    let i = 0
+    for (;;) {
+      while (i < body.length && NOISE.has(body[i])) i += 1
+      for (const w of ['已完成', '已闭环', '已收口']) if (body.startsWith(w, i)) i += w.length
+      const opener = body[i]
+      const closer = PAIRS[opener]
+      if (!closer) break
+      let depth = 0
+      let j = i
+      for (; j < body.length; j += 1) {
+        if (body[j] === opener) depth += 1
+        else if (body[j] === closer && --depth === 0) break
+      }
+      if (depth !== 0) break
+      i = j + 1
+    }
+    const mm = new RegExp(`^(?:${ID})`).exec(body.slice(i))
+    if (!mm) return null
+    const id = mm[0].trim()
+    if (/^守门/.test(id) || /^P\d+$/.test(id)) return null // 与 keyOfRow 的既有排除同口径
+    return id
+  }
+  const txt = gitRaw(['show', 'HEAD:PROJECT_PLAN.md'], ROOT)
+  if (!txt || txt.length < 100000) throw new Error('取不到 HEAD 台账面 ⇒ 不变量无从跑,不得静默跳过')
+  const lines = txt.split(/\r?\n/)
+  const byFam = {}
+  for (const f of ['G', 'D', 'O', 'B', 'P', 'W', 'V3']) {
+    const u = usedIdsOfPrefix(txt, f)
+    byFam[f] = new Set((u?.ids ?? []).map((x) => (/^([A-Za-z]+)[-_ ]?(\d+)/.exec(x) || []).slice(1, 3).join('')))
+  }
+  const norm = (id) => {
+    const m = /^([A-Za-z]+)[-_ ]?(\d+)/.exec(id)
+    return `${m[1].toUpperCase()}${m[2]}`
+  }
+  let checked = 0
+  const bad = []
+  lines.forEach((l, idx) => {
+    const a = indepAnchor(l)
+    if (!a) return
+    checked++
+    const fam = /^([A-Za-z]+)/.exec(a)[1].toUpperCase()
+    if (!byFam[fam] || !byFam[fam].has(norm(a)))
+      bad.push(`L${idx + 1} 锚=${a} 不在该族取号集合 | ${l.slice(0, 40)}`)
+  })
+  if (checked < 800) throw new Error(`独立尺子只认出 ${checked} 行编号位(本轮 HEAD 现读 2400+)⇒ 尺子坏了,不是面干净`)
+  if (bad.length)
+    throw new Error(
+      `逐行条件不变量红 ${bad.length} 行(编号位在行首却没进集合 ⇒ 取号器会重发):\n${bad.slice(0, 8).join('\n')}`,
+    )
+})
+
+test('M27 形状锁:括注扫描只许一份实现,三个同族读者不得回家各写灶;M16 防线一字未松', () => {
+  const src = readFileSync(path.resolve(ROOT, 'scripts', 'lib', 'plan-task-index.mjs'), 'utf8')
+  // ① 深度扫描原语只有一份(`depth += 1` 是它的指纹;出现两次 = 有人抄了第二份)
+  if ((src.match(/depth \+= 1/g) || []).length !== 1)
+    throw new Error('成对括注扫描出现第二份实现 ⇒ 两处必漂(本仓最高频失效型)')
+  // ② bodyOfRow 必须两档都在(词形 oldStrip + 括注 stripBracketDecorations),摘掉任一档即回到本票缺陷
+  if (!/oldStrip\(body\)/.test(src) || !/stripBracketDecorations\(legacy\)/.test(src))
+    throw new Error('bodyOfRow 不再走"词形+括注"两档 ⇒ 装饰档解析被拆')
+  // ③ 主键后那一侧必须复用原语,且自己不得内联深度扫描
+  const sk = /export function skipKeyAttachedDecorGroups\([\s\S]*?\n}/.exec(src)?.[0] ?? ''
+  if (!sk.includes('matchBalancedGroupAt(s, k, GROUP_PAIRS)') || sk.includes('depth'))
+    throw new Error('skipKeyAttachedDecorGroups 没复用原语(或内联了第二份扫描)⇒ 两侧对"配平"的理解会漂')
+  // ④ 行首形状表含 〔〕、不含半角方括号;主键后表**不含** 〔(键后 〔拆票…〕 语义与旧版逐字同形)
+  if (!/const LEAD_DECOR_PAIRS = \{[^\n]*〔/.test(src)) throw new Error('行首形状表丢了 〔〕 ⇒ 〔【归并】…〕 一族又隐身')
+  if (/GROUP_PAIRS = \{[^\n]*〔/.test(src)) throw new Error('主键后表被加了 〔 ⇒ G-NNN〔拆票…〕 的 stripOwnKey 语义被单改')
+  // ⑤ 三个同族读者只许**经出口**取数(import bodyOfRow/usedIdsOfPrefix 合法 —— 那正是 D168 定的方向),
+  //    不得各自**再造**解析:自派生深度扫描 / 自定义行首形状表 / 复制括注剥离正则,都是第二份真相。
+  for (const rel of ['scripts/live-doc-edit.mjs', 'scripts/next-plan-id.mjs', 'scripts/lib/plan-id-face.mjs']) {
+    const t = readFileSync(path.resolve(ROOT, rel), 'utf8')
+    if (t.includes('depth += 1') || t.includes('LEAD_DECOR_PAIRS') || t.includes('[^()]') || t.includes('[^（）]'))
+      throw new Error(`${rel} 出现第二份括注/装饰解析实现 ⇒ 与取号出口分叉,本票在它身上复发`)
+  }
+  // ⑥ M16 撞号防线:编号后紧跟**非状态**括注仍不剥、仍判退化、composite 仍 null(本票没有把它洗回来)
+  const noteParen = '- [ ] **G-257(新登记)**:`check-agent-engine-parity.mjs` 的可跑性依赖 cwd'
+  if (compositeKeyOf(noteParen) !== null)
+    throw new Error('叙述性括注被本票洗成有题面 ⇒ M16 撞号误翻勾防线没了')
+})
+
+test('M28 归并/折叠产物不得被本票点亮:【归并】前缀行题面仍为空、零撞号、派单口径仍排除它', () => {
+  // 这是"最长锚定前缀"回退档存在的全部理由:归并器把编号摘进行首全角括注里,靠的正是
+  // "括注后没有紧跟编号 ⇒ 不吃"。若哪天有人把回退拆成无条件吃,这一条先红,而不是等 --fold-twins 静默停摆。
+  const held = '- [x] ✅(2026-09-26) **D99 复合主键正例**:说明。'
+  const foldCopy =
+    '- [x] ✅(2026-09-27) **【归并】** 本行与已完成登记同题 ⇒ 只落状态、不删行。 **D99 复合主键正例**:旧副本。'
+  const a = auditPlan(['# p', held, foldCopy].join('\n'))
+  if (a.counts.collisionGroups !== 0)
+    throw new Error(`归并产物被点亮 ⇒ 与持有行拼成假撞号,实测 ${JSON.stringify(a.collisions.map((g) => g.key))}`)
+  if (compositeKeyOf(foldCopy) !== null)
+    throw new Error(`折叠产物必须仍对 composite 隐形(摘号进括注的机制依赖),实测 ${compositeKeyOf(foldCopy)}`)
+  // 台账里"摘号进（【归并】…）"的真实行:本票让它**重新可见**是刻意的(票面明列该形态);
+  // 但派单口径必须仍把它扣掉 —— DUP_POINTER 那把尺子不因为编号现形而漏人。
+  const b = auditPlan(['# p', M24_LONGPUSH, '- [ ] G-778 **另一条长括注推窗口的题面** —— 说明。'].join('\n'))
+  if (b.claimableRows.some((r) => r.raw === M24_LONGPUSH))
+    throw new Error('已带【归并】指针的副本重新进了派单口径 ⇒ 本票把它修成了"同一件事派两遍"')
 })
