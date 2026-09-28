@@ -24,10 +24,12 @@ import { describe, it } from 'node:test'
 import { git as bypassGit } from '../lib/bypass-git.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
+  F_DIM_NO_RISE,
   KNOWN_FLAGS,
   VALUE_FLAGS,
   buildOpenRowDedupe,
   buildRowDedupe,
+  fDimRegressions,
   findOpenRowRefusals,
   findOpenRowTwins,
   findRowTwins,
@@ -658,3 +660,50 @@ describe('R5 形状锁补:共用核与分块旗标成套性(被摘线不得被�
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+describe('R8 F 维策略表:两份删除档共用一份,且 F3 读的是"指针总数"而不是"可自动收口"', () => {
+  const base = {
+    forks: 0,
+    voidRows: 0,
+    rotatedPointers: 264,
+    rotatedAuto: 0,
+    rotatedNoExit: 264,
+    dupOpenCopies: 0,
+    dupBlocks: 0,
+  }
+  it('正向:删行把 4 条指针从"无出口"翻成"可自动收口"而总数一字未动 ⇒ 不得记成新增债', () => {
+    // 真仓 2026-09-29 实测形态:pointers 264→264、noExit 264→260、auto 0→4。
+    // 判据宿主自己(plan-task-index.mjs:414-418)写明这一维会因行号位移凭空 +1,
+    // 挂上删除档就是它说的那台恒红门 —— 这条正向的存在理由就是防"把位移当债"。
+    assert.deepEqual(fDimRegressions(base, { ...base, rotatedAuto: 4, rotatedNoExit: 260 }), [])
+  })
+  it('反向:指针总数上涨 ⇒ 必须点名 F3(只肯放行"翻档",不是关掉这一维)', () => {
+    assert.deepEqual(
+      fDimRegressions(base, { ...base, rotatedPointers: 265, rotatedNoExit: 265 }),
+      ['F3 由 264 涨到 265'],
+    )
+  })
+  it('反向:F1/F4 照旧上涨即红(换 F3 的量纲没把别的维度一起换掉)', () => {
+    assert.deepEqual(fDimRegressions(base, { ...base, forks: 1 }), ['F1 由 0 涨到 1'])
+    assert.deepEqual(fDimRegressions(base, { ...base, dupOpenCopies: 2 }), ['F4 由 0 涨到 2'])
+  })
+  it('形状锁:F3 的量纲只有一处定义,两份删除档都走同一个出口', () => {
+    assert.equal(
+      F_DIM_NO_RISE.find(([k]) => k === 'F3')[1]({ rotatedPointers: 7, rotatedAuto: 3 }),
+      7,
+      'F3 必须读 rotatedPointers(读 auto 就是那台会凭空 +1 的尺子)',
+    )
+    const src = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'plan-tasks-merge.mjs'), 'utf8')
+    assert.equal(
+      (src.match(/\['F3', \(c\) => c\.rotatedPointers\]/g) ?? []).length,
+      1,
+      '策略表只许一处;复制第二份迟早与它漂开',
+    )
+    assert.equal((src.match(/fDimRegressions\(before, after\)/g) ?? []).length, 2, '两份删除档各调一次')
+    assert.equal(
+      (src.match(/\['F3', \(c\) => c\.rotatedAuto\]/g) ?? []).length,
+      2,
+      '未做同量级对照的两档(恢复终态 / 折叠孪生)刻意保持原样,不得"顺手统一"',
+    )
+  })
+})
