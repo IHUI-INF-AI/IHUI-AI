@@ -131,14 +131,18 @@ export function verifyStrip({ parentText, newText, moved }) {
   for (const [k, v] of mo) lost += Math.max(0, v - (mn.get(k) || 0))
   let gain = 0
   for (const [k, v] of mn) gain += Math.max(0, v - (mo.get(k) || 0))
-  const expectGain = pl.indexOf(ZONE_TITLE) >= 0 ? (moved.length ? gain === moved.length ? 0 : -1 : 0) : 1 + ZONE_NOTES.filter((n) => n.trim() !== '').length
+  // **移动不改多重集**:被摘走的那 N 行原本就在文档里,只是换了位置 ⇒ 区已在位时净新增必须是 0,
+  // 区不在位时只应多出"区头"那几行。收编自一次性脚本时这里被我写成"新增应等于移出行数",
+  // 于是工具在真仓上把自己每一次正常动作都判成违规 —— 失效方向是安全的(它拒落地而不是错落地),
+  // 但一道永远红、永远拒绝的出口等于没有出口,所以这条必须修判据而不是绕它。
+  const zoneHeadLines = 1 + ZONE_NOTES.filter((n) => n.trim() !== '').length
+  const zoneExists = pl.indexOf(ZONE_TITLE) >= 0
+  const expectGain = zoneExists ? 0 : zoneHeadLines
   if (lost !== 0) fails.push(`有 ${lost} 行非空内容消失(本工具只许移动,绝不许删)`)
-  if (moved.length && pl.indexOf(ZONE_TITLE) >= 0 && gain !== moved.length) {
-    fails.push(`区已存在时新增行数应等于移出行数(${gain} != ${moved.length})⇒ 不只是在挪位置`)
-  }
-  if (!moved.length && gain !== 0) fails.push(`本轮无移出行却新增 ${gain} 行 ⇒ 凭空造正文`)
-  if (moved.length && pl.indexOf(ZONE_TITLE) === -1 && gain !== expectGain) {
-    fails.push(`新建区时新增行数应为区头数+移出行数(实测 ${gain},预期 ${moved.length + expectGain})`)
+  if (gain !== expectGain) {
+    fails.push(
+      `非空行净新增=${gain},应为 ${expectGain} —— ${zoneExists ? '区已在位 ⇒ 移动不改多重集,净新增必须是 0' : '新建区 ⇒ 只应多出区头行(移出行原本就在文档里,不计新增)'}`,
+    )
   }
   const after = partitionPlanBlocks(newText)
   if (after.blocked.length !== 0) fails.push(`产出面仍有 ${after.blocked.length} 个被拒块 ⇒ 未收敛`)
@@ -199,6 +203,28 @@ function runSelfTest() {
     !/writeFileSync\(\s*PLAN_REL/.test(srcMasked) && !/writeFileSync\(\s*join\(/.test(srcMasked),
   )
   ok('S7 空面/无被拒块时零改动零新增', stripToFixpoint('').moved.length === 0 && stripToFixpoint('').text === '')
+  /**
+   * S8/S8b —— 收编时我亲手写坏过的那一条,必须钉成回归:
+   *  区**已在位**时,移动 N 行不改多重集 ⇒ 净新增必须 0(旧写法要求 = N,于是工具拒绝自己每次正常动作);
+   *  同时在文档里凭空多出一行(既非移入亦非区头)仍必须被拦 —— 修判据不许顺手把牙磨掉。
+   */
+  const twoDirty = [
+    '## 甲(已完成 ✅ 2026-09-28)',
+    '- [ ] 甲的活账一',
+    '- [ ] 甲的活账二',
+    '',
+    '## 乙(已完成 ✅ 2026-09-28)',
+    '- [ ] 乙的活账',
+    '',
+    ZONE_TITLE,
+    ...ZONE_NOTES,
+    '',
+    '- [ ] 先前搬来的一条',
+  ].join('\n')
+  const r8 = stripToFixpoint(twoDirty)
+  ok('S8 区已在位:移动 3 行 ⇒ 净新增 0 且守恒断言必须放过', r8.moved.length === 3 && verifyStrip({ parentText: twoDirty, newText: r8.text, moved: r8.moved }).ok === true, JSON.stringify(verifyStrip({ parentText: twoDirty, newText: r8.text, moved: r8.moved }).fails))
+  const injected = r8.text + '\n- [ ] 凭空多出来的一行\n'
+  ok('S8b 反向锁:凭空多出一行必须仍被拦(修判据不得把牙磨掉)', verifyStrip({ parentText: twoDirty, newText: injected, moved: r8.moved }).ok === false)
   console.log(`\n自检共 ${pass + fail} 条断言,通过 ${pass},失败 ${fail}`)
   return fail ? 1 : 0
 }
