@@ -50,6 +50,11 @@
  *   字符串字面量或转义,而不是靠跳过守门)
  *
  * 当前接入:guardian-runner id '77',blocking,不设 stagedTriggers(全量/索引扫描本身就是判据面)。
+ *
+ * 判据住在哪儿(2026-09-28 收口):**配对判据与「剥三行」判据只有一份实现**,在
+ *   `scripts/lib/conflict-marker-triples.mjs`。本文件 import 再 re-export,不另写一份正则 ——
+ *   消费者现在有三个:本门(判红)、`archive-completed-tasks.mjs`(搬运前问一句)、
+ *   `union-converge.mjs`(活文档并集出口要剥掉三行)。两处各写一遍必漂,是本仓记过最多次的失败型。
  */
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -57,6 +62,15 @@ import { dirname, join, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveGitBin } from './lib/gitdir.mjs'
+// 配对判据的唯一实现(见头注"判据住在哪儿")。本文件只 re-export,不再各写一份正则。
+import { findMarkerPairs } from './lib/conflict-marker-triples.mjs'
+
+export {
+  findMarkerPairs,
+  isPatchFormatPair,
+  PATCH_OPEN,
+  PATCH_CLOSE,
+} from './lib/conflict-marker-triples.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -68,26 +82,9 @@ export const SELF_EXEMPT_PREFIX = 'check-no-conflict-markers'
 /** 违规清单里每行最多展示的字符数。 */
 export const SNIPPET_CHARS = 60
 
-const OPEN_RE = /^<<<<<<< /
-const SEP_RE = /^=======$/
-const END_RE = /^>>>>>>> /
+/** 大文件预筛用的字节针(内容判据在共用层,这里只留"要不要把这份内容拿去判"的快速问句)。 */
 const OPEN_NEEDLE = Buffer.from('<<<<<<< ', 'latin1')
 const END_NEEDLE = Buffer.from('>>>>>>> ', 'latin1')
-
-/**
- * E1 合法豁免:SEARCH/REPLACE 补丁格式与本门的字形完全同形 —— git 标记后面跟的也是
- * "标签"(HEAD / 分支 / sha),语法上无法区分,只能按标签白名单放行。
- * 依据不是猜的:本仓 CLI 的 patch 解析器就定义在 `apps/cli/src/tools/file-edit.ts`
- * 的 `SEARCH_REPLACE_REGEX`(匹配 `<<<<<<< SEARCH\n…\n=======\n…\n>>>>>>> REPLACE`),
- * 且 `apps/cli/tests/file-edit.test.ts` 有按行首原样书写的夹具 —— 不放行会让本门对
- * 合法测试内容恒红。放宽仅限**两端标签都精确等于 SEARCH / REPLACE** 的这一对;
- * `<<<<<<< HEAD` 配 `>>>>>>> REPLACE` 这类混搭一律不豁免(真 merge 不会有 SEARCH 端)。
- */
-export const PATCH_OPEN = /^<<<<<<< SEARCH$/
-export const PATCH_CLOSE = /^>>>>>>> REPLACE\b/
-export function isPatchFormatPair(openText, closeText) {
-  return PATCH_OPEN.test(String(openText ?? '')) && PATCH_CLOSE.test(String(closeText ?? ''))
-}
 
 // ── git 派生:绝对路径候选解析(服务账户无 PATH 时 'git' 会失败)+ 强制 windowsHide(守门 52) ──
 let _gitBin = undefined
@@ -130,49 +127,11 @@ export function isSelfExempt(path) {
 }
 
 /**
- * 核心判据 P1/P2/P3:扫描文本,返回成对标记与未配对标记。
- * 行号 1 基。`sepLine` 是该对内部**第一条**整行 `=======`(可能为 null —— git 冲突块必有,
- * 但"只删了分隔线没删两端标记"这类残骸同样要判红,故分隔线只是记录,不是必要条件)。
- * 嵌套(未闭合又遇 `<<<<<<<`)按"前一个进未配对、以后者重新开对"处理,不会漏掉后一对。
+ * 核心判据 P1/P2/P3 的唯一实现已收进 `scripts/lib/conflict-marker-triples.mjs`
+ * (配对语义、E1 的 SEARCH/REPLACE 豁免依据、以及"只剥成套三行"的边界都写在那一份头注里)。
+ * 本文件在顶部 import 再 re-export,既有调用方(`archive-completed-tasks.mjs`、本门镜像测试)
+ * 的导入路径一字不改地继续可用 —— 判据只有一份,不再两处各写一遍正则。
  */
-export function findMarkerPairs(text) {
-  const lines = String(text ?? '').split(/\r?\n/)
-  const pairs = []
-  const exempt = []
-  const unpairedStarts = []
-  const unpairedEnds = []
-  let open = null
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i]
-    const no = i + 1
-    if (OPEN_RE.test(line)) {
-      if (open) unpairedStarts.push(open)
-      open = { line: no, text: line, sepLine: null }
-      continue
-    }
-    if (END_RE.test(line)) {
-      if (open) {
-        const pair = {
-          startLine: open.line,
-          startText: open.text,
-          sepLine: open.sepLine,
-          endLine: no,
-          endText: line,
-        }
-        // E1:SEARCH/REPLACE 补丁格式对合法放行,但单独计数(不静默)
-        if (isPatchFormatPair(open.text, line)) exempt.push(pair)
-        else pairs.push(pair)
-        open = null
-      } else {
-        unpairedEnds.push({ line: no, text: line })
-      }
-      continue
-    }
-    if (open && open.sepLine === null && SEP_RE.test(line)) open.sepLine = no
-  }
-  if (open) unpairedStarts.push(open)
-  return { pairs, unpairedStarts, unpairedEnds, exempt }
-}
 
 /** G3 二进制判定:前 8KB 出现 NUL 字节即视为二进制。 */
 export function looksBinary(buf) {
