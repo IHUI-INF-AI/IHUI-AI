@@ -553,9 +553,10 @@ export function createSendAnswer(
         abortRef.current = null
         // 2026-09-21 修复(与 sendMessage 对称):兜底回收"压缩中"预告态,防灰条全站常驻
         clearCompactionPreview()
-        useChatStore.getState().setStreaming(false)
-        // Steer(中途引导,2026-09-19 立,与 sendMessage 对称):流收尾清除流式消息 ID
-        useChatStore.getState().setStreamingAssistantId(null)
+        // G-703(2026-09-29 立,与 sendMessage 对称):终态走 store 的单一出口,一次回收
+        // isStreaming / streamingAssistantId / aiStreamSessionId 三键 —— 原先这里只清了前两个
+        // (各一行),上行寻址凭据没人管,于是上一轮的 sessionId 会活到下一轮。
+        useChatStore.getState().clearRunScopedState()
         useChatStore.getState().markAllAgentStreamsDone()
       }
       // P1-6:流已收尾(正常/报错/超时/主动 stop)→ 标记完成,刷新后不再续接。
