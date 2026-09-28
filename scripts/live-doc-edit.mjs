@@ -105,6 +105,8 @@ import {
 } from './lib/bypass-git.mjs'
 import { usedIdsOfPrefix, bodyOfRow } from './lib/plan-task-index.mjs'
 import { collectIdFace } from './lib/plan-id-face.mjs'
+// G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
+import { recordBypassLanding } from './lib/commit-attestation.mjs'
 
 /**
  * 令牌 `{{NEXT_ID:G}}` ⇒ 落成 `G-<下一个空闲号>`。
@@ -866,6 +868,25 @@ async function main() {
       `✅ 回读:${replacements.length} 行已改成新形态(旧形态整行归零;追加注记型的原文字成为新行前缀,属正当)`,
     )
   } else console.log('✅ 回读:本块每一条非空行都在 HEAD 里')
+
+  /**
+   * G-725 留痕:回读已证明"这枚旁路提交带着期望内容进了 HEAD",所以从这一刻起它就是既成事实。
+   * 主索引对齐(下一步)成功与否都不改变"它绕过了提交链"这一点 ⇒ 留痕必须写在对齐之前;
+   * 写失败只喊一行 WARN,绝不把一次成功落地判红(它记的是账,不是门禁)。
+   */
+  const attest = recordBypassLanding({
+    root,
+    source: 'live-doc-edit',
+    landedSha: landed,
+    headBefore: parentSha,
+    declaredFiles: [doc],
+    reason: `旁路落地(commit-tree + CAS,${mode})不触发钩子 ⇒ 提交链上的门禁对本枚未执行`,
+  })
+  if (!attest.ok)
+    console.log(
+      `⚠️ 跳门留痕未写入(落地已成功 HEAD=${landed.slice(0, 11)},不改退出码):${attest.why}`,
+    )
+  else console.log(`✅ 跳门留痕 1 行已写入 ${attest.path}(kind=bypass-landing,gatesRun=false)`)
 
   const align = alignSharedIndex({ root, paths: [doc], parentRef: parentSha })
   // G-321②:走到这里内容**已经**入库并过了回读 ⇒ 索引没对齐只是副作用,不得冒充整次失败。
