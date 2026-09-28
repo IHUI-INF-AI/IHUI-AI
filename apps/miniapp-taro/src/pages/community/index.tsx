@@ -721,7 +721,6 @@ export default function Community() {
                 <View className="community-carousel-inner">
                   <Carousel
                     items={banners}
-                    height={160}
                     autoplay
                     interval={3000}
                     onItemClick={onBannerClick}
