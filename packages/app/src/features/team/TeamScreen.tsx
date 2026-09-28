@@ -283,12 +283,11 @@ function createStyles(tk: AppThemeTokens) {
     avatarBox: {
       width: 44,
       height: 44,
-      borderRadius: 22, // radius-exempt: 成员头像 44×44 正圆(直径一半)
+      borderRadius: 22,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    // radius-exempt: 头像图片随父盒 44×44 正圆(直径一半)
     avatarImg: { width: '100%', height: '100%', borderRadius: '50%' }, // 跟随见方父容器:相对式即几何真圆(不需要标记)
     avatarInitial: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
     memberInfo: { flex: 1, marginLeft: 10, marginRight: 8 },

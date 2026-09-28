@@ -186,7 +186,6 @@
 .refund-step-dot {
   width: 18rpx;
   height: 18rpx;
-  /* radius-exempt: 9px 步骤装饰点,圆点不得方档化(§4 装饰点豁免族) */
   border-radius: var(--radius-sm);
   background: var(--color-muted);
   flex-shrink: 0;
