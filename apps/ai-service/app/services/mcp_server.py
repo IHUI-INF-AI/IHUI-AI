@@ -1971,6 +1971,10 @@ async def _await_terminal_input(
     payload: dict[str, Any] = {
         "type": "terminal_interaction",
         "terminalId": terminal_id,
+        # sessionId 必须进帧:上行出口是
+        # POST /llm/complete/stream/{session_id}/terminal-input,前端手里只有它自己那条流的
+        # 上下文 —— 帧不带会话 id,前端就得猜(猜错的表现是"点了发送什么都没发生",不报错)。
+        "sessionId": str(ctx.get("session_id") or ""),
         "promptTail": prompt_tail,
         "waitingSinceMs": 0,
         "inputMode": "line",

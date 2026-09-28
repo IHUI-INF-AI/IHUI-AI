@@ -993,6 +993,10 @@ export interface TerminalDeltaEvent {
 export interface TerminalInteractionEvent {
   /** 与 terminal_start 的 terminalId 一致;代答必须带这个 id,服务端只认登记过的那一条 */
   terminalId: string
+  /** 本帧所属会话 —— 上行出口的路径就是 `/llm/complete/stream/{sessionId}/terminal-input`,
+   *  所以**帧必须自带它**。前端只知道自己那条流的上下文,不带上就只能猜,而猜错的形态是
+   *  "点了发送什么都没发生、还不报错"(2026-09-29 web 消费端实测到的这一格)。 */
+  sessionId: string
   /** 那句提示原文(来自命令输出,已按凭据形态脱敏但**不保证**不含敏感内容:不得持久化) */
   promptTail: string
   /** 从判定"在等人"到发帧的毫秒数 */
@@ -2919,6 +2923,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           if (typeof json.terminalId !== 'string') return
           opts.onTerminalInteraction!({
             terminalId: json.terminalId,
+            sessionId: typeof json.sessionId === 'string' ? json.sessionId : '',
             promptTail: typeof json.promptTail === 'string' ? json.promptTail : '',
             waitingSinceMs: typeof json.waitingSinceMs === 'number' ? json.waitingSinceMs : 0,
             inputMode: 'line',
@@ -3845,7 +3850,7 @@ export async function postFormResponse(sessionId: string, event: FormResponseEve
 export async function postTerminalInput(
   sessionId: string,
   input: { terminalId: string; text: string },
-): Promise<void> {
+): Promise<{ ok: boolean; accepted?: boolean }> {
   const aiServiceUrl = aiServiceBaseUrl()
   let resp: Response
   try {
@@ -3874,5 +3879,18 @@ export async function postTerminalInput(
       `postTerminalInput failed: HTTP ${resp.status} (session=${sessionId}, terminal=${input.terminalId})${detail ? `: ${detail}` : ''}`,
     )
   }
+  // 服务端对"没这条"与"不是你的"**刻意回 HTTP 200 + {ok:false}**(不给存在性预言机)。
+  // 所以只看 resp.ok 会把"没送到"读成"送到了" —— 必须把 ack 读回来并交给调用方判,
+  // 这也是本函数从 Promise<void> 改成返回 ack 的唯一理由。
+  let ack: { ok?: unknown; accepted?: unknown }
+  try {
+    ack = (await resp.json()) as { ok?: unknown; accepted?: unknown }
+  } catch (e) {
+    throw new Error(
+      `postTerminalInput ack unreadable (session=${sessionId}, terminal=${input.terminalId}): ${(e as Error).message}`,
+    )
+  }
+  const ok = ack?.ok === true
+  return ok ? { ok: true, accepted: ack?.accepted === true } : { ok: false }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

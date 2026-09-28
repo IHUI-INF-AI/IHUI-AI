@@ -185,6 +185,9 @@ async def test_watcher_feeds_typed_line_into_real_process(
         assert interaction, frames
         assert interaction[0]["promptTail"]
         assert interaction[0]["inputMode"] == "line"
+        # 上行出口的路径里带 {session_id} ⇒ 帧必须自带会话 id,否则前端只能猜,
+        # 而猜错的形态是"点了发送什么都没发生且不报错"。
+        assert interaction[0]["sessionId"] == "sess-1"
         assert "text" not in interaction[0]  # 交互帧没有 text 字段:分流靠 type,不靠"有没有 text"
 
         # 属主键入 —— 真进程必须收到这一行
