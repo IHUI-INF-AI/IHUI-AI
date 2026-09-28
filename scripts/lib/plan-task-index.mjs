@@ -455,6 +455,32 @@ export const POINTER_NO_AUTO_REPAIR = { ref: '目标行已腐烂且意图不可�
  */
 export const POINTER_RAW_REF_RE = /(?:存活于|登记在|见|指向)\s*L(\d{1,6})/g
 
+/** 条目行(带复选框)的形状 —— 判据、归档反查、出口资格三处共用这一份,不得各抄正则。 */
+export const ENTRY_LINE_RE = /^\s*[-*]\s\[[ xX]\]/
+
+/**
+ * F3 的**第二条出口**:指针指向的行已经不在面上了,但它当初指的那条登记
+ * **被归档搬走了** —— 归档件受版本控制、逐字可查,所以"同主键的另一条在 `<归档件>` 的条目「…」"
+ * 是一句**可核验的真话**,而不是行号(§1 第 3 条要求的正是内容锚点形态)。
+ *
+ * 索引只从**被审面上的归档件**推得(调用方给文本,本层不读磁盘也不读 git —— 面归调用方管,
+ * 见 `check-project-plan-archive.mjs` 的 `archiveFaceEntries`,两处共用那一份面判据)。
+ * 只用复合主键做判据、不做相似度:与本层其余四把尺子同一条规矩。
+ */
+export function archivedEntryIndex(archiveTexts) {
+  const byKey = new Map()
+  for (const item of archiveTexts ?? []) {
+    const name = item?.name ?? ''
+    for (const line of String(item?.text ?? '').split(/\r?\n/)) {
+      if (!ENTRY_LINE_RE.test(line)) continue
+      const k = compositeKeyOf(line)
+      if (!k || byKey.has(k)) continue
+      byKey.set(k, { name, title: k.slice(k.indexOf('#') + 1) })
+    }
+  }
+  return byKey
+}
+
 /**
  * 「…」与反引号包裹的片段是**叙述**(在描述这个形态),不是可执行指针 ——
  * 与守门 109 对 `（进行中）` 的同一条判序一致(它把反引号内的认领标记排除在"挂牌"之外)。
@@ -530,7 +556,7 @@ export function findRotatedPointers(content) {
         const t = lines[target - 1]
         const reason = !t
           ? '目标行不存在'
-          : !/^\s*[-*]\s\[[ xX]\]/.test(t)
+          : !ENTRY_LINE_RE.test(t)
             ? '目标行不是条目行'
             : compositeKeyOf(t) !== compositeKeyOf(r.raw)
               ? '目标行是另一条(复合主键不等)'
@@ -561,7 +587,7 @@ export function findRotatedPointers(content) {
               // 于是自愈档因"无可施加的改写"整轮停手(2026-09-28 实测 L88 就是这个形态)。
               !POINTER_NO_AUTO_REPAIR[fam.id] &&
               !!t &&
-              /^\s*[-*]\s\[[ xX]\]/.test(t) &&
+              ENTRY_LINE_RE.test(t) &&
               // ↓ 这一行是本层语义的落点:两侧**都有**主键且逐字等值,才算"同主键";任一侧没有主键,
               //   就退回"逐字孪生"那把尺子(与本层 `compositeKeyOf`/F4b 的既有口径同形)。
               //   写成旧版那样 `compositeKeyOf(t) === compositeKeyOf(r.raw)` 会让 null===null 通过,
@@ -1055,11 +1081,29 @@ export function nextTaskIdLabel(content, prefix) {
   return u === null ? null : u.template.replace('%d', String(u.max + 1))
 }
 
-export function auditPlan(content) {
+export function auditPlan(content, { archivedKeys = null } = {}) {
   const rows = parseTaskRows(content)
   const { groups, forks, dupOpen, dupDone } = findForks(content)
   const voidRows = findVoidRows(content)
   const rotated = findRotatedPointers(content)
+  /**
+   * 给每条腐烂指针标"此刻有没有出口"。两条出口按**次序**判,先强后弱:
+   *  - `face`     :目标行还在面上、且与本行同复合主键(唯一实现 `autoFixable`,不重写);
+   *  - `archived` :目标行已不在面上,但本行的复合主键**逐字存在于某份被审归档件**
+   *               (调用方经 `archiveFaceEntries` + `archivedCompositeKeys` 同面同轮推得)。
+   * 判不出(没给归档索引 / 本行没有复合主键 / 该族措辞不承诺同主键)一律 `null` = 交人工,
+   * **绝不猜**:猜出来的锚点写进台账,比留一个腐烂行号更危险(见 findRotatedPointers 的注释)。
+   */
+  for (const p of rotated) {
+    p.exit = p.autoFixable
+      ? 'face'
+      : archivedKeys &&
+          !POINTER_NO_AUTO_REPAIR[p.family] &&
+          compositeKeyOf(p.raw) &&
+          archivedKeys.has(compositeKeyOf(p.raw))
+        ? 'archived'
+        : null
+  }
   const openRows = rows.filter((r) => r.state === 'open')
   const forkOpenLines = new Set(forks.flatMap((g) => g.open.map((r) => r.line)))
   const voidLines = new Set(voidRows.map((r) => r.line))
@@ -1136,11 +1180,21 @@ export function auditPlan(content) {
       /**
        * F3 的两个量纲必须分开,否则同一枚提交里既要"全看见"又要"能自愈"是矛盾的:
        * `rotatedAuto` = 能换成**真**锚点的(并入归零判据与差值棘轮);
-       * `rotatedNoExit` = 目标行已不可推断的(只点名交人工 —— 并进归零判据就是一台永不落地
-       * 的自愈档,并进棘轮就是凭"判据变尖"给别人记债,见 findRotatedPointers 里 autoFixable 的注释)。
+       * `rotatedNoExit` = 目标行已不可推断、**且也没有归档出口**的(只点名交人工 —— 并进归零判据
+       * 就是一台永不落地的自愈档,并进棘轮就是凭"判据变尖"给别人记债,见 findRotatedPointers 里
+       * autoFixable 的注释)。
+       *
+       * `rotatedAuto` 的**第二条出口**(2026-09-29,归档反查):指针指向的行已不在面上,但该行
+       * 当初指的登记**被归档搬走了** ⇒ "同主键的另一条在 `<归档件>` 的条目「…」"是可核验的真话。
+       * 这一维**只有调用方给了 `archivedKeys` 才参与计算**;没给时逐字退回旧口径(面内同主键那一族),
+       * 因为"没算归档反查"与"算了但没有出口"必须在账面上分得开 —— 把前者写成后者,就是本仓最高频
+       * 的失效型"把没判写成判过了"。故另发 `rotatedArchived`(经归档救回的那一半)与
+       * `archivedIndexSupplied`(这把尺子这次到底看没看归档面)两个字段,谁打印谁带口径。
        */
-      rotatedAuto: rotated.filter((b) => b.autoFixable).length,
-      rotatedNoExit: rotated.filter((b) => !b.autoFixable).length,
+      rotatedAuto: rotated.filter((b) => b.exit).length,
+      rotatedArchived: rotated.filter((b) => b.exit === 'archived').length,
+      rotatedNoExit: rotated.filter((b) => !b.exit).length,
+      archivedIndexSupplied: archivedKeys !== null,
       dupOpenGroups: dupOpen.length,
       dupOpenCopies: dupCopies.length,
       // F4b:无主键的逐字孪生行 —— F4 按复合主键分组,而这一族永远没有编号,所以在 F4 里恒为 0、
