@@ -50,6 +50,8 @@
     "check:plan-age": "node scripts/lib/plan-line-age.mjs",
     "check:plan-undisposed": "node scripts/plan-tasks.mjs --undisposed",
     "check:plan-sha": "node scripts/check-plan-sha-resolvable.mjs",
+    "check:service-paths": "node scripts/check-service-binary-paths.mjs",
+    "check:public-path": "node scripts/check-public-path-probe.mjs --snapshot",
     "check:plan-tasks": "node scripts/plan-tasks.mjs",
     "check:memory-owner": "node scripts/check-memory-owner-binding.mjs --strict",
     "check:gate-face": "node scripts/check-gate-face-discipline.mjs",

@@ -22,8 +22,14 @@
 //
 // 已知边界(如实登记,不假装覆盖):
 //   · 本门按**判定面**取四份输入(默认 HEAD blob / `--staged` 索引 blob / `--worktree` 仅人工),
-//     2026-09-27 G-303 收口前它按磁盘取且**不认** runner 追加的 `--staged`。三面各答各的由
-//     下面 F1–F3 端到端证明(F3 专门钉"该面取不到 ⇒ exit 2 且不回落到另一个面")。
+//     2026-09-27 G-303 收口前它按磁盘取且**不认** runner 追加的 `--staged`。三面各答各的、
+//     "该面取不到 ⇒ exit 2 且不回落"、"两面旗同给判死"、"坏台账算没有输入"由下面 F1–F8
+//     (远端侧 530d6e4ba3)端到端证明;F9–F11 是本地侧 dceba62c69 的独有臂并入:
+//     F9 补**面→cat-file 规格**那一层纯函数(含"未知面必须抛"与"这一跳真被 readFaceInputs 调用"
+//     的装车锁),F10 让三条判据臂各自在不同面上红,F11 把"取不到"造在**只有索引缺台账**这一格
+//     (HEAD 与磁盘都还在 —— 那才是回落最容易偷偷发生的位置,F3 的 commit:false 证不出"不回落")。
+//     夹具因此必须是**真 git 仓并连提交**:只写盘不 commit 时每条夹具用例会红在"HEAD 取不到",
+//     那是夹具失效不是门坏了。
 //   · 本门只看**两个** TS 解析器(api-client / sse-parse)。Python 侧契约与 SSE 派发另有
 //     check-sse-dispatch-parity / check-agent-event-parity 两道同族门,不在本文件射程。
 
@@ -35,6 +41,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { __test__ as gate } from '../check-sse-parser-parity.mjs'
+import { Undetermined } from '../lib/face-reader.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
@@ -167,9 +174,14 @@ function leadingJson(text) {
   return null
 }
 
-/** 跑那一门:返回 { code, json, out, err };紧急跳过旗标强制清空,否则测试会对着跳过通道假绿 */
-function runFixture({ script }, args = ['--json']) {
+/**
+ * 跑那一门:返回 { code, json, out, err };紧急跳过旗标强制清空,否则测试会对着跳过通道假绿。
+ * `cwd` 显式钉在夹具上(合并自 dceba62c69):门把 ROOT 由自身位置推导,理论上与 cwd 无关,
+ * 但不钉住的话,一旦哪天有人改成按调用方站位定根,夹具就会悄悄去读真仓 —— 那正是守门 70 的型。
+ */
+function runFixture({ dir, script }, args = ['--json']) {
   const r = spawnSync(process.execPath, [script, ...args], {
+    cwd: dir,
     encoding: 'utf8',
     timeout: 60_000,
     windowsHide: true,
@@ -570,5 +582,121 @@ test('F8 形状锁:取材必须走共用层的 catBatch,散写回潮由机器发
     /return\s+null\s*\)\s*.*gitShow/,
     '取不到就回落另一个面 = 把"没判"写成"判过了"',
   )
+  // ↓ 两条形状锁合并自 dceba62c69 那侧的 F3(本侧独有、与上面几条不重叠):
+  assert.doesNotMatch(src, /from 'node:fs'/, '门体不再需要 node:fs —— 出现即磁盘直读回来了')
+  assert.doesNotMatch(
+    src,
+    /['"]show['"]/,
+    '不得自派生 git 取内容:引了共用层却自己读一份(半接线)正是守门 118 收紧的对象',
+  )
+})
+
+// ───────────── F9–F11:合并自本地侧 dceba62c69 的独有臂(原 F1 / F2 / F2b)─────────────
+// 与 F1–F8 不重叠的三件事:F9 证明**面→cat-file 规格**这一跳存在且未知面不猜面,并且它真被
+// readFaceInputs 调用(函数在而无人调 = 没有,守门 70/76/81 同型);F10 让**三条判据臂**各自
+// 在不同面上红(ratchet 在索引、归属理由在磁盘),证明"换面"换的是内容而不只是结论文字;
+// F11 把"该面取不到"造在**索引单独缺一份**这一格(HEAD 与磁盘都还在)—— 那才是回落最容易
+// 偷偷发生的位置,F3 的 commit:false 那一支里另两个面本来也读不到,证不出"不回落"。
+
+test('F9 纯函数两跳:argv→面 四态 + 面→cat-file 规格 三态,未知面必须抛而不猜一个面', () => {
+  assert.deepEqual(
+    gate.faceFromArgv([]),
+    { face: 'head', error: null },
+    '默认档必须是 HEAD,不再是磁盘',
+  )
+  assert.equal(gate.faceFromArgv(['--staged']).face, 'staged')
+  assert.equal(gate.faceFromArgv(['--worktree']).face, 'worktree')
+  const both = gate.faceFromArgv(['--staged', '--worktree'])
+  assert.equal(both.face, null)
+  assert.match(
+    both.error,
+    /不得同用/,
+    '两面旗同给必须是可判死的 error(取哪一面都会让另一面成假绿)',
+  )
+  assert.equal(gate.faceSpecPrefix('staged'), ':')
+  assert.equal(gate.faceSpecPrefix('head'), 'HEAD:')
+  assert.equal(gate.faceSpecPrefix('worktree'), null, '磁盘面走 readWorktreeFile,不给 cat-file 规格')
+  assert.throws(
+    () => gate.faceSpecPrefix('whatever'),
+    Undetermined,
+    '未知面必须抛,不许猜一个面继续跑(猜面 = 替一次拼错的调用发合格证)',
+  )
+  // 装车锁:上面那四个答案只证明"函数会给答案",这一条证明**有人问它**。
+  // 刻意不写 `/faceSpecPrefix\(\s*face\s*\)/` —— 那种形态连 `export function faceSpecPrefix(face)`
+  // 这一行定义都能匹配上,把调用点删干净它照样绿(本变异实测过一次:内联三元回来了而锁不红)。
+  const src = readFileSync(GATE_SCRIPT, 'utf8')
+  assert.match(
+    src,
+    /\bconst\s+prefix\s*=\s*faceSpecPrefix\(\s*face\s*\)/,
+    '面→规格这一跳必须由 readFaceInputs 取值,否则 F9 全绿而门仍在猜面',
+  )
+  assert.doesNotMatch(
+    src,
+    /const\s+prefix\s*=\s*face\s*===\s*'staged'\s*\?\s*':'\s*:\s*'HEAD:'/u,
+    '取材里又出现内联三元:未知面会被静默当 HEAD 读(猜面 = 发合格证)',
+  )
+  // 同型装车锁给远端侧新增的两个出口:parseLedger / readFaceInputs 若"写了但没人调",
+  // F5(坏台账)与 F1–F3(换面)照样红绿得看不出差别 —— 判据失效的表现永远是安静。
+  assert.match(
+    src,
+    /\bledger:\s*parseLedger\(/,
+    '台账必须经 parseLedger 进判据本体;裸 JSON.parse 会让"坏台账"那一格冒红而不是判未判定',
+  )
+  assert.match(
+    src,
+    /\bconst\s+inputs\s*=\s*readFaceInputs\(/,
+    'runChecks 必须真的经 readFaceInputs 取材 —— 只匹配 `readFaceInputs(repoRoot, face)` 会连' +
+      '函数**定义行**一起算命中(变异实测:调用点整行删掉而锁不红),所以本锁锚在赋值形态上',
+  )
+})
+
+test('F10 临时仓三面三答:HEAD 绿 / 索引红在 ratchet / 磁盘红在空理由,无旗标必须读 HEAD', () => {
+  const f = buildFixture({ ...SRC_OK(), ledger: LEDGER_OK }) // 已提交态 = 三面共同的绿基线
+  try {
+    // 演化出三面互不相同:索引 = 基线 9(ratchet 红);磁盘 = 一条空理由登记(理由红);HEAD 不动。
+    put(f.dir, P_LEDGER, `${JSON.stringify({ parseCoverageBaseline: 9, webOnly: [] }, null, 2)}\n`)
+    gitAt(f.dir, ['add', '--', P_LEDGER]) // 索引脏
+    put(
+      f.dir,
+      P_LEDGER,
+      `${JSON.stringify({ parseCoverageBaseline: 3, webOnly: [{ event: 'gamma_frame', why: '略' }] }, null, 2)}\n`,
+    ) // 磁盘改成**另一种**脏,且不 add ⇒ 索引 ≠ 磁盘 ≠ HEAD
+    const head = runFixture(f)
+    assert.equal(head.code, 0, `无旗标必须读 HEAD(绿),实际 rc=${head.code}:\n${head.out}${head.err}`)
+    assert.ok(/HEAD blob/.test(head.out), '结论行必须如实报出用的是哪个面')
+    const staged = runFixture(f, ['--json', '--staged'])
+    assert.equal(staged.code, 1, '索引脏而磁盘"另有其脏"时,--staged 必须读索引这一份')
+    assert.ok(
+      staged.json.violations.some((v) => v.event === '(parse-coverage)' && v.reason.includes('基线 9')),
+      `--staged 必须红在索引那份的 ratchet 上,实际:${JSON.stringify(staged.json.violations)}`,
+    )
+    const worktree = runFixture(f, ['--json', '--worktree'])
+    assert.equal(worktree.code, 1)
+    assert.ok(
+      worktree.json.violations.some((v) => v.reason.includes('为什么只有 web 消费')),
+      `--worktree 必须红在磁盘那份的空理由上,实际:${JSON.stringify(worktree.json.violations)}`,
+    )
+  } finally {
+    rmScratch(f.dir)
+  }
+})
+
+test('F11 只有索引缺台账 ⇒ exit 2 并点名路径,绝不回落到仍在位的 HEAD/磁盘', () => {
+  const f = buildFixture({ ...SRC_OK(), ledger: LEDGER_OK })
+  try {
+    // 只从**索引**摘掉台账:磁盘与 HEAD 都还在 —— 回落任一面的话这一跑会给出 0/1 的"结论",
+    // 而正确结论是"这一面没判成"(exit 2),两者必须可分辨。
+    gitAt(f.dir, ['rm', '--cached', '-q', '--', P_LEDGER])
+    const r = runRaw(f, ['--json', '--staged'])
+    assert.equal(r.code, 2, `索引取不到台账必须 exit 2(不回落),实际 rc=${r.code}:\n${r.out}`)
+    assert.ok(r.out.includes(P_LEDGER), 'exit 2 必须点名取不到的是哪一份,否则不可诊断')
+    assert.match(r.out, /无法判定/)
+    assert.ok(!/✅/.test(r.out), '没判成那一面绝不许输出通过结论')
+    // 对照:同一夹具不带 --staged(HEAD 面)照常出结论 ⇒ 上面那支红不是恒红门坏了整门
+    const head = runFixture(f)
+    assert.equal(head.code, 0, `HEAD 面不受索引摘除影响,实际:\n${head.out}${head.err}`)
+  } finally {
+    rmScratch(f.dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
