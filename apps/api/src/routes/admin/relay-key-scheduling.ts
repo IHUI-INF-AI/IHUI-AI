@@ -20,6 +20,7 @@ import { aiRelayKeyPool } from '@ihui/database'
 import { success, error } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { idParamSchema } from './_shared.js'
+import { isUuidString } from '../../utils/uuid.js'
 
 const patchSchema = z.object({
   tempUnschedulable: z.coerce.boolean().optional(),
@@ -60,6 +61,10 @@ const adminRelayKeySchedulingRoutes: FastifyPluginAsync = async (server) => {
   server.patch('/relay/key-scheduling/:id', async (request, reply) => {
     const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) return reply.status(400).send(error(400, 'Key id 不合法'))
+    // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+    // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+    // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+    if (!isUuidString(idParsed.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const parsed = patchSchema.safeParse(request.body ?? {})
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数不合法'))
