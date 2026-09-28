@@ -3977,6 +3977,22 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 文档数字对账(1 项,blocking)---
+  {
+    id: '156',
+    label:
+      '对外文档数字对账(README/README.en/仓库简介里的数字必须等于 gen-doc-numbers 现算值)',
+    script: 'check-doc-numbers.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DOC_NUMBERS',
+    onFailHint: [
+      '',
+      '刷新块: node scripts/gen-doc-numbers.mjs --markdown 后粘回 README 的 GENERATED NUMBERS 块; 逐数来源: node scripts/gen-doc-numbers.mjs; 连简介问责: node scripts/check-doc-numbers.mjs --strict --description -',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
