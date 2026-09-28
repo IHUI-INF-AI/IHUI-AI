@@ -10,10 +10,13 @@
 //  + EOF 追加模式(缺省锚点)与文末空行归一;
 //  + 回读判据:本块每一条非空行必须逐字在 HEAD 里;
 //  + 用法错误(缺 env / 空块 / 空锚点)⇒ exit 2。
+//  2. G-321 两条判据(I0..I10,2026-09-28):**同锚点重复调用必须幂等**(锚点命中 1 不是"块没在位"的
+//     证据)/ **同锚点不同内容必须仍插得进去**(成对反向锁)/ **带取号令牌的块第二次跑号不同也算同一块** /
+//     **退出码分档**:内容已入库而仅索引未对齐 ⇒ 0 且点名 sha 与原因,内容没落地 ⇒ 照旧 1(两个方向各一条)。
 // git 写操作只发生在 scratch-dir 临时仓内,绝不碰真仓。
 
 import { execFileSync, spawnSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, utimesSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
@@ -779,5 +782,327 @@ test('N6 形状锁:远端三次派生各自带数字 timeout、绝不为取号 f
     TOOL_SRC,
     /\bexecFileSync\(/,
     'windowsHide 与绝对路径 git 候选只许住在 lib/bypass-git.mjs 那一份里(抄第二份必漂,守门 52 判的就是这个)',
+  )
+})
+
+// ── G-321 两条判据:① 插入档幂等 ② 退出码分档(内容已落地 vs 仅索引未对齐)(2026-09-28)──────
+// 票面要求"成对",所以 ① 有正反两支(重复必须幂等 / 实质不同必须仍插得进),② 也有正反两支
+// (已入库未对齐 ⇒ 0 / 没落地 ⇒ 1)。既有 T1..N6 一条未删、一条未放宽。
+
+const G321_ANCHOR = '@@ANCHOR@@'
+const G321_BASE = ['# 标题', '段落一', G321_ANCHOR, '段落二', '']
+const G321_BLOCK = ['- 登记甲', '- 登记乙']
+
+/**
+ * 造一把"别人的活锁、且锁龄已超上限"的现场:`alignSharedIndex` 见 `.git/index.lock` 年龄 > 120s
+ * 即返回 `lockAbandoned`(它按设计**不代删别人的锁**),于是"内容已入库 / 索引未对齐"这一档可端到端复现。
+ */
+function plantStaleIndexLock(dir) {
+  const gd = norm(runGit(dir, ['rev-parse', '--git-dir'])).trim()
+  const lock = join(dir, gd, 'index.lock')
+  writeFileSync(lock, '')
+  const old = new Date(Date.now() - 200_000)
+  utimesSync(lock, old, old)
+  return lock
+}
+
+const g321Run = (dir, inputs, blockName = 'block.txt') =>
+  runLive(dir, {
+    anchorFile: join(inputs, 'anchor.txt'),
+    blockFile: join(inputs, blockName),
+  })
+
+test('I0 §22c 新增导出面:幂等判据与退出码分档的四个出口必须在 __test__ 里(否则测试只能重抄判据)', () => {
+  for (const k of [
+    'compileBlockMatchers',
+    'blockInPlaceCheck',
+    'describeInPlace',
+    'alignOutcome',
+  ])
+    assert.equal(typeof __test__[k], 'function', `__test__.${k} 缺失`)
+})
+
+test('I1 compileBlockMatchers 纯函数:无令牌 ⇒ 纯字面匹配;有令牌 ⇒ 只有编号数字段可变,其余逐字', () => {
+  const base = '- [ ] **G-3 旧条目**:x\n- [ ] **O2 丙**:y\n'
+  const plain = __test__.compileBlockMatchers(['- 登记甲', 'a.b*c?(d)'], base)
+  assert.equal(plain.ok, true)
+  assert.deepEqual(plain.families, [], '没有令牌就不该有"可变段"')
+  assert.ok(plain.matchers[0].test('- 登记甲'))
+  assert.ok(!plain.matchers[0].test('- 登记甲 '), '整行锚定:多一个空格就不是同一行')
+  assert.ok(plain.matchers[1].test('a.b*c?(d)'), '块文本里的正则元字符必须按字面判')
+  assert.ok(!plain.matchers[1].test('a.bxcc'), '元字符被当通配 ⇒ 什么都能匹配 = 判据失效')
+
+  const tok = __test__.compileBlockMatchers(
+    ['- [ ]（进行中@2026-09-28/工具）**{{NEXT_ID:G}} 幂等落地**:正文'],
+    base,
+  )
+  assert.equal(tok.ok, true)
+  assert.deepEqual(tok.families, ['G'])
+  assert.ok(tok.matchers[0].test('- [ ]（进行中@2026-09-28/工具）**G-4 幂等落地**:正文'))
+  assert.ok(
+    tok.matchers[0].test('- [ ]（进行中@2026-09-28/工具）**G-129 幂等落地**:正文'),
+    '第二次跑号必然不同(第一次的号已进底稿)⇒ 数字段必须视作可变位',
+  )
+  assert.ok(
+    !tok.matchers[0].test('- [ ]（进行中@2026-09-28/工具）**G-4 别的标题**:正文'),
+    '实质不同不得被认成同一块 —— 那是票面成对用例的第二条',
+  )
+  assert.ok(
+    !tok.matchers[0].test('- [ ]（进行中@2026-09-28/工具）**O-4 幂等落地**:正文'),
+    '族字母不可互换:换族就是另一条登记',
+  )
+  // 形状现取自该族自己的书写习惯(G 带连字符、O 不带),不在这里再抄一张族表
+  const o = __test__.compileBlockMatchers(['- [ ] **{{NEXT_ID:O}} 甲件**:x'], base)
+  assert.ok(o.matchers[0].test('- [ ] **O7 甲件**:x'))
+  assert.ok(!o.matchers[0].test('- [ ] **O-7 甲件**:x'), 'O 族现读形状是 `O%d`,不该长得像 G 族')
+  const nofam = __test__.compileBlockMatchers(['{{NEXT_ID:Z}} 条目'], base)
+  assert.equal(nofam.ok, false)
+  assert.match(String(nofam.reason), /family-shape-unreadable:Z/, '该族一条没有 ⇒ 判不出,不退化成"逐字等值再判一次"')
+})
+
+test('I2 blockInPlaceCheck 纯函数:在位/不等/太短各归一态;锚点 0 或 2 命中一律不表态;EOF 档明确不判', () => {
+  const doc = ['A', '@M@', 'X1', 'X2', 'B']
+  const mk = (lines) => __test__.compileBlockMatchers(lines, '').matchers
+  const inPlace = __test__.blockInPlaceCheck({
+    baseLines: doc,
+    anchorLines: ['@M@'],
+    matchers: mk(['X1', 'X2']),
+  })
+  assert.equal(inPlace.inPlace, true)
+  assert.deepEqual([inPlace.at, inPlace.lines, inPlace.anchorAt], [2, 2, 2], '落点与锚点行号都要交出去(报告要点名)')
+
+  const differs = __test__.blockInPlaceCheck({
+    baseLines: doc,
+    anchorLines: ['@M@'],
+    matchers: mk(['X1', 'ZZ']),
+  })
+  assert.equal(differs.inPlace, false)
+  assert.equal(differs.verdict, 'content-differs')
+  assert.equal(differs.firstDiffAt, 4, '1-based 行号必须指向真正不等的那一行')
+  assert.equal(differs.actual, 'X2')
+
+  assert.equal(
+    __test__.blockInPlaceCheck({ baseLines: doc, anchorLines: ['@M@'], matchers: mk(['X1', 'X2', 'X3', 'X4']) })
+      .verdict,
+    'too-short',
+    '锚点后面不足 N 行 ⇒ 显然没在位(不得拿"截到的部分"当等值)',
+  )
+  // 锚点命中数不是幂等判据:0 / 2 命中一律**不表态**,交给 assemble 那条既有判据(两处各判必漂移)
+  for (const [lines, anchor, hits] of [
+    [doc, ['@NOPE@'], 0],
+    [[...doc, '@M@'], ['@M@'], 2],
+  ]) {
+    const r = __test__.blockInPlaceCheck({ baseLines: lines, anchorLines: anchor, matchers: mk(['X1']) })
+    assert.equal(r.inPlace, false)
+    assert.equal(r.verdict, 'anchor-not-unique')
+    assert.equal(r.hits, hits, '命中数要如实交出去,报告才知道是"漂了"还是"有歧义"')
+  }
+  assert.equal(
+    __test__.blockInPlaceCheck({ baseLines: doc, anchorLines: null, matchers: mk(['B']) }).verdict,
+    'no-anchor',
+    'EOF 档不在幂等射程(头注"已知边界":N4 的既有断言依赖同一块可重复追加)',
+  )
+  // 令牌那一型在纯函数面上也要能认出来(端到端 I6 是同一条判据的装车证明)
+  const withId = __test__.blockInPlaceCheck({
+    baseLines: ['@M@', '- [ ] **G-9 幂等落地**:正文'],
+    anchorLines: ['@M@'],
+    matchers: __test__.compileBlockMatchers(
+      ['- [ ] **{{NEXT_ID:G}} 幂等落地**:正文'],
+      '- [ ] **G-3 旧**:x\n',
+    ).matchers,
+  })
+  assert.equal(withId.inPlace, true, '同一块、只是号不同 ⇒ 必须认得出已在位')
+})
+
+test('I3 describeInPlace 把依据逐字给全:锚点、块行数、落点行号、编号位怎么判的、现读的是哪一面', () => {
+  const s = __test__.describeInPlace({
+    chk: { inPlace: true, at: 3, lines: 2, anchorAt: 3 },
+    anchorLines: [G321_ANCHOR],
+    head: 'b'.repeat(40),
+    families: ['G'],
+  })
+  assert.ok(s.includes('本块已在位'), s)
+  assert.ok(s.includes('块行数 2'), '票面要求点名块行数')
+  assert.ok(s.includes(G321_ANCHOR) && s.includes('第 3 行'), '票面要求点名锚点')
+  assert.ok(s.includes('第 4..5 行'), `落点行号:\n${s}`)
+  assert.ok(s.includes('编号位按族形状视作可变段') && s.includes('G 族'))
+  assert.ok(s.includes('不读磁盘'), '必须说清判的是被审面,不是磁盘副本')
+  assert.ok(/退出码 0/.test(s), '必须把"这不是失败"写在同一行里')
+  const plain = __test__.describeInPlace({
+    chk: { inPlace: true, at: 0, lines: 1, anchorAt: 1 },
+    anchorLines: ['@M@'],
+    head: 'c'.repeat(40),
+    families: [],
+  })
+  assert.ok(plain.includes('本块无取号令牌'), plain)
+})
+
+test('I4 端到端·同锚点重复调用 ⇒ 幂等:第二次不产生新提交、文档里仍只有一份、末行点名"已在位"', (t) => {
+  const { dir, inputs } = makeDocRepo(t, G321_BASE.join('\n'))
+  writeFileSync(join(inputs, 'anchor.txt'), `${G321_ANCHOR}\n`)
+  writeFileSync(join(inputs, 'block.txt'), `${G321_BLOCK.join('\n')}\n`)
+  const r1 = g321Run(dir, inputs)
+  assert.equal(r1.status, 0, `第一次必须落地:${r1.stdout}|${r1.stderr}`)
+  const h1 = git(['rev-parse', 'HEAD'], { root: dir })
+  const r2 = g321Run(dir, inputs)
+  assert.equal(r2.status, 0, `第二次也必须正常退出(不是失败):${r2.stdout}|${r2.stderr}`)
+  assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), h1, '第二次绝不许产生新提交')
+  assert.doesNotMatch(r2.stdout, /CAS 成功/, '第二次不该再走一次 CAS')
+  assert.match(r2.stdout, /本块已在位/)
+  assert.match(r2.stdout, /块行数 2/)
+  assert.match(r2.stdout, new RegExp(G321_ANCHOR), '依据必须点名锚点')
+  const doc = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })).split('\n')
+  assert.equal(doc.filter((l) => l === '- 登记甲').length, 1, '重复段落这一型必须一份都不多')
+  assert.deepEqual(
+    doc,
+    [...G321_BASE.slice(0, 3), ...G321_BLOCK, G321_BASE[3], G321_BASE[4]],
+    '文档形态须与"只跑了一次"逐字相同',
+  )
+})
+
+test('I5 端到端·同锚点但内容实质不同 ⇒ 仍然插得进去(反向锁:幂等不得把工具变成"第二次永远不许跑")', (t) => {
+  const { dir, inputs } = makeDocRepo(t, G321_BASE.join('\n'))
+  writeFileSync(join(inputs, 'anchor.txt'), `${G321_ANCHOR}\n`)
+  writeFileSync(join(inputs, 'block.txt'), `${G321_BLOCK.join('\n')}\n`)
+  const r1 = g321Run(dir, inputs)
+  assert.equal(r1.status, 0, `${r1.stdout}|${r1.stderr}`)
+  const h1 = git(['rev-parse', 'HEAD'], { root: dir })
+  const other = '- 登记丙(与甲乙无关)'
+  writeFileSync(join(inputs, 'block2.txt'), `${other}\n`)
+  const r2 = g321Run(dir, inputs, 'block2.txt')
+  assert.equal(r2.status, 0, `不同内容必须仍插得进去:${r2.stdout}|${r2.stderr}`)
+  assert.match(r2.stdout, /CAS 成功/)
+  assert.doesNotMatch(r2.stdout, /本块已在位/, '这一型判成"已在位"就是把合法插入拦在门外')
+  assert.notEqual(git(['rev-parse', 'HEAD'], { root: dir }), h1, 'HEAD 必须前进')
+  const doc = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })).split('\n')
+  assert.equal(doc.filter((l) => l === other).length, 1)
+  assert.equal(doc.filter((l) => l === '- 登记甲').length, 1, '已入库那一份不得被顶掉')
+  assert.ok(doc.indexOf(other) < doc.indexOf('- 登记甲'), '插入位仍紧跟锚点(锚点之后第一行)')
+})
+
+test('I6 端到端·带取号令牌的块第二次跑:展开后的号不同 ⇒ 仍判"已在位",HEAD 不前进', (t) => {
+  const { dir, inputs } = makeDocRepo(t, `- [ ] **G-3 旧条目**:x\n${G321_ANCHOR}\n`)
+  writeFileSync(join(inputs, 'anchor.txt'), `${G321_ANCHOR}\n`)
+  writeFileSync(
+    join(inputs, 'block.txt'),
+    '- [ ]（进行中@2026-09-28/工具）**{{NEXT_ID:G}} 幂等落地**:正文\n',
+  )
+  const r1 = g321Run(dir, inputs)
+  assert.equal(r1.status, 0, `第一次必须落地:${r1.stdout}|${r1.stderr}`)
+  assert.match(r1.stdout, /令牌取号\(由该次 HEAD 底稿现算\)=G-4/)
+  const h1 = git(['rev-parse', 'HEAD'], { root: dir })
+  const r2 = g321Run(dir, inputs)
+  assert.equal(r2.status, 0, `号不同也必须认出"已在位":${r2.stdout}|${r2.stderr}`)
+  assert.match(r2.stdout, /本块已在位/)
+  assert.match(r2.stdout, /编号位按族形状视作可变段\(G 族/)
+  assert.doesNotMatch(r2.stdout, /令牌取号\(/, '已在位这一支不产生提交 ⇒ 不该报"取了号"')
+  assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), h1, '第二次绝不许产生新提交')
+  const doc = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true }))
+  assert.equal((doc.match(/幂等落地/g) ?? []).length, 1, '逐字等值判据在这一型上必然漏掉 ⇒ 会多出 G-5 那一份')
+  assert.doesNotMatch(doc, /G-5/, '第二次跑若真落地就会产出 G-5 重复段')
+})
+
+test('I7 端到端·落地成功而索引未对齐 ⇒ 退出码 0(不冒充失败)+ 点名 sha 与原因', (t) => {
+  const { dir, inputs } = makeDocRepo(t, G321_BASE.join('\n'))
+  writeFileSync(join(inputs, 'anchor.txt'), `${G321_ANCHOR}\n`)
+  writeFileSync(join(inputs, 'block.txt'), '- 登记甲\n')
+  plantStaleIndexLock(dir)
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
+  const r = g321Run(dir, inputs)
+  const after = git(['rev-parse', 'HEAD'], { root: dir })
+  assert.equal(r.status, 0, `内容已入库这一档不得报成失败:${r.stdout}|${r.stderr}`)
+  assert.notEqual(after, before, 'CAS 必须真的成功(内容已落地)')
+  assert.ok(r.stdout.includes(`内容已入库 ${after}`), `必须点名 sha:\n${r.stdout}`)
+  assert.match(r.stdout, /仅共享主索引未对齐/)
+  assert.match(r.stdout, /锁龄超上限/, '原因必须点名,不能只说"没对齐"')
+  assert.match(r.stdout, /别用重跑修它|不要重跑/, '措辞必须挡住 G-321 那一步(重跑造双份)')
+  assert.doesNotMatch(r.stdout, /主索引已对齐 1\/1/, '不得把未对齐写成对齐')
+  assert.doesNotMatch(r.stderr, /❌/, 'stderr 里不该出现失败标记')
+  assert.notEqual(
+    indexBlobOf('DOC.md', { root: dir }),
+    headBlobOf('HEAD', 'DOC.md', { root: dir }),
+    '阳性对照:此刻索引确实停在父提交 blob(否则本条测的是另一件事)',
+  )
+  const r2 = g321Run(dir, inputs)
+  assert.equal(r2.status, 0, `${r2.stdout}|${r2.stderr}`)
+  assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), after, '重跑不得造出第二份(幂等判据接住)')
+})
+
+test('I8 反向·内容没落地时同一把 stale 锁不得把失败洗成 0(锚点未命中 ⇒ 仍 exit 1、HEAD 不动)', (t) => {
+  const { dir, inputs } = makeDocRepo(t, G321_BASE.join('\n'))
+  writeFileSync(join(inputs, 'anchor.txt'), '@@NOPE@@\n')
+  writeFileSync(join(inputs, 'block.txt'), '- 登记甲\n')
+  plantStaleIndexLock(dir)
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
+  const r = g321Run(dir, inputs)
+  assert.equal(r.status, 1, '分档只作用于"已入库之后"那一步:没落地照旧是失败')
+  assert.match(r.stderr, /找不到锚点/)
+  assert.doesNotMatch(r.stdout, /内容已入库/, '不得替一次没发生的落地背书')
+  assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before)
+})
+
+test('I9 alignOutcome 纯函数三方向:未落地 ⇒ 1 / 已入库未对齐 ⇒ 0 且点名 / 已对齐 ⇒ 旧措辞逐字不变', () => {
+  const fail = __test__.alignOutcome({ landedSha: '', doc: 'DOC.md', detail: '12 次均未抢到 CAS' })
+  assert.equal(fail.code, 1, '没落地绝不能被 ② 那一档顺手洗绿')
+  assert.ok(fail.lines[0].startsWith('❌') && fail.lines[0].includes('12 次均未抢到 CAS'), fail.lines[0])
+
+  const sha = 'a'.repeat(40)
+  const unaligned = __test__.alignOutcome({
+    landedSha: sha,
+    doc: 'DOC.md',
+    align: { moved: 0, already: 0, skipped: [], undetermined: [], lockAbandoned: true, failed: false },
+  })
+  assert.equal(unaligned.code, 0)
+  const txt = unaligned.lines.join('\n')
+  assert.ok(txt.includes(`内容已入库 ${sha}`), txt)
+  assert.ok(txt.includes('仅共享主索引未对齐') && txt.includes('锁龄超上限'), txt)
+  assert.ok(!txt.includes('❌'), '这一档不是失败 ⇒ 不得出现失败记号')
+  assert.ok(!txt.includes('主索引已对齐'), '不得把未对齐写成对齐')
+
+  const rounds = __test__.alignOutcome({
+    landedSha: sha,
+    doc: 'D',
+    align: {
+      lockAbandoned: false,
+      failed: true,
+      error: '轮次耗尽',
+      skipped: [{ path: 'D', reason: '别人已暂存' }],
+      undetermined: [],
+    },
+  })
+  assert.equal(rounds.code, 0)
+  assert.ok(rounds.lines.join('\n').includes('轮次耗尽'), 'failed 那一支的原因也要点名')
+  assert.ok(rounds.lines.some((l) => l.startsWith('⚠️ 未动(归属他人):D')), '归属他人的条目不得被静默吞掉')
+
+  const ok = __test__.alignOutcome({
+    landedSha: sha,
+    doc: 'DOC.md',
+    align: { moved: ['DOC.md'], already: [], skipped: [], undetermined: [], lockAbandoned: false, failed: false },
+  })
+  assert.equal(ok.code, 0)
+  assert.equal(
+    ok.lines[0],
+    '✅ 主索引已对齐 1/1 路径(移动 1 / 已就位 0)',
+    '既有 T4/T13 钉着这一行 ⇒ 措辞漂一个字就是放宽既有断言',
+  )
+})
+
+test('I10 反向锁:幂等判据必须在 CAS 循环体内、且在拼块之前现读;循环内不得出现磁盘取材', () => {
+  const loopStart = TOOL_SRC.indexOf('for (let attempt = 1')
+  const loopEnd = TOOL_SRC.indexOf("if (landed === '')")
+  assert.ok(loopStart > 0 && loopEnd > loopStart, '找不到 CAS 循环(结构漂了,本锁失去意义)')
+  const body = TOOL_SRC.slice(loopStart, loopEnd)
+  // 刻意不用 `assert.match(\n …)` 的换行形态:那样第一条行恰好是 `  assert.match(`,而它在
+  // 祖先 5f58242ab 里存在过 ⇒ 陈旧落地守卫会把它读成"把基线已删的行搬回来"而拒落(本仓第二次
+  // 撞到同一形状,上一轮也是改写成不产生碎片的形态才落地的)。语义不变,只换写法。
+  assert.ok(/blockInPlaceCheck\(\s*\{/.test(body), '幂等判据没接进 CAS 循环 = 一次也不会跑(守门 64/70/76/81/115 同型:函数在、判据对、无人调度)')
+  assert.ok(/compileBlockMatchers\(block,\s*baseContent\)/.test(body), '匹配式必须由**本轮底稿**编译:烘到循环外就在别人推进 HEAD 的瞬间产出自洽却错位的尺子')
+  const at = body.indexOf('blockInPlaceCheck(')
+  const asm = body.indexOf('assemble(baseLines, effBlock, anchorLines)')
+  assert.ok(at > 0 && asm > at, '票面 ① 要求"拼块之前"判;放到 assemble 之后就已经晚了')
+  assert.doesNotMatch(
+    body,
+    /readFileSync\(/,
+    '判据只看被审面;循环里出现 readFileSync 就是把它换成了磁盘面(共享工作树常年滞后 HEAD)',
   )
 })
