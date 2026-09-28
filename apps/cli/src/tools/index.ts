@@ -702,6 +702,63 @@ export function withToolResultBudget(tool: Tool, result: ToolResult): ToolResult
   return budget ? applyToolResultBudget(result, budget) : result;
 }
 
+// ==================== 批准闸:要不要问人(唯一实现)====================
+//
+// 立票理由(2026-09-28,实测):
+//  ① `packages/types/src/tool-contract.ts:202` 声明了 `alwaysAsk?: boolean`,但 apps/ 与
+//     packages/ 的 src 面**零消费者**(只有 dist 产物里有它)—— 那张"无论多宽松都必须问"的
+//     支票一直是空的,而账面读起来像已实现(§22c"造好没装车"同族)。
+//  ② 第三方 MCP 工具的批准判定是**单轴**:`mcpToolToTool` 从不写 dangerLevel,
+//     而本文件的确认分支只认 `dangerLevel === 'dangerous'`(HEAD 面那行原文:
+//     `if (tool.dangerLevel === 'dangerous' || leaseContentDrifted)`,见本票 diff 的删除列)
+//     ⇒ 每一个 MCP 工具都走"免批"。
+
+/** 契约上是否**显式**标了 `alwaysAsk: true`(只认字面量 true;缺席/false 一律不算)。 */
+function isAlwaysAskDeclared(tool: Tool): boolean {
+  return tool.contract?.permission.alwaysAsk === true;
+}
+
+/**
+ * 免批两轴是否**同时成立**(轴 A 只读 ∧ 轴 B 不碰外部世界)。
+ *
+ * 两轴各自为假就是不同的事:前者"只读但出网"、后者"不出网但会写",任一成立都必须问。
+ * 整对缺席 ⇒ 本判据不适用(返回 false 表示"没有免批资格可谈"),内建工具行为逐字不变。
+ */
+function hasApprovalExemption(tool: Tool): boolean {
+  const axes = tool.approvalExemption;
+  if (!axes) return false;
+  return axes.readonlyAxis === true && axes.closedWorldAxis === true;
+}
+
+/** 该工具是否**声明过**免批两轴(声明过却没同时成立 = 要问;没声明 = 本条不参与判定)。 */
+function declaresApprovalExemption(tool: Tool): boolean {
+  return tool.approvalExemption !== undefined;
+}
+
+/**
+ * 批准闸"必须问人"的**唯一实现**(2026-09-28 起,四条判据,任一成立即问):
+ *
+ *  ① `dangerLevel === 'dangerous'` —— 既有档,语义一字未动;
+ *  ② 租约槽位摘要漂移(`leaseContentDrifted`)—— 既有档,语义一字未动;
+ *  ③ 契约上**显式** `alwaysAsk: true`(此前零消费者 ⇒ 本票把它接上)。
+ *     **只对显式标记生效**:未标记的工具不会因本条新增"要批准",任何缺省语义
+ *     (`dangerLevel ?? 'write'`、"契约缺席按只读"等)都未被触碰;
+ *  ④ 第三方工具声明了免批两轴(`approvalExemption`)而两轴没同时成立。
+ *     两轴是契约上的**两个独立字段**(`ApprovalExemptionAxes`),不是一个布尔、
+ *     也不是 `dangerLevel === 'read'` 一档冒充两件事。
+ *
+ * 静态拒绝优先(规格 = `tool-contract.ts:200` 那句"绝不覆盖拒绝分支"):本函数**只**在
+ * `executeToolCall` 里权限规则已经放行之后才被调用,规则 deny 那条路径在此之前就 return,
+ * 所以"被 deny 的调用因 alwaysAsk 变成问一次再放行"在结构上不可能发生(由测试②钉住)。
+ */
+export function requiresUserConfirmation(tool: Tool, leaseContentDrifted = false): boolean {
+  if (tool.dangerLevel === 'dangerous') return true;
+  if (leaseContentDrifted) return true;
+  if (isAlwaysAskDeclared(tool)) return true;
+  if (declaresApprovalExemption(tool) && !hasApprovalExemption(tool)) return true;
+  return false;
+}
+
 export async function executeToolCall(
   call: ParsedToolCall,
   ctx: ToolContext,
@@ -817,7 +874,10 @@ export async function executeToolCall(
   if (!rateLimit.allowed) {
     return { success: false, output: '', error: rateLimit.reason, errorType: 'rate_limited' };
   }
-  if (tool.dangerLevel === 'dangerous' || leaseContentDrifted) {
+  // 批准闸:四条"必须问"的判据集中在 `requiresUserConfirmation()` 一处(唯一实现,不在这里再抄一遍)。
+  // 走到这一行时权限规则**已经放行**(上面 deny 已 return),所以 alwaysAsk 结构上
+  // 不可能把一次静态拒绝变成"问一次再放行" —— 那条规格写在 tool-contract.ts:200。
+  if (requiresUserConfirmation(tool, leaseContentDrifted)) {
     const allowed = ctx.confirmDangerous ? await ctx.confirmDangerous(tool, call.arguments) : false;
     // 披露面(L7905 收口):只记账不改判定 —— 放行路径(会话级 flag / 回调自批)可追溯
     if (allowed) {
