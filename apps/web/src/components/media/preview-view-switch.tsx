@@ -23,8 +23,9 @@ import { cn } from '@/lib/utils'
  *  2. **切视图 = 零取数**:本组件只负责 mode 与可用性,源码文本一律由调用方从**已在手里的**
  *     内容派生(见 office-preview 的 extractOfficeSourceText / CSV 的 raw),这里不出现 fetch。
  *  3. **缺词不喷键名**:取词走"有键取键、无键回落内联文案"(与 preview-degradation-copy 同一条
- *     规矩)—— 票面禁止本会话改 `packages/i18n/messages/**`,新键在主会话入词表之前界面必须
- *     仍是可读文案,而不是 `previewViewSource` 这种内部标识。
+ *     规矩)。11 个键已于 2026-09-26 由提交 `3650a460e` 按 §19 流水线入 `chat` 段五语言词表,
+ *     正常路径读的是词表;下面那份内联表因此只是**缺词降落伞**,不是第二个文案源 ——
+ *     键名清单见受版本控制的 `scripts/data/i18n-d41-preview-keys.json`。
  */
 
 export const PREVIEW_VIEW_NAMESPACE = 'chat' as const
@@ -69,9 +70,13 @@ export interface PreviewSourceText {
 export const PREVIEW_SOURCE_MAX_CHARS = 200_000
 
 /**
- * 内联兜底文案:与 `.ihui-agent/tmp/i18n-d41.json` 里建议入表的键值逐字一致。
- * 主会话入词表后本表退化为缺词兜底,取词点不改(每行标注 next-intl 是为了让守门 70
- * 把这批译文表按 i18n 数据放过 —— 删掉就等于把兜底也删了)。
+ * 内联兜底文案:**只在缺词时**生效的降落伞(取词点永远先走 `t()`,见 `previewViewCopyText`)。
+ * 键名清单与唯一真值位置见受版本控制的 `scripts/data/i18n-d41-preview-keys.json` 与
+ * `packages/i18n/messages/web/*.json` 的 `chat` 段 —— 本表不新增文案、不定义文案,要改句子请改
+ * 词表并按 AGENTS §19 流水线走。本表的 en 档必须与 `web/en.json` 逐字一致(2026-09-28 实测
+ * `previewSourceUnavailableTooLarge` 曾分叉成 `...so no raw text.`,已对齐),否则"缺词时读到的"
+ * 与"正常时读到的"是两句话。
+ * 每行标注 next-intl 是为了让守门 70 把这批译文表按 i18n 数据放过 —— 删掉就等于把兜底也删了。
  */
 const PREVIEW_VIEW_COPY: Record<PreviewViewCopyKey, { readonly zh: string; readonly en: string }> =
   {
@@ -93,7 +98,7 @@ const PREVIEW_VIEW_COPY: Record<PreviewViewCopyKey, { readonly zh: string; reado
     },
     previewSourceUnavailableTooLarge: {
       zh: '文件过大，内容未取回，原始文本不可用。', // next-intl 缺词兜底
-      en: 'File too large — content was not fetched, so no raw text.',
+      en: 'File too large — content was not fetched, so there is no raw text.',
     },
     previewSourceUnavailableExpired: {
       zh: '链接已失效，原始文本不可用。', // next-intl 缺词兜底
