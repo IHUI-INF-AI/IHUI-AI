@@ -17,9 +17,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { readFileSync } from 'node:fs'
 import { __test__ as G } from '../check-merge-addition-loss.mjs'
 import { __test__ as DISC, maskComments } from '../check-gate-face-discipline.mjs'
@@ -28,7 +28,7 @@ const GIT = 'C:/Program Files/Git/cmd/git.exe'
 const SCRIPT = 'check-merge-addition-loss.mjs'
 
 function repo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-merge-loss-it-'))
+  const dir = mkScratch('ihui-merge-loss-it-')
   const run = (...a) =>
     execFileSync(GIT, ['-c', 'safe.directory=*', ...a], { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 60000 }).trim()
   run('init', '-q', '-b', 'main')
@@ -68,7 +68,7 @@ test('事故形态(整棵树按一侧回写)必须被抓到并点名路径', () 
       `两侧独有新增都必须被点名,实际:${JSON.stringify(hit.lost)}`,
     )
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -98,7 +98,7 @@ test('parentsOf 的 token 偏移:rev-list --parents 第一个 token 是提交自
     run('merge', '-q', '--no-edit', 'c')
     assert.equal(G.parentsOf('HEAD', dir).length, 2, '合并提交必须认出 2 个父(slice 偏移错会判成 1 个 ⇒ 整门恒绿)')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -134,7 +134,7 @@ test('口径:未推的合并判红,已进 origin/main 的历史事故不拦后�
     assert.ok(G.auditUnseen(400, dir, marker).some((r) => r.rev === badSha))
     assert.equal(G.auditUnseen(400, dir, marker).length, 0, '已记过的合并不得每轮重判')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -237,7 +237,7 @@ test('台账三面分歧 ⇒ 取磁盘面(本门无索引面可切,方向不得�
     // 反向对照:同一判据对"只存在于 HEAD、磁盘上没有"的路径必须退回空表(不抛、不冒"已记过")
     assert.deepEqual(G.readMarker(join(dir, 'not-on-disk.json')), {}, '磁盘缺失 ⇒ 空表(保守重判),不得抛')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -66,6 +66,12 @@ import {
   type IntegrityVerificationResult,
   type RecordAuditLogParams,
 } from '../services/audit-log-service.js'
+// 86G-2:结构行保留天数是"验签公钥登记表判轮换期"的同一份策略 ⇒ 变量名与默认值只允许有一处
+// 真相(此前本文件硬编码 180 + 变量名字面量,登记表只能"声称同源"而无法被机器核对)。
+import {
+  AUDIT_ENVELOPE_RETENTION_DAYS_DEFAULT,
+  ENVELOPE_RETENTION_ENV,
+} from '../services/audit-export-key-registry.js'
 import type { AuditLogChainRow } from '../db/audit-queries.js'
 
 // =============================================================================
@@ -113,7 +119,10 @@ export function resolveAuditEvidencePolicy(
 ): AuditEvidencePolicy {
   return {
     rawDays: parseNonNegativeInt(env.AUDIT_EVIDENCE_RAW_RETENTION_DAYS, 0),
-    structDays: parseNonNegativeInt(env.AUDIT_EVIDENCE_STRUCT_RETENTION_DAYS, 180),
+    structDays: parseNonNegativeInt(
+      env[ENVELOPE_RETENTION_ENV],
+      AUDIT_ENVELOPE_RETENTION_DAYS_DEFAULT,
+    ),
     batch: parseNonNegativeInt(env.AUDIT_EVIDENCE_PURGE_BATCH, 50),
     maxPurge: parseNonNegativeInt(env.AUDIT_EVIDENCE_MAX_PURGE, 200),
   }
@@ -137,7 +146,9 @@ export function collectRawEvidenceKeys(
   metadata: Record<string, unknown> | null | undefined,
 ): string[] {
   if (!metadata || typeof metadata !== 'object') return []
-  return RAW_EVIDENCE_METADATA_FIELDS.filter((k) => Object.prototype.hasOwnProperty.call(metadata, k))
+  return RAW_EVIDENCE_METADATA_FIELDS.filter((k) =>
+    Object.prototype.hasOwnProperty.call(metadata, k),
+  )
 }
 
 /** 构造擦除后的 metadata:剥掉原文三族键,写 rawRetained=false / rawPurgedAt / purge 墓碑。 */
@@ -354,7 +365,10 @@ export function applyEvidenceUpdatesToRows(
       ...r,
       prevHash: u.prevHash,
       currentHash: u.currentHash,
-      metadata: u.metadataJson !== undefined ? (JSON.parse(u.metadataJson) as Record<string, unknown>) : r.metadata,
+      metadata:
+        u.metadataJson !== undefined
+          ? (JSON.parse(u.metadataJson) as Record<string, unknown>)
+          : r.metadata,
     }
   })
 }
