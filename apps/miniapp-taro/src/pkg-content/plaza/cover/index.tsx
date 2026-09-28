@@ -177,7 +177,7 @@ export default function PlazaCover() {
         {/* 头部用户区(对齐 RN hero: 无卡底居中列;状态行与续费入口为小程序独有内容) */}
         <View className="flex flex-col items-center py-[64rpx] gap-[24rpx]">
           <Image
-            className="w-[128rpx] h-[128rpx] rounded-full bg-muted"
+            className="w-[128rpx] h-[128rpx] rounded-2xl bg-muted"
             src={profile?.avatar || '/static/default-avatar.png'}
             mode="aspectFill"
           />
