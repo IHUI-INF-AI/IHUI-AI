@@ -205,14 +205,20 @@
       "path": "apps/zcode-cli/packages/adapters",
       "status": "windowed",
       "files": 202,
-      "read": 10,
-      "remaining": "193 未整读(6 个仅窗口碰过)。本轮 W6-B 整读到体 9 枚:model/retry-budget、stream-retry-boundary、retry-policy、offpeak-retry、failure-tls、errors、proxy-fetch、public-egress-policy、empty-completion-retry ⇒ read 取 max(10) 不取和(与上轮 10 枚的重叠不可计算,真实区间 [10,19])。最大未读块:model/runner-stream 1655、model-execution 1080、runner-debug 905、plugins/marketplace 2724、mcp/index 1950、fs/index 余下 1118、storage/sqlite-session-store 1022、migrations 930、repositories/usage 745。",
+      "read": 17,
+      "remaining": "185 未整读(6 个仅窗口碰过)。本轮 W6-B 整读到体 9 枚:model/retry-budget、stream-retry-boundary、retry-policy、offpeak-retry、failure-tls、errors、proxy-fetch、public-egress-policy、empty-completion-retry ⇒ read 取 max(10) 不取和(与上轮 10 枚的重叠不可计算,真实区间 [10,19])。最大未读块:model/runner-stream 1655、model-execution 1080、runner-debug 905、plugins/marketplace 2724、mcp/index 1950、fs/index 余下 1118、storage/sqlite-session-store 1022、migrations 930、repositories/usage 745。2026-09-29 第三波只读取证再整读到体 8 枚(exec/node-execution-adapter-results、exec/node-execution-adapter-lifecycle、exec/bash-file-output、exec/output-collector、storage/workspace-hook-trust-store、storage/session-store/migration-runner、mcp/oauth-refresh、plugins/atomic-directory),与上一批具名 9 枚**逐名不重名** ⇒ 8 枚可计;但上上轮 read=10 里仍有 1 枚未具名,与这 8 枚的重叠不可计算 ⇒ **按下界取 17 而不是 18**(台账宁可少报覆盖,绝不把没证的读数报成读过;真实区间 [17,18])。",
       "evidence": [
         "apps/zcode-cli/packages/adapters/src/model/retry-budget.ts:8",
         "apps/zcode-cli/packages/adapters/src/model/offpeak-retry.ts:6",
         "apps/zcode-cli/packages/adapters/src/model/failure-inspection.ts:292",
         "apps/zcode-cli/packages/adapters/src/http/public-egress-policy.ts:108",
-        "apps/zcode-cli/packages/adapters/src/network/proxy-fetch.ts:29"
+        "apps/zcode-cli/packages/adapters/src/network/proxy-fetch.ts:29",
+        "apps/zcode-cli/packages/adapters/src/exec/node-execution-adapter-results.ts:187",
+        "apps/zcode-cli/packages/adapters/src/exec/bash-file-output.ts:185",
+        "apps/zcode-cli/packages/adapters/src/mcp/oauth-refresh.ts:62",
+        "apps/zcode-cli/packages/adapters/src/storage/workspace-hook-trust-store.ts:476",
+        "apps/zcode-cli/packages/adapters/src/plugins/atomic-directory.ts:252",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/migration-runner.ts:300"
       ],
       "rejectedEvidence": ["apps/zcode-cli/packages/adapters/src/fs/index.ts:740"],
       "rejectedNote": "fs/index.ts:735-753 是**反例**:rename 外套裸 catch 后用 O_CREAT|O_TRUNC 原地重写真身 ⇒ ENOSPC/EACCES 时先删临时文件再截断用户原文件;Windows 目标被占用时 rename 回 EPERM(守门 122 头注已记为实测事实)⇒ 最常见机型上每次并发保存都走非原子原地写且调用方无信号。我方 atomic-write.ts 全文件 O_TRUNC 零命中并由守门 122 R2/R3 判接线 ⇒ 该格我方严格优于上游,登记为 122 判据合理性的外部证据,不得抄。",
@@ -264,10 +270,17 @@
       "path": "apps/zcode-cli/packages/cli",
       "status": "windowed",
       "files": 97,
-      "read": 1,
-      "notes": "parseArgs strict:true + 失败即 stderr/help/exit 1,且注释显式先摘掉自 re-exec 的末位入口路径(否则严格解析误报未知参数)。我方 commander 侧已有 modeUnknown + exit(1)(不构成缺陷,登记意识)。",
-      "remaining": "96 未整读;run.ts(587)仅窗口读。",
-      "evidence": ["apps/zcode-cli/packages/cli/src/arguments.ts:108"]
+      "read": 7,
+      "notes": "parseArgs strict:true + 失败即 stderr/help/exit 1,且注释显式先摘掉自 re-exec 的末位入口路径(否则严格解析误报未知参数)。我方 commander 侧已有 modeUnknown + exit(1)(不构成缺陷,登记意识)。2026-09-29 第三波另收:进程级异常边界的 latch 与 monitor 归因、信号退出码 128+N 的产出侧、清理有界 + watchdog unref、重复信号用 on 不用 once(参 process-errors.ts:52 / shutdown.ts:6 / protocol-lifecycle.ts:58)。",
+      "remaining": "90 未整读;run.ts(587)仅窗口读。",
+      "evidence": [
+        "apps/zcode-cli/packages/cli/src/arguments.ts:108",
+        "apps/zcode-cli/packages/cli/src/process-errors.ts:52",
+        "apps/zcode-cli/packages/cli/src/shutdown.ts:6",
+        "apps/zcode-cli/packages/cli/src/protocol-lifecycle.ts:58",
+        "apps/zcode-cli/packages/cli/src/runtime-warnings.ts:52",
+        "apps/zcode-cli/packages/cli/src/tui-stderr.ts:62"
+      ]
     },
     {
       "path": "apps/zcode-cli/scripts",
