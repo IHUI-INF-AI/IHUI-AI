@@ -3,33 +3,22 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * TUI 增强模块 — 聚合导出 @ 文件模糊搜索 / Plan-Build 模式切换 / 图片输入 / 提示增强。
- * 供 repl.ts 后续集成调用,本模块不直接操作 readline。
+ * 全屏终端界面 —— 对外出口。
+ *
+ * 分层:纯函数层(geometry / scroll / keymap / actions / transcript / frame / render)
+ * 与唯一的 IO 层(terminal)和编排层(app)。命令入口在 `../../commands/tui.js`。
+ * 单测一律打在纯函数层上(见 apps/cli/tests/tui-fullscreen-*.test.ts),
+ * 因为"布局对不对"必须可断言,不能只能人眼看。
  */
 
-export { findFiles, type FuzzyFileResult } from './fuzzy-file.js';
-export {
-  ModeManager,
-  type WorkMode,
-  type ModeManagerOptions,
-  type ModeHistoryEntry,
-  type ModeSuggestion,
-} from './mode-manager.js';
-export { readImageFromPath, readImageFromClipboard, type ImageInput, type ImageReadResult } from './image-input.js';
-export { enhancePrompt, enhanceWithImage, type EnhancedPrompt } from './prompt-enhancer.js';
-export { buildModePrompt, buildModeBanner, buildModeHistory } from './prompt-builder.js';
-/**
- * 全屏终端界面(alt-screen)—— 纯函数层 + 唯一 IO 层,详见 `./fullscreen/index.ts`。
- * 与上面几件的分工:上面是"行模式下的增强件",下面是"整屏由我们画"的那条路。
- */
-export {
-  computeBoxes,
-  decideFullscreenCapability,
-  runFullScreenSession,
-  snapshotFrame,
-  type ConversationHost,
-  type FullScreenTerminal,
-  type RegionBoxes,
-  type Size,
-} from './fullscreen/index.js';
+export * from './geometry.js'
+export * from './scroll.js'
+export * from './actions.js'
+export * from './keymap.js'
+export * from './transcript.js'
+export * from './frame.js'
+export * from './render.js'
+export * from './capability.js'
+export { createFullScreenTerminal, withFullScreen, safeSize, type TerminalIo, type FullScreenTerminal } from './terminal.js'
+export { runFullScreenSession, snapshotFrame, type ConversationHost, type FullScreenAppOptions, type FullScreenAppState } from './app.js'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
