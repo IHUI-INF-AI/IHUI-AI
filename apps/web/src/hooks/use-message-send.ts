@@ -11,7 +11,12 @@ import { toast } from '@/components/common'
 import { detectDangerousCommands } from '@/lib/dangerous-command-detector'
 import { compressImage } from '@/lib/file-utils'
 import { formatFileSize } from '@/config/downloads.config'
-import type { ReferenceItem } from '@/hooks/use-message-references'
+import {
+  CHAT_ATTACHMENT_MAX_FILES,
+  CHAT_ATTACHMENT_MAX_SIZE_BYTES,
+  type AttachmentRejection,
+  type ReferenceItem,
+} from '@/hooks/use-message-references'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { steerChatStream } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
@@ -35,6 +40,16 @@ export interface UseMessageSendParams {
   references: ReferenceItem[]
   resetReferences: () => void
   addFileReference: (file: File) => void
+  /** G-833 批量校验入口(可选:缺省时三入口退回逐文件 addFileReference 旧行为,
+   *  保持 apps/web/tests 既有 harness 兼容)。返回结构化 reject,由本 hook 聚合为一条提示 */
+  addFileReferences?: (files: readonly File[]) => AttachmentRejection[]
+  /** G-833 入口预筛(与 commitFileReference 配对:先 screen 后 commit,图片压缩路径用) */
+  screenAttachments?: (files: readonly File[]) => {
+    accepted: File[]
+    rejections: AttachmentRejection[]
+  }
+  /** G-833 提交已过三档校验的文件(缺省退回 addFileReference) */
+  commitFileReference?: (file: File) => void
   /** 添加文本型引用(引用选中文本/代码片段,展示为 "> 📎 label" 参考块) */
   addTextReference: (text: string) => void
   onSend: (content: string) => Promise<boolean> | boolean
@@ -122,6 +137,9 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     references,
     resetReferences,
     addFileReference,
+    addFileReferences,
+    screenAttachments,
+    commitFileReference,
     addTextReference,
     onSend,
     inputCoreRef,
@@ -139,12 +157,27 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
 
   // 矩阵 A #19(2026-09-13 立):图片入列统一走压缩守卫 ——
   // 超过 1.5MB 的位图先 canvas 压缩(1920px/JPEG q0.85),压缩后更小才采用,
-  // 否则(含 GIF/压缩失败)回退原图;toast 提示压缩效果
+  // 否则(含 GIF/压缩失败)回退原图;toast 提示压缩效果。
+  // G-833(2026-09-29):落点统一切到 commitOrAddFile —— 入口已预筛的文件不再二次复筛,
+  // 避免压缩路径(void 异步链)把复筛拒绝吞回静默。
+  /** G-833:提交入口统一分派 —— 调用方已在入口完成三档预筛时直接 commit(不再二次校验,
+   *  避免"压缩后 addFileReference 复筛被拒"被 void 异步链吞掉、重新静默);
+   *  旧 harness 缺省时退回 addFileReference 自筛路径。 */
+  const commitOrAddFile = React.useCallback(
+    (file: File) => {
+      if (commitFileReference) commitFileReference(file)
+      else addFileReference(file)
+    },
+    [commitFileReference, addFileReference],
+  )
+
+  /** 把压缩守卫里的落引用动作同步切到 commitOrAddFile:
+   *  addImageFileCompressed 内部原直调 addFileReference,现统一走分派口 */
   const addImageFileCompressed = React.useCallback(
     async (file: File) => {
       const shouldCompress = file.size > IMAGE_COMPRESS_THRESHOLD_BYTES && file.type !== 'image/gif'
       if (!shouldCompress) {
-        addFileReference(file)
+        commitOrAddFile(file)
         return
       }
       try {
@@ -153,7 +186,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
           const compressed = new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.jpg`, {
             type: 'image/jpeg',
           })
-          addFileReference(compressed)
+          commitOrAddFile(compressed)
           toast(
             t('imageCompressed', {
               before: formatFileSize(file.size),
@@ -162,26 +195,80 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
           )
           return
         }
-        addFileReference(file)
+        commitOrAddFile(file)
       } catch {
         // Canvas 不可用等压缩失败:回退原图,不阻断附件流程
-        addFileReference(file)
+        commitOrAddFile(file)
       }
     },
-    [addFileReference, t],
+    [commitOrAddFile, t],
+  )
+
+  /** G-833:一批文件的三档拒绝**聚合为一条**提示。
+   *  前置纪律(票面):一次操作里多个文件被拒 ⇒ 只弹一条汇总,不得逐文件 toast 风暴。
+   *  文案口径复用 workspace/upload-zone.tsx:45「文件超过大小上限(NMB)」措辞档;
+   *  新键 chat.attachRejectType / attachRejectSize / attachRejectCount(见交付报告,i18n 流水线状态如实)。 */
+  const reportAttachmentRejections = React.useCallback(
+    (rejections: AttachmentRejection[]) => {
+      if (rejections.length === 0) return
+      const parts = rejections.map((r) => {
+        const names = r.fileNames.join('、')
+        if (r.code === 'accept') return t('attachRejectType', { count: r.fileNames.length, names })
+        if (r.code === 'max_file_size') {
+          return t('attachRejectSize', {
+            max: Math.floor(CHAT_ATTACHMENT_MAX_SIZE_BYTES / 1024 / 1024),
+            count: r.fileNames.length,
+            names,
+          })
+        }
+        return t('attachRejectCount', {
+          max: CHAT_ATTACHMENT_MAX_FILES,
+          count: r.fileNames.length,
+        })
+      })
+      toast.warning(parts.join('; '), { duration: 6000 })
+    },
+    [t],
+  )
+
+  /** G-833:已过预筛的文件落引用 —— 图片走压缩守卫,其余直接提交 */
+  const routeScreenedFiles = React.useCallback(
+    (accepted: File[]) => {
+      accepted.forEach((f) => {
+        if (f.type.startsWith('image/')) void addImageFileCompressed(f)
+        else commitOrAddFile(f)
+      })
+    },
+    [addImageFileCompressed, commitOrAddFile],
   )
 
   const handleFileInputChange = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? [])
+      // 重置 value,允许重复选择同一文件
+      e.target.value = ''
+      if (files.length === 0) return
+      if (screenAttachments) {
+        // G-833:三档判据一次过(类型→单文件大小→数量);数量超额仍收前 capacity 个,
+        // 被拒名单聚合为**一条**提示 —— 选/拖/贴三入口同此形。
+        const { accepted, rejections } = screenAttachments(files)
+        reportAttachmentRejections(rejections)
+        routeScreenedFiles(accepted)
+        return
+      }
+      // 旧 harness 兼容(未接批量口):保留逐文件旧行为
       files.forEach((f) => {
         if (f.type.startsWith('image/')) void addImageFileCompressed(f)
         else addFileReference(f)
       })
-      // 重置 value,允许重复选择同一文件
-      e.target.value = ''
     },
-    [addFileReference, addImageFileCompressed],
+    [
+      addFileReference,
+      addImageFileCompressed,
+      screenAttachments,
+      reportAttachmentRejections,
+      routeScreenedFiles,
+    ],
   )
 
   const handleDragOver = React.useCallback(
@@ -210,14 +297,31 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) return
       e.preventDefault()
       setIsDragOver(false)
-      // 矩阵 A #19:拖入图片同样走压缩守卫
-      Array.from(e.dataTransfer.files).forEach((f) => {
+      const files = Array.from(e.dataTransfer.files)
+      if (screenAttachments) {
+        // G-833:拖拽路径与选择路径同判据同聚合(浏览器 accept 可被拖拽绕过,判据在入口兜住)
+        const { accepted, rejections } = screenAttachments(files)
+        reportAttachmentRejections(rejections)
+        routeScreenedFiles(accepted)
+        requestAnimationFrame(() => inputCoreRef.current?.focus())
+        return
+      }
+      // 旧 harness 兼容:保留逐文件旧行为(矩阵 A #19:拖入图片同样走压缩守卫)
+      files.forEach((f) => {
         if (f.type.startsWith('image/')) void addImageFileCompressed(f)
         else addFileReference(f)
       })
       requestAnimationFrame(() => inputCoreRef.current?.focus())
     },
-    [isStreaming, addFileReference, addImageFileCompressed, inputCoreRef],
+    [
+      isStreaming,
+      addFileReference,
+      addImageFileCompressed,
+      screenAttachments,
+      reportAttachmentRejections,
+      routeScreenedFiles,
+      inputCoreRef,
+    ],
   )
 
   const handlePaste = React.useCallback(
@@ -240,16 +344,21 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       )
       if (imageItems.length === 0) return
       e.preventDefault()
+      // G-833:粘贴路径改为**一次批量**过三档判据(类型/单文件大小/数量),
+      // 拒绝名单聚合成一条提示;粘贴的图片无文件名,用时间戳生成(原行为不变)
+      const pastedFiles: File[] = []
       imageItems.forEach((item) => {
         const file = item.getAsFile()
-        if (file) {
-          // 粘贴的图片无文件名,用时间戳生成
-          const renamed = new File([file], `pasted-${Date.now()}.png`, { type: file.type })
-          addFileReference(renamed)
-        }
+        if (file) pastedFiles.push(new File([file], `pasted-${Date.now()}.png`, { type: file.type }))
       })
+      if (addFileReferences) {
+        reportAttachmentRejections(addFileReferences(pastedFiles))
+      } else {
+        // 旧 harness 兼容:逐文件退回
+        pastedFiles.forEach((f) => addFileReference(f))
+      }
     },
-    [isStreaming, addFileReference, addTextReference, t],
+    [isStreaming, addFileReference, addFileReferences, addTextReference, reportAttachmentRejections, t],
   )
 
   /** 实际发送逻辑(2026-07-25 立,危险命令检测拆分):供 submit / toast action 复用 */
