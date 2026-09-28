@@ -53,6 +53,15 @@
  *              (2026-09-25 起归一成单前缀),本门再判红就是两道门互相矛盾 ⇒ 恒红逼人跳门;
  *              它只计入「已救回」报数。值不是字面量(变量/模板串)⇒ 计入「判不出」如实报出。
  *   R6 只报数 :同一 skipEnv 挂两个以上条目(本仓 id 2/2n-web 是刻意共用,故不判红)。
+ *   R10 默认只报数 / `--strict` 判红:**反向**的另一半缺口 —— 文档/登记表以可机械识别形态
+ *              点名了某道守门(`scripts/check-x.mjs` 或 `守门 NN`/`guardian id NN`),而实现侧
+ *              找不到对应条目。R1–R9 的候选集全部来自"门体在不在被审面上",所以**门被改名或
+ *              删掉时它们一起失明**(账面一路绿灯而那条规则根本不存在);R10 从文档侧建候选,
+ *              只取那一格没人看的:门体不在面上 + 同行有接线断言 ⇒ 真缺口。三态分开报数不并桶
+ *              (真缺口 / 叙述性举例 / 台账已登记),编号维**永不判红**(AGENTS 明令"编号以
+ *              runner 现值为准,勿照抄文档")。与 R4 严格互补不重复计债:R4 判"runner 有、文档无"。
+ *              判据头注记着 2026-09-28 的现读三态计数与"为什么现读 0 也不开 blocking"。
+
  *   R7 blocking:台账 type=dispatcher 的"依据"文件不存在、或文件里没提被豁免脚本 =
  *              假依据(实测抓到 check-lock.mjs 一条编造的 dispatcher 说明)。
  *   R9 blocking:注册表点名要跑的 `script:` 文件**不在这张面上** ⇒ runner 去 `node scripts/<它>`
@@ -868,6 +877,169 @@ export function findUndocumentedGates(wiredScripts, docText) {
   return out
 }
 
+// ────────────────────────────────────────────────────────────────────────
+// R10:文档/登记表点名 ↔ 实现侧存在(票 G-409 立的**反向**缺口)
+// ────────────────────────────────────────────────────────────────────────
+/**
+ * 本门此前只会顺着**实现侧**枚举候选:`filterGatePaths(lsTree HEAD scripts/)` ⇒ 文件不在面上
+ * 就连候选都不生成。于是"文档点名的一道规则在实现侧被改名或删掉"这一格全链零判据 ——
+ * 账面一路绿灯,而那条规则根本不存在(与 R9 是同一枚硬币的两面:R9 管"注册表点名而门体不在面上",
+ * R10 管"文档点名而门体不在面上";两者都存在的前提是候选集来自另一侧,而文档侧从来没有候选集)。
+ *
+ * ⚠ **刻意不与 R1/R2/R3/R4 重复计债**(同一笔债两道门各计一次会让两份基线互相顶掉):
+ *   - 文件在面上而 runner 没登记 ⇒ 已由 R1/R2(文档或头部声称已接线)与 R3(无声称只报数)覆盖;
+ *   - runner 有门而文档没点名 ⇒ 已由 R4 覆盖;
+ *   - 所以 R10 只取那一格 R1–R9 结构上看不见的:**文档点名的门体文件不在被审面上**。
+ *
+ * 形态判据(机械可识别,不做模糊匹配):
+ *   N1 `scripts/<(check|scan|guard)….mjs>` —— 带目录前缀的完整写法才算对本仓门体的点名;
+ *      裸词 `check-foo` 在 AGENTS 里大量是叙述与历史案例,拿它判红就是造一台误伤机。
+ *   N2 `守门 NN` / `guardian id NN` —— 数字后面**不得**再跟字母或数字(否则「守门 13c」会被
+ *      读成「守门 13」而凭空多出一枚"不存在的编号";实测第一版就踩了这一型)。
+ *
+ * 三态绝不并桶(票面要求,也是本门全部价值所在):
+ *   `exempt`   台账已登记该名字 ⇒ 只报数(台账是本门唯一豁免出口,但它救的是"没接线",
+ *              不救"文件不存在" —— 后者由 R9/`staleExemptions` 那一路点名,这里不重复判红);
+ *   `narrative`该行的**同行没有接线断言词**(接入/已接/接线/blocking/pre-commit/pre-push/必跑/
+ *              守门/门禁/guardian/HUSKY_SKIP/紧急跳过/pnpm check:/CI 必跑/exit 1)⇒ 那是散文里的
+ *              举例或历史案例,只报数;边界写成一行可判的正则,因此可测(自检 N3/N4 各钉一侧);
+ *   `gap`      门体不在面上 + 同行有接线断言 ⇒ **真缺口**。默认档只报数,`--strict` 判红。
+ *
+ * 定级现读(2026-09-28,`node scripts/check-gate-wiring.mjs` 末段现读,勿照抄本段派单):
+ *   脚本名形态 —— 文档点名 **312** 处,其中门体不在被审面上的 **1** 处,而那 1 处
+ *   (`AGENTS.md:1205` 的 `scripts/check-commit-scope.mjs`,实名 `check-commit-scope-consistency.mjs`)
+ *   同行没有任何接线断言词 ⇒ 落 **叙述性** 桶,**真缺口 0 / 台账 0**;
+ *   编号形态 —— `守门 NN` 提到的编号不在注册面 id 集合的 **3** 处(全是「守门 94」,该门后来挪了号;
+ *   其中一处本门直接回指"该行点的门体实际登记在 id 153")⇒ 只报数。
+ * 计数为 0 也**不开 blocking**:文档面每轮被并发会话改写,"新写一行点一个还没落地的门名"本来就是
+ * §1 推荐的登记姿势,把它判红会挡住与它无关的提交(§12e 同型)。所以 R10 走
+ * **默认只报数 + `--strict` 判红**的问责档,与门 117/127 的升档路径同一条:先让人看得见,再谈接线。
+ */
+export const DOC_NAMED_GATE_RE = /scripts\/((?:check|scan|guard)[a-z0-9_-]*)\.mjs/g
+export const DOC_NAMED_ID_RE = /(?:守门|guardian id)\s*\*{0,2}(\d{1,3})(?![0-9a-z])/g
+/**
+ * R10 的"文档在声称它是道被接线的门"词表。
+ * 刻意含裸 `守门` / `门禁` / `紧急跳过`:AGENTS 最常见的登记形态就是
+ * `- **守门**:`scripts/check-x.mjs`(blocking…)` —— 若要求 `守门` 后面必须跟编号,
+ * 这一整族登记行会被读成"散文叙述"而放过,而它们恰好是本判据要守的那一格
+ * (判据必须覆盖门自己产出的形态:守门 77 B6 / 门 102 左向箭头同一条教训)。
+ */
+export const R10_WIRING_ASSERTION_RE =
+  /接入|已接|接线|blocking|BLOCKING|pre-commit|pre-push|必跑|守门|门禁|guardian|HUSKY_SKIP|紧急跳过|pnpm check:|CI 必跑|exit 1/
+/** ``` 围栏内的一切都是伪代码/示例,不是对本仓门体的点名 */
+export const FENCE_RE = /^\s*(?:`{3,}|~{3,})/
+
+
+/**
+ * 纯函数:把文档切成"围栏外"的行(带原行号,便于点名)。
+ * 判据必须能区分"文档在说这道门存在"与"文档在演示一段代码" —— 后者遍布 AGENTS §22 那些模板段。
+ */
+export function splitUnfencedLines(text) {
+  const out = []
+  let inFence = false
+  String(text || '')
+    .split(/\r?\n/)
+    .forEach((line, i) => {
+      if (FENCE_RE.test(line)) {
+        inFence = !inFence
+        return
+      }
+      if (inFence) return
+      out.push({ no: i + 1, line })
+    })
+  return out
+}
+
+/**
+ * 纯函数(R10 主判据):文档点名的门体名字 ↔ 被审面上的存在性。
+ * @param docs [{name,text}]  文档面(调用方按 HEAD∪索引给)
+ * @param hasPath (rel)=>boolean  面判据(HEAD 树 ∪ 索引)
+ * @param allowNames Set<string>  台账里登记过的脚本名
+ */
+export function findDocNamedAbsentGates({ docs, hasPath, allowNames }) {
+  const gap = []
+  const narrative = []
+  const exempt = []
+  const seen = new Set()
+  let named = 0
+  for (const { name: docName, text } of docs || []) {
+    for (const { no, line } of splitUnfencedLines(text)) {
+      for (const m of line.matchAll(DOC_NAMED_GATE_RE)) {
+        const script = m[1] + '.mjs'
+        const key = `${docName}|${script}|${no}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        named += 1
+        if (hasPath(`scripts/${script}`)) continue
+        const rec = { script, doc: docName, line: no, excerpt: line.trim().slice(0, 120) }
+        // 台账优先:它救的是"结构上不该被接线的工具",不是"文件不存在";这里只如实分流,
+        // 不拿台账给一个不存在的文件发通行证(那条通道由 staleExemptions 判"清单腐烂")。
+        if (allowNames && allowNames.has(script)) exempt.push(rec)
+        else if (R10_WIRING_ASSERTION_RE.test(line)) gap.push(rec)
+        else narrative.push(rec)
+      }
+    }
+  }
+  return { gap, narrative, exempt, named }
+}
+
+/**
+ * 纯函数(R10 第二维,只报数):`守门 NN` / `guardian id NN` 提到的编号不在 runner 的 id 集合里。
+ * **永不判红** —— AGENTS 自己把"编号一律以 runner 现值为准,勿照抄文档"写成了规矩,
+ * 拿一条被文档明令禁止照抄的数字做判据就是造恒红机。它的产出是**线索清单**:
+ * 同一行若还点了某个门体的名,就把该门体在 runner 里的真实 id 一并报出来(可直接回补)。
+ * @param runnerScripts Map<脚本名, id[]>  由 runner 注册面解析(与 R9 共用一份条目切分)
+ */
+export function findStaleIdMentions({ docs, runnerIds, runnerScripts }) {
+  const out = []
+  const seen = new Set()
+  for (const { name: docName, text } of docs || []) {
+    for (const { no, line } of splitUnfencedLines(text)) {
+      for (const m of line.matchAll(DOC_NAMED_ID_RE)) {
+        const id = m[1]
+        if (runnerIds.has(id)) continue
+        const key = `${docName}|${id}|${no}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        // 同行点的门体名 ⇒ 查它真正登记在哪个 id 下(报"该改成几",而不是只喊"这编号没有")
+        const namedHere = [...line.matchAll(DOC_NAMED_GATE_RE)].map((x) => x[1] + '.mjs')
+        const actual = [...new Set(namedHere.flatMap((s) => runnerScripts.get(s) || []))]
+        out.push({
+          id,
+          doc: docName,
+          line: no,
+          actual: actual.join(',') || '',
+          excerpt: line.trim().slice(0, 120),
+        })
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * 纯函数:把 runner 注册面解析成 Map<id, {script}> 与 Map<脚本名, id[]>(供 R10 第二维回指)。
+ * 条目切分与 R9 同源(同一个 `\bid:` 起点 + 到下一个 id 之前),两处各写一遍必漂移。
+ */
+export function parseRunnerRegistrations(runnerText) {
+  const src = String(runnerText || '')
+  const starts = [...src.matchAll(/\bid:\s*(?:'([^']+)'|"([^"]+)"|(\d+))/g)]
+  const byScript = new Map()
+  const ids = new Set()
+  starts.forEach((m, i) => {
+    const id = m[1] ?? m[2] ?? m[3]
+    if (id !== undefined) ids.add(id)
+    const body = src.slice(m.index, i + 1 < starts.length ? starts[i + 1].index : src.length)
+    const script = (body.match(/\bscript:\s*'([^']+)'/) || body.match(/\bscript:\s*"([^"]+)"/) || [])[1]
+    if (!script) return
+    const list = byScript.get(script) || []
+    list.push(id)
+    byScript.set(script, list)
+  })
+  return { ids, byScript }
+}
+
+
 /** 纯函数:台账格式校验(缺 reason 视为不合规,须报出而非静默放过) */
 export function validateAllowlist(raw) {
   const problems = []
@@ -895,12 +1067,15 @@ async function main(argv = process.argv.slice(2)) {
     root: DEFAULT_ROOT,
     json: false,
     staged: false,
+    strict: false,
     selfTest: false,
     help: false,
   }
   for (const a of argv) {
     if (a === '--json') opts.json = true
     else if (a === '--staged') opts.staged = true
+    else if (a === '--strict') opts.strict = true
+    else if (a === '--self-test') opts.selfTest = true
     else if (a === '--self-test') opts.selfTest = true
     else if (a === '--help' || a === '-h') opts.help = true
     else if (a.startsWith('--root=')) opts.root = resolve(a.slice('--root='.length))
@@ -908,8 +1083,9 @@ async function main(argv = process.argv.slice(2)) {
   }
   if (opts.help) {
     console.log(
-      '用法: node scripts/check-gate-wiring.mjs [--json|--staged|--self-test|--root=<dir>]\n' +
+      '用法: node scripts/check-gate-wiring.mjs [--json|--staged|--strict|--self-test|--root=<dir>]\n' +
         '  --staged 语义:仍做全量对账(全量对账型,同守门 78;按暂存收窄会放过整类破损)\n' +
+        '  --strict 语义:把 R10 的"文档点名而门体不在面上"真缺口计入退出码(默认档只报数)\n' +
         '  紧急跳过: HUSKY_SKIP_GATE_WIRING=1',
     )
     return 0
@@ -1061,6 +1237,7 @@ async function main(argv = process.argv.slice(2)) {
   //    2026-09-26 只换了"内容从哪条管子来",并集判据(combineDocSources)一字未动。
   const docReader = makeDocReader(blobOf)
   const agentsText = docReader.read('AGENTS.md')
+  const readmeText = docReader.read('README.md')
   const agentsClauses = splitAgentClauses(agentsText)
   const candidates = gateNames.filter(
     (n) => !templateHit.has(n) && ![...hitsByPoint.values()].some((s) => s.has(n)),
@@ -1205,7 +1382,7 @@ async function main(argv = process.argv.slice(2)) {
   // R4 反向差集:已接线但文档通篇没点名 ⇒ 文档看不见的门会被重复造或被绕过。
   // 文档面口径 = HEAD∪索引(同 R2,见「取材铁律」例外):AGENTS.md 直接复用上面已读的并集文本,
   // 不再单独 HEAD-only 读一次;README.md 同口径。实际用的口径由 docReader.modes() 如实报出。
-  const docText = agentsText + '\n' + docReader.read('README.md')
+  const docText = agentsText + '\n' + readmeText
   const undocumented = findUndocumentedGates(
     [...by('wired'), ...by('wired-weak')].map((r) => r.script),
     docText,
@@ -1221,6 +1398,57 @@ async function main(argv = process.argv.slice(2)) {
       status: 'red-r4',
       reason: '已接线但 AGENTS.md/README.md 通篇未点名(文档看不见的门会被重复造或绕过)',
     })
+  }
+
+  // ── R10(票 G-409):文档/登记表点名 ↔ 实现侧存在 ──────────────────────
+  // 反向的那一半缺口:R1/R2/R3/R4/R9 的候选集全部来自"门体在不在面上",所以
+  // **门体被改名或删掉时它们一起失明**;R10 从文档侧建候选,专判那一格(判据头注有分工表)。
+  // 存在性面 = **HEAD 全树 ∪ 索引**,与文档面(HEAD∪索引)同口径:同一枚提交里"新立门 +
+  // 补 AGENTS 点名行"是 §1 推荐的正确姿势,不能被自己的新判据挡住(与 R2/R4 的例外同源)。
+  // 索引枚举取不到 ⇒ 退回 HEAD 单面并在结论行点名,绝不静默换面。
+  let r10IndexPaths = null
+  try {
+    r10IndexPaths = new Set(
+      git(['ls-files'], root)
+        .split('\n')
+        .map((l) => l.trim()),
+    )
+  } catch {
+    r10IndexPaths = null
+  }
+  const r10FaceLabel = r10IndexPaths ? 'HEAD∪索引' : '仅 HEAD(索引枚举取不到)'
+  const r10Face = r10IndexPaths
+    ? new Set([...tracked, ...r10IndexPaths])
+    : new Set(tracked)
+  const r10Docs = [
+    { name: 'AGENTS.md', text: agentsText },
+    { name: 'README.md', text: readmeText },
+  ]
+  const r10 = findDocNamedAbsentGates({
+    docs: r10Docs,
+    hasPath: (p) => r10Face.has(p),
+    allowNames: new Set(allowEntries.map((e) => e.script)),
+  })
+
+  // 第二维(编号形态)只报数:AGENTS 自己规定"编号一律以 runner 现值为准,勿照抄文档",
+  // 拿被文档明令禁止照抄的数字判红就是造恒红机。它的产出是**回补线索**——同一行若点了某个
+  // 门体的名,就把该门体在注册面上的真实 id 一并报出来。
+  const r10Reg = parseRunnerRegistrations(r8Text)
+  const r10StaleIds = findStaleIdMentions({
+    docs: r10Docs,
+    runnerIds: r10Reg.ids,
+    runnerScripts: r10Reg.byScript,
+  })
+  // 定级:默认档**只报数**,`--strict` 才把真缺口计入 reds(现读真缺口 0,但不开 blocking 的理由
+  // 写在判据头注:文档面每轮被并发会话改写,"点一个还没落地的门名"是常态动作)。
+  if (opts.strict) {
+    for (const g of r10.gap) {
+      reds.push({
+        script: g.script,
+        status: 'red-r10',
+        reason: `${g.doc}:${g.line} 以接线断言点名了这道门,而门体不在被审面上(改名或删除)—— 那条规则现在不存在`,
+      })
+    }
   }
 
   const docModes = docReader.modes()
@@ -1241,6 +1469,13 @@ async function main(argv = process.argv.slice(2)) {
             unwiredUnclaimed: by('unwired-unclaimed').length,
             selfExempt: by('self-exempt').length,
             undocumentedR4: undocumented.length,
+            docNamedGateMentionsR10: r10.named,
+            docNamedFaceR10: r10FaceLabel,
+            docNamedAbsentGapR10: r10.gap.length,
+            docNamedAbsentNarrativeR10: r10.narrative.length,
+            docNamedAbsentExemptR10: r10.exempt.length,
+            staleIdMentionsR10: r10StaleIds.length,
+            strict: opts.strict,
             duplicateIds: dupIds.length,
             malformedTriggers: badTriggers.length,
             sharedSkipEnvs: sharedEnvs.length,
@@ -1259,6 +1494,16 @@ async function main(argv = process.argv.slice(2)) {
           revocableExemptions: revocable,
           staleExemptions: staleExempt,
           allowlistProblems: allowProblems,
+          // R10 三态**各给一份明细**(只给计数的报告无法复核,报名是它的判据的一部分)
+          docNamedAbsentR10: {
+            face: r10FaceLabel,
+            named: r10.named,
+            gap: r10.gap,
+            narrative: r10.narrative,
+            exempt: r10.exempt,
+            staleIdMentions: r10StaleIds,
+            strictRed: opts.strict,
+          },
         },
         null,
         2,
@@ -1296,6 +1541,27 @@ async function main(argv = process.argv.slice(2)) {
     console.log(
       `   R6(同一 skipEnv 挂多个条目,只报数): ${sharedEnvs.length ? sharedEnvs.map((s) => `${s.env}[${s.ids.join(',')}]`).join(' ') : '0 组'}`,
     )
+    // R10 三态**分开报数**,绝不并桶(把"没判"写成"判过了"是本仓最高频失效型,反过来把
+    // "叙述性举例"并进真缺口则会在每一次散文引用上造出假红)。
+    console.log(
+      `   R10(文档点名 ↔ 门体存在;取材=${r10FaceLabel};${opts.strict ? '--strict:真缺口判红' : '默认档:真缺口只报数'}): ` +
+        `文档点名 ${r10.named} 处 | 门体不在面上 = 真缺口 ${r10.gap.length} / 叙述性 ${r10.narrative.length} / 台账已登记 ${r10.exempt.length}`,
+    )
+    for (const g of [...r10.gap, ...r10.narrative, ...r10.exempt]) {
+      console.log(
+        `     ${r10.gap.includes(g) ? '✗ 缺口' : r10.narrative.includes(g) ? '· 叙述' : '○ 台账'} ${g.script} @ ${g.doc}:${g.line} —— ${g.excerpt}`,
+      )
+    }
+    console.log(
+      `   R10 编号维(只报数,永不判红):「守门 NN / guardian id NN」不在注册面 id 集合的 ${r10StaleIds.length} 处` +
+        (r10StaleIds.length ? `(AGENTS 明令"编号以 runner 现值为准,勿照抄文档",判红=恒红机)` : ''),
+    )
+    for (const s of r10StaleIds) {
+      console.log(
+        `     · 守门 ${s.id} @ ${s.doc}:${s.line}${s.actual ? ` [该行点的门体实际登记在 id ${s.actual}]` : ''} —— ${s.excerpt}`,
+      )
+    }
+
     if (undocumented.length) {
       console.log(
         '     ' +
@@ -1333,7 +1599,7 @@ async function main(argv = process.argv.slice(2)) {
   if (reds.length > 0) {
     if (!opts.json) {
       console.error(
-        `\n❌ 接线层结构性缺陷共 ${reds.length} 枚(R1/R2 撒谎 · R4 文档隐形 · R5 撞号 · R7 假依据 · R8 注册形态非法 · R9 注册的门体不在面上)—— 禁止为消红塞台账:`,
+        `\n❌ 接线层结构性缺陷共 ${reds.length} 枚(R1/R2 撒谎 · R4 文档隐形 · R5 撞号 · R7 假依据 · R8 注册形态非法 · R9 注册的门体不在面上${opts.strict ? ' · R10 文档点名的门体不在面上' : ''})—— 禁止为消红塞台账:`,
       )
       for (const r of reds)
         console.error(
@@ -1360,13 +1626,20 @@ async function main(argv = process.argv.slice(2)) {
       console.error(
         '              若文件在 HEAD 里而只是索引/磁盘被清掉(旁路孤儿),走 `node scripts/heal-worktree-tracked.mjs --align-drift` 对齐,不得手工从别处抄。',
       )
+      console.error(
+        '         R10 → 那条规则已经不存在了:要么把门体文件补回同一枚提交(改名后必须连文档一起改),',
+      )
+      console.error(
+        '              要么删掉/改写文档里那句接线断言。禁止为了变绿去放宽 R10 的接线词表。',
+      )
       console.error('         紧急跳过 HUSKY_SKIP_GATE_WIRING=1')
     }
     return 1
   }
   if (!opts.json)
     console.log(
-      `✅ R1/R2/R4 零红(已接线 ${by('wired').length} / 台账豁免 ${by('exempt').length} / 文档未点名 0)`,
+      `✅ R1/R2/R4 零红(已接线 ${by('wired').length} / 台账豁免 ${by('exempt').length} / 文档未点名 0)` +
+        ` —— R10 真缺口 ${r10.gap.length} 枚${opts.strict ? '(已按 --strict 判红)' : '(默认档只报数,问责跑 --strict)'}`,
     )
   return 0
 }
@@ -2197,6 +2470,161 @@ function runSelfTest() {
       'F4 形状锁:判定面 blob 经共用层一次 catBatch;旧的逐文件派生读正文形态不得复活(复活=fork 风暴+PATH 依赖)',
       /catBatch\(/.test(selfSrc) && !/git\(\['show'/.test(selfSrc),
     )
+
+    // ── R10(票 G-409):文档点名 ↔ 实现侧存在 ────────────────────────────
+    // 基线用 M8/M9 那套"全部真接线 + 全部已点名"的夹具(exit 0 且 reds=0),
+    // 唯一变量 = 文档里那一行点的是谁、怎么点 —— 否则任何一支红都可能来自别的判据。
+    const r10Read = (dir, extraArgs = []) => {
+      const r = runGateCli([`--root=${dir}`, '--json', ...extraArgs])
+      const j = JSON.parse(r.out.slice(r.out.indexOf('{')))
+      return { code: r.code, j, d: j.docNamedAbsentR10 || {}, reds: (j.reds || []).map((x) => `${x.script}:${x.status}`) }
+    }
+    const ghostLine = '\n- 守门:`scripts/check-ghost-r10.mjs`(blocking,guardian 第 899 项)\n'
+    const repoR10 = makeFixtureRepo(base, {
+      files: { 'scripts/guardian-runner.mjs': m9Runner, 'AGENTS.md': m8Doc(true) + ghostLine },
+    })
+    const s10a = r10Read(repoR10)
+    assert(
+      `R10a 默认档:文档点名一道不存在的门 ⇒ 只报数(exit 0)且必须报名字与行号(实得 code=${s10a.code} gap=${JSON.stringify(s10a.d.gap || [])})`,
+      s10a.code === 0 &&
+        s10a.reds.length === 0 &&
+        (s10a.d.gap || []).length === 1 &&
+        s10a.d.gap[0].script === 'check-ghost-r10.mjs' &&
+        s10a.d.gap[0].line > 0 &&
+        s10a.d.gap[0].doc === 'AGENTS.md',
+    )
+    const s10b = r10Read(repoR10, ['--strict'])
+    assert(
+      `R10b 同一缺口在 --strict 档必须进退出码并点名 status(实得 code=${s10b.code} reds=${s10b.reds.join('|')})`,
+      s10b.code === 1 && s10b.reds.length === 1 && s10b.reds[0] === 'check-ghost-r10.mjs:red-r10',
+    )
+    // 可逆对照:同一行改指**真实存在的门** ⇒ 两档都必须绿。
+    // 少了这一支,R10a/R10b 的红就可能只是"文档多了一行"造成的别的判据在响。
+    writeFileSync(join(repoR10, 'AGENTS.md'), m8Doc(true) + '\n- 已接线:`scripts/check-wired.mjs`(blocking)\n', 'utf8')
+    git(['add', '-A'], repoR10, { quiet: true })
+    git(
+      ['-c', 'user.name=t', '-c', 'user.email=t@e', 'commit', '-q', '--no-verify', '-m', 'r10-real-name'],
+      repoR10,
+      { quiet: true },
+    )
+    const s10c = r10Read(repoR10, ['--strict'])
+    assert(
+      `R10c 同行改指真实存在的门 ⇒ 真缺口归零、strict 也绿(实得 gap=${JSON.stringify(s10c.d.gap || [])} code=${s10c.code})`,
+      (s10c.d.gap || []).length === 0 && s10c.code === 0 && s10c.reds.length === 0,
+    )
+    // 叙述性边界(票面要求"判据边界要写清并可测"):同一个不存在的名字,同行没有接线断言词
+    // ⇒ 落 narrative 而不是 gap;strict 也不得因此变红。
+    const repoR10n = makeFixtureRepo(base, {
+      files: {
+        'scripts/guardian-runner.mjs': m9Runner,
+        'AGENTS.md': m8Doc(true) + '\n可复用到:任何场景(如 `scripts/check-ghost-r10.mjs` 等)。\n',
+      },
+    })
+    const s10d = r10Read(repoR10n, ['--strict'])
+    assert(
+      `R10d 叙述性提到(同行无接线断言)⇒ 落 narrative 不落 gap,strict 仍绿(实得 gap=${(s10d.d.gap || []).length} narr=${(s10d.d.narrative || []).length})`,
+      (s10d.d.gap || []).length === 0 &&
+        (s10d.d.narrative || []).length === 1 &&
+        s10d.code === 0,
+    )
+    // 不重复计债:runner 有门而文档没点名 ⇒ 只归 R4;R10 的三态里**不得**出现同一枚门体
+    // (它文件在面上)—— 这正是 R10 与 R4 的分工线。
+    const repoR10r4 = makeFixtureRepo(base, {
+      files: { 'scripts/guardian-runner.mjs': m9Runner, 'AGENTS.md': m8Doc(false) },
+    })
+    const s10e = r10Read(repoR10r4, ['--strict'])
+    assert(
+      `R10e "runner 有门而文档没点名"仍只归 R4:R10 三态不得含它(实得 reds=${s10e.reds.join('|')} gap=${JSON.stringify((s10e.d.gap || []).map((g) => g.script))})`,
+      s10e.reds.includes('check-joined.mjs:red-r4') &&
+        ![...(s10e.d.gap || []), ...(s10e.d.narrative || []), ...(s10e.d.exempt || [])].some(
+          (g) => g.script === 'check-joined.mjs',
+        ),
+    )
+    // 时序例外(与 R2/R4 的文档面例外同源):同一枚提交里"新立门 + 补点名行",门体在索引而不在 HEAD
+    // ⇒ 不得判红;而**只写在工作树(未 add)**时仍必须判红 —— 那才是"注册与脚本必须同枚入库"那一型。
+    const repoR10t = makeFixtureRepo(base, {
+      files: { 'scripts/guardian-runner.mjs': m9Runner, 'AGENTS.md': m8Doc(true) + ghostLine },
+    })
+    writeFileSync(join(repoR10t, 'scripts', 'check-ghost-r10.mjs'), '#!/usr/bin/env node\n', 'utf8')
+    const s10fDisk = r10Read(repoR10t, ['--strict'])
+    assert(
+      `R10f 门体只在工作树(未 git add)⇒ 仍判红:不得退化读磁盘(实得 code=${s10fDisk.code} reds=${s10fDisk.reds.join('|')})`,
+      s10fDisk.code === 1 && s10fDisk.reds.includes('check-ghost-r10.mjs:red-r10'),
+    )
+    git(['add', 'scripts/check-ghost-r10.mjs'], repoR10t, { quiet: true })
+    const s10g = r10Read(repoR10t, ['--strict'])
+    assert(
+      `R10g 门体进索引(与文档点名同一枚提交)⇒ 必须翻绿(时序例外;实得 code=${s10g.code} reds=${s10g.reds.join('|')})`,
+      s10g.code === 0 && s10g.reds.length === 0 && (s10g.d.gap || []).length === 0,
+    )
+    // 编号维:只报数、永不判红;同一行若点了某个门体的名,必须回指它的真实 id。
+    const repoR10i = makeFixtureRepo(base, {
+      files: {
+        'scripts/guardian-runner.mjs': m9Runner,
+        'AGENTS.md':
+          m8Doc(true) +
+          // 三种"不该红"的编号写法必须一起放过:带字母后缀的 id(守门 13c)与围栏内的示例;
+          // 而真·失踪编号若同一行点了门体的名,必须回指它在注册面上的真实 id(回指的前缀
+          // 必须是 `scripts/` —— 裸词不算点名,见 N2)。
+          '\n守门 13c 与本条无关。\n\n守门 777 说的其实是 `scripts/check-wired.mjs`(它挪过号了)。\n\n```\n守门 888\n```\n',
+      },
+    })
+    const s10h = r10Read(repoR10i, ['--strict'])
+    const staleIds = (s10h.d.staleIdMentions || []).map((x) => x.id)
+    assert(
+      `R10h 编号维只报数:899/777 类不在注册面的编号被点名但不进退出码;「守门 13c」不得被读成 13;围栏内不计数(实得 stale=${staleIds.join(',')} code=${s10h.code})`,
+      s10h.code === 0 &&
+        s10h.reds.length === 0 &&
+        staleIds.includes('777') &&
+        !staleIds.includes('13') &&
+        !staleIds.includes('888') &&
+        (s10h.d.staleIdMentions || []).find((x) => x.id === '777')?.actual === '1',
+    )
+    // 纯函数级反向锁(构造面,不依赖真仓瞬时状态):
+    //   N1 台账分流(台账救"没接线",这里只按票面要求单列一组报数,不并桶)
+    //   N2 无 `scripts/` 前缀的裸词不构成点名
+    //   N3 双引号 id 必须与单引号同认(守门 134 的"双引号 id 对按单引号解析的判据隐身")
+    const onlyGhost = [{ name: 'AGENTS.md', text: '- 守门:`scripts/check-gone.mjs`(blocking)\n' }]
+    const withAllow = findDocNamedAbsentGates({
+      docs: onlyGhost,
+      hasPath: () => false,
+      allowNames: new Set(['check-gone.mjs']),
+    })
+    assert(
+      `N1 台账分流:同名同线,登记过 ⇒ 落 exempt,不并进 gap(实得 exempt=${withAllow.exempt.length} gap=${withAllow.gap.length})`,
+      withAllow.exempt.length === 1 && withAllow.gap.length === 0 && withAllow.narrative.length === 0,
+    )
+    const bareWord = findDocNamedAbsentGates({
+      docs: [{ name: 'AGENTS.md', text: '守门 check-gone.mjs 以前存在过\n' }],
+      hasPath: () => false,
+      allowNames: new Set(),
+    })
+    assert(
+      `N2 裸词(无 scripts/ 前缀)不算点名,否则散文里的历史案例会满天假红(实得 named=${bareWord.named})`,
+      bareWord.named === 0 && bareWord.gap.length === 0,
+    )
+    const dualQuote = parseRunnerRegistrations("const G = [\n  { id: '1', script: 'a.mjs' },\n  { id: \"42\", script: 'b.mjs' },\n]\n")
+    assert(
+      `N3 注册面解析必须同认单/双引号 id(实得 ids=${[...dualQuote.ids].join(',')} b 的 id=${(dualQuote.byScript.get('b.mjs') || []).join(',')})`,
+      dualQuote.ids.has('42') && dualQuote.ids.has('1') && (dualQuote.byScript.get('b.mjs') || []).join('') === '42',
+    )
+    const fencedText =
+      'a\n```\n- 守门:`scripts/check-x.mjs`(blocking)\n```\nb\n~~~\n- 守门:`scripts/check-y.mjs`(blocking)\n~~~\n- 守门:`scripts/check-z.mjs`(blocking)\n'
+    const fenced = splitUnfencedLines(fencedText)
+    const fencedGap = findDocNamedAbsentGates({
+      docs: [{ name: 'AGENTS.md', text: fencedText }],
+      hasPath: () => false,
+      allowNames: new Set(),
+    })
+    assert(
+      `N4 遮围栏:两种围栏标记(三反引号与波浪号)内的点名一律不算,而围栏外那道必须被点名并**保留原行号**(报名是判据的一部分;实得 gap=${JSON.stringify((fencedGap.gap || []).map((g) => `${g.script}@${g.line}`))} 行号在位=${fenced.some((l) => l.no === 9)})`,
+      (fencedGap.gap || []).length === 1 &&
+        fencedGap.gap[0].script === 'check-z.mjs' &&
+        fencedGap.gap[0].line === 9 &&
+        fencedGap.named === 1,
+    )
+
+
   } catch (e) {
     assert(`EX 端到端异常: ${e && e.message}`, false)
   } finally {
@@ -2260,5 +2688,17 @@ export const __test__ = {
   findAbsentGateScripts,
   parseTriggersLiteral,
   normalizeTriggers,
+  // R4 与 R10 的互补性由镜像测试在同一份夹具上双向判(§22c:测试必须 import 判据,不得另写一份)
+  findUndocumentedGates,
+  // R10(票 G-409):三态分流与编号回指都由纯函数承担,镜像测试按 §22c 直接 import 判据,
+  // **不得**在测试里再抄一份词表/正则(那正是"镜像常量漂移"的老病)。
+  DOC_NAMED_GATE_RE,
+  DOC_NAMED_ID_RE,
+  R10_WIRING_ASSERTION_RE,
+  FENCE_RE,
+  splitUnfencedLines,
+  findDocNamedAbsentGates,
+  findStaleIdMentions,
+  parseRunnerRegistrations,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
