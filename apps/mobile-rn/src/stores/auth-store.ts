@@ -46,7 +46,7 @@
  *
  * 安全说明:
  * - token / refreshToken / expiresIn 一律不持久化,只走 SecureStore(tokenStore 内部)
- * - user + isAuthenticated 持久化到 AsyncStorage(非敏感 UI 状态,可跨会话恢复)
+ * - user 资料持久化到 AsyncStorage;登录态不入库(G-456:由「有没有 token」派生)
  * - 遵循 web 端 2026-07-21 安全审计结论
  */
 import { createAuthStore } from '@ihui/shared/stores'
@@ -59,7 +59,7 @@ import { createAsyncStorageTransport } from './storage-adapter'
  *
  * 注入:
  * - tokenStore:复用 ../lib/token 实现的 TokenStore 契约(SecureStore 优先 + AsyncStorage fallback)
- * - userTransport:本端 AsyncStorage transport(只持久化 user + isAuthenticated)
+ * - userTransport:本端 AsyncStorage transport(只持久化 user 资料)
  * - userPersistKey:与 web 端同名 'ihui-auth-user',便于调试 + 未来跨端数据共享
  */
 export const rnAuthStore = createAuthStore({
