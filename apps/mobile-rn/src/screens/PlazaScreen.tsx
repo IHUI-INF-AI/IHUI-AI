@@ -65,7 +65,7 @@ import { navigateDrawerTab } from '../navigation/tab-utils'
 import { rpx } from '../utils/rpx'
 import { Search, User, Menu, FolderOpen, X } from 'lucide-react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 340,
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadiusFor.panel,
     padding: rpx(48),
     alignItems: 'center',
   } as ViewStyle,
