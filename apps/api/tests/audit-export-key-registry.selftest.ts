@@ -336,8 +336,8 @@ function main(): number {
   const cases = runAuditExportKeyRegistrySelfTest()
   const failed = cases.filter((item) => !item.ok)
   for (const item of failed)
-    console.log(`❌ ${item.name}${item.detail ? ` —— ${item.detail}` : ''}`)
-  console.log(
+    console.info(`❌ ${item.name}${item.detail ? ` —— ${item.detail}` : ''}`)
+  console.info(
     `audit-export-key-registry --self-test: 通过 ${String(cases.length - failed.length)} / 共 ${String(cases.length)} 条`,
   )
   return failed.length === 0 ? 0 : 1
