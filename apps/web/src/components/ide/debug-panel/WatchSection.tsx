@@ -40,11 +40,11 @@ export function WatchSection() {
           onChange={(e) => setWatchInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && addWatch()}
           placeholder={t('debug.watchPlaceholder')}
-          className="flex-1 rounded border border-border bg-background px-1.5 py-0.5 text-xs focus:outline-none"
+          className="flex-1 rounded-sm border border-border bg-background px-1.5 py-0.5 text-xs focus:outline-none"
         />
         <button
           onClick={addWatch}
-          className="rounded p-0.5 text-muted-foreground hover:bg-muted/50"
+          className="rounded-sm p-0.5 text-muted-foreground hover:bg-muted/50"
           aria-label={t('debug.add')}
         >
           <Plus className="h-3 w-3" />

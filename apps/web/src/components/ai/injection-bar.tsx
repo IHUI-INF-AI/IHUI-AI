@@ -141,7 +141,7 @@ export function ContextAssemblyBar({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         data-testid="context-assembly-toggle"
-        className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent/40"
+        className="flex w-full items-center gap-1.5 rounded-sm px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent/40"
       >
         <Layers className="h-3.5 w-3.5 shrink-0" aria-hidden />
         <span className="min-w-0 flex-1 truncate text-left">
