@@ -82,6 +82,8 @@ import { readTodoList } from '../tools/todo-write.js';
 import { createToolDeltaPreviewStore, pickToolDeltaPreviewText } from '../tools/file-edit-preview.js';
 // G-701:/tool 回看记录的入参必须走键名档出口 —— 值形状档对「键名是凭据而值不像」的入参整类失明
 import { redactObjectDeepKeyed } from '../redact.js';
+// G-729:截断口径只认码点出口(UTF-16 码元 slice 会切出半个代理对,而切坏的串可能恰好躲过脱敏正则)
+import { truncateToCodePoints } from '../utils/prompt-boundary.js';
 import { findSkill, type Skill } from '../skills/index.js';
 import {
   getMemoryStore,
@@ -315,6 +317,42 @@ export interface ReplState {
   followUpMode: FollowUpMode;
   /** D38 「打断并执行」一次性放行标记:abort 后 drain 仅执行队首一项,用完即清(剩余项仍按中止语义保留) */
   queueInterruptOnce: boolean;
+}
+
+/**
+ * G-729:工具入参「上屏摘要」的唯一投影出口。
+ *
+ * 此前同一处代码里并存两份入参:进 `/tool` 回看的那一份走过 `redactObjectDeepKeyed`,
+ * 而打在工具卡片首行与 spinner 上的那一份是裸 `JSON.stringify(args)` + UTF-16
+ * `.slice(0, 100)` —— 即「上屏的是未脱敏那份、脱敏那份只进了记录」。现两份同源于本函数:
+ *   ① 先整体脱敏(键名档 ∪ 形状档 ∪ 大文本档,唯一出口 `redactObjectDeepKeyed`,不新造第二份);
+ *   ② 再按**码点**截断(唯一出口 `truncateToCodePoints`,不切代理对)。
+ * 顺序不可颠倒:先截断会把凭据切成半截形状,脱敏正则当场不再成立。
+ */
+export const TOOL_ARGS_DISPLAY_MAX_CODEPOINTS = 100;
+
+/** 无参数入参的占位文案(记录面与上屏面同源,上屏面由调用方决定要不要 dim) */
+export const NO_ARGS_PLACEHOLDER = '(无参数)';
+
+/** 入参投影结果:脱敏全文 + 上屏摘要 + 是否被截断 */
+export interface ToolArgsView {
+  /** 脱敏后的全量 JSON(`/tool` 回看用) */
+  readonly redacted: string;
+  /** 上屏摘要:脱敏之后再按码点截断,超长补省略号 */
+  readonly display: string;
+  /** display 是否短于 redacted(用于「/tool 查看」提示) */
+  readonly truncated: boolean;
+}
+
+/** 入参 → (脱敏全文, 上屏摘要):两者同源于一次脱敏,见 `TOOL_ARGS_DISPLAY_MAX_CODEPOINTS` 上方说明 */
+export function projectToolArgsForScreen(args: Record<string, unknown>): ToolArgsView {
+  if (Object.keys(args).length === 0) {
+    return { redacted: NO_ARGS_PLACEHOLDER, display: NO_ARGS_PLACEHOLDER, truncated: false };
+  }
+  const redacted = JSON.stringify(redactObjectDeepKeyed(args));
+  const clipped = truncateToCodePoints(redacted, TOOL_ARGS_DISPLAY_MAX_CODEPOINTS);
+  const truncated = clipped !== redacted;
+  return { redacted, display: truncated ? `${clipped}…` : clipped, truncated };
 }
 
 export function formatContextStats(
@@ -2533,7 +2571,9 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         silent: true,
         auditSessionId: state.opts.sessionId,
         prompt: async (tool, args) => {
-          const argSummary = JSON.stringify(args).slice(0, 100);
+          // G-729:这一行也是"上屏"—— 确认框把入参摘要打给真人看,曾走裸 JSON.stringify(args)
+          // + UTF-16 slice,与工具卡片同型泄漏;现与卡片同源(先脱敏、再按码点截断)。
+          const argSummary = projectToolArgsForScreen(args).display;
           const { confirm } = await inquirer.prompt([{
             type: 'confirm',
             name: 'confirm',
@@ -2760,13 +2800,16 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         toolCallCount++;
         const callId = `call-${toolCallCount}`;
         toolStartTime.set(callId, Date.now());
-        const argStr = Object.keys(args).length > 0 ? JSON.stringify(args) : chalk.dim('(无参数)');
-        const argDisplay = argStr.length > 100 ? `${argStr.slice(0, 100)}…` : argStr;
         // W10 记录完整参数(/tool 回看用)
         // G-701:此处曾是裸 `JSON.stringify(args)` 原文入 toolLog,`/tool`(:1267 逐行原样回显)
         // 会把「值形状不像凭据而键名是凭据语义」的明文(如 {"api_key":"abc"})整类原样打出;
         // 换走 redactObjectDeepKeyed(键名档 ∪ 形状档 ∪ 大文本档,并集非替换)。
-        currentToolArgsJson = Object.keys(args).length > 0 ? JSON.stringify(redactObjectDeepKeyed(args)) : '(无参数)';
+        // G-729:但**上屏**那一份(argStr/argDisplay)当时仍是裸 JSON.stringify(args) + UTF-16
+        // slice —— 卡片首行与 spinner 打的是未脱敏入参。现两份同源:projectToolArgsForScreen
+        // 先脱敏、再按码点截断,上屏的那一份就是脱敏后的那一份。
+        const argsView = projectToolArgsForScreen(args);
+        currentToolArgsJson = argsView.redacted;
+        const argDisplay = argsView.redacted === NO_ARGS_PLACEHOLDER ? chalk.dim(NO_ARGS_PLACEHOLDER) : argsView.display;
         currentToolArgs = args;
         lastToolCallName = name;
         // 活动行语言:功能名 · 对象(单一真相源 describeToolCall,禁直显英文码名)
@@ -2775,7 +2818,7 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
           ? `${activity.title} · ${activity.subject}`
           : activity.title;
         console.info(chalk.cyan(`\n  ┌─ ${chalk.bold(activityHead)} ${chalk.dim(`#${toolCallCount}`)}`));
-        console.info(chalk.cyan(`  │  ${chalk.dim('参数:')} ${argDisplay}${argStr.length > 100 ? chalk.dim(' (+字符 — /tool 查看)') : ''}`));
+        console.info(chalk.cyan(`  │  ${chalk.dim('参数:')} ${argDisplay}${argsView.truncated ? chalk.dim(' (+字符 — /tool 查看)') : ''}`));
         // 启动工具运行 spinner(显示在卡片下方)
         currentToolSpinner = createToolSpinner(activity.title, argDisplay);
         currentToolSpinner.start();
