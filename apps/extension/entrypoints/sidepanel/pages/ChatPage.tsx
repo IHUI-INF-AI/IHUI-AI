@@ -1,6 +1,5 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// Provenance-watermarked. 本仓库以 Apache-2.0 授权分发，须保留本声明与 LICENSE / NOTICE。
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -31,6 +30,7 @@ import {
 } from './chat-branch-utils'
 import { categoryLabel, historyLabel, splitModelCatalog } from '../../../src/lib/model-catalog'
 import { toolsForChatRequest } from '../../../lib/ui-control-tools'
+import { applyToolCallStart, applyToolDelta } from '../../../lib/tool-call-frames'
 import { VoiceInput } from '../components/VoiceInput'
 import { MessageContent } from '../components/MessageContent'
 import QueueBar from '../components/QueueBar'
@@ -384,25 +384,16 @@ export default function ChatPage() {
         }
       },
       // ===== W6 新增回调:与 web 端 use-chat 对齐,补齐工具/用量/计划/终端 =====
-      // 工具调用:start 追加 running 项;result 按 toolCallId 回填状态、结果与耗时
+      // 工具调用:start 原位归并 running 项(D113:重复帧保留流中预览);result 按 toolCallId 回填状态、结果与耗时
       onToolCall: (event) => {
         window.clearTimeout(timeoutId)
         if (event.type === 'tool-call-start') {
           toolStartTimes.set(event.toolCallId, Date.now())
+          // D113:改走纯归并器 —— 重复 start 帧按 id 原位替换并保留已有流中预览
+          // (旧写法 `...list, 新条目` 会把预览抹空并多出一行;RN/小程序同口径)
           updateAssistantMessage((m) => ({
             ...m,
-            toolCalls: [
-              ...(m.toolCalls ?? []),
-              {
-                id: event.toolCallId,
-                toolName: event.toolName,
-                args: event.args ?? {},
-                status: 'running',
-                serverSource: event.serverSource,
-                serverId: event.serverId,
-                serverName: event.serverName,
-              },
-            ],
+            toolCalls: applyToolCallStart(m.toolCalls ?? [], event),
           }))
           return
         }
@@ -420,6 +411,9 @@ export default function ChatPage() {
                   result: event.result,
                   args: event.args ?? call.args,
                   durationMs,
+                  // D113:tool-result 到达即清流中预览(最终 diff 以 result 为准,留着会
+                  // "已完成"与"正在写"两份内容同屏;web stream-handlers.ts:122 同一行语义)
+                  partialDiff: undefined,
                   serverSource: event.serverSource ?? call.serverSource,
                   serverId: event.serverId ?? call.serverId,
                   serverName: event.serverName ?? call.serverName,
@@ -430,6 +424,14 @@ export default function ChatPage() {
                 }
               : call,
           ),
+        }))
+      },
+      // D113(2026-09-27):文件写类工具的流中 diff 预览。载荷 partialText 是**累积文本**,
+      // 按 toolCallId 整帧覆盖(同 seq 重放天然幂等);未注册本回调时 api-client 根本不解析该帧。
+      onToolDelta: (event) => {
+        updateAssistantMessage((m) => ({
+          ...m,
+          toolCalls: applyToolDelta(m.toolCalls ?? [], event),
         }))
       },
       // 工具调用汇总:流末尾一次性写入 message.toolCallSummary
@@ -827,4 +829,3 @@ export default function ChatPage() {
     </div>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
