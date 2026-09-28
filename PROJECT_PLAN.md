@@ -10903,3 +10903,34 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - **✅ 未闭环③(extension/ui-react 色值副本进对账)已落地并接成守门 106(2026-09-25)**:两处副本走**两条不同的路**,依据是使用位证据而不是"能派生就派生"。① `apps/extension/entrypoints/content/content-toolbar.tsx` 的 13 个内联 `--color-*` → **派生**:6 档可派生(其中 4 档真的被对齐,`--color-card` `#161616` → `hsl(0 0% 10%)` 等;2 档本就等值故保留原字节)、2 档源头确无(`--color-accent-strong`/`--color-info-muted`)、5 档**登记为语义分歧**并逐条给依据 —— 例如 `--color-muted` 唯一使用位是 `border-color:`(借背景档当描边档,派生会把 hover 描边压到卡片之上仅 12% L)、`--color-secondary-foreground` 唯一使用位是文字色而源头暗档它与 `--color-foreground` **逐位相同**(派生会把两级文字压成一级)、`--color-warning` 是叠在第三方正文上的荧光笔需 45% alpha 而源头是不透明琥珀(依据不足 ⇒ 登记为未决视觉判断,不静默改色)。profile 取 `.dark`(注入层永不随宿主反转)。② `packages/ui-react/src/styles/auth-shell.css` 的 5 条影子重定义 → **登记而非派生**:它是文件头 M-70 明写的有意覆盖(亮档 `.login-scope` 把 accent/muted 顶成纯白,好让白卡片上的 `hover:bg-accent` 浮出来;暗档抬到 22% 换 8% L 落差),派生等于删掉登录按钮的 hover 反馈;其中 `--color-accent-foreground` 带机器可验的 `deriveFrom: '--color-foreground'`(它的依据就写"与 --color-foreground 一致"),源头一动即红。顺带记录该文件"默认 17%"注释与 tokens.css 实际 24% 不符。③ 判据三条(D1 逐位等值 / D2 不等值必须登记且带依据 / **D3 双向腐烂**:登了却没了、登记的分歧其实已相等、值被改而登记未跟 ⇒ 全红),取源只走 `design-token-blocks.mjs`、原位写回只走 `sync-rn-global-css.mjs` 的 `mergeBlockBody`、等值判定复用门 93 的 `colorsAgree` —— **零新增色值正则**。取证:`--self-test` 36 条(跑两次输出 `cmp` 相同)、镜像测试 11/11(T4 拿 HEAD 那份已知过时的副本判红 = 有牙,T5 拿派生态判绿 = 不恒红,T9 反向锁"没顺手改门 93",T11 锁模板串内注释不得出现反引号 —— 那条曾经只被 `tsc` 抓到而所有测试全绿);接线后 `check-gate-wiring.mjs` exit 0(R4 未点名 0 枚),`guardian-runner` 现值 137 项。
 ### O63·续(2026-09-25):按"接新任务"扫台账,结果五条未认领票当场实测全是幻影债 —— 翻勾并留下逐条命令,另立一条**真**拦路项
   - ③ **守门 import 端内生成器** ⇒ **D1 + D3**,且 `apps/miniapp-taro` 声明 `exported:false`,把端应用补进 `repo-tooling.requires` 会被 **T1 当场判红**(表头已记过一次同款尝试)⇒ 补 requires 不是出路。
+
+### 第五十八波·续七 —— 第九轮 ZCode W6 四路回报（bootstrap/adapters/contracts+dw/tui+cli）：三条我方缺陷当场落地并做变异对照，四条待拍板（2026-09-28，主会话逐跳复验）
+
+> 上游仍冻结 `29628c9`（v3.14.3），四路代理各自 `rev-parse` 复核。本轮每条"我方现状"均由主会话在 **HEAD 面**现读到代码行后才落笔；一条代理报的缺陷被三面证伪（见否证）。
+
+**当场落地的三条（各带回归与变异对照）**
+
+- `94efc08d6` fix(api)：**设备码换 token 从不校验 client_id**。`POST /oauth/device/token` 的 schema 一直强制 `body.client_id` 存在，却从没把它和发起时记下的 `entry.clientId` 比对（RFC 8628 §3.4 要求换 token 侧证明是同发起的 client）—— device_code 是"把手"不是"身份"，任何拿到别人设备码的客户端都能换走那条流程的 token。现比对不符即回**与"不存在"同形同码**的 400 并作废该码（区分二者等于把这端点变成设备码存在性预言机）。第二格：过期条目此前只在**被轮询到那一次**才删，而这个 Map 无上限、创建入口每请求 set 一条 ⇒ 弃用的授权请求永久驻留；改为新建时摊销清理，刻意不加定时器。回归 3 例，变异对照=比对取反+清理条件取反 ⇒ 三条全红、按字节还原复绿；其中 TTL 那例只伪 `Date`（裸 `useFakeTimers` 会把 Fastify `inject` 的调度一起冻住，红的是夹具不是产品代码）。
+- `b39fab3cf` fix(cli)：**遥测 flush 没有退出预算**。`fetch` 不带任何 signal，而 `shutdown()` 直接 await 它；调用点注释写着"telemetry 失败不阻塞退出"，那句当时只对 **throw** 成立 —— 端点 stall 即进程永不退出。补两道预算：① `AbortSignal.timeout(5s)`；② shutdown 的最后一次 flush 再套 1.2s 硬 race（`fetchImpl` 是可注入的第三方实现，它不观测 signal 时①形同不存在）。第二例反过来抓到**我自己修复的一个洞**：预算放弃时那批事件被静默丢掉（flush 起手就 splice 走），读代码的人会以为都送达了 ⇒ 补 `droppedOnShutdownCount` + 当场 warn（§30「没有终态不得写成完成」、守门 129「被省略必留计数」同一条禁令）。变异对照：摘掉 race ⇒ 永挂那条 15s 超时红。**取证教训一条**：第一次变异我把预算改成 `Number.MAX_SAFE_INTEGER`，而 Node 会把超过 2³¹−1 的 `setTimeout` 钳成 1ms —— 那测的是"立即超时"不是"没有预算"，全绿是假信号。
+- `4ebf7328b` fix(api)：`sql-event-bus` 的空 `catch {}`。吞异常本身是对的（订阅方挂掉不该打断 DB 查询），但它把"订阅方整条失效"一起吞了：pino sink / 慢查询告警 / 统计计数任一抛错，表现都是"一切正常而那个人再也收不到事件"。现 warn 点名第几位监听器与查询；类头那条"必须 swallow"的散文**同笔改掉**，留着就替下一个人把静默当设计。回归 2 例成对（有人抛错必须喊 / 无人抛错不得产生任何 warn）。
+
+**否证（不派单，防止下一轮重提）**
+
+- **W6 报的"我方 `agent_tasks` 默认值 `'pending'` 是活缺陷"不成立**：`git grep -rn "insert(agentTasks)"` 全仓 0 命中，创建路径显式写 `status:'triage'`（`apps/api/src/routes/agents-kanban.ts:372`），且 `LEGACY_STATUS_MAP` 已把 `pending→triage` ⇒ latent，不是缺陷。
+- **上游 `adapters/fs` 的原子写降级链是反例，不得抄**：`rename` 外套裸 `catch` 后用 `O_CREAT|O_TRUNC` 原地重写真身 —— ENOSPC/EACCES 时先把临时文件删掉再截断用户原文件；Windows 上目标被别的句柄占用时 rename 回 EPERM（我方守门 122 头注已把这条列为实测事实），于是最常见机型上每次并发保存都走非原子原地写而调用方拿不到任何信号。我方 `apps/cli/src/util/atomic-write.ts` 全文件 `O_TRUNC` 零命中且由守门 122 R2/R3 判接线 ⇒ **这一格我方严格优于上游**，登记为"守门 122 判据合理性的外部证据"。
+- **W5-A 报的"审批等待吃掉工具执行预算"是捏造标识符**（`runToolInner`/`requestToolApproval` 在工作树、索引、HEAD 三面零命中），上一续块已记，本轮不重开。
+- 另有三格我方已更强、不重提：provider schema 归一化（我方 `packages/types/src/schema-projection.ts` 带六项 `ProjectionAccount` 计数，上游静默 `anyOf→oneOf` 无账本）、执行预算的不可打断声明（我方 `notInterruptible + reason`，上游 `NoToolTimeoutPolicy` 无理由字段）、日志保留单入口（我方 `apps/cli/src/config/index.ts:125-131` 六层 + `originFile` + A13 探针）。
+
+**W6 读到的覆盖账（同样只取下界）**
+
+- `apps/zcode-cli/packages/bootstrap` 232：read 由 13 改为**仍记 13**（上轮 13 个未留文件名 ⇒ 与本轮 13 个的重叠不可计算，两数相加会双计；本轮 13 个文件名已写进 notes 供下轮按名去重）。
+- `apps/zcode-cli/packages/adapters` 202：read 10 → **10**（本轮整读 9 个，与上轮 10 个的重叠同样不可计算 ⇒ 取 max 不取和）。
+- `apps/zcode-cli/packages/contracts` 113：read 7 → **18**（净新增 11，`contract.ts`/`capabilities/index.ts` 与旧 7 重叠不重复计）。
+- `apps/zcode-cli/packages/dynamic-workflow`：⚠️ **登记分母 97 与两个现量口径都不等**（`ts/tsx` = 94、全文件 = 102）⇒ 分母改 94 并在 notes 留"97 的出处待表主人确认"，read 4 → **19**（旧 4 全在新集内）。按 97 派单会去找 3 枚不存在的文件。
+
+**待拍板四条（触及对外契约或默认档，不由实现票自行裁决）**
+
+- [ ]G-462 看板把 `cancelled/failed/quota_exceeded/preempted` 全塌成 `blocked`（等人拍板）—— 上游 `dw/src/engine/errors.ts:14-35` 的分级判据是"**能不能被 catch**"而非严重程度：脚本 catch 得到的降为 node 级、`report` 返回 void 无处 catch 的升 run 级，`Interrupted` 必须独立码（否则"进程被杀"与"脚本真失败"只能靠 message 文本分）。我方 `packages/types/src/agent-runtime.ts:1258-1266` `LEGACY_STATUS_MAP` 四档同落 `blocked` ⇒ 被取消的任务与待解阻塞在看板上同形，"重跑很可能就好"与"要先解阻塞"是一条视觉信号。拆 = 六档变七档，牵动 `z.enum`（`agents-kanban.ts:128,151`）+ SSE 载荷 + `dag_scheduler.py:351` + 五语言 + 守门 151 的 SV2。
+- [ ]G-463 `mapStatus` 把未登记的原始值**断言**成合法档（等人拍板，可小成本先修）—— `packages/types/src/agent-runtime.ts:1280` 的 `LEGACY_STATUS_MAP[raw] ?? (raw as AgentTaskStatus)`：未知值被 cast 成合法状态而不是落第三态。上游同族写法是"缺席/无效/空表"三值分开（`engine-launch.ts:26-42` 注释直说读侧把"没设"与"设了个空"当两件事）。改成显式 unknown 报数档需同步守门 151 的 SV2 判据。
+- [ ]G-464 逐工具 `strict`（provider 约束解码资格）缺声明位（等人拍板）—— 上游 `contracts/tools/contract.ts:174-180` 把它写成"只是资格不是命令"，adapter 按 provider/model 决定并把 strict 表达不了的关键字折进 description。我方 `apps/cli/src/commands/agent.ts:1610` 是**全局** `useNativeTools` + 一次 `isToolsUnsupportedError` 后永久降级，`Tool` 接口无逐工具位；三面 grep `strictSchema`/`providerNative` 均 0 命中（对照组 `TOOL_EXEC_BUDGET_MAX_MS` 三形态均命中，判法有效）。引入即要求 `toolsToProviderSchema` 逐工具分叉 ⇒ 字段与消费方必须同笔，否则成守门 121 那型"有声明零消费者"。
+- [ ]G-465 子进程 env 边界要不要从"只剥我方凭据"扩到"一切凭据形态"（等人拍板）—— 现量（用我方真实现 `node --experimental-strip-types` 直接 import `src/sandbox/index.ts`，非重写判据）blocked=1 / remaining=94，残留报名 `LIBTV_ACCESS_KEY`、`SERVERCHAN_SENDKEY`、`TUNNEL_SERVICE_TOKEN_ID`、`QODER_SDK_AUTH_PAYLOAD_FILE`；根因是 `matchPattern` 只认 `endsWith` 的后缀族（`*_API_KEY/*_SECRET/*_TOKEN/*_PASSWORD`），盖不到 `*_KEY`/`*_SENDKEY`/`*_TOKEN_ID`。三个方向：宽 deny（会打断 terminal 里靠 env 的 `aws`/`gcloud` 这类第三方 CLI）/ 对 MCP+hook 子进程改白名单 / 先只报名不拦（与 `apps/cli/tests/child-env-boundary.test.ts:55-64` 已承诺的"宁窄不误伤"同向）。
