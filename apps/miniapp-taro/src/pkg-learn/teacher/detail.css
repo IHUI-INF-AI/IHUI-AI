@@ -28,7 +28,7 @@
 .tdetail-avatar {
   width: 128rpx;
   height: 128rpx;
-  border-radius: 64rpx; /* radius-exempt: 128rpx 讲师头像真圆,半径=边长一半 */
+  border-radius: 64rpx;
   background: var(--color-muted);
   flex-shrink: 0;
 }
@@ -331,7 +331,7 @@
   padding: 24rpx 0;
   font-size: 30rpx;
   font-weight: 600;
-  border-radius: 44rpx; /* radius-exempt: 底部操作按钮为胶囊(高度约 88rpx,半径取其一半) */
+  border-radius: var(--radius-sm); /* 底部操作按钮是控件 ⇒ control 档 sm(项目不允许胶囊) */
 }
 
 .tdetail-action-primary {
