@@ -91,7 +91,7 @@ export default function TitleSwitchScrollTitle(props: TitleSwitchScrollTitleProp
   )
 
   return (
-    <View className="w-full rounded-b-2xl bg-card pb-[24rpx] shadow-[0_4px_2px_-4px_var(--color-black-30)]">
+    <View className="w-full ui-card rounded-$1-2xl bg-card pb-[24rpx] shadow-[0_4px_2px_-4px_var(--color-black-30)]">
       <View className="w-full px-[56rpx] box-border mb-[36rpx]">
         <View className="text-[length:60rpx] font-bold tracking-[0.08em] text-foreground">
           {tt('TitleSwitchScrollTitle.text1', '主赛道:')}

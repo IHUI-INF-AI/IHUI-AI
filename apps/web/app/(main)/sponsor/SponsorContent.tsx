@@ -128,7 +128,7 @@ export function SponsorContent(): React.JSX.Element {
       </section>
 
       {/* Existing sponsors */}
-      <section className="mt-16 rounded-2xl border bg-card p-3 text-center">
+      <section className="mt-16 ui-hero rounded-2xl border bg-card p-3 text-center">
         <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
           {t('sponsorsTitle')}
         </h2>
@@ -149,7 +149,7 @@ export function SponsorContent(): React.JSX.Element {
       </section>
 
       {/* Online donations: PayPal + Ko-fi */}
-      <section className="mt-16 rounded-2xl border bg-card p-3 text-center">
+      <section className="mt-16 ui-hero rounded-2xl border bg-card p-3 text-center">
         <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
           {t('onlineTitle')}
         </h2>

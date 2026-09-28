@@ -32,7 +32,7 @@
 /* 音色菜单弹窗(对齐原项目 .audio-menu-content:卡片阴影) */
 .mcd-audio-menu {
   background-color: var(--color-card);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: 0 8rpx 24rpx var(--color-black-15);
 }

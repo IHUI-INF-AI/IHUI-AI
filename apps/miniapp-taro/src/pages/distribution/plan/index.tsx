@@ -53,7 +53,7 @@ export default function DistributionPlan() {
   return (
     <ThemeRoot className="min-h-screen bg-background p-[28rpx] pb-[200rpx]">
       {/* 对齐 RN EarnCommissionScreen introCard:标题+描述+统计同卡,内容居中 */}
-      <View className="bg-card rounded-xl p-[28rpx] flex flex-col items-center gap-[24rpx]">
+      <View className="bg-card ui-card rounded-lg p-[28rpx] flex flex-col items-center gap-[24rpx]">
         <Text className="block text-[length:36rpx] font-bold text-foreground text-center">
           {tt('distribution.plan.introTitle', '邀请好友,赚取佣金')}
         </Text>
@@ -84,13 +84,13 @@ export default function DistributionPlan() {
       </View>
 
       {/* 对齐 RN sectionCard:白卡 + 居中标题 + 圆形序号规则列表 */}
-      <View className="bg-card rounded-xl p-[28rpx] mt-[24rpx] flex flex-col gap-[24rpx]">
+      <View className="bg-card ui-card rounded-lg p-[28rpx] mt-[24rpx] flex flex-col gap-[24rpx]">
         <Text className="block text-[length:32rpx] font-semibold text-foreground text-center">
           {tt('distribution.plan.rulesTitle', '分佣规则')}
         </Text>
         {rules.map((r, i) => (
           <View key={i} className="flex flex-row items-center gap-[24rpx]">
-            <View className="w-[44rpx] h-[44rpx] rounded-full bg-primary text-primary-foreground text-[28rpx] font-semibold flex items-center justify-center flex-shrink-0">
+            <View className="w-[44rpx] h-[44rpx] rounded-full bg-primary text-primary-foreground text-[length:28rpx] font-semibold flex items-center justify-center flex-shrink-0">
               <Text>{i + 1}</Text>
             </View>
             <Text className="flex-1 text-[length:28rpx] text-foreground leading-[38rpx]">{r}</Text>
@@ -100,7 +100,7 @@ export default function DistributionPlan() {
 
       <View className="fixed left-0 right-0 bottom-0 pt-[24rpx] px-[28rpx] pb-[calc(24rpx+env(safe-area-inset-bottom))] bg-card">
         <View
-          className="h-[100rpx] leading-[100rpx] text-center bg-cta text-cta-foreground text-[32rpx] font-semibold rounded-xl"
+          className="h-[100rpx] leading-[100rpx] text-center bg-cta text-cta-foreground text-[length:32rpx] font-semibold rounded-xl"
           onClick={onOpenVip}
           hoverClass="opacity-60"
         >

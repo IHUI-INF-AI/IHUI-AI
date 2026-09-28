@@ -48,7 +48,7 @@ export default function CourseRating({
     >
       <View className="absolute inset-0 bg-[var(--color-black-50)]" />
       <View
-        className="relative bg-card rounded-xl mx-8 px-6 py-5 max-w-xs w-full"
+        className="relative bg-card ui-panel rounded-xl mx-8 px-6 py-5 max-w-xs w-full"
         hoverClass="opacity-60"
         onClick={(e) => e.stopPropagation()}
       >
