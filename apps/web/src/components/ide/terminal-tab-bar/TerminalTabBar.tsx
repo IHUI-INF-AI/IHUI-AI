@@ -155,7 +155,7 @@ export function TerminalTabBar({
           <button
             type="button"
             className={cn(
-              'flex h-6 w-6 items-center justify-center rounded-md transition-colors',
+              'flex h-6 w-6 items-center justify-center rounded-sm transition-colors',
               isCurrentRecording
                 ? 'bg-red-500/15 text-red-600 dark:text-red-400'
                 : 'text-muted-foreground hover:bg-background hover:text-foreground',

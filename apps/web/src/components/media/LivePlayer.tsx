@@ -207,14 +207,14 @@ export function LivePlayer({
             <button
               onClick={togglePlay}
               aria-label={playing ? t('pause') : t('play')}
-              className="rounded p-1 hover:bg-white/20"
+              className="rounded-sm p-1 hover:bg-white/20"
             >
               {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
             </button>
             <button
               onClick={toggleMute}
               aria-label={mutedState ? t('unmute') : t('mute')}
-              className="rounded p-1 hover:bg-white/20"
+              className="rounded-sm p-1 hover:bg-white/20"
             >
               {mutedState ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
             </button>
@@ -224,7 +224,7 @@ export function LivePlayer({
             <button
               onClick={fullscreen}
               aria-label={t('fullscreen')}
-              className="ml-auto rounded p-1 hover:bg-white/20"
+              className="ml-auto rounded-sm p-1 hover:bg-white/20"
             >
               <Maximize className="h-4 w-4" />
             </button>
