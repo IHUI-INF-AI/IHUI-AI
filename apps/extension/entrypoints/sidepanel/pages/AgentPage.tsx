@@ -184,16 +184,15 @@ function AgentDetail({ id }: { id: string }) {
   return (
     <div className="p-3 md:p-4 flex flex-col gap-2.5">
       <div className="flex items-center justify-between pb-2 border-b border-border">
-        {/* back-label-exempt: 箭头位已是矢量 ChevronLeft,此处文字是按钮标签(非页头箭头替身) until 2026-12-31 */}
         <Button
           type="button"
           variant="ghost"
           size="sm"
           className="text-primary text-xs px-1.5 py-0.5"
           onClick={() => navigate('/agents')}
+          aria-label={t('common.back')}
         >
           <ChevronLeft className="h-3 w-3" />
-          <span>{t('common.back')}</span>
         </Button>
         <h3 className="m-0 text-sm font-semibold">{agent.name}</h3>
       </div>

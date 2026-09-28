@@ -2059,6 +2059,13 @@
       "when": 1790499600000,
       "tag": "20260927170000_point_transactions_user_created_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 295,
+      "version": "7",
+      "when": 1790568000000,
+      "tag": "20260928120000_desktop_prefs",
+      "breakpoints": true
     }
   ]
 }

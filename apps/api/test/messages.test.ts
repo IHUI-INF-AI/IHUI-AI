@@ -98,6 +98,8 @@ vi.mock('../src/db/index.js', () => {
       'groupBy',
       'having',
       'delete',
+      // O82 续四:/messages/send 改事务 + SELECT ... FOR UPDATE,链上多出 .for()
+      'for',
     ]) {
       chain[m] = () => chain
     }
@@ -110,6 +112,8 @@ vi.mock('../src/db/index.js', () => {
     insert: vi.fn(factory),
     update: vi.fn(factory),
     delete: vi.fn(factory),
+    // 事务桩:回调直接吃同一套链式 mock(队列按语句发出顺序供数,与真库行为一致)
+    transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(dbMock)),
   }
   return { db: dbMock, dbRead: dbMock, returningOne: vi.fn() }
 })
@@ -639,7 +643,9 @@ describe('message routes', () => {
        * insert 之前多了一次 `max(turn_ordinal)` 读 —— 老的假库是**按队列顺序**发结果的,
        * 不给这一格,insert 就会拿到后面的空集 ⇒ `[created]` undefined ⇒ 路由 500。
        * 这不是投影写侧(本文件不 import chat-queries),是直插段把队列对齐的问题。
+       * O82 续四:读 max 之前又多了事务内的 `SELECT ... FOR UPDATE` 锁会话行,再占一格。
        */
+      enqueue([{ id: UUID }]) // SELECT ... FOR UPDATE(锁行结果生产代码不消费)
       enqueue([{ maxTurn: 0 }]) // max(turn_ordinal) —— 新开第 1 轮
       enqueue([{ id: 'msg-1', conversationId: UUID, role: 'user', content: 'hi', createdAt: NOW }]) // insert returning
       enqueue([]) // update chatConversations
