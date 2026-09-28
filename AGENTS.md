@@ -639,6 +639,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
     49 处中文立刻判红:红点会等下一个碰它的人来吃,不会静默,但也只有那个人会以为是自己的错。
 - 正确流程:预检(`git status --porcelain`)→ 隔离 add 本任务文件 → 验证 staged 仅含本任务文件。
 - **任务完成必须自动 commit(2026-09-20 用户指令,强制)**:任务/批次完成且验证全绿后,agent **必须立即自动 commit**——不经询问、不等用户确认、禁止以"不擅自 commit"为由把已验证的工作留在未提交状态。push 仍按 §16/§20 执行(用户未要求时不主动 push)。commit 形态仍受本节约束(多 agent 并行必须 safe-commit.mjs;单 agent 直接 add 声明文件;禁止 `git add .` / `-A` / `-u`)。
+- **旁路落地(object-space / commit-tree)不跑钩子 ⇒ "HEAD 是否绿"是调用方自己的责任**(2026-09-28 O81 票㉙ 实测):`scripts/object-space-land.mjs` / `live-doc-edit.mjs` / `git-sync-converge` 走临时索引 + `commit-tree` + CAS,**结构上绕过整条提交链**。这不是缺陷(它就是它存在的理由:不碰共享工作树与别人在飞的东西),但代价必须补:**落地后要在 HEAD 面自己复跑受影响判据 + 相关端 typecheck**,否则提交链上那 150+ 道门对这批文件等于从未存在。实测代价两处:票㉘ 那 134 文件里留下一处死 `rnRadius` import(web `tsconfig` 开了 `noUnusedLocals` ⇒ TS6133,RN 端不开所以同一型在另一端静默),以及一处注释仍写改之前的 `rpx(12)` 而现值已 16px(注释比无注释更坏 —— 它教人按旧值复核)。**取证例规**:扫"import 了某名而正文无取用"时,**清单只能在原文上找、用法只能在遮罩面找** —— 先 mask 再匹配模块名会把 `'@ihui/design-tokens'` 抹成空串,表现为恒 0 命中(0 命中先怀疑尺子,再相信世界)。
 - pre-push / pre-commit hook 失败因**其他 agent 引入的代码问题**(schema drift / 其他模块 TS/lint 错误 / 其他 agent 未完成 migration 等,不在本任务范围):**直接用 `--no-verify` 跳过 hook** 完成自己的 commit + push;**禁止**修改其他 agent 代码"帮他们修" / `git reset --hard` / 把"等其他 agent 修复再 push"作为交付结论 / 用 AskUserQuestion 询问用户;自己 commit + push 前只需保证**本任务改动文件** typecheck + lint + build 全绿即可;`--no-verify` 合法场景**仅限**"hook 失败原因是其他 agent 代码",若失败原因是**本任务自己代码**必须修复后正常 commit。
 
 ### 强制使用 safe-commit.mjs(2026-08-06 立,真实事故根治)
