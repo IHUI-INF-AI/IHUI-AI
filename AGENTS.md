@@ -691,7 +691,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
   2. 重建**只能**走 `node scripts/git-rebuild-local.mjs`(已接入 git-lock,锁被持有时快速失败),**禁止**手工 `rm -rf .git` + `git init` 自由发挥。
   3. 修复 refs 后必须**回读验证**:`git update-ref ... && git rev-parse <ref>` 输出一致才算成功;批量修复后 `git pack-refs --all` 持久化。
   4. **禁止把 `.git` 迁出工作区/改指针文件**(2026-09-10 已验证:并行会话的恢复逻辑会把指针文件当"损坏"清除,反而制造新事故)。
-  5. `git ls-remote` 为远端真值唯一来源,本地 `origin/main` 引用异常时用显式 SHA 操作,勿信本地引用。
+  5. `git ls-remote` 为远端真值唯一来源,本地 `origin/main` 引用异常时用显式 SHA 操作,勿信本地引用。 **但"拿到了 sha"不等于能拿它做判据(2026-09-29 补,G-473 同窗口踩两次)**:`ls-remote` 只问引用、**不下载对象** ⇒ "用显式 SHA 操作"这条路上必须先插一步 `git fetch --no-tags origin <该 sha>`(或直接跑 `node scripts/git-sync-converge.mjs`,它先 fetch 再合)。漏了不报错,只会**误判**:`merge-base --is-ancestor <远端sha> HEAD` 因对象缺失而失败 ⇒ 被读成"不是祖先"(一次 fetch 被说成一次真分叉需人工);`rev-list --left-right --count <远端sha>...HEAD` 失败 ⇒ 被读成"无 ahead commit,可能是 shallow clone 等异常状态"(把没取回说成仓库形态坏了)。三处已改成显式"未判定 + 一步出路":`union-converge`(CLI 退 2,且本器绝不代跑 fetch)、`git-push-guard`(异常措辞前先 `cat-file -t`)、`git-sync-converge`("未判定"不再被并进"亦判需人工")。取证:`node --test scripts/tests/converge-object-presence-g473.test.mjs` 6 例(摘掉探测那一支的变异会翻红两条)。
 
 ### 部署/构建全局锁(2026-08-09 立,并发部署事故根治)
 
