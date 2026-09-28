@@ -176,7 +176,7 @@ jobs:
       # Build 步已上移至 2026-09-24(见 Prepare WXT types 之后),不再作为本 job 最后一步 ——
       # 留在末尾意味着任何前置步骤变红时"能否构建"这一结论直接缺失。
 
-      # ═════════════════ 失败分诊(公开 annotations,2026-09-28 立)═════════════════
+      # ═════════════════ 失败分诊(公开 annotations,2026-09-28 立;2026-09-28 抽成共享实现)═════════════════
       # 立因:本作业的 job 日志接口 `GET /actions/runs/<id>/jobs/<id>/logs` 对未授权访问返回 404,
       # 而本机既无 gh CLI 也无凭据文件(HTTPS 凭据在 Windows 凭据管理器里)——"CI 为什么红"
       # 在结构上零出口。`::error::` workflow command 会变成 check-run annotation,公开接口
@@ -185,11 +185,13 @@ jobs:
       # 这件事就从"需要日志权限"变成"任何会话零凭据可读"。
       # 边界(硬):只在 failure() 分支跑;不碰上面任何步骤的判据严格程度(无 continue-on-error、
       # 不删步骤、不扩 permissions、不新增 secret);成功路径本步被 skip,行为与耗时不变。
-      # 重跑命令不是手抄第二份清单,而是按 id 从本文件自身提取单行 run(两处算同一件事必漂移);
-      # 提取不到 / 失败步骤是 action 步骤 / 没有任何已知 id 报 failure —— 三种退路都各自打印,绝不静默。
+      # 2026-09-28:内联实现体已抽成 scripts/ci-failure-triage.sh —— 本步骤只注入参数,不再
+      # 内联判据(两处实现必漂移,漂移的代价是"诊断报告在说另一条命令")。行为契约见脚本头注。
       - name: Failure triage (public annotations)
         if: failure()
         env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci.yml
+          TRIAGE_IDS: checkout watermark conflict-markers install-pnpm setup-node install build-shared-deps shared-typecheck build-database build-auth build-api-client wxt-prepare assert-web-build-script build assert-web-artifact typecheck schema-drift migration-bookkeeping api-routes port-registry lint test
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_WATERMARK: ${{ steps.watermark.outcome }}
           O_CONFLICT_MARKERS: ${{ steps.conflict-markers.outcome }}
@@ -212,99 +214,8 @@ jobs:
           O_PORT_REGISTRY: ${{ steps.port-registry.outcome }}
           O_LINT: ${{ steps.lint.outcome }}
           O_TEST: ${{ steps.test.outcome }}
-        run: |
-          set -uo pipefail
-          WF=".github/workflows/ci.yml"
-          FAILED_ID=""
-          FAILED_NAME=""
-          DUMP=""
-          annotate() {
-            # One ::error:: annotation per call: strip CR/LF, then percent-encode '%' first so the
-            # workflow-command grammar can never be broken by tool output payload.
-            local esc
-            esc=$(printf '%s' "$1" | tr -d '\r\n' | sed 's/%/%25/g')
-            printf '::error::%s\n' "$esc"
-          }
-          probe() {
-            # $1=step id, $2=outcome, $3=display name; keeps the FIRST failure in job order.
-            DUMP="$DUMP $1=$2"
-            if [ -z "$FAILED_ID" ] && [ "$2" = "failure" ]; then
-              FAILED_ID="$1"
-              FAILED_NAME="$3"
-            fi
-          }
-          probe checkout "$O_CHECKOUT" "actions/checkout@v4"
-          probe watermark "$O_WATERMARK" "Provenance watermark check"
-          probe conflict-markers "$O_CONFLICT_MARKERS" "Conflict marker check committed tree"
-          probe install-pnpm "$O_INSTALL_PNPM" "Install pnpm pnpm/action-setup@v6"
-          probe setup-node "$O_SETUP_NODE" "Setup Node.js actions/setup-node@v4"
-          probe install "$O_INSTALL" "Install dependencies frozen lockfile = dependency truth"
-          probe build-shared-deps "$O_BUILD_SHARED_DEPS" "Build shared workspace deps topological closure"
-          probe shared-typecheck "$O_SHARED_TYPECHECK" "Shared package typecheck dangling export-star gate"
-          probe build-database "$O_BUILD_DATABASE" "Build database package"
-          probe build-auth "$O_BUILD_AUTH" "Build auth package"
-          probe build-api-client "$O_BUILD_API_CLIENT" "Build api-client package"
-          probe wxt-prepare "$O_WXT_PREPARE" "Prepare WXT types extension"
-          probe assert-web-build-script "$O_ASSERT_WEB_BUILD_SCRIPT" "Assert web declares a build script"
-          probe build "$O_BUILD" "Build pnpm turbo run build"
-          probe assert-web-artifact "$O_ASSERT_WEB_ARTIFACT" "Assert web build artifact exists"
-          probe typecheck "$O_TYPECHECK" "Typecheck pnpm turbo run typecheck"
-          probe schema-drift "$O_SCHEMA_DRIFT" "Schema drift check"
-          probe migration-bookkeeping "$O_MIGRATION_BOOKKEEPING" "Migration bookkeeping check"
-          probe api-routes "$O_API_ROUTES" "API route consistency check"
-          probe port-registry "$O_PORT_REGISTRY" "Port registry check"
-          probe lint "$O_LINT" "Lint pnpm turbo run lint"
-          probe test "$O_TEST" "Test pnpm turbo run test"
-
-          if [ -z "$FAILED_ID" ]; then
-            # failure() fired but no step with an id reported 'failure' (job cancelled, or a step
-            # outside this list). Printing all outcomes keeps this branch diagnosable, not silent.
-            annotate "triage: job failed but no known step reported outcome=failure. all outcomes:$DUMP"
-            exit 0
-          fi
-
-          annotate "triage: first failing step is [$FAILED_ID] ($FAILED_NAME)"
-
-          case "$FAILED_ID" in
-            checkout|install-pnpm|setup-node)
-              # Action steps have no single 'run:' line to re-execute; naming the step is the honest ceiling here.
-              annotate "triage: [$FAILED_ID] is an action step - there is no run command to re-execute. Read that step's own log panel or reproduce with the same action version."
-              exit 0
-              ;;
-          esac
-
-          # Rerun mapping = this workflow file itself: extract the failed step's single-line run command by id,
-          # instead of maintaining a second hand-copied command list (two sources of truth would drift).
-          # If the step ever moves to a block scalar, extraction returns empty -> mapping-missing branch below.
-          RUN_CMD=""
-          if [ -f "$WF" ]; then
-            RUN_CMD=$(awk -v want="$FAILED_ID" '
-              state == 0 && $0 ~ ("^[[:space:]]*id:[[:space:]]*" want "[[:space:]]*$") { state = 1; next }
-              state == 1 && /^[[:space:]]*-[[:space:]]/ { exit }
-              state == 1 && /^[[:space:]]*run:[[:space:]]*$/ { exit }
-              state == 1 && /^[[:space:]]*run:/ { sub(/^[[:space:]]*run:[[:space:]]*/, ""); print; exit }
-            ' "$WF" | tr -d '\r')
-          fi
-
-          if [ -z "$RUN_CMD" ]; then
-            annotate "triage: 重跑映射缺失 (rerun mapping missing) for [$FAILED_ID] ($FAILED_NAME) - no single-line run: found after id: $FAILED_ID in $WF. The failing step is named above; re-run its command manually."
-            exit 0
-          fi
-
-          annotate "triage: re-running ONLY this command: $RUN_CMD"
-          LOG="${RUNNER_TEMP:-/tmp}/ci-triage-rerun.log"
-          RC=0
-          bash -c "$RUN_CMD" >"$LOG" 2>&1 || RC=$?
-          TOTAL=$(wc -l <"$LOG" | tr -d '[:space:]')
-          if [ "$RC" -eq 0 ]; then
-            annotate "triage: rerun exited 0 from the same checkout - failure not reproducible standalone (order/cache/env sensitive). Captured $TOTAL line(s); printing last 60 anyway."
-          else
-            annotate "triage: rerun reproduced failure, exit $RC. Captured $TOTAL line(s), printing last 60 below - these are readable via the PUBLIC check-runs annotations API without log rights."
-          fi
-          tail -n 60 "$LOG" | while IFS= read -r line || [ -n "$line" ]; do
-            annotate "[$FAILED_ID] ${line:0:1000}"
-          done
-          exit 0
+        # 唯一实现:scripts/ci-failure-triage.sh(脚本头注即行为契约;禁止在此重新内联判据)。
+        run: bash scripts/ci-failure-triage.sh
 
   python-ai-service:
     runs-on: ubuntu-latest
