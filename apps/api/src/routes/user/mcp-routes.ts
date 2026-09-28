@@ -3,13 +3,22 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * MCP /mcp/*(3 个端点)。
+ * MCP /mcp/*(2 个端点)。
+ *
+ * 2026-09-29 机主拍板「摘掉无人用的那几条路由,表先留着」:本文件原第三条
+ * `POST /mcp/invoke` 已下线(见下方注释),`mcp_servers` 表本身、schema、迁移一律未动。
+ * 下线理由与调用方取证(逐条量过,不是"搜一个字符串就说没有"):
+ *  - 前端面(web / miniapp-taro / mobile-rn / packages/app / extension / desktop)零调用方;
+ *  - 唯一引用是 packages/api-client 的 `invokeMcpTool`,而它自身在生产面零调用方 ⇒ 同笔删除;
+ *  - 它也不读 `mcp_servers` 表(只做埋点 + 代理到 ai-service /api/mcp/tools/call),
+ *    所以它不属于"全局表无属主"那一格敞口,纯属无人用的死路由。
+ * 仍在位的两条(GET /mcp、GET /mcp/:id)**有**真实调用方:CLI `ihui mcp-market list|search|show|install`
+ * (apps/cli/src/commands/mcp-market.ts 的 API_PREFIX='/api/mcp',注册于 apps/cli/src/index.ts),
+ * 按「宁少摘一条,不可打破一个在跑的功能」保留,其无属主问题归后续票(带属主改造或先改调用方)。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { success, error } from '../../utils/response.js'
-import { config } from '../../config/index.js'
 import { findMcpServers, findMcpServerById } from '../../db/mcp-queries.js'
-import { createAnalyticsEvent } from '../../db/analytics-queries.js'
 import { parsePagination, parseIdParam } from './_shared.js'
 
 const mcpRoutes: FastifyPluginAsync = async (server) => {
@@ -34,52 +43,8 @@ const mcpRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ mcp }))
   })
 
-  server.post('/mcp/invoke', async (request, reply) => {
-    const body =
-      (request.body as {
-        serverId?: string
-        projectId?: string
-        tool?: string
-        toolName?: string
-        args?: unknown
-      } | null) ?? {}
-    const serverId = body.serverId ?? body.projectId
-    const toolName = body.tool ?? body.toolName
-    if (!serverId) return reply.status(400).send(error(400, '缺少 serverId'))
-    if (!toolName) return reply.status(400).send(error(400, '缺少 toolName'))
-
-    await createAnalyticsEvent({
-      userId: request.userId,
-      event: 'mcp_invoke',
-      properties: { serverId, tool: toolName, args: body.args },
-      ip: request.ip,
-      userAgent: (request.headers['user-agent'] as string | undefined) ?? null,
-    })
-
-    try {
-      const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/tools/call`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(request.headers.authorization
-            ? { Authorization: request.headers.authorization }
-            : {}),
-        },
-        body: JSON.stringify({ name: toolName, arguments: body.args ?? {} }),
-      })
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => '')
-        return reply
-          .status(502)
-          .send(error(502, `MCP 服务调用失败: ${resp.status} ${text.slice(0, 200)}`))
-      }
-      const data = await resp.json().catch(() => ({}))
-      return reply.send(success({ result: data }))
-    } catch (e) {
-      const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
-      return reply.status(502).send(error(502, `MCP 服务不可用: ${msg}`))
-    }
-  })
+  // 原 POST /mcp/invoke 已下线(2026-09-29)。它不读 mcp_servers 表,零调用方;
+  // 复活它必须同时给出调用方证据,而不是"顺手加回来"。
 }
 
 export default mcpRoutes
