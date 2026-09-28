@@ -30,7 +30,11 @@
  *  - 口令只进子进程 env,永不打印;取径与 deploy/win/ihui-pg-backup.ps1 一致:
  *    env IHUI_DB_BACKUP_USER/PASSWORD → scripts/lib/key-dir.mjs 的 db-backup/ihui-backup.txt。
  *  - 不删除、不移动备份目录任何东西;派生一律绝对路径 + timeout + windowsHide(§5b/§26)。
- *  - 盘符不硬编码:DevEnv 根按脚本自身位置同盘推导(与 scripts/lib/gitdir.mjs gitArchiveDir 同式)。
+ *  - 盘符不硬编码:DevEnv 根一律走 `scripts/seal-c-root-stray.mjs` 的 `devEnvRoot()`
+ *    (§15b 外置根唯一出口;`re-home-junctions.mjs` / `check-c-drive-pollution.mjs` 同源复用)。
+ *    本脚本此前自己 `resolve(repoRoot,'..','..')` 数层取盘根,并注释称"与 gitdir.mjs
+ *    gitArchiveDir 同式" —— 那句自 `971690247` 起不再成立(gitdir 那侧已改成盘根锚定
+ *    `parse(wt).root` + 夹具闸),撒谎的注释比没注释更糟:它会教下一个人照旧写法抄。
  *
  * 退出码:0=判定完整;1=判据失败/中止(含统计不一致、restore 失败);
  *        2=无法判定(缺 dump/缺二进制/缺凭据/开关错);3=凭据不足以在线演练(文件层证据已给)。
@@ -40,6 +44,13 @@ import { spawnSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { keyFile } from './lib/key-dir.mjs'
+// DevEnv 根的唯一出口 —— 本模块**不再**自己"仓根向上两级 + DevEnv"(旧私有 devEnvRoot 的写法)。
+// 两条真实差别:① 旧写法头上那句"与 gitdir.mjs gitArchiveDir 同式"自 `971690247` 起已不成立
+//   (那一枚把 gitdir 改成按 `parse(wt).root` 盘根锚定 + 夹具闸),注释与实现不同形比没注释更糟 ——
+//   它会教下一个人照旧写法抄;② 共用出口多认一条 `IHUI_DEVENV_ROOT`(§15b 换机逃生舱,
+//   `deploy/win/ihui-pg-backup.ps1` 的 `$DevEnvRoot` 与之同语义)。未设该环境变量时**两者逐字同值**
+//   (本机同为 `G:\DevEnv`),逐字核对由 scripts/tests/pg-restore-drill.test.mjs 的 P-落点1/2/3 做。
+import { devEnvRoot } from './seal-c-root-stray.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -205,10 +216,7 @@ export function runPlan(plan, { allowWrites, exec, check }) {
 
 // ────────────────────────────── IO 层(默认实现;main 使用) ──────────────────────────────
 
-/** DevEnv 根:按仓库所在盘推导(D:/IHUI-AI ⇒ D:/DevEnv),与 gitdir.mjs gitArchiveDir 同式,不写死盘符 */
-function devEnvRoot() {
-  return join(resolve(repoRoot, '..', '..'), 'DevEnv')
-}
+/** 落点推导一律经文件头那条共用出口;此处只负责"该用途下 DevEnv 里的哪一层目录"。 */
 function pgBinDir() {
   return process.env.IHUI_PG_BIN_DIR || join(devEnvRoot(), 'runtimes', 'pgsql', 'bin')
 }
@@ -285,12 +293,16 @@ function parseToc(stdout) {
     return m ? m[1] : undefined
   }
   let tableDataCount = 0
+  let publicTableDataCount = 0
   const tables = []
   for (const line of stdout.split(/\r?\n/)) {
     const m = /^(\d+); (\d+) (\d+) TABLE DATA (\S+) (\S+) /.exec(line)
     if (m && m[4] !== '-') {
       tableDataCount++
-      if (m[4] === 'public') tables.push(m[5])
+      if (m[4] === 'public') {
+        publicTableDataCount++
+        tables.push(m[5])
+      }
     }
   }
   return {
@@ -298,6 +310,9 @@ function parseToc(stdout) {
     tocEntries: Number(head(/;\s+TOC Entries: (\d+)/) ?? NaN),
     dbVersion: head(/;\s+Dumped from database version: ([\d.]+)/),
     tableDataCount,
+    // 生产侧统计只按 nspname='public' 取(STATS_SQL),所以能与之对账的是这一档而不是上面那个全模式数 ——
+    // 两者曾被印在同一行且都写作 "public",凭空造出"备份比现库多两张"的假差异(实为 drizzle 模式的 2 张)。
+    publicTableDataCount,
     tables,
   }
 }
@@ -379,6 +394,7 @@ function probeConnLayer(ctx, out, cred) {
   const rt = /reltuples=(\d+)/.exec(out.conn.prodStats || '')
   out.rowMagnitude = {
     dumpTableDataTables: out.dump?.toc?.tableDataCount ?? null,
+    dumpPublicTableDataTables: out.dump?.toc?.publicTableDataCount ?? null,
     prodTablesFromStats: (/tables=(\d+)/.exec(out.conn.prodStats || '') || [])[1] || null,
     prodReltuplesEstimate: rt ? Number(rt[1]) : null,
     dumpBytes: out.dump?.size ?? null,
@@ -592,7 +608,12 @@ function renderHuman(o) {
   if (o.rowMagnitude) {
     const rm = o.rowMagnitude
     L.push(`② 表与行数(量级,dump 不存精确行数,如判据注释)`)
-    L.push(`   dump 内 public 表 ${rm.dumpTableDataTables} 张;生产库现有表 ${rm.prodTablesFromStats} 张、reltuples 估计合计 ${rm.prodReltuplesEstimate} 行`)
+    L.push(
+      `   dump 内 public 表 ${rm.dumpPublicTableDataTables} 张;生产库现有 public 表 ${rm.prodTablesFromStats} 张、reltuples 估计合计 ${rm.prodReltuplesEstimate} 行`,
+    )
+    L.push(
+      `   (dump 全模式 TABLE DATA 共 ${rm.dumpTableDataTables} 张 —— 与生产侧同口径的只有上面那个 public 数;生产统计查询只取 nspname='public')`,
+    )
     if (rm.dumpBytes && rm.prodReltuplesEstimate) L.push(`   粗推量级: ${Math.round(rm.dumpBytes / Math.max(rm.prodReltuplesEstimate, 1))} B/行(压缩后,dump大小÷reltuples 估计,仅供交叉核对,不是结论)`)
   }
   const c = o.conn || {}
@@ -693,11 +714,16 @@ export const __test__ = {
   isDrillDbName,
   assertDrillTarget,
   classifyDump,
+  parseToc,
   resolveLatestDump,
   decideOnline,
   parseCliArgs,
   buildPlan,
   runPlan,
+  // 落点解析:镜像测试按"真值逐字不变 + 共用出口真的被 consult"两条断言打这两个出口,
+  // 不在测试里重抄一遍推导(§22c:禁止第二份实现)。
+  pgBinDir,
+  backupPgDir,
   fingerprint,
   fingerprintsEqual,
   quoteIdent,
