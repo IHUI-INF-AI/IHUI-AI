@@ -507,6 +507,10 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                 }
             }
             "tray.update" => {
+                // G-698:托盘→前端检查链发起前推进更新检查世代 —— 静默链
+                // (auto_refresh::check_app_update)若有在飞的下载/结果回调,
+                // 按 checkId 作废;新检查一旦开始,旧回调没有消费价值。
+                auto_refresh::invalidate_inflight_update_checks();
                 // emit 事件给前端,前端调 updater plugin 检查更新(带 UI 反馈)
                 if let Some(window) = app.get_webview_window("main") {
                     if let Err(e) = window.emit("desktop-tray-action", "check_update") {

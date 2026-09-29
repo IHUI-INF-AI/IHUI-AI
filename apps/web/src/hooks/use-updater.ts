@@ -49,6 +49,16 @@ const SILENT_CHECK_DELAY_MS = 5000
 /** 安装完成后的自动重启倒计时(秒)。默认 60 秒,用户可在倒计时内选择"稍后重启"或"立即重启"。 */
 export const RESTART_COUNTDOWN_SECONDS = 60
 
+/**
+ * G-698:更新检查世代守卫 —— 结果是否属于旧世代。
+ * 互斥范围覆盖「请求 + 结果处理」:每次发起检查先领取自增 checkGeneration,
+ * 之后所有异步结果(检查结果 / 下载进度 / 安装完成)必须仍是当前世代才允许写
+ * state;旧世代的迟到回调(另一条检查链已发起)一律丢弃。纯函数,便于单测。
+ */
+export function isStaleCheckGeneration(checkGeneration: number, current: number): boolean {
+  return checkGeneration !== current
+}
+
 /** 更新安装完成、进入等待重启倒计时时派发的自定义事件名。UI(如 GlobalShell)可监听该事件显示提示。 */
 export const UPDATER_PENDING_EVENT = 'desktop-updater-pending'
 
@@ -128,6 +138,13 @@ export function useUpdater() {
   const restartTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   /** 剩余秒数递减定时器(每秒 -1)。 */
   const countdownTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  /**
+   * G-698:更新检查世代计数 —— 每次发起检查自增并领取本次 checkGeneration;
+   * 异步结果(检查结果/下载进度/安装完成)只接受当前世代,旧世代迟到回调丢弃。
+   */
+  const checkGenerationRef = React.useRef(0)
+  /** 下载安装是否在飞(防双击并发进安装器:同一时刻只允许一条下载安装链)。 */
+  const installInFlightRef = React.useRef(false)
 
   /** 清除自动重启相关定时器(幂等)。 */
   const clearRestartTimers = React.useCallback(() => {
@@ -175,77 +192,24 @@ export function useUpdater() {
     }
   }, [])
 
-  /** 检查更新。silent=true 时不显示 error(静默启动检查)。autoInstall=true 时发现更新后自动下载安装。 */
-  const checkForUpdate = React.useCallback(async (silent = false, autoInstall = false) => {
-    // 开发测试模式:不依赖 Tauri,直接返回模拟更新
-    if (isDevUpdateTest()) {
-      // ?dev-update=0:模拟「已是最新」→ 非 silent 时进入 up-to-date 提示(与真实 check() 返回 null 同路径)
-      if (new URLSearchParams(window.location.search).get('dev-update') === '0') {
-        setState({ ...INITIAL_STATE, status: 'checking' })
-        await new Promise((r) => setTimeout(r, 800))
-        if (!mountedRef.current) return
-        setAvailableUpdateSession(null)
-        setState({ ...INITIAL_STATE, status: silent ? 'idle' : 'up-to-date' })
-        return
-      }
-      setState({ ...INITIAL_STATE, status: 'checking' })
-      await new Promise((r) => setTimeout(r, 800))
-      if (!mountedRef.current) return
-      const mockSession = createMockSession()
-      if (autoInstall) {
-        // 自动安装:跳过 available 状态,直接进入下载
-        setAvailableUpdateSession(mockSession)
-        void startDownload(mockSession)
-      } else {
-        setAvailableUpdateSession(mockSession)
-        setState({ ...INITIAL_STATE, status: 'available', session: mockSession })
-      }
-      return
-    }
-
-    if (!isTauri()) return
-    setState({ ...INITIAL_STATE, status: 'checking' })
-    // 2026-09-21 根治"托盘检查更新点了没反应":bridge 改为失败上抛(区分失败与无更新),
-    // 此处分别给出反馈——失败→error(非静默)/静默回 idle;无更新→up-to-date(非静默,弹窗提示)/静默回 idle。
-    let session: UpdateSession | null
-    try {
-      session = await checkForUpdates()
-    } catch (e) {
-      if (!mountedRef.current) return
-      setState({
-        ...INITIAL_STATE,
-        status: silent ? 'idle' : 'error',
-        error: silent ? null : e instanceof Error ? e.message : 'check_failed',
-      })
-      return
-    }
-    if (!mountedRef.current) return
-    if (!session) {
-      // 已是最新
-      setAvailableUpdateSession(null)
-      setState({ ...INITIAL_STATE, status: silent ? 'idle' : 'up-to-date' })
-      return
-    }
-    if (autoInstall) {
-      // 自动安装:跳过 available 状态,直接进入下载
-      setAvailableUpdateSession(session)
-      void startDownload(session)
-    } else {
-      setAvailableUpdateSession(session)
-      setState({
-        ...INITIAL_STATE,
-        status: 'available',
-        session,
-      })
-    }
-  }, [])
-
-  /** 下载并安装更新(内部核心逻辑,接受 session 参数避免依赖异步 state)。 */
+  /**
+   * 下载并安装更新(内部核心逻辑,接受 session 参数避免依赖异步 state)。
+   * G-698:进度/完成回调与收尾全部按发起时的世代守卫 —— 下载横跨多个 await,
+   * 期间一旦发起新检查,本链即成旧世代,迟到回调不得再写 state、不得触发
+   * markUpdateInstalled 等副作用;另以 installInFlightRef 防双击并发进安装器。
+   */
   const startDownload = React.useCallback(async (session: UpdateSession) => {
+    // 双击/重复触发防护:同一时刻只允许一条下载安装链,并发第二击直接忽略
+    if (installInFlightRef.current) return
+    // G-698:领取本次下载安装链的世代(= 发起时正在进行的检查世代)
+    const checkGeneration = checkGenerationRef.current
+    installInFlightRef.current = true
     setState((prev) => ({ ...prev, status: 'downloading', progress: 0 }))
     try {
       await session.downloadAndInstall((p: UpdateProgress) => {
-        if (!mountedRef.current) return
+        // G-698:进度分片只接受当前世代,旧世代迟到分片丢弃
+        if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+          return
         const ratio = p.total > 0 ? p.downloaded / p.total : 0
         setState((prev) => ({
           ...prev,
@@ -255,22 +219,107 @@ export function useUpdater() {
           total: p.total,
         }))
       })
-      if (!mountedRef.current) return
-      // 安装完成,标记待重启(供退出时自动更新使用)
-      markUpdateInstalled()
-      setAvailableUpdateSession(null)
-      setState((prev) => ({ ...prev, status: 'installing', progress: 1 }))
-      // 安装完成,等待用户点击重启或自动重启
-      setState((prev) => ({ ...prev, status: 'done' }))
     } catch (e) {
-      if (!mountedRef.current) return
+      installInFlightRef.current = false
+      // G-698:失败收尾同样只接受当前世代
+      if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+        return
       setState((prev) => ({
         ...prev,
         status: 'error',
         error: e instanceof Error ? e.message : String(e),
       }))
+      return
     }
+    installInFlightRef.current = false
+    // G-698:安装收尾前校验世代 —— 旧世代的"下载完成"不得标记已安装/进入 done
+    if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+      return
+    // 安装完成,标记待重启(供退出时自动更新使用)
+    markUpdateInstalled()
+    setAvailableUpdateSession(null)
+    setState((prev) => ({ ...prev, status: 'installing', progress: 1 }))
+    // 安装完成,等待用户点击重启或自动重启
+    setState((prev) => ({ ...prev, status: 'done' }))
   }, [])
+
+  /** 检查更新。silent=true 时不显示 error(静默启动检查)。autoInstall=true 时发现更新后自动下载安装。 */
+  const checkForUpdate = React.useCallback(
+    async (silent = false, autoInstall = false) => {
+      // G-698:发起检查先领取自增 checkGeneration —— 本函数之后所有异步分支
+      // (检查结果/无更新/失败)只在「仍是当前世代」时才允许写 state。
+      const checkGeneration = ++checkGenerationRef.current
+      // 开发测试模式:不依赖 Tauri,直接返回模拟更新
+      if (isDevUpdateTest()) {
+        // ?dev-update=0:模拟「已是最新」→ 非 silent 时进入 up-to-date 提示(与真实 check() 返回 null 同路径)
+        if (new URLSearchParams(window.location.search).get('dev-update') === '0') {
+          setState({ ...INITIAL_STATE, status: 'checking' })
+          await new Promise((r) => setTimeout(r, 800))
+          if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+            return
+          setAvailableUpdateSession(null)
+          setState({ ...INITIAL_STATE, status: silent ? 'idle' : 'up-to-date' })
+          return
+        }
+        setState({ ...INITIAL_STATE, status: 'checking' })
+        await new Promise((r) => setTimeout(r, 800))
+        if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+          return
+        const mockSession = createMockSession()
+        if (autoInstall) {
+          // 自动安装:跳过 available 状态,直接进入下载
+          setAvailableUpdateSession(mockSession)
+          void startDownload(mockSession)
+        } else {
+          setAvailableUpdateSession(mockSession)
+          setState({ ...INITIAL_STATE, status: 'available', session: mockSession })
+        }
+        return
+      }
+
+      if (!isTauri()) return
+      setState({ ...INITIAL_STATE, status: 'checking' })
+      // 2026-09-21 根治"托盘检查更新点了没反应":bridge 改为失败上抛(区分失败与无更新),
+      // 此处分别给出反馈——失败→error(非静默)/静默回 idle;无更新→up-to-date(非静默,弹窗提示)/静默回 idle。
+      let session: UpdateSession | null
+      try {
+        session = await checkForUpdates()
+      } catch (e) {
+        // G-698:失败结果只接受当前世代,旧世代的迟到失败不得覆盖新状态
+        if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+          return
+        setState({
+          ...INITIAL_STATE,
+          status: silent ? 'idle' : 'error',
+          error: silent ? null : e instanceof Error ? e.message : 'check_failed',
+        })
+        return
+      }
+      // G-698:检查结果只接受当前世代 —— await 期间若另一条链(托盘检查/重试)
+      // 已发起新检查,本次即成旧世代,迟到结果(含"无更新"与"发现新版")丢弃。
+      if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+        return
+      if (!session) {
+        // 已是最新
+        setAvailableUpdateSession(null)
+        setState({ ...INITIAL_STATE, status: silent ? 'idle' : 'up-to-date' })
+        return
+      }
+      if (autoInstall) {
+        // 自动安装:跳过 available 状态,直接进入下载
+        setAvailableUpdateSession(session)
+        void startDownload(session)
+      } else {
+        setAvailableUpdateSession(session)
+        setState({
+          ...INITIAL_STATE,
+          status: 'available',
+          session,
+        })
+      }
+    },
+    [startDownload],
+  )
 
   /** 下载并安装更新(公开方法,使用当前 state 中的 session)。 */
   const downloadAndInstall = React.useCallback(async () => {
