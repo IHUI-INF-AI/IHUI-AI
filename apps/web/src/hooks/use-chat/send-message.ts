@@ -7,6 +7,9 @@ import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useModeStore } from '@/stores/mode'
+// D152(2026-09-29 立):goal_updated 下行帧的落点。本 store 自本票起是**本地缓存**,
+// 服务端主副本变了就覆盖它(判序与幂等口径都在 applyServerGoal 里,此处只接线)。
+import { useGoalStore } from '@/stores/goal'
 import { getSamplingParams } from '@/stores/sampling-params'
 import { useTimelineStore } from '@/stores/timeline-store'
 import { toast } from '@/components/common'
@@ -70,7 +73,7 @@ import {
 import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
 import { estimateLiveUsage } from './live-usage'
 // V3 #69:budget 命名帧的唯一落点(输入框上方 ContextBudgetBar 读它;toast 照旧)
-import { clearBudgetEvent, setBudgetEvent } from './budget-state'
+import { clearBudgetEvent, noteBudgetTrustedZeroPhase, setBudgetEvent } from './budget-state'
 // V3 #63(2026-09-27 立):form_request 帧 → 消息流业务表单的对话流消费点。
 // 投影判据(什么帧才配渲染成表单)只在 form-request-frame.ts 一处;此处只接线。
 import { projectFormRequestFrame } from './form-request-frame'
@@ -662,6 +665,10 @@ export function createSendMessage(
           // 原缺陷:流式期间用户切换会话后,setMessages 会用旧会话的压缩消息
           // 整体覆盖新会话的消息列表(消息串会话)。
           if (useChatStore.getState().conversationId !== conversationId) return
+          // G-404(2026-09-29):压缩帧是**结构化**重置信号 —— 紧随其后的那一枚 used=0
+          // budget 采样是真话(上下文确实被压掉了),不得被"瞬时 0"判据 held 成旧值。
+          // 阶段名取自事件本身(onCompaction),不是文案 —— 身份不得从文案重建(§30/守门 135 同族)。
+          noteBudgetTrustedZeroPhase('auto-compaction')
           // 显示底部压缩状态栏(2026-08-16 立)
           useChatStore.getState().setCompactionStatus({
             phase: 'done',
@@ -927,6 +934,16 @@ export function createSendMessage(
             // 此前配过 ignoreBuildErrors,所以本地一直没喊)。
             sessionId: evt.sessionId || observedSessionId || undefined,
           })
+        },
+        // D152(2026-09-29 立):会话目标的服务端主副本变了 ⇒ 覆盖本地缓存。
+        // 生产点有两处(同一个值不必端内二次判序):`POST /llm/sessions/{session_id}/goal`
+        // 写入后推进该会话活跃流,以及**流首**带出当前目标(新接入的端不等下一次 set)。
+        // 刻意复用这一张既有回调表(与 onTerminalInteraction 同一条流),不新开一条 SSE ——
+        // 第二条常连就是第二个"谁更新"的裁判,而本票要消灭的正是各端各持一份状态。
+        // 切会话时不得把上一会话的目标写进这一会话的缓存(与上面 compaction 同一判序)。
+        onGoalUpdate: (evt) => {
+          if (useChatStore.getState().conversationId !== conversationId) return
+          useGoalStore.getState().applyServerGoal(evt)
         },
         onTerminalEnd: (evt) => {
           // D151:命令已经跑完(或失败)⇒ 那条"等待输入"从此无人接收,先清掉等待态再走原逻辑。

@@ -48,6 +48,14 @@ export interface UpdateCheckResult {
   minimumVersion?: string;
   hasUpdate: boolean;
   belowMinimum: boolean;
+  /**
+   * 建议最低版本这一档的**三态**结论(G-660)。`unknown` = 两端之一不可解析,
+   * 此时 `belowMinimum` 一定是 false,但它**不是**"已满足最低版本"——
+   * 消费面要按这一档喊"本轮判不了",不得把 false 读成 ok。
+   */
+  minimumStatus: 'below' | 'ok' | 'unknown';
+  /** registry 那一档的三态,同上;`unknown` 时 `hasUpdate` 为 false 而不等于"已是最新"。 */
+  updateStatus: 'available' | 'current' | 'unknown';
   checkedAt: number;
   error?: string;
 }
@@ -82,17 +90,57 @@ export function getMinimumVersion(): string | undefined {
   }
 }
 
-/** 简单 semver 比较(只支持 X.Y.Z 三段数字,不含 prerelease)。返回 -1/0/1。 */
+/**
+ * 严格 semver 三段解析:只接受 `X.Y.Z`(全数字)。
+ * 返回 null = **不可解析**,调用方不得把它折成 0 或"相等"。
+ * 刻意不接受 `v` 前缀与 prerelease(`1.0.0-beta`):那一档真值是"本轮判不了",
+ * 而不是"它等于 1.0.0"—— 闸门拿"等于"当放行,就会把拦不住写成合规(G-660)。
+ */
+export const VERSION_TRIPLE_RE = /^\d+\.\d+\.\d+$/;
+
+export type VersionOrder = -1 | 0 | 1;
+
+export function parseVersionTriple(version: unknown): [number, number, number] | null {
+  if (typeof version !== 'string' || !VERSION_TRIPLE_RE.test(version)) return null;
+  const parts = version.split('.');
+  return [Number(parts[0]), Number(parts[1]), Number(parts[2])];
+}
+
+/** 逐段整数比(两档解析口径共用这一份比较,`1.10` > `1.9`;不得再手写字符串比较)。 */
+function compareTriples(
+  a: [number, number, number],
+  b: [number, number, number],
+): VersionOrder {
+  if (a[0] !== b[0]) return a[0] < b[0] ? -1 : 1;
+  if (a[1] !== b[1]) return a[1] < b[1] ? -1 : 1;
+  if (a[2] === b[2]) return 0;
+  return a[2] < b[2] ? -1 : 1;
+}
+
+/**
+ * **决策面唯一出口**:任何会拦人/改行为/触发安装的判断都必须走它。
+ * 任一端不可解析 ⇒ `null`(= 未知),由调用方显式处置,不得折成 0/-1/1。
+ */
+export function compareVersionsOrUnknown(a: unknown, b: unknown): VersionOrder | null {
+  const pa = parseVersionTriple(a);
+  const pb = parseVersionTriple(b);
+  if (!pa || !pb) return null;
+  return compareTriples(pa, pb);
+}
+
+/**
+ * 宽松档(旧口径,**只允许用于展示面**):逐段 `parseInt … || 0` 后比较。
+ * 它把 `1.0.0-beta` 读成 `1.0.0`、把 `invalid` 读成 `0.0.0` —— 这两条折叠在
+ * "要不要提示有更新"上无害,在闸门上是致命的(见 G-660:同一个不可解析版本,
+ * `enforceServerMinimumVersion` 一律放行、`decideGate` 判成低于最低版并挡人)。
+ * 新代码请一律用 {@link compareVersionsOrUnknown}。
+ */
 export function compareVersions(a: string, b: string): number {
-  const pa = a.split('.').map((s) => parseInt(s, 10) || 0);
-  const pb = b.split('.').map((s) => parseInt(s, 10) || 0);
-  for (let i = 0; i < 3; i++) {
-    const da = pa[i] ?? 0;
-    const db = pb[i] ?? 0;
-    if (da < db) return -1;
-    if (da > db) return 1;
-  }
-  return 0;
+  const fold = (v: string): [number, number, number] => {
+    const p = v.split('.').map((s) => parseInt(s, 10) || 0);
+    return [p[0] ?? 0, p[1] ?? 0, p[2] ?? 0];
+  };
+  return compareTriples(fold(a), fold(b));
 }
 
 /**
@@ -170,6 +218,34 @@ async function fetchRegistryInfo(
 }
 
 /**
+ * 「当前版本 vs 建议最低版本」的三态结论(G-660 的唯一判定出口)。
+ * 没有配最低版本 ⇒ `ok`(服务端明确要求过"不拦");任一端不可解析 ⇒ `unknown`。
+ * `unknown` 与 `ok` 都不拦人,但**含义相反**:前者是"本轮判不了",必须喊出来。
+ */
+export function versionOutcome(
+  currentVersion: unknown,
+  minimumVersion: string | undefined | null,
+): { belowMinimum: boolean; minimumStatus: 'below' | 'ok' | 'unknown' } {
+  if (!minimumVersion) return { belowMinimum: false, minimumStatus: 'ok' };
+  const cmp = compareVersionsOrUnknown(currentVersion, minimumVersion);
+  if (cmp === null) return { belowMinimum: false, minimumStatus: 'unknown' };
+  return { belowMinimum: cmp < 0, minimumStatus: cmp < 0 ? 'below' : 'ok' };
+}
+
+/** 「当前版本 vs registry 最新版」的三态结论,口径同上(不可解析 ⇒ 不催更,但报名"判不了")。 */
+export function updateOutcome(
+  currentVersion: unknown,
+  latestVersion: string | undefined | null,
+): { hasUpdate: boolean; updateStatus: 'available' | 'current' | 'unknown' } {
+  if (!latestVersion) return { hasUpdate: false, updateStatus: 'unknown' };
+  const cmp = compareVersionsOrUnknown(currentVersion, latestVersion);
+  if (cmp === null) return { hasUpdate: false, updateStatus: 'unknown' };
+  return cmp < 0
+    ? { hasUpdate: true, updateStatus: 'available' }
+    : { hasUpdate: false, updateStatus: 'current' };
+}
+
+/**
  * 执行一次更新检查(读缓存或 fetch registry)。
  * 不抛异常,失败返回 hasUpdate=false 的默认结果(并填充 error 字段)。
  */
@@ -186,9 +262,8 @@ export async function checkForUpdates(
     return {
       currentVersion,
       minimumVersion,
-      hasUpdate: false,
-      belowMinimum:
-        !!minimumVersion && compareVersions(currentVersion, minimumVersion) < 0,
+      ...updateOutcome(currentVersion, null),
+      ...versionOutcome(currentVersion, minimumVersion),
       checkedAt: Date.now(),
     };
   }
@@ -211,17 +286,12 @@ export async function checkForUpdates(
     }
   }
 
-  const hasUpdate =
-    !!latestVersion && compareVersions(currentVersion, latestVersion) < 0;
-  const belowMinimum =
-    !!minimumVersion && compareVersions(currentVersion, minimumVersion) < 0;
-
   return {
     currentVersion,
     latestVersion,
     minimumVersion,
-    hasUpdate,
-    belowMinimum,
+    ...updateOutcome(currentVersion, latestVersion),
+    ...versionOutcome(currentVersion, minimumVersion),
     checkedAt: now,
     error,
   };
@@ -268,6 +338,12 @@ export interface GateResult {
   /** 问过没有(没问 ⇒ 连"放行"都不该写成结论)。 */
   asked: boolean;
   blocked: boolean;
+  /**
+   * 结论是不是**量出来的**(G-660)。`determined:false` ⇒ 这一轮没有可比的两端
+   * (版本自识别失败 / 响应形状不认识),此时 `blocked` 恒为 false,但那**不是**
+   * "已满足最低版本"——消费面必须喊"本轮无法判定",不得把它读成 pass。
+   */
+  determined: boolean;
   currentVersion: string;
   requiredVersion: string | null;
   source: string;
@@ -320,6 +396,7 @@ export function decideGate(currentVersion: string, facts: ServerMinVersionFacts 
     return {
       asked: true,
       blocked: false,
+      determined: false,
       currentVersion,
       requiredVersion: null,
       source: 'unknown',
@@ -327,20 +404,39 @@ export function decideGate(currentVersion: string, facts: ServerMinVersionFacts 
     };
   }
   if (facts.minimumVersion === null) {
+    // 服务端明确回答了"没有最低版本要求" ⇒ 这是一个**判定结论**,不是没判。
     return {
       asked: true,
       blocked: false,
+      determined: true,
       currentVersion,
       requiredVersion: null,
       source: facts.source,
       reason: facts.reason,
     };
   }
-  const below = compareVersions(currentVersion, facts.minimumVersion) < 0;
+  // G-660:哨兵版本(package.json 读不到时 getCurrentVersion 返回 '0.0.0')形状上可解析,
+  // 拿它去比会把"所有人都低于最低版"写成事实;而 enforceServerMinimumVersion 对同一事实
+  // 一律放行 —— 两条消费点对同一个版本给相反答案。现两处同尺:不可信 ⇒ determined:false 且不拦。
+  const cmp =
+    currentVersion === UNKNOWN_VERSION ? null : compareVersionsOrUnknown(currentVersion, facts.minimumVersion);
+  if (cmp === null) {
+    return {
+      asked: true,
+      blocked: false,
+      determined: false,
+      currentVersion,
+      requiredVersion: facts.minimumVersion,
+      source: facts.source,
+      reason: `cannot compare current version ${JSON.stringify(currentVersion)} against required ${facts.minimumVersion} — NOT the same as satisfying it（本轮无法判定，放行是降级选择，不是结论）— ${facts.reason}`,
+    };
+  }
+  const below = cmp < 0;
   // 服务端那句"这个值是哪来的"必须原样带进结论 —— 闸门挡人时,人要能一句话问出真值来源。
   return {
     asked: true,
     blocked: below,
+    determined: true,
     currentVersion,
     requiredVersion: facts.minimumVersion,
     source: facts.source,
@@ -390,7 +486,8 @@ export function renderBlockMessage(r: GateResult): string {
 
 /** 留痕行 —— 放行也要有,否则"闸门没起作用"与"闸门起了且判放行"在终端上长得一样。 */
 export function renderTrailLine(r: GateResult, endpoint: string): string {
-  const verdict = r.blocked ? 'BLOCK' : 'pass';
+  // 三态不得并成两桶(G-660):"没判出来"打成 pass,读日志的人就以为闸门通过了这条版本检查。
+  const verdict = r.blocked ? 'BLOCK' : r.determined ? 'pass' : 'UNDETERMINED';
   return `ℹ version gate [${verdict}] ${endpoint} → asked=${r.asked} source=${r.source} required=${r.requiredVersion ?? 'none'} current=${r.currentVersion} — ${r.reason}`;
 }
 
@@ -398,6 +495,7 @@ function notAsked(currentVersion: string, reason: string): GateResult {
   return {
     asked: false,
     blocked: false,
+    determined: false,
     currentVersion,
     requiredVersion: null,
     source: 'none',
@@ -447,6 +545,7 @@ export async function enforceServerMinimumVersion(deps: GateDeps = {}): Promise<
     result = {
       asked: true,
       blocked: false,
+      determined: false,
       currentVersion,
       requiredVersion: null,
       source: 'unreachable',
@@ -477,6 +576,7 @@ function blockFromFreshCache(deps: Required<Pick<GateDeps, 'currentVersion' | 'n
     source: cached.source,
     reason: `${cached.reason}（缓存结论，问于 ${new Date(cached.checkedAt).toISOString()}）`,
   });
+  if (!r.determined) return; // 本轮判不了 ⇒ 不得拿一条"无法判定"的缓存结论去退出进程
   if (!r.blocked) return;
   deps.warn(renderBlockMessage(r));
   deps.exit(EXIT_CODE_BELOW_MINIMUM);

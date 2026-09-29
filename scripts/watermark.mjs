@@ -11,12 +11,14 @@
  * 三层水印:
  *   L1 可见版权声明 —— 文件顶部注释横幅 (含作者 李春川 / 智汇AI / IHUI AI)
  *   L2 零宽字符隐写 —— 嵌入在横幅注释内部的不可见标记 (ZWSP/ZWNJ/ZWJ 编码)
- *   L3 独立隐形标记 —— 文件末尾一行仅含零宽字符的"空行", 删除可见横幅仍可检出
+ *   L3 独立隐形标记 —— 一行仅含零宽字符的注释行, 删除可见横幅仍可检出
+ *   (注入时它落在文件末尾;向末尾追加内容的正常编辑会把它顶到中部 —— 那是允许形态,
+ *    它的判据是"独立成行且可解码",不是"恒为末行"。追加型生成器用 inject --reseat-tail 请它回位)
  *
  * 用法:
  *   node scripts/watermark.mjs inject [file...]   # 注入水印(幂等: 已注入且载荷完整则跳过; 残迹/载荷损坏先清洗再重注); 省略 file 则全树注入
- *   node scripts/watermark.mjs verify [file...]   # 校验覆盖率 + **载荷可解码性**(未覆盖/残迹/载荷损坏 均 exit 1)
- *   node scripts/watermark.mjs list-uncovered     # 列出 载荷损坏 + 残迹 + 未覆盖(供批量修复管道消费)
+ *   node scripts/watermark.mjs verify [file...]   # 校验覆盖率 + **载荷可解码性**(未覆盖/残迹/载荷损坏/仅隐写无横幅 均 exit 1)
+ *   node scripts/watermark.mjs list-uncovered     # 列出 载荷损坏 + 仅隐写(无可见横幅) + 残迹 + 未覆盖(供批量修复管道消费)
  *   node scripts/watermark.mjs decode <file>      # 解码指定文件中的隐写内容
  *   node scripts/watermark.mjs clean <file>       # 移除指定文件的水印(仅限版权所有者自查用)
  *
@@ -26,13 +28,18 @@
  *   这些文件不是"没人管",而是改由 scripts/provenance-ledger.mjs 的 P8「归属反噬」审计。
  */
 
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { basename, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { createExclusionPredicate, LedgerUnavailable } from './lib/third-party-roots.mjs'
 import { coverageFileSet } from './lib/watermark-scope.mjs'
+import {
+  CANONICAL_BANNER_LINES,
+  hasVisibleCopyright,
+  isBannerLine,
+  isInvisibleMarkLine,
+} from './lib/watermark-lines.mjs'
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..')
 
@@ -62,10 +69,7 @@ function exclusion() {
 // ---------- 水印配置 ----------
 const WATERMARK_TEXT = 'IHUI-AI·智汇AI·李春川·LC·aizhs.top·PROVENANCE-2026'
 const BANNER_ID = 'IHUI-AI-PROVENANCE'
-const BANNER_LINES = [
-  '© 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top',
-  'Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。',
-]
+const BANNER_LINES = CANONICAL_BANNER_LINES // 文案唯一实现住在 lib(两处抄必漂移)
 
 // ---------- 零宽字符编解码 ----------
 const ZWSP = '\u200b' // 0
@@ -326,7 +330,7 @@ function makeBanner(style, extra) {
   return `${style.open}\n${inner}\n  [${BANNER_ID}]:${zw}\n${style.close}\n`
 }
 
-function injectFile(absPath) {
+function injectFile(absPath, { reseatTail = false } = {}) {
   const style = styleFor(absPath)
   if (!style) return 'skip-type'
   // 已登记第三方内容一律不注入:横幅是**归属主张**,往 Mozilla/Cargo 分发的文件上打它
@@ -337,8 +341,25 @@ function injectFile(absPath) {
   const buf = readFileSync(absPath)
   if (isBinary(buf)) return 'skip-binary'
   let text = buf.toString('utf8').replace(/^\uFEFF/, '') // strip BOM, 避免 shebang 检测失败
-  // 载荷存在**且可解码** → 已完成(幂等跳过)
-  if (INVISIBLE_RE.test(text) && payloadIntact(text)) return 'skip-done'
+  // 载荷存在**且可解码** → 通常就是"已完成"。但"在而不对"有两种,旧实现在这里直接返回,
+  // 于是它们永远不会被修:
+  //   ① 可见横幅整块不见了 —— 横幅是归属主张,它没了等于作品失去署名(2026-09-29 实测两份
+  //      归档件即此型,而当时 verify 把它们算进"完好",L3 的用途被反过来用成了免检理由);
+  //   ② 尾部隐写行被后来的追加内容顶离末行 —— 仅当调用方带 --reseat-tail(追加型生成器)。
+  // ① 落到下面的"清洗重注"通道(必须整块重写才补得回横幅);
+  // ② **不走清洗重注**:那条通道会跑 cleanFile 的块注释状态机,而它删掉的行**不止**隐写行 ——
+  //    实测一次带旗注入把紧随其后的条目标题一起吞了(13MB 归档件的第二轮追加)。归位只做一件事:
+  //    把纯隐写行摘掉、在末尾补一条,其余行按序列原样送回;自证不过就拒写。
+  if (INVISIBLE_RE.test(text) && payloadIntact(text)) {
+    const withBanner = hasVisibleCopyright(text)
+    if (!withBanner) {
+      // 继续往下走清洗重注
+    } else if (!reseatTail || tailIsSeated(text, style)) {
+      return 'skip-done'
+    } else {
+      return reseatInPlace(absPath, text, style) ? 'reseated' : 'reseat-refused'
+    }
+  }
   // 注意: 本工具自身源码包含横幅常量定义, clean 会"自噬", 故跳过自身
   if (absPath === fileURLToPath(import.meta.url)) return 'skip-self'
   // 残迹态(只有横幅文本、载荷被剥离)与**载荷损坏**(存在但解码不符)统一走清洗重注。
@@ -372,30 +393,85 @@ function injectFile(absPath) {
 
   const banner = makeBanner(style)
   // L3: 文件末尾独立隐形行(注释包裹, 避免裸零宽字符导致 JS/TS/CSS 等解析报错)
-  let tail = ''
-  if (style.line) tail = style.line + ' ' + INVISIBLE_MARK + '\n'
-  else if (style === STYLES.sql) tail = '-- ' + INVISIBLE_MARK + '\n'
-  else if (style === STYLES.html) tail = '<!-- ' + INVISIBLE_MARK + ' -->\n'
-  else tail = '/* ' + INVISIBLE_MARK + ' */\n'
+  const tail = tailFor(style)
 
-  // 统一去末尾换行再追加,保证 L3 恒为独立末行(绝不与末行内容拼接,也不落在中间空行)
-  // 正文若已以空行起始,横幅后不再补分隔空行 → clean→inject 往返零漂移
+  // 统一去末尾换行再追加,保证注入时 L3 恒为独立末行(绝不与末行内容拼接,也不落在中间空行)
+  // **末尾必须自带换行**:少这个 \n,下一次 append 会把新内容直接粘到水印行后面 ——
+  // 那行既不再是"独立隐写行",而清洗它时会连带把粘在后面的正文一起吃掉(实测把条目标题弄丢)。
   const sep = text.startsWith('\n') ? '' : '\n'
   const body = (shebang + xmlDecl + banner + sep + text).replace(/\r?\n$/, '')
-  const out = body + '\n' + tail
+  const out = body + '\n' + tail + '\n'
   writeFileSync(absPath, out, 'utf8')
   return 'injected'
 }
 
-// 横幅行形态:剥掉行首注释前缀(// # --)后按**行首锚定**判定,
-// 避免误伤源码里出现的 BANNER_ID 常量 / 正则定义(如 check-watermark-syntax.mjs)。
-// 版权行必须带 ` (智汇AI)` 品牌段:2026-09-22 实测 `apps/api/scripts/verify-carrier.ts`
-// 的说明行 `// © 2026 IHUI AI · 运营商一键登录后端集成自检…` 会被旧锚整行删除。
-const BANNER_TEXT_RE =
-  /^(?:©\s*\d{4}\s+IHUI\s+AI\s*\(智汇AI\)|Provenance-watermarked(?:\.|\s)|\[IHUI-AI-PROVENANCE\]\s*:)/
-function isBannerLine(line) {
-  return BANNER_TEXT_RE.test(line.trim().replace(/^\s*(\/\/|#|--)\s*/, ''))
+/**
+ * 只做"把纯隐写行移到末行"这一件事,并**自证其它行一字未动**;不过就拒写。
+ *
+ * 为什么不能借道 cleanFile:它是块注释状态机,删的是"横幅块 + 隐写行",而归档件里隐写行的
+ * **下一行往往是正文**(追加时没有空行隔开),状态机把两者一起吞过一次(实测丢掉一个条目标题)。
+ * 归位要的是最小动作:摘掉纯隐写行 → 末尾补一条 → 其余行按原序列原样写回。
+ *
+ * @returns {boolean}  true = 已归位;false = 自证不过(调用方必须看见这个失败,不得静默)
+ */
+function reseatInPlace(absPath, text, style) {
+  const lines = String(text).split('\n')
+  const kept = lines.filter((l) => !isInvisibleMarkLine(l))
+  const moved = lines.length - kept.length
+  if (moved > 1) {
+    console.error(
+      `[watermark:reseat] 拒绝归位:发现 ${moved} 行纯隐写行(只预期 1 行)⇒ 交人工看,不猜哪行该删`,
+    )
+    return false
+  }
+  const bodyText = kept.join('\n').replace(/\r?\n$/, '')
+  const out = bodyText + '\n' + tailFor(style) + '\n'
+  const sameExceptMarks = (a, b) => {
+    const strip = (t) =>
+      t
+        .split('\n')
+        .filter((l) => !isInvisibleMarkLine(l))
+        .join('\n')
+    return strip(a) === strip(b)
+  }
+  if (!sameExceptMarks(text, out)) {
+    console.error('[watermark:reseat] 拒绝归位:重写后"非隐写行"与原文件不等值 ⇒ 一个字节都不写')
+    return false
+  }
+  writeFileSync(absPath, out, 'utf8')
+  return true
 }
+
+/**
+ * L3 尾部隐写行的**唯一**构造实现(注入与"归位"判据共用一份)。
+ *
+ * 为什么单列:归位判据问的是"这一行现在是不是末行",它必须知道末行该长什么样。
+ * 两处各写一遍(`style.line + ' ' + INVISIBLE_MARK`)必然与注入侧漂移(本仓最高频失效型),
+ * 而漂移的后果是判据对合法写法恒报"没归位"⇒ 每次注入都重写一遍文件。
+ */
+function tailFor(style) {
+  if (style.line) return style.line + ' ' + INVISIBLE_MARK
+  if (style === STYLES.sql) return '-- ' + INVISIBLE_MARK
+  if (style === STYLES.html) return '<!-- ' + INVISIBLE_MARK + ' -->'
+  return '/* ' + INVISIBLE_MARK + ' */'
+}
+
+/**
+ * 尾部隐写行现在**是否**仍是文件的最后一行内容。
+ *
+ * 它只在"往已有内容尾部再追加东西"的生成器上有意义:注入器写完时它当然在末行,
+ * 但下一次 append 会把新内容放到它后面,于是标记从"末行"退化成" buried 在中部"。
+ * 归档件实测四份这样的孤儿标记躺在正文里,而那份文件通篇没有可见横幅 ——
+ * 所以这一维必须**量得出来**,不能靠"注入时写在末尾"这句一次性事实。
+ */
+function tailIsSeated(text, style) {
+  const body = String(text).replace(/\r?\n+$/, '')
+  return body.endsWith(tailFor(style))
+}
+
+// `isBannerLine` / 横幅正则的**唯一**实现住在 scripts/lib/watermark-lines.mjs —— 归档生成器
+// 搬运用正文时也要问同一句"这一行是不是水印",两处各写一遍必然漂移(本仓记过最多次的失效型),
+// 而这里的判据还被清洗逻辑依赖:它认漏一行,那行就永久留在文件中部,让"载荷可解码"恒假。
 
 /** 提取文本内全部零宽载荷片段 */
 function extractMarks(text) {
@@ -520,10 +596,12 @@ function scanCoverage(scope) {
     marked = 0,
     residue = 0,
     skipped = 0,
-    thirdParty = 0
+    thirdParty = 0,
+    bannerless = 0
   const missing = []
   const residues = []
   const corrupted = []
+  const bannerlessList = []
   const excluded = []
   const excl = exclusion()
   const candidates = scope ?? gitTrackedFiles().filter((rel) => !underSkipDir(rel))
@@ -551,22 +629,55 @@ function scanCoverage(scope) {
     const text = readFileSync(abs, 'utf8')
     const hasPayload = INVISIBLE_RE.test(text)
     const hasBannerText = text.includes(BANNER_ID)
-    if (hasPayload && payloadIntact(text)) marked++
-    else if (hasPayload) {
+    if (hasPayload && payloadIntact(text)) {
+      // 载荷在而**可见横幅整块不见了**:这一格以前被算进"完好",于是"把版权横幅删掉"这个
+      // 动作在门禁上等价于"没问题" —— 而 L3(独立隐写末行)的设计理由恰恰是"删除可见横幅仍可
+      // 检出"。判据只查"载荷在不在",等于把 L3 的存在意义反着用了(2026-09-29 实测 HEAD 面
+      // 两份文件即此型,其中一份 34,580 行的归档件通篇无横幅)。
+      const withBanner = hasVisibleCopyright(text)
+      if (withBanner) marked++
+      else {
+        bannerless++
+        bannerlessList.push(rel)
+      }
+    } else if (hasPayload) {
       corrupted.push(rel) // 载荷存在但已损坏
     } else if (hasBannerText) {
       residue++ // 残迹: 只有横幅文本、载荷已丢失,水印形同虚设
       residues.push(rel)
     } else missing.push(rel)
   }
-  return { total, marked, residue, skipped, missing, residues, corrupted, thirdParty, excluded }
+  return {
+    total,
+    marked,
+    residue,
+    skipped,
+    missing,
+    residues,
+    corrupted,
+    thirdParty,
+    excluded,
+    bannerless,
+    bannerlessList,
+  }
 }
 
 function verifyAll(scope) {
-  const { total, marked, residue, skipped, missing, residues, corrupted, thirdParty, excluded } =
-    scanCoverage(scope)
+  const {
+    total,
+    marked,
+    residue,
+    skipped,
+    missing,
+    residues,
+    corrupted,
+    thirdParty,
+    excluded,
+    bannerless,
+    bannerlessList,
+  } = scanCoverage(scope)
   console.log(
-    `[watermark:verify] 覆盖 ${marked}/${total} 个${scope ? '指定' : '已跟踪'}文件, 残迹(载荷丢失) ${residue} 个, 载荷损坏 ${corrupted.length} 个, 跳过 ${skipped} 个, 台账登记的第三方内容不计入 ${thirdParty} 个`,
+    `[watermark:verify] 覆盖 ${marked}/${total} 个${scope ? '指定' : '已跟踪'}文件, 残迹(载荷丢失) ${residue} 个, 载荷损坏 ${corrupted.length} 个, 仅隐写(有载荷但可见横幅缺失或已损坏) ${bannerless} 个, 跳过 ${skipped} 个, 台账登记的第三方内容不计入 ${thirdParty} 个`,
   )
   // 排除面必须可见:静默少算 N 个文件与"根本没有第三方内容"在输出上无法区分,
   // 而后者会让人以为门禁从未碰过第三方(它碰过,见 pdf.worker.min.mjs 事故)。
@@ -584,11 +695,20 @@ function verifyAll(scope) {
     corrupted.slice(0, 15).forEach((f) => console.log('  - ' + f))
     process.exitCode = 1
   }
+  if (bannerless) {
+    // 这一维必须**判红**:它是"可见署名整块不见了"的唯一检出手段。以前它被算进 marked,
+    // 于是删掉横幅这个动作在 CI 上等价于"没问题" —— 而 L3 的设计理由正是"删除可见横幅仍可检出"。
+    console.log(
+      `仅隐写(有隐写载荷但可见横幅缺失或已损坏) ${bannerless} 个, 需 clean 后重新 inject, 示例(前 15):`,
+    )
+    bannerlessList.slice(0, 15).forEach((f) => console.log('  - ' + f))
+    process.exitCode = 1
+  }
   if (missing.length) {
     console.log(`未覆盖 ${missing.length} 个, 示例(前 30):`)
     missing.slice(0, 30).forEach((f) => console.log('  - ' + f))
     process.exitCode = 1
-  } else if (!residue && !corrupted.length) {
+  } else if (!residue && !corrupted.length && !bannerless) {
     console.log('纳入口径的文件均已携带完整溯源水印。')
   }
 }
@@ -598,20 +718,33 @@ const [cmd, ...rest] = process.argv.slice(2)
 const target = rest[0]
 
 if (cmd === 'inject') {
-  // 文件模式: inject <file>...(与 usage 声明一致;残迹文件会先内部 clean 再注入)
-  if (rest.length) {
-    for (const t of rest) {
+  // `--reseat-tail`:除了"载荷在不在",还要求尾部隐写行**仍是末行**。
+  // 给"往已有内容尾部追加"的生成器用(归档器就是):注入时它当然在末行,下一次 append
+  // 就把新内容放到它后面,标记从此埋在正文中部 —— 实测一份归档件里攒了 4 行这样的孤儿。
+  // 默认档**不带**这个旗:正常编辑会把标记顶离末行,那是允许形态(它的用途是"删掉可见横幅
+  // 仍可检出",不依赖位置),要求全部回位会重写几百个文件而换来的只是形状。
+  const reseatTail = rest.includes('--reseat-tail')
+  const targets = rest.filter((a) => a !== '--reseat-tail')
+  // 文件模式: inject [--reseat-tail] <file>...(与 usage 声明一致;残迹文件会先内部 clean 再注入)
+  if (targets.length) {
+    for (const t of targets) {
       const abs = resolve(t)
       if (!existsSync(abs)) {
         console.error(`文件不存在: ${t}`)
         process.exitCode = 1
         continue
       }
-      const r = injectFile(abs)
+      const r = injectFile(abs, { reseatTail })
       console.log(`[watermark:inject] ${relative(ROOT, abs).replaceAll('\\', '/')} → ${r}`)
       // 'skip-third-party' 也计红:有人(或某个生成器)显式点名要把横幅打进已登记的
       // 第三方内容,这是一次需要被看见的拒绝,不是一次静默的"好的已经处理完了"。
-      if (r === 'skip-type' || r === 'skip-binary' || r === 'skip-third-party') process.exitCode = 1
+      if (
+        r === 'skip-type' ||
+        r === 'skip-binary' ||
+        r === 'skip-third-party' ||
+        r === 'reseat-refused'
+      )
+        process.exitCode = 1
     }
   } else {
     let n = 0,
@@ -634,9 +767,13 @@ if (cmd === 'inject') {
 } else if (cmd === 'verify') {
   verifyAll(rest.length ? scopeFromArgs(rest) : null)
 } else if (cmd === 'list-uncovered') {
-  // 供批量修复管道消费: 先损坏后残迹再未覆盖, 每行一个相对路径
-  const { missing, residues, corrupted } = scanCoverage(rest.length ? scopeFromArgs(rest) : null)
-  ;[...corrupted, ...residues, ...missing].forEach((f) => console.log(f))
+  // 供批量修复管道消费: 先损坏后仅隐写再残迹最后未覆盖, 每行一个相对路径。
+  // 「仅隐写」必须进这个清单:否则自愈式门禁看不见它,而 `inject` 现在会把它清洗重注 ——
+  // 两边不在同一份集合上,门就只会喊红而给不出出路(§5e"失败必须响"的同一条要求:喊了还得能修)。
+  const { missing, residues, corrupted, bannerlessList } = scanCoverage(
+    rest.length ? scopeFromArgs(rest) : null,
+  )
+  ;[...corrupted, ...bannerlessList, ...residues, ...missing].forEach((f) => console.log(f))
 } else if (cmd === 'decode') {
   if (!target || !existsSync(target)) {
     console.error('用法: node scripts/watermark.mjs decode <file>')

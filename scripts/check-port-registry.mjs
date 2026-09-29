@@ -12,36 +12,159 @@
  * - 检测 staged 文件中的 localhost:PORT 引用,PORT 非 88xx → warn
  * - 豁免:CI workflows / 测试默认值 / Docker 容器内部端口 / healthcheck / 第三方端口
  *
+ * 登记表对账(2026-09-28 票 G-409 新增,同一条缝的成本最低、判定最硬的那一半):
+ *   本脚本过去**自己抄一份端口清单**,注释还写着"与 docs/port-management.md §2 同步" ——
+ *   于是三副本(JSON 注册表 / docs §2 / 代码 Set)里代码那份既不由谁派生,也没有一道门问它
+ *   跟另两份是否同值;docs 侧更是从未参与过任何比较。现按两条机械判据收口:
+ *     P0 代码侧不再手抄:`REGISTERED_PORTS` 一律从 `scripts/dev-port-registry.json` 的
+ *        `registered_ports` 派生;派生不出来(键缺失 / 形态判不出 / 派生出 0 个)⇒ **无法判定
+ *        exit 2**,绝不回落成"空清单"或任何旧的手抄表(那等于把尺子调成恒绿)。
+ *     P1 `docs/port-management.md §2` 表格里出现的端口(含 §2 明写的预留槽)与派生集**双向**
+ *        对账:文档多报(§2 写了而注册表没认领)/ 注册表多认领(认领了而 §2 没写)都点名。
+ *   定级:本门在 runner(id 24b)是 warn-only,所以 P1 的偏差按 warn 口径 exit 1 并逐条报名;
+ *   要单独问责跑 `--parity`(该档把 P1 当唯一判据:偏差 exit 1、输入取不到 exit 2,不记通过)。
+ *   现读(HEAD 面,2026-09-28):文档侧与派生集**同为 50 槽、双向差集均为 0**;而被删掉的那份
+ *   手抄表是 49 槽(漏 8840) —— 即三副本今天确实已漂一格,漂的正是无人对账的那一份。
+ *
  * 集成位置:pre-commit 第 24 项(warn-only,不阻塞 commit)
  *
  * 用法:
  *   node scripts/check-port-registry.mjs           # 扫描 staged 文件
  *   node scripts/check-port-registry.mjs --all      # 扫描全项目
+ *   node scripts/check-port-registry.mjs --parity   # 只跑 P0/P1 登记表对账(问责档)
+ *   取材面旗(仅作用于 P0/P1 的两份输入):默认 HEAD blob / --staged 索引 blob / --worktree 人工逃生舱,
+ *   两面旗同给 ⇒ exit 2。扫描 corpus 的口径一字未动(仍按 cwd 的工作树读,见下方"为什么扫描面不迁")。
  */
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, statSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
+// 两份登记表输入走统一取材层(守门 118:改了判据面不许散写 git / 不许按磁盘判被审内容)。
+// 刻意**不**把上面的 corpus 扫描也迁过去:那一扫的是"本次要提交的在途内容",本门立项理由
+// 就是看见尚未入库的端口引用;迁移它等于换判据(守门 70/103 那条"改判据必须同批改口径")。
+import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
 // 2026-09-23 加固:单文件字节上限 + git 调用超时。成因见 main() 内注释。
 const MAX_SCAN_BYTES = 2 * 1024 * 1024
 
 // ============================================================
-// 端口注册表(与 docs/port-management.md §2 同步)
+// 端口认领清单(唯一真相 = scripts/dev-port-registry.json 的 registered_ports)
 // ============================================================
-const REGISTERED_PORTS = new Set([
-  // 应用服务 8801-8809
-  8801, 8802, 8803, 8804, 8805, 8806, 8807, 8808, 8809,
-  // 基础设施 8810-8819
-  8810, 8811, 8812, 8813, 8814, 8815, 8816, 8817, 8818, 8819,
-  // 辅助工具 8820-8829
-  8820, 8821, 8822, 8823, 8824, 8825, 8826, 8827, 8828, 8829,
-  // SaaS 部署 8830-8839
-  8830, 8831, 8832, 8833, 8834, 8835, 8836, 8837, 8838, 8839,
-  // 蓝绿部署 8840-8849
-  8841, 8842, 8843, 8844, 8845, 8846, 8847, 8848, 8849,
-  // 8840-8899「预留扩展」段中已按 docs/port-management.md §3.1 认领的一枚:
-  // web 端桌面遮罩 e2e 的私有 dev 端口(刻意避开 8801 生产构建,见该 spec 头注的跑法)。
-  8877,
-])
+const REGISTRY_REL = 'scripts/dev-port-registry.json'
+const DOC_REL = 'docs/port-management.md'
+
+/**
+ * 纯函数:把注册表的一条认领项展开成端口数组。
+ * 只认两种形态:`{port:8877}` 与 `{range:[8801,8809]}`(端点均为整数且区间 ≤1000)。
+ * 其余(变量、字符串、倒序区间)一律返回 null 交上层点名 —— 判据不猜,更不"顺手放宽一档"。
+ */
+export function expandRegisteredEntry(entry) {
+  if (!entry || typeof entry !== 'object') return null
+  if (Number.isInteger(entry.port)) return [entry.port]
+  const r = entry.range
+  if (!Array.isArray(r) || r.length !== 2) return null
+  const [a, b] = r
+  if (!Number.isInteger(a) || !Number.isInteger(b) || b < a || b - a > 1000) return null
+  return Array.from({ length: b - a + 1 }, (_, i) => a + i)
+}
+
+/**
+ * 纯函数(P0):从注册表对象派生"已认领端口集"。
+ * `problems` 非空 ⇒ 派生不出来,调用方必须判"无法判定",**禁止**回落成空集继续扫
+ * (空集会让每一个 88xx 引用都变违规 —— 那是把尺子调成恒红,与恒红门同罪)。
+ */
+export function deriveRegisteredPorts(reg) {
+  const problems = []
+  const ports = new Set()
+  const list = reg && Array.isArray(reg.registered_ports) ? reg.registered_ports : null
+  if (!list) {
+    return { ports, problems: ['注册表缺 registered_ports 数组(不回落任何手抄清单)'], entries: 0 }
+  }
+  if (list.length === 0) {
+    return { ports, problems: ['registered_ports 为空数组(空扫不派生,拒绝当作"无认领端口"继续判)'], entries: 0 }
+  }
+  list.forEach((entry, i) => {
+    const got = expandRegisteredEntry(entry)
+    if (!got) {
+      problems.push(`registered_ports[${i}] 形态判不出:既没有整数 port,也没有合法 range 数组`)
+      return
+    }
+    for (const p of got) ports.add(p)
+  })
+  if (ports.size === 0) problems.push('派生出 0 个端口(条目全被跳过 ⇒ 判据失明,不是"没有认领")')
+  return { ports, problems, entries: list.length }
+}
+
+/**
+ * 纯函数:把 §2 表格首格展开成端口数组。
+ * 认 '8801'、'8822-8829'、'8840/8842-8849'、以及 Markdown 装饰(`~~删除线~~`/`` ` ``/粗体)包裹的形态;
+ * '—' / '-' / '预留扩展' / 分隔行一律返回空数组(那不是端口)。
+ */
+export function expandDocCell(cell) {
+  const s = String(cell ?? '')
+    .replace(/[*_`~]/g, '')
+    .trim()
+  if (!s || /^[-—–:|]+$/.test(s)) return []
+  const out = new Set()
+  let matched = false
+  for (const part of s.split(/[,/]/)) {
+    const seg = part.trim()
+    const rng = seg.match(/^(\d{4})\s*[-–~]\s*(\d{4})$/)
+    if (rng) {
+      const a = Number(rng[1])
+      const b = Number(rng[2])
+      if (b >= a && b - a <= 1000) {
+        for (let p = a; p <= b; p++) out.add(p)
+        matched = true
+      }
+      continue
+    }
+    const one = seg.match(/^(\d{4})$/)
+    if (one) {
+      out.add(Number(one[1]))
+      matched = true
+    }
+  }
+  return matched ? [...out] : []
+}
+
+/**
+ * 纯函数(P1 的文档侧):只取 `## 2 端口注册表` 到下一个非 2 级章节之间的**表格行首格**。
+ * 为什么必须限定在 §2:§3.3 的段位规则(`8800-8809 → 应用服务`)、§4 链路图、§6 变更记录里的
+ * 数字都是叙述,把它们当登记表会造出满天假阳(本仓"注释里的形态不得判红"同一条禁令)。
+ * 返回 {ports, rows, stoppedAtHeading}:rows=0 ⇒ 上层判"文档侧枚举为空",不记为通过。
+ */
+export function parseDocPortTable(mdText) {
+  const lines = String(mdText ?? '').split(/\r?\n/)
+  const ports = new Set()
+  let rows = 0
+  let inSec2 = false
+  for (const line of lines) {
+    const h = line.match(/^#{2,3}\s+(.*)$/)
+    if (h) {
+      const title = h[1].trim()
+      if (/^2(\.|\s|$)/.test(title)) inSec2 = true
+      else if (inSec2) inSec2 = false
+      continue
+    }
+    if (!inSec2) continue
+    if (!/^\s*\|/.test(line)) continue
+    const cells = line.split('|')
+    const first = cells.length > 2 ? cells[1] : ''
+    const got = expandDocCell(first)
+    if (got.length === 0) continue
+    rows += 1
+    for (const p of got) ports.add(p)
+  }
+  return { ports, rows, inSec2 }
+}
+
+/** 纯函数:双向差集。两侧都是"排序后的整数数组",便于逐条点名而不是只报一个数。 */
+export function comparePortSets(docPorts, derivedPorts) {
+  const onlyDoc = [...docPorts].filter((p) => !derivedPorts.has(p)).sort((a, b) => a - b)
+  const onlyDerived = [...derivedPorts].filter((p) => !docPorts.has(p)).sort((a, b) => a - b)
+  return { onlyDoc, onlyDerived }
+}
+
 
 // 豁免的非 88xx 端口(容器内部 / CI / 第三方)
 const EXEMPT_PORTS = new Set([
@@ -176,9 +299,12 @@ function extractPortRefs(content) {
   return refs
 }
 
-/** 检查端口是否合规 */
-function checkPort(port) {
-  if (REGISTERED_PORTS.has(port)) {
+/**
+ * 检查端口是否合规。`registered` 一律由调用方喂**派生集**(P0)——
+ * 函数内不得再出现任何端口字面量集合,否则手抄清单会以"更近的默认值"形态重新长回来。
+ */
+export function checkPort(port, registered) {
+  if (registered.has(port)) {
     return { compliant: true, reason: '已注册 88xx' }
   }
   if (EXEMPT_PORTS.has(port)) {
@@ -196,10 +322,142 @@ function checkPort(port) {
 // 主逻辑
 // ============================================================
 
-function main() {
-  const scanAll = process.argv.includes('--all')
-  let files
+/** 结论行里如实报出取材面(与守门 36/124/93 同一条禁令:不得静默说用了哪个面)。 */
+export const FACE_TXT = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(逃生舱)' }
 
+/**
+ * 纯函数(argv → 面):两面旗同给 = 自相矛盾,由调用方判死。
+ * 默认档判 HEAD,与 36/124/93/98 一致(共享工作树常年滞后 HEAD,按磁盘判会在恒红/假绿之间跳)。
+ */
+export function faceFromArgv(argv) {
+  return selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'head',
+  })
+}
+
+/**
+ * 取两份登记表输入(注册表 JSON + docs §2),一律经统一取材层,取不到 ⇒ {ok:false,reason}。
+ * root/face 都是入参:镜像测试因此能在临时 git 仓里造"索引≠磁盘"的现场,不依赖真仓瞬时状态。
+ */
+export function readRegistryInputs(root, face) {
+  const rels = [REGISTRY_REL, DOC_REL]
+  let texts
+  try {
+    if (face === 'worktree') {
+      texts = rels.map((rel) => readWorktreeFile(root, rel))
+    } else {
+      const prefix = face === 'staged' ? ':' : 'HEAD:'
+      const specs = rels.map((rel) => `${prefix}${rel}`)
+      const got = catBatch(root, specs, { maxBuffer: 1 << 26 })
+      texts = specs.map((s) => (got.has(s) ? got.get(s) : null))
+    }
+  } catch (e) {
+    const known = e instanceof Undetermined
+    return { ok: false, reason: `${FACE_TXT[face]} 取材失败${known ? '' : '(未预期异常)'}:${String(e && e.message ? e.message : e).split('\n')[0].slice(0, 200)}` }
+  }
+  const missing = rels.filter((_, i) => texts[i] === null || texts[i] === undefined)
+  if (missing.length > 0) {
+    return { ok: false, reason: `${FACE_TXT[face]} 取不到 ${missing.join(' / ')}(该面上没有这份登记表)` }
+  }
+  return { ok: true, registryText: texts[0], docText: texts[1] }
+}
+
+/**
+ * 纯函数(P0+P1 的判读):输入两份文本 + 已取到的面,输出三态结论。
+ * 三态绝不并桶:derivedFail(派生不出来)/ undetermined(输入取不到)/ judged(真判过)。
+ * 注册表解析失败**不回落**任何旧手抄表 —— 那是把"没判"写成"判过了"。
+ */
+export function evaluateRegistryParity({ registryText, docText }) {
+  const out = { status: 'judged', parityRed: false, lines: [] }
+  let reg
+  try {
+    reg = JSON.parse(String(registryText))
+  } catch (e) {
+    out.status = 'derivedFail'
+    out.lines.push(`❌ P0 无法判定:注册表 ${REGISTRY_REL} JSON 解析失败(${String(e.message).slice(0, 120)})`)
+    return out
+  }
+  const derived = deriveRegisteredPorts(reg)
+  if (derived.problems.length > 0) {
+    out.status = 'derivedFail'
+    for (const p of derived.problems) out.lines.push(`❌ P0 无法判定:${p}`)
+    return out
+  }
+  out.registered = derived.ports
+  out.lines.push(
+    `   🧮 P0 派生认领清单:${REGISTRY_REL}.registered_ports → ${derived.ports.size} 个端口(${derived.entries} 条认领项),代码侧零手抄`
+  )
+  const doc = parseDocPortTable(docText)
+  if (doc.rows === 0 || doc.ports.size === 0) {
+    out.status = 'undetermined'
+    out.lines.push(
+      `⚠️ P1 未判定:${DOC_REL} §2 表格里枚举到 ${doc.rows} 行端口(0 行 ⇒ 判据看不见文档侧,不得记为"一致")`
+    )
+    return out
+  }
+  const { onlyDoc, onlyDerived } = comparePortSets(doc.ports, derived.ports)
+  out.onlyDoc = onlyDoc
+  out.onlyDerived = onlyDerived
+  out.docCount = doc.ports.size
+  out.derivedCount = derived.ports.size
+  if (onlyDoc.length === 0 && onlyDerived.length === 0) {
+    out.lines.push(
+      `   ✅ P1 双向对账:${DOC_REL} §2 ${doc.ports.size} 槽 ≡ 派生集 ${derived.ports.size} 槽(文档多报 0 / 注册表多认领 0)`
+    )
+    return out
+  }
+  out.parityRed = true
+  out.lines.push(`   ⚠️ P1 双向对账不一致(文档侧 ${doc.ports.size} 槽 / 派生集 ${derived.ports.size} 槽):`)
+  if (onlyDoc.length > 0) {
+    out.lines.push(
+      `      文档多报(§2 写了而 ${REGISTRY_REL} 没认领):${onlyDoc.join(', ')} —— 出路:在 registered_ports 认领它,或把 §2 那一行改成不占口的叙述`
+    )
+  }
+  if (onlyDerived.length > 0) {
+    out.lines.push(
+      `      注册表多认领(派生集有而 §2 没写):${onlyDerived.join(', ')} —— 出路:按 §3.1 在 §2 补一行(端口 + 服务名 + 配置文件),不得只改代码`
+    )
+  }
+  return out
+}
+
+function main() {
+  const argv = process.argv.slice(2)
+  const scanAll = argv.includes('--all')
+  const parityOnly = argv.includes('--parity')
+  const root = process.cwd()
+
+  // ── 取材面(只作用于 P0/P1 的两份输入;corpus 扫描的口径一字未动)──
+  const sel = faceFromArgv(argv)
+  if (sel.error) {
+    console.error(`❌ ${sel.error} ⇒ 无法判定(不记红也不记绿)`)
+    return 2
+  }
+  const face = sel.face
+  const inputs = readRegistryInputs(root, face)
+  const parity = inputs.ok
+    ? evaluateRegistryParity({ registryText: inputs.registryText, docText: inputs.docText })
+    : { status: 'undetermined', parityRed: false, lines: [`⚠️ P0/P1 未判定:${inputs.reason}`] }
+
+  if (parityOnly) {
+    console.log(`🧭 端口登记表对账(取材面:${FACE_TXT[face]}):P0 派生 + P1 docs §2 双向`)
+    for (const l of parity.lines) console.log(l)
+    if (parity.status === 'derivedFail') {
+      console.log('   ⇒ 无法判定:派生不出来即拒绝出具"端口合规"结论(不回落任何手抄表)')
+      return 2
+    }
+    if (parity.parityRed) return 1
+    if (parity.status === 'undetermined') {
+      console.log('   ⇒ 未判定(不作为通过证据):文档侧没枚举到任何登记行')
+      return 2
+    }
+    console.log('   ✅ P0/P1 均通过')
+    return 0
+  }
+
+  let files
   if (scanAll) {
     // 全项目扫描(仅 git tracked 文件)
     // 2026-09-23 挂死根治:Windows 下并发会话持有 index 句柄时,无超时的 execSync('git ls-files')
@@ -222,8 +480,22 @@ function main() {
     files = getStagedFiles()
   }
 
-  if (files.length === 0) {
-    process.exit(0)
+  // 扫描的判据**就是**这份派生集:派不出来 / 输入取不到 ⇒ 都没有清单可用,此时
+  // "扫描 N 个文件无违规"是一句做不到的承诺(把没判写成判过了 = 本仓最高频失效型)。
+  // 未判定一律 exit 2,不回落任何手抄表,也不静默 exit 0。
+  // 刻意放在文件枚举**之后**:那一步自己的失败提示("git ls-files 超时/失败 → 回退 staged")
+  // 是 2026-09-23 那条契约的一部分,不能被新的前置判定抢先吞掉(镜像测试第 14 例钉住两者都在)。
+  if (!parity.registered) {
+    for (const l of parity.lines) console.error(l)
+    console.error(
+      `   ⇒ 无法判定:${parity.status === 'derivedFail' ? 'P0 派生不出来' : 'P0/P1 的输入在该面上取不到'} —— 没有认领清单时端口合规性无从判(exit 2)`
+    )
+    return 2
+  }
+  const registered = parity.registered
+  if (parity.status === 'undetermined') {
+    // 文档侧一行都没枚举到:扫描照判(派生集在位),但 P1 不得被读成"已对账"。
+    parity.lines.push('   ⚠️ P1 本轮未对账成功,不构成"登记表已核对"的合格证(结论行已点名)')
   }
 
   const warnings = []
@@ -256,7 +528,7 @@ function main() {
     const refs = extractPortRefs(content)
 
     for (const ref of refs) {
-      const result = checkPort(ref.port)
+      const result = checkPort(ref.port, registered)
       if (!result.compliant) {
         // 找到行号
         const lines = content.substring(0, ref.index).split('\n')
@@ -278,11 +550,19 @@ function main() {
       ? `\n   另:形如 "localhost:880[23]" 的正则字符类引用 ${regexishSkipped} 处已跳过` +
         '(那不是端口;报数而不静默,免得判据哪天真的看不见端口)'
       : ''
+
   if (warnings.length === 0) {
     if (scannedCount > 0) {
       console.log(`✅ 端口注册表守门:扫描 ${scannedCount} 个文件,无违规端口${skippedNote}`)
     }
-    process.exit(0)
+    for (const l of parity.lines) console.log(l)
+    if (parity.parityRed) return 1
+    if (parity.status === 'undetermined') {
+      // 文档侧看不见登记表时不得声称"一切正常",但也不得把与之无关的提交判红(warn-only 门):
+      // 未判定只在结论行喊出来,退出码仍随扫描(0)。
+      console.log('   ⚠️ 上列 P0/P1 为「未判定」,不构成"登记表已对账"的合格证。')
+    }
+    return 0
   }
 
   console.log('⚠️  端口注册表守门提醒(warn-only,不阻塞 commit)')
@@ -294,16 +574,46 @@ function main() {
   }
 
   console.log()
+  for (const l of parity.lines) console.log(l)
+  console.log()
   console.log('   📋 规则参考:docs/port-management.md')
-  console.log('   📋 已注册端口:8801-8809(应用) / 8810-8819(基础设施) / 8820-8829(辅助) / 8830-8839(SaaS)')
+  console.log(
+    `   📋 已注册端口:派生自 ${REGISTRY_REL}.registered_ports(${registered.size} 槽;段位语义见 §3.3,认领清单见 §2)`
+  )
   console.log('   💡 如确需使用非 88xx 端口(如 CI/容器内部),请确认属于豁免场景')
   console.log()
 
   // 2026-08-19 立:warn-only 违规显式 exit 1,让 guardian-runner 计入 warned 计数
   // (原本 exit 0 会让违规被 guardian-runner 静默吞掉,统计不可信;
   //  warn-only 不阻塞 commit,exit 1 仅供统计)
-  process.exit(1)
+  return 1
 }
 
-main()
+// §22d isDirectRun 守卫:本文件同时是 CLI(钩子/手动跑)与判据源(镜像测试 import 纯函数),
+// 顶层裸调 main() 会让测试一 import 就派生 git、按 cwd 判面,把测试环境炸成"结论与夹具无关"。
+const isDirectRun = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url
+
+if (isDirectRun) {
+  try {
+    process.exitCode = main()
+  } catch (e) {
+    console.error(`❌ 端口注册表守门自身异常(不静默当通过):${e && e.message ? e.message : e}`)
+    process.exitCode = 2
+  }
+}
+
+export const __test__ = {
+  expandRegisteredEntry,
+  deriveRegisteredPorts,
+  expandDocCell,
+  parseDocPortTable,
+  comparePortSets,
+  evaluateRegistryParity,
+  readRegistryInputs,
+  faceFromArgv,
+  checkPort,
+  REGISTRY_REL,
+  DOC_REL,
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

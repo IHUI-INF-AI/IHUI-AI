@@ -39,7 +39,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+// G-815:git 派生的唯一封顶出口(timeout / maxBuffer / 净化 env 三件套都在它内部默认给全)。
+// 本文件不再直接 import node:child_process —— 绕过它就没有封顶,而守门 80 的 HOT 清单已含本文件。
+import { GIT_NETWORK_TIMEOUT_MS, execGitCapped, execGitCloneWithRetry } from './git-runner.js';
 import { getInstalledPluginsDir, getMarketplaceCacheDir, getRegistryPath } from './paths.js';
 import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
 // G-786:git 入参形状白名单的唯一判据(marketplace.ts 用同一份,不得在此重抄正则)
@@ -64,8 +66,8 @@ const DEFAULT_TTL_MS = 5 * 60 * 1000;
 /** 测试用:模拟 clone 来源目录(设置后跳过真实 git 调用,直接复制该目录) */
 const MOCK_CLONE_SRC_ENV = 'IHUI_MOCK_GIT_CLONE_SRC';
 
-/** 测试用:自定义 git 二进制路径(默认 'git'),指向不存在路径可模拟无网络 */
-const GIT_BIN_ENV = 'IHUI_GIT_BIN';
+/** 测试用:自定义 git 二进制路径(默认解析见 git-runner.ts::resolveGitBinary) */
+// G-815:键名与解析逻辑一起搬进唯一出口 `./git-runner.js`(两处各写一份 ⇒ 换机/CI 下只有一处生效)。
 
 /**
  * 计算 URL 对应的缓存路径 — sha1(url) 哈希作为目录名,避免特殊字符。
@@ -180,9 +182,23 @@ function copyDirRecursive(src: string, dest: string, rootSrc?: string): void {
  *     3. `checkout` **不加** `--` —— 本机实测 `git checkout -- <sha>` 把 `<sha>` 当 pathspec 而 rc=1
  *        (`error: pathspec '504f…' did not match any file(s) known to git`),这一维改由
  *        `evaluateGitSha` 的十六进制值域闭合兜住,加分隔符等于把 SHA pin 的功能弄坏。
- *   派生方式一字未动(execFileSync + windowsHide,AGENTS §5b/守门 52)。
+ *   派生方式(G-815/G-816):三趟全部收进唯一出口 `./git-runner.js` ——
+ *     · `clone` 走 `execGitCloneWithRetry`:有限次数 + **只对派生层结构化码**(ETIMEDOUT 等白名单)退避,
+ *       重试前复位目标目录(git 拒绝 clone 进非空目录,不复位等于第二轮必撞第一轮的残骸);
+ *       安全拒绝类(G-786 的形状白名单)与取消**原样上抛、绝不退避** —— 那是 G-809 点名的面。
+ *     · `fetch` / `checkout` 走 `execGitCapped`(封顶但**不重试**):fetch 的"复位"会删掉已 clone 的仓库,
+ *       语义与 clone 不同;checkout 是本地操作,失败重跑必然复现。
+ *     旧写法 `{ stdio:'pipe', windowsHide:true }` 三件套全缺(无 timeout / 无 maxBuffer / 完整继承父进程
+ *     `GIT_DIR`·`GIT_INDEX_FILE`·`GIT_CONFIG_GLOBAL`·`GIT_SSH_COMMAND`)⇒ 挂起无上限、大输出 ENOBUFS 后
+ *     "clone 失败但东西在"、从别处上下文派生时 clone 落到错误的对象库。windowsHide 仍由出口内部给(AGENTS §5b/守门 52)。
  */
-function performClone(url: string, target: string, ref?: string, sha?: string): void {
+async function performClone(
+  url: string,
+  target: string,
+  ref?: string,
+  sha?: string,
+  signal?: AbortSignal,
+): Promise<void> {
   // 咽喉点:任何 git 派生之前必须过形状白名单(结构化 reasonCode,不靠错误文案判断)
   assertGitCloneInputs({ url, ref, sha });
   const mockSrc = process.env[MOCK_CLONE_SRC_ENV];
@@ -191,18 +207,16 @@ function performClone(url: string, target: string, ref?: string, sha?: string): 
     copyDirRecursive(mockSrc, target);
     return;
   }
-  const gitBin = process.env[GIT_BIN_ENV] || 'git';
   const args = ['clone', '--depth', '1'];
   if (ref) args.push('--branch', ref);
   args.push('--', url, target);
-  execFileSync(gitBin, args, { stdio: 'pipe', windowsHide: true });
+  await execGitCloneWithRetry(args, target, { timeoutMs: GIT_NETWORK_TIMEOUT_MS, signal });
   if (sha) {
     // 拉取指定 commit 并 checkout(SHA pin)
-    execFileSync(gitBin, ['-C', target, 'fetch', '--depth=1', 'origin', '--', sha], {
-      stdio: 'pipe',
-      windowsHide: true,
+    execGitCapped(['-C', target, 'fetch', '--depth=1', 'origin', '--', sha], {
+      timeoutMs: GIT_NETWORK_TIMEOUT_MS,
     });
-    execFileSync(gitBin, ['-C', target, 'checkout', sha], { stdio: 'pipe', windowsHide: true });
+    execGitCapped(['-C', target, 'checkout', sha]);
   }
 }
 
@@ -1011,7 +1025,7 @@ export async function getOrCloneGitCache(
   // 缓存过期 / 无缓存:都先把新副本备到 staging,再进入提交点
   const staging = prepareStagingDirectory(localPath);
   try {
-    performClone(url, staging, opts?.ref, opts?.sha);
+    await performClone(url, staging, opts?.ref, opts?.sha, opts?.signal);
   } catch (e) {
     // G-786:形状白名单的拒绝**不是**"网络失败"—— 输入根本没进 git,把它包成缓存失败、或据此降级
     // 复用过期副本,都会让调用方丢掉结构化 reasonCode 并把"被拒"读成"离线可用"。staging 照清,错误原样上抛。

@@ -21,6 +21,7 @@ import type {
   ToolDeltaEvent,
   /** 命令在等键盘输入(api-client 2026-09-29 立 D151,本解析器同批接上) */
   TerminalInteractionEvent,
+  GoalUpdateEvent,
 } from '@ihui/api-client'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
 
@@ -75,6 +76,13 @@ export interface SSEEvent {
     // 此前它在本解析链上**无人认领**,被下面 `sessionId` 那条泛化兜底折成 meta ⇒
     // 小程序端拿不到 terminalId/提示原文,结构上不可能显示"它在等人"(见函数体内的认领注释)。
     | 'terminal_interaction'
+    // ===== D152(2026-09-29 立):会话目标(goal)状态的一帧 =====
+    // 载荷 {sessionId, status, objective?, elapsedMs?, tokenUsage?, updatedAt?} ——
+    // 带字符串 sessionId 而**不带 content/delta/text**,不认领就会一路走到下面那条
+    // `typeof json?.sessionId === 'string' ⇒ {type:'meta', sessionId}` 的泛化兜底,
+    // 状态与目标原文整帧丢失(terminal_delta=D19-A1、tool-delta=D113、
+    // terminal_interaction=D151 同型三次;判据 scripts/check-sse-parser-parity.mjs)。
+    | 'goal_updated'
   content?: string
   sessionId?: string
   /** 错误码(对齐 @ihui/api-client SSEErrorInfo 字段) */
@@ -137,6 +145,8 @@ export interface SSEEvent {
   toolDelta?: ToolDeltaEvent
   /** D151 命令在等键盘输入(terminal_interaction):字段口径与 api-client tryParseTerminalInteraction 一致 */
   terminalInteraction?: TerminalInteractionEvent
+  /** D152 会话目标状态(goal_updated):字段口径与 api-client tryParseGoalUpdate 一致 */
+  goalUpdated?: GoalUpdateEvent
 }
 
 function applyErrorMeta(evt: SSEEvent, json: Record<string, unknown>): void {
@@ -394,6 +404,34 @@ function parseLine(line: string): SSEEvent | null {
         ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
       }
       return { type: 'terminal_interaction', terminalInteraction: interaction }
+    }
+    // ===== D152(2026-09-29 立):goal_updated 必须在同一条泛化兜底之前认领 =====
+    // 载荷 {sessionId, status, objective?, elapsedMs?, tokenUsage?, updatedAt?}。
+    // 判据与 api-client tryParseGoalUpdate 同形:**status 必须是那七个值之一**,
+    // 否则**丢弃**(绝不回落 chunk/meta —— 把"没认出来"写成"看见了"是本仓最高频的
+    // 失效型)。sessionId 缺省时给空串并照发:状态本身是这一帧的全部内容。
+    if (json?.type === 'goal_updated') {
+      const status = json.status
+      if (
+        status !== 'active' &&
+        status !== 'paused' &&
+        status !== 'blocked' &&
+        status !== 'done' &&
+        status !== 'usageLimited' &&
+        status !== 'budgetLimited' &&
+        status !== 'cleared'
+      ) {
+        return null
+      }
+      const goal: GoalUpdateEvent = {
+        sessionId: typeof json.sessionId === 'string' ? json.sessionId : '',
+        status,
+        ...(typeof json.objective === 'string' ? { objective: json.objective } : {}),
+        ...(typeof json.elapsedMs === 'number' ? { elapsedMs: json.elapsedMs } : {}),
+        ...(typeof json.tokenUsage === 'number' ? { tokenUsage: json.tokenUsage } : {}),
+        ...(typeof json.updatedAt === 'number' ? { updatedAt: json.updatedAt } : {}),
+      }
+      return { type: 'goal_updated', goalUpdated: goal }
     }
     const choices = json?.choices as Array<Record<string, unknown>> | undefined
     const choice = choices?.[0]
