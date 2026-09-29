@@ -172,7 +172,11 @@ export const LOGIN_POPUP_ICON_BADGE_SIZE_PX = 20
 /** 徽标与输入/文字的间距 10:RN 独有。 */
 export const LOGIN_POPUP_ICON_BADGE_MARGIN_RIGHT_PX = 10
 
-/** 徽标内字形字号 12(规则4:现值 11 非档 → 就近吸附 12):RN 独有。 */
+/**
+ * 徽标内图标尺寸 12(规则4:现值 11 非档 → 就近吸附 12):RN 独有。
+ * 载体自 2026-09-29 起是 lucide 矢量(`User` / `BadgeCheck` / `Phone`),不再是"人 / 证 / 电"三个汉字
+ * —— §4「UI 图标一律用矢量图标库」;该常量现在喂给图标的 `size`(像素),不是字号。
+ */
 export const LOGIN_POPUP_ICON_GLYPH_FONT_PX = 12
 
 /**
