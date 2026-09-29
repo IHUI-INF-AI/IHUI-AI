@@ -5,7 +5,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, cleanup, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import type { DiffFile } from '@ihui/types'
 
 vi.mock('next-intl', () => ({
@@ -333,5 +333,133 @@ describe('D98 DiffViewerPane load failure', () => {
     )
     // 重试确实触发了重拉(初次 1 + 重试 2 = 至少 3 次调用)
     expect(apiMock.runCommand.mock.calls.length).toBeGreaterThanOrEqual(3)
+  })
+})
+
+/**
+ * G-814423:diff 内容"读不到"与"空文件"必须全或无降级,禁止单侧补空串。
+ * 上游判据(packages/services gitCliRepo.ts:88-99):任一侧补成空字符串,UI 就把
+ * "不可读"读成"文件为空",进而把整文件渲染成新增/删除。
+ */
+describe('G-814423 一侧读失败 ⇒ 另一侧也不显示为空', () => {
+  beforeEach(() => {
+    setup([
+      makeFile({ id: 'd1', filename: 'src/a.ts' }),
+      makeFile({ id: 'd2', filename: 'src/b.ts' }),
+    ])
+    localStorage.clear()
+    vi.clearAllMocks()
+    useDiffViewModeStore.setState({ mode: 'split', threeWayOpen: false })
+    apiMock.runCommand.mockResolvedValue({ success: true, data: { stdout: 'old\n' } })
+    apiMock.readFile.mockResolvedValue({ success: true, data: { content: 'new\n' } })
+  })
+  afterEach(() => cleanup())
+
+  it('old 侧读失败(HEAD show 失败)、new 侧可读 ⇒ 横幅在场且伪 diff 不渲染', async () => {
+    apiMock.runCommand.mockResolvedValue({ success: false, error: 'boom' })
+    apiMock.readFile.mockResolvedValue({ success: true, data: { content: 'new\n' } })
+    render(<DiffViewerPane />)
+    await screen.findByTestId('diff-content-error')
+    // 验收判据:一侧读不到 ⇒ 另一侧不许拿 '' 渲染成整文件新增
+    expect(screen.queryByTestId('stub-diff-preview')).toBeNull()
+  })
+
+  it('new 侧读失败(工作区读失败)、old 侧可读 ⇒ 同样全或无', async () => {
+    apiMock.runCommand.mockResolvedValue({ success: true, data: { stdout: 'old\n' } })
+    apiMock.readFile.mockResolvedValue({ success: false, error: 'boom' })
+    render(<DiffViewerPane />)
+    await screen.findByTestId('diff-content-error')
+    expect(screen.queryByTestId('stub-diff-preview')).toBeNull()
+  })
+
+  it('读失败切走再切回 ⇒ 缺省态不丢(横幅仍在,伪 diff 不复活)', async () => {
+    apiMock.runCommand.mockImplementation(async ({ command }: { command: string }) => {
+      if (command.includes('src/a.ts')) return { success: false, error: 'boom' }
+      return { success: true, data: { stdout: 'old-b\n' } }
+    })
+    apiMock.readFile.mockImplementation(async ({ path }: { path: string }) => {
+      if (path.includes('src/a.ts')) return { success: false, error: 'boom' }
+      return { success: true, data: { content: 'new-b\n' } }
+    })
+    render(<DiffViewerPane />)
+    await screen.findByTestId('diff-content-error')
+    // 切到 d2(可读,diff 正常渲染)。mock store 无订阅 ⇒ 改 state 后借档位 store
+    // 的真实订阅触发重渲染(useDiffViewModeStore 是唯一真相源,组件订阅了它)。
+    fireEvent.click(screen.getByText('b.ts'))
+    mockStore.state.activeDiffFileId = 'd2'
+    act(() => {
+      useDiffViewModeStore.setState({ mode: 'unified' })
+    })
+    act(() => {
+      useDiffViewModeStore.setState({ mode: 'split' })
+    })
+    // mock store 无订阅,重渲染靠档位 store 触发;慢机下 1s 会偶发超时 ⇒ 放宽到 3s
+    await screen.findByTestId('stub-diff-preview', {}, { timeout: 3000 })
+    expect(screen.queryByTestId('diff-content-error')).toBeNull()
+    // 切回 d1(不可读):缓存条目仍在且 oldOk=false ⇒ 缺省态不丢
+    fireEvent.click(screen.getByText('a.ts'))
+    mockStore.state.activeDiffFileId = 'd1'
+    act(() => {
+      useDiffViewModeStore.setState({ mode: 'unified' })
+    })
+    act(() => {
+      useDiffViewModeStore.setState({ mode: 'split' })
+    })
+    await screen.findByTestId('diff-content-error', {}, { timeout: 3000 })
+    expect(screen.queryByTestId('stub-diff-preview')).toBeNull()
+  })
+
+  it('重试成功 ⇒ 横幅退场,diff 恢复渲染(可读后正常态回归)', async () => {
+    let failOld = true
+    apiMock.runCommand.mockImplementation(async () => {
+      if (failOld) return { success: false, error: 'boom' }
+      return { success: true, data: { stdout: 'old\n' } }
+    })
+    render(<DiffViewerPane />)
+    await screen.findByTestId('diff-content-error')
+    failOld = false
+    fireEvent.click(screen.getByTestId('diff-content-retry'))
+    await waitFor(() => expect(screen.getByTestId('stub-diff-preview')).toBeTruthy())
+    expect(screen.queryByTestId('diff-content-error')).toBeNull()
+  })
+
+  it('导出 git apply:一侧读不到的文件跳过 patch(不出整文件增删头),并显式交代跳过数', async () => {
+    // d1:old 侧读失败;但缓存里还没条目 ⇒ 走现场重读,仍失败 ⇒ 跳过
+    apiMock.runCommand.mockImplementation(async ({ command }: { command: string }) => {
+      if (command.includes('src/a.ts')) return { success: false, error: 'boom' }
+      return { success: true, data: { stdout: 'old-b\n' } }
+    })
+    apiMock.readFile.mockResolvedValue({ success: true, data: { content: 'new\n' } })
+    render(<DiffViewerPane />)
+    await screen.findByTestId('diff-content-error')
+    fireEvent.click(screen.getByTestId('diff-copy-git-apply'))
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalled())
+    // t() mock 把 {count} 折叠进键串(无第二实参),c 是实参数组,断言其首参字符串
+    const errKeys = toastMock.error.mock.calls.map((c) => String((c as unknown as [string])[0]))
+    expect(errKeys.some((k) => k.startsWith('diffReview.copyGitApplyUnreadable'))).toBe(true)
+    // d1 被跳过,d2 正常导出:命令里只有 src/b.ts,没有 src/a.ts
+    const copyCall = clipboardMock.copy.mock.calls[0]
+    expect(copyCall).toBeDefined()
+    const cmd = (copyCall as unknown as [string])[0]
+    expect(cmd).toContain('src/b.ts')
+    expect(cmd).not.toContain('src/a.ts')
+    // 交代条数 = 1(只有 d1 被跳过):键串携带 count=1
+    const skippedCall = toastMock.error.mock.calls.find((c) =>
+      String((c as unknown as [string])[0]).startsWith('diffReview.copyGitApplyUnreadable'),
+    )
+    expect(String((skippedCall as unknown as [string])[0])).toContain('count=1')
+  })
+
+  it('三方合并非冲突态回退读 HEAD/工作区失败 ⇒ 显式缺省态,不拿空串伪渲染', async () => {
+    apiMock.runCommand.mockImplementation(async () => {
+      // stage 1/2/3 全无 ⇒ 非冲突态;HEAD: 也读不到 ⇒ fallback 失败
+      return { success: false, error: 'no such stage' }
+    })
+    apiMock.readFile.mockResolvedValue({ success: false, error: 'boom' })
+    render(<DiffViewerPane />)
+    await screen.findByTestId('diff-content-error') // 两栏内容本就失败
+    fireEvent.click(screen.getByTestId('diff-3way-toggle'))
+    await waitFor(() => expect(screen.getByTestId('diff-3way-error')).toBeTruthy())
+    expect(screen.queryByTestId('stub-3way')).toBeNull()
   })
 })
