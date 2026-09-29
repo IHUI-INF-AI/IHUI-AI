@@ -10458,6 +10458,9 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "attachRejectType": "Unsupported file type; skipped {count} file(s): {names}",
+    "attachRejectSize": "File exceeds the size limit ({max}MB); skipped {count} file(s): {names}",
+    "attachRejectCount": "Up to {max} attachments are allowed; {count} were rejected this time",
     "mentionEngine": {
       "tabFile": "File",
       "tabFolder": "Folder",
@@ -25916,6 +25919,10 @@
     "title": "Agent Tasks",
     "refresh": "Refresh",
     "empty": "No agent tasks (created via /agent/run or automations)",
+    "statusRunning": "Running",
+    "statusCompleted": "Completed",
+    "statusFailed": "Failed",
+    "statusCanceled": "Canceled",
     "iterations": "{count} iterations",
     "injectPlaceholder": "Interject: add instructions / correct course…",
     "inject": "Interject",

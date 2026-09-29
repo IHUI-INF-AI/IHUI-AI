@@ -1242,6 +1242,36 @@ export const WORKSPACE_AGENT_TASK_STATUSES = ['running', 'completed', 'failed', 
 
 export type WorkspaceAgentTaskStatus = (typeof WORKSPACE_AGENT_TASK_STATUSES)[number]
 
+/**
+ * D152(2026-09-29 立,用户拍板「六态」):会话内「目标(goal)」状态机的封闭集 ——
+ * **第三个域**,与上面两个刻意不相交、也不得并集:
+ *  · `AGENT_TASK_STATUSES` 是 Kanban 任务卡的六列(triage/todo/ready/in_progress/blocked/done),
+ *    `blocked`/`done` 在此处**同词不同义**(那两列讲"这张卡卡住了/做完了",这里讲
+ *    "这一会话的目标被阻塞/达成"),把两个域并起来等于改两套对外契约;
+ *  · `WORKSPACE_AGENT_TASK_STATUSES` 是 workspace 进程内任务态(running/completed/…)。
+ * 判据:`scripts/check-agent-status-vocabulary-parity.mjs` 的 SV2 要求登记域两两不相交,
+ * 而 goal 域**不进**那张表(它没有跨语言第二副本 —— 服务端同一份值在
+ * `apps/ai-service/app/services/session_store.py::GOAL_STATUSES`,两处同名常量由
+ * `packages/shared/src/sse/__tests__/contract.test.ts` 的在位断言看护)。
+ * 与 CLI 的 `budget_limited` / 预算帧 critical 档语义对齐(AGENTS §8)。
+ * ⚠️ 新增一档必须同枚提交补齐 `chat.goal.status.*` 五语言词表(AGENTS §19/§30),
+ *    不得端内硬编码中文。
+ */
+export const GOAL_STATUSES = [
+  'active',
+  'paused',
+  'blocked',
+  'done',
+  'usageLimited',
+  'budgetLimited',
+] as const
+
+/** 下行帧 `goal_updated` 额外允许的目标态:cleared(单帧承载清除,不建第二帧)。 */
+export const GOAL_WIRE_STATUSES = [...GOAL_STATUSES, 'cleared'] as const
+
+export type GoalStatus = (typeof GOAL_STATUSES)[number]
+export type GoalWireStatus = (typeof GOAL_WIRE_STATUSES)[number]
+
 // ---------------------------------------------------------------------------
 // 状态机运行时常量(2026-09-11 2-2 P1:跨端单一来源)
 // api(transition/admin PUT 校验)与 web(流转按钮禁用)共用,避免两处表漂移。
