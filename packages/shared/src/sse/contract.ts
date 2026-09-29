@@ -120,123 +120,10 @@ export type SSEEventName = (typeof SSE_EVENTS)[keyof typeof SSE_EVENTS]
 export interface SSEEventMeta {
   /** 网关在 agent 绑定的流上注入,用于前端 subagent 卡片分流(见 ai-chat-stream.ts)。 */
   agentId?: string
-  /**
-   * D174(2026-09-30 立):帧级 trace id —— 本轮请求的 W3C trace-id,**小写 32 hex**。
-   *
-   * 为什么帧里还要带一遍(响应头 `X-Trace-Id` 早已在,D147):头在整趟流式响应上只出现
-   * 一次,而一条响应有几十到几千帧 ⇒ 拿头只能定位到"这一整轮",定位不到"这一帧"。
-   *
-   * 三条判据与生产侧逐字同形(`apps/ai-service/app/core/sse_contract.py` 的
-   * `SSE_TRACE_ID_PAYLOAD_KEY` + `app/core/trace_context.py::sse_frame_trace_id`):
-   *  ① 注入点是**唯一**的帧工厂 `llm.py::_sse()`,不在各 yield 站点各写一遍;
-   *  ② 值必须是小写 32 hex,**全 0 是 W3C 非法值** ⇒ 不写;
-   *  ③ 本轮没有有效 trace 时**整字段缺席** —— 不是空串、不是 null。"空串"与"没有"
-   *     必须可分,所以消费侧一律按 `typeof === 'string'` 判,不得写 `?? ''`。
-   *
-   * ⚠️ **它是关联键,不是授权凭据**:值来自客户端可自写的 `traceparent` 头,任何归属/
-   * 权限判定都不得读它(读了等于让调用方自报"我属于哪条链")。阳性对照:
-   * `apps/ai-service/tests/test_sse_trace_frame_d174.py::test_foreign_trace_id_does_not_change_ownership`。
-   */
-  traceId?: string
-}
-
-/**
- * D174:帧级 traceId 的**线格式键名**(唯一真相源)。
- *
- * 生产侧的对应常量是 `apps/ai-service/app/core/sse_contract.py::SSE_TRACE_ID_PAYLOAD_KEY`,
- * 值同为 `'traceId'`(camelCase,与 messageId / terminalId 一族)。两份语言各有一份是
- * 跨语言的必然,但两侧测试喂的是**同一张判例表**(见 `normalizeSSEFrameTraceId` 注释)。
- */
-export const SSE_TRACE_ID_PAYLOAD_KEY = 'traceId'
-
-/**
- * D174:把一个候选值归一成**可以进帧/可以采信**的 trace id;不合格一律 `undefined`。
- *
- * 与 `apps/ai-service/app/core/trace_context.py::normalize_trace_id` 同规则:
- * 小写 32 hex、**全 0 非法**(W3C:all-zero trace-id 表示无效)、其余(短/长/非 hex/
- * 非字符串/空串)一律 `undefined`。判例表在两侧的测试里逐字同形:
- * `packages/shared/src/sse/__tests__/sse-frame-trace-id.test.ts` 与
- * `apps/ai-service/tests/test_sse_trace_frame_d174.py`。
- */
-const TRACE_ID_RE = /^[0-9a-fA-F]{32}$/
-const ALL_ZERO_TRACE_ID = '0'.repeat(32)
-
-export function normalizeSSEFrameTraceId(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined
-  const candidate = value.trim().toLowerCase()
-  if (!TRACE_ID_RE.test(candidate)) return undefined
-  if (candidate === ALL_ZERO_TRACE_ID) return undefined
-  return candidate
 }
 
 /** 携带元信息的事件(判别联合成员的基础)。 */
 export type SSEEventWithMeta<T extends Record<string, unknown>> = T & SSEEventMeta
-
-// ---------------------------------------------------------------------------
-// D159(2026-09-30 立,用户批"三档到底"):tool-approval 帧新增的**载荷字段类型**
-//
-// 住在这一层而不是 `@ihui/types` 的 `ToolApprovalRequest`:本票不新增帧,新字段是
-// 既有 `tool-approval` 帧的载荷清单的一部分,与 `sse_contract.py::SSE_EVENT_CONTRACTS`
-// 的 `("…", "exec_environment", "network_target", "blocked_network_targets")` 逐字同形
-// (两份清单由 `scripts/check-agent-event-parity.mjs` 对账)。
-//
-// ⚠️ **字段在框架上 ≠ 已经到端**:wire → 弹窗中间还隔着两个解析面
-// (`packages/api-client/src/client.ts::tryParseToolApproval` 与
-// `packages/shared/src/sse/agent-events.ts::parseToolApprovalEvent`),两处都是
-// **显式挑字段**的收窄写法,未列出的键会被整格丢掉。把这两处接上是本票的落地前置,
-// 不在本票文件清单内 —— 在那之前,弹窗上的这一区块只会走"未上报"分支。
-// ---------------------------------------------------------------------------
-
-/**
- * 网络拒绝原因码 —— 与生产侧 `apps/ai-service/app/services/network_approval.py`
- * 的 `DENIAL_REASONS` 同集合(值表**只有一份语义**:后端产出的就是这三个词)。
- * 用 `as const` 数组派生联合,不用裸 `string` 兜底(AGENTS §3 类型零债)。
- */
-export const TOOL_APPROVAL_DENIAL_REASONS = [
-  'not_allowed',
-  'not_allowed_local',
-  'denied',
-] as const
-
-export type ToolApprovalDenialReason = (typeof TOOL_APPROVAL_DENIAL_REASONS)[number]
-
-/**
- * `tool-approval` 帧的执行环境字段(**线格式**)。
- *
- * 与生产侧逐字同形:`apps/ai-service/app/services/approval_persistence.py::
- * describe_exec_environment` 的 dict 键。**两层命名法刻意不同**:外层帧键跟着
- * tool-approval 帧的 snake_case 族(`exec_environment` / `network_target`),
- * 内层对象键是 camelCase(`inSandbox` / `networkIsolated` / `degradeNote`)——
- * 与票面 §11.3 第 1 栏声明的字段名逐字一致。**别"顺手统一"其中一层**:那会把
- * 生产侧与这份清单同时改歪,而两端仍然自洽、只有真机上不对(AGENTS §4 同型)。
- */
-export type ToolApprovalExecEnvironmentWire = {
-  /**
-   * false = 服务端**读不到**这次的事实 ⇒ 界面必须写"未上报"。
-   * 与"整个字段缺席"是两件事:缺席 = 回退开关 `IHUI_APPROVAL_ENV_REPORT=0`,
-   * 界面**整块不渲染**。把两态合一态,就等于用一句通用文案冒充"读到了"。
-   */
-  available: boolean
-  /** 仅 available=true 时出现 */
-  inSandbox?: boolean
-  /** 后端实际分派用的那一个值(local / docker / ssh / modal / daytona / singularity) */
-  backend?: string
-  /** 已知语义:local 不隔离网络、docker 是 `--network=none`;其余后端**不下发该字段**(不猜) */
-  networkIsolated?: boolean
-  /** ai-service 侧没有可读的降级链 ⇒ 生产侧恒不下发 true。渲染分支保留给真有该事实的一路 */
-  degraded?: boolean
-  degradeNote?: string
-}
-
-/** 本次要连的网络目标(**线格式**);`display` 恒 `host:port`,不显示归一键/哈希。 */
-export type ToolApprovalNetworkTargetWire = {
-  host: string
-  port: number
-  protocol: string
-  display: string
-  /** 仅被**静态策略**判死时出现;"还没有规则覆盖它"不算被拦(那是这条审批本身要问的事) */
-  reason?: ToolApprovalDenialReason
-}
 
 /**
  * SSE 判别联合(精确 payload 类型)。
@@ -410,16 +297,6 @@ export type SSEEventPayload =
     }>
   // 主聊天流工具审批(V3 #58:llm.py 工具执行前拦截;前端 ToolApprovalDialog 消费,
   // decision 经 approval-response 端点回传;payload 与 agent 任务流 tool-approval 同形)
-  //
-  // D159(2026-09-30 立,用户批"三档到底")后三个字段是**可选新增**,不是新帧:
-  // 审批载荷字段挂在既有 tool-approval 帧上(本票不新增 SSE 帧,事件名一个都没加)。
-  // - `exec_environment`:逐请求的"这次在哪儿跑"。生产侧只有一份实现
-  //   (`apps/ai-service/app/services/network_approval.py::approval_env_payload`)。
-  //   **`available: false` 与"字段缺席"是两件事**:前者 = 服务端上报了但读不到事实
-  //   (弹窗必须喊"未上报"),后者 = 回退开关 `IHUI_APPROVAL_ENV_REPORT=0` 整块不发
-  //   (弹窗整块不渲染)。合成一个就是"把没判写成判过了"那一型。
-  // - `network_target`:本次要连的目标;`display` 恒 `host:port`(票面:弹窗不显示哈希)。
-  // - `blocked_network_targets`:已被**静态策略**判死的目标;"还没有规则"不算被拦。
   | SSEEventWithMeta<{
       type: 'tool-approval'
       approval_id: string
@@ -428,9 +305,6 @@ export type SSEEventPayload =
       args_preview?: string
       danger_level: 'low' | 'medium' | 'high'
       session_id?: string
-      exec_environment?: ToolApprovalExecEnvironmentWire
-      network_target?: ToolApprovalNetworkTargetWire
-      blocked_network_targets?: ToolApprovalNetworkTargetWire[]
     }>
   // 对话流业务表单请求(V3 #63:llm.py 的 request_business_form 拦截位发出;
   // 前端 BusinessFormSection 消费,应答经 form-response 端点回传)。
