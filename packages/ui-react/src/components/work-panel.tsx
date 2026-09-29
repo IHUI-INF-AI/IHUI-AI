@@ -666,7 +666,7 @@ function DropIndicator({ 'aria-label': ariaLabel }: { 'aria-label': string }) {
     <div
       role="presentation"
       aria-label={ariaLabel}
-      className="pointer-events-none self-stretch shrink-0 w-0.5 rounded-sm bg-primary shadow-[0_0_4px_var(--color-primary)] animate-in fade-in-0 zoom-in-95 duration-100"
+      className="pointer-events-none self-stretch shrink-0 w-0.5 rounded-xs bg-primary shadow-[0_0_4px_var(--color-primary)] animate-in fade-in-0 zoom-in-95 duration-100"
     />
   )
 }
