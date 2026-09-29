@@ -155,6 +155,90 @@ function isDangerousCommand(argv: readonly string[]): boolean {
   return DANGEROUS_COMMAND_PATTERNS.some((p) => cmdline.includes(p))
 }
 
+// ---------------------------------------------------------------------------
+// D161(2026-09-29 立):审批卡上的四个「决策信息字段」推导层(纯函数)。
+//
+// 信息源红线:四字段只准从**引擎侧已有的事实**推导(危险档 / 会话归属 / 检查点通道),
+// 不得新造人工登记表;推不出来 ⇒ undefined ⇒ 整行不渲染(不显示空标签或"—")。
+// 出口「在上下文中处理」本票不做:跳回锚点(待批工具调用在消息流里的落点)对全局
+// EventSource 通道的跨会话请求不可机检(目标会话未必挂载),且可见跳转必须关掉
+// 决策面(关掉 = 交给后端超时拒绝,语义陷阱)—— 只做字段展示(报告已登记)。
+// ---------------------------------------------------------------------------
+
+/** 状态四档(竞品词表对齐;四档标签 key 全部入词表,零死 key)。 */
+export type ApprovalCardState = 'blocking' | 'requested' | 'waitingForMe' | 'overdue'
+
+/**
+ * 状态四档推导。入参全部是引擎侧/弹窗自身事实:
+ * - overdue:审批截止通道(引擎侧今天没有 —— 恒 false,不伪造"已过期");
+ * - isCurrent:是否正在展示中(弹窗逐条只渲染 current,排队中的请求不渲染卡片);
+ * - belongsToOpenConversation:该审批是否正阻塞当前打开的会话(排队中的条目才分得出
+ *   "阻塞眼前"与"等待处理";弹窗目前不渲染排队条目 ⇒ 该通道暂时不可达,词表先挂上)。
+ */
+export function deriveApprovalCardState(args: {
+  isCurrent: boolean
+  belongsToOpenConversation: boolean
+  overdue: boolean
+}): ApprovalCardState {
+  if (args.overdue) return 'overdue'
+  if (args.isCurrent) return 'waitingForMe'
+  if (args.belongsToOpenConversation) return 'blocking'
+  return 'requested'
+}
+
+/** 四档 → 词表 key(整 Record 覆盖,五语言齐 + 零死 key 的引用面)。 */
+const DECISION_STATE_LABEL_KEYS: Record<ApprovalCardState, string> = {
+  blocking: 'stateBlocking',
+  requested: 'stateRequested',
+  waitingForMe: 'stateWaitingForMe',
+  overdue: 'stateOverdue',
+}
+
+/** 审批门认识的危险档(与 @ihui/types ToolApprovalDangerLevel 同源)。 */
+const KNOWN_DANGER_LEVELS: ReadonlySet<string> = new Set(['high', 'medium', 'low'])
+
+/**
+ * whyNow(为什么现在):审批门在执行前拦下该调用、未决策不执行 —— 这两条都是
+ * 引擎侧文档化事实;但**危险档读不出已知值**时,"为什么"就说不完整 ⇒ 无值。
+ */
+export function deriveWhyNow(
+  req: Pick<ApprovalRequestView, 'toolName' | 'dangerLevel'>,
+): { toolName: string; dangerLevel: string } | undefined {
+  const toolName = typeof req.toolName === 'string' ? req.toolName.trim() : ''
+  const dangerLevel = typeof req.dangerLevel === 'string' ? req.dangerLevel : ''
+  if (toolName === '' || !KNOWN_DANGER_LEVELS.has(dangerLevel)) return undefined
+  return { toolName, dangerLevel }
+}
+
+/**
+ * whyYou(为什么找我):审批请求经**你自己的**通道送达(全局任务流 / 本地回调),
+ * 归属靠会话 id 说清;chat-stream 通道的 sessionId 可缺席 ⇒ 缺席即无值(不猜归属)。
+ */
+export function deriveWhyYou(req: Pick<ApprovalRequestView, 'sessionId'>): {
+  sessionId: string
+} | undefined {
+  const sessionId = typeof req.sessionId === 'string' ? req.sessionId.trim() : ''
+  return sessionId === '' ? undefined : { sessionId }
+}
+
+/**
+ * afterDecision(决定后):批准 ⇒ 工具立即执行;拒绝 ⇒ 不执行、结果以 error 回填 LLM
+ * (引擎侧既有语义,弹窗头注即此口径)。工具名缺席 ⇒ 无法点名将执行什么 ⇒ 无值。
+ */
+export function deriveAfterDecision(req: Pick<ApprovalRequestView, 'toolName'>): {
+  toolName: string
+} | undefined {
+  const toolName = typeof req.toolName === 'string' ? req.toolName.trim() : ''
+  return toolName === '' ? undefined : { toolName }
+}
+
+/** 可逆性通道读数:idle=无会话可查;loading=在读(先不出行);novalue=读失败;value=真值。 */
+type ReversibilityRead =
+  | { kind: 'idle' }
+  | { kind: 'loading' }
+  | { kind: 'novalue' }
+  | { kind: 'value'; checkpointCount: number }
+
 interface ApprovalDialogState {
   /** 当前展示中的审批请求(一次一个,其余排队) */
   current: ApprovalRequestView | null
@@ -374,6 +458,57 @@ export function ToolApprovalDialog() {
   const grantPrefix = runCommandArgv.slice(0, GRANT_RULE_TOKENS).join(' ')
   const grantDangerous = isDangerousCommand(runCommandArgv)
 
+  // D161:四字段推导(同步三字段纯函数;可逆性是异步通道,见下方 effect)。
+  const whyNow = current ? deriveWhyNow(current) : undefined
+  const whyYou = current ? deriveWhyYou(current) : undefined
+  const afterDecision = current ? deriveAfterDecision(current) : undefined
+
+  // D161:可逆性**真读**检查点可用性(apps/ai-service 的 /api/checkpoints 列表端点,
+  // 前端单源是 @/api/checkpoint-api::listCheckpoints)。动态 import 是刻意的:静态 import
+  // 会把 @/lib/api 的模块图拖进每一个部分 mock 了 @ihui/api-client 的测试(36 个文件),
+  // 它们的 factory 没有 setTokenProvider ⇒ 模块图初始化即崩;动态加载 + 全 catch 让
+  // "读不到通道"在任何环境下都退化为无值不渲染,而不是把测试面炸掉。
+  const [reversibility, setReversibility] = React.useState<ReversibilityRead>({ kind: 'idle' })
+  const reversibilitySessionId =
+    typeof current?.sessionId === 'string' ? current.sessionId.trim() : ''
+  React.useEffect(() => {
+    if (reversibilitySessionId === '') {
+      setReversibility({ kind: 'idle' })
+      return
+    }
+    let cancelled = false
+    setReversibility({ kind: 'loading' })
+    import('@/api/checkpoint-api')
+      .then((m) => m.listCheckpoints(reversibilitySessionId))
+      .then((r) => {
+        if (cancelled) return
+        const count =
+          typeof r.total === 'number' ? r.total : (r.checkpoints?.length ?? 0)
+        setReversibility({ kind: 'value', checkpointCount: count })
+      })
+      .catch(() => {
+        // 通道读失败 ⇒ 无值不渲染(绝不伪造"可回退/不可回退"的结论)
+        if (!cancelled) setReversibility({ kind: 'novalue' })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [reversibilitySessionId, current?.approvalId])
+
+  // D161:区块渲染判据 —— 有任一行 ⇒ 行;零行且未在读取中 ⇒ 块级空态(仍不出任何字段行);
+  // 零行且读取中 ⇒ 等读数落地再定(不把"没读完"说成"没有")。
+  const reversibilityRow = reversibility.kind === 'value' ? reversibility : undefined
+  const decisionRowCount =
+    (whyNow ? 1 : 0) + (whyYou ? 1 : 0) + (afterDecision ? 1 : 0) + (reversibilityRow ? 1 : 0)
+  const showDecisionBlock = !!current && (decisionRowCount > 0 || reversibility.kind !== 'loading')
+  // 当前展示中的这条恒为 waitingForMe;blocking/requested 只对排队条目可分、overdue 需
+  // 引擎侧截止通道 —— 两者的推导入参今天都不可达(见 deriveApprovalCardState 注),不伪造。
+  const approvalState = deriveApprovalCardState({
+    isCurrent: true,
+    belongsToOpenConversation: false,
+    overdue: false,
+  })
+
   const handleApproveClick = React.useCallback(() => {
     void (async () => {
       // D158:高危命令选第四档必须二次确认(原生 confirm 禁用,走项目自有确认框)
@@ -455,6 +590,76 @@ export function ToolApprovalDialog() {
               {current.argsPreview || '{}'}
             </pre>
           </div>
+          {/* D161(2026-09-29 立):决策信息四字段 —— 把审批从"风险标签"升级为"决策依据"。
+              信息源红线:全部由引擎侧既有事实推导(危险档/会话归属/检查点通道),读不到 ⇒
+              整行不渲染(不得显示空标签或"—");零行 ⇒ 块级空态;准入声明恒在块头。
+              状态四档词表(阻塞中/等待处理/等我判断/已过期)经 deriveApprovalCardState 挂接。 */}
+          {showDecisionBlock && (
+            <div
+              className="rounded-md border border-border bg-muted/30 p-2.5"
+              data-testid="tool-approval-decision"
+            >
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <div className="text-xs font-medium text-muted-foreground">
+                  {t('decisionLabel')}
+                </div>
+                <span
+                  data-testid="tool-approval-state"
+                  className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                >
+                  {t(DECISION_STATE_LABEL_KEYS[approvalState])}
+                </span>
+              </div>
+              <p className="mb-1.5 text-xs leading-relaxed text-muted-foreground/80">
+                {t('decisionAdmission')}
+              </p>
+              {decisionRowCount === 0 ? (
+                <div className="text-xs leading-relaxed" data-testid="tool-approval-decision-empty">
+                  <p className="font-medium">{t('decisionEmptyTitle')}</p>
+                  <p className="text-muted-foreground">{t('decisionEmptyDescription')}</p>
+                </div>
+              ) : (
+                <div className="space-y-1 text-xs leading-relaxed">
+                  {whyNow && (
+                    <div className="flex gap-1.5" data-testid="tool-approval-why-now">
+                      <span className="shrink-0 font-medium text-muted-foreground">
+                        {t('decisionWhyNow')}
+                      </span>
+                      <span>{t('decisionWhyNowValue', whyNow)}</span>
+                    </div>
+                  )}
+                  {whyYou && (
+                    <div className="flex gap-1.5" data-testid="tool-approval-why-you">
+                      <span className="shrink-0 font-medium text-muted-foreground">
+                        {t('decisionWhyYou')}
+                      </span>
+                      <span className="break-all">{t('decisionWhyYouValue', whyYou)}</span>
+                    </div>
+                  )}
+                  {reversibilityRow && (
+                    <div className="flex gap-1.5" data-testid="tool-approval-reversibility">
+                      <span className="shrink-0 font-medium text-muted-foreground">
+                        {t('decisionReversibility')}
+                      </span>
+                      <span>
+                        {reversibilityRow.checkpointCount > 0
+                          ? t('decisionReversible', { count: reversibilityRow.checkpointCount })
+                          : t('decisionIrreversible')}
+                      </span>
+                    </div>
+                  )}
+                  {afterDecision && (
+                    <div className="flex gap-1.5" data-testid="tool-approval-after-decision">
+                      <span className="shrink-0 font-medium text-muted-foreground">
+                        {t('decisionAfterDecision')}
+                      </span>
+                      <span>{t('decisionAfterDecisionValue', afterDecision)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {/* D159(2026-09-30 立):执行环境与网络目标 —— 点"允许"之前要能读出
               "这次在哪儿跑 / 网络通不通 / 哪个目标被拦",读不到就明写"未上报"。
               整块缺席(三个字段都没有)= 服务端回退开关关档 ⇒ 一行都不渲染。 */}

@@ -10500,6 +10500,23 @@
       "tokens": "{used} / {limit} 사용",
       "resetAt": "{time}에 초기화"
     },
+    "streamAlert": {
+      "configWarning": {
+        "title": "설정 알림"
+      },
+      "deprecationNotice": {
+        "title": "기능 지원 종료 예고"
+      },
+      "guardianWarning": {
+        "title": "안전 검토 알림"
+      },
+      "severity": {
+        "info": "안내",
+        "warning": "경고",
+        "critical": "심각"
+      },
+      "dismiss": "확인"
+    },
     "voiceNote": {
       "title": "음성 메모",
       "phase": {
@@ -13464,7 +13481,24 @@
       "envUnknown": "보고되지 않음(권한 단계로 추측하지 마세요. 거부 후 다시 시도하세요)",
       "envAllowTargetOnce": "이번에만 이 대상 허용",
       "envAllowTargetSession": "이 대화에서 이 대상 허용",
-      "envAllowTargetAlways": "이 대상을 항상 허용(90일 후 만료)"
+      "envAllowTargetAlways": "이 대상을 항상 허용(90일 후 만료)",
+      "decisionLabel": "판단 정보",
+      "decisionAdmission": "엔진 측에서 도출할 수 있는 사실만 표시합니다. 읽을 수 없는 정보는 표시되지 않습니다.",
+      "decisionEmptyTitle": "읽을 수 있는 판단 정보가 없습니다",
+      "decisionEmptyDescription": "엔진 측에 도출할 근거가 없습니다. 이 요청은 바로 승인하거나 거부할 수 있습니다.",
+      "decisionWhyNow": "왜 지금인가",
+      "decisionWhyNowValue": "{toolName}은(는) 실행 전 승인 게이트에서 차단되었습니다(위험도 {dangerLevel}). 결정 전까지 실행되지 않습니다",
+      "decisionWhyYou": "왜 나인가",
+      "decisionWhyYouValue": "이 호출은 내 세션 {sessionId}에서 발생했으며 승인 요청이 이곳에 전달되었습니다",
+      "decisionReversibility": "가역성",
+      "decisionReversible": "되돌릴 수 있음: 이 세션에는 체크포인트 {count}개가 있으며 결정 후 롤백할 수 있습니다",
+      "decisionIrreversible": "되돌릴 수 없음: 이 세션에는 롤백 가능한 체크포인트가 없습니다",
+      "decisionAfterDecision": "결정 후",
+      "decisionAfterDecisionValue": "승인하면 {toolName}을(를) 즉시 실행합니다. 거부하면 실행되지 않으며 결과가 오류로 모델에 전달됩니다",
+      "stateBlocking": "차단 중",
+      "stateRequested": "처리 대기",
+      "stateWaitingForMe": "내 판단 대기",
+      "stateOverdue": "기한 지남"
     },
     "toolbar": {
       "addColumn": "열 추가",
