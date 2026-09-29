@@ -385,15 +385,25 @@ def _sync_env_file_to_os() -> None:
             "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY",
             "http_proxy", "https_proxy", "no_proxy",
         ) or key.startswith(
-            # 生产⇄开发 全表同步调度器(2026-09-22):db_sync_scheduler 以 os.environ.get
-            # 直读 11 个 DB_SYNC_* 开关。不进白名单 → .env 里写了 DB_SYNC_ENABLED=true
-            # 也读不到 → enabled 恒 False → start() 静默返回,程序内自动化永不运行,
-            # 而日志只留一行"未启用",排查时极易误判成"开关没配"。
-            # 属本文件反复记录过的同一类"静默失效"(第 5 次)。
-            # 本机实测:导入本模块后 os.environ["DB_SYNC_ENABLED"] is None、
-            # db_sync_scheduler.enabled is False,而 .env 里该键确为 true。
-            # 用前缀而非逐个列键:后续新增 DB_SYNC_* 开关自动覆盖。
-            "DB_SYNC_",
+            (
+                # 生产⇄开发 全表同步调度器(2026-09-22):db_sync_scheduler 以 os.environ.get
+                # 直读 11 个 DB_SYNC_* 开关。不进白名单 → .env 里写了 DB_SYNC_ENABLED=true
+                # 也读不到 → enabled 恒 False → start() 静默返回,程序内自动化永不运行,
+                # 而日志只留一行"未启用",排查时极易误判成"开关没配"。
+                # 属本文件反复记录过的同一类"静默失效"(第 5 次)。
+                # 本机实测:导入本模块后 os.environ["DB_SYNC_ENABLED"] is None、
+                # db_sync_scheduler.enabled is False,而 .env 里该键确为 true。
+                # 用前缀而非逐个列键:后续新增 DB_SYNC_* 开关自动覆盖。
+                "DB_SYNC_",
+                # Cookie 自动保活守护(2026-09-29):cookie_refresh_daemon 以 os.environ.get
+                # 直读 COOKIE_REFRESH_ENABLED / COOKIE_REFRESH_INTERVAL_HOURS(模块 import 期)。
+                # 不进白名单 → .env 里写了 ENABLED=true 也读不到 → 守护恒 off,
+                # 与 DB_SYNC_* 同一型"静默失效"(本文件第 6 例)。用前缀:后续
+                # 新增 COOKIE_REFRESH_* 开关自动覆盖。
+                # ⚠️ 这里必须是显式元组:括号内是 startswith 的参数表,裸双字符串会把
+                # 第二个前缀当 start 下标(TypeError: slice indices must be integers)。
+                "COOKIE_REFRESH_",
+            )
         ):
             os.environ.setdefault(key, value)
 
