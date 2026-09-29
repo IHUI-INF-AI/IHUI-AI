@@ -4,21 +4,7 @@
 
 import { RotateCcw } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
-import {
-  FALLBACK_REASON_QUOTA_EQUIVALENT,
-  PROVIDER_QUOTA_EXHAUSTED,
-  type FallbackEvent,
-} from '@ihui/api-client'
-import { QuotaOwnershipCard } from '@/components/ai/quota-ownership-card'
-import { fromErrorCode } from '@ihui/shared/chat/quota-ownership'
-
-import { QuotaActionFamily } from './QuotaActionFamily'
-import {
-  buildRetryCountdownView,
-  useRetryCountdown,
-  type RetryCountdownInfo,
-  type TFunction,
-} from './retry-countdown'
+import { FALLBACK_REASON_QUOTA_EQUIVALENT, type FallbackEvent } from '@ihui/api-client'
 
 export interface FallbackBannerProps {
   fallbackNotice: FallbackEvent
@@ -30,10 +16,6 @@ export interface FallbackBannerProps {
   onResumeInterrupted?: () => void
   /** D56① 稍后再说(关闭续跑询问) */
   onDismissResume?: () => void
-  /** D39 免费额度心智边界:免费档可用时不渲染付费诱导(quota_equivalent 必传) */
-  freeTierAvailable?: boolean
-  /** D39 重试倒计时帧(retry_scheduled);缺失 = 优雅降级,不渲染倒计时行 */
-  retryInfo?: RetryCountdownInfo | null
 }
 
 /** D56① 续跑询问状态(额度恢复后是否提示继续中断任务) */
@@ -58,27 +40,8 @@ export function FallbackBanner({
   resumePrompt,
   onResumeInterrupted,
   onDismissResume,
-  freeTierAvailable,
-  retryInfo,
 }: FallbackBannerProps) {
   const isQuotaEquivalent = fallbackNotice.reason === FALLBACK_REASON_QUOTA_EQUIVALENT
-
-  // D67 归属分型:同族等效替换的成因是**厂商通道自身**额度耗尽(不是用户账户问题),
-  // 所以归属由 errorCode 走 shared 层唯一映射(PROVIDER_QUOTA_EXHAUSTED → freeModelDaily),
-  // 端内不硬编码型别;非 quota_equivalent 一律 null ⇒ 分型卡不渲染。
-  const ownershipKind = isQuotaEquivalent ? fromErrorCode(PROVIDER_QUOTA_EXHAUSTED) : null
-
-  // D39 重试倒计时(消费 retry_scheduled 帧;缺失优雅降级)
-  const remaining = useRetryCountdown(retryInfo?.retryInMs)
-  const retryView =
-    retryInfo !== null && retryInfo !== undefined
-      ? buildRetryCountdownView(retryInfo, t as TFunction, remaining)
-      : null
-  const showRetryRow =
-    retryView !== null &&
-    ((retryView.scheduleLabel !== null && retryView.scheduleLabel !== undefined) ||
-      (retryView.httpStatusLabel !== null && retryView.httpStatusLabel !== undefined) ||
-      (retryView.noResponseLabel !== null && retryView.noResponseLabel !== undefined))
   const noticeText = isQuotaEquivalent
     ? t('fallbackNoticeQuota', {
         primary: fallbackNotice.primaryModel,
@@ -150,46 +113,6 @@ export function FallbackBanner({
             </Button>
           </span>
         </div>
-      )}
-
-      {showRetryRow && (
-        <div
-          data-testid="fallback-retry-row"
-          className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200"
-        >
-          {retryView!.scheduleLabel !== null && retryView!.scheduleLabel !== undefined && (
-            <span data-testid="fallback-retry-schedule">{retryView!.scheduleLabel}</span>
-          )}
-          {retryView!.httpStatusLabel !== null && retryView!.httpStatusLabel !== undefined && (
-            <span data-testid="fallback-retry-http">{retryView!.httpStatusLabel}</span>
-          )}
-          {retryView!.noResponseLabel !== null && retryView!.noResponseLabel !== undefined && (
-            <span data-testid="fallback-retry-noresponse">{retryView!.noResponseLabel}</span>
-          )}
-        </div>
-      )}
-
-      {/* D39 quota_equivalent:渲染额度动作族(免费档可用时不诱导付费) */}
-      {isQuotaEquivalent && (
-        <>
-          {/*
-            D67 分型标题上屏:横幅原本只说"已换备用模型作答",不说这次是**谁的额度**没了。
-            这里刻意**不**传 onAction —— 下方 D39 动作族已带真实导航出口(查看用量 / 升级 /
-            重登 / 补积分),再摆一排同义按钮就是重复;而 quota_equivalent 场景下"切档"这一步
-            后端已经替用户做完了(本次即由 backupModel 作答),不该再让用户去切一次。
-          */}
-          <QuotaOwnershipCard
-            kind={ownershipKind}
-            rejectedByQuota
-            freeTierAvailable={freeTierAvailable}
-            data-testid="fallback-quota-ownership"
-          />
-          <QuotaActionFamily
-            t={t as TFunction}
-            freeTierAvailable={freeTierAvailable}
-            retryTestId="fallback-quota-retry"
-          />
-        </>
       )}
     </div>
   )
