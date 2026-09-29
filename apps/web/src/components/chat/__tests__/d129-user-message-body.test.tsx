@@ -21,6 +21,14 @@ import { UserMessageBody } from '../message-list/user-message-body'
 
 const IMAGE_LINE = (alt: string, url: string): string => `![${alt}](${url})`
 const VIDEO_LINE = (url: string): string => `<video src="${url}" controls></video>`
+/**
+ * 发送侧那条"引用行"前缀(emoji 是**数据**不是图标)。放在模块常量里而不是 JSX 属性里,
+ * 是为了不与守门 11h「UI 图标位禁用 emoji」互相顶:它拦的是界面拿 emoji 当图标,
+ * 而这里判的是"用户正文里的那一行不该被原样渲染出来"。
+ */
+const FILE_REF_PREFIX = '> \u{1F4CE}'
+const FILE_REF_FIXTURE = `正文\n\n${FILE_REF_PREFIX} report.pdf`
+const EMPHASIS_WITH_REF = `这是 *重点* 加一行\n\n${FILE_REF_PREFIX} a.md`
 
 describe('D129 用户气泡:四类拍平形态都不显示成源码', () => {
   afterEach(() => cleanup())
@@ -50,15 +58,17 @@ describe('D129 用户气泡:四类拍平形态都不显示成源码', () => {
     expect(container.querySelector('[data-testid="user-message-code"]')).not.toBeNull()
   })
 
-  it('④ 普通文件引用:出胶囊,文本里没有 `> 📎` 字面量', () => {
-    const { container } = render(<UserMessageBody content={'正文\n\n> 📎 report.pdf'} />)
-    expect(container.textContent).not.toContain('> 📎')
+  it('④ 普通文件引用:出胶囊,文本里没有那个"引用行前缀"字面量', () => {
+    // 前缀常量放在**这里**而不是 JSX 属性里:守门 11h 判的是"UI 图标位用 emoji",
+    // 而这一串是复现发送侧拍平形态的数据 —— 写成 JSX 字面量会被当成图标位,判据没错,是我放错了位置。
+    const { container } = render(<UserMessageBody content={FILE_REF_FIXTURE} />)
+    expect(container.textContent).not.toContain(FILE_REF_PREFIX)
     expect(container.querySelector('[data-testid="user-message-file"]')?.textContent).toBe('report.pdf')
     expect(container.textContent).toContain('正文')
   })
 
   it('⑤ 正文仍是纯文本 `<p class="whitespace-pre-wrap">`(用户打的 `*` 不被重新解释)', () => {
-    const { container } = render(<UserMessageBody content={'这是 *重点* 加一行\n\n> 📎 a.md'} />)
+    const { container } = render(<UserMessageBody content={EMPHASIS_WITH_REF} />)
     const p = container.querySelector('p')
     expect(p).not.toBeNull()
     expect(p?.getAttribute('class') ?? '').toContain('whitespace-pre-wrap')
