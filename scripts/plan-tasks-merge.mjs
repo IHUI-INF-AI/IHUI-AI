@@ -536,6 +536,16 @@ export function buildMerge(content, today) {
     const twins = content.split('\n').filter((l) => l === before).length
     if (twins > 1) dupTwins.push(`L${ln} 有 ${twins} 条逐字同文的孪生行`)
     let after = before
+    /**
+     * G-815914:F3 走**归档出口**时,改写用的是「已随归档搬至 …」那一档措辞(与 face 档不同字面)。
+     * 落地闸要把 before 折回"指针已修"形态才能比正文,所以它必须拿到**生产侧实际用过的那个值** ⇒
+     * 随记录一起交出去(`pointerArchived`)。刻意**不**让闸门回读模块级 ARCHIVED_KEYS 自查:
+     *  ① 那会把这两道纯函数落地闸变成读全局的判据(它们抽成纯函数的原由就写在函数头注);
+     *  ② 一行可能挂两条指针,生产侧按「face 优先」选过(见上面 f3exit 那一段),闸门重推一遍会把
+     *     face 那一支读成 archived 那一支 ⇒ 两侧又不同形。不补这一维的实测后果:真仓 HEAD 面上
+     *     8 行 F1+F3(归档档)全部停手,于是 F1 73 组 / F4 425 行的归并被这 8 行整体挡住。
+     */
+    let pointerArchived = null
     if (v.kinds.includes('F3')) {
       const kind = f3exit.get(ln)
       let archived = null
@@ -548,6 +558,7 @@ export function buildMerge(content, today) {
           continue
         }
       }
+      pointerArchived = archived
       after = rewritePointer(after, v.key, archived)
     }
     if ((v.kinds.includes('F1') || v.kinds.includes('F2')) && /^- \[ \]/.test(after)) after = rewriteFork(after, v.key, today)
@@ -558,7 +569,7 @@ export function buildMerge(content, today) {
       continue
     }
     lines[ln - 1] = after
-    changed.push({ line: ln, kind: v.kinds.sort().join('+'), before, after })
+    changed.push({ line: ln, kind: v.kinds.sort().join('+'), before, after, pointerArchived })
   }
   return { text: lines.join('\n'), changed, refused, dupTwins, before: a.counts }
 }
@@ -2629,12 +2640,20 @@ export function healStopReasons(srcText, merged, changed, refusedCount) {
  * 于是归并对这一型永久停手 —— 停手是安全的,但那条 F1 就再也修不掉。
  * 这里只把 before 先过一遍同一份 rewritePointer(键的推导与 buildMerge 里 F3 那一支逐字相同),
  * 再交给下面的判据:判据本体一字未动 —— 截断、整行替换、装饰乱改仍然一处也躲不过。
+ *
+ * **G-815914:归档档措辞必须用生产侧实际用过的那个值**(`c.pointerArchived`)。
+ * `rewritePointer` 的第三参决定产出「已随归档搬至 …」还是「存活于同主键登记 …」两档不同字面;
+ * 少传一个参数 ⇒ 闸门按 face 档去折 before,而 `after` 是归档档 ⇒ 两侧永远不等 ⇒ 这一型全部停手
+ * (真仓 HEAD 面 8 行即此态,连带挡住整批 F1/F4 归并)。刻意不让闸门回读模块级 ARCHIVED_KEYS
+ * 自查:① 两道落地闸抽成纯函数的原由就写在函数头注,读全局会让"同一份输入两次结论不同";
+ * ② 一行可挂两条指针,生产侧按 face 优先选过,重推一遍会把 face 那一支读成归档那一支。
+ * 手工构造的 `changed`(自检/镜像/将来其它生产者)不带这一维 ⇒ 逐字退回 face 档,即修复前的行为。
  */
 function normalizeForkedBefore(changed) {
   if (!Array.isArray(changed)) return changed
   return changed.map((c) =>
     /(?:^|\+)F3(?:\+|$)/.test(c.kind ?? '') && /(?:^|\+)F[12](?:\+|$)/.test(c.kind ?? '')
-      ? { ...c, before: rewritePointer(c.before, compositeKeyOf(c.before) ?? '') }
+      ? { ...c, before: rewritePointer(c.before, compositeKeyOf(c.before) ?? '', c.pointerArchived ?? null) }
       : c,
   )
 }
@@ -2768,6 +2787,67 @@ function selfTest() {
       verifyMerge(src, txt.join('\n'), trunc).problems.some((x) => x.includes('逐字相等')),
       'verifyMerge 对同一形态也必须点名(报告档,两闸不得只装一个)',
     )
+  }
+  /**
+   * G-815914 成对自检:F1 与 F3 **落在同一行**、而 F3 走的是「归档反查出口」那一档措辞。
+   *
+   * 为什么单独立一对:上面那组夹具盖的是 F3 的 **face** 档(目标行还在面上)—— 那一档里
+   * `rewritePointer(before, key)` 与生产侧 `rewritePointer(after, key, archived=null)` 同字面,
+   * 所以"闸门少拿一个参数"这件事**结构上测不出来**。真仓 HEAD 面上 8 行(归档档)因此被两道
+   * 落地闸同时判成"翻勾把正文改了",F1 73 组 / F4 425 行的整批归并被这 8 行挡住 —— 停手是安全的,
+   * 但出口从此永不触发,这正是本仓记过多次的"判据失效的表现永远是安静"的反面(它太响了,响到没人能动)。
+   *
+   * 四条断言各钉一个方向:
+   *  ① 生产侧确实把用过的归档值随记录交出去(装车证明 —— 没有这一条,"闸门通过"可能只是判据被削);
+   *  ② 两闸对正当归档档产物**不再停手**;
+   *  ③ 变异对照:把那个值摘掉 ⇒ 两闸**必须**各自翻红(证明它不是恒真、字段是有牙的);
+   *  ④ face 档不受影响(与上面 src 那组同判,防"为了修归档档把面内档改坏")。
+   */
+  {
+    const prevArch = archivedIndex()
+    const aSrc = [
+      '- [x] ✅(2026-09-20) **D94 归档指针**:同题的已完成登记。',
+      '- [ ] **D94 归档指针**:本行正题逐字存活于 L7 的同编号登记。',
+    ].join('\n')
+    const aKey = compositeKeyOf(aSrc.split('\n')[1])
+    ok(!!aKey, `夹具必须给得出复合主键(否则归档出口结构上不会命中,这条自检就成了空跑)`)
+    setArchivedIndex(new Map([[aKey, { name: 'PROJECT_PLAN_2099-01-01_probe.md', title: '归档指针' }]]))
+    const ar = buildMerge(aSrc, '2026-09-29')
+    const rec = ar.changed.find((c) => c.line === 2) ?? {}
+    ok(
+      /(?:^|\+)F3(?:\+|$)/.test(rec.kind ?? '') && /(?:^|\+)F1(?:\+|$)/.test(rec.kind ?? ''),
+      `夹具必须产出 F1+F3 同一行,实测 kind=${rec.kind}`,
+    )
+    ok(
+      r.text.split('\n')[4].includes('存活于同主键登记'),
+      '④ face 档的措辞一字不得被这次改动带偏',
+    )
+    ok(
+      !!rec.pointerArchived && rec.pointerArchived.name === 'PROJECT_PLAN_2099-01-01_probe.md',
+      `① 生产侧必须把归档出口的实际用值随 changed 记录交出(装车证明),实测 ${JSON.stringify(rec.pointerArchived)}`,
+    )
+    ok(
+      ar.text.split('\n')[1].includes('已随归档搬至'),
+      `夹具产物须是归档档措辞(否则 ②③ 两臂都在测 face),实测行:${ar.text.split('\n')[1].slice(0, 80)}`,
+    )
+    ok(
+      healStopReasons(aSrc, ar.text, ar.changed, 0).length === 0,
+      `② 归档档的 F1+F3 正当归并不得停手:${JSON.stringify(healStopReasons(aSrc, ar.text, ar.changed, 0))}`,
+    )
+    ok(
+      verifyMerge(aSrc, ar.text, ar.changed).problems.length === 0,
+      `② 报告档同一形态也不得报问题:${JSON.stringify(verifyMerge(aSrc, ar.text, ar.changed).problems)}`,
+    )
+    const stripped = ar.changed.map((c) => ({ line: c.line, kind: c.kind, before: c.before, after: c.after }))
+    ok(
+      healStopReasons(aSrc, ar.text, stripped, 0).some((x) => x.includes('逐字保留')),
+      '③ 变异对照:少传归档值(回到修复前的形态)时自愈档必须拦下来 —— 字段是有牙的,不是恒真',
+    )
+    ok(
+      verifyMerge(aSrc, ar.text, stripped).problems.some((x) => x.includes('逐字相等')),
+      '③ 变异对照:报告档也必须因同一件事点名(两闸各处一份就会有一道静默)',
+    )
+    setArchivedIndex(prevArch)
   }
   /**
    * F6 块级收口:四条各钉一个方向。缺任何一条,这一型就会退化成
