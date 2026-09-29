@@ -102,9 +102,13 @@ export default function LessonListItem({
           className="lli-content flex-1 min-w-0 flex flex-col justify-around"
           style={{ marginLeft: '20rpx' }}
         >
-          <Text className="text-[length:28rpx] font-bold text-foreground truncate">{data.title}</Text>
+          <Text className="text-[length:28rpx] font-bold text-foreground truncate">
+            {data.title}
+          </Text>
           {data.subtitle && (
-            <Text className="text-[length:24rpx] text-muted-foreground truncate">{data.subtitle}</Text>
+            <Text className="text-[length:24rpx] text-muted-foreground truncate">
+              {data.subtitle}
+            </Text>
           )}
           {vipVisible && (
             <View className="lli-vip-pill">
@@ -118,7 +122,9 @@ export default function LessonListItem({
           )}
           <View className="flex items-center">
             {data.duration && (
-              <Text className="text-[length:24rpx] text-muted-foreground mr-[20rpx]">{data.duration}</Text>
+              <Text className="text-[length:24rpx] text-muted-foreground mr-[20rpx]">
+                {data.duration}
+              </Text>
             )}
             {data.likes !== undefined && (
               <Text className="text-[length:24rpx] text-muted-foreground font-bold">
@@ -160,9 +166,13 @@ export default function LessonListItem({
           className="lli-content flex-1 min-w-0 flex flex-col justify-around"
           style={{ marginLeft: '20rpx' }}
         >
-          <Text className="text-[length:28rpx] font-bold text-foreground truncate">{data.title}</Text>
+          <Text className="text-[length:28rpx] font-bold text-foreground truncate">
+            {data.title}
+          </Text>
           {data.subtitle && (
-            <Text className="text-[length:24rpx] text-muted-foreground truncate">{data.subtitle}</Text>
+            <Text className="text-[length:24rpx] text-muted-foreground truncate">
+              {data.subtitle}
+            </Text>
           )}
           {(vipVisible || priceVisible) && (
             <View className={`lli-pill ${data.vipOnly ? 'lli-pill-vip' : 'lli-pill-paid'}`}>
@@ -191,7 +201,9 @@ export default function LessonListItem({
           )}
           <View className="flex items-center">
             {data.duration && (
-              <Text className="text-[length:24rpx] text-muted-foreground mr-[20rpx]">{data.duration}</Text>
+              <Text className="text-[length:24rpx] text-muted-foreground mr-[20rpx]">
+                {data.duration}
+              </Text>
             )}
             {data.likes !== undefined && (
               <Text className="text-[length:24rpx] text-muted-foreground font-bold">
@@ -229,7 +241,9 @@ export default function LessonListItem({
             )}
           </View>
         )}
-        <Text className="text-[length:28rpx] text-foreground mt-[10rpx] truncate">{data.title}</Text>
+        <Text className="text-[length:28rpx] text-foreground mt-[10rpx] truncate">
+          {data.title}
+        </Text>
         {data.subtitle && (
           <Text className="text-[length:24rpx] text-muted-foreground mt-[10rpx] truncate">
             {data.subtitle}
@@ -289,28 +303,28 @@ export default function LessonListItem({
           </Text>
           {/* VIP 角标 */}
           {vipVisible && (
-            <Text className="ml-2 text-[length:20rpx] px-1.5 py-0.5 rounded bg-warning/20 text-warning font-medium">
+            <Text className="ml-2 text-[length:20rpx] px-[12rpx] py-[4rpx] rounded bg-warning/20 text-warning font-medium">
               VIP
             </Text>
           )}
           {/* 分类徽章 */}
           {categoryVisible && data.category && (
-            <Text className="ml-2 text-[length:20rpx] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+            <Text className="ml-2 text-[length:20rpx] px-[12rpx] py-[4rpx] rounded bg-muted text-muted-foreground">
               {data.category}
             </Text>
           )}
         </View>
         {data.subtitle && !compact && (
-          <Text className="block text-xs text-muted-foreground mt-0.5 truncate">
+          <Text className="block text-xs text-muted-foreground mt-[4rpx] truncate">
             {data.subtitle}
           </Text>
         )}
         {data.duration && (
-          <Text className="block text-xs text-muted-foreground mt-0.5">{data.duration}</Text>
+          <Text className="block text-xs text-muted-foreground mt-[4rpx]">{data.duration}</Text>
         )}
         {/* 学习人数 + 课时数 */}
         {!compact && (data.likes !== undefined || lessonCountVisible) && (
-          <View className="flex items-center mt-0.5">
+          <View className="flex items-center mt-[4rpx]">
             {data.likes !== undefined && (
               <Text className="text-[length:20rpx] text-muted-foreground mr-3">
                 {tt('LessonListItem.y1', '人已学习')}
@@ -332,7 +346,7 @@ export default function LessonListItem({
         <Text className="text-xs text-warning font-medium mr-2">¥{data.price}</Text>
       )}
       {data.isFree && (
-        <Text className="text-[length:20rpx] px-1.5 py-0.5 rounded bg-primary/10 text-primary mr-2">
+        <Text className="text-[length:20rpx] px-[12rpx] py-[4rpx] rounded bg-primary/10 text-primary mr-2">
           {tt('lesson.preview', '试看')}
         </Text>
       )}

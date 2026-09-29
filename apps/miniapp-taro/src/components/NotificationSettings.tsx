@@ -29,12 +29,12 @@ export default function NotificationSettings({ items = [], onToggle }: Notificat
       {items.map((item, idx) => (
         <View
           key={item.key}
-          className={`flex items-center px-4 py-3 ${idx !== items.length - 1 ? 'mb-1.5' : ''}`}
+          className={`flex items-center px-4 py-3 ${idx !== items.length - 1 ? 'mb-[12rpx]' : ''}`}
         >
           <View className="flex-1 min-w-0">
             <Text className="text-sm text-foreground">{item.label}</Text>
             {item.desc && (
-              <Text className="block text-xs text-muted-foreground mt-0.5">{item.desc}</Text>
+              <Text className="block text-xs text-muted-foreground mt-[4rpx]">{item.desc}</Text>
             )}
           </View>
           <Switch

@@ -928,7 +928,11 @@ export function createSendMessage(
             ...(evt.messageId ? { messageId: evt.messageId } : {}),
             // 帧自带的 sessionId 是权威值(D151 之后 mcp_server 一定填);观察值只作旧流兜底 ——
             // 猜错会话的表现是"点了发送没反应",所以宁可用帧里的。
-            sessionId: evt.sessionId || observedSessionId,
+            // store 里的观察位是 `string | null`(没观察过就是 null),而槽位类型是
+            // `sessionId?: string` —— 显式收到 undefined,不把 null 塞进可选属性
+            // (2026-09-28 实测:这条 TS2322 在云端把 web 的 build 步骤打死,而 `next build`
+            // 此前配过 ignoreBuildErrors,所以本地一直没喊)。
+            sessionId: evt.sessionId || observedSessionId || undefined,
           })
         },
         // D152(2026-09-29 立):会话目标的服务端主副本变了 ⇒ 覆盖本地缓存。

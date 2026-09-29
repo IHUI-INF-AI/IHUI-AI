@@ -386,6 +386,29 @@
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
+/* D151:命令「等待键盘输入」的交代块(与上方 truncated 同一档 muted 小字,
+   刻意不新立字号 —— 终端卡内的次要说明只有这一档) */
+.ai-card-term-waiting {
+  display: block;
+  margin-top: 8rpx;
+}
+.ai-card-term-waiting-title {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+.ai-card-term-waiting-prompt {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+.ai-card-term-waiting-hint {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: var(--color-danger);
+}
 
 /* ============ 三点加载态(spinner,替代 emoji/原生) ============ */
 .ai-card-spinner {
