@@ -36,7 +36,7 @@ export default function Introduction({
             {agents.map((agent) => (
               <View
                 key={agent.id}
-                className="mr-2 mb-1.5 px-2.5 py-1 rounded-md border border-primary/20 bg-primary/10"
+                className="mr-2 mb-[12rpx] px-[20rpx] py-1 rounded-md border border-primary/20 bg-primary/10"
                 onClick={() => onAgentClick?.(agent)}
                 hoverClass="opacity-60"
               >

@@ -103,12 +103,12 @@ export default function TeacherList() {
                   </View>
                 )}
                 <View className="flex-1 min-w-0">
-                  <View className="flex items-center gap-1.5">
+                  <View className="flex items-center gap-[12rpx]">
                     <Text className="text-base text-foreground font-semibold line-clamp-1 min-w-0 flex-shrink">
                       {item.name}
                     </Text>
                     {item.title && (
-                      <View className="flex-shrink min-w-0 bg-[var(--color-muted)] px-1.5 py-0.5 rounded">
+                      <View className="flex-shrink min-w-0 bg-[var(--color-muted)] px-[12rpx] py-[4rpx] rounded">
                         <Text className="text-[length:22rpx] text-muted-foreground line-clamp-1">
                           {item.title}
                         </Text>
