@@ -25,7 +25,7 @@ import type {
   LecturerDetailScreenProps,
 } from '../../types'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 
 /** 讲师详情共享屏 — props 注入式跨端组件 */
 export type {
@@ -398,7 +398,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 64, // rpx(128)
       height: 64, // rpx(128)
-      borderRadius: rnRadius['2xl'],
+      borderRadius: 64 / 2, // radius-exempt: 讲师头像几何正圆(64dp 直径/2)
       backgroundColor: tk.surface.muted,
     },
     avatarFallback: {
@@ -443,7 +443,7 @@ function createStyles(tk: AppThemeTokens) {
     followBtn: {
       paddingHorizontal: 14, // rpx(28)
       paddingVertical: 6, // rpx(12)
-      borderRadius: rnRadiusFor.control,
+      borderRadius: rnRadius['2xl'], // rpx(32) radius-role-exempt: 关注按钮为胶囊形，radius≥高度一半，不得方档化 until 2026-11-26
       backgroundColor: tk.brand.cta,
     },
     followBtnActive: {
