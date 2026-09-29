@@ -9083,10 +9083,12 @@
       "lastCommitTitle": "最近提交",
       "loading": "加载中…",
       "local": "本地",
+      "localServers": "本地服务",
       "manualToken": "手动输入 Token",
       "modified": "修改",
       "noChanges": "无变更",
       "noCommit": "无提交",
+      "noLocalServers": "没有正在运行的本地服务",
       "noOAuthConfig": "未配置 GitHub OAuth 应用",
       "noRemotes": "未配置远程仓库",
       "noWorkspace": "未选择工作区,请先在顶部绑定本地工作区",
@@ -9101,6 +9103,7 @@
       "pushFail": "推送失败",
       "pushOk": "推送成功",
       "refresh": "刷新",
+      "refreshLocalServers": "刷新本地服务",
       "remote": "远程",
       "remoteNo": "未配置",
       "remoteYes": "已配置",
@@ -9122,6 +9125,15 @@
     },
     "envInfoButton": "环境信息",
     "expandConversation": "展开对话",
+    "headerActions": {
+      "panelGroupButtons": "面板组按钮",
+      "workspaceUnavailable": "开始任务后可打开审阅工作面",
+      "enterWorkspaceFullscreen": "全屏显示工作面",
+      "exitWorkspaceFullscreen": "退出工作面全屏",
+      "createDraftPullRequest": "创建 Draft PR",
+      "createDraftPullRequestOk": "Draft PR 已创建",
+      "createDraftPullRequestFailed": "创建 Draft PR 失败"
+    },
     "floatMode": "浮窗模式",
     "handleHint": "点击或向右拉出AI工作区",
     "history": "任务列表",
@@ -10591,6 +10603,15 @@
       "tokens": "已用 {used} / {limit}",
       "resetAt": "{time} 重置"
     },
+    "statusSlot": {
+      "moreNotices": "还有 {count} 条状态",
+      "connection": "连接状态",
+      "alerts": "下行告警",
+      "mcp": "MCP 连接",
+      "polish": "润色提示",
+      "diff": "代码意见",
+      "budget": "今日额度"
+    },
     "streamAlert": {
       "configWarning": {
         "title": "配置提醒"
@@ -10812,6 +10833,7 @@
     },
     "contextUsage": {
       "breakdownTitle": "Token 分类明细",
+      "budgetRow": "今日额度",
       "categoryFiles": "文件/附件",
       "categoryHistory": "历史消息",
       "categorySystem": "系统提示",
@@ -11244,6 +11266,12 @@
     "errorCardTitle": "请求出错",
     "quoteSelection": "引用选中",
     "quoteSelectionAdded": "已加入引用",
+    "selectionActions": {
+      "ariaLabel": "选中文本操作",
+      "addAsAttachment": "作为附件添加",
+      "attachmentName": "选中的文本",
+      "attachmentLimitReached": "附件已达 {limit} 个,请先移除一个再添加选中文本。"
+    },
     "quotedReplyAssistant": "引用 AI 回复",
     "quotedReplyUser": "引用用户消息",
     "webSearch": "网页搜索",
@@ -11745,6 +11773,10 @@
     "markUnread": "标记为未读",
     "markUnreadSuccess": "已标记为未读",
     "retryLoadMore": "重试加载",
+    "archiveChatTitle": "归档“{title}”?",
+    "archiveChatDoNotAskAgain": "不再提示",
+    "archivingChat": "正在归档...",
+    "archivingChats": "正在归档任务...",
     "sorting": {
       "byTime": "按时间",
       "label": "排序方式",
@@ -15948,6 +15980,7 @@
     },
     "sourceControl": {
       "branchSwitched": "已切换到 {branch}",
+      "cancel": "取消",
       "changeStats": "变更统计",
       "changes": "变更 ({count})",
       "commit": "提交",
@@ -15956,8 +15989,11 @@
       "commitPlaceholder": "提交信息",
       "commitSuccess": "提交成功",
       "committing": "提交中...",
+      "dirtySwitchDescription": "切换分支会改写当前工作区。选择「保存改动并检出」,未提交的改动会先存入 Git stash,不会丢失。",
+      "dirtySwitchTitle": "有未提交的改动",
       "more": "更多",
       "noChanges": "无变更",
+      "preserveChangesAction": "保存改动并检出",
       "pull": "拉取",
       "pullSuccess": "拉取成功",
       "push": "推送",
@@ -27860,7 +27896,9 @@
     "hintSelect": "选择",
     "hintConfirm": "确认",
     "hintClose": "关闭",
-    "clearAriaLabel": "清空搜索"
+    "clearAriaLabel": "清空搜索",
+    "followupDismiss": "关闭建议",
+    "followupRowLabel": "试试这些"
   },
   "statusPage": {
     "incidentsUnavailable": "最近 30 天的事件数据暂时取不到"

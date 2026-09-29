@@ -201,6 +201,7 @@
   border-color: var(
     --color-primary
   ); /* border-ink-exempt: 聚焦态墨档是 §4 定档的唯一例外位(枚 44a248fbf0);门 83 的 CSS 形态只认 `:focus`/`:active` 伪类选择器,不认 `.xxx-focused` 这种"聚焦档做成独立 class"的第四书写位,故按门自己的行内出口逐行声明,不回退定档、不改判据;收口 = 门 83 补认该书写位后销掉本标记 until 2026-10-30 */
+  border-color: var(--color-primary); /* border-ink-exempt: 聚焦态描边取墨档是 AGENTS §4 唯一例外位(44a248fbf0 定档,非静态/非选中态) */
 }
 
 .login-phone-input {

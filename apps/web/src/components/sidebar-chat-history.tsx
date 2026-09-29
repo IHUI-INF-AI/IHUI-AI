@@ -115,6 +115,8 @@ import {
 // V3 #62:侧栏批量选择的选中集唯一持有者 + 动作条(动作条不持有选中集,只读 props)
 import { useConversationSelection } from '@/components/sidebar/use-conversation-selection'
 import { ConversationBatchBar } from '@/components/sidebar/conversation-batch-bar'
+// D186:归档「不再提示」偏好(勾选后持久化到 localStorage,后续归档跳过二次确认)
+import { useArchivePrefsStore } from '@/stores/archive-prefs'
 
 interface ConversationItem {
   id: string
@@ -419,6 +421,14 @@ export function SidebarChatHistory({
   // V3 #62:选中集的唯一持有者。行内复选框与批量动作条都只读这一份,不分叉。
   const selection = useConversationSelection(visibleIds)
   const [batchBusy, setBatchBusy] = React.useState(false)
+  // D186:批量在飞动作(批量归档在途时动作条按钮文案切「正在归档任务...」)
+  const [lastBatchAction, setLastBatchAction] = React.useState<BatchConversationAction | null>(
+    null,
+  )
+  // D186:归档二次确认(打开中的待归档会话 + 确认钮在途态 + 不再提示勾选)
+  const [pendingArchive, setPendingArchive] = React.useState<ConversationItem | null>(null)
+  const [archiveConfirmPending, setArchiveConfirmPending] = React.useState(false)
+  const [archiveNoAsk, setArchiveNoAsk] = React.useState(false)
 
   // V3 #62:批量动作(删除/归档/取消归档)。走 api-client 唯一出口;
   // !success 必须 throw —— 否则后端 400(如单次 >100 项)会被当成成功、界面无反馈。
@@ -448,6 +458,7 @@ export function SidebarChatHistory({
     const ids = [...selection.orderedSelectedIds]
     if (ids.length === 0) return
     setBatchBusy(true)
+    setLastBatchAction(action)
     batchMutation.mutate({ action, ids }, { onSettled: () => setBatchBusy(false) })
   }
 
@@ -540,15 +551,42 @@ export function SidebarChatHistory({
     )
   }
 
-  const handleArchiveToggle = (item: ConversationItem) => {
+  // D186:归档/取消归档的执行体(从确认弹层与行内菜单两条路径收敛到这里)
+  const runArchiveToggle = (item: ConversationItem, onSettledExtra?: () => void) => {
     setBusyId(item.id)
     const mutation = item.archivedAt ? unarchiveMutation : archiveMutation
     mutation.mutate(item.id, {
-      onSettled: () => setBusyId(null),
+      onSettled: () => {
+        setBusyId(null)
+        onSettledExtra?.()
+      },
       onSuccess: () => {
         success(item.archivedAt ? tc('toast.unarchived') : tc('toast.archived'))
       },
       onError: () => error(tc('toast.archiveFailed')),
+    })
+  }
+
+  // D186(对标竞品 nav.archiveChatTitle/archiveChatDoNotAskAgain):归档前二次确认;
+  // 勾过「不再提示」(或取消归档)走原直达路径,确认弹层只拦归档方向。
+  const handleArchiveToggle = (item: ConversationItem) => {
+    if (!item.archivedAt && !useArchivePrefsStore.getState().skipArchiveConfirm) {
+      setPendingArchive(item)
+      return
+    }
+    runArchiveToggle(item)
+  }
+
+  // D186:确认归档(勾选「不再提示」则持久化偏好;确认钮在途时由弹层显示「正在归档...」)
+  const confirmArchive = () => {
+    if (!pendingArchive) return
+    if (archiveNoAsk) useArchivePrefsStore.getState().setSkipArchiveConfirm(true)
+    setArchiveConfirmPending(true)
+    const target = pendingArchive
+    runArchiveToggle(target, () => {
+      setArchiveConfirmPending(false)
+      setPendingArchive(null)
+      setArchiveNoAsk(false)
     })
   }
 
@@ -881,6 +919,7 @@ export function SidebarChatHistory({
                 handleArchiveToggle(item)
               }}
               disabled={busyId === item.id}
+              data-testid="conversation-archive-action"
             >
               {item.archivedAt ? (
                 <>
@@ -1141,6 +1180,7 @@ export function SidebarChatHistory({
             allSelected={selection.allSelected}
             someSelected={selection.someSelected}
             busy={batchBusy || batchMutation.isPending}
+            busyAction={batchBusy || batchMutation.isPending ? lastBatchAction : null}
             onToggleAll={(checked) => selection.selectAll(checked, visibleIds)}
             onInvert={() => selection.invert(visibleIds)}
             onBatch={runBatch}
@@ -1242,6 +1282,31 @@ export function SidebarChatHistory({
         loading={deleteMutation.isPending}
         onConfirm={confirmDelete}
         onCancel={() => setPendingDeleteId(null)}
+      />
+
+      {/* D186:归档二次确认(对标竞品 nav.archiveChatTitle「归档“{title}”?」+「不再提示」+ 在途「正在归档...」) */}
+      <ConfirmDialog
+        open={pendingArchive !== null}
+        title={t('archiveChatTitle', { title: pendingArchive?.title ?? '' })}
+        content={
+          <label
+            className="flex items-center gap-2 text-xs text-muted-foreground"
+            data-testid="archive-confirm-no-ask"
+          >
+            <Checkbox
+              checked={archiveNoAsk}
+              onCheckedChange={(v) => setArchiveNoAsk(v === true)}
+              data-testid="archive-confirm-no-ask-checkbox"
+            />
+            <span>{t('archiveChatDoNotAskAgain')}</span>
+          </label>
+        }
+        confirmText={tc('actions.archive')}
+        cancelText={tCommon('cancel')}
+        loading={archiveConfirmPending}
+        loadingText={t('archivingChat')}
+        onConfirm={confirmArchive}
+        onCancel={() => setPendingArchive(null)}
       />
 
       <Dialog

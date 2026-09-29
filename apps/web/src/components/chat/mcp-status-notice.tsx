@@ -35,9 +35,18 @@ export const MCP_SETTINGS_PATH = '/mcp-store'
 /** 会渲染成对话内一行的状态(connected 不在此列 —— 见判据①) */
 const VISIBLE_STATES = new Set(['connecting', 'failed', 'reconnecting'])
 
+/**
+ * 「哪些 MCP 状态该占住输入区一屏」的唯一判据。
+ * 上屏组件与 `input-status-slot` 的激活判定共用这一份 —— 两处各写一遍必然漂开,
+ * 表现是「槽位判定说没有要显示的、组件却渲染出一行」(或反过来留一块空槽)。
+ */
+export function selectVisibleMcpStatuses(statuses: readonly McpStatusEntry[]): McpStatusEntry[] {
+  return statuses.filter((s) => VISIBLE_STATES.has(s.state))
+}
+
 export function McpStatusNotice(): React.JSX.Element | null {
   const { statuses } = useMcpStatusBroadcast()
-  const visible = statuses.filter((s) => VISIBLE_STATES.has(s.state))
+  const visible = selectVisibleMcpStatuses(statuses)
   if (visible.length === 0) return null
 
   return (

@@ -2639,12 +2639,15 @@ class GitHubClient {
     head: string
     base: string
     body?: string
+    /** D183(2026-09-29):true = 创建 Draft PR(环境信息 popover 一键创建入口) */
+    draft?: boolean
   }): Promise<unknown> {
     return this.api(`/repos/${params.owner}/${params.repo}/pulls`, 'POST', {
       title: params.title,
       head: params.head,
       base: params.base,
       body: params.body ?? '',
+      draft: params.draft ?? false,
     })
   }
 
