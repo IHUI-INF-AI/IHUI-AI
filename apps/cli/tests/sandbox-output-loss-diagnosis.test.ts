@@ -20,8 +20,11 @@
  *
  * 断言只喂生产入口(settleSpawnSyncOutcome / runSandboxed),不内联第二份归因逻辑。
  */
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { runSandboxed, settleSpawnSyncOutcome, type FsSpaceProbeResult } from '../src/sandbox/index.js';
+import { runSandboxed, runSandboxedAsync, settleSpawnSyncOutcome, type FsSpaceProbeResult } from '../src/sandbox/index.js';
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §26 唯一落点(禁 os.tmpdir/裸 mkdtemp),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
 
 let CWD = '';
@@ -194,5 +197,97 @@ describe('⑦ 满盘 / inode 尽必须点名并给人话出路(注入面证明,�
     expect(s.stderr).toContain('文件系统状态无法查询');
     expect(s.stderr).toContain('EPERM');
   });
+});
+
+describe('⑧ 子进程 errno 直判(ENOSPC/EDQUOT 是直接证据)+ 异步大输出文件化(spill)', () => {
+  it('spawnSync error 带 code=ENOSPC ⇒ fs_exhausted/space,注记带 errno=ENOSPC(旧归因会落 unattributed 伪装成"不知道")', () => {
+    let probed = 0;
+    const s = settleSpawnSyncOutcome(
+      {
+        error: Object.assign(new Error('spawn write ENOSPC'), { code: 'ENOSPC' }),
+        status: null,
+        signal: null,
+        stdout: '',
+        stderr: '',
+      },
+      {
+        cwd: CWD,
+        maxOutputBytes: 1024,
+        statfs: () => {
+          probed += 1;
+          return probeResult(512_000n, null); // 现场健康:probe 只补人话数字,不改判轴
+        },
+      },
+    );
+    expect(probed).toBe(1);
+    expect(s.failureKind).toBe('fs_exhausted');
+    expect(s.fsExhaustion).toBe('space');
+    expect(s.stderr).toContain('errno=ENOSPC');
+  });
+
+  it('EDQUOT + 仅 inode 轴尽 ⇒ 按 inodes 轴点名(空间轴健康不得冒充空间根因)', () => {
+    const s = settleSpawnSyncOutcome(
+      {
+        error: Object.assign(new Error('quota exceeded'), { code: 'EDQUOT' }),
+        status: null,
+        signal: null,
+        stdout: '',
+        stderr: '',
+      },
+      { cwd: CWD, maxOutputBytes: 1024, statfs: () => probeResult(512_000n, 10n) },
+    );
+    expect(s.failureKind).toBe('fs_exhausted');
+    expect(s.fsExhaustion).toBe('inodes');
+    expect(s.stderr).toContain('errno=EDQUOT');
+  });
+
+  it('ENOSPC + statfs 也查不动 ⇒ 保留子进程直接证据(child reported ENOSPC),probe 失败不推翻结论', () => {
+    const s = settleSpawnSyncOutcome(
+      {
+        error: Object.assign(new Error('spawn write ENOSPC'), { code: 'ENOSPC' }),
+        status: null,
+        signal: null,
+        stdout: '',
+        stderr: '',
+      },
+      {
+        cwd: CWD,
+        maxOutputBytes: 1024,
+        statfs: () => {
+          throw new Error('EPERM: 文件系统状态不可查询');
+        },
+      },
+    );
+    expect(s.failureKind).toBe('fs_exhausted');
+    expect(s.fsExhaustion).toBe('space');
+    expect(s.stderr).toContain('child reported ENOSPC');
+    expect(s.stderr).toContain('errno=ENOSPC');
+  });
+
+  it('异步大输出:窗口封顶后溢出字节落盘文件化(字节守恒),stderr 只带路径+尾预览,全量输出不整段驻留内存', async () => {
+    const h = runSandboxedAsync('node -e "process.stdout.write(\'x\'.repeat(3000))"', {
+      cwd: CWD,
+      maxOutputBytes: 1024,
+    });
+    const r = await h.result;
+    expect(r.exitCode).toBe(0);
+    expect(r.truncated).toBe(true);
+    // 内存窗口恰好冻结 1024 字节(>= 语义:恰好填满也置 truncated)
+    expect(Buffer.byteLength(r.stdout, 'utf8')).toBe(1024);
+    const m = r.stderr.match(/ihui-sandbox-spill-[^\s]+\.log/);
+    expect(m).not.toBeNull();
+    // i18n 文案里路径前后是中文(无空格分界),直接抓绝对路径会被文案吞掉 ——
+    // 改抓纯文件名(spill 命名 = ihui-sandbox-spill-<pid>-<ts>-<rand>.log),再拼回 tmpdir 还原
+    const spillPath = path.join(os.tmpdir(), m![0]!);
+    try {
+      // 溢出字节守恒:窗口 1024 + 落盘 1976 = 子进程总产出 3000(与管道分块方式无关)
+      expect(fs.readFileSync(spillPath, 'utf-8')).toBe('x'.repeat(1976));
+      // stderr 只含 output_spilled 注记 + 尾预览(4KB 上限),3000 字节不整段驻留
+      expect(Buffer.byteLength(r.stderr, 'utf8')).toBeLessThan(8 * 1024);
+      expect(r.stderr).toContain('output_spilled');
+    } finally {
+      fs.rmSync(spillPath, { force: true });
+    }
+  }, 20000);
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -633,4 +633,136 @@ export function notifyUpdates(deps: GateDeps = {}): void {
       });
   });
 }
+
+// =============================================================================
+// 更新检查结果一致性状态机(b75-2#1,2026-09-30)
+// =============================================================================
+//
+// 上游 ZCode desktop autoUpdater 的"异步结果一致性"机制降维。检查是异步的而触发源有
+// 多个(启动自动检查 / 用户手动检查),两条结论在空中交错时,迟到的那条**不得覆盖**
+// 已被更新的状态。checkForUpdates 本体维持既有形态(被既有测试钉死),本状态机作为
+// 独立出口承接这组不变量:
+//   - generation 门:每次真正发起的检查持有一个递增代数;结算时对不上号的结论整体丢弃,
+//     不许碰 latest / notified / skip 任何一面(自动+手动并发的迟到结果就死在这);
+//   - 互斥:自动触发在检查中只拒并不重入;手动触发可以取代在途检查(旧结论从此变 stale);
+//   - 通道不匹配:结果携带的 channel 与本进程通道不符 ⇒ 丢弃 + 留痕;
+//   - 失败回退:取数失败/抛错 ⇒ 回 idle 可检查态(非终态),不污染任何记忆面;
+//   - 同版本不二次通知:notifiedVersion 备忘,同版本重复结算只喊一次;
+//   - skip 语义:skipVersion 记住的版本在自动检查里不再催;手动检查清掉 skip。
+
+/** 检查状态机的状态:idle=可检查 / checking=在途(失败也回 idle,没有失败终态)。 */
+export type UpdateCheckMachineState = 'idle' | 'checking';
+
+/** 一次检查取回的事实(注入面自行决定来源;error 在场 = 本次失败)。 */
+export interface UpdateCheckFacts {
+  latestVersion?: string;
+  /** 该结果所属的发布通道;与本进程通道不符 ⇒ 整条丢弃。 */
+  channel?: string;
+  error?: string;
+}
+
+export interface UpdateCheckMachineDeps {
+  currentVersion: string;
+  /** 本进程的发布通道;结果的 channel 与之不符 ⇒ 丢弃 + 留痕。 */
+  channel: string;
+  /** 异步取数(注入;单测手工 resolve/reject,不发真网)。 */
+  fetchLatest: () => Promise<UpdateCheckFacts>;
+  /** 丢弃/失败留痕(迟到结果、通道不匹配、取数失败都要可读,不静默吞)。 */
+  log?: (line: string) => void;
+  /** 有效且有更新的结算出口;同版本重复结算不会二次进入。 */
+  notify?: (info: { currentVersion: string; latestVersion: string }) => void;
+}
+
+export interface UpdateCheckMachine {
+  readonly state: UpdateCheckMachineState;
+  /** 已发起的最大检查代数(单调递增;stale 判定的对照面)。 */
+  readonly generation: number;
+  /** 最近一次**有效**结算的最新版(stale/失败/通道不符都不会写它)。 */
+  readonly latestVersion: string | null;
+  /** 最近一次实际通知过的版本(同版本不二次通知的对照面)。 */
+  readonly notifiedVersion: string | null;
+  readonly skippedVersion: string | null;
+  /** 发起检查。manual=true 清 skip;自动触发在途时拒并(返回 false);手动触发取代在途(旧结论变 stale)。 */
+  beginCheck(opts?: { manual?: boolean }): boolean;
+  /** 记住一个"别再催"的版本(自动检查生效;手动检查清空)。 */
+  skipVersion(version: string): void;
+}
+
+export function createUpdateCheckMachine(deps: UpdateCheckMachineDeps): UpdateCheckMachine {
+  const log = deps.log ?? (() => {});
+  let state: UpdateCheckMachineState = 'idle';
+  let generation = 0;
+  let latest: string | null = null;
+  let notified: string | null = null;
+  let skipped: string | null = null;
+
+  const settle = (gen: number, facts: UpdateCheckFacts): void => {
+    // generation 门:对不上号 = 迟到结果,整体丢弃(这是并发两次检查不互相覆盖的唯一闸)
+    if (gen !== generation || state !== 'checking') {
+      log(`[update-check] stale result dropped (generation ${gen}, current ${generation})`);
+      return;
+    }
+    if (facts.error) {
+      // 失败回退:回 idle 可检查态(非终态);latest/notified 保持上次的有效结论
+      state = 'idle';
+      log(`[update-check] check failed, back to idle: ${facts.error}`);
+      return;
+    }
+    if (facts.channel !== undefined && facts.channel !== deps.channel) {
+      // 通道不匹配:丢弃 + 留痕,不冒充本通道的结论
+      state = 'idle';
+      log(
+        `[update-check] result for channel ${JSON.stringify(facts.channel)} dropped (this process is ${JSON.stringify(deps.channel)})`,
+      );
+      return;
+    }
+    state = 'idle';
+    const v = facts.latestVersion;
+    if (!v) return;
+    latest = v;
+    if (notified === v) return; // 同版本不二次通知
+    if (skipped === v) return; // 用户明确跳过的版本不催(手动检查已在 beginCheck 清 skip)
+    const cmp = compareVersionsOrUnknown(deps.currentVersion, v);
+    if (cmp === null || cmp >= 0) return; // 不可解析/不比当前新 ⇒ 不催(unknown 不冒充结论)
+    notified = v;
+    deps.notify?.({ currentVersion: deps.currentVersion, latestVersion: v });
+  };
+
+  return {
+    get state() {
+      return state;
+    },
+    get generation() {
+      return generation;
+    },
+    get latestVersion() {
+      return latest;
+    },
+    get notifiedVersion() {
+      return notified;
+    },
+    get skippedVersion() {
+      return skipped;
+    },
+    beginCheck(opts = {}) {
+      if (state === 'checking' && !opts.manual) return false; // 互斥:自动触发并线,不重入
+      if (opts.manual && skipped !== null) {
+        // 手动检查清 skip:用户主动来问,就该给全量结论
+        skipped = null;
+        log('[update-check] manual check clears skipped version');
+      }
+      generation += 1;
+      state = 'checking';
+      const gen = generation; // 代数必须在发起时定格 —— 结算时重读就放进了迟到结果
+      void deps.fetchLatest().then(
+        (facts) => settle(gen, facts),
+        (e: unknown) => settle(gen, { error: e instanceof Error ? e.message : String(e) }),
+      );
+      return true;
+    },
+    skipVersion(version: string) {
+      skipped = version;
+    },
+  };
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -31,6 +31,12 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+# 东八区(用户主时区),与 db_sync_scheduler / news_scheduler / self_media_scheduler /
+# platform_rule_versions 的 `_CN_TZ` 同形(2026-09-30 收口:值取自 app/core/cn_time.py 的 CN_TZ 唯一出口)。
+# 本模块的 last_verified 是**人工按东八区日历书写**的字面量日期,过期判定拿它跟宿主
+# 墙钟比 = 跨时区比较;宿主被静默改成 UTC 后同一份常量会多/少判一天。
+from app.core.cn_time import CN_TZ as _CN_TZ
+
 
 @dataclass
 class PlatformDomSelectors:
@@ -707,7 +713,9 @@ def list_outdated_selectors(days_threshold: int = 30) -> list[str]:
     if days_threshold < 0:
         raise ValueError(f"days_threshold 不能为负数,收到 {days_threshold}")
 
-    cutoff = datetime.now() - timedelta(days=days_threshold)
+    # naive 日精度两侧同形(verified_date 由 strptime("%Y-%m-%d") 得到,无偏移),
+    # 故取东八区墙钟后剥掉 tzinfo,不引入 aware 值(那会与 naive 比而 TypeError)。
+    cutoff = datetime.now(_CN_TZ).replace(tzinfo=None) - timedelta(days=days_threshold)
     outdated: list[str] = []
 
     for platform, selectors in PLATFORM_SELECTORS.items():
