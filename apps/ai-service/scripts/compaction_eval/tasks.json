@@ -1,0 +1,1124 @@
+{
+  "version": 2,
+  "created": "2026-09-27",
+  "description": "D122 压缩质量回归评测集(G-236):黄金任务冻结于本文件。每条 conversation 须 ≥10 条消息(超过 keep_recent=6,保证压缩触发),key_facts 3-5 条且至少一条 asked=true。",
+  "tasks": [
+    {
+      "id": "ce-01",
+      "name": "配置键跨轮引用",
+      "category": "config-recall",
+      "context_limit": 200,
+      "recalls_early_turns": true,
+      "conversation": [
+        {
+          "role": "system",
+          "content": "你是配置助手,回答须引用用户给定的精确数值。"
+        },
+        {
+          "role": "user",
+          "content": "项目数据库连接池上限在 config.py 的 DB_POOL_MAX,值是 47;Redis 端口 8811。请先确认记住。"
+        },
+        {
+          "role": "assistant",
+          "content": "已确认:DB_POOL_MAX=47(config.py),Redis 端口 8811。"
+        },
+        {
+          "role": "user",
+          "content": "把 rate_limit 窗口从 60 秒调到 120 秒。"
+        },
+        {
+          "role": "assistant",
+          "content": "已将 rate_limit 窗口调整为 120 秒。"
+        },
+        {
+          "role": "user",
+          "content": "加一个每分钟清理过期 session 的后台任务。"
+        },
+        {
+          "role": "assistant",
+          "content": "已添加 session 清理后台任务(每分钟)。"
+        },
+        {
+          "role": "user",
+          "content": "给部署文档补健康检查节。"
+        },
+        {
+          "role": "assistant",
+          "content": "已在 deployment.md 补健康检查节。"
+        },
+        {
+          "role": "user",
+          "content": "再加日志轮转配置。"
+        },
+        {
+          "role": "assistant",
+          "content": "已加日志轮转(按天,保留 14 天)。"
+        },
+        {
+          "role": "user",
+          "content": "顺便把相关单元测试补齐。"
+        },
+        {
+          "role": "assistant",
+          "content": "相关单测已补齐,当前全部通过。"
+        },
+        {
+          "role": "user",
+          "content": "再检查一遍命名规范。"
+        },
+        {
+          "role": "assistant",
+          "content": "命名规范检查通过,无违规。"
+        },
+        {
+          "role": "user",
+          "content": "把改动同步到 CHANGELOG。"
+        },
+        {
+          "role": "assistant",
+          "content": "CHANGELOG 已同步本轮改动。"
+        },
+        {
+          "role": "user",
+          "content": "现在回答:数据库连接池上限和 Redis 端口的精确值分别是什么?"
+        }
+      ],
+      "final_question": "数据库连接池上限和 Redis 端口的精确值分别是多少?",
+      "key_facts": [
+        {
+          "id": "f1",
+          "value": "47",
+          "kind": "numeric",
+          "turn": 2,
+          "asked": true,
+          "note": "DB_POOL_MAX"
+        },
+        {
+          "id": "f2",
+          "value": "8811",
+          "kind": "numeric",
+          "turn": 2,
+          "asked": true,
+          "note": "Redis 端口"
+        },
+        {
+          "id": "f3",
+          "value": "config.py",
+          "kind": "path",
+          "turn": 2,
+          "asked": false
+        }
+      ],
+      "completion_markers": [
+        "47",
+        "8811"
+      ],
+      "golden_answer": "DB_POOL_MAX=47,Redis 端口 8811。"
+    },
+    {
+      "id": "ce-02",
+      "name": "函数名与依赖长程保持",
+      "category": "code-recall",
+      "context_limit": 200,
+      "recalls_early_turns": true,
+      "conversation": [
+        {
+          "role": "system",
+          "content": "你是代码助手,涉及函数名/路径时逐字引用。"
+        },
+        {
+          "role": "user",
+          "content": "核心入口函数 process_payment_v2 在 payments/executor.py,依赖 retry_budget=3。"
+        },
+        {
+          "role": "assistant",
+          "content": "已确认:process_payment_v2 位于 payments/executor.py,retry_budget=3。"
+        },
+        {
+          "role": "user",
+          "content": "给它加结构化日志。"
+        },
+        {
+          "role": "assistant",
+          "content": "已为 process_payment_v2 添加结构化日志。"
+        },
+        {
+          "role": "user",
+          "content": "补一个熔断器。"
+        },
+        {
+          "role": "assistant",
+          "content": "已接入熔断器(fallback 走既有 retry 路径)。"
+        },
+        {
+          "role": "user",
+          "content": "把 metrics 上报到 Prometheus。"
+        },
+        {
+          "role": "assistant",
+          "content": "已加 Prometheus 指标导出。"
+        },
+        {
+          "role": "user",
+          "content": "更新 CHANGELOG。"
+        },
+        {
+          "role": "assistant",
+          "content": "CHANGELOG 已更新。"
+        },
+        {
+          "role": "user",
+          "content": "顺便把相关单元测试补齐。"
+        },
+        {
+          "role": "assistant",
+          "content": "相关单测已补齐,当前全部通过。"
+        },
+        {
+          "role": "user",
+          "content": "再检查一遍命名规范。"
+        },
+        {
+          "role": "assistant",
+          "content": "命名规范检查通过,无违规。"
+        },
+        {
+          "role": "user",
+          "content": "把改动同步到 CHANGELOG。"
+        },
+        {
+          "role": "assistant",
+          "content": "CHANGELOG 已同步本轮改动。"
+        },
+        {
+          "role": "user",
+          "content": "写冒烟测试放 tests/smoke_payments.py,并说出入口函数全名与所在文件、retry 预算值。"
+        }
+      ],
+      "final_question": "入口函数全名、所在文件、retry 预算值分别是什么?",
+      "key_facts": [
+        {
+          "id": "f1",
+          "value": "process_payment_v2",
+          "kind": "symbol",
+          "turn": 2,
+          "asked": true
+        },
+        {
+          "id": "f2",
+          "value": "payments/executor.py",
+          "kind": "path",
+          "turn": 2,
+          "asked": true
+        },
+        {
+          "id": "f3",
+          "value": "retry_budget=3",
+          "kind": "config",
+          "turn": 2,
+          "asked": true
+        }
+      ],
+      "completion_markers": [
+        "process_payment_v2",
+        "payments/executor.py"
+      ],
+      "golden_answer": "process_payment_v2 在 payments/executor.py,retry_budget=3。"
+    },
+    {
+      "id": "ce-03",
+      "name": "多约束逐条复查",
+      "category": "constraint-check",
+      "context_limit": 200,
+      "recalls_early_turns": false,
+      "conversation": [
+        {
+          "role": "system",
+          "content": "你是重构助手,必须遵守用户声明的全部约束。"
+        },
+        {
+          "role": "user",
+          "content": "重构 utils/date-utils.ts。三条硬约束:① 不引入新依赖 ② 保持全部现有导出 ③ 单文件不超过 300 行。"
+        },
+        {
+          "role": "assistant",
+          "content": "已按三条约束重构:零新依赖、导出签名不变、287 行。"
+        },
+        {
+          "role": "user",
+          "content": "补用法文档。"
+        },
+        {
+          "role": "assistant",
+          "content": "已写 docs/date-utils.md。"
+        },
+        {
+          "role": "user",
+          "content": "跑 lint。"
+        },
+        {
+          "role": "assistant",
+          "content": "lint 全绿。"
+        },
+        {
+          "role": "user",
+          "content": "补单测。"
+        },
+        {
+          "role": "assistant",
+          "content": "已补 12 个用例,全绿。"
+        },
+        {
+          "role": "user",
+          "content": "把文档链接加进 README。"
+        },
+        {
+          "role": "assistant",
+          "content": "已加。"
+        },
+        {
+          "role": "user",
+          "content": "顺便把相关单元测试补齐。"
+        },
+        {
+          "role": "assistant",
+          "content": "相关单测已补齐,当前全部通过。"
+        },
+        {
+          "role": "user",
+          "content": "再检查一遍命名规范。"
+        },
+        {
+          "role": "assistant",
+          "content": "命名规范检查通过,无违规。"
+        },
+        {
+          "role": "user",
+          "content": "把改动同步到 CHANGELOG。"
+        },
+        {
+          "role": "assistant",
+          "content": "CHANGELOG 已同步本轮改动。"
+        },
+        {
+          "role": "user",
+          "content": "逐条复查三条约束是否仍满足,并给出最终行数。"
+        }
+      ],
+      "final_question": "三条约束是否都满足?最终行数是多少?",
+      "key_facts": [
+        {
+          "id": "f1",
+          "value": "date-utils.ts",
+          "kind": "path",
+          "turn": 2,
+          "asked": true
+        },
+        {
+          "id": "f2",
+          "value": "300",
+          "kind": "numeric",
+          "turn": 2,
+          "asked": true,
+          "note": "行数上限"
+        },
+        {
+          "id": "f3",
+          "value": "287",
+          "kind": "numeric",
+          "turn": 2,
+          "asked": false,
+          "note": "实际行数"
+        }
+      ],
+      "completion_markers": [
+        "date-utils.ts",
+        "约束"
+      ],
+      "golden_answer": "三条约束全部满足:零新依赖、导出不变、287 行 < 300。"
+    },
+    {
+      "id": "ce-04",
+      "name": "预算数值跨 6 轮保持",
+      "category": "numeric-recall",
+      "context_limit": 200,
+      "recalls_early_turns": true,
+      "conversation": [
+        {
+          "role": "system",
+          "content": "你是基础设施助手,数值必须精确。"
+        },
+        {
+          "role": "user",
+          "content": "预算上限 0.0042 美元/请求,超限走降级模型。先记下。"
+        },
+        {
+          "role": "assistant",
+          "content": "已记录:0.0042 USD/请求,超限降级。"
+        },
+        {
+          "role": "user",
+          "content": "日志级别调到 warning。"
+        },
+        {
+          "role": "assistant",
+          "content": "已调为 warning。"
+        },
+        {
+          "role": "user",
+          "content": "加 Prometheus 指标 llm_fallback_total。"
+        },
+        {
+          "role": "assistant",
+          "content": "已加 llm_fallback_total。"
+        },
+        {
+          "role": "user",
+          "content": "文档写清降级触发条件。"
+        },
+        {
+          "role": "assistant",
+          "content": "已在 docs/routing.md 写明。"
+        },
+        {
+          "role": "user",
+          "content": "检查预算守门单测。"
+        },
+        {
+          "role": "assistant",
+          "content": "预算守门单测 12 例全绿。"
+        },
+        {
+          "role": "user",
+          "content": "顺便把相关单元测试补齐。"
+        },
+        {
+          "role": "assistant",
+          "content": "相关单测已补齐,当前全部通过。"
+        },
+        {
+          "role": "user",
+          "content": "再检查一遍命名规范。"
+        },
+        {
+          "role": "assistant",
+          "content": "命名规范检查通过,无违规。"
+        },
+        {
+          "role": "user",
+          "content": "把改动同步到 CHANGELOG。"
+        },
+        {
+          "role": "assistant",
+          "content": "CHANGELOG 已同步本轮改动。"
+        },
+        {
+          "role": "user",
+          "content": "预算上限的精确数值是多少?"
+        }
+      ],
+      "final_question": "预算上限的精确数值是多少?",
+      "key_facts": [
+        {
+          "id": "f1",
+          "value": "0.0042",
+          "kind": "numeric",
+          "turn": 2,
+          "asked": true,
+          "note": "预算上限"
+        },
+        {
+          "id": "f2",
+          "value": "llm_fallback_total",
+          "kind": "symbol",
+          "turn": 6,
+          "asked": false
+        },
+        {
+          "id": "f3",
+          "value": "docs/routing.md",
+          "kind": "path",
+          "turn": 8,
+          "asked": false
+        }
+      ],
+      "completion_markers": [
+        "0.0042"
+      ],
+      "golden_answer": "0.0042 美元/请求。"
+    },
+    {
+      "id": "ce-05",
+      "name": "多文件改动聚合复盘",
+      "category": "aggregation",
+      "context_limit": 200,
+      "recalls_early_turns": false,
+      "conversation": [
+        {
+          "role": "system",
+          "content": "你是开发助手,文件改动须可复盘。"
+        },
+        {
+          "role": "user",
+          "content": "新建 packages/shared/src/chat/session-file-changes.ts,导出 collectSessionFileChanges。"
+        },
+        {
+          "role": "assistant",
+          "content": "已创建 session-file-changes.ts,导出 collectSessionFileChanges。"
+        },
+        {
+          "role": "user",
+          "content": "补测试 session-file-changes.test.ts。"
+        },
+        {
+          "role": "assistant",
+          "content": "已补 5 个用例。"
+        },
+        {
+          "role": "user",
+          "content": "新建 stores/session-diff.ts(Dialog 状态)。"
+        },
+        {
+          "role": "assistant",
+          "content": "已加 useSessionDiffStore(open/changes/openWith/close)。"
+        },
+        {
+          "role": "user",
+          "content": "补 components/ai/session-diff-dialog.tsx。"
+        },
+        {
+          "role": "assistant",
+          "content": "已建 SessionDiffDialog。"
+        },
+        {
+          "role": "user",
+          "content": "全部跑一遍测试。"
+        },
+        {
+          "role": "assistant",
+          "content": "全部测试通过。"
+        },
+        {
+          "role": "user",
+          "content": "顺便把相关单元测试补齐。"
+        },
+        {
+          "role": "assistant",
+          "content": "相关单测已补齐,当前全部通过。"
+        },
+        {
+          "role": "user",
+          "content": "再检查一遍命名规范。"
+        },
+        {
+          "role": "assistant",
+          "content": "命名规范检查通过,无违规。"
+        },
+        {
+          "role": "user",
+          "content": "把改动同步到 CHANGELOG。"
+        },
+        {
+          "role": "assistant",
+          "content": "CHANGELOG 已同步本轮改动。"
+        },
+        {
+          "role": "user",
+          "content": "汇总:这次共动了哪些文件,各一句话职责。"
+        }
+      ],
+      "final_question": "这次一共动了哪些文件,各自职责是什么?",
+      "key_facts": [
+        {
+          "id": "f1",
+          "value": "session-file-changes.ts",
+          "kind": "path",
+          "turn": 2,
+          "asked": true
+        },
+        {
+          "id": "f2",
+          "value": "collectSessionFileChanges",
+          "kind": "symbol",
+          "turn": 2,
+          "asked": true
+        },
+        {
+          "id": "f3",
+          "value": "session-diff.ts",
+          "kind": "path",
+          "turn": 6,
+          "asked": true
+        },
+        {
+          "id": "f4",
+          "value": "session-diff-dialog.tsx",
+          "kind": "path",
+          "turn": 8,
+          "asked": false
+        }
+      ],
+      "completion_markers": [
+        "session-file-changes.ts",
+        "session-diff.ts"
+      ],
+      "golden_answer": "4 个文件:session-file-changes.ts(聚合纯函数)、session-file-changes.test.ts(用例)、session-diff.ts(Dialog 状态)、session-diff-dialog.tsx(展示)。"
+    },
+    {
+      "id": "ce-06",
+      "name": "否定约束保持",
+      "category": "negative-constraint",
+      "context_limit": 200,
+      "recalls_early_turns": true,
+      "conversation": [
+        {
+          "role": "system",
+          "content": "你是重构助手,用户声明的禁止事项优先级最高。"
+        },
+        {
+          "role": "user",
+          "content": "硬性要求:本次重构禁止使用 any,禁止引入 lodash。"
+        },
+        {
+          "role": "assistant",
+          "content": "已确认约束:零 any、零 lodash。"
+        },
+        {
+          "role": "user",
+          "content": "重构 services/importer 目录。"
+        },
+        {
+          "role": "assistant",
+          "content": "已重构 services/importer,类型全部精确标注。"
+        },
+        {
+          "role": "user",
+          "content": "写迁移说明 MIGRATION.md。"
+        },
+        {
+          "role": "assistant",
+          "content": "已写 MIGRATION.md。"
+        },
+        {
+          "role": "user",
+          "content": "补回归测试。"
+        },
+        {
+          "role": "assistant",
+          "content": "回归测试 18 例全绿。"
+        },
+        {
+          "role": "user",
+          "content": "更新目录 README。"
+        },
+        {
+          "role": "assistant",
+          "content": "README 已更新。"
+        },
+        {
+          "role": "user",
+          "content": "顺便把相关单元测试补齐。"
+        },
+        {
+          "role": "assistant",
+          "content": "相关单测已补齐,当前全部通过。"
+        },
+        {
+          "role": "user",
+          "content": "再检查一遍命名规范。"
+        },
+        {
+          "role": "assistant",
+          "content": "命名规范检查通过,无违规。"
+        },
+        {
+          "role": "user",
+          "content": "把改动同步到 CHANGELOG。"
+        },
+        {
+          "role": "assistant",
+          "content": "CHANGELOG 已同步本轮改动。"
+        },
+        {
+          "role": "user",
+          "content": "确认:这次有没有用 any 或引入 lodash?"
+        }
+      ],
+      "final_question": "这次重构有没有用 any 或引入 lodash?",
+      "key_facts": [
+        {
+          "id": "f1",
+          "value": "any",
+          "kind": "constraint",
+          "turn": 2,
+          "asked": true
+        },
+        {
+          "id": "f2",
+          "value": "lodash",
+          "kind": "constraint",
+          "turn": 2,
+          "asked": true
+        },
+        {
+          "id": "f3",
+          "value": "services/importer",
+          "kind": "path",
+          "turn": 4,
+          "asked": false
+        }
+      ],
+      "completion_markers": [
+        "any",
+        "lodash"
+      ],
+      "golden_answer": "没有:全程零 any、未引入 lodash。"
+    },
+    {
+      "id": "ce-07",
+      "name": "接口契约长程一致",
+      "category": "api-contract",
+      "context_limit": 200,
+      "recalls_early_turns": true,
+      "conversation": [
+        {
+          "role": "system",
+          "content": "你是 API 设计助手,契约数值必须精确。"
+        },
+        {
+          "role": "user",
+          "content": "契约:GET /api/widgets 返回 {code,message,data},data.items 上限 50 条。"
+        },
+        {
+          "role": "assistant",
+          "content": "已记录:/api/widgets 响应 {code,message,data},items 上限 50。"
+        },
+        {
+          "role": "user",
+          "content": "加排序参数。"
+        },
+        {
+          "role": "assistant",
+          "content": "已加 sort(默认 created_at desc)。"
+        },
+        {
+          "role": "user",
+          "content": "加 cursor 分页。"
+        },
+        {
+          "role": "assistant",
+          "content": "已加 next_cursor。"
+        },
+        {
+          "role": "user",
+          "content": "补 OpenAPI 注解。"
+        },
+        {
+          "role": "assistant",
+          "content": "OpenAPI 注解已补。"
+        },
+        {
+          "role": "user",
+          "content": "写集成测试。"
+        },
+        {
+          "role": "assistant",
+          "content": "集成测试 9 例全绿。"
+        },
+        {
+          "role": "user",
+          "content": "顺便把相关单元测试补齐。"
+        },
+        {
+          "role": "assistant",
+          "content": "相关单测已补齐,当前全部通过。"
+        },
+        {
+          "role": "user",
+          "content": "再检查一遍命名规范。"
+        },
+        {
+          "role": "assistant",
+          "content": "命名规范检查通过,无违规。"
+        },
+        {
+          "role": "user",
+          "content": "把改动同步到 CHANGELOG。"
+        },
+        {
+          "role": "assistant",
+          "content": "CHANGELOG 已同步本轮改动。"
+        },
+        {
+          "role": "user",
+          "content": "更新 API 文档,注意 items 上限别写错。"
+        }
+      ],
+      "final_question": "接口路径、响应形状与 items 上限分别是什么?",
+      "key_facts": [
+        {
+          "id": "f1",
+          "value": "/api/widgets",
+          "kind": "path",
+          "turn": 2,
+          "asked": true
+        },
+        {
+          "id": "f2",
+          "value": "50",
+          "kind": "numeric",
+          "turn": 2,
+          "asked": true
+        },
+        {
+          "id": "f3",
+          "value": "next_cursor",
+          "kind": "symbol",
+          "turn": 6,
+          "asked": false
+        }
+      ],
+      "completion_markers": [
+        "/api/widgets",
+        "50"
+      ],
+      "golden_answer": "GET /api/widgets 返回 {code,message,data},items 上限 50,分页 next_cursor。"
+    },
+    {
+      "id": "ce-08",
+      "name": "三层落点复盘",
+      "category": "aggregation",
+      "context_limit": 200,
+      "recalls_early_turns": false,
+      "conversation": [
+        {
+          "role": "system",
+          "content": "你是全栈助手,分层实现须按用户指定顺序。"
+        },
+        {
+          "role": "user",
+          "content": "按顺序做三件事:① schema 迁移(表 order_events)② service 层 ③ 路由。开始。"
+        },
+        {
+          "role": "assistant",
+          "content": "迁移已建:order_events 表(idx 290)。"
+        },
+        {
+          "role": "user",
+          "content": "service 层用什么文件名?"
+        },
+        {
+          "role": "assistant",
+          "content": "将命名为 order-events-service.ts(下一步创建)。"
+        },
+        {
+          "role": "user",
+          "content": "好,继续 service 层。"
+        },
+        {
+          "role": "assistant",
+          "content": "service 完成:order-events-service.ts。"
+        },
+        {
+          "role": "user",
+          "content": "继续路由。"
+        },
+        {
+          "role": "assistant",
+          "content": "路由完成:order-events.ts,挂 /api/order-events。"
+        },
+        {
+          "role": "user",
+          "content": "补集成测试。"
+        },
+        {
+          "role": "assistant",
+          "content": "集成测试 7 例全绿。"
+        },
+        {
+          "role": "user",
+          "content": "顺便把相关单元测试补齐。"
+        },
+        {
+          "role": "assistant",
+          "content": "相关单测已补齐,当前全部通过。"
+        },
+        {
+          "role": "user",
+          "content": "再检查一遍命名规范。"
+        },
+        {
+          "role": "assistant",
+          "content": "命名规范检查通过,无违规。"
+        },
+        {
+          "role": "user",
+          "content": "把改动同步到 CHANGELOG。"
+        },
+        {
+          "role": "assistant",
+          "content": "CHANGELOG 已同步本轮改动。"
+        },
+        {
+          "role": "user",
+          "content": "复盘:三层各自落在哪些文件?"
+        }
+      ],
+      "final_question": "迁移/service/路由三层各自落在哪些文件?",
+      "key_facts": [
+        {
+          "id": "f1",
+          "value": "order_events",
+          "kind": "symbol",
+          "turn": 2,
+          "asked": true
+        },
+        {
+          "id": "f2",
+          "value": "order-events-service.ts",
+          "kind": "path",
+          "turn": 6,
+          "asked": true
+        },
+        {
+          "id": "f3",
+          "value": "order-events.ts",
+          "kind": "path",
+          "turn": 8,
+          "asked": true
+        }
+      ],
+      "completion_markers": [
+        "order_events",
+        "order-events-service.ts"
+      ],
+      "golden_answer": "迁移 order_events 表;service 是 order-events-service.ts;路由是 order-events.ts(/api/order-events)。"
+    },
+    {
+      "id": "ce-09",
+      "name": "专有名词拼写保持",
+      "category": "naming",
+      "context_limit": 200,
+      "recalls_early_turns": true,
+      "conversation": [
+        {
+          "role": "system",
+          "content": "你是文案助手,专有名词必须逐字一致。"
+        },
+        {
+          "role": "user",
+          "content": "项目代号 Project Aurora(注意:不是 Aura),所有文案统一用全称。"
+        },
+        {
+          "role": "assistant",
+          "content": "已确认:Project Aurora 全称,不用 Aura。"
+        },
+        {
+          "role": "user",
+          "content": "写发布公告草稿。"
+        },
+        {
+          "role": "assistant",
+          "content": "草稿完成,统一 Project Aurora。"
+        },
+        {
+          "role": "user",
+          "content": "写 FAQ(8 条)。"
+        },
+        {
+          "role": "assistant",
+          "content": "FAQ 完成。"
+        },
+        {
+          "role": "user",
+          "content": "写落地页 hero 文案。"
+        },
+        {
+          "role": "assistant",
+          "content": "hero 文案完成。"
+        },
+        {
+          "role": "user",
+          "content": "全部过一遍术语表。"
+        },
+        {
+          "role": "assistant",
+          "content": "术语一致性检查通过。"
+        },
+        {
+          "role": "user",
+          "content": "顺便把相关单元测试补齐。"
+        },
+        {
+          "role": "assistant",
+          "content": "相关单测已补齐,当前全部通过。"
+        },
+        {
+          "role": "user",
+          "content": "再检查一遍命名规范。"
+        },
+        {
+          "role": "assistant",
+          "content": "命名规范检查通过,无违规。"
+        },
+        {
+          "role": "user",
+          "content": "把改动同步到 CHANGELOG。"
+        },
+        {
+          "role": "assistant",
+          "content": "CHANGELOG 已同步本轮改动。"
+        },
+        {
+          "role": "user",
+          "content": "项目代号的确切拼写是什么?有没有用过缩写?"
+        }
+      ],
+      "final_question": "项目代号的确切拼写是什么?是否出现过 Aura 缩写?",
+      "key_facts": [
+        {
+          "id": "f1",
+          "value": "Project Aurora",
+          "kind": "naming",
+          "turn": 2,
+          "asked": true
+        },
+        {
+          "id": "f2",
+          "value": "发布公告",
+          "kind": "artifact",
+          "turn": 4,
+          "asked": false
+        },
+        {
+          "id": "f3",
+          "value": "FAQ",
+          "kind": "artifact",
+          "turn": 6,
+          "asked": false
+        }
+      ],
+      "completion_markers": [
+        "Project Aurora"
+      ],
+      "golden_answer": "Project Aurora(全称),全程未使用 Aura 缩写。"
+    },
+    {
+      "id": "ce-10",
+      "name": "混合任务(路径+数值+约束)",
+      "category": "mixed",
+      "context_limit": 200,
+      "recalls_early_turns": true,
+      "conversation": [
+        {
+          "role": "system",
+          "content": "你是性能助手,目标数值与约束必须逐字保持。"
+        },
+        {
+          "role": "user",
+          "content": "三项信息:① 重构目标是 cache/lru.ts ② 命中率目标 92% ③ 公开 API 冻结不许改。"
+        },
+        {
+          "role": "assistant",
+          "content": "已记录:cache/lru.ts、92% 目标、API 冻结。"
+        },
+        {
+          "role": "user",
+          "content": "开始重构。"
+        },
+        {
+          "role": "assistant",
+          "content": "重构完成:实测命中率 93.1%,公开 API 签名未动。"
+        },
+        {
+          "role": "user",
+          "content": "补基准测试。"
+        },
+        {
+          "role": "assistant",
+          "content": "已加 bench/lru.bench.ts。"
+        },
+        {
+          "role": "user",
+          "content": "更新性能文档。"
+        },
+        {
+          "role": "assistant",
+          "content": "性能文档已更新。"
+        },
+        {
+          "role": "user",
+          "content": "再跑一遍基准确认。"
+        },
+        {
+          "role": "assistant",
+          "content": "复测 93.2%,稳定达标。"
+        },
+        {
+          "role": "user",
+          "content": "顺便把相关单元测试补齐。"
+        },
+        {
+          "role": "assistant",
+          "content": "相关单测已补齐,当前全部通过。"
+        },
+        {
+          "role": "user",
+          "content": "再检查一遍命名规范。"
+        },
+        {
+          "role": "assistant",
+          "content": "命名规范检查通过,无违规。"
+        },
+        {
+          "role": "user",
+          "content": "把改动同步到 CHANGELOG。"
+        },
+        {
+          "role": "assistant",
+          "content": "CHANGELOG 已同步本轮改动。"
+        },
+        {
+          "role": "user",
+          "content": "总结:目标文件、命中率目标与实测值、API 约束达成情况。"
+        }
+      ],
+      "final_question": "目标文件、命中率目标与实测值、API 约束各是什么?",
+      "key_facts": [
+        {
+          "id": "f1",
+          "value": "cache/lru.ts",
+          "kind": "path",
+          "turn": 2,
+          "asked": true
+        },
+        {
+          "id": "f2",
+          "value": "92%",
+          "kind": "numeric",
+          "turn": 2,
+          "asked": true
+        },
+        {
+          "id": "f3",
+          "value": "93.1%",
+          "kind": "numeric",
+          "turn": 4,
+          "asked": true
+        },
+        {
+          "id": "f4",
+          "value": "API 冻结",
+          "kind": "constraint",
+          "turn": 2,
+          "asked": false
+        }
+      ],
+      "completion_markers": [
+        "cache/lru.ts",
+        "92%"
+      ],
+      "golden_answer": "目标文件 cache/lru.ts;目标 92%,实测 93.1%(复测 93.2%);公开 API 冻结未改。"
+    }
+  ]
+}
