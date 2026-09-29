@@ -26,7 +26,7 @@ import {
   getInstallsManifestPath,
 } from '../lib/registry-client.js';
 import { resolveEffectiveConfig } from './settings.js';
-import { compareVersions } from '../updater.js';
+import { compareVersionsOrUnknown } from '../updater.js';
 import type { RegistrySourceType } from '@ihui/types';
 
 interface UpgradeOpts {
@@ -91,7 +91,16 @@ export function upgradeCommand(): Command {
             console.info(chalk.dim(`  ⊘ ${key}:已安装 latest,跳过`));
             continue;
           }
-          const cmp = compareVersions(inst.version, latest);
+          const cmp = compareVersionsOrUnknown(inst.version, latest);
+          if (cmp === null) {
+            // 不可解析 ⇒ 不自动 pull(G-660:旧口径把 'latest'/'1.0.0-beta'/'abc' 折成 0.0.0,
+            // 于是"判不了"变成"肯定落后",对每个这类条目都发一次 install)。
+            skipped++;
+            console.info(
+              chalk.dim(`  ⊘ ${key}:已安装版本 ${JSON.stringify(inst.version)} 不可解析,跳过(不猜)`),
+            );
+            continue;
+          }
           if (cmp >= 0) {
             skipped++;
             console.info(chalk.dim(`  ⊘ ${key}:已是最新 (${inst.version})`));
