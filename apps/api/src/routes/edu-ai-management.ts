@@ -5349,7 +5349,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
               at: new Date().toISOString(),
             })
           } else {
-            const sms = await sendArrearSmsToRecipient(recipient, row.message ?? '')
+            // 短信走结构化模板(row.message 是机构自定义文案,只作站内留痕,不进短信)
+            const sms = await sendArrearSmsToRecipient(recipient, {
+              student: studentName,
+              money: String(row.dueAmount),
+            })
             if (sms.bucket === 'sent') smsTally.sent += 1
             else if (sms.bucket === 'no_phone') smsTally.no_phone += 1
             else if (sms.bucket === 'not_configured') smsTally.not_configured += 1
