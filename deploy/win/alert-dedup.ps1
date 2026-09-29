@@ -148,7 +148,14 @@ function Test-AlertDueByIdentity {
         if ($prev) {
             $ageH = ($now - $prev).TotalHours
             if ($ageH -ge 0 -and $ageH -lt $RepeatHours) {
-                return @{ Due = $false; Decision = 'window-hit'; Key = $key; Note = "同身份告警 $([Math]::Round($ageH, 1))h 前已寄过(未到 ${RepeatHours}h 重发周期),本轮跳过" }
+                # **抑制也必须可审计**(§5e"失败必须响"的另一半):这一行一天能有 200+ 条,而原先不写
+                # "压住的是哪件事",于是"这段时间一共压住了几件不同的故障"从日志结构上判不出来 ——
+                # 读数的人只能看到一堆跳过,真被掩盖的那一件与正常的那一件长得一模一样。
+                # 这里只把**去重键本身**与一小段可读标签打进日志行,**判定一字未动**(Due/Decision/Key 全同形),
+                # 所以它不会让任何一条本来会寄的信被压掉,也不会让本来被压的寄出去。
+                $short = $label
+                if ($short.Length -gt 60) { $short = $short.Substring(0, 60) }
+                return @{ Due = $false; Decision = 'window-hit'; Key = $key; Note = "同身份告警 $([Math]::Round($ageH, 1))h 前已寄过(未到 ${RepeatHours}h 重发周期),本轮跳过 | 身份=$key | 摘要=$short" }
             }
             $firstTs = $prev
             if ($e.firstTs) { try { $firstTs = [datetime]$e.firstTs } catch { $firstTs = $prev } }
