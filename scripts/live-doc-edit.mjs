@@ -103,7 +103,15 @@ import {
   sameLines,
   writeBlob,
 } from './lib/bypass-git.mjs'
-import { usedIdsOfPrefix, bodyOfRow } from './lib/plan-task-index.mjs'
+import {
+  usedIdsOfPrefix,
+  MALFORMED_ID_RE,
+  MALFORMED_BODY_RE,
+  findMalformedIds,
+  findMalformedRows,
+  newMalformed,
+  malformedLine,
+} from './lib/plan-task-index.mjs'
 import { collectIdFace } from './lib/plan-id-face.mjs'
 // G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
@@ -501,41 +509,20 @@ export function describeInPlace({ chk, anchorLines, head, families }) {
 }
 
 /**
- * 畸形登记编号检测(纯函数)。2026-09-28 立,由一次真实复发链逼出:同一行被三次修回 `D128`,
- * 每次并发合并又把它带回 `DD128` —— 因为**没有任何尺子看编号形态**:畸形号是"新增行",
- * 防丢门(守门 71)结构上只查"行消失",对它完全失明。本器正是产出该形态的工具
- * (取号令牌展开后已含族名,正文再手写一个 `D` 就成 `DD128`;`G-` + `{{NEXT_ID:G}}` 同型产 `G-G-334`),
- * 所以判据必须由它自己兑现 —— 判据不覆盖自己产出的形态,就等于只拦得住别人、拦不住自己(§4 同一条)。
- * 判据锚在"族名在编号段里出现两次"这一形状上,两种形态同视;不做白名单、不认具体族名,
- * 因此新增任何一族都自动被覆盖(白名单必然腐烂,见 §4 对 RN_ONLY_BRAND_KEYS 的教训)。
+ * 畸形登记编号的判据**不在这里**(2026-09-29 收口)。本器是这一形态的生产者(取号令牌展开值已含族名,
+ * 正文再手写一个字面族名就产出 `DD128` / `G-G-334`),而判据此前在生产侧与 lib 各写了一份 ——
+ * 两份"什么算畸形"必然漂开,且漂开的两个方向账面都是绿的。现只留 lib `plan-task-index.mjs` 那一份实现,
+ * 下面这行纯转发就是镜像测试 `plan-tasks-f9b.test.mjs` ③ 的**对象同一性**断言所要求的东西
+ * (`LDE.MALFORMED_ID_RE === LIB.MALFORMED_ID_RE` 比"两条正则长得像"强:改一处必然两把尺子同时动)。
+ * 为什么这一族必须在生产侧兑现:防丢门(守门 71)结构上只查"行消失",对编号形态完全失明。
  */
-export const MALFORMED_ID_RE = /^-\s\[[ xX]\]\s*\**\s*([A-Za-z]{1,4})[-－]?\1[-－]?\d/
-/**
- * 装饰档必须一起判(2026-09-29 补)：翻勾产出的正是 `- [x] ✅(日期) <号>`，认领产出的正是
- * `- [ ]（进行中@日期/持有者） <号>`。上一版把锚钉在"复选框之后立刻是编号"，于是**这两档整族隐身**
- * —— 而本器就是这两档的生产者：判据不覆盖自己产出的形态，就等于只拦得住别人、拦不住自己(§4 同一条)。
- * 剥装饰只引 `plan-task-index.bodyOfRow` 那一份实现：在两边各写一遍"什么算状态装饰"必然漂开。
- */
-export const MALFORMED_BODY_RE = /^[`*\s]*([A-Za-z]{1,4})[-－]?\1[-－]?\d/
-export function findMalformedIds(text = '') {
-  const out = []
-  for (const l of String(text).split(/\r?\n/)) {
-    const m = MALFORMED_ID_RE.exec(l) || MALFORMED_BODY_RE.exec(String(bodyOfRow(l) ?? ''))
-    if (m) out.push({ line: l.trim().slice(0, 90), family: m[1] })
-  }
-  return out
-}
-/**
- * 只拦"本次新引入"的畸形行,存量只报数。
- * 这一条是本判据不沦为恒红门的全部前提(§12e:与本次改动无关的红,唯一结局是逼人 --no-verify
- * 并连带废掉全部守门):台账里由他人历史留下的畸形号不能钉红每一次落地,但必须打印出来,
- * 否则"存量"和"我刚造的"在账面上长得一样。
- */
-export function newMalformed(baselineText = '', landedText = '') {
-  const norm = (arr) => new Set(arr.map((x) => x.line))
-  const before = norm(findMalformedIds(baselineText))
-  const after = findMalformedIds(landedText)
-  return { added: after.filter((x) => !before.has(x.line)), preexisting: after.filter((x) => before.has(x.line)) }
+export {
+  MALFORMED_ID_RE,
+  MALFORMED_BODY_RE,
+  findMalformedIds,
+  findMalformedRows,
+  newMalformed,
+  malformedLine,
 }
 
 /**
@@ -792,7 +779,7 @@ async function main() {
       const mal = newMalformed(baseContent, built.next.join('\n'))
       if (mal.added.length > 0) {
         console.error(`❌ 本次要写入的内容里有 ${mal.added.length} 行畸形登记编号(族名在编号段出现两次)⇒ 拒绝落地:`)
-        for (const x of mal.added.slice(0, 4)) console.error(`   · ${x.line}`)
+        for (const x of mal.added.slice(0, 4)) console.error(`   · ${malformedLine(x)}`)
         console.error(
           `   成因固定:取号令牌 {{NEXT_ID:X}} 展开值**本身已含族名**,正文再手写一个字面 X 就产出 XX123` +
             `(本仓在案另一形态 G-G-334 同源)。改法:删掉正文里那一个字面族名,只留令牌。`,

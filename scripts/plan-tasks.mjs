@@ -37,12 +37,17 @@ import {
   bodyOfRow,
   compositeKeyOf,
   dispositionOf,
+  malformedLine,
   nextTaskIdLabel,
   parseTaskRows,
   stripOwnKey,
   usedIdsOfPrefix,
   LEDGER_TTL_DAYS,
 } from './lib/plan-task-index.mjs'
+// 畸形登记编号的点名文案出口只有一份,住在 lib(2026-09-29 收口:生产侧 live-doc-edit、判据侧本文件
+// 与守门 71 此前各写一份"什么算畸形/怎么点名一行",漂开的两个方向账面都是绿的)。这里转出是为了让
+// 闸门侧与生产侧拿到同一句话 —— 与 `f9GroupLine` 同一条禁令:证据文本里不得出现行号。
+export { malformedLine }
 import { headAges } from './lib/plan-line-age.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
