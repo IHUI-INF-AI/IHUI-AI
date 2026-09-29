@@ -5,7 +5,8 @@
 /**
  * 会员管理 API
  * 对接后端 apps/api/src/routes/admin/member-users.ts / member-permissions.ts / admin.ts,
- * 覆盖会员用户、会员权限、管理员用户/项目/统计、旧项目 ai/users 模块�? */
+ * 覆盖会员用户、会员权限、管理员用户/项目/统计、旧项目 ai/users 模块。
+ */
 import type { ApiResult } from '@ihui/types'
 
 import { fetchApi } from '../client.js'
@@ -166,13 +167,13 @@ export async function delMemberPermission(
   })
 }
 
-// ===================== admin/stats（管理员统计�?=====================
+// ===================== admin/stats（管理员统计） =====================
 
 export async function getAdminStats(): Promise<ApiResult<AdminStats>> {
   return fetchApi<AdminStats>('/api/admin/stats')
 }
 
-// ===================== admin/users（管理员用户管理�?=====================
+// ===================== admin/users（管理员用户管理） =====================
 
 export async function listAdminUsers(
   query: PageQuery & {
@@ -217,7 +218,7 @@ export async function delAdminUser(id: string): Promise<ApiResult<{ user: Member
   return fetchApi<{ user: MemberUser }>(`/api/admin/users/${id}`, { method: 'DELETE' })
 }
 
-// ===================== admin/projects（管理员项目管理�?=====================
+// ===================== admin/projects（管理员项目管理） =====================
 
 export async function listAdminProjects(
   query: PageQuery = {},
@@ -259,7 +260,7 @@ export async function delAdminProject(
   })
 }
 
-// ===================== ai/users（旧项目兼容�?=====================
+// ===================== ai/users（旧项目兼容） =====================
 
 export async function listAiUsers(query: PageQuery = {}): Promise<ApiResult<PageData<AiUser>>> {
   return fetchApi<PageData<AiUser>>(`/ai/users/list${buildQs(query)}`)
