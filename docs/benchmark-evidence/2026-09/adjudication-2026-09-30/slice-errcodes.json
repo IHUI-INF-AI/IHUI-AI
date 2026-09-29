@@ -1,0 +1,611 @@
+[
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "102",
+  "key": "102",
+  "text": "请求时间校验失败"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "103",
+  "key": "103",
+  "text": "请求重复"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "107",
+  "key": "107",
+  "text": "当前网络无访问权限"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "109",
+  "key": "109",
+  "text": "应用已被禁用"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "112",
+  "key": "112",
+  "text": "配额已用尽"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "113",
+  "key": "113",
+  "text": "当前请求受到使用限制"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "114",
+  "key": "114",
+  "text": "试用账户使用受限"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "116",
+  "key": "116",
+  "text": "配额已用尽"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "117",
+  "key": "117",
+  "text": "配额已用尽"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "118",
+  "key": "118",
+  "text": "配额已用尽"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "121",
+  "key": "121",
+  "text": "组织数据已迁移"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "400",
+  "key": "400",
+  "text": "服务暂时出现异常"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "406",
+  "key": "406",
+  "text": "这个话题我暂时聊不了"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "413",
+  "key": "413",
+  "text": "请求内容过大"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "422",
+  "key": "422",
+  "text": "回复传输异常"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "500",
+  "key": "500",
+  "text": "系统发生异常"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "10605",
+  "key": "10605",
+  "text": "模型负载较高"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "47902",
+  "key": "47902",
+  "text": "轮次已达上限"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "47903",
+  "key": "47903",
+  "text": "输出过长"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "48713",
+  "key": "48713",
+  "text": "暂无可用额度"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "48715",
+  "key": "48715",
+  "text": "当前仓库受策略限制"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "48716",
+  "key": "48716",
+  "text": "调用被 Hook 阻止"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "file_not_ready",
+  "key": "file_not_ready",
+  "text": "文件尚未就绪，请稍后下载"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "file_scan_failed",
+  "key": "file_scan_failed",
+  "text": "无法完成文件安全检查，暂时无法下载"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "file_content_rejected",
+  "key": "file_content_rejected",
+  "text": "文件安全检查阻止下载"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "EXTERNAL_MODEL_QUOTA_EXCEEDED",
+  "key": "EXTERNAL_MODEL_QUOTA_EXCEEDED",
+  "text": "外部模型额度不足"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "speaking_banned",
+  "key": "speaking_banned",
+  "text": "暂时无法发言"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "issue_execution_active",
+  "key": "issue_execution_active",
+  "text": "任务正在执行"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "invalid_request",
+  "key": "invalid_request",
+  "text": "请求不符合要求"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "invalid_query",
+  "key": "invalid_query",
+  "text": "上传请求无效"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "member_capacity_exceeded",
+  "key": "member_capacity_exceeded",
+  "text": "成员已达上限"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "forbidden",
+  "key": "forbidden",
+  "text": "没有操作权限"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "unauthorized",
+  "key": "unauthorized",
+  "text": "登录已失效"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "origin_not_allowed",
+  "key": "origin_not_allowed",
+  "text": "当前环境无法上传"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "body_too_large",
+  "key": "body_too_large",
+  "text": "上传内容过大"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "not_ready",
+  "key": "not_ready",
+  "text": "服务暂未就绪"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "internal_error",
+  "key": "internal_error",
+  "text": "服务暂时出错"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "version_conflict",
+  "key": "version_conflict",
+  "text": "资料已被更新"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "organization_mismatch",
+  "key": "organization_mismatch",
+  "text": "组织不一致"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "project_member_removed",
+  "key": "project_member_removed",
+  "text": "无法通过链接重新加入项目"
+ },
+ {
+  "tag": "附录_D",
+  "sec": "附录 D",
+  "fam": "organization_unavailable",
+  "key": "organization_unavailable",
+  "text": "暂时无法确认组织信息"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "TEAM_PROFILE_BUSY",
+  "key": "TEAM_PROFILE_BUSY",
+  "text": "团队正在更新"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "FILE_SCAN_PENDING",
+  "key": "FILE_SCAN_PENDING",
+  "text": "文件等待安全检查，请稍后下载"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "FILE_SCAN_FAILED",
+  "key": "FILE_SCAN_FAILED",
+  "text": "文件安全检查失败，暂时无法下载"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "FILE_SCAN_TIMEOUT",
+  "key": "FILE_SCAN_TIMEOUT",
+  "text": "文件安全检查超时，暂时无法下载"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "FILE_SCAN_UNSCANNABLE",
+  "key": "FILE_SCAN_UNSCANNABLE",
+  "text": "无法完成文件安全检查，无法下载"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "FILE_GET_FAILED",
+  "key": "FILE_GET_FAILED",
+  "text": "无法获取文件"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "FILE_AUTH_REQUIRED",
+  "key": "FILE_AUTH_REQUIRED",
+  "text": "协作身份已失效"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "FILE_NOT_READY",
+  "key": "FILE_NOT_READY",
+  "text": "文件尚未就绪"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "FILE_SCAN_BLOCKED",
+  "key": "FILE_SCAN_BLOCKED",
+  "text": "文件检查阻止下载"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "FILE_INTEGRITY_FAILED",
+  "key": "FILE_INTEGRITY_FAILED",
+  "text": "文件完整性校验失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "FILE_DISK_SPACE",
+  "key": "FILE_DISK_SPACE",
+  "text": "本地缓存空间不足"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "FILE_STORAGE_INVALID",
+  "key": "FILE_STORAGE_INVALID",
+  "text": "无法写入或访问文件缓存"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "FILE_SIZE_LIMIT",
+  "key": "FILE_SIZE_LIMIT",
+  "text": "文件超过支持的大小"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "FILE_INVALID_ID",
+  "key": "FILE_INVALID_ID",
+  "text": "文件标识无效"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "FILE_IDENTITY_CHANGED",
+  "key": "FILE_IDENTITY_CHANGED",
+  "text": "文件获取期间身份已切换"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "AGENT_TOOL_RULE_CONFLICT",
+  "key": "AGENT_TOOL_RULE_CONFLICT",
+  "text": "工具规则冲突"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "LOGIN_TIMEOUT",
+  "key": "LOGIN_TIMEOUT",
+  "text": "登录超时"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "AUTH_UNAUTHORIZED",
+  "key": "AUTH_UNAUTHORIZED",
+  "text": "登录已失效"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "CHAT_ATTACHMENT_LIMIT_EXCEEDED",
+  "key": "CHAT_ATTACHMENT_LIMIT_EXCEEDED",
+  "text": "附件数量超限"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "CHAT_SESSION_HISTORY_MISSING",
+  "key": "CHAT_SESSION_HISTORY_MISSING",
+  "text": "会话历史缺失"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "CHAT_SESSION_OPERATION_FAILED",
+  "key": "CHAT_SESSION_OPERATION_FAILED",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "QODER_EXECUTION_CONTROL_FAILED",
+  "key": "QODER_EXECUTION_CONTROL_FAILED",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "QODER_EXECUTION_CONTROL_PREPARATION_FAILED",
+  "key": "QODER_EXECUTION_CONTROL_PREPARATION_FAILED",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "QODER_EXECUTION_SEND_FAILED",
+  "key": "QODER_EXECUTION_SEND_FAILED",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "QODER_EXECUTION_STREAM_ENDED",
+  "key": "QODER_EXECUTION_STREAM_ENDED",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "QODER_EXECUTION_STREAM_FAILED",
+  "key": "QODER_EXECUTION_STREAM_FAILED",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "QODER_EXECUTION_NO_RESPONSE",
+  "key": "QODER_EXECUTION_NO_RESPONSE",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "MCP_CAPABILITY_REVOKED",
+  "key": "MCP_CAPABILITY_REVOKED",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "BYOK_EXECUTION_UNSUPPORTED",
+  "key": "BYOK_EXECUTION_UNSUPPORTED",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "BYOK_SERVICE_UNAVAILABLE",
+  "key": "BYOK_SERVICE_UNAVAILABLE",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "BYOK_PROFILE_NOT_FOUND",
+  "key": "BYOK_PROFILE_NOT_FOUND",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "BYOK_SELECTION_KEY_INVALID",
+  "key": "BYOK_SELECTION_KEY_INVALID",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "BYOK_SIGNED_OUT",
+  "key": "BYOK_SIGNED_OUT",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "BYOK_ACCOUNT_CHANGED",
+  "key": "BYOK_ACCOUNT_CHANGED",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "BYOK_SECURE_STORAGE_UNAVAILABLE",
+  "key": "BYOK_SECURE_STORAGE_UNAVAILABLE",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "BYOK_CREDENTIAL_UNAVAILABLE",
+  "key": "BYOK_CREDENTIAL_UNAVAILABLE",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "BYOK_PROVIDER_UNSUPPORTED",
+  "key": "BYOK_PROVIDER_UNSUPPORTED",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "BYOK_CATALOG_LOAD_FAILED",
+  "key": "BYOK_CATALOG_LOAD_FAILED",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "BYOK_CATALOG_UNSUPPORTED",
+  "key": "BYOK_CATALOG_UNSUPPORTED",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "BYOK_PROVIDER_REQUEST_FAILED",
+  "key": "BYOK_PROVIDER_REQUEST_FAILED",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "BYOK_UNAVAILABLE",
+  "key": "BYOK_UNAVAILABLE",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "BYOK_AUTHENTICATION_FAILED",
+  "key": "BYOK_AUTHENTICATION_FAILED",
+  "text": "这轮回复失败"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "CHAT_SESSION_INPUT_NOT_DELIVERED",
+  "key": "CHAT_SESSION_INPUT_NOT_DELIVERED",
+  "text": "消息尚未发送"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "CHAT_SESSION_RUNTIME_RECONCILE_TIMEOUT",
+  "key": "CHAT_SESSION_RUNTIME_RECONCILE_TIMEOUT",
+  "text": "消息尚未发送"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "CHAT_SESSION_RUNTIME_RELEASE_PENDING",
+  "key": "CHAT_SESSION_RUNTIME_RELEASE_PENDING",
+  "text": "消息尚未发送"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "CHAT_SESSION_RUNTIME_RELEASE_FAILED",
+  "key": "CHAT_SESSION_RUNTIME_RELEASE_FAILED",
+  "text": "消息尚未发送"
+ }
+]
