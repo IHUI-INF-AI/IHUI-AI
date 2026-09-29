@@ -32,6 +32,7 @@ import {
   recomputeEnrollment,
   recordPayment,
   settleRefund,
+  shouldAdoptUnattributed,
   voidPaymentRecord,
 } from '../services/edu-ledger.js'
 import { dispatchArrearChannels } from '../services/edu-arrear-remind-service.js'
@@ -4311,9 +4312,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const parsed = createRefundRecordSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    // 退费登记必须带上报名归属,否则它冲不进"该报名已缴多少"。
-    // 归属来源:所关联流水的 enrollment_id(确定信息)。没有 paymentId 时**留 NULL**,
-    // 由账目出口的 loadUnattributedPayments 点名,而不是按 student×class 猜一期。
+    // 退费登记必须落到一条报名上,否则它冲不进"该报名已缴多少"。
+    // 归属按两级取:① 所关联流水的 enrollment_id(确定信息);② 没有 paymentId 时,**仅当**
+    // 该 student×class 只有一条有效报名才认领(与缴费侧同一条规则、同一个纯函数)。
+    // 旧写法只做 ①,于是"不带 paymentId 的退费"既不写归属也不触发重算 —— 钱退了、
+    // 已缴额不减、欠费照旧,属账目口径静默失真(与"无归属缴费"同族,那是我自己埋的)。
+    // 两级都不成立时留 NULL 并如实回传 unattributed,由账目出口点名,绝不猜一期。
     const [pay] = parsed.data.paymentId
       ? await db
           .select({ enrollmentId: eduPaymentRecord.enrollmentId })
@@ -4323,16 +4327,33 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
           )
           .limit(1)
       : []
+    let ownerEnrollmentId: string | null = pay?.enrollmentId ?? null
+    if (!ownerEnrollmentId) {
+      const siblings = await db
+        .select({ id: eduEnrollment.id })
+        .from(eduEnrollment)
+        .where(
+          and(
+            eq(eduEnrollment.studentId, parsed.data.studentId),
+            eq(eduEnrollment.classId, parsed.data.classId),
+            isNull(eduEnrollment.deletedAt),
+          ),
+        )
+        .limit(2)
+      if (shouldAdoptUnattributed(siblings.length)) ownerEnrollmentId = siblings[0]?.id ?? null
+    }
     const [row] = await db
       .insert(eduRefundRecord)
       .values({
         ...parsed.data,
-        enrollmentId: pay?.enrollmentId ?? null,
+        enrollmentId: ownerEnrollmentId,
         operatorId: parsed.data.operatorId || request.userId,
       })
       .returning()
-    if (pay?.enrollmentId) await recomputeEnrollment(pay.enrollmentId)
-    return reply.status(201).send(success({ refundRecord: row, unattributed: !pay?.enrollmentId }))
+    if (ownerEnrollmentId) await recomputeEnrollment(ownerEnrollmentId)
+    return reply
+      .status(201)
+      .send(success({ refundRecord: row, unattributed: !ownerEnrollmentId }))
   })
 
   // 审批通过
@@ -4583,9 +4604,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const parsed = createRefundRecordSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    // 退费登记必须带上报名归属,否则它冲不进"该报名已缴多少"。
-    // 归属来源:所关联流水的 enrollment_id(确定信息)。没有 paymentId 时**留 NULL**,
-    // 由账目出口的 loadUnattributedPayments 点名,而不是按 student×class 猜一期。
+    // 退费登记必须落到一条报名上,否则它冲不进"该报名已缴多少"。
+    // 归属按两级取:① 所关联流水的 enrollment_id(确定信息);② 没有 paymentId 时,**仅当**
+    // 该 student×class 只有一条有效报名才认领(与缴费侧同一条规则、同一个纯函数)。
+    // 旧写法只做 ①,于是"不带 paymentId 的退费"既不写归属也不触发重算 —— 钱退了、
+    // 已缴额不减、欠费照旧,属账目口径静默失真(与"无归属缴费"同族,那是我自己埋的)。
+    // 两级都不成立时留 NULL 并如实回传 unattributed,由账目出口点名,绝不猜一期。
     const [pay] = parsed.data.paymentId
       ? await db
           .select({ enrollmentId: eduPaymentRecord.enrollmentId })
@@ -4595,16 +4619,33 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
           )
           .limit(1)
       : []
+    let ownerEnrollmentId: string | null = pay?.enrollmentId ?? null
+    if (!ownerEnrollmentId) {
+      const siblings = await db
+        .select({ id: eduEnrollment.id })
+        .from(eduEnrollment)
+        .where(
+          and(
+            eq(eduEnrollment.studentId, parsed.data.studentId),
+            eq(eduEnrollment.classId, parsed.data.classId),
+            isNull(eduEnrollment.deletedAt),
+          ),
+        )
+        .limit(2)
+      if (shouldAdoptUnattributed(siblings.length)) ownerEnrollmentId = siblings[0]?.id ?? null
+    }
     const [row] = await db
       .insert(eduRefundRecord)
       .values({
         ...parsed.data,
-        enrollmentId: pay?.enrollmentId ?? null,
+        enrollmentId: ownerEnrollmentId,
         operatorId: parsed.data.operatorId || request.userId,
       })
       .returning()
-    if (pay?.enrollmentId) await recomputeEnrollment(pay.enrollmentId)
-    return reply.status(201).send(success({ refundRecord: row, unattributed: !pay?.enrollmentId }))
+    if (ownerEnrollmentId) await recomputeEnrollment(ownerEnrollmentId)
+    return reply
+      .status(201)
+      .send(success({ refundRecord: row, unattributed: !ownerEnrollmentId }))
   })
 
   server.put('/refund/:id/approve', async (request, reply) => {
