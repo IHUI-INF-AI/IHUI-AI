@@ -7252,6 +7252,7 @@
       "viewResult": "結果を表示"
     },
     "checkpointHistory": {
+      "rollbackConfirmContentUnreadable": "一部のバージョン内容を読み込めなかったため、このファイルは diff プレビューされません",
       "empty": "チェックポイントがありません",
       "restore": "復元",
       "title": "チェックポイント履歴",
@@ -15790,6 +15791,7 @@
       "searchPlaceholder": "ビューを検索..."
     },
     "diffReview": {
+      "copyGitApplyUnreadable": "内容を読み込めなかった {count} 件のファイルをスキップしました",
       "copyGitApply": "git apply をコピー",
       "copyGitApplyToast": "git apply コマンドをクリップボードにコピーしました",
       "copyGitApplyFailed": "git apply コマンドをコピーできませんでした",
@@ -20134,6 +20136,11 @@
       "taskCount": "{count}件のタスク",
       "title": "公開カレンダー",
       "today": "今日"
+    },
+    "cookieAutoRefresh": {
+      "lastRun": "前回 {time}",
+      "on": "Cookie 自動キープアライブ · {hours}時間ごと",
+      "pending": "初回実行中"
     },
     "cookieHealth": {
       "days": "日",
