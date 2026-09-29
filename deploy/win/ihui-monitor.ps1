@@ -377,13 +377,17 @@ while ($true) {
   $alerts = @()
 
   # 1. 本地端口
-  #    旧清单里还有一项 @{n="cdn(80)";p=80},已删。本机 aizhs.top 的公网入口是 **token 模式的
-  #    Cloudflared 服务**(outbound 长连接,deploy/prod-bundle/cloudflared/config.yml 自述"当前
-  #    部署默认用 token 模式,本文件仅作备选"),它**从不在本机 80 上监听** ⇒ "cdn(80) 未监听"
-  #    不是故障,是该拓扑下的恒真误报。此前它无人可见,只因微信腿已被配额打死;邮件腿一通,
-  #    它就会每 $AlertRepeatHours 小时寄一封真信报警一个不存在的故障 —— 所以摘通道的同一次
-  #    改动里必须一起修,否则修好的是"送不到",弄坏的是"报得准"。
+  #    cdn(80) 曾于 2026-09-27 被摘出本清单,理由是"本机公网入口是 token 模式的 Cloudflared
+  #    服务,它从不在本机 80 上监听 ⇒ 'cdn(80) 未监听' 是恒真误报"。**那个前提是错的**:
+  #    本机 80 上监听的一直是图片源站 cdn-server.js(由当时的开机计划任务 IHUI-ImageCDN 在
+  #    每次开机拉起),与 Cloudflared 无关;摘掉它是拿"隧道组件不绑 80"去否定"源站不绑 80"。
+  #    而这条链是**用户可见的**:apps/web/next.config.ts:315-321 把 /remote-images/* 反代到
+  #    http://localhost:80,源站一挂,公网页面图片全断,而本清单不会喊。
+  #    2026-09-29 实测复现该失明:把 cdn-server.js 的进程杀掉,本清单 6 个端口**一个都不红**。
+  #    自本行起它归位;载体同日已从开机计划任务换成 nssm 服务 IHUI-IMAGE-CDN(见
+  #    deploy/win/install-image-cdn-service.ps1)⇒ 挂了先由服务拉回,拉不回来由这里喊人。
   foreach ($p in @(@{n="web(8801)";p=8801}, @{n="api(8802)";p=8802}, @{n="ai(8803)";p=8803},
+                  @{n="cdn(80)";p=80},
                   # ↓ 2026-09-27 补:监控链自身的三个端口。加它们的唯一理由是**自指**——
                   #   prometheus 一死,alerts.yml 里那条 `PrometheusDown` 就没有评估者了
                   #   (由将死的进程判自己活着,结构上自相矛盾),alertmanager/bridge 同型。
@@ -404,7 +408,16 @@ while ($true) {
 
   # 2. 公网(2026-08-09 加"连续 2 次确认":单次瞬时失败不报警,重测一次仍失败才记录,
   #    过滤 Cloudflared 隧道重连/瞬时抖动导致的误报)
-  foreach ($u in @("https://aizhs.top/", "https://aizhs.top/api/health", "https://bsm.aizhs.top/", "https://api.aizhs.top/api/health", "https://aizhs.top/tabbar/tabbar/home.png")) {
+  #    图片那一条 2026-09-29 换了 URL。旧的 `aizhs.top/tabbar/tabbar/home.png` **不经过图片源站**:
+  #    next.config.ts 只把 `/remote-images/*` 反代到 localhost:80,`/tabbar/*` 由 web(8801)
+  #    自己应答 ⇒ 实测本机 :80 对同一路径回 137 B 占位图,而公网回 174 B 且来自 web,
+  #    两侧字节数都不一样。也就是说那一条探测从来没有验过 CDN。
+  #    换成 `/remote-images/default/home/setting_icon.png` 后,链路是
+  #    Cloudflare → web → 反代 → :80 源站,源站挂了会拿到 5xx(实测真图 3376 B 可取)。
+  #    如实登记它判不出的那一格:cdn-server 对**不存在**的路径也回 200 + 占位图
+  #    (实测 `/nope/nope/nope.jpg` => 200),所以这一条只验"链路通不通",
+  #    "源站在不在"由上面 cdn(80) 那条端口判据负责,两格各判一件事,不互相顶。
+  foreach ($u in @("https://aizhs.top/", "https://aizhs.top/api/health", "https://bsm.aizhs.top/", "https://api.aizhs.top/api/health", "https://aizhs.top/remote-images/default/home/setting_icon.png")) {
     $code1 = $null
     try {
       $r = Invoke-WebRequest -Uri $u -Method Head -TimeoutSec 15 -ErrorAction Stop
