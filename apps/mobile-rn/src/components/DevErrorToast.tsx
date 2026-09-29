@@ -22,7 +22,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import { X } from 'lucide-react-native'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 
 interface DevErrorEntry {
   id: number
@@ -156,7 +156,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: SIDE_INSET,
     right: SIDE_INSET,
-    /* 顶距已由 App.tsx 的 SafeAreaView 单点注入;absolute 相对其 padding 盒定位,再加一次会把浮窗推出 */
+    /* 顶部安全区已由 App.tsx 的 SafeAreaView 单点注入,absolute 子元素相对其 padding 盒定位,
+       故此处只留自身间距;再加一次 StatusBar.currentHeight 会把浮窗推到状态栏高度之外。 */
     top: TOP_INSET,
     zIndex: Z_INDEX,
   },
@@ -199,7 +200,7 @@ const styles = StyleSheet.create({
   badge: {
     minWidth: BADGE_SIZE,
     height: BADGE_SIZE,
-    borderRadius: rnRadiusFor.chip,
+    borderRadius: BADGE_SIZE / 2, // radius-exempt: 计数徽章胶囊端=BADGE_SIZE 高度一半(几何圆表达式)
     backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
