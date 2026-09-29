@@ -116,3 +116,38 @@ describe('splitUserMessageParts:判不出/不安全一律不摘(绝不静默消�
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+describe('splitUserMessageParts:引用回复块(D22 拍平形态)', () => {
+  it('起始行 + 连续 `> ` 行被整块摘出,正文里不再有 `> 💬` 源码', () => {
+    const content = '我的新问题\n\n> 💬 用户:\n> 上一轮的原话第一行\n> 第二行'
+    const r = splitUserMessageParts(content)
+    expect(r.quote?.label).toBe('用户')
+    expect(r.quote?.lines).toEqual(['上一轮的原话第一行', '第二行'])
+    expect(r.text).toBe('我的新问题')
+    expect(r.text).not.toContain('> 💬')
+  })
+
+  it('引用块**不吞**附件引用行 `> 📎`(两种语义不得互相伪装)', () => {
+    const r = splitUserMessageParts('> 💬 助手:\n> 回答\n\n> 📎 report.pdf')
+    expect(r.quote?.lines).toEqual(['回答'])
+    expect(r.fileRefs).toEqual(['report.pdf'])
+  })
+
+  it('两个相邻引用块分成两块(不跨起始行合并)', () => {
+    const r = splitUserMessageParts('> 💬 用户:\n> a\n> 💬 助手:\n> b')
+    expect(r.quote?.label).toBe('用户')
+    // 第二块不在本次结构里(一条消息只会有一个引用),但**必须可见**而不是被吞掉
+    expect(r.text).toContain('> 💬 助手:')
+    expect(r.rejected).toBe(0)
+  })
+
+  it('空标签的起始行仍归入引用(label 兜底为「引用」),不静默丢内容', () => {
+    const r = splitUserMessageParts('> 💬 :\n> 内容')
+    expect(r.quote?.label).toBe('引用')
+    expect(r.quote?.lines).toEqual(['内容'])
+  })
+
+  it('没有引用块时 quote 为 undefined(而不是空对象冒充分支)', () => {
+    expect(splitUserMessageParts('只有正文').quote).toBeUndefined()
+  })
+})

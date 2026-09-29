@@ -158,10 +158,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 0,
+    // 图标盒自带约 5.8 的右侧死空(lucide viewBox),居中排布会把可见墨迹整体往左带;
+    // 用左内边距把整组(箭头+竖线)往右推 4.8,让竖线右缘离竖条右缘 0.6(2026-09-29 用户定档)。
+    // 宽度仍是 ARROW_WIDTH,命中区不变。
+    paddingLeft: 9.6,
   } as ViewStyle,
   // lucide 图标 viewBox 自带内边距,负 margin 抵消,让双箭头紧贴竖线
+  // -6 → -7.8(2026-09-29 用户定档):图标盒右缘离竖条右缘从 1.5 收到 0.6
+  // (竖条本身已贴屏幕边,这一档只调图标在竖条内的位置)
   arrowIcon: {
-    marginRight: -6,
+    marginRight: -7.8,
   },
   // 竖线(原图片右侧的竖条,独立渲染保证翻转箭头时位置不动)
   arrowBar: {
