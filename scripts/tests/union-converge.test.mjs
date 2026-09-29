@@ -324,11 +324,22 @@ test('装车证明:收敛器冲突分支真的会调它,守护真的会调 --all
   // 判"结构"而不是判"某行文字长什么样":spawn 与接错被提成 attemptUnionConverge() 后,
   // 原先钉的 `uni = String(ue.stdout …)` 只是换了个变量名,不变量没变 ——
   // **子进程非零退出必须先接住再看输出**(否则 throw 甩成未捕获异常,人工出路根本打不出来)。
-  assert.match(
-    conv,
-    /function attemptUnionConverge\([\s\S]{0,700}?catch \(ue\) \{\s*return String\(ue\.stdout \|\| ue\.message/,
-    '归并出口必须自己接住子进程非零退出',
-  )
+  // ⚠️ 判据载体从"函数名后 700 字符的窗口"换成**函数体本身**(2026-09-29 G-815406 顺带修):
+  // 窗口量在 HEAD 上是 1347 字符(函数头注越长窗口越够不着)⇒ 这条锁**自那次加注释起就恒红**,
+  // 只是长期被"本测试文件 import 不到 union-converge"的装载崩溃挡在门外,没人看见它红。
+  // 换成函数体切片后:catch 仍是第一条语句才过,把 return 挪走或删掉 stderr 拼接都会翻红。
+  {
+    const start = conv.indexOf('function attemptUnionConverge(')
+    assert.ok(start > 0, '找不到归并出口的定义 ⇒ 本锁对着空气判绿')
+    const rest = conv.slice(start)
+    const body = rest.slice(0, rest.indexOf('\n}\n') + 3)
+    assert.match(
+      body,
+      /catch \(ue\) \{\s*return String\(ue\.stdout \|\| ue\.message/,
+      '归并出口必须自己接住子进程非零退出,且优先回吐 stdout(裁决文本)',
+    )
+    assert.ok(body.includes('stderrTail(ue)'), 'catch 必须把子进程 stderr 接上(import 期崩溃时 stdout 是空的)')
+  }
   assert.match(
     conv,
     /attemptUnionConverge\(/g,
@@ -1050,14 +1061,31 @@ test('R-K 调用方分流顺序:git-sync-converge 必须先认 UNDETERMINED 再�
   const conv = maskComments(
     readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'git-sync-converge.mjs'), 'utf8'),
   )
+  // 判据载体随 G-815406 收进一份实现:两处调用点原先各写一遍 `includes('UNDETERMINED')`,
+  // 同轮又要加"依赖崩"这一态 ⇒ 三支字符串判据各写两遍必然漂移(本仓"两处算同一件事"那条禁令)。
+  // 现在的不变量是:① 标记判据仍只有一份(在 classifyUnionAttempt 里);② 两处归并出口都调它;
+  // ③ 每个调用窗口里,分流都排在"亦判需人工"之前。
   const undIdx = conv.indexOf("includes('UNDETERMINED')")
-  assert.ok(undIdx > 0, '调用方必须按标记分流,否则一次网络失败会被写成内容裁决')
+  assert.ok(undIdx > 0, '分流判据必须还在(按标记分流,否则一次网络失败会被写成内容裁决)')
+  assert.equal(
+    (conv.match(/includes\('UNDETERMINED'\)/g) || []).length,
+    1,
+    '标记判据只许一处实现 —— 两处各写一遍就会在加分支时漂开(G-815406 收口成一前的形态)',
+  )
   const humanIdx = conv.indexOf('亦判需人工')
   assert.ok(humanIdx > 0, '真需人工那条路必须还在(不得静默)')
-  // 顺序判据:两支同在一个 catch/分支里时,"没资格判"必须先判 —— 反序即归因错
-  assert.ok(undIdx < humanIdx, '分流顺序颠倒 ⇒ 未判定永远读不到,归因恒错')
-  const branches = (conv.match(/includes\('UNDETERMINED'\)/g) || []).length
-  assert.equal(branches, 2, `两处归并出口都要分流(实测 ${branches}):冲突分支与状态放大分支同型`)
+  const calls = [...conv.matchAll(/classifyUnionAttempt\((uni|uniOut)\)/g)]
+  assert.equal(calls.length, 2, `两处归并出口都要分流(实测 ${calls.length}):冲突分支与状态放大分支同型`)
+  for (const c of calls) {
+    // 窗口从分流那一刻起算 ⇒ "亦判需人工"只能出现在它后面(命中位置 > 0)。
+    // 一旦有人把那句提到分流之前,这里就取不到或取到窗口外 ⇒ 本锁翻红。
+    const win = conv.slice(c.index, c.index + 1500)
+    const h = win.indexOf('亦判需人工')
+    assert.ok(
+      h > 0,
+      `调用点 #${c.index} 的窗口里找不到"亦判需人工"(位置 ${h})⇒ 要么那句被提到分流之前,要么真需人工那条路被删了`,
+    )
+  }
 })
 
 /* ─────────────────────────────────────────────────────────────────────────────

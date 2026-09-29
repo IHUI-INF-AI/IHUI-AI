@@ -84,6 +84,17 @@ import agentExtendedRoutes from '../src/routes/agent-extended.js'
 const ADMIN_USER = '00000000-0000-4000-8000-000000000001'
 const REGULAR_USER = '00000000-0000-4000-8000-000000000002'
 const VALID_UUID = '11111111-1111-4111-8111-111111111111'
+// agent_rule.id 与 agent_heat_stats.agent_id 都是 uuid:
+//   packages/database/src/schema/agent-rule.ts:27 (id uuid PK) + DDL 0043_neat_the_spike.sql
+//   packages/database/src/schema/agents-extended.ts:162 (agentId uuid NOT NULL)
+//     + DDL 0042_missing_tables_h2.sql:159 "agent_id" uuid NOT NULL
+// 相关路由在进 SQL 前挂 isUuidString 形状闸(src/routes/agent-extended.ts:1111 GET rules/:id、
+// :1189 DELETE rules/:id、:1338 GET heat/summary),所以 'r1' / 'a1' 这类假 id 会被闸拦掉:
+// DELETE 得到 400、GET/heat 得到 404 —— 用例根本没走到删除链/查询链。
+const RULE_ID = '99999999-9999-4999-8999-999999999999'
+const HEAT_AGENT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+// 与 HEAT_AGENT_ID 的区别只有"mock 里没有它" —— 专门用于"合法形状但不存在"的对照
+const HEAT_UNKNOWN_AGENT_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
 
 function mockAdmin() {
   mockAuthenticate.mockImplementation(async (request: any) => {
@@ -358,15 +369,17 @@ describe('agent-extended routes — 路由层 mock 测试', () => {
     })
 
     it('GET /rules/:id 不存在返回 404', async () => {
-      const res = await server.inject({ method: 'GET', url: `${PREFIX}/rules/999` })
+      // 用合法 uuid 才能走到"查库无行"那一支;非 uuid 会被形状闸先 404,用例就成了假绿
+      const res = await server.inject({ method: 'GET', url: `${PREFIX}/rules/${RULE_ID}` })
       expect(res.statusCode).toBe(404)
     })
 
     it('DELETE /rules/:id 返回 200 + deleted:true', async () => {
-      const res = await server.inject({ method: 'DELETE', url: `${PREFIX}/rules/r1` })
+      const res = await server.inject({ method: 'DELETE', url: `${PREFIX}/rules/${RULE_ID}` })
       expect(res.statusCode).toBe(200)
       const body = res.json()
       expect(body.code).toBe(0)
+      expect(body.data.id).toBe(RULE_ID)
       expect(body.data.deleted).toBe(true)
     })
 
@@ -430,23 +443,49 @@ describe('agent-extended routes — 路由层 mock 测试', () => {
       expect(Array.isArray(body.data)).toBe(true)
     })
 
-    it('GET /heat/summary 缺少 agentId 返回 400', async () => {
+    it('GET /heat/summary 缺少 agentId 返回 404（"无法解析"与"不存在"同形，不给存在性 oracle）', async () => {
+      // 主会话裁决(2026-09-29，G-804)：代理把本条留在 400 并交回，理由是"路由先判存在性，
+      // :1338 形状闸对 undefined 恒不通过 ⇒ 400 分支不可达"。实测确实回 404。
+      // 采"404 为正确契约"而非改路由：本端点的 agentId 是**查询参数指向他人资源**，
+      // 畸形与不存在收敛到同一个 404 不泄露"这个 id 在不在"（AGENTS「两态同形回包」那条），
+      // 而为凑 400 去交换判定顺序会改对外状态码 —— 那属 API 语义决策，不该发生在一张清夹具的票里。
+      // 刻意不断言 message 内容：404 的文案属实现细节，锁死它只会让下次改文案变成改契约。
       const res = await server.inject({ method: 'GET', url: `${PREFIX}/heat/summary` })
-      expect(res.statusCode).toBe(400)
+      expect(res.statusCode).toBe(404)
       const body = res.json()
-      expect(body.code).toBe(400)
-      expect(body.message).toContain('agentId')
+      expect(body.code).toBe(404)
+      // 反向对照(本条存在的全部理由)：路由先判形状闸(`!isUuidString ⇒ 404`，:1339)，
+      // 所以"缺参"与"畸形 id"必须同码；而**合法 uuid 但不存在**回 200 + 全零 ——
+      // 那不是泄露存在性：在册但零命中的 agent 拿到的响应与之逐字同形。
+      // 刻意不用 HEAT_AGENT_ID 当"不存在"样本 —— 它在 mock 里是在册 id。
+      const malformed = await server.inject({
+        method: 'GET',
+        url: `${PREFIX}/heat/summary?agentId=not-a-uuid`,
+      })
+      expect(malformed.statusCode).toBe(res.statusCode)
+      const unknownUuid = await server.inject({
+        method: 'GET',
+        url: `${PREFIX}/heat/summary?agentId=${HEAT_UNKNOWN_AGENT_ID}`,
+      })
+      expect(unknownUuid.statusCode).toBe(200)
+      expect(unknownUuid.json().data.totalHits).toBe(0)
+      // 在册 id 与不在册 id 响应同形 ⇒ 这条同时是"无存在性 oracle"的证据(上面 404 一支不算泄露)
+      const listed = await server.inject({
+        method: 'GET',
+        url: `${PREFIX}/heat/summary?agentId=${HEAT_AGENT_ID}`,
+      })
+      expect(listed.statusCode).toBe(unknownUuid.statusCode)
     })
 
     it('GET /heat/summary 带 agentId 返回 200', async () => {
       const res = await server.inject({
         method: 'GET',
-        url: `${PREFIX}/heat/summary?agentId=a1`,
+        url: `${PREFIX}/heat/summary?agentId=${HEAT_AGENT_ID}`,
       })
       expect(res.statusCode).toBe(200)
       const body = res.json()
       expect(body.code).toBe(0)
-      expect(body.data.agentId).toBe('a1')
+      expect(body.data.agentId).toBe(HEAT_AGENT_ID)
       expect(body.data.totalHits).toBe(0)
     })
 

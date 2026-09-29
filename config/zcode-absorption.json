@@ -88,8 +88,8 @@
     {
       "path": "packages/services/src",
       "status": "windowed",
-      "read": 264,
-      "notes": "第 1 波 E1-E7 覆盖 session/zcode-agent/bots/git/storage/process/runtime-tools/terminal/file/cua-permission-broker/subagents/setting/feedback/plugins/skill-sync/conversation-share;W3-10 补 fs/memory/settings-sync/fileWatcher/faultInjection。 ｜09-29 第五十九批:bots/git/storage 三簇具名整读 46 枚(storage 全 13、git 全 15、bots 21/27 —— 其余 5 份 providers/*Provider 与两路 ChannelRuntime 共 3691 行未读;botsService.ts 6363 行只读约 410 行 ⇒ **不得当该文件已审**)。",
+      "read": 269,
+      "notes": "第 1 波 E1-E7 覆盖 session/zcode-agent/bots/git/storage/process/runtime-tools/terminal/file/cua-permission-broker/subagents/setting/feedback/plugins/skill-sync/conversation-share;W3-10 补 fs/memory/settings-sync/fileWatcher/faultInjection。 ｜09-29 第五十九批:bots/git/storage 三簇具名整读 46 枚(storage 全 13、git 全 15、bots 21/27 —— 其余 5 份 providers/*Provider 与两路 ChannelRuntime 共 3691 行未读;botsService.ts 6363 行只读约 410 行 ⇒ **不得当该文件已审**)。 ｜09-29 第六十一批:bots 残余 5 份整读到体(feishuProvider 1902、weixinProvider 674、replyFormatter 421、feishuChannelRuntime 351、weixinChannelRuntime 343),该簇 27/27 已全覆盖;支撑件 providerRequest.ts 80 与 channelRuntime.ts 290 亦读到体(早先已计,不重复)。botsService.ts 6363 行**仍只按区段读**(本批新增 1995-2084/2500-2840/3800-3869/5235-5275),凡引用它的结论都只覆盖已读区段。",
       "remaining": "commandsService.ts,conversationShareArtifactDiscovery.ts,conversationShareSource.ts,conversationShareHttpClient.ts,pluginSyncArchive.ts,settingsSyncService.ts,clientConfigScenes 实现 2 个 ｜09-29 第十九轮回填:本轮具名整读到体 1 枚,其中 1 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 6 枚,指针 6 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正)",
       "evidence": [
         "packages/services/src/conversation-share/conversationShareIntegrity.ts:1-40",
@@ -115,7 +115,14 @@
         "packages/services/src/bots/channelRuntime.ts:153-238",
         "packages/services/src/storage/domain/usageAggregate.ts:89-105",
         "packages/services/src/storage/adapters/fsWalker.ts:70-107",
-        "packages/services/src/git/config.ts:34-72"
+        "packages/services/src/git/config.ts:34-72",
+        "packages/services/src/bots/providers/feishuProvider.ts:1183",
+        "packages/services/src/bots/providers/feishuProvider.ts:1083-1090",
+        "packages/services/src/bots/providers/feishuProvider.ts:1679-1681",
+        "packages/services/src/bots/providers/weixinProvider.ts:151-156",
+        "packages/services/src/bots/weixinChannelRuntime.ts:159-163",
+        "packages/services/src/bots/replyFormatter.ts:270-286",
+        "packages/services/src/bots/replyFormatter.ts:356-361"
       ],
       "tickets": [
         "G-814410",
@@ -125,7 +132,13 @@
         "G-814422",
         "G-814423",
         "G-814425",
-        "G-814426"
+        "G-814426",
+        "G-815413",
+        "G-815414",
+        "G-815415",
+        "G-815416",
+        "G-815417",
+        "G-815418"
       ]
     },
     {
@@ -700,6 +713,12 @@
     "G-814423": "diff 内容的\"读不到\"与\"空文件\"必须全或无降级,禁止单侧补空串(先人工核我方装配点,核完才动代码)",
     "G-814424": "超输出上限时按 key 记住降级模式并喊出来,不得直接作废结果(可落地)",
     "G-814425": "锁的初始化必须写全再原子可见:pending 目录 + rename,未初始化锁不得被竞态判成 stale(可落地;两把锁共用一份实现)",
-    "G-814426": "扫描类快照条目必须分类有界 + 折叠余项点名(可落地)"
+    "G-814426": "扫描类快照条目必须分类有界 + 折叠余项点名(可落地)",
+    "G-815413": "IM 出站超时只罩到响应头 + clawdbot 八处出站完全无界(可落地)",
+    "G-815414": "im_bridge 在业务之前 pop 走消息且解析失败静默消失(可落地;测试禁触生产库)",
+    "G-815415": "入站缺平台 id 时每次伪造 UUID ⇒ 重投二次落库二次入队;含失败撤回标记那一半(可落地)",
+    "G-815416": "出站无重试无退避且\"2xx + code!=0 / 没回 message_id\"被当成功(可落地;取判据形状不抄数值)",
+    "G-815417": "长文本直投不分段不折叠告知(可落地;刻意不抄上游无标记硬字节切)",
+    "G-815418": "im-gateway 验签面两处自身缺陷:密钥取材由客户端自报 userId 决定 + adapter 存在性先于验签泄露;HMAC 算在再序列化对象而非原始字节(可落地)"
   }
 }

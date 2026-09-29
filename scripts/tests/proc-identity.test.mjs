@@ -624,14 +624,45 @@ const codeOnly = (src) =>
     .join('\n')
 
 test('反向锁:现测派生只住在一个取用闸门后面,heartbeat/check 一概不问', () => {
+  /**
+   * 判据形状在此变更(2026-09-29,§12f 清"红在干净 HEAD"):原来是 `verifyHolder(` 全局计数 == 1,
+   * 那是把**不变量写成了条目数**。取用闸门本体合法地会问身份 —— git-lock 的 `tryAcquireSingleInstance`
+   * 与 deploy-lock 的 `acquire` 都是"每次 acquire 至多问一次"的路径,它们一旦落地,计数判据就在
+   * **与任何提交都无关**的干净 HEAD 上恒红(实测 HEAD 面 git-lock 已有 2 处:makeIdentityProbe +
+   * tryAcquireSingleInstance,而该套件自此 RC=1)。换成函数白名单**只会更严**:白名单外的任何新落点
+   * (包括把现测塞进某个新加的检查函数)都红;而"不许进快路径"这一维本来就由下面逐函数体那条断言管。
+   */
+  const ALLOWED_FNS = {
+    '../git-lock.mjs': ['makeIdentityProbe', 'tryAcquireSingleInstance'],
+    '../deploy-lock.mjs': ['acquire'],
+  }
+  const FN_DECL = /^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z0-9_]+)/
   for (const [rel, probeName, guard] of [
     ['../git-lock.mjs', 'makeIdentityProbe', ['heartbeat', 'check']],
     ['../deploy-lock.mjs', null, ['check', 'release']],
   ]) {
     const src = readFileSync(new URL(rel, import.meta.url), 'utf8')
     const code = codeOnly(src)
-    const calls = (code.match(/verifyHolder\(/g) || []).length
-    assert.equal(calls, 1, `${rel}:verifyHolder 应只有 1 个调用点,实得 ${calls} —— 多一处就是有人把它接到了快路径上`)
+    const raw = src.split('\n')
+    const callLines = raw
+      .map((l, i) => [l, i])
+      .filter(([l]) => !/^\s*(\/\/|\*|\/\*)/.test(l) && l.includes('verifyHolder('))
+      .map(([, i]) => i)
+    assert.ok(callLines.length >= 1, `${rel}:一个现测调用点都没有 ⇒ 取用闸门被摘线,这是判据失明不是通过`)
+    for (const ci of callLines) {
+      let name = null
+      for (let i = ci; i >= 0; i -= 1) {
+        const m = raw[i].match(FN_DECL)
+        if (m) {
+          name = m[1]
+          break
+        }
+      }
+      assert.ok(
+        name && ALLOWED_FNS[rel].includes(name),
+        `${rel}:${ci + 1} 行的现测落在 ${name ?? '顶层/非函数'} —— 不在取用闸门白名单 [${ALLOWED_FNS[rel].join(', ')}] 里 ⇒ 有人把它接到了快路径`,
+      )
+    }
     if (probeName) assert.ok(code.includes(`function ${probeName}`), `${rel} 的取用闸门被摘掉了`)
     for (const fn of guard) {
       const body = fnBody(src, fn)

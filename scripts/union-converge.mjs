@@ -288,7 +288,7 @@ function mergeThreeBlobs(baseOid, oursOid, theirsOid, cwd) {
  *    已有一侧就撞的组**刻意不判红**:让同组多挂一行只能靠人工让号(F9 的差值档在提交链上拦),
  *    而落地闸若为此拒绝归并,唯一出路是删掉某一侧的行 —— 那违反本工具的零丢失承诺,更贵。
  */
-export function planStateRegressions(mergedText, sideTexts, accepted = null) {
+export function planStateRegressions(mergedText, sideTexts, accepted = null, suppressed = null) {
   const KEYS = [
     ['forks', 'F1 同主键两态并存(组)'],
     ['voidRows', 'F2 带作废声明未落账(行)'],
@@ -378,19 +378,91 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null) {
      * 逐行判必须用**非全局副本** —— 带 `g` 的 `.test()` 会推进 lastIndex,第二次调用就漏判。
      */
     const noteRe = new RegExp(MERGE_NOTE_RE.source)
+    const dpRe = new RegExp(DUP_POINTER_RE.source)
+    /**
+     * 量纲对齐(2026-09-29 实测逼出):F5 的读数 `mergeNotes` 数的是**标记个数**,而额度是按
+     * "行"算的 —— 一行里可以带两枚及以上 〔【归并】…〕(本轮实测:并集重放过的行正是这一型)。
+     * 不乘这个系数,额度永远扣不满读数,残差表现为"名单为空却仍差 14 条",而那既不能读成
+     * 无损失、也不能读成有损失 —— 是一台量错的尺子。每行单独现数,不建第二份登记表。
+     */
+    const markersIn = (l) => {
+      const g = new RegExp(MERGE_NOTE_RE.source, 'g')
+      const n = (l.match(g) || []).length
+      return n > 0 ? n : 1
+    }
     const mm = counter(mergedText)
     const sideCounters = sides.map((t) => counter(t))
     let allowed = 0
+    const credited = new Set()
     for (const [l, n] of mm) {
       if (n < 1 || !noteRe.test(l) || !DUP_POINTER_RE.test(l)) continue
       const sideMax = Math.max(...sideCounters.map((c) => c.get(l) || 0))
-      if (sideMax > n) allowed += sideMax - n
+      if (sideMax > n) {
+        allowed += (sideMax - n) * markersIn(l)
+        credited.add(l)
+      }
     }
-    if (m.mergeNotes < noteMax - allowed)
+    /**
+     * 报数必须报名(与 F3/F9 同一规矩):只给总数,下一手只能重新猜,而"猜"在这本账上
+     * 产出过的代价是把别人的落账证据读成噪声删掉。这里逐行算出**未被额度覆盖**的欠账名单。
+     */
+    /**
+     * 合法额度有**两型**,各由一条对照用例钉住(第二型 2026-09-29 补):
+     *  ① 副本指针行折半(G-814386):同一行第 2..N 份有意少带,内容仍留 ≥1 份;
+     *  ② 被本侧归档搬走:条目已移进 `.ihui-agent/archive/PROJECT_PLAN_*.md` 并在原位留 `已归档` 占位,
+     *     而 moveAware 抑制表就是这件事的**现成证据**(由同一份实现算出,本处绝不另判一次"是否真归档")。
+     * 第二型过去完全不计分,后果就是本票实测的那副样子:落地闸对着一堆**内容仍在库里**的行拒收整枚合并,
+     * 唯一出路是各会话手工构造合并 —— 而那比这道闸想防的事故更危险。
+     * 判据与①同样窄:只认抑制表里**逐字点名**的那一行,额度不超过该行欠的份数。
+     */
+    const suppMap = suppressed instanceof Map ? suppressed : null
+    let suppCredit = 0
+    const f5Deficit = []
+    {
+      const seen = new Set()
+      for (const c of sideCounters) {
+        for (const [l, nSide] of c) {
+          if (seen.has(l)) continue
+          seen.add(l)
+          if (!noteRe.test(l)) continue
+          const n = mm.get(l) || 0
+          if (n >= nSide || credited.has(l)) continue
+          // 同一行既被整条折半、又仍带 ≥1 份时,额度只覆盖"折掉的那几份";剩下的仍欠
+          const mk = markersIn(l)
+          const rest0 = n >= 1 && dpRe.test(l) ? 0 : (nSide - n) * mk
+          if (rest0 <= 0) continue
+          let rest = rest0
+          if (suppMap) {
+            const covered = Math.min(rest, (suppMap.get(l) || 0) * mk)
+            if (covered > 0) {
+              suppCredit += covered
+              allowed += covered
+              rest -= covered
+            }
+          }
+          if (rest <= 0) continue
+          f5Deficit.push({ line: l.slice(0, 140), short: rest, carried: n })
+        }
+      }
+      f5Deficit.sort((a, b) => b.short - a.short)
+    }
+    out.f5Deficit = f5Deficit
+    out.f5SuppressedCredit = suppCredit
+    if (m.mergeNotes < noteMax - allowed) {
+      const gap = noteMax - allowed - m.mergeNotes
+      const named = f5Deficit
+        .slice(0, 6)
+        .map((d) => `少 ${d.short} 份(结果里剩 ${d.carried} 份)← ${d.line}`)
+        .join('\n      · ')
       out.push(
         `F5 归并落账注记 各侧最多 ${noteMax} 条,归并结果只剩 ${m.mergeNotes} 条(被未落账形态顶掉)` +
-          `(已扣除"副本指针行有意少带"的合法额度 ${allowed} 条,扣完仍差 ${noteMax - allowed - m.mergeNotes} 条)`,
+          `(已扣除合法额度 ${allowed} 条 = 副本指针折半 + 被归档抑制 ${suppCredit} 条,扣完仍差 ${gap} 条)` +
+          (f5Deficit.length
+            ? `\n   欠账名单(共 ${f5Deficit.length} 行,逐行判据=注记行 ∧ 结果份数 < 各侧份数 ∧ 未被额度覆盖;前 6 行):\n      · ${named}`
+            : '\n   欠账名单为空 ⇒ 差额来自"条数按行计、份数按重数计"两个量纲之差,' +
+              '**不得据此读成"已查明无内容损失"**,也不得反过来据此放行'),
       )
+    }
   }
   return out
 }
@@ -671,7 +743,7 @@ export function buildUnion(
        */
       if (p.endsWith('PROJECT_PLAN.md')) {
         const sides = [bt, a, b].filter((t) => typeof t === 'string' && t !== '')
-        const __rg = planStateRegressions(mergedText, sides, accepted)
+        const __rg = planStateRegressions(mergedText, sides, accepted, ma.suppress)
         for (const msg of __rg) violations.push(`${p} 归并放大任务状态分叉:${msg}`)
         for (const msg of __rg.accepted || []) acceptedGrowth.push(msg)
         console.log(`   ${f3ExitCaliber(mergedText, sides)}`)
@@ -1432,11 +1504,12 @@ function selfTest() {
         })(),
       )
       ok(
-        '声明放行:accepted 必须真的传到落地闸的两处调用点(只加形参不传 = 自检绿而生效次数 0)',
+        '声明放行:accepted 必须真的传到落地闸的两处调用点(只加形参不传 = 自检绿而生效次数 0);' +
+          '活文档那一处还必须把 moveAware 抑制表一起传下去(第二型额度不接线就等于没有)',
         (() => {
           const src = readFileSync(new URL(import.meta.url), 'utf8')
           return (
-            src.includes('planStateRegressions(mergedText, sides, accepted)') &&
+            src.includes('planStateRegressions(mergedText, sides, accepted, ma.suppress)') &&
             src.includes('planStateRegressions(blobText(mergedOid, cwd), sideTexts, accepted)') &&
             src.includes('moveAwareCache, takeTheirs, accepted,')
           )
@@ -1656,6 +1729,39 @@ function selfTest() {
       'F5:注记与较好一侧持平或更多 ⇒ 不得报(否则清完账反而恒红)',
       planStateRegressions(PS_N1, [PS_N1, PS_N0]).length === 0 &&
         planStateRegressions(PS_N1 + PS_N1, [PS_N1]).length === 0,
+    )
+    // ── F5 第二型额度(2026-09-29):本侧已把该条目归档,对侧那份带注记写法被 moveAware 抑制 ──
+    // 立因:落地闸对着 9 行"内容仍在 .ihui-agent/archive/* 里"的行拒收整枚合并,而唯一出路是
+    // 手工构造合并 —— 那道闸想防的事故比它造成的更轻。抑制表本身就是归档证据,不在此处另判。
+    ok(
+      'F5 第二型:被抑制表**逐字点名**的那一行 ⇒ 不得判红,且额度必须报出条数(不得静默放过)',
+      (() => {
+        const supp = new Map([[PS_N1.replace(/\n$/, ''), 1]])
+        const r = planStateRegressions(PS_N0, [PS_N1, PS_N0], null, supp)
+        return !r.some((x) => x.includes('F5')) && r.f5SuppressedCredit === 1
+      })(),
+    )
+    ok(
+      'F5 第二型的反面:抑制表点名的是**另一行** ⇒ 照常判红(加额度不等于放过,只认整行等值)',
+      planStateRegressions(PS_N0, [PS_N1, PS_N0], null, new Map([['- [ ] 别人的行', 9]]))
+        .join('')
+        .includes('F5'),
+    )
+    // 量纲成对:读数按标记个数算,额度也必须按标记个数算 —— 否则一行带两枚注记时永远扣不满,
+    // 残差表现为"名单为空却仍差 N 条"(2026-09-29 实测 14 条即此型)。
+    ok(
+      'F5 量纲:一行带两枚注记 ⇒ 欠账按 2 条计,抑制一行恰好抵掉 2 条(不得只抵 1 条)',
+      (() => {
+        const two =
+          '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。' +
+          '〔【归并】D9 落账:复测 2026-09-26: 取证 A。〕 另有同题一条。' +
+          '〔【归并】D9 落账:复测 2026-09-27: 取证 B。〕\n'
+        const none = '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。\n'
+        const red = planStateRegressions(none, [two, none], null, null).join('')
+        const gap2 = red.includes('F5') && red.includes('仍差 2 条')
+        const cleared = planStateRegressions(none, [two, none], null, new Map([[two.replace(/\n$/, ''), 1]]))
+        return gap2 && !cleared.some((x) => x.includes('F5')) && cleared.f5SuppressedCredit === 2
+      })(),
     )
     // ── F9b 畸形号 / F9 撞号两维进落地闸(2026-09-28 G-606)──
     // 成对:① 归并自己造的必须点名;② 两侧本来就带着的存量不得钉红归并(否则每次收敛都红)。

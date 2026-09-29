@@ -41,6 +41,18 @@
  *   137 个),这类删除被顺手提交同样是回滚;但删除也可能是真意图(`git rm` 合法),
  *   按「宁漏不误报」只告警。
  *
+ * 祖先窗口深度(2026-09-29 G-806):`ANCESTOR_WINDOW = 40` 对高频活文档的时间深度实测只有
+ * ≈1 小时 47 分(HEAD 现测 `PROJECT_PLAN.md` 动过的提交 2,744 枚,第 40 枚落在当天 07:05)——
+ * 一次陈旧回写若发生在窗口之外,R1 逐字节比不中、R1r 的祖先正文也在窗口外,症状是**安静地通过**,
+ * 正是"把没判写成判过了"那一型。两维处置,缺一都不算收口:
+ *  ① 三本活文档(`PROJECT_PLAN|AGENTS|README.md`,`windowFor`)走深窗口 `ANCESTOR_WINDOW_HOT = 400`
+ *    (回看 ≈8 小时;实测增量成本:git log 401 枚 182–346ms + 400 条规格一次 batch-check 133ms,
+ *    且只对"与 HEAD 不等"的可疑路径才付 —— 普通路径保持浅窗口,深窗口对它们是白付钱)。
+ *  ② **底线**:窗口"确证用尽"(取 window+1 枚探针,拿满即窗外还有)而未命中 ⇒ 显式点名
+ *    `❓ [R1 未判定] … 窗口不足`,并计入结论行尾注;不判红(窗口外没有证据,判红=凭空定罪),
+ *    **但绝不记绿**。R1r 侧同样把"窗口用尽"作为独立一维写进 uncovered/报名(与预算截断分开)。
+ *    2,744 > 400 ⇒ 深窗口只压低 ② 的触发频率、不可能根除 —— 这正是 ② 必须先于 ① 存在的原因。
+ *
  * 合并上下文(2026-09-25 由"整轮豁免"收窄):旧口径因"merge/cherry-pick/revert 的解析结果
  * 本就可能是历史内容"而整轮跳过 R1,于是**本门自己的豁免**成了这一族的无人看守区(登记在
  * 第四十二批未闭环④,本轮机制化)。收窄后只对 merge 上下文跑 R1m:两父在某路径上逐字节
@@ -58,13 +70,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import {
-  Undetermined,
-  catBatch,
-  catBatchOids,
-  catBatchSizes,
-  gitRaw,
-} from './lib/face-reader.mjs'
+import { Undetermined, catBatch, catBatchOids, catBatchSizes, gitRaw } from './lib/face-reader.mjs'
 // R1r 的行级复活判据与尺寸/证据行护栏:与落地器 `object-space-land.mjs` 共用**这一份**实现。
 // 两处各写一遍必然漂开(本仓记过最多次的失败型),而漂开的后果不是"数字不一致",是同一枚提交
 // 在两道尺子下一红一绿。本层是纯函数层 —— 取材一律走下面的 face-reader,不得在 lib 里读 git。
@@ -76,6 +82,26 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 export const SKIP_ENV = 'HUSKY_SKIP_STALE_REVERT_GUARD'
 export const ANCESTOR_WINDOW = 40
+/**
+ * 高频活文档的**深窗口**(2026-09-29 G-806)。立因是量出来的,不是推测:
+ * 同一个 `ANCESTOR_WINDOW = 40` 对普通路径够用(多数文件一生只有几枚~几十枚"动过它"的提交),
+ * 但对台账完全不成立 —— HEAD 现测(2026-09-29):`PROJECT_PLAN.md` 动过的提交 **2744** 枚,
+ * `AGENTS.md` **580**、`README.md` **382**;而 40 枚窗口只回看到 2026-09-29 07:05(+0800),
+ * **≈1 小时 47 分**的时间深度。⇒ 一次陈旧回写若发生在 40 枚之前,整 blob 判据(R1)逐字节比不中、
+ * 行级判据(R1r)的祖先正文也在窗口外,"看不见"表现为**通过** —— 正是本仓最高频的失效型
+ * ("把没判写成判过了")。窗口扩到 400 枚后回看深度 ≈8 小时(实测 2026-09-28 16:52+0000),
+ * 成本只多一次 `git log --max-count=401`(实测 182–346ms)+ 一次 `cat-file --batch-check`
+ * 的 400 条规格(实测 133ms;R1 只比 oid,不读正文)。**2744 > 400,所以深窗口只是把 ② 的
+ * 触发频率压低,不可能根除** —— 窗口用尽的残差必须走下面那条显式出口,不得静默放行。
+ */
+export const ANCESTOR_WINDOW_HOT = 400
+const HOT_DOC_RE = /^(?:PROJECT_PLAN|AGENTS|README)\.md$/
+
+/** 该路径用多深的祖先窗口:三本活文档走深窗口,其余保持浅窗口(普通路径的深窗口是白付钱)。 */
+export function windowFor(p) {
+  const rel = String(p).replace(/\\/g, '/').replace(/^\.\//, '')
+  return HOT_DOC_RE.test(rel) ? ANCESTOR_WINDOW_HOT : ANCESTOR_WINDOW
+}
 // 每文件一次 `git log` + 一次批量 cat-file;超大暂存集(整仓重排)按上限跳过,
 // 避免把 pre-commit 拖到分钟级 —— 那只会逼人 --no-verify 把所有守门一起关掉。
 export const MAX_FILES = 300
@@ -135,10 +161,31 @@ export function resolveBlobs(repoRoot, specs) {
   return catBatchOids(repoRoot, specs)
 }
 
-/** 该路径在 HEAD 上前 ANCESTOR_WINDOW 个"动过它"的提交 */
-export function ancestorCommits(repoRoot, path) {
+/**
+ * 该路径在 HEAD 上前 `windowFor(path)` 个"动过它"的提交,并**如实报窗口是否用尽**。
+ * 返回 `{ shas, truncated, window }`:
+ *  - `shas`      窗口内的祖先提交(至多 window 枚,新→旧);
+ *  - `truncated` **确证**窗口之外还有更老的"动过该路径"的提交(取 window+1 枚探针,拿到满
+ *                window+1 条才算用尽;浅历史拿不满 ⇒ false,那是"历史就到这里",不是"没看")。
+ *    这一维是 G-806 的落点:调用方在"窗口内没命中"时,只有 `truncated` 为真才有资格喊
+ *    "未判定/窗口不足" —— 反过来,把"窗口用尽却没命中"读成"通过了"就是把没判写成判过了。
+ * 语义与旧出口一致:非 Undetermined 的派生失败折成空清单(浅历史同形,由调用方按"没抓到"处理),
+ * Undetermined(读不到:超时/坏 ref)**照旧上抛** —— "没有祖先提交"与"这次没读到"是两件事。
+ */
+export function ancestorWindow(repoRoot, path) {
+  const window = windowFor(path)
+  let shas
   try {
-    return git(['-C', repoRoot, 'log', `--max-count=${ANCESTOR_WINDOW}`, '--format=%H', 'HEAD', '--', path])
+    shas = git([
+      '-C',
+      repoRoot,
+      'log',
+      `--max-count=${window + 1}`,
+      '--format=%H',
+      'HEAD',
+      '--',
+      path,
+    ])
       .split('\n')
       .filter(Boolean)
   } catch (e) {
@@ -147,8 +194,19 @@ export function ancestorCommits(repoRoot, path) {
     // `[]`:"没有祖先提交"与"这次没读到"是两件事,后者会被判成"没有回写"= 把红洗成绿。
     // 真·无历史(`git log` 对无匹配路径)是 exit 0 + 空输出,不走这条。
     if (e instanceof Undetermined) throw e
-    return []
+    return { shas: [], truncated: false, window }
   }
+  const truncated = shas.length > window
+  return { shas: truncated ? shas.slice(0, window) : shas, truncated, window }
+}
+
+/**
+ * 该路径在 HEAD 上前 `windowFor(path)` 个"动过它"的提交 —— `ancestorWindow().shas` 的**投影**,
+ * 不是第二份实现。外部消费者(`object-space-land` 的落地守卫、`check-baseline-freshness` 的③轴
+ * 跨度换算)都从这个出口取清单,窗口长度只住在这一个函数里;返回值**必须仍是数组**(契约)。
+ */
+export function ancestorCommits(repoRoot, path) {
+  return ancestorWindow(repoRoot, path).shas
 }
 
 /** 暂存区改动路径(删除项单列给 R2) */
@@ -215,17 +273,33 @@ export function classifyWorktree(repoRoot, p) {
   if (!wtB) return 'missing'
   if (wtB === idxB) return 'same-as-index'
   if (wtB === headB) return 'ahead-of-index'
-  const anc = ancestorCommits(repoRoot, p)
-  if (anc.length) {
-    const ab = resolveBlobs(repoRoot, anc.map((c) => `${c}:${p}`))
+  // G-806 后窗口对热档更深,但**仍可能用尽**。用尽而未命中时这里给出 'uncommitted-novel' ——
+  // 该标签的下游语义是"禁止建议 --worktree 对齐"(保守方向),把"可能是更早祖先"归进"别动工作树"
+  // 只会少给一条出路的建议,不会删别人的内容 ⇒ 失效方向安全,不另造标签。窗口是否用尽由
+  // `analyze` 的 windowLoss 那一支显式点名,不靠本分类冒充结论。
+  const aw = ancestorWindow(repoRoot, p)
+  if (aw.shas.length) {
+    const ab = resolveBlobs(
+      repoRoot,
+      aw.shas.map((c) => `${c}:${p}`),
+    )
     for (const v of ab.values()) if (v === wtB) return 'lagging-ancestor'
   }
   return 'uncommitted-novel'
 }
 
-export function analyze(repoRoot, paths, { source = 'index' } = {}) {
-  const present =
-    source === 'worktree' ? paths.filter((p) => existsSync(join(repoRoot, p))) : paths
+/**
+ * 核心判据(R1,见上)。source='index' 比对暂存内容;source='worktree' 比对工作区内容。
+ * 返回 [{path, commit}] —— commit 为被写回的那个历史版本。**返回形状是外部契约**
+ * (heal-worktree-tracked / check-baseline-freshness 都按数组用),G-806 不得改它。
+ *
+ * G-806 的 ② 底线:`windowLoss` 传数组进来 ⇒ 每个"与 HEAD 不等、窗口内逐字节没命中、**且窗口
+ * 已确证用尽**"的路径被 push 成 `{path, window, seen}`。这一支不是判据的松紧,而是它的诚实面:
+ * 没有它,"窗口外的陈旧回写"与"真新编辑"在输出里长得一模一样(都安静地通过)。
+ * 不传 ⇒ 返回值与改动前逐字一致(内部只是多带一枚 window+1 探针)。
+ */
+export function analyze(repoRoot, paths, { source = 'index', windowLoss = null } = {}) {
+  const present = source === 'worktree' ? paths.filter((p) => existsSync(join(repoRoot, p))) : paths
   if (!present.length) return []
 
   const wt = source === 'worktree' ? worktreeBlobs(repoRoot, present) : new Map()
@@ -260,15 +334,19 @@ export function analyze(repoRoot, paths, { source = 'index' } = {}) {
     suspects.push({ p, cur })
   }
 
-  const ancestry = new Map(suspects.map(({ p }) => [p, ancestorCommits(repoRoot, p)]))
+  const ancestry = new Map(suspects.map(({ p }) => [p, ancestorWindow(repoRoot, p)]))
   const more = []
-  for (const { p } of suspects) for (const c of ancestry.get(p)) more.push(`${c}:${p}`)
+  for (const { p } of suspects) for (const c of ancestry.get(p).shas) more.push(`${c}:${p}`)
   if (more.length) for (const [k, v] of resolveBlobs(repoRoot, more)) blobs.set(k, v)
 
   const violations = []
   for (const { p, cur } of suspects) {
-    const hit = (ancestry.get(p) ?? []).find((c) => blobs.get(`${c}:${p}`) === cur)
+    const aw = ancestry.get(p)
+    const hit = aw.shas.find((c) => blobs.get(`${c}:${p}`) === cur)
     if (hit) violations.push({ path: p, commit: hit.slice(0, 9) })
+    else if (aw.truncated && windowLoss)
+      // 窗口用尽仍未命中 ⇒ "没抓到" ≠ "没有回写"。点名，不得静默（G-806 ②）。
+      windowLoss.push({ path: p, window: aw.window, seen: aw.shas.length })
   }
   return violations
 }
@@ -312,18 +390,23 @@ export function mergeHeadSha(repoRoot) {
  *   ③ index(P) == P 的某个历史祖先版本      (= 回写;人工解冲突写进的新内容不满足 ③,放过)
  * 一侧缺该路径(add/delete 冲突)不判 —— 那本身就是需要人决定的形态。
  */
-export function analyzeMerge(repoRoot, paths, mergeHead, { source = 'index' } = {}) {
+export function analyzeMerge(
+  repoRoot,
+  paths,
+  mergeHead,
+  { source = 'index', windowLoss = null } = {},
+) {
   if (!mergeHead || !paths.length) return []
   const present = source === 'worktree' ? paths.filter((p) => existsSync(join(repoRoot, p))) : paths
   if (!present.length) return []
   const wt = source === 'worktree' ? worktreeBlobs(repoRoot, present) : new Map()
   if (source === 'worktree' && wt.size !== present.length) return []
 
-  const ancestry = new Map(present.map((p) => [p, ancestorCommits(repoRoot, p)]))
+  const ancestry = new Map(present.map((p) => [p, ancestorWindow(repoRoot, p)]))
   const specs = []
   for (const p of present) {
     specs.push(`:${p}`, `HEAD:${p}`, `${mergeHead}:${p}`)
-    for (const c of ancestry.get(p)) specs.push(`${c}:${p}`)
+    for (const c of ancestry.get(p).shas) specs.push(`${c}:${p}`)
   }
   const blobs = resolveBlobs(repoRoot, specs)
 
@@ -338,8 +421,12 @@ export function analyzeMerge(repoRoot, paths, mergeHead, { source = 'index' } = 
     if (!cur || !ours || !theirs) continue // 删除/取不到/一侧无此路径 → 不判
     if (ours !== theirs) continue // 两父本就不同 → 合并产出任一或融合结果都正当
     if (cur === ours) continue // 与两父一致 → 无外来内容
-    const hit = ancestry.get(p).find((c) => blobs.get(`${c}:${p}`) === cur)
+    const aw = ancestry.get(p)
+    const hit = aw.shas.find((c) => blobs.get(`${c}:${p}`) === cur)
     if (hit) violations.push({ path: p, commit: hit.slice(0, 9) })
+    else if (aw.truncated && windowLoss)
+      // 与 analyze 同一条 ② 底线:合并上下文里"窗口用尽没命中"同样不得静默成通过。
+      windowLoss.push({ path: p, window: aw.window, seen: aw.shas.length })
   }
   return violations
 }
@@ -424,7 +511,9 @@ export function analyzeResurrect(
       // 与 R1 同向**不判红**,但必须**逐条报名** —— 只报一个计数就等于把"没判"藏进汇总里。
       buckets.uncovered.push({
         path: p,
-        reason: !head ? 'HEAD 侧没有该路径(新增文件)⇒ 无"已删的行"可复活' : '暂存侧取不到 blob(删除态 / unmerged)⇒ 无从比对',
+        reason: !head
+          ? 'HEAD 侧没有该路径(新增文件)⇒ 无"已删的行"可复活'
+          : '暂存侧取不到 blob(删除态 / unmerged)⇒ 无从比对',
       })
       continue
     }
@@ -439,13 +528,15 @@ export function analyzeResurrect(
   if (!cand.length) return buckets
 
   // ② 祖先窗口:走 R1 用的同一个出口(窗口长度住在它内部,本门不重复数字)。
+  //    G-806:存 `ancestorWindow` 的完整结果 —— 预算截断(取了 K/窗口枚)与**窗口用尽**(该路径
+  //    还有比窗口更早的版本没被看)是两维,报告必须分开写;把后者混进"判过了"就是又一台瞎尺子。
   const winMap = new Map()
   const logFailed = new Set()
   for (const p of cand) {
     try {
-      winMap.set(p, ancestorCommits(repoRoot, p))
+      winMap.set(p, ancestorWindow(repoRoot, p))
     } catch {
-      winMap.set(p, [])
+      winMap.set(p, { shas: [], truncated: false, window: windowFor(p) })
       logFailed.add(p) // "读不到祖先"与"没有祖先"是两件事,后者才可能真是浅历史
     }
   }
@@ -454,7 +545,7 @@ export function analyzeResurrect(
   const sizeSpecs = []
   for (const p of cand) {
     sizeSpecs.push(`:${p}`, `HEAD:${p}`, `HEAD^:${p}`)
-    for (const c of winMap.get(p)) sizeSpecs.push(`${c}:${p}`)
+    for (const c of winMap.get(p).shas) sizeSpecs.push(`${c}:${p}`)
   }
   let sizes
   try {
@@ -488,7 +579,10 @@ export function analyzeResurrect(
     }
     // 从**最近**的祖先往远处装箱:超预算就截断,而不是整条放弃。截断只少认复活行 ⇒ 偏保守,
     // 但它必须被写进报告(否则"用 3 枚祖先判"读起来像"用 40 枚判过")。
-    const all = winMap.get(p) ?? []
+    // G-806:预算截断(取 K/窗口枚)与**窗口用尽**(该路径还有更早版本没被看)是两维,分开报名。
+    const aw = winMap.get(p) ?? { shas: [], truncated: false, window: windowFor(p) }
+    const all = aw.shas
+    const exhausted = aw.truncated ? `(且该路径祖先深于窗口 ${aw.window} 枚 ⇒ 更早未取)` : ''
     const used = []
     let bytes = 0
     for (const c of all) {
@@ -500,7 +594,10 @@ export function analyzeResurrect(
     if (used.length === 0 && all.length > 0) {
       // **有**祖先却一枚都读不进预算 ⇒ 这是"没判",不是"没有可对照的历史"(后者才是 out-of-scope)。
       // 两者混成一桶就是把"没读到"写成"查过了",本仓最高频的失效型。
-      pushU(p, `单路径预算 ${pathBudgetBytes}B 不足以读最近一枚祖先正文(${sizes.get(`${all[0]}:${p}`) ?? '?'}B)⇒ 未判定`)
+      pushU(
+        p,
+        `单路径预算 ${pathBudgetBytes}B 不足以读最近一枚祖先正文(${sizes.get(`${all[0]}:${p}`) ?? '?'}B)⇒ 未判定${exhausted}`,
+      )
       continue
     }
     if (usedBytes + bytes > runBudgetBytes) {
@@ -508,10 +605,11 @@ export function analyzeResurrect(
       continue
     }
     usedBytes += bytes
-    winUsed.set(p, { used, total: all.length })
+    winUsed.set(p, { used, total: all.length, exhausted: aw.truncated, window: aw.window })
     toRead.set(p, [`:${p}`, `HEAD:${p}`, ...used.map((c) => `${c}:${p}`)])
   }
-  for (const p of budgetSkipped) pushU(p, `门档本轮总读取预算(${RESURRECT_RUN_BUDGET_BYTES}B)已耗尽 ⇒ 未判定(不是"没有复活")`)
+  for (const p of budgetSkipped)
+    pushU(p, `门档本轮总读取预算(${RESURRECT_RUN_BUDGET_BYTES}B)已耗尽 ⇒ 未判定(不是"没有复活")`)
 
   let texts = new Map()
   if (toRead.size) {
@@ -525,22 +623,33 @@ export function analyzeResurrect(
 
   const flagged = []
   for (const p of toRead.keys()) {
-    const { used, total } = winUsed.get(p)
+    const { used, total, exhausted, window } = winUsed.get(p)
     const r = resurrectAnalysis({
       baseText: texts.get(`HEAD:${p}`) ?? null,
       newText: texts.get(`:${p}`) ?? null,
       maxBlobBytes,
-      ancestors: used.map((c) => ({ commit: c.slice(0, 9), sha: c, text: texts.get(`${c}:${p}`) ?? null })),
+      ancestors: used.map((c) => ({
+        commit: c.slice(0, 9),
+        sha: c,
+        text: texts.get(`${c}:${p}`) ?? null,
+      })),
     })
     if (r.status === 'undetermined') pushU(p, r.reason)
     else if (r.status === 'out-of-scope') buckets.uncovered.push({ path: p, reason: r.reason })
-    else if (r.count > 0) flagged.push({ path: p, ...r, usedShas: used, total })
+    else if (r.count > 0) flagged.push({ path: p, ...r, usedShas: used, total, exhausted, window })
     else if (used.length < total) {
       // 量到 0 行**但窗口被预算截断过** ⇒ 这是一个更弱的结论,不得与"用满窗口判过且干净"混成一色
       // (把"少看了"写成"看过了",与本仓最高频失效型同一条禁令)。
       buckets.uncovered.push({
         path: p,
-        reason: `复活 0 行,但祖先窗口按预算只取最近 ${used.length}/${total} 枚 ⇒ 该结论覆盖不全`,
+        reason: `复活 0 行,但祖先窗口按预算只取最近 ${used.length}/${total} 枚 ⇒ 该结论覆盖不全${exhausted ? `(且窗口已用尽:该路径动过的提交深于 ${window} 枚 ⇒ 更早未取)` : ''}`,
+      })
+    } else if (exhausted) {
+      // G-806:预算装得下整窗,但**窗口本身用尽**(该路径还有比窗口更早的版本没看)⇒ 量到 0 行
+      // 同样只是"窗口内没查到"。没有这一支,深文件的小步回写(祖先正文都很小、旧版静默通过)照旧隐身。
+      buckets.uncovered.push({
+        path: p,
+        reason: `复活 0 行,但祖先窗口(${window} 枚)已用尽、该路径更早的版本未取 ⇒ 覆盖不全,不是"判过且干净"`,
       })
     }
   }
@@ -554,7 +663,10 @@ export function analyzeResurrect(
   const headParentSha = revParseOr(repoRoot, 'HEAD^')
   let anchorTexts
   try {
-    anchorTexts = catBatch(repoRoot, flagged.map((f) => `HEAD^:${f.path}`))
+    anchorTexts = catBatch(
+      repoRoot,
+      flagged.map((f) => `HEAD^:${f.path}`),
+    )
   } catch (e) {
     for (const f of flagged) pushU(f.path, `HEAD^ 侧正文读取失败:${firstLine(e)} ⇒ 存量无从对齐`)
     return buckets
@@ -569,7 +681,10 @@ export function analyzeResurrect(
     const truncated = f.usedShas.length < f.total
     let anchor
     if (!headParentSha) {
-      pushU(f.path, `复活 ${f.count} 行,但仓库没有 HEAD^(只有一枚提交)⇒ 无从量 HEAD 侧存量,不计红也不计绿`)
+      pushU(
+        f.path,
+        `复活 ${f.count} 行,但仓库没有 HEAD^(只有一枚提交)⇒ 无从量 HEAD 侧存量,不计红也不计绿`,
+      )
       continue
     }
     if (older.length === 0) {
@@ -596,6 +711,9 @@ export function analyzeResurrect(
       truncated,
       windowUsed: f.usedShas.length,
       windowTotal: f.total,
+      // G-806:两维分开 —— truncated=预算截断;windowExhausted=窗口用尽(更早版本没看)。
+      windowExhausted: f.exhausted,
+      windowDepth: f.window,
     }
     if (f.count > anchor.count) buckets.red.push(entry)
     else buckets.stock.push(entry)
@@ -611,16 +729,30 @@ function renderResurrect(rr) {
       `❌ [R1r] 检出 ${rr.red.length} 个路径把「HEAD 已删、祖先版本写过」的行搬进了暂存内容(混合体回写;整 blob 判据 R1 对这一型看不见):`,
     )
     for (const v of rr.red.slice(0, 30)) {
-      const win = v.truncated ? `  [祖先窗口按预算取最近 ${v.windowUsed}/${v.windowTotal} 枚 ⇒ 只会少认,不会多认]` : ''
-      lines.push(`   - ${v.path}  复活 ${v.count} 行(HEAD 侧自身存量 ${v.anchor} 行)${v.commits.length ? `  ← 见于祖先 ${v.commits.slice(0, 3).join(', ')}` : ''}${win}`)
+      const win = v.truncated
+        ? `  [祖先窗口按预算取最近 ${v.windowUsed}/${v.windowTotal} 枚 ⇒ 只会少认,不会多认]`
+        : ''
+      // G-806:窗口用尽是另一维 —— 红行本就点名了祖先,但若窗口见底,余下的更早部分同样没判,如实补一句。
+      const exh = v.windowExhausted ? `  [窗口 ${v.windowDepth} 枚已用尽:该路径更早的版本未取]` : ''
+      lines.push(
+        `   - ${v.path}  复活 ${v.count} 行(HEAD 侧自身存量 ${v.anchor} 行)${v.commits.length ? `  ← 见于祖先 ${v.commits.slice(0, 3).join(', ')}` : ''}${win}${exh}`,
+      )
       for (const l of v.sample) lines.push(`       ↺ 复活: ${l}`)
     }
     if (rr.red.length > 30) lines.push(`   ... 另有 ${rr.red.length - 30} 个`)
     lines.push('   成因与 R1 同族(共享工作区滞后 HEAD 的副本被 `git add`),但**这一型 R1 看不见**:')
-    lines.push('   暂存内容并不等于任何祖先版本,它是"滞后副本 ⊕ 本次新增"的混合体 ⇒ 只有行级比对认得出。')
-    lines.push('   出口 ① 取 HEAD 形态重新施加你的改动(活文档一律走 `node scripts/merge-live-doc.mjs --file <文档>`)')
-    lines.push('   出口 ② 旁路落地用 `node scripts/object-space-land.mjs`(它带同一条行级守卫,不碰共享工作树)')
-    lines.push(`   出口 ③ 确属有意搬回这些行 → 显式 \`git revert\`/前向提交,或 ${SKIP_ENV}=1 并在提交信息写明理由`)
+    lines.push(
+      '   暂存内容并不等于任何祖先版本,它是"滞后副本 ⊕ 本次新增"的混合体 ⇒ 只有行级比对认得出。',
+    )
+    lines.push(
+      '   出口 ① 取 HEAD 形态重新施加你的改动(活文档一律走 `node scripts/merge-live-doc.mjs --file <文档>`)',
+    )
+    lines.push(
+      '   出口 ② 旁路落地用 `node scripts/object-space-land.mjs`(它带同一条行级守卫,不碰共享工作树)',
+    )
+    lines.push(
+      `   出口 ③ 确属有意搬回这些行 → 显式 \`git revert\`/前向提交,或 ${SKIP_ENV}=1 并在提交信息写明理由`,
+    )
   }
   if (rr.stock.length) {
     lines.push(
@@ -628,26 +760,32 @@ function renderResurrect(rr) {
     )
     for (const v of rr.stock.slice(0, 15))
       lines.push(
-        `   - ${v.path}  复活 ${v.count} 行(HEAD 侧存量 ${v.anchor} 行)${v.truncated ? ` [祖先窗口取最近 ${v.windowUsed}/${v.windowTotal} 枚]` : ''}`,
+        `   - ${v.path}  复活 ${v.count} 行(HEAD 侧存量 ${v.anchor} 行)${v.truncated ? ` [祖先窗口取最近 ${v.windowUsed}/${v.windowTotal} 枚]` : ''}${v.windowExhausted ? ` [窗口 ${v.windowDepth} 枚用尽,更早未取]` : ''}`,
       )
     if (rr.stock.length > 15) lines.push(`   ... 另有 ${rr.stock.length - 15} 个`)
   }
   if (rr.uncovered.length) {
-    lines.push(`ℹ️  [R1r 未覆盖] ${rr.uncovered.length} 个路径不在这条行级判据的射程内(**未覆盖 ≠ 通过**;整 blob 那一支仍照判):`)
+    lines.push(
+      `ℹ️  [R1r 未覆盖] ${rr.uncovered.length} 个路径不在这条行级判据的射程内(**未覆盖 ≠ 通过**;整 blob 那一支仍照判):`,
+    )
     for (const v of rr.uncovered.slice(0, 15)) lines.push(`   - ${v.path}: ${v.reason}`)
     if (rr.uncovered.length > 15) lines.push(`   ... 另有 ${rr.uncovered.length - 15} 个`)
   }
   if (rr.undetermined.length) {
-    lines.push(`❓ [R1r 未判定] ${rr.undetermined.length} 个路径**没读到结论**(不是"检查过且干净",不得被读成通过):`)
+    lines.push(
+      `❓ [R1r 未判定] ${rr.undetermined.length} 个路径**没读到结论**(不是"检查过且干净",不得被读成通过):`,
+    )
     for (const v of rr.undetermined.slice(0, 15)) lines.push(`   - ${v.path}: ${v.reason}`)
     if (rr.undetermined.length > 15) lines.push(`   ... 另有 ${rr.undetermined.length - 15} 个`)
   }
   return lines
 }
 
-/** 结论行:有未判定/未覆盖时**必须带着它**,否则账面读起来像"全部判过且干净"。 */
-function verdictLine(modifiedCount, rr) {
+/** 结论行:有未判定/未覆盖/窗口不足时**必须带着它**,否则账面读起来像"全部判过且干净"。
+ *  `r1WindowLoss` 是 G-806 ② 的那一维:R1 侧"窗口用尽而没命中"的路径数 —— 它既不是红也不许被读成绿。 */
+function verdictLine(modifiedCount, rr, r1WindowLoss = 0) {
   const tail = []
+  if (r1WindowLoss) tail.push(`${r1WindowLoss} 处窗口不足未判定(R1)`)
   if (rr?.undetermined.length) tail.push(`${rr.undetermined.length} 处未判定`)
   if (rr?.uncovered.length) tail.push(`${rr.uncovered.length} 处未覆盖`)
   if (rr?.stock.length) tail.push(`${rr.stock.length} 处复活只报数(存量)`)
@@ -686,9 +824,16 @@ function audit(repoRoot, { staged }) {
   const mergeHead = exempt ? mergeHeadSha(repoRoot) : null
   const src = staged ? 'index' : 'worktree'
   let violations = []
-  if (!exempt) violations = analyze(repoRoot, judged, { source: src })
+  /**
+   * G-806 ② 的收集口:R1/R1m 里"与 HEAD 不等、窗口内未命中、且窗口确证用尽"的路径。
+   * 它们不判红(窗口外无从取证,判红就是凭空定罪),但**必须逐条点名并带进结论行** ——
+   * 旧行为是让这一型安静地通过,账面与"真新编辑"完全同形,而"把没判写成判过了"是本仓
+   * 最高频的失效型(§12e/守门 94/103/118 一脉)。
+   */
+  const windowLoss = []
+  if (!exempt) violations = analyze(repoRoot, judged, { source: src, windowLoss })
   else if (mergeHead) {
-    violations = analyzeMerge(repoRoot, judged, mergeHead, { source: src })
+    violations = analyzeMerge(repoRoot, judged, mergeHead, { source: src, windowLoss })
     lines.push(
       `⚠️  合并上下文中:R1 未整轮豁免,改判"两父一致而暂存内容等于历史版本"(theirs=${mergeHead.slice(0, 9)}) —— 待判 ${judged.length} 个路径,命中 ${violations.length} 枚`,
     )
@@ -701,7 +846,8 @@ function audit(repoRoot, { staged }) {
    */
   let rr = null
   if (staged) {
-    if (!exempt || mergeHead) rr = analyzeResurrect(repoRoot, judged, mergeHead ? { mergeHead } : {})
+    if (!exempt || mergeHead)
+      rr = analyzeResurrect(repoRoot, judged, mergeHead ? { mergeHead } : {})
     else lines.push('⚠️  [R1r] 随 R1 一并豁免(cherry-pick/revert/rebase 上下文)')
     if (rr) {
       lines.push(...renderResurrect(rr))
@@ -718,7 +864,9 @@ function audit(repoRoot, { staged }) {
     for (const v of violations.slice(0, 30)) lines.push(`   - ${v.path}  ==  ${v.commit}`)
     if (violations.length > 30) lines.push(`   ... 另有 ${violations.length - 30} 个`)
     lines.push('')
-    lines.push('   最常见成因:共享工作区落后 HEAD(converge 只推进 index 不 checkout)→ 提交的是旧基线。')
+    lines.push(
+      '   最常见成因:共享工作区落后 HEAD(converge 只推进 index 不 checkout)→ 提交的是旧基线。',
+    )
     /**
      * 出口按**工作树形态**分流。原提示无条件先建议 `git restore --source=HEAD --worktree`,
      * 而"索引旧 / 工作树是别人未提交的真新内容"这一格里,照它做就是替别人删掉未提交的工作。
@@ -736,15 +884,9 @@ function audit(repoRoot, { staged }) {
       lines.push('        再重新施加你的改动;')
     }
     if (novel.size) {
-      lines.push(
-        `     ⚠️ 其中 ${novel.size} 个路径的**工作树副本不等于该文件任何祖先版本** ——`,
-      )
-      lines.push(
-        '        那不是工作区滞后,是有人正在写、还没 `add`。这一格**禁止** --worktree:',
-      )
-      lines.push(
-        '        那等于替别人把工作树里未提交的新内容抹掉。安全出口只有两条:',
-      )
+      lines.push(`     ⚠️ 其中 ${novel.size} 个路径的**工作树副本不等于该文件任何祖先版本** ——`)
+      lines.push('        那不是工作区滞后,是有人正在写、还没 `add`。这一格**禁止** --worktree:')
+      lines.push('        那等于替别人把工作树里未提交的新内容抹掉。安全出口只有两条:')
       lines.push('          · 只对齐索引、不动工作树:git restore --staged -- <文件>')
       lines.push('          · 或等该文件持有者自己 add 新版本再提交(活文档走这条)')
       for (const p of [...novel].slice(0, 8)) lines.push(`          ! ${p}`)
@@ -753,8 +895,22 @@ function audit(repoRoot, { staged }) {
     lines.push('     ② 确属有意回退 → 改用 `git revert <commit>` 生成前向提交,')
     lines.push(`        或 ${SKIP_ENV}=1 并在提交信息里写明理由。`)
   }
+  if (windowLoss.length) {
+    lines.push(
+      `❓ [R1 未判定] ${windowLoss.length} 个路径"窗口内没命中"但**祖先历史深于窗口** ⇒ 不等于"没有回写",不得读成通过:`,
+    )
+    for (const v of windowLoss.slice(0, 15))
+      lines.push(
+        `   - ${v.path}: 窗口 ${v.window} 枚用尽仍未逐字节命中(该路径更早的版本在窗口外,未判)`,
+      )
+    if (windowLoss.length > 15) lines.push(`   ... 另有 ${windowLoss.length - 15} 个`)
+    lines.push(
+      '   出路:人工核对该路径更早的历史版本(`git log -- <文件>`),或确认它是真新编辑后照常提交;',
+    )
+    lines.push('   热档(三本活文档)已走深窗口 ANCESTOR_WINDOW_HOT,仍报这一型说明回写点深于该窗口。')
+  }
   if (deleted.length) lines.push(...deleteWarn(deleted))
-  if (!failed) lines.push(verdictLine(modified.length, rr))
+  if (!failed) lines.push(verdictLine(modified.length, rr, windowLoss.length))
   return { code: failed ? 1 : 0, lines }
 }
 
@@ -802,7 +958,10 @@ function selfTestRun() {
      * 对"索引旧、工作树是别人未提交的真新内容"那一格建议对齐工作树,等于替别人删掉未提交的工作。
      * 四条各占一个真实形态,缺一即说明分类有一格没被证明。
      */
-    check('5e 索引与工作树同为旧版 ⇒ same-as-index(可安全对齐工作树)', classifyWorktree(repo, 'a.ts') === 'same-as-index')
+    check(
+      '5e 索引与工作树同为旧版 ⇒ same-as-index(可安全对齐工作树)',
+      classifyWorktree(repo, 'a.ts') === 'same-as-index',
+    )
     writeFileSync(join(repo, 'a.ts'), 'v4-never-committed\n')
     check(
       '5f 工作树不等于索引/HEAD/任何祖先 ⇒ uncommitted-novel(禁止建议 --worktree)',
@@ -890,7 +1049,9 @@ function selfTestRun() {
       if (!r.ok) fail++
     }
     console.log(
-      fail ? `self-test FAILED ${fail}/${results.length}` : `✅ check-stale-revert self-test 全部通过(${results.length} 例)`,
+      fail
+        ? `self-test FAILED ${fail}/${results.length}`
+        : `✅ check-stale-revert self-test 全部通过(${results.length} 例)`,
     )
     return fail ? 1 : 0
   } finally {
@@ -914,12 +1075,14 @@ async function main() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
 if (isDirectRun) {
-  main().then((code) => {
-    if (code) process.exit(code)
-  }).catch((e) => {
-    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
-    process.exit(2)
-  })
+  main()
+    .then((code) => {
+      if (code) process.exit(code)
+    })
+    .catch((e) => {
+      console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+      process.exit(2)
+    })
 }
 
 export const __test__ = {
@@ -938,6 +1101,10 @@ export const __test__ = {
   MULTIPLIER_RE,
   SKIP_ENV,
   ANCESTOR_WINDOW,
+  ANCESTOR_WINDOW_HOT,
+  windowFor,
+  ancestorWindow,
+  ancestorCommits,
   MAX_FILES,
   RESURRECT_GATE_MAX_BLOB_BYTES,
   RESURRECT_PATH_BUDGET_BYTES,
