@@ -39,6 +39,7 @@ import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { getSystemAccessToken } from '../utils/system-access-token.js'
+import { fetchWithinDeadline, type FetchDeadlineImpl } from '../utils/fetch-deadline.js'
 
 // ===== 类型定义 =====
 
@@ -553,31 +554,29 @@ const fetchWithTimeout = async (
   opts: RequestInit = {},
   timeoutMs = 20000,
 ): Promise<Response> => {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    // 2026-09-04:本机网络阻断大量国外数据源(huggingface/lmarena/suno/mistral 等 50+ 站)。
-    // 配置 SYNC_PROXY_URL(如 http://127.0.0.1:7897)后,同步抓取走出站代理;
-    // 不配置则行为不变。localhost/内网地址永不走代理(ai-service 本地调用不受影响)。
-    const proxyUrl = process.env.SYNC_PROXY_URL
-    const isLocal = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/i.test(url)
-    if (proxyUrl && !isLocal) {
-      const dispatcher = getSyncProxyAgent(proxyUrl)
-      if (dispatcher) {
-        // 2026-09-05 根治:Node 22.22 的全局 fetch 已移除 RequestInit.dispatcher 支持
-        // (实测 UND_ERR_INVALID_ARG),代理分支必须用 undici 自带 fetch 显式传 dispatcher
-        const res = await undiciFetch(url, {
-          ...(opts as Record<string, unknown>),
-          signal: controller.signal,
-          dispatcher,
-        } as Parameters<typeof undiciFetch>[1])
-        return res as unknown as Response
-      }
+  // 2026-09-04:本机网络阻断大量国外数据源(huggingface/lmarena/suno/mistral 等 50+ 站)。
+  // 配置 SYNC_PROXY_URL(如 http://127.0.0.1:7897)后,同步抓取走出站代理;
+  // 不配置则行为不变。localhost/内网地址永不走代理(ai-service 本地调用不受影响)。
+  // G-814420(2026-09-29):deadline 罩到响应体消费结束(旧写法 headers 一到就 clearTimeout,
+  // 源站在响应头之后停滞会永久占住这条逐源串行的同步队列)。代理分支只换 fetch 实现,
+  // 计时/abort/收口共用 utils/fetch-deadline.ts 那一份。
+  const label = `ai-world-sync 抓取 ${url}`
+  const proxyUrl = process.env.SYNC_PROXY_URL
+  const isLocal = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/i.test(url)
+  if (proxyUrl && !isLocal) {
+    const dispatcher = getSyncProxyAgent(proxyUrl)
+    if (dispatcher) {
+      // 2026-09-05 根治:Node 22.22 的全局 fetch 已移除 RequestInit.dispatcher 支持
+      // (实测 UND_ERR_INVALID_ARG),代理分支必须用 undici 自带 fetch 显式传 dispatcher
+      const proxiedInit: RequestInit & { dispatcher?: unknown } = { ...opts, dispatcher }
+      return fetchWithinDeadline(url, proxiedInit, {
+        timeoutMs,
+        label,
+        fetchImpl: undiciFetch as unknown as FetchDeadlineImpl,
+      })
     }
-    return await fetch(url, { ...opts, signal: controller.signal })
-  } finally {
-    clearTimeout(timer)
   }
+  return fetchWithinDeadline(url, opts, { timeoutMs, label })
 }
 
 /** SYNC_PROXY_URL 对应的 ProxyAgent 单例(懒加载,进程内复用连接池) */
