@@ -88,8 +88,8 @@
     {
       "path": "packages/services/src",
       "status": "windowed",
-      "read": 269,
-      "notes": "第 1 波 E1-E7 覆盖 session/zcode-agent/bots/git/storage/process/runtime-tools/terminal/file/cua-permission-broker/subagents/setting/feedback/plugins/skill-sync/conversation-share;W3-10 补 fs/memory/settings-sync/fileWatcher/faultInjection。 ｜09-29 第五十九批:bots/git/storage 三簇具名整读 46 枚(storage 全 13、git 全 15、bots 21/27 —— 其余 5 份 providers/*Provider 与两路 ChannelRuntime 共 3691 行未读;botsService.ts 6363 行只读约 410 行 ⇒ **不得当该文件已审**)。 ｜09-29 第六十一批:bots 残余 5 份整读到体(feishuProvider 1902、weixinProvider 674、replyFormatter 421、feishuChannelRuntime 351、weixinChannelRuntime 343),该簇 27/27 已全覆盖;支撑件 providerRequest.ts 80 与 channelRuntime.ts 290 亦读到体(早先已计,不重复)。botsService.ts 6363 行**仍只按区段读**(本批新增 1995-2084/2500-2840/3800-3869/5235-5275),凡引用它的结论都只覆盖已读区段。",
+      "read": 282,
+      "notes": "第 1 波 E1-E7 覆盖 session/zcode-agent/bots/git/storage/process/runtime-tools/terminal/file/cua-permission-broker/subagents/setting/feedback/plugins/skill-sync/conversation-share;W3-10 补 fs/memory/settings-sync/fileWatcher/faultInjection。 ｜09-29 第五十九批:bots/git/storage 三簇具名整读 46 枚(storage 全 13、git 全 15、bots 21/27 —— 其余 5 份 providers/*Provider 与两路 ChannelRuntime 共 3691 行未读;botsService.ts 6363 行只读约 410 行 ⇒ **不得当该文件已审**)。 ｜09-29 第六十一批:bots 残余 5 份整读到体(feishuProvider 1902、weixinProvider 674、replyFormatter 421、feishuChannelRuntime 351、weixinChannelRuntime 343),该簇 27/27 已全覆盖;支撑件 providerRequest.ts 80 与 channelRuntime.ts 290 亦读到体(早先已计,不重复)。botsService.ts 6363 行**仍只按区段读**(本批新增 1995-2084/2500-2840/3800-3869/5235-5275),凡引用它的结论都只覆盖已读区段。 第六十二批(2026-09-29):session 簇按代理报告**下界**回填 read+13(原文\"13 份 / 1,180 行,勿按 19 计\");core 三槽位簇本轮报告未随附可复核文件清单,故其 5 份**不回填**,由下一轮现量后再计(取不到证据宁可少报)。",
       "remaining": "commandsService.ts,conversationShareArtifactDiscovery.ts,conversationShareSource.ts,conversationShareHttpClient.ts,pluginSyncArchive.ts,settingsSyncService.ts,clientConfigScenes 实现 2 个 ｜09-29 第十九轮回填:本轮具名整读到体 1 枚,其中 1 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 6 枚,指针 6 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正)",
       "evidence": [
         "packages/services/src/conversation-share/conversationShareIntegrity.ts:1-40",
@@ -122,7 +122,10 @@
         "packages/services/src/bots/providers/weixinProvider.ts:151-156",
         "packages/services/src/bots/weixinChannelRuntime.ts:159-163",
         "packages/services/src/bots/replyFormatter.ts:270-286",
-        "packages/services/src/bots/replyFormatter.ts:356-361"
+        "packages/services/src/bots/replyFormatter.ts:356-361",
+        "packages/services/src/session/taskIndexRepo.ts:872-884",
+        "packages/services/src/session/taskIndexRepo.ts:925-933",
+        "packages/services/src/bots/botsService.ts:4808-4814"
       ],
       "tickets": [
         "G-814410",
@@ -138,7 +141,8 @@
         "G-815415",
         "G-815416",
         "G-815417",
-        "G-815418"
+        "G-815418",
+        "G-815919"
       ]
     },
     {
@@ -456,7 +460,13 @@
         "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/dwf-journal-codecs.ts:317-321",
         "apps/zcode-cli/packages/adapters/src/skills/index.ts:194-215",
         "apps/zcode-cli/packages/adapters/src/skills/index.ts:231",
-        "apps/zcode-cli/packages/adapters/src/skills/index.ts:113-128"
+        "apps/zcode-cli/packages/adapters/src/skills/index.ts:113-128",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/migrations.ts:30-36",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/sessions.ts:281-306",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/sessions.ts:254-278",
+        "apps/zcode-cli/packages/adapters/src/model/streaming-tool-call-assembler.ts:33-42",
+        "apps/zcode-cli/packages/adapters/src/model/runner-stream.ts:445-458",
+        "apps/zcode-cli/packages/adapters/src/model/runner-stream.ts:545-549"
       ],
       "rejectedEvidence": [
         "apps/zcode-cli/packages/adapters/src/fs/index.ts:740"
@@ -464,7 +474,10 @@
       "rejectedNote": "fs/index.ts:735-753 是**反例**:rename 外套裸 catch 后用 O_CREAT|O_TRUNC 原地重写真身 ⇒ ENOSPC/EACCES 时先删临时文件再截断用户原文件;Windows 目标被占用时 rename 回 EPERM(守门 122 头注已记为实测事实)⇒ 最常见机型上每次并发保存都走非原子原地写且调用方无信号。我方 atomic-write.ts 全文件 O_TRUNC 零命中并由守门 122 R2/R3 判接线 ⇒ 该格我方严格优于上游,登记为 122 判据合理性的外部证据,不得抄。",
       "notes": "失败分类/重试预算/出站策略。反例:上游把 rename 失败静默降级成 O_TRUNC 原地写 ⇒ 我方守门 122 反向不得引入 fallback-to-truncate。剩余 exec 24/mcp 19/plugins 15/storage 仓储面 ≈30/config 7/model 40。",
       "tickets": [
-        "G-814412"
+        "G-814412",
+        "G-815919",
+        "G-815920",
+        "G-815921"
       ]
     },
     {
@@ -719,6 +732,9 @@
     "G-815415": "入站缺平台 id 时每次伪造 UUID ⇒ 重投二次落库二次入队;含失败撤回标记那一半(可落地)",
     "G-815416": "出站无重试无退避且\"2xx + code!=0 / 没回 message_id\"被当成功(可落地;取判据形状不抄数值)",
     "G-815417": "长文本直投不分段不折叠告知(可落地;刻意不抄上游无标记硬字节切)",
-    "G-815418": "im-gateway 验签面两处自身缺陷:密钥取材由客户端自报 userId 决定 + adapter 存在性先于验签泄露;HMAC 算在再序列化对象而非原始字节(可落地)"
+    "G-815418": "im-gateway 验签面两处自身缺陷:密钥取材由客户端自报 userId 决定 + adapter 存在性先于验签泄露;HMAC 算在再序列化对象而非原始字节(可落地)",
+    "G-815919": "会话归档是一等列(schema+行型+编解码三格)而非删除副产品;我方只有 delete_thread 零归档/墓碑(可落地)",
+    "G-815920": "维护性写必须\"只拥有自己那一列 + 旧值 CAS + changes 计数回报\";chat-queries 27 处写站点仅 4 处带属主条件(交付物=三态尺子,不批量加 where)",
+    "G-815921": "缓冲合成事件必须在边界处排空再发终态;我方 5 处 .flush( 无一绑定在 terminal/permission 发射前 —— 先做逐发射点三态量算(可落地)"
   }
 }
