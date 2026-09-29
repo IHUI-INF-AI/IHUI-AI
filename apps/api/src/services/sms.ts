@@ -208,9 +208,14 @@ export async function sendSmsMessage(
   try {
     if (env.ALI_SMS_ACCESS_KEY_ID && env.ALI_SMS_ACCESS_KEY_SECRET) {
       const signName = env.ALI_SMS_SIGN_NAME
-      const templateCode = env.ALI_SMS_TEMPLATE_CODE
+      // 2026-09-29:通用通知与验证码的模板占位符不同(验证码 {code} / 通知 {content}),
+      // 共用一个 ALI_SMS_TEMPLATE_CODE 必被阿里云以占位符不匹配拒发(催缴/站内通知走
+      // {content} 全会失败)。通知类显式走 ALI_SMS_NOTIFY_TEMPLATE_CODE,未配置时回落
+      // 旧变量保持既有行为 —— 回落档发送仍会因占位符不匹配失败,但失败会如实进留痕
+      // (failed 档),不会冒充成功;真正修好要等机构申请到含 ${content} 的通知模板。
+      const templateCode = env.ALI_SMS_NOTIFY_TEMPLATE_CODE || env.ALI_SMS_TEMPLATE_CODE
       if (!signName || !templateCode) {
-        logger.warn('阿里云短信缺少 ALI_SMS_SIGN_NAME 或 ALI_SMS_TEMPLATE_CODE,降级为 console', {
+        logger.warn('阿里云短信缺少 ALI_SMS_SIGN_NAME 或模板 CODE,降级为 console', {
           phone,
         })
         return { success: true }
