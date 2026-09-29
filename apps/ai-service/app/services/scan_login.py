@@ -54,48 +54,63 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         "success_cookies": ["z_c0"],
         "success_url_pattern": r"^https?://(www\.)?zhihu\.com/?($|#|\?)|/people/|/follow",
         "fallback_url_pattern": r"^https?://(www\.)?zhihu\.com/?$",
+        # 2026-09-30 实测:「其他扫码方式:微信」(Qrcode-guide-message)合成点击不触发
+        # 码切换(监听绑内层节点),微信通道放弃,走知乎 App 扫码。
     },
     "bilibili": {
         "name": "B站",
         "login_url": "https://passport.bilibili.com/login",
         "success_cookies": ["SESSDATA", "DedeUserID"],
         "success_url_pattern": r"^https?://(www\.)?bilibili\.com/?($|#|\?)|bilibili\.com/index",
+        # 2026-09-30 探针实测:登录页有 span.btn.wechat「微信登录」按钮(此前判断有误)
+        "scan_tab_selectors": ('span.btn.wechat',),
     },
     "xiaohongshu": {
         "name": "小红书",
         "login_url": "https://www.xiaohongshu.com/explore",
         "success_cookies": ["web_session"],  # 2026-09-15:剔除 webId/a1 登录前游客 cookie,避免误报
         "success_url_pattern": r"^https?://(www\.)?xiaohongshu\.com/explore",
+        # 2026-09-30 探针实测:登录层有 .tip-text.wechat 微信入口(图标+文本)
+        "scan_tab_selectors": ('.tip-text.wechat',),
     },
     "weibo": {
         "name": "微博",
         "login_url": "https://passport.weibo.com/sso/signin?entry=miniblog&source=miniblog&disp=popup&url=https%3A%2F%2Fweibo.com%2Fu%2F0",
         "success_cookies": ["SUB", "MLOGIN"],
         "success_url_pattern": r"weibo\.com/u/\d+",
+        # 2026-09-30 探针实测:登录页有「微信登录」span(cursor-pointer)
+        "scan_tab_selectors": ('span:has-text("微信登录")',),
     },
     "douyin": {
         "name": "抖音",
         "login_url": "https://www.douyin.com/",
         "success_cookies": ["sessionid", "uid_tt", "sid_tt"],
         "success_url_pattern": r"douyin\.com/$",
+        # 2026-09-30 探针实测:抖音登录页无任何微信入口(全平台唯一),走 App 扫码
     },
     "kuaishou": {
         "name": "快手",
         "login_url": "https://www.kuaishou.com/",
         "success_cookies": ["userId", "kuaishou.server.web_st"],
         "success_url_pattern": r"kuaishou\.com/$",
+        # 2026-09-30 实测:需先点「立即登录」弹层,但弹层内只有「快手APP登录/手机号登录」
+        # 两个 tab,无微信码入口(探针命中的「微信扫码」是页面隐藏元素)→ 走 App 扫码。
     },
     "csdn": {
         "name": "CSDN",
         "login_url": "https://passport.csdn.net/login",
         "success_cookies": ["UserName", "UserToken", "UserSecret"],
         "success_url_pattern": r"^https?://(www\.)?csdn\.net/?($|#|\?)|blog\.csdn\.net",
+        # 2026-09-30 探针实测:有「微信登录」tab(实测时已是 tabs-active,点击幂等)
+        "scan_tab_selectors": ('span:has-text("微信登录")',),
     },
     "juejin": {
         "name": "掘金",
         "login_url": "https://juejin.cn/login",
         "success_cookies": ["sessionid", "signatureId"],
         "success_url_pattern": r"^https?://(www\.)?juejin\.cn/?($|#|\?)|/dashboard",
+        # 2026-09-30 实测:第三方「微信」图标是 OAuth 弹窗模式(点开独立窗口扫码),
+        # 主页面截图架构拿不到弹窗里的码 → 保持默认掘金 App 扫码,不配微信计划。
     },
     "shipinhao": {
         "name": "视频号",
