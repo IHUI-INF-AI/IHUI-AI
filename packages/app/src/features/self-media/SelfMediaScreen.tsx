@@ -9,7 +9,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type TextStyle,
   type ViewStyle,
@@ -19,6 +18,7 @@ import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/t
 import type { TFunction } from '@ihui/types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { TextField } from '../../components/TextField'
 
 /**
  * SelfMediaScreen 自媒体助手(共享层)
@@ -210,7 +210,8 @@ export function SelfMediaScreen({
 
                     {expanded ? (
                       <View style={styles.skillBody}>
-                        <TextInput
+                        <TextField
+                          colorScheme={colorScheme}
                           value={prompt}
                           onChangeText={onPromptChange}
                           placeholder={skill.examples[0] || t('selfMedia.promptPlaceholder')}

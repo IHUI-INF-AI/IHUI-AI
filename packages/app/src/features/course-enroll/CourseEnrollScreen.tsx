@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   FlatList,
   RefreshControl,
-  TextInput,
   StyleSheet,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
@@ -17,6 +16,7 @@ import type { CourseEnrollItem, CourseEnrollScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** 课程报名共享屏 — props 注入式跨端组件 */
 export type { CourseEnrollItem, CourseEnrollScreenProps }
@@ -56,7 +56,8 @@ export function CourseEnrollScreen({
       </View>
 
       <View style={styles.searchRow}>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.searchInput}
           value={keyword}
           onChangeText={onKeywordChange}
