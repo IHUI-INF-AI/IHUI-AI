@@ -95,6 +95,12 @@ export function createSendAnswer(
     store.resetSubAgentActivities()
     // P4-2: 清除上一轮 fallback 通知(与 sendMessage 对称)
     setFallbackNotice(null)
+    // D130(2026-09-30 立,与 send-message.ts 每轮发起前那一格同姿势):清**上一轮**的钉档回落通知。
+    // 不清的表现:上一轮被后端钉档、这一轮换了模型或压根没选档,轴上还挂着"推理强度已调整为 …",
+    // 读起来像本轮发生了什么 —— 本仓记过多次的"上一轮瞬时态挂到下一轮的卡上"同一型
+    // (terminalInteractions / steer 提示条 / fallback 通知都按这条清过)。
+    // 清的是**同一个 store 键**,不在续答支里另起第二份通知态(那样两端各有一条轴读得懂的账)。
+    useChatStore.getState().setReasoningEffortNotice(null)
     // Steer(中途引导,2026-09-19 立,与 sendMessage 对称):记录当前流式 assistant 消息 ID
     store.setStreamingAssistantId(assistantId)
 
@@ -182,6 +188,13 @@ export function createSendAnswer(
         topP: samplingParams.topP,
         topK: samplingParams.topK,
         maxTokens: samplingParams.maxTokens,
+        // D130(2026-09-30 立,F1 补刀 2026-09-29):推理强度档位 —— 与首答(send-message.ts 的
+        // streamChat 实参)**同一个表达式、同一份发送时快照**,不另起一条实时读取,也不在端内
+        // 抄第二份档位字面量(§"两处算同一件事必须共用一份实现";第二份表由本目录 D130④ 判红)。
+        // 不接这一格的后果不在编译期:续答那一轮静默回落到后端默认档,而界面仍显示用户选的档 ——
+        // 同一条回复里"停止 / 重新生成 / 续答"三个动作会换档,两边都读不出错。
+        // undefined = api-client 侧判空不写 body ⇒ 没碰过这条轴的用户零行为变化。
+        reasoningEffort: samplingParams.reasoningEffort,
         // P1 #26(2026-09-16 立):知识库默认注入开关(与 sendMessage 对称;
         // undefined = 后端默认开,false = 显式关闭)
         knowledgeContext: samplingParams.knowledgeContext,
@@ -278,6 +291,16 @@ export function createSendAnswer(
         },
         // P4-2: 后端 fallback 触发时设置通知状态(与 sendMessage 对称)
         onFallback: (event) => setFallbackNotice(event),
+        // D130(2026-09-30 立,续答通知补刀):后端把用户选的档位钉回时的回落通知 → 写进 store,
+        // 输入区第三轴(reasoning-effort-input-axis)读它。这一格与首答(send-message.ts 的
+        // onReasoningEffortNotice)**同一份形态**:同一个 store action、把回调入参 info 原样落,
+        // 不另起第二个 store 键、不在端内抄档位文案(文案由轴组件从词包取,两端共读一份)。
+        // 不接的后果不在编译期:续答那一轮请求体带档了、后端仍可能钉档,而界面上什么都没说 ——
+        // 用户看到的是"我选的 high,回复像默认档",而账面全绿(守门 64/70/81/115 那一族)。
+        // api-client 只在真有回落时才回调(fallback=false 不回调),所以这里不二次判等,直接落。
+        onReasoningEffortNotice: (info) => {
+          useChatStore.getState().setReasoningEffortNotice(info)
+        },
         // Steer(中途引导,2026-09-19 立,与 sendMessage 对称):tool loop 边界注入确认
         // 写入消息级引导徽章数据,messageId 缺省回退本条 assistant 消息 ID。
         onSteer: (evt) => {

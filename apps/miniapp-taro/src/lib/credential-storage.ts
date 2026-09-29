@@ -5,52 +5,87 @@
 /**
  * miniapp-taro 端 CredentialStorage 实现
  *
- * 基于 Taro.setStorageSync / getStorageSync / removeStorageSync,
- * 实现 @ihui/shared/hooks 的 CredentialStorage 接口,供 useLoginForm 注入使用。
+ * 收口(票 #27 第二端,2026-09-29):**本端不再持久化口令**。
+ * 旧版把 `{account, password}` 直接 `JSON.stringify` 写进 Taro storage,并在头注里
+ * 自述"记住密码(账号+密码)"。微信/支付宝给小程序的 storage 是**应用沙箱里的明文文件**
+ * (`wx.setStorageSync` 官方文档没有提供任何加密或访问控制语义;真机上数据落在
+ * 微信私有目录,备份/ROOT 场景可直接读出),而本端**没有** Keychain 级的安全存储原语,
+ * 所以"给它加密"这个选项结构上不存在 —— 密钥同样要落在这块存储里。
  *
- * 存储 key 与 web 端 (apps/web/src/lib/remember-credentials.ts) 命名一致,
- * 但 Taro storage 与浏览器 localStorage 属于不同沙箱,数据不互通。
+ * 出路不是加密口令,而是**不再需要口令**:自动登录由 refreshToken 续期承担
+ * (`src/utils/auth.ts` 的 `refreshAccessToken()`,经 `app.tsx` 的
+ * `bindTokenStoreToApiClient(tokenStore, { refreshAccessToken })` 挂在 401 拦截器上;
+ * refreshToken 本身早已落在这份 storage 里)。口令在换到 token 之后就没有存在本地的理由,
+ * 于是本地也不该留它。
  *
- * 存储格式:JSON.stringify(直接存储,小程序环境无 btoa/atob)
- * - ihui-remember-credentials: 记住密码(账号+密码)
- * - ihui-auto-login: 自动登录标志('1' / '0')
- * - ihui-login-history: 账号历史列表(最多 5 个,不含密码)
+ * 记录形态 / key 名 / 历史上限的唯一真相在 `@ihui/shared`:
+ * - 编解码:`@ihui/shared/auth/remembered-account`(纯函数,写不出口令字段)
+ * - key 名:`@ihui/shared/constants`(端内禁止再抄字面量)
+ *
+ * 历史明文记录的处置:`loadRemembered()` 读到旧形态时**就地抹掉口令**并保留账号
+ * —— "记住账号"这一档支撑登录页历史下拉,删了是功能倒退;删掉的只有口令那一半。
+ *
+ * 存储格式(本端:Taro storage 无 btoa/atob,直接落 JSON 文本)
+ * - ihui-remember-credentials: {"account"} —— **永远不含 password**
+ * - ihui-auto-login: '1' / '0'
+ * - ihui-login-history: string[](最多 LOGIN_HISTORY_MAX 个,不含口令)
  */
 import { getStorageSync, setStorageSync, removeStorageSync } from '@tarojs/taro'
 import type { CredentialStorage, RememberedCredentials } from '@ihui/shared/hooks'
+import {
+  AUTO_LOGIN_STORAGE_KEY,
+  LOGIN_HISTORY_STORAGE_KEY,
+  REMEMBERED_ACCOUNT_STORAGE_KEY,
+} from '@ihui/shared/constants'
+import {
+  decodeRememberedAccount,
+  encodeRememberedAccount,
+  normalizeLoginHistory,
+  pushLoginHistory,
+} from '@ihui/shared/auth'
 
-const CREDENTIALS_KEY = 'ihui-remember-credentials'
-const AUTO_LOGIN_KEY = 'ihui-auto-login'
-const HISTORY_KEY = 'ihui-login-history'
-const MAX_HISTORY = 5
+/** 从 Taro storage 读一个字符串值(未命中时 `getStorageSync` 返回 '' 而不是 undefined)。 */
+function readText(key: string): string {
+  const raw = getStorageSync(key)
+  return typeof raw === 'string' ? raw : ''
+}
 
-/* ========== 记住密码 ========== */
+/* ========== 记住账号(不含口令) ========== */
 
 function loadRemembered(): RememberedCredentials | null {
+  const stored = readText(REMEMBERED_ACCOUNT_STORAGE_KEY)
+  if (!stored) return null
+  const decoded = decodeRememberedAccount(stored)
+  if (!decoded) return null
+  // 旧版本把口令和账号写在同一条明文记录里 ⇒ 读出来只为把它抹掉;
+  // 本端没有安全存储可迁,删了就是删了(账号那一半留在内存与盘上)。
+  if (decoded.carriedPlaintextPassword) {
+    persistRememberedAccount(decoded.account)
+  }
+  return { account: decoded.account, password: '' }
+}
+
+/** 落盘的只有账号 —— 写出去的文本由共享出口生成,结构上没有 `password` 这个字段。 */
+function persistRememberedAccount(account: string): void {
   try {
-    const raw = getStorageSync(CREDENTIALS_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as Partial<RememberedCredentials>
-    if (parsed?.account && parsed?.password) {
-      return { account: parsed.account, password: parsed.password }
-    }
-    return null
+    setStorageSync(REMEMBERED_ACCOUNT_STORAGE_KEY, encodeRememberedAccount(account))
   } catch {
-    return null
+    // storage 不可用时静默失败(与旧版同一条失效方向)
   }
 }
 
-function saveRemembered(account: string, password: string): void {
-  try {
-    setStorageSync(CREDENTIALS_KEY, JSON.stringify({ account, password }))
-  } catch {
-    // storage 不可用时静默失败
-  }
+/**
+ * `CredentialStorage` 契约要求带 password(RN 那一端把它送进 Keychain)。
+ * 本端**丢弃**这个入参:小程序没有可用的安全存储原语,而自动登录已改由 refreshToken
+ * 续期承担,口令在换到 token 之后不需要留在本地。
+ */
+function saveRemembered(account: string, _password: string): void {
+  persistRememberedAccount(account)
 }
 
 function clearRemembered(): void {
   try {
-    removeStorageSync(CREDENTIALS_KEY)
+    removeStorageSync(REMEMBERED_ACCOUNT_STORAGE_KEY)
   } catch {
     // 静默失败
   }
@@ -59,16 +94,12 @@ function clearRemembered(): void {
 /* ========== 自动登录 ========== */
 
 function loadAutoLogin(): boolean {
-  try {
-    return getStorageSync(AUTO_LOGIN_KEY) === '1'
-  } catch {
-    return false
-  }
+  return readText(AUTO_LOGIN_STORAGE_KEY) === '1'
 }
 
 function saveAutoLogin(enabled: boolean): void {
   try {
-    setStorageSync(AUTO_LOGIN_KEY, enabled ? '1' : '0')
+    setStorageSync(AUTO_LOGIN_STORAGE_KEY, enabled ? '1' : '0')
   } catch {
     // 静默失败
   }
@@ -76,7 +107,7 @@ function saveAutoLogin(enabled: boolean): void {
 
 function clearAutoLogin(): void {
   try {
-    removeStorageSync(AUTO_LOGIN_KEY)
+    removeStorageSync(AUTO_LOGIN_STORAGE_KEY)
   } catch {
     // 静默失败
   }
@@ -84,53 +115,35 @@ function clearAutoLogin(): void {
 
 /* ========== 账号历史 ========== */
 
-function saveLoginHistory(account: string): void {
+function writeHistory(list: readonly string[]): void {
   try {
-    const raw = getStorageSync(HISTORY_KEY)
-    let list: string[] = []
-    if (raw) {
-      const parsed = JSON.parse(raw) as unknown
-      if (Array.isArray(parsed)) {
-        list = parsed.filter((a): a is string => typeof a === 'string' && a.length > 0)
-      }
-    }
-    const filtered = list.filter((a) => a !== account)
-    filtered.unshift(account)
-    setStorageSync(HISTORY_KEY, JSON.stringify(filtered.slice(0, MAX_HISTORY)))
+    setStorageSync(LOGIN_HISTORY_STORAGE_KEY, JSON.stringify(list))
   } catch {
     // 静默失败
   }
 }
 
+function saveLoginHistory(account: string): void {
+  writeHistory(pushLoginHistory(loadLoginHistory(), account))
+}
+
 function loadLoginHistory(): string[] {
-  try {
-    const raw = getStorageSync(HISTORY_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as unknown
-    if (Array.isArray(parsed)) {
-      return parsed.filter((a): a is string => typeof a === 'string' && a.length > 0)
-    }
-    return []
-  } catch {
-    return []
-  }
+  const raw = readText(LOGIN_HISTORY_STORAGE_KEY)
+  if (!raw) return []
+  return normalizeLoginHistory(raw)
 }
 
 /** 删除单条账号历史,返回删除后的列表(供历史下拉 X 删除) */
 function removeFromLoginHistory(account: string): string[] {
-  const next = loadLoginHistory().filter((a) => a !== account)
-  try {
-    setStorageSync(HISTORY_KEY, JSON.stringify(next))
-  } catch {
-    // 静默失败
-  }
+  const next = loadLoginHistory().filter((item) => item !== account)
+  writeHistory(next)
   return next
 }
 
 /** 清空全部账号历史,返回空列表(供历史下拉"清空全部") */
 function clearLoginHistory(): string[] {
   try {
-    removeStorageSync(HISTORY_KEY)
+    removeStorageSync(LOGIN_HISTORY_STORAGE_KEY)
   } catch {
     // 静默失败
   }

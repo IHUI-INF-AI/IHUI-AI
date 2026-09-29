@@ -67,6 +67,11 @@ const REGULAR_USER = '00000000-0000-4000-8000-000000000002'
 const BOT_ID = '55555555-5555-4555-8555-555555555555'
 const SESSION_ID = '66666666-6666-4666-8666-666666666666'
 const USER_ID = '77777777-7777-4777-9777-777777777777'
+// clawdbot_permissions.id 是 uuid 主键(packages/database/src/schema/clawdbot.ts:41,
+// DDL 0096_clawdbot_agent_tasks.sql "id" uuid PRIMARY KEY)。
+// DELETE /admin/clawdbot/permissions/:id 在进 SQL 前挂 isUuidString 形状闸
+// (src/routes/admin-extended/clawdbot-routes.ts:196),假 id 'perm-1' 被拦成 400。
+const PERMISSION_ID = '88888888-8888-4888-8888-888888888888'
 
 function mockAdmin() {
   mockAuthenticate.mockImplementation(async (request: any) => {
@@ -118,7 +123,7 @@ function makeSession(overrides: Partial<Record<string, unknown>> = {}) {
 
 function makePermission(overrides: Partial<Record<string, unknown>> = {}) {
   return {
-    id: 'perm-1',
+    id: PERMISSION_ID,
     botId: BOT_ID,
     userId: null,
     role: 'user',
@@ -322,10 +327,12 @@ describe('clawdbot admin routes — /api/admin/clawdbot/*', () => {
     mockDeleteReturning.mockResolvedValueOnce([makePermission()])
     const res = await server.inject({
       method: 'DELETE',
-      url: `${PREFIX}/admin/clawdbot/permissions/perm-1`,
+      url: `${PREFIX}/admin/clawdbot/permissions/${PERMISSION_ID}`,
     })
     expect(res.statusCode).toBe(200)
     expect(res.json().code).toBe(0)
+    // 路由回的是 { id, deleted },id 即被传入并原样回传的那个 uuid
+    expect(res.json().data.id).toBe(PERMISSION_ID)
     expect(db.delete).toHaveBeenCalled()
   })
 })

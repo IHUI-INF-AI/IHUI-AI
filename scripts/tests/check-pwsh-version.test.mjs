@@ -199,6 +199,12 @@ test('T7 真仓现读冒烟(不设数字断言,只钉"三面报告都在")', () 
   assert.match(out, /\[EXEMPT\][^\n]*deploy\/\*\*[^\n]*\d+ 个 \.ps1/)
   assert.match(out, /\[CALLER\][^\n]*\d+ 个/)
   assert.ok(code === 0 || code === 1, `门必须给出可诊断结论(不得 2/崩溃),实得 ${code}:\n${out}`)
+  // G-814393:全量档必须判 HEAD blob 并**如实打印**取材档 —— 未跟踪的机器文件(如某台机上
+  // 别人放的 .nav-probe/*.ps1)结构上进不了 HEAD 面,这道门从此不再"一台机上的脚本决定每次
+  // 提交要不要跳门"(§12e 恒红那一型)。断言方向是"HEAD 面不得点名盘上未跟踪项":只要该
+  // 文件不在 HEAD,这句话恒真;若有人把它提交进来,它就该被判 —— 两个方向都不需要猜机器态。
+  assert.match(out, /\[FACE\][^\n]*head[^\n]*HEAD blob/, `全量档必须声明 HEAD 取材面:\n${out}`)
+  assert.ok(!/nav-probe/.test(out), `HEAD 面不得判到未入库的机器文件(判到=混面回落磁盘):\n${out}`)
   // 本例刻意不断言数字:数字属共享工作树瞬时状态(守门 103 T12 那一课),
   // 它只钉"报告三面都在" —— 摘掉任何一行可见性,本例即红。
 })
@@ -446,6 +452,100 @@ test('T12 报告文案不得回头声称脚本系是盲区(覆盖面声称与判
     )
     assert.match(out, /覆盖面[\s\S]{0,300}\.ps1/, '覆盖面行必须逐条列出脚本扩展名')
     assert.match(out, /覆盖面[\s\S]{0,400}\.vbs/, '覆盖面行必须点名 .vbs')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── G-814393(取材面迁移到 face-reader)的两条验收 ────────────────────────────
+// 迁移前:本门 readFileSync 按磁盘判 ⇒ 守门 118 分类 loose-fs ⇒ **任何**改这道门的提交都被
+// 118 判红(对 HEAD 那份同样成立),即"该门既不合纪律、又没人能合规地改它"。
+// 迁移后必须同时成立:分类变 face;`--root` 夹具通道仍在(T2–T12 全靠它铺夹具);
+// 且"索引 vs 工作树"两档能给出**不同结论** —— 那才是取材面真的分开的证明,而不是两档读同一份盘。
+
+test('T13 验收(票面①):守门 118 按**脚本名**反查本门分类必须为 face(不硬写编号)', () => {
+  // 源码形状前置锁:引了 face-reader 且**真调用**其读取入口 —— "import 了层却不走层读内容"
+  // 是 half-wired(守门 118 对门 36/124 实测过那一型),分类器抓得到,但镜像先钉一道更便宜的。
+  const src = readFileSync(GATE, 'utf8')
+  assert.match(src, /from '\.\/lib\/face-reader\.mjs'/, '本门没引统一取材层(§"引了层≠用了层")')
+  assert.match(
+    src,
+    /(?:^|[^.\w$])catBatch\s*\(/,
+    '引了层却没调用 catBatch 读内容 ⇒ 半接线,分类器会判 half-wired 而非 face',
+  )
+  assert.match(src, /selectFace\s*\(/, '没有 selectFace 就没有"两面旗同给判死"那一格')
+  const r = spawnSync(
+    process.execPath,
+    [join(SCRIPTS_DIR, 'check-gate-face-discipline.mjs'), '--json', '--worktree'],
+    { encoding: 'utf8', windowsHide: true, timeout: 300_000, maxBuffer: 64 << 20 },
+  )
+  // 为什么必须 --worktree:分类器全量档判 **HEAD blob**,而本迁移未提交(本任务禁止 commit/add),
+  // HEAD 那份仍是 loose-fs 旧形态 —— 拿默认档跑等于用"没改的历史"验"改完的现在",必红且红得没道理。
+  // --worktree 是该分类器自己声明的人工逃生舱,这里用它**审在途改动**,是它的正当用途。
+  let parsed
+  try {
+    parsed = JSON.parse(r.stdout)
+  } catch {
+    assert.fail(`守门 118 的 --json 不可 parse(rc=${r.status}):\n${String(r.stdout).slice(0, 400)}`)
+  }
+  const verdicts = Array.isArray(parsed.verdicts) ? parsed.verdicts : []
+  const hit = verdicts.find(
+    (v) => String(v.file).split('\\').join('/') === 'scripts/check-pwsh-version.mjs',
+  )
+  assert.ok(
+    hit,
+    `118 没枚举到本门 ⇒ "分类为 face"无从谈起(空扫不是通过;多半是 GATE_GLOB 或取材面漂了):\n${String(r.stdout).slice(0, 400)}`,
+  )
+  assert.equal(
+    hit.kind,
+    'face',
+    `迁移验收:本门分类必须从 loose-fs 变 face,实得 ${hit.kind}(${hit.why})`,
+  )
+})
+
+test('T14 取材面证明(构造面,不依赖仓库瞬时状态):索引≠工作树时 --staged 与 --worktree 结论必不同;两旗同给判死;--root 通道保住', () => {
+  const dir = mkScratch('pwsh-face-')
+  try {
+    // ① 索引里放**缺 pragma** 的一份,`add` 之后把工作树副本改成合规的一份 ⇒ 两档内容刻意分叉。
+    put(dir, 'src/j.ps1', PRAGMA_MISSING)
+    const g = gitInitAndAdd(dir)
+    assert.ok(
+      g.ok,
+      `夹具 git 不可用(${g.reason})⇒ 本例证不了两档分叉,按未判定处理而判红(不得静默放过)`,
+    )
+    put(dir, 'src/j.ps1', PRAGMA_OK)
+    // ② --staged:判索引 blob ⇒ 必红并点名(旧写法读磁盘会假绿 —— 这正是迁移要消灭的错位)。
+    const staged = runGate(['--staged', '--root', dir])
+    assert.equal(staged.code, 1, `索引缺 pragma ⇒ --staged 必须判红:\n${staged.out}`)
+    assert.match(staged.out, /src[/\\]j\.ps1/, '--staged 必须点名被审文件:\n' + staged.out)
+    assert.match(
+      staged.out,
+      /\[FACE\][^\n]*staged[^\n]*索引/,
+      `--staged 必须如实打印索引取材档(T14 的夹具通道语义):\n${staged.out}`,
+    )
+    assert.ok(
+      !/非 git 环境/.test(staged.out),
+      `--staged 走了退化路径,本例就没在证暂存面(与 T11 同一条反向锁):\n${staged.out}`,
+    )
+    // ③ --worktree:判盘上那份(合规)⇒ 必绿。**与 ② 结论相反**才证明两档取材面是真的分开。
+    const wt = runGate(['--worktree', '--root', dir])
+    assert.equal(
+      wt.code,
+      0,
+      `工作树那份合规 ⇒ --worktree 必须判绿;与 --staged 同色即两档没分面(尺子混用):\n${wt.out}`,
+    )
+    assert.match(wt.out, /\[FACE\][^\n]*worktree[^\n]*工作树/)
+    // ④ 两面旗同给 = 自相矛盾 ⇒ 判死 exit 2(取哪一面都会让另一面成为假绿)。
+    const both = runGate(['--staged', '--worktree', '--root', dir])
+    assert.equal(both.code, 2, `--staged 与 --worktree 同给必须 exit 2:\n${both.out}`)
+    // ⑤ --root 裸调用 ⇒ 强制工作树面并**如实打印**(T2–T7 的夹具就是靠这条通道铺的,必须仍有效)。
+    const plain = runGate(['--root', dir])
+    assert.equal(plain.code, 0, `裸 --root 必须走工作树面(盘上那份合规):\n${plain.out}`)
+    assert.match(
+      plain.out,
+      /\[FACE\][^\n]*worktree[^\n]*--root/,
+      `--root 夹具通道把全量档折向工作树面这件事必须写进取材行,不得静默:\n${plain.out}`,
+    )
   } finally {
     rmScratch(dir)
   }

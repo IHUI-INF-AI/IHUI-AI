@@ -101,6 +101,13 @@ export default defineConfig({
         __dirname,
         '../../packages/shared/src/auth/auto-login-policy.ts',
       ),
+      // 票 #27:「记住登录」记录的唯一编解码出口(纯函数,零平台依赖)。同样必须排在
+      // '@ihui/shared/auth' 之前 —— 父别名按 startsWith 会把子路径吞成 <index.ts>/remembered-account。
+      // 指真实源码而不是替身:给它写 mock,测的就是 mock(同上方两条先例)。
+      '@ihui/shared/auth/remembered-account': resolve(
+        __dirname,
+        '../../packages/shared/src/auth/remembered-account.ts',
+      ),
       '@ihui/shared/auth': resolve(__dirname, '../../packages/shared/src/auth/index.ts'),
       '@ihui/shared/utils/date-utils': resolve(
         __dirname,
@@ -144,6 +151,14 @@ export default defineConfig({
       '@ihui/shared/tasks/dispatch': resolve(
         __dirname,
         'tests/__mocks__/ihui-shared-tasks-dispatch.ts',
+      ),
+      // 票 #27:storage key 的唯一真相。barrel 那一条别名是端内替身(它手抄了一个子集,
+      // 还把 FALLBACK_MODELS / SSO_CLIENT_IDS 刻意清空),把 barrel 改指真实源码会改动别人用例
+      // 的输入 ⇒ 属 #32 同族另一格,不在本票射程。这里只把这一份纯常量模块指到真实源码,
+      // 且必须排在 '@ihui/shared/constants' 之前(父别名按 startsWith 吞子路径)。
+      '@ihui/shared/constants/storage-keys': resolve(
+        __dirname,
+        '../../packages/shared/src/constants/storage-keys.ts',
       ),
       '@ihui/shared/constants': resolve(__dirname, 'tests/__mocks__/ihui-shared.ts'),
       // D111:权限档展示为纯逻辑模块(chat barrel 无 DOM/RN 依赖),指向真实源码而非 mock ——
