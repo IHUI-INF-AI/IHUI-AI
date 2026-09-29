@@ -39,7 +39,7 @@ import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { getSystemAccessToken } from '../utils/system-access-token.js'
-import { fetchWithinDeadline, type FetchDeadlineImpl } from '../utils/fetch-deadline.js'
+import { fetchWithinDeadline, mergedSignal, type FetchDeadlineImpl } from '../utils/fetch-deadline.js'
 
 // ===== 类型定义 =====
 
@@ -798,6 +798,7 @@ function parseSiteMetaHtml(
 async function fetchSiteMetaViaBrowser(
   entry: { source: string; name: string; url: string; category: string },
   kind: ItemKind,
+  signal?: AbortSignal,
 ): Promise<FetchedItem | null> {
   try {
     const systemToken = await getSystemAccessToken()
@@ -808,7 +809,9 @@ async function fetchSiteMetaViaBrowser(
         Authorization: `Bearer ${systemToken}`,
       },
       body: JSON.stringify({ url: entry.url, timeoutMs: 30000 }),
-      signal: AbortSignal.timeout(90000),
+      // b75-3#1(2026-09-30):外部取消 + 90s 超时合成单 signal —— 裸 AbortSignal.timeout
+      // 无法被 cancelAiWorldSync 打断,90s 渲染卡死时整轮 sync 只能干等。
+      signal: mergedSignal(signal, 90000),
     })
     if (!res.ok) {
       logger.warn(`[ai-world-sync] browser render ${entry.source} HTTP ${res.status}, skip`)
@@ -839,6 +842,7 @@ async function fetchSiteMetaViaBrowser(
 async function fetchSiteMeta(
   entry: { source: string; name: string; url: string; category: string },
   kind: ItemKind,
+  signal?: AbortSignal,
 ): Promise<FetchedItem> {
   let wantsBrowser = false
   try {
@@ -851,12 +855,13 @@ async function fetchSiteMeta(
       entry.url,
       {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; IHUI-AI/1.0 AI-World-Sync)' },
+        signal,
       },
       15000,
     )
     if (!res.ok) {
       if (res.status === 403 || wantsBrowser) {
-        const viaBrowser = await fetchSiteMetaViaBrowser(entry, kind)
+        const viaBrowser = await fetchSiteMetaViaBrowser(entry, kind, signal)
         if (viaBrowser) return viaBrowser
       }
       throw new Error(`${entry.name} HTTP ${res.status}`)
@@ -865,7 +870,7 @@ async function fetchSiteMeta(
     return parseSiteMetaHtml(html, entry, kind)
   } catch (err) {
     if (wantsBrowser) {
-      const viaBrowser = await fetchSiteMetaViaBrowser(entry, kind)
+      const viaBrowser = await fetchSiteMetaViaBrowser(entry, kind, signal)
       if (viaBrowser) return viaBrowser
     }
     throw err
@@ -1202,8 +1207,34 @@ async function syncOneSourceWithRetry(
   return failed
 }
 
+/**
+ * 进行中 sync 的独立 AbortController(b75-3#5 纪律 + b75-3#1,2026-09-30)。
+ * 后台任务与父请求取消解耦:cron/admin 触发后本轮 sync 自持取消权,**不接任何请求级
+ * signal**,HTTP 调用方断开不连坐已受理的同步;需要主动停掉一轮时走 cancelAiWorldSync()。
+ */
+let activeSyncAbort: AbortController | null = null
+
+/** 外部取消当前进行中的一轮 ai-world-sync(没有进行中的轮次返回 false)。 */
+export function cancelAiWorldSync(reason = 'ai-world-sync 被外部取消'): boolean {
+  if (!activeSyncAbort) return false
+  activeSyncAbort.abort(new Error(reason))
+  return true
+}
+
 /** 同步所有源(分阶段并行 + 串行混合,GitHub 串行避免 rate limit) */
 export async function syncAllSources(): Promise<SyncSourceResult[]> {
+  // b75-3#1:本轮自持独立 AbortController;抓取调用点经 mergedSignal(signal, timeoutMs)
+  // 把「外部取消 + 各自超时」合成单 signal,调用方无需手写 race/清理。
+  const abort = new AbortController()
+  activeSyncAbort = abort
+  try {
+    return await runSyncAllSources(abort.signal)
+  } finally {
+    if (activeSyncAbort === abort) activeSyncAbort = null
+  }
+}
+
+async function runSyncAllSources(signal: AbortSignal): Promise<SyncSourceResult[]> {
   // 每轮开始清空去重缓存 + 重置 LLM 日志标志,并以近 10 天已入库条目标题预填充,
   // 使跨轮、跨源转载也能收敛去重。
   seenTitlesInRound.clear()
@@ -1240,7 +1271,7 @@ export async function syncAllSources(): Promise<SyncSourceResult[]> {
     const batchResults = await Promise.all(
       batch.map((entry) =>
         syncOneSourceWithRetry(entry.source, 'app', async () => [
-          await fetchSiteMeta(entry, 'app'),
+          await fetchSiteMeta(entry, 'app', signal),
         ]),
       ),
     )
@@ -1254,7 +1285,7 @@ export async function syncAllSources(): Promise<SyncSourceResult[]> {
     const batchResults = await Promise.all(
       batch.map((entry) =>
         syncOneSourceWithRetry(entry.source, 'tool', async () => [
-          await fetchSiteMeta(entry, 'tool'),
+          await fetchSiteMeta(entry, 'tool', signal),
         ]),
       ),
     )
