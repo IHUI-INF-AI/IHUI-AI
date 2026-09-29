@@ -219,7 +219,7 @@ export function CompactionTab() {
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border p-2">
+    <div className="rounded-lg border p-2">
       <p className="text-[11px] text-muted-foreground">{label}</p>
       <p className="text-lg font-bold tabular-nums">{value}</p>
     </div>

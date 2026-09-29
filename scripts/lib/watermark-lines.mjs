@@ -31,6 +31,16 @@ const COMMENT_PREFIX_RE = /^\s*(\/\/|#|--)\s*/
 const ZW_FAMILY = String.fromCodePoint(0x2060, 0x200b, 0x200c, 0x200d) // 哨兵 + ZWSP/ZWNJ/ZWJ
 export const ZW_ONLY_RE = new RegExp('^[' + ZW_FAMILY + ']+$')
 
+/**
+ * 剥掉零宽族字符(留下可见文字)。
+ * 用途:判"横幅的**可见文案**有没有被改写"时必须只看可见层 —— 隐写载荷位是另一维,
+ * 它的正确性由 `watermark.mjs verify`(载荷可解码)判,不是由逐字比前三行判。
+ * 少了这个出口,旁路落地器会把"修复损坏的载荷"读成"改写横幅文字"而拒掉(2026-09-30 实测)。
+ */
+export function dropZeroWidth(s) {
+  return String(s ?? '').replace(new RegExp('[' + ZW_FAMILY + ']', 'g'), '')
+}
+
 export function isBannerLine(line) {
   return BANNER_TEXT_RE.test(
     String(line ?? '')

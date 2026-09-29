@@ -35,7 +35,7 @@ export default function TagInput({
   }
 
   return (
-    <View className="flex flex-wrap items-center px-3 py-2 bg-muted rounded-lg">
+    <View className="flex flex-wrap items-center px-3 py-2 bg-muted rounded-sm">
       {value.map((tag, idx) => (
         <View
           key={idx}

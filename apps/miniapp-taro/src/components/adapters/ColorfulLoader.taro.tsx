@@ -28,7 +28,7 @@ import { useAppTheme } from '@/lib/theme'
  * 不依赖 keyframes 注入,根治原 web 端 `ensureKeyframes()` 在小程序环境的 document 报错。
  */
 export interface ColorfulLoaderProps {
-  /** 直径,rpx 数值(默认档来自共享源 colorful-loader-spec;端内那份同名死副本 components/ColorfulLoader.tsx 已于 2026-09-26 摘除,别再照它对齐) */
+  /** 直径,rpx 数值(默认档来自共享源 colorful-loader-spec;端内那份同名死副本 components/ColorfulLoader.tsx 已于 2026-09-30 摘除 —— 本行原写"已于 2026-09-26 摘除"是句假陈述:那次并没有删,文件当时仍在 HEAD 且零 import,由 O92 票实测后摘除) */
   size?: number
   visible?: boolean
   className?: string

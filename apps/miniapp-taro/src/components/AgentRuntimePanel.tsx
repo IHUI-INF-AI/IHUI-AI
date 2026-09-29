@@ -25,7 +25,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
   } = useAgentRuntime(initialSessionId)
 
   return (
-    <View className="flex flex-col bg-card rounded-lg">
+    <View className="ui-card flex flex-col bg-card rounded-lg">
       <View className="flex items-center px-3 py-2 mb-2">
         <Text className="text-sm font-semibold text-foreground">
           {t('ai.agentDetail.runtimeTitle')}
