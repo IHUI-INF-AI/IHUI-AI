@@ -30,6 +30,15 @@
  *        而恒红门的唯一结局是逼人 --no-verify、连带废掉全部守门(§12e)。
  *   G4 动态路径:模板字符串拼出来的资源路径结构上判不了,**如实计数**(unreproducible 之外再报 undetermined),
  *        绝不静默成「看起来全绿」。
+ *   G5 (G-680) 生成物自述钉:离线包头部带一段由**输入字节**算出的 sha256 钉(lib/generated-input-pin.mjs)。
+ *        钉 ≠ 现算哈希 ⇒ 判「陈旧」并点名是哪几份输入变了(blocking);
+ *        钉 absent / malformed ⇒ 判「未判定」,只报数点名,既不记绿也不冒红 ——
+ *        HEAD 面上现存那份产物还没有钉,当场 blocking 就是恒红门(§12e);
+ *        升档前置 = 跑过一次 `pnpm gen:i18n` 并把带钉的产物入库,此后 absent 才有资格判红。
+ *        为什么需要它:守门只比"键集合 + 取值",而**键集合相同而值不同**时按集合比的那一层看不见;
+ *        本仓实录过「产物存在但内容是旧的」两次(离线包只有 release 才发现 / 生成器读了 dist)。
+ *        幂等性:时刻行 generatedAt 不参与判据也不参与逐字节比对(出口 maskGeneratedAt),
+ *        其余字节两次生成必须全等 —— 断言在 --self-test 与镜像测试里各钉一条。
  *
  * 口径(与守门 70/77/83/98/101 一致,这一层由 scripts/lib/face-reader.mjs 单点持有):
  *   全量判 **HEAD blob** / `--staged` 判**索引 blob** / `--worktree` 仅作人工与 dev 链的逃生舱。
@@ -66,6 +75,15 @@ import {
   selectFace,
 } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import {
+  digestInputs,
+  parsePin,
+  differingInputs,
+  maskGeneratedAt,
+  renderPin,
+  PIN_BEGIN,
+  PIN_END,
+} from './lib/generated-input-pin.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -298,6 +316,63 @@ function readSourceLeaves(reader, locale) {
   return leafMap(mergeMessages(shared ?? {}, mini ?? {}))
 }
 
+/* ───────────────── G-680 生成物自述钉(离线包) ───────────────── */
+
+/**
+ * 钉的输入清单:必须与生成器实际读的那 8 份**逐字同集**(路径同、无多无少)。
+ * 两侧共用 lib/generated-input-pin.mjs 这一份哈希实现与字节归一 —— 门与生成器各算一遍必然漂,
+ * 而漂出来的红比漏判更难查(本仓"两处算同一 key 必须共用一份实现"同型)。
+ * 关键口径:**从门正在审的那个面读**(全量=HEAD blob / --staged=索引 / --worktree=磁盘)。
+ * 若清单来自磁盘而内容来自 git,就会产出一把自洽但基准错位的尺子(守门 101/118 同型)。
+ */
+function readPinInputs(reader) {
+  return REMOTE_LOCALES.flatMap((locale) =>
+    [`${MESSAGE_ROOT}/shared/${locale}.json`, `${MESSAGE_ROOT}/miniapp-taro/${locale}.json`].map((rel) => ({
+      rel,
+      text: reader.has(rel) ? reader.read(rel) : null,
+    })),
+  )
+}
+
+/**
+ * G5:产物里的钉 ≠ 现算的输入哈希 ⇒ 判"陈旧"(blocking)。
+ * 取不到钉 / 钉读不出 ⇒ **未判定**(只报数、点名),绝不静默记为"内容是新的":
+ * 判不出不是通过,也不是红 —— 本仓最高频的失效型就是"把没判写成判过了"。
+ * 为什么 absent 不判红:HEAD 面上现存那份产物还没有钉,当场 blocking 就是一台
+ * 与任何提交都无关的恒红门,唯一结局是逼人 --no-verify 连带废掉全部守门(§12e 同型)。
+ */
+function checkBundlePin({ reader, bundleText, push, undetermined, face }) {
+  const pin = parsePin(bundleText)
+  if (!pin.present) {
+    undetermined.pinState = 'absent'
+    undetermined.pinDetail = `${I18N_BUNDLE} 里没有自述钉(${PIN_BEGIN} 整块不见)⇒ 无法判断产物是否按当前输入生成`
+    return
+  }
+  if (pin.malformed) {
+    undetermined.pinState = 'malformed'
+    undetermined.pinDetail = `${I18N_BUNDLE} 的钉读不出来:${pin.reason}`
+    return
+  }
+  const computed = digestInputs(readPinInputs(reader))
+  if (computed.digest === pin.digest) {
+    undetermined.pinState = 'matched'
+    undetermined.pinDetail = `${pin.digest.slice(0, 12)}…(commit ${pin.sourceCommit || 'unknown'})`
+    return
+  }
+  undetermined.pinState = 'stale'
+  const diffs = differingInputs(pin, computed.perInput)
+  const named = diffs.length
+    ? diffs.map((d) => `${d.rel}(钉 ${String(d.pinned).slice(0, 8)}… vs ${face}面 ${String(d.actual).slice(0, 8)}…)`).join(', ')
+    : '逐条输入哈希都相同而聚合哈希不等 ⇒ 钉的清单与现算集合不同(输入文件多了/少了/顺序无关)'
+  push(
+    'G5',
+    'missing',
+    true,
+    I18N_BUNDLE,
+    `产物自述钉的 inputsSha256=${pin.digest.slice(0, 12)}… 与 ${face}面现算=${computed.digest.slice(0, 12)}… 不等 ⇒ 离线包陈旧(键集合可能一模一样而值是旧的)。不一致的输入:${named}`,
+  )
+}
+
 /* ─────────────────────────── 资源引用 ↔ 文件存在 ─────────────────────────── */
 
 /**
@@ -366,7 +441,14 @@ function runCheck({ face, root, strict, group }) {
   const reader = makeReader(face, root)
   /** @type {Array<{code:string,dir:'missing'|'orphan'|'unreproducible',blocking:boolean,file:string,detail:string}>} */
   const findings = []
-  const undetermined = { dynamicAssetPaths: 0, unreadableSourceFiles: 0 }
+  const undetermined = {
+    dynamicAssetPaths: 0,
+    unreadableSourceFiles: 0,
+    // G-680 钉的四态:absent(没有钉)/ malformed(有钉读不出)/ matched(与现算同)/ stale(不等 ⇒ 已判红)。
+    // 前两态是「未判定」,不得被读成"内容是新的";后两态由 report/JSON 原样带出。
+    pinState: 'not-run',
+    pinDetail: '',
+  }
   const counts = { bundleLocales: 0, sourceFilesScanned: 0, artifactFiles: 0, registryKeys: 0 }
 
   const push = (code, dir, blocking, file, detail) => findings.push({ code, dir, blocking, file, detail })
@@ -410,7 +492,11 @@ function runCheck({ face, root, strict, group }) {
     if (!reader.has(I18N_BUNDLE)) {
       throw new Undetermined(`${reader.label} 取不到产物 ${I18N_BUNDLE} —— 离线包根本不在,无法判定`)
     }
-    const bundle = decodeBundle(reader.read(I18N_BUNDLE))
+    const bundleText = reader.read(I18N_BUNDLE)
+    const bundle = decodeBundle(bundleText)
+    // G5 自述钉先于逐键对账:钉不等 = 整包按旧输入生成,此时 B2/B3 的"少哪些键"是在拿旧账判新账。
+    checkBundlePin({ reader, bundleText, push, undetermined, face })
+
     for (const locale of REMOTE_LOCALES) {
       const src = readSourceLeaves(reader, locale)
       const art = bundle.get(locale)
@@ -515,7 +601,19 @@ function formatReport(result, face, opts) {
     `  ◽ 判不了但如实计数:动态资源路径 ${result.undetermined.dynamicAssetPaths} 处` +
       (result.undetermined.unreadableSourceFiles ? ` / 读不到的源文件 ${result.undetermined.unreadableSourceFiles} 个` : ''),
   )
+  if (result.undetermined.pinState === 'absent' || result.undetermined.pinState === 'malformed') {
+    lines.push(
+      `  📌 离线包自述钉(G-680):${result.undetermined.pinState} —— ${result.undetermined.pinDetail}`,
+    )
+    // absent/malformed 一律是**未判定**:它不等于"产物是新的"。
+    // 现在就判红 = 一台与任何提交都无关的恒红门(HEAD 面上那份产物还没有钉),
+    // 唯一结局是逼人 --no-verify 连带废掉全部守门(§12e)。升档前置见文件头 G5 条。
+    lines.push('     ⚠️ 未判定 ≠ 通过:产物没记自己从哪份输入生成,陈旧与否无从现算。')
+  } else {
+    lines.push(`  📌 离线包自述钉(G-680):${result.undetermined.pinState} —— ${result.undetermined.pinDetail}`)
+  }
   if (!opts.strict) {
+
     const orphan = result.findings.filter((f) => f.dir === 'orphan').length
     if (orphan) lines.push(`  ⚠️ 另有孤儿/死资源 ${orphan} 处默认不判红(删文件属 §7 删除安全,须人工确认);--strict 可改判红`)
   }
@@ -572,10 +670,12 @@ function main(argv) {
           face,
           counts: result.counts,
           undetermined: result.undetermined,
+          // dev 链与脚本读者要的就是这一格:钉到底判出了什么(not-run/absent/malformed/matched/stale)
+          bundlePin: { state: result.undetermined.pinState, detail: result.undetermined.pinDetail },
           findings: result.findings,
           blocking: red,
-          // dev 链只关心这一件事:离线包是否过期
-          bundleStale: red.some((f) => f.code === 'B1' || f.code === 'B2'),
+          // dev 链只关心这一件事:离线包是否过期(G5 钉不等同样是"过期")
+          bundleStale: red.some((f) => f.code === 'B1' || f.code === 'B2' || f.code === 'G5'),
         }) + '\n',
       )
     } else {
@@ -746,6 +846,83 @@ function selfTest() {
     })
   })
 
+  /* ── G5 生成物自述钉(成对正反例,全部跑在临时仓的磁盘面上) ── */
+  const pinFixtureInputs = () =>
+    REMOTE_LOCALES.flatMap((l) => [
+      { rel: `${MESSAGE_ROOT}/shared/${l}.json`, text: JSON.stringify({ hi: `${l}-shared` }) },
+      { rel: `${MESSAGE_ROOT}/miniapp-taro/${l}.json`, text: JSON.stringify({ hi: `${l}-app` }) },
+    ])
+  const putPinFixture = (dir, { pinText, breakInput }) => {
+    for (const i of pinFixtureInputs()) put(dir, i.rel, breakInput === i.rel ? '{"hi":"CHANGED"}' : i.text)
+    const body = `export const REMOTE_LOCALE_B64: Record<RemoteLocale, string> = {\n}\n`
+    put(dir, I18N_BUNDLE, `// GENERATED\n${pinText ?? ''}${body}`)
+  }
+  t('G5:钉与现算输入哈希一致 ⇒ matched,不得判红', () => {
+    withScratch((dir) => {
+      const pin = renderPin({
+        generator: 'apps/miniapp-taro/scripts/gen-i18n-compressed.mjs',
+        sourceCommit: 'deadbeef',
+        inputs: pinFixtureInputs(),
+        generatedAt: '2026-01-01T00:00:00.000Z',
+      }).join('\n')
+      putPinFixture(dir, { pinText: `${pin}\n` })
+      const r = runCheck({ face: 'worktree', root: dir, strict: false, group: 'i18n' })
+      eq(r.undetermined.pinState, 'matched', `钉应判 matched,实际 ${JSON.stringify(r.undetermined)}`)
+      eq(r.findings.filter((f) => f.code === 'G5').length, 0, 'matched 不该产出 G5')
+    })
+  })
+  t('G5:任一份输入变了而钉没重算 ⇒ 判红并点名是哪份(阳性对照)', () => {
+    withScratch((dir) => {
+      const pin = renderPin({
+        generator: 'g',
+        inputs: pinFixtureInputs(),
+        generatedAt: '2026-01-01T00:00:00.000Z',
+      }).join('\n')
+      const broken = `${MESSAGE_ROOT}/shared/ja.json`
+      putPinFixture(dir, { pinText: `${pin}\n`, breakInput: broken })
+      const r = runCheck({ face: 'worktree', root: dir, strict: false, group: 'i18n' })
+      eq(r.undetermined.pinState, 'stale', `应判 stale,实际 ${r.undetermined.pinState}`)
+      const g5 = r.findings.filter((f) => f.code === 'G5')
+      eq(g5.length, 1, `应恰好一条 G5,实际 ${g5.length}`)
+      eq(g5[0].blocking, true, 'G5 必须是 blocking(它就是"陈旧"这件事的判据)')
+      if (!g5[0].detail.includes(broken)) throw new Error(`红点必须点名变了的那份输入,实际:${g5[0].detail}`)
+    })
+  })
+  t('G5:没有钉 ⇒ 未判定(absent),既不判红也不得被读成通过', () => {
+    withScratch((dir) => {
+      putPinFixture(dir, {})
+      const r = runCheck({ face: 'worktree', root: dir, strict: false, group: 'i18n' })
+      eq(r.undetermined.pinState, 'absent', `应判 absent,实际 ${r.undetermined.pinState}`)
+      eq(r.findings.filter((f) => f.code === 'G5').length, 0, 'absent 不得判红(HEAD 面正是这一态,判红即恒红门)')
+    })
+  })
+  t('G5:钉在而聚合哈希坏掉 ⇒ malformed(未判定),不得冒红也不得记绿', () => {
+    withScratch((dir) => {
+      const bad = `// ${PIN_BEGIN}\n// generator: g\n// inputsSha256: not-a-hash\n// generatedAt: x\n// ${PIN_END}\n`
+      putPinFixture(dir, { pinText: bad })
+      const r = runCheck({ face: 'worktree', root: dir, strict: false, group: 'i18n' })
+      eq(r.undetermined.pinState, 'malformed', `应判 malformed,实际 ${r.undetermined.pinState}`)
+      eq(r.findings.filter((f) => f.code === 'G5').length, 0, 'malformed 不是判据失败,不得冒红')
+    })
+  })
+  t('幂等:同一批输入两次 renderPin,屏蔽时刻行后必须逐字节全等', () => {
+    const mk = (iso) =>
+      renderPin({ generator: 'g', sourceCommit: 'abc', inputs: pinFixtureInputs(), generatedAt: iso }).join('\n')
+    const a = maskGeneratedAt(mk('2026-01-01T00:00:00.000Z'))
+    const b = maskGeneratedAt(mk('2026-09-29T23:59:59.999Z'))
+    eq(a, b, '两次生成的钉屏蔽时刻后必须同字节(幂等性是本票的生命线)')
+    if (mk('2026-01-01T00:00:00.000Z') === mk('2026-09-29T23:59:59.999Z')) {
+      throw new Error('时刻行本应让原始字节不同 —— 相同说明 generatedAt 没写进去,幂等断言就是空的')
+    }
+  })
+  t('字节归一:同一内容 CRLF 与 LF 必须算出同一个哈希(否则 Windows 检出的磁盘 vs git blob 恒红)', () => {
+    const lf = [{ rel: 'a.json', text: '{\n "k": 1\n}\n' }]
+    const crlf = [{ rel: 'a.json', text: '{\r\n "k": 1\r\n}\r\n' }]
+    const bom = [{ rel: 'a.json', text: '﻿{\n "k": 1\n}\n' }]
+    eq(digestInputs(lf).digest, digestInputs(crlf).digest, 'CRLF 归一')
+    eq(digestInputs(lf).digest, digestInputs(bom).digest, 'BOM 归一')
+  })
+
   console.log(results.join('\n'))
   const bad = results.filter((r) => r.startsWith('❌')).length
   console.log(`\n自检:${results.length} 例,失败 ${bad}`)
@@ -774,6 +951,10 @@ export const __test__ = {
   sameLeafValue,
   decodeBundle,
   readSourceLeaves,
+  readPinInputs,
+  checkBundlePin,
+  // G-680:钉的实现只有一份,门与生成器都引它 —— 导出给镜像测试做"不得有第二份"的形状锁
+  pinKit: { digestInputs, parsePin, renderPin, maskGeneratedAt, PIN_BEGIN },
   assetRefToRepoRel,
   collectAssetRefs,
   registryKeys,
@@ -784,6 +965,7 @@ export const __test__ = {
   ASSET_LIT_RE,
   DYN_PATH_RE,
   REMOTE_LOCALES,
+  MESSAGE_ROOT,
   I18N_BUNDLE,
   ICON_REGISTRY,
   TABBAR_GENERATOR,

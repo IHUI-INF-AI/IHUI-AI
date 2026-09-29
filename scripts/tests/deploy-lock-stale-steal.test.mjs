@@ -172,9 +172,23 @@ test('⑤源码反向锁:removeLock 只剩"定义 + 持有者自释",抢占与�
   assert.ok(codeOnly.includes('const claim = claimStaleLock('), '代为收口/抢占两支都须接 claimStaleLock')
   assert.equal(
     (codeOnly.match(/claimStaleLock\(/g) || []).length,
-    3,
-    '定义 1 处 + acquire 抢占 1 处 + release 代为收口 1 处,少一处就是有一支又回到直接删',
+    4,
+    // G-412 加了第四支合法抢占路径(break-stale 人工出口),它同样**必须**走原子改名:
+    // 计数从 3 提到 4 是"分支变多"的如实登记,不是放宽 —— 方向仍是"每一支抢占/收口都要点名,
+    // 任何一支回到直接 removeLock 就红(上面 calls<=2 那条)";若将来摘掉某支,这条照样红。
+    '定义 1 处 + acquire 抢占 1 处 + release 代为收口 1 处 + break-stale 人工出口 1 处,少一处就是有一支又回到直接删',
   )
+  // G-412 反向锁:break-stale 这支自己也得守规矩 —— 带理由、先归档、走 claimStaleLock,
+  // 空理由即拒绝(按函数体切片钉形态,不做跨全文的近似正则)。
+  const bsStart = codeOnly.indexOf('function breakStale(')
+  const bsBody =
+    bsStart >= 0 ? codeOnly.slice(bsStart, codeOnly.indexOf('async function runSelfTest', bsStart)) : ''
+  assert.ok(bsStart >= 0, 'break-stale 人工出口必须真实存在(票面要求的出路之一)')
+  assert.ok(
+    bsBody.includes('claimStaleLock(') && !/\bremoveLock\(/.test(bsBody),
+    'break-stale 只能走原子改名,不得直接删原路径',
+  )
+  assert.ok(/if \(!why\)/.test(bsBody), '空理由必须即拒绝(破坏性动作没有理由不改任何状态)')
 })
 
 // ── 端到端:真跑一次 acquire 的抢占(不是只测零件)────────────────────────────

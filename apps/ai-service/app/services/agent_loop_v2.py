@@ -52,6 +52,7 @@ import json
 import logging
 import os
 import random
+import threading
 import time
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
@@ -106,6 +107,7 @@ from ..core.current_time_reminder import CurrentTimeReminderState as _CurrentTim
 # TS 唯一算法源(packages/shared/src/agent/doom-loop-detector.ts)由
 # scripts/check-doom-loop-parity.mjs 钉死;阈值数字一律 import,不在此重抄。
 from ..core.doom_loop import (
+    AGENT_MAX_ITERATIONS,
     DOOM_ALERT_ROUNDS_TO_TERMINATE,
     STUCK_CONSECUTIVE_THRESHOLD,
     DoomLoopSentinel,
@@ -438,9 +440,19 @@ def _normalize_team_relay_context(context: Any) -> tuple[str, dict[str, Any]]:
 # 直接以库方式调用 AgentLoopV2 的测试),此类条目**不允许**被 HTTP 审批端点解析掉
 # (HTTP 侧永远传真实 principal,与 None 不等 ⇒ 403),但引擎 JSON-RPC 通道在自身
 # principal 同为 None 时仍可结算(见 agent_engine._handle_approval_respond 的信任边界注释)。
+#
+# G-637(2026-09-29)结算权锁:待决表的"一次性结算"由这一把 RLock 罩住。
+# 为什么不是"每个条目一把锁":`_as_entry()` 对历史二元组形态是**就地升级**
+# (读到的 record 与写回的 entry 之间有赋值),两把条目级锁罩不住那次换对象 ——
+# 两个应答线程各自升出 E1/E2,就得到两个 `_settlement_claimed=False` 的新条目,
+# 名额被复制成两份,本票要防的正是这一型。RLock(可重入)让"取条目→判属主→
+# 取结算权→写决策"整段在同一个原子里,同时 `claim_settlement()` 单独调用也仍安全。
+_approval_settle_lock = threading.RLock()
+
+
 @dataclass
 class _ApprovalEntry:
-    """审批条目:唤醒事件 + 已写入的决策 + 属主(D84 补作用域与原因)。"""
+    """审批条目:唤醒事件 + 已写入的决策 + 属主(D84 补作用域与原因)+ 结算名额(G-637)。"""
 
     event: asyncio.Event
     decision: str | None = None
@@ -454,6 +466,31 @@ class _ApprovalEntry:
     # 默认 False = 维持原请求(合法出口);True 只有在复核结论存在 applicable 的
     # 替代参数时才会真的替换 tc.args,否则被忽略(不猜、不放大)。
     accept_alternative: bool = False
+    # G-637:结算名额(唯一,不可复制)。不参与相等性比较/不进 repr —— 它是并发原语,
+    # 不是业务字段;把它算进 __eq__ 会让"两个同决策的条目"因结算先后而不等。
+    _settlement_claimed: bool = field(default=False, repr=False, compare=False)
+
+    def claim_settlement(self) -> bool:
+        """取走本条目的**唯一**结算名额:第一次 True,此后一律 False。
+
+        为什么结构上不可能双结算:临界区内只有"读标志→置标志"两条语句,
+        ① 没有 `await`/I/O/回调 ⇒ asyncio 单线程协作式调度下不存在让出点,
+           两个协程不可能都观察到 `_settlement_claimed is False`;
+        ② 外层再套 `_approval_settle_lock`(可重入)⇒ 真实线程(引擎通道跑在
+           自己的线程里,与 loop 的事件循环线程不同)同样被串行化。
+        反证:若两次应答都拿到 True,则必存在两次都在标志为 False 时通过,而置位
+        紧跟在读位之后、中间无任何可打断点 —— 与"拿到 True 即已置位"矛盾。
+
+        这不是"先查再改"的两步写法:查与改在同一把锁的同一个临界区内完成,
+        中间不重读全局、不调用任何可让出/可回调的函数。旧实现真正的病正在
+        那里 —— `entry = _as_entry(...)` 之后直接 `entry.decision = ...`,
+        读与写之间没有任何互斥,两次应答都会写、后写的赢。
+        """
+        with _approval_settle_lock:
+            if self._settlement_claimed:
+                return False
+            self._settlement_claimed = True
+            return True
 
 
 # 兼容形态:历史/测试直接写入的二元组 (event, decision)。读取时一次性升级为
@@ -521,8 +558,17 @@ def grant_tool_approval_persist(approval_id: str, scope: str) -> bool:
         False=approval_id 不存在(已超时清理或从未发起),或持久层异常(fail-safe 不阻断主链路)。
 
     注:持久层异常按失败处理(返回 False),绝不影响主链路审批结果(工具已批准执行)。
+
+    G-637(2026-09-29):取回改为**单点取走式** `_approval_persist_keys.pop(...)`。
+    旧写法是 `.get(...)` —— 查而不取,所以同一 approval_id 被调 N 次就落盘 N 次;
+    持久层自身 INSERT OR IGNORE 幂等,账面看不出问题,但"授权档位"这一维并不幂等:
+    第一次 `session`、第二次 `always` 会把同一键升到跨会话档(= 权限放大)。
+    取走之后,名额只有份,第二次连 cache_key 都取不到 ⇒ 结构上不可能重复落盘。
+    取走与 `claim_settlement()` 同锁:两条出口(本函数与 `_request_approval` 内
+    的按 scope 落盘)共用同一把锁,不会出现"一边取走、另一边还在读"的中间态。
     """
-    key = _approval_persist_keys.get(approval_id)
+    with _approval_settle_lock:
+        key = _approval_persist_keys.pop(approval_id, None)
     if key is None:
         return False
     try:
@@ -535,11 +581,27 @@ def grant_tool_approval_persist(approval_id: str, scope: str) -> bool:
 
 
 class ApprovalOutcome(str, Enum):  # noqa: UP042 — 枚举值进审计事件与前端比对,换 StrEnum 会改序列化字面量
-    """审批决策回填的三态结论(供路由层区分 403 与 404)。"""
+    """审批决策回填的四态结论(供承载层区分 403 / 404 / 已结算)。"""
 
     APPLIED = "applied"
     NOT_FOUND = "not_found"
     FORBIDDEN = "forbidden"
+    # G-637(2026-09-29)第四态:**刻意与"不存在"/"不是你的"不同形**,理由是它只对
+    # 已证明的属主可见 —— 判定顺序是 取条目 → 判属主 → **才** 判结算名额,
+    # 非属主永远拿回 FORBIDDEN(条目还在)或 NOT_FOUND(条目已被等待方清理),
+    # 结构上拿不到这一态,所以"这条 id 存在过"这一维没有因为本态而变宽。
+    # 而对属主本人,"已被答过"也不是新信息:这条审批本来就是他点掉的那一次
+    # (弹窗经 tool.approval 推给他)。把它折叠成 NOT_FOUND 反而会说谎
+    # ("审批不存在"),让重复点击的客户端显示"找不到这条审批"。
+    # 本端点族本来就不在同形口径里:AGENTS §5 记的例外正是
+    # "`approval.respond` 那类请求自带 threadId,回 foreign_thread 不增加信息,可以区分"
+    # —— 第四态沿用同一条已登记的例外,不是新开的面。
+    # ⚠️ 已知未闭环(不在本票文件清单内,故此处只登记不代改):
+    # `app/routers/agents.py` 的响应端点只 branch NOT_FOUND/FORBIDDEN,本态会
+    # 落到 fall-through 而回 200 accepted=true(状态没被第二次改写,但回执读起来
+    # 像改写了)。修法是一行:`if outcome is ApprovalOutcome.ALREADY_SETTLED: raise
+    # HTTPException(409, …)` —— 归该端点持有人,不得为让本票的门变绿去顺手改别人文件。
+    ALREADY_SETTLED = "already_settled"
 
 
 def resolve_approval_for_requester(
@@ -565,30 +627,54 @@ def resolve_approval_for_requester(
             applicable 替代时被 _request_approval 消费,否则忽略(不猜、不放大)。
 
     Returns:
-        APPLIED   = 属主匹配,决策已写入且协程被唤醒;
-        NOT_FOUND = approval_id 不存在(已超时清理或从未发起);
-        FORBIDDEN = id 存在但属主与请求者不符(跨用户决策尝试)。
+        APPLIED         = 属主匹配,决策已写入且协程被唤醒;
+        NOT_FOUND       = approval_id 不存在(已超时清理或从未发起);
+        FORBIDDEN       = id 存在但属主与请求者不符(跨用户决策尝试);
+        ALREADY_SETTLED = id 存在、属主也符,但结算名额已被取走(同一请求的第二次
+                          应答)—— 本次**不写任何状态**:不改 decision/scope/reason/
+                          accept_alternative、不再 set 事件、不再落持久授权。
 
     判定只有一种:**精确相等**(含 None==None)。不区分"部分匹配"/前缀匹配,
     也不因属主缺失而放行 —— 缺失属主的条目对带身份的请求者一律 FORBIDDEN。
+
+    G-637(2026-09-29)一次性结算:整段"取条目→判属主→取结算名额→写决策"在
+    `_approval_settle_lock` 的同一个临界区内完成(临界区内零 `await`),所以
+    同一 permissionRequestId 的两次应答**只许第一次生效**。三条顺序是判据本身:
+    ① 属主判定在结算判定**之前** —— 反过来会让越权尝试把别人的名额消耗掉,
+       真正的属主随后得到 NOT_FOUND,于是一次攻击尝试变成对受害者的拒绝服务
+       (正是 §5"先改了再抛 403"那一型);
+    ② 名额取走在写决策**之前** —— 取不到就立刻返回,不碰 entry 的任何字段;
+    ③ 不用 `dict.pop` 摘走条目本身:等待方(`_request_approval` 的
+       `settled = _as_entry(...)` 那一行)唤醒后还要回读 decision/scope/reason/
+       accept_alternative,摘走等于把功能改坏。被单点取走的是**结算权**这一份
+       名额,语义与 `entries.pop(rid, None)` 同形(取不到即分流),但不吃掉读侧。
     """
-    entry = _as_entry(approval_id)
-    if entry is None:
-        return ApprovalOutcome.NOT_FOUND
-    if entry.owner_user_id != requester_user_id:
-        logger.warning(
-            "[security] 审批决策被拒:approval_id=%s 请求者=%s 属主=%s",
-            approval_id,
-            requester_user_id,
-            entry.owner_user_id,
-        )
-        return ApprovalOutcome.FORBIDDEN
-    entry.decision = decision
-    entry.scope = scope
-    entry.reason = reason
-    entry.accept_alternative = bool(accept_alternative)
-    with contextlib.suppress(Exception):
-        entry.event.set()
+    with _approval_settle_lock:
+        entry = _as_entry(approval_id)
+        if entry is None:
+            return ApprovalOutcome.NOT_FOUND
+        if entry.owner_user_id != requester_user_id:
+            logger.warning(
+                "[security] 审批决策被拒:approval_id=%s 请求者=%s 属主=%s",
+                approval_id,
+                requester_user_id,
+                entry.owner_user_id,
+            )
+            return ApprovalOutcome.FORBIDDEN
+        if not entry.claim_settlement():
+            # 只报"已被答过",不重复落任何副作用;这条 info 是重复点击的取证行。
+            logger.info(
+                "[security] 审批重复应答被拒(只许第一次生效):approval_id=%s 请求者=%s",
+                approval_id,
+                requester_user_id,
+            )
+            return ApprovalOutcome.ALREADY_SETTLED
+        entry.decision = decision
+        entry.scope = scope
+        entry.reason = reason
+        entry.accept_alternative = bool(accept_alternative)
+        with contextlib.suppress(Exception):
+            entry.event.set()
     return ApprovalOutcome.APPLIED
 
 
@@ -606,8 +692,9 @@ def resolve_approval_response(
             历史语义(直接以库方式驱动循环的测试/脚本),对带属主的条目返回 False。
 
     Returns:
-        True=决策已写入且协程被唤醒;False=id 不存在 **或** 属主不符。
-        需要区分这两类时改用 resolve_approval_for_requester()。
+        True=决策已写入且协程被唤醒;False=id 不存在 **或** 属主不符 **或** 已被
+        第一次应答结算(G-637 第四态在这一层折叠成 False —— 本函数只有布尔出口,
+        要区分这三类时改用 resolve_approval_for_requester())。
     """
     return (
         resolve_approval_for_requester(approval_id, decision, requester_user_id)
@@ -1482,7 +1569,7 @@ class AgentLoopV2:
         self,
         llm_complete_fn: Callable[..., Any],
         tools: list[ToolDefinition],
-        max_iterations: int = 10,
+        max_iterations: int = AGENT_MAX_ITERATIONS,
         tool_timeout: float = 60.0,
         parallel_tool_calls: bool = True,
         enable_checkpoint: bool = True,

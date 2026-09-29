@@ -53,6 +53,21 @@ const CONSUMER = [
   '',
 ].join('\n')
 
+/* ─── 端内 barrel 族(2026-09-28 扩的第二族)的夹具 ───
+ * 真仓实形:`apps/<端>/src/components/index.ts` 显式清单 + 同层兄弟文件 + 两种消费写法
+ * (相对目录导入 `./components`,与 tsconfig 别名 `@/components`)。 */
+const APP_DIR = 'apps/web/src/components'
+const APP_CARD = 'export function Card() { return 1 }\nexport function Tooltip() { return 2 }\n'
+const APP_BARREL_OK = `export { Card } from './card.js'\nexport { Tooltip } from './tooltip.js'\n`
+const APP_BARREL_MISSING = `export { Card } from './card.js'\n`
+const APP_TSCONFIG = JSON.stringify(
+  { compilerOptions: { paths: { '@/*': ['./src/*'] } }, include: ['src/**/*.ts'] },
+  null,
+  2,
+)
+const APP_CONSUMER = "import { Card, Tooltip } from './components'\nexport const a = [Card, Tooltip]\n"
+const APP_ALIAS_CONSUMER = "import { Tooltip } from '@/components'\nexport const b = Tooltip\n"
+
 function gitIn(dir, args) {
   return execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, ...args], {
     encoding: 'utf8',
@@ -83,8 +98,11 @@ function runGate(dir, args) {
     return { code: e?.status ?? -1, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}` }
   }
 }
-/** 装一个最小 workspace:`@t/pkg` 有 dist 产物入口(exports→dist,真仓就是这形态)+ 一个消费者 */
-function makeRepo(dir, { barrel = BARREL_MISSING, extraFiles = {} } = {}) {
+/** 装一个最小 workspace:`@t/pkg` 有 dist 产物入口(exports→dist,真仓就是这形态)+ 一个消费者,
+ *  外加**一个端内 barrel 族**(apps/web/src/components/index.ts + 相对与别名两种消费写法)。
+ *  端内那一族必须一起装:CLI 侧 `requireBarrels:true`,一个 barrel 都没有的面会直接判死 ——
+ *  那正是 T12 要的形态,不能让所有端到端夹具都撞上它。 */
+function makeRepo(dir, { barrel = BARREL_MISSING, appBarrel = APP_BARREL_OK, extraFiles = {} } = {}) {
   gitIn(dir, ['init', '-q'])
   gitIn(dir, ['config', 'user.email', 'gate@fixture.local'])
   gitIn(dir, ['config', 'user.name', 'gate-fixture'])
@@ -106,6 +124,14 @@ function makeRepo(dir, { barrel = BARREL_MISSING, extraFiles = {} } = {}) {
   put(dir, 'packages/pkg/src/index.ts', barrel)
   put(dir, 'packages/pkg/src/thing.ts', THING_TS)
   put(dir, 'apps/web/src/consumer.ts', CONSUMER)
+  if (appBarrel !== null) {
+    put(dir, `${APP_DIR}/index.ts`, appBarrel)
+    put(dir, `${APP_DIR}/card.ts`, APP_CARD)
+    put(dir, `${APP_DIR}/tooltip.ts`, 'export function Tooltip() { return 3 }\n')
+    put(dir, 'apps/web/tsconfig.json', APP_TSCONFIG)
+    put(dir, 'apps/web/src/ui.ts', APP_CONSUMER)
+    put(dir, 'apps/web/src/alias-user.ts', APP_ALIAS_CONSUMER)
+  }
   for (const [rel, txt] of Object.entries(extraFiles)) put(dir, rel, txt)
   copyScriptWithClosure(SCRIPTS_DIR, GATE_REL, join(dir, 'scripts'), [
     'lib/face-reader.mjs',
@@ -301,5 +327,102 @@ test('T9 无提交可审时不记绿(空仓 ⇒ 取不到判定面 ⇒ exit 2)',
   } finally {
     rmScratch(dir)
   }
+})
+
+/* ───────── 端内 barrel 族(2026-09-28 扩的第二族)的端到端与形状锁 ───────── */
+
+test('T10 端内 barrel 双向锁:只暂存 barrel 必须红(相对与别名两种消费都要点名);入库后存量不得再拦每次提交', () => {
+  const dir = mkScratch('pbe-app-')
+  try {
+    makeRepo(dir, { barrel: BARREL_OK, appBarrel: APP_BARREL_OK })
+    const clean = runGate(dir, ['--staged'])
+    assert.equal(clean.code, 0, `两端都齐备时 --staged 不得红:${clean.out}`)
+    assert.match(clean.out, /barrel \d+ 个/, '报告必须把端内 barrel 的枚举数印出来(否则新射程不可见)')
+
+    // 真事故写法:只改 barrel 那一行,消费者一行没动 —— 判据面若按暂存收窄,这一臂结构上不可能红
+    writeFileSync(join(dir, `${APP_DIR}/index.ts`), APP_BARREL_MISSING, 'utf8')
+    gitIn(dir, ['add', `${APP_DIR}/index.ts`])
+    const bad = runGate(dir, ['--staged'])
+    assert.equal(bad.code, 1, `只暂存端内 barrel 也必须有牙,实得 ${bad.code}:${bad.out}`)
+    assert.match(bad.out, /Tooltip/, '必须点名那个没递出的名字')
+    assert.match(bad.out, /apps\/web\/src\/ui\.ts/, '必须点名相对路径的消费者')
+    assert.match(
+      bad.out,
+      /apps\/web\/src\/alias-user\.ts/,
+      '必须点名**别名**(`@/…`)消费者 —— 旧版把别名当未知裸名静默丢掉,这一族连报名都没有',
+    )
+
+    // 存量臂:同一份坏 barrel 已入 HEAD ⇒ 与本次提交无关,不得再把每个人钉红(§12e 那一型)
+    gitIn(dir, ['commit', '-q', '-m', 'fixture: 端内事故形态入库'])
+    put(dir, 'NOTES.md', '一枚与两侧入口都无关的提交\n')
+    gitIn(dir, ['add', 'NOTES.md'])
+    const stock = runGate(dir, ['--staged'])
+    assert.equal(stock.code, 0, `端内存量不该把无关提交钉红:${stock.out}`)
+    assert.match(stock.out, /其中端内 barrel \d+/, '存量必须仍然报名(不得静默)')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T11 端内 barrel 的 `export *`:包内 star 必须被跟着递出,不可枚举的 star 必须落未判定', () => {
+  // A 臂:Tooltip 经**包内** star 边递出 ⇒ 不得判红,也不得因此把 barrel 记成未判定
+  const dir = mkScratch('pbe-star-')
+  try {
+    makeRepo(dir, {
+      barrel: BARREL_OK,
+      appBarrel: `export { Card } from './card.js'\nexport * from './tooltip.js'\n`,
+    })
+    const followed = runGate(dir, [])
+    assert.equal(followed.code, 0, `包内 star 递出的名字被误判红:${followed.out}`)
+    assert.match(followed.out, /红 0 处\(raw red 0,其中端内 barrel 0\)/)
+  } finally {
+    rmScratch(dir)
+  }
+  // B 臂:star 指向三方 ⇒ 名单不可枚举 ⇒ 只能未判定,--strict 拒绝出合格证
+  const dir2 = mkScratch('pbe-opaque-app-')
+  try {
+    makeRepo(dir2, {
+      barrel: BARREL_OK,
+      appBarrel: `export { Card } from './card.js'\nexport * from 'some-third-party'\n`,
+    })
+    const strict = runGate(dir2, ['--strict'])
+    assert.equal(strict.code, 2, `barrel 有不可枚举的边时 --strict 必须 exit 2:${strict.out}`)
+    assert.match(strict.out, /barrel:apps\/web\/src\/components\/index\.ts/)
+    assert.match(strict.out, /拒绝出具合格证/)
+  } finally {
+    rmScratch(dir2)
+  }
+})
+
+test('T12 端内 barrel 枚举到 0 个 ⇒ 判死,不得记绿(空扫与"仓库干净"在账面上长得一样)', () => {
+  const dir = mkScratch('pbe-nobarrel-')
+  try {
+    // appBarrel:null ⇒ 面上一切 index.(ts|tsx) 都只是包入口,barrel 族枚举为 0
+    makeRepo(dir, { barrel: BARREL_OK, appBarrel: null })
+    const r = runGate(dir, [])
+    assert.equal(r.code, 2, `枚举 0 个 barrel 必须 exit 2 而不是 0:${r.code} ${r.out}`)
+    assert.match(r.out, /都没枚举到/)
+    assert.doesNotMatch(r.out, /本次判定未把任何"取不到"记成通过/, '判死不等于通过')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T13 形状锁:端内那一族不得只在判据里、而不在**取材面**里(第二趟漏喂 apps/ = 存量被算成新增)', () => {
+  const src = readFileSync(SRC, 'utf8')
+  // 锚点第二趟的文件过滤:包侧 + 端内侧 + 别名表,三者必须同批喂。
+  // 取"从调用点起的一段窗口"而不是配对到最近的 `)` —— filter 体内本身就全是 `)`。
+  const at = src.indexOf('const headFiles = headAll.filter(')
+  assert.ok(at >= 0, '取不到锚点第二趟的文件过滤(调用点形态被改了,本锁与判据同时失效)')
+  const window = src.slice(at, at + 460)
+  assert.ok(window.includes("startsWith('packages/')"), '第二趟必须喂 packages/')
+  assert.ok(window.includes("startsWith('apps/')"), '第二趟必须喂 apps/ —— 漏了它,端内 barrel 的锚点恒 0')
+  assert.ok(/TS_RE\.test\(f\)/.test(window), '第二趟必须喂 tsconfig —— 别名解析不到 ⇒ 锚点同样恒 0')
+  // barrel 族必须真挂在主判据上(函数在而调用点没接 = 提交链一路绿灯,守门 70/76/81/102 同型)
+  assert.ok(/red\.push\(\{[^}]*scope:\s*'barrel'/.test(src), '端内漏递必须进同一张 red 清单(带 scope 标记)')
+  assert.ok(
+    /analyze\(\{ readFace, files, requireBarrels: true \}\)/.test(src),
+    'CLI 侧必须以 requireBarrels:true 调用 —— 默认假意味着真仓永不因这一族失明而喊死',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

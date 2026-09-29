@@ -9,6 +9,9 @@ import type {
   TerminalStartEvent,
   TerminalEndEvent,
   CitationsEvent,
+  // D152(2026-09-29):goal 状态封闭集(六档 + 线格式第七值 'cleared'),权威在
+  // packages/types/src/agent-runtime.ts 的 GOAL_WIRE_STATUSES —— 本包不得抄第二份。
+  GoalWireStatus,
 } from '@ihui/types'
 // #11 Citations 全链路(2026-09-13 立):类型已迁至 @ihui/types(与 PlanUpdateEvent 等一致),
 // 本地不再重复定义,消除 import 与本地声明的 TS2440 冲突。
@@ -18,6 +21,9 @@ import { getTransport, type TransportInit } from './transport.js'
 // D116 原始 SSE 全帧采集(默认关闭,零开销;展示端 stream-inspector 挂工具托盘)
 import { recordStreamFrame } from './stream-frame-log.js'
 import type { DeviceFingerprintCollector } from '@ihui/types'
+// D152(2026-09-29):goal 状态的合法值集是**运行时判据**(解析帧时要验 status),
+// 故按值导入而非 type-only —— 单一来源仍是 @ihui/types 的 GOAL_WIRE_STATUSES。
+import { GOAL_WIRE_STATUSES } from '@ihui/types'
 // error 序列化唯一出口(2026-09-26 立)。上行 tool-result 帧的 error 字段若被调用方在
 // catch 里把 Error 本体(as 强转即可过 tsc)塞进来,JSON.stringify 会得 "{}" ——
 // ai-service 的 tool loop 唤醒时收到的是空对象事故现场。详见 postToolResult 上方 toWireError。
@@ -1015,6 +1021,28 @@ export interface TerminalInteractionEvent {
   messageId?: string
 }
 
+/** D152(2026-09-29 立,用户拍板「服务化但存会话元数据、不建新表」):会话目标状态帧。
+ *  与 web `stores/goal.ts` 的关系是「服务端主副本 → 本地缓存」:本帧到达即覆盖本地那份,
+ *  换浏览器/换端不再丢。生产点 ai-service `POST /llm/sessions/{session_id}/goal`
+ *  (写入主副本后推进该会话当前活跃流)+ **流首**带出当前目标。
+ *  ⚠️ **单帧承载清除**:`status:'cleared'` 就是"目标已清除",不存在 goal_cleared 第二帧。
+ *  sessionId 必需 —— 上行出口的路径就是 `/llm/sessions/{sessionId}/goal`,不带前端只能猜,
+ *  而猜错的表现是"点了什么都没发生且不报错"(D151 同一课)。 */
+export interface GoalUpdateEvent {
+  /** 会话 id(= 上行出口路径里的 {session_id});空串 = 服务端当轮没有会话 id */
+  sessionId: string
+  /** 六档之一,或 cleared(线格式第七值,代表"已清除"而非第七种落库状态) */
+  status: GoalWireStatus
+  /** 目标原文;cleared 时缺省 */
+  objective?: string
+  /** 累计耗时 ms(GoalCard 的 D89 耗时条取它) */
+  elapsedMs?: number
+  /** 累计 token 用量(服务端计量,不是本地估算) */
+  tokenUsage?: number
+  /** 服务端写入时刻(epoch 秒);多端据此判"谁的更新更新" */
+  updatedAt?: number
+}
+
 /** 消息级 token 用量计量事件(D1,2026-09-19 立)。
  *
  * 后端在每条回复流收尾处发出命名帧 `event: usage` / `type:'usage'`,
@@ -1149,6 +1177,9 @@ export interface StreamChatOptions {
   /** D151(2026-09-29):命令在等键盘输入。默认无回调时**不解析**(与 tool-delta/injection 同口径),
    *  这样没接这条腿的端不会平白多一份解析开销,也不会出现"监听了但没人生产"的反向失真。 */
   onTerminalInteraction?: (event: TerminalInteractionEvent) => void
+  /** D152(2026-09-29):会话目标状态变化(goal_updated)。默认无回调时**不解析**(与
+   *  onTerminalInteraction/onToolDelta 同口径)。接了它的端即"服务端主副本 → 本地缓存"。 */
+  onGoalUpdate?: (event: GoalUpdateEvent) => void
   /** D113:文件写类工具流中 diff 预览帧(默认无回调时不解析,与 injection 同口径) */
   onToolDelta?: (event: ToolDeltaEvent) => void
   /** 自动重连最大次数(默认 3)。网络错误指数退避重连,业务错误(401/403/429)不重连 */
@@ -2234,6 +2265,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       const hasTerminalDelta = typeof opts.onTerminalDelta === 'function'
       // D151:没接这条腿就不解析该帧(与 onToolDelta/onInjection 同口径)
       const hasTerminalInteraction = typeof opts.onTerminalInteraction === 'function'
+      // D152:没接这条腿就不解析该帧(与 onTerminalInteraction/onToolDelta 同口径)
+      const hasGoalUpdate = typeof opts.onGoalUpdate === 'function'
       // D113:tool-delta 流中预览(未注册回调不解析)
       const hasToolDelta = typeof opts.onToolDelta === 'function'
       // #11 Citations 全链路(2026-09-13 立):knowledge_lookup 工具执行后下发引用溯源
@@ -2953,6 +2986,45 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
+      /** D152(2026-09-29):解析 goal_updated —— 服务端那份目标主副本变了。
+       *  判据与同族一致:先看 type,再验 `status` ∈ GOAL_WIRE_STATUSES(六档 + cleared)。
+       *  **status 不合法就丢弃**,绝不回落成 chunk/meta 或"当作没发生"—— 把"没认出来"
+       *  写成"看见了"是本仓最高频的失效型。合法值集从 @ihui/types 现取,不在本包抄第二份。 */
+      const tryParseGoalUpdate = (line: string): void => {
+        if (!hasGoalUpdate) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'goal_updated') return
+          const status = json.status
+          if (typeof status !== 'string' || !GOAL_WIRE_STATUSES.includes(status as GoalWireStatus)) {
+            return
+          }
+          const event: GoalUpdateEvent = {
+            sessionId: typeof json.sessionId === 'string' ? json.sessionId : '',
+            status: status as GoalWireStatus,
+            ...(typeof json.objective === 'string' ? { objective: json.objective } : {}),
+            ...(typeof json.elapsedMs === 'number' ? { elapsedMs: json.elapsedMs } : {}),
+            ...(typeof json.tokenUsage === 'number' ? { tokenUsage: json.tokenUsage } : {}),
+            ...(typeof json.updatedAt === 'number' ? { updatedAt: json.updatedAt } : {}),
+          }
+          opts.onGoalUpdate!(event)
+        } catch {
+          /* 非 JSON 或非 goal_updated 事件忽略 */
+        }
+      }
+
       /** 2026-09-18 立:解析 thinking SSE 事件(agent 通道的 hook thinking.delta 映射)。
        *  - 后端发 `event: thinking` + `data: {"type":"thinking","content":"..."}`
        *  - 两种(reasoning / thinking)都走 reasoning 通道:本函数把 content 投递给 onReasoning。
@@ -3394,6 +3466,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             // D151(2026-09-29):命令在等键盘输入 —— 专用通道,不落正文、不当 delta
             case 'terminal_interaction':
               return 'terminal_interaction'
+            // D152(2026-09-29):会话目标状态帧 —— 专用通道,不落正文
+            case 'goal_updated':
+              return 'goal_updated'
             case 'thinking':
               return 'thinking'
             // 2026-09-18 立:补 type==='compaction' 这一路(原仅认 json.compaction 字段形态)
@@ -3449,6 +3524,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseTerminalDelta(line)
         } else if (route === 'terminal_interaction') {
           tryParseTerminalInteraction(line)
+        } else if (route === 'goal_updated') {
+          tryParseGoalUpdate(line)
         } else if (route === 'tool_delta') {
           tryParseToolDelta(line)
         } else if (route === 'thinking') {
@@ -3483,6 +3560,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseMemoryUpdates(line)
           tryParseTerminalDelta(line)
           tryParseTerminalInteraction(line)
+          tryParseGoalUpdate(line)
           tryParseThinking(line)
           tryParseSteer(line)
           tryParseBudget(line)
@@ -3947,5 +4025,84 @@ export async function postTerminalInput(
   }
   const ok = ack?.ok === true
   return ok ? { ok: true, accepted: ack?.accepted === true } : { ok: false }
+}
+
+/** D152(2026-09-29 立,用户拍板「服务化,但存会话元数据、不建新表」):
+ *  把一个会话的「当前目标 + 状态」写进**服务端主副本**。
+ *
+ * POST /llm/sessions/{session_id}/goal
+ * Body: { action: 'set'|'pause'|'resume'|'clear', objective?, elapsed_ms?, token_usage? }
+ *       —— 上行沿用 snake_case(与同通道的 form-response / terminal-input 同族)。
+ *
+ * 一个端点带 action,不拆四条路由:四种动作改的是同一个键、走同一条归属判定,
+ * 拆四条就会有人只接三条(本仓"一条门只管自己立项那一型"的同族风险)。
+ *
+ * 失败必抛(照 postFormResponse 的教训):静默吞掉 = 用户点了 /goal 而服务端一个字都没写,
+ * 界面停在"设好了"的假象上,而这一票要修的正是"换浏览器/换端就看不见目标"。
+ *
+ * ⚠️ **回退口径(票第 8 栏)**:`accepted:false` 表示服务端这一轮**没有**这个会话的主副本
+ * (典型:纯聊天会话没建引擎线程行,或该会话不属于本主体 —— 两种情形服务端同形回包,
+ * 不给存在性预言机)。调用方据此**退回纯本地态**(stores/goal 仍是缓存,功能不中断),
+ * 不得把它当成"目标设置失败"弹错。
+ */
+export async function postSessionGoal(
+  sessionId: string,
+  input: {
+    action: 'set' | 'pause' | 'resume' | 'clear'
+    objective?: string
+    elapsedMs?: number
+    tokenUsage?: number
+  },
+): Promise<{ ok: boolean; accepted: boolean; status?: GoalWireStatus; sessionId?: string }> {
+  const aiServiceUrl = aiServiceBaseUrl()
+  let resp: Response
+  try {
+    resp = await fetch(`${aiServiceUrl}/llm/sessions/${sessionId}/goal`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: input.action,
+        ...(typeof input.objective === 'string' && input.objective ? { objective: input.objective } : {}),
+        ...(typeof input.elapsedMs === 'number' ? { elapsed_ms: input.elapsedMs } : {}),
+        ...(typeof input.tokenUsage === 'number' ? { token_usage: input.tokenUsage } : {}),
+      }),
+    })
+  } catch (e) {
+    throw new Error(
+      `postSessionGoal network error (session=${sessionId}, action=${input.action}): ${(e as Error).message}`,
+    )
+  }
+  if (!resp.ok) {
+    let detail = ''
+    try {
+      detail = (await resp.text()).slice(0, 200)
+    } catch {
+      // 忽略 body 读取失败,只保留 status
+    }
+    throw new Error(
+      `postSessionGoal failed: HTTP ${resp.status} (session=${sessionId}, action=${input.action})${detail ? `: ${detail}` : ''}`,
+    )
+  }
+  // "没这条会话"与"不是你的"同形(HTTP 200 + accepted:false),所以只看 resp.ok 会把
+  // "没写成"读成"写成了" —— ack 必须读回来交给调用方判(与 postTerminalInput 同一条理由)。
+  let ack: {
+    ok?: unknown
+    accepted?: unknown
+    status?: unknown
+    sessionId?: unknown
+  }
+  try {
+    ack = (await resp.json()) as typeof ack
+  } catch (e) {
+    throw new Error(
+      `postSessionGoal ack unreadable (session=${sessionId}, action=${input.action}): ${(e as Error).message}`,
+    )
+  }
+  return {
+    ok: ack?.ok === true,
+    accepted: ack?.accepted === true,
+    ...(typeof ack?.status === 'string' ? { status: ack?.status as GoalWireStatus } : {}),
+    ...(typeof ack?.sessionId === 'string' ? { sessionId: ack?.sessionId } : {}),
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

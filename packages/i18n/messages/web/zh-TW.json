@@ -10448,6 +10448,9 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "attachRejectType": "類型不支持,已跳過 {count} 個檔案:{names}",
+    "attachRejectSize": "檔案超過大小上限({max}MB),已跳過 {count} 個檔案:{names}",
+    "attachRejectCount": "附件最多 {max} 個,本次被拒 {count} 個",
     "mentionEngine": {
       "tabFile": "檔案",
       "tabFolder": "資料夾",
@@ -25883,6 +25886,10 @@
     "title": "Agent 執行任務",
     "refresh": "重新整理",
     "empty": "暫無 agent 任務(由 /agent/run 或自動化建立)",
+    "statusRunning": "執行中",
+    "statusCompleted": "已完成",
+    "statusFailed": "失敗",
+    "statusCanceled": "已取消",
     "iterations": "已迭代 {count} 輪",
     "injectPlaceholder": "中途插話:補充指令/糾偏…",
     "inject": "插話",

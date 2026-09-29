@@ -31,7 +31,7 @@ import { execSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
-import { boxShape, boxDims, constsForLines } from './lib/box-geometry.mjs'
+import { boxShape, boxDims, constsForLines, ownShortSidePx } from './lib/box-geometry.mjs'
 import { radiusLookup, radiusPxInLine } from './lib/radius-tokens.mjs'
 import { catBatch } from './lib/face-reader.mjs'
 import { COLORS as C } from './lib/logger.mjs'
@@ -541,6 +541,62 @@ const fileReports = []
  */
 const c2 = { circle: 0, capsule: 0, undetermined: 0, tierChecked: 0 }
 
+/**
+ * C7 的上限 = **档位表里的最大档**(2xl = 16px),与守门 77 的 B9 同一个来源、同一条口径:
+ * 抄一份 `16` 进来,档位表一改本门就对着旧表打分(AGENTS §4 圆角条记过这一型)。
+ * 表取不到 ⇒ 本维**判不出**,由下面 `capUndetermined` 逐条计入报名 —— 不得退化成"没有超标"。
+ */
+const MAX_CAP = RADIUS_TABLE
+  ? Math.max(
+      ...Object.entries(RADIUS_TABLE)
+        .filter(([k]) => !k.startsWith('role:'))
+        .map(([, v]) => v)
+        .filter((n) => Number.isFinite(n)),
+    )
+  : null
+const c7 = { breached: 0, unknown: 0 }
+/**
+ * 全圆写法在一行上的等效半径(px)。刻意**只判本门自己那一族**(`rounded-full` / `rounded-pill` /
+ * `9999px` / `50%`),数值与档位形态的圆角由守门 77 的 B9 判 —— 同一笔债两道门各计一次,
+ * 两份基线就会互相顶掉(守门 83 为这条写过明文),所以这里不接 `radiusPxInLine`。
+ *
+ * **盒形只能取自这一行自己**,不得用 `boxDims`(它的窗口向后 6 行、向前 2 行是刻意放宽给
+ * "本门主判据"的口径,那条判据宁宽不漏)。上限是一条**判红**判据,拿邻居的尺寸判在自己盒上
+ * 就是假阳:今天实测同一枚 `w-2.5 h-2.5`(10×10,等效半径 5px)的红点,被窗口里邻行的
+ * `w-[88rpx]` 头像顶成 44×44 ⇒ 等效 22px 被判红。假阳的代价从来不是"多一条红",
+ * 是逼人把一颗本来正确的圆改方。顺序:① 本行文本 ② 本对象作用域(CSS 规则块 / StyleSheet
+ * 里的 `width/height` 常在邻行)③ 都没有 ⇒ 未判定报名,绝不读成"没超标"。
+ * @returns {{value: number|null, unknown: boolean}}
+ */
+function capOfFullCircle(line, lines, idx) {
+  /**
+   * 两种书写面都要认,否则"把这一族交给本门"就等于把它交给一台看不见它的尺子:
+   * 类名/CSS 侧写 `rounded-full` / `border-radius: 50%`,RN StyleSheet 侧写
+   * `borderRadius: '50%'`(守门 77 的 B9 原来判的就是这一支,本条接手后必须同形覆盖)。
+   */
+  const full =
+    /rounded-(?:full|pill)\b/.test(line) ||
+    /border-?radius\s*:\s*(?:['"])?9999px/i.test(line) ||
+    /\bborderRadius\s*:\s*['"]9999px['"]/i.test(line)
+  const pct = /border-?radius\s*:\s*['"]?50%['"]?/i.test(line) || /\bborderRadius\s*:\s*['"]50%['"]/.test(line)
+  if (!full && !pct) return { value: null, unknown: false }
+  /** 注释行不参与判定:门在自己解释自己的散文里写 `rounded-full`,那是说明不是取用(守门 131 同型)。 */
+  if (/^\s*(?:\/\/|\/\*|\*|\{\/\*|<!--)/.test(line)) return { value: null, unknown: false }
+  const short = ownShortSidePx(lines, idx)
+  if (short === null) return { value: null, unknown: true }
+  // 全圆写的就是"半径 = 短边一半"(CSS 会把半径夹到半边,9999px 与 50% 在渲染上同值)。
+  return { value: short / 2, unknown: false }
+}
+const checkCap = (line, lines, idx) => {
+  if (MAX_CAP === null) return false
+  const { value } = capOfFullCircle(line, lines, idx)
+  return value !== null && value > MAX_CAP
+}
+const capUndetermined = (line, lines, idx) => {
+  const { value, unknown } = capOfFullCircle(line, lines, idx)
+  return unknown && !(MAX_CAP !== null && value !== null && value > MAX_CAP)
+}
+
 for (let fi = 0; fi < keptRel.length; fi++) {
   const rel = keptRel[fi]
   const file = files[relPaths.indexOf(rel)]
@@ -555,6 +611,31 @@ for (let fi = 0; fi < keptRel.length; fi++) {
       const allowed = addedLinesMap.get(file)
       if (!allowed || !allowed.has(lineNumber)) return
     }
+/**
+ * C7 · **圆角上限**(2026-09-29 用户定档:任何圆角半径不得超过档位表最大档 2xl = 16px,
+ * 圆形头像 / 圆形图标底板不再豁免)。必须排在**所有豁免通道之前**:下面那些豁免族放行的是
+ * "这颗圆是不是有正当用途",而"半径过大"与用途无关 —— 48dp 头像上的 `rounded-full` 等效半径
+ * 24px,按旧口径会被"Avatar 豁免"整条放走,那正是本次要清掉的一族。
+ *
+ * **射程分工(一台尺子只量一段,同一枚站点不得两处计数)**:
+ *  - 本门判**全圆写法**的等效半径 —— `rounded-full` / `rounded-pill` / `border-radius: 50%` /
+ *    `9999px` / RN `borderRadius: '50%'`。这一族原来在本门是**免检**的(正方盒就当几何真圆放行),
+ *    所以 48dp 头像这类"半径 24px"完全不在任何上限判据的射程里,本次接上。
+ *  - **写死数字**那一族(StyleSheet `borderRadius: 24`、CSS `border-radius: 24px`、
+ *    `rounded-[24px]`)由守门 77 判 —— 那才是"绕档位表写死数字"的归属门(B1/B3/B4,上限是 B9)。
+ * **量不到盒形 ⇒ 计未判定并报名,绝不读成"没超标"**(与本仓"把没判写成判过了"那条禁令同形)。
+ */
+    if (checkCap(line, lines, idx)) {
+      c7.breached++
+      findings.push({
+        line: lineNumber,
+        col: 1,
+        label: `圆角超过上限 ${MAX_CAP}px —— 项目定档不允许圆角过大(圆形头像/图标底板不豁免),改取 ≤2xl 的档`,
+        snippet: line.trim().slice(0, 140),
+      })
+      return
+    }
+    if (capUndetermined(line, lines, idx)) c7.unknown++
     if (isExempt(line, file, lines, idx)) return
     if (isCssExempt(lines, idx, file)) return
     /**
@@ -614,6 +695,11 @@ console.log(
   `${C.dim}  本门不据此判红的理由:"胶囊"是**角色件**的错档(输入框/按钮/徽章取了半高半径),而按几何量还会` +
     `把 4px 骨架条、进度条这类无角色证据的装饰线段一起卷进来,并对 StyleSheet 对象 blead 邻行尺寸` +
     `(实测把 8×8 圆点量成 40×8)。类别由守门 150 五级证据判,形状由本门判 — 两台尺子各量一段。${C.reset}`,
+)
+console.log(
+  `${C.dim}  C7 半径上限(档位表最大档 = ${MAX_CAP === null ? '未取到表 ⇒ 本维未判定' : `${MAX_CAP}px`}):` +
+    `超标 ${c7.breached} 处(已计入违规) / 全圆写法但量不到自己那个盒 ${c7.unknown} 处 —— ` +
+    `后者**不是"没超标"**,是把尺寸写在别的行或动态类名里,尺子看不见(报数不静默)。${C.reset}`,
 )
 console.log(`${C.bold}扫描结果:${C.reset}`)
 console.log(`  扫描文件: ${files.length} 个`)

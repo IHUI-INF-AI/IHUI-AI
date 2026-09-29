@@ -15,66 +15,59 @@ import { cn } from '@/lib/utils'
  *
  * 触发场景:
  * - 用户从 default/accept-edits 切到 bypass-permissions(无论通过 Popover、Shift+Tab、还是 /permission full)
- * - 且从未在本浏览器中确认过("ihui:full-access-acknowledged" 标志)
- * - 且未勾选"不再提醒"("ihui:full-access-suppressed")
+ * - 且当前没有一条**有效**的静默授权(见下方"持久化"与 `@/lib/full-access-suppression`)
  *
  * UX 细节:
  * - 必须勾选"我了解上述风险"复选框才能点"继续启用"按钮(防止误点)
  * - 复选框状态用 useState(组件级,关闭即重置,避免下次直接通过)
- * - "不再提醒"复选框选择时,写入 localStorage.acknowledged = true(关弹窗即生效)
- * - 确认时调 onConfirm();取消时调 onCancel()(关弹窗,不写 localStorage)
+ * - "不再提醒"复选框选中时,写入一条有期限、绑档、绑风险说明版本的静默授权
+ * - 确认时调 onConfirm();取消时调 onCancel()(关弹窗,不写授权)
  *
- * 持久化:
- * - acknowledged: 一次性确认标志(用于 toast 文案"已确认高风险模式")
- * - suppressed:   永久静默标志(用户在危险确认弹窗里勾"不再提醒")
- * - 单独 key,避免"已确认"被"已静默"覆盖导致下次仍弹
+ * 持久化(2026-09-28 票 G-414 ② 收口,原先形态是"勾一次就永久不再问"):
+ * - 授权记录 = { subject(哪个档) + policyVersion(哪一版风险说明) + acknowledgedAt + expiresAt }
+ * - 到期 / 换风险说明版本 / 问的是另一个档 ⇒ 授权失效,重新问人
+ * - 只勾"我了解"没勾"不再提醒" ⇒ 记 acknowledgedAt(expiresAt=null),下次仍问
+ * - 旧版裸 '1' 记录(既没绑档也没期限)按"无法判定是否仍然同意"处理 ⇒ 重新问一次,问过即升级为新记录
+ * - 判不出(localStorage 不可读 / SSR)fail-closed 照问,但状态单独点名,不写成"已静默"
+ * - 唯一 key:`ihui:full-access-suppressed`(旧的第二把 key 从未被任何生产路径读过,已并入这一条)
  *
- * 触发逻辑在调用方控制:本组件只负责 UI。
+ * 触发逻辑在调用方控制:本组件只负责 UI 与读写这唯一一条授权记录。
  */
 
-const STORAGE_KEY_ACKNOWLEDGED = 'ihui:full-access-acknowledged'
-const STORAGE_KEY_SUPPRESSED = 'ihui:full-access-suppressed'
+import {
+  FULL_ACCESS_SUPPRESSION_KEY,
+  clearFullAccessSuppression,
+  evaluateFullAccessSuppression,
+  grantFullAccessSuppression,
+  recordFullAccessAcknowledgement,
+} from '@/lib/full-access-suppression'
 
-/** 当前是否已被"不再提醒"静默(用于调用方在弹窗前先 fast-path) */
+/** 本弹窗对应的守卫对象(封闭集见 FULL_ACCESS_GUARD_SUBJECTS)。 */
+const GUARD_SUBJECT = 'bypass-permissions' as const
+
+/**
+ * 当前是否已被"不再提醒"静默(用于调用方在弹窗前先 fast-path)。
+ *
+ * 只有拿到一条**仍然有效**的授权才返回 true;过期、换档、换风险说明版本、判不出 ⇒ false(照问)。
+ * 需要知道"为什么问"的调用方(历史面板/测试)直接用 `evaluateFullAccessSuppression(GUARD_SUBJECT)`。
+ */
 export function isFullAccessConfirmSuppressed(): boolean {
-  if (typeof window === 'undefined') return false
-  try {
-    return window.localStorage.getItem(STORAGE_KEY_SUPPRESSED) === '1'
-  } catch {
-    return false
-  }
+  return evaluateFullAccessSuppression(GUARD_SUBJECT).suppressed
 }
 
-/** 标记用户已确认(单次,用于 toast 文案) */
+/** 记录"用户确认过一次风险"(不产生静默效果,下次照问;用于把确认这件事记在同一条记录上) */
 export function markFullAccessAcknowledged(): void {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(STORAGE_KEY_ACKNOWLEDGED, '1')
-  } catch {
-    // 静默
-  }
+  recordFullAccessAcknowledgement(GUARD_SUBJECT)
 }
 
-/** 标记用户已选择"不再提醒"(永久静默) */
+/** 记录"用户选择不再提醒"⇒ 写入一条有期限、绑档、绑版本的静默授权 */
 export function markFullAccessSuppressed(): void {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(STORAGE_KEY_SUPPRESSED, '1')
-    window.localStorage.setItem(STORAGE_KEY_ACKNOWLEDGED, '1')
-  } catch {
-    // 静默
-  }
+  grantFullAccessSuppression(GUARD_SUBJECT)
 }
 
-/** 重置所有标志(供用户主动"重新提醒我"使用) */
+/** 撤销静默与确认(供用户主动"重新提醒我"使用) */
 export function resetFullAccessAcknowledgement(): void {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.removeItem(STORAGE_KEY_ACKNOWLEDGED)
-    window.localStorage.removeItem(STORAGE_KEY_SUPPRESSED)
-  } catch {
-    // 静默
-  }
+  clearFullAccessSuppression()
 }
 
 interface FullAccessConfirmDialogProps {
@@ -196,9 +189,8 @@ export function FullAccessConfirmDialog({
 
 export default FullAccessConfirmDialog
 
-/** 暴露内部 storage key 供自验脚本引用(避免硬编码 2 处) */
+/** 暴露内部 storage key 供自验脚本引用(避免硬编码;读侧只有 @/lib/full-access-suppression 一处) */
 export const __FULL_ACCESS_STORAGE_KEYS__ = {
-  acknowledged: STORAGE_KEY_ACKNOWLEDGED,
-  suppressed: STORAGE_KEY_SUPPRESSED,
+  suppressed: FULL_ACCESS_SUPPRESSION_KEY,
 } as const
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
