@@ -20553,3 +20553,9 @@ services 归档/分享/HTTP 层)判"值得抄"的 **26 条**逐条立项(每条�
 - **真机终验**:重启后首轮全量保活 16 账号 14 成功 2 失败(wechat 过期 14.7 天 / bilibili、wordpress 13 天+,如实标失败 = 正确信号,待用户重扫);14 个账号 last_verified_at 戳新至当日、daysSince=0.0 全 healthy;Playwright 真开页面角标渲染「Cookie 自动保活 · 每 6 小时 · 上次保活 09-29 18:28」,截图 .ihui-agent/tmp/scanlogin/auto-refresh-chip.png。
 - **tests**:ai-service test_cookie_refresh_daemon.py 43→46 条(+_stamp_verified 三例:写 UPDATE / 失败不抛 / 成功路径必戳),pytest 46/46、mypy 0 错、ruff 0 错;web vitest 4 条(角标开启渲染 / 关闭不渲染 / pending 回落 / 请求失败静默)全绿;tsc/eslint 本批文件零错;i18n 包 96/96。顺手机械修掉 main.py 两处 HEAD 存量(steps 缺注解、UP041 asyncio.TimeoutError)。
 - **i18n 混包事故如实交代**:en/ja/ko 工作树彼时处于他人 minify 变换中(其暂存副本实为**损坏 JSON**,parse 即炸)。按"他人语义不丢、损坏格式不收"原则:以 HEAD(pretty)为基线字符串手术重建,抢救他人两键(ai.checkpointHistory.rollbackConfirmContentUnreadable / ide.diffReview.copyGitApplyUnreadable,值自合法工作树逐字取回),重建结果与工作树**扁平键集逐键等值**(各 23036 键);HEAD 基准下每文件恰 7 行纯插入零删除。我的提交因此携带他人 2 个语义键,特此登记。
+
+- G-917946 后台教育页导航入口:更正上一条结论的依据,并把它拆成独立一票(2026-09-29 第八批复核):
+  - **我上一轮那条探针是错的**:取的是全页 `a[href^="/admin/"]`,把页面正文里的链接(面包屑、表格里的跳链)当成侧栏菜单数,于是得出"本机菜单只有 7 条"。按侧栏容器(`aside` / `nav`)限定范围重测:侧栏渲染 6 条(概览/统计/用户中心/工作流/标签/日志),`/admin/edu/class/schedule`、`/admin/edu/class` 出现在**正文**而不是侧栏。
+  - 重测后的准确结论:侧栏里**没有任何 `/admin/edu/**` 条目**,既有的 `course/pay`、`organization` 同样不在 —— 不是我只加错地方。而 `useAdminRouters` 的回落逻辑是"`sys_menu` 有行才用后端菜单,否则用 `ADMIN_NAV` 静态清单";本机 `sys_menu` 实测 0 行 ⇒ 走回落分支,可回落清单中的教育项仍未出现在侧栏 ⇒ **侧栏渲染那一层另有一个把扁平项截断/门控的条件**,与菜单表无关。
+  - 所以这件事拆成独立一票(后台导航渲染,影响全部教育管理页,非本票引入),不在财务线里顺手改导航。`ADMIN_NAV` 三条登记保留(它是回落清单的必要条件,虽非充分)。
+  - 通用教训:**探针的作用域必须等于结论的主语**。"侧栏有没有这个入口"就要在侧栏容器里数;拿全页链接数出来的"7 条"会同时高估(混入正文链接)与误判归因(把渲染层问题说成菜单表问题)。与同批撞到的另两个恒真式探针同一课:0 行业务表上的"插入未报错"、被语句守卫挡下的 `information_schema` 查询。
