@@ -391,7 +391,7 @@ function VoiceDetailPanel({ voiceId: vid }: { voiceId: string }) {
 
   if (detailQuery.error || !detailQuery.data) {
     return (
-      <div className="rounded-sm border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+      <div className="ui-card rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
         {String((detailQuery.error as Error)?.message ?? '') || t('notFound')}
       </div>
     )
@@ -415,7 +415,7 @@ function VoiceDetailPanel({ voiceId: vid }: { voiceId: string }) {
   }
 
   return (
-    <dl className="grid grid-cols-1 gap-1 rounded-sm bg-muted/30 p-2 text-xs sm:grid-cols-2">
+    <dl className="ui-card grid grid-cols-1 gap-1 rounded-lg bg-muted/30 p-2 text-xs sm:grid-cols-2">
       {fields.map(([label, val]) => (
         <div key={label} className="flex items-start gap-2">
           <dt className="shrink-0 text-muted-foreground">{label}:</dt>

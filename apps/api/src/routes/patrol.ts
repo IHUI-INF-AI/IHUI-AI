@@ -23,7 +23,7 @@ import { db } from '../db/index.js'
 import { patrolRuns, patrolTasks } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
-import { parseNextRun } from '../services/agent-automation-scheduler.js'
+import { DEFAULT_SCHEDULE_TIMEZONE, parseNextRun } from '../services/agent-automation-scheduler.js'
 import { executePatrol } from '../services/patrol-scheduler.js'
 
 // =============================================================================
@@ -38,7 +38,8 @@ const rruleSchema = z
   .string()
   .min(1)
   .max(500)
-  .refine((v) => parseNextRun(v, new Date()) !== null, { message: 'rrule 格式不支持' })
+  // 只判结构可否算出下一次(null ⇔ FREQ/BY* 非法),与墙钟时区无关 ⇒ 走默认档 null。
+  .refine((v) => parseNextRun(v, new Date(), null) !== null, { message: 'rrule 格式不支持' })
 
 const createSchema = z.object({
   name: z.string().min(1, '名称不能为空').max(200),
@@ -90,7 +91,10 @@ const patrolRoutes: FastifyPluginAsync = async (server) => {
     }
     const input = parsed.data
 
-    const nextRunAt = parseNextRun(input.rrule, new Date())
+    // RRULE 的 BYHOUR 按**这一行的** timezone 解释(与 automations 同语义),
+    // 不得按宿主时区 —— 宿主 CST→UTC 那 25 天全体定时任务错点的同一成因。
+    const timezone = input.timezone ?? DEFAULT_SCHEDULE_TIMEZONE
+    const nextRunAt = parseNextRun(input.rrule, new Date(), timezone)
     if (!nextRunAt) {
       return reply.status(400).send(error(400, 'rrule 无法计算出下次执行时间'))
     }
@@ -104,7 +108,7 @@ const patrolRoutes: FastifyPluginAsync = async (server) => {
         target: input.target ?? null,
         prompt: input.prompt ?? null,
         rrule: input.rrule,
-        timezone: input.timezone ?? 'Asia/Shanghai',
+        timezone,
         status: 'active',
         nextRunAt,
       })
@@ -174,7 +178,9 @@ const patrolRoutes: FastifyPluginAsync = async (server) => {
     if (!existing) return reply.status(404).send(error(404, '巡检任务不存在'))
 
     const rrule = input.rrule !== undefined ? input.rrule : existing.rrule
-    const nextRunAt = rrule ? parseNextRun(rrule, new Date()) : null
+    // 同一 PATCH 里改 timezone 时按更新后那份算,否则新时刻会先按旧档落库再自相矛盾
+    const timezone = input.timezone ?? existing.timezone
+    const nextRunAt = rrule ? parseNextRun(rrule, new Date(), timezone) : null
     // 恢复 active 时重算(暂停期间过期的时间已无意义);解析失败保持 400
     if (input.status === 'active' && rrule && !nextRunAt) {
       return reply.status(400).send(error(400, 'rrule 无法计算出下次执行时间'))

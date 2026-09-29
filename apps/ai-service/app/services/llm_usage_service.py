@@ -14,7 +14,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,12 @@ from ..core.token_baseline import PromptTokenSample, incremental_prompt_tokens
 
 # 默认配额(每月 token 上限)
 DEFAULT_QUOTA_LIMIT = 10_000_000
+
+# 东八区(用户主时区)。与 db_sync_scheduler.py / news_scheduler.py /
+# self_media_scheduler.py 的 `_CN_TZ` 同形(本仓各文件各自声明,无共享模块)。
+# 每日用量桶必须按此解释:此前用 naive datetime.fromtimestamp() 跟着宿主时区走,
+# 2026-09-04 宿主被静默改成 UTC 后同一份数据悄然换了一套日桶 —— 现显式钉死。
+_CN_TZ = timezone(timedelta(hours=8))
 
 
 @dataclass
@@ -136,10 +142,10 @@ class LLMUsageService:
         total_tokens = total_input + total_output
         total_cost = round(sum(r.estimated_cost for r in user_records), 4)
 
-        # 按天汇总
+        # 按天汇总(日桶 = 东八区自然日,显式钉死,不随宿主时区变)
         daily: dict[str, dict[str, int | float]] = {}
         for r, increment in zip(user_records, increments, strict=True):
-            day_key = datetime.fromtimestamp(r.timestamp).strftime("%Y-%m-%d")
+            day_key = datetime.fromtimestamp(r.timestamp, tz=_CN_TZ).strftime("%Y-%m-%d")
             if day_key not in daily:
                 daily[day_key] = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost": 0.0}
             daily[day_key]["input_tokens"] += increment
@@ -210,8 +216,12 @@ class LLMUsageService:
 
     def get_quota_info(self, user_id: str) -> dict[str, Any]:
         """获取用户配额信息。"""
-        # 本月用量(月初按 UTC 计算,与 time.time() 记录的 UTC epoch 对齐;
-        # 原 naive datetime.now() 在东八区下月初窗口会偏早 8 小时 —— 2026-09-20 时区语义修复)
+        # 本月用量 —— 月初边界**刻意取 UTC**,不是漏改(勿"顺手统一"成东八区:
+        # 那是把月度配额/计费窗口挪早 8 小时,属用户可感知的账单变更,须持票人拍板)。
+        # 本文件内的日桶是东八区(get_user_stats 的 daily_breakdown),两者在月初
+        # 头 8 小时内因此**已知不一致**,这一格等待裁定的登记见 PROJECT_PLAN。
+        # 2026-09-20 时区语义修复:原 naive datetime.now() 在东八区宿主下会让
+        # 月初窗口偏早 8 小时,改为显式 UTC;2026-09-29 仅补注释,取值一字未动。
         now_utc = datetime.now(UTC)
         month_start = datetime(now_utc.year, now_utc.month, 1, tzinfo=UTC).timestamp()
         month_records = [r for r in self._records if r.user_id == user_id and r.timestamp >= month_start]

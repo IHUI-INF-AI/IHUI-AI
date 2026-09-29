@@ -319,7 +319,7 @@ function InfoCard({
   testId?: string
 }) {
   return (
-    <div className="flex flex-col gap-0.5 rounded-md bg-muted/40 px-2 py-1.5" data-testid={testId}>
+    <div className="flex flex-col gap-0.5 rounded-lg bg-muted/40 px-2 py-1.5" data-testid={testId}>
       <span className="text-[10px] text-muted-foreground/60">{label}</span>
       <span className={cn('truncate font-medium text-foreground/85', accent)}>{value}</span>
     </div>
