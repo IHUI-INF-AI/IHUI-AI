@@ -20037,7 +20037,7 @@
       "batchScanWaitingHintExternal": "お使いのブラウザで開きました。そこでログインを完了してください(まだログイン状態を読み取れていません)",
       "batchScanWaitingHintExternalOwn": "お使いのブラウザで開きました。ログイン済みは自動保存、未ログインは一度ログインするだけです",
       "batchScanStart": "一括スキャン開始",
-      "batchScanWaitingHint": "右側の内蔵ブラウザでスキャン/ログインしてください。2 分でタイムアウト自動スキップします(手動スキップも可能)。",
+      "batchScanWaitingHint": "下の QR コードをスマホでスキャンして該プラットフォームにログインしてください。2 分でタイムアウト自動スキップします(手動スキップも可能)。",
       "batchScanLoading": "プラットフォームキューを準備中...",
       "batchScanSkip": "このプラットフォームをスキップ",
       "batchScanStop": "キューを停止",
