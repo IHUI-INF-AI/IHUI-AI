@@ -17,6 +17,14 @@
 //  T7  模块不得要求 PS7 —— 它被不要求 7 的 ihui-monitor.ps1 加载,加载失败的症状是
 //      "监控不再发信"(安静),比噪声严重得多。
 //  T8  条目数必须封顶(无上限 ⇒ 状态文件随签名数无限增长)。
+//  T9  「按预期现象抑制」必须有终态(2026-09-29 补,修我自己的缺陷):API 崩溃循环 2.5 小时
+//      期间每轮诊断都落 `[部署重启中-预期现象]`(部署环每轮重建即刷新"最近构建"),
+//      无条件 return 等于永久豁免,而永久豁免的症状就是安静。
+//  T9-T13 钉住 Test-AlertSuppressionGrace 的五条分支:窗内抑制(理由带持续分钟)/ 到期升级 /
+//      断窗后重新起锚(修噪声不得造出新噪声)/ 档案读不懂 ⇒ 不抑制 / grace 与去重共用一份档案
+//      但互不顶账。T14 是反向源码锁:监控侧不得再回到"无条件 return",且必须真调用该出口。
+//      两条变异各自实测翻红过(把到期判据短路 ⇒ T10 红;把监控分支改回无条件 return ⇒ T14 红),
+//      还原后 13/13 且两个文件 sha1 与变异前逐字相同。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -188,6 +196,154 @@ test('T7 模块不得要求 PS7(加载失败的表现是监控静默不发信)',
   assert.ok(/alert-dedup\.ps1/.test(deploy), 'ihui-deploy.ps1 没有加载 alert-dedup.ps1');
   assert.ok(/Test-AlertDueByIdentity/.test(monitor), 'ihui-monitor.ps1 没在用分槽去重出口');
   assert.ok(/Test-AlertDueByIdentity/.test(deploy), 'ihui-deploy.ps1 没在用分槽去重出口');
+});
+
+test('T9 首轮与窗内续轮都抑制,但理由必须带"已连续几分钟"(抑制不是静默)', () => {
+  const scratch = mkScratch('alert-dedup');
+  try {
+    const stateFile = join(scratch, 'state.json').replace(/\\/g, '/');
+    const script = [
+      `$ErrorActionPreference='Stop'`,
+      `. '${MODULE.replace(/\\/g, '/')}'`,
+      `$sf = '${stateFile}'`,
+      `$a = Test-AlertSuppressionGrace -Sig 'api(8802) 未监听' -StateFile $sf -GraceMinutes 20`,
+      `$b = Test-AlertSuppressionGrace -Sig 'api(8802) 未监听' -StateFile $sf -GraceMinutes 20`,
+      `Write-Output ("{0}|{1}|{2}|{3}" -f $a.Suppressed, $a.Decision, $b.Suppressed, $b.Note.Contains('上限 20 分钟'))`,
+    ].join('\n');
+    const { out, status } = pwsh(script);
+    requireShell(out); assert.equal(status, 0, `pwsh 非零退出: ${out}`);
+    assert.equal(out.split(/\r?\n/).find((l) => l.includes('|')), 'True|grace-window|True|True', `窗内抑制判定错: ${out}`);
+  } finally {
+    rmScratch(scratch);
+  }
+});
+
+test('T10 连续抑制到期 ⇒ 不再抑制并落回发信路径(这一条就是 09-29 那 2.5 小时的缺口)', () => {
+  const scratch = mkScratch('alert-dedup');
+  try {
+    const stateFile = join(scratch, 'state.json');
+    const sf = stateFile.replace(/\\/g, '/');
+    // 先正常跑一轮起锚,再把锚点时刻改到 25 分钟前(不等真实时间 —— 等时间的测试
+    // 在 CI 上会被跳过或被拉长,而这一型判据的失效表现是"安静")。
+    const first = [
+      `. '${MODULE.replace(/\\/g, '/')}'`,
+      `$x = Test-AlertSuppressionGrace -Sig 'api(8802) 未监听' -StateFile '${sf}' -GraceMinutes 20`,
+      `Write-Output ("{0}|{1}" -f $x.Suppressed, $x.Decision)`,
+    ].join('\n');
+    const r1 = pwsh(first);
+    requireShell(r1.out); assert.equal(r1.status, 0, r1.out);
+    assert.equal(r1.out.split(/\r?\n/).find((l) => l.includes('|')), 'True|grace-window', `起锚那轮就该抑制: ${r1.out}`);
+
+    const st = JSON.parse(readFileSync(stateFile, 'utf8'));
+    const keys = Object.keys(st.alerts);
+    assert.equal(keys.length, 1, `起锚后档案里应只有一条 grace 记录,实得 ${keys.length} 条: ${JSON.stringify(st)}`);
+    st.alerts[keys[0]].firstTs = new Date(Date.now() - 25 * 60 * 1000).toISOString();
+    st.alerts[keys[0]].lastSend = new Date(Date.now() - 1 * 60 * 1000).toISOString();
+    writeFileSync(stateFile, JSON.stringify(st), 'utf8');
+
+    const second = [
+      `. '${MODULE.replace(/\\/g, '/')}'`,
+      `$y = Test-AlertSuppressionGrace -Sig 'api(8802) 未监听' -StateFile '${sf}' -GraceMinutes 20`,
+      `Write-Output ("{0}|{1}|{2}|{3}" -f $y.Suppressed, $y.Decision, $y.ElapsedMinutes, $y.Note.Contains('不再按预期现象抑制'))`,
+    ].join('\n');
+    const r2 = pwsh(second);
+    requireShell(r2.out); assert.equal(r2.status, 0, r2.out);
+    const line = r2.out.split(/\r?\n/).find((l) => l.includes('|'));
+    // ElapsedMinutes 必须 >20 且 <30(25 分钟锚点 + 本轮间隔):量到的时长要真是量出来的,
+    // 写死一个数就等于把"持续多久"这一维重新变成散文。
+    const [sup, dec, elapsed, hasNote] = line.split('|');
+    assert.equal(sup, 'False', `到期仍在抑制: ${line}`);
+    assert.equal(dec, 'escalated', `到期判定名不对: ${line}`);
+    assert.ok(Number(elapsed) >= 24 && Number(elapsed) < 30, `持续分钟不是量出来的: ${line}`);
+    assert.equal(hasNote, 'True', `升级理由没写进 Note: ${line}`);
+  } finally {
+    rmScratch(scratch);
+  }
+});
+
+test('T11 断满一个窗口后重新起锚(修噪声不得造出新噪声)', () => {
+  const scratch = mkScratch('alert-dedup');
+  try {
+    const stateFile = join(scratch, 'state.json');
+    const sf = stateFile.replace(/\\/g, '/');
+    pwsh([`. '${MODULE.replace(/\\/g, '/')}'`, `$x = Test-AlertSuppressionGrace -Sig 'web(8801) 未监听' -StateFile '${sf}' -GraceMinutes 20`].join('\n'));
+    const st = JSON.parse(readFileSync(stateFile, 'utf8'));
+    const k = Object.keys(st.alerts)[0];
+    // 上周一次部署留下的旧锚 + 上次看见也在 60 分钟前 ⇒ 今天正常换流的第一个 3 分钟窗口
+    // 必须被当成**新一轮**继续抑制;若按旧锚直接判超期,就是每次部署都寄一封假告警。
+    st.alerts[k].firstTs = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    st.alerts[k].lastSend = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    writeFileSync(stateFile, JSON.stringify(st), 'utf8');
+    const { out, status } = pwsh([
+      `. '${MODULE.replace(/\\/g, '/')}'`,
+      `$y = Test-AlertSuppressionGrace -Sig 'web(8801) 未监听' -StateFile '${sf}' -GraceMinutes 20`,
+      `Write-Output ("{0}|{1}|{2}" -f $y.Suppressed, $y.Decision, $y.ElapsedMinutes)`,
+    ].join('\n'));
+    requireShell(out); assert.equal(status, 0, out);
+    const line = out.split(/\r?\n/).find((l) => l.includes('|'));
+    const [sup, dec, elapsed] = line.split('|');
+    assert.equal(sup, 'True', `隔了一个窗口的新轮被误判超期: ${line}`);
+    assert.equal(dec, 'grace-reopened', `重新起锚的判定名不对: ${line}`);
+    assert.ok(Number(elapsed) < 1, `锚点没有重写到本轮: ${line}`);
+  } finally {
+    rmScratch(scratch);
+  }
+});
+
+test('T12 抑制档案读不懂 ⇒ 不抑制并点名原因(把没判写成"已抑制"等于哑弹)', () => {
+  const scratch = mkScratch('alert-dedup');
+  try {
+    const stateFile = join(scratch, 'state.json');
+    writeFileSync(stateFile, '{ 这不是 JSON', 'utf8');
+    const { out, status } = pwsh([
+      `. '${MODULE.replace(/\\/g, '/')}'`,
+      `$x = Test-AlertSuppressionGrace -Sig 'ai(8803) 未监听' -StateFile '${stateFile.replace(/\\/g, '/')}' -GraceMinutes 20`,
+      `Write-Output ("{0}|{1}|{2}" -f $x.Suppressed, $x.Decision, $x.Note.Contains('不按预期现象抑制'))`,
+    ].join('\n'));
+    requireShell(out); assert.equal(status, 0, out);
+    assert.equal(out.split(/\r?\n/).find((l) => l.includes('|')), 'False|undetermined|True', `未判定处理错: ${out}`);
+  } finally {
+    rmScratch(scratch);
+  }
+});
+
+test('T13 grace 与去重共用一份档案但互不顶账(否则抑制会把真告警的窗口吃掉)', () => {
+  const scratch = mkScratch('alert-dedup');
+  try {
+    const stateFile = join(scratch, 'state.json').replace(/\\/g, '/');
+    const script = [
+      `$ErrorActionPreference='Stop'`,
+      `. '${MODULE.replace(/\\/g, '/')}'`,
+      `$sf = '${stateFile}'`,
+      `$g = Test-AlertSuppressionGrace -Sig '同一条身份' -StateFile $sf -GraceMinutes 20`,
+      `$d = Test-AlertDueByIdentity -Sig '同一条身份' -StateFile $sf -RepeatHours 4`,
+      `$g2 = Test-AlertSuppressionGrace -Sig '同一条身份' -StateFile $sf -GraceMinutes 20`,
+      `Write-Output ("{0}|{1}|{2}" -f $d.Decision, $g2.Decision, $d.Due)`,
+    ].join('\n');
+    const { out, status } = pwsh(script);
+    requireShell(out); assert.equal(status, 0, out);
+    const line = out.split(/\r?\n/).find((l) => l.includes('|'));
+    // grace 的写入不得让真告警被判"窗口内已寄过";而两侧各写各的 ⇒ 第二次 grace 仍在窗内
+    assert.equal(line, 'due-new|grace-window|True', `两把账互相顶掉了: ${line}`);
+  } finally {
+    rmScratch(scratch);
+  }
+});
+
+test('T14 反向源码锁:监控侧不得再回到"无条件 return",且必须真调用到期出口', () => {
+  const src = readFileSync(join(repoRoot, 'deploy', 'win', 'ihui-monitor.ps1'), 'utf8');
+  assert.ok(
+    /Test-AlertSuppressionGrace\s+-Sig\s+\$sig/.test(src),
+    'ihui-monitor.ps1 没在抑制分支里调用到期出口(函数在、没人调 = 这条机制等于没有)'
+  );
+  assert.ok(/\$g\.Suppressed/.test(src), 'ihui-monitor.ps1 没按 Suppressed 分流,到期与窗内走同一条路');
+  // 旧形态:`if ($diag.Contains('[部署重启中-预期现象]')) {` 之后**直接** Add-Content + return,
+  // 中间没有任何到期判定。这条反向锁防的是"下一次有人把分支改回一刀切"。
+  const block = src.match(/if \(\$diag\.Contains\('\[部署重启中-预期现象\]'\)\) \{[\s\S]{0,900}?\n  \}/);
+  assert.ok(block, '找不到"预期现象"抑制分支本体(改结构时请连这条锁一起改,别让它静默失效)');
+  assert.ok(block[0].includes('Test-AlertSuppressionGrace'), `抑制分支里没有到期判定: ${block[0].slice(0, 200)}`);
+  // 宽限分钟必须可由 env 覆写,而不是硬编码在服务里(与本仓"告警窗口由 env 决定"同一条口径)
+  assert.ok(/IHUI_MONITOR_EXPECTED_WINDOW_GRACE_MIN/.test(src), '宽限窗写死在代码里,现场无法调速');
 });
 
 test('T8 条目数封顶(无上限 ⇒ 状态文件随签名数无限增长)', () => {
