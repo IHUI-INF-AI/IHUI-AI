@@ -302,14 +302,24 @@ async def checkpoint_impact(
         if not path or not version_id:
             continue
         owner_session = fv.get("session_id", session_id)
-        # 当前磁盘内容(恢复前)
+        # 当前磁盘内容(恢复前)。G-814423:"读不到"≠"空文件" —— 磁盘侧读失败时不再
+        # 折叠成空串(旧行为会把恢复预览渲染成整文件新增),改带 readError 标记,
+        # 且增删行数置 0(与空文件伪比对得出的整文件行数是伪造的统计)。
         try:
             disk = Path(path).read_text(encoding="utf-8", errors="replace")
-        except Exception:  # noqa: BLE001 - 文件缺失视为空(将显示为整文件新增/删除)
+            disk_error = False
+        except Exception:  # noqa: BLE001 - 读失败必须显式标记,不得猜合法空文件
             disk = ""
-        # 快照内容(恢复后)
-        snapshot = file_editor.get_file_version_content(owner_session, path, version_id) or ""
-        added, deleted = _count_diff_lines(disk, snapshot)
+            disk_error = True
+        # 快照内容(恢复后)。版本内容取不到同样折叠过空串(会被渲染成整文件删除),
+        # 同票改为显式 snapshotError 标记 + 统计置 0。
+        snapshot = file_editor.get_file_version_content(owner_session, path, version_id)
+        snapshot_error = snapshot is None
+        snapshot = snapshot or ""
+        if disk_error or snapshot_error:
+            added, deleted = 0, 0
+        else:
+            added, deleted = _count_diff_lines(disk, snapshot)
         old_capped, old_trunc = _cap_content(disk)
         new_capped, new_trunc = _cap_content(snapshot)
         all_files.append(
@@ -320,6 +330,8 @@ async def checkpoint_impact(
                 "added": added,
                 "deleted": deleted,
                 "contentTruncated": old_trunc or new_trunc,
+                **({"readError": True} if disk_error else {}),
+                **({"snapshotError": True} if snapshot_error else {}),
             }
         )
 
