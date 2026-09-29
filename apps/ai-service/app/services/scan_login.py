@@ -876,26 +876,89 @@ _TOUTIAO_WX_CALLBACK_URL = "https://api.snssdk.com/auth/login_success"
 # / 402 码过期 / 403 用户手机端拒绝。
 _TOUTIAO_WX_POLL_TIMEOUT = 15.0  # 服务端长轮询 ~25s 才放行,客户端 15s 主动断开
                                   # 重连(uuid 不变),保证取消/超时检查延迟 ≤15s。
+# 2026-09-29 根治"qrconnect 页面未找到 uuid"抖动:该失败是瞬时风控/降级页类故障
+# (同环境 8/8 轮探针全成功,坏变体无法稳定复现),故出码链路做成自愈式 ——
+# 手动跟进重定向(主 client 是 follow_redirects=False,3xx 空响应体必致提取失败)、
+# 三策略提取 uuid、整链(wap_login→qrconnect→下载码)带新鲜 state 重试、失败落指纹。
+_TOUTIAO_WX_MAX_QR_ATTEMPTS = 3
+_TOUTIAO_WX_RETRY_DELAYS = (1.0, 2.0)  # 长度 = MAX_QR_ATTEMPTS - 1
 
 
-def _toutiao_wx_fetch_new_qr(client: Any, task: ScanTask) -> tuple[str, str]:
-    """wap_login → qrconnect 拿新鲜 state + uuid,并把微信官方码写入任务。
+def _wx_extract_uuid(html: str) -> str:
+    """qrconnect 页面 uuid 提取:三策略兜底,任一命中即返回,全空返回 ''。
 
-    返回 (state, uuid);任一环节失败抛 RuntimeError(带阶段说明)。
+    1) fordevtool 属性(常规页);
+    2) /connect/qrcode/{uuid} 图 URL(img src 或 JS 模板);
+    3) 任意 uuid= 查询参数(长轮询/确认页 URL 片段)。
+    """
+    for pat in (
+        re.compile(r'fordevtool\s*=\s*"[^"]*uuid=([0-9A-Za-z]+)"'),
+        re.compile(r"connect/qrcode/([0-9A-Za-z]{10,})"),
+        re.compile(r"[?&;]uuid=([0-9A-Za-z]{10,})"),
+    ):
+        m = pat.search(html)
+        if m:
+            return m.group(1)
+    return ""
+
+
+def _wx_resp_fingerprint(resp: Any) -> str:
+    """响应指纹(状态/类型/长度/重定向目标/正文头),提取失败时落日志可归因。"""
+    headers = getattr(resp, "headers", {})
+    text = getattr(resp, "text", "") or ""
+    ctype = (headers.get("content-type") or "")[:40]
+    snippet = re.sub(r"\s+", " ", text[:200]).strip()
+    return (
+        f"status={getattr(resp, 'status_code', '?')} ctype={ctype} len={len(text)} "
+        f"loc={headers.get('location', '-')[:80]} head={snippet[:140]!r}"
+    )
+
+
+def _wx_absolute_url(base: str, loc: str) -> str:
+    """Location → 绝对 URL(httpx 关闭自动重定向后需手动拼接)。"""
+    if loc.startswith(("http://", "https://")):
+        return loc
+    if loc.startswith("//"):
+        scheme = base.split("://", 1)[0]
+        return f"{scheme}:{loc}"
+    if loc.startswith("/"):
+        m = re.match(r"[a-z]+://[^/]+", base)
+        return f"{m.group(0)}{loc}" if m else loc
+    return loc
+
+
+def _wx_get_following_redirects(client: Any, url: str, max_hops: int = 5) -> Any:
+    """GET 并手动跟进重定向(≤max_hops)。主 client 保持 follow_redirects=False
+    是为了 wap_login 那一发能抓到 302 Location;qrconnect/图 URL 则必须跟进到底,
+    否则拿到 3xx 空响应体,uuid 提取必失败 —— 这正是"未找到 uuid"抖动的成因之一。"""
+    r = client.get(url)
+    for _ in range(max_hops):
+        if r.status_code not in (301, 302, 303, 307, 308):
+            return r
+        loc = r.headers.get("location", "")
+        if not loc:
+            return r
+        r = client.get(_wx_absolute_url(str(getattr(r, "url", url)), loc))
+    return r
+
+
+def _toutiao_wx_fetch_new_qr_once(client: Any, task: Any) -> tuple[str, str]:
+    """单次出码尝试:wap_login → qrconnect → 微信官方码写入任务。
+
+    返回 (state, uuid);任一环节失败抛 RuntimeError(带该环节指纹)。
     """
     r = client.get(_TOUTIAO_WAP_LOGIN_URL)
     loc = r.headers.get("location", "")
     if r.status_code not in (301, 302, 303, 307, 308) or "qrconnect" not in loc:
-        raise RuntimeError(f"wap_login 未重定向到 qrconnect(status={r.status_code})")
+        raise RuntimeError(f"wap_login 未重定向到 qrconnect({_wx_resp_fingerprint(r)})")
     m = re.search(r"[?&]state=([^&#]+)", loc)
     if not m:
-        raise RuntimeError("qrconnect URL 缺少 state")
+        raise RuntimeError(f"qrconnect URL 缺少 state({_wx_resp_fingerprint(r)})")
     state = m.group(1)
-    r2 = client.get(loc)
-    m2 = re.search(r'fordevtool\s*=\s*"[^"]*uuid=([0-9A-Za-z]+)"', r2.text)
-    if not m2:
-        raise RuntimeError("qrconnect 页面未找到 uuid(fordevtool)")
-    qr_uuid = m2.group(1)
+    r2 = _wx_get_following_redirects(client, loc)
+    qr_uuid = _wx_extract_uuid(r2.text)
+    if not qr_uuid:
+        raise RuntimeError(f"qrconnect 页面未找到 uuid(三策略落空;{_wx_resp_fingerprint(r2)})")
     r3 = client.get(_TOUTIAO_WX_QR_URL.format(uuid=qr_uuid))
     ctype = (r3.headers.get("content-type") or "").lower()
     if r3.status_code != 200 or "image" not in ctype:
@@ -905,6 +968,26 @@ def _toutiao_wx_fetch_new_qr(client: Any, task: ScanTask) -> tuple[str, str]:
         task.qr_image_updated_at = time.time()
     _persist_task(task)
     return state, qr_uuid
+
+
+def _toutiao_wx_fetch_new_qr(client: Any, task: Any) -> tuple[str, str]:
+    """自愈式出码:整链重试 ≤3 次,每次 wap_login 重发 = 全新 state(与单发语义一致)。
+
+    任次成功即返回;全败抛 RuntimeError(附最后一次指纹),调用方按原样判失败。
+    """
+    last_detail = ""
+    for attempt in range(1, _TOUTIAO_WX_MAX_QR_ATTEMPTS + 1):
+        try:
+            return _toutiao_wx_fetch_new_qr_once(client, task)
+        except RuntimeError as e:
+            last_detail = str(e)
+            logger.warning(
+                f"[scan_login] 任务 {task.task_id} 微信出码第 {attempt}/"
+                f"{_TOUTIAO_WX_MAX_QR_ATTEMPTS} 次失败: {last_detail}"
+            )
+            if attempt < _TOUTIAO_WX_MAX_QR_ATTEMPTS:
+                time.sleep(_TOUTIAO_WX_RETRY_DELAYS[attempt - 1])
+    raise RuntimeError(f"微信出码连续 {_TOUTIAO_WX_MAX_QR_ATTEMPTS} 次失败;最后指纹: {last_detail}")
 
 
 def _run_toutiao_wechat_flow(task: ScanTask) -> None:
