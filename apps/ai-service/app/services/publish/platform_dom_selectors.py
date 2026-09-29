@@ -24,7 +24,7 @@ Playwright 适配器需要知道每个平台发布页的 DOM 选择器,但平台
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any
 
 from app.core.logging import get_logger
@@ -32,10 +32,10 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 # 东八区(用户主时区),与 db_sync_scheduler / news_scheduler / self_media_scheduler /
-# platform_rule_versions 的 `_CN_TZ` 同形(本仓各文件各自声明,无共享模块)。
+# platform_rule_versions 的 `_CN_TZ` 同形(2026-09-30 收口:值取自 app/core/cn_time.py 的 CN_TZ 唯一出口)。
 # 本模块的 last_verified 是**人工按东八区日历书写**的字面量日期,过期判定拿它跟宿主
 # 墙钟比 = 跨时区比较;宿主被静默改成 UTC 后同一份常量会多/少判一天。
-_CN_TZ = timezone(timedelta(hours=8))
+from app.core.cn_time import CN_TZ as _CN_TZ
 
 
 @dataclass
