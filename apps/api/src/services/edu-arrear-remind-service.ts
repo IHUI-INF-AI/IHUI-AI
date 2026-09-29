@@ -65,6 +65,8 @@ export interface ArrearRemindResult {
   smsFailed: number
   smsNotConfigured: number
   smsNoPhone: number
+  /** 回执写回失败次数:不影响催缴本身,但必须可见 —— 否则"回执空白"会被读成"没人被触达" */
+  deliveryWriteFailed: number
   overdueCount: number
   dueSoonCount: number
   /** 无账期数据、只能按"欠多少"提醒的报名数 */
@@ -151,7 +153,7 @@ interface ChannelOutcome {
  * 返回的是**分档结论**而不是布尔 —— 调用方要能把"没配置""没 openid""没授权"
  * 三种情况分别报出来,否则这三种在账面上长得一模一样。
  */
-async function sendWxToRecipient(
+export async function sendWxToRecipient(
   recipient: ReminderRecipient,
   studentName: string,
   dueAmount: number,
@@ -316,6 +318,7 @@ export async function scanAndRemindArrears(
     smsFailed: 0,
     smsNotConfigured: 0,
     smsNoPhone: 0,
+    deliveryWriteFailed: 0,
     overdueCount: 0,
     dueSoonCount: 0,
     withoutSchedule: 0,
@@ -389,6 +392,8 @@ export async function scanAndRemindArrears(
     const recipients = await resolveReminderRecipients(item.studentId)
     result.recipients += recipients.length
     result.parentRecipients += recipients.filter((r) => r.role === 'parent').length
+    /** 逐收件人回执,随发送过程累积写回留痕行(见 attachReminderDelivery) */
+    const deliveryEntries: DeliveryEntry[] = []
 
     for (const recipient of recipients) {
       const wx = await sendWxToRecipient(recipient, item.studentName ?? '学员', dueAmount)
@@ -397,6 +402,14 @@ export async function scanAndRemindArrears(
       else if (wx.bucket === 'not_configured') result.wxNotConfigured += 1
       else if (wx.bucket === 'user_refused') result.wxUserRefused += 1
       else result.wxFailed += 1
+      deliveryEntries.push({
+        userId: recipient.userId,
+        role: recipient.role,
+        channel: 'wechat',
+        bucket: wx.bucket,
+        ...(wx.detail ? { detail: wx.detail } : {}),
+        at: new Date().toISOString(),
+      })
 
       if (channels.includes('sms')) {
         const sms = await sendArrearSmsToRecipient(recipient, message)
@@ -404,6 +417,19 @@ export async function scanAndRemindArrears(
         else if (sms.bucket === 'no_phone') result.smsNoPhone += 1
         else if (sms.bucket === 'not_configured') result.smsNotConfigured += 1
         else result.smsFailed += 1
+        deliveryEntries.push({
+          userId: recipient.userId,
+          role: recipient.role,
+          channel: 'sms',
+          bucket: sms.bucket,
+          ...(sms.detail ? { detail: sms.detail } : {}),
+          at: new Date().toISOString(),
+        })
+      }
+      // 累积写回:每人发完就落一次,使"中途异常退出"也留下已发生的部分回执 ——
+      // 回执本身缺失时统计会归入 unknown,不能被写成"没送达"或"已送达"。
+      if (row && !(await attachReminderDelivery(row.id, deliveryEntries))) {
+        result.deliveryWriteFailed += 1
       }
 
       // 站内信逐收件人必达；失败只标记留痕,不中断其余人
@@ -462,6 +488,63 @@ export function classifySmsAvailability(
   return { ok: true, phone: trimmed }
 }
 
+/** 一条催缴留痕的逐收件人回执元素 */
+export interface DeliveryEntry {
+  userId: string
+  role: string
+  channel: string
+  bucket: 'sent' | 'failed' | 'not_configured' | 'no_openid' | 'no_phone' | 'user_refused'
+  detail?: string
+  at: string
+}
+
+/**
+ * 把回执写回留痕行。
+ * **失败不抛**（催缴本身比回执更重要），但必须由调用方计数 —— 静默吞掉就会让
+ * "回执一片空白"被读成"没人被触达",而这只是写库失败(§5e 同一条禁令的反面)。
+ */
+export async function attachReminderDelivery(
+  reminderId: string,
+  entries: DeliveryEntry[],
+  db2: typeof db = db,
+): Promise<boolean> {
+  if (!reminderId) return false
+  try {
+    await db2
+      .update(eduFeeReminder)
+      .set({ delivery: entries, updatedAt: new Date() })
+      .where(eq(eduFeeReminder.id, reminderId))
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 把多条留痕的回执聚成触达计数。
+ * 规则:回执为 NULL 的留痕归 `unknownReminders`,**既不计送达也不计失败** ——
+ * 该列落地前的历史行没有这份数据,把它们算成任何一侧都是造数。
+ */
+export function aggregateDeliveries(rows: Array<{ delivery: unknown }>): {
+  buckets: Record<string, number>
+  unknownReminders: number
+  remindersWithDelivery: number
+} {
+  const buckets: Record<string, number> = {}
+  let unknownReminders = 0
+  let remindersWithDelivery = 0
+  for (const r of rows) {
+    const list = Array.isArray(r.delivery) ? (r.delivery as DeliveryEntry[]) : null
+    if (!list || list.length === 0) {
+      unknownReminders += 1
+      continue
+    }
+    remindersWithDelivery += 1
+    for (const e of list) buckets[e.bucket] = (buckets[e.bucket] ?? 0) + 1
+  }
+  return { buckets, unknownReminders, remindersWithDelivery }
+}
+
 export const __test__ = {
   buildReminderMessage,
   resolveReminderRecipients,
@@ -469,6 +552,7 @@ export const __test__ = {
   classifySmsAvailability,
   parseRemindChannels,
   externalDeliveryMissed,
+  aggregateDeliveries,
   WX_ERRCODE_NOT_SUBSCRIBED,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
