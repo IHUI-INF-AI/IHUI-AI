@@ -108,19 +108,58 @@ const ICON_FIELD_RE = /\bicon\s*:\s*['"`][\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u
 const RENDER_EMOJI_RE =
   /<[a-zA-Z][^>]*>[\s]*[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{25A0}-\u{25FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{1F1E6}-\u{1F1FF}]|\{[^}]*?\?\s*['"`][\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{25A0}-\u{25FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{1F1E6}-\u{1F1FF}]/u
 
-// 表情面板白名单:文件名含这些关键字的文件豁免整体(用户表情选择功能)
+/**
+ * 表情面板:文件名命中该式的,过去**整文件**豁免 ⇒ 同文件里把 emoji 摆在**按钮位**结构上看不见。
+ * 实测站点(2026-09-29):`apps/miniapp-taro/src/components/InputArea.tsx` 的表情开关钮就是
+ * `<Text …onClick={toggleEmoji}>😊</Text>` —— 面板数据合法(§4),按钮位违规,而旧豁免把两者一起放行,
+ * 且 `--staged` / 全量两档都报绿。现豁免只认**数据行形状**,渲染位与 icon: 字段照判。
+ */
 const EMOJI_PICKER_FILE_RE = /InputArea\.(tsx|ts)$/
+
+/**
+ * 字符类只从上面那一份 EMOJI_RE 派生,不得再抄第四份 Unicode 区段表
+ * (本文件原本已有三处逐字复制;两处算同一件事必漂移,见 AGENTS「两处算同一件事必漂移」条)。
+ * 提取不到 ⇒ 本门对自己失明,当场大声退出 2,不静默降级成"什么都豁免不了"或"全放行"。
+ */
+const EMOJI_CHAR_CLASS = /^\[(.*)\]$/u.exec(EMOJI_RE.source)?.[1]
+if (!EMOJI_CHAR_CLASS) {
+  console.error('❌ 无法从 EMOJI_RE 提取字符类(该区段表达式被改写过?)⇒ 面板数据判据无从成立,拒绝出具结论')
+  process.exit(2)
+}
+const QUOTE_CC = "['\"`]"
+/** 面板数组的一行一个元素:`'😀',` / `"😊",` / `` `👍` `` */
+const PANEL_ELEMENT_RE = new RegExp(`^${QUOTE_CC}[${EMOJI_CHAR_CLASS}]+${QUOTE_CC},?$`, 'u')
+/** 整行写成的数组字面量:`const EMOJI_LIST = ['😀','😁']` / `EMOJI_LIST: [...]`(声明关键字可有) */
+const PANEL_ARRAY_RE = new RegExp(
+  `^(?:const\\s+|let\\s+|var\\s+)?[\\w$]+\\s*[:=]\\s*\\[.*[${EMOJI_CHAR_CLASS}].*\\][,;]?$`,
+  'u',
+)
+
+/**
+ * 违规 3:整行就是一个裸 emoji(JSX 文本子节点被 prettier 拆到独立行)。
+ * 立因:`RENDER_EMOJI_RE` 是**行内**判据(`<Tag>emoji`),而真实产出形态是
+ * `<Text\n className=…\n>\n  😊\n</Text>` —— 开标签与 emoji 不同行,旧判据对它零命中,
+ * 这就是上面那个按钮位能活到今天的第二个原因(第一个是整文件豁免)。
+ * 假阳面已量过(HEAD 同面 6 命中:5 处真违规 + 1 处 `<kbd>` 键帽 ⌫ 由豁免 7 覆盖),无引号、无运算符
+ * 的裸 emoji 行在 .ts/.tsx/.js/.jsx 里只能是 JSX 文本,不构成数据。
+ */
+const BARE_EMOJI_LINE_RE = new RegExp(`^[${EMOJI_CHAR_CLASS}]+$`, 'u')
 
 // 评分星纯数据(非 JSX 渲染位):'★'.repeat(n) 生成字符串(如导出/纯逻辑),豁免。
 //   注:JSX 渲染位 <Text>★ {rating}</Text> 仍由 RENDER_EMOJI_RE 捕获,不豁免。
 /** 行级豁免判定 — 返回 true 表示该行不算违规 */
 function isExempt(line, file) {
   const trimmed = line.trim()
-  // 豁免 1:整行注释(// /* * 及 JSX {/* 注释)
-  if (/^\s*(\/\/|\/\*|\*|\{)/.test(trimmed)) return true
+  // 豁免 1:整行注释。JSX 注释只认 `{/*` 起手 —— 旧式写了 `\{`,于是**任何** JSX 表达式行
+  // (`{selected && <Text>✓</Text>}` / `{r.success ? '✓' : '✗'}`)都被当成注释放过,
+  // 这一支把本门对自己立项那一型的大部分站点整族隐身(2026-09-29 现读补)。
+  if (/^\s*(\/\/|\/\*|\*|\/\*\*|\{\/\*)/.test(trimmed)) return true
 
-  // 豁免 2:表情面板文件
-  if (EMOJI_PICKER_FILE_RE.test(file)) return true
+  // 豁免 2:表情面板的**数据行**(仅面板文件、且该行就是数组元素/数组字面量)。
+  // 刻意不是整文件豁免 —— 按钮位/渲染位即使在面板文件里也照样判(见 EMOJI_PICKER_FILE_RE 上方登记)。
+  if (EMOJI_PICKER_FILE_RE.test(file)) {
+    if (PANEL_ELEMENT_RE.test(trimmed) || PANEL_ARRAY_RE.test(trimmed)) return true
+  }
 
   // 豁免 3:行内 // 注释之后出现的 emoji(说明性注释)
   const em = EMOJI_RE.exec(line)
@@ -165,6 +204,110 @@ function isExempt(line, file) {
 
   return false
 }
+
+/**
+ * 单行判定 —— 主循环与 `--self-test` **共用这一份**。
+ * 本仓记过多次的失效型就是"判据有一份、自检另写一份",于是自检恒绿而门是瞎的。
+ */
+function judgeLine(line, lineNumber, file) {
+  if (isExempt(line, file)) return null
+
+  const im = ICON_FIELD_RE.exec(line)
+  if (im) {
+    return {
+      line: lineNumber,
+      col: im.index + 1,
+      label: 'icon field emoji',
+      snippet: line.trim().slice(0, 140),
+    }
+  }
+
+  const rm = RENDER_EMOJI_RE.exec(line)
+  if (rm) {
+    return {
+      line: lineNumber,
+      col: rm.index + 1,
+      label: 'render emoji icon',
+      snippet: line.trim().slice(0, 140),
+    }
+  }
+
+  // 违规 3:整行一个裸 emoji = 被拆成独立行的 JSX 文本子节点(前两条行内判据都看不见它)
+  const bare = BARE_EMOJI_LINE_RE.exec(line.trim())
+  if (bare) {
+    return {
+      line: lineNumber,
+      col: line.length - line.trimStart().length + 1,
+      label: 'bare emoji JSX child',
+      snippet: line.trim().slice(0, 140),
+    }
+  }
+
+  return null
+}
+
+/**
+ * `--self-test`:成对正反例。每条"豁免"都必须配一条"同一位置的另一种写法仍判违规",
+ * 否则自检只能证明标记存在,不能证明它没被顺手放宽(本仓把这一型记作"恒绿的断言比没有断言更糟")。
+ */
+function runSelfTest() {
+  const PANEL = 'apps/miniapp-taro/src/components/InputArea.tsx'
+  const OTHER = 'apps/web/src/components/demo.tsx'
+  const cases = []
+  const t = (name, ok, extra = '') => cases.push({ name, ok: !!ok, extra })
+
+  // ① 面板**数据行**仍然豁免(收窄后不能把合法内容文案判红)
+  t('面板文件里的数组元素行豁免', isExempt("      '😀',", PANEL))
+  t('面板文件里的整行数组字面量豁免', isExempt("const EMOJI_LIST = ['😀','😁','😊']", PANEL))
+  // ② 面板文件里的**渲染位**必须判违规(旧版整文件豁免吃掉的就是这两型)
+  t('面板文件里的行内渲染位仍判违规', judgeLine('<Text className="x">😊</Text>', 1, PANEL) !== null)
+  // 表达式行(`{…}` 起手)过去被"注释豁免"整族吃掉 —— 这两条就是那 26 处隐身的现场形态
+  t(
+    '{cond && <Text>✓</Text>} 必须判违规(旧豁免把它当注释)',
+    judgeLine('{selected && <Text className="text-xs text-primary">✓</Text>}', 353, OTHER)?.label ===
+      'render emoji icon',
+  )
+  t(
+    '{a ? \'✓\' : \'✗\'} 必须判违规',
+    judgeLine("{r.success ? '✓' : '✗'}", 1393, OTHER)?.label === 'render emoji icon',
+  )
+  t(
+    '面板文件里的裸 emoji 行(真实现场形态)判违规',
+    judgeLine('              😊', 861, PANEL)?.label === 'bare emoji JSX child',
+  )
+  t('面板文件里的 icon: 字段仍判违规', judgeLine("  icon: '🦄',", 1, PANEL)?.label === 'icon field emoji')
+  // ③ 数据形状豁免**不外溢**到非面板文件(否则"任何 emoji 数组都算数据"就是新盲区)
+  t('非面板文件的数组元素行不豁免', !isExempt("      '😀',", OTHER))
+  // ④ 既有豁免族逐一守住(证明本次改动没把它们一起削掉)
+  t('注释行豁免', isExempt('// 这里曾有 😊', OTHER))
+  t("评分星 '★'.repeat 豁免", isExempt("  return '★'.repeat(n)", OTHER))
+  t('表格布尔标记豁免', isExempt('<td>{c.nullable ? \'✓\' : \'—\'}</td>', OTHER))
+  t('i18n 参数豁免', isExempt("tt('live.start', '📺 我要开播')", OTHER))
+  t('键盘键帽(⌫)豁免', isExempt('⌫', OTHER))
+  // ⑤ 派生字符类必须与 EMOJI_RE 同结论(单份实现的等价性证明,不是"看着像")
+  const derived = new RegExp(`[${EMOJI_CHAR_CLASS}]`, 'u')
+  const probes = ['😀', '😊', '★', '✓', '⭐', '⌫', 'A', '©', '®', '中', ' ', '‍']
+  t(
+    '派生字符类与 EMOJI_RE 逐码位同结论',
+    probes.every((c) => EMOJI_RE.test(c) === derived.test(c)),
+    probes.filter((c) => EMOJI_RE.test(c) !== derived.test(c)).join(' '),
+  )
+  // ⑥ 判据有牙的反向证明:把裸行判据喂给一个**不是**整行 emoji 的形态,不得命中
+  t('带引号的裸数据形态不被违规 3 命中', judgeLine("  '😊',", 1, OTHER)?.label !== 'bare emoji JSX child')
+  t('普通赋值行不被违规 3 命中', judgeLine('const x = a ? 1 : 2', 1, OTHER) === null)
+
+  let pass = 0
+  let fail = 0
+  for (const c of cases) {
+    if (c.ok) pass++
+    else fail++
+    console.log(`${c.ok ? '  ✅' : '  ❌'} ${c.name}${c.extra && !c.ok ? ` — ${c.extra}` : ''}`)
+  }
+  console.log(`自检 ${pass} 通过 / ${fail} 失败(共 ${cases.length} 条)`)
+  process.exit(fail === 0 ? 0 : 1)
+}
+
+if (process.argv.includes('--self-test')) runSelfTest()
 
 function collectFiles(dir, result = []) {
   if (!existsSync(dir)) return result
@@ -307,30 +450,9 @@ for (const file of files) {
       const allowed = addedLinesMap.get(file)
       if (!allowed || !allowed.has(lineNumber)) return
     }
-    if (isExempt(line, file)) return
-
-    // 违规 1:icon: 'emoji' 配置字段
-    const im = ICON_FIELD_RE.exec(line)
-    if (im) {
-      findings.push({
-        line: lineNumber,
-        col: im.index + 1,
-        label: 'icon field emoji',
-        snippet: line.trim().slice(0, 140),
-      })
-      return
-    }
-
-    // 违规 2:渲染级 emoji 图标
-    const rm = RENDER_EMOJI_RE.exec(line)
-    if (rm) {
-      findings.push({
-        line: lineNumber,
-        col: rm.index + 1,
-        label: 'render emoji icon',
-        snippet: line.trim().slice(0, 140),
-      })
-    }
+    // 判定只有一份实现(judgeLine)—— 主循环与自检共用,避免"自检绿而门瞎"那一型
+    const f = judgeLine(line, lineNumber, file)
+    if (f) findings.push(f)
   })
 
   if (findings.length > 0) {
