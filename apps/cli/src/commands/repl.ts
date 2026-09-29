@@ -23,10 +23,12 @@ import { PlanMachine } from '../plan/index.js';
 import { setupAgentTools, runToolLoop, decideCompaction, createTerminalDeltaSink, type ToolContext, type InterjectionBlock } from './agent.js';
 import { createAuditedDangerGate } from '../tools/danger-gate-audit.js';
 import { InterjectionBuffer } from '../interjection.js';
-import { renderSlashHelp, suggestSlashCommands, slashCompleter } from './slash-registry.js';
+import { renderSlashHelp, suggestSlashCommands, slashCompleter, findSlashCommand } from './slash-registry.js';
 import {
   buildCustomCommandInvocation,
   CustomCommandError,
+  describeCustomCommandFailure,
+  saveCustomCommand,
   type CustomCommandInvocation,
 } from './custom-commands.js';
 // P0 CLI 友好度优化(2026-07-31):4 个新命令模块
@@ -1477,6 +1479,12 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       break;
     }
 
+    case 'custom': {
+      // 传"命令名之后的全部原始文本"而不是 args —— 正文里的 $ARGUMENTS / $1 必须原样落盘。
+      handleCustomCommandSave(input.slice(1 + cmd.length).trim());
+      break;
+    }
+
     case 'rewind': {
       // W12 可视化选择:不带参数时弹出快照候选列表(最近优先),带 N 保持旧行为
       let steps: number;
@@ -1846,6 +1854,45 @@ function reportUnknownSlashCommand(cmd: string): void {
     }
   } else {
     console.info(chalk.dim('  ↳ /help 查看所有可用命令'));
+  }
+}
+
+/**
+ * `/custom save <name> [正文…]` —— 「保存一条自定义命令」的唯一屏幕入口。
+ *
+ * 参数 `rest` 是**命令名之后的原始文本**(由分派处按 `input.slice(1 + cmd.length).trim()` 传进来,
+ * 与 default 分支喂给自定义命令的那一份同形)。四条不漂的写法:
+ *  - 正文 = 名字之后的全部剩余原文,不经任何再解析。用户写 `$ARGUMENTS` / `$1` 要的就是它们
+ *    原样落盘 —— 插值只发生在 `expandCustomCommandPrompt()` 那一处,在这里当占位符吃掉,
+ *    用户就永远存不出带占位符的命令。
+ *  - 校验一律复用 `saveCustomCommand()` 的四道闸(名字形态 → 保留名 → 空正文 → 动态 shell),
+ *    本函数不重抄判据、不重排顺序;缺正文走它的 `empty_body`,不在这里另造一种说法。
+ *    四道闸全在写盘之前 ⇒ 拒因分支不需要"回滚",磁盘上不会出现半条命令。
+ *  - 文案只从语言包取:回执 `cli.custom.saved`,拒因经 `describeCustomCommandFailure()`。
+ *  - 用法行现读 slash-registry 的那条 usage(拿不到才退化成 ASCII 兜底,绝不静默)——
+ *    /help 与报错处因此不可能各写一份而漂开。
+ */
+export function handleCustomCommandSave(rest: string): void {
+  const usage = findSlashCommand('custom')?.usage ?? '/custom save <name> [body…]';
+  const tokens = rest.split(/\s+/).filter((token) => token.length > 0);
+  const sub = tokens[0] ?? '';
+  const name = tokens[1] ?? '';
+  if (sub !== 'save' || name === '') {
+    console.info(chalk.yellow(`\n✗ ${usage}`));
+    return;
+  }
+  // afterSub 一定以 name 开头(它就是切出来的第一个 token),按长度剥掉即是"名字之后的剩余"
+  const afterSub = rest.slice(sub.length).replace(/^\s+/, '');
+  const body = afterSub.slice(name.length).trim();
+  try {
+    const saved = saveCustomCommand({ name, body });
+    console.info(chalk.green(`\n✓ ${t('cli.custom.saved', { name: saved.name, path: saved.path })}\n`));
+  } catch (e) {
+    if (!(e instanceof CustomCommandError)) throw e;
+    // 命令确实没存下,且必须说清为什么没存下 —— 退化成"未知命令"会把真缺陷说成用户拼错。
+    console.info(chalk.yellow(`\n✗ ${describeCustomCommandFailure(e.code, e.commandName, e.details)}`));
+    console.info(chalk.dim(`  ↳ ${usage}`));
+    console.info('');
   }
 }
 
