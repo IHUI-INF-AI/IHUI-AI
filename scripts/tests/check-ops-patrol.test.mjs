@@ -190,7 +190,9 @@ test('T12 台账取不到 ⇒ 站点按零条目判红(fail-closed)且必须再�
 
 test('T13 P6 必须真被 patrol 接上(判据写出来而没装车 = 本仓最高频失效型)', async () => {
   const r = await patrol({})
-  const all = [...r.findings, ...r.undetermined, ...r.ok]
+  // 四桶并起来才是"本轮量过的全部行" —— 2026-09-29 加 `adjudicated` 这一档时必须同批改这里,
+  // 否则被裁决降级的那一格会从 `all` 里消失,这条反向锁就把"已裁"读成"那行被搬走了"。
+  const all = [...r.findings, ...r.undetermined, ...r.adjudicated, ...r.ok]
   assert.ok(all.some((x) => x.id === 'P6'), 'patrol 没产出 P6 汇总行 ⇒ 判据没接进巡检')
   const sum = all.find((x) => x.id === 'P6')
   assert.match(sum.detail, /^规则 \d+ 条:在采/, `汇总行没报数:${sum.detail}`)
@@ -233,7 +235,9 @@ const p7reds = (rows) => rows.filter((r) => r.state === 'finding').length
 
 test('T15 P7 必须真被 patrol 接上,且只接三条 + P5 的进程行还在原处(同债不双计)', async () => {
   const r = await patrol({})
-  const all = [...r.findings, ...r.undetermined, ...r.ok]
+  // 四桶并起来才是"本轮量过的全部行" —— 2026-09-29 加 `adjudicated` 这一档时必须同批改这里,
+  // 否则被裁决降级的那一格会从 `all` 里消失,这条反向锁就把"已裁"读成"那行被搬走了"。
+  const all = [...r.findings, ...r.undetermined, ...r.adjudicated, ...r.ok]
   const p7 = all.filter((x) => String(x.id).startsWith('P7·'))
   assert.deepEqual(
     p7.map((x) => x.id).sort(),
@@ -373,5 +377,107 @@ test('T22 P7 不越界:不接管进程维、不假装能验"出机";机主那句
   assert.ok(occ >= 2, `能力边界原话只出现 ${occ} 次 ⇒ 头注与 detail(常量)必须各有一处`)
   assert.match(s, /真正的出机依赖第三方同步客户端在跑/)
   assert.ok(P7_BOUNDARY_NOTE.includes('两者同在 D: 卷') && P7_BOUNDARY_NOTE.includes('P7 不重复计账'))
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P0 裁决台账(2026-09-29 立)。机主对「异地那条腿」的裁决是**只加尺子、不替他启动第三方
+// 同步客户端**,所以那一格的红是"已知、已裁、只有他能解除"的状态 —— 让它每 4h 寄一封到人邮件
+// 本身就是缺陷(「一直在报警」);而把它永久静音又违反另一条铁律「抑制必须有终态」。
+// 下面每一例都成对:既证它会降级,也证它**会把降级收回去**。只留前一臂 = 一条静音键。
+// ─────────────────────────────────────────────────────────────────────────────
+const { loadAdjudications, applyAdjudications } = mod.__test__
+const LEDGER = join(REPO, 'scripts/data/ops-patrol-adjudications.json')
+const ADJ_ANCHOR = 'P5·网盘同步客户端'
+const entryWith = (over = {}) => ({ anchor: ADJ_ANCHOR, reason: '机主裁决:不代为启动第三方客户端', owner: '机主', reviewBy: '2099-01-01', ...over })
+const findingRows = () => [{ id: ADJ_ANCHOR, state: 'finding', detail: '进程不在 ⇒ 出机这一腿此刻不成立' }]
+
+test('T23 成对①:未到期 ⇒ 不进取红计数、行仍打印且带到期日;缺字段/到期 ⇒ 站点照旧红', () => {
+  const now = Date.UTC(2026, 8, 29)
+  const live = applyAdjudications({ rows: findingRows(), entries: [entryWith({ reviewBy: '2026-10-29' })], now })
+  assert.equal(live.rows[0].state, 'adjudicated', '未到期且四件套齐 ⇒ 必须降级')
+  assert.match(live.rows[0].detail, /到期 2026-10-29/, '理由里必须看得见**哪一天**收回去(不可见的终态等于没有终态)')
+  assert.match(live.rows[0].detail, /进程不在/, '降级不得删掉原判据文本 —— 只改计数方向,不改判据')
+  const expired = applyAdjudications({ rows: findingRows(), entries: [entryWith({ reviewBy: '2026-09-01' })], now })
+  assert.equal(expired.rows[0].state, 'finding', '到期即回红(不需要任何人记得改代码)')
+  assert.match(expired.rows[0].detail, /已到期/)
+  for (const key of ['reason', 'owner', 'reviewBy']) {
+    const bad = applyAdjudications({ rows: findingRows(), entries: [entryWith({ [key]: '' })], now })
+    assert.equal(bad.rows[0].state, 'finding', `缺 ${key} 就生效 ⇒ 登记坏掉变成了免检`)
+    assert.match(bad.rows[0].detail, /不完整/, `缺 ${key} 时必须报名而不是静默忽略`)
+  }
+})
+
+test('T24 成对②:台账坏 JSON 一律照旧红 + 一条未判定;文件不在位是"没有裁决"而不是故障', () => {
+  const root = scratchRoot()
+  mkdirSync(root, { recursive: true })
+  const base = mkdtempSync(join(root, 'ops-ledger-'))
+  const now = Date.UTC(2026, 8, 29)
+  try {
+    const broken = join(base, 'broken.json')
+    writeFileSync(broken, '{ "entries": [ {', 'utf8')
+    const l = loadAdjudications(broken)
+    assert.ok(l.readError, '坏 JSON 必须落 readError(静默当空台账 = 把"没读到"写成"没有待裁项")')
+    const a = applyAdjudications({ rows: findingRows(), entries: l.entries, readError: l.readError, now })
+    assert.equal(a.rows[0].state, 'finding', '台账坏掉时站点照旧红')
+    assert.equal(a.ledgerFindings[0].state, 'undetermined', '台账自身读不出 ⇒ 是"未判定",不是"已判过"')
+    const absent = loadAdjudications(join(base, 'nope.json'))
+    assert.equal(absent.entries.length, 0)
+    assert.equal(absent.readError, null, '文件不在位 ≠ 故障:那是"零条裁决",站点照常红')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+test('T25 台账腐烂只报名不判红:登记的 anchor 在本轮根本没有这一行', () => {
+  const now = Date.UTC(2026, 8, 29)
+  const r = applyAdjudications({ rows: [{ id: 'P3·时钟', state: 'ok', detail: '绿' }], entries: [entryWith()], now })
+  assert.equal(r.rotten.length, 1, 'anchor 找不到 ⇒ 必须点名"台账腐烂"')
+  assert.match(r.rotten[0].why, /腐烂/)
+  assert.equal(r.ledgerFindings.length, 0, '腐烂**不判红** —— 一台与任何现场都无关的恒红,唯一出路是各会话绕门(§12e)')
+  assert.equal(r.rows[0].state, 'ok', '不得把别的档位顺手改掉')
+})
+
+test('T26 装车锁:降级真接在 patrol 里,且摘掉台账后那一格必须回到红档(承重证明)', async () => {
+  const src = readFileSync(join(REPO, 'scripts/check-ops-patrol.mjs'), 'utf8')
+  const body = src.slice(src.indexOf('export async function patrol'), src.indexOf('export function loadAdjudications'))
+  assert.match(body, /applyAdjudications\(/, 'patrol 没调降级 ⇒ 台账成了没人读的装饰')
+  assert.match(body, /loadAdjudications\(/, 'patrol 没读台账 ⇒ 同上')
+  /**
+   * 断言锚在**那一格的身份**上,不是"红读数变多"—— 这台机上两轮巡检之间部署环/备份心跳本来就会漂,
+   * 用计数差当证据会在别人正常收尾时误红(把夹具的抖动读成判据失效)。
+   */
+  const withLedger = await patrol({})
+  const without = await patrol({ ledgerFile: join(dirname(LEDGER), '__definitely-absent__.json') })
+  if (withLedger.adjudicated.some((x) => x.id === ADJ_ANCHOR)) {
+    assert.ok(without.findings.some((x) => x.id === ADJ_ANCHOR), '台账在位时被裁走、换成零条目台账必须回到红档 —— 回不来就说明降级没接到这条判据上')
+    assert.ok(!withLedger.findings.some((x) => x.id === ADJ_ANCHOR), '同一格不得同时在红档与已裁档(双计)')
+  } else {
+    const raw = without.findings.some((x) => x.id === ADJ_ANCHOR)
+    assert.ok(raw === withLedger.findings.some((x) => x.id === ADJ_ANCHOR), '本轮这格没被裁,两臂结论就必须一致(不一致 ⇒ 降级通道在别处动了读数)')
+  }
+  assert.equal(without.counts.rotten, 0, '零条目台账不该产出腐烂报名(腐烂 = 登记了却找不到行)')
+})
+
+test('T27 真仓端到端:四桶互斥不并档,计数与数组闭合', async () => {
+  const r = await patrol({})
+  const ids = (arr) => new Set(arr.map((x) => x.id))
+  const inFindings = ids(r.findings).has(ADJ_ANCHOR)
+  const inAdjudicated = ids(r.adjudicated).has(ADJ_ANCHOR)
+  assert.ok(!inFindings || !inAdjudicated, '同一格同时进红档与已裁档 ⇒ 一条债被计了两次(计数与发信方向都会错)')
+  if (inAdjudicated) {
+    const row = r.adjudicated.find((x) => x.id === ADJ_ANCHOR)
+    assert.match(row.detail, /原判据:/, '已裁行必须把原判据文本带着走,否则读报告的人不知道被压的是什么')
+    assert.match(row.detail, /到期 \d{4}-\d{2}-\d{2}/)
+  }
+  assert.equal(
+    r.counts.findings + r.counts.adjudicated + r.counts.ok + r.counts.undetermined,
+    r.findings.length + r.adjudicated.length + r.ok.length + r.undetermined.length,
+    '计数与数组长度不闭合 ⇒ 有行落进了第五个看不见的桶',
+  )
+  assert.equal(
+    [...r.findings, ...r.adjudicated, ...r.ok, ...r.undetermined].length,
+    r.findings.length + r.adjudicated.length + r.ok.length + r.undetermined.length,
+    '四桶之间有行重复 ⇒ 分桶不是划分',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
