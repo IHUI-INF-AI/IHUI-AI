@@ -7268,6 +7268,7 @@
       "rollbackConfirmViewDiff": "查看 diff",
       "rollbackConfirmHideDiff": "收起 diff",
       "rollbackConfirmContentTruncated": "內容過長已截斷",
+      "rollbackConfirmContentUnreadable": "部分版本內容讀取失敗，該檔案不以 diff 預覽",
       "rollbackConfirmMoreFiles": "等 {count} 個檔案",
       "rollbackConfirmNoFiles": "無檔案變更（僅恢復對話，共 {count} 條訊息）",
       "rollbackConfirmCancel": "取消",
@@ -15954,6 +15955,7 @@
       "copyGitApplyToast": "git apply 命令已復制到剪貼板",
       "copyGitApplyFailed": "git apply 命令復制失敗",
       "copyGitApplyEmpty": "沒有可導出的改動",
+      "copyGitApplyUnreadable": "已跳過 {count} 個內容讀取失敗的檔案",
       "markAsViewed": "標記為已審閱",
       "markAsUnviewed": "標記為未審閱",
       "markedAsViewed": "已審閱",
@@ -20307,6 +20309,11 @@
       "taskCount": "{count} 個任務",
       "title": "發布日歷",
       "today": "今天"
+    },
+    "cookieAutoRefresh": {
+      "lastRun": "上次保活 {time}",
+      "on": "Cookie 自動保活 · 每 {hours} 小時",
+      "pending": "首輪保活進行中"
     },
     "cookieHealth": {
       "days": "天",
