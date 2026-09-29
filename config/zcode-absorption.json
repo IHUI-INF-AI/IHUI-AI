@@ -236,7 +236,7 @@
       "path": "packages/desktop/src",
       "status": "windowed",
       "files": 265,
-      "read": 88,
+      "read": 96,
       "notes": "host 11/47、main a-m 19/104、main n-z+browserView 27/84、index.ts+遥测族 14/14(W3-4 全读完该切片)。剩余 processResource*/resourceManager* ≈25、cua*/windows* ≈20、chromeCookie*/browserData* ≈8、desktopMainIpc* 3、autoUpdater/forceUpdate* ≈5。",
       "tickets": [
         "G-379"
@@ -250,22 +250,98 @@
         "packages/desktop/src/main/autoUpdater.ts:249-318",
         "packages/desktop/src/main/processResourceSampleSources.ts:1-119",
         "packages/desktop/src/main/desktopCuaPermissionIpc.ts:300-404",
-        "packages/desktop/src/host/index.ts:166-232"
+        "packages/desktop/src/host/index.ts:166-232",
+        "packages/desktop/src/main/browserView/browserPlaywrightTimeout.ts:11-12",
+        "packages/desktop/src/host/hostResourceTelemetryEnvironment.ts:5-7"
       ],
-      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 15 枚,其中 5 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 2 枚,指针 4 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正)"
+      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 15 枚,其中 5 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 2 枚,指针 4 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜09-29 第六十六批具名回填:本区 +8 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。",
+      "readFiles": [
+        {
+          "p": "packages/desktop/src/main/appLaunchGate.ts",
+          "lines": 14
+        },
+        {
+          "p": "packages/desktop/src/main/browserView/browserPlaywrightTimeout.ts",
+          "lines": 13
+        },
+        {
+          "p": "packages/desktop/src/host/e2eCoverage.ts",
+          "lines": 18
+        },
+        {
+          "p": "packages/desktop/src/preload/oauthCallbackBridge.ts",
+          "lines": 14
+        },
+        {
+          "p": "packages/desktop/src/preload/browserVideoRecorder.ts",
+          "lines": 10
+        },
+        {
+          "p": "packages/desktop/src/main/mainMemoryDiagnostics.ts",
+          "lines": 9
+        },
+        {
+          "p": "packages/desktop/src/host/hostResourceTelemetryEnvironment.ts",
+          "lines": 7
+        },
+        {
+          "p": "packages/desktop/src/main/desktopTelemetryFetch.ts",
+          "lines": 7
+        }
+      ]
     },
     {
       "path": "packages/shared/src",
       "status": "windowed",
       "files": 226,
-      "read": 94,
+      "read": 103,
       "notes": "协议 v4 28/69、散件 a-m 48/48、散件 m-z 15/108。未读大头:validation(1305 行)、zcode-task-types-core(1187)、platform(982)、test-ids(732)、task-realtime-core(523)、usage-stats(462)、mcp(374)、permission-request-preview(366)、remote*/workspace-hook* 族。",
       "evidence": [
         "packages/shared/src/permission-request-preview.ts:19-37",
         "packages/shared/src/validation.ts:641-651",
-        "packages/shared/src/zcode-task-types-core.ts:153-161"
+        "packages/shared/src/zcode-task-types-core.ts:153-161",
+        "packages/shared/src/errors.ts:59-92",
+        "packages/shared/src/settings-errors.ts:8-11"
       ],
-      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 3 枚,其中 3 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针)"
+      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 3 枚,其中 3 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第六十六批具名回填:本区 +9 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。",
+      "readFiles": [
+        {
+          "p": "packages/shared/src/errors.ts",
+          "lines": 92
+        },
+        {
+          "p": "packages/shared/src/execution-output-preview.ts",
+          "lines": 14
+        },
+        {
+          "p": "packages/shared/src/handshake.ts",
+          "lines": 13
+        },
+        {
+          "p": "packages/shared/src/endpointHostname.ts",
+          "lines": 12
+        },
+        {
+          "p": "packages/shared/src/settings-errors.ts",
+          "lines": 12
+        },
+        {
+          "p": "packages/shared/src/background-task-control-merge.ts",
+          "lines": 12
+        },
+        {
+          "p": "packages/shared/src/zcode-media-policy.ts",
+          "lines": 10
+        },
+        {
+          "p": "packages/shared/src/settings-source.ts",
+          "lines": 10
+        },
+        {
+          "p": "packages/shared/src/config-schema.ts",
+          "lines": 8
+        }
+      ]
     },
     {
       "path": "packages/ui/src",
@@ -790,8 +866,8 @@
       "path": "apps/zcode-cli/packages/bootstrap",
       "status": "windowed",
       "files": 232,
-      "read": 31,
-      "remaining": "W6-A 本轮整文件读到体 13 枚,但上轮那 13 枚未留文件名 ⇒ 两批重叠不可计算 ⇒ read 取 max(13) 不取和(真实区间 [13,26])。本轮 13 枚点名:auth-login-polling / auth-login-abort / telemetry-bootstrap / startup-logging / tool-call-product-visibility / zcode-protocol-entrypoint / app-config-options / runtime-config / embedded-search-backend / script-workflow-child-runtime / startup-resource / runtime-cleanup / process-child-processes。未读 219,最大块:product-projection 5477、server-operations 4057、v4-gateway 3454、transcript-hydration 1953、session-mapper 1530、plugins 1457、create-app 1290、conversation-topic-publisher 1131。 ｜09-29 第二十轮回填:本轮具名整读到体 16 枚,指针 5 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正)",
+      "read": 42,
+      "remaining": "W6-A 本轮整文件读到体 13 枚,但上轮那 13 枚未留文件名 ⇒ 两批重叠不可计算 ⇒ read 取 max(13) 不取和(真实区间 [13,26])。本轮 13 枚点名:auth-login-polling / auth-login-abort / telemetry-bootstrap / startup-logging / tool-call-product-visibility / zcode-protocol-entrypoint / app-config-options / runtime-config / embedded-search-backend / script-workflow-child-runtime / startup-resource / runtime-cleanup / process-child-processes。未读 219,最大块:product-projection 5477、server-operations 4057、v4-gateway 3454、transcript-hydration 1953、session-mapper 1530、plugins 1457、create-app 1290、conversation-topic-publisher 1131。 ｜09-29 第二十轮回填:本轮具名整读到体 16 枚,指针 5 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜09-29 第六十六批具名回填:本区 +11 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。",
       "evidence": [
         "apps/zcode-cli/packages/bootstrap/src/zcode-protocol/runtime-cleanup.ts:25",
         "apps/zcode-cli/packages/bootstrap/src/zcode-protocol/startup-resource.ts:24",
@@ -801,12 +877,61 @@
         "apps/zcode-cli/packages/bootstrap/src/app/workflow-concurrency-governor.ts:240-257",
         "apps/zcode-cli/packages/bootstrap/src/app/dynamic-workflow-run-reconcile.ts:27-58",
         "apps/zcode-cli/packages/bootstrap/src/app/dynamic-workflow-run-introspection.ts:258-276",
-        "apps/zcode-cli/packages/bootstrap/src/app/workflow-seat-gate.ts:93-131"
+        "apps/zcode-cli/packages/bootstrap/src/app/workflow-seat-gate.ts:93-131",
+        "apps/zcode-cli/packages/bootstrap/src/skill-command-overrides.ts:10",
+        "apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4/queue-auto-drain.ts:13-18"
       ],
       "notes": "可抄:auth-login-polling 双向夹紧、env capture-then-scrub、开关落点清单。否证:serverSources 台账零读取方、untrustedProjectMcpServers 恒空穿四层、CuaBrokerToken 解析恒 undefined。",
       "tickets": [
         "G-377",
-        "G-465"
+        "G-465",
+        "G-815989"
+      ],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/log-retention.ts",
+          "lines": 27
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/tool-call-product-visibility.ts",
+          "lines": 22
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/auth-login-abort.ts",
+          "lines": 21
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/zcode-protocol/dynamic-workflow-policy.ts",
+          "lines": 19
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4/queue-auto-drain.ts",
+          "lines": 19
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/zcode-protocol/off-peak-tool-policy.ts",
+          "lines": 17
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4/topic-frame-reservation.ts",
+          "lines": 13
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4/replay.ts",
+          "lines": 12
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/skill-command-overrides.ts",
+          "lines": 12
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/app/locale-selection.ts",
+          "lines": 10
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/zcode-protocol/permission-options.ts",
+          "lines": 8
+        }
       ]
     },
     {
@@ -1000,8 +1125,8 @@
       "path": "apps/zcode-cli/packages/contracts",
       "status": "windowed",
       "files": 113,
-      "read": 29,
-      "remaining": "95 未读:interfaces 22(dynamic-workflow-run.port.ts 1037、session.events.ts 1238 仅窗口读)、tools 38、events 5、model 6、hooks/workspace-hook-trust.ts 324 余下。read 只算净新增:W6-C 整读到体 13 枚,其中 contract.ts 与 capabilities/index.ts 与旧 read=7 重叠 ⇒ 净 +11,不重复计。 ｜09-29 第十九轮回填:本轮具名整读到体 4 枚,其中 3 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十一轮回填:契约层报告(tools/events/model/interfaces)具名 7 枚、新指针 7 枚可兑现",
+      "read": 35,
+      "remaining": "95 未读:interfaces 22(dynamic-workflow-run.port.ts 1037、session.events.ts 1238 仅窗口读)、tools 38、events 5、model 6、hooks/workspace-hook-trust.ts 324 余下。read 只算净新增:W6-C 整读到体 13 枚,其中 contract.ts 与 capabilities/index.ts 与旧 read=7 重叠 ⇒ 净 +11,不重复计。 ｜09-29 第十九轮回填:本轮具名整读到体 4 枚,其中 3 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十一轮回填:契约层报告(tools/events/model/interfaces)具名 7 枚、新指针 7 枚可兑现 ｜09-29 第六十六批具名回填:本区 +6 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。",
       "evidence": [
         "apps/zcode-cli/packages/contracts/src/tools/contract.ts:174",
         "apps/zcode-cli/packages/contracts/src/tools/json-schema.ts:35",
@@ -1015,12 +1140,42 @@
         "apps/zcode-cli/packages/contracts/src/interfaces/permission.port.ts:24-31",
         "apps/zcode-cli/packages/contracts/src/events/session.events.ts:680-694",
         "apps/zcode-cli/packages/contracts/src/tools/node-repl.ts:4-43",
-        "apps/zcode-cli/packages/contracts/src/model/invocation-context.ts:1-40"
+        "apps/zcode-cli/packages/contracts/src/model/invocation-context.ts:1-40",
+        "apps/zcode-cli/packages/contracts/src/errors/index.ts:9-92",
+        "apps/zcode-cli/packages/contracts/src/index.ts:96-101",
+        "apps/zcode-cli/packages/contracts/src/capabilities/index.ts:1-2"
       ],
       "tickets": [
-        "G-464"
+        "G-464",
+        "G-815991"
       ],
-      "notes": "W3-8:工具结果元数据/契约/能力表/工作区钩子信任存储/工件端口读到体。剩余 interfaces 22、tools 38、events 5、model 6。反例:capabilities 整体是 export {} 却仍发布 ./capabilities 子路径且零 importer = 空心公开入口。"
+      "notes": "W3-8:工具结果元数据/契约/能力表/工作区钩子信任存储/工件端口读到体。剩余 interfaces 22、tools 38、events 5、model 6。反例:capabilities 整体是 export {} 却仍发布 ./capabilities 子路径且零 importer = 空心公开入口。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/contracts/src/interfaces/permission-full-access.ts",
+          "lines": 42
+        },
+        {
+          "p": "apps/zcode-cli/packages/contracts/src/path/git-bash.ts",
+          "lines": 29
+        },
+        {
+          "p": "apps/zcode-cli/packages/contracts/src/interfaces/session-mailbox.port.ts",
+          "lines": 17
+        },
+        {
+          "p": "apps/zcode-cli/packages/contracts/src/tools/read-state.ts",
+          "lines": 13
+        },
+        {
+          "p": "apps/zcode-cli/packages/contracts/src/model/content-protection.ts",
+          "lines": 12
+        },
+        {
+          "p": "apps/zcode-cli/packages/contracts/src/time/local-date.ts",
+          "lines": 6
+        }
+      ]
     },
     {
       "path": "apps/zcode-cli/packages/dynamic-workflow",
@@ -1052,9 +1207,9 @@
       "path": "apps/zcode-cli/packages/tui",
       "status": "windowed",
       "files": 92,
-      "read": 23,
+      "read": 28,
       "notes": "终端截断/测量是纯函数且按 cell 计量(CJK 算 2 列)、键位归属走封闭意图枚举且默认显式 pass、主题色经 Proxy 每次现读活跃档(无硬编码 ANSI)。⚠️ 分母按尺子 SOURCE_EXT 现量才是 92(只 grep ts/tsx 会得 91,漏 .mjs)。",
-      "remaining": "84 未整读;app-input.ts(327)、app-keyboard.ts(423) 仅窗口读。 ｜09-29 第十九轮回填:本轮具名整读到体 5 枚,其中 4 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 10 枚,指针 5 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正)",
+      "remaining": "84 未整读;app-input.ts(327)、app-keyboard.ts(423) 仅窗口读。 ｜09-29 第十九轮回填:本轮具名整读到体 5 枚,其中 4 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 10 枚,指针 5 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜09-29 第六十六批具名回填:本区 +5 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。",
       "evidence": [
         "apps/zcode-cli/packages/tui/src/app-terminal-width.ts:59",
         "apps/zcode-cli/packages/tui/src/app-sidebar-shortcut.ts:28",
@@ -1068,6 +1223,28 @@
         "apps/zcode-cli/packages/tui/src/app-clipboard-image.ts:33-71",
         "apps/zcode-cli/packages/tui/src/app-submit.ts:124-199",
         "apps/zcode-cli/packages/tui/src/app-selection-keyboard.ts:53-83"
+      ],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/tui/src/theme/index.ts",
+          "lines": 19
+        },
+        {
+          "p": "apps/zcode-cli/packages/tui/src/app-transcript-errors.ts",
+          "lines": 18
+        },
+        {
+          "p": "apps/zcode-cli/packages/tui/src/app-theme-sync.ts",
+          "lines": 15
+        },
+        {
+          "p": "apps/zcode-cli/packages/tui/src/app-selection-state.ts",
+          "lines": 14
+        },
+        {
+          "p": "apps/zcode-cli/packages/tui/src/app-locale.ts",
+          "lines": 3
+        }
       ]
     },
     {
@@ -1136,18 +1313,39 @@
       "path": ".agents",
       "status": "windowed",
       "files": 84,
-      "read": 16,
-      "notes": "技能披露模型/frontmatter 权限/27 源注入登记表/文档即判据四问已答。未逐篇读:react-best-practices rules 70、ai-elements references 50、agent-browser 11。",
+      "read": 20,
+      "notes": "技能披露模型/frontmatter 权限/27 源注入登记表/文档即判据四问已答。未逐篇读:react-best-practices rules 70、ai-elements references 50、agent-browser 11。 ｜09-29 第六十六批另读 7 份非源文件面(ai-guidance.md / rule-catalog.md / troubleshooting.md / policy-schema.md / openai.yaml / module-contract.md / CONTRACT.md);它们真读过,但尺子的被审面按 SOURCE_EXT 筛,记进 read 会虚增头条且被 M12 判\"不在被审面\" ⇒ 只在此登记。",
       "tickets": [
         "G-380",
-        "G-381"
+        "G-381",
+        "G-815990"
       ],
       "evidence": [
         ".agents/skills/react-best-practices/rules/js-tosorted-immutable.md:14-21",
         ".agents/skills/react-best-practices/rules/rendering-conditional-render.md:16",
         ".agents/skills/react-best-practices/rules/async-parallel.md:15-17",
-        ".agents/skills/agent-browser/SKILL.md:436-447"
-      ]
+        ".agents/skills/agent-browser/SKILL.md:436-447",
+        ".agents/skills/architecture-governance/scripts/context-package.mjs:1-21"
+      ],
+      "readFiles": [
+        {
+          "p": ".agents/skills/architecture-governance/scripts/context-package.mjs",
+          "lines": 21
+        },
+        {
+          "p": ".agents/skills/architecture-governance/references/golden-module/module.ts",
+          "lines": 6
+        },
+        {
+          "p": ".agents/skills/architecture-governance/references/golden-module/contract.ts",
+          "lines": 3
+        },
+        {
+          "p": ".agents/skills/architecture-governance/references/golden-module/contract.example.ts",
+          "lines": 5
+        }
+      ],
+      "remaining": " ｜09-29 第六十六批具名回填:本区 +11 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。"
     },
     {
       "path": "scripts",
@@ -1286,6 +1484,7 @@
     "G-815975": "apps/zcode-cli/packages/core/src",
     "G-815976": "apps/zcode-cli/packages/core/src",
     "G-815977": "apps/zcode-cli/packages/core/src",
-    "G-815985": "scripts/object-space-land.mjs(旁路交付流程闸,不属上游切片)"
+    "G-815985": "scripts/object-space-land.mjs(旁路交付流程闸,不属上游切片)",
+    "G-815988": "config/zcode-absorption.json + scripts/zcode-absorption.mjs(台账具名化,不属上游切片)"
   }
 }
