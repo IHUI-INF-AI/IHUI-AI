@@ -202,6 +202,17 @@
     "runtimeSend": "Send"
   },
   "chat": {
+    "meta": {
+      "pullOnly": "This conversation syncs the next time you open the list"
+    },
+    "mcp": {
+      "state": {
+        "connecting": "Connecting to {server}…",
+        "failed": "{server} failed to connect",
+        "reconnecting": "Reconnecting to {server} (attempt {attempt}/{maxAttempts})"
+      },
+      "mobileSettingsHint": "Manage MCP connections on desktop or web"
+    },
     "connectorAuth": {
       "title": "Connect to {connectorName}",
       "connected": "Connected",
@@ -1035,6 +1046,8 @@
   "courseFilter": {
     "title": "Filter Courses",
     "subtitle": "Find the right course for you",
+    "categoryRange": "Category",
+    "difficultyRange": "Difficulty",
     "priceRange": "Price Range",
     "reset": "Reset",
     "apply": "Apply",
@@ -1043,9 +1056,15 @@
     "instructor": "Instructor",
     "free": "Free",
     "loadFailed": "Failed to load filter",
+    "loadingMore": "Loading more",
     "price_all": "All",
     "price_free": "Free",
-    "price_paid": "Paid"
+    "price_paid": "Paid",
+    "difficulty_all": "All",
+    "difficulty_beginner": "Beginner",
+    "difficulty_intermediate": "Intermediate",
+    "difficulty_advanced": "Advanced",
+    "noCategories": "No categories available"
   },
   "courseQAAsk": {
     "title": "Ask a Question",

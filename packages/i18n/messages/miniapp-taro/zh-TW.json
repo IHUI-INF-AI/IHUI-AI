@@ -3295,7 +3295,18 @@
     "members": "成員"
   },
   "chat": {
-    "send": "傳送"
+    "send": "傳送",
+    "meta": {
+      "pullOnly": "小程式端將於下次開啟時同步此改動"
+    },
+    "mcp": {
+      "state": {
+        "connecting": "正在連線至 {server}…",
+        "failed": "{server} 連線失敗",
+        "reconnecting": "第 {attempt}/{maxAttempts} 次重連 {server}"
+      },
+      "mobileSettingsHint": "請在桌面端或網頁端管理 MCP 連線"
+    }
   },
   "tabBar": {
     "community": "智匯社群",
