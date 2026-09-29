@@ -174,9 +174,28 @@ function runValidation(
     if (coercedValue !== value && !sameContent(coercedValue, value)) coercedFields.push(key);
   }
 
-  // 3. 报告未知字段(可选严格模式,默认不报错,只 warn)
-  //    不加入 errors,避免 LLM 因多打一个字段导致整个调用失败
-  //    如需严格模式,可由调用方基于 schema.additionalProperties === false 检查
+  // 3. 未知字段 —— 默认档忽略,严格档(G-937978 机制对齐)收集进同一次 errors:
+  //    工具调用面"多打一个字段就整个调用失败"会把正当调用打成事故,这是本文件落地的
+  //    原始设计决定,默认档不翻。但 schema 可以自我声明为闭集
+  //    (`schema.parameters.additionalProperties === false`,即上游 saved-workflows 的
+  //    "声明了哪些参数就收哪些"那一格),此时未声明字段**一律违规**,并且与缺失/类型
+  //    错误**收集齐再一次返回** —— 模型拿到「缺了 b,还多了 zz」能一次改对,拿到
+  //    「缺了 b」只会改一次再撞一次(收集式,绝不遇首错即停)。
+  //    注意这不是递归档:只看顶层 parameters;嵌套对象的未知键仍按原有规则放行。
+  if (
+    (schema.parameters as { additionalProperties?: boolean }).additionalProperties === false
+  ) {
+    for (const key of Object.keys(argObj)) {
+      if (key in schema.parameters.properties) continue;
+      errors.push({
+        field: key,
+        reason: 'unknown_field',
+        expected: '(not declared)',
+        // actual 只装形态类别(describeType),不装原值 —— 与台账的隐私口径同一条线
+        actual: describeType(argObj[key]),
+      });
+    }
+  }
 
   return {
     valid: errors.length === 0,
