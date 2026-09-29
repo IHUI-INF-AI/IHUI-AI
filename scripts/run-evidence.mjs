@@ -37,7 +37,17 @@
    注:该文件此前经**对象空间落地**入库,那条通道不跑 lint-staged,所以这一族 console 警告
    在 HEAD 里安静地存在了一整天 —— 见 AGENTS.md §12「造好没装车」同族的落地侧版本。 */
 import { spawn } from 'node:child_process'
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeSync } from 'node:fs'
+import {
+  closeSync,
+  existsSync,
+  fstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readSync,
+  rmSync,
+  writeSync,
+} from 'node:fs'
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -128,10 +138,34 @@ export function exitCodeForVerdict(v) {
 
 function writeLine(fd, s, state) {
   if (markIfSettled(state)) return
+  // **标记必须独占一行**(2026-09-29 实测的假"截断"):被包装的命令常常不以换行收尾
+  // (最典型是 `cat <一个末尾没有换行的文件>`),旧写法直接把 `#EVIDENCE-RC=0` 接在那半行后面 ⇒
+  // 读侧按"行首"找标记找不到 ⇒ 一次**完整**的取证被判成 truncated。
+  // 方向是"少发合格证"(安全侧),但代价是证据作废、逼人重跑,而重跑那次若真被截断就永远分不清。
+  // 判据:文件非空且最后一个字节不是 `\n`(含只落 `\r` 的 CRLF 半截)⇒ 先补一个换行。
+  if (state?.outFile) ensureLineStart(fd, state.outFile)
   try {
     writeSync(fd, s + '\n')
   } catch {
     /* 文件句柄已失效:没有更好的去处,不谎报成功 */
+  }
+}
+
+/** 只在"要写的是标记行"时用:量最后一个字节,不是换行就先补一个换行。 */
+function ensureLineStart(fd, outFile) {
+  try {
+    const size = fstatSync(fd).size
+    if (size === 0) return
+    const rfd = openSync(outFile, 'r')
+    try {
+      const buf = Buffer.alloc(1)
+      readSync(rfd, buf, 0, 1, size - 1)
+      if (buf[0] !== 0x0a) writeSync(fd, '\n')
+    } finally {
+      closeSync(rfd)
+    }
+  } catch {
+    /* 量不到就照旧写:这一层是加固,不是判据,不得因为它失败而把已跑完的取证作废 */
   }
 }
 
@@ -204,7 +238,7 @@ function runCapture(outFile, cmdArgs, { timeoutMs, label, cwd }) {
   // `state` 同时是**可观测位**,并且**就是交付给调用方的那个对象**(按引用共享 ⇒ 第二次终止尝试
   // 发生在 resolve 之后,调用方仍读得到 `doubleWrite`)。分成两个对象就会漏报:finish 时把 false 抄过去,
   // 之后置真的那一笔落在 state 上,调用方看的还是 outcome —— 这是写这一层时踩到的第二个坑。
-  const st = { rc: null, killed: false, note: '', doubleWrite: false, settled: false }
+  const st = { rc: null, killed: false, note: '', doubleWrite: false, settled: false, outFile }
   return new Promise((res) => {
     const spawnArgs = buildSpawnArgv(cmdArgs)
     const child = spawn(spawnArgs[0], spawnArgs.slice(1), {
@@ -600,6 +634,45 @@ async function runSelfTest() {
       return txt.includes('mkdir-ok') && txt.includes(`${RC_MARK}0`)
     })(),
   )
+  // T22 —— 被包装的命令**不以换行收尾**时,标记必须仍独占一行(2026-09-29 实测的假"截断":
+  //   `cat <一个末尾没有换行的文件>` 把 `#EVIDENCE-RC=0` 黏在同一行尾巴上 ⇒ 读侧按行首找标记找不到
+  //   ⇒ 一次**完整**的取证被判成 truncated 并要求重跑)。四臂各守一个方向:
+  //   ① 真实产物必须判 complete 且 RC 行独占一行(这条在修复前必红 —— 它是本格的阳性对照);
+  //   ② 粘连形态(`x#EVIDENCE-RC=0`)判据**不得**认(反向锁:不许为了让①绿就把判据放宽成"含 RC 即通过",
+  //      那等于把"半截输出恰好含这几个字符"的发假合格证重新打开);
+  //   ③ 子进程正文逐字留在证据里(加固只允许在标记**前**补一个换行,不得改写别的字节);
+  //   ④ 幂等:末尾本来就有换行的旧产物不得多出空行(否则每一条旧证据的形状都被改了,读侧的差分作废)。
+  const f22 = resolve(dir, 'evidence-selftest-noeol.txt')
+  const c22 = await runCapture(
+    f22,
+    [process.execPath, '-e', 'process.stdout.write(\"no-trailing-eol\")'],
+    { timeoutMs: 30_000 },
+  )
+  const t22 = existsSync(f22) ? readFileSync(f22, 'utf8') : ''
+  ok(
+    'T22 输出末尾无换行 ⇒ RC 仍独占一行且判 complete(修复前必红)',
+    (() => {
+      if (c22.rc !== 0) return false
+      const rcLines = t22
+        .split(/\r?\n/)
+        .filter((l) => l.startsWith(RC_MARK))
+      return (
+        rcLines.length === 1 && rcLines[0] === `${RC_MARK}0` && judgeEvidence(t22).kind === 'complete'
+      )
+    })(),
+  )
+  ok(
+    'T22b 反向锁:标记与正文黏同一行 ⇒ 判据不得认(不许放宽①来凑)',
+    judgeEvidence(`out${RC_MARK}0\n`).kind !== 'complete',
+  )
+  ok('T22c 子进程正文逐字留在证据里(只允许在标记前补换行)', t22.includes('no-trailing-eol'))
+  ok(
+    'T22d 幂等:末尾本来有换行的旧形态不得多出空行',
+    (() => {
+      const txt = existsSync(f1) ? readFileSync(f1, 'utf8') : ''
+      return txt !== '' && !/\n\n#EVIDENCE-RC=/.test(txt)
+    })(),
+  )
   for (const f of [f1, f2]) {
     try {
       const txt = readFileSync(f, 'utf8')
@@ -608,7 +681,7 @@ async function runSelfTest() {
       /* 已在 T11/T12 断言过可读性 */
     }
   }
-  for (const f of [f1, f2, f5, f21]) {
+  for (const f of [f1, f2, f5, f21, f22]) {
     try {
       rmSync(f, { force: true })
     } catch {

@@ -24,6 +24,7 @@ import {
   getTaskOutput,
   waitForTask,
   killTask,
+  formatTruncatedNote,
 } from './background-registry.js';
 import type { Tool, ToolContext, ToolResult } from './index.js';
 import { todo_write } from './todo-write.js';
@@ -784,7 +785,9 @@ export const get_command_output: Tool = {
     ];
     if (output.stdout.trim()) parts.push(`[stdout]\n${output.stdout.trimEnd()}`);
     if (output.stderr.trim()) parts.push(`[stderr]\n${output.stderr.trimEnd()}`);
-    if (output.truncated) parts.push('[输出被截断]');
+    // G-816028:截断必须回答"省略了多少 + 全量还在不在"(上游 ZCode workflow-artifact.ts:40-60
+    // 的"截断与计数两者都重要";我方无全量落盘,注记由 formatTruncatedNote 如实说明)。
+    if (output.truncated) parts.push(formatTruncatedNote(output));
     return {
       success: output.status !== 'error',
       output: parts.join('\n') || '(无输出)',
