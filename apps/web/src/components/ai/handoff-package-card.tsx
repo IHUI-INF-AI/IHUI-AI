@@ -90,7 +90,7 @@ export function HandoffPackageCard({
     <div
       role="group"
       aria-label={t('ariaLabel')}
-      className={cn('flex flex-col gap-2 rounded-md bg-muted/30 p-3', className)}
+      className={cn('flex flex-col gap-2 rounded-lg bg-muted/30 p-3', className)}
       data-testid={testId}
       data-handoff-degraded={pkg.degraded}
       data-handoff-local-confirmed={pkg.diagnosis.localConfirmed}

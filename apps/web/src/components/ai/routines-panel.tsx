@@ -24,7 +24,7 @@ interface RoutinesPanelProps {
 
 export function RoutinesPanel({ routines, onToggle, onRun }: RoutinesPanelProps) {
   return (
-    <div className="rounded-lg border bg-card">
+    <div className="rounded-xl border bg-card">
       <div className="border-b px-4 py-2.5">
         <h3 className="text-sm font-semibold">例行程序</h3>
       </div>
