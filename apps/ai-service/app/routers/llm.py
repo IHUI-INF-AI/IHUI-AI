@@ -57,6 +57,11 @@ from ..core.provider_caps import (
     get_provider_cap,
 )
 from ..core.question_parser import QuestionStreamParser
+# D174(2026-09-30 立):帧级 traceId 的键名与兼容面清单取自契约层,取值经
+# core/trace_context.py 那份投影 —— 本路由不解析 traceparent、不自建 trace 上下文
+# (载体只有一份,在 middleware/trace_context.py;两处算同一件事必漂移)。
+from ..core.sse_contract import SSE_COMPAT_EVENTS, SSE_TRACE_ID_PAYLOAD_KEY
+from ..core.trace_context import sse_frame_trace_id
 from ..services.agent_events import (
     SSE_CHUNK,
     SSE_CONTENT_BLOCK_DELTA,
@@ -799,7 +804,10 @@ def _format_plan_updated_event(
     }
     if message_id:
         _evt["messageId"] = message_id
-    return f"event: plan_updated\ndata: {json.dumps(_evt, ensure_ascii=False)}\n\n"
+    # D174:此前这一帧自己拼 f-string、绕过帧工厂 ⇒ 它是"72 个站点之外"的漏网帧之一,
+    # 单点注入对它不成立。改走 `_sse` 后**线格式逐字节不变**(同一 dict、同一段
+    # `json.dumps(..., ensure_ascii=False)`、同一个 `\n\n` 结尾),只是多经过一次工厂。
+    return _sse("plan_updated", _evt)
 
 
 def _sse_contract_enabled() -> bool:
@@ -816,10 +824,50 @@ def _sse_contract_enabled() -> bool:
     )
 
 
+def _with_frame_trace_id(evt: str, payload: Any) -> Any:
+    """D174(2026-09-30 立):帧级 traceId 的**唯一**注入点。
+
+    本路由有 70+ 个 `yield _sse(...)` 站点,这一个函数是它们共同的出口 —— 票面硬约束
+    就是"不得在 20 个 yield 站点各写一遍"(两处算同一件事必漂移,而漂开的表现是"有的帧
+    带、有的帧不带",排查时最难归因的那一型)。
+
+    四条判序,缺一不可:
+
+    1. **兼容面不注入**:`SSE_COMPAT_EVENTS`(Anthropic Messages API 兼容事件)两份契约
+       文件对它的原话都是"wire 形态与 Anthropic 官方一致",往里加我方自定键 = 单方面
+       改那个协议。要补的是对话流帧(`SSE_EVENTS`)那一格。
+    2. **取值只经一个出口**:`sse_frame_trace_id()`(它读的是 middleware 那一份 ContextVar,
+       并在那里做 W3C 有效性判)。本函数不碰 `request`、不解析 traceparent。
+    3. **没有有效 trace ⇒ 整字段缺席**:不写空串、不写 null。"空串"与"没有"必须可分,
+       消费侧按 `typeof === 'string'` 判;写空串就是把"没接上"写成"接上了"。
+    4. **不改入参**:`payload` 常在 yield 之后被调用方继续用(同一 dict 进落库记录 /
+       被复用,例:`_evt` 与 `_build_terminal_task` 同源),就地写键会把 trace 带进持久化
+       面 —— 本票没做那件事,也不该被顺手做掉。
+    """
+    if evt in SSE_COMPAT_EVENTS:
+        return payload
+    trace_id = sse_frame_trace_id()
+    if not isinstance(payload, dict):
+        return payload
+    if trace_id is None:
+        # 无有效 trace ⇒ 帧上**不该有**这个键。但调用方递进来的 dict 可能已经带着一个
+        # `traceId`(模型/上游把字段名猜对了、或有人在 payload 里自写)。此时留着的不是一个
+        # "看起来合理"的值,而是一个**没有出处**的值 —— 它的线格式与工厂写出来的完全一样,
+        # 于是"帧上的 traceId 只能出自这一处"这条不变量就被绕过了。剥掉它,让缺席就是缺席。
+        # 不判红、不告警:本票只做线格式,trace 是关联键不是凭据,自写它没有授权收益。
+        if SSE_TRACE_ID_PAYLOAD_KEY in payload:
+            stripped = dict(payload)
+            stripped.pop(SSE_TRACE_ID_PAYLOAD_KEY)
+            return stripped
+        return payload
+    return {**payload, SSE_TRACE_ID_PAYLOAD_KEY: trace_id}
+
+
 def _sse(evt: str, payload: Any) -> str:
     """SSE 帧构造(事件契约 agent_events.SSE_* 单一事实源)。
 
     批58(接线):开关开启时经 sse_contract 做跨端契约漂移诊断(仅告警)。
+    D174(2026-09-30):帧级 traceId 在这里注入一次(判序见 `_with_frame_trace_id`)。
     """
     if _sse_contract_enabled():
         try:
@@ -836,7 +884,7 @@ def _sse(evt: str, payload: Any) -> str:
                     )
         except Exception as e:  # noqa: BLE001 - 契约诊断失败不影响帧产出
             _sse_contract_warn(f"SSE 契约诊断异常(降级跳过): {e}")
-    return f"event: {evt}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+    return f"event: {evt}\ndata: {json.dumps(_with_frame_trace_id(evt, payload), ensure_ascii=False)}\n\n"
 
 
 def _sse_contract_warn(msg: str) -> None:
@@ -1159,7 +1207,8 @@ def _format_tool_summary_event(tool_calls_history: list[dict[str, Any]]) -> str 
     summary = _build_tool_summary(tool_calls_history)
     if summary is None:
         return None
-    return f"event: tool-summary\ndata: {json.dumps(summary, ensure_ascii=False)}\n\n"
+    # D174:同 plan_updated —— 改走帧工厂后线格式逐字节不变,但单点注入对它成立了。
+    return _sse("tool-summary", summary)
 
 
 
@@ -1295,7 +1344,8 @@ def _format_citations_event(
     evt: dict[str, Any] = {"type": "citations", "citations": citations}
     if message_id:
         evt["messageId"] = message_id
-    return f"event: citations\ndata: {json.dumps(evt, ensure_ascii=False)}\n\n"
+    # D174:同上,改走帧工厂(线格式逐字节不变)。
+    return _sse("citations", evt)
 
 
 # =============================================================================
@@ -1736,9 +1786,7 @@ _CHAT_MODE_PROMPTS: dict[str, str] = {
 }
 
 
-def _resolve_reasoning_effort(
-    req: "LLMCompleteRequest",
-) -> tuple[str | None, dict[str, Any] | None]:
+def _resolve_reasoning_effort(req: "LLMCompleteRequest") -> tuple[str | None, dict[str, object] | None]:
     """推理强度档位的唯一解析出口(D130,2026-09-30 立)。
 
     返回 `(发给上游的生效档位, 回落通知或 None)`。三段判定,顺序不可颠倒:

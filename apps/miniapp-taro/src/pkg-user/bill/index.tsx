@@ -13,7 +13,7 @@
 
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { usePullDownRefresh } from '@tarojs/taro'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { AnyPayParams } from '@ihui/types'
 import { get } from '@/utils/api-bridge'
 import { wechatPay } from '@/api'
@@ -46,9 +46,22 @@ interface PaymentItem {
   createdAt: string
 }
 
+/** 后端 edu-ledger 递出来的账目视图(欠费额、到期日、逾期天数都在这里面) */
+interface LedgerView {
+  totalFee: number
+  paidAmount: number
+  arrears: number
+  nextDueDate: string | null
+  overdueCount: number
+  dueSoonCount: number
+  unallocatedPaid: number
+  schedules: { dueDate: string; amountDue: number; status: string; overdueDays: number }[]
+}
+
 interface MyBillsResp {
   enrollments: EnrollmentBill[]
   payments: PaymentItem[]
+  ledgers?: { enrollmentId: string; ledger: LedgerView | null }[]
 }
 
 /** 微信 JSAPI 下单响应(POST /payments/wechat/create) */
@@ -88,7 +101,7 @@ const PAY_METHOD_TEXT: Record<string, string> = {
 }
 
 export default function Bill() {
-  const [data, setData] = useState<MyBillsResp>({ enrollments: [], payments: [] })
+  const [data, setData] = useState<MyBillsResp>({ enrollments: [], payments: [], ledgers: [] })
   const [loading, setLoading] = useState(false)
   const [payingId, setPayingId] = useState('')
   const mountedRef = useRef(false)
@@ -97,13 +110,32 @@ export default function Bill() {
     setLoading(true)
     try {
       const res = await get<MyBillsResp>('/edu-ai-management/my-bills')
-      setData({ enrollments: res?.enrollments ?? [], payments: res?.payments ?? [] })
+      setData({
+        enrollments: res?.enrollments ?? [],
+        payments: res?.payments ?? [],
+        ledgers: res?.ledgers ?? [],
+      })
     } catch {
       // api-bridge 已统一 toast
     } finally {
       setLoading(false)
     }
   }, [])
+
+  /**
+   * 欠费额与到期日一律取自后端账目出口(edu-ledger),本页不再自己算
+   * `totalFee - paidAmount` —— 那与本仓已经出现过的"三处各写一遍欠费算式"是同一条缝:
+   * 名单说欠费、流水说已缴,催缴于是发给错的人。
+   * 取不到 ledger 时 due 记 0 且**不给支付按钮**:凑一个金额出来让用户按它付款,
+   * 比暂时不能付款更坏。
+   */
+  const ledgerById = useMemo(() => {
+    const m = new Map<string, LedgerView>()
+    for (const row of data.ledgers ?? []) {
+      if (row.ledger) m.set(row.enrollmentId, row.ledger)
+    }
+    return m
+  }, [data.ledgers])
 
   useEffect(() => {
     if (mountedRef.current) return
@@ -125,7 +157,7 @@ export default function Bill() {
 
   const onPay = async (item: EnrollmentBill) => {
     if (payingId) return
-    const due = Math.max(item.totalFee - item.paidAmount, 0)
+    const due = ledgerById.get(item.id)?.arrears ?? 0
     if (due <= 0) return
     setPayingId(item.id)
     try {
@@ -191,7 +223,11 @@ export default function Bill() {
         {data.enrollments.length > 0 ? (
           <View className="mt-[16rpx] px-[20rpx]">
             {data.enrollments.map((item) => {
-              const due = Math.max(item.totalFee - item.paidAmount, 0)
+              const ledger = ledgerById.get(item.id)
+              const due = ledger?.arrears ?? 0
+              const overdueDays = ledger
+                ? Math.max(0, ...ledger.schedules.map((s) => s.overdueDays))
+                : 0
               return (
                 <View
                   key={item.id}
@@ -227,10 +263,23 @@ export default function Bill() {
                           : 'text-[var(--color-success-deep-text)]'
                       }`}
                     >
-                      {due > 0 ? `欠费 ¥${due.toLocaleString()}` : '已缴清'}
+                      {!ledger
+                        ? '账目未就绪'
+                        : due > 0
+                          ? `欠费 ¥${due.toLocaleString()}`
+                          : '已缴清'}
                     </Text>
                   </View>
-                  {due > 0 ? (
+                  {ledger?.nextDueDate ? (
+                    <View className="mt-[8rpx]">
+                      <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
+                        {overdueDays > 0
+                          ? `已逾期 ${overdueDays} 天`
+                          : `${ledger.nextDueDate} 到期`}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {ledger && due > 0 ? (
                     <View
                       className={`mt-[20rpx] rounded-xl bg-primary py-[16rpx] text-center ${
                         payingId === item.id ? 'opacity-50' : ''
