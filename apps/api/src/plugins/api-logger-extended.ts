@@ -7,7 +7,6 @@ import fp from 'fastify-plugin'
 import { randomUUID } from 'node:crypto'
 import { sanitizeData, buildSensitiveKeySet } from './response-sanitizer.js'
 import { normalizeHeader, normalizeHeaderStrict, parsePath } from '../utils/http-normalize.js'
-import { sqlEventBus } from '../db/sql-event-bus.js'
 
 /**
  * ELK 结构化日志管线插件（扩展版）。
@@ -37,15 +36,10 @@ const apiLoggerExtendedPlugin: FastifyPluginAsync = async (server: FastifyInstan
     const id = normalizeHeaderStrict(request.headers[REQUEST_ID_HEADER]) ?? randomUUID()
     request.requestId = id
     reply.header('X-Request-Id', id)
-    // G-677:请求期打开 SQL 事件的 requestId 归属窗口(emit 自动注入,无需逐查询传)
-    sqlEventBus.enterContext(id)
   })
 
   // 响应结束时输出结构化日志
   server.addHook('onResponse', async (request: FastifyRequest, reply: FastifyReply) => {
-    // G-677:先关归属窗口 —— 之后同一 async 链上迟到的 SQL 事件不再回写该 requestId
-    // (丢弃计数在 emit 里,拿不到 requestId 时窗口原样不动)。
-    if (request.requestId) sqlEventBus.settleContext(request.requestId)
     const url = parsePath(request.url)
     if (url === '/api/health' || url === '/api/metrics' || url === '/api/business-metrics') return
 

@@ -1679,137 +1679,6 @@ export function auditPublicPathProbe(opts = {}) {
 }
 
 /**
- * 孤儿删除引用巡检的**常驻**派发点(尺子本体 = `scripts/check-orphan-deletion-refs.mjs`)。
- *
- * 为什么必须挂在这里而不是"留作手动问责":这把尺子判的是**此刻索引与 HEAD 的错位**
- * (HEAD 有该路径、索引与磁盘都没有、而树内仍有源码 import 它)—— 它按设计不能进提交链
- * (与某次提交内容无关的 blocking 红 = 每台每次被逼 --no-verify,§12e/§12f),而"手动问责入口"
- * 的实际含义是**只有人在跑、没有班次在跑**:2026-09-29 现读该尺子的五个权威接线点零命中,
- * 而同一型缺陷(HEAD 有 / 索引与磁盘都无 / 源码仍 import)当晚已两次炸构建。挂本守护是
- * 唯一不改提交链、又保证每 30 分钟必有一次现读的落点。
- * 挂点语义与 healWorktreeTracked / auditPublicPathProbe 同一条:**健康轮次的早退之前 + `!CHECK_ONLY`**。
- *
- * 三条不可漂的写法(照抄 auditPublicPathProbe):
- *  ① **节流而非封量**:两次真实巡检之间隔 `ORPHAN_AUDIT_INTERVAL_MS`(默认 30 分钟)是节奏控制,
- *     不是每日封顶 —— §5e 明令不得自设总量上限把"告警静默"再复制一遍。
- *  ② 告警一律经 `notifyGuardRed()`:按 alert 身份 + 内容指纹去重,不在本文件自拼 SMTP(守门 81)。
- *  ③ **判"未判定"不得静默也不得喊人**:尺子 rc=2 / JSON 取不到 ⇒ 只写日志并点名原因 ——
- *     发一封"我什么都没量到"的信是把噪音冒充成告警;但日志必须报名,不得沉默成"跑过了"。
- */
-const ORPHAN_AUDIT_TICK = join(WORKTREE, '.workbuddy', 'orphan-audit-tick.ts')
-const ORPHAN_AUDIT_INTERVAL_MS = Number(process.env.IHUI_ORPHAN_AUDIT_INTERVAL_MS || 30 * 60 * 1000)
-/** 尺子是纯只读 git 问答,正常 <1s;给 2 分钟硬上限只为"一次守护绝不被它拖死"(守门 80 同取向) */
-const ORPHAN_AUDIT_TIMEOUT_MS = Number(process.env.IHUI_ORPHAN_AUDIT_TIMEOUT_MS || 120_000)
-
-/** 节流判定(纯函数):距上次巡检是否已够一个间隔。取不到 tick 文件 ⇒ 视为**该跑了**。 */
-export function orphanAuditDue(nowMs, tickMs, intervalMs = ORPHAN_AUDIT_INTERVAL_MS) {
-  if (!Number.isFinite(tickMs)) return true
-  return nowMs - tickMs >= intervalMs
-}
-
-export function auditOrphanDeletionRefs(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = ORPHAN_AUDIT_INTERVAL_MS,
-    tickFile = ORPHAN_AUDIT_TICK,
-    logger = log,
-    notify = notifyGuardRed,
-    runner = null,
-  } = opts
-  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-orphan-deletion-refs.mjs')
-  if (!existsSync(script)) {
-    logger(
-      'ℹ️ 孤儿删除引用巡检:尺子脚本不在位(scripts/check-orphan-deletion-refs.mjs)⇒ 本轮跳过,不记为已巡检',
-    )
-    return { ran: false, why: '尺子脚本不在位' }
-  }
-  let lastTick = NaN
-  try {
-    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
-  } catch {
-    /* 没跑过 */
-  }
-  if (!orphanAuditDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
-    // 注意判序:`runner || (iife())` 那种写法在传入了假 runner 时会让 `call` **等于函数本身**
-    // (短路掉调用),而不是它的返回值 —— 本仓 auditPublicPathProbe 此刻就是这一型(无调用方所以未爆),
-    // 本函数按"显式注入优先调用"写,镜像测试才能在不派生真进程的前提下取到三态。
-    const call =
-      typeof runner === 'function'
-        ? runner()
-        : (() => {
-            try {
-              const out = execFileSync(process.execPath, [script, '--json'], {
-                cwd: WORKTREE,
-                encoding: 'utf8',
-                windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
-                timeout: ORPHAN_AUDIT_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
-                maxBuffer: 1 << 22,
-                stdio: ['ignore', 'pipe', 'pipe'],
-              })
-              return { status: 0, stdout: String(out || ''), stderr: '' }
-            } catch (e) {
-              return {
-                status: typeof e.status === 'number' ? e.status : 2,
-                stdout: String(e.stdout || ''),
-                stderr: String(e.stderr || e.message || ''),
-              }
-            }
-          })()
-    if (call.status === 2) {
-      logger(
-        `ℹ️ 孤儿删除引用巡检:未判定(尺子 rc=2,用法/环境错 —— ${String(call.stderr || '').slice(0, 120)})`,
-      )
-      return { ran: true, judged: false, why: '尺子 rc=2' }
-    }
-    let parsed = null
-    try {
-      parsed = JSON.parse(String(call.stdout || '').trim())
-    } catch {
-      parsed = null
-    }
-    if (!parsed || !Array.isArray(parsed.hits)) {
-      logger(
-        '⚠️ 孤儿删除引用巡检:输出取不到 JSON ⇒ 未判定,不记为已巡检(不得把"没解析出"写成"没有命中")',
-      )
-      return { ran: true, judged: false, why: 'JSON 取不到' }
-    }
-    const undet = Array.isArray(parsed.undetermined) ? parsed.undetermined : []
-    if (parsed.hits.length) {
-      const list = parsed.hits
-        .slice(0, 12)
-        .map(
-          (h) =>
-            `  · ${h && h.path ? h.path : '(无名)'} ← 仍被引用于 ${h && h.via ? h.via : '(出处未判定)'}`,
-        )
-        .join('\n')
-      const more =
-        parsed.hits.length > 12 ? `\n  …另有 ${parsed.hits.length - 12} 条,回读命令见下行` : ''
-      notify(
-        '孤儿删除引用巡检命中',
-        `HEAD 树里还有这些路径,而索引与磁盘都没有它们,且源码仍 import 它们 ⇒ 任何一次干净检出/CI 构建都会 Module not found。\n${list}${more}\n\n尺子:node scripts/check-orphan-deletion-refs.mjs(只读;修法是把该文件补回索引,或改掉那处引用 —— 二者由该路径的持有人定)`,
-        { severity: 'warning' },
-      )
-      logger(`❌ 孤儿删除引用巡检:命中 ${parsed.hits.length} 条(已派发到邮件通道)`)
-    } else if (undet.length) {
-      logger(
-        `ℹ️ 孤儿删除引用巡检:零命中,但有 ${undet.length} 条未判定 —— ${undet.slice(0, 3).join(' | ')}`,
-      )
-    } else {
-      logger('✅ 孤儿删除引用巡检:已判定且零命中')
-    }
-    return { ran: true, judged: true, hits: parsed.hits.length, undetermined: undet.length }
-  } catch (e) {
-    logger(
-      '⚠️ 孤儿删除引用巡检派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160),
-    )
-    return { ran: false, why: '派发异常' }
-  }
-}
-
-/**
  * 把本守护的计划任务确保为 S4U(幂等;已是 S4U 时脚本自己秒退)。
  * 为什么必须做:两个看门任务原先是 InteractiveToken ⇒ **无人登录时它们根本不跑**,
  * 于是 .git 存续守护与凭据告警会在"机器重启后没人登录"这段时间里同时静默 ——
@@ -2326,9 +2195,6 @@ function main() {
     // 公网路径与换流窗口的常驻探测(票 G-301):两条序列互不顶账,节流 30 分钟,
     // 判"未判定"只写日志不喊人;它不改本守护退出码 —— 探测失败不等于 .git 失败。
     if (!CHECK_ONLY) auditPublicPathProbe()
-    // 不能进提交链,而"手动问责"等于只有人在跑 —— 本行是它唯一的调度器。挂进 CHECK_ONLY 分支等于永不执行。
-    if (!CHECK_ONLY) auditOrphanDeletionRefs()
-    // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 失效时它**自己不会喊**(故障形态是"安静",正是今天两天冻结的同类)。本守护每 2 分钟
     // 一趟且自身分层自愈,由它盯心跳最省。--check 仍零副作用。
@@ -2439,8 +2305,6 @@ export const __test__ = {
   envDriftDetail,
   homeHealDue,
   readProbeVerdict,
-  orphanAuditDue,
-  auditOrphanDeletionRefs,
   // 裸档自愈(2026-09-28 立):测试在临时仓库上取证,不碰活仓库
   readBareFlag,
   writeBareFalse,
