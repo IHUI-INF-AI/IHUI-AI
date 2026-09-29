@@ -37,11 +37,21 @@ export function colorfuleLoaderRadiusPx(sizePx: number): number {
 }
 
 /**
- * 单个装饰点直径:min(4px 可见下限) + size/10。
+ * 彩点边长上限 32px ⇒ **等效半径 16px**,正好是项目半径上限(守门 77 B9 / 守门 11 C7 的 2xl 一刀切)。
+ *
+ * 为什么要有这一档:小程序端把圆点画成 `borderRadius: '50%'`,而边长是 `toRpx(dotSize)` —— 一个
+ * **由 size 属性驱动**的值。尺子对这一型只能报"量不到盒形"(它不该猜),所以"半径不超 16px"这件事
+ * 不能靠测量保证,只能靠构造保证:无论调用方传多大的 loader,点径都不会越过这一档。
+ * 默认档 40px 时 dotSize = max(4, 4) = 4,远低于上限 ⇒ 现存三腿渲染逐像素不变(有测试钉住)。
+ */
+export const COLORFUL_LOADER_MAX_DOT_PX = 32
+
+/**
+ * 单个装饰点直径:min(4px 可见下限) + size/10,**再以 COLORFUL_LOADER_MAX_DOT_PX 封顶**。
  * 取小程序端现公式(RN/DOM 的 size/20 在 40px 档只剩 2px,低于可读下限,规则 2 取大档)。
  */
 export function colorfuleLoaderDotSizePx(sizePx: number): number {
-  return Math.max(4, sizePx / 10)
+  return Math.min(COLORFUL_LOADER_MAX_DOT_PX, Math.max(4, sizePx / 10))
 }
 
 /** RN 端单环 spinner 的边框宽:max(2, size/12),收进共享源免得端内自定档。 */
