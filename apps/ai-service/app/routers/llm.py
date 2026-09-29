@@ -39,6 +39,10 @@ from ..core.model_naming import to_official_model_name
 # core/permission_mode.py(矩阵 + 交集实现 + 被拦文案)。本路由不再自带任何
 # 收窄表或 `in READONLY_TOOLS` 的散写判定 —— 只转发。
 # 只读白名单本身仍是 services/plan_mode.py 的 READONLY_TOOLS 一份真相(由该出口内部取)。
+from ..core.reasoning_effort_pin import (
+    ReasoningEffortPin,
+    reasoning_effort_for_request,
+)
 from ..core.permission_mode import (
     CHAT_MODE_TOOL_AXIS,
     _readonly_tools,
@@ -1621,6 +1625,43 @@ _CHAT_MODE_PROMPTS: dict[str, str] = {
 }
 
 
+def _resolve_reasoning_effort(req: "LLMCompleteRequest") -> tuple[str | None, dict | None]:
+    """推理强度档位的唯一解析出口(D130,2026-09-30 立)。
+
+    返回 `(发给上游的生效档位, 回落通知或 None)`。三段判定,顺序不可颠倒:
+      1. 请求没带档位 -> (None, None):不发字段,旧客户端零行为变化(回退=revert)。
+      2. 带了但不属于 known_efforts -> (None, notice)。上游只认封闭集,发过去要么被
+         provider 拒(400)要么被静默忽略,两种都比"不发"糟,所以丢弃;但**必须留通知**——
+         "用户选了档而什么都没发生"正是票第 8 栏点名的静默失效。
+      3. 合法档位 -> 交给既有钉扎出口 reasoning_effort_for_request(sampling 语义)。
+         它返回 None 或另一个值时同样落通知(钉回也是回落,不是"无事发生")。
+
+    档位值域不在本文件写第二份:`known_efforts` 由 ReasoningEffortPin 自带,与 TS 侧
+    `packages/types/src/reasoning-effort.ts` 的封闭联合由
+    `scripts/check-model-capacity-parity.mjs` 的 C5/C6 四处对账(第四落点即契约层)。
+    """
+    requested = getattr(req, "reasoning_effort", None)
+    if requested is None:
+        return None, None
+    pin = ReasoningEffortPin()
+    if requested not in pin.known_efforts:
+        return None, {
+            "requested": requested,
+            "effective": None,
+            "fallback": True,
+            "reason": "unknown-effort",
+        }
+    effective = reasoning_effort_for_request(pin, req.model or "", requested, "sampling")
+    if effective == requested:
+        return effective, None
+    return effective, {
+        "requested": requested,
+        "effective": effective,
+        "fallback": True,
+        "reason": "pinned",
+    }
+
+
 def _resolve_chat_mode(mode: str | None, plan_mode: str | None) -> str | None:
     """归一化 ChatMode(2026-09-13 矩阵 A #24)。
 
@@ -1897,6 +1938,13 @@ class LLMCompleteRequest(BaseModel):
     # 缺省按 default 处理(保守:高危工具需审批)。
     permission_mode: str | None = Field(
         None, description="权限模式档位:default/accept-edits/bypass-permissions/plan"
+    )
+    # D130(2026-09-30 立):推理强度档位(输入区第三轴)。可选 ⇒ 旧客户端零行为变化。
+    # 值域是封闭集但**本字段刻意不写 Literal**:写就是第五份档位表(该表已有四处,
+    # 由 scripts/check-model-capacity-parity.mjs C5/C6 对账)。非法值由 _resolve_reasoning_effort
+    # 丢弃并落通知 —— Pydantic 直接 422 会把「用户选了个不支持的档」打成整轮请求失败。
+    reasoning_effort: str | None = Field(
+        None, description="推理强度档位:minimal/low/medium/high(封闭集,非法值丢弃并回报回落)"
     )
 
 
@@ -2187,6 +2235,12 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
         kwargs["top_p"] = req.top_p
     if req.top_k is not None:
         kwargs["top_k"] = req.top_k
+    # D130(2026-09-30 立):推理强度档位 → 上游 kwargs。生效档位由唯一出口算,
+    # llm_gateway 已认这个 kwarg(core/llm_gateway.py:486 读 call_kwargs['reasoning_effort']),
+    # provider 不支持时由 core/provider_caps.filter_call_kwargs 兜底剔除(不在本层猜厂商)。
+    _eff_kwargs, _ = _resolve_reasoning_effort(req)
+    if _eff_kwargs is not None:
+        kwargs["reasoning_effort"] = _eff_kwargs
     result = await llm_gateway.complete(messages, model=req.model, owner_uuid=owner_uuid, **kwargs)
     # 错误前置返回(P1 错误标准化,2026-07-22 立):
     # 之前 LLM 错误一律 HTTP 200 + result.error:True,网关/监控层无法通过状态码识别失败,
@@ -2615,9 +2669,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     # model 为可选字段(None = 由下游选默认模型),此时保持 None 不改写。
     if req.model:
         req.model = to_official_model_name(req.model)
+    # D159 接手修复(2026-09-30):前一代理在本文件合入 D130 档位改动时**误删了这行初始化**,
+    # 导致 complete_stream 全程 `name 'accumulated' is not defined`(stream gen 直接崩,
+    # D158 的 4 个 grant 测试因此整片红)。恢复 HEAD 原形,位置与 HEAD 逐字一致。
     accumulated: dict[str, Any] = {"content": "", "reasoning": "", "model": req.model, "usage": None, "stub": False}
     await _ensure_restricted_model_access(request, req.model)
     owner_uuid = _resolve_owner_uuid(request)
+    # D130(2026-09-30 立):整条流共用一次档位解析(生效值 + 回落通知)。
+    # 算在 gen() 之外:done 帧有三处产出点,它们都闭包读这两个量,不得各算各的。
+    _reasoning_effort_effective, _reasoning_effort_notice = _resolve_reasoning_effort(req)
     # P3 3-4-A(2026-09-17 拍板):新用户免费试用额度检查(env USER_TRIAL_DAILY_TOKENS,0=关闭)
     trial = await user_trial_quota.check(owner_uuid)
     if not trial["allowed"]:
@@ -3226,6 +3286,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 _ts_str = _format_tool_summary_event(tool_calls_history)
                                 if _ts_str:
                                     yield _ts_str
+                                if _reasoning_effort_notice is not None:
+                                    done_event["reasoningEffort"] = _reasoning_effort_notice
                                 yield _sse(SSE_DONE, done_event)
                                 has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
                                 if has_association and not accumulated.get("error") and not await request.is_disconnected():
@@ -3380,6 +3442,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 _ts_str = _format_tool_summary_event(tool_calls_history)
                                 if _ts_str:
                                     yield _ts_str
+                                if _reasoning_effort_notice is not None:
+                                    done_event["reasoningEffort"] = _reasoning_effort_notice
                                 yield _sse(SSE_DONE, done_event)
                                 has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
                                 if has_association and not accumulated.get("error") and not await request.is_disconnected():
@@ -4666,6 +4730,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             _ts_str = _format_tool_summary_event(tool_calls_history)
                             if _ts_str:
                                 yield _ts_str
+                            if _reasoning_effort_notice is not None:
+                                done_event["reasoningEffort"] = _reasoning_effort_notice
                             yield _sse(SSE_DONE, done_event)
                             has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
                             if has_association and not accumulated.get("error") and not await request.is_disconnected():
@@ -4729,6 +4795,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 _native_fc_kwargs["top_k"] = req.top_k
             if req.max_tokens is not None:
                 _native_fc_kwargs["max_tokens"] = req.max_tokens
+            # D130(2026-09-30 立):推理强度档位透传给 astream(与 temperature/top_p 同区同规)。
+            # 删掉这两行 = 前端选了档而上游收不到,界面仍一切正常(票第 8 栏的静默失效本体)。
+            if _reasoning_effort_effective is not None:
+                _native_fc_kwargs["reasoning_effort"] = _reasoning_effort_effective
             # 2026-09-03 修复(agent 通道污染):原生 FC 本轮是否已发出 tool-call-start。
             # agent 场景模型常返回 tool_calls + 0 content,下方空回复兜底若不排除该情况,
             # 会往流里插一条"抱歉,未能生成有效回复"假文案,被 CLI 存入 assistant 消息回传 provider,污染上下文。

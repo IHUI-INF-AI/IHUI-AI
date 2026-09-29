@@ -35,7 +35,10 @@
 //      直到上游 400 才炸 —— 正是"该截断没截断"的病灶方向。
 //   C4 表域契约:两侧同值的行若值 ≥ 兜底值,Python 侧此行超出"只列低于兜底值例外"的契约。
 //   C5 推理档位跨语言等值:known_efforts ≡ REASONING_EFFORTS,差集逐名点名。
-//   C6 推理档位 TS 内部等值:REASONING_EFFORTS ≡ types.ts 的联合类型 ReasoningEffort。
+//   C6 推理档位同事实多落点等值(**四处**,D130 起):cli 运行时数组 ≡ cli 编译期联合 ≡
+//      契约层 packages/types/src/reasoning-effort.ts 的封闭联合。任一配对漂开各点名一次 ——
+//      第四落点是 api-client / apps/api / miniapp 唯一 import 的那一份,它漂开时 cli 侧
+//      既不会红也不会跑到(它不 import 契约层),所以必须显式并进来对账。
 //
 // 三态(命中 / 漂移 / 判不出)分开:判不出的逐条点名;任一面取不到、任何表声明解析不到、
 // 表体出现无法解析的行、或任何判据输入枚举到 0 条 ⇒ "无法判定" exit 2,既不记绿也不冒红。
@@ -66,6 +69,9 @@ export const FILES = {
   pyEffort: 'apps/ai-service/app/core/reasoning_effort_pin.py',
   tsEffort: 'apps/cli/src/subagents/precedence.ts',
   tsEffortType: 'apps/cli/src/subagents/types.ts',
+  // D130(2026-09-30):契约层第四落点 —— 跨端 wire 值域(api-client / apps/api / miniapp 都从这里取)。
+  // 新增该落点与把它扩进本门判据必须同枚提交:加了类型不加门,新落点天然脱离尺子。
+  tsEffortContract: 'packages/types/src/reasoning-effort.ts',
 }
 
 // ---------------------------------------------------------------------------
@@ -314,13 +320,14 @@ export function decide(contents) {
   if (missing.length > 0)
     return { drifts: [], notes: [], undetermined: [`被审面取不到:${missing.join(', ')}`], tables: null }
 
-  let tsCap, pyWin, pyEff, tsEff, tsUnion
+  let tsCap, pyWin, pyEff, tsEff, tsUnion, tsContract
   try {
     tsCap = parseTsCapacity(contents[FILES.tsCapacity])
     pyWin = parsePyWindow(contents[FILES.pyWindow])
     pyEff = parsePyEfforts(contents[FILES.pyEffort])
     tsEff = parseTsArraySet(contents[FILES.tsEffort], 'REASONING_EFFORTS')
     tsUnion = parseTsUnion(contents[FILES.tsEffortType], 'ReasoningEffort')
+    tsContract = parseTsUnion(contents[FILES.tsEffortContract], 'ReasoningEffort')
   } catch (e) {
     if (e instanceof Undetermined)
       return { drifts: [], notes: [], undetermined: [`解析失败:${e.message}`], tables: null }
@@ -337,6 +344,7 @@ export function decide(contents) {
   if (pyEff.items.size === 0) undetermined.push('Python known_efforts 枚举到 0 条 ⇒ 判死')
   if (tsEff.items.size === 0) undetermined.push('TS REASONING_EFFORTS 枚举到 0 条 ⇒ 判死')
   if (tsUnion.items.size === 0) undetermined.push('TS type ReasoningEffort 枚举到 0 条 ⇒ 判死')
+  if (tsContract.items.size === 0) undetermined.push('契约层 type ReasoningEffort 枚举到 0 条 ⇒ 判死')
   if (tsCap.residual)
     undetermined.push(`TS EXACT_CAPACITY 表体有 ${tsCap.residual.length} 字符解析不进键值判据(不猜)`)
   if (pyWin.residual)
@@ -346,6 +354,7 @@ export function decide(contents) {
   if (pyEff.residual) undetermined.push('Python known_efforts 集合体含非字符串项(未判定)')
   if (tsEff.residual) undetermined.push('TS REASONING_EFFORTS 数组含非字符串项(未判定)')
   if (tsUnion.residual) undetermined.push('TS type ReasoningEffort 联合含非字符串成员(未判定)')
+  if (tsContract.residual) undetermined.push('契约层 type ReasoningEffort 联合含非字符串成员(未判定)')
   if (undetermined.length > 0) return { drifts: [], notes: [], undetermined, tables: null }
 
   const drifts = []
@@ -393,8 +402,27 @@ export function decide(contents) {
       `C6 TS 内部同事实两真相:仅运行时数组 REASONING_EFFORTS=[${inner.onlyA.join(',')}] 仅编译期联合 type ReasoningEffort=[${inner.onlyB.join(',')}]`,
     )
   }
+  // C6 的第二组对照(D130 第四落点):契约层 packages/types 的封闭联合与 cli 的运行时数组。
+  // 这一组是"跨端 wire 值域"与"cli 内部档位表"的对账 —— api-client / apps/api / miniapp
+  // 只 import 契约层,所以它一旦漂开,发出去的档位就落在上游 known_efforts 之外,
+  // 而两侧都不会红(cli 不 import 契约层,契约层不 import cli)。
+  const cross2 = diffSets(tsEff.items, tsContract.items)
+  if (cross2.onlyA.length + cross2.onlyB.length > 0) {
+    drifts.push(
+      `C6 契约层与 cli 档位表分叉:仅运行时数组 REASONING_EFFORTS=[${cross2.onlyA.join(',')}] 仅契约层 packages/types type ReasoningEffort=[${cross2.onlyB.join(',')}]`,
+    )
+  }
+  const cross3 = diffSets(tsUnion.items, tsContract.items)
+  if (cross3.onlyA.length + cross3.onlyB.length > 0) {
+    drifts.push(
+      `C6 两份编译期联合各写一半:仅 cli type ReasoningEffort=[${cross3.onlyA.join(',')}] 仅契约层 type ReasoningEffort=[${cross3.onlyB.join(',')}]`,
+    )
+  }
 
   // ---- 覆盖边界与卫生项:只报数,不判红 ----
+  notes.push(
+    `推理档位落点共四处(py known_efforts / cli REASONING_EFFORTS / cli type ReasoningEffort / 契约层 packages/types type ReasoningEffort)—— 改档必须四处同笔,少一处即 C5/C6 点名`,
+  )
   notes.push(
     `TS PATTERN_CAPACITY 模糊层 ${tsCap.patternRules ?? '(条数未解析出,不计)'} 条在 Python 侧无对应声明(按设计走兜底 fail-visible)—— 不在本门数值判据射程`,
   )
@@ -423,6 +451,7 @@ export function decide(contents) {
         py: [...pyEff.items].sort(),
         tsArray: [...tsEff.items].sort(),
         tsUnion: [...tsUnion.items].sort(),
+        tsContract: [...tsContract.items].sort(),
       },
     },
   }
@@ -477,8 +506,9 @@ function selfTest() {
 
   const ok0 = D(base)
   t(
-    '真仓工作树面:五份输入全取得到且解析出非空表(门不瞎)',
-    Object.values(base).every((v) => typeof v === 'string') &&
+    '真仓工作树面:六份输入全取得到且解析出非空表(门不瞎)',
+    Object.keys(base).length === 6 &&
+      Object.values(base).every((v) => typeof v === 'string') &&
       ok0.undetermined.length === 0 &&
       !!ok0.tables &&
       ok0.tables.tsExact > 0 &&
@@ -592,6 +622,42 @@ function selfTest() {
       m.changed &&
         r.drifts.some((d) => d.startsWith('C6') && d.includes('xhigh')) &&
         r.drifts.some((d) => d.startsWith('C5') && d.includes('xhigh')),
+    )
+  }
+  {
+    // D130 反向对照 A(票第 6 栏点名):契约层删一档 ⇒ 门必红且**两侧都点名**
+    // (不能只说"契约层少了 minimal"而说不出它与谁分叉)。
+    const m = mutate(
+      base[FILES.tsEffortContract],
+      "export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high'",
+      "export type ReasoningEffort = 'low' | 'medium' | 'high'",
+    )
+    const r = D(withFile(FILES.tsEffortContract, m.src))
+    t(
+      'C6 有牙(第四落点):契约层少一个 minimal ⇒ 同时点名 cli 运行时数组与 cli 编译期联合两侧',
+      m.changed &&
+        r.drifts.some(
+          (d) =>
+            d.startsWith('C6') &&
+            d.includes('仅运行时数组 REASONING_EFFORTS=[minimal]') &&
+            d.includes('契约层'),
+        ) &&
+        r.drifts.some(
+          (d) => d.startsWith('C6') && d.includes('仅 cli type ReasoningEffort=[minimal]'),
+        ),
+    )
+    t('C6 第四落点反向对照:漂开的是契约层 ⇒ C5(py vs cli 数组)不得连带误报', !r.drifts.some((d) => d.startsWith('C5')))
+  }
+  {
+    const m = mutate(
+      base[FILES.tsEffortContract],
+      "['minimal', 'low', 'medium', 'high']",
+      "['minimal', 'low', 'medium', 'high', 'xhigh']",
+    )
+    const r = D(withFile(FILES.tsEffortContract, m.src))
+    t(
+      '契约层只加运行时投影数组而联合未加 ⇒ 判据不红(本门判的是联合字面量;satisfies 由 typecheck 钉,不得读成"本门已覆盖该型")',
+      m.changed && r.drifts.length === 0,
     )
   }
   {
@@ -742,7 +808,8 @@ function main() {
       console.log(
         `✅ 模型容量/推理档位跨语言对账通过(面=${res.face}):` +
           `TS EXACT ${tb.tsExact} 条(低窗口 ${tb.tsLowWindow})≡ Python LOW ${tb.pyLow} 条、` +
-          `兜底两侧同为 ${tb.tsDefault}、推理档位三处齐等 [${tb.efforts.tsArray.join(',')}]`,
+          `兜底两侧同为 ${tb.tsDefault}、推理档位四处齐等 [${tb.efforts.tsArray.join(',')}] ` +
+          `(落点:${Object.keys(tb.efforts).join('/')})`,
       )
     }
     process.exit(0)
@@ -756,7 +823,8 @@ function main() {
     for (const d of res.drifts) console.log(`   · ${d}`)
     console.log(
       '改法:两处声明是**同一批事实的两份抄本** —— 容量表以 packages/api-client 的 EXACT_CAPACITY\n' +
-        '     为母表;推理档位以 types.ts 联合 + precedence.ts 数组 + py known_efforts 三处同笔改。\n' +
+        '     为母表;推理档位以 packages/types/reasoning-effort.ts 联合 + cli types.ts 联合 +\n' +
+        '     precedence.ts 数组 + py known_efforts 四处同笔改。\n' +
         '     不得为消红单删 Python 条目(那是把敞口藏起来),不得放宽判据、不得写豁免清单。',
     )
   }
