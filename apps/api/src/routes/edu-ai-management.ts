@@ -36,6 +36,7 @@ import {
   voidPaymentRecord,
 } from '../services/edu-ledger.js'
 import { dispatchArrearChannels } from '../services/edu-arrear-remind-service.js'
+import { findScheduleConflicts } from '../services/edu-schedule-conflict.js'
 import {
   eduTerm,
   eduClass,
@@ -4703,28 +4704,20 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
             isNull(eduCourseSchedule.deletedAt),
           ),
         )
-      const WD = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']
-      const conflicts: string[] = []
-      for (let x = 0; x < rows.length; x++) {
-        for (let y = x + 1; y < rows.length; y++) {
-          const a = rows[x]!
-          const b = rows[y]!
-          if (a.weekday !== b.weekday) continue
-          if (!(a.startTime < b.endTime && b.startTime < a.endTime)) continue
-          const when = `${WD[a.weekday] ?? a.weekday} ${a.startTime}-${a.endTime}`
-          if (a.teacher && a.teacher === b.teacher) {
-            conflicts.push(
-              `教师时间冲突:${when}「${a.courseName}」与「${b.courseName}」(教师 ${a.teacher})`,
-            )
-          }
-          if (a.classroom && a.classroom === b.classroom) {
-            conflicts.push(
-              `教室占用冲突:${when}「${a.courseName}」与「${b.courseName}」(教室 ${a.classroom})`,
-            )
-          }
-        }
-      }
-      return reply.send(success({ conflicts }))
+      // 判定与规范化在 edu-schedule-conflict.ts(纯函数,有测试)。
+      // 旧实现在这里直接比字符串 `a.startTime < b.endTime`:非补零的 '9:00' 会被判成
+      // 不与 '10:00-11:00' 冲突 —— 页面一路绿,老师却被排进同一时刻两节课。
+      const { conflicts, malformedTimes } = findScheduleConflicts(
+        rows.map((r) => ({
+          weekday: r.weekday,
+          startTime: r.startTime,
+          endTime: r.endTime,
+          teacher: r.teacher,
+          classroom: r.classroom,
+          courseName: r.courseName,
+        })),
+      )
+      return reply.send(success({ conflicts, malformedTimes }))
     } catch (_err) {
       return reply.status(500).send(error(500, '冲突检测失败'))
     }
