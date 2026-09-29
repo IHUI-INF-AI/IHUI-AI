@@ -135,6 +135,8 @@ test('T8 证据件由工具自己清理:自检跑完不得在 tmp 留残留取�
     'evidence-selftest-fail.txt',
     'evidence-selftest-killed.txt',
     'evidence-selftest-cwd.txt',
+    'evidence-selftest-250ms.txt',
+    'evidence-selftest-badtimeout.txt',
   ].filter((f) => existsSync(resolve(ROOT, '.ihui-agent', 'tmp', f)))
   assert.deepEqual(left, [], '自检留下取证件 ⇒ 会被下一个人误当成本轮证据')
 })
@@ -422,4 +424,146 @@ test('T16 被包装命令的输出**不以换行收尾** ⇒ 标记仍必须独�
     }
   }
 })
+
+// T17–T19 —— 2026-09-29 的 `--timeout` **单位陷阱**(本机当天实录:主会话传 `--timeout=180/300/560`
+// 当秒用,包装器忠实在 180 **毫秒**后 SIGTERM,于是产出的证据与"命令真挂死"逐字同形,
+// 一次"git 网络卡死"的假 P0 诊断就是这么来的)。判据住在源文件的 parseTimeoutMs,
+// 镜像只从源 import(§22c),不抄第二份。
+
+test('T17 CLI 层:裸 --timeout=300 ⇒ exit 2 + 消息点名毫秒,且证据一个字节都不写(变异自证:摘掉"裸小值拒绝"这一支本条即翻红)', () => {
+  const file = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-bad-timeout.txt')
+  rmSync(file, { force: true })
+  let status = null
+  let out = ''
+  try {
+    execFileSync(
+      process.execPath,
+      [TOOL, file, '--timeout=300', '--', process.execPath, '-e', 'console.log(1)'],
+      {
+        cwd: ROOT,
+        windowsHide: true,
+        encoding: 'utf8',
+        timeout: 120_000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    status = 0
+  } catch (e) {
+    status = e.status
+    out = `${String(e.stderr ?? '')}${String(e.stdout ?? '')}`
+  }
+  const wroteEvidence = existsSync(file)
+  try {
+    rmSync(file, { force: true })
+  } catch {
+    /* 清不掉不影响结论 */
+  }
+  // 摘掉拒绝分支时这一发会在 ~100ms 内正常跑完 ⇒ status=0 ⇒ 本条红(不是恒真断言)。
+  assert.equal(status, 2, `裸 300 必须被判用法错误(exit 2),实得 ${status};输出:${out.slice(-200)}`)
+  assert.match(out, /毫秒/, '拒绝必须把**单位**说清,否则人只会再猜一次')
+  assert.match(out, /--timeout=300000/, '必须给出"乘 1000"那一种正确写法')
+  assert.match(out, /--timeout=300s/, '必须给出"带后缀"那一种正确写法')
+  assert.equal(
+    wroteEvidence,
+    false,
+    '判死之前先把证据建出来 ⇒ 拒绝只是装饰(读侧照样拿到一份 incomplete 证据)',
+  )
+})
+
+test('T18 parseTimeoutMs 换算表与边界(从源 import):后缀小值放行 / 0=不设上限 / 坏形态判死不猜默认值', () => {
+  const p = gate.__test__.parseTimeoutMs
+  assert.equal(typeof p, 'function', '__test__ 缺 parseTimeoutMs(镜像拿不到就只会复读实现)')
+  const okMs = (raw, ms) => {
+    const r = p(raw)
+    assert.ok(!r.error, `${JSON.stringify(raw)} 竟被拒:${r.error ?? ''}`)
+    assert.equal(r.ms, ms, `${JSON.stringify(raw)} 换算不符`)
+  }
+  const rejected = (raw, ...needles) => {
+    const r = p(raw)
+    assert.ok(r.error, `${JSON.stringify(raw)} 竟被放行`)
+    for (const n of needles) assert.ok(r.error.includes(n), `${raw} 的文案缺"${n}"`)
+  }
+  okMs('180s', 180_000)
+  okMs('2m', 120_000)
+  okMs('45000ms', 45_000)
+  okMs('45000MS', 45_000)
+  okMs('30_000', 30_000)
+  okMs('2000', 2000)
+  // 显式后缀的小值 = 明确意图,一律放行(拦它就是把工具用成障碍)
+  okMs('250ms', 250)
+  okMs('1s', 1000)
+  okMs('0', 0)
+  okMs('0ms', 0)
+  rejected('300', '毫秒', '--timeout=300000', '--timeout=300s')
+  rejected('1999', '毫秒')
+  rejected('560', '毫秒')
+  for (const bad of ['abc', '-5', '', '30_', '1e3', 's', '1.5']) rejected(bad, '看不懂')
+})
+
+test('T19 形状锁:证据文件的标记与行序未被本次改动触碰(改格式 = 让既有取证件集体失去 oracle)', () => {
+  const t = gate.__test__
+  // 逐字比常量:形状锁的职责正是"改了字面量就红",所以这里**必须**写字面量而不是引用常量。
+  assert.equal(t.RC_MARK, '#EVIDENCE-RC=')
+  assert.equal(t.KILLED_MARK, '#EVIDENCE-KILLED')
+  assert.equal(t.CWD_MARK, '#EVIDENCE-CWD=')
+  const file = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-shape-lock.txt')
+  try {
+    execFileSync(
+      process.execPath,
+      [
+        TOOL,
+        file,
+        '--timeout=30s',
+        '--label=shape',
+        '--',
+        process.execPath,
+        '-e',
+        'console.log("body-line")',
+      ],
+      { cwd: ROOT, windowsHide: true, timeout: 120_000, stdio: 'ignore' },
+    )
+    const txt = readFileSync(file, 'utf8')
+    const lines = txt.split(/\r?\n/).filter((l) => l !== '')
+    assert.ok(lines[0].startsWith('#EVIDENCE-CMD: '), `首行必须是 CMD 行,实得:${lines[0]}`)
+    assert.ok(
+      lines.some((l) => l.startsWith('#EVIDENCE-START: ')),
+      '缺 START 行 ⇒ 时间戳维度丢了',
+    )
+    // 行序按 HEAD 既有形态钉:… 正文 … #EVIDENCE-RC=<n> 之后跟一条 #EVIDENCE-END(不是 RC 收尾)。
+    const rcIdx = lines.findIndex((l) => l.startsWith('#EVIDENCE-RC='))
+    assert.ok(
+      rcIdx >= 0,
+      `缺 RC 行 ⇒ 读侧会判 incomplete,末三行:${JSON.stringify(lines.slice(-3))}`,
+    )
+    assert.ok(
+      lines[rcIdx + 1]?.startsWith('#EVIDENCE-END: '),
+      'RC 行之后必须仍是那条 END 行(顺序被改 = 旧证据差分作废)',
+    )
+    assert.equal(lines.at(-1), lines[rcIdx + 1], 'END 之后不得再多出行')
+    assert.equal(lines.filter((l) => l.startsWith('#EVIDENCE-RC=')).length, 1, 'RC 行必须恰好一条')
+    assert.ok(txt.includes('body-line'), '被包装命令的正文必须逐字留在证据里')
+    // 不得凭空多出没在案的标记行(新标记要连同读侧判据一起改,不能只写一半)
+    const allowed = [
+      '#EVIDENCE-CMD: ',
+      '#EVIDENCE-LABEL: ',
+      '#EVIDENCE-START: ',
+      '#EVIDENCE-CWD=',
+      '#EVIDENCE-END: ',
+      '#EVIDENCE-RC=',
+      '#EVIDENCE-ERROR: ',
+      '#EVIDENCE-KILLED',
+    ]
+    const strangers = lines
+      .filter((l) => l.startsWith('#EVIDENCE-'))
+      .filter((l) => !allowed.some((a) => l.startsWith(a)))
+    assert.deepEqual(strangers, [], `出现未在案的证据标记:${strangers.join(' | ')}`)
+  } finally {
+    try {
+      rmSync(file, { force: true })
+    } catch {
+      /* 清不掉不影响结论 */
+    }
+  }
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
