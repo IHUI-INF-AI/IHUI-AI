@@ -4,7 +4,7 @@
 
 import { t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadiusFor } from '@ihui/design-tokens'
 
 export interface ConfirmDialogProps {
   visible?: boolean
@@ -32,7 +32,7 @@ export default function ConfirmDialog({
       <View className="absolute inset-0 bg-[var(--color-black-40)]" />
       <View
         className="relative bg-card mx-8 px-6 py-5 max-w-xs w-full"
-        style={{ borderRadius: rnRadius['2xl'] }}
+        style={{ borderRadius: rnRadiusFor.panel }}
         onClick={(e) => e.stopPropagation()}
         hoverClass="opacity-60"
       >
@@ -46,7 +46,7 @@ export default function ConfirmDialog({
         )}
         <View className="flex space-x-3">
           <View
-            className="flex-1 py-[20rpx] rounded-md bg-muted text-center"
+            className="ui-control flex-1 py-[20rpx] rounded-sm bg-muted text-center"
             onClick={onCancel}
             hoverClass="opacity-60"
           >
@@ -54,7 +54,7 @@ export default function ConfirmDialog({
           </View>
           {/* 确认=品牌灰蓝渐变点缀(2026-09-07 复刻旧App隐私弹窗"同意"主按钮形态;纯色主按钮走 bg-primary) */}
           <View
-            className="flex-1 py-[20rpx] rounded-md text-center"
+            className="ui-control flex-1 py-[20rpx] rounded-sm text-center"
             style={{
               background:
                 'linear-gradient(135deg, var(--color-brand-accent-grad-from) 0%, var(--color-brand-accent-grad-to) 100%)',

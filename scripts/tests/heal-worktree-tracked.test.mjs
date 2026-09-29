@@ -28,7 +28,7 @@ import { gitRaw } from '../lib/face-reader.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ } from '../heal-worktree-tracked.mjs'
 
-const { restoreBypassOrphans, alignDrifts } = __test__
+const { restoreBypassOrphans, alignDrifts, refreshStaleIndex } = __test__
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
 const SCRIPTS = join(REPO, 'scripts')
@@ -239,6 +239,67 @@ test('T7 幂等:恢复后 alignDrifts 再跑必须 bypassRestored==0', () => {
     const second = alignDrifts(dir)
     assert.equal(second.bypassRestored, 0, '第二次仍报恢复 = 判据在已修态上重言,幂等锁失效')
     assert.deepEqual(second.bypassPaths, [])
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * T8 —— ②′ 通道(索引内容是 HEAD 的行子集 ⇒ 允许在"工作树另有现场"时刷新索引)的三条锁。
+ * 每条都是**行为面**而不是正则:构造现场 → 跑判据 → 看索引 blob 与磁盘字节。
+ *  ① 正例:拼合旧档(k1/k3 从未整体提交过 ⇒ ②祖先通道挡下)+ 工作树独有一行 ⇒ 走 ②′,
+ *     且**盘上那一行一字不动**(刷新只写索引 —— 这是本通道存在的唯一理由);
+ *  ② 反例:索引里有一行 HEAD 没有(= 别人真暂存的新工作)⇒ 两条通道都不许动它;
+ *  ③ 删除护栏:夹具的 born.ts 处于"索引里没有"态,多重集判据对它天然成立,
+ *     而它可以是有意的 `git rm` ⇒ 必须永不出现在刷新名单里(§7 删除安全)。
+ *  ④ 形状锁:②′ 取内容只能走共用层 `catBatch(` —— 引了层却自己 `git show` / 读磁盘
+ *     就是守门 118 说的半接线,而这条通道判的正是"内容",半接线的后果是拿滞后面判无损。
+ */
+test('T8 ②′ 通道:行子集才刷新(正例)/ 真新暂存不动(反例)/ 暂存删除永不走(护栏)+ 取材只能走共用层', () => {
+  const { dir, g } = makeBypassDrill()
+  try {
+    writeFileSync(join(dir, 'sub.ts'), 'k1\n')
+    g(['add', 'sub.ts'])
+    g(['commit', '-qm', 'S1 k1'])
+    writeFileSync(join(dir, 'sub.ts'), 'k1\nk2\nk3\n')
+    g(['commit', '-qam', 'S2 k1k2k3'])
+    writeFileSync(join(dir, '.mkblob'), 'k1\nk3\n')
+    const subBlob = g(['hash-object', '-w', '--', '.mkblob']).trim()
+    g(['update-index', '--cacheinfo', `100644,${subBlob},sub.ts`])
+    writeFileSync(join(dir, 'sub.ts'), 'k1\nk2\nk3\n别人正在写的一行\n')
+    const r1 = refreshStaleIndex(dir)
+    assert.ok(r1.subsetPaths.includes('sub.ts'), '②′ 没放行:索引行全是 HEAD 的子集仍被 held')
+    assert.equal(
+      g(['ls-files', '-s', '--', 'sub.ts']).split(/\s+/)[1],
+      g(['rev-parse', 'HEAD:sub.ts']).trim(),
+      '刷新后索引不等于 HEAD',
+    )
+    assert.equal(
+      readFileSync(join(dir, 'sub.ts'), 'utf8'),
+      'k1\nk2\nk3\n别人正在写的一行\n',
+      '刷新写了工作树 = 把别人的现场抹掉(本通道结构性禁止)',
+    )
+
+    writeFileSync(join(dir, 'sub2.ts'), 'c1\nc2\n')
+    g(['add', 'sub2.ts'])
+    g(['commit', '-qm', 'T1 c1c2'])
+    writeFileSync(join(dir, '.mkblob'), 'c1\nc2\n别人新加的字段\n')
+    const newBlob = g(['hash-object', '-w', '--', '.mkblob']).trim()
+    g(['update-index', '--cacheinfo', `100644,${newBlob},sub2.ts`])
+    writeFileSync(join(dir, 'sub2.ts'), 'c1\nc2\n别人新加的字段\n再改一行\n')
+    const r2 = refreshStaleIndex(dir)
+    assert.ok(!r2.paths.includes('sub2.ts') && !r2.subsetPaths.includes('sub2.ts'), '真新暂存被刷新 = 替他撤销暂存')
+    assert.equal(
+      g(['ls-files', '-s', '--', 'sub2.ts']).split(/\s+/)[1],
+      newBlob,
+      '索引 blob 被改动',
+    )
+    assert.ok(!r2.paths.includes('born.ts') && !r2.subsetPaths.includes('born.ts'), '暂存删除走进 ②′ = 把有意 git rm 读成无损')
+
+    const src = healSrc()
+    const body = funcBody(src, 'subsetRefreshable')
+    assert.match(body, /catBatch\(/, '②′ 取内容必须走共用层 catBatch(半接线 = 拿滞后面判无损)')
+    assert.doesNotMatch(body, /readFileSync|execFileSync|child_process/, '②′ 里不得再有第二套取材')
   } finally {
     rmScratch(dir)
   }
