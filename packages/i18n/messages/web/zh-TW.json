@@ -13391,7 +13391,7 @@
   },
   "aiApprovedRules": {
     "title": "命令放行規則",
-    "description": "審批時產生的命令前綴放行規則;90 天自動過期,可隨時撤銷",
+    "description": "審批時生成的命令前綴與網路目標放行規則;到期自動過期,可隨時撤銷",
     "empty": "暫無放行規則",
     "prefixHeader": "命令前綴",
     "createdAtHeader": "建立時間",
@@ -13404,7 +13404,10 @@
     "loadFailed": "載入放行規則失敗",
     "refresh": "重新整理",
     "scopeAlways": "長期生效",
-    "scopeSession": "本次對話"
+    "scopeSession": "本次對話",
+    "sectionCommands": "命令前綴",
+    "sectionNetwork": "網路目標",
+    "revokeConfirmContentNetwork": "撤銷後,目標「{target}」的存取將重新需要人工審批。"
   },
   "editor": {
     "toolApproval": {
@@ -13418,7 +13421,21 @@
       "description": "AI 要求執行以下高風險操作,請確認是否允許",
       "pendingCount": "還有 {count} 個待審批",
       "reject": "拒絕",
-      "title": "工具審批"
+      "title": "工具審批",
+      "envLabel": "執行環境",
+      "envInSandbox": "在沙箱中執行",
+      "envOutsideSandbox": "在沙箱外執行",
+      "envBackend": "隔離方式:{backend}",
+      "envDegraded": "沙箱能力不可用,已降為受限直跑",
+      "envNetworkSection": "網路",
+      "envNetworkBlocked": "被阻擋的網路目標",
+      "envNetworkBlockedOne": "{host}:{port}({reason})",
+      "envNetworkOpen": "本次可存取外網",
+      "envNetworkOff": "本次不開放網路",
+      "envUnknown": "未上報(不依檔位推斷,請拒絕並要求重試)",
+      "envAllowTargetOnce": "僅本次允許該目標",
+      "envAllowTargetSession": "本次對話允許該目標",
+      "envAllowTargetAlways": "永遠允許該目標(90 天後失效)"
     },
     "toolbar": {
       "addColumn": "添加列",
