@@ -414,7 +414,17 @@ def _cookie_domain_map(raw_cookies: Sequence[Mapping[str, Any]]) -> dict[str, st
 
 def _account_platform_of(platform: str) -> str:
     """伪平台(如 toutiao_app)归并到真实账号平台;未配置 account_platform 时原样返回。"""
-    return PLATFORM_SCAN_CONFIG.get(platform, {}).get("account_platform", platform)
+    # 表值是 `dict[str, Any]`,直接 return 被 mypy 判 `no-any-return` ⇒ 守门 35(blocking)红在**干净
+    # HEAD** 上,而这一型的代价不是"少一次检查",是这台机每次提交都被逼 --no-verify、链上 196 项
+    # 对每次提交作废(AGENTS §12f/§12e)。
+    # 取 `str(...)` 而不是 `cast`:同仓读 Any 边界的既有写法就是这个形状(`agent_engine.py:2232`
+    # `str(payload.get("finalResponse", "") or "")`、`agent_deliverables.py:86` `str(diff.get("path") or "")`),
+    # 拿别人的正例比自己发明一个稳妥。**本票不改任何判定、不加兜底**:四个调用点的去处都声明
+    # `platform: str`(`_collect_platform_relevant` :427 三处、`_save_account_to_db` :1589 一处),
+    # 而这张表的 account_platform 现读只有字符串("toutiao"),所以 str() 在这一格是恒等变换。
+    # 反面记录一条:我先试过"标注 `account_platform: str = <Any 表达式>`"——在 `--strict` 下那只是把
+    # `no-any-return` 换成 `assignment` 报错,红没消,别照着试第二遍。
+    return str(PLATFORM_SCAN_CONFIG.get(platform, {}).get("account_platform", platform))
 
 
 def _collect_platform_relevant(
