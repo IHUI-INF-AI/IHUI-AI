@@ -478,6 +478,67 @@ class TestRefreshSingle:
 
 
 # =============================================================================
+# 9b. _stamp_verified(2026-09-29:保活成功戳新 last_verified_at)
+# =============================================================================
+
+
+class TestStampVerified:
+    """_stamp_verified:访问成功即"凭证确认有效",即使 cookie 无轮换也必须戳新,
+    否则健康度永远停在旧时间,自动保活做了用户也看不见。"""
+
+    @pytest.mark.asyncio
+    async def test_stamp_writes_update(self) -> None:
+        d = CookieRefreshDaemon()
+        with patch("app.services.publish.cookie_refresh_daemon.get_db_conn") as mock_conn:
+            mock_conn_obj = AsyncMock()
+            mock_conn.return_value = mock_conn_obj
+            await d._stamp_verified(5, "Cookie 保活成功")
+            sql = mock_conn_obj.execute.call_args[0][0]
+            assert "last_verified_at=NOW()" in sql
+            assert "last_verify_msg=$1" in sql
+            # asyncpg execute(sql, *args):位置参数平铺为 (sql, message, account_id)
+            assert mock_conn_obj.execute.call_args[0][1] == "Cookie 保活成功"
+            assert mock_conn_obj.execute.call_args[0][2] == 5
+
+    @pytest.mark.asyncio
+    async def test_stamp_failure_does_not_raise(self) -> None:
+        """戳新失败只告警,不得影响保活结论(不抛)。"""
+        d = CookieRefreshDaemon()
+        with patch(
+            "app.services.publish.cookie_refresh_daemon.get_db_conn",
+            side_effect=RuntimeError("db down"),
+        ):
+            await d._stamp_verified(5, "msg")
+
+    @pytest.mark.asyncio
+    async def test_refresh_single_success_stamps_verified(self) -> None:
+        """refresh_single 成功路径(alive=True、cookie 无轮换)必须戳 last_verified_at。"""
+        d = CookieRefreshDaemon()
+        fake_config = {
+            "wechat": {
+                "login_url": "https://mp.weixin.qq.com/",
+                "success_cookies": ["sid"],
+            },
+        }
+        with patch("app.services.scan_login.PLATFORM_SCAN_CONFIG", fake_config), \
+             patch("app.services.publish.cookie_refresh_daemon.get_db_conn") as mock_conn, \
+             patch.object(
+                 CookieRefreshDaemon, "_visit_and_check", return_value=(True, {})
+             ), \
+             patch(
+                 "app.services.publish.credentials_crypto.decrypt",
+                 return_value={"sid": "v"},
+             ):
+            mock_conn_obj = AsyncMock()
+            mock_conn_obj.fetchrow.return_value = {"credentials_enc": "cipher"}
+            mock_conn.return_value = mock_conn_obj
+            result = await d.refresh_single(1, "wechat")
+            assert result.success is True
+            assert mock_conn_obj.execute.call_args is not None
+            assert "last_verified_at=NOW()" in mock_conn_obj.execute.call_args[0][0]
+
+
+# =============================================================================
 # 10. _build_cookies
 # =============================================================================
 
