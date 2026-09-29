@@ -7,6 +7,7 @@
 import * as React from 'react'
 import type { PlanStepStatus as ContractPlanStepStatus, SSEEvent } from '@ihui/types'
 import { useAgentStream } from './use-agent-stream'
+import { resolveErrorAttribution, type ErrorAttributionSource } from '@/lib/error-attribution'
 import type { InlineDiffInfo } from '@/components/ai/types'
 
 /**
@@ -97,6 +98,15 @@ export interface Subagent {
   toolCalls?: number
   /** Codex:死亡原因(failed/dead 时的 error message) */
   failureReason?: string
+  /** G-937980:归因来源(证据阶梯产出;缺席 = 无足够证据,不猜桶) */
+  failureSource?: ErrorAttributionSource
+  /** G-937980:低基数失败原因桶(auth_failed / network_error / quota_exhausted / ...) */
+  failureKind?: string
+  /**
+   * G-937980:现有 failureReason 是否来自强证据(HTTP 状态码/稳定错误码/结构化 reason)。
+   * 为 true 时,后续仅文案类(subagent_status)更新不得覆盖 —— 弱文案永不覆盖强证据。
+   */
+  failureAttributionStrong?: boolean
   /** v10 Phase 5:subagent 内部工具调用列表(若事件携带 subagentId 则关联) */
   tools?: AgentToolCall[]
 }
@@ -557,6 +567,56 @@ function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
 /** 从 SSE 事件提取 Subagent(支持 subagent_spawn / subagent_end / subagent_status)
  *  v10 Phase 5:同时从 tool_call/tool_result 事件中按 data.subagentId 关联工具调用
  */
+
+/** G-937980:失败原因事件可能携带的结构化证据字段(全部缺省 = 仅弱文案) */
+interface SubagentFailureEventData {
+  failureReason?: string
+  error?: string
+  statusCode?: number
+  errorCode?: string
+  providerId?: string
+  providerErrorCode?: string
+  reason?: string
+  retryable?: boolean
+}
+
+/**
+ * G-937980(错误归因证据阶梯):子代理失败原因更新规则。
+ * - 强证据(HTTP 状态码 / 稳定错误码 / 结构化 reason)一旦在案,后续仅文案类更新
+ *   (如 subagent_status 的泛化 error 文案)**不得覆盖** —— 弱文案永不覆盖强证据;
+ * - 强→强正常替换,弱→弱取最新(与改前行为一致);
+ * - 原始文案仍存 failureReason 供展示,归因另存 failureSource / failureKind。
+ */
+// (导出仅供单测断言强/弱覆盖规则;生产路径只在本文件两个事件分支内调用)
+export function applySubagentFailure(
+  existing: Subagent,
+  data: SubagentFailureEventData | undefined,
+): void {
+  const message = data?.failureReason ?? data?.error
+  if (!message) return
+  const hasStructuredEvidence =
+    data?.statusCode !== undefined ||
+    data?.errorCode !== undefined ||
+    data?.providerErrorCode !== undefined ||
+    (!!data?.reason && data.reason !== 'unknown')
+  if (existing.failureAttributionStrong && !hasStructuredEvidence) return
+  const attribution = resolveErrorAttribution({
+    message,
+    statusCode: data?.statusCode,
+    errorCode: data?.errorCode,
+    providerId: data?.providerId,
+    providerErrorCode: data?.providerErrorCode,
+    reason: data?.reason,
+    retryable: data?.retryable,
+  })
+  existing.failureReason = message
+  if (attribution.errorSource) existing.failureSource = attribution.errorSource
+  if (attribution.failureReason && attribution.failureReason !== 'unknown') {
+    existing.failureKind = attribution.failureReason
+  }
+  existing.failureAttributionStrong = hasStructuredEvidence
+}
+
 function extractSubagentsFromEvents(events: SSEEvent[]): Subagent[] {
   const map = new Map<string, Subagent>()
   let nicknameIndex = 0
@@ -592,15 +652,13 @@ function extractSubagentsFromEvents(events: SSEEvent[]): Subagent[] {
       })
     } else if ((evt.type as string) === 'subagent_end') {
       const data = evt.data as
-        | {
+        | (SubagentFailureEventData & {
             id?: string
             threadId?: string
             status?: 'done' | 'failed'
-            error?: string
-            failureReason?: string
             tokenUsage?: number
             toolCalls?: number
-          }
+          })
         | undefined
       const id = data?.id ?? data?.threadId ?? ''
       const existing = id ? map.get(id) : undefined
@@ -612,15 +670,14 @@ function extractSubagentsFromEvents(events: SSEEvent[]): Subagent[] {
         if (!Number.isNaN(startMs) && !Number.isNaN(endMs)) {
           existing.durationMs = Math.max(0, endMs - startMs)
         }
-        // Codex:提取死亡原因 + 最终 token/工具调用统计
-        const reason = data?.failureReason ?? data?.error
-        if (reason) existing.failureReason = reason
+        // Codex:提取死亡原因(G-937980 证据阶梯判定强/弱)+ 最终 token/工具调用统计
+        applySubagentFailure(existing, data)
         if (data?.tokenUsage !== undefined) existing.tokenUsage = data.tokenUsage
         if (data?.toolCalls !== undefined) existing.toolCalls = data.toolCalls
       }
     } else if ((evt.type as string) === 'subagent_status') {
       const data = evt.data as
-        | {
+        | (SubagentFailureEventData & {
             id?: string
             threadId?: string
             status?: SubagentStatus
@@ -628,9 +685,7 @@ function extractSubagentsFromEvents(events: SSEEvent[]): Subagent[] {
             pendingApproval?: boolean
             tokenUsage?: number
             toolCalls?: number
-            error?: string
-            failureReason?: string
-          }
+          })
         | undefined
       const id = data?.id ?? data?.threadId ?? ''
       const existing = id ? map.get(id) : undefined
@@ -638,11 +693,10 @@ function extractSubagentsFromEvents(events: SSEEvent[]): Subagent[] {
         if (data?.status) existing.status = data.status
         if (data?.task !== undefined) existing.currentTask = data.task
         if (data?.pendingApproval !== undefined) existing.pendingApproval = data.pendingApproval
-        // Codex:实时 token / tool 调用累计 + 死亡原因
+        // Codex:实时 token / tool 调用累计 + 死亡原因(G-937980 证据阶梯判定强/弱)
         if (data?.tokenUsage !== undefined) existing.tokenUsage = data.tokenUsage
         if (data?.toolCalls !== undefined) existing.toolCalls = data.toolCalls
-        const reason = data?.failureReason ?? data?.error
-        if (reason) existing.failureReason = reason
+        applySubagentFailure(existing, data)
       }
     }
   }
