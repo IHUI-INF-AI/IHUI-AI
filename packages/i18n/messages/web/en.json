@@ -532,6 +532,13 @@
     "mermaidSkipSourceTooLarge": "Diagram source is too long, showing the source code instead",
     "mermaidSkipLineCountTooLarge": "Diagram has too many lines, showing the source code instead",
     "mermaidSkipComplexityTooLarge": "Diagram has too many nodes and links, showing the source code instead",
+    "mermaidZoomIn": "Zoom in",
+    "mermaidZoomOut": "Zoom out",
+    "mermaidZoomReset": "Reset zoom",
+    "mermaidZoomLevel": "Zoom level",
+    "mermaidZoomToFit": "Fit to screen",
+    "mermaidCopyImage": "Copy as image",
+    "mermaidImageCopied": "Diagram image copied",
     "pdfLoadFailed": "Failed to load PDF: {message}",
     "renderFailed": "Rendering failed: {message}",
     "unknownError": "Unknown error",
@@ -10692,7 +10699,10 @@
     "cmdWechatArticle": "Please help me generate a WeChat official account article. Requirements:\n1. Topic:\n2. Summary:\n3. Highlight markers (quote card / tip block / citation / code block / subheading)\n4. Image suggestions:\nRun the content-engine pipeline (Moyu Green theme + 22-check self-validation + draft box push).",
     "codeBlock": {
       "applyToFile": "Apply to file",
-      "insertAtCursor": "Insert at cursor"
+      "insertAtCursor": "Insert at cursor",
+      "wrapOn": "Enable code wrap",
+      "wrapOff": "Disable code wrap",
+      "copyImage": "Copy as image"
     },
     "commandArg": {
       "goalBenchmark": {
