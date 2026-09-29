@@ -28,7 +28,7 @@
  *
  * 平台独占:仅 mobile-rn 端,不涉及其他端。
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useAudioPlayer } from 'expo-audio'
 import * as DocumentPicker from 'expo-document-picker'
@@ -114,7 +114,12 @@ import {
 import { apiFailureToText } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
 import type { ChatMessage } from '@ihui/shared'
-import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
+import {
+  applyStreamError,
+  isErrorTurn,
+  resendTargetText,
+  conversationMetaLedger,
+} from '@ihui/shared/chat'
 import type { ModelConfigType } from '@ihui/ui-native'
 import {
   ChatScreen as SharedChatScreen,
@@ -135,6 +140,7 @@ import {
 } from '../utils/chat-render-model'
 import { thinkingTitleView } from '@ihui/shared/chat/element-pack'
 import { BottomActionBar, type BottomActionBarIconType } from '../components/BottomActionBar'
+import { McpStatusStrip } from '../components/McpStatusStrip'
 // 对齐 Uniapp ai_index2.vue 行 117-131:对话页顶部「查看卡片」折叠区(智汇值卡)
 import IntelligentAssistant from '../components/IntelligentAssistant'
 import MaterialList, { type MaterialCategory, type MaterialItem } from '../components/MaterialList'
@@ -151,6 +157,9 @@ import { BottomPops } from '../components/BottomPops'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
+// D153b / D154(2026-09-30 立)per-user 广播消费面:会话元数据覆盖 + MCP 状态行。
+// 跨端判据在 @ihui/shared/chat/user-broadcast-store,本端只做接线与 FloatBox 提示出口适配。
+import { useUserBroadcastSync } from '../hooks/use-user-broadcast-sync'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { uiControlToolsFor } from '../lib/ui-control-tools'
@@ -377,7 +386,7 @@ export function ChatScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>()
   const rootNav = navigation.getParent<RootNav>()
-  const { user: authUser, logout } = useAuth()
+  const { user: authUser, token: authToken, logout } = useAuth()
   const {
     inputFiles,
     isVoiceMode,
@@ -517,6 +526,40 @@ export function ChatScreen() {
   )
   const hideToast = useCallback((): void => setToastVisible(false), [])
 
+  /**
+   * D153b / D154:per-user 广播接线。
+   * 提示出口**复用本端已有的 FloatBox**(showToast)—— 不新立 UI 面:新立一面就触发
+   * AGENTS §17 的运行时 DOM 自验,而 RN 界面本机渲染不了,那条验收只会变成"写了没人验过"。
+   */
+  const notifyBroadcast = useCallback(
+    (message: string): void => {
+      showToast('info', message)
+    },
+    [showToast],
+  )
+  useUserBroadcastSync({ token: authToken, translate: t, notify: notifyBroadcast })
+  // 账本被广播改过 ⇒ 版本递增 ⇒ 下面的抽屉列表重算覆盖值(不发任何 HTTP 请求)
+  const broadcastMetaVersion = useSyncExternalStore(
+    subscribeConversationMeta,
+    getConversationMetaVersion,
+  )
+  /**
+   * 抽屉里的会话行按广播账本盖过标题(另一端改名 ⇒ 本端不刷新就看到)。
+   *
+   * 覆盖发生在**渲染前的派生**而不是 setState 回写 state:state 里那份仍是上次拉取的原样,
+   * 下一次 `loadDrawerConversations` 以库为准直接覆盖它 —— 账本因此不会被读成"第二份真相"。
+   * 只盖 title:抽屉行没有归档列,`model` 在抽屉里是 modelConfig(名字档),
+   * 把没有呈现面的字段算成"已同步"就是第二种分叉 —— 所以这条链路始终喊 pullOnly。
+   */
+  const drawerConversationsForRender = useMemo(
+    () =>
+      drawerConversations.map((item) => {
+        const title = conversationMetaLedger.titleFor(item.id, item.title)
+        return title === item.title ? item : { ...item, title }
+      }),
+    [drawerConversations, broadcastMetaVersion],
+  )
+
   // ── 智汇值卡余额加载(getTokenBalance;接口异常静默降级为 0,不阻塞页面) ──
   useEffect(() => {
     let cancelled = false
@@ -577,6 +620,9 @@ export function ChatScreen() {
     const res = await listConversations({ page: 1, pageSize: 50 })
     if (res.success) {
       setDrawerConversations(res.data.conversations.map(mapConversationToDrawer))
+      // D153b:把本端已知的会话 id 交进账本 —— 账本只覆盖"这一端正在显示的行",
+      // 没交进去的会话收到广播会报 known:false,由 pullOnly 明示而不是凭空长出一行。
+      conversationMetaLedger.remember(res.data.conversations.map((c) => c.id))
     } else {
       setDrawerConversations([])
     }
@@ -2236,6 +2282,13 @@ export function ChatScreen() {
           onInputVoiceEnd={() => {}}
           colorScheme={resolvedTheme}
         />
+        {/*
+          D154(2026-10-01 收口渲染面):MCP 连接状态行,位置与小程序端一致(输入条上方)。
+          数据源是共享层那一份 `mcpStatusLedger`(帧进表由 ../lib/user-broadcast 的唯一接线负责,
+          本端渲染侧只读表 ⇒ 无第二条连接)。票面要求「至少显示状态行 + 桌面端管理提示」:
+          FloatBox toast 会过期,这一行不会。空表 ⇒ 组件返回 null、零占位。
+        */}
+        <McpStatusStrip />
         <BottomActionBar
           prompt={prompt}
           onPromptChange={updatePrompt}
@@ -2728,7 +2781,7 @@ export function ChatScreen() {
         visible={drawerVisible}
         onClose={closeDrawer}
         user={drawerUser}
-        conversations={drawerConversations}
+        conversations={drawerConversationsForRender}
         onNavigate={handleDrawerNavigate}
         onNavigateCompany={handleDrawerNavigateCompany}
         onClaimFree={handleDrawerClaimFree}
@@ -2821,6 +2874,14 @@ export function ChatScreen() {
  * 把 API 返回的 ConversationDetail 映射为 DrawerConversationItem。
  * 对齐 Uniapp getModelChat 返回的 { id, title, time, modelName } 结构。
  */
+/**
+ * D153b:useSyncExternalStore 的两个口必须是**稳定引用**,所以提在模块级而不是每次渲染新建
+ * (每次新建会让 React 判"快照不稳定"而反复重渲染)。
+ */
+const subscribeConversationMeta = (onStoreChange: () => void): (() => void) =>
+  conversationMetaLedger.subscribe(onStoreChange)
+const getConversationMetaVersion = (): number => conversationMetaLedger.version()
+
 function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem {
   const tsStr = c.lastMessageAt ?? c.updatedAt ?? c.createdAt
   const createdAt = tsStr ? new Date(tsStr).getTime() : Date.now()

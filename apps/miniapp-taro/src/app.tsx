@@ -32,6 +32,7 @@ import { bindTokenStoreToApiClient } from '@ihui/shared/auth'
 import { canSilentlyReLogin } from '@ihui/shared/auth/auto-login-policy'
 import { createTaroTransport } from './utils/api-client-transport'
 import { useUiControlBridge } from './hooks/use-ui-control-bridge'
+import { useUserBroadcastSync } from './hooks/use-user-broadcast-sync'
 import { BASE_URL } from './utils/api-config'
 import { taroDeviceFingerprintCollector } from './lib/device-fingerprint'
 import { initTheme } from './lib/theme'
@@ -288,6 +289,16 @@ function UiControlBridgeHandler() {
   return null
 }
 
+/**
+ * D153b / D154(2026-09-30 立)per-user 广播的小程序端消费面(降级形态)。
+ * 会话元数据 → 就地改本端已知值 + `chat.meta.pullOnly` 明示;MCP 连接状态 → 状态行 + 桌面端管理提示。
+ * 挂在 I18nProvider 之内:提示文案必须走端内取词口,不得把某一种语言烘进代码。
+ */
+function UserBroadcastHandler() {
+  useUserBroadcastSync()
+  return null
+}
+
 function App({ children }: PropsWithChildren<unknown>) {
   return (
     <I18nProvider>
@@ -296,6 +307,7 @@ function App({ children }: PropsWithChildren<unknown>) {
       <ThemeInitHandler />
       <SsoLaunchHandler />
       <UiControlBridgeHandler />
+      <UserBroadcastHandler />
       {children}
       <CustomerServiceFloat />
       <FontLoader />
