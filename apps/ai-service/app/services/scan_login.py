@@ -114,9 +114,6 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         "login_url": "https://segmentfault.com/user/login",
         "success_cookies": ["SFSSID"],  # 2026-09-15:剔除 PHPSESSID(登录页即存在的服务端会话)
         "success_url_pattern": r"segmentfault\.com/u/",
-        # 2026-09-29:登录页默认是密码表单,扫码入口是"微信登录"按钮 —— 通用文案清单
-        # (扫码登录/二维码登录/微信扫码…)在思否页面上一个都匹配不到,二维码永远出不来。
-        "scan_tab_selectors": ('button:has-text("微信登录")',),
     },
     "oschina": {
         "name": "开源中国",
@@ -855,10 +852,8 @@ def _run_scan_task(task: ScanTask) -> None:
 
             page.wait_for_timeout(3000)
 
-            # 2. 尝试切换到扫码登录 tab(2026-09-29:平台可用 scan_tab_selectors 前置
-            #    自己的入口 —— 如思否的"微信登录"按钮;通用文案清单作兜底)
+            # 2. 尝试切换到扫码登录 tab
             scan_selectors = [
-                *config.get("scan_tab_selectors", ()),
                 'text=扫码登录',
                 'text=二维码登录',
                 'text=手机扫码登录',
@@ -1051,11 +1046,6 @@ _QR_ELEMENT_SELECTORS: tuple[str, ...] = (
     '[class*="qrcode"]',
     '[id*="qrcode"]',
     'img[src^="data:image"]',
-    # 2026-09-29:跨站内嵌的二维码 iframe —— 截图是合成像素,clip 住 iframe 的
-    # bounding_box 即可(不需要进 frame 取内部元素)。思否"微信登录"实测把
-    # open.weixin.qq.com/connect/qrconnect 嵌进来,主页面选择器全数落空。
-    'iframe[src*="qrconnect"]',
-    '[class*="qrCode"] iframe',
     "canvas",
 )
 

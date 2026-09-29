@@ -27,11 +27,6 @@ session / always 两级 scope。
 - 仅同步 API(无 async),符合本仓 mcp_server 既有同步风格。
 """
 
-# 合并归位说明(2026-09-29,枚 f57e0c9983 的后续修复):describe_exec_environment 在同一次归并后
-# 出现两份定义(第 270 行与第 539 行),来源与 network_approval.py 那一族完全相同 ——
-# 两侧各写一遍同一功能,行级合并不报冲突却把两半都留下,mypy 报 no-redef。整档取对侧那一族,
-# 与调用方同族;引用面用 ast 逐条核过,对侧版不缺任何被具名导入的名字。
-
 from __future__ import annotations
 
 import os
