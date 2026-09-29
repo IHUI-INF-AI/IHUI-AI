@@ -359,8 +359,14 @@ def test_zhihu_netscape_mixed_domains_import() -> None:
 # 5) 表一致性 + 单一来源源码面锁
 # ---------------------------------------------------------------------------
 
+def _account_scan_platforms() -> dict[str, dict]:
+    """真实账号平台集。伪平台(配置 account_platform,如 toutiao_app)落库归并到
+    父平台,不单独登记归属规则,沿用父平台规则过滤。"""
+    return {pid: cfg for pid, cfg in PLATFORM_SCAN_CONFIG.items() if "account_platform" not in cfg}
+
+
 def test_rules_cover_every_scan_platform() -> None:
-    assert set(PLATFORM_COOKIE_RULES) == set(PLATFORM_SCAN_CONFIG)
+    assert set(PLATFORM_COOKIE_RULES) == set(_account_scan_platforms())
     for pid, rule in PLATFORM_COOKIE_RULES.items():
         assert rule.domains, f"{pid} 缺域名白名单"
 
@@ -369,7 +375,8 @@ def test_login_names_covered_by_fallback_rules() -> None:
     """每条 success_cookies 的精确名必须真的登记进 name_exact(名字兜底集不含登录 cookie
     ⇒ 无域名粘贴永远 400);通配前缀必须能被 name_tokens 命中。"""
     for pid, cfg in PLATFORM_SCAN_CONFIG.items():
-        rule = PLATFORM_COOKIE_RULES[pid]
+        # 伪平台(如 toutiao_app)沿用 account_platform 父平台的归属规则
+        rule = PLATFORM_COOKIE_RULES[cfg.get("account_platform", pid)]
         for pattern in cfg["success_cookies"]:
             if pattern.endswith("*"):
                 prefix = pattern[:-1].lower()
