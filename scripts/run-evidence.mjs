@@ -18,9 +18,11 @@
  * INCOMPLETE 并 exit 3 —— **不得**当成通过,也不得当成失败,那是第三种状态。
  *
  * 用法:
- *   node scripts/run-evidence.mjs <证据文件> [--timeout=毫秒] [--label=说明] [--cwd=绝对路径] -- <命令> [参数...]
+ *   node scripts/run-evidence.mjs <证据文件> [--timeout=<毫秒|45000ms|180s|2m>] [--label=说明] [--cwd=绝对路径] -- <命令> [参数...]
  *   node scripts/run-evidence.mjs --verify <证据文件> [--expect-cwd=绝对路径]
  *   node scripts/run-evidence.mjs --self-test
+ *   ⚠️ `--timeout` 的**默认单位是毫秒**;裸数字小于 2000 会被当成用法错误直接拒绝
+ *      (它几乎总是"把毫秒当秒" —— 见 parseTimeoutMs 的注释),要写短时长请带后缀(`250ms`)。
  * 退出码:0 = 被包装命令 RC=0;1 = RC 非 0(业务失败或本工具用法错);
  *        3 = INCOMPLETE(取证被截断/进程被杀 ⇒ 结论无效,必须重跑而不是下判断);
  *        75 = 原样传播(本仓 push guard 的"中断重试"链依赖它,不得收敛成 1)。
@@ -36,7 +38,7 @@
 /* eslint-disable no-console -- 本工具是 CLI 取证包装器,结论必须走 console(与 check-*.mjs 同形)。
    注:该文件此前经**对象空间落地**入库,那条通道不跑 lint-staged,所以这一族 console 警告
    在 HEAD 里安静地存在了一整天 —— 见 AGENTS.md §12「造好没装车」同族的落地侧版本。 */
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import {
   closeSync,
   existsSync,
@@ -57,6 +59,11 @@ const RC_MARK = '#EVIDENCE-RC='
 const KILLED_MARK = '#EVIDENCE-KILLED'
 const CWD_MARK = '#EVIDENCE-CWD='
 const DEFAULT_TIMEOUT_MS = 1_800_000
+/**
+ * 裸数字(不带单位后缀)允许的最小毫秒数。低于它一律判用法错误 —— 2 秒以内的取证上限
+ * 在现实里没有合法用途(真要有,写 `250ms` 就是明确意图,那条通道照常放行)。
+ */
+const BARE_TIMEOUT_MIN_MS = 2000
 
 /**
  * 证据文件落点:相对路径一律按**仓库根**解释,且拒绝逃逸仓库根。
@@ -134,6 +141,58 @@ export function judgeEvidence(text, expectCwd) {
 export function exitCodeForVerdict(v) {
   if (v.kind === 'complete') return v.rc === 0 ? 0 : 1
   return 3
+}
+
+/** 单位后缀 → 倍数。只在这一处出现一次;调用方**不得**再抄一份换算。 */
+const TIMEOUT_UNIT_MULT = { ms: 1, s: 1000, m: 60_000 }
+/** `<数字>[<单位>]` 的**唯一**形状判据(下划线可当千位分隔;后缀大小写不敏感)。 */
+const TIMEOUT_VALUE_RE = /^(\d[\d_]*\d|\d)(ms|s|m)?$/i
+
+/**
+ * `--timeout` 的解析 + 单位陷阱防线。返回 `{ ms }`(0 = 不设上限)或 `{ error }`
+ * (error 就是要打给用户的那句话,**只许这一份文案**)。
+ *
+ * 为什么必须有这道拒绝(2026-09-29 本机实录,不是假想需求):本旗标的单位是**毫秒**,
+ * 而当天主会话按直觉连传 `--timeout=180`、`--timeout=300`、`--timeout=560`,以为是秒。
+ * 实际效果是包装器在 **180 毫秒 / 300 毫秒**后就把子进程 SIGTERM,于是:
+ *  · `git fetch` 被报成"零输出、被杀" ⇒ 据此判成"git 网络卡死",差点写成一张生产故障票;
+ *  · `node scripts/check-plan-line-loss.mjs` 也"超时",而同一条命令直接跑 **2 秒**就 rc=0。
+ * 真正的杀伤在第二层:产出的证据文件与"命令真的挂死"**逐字同形**(有 `#EVIDENCE-KILLED`、
+ * 没有 `#EVIDENCE-RC=`),读侧判 `killed` / exit 3 —— 判据本身是对的,但它把"我用错了单位"
+ * 伪装成了"世界坏了"。本仓反复登记过"失效表现为安静"那一族,这一型是它的近亲:
+ * **工具没有拒绝一个必然写错的入参,反而忠实地产出一份误导性的证据。**
+ *
+ * 三条判据(各有成对用例,见 --self-test T23–T25 与镜像 T17–T18):
+ *  ① 裸数字 0 < n < 2000 ⇒ 用法错误(exit 2),消息点名单位并给出两种正确写法;
+ *  ② **带显式后缀**的小值一律放行(`250ms` 是明确意图,拦它就是把工具用成障碍);
+ *  ③ `0` 仍然合法且语义不变(= 不设上限;自检 T14 依赖它)。
+ * 形状判不出的(`abc`、`-5`、空串、`30_` 这类)一律**判死**,不得回落到默认值 ——
+ * 静默采用 1_800_000 等于把"没听懂"伪装成"听懂了"。
+ */
+export function parseTimeoutMs(raw) {
+  const text = String(raw ?? '').trim()
+  const m = TIMEOUT_VALUE_RE.exec(text)
+  if (!m) {
+    return {
+      error:
+        `--timeout 的值看不懂:${JSON.stringify(text)}。允许 300000 / 45000ms / 180s / 2m` +
+        `(下划线可当千位分隔,后缀大小写不敏感;0 = 不设上限)`,
+    }
+  }
+  const n = Number(m[1].replace(/_/g, ''))
+  const unit = (m[2] ?? '').toLowerCase()
+  if (!Number.isFinite(n)) {
+    return { error: `--timeout 的值不是有限数字:${JSON.stringify(text)}` }
+  }
+  if (unit === '' && n > 0 && n < BARE_TIMEOUT_MIN_MS) {
+    return {
+      error:
+        `--timeout 的单位是**毫秒**;你给的 ${n} 会被当成 ${n} 毫秒(${n / 1000} 秒),那不是你要的意思。` +
+        `请写 --timeout=${n * 1000} 或 --timeout=${n}s。`,
+    }
+  }
+  const ms = n * (TIMEOUT_UNIT_MULT[unit] ?? 1)
+  return { ms: ms > 0 ? ms : 0 }
 }
 
 function writeLine(fd, s, state) {
@@ -286,7 +345,15 @@ function runCapture(outFile, cmdArgs, { timeoutMs, label, cwd }) {
       if (signal || killedByUs) {
         writeLine(fd, `${KILLED_MARK}: ${signal || 'timeout'}`, st)
         st.killed = true
-        st.note = `子进程被 ${signal || 'timeout'} 终止`
+        // 判定语义一字未动(killed ⇒ exit 3),只把**生效上限的毫秒数**写进文案:
+        // 2026-09-29 那次误诊的全部代价,就出在这行只说"被 SIGTERM 终止"而不说"上限是 300ms"
+        // —— 读到"被杀"的人只会去查世界,不会去查自己传的那个数。
+        st.note = killedByUs
+          ? `子进程被**本工具自己的计时器**终止(生效上限 ${timeoutMs}ms)` +
+            (timeoutMs < BARE_TIMEOUT_MIN_MS
+              ? ` —— 上限不足 2 秒,极可能是把毫秒当成了秒;要 300 秒请写 --timeout=300s`
+              : '')
+          : `子进程被外部信号 ${signal} 终止`
         return finish()
       }
       writeLine(fd, `${RC_MARK}${code === null ? 1 : code}`, st)
@@ -319,6 +386,7 @@ export const __test__ = {
   judgeEvidence,
   exitCodeForVerdict,
   normCwd,
+  parseTimeoutMs,
   RC_MARK,
   KILLED_MARK,
   CWD_MARK,
@@ -361,11 +429,15 @@ async function main() {
   const outArg = head.find((a) => !a.startsWith('--'))
   if (!outArg || !cmd.length) {
     console.error(
-      '❌ 用法:run-evidence.mjs <证据文件> [--timeout=ms] [--label=…] [--cwd=绝对路径] -- <命令 …>',
+      '❌ 用法:run-evidence.mjs <证据文件> [--timeout=毫秒|45000ms|180s|2m] [--label=…] [--cwd=绝对路径] -- <命令 …>',
     )
     return 2
   }
-  const t = Number(opt('timeout', String(DEFAULT_TIMEOUT_MS)))
+  const t = parseTimeoutMs(opt('timeout', String(DEFAULT_TIMEOUT_MS)))
+  if (t.error) {
+    console.error(`❌ ${t.error}`)
+    return 2
+  }
   const cwdOpt = opt('cwd', '')
   if (cwdOpt && !isAbsolute(cwdOpt)) {
     console.error(
@@ -381,7 +453,7 @@ async function main() {
     return 2
   }
   const r = await runCapture(outPath, cmd, {
-    timeoutMs: Number.isFinite(t) && t > 0 ? t : 0,
+    timeoutMs: t.ms,
     label: opt('label', ''),
     cwd: cwdOpt || '',
   })
@@ -673,6 +745,81 @@ async function runSelfTest() {
       return txt !== '' && !/\n\n#EVIDENCE-RC=/.test(txt)
     })(),
   )
+  // T23–T25 —— 2026-09-29 的**单位陷阱**(本机当天实录:`--timeout=180/300/560` 被当秒传 ⇒
+  //   包装器在 180 毫秒就 SIGTERM,产出的证据与"命令真挂死"逐字同形,于是把"我用错单位"
+  //   诊断成"git 网络卡死",差一点写成一张生产故障票)。判据住在 parseTimeoutMs,三条各钉一维:
+  //   ① 换算表 + 边界(构造面,成对含"后缀小值必须放行");
+  //   ② CLI 层真拒绝:exit 2、消息点名毫秒、且**一个字节都不写**(拒绝必须发生在打开句柄之前,
+  //      否则"拒绝了"仍然留下一份空证据,读侧照样判 incomplete —— 与逃逸路径那一格同判);
+  //   ③ 被自家计时器杀掉时,输出必须带**生效毫秒数**(只说"被 SIGTERM"会让下一个人去查世界,
+  //      而不是查自己传的那个数)。
+  const TOOL_PATH = resolve(HERE, 'run-evidence.mjs')
+  ok(
+    'T23 --timeout 单位表:后缀换算 / 裸小值判用法错 / 0=不设上限 / 坏形态不猜默认值',
+    (() => {
+      const eq = (raw, ms) => {
+        const r = parseTimeoutMs(raw)
+        return !r.error && r.ms === ms
+      }
+      const bad = (raw, ...mustInclude) => {
+        const r = parseTimeoutMs(raw)
+        return !!r.error && mustInclude.every((s) => r.error.includes(s))
+      }
+      return (
+        eq('180s', 180_000) &&
+        eq('2m', 120_000) &&
+        eq('45000ms', 45_000) &&
+        eq('45000MS', 45_000) &&
+        eq('30_000', 30_000) &&
+        eq('2000', 2000) &&
+        eq('250ms', 250) &&
+        eq('0', 0) &&
+        bad('300', '毫秒', '--timeout=300000', '--timeout=300s') &&
+        bad('1999', '毫秒') &&
+        bad('560', '毫秒') &&
+        bad('abc', '看不懂') &&
+        bad('-5', '看不懂') &&
+        bad('', '看不懂') &&
+        bad('30_', '看不懂') &&
+        bad('1e3', '看不懂')
+      )
+    })(),
+  )
+  const f24 = resolve(dir, 'evidence-selftest-badtimeout.txt')
+  rmSync(f24, { force: true })
+  const r24 = spawnSync(
+    process.execPath,
+    [TOOL_PATH, f24, '--timeout=300', '--', process.execPath, '-e', 'console.log(1)'],
+    { cwd: ROOT, windowsHide: true, encoding: 'utf8', timeout: 60_000 },
+  )
+  const o24 = `${r24?.stdout ?? ''}${r24?.stderr ?? ''}`
+  ok(
+    'T24 CLI:裸 --timeout=300 ⇒ exit 2 且消息点名毫秒,证据一个字节都不写',
+    r24?.status === 2 && /毫秒/.test(o24) && !existsSync(f24),
+  )
+  const f25 = resolve(dir, 'evidence-selftest-250ms.txt')
+  const r25 = spawnSync(
+    process.execPath,
+    [
+      TOOL_PATH,
+      f25,
+      '--timeout=250ms',
+      '--',
+      process.execPath,
+      '-e',
+      'setTimeout(() => {}, 30000)',
+    ],
+    { cwd: ROOT, windowsHide: true, encoding: 'utf8', timeout: 60_000 },
+  )
+  const o25 = `${r25?.stdout ?? ''}${r25?.stderr ?? ''}`
+  const t25 = existsSync(f25) ? readFileSync(f25, 'utf8') : ''
+  ok(
+    'T25 CLI:带后缀的 --timeout=250ms 必须**放行**(不被用法错拦),真被自家计时器杀时 rc=3 且输出带生效毫秒数(判定语义未改:仍是 killed、仍无 RC 行)',
+    r25?.status === 3 &&
+      /250ms/.test(o25) &&
+      judgeEvidence(t25).kind === 'killed' &&
+      !t25.includes(RC_MARK),
+  )
   for (const f of [f1, f2]) {
     try {
       const txt = readFileSync(f, 'utf8')
@@ -681,7 +828,7 @@ async function runSelfTest() {
       /* 已在 T11/T12 断言过可读性 */
     }
   }
-  for (const f of [f1, f2, f5, f21, f22]) {
+  for (const f of [f1, f2, f5, f21, f22, f24, f25]) {
     try {
       rmSync(f, { force: true })
     } catch {
