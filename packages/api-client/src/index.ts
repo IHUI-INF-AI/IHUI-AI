@@ -48,6 +48,9 @@ export {
   // `typescript.ignoreBuildErrors: true`,TS2724 被吞、构建照过,只有点到那个按钮的人知道
   // (守门 149 记过的同一型)。
   postTerminalInput,
+  // D152(2026-09-29 立):会话目标的服务端主副本上行出口。同批必须在此 re-export ——
+  // 本包入口是**显式命名清单**,漏一条端内拿到 undefined(守门 149 记过的同一型)。
+  postSessionGoal,
 } from './client.js'
 export type {
   TokenProvider,
@@ -76,6 +79,9 @@ export type {
   // D151(2026-09-29):命令在等键盘输入的一帧 —— 与 postTerminalInput 同批入入口,
   // 否则端内要写 onTerminalInteraction 回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
   TerminalInteractionEvent,
+  // D152(2026-09-29):会话目标状态帧的类型 —— 与 postSessionGoal 同批入入口,否则
+  // 端内要写 onGoalUpdate 回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
+  GoalUpdateEvent,
   UsageEvent,
   // Budget 用量分档提醒事件(2026-09-19 立,网关发,前端 onBudget toast 提示用量进度)
   BudgetEvent,
