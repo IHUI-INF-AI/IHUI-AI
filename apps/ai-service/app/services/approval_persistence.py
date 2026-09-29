@@ -29,10 +29,11 @@ session / always 两级 scope。
 
 from __future__ import annotations
 
+import os
 import re
 import sqlite3
 import threading
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
