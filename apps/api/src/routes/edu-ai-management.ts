@@ -34,6 +34,7 @@ import {
   settleRefund,
   voidPaymentRecord,
 } from '../services/edu-ledger.js'
+import { dispatchArrearChannels } from '../services/edu-arrear-remind-service.js'
 import {
   eduTerm,
   eduClass,
@@ -5119,18 +5120,19 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .returning()
     if (!row) return reply.status(500).send(error(500, '催费记录创建失败'))
 
-    // 微信订阅消息真实外发(仅 channel=wechat,尽力而为;失败不影响站内信兜底)
-    let wxSent = false
-    let wxFailReason: string | undefined
-    if (parsed.data.channel === 'wechat') {
-      const wx = await trySendWechatReminder(
-        enrollment.studentId,
-        student?.nickname ?? '同学',
-        dueAmount,
-      )
-      wxSent = wx.sent
-      wxFailReason = wx.reason
-    }
+    // 通道编排交给服务层。此前 channel='sms' 只是写进留痕的"意图标记",没有任何发送实现;
+    // 现在它真的发给学员 + 已确认家长,并把"没配短信密钥""某人没留手机号""运营商拒了"
+    // 三种不可达分开报回来(并成一档就等于让运营去查运营商,而真因是没配密钥)。
+    const dispatch = await dispatchArrearChannels({
+      studentId: enrollment.studentId,
+      message,
+      studentName: student?.nickname ?? '同学',
+      dueAmount,
+      channel: parsed.data.channel,
+      sendWx: trySendWechatReminder,
+    })
+    const wxSent = dispatch.wx?.sent ?? false
+    const wxFailReason = dispatch.wx?.reason
 
     // 站内信必达:sms/wechat 亦同步发一条站内通知兜底
     try {
@@ -5155,9 +5157,21 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         .returning()
       return reply
         .status(201)
-        .send(success({ reminder: failed, notified: false, wxSent, wxFailReason }))
+        .send(success({ reminder: failed, notified: false, wxSent, wxFailReason, sms: dispatch.sms }))
     }
-    return reply.status(201).send(success({ reminder: row, notified: true, wxSent, wxFailReason }))
+    return reply
+      .status(201)
+      .send(
+        success({
+          reminder: row,
+          notified: true,
+          wxSent,
+          wxFailReason,
+          // 每收件人一档:sent / failed / not_configured / no_phone
+          smsSent: dispatch.smsSent,
+          sms: dispatch.sms,
+        }),
+      )
   })
 
   // 批量催费:勾选欠费名单(报名记录)一次发送
@@ -5230,6 +5244,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     // 逐条发送:微信订阅消息尽力外发(仅 channel=wechat) + 站内信必达;失败条目标记 failed,不中断其余发送
     let notified = 0
     let wxSentCount = 0
+    // 逐条累计四档,不在循环里静默累加一个总数 —— 批量最怕的就是"发出去了 0 条但没原因"
+    const smsTally = { sent: 0, failed: 0, not_configured: 0, no_phone: 0 }
     for (const row of rows) {
       if (row.channel === 'wechat') {
         const wx = await trySendWechatReminder(
@@ -5238,6 +5254,19 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
           row.dueAmount,
         )
         if (wx.sent) wxSentCount += 1
+      }
+      if (row.channel === 'sms') {
+        const d = await dispatchArrearChannels({
+          studentId: row.studentId,
+          message: row.message ?? '',
+          studentName: nameMap.get(row.studentId) ?? '同学',
+          dueAmount: row.dueAmount,
+          channel: 'sms',
+        })
+        smsTally.sent += d.smsSent
+        smsTally.failed += d.smsFailed
+        smsTally.not_configured += d.smsNotConfigured
+        smsTally.no_phone += d.smsNoPhone
       }
       try {
         await createNotification({
@@ -5262,7 +5291,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     }
     return reply
       .status(201)
-      .send(success({ sent: notified, total: rows.length, wxSent: wxSentCount, skipped }))
+      .send(success({ sent: notified, total: rows.length, wxSent: wxSentCount, sms: smsTally, skipped }))
   })
 
   // 催费记录列表
