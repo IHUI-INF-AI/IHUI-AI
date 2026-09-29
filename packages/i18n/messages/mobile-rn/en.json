@@ -202,17 +202,6 @@
     "runtimeSend": "Send"
   },
   "chat": {
-    "meta": {
-      "pullOnly": "This conversation syncs the next time you open the list"
-    },
-    "mcp": {
-      "state": {
-        "connecting": "Connecting to {server}…",
-        "failed": "{server} failed to connect",
-        "reconnecting": "Reconnecting to {server} (attempt {attempt}/{maxAttempts})"
-      },
-      "mobileSettingsHint": "Manage MCP connections on desktop or web"
-    },
     "connectorAuth": {
       "title": "Connect to {connectorName}",
       "connected": "Connected",
