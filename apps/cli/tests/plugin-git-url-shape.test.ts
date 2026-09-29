@@ -151,6 +151,49 @@ describe('evaluateGitUrl — 前导横杠与 scheme 白名单', () => {
     expect(evaluateGitUrl('git@github.com:openclarity/scp-like.git').ok).toBe(true);
   });
 
+  it('④c G-798:内嵌凭据的 userinfo 必拒,且拒绝理由里不得带出那把凭据;ssh 登录名不受影响', () => {
+    // 拒绝档:https / 带钩子的回环 http / ssh 带口令段
+    const reject: Array<[string, string]> = [
+      ['https://user:S3cr3tTok3n@github.com/a/b.git', 'https'],
+      ['https://oauth2@github.com/a/b.git', 'https(只有用户名也算 userinfo —— 它就是凭据身份)'],
+      ['http://syncuser:S3cr3tPassw0rd@127.0.0.1:8080/x.git', 'loopback http(带钩子也照样拒)'],
+      ['ssh://git:S3cr3tTok3n@github.com/a/b.git', 'ssh 带口令段'],
+    ]
+    for (const [url, why] of reject) {
+      const v = evaluateGitUrl(url, { loopbackTestHook: true });
+      expect(v.ok, `${why} :: ${url}`).toBe(false);
+      if (!v.ok) {
+        expect(v.reasonCode, url).toBe('urlCredentialsInUrl');
+        // 拒绝面不得把凭据搬进可打印字段(detail 会随错误对象进日志)
+        expect(v.detail, `detail 泄漏凭据:${v.detail}`).not.toContain('S3cr3t');
+        expect(v.detail, `detail 泄漏凭据:${v.detail}`).not.toContain('Passw0rd');
+      }
+    }
+    // 正向对照(票面"两种结果各有正解"里的那一半):这些形态必须**照旧放行**,
+    // 否则本判据就从"拦凭据"变成"拦 ssh",把 SSH 通道整条封死。
+    expect(evaluateGitUrl('https://github.com/openclarity/demo.git').ok).toBe(true);
+    const ssh = evaluateGitUrl('ssh://git@github.com/a/b.git');
+    expect(ssh.ok).toBe(true);
+    if (ssh.ok) expect(ssh.kind).toBe('sshUrl');
+    expect(evaluateGitUrl('git@github.com:openclarity/scp-like.git').ok).toBe(true);
+    expect(evaluateGitUrl('http://127.0.0.1:8080/x.git', { loopbackTestHook: true }).ok).toBe(true);
+  });
+
+  it('④d G-798 咽喉点:带凭据的 URL 必拒且不派生 git(拒绝必须发生在任何进程创建之前)', async () => {
+    process.env[GIT_BIN_ENV] = 'git-fixture'; // 只为了放行回环那一档以外的通道,本例走 https
+    const err = await getOrCloneGitCache('https://user:S3cr3tTok3n@example.com/x.git').catch(
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(GitCloneInputRejectedError);
+    const rejected = err as GitCloneInputRejectedError;
+    expect(rejected.field).toBe('url');
+    expect(rejected.reasonCode).toBe('urlCredentialsInUrl');
+    expect(execFileSyncMock.mock.calls.length, '拒绝路径不得派生 git').toBe(0);
+    // message 里也不得出现那把凭据(previewOf 的脱敏方向在这里被验收)
+    expect(rejected.message).not.toContain('S3cr3t');
+  });
+
+
   it('⑤ ssh 形态按结构放行(ssh:// 与 scp-like user@host:path)', () => {
     const viaUrl = evaluateGitUrl('ssh://git@github.com/a/b.git');
     expect(viaUrl.ok).toBe(true);

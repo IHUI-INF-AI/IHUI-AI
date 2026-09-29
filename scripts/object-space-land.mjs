@@ -33,6 +33,10 @@
  *  LAND_BASE_REF 取证通道:防覆盖对账的基线 ref(缺省 HEAD;只有测试用它造"别人已改过"的现场)
  *  LAND_ALLOW_STALE 显式放行"陈旧落地"(见 staleLandingGuard 的成因),放行时必打一行留痕
  *              (只对工作树模式有意义;blob 模式的对应判据是祖先对账,不放行)
+ *  LAND_JSON_STRUCTURE=1 (G-816037)声明"本次落地面是机器格式化 JSON"⇒ 行级复活那一支可走
+ *              **结构等值**出口:基线键路径与数组元素零丢失即不参与拒绝(标量值变化允许,
+ *              因为 read/计数器的自增正是本次的合法编辑)。整 blob 命中祖先(真回写)照判红;
+ *              非 JSON(三份活文档)直接 applicable:false ⇒ 行为与改前逐字同形。默认关闭。
  * 退出码:0 = 已落地且回读通过(对齐的 skipped/未判定只在 stdout 点名);
  *        1 = 业务拒绝(某目标路径被别人改过 ⇒ 需重新归并 / 声明路径无差异 / 盘上副本等于祖先版本且会抹掉基线里活着的行 /
  *            落地内容里存在"基线已删、祖先版本写过"的复活行,或该维判据未判定 ⇒ 未判定不等于通过 /
@@ -63,7 +67,8 @@
 import { hasAnyWatermarkTrace, hasExactCanonicalBanner } from './lib/watermark-lines.mjs'
 import { existsSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, normalize, resolve } from 'node:path'
+import { maskComments, scanLiterals } from './lib/code-mask.mjs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
@@ -122,6 +127,12 @@ export function parseArgs(env = process.env) {
    */
   const blobs = env.LAND_BLOBS ? JSON.parse(readFileSync(env.LAND_BLOBS, 'utf8')) : null
   const blobOf = blobs ? new Map((blobs.files || []).map((f) => [f.path, f.blob])) : null
+  /**
+   * `LAND_JSON_STRUCTURE=1`(G-816037)= **显式声明**"本次声明路径是机器格式化 JSON,允许走结构等值出口"。
+   * 默认关闭:不开时行为与本票落地前**逐字同形**(判据见 `jsonStructuralSuperset`)。
+   * 它只影响"行级复活"那一支是否参与拒绝;整 blob 命中祖先(真回写)照判红,活文档非 JSON 直接不适用。
+   */
+  const jsonStructure = env.LAND_JSON_STRUCTURE === '1'
   if (paths.length === 0)
     return { error: '缺 LAND_PATHS(以 ; 分隔)⇒ 拒绝执行(空清单会把 undefined 当路径提交,本仓踩过)' }
   if (msg === '') return { error: '缺 LAND_MSG ⇒ 拒绝执行(不允许空消息落地,提交史无法归因)' }
@@ -143,7 +154,7 @@ export function parseArgs(env = process.env) {
     const missing = paths.filter((p) => !existsSync(join(root, p)))
     if (missing.length > 0) return { error: `声明路径不在盘上:\n  ${missing.join('\n  ')}` }
   }
-  return { root, paths, msg, baseRef, blobOf }
+  return { root, paths, msg, baseRef, blobOf, jsonStructure }
 }
 
 /** 防覆盖护栏:基线快照与当下 HEAD 之间,哪些目标路径的内容被别人动过。 */
@@ -174,7 +185,7 @@ export function clobberedPaths(paths, baseMap, headNow, { root }) {
  *    (守门 84 的祖先链以 HEAD 为锚,那条链此刻不是本次落地的基准)/ 二进制正文(行级判据按定义
  *    不适用,而 A 仍照判)。三种都**报名**,不静默。
  */
-export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
+export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonStructure = false }) {
   const headRef = head ?? git(['rev-parse', 'HEAD'], { root })
   const notes = []
   const judged = []
@@ -314,7 +325,45 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
         why: `行级复活判据未覆盖此路径:${line.reason}`,
       })
     const refuseByBlob = !!wholeHit && (delta.vanished === null || delta.vanished > 0)
-    const refuseByLines = line.status === 'judged' ? line.count > 0 : line.status === 'undetermined'
+    let refuseByLines = line.status === 'judged' ? line.count > 0 : line.status === 'undetermined'
+    // G-816037 结构档:只对"调用方显式声明 + 整 blob 没命中祖先 + 行级判据确实读到了东西"的那一格生效。
+    // 三条都必要 —— 默认开启等于给所有落地开后门;wholeHit 命中祖先是真回写;
+    // 'undetermined' 是"没判",把它换成放行就是本仓最高频那一型(把没判写成判过了)。
+    if (refuseByLines && !wholeHit && jsonStructure) {
+      const st = jsonStructuralSuperset({ baseText, nextText: newText })
+      if (st.applicable && st.pass) {
+        refuseByLines = false
+        notes.push({
+          path: p,
+          kind: 'json-structure-exempt',
+          why:
+            `结构等值成立(基线键路径与数组元素零丢失,标量值变化允许)⇒ 复活 ${line.count} 行` +
+            `是 JSON 逗号换位的假阳,不参与拒绝。三个数照登:消失 ${delta.vanished} 行 / 重现 ${delta.appeared} 行 / ` +
+            `复活 ${line.count} 行(样本:${line.sample.slice(0, 2).join(' | ') || '—'};` +
+            `出自祖先 ${line.commits.slice(0, 3).join(', ') || '未点名'})。` +
+            `本档由 LAND_JSON_STRUCTURE=1 显式声明,且不适用于活文档(非 JSON 即 applicable:false)。`,
+          vanished: delta.vanished,
+          appeared: delta.appeared,
+          resurrected: line.count,
+          resurrectedSample: line.sample,
+          resurrectedBy: line.commits,
+          commit: null,
+          vanishedSample: delta.vanishedSample,
+          appearedSample: delta.appearedSample,
+          lineStatus: line.status,
+        })
+      } else if (!st.applicable && st.reason && !st.reason.includes('走原行级判据')) {
+        notes.push({ path: p, kind: 'undetermined', why: `结构档未能判定:${st.reason}` })
+      } else if (st.applicable && !st.pass) {
+        notes.push({
+          path: p,
+          kind: 'json-structure-rejected',
+          why:
+            `结构档不成立(丢键 ${st.droppedKeys.length} / 数组缩水 ${st.shrunkArrays.length})⇒ 行级复活照判红,` +
+            `这不是格式化假阳而是真回写。点名:${[...st.droppedKeys, ...st.shrunkArrays].slice(0, 3).join(' ; ')}`,
+        })
+      }
+    }
     if (refuseByBlob || refuseByLines) {
       offenders.push(entry)
       continue
@@ -348,6 +397,96 @@ function mkEntry(path, commit, delta, line, fallback) {
 
 function firstLine(e) {
   return String(e?.message ?? e ?? '').split('\n')[0] || '(无输出)'
+}
+
+/**
+ * G-816037:机器格式化 JSON 的**结构等值出口**。
+ *
+ * 为什么需要(2026-09-29 第六十八批入账台账时实测):台账只做"往数组尾部追加条目 + 改 read/notes",
+ * 行级复活判据却报 `消失 11 行 / 重现 202 行 / 复活 1 行`并拒绝落地。成因是它按**行文字**比,而
+ * `JSON.stringify` 会给"原本的最后一个数组元素"补一个逗号 —— 那一行文字就变了,重排出的 `  {` 行
+ * 算"重现",被改写的 `"read": 268,` 恰好与某祖先同形就算"复活"。**这不是仓库缺陷,是判据把自己的
+ * 量纲用错了对象**(AGENTS 已写明零损失判据是结构等值,不是重复行计数)。
+ *
+ * 判据(只在调用方显式声明 `LAND_JSON_STRUCTURE=1` 且两侧都能 `JSON.parse` 时启用):
+ *  ① 基线里每个对象键路径都必须还在(丢键 = 真回写 ⇒ 不放行);
+ *  ② 基线里每个数组容器的元素**多重集**必须是落地内容该容器元素多重集的子集(少元素 = 真回写);
+ *  ③ **标量值变化允许** —— `read: 268 → 290` 正是本轮的合法编辑,禁它等于禁掉所有计数器。
+ * 反例为什么仍拦得住:把整份文件换回某个祖先版本时,基线(=HEAD,更新过)里那些后加的键/数组元素
+ * 在落地内容里不存在 ⇒ ①/② 当场成立 ⇒ 照判红。
+ *
+ * 活文档不在射程:`PROJECT_PLAN.md`/`AGENTS.md`/`README.md` 不是可解析 JSON,① 侧就 applicable:false,
+ * 行级判据一字不动(那是它存在的理由)。
+ */
+export function jsonStructuralSuperset({ baseText, nextText }) {
+  if (typeof baseText !== 'string' || typeof nextText !== 'string')
+    return { applicable: false, pass: false, reason: '有一侧正文取不到 ⇒ 不启用结构档' }
+  let base
+  let next
+  try {
+    base = JSON.parse(baseText)
+  } catch {
+    return { applicable: false, pass: false, reason: '基线内容不是可解析 JSON ⇒ 走原行级判据' }
+  }
+  try {
+    next = JSON.parse(nextText)
+  } catch {
+    return { applicable: false, pass: false, reason: '落地内容不是可解析 JSON ⇒ 走原行级判据' }
+  }
+  const droppedKeys = []
+  const shrunkArrays = []
+  const keyOf = (v) => JSON.stringify(sortDeep(v))
+  function sortDeep(v) {
+    if (Array.isArray(v)) return v.map(sortDeep)
+    if (v && typeof v === 'object') {
+      const o = {}
+      for (const k of Object.keys(v).sort()) o[k] = sortDeep(v[k])
+      return o
+    }
+    return v
+  }
+  function walk(b, n, path) {
+    if (Array.isArray(b)) {
+      if (!Array.isArray(n)) {
+        shrunkArrays.push(`${path}:数组在落地内容里变成了别的东西`)
+        return
+      }
+      const tally = new Map()
+      for (const el of n) tally.set(keyOf(el), (tally.get(keyOf(el)) || 0) + 1)
+      for (const el of b) {
+        const k = keyOf(el)
+        const c = tally.get(k) || 0
+        if (c === 0) {
+          shrunkArrays.push(`${path}:少了元素 ${k.slice(0, 72)}`)
+          continue
+        }
+        tally.set(k, c - 1)
+      }
+      return
+    }
+    if (b && typeof b === 'object') {
+      if (!n || typeof n !== 'object' || Array.isArray(n)) {
+        droppedKeys.push(`${path}:对象在落地内容里变成了别的东西`)
+        return
+      }
+      for (const [k, v] of Object.entries(b)) {
+        if (!(k in n)) {
+          droppedKeys.push(`${path}.${k}`)
+          continue
+        }
+        walk(v, n[k], `${path}.${k}`)
+      }
+      return
+    }
+    // 标量:允许变化(见上 ③),所以这里什么都不判
+  }
+  walk(base, next, '$')
+  return {
+    applicable: true,
+    pass: droppedKeys.length === 0 && shrunkArrays.length === 0,
+    droppedKeys,
+    shrunkArrays,
+  }
 }
 
 /** 拒绝/留痕时要说的话集中在一处:出口必须可复制,原因必须点名到文件与祖先版本。 */
@@ -684,14 +823,104 @@ export function commitFacePresence({ root, commit, paths, timeoutMs = 30_000 }) 
   return { present, absent, undetermined }
 }
 
+/**
+ * 悬空相对引用预检(G-815985,2026-09-29 立)。
+ *
+ * 存在理由是本会话自己闯的祸:把 `./lib/lock-atomic-init.mjs` 与 `./lib/atomic-write.mjs` 的 import
+ * 交进了 HEAD,而把被 import 的文件留在未跟踪面 —— 旁路提交**不跑 pre-commit**,所以没有任何一道门
+ * 在场;本机一切正常(文件就在盘上),而干净检出上 `git archive HEAD | tar -x` 后
+ * `node <副本>/scripts/git-lock.mjs check` 直接 `ERR_MODULE_NOT_FOUND`。
+ *
+ * 本函数只判**一条**且刻意判得窄:声明面某个源文件写了相对引用,而**落地后的树里**没有任何候选落点。
+ * 符号级("文件在而不导出该符号")仍归守门 98 判 —— 它判整棵 HEAD,本判据只判"这次落地是否自洽",
+ * 两处算同一件事必然漂移,所以宁可各判一维也不复制判据。
+ *
+ * 三态,不并桶:
+ *  - `missing`     ⇒ 候选全部不在新树 ⇒ 拒绝落地(此刻**尚未创建任何 commit**,所以不留悬空对象)
+ *  - `undetermined`⇒ 说明符带的是未建模扩展名(.css/.csv/…)或取不到内容 ⇒ 只报数,绝不拦、也绝不静默
+ *  - 其余          ⇒ 命中候选,放过
+ */
+const SOURCE_LIKE_RE = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/i
+const KNOWN_CODE_EXT_RE = /\.(?:ts|tsx|js|jsx|mjs|cjs|json)$/i
+const RESOLVE_EXTS = Object.freeze(['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json'])
+// 说明符必须是一个**字符串字面量 token**,而不是"某串文本里出现了 import 字样"。
+// 这条不是洁癖:第一版用正则在注释遮罩后的原文上扫,结果**本闸拒绝了自己的落地枚次** ——
+// 镜像测试夹具里有 `writeFileSync(p, "import { x } from './lib/missing.mjs'\n")`,
+// 那句外层字符串的内容被当成了调用点,报出 4 条根本不存在的缺失。误拦一次,后人就学会整闸跳掉,
+// 所以按 token 取:外层字面量的 body 不以 `./` 开头 ⇒ 不是说明符。
+// 注释面仍要先抹(maskComments):注释里提一句路径不算装车(与本仓守门 131/135 同一条口径)。
+function relativeSpecifiers(code) {
+  const found = []
+  for (const s of scanLiterals(code).strings) {
+    const body = s.body ?? ''
+    if (!/^\.{1,2}\//u.test(body)) continue
+    const before = code.slice(0, s.start).replace(/\s+$/u, '')
+    if (/(?:\bfrom$|\brequire\($|\bimport\($|\bimport$)/u.test(before)) found.push({ spec: body, start: s.start })
+  }
+  return found
+}
+
+/** 把 ESM/TS 的相对说明符展开成候选落点(`./x.js` 在 TS 仓里合法地指向 `x.ts`)。 */
+function candidateTargets(importerPath, spec) {
+  const dir = importerPath.includes('/') ? importerPath.slice(0, importerPath.lastIndexOf('/')) : ''
+  const joined = normalize(`${dir}/${spec}`).replace(/\\/g, '/').replace(/^\.\//, '')
+  const out = [joined]
+  if (KNOWN_CODE_EXT_RE.test(joined)) {
+    const stem = joined.replace(KNOWN_CODE_EXT_RE, '')
+    for (const e of RESOLVE_EXTS) if (e) out.push(stem + e)
+  } else {
+    for (const e of RESOLVE_EXTS) if (e) out.push(joined + e)
+    for (const e of RESOLVE_EXTS) if (e) out.push(`${joined}/index${e}`)
+  }
+  return Array.from(new Set(out))
+}
+
+/**
+ * @param files 本次声明的 {path, blob}
+ * 注入 listTree/readBlob 是为了让镜像测试能在临时仓里跑同一份实现(不另造第二套判据)。
+ */
+function relativeImportGaps({ root, files, listTree, readBlob }) {
+  const treePaths = new Set(String(listTree ?? '').split('\0').filter(Boolean))
+  const missing = []
+  const undetermined = []
+  let scanned = 0
+  for (const f of files) {
+    if (!SOURCE_LIKE_RE.test(f.path)) continue
+    scanned += 1
+    let src = ''
+    try {
+      src = String(readBlob(f))
+    } catch {
+      undetermined.push({ path: f.path, spec: '(取不到本次内容)', why: '内容不可读' })
+      continue
+    }
+    const code = maskComments(src)
+    for (const { spec, start } of relativeSpecifiers(code)) {
+      const cands = candidateTargets(f.path, spec)
+      if (cands.some((c) => treePaths.has(c))) continue
+      const tail = (spec.match(/\.[A-Za-z0-9]+$/u) || [''])[0]
+      if (tail !== '' && !KNOWN_CODE_EXT_RE.test(spec)) {
+        undetermined.push({ path: f.path, spec, why: `未建模扩展名 ${tail}` })
+        continue
+      }
+      const onDisk = cands.filter((c) => existsSync(resolve(root ?? '.', c)))
+      missing.push({ path: f.path, spec, line: src.slice(0, start).split('\n').length, onDisk })
+    }
+  }
+  return { scanned, missing, undetermined }
+}
+
 async function main() {
   const parsed = parseArgs()
   if (parsed.error) {
     console.error(`❌ ${parsed.error}`)
     process.exit(2)
   }
-  const { root, paths, msg, baseRef, blobOf } = parsed
+  const { root, paths, msg, baseRef, blobOf, jsonStructure } = parsed
   const skipWatermark = process.env.IHUI_LAND_SKIP_WATERMARK === '1'
+  // 与水印预检同级:默认必查,跳过要出声(IHUI_LAND_SKIP_IMPORT_CHECK=1)。
+  const skipImportCheck = process.env.IHUI_LAND_SKIP_IMPORT_CHECK === '1'
+  let importGaps = { scanned: 0, missing: [], undetermined: [] }
 
   const head0 = git(['rev-parse', 'HEAD'], { root })
   const base = new Map(paths.map((p) => [p, headBlobOf(baseRef, p, { root })]))
@@ -761,12 +990,18 @@ async function main() {
   if (!blobOf) {
     if (allowStale)
       console.log('⚠️ LAND_ALLOW_STALE=1 ⇒ 陈旧落地守卫只做报告、不参与拒绝(该行输出即留痕)')
-    const guard = detectStaleLanding({ root, paths, baseRef, head: head0 })
+    const guard = detectStaleLanding({ root, paths, baseRef, head: head0, jsonStructure })
     const refusing = !guard.ok && !allowStale
     for (const line of staleReport(guard, { allowStale })) {
       if (refusing) console.error(line)
       else console.log(line)
     }
+    if (guard.notes.some((n) => n.kind === 'json-structure-exempt'))
+      console.log(
+        'ℹ️ 结构档生效说明(G-816037):上面标了"结构等值成立"的路径**不是**被放宽,而是行级判据的量纲对不上' +
+          '机器格式化 JSON(数组追加会让前一个末元素多一个逗号 ⇒ 那一行文字变化被读成"消失/复活")。' +
+          '豁免依据是"基线键路径与数组元素零丢失"的结构判据;不带 LAND_JSON_STRUCTURE=1 时本档不启用,行为与改前逐字同形。',
+      )
     if (refusing) process.exit(1)
   }
 
@@ -801,13 +1036,53 @@ async function main() {
       )
       process.exit(1)
     }
-    const { commit } = commitTreeWithIndex({
+    const entries = paths.map((p) => ({ path: p, blob: mine.get(p) }))
+    const made = commitTreeWithIndex({
       root,
       parent: head,
       message: msg,
-      entries: paths.map((p) => ({ path: p, blob: mine.get(p) })),
+      entries,
       baseRef: head,
+      // 校验放在 write-tree 之后、commit-tree 之前:被拒时不产生任何 commit 对象,
+      // 因此不会给守门 30a 留"unreachable commit"地雷(它只数 commit 行)。
+      onTree: skipImportCheck
+        ? undefined
+        : (tree) => {
+            const g = relativeImportGaps({
+              root,
+              files: entries,
+              listTree: git(['ls-tree', '-r', '--name-only', '-z', tree], { root }),
+              readBlob: (f) => git(['cat-file', 'blob', f.blob], { root }),
+            })
+            importGaps = g
+            return g.missing.length > 0 ? `悬空相对引用 ${g.missing.length} 处` : ''
+          },
     })
+    if (made.rejected) {
+      console.error(`❌ 悬空相对引用预检不通过,拒绝落地(未创建任何 commit、HEAD 与主索引均未动):`)
+      for (const m of importGaps.missing) {
+        console.error(
+          `   ${m.path}:${m.line} → ${m.spec}  ⇒ 落地后的树里没有任何候选落点${
+            m.onDisk.length > 0 ? `;但盘上有 ${m.onDisk.join(' / ')} ⇒ 典型的"忘了随本次声明一起入库"` : ''
+          }`,
+        )
+      }
+      console.error(
+        '   出路只有两条:把被引用的文件一起加进 LAND_PATHS,或去掉这条引用。' +
+          '应急跳过 IHUI_LAND_SKIP_IMPORT_CHECK=1(会把跳过那行打进输出留痕)',
+      )
+      process.exit(1)
+    }
+    if (!skipImportCheck) {
+      const g = importGaps
+      console.log(
+        `✅ 悬空相对引用预检:声明面源文件 ${g.scanned} 个 / 缺失 ${g.missing.length} / 判不出 ${g.undetermined.length}` +
+          (g.undetermined.length > 0 ? `(只报不拦:${g.undetermined.map((u) => `${u.path} ${u.spec}(${u.why})`).join('; ')})` : ''),
+      )
+    } else {
+      console.log('⚠️ IHUI_LAND_SKIP_IMPORT_CHECK=1 ⇒ 本次跳过悬空相对引用预检(该行输出即留痕)')
+    }
+    const commit = made.commit
     if (casUpdateRef(commit, head, { root })) {
       landed = commit
       parentSha = head
@@ -921,6 +1196,7 @@ export const __test__ = {
   lineDelta,
   resurrectAnalysis,
   detectStaleLanding,
+  jsonStructuralSuperset,
   staleReport,
   commitFacePresence,
 }
