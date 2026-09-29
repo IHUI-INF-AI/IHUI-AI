@@ -9073,10 +9073,12 @@
       "lastCommitTitle": "最新コミット",
       "loading": "読み込み中…",
       "local": "ローカル",
+      "localServers": "ローカルサービス",
       "manualToken": "トークンを手動入力",
       "modified": "変更",
       "noChanges": "変更なし",
       "noCommit": "コミットなし",
+      "noLocalServers": "実行中のローカルサービスはありません",
       "noOAuthConfig": "GitHub OAuth アプリが未設定です",
       "noRemotes": "リモートが設定されていません",
       "noWorkspace": "ワークスペースが選択されていません。上部でローカルワークスペースをバインドしてください。",
@@ -9091,6 +9093,7 @@
       "pushFail": "プッシュ失敗",
       "pushOk": "プッシュ成功",
       "refresh": "更新",
+      "refreshLocalServers": "ローカルサービスを更新",
       "remote": "リモート",
       "remoteNo": "未設定",
       "remoteYes": "設定済み",
@@ -9112,6 +9115,15 @@
     },
     "envInfoButton": "環境情報",
     "expandConversation": "会話を展開",
+    "headerActions": {
+      "panelGroupButtons": "パネルアクションボタン",
+      "workspaceUnavailable": "タスクを開始するとレビューワークスペースを開けます",
+      "enterWorkspaceFullscreen": "ワークスペースを全画面表示",
+      "exitWorkspaceFullscreen": "ワークスペースの全画面を終了",
+      "createDraftPullRequest": "Draft PR を作成",
+      "createDraftPullRequestOk": "Draft PR を作成しました",
+      "createDraftPullRequestFailed": "Draft PR の作成に失敗しました"
+    },
     "floatMode": "フロートモード",
     "handleHint": "クリックまたは右にドラッグしてAIワークスペースを開く",
     "history": "チャット",
@@ -10584,6 +10596,15 @@
       "tokens": "{used} / {limit} を使用",
       "resetAt": "{time} にリセット"
     },
+    "statusSlot": {
+      "moreNotices": "他 {count} 件のステータス",
+      "connection": "接続状態",
+      "alerts": "アラート",
+      "mcp": "MCP 接続",
+      "polish": "リファイン通知",
+      "diff": "コード修正意見",
+      "budget": "本日のクォータ"
+    },
     "streamAlert": {
       "configWarning": {
         "title": "設定の通知"
@@ -10802,6 +10823,7 @@
     },
     "contextUsage": {
       "breakdownTitle": "トークン内訳",
+      "budgetRow": "本日のクォータ",
       "categoryFiles": "ファイル",
       "categoryHistory": "履歴",
       "categorySystem": "システムプロンプト",
@@ -11234,6 +11256,12 @@
     "errorCardTitle": "リクエストエラー",
     "quoteSelection": "選択を引用",
     "quoteSelectionAdded": "引用に追加しました",
+    "selectionActions": {
+      "ariaLabel": "選択テキストの操作",
+      "addAsAttachment": "添付として追加",
+      "attachmentName": "選択したテキスト",
+      "attachmentLimitReached": "添付が {limit} 個に達しました。先に 1 つ削除してから選択テキストを追加してください。"
+    },
     "quotedReplyAssistant": "AI 回答を引用",
     "quotedReplyUser": "ユーザーメッセージを引用",
     "webSearch": "ウェブ検索",
@@ -11735,6 +11763,10 @@
     "markUnread": "未読としてマーク",
     "markUnreadSuccess": "未読としてマークしました",
     "retryLoadMore": "再読み込み",
+    "archiveChatTitle": "「{title}」をアーカイブしますか?",
+    "archiveChatDoNotAskAgain": "次回から確認しない",
+    "archivingChat": "アーカイブ中...",
+    "archivingChats": "タスクをアーカイブ中...",
     "sorting": {
       "byTime": "時間順",
       "label": "並び替え",
@@ -15788,6 +15820,7 @@
     },
     "sourceControl": {
       "branchSwitched": "{branch} に切り替えました",
+      "cancel": "キャンセル",
       "changeStats": "変更統計",
       "changes": "変更 ({count})",
       "commit": "コミット",
@@ -15796,8 +15829,11 @@
       "commitPlaceholder": "コミットメッセージ",
       "commitSuccess": "コミット成功",
       "committing": "コミット中...",
+      "dirtySwitchDescription": "ブランチを切り替えると現在のワークスペースが書き換わります。「変更を保存してチェックアウト」を選ぶと、未コミットの変更は先に Git stash に保存され、失われません。",
+      "dirtySwitchTitle": "未コミットの変更があります",
       "more": "その他",
       "noChanges": "変更なし",
+      "preserveChangesAction": "変更を保存してチェックアウト",
       "pull": "プル",
       "pullSuccess": "プル成功",
       "push": "プッシュ",
@@ -27687,7 +27723,9 @@
     "hintSelect": "選択",
     "hintConfirm": "確定",
     "hintClose": "閉じる",
-    "clearAriaLabel": "検索をクリア"
+    "clearAriaLabel": "検索をクリア",
+    "followupDismiss": "候補を閉じる",
+    "followupRowLabel": "これらを試す"
   },
   "statusPage": {
     "incidentsUnavailable": "直近 30 日間のインシデント情報は一時的に取得できません"

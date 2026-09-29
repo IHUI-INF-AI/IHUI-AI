@@ -110,8 +110,13 @@ function makeError(
  *
  * Unix: `kill(-pid, SIGKILL)` — `detached: true` 让 child 自成进程组,负 pid 即组 ID
  * Windows: `taskkill /pid <pid> /T /F` — Windows 没有 process group 概念,用 /T 杀进程树
+ *
+ * G-690(2026-09-29)`export`:MCP stdio 子进程此前自己写 `child.kill()`,只杀得掉 npx/cmd 壳,
+ * 壳派生的 node 子进程永留。机制早就在这份文件里,缺的只是出口 —— 按 AGENTS §3「复用现有实现」
+ * 加 export 而**不是**在调用端另抄一份杀进程树逻辑(两处算同一件事必漂移)。
+ * 调用端配合条件:`detached: true` 只在 Unix 侧有意义(Windows 无进程组,靠 /T)。
  */
-function killProcessTree(child: ChildProcess): void {
+export function killProcessTree(child: ChildProcess): void {
   if (!child.pid) return
   if (os.platform() === 'win32') {
     try {
@@ -135,8 +140,30 @@ function killProcessTree(child: ChildProcess): void {
   try {
     process.kill(-child.pid, 'SIGKILL')
   } catch {
-    // 进程组 kill 失败(可能 race 已退出)→ 退到单进程 kill
-    try { child.kill('SIGKILL') } catch {}
+    // b75-4#9:组 kill 失败分两说 —— ESRCH=组已消亡,补刀无的放矢;EPERM 等=组仍存活
+    // (无权发信号 ≠ 组已死),才退到单进程补刀。旧写法不看存活性一律补刀。
+    if (isPosixProcessGroupAlive(child.pid)) {
+      try { child.kill('SIGKILL') } catch {}
+    }
+  }
+}
+
+/**
+ * b75-4#9(观察票):`process.kill(-pgid, 0)` 探测 POSIX 进程组是否仍存活。
+ * 信号 0 不杀伤、只探权:probe 抛 ESRCH ⇒ 组已消亡;EPERM ⇒ 组存活但本进程无权发信号
+ * (上游 ZCode process-tree 判据:无权发信号 ≠ 组已死);其余错误码拿不准 ⇒ 按"存活"
+ * 处理(fail-safe:宁可补刀,不可漏杀)。Windows 无进程组语义,由调用方分支;
+ * probe 可注入,单测在不真杀进程的前提下驱动判定。
+ */
+export function isPosixProcessGroupAlive(
+  pgid: number,
+  probe: (pgid: number) => void = (p) => { process.kill(-p, 0) },
+): boolean {
+  try {
+    probe(pgid)
+    return true
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code !== 'ESRCH'
   }
 }
 
@@ -158,6 +185,107 @@ function awaitReap(child: ChildProcess, reapTimeoutMs: number): Promise<void> {
     // 兜底:即便没收到 exit/close(极端情况),reapTimeoutMs 后强制 resolve
     const timer = setTimeout(finish, reapTimeoutMs)
   })
+}
+
+/** b75-4#6:FORCE_EXIT 宽限 —— 首次停止后进程/进程组仍未退,给 5s,到点升级强杀并毁流。 */
+export const FORCE_EXIT_GRACE_MS = 5_000
+
+/**
+ * 毁掉 child 的 stdio 流(FORCE_EXIT 档)。
+ * 动机:强杀后孙进程可能继承管道写端,父侧 stdout/stderr 读端永远等不到 close/end,
+ * 输出收集器悬挂;显式 destroy 释放父侧 fd,读端立即解挂(票面:毁流释放 pipe 读端)。
+ */
+export function destroyChildOutputStreams(child: ChildProcess): void {
+  for (const stream of child.stdio) {
+    try { stream?.destroy() } catch { /* 已毁/未开:忽略 */ }
+  }
+}
+
+/** 停止状态机的四个状态:idle=预算未武装 / running=预算已启动 / stopping=停止中(FORCE_EXIT 宽限计时) / finalized=终态已结算。 */
+export type StopMachineState = 'idle' | 'running' | 'stopping' | 'finalized'
+
+export interface StopMachineDeps {
+  /** 首次停止动作:杀进程树(SIGTERM/SIGKILL 档由实现决定)。 */
+  killTree: () => void
+  /** FORCE_EXIT 宽限到点:升级强杀。 */
+  forceKill: () => void
+  /** FORCE_EXIT 宽限到点:毁 stdio 流,释放 pipe 读端。 */
+  destroyStreams: () => void
+  /** 定时器注入口(默认 setTimeout/clearTimeout;单测注入 fake 计时,不真等)。 */
+  scheduleTimer?: (ms: number, fn: () => void) => NodeJS.Timeout
+  /** 与 scheduleTimer 配对的清除口。 */
+  clearTimer?: (timer: NodeJS.Timeout) => void
+}
+
+export interface StopMachine {
+  readonly state: StopMachineState
+  /** spawn 成功后调用:武装超时预算(到点先 onFire 再 requestStop)。
+   *  武装前的一切卡顿(spawn 重试等)都不消耗预算 —— 这是与"spawn 前挂 timer"旧形态的边界。 */
+  armTimeout(timeoutMs: number, onFire?: () => void): void
+  /** 幂等请求停止:首次真正触发(killTree + 武装 FORCE_EXIT 宽限),重复调用 no-op 返回 false。 */
+  requestStop(): boolean
+  /** 终态结算(前台自然完成与被停后收尾共用):清空全部未决 timer。幂等。 */
+  finalize(): boolean
+}
+
+/**
+ * b75-4#6:执行适配器停止状态机(上游 node-execution-adapter-lifecycle 的降维落地)。
+ * 不变量:
+ *   - 超时预算只在 armTimeout 后存在,spawn 成功前的等待不占预算;
+ *   - requestStop 幂等(stopping/finalized 一律拒绝),FORCE_EXIT 宽限只武装一次;
+ *   - 宽限到点 = 升级强杀 + 毁流释放 pipe 读端(防孙进程握管道悬挂收集器);
+ *   - 前台完成也必须 finalize —— 未决 timer 不许把事件循环拖过预算期。
+ */
+export function createStopMachine(deps: StopMachineDeps): StopMachine {
+  const schedule = deps.scheduleTimer ?? ((ms: number, fn: () => void) => setTimeout(fn, ms))
+  const clear = deps.clearTimer ?? ((timer: NodeJS.Timeout) => clearTimeout(timer))
+  let state: StopMachineState = 'idle'
+  let timeoutTimer: NodeJS.Timeout | null = null
+  let forceTimer: NodeJS.Timeout | null = null
+
+  const machine: StopMachine = {
+    get state() {
+      return state
+    },
+    armTimeout(timeoutMs, onFire) {
+      if (state !== 'idle') return
+      state = 'running'
+      timeoutTimer = schedule(timeoutMs, () => {
+        timeoutTimer = null
+        onFire?.()
+        machine.requestStop()
+      })
+    },
+    requestStop() {
+      if (state === 'stopping' || state === 'finalized') return false
+      state = 'stopping'
+      if (timeoutTimer) {
+        clear(timeoutTimer)
+        timeoutTimer = null
+      }
+      deps.killTree()
+      forceTimer = schedule(FORCE_EXIT_GRACE_MS, () => {
+        forceTimer = null
+        deps.forceKill()
+        deps.destroyStreams()
+      })
+      return true
+    },
+    finalize() {
+      if (state === 'finalized') return false
+      if (timeoutTimer) {
+        clear(timeoutTimer)
+        timeoutTimer = null
+      }
+      if (forceTimer) {
+        clear(forceTimer)
+        forceTimer = null
+      }
+      state = 'finalized'
+      return true
+    },
+  }
+  return machine
 }
 
 /**
@@ -273,19 +401,37 @@ export async function spawnIsolated(
       }
     })
   })
-  const timeoutPromise = new Promise<number>((resolve) => {
-    setTimeout(() => {
-      timedOut = true
-      resolve(-1)
-    }, timeoutMs)
+  // b75-4#6 停止状态机:超时预算只在 spawn 成功(含 ETXTBSY 重试在内的一切 spawn 前
+  // 卡顿)之后武装;到点 requestStop(killTree)并武装 FORCE_EXIT 宽限,宽限到点升级强杀
+  // + 毁流释放 pipe 读端。旧实现:超时 timer 从不清理 —— 快命令跑完后事件循环仍被挂满
+  // timeoutMs;超时路径也毁不了流。
+  let resolveTimeoutRace: (code: number) => void = () => {}
+  const timeoutRace = new Promise<number>((resolve) => {
+    resolveTimeoutRace = resolve
+  })
+  const stopMachine = createStopMachine({
+    killTree: () => killProcessTree(child),
+    forceKill: () => {
+      try { child.kill('SIGKILL') } catch { /* 已死:忽略 */ }
+    },
+    destroyStreams: () => destroyChildOutputStreams(child),
+  })
+  stopMachine.armTimeout(timeoutMs, () => {
+    timedOut = true
+    resolveTimeoutRace(-1)
+  })
+  // close 是"确定不用再杀"的唯一信号:结算清掉未决 timer(幂等;前台完成路径会再显式调一次)
+  child.once('close', () => {
+    stopMachine.finalize()
   })
 
   let exitCode: number
   try {
-    exitCode = await Promise.race([exitPromise, timeoutPromise])
+    exitCode = await Promise.race([exitPromise, timeoutRace])
   } catch (e) {
     const err = e as Error
-    killProcessTree(child)
+    // 幂等:若超时已先触发过 requestStop,这里是 no-op,不会二次杀
+    stopMachine.requestStop()
     await awaitReap(child, reapTimeoutMs)
     throw makeError('wait', `等待子进程退出失败: ${err.message}`, {
       command,
@@ -299,8 +445,8 @@ export async function spawnIsolated(
   void waitErr // waitErr 仅在 catch 路径使用,此处已通过 try/catch 捕获
 
   if (timedOut) {
-    // 杀进程组 + 等 reap → 防止僵尸 / fd 泄漏
-    killProcessTree(child)
+    // requestStop 已在超时回调里 killTree,这里只等 reap。若 reap 超时仍未死,
+    // FORCE_EXIT 定时器(5s)会在后台升级强杀 + 毁流;close 后 finalize 收尾。
     await awaitReap(child, reapTimeoutMs)
     throw makeError('timeout', `子进程超时(${timeoutMs}ms): ${command}`, {
       command,
@@ -311,6 +457,9 @@ export async function spawnIsolated(
       durationMs: Date.now() - startTime,
     })
   }
+
+  // 前台完成也 finalize:清掉未决的超时 timer(旧实现漏清,事件循环被挂满 timeoutMs)
+  stopMachine.finalize()
 
   // 正常退出 — 但为防 'close' 不触发(罕见),再 awaitReap 兜底
   await awaitReap(child, reapTimeoutMs)

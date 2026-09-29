@@ -110,6 +110,7 @@
     "sandbox": {
       "spawnError": "命令未能启动({code})—— 子进程从未执行,这不是\"跑完了但没有输出\";请检查命令与当前工作目录({cwd})是否存在。",
       "outputLimit": "输出超过 {maxOutputBytes} 字节上限({code}),进程被终止、输出被截断 —— 这是\"输出过长\"的独立终态,不是超时;要拿全量请调大 maxOutputBytes 或收窄命令输出。",
+      "outputSpilled": "输出超过 {maxOutputBytes} 字节内存窗口,溢出部分已落盘:{path} —— 全量输出不驻留内存;文件保留供取证,确认后可自行删除。",
       "statusMissing": "缺失",
       "unattributed": "失败类型未判定(保留原始信息:{raw})—— 未归为超时,也未归为正常完成,请人工确认后再重试。",
       "fsProbeUnavailable": "命令空输出且以 {status} 退出,但文件系统状态无法查询({why})—— 未判定:既未定为\"空间/inode 已尽\",也未当作\"什么都没发生\"。",
