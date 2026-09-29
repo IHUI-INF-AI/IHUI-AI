@@ -344,7 +344,7 @@ function createStyles(tk: AppThemeTokens) {
     providerTabIcon: {
       width: 18,
       height: 18,
-      borderRadius: 18 / 2,
+      borderRadius: 18 / 2, // radius-exempt: 厂商首字母圆形徽标(18dp 直径/2)
       alignItems: 'center',
       justifyContent: 'center',
     },
