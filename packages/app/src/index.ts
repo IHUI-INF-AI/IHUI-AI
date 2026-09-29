@@ -224,17 +224,13 @@ export type {
   CourseCardProps,
 } from './features/cards'
 
-/** 跨端共享小组件(SectionHeader / Selecter,从 miniapp-taro 提取)。
- *  ColorfulLoader / PayButton 两条出口于 2026-09-26 随其 packages/app 侧死副本一并摘除 ——
- *  全仓 6642 个非测试文件跨行解析后零具名消费者,真正的渲染腿在 apps/mobile-rn 与 miniapp adapters。 */
-export { SectionHeader, Selecter, SearchInput } from './components'
-export type {
-  SectionHeaderProps,
-  SelecterProps,
-  SelecterType,
-  SelecterOption,
-  SearchInputProps,
-} from './components'
+/** 跨端共享小组件(Selecter,从 miniapp-taro 提取;SectionHeader 一条已于 2026-09-30 随其
+ *  packages/app 侧死副本一并摘除 —— 判据与 ColorfulLoader/PayButton 那批同形:全仓零具名消费者,
+ *  小程序端渲染腿在 apps/miniapp-taro/src/components/adapters/SectionHeader.taro.tsx,而 RN 侧
+ *  区段头部至今**没有单一源**(9+ 屏各自自绘,见 packages/shared/src/ui/section-header-spec.ts)。
+ *  历史同批:ColorfulLoader / PayButton 两条出口于 2026-09-26 摘除。 */
+export { Selecter, SearchInput } from './components'
+export type { SelecterProps, SelecterType, SelecterOption, SearchInputProps } from './components'
 
 /** 区块头「更多」入口:RN 端唯一实现,箭头走 lucide 矢量(勿在端内再用 `›` 字符自拼) */
 export { MoreLink } from './components'

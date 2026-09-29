@@ -73,7 +73,7 @@ export function CloudChatOpsCard({
 
   return (
     <div
-      className={cn('flex flex-col gap-2 rounded-md bg-muted/30 p-3', className)}
+      className={cn('flex flex-col gap-2 rounded-lg bg-muted/30 p-3', className)}
       data-testid={testId}
       aria-label={t(CLOUD_CHAT_OPS_ARIA_KEY)}
       data-cloud-chat-ops-groups={groups.size}
