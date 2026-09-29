@@ -25,6 +25,7 @@ import { writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as G } from '../check-cross-store-parity.mjs'
+import { analyzePersistSurface } from '../lib/persist-surface.mjs'
 import { readFileSync as readFsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
@@ -34,10 +35,10 @@ const SOURCE_SCRIPT = join(__dirname, '..', 'check-cross-store-parity.mjs')
 
 // ─── 4 端 storage-adapter 路径映射(与源脚本 ENDPOINTS 一致) ─
 const ADAPTER_PATHS = {
-  'web': 'apps/web/src/stores/storage-adapter.ts',
+  web: 'apps/web/src/stores/storage-adapter.ts',
   'mobile-rn': 'apps/mobile-rn/src/stores/storage-adapter.ts',
   'miniapp-taro': 'apps/miniapp-taro/src/stores/storage-adapter.ts',
-  'extension': 'apps/extension/src/stores/storage-adapter.ts',
+  extension: 'apps/extension/src/stores/storage-adapter.ts',
 }
 
 const SHARED_AUTH_PATH = 'packages/shared/src/stores/auth-store.ts'
@@ -67,22 +68,26 @@ function writeAuthStore(root, content) {
 }
 
 // ─── 辅助:运行脚本(从临时项目根目录) ───────────────────
-function runScript(root) {
-  return spawnSync(process.execPath, [SOURCE_SCRIPT, '--root', root.replace(/\\/g, '/')], {
-    cwd: root,
-    encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-    // 绝对 node 二进制 + windowsHide + 数字 timeout(AGENTS §5b / §守门 52):
-    // 裸 'node' 依赖 PATH,钩子/服务上下文里取不到;无 windowsHide 会为每次派生弹可见控制台。
-    windowsHide: true,
-    timeout: 120000,
-  })
+function runScript(root, extraArgs = []) {
+  return spawnSync(
+    process.execPath,
+    [SOURCE_SCRIPT, '--root', root.replace(/\\/g, '/'), ...extraArgs],
+    {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      // 绝对 node 二进制 + windowsHide + 数字 timeout(AGENTS §5b / §守门 52):
+      // 裸 'node' 依赖 PATH,钩子/服务上下文里取不到;无 windowsHide 会为每次派生弹可见控制台。
+      windowsHide: true,
+      timeout: 120000,
+    },
+  )
 }
 
 // ─── 合规 fixture:4 端 + shared 全部满足 8 条检查 ────────
 const VALID_ADAPTERS = {
   // web: 2 个必需导出 + PersistTransport 引用 + 3 个同步方法
-  'web': `import { PersistTransport } from '@ihui/shared/stores/transport'
+  web: `import { PersistTransport } from '@ihui/shared/stores/transport'
 export function createLocalStorageTransport(): PersistTransport {
   return { getItem: (k) => null, setItem: (k, v) => {}, removeItem: (k) => {} }
 }
@@ -110,7 +115,7 @@ export function createTaroStorageTransport() {
 }
 `,
   // extension: 1 个必需导出 + createSyncTransport 引用(无 PersistTransport)
-  'extension': `import { createSyncTransport } from '@ihui/shared/stores/transport'
+  extension: `import { createSyncTransport } from '@ihui/shared/stores/transport'
 export function createChromeStorageTransport() {
   const t = createSyncTransport()
   return {
@@ -153,7 +158,11 @@ test('golden path: 4 端 + shared 全部合规 → exit 0', () => {
   try {
     writeAllValid(root)
     const r = runScript(root)
-    assert.equal(r.status, 0, `应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+    assert.equal(
+      r.status,
+      0,
+      `应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
     assert.match(r.stdout, /✅/, '应输出 ✅ 标识通过')
     assert.match(r.stdout, /一致性校验通过/, '应输出"一致性校验通过"')
     assert.match(r.stdout, /8\/8 项/, '应输出 8/8 项')
@@ -391,7 +400,10 @@ test('检查 shared: 缺 partialize Pick 类型(违反安全契约)→ exit 1', 
     writeAuthStore(root, badAuth)
     const r = runScript(root)
     assert.equal(r.status, 1, `缺 partialize Pick 应 exit 1,实际 ${r.status}`)
-    assert.match(r.stderr, /auth-store\.ts 的 AuthStoreState 声明了 token,而 partialize 没有 Pick 键集收窄/)
+    assert.match(
+      r.stderr,
+      /auth-store\.ts 的 AuthStoreState 声明了 token,而 partialize 没有 Pick 键集收窄/,
+    )
   } finally {
     rmScratch(root)
   }
@@ -531,7 +543,11 @@ test('B 反向:比旧字面串更严的收窄(只留 user)必须 exit 0 —— �
     writeAllValid(root)
     writeAuthStore(root, stricter)
     const r = runScript(root)
-    assert.equal(r.status, 0, `更严的键集收窄不该被判红(判红=一台恒红门),实际 ${r.status}:${r.stderr}`)
+    assert.equal(
+      r.status,
+      0,
+      `更严的键集收窄不该被判红(判红=一台恒红门),实际 ${r.status}:${r.stderr}`,
+    )
   } finally {
     rmScratch(root)
   }
@@ -549,7 +565,186 @@ test('C 真仓对照:analyzePartialize 对本仓 auth-store 的现读必须是"�
     true,
     '本仓用 Pick 声明持久化键集 ⇒ 判据必须认得它(认不得就是 09-28 那台恒红门)',
   )
-  assert.deepEqual(got.persistedTokenKeys, [], `本仓不应持久化任何 token 键,量到:${got.persistedTokenKeys.join(', ')}`)
-  assert.ok(got.stateTokenKeys.length > 0, '阳性对照:AuthStoreState 确实声明了 token 档 —— 否则本条是在对空集判绿')
+  assert.deepEqual(
+    got.persistedTokenKeys,
+    [],
+    `本仓不应持久化任何 token 键,量到:${got.persistedTokenKeys.join(', ')}`,
+  )
+  assert.ok(
+    got.stateTokenKeys.length > 0,
+    '阳性对照:AuthStoreState 确实声明了 token 档 —— 否则本条是在对空集判绿',
+  )
+})
+
+/* ════════════════════════════════════════════════════════════════════════════
+   G-601(2026-09-29):上一版"语义判据"的第二枚假红 —— 它把**整份文件**里出现的每个
+   `Pick<AuthStoreState<…>, '…'>` 都收进"落盘键集",于是读侧选择器
+   `selectIsAuthenticated(state: Pick<AuthStoreState<TUser>, 'token'>)` 被读成
+   "把 token 写进存储",`--staged` RC=1 而 HEAD 面写的是 `Pick<AuthStoreState<TUser>, 'user'>`。
+   同一型犯第二次,只是载体从"字面串"换成了"标识符出现" ⇒ 键集必须绑在**被返回的那份值**上。
+   四条成对证明:D 正向(今天的真实现场) / E 阳性(真把 accessToken 落盘必须照红) /
+   F 反向锁(旧 harvest 写法不得回来 + 两份实现必须是一份) / G 未判定臂(判不出不记绿)。
+   ════════════════════════════════════════════════════════════════════════════ */
+
+// 与本仓 auth-store 同形的夹具:落盘面只挑 user,而**读侧**选择器的形参类型里写着 'token'
+const READ_SIDE_PICK_AUTH = `import type { PersistTransport } from './transport'
+export interface AuthStoreState<TUser> {
+  user: TUser | null
+  token: string | null
+  refreshToken: string | null
+  isAuthenticated: boolean
+}
+export const userPersistKey = 'ihui-auth-user'
+export function selectIsAuthenticated<TUser>(state: Pick<AuthStoreState<TUser>, 'token'>): boolean {
+  return state.token !== null
+}
+export function createAuthStore<TUser>(transport: PersistTransport) {
+  return {
+    partialize: (state: AuthStoreState<TUser>) => {
+      const persisted: Pick<AuthStoreState<TUser>, 'user'> = { user: state.user }
+      return persisted
+    },
+  }
+}
+`
+
+test("D 正向对照:读侧选择器里的 Pick<…,'token'> 不算落盘键 ⇒ exit 0(这就是 G-601 被误判红的那一种)", () => {
+  const root = createTempProject()
+  try {
+    writeAllValid(root)
+    writeAuthStore(root, READ_SIDE_PICK_AUTH)
+    const r = runScript(root)
+    assert.equal(
+      r.status,
+      0,
+      `只落 user 的实现不得判红(判红=又一台恒红门),实际 ${r.status}:${r.stderr}`,
+    )
+    assert.doesNotMatch(r.stderr, /把 token 材料写进存储/)
+    // 判据得真的读出"落盘面 = {user}",不是靠空集蒙对
+    const got = G.analyzePartialize(READ_SIDE_PICK_AUTH)
+    assert.deepEqual(
+      got.pickKeys,
+      ['user'],
+      `落盘 Pick 键集应只含 user,量到:${got.pickKeys.join(', ')}`,
+    )
+    assert.deepEqual(got.persistedTokenKeys, [])
+    assert.deepEqual(
+      got.stateTokenKeys,
+      ['token', 'refreshToken'],
+      '阳性对照:接口里确有 token 档,读侧那处 Pick 才不是对空集判绿',
+    )
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('E 阳性对照:partialize 真把 accessToken 写进存储(对象字面量形态)⇒ exit 1 并点名', () => {
+  const root = createTempProject()
+  try {
+    const bad = READ_SIDE_PICK_AUTH.replace(
+      "const persisted: Pick<AuthStoreState<TUser>, 'user'> = { user: state.user }",
+      'const persisted = { user: state.user, accessToken: state.token }',
+    )
+    assert.notEqual(bad, READ_SIDE_PICK_AUTH, '夹具替换必须命中,否则本条是在对旧内容判绿')
+    writeAllValid(root)
+    writeAuthStore(root, bad)
+    const r = runScript(root)
+    assert.equal(r.status, 1, `真落盘 accessToken 必须 exit 1,实际 ${r.status}`)
+    assert.match(r.stderr, /把 token 材料写进存储:accessToken/)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('F 反向锁:harvest-整文件 Pick 的旧写法与"两份实现"都不得回来 + 箭头返回标注不得被逗号截断', () => {
+  const gateSrc = readFsSync(SOURCE_SCRIPT, 'utf8')
+  const libSrc = readFsSync(join(__dirname, '..', 'lib', 'persist-surface.mjs'), 'utf8')
+  // ① 门体里不得再出现"整文件 matchAll Pick"这一族写法(G-601 的成因)
+  assert.doesNotMatch(gateSrc, /matchAll\(\/Pick</, '整文件 harvest Pick 的旧形态不得回来')
+  // ② 装车证明:门与测试引用的是**同一份**解析器,门体不得自带键集抽取
+  assert.match(gateSrc, /from '\.\/lib\/persist-surface\.mjs'/, '本门必须引用共用解析器')
+  assert.doesNotMatch(
+    gateSrc,
+    /function analyzePartialize[\s\S]{0,900}?matchAll/,
+    '键集抽取必须住在共用 lib 里,不得留第二份',
+  )
+  assert.doesNotMatch(
+    libSrc,
+    /annotationTexts\.push\((trimmed|exprText)\b/,
+    '不得把表达式原文整体当类型标注扫(嵌套 as Pick 会重犯同一型)',
+  )
+  // ③ 行为级:箭头**返回标注**里的联合必须被读全 —— 标注里的逗号曾把值表达式截断(=漏报 accessToken)
+  const annForm = `export interface AuthStoreState<TUser> { user: TUser; token: string }\nexport const make = () => ({ partialize: (s): Pick<AuthStoreState<TUser>, 'user' | 'accessToken'> => ({ user: s.user }) })`
+  assert.deepEqual(
+    analyzePersistSurface(annForm).persistedTokenKeys,
+    ['accessToken'],
+    '返回标注里的 Pick 联合必须读全;读不到就是门对"真落盘 token"失明',
+  )
+  // ④ 一份实现两条腿:门的重投影与 lib 的原始输出必须同结论(漂移即红)
+  const raw = analyzePersistSurface(READ_SIDE_PICK_AUTH)
+  const viaGate = G.analyzePartialize(READ_SIDE_PICK_AUTH)
+  assert.deepEqual(
+    viaGate.pickKeys.slice().sort(),
+    raw.pickKeys.slice().sort(),
+    '门与 lib 对同一输入必须给出同一键集',
+  )
+  assert.deepEqual(viaGate.persistedTokenKeys, raw.persistedTokenKeys)
+})
+
+test('G 未判定臂:解析不出来的形状 ⇒ 默认档 exit 0 但逐条报名,--strict exit 2(拒绝出具合格证)', () => {
+  const root = createTempProject()
+  try {
+    // `...extra` 展开自别处:顶层键集枚举不全 ⇒ 判不出,不得记绿也不得冒红
+    const unjudgeable = `import type { PersistTransport } from './transport'
+export interface AuthStoreState<TUser> {
+  user: TUser | null
+  token: string | null
+}
+export const userPersistKey = 'ihui-auth-user'
+export function createAuthStore<TUser>(transport: PersistTransport) {
+  return {
+    partialize: (state: AuthStoreState<TUser>): Pick<AuthStoreState<TUser>, 'user'> => ({ ...extra, user: state.user }),
+  }
+}
+`
+    writeAllValid(root)
+    writeAuthStore(root, unjudgeable)
+    const d = runScript(root)
+    assert.equal(d.status, 0, `默认档不得把"判不出"当契约漂移,实际 ${d.status}:${d.stderr}`)
+    assert.match(d.stdout, /未判定 1 处/, `未判定必须报名并计数,实际输出:${d.stdout}`)
+    assert.match(d.stdout, /展开自别处|\.\.\.extra/, '未判定条目必须点名是哪一种形状')
+    const s = runScript(root, ['--strict'])
+    assert.equal(s.status, 2, `--strict 下有未判定即 exit 2(不得出具合格证),实际 ${s.status}`)
+    // 同一夹具里 persistedTokenKeys 必须是空 ⇒ 证明"未判定"不是被算成了红
+    const got = G.analyzePartialize(unjudgeable)
+    assert.deepEqual(got.persistedTokenKeys, [])
+    assert.ok(got.undetermined.length > 0)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('H 未判定不得替真违规顶名额:同一处既有未判定展开又写着 accessToken ⇒ 仍 exit 1', () => {
+  const root = createTempProject()
+  try {
+    const both = `import type { PersistTransport } from './transport'
+export interface AuthStoreState<TUser> { user: TUser | null; token: string | null }
+export const userPersistKey = 'ihui-auth-user'
+export function createAuthStore<TUser>(transport: PersistTransport) {
+  return { partialize: (state: AuthStoreState<TUser>): Pick<AuthStoreState<TUser>, 'user'> => ({ ...extra, accessToken: state.token }) }
+}
+`
+    writeAllValid(root)
+    writeAuthStore(root, both)
+    const r = runScript(root)
+    assert.equal(
+      r.status,
+      1,
+      `能判出的那部分已经指认真落盘 token ⇒ 不得被"未判定"稀释成放行,实际 ${r.status}`,
+    )
+    assert.match(r.stderr, /把 token 材料写进存储:accessToken/)
+  } finally {
+    rmScratch(root)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
