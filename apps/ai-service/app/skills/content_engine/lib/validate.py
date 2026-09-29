@@ -22,7 +22,15 @@ import json
 import os
 import re
 import sys
+from datetime import timedelta, timezone
 from typing import Any, cast
+
+# 东八区(用户主时区),与 db_sync_scheduler / news_scheduler / self_media_scheduler /
+# platform_rule_versions / platform_dom_selectors 的 `_CN_TZ` 同形(本仓各文件各自声明,
+# 无共享模块)。已发布记忆里的 image_registry.date 是**按东八区日历书写**的日期,
+# "排除当日自身注册"这条规则拿宿主墙钟与它比 = 跨时区比较:宿主被静默改成 UTC 期间,
+# 北京时间 00:00–08:00 注册的图片在复跑时排除不掉,配图重复检测因此误报。
+_CN_TZ = timezone(timedelta(hours=8))
 
 # ===== 技术自检常量（原有） =====
 
@@ -986,8 +994,9 @@ def validate(md_path: str) -> tuple[bool, list[str]]:
             registry = memory_data.get('image_registry', {}).get('used_images', [])
             # 排除当前文章自身的记录（按标题匹配 + 同日注册排除）
             current_title = title_text.strip() if title_text else ''
-            from datetime import date
-            today_str = date.today().isoformat()
+            from datetime import datetime
+            # 东八区日历日,与 registry 里人工书写的 date 同口径(见模块顶部 _CN_TZ)。
+            today_str = datetime.now(_CN_TZ).strftime("%Y-%m-%d")
             used_files = {
                 entry['file'] for entry in registry
                 if 'file' in entry

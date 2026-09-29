@@ -826,6 +826,88 @@ function healHomeJunctions() {
  *  手工 commit-tree **都不跑钩子** ⇒ "判据存在但永不被调用"这一型必须由守护补一层。
  *  用增量台账(`--all-new`):每枚合并只判一次,老提交不会反复红。
  *  **只判不修**:自动重做合并的风险远大于收益;出口是 `scripts/union-converge.mjs --apply`(人来点)。 */
+/**
+ * 主机时区漂移问责(2026-09-30 立,尺子本体 = `scripts/check-host-timezone.mjs`)。
+ *
+ * 为什么必须挂在这一格:2026-09-04 本机时区被一次未登记的改动从东八区改成 UTC,持续 25 天,
+ * 期间支付宝网关签名早 8 小时、异常检测把北京高峰当"凌晨可疑"、全库导出落在上午 11:00,
+ * 而**没有任何一个执行体问过这台机的时区是什么**。提交链上的门只在有人提交时跑;判的是机器状态,
+ * 所以出口只能是这里(守护 tick,每 2 分钟一轮)。
+ *
+ * 三条不可漂的写法:
+ *  ① 挂点带 `!CHECK_ONLY` —— 本文件已两次踩过"挂进 CHECK_ONLY 路径等于永不执行";
+ *  ② 节流(默认 30 分钟)且**取不到读数就不发信**:主机时区判不出 ≠ 漂移,把"没判"寄成告警就是
+ *     制造噪声(§5e 失败必须响,但响的是量到的红,不是尺子失效);
+ *  ③ 发信只经 notify()(→ notify-deploy-failure.ts),不得在本文件自拼 SMTP(守门 81 硬拦)。
+ */
+const TZ_AUDIT_TICK = join(WORKTREE, '.workbuddy', 'host-timezone-audit-tick.ts')
+const TZ_AUDIT_INTERVAL_MS = 30 * 60 * 1000
+
+function auditHostTimezone() {
+  try {
+    let last = 0
+    try {
+      last = Number(readFileSync(TZ_AUDIT_TICK, 'utf8')) || 0
+    } catch {
+      /* 首次:没有 tick 就是该跑 */
+    }
+    if (Date.now() - last < TZ_AUDIT_INTERVAL_MS) return
+    try {
+      mkdirSync(dirname(TZ_AUDIT_TICK), { recursive: true })
+      writeFileSync(TZ_AUDIT_TICK, String(Date.now()))
+    } catch {
+      /* tick 写不下去也要判一次:否则一次盘错就永久失明 */
+    }
+    const script = join(dirname(fileURLToPath(import.meta.url)), 'check-host-timezone.mjs')
+    if (!existsSync(script)) {
+      logger('ℹ️ 主机时区对账:尺子脚本不在位(scripts/check-host-timezone.mjs)⇒ 本轮跳过,不记为已判')
+      return
+    }
+    let parsed = null
+    try {
+      const out = execFileSync(process.execPath, [script, '--quick', '--json'], {
+        cwd: WORKTREE,
+        windowsHide: true,
+        timeout: 90_000,
+        maxBuffer: 8 * 1024 * 1024,
+        encoding: 'utf8',
+      })
+      parsed = JSON.parse(String(out).trim())
+    } catch (e) {
+      // 判红也是非零退出:必须先看有没有可解析的载荷,不能把"退出码非零"直接当尺子失效。
+      const body = e && e.stdout ? String(e.stdout).trim() : ''
+      try {
+        parsed = JSON.parse(body)
+      } catch {
+        logger(`ℹ️ 主机时区对账:未判定(派生失败或载荷不可 parse:${String(e && e.message).slice(0, 120)})—— 不寄信,也别当已判过`)
+        return
+      }
+    }
+    if (!parsed || parsed.verdict === 'error') {
+      logger(`ℹ️ 主机时区对账:未判定(${(parsed && parsed.reasons && parsed.reasons[0]) || '载荷是 error'})`)
+      return
+    }
+    if (parsed.verdict === 'red') {
+      const lines = (parsed.reasons || []).join('\n')
+      const h2 = parsed.h2 || {}
+      notifyGuardRed(
+        '主机时区漂移:本机时钟与声明不符',
+        `${lines}\n\n声明:config/host-timezone.json(changedAt ${parsed.changedAt})\n` +
+          `实测:${parsed.measured && parsed.measured.registry} / node ${parsed.measured && parsed.measured.nodeIana}\n` +
+          `最近一次时区变更归属:${(h2.events || []).slice(0, 2).map((x) => `${x.utc} ← ${x.proc || '?'}`).join(' / ') || '(未取到)'}\n` +
+          `H3 落地维逐条:${(parsed.h3 && parsed.h3.rows ? parsed.h3.rows.map((r) => `${r.file}=${r.state}${r.gapHours !== undefined ? `(${r.gapHours}h)` : ''}`).join(', ') : '(无)')}\n` +
+          `若是 stale-cache:改完时区必须重启对应常驻服务(进程在启动时就把区读进缓存)。取证:node scripts/check-host-timezone.mjs`,
+        { severity: 'warning' },
+      )
+      logger(`⚠️ 主机时区对账判红:${lines}`)
+      return
+    }
+    logger(`✅ 主机时区对账:无漂移(${parsed.measured && parsed.measured.registry};未判定 ${parsed.undeterminedCount} 维)`)
+  } catch (e) {
+    logger(`⚠️ 主机时区对账自身异常(不改自愈与退出码):${String(e && e.message).slice(0, 160)}`)
+  }
+}
+
 function auditMergeAdditionLoss() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'check-merge-addition-loss.mjs')
   if (!existsSync(script)) return
@@ -2410,6 +2492,9 @@ function main() {
     // 合并吞并对账:别人机器上造好推来的合并跑不到提交链那道门(commit-tree 旁路不跑钩子),
     // 由本层按增量台账判到一次(只判不修)。
     if (!CHECK_ONLY) auditMergeAdditionLoss()
+    // 主机时区漂移问责:必须与上面同格(健康轮次早退之前 + !CHECK_ONLY)—— 挂进 CHECK_ONLY 路径
+    // 等于永不执行,本文件已踩过两次(工作区自愈层、根封口层)。
+    if (!CHECK_ONLY) auditHostTimezone()
     // 开工前基线新鲜度:只报数的一层(③轴绝不进提交链,故这里既不判红也不喊人)。
     if (!CHECK_ONLY) reportBaselineFreshness()
     // §5b 的"唯一空白层":恢复源刷新原本挂在计划任务上,而那个任务已实测消失 ⇒ 并入 tick。
