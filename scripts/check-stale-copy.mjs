@@ -171,8 +171,12 @@ export function selfTest(root = ROOT) {
     verdict.kind === 'pass' && !verdict.missing.length,
   ) && ok
 
-  // ⑥ 出路文本里不得再出现本票点名的那个死指针(反向回归锁)
-  ok = t('S6 修复出路里不得再出现 detect-stale2', !hints.join('\n').includes('detect-stale2')) && ok
+  // ⑥ 出路文本里不得再出现死指针,也不得指向 gitignore 的临时目录(那里只存在于一台机器)
+  const hintText = hints.join('\n')
+  ok =
+    t('S6 修复出路里不得再出现 detect-stale2', !hintText.includes('detect-stale2')) &&
+    t('S6b 修复出路不得指向 .ihui-agent/tmp/', !/\.ihui-agent\/tmp\//.test(hintText)) &&
+    ok
 
   console.log(out.join('\n'))
   // 两条独立记账:ok 是逐条与门的累计,failed 是对输出的重数 —— 只留一条时,
