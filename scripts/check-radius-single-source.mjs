@@ -30,7 +30,7 @@
  *     于是标记既当豁免又当掩盖,而门从不量形状。现在形状由盒尺寸量出来:正方+半边=几何(放行),
  *     非正方+半边=胶囊(判红,不吃标记),量不出=判不出(判红,出路是把尺寸写进同一作用域)。
  *  B5 SVG `rx`/`ry`:静态 .svg 须等于档位值(没有 JS 通道),JSX 内联须引用 rnRadius.<step>。
- *  B6 引用了 `rnRadius` / `RADIUS_CSS_PX` 却没在本文件 import 它们 → 红。
+ *  B6 引用了 `rnRadius` / `rnRadiusFor` / `RADIUS_CSS_PX` 却没在本文件 import 它们 → 红。
  *     本门判的是 HEAD 内容,而 `pnpm typecheck` 只跑 worktree —— 悬空标识符属于"两边都不红"
  *     的那一类(前向移植 / 批量改写的典型遗留),只能在读 HEAD blob 的这里补上。
  *     import 常写成多行,必须在整条 `{…}` 括号里找名字。
@@ -587,14 +587,18 @@ export function scanText(rel, text, table) {
       }
     }
   })
-  // B6:引用了档位出口(rnRadius / RADIUS_CSS_PX)却没在本文件 import 它们。
+  // B6:引用了档位出口(rnRadius / rnRadiusFor / RADIUS_CSS_PX)却没在本文件 import 它们。
   //    这道门现在判的是 **HEAD 内容**,而 tsc 只在 worktree 上跑 —— "别人没提交的草稿"与
   //    "HEAD 里悬空的标识符"本地全绿却都是真的,前向移植/批量改写最容易留下的就是这一类。
   //    import 常写成多行,必须在整条 `{…}` 里找名字:首版按单行匹配,把 6 个正常文件
   //    (swagger-theme / design-templates / chart-template-card 等)全判成缺 import。
+  //    `rnRadiusFor` 必须**单列**:本门在 §4 被当成"把类别写进代码"的推荐写法,而使用式是
+  //    `\brnRadius\s*\.` —— `rnRadiusFor.card` 里 `rnRadius` 后面紧跟 `F`,既不是词边界也不是点,
+  //    旧判据对**门自己规定的写法**整族失明(2026-09-29 实测:一枚只改取值不改 import 的提交
+  //    带着 TS2552 + TS6133 进了 HEAD,而 B6/门 98/门 77 全绿,只有 typecheck 红)。
   if (isJsx(rel)) {
     const importLists = [...text.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"][^'"]*design-tokens['"]/g)].map((m) => m[1])
-    for (const name of ['rnRadius', 'RADIUS_CSS_PX']) {
+    for (const name of ['rnRadius', 'rnRadiusFor', 'RADIUS_CSS_PX']) {
       const used = lines.some((l) => !/^\s*(\/\/|\*|\/\*|<!--)/.test(l) && new RegExp(`\\b${name}\\s*\\.`).test(l))
       if (!used) continue
       if (importLists.some((s) => new RegExp(`[\\s,{]${name}(?:\\s+as\\s+\\w+)?\\s*(?:,|$)`).test(s))) continue
@@ -815,6 +819,16 @@ async function selfTest() {
     { name: 'B6 多行 import 带 rnRadius 必须放行(首版单行匹配误伤 6 个正常文件)', f: 'apps/api/src/plugins/swagger-theme.ts', s: "import {\n  COLOR_BLACK,\n  rnRadius,\n  RADIUS_CSS_PX,\n} from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadius.lg } }\nconst css = `border-radius: ${RADIUS_CSS_PX.md}`", red: false },
     { name: 'B6 别名 import(rnRadius as r)同样放行', f: 'apps/web/src/a.tsx', s: "import { rnRadius as r } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: r.lg } }", red: false },
     { name: 'B6 只在注释里提到 rnRadius 不算使用', f: 'apps/web/src/a.tsx', s: '// 这里将来会换成 rnRadius.lg\nconst s = { a: { borderRadius: 0 } }', red: false },
+    // 门自己推荐的写法必须被门看见 —— 2026-09-29 一枚按本条推荐改取值的提交把 import 漏了,
+    // 而旧判据(\brnRadius\s*\.)对 `rnRadiusFor.card` 整族失明,typecheck 才红。
+    { name: 'B6 引用 rnRadiusFor 却没 import 必拦(真仓刚踩过一次)', f: 'apps/miniapp-taro/src/components/InputArea.tsx', s: "import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadiusFor.card } }", red: true },
+    { name: 'B6 反向:同一文件 import 了 rnRadiusFor 必须放行(只拦缺 import,不拦这种写法)', f: 'apps/miniapp-taro/src/components/InputArea.tsx', s: "import { cn, rnRadiusFor, TARO_RPX_PER_PX } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadiusFor.card } }", red: false },
+    {
+      name: 'B6 rnRadius 与 rnRadiusFor 是两个标识符:只 import 其一而两个都用 ⇒ 只喊缺的那个',
+      f: 'apps/web/src/a.tsx',
+      s: "import { rnRadius } from '@ihui/design-tokens'\nconst a = { r: rnRadius.lg }\nconst b = { r: rnRadiusFor.card }",
+      red: true,
+    },
   ]
   let fail = 0
   for (const c of cases) {
