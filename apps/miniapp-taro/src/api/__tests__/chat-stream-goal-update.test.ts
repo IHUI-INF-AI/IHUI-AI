@@ -19,6 +19,8 @@
  * "看得见却改不了"是假 affordance,与本端 onTerminalInteraction 拒绝代答同一口径)。
  */
 import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 import { parseSSEChunk } from '@ihui/shared/utils/sse-parse'
@@ -133,10 +135,22 @@ describe('D152 A. 小程序 chatStream 运行时派发(goal_updated)', () => {
   })
 })
 
-/** 与 apps/miniapp-taro/src/i18n/index.tsx 同一口径:shared 作 base(本用例只需 shared 那一层) */
+/**
+ * 与 apps/miniapp-taro/src/i18n/index.tsx 同一口径:shared 作 base(本用例只需 shared 那一层)。
+ * 取材一律 `join(dirname(fileURLToPath(import.meta.url)), …)`,不用 `new URL(rel, import.meta.url)`:
+ * 该端 tsconfig 的 lib 里 DOM 的 `URL` 与 `node:url` 的 `URL` 是两个类型,
+ * 传进 `readFileSync` 报 TS2769(没有匹配的重载)—— 同目录 `auto-login-cold-start.test.ts` 的注释记的同一格。
+ */
 function readShared(locale: string): Record<string, unknown> {
   return JSON.parse(
-    readFileSync(new URL(`../../../../../packages/i18n/messages/shared/${locale}.json`, import.meta.url), 'utf8'),
+    readFileSync(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        '../../../../../packages/i18n/messages/shared',
+        `${locale}.json`,
+      ),
+      'utf8',
+    ),
   ) as Record<string, unknown>
 }
 
