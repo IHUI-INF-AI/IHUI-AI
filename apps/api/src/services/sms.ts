@@ -200,7 +200,9 @@ async function sendViaProxy(phone: string, code: string): Promise<void> {
   })
 }
 
-/** 发送通用短信通知（非验证码）。复用 dispatchSms 的发送策略：阿里云 → 代理 → dev console。 */
+/** 发送通用短信通知（非验证码）。复用 dispatchSms 的发送策略：阿里云 → 代理 → dev console。
+ * 注意:阿里云变量属性有 35 字符上限(2026-09-30 API 校验实锤),"整段正文塞单变量"不可行 ——
+ * 通知类要走结构化模板,请参照 sendArrearSms 的模式按模板变量传参;本函数保留给历史调用方。 */
 export async function sendSmsMessage(
   phone: string,
   content: string,
@@ -208,11 +210,10 @@ export async function sendSmsMessage(
   try {
     if (env.ALI_SMS_ACCESS_KEY_ID && env.ALI_SMS_ACCESS_KEY_SECRET) {
       const signName = env.ALI_SMS_SIGN_NAME
-      // 2026-09-29:通用通知与验证码的模板占位符不同(验证码 {code} / 通知 {content}),
-      // 共用一个 ALI_SMS_TEMPLATE_CODE 必被阿里云以占位符不匹配拒发(催缴/站内通知走
-      // {content} 全会失败)。通知类显式走 ALI_SMS_NOTIFY_TEMPLATE_CODE,未配置时回落
-      // 旧变量保持既有行为 —— 回落档发送仍会因占位符不匹配失败,但失败会如实进留痕
-      // (failed 档),不会冒充成功;真正修好要等机构申请到含 ${content} 的通知模板。
+      // 2026-09-30:通用通知与验证码的模板占位符不同(验证码 {code} / 通知 {content}),共用
+      // 一个 ALI_SMS_TEMPLATE_CODE 必被阿里云拒发。且阿里云变量属性上限 35 字符,"整段正文
+      // 塞单变量"此路不通(结构化模板见 sendArrearSms)。本函数的回落档发送会因占位符不匹配
+      // 失败,失败会如实进留痕(failed 档),不会冒充成功;新调用方请走结构化模板。
       const templateCode = env.ALI_SMS_NOTIFY_TEMPLATE_CODE || env.ALI_SMS_TEMPLATE_CODE
       if (!signName || !templateCode) {
         logger.warn('阿里云短信缺少 ALI_SMS_SIGN_NAME 或模板 CODE,降级为 console', {
@@ -261,5 +262,55 @@ export function isSmsConfigured(): boolean {
   return Boolean(
     (env.ALI_SMS_ACCESS_KEY_ID && env.ALI_SMS_ACCESS_KEY_SECRET) || env.SMS_API_BASE_URL,
   )
+}
+
+/** 催缴短信通道可用性:阿里云 AK/SK + 催缴专用模板码齐备才算配置完成。
+ * 与 isSmsConfigured 分开 —— 验证码能发 ≠ 催缴模板已申请/已过审。 */
+export function isArrearSmsConfigured(): boolean {
+  return Boolean(
+    env.ALI_SMS_ACCESS_KEY_ID && env.ALI_SMS_ACCESS_KEY_SECRET && env.ALI_SMS_ARREAR_TEMPLATE_CODE,
+  )
+}
+
+/** 催缴短信(专用结构化模板,env.ALI_SMS_ARREAR_TEMPLATE_CODE,2026-09-30 API 申请:
+ * "学费催缴提醒：${name}您好，学员${student}尚有${money}元学费未缴，请尽快完成缴费。如有疑问请联系机构老师。")。
+ * 变量属性:name/student=user_nick(≤20字符,不支持空格),money=money(纯数字,单位"元"固定在模板文案里)。
+ * 不走 sendSmsMessage:那支是 ${content} 整段占位,与结构化模板占位符不匹配必被拒发。 */
+export async function sendArrearSms(
+  phone: string,
+  vars: { name: string; student: string; money: string },
+): Promise<{ success: boolean; error?: string }> {
+  const templateCode = env.ALI_SMS_ARREAR_TEMPLATE_CODE
+  const signName = env.ALI_SMS_SIGN_NAME
+  if (!env.ALI_SMS_ACCESS_KEY_ID || !env.ALI_SMS_ACCESS_KEY_SECRET || !templateCode || !signName) {
+    const maskedPhone = phone.length >= 7 ? `${phone.slice(0, 3)}****${phone.slice(-4)}` : '***'
+    logger.warn('催缴短信未配置(AK/SK 或 ALI_SMS_ARREAR_TEMPLATE_CODE 缺失)', {
+      phone: maskedPhone,
+    })
+    return { success: false, error: 'not_configured' }
+  }
+  try {
+    const sdk = await loadAliyunSdk()
+    if (!sdk) {
+      logger.warn('阿里云短信 SDK 不可用,催缴短信未发送', { phone })
+      return { success: false, error: 'sdk_unavailable' }
+    }
+    const config = new sdk.Config({
+      accessKeyId: env.ALI_SMS_ACCESS_KEY_ID,
+      accessKeySecret: env.ALI_SMS_ACCESS_KEY_SECRET,
+      endpoint: 'dysmsapi.aliyuncs.com',
+    })
+    const client = new sdk.default(config)
+    const request = new sdk.SendSmsRequest({
+      phoneNumbers: phone,
+      signName,
+      templateCode,
+      templateParam: JSON.stringify(vars),
+    })
+    await client.sendSms(request)
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: (e as Error).message }
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
