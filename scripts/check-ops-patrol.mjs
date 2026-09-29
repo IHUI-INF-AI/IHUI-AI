@@ -60,8 +60,15 @@ const ISO = (ms) => new Date(ms).toISOString()
 
 /** 越阈触发器的档位。写在这里是为了让"为什么是这个数"能被打问。 */
 export const LIMITS = {
-  /** 部署环 60s 一轮;10 分钟没新行 = 至少 9 轮没产出。 */
-  deployLoopLogMin: 10,
+  /**
+   * 部署环日志空窗阈值。**25 分钟,不是 10 分钟** —— 2026-09-29 实测:一次 next 构建 5–10 分钟,
+   * "构建尝试 1/4 → 2/4" 之间实测安静 9 分 27 秒(08:38:12→08:47:39),而失败链最多 4 试 + 30 分钟冷却。
+   * 10 分钟那一版会把"正在构建"读成"环停了",每 15 分钟造一次误红(重复告警本身就是缺陷)。
+   * 真正的"环在失败"由 P5b 读日志尾部的 FAIL 标记判,不靠安静判 —— 安静有两种成因。
+   */
+  deployLoopLogMin: 25,
+  /** P5b:日志尾部出现 FAIL/未切流 且晚于最后一次成功切流 ⇒ 环在跑但跑不成(这才是该喊的)。 */
+  deployFailLookbackBytes: 260000,
   /** 备份每日 03:00;留 2 小时抖动余量。 */
   pgDumpMaxAgeHours: 26,
   /** 凭据巡检每 6 小时一轮。 */
@@ -433,6 +440,33 @@ export function checkGrowth({ devEnv }) {
   return out
 }
 
+/**
+ * P5b:部署环"在跑但跑不成"。安静有两种成因(正在构建 / 真的停了),所以心跳那一维**不能**用来判失败 ——
+ * 这里读日志尾部最近一次轮询的收尾退出码(实测版式 `———— 部署轮询结束(exit=1) ————`),
+ * 并带出最近一条 FAIL 原文当证据。读不到收尾行 ⇒ 未判定(可能正在构建中),不读成"没问题"。
+ */
+export function checkDeployLoopOutcome({ logFile = join(REPO, 'deploy/win/deploy-loop.log'), tailBytes = 260000 } = {}) {
+  let text
+  try {
+    const st = statSync(logFile)
+    const fd = readFileSync(logFile)
+    text = fd.subarray(Math.max(0, st.size - tailBytes)).toString('utf8').replace(/\r/g, '')
+  } catch (e) {
+    return { id: 'P5b', state: 'undetermined', detail: `部署日志取不到:${e?.message || e}` }
+  }
+  const ends = [...text.matchAll(/部署轮询结束\(exit=(\d+)\)/g)]
+  if (!ends.length) return { id: 'P5b', state: 'undetermined', detail: '尾部没有"部署轮询结束"行 ⇒ 可能正在构建中,不据此下结论' }
+  const last = ends[ends.length - 1]
+  const pos = last.index
+  const after = text.slice(Math.max(0, pos - 20000), pos)
+  const fails = [...after.matchAll(/FAIL\s+(.+)/g)]
+  if (last[1] === '0') {
+    return { id: 'P5b', state: 'ok', detail: `最近一轮收尾 exit=0${fails.length ? `(同段有 ${fails.length} 条 FAIL 历史行,只报数)` : ''}` }
+  }
+  const why = fails.length ? fails[fails.length - 1][1].trim().slice(0, 160) : '(尾部该段没抓到 FAIL 原文)'
+  return { id: 'P5b', state: 'finding', detail: `最近一轮 exit=1,未切流。最后一条 FAIL:${why}` }
+}
+
 export async function patrol({ now = Date.now(), apply = false, strict = false, devEnv = devEnvRoot(REPO) } = {}) {
   const amUrl = 'http://127.0.0.1:9093/-/reload'
   const promUrl = 'http://127.0.0.1:8815/-/reload'
@@ -474,6 +508,7 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
   add(checkClock({ now }))
   checkGrowth({ devEnv }).forEach(add)
   heartbeatRows({ now, devEnv }).forEach((r) => add({ id: `P5·${r.label}`, state: r.state, detail: `${r.detail}${r.note ? ` | ${r.note}` : ''}` }))
+  add(checkDeployLoopOutcome())
   const baidu = baiduSyncRunning()
   add({
     id: 'P5·网盘同步客户端',
@@ -571,6 +606,33 @@ function junctionNotFollowed() {
   }
 }
 
+/** P5b 的三态成对:红/绿/未判定各喂一份构造日志(只测其中一态等于没测)。 */
+function p5bThreeStates() {
+  const root = scratchRoot()
+  mkdirSync(root, { recursive: true })
+  const base = mkdtempSync(join(root, 'p5b-'))
+  try {
+    const bad = join(base, 'bad.log')
+    const good = join(base, 'good.log')
+    const busy = join(base, 'busy.log')
+    writeFileSync(bad, '[09:08:34] FAIL  git merge --ff-only 本轮远端 tip 分叉需人工收敛\n———— 部署轮询结束(exit=1) ————\n', 'utf8')
+    writeFileSync(good, '———— 部署轮询结束(exit=0) ————\n', 'utf8')
+    writeFileSync(busy, '[09:14:56] 构建尝试 1/4 -> .next-staging\n', 'utf8')
+    const a = checkDeployLoopOutcome({ logFile: bad })
+    const b = checkDeployLoopOutcome({ logFile: good })
+    const c = checkDeployLoopOutcome({ logFile: busy })
+    return a.state === 'finding' && a.detail.includes('分叉') && b.state === 'ok' && c.state === 'undetermined'
+  } catch {
+    return false
+  } finally {
+    try {
+      rmSync(base, { recursive: true, force: true })
+    } catch {
+      /* 清理失败不改判定 */
+    }
+  }
+}
+
 export function selfTest() {
   const cases = []
   const t = (name, cond) => cases.push({ name, pass: (() => { if (typeof cond === 'function') throw new Error(`${name}: cond 是函数 ⇒ 断言从未求值`); return cond === true })() })
@@ -592,6 +654,7 @@ export function selfTest() {
   t('预算截断必须自己喊出来', (() => { const s = measureDir(dir, { maxEntries: 2 }); return s.truncated === true })())
   t('重解析点不得被跟随(真造 junction 测)', junctionNotFollowed())
   t('不存在的目录量不到(返回 null 而非 0)', measureDir(join(REPO, '__no_such_dir__')) === null)
+  t('P5b 三态成对(exit=1 红 / exit=0 绿 / 正在构建 未判定)', p5bThreeStates())
   let pass = 0
   for (const c of cases) {
     console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
@@ -615,5 +678,5 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { measureDir, ageVerdict, parseLastSync, LIMITS, patrol, selfTest }
+export const __test__ = { measureDir, ageVerdict, parseLastSync, LIMITS, patrol, selfTest, checkDeployLoopOutcome, checkRulesLoaded }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
