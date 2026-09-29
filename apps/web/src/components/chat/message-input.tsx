@@ -45,10 +45,6 @@ import { PermissionHistoryPanel } from '@/components/ai/permission-history-panel
 import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
 import { ModeSwitcher } from '@/components/chat/mode-switcher'
 import { SamplingParamsButton } from '@/components/chat/sampling-params-panel'
-// D130(2026-09-30 立):推理强度第三轴 —— 输入区的档位控件。摘掉下面 JSX 里那一行挂载,
-// 档位就永远进不了请求(展示件、store、发送链全都还在,typecheck/lint 一路绿),
-//  apps/web/src/components/chat/__tests__/reasoning-effort-axis-mount.test.tsx 的①③正是守这一行。
-import { ReasoningEffortInputAxis } from '@/components/chat/reasoning-effort-input-axis'
 import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-bridge'
 import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banner'
 // D117(2026-09-27):/diff 会话改动总览弹窗(全局单实例,useSessionDiffStore 驱动)
@@ -1257,14 +1253,6 @@ export function MessageInput({
               onKeyDown={handleKeyDown}
               onPaste={handlePasteWithReferencePreview}
             />
-            {/* D130(2026-09-30 立):推理强度第三轴 —— 挂在 textarea 与底部工具栏之间独占一行。
-                为什么不塞进 ai-input-toolbar:那一行是 overflow-hidden + 容器查询窄屏降级区
-                (<=359px 时连 ModelSelector 的文字都要收起),再挤进"标签 + 四个档位"必然把
-                发送/停止按钮挤出右边界 —— 这条轴点不动比看不见更难查。
-                摘掉下面这一行挂载 ⇒ 档位永远进不了请求(展示件、store、通道全在,
-                typecheck/lint 一路绿),apps/web/src/components/chat/__tests__/
-                reasoning-effort-axis-mount.test.tsx 的①③正是守这一行。 */}
-            <ReasoningEffortInputAxis model={model} disabled={isStreaming} />
             {/* 底部工具栏:左侧 / @ 触发按钮,右侧 ContextUsageRing + ModelSelector + VoiceInput
                 + 流式指示(发送/停止按钮已上移至 WebInputCore)
                 ai-input-toolbar + globals.css 原生 CSS container query:
