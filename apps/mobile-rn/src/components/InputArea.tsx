@@ -5,6 +5,9 @@
 /**
  * InputArea 多行输入区(mobile-rn)— 聊天 / 反馈 / 评论场景通用输入区
  *
+ * 平台特有:本端的命中外扩(hitSlop)、安全区补偿(useSafeAreaInsets)、折叠 FAB 态、参数变量行、
+ * 框内字符放大钮与波形条,都依赖 RN API,小程序端没有这些元素,故其档位天然只在本端取用(AGENTS §3)。
+ *
  * 设计要点:
  * - 容器:浅色 surface.card 底 + 顶部 1px border,flex row,底部对齐
  * - 多行 TextInput:自动撑高(上限 120,放大后无上限),1px 边框 + 圆角 sm(4)
@@ -90,6 +93,9 @@ import {
   INPUT_AREA_CONTROL_RIGHT_PX,
   INPUT_AREA_SECONDARY_FONT_PX,
   INPUT_AREA_GLYPH_LG_PX,
+  // 语音/键盘切换钮的图标墨迹 20:与小程序端 `<LineIcon name="mic"/"keyboard">` 同一枚档
+  // (spec 注的三处同源之一就是本文件这三站,收编前这里写裸 20)
+  INPUT_AREA_GLYPH_MD_PX,
   INPUT_AREA_THUMB_GLYPH_PX,
   INPUT_AREA_CONTROL_GLYPH_PX,
   INPUT_AREA_VOICE_BTN_WIDTH_PX,
@@ -528,7 +534,7 @@ export function InputArea({
                 <ActivityIndicator size="small" color={tokens.text.secondary} />
               ) : (
                 <Mic
-                  size={20}
+                  size={INPUT_AREA_GLYPH_MD_PX}
                   color={voiceRecording ? tokens.danger.DEFAULT : tokens.text.secondary}
                 />
               )}
@@ -659,9 +665,9 @@ export function InputArea({
                 accessibilityLabel={voiceActive || voiceInput ? '切换到键盘' : '切换到语音'}
               >
                 {voiceActive || voiceInput ? (
-                  <Keyboard size={20} color={tokens.text.secondary} />
+                  <Keyboard size={INPUT_AREA_GLYPH_MD_PX} color={tokens.text.secondary} />
                 ) : (
-                  <Mic size={20} color={tokens.text.secondary} />
+                  <Mic size={INPUT_AREA_GLYPH_MD_PX} color={tokens.text.secondary} />
                 )}
               </TouchableOpacity>
             ) : null}
