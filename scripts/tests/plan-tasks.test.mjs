@@ -1345,3 +1345,58 @@ test('M28 归并/折叠产物不得被本票点亮:【归并】前缀行题面�
   if (b.claimableRows.some((r) => r.raw === M24_LONGPUSH))
     throw new Error('已带【归并】指针的副本重新进了派单口径 ⇒ 本票把它修成了"同一件事派两遍"')
 })
+
+/**
+ * M-ABS 绝对层的定级(2026-09-29):基线存量红**不得**拦无关提交,而差值红**必须**照拦。
+ * 三条各是一次变异对照 —— 少任何一条,这台门要么恒红(全队跳钩子),要么被降级顺手拆掉拦点。
+ */
+test('M-ABS 绝对层只在问责档判红,提交链(差值档)只报数;差值棘轮一行未放宽', () => {
+  const base = JSON.parse(
+    readFileSync(new URL('../../scripts/plan-task-state-baseline.json', import.meta.url), 'utf8'),
+  )
+  const mk = (forks, newUndisposed) => ({
+    counts: {
+      forks,
+      voidRows: 0,
+      rotatedPointers: 0,
+      rotatedAuto: 0,
+      rotatedNoExit: 0,
+      dupOpenCopies: 0,
+      verbatimDupCopies: 0,
+      dupBlocks: 0,
+      newUndisposed,
+      mergeNotes: 9e6,
+      stale: 0,
+      undated: 0,
+      undetermined: 0,
+    },
+    collisions: [],
+    malformedRows: [],
+    staleRows: [],
+  })
+  const silenced = console.log
+  console.log = () => {}
+  let rcGrewWithBefore, rcAbsOnlyWithBefore, rcAbsOnlyStrict, rcAbsOnlyFull, rcDiffGrew
+  try {
+    // 存量比基线高、而本次提交什么都没带 ⇒ 链上不得拦
+    rcAbsOnlyWithBefore = gate(mk(9e5, 0), false, ROOT, mk(9e5, 0), null)
+    // 同一份增长在问责档(--strict)必须红,否则降级等于拆门
+    rcAbsOnlyStrict = gate(mk(9e5, 0), true, ROOT, mk(9e5, 0), null)
+    // 全量档(没有 before)同样必须红 —— 它是 CI/人工问责的另一条腿
+    rcAbsOnlyFull = gate(mk(9e5, 0), false, ROOT, null, null)
+    // 差值棘轮:本次新增分叉必须 exit 1(绝对层降级不得连带放宽它)
+    rcDiffGrew = gate(mk(0, 1), false, ROOT, mk(0, 0), null)
+    rcGrewWithBefore = gate(mk(1, 0), false, ROOT, mk(0, 0), null)
+  } finally {
+    console.log = silenced
+  }
+  if (base.F1 !== 0) throw new Error(`本用例假设基线 F1 地板是 0,实为 ${JSON.stringify(base.F1)}`)
+  const want = (label, got, exp) => {
+    if (got !== exp) throw new Error(`${label}:期望 exit ${exp},实得 ${got}`)
+  }
+  want('存量增长在提交链(差值档)只报数,不拦无关提交', rcAbsOnlyWithBefore, 0)
+  want('问责档 --strict 必须仍判红 —— 降级不得变成拆门', rcAbsOnlyStrict, 1)
+  want('全量档(无 before)必须仍判红', rcAbsOnlyFull, 1)
+  want('差值棘轮必须照拦(链上真正的拦点)', rcDiffGrew, 1)
+  want('本次提交让 F1 变多必须 exit 1', rcGrewWithBefore, 1)
+})
