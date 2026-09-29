@@ -101,10 +101,6 @@ export * from './cloud-chat-ops'
 // 与 D71 turn-status 正交(turn 阶段/负载等待两维度);isInducementRisk 对齐 D67 口径;
 // 数据面 model_queue 帧归 D34 批次,帧落地前渲染件恒 null 不用假数据占位)
 export * from './model-load'
-// D153b / D154 per-user 广播的跨端消费层(会话元数据账本 + MCP 连接状态账本 + 状态行取词):
-// 小程序端与 App(RN)端共用这一份实现,端内只留平台 adapter(取 token / WS 工厂 / 提示出口)。
-// 判据只吃 @ihui/types 的判别联合,本层不声明任何事件名清单 —— 名单抄进端内就是第二份真相。
-export * from './user-broadcast-store'
 // D76 产物归属 turn 派生层(分型判据 + originating turn 序列 + 轮次序号 + 产物锚点→轮下标;
 // 纯函数零平台依赖,web 渲染层 artifact-turn-badge 原样 re-export,残余票 2026-09-25 自端内提取)
 export * from './artifact-turn'

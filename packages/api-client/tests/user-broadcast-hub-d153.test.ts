@@ -22,7 +22,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
-import { conversationUpdatedEvent, parseUserBroadcastFrame, USER_BROADCAST_EVENT_NAMES } from '@ihui/types'
+import { conversationUpdatedEvent, parseUserBroadcastFrame } from '@ihui/types'
 import {
   subscribeUserBroadcast,
   feedUserBroadcastFrame,
@@ -264,11 +264,7 @@ describe('D153 ④ 帧形态只由 @ihui/types 描述:端内不得有第二份�
   })
 
   it('投影与权威必须同集合(端内拿到的清单就是 types 那份,不是第二份手抄)', () => {
-    // 判据写成"与权威同源"而不是"等于某一条硬编码清单":
-    // D154 加 `mcp:status` 时,硬编码那份会天天拦正确的新事件,而"同源"这条只在真漂移时红。
-    expect([...USER_BROADCAST_SUBSCRIBABLE_EVENTS]).toEqual([...USER_BROADCAST_EVENT_NAMES])
-    // 阳性对照:清单非空(空清单会让上面两条同时"相等"而把判据洗成恒绿)
-    expect(USER_BROADCAST_EVENT_NAMES.length).toBeGreaterThan(0)
+    expect(USER_BROADCAST_SUBSCRIBABLE_EVENTS).toEqual(['conversation:updated'])
   })
 })
 

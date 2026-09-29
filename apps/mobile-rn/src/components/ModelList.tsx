@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   check: {
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: 10, // radius-exempt: 20x20 圆形勾选底,半径=边长一半
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
