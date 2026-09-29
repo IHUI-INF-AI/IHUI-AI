@@ -784,8 +784,12 @@ export function findAbsentGateScripts(runnerText, hasPath) {
       }
       checked += 1
       // 与 runner 同一套解析:`node scripts/${check.script}`(实测 guardian-runner.mjs:4150)
-      const rel = `scripts/${name}`
-      if (!hasPath(rel)) absent.push({ id, script: name, why: `${rel} 不在被审面上` })
+      // `script:` 有两种合法写法都要认:`'check-x.mjs'`(真仓 195 条)与 `'scripts/check-x.mjs'`
+      // (2026-09-29 的 id 165 起出现的第 1 条 —— runner 两种都能跑)。盲拼会把后者读成
+      // `scripts/scripts/…`,于是**注册与门体都在 HEAD 里却被判"门体缺席"** = 假阳恒红。
+      // 假阳在这一型上尤其贵:89 是 blocking,它一红就每台每次 --no-verify、连带链上全部守门作废(§12f)。
+      const rel = name.startsWith('scripts/') ? name : `scripts/${name}`
+      if (!hasPath(rel)) absent.push({ id, script: name, rel, why: `${rel} 不在被审面上` })
       return
     }
     // 走到这里 = 该条目没有 script: 行(非门体脚本类条目),不计红也不计入 checked
@@ -1372,7 +1376,7 @@ async function main(argv = process.argv.slice(2)) {
   }
   for (const a of r9.absent) {
     reds.push({
-      script: `(runner id '${a.id}' → scripts/${a.script})`,
+      script: `(runner id '${a.id}' → ${a.rel || `scripts/${a.script}`})`,
       status: 'red-r9',
       reason:
         a.why ||
@@ -1983,7 +1987,18 @@ function runSelfTest() {
   assert(
     'P35 R9 正向:注册点名 scripts/ghost.mjs 而面上没有 ⇒ 必判红并点名 id 与路径(本仓 2026-09-27 门 148 那一型)',
     JSON.stringify(findAbsentGateScripts(regS('148', "script: 'ghost.mjs',"), hasA).absent) ===
-      '[{"id":"148","script":"ghost.mjs","why":"scripts/ghost.mjs 不在被审面上"}]',
+      '[{"id":"148","script":"ghost.mjs","rel":"scripts/ghost.mjs","why":"scripts/ghost.mjs 不在被审面上"}]',
+  )
+  // P35b/P35c 成对:注册把路径写全(`script: 'scripts/a.mjs'`)是 runner 也认的第二种形态。
+  // 只测其中一条等于没测 —— 少"真缺席仍须红"那条,归一化就可能被写成无条件放过。
+  assert(
+    'P35b R9 全路径写法且面上有 ⇒ 不得判红(假阳恒红会把每台每次逼成 --no-verify)',
+    findAbsentGateScripts(regS('165', "script: 'scripts/a.mjs',"), hasA).absent.length === 0,
+  )
+  assert(
+    'P35c R9 全路径写法而面上真没有 ⇒ 仍必红,且点名的是解析后的路径、不是 scripts/scripts/…',
+    JSON.stringify(findAbsentGateScripts(regS('165', "script: 'scripts/deep/x.mjs',"), hasA).absent) ===
+      '[{"id":"165","script":"scripts/deep/x.mjs","rel":"scripts/deep/x.mjs","why":"scripts/deep/x.mjs 不在被审面上"}]',
   )
   assert(
     'P36 R9 负向:面上有 ⇒ 不判红,且 checked 计到这一条(不得把"没解析到"当"都好了")',
@@ -2008,7 +2023,7 @@ function runSelfTest() {
       JSON.stringify(
         findAbsentGateScripts(regS('70', "script: 'a.mjs',") + regS('71', "script: 'b.mjs',"), hasA)
           .absent,
-      ) === '[{"id":"71","script":"b.mjs","why":"scripts/b.mjs 不在被审面上"}]',
+      ) === '[{"id":"71","script":"b.mjs","rel":"scripts/b.mjs","why":"scripts/b.mjs 不在被审面上"}]',
   )
   assert(
     'P40 R9 label 里的 "script: 文案" 不得抢走真注册(被文案遮蔽=假绿,比误红贵);非文件名的值落「判不出」不判红',

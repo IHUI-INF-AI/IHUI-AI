@@ -813,7 +813,7 @@
       "path": "apps/zcode-cli/packages/core/src",
       "status": "windowed",
       "files": 500,
-      "read": 366,
+      "read": 386,
       "notes": "W5 四路按互斥目录读到体:tool 176/72(根17+executor22+handlers33;窗口6:call-runner/permission-flow/result-serialization/read/edit/bash;仅结构1:generated/bash-command-registry.ts 系 1.8MB ISC 数据块)、runtime 164/25(窗口2:events/streaming-tool-coordinator)、workflow+subagent+context+agent+memory 89/85(subagent/runner.ts 与 agent/ 三件仅窗口读,不计 read)、小而密长尾 71/66(hooks19/19、permission6/6、compact6/6、runtime-task5/5、plugin-reference4/4、session-context4/4、mcp3/3、system-reminder3/3、embedded-search2/2、errors·model·telemetry 各1/1、顶层散件4/4、browser-client7/3、repl5/4)。⚠️ read=248 是【下界】不是相加值:W3 旧登记的 44 个按 notes 判定全部落在上述目录内(tool/handlers 4、runtime/methods 14、runtime/helpers+subagent+system-reminder 11、a-m/n-z 15),父子相加会双计;真实区间 [248,292]。⚠️ 刻意不新增子切片条目:M1 只判覆盖不判互斥,而头条按切片求和 ⇒ 父子并存等于给覆盖数发合格证;目录明细只写在本字段。W5-A 报的『审批等待吃掉执行预算』已三面证伪(runToolInner/requestToolApproval 全仓零命中),不得重新提出。 ｜09-29 第五十九批:core 竞窗与权限三簇 +11 枚具名整读到体(runtime-task/registry 296、tool/executor/background-task-registry 289、background-tasks 1198、runtime/methods/background 484、background-notifications 246、runtime-command-queue 476、command-queue 241、permission/service 687、broker 166、permission-responder-race 93、helpers/permission-broker 25)。少报(代理自报只读到区间,不计整读):permission-flow.ts(431,只 100-236)、headless-workflow.ts(379,只 1-60/290-355)、prompt-command.ts(642,只 295-340)。;W6-67(2026-09-29)两路只读取证:core 余量 45 份/8,935 行、ui 行为核心 5 份/2,439 行,去重后入账 42 份(core 42/ui 5),3 份与既有清单同路径已按\"下界\"少报(interaction-auto-resolution / permission-grant-recovery / permission-grant-resume);W6-68(2026-09-29)只读取证 13 份,去重后可入账 13 份,行数逐条 wc 复核、锚点逐条 awk 回读;W6-69(2026-09-29)只读取证并入账 4 份(逐条 wc 复核,誊写不符者已排除并报名)",
       "remaining": "约 251 未读。tool 余 97:background-tasks.ts 1198、result-display 461、read-session-context 440、edit-matchers/node-repl/create-workflow 411、store/read-pdf/cron/bash-command-permission-policy 38x。runtime 余 137:session-fork 1487、steering 1403、types 924、subagent 915、turn 872、turn-model-step 803、rewind-message 740、compact-active 725、file-rewind 717、agent-runtime 664、turn-tools 527、model 518。窗口读过的 events.ts / streaming-tool-coordinator.ts / subagent/runner.ts / agent 三件需回读补体。 ｜09-29 第六十四批复量回填:主会话 wc -l 逐份现量后具名整读到体 +13(代理报 14 枚候选,跳过 1 枚重叠/取不到);新立票 9 枚(G-815969…G-815977),每票的我方侧命中数由主会话在 HEAD 面重跑。 ｜09-29 第六十五批复量回填:代理报 9 份而逐名去重后计 +5(其余已在历史 notes 点过名,重叠不可计算);新证据 8 条按 b≤wc -l 兑现;新票 3 枚(G-815980…G-815981…G-815982)。 | W6-67 后本区余量:core 约 155-165 份未读(下一刀 subagent.ts+background-tasks.ts+task-output*/task-stop,再 compact.ts+compact-selection+context-usage+media-budget,后转 mcp/memory/workflow 整域);ui 约 1545 份/324,983 行未读(下一刀 packages/ui/src/v4 下 *.ts 非 .tsx:实测 60 份/约 9,100 行) | W6-68 后 core 同族还差 2 份/326 行(workflow-published-artifacts.ts 余 71-234、result-persistence-format.ts 未读);下一刀 tool/executor 的结果出口三件 result-display.ts 461 + result-serialization.ts 395 + permission-flow.ts 431(约 1,287 行),再 call-runner.ts 703 与 handlers/bash.ts 569(为 G-816026 的\"谁发的 SIGTERM\"落点写实)",
       "evidence": [
@@ -890,7 +890,9 @@
         "apps/zcode-cli/packages/core/src/tool/executor/hook-flow.ts:83-122",
         "apps/zcode-cli/packages/core/src/tool/executor/permission-flow.ts:248-266",
         "apps/zcode-cli/packages/core/src/tool/executor/permission-input-recheck.ts:71-83",
-        "apps/zcode-cli/packages/core/src/tool/executor/batch-runner.ts:130-156"
+        "apps/zcode-cli/packages/core/src/tool/executor/batch-runner.ts:130-156",
+        "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-evaluation.ts:28-68",
+        "apps/zcode-cli/packages/core/src/hooks/runner.ts:61-90"
       ],
       "tickets": [
         "G-373",
@@ -1382,6 +1384,86 @@
         {
           "p": "apps/zcode-cli/packages/core/src/tool/executor/utils.ts",
           "lines": 26
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-types.ts",
+          "lines": 23
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-domain.ts",
+          "lines": 4
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-records.ts",
+          "lines": 38
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-evaluation.ts",
+          "lines": 99
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-policy.ts",
+          "lines": 63
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-telemetry.ts",
+          "lines": 101
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/configured-runner.ts",
+          "lines": 191
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/configured-runner-input.ts",
+          "lines": 159
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/display-metadata.ts",
+          "lines": 71
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/index.ts",
+          "lines": 21
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/executor/types.ts",
+          "lines": 242
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/executor/workflow-observation-display.ts",
+          "lines": 335
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/executor/workflow-published-artifacts.ts",
+          "lines": 234
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/executor/permission-rules-persistence.ts",
+          "lines": 67
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/executor/permission-capability.ts",
+          "lines": 49
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/executor/model-status-sink.ts",
+          "lines": 51
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/executor/display-text.ts",
+          "lines": 38
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/executor/create-workflow-display.ts",
+          "lines": 59
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/executor/bash-result-display.ts",
+          "lines": 26
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/executor/telemetry.ts",
+          "lines": 30
         }
       ],
       "readFilesNote": "readFiles 覆盖 13 份(逐条 wc -l 现量相符);其余 259 份属早期自报读数、无清单 ⇒ M12 计为不可复核,头条分开报两个数。"
@@ -1733,7 +1815,7 @@
       "path": "apps/zcode-cli/packages/contracts",
       "status": "windowed",
       "files": 113,
-      "read": 51,
+      "read": 55,
       "remaining": "95 未读:interfaces 22(dynamic-workflow-run.port.ts 1037、session.events.ts 1238 仅窗口读)、tools 38、events 5、model 6、hooks/workspace-hook-trust.ts 324 余下。read 只算净新增:W6-C 整读到体 13 枚,其中 contract.ts 与 capabilities/index.ts 与旧 read=7 重叠 ⇒ 净 +11,不重复计。 ｜09-29 第十九轮回填:本轮具名整读到体 4 枚,其中 3 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十一轮回填:契约层报告(tools/events/model/interfaces)具名 7 枚、新指针 7 枚可兑现 ｜09-29 第六十六批具名回填:本区 +6 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。",
       "evidence": [
         "apps/zcode-cli/packages/contracts/src/tools/contract.ts:174",
@@ -1763,7 +1845,10 @@
         "apps/zcode-cli/packages/contracts/src/events/session.events.ts:307-318",
         "apps/zcode-cli/packages/contracts/src/interfaces/dynamic-workflow-run.port.ts:175-182",
         "apps/zcode-cli/packages/contracts/src/interfaces/dynamic-workflow-run.port.ts:556-582",
-        "apps/zcode-cli/packages/contracts/src/interfaces/dynamic-workflow-run.port.ts:734-754"
+        "apps/zcode-cli/packages/contracts/src/interfaces/dynamic-workflow-run.port.ts:734-754",
+        "apps/zcode-cli/packages/contracts/src/workflow/index.ts:11-18",
+        "apps/zcode-cli/packages/contracts/src/workflow/script.ts:73-80",
+        "apps/zcode-cli/packages/contracts/src/interfaces/dynamic-workflow-run.port.ts:212-217"
       ],
       "tickets": [
         "G-464",
@@ -1858,6 +1943,22 @@
         {
           "p": "apps/zcode-cli/packages/contracts/src/interfaces/dynamic-workflow-run.port.ts",
           "lines": 1037
+        },
+        {
+          "p": "apps/zcode-cli/packages/contracts/src/workflow/index.ts",
+          "lines": 829
+        },
+        {
+          "p": "apps/zcode-cli/packages/contracts/src/workflow/script.ts",
+          "lines": 345
+        },
+        {
+          "p": "apps/zcode-cli/packages/contracts/src/interfaces/workflow.port.ts",
+          "lines": 43
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4/command-inbox.ts",
+          "lines": 505
         }
       ]
     },
