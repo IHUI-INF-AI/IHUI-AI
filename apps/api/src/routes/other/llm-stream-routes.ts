@@ -13,9 +13,6 @@ import { error } from '../../utils/response.js'
 import { db } from '../../db/index.js'
 import { llmCallLogs } from '@ihui/database'
 import { aiServiceFetchStream } from '../../utils/ai-service-fetch.js'
-// D172(2026-09-29 立):trace id 只能取自本仓那一份 traceparent 解析实现(utils/trace-context.ts),
-// 不得在本文件再 split('-') 一次 —— 两处算同一件事必漂移。
-import { traceIdFromRequest } from '../../utils/trace-context.js'
 
 const llmStreamSchema = z.object({
   messages: z
@@ -146,8 +143,6 @@ export const llmStreamRoutes: FastifyPluginAsync = async (server) => {
           status,
           errorMessage,
           conversationId: conversationId ?? null,
-          // D172:与本轮响应头 X-Trace-Id 同一个 id(同一份 traceparent 投影,不另算)。
-          traceId: traceIdFromRequest(request),
         })
       } catch (e) {
         request.log.warn(
