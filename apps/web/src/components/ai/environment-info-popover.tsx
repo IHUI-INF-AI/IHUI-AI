@@ -18,6 +18,7 @@ import {
   Monitor,
   Plus,
   RefreshCw,
+  Server,
   Settings2,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -29,8 +30,15 @@ import { useEnvironmentInfoStore } from '@/stores/environment-info'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
+import { runCommand } from '@ihui/api-client'
 import type { GitStatusSnapshot } from '@ihui/types'
 import type { GithubStatus } from '@ihui/api-client'
+// D177:本地服务探测(命令选择+输出解析纯函数面,见 lib/local-services)
+import {
+  localServiceProbeCommand,
+  parseListeningPorts,
+  type LocalServiceEntry,
+} from '@/lib/local-services'
 import { EnvironmentCommitDialog } from './environment-commit-dialog'
 import { EnvironmentInfoFullDialog } from './environment-info-full-dialog'
 import { GithubConfigDialog } from './github-config-dialog'
@@ -106,6 +114,7 @@ export function EnvironmentInfoPopover() {
         {hasWorkspace && snapshot && (
           <PopoverBody
             snapshot={snapshot}
+            workspacePath={workspacePath}
             onCommit={openCommitDialog}
             onOpenGithubConfig={openGithubConfig}
             githubStatus={githubStatus}
@@ -193,12 +202,15 @@ function ErrorHint({ message, onRetry, t }: { message: string; onRetry: () => vo
 
 function PopoverBody({
   snapshot,
+  workspacePath,
   onCommit,
   onOpenGithubConfig,
   githubStatus,
   t,
 }: {
   snapshot: GitStatusSnapshot
+  /** D177:本地服务探测经 runCommand 在 workspace 下执行(有快照必有工作区) */
+  workspacePath: string
   onCommit: () => void
   onOpenGithubConfig: () => void
   githubStatus: GithubStatus | null
@@ -393,6 +405,128 @@ function PopoverBody({
           onClick={handleCompare}
           testId="env-info-row-compare"
         />
+      )}
+
+      {/* D177:本地服务探测行(展开首次拉取 + 刷新按钮重探 + 空态) */}
+      <LocalServersSection
+        workspacePath={workspacePath}
+        platform={snapshot.platform ?? 'other'}
+        t={t}
+      />
+    </>
+  )
+}
+
+// ===== 本地服务探测(D177) =====
+
+/**
+ * LocalServersSection — 环境卡「本地服务」行:展开时经 runCommand 探测 workspace
+ * 的 TCP 监听端口(netstat/lsof,失败回退 ss),清单 + 手动刷新 + 空态。
+ * 探测是显式动作(展开/点刷新),不在打开 popover 时自动跑,避免无谓的进程表开销。
+ */
+function LocalServersSection({
+  workspacePath,
+  platform,
+  t,
+}: {
+  workspacePath: string
+  platform: string
+  t: EnvT
+}) {
+  const [expanded, setExpanded] = React.useState(false)
+  const [servers, setServers] = React.useState<LocalServiceEntry[] | null>(null)
+  const [probing, setProbing] = React.useState(false)
+
+  const probe = React.useCallback(async () => {
+    setProbing(true)
+    try {
+      const { command, format } = localServiceProbeCommand(platform)
+      const res = await runCommand({ command, workspacePath })
+      if (res.success) {
+        setServers(parseListeningPorts(format, res.data.stdout))
+        return
+      }
+      if (format === 'lsof') {
+        // lsof 缺失(常见于精简 Linux 环境)→ 回退 ss
+        const fallback = await runCommand({ command: 'ss -ltnp', workspacePath })
+        if (fallback.success) {
+          setServers(parseListeningPorts('ss', fallback.data.stdout))
+          return
+        }
+      }
+      setServers([])
+    } catch {
+      setServers([])
+    } finally {
+      setProbing(false)
+    }
+  }, [platform, workspacePath])
+
+  // 首次展开拉一次;之后仅由刷新按钮显式重探(servers 置位后不再自动触发)
+  React.useEffect(() => {
+    if (expanded && servers === null && !probing) void probe()
+  }, [expanded, servers, probing, probe])
+
+  return (
+    <>
+      <div className="flex h-8 items-center pr-2" data-testid="env-info-row-local-servers">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="flex h-8 flex-1 items-center gap-2 px-3 text-left transition-colors hover:bg-accent/40"
+        >
+          <span className="flex h-4 w-4 shrink-0 items-center text-muted-foreground">
+            <Server className="h-4 w-4" aria-hidden />
+          </span>
+          <span className="flex-1 truncate text-[13px] text-foreground">
+            {t('localServers')}
+          </span>
+          {expanded ? (
+            <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          )}
+        </button>
+        <IconButton
+          onClick={() => void probe()}
+          aria-label={t('refreshLocalServers')}
+          data-testid="env-info-local-servers-refresh"
+          className="h-6 w-6 shrink-0 rounded-sm"
+        >
+          <RefreshCw className={cn('h-3 w-3', probing && 'animate-spin')} aria-hidden />
+        </IconButton>
+      </div>
+      {expanded && (
+        <div
+          className="space-y-1 bg-muted/30 px-3 py-1.5 text-[12px] text-muted-foreground"
+          data-testid="env-info-local-servers-details"
+        >
+          {probing && servers === null ? (
+            <div className="flex items-center gap-1.5" data-testid="env-info-local-servers-probing">
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+              <span>{t('loading')}</span>
+            </div>
+          ) : !servers || servers.length === 0 ? (
+            <span data-testid="env-info-no-local-servers">{t('noLocalServers')}</span>
+          ) : (
+            servers.slice(0, 12).map((s, i) => (
+              <div
+                key={`${s.port}-${s.pid ?? 'x'}-${i}`}
+                className="flex items-center gap-1.5"
+                data-testid="env-info-local-server"
+              >
+                <span className="font-mono text-foreground">:{s.port}</span>
+                {s.name ? <span className="truncate">{s.name}</span> : null}
+                {s.pid ? (
+                  <span className="ml-auto shrink-0 font-mono text-muted-foreground/70">
+                    pid {s.pid}
+                  </span>
+                ) : null}
+              </div>
+            ))
+          )}
+        </div>
       )}
     </>
   )
