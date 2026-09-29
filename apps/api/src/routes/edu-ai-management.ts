@@ -35,7 +35,10 @@ import {
   settleRefund,
   voidPaymentRecord,
 } from '../services/edu-ledger.js'
-import { dispatchArrearChannels } from '../services/edu-arrear-remind-service.js'
+import {
+  aggregateDeliveries,
+  dispatchArrearChannels,
+} from '../services/edu-arrear-remind-service.js'
 import { findScheduleConflicts } from '../services/edu-schedule-conflict.js'
 import {
   eduTerm,
@@ -5321,7 +5324,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const windowCond = gte(eduFeeReminder.createdAt, since)
     const dayExpr = sql<string>`to_char(${eduFeeReminder.createdAt}, 'YYYY-MM-DD')`
 
-    const [totalRow, byChannel, byDay] = await Promise.all([
+    const [totalRow, byChannel, byDay, deliveryRows] = await Promise.all([
       db.select({ n: count() }).from(eduFeeReminder).where(windowCond),
       db
         .select({ channel: eduFeeReminder.channel, status: eduFeeReminder.status, n: count() })
@@ -5334,7 +5337,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         .where(windowCond)
         .groupBy(dayExpr)
         .orderBy(dayExpr),
+      db.select({ delivery: eduFeeReminder.delivery }).from(eduFeeReminder).where(windowCond),
     ])
+    const delivery = aggregateDeliveries(deliveryRows)
 
     return reply.send(
       success({
@@ -5343,8 +5348,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         total: totalRow[0]?.n ?? 0,
         byChannel,
         byDay,
+        // 真实触达计数(仅覆盖已落回执的留痕;更早的行计入 unknown,不猜任何一侧)
+        delivery,
         caveat:
-          '本统计为催缴**留痕**计数,不等于送达:通道级回执(sent/failed/not_configured/no_phone,以及微信 user_refused)未落库,只回给调用方并写日志。要算真实触达率需先把逐收件人回执持久化。',
+          'byChannel/byDay 是催缴**留痕**计数(登记了几条、走哪条通道、留痕状态),不等于送达。' +
+          '真实触达看 delivery.buckets:仅统计已落逐收件人回执的留痕,' +
+          `其余 ${delivery.unknownReminders} 条(该列落地前的历史行)归入 unknownReminders,不计入任何一侧。`,
       }),
     )
   })
