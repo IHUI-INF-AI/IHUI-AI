@@ -40,6 +40,9 @@ node scripts/benchmark-diff-matrix.mjs
 node scripts/benchmark-asar-read.mjs --self-test
 node scripts/benchmark-diff-matrix.mjs --self-test
 node --test scripts/tests/benchmark-evidence-tools.test.mjs
+# 我方侧两件清单(帧×端 与 量化显示项×端)重跑即覆盖,表里每个格子都是 git grep 的读数:
+node scripts/benchmark-frame-end-matrix.mjs
+node scripts/benchmark-ours-quantitative.mjs
 ```
 
 `scripts/benchmark-asar-read.mjs` 的头解析按 asar 官方格式：前 8 字节 pickle 前言，`readUInt32LE(4)` 给 header 块大小，

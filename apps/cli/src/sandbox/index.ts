@@ -27,6 +27,15 @@ export interface SandboxOptions {
   cwd: string;
   timeoutMs?: number;
   maxOutputBytes?: number;
+  /**
+   * 到点改收编不杀(G-896416,仅异步变体有意义):提供时,内部 deadline 触发**不杀进程、
+   * 不置 timedOutFlag**,只回调一次 —— 调用方(build run_command 的超时自动转后台)
+   * 在回调里把 ChildProcess 收编进后台注册表,此后生命周期归注册表,本函数的
+   * result Promise 继续等到 close(自然退出或日后被注册表杀)才结算。
+   * 语义锚点:上游 ZCode `runBashWithBackgroundLifecycle(request, {mode:"auto_on_timeout"})`
+   * 的前台/后台化双终态 —— 到点是分叉点不是终点。
+   */
+  onDeadline?: () => void;
   /** POSIX only: 子进程最大内存(RSS,bytes)。Windows 上忽略。 */
   maxMemoryBytes?: number;
   /** POSIX only: 子进程最大 CPU 时间(ms)。Windows 上忽略。 */
@@ -884,6 +893,13 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
   const result = new Promise<SandboxResult>((resolve) => {
     const timer = setTimeout(() => {
       if (!settled) {
+        // G-896416 收编模式:到点把"杀不杀"的决定让给回调方 —— 不置 timedOutFlag
+        // (本函数没杀,不能谎报超时),不 killTree;若到点时进程已恰好自行退出,
+        // close 事件已把 settled 置位,这里自然不会再走。
+        if (opts.onDeadline) {
+          opts.onDeadline();
+          return;
+        }
         timedOutFlag = true;
         killTree();
         setTimeout(() => {
