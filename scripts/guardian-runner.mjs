@@ -4153,6 +4153,21 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 🧾 教育欠费口径单一出口对账(blocking,AR1 出口外重写算式/AR2 裸写派生列)(1 项,blocking)---
+  {
+    id: '165',
+    label:
+      '🧾 教育欠费口径单一出口对账(blocking,AR1 出口外重写算式/AR2 裸写派生列)',
+    script: 'check-edu-arrears-single-source.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_EDU_ARREARS_SINGLE_SOURCE',
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
