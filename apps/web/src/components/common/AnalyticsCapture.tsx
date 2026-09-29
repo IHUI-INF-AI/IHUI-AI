@@ -22,6 +22,7 @@
  */
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
+import { stripUrlCredentialSegments } from '@ihui/shared/utils/sanitize-url'
 import { useAuthStore } from '@/stores/auth'
 
 const REPORT_URL = '/api/analytics/track' // method: POST
@@ -138,16 +139,21 @@ export function AnalyticsCapture() {
       const anchor = target.closest('a')
       if (anchor) {
         const href = anchor.getAttribute('href') ?? ''
+        // 埋点落 analytics_events 前先剥凭据段:签名下载链接(`.mp4?sig=` 正落这一支)不得带原文进上报面
+        const safeHref = stripUrlCredentialSegments(href)
         const download = anchor.getAttribute('download')
         if (download || DOWNLOAD_RE.test(href)) {
-          emit('download', download || href.split('/').pop() || href, {
+          emit('download', download || safeHref.split('/').pop() || safeHref, {
             category: 'download',
-            url: href.slice(0, 200),
+            url: safeHref.slice(0, 200),
           })
           return
         }
         if (anchor.target === '_blank' && /^https?:\/\//.test(href)) {
-          emit('link_out', href.slice(0, 100), { category: 'navigation', url: href.slice(0, 200) })
+          emit('link_out', safeHref.slice(0, 100), {
+            category: 'navigation',
+            url: safeHref.slice(0, 200),
+          })
           return
         }
       }
