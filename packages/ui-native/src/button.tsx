@@ -6,22 +6,28 @@ import type { ComponentProps, ReactNode } from 'react'
 import { useCallback, useEffect, useRef } from 'react'
 import { ActivityIndicator, Pressable, Text } from 'react-native'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { cn, type ButtonBaseProps } from '@ihui/design-tokens'
+import {
+  cn,
+  SHARED_BUTTON_BASE_CLASS,
+  SHARED_BUTTON_SIZE_CLASSES,
+  SHARED_BUTTON_VARIANT_CLASSES,
+  type ButtonBaseProps,
+} from '@ihui/design-tokens'
 
 import { registerUiField, type UiFieldHandle } from './field-host'
 
-export const buttonVariants = cva('flex flex-row items-center justify-center rounded-md', {
+// 共享 variant/size 档位唯一源:@ihui/design-tokens 的 button-variants.ts(ui-react 同源)。
+// 本端只追加 RN 独占的 md size;平台修饰(hover/shadow)在 RN 侧不存在,故不追加。
+// default 档由共享配置给 `bg-cta text-cta-foreground`(AGENTS §4 主 CTA 唯一写法),
+// 替换此前的 `bg-primary text-primary-foreground`(值全等、语义错位 —— primary 在 web 兼任墨色)。
+export const buttonVariants = cva(`flex flex-row ${SHARED_BUTTON_BASE_CLASS} rounded-md`, {
   variants: {
     variant: {
-      default: 'bg-primary text-primary-foreground',
-      destructive: 'bg-destructive text-destructive-foreground',
-      outline: 'border border-input bg-transparent text-foreground',
-      ghost: 'bg-transparent text-foreground',
+      ...SHARED_BUTTON_VARIANT_CLASSES,
     },
     size: {
-      sm: 'h-8 px-3',
+      ...SHARED_BUTTON_SIZE_CLASSES,
       md: 'h-10 px-4',
-      lg: 'h-12 px-6',
     },
   },
   defaultVariants: { variant: 'default', size: 'md' },
