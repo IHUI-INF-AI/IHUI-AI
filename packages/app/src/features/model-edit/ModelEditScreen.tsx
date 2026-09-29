@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type {
   ModelEditAudience,
@@ -16,6 +16,7 @@ import type {
 } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { TextField } from '../../components/TextField'
 
 /** 模型编辑共享屏 — props 注入式表单型跨端组件 */
 export type {
@@ -175,7 +176,8 @@ export function ModelEditScreen({
             </Text>
             <View style={styles.priceRow}>
               <Text style={styles.priceUnit}>¥</Text>
-              <TextInput
+              <TextField
+                colorScheme={colorScheme}
                 style={styles.priceInput}
                 value={fields.price}
                 onChangeText={(v) => onChange('price', v)}

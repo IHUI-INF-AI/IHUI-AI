@@ -10,7 +10,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -27,6 +26,7 @@ import type {
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 export type { TeamMemberStatus, TeamRelation, TeamTab, TeamStats, TeamMember, TeamScreenProps }
 
@@ -147,7 +147,8 @@ export function TeamScreen({
       {/* 搜索框(对齐 Uniapp distribution_personnel_list InputArea「搜索我的团友」;未注入回调则不渲染) */}
       {onKeywordChange ? (
         <View style={styles.searchRow}>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             value={keyword ?? ''}
             onChangeText={onKeywordChange}
             placeholder={t('team.searchPlaceholder')}

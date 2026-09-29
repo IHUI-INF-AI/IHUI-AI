@@ -3,13 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useEffect, useMemo, useState } from 'react'
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { RegisterScreenProps } from '../../types'
 
 import { rnRadius, rnGeometry } from '@ihui/design-tokens'
 import { Check } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** 注册共享屏 — props 注入式跨端组件(wrapper 负责 register API 调用 + 自动登录) */
 export type { RegisterScreenProps }
@@ -104,7 +105,8 @@ export function RegisterScreen({
       </View>
       <View style={styles.card}>
         <Text style={styles.label}>{t('register.phone')}</Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={account}
           onChangeText={onAccountChange}
@@ -114,7 +116,8 @@ export function RegisterScreen({
         />
         <Text style={styles.label}>{t('register.code')}</Text>
         <View style={styles.codeRow}>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={[styles.input, styles.codeInput]}
             value={code}
             onChangeText={handleCodeChange}
@@ -139,7 +142,8 @@ export function RegisterScreen({
         </View>
         {codeSendError ? <Text style={styles.error}>{codeSendError}</Text> : null}
         <Text style={styles.label}>{t('register.password')}</Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={password}
           onChangeText={onPasswordChange}
@@ -148,7 +152,8 @@ export function RegisterScreen({
           secureTextEntry
         />
         <Text style={styles.label}>{t('register.confirmPassword')}</Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={confirmPassword}
           onChangeText={onConfirmPasswordChange}
