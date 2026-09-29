@@ -277,7 +277,7 @@ export interface LearnCategoryParent {
   createdAt: string
 }
 
-// ===================== study（学习记�?进度�?=====================
+// ===================== study（学习记录/进度） =====================
 
 /** 获取学习记录列表 */
 export async function getStudyRecords(
@@ -320,7 +320,7 @@ export async function getStudyProgress(courseId: string): Promise<ApiResult<Stud
   return fetchApi<StudyProgress>(`/api/study/progress${buildQs({ courseId })}`)
 }
 
-/** 获取所有课程学习进�?*/
+/** 获取所有课程学习进度 */
 export async function getAllStudyProgress(
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<StudyProgress>>> {
