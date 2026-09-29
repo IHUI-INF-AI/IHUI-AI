@@ -143,6 +143,11 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'DELEGATE_TIMEOUT.action',
     category: 'backendTimeout',
   },
+  DELETE_FAILED: {
+    titleKey: 'DELETE_FAILED.title',
+    actionKey: 'DELETE_FAILED.action',
+    category: 'runtimeException',
+  },
   DEP_MISSING: {
     titleKey: 'DEP_MISSING.title',
     actionKey: 'DEP_MISSING.action',
@@ -398,6 +403,13 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'MULTIPLE_MATCHES.action',
     category: 'invalidResponse',
   },
+  NEEDS_INPUT_TIMEOUT: {
+    titleKey: 'NEEDS_INPUT_TIMEOUT.title',
+    actionKey: 'NEEDS_INPUT_TIMEOUT.action',
+    // 与 DELEGATE_TIMEOUT 同档:失败原因是"等待某一方在时限内没有回应",不是命令本身报错
+    // (后者走 runtimeException)。分类复用 D92 的 15 类主干,不得为这一码另起一类。
+    category: 'backendTimeout',
+  },
   NESTING_DEPTH_EXCEEDED: {
     titleKey: 'NESTING_DEPTH_EXCEEDED.title',
     actionKey: 'NESTING_DEPTH_EXCEEDED.action',
@@ -502,6 +514,15 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     titleKey: 'SENSITIVE_FILE_BLOCKED.title',
     actionKey: 'SENSITIVE_FILE_BLOCKED.action',
     category: 'authForbidden',
+  },
+  // 回滚的两条产出点(`apps/ai-service/app/services/file_editor.py::_apply_rollback`):快照期没读到内容,
+  // 或记录自称读成功却没有内容可写 —— 两者共同的不是"执行炸了",而是**要恢复的那份内容取不到**,
+  // 于是服务方拒绝执行(拿空内容覆盖 = 用"读不到"销毁现有文件)。分类与 VERSION_NOT_FOUND /
+  // NO_FILE_VERSIONS 同档(resourceNotFound),不得为了"看起来像错误"顺手归 runtimeException。
+  SNAPSHOT_UNREADABLE: {
+    titleKey: 'SNAPSHOT_UNREADABLE.title',
+    actionKey: 'SNAPSHOT_UNREADABLE.action',
+    category: 'resourceNotFound',
   },
   SSRF_BLOCKED: {
     titleKey: 'SSRF_BLOCKED.title',
