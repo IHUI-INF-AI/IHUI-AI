@@ -151,6 +151,20 @@ interface FeeReminder {
   updatedAt: string
 }
 
+/* 催缴留痕统计(GET /fee-reminder/stats,2026-09-29 起 delivery 列随三条写路径落逐收件人回执) */
+interface ReminderStats {
+  days: number
+  total: number
+  byChannel: Array<{ channel: string; status: string; n: number }>
+  byDay: Array<{ day: string; n: number }>
+  delivery: {
+    buckets: Record<string, number>
+    unknownReminders: number
+    remindersWithDelivery: number
+  }
+  caveat: string
+}
+
 /* ─── Constants (催费) ─── */
 
 const BUSINESS_LINES = [
@@ -176,6 +190,20 @@ const REMINDER_STATUS_MAP = new Map([
 const REMINDER_STATUS_COLOR_MAP = new Map([
   ['sent', 'bg-green-500'],
   ['failed', 'bg-red-500'],
+])
+
+/* 回执分档 → 界面文案/配色。buckets 里可能出现此表之外的档位(后端扩档),原样展示 key。 */
+const DELIVERY_BUCKET_LABELS: Array<[string, string]> = [
+  ['sent', '送达'],
+  ['failed', '失败'],
+  ['not_configured', '通道未配置'],
+  ['no_phone', '无号码'],
+  ['user_refused', '用户未订阅'],
+]
+const DELIVERY_BUCKET_COLOR_MAP = new Map([
+  ['sent', 'bg-green-500'],
+  ['failed', 'bg-red-500'],
+  ['user_refused', 'bg-amber-500'],
 ])
 
 /* ─── API helper ─── */
@@ -1212,6 +1240,14 @@ export default function FinancePage() {
   })
   const reminderRecords = reminderRecordsQuery.data?.list ?? []
 
+  // 催缴触达统计(近30天):只有催缴 tab 打开才拉,不在其余四个 tab 上白付一次报表查询。
+  const reminderStatsQuery = useQuery({
+    queryKey: ['edu-ai-management', 'fee-reminder', 'stats'],
+    queryFn: () => api<ReminderStats>('/api/edu-ai-management/fee-reminder/stats?days=30'),
+    enabled: activeTab === 'reminders',
+  })
+  const reminderStats = reminderStatsQuery.data
+
   /* ── Mutations ── */
   const invalidate = React.useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['edu-ai-management'] })
@@ -1968,6 +2004,63 @@ export default function FinancePage() {
               </CardContent>
             </Card>
           )}
+
+          {/* 催缴触达统计:delivery.buckets 是逐收件人回执聚合,"送达"才计入真触达;
+              unknownReminders 是回执列上线前的历史行,两向都不计。caveat 文案来自后端,与数字同源。 */}
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold">催缴触达统计（近 30 天）</h2>
+            {reminderStatsQuery.error ? (
+              <Alert variant="danger" description="加载催缴统计失败，请稍后重试" />
+            ) : reminderStatsQuery.isLoading ? (
+              <Card>
+                <CardContent className="flex items-center justify-center py-8 text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  加载统计...
+                </CardContent>
+              </Card>
+            ) : reminderStats ? (
+              <Card>
+                <CardContent className="min-[640px]:p-3 space-y-2 p-3">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <Badge variant="secondary" className="text-[10px] text-white bg-blue-500">
+                      登记催缴 {reminderStats.total} 条
+                    </Badge>
+                    {DELIVERY_BUCKET_LABELS.map(([key, label]) => {
+                      const n = reminderStats.delivery.buckets[key] ?? 0
+                      if (n === 0) return null
+                      return (
+                        <Badge
+                          key={key}
+                          variant="secondary"
+                          className={cn(
+                            'text-[10px] text-white',
+                            DELIVERY_BUCKET_COLOR_MAP.get(key) ?? 'bg-gray-500',
+                          )}
+                        >
+                          {label} {n}
+                        </Badge>
+                      )
+                    })}
+                    {Object.entries(reminderStats.delivery.buckets)
+                      .filter(([k]) => !DELIVERY_BUCKET_LABELS.some(([lk]) => lk === k))
+                      .map(([k, n]) => (
+                        <Badge key={k} variant="secondary" className="text-[10px] text-white bg-gray-500">
+                          {k} {n}
+                        </Badge>
+                      ))}
+                    {reminderStats.delivery.unknownReminders > 0 && (
+                      <Badge variant="secondary" className="text-[10px] text-white bg-gray-400">
+                        无回执（历史行） {reminderStats.delivery.unknownReminders}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    {reminderStats.caveat}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : null}
+          </div>
 
           {/* 催费记录 */}
           <div className="space-y-2">
