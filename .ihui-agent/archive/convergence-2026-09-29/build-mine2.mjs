@@ -8,9 +8,9 @@
 import { execFileSync } from 'node:child_process'
 import { writeFileSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { gitBinary } from '../../../../scripts/lib/face-reader.mjs'
-import { usedIdsOfPrefix, keyOfRow, titleOf, DUP_POINTER_RE } from '../../../../scripts/lib/plan-task-index.mjs'
-import { mkScratch, rmScratch } from '../../../../scripts/lib/scratch-dir.mjs'
+import { gitBinary } from '../../../scripts/lib/face-reader.mjs'
+import { usedIdsOfPrefix, keyOfRow, titleOf, DUP_POINTER_RE } from '../../../scripts/lib/plan-task-index.mjs'
+import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'
 
 const GIT = gitBinary()
 const root = 'D:/IHUI-AI'
