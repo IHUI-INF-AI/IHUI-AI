@@ -33,6 +33,12 @@ import {
 // V3 #58(2026-09-26 立):审批请求桥接到全局 ToolApprovalDialog(channel 标记让
 // 弹窗把决策回传到主聊天流端点,而非 agent 任务流端点 —— 两套注册表互不相通)
 import { dispatchToolApprovalRequest } from '@/components/ai/tool-approval-dialog'
+// D131:主对话流连接状态位的信号出口(仅异常态上屏;由 onReconnect 置位、运行结束清账)
+import {
+  clearStreamConnection,
+  markStreamDisconnected,
+  markStreamReconnecting,
+} from '@/components/chat/connection-status-bar'
 import { listCheckpoints, restoreCheckpoint, type CheckpointMeta } from '@/api/checkpoint-api'
 import { expandRuleToken } from '@/stores/memory'
 import { expandContextTokens } from '@/lib/context-token-expander'
@@ -484,6 +490,9 @@ export function createSendMessage(
     const streamStartedAt = Date.now()
 
     store.setStreaming(true)
+    // D131:新一轮发送开始 ⇒ 连接位归零。断开态不由 isStreaming 的收尾清(那会把它
+    // 在同一帧内抹掉),只有"用户又发起了一次流"才是它该消失的时刻。
+    clearStreamConnection()
     store.setError(null)
     store.resetSubAgentActivities()
     // #21 中断后追加指令继续(2026-09-13 立):新流开始 → 清除中断提示态
@@ -783,6 +792,8 @@ export function createSendMessage(
         onFallback: (event) => setFallbackNotice(event),
         // P1 重连提示(2026-08-02 立):streamChat 自动重连时 toast 通知用户,避免无感知等待
         onReconnect: (attempt: number, delay: number) => {
+          // D131:除 toast 外,把"重连中"落到输入区上方的常驻状态位(toast 会自己消失)
+          markStreamReconnecting(attempt)
           const reconnectingMsg =
             t('reconnecting') === 'reconnecting' ? 'Reconnecting...' : t('reconnecting')
           const attemptMsg =
@@ -1174,6 +1185,11 @@ export function createSendMessage(
           return agentTools.length > 0 ? { agentTools } : {}
         })(),
         onError: (errMsg, info) => {
+          // D131(2026-09-29 立):流以错误收场 ⇒ 连接位落"已断开"并占位。
+          // 这是 disconnected 的**唯一生产点**(此前它只有测试在调,即一个永远不会
+          // 出现在屏幕上的状态档)。重连机会由 api-client 内部用尽后才走到这里,
+          // 所以"还能自己恢复"的情况不会误报成断开。
+          markStreamDisconnected(errMsg)
           // #9 错误前先 flush 累积 token,避免最后一批内容丢失
           contentBatcher.flush()
           reasoningBatcher.flush()
