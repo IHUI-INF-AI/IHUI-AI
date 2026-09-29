@@ -3169,6 +3169,31 @@ function runSelfTest() {
     })(),
   )
   t(
+    'RD 遮噪必须与 RE 同一条口径 —— 注释散文里的档位不得算进档集(真仓 LoginPopUp 的假分叉就是这么造出来的)',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      // ① 行尾注释:同一行代码取 sm(4),注释里提 rounded-md(6) 不得被记上
+      const trailing = radiusSetOf(
+        '  pill: { borderRadius: rnRadius.sm, // 旧写法 rounded-md,现取 control 档\n}',
+        tbl,
+      )
+      // ② 跨行块注释的**续行**:旧实现只跳"以 /* 或 * 开头的整行",续行里的档会漏进来
+      const block = radiusSetOf(
+        '<View\n  {/* 弹窗主体 = panel 档\n      旧写法在这里挂 rounded-md 并按 bubble 档取 rounded-2xl */}\n  className="rounded-xl" />',
+        tbl,
+      )
+      // ③ 阳性对照:同一个 6 写在真代码里必须被记上(遮罩关掉的是误报,不是判据)
+      const real = radiusSetOf('<View className="rounded-md" />', tbl)
+      return (
+        trailing.join(',') === '4' &&
+        block.join(',') === '12' &&
+        real.join(',') === '6' &&
+        // 反向锁:把注释里的 6 算进去就是这一型的病灶,读数必须与"真取 6"不同形
+        trailing.join(',') !== real.join(',')
+      )
+    })(),
+  )
+  t(
     '㊻ 装车锁:elementRadiusDiff / radiusEntriesOf 必须真在 audit 体内被调用' +
       '(函数在、自检过,而 audit 没调 = 提交链上一路绿灯,本仓最高频失效型)',
     (() => {
