@@ -532,6 +532,13 @@
     "mermaidSkipSourceTooLarge": "図のソースが長すぎるため、ソースコードを表示しています",
     "mermaidSkipLineCountTooLarge": "図の行数が多すぎるため、ソースコードを表示しています",
     "mermaidSkipComplexityTooLarge": "図のノードと接続が多すぎるため、ソースコードを表示しています",
+    "mermaidZoomIn": "拡大",
+    "mermaidZoomOut": "縮小",
+    "mermaidZoomReset": "ズームをリセット",
+    "mermaidZoomLevel": "ズーム倍率",
+    "mermaidZoomToFit": "画面に合わせる",
+    "mermaidCopyImage": "画像としてコピー",
+    "mermaidImageCopied": "図の画像をコピーしました",
     "pdfLoadFailed": "PDF の読み込みに失敗しました: {message}",
     "renderFailed": "描画に失敗しました: {message}",
     "unknownError": "不明なエラー",
@@ -8580,6 +8587,82 @@
         "WRITE_FAILED": {
           "title": "ファイルの読み書きに失敗しました",
           "action": "ファイルを確認して再試行"
+        },
+        "FILE_SCAN_PENDING": {
+          "title": "セキュリティスキャンを実行中です",
+          "action": "スキャンが完了してから再試行"
+        },
+        "FILE_SCAN_FAILED": {
+          "title": "セキュリティスキャンに失敗しました",
+          "action": "しばらくしてから再試行"
+        },
+        "FILE_SCAN_TIMEOUT": {
+          "title": "セキュリティスキャンがタイムアウトしました",
+          "action": "しばらくしてから再試行"
+        },
+        "FILE_SCAN_UNSCANNABLE": {
+          "title": "このファイルはセキュリティスキャンできません",
+          "action": "別の形式のファイルで再試行"
+        },
+        "FILE_SCAN_BLOCKED": {
+          "title": "ファイルがセキュリティスキャンを通過しませんでした",
+          "action": "別のファイルで再試行"
+        },
+        "file_scan_failed": {
+          "title": "セキュリティスキャンに失敗しました",
+          "action": "しばらくしてから再試行"
+        },
+        "file_content_rejected": {
+          "title": "ファイルの内容がセキュリティスキャンで拒否されました",
+          "action": "別のファイルで再試行"
+        },
+        "FILE_NOT_READY": {
+          "title": "ファイルはまだ準備ができていません",
+          "action": "少し待ってから再試行"
+        },
+        "file_not_ready": {
+          "title": "ファイルはまだ準備ができていません",
+          "action": "しばらくしてから再試行"
+        },
+        "FILE_INTEGRITY_FAILED": {
+          "title": "ファイルの整合性検証に失敗しました",
+          "action": "ファイルを再ダウンロードして再試行"
+        },
+        "FILE_DISK_SPACE": {
+          "title": "ローカルディスクの空き容量が不足しています",
+          "action": "空き容量を確保してから再試行"
+        },
+        "FILE_STORAGE_INVALID": {
+          "title": "ローカルのファイルキャッシュを利用できません",
+          "action": "ローカルストレージを確認して再試行"
+        },
+        "CHAT_SESSION_HISTORY_MISSING": {
+          "title": "セッション履歴が見つかりません",
+          "action": "セッションを開き直してから再試行"
+        },
+        "47902": {
+          "title": "このセッションのターン数が上限に達しました",
+          "action": "しばらく待つかプランをアップグレード"
+        },
+        "121": {
+          "title": "組織データを移行中です",
+          "action": "移行が完了してから再試行"
+        },
+        "speaking_banned": {
+          "title": "現在発言が制限されています",
+          "action": "詳細は管理者に連絡"
+        },
+        "member_capacity_exceeded": {
+          "title": "メンバー数が上限に達しました",
+          "action": "メンバーを削除するかプランをアップグレード"
+        },
+        "context_limit": {
+          "title": "リクエストの内容が大きすぎます",
+          "action": "内容を減らしてから再試行"
+        },
+        "invalid_arguments": {
+          "title": "送信された内容に誤りがあります",
+          "action": "確認してから再試行"
         }
       },
       "worktree": {
@@ -10606,7 +10689,10 @@
     "cmdWechatArticle": "WeChat公式アカウント記事を生成してください。要件:\n1. テーマ:\n2. 要約:\n3. ハイライトマーカー(金言カード / ヒントブロック / 引用 / コードブロック / 小見出し)\n4. 画像提案:\ncontent-engineパイプラインを実行してください(摸魚緑テーマ + 22項目自己検証 + ドラフトボックスプッシュ)。",
     "codeBlock": {
       "applyToFile": "ファイルに適用",
-      "insertAtCursor": "カーソル位置に挿入"
+      "insertAtCursor": "カーソル位置に挿入",
+      "wrapOn": "コードの折り返しを有効にする",
+      "wrapOff": "コードの折り返しを無効にする",
+      "copyImage": "画像としてコピー"
     },
     "commandArg": {
       "goalBenchmark": {
@@ -20083,6 +20169,8 @@
       "statusExpired": "期限切れ",
       "statusUnknown": "不明",
       "subtitle": "各プラットフォームのログイン認証情報を設定(暗号化保存)",
+      "switchToAppQr": "Appスキャンに切替",
+      "switchToWechatQr": "WeChatスキャンに切替",
       "taskId": "タスク",
       "title": "プラットフォームアカウント管理",
       "verify": "接続テスト",

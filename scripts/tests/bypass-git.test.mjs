@@ -15,8 +15,9 @@
 import { execFileSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import * as bg from '../lib/bypass-git.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -233,5 +234,90 @@ test('T12 alignSharedIndex 删除档·反向:索引里是别人真暂存的内�
   assert.equal(res.skipped.length, 1)
   assert.match(res.skipped[0].reason, /归属他人/)
   assert.equal(bg.indexBlobOf('a.txt', { root: dir }), bg.writeBlob('v2\n', { root: dir }), '他的 v2 必须原样留着')
+})
+
+// G-628:共用层出口的"返回形状"必须被测试钉住。casUpdateRef 是纯布尔出口(true/false,其余失败照抛),
+// 历史上调用方按 `r.ok` 判成功 ⇒ 对布尔取 .ok 得 undefined ⇒ "落地成功"被读成"CAS 未抢到",再按判据
+// 发现目标路径已变 ⇒ 报"被并发改动"exit 1 —— 同一会话两次同型自伤(O81(a) 与 D158 各一次)。
+// 2026-09-29 取证:入库面 6 个调用方(archive-completed-tasks:1131 / gate-registry-insert:258 /
+// ledger-strip-open-rows:288 / live-doc-edit:802 / object-space-land:1370 / plan-tasks-merge:1083,1420,1793,2294)
+// 全部按真值判(`if (r)` / `if (!r)`),.ok 误用只活在 .ihui-agent/tmp/ 一次性脚本里 ⇒ 本票落的是形状契约钉子,
+// 让"出口形状"与"调用方判据"被同一把尺子钉死,任何一侧漂移都当场红。
+test('T13 出口返回形状钉子:布尔出口绝不冒对象、对象出口绝不冒布尔(G-628)', (t) => {
+  const dir = makeRepo(t)
+  const head = bg.git(['rev-parse', 'HEAD'], { root: dir })
+  const { commit } = bg.commitTreeWithIndex({ root: dir, parent: head, message: 'x', treePath: 'a.txt', text: 'q\n' })
+
+  // ① 布尔出口 casUpdateRef:成功与竞争失败两档都必须是 typeof boolean(不得改形成 {ok,...})
+  const ok = bg.casUpdateRef(commit, head, { root: dir })
+  assert.equal(typeof ok, 'boolean', 'casUpdateRef 成功档必须是布尔(不得是 {ok,...} 之类对象)')
+  assert.equal(ok, true)
+  const { commit: c2 } = bg.commitTreeWithIndex({ root: dir, parent: commit, message: 'y', treePath: 'a.txt', text: 'r\n' })
+  const lost = bg.casUpdateRef(c2, head, { root: dir })
+  assert.equal(typeof lost, 'boolean', 'casUpdateRef 竞争失败档必须仍是布尔')
+  assert.equal(lost, false)
+
+  // ② 调用方判据视角(入库面全部调用方的写法):CAS 成功(true)必须被 `if (r)` 判为成功;
+  //    CAS 竞争失败(false)必须被 `if (!r)` 判为未命中。出口形状与调用方判据被同一例钉住。
+  let landedByCaller = false
+  if (ok) landedByCaller = true
+  assert.equal(landedByCaller, true, 'CAS 成功(true)必须被调用方判据 if (r) 判为成功')
+  let retriedByCaller = false
+  if (!lost) retriedByCaller = true
+  assert.equal(retriedByCaller, true, 'CAS 竞争失败(false)必须被调用方判据 if (!r) 判为未命中')
+
+  // 票面缺陷判据回放:若有人把判据写回 `if (!r || !r.ok)`,成功档(!r=false、r.ok=undefined)也会被判成
+  // "未抢到" —— 自伤型重现。本断言证明该型对布尔出口恒错,契约两侧(布尔形状 + 真值判据)缺一不可。
+  let misreadAsMiss = false
+  if (!ok || !ok.ok) misreadAsMiss = true
+  assert.equal(misreadAsMiss, true, '对布尔出口写 if (!r || !r.ok) 会把成功读成未抢到 —— 正是 G-628 禁止的判据型')
+
+  // ③ 三态出口 isAncestor 只许 true/false/null(不得冒对象/undefined);对象出口(正常档/拒绝档)不得塌成布尔
+  for (const [a, b] of [[head, commit], [commit, head], ['f'.repeat(40), commit], ['', commit]]) {
+    const r = bg.isAncestor(a, b, { root: dir })
+    assert.ok(r === true || r === false || r === null, `isAncestor 只许三态,实得 ${String(r)}`)
+  }
+  const shaped = bg.commitTreeWithIndex({ root: dir, parent: commit, message: 'z', treePath: 'a.txt', text: 's\n' })
+  assert.equal(typeof shaped, 'object')
+  assert.notEqual(shaped, null)
+  assert.ok(!Array.isArray(shaped), 'commitTreeWithIndex 必须返回对象形状,不得是布尔')
+  assert.equal(typeof shaped.commit, 'string')
+  const rejected = bg.commitTreeWithIndex({ root: dir, parent: commit, message: 'rj', treePath: 'a.txt', text: 't\n', onTree: () => '拒绝' })
+  assert.equal(typeof rejected, 'object')
+  assert.notEqual(rejected, null)
+  assert.equal(rejected.commit, '', '拒绝档不得产生 commit')
+  assert.equal(rejected.rejected, '拒绝', '拒绝档也必须返回对象形状(rejected 字段),不得塌成字符串/布尔')
+  const aligned = bg.alignSharedIndex({ root: dir, paths: ['a.txt'], parentRef: head })
+  assert.equal(typeof aligned, 'object')
+  assert.notEqual(aligned, null)
+  assert.ok(!Array.isArray(aligned), 'alignSharedIndex 必须返回对象形状,不得是布尔')
+  assert.ok(Array.isArray(aligned.moved) && Array.isArray(aligned.skipped) && Array.isArray(aligned.undetermined), 'alignSharedIndex 的 moved/skipped/undetermined 必须保持数组形状')
+})
+
+test('T14 静态镜像:调用方不得对布尔出口取属性(`出口(...).ok` 这一型,G-628)', () => {
+  // 共用层布尔出口(casUpdateRef / isAncestor,含各工具自带的同形 isAncestor)的契约是真值判/三态判;
+  // 对出口返回值取属性(`出口(...).ok`、`出口(...)?.x`)恒得 undefined,是票面"成功读成未抢到"的根因型。
+  // 逐行扫 scripts/ 全部 .mjs(含在飞工具面):同一行内 `出口(...)` 紧跟 `.attr` / `?.attr` 即违规。
+  const walk = (d) => {
+    const out = []
+    for (const name of readdirSync(d, { withFileTypes: true })) {
+      if (name.name === 'node_modules' || name.name === '.git' || name.name === 'scratch') continue
+      const p = join(d, name.name)
+      if (name.isDirectory()) out.push(...walk(p))
+      else if (name.name.endsWith('.mjs')) out.push(p)
+    }
+    return out
+  }
+  const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+  const violations = []
+  for (const f of walk(rootDir)) {
+    const lines = readFileSync(f, 'utf8').split(/\r?\n/)
+    lines.forEach((line, i) => {
+      if (/(?:casUpdateRef|isAncestor)\s*\([^)\n]*\)\s*\??\.\w+/.test(line)) {
+        violations.push(`${f}:${i + 1}: ${line.trim().slice(0, 140)}`)
+      }
+    })
+  }
+  assert.deepEqual(violations, [], '布尔出口的返回值不得取属性(取 .ok 恒 undefined ⇒ 成功被读成未抢到):')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

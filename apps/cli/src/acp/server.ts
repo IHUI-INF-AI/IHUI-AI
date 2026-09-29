@@ -260,6 +260,124 @@ export async function emitAcpToolDeltaPreview(
   }
 }
 
+/**
+ * G-662(2026-09-29)迟到句柄出口 —— 关停信号**不等**卡住的 init Promise,init 之后
+ * 才建成的句柄必须走 disposeLate 且失败打 warn。
+ *
+ * 与 apps/api/src/utils/shutdown-phases.ts 的 createLateDisposeGate 同判据(cli 不依赖
+ * @ihui/api,两包各自实现,各侧行为测试钉住同一规格:信号不等人、迟到句柄必被回收、
+ * 回收失败必 warn)。
+ */
+
+/** 一个可回收的迟到句柄(close 抛错 = dispose 失败) */
+export interface LateInitHandle {
+  name: string;
+  close: () => unknown | Promise<unknown>;
+}
+
+/** 逐个回收迟到句柄;单个失败打 warn 不中断(关停路径不得因回收失败而卡死)。 */
+export async function disposeLateHandles(label: string, handles: LateInitHandle[]): Promise<void> {
+  for (const h of handles) {
+    try {
+      await h.close();
+    } catch (e) {
+      console.warn(
+        `[${label}] 迟到句柄 ${h.name} dispose 失败:${e instanceof Error && e.message ? e.message : String(e)}`,
+      );
+    }
+  }
+}
+
+/** init 产物里"会建出句柄"的面(结构化最小类型,测试可注入替身) */
+export interface LateDisposableInit {
+  /** setupAgentTools 建成的插件注册体(runTeardowns 自带失败清单) */
+  pluginRegistry?: { runTeardowns: () => Promise<string[]> } | null;
+}
+
+/**
+ * init 之后才建成的句柄 → 迟到句柄清单的**唯一映射出口**。
+ * 今日 init 产物里可回收面 = pluginRegistry;MCP managed clients 是进程级注册表,
+ * 由 mcp-runtime 自身 reclaim 出口负责 —— 会话级取消不得清它(多会话共享)。
+ */
+export async function disposeLateInitHandles(
+  label: string,
+  init: LateDisposableInit,
+): Promise<void> {
+  const handles: LateInitHandle[] = [];
+  if (init.pluginRegistry) {
+    handles.push({
+      name: 'pluginRegistry',
+      close: async () => {
+        const failed = await init.pluginRegistry!.runTeardowns();
+        if (failed.length > 0) {
+          throw new Error(`teardown 失败插件:${failed.join(', ')}`);
+        }
+      },
+    });
+  }
+  await disposeLateHandles(label, handles);
+}
+
+export type InitRaceOutcome<T> = { kind: 'ready'; value: T } | { kind: 'aborted' };
+
+/**
+ * abort 胜出路径的迟到回收接线:init 在后台继续,resolve 后句柄走 disposeLate。
+ * 单独导出以便测试直接构造同一编排(abort 早于 create resolve ⇒ disposeLate 被调用),
+ * prompt() 与测试共用这一条链,不复制编排。
+ */
+export function attachLateDispose<T extends LateDisposableInit>(
+  init: Promise<T>,
+  label = 'acp-init',
+): void {
+  void init
+    .then((r) => disposeLateInitHandles(label, r))
+    .catch(() => { /* init 自身失败:没有句柄出生,无需回收 */ });
+}
+
+/**
+ * init 竞态:关停信号(abort)与 init Promise 谁先到。
+ * - abort 先(含调用时已 aborted)⇒ `{kind:'aborted'}` —— 调用方**不得**再等 init;
+ * - init 先 resolve ⇒ `{kind:'ready'}`;init 先 reject ⇒ 原样上抛(与旧裸 await 同语义)。
+ *
+ * 竞态中落败的 init 稍后 reject 会无人接住:这里挂空 catch 防 unhandledRejection
+ * (与 shutdown-phases runSinglePhase 同款教训)。
+ */
+export function raceInitAgainstAbort<T>(
+  init: Promise<T>,
+  signal: AbortSignal,
+): Promise<InitRaceOutcome<T>> {
+  if (signal.aborted) {
+    init.catch(() => {});
+    return Promise.resolve({ kind: 'aborted' });
+  }
+  return new Promise<InitRaceOutcome<T>>((resolve, reject) => {
+    let settled = false;
+    const cleanup = () => signal.removeEventListener('abort', onAbort);
+    const onAbort = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      init.catch(() => {});
+      resolve({ kind: 'aborted' });
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    init.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve({ kind: 'ready', value });
+      },
+      (err) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(err);
+      },
+    );
+  });
+}
+
 export interface AcpServerOptions {
   apiUrl: string;
   apiKey?: string;
@@ -455,7 +573,11 @@ export class IhuiAcpAgent {
     }
 
     if (!state.agentReady) {
-      const result = await setupAgentTools({
+      // G-662:cancel() 走既有 pendingAbort 通道,init 期也必须可达(此前 init 是裸
+      // await,关停信号会被卡住的 init Promise 拖住)。
+      const initAbort = new AbortController();
+      state.pendingAbort = initAbort;
+      const initPromise = setupAgentTools({
         workspacePath: state.session.workspacePath,
         checkpoints: state.checkpoints ?? undefined,
         enableMcp: this.opts.enableMcp,
@@ -501,8 +623,22 @@ export class IhuiAcpAgent {
           },
         }),
       });
-      state.systemPrompt = result.systemPrompt;
-      state.ctx = result.ctx;
+      const outcome = await raceInitAgainstAbort(initPromise, initAbort.signal);
+      if (outcome.kind === 'aborted') {
+        // 关停信号先到:不等 init(票面"不得等卡住的 init Promise"),立即返回;
+        // init 在后台继续,建成后的句柄走 disposeLate(失败 warn)。
+        attachLateDispose(initPromise);
+        if (state.pendingAbort === initAbort) state.pendingAbort = null;
+        return { stopReason: 'cancelled' };
+      }
+      // 竞态窗:init 与 abort 几乎同时、init 胜出,但信号已 aborted ⇒ 产物已是迟到资源
+      if (initAbort.signal.aborted) {
+        await disposeLateInitHandles('acp-init', outcome.value);
+        if (state.pendingAbort === initAbort) state.pendingAbort = null;
+        return { stopReason: 'cancelled' };
+      }
+      state.systemPrompt = outcome.value.systemPrompt;
+      state.ctx = outcome.value.ctx;
       state.agentReady = true;
     }
 
