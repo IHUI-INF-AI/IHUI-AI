@@ -48,8 +48,11 @@
  *   4. **编号形态维(G-722 接入提交链)**:登记行出现"族名在编号段重复"的畸形号(两形态同视)——
  *      `--staged` / `--worktree` 拿 HEAD 当基准,只判**本次新增**即红;全量档锚点 = 该文件 HEAD
  *      自身存量 ⇒ **只报数不判红**(§12e:与任何提交都无关的红只会逼人 --no-verify 并连带废掉全部守门)。
- *      判据的唯一实现住在 `scripts/live-doc-edit.mjs`(`MALFORMED_ID_RE` / `MALFORMED_BODY_RE` /
+ *      判据的唯一实现住在 `scripts/lib/plan-task-index.mjs`(`MALFORMED_ID_RE` / `MALFORMED_BODY_RE` /
  *      `findMalformedIds` / `newMalformed`),门内**禁止再抄一份形态正则**(镜像测试有形状锁)。
+ *      ⚠️ 2026-09-29 改址:这句话此前写的是"住在 `scripts/live-doc-edit.mjs`",而生产侧与门内**各留了一份**
+ *      实现 —— 两份"什么算畸形"必然漂开,漂开的两个方向账面都是绿的;现收口成 lib 那一份,生产侧与门内
+ *      都只 import 它。顺带断掉一条循环依赖(门→live-doc-edit→lib→门,模块实例化期读自己的导出 ⇒ TDZ)。
  *      立因:该判据过去只在"经过本器落地"时生效,而 `git add + git commit` / safe-commit 按 pathspec
  *      那条路径上没有任何一道门看编号形态 —— 实测 2026-09-29 一小时内同一批 27 行畸形号被并发旧底稿带回两遍。
  *
@@ -90,7 +93,7 @@ import { stripForkPrefix } from './lib/plan-merge-annotation.mjs'
 // G-722:编号形态判据(畸形号 = 族名在编号段出现两次)的**唯一实现**住在活文档编辑器里 ——
 // 判据住在 `scripts/lib/plan-task-index.mjs` 的下沉方案因该文件正被并发会话在飞编辑而未采,
 // 按票面指定的 import 方案接。两处各抄一遍形态正则必然漂移(§22c 同一条纪律),镜像形状锁钉死。
-import { findMalformedIds, newMalformed } from './live-doc-edit.mjs'
+import { findMalformedIds, newMalformed, malformedLine } from './lib/plan-task-index.mjs'
 
 const GIT_TIMEOUT = 60000
 const GIT = process.env.IHUI_GIT_BIN || 'git'
@@ -695,7 +698,7 @@ export function faceNoticeFor(face) {
 
 /**
  * **编号形态维(G-722)**:畸形登记编号 = 族名在编号段出现两次。判据(两条正则与其编排
- * `findMalformedIds` / `newMalformed`)只在 `scripts/live-doc-edit.mjs` 有一份实现,本函数
+ * `findMalformedIds` / `newMalformed`)只在 `scripts/lib/plan-task-index.mjs` 有一份实现,本函数
  * **只做"按面选基准"的编排**,门体内再抄一份形态正则即违反镜像形状锁。
  * 三档口径与本门其余判据同形:
  *  - `staged`   索引 ⊖ HEAD ⇒ 本次新增即判红(提交链真正带走的那一份在这里被审);
@@ -706,7 +709,15 @@ export function faceNoticeFor(face) {
  */
 export function malformedReport(face, candidateSrc, baselineSrc) {
   if (face === 'head') {
-    return { added: [], preexisting: findMalformedIds(candidateSrc), red: false }
+    // 形状归一(2026-09-29):findMalformedIds 给 `{line: 文本, family}`,而 newMalformed 走
+    // findMalformedRows 给 `{line: 数字行号, raw, family}` —— 两个形状共用同一个打印点时,后者会印成
+    // **裸行号**(§1 明令行号不得进证据文本:它每次 append 都挪位)。这里把覆盖面保持为文本扫那一把
+    // (全行扫,不止条目行 ⇒ 不缩网),只把形状统一成 `{raw, family}` 交给唯一出口 malformedLine 去点名。
+    return {
+      added: [],
+      preexisting: findMalformedIds(candidateSrc).map((x) => ({ raw: x.line, family: x.family })),
+      red: false,
+    }
   }
   if (typeof baselineSrc !== 'string') {
     return { added: [], preexisting: [], red: false, undetermined: true }
@@ -2281,7 +2292,7 @@ if (isDirectRun) {
           '(族名在编号段出现两次)⇒ 判红:\n' +
           malformed.added
             .slice(0, 4)
-            .map((x) => `   · [族 ${x.family}] ${x.line}`)
+            .map((x) => `   · [族 ${x.family}] ${malformedLine(x)}`)
             .join('\n') +
           (malformed.added.length > 4 ? `\n   …另 ${malformed.added.length - 4} 行未列出` : ''),
       )
@@ -2303,7 +2314,7 @@ if (isDirectRun) {
             ' ⇒ 只报数不判红:\n' +
             malformed.preexisting
               .slice(0, 5)
-              .map((x) => `   · ${x.line}`)
+              .map((x) => `   · ${malformedLine(x)}`)
               .join('\n') +
             (malformed.preexisting.length > 5 ? `\n   …另 ${malformed.preexisting.length - 5} 行未列出` : ''),
         )
