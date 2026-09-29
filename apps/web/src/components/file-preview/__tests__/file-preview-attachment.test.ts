@@ -9,6 +9,8 @@ import {
   clipPreviewRows,
   columnWidthsInCh,
   displayWidthOf,
+  downloadFilenameFor,
+  imageExtFromMime,
   parseDelimited,
   previewExtFromHref,
   richPreviewKindOf,
@@ -119,7 +121,7 @@ describe('P 组:CSV 与既有 parseCsv 的逐字奇偶(反漂移锁)', () => {
     ])
   })
 
-  it('空输入返回空表(不是抛错,也不是 [[\'\'』)', () => {
+  it("空输入返回空表(不是抛错,也不是 [[''』)", () => {
     expect(parseDelimited('', '\t')).toEqual([])
     expect(parseDelimited('', ',')).toEqual([])
   })
@@ -189,6 +191,38 @@ describe('列宽自适应 columnWidthsInCh', () => {
     expect(displayWidthOf('中')).toBe(2)
     expect(displayWidthOf('中a')).toBe(3)
     expect(displayWidthOf('')).toBe(0)
+  })
+})
+
+describe('保存文件名的扩展名判据 imageExtFromMime / downloadFilenameFor(G-851)', () => {
+  it('扩展名取 blob.type:带参数的 Content-Type 与大小写都要认', () => {
+    expect(imageExtFromMime('image/png')).toBe('png')
+    expect(imageExtFromMime('image/jpeg;charset=binary')).toBe('jpg')
+    expect(imageExtFromMime('IMAGE/WebP')).toBe('webp')
+    expect(imageExtFromMime('image/svg+xml')).toBe('svg')
+  })
+
+  it('认不出的 MIME 返回空串(不猜一个后缀,由调用方保留原名)', () => {
+    expect(imageExtFromMime('application/octet-stream')).toBe('')
+    expect(imageExtFromMime('')).toBe('')
+  })
+
+  it('词干取名字、后缀一律由 blob.type 决定(名字说 png 而字节是 jpeg 时跟字节走)', () => {
+    expect(downloadFilenameFor('photo.png', 'image-1', 'image/jpeg')).toBe('photo.jpg')
+    expect(downloadFilenameFor('photo.png', 'image-1', 'image/png')).toBe('photo.png')
+    expect(downloadFilenameFor('archive', 'image-1', 'image/gif')).toBe('archive.gif')
+  })
+
+  it('名字缺失用兜底词干;类型认不出时整名原样保留(不得凭空造 .bin)', () => {
+    expect(downloadFilenameFor(undefined, 'image-2', 'image/webp')).toBe('image-2.webp')
+    expect(downloadFilenameFor('   ', 'image-2', 'image/webp')).toBe('image-2.webp')
+    expect(downloadFilenameFor('report.pdf', 'image-1', 'application/pdf')).toBe('report.pdf')
+    expect(downloadFilenameFor(undefined, 'image-1', '')).toBe('image-1')
+  })
+
+  it('多点名字只替换最后一段后缀(a.b.png 不得被削成 a.b.jpg 之外的怪名)', () => {
+    expect(downloadFilenameFor('a.b.png', 'image-1', 'image/png')).toBe('a.b.png')
+    expect(downloadFilenameFor('a.b.png', 'image-1', 'image/jpeg')).toBe('a.b.jpg')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

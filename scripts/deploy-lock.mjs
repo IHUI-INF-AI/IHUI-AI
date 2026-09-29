@@ -14,6 +14,12 @@
  *
  * 本锁设计:
  *   - 锁 = 项目根 .deploy.lock 目录(mkdir 原子性,不依赖 cwd/平台)
+ *   - **初始化必须"写全再原子可见"(2026-09-29 立,G-814425)**:旧形态是 `mkdir(正式目录)` 紧接
+ *     `writeMeta`,两步之间那把**空锁目录**已对外可见 = 本文件四态里的 `absent`,而 absent 的自动
+ *     出路是"锁龄超 stale ⇒ 归档并抢占",于是**还在初始化中的活锁**可以被抢走。现由唯一实现
+ *     `scripts/lib/lock-atomic-init.mjs`(与 git-lock.mjs 共用同一份)收口:唯一 pending 目录 →
+ *     写全 meta → 原子 rename 成正式锁;pending 落点见 `lockPendingRoot()`(不落项目根,免留
+ *     白名单外残留)。四态认识论、`--owner-pid` 语义、`HARD_CAP_MS` 硬上限与全部抢占判据**一字未动**。
  *   - 覆盖整个「构建+部署」单元:acquire 成功后持有,直到 release
  *   - build 模式:与其他 build、dev、deploy 全部互斥
  *   - dev 模式:与 build/deploy 互斥(dev+dev 放宽,与旧 check-lock 一致)
@@ -101,6 +107,17 @@ import { join, resolve, dirname } from 'node:path'
 import { hostname, uptime } from 'node:os'
 // 抢占算法的唯一实现(2026-09-26 合并:本脚本与 git-lock.mjs 曾各写一份 claimStaleLock)。
 import { claimStaleLockCore } from './lib/stale-lock-claim.mjs'
+// 锁目录「写全再原子可见」初始化的唯一实现(2026-09-29 立,G-814425)—— 与 git-lock.mjs 共用同一份。
+// 本文件的病灶比 git 侧更直观:创建走 `mkdir(正式目录)` + `writeMeta` 两步,而**第一步之后
+// 锁目录就已经对外可见而里面什么都没有**,这恰好是本文件四态里的 `absent`,而 absent 态的
+// 自动出路写着"锁龄超 stale 阈值 ⇒ 归档并抢占" —— 于是"还在写 meta 的活锁"是可以被抢走的。
+import { createLockDirectoryAtomically } from './lib/lock-atomic-init.mjs'
+// meta.json 的**原子替换**唯一出口(2026-09-29 立,G-653):裸 writeFileSync 覆盖写一个已存在的
+// 文件是"truncate → 再写"两步,而 check / 心跳判活 / 计划任务随时落在那两步之间 ⇒ 读到半截 JSON。
+// 本文件对"读不懂 meta / 读不到 meta"的既有处置恰好是"absent/invalid ⇒ 龄超 stale 即归档抢占",
+// 于是**一个活着的持锁者会被读成"已退出"并抢走锁**(§5b/§12d 记过:判活判错 ⇒ 并发写坏 .git)。
+// ⚠️ 只换"怎么写",meta 的**内容与后写覆盖前写**的语义一字未动(那套出口若带读后写校验就会改语义)。
+import { atomicWriteFileSync } from './lib/atomic-write.mjs'
 // 进程身份三元组(pid + pidStart + host)。裸 pid 判活是无效的:
 // 2026-09-25 实测 meta.pid=888 当时被 nssm.exe 占着(StartTime 比锁晚 160s)⇒ "活着"恒真
 // ⇒ 部署环每轮白等 600s,冻结 11h50m(登记 G-193)。
@@ -247,6 +264,9 @@ function readMeta(dir) {
  * 每一次对账都必然 `mismatch`,于是"确证复用"变成"确证可以抢",活人的构建会被打断,
  * 比没有身份凭据更糟。量不到就整键不写(undefined 被 JSON.stringify 丢掉)⇒ 与旧 meta
  * 逐字同形,判读侧走 unverifiable = 维持改动前行为。
+ *
+ * 2026-09-29(G-653):落盘改走唯一出口 `lib/atomic-write.mjs` 的**原子替换**(同目录 tmp + rename)。
+ * 上面两段讲的"键集与旧 meta 逐字同形"仍然成立 —— 换的只是怎么写,写出的字节一字未变。
  */
 function writeMeta(dir, mode, opts = {}) {
   const declared = Number(opts.ownerPid ?? process.env.IHUI_DEPLOY_LOCK_OWNER_PID) || 0
@@ -292,7 +312,7 @@ function writeMeta(dir, mode, opts = {}) {
     //  此前"ownerPidSource 缺席 ⇒ 落盘键集与改动前逐字同形"的说法只对**这一键**成立,不再及整份 meta。)
     ownerPidSource: inferred > 0 && declared === 0 ? 'inferred-ppid' : undefined,
   }
-  writeFileSync(metaFile(dir), JSON.stringify(meta), 'utf8')
+  atomicWriteFileSync(metaFile(dir), JSON.stringify(meta))
   // 返回**写出去的那一份**:readMeta 会把内容归一成已知键的四态投影,新键在归一里被丢掉,
   // 拿归一后的投影当"是否推断"的依据就会把非确证打印成确证(见 acquire 那条日志的注释)。
   return meta
@@ -579,6 +599,23 @@ function sceneArchiveRoot() {
 }
 
 /**
+ * pending 目录的落点(G-814425)—— **刻意不放正式锁的同级兄弟**,即不放项目根。
+ *
+ * 理由不是美观:`.gitignore` 里那条是 `.deploy.lock`(无斜杠 ⇒ 只匹配这一个**确切名字**),
+ * 所以 `.deploy.lock.<nonce>.pending` 这种兄弟名**不被忽略**。一级目录整洁守门(第 44 项)
+ * 扫的就是根目录条目,一个残留(进程在 mkdir 与 rename 之间被杀)会以"白名单外隐藏目录 +
+ * 未被 git 跟踪"的形态落进它的 exit 2 分支 —— 那是一台与任何提交内容都无关的恒红/恒"未判定",
+ * 唯一结局是各会话跳钩子、连带约 185 道门对该提交作废(§12e 同型)。
+ * 落进 `sceneArchiveRoot()/pending` 同时满足三件事:被 gitignore、与现场归档同一落点(§15b)、
+ * 且与锁目录**同卷**(rename 仍是原子可见;万一不同卷,lib 会自动退回同级 pending 重试一次)。
+ */
+function lockPendingRoot() {
+  const override = process.env.IHUI_DEPLOY_LOCK_PENDING_DIR
+  if (override) return resolve(override)
+  return join(sceneArchiveRoot(), 'pending')
+}
+
+/**
  * 抢占/代为收口前把锁现场**原样归档**(A9-3「抢占保现场」)。
  * 归档的是**字节**不是重新序列化的对象——坏锁的价值恰恰在于"它到底长什么样"。
  * @param {{kind:string,reason?:string,ageMs?:number,ageSource?:string}} state 四态判据(附锁龄,供现场说明)
@@ -598,7 +635,9 @@ function archiveScene(dir, state, why) {
   }
   try {
     mkdirSync(target, { recursive: true })
-    if (rawBuf !== null) writeFileSync(join(target, 'meta.json'), rawBuf)
+    // 归档现场同样走原子替换:一半的现场档 = 取证时"这份 meta 到底长什么样"无从判断
+    // (rawBuf 是**原始字节**,出口对 Buffer 逐字节写,不重新序列化)。
+    if (rawBuf !== null) atomicWriteFileSync(join(target, 'meta.json'), rawBuf)
     else
       writeFileSync(join(target, 'meta.json.unavailable.txt'), `读取失败:${state.reason}\n`, 'utf8')
     // 锁目录里除 meta 之外的任何文件一并原样复制(禁止整棵 rm -rf 前不留档)
@@ -879,12 +918,23 @@ async function acquire({
   }
   for (;;) {
     let mkdirErr = null
-    try {
-      mkdirSync(dir, { recursive: false })
+    // G-814425:锁目录必须**写全再对外可见**(唯一实现 scripts/lib/lock-atomic-init.mjs,
+    // 与 git-lock.mjs 共用同一份,禁止各写一遍)。旧形态是 `mkdirSync(dir)` 紧接 `writeMeta(dir)`,
+    // 这两步之间那把空锁目录已经是"锁存在"的证据,而本文件对它的判读就是四态里的 `absent`,
+    // absent 的自动出路是"锁龄超 stale ⇒ 归档并抢占" ⇒ **还在写 meta 的活锁可以被抢走**,
+    // 抢到的人再 mkdir、原持有者随后把 meta 写进别人的锁目录,账面两个构建都认为自己持锁
+    // (8-09 那两个构建同时写 .next ⇒ 8801 短暂 502 的那一型,只是这次由"初始化窗口"触发)。
+    // 现在正式路径出现即等于内容已写全;pending 落点见 lockPendingRoot()(不落项目根,不留残留)。
+    const made = createLockDirectoryAtomically({
+      dir,
+      pendingRoot: lockPendingRoot(),
+      writePayload: (staged) => writeMeta(staged, mode, { ownerPid, ...identityOpts }),
+    })
+    if (made.ok) {
       // 用 writeMeta 的**返回值**而不是 readMeta:readMeta 会把 meta 归一成已知键的四态投影,
       // 新加的 ownerPidSource 在归一里被丢掉 —— 拿它当"是否推断"的依据就会打印成"调用方声明",
       // 把一条我们刻意标成"非确证"的凭据说成确证(本行日志正是给别人看的判读依据)。
-      const written = writeMeta(dir, mode, { ownerPid, ...identityOpts })
+      const written = made.payload
       const owner =
         Number(written?.ownerPid) > 0
           ? written.ownerPidSource === 'inferred-ppid'
@@ -893,21 +943,21 @@ async function acquire({
           : 'owner 无从确定(父进程也量不到)⇒ 退回 CLI pid 判活,与改动前同形'
       console.log(`[deploy-lock] ${mode} 锁已获取 (cli pid=${process.pid};${owner})`)
       return true
-    } catch (e) {
-      // 只有"目录已存在"(EEXIST)才是"别人持锁"。mkdir 成功而 writeMeta 失败(ENOSPC/权限)
-      // 必须当场报错:旧实现把两步全裹在同一个 catch 里,写不进 meta 时会退化成
-      // "死等一把自己刚建的锁",600s 后抛错还把责任推给"残留锁"。
-      if (e && e.code && e.code !== 'EEXIST') {
-        // 刻意**不**在这里删锁:非 EEXIST(如 EACCES)证明不了"这个目录是我刚建的",
-        // 而证明不了的删除就可能是在删别人的锁(本票红线)。留下的空锁目录会被后续
-        // acquire 按 absent 态走"超 stale ⇒ 归档 ⇒ 抢占"这条自愈路,不需要未证明的破坏动作。
-        throw new Error(
-          `[deploy-lock] 创建/写入锁 ${dir} 失败(${e.code}:${e?.message ?? e})。` +
-            '因无法证明该目录为本次所建,本工具不代删;请查磁盘空间/权限后重试。',
-        )
-      }
-      mkdirErr = e
     }
+    // 只有"目录已存在"(contended,lib 一律归一成 code=EEXIST)才是"别人持锁"。
+    // 其余故障(mkdir pending 的 ENOENT、写 meta 的 ENOSPC/权限、rename 失败而正式路径不在)
+    // 必须当场报错:旧实现把两步全裹在同一个 catch 里,写不进 meta 时会退化成
+    // "死等一把自己刚建的锁",600s 后抛错还把责任推给"残留锁"。
+    if (made.kind === 'error') {
+      // 刻意**不**在这里删锁:非 EEXIST 证明不了"这个目录是我刚建的",
+      // 而证明不了的删除就可能是在删别人的锁(本票红线)。留下的空锁目录会被后续
+      // acquire 按 absent 态走"超 stale ⇒ 归档 ⇒ 抢占"这条自愈路,不需要未证明的破坏动作。
+      throw new Error(
+        `[deploy-lock] 创建/写入锁 ${dir} 失败(${made.code}:${made.message ?? '无原因'})。` +
+          '因无法证明该目录为本次所建,本工具不代删;请查磁盘空间/权限后重试。',
+      )
+    }
+    mkdirErr = { code: made.code, originCode: made.originCode ?? null }
     // 锁已存在:判断是否可共存 / 是否可抢占
     let decision = decideSteal({ dir, mode, staleMs, hardCapMs })
     /**
@@ -1173,7 +1223,9 @@ async function runSelfTest() {
     return d
   }
   const putMeta = (dir, text) => {
-    writeFileSync(metaFile(dir), text, 'utf8')
+    // 夹具也走**同一个出口**(2026-09-29,G-653):用例写出的那份 meta 必须与生产写出的那份
+    // 同一条落盘路径,否则"四态判据对真实写入形态成立"这件事从来没被测过。
+    atomicWriteFileSync(metaFile(dir), text)
     return text
   }
   const findDeadPid = () => {
@@ -1892,6 +1944,62 @@ async function runSelfTest() {
         return /ts 不可信\(未来 600s/.test(out57) && /break-stale/.test(out57)
       })(),
     )
+
+    // —— 58..61) G-814425 初始化「写全再原子可见」(唯一实现在 scripts/lib/lock-atomic-init.mjs)。
+    // 这四条钉的是创建侧那一格:旧形态 mkdir(正式目录)+writeMeta 的两步窗口里,锁目录已经
+    // 对外可见而里面什么都没有 ⇒ 它恰好是本文件四态里的 absent ⇒ 而 absent 的自动出路是
+    // "锁龄超 stale ⇒ 归档抢占" ⇒ **还在初始化中的活锁**可以被别人抢走。
+    const pendingRootNow = lockPendingRoot()
+    const d58 = join(base, `lock-${++seq}`)
+    const r58 = await acquire({ mode: 'build', timeoutMs: 3000, dir: d58, ownerPid: process.pid })
+    t('S58a 无锁在场 ⇒ 原子初始化直接取得', r58 === true && readMeta(d58).kind === 'ok')
+    t(
+      'S58b 取得即完整:正式锁目录里当场就读得到 ok 态 meta(不存在"目录在而 meta 不在"的窗口)',
+      readMeta(d58).kind === 'ok' && Number(readMeta(d58).meta.pid) === process.pid,
+      JSON.stringify(readMeta(d58)),
+    )
+    t(
+      'S58c 不留残留:锁目录同级**没有** .pending,而 pending 落点跑完是空的(残留会喂给下一次判读)',
+      readdirSync(base).filter((n) => n.includes('.pending')).length === 0 &&
+        (!existsSync(pendingRootNow) || readdirSync(pendingRootNow).length === 0),
+      `${base} / ${pendingRootNow}`,
+    )
+    // S59: pending 落点被一个**文件**占住 ⇒ 初始化必然失败。红线是"失败得干净":
+    // 绝不能在正式路径上留下一把看起来存在的锁(那正是旧形态会留下的东西)。
+    const d59 = join(base, `lock-${++seq}`)
+    const badPending = join(base, `pending-blocked-${seq}`)
+    writeFileSync(badPending, 'not a dir', 'utf8')
+    let err59 = null
+    process.env.IHUI_DEPLOY_LOCK_PENDING_DIR = join(badPending, 'sub')
+    await acquire({ mode: 'build', timeoutMs: 1500, dir: d59, ownerPid: process.pid }).catch((e) => {
+      err59 = e
+    })
+    delete process.env.IHUI_DEPLOY_LOCK_PENDING_DIR
+    t(
+      'S59 pending 落点不可用 ⇒ 当场报错并点名错误码,正式锁目录**根本没被创建**(不留下半成品锁)',
+      !!err59 && /创建\/写入锁/.test(err59.message) && !existsSync(d59),
+      err59?.message ?? '未抛错',
+    )
+    // S60: 锁目录的父目录不存在 ⇒ 与改动前同一条出路(立刻报错,不进死等)。
+    let err60 = null
+    await acquire({ mode: 'build', timeoutMs: 1500, dir: join(base, 'no-such-parent-60', 'lock') }).catch(
+      (e) => (err60 = e),
+    )
+    t(
+      'S60 父目录不存在 ⇒ 立刻报错(ENOENT)而不是死等一把自己建不出来的锁(既有 S34 那一条的形状)',
+      !!err60 && /创建\/写入锁/.test(err60.message) && /ENOENT/.test(err60.message),
+      err60?.message ?? '未抛错',
+    )
+    // S61: 正式路径已是**空目录**(旧形态的产物 / 人工留下的 absent 态)⇒ 新初始化**绝不 rename 覆盖它**
+    // (POSIX 的 rename 会直接替换空目录,那就等于把"别人的在建锁"抹掉),仍按 absent 态等 stale。
+    const d61 = freshDir()
+    let err61 = null
+    await acquire({ mode: 'build', timeoutMs: 900, staleMs: 600_000, dir: d61 }).catch((e) => (err61 = e))
+    t(
+      'S61 已存在的空锁目录(absent 态)未被 rename 替换、未被删 ⇒ 仍走既有"等 stale"判据',
+      !!err61 && existsSync(d61) && readdirSync(d61).length === 0,
+      err61?.message ?? '未抛错',
+    )
   } finally {
     rmScratch(base)
   }
@@ -1981,6 +2089,8 @@ export const __test__ = {
   release,
   check,
   sceneArchiveRoot,
+  // G-814425:pending 落点也是判据的一部分(镜像测试要问同一把尺子它落在哪,不得在测试里另拼一遍)。
+  lockPendingRoot,
   claimStaleLock,
   lockIdentity,
   repoRoot,
