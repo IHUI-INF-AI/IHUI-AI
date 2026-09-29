@@ -53,6 +53,39 @@ describe('短信通道可达性(三态不并桶)', () => {
   })
 })
 
+describe('催费通道路由与"送达失败"判据', () => {
+  const { parseRemindChannels, externalDeliveryMissed } = reminder
+  it('默认只走微信(不借接线偷偷开一条计费通道)', () => {
+    expect(parseRemindChannels(undefined)).toEqual(['wechat'])
+    expect(parseRemindChannels('')).toEqual(['wechat'])
+  })
+  it('可显式扩到短信;非法值丢掉而不是让整个定时任务停摆', () => {
+    expect(parseRemindChannels('sms')).toEqual(['sms'])
+    expect(parseRemindChannels('wechat, sms')).toEqual(['wechat', 'sms'])
+    expect(parseRemindChannels('carrier-pigeon,sms')).toEqual(['sms'])
+    expect(parseRemindChannels('carrier-pigeon')).toEqual(['wechat'])
+  })
+  it('站内信被请求时不参与"外部触达失败"判定', () => {
+    expect(externalDeliveryMissed({ channels: ['in_app'], reminded: 5, wxSent: 0, smsSent: 0 })).toBe(
+      false,
+    )
+  })
+  it('要外发却零送达 ⇒ 判失败(旧版只按站内信异常判定,微信未配置一直显示 success)', () => {
+    expect(
+      externalDeliveryMissed({ channels: ['wechat'], reminded: 5, wxSent: 0, smsSent: 0 }),
+    ).toBe(true)
+    expect(
+      externalDeliveryMissed({ channels: ['wechat', 'sms'], reminded: 5, wxSent: 0, smsSent: 2 }),
+    ).toBe(false)
+    expect(
+      externalDeliveryMissed({ channels: ['wechat', 'sms'], reminded: 5, wxSent: 3, smsSent: 0 }),
+    ).toBe(false)
+    expect(externalDeliveryMissed({ channels: ['wechat'], reminded: 0, wxSent: 0, smsSent: 0 })).toBe(
+      false,
+    )
+  })
+})
+
 const { deriveEnrollmentLedger, dayDiff, DUE_SOON_LEAD_DAYS, shouldAdoptUnattributed, buildSchedulePlan } =
   ledger
 

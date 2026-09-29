@@ -2087,6 +2087,13 @@
       "when": 1790690400000,
       "tag": "20260929140000_edu_fee_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 299,
+      "version": "7",
+      "when": 1790697600000,
+      "tag": "20260929160000_sequence_autofill_triggers",
+      "breakpoints": true
     }
   ]
 }
