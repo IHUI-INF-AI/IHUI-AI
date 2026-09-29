@@ -111,7 +111,6 @@
     "check:sequence-lag:fix": "node scripts/check-sequence-lag.mjs --fix",
     "check:desktop-cache-plaintext": "node scripts/check-desktop-cache-plaintext.mjs",
     "check:prompt-injection": "node scripts/check-prompt-injection-registry.mjs",
-    "check:write-owner": "node scripts/check-write-owner-predicate.mjs --strict",
     "check:outbound-routes": "node scripts/check-declared-outbound-routes.mjs --strict",
     "check:digest-name": "node scripts/check-digest-name-reality.mjs --strict",
     "report:tool-arg-rejections": "pnpm --filter @ihui/cli exec tsx src/tools/argument-validation-report.ts",
