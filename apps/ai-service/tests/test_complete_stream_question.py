@@ -345,6 +345,116 @@ class TestCompleteStreamToolLoopPlanTerminalEvents:
         assert tool_start_index < terminal_start_index < terminal_end_index < done_index
         assert plan_index < done_index
 
+    async def test_high_risk_tool_without_approval_fails_loudly(
+        self, client: AsyncClient, monkeypatch
+    ):
+        """高危工具没人批准时:三件事必须同时成立,**不允许静默**。
+
+        1. 发出 `tool-approval` 帧(否则用户根本不知道有一步在等他,界面表现为"发了消息没反应");
+        2. 工具**没有**被执行(打桩调用数为 0)—— 这是审批门存在的全部意义;
+        3. 决策窗口耗尽后流里给出 `TOOL_APPROVAL_TIMEOUT`,而不是把这一轮悄悄结束。
+
+        与上一条用例(`_resolve_tool_approval` 置 False,专测帧顺序)刻意相反:这里**不**放行,
+        并且把 `_APPROVAL_TIMEOUT` 从 120 秒压到 1 秒 —— 否则本用例会卡在真等一个人点按钮,
+        那既慢又抖,也正是它此前没人补的原因(观测方式难,不是不重要)。
+        """
+        from app.routers import llm as llm_router
+        from app.services.mcp_server import mcp_server as _mcp_inst
+
+        shell_calls: list[str] = []
+
+        async def mock_astream(messages, model=None, owner_uuid=None, **kwargs):
+            yield {
+                "type": "tool_calls",
+                "tool_calls": [
+                    {
+                        "index": 0,
+                        "id": "tc_gate_1",
+                        "type": "function",
+                        "function": {
+                            "name": "run_command",
+                            "arguments": json.dumps({"command": "rm -rf /tmp/nope"}),
+                        },
+                    }
+                ],
+            }
+            yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
+
+        async def mock_complete(messages, model=None, owner_uuid=None, **kwargs):
+            return {"content": "不该走到这里", "model": "test-model", "usage": {}, "stub": True}
+
+        async def mock_call_tool(name, arguments, **kwargs):
+            shell_calls.append(name)
+            return {"tool": name, "ok": True, "stdout": "", "stderr": "", "exit_code": 0}
+
+        monkeypatch.setattr(llm_router.llm_gateway, "astream", mock_astream)
+        monkeypatch.setattr(llm_router.llm_gateway, "complete", mock_complete)
+        monkeypatch.setattr(_mcp_inst, "call_tool", mock_call_tool)
+        monkeypatch.setattr(llm_router, "_APPROVAL_TIMEOUT", 1)
+
+        raw = await _stream_chat(client, {
+            "messages": [{"role": "user", "content": "删掉 /tmp/nope"}],
+            "model": "test-model",
+            "agent_tools": ["run_command"],
+            "metadata": {"messageId": "msg-gate-001"},
+        })
+
+        assert f"event: {llm_router._SSE_TOOL_APPROVAL}" in raw, "没发审批帧 = 界面上没有人可点"
+        assert shell_calls == [], f"未经批准就执行了工具:{shell_calls}"
+        assert "TOOL_APPROVAL_TIMEOUT" in raw, "窗口耗尽必须给出明确错误码,不得悄悄收尾"
+
+    async def test_high_risk_tool_with_bypass_mode_executes(self, client: AsyncClient, monkeypatch):
+        """正向对照(与上一条同夹具、只换档位):免批档下必须**不发审批帧、把工具执行掉**。
+
+        为什么必须有这条:上一条的三条断言若在一台"永远不发帧、永远不执行"的实现上也同样成立,
+        那它就是空断言。换档后结果必须翻转,才证明它判的是审批门而不是打桩器。
+        """
+        from app.routers import llm as llm_router
+        from app.services.mcp_server import mcp_server as _mcp_inst
+
+        shell_calls: list[str] = []
+
+        async def mock_astream(messages, model=None, owner_uuid=None, **kwargs):
+            yield {
+                "type": "tool_calls",
+                "tool_calls": [
+                    {
+                        "index": 0,
+                        "id": "tc_gate_2",
+                        "type": "function",
+                        "function": {
+                            "name": "run_command",
+                            "arguments": json.dumps({"command": "echo ok"}),
+                        },
+                    }
+                ],
+            }
+            yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
+
+        async def mock_complete(messages, model=None, owner_uuid=None, **kwargs):
+            return {"content": "命令已执行", "model": "test-model", "usage": {}, "stub": True}
+
+        async def mock_call_tool(name, arguments, **kwargs):
+            shell_calls.append(name)
+            return {"tool": name, "ok": True, "stdout": "ok\n", "stderr": "", "exit_code": 0}
+
+        monkeypatch.setattr(llm_router.llm_gateway, "astream", mock_astream)
+        monkeypatch.setattr(llm_router.llm_gateway, "complete", mock_complete)
+        monkeypatch.setattr(_mcp_inst, "call_tool", mock_call_tool)
+        monkeypatch.setattr(llm_router, "_APPROVAL_TIMEOUT", 1)
+
+        raw = await _stream_chat(client, {
+            "messages": [{"role": "user", "content": "执行 echo ok"}],
+            "model": "test-model",
+            "agent_tools": ["run_command"],
+            "permission_mode": "bypass-permissions",
+            "metadata": {"messageId": "msg-gate-002"},
+        })
+
+        assert shell_calls == ["run_command"], f"免批档却没有执行:{shell_calls}"
+        assert f"event: {llm_router._SSE_TOOL_APPROVAL}" not in raw, "免批档不该再弹审批"
+        assert "TOOL_APPROVAL_TIMEOUT" not in raw
+
     async def test_normal_chat_emits_no_plan_updated(
         self, client: AsyncClient, monkeypatch
     ):

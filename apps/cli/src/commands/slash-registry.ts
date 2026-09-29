@@ -40,6 +40,9 @@ export const SLASH_COMMANDS: readonly SlashCommandMeta[] = [
   { name: 'tasks', description: '持久化任务列表(全局 ~/.ihui/tasks.json + 项目隔离)', usage: '/tasks [list|add <内容>|done <id>|undone <id>|remove <id>|clear|help]', category: 'basic' },
   { name: 'status', description: '综合状态面板(模型/权限/MCP/skills/memory/todo/context)', usage: '/status', category: 'basic' },
   { name: 'quickstart', description: '5 个典型场景示例(修复 bug/重构/测试/文档/性能)', usage: '/quickstart [1-5|help]', category: 'basic' },
+  // 保存自定义命令的屏幕入口(与 `custom-commands.ts` 的 saveCustomCommand 一对一接线)。
+  // 本行含 `description:` ⇒ 在守门 70 的豁免判据内(SKIP_TOKEN_RE),新增行不加命中数。
+  { name: 'custom', description: '保存自定义命令(存好即可直接 /<name> 调用)', usage: '/custom save <name> [正文…]', category: 'basic' },
   { name: 'skills', description: '列出已加载的 skills', usage: '/skills', category: 'session' },
   { name: 'skill', description: '查看 skill 内容', usage: '/skill <name>', category: 'session' },
   { name: 'memory', description: '管理跨会话记忆', usage: '/memory [on|off|show|add|clear|search]', category: 'session' },

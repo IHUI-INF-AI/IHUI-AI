@@ -31,8 +31,8 @@ import {
   loadEnrollmentLedger,
   recomputeEnrollment,
   recordPayment,
+  recordRefund,
   settleRefund,
-  shouldAdoptUnattributed,
   voidPaymentRecord,
 } from '../services/edu-ledger.js'
 import { dispatchArrearChannels } from '../services/edu-arrear-remind-service.js'
@@ -747,6 +747,11 @@ const batchFeeReminderSchema = z.object({
   enrollmentIds: z.array(z.string().uuid()).min(1).max(100),
   channel: z.enum(EDU_REMINDER_CHANNELS).default('in_app'),
   message: z.string().max(500).optional(),
+})
+
+/** 统计窗口:1–365 天。上限是防"全表扫描式"报表请求拖垮库,不是业务规则。 */
+const feeReminderStatsSchema = z.object({
+  days: z.coerce.number().int().min(1).max(365).default(30),
 })
 
 // =============================================================================
@@ -4313,48 +4318,22 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const parsed = createRefundRecordSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    // 退费登记必须落到一条报名上,否则它冲不进"该报名已缴多少"。
-    // 归属按两级取:① 所关联流水的 enrollment_id(确定信息);② 没有 paymentId 时,**仅当**
-    // 该 student×class 只有一条有效报名才认领(与缴费侧同一条规则、同一个纯函数)。
-    // 旧写法只做 ①,于是"不带 paymentId 的退费"既不写归属也不触发重算 —— 钱退了、
-    // 已缴额不减、欠费照旧,属账目口径静默失真(与"无归属缴费"同族,那是我自己埋的)。
-    // 两级都不成立时留 NULL 并如实回传 unattributed,由账目出口点名,绝不猜一期。
-    const [pay] = parsed.data.paymentId
-      ? await db
-          .select({ enrollmentId: eduPaymentRecord.enrollmentId })
-          .from(eduPaymentRecord)
-          .where(
-            and(eq(eduPaymentRecord.id, parsed.data.paymentId), isNull(eduPaymentRecord.deletedAt)),
-          )
-          .limit(1)
-      : []
-    let ownerEnrollmentId: string | null = pay?.enrollmentId ?? null
-    if (!ownerEnrollmentId) {
-      const siblings = await db
-        .select({ id: eduEnrollment.id })
-        .from(eduEnrollment)
-        .where(
-          and(
-            eq(eduEnrollment.studentId, parsed.data.studentId),
-            eq(eduEnrollment.classId, parsed.data.classId),
-            isNull(eduEnrollment.deletedAt),
-          ),
-        )
-        .limit(2)
-      if (shouldAdoptUnattributed(siblings.length)) ownerEnrollmentId = siblings[0]?.id ?? null
-    }
-    const [row] = await db
-      .insert(eduRefundRecord)
-      .values({
-        ...parsed.data,
-        enrollmentId: ownerEnrollmentId,
-        operatorId: parsed.data.operatorId || request.userId,
-      })
-      .returning()
-    if (ownerEnrollmentId) await recomputeEnrollment(ownerEnrollmentId)
+    // 归属解析与重算全在账目出口里做一次(见 edu-ledger::recordRefund)。
+    // 此前这两个别名端点各写一遍 insert + 各自判归属,于是"两处必须同改"成了缺陷温床 ——
+    // 真实事故就是其中一半没做:不带 paymentId 的退费退了钱却不减已缴额。
+    const r = await recordRefund({
+      ...parsed.data,
+      operatorId: parsed.data.operatorId || request.userId,
+    })
     return reply
       .status(201)
-      .send(success({ refundRecord: row, unattributed: !ownerEnrollmentId }))
+      .send(
+        success({
+          refundRecord: r.refund,
+          enrollmentId: r.enrollmentId,
+          unattributed: !r.enrollmentId,
+        }),
+      )
   })
 
   // 审批通过
@@ -4605,48 +4584,22 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const parsed = createRefundRecordSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    // 退费登记必须落到一条报名上,否则它冲不进"该报名已缴多少"。
-    // 归属按两级取:① 所关联流水的 enrollment_id(确定信息);② 没有 paymentId 时,**仅当**
-    // 该 student×class 只有一条有效报名才认领(与缴费侧同一条规则、同一个纯函数)。
-    // 旧写法只做 ①,于是"不带 paymentId 的退费"既不写归属也不触发重算 —— 钱退了、
-    // 已缴额不减、欠费照旧,属账目口径静默失真(与"无归属缴费"同族,那是我自己埋的)。
-    // 两级都不成立时留 NULL 并如实回传 unattributed,由账目出口点名,绝不猜一期。
-    const [pay] = parsed.data.paymentId
-      ? await db
-          .select({ enrollmentId: eduPaymentRecord.enrollmentId })
-          .from(eduPaymentRecord)
-          .where(
-            and(eq(eduPaymentRecord.id, parsed.data.paymentId), isNull(eduPaymentRecord.deletedAt)),
-          )
-          .limit(1)
-      : []
-    let ownerEnrollmentId: string | null = pay?.enrollmentId ?? null
-    if (!ownerEnrollmentId) {
-      const siblings = await db
-        .select({ id: eduEnrollment.id })
-        .from(eduEnrollment)
-        .where(
-          and(
-            eq(eduEnrollment.studentId, parsed.data.studentId),
-            eq(eduEnrollment.classId, parsed.data.classId),
-            isNull(eduEnrollment.deletedAt),
-          ),
-        )
-        .limit(2)
-      if (shouldAdoptUnattributed(siblings.length)) ownerEnrollmentId = siblings[0]?.id ?? null
-    }
-    const [row] = await db
-      .insert(eduRefundRecord)
-      .values({
-        ...parsed.data,
-        enrollmentId: ownerEnrollmentId,
-        operatorId: parsed.data.operatorId || request.userId,
-      })
-      .returning()
-    if (ownerEnrollmentId) await recomputeEnrollment(ownerEnrollmentId)
+    // 归属解析与重算全在账目出口里做一次(见 edu-ledger::recordRefund)。
+    // 此前这两个别名端点各写一遍 insert + 各自判归属,于是"两处必须同改"成了缺陷温床 ——
+    // 真实事故就是其中一半没做:不带 paymentId 的退费退了钱却不减已缴额。
+    const r = await recordRefund({
+      ...parsed.data,
+      operatorId: parsed.data.operatorId || request.userId,
+    })
     return reply
       .status(201)
-      .send(success({ refundRecord: row, unattributed: !ownerEnrollmentId }))
+      .send(
+        success({
+          refundRecord: r.refund,
+          enrollmentId: r.enrollmentId,
+          unattributed: !r.enrollmentId,
+        }),
+      )
   })
 
   server.put('/refund/:id/approve', async (request, reply) => {
@@ -5345,6 +5298,57 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 催费记录列表
+  /**
+   * 催缴留痕统计(只读)。
+   *
+   * 为什么要有:在此之前,"这个月到底催了多少、各通道成了几条"没人答得上来 ——
+   * 数据其实都在 `edu_fee_reminder` 里,只是没有出口,于是催缴效果只能靠翻日志。
+   *
+   * **caveat 是本端点的一部分,不是脚注**:这里统计的是**留痕**(登记了催缴、走哪条通道、
+   * 留痕状态),**不等于送达**。通道级四档回执(`sent`/`failed`/`not_configured`/`no_phone`,
+   * 微信另有 `user_refused`)目前只回给调用方并写进日志,没有落到本表 ——
+   * 所以"sent=N"读作"N 条催缴被登记",读不出"N 条家长真收到"。
+   * 把这句话放进响应而不是只写在注释里,是因为数字一旦被搬进报表,注释不会跟着走。
+   */
+  server.get('/fee-reminder/stats', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
+    const parsed = feeReminderStatsSchema.safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { days } = parsed.data
+    const since = new Date(Date.now() - days * 86_400_000)
+    const windowCond = gte(eduFeeReminder.createdAt, since)
+    const dayExpr = sql<string>`to_char(${eduFeeReminder.createdAt}, 'YYYY-MM-DD')`
+
+    const [totalRow, byChannel, byDay] = await Promise.all([
+      db.select({ n: count() }).from(eduFeeReminder).where(windowCond),
+      db
+        .select({ channel: eduFeeReminder.channel, status: eduFeeReminder.status, n: count() })
+        .from(eduFeeReminder)
+        .where(windowCond)
+        .groupBy(eduFeeReminder.channel, eduFeeReminder.status),
+      db
+        .select({ day: dayExpr, n: count() })
+        .from(eduFeeReminder)
+        .where(windowCond)
+        .groupBy(dayExpr)
+        .orderBy(dayExpr),
+    ])
+
+    return reply.send(
+      success({
+        days,
+        since: since.toISOString(),
+        total: totalRow[0]?.n ?? 0,
+        byChannel,
+        byDay,
+        caveat:
+          '本统计为催缴**留痕**计数,不等于送达:通道级回执(sent/failed/not_configured/no_phone,以及微信 user_refused)未落库,只回给调用方并写日志。要算真实触达率需先把逐收件人回执持久化。',
+      }),
+    )
+  })
+
   server.get('/fee-reminder', async (request, reply) => {
     await requireEduView(request, reply)
     if (reply.sent) return
@@ -5437,6 +5441,7 @@ export const __test__ = {
   createFeeReminderSchema,
   batchFeeReminderSchema,
   generateFeeScheduleSchema,
+  feeReminderStatsSchema,
 }
 
 export default eduAiManagementRoutes
