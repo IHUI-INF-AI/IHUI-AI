@@ -1685,7 +1685,7 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       } else if (sub === 'kill') {
         const id = args[1] ?? '';
         if (!id) { console.info(chalk.red('缺少 task_id')); break; }
-        const result = await killTask(id);
+        const result = await killTask(id, 'user');
         if (result.killed) console.info(chalk.green(`✓ 任务 ${id} 已终止`));
         else console.info(chalk.red(`终止失败: ${result.reason ?? '未知'}`));
       } else {
