@@ -10,12 +10,15 @@ import { createPersistConfig } from './persist-helpers'
 import { useChatStore } from './chat'
 
 /** AI 侧边 docked 面板默认宽度
- * - 2026-08-02 立(用户规则"默认宽度设置为380"):
- *   默认 380px,旧 localStorage 残留由 persist migrate version 3→4 强制覆盖为 380。
- * - 1022px 全屏宽度是 isMobile 误判 bug(已在 ai-side-panel.tsx 修复,阈值 1023→768),与本常量无关。
+ * - 2026-09-30 重构(输入框底栏单行化,深度对标 Trae/Qoder/Codex):
+ *   底部工具栏改为单行 8 控件后,全部控件 icon-only 基线宽 ≈336px(容器 = 面板-48),
+ *   300px 旧默认(容器 252)必然溢出重叠 —— 这正是用户抱怨"堆得乱七八糟"的根因之一。
+ *   默认提到 480(容器 432,模型文字可显示),MIN 提到 400(容器 352,icon-only 全量可点)。
+ *   旧 localStorage 残留由 persist migrate version 4→5 强制覆盖为 480。
+ * - 2026-08-02 曾立"默认宽度设置为380"(version 3→4),本次按新布局重设。
  */
-export const AI_PANEL_DEFAULT_WIDTH = 300
-export const AI_PANEL_MIN_WIDTH = 300
+export const AI_PANEL_DEFAULT_WIDTH = 480
+export const AI_PANEL_MIN_WIDTH = 400
 export const AI_PANEL_MAX_WIDTH = 720
 
 /** AI 面板当前绑定的本地工作区(参考 Trae/Codex 顶部 project selector 设计)
@@ -180,11 +183,12 @@ export const useAiPanelStore = create<AiPanelState>()(
       // 现改为会话级状态:每次刷新回到 docked 默认态,移动端 effect 仅在当前会话生效不污染桌面端。
       // - v2→v3:强制设为 460 验证 migrate 生效(用户确认生效)
       //
-      // 2026-08-02 version 0→1→2→3→4 迁移(用户规则"默认宽度设置为380"):
-      version: 4,
+      // 2026-08-02 version 0→1→2→3→4 迁移(用户规则"默认宽度设置为380");
+      // 2026-09-30 version 4→5:底栏单行化重设默认宽 480(旧值 300/380 下新底栏必然溢出)
+      version: 5,
       migrate: (persistedState: unknown, version: number) => {
         const s = (persistedState as Partial<AiPanelState>) || {}
-        if (version < 4 && typeof s.width === 'number') {
+        if (version < 5 && typeof s.width === 'number') {
           s.width = AI_PANEL_DEFAULT_WIDTH
         }
         return s as Partial<AiPanelState>
