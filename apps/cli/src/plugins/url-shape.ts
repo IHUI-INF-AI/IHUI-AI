@@ -222,6 +222,12 @@ export function evaluateGitSha(raw: unknown): GitShaVerdict {
  * message **刻意不含**入参原文(见 previewOf 的理由),流程判断只读 `field` / `reasonCode`。
  */
 export class GitCloneInputRejectedError extends Error {
+  /**
+   * 稳定分档码(G-809):调用方按**这个字符串**分流,而不是 `instanceof` ——
+   * 同一个类在"源码 + dist"两份模块下不是同一个构造函数,instanceof 会假负,
+   * 于是安全拒绝被降级成"刷新失败"。仓内已有同形态先例(`readMcpRefreshKind`)。
+   */
+  readonly code = 'git_clone_input_rejected';
   readonly field: 'url' | 'ref' | 'sha';
   readonly reasonCode: GitInputRejectReason;
   readonly detail: string;
