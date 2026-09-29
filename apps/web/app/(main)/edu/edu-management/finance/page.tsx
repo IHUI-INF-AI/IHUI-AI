@@ -1352,6 +1352,8 @@ export default function FinancePage() {
         sent: number
         total: number
         wxSent: number
+        // 短信四档聚合(后端批量端点;dueList 为空时不带该字段)
+        sms?: { sent: number; failed: number; not_configured: number; no_phone: number }
         skipped: Array<{ enrollmentId: string; reason: string }>
       }>('/api/edu-ai-management/fee-reminder/batch', {
         method: 'POST',
@@ -1445,12 +1447,24 @@ export default function FinancePage() {
       setReminderSelected(new Set())
       setReminderMessage('')
       // 2026-09-19: 展示发送结果,含微信订阅消息实际推送条数(未授权/未订阅的家长会被跳过)
+      // 2026-09-30: 短信通道当场读出四档(送达/未留手机号/服务未配置/失败) —— 只报总数时,
+      // "发出去了 0 条"与"服务端没配短信模板"在 toast 上同形,真因要等翻报表才知道。
       const wxPart = reminderChannel === 'wechat' ? `，微信推送 ${res.wxSent} 条` : ''
+      const smsTally =
+        reminderChannel === 'sms' && res.sms
+          ? [
+              res.sms.sent > 0 ? `短信送达 ${res.sms.sent} 条` : '',
+              res.sms.no_phone > 0 ? `${res.sms.no_phone} 条收件人未留手机号` : '',
+              res.sms.not_configured > 0 ? `${res.sms.not_configured} 条因短信服务未配置未发出` : '',
+              res.sms.failed > 0 ? `${res.sms.failed} 条发送失败` : '',
+            ].filter(Boolean)
+          : []
+      const smsPart = smsTally.length ? `（${smsTally.join('，')}）` : ''
       const skippedPart = res.skipped.length > 0 ? `，跳过 ${res.skipped.length} 条` : ''
       if (res.sent > 0) {
-        toast.success(`催费已发送 ${res.sent} 条${wxPart}${skippedPart}`)
+        toast.success(`催费已发送 ${res.sent} 条${wxPart}${smsPart}${skippedPart}`)
       } else {
-        toast.warning(`没有成功发送的催费${skippedPart}`)
+        toast.warning(`没有成功发送的催费${smsPart}${skippedPart}`)
       }
     } finally {
       setSendingReminder(false)
