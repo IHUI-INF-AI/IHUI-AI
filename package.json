@@ -114,8 +114,6 @@
     "check:write-owner": "node scripts/check-write-owner-predicate.mjs --strict",
     "check:outbound-routes": "node scripts/check-declared-outbound-routes.mjs --strict",
     "check:digest-name": "node scripts/check-digest-name-reality.mjs --strict",
-    "check:image-placeholders": "node scripts/check-image-placeholders.mjs --strict",
-    "check:image-placeholders:list": "node scripts/check-image-placeholders.mjs --list",
     "report:tool-arg-rejections": "pnpm --filter @ihui/cli exec tsx src/tools/argument-validation-report.ts",
     "check:rn-double-header": "node scripts/check-rn-double-header.mjs --strict",
     "scrub:temp": "node scripts/scrub-temp-fixtures.mjs",
