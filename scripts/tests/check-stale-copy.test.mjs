@@ -24,6 +24,25 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GATE_REL = 'scripts/check-stale-copy.mjs'
 const hints = gate.repairHintLines()
 
+/** 门体在**被审面(HEAD)**上的那一份 —— 取不到就直接判死,不得让"没读到"伪装成"没违规"。 */
+function gateSource() {
+  const src = catBatch(ROOT, [`HEAD:${GATE_REL}`]).get(`HEAD:${GATE_REL}`)
+  assert.ok(src && String(src).length > 200, 'HEAD 面取不到门体,本断言等于没跑')
+  return String(src)
+}
+
+/** 从门体源码里取出 repairHintLines 的函数体(出路文本的唯一来源)。 */
+function hintFnBody(src) {
+  const start = src.indexOf('export function repairHintLines()')
+  assert.ok(start >= 0, 'HEAD 门面里没有 repairHintLines —— 出路文案又回到各处手抄了')
+  const open = src.indexOf('{', start)
+  let depth = 0
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === '{') depth++
+    else if (src[i] === '}' && --depth === 0) return src.slice(open, i + 1)
+  }
+  assert.fail('repairHintLines 函数体括号配平不到,判据不许静默返回空串')
+}
 /** 被审面(HEAD)的 has —— 判据读哪一面,测试就验哪一面,不得混取。 */
 function headHas(candidates) {
   const specs = candidates.map((p) => `HEAD:${p}`)
@@ -35,17 +54,17 @@ function headHas(candidates) {
 }
 
 test('T1 出路文本真被 main() 打印(不是只定义在文件里)', () => {
-  const src = catBatch(ROOT, [`HEAD:${GATE_REL}`]).get(`HEAD:${GATE_REL}`)
-  assert.ok(src && src.length > 0, 'HEAD 面取不到门体,本断言等于没跑')
-  // 失败分支必须是 `for (const line of repairHintLines())` 这种**调用**形态,
-  // 而不是把同一段文案再抄一份 console.error(抄的那份永远不会被自检判到)。
-  assert.match(src, /for \(const line of repairHintLines\(\)\) console\.error\(line\)/)
+  const src = gateSource()
+  // 失败分支必须**调用** repairHintLines() 再打印,而不是把同一段文案再抄一份
+  // console.error(抄的那份永远不会被自检判到 —— 正是本票那一条漂了 15 天的死指针)。
+  assert.match(src, /const hints = repairHintLines\(\)/)
+  assert.match(src, /for \(const line of hints\) console\.error\(line\)/)
 })
 
 test('T2 可兑现性判据真挂在失败路径上(判据在而无人调 = 没有)', () => {
-  const src = catBatch(ROOT, [`HEAD:${GATE_REL}`]).get(`HEAD:${GATE_REL}`)
-  assert.match(src, /const v = checkExitsResolvable\(/)
-  // 且自检入口真被 CLI 派发(否则 --self-test 是一句跑不通的出路 —— 正是本票那一型)
+  const src = gateSource()
+  assert.match(src, /v = checkExitsResolvable\(/)
+  // 且自检入口真被 CLI 派发(否则 --self-test 又是一句跑不通的出路 —— 本票那一型)
   assert.match(src, /process\.argv\.includes\('--self-test'\)\)\s*process\.exit\(selfTest\(\)\)/)
 })
 
@@ -71,12 +90,15 @@ test('T5 没注入被审面读取器 ⇒ undetermined,不得被记成通过', ()
   assert.match(v.why, /无从验证/)
 })
 
-test('T6 本票点名的死指针不得再出现在门体的 HEAD blob 里', () => {
-  const src = catBatch(ROOT, [`HEAD:${GATE_REL}`]).get(`HEAD:${GATE_REL}`)
-  assert.ok(src, 'HEAD 面取不到门体')
-  assert.equal((src.match(/detect-stale2/g) || []).length, 0, '死指针回潮(该路径从未入库)')
-  // 出路文本里不得再指向 gitignore 的临时目录 —— 那里的一切只存在于一台机器
-  assert.doesNotMatch(hints.join('\n'), /\.ihui-agent\/tmp/)
+test('T6 死指针不得回潮 + 判据认得当年那一行(阳性对照)', () => {
+  const body = hintFnBody(gateSource())
+  assert.doesNotMatch(body, /detect-stale2/, '门体的出路文案里又出现了那个从未入库的脚本名')
+  assert.doesNotMatch(body, /\.ihui-agent\/tmp/, '出路不得指向 gitignore 的临时目录(那里只存在于一台机器)')
+  // 阳性对照:把事故那一行逐字喂判据,必须被抓成候选 —— 否则"没抓到"可能只是看不见
+  assert.deepEqual(gate.printedPathCandidates(['  3. 详细检测法:.ihui-agent/tmp/detect-stale2.mjs']), [
+    '.ihui-agent/tmp/detect-stale2.mjs',
+  ])
+  assert.deepEqual(hints.filter((l) => /\.ihui-agent\/tmp/.test(l)), [])
 })
 
 test('T7 变异自证的载体:摘掉 printedPathCandidates 里的两型前缀 ⇒ T3 立即拿不到候选', () => {
