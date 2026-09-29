@@ -2951,7 +2951,7 @@
         "packages/ui/src/lib/exploreToolCall.ts:120-123"
       ],
       "tickets": [
-        "b74-1#1"
+        "G-977965"
       ],
       "readFiles": [
         {
@@ -3116,7 +3116,7 @@
         "packages/ui/src/lib/keyboardShortcuts.ts:92-93"
       ],
       "tickets": [
-        "b74-1#10"
+        "G-977974"
       ],
       "readFiles": [
         {
@@ -3178,7 +3178,7 @@
         "packages/ui/src/lib/markdownFileLink.ts:52-75"
       ],
       "tickets": [
-        "b74-1#2"
+        "G-977966"
       ],
       "readFiles": [
         {
@@ -3264,7 +3264,7 @@
         "packages/ui/src/lib/messageTelemetry.ts:1443-1449"
       ],
       "tickets": [
-        "b74-1#4"
+        "G-977968"
       ],
       "readFiles": [
         {
@@ -3501,7 +3501,7 @@
         "packages/ui/src/lib/officeFilePreview.ts:174-199"
       ],
       "tickets": [
-        "b74-1#8"
+        "G-977972"
       ],
       "readFiles": [
         {
@@ -3540,7 +3540,7 @@
         "packages/ui/src/lib/patchDiffPreview.ts:202-217"
       ],
       "tickets": [
-        "b74-1#3"
+        "G-977967"
       ],
       "readFiles": [
         {
@@ -3559,7 +3559,7 @@
         "packages/ui/src/lib/path.ts:5-92"
       ],
       "tickets": [
-        "b74-1#2"
+        "G-977966"
       ],
       "readFiles": [
         {
@@ -3598,7 +3598,7 @@
         "packages/ui/src/lib/permissionRequest.ts:71-106"
       ],
       "tickets": [
-        "b74-1#11"
+        "G-977975"
       ],
       "readFiles": [
         {
@@ -3655,7 +3655,7 @@
         "packages/ui/src/lib/planUsageArmsTelemetry.ts:91-100"
       ],
       "tickets": [
-        "b74-1#5"
+        "G-977969"
       ],
       "readFiles": [
         {
@@ -3787,7 +3787,7 @@
         "packages/ui/src/lib/promptHistory.ts:31-76"
       ],
       "tickets": [
-        "b74-1#12"
+        "G-977976"
       ],
       "readFiles": [
         {
@@ -3806,7 +3806,7 @@
         "packages/ui/src/lib/promptHistoryStorage.ts:22-65"
       ],
       "tickets": [
-        "b74-1#12"
+        "G-977976"
       ],
       "readFiles": [
         {
@@ -3829,7 +3829,7 @@
         "packages/ui/src/lib/promptInputTriggers.ts:182-229"
       ],
       "tickets": [
-        "b74-1#9"
+        "G-977973"
       ],
       "readFiles": [
         {
@@ -3870,7 +3870,7 @@
         "packages/ui/src/lib/providerBusinessError.ts:245-253"
       ],
       "tickets": [
-        "b74-1#6"
+        "G-977970"
       ],
       "readFiles": [
         {
@@ -4031,7 +4031,7 @@
         "packages/ui/src/lib/providerSettingsSnapshot.ts:46-47"
       ],
       "tickets": [
-        "b74-1#7"
+        "G-977971"
       ],
       "readFiles": [
         {
@@ -4092,7 +4092,7 @@
         "packages/ui/src/lib/reactErrorArmsTelemetry.ts:61-62"
       ],
       "tickets": [
-        "b74-2#6"
+        "G-977982"
       ],
       "readFiles": [
         {
@@ -4393,7 +4393,7 @@
         "packages/ui/src/lib/sendFunnelArmsTelemetry.ts:98-136"
       ],
       "tickets": [
-        "b74-2#7"
+        "G-977983"
       ],
       "readFiles": [
         {
@@ -4432,7 +4432,7 @@
         "packages/ui/src/lib/sessionOpenArmsTelemetry.ts:118-146"
       ],
       "tickets": [
-        "b74-2#7"
+        "G-977983"
       ],
       "readFiles": [
         {
@@ -4455,7 +4455,7 @@
         "packages/ui/src/lib/settingsNavigation.ts:437-459"
       ],
       "tickets": [
-        "b74-2#5"
+        "G-977981"
       ],
       "readFiles": [
         {
@@ -4478,7 +4478,7 @@
         "packages/ui/src/lib/shikiHighlighter.ts:157-196"
       ],
       "tickets": [
-        "b74-2#8"
+        "G-977984"
       ],
       "readFiles": [
         {
@@ -4842,7 +4842,7 @@
         "packages/ui/src/lib/taskListMembershipSets.ts:60-110"
       ],
       "tickets": [
-        "b74-2#1"
+        "G-977977"
       ],
       "readFiles": [
         {
@@ -4864,7 +4864,7 @@
         "packages/ui/src/lib/taskListMetaSync.ts:88-98"
       ],
       "tickets": [
-        "b74-2#10"
+        "G-977986"
       ],
       "readFiles": [
         {
@@ -4883,7 +4883,7 @@
         "packages/ui/src/lib/taskListOrdering.ts:36-63"
       ],
       "tickets": [
-        "b74-2#2"
+        "G-977978"
       ],
       "readFiles": [
         {
@@ -4939,7 +4939,7 @@
         "packages/ui/src/lib/taskNavigationHistory.ts:113-121"
       ],
       "tickets": [
-        "b74-2#4"
+        "G-977980"
       ],
       "readFiles": [
         {
@@ -4958,7 +4958,7 @@
         "packages/ui/src/lib/taskNavigationTarget.ts:6-23"
       ],
       "tickets": [
-        "b74-2#4"
+        "G-977980"
       ],
       "readFiles": [
         {
@@ -5052,7 +5052,7 @@
         "packages/ui/src/lib/taskSidePaneMemory.ts:94-143"
       ],
       "tickets": [
-        "b74-2#9"
+        "G-977985"
       ],
       "readFiles": [
         {
@@ -5075,7 +5075,7 @@
         "packages/ui/src/lib/taskStatusUnreadSync.ts:149-170"
       ],
       "tickets": [
-        "b74-2#3"
+        "G-977979"
       ],
       "readFiles": [
         {
@@ -5241,7 +5241,7 @@
         "packages/ui/src/lib/toolDiffPreview.ts:385-415"
       ],
       "tickets": [
-        "b74-3#8"
+        "G-977994"
       ],
       "readFiles": [
         {
@@ -5380,7 +5380,7 @@
         "packages/ui/src/lib/uiPerfArmsTelemetry.ts:350-399"
       ],
       "tickets": [
-        "b74-3#5"
+        "G-977991"
       ],
       "readFiles": [
         {
@@ -5442,7 +5442,7 @@
         "packages/ui/src/lib/usageEntitlementRefreshPolicy.ts:75-92"
       ],
       "tickets": [
-        "b74-3#3"
+        "G-977989"
       ],
       "readFiles": [
         {
@@ -5486,7 +5486,7 @@
         "packages/ui/src/lib/userActionTelemetry.ts:288-324"
       ],
       "tickets": [
-        "b74-3#4"
+        "G-977990"
       ],
       "readFiles": [
         {
@@ -5508,7 +5508,7 @@
         "packages/ui/src/lib/userActionTraceCatalog.ts:163-165"
       ],
       "tickets": [
-        "b74-3#4"
+        "G-977990"
       ],
       "readFiles": [
         {
@@ -5530,7 +5530,7 @@
         "packages/ui/src/lib/webElementContext.ts:115-124"
       ],
       "tickets": [
-        "b74-3#9"
+        "G-977995"
       ],
       "readFiles": [
         {
@@ -5556,7 +5556,7 @@
         "packages/ui/src/lib/webElementPickerScript.ts:163-183"
       ],
       "tickets": [
-        "b74-3#9"
+        "G-977995"
       ],
       "readFiles": [
         {
@@ -5672,7 +5672,7 @@
         "packages/ui/src/lib/workflowRunAckStore.ts:95-101"
       ],
       "tickets": [
-        "b74-3#10"
+        "G-977996"
       ],
       "readFiles": [
         {
@@ -5693,7 +5693,7 @@
         "packages/ui/src/lib/workflowRunLine.ts:45-93"
       ],
       "tickets": [
-        "b74-3#10"
+        "G-977996"
       ],
       "readFiles": [
         {
@@ -6024,8 +6024,8 @@
         "packages/ui/src/lib/workspaceSidePane.ts:205-227"
       ],
       "tickets": [
-        "b74-3#6",
-        "b74-3#7"
+        "G-977992",
+        "G-977993"
       ],
       "readFiles": [
         {
@@ -6255,7 +6255,7 @@
         "packages/ui/src/lib/zcodeTaskUsageFallback.ts:52-58"
       ],
       "tickets": [
-        "b74-3#2"
+        "G-977988"
       ],
       "readFiles": [
         {
@@ -6282,7 +6282,7 @@
         "packages/ui/src/lib/zcodeUiError.ts:235-254"
       ],
       "tickets": [
-        "b74-3#1"
+        "G-977987"
       ],
       "readFiles": [
         {
