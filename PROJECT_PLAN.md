@@ -20541,3 +20541,15 @@ services 归档/分享/HTTP 层)判"值得抄"的 **26 条**逐条立项(每条�
   - **我另一处自伤**:`payableRosterQuery` 写 `pageSize=200`,而该端点 `paginationSchema` 上限 100 ⇒ 400,而这个 400 被 useQuery 吞掉,**界面上只表现为"期次下拉是空的"**,看不出任何异常。已改为 100 并在注释里写明上限来源。
   - **两个探针自误(记下来,因为它们当时的结论都是错的)**:① 用"插入两条相同 receipt_no 看是否被拒"验唯一索引,但 `edu_enrollment`/`edu_payment_record` 是 **0 行** ⇒ 两条 insert 各插 0 行、事务正常提交 ⇒ "竟然没报错"是**恒真式探针**。唯一索引只有 `pg_class` 存在性证据,行为验证在本机**未判定**(要做得往共享开发库塞业务数据,不做)。② `information_schema` 查询被这台机的语句守卫挡掉,报出来像"表不存在" —— 别把工具被挡当成事实。
   - 现值:远端已含两处读侧别名与 pageSize=100(残留 200 = 0),本地领先 0 枚;账目 33 例 / 契约 8 例 / e2e 6 例 / 守门自检 21 条全绿。
+
+### 第六十八批·发布线:Cookie 自动保活"接电"三断点 + 账号页保活状态角标(2026-09-29)
+
+用户令:逐卡片"刷新 Cookie"按钮改为自动保活、设好时间、无需用户操心。排查发现守护本体(cookie_refresh_daemon,2026-08-01 建)早已存在且 .env 已配 ENABLED=true,但**三处断点**让它从未真正跑过——"装了开关没接电"。全部实证收口:
+
+- **断点①(懒启动)**:守护只在 /publish/cookie-refresh 端点被调时 ensure_started(),UI 从不调它 ⇒ 永不启动。修:main.py lifespan 挂载 cookie_daemon.ensure_started()(未启用时 no-op,与同文件 self_media/news/db_sync 调度器同一模式)。重启实锤日志:`[cookie_daemon] 后台守护任务已启动,间隔 6.0 小时`。
+- **断点②(.env 白名单缺前缀)**:cookie_refresh_daemon 以 os.environ.get 直读 COOKIE_REFRESH_*,而 config.py 的 _sync_env_file_to_os 白名单只有 DB_SYNC_ 前缀 ⇒ .env 里写了 true 也到不了 os.environ(本文件注释自记的"静默失效"第 6 例)。修:白名单补 "COOKIE_REFRESH_" 前缀。**施工自伤一次**:startswith( 括号内是参数表不是元组,裸加第二个字符串被当成 start 下标(TypeError: slice indices must be integers),全仓 ai-service 测试瞬灭;已改显式元组并在注释里钉住这一型。
+- **断点③(成功不戳新)**:守护循环保活成功但 cookie 无轮换时(常态)不写 last_verified_at ⇒ 健康度永远停在旧时间,自动保活做了用户也"看不见"。修:refresh_single 成功路径统一 _stamp_verified(失败只告警不影响保活结论;手动端点同名戳保留,幂等)。
+- **UI 角标**:账号页头部新增只读状态行 CookieAutoRefreshChip(getCookieRefreshStats,auto_enabled=false / 请求失败 / 加载中一律不渲染,不得假装开启;last_run_at 空回落"首轮保活进行中"),i18n 五语言 publish.cookieAutoRefresh 三键。用户从此看得到"每 6 小时 · 上次保活 09-29 18:28",无需逐卡片点刷新。
+- **真机终验**:重启后首轮全量保活 16 账号 14 成功 2 失败(wechat 过期 14.7 天 / bilibili、wordpress 13 天+,如实标失败 = 正确信号,待用户重扫);14 个账号 last_verified_at 戳新至当日、daysSince=0.0 全 healthy;Playwright 真开页面角标渲染「Cookie 自动保活 · 每 6 小时 · 上次保活 09-29 18:28」,截图 .ihui-agent/tmp/scanlogin/auto-refresh-chip.png。
+- **tests**:ai-service test_cookie_refresh_daemon.py 43→46 条(+_stamp_verified 三例:写 UPDATE / 失败不抛 / 成功路径必戳),pytest 46/46、mypy 0 错、ruff 0 错;web vitest 4 条(角标开启渲染 / 关闭不渲染 / pending 回落 / 请求失败静默)全绿;tsc/eslint 本批文件零错;i18n 包 96/96。顺手机械修掉 main.py 两处 HEAD 存量(steps 缺注解、UP041 asyncio.TimeoutError)。
+- **i18n 混包事故如实交代**:en/ja/ko 工作树彼时处于他人 minify 变换中(其暂存副本实为**损坏 JSON**,parse 即炸)。按"他人语义不丢、损坏格式不收"原则:以 HEAD(pretty)为基线字符串手术重建,抢救他人两键(ai.checkpointHistory.rollbackConfirmContentUnreadable / ide.diffReview.copyGitApplyUnreadable,值自合法工作树逐字取回),重建结果与工作树**扁平键集逐键等值**(各 23036 键);HEAD 基准下每文件恰 7 行纯插入零删除。我的提交因此携带他人 2 个语义键,特此登记。
