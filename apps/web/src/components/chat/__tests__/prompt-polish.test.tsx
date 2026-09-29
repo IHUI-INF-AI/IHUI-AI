@@ -23,7 +23,9 @@ import {
   type PromptPolishState,
 } from '@ihui/shared/chat/prompt-polish'
 
-import { PromptPolishEntry, PromptPolishNotice } from '../message-input'
+// D82 提示条 2026-09-30 抽出至独立文件(InputStatusSlot 槽内挂载需要,防成环);入口按钮仍在 message-input
+import { PromptPolishEntry } from '../message-input'
+import { PromptPolishNotice } from '../prompt-polish-notice'
 
 // 只断言**结构与判据**(入口可见 / 保稿提示 / 重试可点 / 相位键),文案一律走 key;
 // 真实文案与五语言 parity 由下面「读真实词包」那组用例守住 —— 词措辞变动不打破组件测试。
