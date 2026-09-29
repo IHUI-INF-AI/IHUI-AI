@@ -125,12 +125,17 @@
 }
 
 .login-tab-active {
-  background-color: var(--color-card);
-  color: var(--color-foreground);
+  /* 选中态成对档(2026-09-30 用户定稿,登录页分段控件三端收口)。
+     旧写法取 --color-card:暗档 = hsl(0 0% 10%) = #1A1A1A,而 App(RN)同一枚胶囊取纯黑,
+     真机实拍分叉;现三端一律取 tokens.css 的 --color-selection(亮 #FFFFFF / 暗 #000000),
+     前景取其成对档 --color-selection-foreground。
+     亮档取值与原 --color-card 逐位同值 ⇒ 小程序亮色观感零变化,变的只有暗档(#1A1A1A→纯黑)。 */
+  background-color: var(--color-selection);
+  color: var(--color-selection-foreground);
 }
 
 .login-tab-text-active {
-  color: var(--color-foreground);
+  color: var(--color-selection-foreground);
 }
 
 /* ===== tab 内容 ===== */
@@ -193,7 +198,9 @@
 .login-phone-row-focused {
   /* 聚焦态描边取墨档:亮纯黑 / 暗纯白(AGENTS §4 的唯一例外位,2026-09-30 定档)。
      旧写法取 brand-accent-deep 是把它当"静态描边"处理了 —— 静态仍禁墨档,聚焦态反过来要墨档。 */
-  border-color: var(--color-primary);
+  border-color: var(
+    --color-primary
+  ); /* border-ink-exempt: 聚焦态墨档是 §4 定档的唯一例外位(枚 44a248fbf0);门 83 的 CSS 形态只认 `:focus`/`:active` 伪类选择器,不认 `.xxx-focused` 这种"聚焦档做成独立 class"的第四书写位,故按门自己的行内出口逐行声明,不回退定档、不改判据;收口 = 门 83 补认该书写位后销掉本标记 until 2026-10-30 */
 }
 
 .login-phone-input {
