@@ -2,55 +2,43 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-export * from './ai-skill-variables'
-// AI 操控桥的投递定址判定(五桥共用一份实现,端内只注入自身身份)
-export * from './agent-action-addressing'
-export * from './app-control-intent'
-export * from './async'
-export * from './base64'
-// 上下文占用归因分解(按构成来源,而非只报总量)
-export * from './context-attribution'
-// canonical JSON 序列化唯一出口(86F:审计链哈希与导出签名共用,生产面禁止第二份)
-export * from './canonical-json'
-// D20 会话组织(文件夹/标签)的归一化、回收与筛选规则唯一实现(端内不得再建第二套)
-export * from './conversation-org'
-export * from './dangerous-command-detector'
-export * from './date-utils'
-// G-704(2026-09-29 立)「值等价即不写」的等深比较器唯一实现(端内不得各写一份近似品)
-export * from './deep-equal-records'
-export * from './error-messages'
-export * from './file-helpers'
-export * from './form-styles'
-export * from './format'
-export * from './format-ext'
-// 移动端/小程序端通用格式工具(2026-07-30 立)
-export * from './format-mobile'
-// 跨端图片处理工具(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
-export * from './image-helpers'
-// 跨端 compact 数字格式化(2026-08-01 P3-4.2 批次5 立,从 apps/web/src/lib/number-format.ts 下沉)
-export * from './number-format'
-// 跨端存储抽象(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
-export * from './storage'
-export * from './jwt-utils'
-export * from './llm-templates'
-export * from './logger'
-export * from './markdown-mermaid-code'
-export * from './mcp-curated'
-export * from './message-search'
-export * from './object'
-// 脱敏(共享层唯一实现;D94 交接单 / 日志 / 出库边界共用;规则为 ai-service
-// output_cleaning.py + cli/redact.ts 既有正则的并集,端内不得再建第二套)
-export * from './redact'
-export * from './role'
-export * from './sanitize-url'
-export * from './search-suggestions'
-export * from './select-class'
-export { parseSSEChunk, type SSEEvent as ParsedSSEEvent } from './sse-parse'
-export * from './status-colors'
-export * from './storage-migration'
-// 跨端 Token 估算工具(2026-08-01 P3-4.2 批次5 立,从 apps/web/src/lib/token-estimate.ts 下沉)
-export * from './token-estimate'
-// 工具入参的两档摘要(结构指纹 + 形态类)唯一出口,86 审计链的输入格式层;不含任何原值
-export * from './tool-args-digest'
-export * from './vip-utils'
+/**
+ * 上报/日志面前的 URL 凭据段剥离唯一出口(G-855)。与 `redactUrl` 互补:那一档只遮已知参数名
+ * 的值并保留结构(崩溃链路要靠它定位),而签名类参数名不在那份被明令"不增删"的 12 类清单上,
+ * 所以进遥测前必须整段剥掉。纯字符串、不用 `URL` 构造器(小程序/RN 不保证可用且非法 URL 会抛)。
+ */
+
+/** 只有 `scheme://` 与协议相对 `//` 才带 authority —— userinfo 只可能住在那里。 */
+const SCHEME_AUTHORITY_RE = /^[a-zA-Z][a-zA-Z\d+.-]*:\/\//
+
+/** 从带凭据段的 URL 里只留 `scheme://host + path`(剥 userinfo / query / hash)。 */
+export function stripUrlCredentialSegments(url: string): string {
+  if (!url) return url
+  const hasAuthority = SCHEME_AUTHORITY_RE.test(url) || url.startsWith('//')
+  if (!hasAuthority) return cutAtQueryOrHash(url)
+
+  const schemeEnd = url.indexOf('//') + 2
+  const scheme = url.slice(0, schemeEnd)
+  const rest = url.slice(schemeEnd)
+  const authorityEnd = firstIndexOfAny(rest, ['/', '?', '#'])
+  const authority = authorityEnd === -1 ? rest : rest.slice(0, authorityEnd)
+  const afterAuthority = authorityEnd === -1 ? '' : rest.slice(authorityEnd)
+  const userinfoEnd = authority.lastIndexOf('@')
+  const host = userinfoEnd === -1 ? authority : authority.slice(userinfoEnd + 1)
+  return scheme + host + cutAtQueryOrHash(afterAuthority)
+}
+
+function cutAtQueryOrHash(value: string): string {
+  const cut = firstIndexOfAny(value, ['?', '#'])
+  return cut === -1 ? value : value.slice(0, cut)
+}
+
+function firstIndexOfAny(value: string, chars: readonly string[]): number {
+  let found = -1
+  for (const char of chars) {
+    const at = value.indexOf(char)
+    if (at !== -1 && (found === -1 || at < found)) found = at
+  }
+  return found
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
