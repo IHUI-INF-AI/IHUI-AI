@@ -47,6 +47,40 @@ export function previewExtFromHref(href: string): string {
   return dot > 0 ? seg.slice(dot + 1).toLowerCase() : ''
 }
 
+const IMAGE_MIME_TO_EXT: ReadonlyMap<string, string> = new Map([
+  ['image/png', 'png'],
+  ['image/jpeg', 'jpg'],
+  ['image/jpg', 'jpg'],
+  ['image/webp', 'webp'],
+  ['image/gif', 'gif'],
+  ['image/avif', 'avif'],
+  ['image/svg+xml', 'svg'],
+])
+
+/** 取体拿到的 MIME → 扩展名(无点);不在表内返回空串,由调用方保留原名(不猜后缀)。 */
+export function imageExtFromMime(mime: string): string {
+  const key = (mime.split(';')[0] ?? '').trim().toLowerCase()
+  return IMAGE_MIME_TO_EXT.get(key) ?? ''
+}
+
+/**
+ * 保存文件名:词干取调用方给的名字,**扩展名一律由 blob.type 决定**(G-851)。
+ *
+ * 名字自带的后缀不保留 —— 它来自列表元数据,与真实字节可能不是同一型;
+ * 而 blob.type 来自服务端 Content-Type,是这次真的存下来的是什么的那一份证据。
+ */
+export function downloadFilenameFor(
+  preferredName: string | undefined,
+  fallbackStem: string,
+  mime: string,
+): string {
+  const raw = (preferredName ?? '').trim() || fallbackStem
+  const ext = imageExtFromMime(mime)
+  if (!ext) return raw
+  const stem = raw.replace(/\.[A-Za-z0-9]+$/, '') || raw
+  return `${stem}.${ext}`
+}
+
 /**
  * 扩展名 → 富预览判型。
  *
@@ -67,14 +101,7 @@ export function richPreviewKindOf(ext: string): RichPreviewKind {
  * 真正的支持判定在 `office-preview.tsx` 的 `SUPPORTED_EXTS`,本表只负责"要不要转交",
  * 所以这里宽一点不会造成第二个真相源 —— 转交过去后 OfficePreview 会自己判"不支持"。
  */
-const OFFICEISH_EXTS: ReadonlySet<string> = new Set([
-  'doc',
-  'docx',
-  'xls',
-  'xlsx',
-  'ppt',
-  'pptx',
-])
+const OFFICEISH_EXTS: ReadonlySet<string> = new Set(['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'])
 
 /** 分隔符文本预览的失败态(封闭集;每一态都对应一张明确的错误卡,不得合并成"失败")。 */
 export type DelimitedFailure = 'tooLarge' | 'binary' | 'empty'
