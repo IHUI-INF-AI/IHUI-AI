@@ -11,7 +11,6 @@ import type { WorkPanelLabels, WorkPanelTabItem } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useMounted } from '@/hooks/use-mounted'
-import { useWebViewFrameLabels } from '@/hooks/use-web-view-frame-labels'
 import { openInGoogleChrome } from '@/lib/tauri-bridge'
 
 import { CdpBrowserView } from './cdp-browser-view'
@@ -58,8 +57,6 @@ export function WebWorkPanel() {
     }),
     [tw],
   )
-  // WebViewFrame 同理:不注入 labels 时回退包内中文兜底(20 键 WorkPanel 之外独立命名空间)
-  const webViewFrameLabels = useWebViewFrameLabels()
   // 性能修复(2026-07-25):原 25+ 字段全解构 `useWorkPanelStore()` 等价于订阅整个 state,
   // 任何字段(tabs 切换 / addressInput 输入 / recentUrls 追加)变化都会触发 WebWorkPanel 重渲染,
   // 内含 iframe/WebViewFrame 重建开销极大。改用 useShallow 浅比较,只对返回对象做浅层 diff,
@@ -325,22 +322,12 @@ export function WebWorkPanel() {
             status={status}
             title={title}
             error={error}
-            /* 无 allow-same-origin:代理页外部 JS 为 opaque origin,无法触碰本站 DOM/存储。
-               放宽必须带理由(2026-09-27 沙箱严档缺省票):这一档此前是裸字符串,新 API 下
-               裸串不生效 ⇒ 必须显式声明,否则内嵌浏览器会退回"脚本全禁"而整页不渲染。 */
-            sandbox={{
-              tokens: ['allow-scripts', 'allow-forms', 'allow-popups'],
-              reason:
-                '代理模式 iframe 加载的是任意第三方站点(后端同源代理 + 剥 XFO/CSP),' +
-                '不给 allow-scripts 站点脚本不执行、整页空白,该功能即失效;' +
-                'allow-forms 供登录/搜索表单,allow-popups 供站点开窗下载。' +
-                '刻意不含 allow-same-origin ⇒ 帧内是 opaque origin,读不到本站 Cookie/存储。',
-            }}
+            /* 无 allow-same-origin:代理页外部 JS 为 opaque origin,无法触碰本站 DOM/存储 */
+            sandbox="allow-scripts allow-forms allow-popups"
             onLoad={onLoaded}
             onError={onFailed}
             onOpenExternal={handleOpenExternal}
             onRetry={reload}
-            labels={webViewFrameLabels}
           />
         ) : isCdpMode && sessionId ? (
           <CdpBrowserView
@@ -362,23 +349,10 @@ export function WebWorkPanel() {
             screenshot={screenshot}
             title={title}
             error={error}
-            /* 这一处此前**没有**传 sandbox,吃的是组件缺省档 —— 而旧缺省是全仓最宽的
-               `allow-same-origin allow-scripts allow-forms allow-popups`。缺省已改严档,
-               这里显式声明三档继续能浏览,并**去掉 allow-same-origin**(与上面代理分支同档):
-               第三方站点在帧内失去自己的 Cookie/存储 ⇒ 面板内"已登录"状态不再保持,
-               这属用户可感知变化,已登记在交付报告。 */
-            sandbox={{
-              tokens: ['allow-scripts', 'allow-forms', 'allow-popups'],
-              reason:
-                '直接 iframe 嵌入模式加载用户指定的任意第三方 URL,不给 allow-scripts 则站点脚本不执行、' +
-                '整页不可交互,内嵌浏览器功能即失效;allow-forms/allow-popups 为浏览必需(表单提交、站点开窗)。' +
-                '刻意不含 allow-same-origin ⇒ 帧内为 opaque origin,与本站 DOM/存储隔离。',
-            }}
             onLoad={onLoaded}
             onError={onFailed}
             onOpenExternal={handleOpenExternal}
             onRetry={reload}
-            labels={webViewFrameLabels}
           />
         )}
       </WorkPanel>
