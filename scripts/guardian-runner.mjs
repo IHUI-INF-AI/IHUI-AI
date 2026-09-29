@@ -4129,6 +4129,28 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 源码 U+FFFD 对账(合法编码承载损坏内容那一型)(1 项,blocking)---
+  {
+    id: '164',
+    label:
+      '源码替换符(U+FFFD)对账 —— 字节级 UTF-8 完整性的缺失维度',
+    script: 'check-replacement-chars.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_REPLACEMENT_CHARS',
+    stagedTriggers: ['apps/', 'packages/', 'scripts/', 'sdks/'],
+    onFailHint: [
+      '',
+      '  这道门问的是「源码里有没有 U+FFFD 替换符」—— 守门 4c 判的是非法 UTF-8 字节序列,而 U+FFFD',
+      '  编码成 EF BF BD 完全合法,所以"内容已被有损解码换掉"在那道门上是隐形的(实测 718 处一路绿)。',
+      '  存量(该文件 HEAD 自身就有的)只报数不判红;本次把某文件的处数推高才红。',
+      '  修复出口:node scripts/check-replacement-chars.mjs --recover <路径>',
+      '  它按「代码括号」给每个损坏注释区间找最近零损坏祖先的原文;找不到的会如实报名,禁止编造。',
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
