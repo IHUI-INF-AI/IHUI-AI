@@ -41,7 +41,7 @@ export default function Ranking({ list, title, unit = '', loading = false }: Ran
       <View className="px-3 py-2">
         {Array.from({ length: 5 }).map((_, i) => (
           <View key={i} className="flex items-center py-3 animate-pulse">
-            <View className="w-6 h-4 mr-3 bg-muted rounded" />
+            <View className="w-6 h-4 mr-3 bg-muted rounded-xs" />
             <View className="w-9 h-9 mr-3 rounded-lg bg-muted" />
             <View className="flex-1 h-3 bg-muted rounded" />
           </View>
