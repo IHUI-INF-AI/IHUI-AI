@@ -1,7 +1,10 @@
 {
   "$schemaNote": "对标交付核验尺子(票 D140)的断言登记表。这里登记的是**判据**(一条差距拆成哪几条可机器判的子断言、各挂哪些候选锚点),不是读数基线 —— 读数一律每次现跑 `node scripts/audit-benchmark-delivery.mjs` 取,禁止把某个数字写回本表(那等于给'文档与代码脱节'发通行证,照 scripts/check-plan-sha-resolvable.mjs 那条'warn 级 + 禁 --update'的先例)。docAnchor 必须是文档里的**内容**串而不是行号:台账明令'证据指针禁止写行号'(AGENTS §1),行号在任何一次追加后都会挪位。",
   "$addingNote": "新增一条:① 在被引文档里找到该条目的原文,取一段稳定文字作 docAnchor;② 把这条差距拆成 blocking 子断言(整票判'已交付'会把未拆的半边洗白 —— 本表 #51 就是这个型,stub 半边另列为 observations);③ 每条子断言的 anchors[].paths 必须**同时挂文档字面路径与搬家后的真路径**(V3 #73 字面说 pages/ 下无 chat,真身在 pkg-ai/ 子包 —— 只按字面路径判会得到'仍存在'的假差距);④ 判'缺'之前正则里必须带上别名集(rewind/revert/backtrack 同型),不得按单一标识符零命中就记'没有'。",
-  "docs": ["docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md", "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md"],
+  "docs": [
+    "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+    "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md"
+  ],
   "claims": [
     {
       "id": "#51",
@@ -14,7 +17,9 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": ["apps/ai-service/app/services/task_executors.py"],
+              "paths": [
+                "apps/ai-service/app/services/task_executors.py"
+              ],
               "regex": "IMPLEMENTED_TASK_TYPES\\s*[:=]",
               "expect": "present"
             }
@@ -25,7 +30,9 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": ["apps/ai-service/app/services/dag_scheduler.py"],
+              "paths": [
+                "apps/ai-service/app/services/dag_scheduler.py"
+              ],
               "regex": "真实分派",
               "expect": "present"
             }
@@ -38,7 +45,9 @@
           "blocking": false,
           "anchors": [
             {
-              "paths": ["apps/ai-service/app/services/task_executors.py"],
+              "paths": [
+                "apps/ai-service/app/services/task_executors.py"
+              ],
               "regex": "STUB_TASK_TYPES",
               "expect": "present"
             }
@@ -79,7 +88,9 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": ["apps/cli/src/tools/index.ts"],
+              "paths": [
+                "apps/cli/src/tools/index.ts"
+              ],
               "regex": "add_director|extraDir|additionalDir|multiRoot|additionalRoots",
               "expect": "present"
             }
@@ -98,7 +109,9 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": ["apps/ai-service/app/core/permission_mode.py"],
+              "paths": [
+                "apps/ai-service/app/core/permission_mode.py"
+              ],
               "regex": "CHAT_MODE_TOOL_AXIS",
               "expect": "present"
             }
@@ -125,6 +138,32 @@
               "expect": "present"
             }
           ]
+        },
+        {
+          "text": "放行规则面板真的存在(第四档写进库却看不到 = 用户仍然只能一次次重批)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/ai/approved-rules-panel.tsx"
+              ],
+              "regex": "放行规则|approved-rules|revoke",
+              "expect": "present"
+            }
+          ]
+        },
+        {
+          "text": "第四档文案进了基准语言包(端上不硬编码中文,§3/§19)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "packages/i18n/messages/web/zh-CN.json"
+              ],
+              "regex": "grantRuleDesc|envAllowTargetAlways",
+              "expect": "present"
+            }
+          ]
         }
       ]
     },
@@ -139,7 +178,9 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": ["apps/ai-service/app/services/network_approval.py"],
+              "paths": [
+                "apps/ai-service/app/services/network_approval.py"
+              ],
               "regex": "def grant_network_target",
               "expect": "present"
             }
@@ -150,7 +191,9 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": ["apps/ai-service/app/services/approval_persistence.py"],
+              "paths": [
+                "apps/ai-service/app/services/approval_persistence.py"
+              ],
               "regex": "def describe_exec_environment",
               "expect": "present"
             }
@@ -191,7 +234,9 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": ["packages/database/src/schema/llm-call-logs.ts"],
+              "paths": [
+                "packages/database/src/schema/llm-call-logs.ts"
+              ],
               "regex": "traceId: varchar\\('trace_id'",
               "expect": "present"
             }
@@ -202,7 +247,9 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": ["packages/database/drizzle/20260929120000_llm_call_logs_trace_id.sql"],
+              "paths": [
+                "packages/database/drizzle/20260929120000_llm_call_logs_trace_id.sql"
+              ],
               "regex": "ADD COLUMN IF NOT EXISTS \"trace_id\"",
               "expect": "present"
             }
@@ -221,7 +268,9 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": ["apps/web/src/components/chat/connection-status-bar.tsx"],
+              "paths": [
+                "apps/web/src/components/chat/connection-status-bar.tsx"
+              ],
               "regex": "deriveConnectionState",
               "expect": "present"
             }
@@ -240,12 +289,16 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": ["apps/ai-service/app/core/sse_contract.py"],
+              "paths": [
+                "apps/ai-service/app/core/sse_contract.py"
+              ],
               "regex": "SSE_TRACE_ID_PAYLOAD_KEY",
               "expect": "present"
             },
             {
-              "paths": ["packages/shared/src/sse/contract.ts"],
+              "paths": [
+                "packages/shared/src/sse/contract.ts"
+              ],
               "regex": "SSE_TRACE_ID_PAYLOAD_KEY|traceId",
               "expect": "present"
             }
@@ -256,7 +309,9 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": ["packages/shared/src/utils/sse-parse.ts"],
+              "paths": [
+                "packages/shared/src/utils/sse-parse.ts"
+              ],
               "regex": "frameTraceIdOfLine",
               "expect": "present"
             }
@@ -275,8 +330,44 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": ["docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md"],
+              "paths": [
+                "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md"
+              ],
               "regex": "## 十二、竞品缺口清单",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#D170",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md",
+      "docAnchor": "## 十一、票面勘误与待拍板决策索引",
+      "title": "本线 41+ 票的实施级计划与票面勘误表未入库",
+      "assertions": [
+        {
+          "text": "实施级开发计划那一节在版本树里(派单顺序与硬依赖的唯一载体)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md"
+              ],
+              "regex": "^## 十、实施级开发计划",
+              "expect": "present"
+            }
+          ]
+        },
+        {
+          "text": "票面勘误与待拍板索引那一节在版本树里(读台账前必须先对照的那张表)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md"
+              ],
+              "regex": "^## 十一、票面勘误与待拍板决策索引",
               "expect": "present"
             }
           ]
@@ -294,12 +385,16 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": ["apps/ai-service/app/core/sse_contract.py"],
+              "paths": [
+                "apps/ai-service/app/core/sse_contract.py"
+              ],
               "regex": "terminal_interaction",
               "expect": "present"
             },
             {
-              "paths": ["packages/shared/src/sse/contract.ts"],
+              "paths": [
+                "packages/shared/src/sse/contract.ts"
+              ],
               "regex": "terminal_interaction",
               "expect": "present"
             }
@@ -310,7 +405,9 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": ["packages/shared/src/utils/sse-parse.ts"],
+              "paths": [
+                "packages/shared/src/utils/sse-parse.ts"
+              ],
               "regex": "terminal_interaction",
               "expect": "present"
             }
@@ -321,7 +418,9 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": ["apps/ai-service/app/services/mcp_server.py"],
+              "paths": [
+                "apps/ai-service/app/services/mcp_server.py"
+              ],
               "regex": "TERMINAL_INTERACTION_WAIT_TIMEOUT_S",
               "expect": "present"
             }
@@ -334,7 +433,9 @@
           "blocking": false,
           "anchors": [
             {
-              "paths": ["scripts/data/sse-dispatch-coverage.json"],
+              "paths": [
+                "scripts/data/sse-dispatch-coverage.json"
+              ],
               "regex": "extension",
               "expect": "present"
             }
