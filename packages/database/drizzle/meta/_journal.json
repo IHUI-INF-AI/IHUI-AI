@@ -2073,13 +2073,6 @@
       "when": 1790571600000,
       "tag": "20260928050000_lessons_difficulty",
       "breakpoints": true
-    },
-    {
-      "idx": 297,
-      "version": "7",
-      "when": 1790683200000,
-      "tag": "20260929120000_llm_call_logs_trace_id",
-      "breakpoints": true
     }
   ]
 }

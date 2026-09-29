@@ -50,14 +50,7 @@ export const EDIT_RESEND_FAILURE_PHASES = [
 export type EditResendFailurePhase = (typeof EDIT_RESEND_FAILURE_PHASES)[number]
 
 /** 编排步骤(取值即 i18n 键无关,仅用于"停在哪一步"的报告) */
-export const EDIT_RESEND_STEPS = [
-  'edit',
-  'preview',
-  'confirm',
-  'rollback',
-  'sync',
-  'replace',
-] as const
+export const EDIT_RESEND_STEPS = ['edit', 'preview', 'confirm', 'rollback', 'sync', 'replace'] as const
 export type EditResendStep = (typeof EDIT_RESEND_STEPS)[number]
 
 /** 可落失败态的步骤(preview / confirm 是门,不落失败态) */
@@ -135,9 +128,7 @@ export interface EditResendState {
 }
 
 const PHASE_SET: ReadonlySet<string> = new Set<string>(EDIT_RESEND_PHASES)
-const FAILURE_SET: ReadonlySet<EditResendPhase> = new Set<EditResendPhase>(
-  EDIT_RESEND_FAILURE_PHASES,
-)
+const FAILURE_SET: ReadonlySet<EditResendPhase> = new Set<EditResendPhase>(EDIT_RESEND_FAILURE_PHASES)
 
 /** 是否为合法相位之一(相位会经宿主往返,调用方需可校验) */
 export function isEditResendPhase(value: string): value is EditResendPhase {
@@ -285,12 +276,7 @@ export function applyEditResendAction(
             error: null,
           }
         case 'failed':
-          return {
-            ...state,
-            phase: 'rollbackFailed',
-            stoppedAt: 'rollback',
-            error: action.result.error ?? null,
-          }
+          return { ...state, phase: 'rollbackFailed', stoppedAt: 'rollback', error: action.result.error ?? null }
       }
       return assertNeverRollbackResult(action.result)
     }
@@ -347,9 +333,7 @@ function errorMessage(e: unknown): string {
  * 组合执行编排:编辑 → 预览 → 确认 → 文件与消息同时回退(回退 → 本地同步 → 替换重发)。
  * **任何一步失败即停且报告到哪一步**(stoppedAt),绝不静默继续。
  */
-export async function composeEditResend(
-  ctx: EditResendComposeContext,
-): Promise<EditResendComposeResult> {
+export async function composeEditResend(ctx: EditResendComposeContext): Promise<EditResendComposeResult> {
   let state = createEditResendState()
   const run = (action: EditResendAction) => {
     state = applyEditResendAction(state, action, ctx)
