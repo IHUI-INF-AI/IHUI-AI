@@ -67,6 +67,14 @@ SAFE_KEYS: set[str] = {
     # 打成 "***",CI e2e-browser-hub 首跑抓到 typeof 变 string。与 prompt_tokens 同型
     # 误伤(P0-5m)。cookie 真内容(cookie / cookies / cookie_string)仍照常脱敏。
     "cookie_count",
+    # B11(2026-09-29):cookieHealth 是健康度元数据对象(level / days_since_verified /
+    # last_verified_at / predicted_expiry,见 services/publish/account_state.py 的
+    # cookie_health_payload),不含任何 cookie 内容;"cookie" 子串规则把整个对象打成
+    # "***",前端 CookieHealthIndicator 悬浮详情读 days_since_verified 变 undefined,
+    # .toFixed() 抛 TypeError → 整页落 error boundary("页面加载时发生错误")。
+    # 与 cookie_count 同族误伤。cookie 真内容仍照常脱敏。
+    "cookiehealth",
+    "cookie_health",
 }
 
 MASK = "***"

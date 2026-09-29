@@ -316,4 +316,37 @@ def test_is_sensitive_key_cookie_count_safe():
     assert _is_sensitive_key("cookie_string") is True
     assert _is_sensitive_key("cookie_header") is True
     assert _sanitize_response({"cookie": "session=abc123"}) == {"cookie": MASK}
+
+
+def test_is_sensitive_key_cookie_health_safe():
+    """B11(2026-09-29):cookieHealth 是健康度元数据对象,不是 cookie 内容。
+
+    "cookie" 子串规则把 /api/publish/accounts/health-summary 响应里每个
+    cookieHealth 对象(level / days_since_verified / last_verified_at /
+    predicted_expiry,见 services/publish/account_state.py cookie_health_payload)
+    整个打成 "***";前端 CookieHealthIndicator 悬浮详情读 days_since_verified 得
+    undefined,.toFixed() 抛 TypeError → 整页落 error boundary(生产实机抓到,
+    [browser] [main-route-error] Cannot read properties of undefined (reading
+    'toFixed') at CookieHealthIndicator.tsx:216)。与 B10 cookie_count 同族误伤。
+    """
+    assert _is_sensitive_key("cookieHealth") is False
+    assert _is_sensitive_key("cookie_health") is False
+    # health-summary 线格式:整个对象必须原样穿透脱敏
+    ch = {
+        "account_id": 5,
+        "platform": "zhihu",
+        "level": "expiring",
+        "days_since_verified": 9.3,
+        "last_verified_at": "2026-09-20T12:00:00+00:00",
+        "predicted_expiry": "2026-09-28T12:00:00+00:00",
+    }
+    assert _sanitize_response({"data": {"items": [{"accountId": 5, "cookieHealth": ch}]}}) == {
+        "data": {"items": [{"accountId": 5, "cookieHealth": ch}]}
+    }
+    # 反向对照:cookie 真内容不因本白名单漏网
+    assert _is_sensitive_key("cookie") is True
+    assert _sanitize_response({"cookieHealth": ch, "cookies": ["a=1"]}) == {
+        "cookieHealth": ch,
+        "cookies": MASK,
+    }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
