@@ -2937,6 +2937,3359 @@
         "apps/zcode-cli/dependencies/.gitattributes:2-3",
         "apps/zcode-cli/dependencies/native-search/SHA256SUMS:1-18"
       ]
+    },
+    {
+      "path": "packages/ui/src/lib/exploreToolCall.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/exploreToolCall.ts:50-111",
+        "packages/ui/src/lib/exploreToolCall.ts:113-175",
+        "packages/ui/src/lib/exploreToolCall.ts:14-39",
+        "packages/ui/src/lib/exploreToolCall.ts:120-123"
+      ],
+      "tickets": [
+        "G-977965"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/exploreToolCall.ts",
+          "lines": 175
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/exportLogsAction.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/exportLogsAction.ts:9-32"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/exportLogsAction.ts",
+          "lines": 33
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/fileDisplay.tsx",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/fileDisplay.tsx:43-57",
+        "packages/ui/src/lib/fileDisplay.tsx:66-80",
+        "packages/ui/src/lib/fileDisplay.tsx:194-201",
+        "packages/ui/src/lib/fileDisplay.tsx:82-115",
+        "packages/ui/src/lib/fileDisplay.tsx:276-289"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/fileDisplay.tsx",
+          "lines": 289
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/fileDisplayHelpers.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/fileDisplayHelpers.ts:42-127",
+        "packages/ui/src/lib/fileDisplayHelpers.ts:146-171"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/fileDisplayHelpers.ts",
+          "lines": 194
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/gitAutoRefresh.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/gitAutoRefresh.ts:16-23",
+        "packages/ui/src/lib/gitAutoRefresh.ts:39",
+        "packages/ui/src/lib/gitAutoRefresh.ts:48-58"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/gitAutoRefresh.ts",
+          "lines": 81
+        }
+      ],
+      "why": "暂不开票：缺协议来源——watch 路径来自上游 GitRepositorySummary.autoRefreshWatchPaths 协议字段，我方 autoRefreshWatchPaths⇒0、autoRefresh(i)⇒80 全为 token 自动续期（extension token-utils），无 git 状态订阅链路；Linux 不递归 watch 的平台边界思想已记机制 C 备查。重开条件：我方建 git 仓库状态订阅时。"
+    },
+    {
+      "path": "packages/ui/src/lib/groupedTaskExpansionPreference.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/groupedTaskExpansionPreference.ts:8-58"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/groupedTaskExpansionPreference.ts",
+          "lines": 59
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/helpMenuActions.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/helpMenuActions.ts:13-39"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/helpMenuActions.ts",
+          "lines": 39
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/imeComposition.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/imeComposition.ts:1-7"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/imeComposition.ts",
+          "lines": 7
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/interfaceMode.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/interfaceMode.ts:5-9"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/interfaceMode.ts",
+          "lines": 9
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/keyboardShortcuts.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/keyboardShortcuts.ts:87-95",
+        "packages/ui/src/lib/keyboardShortcuts.ts:107-141",
+        "packages/ui/src/lib/keyboardShortcuts.ts:92-93"
+      ],
+      "tickets": [
+        "G-977974"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/keyboardShortcuts.ts",
+          "lines": 141
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/launchToInputReport.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/launchToInputReport.ts:3-10",
+        "packages/ui/src/lib/launchToInputReport.ts:12-28"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/launchToInputReport.ts",
+          "lines": 28
+        }
+      ],
+      "why": "不抄：启动门禁产品链路——\"能输入\"口径依赖上游 RootStartupGate/welcomeScreenOpen 产品结构；window marks 读取是 5 行胶水。重开条件：我方做启动性能口径时参考机制 K 口径思想。"
+    },
+    {
+      "path": "packages/ui/src/lib/mapToolStatus.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/mapToolStatus.ts:9-20"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/mapToolStatus.ts",
+          "lines": 20
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/markdownFileLink.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/markdownFileLink.ts:15-17",
+        "packages/ui/src/lib/markdownFileLink.ts:179-224",
+        "packages/ui/src/lib/markdownFileLink.ts:147-177",
+        "packages/ui/src/lib/markdownFileLink.ts:19-46",
+        "packages/ui/src/lib/markdownFileLink.ts:251-262",
+        "packages/ui/src/lib/markdownFileLink.ts:117-141",
+        "packages/ui/src/lib/markdownFileLink.ts:288-309",
+        "packages/ui/src/lib/markdownFileLink.ts:52-75"
+      ],
+      "tickets": [
+        "G-977966"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/markdownFileLink.ts",
+          "lines": 316
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/memoryDiagnostics.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/memoryDiagnostics.ts:12-18",
+        "packages/ui/src/lib/memoryDiagnostics.ts:66-99",
+        "packages/ui/src/lib/memoryDiagnostics.ts:25-35"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/memoryDiagnostics.ts",
+          "lines": 116
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/mermaidLanguage.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/mermaidLanguage.ts:6-31"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/mermaidLanguage.ts",
+          "lines": 32
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/mermaidRenderBudget.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/mermaidRenderBudget.ts:1-11",
+        "packages/ui/src/lib/mermaidRenderBudget.ts:110-148",
+        "packages/ui/src/lib/mermaidRenderBudget.ts:39-41"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/mermaidRenderBudget.ts",
+          "lines": 148
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/messageTelemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/messageTelemetry.ts:172-175",
+        "packages/ui/src/lib/messageTelemetry.ts:843-921",
+        "packages/ui/src/lib/messageTelemetry.ts:269-298",
+        "packages/ui/src/lib/messageTelemetry.ts:1113-1121",
+        "packages/ui/src/lib/messageTelemetry.ts:474-559",
+        "packages/ui/src/lib/messageTelemetry.ts:1066-1098",
+        "packages/ui/src/lib/messageTelemetry.ts:978-1032",
+        "packages/ui/src/lib/messageTelemetry.ts:177-231",
+        "packages/ui/src/lib/messageTelemetry.ts:615-677",
+        "packages/ui/src/lib/messageTelemetry.ts:233-244",
+        "packages/ui/src/lib/messageTelemetry.ts:348-360",
+        "packages/ui/src/lib/messageTelemetry.ts:753-786",
+        "packages/ui/src/lib/messageTelemetry.ts:1443-1449"
+      ],
+      "tickets": [
+        "G-977968"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/messageTelemetry.ts",
+          "lines": 1502
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/mobileTextInput.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/mobileTextInput.ts:1-7"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/mobileTextInput.ts",
+          "lines": 7
+        }
+      ],
+      "why": "b74-1 否证9：单函数/常量/单行委托小件（2-59 行），无票价值、无独立机制记录。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/modelConfigSync.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/modelConfigSync.ts:25-61",
+        "packages/ui/src/lib/modelConfigSync.ts:95-138"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/modelConfigSync.ts",
+          "lines": 156
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/modelProviderAvailability.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/modelProviderAvailability.ts:10-22"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/modelProviderAvailability.ts",
+          "lines": 22
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/modelProviderConnectivityTarget.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/modelProviderConnectivityTarget.ts:15-48"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/modelProviderConnectivityTarget.ts",
+          "lines": 48
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/modelProviderFamilyConnectionSelection.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/modelProviderFamilyConnectionSelection.ts:1-98"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/modelProviderFamilyConnectionSelection.ts",
+          "lines": 98
+        }
+      ],
+      "why": "不抄：上游 zhipu provider family 商业域（start-plan/team-coding-plan/zhipu-account access、GLM-5.3 展示例外、bigmodel/zai 品牌资产）。重开条件：我方接同类家族套餐 provider 体系时。"
+    },
+    {
+      "path": "packages/ui/src/lib/modelProviderOrdering.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/modelProviderOrdering.ts:7-29"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/modelProviderOrdering.ts",
+          "lines": 29
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/modelSelectionGroups.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/modelSelectionGroups.ts:24-85"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/modelSelectionGroups.ts",
+          "lines": 97
+        }
+      ],
+      "why": "不抄：上游 zhipu provider family 商业域（start-plan/team-coding-plan/zhipu-account access、GLM-5.3 展示例外、bigmodel/zai 品牌资产）。重开条件：我方接同类家族套餐 provider 体系时。"
+    },
+    {
+      "path": "packages/ui/src/lib/modelThoughtOption.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/modelThoughtOption.ts:5-34"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/modelThoughtOption.ts",
+          "lines": 34
+        }
+      ],
+      "why": "不抄：上游 zhipu provider family 商业域（start-plan/team-coding-plan/zhipu-account access、GLM-5.3 展示例外、bigmodel/zai 品牌资产）。重开条件：我方接同类家族套餐 provider 体系时。"
+    },
+    {
+      "path": "packages/ui/src/lib/modelVisionBadge.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/modelVisionBadge.ts:3-18"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/modelVisionBadge.ts",
+          "lines": 19
+        }
+      ],
+      "why": "不抄：上游 zhipu provider family 商业域（start-plan/team-coding-plan/zhipu-account access、GLM-5.3 展示例外、bigmodel/zai 品牌资产）。重开条件：我方接同类家族套餐 provider 体系时。"
+    },
+    {
+      "path": "packages/ui/src/lib/nodeReplToolDisplay.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/nodeReplToolDisplay.ts:283-319",
+        "packages/ui/src/lib/nodeReplToolDisplay.ts:321-362",
+        "packages/ui/src/lib/nodeReplToolDisplay.ts:210-234",
+        "packages/ui/src/lib/nodeReplToolDisplay.ts:364-389"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/nodeReplToolDisplay.ts",
+          "lines": 427
+        }
+      ],
+      "why": "不抄（整体）：工具协议绑定——绑上游 node_repl MCP 工具与 CUA app 展示（js_reset/mcp__node_repl__ 前缀、persisted-output 落盘协议、node_repl_images display）；\"内部协议标记不外露+实时/终态双位置扫描\"思想已记机制 J、随 b74-1 票4 记录。重开条件：我方 renderer 需渲染 node_repl 工具卡时。"
+    },
+    {
+      "path": "packages/ui/src/lib/oauthProviderIcon.tsx",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/oauthProviderIcon.tsx:8-22"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/oauthProviderIcon.tsx",
+          "lines": 22
+        }
+      ],
+      "why": "不抄：上游 zhipu provider family 商业域（start-plan/team-coding-plan/zhipu-account access、GLM-5.3 展示例外、bigmodel/zai 品牌资产）。重开条件：我方接同类家族套餐 provider 体系时。"
+    },
+    {
+      "path": "packages/ui/src/lib/offPeakTelemetry.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/offPeakTelemetry.ts:23-35"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/offPeakTelemetry.ts",
+          "lines": 90
+        }
+      ],
+      "why": "不抄：产品事件口径——闲时任务/提示词模板的事件字段表是上游数仓口径非机制；freeze snapshot 思想已记机制 K。重开条件：我方同构产品事件上报时参考字段冻结做法。"
+    },
+    {
+      "path": "packages/ui/src/lib/officeFilePreview.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/officeFilePreview.ts:68-109",
+        "packages/ui/src/lib/officeFilePreview.ts:114-170",
+        "packages/ui/src/lib/officeFilePreview.ts:174-199"
+      ],
+      "tickets": [
+        "G-977972"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/officeFilePreview.ts",
+          "lines": 205
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/openWithEditors.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/openWithEditors.ts:3-18"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/openWithEditors.ts",
+          "lines": 18
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/patchDiffPreview.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/patchDiffPreview.ts:29-148",
+        "packages/ui/src/lib/patchDiffPreview.ts:375-388",
+        "packages/ui/src/lib/patchDiffPreview.ts:347-446",
+        "packages/ui/src/lib/patchDiffPreview.ts:202-217"
+      ],
+      "tickets": [
+        "G-977967"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/patchDiffPreview.ts",
+          "lines": 446
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/path.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/path.ts:5-92"
+      ],
+      "tickets": [
+        "G-977966"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/path.ts",
+          "lines": 92
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/pdfJsAssets.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/pdfJsAssets.ts:6-15"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/pdfJsAssets.ts",
+          "lines": 15
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/permissionRequest.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/permissionRequest.ts:30-53",
+        "packages/ui/src/lib/permissionRequest.ts:18-24",
+        "packages/ui/src/lib/permissionRequest.ts:55-69",
+        "packages/ui/src/lib/permissionRequest.ts:71-106"
+      ],
+      "tickets": [
+        "G-977975"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/permissionRequest.ts",
+          "lines": 106
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/pickerFocus.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/pickerFocus.ts:1-17"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/pickerFocus.ts",
+          "lines": 17
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/planToolCall.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/planToolCall.ts:52-85",
+        "packages/ui/src/lib/planToolCall.ts:87-99"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/planToolCall.ts",
+          "lines": 103
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/planUsageArmsTelemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/planUsageArmsTelemetry.ts:26-41",
+        "packages/ui/src/lib/planUsageArmsTelemetry.ts:88-119",
+        "packages/ui/src/lib/planUsageArmsTelemetry.ts:163-177",
+        "packages/ui/src/lib/planUsageArmsTelemetry.ts:91-100"
+      ],
+      "tickets": [
+        "G-977969"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/planUsageArmsTelemetry.ts",
+          "lines": 223
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/pluginIconSource.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/pluginIconSource.ts:9-35"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/pluginIconSource.ts",
+          "lines": 35
+        }
+      ],
+      "why": "不抄：插件商店产品面（zcode-plugins-official 完整 id 表、Marketplace 只允许返回 User 视图规则）。重开条件：我方有插件商店时。"
+    },
+    {
+      "path": "packages/ui/src/lib/pluginStoreNavigation.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/pluginStoreNavigation.ts:9-45"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/pluginStoreNavigation.ts",
+          "lines": 45
+        }
+      ],
+      "why": "不抄：插件商店产品面（zcode-plugins-official 完整 id 表、Marketplace 只允许返回 User 视图规则）。重开条件：我方有插件商店时。"
+    },
+    {
+      "path": "packages/ui/src/lib/pptxElementReference.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/pptxElementReference.ts:13-22",
+        "packages/ui/src/lib/pptxElementReference.ts:209-250",
+        "packages/ui/src/lib/pptxElementReference.ts:87-135",
+        "packages/ui/src/lib/pptxElementReference.ts:186-207",
+        "packages/ui/src/lib/pptxElementReference.ts:65-85"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/pptxElementReference.ts",
+          "lines": 268
+        }
+      ],
+      "why": "不抄：产品绑定——整链服务上游\"PPTX 预览编辑器+元素级 add-to-chat\"产品面（slidePart 正则/SHA-256 源指纹/演示元素评论 directive 全是产品决策）；分块读取完整性断言思想有普适性但独立价值不足以开票。重开条件：我方做 Office 元素级选区引用/投喂时重读机制 P。"
+    },
+    {
+      "path": "packages/ui/src/lib/pptxElementReferencePreview.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/pptxElementReferencePreview.ts:14-48"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/pptxElementReferencePreview.ts",
+          "lines": 48
+        }
+      ],
+      "why": "不抄：产品绑定——整链服务上游\"PPTX 预览编辑器+元素级 add-to-chat\"产品面（slidePart 正则/SHA-256 源指纹/演示元素评论 directive 全是产品决策）；分块读取完整性断言思想有普适性但独立价值不足以开票。重开条件：我方做 Office 元素级选区引用/投喂时重读机制 P。"
+    },
+    {
+      "path": "packages/ui/src/lib/pptxPreviewData.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/pptxPreviewData.ts:1-84"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/pptxPreviewData.ts",
+          "lines": 84
+        }
+      ],
+      "why": "不抄：产品绑定——整链服务上游\"PPTX 预览编辑器+元素级 add-to-chat\"产品面（slidePart 正则/SHA-256 源指纹/演示元素评论 directive 全是产品决策）；分块读取完整性断言思想有普适性但独立价值不足以开票。重开条件：我方做 Office 元素级选区引用/投喂时重读机制 P。"
+    },
+    {
+      "path": "packages/ui/src/lib/productDocs.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/productDocs.ts:1-2"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/productDocs.ts",
+          "lines": 2
+        }
+      ],
+      "why": "b74-1 否证9：单函数/常量/单行委托小件（2-59 行），无票价值、无独立机制记录。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/promptHistory.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/promptHistory.ts:21-29",
+        "packages/ui/src/lib/promptHistory.ts:31-76"
+      ],
+      "tickets": [
+        "G-977976"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/promptHistory.ts",
+          "lines": 76
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/promptHistoryStorage.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/promptHistoryStorage.ts:22-65"
+      ],
+      "tickets": [
+        "G-977976"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/promptHistoryStorage.ts",
+          "lines": 66
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/promptInputTriggers.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/promptInputTriggers.ts:31-50",
+        "packages/ui/src/lib/promptInputTriggers.ts:113-129",
+        "packages/ui/src/lib/promptInputTriggers.ts:131-180",
+        "packages/ui/src/lib/promptInputTriggers.ts:52-111",
+        "packages/ui/src/lib/promptInputTriggers.ts:182-229"
+      ],
+      "tickets": [
+        "G-977973"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/promptInputTriggers.ts",
+          "lines": 256
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/promptTemplateTelemetry.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/promptTemplateTelemetry.ts:1-38"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/promptTemplateTelemetry.ts",
+          "lines": 38
+        }
+      ],
+      "why": "不抄：产品事件口径——闲时任务/提示词模板的事件字段表是上游数仓口径非机制；freeze snapshot 思想已记机制 K。重开条件：我方同构产品事件上报时参考字段冻结做法。"
+    },
+    {
+      "path": "packages/ui/src/lib/providerBusinessError.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/providerBusinessError.ts:1-15",
+        "packages/ui/src/lib/providerBusinessError.ts:57-101",
+        "packages/ui/src/lib/providerBusinessError.ts:103-213",
+        "packages/ui/src/lib/providerBusinessError.ts:154-225",
+        "packages/ui/src/lib/providerBusinessError.ts:245-253"
+      ],
+      "tickets": [
+        "G-977970"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/providerBusinessError.ts",
+          "lines": 264
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/providerCliIcon.tsx",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/providerCliIcon.tsx:1-9"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/providerCliIcon.tsx",
+          "lines": 9
+        }
+      ],
+      "why": "不抄：上游 zhipu provider family 商业域（start-plan/team-coding-plan/zhipu-account access、GLM-5.3 展示例外、bigmodel/zai 品牌资产）。重开条件：我方接同类家族套餐 provider 体系时。"
+    },
+    {
+      "path": "packages/ui/src/lib/providerDisplayOrderPersistence.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/providerDisplayOrderPersistence.ts:1-9"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/providerDisplayOrderPersistence.ts",
+          "lines": 9
+        }
+      ],
+      "why": "b74-1 否证9：单函数/常量/单行委托小件（2-59 行），无票价值、无独立机制记录。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/providerFamilyDomainMigration.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/providerFamilyDomainMigration.ts:26-66"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/providerFamilyDomainMigration.ts",
+          "lines": 66
+        }
+      ],
+      "why": "不抄：上游 zhipu provider family 商业域（start-plan/team-coding-plan/zhipu-account access、GLM-5.3 展示例外、bigmodel/zai 品牌资产）。重开条件：我方接同类家族套餐 provider 体系时。"
+    },
+    {
+      "path": "packages/ui/src/lib/providerFamilyDomainSettings.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/providerFamilyDomainSettings.ts:14-40"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/providerFamilyDomainSettings.ts",
+          "lines": 40
+        }
+      ],
+      "why": "不抄：上游 zhipu provider family 商业域（start-plan/team-coding-plan/zhipu-account access、GLM-5.3 展示例外、bigmodel/zai 品牌资产）。重开条件：我方接同类家族套餐 provider 体系时。"
+    },
+    {
+      "path": "packages/ui/src/lib/providerPersonalPersistence.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/providerPersonalPersistence.ts:1-8"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/providerPersonalPersistence.ts",
+          "lines": 8
+        }
+      ],
+      "why": "b74-1 否证9：单函数/常量/单行委托小件（2-59 行），无票价值、无独立机制记录。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/providerPersonalSave.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/providerPersonalSave.ts:7-30"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/providerPersonalSave.ts",
+          "lines": 30
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/providerSettingsFormProjection.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/providerSettingsFormProjection.ts:12-46"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/providerSettingsFormProjection.ts",
+          "lines": 73
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/providerSettingsFormTypes.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/providerSettingsFormTypes.ts:11-48"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/providerSettingsFormTypes.ts",
+          "lines": 68
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/providerSettingsSnapshot.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/providerSettingsSnapshot.ts:36-80",
+        "packages/ui/src/lib/providerSettingsSnapshot.ts:46-47"
+      ],
+      "tickets": [
+        "G-977971"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/providerSettingsSnapshot.ts",
+          "lines": 84
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/providerTelemetryIdentity.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/providerTelemetryIdentity.ts:3-16",
+        "packages/ui/src/lib/providerTelemetryIdentity.ts:22-35",
+        "packages/ui/src/lib/providerTelemetryIdentity.ts:37-48"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/providerTelemetryIdentity.ts",
+          "lines": 48
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/quickPickConversationNavigation.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/quickPickConversationNavigation.ts:31-82"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/quickPickConversationNavigation.ts",
+          "lines": 82
+        }
+      ],
+      "why": "无消费面：quickPick|QuickPick⇒0，上游命令面板选会话编排；候选缓存新旧回退次序思想已记机制 C 备查。重开条件：我方做命令面板式会话切换时。"
+    },
+    {
+      "path": "packages/ui/src/lib/reactErrorArmsTelemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/reactErrorArmsTelemetry.ts:24-33",
+        "packages/ui/src/lib/reactErrorArmsTelemetry.ts:13-18",
+        "packages/ui/src/lib/reactErrorArmsTelemetry.ts:36-43",
+        "packages/ui/src/lib/reactErrorArmsTelemetry.ts:50-60",
+        "packages/ui/src/lib/reactErrorArmsTelemetry.ts:67-99",
+        "packages/ui/src/lib/reactErrorArmsTelemetry.ts:61-62"
+      ],
+      "tickets": [
+        "G-977982"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/reactErrorArmsTelemetry.ts",
+          "lines": 99
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/registryProviderView.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/registryProviderView.ts:3-31"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/registryProviderView.ts",
+          "lines": 31
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/remoteAgentServiceGeneration.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/remoteAgentServiceGeneration.ts:1-13"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/remoteAgentServiceGeneration.ts",
+          "lines": 13
+        }
+      ],
+      "why": "无消费面：我方无远程 workspace 产品面（remoteSession|RemoteTarget⇒0、ZCODE_REMOTE_WORKSPACE_DISCONNECTED⇒0）；workspace identity 键/断连错误码精确匹配/SSH 半开本地收口/凭据只存 credentialKey 引用等思想已记机制 F 备查。重开条件：我方做远程开发机/多机工作区时整族重读。"
+    },
+    {
+      "path": "packages/ui/src/lib/remoteConnectionDialogState.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/remoteConnectionDialogState.ts:31-59"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/remoteConnectionDialogState.ts",
+          "lines": 59
+        }
+      ],
+      "why": "无消费面：我方无远程 workspace 产品面（remoteSession|RemoteTarget⇒0、ZCODE_REMOTE_WORKSPACE_DISCONNECTED⇒0）；workspace identity 键/断连错误码精确匹配/SSH 半开本地收口/凭据只存 credentialKey 引用等思想已记机制 F 备查。重开条件：我方做远程开发机/多机工作区时整族重读。"
+    },
+    {
+      "path": "packages/ui/src/lib/remoteConnectionDockerOptions.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/remoteConnectionDockerOptions.ts:39-56"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/remoteConnectionDockerOptions.ts",
+          "lines": 56
+        }
+      ],
+      "why": "无消费面：我方无远程 workspace 产品面（remoteSession|RemoteTarget⇒0、ZCODE_REMOTE_WORKSPACE_DISCONNECTED⇒0）；workspace identity 键/断连错误码精确匹配/SSH 半开本地收口/凭据只存 credentialKey 引用等思想已记机制 F 备查。重开条件：我方做远程开发机/多机工作区时整族重读。"
+    },
+    {
+      "path": "packages/ui/src/lib/remoteConnectionWizard.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/remoteConnectionWizard.ts:111-128",
+        "packages/ui/src/lib/remoteConnectionWizard.ts:147-160"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/remoteConnectionWizard.ts",
+          "lines": 160
+        }
+      ],
+      "why": "无消费面：我方无远程 workspace 产品面（remoteSession|RemoteTarget⇒0、ZCODE_REMOTE_WORKSPACE_DISCONNECTED⇒0）；workspace identity 键/断连错误码精确匹配/SSH 半开本地收口/凭据只存 credentialKey 引用等思想已记机制 F 备查。重开条件：我方做远程开发机/多机工作区时整族重读。"
+    },
+    {
+      "path": "packages/ui/src/lib/remotePluginSyncRefresh.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/remotePluginSyncRefresh.ts:21-131"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/remotePluginSyncRefresh.ts",
+          "lines": 131
+        }
+      ],
+      "why": "无消费面：我方无远程 workspace 产品面（remoteSession|RemoteTarget⇒0、ZCODE_REMOTE_WORKSPACE_DISCONNECTED⇒0）；workspace identity 键/断连错误码精确匹配/SSH 半开本地收口/凭据只存 credentialKey 引用等思想已记机制 F 备查。重开条件：我方做远程开发机/多机工作区时整族重读。"
+    },
+    {
+      "path": "packages/ui/src/lib/remoteWorkspaceHistory.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/remoteWorkspaceHistory.ts:110-144",
+        "packages/ui/src/lib/remoteWorkspaceHistory.ts:29-45",
+        "packages/ui/src/lib/remoteWorkspaceHistory.ts:176-254",
+        "packages/ui/src/lib/remoteWorkspaceHistory.ts:256-267",
+        "packages/ui/src/lib/remoteWorkspaceHistory.ts:400-431"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/remoteWorkspaceHistory.ts",
+          "lines": 451
+        }
+      ],
+      "why": "无消费面：我方无远程 workspace 产品面（remoteSession|RemoteTarget⇒0、ZCODE_REMOTE_WORKSPACE_DISCONNECTED⇒0）；workspace identity 键/断连错误码精确匹配/SSH 半开本地收口/凭据只存 credentialKey 引用等思想已记机制 F 备查。重开条件：我方做远程开发机/多机工作区时整族重读。"
+    },
+    {
+      "path": "packages/ui/src/lib/remoteWorkspaceServiceError.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/remoteWorkspaceServiceError.ts:13-29"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/remoteWorkspaceServiceError.ts",
+          "lines": 29
+        }
+      ],
+      "why": "无消费面：我方无远程 workspace 产品面（remoteSession|RemoteTarget⇒0、ZCODE_REMOTE_WORKSPACE_DISCONNECTED⇒0）；workspace identity 键/断连错误码精确匹配/SSH 半开本地收口/凭据只存 credentialKey 引用等思想已记机制 F 备查。重开条件：我方做远程开发机/多机工作区时整族重读。"
+    },
+    {
+      "path": "packages/ui/src/lib/remoteWorkspaceSessionRuntime.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/remoteWorkspaceSessionRuntime.ts:21-33",
+        "packages/ui/src/lib/remoteWorkspaceSessionRuntime.ts:72-99"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/remoteWorkspaceSessionRuntime.ts",
+          "lines": 99
+        }
+      ],
+      "why": "无消费面：我方无远程 workspace 产品面（remoteSession|RemoteTarget⇒0、ZCODE_REMOTE_WORKSPACE_DISCONNECTED⇒0）；workspace identity 键/断连错误码精确匹配/SSH 半开本地收口/凭据只存 credentialKey 引用等思想已记机制 F 备查。重开条件：我方做远程开发机/多机工作区时整族重读。"
+    },
+    {
+      "path": "packages/ui/src/lib/rendererNavigation.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/rendererNavigation.ts:16-24"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/rendererNavigation.ts",
+          "lines": 24
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/rendererZCodeEndpoint.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/rendererZCodeEndpoint.ts:17-31"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/rendererZCodeEndpoint.ts",
+          "lines": 31
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/restrictVerticalDragWithinContainer.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/restrictVerticalDragWithinContainer.ts:1-32"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/restrictVerticalDragWithinContainer.ts",
+          "lines": 32
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/rootStartupGate.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/rootStartupGate.ts:28-41",
+        "packages/ui/src/lib/rootStartupGate.ts:43-59"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/rootStartupGate.ts",
+          "lines": 59
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/selectionSideChatRuntime.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/selectionSideChatRuntime.ts:63-98",
+        "packages/ui/src/lib/selectionSideChatRuntime.ts:18-36"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/selectionSideChatRuntime.ts",
+          "lines": 113
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/selectionSideInheritedModel.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/selectionSideInheritedModel.ts:5-24"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/selectionSideInheritedModel.ts",
+          "lines": 24
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/sendFunnelArmsTelemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/sendFunnelArmsTelemetry.ts:4-12",
+        "packages/ui/src/lib/sendFunnelArmsTelemetry.ts:17-26",
+        "packages/ui/src/lib/sendFunnelArmsTelemetry.ts:49-56",
+        "packages/ui/src/lib/sendFunnelArmsTelemetry.ts:58-73",
+        "packages/ui/src/lib/sendFunnelArmsTelemetry.ts:98-136"
+      ],
+      "tickets": [
+        "G-977983"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/sendFunnelArmsTelemetry.ts",
+          "lines": 137
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/sessionCreateTelemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/sessionCreateTelemetry.ts:19-33"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/sessionCreateTelemetry.ts",
+          "lines": 53
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/sessionOpenArmsTelemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/sessionOpenArmsTelemetry.ts:4-20",
+        "packages/ui/src/lib/sessionOpenArmsTelemetry.ts:34-64",
+        "packages/ui/src/lib/sessionOpenArmsTelemetry.ts:72-80",
+        "packages/ui/src/lib/sessionOpenArmsTelemetry.ts:118-146"
+      ],
+      "tickets": [
+        "G-977983"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/sessionOpenArmsTelemetry.ts",
+          "lines": 167
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/settingsNavigation.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/settingsNavigation.ts:255-273",
+        "packages/ui/src/lib/settingsNavigation.ts:112-150",
+        "packages/ui/src/lib/settingsNavigation.ts:168-176",
+        "packages/ui/src/lib/settingsNavigation.ts:96-110",
+        "packages/ui/src/lib/settingsNavigation.ts:437-459"
+      ],
+      "tickets": [
+        "G-977981"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/settingsNavigation.ts",
+          "lines": 459
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/shikiHighlighter.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/shikiHighlighter.ts:29-36",
+        "packages/ui/src/lib/shikiHighlighter.ts:56-67",
+        "packages/ui/src/lib/shikiHighlighter.ts:81-85",
+        "packages/ui/src/lib/shikiHighlighter.ts:120-148",
+        "packages/ui/src/lib/shikiHighlighter.ts:157-196"
+      ],
+      "tickets": [
+        "G-977984"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/shikiHighlighter.ts",
+          "lines": 197
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/sidebarCodingPlanUpgrade.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/sidebarCodingPlanUpgrade.ts:8-51"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/sidebarCodingPlanUpgrade.ts",
+          "lines": 67
+        }
+      ],
+      "why": "上游 zhipu 套餐产品域（b73 否证11 同理）：builtin coding-plan provider id、套餐层级词面判定全是上游商业形态，我方连 config options 概念都没有。重开条件：我方接同类套餐权益体系时。"
+    },
+    {
+      "path": "packages/ui/src/lib/sidebarPurposeSectionPreferences.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/sidebarPurposeSectionPreferences.ts:43-57",
+        "packages/ui/src/lib/sidebarPurposeSectionPreferences.ts:81-128"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/sidebarPurposeSectionPreferences.ts",
+          "lines": 128
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/sidebarTaskPreferences.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/sidebarTaskPreferences.ts:55-73"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/sidebarTaskPreferences.ts",
+          "lines": 73
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/sidebarUsageCodingPlanProviderPreference.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/sidebarUsageCodingPlanProviderPreference.ts:20-32"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/sidebarUsageCodingPlanProviderPreference.ts",
+          "lines": 82
+        }
+      ],
+      "why": "上游 zhipu 套餐产品域（b73 否证11 同理）：builtin coding-plan provider id、套餐层级词面判定全是上游商业形态，我方连 config options 概念都没有。重开条件：我方接同类套餐权益体系时。"
+    },
+    {
+      "path": "packages/ui/src/lib/skillSourceFilter.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/skillSourceFilter.ts:16-33"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/skillSourceFilter.ts",
+          "lines": 33
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/skillStoreRefresh.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/skillStoreRefresh.ts:26-39"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/skillStoreRefresh.ts",
+          "lines": 40
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/slashApplyMentionPayload.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/slashApplyMentionPayload.ts:10-46"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/slashApplyMentionPayload.ts",
+          "lines": 46
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/slashPanelUpdateFilter.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/slashPanelUpdateFilter.ts:1-11"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/slashPanelUpdateFilter.ts",
+          "lines": 11
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/startPlanEntitlementOptions.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/startPlanEntitlementOptions.ts:8-31"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/startPlanEntitlementOptions.ts",
+          "lines": 31
+        }
+      ],
+      "why": "上游 zhipu 套餐产品域（b73 否证11 同理）：builtin coding-plan provider id、套餐层级词面判定全是上游商业形态，我方连 config options 概念都没有。重开条件：我方接同类套餐权益体系时。"
+    },
+    {
+      "path": "packages/ui/src/lib/startPlanRecommendation.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/startPlanRecommendation.ts:16-46",
+        "packages/ui/src/lib/startPlanRecommendation.ts:49-56"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/startPlanRecommendation.ts",
+          "lines": 56
+        }
+      ],
+      "why": "上游 zhipu 套餐产品域（b73 否证11 同理）：builtin coding-plan provider id、套餐层级词面判定全是上游商业形态，我方连 config options 概念都没有。重开条件：我方接同类套餐权益体系时。"
+    },
+    {
+      "path": "packages/ui/src/lib/streamClientId.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/streamClientId.ts:13-45"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/streamClientId.ts",
+          "lines": 45
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/subagentColors.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/subagentColors.ts:14-46"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/subagentColors.ts",
+          "lines": 46
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/taskChangeSummary.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskChangeSummary.ts:61-81",
+        "packages/ui/src/lib/taskChangeSummary.ts:83-139",
+        "packages/ui/src/lib/taskChangeSummary.ts:148-198"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskChangeSummary.ts",
+          "lines": 222
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/taskChatMessageTypes.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskChatMessageTypes.ts:50-100"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskChatMessageTypes.ts",
+          "lines": 100
+        }
+      ],
+      "why": "纯类型面 re-home 产物（自述为删旧文件铺路），绑定上游快照协议（ZCodeTaskSnapshotBodyRef/toolSlice/bodyRefs），无独立可迁移机制；\"parts 记录流式事件真实到达顺序\"思想可在我方消息模型演进时参考。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/taskFeedbackDraft.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskFeedbackDraft.ts:21-46"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskFeedbackDraft.ts",
+          "lines": 47
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/taskFileTreeTarget.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskFileTreeTarget.ts:13-70"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskFileTreeTarget.ts",
+          "lines": 70
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/taskLifecycleEvents.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskLifecycleEvents.ts:1-20"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskLifecycleEvents.ts",
+          "lines": 20
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/taskListE2EActions.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskListE2EActions.ts:62-77"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskListE2EActions.ts",
+          "lines": 106
+        }
+      ],
+      "why": "服务上游 E2E 基建（b73 否证8 同理）：window.__testActions 注入 + membership refresh hold gate 确定性窗口；但\"非 UI 证据探针\"（membership kinds 切换证明分区正确、不能靠 DOM 临时保留掩盖）思想已留档。重开条件：我方建任务列表 e2e 时。"
+    },
+    {
+      "path": "packages/ui/src/lib/taskListItemPresentation.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskListItemPresentation.ts:4-31"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskListItemPresentation.ts",
+          "lines": 53
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/taskListMembershipSets.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskListMembershipSets.ts:20-40",
+        "packages/ui/src/lib/taskListMembershipSets.ts:197-282",
+        "packages/ui/src/lib/taskListMembershipSets.ts:128-145",
+        "packages/ui/src/lib/taskListMembershipSets.ts:284-334",
+        "packages/ui/src/lib/taskListMembershipSets.ts:60-110"
+      ],
+      "tickets": [
+        "G-977977"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskListMembershipSets.ts",
+          "lines": 383
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/taskListMetaSync.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskListMetaSync.ts:69-74",
+        "packages/ui/src/lib/taskListMetaSync.ts:100-123",
+        "packages/ui/src/lib/taskListMetaSync.ts:126-144",
+        "packages/ui/src/lib/taskListMetaSync.ts:88-98"
+      ],
+      "tickets": [
+        "G-977986"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskListMetaSync.ts",
+          "lines": 144
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/taskListOrdering.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskListOrdering.ts:36-63"
+      ],
+      "tickets": [
+        "G-977978"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskListOrdering.ts",
+          "lines": 71
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/taskListRefreshPolicy.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskListRefreshPolicy.ts:9-48"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskListRefreshPolicy.ts",
+          "lines": 48
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/taskModelRecovery.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskModelRecovery.ts:23-47",
+        "packages/ui/src/lib/taskModelRecovery.ts:160-254"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskModelRecovery.ts",
+          "lines": 254
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/taskNavigationHistory.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskNavigationHistory.ts:45-105",
+        "packages/ui/src/lib/taskNavigationHistory.ts:205-228",
+        "packages/ui/src/lib/taskNavigationHistory.ts:113-121"
+      ],
+      "tickets": [
+        "G-977980"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskNavigationHistory.ts",
+          "lines": 228
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/taskNavigationTarget.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskNavigationTarget.ts:6-23"
+      ],
+      "tickets": [
+        "G-977980"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskNavigationTarget.ts",
+          "lines": 23
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/taskNotificationOrchestrator.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskNotificationOrchestrator.ts:59-78",
+        "packages/ui/src/lib/taskNotificationOrchestrator.ts:84-143"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskNotificationOrchestrator.ts",
+          "lines": 160
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/taskNotificationPreferences.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskNotificationPreferences.ts:33-39"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskNotificationPreferences.ts",
+          "lines": 47
+        }
+      ],
+      "why": "我方已有等价：ihui-notification-sound-enabled（packages/shared/src/notifications/notification-store.tsx:54，含测试），\"声音是通知的子能力\"双开关语义已在。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/taskNotificationSound.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskNotificationSound.ts:19-41"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskNotificationSound.ts",
+          "lines": 42
+        }
+      ],
+      "why": "我方已有等价：ihui-notification-sound-enabled（packages/shared/src/notifications/notification-store.tsx:54，含测试），\"声音是通知的子能力\"双开关语义已在。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/taskQueryCache.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskQueryCache.ts:95-110",
+        "packages/ui/src/lib/taskQueryCache.ts:22-38",
+        "packages/ui/src/lib/taskQueryCache.ts:40-48"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskQueryCache.ts",
+          "lines": 110
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/taskSidePaneMemory.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskSidePaneMemory.ts:27-51",
+        "packages/ui/src/lib/taskSidePaneMemory.ts:53-70",
+        "packages/ui/src/lib/taskSidePaneMemory.ts:94-143"
+      ],
+      "tickets": [
+        "G-977985"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskSidePaneMemory.ts",
+          "lines": 143
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/taskStatusUnreadSync.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskStatusUnreadSync.ts:52-70",
+        "packages/ui/src/lib/taskStatusUnreadSync.ts:17-50",
+        "packages/ui/src/lib/taskStatusUnreadSync.ts:112-121",
+        "packages/ui/src/lib/taskStatusUnreadSync.ts:128-148",
+        "packages/ui/src/lib/taskStatusUnreadSync.ts:149-170"
+      ],
+      "tickets": [
+        "G-977979"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskStatusUnreadSync.ts",
+          "lines": 171
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/taskSwitchGuard.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskSwitchGuard.ts:3-8"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskSwitchGuard.ts",
+          "lines": 8
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/taskTimelineGroups.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskTimelineGroups.ts:36-43",
+        "packages/ui/src/lib/taskTimelineGroups.ts:45-86"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskTimelineGroups.ts",
+          "lines": 133
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/taskWorkbenchDragPreview.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/taskWorkbenchDragPreview.ts:8-35"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/taskWorkbenchDragPreview.ts",
+          "lines": 37
+        }
+      ],
+      "why": "b74-2 否证8：单函数/常量小件或强绑上游架构（8-113 行），slash 面板/mention/技能面板均系上游编辑器协议专属、selectionSide* 绑上游副屏 Provider 架构、rootStartupGate\"WelcomeScreen 优先于启动 loading\"判定已留档机制 G 但体量不足成票。重开条件：对应产品面落地时重读机制 G/J。"
+    },
+    {
+      "path": "packages/ui/src/lib/teamPlanDisplayName.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/teamPlanDisplayName.ts:11-14"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/teamPlanDisplayName.ts",
+          "lines": 14
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/technicalInputAttributes.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/technicalInputAttributes.ts:5-10"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/technicalInputAttributes.ts",
+          "lines": 10
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/tokenNumberFormat.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/tokenNumberFormat.ts:13-25"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/tokenNumberFormat.ts",
+          "lines": 25
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/toolCallSummary.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/toolCallSummary.ts:1-12"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/toolCallSummary.ts",
+          "lines": 12
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/toolCallTree.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/toolCallTree.ts:1-6"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/toolCallTree.ts",
+          "lines": 6
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/toolDiffPreview.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/toolDiffPreview.ts:215-250",
+        "packages/ui/src/lib/toolDiffPreview.ts:252-270",
+        "packages/ui/src/lib/toolDiffPreview.ts:370-379",
+        "packages/ui/src/lib/toolDiffPreview.ts:385-415"
+      ],
+      "tickets": [
+        "G-977994"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/toolDiffPreview.ts",
+          "lines": 416
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/toolDisplay.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/toolDisplay.ts:257-266",
+        "packages/ui/src/lib/toolDisplay.ts:299-309",
+        "packages/ui/src/lib/toolDisplay.ts:322-332",
+        "packages/ui/src/lib/toolDisplay.ts:117-255"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/toolDisplay.ts",
+          "lines": 335
+        }
+      ],
+      "why": "不值得照搬：上游工具名册与 legacy kind 正则族是上游 Agent 产物形态（Ask/Goal/TodoWrite/Explore…）；但\"通用模型+策略增强、错误收敛视图、plan 只读 result\"骨架通用，已记机制 E。重开条件：我方重构工具卡渲染时按自有工具族重写。"
+    },
+    {
+      "path": "packages/ui/src/lib/toolError.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/toolError.ts:54-110",
+        "packages/ui/src/lib/toolError.ts:30-43"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/toolError.ts",
+          "lines": 110
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/toolIdentity.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/toolIdentity.ts:200-322",
+        "packages/ui/src/lib/toolIdentity.ts:324-343"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/toolIdentity.ts",
+          "lines": 343
+        }
+      ],
+      "why": "不值得照搬：上游工具名册与 legacy kind 正则族是上游 Agent 产物形态（Ask/Goal/TodoWrite/Explore…）；但\"通用模型+策略增强、错误收敛视图、plan 只读 result\"骨架通用，已记机制 E。重开条件：我方重构工具卡渲染时按自有工具族重写。"
+    },
+    {
+      "path": "packages/ui/src/lib/treemappingActivity.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/treemappingActivity.ts:418-428",
+        "packages/ui/src/lib/treemappingActivity.ts:169-221",
+        "packages/ui/src/lib/treemappingActivity.ts:350-358"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/treemappingActivity.ts",
+          "lines": 602
+        }
+      ],
+      "why": "不值得抄：产品形态——绑定上游\"文件活动树图\"视图（viewed/written/modified/deleted 上色）；宽字段名路径提取与文件 kind 合并优先级思想已记机制 E 备查。重开条件：我方做文件活动热力/树图时。"
+    },
+    {
+      "path": "packages/ui/src/lib/trustedImageUrl.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/trustedImageUrl.ts:1-4"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/trustedImageUrl.ts",
+          "lines": 4
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/uiFontSize.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/uiFontSize.ts:8-27",
+        "packages/ui/src/lib/uiFontSize.ts:29-41"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/uiFontSize.ts",
+          "lines": 41
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/uiPerfArmsTelemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/uiPerfArmsTelemetry.ts:98-144",
+        "packages/ui/src/lib/uiPerfArmsTelemetry.ts:110-124",
+        "packages/ui/src/lib/uiPerfArmsTelemetry.ts:41-54",
+        "packages/ui/src/lib/uiPerfArmsTelemetry.ts:56-72",
+        "packages/ui/src/lib/uiPerfArmsTelemetry.ts:305-344",
+        "packages/ui/src/lib/uiPerfArmsTelemetry.ts:350-399"
+      ],
+      "tickets": [
+        "G-977991"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/uiPerfArmsTelemetry.ts",
+          "lines": 400
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/unreadTaskCount.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/unreadTaskCount.ts:12-40"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/unreadTaskCount.ts",
+          "lines": 43
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/usageEntitlementCache.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/usageEntitlementCache.ts:3-5",
+        "packages/ui/src/lib/usageEntitlementCache.ts:20-31",
+        "packages/ui/src/lib/usageEntitlementCache.ts:54-57",
+        "packages/ui/src/lib/usageEntitlementCache.ts:83-85"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/usageEntitlementCache.ts",
+          "lines": 86
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/usageEntitlementRefreshPolicy.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/usageEntitlementRefreshPolicy.ts:31-43",
+        "packages/ui/src/lib/usageEntitlementRefreshPolicy.ts:138-164",
+        "packages/ui/src/lib/usageEntitlementRefreshPolicy.ts:166-199",
+        "packages/ui/src/lib/usageEntitlementRefreshPolicy.ts:45-64",
+        "packages/ui/src/lib/usageEntitlementRefreshPolicy.ts:228-243",
+        "packages/ui/src/lib/usageEntitlementRefreshPolicy.ts:75-92"
+      ],
+      "tickets": [
+        "G-977989"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/usageEntitlementRefreshPolicy.ts",
+          "lines": 259
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/usageErrorCopy.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/usageErrorCopy.ts:17-26",
+        "packages/ui/src/lib/usageErrorCopy.ts:49-55",
+        "packages/ui/src/lib/usageErrorCopy.ts:5-15"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/usageErrorCopy.ts",
+          "lines": 64
+        }
+      ],
+      "why": "不值得抄：上游 zhipu 套餐业务域（企业主账号/团队套餐硬编码词表）；\"业务错误优先于凭据错误\"优先级思想并入 b74-3 票1 域。重开条件：我方接同类套餐业务错误时。"
+    },
+    {
+      "path": "packages/ui/src/lib/userActionTelemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/userActionTelemetry.ts:120-151",
+        "packages/ui/src/lib/userActionTelemetry.ts:85-91",
+        "packages/ui/src/lib/userActionTelemetry.ts:239-243",
+        "packages/ui/src/lib/userActionTelemetry.ts:254-273",
+        "packages/ui/src/lib/userActionTelemetry.ts:153-167",
+        "packages/ui/src/lib/userActionTelemetry.ts:288-324"
+      ],
+      "tickets": [
+        "G-977990"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/userActionTelemetry.ts",
+          "lines": 336
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/userActionTraceCatalog.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/userActionTraceCatalog.ts:3-95",
+        "packages/ui/src/lib/userActionTraceCatalog.ts:118-140",
+        "packages/ui/src/lib/userActionTraceCatalog.ts:153",
+        "packages/ui/src/lib/userActionTraceCatalog.ts:163-165"
+      ],
+      "tickets": [
+        "G-977990"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/userActionTraceCatalog.ts",
+          "lines": 172
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/webElementContext.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/webElementContext.ts:193-209",
+        "packages/ui/src/lib/webElementContext.ts:296-340",
+        "packages/ui/src/lib/webElementContext.ts:97-113",
+        "packages/ui/src/lib/webElementContext.ts:115-124"
+      ],
+      "tickets": [
+        "G-977995"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/webElementContext.ts",
+          "lines": 348
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/webElementPickerScript.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/webElementPickerScript.ts:41-43",
+        "packages/ui/src/lib/webElementPickerScript.ts:645-655",
+        "packages/ui/src/lib/webElementPickerScript.ts:133-137",
+        "packages/ui/src/lib/webElementPickerScript.ts:300-320",
+        "packages/ui/src/lib/webElementPickerScript.ts:206-227",
+        "packages/ui/src/lib/webElementPickerScript.ts:229-287",
+        "packages/ui/src/lib/webElementPickerScript.ts:469-535",
+        "packages/ui/src/lib/webElementPickerScript.ts:163-183"
+      ],
+      "tickets": [
+        "G-977995"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/webElementPickerScript.ts",
+          "lines": 664
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/whiteboard.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/whiteboard.ts:10-27",
+        "packages/ui/src/lib/whiteboard.ts:68-79",
+        "packages/ui/src/lib/whiteboard.ts:96-181",
+        "packages/ui/src/lib/whiteboard.ts:183-211"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/whiteboard.ts",
+          "lines": 226
+        }
+      ],
+      "why": "不值得抄（整体）：绑定上游 dwf workflow journal 产品域（runId/siteId/artifact.* 全是上游引擎概念）；结构化 tab id 与 scope 思想已由 b74-3 票6 吸收。重开条件：我方引入同类运行详情侧板时。"
+    },
+    {
+      "path": "packages/ui/src/lib/windowsFileLinkEscapeRemarkPlugin.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/windowsFileLinkEscapeRemarkPlugin.ts:15-26",
+        "packages/ui/src/lib/windowsFileLinkEscapeRemarkPlugin.ts:37-76",
+        "packages/ui/src/lib/windowsFileLinkEscapeRemarkPlugin.ts:78-95"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/windowsFileLinkEscapeRemarkPlugin.ts",
+          "lines": 95
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/workDuration.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workDuration.ts:25-47"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workDuration.ts",
+          "lines": 47
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/workflowArtifactOpen.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workflowArtifactOpen.ts:1-29"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workflowArtifactOpen.ts",
+          "lines": 29
+        }
+      ],
+      "why": "不值得抄：上游 workflow 工具族产品面（SaveWorkflow/GetWorkflowRun 等名册、rail bands）；\"UI 与模型面同一快照逐字同格式+年龄基准用 generatedAt\"原则记 fragments 备查。重开条件：我方做工作流运行历史 UI 时。"
+    },
+    {
+      "path": "packages/ui/src/lib/workflowObservationFormat.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workflowObservationFormat.ts:43-63",
+        "packages/ui/src/lib/workflowObservationFormat.ts:65-79"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workflowObservationFormat.ts",
+          "lines": 79
+        }
+      ],
+      "why": "不值得抄：上游 workflow 工具族产品面（SaveWorkflow/GetWorkflowRun 等名册、rail bands）；\"UI 与模型面同一快照逐字同格式+年龄基准用 generatedAt\"原则记 fragments 备查。重开条件：我方做工作流运行历史 UI 时。"
+    },
+    {
+      "path": "packages/ui/src/lib/workflowRunAckStore.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workflowRunAckStore.ts:12-14",
+        "packages/ui/src/lib/workflowRunAckStore.ts:37-77",
+        "packages/ui/src/lib/workflowRunAckStore.ts:95-101"
+      ],
+      "tickets": [
+        "G-977996"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workflowRunAckStore.ts",
+          "lines": 101
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/workflowRunLine.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workflowRunLine.ts:119-143",
+        "packages/ui/src/lib/workflowRunLine.ts:95-111",
+        "packages/ui/src/lib/workflowRunLine.ts:45-93"
+      ],
+      "tickets": [
+        "G-977996"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workflowRunLine.ts",
+          "lines": 149
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/workflowToolNames.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workflowToolNames.ts:8-15",
+        "packages/ui/src/lib/workflowToolNames.ts:21-41"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workflowToolNames.ts",
+          "lines": 99
+        }
+      ],
+      "why": "不值得抄：上游 workflow 工具族产品面（SaveWorkflow/GetWorkflowRun 等名册、rail bands）；\"UI 与模型面同一快照逐字同格式+年龄基准用 generatedAt\"原则记 fragments 备查。重开条件：我方做工作流运行历史 UI 时。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceBusyTaskLock.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceBusyTaskLock.ts:3-5",
+        "packages/ui/src/lib/workspaceBusyTaskLock.ts:40-66"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceBusyTaskLock.ts",
+          "lines": 66
+        }
+      ],
+      "why": "不值得抄（整体）：上游 pane/session/runtime 编排胶水；各自防御性思想（busy 兜底锁定、移除不回滚 UI、reload 去抖、草稿 provider 沿用目标已记住选择）已记机制 G 备查。重开条件：我方引入多 workspace/多 provider 编排时。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceDraftProvider.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceDraftProvider.ts:20-23"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceDraftProvider.ts",
+          "lines": 24
+        }
+      ],
+      "why": "不值得抄（整体）：上游 pane/session/runtime 编排胶水；各自防御性思想（busy 兜底锁定、移除不回滚 UI、reload 去抖、草稿 provider 沿用目标已记住选择）已记机制 G 备查。重开条件：我方引入多 workspace/多 provider 编排时。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceEditorSelection.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceEditorSelection.ts:19-25",
+        "packages/ui/src/lib/workspaceEditorSelection.ts:47-61",
+        "packages/ui/src/lib/workspaceEditorSelection.ts:83-89"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceEditorSelection.ts",
+          "lines": 89
+        }
+      ],
+      "why": "不值得抄（整体）：绑上游本机编辑器发现与项目移除编排；fail-closed 门与有界 BFS 扫描（Windows 保留名）思想已记机制 G/I，保留名扫描可作低优先票候选。重开条件：我方做\"在编辑器打开\"远程工作区或项目删除风险扫描时。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceExpansionPreference.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceExpansionPreference.ts:22-33",
+        "packages/ui/src/lib/workspaceExpansionPreference.ts:79-84"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceExpansionPreference.ts",
+          "lines": 84
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceFileComposer.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceFileComposer.ts:22-33"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceFileComposer.ts",
+          "lines": 36
+        }
+      ],
+      "why": "不值得抄：上游 Lexical composer + dnd-kit 拖拽交互形态；自定义 MIME 严格校验解析与\"收起行 32px 恒定高度\"思想已记机制 H 备查。重开条件：我方做文件拖入聊天/侧栏拖拽排序时。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceFileDrag.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceFileDrag.ts:3-5",
+        "packages/ui/src/lib/workspaceFileDrag.ts:34-95",
+        "packages/ui/src/lib/workspaceFileDrag.ts:97-131",
+        "packages/ui/src/lib/workspaceFileDrag.ts:133-165"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceFileDrag.ts",
+          "lines": 165
+        }
+      ],
+      "why": "不值得抄：上游 Lexical composer + dnd-kit 拖拽交互形态；自定义 MIME 严格校验解析与\"收起行 32px 恒定高度\"思想已记机制 H 备查。重开条件：我方做文件拖入聊天/侧栏拖拽排序时。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceHeaderProvider.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceHeaderProvider.ts:7-9"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceHeaderProvider.ts",
+          "lines": 10
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceKey.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceKey.ts:1-7"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceKey.ts",
+          "lines": 7
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspacePathNavigation.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspacePathNavigation.ts:3-30"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspacePathNavigation.ts",
+          "lines": 31
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspacePurpose.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspacePurpose.ts:4-27"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspacePurpose.ts",
+          "lines": 27
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceRemovalSafety.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceRemovalSafety.ts:7-39",
+        "packages/ui/src/lib/workspaceRemovalSafety.ts:41-67",
+        "packages/ui/src/lib/workspaceRemovalSafety.ts:92-122"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceRemovalSafety.ts",
+          "lines": 122
+        }
+      ],
+      "why": "不值得抄（整体）：绑上游本机编辑器发现与项目移除编排；fail-closed 门与有界 BFS 扫描（Windows 保留名）思想已记机制 G/I，保留名扫描可作低优先票候选。重开条件：我方做\"在编辑器打开\"远程工作区或项目删除风险扫描时。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceRpcAvailability.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceRpcAvailability.ts:7-15"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceRpcAvailability.ts",
+          "lines": 15
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceRuntimeRelease.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceRuntimeRelease.ts:19-24"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceRuntimeRelease.ts",
+          "lines": 26
+        }
+      ],
+      "why": "不值得抄（整体）：上游 pane/session/runtime 编排胶水；各自防御性思想（busy 兜底锁定、移除不回滚 UI、reload 去抖、草稿 provider 沿用目标已记住选择）已记机制 G 备查。重开条件：我方引入多 workspace/多 provider 编排时。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceServiceResolver.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceServiceResolver.ts:28-43",
+        "packages/ui/src/lib/workspaceServiceResolver.ts:60-72"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceServiceResolver.ts",
+          "lines": 97
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceSessionReloadPlan.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceSessionReloadPlan.ts:4",
+        "packages/ui/src/lib/workspaceSessionReloadPlan.ts:24-34"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceSessionReloadPlan.ts",
+          "lines": 34
+        }
+      ],
+      "why": "不值得抄（整体）：上游 pane/session/runtime 编排胶水；各自防御性思想（busy 兜底锁定、移除不回滚 UI、reload 去抖、草稿 provider 沿用目标已记住选择）已记机制 G 备查。重开条件：我方引入多 workspace/多 provider 编排时。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceSidePane.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceSidePane.ts:694-752",
+        "packages/ui/src/lib/workspaceSidePane.ts:802-928",
+        "packages/ui/src/lib/workspaceSidePane.ts:1054-1133",
+        "packages/ui/src/lib/workspaceSidePane.ts:636-640",
+        "packages/ui/src/lib/workspaceSidePane.ts:1080-1103",
+        "packages/ui/src/lib/workspaceSidePane.ts:1385-1429",
+        "packages/ui/src/lib/workspaceSidePane.ts:1431-1483",
+        "packages/ui/src/lib/workspaceSidePane.ts:943-985",
+        "packages/ui/src/lib/workspaceSidePane.ts:1518-1555",
+        "packages/ui/src/lib/workspaceSidePane.ts:2008-2048",
+        "packages/ui/src/lib/workspaceSidePane.ts:578-603",
+        "packages/ui/src/lib/workspaceSidePane.ts:1760-1767",
+        "packages/ui/src/lib/workspaceSidePane.ts:1875-1898",
+        "packages/ui/src/lib/workspaceSidePane.ts:205-227"
+      ],
+      "tickets": [
+        "G-977992",
+        "G-977993"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceSidePane.ts",
+          "lines": 2231
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceSidebarDrag.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceSidebarDrag.ts:4-22",
+        "packages/ui/src/lib/workspaceSidebarDrag.ts:24-39",
+        "packages/ui/src/lib/workspaceSidebarDrag.ts:41-87",
+        "packages/ui/src/lib/workspaceSidebarDrag.ts:89-105"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceSidebarDrag.ts",
+          "lines": 105
+        }
+      ],
+      "why": "不值得抄：上游 Lexical composer + dnd-kit 拖拽交互形态；自定义 MIME 严格校验解析与\"收起行 32px 恒定高度\"思想已记机制 H 备查。重开条件：我方做文件拖入聊天/侧栏拖拽排序时。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceSidebarResizeState.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceSidebarResizeState.ts:1-35"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceSidebarResizeState.ts",
+          "lines": 35
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceTaskPagination.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceTaskPagination.ts:24-58"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceTaskPagination.ts",
+          "lines": 58
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/workspaceVisibleCommand.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/workspaceVisibleCommand.ts:10-17"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/workspaceVisibleCommand.ts",
+          "lines": 18
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/wslUncWorkspace.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/wslUncWorkspace.ts:1-23"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/wslUncWorkspace.ts",
+          "lines": 23
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/zcodeCustomModelValue.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/zcodeCustomModelValue.ts:11-17"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/zcodeCustomModelValue.ts",
+          "lines": 17
+        }
+      ],
+      "why": "b74-3 否证10：单函数/常量小件，无票价值；其中集中常量/CSS var token/WeakSet 去重/locale 策略等通用小技巧已记机制 B/H/I/L 备查。重开条件：无。"
+    },
+    {
+      "path": "packages/ui/src/lib/zcodeDraftSkillInvalidation.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/zcodeDraftSkillInvalidation.ts:26-53"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/zcodeDraftSkillInvalidation.ts",
+          "lines": 60
+        }
+      ],
+      "why": "不值得抄（整体）：上游 pane/session/runtime 编排胶水；各自防御性思想（busy 兜底锁定、移除不回滚 UI、reload 去抖、草稿 provider 沿用目标已记住选择）已记机制 G 备查。重开条件：我方引入多 workspace/多 provider 编排时。"
+    },
+    {
+      "path": "packages/ui/src/lib/zcodeFileCitation.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/zcodeFileCitation.ts:58-64",
+        "packages/ui/src/lib/zcodeFileCitation.ts:66-96",
+        "packages/ui/src/lib/zcodeFileCitation.ts:98-135"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/zcodeFileCitation.ts",
+          "lines": 154
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/zcodeFileCitationRemarkPlugin.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/zcodeFileCitationRemarkPlugin.ts:16-68"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/zcodeFileCitationRemarkPlugin.ts",
+          "lines": 79
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/zcodeSessionProjection.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/zcodeSessionProjection.ts:53-72",
+        "packages/ui/src/lib/zcodeSessionProjection.ts:74-86",
+        "packages/ui/src/lib/zcodeSessionProjection.ts:157-172",
+        "packages/ui/src/lib/zcodeSessionProjection.ts:188-199",
+        "packages/ui/src/lib/zcodeSessionProjection.ts:230-260"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/zcodeSessionProjection.ts",
+          "lines": 272
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/zcodeTaskMetaMerge.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/zcodeTaskMetaMerge.ts:7-23",
+        "packages/ui/src/lib/zcodeTaskMetaMerge.ts:29-34",
+        "packages/ui/src/lib/zcodeTaskMetaMerge.ts:36-38",
+        "packages/ui/src/lib/zcodeTaskMetaMerge.ts:40-55",
+        "packages/ui/src/lib/zcodeTaskMetaMerge.ts:58-69"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/zcodeTaskMetaMerge.ts",
+          "lines": 69
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/zcodeTaskUsageFallback.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/zcodeTaskUsageFallback.ts:59-74",
+        "packages/ui/src/lib/zcodeTaskUsageFallback.ts:21-36",
+        "packages/ui/src/lib/zcodeTaskUsageFallback.ts:77-103",
+        "packages/ui/src/lib/zcodeTaskUsageFallback.ts:38-46",
+        "packages/ui/src/lib/zcodeTaskUsageFallback.ts:52-58"
+      ],
+      "tickets": [
+        "G-977988"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/zcodeTaskUsageFallback.ts",
+          "lines": 103
+        }
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/zcodeUiError.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "packages/ui/src/lib/zcodeUiError.ts:72-95",
+        "packages/ui/src/lib/zcodeUiError.ts:111-124",
+        "packages/ui/src/lib/zcodeUiError.ts:127-142",
+        "packages/ui/src/lib/zcodeUiError.ts:18-24",
+        "packages/ui/src/lib/zcodeUiError.ts:196-205",
+        "packages/ui/src/lib/zcodeUiError.ts:206-216",
+        "packages/ui/src/lib/zcodeUiError.ts:217-247",
+        "packages/ui/src/lib/zcodeUiError.ts:166-189",
+        "packages/ui/src/lib/zcodeUiError.ts:235-254"
+      ],
+      "tickets": [
+        "G-977987"
+      ],
+      "readFiles": [
+        {
+          "p": "packages/ui/src/lib/zcodeUiError.ts",
+          "lines": 263
+        }
+      ]
     }
   ],
   "ticketIndex": {

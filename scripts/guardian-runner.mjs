@@ -669,19 +669,33 @@ const checks = [
   //   是"协作单元"——单 agent 单任务无需分支,直接 main 提交即可。
   // 本守门检测 git branch -a 中除 main / origin/main / upstream/main 外的分支;
   // goal/ 前缀 + .ihui-agent/goal-runtime/STATE.md 标注 active 的 goal 模式临时分支豁免。
-  // 失败含义:检测到非法分支,需删除或标注豁免后重新 commit。
+  // 失败含义:检测到滞留超过在飞窗口且不在豁免内(in-flight/backup/goal/worktree 四类豁免见门体)的旁支,
+  // 处置以 onFailHint 与门体现读输出为准,禁止按旧口径直接删分支。
   {
     id: '41',
     label: '🌿 单分支开发守门(blocking,AGENTS.md §9b)',
     script: 'check-single-branch.mjs',
     args: [],
     mode: 'blocking',
+    // onFailHint 与门体同形(G-331):门体自 aea810c81 起判"旁支长期滞留"而非"存在旁支",
+    // 且对 in-flight / backup 两类豁免;旧 hint 教人 `git branch -D` / `git push origin --delete`,
+    // 按它执行的人正是在删别的会话的在飞分支与 §5b 明令禁删的备份引用。条数一律由门现读报出,
+    // 这里不写死任何数字。
     onFailHint: [
       '',
-      '  💡 AGENTS.md §9b:除 main 外禁止创建任何分支,所有改动统一往 main 合并。',
-      '     修复:git branch -d <已合并分支> / git branch -D <未合并分支>(先 tag 备份)',
-      '     或 git push origin --delete <远程分支>',
-      '     goal/ 临时分支需在 .ihui-agent/goal-runtime/STATE.md 标注 active 才豁免',
+      '  💡 本门判的是"旁支长期滞留",不是"存在旁支"。红 = 某分支滞留超过在飞窗口且不在任何豁免内。',
+      '     两类豁免(名单与条数以门的现读输出为准,此处不写死):',
+      '     ① in-flight —— 分支尖端提交距今 ≤ GRACE_HOURS(默认 48;IHUI_SINGLE_BRANCH_GRACE_HOURS 可调,',
+      '        取不到尖端提交时刻 ⇒ 不豁免,宁误拦不静默);',
+      '     ② backup —— backup/ 与 ihui-backup/ 前缀(含其 origin/ 镜像);AGENTS §5b 明令禁止删除备份引用,',
+      '        本门永远不会教你去删它们。',
+      '     其余合法形态:goal/* 且 .ihui-agent/goal-runtime/STATE.md 标注 active;linked worktree 已 checkout',
+      '     的分支(AGENTS §12d sanctioned 并行隔离)。',
+      '     处置:红名单上的分支若工作已并入 main,`git branch -d <分支>`(只删已合并)是正常收口;',
+      '     尚未并入 ⇒ 先把改动合回 main,或等它在飞窗口内自然豁免。禁止 -D / origin --delete(门体不判的',
+      '     豁免分支更不许删)。',
+      '     阳性对照:IHUI_SINGLE_BRANCH_GRACE_HOURS=0 node scripts/check-single-branch.mjs(窗口调 0,',
+      '     豁免名单全部现读报出);复验:node --test scripts/tests/check-single-branch.test.mjs',
       '',
     ].join('\n'),
   },
@@ -4165,6 +4179,57 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_EDU_ARREARS_SINGLE_SOURCE',
     onFailHint: [
       '',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 活文档写回对账(1 项,blocking)---
+  {
+    id: '166',
+    label:
+      '🧵 活文档按旧副本提交会写回他人已入库行(blocking,2026-09-29 立;只判本次真改掉的那份文档,索引==HEAD 记跳过不记通过)',
+    script: 'check-live-doc-pathspec.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_LIVE_DOC_PATHSPEC',
+    stagedTriggers: ['PROJECT_PLAN.md', 'AGENTS.md', 'README.md'],
+    onFailHint: [
+      '',
+      '红 = 这次要提交进去的那份活文档,逐字丢了 HEAD 里已有的登记行(lost)。',
+      '1) 归并:`node scripts/merge-live-doc.mjs --file <该文档> --apply` —— 只补 lost,不补 stale;',
+      '2) 被点名成 stale 的行要人工取 HEAD 形态(`git show HEAD:<该文档>` 逐行取回),禁止整文件覆盖;',
+      '3) 真要删行:走 AGENTS §1 归档两步走,或合并之后显式 `git rm` —— 本门刻意不给行内豁免;',
+      '4) 确认红来自别人正在写的旧副本而不是本次改动:紧急跳过 HUSKY_SKIP_LIVE_DOC_PATHSPEC=1 并留痕。',
+      '',
+    ].join('\n'),
+  },
+
+  {
+    id: '167',
+    label:
+      '🔒 turn 序号分配点上锁(blocking,max(turnOrdinal) 与 insert(chatMessages) 同体 ⇒ 体内必须有 .for(\'update\') 或 db.transaction;全量档只报数)',
+    script: 'check-turn-ordinal-lock.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TURN_ORDINAL_LOCK',
+    stagedTriggers: ['apps/api/src/'],
+    onFailHint: [
+      '',
+      '  💡 本门钉的是 G-818 那格不变量:turn_ordinal 是轮次组号,索引刻意非唯一,唯一约束',
+      '     结构上不可用 ⇒ "读 max 再分配"的每一段都必须锁;真库实测无事务的"读 max → 插"',
+      '     同会话并发双插撞号率 100%(60 对全撞,turn-ordinal-concurrency.test.ts)。',
+      '     红点名的形态 = max(${chatMessages.turnOrdinal}) 与 insert(chatMessages) 落在同一个',
+      '     语句块里,块内既无 .for(\'update\') 也无 db.transaction。',
+      '     修法:把 max 读取与 insert 一并包进 db.transaction,并先对会话行 .for(\'update\')',
+      '     —— 参照 apps/api/src/db/chat-queries.ts createMessage 与 routes/message.ts 的既有形态。',
+      '     本门只咬本次改动动过的文件(apps/api/src);全量档存量红(patrol-scheduler.ts:198)',
+      '     只报数 —— 改到它的那一刻必须顺手补锁,不得原样提交。',
+      '     单独复验:node scripts/check-turn-ordinal-lock.mjs --staged',
+      '     自检:node scripts/check-turn-ordinal-lock.mjs --self-test(16 例,正反成对)',
+      '     镜像测试:node --test scripts/tests/check-turn-ordinal-lock.test.mjs(10 例,含',
+      '     临时仓端到端 staged 棘轮双向 + 全量只报数)',
+      '     紧急跳过:HUSKY_SKIP_TURN_ORDINAL_LOCK=1(跳过即放弃"分配点上锁"这格不变量,',
+      '     必须在提交信息里写明理由与清偿票)',
       '',
     ].join('\n'),
   },

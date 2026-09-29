@@ -54,48 +54,80 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         "success_cookies": ["z_c0"],
         "success_url_pattern": r"^https?://(www\.)?zhihu\.com/?($|#|\?)|/people/|/follow",
         "fallback_url_pattern": r"^https?://(www\.)?zhihu\.com/?$",
+        # 2026-09-30 实测:默认 tab 即「打开知乎App」码,链路本就可用;微信切换合成点击
+        # 不触发(监听绑内层节点)留档放弃。码 canvas 画入跨域图被污染(TAINTED,
+        # SecurityError)无法直接提取 → 走「网络捕获重绘」:页面 token 接口
+        # /api/v3/account/api/login/qrcode 响应含 link(扫码链接,与官方 canvas 码
+        # 内容一致),segno 用页面同一 token 重绘干净码,登录检测链路不受影响。
+        "qr_capture": {
+            "url_substring": "api/v3/account/api/login/qrcode",
+            "store_key": "zhihu_link",
+            "field_paths": ("link", "data.link"),
+        },
     },
     "bilibili": {
         "name": "B站",
         "login_url": "https://passport.bilibili.com/login",
         "success_cookies": ["SESSDATA", "DedeUserID"],
         "success_url_pattern": r"^https?://(www\.)?bilibili\.com/?($|#|\?)|bilibili\.com/index",
+        # 2026-09-30 探针实测:登录页有 span.btn.wechat「微信登录」按钮(此前判断有误)
+        "scan_tab_selectors": ('span.btn.wechat',),
     },
     "xiaohongshu": {
         "name": "小红书",
         "login_url": "https://www.xiaohongshu.com/explore",
         "success_cookies": ["web_session"],  # 2026-09-15:剔除 webId/a1 登录前游客 cookie,避免误报
         "success_url_pattern": r"^https?://(www\.)?xiaohongshu\.com/explore",
+        # 2026-09-30 探针实测:登录层有 .tip-text.wechat 微信入口(图标+文本)
+        "scan_tab_selectors": ('.tip-text.wechat',),
     },
     "weibo": {
         "name": "微博",
         "login_url": "https://passport.weibo.com/sso/signin?entry=miniblog&source=miniblog&disp=popup&url=https%3A%2F%2Fweibo.com%2Fu%2F0",
         "success_cookies": ["SUB", "MLOGIN"],
         "success_url_pattern": r"weibo\.com/u/\d+",
+        # 2026-09-30 探针实测:登录页有「微信登录」span(cursor-pointer)
+        "scan_tab_selectors": ('span:has-text("微信登录")',),
     },
     "douyin": {
         "name": "抖音",
         "login_url": "https://www.douyin.com/",
         "success_cookies": ["sessionid", "uid_tt", "sid_tt"],
         "success_url_pattern": r"douyin\.com/$",
+        # 2026-09-30 探针实测:抖音登录页无任何微信入口(全平台唯一),走 App 扫码。
+        # 登录弹层自动弹出、默认「扫码登录」tab 即 App 码,链路本就可用。
+        # 码是动画合成渲染(#animate_qrcode_container,无独立 img/canvas/bg 载体,
+        # iframe/shadow 穿透亦无)→ 对码容器元素级截图,只有码区无页面杂物。
+        "qr_element_screenshot": "#animate_qrcode_container",
     },
     "kuaishou": {
         "name": "快手",
         "login_url": "https://www.kuaishou.com/",
         "success_cookies": ["userId", "kuaishou.server.web_st"],
         "success_url_pattern": r"kuaishou\.com/$",
+        # 2026-09-30 实测:需先点「立即登录」弹层(默认「快手APP登录」tab 即 App 码);
+        # 弹层无微信入口(探针命中的「微信扫码」是页面隐藏元素)→ 走 App 扫码。
+        "scan_tab_selectors": ('text=立即登录',),
+        # 码图直接获取:弹层内唯一大尺寸 data:PNG img(无类名,提取器带 ≥120px 过滤)
+        "qr_image_selectors": ('img[src^="data:image"]',),
     },
     "csdn": {
         "name": "CSDN",
         "login_url": "https://passport.csdn.net/login",
         "success_cookies": ["UserName", "UserToken", "UserSecret"],
         "success_url_pattern": r"^https?://(www\.)?csdn\.net/?($|#|\?)|blog\.csdn\.net",
+        # 2026-09-30 探针实测:有「微信登录」tab(实测时已是 tabs-active,点击幂等)
+        "scan_tab_selectors": ('span:has-text("微信登录")',),
     },
     "juejin": {
         "name": "掘金",
         "login_url": "https://juejin.cn/login",
         "success_cookies": ["sessionid", "signatureId"],
         "success_url_pattern": r"^https?://(www\.)?juejin\.cn/?($|#|\?)|/dashboard",
+        # 2026-09-30 实测:右侧「扫码登录」默认即掘金 App 码(img.qrcode-img,data:PNG),
+        # 链路本就可用。第三方「微信」图标是 OAuth 弹窗模式,主页面截图架构拿不到
+        # 弹窗里的码 → 不配微信计划。
+        "qr_image_selectors": ('img.qrcode-img',),
     },
     "shipinhao": {
         "name": "视频号",
@@ -182,6 +214,9 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         "login_url": "https://login.sina.com.cn/signup/signin.php",
         "success_cookies": ["SCF", "SUB", "SUBP", "ALF"],
         "success_url_pattern": r"login\.sina\.com\.cn/cgi|weibo\.com/u/",
+        # 2026-09-30 探针实测:登录页 span[微信登录] 点击后出真微信官方码
+        # (open.weixin.qq.com/connect/qrcode)→ 接入微信码通道
+        "scan_tab_selectors": ('span:text("微信登录")',),
     },
     # ===== 视频平台(2026-08-01 扩展)=====
     "xigua": {
@@ -202,18 +237,27 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         "login_url": "https://passport.baidu.com/v2/?login",
         "success_cookies": ["BDUSS", "STOKEN"],
         "success_url_pattern": r"passport\.baidu\.com/center|zhidao\.baidu\.com",
+        # 2026-09-30 探针实测:百度统一登录层第三方行(.pass-phoenix-btn)微信图标
+        # 点击后出微信码(passport.baidu.com/v2/api/qrcode)→ 接入;扫码确认后
+        # BDUSS 登录态照常发放,success_cookies 检测不变
+        "scan_tab_selectors": ('.pass-phoenix-btn a:has-text("微信")',),
     },
     "baidu_tieba": {
         "name": "百度贴吧",
         "login_url": "https://passport.baidu.com/v2/?login",
         "success_cookies": ["BDUSS", "STOKEN", "TIEBA_USERTYPE"],
         "success_url_pattern": r"tieba\.baidu\.com/(index|home)",
+        # 2026-09-30 探针实测:与百度知道同一 passport 登录层,微信图标同款可点出码
+        "scan_tab_selectors": ('.pass-phoenix-btn a:has-text("微信")',),
     },
     "douban": {
         "name": "豆瓣",
         "login_url": "https://accounts.douban.com/passport/login",
         "success_cookies": ["dbcl2", "ck"],
         "success_url_pattern": r"accounts\.douban\.com/passport|douban\.com/mine",
+        # 2026-09-30 探针实测:登录表单第三方图标 a.link-3rd-wx 点击后出**真微信官方码**
+        # (open.weixin.qq.com/connect/qrcode,160px)→ 接入
+        "scan_tab_selectors": ('a.link-3rd-wx',),
     },
     "36kr": {
         "name": "36氪",
@@ -414,7 +458,17 @@ def _cookie_domain_map(raw_cookies: Sequence[Mapping[str, Any]]) -> dict[str, st
 
 def _account_platform_of(platform: str) -> str:
     """伪平台(如 toutiao_app)归并到真实账号平台;未配置 account_platform 时原样返回。"""
-    return PLATFORM_SCAN_CONFIG.get(platform, {}).get("account_platform", platform)
+    # 表值是 `dict[str, Any]`,直接 return 被 mypy 判 `no-any-return` ⇒ 守门 35(blocking)红在**干净
+    # HEAD** 上,而这一型的代价不是"少一次检查",是这台机每次提交都被逼 --no-verify、链上 196 项
+    # 对每次提交作废(AGENTS §12f/§12e)。
+    # 取 `str(...)` 而不是 `cast`:同仓读 Any 边界的既有写法就是这个形状(`agent_engine.py:2232`
+    # `str(payload.get("finalResponse", "") or "")`、`agent_deliverables.py:86` `str(diff.get("path") or "")`),
+    # 拿别人的正例比自己发明一个稳妥。**本票不改任何判定、不加兜底**:四个调用点的去处都声明
+    # `platform: str`(`_collect_platform_relevant` :427 三处、`_save_account_to_db` :1589 一处),
+    # 而这张表的 account_platform 现读只有字符串("toutiao"),所以 str() 在这一格是恒等变换。
+    # 反面记录一条:我先试过"标注 `account_platform: str = <Any 表达式>`"——在 `--strict` 下那只是把
+    # `no-any-return` 换成 `assignment` 报错,红没消,别照着试第二遍。
+    return str(PLATFORM_SCAN_CONFIG.get(platform, {}).get("account_platform", platform))
 
 
 def _collect_platform_relevant(
@@ -537,6 +591,10 @@ class ScanTask:
     _context: Any = field(default=None, repr=False)
     _page: Any = field(default=None, repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    # 2026-09-30 网络层码图捕获:qr_capture 配置的平台,page.on("response") 把官方
+    # 码数据(token/link/base64)存在这里,与页面同会话 —— 知乎等页面自己轮询 token
+    # 的平台必须复用页面 token 生成码,否则用户扫的是"服务端另取的码",页面轮询不知情
+    _net_captured: dict[str, str] = field(default_factory=dict, repr=False)
 
     def is_terminal(self) -> bool:
         # P2 修复(2026-08-06): 新增 expired 终态
@@ -1196,6 +1254,33 @@ def _run_scan_task(task: ScanTask) -> None:
             page = context.new_page()
             task._page = page
 
+            # 2026-09-30 网络层码图捕获(qr_capture 平台):监听页面自己的码接口响应,
+            # 存 task._net_captured。知乎的码 canvas 画入跨域图被污染无法直接提取,
+            # 但其 token 接口响应里有 link 字段 —— 用页面同一 token 重绘码,
+            # 扫码后页面轮询能感知登录,success_cookies 检测链路不受影响。
+            capture_cfg = config.get("qr_capture")
+            if capture_cfg:
+
+                def _on_response(resp: Any, _cfg: dict[str, Any] = capture_cfg) -> None:
+                    try:
+                        if _cfg["url_substring"] in resp.url:
+                            data = resp.json()
+                            for key_path in _cfg.get("field_paths", []):
+                                node: Any = data
+                                for part in key_path.split("."):
+                                    if not isinstance(node, dict):
+                                        node = None
+                                        break
+                                    node = node.get(part)
+                                if node:
+                                    with task._lock:
+                                        task._net_captured[_cfg["store_key"]] = str(node)
+                                    return
+                    except Exception:  # noqa: BLE001 — 非 JSON/已消费响应忽略
+                        pass
+
+                page.on("response", _on_response)
+
             # 1. 打开登录页
             task.status = "waiting_scan"
             task.message = f"正在打开 {config['name']} 登录页..."
@@ -1513,13 +1598,125 @@ def _find_qr_clip(pg: Any, vp_w: int, vp_h: int) -> dict[str, float] | None:
     return None
 
 
-def _update_qr_screenshot(task: ScanTask, page: Any) -> None:
-    """更新任务的二维码截图(base64 PNG)。
+def _extract_qr_image(page: Any, selectors: Sequence[str]) -> str | None:
+    """2026-09-30 统一「码图直接获取」:按平台配置的选择器定位码载体,提取原图。
 
+    与头条纯 HTTP 通道同一目标 —— 弹窗给用户的是干净的官方二维码原图,而不是
+    登录页截图。支持两类载体:
+    - <img>:src 为 data:image/* 直接解码;http(s) src 服务端拉取(头条同款手法)
+    - <canvas>:toDataURL('image/png') 导出(知乎等 canvas 渲染码)
+    任一命中(渲染宽 ≥120px 防误抓图标)即返回 base64 PNG;全败返回 None,
+    调用方回退截图兜底 —— 提取不到不影响出码,只是退回旧体验。
+    """
+    for sel in selectors:
+        try:
+            loc = page.locator(sel)
+            # 浏览器端一次性预筛(可见 + 渲染宽 ≥120px)再逐个提取:
+            # 快手等页面存在几十个 16px data:PNG 图标,码 img 排位靠后,
+            # 逐个 is_visible 遍历既慢又会被 count 截断漏掉真码
+            idxs = loc.evaluate_all(
+                "els => els.map((el, i) => { const r = el.getBoundingClientRect();"
+                " return { i, w: Math.round(r.width), vis: r.width > 0 && r.height > 0 }; })"
+                ".filter(x => x.vis && x.w >= 120).map(x => x.i)"
+            )
+            for i in idxs[:5]:
+                cand = loc.nth(i)
+                data_url: str | None = cand.evaluate(
+                    "el => el.tagName === 'CANVAS' ? el.toDataURL('image/png') : el.src"
+                )
+                if not data_url:
+                    continue
+                if data_url.startswith(("data:image/png", "data:image/jpeg")):
+                    _, _, b64 = data_url.partition(",")
+                    if b64:
+                        return b64
+                elif data_url.startswith(("http://", "https://")):
+                    import httpx
+
+                    r = httpx.get(data_url, timeout=10.0, follow_redirects=True)
+                    if r.status_code == 200 and r.content[:8].startswith(b"\x89PNG"):
+                        return base64.b64encode(r.content).decode("ascii")
+        except Exception as e:  # noqa: BLE001 — 单个候选失败继续下一个
+            logger.debug(f"[scan_login] 码图提取候选失败 {sel}:{e}")
+    return None
+
+
+def _render_qr_png(content: str) -> str | None:
+    """2026-09-30 segno 生成码图 PNG(base64)。
+
+    知乎等"码 canvas 画入跨域图被污染"的平台,用页面自己 token 接口响应里的
+    link 重绘 —— 扫码内容与官方 canvas 码完全一致,等效官方原图体验。
+    """
+    try:
+        import io
+
+        import segno
+
+        qr = segno.make(content, error="m")
+        buf = io.BytesIO()
+        qr.save(buf, kind="png", scale=8, border=2, dark="#000000", light="#ffffff")
+        return base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception as e:  # noqa: BLE001 — 生成失败回退截图
+        logger.debug(f"[scan_login] 码图重绘失败:{e}")
+        return None
+
+
+def _update_qr_screenshot(task: ScanTask, page: Any) -> None:
+    """更新任务的二维码图(base64 PNG)。
+
+    2026-09-30 统一「码图直接获取」优先:平台配置 qr_image_selectors 时先尝试
+    提取官方码原图(与头条纯 HTTP 通道同一用户体验),失败回退原有截图路径。
     优先只截二维码那一块(见 `_find_qr_clip`);量不到合格盒子时退回整屏 ——
     退回不是失败:整屏至少还能看到页面,比什么都不返回好。
     2026-09-29:主页面全落空时,再试上下文其它页(sohu 登录层开新窗形态)。
     """
+    # 2026-09-30 优先级 1「网络捕获重绘」:qr_capture 平台(知乎)从页面自己的码接口
+    # 响应拿 link/token,segno 重绘干净码 —— 扫码内容与官方 canvas 码一致
+    capture_cfg = PLATFORM_SCAN_CONFIG.get(task.platform, {}).get("qr_capture")
+    if capture_cfg:
+        with task._lock:
+            captured = task._net_captured.get(capture_cfg["store_key"])
+        if captured:
+            rendered = _render_qr_png(captured)
+            if rendered:
+                with task._lock:
+                    task.qr_image_b64 = rendered
+                    task.qr_image_updated_at = time.time()
+                _persist_task(task)
+                return
+        logger.debug(f"[scan_login] {task.platform} 码数据未捕获/重绘失败,降级 DOM 提取或截图")
+    # 2026-09-30 优先级 2「DOM 码图直接提取」:平台配置了 qr_image_selectors 就先提取原图
+    extract_selectors = PLATFORM_SCAN_CONFIG.get(task.platform, {}).get("qr_image_selectors")
+    if extract_selectors:
+        extracted = _extract_qr_image(page, extract_selectors)
+        if extracted:
+            with task._lock:
+                task.qr_image_b64 = extracted
+                task.qr_image_updated_at = time.time()
+            _persist_task(task)
+            return
+        logger.debug(f"[scan_login] {task.platform} 码图提取落空,回退截图兜底")
+    # 2026-09-30 优先级 3「码容器元素截图」:码是动画合成渲染(如抖音
+    # #animate_qrcode_container,无独立 img/canvas/bg 载体)的平台,对码容器本身
+    # 截图 —— 只有码区没有页面杂物,远优于整页/散点定位截图
+    element_shot_sel = PLATFORM_SCAN_CONFIG.get(task.platform, {}).get("qr_element_screenshot")
+    if element_shot_sel:
+        for p2 in (page, *[q for q in page.context.pages if q is not page]):
+            try:
+                el = p2.locator(element_shot_sel).first
+                # bounding box 判定而非 is_visible:fixed 定位元素 offsetParent=null,
+                # is_visible 会误报不可见(抖音弹层实测 180×180 正常可截)
+                box = el.bounding_box()
+                if box and box["width"] >= 120:
+                    png = el.screenshot(type="png", timeout=5_000)
+                    with task._lock:
+                        task.qr_image_b64 = base64.b64encode(png).decode("ascii")
+                        task.qr_image_updated_at = time.time()
+                    _persist_task(task)
+                    return
+            except Exception:  # noqa: BLE001 — 本页没有/未渲染,试下一页
+                continue
+        logger.debug(f"[scan_login] {task.platform} 码容器未定位到,回退截图兜底")
     clip: dict[str, float] | None = None
     target = page
     try:
