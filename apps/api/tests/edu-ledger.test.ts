@@ -34,6 +34,57 @@ vi.mock('../src/services/wechat-subscribe-message.js', () => ({
 
 import { __test__ as ledger } from '../src/services/edu-ledger.js'
 import { __test__ as reminder } from '../src/services/edu-arrear-remind-service.js'
+import { classifySmsAvailability } from '../src/services/edu-arrear-remind-service.js'
+
+describe('短信通道可达性(三态不并桶)', () => {
+  it('没配短信密钥 = not_configured,与个人号码无关', () => {
+    expect(classifySmsAvailability(false, '13800000000')).toEqual({ ok: false, bucket: 'not_configured' })
+    expect(classifySmsAvailability(false, null)).toEqual({ ok: false, bucket: 'not_configured' })
+  })
+  it('配了但这人没留号码/只有空白 = no_phone(不得冒充"已发送",也不得并入 failed)', () => {
+    expect(classifySmsAvailability(true, null)).toEqual({ ok: false, bucket: 'no_phone' })
+    expect(classifySmsAvailability(true, '   ')).toEqual({ ok: false, bucket: 'no_phone' })
+    expect(classifySmsAvailability(true, undefined)).toEqual({ ok: false, bucket: 'no_phone' })
+  })
+  it('两者齐备才 ok,并把号码规整成去空白后的值(带前后空格的号码不该被原样丢给运营商)', () => {
+    const r = classifySmsAvailability(true, ' 13800000000 ')
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.phone).toBe('13800000000')
+  })
+})
+
+describe('催费通道路由与"送达失败"判据', () => {
+  const { parseRemindChannels, externalDeliveryMissed } = reminder
+  it('默认只走微信(不借接线偷偷开一条计费通道)', () => {
+    expect(parseRemindChannels(undefined)).toEqual(['wechat'])
+    expect(parseRemindChannels('')).toEqual(['wechat'])
+  })
+  it('可显式扩到短信;非法值丢掉而不是让整个定时任务停摆', () => {
+    expect(parseRemindChannels('sms')).toEqual(['sms'])
+    expect(parseRemindChannels('wechat, sms')).toEqual(['wechat', 'sms'])
+    expect(parseRemindChannels('carrier-pigeon,sms')).toEqual(['sms'])
+    expect(parseRemindChannels('carrier-pigeon')).toEqual(['wechat'])
+  })
+  it('站内信被请求时不参与"外部触达失败"判定', () => {
+    expect(externalDeliveryMissed({ channels: ['in_app'], reminded: 5, wxSent: 0, smsSent: 0 })).toBe(
+      false,
+    )
+  })
+  it('要外发却零送达 ⇒ 判失败(旧版只按站内信异常判定,微信未配置一直显示 success)', () => {
+    expect(
+      externalDeliveryMissed({ channels: ['wechat'], reminded: 5, wxSent: 0, smsSent: 0 }),
+    ).toBe(true)
+    expect(
+      externalDeliveryMissed({ channels: ['wechat', 'sms'], reminded: 5, wxSent: 0, smsSent: 2 }),
+    ).toBe(false)
+    expect(
+      externalDeliveryMissed({ channels: ['wechat', 'sms'], reminded: 5, wxSent: 3, smsSent: 0 }),
+    ).toBe(false)
+    expect(externalDeliveryMissed({ channels: ['wechat'], reminded: 0, wxSent: 0, smsSent: 0 })).toBe(
+      false,
+    )
+  })
+})
 
 const { deriveEnrollmentLedger, dayDiff, DUE_SOON_LEAD_DAYS, shouldAdoptUnattributed, buildSchedulePlan } =
   ledger

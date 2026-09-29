@@ -24,6 +24,8 @@ from pydantic import BaseModel, Field
 
 from ..core.jwt_auth import require_request_user_id, resolve_request_role_id
 from ..core.sse_buffer import REPLAY_HIT, sse_buffer
+# D174/R3:帧级 traceId 的唯一注入点(与 llm 那条对话流共用一份实现,不在本路由再抄一遍判序)
+from ..core.sse_frames import with_frame_trace_id
 from ..services.agent_deliverables import get_deliverables
 from ..services.agent_events import (
     AGENT_SUBSCRIBE_EVENTS,
@@ -663,7 +665,7 @@ async def stream_agent_tasks(
                         "type": map_hook_event_to_sse(evt),
                         "payload": payload,
                     }
-                    yield f"event: {sse_evt['type']}\ndata: {json.dumps(sse_evt, ensure_ascii=False)}\n\n"
+                    yield f"event: {sse_evt['type']}\ndata: {json.dumps(with_frame_trace_id(str(sse_evt['type']), sse_evt), ensure_ascii=False)}\n\n"
                 now = asyncio.get_running_loop().time()
                 if not got and now - last_beat > 30:
                     yield ": keep-alive\n\n"
@@ -731,7 +733,7 @@ async def stream_agent_logs(
                     entry = _map_hook_event_to_log_entry(evt, payload)
                     if entry is None:
                         continue
-                    yield f"data: {json.dumps(entry, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps(with_frame_trace_id(str(entry.get('type', '')), entry), ensure_ascii=False)}\n\n"
                 now = asyncio.get_running_loop().time()
                 if not got and now - last_beat > 30:
                     yield ": keep-alive\n\n"
@@ -1211,9 +1213,14 @@ def _format_sse(event_id: str, event: dict[str, Any]) -> str:
     """格式化 SSE 事件(含 id + event + data 三行)。
 
     event 字段取自 payload 的 type,客户端可用 addEventListener 分发。
+
+    D174/R3:任务流的帧此前**不带**帧级 traceId —— 注入点在 llm 的路由里,而这里是第二条
+    拼帧路径。两处各写一遍迟早漂开,所以注入逻辑已提到 `core/sse_frames.py`,两条流共用一份
+    (症状不是报错,是"主对话流的帧能对上对账键、任务流的帧对不上")。
     """
     event_type = event.get("type", SSE_MESSAGE)
-    return f"id: {event_id}\nevent: {event_type}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+    framed = with_frame_trace_id(event_type, event)
+    return f"id: {event_id}\nevent: {event_type}\ndata: {json.dumps(framed, ensure_ascii=False)}\n\n"
 
 
 @router.post("/agents/execute/stream")
