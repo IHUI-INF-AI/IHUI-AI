@@ -98,7 +98,14 @@ export function gitRaw(args, root, opts = {}) {
       },
     )
   } catch (e) {
-    const err = new Undetermined(`git ${args[0]} 失败: ${gitErrText(e)}`)
+    /**
+     * ENOENT 有两种成因,Node 的文本只点名**二进制**("spawnSync <git.exe> ENOENT"),
+     * 而另一一种是 `cwd` / `-C` 指向的目录不存在 —— 实测把 `runAudit(repoRoot, face)` 的参数序
+     * 写反就得到同一句,于是排查方向被整个带去"IDE 自带 git 被升级烂掉了"。两种都点名,
+     * 只改可诊断性,不改判定(仍然抛 Undetermined,不会因此少判一次)。
+     */
+    const hint = e?.code === 'ENOENT' ? `(git 二进制或该 root 不可达:root=${root})` : ''
+    const err = new Undetermined(`git ${args[0]} 失败: ${gitErrText(e)}${hint}`)
     // **退出码必须带上来**:`git grep` 无命中、`git diff --quiet` 无差异这类是 git 的正常非零结论,
     // 调用方要能区分"git 说没有"与"git 没跑成"。只给一句错误文本会逼调用方去 parse 自己的异常消息
     // (把结论建立在字符串上),而 e.status 是 Node 直接给的机器事实。
@@ -189,6 +196,119 @@ export function gitErrText(e) {
   const raw = e?.stderr ?? e?.stdout ?? e?.message ?? String(e)
   const text = String(typeof raw === 'string' ? raw : Buffer.from(raw).toString('utf8')).trim()
   return text.split(/\r?\n/)[0] || '(git 无输出)'
+}
+
+/**
+ * `cat-file --batch-check` 的**三态**头解析(纯函数,与派生分开 —— `ambiguous` 与"行序错位"两支
+ * 在真仓里造不出来,只能构造证明)。
+ *
+ * 与 `parseBatchCheckSizes` / `catBatchOids` 的分工:那两个答"多大 / 是哪枚 oid",本出口答
+ * "git 认不认得这枚规格、认成了谁",所以它必须分得出**三态**而不是两态:
+ *  - `resolvable` —— git 回显了全量 oid,且它以输入为前缀(缩写被展开);
+ *  - `unresolvable` —— git 明说 missing,且**同时回显输入原样**(否则是行序错位);
+ *  - `undetermined` —— `ambiguous`(缩写撞号,git 自己认不出指哪个对象)、前缀对不上、行数为 0。
+ * 后两态里 `undetermined` **绝不并进 `unresolvable`**:把"没判"写成"判过了"是本仓最高频的失效型,
+ * 而 `--batch-check` 恰好是唯一会老实告诉你"我分不清"的探测形态。
+ * 行数与输入不等 ⇒ 抛 `Undetermined`(输出被截断 ≠ 对象不存在)。
+ *
+ * ⚠️ 解析成功那一支的判序是 **"回显的 40 hex 必须以输入为前缀"**，不是反过来的那一句。
+ * 本仓曾把这条写反(把"回显以输入开头"当成失败回显)，结果是**全仓所有短 sha 都落未判定**，
+ * 而账面读起来像"探测不可靠" —— 判据自己的假阴不会报错,只会让每一维都变成"没判"。
+ *
+ * 为什么这要把尺子住在层里而不是住在门里:守门 118 记过「管子共用不等于面共用」—— 借 `gitRaw`
+ * 派生却自己重写头解析,仍是半接线;本仓 `--batch-check` 的解析此前已有三份,第四份必然漂开。
+ * @returns {Map<string,'resolvable'|'unresolvable'|'undetermined'>}
+ */
+export function parseBatchCheckStates(stdout, specs) {
+  const map = new Map()
+  const lines = String(stdout)
+    .split(/\r?\n/)
+    .filter((l) => l !== '')
+  if (lines.length !== specs.length) {
+    throw new Undetermined(
+      `cat-file --batch-check 输出 ${lines.length} 行 ≠ 输入 ${specs.length} 条 ⇒ 无法判定(不是"都不存在")`,
+    )
+  }
+  for (let i = 0; i < specs.length; i++) {
+    const spec = specs[i]
+    const line = lines[i]
+    if (/(?:^|\s)ambiguous(?:\s|$)/.test(line)) {
+      map.set(spec, 'undetermined')
+    } else if (/(?:^|\s)missing(?:\s|$)/.test(line)) {
+      map.set(spec, line.startsWith(spec) ? 'unresolvable' : 'undetermined')
+    } else {
+      const m = /^([0-9a-f]{40})[ \t]/.exec(line)
+      map.set(spec, m && m[1].startsWith(spec) ? 'resolvable' : 'undetermined')
+    }
+  }
+  return map
+}
+
+/**
+ * 层内 `cat-file --batch-check` 的**唯一**派生出口(供 `catBatchStates` / `catBatchEcho` 共用)。
+ *
+ * 为什么不用 `gitRaw`:本层的形态锁要求**每个 batch 调用点自己看得见** stdio[0]=pipe /
+ * `input: Buffer.from(` / 数字 timeout / maxBuffer 四项 —— 它防的正是"靠别处保证了"这种推理
+ * (`gitRaw` 的 stdio 是按 `opts.input` 有无分两态算出来的,调用点上看不见,而 stdio[0]='ignore'
+ * 喂进清单时 git **不报错**,只是每个对象都"取不到")。委派少四行,换来的是判据对整型出口失明,
+ * 这笔账不划算;所以这里与三个同族出口(`catBatchCheck` / `catBatchOids` / `catBatchSizes`)同形。
+ * 错误消息仍与 `gitRaw` 逐字同形(`git cat-file 失败: ` 前缀 + ENOENT 那一档补 root),
+ * 因为调用方的报告把这句话原样打进"探测失败"一行,换出口不得换措辞。
+ *
+ * ⚠️ 四个属性必须**写成显式形态**而不是 `timeout,` 这类简写 —— 本层的形态锁按字面读它们,
+ * 简写不会让锁变绿而是让锁看不见下限(实测第一次就红在这一条)。
+ */
+function runBatchCheck(root, input, opts = {}) {
+  try {
+    return execFileSync(
+      GIT,
+      ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', root, 'cat-file', '--batch-check'],
+      {
+        cwd: root,
+        input: Buffer.from(input, 'utf8'),
+        encoding: 'utf8',
+        windowsHide: true,
+        maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
+        timeout: opts.timeout ?? BATCH_TIMEOUT,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    )
+  } catch (e) {
+    const hint = e?.code === 'ENOENT' ? `(git 二进制或该 root 不可达:root=${root})` : ''
+    const err = new Undetermined(`git cat-file 失败: ${gitErrText(e)}${hint}`)
+    if (typeof e?.status === 'number') err.status = e.status
+    throw err
+  }
+}
+
+/**
+ * 一次(分批)`cat-file --batch-check` 问完一批规格的三态存在性 —— 只问"在不在 / 认不认得",不取正文。
+ * 去重与切块都在这里:输出按行对齐,一批过大时一次挂起会换成整门失明,所以宁可分块多次问。
+ * 派生走层内那一个出口(`runBatchCheck`),三态解析走 `parseBatchCheckStates`。
+ */
+export function catBatchStates(root, specs, opts = {}) {
+  const list = [...new Set(specs)]
+  const status = new Map()
+  const chunkSize = opts.chunkSize && opts.chunkSize > 0 ? opts.chunkSize : 400
+  for (let i = 0; i < list.length; i += chunkSize) {
+    const chunk = list.slice(i, i + chunkSize)
+    const out = runBatchCheck(root, chunk.join('\n') + '\n', { timeout: opts.timeout })
+    for (const [k, v] of parseBatchCheckStates(out, chunk)) status.set(k, v)
+  }
+  return status
+}
+
+/**
+ * 单枚规格的 **git 原话首行**,只为报告可读,不改判据 —— 所以它**不抛**:取不到就回一句带原因的文本。
+ * 失败文本与调用方自己 catch `runBatchCheck` 的异常时逐字同形(换出口不得换措辞)。
+ */
+export function catBatchEcho(root, spec, opts = {}) {
+  try {
+    const out = runBatchCheck(root, spec + '\n', { timeout: opts.timeout ?? 20_000 })
+    return String(out).split(/\r?\n/)[0] || '(空)'
+  } catch (e) {
+    return `(探测失败:${e?.message ?? e})`
+  }
 }
 
 /**
