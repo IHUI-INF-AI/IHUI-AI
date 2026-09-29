@@ -35,7 +35,66 @@ vi.mock('../src/services/wechat-subscribe-message.js', () => ({
 import { __test__ as ledger } from '../src/services/edu-ledger.js'
 import { __test__ as reminder } from '../src/services/edu-arrear-remind-service.js'
 
-const { deriveEnrollmentLedger, dayDiff, DUE_SOON_LEAD_DAYS, shouldAdoptUnattributed } = ledger
+const { deriveEnrollmentLedger, dayDiff, DUE_SOON_LEAD_DAYS, shouldAdoptUnattributed, buildSchedulePlan } =
+  ledger
+
+describe('账期展开器只做机械摊派,不替机构编规则', () => {
+  it('摊派逐期相加必须恰好等于应缴额(少 1 元末期就永远缴不清)', () => {
+    const p = buildSchedulePlan({
+      periodCount: 3,
+      amountTotal: 1000,
+      firstDueDate: '2026-09-05',
+      cycle: 'monthly',
+    })
+    expect(p).not.toBeNull()
+    expect(p!.reduce((s, x) => s + x.amountDue, 0)).toBe(1000)
+    expect(p!.map((x) => x.amountDue)).toEqual([333, 333, 334])
+  })
+
+  it('月末 31 日按月推进要钳制,不得产出 2026-02-31 这种日期', () => {
+    const p = buildSchedulePlan({
+      periodCount: 4,
+      amountTotal: 400,
+      firstDueDate: '2026-01-31',
+      cycle: 'monthly',
+    })
+    expect(p!.map((x) => x.dueDate)).toEqual([
+      '2026-01-31',
+      '2026-02-28',
+      '2026-03-31',
+      '2026-04-30',
+    ])
+    for (const x of p!) expect(Number.isNaN(Date.parse(x.dueDate))).toBe(false)
+  })
+
+  it('期数/金额/日期/周期任一非法一律返回 null,不猜一个"看起来合理"的到期日', () => {
+    const base = { periodCount: 2, amountTotal: 600, firstDueDate: '2026-09-01', cycle: 'monthly' } as const
+    expect(buildSchedulePlan({ ...base, periodCount: 0 })).toBeNull()
+    expect(buildSchedulePlan({ ...base, periodCount: 2.5 })).toBeNull()
+    expect(buildSchedulePlan({ ...base, amountTotal: 50.5 })).toBeNull()
+    expect(buildSchedulePlan({ ...base, firstDueDate: '2026/9/1' })).toBeNull()
+    expect(buildSchedulePlan({ ...base, cycle: 'weekly' as 'monthly' })).toBeNull()
+    // termly 少了步长就是无解 —— 默认值会替机构决定"一学期几个月",那是编造
+    expect(buildSchedulePlan({ ...base, cycle: 'termly' })).toBeNull()
+    // 矛盾输入:一次缴清 vs 分成 2 期 ⇒ 必须拒,而不是产出两条同日到期的账期
+    expect(buildSchedulePlan({ ...base, cycle: 'once' })).toBeNull()
+    expect(
+      buildSchedulePlan({ periodCount: 1, amountTotal: 600, firstDueDate: '2026-09-01', cycle: 'once' }),
+    ).toHaveLength(1)
+  })
+
+  it('cycle=once 只出一期且金额=全额(不是 0 期也不是均分成两份)', () => {
+    const p = buildSchedulePlan({
+      periodCount: 1,
+      amountTotal: 880,
+      firstDueDate: '2026-10-01',
+      cycle: 'once',
+    })
+    expect(p).toHaveLength(1)
+    expect(p![0]!.amountDue).toBe(880)
+    expect(p![0]!.periodLabel).toBe('全额')
+  })
+})
 
 describe('无归属流水/退费能不能认领', () => {
   // 这一维决定"历史 NULL 归属的钱去哪了":
