@@ -372,9 +372,12 @@ describe('D68 旧三浮层入口不回归(message-input 挂载面静态结构断
   it('三浮层组件仍被 import、仍各自挂载、触发状态位原样在位', () => {
     expect(src).toContain('import { FileMentionPopover }')
     expect(src).toContain('import { SlashCommandPalette }')
-    // V3 #61(b3f060983)后 ContextSelectorPopover 改为独立单名 import(原与他会话合并 import 拆行),
-    // 判据跟到实际形态,仍锁"被 import"这一语义。
-    expect(src).toContain('import { ContextSelectorPopover }')
+    // ContextSelectorPopover 仍被 import —— 但不锚"多行 import 带尾逗号"那一种排版:
+    // V3 第 61 票(2026-09-27)把同一条 import 里的 ContextSelectorChips 摘掉后,
+    // 单 specifier 的多行形态会被 prettier 收成一行,按 `,` 锚定就成了格式断言而非入口断言。
+    expect(src).toMatch(
+      /import\s*\{[^}]*\bContextSelectorPopover\b[^}]*\}\s*from\s*'@\/components\/ai\/context-selector-popover'/,
+    )
     expect(src).toContain('<FileMentionPopover')
     expect(src).toContain('<ContextSelectorPopover')
     expect(src).toContain('<SlashCommandPalette')
