@@ -202,6 +202,17 @@
     "runtimeSend": "傳送"
   },
   "chat": {
+    "meta": {
+      "pullOnly": "該對話的改動將在下次開啟清單時同步"
+    },
+    "mcp": {
+      "state": {
+        "connecting": "正在連線至 {server}…",
+        "failed": "{server} 連線失敗",
+        "reconnecting": "第 {attempt}/{maxAttempts} 次重連 {server}"
+      },
+      "mobileSettingsHint": "請在桌面端或網頁端管理 MCP 連線"
+    },
     "connectorAuth": {
       "title": "連接到 {connectorName}",
       "connected": "已連接",

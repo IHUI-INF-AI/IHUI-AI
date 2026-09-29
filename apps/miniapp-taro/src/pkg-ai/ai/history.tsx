@@ -5,8 +5,11 @@
 import { useI18n, type TtFn } from '@/i18n'
 import { View, Text, Button, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useSyncExternalStore } from 'react'
 import { formatDateByTemplate } from '@ihui/shared'
+// D153b(2026-09-30 立)会话元数据广播账本的读取口:跨端判据在 @ihui/shared/chat,
+// 本页只做「把已知行交进去 + 渲染时取覆盖值」两件事(AGENTS §3 共享层优先)
+import { conversationMetaLedger } from '@ihui/shared/chat'
 // D20 会话列表补齐:数据源与 web / RN 同一份 api-client 出口(AGENTS §3 共享层优先,
 // 守门 73 拦端内裸 Taro.request/fetch)。置顶动作只经共享 togglePinnedItem,
 // 排序只经共享 sortPinnedFirst —— 端内不再写第二份 filter+sort。
@@ -370,6 +373,29 @@ export function orderHistoryRows(items: readonly HistoryItem[]): HistoryItem[] {
 
 const fmtTime = (ts: number) => formatDateByTemplate(ts, 'MM-DD HH:mm')
 
+/* ──────────────── D153b 广播覆盖口(账本 → 本页行;不发 HTTP) ──────────────── */
+
+/** useSyncExternalStore 的两个口必须是稳定引用,所以提在模块级而不是每次渲染新建 */
+const subscribeConversationMeta = (onStoreChange: () => void): (() => void) =>
+  conversationMetaLedger.subscribe(onStoreChange)
+const getConversationMetaVersion = (): number => conversationMetaLedger.version()
+
+/**
+ * 把账本里的新标题盖到本页行上。
+ *
+ * 只盖 `title`:本页这一族的行没有 model / 归档列(HistoryItem 的字段面就是这些),
+ * 所以"这两档也变了"在小程序界面上结构上无处呈现 —— 正因如此才必须喊
+ * `chat.meta.pullOnly`,而不是静默盖一半就当同步完成。
+ */
+export function overlayBroadcastTitle(item: HistoryItem): HistoryItem {
+  const title = conversationMetaLedger.titleFor(item.id, item.title)
+  return title === item.title ? item : { ...item, title }
+}
+
+export function overlayBroadcastTitles(items: readonly HistoryItem[]): HistoryItem[] {
+  return items.map(overlayBroadcastTitle)
+}
+
 export default function HistoryPage() {
   const { t } = useI18n()
   const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
@@ -389,6 +415,8 @@ export default function HistoryPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   // 服务端「清空全部」在途锁:批量删除进行中不得二次触发(防止并发出两轮删除)
   const [clearingAll, setClearingAll] = useState(false)
+  // D153b:广播改过账本 ⇒ 本版本递增 ⇒ 下面的 filtered 重算(列表值就地变,零 HTTP 请求)
+  const metaVersion = useSyncExternalStore(subscribeConversationMeta, getConversationMetaVersion)
 
   const load = useCallback(async () => {
     const result = await loadHistoryRows({
@@ -398,6 +426,11 @@ export default function HistoryPage() {
     setList(result.items)
     setSource(result.source)
     setDegraded(result.source === 'local')
+    // D153b:只有服务端行才交进账本(本机快照行的 id 形如 hist_<ts>,不是 chat_conversations
+    // 主键 ⇒ 广播永远对不上它;记进"已知"只会让 pullOnly 的判定读成"这行归本端显示")
+    if (result.source === 'server') {
+      conversationMetaLedger.remember(result.items.map((item) => item.id))
+    }
     setPage(1)
     setHasMore(true)
     setServerPage(1)
@@ -419,7 +452,9 @@ export default function HistoryPage() {
   const activeFilter: FilterType = resolveActiveFilter(filter, availableTypes)
 
   const filtered = useMemo(() => {
-    let arr = list
+    // D153b:先用广播账本盖过标题,再走筛选/搜索 —— 搜索也要能命中另一端改成后的新标题,
+    // 所以覆盖必须在 filter 之前(放渲染层盖值会让搜索仍按旧词过滤,那是第二种分叉)。
+    let arr = overlayBroadcastTitles(list)
     if (activeFilter !== 'all') arr = arr.filter((x) => (x.type || 'chat') === activeFilter)
     if (keyword.trim()) {
       const kw = keyword.trim().toLowerCase()
@@ -431,7 +466,7 @@ export default function HistoryPage() {
     }
     // 时间倒序打底 + 置顶优先(唯一排序出口 orderHistoryRows,页面内不再写第二处 sort)
     return orderHistoryRows(arr)
-  }, [list, activeFilter, keyword])
+  }, [list, activeFilter, keyword, metaVersion])
 
   const visible = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page])
 
