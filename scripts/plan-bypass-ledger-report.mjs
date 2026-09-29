@@ -21,7 +21,8 @@
  *
  * 三条不可动摇的口径:
  *   1. **取不到就说"未判定"并点名原因,绝不用 0 冒充结论**:台账文件不存在(missing)≠ 今天没人绕门;
- *      钩子日志只读了尾部 ⇒ "normal 的下界",更早的轮次看不见就是看不见。
+ *      钩子日志现在**整档流式读**(64 MB 内不截断 ⇒ normal 不再是下界),超上限才退回读尾部并大声报
+ *      被跳过的字节数;提交清单另有 `coverage` 自证 —— 取数没走到窗口最早那一天就明说"下面的枚数是下界"。
  *   2. **合并不算"检查未跑"**:并集合并的两侧已被计入,本器单列一枚数,不混进总量。
  *   3. **只读**:不写盘、不改任何 ref、不跑构建;派生一律带 timeout(守门 80)与 windowsHide(守门 52)。
  *
@@ -32,6 +33,7 @@
  */
 import { closeSync, fstatSync, openSync, readSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
+import { StringDecoder } from 'node:string_decoder'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { git } from './lib/bypass-git.mjs'
@@ -40,10 +42,18 @@ import { BYPASS_KIND, readLedgerRecords } from './lib/commit-attestation.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
 
-/** 钩子日志的尾部读取上限:真仓该文件现读约 5 MB;超了就只读尾部并如实报"前面没看见"。 */
-const HOOK_TAIL_BYTES = 4 * 1024 * 1024
+/**
+ * 钩子日志一次读的上限:真仓该文件现读约 8 MB,旧上限 4 MB 把 normal 永久做成下界。
+ * 64 MB 之内**整档流式读**(不整档进内存);只有超上限才退回读尾部,并把被跳过的字节数报出来。
+ */
+const HOOK_READ_CAP_BYTES = 64 * 1024 * 1024
 const DAY_MS = 86_400_000
-const LOG_LIMIT_DEFAULT = 3000
+/**
+ * 取数深度。旧缺省 3000 在本仓**两天窗口**就不够(09-29/30 两天非合并提交 1459 枚,加上合并
+ * 与更早的日子会直接吃满)—— 吃满不是错误,是必须被报出来的状态,所以覆盖面判据住在
+ * `collectCommits` 的 `coverage` 里,而不是把 limit 调大就当没事。
+ */
+const LOG_LIMIT_DEFAULT = 20_000
 
 const dayKey = (iso) => String(iso ?? '').slice(0, 10)
 
@@ -89,38 +99,48 @@ export function stripAnsi(s) {
   return String(s ?? '').replace(ANSI_RE, '')
 }
 
-/** 钩子日志 → 轮次数组:每轮 = 一次 `staged 文件清单` 回显 + 其后**第一个**批量汇总的失败数。 */
-export function parseHookRounds(text) {
-  const lines = stripAnsi(text).split(/\r?\n/)
+/** 钩子日志 → 轮次收集器(逐行喂,给整档流式读用)。 */
+export function roundCollector() {
   const rounds = []
   let pending = null
   let collecting = false
-  for (const raw of lines) {
-    const l = raw.trim()
-    // 回显行真形态是 `ℹ️  staged 文件清单(6 个):`(带前缀与全角冒号前的空格),不锚行首。
-    const echo = l.match(/staged 文件清单\((\d+) 个\)[:：]\s*$/)
-    if (echo) {
-      pending = { files: [], declared: Number(echo[1]), failed: null }
-      collecting = true
-      continue
-    }
-    if (pending && collecting) {
-      const f = l.match(/^-\s+(\S.*)$/)
-      if (f) {
-        pending.files.push(f[1].trim())
-        continue
+  return {
+    feed(raw) {
+      const l = String(raw ?? '').trim()
+      // 回显行真形态是 `ℹ️  staged 文件清单(6 个):`(带前缀与全角冒号前的空格),不锚行首。
+      const echo = l.match(/staged 文件清单\((\d+) 个\)[:：]\s*$/)
+      if (echo) {
+        pending = { files: [], declared: Number(echo[1]), failed: null }
+        collecting = true
+        return
       }
-      if (l !== '') collecting = false // 清单块结束:后面的 `- xxx` 属于别的块,不得混进来
-    }
-    const sum = l.match(/^失败:\s*(\d+)/)
-    if (sum && pending) {
-      pending.failed = Number(sum[1])
-      rounds.push(pending)
-      pending = null
-      collecting = false
-    }
+      if (pending && collecting) {
+        const f = l.match(/^-\s+(\S.*)$/)
+        if (f) {
+          pending.files.push(f[1].trim())
+          return
+        }
+        if (l !== '') collecting = false // 清单块结束:后面的 `- xxx` 属于别的块,不得混进来
+      }
+      const sum = l.match(/^失败:\s*(\d+)/)
+      if (sum && pending) {
+        pending.failed = Number(sum[1])
+        rounds.push(pending)
+        pending = null
+        collecting = false
+      }
+    },
+    finish() {
+      return rounds
+    },
   }
-  return rounds
+}
+
+/** 钩子日志 → 轮次数组:每轮 = 一次 `staged 文件清单` 回显 + 其后**第一个**批量汇总的失败数。 */
+export function parseHookRounds(text) {
+  const c = roundCollector()
+  for (const line of stripAnsi(text).split(/\r?\n/)) c.feed(line)
+  return c.finish()
 }
 
 /** 该提交能否被某一轮"门跑过且没红"正证到?命中即消费该轮(一轮只给一枚提交作保)。 */
@@ -189,25 +209,61 @@ export function classifyAll({
   return { rows: [...byDay.values()].sort((a, b) => (a.day < b.day ? 1 : -1)), detail }
 }
 
-/** 尾部读(不整档进内存):返回 {text, truncated, bytes}。 */
-function readTail(path, maxBytes) {
+/**
+ * 钩子日志 → 轮次(整档**流式**读,不整档进内存)。
+ *
+ * 为什么不是"读尾部若干 MB":旧写法把 normal 永久做成下界(真仓该文件 7.9 MB,4 MB 上限 ⇒ 前面
+ * 3.75 MB 的一轮都没见过),而"有多少提交在检查全废状态下入库"这句话要的恰恰是**全量**。
+ * 现在只在超过 `capBytes`(64 MB)时才退回读尾部,并且**大声报出被跳过的字节数** ——
+ * 失效方向是"少认一些 normal"(宁可多报 unknown),绝不是"把没看见写成看见"。
+ */
+export function readHookRounds(path, { capBytes = HOOK_READ_CAP_BYTES, chunkBytes = 1024 * 1024 } = {}) {
   let fd
   try {
     fd = openSync(path, 'r')
   } catch (e) {
-    return { ok: false, state: e?.code === 'ENOENT' ? 'missing' : 'unreadable', why: String(e?.message ?? e).slice(0, 120) }
+    return {
+      ok: false,
+      state: e?.code === 'ENOENT' ? 'missing' : 'unreadable',
+      why: String(e?.message ?? e).slice(0, 120),
+      rounds: [],
+    }
   }
   try {
-    const st = fstatSync(fd)
-    const len = Math.min(st.size, maxBytes)
-    const buf = Buffer.alloc(len)
-    readSync(fd, buf, 0, len, st.size - len)
+    const size = fstatSync(fd).size
+    const from = Math.max(0, size - capBytes)
+    const skippedBytes = from // 只在超上限时 > 0:跳的是**开头**,尾部(当轮窗口要的)永远读得到
+    const collector = roundCollector()
+    const buf = Buffer.alloc(Math.min(chunkBytes, Math.max(1, size - from)))
+    // StringDecoder 而非 buf.toString:分块边界会切在多字节字符中间(日志里全是中文),
+    // 裸 toString 会把它变成 U+FFFD —— 那正是守门 164 扫的那型损坏,不该由一把量尺自己造出来。
+    const dec = new StringDecoder('utf8')
+    let off = from
+    let carry = ''
+    let fedBytes = 0
+    while (off < size) {
+      const want = Math.min(buf.length, size - off)
+      const got = readSync(fd, buf, 0, want, off)
+      if (got <= 0) break
+      off += got
+      fedBytes += got
+      const text = carry + dec.write(buf.subarray(0, got))
+      const parts = text.split(/\r?\n/)
+      carry = parts.pop() ?? '' // 末尾可能是半行,留给下一块(ANSI 码不跨换行,故按整行剥色安全)
+      // **必须逐行剥色再喂**:落盘的是带色日志,汇总行原文即 `  <ESC>[31m失败: 0<ESC>[0m`,
+      // 不剥 ⇒ 锚点永不成立 ⇒ 0 轮 ⇒ normal 恒 0(整档读反而"什么都看不见")。
+      for (const p of parts) collector.feed(stripAnsi(p))
+    }
+    carry += dec.end()
+    if (carry !== '') collector.feed(stripAnsi(carry))
     return {
       ok: true,
-      text: buf.toString('utf8'),
-      truncated: st.size > len,
-      skippedBytes: Math.max(0, st.size - len),
-      size: st.size,
+      state: 'read',
+      rounds: collector.finish(),
+      size,
+      bytesParsed: fedBytes,
+      skippedBytes,
+      capped: skippedBytes > 0,
     }
   } finally {
     closeSync(fd)
@@ -245,7 +301,24 @@ export function collectCommits({
   }
   if (cur) commits.push(cur)
   const inWin = commits.filter((c) => c.day >= sinceDay && c.day <= untilDay)
-  return { ok: true, why: null, commits: inWin, truncated: commits.length >= limit, total: commits.length }
+  /**
+   * **覆盖面自证**(不是"取到多少算多少"):窗口过滤只看落在范围内的枚数,而 `git log -n` 是从 HEAD
+   * 往回走 —— 如果还没走到 `sinceDay` 就把 limit 用尽,那"窗口内 N 枚"是**假全量**(读起来像"这一窗
+   * 就这么多提交",实际是被截断)。旧写法只有一个 `truncated` 布尔,报得出"截断了"却答不出
+   * "有没有覆盖到窗口最早那一天",而后者才是结论能不能用的条件。
+   * 三态:`covered`(取数深至 ≤ sinceDay 且没用尽 limit)/ `not-covered`(深至 > sinceDay ⇒ 窗口没走全)/
+   * `cap-hit`(正好用尽 limit ⇒ 无从知道)。三者一律如实打印,后两者进"未判定维度"。
+   */
+  const reachedBackTo = commits.length ? commits[commits.length - 1].day : null
+  const capHit = commits.length >= limit
+  const coverage = !reachedBackTo
+    ? 'empty'
+    : reachedBackTo > sinceDay && capHit
+      ? 'not-covered'
+      : capHit
+        ? 'covered-cap'
+        : 'covered'
+  return { ok: true, why: null, commits: inWin, truncated: capHit, total: commits.length, reachedBackTo, coverage }
 }
 
 /** 合并提交枚数(单列,不参与四态)。 */
@@ -321,8 +394,8 @@ async function run({ argv }) {
   const index = indexLedger(ledger.records)
 
   const hookPath = resolve(root, '.workbuddy', 'hook-logs', 'pre-commit.log')
-  const hook = readTail(hookPath, HOOK_TAIL_BYTES)
-  const rounds = hook.ok ? parseHookRounds(hook.text) : []
+  const hook = readHookRounds(hookPath)
+  const rounds = hook.rounds
 
   const got = collectCommits({ root, limit, sinceDay: win.sinceDay, untilDay: win.untilDay })
   const merges = countMerges({ root, limit, sinceDay: win.sinceDay, untilDay: win.untilDay })
@@ -370,11 +443,19 @@ async function run({ argv }) {
             ok: hook.ok,
             state: hook.state ?? 'read',
             rounds: rounds.length,
-            truncated: hook.truncated === true,
+            truncated: hook.capped === true,
+            bytesParsed: hook.bytesParsed ?? null,
             skippedBytes: hook.skippedBytes ?? null,
+            size: hook.size ?? null,
             why: hook.why ?? null,
           },
-          commits: { counted: total, truncated: got.truncated === true, limit: got.truncated ? limit : null },
+          commits: {
+            counted: total,
+            truncated: got.truncated === true,
+            limit: got.truncated ? limit : null,
+            reachedBackTo: got.reachedBackTo ?? null,
+            coverage: got.coverage ?? null,
+          },
           merges: { counted: merges.count, ok: merges.ok, why: merges.why ?? null },
           ledgerUnbound: {
             bypassNoSha: index.bypassNoSha,
@@ -394,6 +475,16 @@ async function run({ argv }) {
     console.log(
       `  非合并提交 ${total} 枚 / 合并 ${merges.count} 枚(合并不参与四态;两数相加 = 窗口内全部落地)`,
     )
+    console.log(
+      `  窗口覆盖:${
+        {
+          covered: `完整(取数走到 ${got.reachedBackTo},未用尽 --limit)`,
+          'covered-cap': `完整但吃满 --limit ${limit}(取数已越过 ${got.reachedBackTo} ≤ ${win.sinceDay})`,
+          'not-covered': `**不完整**——只走到 ${got.reachedBackTo},没到 ${win.sinceDay}(还有更早的没取到)⇒ 下面的枚数只是下界`,
+          empty: '**未判定**——窗口内一枚提交都没取到(或仓库无提交)',
+        }[got.coverage ?? 'empty']
+      }`,
+    )
     console.log('  日期          normal  skipped  bypass  unknown')
     for (const r of rows)
       console.log(
@@ -403,9 +494,11 @@ async function run({ argv }) {
       `  合计           ${sums.normal}         ${sums.skipped}        ${sums.bypassLanding}        ${sums.unknown}`,
     )
     console.log(`  台账:${ledger.ok ? `可读(${ledger.path})记录 ${ledger.records.length} 条 / 坏行 ${ledger.badLines.length}` : `**未判定**(${ledger.state}:${ledger.why})`}`)
-    console.log(`  钩子轮次:${hook.ok ? `尾部读到 ${rounds.length} 轮${hook.truncated ? '(已截断 ⇒ normal 只是下界)' : ''}` : `**未判定**(${hook.state}:${hook.why})`}`)
-    if (hook.ok && hook.truncated)
-      console.log(`⚠️ 钩子日志 ${hook.size} B,只读了尾部 ${hook.size - hook.skippedBytes} B(前面 ${hook.skippedBytes} B 没看见)⇒ normal 是**下界**,不是全量`)
+    console.log(
+      `  钩子轮次:${hook.ok ? `读到 ${rounds.length} 轮(整档流式读 ${hook.bytesParsed}/${hook.size} B)${hook.capped ? ` ⇒ 超上限,开头 ${hook.skippedBytes} B 没看见,normal 只是下界` : ' ⇒ 无截断,normal 不是下界'}` : `**未判定**(${hook.state}:${hook.why})`}`,
+    )
+    if (hook.ok && hook.capped)
+      console.log(`⚠️ 钩子日志 ${hook.size} B 超过 ${HOOK_READ_CAP_BYTES} B 上限,只读了尾部 ${hook.bytesParsed} B(开头 ${hook.skippedBytes} B 没看见)⇒ normal 是**下界**,不是全量`)
     if (index.bypassNoSha > 0)
       console.log(`  ⚠️ 旁路留痕里 ${index.bypassNoSha} 条没有 landedSha ⇒ 绑不到提交,只报数不判绿`)
     if (index.skipNoParent > 0)
@@ -426,7 +519,11 @@ async function run({ argv }) {
       `  未判定维度:${[
         ledger.ok ? null : '台账取不到',
         hook.ok ? null : '钩子轮次取不到',
-        got.truncated ? `提交清单被 --limit ${limit} 截断` : null,
+        got.coverage === 'not-covered' || got.coverage === 'empty'
+          ? `提交清单未覆盖整个窗口(取数深至 ${got.reachedBackTo ?? '无'},需要 ${win.sinceDay};--limit ${limit})`
+          : got.coverage === 'covered-cap'
+            ? `提交清单吃满 --limit ${limit}(窗口已越过,结论仍可用)`
+            : null,
         merges.ok ? null : '合并计数取不到',
       ]
         .filter(Boolean)
@@ -531,6 +628,25 @@ function selfTest() {
     ok('ANSI 色码不得把轮次消成 0 轮', rs.length === 1 && rs[0].failed === 0, JSON.stringify(rs))
     ok('stripAnsi 去掉控制序列', stripAnsi(`${E}[31mX${E}[0m`) === 'X')
   }
+  // 收集器与整串解析必须同形(整档流式读走的是 collector;两条路径漂开 ⇒ 同一份日志两种结论)
+  {
+    const text = [
+      'ℹ️  staged 文件清单(2 个):',
+      '  - a.ts',
+      '  - b.ts',
+      '🛡️ 守门脚本批量检查汇总',
+      '  失败: 0',
+      'ℹ️  staged 文件清单(1 个):',
+      '  - c.ts',
+      '  失败: 1',
+    ].join('\n')
+    const col = roundCollector()
+    for (const l of text.split('\n')) col.feed(l)
+    const viaCollector = col.finish()
+    const viaText = parseHookRounds(text)
+    ok('逐行喂与整串解析必须同形(两条路径不得漂)', JSON.stringify(viaCollector) === JSON.stringify(viaText) && viaText.length === 2, `${JSON.stringify(viaCollector)} vs ${JSON.stringify(viaText)}`)
+    ok('两轮各自的失败数分别记对(0 与 1 不得并桶)', viaCollector[0].failed === 0 && viaCollector[1].failed === 1)
+  }
   // 坏行:parse 不吞
   {
     const bad = parseHookRounds('staged 文件清单(1 个):\n  - a.ts\n(没有汇总就结束)')
@@ -562,5 +678,5 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { indexLedger, parseHookRounds, classifyAll, matchNormalRound, collectCommits, countMerges, dayKey }
+export const __test__ = { indexLedger, parseHookRounds, classifyAll, matchNormalRound, collectCommits, countMerges, dayKey, readHookRounds, roundCollector }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
