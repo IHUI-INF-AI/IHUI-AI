@@ -112,6 +112,16 @@ server-root/          ← 本仓库整个目录复制过去（含 191 张真图 
 .\cdn-bootstrap.ps1 -Install     # 另外注册开机自启计划任务 IHUI-ImageCDN
 ```
 
+> **本机（`D:\IHUI-AI`）的载体不是那个计划任务**（2026-09-29 改）。开机任务只拉起一次、
+> 脚本单发无循环，进程死了要等下次开机才恢复；而 `apps/web/next.config.ts` 把
+> `/remote-images/*` 反代到 `http://localhost:80`，源站挂了公网页面图片直接断。
+> 现由 nssm 服务 **`IHUI-IMAGE-CDN`** 常驻承载，注册/更新一律走
+> `pwsh -File deploy\win\install-image-cdn-service.ps1`（幂等；`-ProveRestart` 用它
+> 自己验"杀掉能被拉回"）。该脚本会**禁用** `IHUI-ImageCDN` 计划任务以保证 :80 单一所有者
+> ——两者并存时抢输的一方会 flapping。回退：`schtasks /change /tn IHUI-ImageCDN /enable`。
+> 活性由 `deploy/win/ihui-monitor.ps1` 的 `cdn(80)` 端口判据每 5 分钟独立探一次
+> （不经 prometheus，与 §5e 的"监控整体沉默"同一条兜底思路）。
+
 随后只需两处控制台操作：
 
 | 位置                             | 操作                                                                      |

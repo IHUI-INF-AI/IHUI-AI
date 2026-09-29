@@ -41,6 +41,7 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
   const hasBody = parts.text.trim().length > 0
   const nothingVisible =
     !hasBody &&
+    parts.quote === undefined &&
     parts.images.length === 0 &&
     parts.videos.length === 0 &&
     parts.codeBlocks.length === 0 &&
@@ -52,6 +53,21 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
       {hasBody ? (
         // 与 G-825 的边界一致:这一行仍是纯文本 `<p>`,不经过任何 markdown 解析。
         <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{parts.text}</p>
+      ) : null}
+
+      {parts.quote ? (
+        // 引用回复(D22 的 quotedMessage 拍平形态)。不拆的话它会以 `> 💬 角色:` + `> …` 的
+        // Markdown 源码露在气泡里 —— 与"附件显示成 ![...]" 是同一型缺陷,只是发送侧生产的另一种形态。
+        // 左边框是**语义强调**(§4 允许的 border-l 情形),不是分割线;不新增文案,角色标签由发送侧本地化后带过来。
+        <blockquote
+          data-testid="user-message-quote"
+          className="border-l-2 border-brand-accent-deep pl-3 text-sm leading-relaxed text-muted-foreground"
+        >
+          <div className="mb-0.5 text-xs font-medium">{parts.quote.label}</div>
+          {parts.quote.lines.map((l, i) => (
+            <div key={`q-${i}`}>{l.length > 0 ? l : ' '}</div>
+          ))}
+        </blockquote>
       ) : null}
 
       {parts.images.map((im, i) => (
