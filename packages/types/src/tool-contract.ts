@@ -185,6 +185,82 @@ export type ToolDenyPrecedence = (typeof TOOL_DENY_PRECEDENCES)[number]
 export const TOOL_PERSIST_SCOPES = ['permanent', 'session-only', 'never'] as const
 export type ToolPersistScope = (typeof TOOL_PERSIST_SCOPES)[number]
 
+// ==================== 二·补:确认凭据档(confirmation)====================
+
+/**
+ * 确认凭据的封闭三档。
+ *
+ * 它在修什么(上游取证,第三方 CLI zcode 的读法,原路径见 PROJECT_PLAN 该票):
+ * 破坏性确认做在**参数层/声明层**而不是执行层 —— 缺 `--force` 直接回 usage 且**不执行**、
+ * 覆盖既有资源要 `replace` 前缀或一次显式 TUI 选择、幂等 no-op 用 `removed: … | null`
+ * 编码而不是回 `true`。三者共同点是:"要不要人点头"是**契约的一部分**,不是执行时临场决定。
+ * 我方现状(2026-09-29 实测 `git grep -c confirmation HEAD -- packages/types/src/tool-contract.ts`
+ * = 0 命中):契约里根本没有这一档,写/危险档工具"由谁确认、怎么确认"无处可查。
+ *
+ * 三条设计约束(缺一不成立):
+ *  1. **封闭联合** —— mode 取值只有三档,拼不认识即判据失明,所以归一化出口只认字面量;
+ *  2. **`none` 也带 reason** —— "没有确认"必须是一个**显式决定**(写明为什么不需要,例如
+ *     调用方已在上游完成批准、该操作天然幂等无破坏面),而不是字段缺席;缺席由守门 TC5
+ *     在写/危险档判红(与 `declaredEffectScope` "认不出返回 null、不静默降级" 同一条禁令);
+ *  3. **字段本身可选** —— 既有 104 枚工具与 `schema-projection.ts` / `argument-validator.ts`
+ *     不得因新增**必填**字段而编译失败(本票只加描述与判据,不改运行时行为);
+ *     "必填"由判据 `scripts/check-tool-contract-declared.mjs` 的 **TC5** 在写/危险档执行。
+ */
+export const TOOL_CONFIRMATION_MODES = ['explicit-flag', 'interactive', 'none'] as const
+export type ToolConfirmationMode = (typeof TOOL_CONFIRMATION_MODES)[number]
+
+const TOOL_CONFIRMATION_MODE_SET: ReadonlySet<string> = new Set<string>(TOOL_CONFIRMATION_MODES)
+
+/** 调用必须显式带上 `flag` 命名的参数(如 `force` / `yes`)才放行;缺席由工具面拒绝执行。 */
+export interface ToolExplicitFlagConfirmation {
+  mode: 'explicit-flag'
+  /** 参数名(非空)。投影到 provider schema 时它是一个普通业务入参,由执行前判定消费。 */
+  flag: string
+}
+
+/** 由宿主向人发起一次交互批准(本仓对应 `ToolContext.confirmDangerous` / 批准闸链路)。 */
+export interface ToolInteractiveConfirmation {
+  mode: 'interactive'
+}
+
+/** 显式决定"不需要确认",**必须带理由**;理由为空等于没做这个决定。 */
+export interface ToolNoConfirmation {
+  mode: 'none'
+  reason: string
+}
+
+export type ToolConfirmationPolicy =
+  | ToolExplicitFlagConfirmation
+  | ToolInteractiveConfirmation
+  | ToolNoConfirmation
+
+/** 任意输入 → 规范确认档;认不出返回 `null`(**不**回退 `'none'`,静默降级就是放行)。 */
+export function normalizeToolConfirmationMode(raw: unknown): ToolConfirmationMode | null {
+  return typeof raw === 'string' && TOOL_CONFIRMATION_MODE_SET.has(raw)
+    ? (raw as ToolConfirmationMode)
+    : null
+}
+
+/**
+ * 确认凭据的运行时校验出口(唯一一份;判据的静态解析与本函数的形状规则必须同形)。
+ *
+ * 通过 ⇒ 返回规范化策略;任何一档缺它要求的非空字符串(`flag` / `reason`)⇒ `null`,
+ * 不返回"最接近的一档"。
+ */
+export function validateToolConfirmationPolicy(raw: unknown): ToolConfirmationPolicy | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const record = raw as Record<string, unknown>
+  const mode = normalizeToolConfirmationMode(record['mode'])
+  if (mode === null) return null
+  if (mode === 'explicit-flag') {
+    const flag = record['flag']
+    return typeof flag === 'string' && flag.trim().length > 0 ? { mode, flag } : null
+  }
+  if (mode === 'interactive') return { mode }
+  const reason = record['reason']
+  return typeof reason === 'string' && reason.trim().length > 0 ? { mode, reason } : null
+}
+
 export interface ToolPermissionContract {
   /** 权限键(规则表用它匹配;与 `ToolContext.permissions` 的键空间一致) */
   permissionKey: string
@@ -203,6 +279,13 @@ export interface ToolPermissionContract {
    * `apps/cli/src/tools/index.ts` 的 `requiresUserConfirmation()` —— 唯一实现,只认显式 `true`。
    */
   alwaysAsk?: boolean
+  /**
+   * 确认凭据档(见上方「二·补」)。**类型层可选、判据层必填**:
+   * `riskLevel`(或工具面 `dangerLevel`)落在 `write` / `dangerous` 而此字段缺席 ⇒
+   * 守门 `scripts/check-tool-contract-declared.mjs` **TC5** 判红;
+   * `read` 档无强制要求。既有 104 枚工具与投影/校验消费方**不因本字段而改行为**。
+   */
+  confirmation?: ToolConfirmationPolicy
   matchSources?: readonly ToolMatchSource[]
   denyPrecedence?: ToolDenyPrecedence
   persistAllowance?: ToolPersistScope
@@ -318,5 +401,39 @@ export function touchesExternalWorld(carrier: EffectScopeCarrier): boolean {
   const scope = declaredEffectScope(carrier)
   if (scope === null) return true
   return !TOOL_PROTOCOL_EFFECT_SCOPES.includes(scope)
+}
+
+// ==================== 四、权限轴 → 批准决策的唯一投影(D142,2026-09-29)====================
+
+/**
+ * 「这次调用必须由人来批准」的**唯一投影出口**(D142 权限轴落地)。
+ *
+ * 它在修什么:`ToolPermissionContract` 的字段(`effectScope` / `riskLevel` /
+ * `requiresApproval` / `alwaysAsk`)此前只有声明面与一份 drift 报告(spec-drift.ts),
+ * **执行路径一条都不读** ⇒ 契约写了什么与运行时问不问人毫无关系(同族先例:守门 64/70/81/115
+ * "造好没装车")。本函数是那一句承诺的唯一实现:决策宿主(cli `tools/permissions.ts` 的
+ * `decideWithMode`、cli `tools/danger-gate.ts` 的会话级 flag 闸)一律调它,
+ * **禁止在任何宿主里再抄一份档名清单或 if 链**(§3 共享层优先;TC4 判这条摘线)。
+ *
+ * 三条判序(顺序本身是判据):
+ *  1. **契约缺席 ⇒ `false`,本判据完全不参与**。这是"不改缺省语义"的落点:第二阶段把
+ *     "未声明即不可信"翻成运行时行为属另一票(前置 = `--flip-audit` 点名的工具逐个补档),
+ *     否则用户侧表现是"昨天能跑今天全要批准" —— 那是制造事故不是收紧安全。
+ *  2. 显式 `alwaysAsk === true` ⇒ 必须问(只认字面量 true,与 `tools/index.ts` 的
+ *     `isAlwaysAskDeclared` 同一档语义,不是第二份判据:那边判"要不要问",这边判"谁能替人答")。
+ *  3. `requiresApproval === true` 且这次调用**碰外部世界** ⇒ 必须问;
+ *     两档纯协议语义(`delegate-to-caller` / `ask-user`)本端没有可批准的事,判 `false`。
+ *     字段拼不认识 / 取不到 ⇒ `touchesExternalWorld` 判"碰"(**已声明**的契约上 fail-closed,
+ *     与"契约整体缺席不参与"是两件事,不得混读)。
+ *
+ * 消费面(不得只写注释):生产面读取点由 `scripts/check-tool-contract-declared.mjs` 的
+ * **TC4** 对账 —— 零消费者即红,所以"加了出口没人调"在这一枚提交里就过不去。
+ */
+export function humanApprovalMandated(carrier: EffectScopeCarrier): boolean {
+  const permission = carrier?.contract?.permission
+  if (!permission) return false
+  if (permission.alwaysAsk === true) return true
+  if (permission.requiresApproval !== true) return false
+  return touchesExternalWorld(carrier)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
