@@ -37,6 +37,13 @@
  *              **结构等值**出口:基线键路径与数组元素零丢失即不参与拒绝(标量值变化允许,
  *              因为 read/计数器的自增正是本次的合法编辑)。整 blob 命中祖先(真回写)照判红;
  *              非 JSON(三份活文档)直接 applicable:false ⇒ 行为与改前逐字同形。默认关闭。
+ *  (G-814414,2026-09-29).json/.jsonl **后缀**的路径默认就走键路径集合对账(jsonKeyPathAudit),
+ *              不再需要这面旗:消失/重现按**键路径与数组元素集合**计,值变化与序列化形态
+ *              (尾逗号、缩进、键序、数组追加、记录重排)不算丢;复活要求**同一键路径**在祖先
+ *              blob 里也取过同值(只按行文本命中不算凭据);丢键无条件参与拒绝(不要求整 blob
+ *              命中祖先)。判不出(解析失败)退回原行级判据并大声报名;Markdown 类活文档永不进这一档。
+ *              这面旗对 .json/.jsonl 不再有豁免权(键路径档已默认生效),保留给"非 JSON 后缀但
+ *              内容确是机器 JSON"的落地面(镜像测试 T-JS-1 钉的那一格)。
  * 退出码:0 = 已落地且回读通过(对齐的 skipped/未判定只在 stdout 点名);
  *        1 = 业务拒绝(某目标路径被别人改过 ⇒ 需重新归并 / 声明路径无差异 / 盘上副本等于祖先版本且会抹掉基线里活着的行 /
  *            落地内容里存在"基线已删、祖先版本写过"的复活行,或该维判据未判定 ⇒ 未判定不等于通过 /
@@ -96,6 +103,8 @@ import {
   resurrectAnalysis,
   RESURRECT_MAX_BLOB_BYTES,
   RESURRECT_MIN_LINE_LEN,
+  SAMPLE_LINES,
+  SAMPLE_COL,
 } from './lib/stale-content-analysis.mjs'
 // G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
@@ -174,6 +183,10 @@ export function clobberedPaths(paths, baseMap, headNow, { root }) {
  *     本器**不再抄第三份**(两处算同一件事必漂移是本仓记过最多次的失败型)。它给得出精确祖先 sha。
  *  B. **行级复活**:内容不等于任何祖先(因为调用方在陈旧副本上又改了东西)⇒ A 结构上看不见,
  *     但落地仍会把基线已删的行搬回来。判据是 `resurrectAnalysis`(①②③ 三条见其注释)。
+ *  B′. **键路径对账(G-814414)**:`.json`/`.jsonl` 后缀的路径改走 `jsonKeyPathAudit` ——
+ *     丢 = 键路径/数组元素集合变小(值变化与序列化形态不算丢),复活 = 同一键路径在祖先 blob
+ *     里也取过同值(只按行文本不算凭据);**丢键无条件参与拒绝**,不再要求整 blob 命中祖先。
+ *     判不出(两侧或正文不是可解析 JSON)⇒ 退回 B 并逐条报名;Markdown 类活文档永不进这一档。
  *
  * 三种结论,不并桶:
  *  - offender(参与拒绝):A 成立 ∧ 有行会从基线消失(或量不到消失行数)/ B 量到复活行 ≥ 1 /
@@ -280,9 +293,13 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
     const wt = worktreeOf.get(p)
     const newText = wt instanceof Error ? null : wt
     const baseText = batchError ? null : (texts.get(`${baseRef}:${p}`) ?? null)
-    const delta = lineDelta(baseText, newText)
+    let delta = lineDelta(baseText, newText)
     const wholeHit = hitBy.get(p) ?? null
     let line
+    // G-814414:.json/.jsonl 后缀的路径在"判据真的读到了东西"的格子里改走键路径对账;
+    // 其余格子(批量读取失败/超尺寸/取不到祖先清单)与判不出(非可解析 JSON)一律退回
+    // 原行级判据 —— 退回必须逐条报名,不得静默。
+    let jsonMode = false
     if (batchError)
       line = {
         status: 'undetermined',
@@ -304,15 +321,38 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
         sample: [],
         commits: [],
       }
-    else
-      line = resurrectAnalysis({
-        baseText,
-        newText,
-        ancestors: (shasBy.get(p) ?? []).map((c) => ({
-          commit: c.slice(0, 9),
-          text: texts.get(`${c}:${p}`) ?? null,
-        })),
-      })
+    else {
+      const ancestors = (shasBy.get(p) ?? []).map((c) => ({
+        commit: c.slice(0, 9),
+        text: texts.get(`${c}:${p}`) ?? null,
+      }))
+      const kind = jsonGuardKindFor(p)
+      const audit = kind ? jsonKeyPathAudit({ baseText, newText, kind, ancestors }) : null
+      if (audit && audit.applicable) {
+        jsonMode = true
+        delta = audit.delta
+        line = audit.line
+        notes.push({
+          path: p,
+          kind: 'json-keypath-mode',
+          why:
+            `G-814414 键路径口径(${kind}):消失/重现按**键路径与数组元素集合**计 —— 值变化、尾逗号、` +
+            `缩进、键序、数组追加/记录重排都不算丢;复活要求**同一键路径**在祖先 blob 里也取过同值,` +
+            `只按行文本命中不算凭据。本轮读数:消失 ${delta.vanished} / 重现 ${delta.appeared} / ` +
+            `复活 ${line.status === 'judged' ? line.count : '未判定'}` +
+            (delta.vanished > 0 ? `(丢键点名:${delta.vanishedSample.slice(0, 3).join(' ; ')})` : '') +
+            '。',
+        })
+      } else {
+        if (audit)
+          notes.push({
+            path: p,
+            kind: 'json-keypath-fallback',
+            why: `键路径档不适用(${audit.reason})⇒ 退回原行级判据(该路径此轮按行文字对账,口径见 B 支)`,
+          })
+        line = resurrectAnalysis({ baseText, newText, ancestors })
+      }
+    }
     if (wt instanceof Error)
       notes.push({ path: p, kind: 'undetermined', why: `工作树正文读不到:${firstLine(wt)}` })
     const entry = mkEntry(p, wholeHit, delta, line)
@@ -322,14 +362,26 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
       notes.push({
         ...entry,
         kind: 'line-out-of-scope',
-        why: `行级复活判据未覆盖此路径:${line.reason}`,
+        why: `${jsonMode ? '复活判据' : '行级复活判据'}未覆盖此路径:${line.reason}`,
       })
     const refuseByBlob = !!wholeHit && (delta.vanished === null || delta.vanished > 0)
-    let refuseByLines = line.status === 'judged' ? line.count > 0 : line.status === 'undetermined'
+    // G-814414:jsonMode 下拒绝的牙有两颗 —— ①丢(键路径/数组元素集合变小,无条件拦,不再要求
+    // 整 blob 命中祖先:陈旧副本 ⊕ 本票小改的混合体正是整 blob 判据结构上看不见的那一型);
+    // ②复活(同一键路径在祖先里取过同值)。undetermined 照旧不放行;out-of-scope(无祖先可对照)
+    // 只豁免"复活"那半边,丢是直接量出来的,照拦。
+    let refuseByLines =
+      line.status === 'undetermined'
+        ? true
+        : jsonMode
+          ? (line.count ?? 0) > 0 || (delta.vanished ?? 0) > 0
+          : line.status === 'judged' && line.count > 0
     // G-816037 结构档:只对"调用方显式声明 + 整 blob 没命中祖先 + 行级判据确实读到了东西"的那一格生效。
     // 三条都必要 —— 默认开启等于给所有落地开后门;wholeHit 命中祖先是真回写;
     // 'undetermined' 是"没判",把它换成放行就是本仓最高频那一型(把没判写成判过了)。
-    if (refuseByLines && !wholeHit && jsonStructure) {
+    // G-814414 起再加一条:!jsonMode —— .json/.jsonl 已默认走键路径档,那里"复活"是真阳性
+    // (同一键路径在祖先取过同值),结构等值判据(只查基线 ⊆ 落地)看不见它,不得拿它当豁免凭据;
+    // 这面旗保留给"非 JSON 后缀但内容确是机器 JSON"的落地面(镜像测试 T-JS-1 的 pack.txt)。
+    if (refuseByLines && !wholeHit && jsonStructure && !jsonMode) {
       const st = jsonStructuralSuperset({ baseText, nextText: newText })
       if (st.applicable && st.pass) {
         refuseByLines = false
@@ -380,7 +432,7 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
   return { ok: offenders.length === 0, offenders, notes }
 }
 
-/** 报告条目的一份子:两条判据的读数并排放,渲染层不再各自判一次。 */
+/** 报告条目的一份子:两条判据的读数并排放,渲染层不再各自判一次。countUnit 标计数口径(G-814414 起有键路径档)。 */
 function mkEntry(path, commit, delta, line, fallback) {
   const d = delta ?? { vanished: null, appeared: null, vanishedSample: [], appearedSample: [] }
   return {
@@ -392,6 +444,7 @@ function mkEntry(path, commit, delta, line, fallback) {
     resurrectedBy: line?.commits ?? [],
     lineStatus: line?.status ?? 'undetermined',
     lineReason: line?.reason ?? fallback?.reason ?? '判据未运行',
+    countUnit: line?.unit ?? 'line',
   }
 }
 
@@ -489,6 +542,235 @@ export function jsonStructuralSuperset({ baseText, nextText }) {
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+ * G-814414(2026-09-29):.json/.jsonl 的**键路径集合对账** —— 判据只住这一份,
+ * 镜像测试 scripts/tests/object-space-land-json-guard.test.mjs 两臂钉死。
+ *
+ * 为什么行级判据对结构化 JSON 是量纲错配(票面两条独立实证,都发生在落 config/zcode-absorption.json 时):
+ *  ① 「消失/重现」按行文字比,而 JSON 的序列化形态一碰就变 —— 数组追加给上一个末元素补的逗号、
+ *     缩进/键序调整,都让"同一内容"读出成片假消失;有意改的数值行(read 191→218)也被计成
+ *     "消失 1 行"。实测报「消失 9 行」,9 行全是假阳,每次正常回填都被逼挂 LAND_ALLOW_STALE=1,
+ *     守卫被训练成习惯性忽略 —— 它真正要防的那一型反而没人看了。
+ *  ② 「复活」按行文字命中祖先,而同一行文字可以属于不同键路径:`"read": 218` 在祖先 4f00276ab
+ *     里属于 packages/ui/src(它现值 224),与本切片毫无关系 —— "同数字不同切片"的行文本巧合
+ *     被当成了凭据。
+ *
+ * 判据(票面两格):
+ *  - 丢 = **键路径集合变小**:基线里存在的对象键路径 / 数组元素(容器内多重集)在落地内容里
+ *    不存在才算丢;值变化与序列化形态(尾逗号、缩进、键序、数组追加、记录重排)一律不算丢。
+ *    丢无条件参与拒绝 —— 不再要求整 blob 命中祖先,陈旧副本 ⊕ 本票小改的混合体正是整 blob
+ *    判据结构上看不见、而旧行级判据只能"报数不拦"的那一格。
+ *  - 复活 = **同一键路径**在落地内容里取某值 ②基线里没有该键路径 ③某祖先 blob 的**同一键路径**
+ *    也取过同值;只按行文本命中一律不算凭据。数组元素同理(同一容器、祖先写过同值元素)。
+ *  - `.jsonl` 逐行解析成记录后按记录内键路径的**并集**对账:记录条数与顺序不是本判据的量纲
+ *    (重排不算丢、整条新增记录的键在别的记录里都有也不算复活),记录内键路径消失才算丢。
+ *
+ * 档位只按**后缀**分(jsonGuardKindFor):内容不是可解析 JSON ⇒ applicable:false 由调用方
+ * 退回原行级判据并大声报名;Markdown 类活文档(无键路径可言)永远不进这一档,行级判据一字不动。
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+/** 后缀 → 键路径档位:.jsonl 逐行成记录、.json 整体一值;其余(含三份活文档)一律 null ⇒ 原行级判据。 */
+export function jsonGuardKindFor(path) {
+  const p = String(path).toLowerCase()
+  if (p.endsWith('.jsonl')) return 'jsonl'
+  if (p.endsWith('.json')) return 'json'
+  return null
+}
+
+/** 值的规范形:对象键序不敏感(键序是序列化形态);数组保序,元素等值性在容器层面单独对账。 */
+function canonJsonValue(v) {
+  if (Array.isArray(v)) return v.map(canonJsonValue)
+  if (v && typeof v === 'object') {
+    const o = {}
+    for (const k of Object.keys(v).sort()) o[k] = canonJsonValue(v[k])
+    return o
+  }
+  return v
+}
+const canonOf = (v) => JSON.stringify(canonJsonValue(v))
+
+/**
+ * 把一份正文折成键路径清单(指纹):
+ *  - `paths`:对象键路径(如 `$.ticketIndex.G-382`)→ 该路径取过的值规范形集合;
+ *  - `arrays`:数组容器路径(如 `$.items`)→ 元素规范形的多重集(.json)/集合(.jsonl)。
+ *    数组**刻意不按 [i] 下标记账**:下标会随追加/重排整体移位,按它对账等于把形态变化读成丢键
+ *    (G-814414 假阳来源之一);.jsonl 按全部记录并集取集合,记录条数与顺序不是量纲。
+ * 任一行(记录)解析失败 ⇒ ok:false,由调用方退回行级判据 —— 判不出不得冒充判过。
+ */
+function jsonKeyPathFingerprint(text, kind) {
+  const multiset = kind === 'json'
+  const paths = new Map()
+  const arrays = new Map()
+  const records = []
+  if (kind === 'jsonl') {
+    const lines = String(text).split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i].trim()
+      if (l === '') continue
+      try {
+        records.push(JSON.parse(l))
+      } catch {
+        return { ok: false, reason: `第 ${i + 1} 行不是可解析 JSON(.jsonl 记录必须逐行成个)` }
+      }
+    }
+  } else {
+    try {
+      records.push(JSON.parse(text))
+    } catch {
+      return { ok: false, reason: '正文不是可解析 JSON' }
+    }
+  }
+  const walk = (v, path) => {
+    if (Array.isArray(v)) {
+      const m = arrays.get(path) ?? new Map()
+      for (const el of v) {
+        const k = canonOf(el)
+        m.set(k, multiset ? (m.get(k) ?? 0) + 1 : 1)
+        if (el && typeof el === 'object') walk(el, `${path}[]`)
+      }
+      arrays.set(path, m)
+      return
+    }
+    if (v && typeof v === 'object') {
+      for (const [k, val] of Object.entries(v)) {
+        const kp = `${path}.${k}`
+        const set = paths.get(kp) ?? new Set()
+        set.add(canonOf(val))
+        paths.set(kp, set)
+        walk(val, kp)
+      }
+    }
+  }
+  for (const rec of records) walk(rec, '$')
+  return { ok: true, paths, arrays }
+}
+
+/** 键路径集合差:丢 = 基线有而落地无(键路径 + 数组元素缺口),重现 = 反向。样本各截前 SAMPLE_LINES 条。 */
+function jsonKeyPathDelta(base, next) {
+  const clip = (s) => (s.length > SAMPLE_COL ? `${s.slice(0, SAMPLE_COL)}…` : s)
+  const dropped = []
+  const added = []
+  for (const p of base.paths.keys()) if (!next.paths.has(p)) dropped.push(p)
+  for (const p of next.paths.keys()) if (!base.paths.has(p)) added.push(p)
+  for (const [p, m] of base.arrays) {
+    const nm = next.arrays.get(p) ?? new Map()
+    for (const [el, c] of m) {
+      for (let i = 0; i < c - (nm.get(el) ?? 0); i++) dropped.push(`${p} ⇐ 元素 ${clip(el)}`)
+    }
+  }
+  for (const [p, m] of next.arrays) {
+    const bm = base.arrays.get(p) ?? new Map()
+    for (const [el, c] of m) {
+      for (let i = 0; i < c - (bm.get(el) ?? 0); i++) added.push(`${p} ⇐ 元素 ${clip(el)}`)
+    }
+  }
+  return {
+    vanished: dropped.length,
+    appeared: added.length,
+    vanishedSample: dropped.slice(0, SAMPLE_LINES),
+    appearedSample: added.slice(0, SAMPLE_LINES),
+  }
+}
+
+/**
+ * 键路径复活(①②③ 同构于行级判据,但证据单位是键路径+值):
+ *  ① 该键路径在落地内容里取值 v;② 基线里没有这条键路径(基线还有的,值变化是合法编辑,
+ *     read 191→218 正是本轮要落的东西);③ 某祖先的**同一键路径**也取过同值 v。
+ * ③ 是票面第二格的牙:只按行文本命中(同数字不同切片、别的切片同形行)一律不算凭据。
+ * 祖先解析失败的那几枚提供不了证据(跳过,不冒充"查过");一枚能用都没有 ⇒ undetermined 不放行。
+ */
+function jsonKeyPathResurrect({ base, next, ancestors }) {
+  if (ancestors.length === 0)
+    return {
+      status: 'out-of-scope',
+      reason: '祖先窗口里没有该路径的任何版本(浅历史 / 刚建的文件)⇒ 无可对照',
+      count: null,
+      sample: [],
+      commits: [],
+    }
+  const usable = ancestors.filter((a) => a.fp && a.fp.ok)
+  if (usable.length === 0)
+    return {
+      status: 'undetermined',
+      reason: `祖先清单有 ${ancestors.length} 枚,但没有一枚能按 JSON 解析 ⇒ 键路径复活无从对证`,
+      count: null,
+      sample: [],
+      commits: [],
+    }
+  const clip = (s) => (s.length > SAMPLE_COL ? `${s.slice(0, SAMPLE_COL)}…` : s)
+  let count = 0
+  const sample = []
+  const commits = []
+  const seenCommit = new Set()
+  const record = (n, text, commit) => {
+    count += n
+    if (commit && !seenCommit.has(commit)) {
+      seenCommit.add(commit)
+      commits.push(commit)
+    }
+    if (sample.length < SAMPLE_LINES) sample.push(clip(text))
+  }
+  for (const [p, vals] of next.paths) {
+    if (base.paths.has(p)) continue // ② 基线里这条键路径还活着 ⇒ 值变化是本轮的合法编辑,不是复活
+    for (const v of vals) {
+      let bestCommit = null
+      for (const a of usable) {
+        if (a.fp.paths.get(p)?.has(v)) {
+          bestCommit = a.commit // ③ 同一键路径在祖先里取过同值 ⇒ 凭据成立
+          break
+        }
+      }
+      if (!bestCommit) continue
+      record(1, `${p} = ${v}`, bestCommit)
+    }
+  }
+  for (const [p, m] of next.arrays) {
+    const bm = base.arrays.get(p) ?? new Map()
+    for (const [el, c] of m) {
+      const extra = c - (bm.get(el) ?? 0)
+      if (extra <= 0) continue
+      let best = 0
+      let bestCommit = null
+      for (const a of usable) {
+        const ac = a.fp.arrays.get(p)?.get(el) ?? 0
+        if (ac > best) {
+          best = ac
+          bestCommit = a.commit
+        }
+      }
+      if (!best) continue
+      record(Math.min(extra, best), `${p} ⇐ 元素 ${el}`, bestCommit)
+    }
+  }
+  return { status: 'judged', reason: null, count, sample, commits }
+}
+
+/**
+ * 档位总入口:`.json`/`.jsonl` 后缀路径的键路径对账。两侧任一解析不了 ⇒ applicable:false
+ * (调用方退回原行级判据并逐条报名);适用 ⇒ 结构化 delta(丢/重现,票面第一格)+
+ * 键路径复活判定(票面第二格)。祖先取正文失败(text 为 null)与解析失败同待遇:提供不了证据。
+ */
+export function jsonKeyPathAudit({ baseText, newText, kind, ancestors = [] }) {
+  if (kind !== 'json' && kind !== 'jsonl') return { applicable: false, reason: '档位不是 .json/.jsonl ⇒ 走原行级判据' }
+  if (typeof baseText !== 'string' || typeof newText !== 'string')
+    return { applicable: false, reason: '有一侧正文取不到 ⇒ 不启用键路径档' }
+  const base = jsonKeyPathFingerprint(baseText, kind)
+  if (!base.ok) return { applicable: false, reason: `基线${base.reason} ⇒ 走原行级判据` }
+  const next = jsonKeyPathFingerprint(newText, kind)
+  if (!next.ok) return { applicable: false, reason: `落地内容${next.reason} ⇒ 走原行级判据` }
+  const delta = jsonKeyPathDelta(base, next)
+  const line = jsonKeyPathResurrect({
+    base,
+    next,
+    ancestors: ancestors.map((a) => ({
+      commit: a.commit,
+      fp: typeof a.text === 'string' ? jsonKeyPathFingerprint(a.text, kind) : { ok: false },
+    })),
+  })
+  // 计数口径跟着档位走:报告层据此前置"键路径口径"而不是"证据行门槛"(unit 缺省 = 行)。
+  return { applicable: true, delta, line: { ...line, unit: 'key-path' } }
+}
+
 /** 拒绝/留痕时要说的话集中在一处:出口必须可复制,原因必须点名到文件与祖先版本。 */
 function staleReport(guard, { allowStale }) {
   const lines = []
@@ -521,7 +803,9 @@ function staleReport(guard, { allowStale }) {
     const who = o.resurrectedBy.length ? `(见于祖先 ${o.resurrectedBy.slice(0, 3).join(', ')})` : ''
     const r =
       o.lineStatus === 'judged'
-        ? `复活 ${o.resurrected} 行(证据行门槛:含字母且 ≥${RESURRECT_MIN_LINE_LEN} 字符)${who}`
+        ? o.countUnit === 'key-path'
+          ? `复活 ${o.resurrected} 行(键路径口径:同一键路径在祖先 blob 里也取过同值才算凭据,值变化与序列化形态不算丢)${who}`
+          : `复活 ${o.resurrected} 行(证据行门槛:含字母且 ≥${RESURRECT_MIN_LINE_LEN} 字符)${who}`
         : `复活行数未判定:${o.lineReason}`
     lines.push(`   - ${o.path}  ${blob}  ${v} / ${a} / ${r}`)
     appendSamples(lines, o)
@@ -1197,6 +1481,8 @@ export const __test__ = {
   resurrectAnalysis,
   detectStaleLanding,
   jsonStructuralSuperset,
+  jsonGuardKindFor,
+  jsonKeyPathAudit,
   staleReport,
   commitFacePresence,
 }
