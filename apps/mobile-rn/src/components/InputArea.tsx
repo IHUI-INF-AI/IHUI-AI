@@ -70,7 +70,7 @@ import {
   X,
 } from 'lucide-react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadiusFor } from '@ihui/design-tokens'
 // 放大钮内缩 / 命中外扩 / 计数浮层距底 / 语音钮间距 —— 唯一源在
 // @ihui/shared/ui/input-area-spec(与小程序端同档;上一轮只搬小程序侧的 6 造成台账 23→24,
 // 两侧必须同枚改指本文件)。机制通道(hitSlop 仅 RN 有)各端保留,数值不再端内自定。
@@ -854,7 +854,8 @@ const styles = StyleSheet.create({
   thumb: {
     width: INPUT_AREA_THUMB_PX,
     height: INPUT_AREA_THUMB_PX,
-    borderRadius: rnRadius.lg,
+    // 角色档 card(附件缩略图 = 媒体小卡片,不是正圆)→ lg(8)
+    borderRadius: rnRadiusFor.card,
     overflow: 'hidden',
   },
   thumbDoc: {
@@ -951,7 +952,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     // 角色档 control(输入框)→ sm(4):此前写 xl(12),与小程序端同槽输入框的 rounded-2xl(16)
     // 各拧一档 —— 两端都不是 panel/hero,所以正确解是双双收到 control 档而不是取其一。
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadiusFor.control,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -1018,7 +1019,7 @@ const styles = StyleSheet.create({
   sendInShell: {
     width: INPUT_AREA_IN_SHELL_BTN_PX,
     height: INPUT_AREA_IN_SHELL_BTN_PX,
-    borderRadius: rnRadius.sm, // 角色档 control(按钮)→ sm;原写「R1 吸附至 lg(8)」只是把裸 10 就近落档,未问过角色
+    borderRadius: rnRadiusFor.control, // 角色档 control(按钮)→ sm;原写「R1 吸附至 lg(8)」只是把裸 10 就近落档,未问过角色
     marginLeft: 4,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1051,7 +1052,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     // 角色档 control(输入框)→ sm(4)。此前写 xl(12),而小程序端同位输入框写 rounded-2xl(16)
     // ⇒ 两端都越出了 control 档且互不相同;卡片本体在别处,这一格不是 card/panel/hero。
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadiusFor.control,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -1062,7 +1063,7 @@ const styles = StyleSheet.create({
     minHeight: MIN_INPUT_HEIGHT,
     maxHeight: MAX_INPUT_HEIGHT,
     // 角色档 control(与 input 同一槽位的语音态)→ sm(4)
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadiusFor.control,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -1078,7 +1079,9 @@ const styles = StyleSheet.create({
   },
   voiceBar: {
     width: 3,
-    borderRadius: rnRadius.xs,
+    // 角色档 tiny(波形指示条 = 极小元素)→ xs(2);§4 明令装饰条不得方档化成直角,
+    // 而 3px 宽的条取任何大于 2 的档就会变成胶囊(本项目不允许胶囊)。
+    borderRadius: rnRadiusFor.tiny,
     backgroundColor: tokens.danger.DEFAULT,
   },
   voiceHint: {
@@ -1134,7 +1137,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: INPUT_AREA_STACK_GAP_PX,
     paddingVertical: INPUT_AREA_PARAM_FIELD_PADDING_V_PX,
     // 角色档 control(参数输入框)→ sm(4)
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadiusFor.control,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -1144,7 +1147,7 @@ const styles = StyleSheet.create({
   paramAddBtn: {
     minHeight: INPUT_AREA_PARAM_FIELD_MIN_HEIGHT_PX,
     // 角色档 control(按钮)→ sm(4),与同排 paramInput 输入框同档
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadiusFor.control,
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderStyle: 'dashed',
@@ -1162,7 +1165,7 @@ const styles = StyleSheet.create({
     height: 44,
     // 角色档 control(按钮)→ sm(4)。44dp 边长的半数是 22,所以本档不是正圆;
     // 小程序端同位发送钮本就是 rounded-lg/rounded-sm 一族,从未取过 12。
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadiusFor.control,
     // 同 sendInShell:主 CTA 实底走 brand.cta,不得取端内自造的 gray[900]
     backgroundColor: tokens.brand.cta, // 图标钮,前景在同一元素的 <Send color={tokens.brand.ctaForeground}/>
     marginLeft: INPUT_AREA_STACK_GAP_PX,
@@ -1197,7 +1200,7 @@ const styles = StyleSheet.create({
   collapsedFab: {
     width: 56,
     height: 56,
-    borderRadius: rnRadius.sm, // 角色档 control(按钮)→ sm
+    borderRadius: rnRadiusFor.control, // 角色档 control(按钮)→ sm
     backgroundColor: tokens.brand.cta, // 悬浮加号,前景在同一元素的 <Plus color={tokens.brand.ctaForeground}/>
     alignItems: 'center',
     justifyContent: 'center',

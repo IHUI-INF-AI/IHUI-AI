@@ -11,6 +11,11 @@
  *  T5 真仓内容上的**阳性对照**:把 HEAD 面那份真台账铺进临时 git 仓,注入一条同号异题的登记,
  *     本器必须点名并给出可构造方案;`--apply` 产出的 blob 必须从对象库回读得回同样字节。
  *
+ * 分层口径(2026-09-29 拆体量债):原 CLI 里的「二、纯函数判据层」整节逐字搬进了
+ * `lib/plan-collide-renumber-plan.mjs`,所以 T3 的形状锁**跟着判据改指那一层**(留在 CLI 面上它就
+ * 变成一条永远绿却什么都没看的断言);三条"不得有第二把尺子"的反面判据现同时读 CLI 与 lib 两个面,
+ * 覆盖面只宽不窄。T1/T2/T8 钉的是 union-converge 那一面,未随本次搬迁改动。
+ *
  * 每条断言的变异自证(把判据中和掉该条必读红)写在各自注释里,数字见交付报告,不写进本文当恒定事实。
  *
  * 需要外部通道(缺省时**报名字并 skip,绝不静默记绿**):
@@ -22,7 +27,7 @@ import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { maskComments } from '../lib/code-mask.mjs'
 import { gitBinary } from '../lib/face-reader.mjs'
@@ -31,6 +36,7 @@ import { __test__ as R } from '../plan-collide-renumber.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPTS = resolve(HERE, '..')
 const TOOL = join(SCRIPTS, 'plan-collide-renumber.mjs')
+const LIB = join(SCRIPTS, 'lib', 'plan-collide-renumber-plan.mjs')
 const CONV = join(SCRIPTS, 'union-converge.mjs')
 const GIT = gitBinary()
 const headUnionEnv = process.env.IHUI_RENUMBER_HEAD_UNION || ''
@@ -60,17 +66,80 @@ test('T2 出路不得声称已把自己接进提交链(守门 89 的 R1/R2 判�
   )
 })
 
-test('T3 形状锁:本器不写第二把尺子(期望重数式子与编号判据各只有一份)', () => {
-  const src = masked(TOOL)
-  assert.match(src, /from '\.\/lib\/plan-task-index\.mjs'/, '编号/标题/主键必须走台账那一份')
-  assert.match(src, /liveDocExpectedCounts/, '期望重数必须来自 union-converge 那一份实现')
+// 判据层 2026-09-29 从 CLI 逐字搬到 lib/plan-collide-renumber-plan.mjs(收体量债)。
+// 形状锁**必须跟着判据走**:还钉在 CLI 面上,它就退化成"永远绿却什么都没看"的断言(§22c 那一型)。
+// 因此正面两条改指 lib 里的**真实说明符**,而三条反面判据读的是 **CLI ⊕ lib 两个面之和** ——
+// 覆盖面比拆前宽而不是窄:只钉 CLI 会让"第二把尺子被搬进 lib"这一型整族隐身。
+const MOVED_OUTLETS = [
+  'rowsByKeyTitle',
+  'keyedRowCount',
+  'keyedRowsWith',
+  'pointerRowsMentioning',
+  'titleStable',
+  'f9AddedGroups',
+  'degenerateFaceNote',
+  'familiesOfText',
+  'occupancy',
+  'templateFor',
+  'pickId',
+  'assertNoteAtTail',
+  'countToken',
+  'renumberLine',
+  'planGroup',
+  'verifyProduced',
+  'proveArchiveExemption',
+  'buildArchiveAppend',
+]
+
+test('T3 形状锁:判据层不写第二把尺子(期望重数式子与编号判据各只有一份)', async () => {
+  if (!existsSync(LIB)) throw new Error(`找不到判据层 ${LIB} ⇒ 本条**未执行**,不得记为通过`)
+  const cli = masked(TOOL)
+  const lib = masked(LIB)
+  const both = cli + '\n' + lib
+  // 正面①:台账那一份必须由"真的用编号判据的那一层"导入。拆层后落点是 lib,它内部逐字写的是
+  // './plan-task-index.mjs'(旧钉子 './lib/plan-task-index.mjs' 钉的是 CLI,而 CLI 已不再持有编号判据)。
+  assert.match(lib, /from '\.\/plan-task-index\.mjs'/, '编号/标题/主键必须走台账那一份')
+  // 正面①附:说明符**解析得到的必须就是那一个文件**。只比字面串的话,有人在别处另放一份同名副本
+  // 也能过 —— 这一条比拆前更严,不是更松。
+  assert.equal(
+    resolve(dirname(LIB), './plan-task-index.mjs'),
+    join(SCRIPTS, 'lib', 'plan-task-index.mjs'),
+    '台账导入的说明符必须落在唯一那份 plan-task-index',
+  )
+  // 正面②:期望重数式子只在 union-converge 那一处,判据层是"喂回去问它",不是自己算。
+  assert.match(lib, /liveDocExpectedCounts/, '期望重数必须来自 union-converge 那一份实现')
+  // 反面三条:覆盖面从「CLI 一个面」扩成「CLI ⊕ lib」两个面(逐字保留原正则,未放宽)。
   assert.doesNotMatch(
-    src,
+    both,
     /Math\.max\(0,/,
     '式子被重写进本器就是第二把尺子(本仓"两处算同一件事必漂移"记过多次)',
   )
-  assert.doesNotMatch(src, /const TASK_ID_PATTERN\s*=/, '不得在别处再定义编号族')
-  assert.doesNotMatch(src, /\[A-Za-z\]\+\)\[-－\]\1/, '畸形号判据不得抄进本器(住在台账层)')
+  assert.doesNotMatch(both, /const TASK_ID_PATTERN\s*=/, '不得在别处再定义编号族')
+  assert.doesNotMatch(both, /\[A-Za-z\]\+\)\[-－\]\1/, '畸形号判据不得抄进本器(住在台账层)')
+  // 搬移不得把判据搬丢。这一维**按模块命名空间判,不按源码字面判** —— 钉 "export function X"
+  // 那种写法会把合法的 `function X` + 末尾 `export { X }` 也判红,而假阳的代价是下一个人为了过门
+  // 去改本来正常的写法。命名空间是行为事实:写成什么形态都骗不过它。
+  // (Windows 必须经 pathToFileURL —— 裸绝对路径 await import 恒抛,而抛错会被读成"这一格判过了"。)
+  const ns = await import(pathToFileURL(LIB).href)
+  for (const k of MOVED_OUTLETS) {
+    assert.equal(
+      typeof ns[k],
+      'function',
+      `判据 ${k} 不在 lib 那一份上(搬丢了 / 没导出 / 又被搬回 CLI ⇒ 两处各写一份)`,
+    )
+    // 并且必须**就是同一个函数对象**经 CLI 的 __test__ 递给自检模块:
+    // 只比 typeof 的话,CLI 里另写一份同名本地实现也能过,而那就是第二条尺子。
+    assert.equal(R[k], ns[k], `__test__.${k} 不是 lib 那一份(依赖注入断链或在 CLI 复制了一份)`)
+  }
+  assert.equal(typeof R.JUMP_ENV, 'string', '跳距 env 名必须在 __test__ 面上(自检 ⑥ 靠它)')
+  assert.equal(typeof R.DEFAULT_JUMP, 'number', '默认跳距必须在 __test__ 面上(自检 ⑥ 靠它)')
+  // CLI 那一侧仍须持有编排用的那两份引擎,不得顺手改成自拼 git / 自写整行替换。
+  assert.match(
+    cli,
+    /from '\.\/union-converge\.mjs'/,
+    '编排层的归并重建必须走 union-converge 那一份',
+  )
+  assert.match(cli, /applyReplacements/, '落地那一次的整行改写必须走 live-doc-edit 那一份引擎')
 })
 
 test('T4 登记侧必须真求值:自检打印的 N/N 必须是量出来的,不是对象真值', () => {
