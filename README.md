@@ -6385,6 +6385,22 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 > - 源文件头部保留一行可见版权署名（Apache-2.0 第 4 条归属声明）。
 | `deploy/win/ihui-pg-backup.ps1`(生产实际执行的是 `deploy/prod-bundle/pg-backup.ps1`,两侧逐字节等值由守门 104 钉) | 每晚 03:00 逐库导出 `ihui_dev` + `keycloak`(自定义压缩格式,保留 ACL 只重映射属主),本地与云盘同步目录**同窗轮转 7 天** | `keycloak` 是这台机唯一"丢了就建不回来、而此前完全没被备份"的库(SSO realm 只活在库里,全仓无 realm-export / compose / kc.sh 可重建),而它只有 0.2MB。另一半成因:旧清理写死只匹配 `ihui_dev_*.dump`,于是 dash 命名的档与 `.sql.gz` 共 153.8MB 永久清不掉,云盘目录更是**一行清理代码都没有** —— 网盘配额撞顶的失败形态不是报错,而是同步客户端静默停传,和"从没配过异地"长一模一样 |
 | 63         | check-sse-parser-parity.mjs                                              | **SSE 双解析器漏接对账(blocking,D106/G-148 配套)**:同一协议被 `packages/api-client`(web/extension/mobile-rn)与 `packages/shared/src/utils/sse-parse.ts`(miniapp-taro)两处独立解析。三类判定:① 抽不到事件名 = 判据失效**按失败处理**;② sse-parse 覆盖帧数 ratchet(`parseCoverageBaseline=23`,只挡倒退);③ api-client 已解析而未接的帧必须在 `scripts/data/sse-parser-coverage.json` 的 `webOnly` 写明"为什么只有该端消费"(空理由/已接却仍登记都拦)。判据强度实测:把 `steer` 守卫改坏 → 立即红两条(覆盖倒退 + 未登记),"只剩产出语句或只剩类型联合声明"都骗不过本闸。`--self-test` 10 例正反成对,`--report` 输出逐端补齐工单                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+### 守门 164 · 源码替换符(U+FFFD)对账(`scripts/check-replacement-chars.mjs`,blocking,2026-09-29 立)
+
+AGENTS §3 的字节级 UTF-8 完整性此前**只看编码合法性**:守门 4c 判非法 UTF-8 字节序列,而 `U+FFFD` 是
+`EF BF BD` —— 合法。2026-09-29 实测 HEAD 面 5 个源码文件共 718 处替换符(注释被一次有损编码往返
+吃掉,连换行和 ASCII 数字一起吞),全链百余道门包括那道 UTF-8 门一路报绿。⇒ **判据若只看"编码合法",
+就看不见"合法编码承载损坏内容"这一型。**
+
+本门把这一维钉上:RC1 索引面按「该文件 HEAD 自身处数」套棘轮(存量报数、新增判红,免得造恒红门),
+RC2 全量档判 HEAD 并逐文件点名存量,RC3 取不到计「未判定」、枚举 0 个源码文件判死不记绿。
+自带修复出口 `--recover <path>`:取该路径最近的零损坏祖先,按「代码括号」(紧邻前/后一行代码 ——
+代码是纯 ASCII,是损坏唯一吞不掉的那一维)给每个损坏注释区间找原文;找不到的如实报名,**禁止编造**。
+
+同批找回结果(现读 HEAD 面):全仓 718 → 90 处,余下 90 处集中在 `packages/types/src/app.ts` 的 3 条
+「批次 31/32/33(2026-08-15)」注释 —— 拿整串日期扫该路径全部 72 个 blob,无损坏正文命中 **0 种**,
+即历史里从没存在过干净版本(它们是"写进去时就坏了"),所以这 3 条按存量报数长期挂着,不读成"已全清"。
+
 ## 守门补登：服务二进制路径存续性（2026-09-28 立，warn）
 `scripts/check-service-binary-paths.mjs` 把"外部自升级把 Windows 服务的二进制路径烂掉"这一型变成机器可查事实：RSSHub 曾因为 `~\.workbuddy\binaries\node\versions\<新版本>` 整个目录被换掉而**静默停服 3 天，期间没有任何告警**，而全仓没有任何一处会去问"服务声明要跑的那个 exe 今天还在不在"。
 门体遍历本机服务、按 nssm 的 `Parameters\Application` 绝对路径逐条判存在性，结论分三态且**绝不并桶**：可判存在 / 确认缺失 / 未判定。枚举不到任何 nssm 托管服务（例如这台开发机）时如实报"未判定"并点名原因——那不等于通过。定级是 **warn**：服务路径属机器状态，提交者结构上满足不了，挂进 blocking 只会让每台每次提交被逼 `--no-verify`，一次绕过等于全部守门对该提交作废。问责档跑 `--strict`（确认缺失与未判定都拒绝出具合格证）；应急跳过变量 `HUSKY_SKIP_SERVICE_BINARY_PATHS`。
