@@ -30,45 +30,8 @@ function currentPlatform(): Platform {
   return process.platform as Platform;
 }
 
-/**
- * 一次裁剪的产出:留下的文本 **+ 丢掉了多少字**。
- *
- * 立票理由(2026-09-29,票 B):本文件原有 5 处 `.slice(0, MAX_CLIPBOARD_CHARS)`
- * (读 4 处 / 写 1 处),剪完就丢,**不报丢了多少** —— 而"被裁"与"本来就这么长"在
- * 消费方(模型与操作员)眼里长得一模一样。上游同一维的做法是直接打印
- * `bytesRead/sizeBytes (truncated)`(`commands-command.ts:167`、`skills-command.ts:162`)。
- * 现在裁剪只有一个出口,溢出量随结果一起返回;未溢出时 `droppedChars` 恒为 0,
- * 提示语按 0 早退 ⇒ **不裁就不报**(成对用例各钉一条)。
- */
-export interface ClipboardClipOutcome {
-  readonly text: string;
-  readonly droppedChars: number;
-  readonly truncated: boolean;
-}
-
-/** 裁剪的**唯一**出口:截到上限并如实回报丢弃量(绝不再在别处手搓 slice)。 */
-export function clipToClipboardBudget(raw: string): ClipboardClipOutcome {
-  const text = raw.slice(0, MAX_CLIPBOARD_CHARS);
-  const droppedChars = Math.max(0, raw.length - text.length);
-  return { text, droppedChars, truncated: droppedChars > 0 };
-}
-
-/**
- * 裁剪提示语的唯一模板(读/写两路共用一份)。`droppedChars === 0` 时返回空串 ⇒ 不报。
- * 只留这一句中文常量:两处各写一遍必然漂开,而本文件的硬编码中文额度(守门 70)也只容得下一句。
- */
-export function clipboardTruncationNote(originalChars: number, droppedChars: number): string {
-  if (droppedChars <= 0) return '';
-  return `\n[已截断,原始长度 ${originalChars} 字符,保留 ${MAX_CLIPBOARD_CHARS} 字符,丢弃 ${droppedChars} 字]`;
-}
-
-/** 读剪贴板的完整结果(含丢弃量);失败/无内容 ⇒ 空文本、零丢弃。 */
-export type ClipboardReadOutcome = ClipboardClipOutcome;
-
-const EMPTY_CLIP: ClipboardReadOutcome = { text: '', droppedChars: 0, truncated: false };
-
-/** 跨平台读取剪贴板内容(同步,失败返回空字符串)+ 如实回报被裁掉的字数 */
-export function readClipboardExcerpt(): ClipboardReadOutcome {
+/** 跨平台读取剪贴板内容(同步,失败返回空字符串) */
+export function readClipboard(): string {
   try {
     const platform = currentPlatform();
     if (platform === 'win32') {
@@ -79,8 +42,8 @@ export function readClipboardExcerpt(): ClipboardReadOutcome {
         windowsHide: true,
         timeout: 5000,
       });
-      if (r.error || r.status !== 0) return EMPTY_CLIP;
-      return clipToClipboardBudget((r.stdout ?? '').replace(/\r\n$/, ''));
+      if (r.error || r.status !== 0) return '';
+      return (r.stdout ?? '').replace(/\r\n$/, '').slice(0, MAX_CLIPBOARD_CHARS);
     }
     if (platform === 'darwin') {
       const r = spawnSync('pbpaste', [], {
@@ -88,8 +51,8 @@ export function readClipboardExcerpt(): ClipboardReadOutcome {
         windowsHide: true,
         timeout: 5000,
       });
-      if (r.error || r.status !== 0) return EMPTY_CLIP;
-      return clipToClipboardBudget(r.stdout ?? '');
+      if (r.error || r.status !== 0) return '';
+      return (r.stdout ?? '').slice(0, MAX_CLIPBOARD_CHARS);
     }
     if (platform === 'linux') {
       // 优先 xclip,fallback xsel
@@ -99,7 +62,7 @@ export function readClipboardExcerpt(): ClipboardReadOutcome {
         timeout: 5000,
       });
       if (!r.error && r.status === 0) {
-        return clipToClipboardBudget(r.stdout ?? '');
+        return (r.stdout ?? '').slice(0, MAX_CLIPBOARD_CHARS);
       }
       const r2 = spawnSync('xsel', ['--clipboard', '--output'], {
         encoding: 'utf-8',
@@ -107,36 +70,21 @@ export function readClipboardExcerpt(): ClipboardReadOutcome {
         timeout: 5000,
       });
       if (!r2.error && r2.status === 0) {
-        return clipToClipboardBudget(r2.stdout ?? '');
+        return (r2.stdout ?? '').slice(0, MAX_CLIPBOARD_CHARS);
       }
-      return EMPTY_CLIP;
+      return '';
     }
-    return EMPTY_CLIP;
+    return '';
   } catch {
-    return EMPTY_CLIP;
+    return '';
   }
 }
 
-/** 跨平台读取剪贴板内容(同步,失败返回空字符串)—— 签名逐字不变,细节走 `readClipboardExcerpt` */
-export function readClipboard(): string {
-  return readClipboardExcerpt().text;
-}
-
-/** 写剪贴板的完整结果:成功位 + 因超出上限而被丢弃的字数 */
-export interface ClipboardWriteOutcome {
-  readonly ok: boolean;
-  readonly droppedChars: number;
-  readonly truncated: boolean;
-}
-
-/** 跨平台写入剪贴板内容(同步,失败返回 false)+ 如实回报被裁掉的字数 */
-export function writeClipboardWithOutcome(text: string): ClipboardWriteOutcome {
-  // 裁剪只走唯一出口:先算出丢弃量,再把它随结果一起带出去(写路径同样是"静默变短"的发生地)
-  const clip = clipToClipboardBudget(text);
-  const input = clip.text;
-  const fail = (): ClipboardWriteOutcome => ({ ok: false, droppedChars: clip.droppedChars, truncated: clip.truncated });
+/** 跨平台写入剪贴板内容(同步,失败返回 false) */
+export function writeClipboard(text: string): boolean {
   try {
     const platform = currentPlatform();
+    const input = text.slice(0, MAX_CLIPBOARD_CHARS);
     if (platform === 'win32') {
       // PowerShell Set-Clipboard 接受 stdin 管道输入
       const r = spawnSync('pwsh.exe', ['-NoProfile', '-Command', '$input | Set-Clipboard'], {
@@ -145,7 +93,7 @@ export function writeClipboardWithOutcome(text: string): ClipboardWriteOutcome {
         windowsHide: true,
         timeout: 5000,
       });
-      return { ok: !r.error && r.status === 0, droppedChars: clip.droppedChars, truncated: clip.truncated };
+      return !r.error && r.status === 0;
     }
     if (platform === 'darwin') {
       const r = spawnSync('pbcopy', [], {
@@ -154,7 +102,7 @@ export function writeClipboardWithOutcome(text: string): ClipboardWriteOutcome {
         windowsHide: true,
         timeout: 5000,
       });
-      return { ok: !r.error && r.status === 0, droppedChars: clip.droppedChars, truncated: clip.truncated };
+      return !r.error && r.status === 0;
     }
     if (platform === 'linux') {
       // 优先 xclip,fallback xsel
@@ -164,24 +112,19 @@ export function writeClipboardWithOutcome(text: string): ClipboardWriteOutcome {
         windowsHide: true,
         timeout: 5000,
       });
-      if (!r.error && r.status === 0) return { ok: true, droppedChars: clip.droppedChars, truncated: clip.truncated };
+      if (!r.error && r.status === 0) return true;
       const r2 = spawnSync('xsel', ['--clipboard', '--input'], {
         input,
         encoding: 'utf-8',
         windowsHide: true,
         timeout: 5000,
       });
-      return { ok: !r2.error && r2.status === 0, droppedChars: clip.droppedChars, truncated: clip.truncated };
+      return !r2.error && r2.status === 0;
     }
-    return fail();
+    return false;
   } catch {
-    return fail();
+    return false;
   }
-}
-
-/** 跨平台写入剪贴板内容(同步,失败返回 false)—— 签名逐字不变,细节走 `writeClipboardWithOutcome` */
-export function writeClipboard(text: string): boolean {
-  return writeClipboardWithOutcome(text).ok;
 }
 
 /** 检测当前平台是否有可用的剪贴板工具(用于测试跳过 + 友好错误) */
@@ -222,17 +165,15 @@ export const clipboard_read: Tool = {
         error: '当前平台无可用剪贴板工具(Windows/macOS 内置;Linux 需安装 xclip 或 xsel)',
       };
     }
-    const clip = readClipboardExcerpt();
-    const text = clip.text;
+    const text = readClipboard();
     if (!text) {
       return {
         success: true,
         output: '(剪贴板为空或读取失败)',
       };
     }
-    // 裁剪必须自报丢了多少(票 B):未溢出时 note 为空串 ⇒ 输出与改前逐字相同
-    const originalChars = text.length + clip.droppedChars;
-    const note = clipboardTruncationNote(originalChars, clip.droppedChars);
+    const truncated = text.length > MAX_CLIPBOARD_CHARS;
+    const note = truncated ? `\n[已截断,原始长度 ${text.length} 字符,显示前 ${MAX_CLIPBOARD_CHARS}]` : '';
     return {
       success: true,
       output: text + note,
@@ -261,16 +202,13 @@ export const clipboard_write: Tool = {
         error: '当前平台无可用剪贴板工具(Windows/macOS 内置;Linux 需安装 xclip 或 xsel)',
       };
     }
-    const written = writeClipboardWithOutcome(text);
-    if (!written.ok) {
+    const ok = writeClipboard(text);
+    if (!ok) {
       return { success: false, output: '', error: '写入剪贴板失败(可能无权限或工具异常)' };
     }
-    // 裁剪必须自报丢了多少(票 B):写路径也在唯一裁剪出口上,超长部分同样要点名。
-    // 未溢出 ⇒ note 为空串 ⇒ 输出与改前逐字相同(既有回归以 toContain('已写入') 断言)。
-    const note = clipboardTruncationNote(text.length, written.droppedChars);
     return {
       success: true,
-      output: `已写入 ${text.length} 字符到剪贴板${note}`,
+      output: `已写入 ${text.length} 字符到剪贴板`,
     };
   },
 };

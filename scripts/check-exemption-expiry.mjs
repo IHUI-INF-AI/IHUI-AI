@@ -123,16 +123,6 @@ const FAMILY_LIFETIME_DAYS = {
   // 迁移是排期活,不是结构性定性,所以不取 back-label-exempt 的 365 天)
   'api-error-exempt': 30,
   /**
-   * 守门 `check-error-code-not-text-matching`(G-710:失败码不得由文本决定)的行内出口。
-   * 取 **30 天**,与 `api-error-exempt` / `interop-style-exempt` / `border-ink-exempt` 同档 ——
-   * 这一族豁免的是**待偿的补码债**:那一处确实只能按上游文本判定(第三方驱动/CLI 没给错误码),
-   * 出路只有两条 —— 给抛出方补 `ToolError(code, …)`,或把判定挪到结构化字段(`errorCode` / `status`)。
-   * 不给长周期:本票立项的原因恰恰是"文本判分支活得比它服务的契约长",365 天等于把它登记成永久惯例;
-   * 也不走 `DEFAULT_LIFETIME_DAYS` 的 90 天默认档(没人给它拍过寿命)。
-   * 判据侧要求带原因、只救本行与紧邻上一纯注释行(与 135/131 同一条收紧)。
-   */
-  'error-code-exempt': 30,
-  /**
    * 双层页头对账(check-rn-double-header,判据 DH1/DH2)的行内出口。取 **30 天** —— 它豁免的是
    * "这一处确实要两条 chrome,但收口要动共享屏的 props 契约"的**待偿迁移债**(共享侧补抑制通道
    * 再在调用点传入),不是 `back-label-exempt` 那种结构性定性:给长周期等于把双层页头登记成永久惯例,

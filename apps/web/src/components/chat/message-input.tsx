@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Square, Info, Zap, MessageCircle, X, Wand2, ListFilter } from 'lucide-react'
+import { Send, Square, Info, Zap, MessageCircle, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -19,21 +19,6 @@ import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { MentionChips } from '@/components/chat/mention-popover'
-import { useMentionWiring } from '@/hooks/use-mention-wiring'
-// D68 统一多源建议面板(2026-09-26):六源聚合 + 逐源来源标注 + 部分失败三句降级 +
-// 粘贴引用有效性预览;"旧三浮层入口不回归"为硬验收,FileMentionPopover /
-// ContextSelectorPopover / SlashCommandPalette 的挂载与触发一律原样保留。
-import {
-  UnifiedSuggestionPanel,
-  UnifiedPasteReferencePreview,
-} from '@/components/chat/unified-suggestion-panel'
-import {
-  capReferences,
-  previewPastedReferences,
-  type PastedReferencePreview,
-  type UnifiedSuggestionItem,
-} from '@/components/chat/unified-suggestion-sources'
-import { useUnifiedSuggestions } from '@/hooks/use-unified-suggestions'
 import { WebInputCore, MAX_LENGTH, type WebInputCoreHandle } from './web-input-core'
 import {
   PermissionModePopover,
@@ -45,19 +30,10 @@ import { PermissionHistoryPanel } from '@/components/ai/permission-history-panel
 import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
 import { ModeSwitcher } from '@/components/chat/mode-switcher'
 import { SamplingParamsButton } from '@/components/chat/sampling-params-panel'
-// D130(2026-09-30 立):推理强度第三轴 —— 输入区的档位控件。摘掉下面 JSX 里那一行挂载,
-// 档位就永远进不了请求(展示件、store、发送链全都还在,typecheck/lint 一路绿),
-//  apps/web/src/components/chat/__tests__/reasoning-effort-axis-mount.test.tsx 的①③正是守这一行。
-import { ReasoningEffortInputAxis } from '@/components/chat/reasoning-effort-input-axis'
 import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-bridge'
 import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banner'
-// D117(2026-09-27):/diff 会话改动总览弹窗(全局单实例,useSessionDiffStore 驱动)
-import { SessionDiffDialog } from '@/components/ai/session-diff-dialog'
-import { runManualCompact } from '@/hooks/use-chat/manual-compact'
 // P3 #30(2026-09-16 立):待发送 diff 评审意见提示条(输入框上方常驻提示 + 一键清空)
 import { DiffCommentsBar } from '@/components/chat/diff-comments-bar'
-// D154(2026-09-30 立):MCP 连接状态行 —— 连不上/重连中在对话里给一句可操作的话(数据来自 WS 常连)
-import { McpStatusNotice } from '@/components/chat/mcp-status-notice'
 // 任务进度常驻状态条:输入框上方动态显示"在做什么 / 第几步 / 改了多少文件",plan_updated 驱动
 import { TaskStatusBar } from '@/components/ai/task-status-bar'
 import { AddMenuPopover } from '@/components/chat/add-menu-popover'
@@ -66,150 +42,27 @@ import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission
 import { useSlashCommands } from '@/hooks/use-slash-commands'
 import { usePermissionModeCycle } from '@/hooks/use-permission-mode-cycle'
 import { useSlashAction } from '@/hooks/use-slash-action'
-import { CHAT_ATTACHMENT_ACCEPT, useMessageReferences } from '@/hooks/use-message-references'
-import { useContextSelector } from '@/hooks/use-context-selector'
-// V3 第 61 票:`@` 与 `#` 的「有哪些维度」与「触发符怎么解」都归到引擎那一份表,
-// 本组件不再自写触发正则、不再自持九类目表、也不再自持一份 # 侧 chip 局部 state。
-import { parseMentionTrigger } from '@ihui/shared/chat/mention-engine'
-import { ContextSelectorPopover } from '@/components/ai/context-selector-popover'
+import { useMessageReferences } from '@/hooks/use-message-references'
+import { useContextSelector, type ContextSelectorCategory } from '@/hooks/use-context-selector'
+import {
+  ContextSelectorPopover,
+  ContextSelectorChips,
+} from '@/components/ai/context-selector-popover'
 import { useAgentMdReference, AGENT_REF_PREFIX } from '@/hooks/use-agent-md-reference'
 import { useMessageSend } from '@/hooks/use-message-send'
-import { usePromptDrafts } from '@/hooks/use-prompt-drafts'
-import { usePromptHistory } from '@/hooks/use-prompt-history'
 import { useMentionFiles, useAiSkills } from '@/hooks/use-lazy-resource-hooks'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import { Tooltip } from '@/components/feedback'
 import { toast } from '@/components/common'
-import { useChatStore } from '@/stores/chat'
+import { useChatStore, type SideQueueItem } from '@/stores/chat'
 import { answerSideQuestion } from '@/hooks/use-chat/slash-commands'
-// D38 队列语义完整交互(G-42):交互条只做展示与回调上抛,许可判定一律走 D69 的
-// queueInteractionPerms(与本文件下方 queueCtx 同一对象),动作落 store 的四个新 action。
-import { QueueInteractionBar } from '@/components/chat/queue-interaction-bar'
-// V3 #69(2026-09-27):输入框上方的会话窗口额度实时进度条(budget 帧驱动,与压缩状态条同族同位)
-import { ContextBudgetBar } from '@/components/chat/context-budget-bar'
-import { ConnectionStatusBar } from '@/components/chat/connection-status-bar'
-import { queueInteractionPerms } from '@ihui/shared/chat/input-notices'
-import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { getMessages } from '@ihui/api-client'
+import { compactConversation, getMessages } from '@ihui/api-client'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@plugins-data'
 import { AiSkillInvokeDialog, AiSkillResultDialog } from '@/components/chat/skill-library'
 import type { AiSkillMeta, AiSkillInvokeResponse } from '@ihui/api-client/endpoints/ai-skills'
 import { permissionTierText } from '@/lib/permission-tier-text'
 // 权限档取词(G-166):档位归一与词表键的共享真相源,见 packages/shared/src/chat/permission-tier.ts
-// D82 就地润色与失败保稿(G-95):单次生成复用既有 /api/best-of-n/run 通道
-// (与 /btw、/side、/commit 同一条 REST),提示词复用既有 /polish 命令文案(`chat.cmdPolish`),
-// **不新建提示词栈**;状态迁移一律走共享判定层。
-import { runBestOfN } from '@/api/best-of-api'
-import {
-  applyPolishResult,
-  beginPolish,
-  canRetry,
-  canStartPolish,
-  createPolishState,
-  polishPhaseKey,
-  type PolishPhase,
-  type PolishRejection,
-  type PromptPolishState,
-} from '@ihui/shared/chat/prompt-polish'
-
-/** D82:从失败对象里取「需重启生效」原因码。后端未给则 null —— **不臆造**重启提示。 */
-function polishRestartReasonOf(error: unknown): string | null {
-  const code = (error as { code?: unknown } | null)?.code
-  return typeof code === 'string' ? code : null
-}
-
-export interface PromptPolishEntryProps {
-  /** 判定层状态(草稿 = 当前输入框内容);空 / 纯空白草稿时入口禁用(canStartPolish 同源) */
-  state: PromptPolishState
-  /** 外部禁用(如流式生成中) */
-  disabled?: boolean
-  onPolish: () => void
-}
-
-/**
- * D82 润色入口按钮(工具栏)。
- * 判定与取词都走共享层 / 词包:`disabled` 由 `canStartPolish(state.draft)` 决定,
- * 文案走 `ai.pane.promptPolish.*`,**不硬编码中文**。
- */
-export function PromptPolishEntry({ state, disabled, onPolish }: PromptPolishEntryProps) {
-  const t = useTranslations('ai.pane.promptPolish')
-  // next-intl 要求静态键字面量:四相位集中映射一次,与判定层 polishPhaseKey 同源
-  const phaseLabel: Record<PolishPhase, string> = {
-    idle: t('phase.idle'),
-    polishing: t('phase.polishing'),
-    succeeded: t('phase.succeeded'),
-    failed: t('phase.failed'),
-  }
-  const busy = state.phase === 'polishing'
-  const emptyDraft = !canStartPolish(state.draft)
-  return (
-    <button
-      type="button"
-      data-testid="prompt-polish-entry"
-      data-polish-phase={state.phase}
-      data-polish-key={polishPhaseKey(state.phase)}
-      data-polish-disabled-reason={emptyDraft ? 'emptyDraft' : 'none'}
-      disabled={disabled === true || busy || emptyDraft}
-      onClick={onPolish}
-      aria-label={t('ariaLabel')}
-      title={`${t('entryLabel')} · ${phaseLabel[state.phase]}`}
-      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-    >
-      <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
-      <span>{t('entryLabel')}</span>
-    </button>
-  )
-}
-
-export interface PromptPolishNoticeProps {
-  state: PromptPolishState
-  onRetry: () => void
-}
-
-/**
- * D82 保稿提示条(输入卡上方,无内容时返回 null 零占位)。
- * - 失败:`failureDraftKept`(「暂时无法润色提示词，草稿已保留。」同族)+ 「重试」(`canRetry` 为真才渲染);
- * - 空草稿被拒:`rejection.emptyDraft`;
- * - 需重启生效:`restartHint`(同样强调草稿已保留)。
- */
-export function PromptPolishNotice({ state, onRetry }: PromptPolishNoticeProps) {
-  const t = useTranslations('ai.pane.promptPolish')
-  const rejection: PolishRejection | null = state.rejection
-  const failed = state.phase === 'failed'
-  if (!rejection && !failed && !state.restartHint) return null
-  return (
-    <div
-      data-testid="prompt-polish-notice"
-      data-polish-phase={state.phase}
-      className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300"
-    >
-      {rejection ? (
-        <span data-testid="prompt-polish-empty" data-polish-reject={rejection}>
-          {t('rejection.emptyDraft')}
-        </span>
-      ) : null}
-      {failed ? (
-        <span data-testid="prompt-polish-failure" data-polish-error={state.error ?? 'none'}>
-          {t('failureDraftKept')}
-        </span>
-      ) : null}
-      {state.restartHint ? (
-        <span data-testid="prompt-polish-restart">{t('restartHint')}</span>
-      ) : null}
-      {canRetry(state) ? (
-        <button
-          type="button"
-          data-testid="prompt-polish-retry"
-          onClick={onRetry}
-          className="shrink-0 rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-800 transition-colors hover:bg-amber-500/25 dark:text-amber-200"
-        >
-          {t('action.retry')}
-        </button>
-      ) : null}
-    </div>
-  )
-}
 
 // 模板源统一为 5 个核心模板,与 message-list 空状态共用同一组 i18n key,
 // 避免 email/report/review/refactor 4 个无 i18n key 的项显示原始 key 的问题。
@@ -283,32 +136,40 @@ export function MessageInput({
     const convId = useChatStore.getState().conversationId
     return localStorage.getItem(convId ? `chat:draft:${convId}` : 'chat:draft') ?? ''
   })
+  // W27:当前草稿 key 的 ref(防抖写入用;会话切换 effect 同步维护)
+  const draftKeyRef = React.useRef<string | null>(null)
+  // 防抖写入 localStorage(避免每个 keystroke 写入)
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      const key = draftKeyRef.current
+      if (typeof window !== 'undefined' && key) {
+        localStorage.setItem(key, value)
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [value])
   const [slashOpen, setSlashOpen] = React.useState(false)
   const [mentionOpen, setMentionOpen] = React.useState(false)
-  // D68 统一多源建议面板:单一聚合入口(工具栏按钮),旧三浮层入口原样保留不回归。
-  const tSuggest = useTranslations('unifiedSuggestion')
-  const [unifiedOpen, setUnifiedOpen] = React.useState(false)
-  const [unifiedCapRejected, setUnifiedCapRejected] = React.useState(false)
-  const [pastedRefPreviews, setPastedRefPreviews] = React.useState<PastedReferencePreview[]>([])
-  const unifiedAddedIdsRef = React.useRef<Set<string>>(new Set())
-  // V3 第 61 票(2026-09-27):`@` 与 `#` 的提及状态与正文落点都收进 useMentionWiring(下方,
-  // 需在 inputCoreRef 之后构造)—— 这里原先是一份 contextChips 局部 state + addContextChip +
-  // removeContextChip,与 stores/context-mention 并存的第二份提及状态,正是票面「两套引擎」的一半。
+  // W20 九类 # 上下文选择器(2026-09-14 立,对标 Trae):
+  // - 正文行首/空格后 `#` 触发浮层(open 状态由 value 派生,见 use-context-selector.ts)
+  // - 选中类目 → 正文尾部 `#query` 替换为类目 token(如 `#Problems `)随消息发送
+  // - chips 仅作类型徽章展示,去重添加;移除时同步删掉正文中的 token
+  const [contextChips, setContextChips] = React.useState<ContextSelectorCategory[]>([])
+  const addContextChip = React.useCallback((category: ContextSelectorCategory) => {
+    setContextChips((prev) =>
+      prev.some((c) => c.token === category.token) ? prev : [...prev, category],
+    )
+  }, [])
+  const removeContextChip = React.useCallback((token: string) => {
+    setContextChips((prev) => prev.filter((c) => c.token !== token))
+    setValue((prev) => prev.replace(`${token} `, '').replace(token, ''))
+  }, [])
   // references 状态管理(2026-07-29 提取到 useMessageReferences hook):
   // - addFileReference / addTextReference / addCodeReference 三种类型添加
   // - removeReference 移除 + 释放 objectURL
   // - resetReferences 发送后清空
-  // G-833(2026-09-29):附件三档校验批量入口与预筛/提交拆分(选/拖/贴入口聚合提示用)
-  const {
-    references,
-    addFileReference,
-    addFileReferences,
-    screenAttachments,
-    commitFileReference,
-    addTextReference,
-    removeReference,
-    resetReferences,
-  } = useMessageReferences()
+  const { references, addFileReference, addTextReference, removeReference, resetReferences } =
+    useMessageReferences()
   // 强制加载工作区所有 agent 规则文件(AGENTS.md/CLAUDE.md 等,任意层级)作为可见参考块(2026-08-29)
   const agentMdRefs = useAgentMdReference()
   // 被用户手动移除的 agent 参考块 id(仅隐藏展示,不影响 workspaceContext 注入)
@@ -333,34 +194,6 @@ export function MessageInput({
   }, [agentMdRefs, dismissedAgentIds, references])
   // 共享层 WebInputCore 内部托管 textarea ref + 自动高度(forwardRef 暴露 focus/setSelectionRange/resize)
   const inputCoreRef = React.useRef<WebInputCoreHandle>(null)
-  // V3 第 61 票:`@` / `#` 提及的唯一落点(写那份 store + 把 insertText 顶进正文 + 摘 chip 删正文)。
-  // 判定的那一份实现在 @ihui/shared/chat/mention-engine,这里只是接线(可被 renderHook 直接验)。
-  const mentionWiring = useMentionWiring({ setValue, inputRef: inputCoreRef })
-  // D36 会话内输入历史栈接线(纯逻辑在 @ihui/shared/chat,本组件只做 DOM 接线):
-  // - getHistoryKey 按 conversationId 分桶(chat:prompt-history:{id}),未持久化会话共用 chat:prompt-history
-  // - applyHistoryText 仅回填文本并把光标移到行尾,绝不触碰 references(附件保持不动)
-  // - handleArrowKey 内部判定多行首行 / 草稿态,未消费时交还 textarea 默认光标移动
-  const getHistoryKey = React.useCallback(
-    () => (conversationId ? `chat:prompt-history:${conversationId}` : 'chat:prompt-history'),
-    [conversationId],
-  )
-  const applyHistoryText = React.useCallback(
-    (text: string) => {
-      setValue(text)
-      requestAnimationFrame(() => {
-        const len = text.length
-        inputCoreRef.current?.focus()
-        inputCoreRef.current?.setSelectionRange(len, len)
-        inputCoreRef.current?.resize()
-      })
-    },
-    [setValue],
-  )
-  const promptHistory = usePromptHistory({
-    getHistoryKey,
-    getCaretPosition: () => inputCoreRef.current?.getCaretPosition() ?? 0,
-    applyText: applyHistoryText,
-  })
   // 发送 / 拖拽 / 粘贴 / 文件输入 handler(2026-07-30 提取到 useMessageSend hook):
   // - isDragOver 状态由 hook 内部管理(原 React.useState(false))
   // - submit / doSend(内部)/ handleDragOver / handleDragLeave / handleDrop / handlePaste
@@ -389,40 +222,22 @@ export function MessageInput({
     references,
     resetReferences,
     addFileReference,
-    // G-833:批量校验 + 预筛/提交拆分入口,供选/拖/贴三入口"先聚合再报"
-    addFileReferences,
-    screenAttachments,
-    commitFileReference,
     addTextReference,
     onSend,
     inputCoreRef,
     draftKey,
-    onSent: promptHistory.pushSent,
   })
-  // W20 九类 # 上下文选择器(键盘导航在 textarea 层拦截);
-  // V3 第 61 票:选中结果的落点从局部 chip state 改成那份唯一的 mention engine store。
+  // W20 九类 # 上下文选择器(2026-09-14 立,对标 Trae):键盘导航在 textarea 层拦截,
+  // 选中类目 → 正文尾部插入 #token 并渲染类型徽章 chip
   const contextSelector = useContextSelector({
     value,
     setValue,
     inputRef: inputCoreRef,
-    onSelect: mentionWiring.addMention,
+    onAddChip: addContextChip,
   })
   // AI Skills 列表 + @ 提及文件列表:懒加载逻辑已提取到 use-lazy-resource-hooks(2026-07-30)
   const { aiSkills, skillsLoading } = useAiSkills(slashOpen)
-  const { mentionFiles } = useMentionFiles(mentionOpen || unifiedOpen)
-  // D68:把 @ 提及文件映射为建议面板 file 源条目(复用 useMentionFiles 懒加载链,
-  // 不新建第二条取数出口;provenance 取 file 源默认档 userRemote —— 文件经服务端资产库)
-  const unifiedFileItems = React.useMemo<UnifiedSuggestionItem[]>(
-    () =>
-      mentionFiles.map((f) => ({
-        id: `file:${f.id}`,
-        source: 'file' as const,
-        label: f.name,
-        detail: f.path,
-      })),
-    [mentionFiles],
-  )
-  const unifiedSuggestions = useUnifiedSuggestions(unifiedOpen, unifiedFileItems)
+  const { mentionFiles } = useMentionFiles(mentionOpen)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   // 输入区容器锚点:FileMentionPopover 的 PortalPanel 以它做定位(2026-09-15 对齐浮层收敛契约)
   const inputAreaRef = React.useRef<HTMLDivElement>(null)
@@ -442,9 +257,8 @@ export function MessageInput({
   const sideQueue = useChatStore((s) =>
     conversationId ? s.sideQueueByConversation[conversationId] : undefined,
   )
+  const removeSideQuestion = useChatStore((s) => s.removeSideQuestion)
   const shiftSideQuestion = useChatStore((s) => s.shiftSideQuestion)
-  // D38 队列模式偏好(steer=插话优先 / queue=排队优先),持久化在 chat store
-  const followUpQueueMode = useChatStore((s) => s.followUpQueueMode)
   // 补答一条侧问文本(runBestOfN 单候选,回答以 sidechat 消息入本地流,不入主线历史);
   // 失败仅 toast 提示,不打断主流程
   const answerWithToast = React.useCallback(
@@ -481,17 +295,27 @@ export function MessageInput({
     }
     wasStreamingRef.current = isStreaming
   }, [isStreaming, pendingMessages, sendPendingMessage, sideQueue, answerCurrentSideQuestion])
-  // W27(2026-09-14)→ D36(2026-09-28):草稿持久化收编进 usePromptDrafts hook ——
-  // 防抖写入、会话切换回写/载入、超长截断、桶配额淘汰都在 hook + shared 纯逻辑里,
-  // 本组件只保留 draftKey 计算(与 useMessageSend 清稿同源)与 resize 回调接线。
-  usePromptDrafts({
-    draftKey,
-    value,
-    setValue,
-    onRestored: React.useCallback(() => {
-      requestAnimationFrame(() => inputCoreRef.current?.resize())
-    }, []),
-  })
+  // W27(2026-09-14):会话切换时草稿迁移 —— 当前输入写回旧会话 key,载入目标会话草稿
+  const valueRef = React.useRef(value)
+  React.useEffect(() => {
+    valueRef.current = value
+  }, [value])
+  React.useEffect(() => {
+    if (draftKeyRef.current === null) {
+      // 首次挂载:仅记录当前 key(初始 value 已按该 key 读取)
+      draftKeyRef.current = draftKey
+      return
+    }
+    if (draftKeyRef.current === draftKey) return
+    const prevKey = draftKeyRef.current
+    draftKeyRef.current = draftKey
+    if (typeof window !== 'undefined') {
+      if (valueRef.current) localStorage.setItem(prevKey, valueRef.current)
+      else localStorage.removeItem(prevKey)
+      setValue(localStorage.getItem(draftKey) ?? '')
+    }
+    requestAnimationFrame(() => inputCoreRef.current?.resize())
+  }, [draftKey])
 
   // 消费 chat store 中的 draftInput(由 PromptTemplates 等外部触发),填充到 textarea 后清空
   // draftAutoSend(2026-09-08 立,首页「立即体验」CTA):预填后立即自动发送发起对话
@@ -650,60 +474,26 @@ export function MessageInput({
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = e.target.value.slice(0, MAX_LENGTH)
-    // D36:用户手动编辑即脱离翻历史态,清空游标 / 草稿备份(避免 ↑ 误用旧游标)
-    promptHistory.resetCursor()
     setValue(next)
     // 输入 / 作为首个字符时弹出斜杠命令面板
     if (next === '/' && !slashOpen) {
       setSlashOpen(true)
     }
-    // V3 第 61 票:`@` / `#` 的触发态一律问引擎(parseMentionTrigger),本文件不再自写正则。
-    // 行为与收口前逐字一致:光杆 `@` 才打开文件浮层,`@` 触发态消失才关。
-    const trigger = parseMentionTrigger(next)
-    if (trigger?.sigil === '@' && trigger.bare && !mentionOpen) {
+    // @ 触发文件提及
+    if (next.endsWith('@') && !mentionOpen) {
       setMentionOpen(true)
-    } else if (mentionOpen && trigger?.sigil !== '@') {
+    } else if (mentionOpen && !next.match(/@[\w./-]*$/)) {
       setMentionOpen(false)
     }
   }
 
-  // D68 建议面板选中:引用上限判定(拒收必须可见回显,不静默丢)+ 按源插入形态。
-  // file → 反引号 path(与 @ 提及既有插入同形态);skill → /skill 模板(与斜杠面板同形态);
-  // 其余源 → 反引号 label 引用标签。引用标签只是上下文引用,不新增执行授权
-  // (面板底部有可见声明,见 unified-suggestion-panel.tsx)。
-  const handleUnifiedSelect = (item: UnifiedSuggestionItem) => {
-    const { kept, rejected } = capReferences(unifiedAddedIdsRef.current.size, [item])
-    if (rejected.length > 0) {
-      setUnifiedCapRejected(true)
-      return
-    }
-    setUnifiedCapRejected(false)
-    for (const k of kept) unifiedAddedIdsRef.current.add(k.id)
-    const snippet =
-      item.source === 'skill'
-        ? `/skill ${item.label} `
-        : `\`${item.source === 'file' ? (item.detail ?? item.label) : item.label}\` `
-    setValue((prev) => {
-      const merged = prev && !prev.endsWith(' ') ? `${prev} ${snippet}` : `${prev}${snippet}`
-      return merged.slice(0, MAX_LENGTH)
-    })
-    setUnifiedOpen(false)
+  const handleMentionSelect = (file: { id: string; name: string; path: string }) => {
+    setValue((prev) => prev.replace(/@$/, `\`${file.path}\` `).slice(0, MAX_LENGTH))
+    setMentionOpen(false)
     requestAnimationFrame(() => {
       inputCoreRef.current?.focus()
       inputCoreRef.current?.resize()
     })
-  }
-
-  // D68 粘贴引用有效性预览:在既有 handlePaste 之前把剪贴板文本里的 @token / 反引号
-  // path 与当前已知文件集比对,结果可见呈现在输入区上方(可关闭);粘贴行为本身零变更。
-  const handlePasteWithReferencePreview = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const text = e.clipboardData?.getData('text') ?? ''
-    const previews = previewPastedReferences(text, {
-      paths: mentionFiles.map((f) => f.path),
-      labels: mentionFiles.map((f) => f.name),
-    })
-    if (previews.length > 0) setPastedRefPreviews(previews)
-    handlePaste(e)
   }
 
   const fillInput = (text: string) => {
@@ -740,41 +530,6 @@ export function MessageInput({
     })
     requestAnimationFrame(() => inputCoreRef.current?.resize())
   }
-
-  // D82 就地润色与失败保稿(G-95 重定义):草稿仍由 value 单一持有,
-  // 这里只镜像草稿 + 持有相位 / 拒绝 / 重启提示(判定层状态机在 @ihui/shared/chat/prompt-polish)。
-  const [polish, setPolish] = React.useState<PromptPolishState>(() => createPolishState(''))
-  // 草稿是唯一真相源:value 变化即单向同步进判定层(绝不反向覆盖 value)
-  React.useEffect(() => {
-    setPolish((prev) => (prev.draft === value ? prev : { ...prev, draft: value }))
-  }, [value])
-  // 一键润色:空 / 纯空白草稿由判定层直接拒绝(不进入 polishing、不发请求);
-  // 失败只回写相位与诊断,草稿字节级不变(保稿);二次失败仍可点「重试」(canRetry 在同处复用)。
-  const handlePolish = React.useCallback(async () => {
-    const started = beginPolish({ ...polish, draft: value })
-    if (started.phase !== 'polishing') {
-      // 空草稿被拒:写 rejection 后返回,绝不触碰草稿
-      setPolish(started)
-      return
-    }
-    setPolish(started)
-    try {
-      // 复用既有 /polish 命令文案(chat.cmdPolish)+ 既有 best-of-n 单副本通道(不新建提示词栈)
-      const result = await runBestOfN(`${t('cmdPolish')}\n\n${value}`, 1)
-      const text = result.candidates[0]?.content ?? ''
-      setPolish((prev) => applyPolishResult(prev, { kind: 'succeeded', text, restartReason: null }))
-      // 就地改写:成功替换草稿(判定层对空结果另有「不覆盖原稿」守护)
-      if (text.trim()) setValue(text)
-    } catch (error: unknown) {
-      setPolish((prev) =>
-        applyPolishResult(prev, {
-          kind: 'failed',
-          error: error instanceof Error ? error.message : String(error),
-          restartReason: polishRestartReasonOf(error),
-        }),
-      )
-    }
-  }, [polish, value, t, setValue])
 
   // 截图入口:Web 无系统级截图 API(Tauri 未暴露截图命令),退化为文件选择,
   // 并提示可直接 Ctrl+V 粘贴剪贴板截图(粘贴链路见 useMessageSend.handlePaste)
@@ -826,15 +581,52 @@ export function MessageInput({
   }, [isStreaming, value, handleScreenshot])
 
   // 手动压缩上下文(2026-09-02 立):点击触发 POST /api/chat/compact
-  // D117(2026-09-27):实现抽到 use-chat/manual-compact.ts 的 runManualCompact 单一实现,
-  // /compact 斜杠命令复用同一函数;此处只保留按钮 loading 态与流式守卫。
+  // - 请求进行中 loading + 禁用;compressed=true → 成功 toast + 重新拉取当前会话消息列表
+  //   (刷新跟随 use-chat/send-message.ts 压缩兜底的 getMessages 机制,仅仍在原会话时写回 store)
+  // - reason=too_few_messages / incompressible → info toast
+  // - 404/其他错误 → 统一错误 toast(Toaster 自动中文化)
   const [compacting, setCompacting] = React.useState(false)
   const handleCompact = React.useCallback(async () => {
     const id = useChatStore.getState().conversationId
     if (!id || compacting || isStreaming) return
     setCompacting(true)
     try {
-      await runManualCompact(id, t)
+      const res = await compactConversation(id)
+      if (res.success && res.data) {
+        if (res.data.compressed) {
+          toast.success(
+            t('compaction.compactSuccess', {
+              before: res.data.originalTokens,
+              after: res.data.compressedTokens,
+              saved: Math.max(0, res.data.originalTokens - res.data.compressedTokens),
+            }),
+          )
+          const result = await getMessages(id, { direction: 'initial', pageSize: 100 })
+          if (result.success && result.data && useChatStore.getState().conversationId === id) {
+            useChatStore.getState().setMessages(
+              result.data.messages.map((m) => ({
+                id: m.id,
+                role: m.role,
+                content: m.content,
+                createdAt: new Date(m.createdAt).getTime(),
+                model: '',
+                reasoning: m.reasoning,
+              })),
+            )
+          }
+        } else if (res.data.reason === 'too_few_messages') {
+          toast.info(t('compaction.compactTooFew'))
+        } else {
+          toast.info(t('compaction.compactIncompressible'))
+        }
+      } else {
+        toast.error(t('compaction.compactFailed'), {
+          description: res.success ? undefined : res.error,
+        })
+      }
+    } catch (e) {
+      const msg = (e as Error).message || t('compaction.compactFailed')
+      toast.error(t('compaction.compactFailed'), { description: msg })
     } finally {
       setCompacting(false)
     }
@@ -847,21 +639,6 @@ export function MessageInput({
       e.preventDefault()
       submit()
       return
-    }
-    // D36 会话内输入历史上翻(对标 Codex prompt-history):
-    // ↑ 回填上一条发送文本 / ↓ 返回原始草稿;斜杠 / 提及面板打开时不抢(让面板用 ↑/↓)。
-    // 未消费(草稿态 ↓ / 多行非首行 ↑)时不 preventDefault,交还 textarea 默认光标移动。
-    if (
-      (e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
-      !slashOpen &&
-      !mentionOpen &&
-      !e.nativeEvent.isComposing
-    ) {
-      const handled = promptHistory.handleArrowKey(e, { value })
-      if (handled) {
-        e.preventDefault()
-        return
-      }
     }
     // Shift+Tab 全局循环切权限模式(2026-07-25 深化,深度对标 Codex CLI)
     // - 斜杠面板/提及面板打开时不抢(让面板用 Tab)
@@ -891,21 +668,17 @@ export function MessageInput({
     requestAnimationFrame(() => inputCoreRef.current?.resize())
   }
 
-  // D38 起:侧问队列的「删除/立即补答」入口由 QueueInteractionBar 的 undo 与
-  // interruptAndRun 两动词承担,故删去 D28 的两个本地 handler(不留第二条移除路径)。
-  // D38「打断并执行」:计划由判定层产出(只含 stopFirst/thenRun),停流走 W2 既有 onStop
-  // (abortRef.abort 链),取队首走 store 的 interruptAndRun —— 与 shiftSideQuestion 同为
-  // queue[0] 读取路径,宿主与组件都不写第三种队首语义。
-  const handleInterruptAndRun = React.useCallback(
-    (plan: { readonly stopFirst: boolean; readonly thenRun: string | null }) => {
-      if (!conversationId || !plan.thenRun) return
-      if (plan.stopFirst) onStop()
-      const head = useChatStore.getState().interruptAndRun(conversationId)
-      if (head && head.id === plan.thenRun) answerWithToast(head.text)
-    },
-    // answerWithToast 是 useCallback 稳定引用,列入依赖防闭包读旧 conversationId
-    [conversationId, onStop, answerWithToast],
-  )
+  // D28:侧问队列条目「删除」—— 直接移除不回填输入框(与 W27 取消回填行为区分)
+  const handleSideQueueRemove = (id: string) => {
+    if (!conversationId) return
+    removeSideQuestion(conversationId, id)
+  }
+  // D28:侧问「立即补答」(仅非流式渲染)—— 出队该条并立即请求补答
+  const handleSideQueueAnswerNow = (item: SideQueueItem) => {
+    if (!conversationId) return
+    removeSideQuestion(conversationId, item.id)
+    answerWithToast(item.text)
+  }
 
   // #18 流式中输入框保持可输入(2026-07-25 立):流式中 textarea 不再 disabled,用户可输入下一条消息草稿(对标 Cursor/ChatGPT 行为)。
   // 发送按钮已移入 WebInputCore(由 !isStreaming 守门,流式中显示 Stop 按钮)。
@@ -925,10 +698,6 @@ export function MessageInput({
         <TaskStatusBar />
         {/* P3 #30:diff 待发送意见提示条(有意见时才渲染,无意见时返回 null 零占位) */}
         <DiffCommentsBar />
-        {/* D154:MCP 连不上/重连中的对话内状态行(帧来自 /ws/broadcast,常态零占位) */}
-        <McpStatusNotice />
-        {/* D82 润色保稿提示(失败 / 空草稿被拒 / 需重启生效;均带「草稿已保留」语义,无内容零占位) */}
-        <PromptPolishNotice state={polish} onRetry={handlePolish} />
         {allReferences.length > 0 && (
           <div className="mb-2">
             <ContextReferencePanel references={allReferences} onRemove={handleRemoveReference} />
@@ -964,9 +733,15 @@ export function MessageInput({
             </button>
           </div>
         )}
-        {/* 多维提及 chips(V3 第 61 票收口):`@` 与 `#` 两条路的已选提及都在
-            stores/context-mention 那一份状态里,由这一个面渲染;摘 chip 同步删正文。 */}
-        <MentionChips onRemove={mentionWiring.removeSelection} />
+        {/* 多维 @ 提及 chips(2026-07-22 立,对标 Qoder Context Engineering) */}
+        <MentionChips />
+        {/* W20 九类 # 上下文选择器 chips(2026-09-14 立,对标 Trae Context Engineering):
+            选中类目的类型徽章行,token 已随正文发送,chips 仅作可视化展示 */}
+        {contextChips.length > 0 && (
+          <div className="mb-2">
+            <ContextSelectorChips chips={contextChips} onRemove={removeContextChip} />
+          </div>
+        )}
         {/* W27 输入队列(2026-09-14,对标 Codex/Cursor 多条排队):流式期间排队的消息
             逐条显示,每次流式结束自动出队发送队首;点「取消」把该条文本退回主输入框 */}
         {pendingMessages.length > 0 && (
@@ -992,49 +767,50 @@ export function MessageInput({
             ))}
           </div>
         )}
-        {/* D38(G-42)接管 D28 侧问队列渲染:五动词交互条(重排/撤回/编辑/打断并执行/模式切换)。
-            许可判定复用 D69 queueInteractionPerms(与 InputNoticeBanner 同一函数,不另立第二套);
-            runtimeSupportsInterjection 暂恒 false —— 全仓尚无该能力协商的生产者(D69 banner 亦未挂载),
-            诚实降级为"回落排队优先 + 打断入口显式渲染被拒原因",不得端内自建能力判定。 */}
-        <QueueInteractionBar
-          items={(sideQueue ?? []).map((sq) => ({ id: sq.id, text: sq.text }))}
-          perms={queueInteractionPerms({
-            runtimeSupportsInterjection: false,
-            streaming: isStreaming,
-            hasQueuedMessages: (sideQueue?.length ?? 0) > 0,
-          })}
-          mode={followUpQueueMode}
-          runtimeSupportsInterjection={false}
-          streaming={isStreaming}
-          onReorder={(from, to) => {
-            if (conversationId) useChatStore.getState().requeue(conversationId, from, to)
-          }}
-          onUndo={(id) => {
-            if (conversationId) useChatStore.getState().removeQueued(conversationId, id)
-          }}
-          onEdit={(id, text) => {
-            if (conversationId) useChatStore.getState().editQueued(conversationId, id, text)
-          }}
-          onModeChange={(mode: FollowUpMode) => useChatStore.getState().setFollowUpQueueMode(mode)}
-          onInterruptAndRun={handleInterruptAndRun}
-        />
-        {/* V3 #69:额度实时进度条(warning 琥珀 / critical 红);未收到 budget 帧时整条不渲染不占位 */}
-        <ContextBudgetBar />
-        {/* D131:连接状态位(仅异常态常驻)—— 正常"已连接/连接中"不渲染不占位,
-            只有重连中 / 已断开才在这一行 chrome 里出现;状态推导复用
-            progress-sections/connection-status 的同一份 deriveConnectionState。 */}
-        <ConnectionStatusBar isStreaming={isStreaming} threadId={conversationId} />
-        {/* D68 粘贴引用有效性预览条(可见、可关闭;无可预览引用时不渲染不占位) */}
-        <UnifiedPasteReferencePreview
-          previews={pastedRefPreviews}
-          onDismiss={() => setPastedRefPreviews([])}
-        />
+        {/* D28 /side 侧问队列(2026-09-20):流式期间排队的侧问逐条显示,流结束后自动补答
+            队首一条;「立即补答」仅非流式渲染,「删除」直接移除不回填输入框 */}
+        {sideQueue && sideQueue.length > 0 && (
+          <div data-testid="side-queue" className="mb-2 space-y-1">
+            {sideQueue.map((sq) => (
+              <div
+                key={sq.id}
+                data-testid={`side-queue-item-${sq.id}`}
+                className="flex items-center gap-2 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm"
+              >
+                <span className="shrink-0 text-xs font-medium text-amber-700 dark:text-amber-300">
+                  💬 {t('sideQueued')}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-amber-700 dark:text-amber-300">
+                  {sq.text}
+                </span>
+                {!isStreaming && (
+                  <button
+                    type="button"
+                    data-testid={`side-queue-answer-${sq.id}`}
+                    onClick={() => handleSideQueueAnswerNow(sq)}
+                    className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    {t('sideAnswerNow')}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  data-testid={`side-queue-remove-${sq.id}`}
+                  onClick={() => handleSideQueueRemove(sq.id)}
+                  className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  {t('cancel') ?? '取消'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div ref={inputAreaRef} className="relative">
           <FileMentionPopover
             files={mentionFiles}
             open={mentionOpen}
             anchorRef={inputAreaRef}
-            onSelect={mentionWiring.applyAtSelection}
+            onSelect={handleMentionSelect}
             onClose={() => setMentionOpen(false)}
           />
           {/* W20 九类 # 上下文选择器浮层(2026-09-14 立,对标 Trae):键盘导航在 textarea 层 */}
@@ -1046,17 +822,6 @@ export function MessageInput({
             anchorRef={inputAreaRef}
             onHover={contextSelector.setActiveIndex}
             onSelect={contextSelector.select}
-          />
-          {/* D68 统一多源建议面板:六源(任务/技能/插件/连接器/Agent/文件)聚合为单一建议面。
-              上方 @ / # / 斜杠 三个旧浮层挂载一律保留(硬验收「旧三浮层入口不回归」)。 */}
-          <UnifiedSuggestionPanel
-            open={unifiedOpen}
-            anchorRef={inputAreaRef}
-            onClose={() => setUnifiedOpen(false)}
-            states={unifiedSuggestions.states}
-            onSelect={handleUnifiedSelect}
-            onRetry={unifiedSuggestions.retry}
-            capRejected={unifiedCapRejected}
           />
           {/* 极简风格输入容器:描边卡片 + textarea 主区 + 底部工具栏。拖拽文件时高亮边框。
               高风险模式(bypass-permissions)时,边框使用琥珀色 + 轻微阴影以视觉警告
@@ -1222,7 +987,7 @@ export function MessageInput({
                       <button
                         type="button"
                         onClick={() => setInfoMode('bypass-permissions')}
-                        className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-sm text-amber-700 hover:bg-amber-500/15 dark:text-amber-400"
+                        className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-md text-amber-700 hover:bg-amber-500/15 dark:text-amber-400"
                         aria-label={t('permission.infoButtonLabel')}
                         data-testid="permission-mode-info-button"
                       >
@@ -1260,16 +1025,8 @@ export function MessageInput({
               stopLabel={stopLabel}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
-              onPaste={handlePasteWithReferencePreview}
+              onPaste={handlePaste}
             />
-            {/* D130(2026-09-30 立):推理强度第三轴 —— 挂在 textarea 与底部工具栏之间独占一行。
-                为什么不塞进 ai-input-toolbar:那一行是 overflow-hidden + 容器查询窄屏降级区
-                (<=359px 时连 ModelSelector 的文字都要收起),再挤进"标签 + 四个档位"必然把
-                发送/停止按钮挤出右边界 —— 这条轴点不动比看不见更难查。
-                摘掉下面这一行挂载 ⇒ 档位永远进不了请求(展示件、store、通道全在,
-                typecheck/lint 一路绿),apps/web/src/components/chat/__tests__/
-                reasoning-effort-axis-mount.test.tsx 的①③正是守这一行。 */}
-            <ReasoningEffortInputAxis model={model} disabled={isStreaming} />
             {/* 底部工具栏:左侧 / @ 触发按钮,右侧 ContextUsageRing + ModelSelector + VoiceInput
                 + 流式指示(发送/停止按钮已上移至 WebInputCore)
                 ai-input-toolbar + globals.css 原生 CSS container query:
@@ -1310,26 +1067,6 @@ export function MessageInput({
                   }}
                 />
               </SlashCommandPalette>
-              {/* D68 统一多源建议面板入口(2026-09-26):单一聚合建议面的开关按钮。
-                  不新增全局快捷键(守门 69 声明与归属对账),复用面板内 ↑↓/Enter/ESC 键位。 */}
-              <button
-                type="button"
-                aria-label={tSuggest('title')}
-                data-testid="unified-suggestion-entry"
-                aria-haspopup="dialog"
-                aria-expanded={unifiedOpen}
-                data-state={unifiedOpen ? 'open' : 'closed'}
-                disabled={isStreaming}
-                onClick={() => setUnifiedOpen((o) => !o)}
-                className={cn(
-                  'inline-flex h-8 min-w-0 items-center gap-1.5 rounded-sm px-2 text-xs font-medium leading-none',
-                  'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                  'disabled:cursor-not-allowed disabled:opacity-50',
-                )}
-              >
-                <ListFilter className="h-3.5 w-3.5 shrink-0" />
-                <span className="min-w-0 truncate">{tSuggest('title')}</span>
-              </button>
               {/* 模式选择器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
                   与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源 */}
               <ModeSwitcher disabled={isStreaming} />
@@ -1339,15 +1076,11 @@ export function MessageInput({
               {/* 高级参数入口(P1-7,2026-09-13):temperature/top_p/top_k/max_tokens +
                   自定义 system prompt,会话级持久化,随请求下发 LLM 网关 */}
               <SamplingParamsButton disabled={isStreaming} />
-              {/* D82 一键润色入口:对当前草稿**就地改写**(空草稿禁用),失败保稿见输入卡上方提示条 */}
-              <PromptPolishEntry state={polish} disabled={isStreaming} onPolish={handlePolish} />
               <input
                 ref={fileInputRef}
                 type="file"
-                // G-833:accept 不再写死串 —— 由 use-message-references 的 UPLOADABLE_EXTENSIONS
-                // 唯一白名单派生(CHAT_ATTACHMENT_ACCEPT),两处漂移即消除;拖拽/粘贴路径的
-                // 同口径校验(浏览器 accept 可被拖拽绕过)已由 screenAttachmentFiles 三档判据兜住
-                accept={CHAT_ATTACHMENT_ACCEPT}
+                // 矩阵 A #19:与 use-message-references UPLOADABLE_EXTENSIONS 白名单对齐
+                accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.json,.zip,.odt,.rtf,.epub"
                 multiple
                 onChange={handleFileInputChange}
                 className="hidden"
@@ -1357,7 +1090,12 @@ export function MessageInput({
               <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
                 {/* 手动压缩上下文入口已整合到"添加"下拉菜单(2026-09-06),工具栏不再保留独立按钮 */}
                 <ContextUsageRing model={model} isStreaming={isStreaming} />
-                <ModelSelector value={model} onChange={onModelChange} label={modelLabel} />
+                <ModelSelector
+                  value={model}
+                  onChange={onModelChange}
+                  disabled={isStreaming}
+                  label={modelLabel}
+                />
                 {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
                 <VoiceToolbar onTranscript={handleVoiceTranscript} disabled={isStreaming} />
                 {/* 发送/停止按钮(2026-07-30 用户规则:清除按钮已挪回 WebInputCore 内部 textarea 右上角悬浮呈现,
@@ -1375,7 +1113,7 @@ export function MessageInput({
                           onClick={() => void steer()}
                           disabled={!value.trim()}
                           className={cn(
-                            'inline-flex h-8 w-8 items-center justify-center rounded-sm transition-colors',
+                            'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
                             value.trim()
                               ? 'bg-amber-500 text-white hover:bg-amber-600'
                               : 'cursor-not-allowed bg-muted text-muted-foreground/50',
@@ -1391,7 +1129,7 @@ export function MessageInput({
                       <button
                         type="button"
                         onClick={onStop}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-sm bg-sky-500 text-white hover:bg-sky-600"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-sky-500 text-white hover:bg-sky-600"
                         aria-label={stopLabel ?? t('stop')}
                       >
                         <Square className="h-3.5 w-3.5" fill="currentColor" />
@@ -1407,7 +1145,7 @@ export function MessageInput({
                         onClick={() => void submit()}
                         disabled={!canSend}
                         className={cn(
-                          'inline-flex h-8 w-8 items-center justify-center rounded-sm transition-colors',
+                          'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
                           canSend
                             ? 'bg-cta text-cta-foreground hover:bg-cta/90'
                             : 'cursor-not-allowed bg-muted text-muted-foreground/50',
@@ -1436,8 +1174,6 @@ export function MessageInput({
           - 用户勾选"我了解"后才能点"继续启用"(内部 markFullAccessSuppressed/Acknowledged)
           - 确认后调 cyclePermissionMode(再次切到 bypass,此时 isFullAccessConfirmSuppressed=true,直走切换) */}
       <FullAccessConfirmBridge />
-      {/* D117:/diff 会话改动总览弹窗(全局单实例) */}
-      <SessionDiffDialog />
       {/* 权限模式快捷键帮助面板(2026-07-25 深化,深度对标 Codex CLI /help):
           - ? 键(Shift+/)全局唤起/关闭,由本组件内 useEffect 监听
           - 排除 textarea/input/contenteditable 内,用户打字不误触
