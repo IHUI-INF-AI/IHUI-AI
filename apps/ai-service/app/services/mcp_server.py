@@ -9914,9 +9914,11 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="edu_send_fee_reminder",
         description=(
-            "教育管理-发送学费催缴(写操作):向指定报名记录发送催费通知,站内信必达,"
-            "channel=wechat 时尽力发微信订阅消息。enrollmentId 先用 edu_list_students 或"
-            " edu_list_arrears 查得;该报名无欠费会被拒绝。"
+            "教育管理-发送学费催缴(写操作):向指定报名记录发送催费通知,站内信必达。"
+            "channel=wechat 尽力发微信订阅消息(用户未订阅/一次性额度用尽会明确回 "
+            "user_refused,不当作成功);channel=sms 会**真实发送**到学员与已确认绑定家长"
+            "各自的手机号,无号码回 no_phone、服务端未配置回 not_configured,都不是失败即静默。"
+            "enrollmentId 先用 edu_list_students 或 edu_list_arrears 查得;该报名无欠费会被拒绝。"
         ),
         input_schema={
             "type": "object",
@@ -9983,6 +9985,11 @@ _TOOLS: list[MCPTool] = [
             "教育管理-创建退费申请(写操作):登记退费单(初始 pending),需再用"
             " edu_approve_refund/edu_reject_refund 审批。amount 单位为元(整数);"
             "refundDate 格式 YYYY-MM-DD;reason 退费原因必填。"
+            "审批通过会**冲减该报名的已缴额**(欠费随之回升),不是只改状态。"
+            "归属规则:带 paymentId 时按该笔缴费所属报名记账;不带 paymentId 时仅当该学员"
+            "在该班级只有一条有效报名才自动归属,多期报名(续读)会返回 unattributed=true 且"
+            "不影响任何报名的账 —— 所以要退某一期的钱,请先用 edu_list_payment_records 取 "
+            "paymentId 一并传入。"
         ),
         input_schema={
             "type": "object",
