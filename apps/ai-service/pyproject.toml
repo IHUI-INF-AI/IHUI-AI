@@ -27,6 +27,7 @@ dependencies = [
     "litellm>=1.95.0",
     # MCP 依赖已删除(2026-08-02):代码库未使用 mcp 库,mcp_server.py 是完全自定义实现
     "httpx>=0.28.1",
+    "segno>=1.6.6",
     "orjson>=3.11.0",
     "tenacity>=9.1.0",
     "structlog>=26.1.0",
