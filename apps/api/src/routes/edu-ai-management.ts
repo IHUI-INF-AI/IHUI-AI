@@ -29,6 +29,7 @@ import {
   buildSchedulePlan,
   hasArrearsCond,
   loadEnrollmentLedger,
+  loadUnattributedPayments,
   recomputeEnrollment,
   recordPayment,
   recordRefund,
@@ -4142,6 +4143,18 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 22. 缴费记录 CRUD + 汇总 (edu_payment_record)
   // ===========================================================================
 
+  // 无归属流水点名(2026-09-29):loadUnattributedPayments 此前只有 service 实现、没有 HTTP
+  // 出口 —— 机构在界面上永远看不到"这笔钱没挂到期次"。这些流水不计入任何期次的已缴额、
+  // 也不会被催缴覆盖,必须点名出来让运营处置(按正确期次重录,或撤销错录流水)。
+  // 静态路径必须挂在 GET /payment-record 列表之前声明无关紧要(方法+路径不同不冲突),
+  // 但语义上它是"缴费读侧的第 0 张表",紧跟分节注释放最前。
+  server.get('/payment-record/unattributed', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
+    const list = await loadUnattributedPayments()
+    return reply.send(success({ list, total: list.length }))
+  })
+
   server.get('/payment-record', async (request, reply) => {
     await requireEduView(request, reply)
     if (reply.sent) return
@@ -4154,14 +4167,46 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (parsed.data.classId) conds.push(eq(eduPaymentRecord.classId, parsed.data.classId))
     if (parsed.data.status) conds.push(eq(eduPaymentRecord.status, parsed.data.status))
     const where = and(...conds)
-    const result = await paginate(
-      eduPaymentRecord,
-      where,
-      desc(eduPaymentRecord.createdAt),
-      page,
-      pageSize,
+    // 2026-09-29:此前 paginate() 返回裸表行,studentName/className/feeName 从未在响应里 ——
+    // 前端三列长期空白,撤销缴费确认文案拿到的名字是 undefined("撤销 undefined 的缴费")。
+    // 无归属流水要靠"认出是谁的钱"才能修,名字列不能空。join 补齐展示名;count 口径不变。
+    const [totalResult] = await db
+      .select({ count: count() })
+      .from(eduPaymentRecord)
+      .where(where ?? sql`true`)
+    const total = Number(totalResult?.count ?? 0)
+    const list = await db
+      .select({
+        id: eduPaymentRecord.id,
+        studentId: eduPaymentRecord.studentId,
+        classId: eduPaymentRecord.classId,
+        feeId: eduPaymentRecord.feeId,
+        studentName: users.nickname,
+        className: eduClass.name,
+        feeName: eduTuitionFee.feeName,
+        amount: eduPaymentRecord.amount,
+        paymentDate: eduPaymentRecord.paymentDate,
+        paymentMethod: eduPaymentRecord.paymentMethod,
+        status: eduPaymentRecord.status,
+        receiptNo: eduPaymentRecord.receiptNo,
+        remark: eduPaymentRecord.remark,
+        scheduleId: eduPaymentRecord.scheduleId,
+        enrollmentId: eduPaymentRecord.enrollmentId,
+        deletedAt: eduPaymentRecord.deletedAt,
+        createdAt: eduPaymentRecord.createdAt,
+        updatedAt: eduPaymentRecord.updatedAt,
+      })
+      .from(eduPaymentRecord)
+      .leftJoin(users, eq(eduPaymentRecord.studentId, users.id))
+      .leftJoin(eduClass, eq(eduPaymentRecord.classId, eduClass.id))
+      .leftJoin(eduTuitionFee, eq(eduPaymentRecord.feeId, eduTuitionFee.id))
+      .where(where ?? sql`true`)
+      .orderBy(desc(eduPaymentRecord.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    return reply.send(
+      success({ list, total, page, pageSize, totalPages: Math.ceil(total / pageSize) }),
     )
-    return reply.send(success(result))
   })
 
   server.post('/payment-record', async (request, reply) => {

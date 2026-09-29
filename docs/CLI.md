@@ -334,9 +334,16 @@ ihui skills show refactor-helper
 ### 加载流程
 
 ```typescript
-import { loadPlugins, PluginRegistry } from './plugins/index.js'
+import { loadPlugins, loadPluginsWithDiagnostics, PluginRegistry } from './plugins/index.js'
 
-const defs = loadPlugins({ pluginsDir: './plugins' })
+// 需要知道"哪些清单被跳过了、为什么"时走诊断出口(每份被跳过的清单恰好一条 diagnostic:
+// 稳定 code + file + severity);同名多份 ⇒ 两份都不装载,各点名对方路径。
+const { plugins: defs, diagnostics } = loadPluginsWithDiagnostics({ pluginsDir: './plugins' })
+for (const d of diagnostics) {
+  const report = d.severity === 'error' ? console.error : console.warn
+  report(`  [plugin:${d.code}] ${d.file}${d.pluginName ? ` (${d.pluginName})` : ''} — ${d.message}`)
+}
+// loadPlugins() 仍是旧的数组契约(等价于 loadPluginsWithDiagnostics().plugins,丢弃 diagnostics)
 const registry = new PluginRegistry()
 registry.registerAll(defs)
 await registry.runSetups()

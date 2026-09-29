@@ -96,6 +96,22 @@ test.describe('教育财务 - 缴费登记按报名期次归属', () => {
   })
 
   /**
+   * 源码维:无归属流水与撤销缴费必须装车(2026-09-29 第四批)。三件后端能力此前都是
+   * "造好没装车":① loadUnattributedPayments 只有 service 没有出口;② DELETE
+   * /payment-record/:id 前端零入口;③ 退费响应的 unattributed 标记前端从未消费 ——
+   * 没挂到期次的钱在界面上永远不可见,机构以为已经收进账里。此锁防再被静默拆掉。
+   */
+  test('无归属流水点名与撤销缴费装车(端点调用+警示条+撤销按钮+退费无归属toast)', () => {
+    const s = src.finance()
+    expect(s).toContain('/api/edu-ai-management/payment-record/unattributed')
+    expect(s).toContain('`/api/edu-ai-management/payment-record/${id}`')
+    expect(s).toContain('handleVoidPayment')
+    expect(s).toContain('confirmDialog')
+    expect(s).toContain('没有挂到期次')
+    expect(s).toContain('res.unattributed')
+  })
+
+  /**
    * 上屏维:点「催费管理」tab 后统计卡可见(空库也成立 —— total=0 仍渲染"登记催缴 0 条")。
    * 同时是"点 tab 面板会切换"的常驻证明:此前该页有"点击后面板不切换"的存疑记录,
    * 2026-09-29 浏览器实测不复现;若此条红,先看是不是又回到那个交互问题。
@@ -112,6 +128,27 @@ test.describe('教育财务 - 缴费登记按报名期次归属', () => {
     await page.getByRole('tab', { name: /催费管理/ }).click()
     await expect(page.getByText('催缴触达统计（近 30 天）')).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText(/登记催缴 \d+ 条/)).toBeVisible({ timeout: 20_000 })
+  })
+
+  /**
+   * 上屏维:点「缴费记录」tab 后,无归属警示条与撤销列所在的表格二选一出现 ——
+   * 有流水 ⇒ 表格(带操作列表头);无流水 ⇒ 空态文案。断言不依赖库数据,空库也恒真;
+   * 无归属警示条 total=0 时不渲染,故不作上屏断言(渲染路径已由源码锁守住)。
+   */
+  test('缴费记录 tab 打开后表格(带操作列)或空态出现', async ({ adminPage: page }) => {
+    await page.goto('/edu/edu-management/finance', { waitUntil: 'domcontentloaded' })
+    await requireLoggedIn(page)
+    await expect
+      .poll(async () => page.getByRole('tab').count(), { timeout: 30_000 })
+      .toBeGreaterThan(0)
+    await page.waitForLoadState('networkidle')
+    await page.getByRole('tab', { name: /缴费记录/ }).click()
+    await expect(
+      page
+        .getByRole('columnheader', { name: '操作' })
+        .or(page.getByText('暂无缴费记录'))
+        .first(),
+    ).toBeVisible({ timeout: 20_000 })
   })
 
   /**
