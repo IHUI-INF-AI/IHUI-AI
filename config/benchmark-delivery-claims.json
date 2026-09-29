@@ -442,6 +442,43 @@
           ]
         }
       ]
+    },
+    {
+      "id": "#D174b",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md",
+      "docAnchor": "### D147 可观测",
+      "title": "帧级 traceId 端上取不到(api-client 没有出口)",
+      "assertions": [
+        {
+          "text": "api-client 有帧级 trace 出口且带可选回调",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "packages/api-client/src/client.ts"
+              ],
+              "regex": "export function readStreamTraceId|onTraceId?:",
+              "expect": "present"
+            }
+          ]
+        },
+        {
+          "text": "两侧判读共用一张判据表(不是各自留一份规则)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "config/sse-trace-id-cases.json",
+                "packages/shared/src/sse/__tests__/sse-trace-id-rule-parity.test.ts",
+                "packages/api-client/tests/stream-trace-id-parity.test.ts"
+              ],
+              "regex": "traceId|lineOnly|cases",
+              "expect": "present",
+              "minCount": 1
+            }
+          ]
+        }
+      ]
     }
   ]
 }
