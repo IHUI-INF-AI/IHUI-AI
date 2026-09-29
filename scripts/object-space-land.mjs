@@ -55,6 +55,7 @@
  * 一个路径的全部祖先正文经 `face-reader.catBatch` **一次批量**读完(不逐行、不逐 blob 派生)。
  */
 
+import { hasAnyWatermarkTrace, hasExactCanonicalBanner } from './lib/watermark-lines.mjs'
 import { existsSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
@@ -71,7 +72,11 @@ import {
   ABSENT,
   UNKNOWN,
 } from './lib/bypass-git.mjs'
-import { analyze as staleAncestorAnalysis, ancestorCommits, resolveBlobs } from './check-stale-revert.mjs'
+import {
+  analyze as staleAncestorAnalysis,
+  ancestorCommits,
+  resolveBlobs,
+} from './check-stale-revert.mjs'
 import { catBatch, readWorktreeFile } from './lib/face-reader.mjs'
 // 行级复活/计行判据的**单一实现**(2026-09-28 提取到 lib:守门 84 的 R1r 要用同一把尺子,
 // 两处各写一遍必然漂开 —— 本层只留 import 与再导出,不再持有第二份计数口径)。
@@ -106,14 +111,22 @@ export function parseArgs(env = process.env) {
    */
   const blobs = env.LAND_BLOBS ? JSON.parse(readFileSync(env.LAND_BLOBS, 'utf8')) : null
   const blobOf = blobs ? new Map((blobs.files || []).map((f) => [f.path, f.blob])) : null
-  if (paths.length === 0) return { error: '缺 LAND_PATHS(以 ; 分隔)⇒ 拒绝执行(空清单会把 undefined 当路径提交,本仓踩过)' }
+  if (paths.length === 0)
+    return { error: '缺 LAND_PATHS(以 ; 分隔)⇒ 拒绝执行(空清单会把 undefined 当路径提交,本仓踩过)' }
   if (msg === '') return { error: '缺 LAND_MSG ⇒ 拒绝执行(不允许空消息落地,提交史无法归因)' }
-  if (!resolveHeadRef({ root })) return { error: `${root} 不是可用仓库(HEAD 不可解析或 detached)⇒ 无法判定,不落` }
+  if (!resolveHeadRef({ root }))
+    return { error: `${root} 不是可用仓库(HEAD 不可解析或 detached)⇒ 无法判定,不落` }
   if (blobOf) {
     const noBlob = paths.filter((p) => !blobOf.get(p))
-    if (noBlob.length > 0) return { error: `LAND_BLOBS 清单里缺这些声明路径 ⇒ 内容无从取得,拒绝落地:\n  ${noBlob.join('\n  ')}` }
+    if (noBlob.length > 0)
+      return {
+        error: `LAND_BLOBS 清单里缺这些声明路径 ⇒ 内容无从取得,拒绝落地:\n  ${noBlob.join('\n  ')}`,
+      }
     const unknown = [...blobOf.keys()].filter((p) => !paths.includes(p))
-    if (unknown.length > 0) return { error: `LAND_BLOBS 里有未声明路径(${unknown.join(', ')})⇒ 声明面与内容面必须一致,拒绝落地` }
+    if (unknown.length > 0)
+      return {
+        error: `LAND_BLOBS 里有未声明路径(${unknown.join(', ')})⇒ 声明面与内容面必须一致,拒绝落地`,
+      }
     // blob 模式不要求盘上有该文件:内容来自对象空间,工作树那份属于别人
   } else {
     const missing = paths.filter((p) => !existsSync(join(root, p)))
@@ -173,10 +186,12 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
   } catch (e) {
     return {
       ok: false,
-      offenders: judged.map((p) => mkEntry(p, null, null, null, {
-        status: 'undetermined',
-        reason: '整 blob 判据未能运行 ⇒ 行级判据无从对齐',
-      })),
+      offenders: judged.map((p) =>
+        mkEntry(p, null, null, null, {
+          status: 'undetermined',
+          reason: '整 blob 判据未能运行 ⇒ 行级判据无从对齐',
+        }),
+      ),
       notes,
       reason: `陈旧判据未能运行:${firstLine(e)}`,
     }
@@ -200,7 +215,10 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
   let texts = new Map()
   let batchError = null
   try {
-    texts = catBatch(root, judged.map((p) => `${baseRef}:${p}`))
+    texts = catBatch(
+      root,
+      judged.map((p) => `${baseRef}:${p}`),
+    )
   } catch (e) {
     batchError = firstLine(e)
   }
@@ -208,7 +226,11 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
     for (const p of judged) {
       const wt = worktreeOf.get(p)
       const base = texts.get(`${baseRef}:${p}`)
-      if (typeof wt === 'string' && typeof base === 'string' && Math.max(wt.length, base.length) > RESURRECT_MAX_BLOB_BYTES) {
+      if (
+        typeof wt === 'string' &&
+        typeof base === 'string' &&
+        Math.max(wt.length, base.length) > RESURRECT_MAX_BLOB_BYTES
+      ) {
         sizeExceeded.add(p)
         continue
       }
@@ -239,7 +261,13 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
     const delta = lineDelta(baseText, newText)
     const wholeHit = hitBy.get(p) ?? null
     let line
-    if (batchError) line = { status: 'undetermined', reason: `祖先正文批量读取失败:${batchError}`, sample: [], commits: [] }
+    if (batchError)
+      line = {
+        status: 'undetermined',
+        reason: `祖先正文批量读取失败:${batchError}`,
+        sample: [],
+        commits: [],
+      }
     else if (sizeExceeded.has(p))
       line = {
         status: 'out-of-scope',
@@ -247,7 +275,13 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
         sample: [],
         commits: [],
       }
-    else if (logFailed.has(p)) line = { status: 'undetermined', reason: '祖先提交清单取不到(git log 未能运行)', sample: [], commits: [] }
+    else if (logFailed.has(p))
+      line = {
+        status: 'undetermined',
+        reason: '祖先提交清单取不到(git log 未能运行)',
+        sample: [],
+        commits: [],
+      }
     else
       line = resurrectAnalysis({
         baseText,
@@ -263,7 +297,11 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
     // 未覆盖必须**逐条报名**,且与"是否参与拒绝"无关 —— 一台只在放行时才沉默的守卫,
     // 读报告的人会把"没判"当成"判过了"(本仓最高频失效型)。
     if (line.status === 'out-of-scope')
-      notes.push({ ...entry, kind: 'line-out-of-scope', why: `行级复活判据未覆盖此路径:${line.reason}` })
+      notes.push({
+        ...entry,
+        kind: 'line-out-of-scope',
+        why: `行级复活判据未覆盖此路径:${line.reason}`,
+      })
     const refuseByBlob = !!wholeHit && (delta.vanished === null || delta.vanished > 0)
     const refuseByLines = line.status === 'judged' ? line.count > 0 : line.status === 'undetermined'
     if (refuseByBlob || refuseByLines) {
@@ -325,7 +363,11 @@ function staleReport(guard, { allowStale }) {
   for (const o of guard.offenders) {
     const v = o.vanished === null ? '消失行数未判定' : `消失 ${o.vanished} 行`
     const a = o.appeared === null ? '重现行数未判定' : `重现 ${o.appeared} 行`
-    const blob = o.commit ? `== 祖先 ${o.commit}` : o.lineStatus === 'judged' ? '(内容不等于任何祖先)' : '(祖先版本取不到)'
+    const blob = o.commit
+      ? `== 祖先 ${o.commit}`
+      : o.lineStatus === 'judged'
+        ? '(内容不等于任何祖先)'
+        : '(祖先版本取不到)'
     const who = o.resurrectedBy.length ? `(见于祖先 ${o.resurrectedBy.slice(0, 3).join(', ')})` : ''
     const r =
       o.lineStatus === 'judged'
@@ -335,12 +377,20 @@ function staleReport(guard, { allowStale }) {
     appendSamples(lines, o)
   }
   if (!allowStale) {
-    lines.push('   最常见成因:共享工作树副本滞后 HEAD ⇒ 落地器取的是磁盘字节(走 pathspec 只会更糟),')
-    lines.push('   而调用方又在这份滞后副本上补了自己的改动(所以整 blob 判据看不见,只有行级复活看得见)。')
+    lines.push(
+      '   最常见成因:共享工作树副本滞后 HEAD ⇒ 落地器取的是磁盘字节(走 pathspec 只会更糟),',
+    )
+    lines.push(
+      '   而调用方又在这份滞后副本上补了自己的改动(所以整 blob 判据看不见,只有行级复活看得见)。',
+    )
     lines.push('   出口 ① 取 HEAD 形态重新施加改动(先看判据再动手,别覆盖别人的在飞现场):')
-    lines.push('            git cat-file blob HEAD:<path> > <path>   ← 覆盖工作树副本,确认其中没有你自己的未提交内容才用')
+    lines.push(
+      '            git cat-file blob HEAD:<path> > <path>   ← 覆盖工作树副本,确认其中没有你自己的未提交内容才用',
+    )
     lines.push('   出口 ② 确属有意重生成 ⇒ LAND_ALLOW_STALE=1 重跑本器(会大声留痕,不会静默放行)')
-    lines.push('   标了"未判定"的行是**判据没读到东西**(浅历史 / 超过尺寸护栏 / git 派生失败),不是"检查过且干净";')
+    lines.push(
+      '   标了"未判定"的行是**判据没读到东西**(浅历史 / 超过尺寸护栏 / git 派生失败),不是"检查过且干净";',
+    )
     lines.push('   未判定不得被读成通过 —— 要放行只有出口 ② 这一条显式路径。')
   }
   return lines
@@ -456,13 +506,17 @@ export function blobAncestorClash({ root, paths, blobOf, baseRef = 'HEAD' }) {
       unjudged.push({ path: p, why: '祖先清单为空/取不到 ⇒ 无法对账' })
       continue
     }
-    const ab = resolveBlobs(root, anc.map((c) => `${c}:${p}`))
+    const ab = resolveBlobs(
+      root,
+      anc.map((c) => `${c}:${p}`),
+    )
     if (ab.size !== anc.length) {
       unjudged.push({ path: p, why: `祖先正文只取到 ${ab.size}/${anc.length} 个 ⇒ 对账不完整` })
       continue
     }
     const hit = anc.filter((c) => ab.get(`${c}:${p}`) === oid)
-    if (hit.length) clashes.push({ path: p, oid, commits: hit.slice(0, 3).map((c) => c.slice(0, 9)) })
+    if (hit.length)
+      clashes.push({ path: p, oid, commits: hit.slice(0, 3).map((c) => c.slice(0, 9)) })
   }
   return { clashes, unjudged, notes }
 }
@@ -476,12 +530,53 @@ export function blobAncestorClash({ root, paths, blobOf, baseRef = 'HEAD' }) {
  * 而"给出路且跑不通"正是本仓反复登记过的那类缺陷。
  * 载荷可解码性仍由提交链上的水印守门负责,本器只保证"不是我抹的"。
  */
+/**
+ * blob 模式的水幕检查:`watermark.mjs verify` 读的是盘上文件,对 blob 内容零覆盖。
+ *
+ * 判的是**单向**关系:基线有横幅而构造内容没有 ⇒ 有人把横幅抹掉了 ⇒ 拒落。
+ * 刻意不要求"两边前三行逐字等值" —— 那等于**强制**目标必须带横幅,于是新增文件/第三方台账
+ * 内容(按 §5c 与守门 107 P8 的口径本来就没有我们的横幅)会被本器自己的预检挡住,
+ * 而"给出路且跑不通"正是本仓反复登记过的那类缺陷。
+ *
+ * 2026-09-29 补第三态:基线的横幅**不可认**(整块缺失、只剩载荷行、或版权行被编码往返改成乱码)
+ * 而构造内容带规范横幅 ⇒ 这是修复,放行并报名。判据最初把这一格也判红,于是"补回被抹掉的署名"
+ * 这件正是本器该鼓励的事,被本器自己拦住了 —— 而它拦住的那三份文件,HEAD 上现在仍然没有署名。
+ * "篡改规范文案"(两边都规范而文字不同)照旧判红,这一格不让步。
+ */
+export function decideBanner({ baseText, newText }) {
+  const hasAny = hasAnyWatermarkTrace
+  const baseCanonical = hasExactCanonicalBanner(baseText)
+  const newCanonical = hasExactCanonicalBanner(newText)
+  const head3 = (text) => String(text).split('\n').slice(0, 3).join('\n')
+  if (!hasAny(baseText) && !hasAny(newText)) {
+    return {
+      verdict: 'note',
+      why: '两边都没有横幅(新增/第三方台账内容)⇒ 本器不逼它长出横幅,交水印守门与 107 P8 判',
+    }
+  }
+  if (hasAny(baseText) && !hasAny(newText))
+    return { verdict: 'broken', why: '基线有横幅而构造内容没有 ⇒ 横幅被抹' }
+  if (!baseCanonical && newCanonical) {
+    return {
+      verdict: 'repaired',
+      why: '基线横幅不可认(缺失/只剩载荷行/版权行被编码往返改坏)而构造内容带规范横幅 ⇒ 这是补回署名,放行并报名',
+    }
+  }
+  if (head3(baseText) !== head3(newText)) {
+    if (!newCanonical)
+      return { verdict: 'broken', why: '构造内容的横幅不可认 ⇒ 拒绝把无署名内容放进 HEAD' }
+    return {
+      verdict: 'broken',
+      why: '两边都是规范横幅而前三行仍被换掉 ⇒ 这是在改写横幅文字,不是保持',
+    }
+  }
+  return { verdict: 'kept', why: '前三行与基线逐字等值 ⇒ 横幅未被触碰' }
+}
+
 export function blobBannerPreserved({ root, paths, blobOf, baseRef = 'HEAD' }) {
   const broken = []
   const unjudged = []
   const notes = []
-  const head3 = (text) => String(text).split('\n').slice(0, 3).join('\n')
-  const hasBanner = (text) => /Provenance-watermarked|IHUI AI \(智汇AI\)|\[IHUI-AI-PROVENANCE\]:/.test(text)
   for (const p of paths) {
     const baseOid = headBlobOf(baseRef, p, { root })
     if (baseOid === ABSENT || baseOid === UNKNOWN || !blobOf.get(p)) {
@@ -494,18 +589,9 @@ export function blobBannerPreserved({ root, paths, blobOf, baseRef = 'HEAD' }) {
       unjudged.push({ path: p, why: 'blob 正文取不到' })
       continue
     }
-    if (!hasBanner(bt)) {
-      notes.push({ path: p, why: '基线本来就没有横幅(新增/第三方台账内容)⇒ 本器不逼它长出横幅,交水印守门与 107 P8 判' })
-      continue
-    }
-    if (!hasBanner(nt)) {
-      broken.push({ path: p, why: '基线有横幅而构造内容没有 ⇒ 横幅被抹' })
-      continue
-    }
-    if (hasBanner(bt) && head3(bt) !== head3(nt) && hasBanner(head3(nt))) {
-      // 两边都有横幅,但前三行不再是基线那三行 —— 改写横幅本身就不是"只动本票行"。
-      broken.push({ path: p, why: '横幅三行被改写(不是保持)' })
-    }
+    const d = decideBanner({ baseText: bt, newText: nt })
+    if (d.verdict === 'broken') broken.push({ path: p, why: d.why })
+    else if (d.verdict === 'note' || d.verdict === 'repaired') notes.push({ path: p, why: d.why })
   }
   return { broken, unjudged, notes }
 }
@@ -521,7 +607,9 @@ async function main() {
 
   const head0 = git(['rev-parse', 'HEAD'], { root })
   const base = new Map(paths.map((p) => [p, headBlobOf(baseRef, p, { root })]))
-  const mine = new Map(paths.map((p) => [p, blobOf ? blobOf.get(p) : writeBlobOfWorktree(p, { root })]))
+  const mine = new Map(
+    paths.map((p) => [p, blobOf ? blobOf.get(p) : writeBlobOfWorktree(p, { root })]),
+  )
   if (blobOf) {
     const proof = String(process.env.LAND_BLOB_PROOF ?? '').trim()
     if (proof === '') {
@@ -532,7 +620,9 @@ async function main() {
       )
       process.exit(2)
     }
-    console.log(`ℹ️ blob 模式(内容来自对象空间清单,不取工作树字节)⇒ 盘上那份属于他人改动,本器不读它`)
+    console.log(
+      `ℹ️ blob 模式(内容来自对象空间清单,不取工作树字节)⇒ 盘上那份属于他人改动,本器不读它`,
+    )
     console.log(`   替代证据:${proof}`)
     const clash = blobAncestorClash({ root, paths, blobOf })
     if (clash.clashes.length) {
@@ -541,7 +631,9 @@ async function main() {
       process.exit(1)
     }
     if (clash.unjudged.length) {
-      console.error(`❌ 祖先对账未能运行(${clash.unjudged.length} 个路径):把"问不到"写成"不等于任何祖先"就是给合格证背书`)
+      console.error(
+        `❌ 祖先对账未能运行(${clash.unjudged.length} 个路径):把"问不到"写成"不等于任何祖先"就是给合格证背书`,
+      )
       process.exit(2)
     }
     console.log(`✅ 祖先对账 ${paths.length}/${paths.length} 路径:构造内容不等于任何历史 blob`)
@@ -564,7 +656,9 @@ async function main() {
   // 声明无差异 ⇒ 事先拒绝(提交面回读结构上证明不了"改了它";safe-commit Step③ 同型的中止语义,前置到写盘之前)
   const noDiff = paths.filter((p) => mine.get(p) === base.get(p))
   if (noDiff.length > 0) {
-    console.error(`❌ 这些声明路径与基线(${baseRef})内容逐字节相同 ⇒ 拒绝落地(提交面回读永远证不了它们被改):\n  ${noDiff.join('\n  ')}`)
+    console.error(
+      `❌ 这些声明路径与基线(${baseRef})内容逐字节相同 ⇒ 拒绝落地(提交面回读永远证不了它们被改):\n  ${noDiff.join('\n  ')}`,
+    )
     process.exit(1)
   }
 
@@ -601,7 +695,9 @@ async function main() {
       console.error('   应急跳过(仅限确属台账第三方内容):IHUI_LAND_SKIP_WATERMARK=1')
       process.exit(1)
     }
-    console.log(`✅ 水印预检通过 ${paths.length}/${paths.length} 路径(verify 口径,含第三方台账排除)`)
+    console.log(
+      `✅ 水印预检通过 ${paths.length}/${paths.length} 路径(verify 口径,含第三方台账排除)`,
+    )
   } else if (skipWatermark) {
     // 上一版把这条写成 `else`,于是 **blob 模式**(它有自己的横幅判据,已在上面跑过)也走进这一支,
     // 打印出一句"本次跳过水印预检"—— 那是**凭空声称一个没发生的放行**:环境变量根本没设,
@@ -612,7 +708,9 @@ async function main() {
     const head = git(['rev-parse', 'HEAD'], { root })
     const clobber = clobberedPaths(paths, base, head, { root })
     if (clobber.length > 0) {
-      console.error(`❌ 放弃落地:HEAD 已推进且这些目标路径被别人改过 ⇒ 需重新归并而非覆盖(第 ${attempt} 次尝试):\n  ${clobber.join('\n  ')}`)
+      console.error(
+        `❌ 放弃落地:HEAD 已推进且这些目标路径被别人改过 ⇒ 需重新归并而非覆盖(第 ${attempt} 次尝试):\n  ${clobber.join('\n  ')}`,
+      )
       process.exit(1)
     }
     const { commit } = commitTreeWithIndex({
@@ -625,7 +723,9 @@ async function main() {
     if (casUpdateRef(commit, head, { root })) {
       landed = commit
       parentSha = head
-      console.log(`✅ 第 ${attempt} 次 CAS 成功 HEAD=${commit}(基线 ${baseRef}=${head0.slice(0, 9)})`)
+      console.log(
+        `✅ 第 ${attempt} 次 CAS 成功 HEAD=${commit}(基线 ${baseRef}=${head0.slice(0, 9)})`,
+      )
       break
     }
     console.log(`⚠️ 第 ${attempt} 次 CAS 失败(别人先推进了 HEAD),重读重试`)
@@ -662,12 +762,18 @@ async function main() {
     console.error(`❌ 索引对齐未完成(轮次耗尽/派生持续失败):${align.error ?? ''}`)
     process.exit(1)
   }
-  console.log(`✅ 主索引已对齐 ${align.moved.length + align.already.length}/${paths.length} 路径(移动 ${align.moved.length} / 已就位 ${align.already.length})`)
+  console.log(
+    `✅ 主索引已对齐 ${align.moved.length + align.already.length}/${paths.length} 路径(移动 ${align.moved.length} / 已就位 ${align.already.length})`,
+  )
   if (align.skipped.length > 0) {
-    console.log(`⚠️ 未动(归属他人):\n  ${align.skipped.map((s) => `${s.path} (${s.reason})`).join('\n  ')}`)
+    console.log(
+      `⚠️ 未动(归属他人):\n  ${align.skipped.map((s) => `${s.path} (${s.reason})`).join('\n  ')}`,
+    )
   }
   if (align.undetermined.length > 0) {
-    console.log(`⚠️ 未判定:\n  ${align.undetermined.map((u) => `${u.path} (${u.reason})`).join('\n  ')}`)
+    console.log(
+      `⚠️ 未判定:\n  ${align.undetermined.map((u) => `${u.path} (${u.reason})`).join('\n  ')}`,
+    )
   }
   process.exit(0)
 }
@@ -680,5 +786,12 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { parseArgs, clobberedPaths, lineDelta, resurrectAnalysis, detectStaleLanding, staleReport }
+export const __test__ = {
+  parseArgs,
+  clobberedPaths,
+  lineDelta,
+  resurrectAnalysis,
+  detectStaleLanding,
+  staleReport,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
