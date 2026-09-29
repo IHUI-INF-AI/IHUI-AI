@@ -346,9 +346,20 @@ function scratchRepo() {
   const dir = mkScratch('trd-tc3-')
   mkdirSync(path.join(dir, 'scripts', 'lib'), { recursive: true })
   mkdirSync(path.join(dir, 'apps', 'cli', 'src', 'tools', 'command-policy'), { recursive: true })
+  mkdirSync(path.join(dir, 'packages', 'types', 'src'), { recursive: true })
   cpSync(SCRIPT, path.join(dir, 'scripts', 'check-tool-contract-declared.mjs'))
-  for (const f of ['face-reader.mjs', 'gitdir.mjs'])
+  // face-reader → gitdir → scratch-dir 是**导入链**,少拷一环临时仓里的门直接 ERR_MODULE_NOT_FOUND
+  // (2026-09-29 实测:T19/T22 同时红在 "Cannot find module .../scratch-dir.mjs" —— 不是判据错,是夹具缺件)。
+  for (const f of ['face-reader.mjs', 'gitdir.mjs', 'scratch-dir.mjs'])
     cpSync(path.join(ROOT, 'scripts', 'lib', f), path.join(dir, 'scripts', 'lib', f))
+  // TC4 取材需要投影文件**在面上存在**(真仓 HEAD 有此文件但 humanApprovalMandated 尚未落地 ⇒
+  // 判 unwired 不判红不判死)。临时仓里完全不放这个文件,TC4 会先以"取不到 ⇒ 无法判定"exit 2,
+  // 后面的 TC5/TRD/TC3 各臂根本没被跑到 —— 夹具缺件伪装成判据结论,正是本仓"把没跑到读成读过了"那一型。
+  writeFileSync(
+    path.join(dir, 'packages', 'types', 'src', 'tool-contract.ts'),
+    '// 最小桩:不含 humanApprovalMandated,与真仓 HEAD 现态同形(TC4 unwired)\nexport const TOOL_EFFECT_SCOPES = ["none", "workspace"] as const\n',
+    'utf8',
+  )
   writeFileSync(path.join(dir, HELPER_REL), HELPER, 'utf8')
   writeFileSync(path.join(dir, DEMO_REL), COMPLETE, 'utf8')
   for (const a of [
@@ -437,7 +448,13 @@ test('T20 装车证明:TC3 必须真挂在 main 上并把读数打进输出与�
   assert.match(src, /anchorTools,/, 'enumerationBlind 必须拿到 HEAD 侧工具数,否则又会误拦 helper')
   // 计数棘轮**不得被摘掉**:换锚是"加一把尺子",不是"把旧的扔掉"
   assert.match(src, /exceedsAnchor\(violations\.length, anchor\)/, '计数棘轮必须仍在')
-  assert.match(src, /reds\.length > 0 \|\| removals\.length > 0/, '失败分支必须同时看两把尺子')
+  // 失败条件被 prettier 拆成多行是常态,判"两把尺子都在失败分支里"只要求**相邻**(≤120 字符窗口),
+  // 不得锚死"同一行"—— 同行写法一被格式化就假红(与本仓"判据失效方向"同一条纪律)。
+  assert.match(
+    src,
+    /reds\.length > 0[\s\S]{0,120}removals\.length > 0/,
+    '失败分支必须同时看两把尺子',
+  )
 })
 
 test('T21 runner 注册对账(id/blocking/skipEnv 三者齐备;此前该文件没有这条,新增)', () => {
@@ -449,5 +466,83 @@ test('T21 runner 注册对账(id/blocking/skipEnv 三者齐备;此前该文件�
   assert.match(block, /mode: 'blocking'/, '定级被悄悄降成 warn ⇒ 判对了也没人被打断')
   assert.match(block, /skipEnv: 'HUSKY_SKIP_TOOL_CONTRACT_DECLARED'/, '应急通道声明必须在位')
 })
+
+// ---------- TC5 确认凭据判据(2026-09-29 立,上游 zcode 参数层确认取证票)----------
+
+// 由 COMPLETE(read 档)派生写档夹具:同一枚工具、同一份契约,只差风险档 ——
+// 阳性/阴性两臂必须共用这一份底,否则"红来自判据有牙"与"红来自夹具漂移"分不开。
+const WRITE_LEVEL = COMPLETE.replace("riskLevel: 'read'", "riskLevel: 'write'")
+const WRITE_CONF = WRITE_LEVEL.replace(
+  'requiresApproval: false }',
+  "requiresApproval: false, confirmation: { mode: 'interactive' } }",
+)
+const WRITE_EXEMPT = WRITE_LEVEL.replace(
+  "  name: 'demo',",
+  '  // contract-confirm-exempt: 批准由宿主 danger-gate 统一发起\n  name: \'demo\',',
+)
+
+test('T22 TC5 端到端(临时仓双向锁):写档无 confirmation 暂存必红并点名;补 confirmation 必绿;带原因豁免必绿', () => {
+  const dir = scratchRepo()
+  try {
+    // --- A 阳性对照:HEAD 是 read 档(0 违规),暂存改写成 write 档而**无 confirmation** ---
+    // 新债走计数棘轮(0 → 1)判红;TRD 关掉以证明红来自 TC5 本身而不是"触碰即须声明"。
+    writeFileSync(path.join(dir, DEMO_REL), WRITE_LEVEL, 'utf8')
+    assert.equal(git(['add', DEMO_REL], dir).status, 0)
+    const a = gateIn(dir, ['--staged', gate.TRD_OFF_FLAG])
+    assert.equal(a.code, 1, `写档无 confirmation 必须判红,实得 exit ${a.code}:\n${a.out}`)
+    assert.match(a.out, /TC5-confirmation-missing/, '必须点名 TC5 判据本身')
+    assert.match(a.out, /TC5 确认凭据对账/, '报告行必须把三桶(判红/豁免/判不出)打出来')
+
+    // --- B 阴性对照:同一枚工具补上 confirmation ⇒ 绿(判据不得恒红)---
+    git(['reset', '-q'], dir)
+    writeFileSync(path.join(dir, DEMO_REL), WRITE_CONF, 'utf8')
+    assert.equal(git(['add', DEMO_REL], dir).status, 0)
+    const b = gateIn(dir, ['--staged', gate.TRD_OFF_FLAG])
+    assert.equal(b.code, 0, `confirmation 在位必须绿,实得 exit ${b.code}:\n${b.out}`)
+    assert.match(b.out, /判红 0 处/, 'TC5 计数必须报 0,不得静默')
+
+    // --- C 豁免出口:紧邻上一行带原因 ⇒ 放行;这条对照防"豁免写了不生效"(GA4 初版同型)---
+    git(['reset', '-q'], dir)
+    writeFileSync(path.join(dir, DEMO_REL), WRITE_EXEMPT, 'utf8')
+    assert.equal(git(['add', DEMO_REL], dir).status, 0)
+    const c = gateIn(dir, ['--staged', gate.TRD_OFF_FLAG])
+    assert.equal(c.code, 0, `带原因豁免必须放行,实得 exit ${c.code}:\n${c.out}`)
+    assert.match(c.out, /带原因豁免 1 处/, '豁免必须**报数点名**,不得与"没判"混桶')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T23 TC5 装车证明:main 必须真调 confirmationObligationOf/violationsOf 的 TC5 分支并把三桶打进输出(判据在而没调用 = 没有)', () => {
+  const src = readFileSync(SCRIPT, 'utf8')
+  assert.match(src, /confirmationObligationOf\(tool\)/, 'violationsOf 未接义务判定 ⇒ TC5 是死代码')
+  assert.match(src, /confirmationObligationOf\(t\)/, 'main 的三桶统计未调用义务判据 ⇒ 报告是装饰')
+  assert.match(src, /TC5-confirmation-missing/, '判红形态必须真实存在于判据里')
+  assert.match(src, /findConfirmationExemptReason\(rawLines, line\)/, '豁免识别必须挂在抽取器上,不得只定义不调用')
+  assert.match(src, /TC5 确认凭据对账/, '三桶读数必须进输出(只判不报=没判)')
+  assert.match(src, /tc5RedsTotal > 0[\s\S]*contract-confirm-exempt/, '判红时的修法提示必须给出行内出口')
+})
+
+test('T24 词表逐字对账:门侧两份集合必须与 packages/types 唯一类型源的原文同值,且类型字段是**可选**(用可选+判据强制,不得改必填砸 104 枚工具)', () => {
+  const src = readFileSync(path.join(ROOT, 'packages', 'types', 'src', 'tool-contract.ts'), 'utf8')
+  assert.match(
+    src,
+    /export const TOOL_CONFIRMATION_MODES = \['explicit-flag', 'interactive', 'none'\] as const/,
+    '类型源词表漂了:门在判一份不存在的词表',
+  )
+  assert.equal(
+    [...gate.TOOL_CONFIRMATION_MODES].join(),
+    'explicit-flag,interactive,none',
+    '门侧确认档与唯一类型源不得分叉(两处实现必漂移是本仓记过最多次的失败型)',
+  )
+  assert.equal(
+    [...gate.CONFIRMATION_REQUIRED_RISK_LEVELS].join(),
+    'write,dangerous',
+    '门侧写/危险档必须等于 ToolRiskLevel 值域去掉 read',
+  )
+  assert.match(src, /confirmation\?: ToolConfirmationPolicy/, '字段必须是可选(本票护栏:不改运行时/编译面)')
+  assert.match(src, /mode: 'none'[\s\S]*reason: string/, 'none 档必须带 reason(显式决定而非缺席)')
+})
+
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

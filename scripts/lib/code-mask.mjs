@@ -33,6 +33,14 @@
 //  - `blankStrings` / `scanLiterals`  只清字面量体、**保留注释**
 // 两处实现一条规则是本仓记过最多次的漂移成因(§3 共享层优先 / §22c),所以各门**不得**再自带
 // 分词器 —— 守门 118 曾留着一份"更聪明的"私有遮噪器,2026-09-28 上收到本文件作为唯一实现。
+//
+// ─── 第二族:脚本语言的注释遮噪(2026-09-28 G-391② 新增导出)────────────────
+//  `maskScriptComments(src, dialect)` / `scanScriptCommentSpans(src, dialect)`,
+//  dialect ∈ ps | sh | bat | vbs。这一族与上面**共用"等长遮罩"这条硬约束,但不共用词法**:
+//  JS 的 `//`、`/* */`、引号语义套到 .ps1/.sh/.bat/.vbs 上两头都错(注释不遮 ⇒ 门判自己的散文;
+//  顺手抹字符串 ⇒ `objShell.Run "powershell -File deploy\…"` 这类"引号里的真调用"整型隐身)。
+//  所以这一族**只遮注释、不遮字符串**,引号仅用于判"这个 `#`/`'` 是不是注释起始"。
+//  动机与判据见守门 37(check-pwsh-version.mjs)的调用侧维度与 AGENTS §27。
 
 /** 判"这个 `/` 是正则还是除法"只看**上一个有效 token**:落在这些字符之后才算正则起始。 */
 const REGEX_ALLOWED_AFTER = new Set([
@@ -338,5 +346,294 @@ export function maskComments(src) {
  */
 export function blankStrings(text) {
   return scanLiterals(text).blanked
+}
+
+// ─── 脚本语言遮噪(2026-09-28 G-391② 新增导出;既有导出行为一字未动)──────────
+//
+// 为什么**不**复用上面那台 JS 分词器:JS 语义里 `//`、`/* */`、`'…'`、`"…"`、`` `…` `` 才是
+// 注释与字符串;而 shell/PowerShell 的 `#`、batch 的 `REM`/`::`、VBScript 的 `'` 各有各的词法。
+// 把 JS 语义套到脚本文件上,两个方向都会错:
+//  ① 不遮各语言自己的注释 ⇒ 门把**文档散文**判成违规(`deploy/win/ihui-deploy.ps1` 的用法块
+//     逐字写着 `powershell -ExecutionPolicy Bypass -File deploy\win\ihui-deploy.ps1`,那是一行
+//     `#` 注释)。守门 70/131 记过同型:判据失效的表现不是安静,而是开始咬自己的解释文字。
+//  ② 顺手把**字符串**也抹掉 ⇒ 门对这一族**整型失明**,因为脚本语言的真调用恰恰写在引号里:
+//     VBScript `objShell.Run "powershell -File deploy\win\x.ps1", 1`(§26 的计划任务包装形态)、
+//     batch `start powershell -File deploy\...`、PowerShell `Start-Process powershell -ArgumentList
+//     '-File','deploy\x.ps1'`。抹引号等于没收这把尺子。
+// ⇒ 所以这一档**只遮注释、不遮字符串**;引号在这里只用来判"这个 `#`/`'` 到底是不是注释起始",
+//    被跳过的引号内容**逐字留在面上**。这与 JS 档"注释+字符串都遮"是两条不同的判据,不是松紧差异。
+//
+// 等长遮罩仍是硬约束(本文件顶部那条):各门按行回溯并报行号,删字符会让坐标整体错位。
+// `\n` 与 `\r` 都原样保留 —— 脚本文件在 Windows 检出常是 CRLF,把 `\r` 抹成空格虽不改变
+// `split(/\r?\n/)` 的行数,但让"遮罩前后逐字符可比"这条性质变窄,没必要省。
+
+/** 支持的脚本方言(封闭集)。新增方言必须同笔有消费方与正向证明用例(§"新登记角色必须同笔有消费方")。 */
+export const SCRIPT_COMMENT_DIALECTS = Object.freeze(['ps', 'sh', 'bat', 'vbs'])
+
+/** 从 `from`(指向起始引号)跳过一段字符串,返回**闭引号之后**的下标。不产出遮罩:引号内容要留在面上。 */
+function skipQuoted(
+  src,
+  from,
+  quote,
+  { escape = null, doubleEscape = false, stopAtNewline = false },
+) {
+  const n = src.length
+  let j = from + 1
+  while (j < n) {
+    const d = src[j]
+    if (stopAtNewline && d === '\n') return j
+    if (escape && d === escape) {
+      j += 2
+      continue
+    }
+    if (d === quote) {
+      if (doubleEscape && src[j + 1] === quote) {
+        j += 2
+        continue
+      }
+      return j + 1
+    }
+    j += 1
+  }
+  return n
+}
+
+/** 把 `from` 到行尾(不含换行)登记为遮罩区间,返回行尾下标。 */
+function lineCommentToEol(spans, src, from) {
+  let j = from
+  while (j < src.length && src[j] !== '\n') j += 1
+  spans.push([from, j])
+  return j
+}
+
+/**
+ * PowerShell:`<# … #>` 块注释、`#` 行注释(须落在词首:行首/空白/`;` 之后)、
+ * 单引号串(`''` 转义)、双引号串(反引号转义 + `""`)、`@'…'@` / `@"…"@` here-string。
+ * 串与 here-string **只跳过不遮**(其中 `#` 是字面量,不是注释)。
+ */
+function scanPsSpans(src) {
+  const spans = []
+  const n = src.length
+  let i = 0
+  while (i < n) {
+    const c = src[i]
+    if (c === '<' && src[i + 1] === '#') {
+      let j = i + 2
+      while (j < n && !(src[j] === '#' && src[j + 1] === '>')) j += 1
+      const end = j < n ? j + 2 : n // 未闭合 ⇒ 注释起始已确认,遮到文件末尾
+      spans.push([i, end])
+      i = end
+      continue
+    }
+    // here-string:开栏 `@'` / `@"` 之后本行只允许空白,否则那不是 here-string(`$a = @'x'@` 之外
+    // 还有 `@'` 出现在串/注释里的形态 —— 判据不认它,继续按普通字符走)
+    if (c === '@' && (src[i + 1] === "'" || src[i + 1] === '"')) {
+      let j = i + 2
+      while (j < n && src[j] !== '\n' && (src[j] === ' ' || src[j] === '\t' || src[j] === '\r'))
+        j += 1
+      if (j < n && src[j] === '\n') {
+        const q = src[i + 1]
+        const term = `${q}@`
+        let k = j + 1
+        let found = -1
+        while (k < n) {
+          if (src.startsWith(term, k) && (k === j + 1 || src[k - 1] === '\n')) {
+            found = k
+            break
+          }
+          k += 1
+        }
+        i = found < 0 ? n : found + term.length // 找不到闭栏 ⇒ 余下全篇按 here-string 体跳过
+        continue
+      }
+      i += 1
+      continue
+    }
+    if (c === "'") {
+      i = skipQuoted(src, i, "'", { doubleEscape: true })
+      continue
+    }
+    if (c === '"') {
+      i = skipQuoted(src, i, '"', { escape: '`', doubleEscape: true })
+      continue
+    }
+    if (c === '#' && (i === 0 || /[\s;]/.test(src[i - 1]))) {
+      i = lineCommentToEol(spans, src, i)
+      continue
+    }
+    i += 1
+  }
+  return spans
+}
+
+/**
+ * POSIX shell / bash:行内 `'…'`(无转义)、`"…"` 与 `` `…` ``(反斜杠转义)只跳过不遮;
+ * `#` **只在词首**才是注释(行首或空白/`;`/`(`/`&`/`|` 之后)——
+ * `${x#pat}`、`a#b` 里的 `#` 不是注释,遮了就是把真 token 抹掉。
+ */
+function scanShSpans(src) {
+  const spans = []
+  const n = src.length
+  let i = 0
+  while (i < n) {
+    const c = src[i]
+    if (c === "'") {
+      i = skipQuoted(src, i, "'", {})
+      continue
+    }
+    if (c === '"') {
+      i = skipQuoted(src, i, '"', { escape: '\\' })
+      continue
+    }
+    if (c === '`') {
+      i = skipQuoted(src, i, '`', { escape: '\\' })
+      continue
+    }
+    if (c === '#' && (i === 0 || /[\s;&(|]/.test(src[i - 1]))) {
+      i = lineCommentToEol(spans, src, i)
+      continue
+    }
+    i += 1
+  }
+  return spans
+}
+
+/**
+ * batch / cmd:**没有字符串语义**(引号只是分组),所以这里绝不跳引号 ——
+ * `powershell -File "deploy\win\x.ps1"` 是要判的对象,不是要遮的噪声。
+ * 注释只有落在**命令起始位**才算:`REM`/`rem`(不区分大小写,前随空白与可选 `@`)与 `::`。
+ * 命令起始位 = 行首,或 `&`/`|`/`(`/`)` 之后跳过空白与可选 `@` 的位置。
+ */
+function scanBatSpans(src) {
+  const spans = []
+  const n = src.length
+  let i = 0
+  let atCommandStart = true
+  while (i < n) {
+    const c = src[i]
+    if (c === '\n') {
+      atCommandStart = true
+      i += 1
+      continue
+    }
+    if (c === ' ' || c === '\t' || c === '\r') {
+      i += 1
+      continue
+    }
+    if (atCommandStart && c === '@') {
+      i += 1
+      continue // `@rem` / `@echo`:回显开关不吃掉命令起始位
+    }
+    if (atCommandStart) {
+      if (c === ':' && src[i + 1] === ':') {
+        i = lineCommentToEol(spans, src, i)
+        continue
+      }
+      if (/^rem\b/i.test(src.slice(i, i + 5)) || /^rem$/i.test(src.slice(i))) {
+        const after = src[i + 3]
+        if (after === undefined || /[\s]/.test(after)) {
+          i = lineCommentToEol(spans, src, i)
+          continue
+        }
+      }
+    }
+    if (c === '&' || c === '|' || c === '(' || c === ')') {
+      atCommandStart = true
+      i += 1
+      continue
+    }
+    atCommandStart = false
+    i += 1
+  }
+  return spans
+}
+
+/**
+ * VBScript:串只用 `"`(`""` 转义,不跨行),串里的 `'` **不是**注释起始 ——
+ * `objShell.Run "powershell -File deploy\win\x.ps1", 1` 里若把行首撇号规则裸套,
+ * 后面任何撇号都会把真调用吃掉。另支持 `Rem` 语句(须落在语句起始位)。
+ */
+function scanVbsSpans(src) {
+  const spans = []
+  const n = src.length
+  let i = 0
+  let atStatementStart = true
+  while (i < n) {
+    const c = src[i]
+    if (c === '\n') {
+      atStatementStart = true
+      i += 1
+      continue
+    }
+    if (c === ' ' || c === '\t' || c === '\r') {
+      i += 1
+      continue
+    }
+    if (c === '"') {
+      i = skipQuoted(src, i, '"', { doubleEscape: true, stopAtNewline: true })
+      atStatementStart = false
+      continue
+    }
+    if (c === "'") {
+      i = lineCommentToEol(spans, src, i)
+      continue
+    }
+    if (
+      atStatementStart &&
+      /^rem(\s|$)/i.test(src.slice(i, i + 5)) &&
+      (src[i + 3] === undefined || /[\s]/.test(src[i + 3]))
+    ) {
+      i = lineCommentToEol(spans, src, i)
+      continue
+    }
+    if (c === ':') {
+      atStatementStart = true
+      i += 1
+      continue
+    }
+    atStatementStart = false
+    i += 1
+  }
+  return spans
+}
+
+const SCRIPT_SPAN_SCANNERS = {
+  ps: scanPsSpans,
+  sh: scanShSpans,
+  bat: scanBatSpans,
+  vbs: scanVbsSpans,
+}
+
+/** 某方言的注释区间清单 `[start, end)`(升序,不重叠)。导出给镜像测试判"遮了哪些",不只判文本。 */
+export function scanScriptCommentSpans(src, dialect) {
+  if (typeof src !== 'string') return []
+  const scanner = SCRIPT_SPAN_SCANNERS[dialect]
+  // 未知方言**抛错**,不静默返回原文:调用方漏映射时,静默 = 门把全部注释当代码判(误报),
+  // 而"把没判写成判过了"是本仓最高频失效型 —— 两种都要当场喊,抛错比产假账便宜。
+  if (!scanner) {
+    throw new Error(
+      `未知脚本方言:${JSON.stringify(dialect)}(支持:${SCRIPT_COMMENT_DIALECTS.join(', ')})`,
+    )
+  }
+  return scanner(src)
+}
+
+/**
+ * 脚本语言的**等长**注释遮罩:注释区间换成空格(除 `\n`/`\r`),引号内容与代码逐字保留。
+ * @param {string} src 原文
+ * @param {'ps'|'sh'|'bat'|'vbs'} dialect 方言
+ * @returns {string} 与 `src` 等长、同行号可对齐的遮罩面
+ */
+export function maskScriptComments(src, dialect) {
+  if (typeof src !== 'string') return ''
+  const spans = scanScriptCommentSpans(src, dialect) // 未知方言在这里抛错,不产出遮罩面
+  if (spans.length === 0) return src
+  const out = src.split('')
+  for (const [from, to] of spans) {
+    for (let k = from; k < to && k < out.length; k++) {
+      if (out[k] !== '\n' && out[k] !== '\r') out[k] = ' '
+    }
+  }
+  return out.join('')
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

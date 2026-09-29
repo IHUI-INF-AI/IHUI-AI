@@ -13,7 +13,7 @@ import { inferPointsMultiplier } from './ai-vendors/proxy-llm.js'
 import { isSystemAdminUser } from '../db/queries.js'
 import {
   fetchProviderHealth,
-  isProviderHardUnavailable,
+  resolveProviderAvailability,
   inferProviderCode,
 } from '../lib/llm-provider-health.js'
 
@@ -187,8 +187,9 @@ export const llmModelsRoutes: FastifyPluginAsync = async (server) => {
       const coursePlatform = getCoursePlatform(request)
       const isSpecialUser = SPECIAL_UUIDS.includes(userUuid)
 
-      // 单次请求内拉取 ai-service provider 健康度(best-effort;失败则为空 Map)
-      const healthMap = await fetchProviderHealth()
+      // 单次请求内拉取 ai-service provider 健康度(best-effort)。
+      // G-726(2026-09-29):失败不再塌缩成"空 Map ⇒ 全部可用",而是显式 known:false。
+      const health = await fetchProviderHealth()
 
       // 基础条件:status=1(可用)
       const conditions = [eq(zhsAiModelInfo.status, 1)]
@@ -244,39 +245,46 @@ export const llmModelsRoutes: FastifyPluginAsync = async (server) => {
       })
 
       // 映射为前端兼容格式
-      const items: AiModelInfoItem[] = sorted.map((m) => ({
-        id: m.id,
-        name: m.name,
-        code: m.code,
-        type: m.type,
-        modelCode: m.modelCode,
-        source: m.source,
-        icon: m.icon,
-        description: m.description,
-        manufacturer: m.manufacturer,
-        questType: m.questType,
-        variables: m.variables,
-        openDesc: m.openDesc,
-        modelDesc: m.modelDesc,
-        grassRoots: m.grassRoots,
-        isGratis: m.isGratis,
-        isNew: m.isNew,
-        isTop: m.isTop,
-        isHot: m.isHot,
-        coursePlatform: m.coursePlatform,
-        sort: m.sort,
-        status: m.status,
-        createdAt: m.createdAt ? m.createdAt.toISOString() : null,
-        updatedAt: m.updatedAt ? m.updatedAt.toISOString() : null,
-        pointsMultiplier: inferPointsMultiplier(m.modelCode ?? m.code ?? m.name),
-        available: !isProviderHardUnavailable(
+      const items: AiModelInfoItem[] = sorted.map((m) => {
+        // G-726(2026-09-29):三态判定。'unknown' = 本轮未取到健康度 ⇒ **省略 available 字段**,
+        // 既不显示"可用"也不显示"不可用";另两态照旧给布尔(与改动前同形)。
+        const availability = resolveProviderAvailability(
           inferProviderCode(m.modelCode, m.code, m.name),
-          healthMap,
-        ),
-      }))
+          health,
+        )
+        return {
+          id: m.id,
+          name: m.name,
+          code: m.code,
+          type: m.type,
+          modelCode: m.modelCode,
+          source: m.source,
+          icon: m.icon,
+          description: m.description,
+          manufacturer: m.manufacturer,
+          questType: m.questType,
+          variables: m.variables,
+          openDesc: m.openDesc,
+          modelDesc: m.modelDesc,
+          grassRoots: m.grassRoots,
+          isGratis: m.isGratis,
+          isNew: m.isNew,
+          isTop: m.isTop,
+          isHot: m.isHot,
+          coursePlatform: m.coursePlatform,
+          sort: m.sort,
+          status: m.status,
+          createdAt: m.createdAt ? m.createdAt.toISOString() : null,
+          updatedAt: m.updatedAt ? m.updatedAt.toISOString() : null,
+          pointsMultiplier: inferPointsMultiplier(m.modelCode ?? m.code ?? m.name),
+          ...(availability === 'unknown' ? {} : { available: availability === 'available' }),
+        }
+      })
 
-      // 铁律:仅展示可用且有额度的模型。硬死模型移除;健康度获取失败(空 Map)则宽松保留全部。
-      const filteredItems = healthMap.size === 0 ? items : items.filter((i) => i.available)
+      // 铁律:仅展示可用且有额度的模型。硬死模型移除;
+      // G-726:known:false(本轮没问到)⇒ 保留全部 —— 与改动前"空 Map ⇒ 宽松保留全部"逐字同形,
+      // 刻意不改严(改它会改变现网列表放行行为,属另票)。
+      const filteredItems = health.known ? items.filter((i) => i.available !== false) : items
 
       return reply.send(success({ items: filteredItems, total: filteredItems.length }))
     } catch (e) {
