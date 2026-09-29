@@ -98,7 +98,14 @@ export function gitRaw(args, root, opts = {}) {
       },
     )
   } catch (e) {
-    const err = new Undetermined(`git ${args[0]} 失败: ${gitErrText(e)}`)
+    /**
+     * ENOENT 有两种成因,Node 的文本只点名**二进制**("spawnSync <git.exe> ENOENT"),
+     * 而另一一种是 `cwd` / `-C` 指向的目录不存在 —— 实测把 `runAudit(repoRoot, face)` 的参数序
+     * 写反就得到同一句,于是排查方向被整个带去"IDE 自带 git 被升级烂掉了"。两种都点名,
+     * 只改可诊断性,不改判定(仍然抛 Undetermined,不会因此少判一次)。
+     */
+    const hint = e?.code === 'ENOENT' ? `(git 二进制或该 root 不可达:root=${root})` : ''
+    const err = new Undetermined(`git ${args[0]} 失败: ${gitErrText(e)}${hint}`)
     // **退出码必须带上来**:`git grep` 无命中、`git diff --quiet` 无差异这类是 git 的正常非零结论,
     // 调用方要能区分"git 说没有"与"git 没跑成"。只给一句错误文本会逼调用方去 parse 自己的异常消息
     // (把结论建立在字符串上),而 e.status 是 Node 直接给的机器事实。
