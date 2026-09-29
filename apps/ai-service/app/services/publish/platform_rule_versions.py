@@ -25,7 +25,7 @@ platform_rules.py 维护 38 平台的发布规则,但平台规则会随时变更
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from app.core.logging import get_logger
 
@@ -34,13 +34,13 @@ from .platform_rules import PLATFORM_RULES, PlatformRule
 logger = get_logger(__name__)
 
 # 东八区(用户主时区),与 db_sync_scheduler / news_scheduler / self_media_scheduler 的
-# `_CN_TZ` 同形(本仓各文件各自声明,无共享模块)。
+# `_CN_TZ` 同形(2026-09-30 收口:值取自 app/core/cn_time.py 的 CN_TZ 唯一出口)。
 # 为什么这里必须钉死:`last_updated` 一半来自 PLATFORM_RULES 里人工维护的日历日期
 # (按东八区书写),一半由 record_rule_change() 自动写入;两侧曾各用 naive
 # datetime.now()。宿主被静默改成 UTC 后,自动写入的那批记成了 UTC 日,与人工那批
 # 同日不同义 —— 过期判定按 30 天阈值逐条比较,差的就是那一天。读侧与写侧同笔改,
 # 只改一侧会**新造**一个 fork。
-_CN_TZ = timezone(timedelta(hours=8))
+from app.core.cn_time import CN_TZ as _CN_TZ
 
 
 @dataclass
