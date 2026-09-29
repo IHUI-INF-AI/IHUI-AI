@@ -16,15 +16,11 @@
  *     判据直接喂解析器函数本身,不读源码文本(读文本只能证明"写了那句话")。
  */
 import { readFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { parseSSEChunk } from '@ihui/shared/utils/sse-parse'
-import {
-  clearTerminalWaiting,
-  markTerminalWaiting,
-  type TerminalTaskView,
-} from '../types'
+import { clearTerminalWaiting, markTerminalWaiting, type TerminalTaskView } from '../types'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const CHAT_SRC = readFileSync(resolve(HERE, '../../chat.tsx'), 'utf8')
@@ -71,6 +67,9 @@ describe('D151 ③ 解析器:该帧必须在 sessionId 泛化兜底之前被认�
     const { events } = parseSSEChunk(FRAME)
     expect(events).toHaveLength(1)
     const evt = events[0]
+    // 越界不是"少一条断言",而是后面每一行都对着 undefined 取值 ⇒ 判据会红得看不懂。
+    // 显式抛在这里,红因就是"解析器一帧都没产出"这一件事实。
+    if (!evt) throw new Error('parseSSEChunk 未产出事件帧 ⇒ 本用例的判据没有载体')
     // 这一条就是本票的"端上看不看得见":折成 meta 时 type 与 terminalId 双双丢失
     expect(evt.type).toBe('terminal_interaction')
     expect(evt.terminalInteraction).toMatchObject({
@@ -84,9 +83,9 @@ describe('D151 ③ 解析器:该帧必须在 sessionId 泛化兜底之前被认�
   })
 
   it('terminalId 不是 string ⇒ 丢弃,绝不回落 chunk/meta', () => {
-    expect(parseSSEChunk('data: {"type":"terminal_interaction","sessionId":"s-9"}\n\n').events).toEqual(
-      [],
-    )
+    expect(
+      parseSSEChunk('data: {"type":"terminal_interaction","sessionId":"s-9"}\n\n').events,
+    ).toEqual([])
   })
 })
 
