@@ -46,8 +46,8 @@
 | 10 引用与来源（@ / | chatSession.* | `chatSession.selectionAnnotations.removeAll` | 移除全部划词批注 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.selectionAnnotations.marker` | 批注 {{index}} | L2 | answerArea.audio.alt (J=0.50) |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.selectionAnnotations.directiveLabel` | 批注 {{index}} | L2 | answerArea.audio.alt (J=0.50) |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.open` | 打开速记板 | L3 | 键末段同名+词头同形:我方 ide.fileTreeNode.open=「打开」 |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.close` | 关闭速记板 | L3 | 键末段同名+词头同形:我方 a11y.close=「关闭」 |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.open` | 打开速记板 | MISS |  |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.close` | 关闭速记板 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.title` | Quick Notes | skip | 非中文原文(不计 MISS，只报数) |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.description` | 保存从 Agent 回复中摘出的片段。 | L3 | 子串同形:agentCanvas.typeAgent |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.search` | 搜索速记板 | L3 | 键末段同名+词头同形:我方 knowledgeCard.search=「搜索」 |
@@ -132,7 +132,7 @@
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.emptyDescription` | 在 Agent 回复里划选内容，然后添加到速记板。 | L3 | 子串同形:agentCanvas.typeAgent |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.sourceChat` | 来自“{{title}}” | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.sourceUnknownChat` | 来自任务 | MISS |  |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.copy` | 复制速记 | L3 | 键末段同名+词头同形:我方 a11y.copy=「复制」 |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.copy` | 复制速记 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.copied` | 已复制速记 | L2 | workPanel.linkCopied (J=0.50) |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.copyFailed` | 复制速记失败 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.copyRecord` | 复制 | L1 | a11y.copy |
@@ -163,7 +163,7 @@
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.today` | 今天 | L1 | aiChat.today |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.yesterday` | 昨天 | L1 | aiNews.feed.yesterday |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.unknownTime` | 时间未知 | MISS |  |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.delete` | 删除速记 | L3 | 键末段同名+词头同形:我方 knowledgeCard.delete=「删除」 |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.delete` | 删除速记 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.deleteRecord` | 删除 | L1 | knowledgeCard.delete |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.deleteConfirmTitle` | 删除这条速记？ | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.deleteConfirmDescription` | 正文和图片附件将永久删除，此操作无法撤销。 | MISS |  |
@@ -210,7 +210,7 @@
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.colors.blue` | 蓝色 | L1 | eduSchedule.colors.blue |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.colors.teal` | 青色 | L1 | eduSchedule.colors.teal |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.quickNotes.colors.green` | 绿色 | L1 | eduSchedule.colors.green |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.open` | 打开任务监控 | L3 | 键末段同名+词头同形:我方 ide.fileTreeNode.open=「打开」 |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.open` | 打开任务监控 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.title` | 任务监控 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.linkedIssue` | 关联 Issue | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.empty` | 还没有有价值的内容 | MISS |  |
@@ -237,7 +237,7 @@
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.openSourceFileFailed` | 无法在 Qoder 中预览来源文件。 | L3 | 子串同形:cliImport.sourceQoder |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.title` | 任务回顾 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.updatedAt` | 更新于 {{time}} | L2 | deliveryReview.generatedAt (J=0.50) |
-| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.expand` | 展开任务回顾 | L3 | 键末段同名+词头同形:我方 a11y.expand=「展开」 |
+| 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.expand` | 展开任务回顾 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.moreActions` | 任务回顾更多操作 | L3 | 子串同形:aiChat.actions.menu |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.handoff.menuItem` | 移交到新任务 | MISS |  |
 | 10 引用与来源（@ / | chatSession.* | `chatSession.highlights.recap.handoff.title` | 移交到新任务 | MISS |  |
@@ -307,8 +307,8 @@
 | 10 引用与来源（@ / | composer.* | `composer.referencePreview.edit` | 编辑此消息 | L3 | 键末段同名+词头同形:我方 knowledgeCard.edit=「编辑」 |
 | 10 引用与来源（@ / | composer.* | `composer.referencePreview.editor` | 能力引用输入框 | MISS |  |
 | 10 引用与来源（@ / | composer.* | `composer.referencePreview.placeholder` | 粘贴完整引用或输入 @名称… | MISS |  |
-| 10 引用与来源（@ / | composer.* | `composer.referencePreview.send` | 发送预览 | L3 | 键末段同名+词头同形:我方 a11y.send=「发送」 |
-| 10 引用与来源（@ / | composer.* | `composer.referencePreview.select` | 选择示例能力 | L3 | 键末段同名+词头同形:我方 chatHistory.select=「选择」 |
+| 10 引用与来源（@ / | composer.* | `composer.referencePreview.send` | 发送预览 | MISS |  |
+| 10 引用与来源（@ / | composer.* | `composer.referencePreview.select` | 选择示例能力 | MISS |  |
 | 10 引用与来源（@ / | composer.* | `composer.referencePreview.clear` | 新建输入 | MISS |  |
 | 10 引用与来源（@ / | composer.* | `composer.referencePreview.authorization` | 此预览不请求模型。标签展示不会新增执行授权。 | MISS |  |
 | 10 引用与来源（@ / | composer.* | `composer.referencePreview.source` | 原始输入正文 | MISS |  |
