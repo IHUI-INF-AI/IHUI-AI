@@ -8,29 +8,11 @@
  *
  * 拦的是同一类事故的两个方向 —— "编译期才看得见、而编译只跑工作区":
  *   ① 用了标识符却没 import(守门 77 B6 管档位出口那一种);
- *   ② import 了一个**目标文件根本不导出**的名字(本门 D1)。
+ *   ② import 了一个**目标文件根本不导出**的名字(本门)。
  * 2026-09-24 一天内两类各中一次:前者让真机 release 包启动即崩(ReferenceError: rnRadius),
  * 后者让 main 顶端一处导入从合入起就没定义过(PermissionTierRow,`git log --all -S` 全空),
  * Metro 不做类型检查 ⇒ 打包成功、装机能跑、渲染到那一行才炸;而 `pnpm typecheck` 只看
  * 共享工作区,工作区里那个文件恰好是**更旧的基线**,两边都不红。
- *
- * D4「影子 .js」(2026-09-29 补,起因是一次约 2.5 小时的生产 API 崩溃循环):
- *   本仓的 ESM 约定是「源文件写 `.ts`,说明符写 `.js`」(`import { x } from '../services/foo.js'`
- *   指的就是 `foo.ts`)。一旦**同名且已入库**的 `foo.js` 出现在它旁边,字面路径就赢了那次
- *   解析:`.ts` 被整份遮蔽,而 `.js` 里的 TS 语法(`new Map<string, number>`)被当 JavaScript
- *   解析 ⇒ 启动即 SyntaxError。报错原文只说 "does not provide an export named …",
- *   它把排查方向**主动指错**(去查导出,而真凶是另一个文件),所以这一型既不自愈也极难归因。
- *   两条判红(现库内 0 处 ⇒ 零容忍,与 D1/D2 同一条已清零的存量口径):
- *     · 主判据:入库的 `X.js` 被**至少一条**写成 `./…/X.js` 的说明符字面命中,且同 stem 的
- *       `X.ts`/`X.tsx` 也在库 —— 这一对就是陷阱本身:人读到的是"那个 .ts",运行时拿到的是"那个 .js";
- *     · 次判据:被这样命中的 `X.js` **自身含 TS 专有语法**。走这条约定的 `.js` 十有八九是
- *       "穿了马甲的 TS",而它根本加载不了。探针刻意**窄**并成对(见 TS_SYNTAX_PROBES 上方说明):
- *       假阳的代价不是"多一次误报",是此后每一次提交都被逼 `--no-verify`、连带废掉链上其余门。
- *   只报数、不判红:同名的 `.js`+`.ts` 对而**没人**经 `.js` 说明符指向它 —— 那是死重量而不是陷阱,
- *   判红等于惩罚尚未被踩的坑;静默不报又会让"影子"这一形状在账面上消失,所以逐条报名(`--all`)。
- *   取材口径与前三维一致:入库面用**同一轮的跟踪路径集**(不是 `hasPath` 那个"跟踪 ∪ 磁盘"的并集)
- *   —— 本仓 src 下常年有**未入库**的编译残留 `X.js`,拿磁盘并集判会把别人机器上的产物
- *   记成本仓债务(那正是"滞后的旧草稿被记成债务"那一型)。
  *
  * 判据口径(与 77/83/90 同取向):
  *   - 缺省(全量审计)判 **HEAD blob**,不判工作区 —— 滞后的旧草稿不得记成本仓债务;
@@ -42,7 +24,6 @@
  *   node scripts/check-dangling-local-imports.mjs                 # 全量(判 HEAD)
  *   node scripts/check-dangling-local-imports.mjs --staged        # pre-commit(判索引,锚 HEAD)
  *   node scripts/check-dangling-local-imports.mjs --files a b     # 按文件自验(判工作区)
- *   node scripts/check-dangling-local-imports.mjs --all          # 额外逐条列出 D4 的"只报数"同名对
  *   node scripts/check-dangling-local-imports.mjs --self-test     # 逻辑自检(正反成对)
  * 紧急跳过:HUSKY_SKIP_DANGLING_IMPORTS=1 git commit ...
  */
@@ -53,11 +34,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // safe.directory、显式 stdio、批量读)。本门不再自带那份 `git()` / `catBatch()` —— 五处易错点
 // (裸 'git'、stdio[0]='ignore'、逐文件派生、junction 下的仓库根比较、maxBuffer)只该存在一处。
 import { catBatch, gitRaw } from './lib/face-reader.mjs'
-// D4 的 TS 语法探针必须看**代码面**(注释与字符串整段清空):否则一份把这一型**解释**成散文的
-// 注释(`// 别写成 interface Foo {`)就会被判成"这文件是穿了马甲的 TS"。本仓被这类"门读自己的
-// 解释文字"咬过多次(守门 70/131/135),而遮噪器只许有一台 —— 用 lib/code-mask 那份等长实现,
-// 行号不漂(D4 要报出命中行)。
-import { maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SELF_SKIP = 'HUSKY_SKIP_DANGLING_IMPORTS'
@@ -161,22 +137,13 @@ function resolveCands(rel) {
   return out
 }
 
-/** 说明符的**字面**目标(仓库内相对路径,不猜扩展名);空说明符 / 跑出仓库外 ⇒ null。
- *  与 resolveCands 的分工:那一条问"TS 会把它解析成谁",这一条问"按字面写在盘上的是谁"。
- *  D4 要的是后者 —— 运行时(Node ESM / Metro / 打包器)命中字面 `./x.js` 时,`.ts` 根本没机会。
- *  它同时是 resolveSpec 的前半段(两处各写一遍必在查询串剥除、`..` 越界判定上漂开)。 */
-export function literalSpecTarget(fromPath, rawSpec) {
+function resolveSpec(fromPath, rawSpec) {
   const spec = rawSpec.split('?')[0] // `./x.ts?raw`(Vite 原文导入)等查询后缀
-  if (!spec) return null
+  if (!spec) return []
   const base = resolve(ROOT, dirname(fromPath), spec).replace(/\\/g, '/')
   const rel = base.slice(ROOT.length + 1).replace(/\\/g, '/')
   if (rel.startsWith('..')) return null
-  return rel
-}
-
-function resolveSpec(fromPath, rawSpec) {
-  const rel = literalSpecTarget(fromPath, rawSpec)
-  return rel === null ? [] : resolveCands(rel)
+  return resolveCands(rel)
 }
 
 // ── 解析:导入语句 ────────────────────────────────────────────────────────────────────
@@ -485,10 +452,8 @@ export function resolveAliasSpec(relPath, rawSpec, aliasIndex) {
 /** 一个文件的违规清单。
  *  readFile(path) → 文本 | null;**只对源码建批量读取通道**,资源/JSON 走 hasPath(全量跟踪
  *  路径集合)判存在性 —— 否则会把 `./logo.svg` 这类合法资源导入误判成"D2 解析不到"。
- *  `aliasIndex`(Map<pkgDir, entries[]>)为 null/空 ⇒ 别名导入一律不参与(与旧行为逐字相同)。
- *  `jsSink`(可选)非空时顺手递出本文件的 `.js` 字面说明符落点,供 D4 在同一次解析里配对使用 ——
- *  刻意不另开一遍全树解析(两遍解析必给两个"谁 import 了谁"的口径,而 D1/D4 判的是同一批语句)。 */
-export function auditFile(relPath, readFile, hasPath, aliasIndex, jsSink) {
+ *  `aliasIndex`(Map<pkgDir, entries[]>)为 null/空 ⇒ 别名导入一律不参与(与旧行为逐字相同)。 */
+export function auditFile(relPath, readFile, hasPath, aliasIndex) {
   const exists = hasPath || ((p) => readFile(p) !== null && readFile(p) !== undefined)
   const text = readFile(relPath)
   if (text === null || text === undefined) return []
@@ -504,13 +469,6 @@ export function auditFile(relPath, readFile, hasPath, aliasIndex, jsSink) {
      * **判据扩大射程时,必须同时给出"这一格不判"的出口**,否则新射程就是新的恒红源。
      */
     if (!isRel && !aliasRel) continue
-    if (jsSink) {
-      // D4 的取材点是**字面**路径,不是 resolveCands 的结果 —— 后者已经替读者把 `./x.js` 改写成了
-      // `x.ts`,而本判据要问的恰恰是"运行时按字面命中了谁"。
-      const lit = isRel ? literalSpecTarget(relPath, imp.spec) : aliasRel
-      if (lit && JS_SPEC_RE.test(lit))
-        jsSink.push({ target: lit, by: relPath, line: imp.line, spec: imp.spec })
-    }
     const cands = aliasRel
       ? resolveCands(aliasRel)
       : (() => {
@@ -569,136 +527,6 @@ export function auditFile(relPath, readFile, hasPath, aliasIndex, jsSink) {
   return bad
 }
 
-// ── D4:影子 .js ────────────────────────────────────────────────────────────────────
-/** 只有以 `.js` 结尾的说明符参与 D4 —— 那是本仓"写 `.js` 实指 `.ts`"这一约定的**唯一**形态。
- *  `.jsx`/`.mjs`/`.cjs` 不参与:Node 对它们是字面解析,不存在"读者以为是别的文件"这一歧义。 */
-const JS_SPEC_RE = /\.js$/
-/** 歧义同伴:TS 的 `./x.js` 会被解析器改写成 `x.ts` / `x.tsx` / `x.d.ts`,所以只有前两档构成
- *  遮蔽对。`.d.ts` **刻意不算**同伴 —— 那是已发布包 `x.js` + `x.d.ts` 的正常形态,不是陷阱;
- *  本仓就有现成的两处在证明这条边界有牙:`packages/design-tokens/src/radius.js` 与 `geometry.js`
- *  都是"JS 实现 + `.d.ts` 声明"的单源模块(被 TS 侧按 `.js` 说明符消费),把它们算成同伴
- *  就是把 2 处真合规判成红 —— 而假阳的代价从来不是"多一次误报",是各会话开始绕钩子。 */
-const SHADOW_PARTNERS = ['.ts', '.tsx']
-
-/** 模块说明符行(`import { A as B } from` / `export { A as B }`)—— 这些行里 `as` 是**合法的**
- *  JavaScript 重命名,而 `as const` / `as Foo<T>` 才是 TS 断言。探针族里除了 `import|export type`
- *  之外都不在这类行上跑,免得把"给邻居改个名"读成"这文件是穿了马甲的 TS"。
- *  用反向排除而不是正向匹配:`export interface Foo {` 以 `export` 开头却**不是**说明符行,
- *  把它当说明符行会让 interface 探针在最常见的写法上失明。 */
-const MODULE_CLAUSE_LINE_RE =
-  /^\s*(?:import|export)\b(?!\s+(?:default\s+)?(?:interface|enum|type|abstract|declare|const|let|var|function|class)\b)/
-
-/** 每一条都必须"在合法 JavaScript 里不可能出现"。方向刻意是**漏报优于误报**:
- *  少一条探针只是这一型少一个入口(主判据的同名对还在那儿),多一条宽探针则会把
- *  `f(a, b)` 旁边的正常代码判红,而恒红门的唯一结局是各会话绕过钩子、连带废掉链上其余门。
- *  第 3 位 `moduleSafe` = 在 `import`/`export` 说明符行上仍要跑的那一条。 */
-const TS_SYNTAX_PROBES = [
-  ['import/export type', /(?<![\w$.])(?:import|export)\s+type\b/, true],
-  ['interface 声明', /(?<![\w$.])interface\s+[A-Za-z_$][\w$]*\b/, false],
-  ['enum 声明', /(?<![\w$.])enum\s+[A-Za-z_$][\w$]*\s*\{/, false],
-  ['implements 子句', /(?<![\w$.])implements\s+[A-Za-z_$]/, false],
-  ['satisfies 表达式', /(?<![\w$.])satisfies\s+[A-Za-z_$]/, false],
-  ['变量类型标注', /(?<![\w$.])(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*:(?!:)/, false],
-  ['形参类型标注', /\(\s*[A-Za-z_$][\w$]*\s*\??\s*:/, false],
-  ['泛型实参(new X<…>)', /(?<![\w$.])new\s+[A-Za-z_$][\w$.]*\s*</, false],
-  ['泛型形参约束(<T extends …>)', /<[A-Za-z_$][\w$]*\s+extends\s/, false],
-  ['类型别名', /(?<![\w$.])type\s+[A-Za-z_$][\w$]*\s*(?:<[^<>\n]*>\s*)?=(?!=)/, false],
-  ['as 断言', /(?<![\w$.])as\s+(?:const\b|unknown\b|never\b|readonly\s|[A-Z][\w$]*\s*<|\[)/, false],
-]
-
-/** 一段代码里的 TS 专有语法命中清单(逐行,`{line, marker}`)。
- *  输入是**遮噪后**的面,所以命中一定落在代码上;等长遮罩保证行号与原文件一致。
- *  刻意没有"返回类型标注"(`): Ret {`)那一条 —— `c ? (a) : b => {}` 是合法 JS 而会被它咬到,
- *  代价是把一份正常代码判红;带返回类型的函数在本仓必然同时带形参标注或泛型,不靠这一条也抓得到。 */
-export function probeTypeScriptSyntax(text) {
-  if (typeof text !== 'string') return []
-  const face = maskCommentsStringsAndRegex(text)
-  const out = []
-  const lines = face.split('\n')
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    const moduleClause = MODULE_CLAUSE_LINE_RE.test(line)
-    for (const [marker, re, moduleSafe] of TS_SYNTAX_PROBES) {
-      if (moduleClause && !moduleSafe) continue
-      if (!re.test(line)) continue
-      out.push({ line: i + 1, marker })
-      break // 一行只记一条:命中清单是用来解释"凭什么判红"的,不是用来计数的
-    }
-  }
-  return out
-}
-
-/** D4 的树级判据。`sites` 是 `auditFile` 在同一次遍历里递出来的 `.js` 字面说明符落点
- *  (`{target, by, line, spec}`),`trackedSrc` 是**同一取材面**上过滤过的跟踪源文件集。
- *  返回 `{ byShadow: Map<.js 路径, 违规[]>, deadPairs, undetermined, targeted }`。 */
-export function auditShadowJs(readFile, sites, trackedSrc) {
-  const byTarget = new Map()
-  for (const s of sites || []) {
-    // 只看**入库**的 .js:磁盘上的编译残留是别人机器上的产物,不是本仓债务(见头注口径条)
-    if (!trackedSrc.has(s.target) || SKIP_DIR.test(s.target) || FIXTURE_ROOT.test(s.target)) continue
-    if (!byTarget.has(s.target)) byTarget.set(s.target, [])
-    byTarget.get(s.target).push(s)
-  }
-  const byShadow = new Map()
-  const undetermined = []
-  for (const [jsPath, hits] of byTarget) {
-    const stem = jsPath.replace(/\.js$/, '')
-    const partners = SHADOW_PARTNERS.filter((e) => trackedSrc.has(stem + e))
-    const text = readFile(jsPath)
-    const probe = typeof text === 'string' ? probeTypeScriptSyntax(text) : null
-    if (probe === null && !partners.length) {
-      // 内容取不到又没有同名同伴 ⇒ 两条判据都落空。这一格必须报名,不能被"没进 byShadow"洗成通过。
-      undetermined.push({ file: jsPath, why: '被 .js 说明符字面命中,但内容在本面取不到 ⇒ TS 语法维未判' })
-      continue
-    }
-    if (!partners.length && !probe.length) continue // 普通 JS 模块走这条路:合规,不判
-    const where = hits.map((h) => `${h.by}:${h.line}`).join(', ')
-    const why = []
-    if (partners.length)
-      why.push(`同 stem 的 ${partners.map((e) => stem + e).join(' / ')} 也在库 ⇒ .ts 被字面 .js 遮蔽`)
-    if (probe.length) why.push(`自身含 TS 专有语法:${probe[0].marker}(第 ${probe[0].line} 行)`)
-    if (probe === null) why.push('自身内容在本面取不到 ⇒ 只按同名对判')
-    byShadow.set(jsPath, [
-      {
-        line: probe && probe.length ? probe[0].line : 1,
-        rule: 'D4',
-        raw: `${jsPath} ← ${hits.length} 处 '.js' 说明符`,
-        hint:
-          why.join(';') +
-          ` —— 说明符按本仓约定指的是 .ts,而运行时按字面命中 .js(消费方:${where})` +
-          ';修法:删掉/改名那个 .js(把内容留在 .ts 里),别去改说明符',
-      },
-    ])
-  }
-  // 只报数:同名对在库、却没人经 `.js` 说明符指向 —— 死重量而不是陷阱,判红就是惩罚尚未被踩的坑
-  const deadPairs = []
-  for (const p of trackedSrc) {
-    if (!JS_SPEC_RE.test(p) || byTarget.has(p) || SKIP_DIR.test(p) || FIXTURE_ROOT.test(p)) continue
-    const stem = p.replace(/\.js$/, '')
-    if (SHADOW_PARTNERS.some((e) => trackedSrc.has(stem + e))) deadPairs.push(p)
-  }
-  deadPairs.sort()
-  // "只报数"也必须报名(本仓的口径:计数可以不当判据,但不能替人做出"这一格没人看"的判断) ——
-  //  targets 是"被 '.js' 说明符字面命中的入库 .js"全集,含合规的那些。
-  const targets = [...byTarget.keys()].sort()
-  return { byShadow, deadPairs, undetermined, targets, targeted: byTarget.size }
-}
-
-/** 把 D4 的按文件违规并进取违规表(与 D1/D2/D3 同表 ⇒ 棘轮锚点、打印、退出码三条只有一套语义)。 */
-export function mergeShadow(byFile, shadow) {
-  for (const [f, list] of shadow.byShadow) {
-    const cur = byFile.get(f) || []
-    byFile.set(f, cur.concat(list))
-  }
-  return byFile
-}
-
-/** 两批 `.js` 说明符落点的合并:本次被改动的那些**消费方**在基准面上的记录要整批换掉,
- *  否则同一处消费方会在两个面上各记一次(计数虚高 ⇒ 把无关提交顶过它自己的锚点)。 */
-export function mergeSites(baseSites, pendingSites, pendingSet) {
-  return baseSites.filter((s) => !pendingSet.has(s.by)).concat(pendingSites || [])
-}
-
 /**
  * D3 的**待偿台账**(与守门 13c 的 LOST_ANCHOR_LEDGER 同一条设计:登记必须会过期)。
  * 全量口径对 D1/D2 仍是零容忍(2026-09-24 已清零);D3 是新射程,立项当天 HEAD 上就有
@@ -740,11 +568,11 @@ export function buildAliasIndex(readFile, paths) {
   return { index, unparsed, seen: paths.filter((p) => TSCONFIG_RE.test(p)).length }
 }
 
-/** 按文件聚合(`jsSink` 见 auditFile:同一遍解析顺手收 D4 的落点) */
-export function auditTree(readFile, files, hasPath, aliasIndex, jsSink) {
+/** 按文件聚合 */
+export function auditTree(readFile, files, hasPath, aliasIndex) {
   const byFile = new Map()
   for (const f of files) {
-    const v = auditFile(f, readFile, hasPath, aliasIndex, jsSink)
+    const v = auditFile(f, readFile, hasPath, aliasIndex)
     if (v.length) byFile.set(f, v)
   }
   return byFile
@@ -766,7 +594,6 @@ async function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return selfTest()
   const isStaged = argv.includes('--staged')
-  const SHOW_ALL = argv.includes('--all')
   const fi = argv.indexOf('--files')
   const FILES_MODE = fi >= 0 ? argv.slice(fi + 1).filter((a) => !a.startsWith('--')) : null
   if (process.env[SELF_SKIP] === '1') {
@@ -775,12 +602,6 @@ async function main() {
   }
 
   const headFiles = trackedSourceFiles('HEAD')
-  /** 枚举到 0 个源文件 = 尺子失效,不是"仓库干净"。全量口径对 D1..D4 都是零容忍,
-   *  所以"什么都不判"绝不能顺着这条通道被读成通过(本仓反复记过的那一型)。 */
-  if (!headFiles.length) {
-    console.log('❌ 无法判定:HEAD 上枚举到 0 个跟踪源文件(ls-tree 返回空?)—— 本门未做任何对账')
-    process.exit(2)
-  }
   const headSizes = headBlobSizes()
   const mkRead = (rev, files) => {
     const map = catBatchBudgeted(
@@ -815,17 +636,10 @@ async function main() {
   const readTsHead = mkRead('HEAD', TS_PATHS)
   const aliasHead = buildAliasIndex(readTsHead, TS_PATHS)
   const ALIAS_UNPARSED = aliasHead.unparsed
-  /** D4 的锚点面与消费方清单**恒取全量 HEAD**,不随 `--files` 收窄:那一面只递出声明清单里的
-   *  `.js` 落点时,"把某个 .js 加回来而消费方一行没动"这一型(正是本次生产事故的形状)
-   *  会在自验模式下静默 —— 漏的那一格恰好是本判据立项的唯一理由。 */
-  const jsSitesHead = []
-  const byHead = auditTree(readHead, headFiles, hasPath, aliasHead.index, jsSitesHead)
-  const shadowHead = auditShadowJs(readHead, jsSitesHead, new Set(headFiles))
-  mergeShadow(byHead, shadowHead)
+  const byHead = auditTree(readHead, scanSet, hasPath, aliasHead.index)
   const headCountOf = (p) => (byHead.get(p) || []).length
 
   let byPending
-  let shadowPending = shadowHead
   let stagedCount = 0
   let contentMode = 'HEAD 内容'
   if (isStaged) {
@@ -843,17 +657,7 @@ async function main() {
     const readTsIdx = mkRead('', tsIdx)
     const anyTs = (p) => readTsIdx(p) ?? readTsHead(p)
     const aliasStaged = buildAliasIndex(anyTs, tsIdx.length ? tsIdx : TS_PATHS)
-    const readPending = (p) => (staged.includes(p) ? readIdx(p) : readHead(p))
-    const jsSitesStaged = []
-    byPending = auditTree(readPending, staged, hasPath, aliasStaged.index, jsSitesStaged)
-    // D4 在暂存档上要跑**整面**(索引内容 ⊕ 其余 HEAD 内容)而不是只跑暂存清单:新加的
-    // 影子 `.js` 常常不在这枚提交里被 import,而"它被 import"这一事实本身就来自未改动的那些消费方。
-    shadowPending = auditShadowJs(
-      readPending,
-      mergeSites(jsSitesHead, jsSitesStaged, new Set(staged)),
-      new Set(trackedSourceFiles('')),
-    )
-    mergeShadow(byPending, shadowPending)
+    byPending = auditTree((p) => (staged.includes(p) ? readIdx(p) : readHead(p)), staged, hasPath, aliasStaged.index)
   } else if (FILES_MODE) {
     contentMode = `工作区内容(--files ${FILES_MODE.length} 个,仅供自验,不作结论)`
     const wread = (p) => {
@@ -863,14 +667,7 @@ async function main() {
         return null
       }
     }
-    const jsSitesFiles = []
-    byPending = auditTree(wread, FILES_MODE, (p) => wread(p) !== null, aliasHead.index, jsSitesFiles)
-    shadowPending = auditShadowJs(
-      wread,
-      mergeSites(jsSitesHead, jsSitesFiles, new Set(FILES_MODE)),
-      new Set([...trackedSourceFiles(''), ...headFiles, ...FILES_MODE]),
-    )
-    mergeShadow(byPending, shadowPending)
+    byPending = auditTree(wread, FILES_MODE, (p) => wread(p) !== null, aliasHead.index)
   } else {
     byPending = byHead
   }
@@ -891,28 +688,6 @@ async function main() {
   console.log(
     `[dangling-imports] 扫描 ${isStaged ? `${stagedCount} 个暂存源文件(锚点面 ${scanSet.length})` : `${scanSet.length} 文件`} | 悬空 ${total} 处(HEAD 存量容忍 ${tolerated} / 新增 ${fresh.length} 文件)`,
   )
-  /** D4 的三个计数与上面那行同屏:"影子 0 处"和"这一遍根本没扫到任何 `.js` 说明符"在只印总
-   *  行数的报告里长得一模一样 —— 上面别名表那段注释记的就是这条教训,新维度不得重犯。 */
-  console.log(
-    `[dangling-imports] D4 影子 .js:被 '.js' 说明符字面命中的入库 .js ${shadowPending.targeted} 个` +
-      ` | 判红候选 ${shadowPending.byShadow.size} 个` +
-      ` | 只报数(同名对无人指向)${shadowPending.deadPairs.length} 个` +
-      (shadowPending.undetermined.length ? ` | 未判定 ${shadowPending.undetermined.length} 个` : ''),
-  )
-  for (const u of shadowPending.undetermined) console.log(`   ⚠️ D4 未判定 ${u.file}:${u.why}`)
-  if (SHOW_ALL && shadowPending.targets.length)
-    console.log(
-      `   D4 被字面命中的入库 .js 全集(${shadowPending.targets.length} 个,含合规的那些 —— 名单决定这一维到底看了谁):\n` +
-        shadowPending.targets.map((p) => `     ${p}`).join('\n'),
-    )
-  if (SHOW_ALL && shadowPending.deadPairs.length)
-    console.log(
-      `   D4 只报数的同名 .js + .ts/.tsx 对(共 ${shadowPending.deadPairs.length} 个,无人经 '.js' 说明符指向 ⇒ 死重量而非陷阱;逐个复核后另计一批):` +
-        shadowPending.deadPairs
-          .slice(0, 50)
-          .map((p) => `\n     ${p}`)
-          .join(''),
-    )
   //  **全量审计零容忍**(2026-09-24 存量清零后钉死):HEAD 普查必须为 0。
   //    为什么不放在 `--staged`:那会因别人未入库的回归拦住无关提交(= 逼人绕过,连带废掉全部守门);
   //    全量模式只跑在 check:all / CI,正适合当"合并把已修好的悬空导入带回来"的哨兵。
@@ -928,7 +703,7 @@ async function main() {
         d3Ledgered.map((v) => `\n   ${v.file}:${v.line} ${v.raw}`).join(''),
     )
   if (!isStaged && !FILES_MODE && total - d3Ledgered.length > 0) {
-    console.log(`❌ 全量口径为零容忍:HEAD 上仍有 ${total} 处悬空具名导入 / 影子 .js(存量已于 2026-09-24 清零,D4 立门当天现读为 0)`)
+    console.log(`❌ 全量口径为零容忍:HEAD 上仍有 ${total} 处悬空具名导入(存量已于 2026-09-24 清零)`)
     for (const [f, list] of byPending)
       for (const v of list) console.log(`   ${f}:${v.line} [${v.rule}] ${v.raw}  → ${v.hint}`)
     console.log('   单独复现:node scripts/check-dangling-local-imports.mjs')
@@ -936,12 +711,12 @@ async function main() {
     process.exit(1)
   }
   if (!fresh.length) {
-    console.log('✅ 无新增(悬空具名导入 / 影子 .js)' + (total ? `(存量 ${total} 处如实报数,见下)` : ''))
+    console.log('✅ 无新增悬空具名导入' + (total ? `(存量 ${total} 处如实报数,见下)` : ''))
     for (const [f, list] of byPending)
       for (const v of list) console.log(`   · 存量 ${f}:${v.line} [${v.rule}] ${v.raw}`)
     return
   }
-  console.log(`❌ 新增 ${fresh.length} 个文件有解析不到的具名导入,或成了遮蔽同 stem .ts 的影子 .js:`)
+  console.log(`❌ 新增 ${fresh.length} 个文件存在解析不到的具名导入:`)
   for (const { file, list, tol } of fresh) {
     console.log(`   ${file}(HEAD 自身 ${tol} 处 → 本次 ${list.length} 处)`)
     for (const v of list) console.log(`      :${v.line} [${v.rule}] ${v.raw}  → ${v.hint}`)
@@ -1184,147 +959,17 @@ function selfTest() {
       },
       red: 1,
     },
-    // ── D4:影子 .js(2026-09-29 立,起因是一次约 2.5 小时的生产 API 崩溃循环)──────────
-    {
-      name: 'D4 主判据:入库 X.js 被 .js 说明符字面命中、同 stem X.ts 也在库 ⇒ 必拦(正例)',
-      files: {
-        's/x.ts': 'export const Real = 1',
-        // 内容故意写成**普通 JS**:主判据不需要"它是穿了马甲的 TS",同名对本身就已经是陷阱。
-        's/x.js': 'const Real = 1\nexport { Real }',
-        's/i.ts': "import { Real } from './x.js'\nexport const Y = Real",
-      },
-      red: 0,
-      d4: 1,
-    },
-    {
-      name: "D4 反向对照:同一对文件里没人写 '.js' 说明符 ⇒ 只报数,不判红(与上条成对)",
-      files: {
-        's/x.ts': 'export const Real = 1',
-        's/x.js': 'const Real = 1\nexport { Real }',
-        's/i.ts': "import { Real } from './x'\nexport const Y = Real",
-      },
-      red: 0,
-      d4: 0,
-      dead: 1,
-    },
-    {
-      name: 'D4 反向对照:`x.js` + `x.d.ts` 是已发布包的正常形态,不是遮蔽对(同名的两回事)',
-      files: {
-        'p/x.d.ts': 'export declare const Real: number',
-        'p/x.js': 'export const Real = 1',
-        'p/i.ts': "import { Real } from './x.js'\nexport const Y = Real",
-      },
-      red: 0,
-      d4: 0,
-    },
-    {
-      name: 'D4 次判据:没有同名 .ts,但被这样命中的 .js 自身是穿了马甲的 TS ⇒ 必拦(生产事故原形)',
-      files: {
-        'q/i.ts': "import { acquire } from './svc.js'\nexport const Y = acquire",
-        'q/svc.js':
-          'const counters = new Map<string, number>()\nexport function acquire(userId: string): number {\n  return 1\n}\n',
-      },
-      red: 0,
-      d4: 1,
-    },
-    {
-      name: 'D4 次判据反向对照:合法普通 JS 模块(解构/可选链/模板/正则/三元/比较/new)一律不得判红',
-      files: {
-        'r/i.ts': "import { helper } from './plain.js'\nexport const Y = helper",
-        'r/plain.js': [
-          'const base = 1',
-          'export function helper(a, b) {',
-          '  const merged = { ...a, b }',
-          '  const name = a?.label ?? `n${base + b}`',
-          '  const hit = /^(foo|bar)$/.test(name)',
-          '  const small = a < b && b < c',
-          '  const timed = new Date() < new Date(0)',
-          '  for (let i = 0; i < 3; i++) if (i > 1) return i',
-          '  return hit ? (merged) : (timed ? small : name)',
-          '}',
-          'class Thing extends Object { m(x = { k: 1 }) { return x } }',
-          'const label = "interface Foo { a: number }"',
-          'export { Thing as Cls }',
-        ].join('\n'),
-      },
-      red: 0,
-      d4: 0,
-    },
-    {
-      name: 'D4 注释/字符串里写出的该形态一律不计(门不得读自己的解释文字 —— 与次判据正例成对)',
-      files: {
-        'u/i.ts': "import { acquire } from './svc.js'\nexport const Y = acquire",
-        'u/svc.js': [
-          '// 别在这里写 new Map<string, number>() —— 那正是把生产 API 打崩的形状。',
-          '// interface Foo { a: number } 只是注释,不是代码。',
-          'const note = "export function acquire(userId: string): number {}"',
-          'export function acquire(id) {',
-          '  return id',
-          '}',
-        ].join('\n'),
-      },
-      red: 0,
-      d4: 0,
-    },
-    {
-      name: 'D4 只报数那一族:同名 .js + .ts 对在库、无人经 .js 指向 ⇒ 判红 0 处、deadPairs 点名 1 个',
-      files: {
-        'v/x.ts': 'export const Real = 1',
-        'v/x.js': 'const Real = 1\nexport { Real }',
-      },
-      red: 0,
-      d4: 0,
-      dead: 1,
-    },
-    {
-      name: 'D4 内容取不到又无同名同伴 ⇒ 落"未判定"点名,既不冒红也不记为通过',
-      files: {
-        'w/i.ts': "import { Real } from './x.js'\nexport const Y = Real",
-        'w/x.js': 'export const Real = 1',
-      },
-      // 目标读不出内容时两条判据各自如实表态:D1 报"导出名单取不到 ⇒ 悬空",D4 报"语法维未判",
-      // 谁都不许把这一格洗成通过(把没判写成判过了,是本仓最高频的失效型)。
-      noRead: ['w/x.js'],
-      red: 1,
-      d4: 0,
-      undet: 1,
-    },
-    {
-      name: "D4 别名映射到 `.js` 也算字面命中(同一约定的另一条入口,漏掉就等于给 @/ 留了暗格)",
-      files: {
-        'apps/web/tsconfig.json': '{"compilerOptions":{"paths":{"@/*":["./src/*"]}}}',
-        'apps/web/src/x.ts': 'export const A = 1',
-        'apps/web/src/x.js': 'export const A = 1',
-        'apps/web/src/i.ts': "import { A } from '@/x.js'\nexport const B = A",
-      },
-      red: 0,
-      d4: 1,
-    },
   ]
   let fail = 0
   for (const c of cases) {
-    const noRead = new Set(c.noRead || [])
-    const read = (p) => (p in c.files && !noRead.has(p) ? c.files[p] : null)
+    const read = (p) => (p in c.files ? c.files[p] : null)
     const has = (p) => p in c.files
     // 别名表由**同一份生产实现**建,不在自检里抄一份(§22c:抄出去的判据只会与实现漂移)
     const { index } = buildAliasIndex(read, Object.keys(c.files))
-    const sites = []
-    const n = Object.keys(c.files).reduce((s, p) => s + auditFile(p, read, has, index, sites).length, 0)
-    // D4 与 D1/D2/D3 走**同一对参数**:消费方清单由上面那一遍解析顺手递出(不再抄一遍解析器)
-    const shadow = auditShadowJs(read, sites, new Set(Object.keys(c.files)))
-    const d4 = shadow.byShadow.size
-    const dead = shadow.deadPairs.length
-    const undet = shadow.undetermined.length
-    const ok =
-      n === c.red &&
-      d4 === (c.d4 ?? 0) &&
-      dead === (c.dead ?? 0) &&
-      undet === (c.undet ?? 0) &&
-      [...shadow.byShadow.values()].flat().every((v) => v.rule === 'D4')
+    const n = Object.keys(c.files).reduce((s, p) => s + auditFile(p, read, has, index).length, 0)
+    const ok = n === c.red
     if (!ok) fail++
-    console.log(
-      `${ok ? '✅' : '❌'} ${c.name} (悬空 ${n} 处/期望 ${c.red};影子 ${d4} 处/期望 ${c.d4 ?? 0};只报数 ${dead}/期望 ${c.dead ?? 0};未判定 ${undet}/期望 ${c.undet ?? 0})`,
-    )
+    console.log(`${ok ? '✅' : '❌'} ${c.name} (${n} 处,期望 ${c.red})`)
   }
   {
     // 纯函数侧:映射形态与"读不懂 ≠ 没有别名"的三态
@@ -1340,46 +985,6 @@ function selfTest() {
     if (!ok) fail++
     console.log(
       `${ok ? '✅' : '❌'} aliasEntries 三态:有映射建表 / 无 paths 返回 [] / 解析失败返回 null 且被计入 unparsed`,
-    )
-  }
-  {
-    // TS 语法探针的**逐条**成对证明。为什么光有上面那几条端到端用例不够:端到端只说"这一族判红/
-    // 不判红",而某一条探针被顺手放宽(例如 `): Type {` 那一档)时,只有构造面能点名是哪条。
-    const TS_SAMPLES = [
-      ['interface 声明', 'export interface Foo {\n  a: number\n}'],
-      ['enum 声明', 'export enum E { A, B }'],
-      ['implements 子句', 'class A implements B {}'],
-      ['satisfies 表达式', 'const cfg = { a: 1 } satisfies B'],
-      ['变量类型标注', 'const n: number = 1'],
-      ['形参类型标注', 'export function f(a: string, b?: number) {}'],
-      ['泛型实参(new X<…>)', 'const m = new Map<string, number>()'],
-      ['泛型形参约束', 'function g<T extends object>(x: T) { return x }'],
-      ['类型别名', 'type Kind = 1 | 2'],
-      ['as 断言', 'const v = data as const'],
-      ['import type', "import type { A } from './b'"],
-    ]
-    const MIS_SAMPLES = [
-      // 这一条刻意取 `as readonly`:若没有"说明符行不跑 as 探针"那一档,它就会被读成 TS 断言
-      ['模块重命名不是断言', 'export { a as readonly }'],
-      ['普通重命名', 'export { a as B }'],
-      ['比较不是泛型实参', 'const ok = new Date() < new Date(0)'],
-      ['for 头不是形参标注', 'for (let i = 0; i < n; i++) {}'],
-      ['三元带括号不是返回类型', 'const z = c ? (a) : b'],
-      ['箭头默认参是对象', 'const fn = (x = { k: 1 }) => x'],
-      ['对象字面量里的冒号', 'const o = { type: Foo, a: 1 }'],
-      ['解构形参', '({ a, b }) => a + b'],
-      ['spread 与可选链', 'const y = { ...x, z: x?.w ?? 1 }'],
-    ]
-    const missed = TS_SAMPLES.filter(([, t]) => probeTypeScriptSyntax(t).length === 0).map(([n]) => n)
-    const falseHit = MIS_SAMPLES.filter(([, t]) => probeTypeScriptSyntax(t).length > 0).map(([n]) => n)
-    // 同一个形状只写在注释 / 字符串里时必须一律不命中(门读自己的解释文字 = 本仓最高频失效型)
-    const prose = probeTypeScriptSyntax(
-      '// export interface Foo { a: number }\nconst note = "const n: number = 1; new Map<string, number>()"\n/* type Kind = 1 | 2 */\nexport const ok = 1',
-    )
-    const ok = !missed.length && !falseHit.length && prose.length === 0
-    if (!ok) fail++
-    console.log(
-      `${ok ? '✅' : '❌'} TS 探针成对:${TS_SAMPLES.length} 条真形态全部命中 / ${MIS_SAMPLES.length} 条合法 JS 全部不命中 / 注释与字符串里的该形态不计(实得漏判 ${missed.length}、假阳 ${falseHit.length}、散文命中 ${prose.length})`,
     )
   }
   // 真仓对照:HEAD 上这一类的真实存量必须是**已知且有限**的,判据不得凭空放大
@@ -1405,30 +1010,17 @@ function selfTest() {
     { timeout: GIT_TIMEOUT },
   )
   const aliasReal = buildAliasIndex((p) => tsBlobs.get(`HEAD:${p}`) ?? null, tsPaths)
-  const jsSitesReal = []
   const found = auditTree(
     read,
     real,
     (p) => trackedAll.has(p) || existsSync(join(ROOT, p)),
     aliasReal.index,
-    jsSitesReal,
   )
-  // D4 走的是**同一遍解析**递出来的落点,取同伴/读 .js 内容也都在这一个面上 —— 清单与内容分两面
-  //  正是守门 77/101/118 记过的那类"自洽却错位"的尺子。
-  const shadowReal = auditShadowJs(read, jsSitesReal, new Set(real))
-  mergeShadow(found, shadowReal)
   const total = [...found.values()].reduce((s, v) => s + v.length, 0)
   const d3n = [...found.values()].flat().filter((v) => v.rule === 'D3').length
-  const d4n = [...found.values()].flat().filter((v) => v.rule === 'D4').length
   console.log(
-    `\n📎 真仓 HEAD 实测:${real.length} 个跟踪源文件,悬空+影子 ${total} 处(其中 D3 ${d3n} 处、D4 ${d4n} 处;别名表 ${aliasReal.index.size} 个包目录、${aliasReal.unparsed} 份解析失败)`,
+    `\n📎 真仓 HEAD 实测:${real.length} 个跟踪源文件,悬空 ${total} 处(其中 D3 ${d3n} 处;别名表 ${aliasReal.index.size} 个包目录、${aliasReal.unparsed} 份解析失败)`,
   )
-  console.log(
-    `📎 D4 现读:被 '.js' 说明符字面命中的入库 .js ${shadowReal.targeted} 个 | 判红候选 ${shadowReal.byShadow.size} 个 | 只报数(同名对无人指向)${shadowReal.deadPairs.length} 个 | 未判定 ${shadowReal.undetermined.length} 个`,
-  )
-  for (const u of shadowReal.undetermined) console.log(`   ⚠️ D4 未判定 ${u.file}:${u.why}`)
-  if (shadowReal.deadPairs.length)
-    console.log(`   D4 只报数的同名对:${shadowReal.deadPairs.slice(0, 20).join(', ')}${shadowReal.deadPairs.length > 20 ? ' …' : ''}`)
   for (const [f, list] of found)
     for (const v of list) console.log(`   ${f}:${v.line} [${v.rule}] ${v.raw}`)
   // 与主判据**共用同一份表**:台账内的 D3(G-195)只报数不计红。两处各写一遍必然漂移,
@@ -1450,7 +1042,7 @@ function selfTest() {
     console.log(`❌ ${fail} 例失败`)
     process.exit(1)
   }
-  console.log(`\n全部 ${cases.length + 2} 例通过(含真仓 HEAD 实测与探针成对例)`)
+  console.log(`\n全部 ${cases.length + 1} 例通过(含真仓 HEAD 实测)`)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href

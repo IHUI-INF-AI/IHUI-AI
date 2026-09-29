@@ -43,8 +43,6 @@ export * from './legacy-migration.js'
 
 // IDE 工作区类型契约 (2026-07-22 立,自研 IDE 界面)
 export * from './ide-workspace.js'
-// D147:W3C traceparent 的跨端编解码(端侧生成 + 回带读取)。唯一出口,不得在端内另写一份。
-export * from './traceparent.js'
 
 // 开发者 API Key 跨端契约(2026-07-22 立,统一权限点枚举 + 鉴权类型 + /v1/* 响应格式)
 export * from './api-key.js'

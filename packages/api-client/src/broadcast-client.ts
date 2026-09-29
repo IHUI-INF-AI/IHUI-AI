@@ -177,8 +177,7 @@ class UserBroadcastChannel {
   private buildClient(config: UserBroadcastConfig): WebSocketClient<InboundMessage> {
     const urlBuilder =
       config.urlBuilder ?? ((token: string) => buildBroadcastWsUrl(config.baseUrl, token))
-    // 下面这些回调全是箭头函数,`this` 词法上就是本实例 —— 之前那句 `const channel = this`
-    // 是多余的别名(eslint no-this-alias 判红,CI 的 lint 步骤因此恒红)。
+    const channel = this
     return new WebSocketClient<InboundMessage>(
       {
         urlBuilder,
@@ -189,15 +188,15 @@ class UserBroadcastChannel {
         ...(config.webSocketFactory ? { webSocketFactory: config.webSocketFactory } : {}),
       },
       {
-        onOpen: () => this.emitState('open'),
-        onClose: () => this.emitState('closed'),
-        onError: () => this.emitState('closed'),
+        onOpen: () => channel.emitState('open'),
+        onClose: () => channel.emitState('closed'),
+        onError: () => channel.emitState('closed'),
         onMessage: (msg: InboundMessage) => {
           if ('__undetermined' in msg) {
-            this.ingest(msg.raw)
+            channel.ingest(msg.raw)
             return
           }
-          this.ingest(msg)
+          channel.ingest(msg)
         },
       } as WebSocketClientHandlers<InboundMessage>,
     )

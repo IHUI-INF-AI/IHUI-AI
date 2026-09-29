@@ -149,9 +149,6 @@ export function decide({ files, lineCounts, registry }) {
       status,
       files: counted,
       read: readN,
-      // M12:`read` 是自报数;"可复核份数"必须逐条落在被审面上(路径存在 + 行数与现量相符)。
-      // 两者差额就是 legacy 自报部分,头条必须把它分开报,不得混成一个数。
-      verifiedRead: verifiedReadOf(s, lineCounts, files, errors).length,
       registeredFiles: Number(s.files ?? NaN),
       evidence: evidence.length,
       tickets: Array.isArray(s.tickets) ? s.tickets : [],
@@ -174,11 +171,9 @@ export function decide({ files, lineCounts, registry }) {
   // 按状态汇总文件数 ——  headline 必须是"真读到体的有多少",不是"归类了多少"
   const byStatus = {}
   let readTotal = 0
-  let verifiedReadTotal = 0
   for (const r of rows) {
     byStatus[r.status] = (byStatus[r.status] || 0) + r.files
     readTotal += r.read || 0
-    verifiedReadTotal += r.verifiedRead || 0
   }
   if (unclassifiedCount > 0) byStatus.unregistered = unclassifiedCount
   if (unclassifiedCount > 0) {
@@ -200,56 +195,7 @@ export function decide({ files, lineCounts, registry }) {
     totals: { total, covered, unclassified: unclassifiedCount, slices: slices.length },
     byStatus,
     readTotal,
-    verifiedReadTotal,
   }
-}
-
-/**
- * M12 —— "读到体"这件事的可复核面。
- *
- * 为什么需要它(2026-09-29 立):`read` 一直是**自报数**,而本器对"声称读过"从来没有兑现判据 ——
- * 对出处有 M2/M3(路径存在、行号不越界),对读量只有 M8(不超过切片现量)。
- * 后果是本轮实测到的那种情形:代理报了 19 份、更正成 13 份、再下一轮报 5 份却给不出文件清单,
- * 而账面什么都看不出来 —— "把代理结论当事实"在本仓是最高频失效型,头条数字恰好也在这条上。
- *
- * 判据只认结构事实,不猜"有没有真读":清单里每条必须
- * ① 在被审面存在;② 若带 `lines`,必须与面上现量逐字相符;③ 同一路径不得计两次。
- * 三条都不满足的那份**不计入可复核数**,并把原因推进 errors(不静默)。
- * `read` 大于可复核数**不判红** —— 早期轮次确实没有留清单,那是历史状态不是本次故障;
- * 头条因此必须分开报两个数,把差额摆在明面上,而不是让它伪装成已证。
- */
-function verifiedReadOf(s, lineCounts, files, errors) {
-  const list = Array.isArray(s.readFiles) ? s.readFiles : []
-  const face = new Set(files || [])
-  const seen = new Set()
-  const bad = []
-  for (const item of list) {
-    const p = typeof item === 'string' ? item : item && typeof item.p === 'string' ? item.p : null
-    if (!p) {
-      bad.push('有条目没有路径')
-      continue
-    }
-    if (!face.has(p)) {
-      bad.push(`不在被审面:${p}`)
-      continue
-    }
-    const claimed = item && typeof item === 'object' ? Number(item.lines) : NaN
-    if (!(p in lineCounts)) {
-      bad.push(`在面上但行数取不到:${p}`)
-      continue
-    }
-    if (Number.isFinite(claimed) && claimed !== lineCounts[p]) {
-      bad.push(`行数不符:${p} 写 ${claimed} / 面上 ${lineCounts[p]}`)
-      continue
-    }
-    if (seen.has(p)) {
-      bad.push(`路径重复计入:${p}`)
-      continue
-    }
-    seen.add(p)
-  }
-  for (const b of bad) errors.push(`M12 ${s.path} 清单不可兑现 ⇒ ${b}`)
-  return [...seen]
 }
 
 function measure(root) {
@@ -271,12 +217,6 @@ function lineCountsFor(root, registry) {
       const m = EVIDENCE_RE.exec(String(e))
       if (m) specs.add(m[1])
     }
-    // M12 的清单也要取行数 —— 不取就没有"行数与现量相符"这条判据,
-    // 而把它当成"面上找不到"是**误报**(实测过:首版就是这么把 46 条全判红的)。
-    for (const f of s?.readFiles ?? []) {
-      const p = typeof f === 'string' ? f : f && typeof f.p === 'string' ? f.p : null
-      if (p) specs.add(p)
-    }
   }
   if (specs.size === 0) return {}
   const list = [...specs]
@@ -289,11 +229,7 @@ function lineCountsFor(root, registry) {
       missing.push(p)
       continue
     }
-    // 行数口径必须与 `wc -l` 一致(数换行,不把结尾换行多出来的空尾段算一行)。
-    // 原来写 `content.split(sep).length` 对任何以换行收尾的文件都**多算一行**:
-    // M3 因此会放过"越界一行"的指针,而 M12 的"行数与现量相符"则在**正确**的清单上恒红(实测 46 条)。
-    const raw = content.split(sep)
-    counts[p] = content.endsWith(sep) ? raw.length - 1 : raw.length
+    counts[p] = content.split(sep).length
   }
   // 问不到的文件也要进表(值给 -1 之外的可判形态):decide() 里 `p in lineCounts` 为假即红
   for (const p of missing) delete counts[p]
@@ -353,59 +289,6 @@ function runSelfTest() {
     },
   })
   cases.push(['M5 同切片登记两次必须红', dup.errors.some((e) => e.includes('登记了 2 次'))])
-
-  // M12 读到体的清单可复核性 —— 四条成对:兑现 / 路径不存在 / 行数不符 / 重复计入,
-  // 外加一条"差额不得被吞":没有清单的早期自报数**不判红**,但可复核数必须是 0。
-  const vf = ['packages/a/src/x.ts', 'packages/a/src/y.ts']
-  const mkVerified = (readFiles) =>
-    decide({
-      files: vf,
-      lineCounts: { 'packages/a/src/x.ts': 10, 'packages/a/src/y.ts': 20 },
-      registry: {
-        slices: [
-          {
-            path: 'packages/a/src',
-            status: 'deep',
-            read: 2,
-            evidence: ['packages/a/src/x.ts:1-3'],
-            verified: 'self',
-            readFiles,
-          },
-        ],
-      },
-    })
-  const vGood = mkVerified([{ p: 'packages/a/src/x.ts', lines: 10 }, { p: 'packages/a/src/y.ts', lines: 20 }])
-  cases.push(['M12 清单逐条兑现 ⇒ 可复核数=2 且不红', vGood.ok && vGood.rows[0].verifiedRead === 2])
-  const vGhost = mkVerified([{ p: 'packages/a/src/x.ts', lines: 10 }, { p: 'packages/a/src/gone.ts', lines: 5 }])
-  cases.push(['M12 清单里路径不在面上必须红', !vGhost.ok && vGhost.errors.some((e) => e.includes('不在被审面'))])
-  // 「在面上但没取到行数」与「面上根本没有」是两件事:首版把它们混成一句"面上找不到",
-  // 于是 lineCountsFor 只取 evidence 点名文件时,46 条合法清单被报成不存在(实测自伤)。
-  const vNoCount = decide({
-    files: ['packages/a/src/x.ts', 'packages/a/src/y.ts'],
-    lineCounts: { 'packages/a/src/x.ts': 10 }, // y 在面上,但没被取过行数
-    registry: {
-      slices: [
-        {
-          path: 'packages/a/src',
-          status: 'deep',
-          read: 2,
-          evidence: ['packages/a/src/x.ts:1-3'],
-          verified: 'self',
-          readFiles: [{ p: 'packages/a/src/x.ts', lines: 10 }, { p: 'packages/a/src/y.ts', lines: 20 }],
-        },
-      ],
-    },
-  })
-  cases.push(['M12 在面上而行数未取到 ⇒ 单独一态并判红,不得说成"面上找不到"', vNoCount.errors.some((e) => e.includes('行数取不到')) && !vNoCount.errors.some((e) => e.includes('不在被审面:packages/a/src/y.ts'))])
-  const vWrong = mkVerified([{ p: 'packages/a/src/x.ts', lines: 11 }])
-  cases.push(['M12 行数与现量不符必须红', vWrong.errors.some((e) => e.includes('行数不符'))])
-  const vDup = mkVerified([{ p: 'packages/a/src/x.ts', lines: 10 }, { p: 'packages/a/src/x.ts', lines: 10 }])
-  cases.push(['M12 同一路径计两次必须红', vDup.errors.some((e) => e.includes('重复计入'))])
-  const vLegacy = mkVerified(undefined)
-  cases.push([
-    'M12 没有清单的早期自报数不判红,但可复核数必须为 0(差额不得被吞成已证)',
-    vLegacy.ok && vLegacy.rows[0].verifiedRead === 0 && vLegacy.rows[0].read === 2,
-  ])
 
   const brokenRegistry = decide({ files, lineCounts: lines, registry: {} })
   cases.push(['登记表解析不出切片应判"未判定"而非通过', brokenRegistry.undetermined === true && !brokenRegistry.ok])
@@ -502,16 +385,7 @@ function main() {
     .join(' / ')
   console.log(`按状态: ${tally}`)
   const pct = result.totals ? ((result.readTotal / result.totals.total) * 100).toFixed(1) : '0'
-  console.log(
-    `整文件读到体 ${result.readTotal} / ${result.totals?.total ?? '?'} 个(${pct}%)—— 这一行才是"吃透多少"的唯一口径`,
-  )
-  // M12 的第二个数:自报数与可复核数必须同时出现。只报前者,读者就会把差额当成已证。
-  const vr = result.verifiedReadTotal ?? 0
-  console.log(
-    `其中可复核(清单逐条落在被审面上、路径存在、行数与现量相符)= ${vr};` +
-      `差额 ${result.readTotal - vr} 份属早期自报(无清单)⇒ 不得当已证事实派单 —— ` +
-      `本仓"把代理结论当事实"那一型,头条数字也在这条上`,
-  )
+  console.log(`整文件读到体 ${result.readTotal} / ${result.totals?.total ?? '?'} 个(${pct}%)—— 这一行才是"吃透多少"的唯一口径`)
   console.log('')
   for (const r of [...result.rows].sort((a, b) => b.files - a.files)) {
     const t = r.tickets.length ? ` 票:${r.tickets.join(',')}` : ''

@@ -44,7 +44,7 @@ describe('未识别 SSE 事件名的计数与一次性报名', () => {
     parseAgentTaskEvent('dup-event', raw)
     expect(unknownSseEventCounts()['dup-event']).toBe(2)
     expect(notices).toHaveLength(1)
-    expect(notices[0]?.count).toBe(1)
+    expect(notices[0].count).toBe(1)
   })
 
   it('② 已知事件名(9 个被本工厂路由的)不得产生任何计数或报名(反向锁)', () => {
@@ -85,7 +85,7 @@ describe('未识别 SSE 事件名的计数与一次性报名', () => {
       // 断言必须写在 finally 之前 —— mockRestore() 会连带清空 calls 历史,
       // 放在还原之后断言就是"测自己的收尾",红绿都不说明任何事。
       expect(warn).toHaveBeenCalledTimes(1)
-      expect(String(warn.mock.calls[0]?.[0])).toContain('no-host-reporter')
+      expect(String(warn.mock.calls[0][0])).toContain('no-host-reporter')
       expect(unknownSseEventCounts()['no-host-reporter']).toBe(2)
     } finally {
       warn.mockRestore()

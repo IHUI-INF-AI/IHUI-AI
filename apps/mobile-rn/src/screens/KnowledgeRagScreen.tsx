@@ -31,7 +31,6 @@ import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { BackChevron } from '@ihui/rn-app'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -192,7 +191,11 @@ export function KnowledgeRagScreen() {
 
   const renderHeader = (title: string, onBack: () => void) => (
     <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={resolvedTheme} />
+      <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Text className="text-sm" style={{ color: tokens.text.tertiary }}>
+          {t('common.back')}
+        </Text>
+      </TouchableOpacity>
       <Text className="max-w-[60%] truncate text-base font-medium">{title}</Text>
       <View className="w-10" />
     </View>
@@ -209,7 +212,7 @@ export function KnowledgeRagScreen() {
         onSubmitEditing={() => {
           void onSearch()
         }}
-        className={`flex-1 rounded-sm border px-3 py-2 text-sm ${dark ? 'border-neutral-700 bg-neutral-800 text-white' : 'border-gray-300 bg-white text-black'}`}
+        className={`flex-1 rounded-md border px-3 py-2 text-sm ${dark ? 'border-neutral-700 bg-neutral-800 text-white' : 'border-gray-300 bg-white text-black'}`}
       />
       <TouchableOpacity
         onPress={() => {
@@ -225,9 +228,17 @@ export function KnowledgeRagScreen() {
 
   const renderError = (msg: string, onRetry: () => void) => (
     <View className="flex-1 items-center justify-center px-6">
-      <Text className="mb-3 text-center text-sm text-gray-500">{msg}</Text>
-      <TouchableOpacity onPress={onRetry} className="rounded-md bg-gray-200 px-4 py-2">
-        <Text className="text-sm">{t('knowledgeBase.retry')}</Text>
+      <Text className="mb-3 text-center text-sm" style={{ color: tokens.text.tertiary }}>
+        {msg}
+      </Text>
+      <TouchableOpacity
+        onPress={onRetry}
+        className="rounded-md px-4 py-2"
+        style={{ backgroundColor: tokens.surface.muted }}
+      >
+        <Text className="text-sm" style={{ color: tokens.text.primary }}>
+          {t('knowledgeBase.retry')}
+        </Text>
       </TouchableOpacity>
     </View>
   )
@@ -239,7 +250,7 @@ export function KnowledgeRagScreen() {
         {renderHeader(doc?.title ?? t('knowledgeDoc.title'), () => setView(detailBack))}
         {docLoading ? (
           <View className="flex-1 items-center justify-center">
-            <Text className="text-gray-500">{t('common.loading')}</Text>
+            <Text style={{ color: tokens.text.tertiary }}>{t('common.loading')}</Text>
           </View>
         ) : docError ? (
           renderError(docError, () => {
@@ -267,7 +278,9 @@ export function KnowledgeRagScreen() {
             }
             ListEmptyComponent={
               <View className="items-center py-10">
-                <Text className="text-sm text-gray-500">{t('knowledgeDoc.noChunks')}</Text>
+                <Text className="text-sm" style={{ color: tokens.text.tertiary }}>
+                  {t('knowledgeDoc.noChunks')}
+                </Text>
               </View>
             }
             contentContainerStyle={{ padding: 16 }}
@@ -306,7 +319,7 @@ export function KnowledgeRagScreen() {
       {view === 'docs' ? (
         loading ? (
           <View className="flex-1 items-center justify-center">
-            <Text className="text-gray-500">{t('common.loading')}</Text>
+            <Text style={{ color: tokens.text.tertiary }}>{t('common.loading')}</Text>
           </View>
         ) : listError ? (
           renderError(listError, () => {
@@ -328,13 +341,17 @@ export function KnowledgeRagScreen() {
             }
             ListEmptyComponent={
               <View className="items-center py-16">
-                <Text className="text-sm text-gray-500">{t('knowledgeBase.empty')}</Text>
-                <Text className="mt-1 text-xs text-gray-400">{t('knowledgeBase.emptyHint')}</Text>
+                <Text className="text-sm" style={{ color: tokens.text.tertiary }}>
+                  {t('knowledgeBase.empty')}
+                </Text>
+                <Text className="mt-1 text-xs" style={{ color: tokens.text.tertiary }}>
+                  {t('knowledgeBase.emptyHint')}
+                </Text>
               </View>
             }
             contentContainerStyle={{ padding: 16 }}
             renderItem={({ item }) => (
-              <View className={`mb-3 ui-card rounded-lg border p-4 ${cardCls}`}>
+              <View className={`mb-3 rounded-lg border p-4 ${cardCls}`}>
                 <TouchableOpacity onPress={() => void openDetail(item.id, 'docs')}>
                   <Text className={`text-base font-medium ${titleCls}`} numberOfLines={1}>
                     {item.title}
@@ -347,9 +364,12 @@ export function KnowledgeRagScreen() {
                 <TouchableOpacity
                   onPress={() => onDelete(item)}
                   disabled={deleting}
-                  className="mt-2 self-start rounded-md border border-red-200 px-2 py-1"
+                  className="mt-2 self-start rounded-md border px-2 py-1"
+                  style={{ borderColor: tokens.danger.light }}
                 >
-                  <Text className="text-xs text-red-500">{t('knowledgeBase.delete')}</Text>
+                  <Text className="text-xs" style={{ color: tokens.danger.DEFAULT }}>
+                    {t('knowledgeBase.delete')}
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -357,7 +377,7 @@ export function KnowledgeRagScreen() {
         )
       ) : searching ? (
         <View className="flex-1 items-center justify-center">
-          <Text className="text-gray-500">{t('common.loading')}</Text>
+          <Text style={{ color: tokens.text.tertiary }}>{t('common.loading')}</Text>
         </View>
       ) : searchError ? (
         renderError(searchError, () => void onSearch())
@@ -367,14 +387,16 @@ export function KnowledgeRagScreen() {
           keyExtractor={(hit) => String(hit.id)}
           ListEmptyComponent={
             <View className="items-center py-16">
-              <Text className="text-sm text-gray-500">{t('knowledgeRag.searchEmpty')}</Text>
+              <Text className="text-sm" style={{ color: tokens.text.tertiary }}>
+                {t('knowledgeRag.searchEmpty')}
+              </Text>
             </View>
           }
           contentContainerStyle={{ padding: 16 }}
           renderItem={({ item }) => (
             <TouchableOpacity
               onPress={() => void openDetail(item.docId, 'search')}
-              className={`mb-3 ui-card rounded-lg border p-4 ${cardCls}`}
+              className={`mb-3 rounded-lg border p-4 ${cardCls}`}
             >
               <Text className={`text-sm leading-6 ${bodyCls}`} numberOfLines={3}>
                 {item.content}
