@@ -10584,6 +10584,15 @@
       "tokens": "{used} / {limit} 사용",
       "resetAt": "{time}에 초기화"
     },
+    "statusSlot": {
+      "moreNotices": "다른 상태 {count}건",
+      "connection": "연결 상태",
+      "alerts": "알림",
+      "mcp": "MCP 연결",
+      "polish": "폴리싱 알림",
+      "diff": "코드 의견",
+      "budget": "오늘의 사용량"
+    },
     "streamAlert": {
       "configWarning": {
         "title": "설정 알림"
@@ -10802,6 +10811,7 @@
     },
     "contextUsage": {
       "breakdownTitle": "토큰 분류",
+      "budgetRow": "오늘의 할당량",
       "categoryFiles": "파일",
       "categoryHistory": "기록",
       "categorySystem": "시스템 프롬프트",
@@ -27681,7 +27691,9 @@
     "hintSelect": "선택",
     "hintConfirm": "확인",
     "hintClose": "닫기",
-    "clearAriaLabel": "검색 지우기"
+    "clearAriaLabel": "검색 지우기",
+    "followupDismiss": "추천 닫기",
+    "followupRowLabel": "이렇게 시작해 보세요"
   },
   "statusPage": {
     "incidentsUnavailable": "최근 30일 이벤트 데이터를 일시적으로 가져올 수 없습니다"
