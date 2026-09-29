@@ -31,7 +31,10 @@ const { mockT, mockRunBestOfN, mockToast } = vi.hoisted(() => {
 // slash-commands 模块级 import 的重依赖全部 mock,保持单测聚焦解析与即答逻辑
 vi.mock('@/api/best-of-api', () => ({ runBestOfN: mockRunBestOfN }))
 vi.mock('@/components/common', () => ({ toast: mockToast }))
-vi.mock('@ihui/api-client', () => ({ runCommand: vi.fn() }))
+// D152(2026-09-29):slash-commands 现在多 import 了一个上行出口 postSessionGoal ——
+// vitest 的工厂 mock 缺名会在模块装载时抛 "No export is defined on the mock",
+// 所以这里必须跟着补(本用例并不调用它,补它只为让那份 /side 取证继续跑得起)。
+vi.mock('@ihui/api-client', () => ({ runCommand: vi.fn(), postSessionGoal: vi.fn() }))
 vi.mock('@/lib/api', () => ({ fetchApi: vi.fn() }))
 vi.mock('@/components/ai/full-access-confirm-dialog', () => ({
   isFullAccessConfirmSuppressed: () => true,

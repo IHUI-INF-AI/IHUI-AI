@@ -78,6 +78,11 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
     ref,
   ) {
     const innerRef = React.useRef<HTMLTextAreaElement>(null)
+    // G-844 输入法组合态的本地一条腿(上游 prompt-input-textarea.tsx:31/:103-104/:122-123 同此双保险)。
+    // 只靠 e.nativeEvent.isComposing 是单腿:组合收尾那一次 keydown 在部分引擎里 isComposing 已经是
+    // false(它先于 compositionend 落地),于是"用拼音/假名打字时按 Enter"会把半成品发出去。
+    // 两条腿取或 —— 本地标志由 compositionstart/end 驱动,与事件上的标志互补。
+    const [isComposing, setIsComposing] = React.useState(false)
     const { resize } = useTextareaAutoHeight<HTMLTextAreaElement>(text, {
       threeLinePx: MIN_HEIGHT_PX,
       maxHeightPx: MAX_HEIGHT_PX,
@@ -105,13 +110,22 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
             onChange?.(e)
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-              e.preventDefault()
-              onSend()
-            } else {
-              onKeyDown?.(e)
-            }
+            // G-843 判序修正(bug 根因):原先内部先吃 Enter(preventDefault + onSend),
+            // 外部 onKeyDown?.(e) 只在 else 分支被调用 ⇒ 上层(message-input.tsx 的 handleKeyDown
+            // 第一行 contextSelector.handleKeyDown(e))对"未 preventDefault 的 Enter"结构上永不可达,
+            // 于是 `#` 上下文选择器开着且有匹配项时,按 Enter 直接发消息而不是选中。
+            // 对齐上游 prompt-input-textarea.tsx:33-41 —— 先透传外部 → 外部已 preventDefault 即整条
+            // return(外部握有否决权,Enter 只被消费一次,绝不"既选中又发送")→ 才走内部提交。
+            onKeyDown?.(e)
+            if (e.defaultPrevented) return
+            if (e.key !== 'Enter' || e.shiftKey) return
+            // G-844 双保险:本地 composition 标志 ‖ 事件自带标志,任一成立即视为组合态,不提交。
+            if (isComposing || e.nativeEvent.isComposing) return
+            e.preventDefault()
+            onSend()
           }}
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={() => setIsComposing(false)}
           onPaste={onPaste}
           placeholder={placeholder}
           rows={3}

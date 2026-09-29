@@ -103,9 +103,31 @@ export default function Carousel({
     [total, setCurrent],
   )
 
-  if (total === 0) return null
-
   const heightStyle = typeof height === 'number' ? `${height}px` : height
+
+  if (total === 0) {
+    /**
+     * 全部图源失败(或本来就没有项)时,**留一格同高的静默兜底**,而不是 return null。
+     *
+     * 旧写法 return null ⇒ 移动网络下 picsum 这类境外图源整批取不到时,营销位从
+     * `height` 高直接塌成 0,下方内容整屏上跳(实拍"图片暂时没到"被读成"页面坏了"的
+     * 另一半成因)。RN 端同一格 `apps/mobile-rn/src/components/Carousel.tsx` 走的正是
+     * "同高 + muted 底 + 无图形"这条路,两端同名组件的失败语义必须同形(守门 128 立项理由)。
+     *
+     * 三条形态约束:① 高度取同一档 `height`(不是新数字,来源仍是 carousel-spec);
+     * ② 底色 `bg-muted` + 圆角 `rounded-2xl`(hero 档,与本文件主容器同层同档,归守门 77);
+     * ③ **不放任何图标/文案** —— 告警图形(三角、叉)在这里是错误语义,而这一格的语义是
+     * "图暂时没到",不是"出错了"(AGENTS §4 图标与禁用分割线/告警回潮同条)。
+     * 调用方传进来的 `className`(外边距等)一并保留,否则塌的不只是盒子还有槽位。
+     */
+    return (
+      <View
+        className={cn('w-full overflow-hidden rounded-2xl bg-muted', className)}
+        style={{ height: heightStyle }}
+      />
+    )
+  }
+
   // 有项因图失败被摘掉后,current 可能暂时越界(自动播放的下一跳会自己取模收敛),
   // 这里只把这一帧的落点夹回首项,不做任何位移补偿。与 RN 端同一处理。
   const activeIndex = current < total ? current : 0
