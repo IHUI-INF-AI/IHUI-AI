@@ -9115,6 +9115,15 @@
     },
     "envInfoButton": "환경 정보",
     "expandConversation": "대화 펼치기",
+    "headerActions": {
+      "panelGroupButtons": "패널 작업 버튼",
+      "workspaceUnavailable": "작업을 시작하면 검토 작업 공간을 열 수 있습니다",
+      "enterWorkspaceFullscreen": "작업 공간 전체 화면 표시",
+      "exitWorkspaceFullscreen": "작업 공간 전체 화면 종료",
+      "createDraftPullRequest": "Draft PR 만들기",
+      "createDraftPullRequestOk": "Draft PR가 생성되었습니다",
+      "createDraftPullRequestFailed": "Draft PR 생성 실패"
+    },
     "floatMode": "플로팅 모드",
     "handleHint": "클릭하거나 오른쪽으로 드래그해 AI 작업공간 열기",
     "history": "채팅",
@@ -11247,6 +11256,12 @@
     "errorCardTitle": "요청 오류",
     "quoteSelection": "선택 항목 인용",
     "quoteSelectionAdded": "인용에 추가되었습니다",
+    "selectionActions": {
+      "ariaLabel": "선택 텍스트 작업",
+      "addAsAttachment": "첨부 파일로 추가",
+      "attachmentName": "선택한 텍스트",
+      "attachmentLimitReached": "첨부 파일이 {limit}개에 도달했습니다. 먼저 하나를 제거한 후 선택 텍스트를 추가하세요."
+    },
     "quotedReplyAssistant": "AI 답변 인용",
     "quotedReplyUser": "사용자 메시지 인용",
     "webSearch": "웹 검색",
