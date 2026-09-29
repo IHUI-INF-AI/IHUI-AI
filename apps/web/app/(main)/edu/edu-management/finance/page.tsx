@@ -48,7 +48,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from '@ihui/ui-react'
-import { Alert } from '@/components/feedback'
+import { Alert, confirmDialog } from '@/components/feedback'
 
 /* ─── Types ─── */
 
@@ -89,6 +89,15 @@ interface PaymentSummary {
   paidCount: number
   unpaidCount: number
   unpaidAmount: number
+}
+
+/* 无归属缴费流水(GET /payment-record/unattributed):没挂到期次的钱,不计入任何期次已缴额 */
+interface UnattributedPayment {
+  id: string
+  studentId: string
+  classId: string
+  amount: number
+  paymentDate: string
 }
 
 interface RefundRecord {
@@ -1183,6 +1192,17 @@ export default function FinancePage() {
   })
   const summary = summaryQuery.data
 
+  // 无归属流水点名:只有缴费记录 tab 打开才拉;N>0 时亮警示条,0 时不占位。
+  const unattributedQuery = useQuery({
+    queryKey: ['edu-ai-management', 'payment-record', 'unattributed'],
+    queryFn: () =>
+      api<{ list: UnattributedPayment[]; total: number }>(
+        '/api/edu-ai-management/payment-record/unattributed',
+      ),
+    enabled: activeTab === 'payments',
+  })
+  const unattributedPayments = unattributedQuery.data?.list ?? []
+
   const refundQuery = useQuery({
     queryKey: ['edu-ai-management', 'refund'],
     queryFn: () => api<{ list: RefundRecord[] }>('/api/edu-ai-management/refund'),
@@ -1286,12 +1306,26 @@ export default function FinancePage() {
     onSuccess: invalidate,
   })
 
+  /* 退费登记响应带 unattributed: true ⇒ 这笔退费没挂到期次,不会从任何期次的已缴额扣减。
+     该信号必须当场递到操作者脸上,否则错账要到对账时才被发现。
+     (响应里还有 refundRecord/enrollmentId,前端只用 unattributed,类型只声明用到的。) */
   const createRefund = useMutation({
     mutationFn: (data: RefundFormData) =>
-      api('/api/edu-ai-management/refund', {
+      api<{ unattributed: boolean }>('/api/edu-ai-management/refund', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+    onSuccess: invalidate,
+  })
+
+  /* 撤销缴费(软删 + 重算):后端 DELETE /payment-record/:id 早已建成,此前前端没有入口,
+     错录的流水只能永远挂着。响应 unattributed=true ⇒ 被撤流水本来就没挂期次。 */
+  const voidPayment = useMutation({
+    mutationFn: (id: string) =>
+      api<{ deleted: boolean; unattributed: boolean }>(
+        `/api/edu-ai-management/payment-record/${id}`,
+        { method: 'DELETE' },
+      ),
     onSuccess: invalidate,
   })
 
@@ -1356,7 +1390,30 @@ export default function FinancePage() {
   }
 
   const handleAddRefund = async (data: RefundFormData) => {
-    await createRefund.mutateAsync(data)
+    const res = await createRefund.mutateAsync(data)
+    // 无归属退费 = 退了钱但任何期次的已缴额都没动,必须当场点名,不等对账。
+    if (res.unattributed)
+      toast.warning(
+        '这笔退费没有挂到期次(未关联缴费流水,且该学员在该班有多条报名),不会从任何期次的已缴额中扣减',
+      )
+  }
+
+  const handleVoidPayment = async (p: PaymentRecord) => {
+    const ok = await confirmDialog({
+      title: '撤销缴费',
+      content: `撤销 ${p.studentName} 的缴费 ${p.amount.toLocaleString()} 元?撤销后该笔流水作废,对应期次的已缴额与欠费会立即重算。`,
+      confirmText: '撤销',
+      variant: 'danger',
+    })
+    if (!ok) return
+    try {
+      const res = await voidPayment.mutateAsync(p.id)
+      toast.success('缴费已撤销,账目已重算')
+      if (res.unattributed)
+        toast.warning('该流水原本就没有挂到期次,撤销不改变任何期次的账目')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '撤销缴费失败')
+    }
   }
 
   const handleApproveRefund = async (
@@ -1657,6 +1714,18 @@ export default function FinancePage() {
             </CardContent>
           </Card>
 
+          {/* 无归属流水点名:N=0 不渲染;有则亮警示条给处置路径(重录或撤销)。
+              这些钱不计入任何期次的已缴额,机构看不到就会以为已经收进账里。 */}
+          {unattributedQuery.data && unattributedQuery.data.total > 0 && (
+            <Alert
+              variant="warning"
+              title={`有 ${unattributedQuery.data.total} 笔缴费流水没有挂到期次（合计 ${unattributedPayments
+                .reduce((s, r) => s + r.amount, 0)
+                .toLocaleString()} 元）`}
+              description="这些流水不计入任何期次的已缴额，也不会被催缴覆盖。请撤销错录的流水，或按正确期次重新登记缴费。"
+            />
+          )}
+
           {paymentQuery.error ? (
             <Alert variant="danger" description="加载缴费记录失败，请稍后重试" />
           ) : paymentQuery.isLoading ? (
@@ -1703,6 +1772,9 @@ export default function FinancePage() {
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                           收据号
                         </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          操作
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1731,6 +1803,16 @@ export default function FinancePage() {
                           </td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">
                             {p.receiptNo || '-'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              type="button"
+                              className="text-xs text-red-600 hover:underline disabled:opacity-50 disabled:hover:no-underline"
+                              disabled={voidPayment.isPending}
+                              onClick={() => handleVoidPayment(p)}
+                            >
+                              撤销
+                            </button>
                           </td>
                         </tr>
                       ))}
