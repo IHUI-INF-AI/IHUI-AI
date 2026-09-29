@@ -435,8 +435,8 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 > 另有 `redis` 服务 Running;`node`(api)在听 **8802**、`python`(ai-service)在听 **8803** —— 只有 `web` 8801 不在听，
 > IHUI* 服务形态仍为 0(所以「这台机不是生产机」那半句仍然成立)。权威入口是被审应用自己的连接串：
 > `apps/api/.env` 与 `apps/ai-service/.env` 的 `DATABASE_URL` 一直写着 `postgresql://…@127.0.0.1:5432/ihui`、
-> `REDIS_URL=redis://127.0.0.1:6379`。⇒ **本机既能连库也能应用迁移**，守门 49 的 `--db` 档与
-> `scripts/check-migration-from-zero.mjs` 都跑得起来(后者当次 RC=1 的原因不是「没有 PG」，而是连接角色无
+> `REDIS_URL=redis://127.0.0.1:6379`。⇒ **库是真能连的**(实连成功:读到 `current_database()=ihui`、账本 286 行对 journal 296 条、`llm_call_logs` 26 列 68 行),**迁移也是真能应用的**(D172 那枚已在一次性临时库里执行两次、验过幂等与列/索引形状)。
+> 但**别把这两句读成"守门 49 的 `--db` 档本机可用"**——它此刻仍判不了:候选表只有 $IHUI_PSQL、一个 D 盘硬路径和 PATH,而本机 psql 真身在 `C:/Program Files/PostgreSQL/18/bin`,于是报 `spawnSync psql ENOENT`。**这条 ENOENT 曾被下一轮会话读成"本机没有 PG"并据此把票挂成"等环境条件"**(D172 实错)—— 报错形状不等于原因,已另计票(补 C 盘安装目录探测 + 全落空时打印试过的候选清单)。`scripts/check-migration-from-zero.mjs` 能跑(它自带 `PG_CLIENT_DIR` 默认值),当次 RC=1 的原因不是"没有 PG",而是连接角色无 `CREATE EXTENSION vector` 权限,5 枚 vector 迁移失败并级联报出缺表缺列,与本票改动无关。
 > `CREATE EXTENSION vector` 权限 —— 5 枚 vector 迁移失败并级联报出缺表缺列，那 5 枚与本票改动无关)。
 > **口径(比原判据更窄也更可执行)**：判「某引擎在不在」必须 ① 先读该应用自己的 DSN/连接串，② 再看
 > `Get-NetTCPConnection -State Listen` 上**那个地址**归谁;**不得拿 `docs/port-management.md` 里的约定端口当引擎存在性**
