@@ -9052,6 +9052,7 @@
     "openTerminal": "打开终端",
     "renameDialog": {
       "cancel": "取消",
+      "description": "保持简短且易于识别",
       "label": "任务名称",
       "placeholder": "请输入新的任务名称",
       "save": "保存",
@@ -11653,7 +11654,16 @@
     "viewFavorites": "查看收藏",
     "attentionWaiting": "等待你处理",
     "attentionUnread": "有 {count} 条未读更新",
-    "batchAttentionSummary": "其中等待处理 {waiting} · 未读 {unread}"
+    "batchAttentionSummary": "其中等待处理 {waiting} · 未读 {unread}",
+    "loadingMore": "正在加载…",
+    "markUnread": "标记为未读",
+    "markUnreadSuccess": "已标记为未读",
+    "retryLoadMore": "重试加载",
+    "sorting": {
+      "byTime": "按时间",
+      "label": "排序方式",
+      "pinnedFirst": "置顶优先"
+    }
   },
   "chatSettingsPage": {
     "back": "返回",
