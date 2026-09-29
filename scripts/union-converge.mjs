@@ -93,6 +93,7 @@ import {
   MERGE_NOTE_RE,
   keyOfRow,
 } from './lib/plan-task-index.mjs'
+import { SIM_THRESHOLD, jaccard, tokenize, stripState } from './lib/live-doc-similarity.mjs'
 // 搬运感知判据(2026-09-28):占位注释的解析与"哪些行属于那个被搬走的条目"的块归属,
 // 一律复用归档器那一份实现(`lib/plan-task-headings.mjs` 的 parseCompletedTaskBlocks),
 // **不得在本归并器里再抄一条"什么算一个已完成条目"的正则** —— 两处各写一遍必漂移。
@@ -640,6 +641,14 @@ export function theirsRewriteCaps(oursText, theirsText, baseText, suppress = nul
     if (bLines.length !== tLines.length) continue
     if (!multisetEq(bLines, oLines)) continue
     if (multisetEq(bLines, tLines)) continue
+    // 同号**两个不同议题**(并发取号撞上的)不是就地改写:两侧各是一件活着的登记,
+    // 折掉哪一侧都是替别人删事。判"是不是同一件事"的尺子只许有一份,故复用 merge-live-doc
+    // 那把字符二元组 Jaccard 与同源阈值(按词切在 CJK 混排行上会断崖下跌,该层头注已记过)。
+    const sim = jaccard(
+      tokenize(stripState(bLines.join('\n'))),
+      tokenize(stripState(tLines.join('\n'))),
+    )
+    if (sim < SIM_THRESHOLD) continue
     const ct = counter(tLines.join('\n'))
     for (const [l, n] of counter(bLines.join('\n'))) {
       const dropped = n - (ct.get(l) || 0)
@@ -2061,8 +2070,8 @@ function selfTest() {
     )
     // 「对侧改写、本侧未动」那一族的四条成对用例(正例 + 三条"判不准就不许折"的反向对照)。
     // 反向三条各自的失效方向都是**多留一份**,绝不是少带 —— 少带就是丢别人的行,比 F9 红更贵。
-    const RW_BASE = '- [ ] G-770 折叠夹具:基底形态。\n'
-    const RW_NEW = '- [x] G-770 折叠夹具:对侧改写后的形态。\n'
+    const RW_BASE = '- [ ] G-770 折叠夹具:同一议题的甲写法,含落点与判据两段说明。\n'
+    const RW_NEW = '- [x] G-770 折叠夹具:同一议题的乙写法,含落点与判据两段说明。\n'
     const RW_MINE = '- [ ] G-770 折叠夹具:本侧自己改成的第三种形态。\n'
     const rwHas = (r, s) => (s === '' ? false : r.includes(s.trim()))
     ok(
@@ -2085,6 +2094,15 @@ function selfTest() {
       (() => {
         const r = unionLines(`a\n${RW_BASE}`, `a\n${RW_BASE}${RW_NEW}`, `a\n${RW_BASE}`)
         return rwHas(r, RW_BASE) && rwHas(r, RW_NEW)
+      })(),
+    )
+    ok(
+      '反向锁:同一枚号被两侧各登记成**不同议题**(并发取号撞的)⇒ 不许折 —— 折掉任何一侧都是替别人删一件活账,比 F9 红贵得多;这条就是本判据唯一的假阳方向',
+      (() => {
+        const A = '- [ ] G-773 构建脚本的包名解析恒为空,versionCode 读错 app 的清单。'
+        const B = '- [ ] G-773 派单阻塞登记:排队语义在满载时把已终态任务再次入队。'
+        const r = unionLines(`a\n${A}\n`, `a\n${B}\n`, `a\n${A}\n`)
+        return r.includes(A.trim()) && r.includes(B.trim())
       })(),
     )
     ok(
