@@ -64,6 +64,15 @@ export default {
           DEFAULT: 'var(--color-popover)',
           foreground: 'var(--color-popover-foreground)',
         },
+        /* 选中态档(2026-09-30 用户定稿,登录页分段控件三端收口)。v3 端(miniapp-taro / mobile-rn)
+         * 的色值来自这份 JS theme 而不是 tokens.css 的 @theme —— 只在 CSS 侧落 --color-selection 的话,
+         * 这两端写 bg-selection 会静默产出零条规则(与上面 cta 那档同一条理由)。
+         * 「tokens.css @theme 里凡 X + X-foreground 成对的色档,preset 必须有对应键」这条不变量
+         * 无条件成立,不留豁免表。 */
+        selection: {
+          DEFAULT: 'var(--color-selection)',
+          foreground: 'var(--color-selection-foreground)',
+        },
         card: {
           DEFAULT: 'var(--color-card)',
           foreground: 'var(--color-card-foreground)',
