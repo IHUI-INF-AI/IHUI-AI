@@ -11550,7 +11550,14 @@
     "voiceHandsFreeOn": "連続会話オン（話して送信）",
     "voiceHandsFreeOff": "連続会話オフ",
     "voicePlayback": "再生",
-    "voiceHandsFree": "ハンズフリー"
+    "voiceHandsFree": "ハンズフリー",
+    "reasoningEffortLabel": "推論の深さ",
+    "reasoningEffortMinimal": "最小",
+    "reasoningEffortLow": "高速",
+    "reasoningEffortMedium": "標準",
+    "reasoningEffortHigh": "熟考",
+    "reasoningEffortUnsupported": "このモデルでは推論の深さを選択できません",
+    "reasoningEffortFallback": "推論の深さはサーバー側で調整されました: {requested} → {effective}"
   },
   "chatHistory": {
     "selectModeAriaLabel": "タスクの複数選択モードを切り替え",

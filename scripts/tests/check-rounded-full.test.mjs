@@ -656,6 +656,58 @@ test('C7 量不到盒形 ⇒ 报"未判定",不得静默成"没超标"', () => {
  * 位置锁的意义:把 checkCap 挪到 isExempt 之后,这四条用例里的阳性对照会全部转绿 ——
  * 也就是说"豁免族挡住上限判据"这一型失效只有位置锁能固定下来,行为用例本身证不了它。
  */
+test('C7 阳性对照(跨行属性区):尺寸写在 className 的上一行、半径写在 style 里 ⇒ 上限判据必须量得到', () => {
+  const dir = createTempScanDir({
+    'apps/web/CrossLine.tsx':
+      'export function CrossLine() {\n' +
+      '  return (\n' +
+      '    <span\n' +
+      '      className="h-12 w-12 shrink-0 bg-muted"\n' +
+      "      style={{ borderRadius: '50%' }}\n" +
+      '    />\n' +
+      '  )\n' +
+      '}\n',
+  })
+  try {
+    const r = runScript(dir)
+    assert.match(
+      r.stdout,
+      /圆角超过上限/,
+      'h-12 w-12 = 48px 见方 ⇒ 等效半径 24px > 16px;这一型在补第三档兜底前整族"量不到"而免检',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C7 反向对照:父盒属性区到自己的 > 为止,子节点尺寸不得算进来(兜底不许靠猜)', () => {
+  const dir = createTempScanDir({
+    'apps/web/ParentOnly.tsx':
+      'export function ParentOnly() {\n' +
+      '  return (\n' +
+      '    <div\n' +
+      "      style={{ borderRadius: '50%' }}\n" +
+      '      onClick={() => {}}\n' +
+      '    >\n' +
+      '      <span className="h-[64px] w-[64px]" />\n' +
+      '    </div>\n' +
+      '  )\n' +
+      '}\n',
+  })
+  try {
+    const r = runScript(dir)
+    const hits = (r.stdout.match(/圆角超过上限/g) || []).length
+    assert.equal(hits, 0, `子节点的 64px 不得顶成父盒尺寸;实得 ${hits} 处红`)
+    assert.match(
+      r.stdout,
+      /apps\/web\/ParentOnly\.tsx:\d+/,
+      '未判定必须逐条点名 —— 只给计数的话,下一个人既找不到站点也无法证明这一格被清偿',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 test('C7 结构锁:上限必须排在豁免通道之前,且数值族不重复计数', () => {
   const src = readFileSync(SCRIPT_PATH, 'utf8')
   assert.ok(
