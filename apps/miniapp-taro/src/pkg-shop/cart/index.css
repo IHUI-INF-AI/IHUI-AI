@@ -114,11 +114,8 @@
   background: var(--color-success);
   border-color: var(--color-success);
 }
-.checkbox-icon {
-  color: var(--color-surface-light);
-  font-size: 24rpx;
-  font-weight: bold;
-}
+/* .checkbox-icon 已删:只剩排版属性,唯一使用者是勾选位上的勾字符;
+   换成 LineIcon 后尺寸/颜色由组件 size / color prop 单点给出(见 index.tsx)。 */
 
 /* 商品封面(RN cover:140×140 圆角12 muted 底) */
 .cart-item-cover {

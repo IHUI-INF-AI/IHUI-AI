@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Loader2, Mic, CheckCircle2, History, Wand2, Copy, Check } from 'lucide-react'
+import { Loader2, Mic, CheckCircle2, XCircle, History, Wand2, Copy, Check } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Tooltip } from '@/components/feedback'
@@ -309,7 +309,17 @@ export default function KouboPage() {
                     : 'text-sm font-medium text-rose-600'
                 }
               >
-                {result.ok ? '✅ ' + t('runSuccess') : '❌ ' + t('runFailed')}
+                {result.ok ? (
+                  <span className="inline-flex items-center gap-1">
+                    <CheckCircle2 className="h-4 w-4" />
+                    {t('runSuccess')}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    <XCircle className="h-4 w-4" />
+                    {t('runFailed')}
+                  </span>
+                )}
                 {typeof result.returncode === 'number' && ` (rc=${result.returncode})`}
                 {typeof result.duration_ms === 'number' &&
                   ` · ${result.duration_ms} ${t('msUnit')}`}
