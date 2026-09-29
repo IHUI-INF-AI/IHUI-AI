@@ -9042,6 +9042,7 @@
     "openTerminal": "ターミナルを開く",
     "renameDialog": {
       "cancel": "キャンセル",
+      "description": "短く識別しやすい名前にします",
       "label": "会話タイトル",
       "placeholder": "新しい会話タイトルを入力",
       "save": "保存",
@@ -11643,7 +11644,16 @@
     "viewFavorites": "おにりを",
     "attentionWaiting": "対応待ち",
     "attentionUnread": "{count} 件の未読更新",
-    "batchAttentionSummary": "うち対応待ち {waiting} 件 · 未読 {unread} 件"
+    "batchAttentionSummary": "うち対応待ち {waiting} 件 · 未読 {unread} 件",
+    "loadingMore": "読み込み中…",
+    "markUnread": "未読としてマーク",
+    "markUnreadSuccess": "未読としてマークしました",
+    "retryLoadMore": "再読み込み",
+    "sorting": {
+      "byTime": "時間順",
+      "label": "並び替え",
+      "pinnedFirst": "ピン留め優先"
+    }
   },
   "chatSettingsPage": {
     "back": "戻る",
