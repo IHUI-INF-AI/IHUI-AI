@@ -26,6 +26,10 @@ import type { Tool, ToolResult } from './index.js';
 import { createAuditedDangerGate } from './danger-gate-audit.js';
 import { listTools, clearTools, registerTools } from './index.js';
 import { runHook } from '../hooks/index.js';
+import {
+  beginAskUserEscalationBudget,
+  endAskUserEscalationBudget,
+} from './ask-user.js';
 import { injectHostSection } from '../utils/prompt-injection-registry.js';
 import {
   newSubagentId,
@@ -368,6 +372,12 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
       });
 
       subagentDepth++;
+      // Per-ask escalation budget window: one dispatch_subagent task = one ask
+      // (upstream workflow "ask"). Nested dispatches (depth > 1) belong to the
+      // same top-level ask and keep its window; concurrent siblings share it
+      // (begin is a no-op while a window is already open). The 4th ask inside
+      // the window is refused as a plain result, not an error — see ask-user.ts.
+      beginAskUserEscalationBudget();
       let stopReason: 'completed' | 'failed' | 'cancelled' = 'completed';
       let stopError: string | undefined;
       try {
@@ -493,6 +503,9 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
         };
       } finally {
         subagentDepth--;
+        // Close the budget window only when the whole top-level ask (including
+        // nested dispatches) has settled, so a concurrent sibling keeps it open.
+        if (subagentDepth === 0) endAskUserEscalationBudget();
 
         const endedAt = new Date().toISOString();
         const finalState = loadSubagentState(subagentId);
