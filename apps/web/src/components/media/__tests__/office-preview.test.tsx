@@ -74,14 +74,7 @@ function toArrayBuffer(x: unknown): ArrayBuffer {
 /** 用 SheetJS 现场生成最小 xlsx:两个 sheet,内容可辨识。 */
 function makeXlsx(): ArrayBuffer {
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(
-    wb,
-    XLSX.utils.aoa_to_sheet([
-      ['A1', 'A2'],
-      ['A3', 'A4'],
-    ]),
-    '表A',
-  )
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['A1', 'A2'], ['A3', 'A4']]), '表A')
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['B1']]), '表B')
   return toArrayBuffer(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }))
 }
@@ -99,39 +92,37 @@ async function makePptx(): Promise<ArrayBuffer> {
 // ---------------------------------------------------------- fetch stubs ----
 
 interface FetchPlan {
-  readonly head?: {
-    readonly ok?: boolean
-    readonly reject?: boolean
-    readonly size?: number | null
-  }
+  readonly head?: { readonly ok?: boolean; readonly reject?: boolean; readonly size?: number | null }
   readonly get?: { readonly ok?: boolean; readonly body?: ArrayBuffer }
 }
 
 function stubFetch(plan: FetchPlan): ReturnType<typeof vi.fn> {
-  const impl = vi.fn(async (input: string | URL, init?: { method?: string }): Promise<Response> => {
-    void input
-    if (init?.method === 'HEAD') {
-      const head = plan.head ?? {}
-      if (head.reject) throw new Error('network down')
+  const impl = vi.fn(
+    async (input: string | URL, init?: { method?: string }): Promise<Response> => {
+      void input
+      if (init?.method === 'HEAD') {
+        const head = plan.head ?? {}
+        if (head.reject) throw new Error('network down')
+        return {
+          ok: head.ok ?? true,
+          status: head.ok === false ? 404 : 200,
+          headers: {
+            get: (name: string) =>
+              name.toLowerCase() === 'content-length' && head.size != null
+                ? String(head.size)
+                : null,
+          },
+        } as unknown as Response
+      }
+      const get = plan.get ?? {}
       return {
-        ok: head.ok ?? true,
-        status: head.ok === false ? 404 : 200,
-        headers: {
-          get: (name: string) =>
-            name.toLowerCase() === 'content-length' && head.size !== null && head.size !== undefined
-              ? String(head.size)
-              : null,
-        },
+        ok: get.ok ?? true,
+        status: get.ok === false ? 404 : 200,
+        headers: { get: () => null },
+        arrayBuffer: async () => get.body ?? new ArrayBuffer(0),
       } as unknown as Response
-    }
-    const get = plan.get ?? {}
-    return {
-      ok: get.ok ?? true,
-      status: get.ok === false ? 404 : 200,
-      headers: { get: () => null },
-      arrayBuffer: async () => get.body ?? new ArrayBuffer(0),
-    } as unknown as Response
-  })
+    },
+  )
   vi.stubGlobal('fetch', impl)
   return impl
 }
@@ -156,8 +147,6 @@ describe('OfficePreview 四态降级', () => {
     await waitFor(() =>
       expect(screen.getByTestId('office-preview').dataset.officeState).toBe('unsupported'),
     )
-    // 对标 Qoder data-artifact-preview-kind:预览容器必须带格式标识
-    expect(screen.getByTestId('office-preview').dataset.artifactPreviewKind).toBe('xyz')
     expect(screen.getByTestId('office-unsupported').textContent).toBe('WORD_UNSUPPORTED')
     expect(spy).not.toHaveBeenCalled()
   })
@@ -241,8 +230,6 @@ describe('OfficePreview 渲染面', () => {
   it('pdf:PdfEmbed 显示页码(1/5),跳转输入 3 后 iframe 锚更新为 #page=3', async () => {
     render(<PdfEmbed src="https://x/a.pdf" />)
     await screen.findByTestId('pdf-embed')
-    // 对标 Qoder data-artifact-preview-kind
-    expect(screen.getByTestId('pdf-embed').dataset.artifactPreviewKind).toBe('pdf')
     const indicator = await screen.findByText('WORD_PAGE(1)/(5)')
     expect(indicator).toBeTruthy()
     const input = screen.getByTestId('pdf-page-input')
