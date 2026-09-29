@@ -518,19 +518,38 @@ def snapshot_file(
 
     Returns:
         {"version_id": <uuid>, "path": <绝对路径>, "checkpoint_id": <或省略>}
+
+    快照的两个布尔位(G-815934):
+        existed_before: 拍快照时文件是否在磁盘上存在
+        read_ok:        存在时是否真的读到了内容
+    原实现在读取失败时把 content 记成 "" 且只 logger.debug,于是回滚会把
+    "文件本来不存在" 与 "文件存在但读不到" 两种情形都变成 "把现有文件写成空
+    文件" —— 那是数据丢失。现把两者记成一等的布尔位,由 rollback_file 分流。
     """
     absolute = os.path.abspath(file_path)
+    existed_before = os.path.exists(absolute)
     content = ""
-    try:
-        content = Path(absolute).read_text(encoding="utf-8")
-    except Exception as e:  # noqa: BLE001 - 快照尽力而为,文件缺失记空
-        logger.debug("snapshot_file 读取失败(%s): %s", absolute, e)
+    read_ok = False
+    read_error: str | None = None
+    if existed_before:
+        try:
+            content = Path(absolute).read_text(encoding="utf-8")
+            read_ok = True
+        except Exception as e:  # noqa: BLE001 - 读不到不再伪装成空内容,但也不打断快照
+            read_error = f"{type(e).__name__}: {e}"
+            logger.warning("snapshot_file 读取失败(%s): %s", absolute, read_error)
     record: dict[str, Any] = {
         "version_id": uuid.uuid4().hex,
         "path": absolute,
         "created_at": time.time(),
-        "content": content,
+        "existed_before": existed_before,
+        "read_ok": read_ok,
     }
+    # 读失败/文件缺失都不得落 content(落了一份不可信内容,回滚就有了写空的材料)
+    if read_ok:
+        record["content"] = content
+    if read_error is not None:
+        record["read_error"] = read_error
     if checkpoint_id:
         record["checkpoint_id"] = checkpoint_id
     key = _file_version_key(session_id, file_path)
@@ -584,10 +603,14 @@ def rollback_file(
         checkpoint_id: 或按快照时记录的 checkpoint id 定位版本
 
     Returns:
-        {"ok": True, "path":..., "version_id":...}               成功
+        {"ok": True, "action": "restored", "path":..., "version_id":...}     写回成功
+        {"ok": True, "action": "deleted", "path":..., "version_id":...}      快照时文件不存在 → 已删除
         {"ok": False, "errorCode": "NO_FILE_VERSIONS"}           该会话无此文件版本
         {"ok": False, "errorCode": "VERSION_SELECTOR_REQUIRED"}  有版本但未给版本选择器
         {"ok": False, "errorCode": "VERSION_NOT_FOUND"}          给了选择器但未命中
+        {"ok": False, "errorCode": "SNAPSHOT_UNREADABLE"}        快照没读到内容 → 拒绝执行(不写空)
+        {"ok": False, "errorCode": "DELETE_FAILED"}              删除失败
+        {"ok": False, "errorCode": "WRITE_FAILED"}               写回失败
     """
     versions = _versions_for(
         _file_version_key(session_id, file_path),
@@ -608,16 +631,92 @@ def rollback_file(
         target = next((v for v in versions if v.get("checkpoint_id") == checkpoint_id), None)
     if target is None:
         return {"ok": False, "errorCode": "VERSION_NOT_FOUND", "path": os.path.abspath(file_path)}
+    return _apply_rollback(target)
+
+
+def _apply_rollback(target: dict[str, Any]) -> dict[str, Any]:
+    """把一条快照记录落到磁盘上,按三态分流(G-815934)。
+
+    三态(判据只有这两个布尔位,绝不靠 content 猜):
+      ① not existed_before           → 删除文件(missing_ok,绝不新建空文件)
+      ② existed_before ∧ read_ok     → 原子写回快照内容
+      ③ existed_before ∧ ¬read_ok    → 拒绝执行并点名路径与原因
+                                        (写空 = 用"读不到"销毁现有内容)
+    """
+    path = target["path"]
+    existed_before = target.get("existed_before")
+    read_ok = target.get("read_ok")
+    if existed_before is None or read_ok is None:
+        # 兼容本次改造之前拍的旧快照(没有这两个布尔位):按历史语义保守处理 ——
+        # 视为"文件存在过",内容取 content 键。**绝不据此删除文件**:把"不认识"
+        # 当成"已知不存在",正是本票要修的那一型错误。
+        existed_before, read_ok = True, "content" in target
+
+    # ① 快照时文件本不存在 → 回滚 = 删掉它(agent 新建的文件在回滚后应当消失)
+    if not existed_before:
+        try:
+            Path(path).unlink(missing_ok=True)
+        except OSError as e:
+            return {
+                "ok": False,
+                "errorCode": "DELETE_FAILED",
+                "message": f"回滚删除失败: {type(e).__name__}: {e}",
+                "path": path,
+            }
+        return {
+            "ok": True,
+            "action": "deleted",
+            "path": path,
+            "version_id": target["version_id"],
+        }
+
+    # ③ 文件存在过但快照没读到 → 拒绝,不拿空内容覆盖现有文件
+    if not read_ok:
+        reason = target.get("read_error") or "快照期未记录读取成功"
+        return {
+            "ok": False,
+            "errorCode": "SNAPSHOT_UNREADABLE",
+            "message": (
+                f"拒绝回滚:拍快照时未能读取该文件,写回会把它变成空文件。"
+                f"路径: {path};原因: {reason}"
+            ),
+            "path": path,
+            "version_id": target["version_id"],
+        }
+
+    # ② 正常路径:原子写回(同目录临时文件 + os.replace,沿用仓内既有写法)
+    content = target.get("content")
+    if not isinstance(content, str):
+        return {
+            "ok": False,
+            "errorCode": "SNAPSHOT_UNREADABLE",
+            "message": f"拒绝回滚:快照标记读成功但缺少内容。路径: {path}",
+            "path": path,
+            "version_id": target["version_id"],
+        }
+    tmp_path = f"{path}.fe_tmp_{uuid.uuid4().hex}"
     try:
-        Path(target["path"]).write_text(target["content"], encoding="utf-8")
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        os.replace(tmp_path, path)
     except Exception as e:  # noqa: BLE001 - 写回失败须返回错误
+        try:
+            Path(tmp_path).unlink(missing_ok=True)
+        except OSError:
+            pass
         return {
             "ok": False,
             "errorCode": "WRITE_FAILED",
             "message": f"回滚写入失败: {e}",
-            "path": target["path"],
+            "path": path,
         }
-    return {"ok": True, "path": target["path"], "version_id": target["version_id"]}
+    return {
+        "ok": True,
+        "action": "restored",
+        "path": path,
+        "version_id": target["version_id"],
+    }
 
 
 def get_file_version_content(
@@ -631,7 +730,8 @@ def get_file_version_content(
         version_id: 精确版本 id
 
     Returns:
-        该版本的快照内容字符串;版本不存在/已被配额淘汰返回 None。
+        该版本的快照内容字符串;版本不存在/已被配额淘汰/快照期没读到内容
+        (read_ok=False 的记录刻意不落 content)返回 None。
     """
     versions = _versions_for(
         _file_version_key(session_id, file_path),

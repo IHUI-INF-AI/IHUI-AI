@@ -11,6 +11,7 @@ const g = (args) =>
   execFileSync('git', ['-c', 'safe.directory=*', ...args], {
     encoding: 'utf8',
     maxBuffer: 1 << 28,
+    windowsHide: true,
   })
 const rev = process.argv[2]
 const t = g(['show', `${rev}:PROJECT_PLAN.md`])
