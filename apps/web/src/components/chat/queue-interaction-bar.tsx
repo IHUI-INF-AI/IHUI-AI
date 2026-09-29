@@ -329,6 +329,14 @@ export function QueueInteractionBar({
             data-denied-key={verdict.deniedKey}
           >
             {tn(`queue.${verdict.deniedKey}`)}
+            {/* D162 ①:动作名之外必须同时给出**具体条件**(流式中锁定重排 / 队列已空 /
+                Runtime 不支持插话 …)。两串各自独立渲染并各带 data-*,用例才能断言
+                "两个不同条件得到的文案互不相同" —— 合成一句"当前不可用"就等于没写。 */}
+            {verdict.causeKey ? (
+              <span className="ml-1" data-queue-denied-cause={kind} data-cause-key={verdict.causeKey}>
+                {tn(`queue.${verdict.causeKey}`)}
+              </span>
+            ) : null}
           </span>
         )
       })}

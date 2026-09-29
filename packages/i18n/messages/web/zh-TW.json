@@ -7438,7 +7438,12 @@
           "denied": {
             "reorder": "無法調整排隊順序",
             "undo": "無法撤回排隊訊息",
-            "interject": "目前 Runtime 不支援插話，訊息將繼續排隊"
+            "interject": "目前 Runtime 不支援插話，訊息將繼續排隊",
+            "cause": {
+              "streaming": "無法在回覆生成期間調整佇列順序",
+              "emptyQueue": "佇列中已沒有可復原的訊息",
+              "runtimeNoInterject": "此 Runtime 不支援插入語句，訊息將留在佇列依序處理"
+            }
           },
           "reorderAria": "拖動調整排隊順序；聚焦後可使用上下方向鍵"
         }
