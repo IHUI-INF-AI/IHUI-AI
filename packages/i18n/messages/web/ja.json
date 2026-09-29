@@ -13391,7 +13391,7 @@
   },
   "aiApprovedRules": {
     "title": "コマンド許可ルール",
-    "description": "承認時に生成されるコマンド接頭辞とネットワーク先の許可ルール。期限で自動失効し、いつでも取り消せます",
+    "description": "承認時に作成されたコマンドプレフィックスの許可ルール。90 日で自動失効し、いつでも取り消せます。",
     "empty": "許可ルールはありません",
     "prefixHeader": "コマンドプレフィックス",
     "createdAtHeader": "作成日時",
@@ -13404,10 +13404,7 @@
     "loadFailed": "許可ルールの読み込みに失敗しました",
     "refresh": "更新",
     "scopeAlways": "長期有効",
-    "scopeSession": "このセッション",
-    "sectionCommands": "コマンド接頭辞",
-    "sectionNetwork": "ネットワーク先",
-    "revokeConfirmContentNetwork": "取り消すと、「{target}」へのアクセスは再び手動承認が必要になります。"
+    "scopeSession": "このセッション"
   },
   "editor": {
     "toolApproval": {
@@ -13421,21 +13418,7 @@
       "description": "AI が次の高リスク操作の実行を要求しています。実行を許可するか確認してください。",
       "pendingCount": "他に {count} 件保留中",
       "reject": "拒否",
-      "title": "ツール承認",
-      "envLabel": "実行環境",
-      "envInSandbox": "サンドボックス内で実行",
-      "envOutsideSandbox": "サンドボックス外で実行",
-      "envBackend": "分離方式:{backend}",
-      "envDegraded": "サンドボックス機能を利用できないため、制限付きの直接実行に下げました",
-      "envNetworkSection": "ネットワーク",
-      "envNetworkBlocked": "ブロックされたネットワーク先",
-      "envNetworkBlockedOne": "{host}:{port}({reason})",
-      "envNetworkOpen": "今回は外部ネットワークにアクセスできます",
-      "envNetworkOff": "今回はネットワークを開放しません",
-      "envUnknown": "報告されていません(権限レベルから推測できません。拒否して再試行してください)",
-      "envAllowTargetOnce": "この1回のみこの先を許可",
-      "envAllowTargetSession": "この会話ではこの先を許可",
-      "envAllowTargetAlways": "この先を常時許可(90日後に失効)"
+      "title": "ツール承認"
     },
     "toolbar": {
       "addColumn": "列を追加",

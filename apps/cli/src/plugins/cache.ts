@@ -41,7 +41,7 @@ import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 // G-815:git 派生的唯一封顶出口(timeout / maxBuffer / 净化 env 三件套都在它内部默认给全)。
 // 本文件不再直接 import node:child_process —— 绕过它就没有封顶,而守门 80 的 HOT 清单已含本文件。
-import { GIT_BIN_ENV, GIT_NETWORK_TIMEOUT_MS, execGitCapped, execGitCloneWithRetry } from './git-runner.js';
+import { GIT_NETWORK_TIMEOUT_MS, execGitCapped, execGitCloneWithRetry } from './git-runner.js';
 import { getInstalledPluginsDir, getMarketplaceCacheDir, getRegistryPath } from './paths.js';
 import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
 // G-786:git 入参形状白名单的唯一判据(marketplace.ts 用同一份,不得在此重抄正则)
@@ -200,13 +200,7 @@ async function performClone(
   signal?: AbortSignal,
 ): Promise<void> {
   // 咽喉点:任何 git 派生之前必须过形状白名单(结构化 reasonCode,不靠错误文案判断)
-  //
-  // G-797:回环 http 只在**测试钩子在位**时放行。判据取的是这一族**已有**的两个钩子
-  // (`IHUI_MOCK_GIT_CLONE_SRC` / `IHUI_GIT_BIN`),不新造第三个开关名 —— 新开关等于第二套
-  // "我在测试里"的真相,而生产路径上没人会设它,于是那一档永远只在测试里被跑到过。
-  // 键名各自只有一个主人:前者是本文件 :67,后者是 git-runner.ts::GIT_BIN_ENV(G-815 收口)。
-  const loopbackTestHook = Boolean(process.env[MOCK_CLONE_SRC_ENV] || process.env[GIT_BIN_ENV]);
-  assertGitCloneInputs({ url, ref, sha }, { loopbackTestHook });
+  assertGitCloneInputs({ url, ref, sha });
   const mockSrc = process.env[MOCK_CLONE_SRC_ENV];
   if (mockSrc) {
     // 测试钩子:复制指定目录作为 clone 结果
