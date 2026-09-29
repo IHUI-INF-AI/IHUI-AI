@@ -8387,6 +8387,10 @@
           "title": "パラメータが不完全または無効です",
           "action": "修正して再試行"
         },
+        "NEEDS_INPUT_TIMEOUT": {
+          "title": "コマンドの入力待ちが時間切れです",
+          "action": "入力して再試行"
+        },
         "NESTING_DEPTH_EXCEEDED": {
           "title": "構造の階層が処理可能な範囲を超えています",
           "action": "簡略化して再試行"
@@ -10444,6 +10448,9 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "attachRejectType": "形式がサポートされていないため、{count} 個のファイルをスキップしました：{names}",
+    "attachRejectSize": "ファイルがサイズ上限（{max}MB）を超えているため、{count} 個のファイルをスキップしました：{names}",
+    "attachRejectCount": "添付ファイルは最大 {max} 個までです。今回 {count} 個が拒否されました",
     "mentionEngine": {
       "tabFile": "ファイル",
       "tabFolder": "フォルダ",
@@ -25902,6 +25909,10 @@
     "title": "Agent 実行タスク",
     "refresh": "更新",
     "empty": "Agent タスクはありません(/agent/run または自動化で作成)",
+    "statusRunning": "実行中",
+    "statusCompleted": "完了",
+    "statusFailed": "失敗",
+    "statusCanceled": "キャンセル済み",
     "iterations": "{count} イテレーション済み",
     "injectPlaceholder": "途中割り込み:指示追加 / 軌道修正…",
     "inject": "割り込み",

@@ -96,29 +96,140 @@ function toInt(v: string | undefined): number | undefined {
 //   1. 只见已发布(published)数据;2. 响应经 sanitizePublicAgent 脱敏。
 // =============================================================================
 
-/** 游客不可见的敏感/内部字段:提示词全文、Coze bot 配置、工作区/备注等 */
-const PUBLIC_AGENT_OMIT_KEYS = [
+/**
+ * 公开面**可见键** allow-list(G-814410:由"拿到行、删字段"的黑名单改为逐键重建)。
+ *
+ * 为什么必须是 allow-list 而不是 deny-list:公开投影是一种**跨版本数据交换格式** ——
+ * 老客户端读到它不认识的东西不会报错,只会静默展示或静默忽略。黑名单的失败方向是
+ * "agents 表新加一列 ⇒ 它默认漏给游客"(remark/prompt 那批字段当初就是这么被"顺手加上"的),
+ * 而 allow-list 的失败方向是"新列默认不公开,要用就显式加一行" —— 加的那一行必须过下面那条
+ * 互斥断言,所以"往公开面塞东西"这个决定不可能悄悄发生。判据本体对齐上游
+ * `conversation-share/conversationSharePublicProjection.ts` 的 projectRow()。
+ *
+ * 这份键集就是游客可见响应的**全部**字段契约。各端在用的展示/计价/统计字段都在这里;
+ * 要新增先确认哪一端真的读它,再确认它不属于 LOCAL_IDENTITY_AGENT_KEYS。
+ */
+const PUBLIC_AGENT_KEYS = [
+  'agentId',
+  'name',
+  'description',
+  'avatar',
+  'cover',
+  'categoryId',
+  'status',
+  'price',
+  'isFree',
+  'isVipExclusive',
+  'sort',
+  'publishedAt',
+  'createdAt',
+  'updatedAt',
+  'usageCount',
+  'likeCount',
+  'shareCount',
+  'collectCount',
+  'publishStatus',
+  'userName',
+] as const
+
+/**
+ * 本地身份字段:任何情况下都不得进公开面。
+ *
+ * 判据不是"看着敏感",而是"**能不能拿它去定位到某个账号或某个工作区**" —— 能就是身份字段。
+ * botId/cozeAccountId/publishChannel 是第三方账号侧标识,workspaceId 是内部工作区,
+ * userId 是创建者的账号主键。
+ *
+ * ⚠️ userId 是本次收口**新摘掉**的一格:旧黑名单没盖它,所以游客列表/详情一直能看到
+ * 创建者的用户 UUID(可拿去撞 /users 面、拼作者维度)。逐端核查结论:各端展示作者一律走
+ * userName(该列的注释原文即"冗余字段用于查询,避免 JOIN users 表"),没有任何调用方从
+ * 游客响应里读 agent.userId(读 userId 的都是登录态的"我的/管理"链路,不经过本投影)。
+ */
+const LOCAL_IDENTITY_AGENT_KEYS = [
+  'userId',
+  'workspaceId',
+  'cozeAccountId',
+  'botId',
+  'botIdStr',
+  'botName',
+  'publishChannel',
+] as const
+
+/**
+ * 其余业务上不公开的字段(提示词全文与模型配置、内部备注、推荐问句、版本戳)。
+ * 与身份族分开登记,是为了让"这一族为什么不公开"各自说得清 —— 它们是内容敏感,不是身份。
+ * 本表不产出任何过滤动作(过滤由 allow-list 单向完成),它的作用是:
+ * ① 留下"这些键曾经靠黑名单挡着"的可读记录;② 被下面的互斥断言用来防自相矛盾。
+ */
+const PRIVATE_AGENT_KEYS = [
   'agentVersion',
   'agentPrompt',
   'agentModel',
   'agentTemperature',
   'agentMaxTokens',
   'agentVariables',
-  'botId',
-  'botIdStr',
-  'botName',
-  'publishChannel',
-  'cozeAccountId',
-  'workspaceId',
   'remark',
   'suggestedQuestions',
 ] as const
 
-/** 剥离游客不可见字段,其余原样保留(展示字段 name/desc/avatar/cover/price/统计数等) */
-export function sanitizePublicAgent<T extends Record<string, unknown>>(row: T): T {
-  const copy = { ...row }
-  for (const k of PUBLIC_AGENT_OMIT_KEYS) delete copy[k]
-  return copy
+/**
+ * 两张手工维护的键表必须互不相交 —— **存在即抛,不静默放行**。
+ *
+ * 这条断言不是走形式:PUBLIC 与 IDENTITY/PRIVATE 都是人手写的清单,而"把 userId 加回公开面"
+ * 在类型层和运行时都不会有任何症状(它就是一个合法的字符串)。所以唯一能把这件事变成
+ * 一次显式决定的时机,就是模块装载的这一刻。抛错会让 api 起不来、让测试在 import 阶段就红 ——
+ * 这正是想要的失败方向:宁可拒绝启动,不可把身份字段静默发出去。
+ */
+function assertPublicFaceIsInternallyConsistent(): void {
+  const publicKeys: readonly string[] = PUBLIC_AGENT_KEYS
+  const conflicts = [
+    ...LOCAL_IDENTITY_AGENT_KEYS.filter((k: string) => publicKeys.includes(k)).map(
+      (k: string) => `${k}(本地身份字段)`,
+    ),
+    ...PRIVATE_AGENT_KEYS.filter((k: string) => publicKeys.includes(k)).map(
+      (k: string) => `${k}(已登记为不公开字段)`,
+    ),
+  ]
+  if (conflicts.length > 0) {
+    throw new Error(
+      `[agents 公开投影] allow-list 与不公开清单冲突: ${conflicts.join('、')} —— ` +
+        '公开投影是跨版本数据交换格式,往它里面加身份/敏感字段必须是显式决定并逐端评审,不得默认放行',
+    )
+  }
+}
+
+assertPublicFaceIsInternallyConsistent()
+
+/**
+ * 把一行 agent 投影成游客可见形态:**只由 PUBLIC_AGENT_KEYS 产出**,不是"删掉敏感键、其余原样留"。
+ *
+ * 三条语义(与上游 public projection 同形):
+ * 1. 输出对象可能出现的键 = allow-list ∩ 输入实际有的键 ⇒ 表里新增列默认不出现在响应里;
+ * 2. 输入里缺席(undefined)的键**不建键**,而不是建一个值为 undefined 的键 ——
+ *    "这行没有这个字段"与"这个字段的值是 undefined"在跨版本交换格式里是两种事实;
+ * 3. null 是合法取值,原样透传(avatar/description 的"没有头像"就靠它表达)。
+ *
+ * 本投影没有行种分支(agents 只有一种行形态),所以这里没有 kind/type switch。
+ * **将来若要按形态分支(例如按 publishStatus 给不同键集),那条 switch 必须穷尽且不带 default** ——
+ * 带了 default 就等于把"新增一种形态要不要公开"这个决定推迟到运行时,正是本票要堵的那一型。
+ */
+export function sanitizePublicAgent(row: Record<string, unknown>): Record<string, unknown> {
+  const projected: Record<string, unknown> = {}
+  for (const key of PUBLIC_AGENT_KEYS) {
+    const value = row[key]
+    if (value === undefined) continue
+    projected[key] = value
+  }
+  return projected
+}
+
+/**
+ * 游客列表的行级第二道闸(2026-09-29 G-814410):"只见 published"必须是**投影层**的事实,
+ * 不能只是查询参数写对了。listAgents 的 status 过滤由 handler 传入,但那是唯一的执行点 ——
+ * 一旦有人改动它(或 dbRead 走缓存返回旧行),游客就会看到 pending/offline 的行。
+ * 判据取 `=== 'published'`:非该值一律剔除,不给"看起来像已发布"的中间态留通道。
+ */
+function keepPublishedRowsOnlyForGuest(row: Record<string, unknown>): boolean {
+  return row.status === 'published'
 }
 
 // =============================================================================
@@ -263,7 +374,14 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       keyword: q.keyword,
     })
     if (isGuest) {
-      return reply.send(success({ ...result, list: result.list.map(sanitizePublicAgent) }))
+      // 先按行判"已发布",再逐键投影 —— 两道闸的顺序不能反:投影只保证"少发字段",
+      // 不保证"不发未发布的行"。
+      return reply.send(
+        success({
+          ...result,
+          list: result.list.filter(keepPublishedRowsOnlyForGuest).map(sanitizePublicAgent),
+        }),
+      )
     }
     return reply.send(success(result))
   }

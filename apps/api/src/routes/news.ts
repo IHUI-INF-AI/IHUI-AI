@@ -338,19 +338,21 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(zhsAiModelInfo.status, 1))
       .orderBy(desc(zhsAiModelInfo.isTop), desc(zhsAiModelInfo.isHot), asc(zhsAiModelInfo.sort))
       .limit(limit)
-    // 可用+配额铁律(2026-08-27):按 ai-service provider 健康度剔除硬不可用模型;
-    // health 拉取失败(空 Map)则全保留(宽松,不因瞬时抖动清空)。
-    const healthMap = await fetchProviderHealth()
-    const visibleModels =
-      healthMap.size === 0
-        ? models
-        : models.filter(
-            (m) =>
-              !isProviderHardUnavailable(
-                inferProviderCode(m.modelCode, m.code, m.name ?? ''),
-                healthMap,
-              ),
-          )
+    // 可用+配额铁律(2026-08-27):按 ai-service provider 健康度剔除硬不可用模型。
+    // G-726(2026-09-29):失败代理(空表)换成显式的 known 事实 ——
+    // known:false(非 2xx / 网络 / 超时 / 解析失败)= 本轮没问到,全保留;
+    // "全保留"只是不剔除,不得被读成"全部健康"(本响应不输出健康字段)。
+    // known:true 而某 code 未上报 ⇒ 仍走 isProviderHardUnavailable 的宽松分支,与改动前同形。
+    const health = await fetchProviderHealth()
+    const visibleModels = health.known
+      ? models.filter(
+          (m) =>
+            !isProviderHardUnavailable(
+              inferProviderCode(m.modelCode, m.code, m.name ?? ''),
+              health.providers,
+            ),
+        )
+      : models
     return reply.send(success({ models: visibleModels }))
   })
 

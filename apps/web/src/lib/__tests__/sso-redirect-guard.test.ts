@@ -23,6 +23,7 @@ vi.mock('@ihui/api-client', () => ({ refreshAccessTokenOnce: refreshMock }))
 import {
   isSameOriginRelative,
   isSafeNavigationTarget,
+  resolveSafeRedirectTarget,
   isBlockedByAuthGuard,
   syncAuthCookie,
   ensureSsoRedirectAllowed,
@@ -54,6 +55,28 @@ describe('isSameOriginRelative', () => {
 
   it('协议相对 //host 不算同源相对', () => {
     expect(isSameOriginRelative('//evil.example.com/x')).toBe(false)
+  })
+
+  /**
+   * 票 A3/G-413 补的第二类绕过(正反成对)。判据不是"看着危险",而是浏览器真的会走出去:
+   * WHATWG 在 special scheme 的 "special authority ignore slashes" 状态里把 `\` 与 `/` 等值处理,
+   * 下面这几条 node 实测(与浏览器同一套解析器)全部落到 evil.example.com:
+   *   new URL('/\\evil.example.com/x', 'https://aizhs.top')  → https://evil.example.com/x
+   *   new URL('/\\/\\evil.example.com', 'https://aizhs.top')  → https://evil.example.com/
+   *   new URL('///evil.example.com', 'https://aizhs.top')     → https://evil.example.com/
+   * 旧判据只挡 `//`,于是这三条都被当成"站内相对路径"放行。
+   */
+  it('反斜杠形态 /\\evil.com 不算同源相对(浏览器按 //evil.com 解析)', () => {
+    expect(isSameOriginRelative('/\\evil.example.com/x')).toBe(false)
+    expect(isSameOriginRelative('/\\/\\evil.example.com')).toBe(false)
+    expect(isSameOriginRelative('///evil.example.com')).toBe(false)
+  })
+
+  it('路径中段含反斜杠仍是站内路径(不得为消红把整族判死)', () => {
+    // 第二个字符是普通字符 ⇒ 落点仍在本源(实测 new URL('/a\\/b','https://aizhs.top') = …/a/b)
+    expect(isSameOriginRelative('/a\\/b')).toBe(true)
+    expect(isSameOriginRelative('/edu/edu-management/study-plan')).toBe(true)
+    expect(isSameOriginRelative('/')).toBe(true)
   })
 
   it('绝对 URL 与自定义协议深链不算同源相对', () => {
@@ -181,6 +204,85 @@ describe('isSafeNavigationTarget - 协议判定(与归属判定不同义)', () =
       expect(isSameOriginRelative(t)).toBe(true)
       expect(isSafeNavigationTarget(t)).toBe(true)
     }
+  })
+
+  // ── 票 A3/G-413:三类绕过成对钉死(合法同源放行 / 三种绕过全部拒绝) ──────────────
+  it('三类绕过全部拒:协议相对、反斜杠、自执行协议', () => {
+    expect(isSafeNavigationTarget('//evil.example.com/x')).toBe(false) // ①协议相对
+    expect(isSafeNavigationTarget('/\\evil.example.com/x')).toBe(false) // ②反斜杠
+    expect(isSafeNavigationTarget('/\\/\\evil.example.com')).toBe(false)
+    expect(isSafeNavigationTarget('javascript:alert(1)')).toBe(false) // ③自执行协议
+    expect(isSafeNavigationTarget('data:text/html,<script>1</script>')).toBe(false)
+    expect(isSafeNavigationTarget('file:///etc/passwd')).toBe(false)
+    expect(isSafeNavigationTarget('about:blank')).toBe(false)
+  })
+
+  it('合法站内路径与外站 http(s) 放行(判据没被顺手改严)', () => {
+    expect(isSafeNavigationTarget('/edu/edu-management/study-plan')).toBe(true)
+    expect(isSafeNavigationTarget('https://aizhs.top/pricing')).toBe(true)
+  })
+
+  // 正向对照(AGENTS §9 的 SSO 契约):默认档对深链的判据**逐字未变** ——
+  // 打开 allowDeepLink 才放行,且它绝不成为自执行协议的放行通道。
+  it('深链只在显式声明的调用点放行,默认判据一字未动', () => {
+    for (const scheme of ['ihui://sso/callback', 'ihui-miniapp://sso/callback']) {
+      expect(isSafeNavigationTarget(scheme)).toBe(false) // 默认档:mobile-auth 的既有断言不被推翻
+      expect(isSafeNavigationTarget(scheme, { allowDeepLink: true })).toBe(true)
+    }
+    expect(isSafeNavigationTarget('ihui://', { allowDeepLink: true })).toBe(false) // 裸 scheme 无 host
+    expect(isSafeNavigationTarget('javascript:alert(1)', { allowDeepLink: true })).toBe(false)
+  })
+})
+
+describe('resolveSafeRedirectTarget - 回跳落点的唯一决策出口', () => {
+  // 三条"落点被改写"的路径分开判,因为两档策略本来就不同义:
+  //  - 自执行协议 / 协议相对 / 反斜杠:任何调用点都必须改写(它们要么在本站执行代码,要么伪装站内)
+  //  - 外部 origin:只有**声明了白名单**的调用点(带 sso_code 落地的那一页)才改写;
+  //    mobile-auth 与 login/register 的 WebView 回跳按设计允许外站(见上面那条控制组),
+  //    把"改写外部 origin"写成普适断言 = 给一扇会砍断 App→Web 链路的门发合格证。
+  it('三类绕过一律被改写为站内默认(不会产出对外跳转)', () => {
+    for (const evil of [
+      '//evil.example.com/cb',
+      '/\\evil.example.com/cb',
+      '/\\/\\evil.example.com',
+      'javascript:alert(1)',
+      'data:text/html,<script>1</script>',
+      'totally-not-a-url',
+      '',
+    ]) {
+      expect(resolveSafeRedirectTarget(evil, { allowDeepLink: true })).toBe('/')
+      expect(resolveSafeRedirectTarget(evil, { allowedOrigins: ['https://aizhs.top'] })).toBe('/')
+    }
+  })
+
+  it('带外部 origin 的 redirect:声明白名单后不会产出对外跳转', () => {
+    // /sso/redirect 这一页正是这一档策略(它带着刚落库的 sso_code 落地)
+    const opts = { allowedOrigins: ['https://aizhs.top'] }
+    expect(resolveSafeRedirectTarget('https://evil.example.com/cb', opts)).toBe('/')
+    expect(resolveSafeRedirectTarget('https://aizhs.top/pricing', opts)).toBe(
+      'https://aizhs.top/pricing',
+    )
+    // 白名单为空数组 ⇒ 所有绝对地址都不放行(env 未配置时的既有行为)
+    expect(resolveSafeRedirectTarget('https://aizhs.top/pricing', { allowedOrigins: [] })).toBe('/')
+  })
+
+  it('同源相对 / 外站 http(s) / 深链原样返回(正向对照)', () => {
+    expect(resolveSafeRedirectTarget('/edu/a')).toBe('/edu/a')
+    expect(resolveSafeRedirectTarget('https://aizhs.top/pricing')).toBe('https://aizhs.top/pricing')
+    expect(resolveSafeRedirectTarget('ihui://sso/callback', { allowDeepLink: true })).toBe(
+      'ihui://sso/callback',
+    )
+  })
+
+  it('拒绝时点名原值(不静默把用户送回首页)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(resolveSafeRedirectTarget('javascript:alert(1)')).toBe('/')
+    expect(warn).toHaveBeenCalledWith(expect.any(String), 'javascript:alert(1)')
+    warn.mockRestore()
+  })
+
+  it('fallback 可指定,默认站内首页', () => {
+    expect(resolveSafeRedirectTarget('javascript:alert(1)', { fallback: '/login' })).toBe('/login')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

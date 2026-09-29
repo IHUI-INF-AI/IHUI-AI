@@ -78,7 +78,11 @@ import {
 // 消费侧的 import 解析**复用守门 98 那一份实现**,不另写第二份:两处解析同一件事必漂移,
 // 而漂移的表现永远是"某一种写法只有一边看得见"(本仓记过多次)。98 有 §22d isDirectRun 守卫,
 // import 它不会触发 CLI 主流程。
-import { parseImports } from './check-dangling-local-imports.mjs'
+import {
+  buildAliasIndex,
+  parseImports,
+  resolveAliasSpec,
+} from './check-dangling-local-imports.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符) */
@@ -93,6 +97,11 @@ const GIT_TIMEOUT = 180000
  */
 const SRC_RE = /\.(ts|tsx|js|jsx|mjs|cjs)$/
 const SKIP_DIR = /(^|\/)(node_modules|dist|build|coverage|\.next|\.expo|android|ios)\//
+/** 目录 barrel:任何 `<dir>/index.(ts|tsx)`。包入口本身也是这种形态,但两面判的**说明符形状不同**
+ *  (包面判裸包名,barrel 面判相对/别名),同一条导入不可能被两面各计一次。 */
+const BARREL_RE = /(^|\/)index\.(ts|tsx)$/
+/** 别名表来源(与守门 98 同一个形状判据,不另立一份) */
+const TS_RE = /(^|\/)tsconfig[\w.-]*\.json$/
 /** 包内**不参与"存在性"取证**的文件:测试与夹具里的名字不代表对外能力 */
 const NON_UNIVERSE = /(^|\/)(tests?|__tests__|e2e|fixtures|testdata)\//
 /** 消费者面**不排除**测试文件:测试里 import 一个没递出的名字,运行到那一行同样是 undefined;
@@ -498,13 +507,33 @@ function listFacePaths(face, root = ROOT) {
 
 /**
  * 主判据。`readFace` 给被审面的内容;`files` 是该面的路径全集(存在性也按同一面判)。
- * 返回 { red, typeMiss, notFound, subpath, undetermined, packages, consumers }
+ * 返回 { red, typeMiss, notFound, subpath, undetermined, packages, consumers, barrels, barrelStats }
+ *
+ * **两族入口,一条判据**:
+ *   ① 包面 —— 裸包名 `import { N } from '@ihui/pkg'`,universe = 该包整棵子树;
+ *   ② 端内/子 barrel 面 —— 相对或 tsconfig 别名解析到某个 `<dir>/index.(ts|tsx)`,
+ *      universe = **该 barrel 自己那一层目录**的子树(比包面窄,刻意保守:红点要求
+ *      "名字就在这层目录里以值导出存在,而 barrel 没递出来")。
+ * 两族判定的形状完全相同(同一个 `deliveredOf`、同一套三态),只是**说明符形状**不同,
+ * 所以同一条导入不可能被两族各计一次红。
+ *
+ * 为什么端内 barrel 也要判(2026-09-28 的可达性实测,数字一律现读):
+ *   · 守门 98 判的是"目标文件有没有这个名字",但它**见 `export *` 即整文件放过**
+ *     (`parseExports` 置 opaque ⇒ `if (opaque) continue`),而本仓被目录式导入消费的端内
+ *     barrel 里有一批正是"star + 具名清单"混血形态 —— 摘掉其中一行具名 re-export,98 全程看不见。
+ *   · 98 的 `--staged` 只审**暂存的那几个文件**;一枚只改 barrel(摘一行)的提交,红点落在
+ *     未暂存的消费者上 ⇒ 提交链不红。
+ *   · `tsc` 看得见这一型(app 内解析到的是源码,不是 gitignored 的 dist —— 那正是包面当初
+ *     必须另立一道门的原因),但提交链那两道 typecheck 门都按"报错文件 ∈ 改动范围"过滤
+ *     (`check-staged-typecheck` 的 filterTscOutputForStagedFiles / push 门 `shouldDegrade`),
+ *     所以只有 CI 会红;CI 红在"本机即部署机"的链路里拦不住任何人。
+ *   ⇒ 这一型在提交链上无人看守,与包面同罪,共用本门。
  *
  * **纯函数**:只吃传入的 reader 与清单,自己不派生 git、不碰磁盘 —— 这样"红/绿"与
  * "取的是哪一面"两件事能各自被证(守门 103 T12 那一课:证明取材面行为只能靠纯函数+构造面)。
  * 面基准由 `main()` 侧的 `assertRepoRoot` 与 `makeReader` 负责。
  */
-export function analyze({ readFace, files, consumerFilter = null }) {
+export function analyze({ readFace, files, consumerFilter = null, requireBarrels = false }) {
   const fileSet = new Set(files)
   const has = (p) => fileSet.has(p)
   const cache = new Map()
@@ -590,6 +619,85 @@ export function analyze({ readFace, files, consumerFilter = null }) {
     entryOf,
   }
 
+  /**
+   * 端内 / 子 barrel 面所需的两件东西:
+   *  · **别名表** —— 复用守门 98 那一份 `buildAliasIndex`(它与 98 一样只吃
+   *    `compilerOptions.paths` 的尾随 `*` 前缀映射),不另写第二份解析器;
+   *  · **一条仓库范围的相对解析** —— 端内 barrel 合法地会 `export { x } from '../shared/y'`,
+   *    把解析限制在 barrel 自己那层目录会把"已递出"读成"没递出"(假红)。
+   *    跨包的 `export *`(如 `export * from '@ihui/shared'`)按包面那两张表继续走,
+   *    所以这里交给 `deliveredOf` 的 ctx 与包面共用 `pkgByName` / `entryOf`。
+   */
+  const tsConfigs = files.filter((f) => TS_RE.test(f) && !SKIP_DIR.test(f))
+  const aliasBuilt = buildAliasIndex(read, tsConfigs)
+  const aliasIndex = aliasBuilt.index
+  const aliasUnparsed = aliasBuilt.unparsed || 0
+
+  const resolveAnywhere = (_pn, fromRel, spec) => {
+    const base = resolveRelative(fromRel, spec)
+    for (const c of REL_CANDS(base)) if (has(c)) return c
+    return null
+  }
+  const dirCtx = {
+    moduleOf,
+    pkgByName: (n) => pkgByName.has(n),
+    resolveRelIn: resolveAnywhere,
+    entryOf,
+  }
+
+  // 2b) barrel 全集:任意目录的 index.(ts|tsx);**包入口本身不在这一族**(它由包面判,两面
+  // 判的说明符形状不同,不会把同一条导入各计一次)。
+  const pkgEntrySet = new Set()
+  for (const e of entries.values()) if (e.entry) pkgEntrySet.add(e.entry)
+  const barrels = files.filter(
+    (f) => BARREL_RE.test(f) && !SKIP_DIR.test(f) && !pkgEntrySet.has(f),
+  )
+  const barrelSet = new Set(barrels)
+  /**
+   * 空扫就是本门要防的那一型故障(守门 114/149 同一条):枚举到 0 个 barrel 时"红 0"读起来
+   * 像"全覆盖",而它其实是选择器漂了(BARREL_RE / SKIP_DIR / pkgEntrySet 任何一处被改坏都会
+   * 让这一族整片隐身)。
+   * `requireBarrels` 由 CLI 侧恒真(真仓有 200+ 个端内 barrel,0 个必是判据坏了);
+   * 纯函数夹具默认假 —— 那些面本来就只有包入口,不该被这条判死(由镜像测试端到端钉这个方向)。
+   */
+  if (requireBarrels && !barrelSet.size)
+    throw new Undetermined('一个目录 barrel(index.ts/tsx)都没枚举到 ⇒ 判据失明,不记通过')
+  const barrelDir = (b) => b.replace(/\/index\.(ts|tsx)$/, '')
+  /** barrel → 目录内(不含 barrel 自己)的值/类型导出全集。按目录记忆,一次判据一趟共用。 */
+  const universeCache = new Map()
+  const universeOfBarrel = (b) => {
+    const dir = barrelDir(b)
+    if (universeCache.has(dir)) return universeCache.get(dir)
+    const u = { value: new Set(), type: new Set() }
+    for (const f of files) {
+      if (!f.startsWith(`${dir}/`) || BARREL_RE.test(f)) continue
+      if (!SRC_RE.test(f) || SKIP_DIR.test(f) || NON_UNIVERSE.test(f)) continue
+      const m = moduleOf(f)
+      if (!m) continue
+      for (const n of m.value) u.value.add(n)
+      for (const n of m.type) u.type.add(n)
+    }
+    universeCache.set(dir, u)
+    return u
+  }
+  const deliveredCache = new Map()
+  const deliveredOfBarrel = (b) => {
+    if (!deliveredCache.has(b)) deliveredCache.set(b, deliveredOf(barrelDir(b), b, dirCtx))
+    return deliveredCache.get(b)
+  }
+  /** 一条说明符解析到的是不是某个 barrel(相对直接解,别名经 98 的表解;都不中 ⇒ null) */
+  const barrelOfSpec = (fromRel, spec) => {
+    let base = null
+    if (spec.startsWith('./') || spec.startsWith('../')) base = resolveRelative(fromRel, spec)
+    else if (aliasIndex && aliasIndex.size) {
+      const a = resolveAliasSpec(fromRel, spec, aliasIndex)
+      if (a) base = a
+    }
+    if (!base) return null
+    for (const c of REL_CANDS(base)) if (barrelSet.has(c)) return c
+    return null
+  }
+
   // 3) 包内"值导出全集"(存在性取证):逐包一次遍历
   const universe = new Map() // pkgName -> {value:Set, type:Set}
   for (const [name, dir] of pkgByName) {
@@ -605,7 +713,7 @@ export function analyze({ readFace, files, consumerFilter = null }) {
     universe.set(name, u)
   }
 
-  // 4) 消费者侧:裸包名具名导入
+  // 4) 消费者侧:① 裸包名具名导入 ② 相对/别名解析到 barrel 的具名导入
   const red = []
   const typeMiss = []
   const notFound = []
@@ -616,6 +724,7 @@ export function analyze({ readFace, files, consumerFilter = null }) {
   const stats = new Map()
   let consumerFiles = 0
   const judgedPkgs = new Set()
+  const judgedBarrels = new Set()
   for (const f of files) {
     if (!SRC_RE.test(f) || SKIP_DIR.test(f)) continue
     if (consumerFilter && !consumerFilter.has(f)) continue
@@ -624,6 +733,47 @@ export function analyze({ readFace, files, consumerFilter = null }) {
     consumerFiles += 1
     for (const imp of parseImports(t)) {
       const spec = imp.spec
+      /**
+       * 端内 barrel 面。放在裸包名之前判,因为**别名说明符**(apps/web 的 `@/components/common`)
+       * 在下一段会走进 `!pkgByName.has(spec)` 那一支被静默丢掉 —— 它既不是包名也不是子路径,
+       * 旧版连"报名"都没有,所以那 741 个消费者一条都不进射程。
+       */
+      if (imp.named.length) {
+        const b = barrelOfSpec(f, spec)
+        if (b) {
+          judgedBarrels.add(b)
+          const dl = deliveredOfBarrel(b)
+          if (dl.opaque) {
+            undetermined.push({
+              pkg: `barrel:${b}`,
+              why: `barrel 可达图有枚举不动的边 —— ${(dl.reasons || []).join('; ') || '未记录'}`,
+            })
+            for (const n of imp.named)
+              notFound.push({ file: f, line: imp.line, spec, name: n.imported, opaque: true, scope: 'barrel' })
+            continue
+          }
+          const u = universeOfBarrel(b)
+          const st = stats.get(b) || {
+            consumers: 0,
+            deliveredValue: dl.value.size,
+            deliveredType: dl.type.size,
+            universeValue: u.value.size,
+            entry: b,
+            scope: 'barrel',
+          }
+          st.consumers += imp.named.length
+          stats.set(b, st)
+          for (const n of imp.named) {
+            if (dl.value.has(n.imported) || dl.type.has(n.imported)) continue
+            if (u.value.has(n.imported))
+              red.push({ file: f, line: imp.line, spec, name: n.imported, entry: b, scope: 'barrel' })
+            else if (u.type.has(n.imported))
+              typeMiss.push({ file: f, line: imp.line, spec, name: n.imported, scope: 'barrel' })
+            else notFound.push({ file: f, line: imp.line, spec, name: n.imported, scope: 'barrel' })
+          }
+          continue
+        }
+      }
       if (spec.startsWith('./') || spec.startsWith('../')) continue
       /**
        * `pkgByName` 的**值**是包目录,`entries` / `universe` 的键是**包名**。
@@ -666,20 +816,25 @@ export function analyze({ readFace, files, consumerFilter = null }) {
         deliveredType: dl.type.size,
         universeValue: u.value.size,
         entry: e.entry,
+        scope: 'package',
       }
       st.consumers += imp.named.length
       stats.set(spec, st)
       for (const n of imp.named) {
         if (dl.value.has(n.imported) || dl.type.has(n.imported)) continue
         if (u.value.has(n.imported))
-          red.push({ file: f, line: imp.line, spec, name: n.imported, entry: e.entry })
+          red.push({ file: f, line: imp.line, spec, name: n.imported, entry: e.entry, scope: 'package' })
         else if (u.type.has(n.imported))
-          typeMiss.push({ file: f, line: imp.line, spec, name: n.imported })
-        else notFound.push({ file: f, line: imp.line, spec, name: n.imported })
+          typeMiss.push({ file: f, line: imp.line, spec, name: n.imported, scope: 'package' })
+        else notFound.push({ file: f, line: imp.line, spec, name: n.imported, scope: 'package' })
       }
     }
   }
   if (!consumerFiles) throw new Undetermined('一个消费者源文件都没扫到 ⇒ 判据失明,不记通过')
+  if (requireBarrels && !judgedBarrels.size && !consumerFilter)
+    throw new Undetermined(
+      `枚举到 ${barrels.length} 个目录 barrel,却没有一条相对/别名导入落到它们上 ⇒ 解析器失明,不记通过`,
+    )
   return {
     red,
     typeMiss,
@@ -688,6 +843,10 @@ export function analyze({ readFace, files, consumerFilter = null }) {
     undetermined: [...new Map(undetermined.map((u) => [`${u.pkg}::${u.why}`, u])).values()],
     packages: pkgByName.size,
     consumerFiles,
+    barrels: barrels.length,
+    barrelConsumers: judgedBarrels.size,
+    aliasConfigs: tsConfigs.length,
+    aliasUnparsed,
     judgedPackages: [...judgedPkgs].sort(),
     perPackage: [...stats.entries()]
       .map(([pkg, s]) => ({ pkg, ...s }))
@@ -744,7 +903,12 @@ export function main(argv = process.argv.slice(2)) {
     // 也不会产出自洽却错位的尺子(守门 121/98 同一条纪律)。
     const reader = makeReader(face, root)
     reader.prepare(
-      files.filter((f) => (SRC_RE.test(f) && !SKIP_DIR.test(f)) || f.endsWith('package.json')),
+      files.filter(
+        (f) =>
+          (SRC_RE.test(f) && !SKIP_DIR.test(f)) ||
+          f.endsWith('package.json') ||
+          TS_RE.test(f),
+      ),
     )
     const readFace = (p) => reader.read(p)
     // **不按暂存文件收窄判据面**(与守门 78/126 同取向):两格洞都是收窄造出来的 ——
@@ -752,25 +916,39 @@ export function main(argv = process.argv.slice(2)) {
     //      收窄后本门"无消费者可判" ⇒ 要么假喊无法判定、要么放过整类;
     //   ② 摘线的那枚提交当场不红,红点要等到别人日后碰消费者文件才出现 —— 而那个人会以为是自己的错。
     // 锚点仍按"该消费者文件 HEAD 自身存量"取 ⇒ 别人欠的存量不把本次提交钉红(§12e)。
-    const judged = analyze({ readFace, files })
+    const judged = analyze({ readFace, files, requireBarrels: true })
     let anchors = new Map()
     if (face === 'staged') {
       const redFiles = new Set(judged.red.map((r) => r.file))
       if (redFiles.size) {
         const headAll = listFacePaths('head', root)
-        // 第二趟只为拿锚点 ⇒ 只喂"包侧文件 + 第一趟判红的少数消费者",
+        // 第二趟只为拿锚点 ⇒ 只喂"包侧文件 + 端内 barrel 侧文件 + 第一趟判红的少数消费者",
         // 避免每次提交跑两遍 9000 文件的全量读取。
-        const headFiles = headAll.filter((f) => f.startsWith('packages/') || redFiles.has(f))
+        // **两族都必须喂**:barrel 侧漏喂 ⇒ 锚点恒 0 ⇒ 端内的存量债会被算成"本次新增"(假红,
+        // 而假红的代价就是逼人 --no-verify)。别名表(tsconfig)也必须同批喂,否则那一趟解不出
+        // barrel,又会把同一批红算成 0。
+        const headFiles = headAll.filter(
+          (f) =>
+            f.startsWith('packages/') ||
+            f.startsWith('apps/') ||
+            f.startsWith('sdks/') ||
+            TS_RE.test(f) ||
+            redFiles.has(f),
+        )
         const hr = makeReader('head', root)
         hr.prepare(
           headFiles.filter(
-            (f) => (SRC_RE.test(f) && !SKIP_DIR.test(f)) || f.endsWith('package.json'),
+            (f) =>
+              (SRC_RE.test(f) && !SKIP_DIR.test(f)) ||
+              f.endsWith('package.json') ||
+              TS_RE.test(f),
           ),
         )
         const base = analyze({
           readFace: (p) => hr.read(p),
           files: headFiles,
           consumerFilter: redFiles,
+          requireBarrels: true,
         })
         anchors = perFileCounts(base.red)
       }
@@ -785,6 +963,10 @@ export function main(argv = process.argv.slice(2)) {
       strict,
       packages: judged.packages,
       consumerFiles: judged.consumerFiles,
+      barrels: judged.barrels,
+      barrelConsumers: judged.barrelConsumers,
+      aliasConfigs: judged.aliasConfigs,
+      aliasUnparsed: judged.aliasUnparsed,
       red: judged.red,
       typeMiss: judged.typeMiss,
       notFound: judged.notFound.filter((x) => !x.opaque),
@@ -811,17 +993,20 @@ export function main(argv = process.argv.slice(2)) {
   } else {
     console.log(`[barrel-export] 取材面:${face}`)
     console.log(
-      `[barrel-export] workspace 包 ${report.packages} 个 / 消费者源文件 ${report.consumerFiles} 个`,
+      `[barrel-export] workspace 包 ${report.packages} 个 / 目录 barrel ${report.barrels} 个(被相对或别名导入消费 ${report.barrelConsumers} 个;别名表 ${report.aliasConfigs} 份 tsconfig,解析失败 ${report.aliasUnparsed})/ 消费者源文件 ${report.consumerFiles} 个`,
     )
     console.log(
       `✅ 真仓判据已跑:` +
-        ` ${report.packages} 个包、${report.consumerFiles} 个文件,` +
-        `红 ${blocking.length} 处(raw red ${report.red.length}),类型漏递 ${report.typeMiss.length},` +
+        ` ${report.packages} 个包 + ${report.barrelConsumers} 个 barrel、${report.consumerFiles} 个文件,` +
+        `红 ${blocking.length} 处(raw red ${report.red.length},其中端内 barrel ${report.red.filter((r) => r.scope === 'barrel').length}),` +
+        `类型漏递 ${report.typeMiss.length},` +
         `查无此名 ${report.notFound.length},子路径(不在射程)${report.subpath.length},未判定 ${report.undetermined.length}`,
     )
     for (const r of report.red.slice(0, 40))
       console.log(
-        `   · ${r.file}:${r.line} 从 '${r.spec}' 要 '${r.name}' —— 包内有该值导出,入口(${r.entry})没递出来`,
+        `   · ${r.file}:${r.line} 从 '${r.spec}' 要 '${r.name}' —— ${
+          r.scope === 'barrel' ? '该层目录有该值导出' : '包内有该值导出'
+        },入口(${r.entry})没递出来`,
       )
     if (report.red.length > 40) console.log(`   … 另有 ${report.red.length - 40} 处(--json 看全量)`)
     for (const r of report.typeMiss.slice(0, 20))
@@ -839,13 +1024,25 @@ export function main(argv = process.argv.slice(2)) {
     for (const u of report.undetermined) console.log(`   ⚠️ 未判定:${u.pkg} —— ${u.why}`)
     // 覆盖面自证:递出名单明显小于包内规模 ⇒ 是本门的解析器失明,不是仓库干净。
     // 没有这一行,"红 0"会被读成"全覆盖",而那正是判据失效最安静的样子。
+    // **但这条启发只对包面成立**:包入口按定义该把对外能力几乎全递出来,而端内 barrel
+    // 的本意就是"精选一份清单"(`apps/api/src/db/index.ts` 只递 9 条而该层目录有 1166 条值导出,
+    // 这是设计不是失明)。把包面那把尺子照搬到 barrel 面,产出的是 16 行假警报
+    // —— 假阳比漏报贵(守门 118 那一课:它指使人去"修"没坏的东西)。
+    // barrel 面只有一件事确实可疑:**被消费着却一条都没递出**。
     for (const p of report.perPackage) {
+      const empty = p.deliveredValue + p.deliveredType === 0
       const flag =
-        p.deliveredValue + p.deliveredType === 0 || p.deliveredValue < p.universeValue / 4
-          ? ' ⚠️ 递出数远小于包内规模,疑解析失明'
-          : ''
+        p.scope === 'barrel'
+          ? empty
+            ? ' ⚠️ 被消费着却一条都没递出,疑解析失明'
+            : ''
+          : empty || p.deliveredValue < p.universeValue / 4
+            ? ' ⚠️ 递出数远小于包内规模,疑解析失明'
+            : ''
       console.log(
-        `   [覆盖] ${p.pkg}:入口 ${p.entry} 递出 值${p.deliveredValue}/类${p.deliveredType},包内值导出 ${p.universeValue},被消费 ${p.consumers} 名${flag}`,
+        `   [覆盖] ${p.scope === 'barrel' ? 'barrel' : '包'} ${p.pkg}:入口 ${p.entry} 递出 值${p.deliveredValue}/类${p.deliveredType},${
+          p.scope === 'barrel' ? '该层目录' : '包内'
+        }值导出 ${p.universeValue},被消费 ${p.consumers} 名${flag}`,
       )
     }
     if (face === 'staged') {
@@ -1123,20 +1320,178 @@ function selfTest() {
     edge.names.length === 3 && edge.names.includes('tokens') && !edge.typeOnly,
   )
 
+  // ── 端内 barrel 族(2026-09-28 扩的第二族):同一判据,只是把"包"换成"目录"
+  //    夹具形状逐条对着真仓量出来的形态写:`apps/<端>/src/ui/index.ts` 显式命名清单 +
+  //    消费者按目录导入(相对 或 tsconfig 别名),兄弟文件里有那个值导出。
+  const mkApp = (over = {}) => {
+    const files = {
+      'apps/web/package.json': JSON.stringify({ name: '@w/web', version: '0.0.0' }),
+      'apps/web/tsconfig.json': JSON.stringify({
+        compilerOptions: { paths: { '@/*': ['./src/*'] } },
+        include: ['src/**/*.ts'],
+      }),
+      'apps/web/src/common/index.ts':
+        "export { Empty } from './Empty.js'\nexport { BackButton, hb } from './BackButton.js'\n",
+      'apps/web/src/common/Empty.ts': 'export function Empty() { return 1 }\n',
+      'apps/web/src/common/BackButton.tsx':
+        'export function BackButton() { return 2 }\nexport const hb = 3\nexport interface BackButtonProps { a: number }\n',
+      ...over,
+    }
+    const list = Object.keys(files)
+    return { files: list, readFace: (p) => (Object.prototype.hasOwnProperty.call(files, p) ? files[p] : null) }
+  }
+  const runApp = (over, consumer) => {
+    const f = mkApp({ ...(consumer ? { 'apps/web/src/a.ts': consumer } : {}), ...over })
+    return analyze({ readFace: f.readFace, files: f.files, requireBarrels: true })
+  }
+  // ① 对照组:名单齐备时不得判红(否则这一族一上线就是恒红)
+  const appOk = runApp(undefined, "import { BackButton, hb } from './common'\nexport const x = [BackButton, hb]\n")
+  t(
+    'A23 端内 barrel 对照组:名字确实递着时不得判红(否则新射程=新恒红门)',
+    appOk.red.length === 0 && appOk.barrelConsumers === 1,
+    `red=${JSON.stringify(appOk.red.map((r) => r.name))} consumers=${appOk.barrelConsumers}`,
+  )
+  const appMiss = runApp(
+    {
+      'apps/web/src/common/index.ts': "export { Empty } from './Empty.js'\n",
+    },
+    "import { BackButton } from './common'\nexport const x = BackButton\n",
+  )
+  t(
+    'A24 端内 barrel:摘掉那一行具名 re-export ⇒ 判红并点名 barrel 与消费者(真事故形状)',
+    appMiss.red.length === 1 &&
+      appMiss.red[0].name === 'BackButton' &&
+      appMiss.red[0].scope === 'barrel' &&
+      appMiss.red[0].entry === 'apps/web/src/common/index.ts' &&
+      appMiss.red[0].file === 'apps/web/src/a.ts',
+    JSON.stringify(appMiss.red),
+  )
+  // ② 别名(`@/common`)导入同样在射程内 —— 这一族此前**连报名都没有**
+  const appAlias = runApp(
+    { 'apps/web/src/common/index.ts': "export { Empty } from './Empty.js'\n" },
+    "import { BackButton } from '@/common'\nexport const x = BackButton\n",
+  )
+  t(
+    'A25 tsconfig 别名解析到 barrel 也必须判(旧版把别名当"未知裸名"静默丢掉)',
+    appAlias.red.length === 1 && appAlias.red[0].scope === 'barrel',
+    JSON.stringify({ red: appAlias.red, und: appAlias.undetermined }),
+  )
+  // ③ 经包内 star 边递出的名字不得判红(判据必须覆盖门自己产出的形态)
+  const appStar = runApp(
+    {
+      'apps/web/src/common/index.ts': "export { Empty } from './Empty.js'\nexport * from './extra.js'\n",
+      'apps/web/src/common/extra.ts': 'export function viaStar() { return 1 }\n',
+    },
+    "import { viaStar } from './common'\nexport const x = viaStar\n",
+  )
+  t(
+    'A26 barrel 的**包内** `export *` 边必须被跟着递出(不得因看见 star 就整族判未判定)',
+    appStar.red.length === 0 && appStar.undetermined.length === 0,
+    JSON.stringify({ red: appStar.red.map((r) => r.name), und: appStar.undetermined }),
+  )
+  // ④ 三方 star 边 ⇒ 未判定,且不判红(把"看不见"写成"没有"是本仓最高频失效型)
+  const appOpaque = runApp(
+    {
+      'apps/web/src/common/index.ts':
+        "export { Empty } from './Empty.js'\nexport * from 'some-third-party'\n",
+    },
+    "import { BackButton } from './common'\nexport const x = BackButton\n",
+  )
+  t(
+    'A27 barrel 含不可枚举的 star 边 ⇒ 该 barrel 整体未判定、一条都不判红',
+    appOpaque.red.length === 0 &&
+      appOpaque.undetermined.length === 1 &&
+      String(appOpaque.undetermined[0].pkg).startsWith('barrel:'),
+    JSON.stringify({ red: appOpaque.red, und: appOpaque.undetermined }),
+  )
+  // ⑤ 只有类型形态漏递 ⇒ typeMiss 档
+  const appType = runApp(
+    { 'apps/web/src/common/index.ts': "export { Empty } from './Empty.js'\n" },
+    "import { BackButtonProps } from './common'\nexport type T = BackButtonProps\n",
+  )
+  t(
+    'A28 类型形态漏递落 typeMiss 不判红(编译期擦除,不构成运行时 undefined)',
+    appType.red.length === 0 &&
+      appType.typeMiss.length === 1 &&
+      appType.typeMiss[0].name === 'BackButtonProps',
+    JSON.stringify({ red: appType.red, ty: appType.typeMiss }),
+  )
+  // ⑥ 名字在这层目录以外 ⇒ notFound 档,不判红(存在性取证只认该层目录)
+  const appFar = runApp(undefined, "import { loadPlugins } from './common'\nexport const x = loadPlugins\n")
+  t(
+    'A29 名字不在 barrel 那层目录里 ⇒ 记"查无此名"而不是判红(取证面窄,宁漏不误报)',
+    appFar.red.length === 0 &&
+      appFar.notFound.some((n) => n.name === 'loadPlugins' && n.scope === 'barrel'),
+    JSON.stringify({ red: appFar.red, nf: appFar.notFound.map((n) => n.name) }),
+  )
+  // ⑦ 空枚举必须判死,不得记绿
+  try {
+    const list = ['apps/web/package.json', 'apps/web/src/a.ts']
+    analyze({
+      readFace: (p) => (p === 'apps/web/src/a.ts' ? "export const x = 1\n" : '{"name":"@w/web"}'),
+      files: list,
+      requireBarrels: true,
+    })
+    t('A30 枚举到 0 个 barrel ⇒ 判死(空扫不得被记成通过)', false)
+  } catch (e) {
+    t(
+      'A30 枚举到 0 个 barrel ⇒ 判死(空扫不得被记成通过)',
+      e instanceof Undetermined,
+      String(e && e.message),
+    )
+  }
+  // ⑧ 有 barrel 却没有一条导入落在上面 ⇒ 同样判死(解析器瞎了)
+  try {
+    const f = mkApp()
+    analyze({
+      readFace: f.readFace,
+      files: f.files,
+      requireBarrels: true,
+    })
+    t('A31 有 barrel 而无一条导入落在其上 ⇒ 判死(解析失明的第二种形态)', false)
+  } catch (e) {
+    t(
+      'A31 有 barrel 而无一条导入落在其上 ⇒ 判死(解析失明的第二种形态)',
+      e instanceof Undetermined,
+      String(e && e.message),
+    )
+  }
+  // ⑨ 包入口本身不重复进 barrel 族(两面判的说明符形状不同,不得各计一次)
+  const dbl = run({
+    'apps/web/src/a.ts': "import { delivered } from '@t/pkg'\nimport { delivered as d2 } from '../../../packages/pkg/src/index.js'\n",
+  })
+  t(
+    'A32 包入口被相对路径直导时不得被 barrel 族重复计债(它已在包面射程内)',
+    dbl.red.length === 0 && !dbl.red.some((r) => r.scope === 'barrel'),
+    JSON.stringify({ red: dbl.red.map((r) => `${r.name}:${r.scope}`) }),
+  )
+
   // ── 真仓 HEAD 阳性对照:看不见存量不算通过
   let realNote = '--strict 未在自检里跑(避免自派生第二遍全量读取)'
   try {
     const files = listFacePaths('head')
     const reader = makeReader('head')
     reader.prepare(
-      files.filter((f) => (SRC_RE.test(f) && !SKIP_DIR.test(f)) || f.endsWith('package.json')),
+      files.filter(
+        (f) =>
+          (SRC_RE.test(f) && !SKIP_DIR.test(f)) ||
+          f.endsWith('package.json') ||
+          TS_RE.test(f),
+      ),
     )
-    const r = analyze({ readFace: (p) => reader.read(p), files })
-    realNote = `真仓 HEAD:红 ${r.red.length} / 类型 ${r.typeMiss.length} / 查无 ${r.notFound.length} / 子路径 ${r.subpath.length} / 未判定 ${r.undetermined.length}`
+    const r = analyze({ readFace: (p) => reader.read(p), files, requireBarrels: true })
+    realNote = `真仓 HEAD:红 ${r.red.length}(端内 barrel ${r.red.filter((x) => x.scope === 'barrel').length})/ 类型 ${r.typeMiss.length} / 查无 ${r.notFound.length} / 子路径 ${r.subpath.length} / 未判定 ${r.undetermined.length} / barrel 枚举 ${r.barrels} 被消费 ${r.barrelConsumers}`
     t(
       'A18 真仓 HEAD 必须枚举到 workspace 包与消费者(空扫不算判过)',
       r.packages > 5 && r.consumerFiles > 100,
       realNote,
+    )
+    // 端内 barrel 族自己的阳性对照:枚举到了、也确实有导入落在上面 —— 两边任一为 0
+    // 都说明这一族是"看不见所以没红",不是"仓库干净"。
+    t(
+      'A18b 真仓 HEAD 必须枚举到目录 barrel **且**有相对/别名导入落在它们上(新射程不得是空转)',
+      r.barrels > 50 && r.barrelConsumers > 20,
+      `实得 枚举 ${r.barrels} / 被消费 ${r.barrelConsumers}`,
     )
   } catch (e) {
     t('A18 真仓 HEAD 必须枚举到 workspace 包与消费者(空扫不算判过)', false, String(e && e.message))
