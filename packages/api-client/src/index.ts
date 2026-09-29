@@ -98,7 +98,14 @@ export type {
   // `onReasoningEffortNotice` 不单独递出 —— 它是上面 StreamChatOptions 的**字段**(回调入参
   // 即本类型),递出这两个名字就等于递出了那条回调的两端类型。
   ReasoningEffortNotice,
+  // D159(2026-09-30 立):审批帧的执行环境/网络目标形态。与上面 D106/D130 同一型 ——
+  // 入口是显式命名清单,漏列则端内只能自抄或 any;而 @ihui/shared 的
+  // sse/agent-events.ts 要 import 这两个名字(它复用本包的投影判据,不重列内层形状),
+  // 漏一条是**跨包**的悬空具名导入(守门 98 在 HEAD 面直接红)。
+  ToolApprovalExecEnvironment,
+  ToolApprovalNetworkTarget,
 } from './client.js'
+export { projectToolApprovalEnvFacts } from './client.js'
 // AI 对话可视化 Phase 4a 事件类型 re-export(2026-08-01,消息级 plan/terminal inline 展示)
 export type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
 export { ApiError, isNotFound, isErrorCode } from './api-error.js'
