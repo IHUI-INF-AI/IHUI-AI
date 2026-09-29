@@ -20522,7 +20522,6 @@ services 归档/分享/HTTP 层)判"值得抄"的 **26 条**逐条立项(每条�
 - [ ] G-639 每个 tool_call 各自的 cancelled 合成帧:取消时不得只发一帧整体 cancelled,须逐未完成的 tool_call 合成。落点流式取消出口;验收 用例"两个 in-flight tool_call ⇒ 两帧"。2026-09-29 立项
 - [ ] G-640 重放单调性守卫:SSE 重连按 `lastEventId` 起播,已消费的事件不得二次进状态机。落点共享 SSE 消费出口;验收 构造面"重放窗口重叠 ⇒ 状态计数不变"。2026-09-29 立项
 - [ ] G-641 有界缓冲区必须暴露 dropped:溢出丢弃要回传丢弃条数,静默变短等于伪造完整性(§5e 同一条禁令)。落点缓冲区实现与消费面;验收 断言 `dropped>0` 时输出面有计数行。2026-09-29 立项
-- [ ] G-642 设备标识 trim 兜底:空白/超长 id 必须归一后再落键,不得把 `" "` 当有效身份。落点设备 id 归一出口;验收 正反用例各一条。2026-09-29 立项
 - [ ] G-643 门 103 的 `--worktree` 旗标不存在:AGENTS 写着"`--worktree` 仅人工逃生舱",而 `main(argv)` 只解析 `--staged/--json/--strict/--managed-trial` ⇒ 带该旗静默落默认档(HEAD),我本轮就是被它骗了一次取证。落点 scripts/check-architecture-policy.mjs 的参数面(要么实现,要么把文档那句删掉并改成"无该档");验收 `node scripts/check-architecture-policy.mjs --worktree` 必须与不带旗标**结论不同形**或当场报错,二者必居其一。2026-09-29 立项
 - [ ] G-644 分层配置的三态补丁:patch 只能从 draft 派生,`undefined`=未触碰、`null`=显式清除、敏感字段 `''`=沿用;effective 合并值绝不回写,JSON 解析失败不得静默整块覆写。落点 apps/api/src/routes/user-llm-configs.ts PUT + apps/web/src/lib/user-llm-configs.ts;验收 `git grep -n "apiKeyEnc = JSON.stringify" HEAD -- apps/api/src/routes/user-llm-configs.ts` 同行须有 `=== null` 分支,且坏 JSON 用例点名而非 ignore。2026-09-29 立项
 - [ ] G-645 一次性回填三态返回:迁移函数不得返回 void,须回 {completed,changed,skipped},源清理只在 completed 后做,重跑靠跳过集幂等。落点 packages/shared/src/utils/storage-migration.ts;验收 `git show HEAD:packages/shared/src/utils/storage-migration.ts` 中 `removeItem(legacyKey)` 前置必有写回成功判据。2026-09-29 立项
