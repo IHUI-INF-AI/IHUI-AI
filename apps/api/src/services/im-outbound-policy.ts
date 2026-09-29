@@ -15,6 +15,7 @@
  * 也满足 AGENTS §5 测试隔离铁律(用例不得对生产 PG 8810 / Redis 8811 产生副作用)。
  */
 import { createHash } from 'node:crypto'
+import { t } from './i18n-outbound.js'
 
 // ------ 常量(唯一真相源)------
 
@@ -42,11 +43,11 @@ export const OUTBOUND_MAX_CHARS_PER_SEGMENT = 3500
 export const OUTBOUND_MAX_SEGMENTS_PER_SEND = 10
 
 /** 硬切接缝处附加在**左段末尾**的标记(有标记才允许硬切,禁止静默截断)。 */
-export const OUTBOUND_HARD_CUT_MARK = '……（接下一段）'
+export const OUTBOUND_HARD_CUT_MARK = t('apiOutbound.hardCutMark')
 
 /** 折叠时追加在最后一段末尾的告知模板(把"剩余没发"这件事说给用户,不静默丢尾)。 */
 export function outboundFoldNotice(omittedSegmentCount: number): string {
-  return `\n\n【内容过长】剩余 ${omittedSegmentCount} 段因超出单次上限未发送。`
+  return t('apiOutbound.foldNotice', { count: omittedSegmentCount })
 }
 
 /**
@@ -168,7 +169,7 @@ export function interpretPlatformResponse(status: number, bodyText: string): ImD
     return {
       ok: false,
       status: 'http-error',
-      reason: `平台返回 HTTP ${status}${detail}`,
+      reason: t('apiOutbound.httpError', { status, detail }),
       retryable: isRetryableHttpStatus(status),
       attempts: 1,
     }
@@ -186,7 +187,7 @@ export function interpretPlatformResponse(status: number, bodyText: string): ImD
       return {
         ok: false,
         status: 'business-rejected',
-        reason: `平台业务拒绝 code=${code}${msg ? ` ${msg}` : ''}`,
+        reason: t('apiOutbound.businessRejected', { code, msg: msg ? ` ${msg}` : '' }),
         retryable: false,
         attempts: 1,
       }
@@ -196,7 +197,7 @@ export function interpretPlatformResponse(status: number, bodyText: string): ImD
       return {
         ok: false,
         status: 'no-receipt',
-        reason: '平台 2xx 且无业务错误码,但未回 message_id(无法核对回执)',
+        reason: t('apiOutbound.noReceipt'),
         retryable: false,
         attempts: 1,
       }
@@ -245,8 +246,8 @@ export function classifyTransportError(err: unknown): ImDeliveryOutcome {
     ok: false,
     status: 'transport-error',
     reason: timedOut
-      ? '投递超时(未在 deadline 内读完响应体)'
-      : `投递异常: ${e?.message ?? 'unknown'}`,
+      ? t('apiOutbound.deliveryTimeout')
+      : t('apiOutbound.deliveryError', { message: e?.message ?? 'unknown' }),
     retryable: true,
     attempts: 1,
   }
@@ -353,7 +354,7 @@ export function circuitOpenOutcome(retryAfterMs: number): ImDeliveryOutcome {
   return {
     ok: false,
     status: 'circuit-open',
-    reason: `平台链路连续失败已熔断,${Math.ceil(retryAfterMs / 1000)}s 后放行一次探测(本次未发出请求)`,
+    reason: t('apiOutbound.circuitOpen', { seconds: Math.ceil(retryAfterMs / 1000) }),
     retryable: false,
     attempts: 0,
   }
@@ -717,7 +718,7 @@ async function deliverSingleItem<T>(
     if (!res.retryable) return last
     if (attempt < maxAttempts) await sleep(computeBackoffDelayMs(attempt))
   }
-  return last ?? classifyTransportError(new Error('未发出任何请求'))
+  return last ?? classifyTransportError(new Error(t('apiOutbound.noRequestAttempted')))
 }
 
 /**
@@ -736,7 +737,7 @@ export async function deliverWithPolicy<T>(
     const nothing = {
       ok: false,
       status: 'business-rejected' as const,
-      reason: '没有可发送的内容段',
+      reason: t('apiOutbound.noSegments'),
       retryable: false,
       attempts: 0,
     }
@@ -792,7 +793,7 @@ export function applyFoldToOutcome(
   omittedSegmentCount: number,
 ): ImDeliveryOutcome {
   if (omittedSegmentCount <= 0) return outcome
-  const reason = `内容超出单次段数上限,剩余 ${omittedSegmentCount} 段未投递(已在末段告知)`
+  const reason = t('apiOutbound.foldReason', { count: omittedSegmentCount })
   if (!outcome.ok) return { ...outcome, reason: `${outcome.reason ?? ''}；${reason}` }
   return { ok: false, status: 'partial', reason, retryable: false, attempts: outcome.attempts }
 }

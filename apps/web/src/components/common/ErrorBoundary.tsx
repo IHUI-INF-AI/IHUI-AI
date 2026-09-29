@@ -8,6 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { redactCrashText } from '@ihui/shared/utils/redact'
+import { resolveErrorAttribution } from '@/lib/error-attribution'
 import { useNavigationStore } from '@/stores/navigation'
 
 interface ErrorBoundaryProps {
@@ -131,6 +132,12 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     // **该端点匿名可写,客户端脱敏从来不能作为唯一防线**(权威防线在服务端)。
     if (typeof window !== 'undefined') {
       try {
+        // G-937980(错误归因证据阶梯):唯一错误上报发射点产出结构化归因。
+        // 证据强度阶梯见 lib/error-attribution.ts —— message 是最低优先级证据,
+        // 强证据(HTTP 状态码/稳定错误码)缺席时如实落 unknown,不拿弱文案猜桶。
+        // 注:服务端 crashBodySchema(zod object)默认剥离未知键 ⇒ 多出的两键不会 400,
+        // 今天仅随请求体发出;apps/api 扩两枚举键即可接入落库(不在本票前端范围)。
+        const attribution = resolveErrorAttribution({ message: error?.message ?? '' })
         void fetch('/api/crash-reports', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -143,6 +150,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             // 保持与改前同形:无 stack 时该键整体缺席(undefined 被 JSON.stringify 丢掉)
             stack: typeof error?.stack === 'string' ? redactCrashText(error.stack) : undefined,
             route: redactCrashText(window.location.pathname),
+            errorSource: attribution.errorSource || undefined,
+            failureReason: attribution.failureReason || undefined,
           }),
         }).catch(() => {})
       } catch {

@@ -9052,6 +9052,7 @@
     "openTerminal": "Open Terminal",
     "renameDialog": {
       "cancel": "Cancel",
+      "description": "Keep it short and easy to recognize",
       "label": "Conversation title",
       "placeholder": "Enter a new conversation title",
       "save": "Save",
@@ -10510,6 +10511,23 @@
       "tokens": "{used} of {limit} used",
       "resetAt": "resets at {time}"
     },
+    "streamAlert": {
+      "configWarning": {
+        "title": "Configuration notice"
+      },
+      "deprecationNotice": {
+        "title": "Upcoming deprecation"
+      },
+      "guardianWarning": {
+        "title": "Safety review notice"
+      },
+      "severity": {
+        "info": "Info",
+        "warning": "Warning",
+        "critical": "Critical"
+      },
+      "dismiss": "Got it"
+    },
     "voiceNote": {
       "title": "Voice note",
       "phase": {
@@ -11636,7 +11654,16 @@
     "viewFavorites": "View Favorites",
     "attentionWaiting": "Waiting on you",
     "attentionUnread": "{count} unread updates",
-    "batchAttentionSummary": "Of these: {waiting} waiting on you · {unread} unread"
+    "batchAttentionSummary": "Of these: {waiting} waiting on you · {unread} unread",
+    "loadingMore": "Loading…",
+    "markUnread": "Mark as unread",
+    "markUnreadSuccess": "Marked as unread",
+    "retryLoadMore": "Retry loading",
+    "sorting": {
+      "byTime": "By time",
+      "label": "Sort by",
+      "pinnedFirst": "Pinned first"
+    }
   },
   "chatSettingsPage": {
     "back": "Back",
@@ -13474,7 +13501,24 @@
       "envUnknown": "Not reported (do not infer from the permission tier; reject and ask for a retry)",
       "envAllowTargetOnce": "Allow this target once",
       "envAllowTargetSession": "Allow this target for this conversation",
-      "envAllowTargetAlways": "Always allow this target (expires in 90 days)"
+      "envAllowTargetAlways": "Always allow this target (expires in 90 days)",
+      "decisionLabel": "Decision info",
+      "decisionAdmission": "Only facts derivable from the engine are listed here; anything unreadable is left out.",
+      "decisionEmptyTitle": "No readable decision info",
+      "decisionEmptyDescription": "The engine provides no derivable basis for this request; you can approve or reject it directly.",
+      "decisionWhyNow": "Why now",
+      "decisionWhyNowValue": "{toolName} was intercepted by the approval gate before execution (danger level {dangerLevel}); it will not run until you decide",
+      "decisionWhyYou": "Why you",
+      "decisionWhyYouValue": "This call belongs to your session {sessionId}; the approval request was routed to you",
+      "decisionReversibility": "Reversibility",
+      "decisionReversible": "Revertible: this session already has {count} checkpoints to roll back to after the decision",
+      "decisionIrreversible": "Not revertible: this session has no checkpoints to roll back to after the decision",
+      "decisionAfterDecision": "After decision",
+      "decisionAfterDecisionValue": "On approve, {toolName} runs immediately; on reject it does not run and the result is fed back to the model as an error",
+      "stateBlocking": "Blocking",
+      "stateRequested": "Requested",
+      "stateWaitingForMe": "Waiting for me",
+      "stateOverdue": "Overdue"
     },
     "toolbar": {
       "addColumn": "Add Column",

@@ -118,9 +118,12 @@ async def get_task_qr(task_id: str, request: Request) -> Response:
     img_bytes = get_qr_image(task_id)
     if not img_bytes:
         raise HTTPException(status_code=503, detail="二维码截图未就绪,请稍后重试")
+    # 2026-09-29:头条微信通道下发的是微信官方码原图(JPEG),截图通道仍是 PNG,
+    # 按魔数嗅探,别让 image/png 头误标 JPEG。
+    media_type = "image/jpeg" if img_bytes[:3] == b"\xff\xd8\xff" else "image/png"
     return Response(
         content=img_bytes,
-        media_type="image/png",
+        media_type=media_type,
         headers={
             "Cache-Control": "no-store, no-cache, must-revalidate",
             "X-Task-Status": task.status,
