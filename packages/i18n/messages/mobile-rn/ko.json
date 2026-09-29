@@ -202,17 +202,6 @@
     "runtimeSend": "전송"
   },
   "chat": {
-    "meta": {
-      "pullOnly": "이 대화는 다음에 목록을 열 때 동기화됩니다"
-    },
-    "mcp": {
-      "state": {
-        "connecting": "{server}에 연결 중…",
-        "failed": "{server} 연결에 실패했습니다",
-        "reconnecting": "{server}을(를) {attempt}/{maxAttempts}번 재연결 중"
-      },
-      "mobileSettingsHint": "MCP 연결은 데스크톱 또는 웹에서 관리해 주세요"
-    },
     "connectorAuth": {
       "title": "{connectorName}에 연결",
       "connected": "연결됨",

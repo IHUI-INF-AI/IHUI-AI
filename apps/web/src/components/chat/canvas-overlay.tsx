@@ -10,15 +10,9 @@ import { Check, Code2, Eye, History } from 'lucide-react'
 import { CloseButton } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
-import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Tooltip } from '@/components/feedback'
 import { PortalPanel } from '@/components/feedback/portal-panel'
 import { useCanvasStore, type CanvasVersion } from '@/stores/canvas-store'
-import { useChatStore } from '@/stores/chat'
-import { ArtifactTurnNav, useArtifactTurnNav } from '@/components/media/artifact-turn-badge'
-
-/** 层栈 id(见 @/lib/overlay-stack):canvas overlay 是全屏 z-modal,Esc 只在栈顶时被消费 */
-const CANVAS_OVERLAY_ID = 'canvas-overlay'
 
 /** 相对时间格式化(Intl.RelativeTimeFormat,遵守 locale) */
 function formatRelativeTime(ts: number, locale: string): string {
@@ -69,7 +63,7 @@ export function CanvasVersionMenu({ versions, onRevert }: CanvasVersionMenuProps
         side="bottom"
         align="end"
         gap={4}
-        className="max-h-48 w-64 overflow-y-auto rounded-xl border border-border/40 bg-popover p-1 shadow-lg"
+        className="max-h-48 w-64 overflow-y-auto rounded-sm border border-border/40 bg-popover p-1 shadow-lg"
       >
         <p className="px-2 py-1 text-[10px] font-medium text-muted-foreground">
           {t('canvasVersions')}
@@ -115,36 +109,16 @@ export function CanvasOverlay() {
   const [tab, setTab] = React.useState<CanvasTab>('preview')
   const [draft, setDraft] = React.useState(content)
 
-  // D76 挂载:面板头部产物 turn 导航(从 chat store 消息流派生,零新契约);
-  // open 时重置到首个产物 turn,onChange 联动双向跳转(滚消息 + 定位产物卡)
-  const messages = useChatStore((s) => s.messages)
-  const turnNav = useArtifactTurnNav(messages)
-  React.useEffect(() => {
-    if (open) turnNav.reset()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
-
   // 外部内容更新(AI 修改 / 版本回退)→ 同步编辑草稿
   React.useEffect(() => {
     setDraft(content)
   }, [content])
 
-  // 层栈注册:open → 入栈(成为栈顶);close/unmount → 出栈。
-  React.useEffect(() => {
-    if (!open) return
-    pushOverlay(CANVAS_OVERLAY_ID)
-    return () => popOverlay(CANVAS_OVERLAY_ID)
-  }, [open])
-
   // Esc 关闭
   React.useEffect(() => {
     if (!open) return
     const handle = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
-        if (!isTopOverlay(CANVAS_OVERLAY_ID)) return
-        closeCanvas()
-      }
+      if (e.key === 'Escape') closeCanvas()
     }
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
@@ -166,13 +140,6 @@ export function CanvasOverlay() {
           <span className="max-w-[200px] truncate text-xs font-medium">
             {title || t('artifactPreview')}
           </span>
-          {turnNav.count > 0 && (
-            <ArtifactTurnNav
-              count={turnNav.count}
-              activeIndex={turnNav.activeIndex}
-              onChangeIndex={turnNav.onChangeIndex}
-            />
-          )}
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -223,10 +190,6 @@ export function CanvasOverlay() {
       {tab === 'preview' ? (
         <iframe
           title={title || 'canvas-preview'}
-          /* iframe-sandbox-relax: srcDoc 是画布里的模型产出正文(用户可切到 code 页自行编辑),
-             不给 allow-scripts 预览就是一片空白。档值 = MODEL_CONTENT_SANDBOX
-             (packages/ui-react/src/components/webview-frame.tsx 的唯一实现),
-             刻意**不含** allow-same-origin ⇒ 帧内 opaque origin,读不到本站 Cookie/存储。 */
           sandbox="allow-scripts"
           srcDoc={content}
           className="min-h-0 w-full flex-1 bg-white"

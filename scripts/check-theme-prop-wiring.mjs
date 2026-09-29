@@ -35,50 +35,23 @@
  * ⇒ 新增一处、或在已冻结文件里再加一处都立刻红;`--strict` 忽略基线看全量欠债。
  *
  * 用法:
- *   node scripts/check-theme-prop-wiring.mjs                  # 全量(判 **HEAD blob**,按棘轮基线)
- *   node scripts/check-theme-prop-wiring.mjs --staged         # 判 **索引 blob**,只看暂存的渲染点文件
- *   node scripts/check-theme-prop-wiring.mjs --worktree       # 判磁盘 —— 仅供人工排查,不是提交门禁
- *   node scripts/check-theme-prop-wiring.mjs --root <dir>     # 测试注入位(默认本仓)
+ *   node scripts/check-theme-prop-wiring.mjs                  # 全量(按棘轮基线)
+ *   node scripts/check-theme-prop-wiring.mjs --staged         # 只看暂存的渲染点文件
  *   node scripts/check-theme-prop-wiring.mjs --strict         # 忽略基线,报全部欠债
  *   node scripts/check-theme-prop-wiring.mjs --json           # CI 机读
  *   node scripts/check-theme-prop-wiring.mjs --update-baseline # 收紧基线(全量口径;拒绝与 --staged 同用)
  *   node scripts/check-theme-prop-wiring.mjs --self-test      # 逻辑自检
  * 紧急跳过:HUSKY_SKIP_THEME_PROP_WIRING=1
- *
- * 退出码:0 = 通过 / 1 = 判据红 / **2 = 无法判定**(取材失败,不是通过)。
- * 判定面与守门 70/77/83/94/98/101 同口径:共享工作树常年滞后 HEAD、且混着并行会话的
- * 半编辑态,按磁盘判会在"假红逼跳门"和"假绿放违规进 HEAD"之间来回跳。
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
 const SKIP_ENV = 'HUSKY_SKIP_THEME_PROP_WIRING'
 const BASELINE_PATH = path.join(__dirname, 'theme-prop-wiring-baseline.json')
-
-/**
- * 三个判定面(口径与守门 70/77/83/94/98/101 对齐)。
- * 本门此前全量与 --staged 都读磁盘 —— 共享工作树常年滞后 HEAD、且混着并行会话的半编辑态,
- * 于是同一份提交内容会在"恒红"和"假绿"之间来回跳。假绿那一半更致命:索引里带着违规、
- * 盘上别人又顺手改好了 ⇒ 门报绿,违规照样进 HEAD。
- *
- * 取材原语一律来自 `./lib/face-reader.mjs`(绝对路径 git、batch 取材、穿 junction 的仓库根校验),
- * 本门只保留"怎么列 .tsx、怎么判定"这部分门内知识。
- */
-import {
-  FACES,
-  FACE_LABEL,
-  Undetermined,
-  catBatch,
-  assertRepoRoot,
-  gitRaw,
-  readWorktreeFile,
-  sameDir,
-  selectFace,
-} from './lib/face-reader.mjs'
 
 /** 组件真相源:只有这里的导出组件算「主题驱动组件」 */
 const COMPONENT_DIR = 'packages/app/src'
@@ -144,7 +117,7 @@ export function stripComments(src) {
         continue
       }
       if (c === "'" || c === '"' || c === '`') {
-        i = skipStrOr(src, i)
+          i = skipStrOr(src, i)
         continue
       }
       continue
@@ -376,12 +349,67 @@ export function maskNonTopLevel(attrs) {
  */
 const THEME_PROP_DECL = new RegExp(`(^|[^\\w$.\\-])${THEME_PROP}\\s*\\??=`, '')
 
-export function inspectThemeAttr(attrs) {
+/**
+ * 回溯 `{...X}` 展开的对象构造,判它到底有没有把主题传下去。
+ *
+ * 为什么必须有这一步(2026-09-24 真机侧查出):端内 wrapper 常见写法是
+ *   const props: XxxScreenProps = { t, onBack, colorScheme: 'light' }
+ *   return <SharedXxxScreen {...props} />
+ * 字面量藏在**对象构造里**而不是 JSX 属性上,只看 attrs 的判据对它完全失明 ——
+ * 实测 5 个屏就是这么把写死的 'light' 静默放过,守门只笼统报"判不出"。
+ *
+ * 解析不到对象构造(props 来自函数形参 / 跨文件)时**仍返回 null 交回 spread-unknown**,
+ * 不猜 —— 判不出就说判不出。
+ */
+export function resolveSpreadThemeValue(src, attrs) {
+  if (typeof src !== 'string' || !src) return null
+  const clean = stripComments(src)
+  for (const m of attrs.matchAll(/\{\s*\.\.\.\s*([A-Za-z_$][\w$]*)\s*\}/g)) {
+    const objName = m[1]
+    // 找该标识符在本文件内的对象字面量构造
+    const declRe = new RegExp(`(?:const|let|var)\\s+${objName}\\s*(?::[^=]+?)?\\s*=\\s*\\{`)
+    const dm = declRe.exec(clean)
+    if (!dm) continue
+    const openIdx = dm.index + dm[0].length - 1
+    const closeIdx = matchDelimited(clean, openIdx)
+    if (closeIdx === -1) continue
+    const body = clean.slice(openIdx + 1, closeIdx)
+    const tp = new RegExp(`(?:^|[,{\\s])${THEME_PROP}\\s*:`, 'm').exec(body)
+    if (!tp) continue
+    let p = tp.index + tp[0].length
+    while (p < body.length && /\s/.test(body[p])) p++
+    const q = body[p]
+    if (q === '"' || q === "'") {
+      const end = skipStringChars(body, p)
+      const value = end === -1 ? '' : body.slice(p + 1, end)
+      if (LITERAL_ARCHIVES.has(value)) {
+        return { kind: 'literal', detail: `{...${objName}} → ${THEME_PROP}: '${value}'(字面量写在对象构造里)` }
+      }
+      return { kind: 'ok', detail: null }
+    }
+    if (q === '{') {
+      const close = matchDelimited(body, p)
+      const inner = (close === -1 ? body.slice(p + 1) : body.slice(p + 1, close)).trim()
+      const lit = /^(?:'|"|`)(light|dark)(?:'|"|`)$/.exec(inner)
+      if (lit) {
+        return { kind: 'literal', detail: `{...${objName}} → ${THEME_PROP}: ${inner}(字面量写在对象构造里)` }
+      }
+    }
+    // 对象里传的是变量(resolvedTheme / theme / 上游透传)⇒ 视为已接线
+    return { kind: 'ok', detail: null }
+  }
+  return null
+}
+
+export function inspectThemeAttr(attrs, src) {
   const masked = maskNonTopLevel(attrs)
   const m = THEME_PROP_DECL.exec(masked)
   if (!m) {
     // 转发形态在掩码里会被抹平(它在 {} 内),故对**原文**判
     if (/\{\s*\.\.\./.test(attrs)) {
+      // 先尝试回溯对象构造;解析不到才承认判不出
+      const resolved = resolveSpreadThemeValue(src, attrs)
+      if (resolved) return resolved
       return { kind: 'spread-unknown', detail: '整标签走 {...} 转发,判不出 colorScheme' }
     }
     return { kind: 'missing', detail: `渲染 ${THEME_PROP} 驱动组件而未传该 prop` }
@@ -416,7 +444,8 @@ function lineCol(src, index) {
 
 // ------------------------------------------------------ 标识符 → 模块解析
 
-const IMPORT_RE = /import\s+(type\s+)?([\s\S]*?)\s+from\s*['"]([^'"]+)['"]/g
+const IMPORT_RE =
+  /import\s+(type\s+)?([\s\S]*?)\s+from\s*['"]([^'"]+)['"]/g
 
 /**
  * 解析一个文件里的 import,得 localName → { from: 说明符, imported: 原名 }。
@@ -461,7 +490,9 @@ export function parseImports(src) {
 export function isSharedSpecifier(spec, fromRel) {
   if (spec === SHARED_PKG || spec.startsWith(`${SHARED_PKG}/`)) return true
   if (!spec.startsWith('.')) return false
-  const abs = path.posix.normalize(path.posix.join(path.posix.dirname(fromRel), spec))
+  const abs = path.posix.normalize(
+    path.posix.join(path.posix.dirname(fromRel), spec),
+  )
   return abs === COMPONENT_DIR || abs.startsWith(`${COMPONENT_DIR}/`)
 }
 
@@ -520,85 +551,35 @@ function defaultExportNameOf(spec, sharedNames) {
   return sharedNames.has(camel) ? camel : null
 }
 
-/**
- * 列出「某个面」里的 .tsx。三个面各问各的 git,不再 glob 读盘。
- * git 派生一律走 `./lib/face-reader.mjs` 的 `gitRaw`(绝对路径 git + safe.directory +
- * quotepath=false 兼容中文路径 + windowsHide + 数字 timeout ⇒ 同时满足守门 52 与 80)。
- */
-function listTsxOnFace(face, dirs, root) {
-  const out =
-    face === 'head'
-      ? gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', ...dirs], root)
-      : gitRaw(['ls-files', '--', ...dirs], root)
-  const list = out
+function gitLsFiles(dirs) {
+  const out = execFileSync('git', ['ls-files', ...dirs], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 30000,
+  })
     .split('\n')
-    .map((f) => f.replace(/\\/g, '/'))
-    .filter((f) => f.endsWith('.tsx') && f.length > 0)
-  return [...new Set(list)]
+    .filter((f) => f.endsWith('.tsx'))
+  return out.map((rel) => rel.replace(/\\/g, '/'))
 }
 
-function stagedTsxIn(dirs, root) {
-  const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMRT'], root)
+function stagedTsxIn(dirs) {
+  const out = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMRT'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 30000,
+  })
     .split('\n')
     .map((f) => f.replace(/\\/g, '/'))
     .filter((f) => f.endsWith('.tsx') && dirs.some((d) => f.startsWith(`${d}/`)))
   return [...new Set(out)]
 }
 
-/**
- * 单一取内容出口:枚举与内容必须来自**同一个面**、同一轮。
- * 混面(盘上枚举 + git 取内容,或反过来)会产出自洽但基准错位的结论 —— 与守门 101 同一条理由。
- *
- * ⚠️ git 面**必须**先 `prefetch(rels)` 再 `read(rel)`:一次 `cat-file --batch` 读完一批
- * (逐文件派生 git 在真仓是 ~1500 次进程创建,§5b fork 风暴同型)。`read` 遇到未预取的路径
- * 一律抛"无法判定",不偷偷补一次派生把退化掩盖成正常。
- */
-export function makeFaceReader(face, root = ROOT) {
-  if (!FACES.includes(face)) {
-    throw new Undetermined(`未知判定面 "${face}"(允许: ${FACES.join(' / ')})`)
-  }
-  const label = FACE_LABEL[face]
-  if (face === 'worktree') {
-    return {
-      face,
-      label,
-      list: (dirs) => listTsxOnFace('worktree', dirs, root),
-      prefetch() {},
-      // 磁盘面:不存在 → null(跳过);读失败 → 原样抛,不让环境问题伪装成业务结论
-      read: (rel) => readWorktreeFile(root, rel),
-    }
-  }
-
-  const prefix = face === 'staged' ? ':' : 'HEAD:'
-  // 仓库根校验(穿 junction)由共用层做:root 若是仓库子目录,ls-tree 与 join(root,rel) 基准错位,
-  // 那正好产出门最不该产出的东西 —— 看起来自洽的绿。判死,不静默容忍。
-  assertRepoRoot(root, label)
-  const cache = new Map()
-  return {
-    face,
-    label,
-    list: (dirs) => listTsxOnFace(face, dirs, root),
-    prefetch(rels) {
-      const todo = [...new Set(rels)].filter((r) => !cache.has(r))
-      if (todo.length === 0) return
-      const map = catBatch(
-        root,
-        todo.map((r) => `${prefix}${r}`),
-      )
-      for (const rel of todo) {
-        // undefined = batch 输出没覆盖到这个 rev(取数链路断了);与 null(明确 missing)都记 null,
-        // 但由 scanRenderSites 的 filesScanned 计数如实暴露少扫,不静默当成"扫过了"
-        const text = map.get(`${prefix}${rel}`)
-        cache.set(rel, text === undefined ? null : text)
-      }
-    },
-    read(rel) {
-      if (!cache.has(rel)) {
-        throw new Undetermined(`${label} 的 ${rel} 未经 prefetch 就被读取(判据退化,不补隐式派生)`)
-      }
-      return cache.get(rel)
-    },
-  }
+function readSrc(rel) {
+  const abs = path.join(ROOT, rel)
+  if (!existsSync(abs)) return null
+  return readFileSync(abs, 'utf8')
 }
 
 /**
@@ -607,12 +588,10 @@ export function makeFaceReader(face, root = ROOT) {
  * (apps/mobile-rn/src/components 下就有 NavBar / TabBar / Carousel / UserInfoCard …),
  * 不记定义处的话无法区分"渲染的是共享主题组件"还是"端内同名组件"。
  */
-export function collectThemeDrivenComponents(reader) {
+export function collectThemeDrivenComponents() {
   const byName = new Map()
-  const files = reader.list([COMPONENT_DIR])
-  reader.prefetch(files)
-  for (const rel of files) {
-    const src = reader.read(rel)
+  for (const rel of gitLsFiles([COMPONENT_DIR])) {
+    const src = readSrc(rel)
     if (src === null) continue
     for (const name of findThemeDrivenComponents(src)) {
       if (!byName.has(name)) byName.set(name, new Set())
@@ -645,7 +624,7 @@ export function judgeFile(rel, src, sharedNames) {
   for (const site of findJsxElementSites(src)) {
     const r = resolveRenderedName(site, imports, localDecls, rel, sharedNames)
     if (r.why === 'shared' && sharedNames.has(r.shared)) {
-      const verdict = inspectThemeAttr(site.attrs)
+      const verdict = inspectThemeAttr(site.attrs, src)
       const { line, col } = lineCol(clean, site.index)
       const rec = {
         file: rel,
@@ -673,14 +652,13 @@ export function judgeFile(rel, src, sharedNames) {
  *  - skipped:命中同名但**解析不到共享包**的渲染点(端内自绘组件),按原因分类计数,
  *    在结论行如实报出 —— 不报数就等于悄悄把判定面缩小了。
  */
-export function scanRenderSites(relFiles, sharedNames, reader) {
+export function scanRenderSites(relFiles, sharedNames) {
   const violations = []
   const unknown = []
   const skipped = {}
   let filesScanned = 0
-  reader.prefetch(relFiles)
   for (const rel of relFiles) {
-    const src = reader.read(rel)
+    const src = readSrc(rel)
     if (src === null) continue
     filesScanned++
     const one = judgeFile(rel, src, sharedNames)
@@ -725,11 +703,7 @@ export function applyRatchet(violations, baseline) {
     }
   }
   const keys = new Set(over.map((o) => `${o.file}\u0000${o.kind}`))
-  return {
-    over,
-    listed: violations.filter((v) => keys.has(`${v.file}\u0000${v.kind}`)),
-    grandfathered,
-  }
+  return { over, listed: violations.filter((v) => keys.has(`${v.file}\u0000${v.kind}`)), grandfathered }
 }
 
 function run(options) {
@@ -742,54 +716,18 @@ function run(options) {
     console.error('❌ --update-baseline 不得与 --staged 同用(基线须按全量口径收紧)')
     return 1
   }
-  // 面选择与"两个面旗同给"的互斥判定由共用层统一(三门同口径,免得某道门悄悄少一个面)
-  const picked = selectFace({ staged: options.staged, worktree: options.worktree })
-  if (picked.error) {
-    console.error(`❌ ${picked.error}:取哪一面都会让另一面成为假绿`)
-    return 2
-  }
-  try {
-    return runOnFace(options, picked.face, options.root ?? ROOT)
-  } catch (e) {
-    if (e instanceof Undetermined) {
-      // 取材失败不是"没有违规"。显式无法判定 + 非零退出,绝不冒绿(守门 94/101 同口径)
-      console.error(`⚠️ 无法判定(不是通过):${e.message}`)
-      return 2
-    }
-    throw e
-  }
-}
-
-function runOnFace(options, face, root) {
-  // 基线台账只有一份、落在本脚本同目录;拿别的根去写它 = 用夹具覆盖真账(与守门 70 的"禁为过门调账"同条)
-  if (options.updateBaseline && !sameDir(root, ROOT)) {
-    throw new Undetermined(`--update-baseline 不得对非默认根(${root})执行,基线只会写回本仓那一份`)
-  }
-  const reader = makeFaceReader(face, root)
-  // --json 时 stdout 必须是纯 JSON(CI 直接 parse);判定面已在 JSON 体里以 face/faceLabel 两个字段报出
-  if (!options.json) console.log(`📐 判定面:${reader.label}`)
-  const components = collectThemeDrivenComponents(reader)
+  const components = collectThemeDrivenComponents()
   if (components.size === 0) {
     // 反假绿:组件集为空 = 推导失效(目录改名 / 语法换型),绝不能当成"无违规"
     console.error(`❌ 未从 ${COMPONENT_DIR} 推导到任何主题驱动组件 ⇒ 判据失效,请按源码形态复查`)
     return 1
   }
-  const renderFiles = options.staged ? stagedTsxIn(RENDER_DIRS, root) : reader.list(RENDER_DIRS)
+  const renderFiles = options.staged ? stagedTsxIn(RENDER_DIRS) : gitLsFiles(RENDER_DIRS)
   if (options.staged && renderFiles.length === 0) {
     console.log(`⏭ 暂存区无 ${RENDER_DIRS.join(' / ')} 的 .tsx,跳过`)
     return 0
   }
-  // 全量面枚举到 0 个渲染点文件 = 取材失效(目录改名 / ls-tree 参数变了),同上一条反假绿
-  if (!options.staged && renderFiles.length === 0) {
-    throw new Undetermined(
-      `${reader.label} 上未列出任何 ${RENDER_DIRS.join(' / ')} 的 .tsx ⇒ 扫描面为空`,
-    )
-  }
-  const { violations, unknown, skipped, filesScanned } = scanRenderSites(
-    renderFiles,
-    components,
-    reader,
-  )
+  const { violations, unknown, skipped, filesScanned } = scanRenderSites(renderFiles, components)
 
   if (options.updateBaseline) {
     const counts = tallyByFile(violations)
@@ -817,8 +755,6 @@ function runOnFace(options, face, root) {
         {
           components: components.size,
           filesScanned,
-          face,
-          faceLabel: reader.label,
           skipped,
           strict: Boolean(options.strict),
           debtFrozen: ratcheted.grandfathered,
@@ -836,16 +772,14 @@ function runOnFace(options, face, root) {
 
   if (literal.length > 0) {
     console.error(`❌ 写死字面量(colorScheme="light|dark"):${literal.length} 处`)
-    for (const v of literal)
-      console.error(`   ${v.file}:${v.line}:${v.col} <${v.component} ${v.detail}>`)
+    for (const v of literal) console.error(`   ${v.file}:${v.line}:${v.col} <${v.component} ${v.detail}>`)
   }
   if (missing.length > 0) {
     console.error(`❌ 未接线(漏传 colorScheme):${missing.length} 处`)
     for (const v of missing) console.error(`   ${v.file}:${v.line}:${v.col} <${v.component}>`)
   }
   if (ratcheted.over.length > 0) {
-    for (const o of ratcheted.over)
-      console.error(`   ↳ ${o.file} ${o.kind}:${o.count} > 基线 ${o.allowed}`)
+    for (const o of ratcheted.over) console.error(`   ↳ ${o.file} ${o.kind}:${o.count} > 基线 ${o.allowed}`)
   }
   if (unknown.length > 0) {
     console.warn(
@@ -872,7 +806,7 @@ function runOnFace(options, face, root) {
     return 1
   }
   console.log(
-    `✅ 主题透线守门通过(${reader.label};${filesScanned} 渲染点文件 / ${components.size} 组件,0 处新增未接线、0 处新增写死字面量` +
+    `✅ 主题透线守门通过(${filesScanned} 渲染点文件 / ${components.size} 组件,0 处新增未接线、0 处新增写死字面量` +
       `${ratcheted.grandfathered > 0 ? `;存量 ${ratcheted.grandfathered} 处已冻结于基线` : ''}` +
       `${skippedLine ? `;同名但解析不到共享包而未判:${skippedLine}` : ''}` +
       `${unknown.length > 0 ? `;${unknown.length} 处 {...} 转期待人工核` : ''})`,
@@ -956,16 +890,11 @@ export function selfTest() {
     !derived.includes('Shadow'),
     'colorScheme 只在嵌套解构里(顶层无该绑定)不得入集 —— 调用方传顶层 prop 也救不了它',
   )
-  assert(
-    topLevelBindingNames('{ a, b = 1, c: { colorScheme } }').join() === 'a,b,c',
-    '顶层绑定名提取',
-  )
+  assert(topLevelBindingNames('{ a, b = 1, c: { colorScheme } }').join() === 'a,b,c', '顶层绑定名提取')
   // --- 渲染点扫描:括号深度 ---
   const sites = findJsxElementSites(FIXTURE_CALLS)
   assert(
-    sites.some(
-      (s) => s.name === 'Pressable' && s.attrs.includes('onPress={() => (a > b ? 1 : 2)}'),
-    ),
+    sites.some((s) => s.name === 'Pressable' && s.attrs.includes('onPress={() => (a > b ? 1 : 2)}')),
     '属性表达式内的 > 不得提前收口(括号深度感知)',
   )
   assert(
@@ -973,10 +902,7 @@ export function selfTest() {
     '串内的 <NavBar … /> 示例不是渲染点(注释/字符串必须被清洗)',
   )
   const navBars = sites.filter((s) => s.name === 'NavBar')
-  assert(
-    navBars.length === 5,
-    `NavBar 应有 5 个渲染点(4 个平铺 + 1 个嵌套在属性表达式里),实得 ${navBars.length}`,
-  )
+  assert(navBars.length === 5, `NavBar 应有 5 个渲染点(4 个平铺 + 1 个嵌套在属性表达式里),实得 ${navBars.length}`)
   // 嵌套在属性表达式里的 <NavBar colorScheme={resolvedTheme}> 也必须被扫到
   assert(
     navBars.some((s) => s.attrs.includes('icon={<Wrapped')),
@@ -984,22 +910,52 @@ export function selfTest() {
   )
   // --- 判定 ---
   const verdictOf = (attrs) => inspectThemeAttr(attrs).kind
-  assert(verdictOf(' title="a" colorScheme={resolvedTheme} ') === 'ok', '透传真主题 = ok')
-  assert(verdictOf(' colorScheme="light" ') === 'literal', '写死字符串字面量 = 红')
-  assert(verdictOf("colorScheme={'dark'}") === 'literal', '花括号里的字面量同样 = 红')
+  // --- spread 回溯对象构造(2026-09-24 补的盲区:字面量藏在对象里而非 JSX 属性上)---
+  const verdictWithSrc = (src, attrs) => inspectThemeAttr(attrs, src).kind
   assert(
-    verdictOf(' colorScheme={theme === "dark" ? "dark" : "light"} ') === 'ok',
-    '三元表达式不当字面量',
+    verdictWithSrc(
+      `export function X() {\n  const props = { t, colorScheme: 'light' }\n  return <S {...props} />\n}`,
+      ' {...props} ',
+    ) === 'literal',
+    'R-BLIND:对象构造里写死 colorScheme:\'light\' 必须判红(只看 attrs 时曾完全失明,实测 5 个屏漏网)',
   )
-  assert(verdictOf(' title="a" ') === 'missing', '漏传 = 红')
+  assert(
+    verdictWithSrc(
+      `export function X() {\n  const props = { t, colorScheme: resolvedTheme }\n  return <S {...props} />\n}`,
+      ' {...props} ',
+    ) === 'ok',
+    '对象里传变量(resolvedTheme)= 已正确接线,不得再挂"判不出"待人工核',
+  )
+  assert(
+    verdictWithSrc(
+      `export function X() {\n  const props = { t, onBack }\n  return <S {...props} />\n}`,
+      ' {...props} ',
+    ) === 'spread-unknown',
+    '对象构造里确实没有该键 → 仍承认判不出,不猜成 missing 也不放行成 ok',
+  )
+  assert(
+    verdictWithSrc('export function X(props) {\n  return <S {...props} />\n}', ' {...props} ') ===
+      'spread-unknown',
+    'props 来自函数形参(本文件无对象字面量)→ 判不出,不假设上游传了什么',
+  )
+  assert(
+    verdictWithSrc(
+      `const props = {\n  t,\n  // colorScheme: 'light' 已注释\n  colorScheme: theme,\n}`,
+      ' {...props} ',
+    ) === 'ok',
+    '跨行对象 + 注释干扰:取真赋值,不被注释里的字面量误判',
+  )
   assert(
     verdictOf(' {...rest} ') === 'spread-unknown',
-    '仅 {...} 转发 = 单列不确定,不判红也不静默放过',
+    '不传 src 时行为不变(向后兼容既有 self-test 断言)',
   )
-  assert(
-    verdictOf(' colorScheme={c} onPress={() => a > b} ') === 'ok',
-    '属性表达式不得干扰 colorScheme 识别',
-  )
+  assert(verdictOf(' title="a" colorScheme={resolvedTheme} ') === 'ok', '透传真主题 = ok')
+  assert(verdictOf(' colorScheme="light" ') === 'literal', '写死字符串字面量 = 红')
+  assert(verdictOf('colorScheme={\'dark\'}') === 'literal', '花括号里的字面量同样 = 红')
+  assert(verdictOf(' colorScheme={theme === "dark" ? "dark" : "light"} ') === 'ok', '三元表达式不当字面量')
+  assert(verdictOf(' title="a" ') === 'missing', '漏传 = 红')
+  assert(verdictOf(' {...rest} ') === 'spread-unknown', '仅 {...} 转发 = 单列不确定,不判红也不静默放过')
+  assert(verdictOf(' colorScheme={c} onPress={() => a > b} ') === 'ok', '属性表达式不得干扰 colorScheme 识别')
   assert(verdictOf(' data-colorScheme="light" ') !== 'literal', '同尾缀的别的属性不得误判')
   // --- 说明符解析(假阳性的唯一来源:端内与共享包**同名**自绘组件)---
   const imp = parseImports(
@@ -1012,55 +968,27 @@ export function selfTest() {
   assert(imp.get('Carousel')?.imported === 'default', '默认导入应登记')
   assert(imp.get('App')?.ns === true, '命名空间导入应登记 ns')
   assert(isSharedSpecifier('@ihui/rn-app', 'apps/mobile-rn/src/screens/A.tsx'), '包名说明符 = 共享')
-  assert(
-    isSharedSpecifier('@ihui/rn-app/foo', 'apps/mobile-rn/src/screens/A.tsx'),
-    '包名子路径 = 共享',
-  )
-  assert(
-    !isSharedSpecifier('../components/Carousel', 'apps/mobile-rn/src/screens/A.tsx'),
-    '端内相对路径 ≠ 共享',
-  )
+  assert(isSharedSpecifier('@ihui/rn-app/foo', 'apps/mobile-rn/src/screens/A.tsx'), '包名子路径 = 共享')
+  assert(!isSharedSpecifier('../components/Carousel', 'apps/mobile-rn/src/screens/A.tsx'), '端内相对路径 ≠ 共享')
   assert(
     isSharedSpecifier('../../components/NavBar', 'packages/app/src/features/plaza/X.tsx'),
     '包内兄弟相对路径 = 共享',
   )
-  assert(
-    !isSharedSpecifier('react-native', 'packages/app/src/features/plaza/X.tsx'),
-    '三方包 ≠ 共享',
-  )
+  assert(!isSharedSpecifier('react-native', 'packages/app/src/features/plaza/X.tsx'), '三方包 ≠ 共享')
   const sharedNames = new Map()
   for (const n of derived) sharedNames.set(n, new Set([`packages/app/src/components/${n}.tsx`]))
   const resolveWhy = (name, spec) =>
-    resolveRenderedName(
-      { name },
-      parseImports(`import { ${name} } from '${spec}'`),
-      new Set(),
-      'apps/mobile-rn/src/screens/A.tsx',
-      sharedNames,
-    ).why
+    resolveRenderedName({ name }, parseImports(`import { ${name} } from '${spec}'`), new Set(), 'apps/mobile-rn/src/screens/A.tsx', sharedNames).why
   assert(resolveWhy('NavBar', '@ihui/rn-app') === 'shared', '共享包导入的主题组件 ⇒ 判')
+  assert(resolveWhy('NavBar', '../components/NavBar') === 'non-shared', '端内同名自绘 ⇒ 不判(首跑 49 处全此类)')
   assert(
-    resolveWhy('NavBar', '../components/NavBar') === 'non-shared',
-    '端内同名自绘 ⇒ 不判(首跑 49 处全此类)',
-  )
-  assert(
-    resolveRenderedName(
-      { name: 'NavBar' },
-      new Map(),
-      new Set(['NavBar']),
-      'packages/app/src/components/NavBar.tsx',
-      sharedNames,
-    ).why === 'shared',
+    resolveRenderedName({ name: 'NavBar' }, new Map(), new Set(['NavBar']), 'packages/app/src/components/NavBar.tsx', sharedNames)
+      .why === 'shared',
     '定义处文件渲染自己 ⇒ 仍判',
   )
   assert(
-    resolveRenderedName(
-      { name: 'NavBar' },
-      new Map(),
-      new Set(['NavBar']),
-      'apps/mobile-rn/src/screens/A.tsx',
-      sharedNames,
-    ).why === 'local-shadow',
+    resolveRenderedName({ name: 'NavBar' }, new Map(), new Set(['NavBar']), 'apps/mobile-rn/src/screens/A.tsx', sharedNames)
+      .why === 'local-shadow',
     '本文件自绘同名组件遮蔽 import ⇒ 不判',
   )
   assert(
@@ -1090,135 +1018,22 @@ export function selfTest() {
   )
   assert(kinds.length === 5, `端到端应只判 5 处违规(正确接线不入 violations),实得 ${kinds.length}`)
   // --- 反假绿护栏:空组件集必须被 run() 识别为判据失效 ---
-  assert(
-    collectThemeDrivenComponents(makeFaceReader('head')).size > 50,
-    '真仓应推导出大量主题驱动组件(否则推导失效)',
-  )
-  faceSelfTest(assert)
+  assert(collectThemeDrivenComponents().size > 50, '真仓应推导出大量主题驱动组件(否则推导失效)')
   console.log('✅ check-theme-prop-wiring self-test 全部通过')
   return 0
-}
-
-/**
- * 判定面取证(在临时 git 仓里做,绝不碰真仓索引 —— §12 多会话纪律)。
- *
- * 这一组用例是**本票存在的全部理由**,钉的是"改前必红、改后必绿"的两条相反方向:
- *  F1 索引里带着违规、盘上已被并行会话改好 ⇒ **staged 面必须判红**。
- *     旧口径读磁盘,这一型是**假绿**:违规照样进 HEAD,而门一路绿灯。
- *  F2 索引合规、盘上别人正在半编辑 ⇒ **staged 面必须判绿**。
- *     旧口径读磁盘,这一型是**假红**:与我这次提交无关的他人未提交内容把我钉住,
- *     唯一结局是 --no-verify,连带废掉全部守门。
- *  F3 head 面与 staged 面在同一轮里给出**不同**结论 ⇒ 证明两面各自独立取材,
- *     而不是其中一面偷偷回落到磁盘(那会让 F1/F2 一起失效)。
- *  F4 未 prefetch 就 read / 未知面 ⇒ 抛 Undetermined,不静默 null(静默 null = 少扫一个文件 = 偏绿)。
- */
-function faceSelfTest(ok) {
-  const dir = mkScratch('theme-face')
-  const write = (rel, text) => {
-    const abs = path.join(dir, rel)
-    mkdirSync(path.dirname(abs), { recursive: true })
-    writeFileSync(abs, text)
-  }
-  const COMPONENT = 'packages/app/src/NavBar.tsx'
-  const SITE = 'apps/mobile-rn/src/screens/Home.tsx'
-  const git = (...args) => gitRaw(['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], dir)
-  const siteSrc = (variant) => {
-    const attrs = {
-      goodHead: ' t={x} colorScheme={theme}',
-      goodIndex: ' t={x} label="b" colorScheme={theme}',
-      bad: ' t={x}',
-    }[variant]
-    return `import { NavBar } from '@ihui/rn-app'\nexport const Home = ({ theme }) => (\n  <NavBar${attrs} />\n)\n`
-  }
-
-  try {
-    git('init', '-q', '.')
-    write(COMPONENT, "export function NavBar({ colorScheme = 'light' }) {\n  return <View />\n}\n")
-    write(SITE, siteSrc('goodHead'))
-    git('add', '-A')
-    git('commit', '-q', '-m', 'v1 compliant')
-
-    const verdict = (face) => {
-      const reader = makeFaceReader(face, dir)
-      const comps = collectThemeDrivenComponents(reader)
-      const files =
-        face === 'staged'
-          ? stagedTsxIn(['apps/mobile-rn/src'], dir)
-          : reader.list(['apps/mobile-rn/src'])
-      const { violations } = scanRenderSites(files, comps, reader)
-      return { n: violations.length, comps: comps.size, files: files.length }
-    }
-
-    // ---- F1:索引带着违规、盘上已被并行会话改好(旧口径 = 假绿) ----
-    write(SITE, siteSrc('bad'))
-    git('add', '-A') // 索引 = 违规
-    write(SITE, siteSrc('goodHead')) // 磁盘回到合规,索引不动
-
-    const staged = verdict('staged')
-    ok(staged.comps > 0, 'F0 组件集必须从同一面推导出来(为 0 = 索引面枚举失效,F1/F2 会一起假绿)')
-    ok(staged.files > 0, 'F1 暂存集不得为空 —— 空集会让"判绿"变成空转,本条断言也就恒真')
-    ok(
-      staged.n === 1,
-      `F1 索引里摘掉 colorScheme ⇒ staged 面必须判红,实得 ${staged.n}(旧口径读盘 = 0 = 假绿,违规照样进 HEAD)`,
-    )
-    const wt = verdict('worktree')
-    ok(wt.n === 0, `对照:同一现场磁盘是合规的 ⇒ worktree 面判 0(正因如此,旧口径才会漏掉 F1)`)
-    const head = verdict('head')
-    ok(head.n === 0, `F3 HEAD 是 v1 合规 ⇒ head 面判 0;它与 staged 面结论不同,证明两面各自独立取材`)
-    ok(staged.n !== wt.n, 'F3 若两面同值,说明其中一面偷偷回落到磁盘 —— 本票的改动等于没生效')
-
-    // ---- F2:索引合规、盘上他人正在半编辑(旧口径 = 假红,逼 --no-verify) ----
-    write(SITE, siteSrc('goodIndex'))
-    git('add', '-A') // 索引 = 合规(且与 HEAD 不同 ⇒ 暂存集非空,不让"绿"来自空扫)
-    write(SITE, siteSrc('bad')) // 磁盘留着别人的半编辑态
-    const f2 = verdict('staged')
-    ok(f2.files > 0, 'F2 暂存集不得为空(同上,防空转)')
-    ok(
-      f2.n === 0,
-      `F2 索引合规而盘上有他人未提交违规 ⇒ staged 面必须判绿,实得 ${f2.n}(旧口径读盘 = 假红)`,
-    )
-    ok(
-      verdict('worktree').n === 1,
-      'F2 对照:同一现场磁盘确实带着违规 —— 旧口径就是会把它算到本次提交头上',
-    )
-
-    // ---- F4:退化不得静默 ----
-    const r4 = makeFaceReader('staged', dir)
-    let threw = false
-    try {
-      r4.read(SITE)
-    } catch (e) {
-      threw = e instanceof Undetermined
-    }
-    ok(threw, 'F4 未 prefetch 就 read 必须抛 Undetermined(静默 null = 少扫一个文件 = 偏绿)')
-    let threwFace = false
-    try {
-      makeFaceReader('nonsense', dir)
-    } catch (e) {
-      threwFace = e instanceof Undetermined
-    }
-    ok(threwFace, 'F4 未知判定面必须抛 Undetermined,不得默认回落到磁盘')
-  } finally {
-    rmScratch(dir)
-  }
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
 if (isDirectRun) {
   const argv = process.argv.slice(2)
-  // --root 是给测试用的显式注入位(§22d + 守门 70 的教训:只改 cwd 会被判据忽略,
-  // 于是"扫夹具"静默变成"扫真仓")。生产调用一律不带,语义不变。
-  const rootAt = argv.indexOf('--root')
   const code = argv.includes('--self-test')
     ? selfTest()
     : run({
         staged: argv.includes('--staged'),
-        worktree: argv.includes('--worktree'),
         json: argv.includes('--json'),
         strict: argv.includes('--strict'),
         updateBaseline: argv.includes('--update-baseline'),
-        root: rootAt >= 0 ? path.resolve(argv[rootAt + 1] ?? '') : undefined,
       })
   process.exit(code)
 }
@@ -1234,6 +1049,7 @@ export const __test__ = {
   findJsxElementSites,
   maskNonTopLevel,
   inspectThemeAttr,
+  resolveSpreadThemeValue,
   parseImports,
   isSharedSpecifier,
   findLocalComponentDecls,
@@ -1241,10 +1057,6 @@ export const __test__ = {
   collectThemeDrivenComponents,
   judgeFile,
   scanRenderSites,
-  makeFaceReader,
-  listTsxOnFace,
-  FACES,
-  Undetermined,
   COMPONENT_DIR,
   SHARED_PKG,
   RENDER_DIRS,
