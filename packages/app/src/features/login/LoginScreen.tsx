@@ -16,7 +16,13 @@ import {
 } from 'react-native'
 import { AlertTriangle, Check, ChevronDown, Eye, EyeOff, QrCode, X } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { OAUTH_BRAND_COLORS, OAUTH_BUTTON_FOREGROUND, withAlpha, rnRadius, rnGeometry } from '@ihui/design-tokens'
+import {
+  OAUTH_BRAND_COLORS,
+  OAUTH_BUTTON_FOREGROUND,
+  withAlpha,
+  rnRadius,
+  rnGeometry,
+} from '@ihui/design-tokens'
 import type { LoginScreenProps, TFunction } from '../../types'
 // LoginTab / QrLoginConfig / QrLoginStatus / ThirdPartyLoginOption / ThirdPartyPlatform
 // 仅在 @ihui/types 定义,packages/app/src/types.ts 未 re-export(任务约束禁止修改),
@@ -1618,7 +1624,8 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     // ===== Tab 切换条(对齐 web ui-react TabsList:TabsTrigger) =====
     // web TabsList:h-9 rounded-lg bg-muted p-1;TabsTrigger rounded-md px-3 py-1 text-sm,
-    // 激活 data-[state=active]:bg-white / dark:bg-black text-foreground
+    // 激活态取成对具名档 bg-selection / text-selection-foreground
+    // (2026-09-30 起 web 不再写死 bg-white / dark:bg-black,三端同取 tokens.css 的选中态成对档)
     tabBar: {
       flexDirection: 'row',
       gap: 0,
@@ -1639,7 +1646,15 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       justifyContent: 'center',
     },
     tabItemActive: {
-      backgroundColor: colorScheme === 'dark' ? tk.gray.black : tk.surface.light,
+      // 2026-09-30 起取成对具名档:tk.selection.DEFAULT = tokens.css --color-selection。
+      // 旧写法在这里自判明暗(`colorScheme === 'dark' ? tk.gray.black : tk.surface.light`)= 端里
+      // 的第二个色源:主题感知归 token 表,不得在端里再判一次(与 §4「RN 侧 dark: 类必须与 App
+      // 主题同源」同一条理由);而同一枚胶囊小程序取的是 --color-card(暗档 #1A1A1A),于是暗色
+      // 档案下两端分叉(真机 Redmi 720x1640 实拍抓到)。亮档取值不变(#FFFFFF),只把暗档归一到纯黑。
+      // 形状取 `selection.DEFAULT` 而非顶层标量:mobile-rn 的 theme/active-tokens.ts 用 clonePalette
+      // 逐命名空间浅拷(`{ ...src[ns] }`),顶层字符串会被摊成字符对象 ⇒ 运行时是不合法颜色
+      // (rn-tokens.ts 的 agentName 记过同一条件)。
+      backgroundColor: tk.selection.DEFAULT,
     },
     tabText: {
       fontSize: 14,
@@ -1650,8 +1665,10 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       transform: [{ translateY: -0.75 }],
     },
     tabTextActive: {
-      // 亮=白底黑字 / 暗=黑底白字(对齐 web 截图基准)
-      color: tk.text.primary,
+      // 与上面成对(§4「实底 + 其上文字必须成对」):tk.selection.foreground
+      // = tokens.css --color-selection-foreground(亮 #0A0A0A / 暗 #FAFAFA,取值与同主题
+      // --color-foreground 逐位相同 ⇒ 观感零变化,但配对可被判据机械认出,不再靠"看着像黑字")。
+      color: tk.selection.foreground,
     },
     tabContent: {
       gap: 0,
