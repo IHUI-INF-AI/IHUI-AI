@@ -24,6 +24,8 @@ import type { AnyPgTable, AnyPgColumn } from 'drizzle-orm/pg-core'
 import { db } from '../db/index.js'
 import {
   EDU_REMINDER_CHANNELS,
+  arrearsSqlExpr,
+  hasArrearsCond,
   loadEnrollmentLedger,
   recomputeEnrollment,
   recordPayment,
@@ -655,9 +657,18 @@ const paymentRecordListQuerySchema = z.object({
   status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
 })
 
+/**
+ * 缴费登记入参。
+ * **enrollmentId 必填**:一笔缴费必须挂到一条确定的报名上,否则它进不了
+ * "该报名已缴多少" —— 旧契约反过来要求 studentId+classId 必填、没有归属锚点,
+ * 于是同一班级续读多个学期的学生根本无从表达"这笔钱抵哪一期"。
+ * studentId / classId 改为可选且只用于**一致性校验**:服务端一律以报名行里的值为准,
+ * 请求自报的不一致直接拒(与本仓"归属/身份不得从请求体自报"同一条纪律)。
+ */
 const createPaymentRecordSchema = z.object({
-  studentId: z.string().uuid(),
-  classId: z.string().uuid(),
+  enrollmentId: z.string().uuid(),
+  studentId: z.string().uuid().optional(),
+  classId: z.string().uuid().optional(),
   feeId: z.string().uuid().optional(),
   amount: z.number().int().min(0),
   paymentDate: z.string().min(1),
@@ -4053,39 +4064,41 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const parsed = createPaymentRecordSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    // 缴费必须归到一条报名上,否则它进不了"该报名已缴多少"。
-    // 只在 student×class 唯一报名时自动归属;多期报名(续读)时要求显式指定 ——
-    // 猜一条就是把钱记到错误的学期上,那比拒收更坏。
-    const enroll = await db
-      .select({ id: eduEnrollment.id })
+    // 归属一律以**报名行**为准:请求只负责点名是哪一条报名。
+    // 自报的 studentId/classId 只用于一致性校验(不一致直接拒),绝不采信 ——
+    // 采信就等于让调用方把这笔钱记到别人的账上。
+    const {
+      enrollmentId: wantedId,
+      studentId: claimedStudent,
+      classId: claimedClass,
+      ...payFields
+    } = parsed.data
+    const [enrollRow] = await db
+      .select({
+        id: eduEnrollment.id,
+        studentId: eduEnrollment.studentId,
+        classId: eduEnrollment.classId,
+      })
       .from(eduEnrollment)
-      .where(
-        and(
-          eq(eduEnrollment.studentId, parsed.data.studentId),
-          eq(eduEnrollment.classId, parsed.data.classId),
-          isNull(eduEnrollment.deletedAt),
-        ),
-      )
-      .limit(2)
-    if (enroll.length !== 1) {
-      return reply
-        .status(400)
-        .send(
-          error(
-            400,
-            enroll.length === 0
-              ? '该学生在此班级没有有效报名,无法登记缴费'
-              : '该学生在此班级存在多期报名,请在请求中指定 enrollmentId',
-          ),
-        )
+      .where(and(eq(eduEnrollment.id, wantedId), isNull(eduEnrollment.deletedAt)))
+      .limit(1)
+    if (!enrollRow) {
+      return reply.status(404).send(error(404, '所选报名不存在或已删除,无法登记缴费'))
     }
-    const enrollmentId = enroll[0]?.id
-    if (!enrollmentId) {
-      return reply.status(400).send(error(400, '报名归属解析失败,请重试或指定 enrollmentId'))
+    if (claimedStudent && claimedStudent !== enrollRow.studentId) {
+      return reply.status(400).send(error(400, '自报学员与所选报名不一致,请重新选择期次'))
+    }
+    if (claimedClass && claimedClass !== enrollRow.classId) {
+      return reply.status(400).send(error(400, '自报班级与所选报名不一致,请重新选择期次'))
     }
     // 唯一入口:写流水 + 重算派生缓存。旧写法只 insert 不回写 paidAmount,
     // 于是"后台录了缴费、欠费名单照旧亮红、第二天继续被催缴"。
-    const { ledger } = await recordPayment({ ...parsed.data, enrollmentId })
+    const { ledger } = await recordPayment({
+      ...payFields,
+      studentId: enrollRow.studentId,
+      classId: enrollRow.classId,
+      enrollmentId: enrollRow.id,
+    })
     return reply.status(201).send(success({ paymentRecord: null, ledger }))
   })
 
@@ -4133,10 +4146,10 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         const arrearsRow = await tx
           .select({
             arrearsCount: count(),
-            arrearsTotal: sql<number>`COALESCE(SUM(GREATEST(${eduEnrollment.totalFee} - ${eduEnrollment.paidAmount}, 0)), 0)`,
+            arrearsTotal: sql<number>`COALESCE(SUM(${arrearsSqlExpr()}), 0)`,
           })
           .from(eduEnrollment)
-          .where(and(enrollWhere, sql`${eduEnrollment.totalFee} > ${eduEnrollment.paidAmount}`))
+          .where(and(enrollWhere, hasArrearsCond()))
         const arrearsCount = Number(arrearsRow[0]?.arrearsCount ?? 0)
         const arrearsTotal = Number(arrearsRow[0]?.arrearsTotal ?? 0)
 
@@ -4822,8 +4835,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (parsed.data.businessLine) conds.push(eq(eduClass.businessLine, parsed.data.businessLine))
     if (parsed.data.classId) conds.push(eq(eduEnrollment.classId, parsed.data.classId))
     if (parsed.data.termId) conds.push(eq(eduEnrollment.termId, parsed.data.termId))
-    if (parsed.data.arrearsOnly)
-      conds.push(sql`${eduEnrollment.totalFee} > ${eduEnrollment.paidAmount}`)
+    if (parsed.data.arrearsOnly) conds.push(hasArrearsCond())
     if (parsed.data.keyword) {
       const kw = `%${parsed.data.keyword}%`
       const kwCond = or(ilike(users.nickname, kw), ilike(users.phone, kw))
@@ -4856,8 +4868,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         enrollDate: eduEnrollment.enrollDate,
         totalFee: eduEnrollment.totalFee,
         paidAmount: eduEnrollment.paidAmount,
-        /** 下限 0:超缴(退费多于实缴)不得读成"负欠费",那会让汇总与名单口径分叉 */
-        dueAmount: sql<number>`GREATEST(${eduEnrollment.totalFee} - ${eduEnrollment.paidAmount}, 0)`,
+        /** 欠费算式取自账目出口的那一份,此处不重写 */
+        dueAmount: arrearsSqlExpr(),
         nextDueDate: eduEnrollment.nextDueDate,
         status: eduEnrollment.status,
       })

@@ -33,7 +33,7 @@
  * 让机构看得见"有几笔钱归不到期次",而不是让它在两个期次里各出现一次。
  */
 
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { eduEnrollment, eduFeeSchedule, eduPaymentRecord, eduRefundRecord } from '@ihui/database'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
@@ -51,6 +51,26 @@ export const DUE_SOON_LEAD_DAYS = 7
  */
 export const EDU_REMINDER_CHANNELS = ['in_app', 'sms', 'wechat'] as const
 export type EduReminderChannel = (typeof EDU_REMINDER_CHANNELS)[number]
+
+/**
+ * 欠费的两条 SQL 形态,由账目出口**唯一持有**。
+ *
+ * 为什么做成导出的构造函数而不是各查询里现写:列表分页与定时扫描都需要在 SQL 侧算欠费
+ * (逐行回到本模块 loadEnrollmentLedger 会把一次列表查询放大成 N 次三表查询),
+ * 但"现写一遍减法"就是第二个口径 —— 本仓这次修的四条缺陷里有一条正是
+ * 「roster 那处漏了下限 0,超缴学员被算成负欠费,在汇总里把总欠费额冲小」。
+ * 所以这里把**算式本身**收成一份,调用方引用它:分页性能保住,文本只有一处。
+ * 用函数而不是常量:每次调用产出新的 SQL 对象,避免同一实例被复用到不同查询里
+ * (drizzle 的 sql 模板虽多为不可变描述,但把它当共享常量传是隐式耦合)。
+ */
+export function arrearsSqlExpr() {
+  return sql<number>`GREATEST(${eduEnrollment.totalFee} - ${eduEnrollment.paidAmount}, 0)`
+}
+
+/** 「有欠费」的预筛条件(粗筛用;欠费**金额**一律走 arrearsSqlExpr 或本模块的纯函数) */
+export function hasArrearsCond() {
+  return sql`${eduEnrollment.totalFee} > ${eduEnrollment.paidAmount}`
+}
 
 /** 金额单位:整数元(与 edu_enrollment.total_fee / edu_payment_record.amount 一致)。 */
 export interface ScheduleLike {
