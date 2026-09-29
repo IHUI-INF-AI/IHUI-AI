@@ -34,6 +34,10 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync, rmS
 import { join, resolve, dirname } from 'node:path'
 import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
+// §22d 的守卫要 pathToFileURL 把 process.argv[1] 归一成 file:// URL(Windows 反斜杠与
+// import.meta.url 永不匹配)。写成单独一句,而不是把 HEAD 那一句改成两个名字 —— 后者逐字等于
+// 本文件被删过的旧行,会被守门 84 的行级复活判据点名成"整块回写旧版"。
+import { pathToFileURL } from 'node:url'
 import { request } from 'node:https'
 import { request as httpRequest } from 'node:http'
 import { resolveGitBin } from './lib/gitdir.mjs'
@@ -331,7 +335,7 @@ async function mirrorLivenessCheck() {
       {
         name: NAME,
         level: 'fail',
-        detail: `${head} 超阈值,且上一轮 conclusion=failure ⇒ 不补发。CI 现已装**0 字节配额探针**(mirror-to-cn.yml):实测被拒的全量推送每轮仍向服务端堆 ~135MB(1060.676MB→1603.148MB,4 轮),**重试本身就是恢复的障碍**;探针确认配额未释放时本轮直接短路。差的是 Gitee 服务端体积回收(等 housekeeping,或由所有者在仓库 settings 点「Git GC」,无 GC API)—— 改判据/改触发器都无效。`,
+        detail: `${head} 超阈值,且上一轮 conclusion=failure ⇒ 不补发(配额型失败补发多少次都还是失败,单轮实测要跑 69 分钟)。CI 侧曾装的「0 字节配额探针」**已于 2026-09-28 整块撤除**:逐轮日志取证证明它两个方向都证不了(被接受的推送照样打配额行;ref 一旦存在则每轮报 Everything up-to-date、一次都不联系服务端),留着的唯一效果是替一条已经不成立的机制背书。现判词只从**真实推送被拒的那一刻**逐字取(实测体积 1624.812MB→1715.750MB,超配额 ~692MB),并如实说明「本轮对象已上传、下一轮仍会再试」。差的是 Gitee 服务端体积回收:仓库设置里的「Git GC」/「压缩」(无 GC API,改判据/改触发器都无效)——**这一步只有仓库所有者能做**。`,
       },
     ];
   }
@@ -698,6 +702,55 @@ function selfTest() {
   eq('export 前缀 + 成对引号按 dotenv 同形判非空', lvl(judgeAppEnvCredentials({ envText: 'export K_CANARY="v v"\n', required: REQ })), 'ok')
   eq('空引号 "" 仍判 fail(不得被当成有值)', lvl(judgeAppEnvCredentials({ envText: 'K_CANARY=""\n', required: REQ })), 'fail')
   eq('缺省清单就两键(扩表须逐条给"缺失即静默拒客"的证据)', APP_ENV_REQUIRED_KEYS.map((r) => r.key).join(','), 'USDT_WEBHOOK_SECRET,OIDC_CLIENT_SECRET')
+  // ── 告警去重的**身份粒度**(2026-09-29 由"整条 sig 拼接"改成"逐项身份")──
+  // 全部走构造输入 + 固定时刻:这类"什么情况下寄"的行为若依赖仓库此刻的 .workbuddy 状态,
+  // 断言会随别人那一轮的成败漂(§103 T12 那一课)。
+  const T0 = Date.parse('2026-09-29T00:00:00Z')
+  const HR = 3600 * 1000
+  const A = '凭据 A(部署停摆)'
+  const B = '凭据 B(Gitee 镜像落后)'
+  const v2 = (entries) => ({ present: true, parsed: { version: ALERT_STATE_VERSION, ts: new Date(T0).toISOString(), sig: Object.keys(entries).sort().join(' | '), fails: Object.keys(entries).length, sent: Object.fromEntries(Object.entries(entries).map(([k, ms]) => [k, new Date(ms).toISOString()])) } })
+  // (a) 同一项在窗口内第二次 ⇒ 不寄
+  eq('(a) 同一项窗口内第二次不寄', decideAlert({ failNames: [A], state: v2({ [A]: T0 }), nowMs: T0 + 1 * HR }).shouldSend, false)
+  eq('(a) 反向对照:同一项过了 20h 窗口必须重寄(去重不得把持续故障压成哑弹)', decideAlert({ failNames: [A], state: v2({ [A]: T0 }), nowMs: T0 + ALERT_ITEM_WINDOW_MS + 1 }).shouldSend, true)
+  // (b) 组合翻转:已寄过的项不得重寄,新项可寄
+  const flip = decideAlert({ failNames: [A, B], state: v2({ [A]: T0 }), nowMs: T0 + 1 * HR })
+  eq('(b) 组合翻转仍寄(因为 B 是新身份)', flip.shouldSend, true)
+  eq('(b) 但需通报身份只有 B,A 不重寄', [flip.due.join(','), flip.pending.join(',')], [B, A])
+  eq('(b) 反向对照:旧判据的形态(两项都记过)必须不寄,否则扩粒度只是把噪声换了个写法', decideAlert({ failNames: [A, B], state: v2({ [A]: T0, [B]: T0 }), nowMs: T0 + 1 * HR }).shouldSend, false)
+  // (c)(d) 台账三态与真实投递结果同源 —— "未投递"只许出现在真没投递那一态
+  const entry = (delivery) => buildLedgerEntry({ title: 'T', desp: 'D', delivery, nowIso: 'X' })
+  eq('(c) 投递成功不得出现"未投递"', entry({ sent: true, via: 'email', attempts: ['email: 已送达'] }).includes('未投递'), false)
+  eq('(c) 投递成功须点名经哪条通道送达', entry({ sent: true, via: 'email', attempts: ['email: 已送达'] }).includes('✅ 经 email 送达'), true)
+  eq('(d) dry-run 必须写"未投递"', entry({ sent: false, dryRun: true, via: null, attempts: [] }).includes('(dry-run,未投递)'), true)
+  eq('全通道失败:写"全通道失败"而不是"dry-run,未投递"(成因不同的两件事不得并成一格)', [entry({ sent: false, via: null, attempts: ['email: 未送达'] }).includes('❌ 全通道失败'), entry({ sent: false, via: null, attempts: ['x'] }).includes('未投递')], [true, false])
+  // 向后兼容:旧格式的单条整体 sig 只算"它记过的那几项"的历史,不是"全部已寄过"
+  const legacy = { present: true, parsed: { ts: new Date(T0).toISOString(), sig: `${A} | ${B}`, fails: 2 } }
+  eq('旧格式可读(不崩)且拆回它记过的两项', normalizeAlertState(legacy).kind, 'legacy')
+  eq('旧格式:两项都记过 ⇒ 窗口内不寄(旧行为不因换格式而变响)', decideAlert({ failNames: [A, B], state: legacy, nowMs: T0 + 1 * HR }).shouldSend, false)
+  eq('旧格式:第三项是新身份 ⇒ 必须寄(不得把旧 sig 读成"本轮全部已寄过")', decideAlert({ failNames: [A, B, '凭据 C'], state: legacy, nowMs: T0 + 1 * HR }).due.join(','), '凭据 C')
+  eq('旧格式 sig 为空 ⇒ 视为无记录(首轮语义,与"形态判不出"不并成一格 ⇒ 不喊降级)', [normalizeAlertState({ present: true, parsed: { ts: new Date(T0).toISOString(), sig: '', fails: 0 } }).kind, decideAlert({ failNames: [A], state: { present: true, parsed: { ts: new Date(T0).toISOString(), sig: '', fails: 0 } }, nowMs: T0 }).degraded], ['legacy', ''])
+  // 判不出/读不到的降级:必须报名原因,且不得被静默算成"已寄过"
+  const broken = { present: true, parsed: null, readError: 'Unexpected token < in JSON' }
+  eq('状态文件坏了 ⇒ kind=unreadable 且给出原因', normalizeAlertState(broken).kind, 'unreadable')
+  eq('状态文件坏了 ⇒ 仍寄(哑弹是更坏的方向)且 degraded 非空', [decideAlert({ failNames: [A], state: broken, nowMs: T0 }).shouldSend, decideAlert({ failNames: [A], state: broken, nowMs: T0 }).degraded !== ''], [true, true])
+  const weird = { present: true, parsed: { hello: 'world' } }
+  eq('形态判不出(既非 v2 也无 sig/ts)⇒ unknown,不得被顺手读成旧格式', normalizeAlertState(weird).kind, 'unknown')
+  eq('上一条的处置:仍寄一次且 degraded 必须喊出原因(静默降级 = 把没判写成判过了)', [decideAlert({ failNames: [A], state: weird, nowMs: T0 }).shouldSend, decideAlert({ failNames: [A], state: weird, nowMs: T0 }).degraded !== ''], [true, true])
+  eq('文件不存在(首轮)⇒ 无 degraded 噪音、照常寄', [decideAlert({ failNames: [A], state: { present: false }, nowMs: T0 }).degraded, decideAlert({ failNames: [A], state: { present: false }, nowMs: T0 }).shouldSend], ['', true])
+  eq('v2 但个别时刻烂掉 ⇒ 只有那几项按无记录处理(partial 报名字数)', normalizeAlertState({ present: true, parsed: { version: ALERT_STATE_VERSION, sent: { [A]: 'not-a-date', [B]: new Date(T0).toISOString() } } }).kind, 'partial')
+  // 寄成功后的状态推进:四条不变量各由一条正例钉住(编号与 advanceAlertState 的头注同源)
+  const advanced = advanceAlertState({ table: { [A]: T0, [B]: T0 }, failNames: [A, B, '凭据 C'], notified: ['凭据 C'], nowMs: T0 + 1 * HR })
+  eq('不变量① 只刷被通报项的时钟(A 的时刻不得被组合翻转顶新)', advanced.sent[A], new Date(T0).toISOString())
+  eq('不变量①的另一半 新身份记下本轮时刻', advanced.sent['凭据 C'], new Date(T0 + 1 * HR).toISOString())
+  eq('不变量④的另一半 仍写 sig/ts/fails 三个旧字段(v1 代码读新文件不崩)', [typeof advanced.sig, typeof advanced.ts, advanced.fails], ['string', 'string', 3])
+  eq('④ 恢复通知发完必须整表清空(否则"已恢复"每轮重发)', advanceAlertState({ table: { [A]: T0 }, failNames: [], notified: [], nowMs: T0 + 2 * HR, recovered: true }).sent, {})
+  eq('② 本轮没在失败的项记录不得被抹掉(抹掉=它再失败即"新身份",抖动一项每轮重寄)', Object.keys(advanceAlertState({ table: { [A]: T0, [B]: T0 }, failNames: [B], notified: [], nowMs: T0 + 2 * HR }).sent).sort().join(','), [A, B].sort().join(','))
+  eq('③ 超窗记录剪掉(它与"无记录"等价,表不得无限涨)', advanceAlertState({ table: { [A]: T0 }, failNames: [A], notified: [], nowMs: T0 + ALERT_ITEM_WINDOW_MS + HR }).sent, {})
+  eq('无失败且此前无记录 ⇒ 不打扰,也不喊降级(首轮的静默是正确静默)', [decideAlert({ failNames: [], state: { present: false }, nowMs: T0 }).shouldSend, decideAlert({ failNames: [], state: { present: false }, nowMs: T0 }).degraded], [false, ''])
+  eq('无失败而此前有记录 ⇒ 发恢复通知', decideAlert({ failNames: [], state: v2({ [A]: T0 }), nowMs: T0 + 1 * HR }).recovered, true)
+  // 总量封顶的反向锁:判据里不得出现"每天/每轮最多 N 封"这类计数(§5e 明令禁止)
+  eq('去重窗口只有一个(逐项),且不得有第二种"按封数封顶"的量', [ALERT_ITEM_WINDOW_MS, /每日|每天|每轮最多|MAX_ALERTS|QUOTA/.test(String(decideAlert))], [20 * HR, false])
   let bad = 0
   for (const [label, pass, why] of cases) {
     if (!pass) bad++
@@ -775,35 +828,178 @@ function taskStatus() {
  *
  * 反今天事故的规则:今天那条"同签名失败告警 12h 内已推过,跳过"把一次**持续两天的故障**
  * 压成了静默 —— 去重只能去"重复",不能去"还在发生"。这里因此:
- *   · 失败集合发生变化 ⇒ 立刻发(新故障不等窗口);
- *   · 失败集合不变但仍在失败 ⇒ 每 20 小时重发一次(绝不因去转而消失);
+ *   · 每一项失败各自有身份(见下 ALERT_ITEM_WINDOW_MS 一节),新出现的项立刻发(新故障不等窗口);
+ *   · 某项持续在失败 ⇒ 每 20 小时重发一次(绝不因去转而消失);
  *   · 恢复(失败数归零)⇒ 发一条恢复通知并清空状态。
+ *
+ * 2026-09-29 改:去重的**身份粒度**从"本轮失败项拼成的整条 sig"改成"逐项身份"。
+ * 旧形态实测是噪声主因:两项各自出现/消失会凑出 4 种组合,每种都被当成**全新告警**立即另发,
+ * 去重形同虚设。AGENTS §5e 的配额模型本来就写"只按身份去重、无总量封顶",而整条拼接让
+ * "身份"随组合漂移 = 那句话在这条链上从未成立。现在"该不该寄"逐项判:一封汇总信里只要有一项
+ * 是新身份/到点重发就寄,已在窗口内的项不因"组合变了"被重寄。
  */
 const STATE = join(REPO, '.workbuddy', 'credential-health-alert-state.json')
 /** 全通道投递失败时写此标记:告警没送出去 = 故障从未被人看见,必须留下可被下轮检出的证据 */
 const UNDEL = join(REPO, '.workbuddy', 'credential-health-alert-UNDELIVERED.json')
 /** 本地留痕账本:通道全挂时至少有一条人类可读的追加流水 */
 const LEDGER = join(REPO, '.workbuddy', 'credential-health-alerts.log')
+/**
+ * 单项重发窗口。**沿用本脚本原有的那个常量**(旧实现把 `20 * 3600 * 1000` 写死在 maybeAlert 里),
+ * 只是提到判据旁边并改成逐项适用 —— 值一字未改。
+ * (派单口径写的"约 4h"与代码现值不符:这份脚本里从来没有 4h 窗口,4h 去重窗住在
+ *  scripts/git-guardian.mjs 的派发器那一侧。按"该脚本已有的窗口常量"执行,不新建第二个数。)
+ */
+export const ALERT_ITEM_WINDOW_MS = 20 * 3600 * 1000
+/** 状态文件版本:v2 起按「每项身份 → 上次通报时刻」记账(v1 只有一条整体 sig) */
+export const ALERT_STATE_VERSION = 2
+
+/** 读状态文件:把"文件不存在"与"文件在而读不出/解不开"分成两态,不并桶。 */
+function loadAlertState() {
+  if (!existsSync(STATE)) return { present: false, parsed: null, readError: '' }
+  try {
+    return { present: true, parsed: JSON.parse(readFileSync(STATE, 'utf8')), readError: '' }
+  } catch (e) {
+    return { present: true, parsed: null, readError: String((e && e.message) || e).slice(0, 120) }
+  }
+}
+
+/**
+ * 把状态内容归一成「每项身份 → 上次通报时刻(ms)」的表(纯函数,构造面可证)。
+ * kind 各态处置不同 —— 关键是两种"判不出"都不许被写成结论:
+ *   none        文件不存在(首轮)⇒ 表空,照常寄第一封,寄成功后写状态
+ *   v2          新格式全量可用
+ *   partial     v2 但个别记录时刻解析不出 ⇒ 那几项按无记录处理,其余照旧
+ *   legacy      旧格式(单条整体 sig)⇒ 向后兼容:按 ' | ' 拆回**它自己记过的那几项**的历史记录,
+ *               未记过的项仍算新身份。**不得**把这张表读成"本轮全部已寄过"(哑弹)。
+ *   unreadable  文件在而 JSON 坏 ⇒ 判不出
+ *   unknown     文件在而形态谁都不像 ⇒ 判不出
+ */
+export function normalizeAlertState({ present = true, parsed = null, readError = '' } = {}) {
+  if (!present) return { kind: 'none', table: {}, reason: '状态文件不存在(首轮)' }
+  if (readError) return { kind: 'unreadable', table: {}, reason: `状态文件读不出:${readError}` }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { kind: 'unknown', table: {}, reason: '状态文件形态判不出(不是对象)' }
+  }
+  if (parsed.version === ALERT_STATE_VERSION) {
+    const sent = parsed.sent
+    if (!sent || typeof sent !== 'object' || Array.isArray(sent)) {
+      return { kind: 'unknown', table: {}, reason: `标了 version=${ALERT_STATE_VERSION} 却没有 sent 表` }
+    }
+    const table = {}
+    let dropped = 0
+    for (const [name, ts] of Object.entries(sent)) {
+      const ms = Date.parse(String(ts))
+      if (Number.isFinite(ms)) table[name] = ms
+      else dropped++
+    }
+    return dropped
+      ? { kind: 'partial', table, reason: `${dropped} 条记录的时刻解析不出 ⇒ 那几项按"无记录"处理` }
+      : { kind: 'v2', table, reason: '' }
+  }
+  // 旧格式:一条整体 sig + 一个 ts。分隔符与写入侧同形(' | ')。
+  // 但"没有任何 sig/ts 痕迹的对象"不得被顺手读成旧格式 —— 那是把"没看清"写成"看清了",
+  // 而它会跳过 degraded 打印(unknown 才喊,legacy 不喊)。
+  if (typeof parsed.sig !== 'string' && parsed.ts === undefined) {
+    return { kind: 'unknown', table: {}, reason: '形态判不出(既无 version=2 的 sent 表,也无旧 sig/ts)' }
+  }
+  const names = String(parsed.sig ?? '')
+    .split('|')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (!names.length) return { kind: 'legacy', table: {}, reason: '旧格式而 sig 为空(上一轮无故障)' }
+  const ms = Date.parse(String(parsed.ts ?? ''))
+  if (!Number.isFinite(ms)) return { kind: 'unknown', table: {}, reason: '旧格式 sig 在、ts 解析不出 ⇒ 判不出' }
+  return { kind: 'legacy', table: Object.fromEntries(names.map((n) => [n, ms])), reason: '' }
+}
+
+/**
+ * 「这一轮该不该寄」的判据(纯函数)。身份是**每一项失败**,不是失败集合拼出来的那条整体串。
+ * 返回 { shouldSend, recovered, due, pending, degraded, reason }:
+ *   due     = 本轮需要通报的项(无记录 = 新身份,或记录超窗 = 到点重发)
+ *   pending = 仍在窗口内的项 ⇒ 它们**不得**因为"组合变了"被重寄
+ *   degraded= 状态判不出时要打印的降级原因(不得静默)
+ * 判不出(unreadable/unknown)的处置刻意是"这一轮按无记录寄一次 + 寄成功后写回新格式":
+ * 算"已寄过"会把告警变成哑弹,长期算"从没寄过"会每轮重发 —— 只多这一封,下一轮起恢复正常。
+ */
+export function decideAlert({ failNames = [], state, nowMs = Date.now(), windowMs = ALERT_ITEM_WINDOW_MS } = {}) {
+  const { kind, table, reason: degradeNote } = normalizeAlertState(state)
+  // 只有真"判不出/读不全"的三态才需要喊;none(首轮)与 legacy(sig 为空的正常首轮)不是故障,
+  // 把它们也打成降级会让每轮都多一行假警告 —— 警告链自己也得安静地对,否则又是一种噪声。
+  const degraded = kind === 'unreadable' || kind === 'unknown' || kind === 'partial' ? degradeNote : ''
+  const names = [...new Set(failNames.filter(Boolean))]
+  const recorded = Object.keys(table)
+  if (names.length === 0) {
+    return recorded.length
+      ? { shouldSend: true, recovered: true, due: [], pending: [], degraded, reason: `本轮无失败而此前有 ${recorded.length} 项通报记录 ⇒ 发恢复通知` }
+      : { shouldSend: false, recovered: false, due: [], pending: [], degraded, reason: '无失败且此前也未告警,不打扰' }
+  }
+  const due = names.filter((n) => table[n] === undefined || nowMs - table[n] > windowMs)
+  const pending = names.filter((n) => !due.includes(n))
+  if (!due.length) {
+    return { shouldSend: false, recovered: false, due: [], pending, degraded, reason: `${pending.length} 项都在 ${(windowMs / 3600000).toFixed(0)}h 窗口内逐项通报过 ⇒ 不重寄(组合翻转不算新身份)` }
+  }
+  return {
+    shouldSend: true,
+    recovered: false,
+    due,
+    pending,
+    degraded,
+    reason: `需通报 ${due.length} 项(新身份/到点重发)${pending.length ? `;另有 ${pending.length} 项窗口内已通报,不重寄` : ''}`,
+  }
+}
+
+/**
+ * 寄成功之后写回的状态。三条一条都不能少:
+ *   ① **只刷本轮真被通报的那几项**的时钟 —— 若把窗口内的项一起刷,一次组合翻转就把它的 20h
+ *      重发钟拨回,持续故障可以永远不再喊(与本脚本头注"去重不能去成哑弹"同一条禁令);
+ *   ② 本轮**没在失败**的项,记录**不得**被抹掉 —— 抹了就等于"它再失败时是新身份",一项反复抖动
+ *      的凭据又会每轮重寄一封,与要防的噪声同源(表的增长由 ③ 封顶);
+ *   ③ recovered(本轮零失败、恢复通知已发)整表清空,否则恢复通知每轮重发;超窗记录一并剪掉。
+ *   ④ 仍写 sig/ts/fails 三个旧字段:v1 代码读新文件不会崩,而 UNDEL 的 detail 与恢复通知都还吃 sig。
+ */
+export function advanceAlertState({ table = {}, failNames = [], notified = [], nowMs = Date.now(), recovered = false, windowMs = ALERT_ITEM_WINDOW_MS } = {}) {
+  const names = [...new Set(failNames.filter(Boolean))]
+  const sent = {}
+  // ②③ 本轮没在失败的项**保留**其记录(抹掉就等于"再失败时是新身份"⇒ 抖动一项又寄一封),
+  //    但超窗记录剪掉(与"无记录"等价,留着只会让表无限涨)。
+  if (!recovered) {
+    for (const [n, ms] of Object.entries(table)) if (nowMs - ms <= windowMs) sent[n] = new Date(ms).toISOString()
+    for (const n of new Set(notified.filter(Boolean))) sent[n] = new Date(nowMs).toISOString()
+  }
+  const sorted = Object.fromEntries(Object.entries(sent).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+  return {
+    version: ALERT_STATE_VERSION,
+    ts: new Date(nowMs).toISOString(),
+    sig: [...names].sort().join(' | '),
+    fails: names.length,
+    sent: sorted,
+  }
+}
+
+/**
+ * 台账条目的正文(纯函数,便于镜像测试断言"未投递"三字只出现在真没投递的那一态)。
+ * 三态与它**实际拿到的那个投递返回值同源**,不再恒传 null:
+ * 旧形态的谎 = 明明寄出去了,投递史里逐条写着"未投递" ⇒ 任何人复核投递历史都得到相反结论。
+ */
+export function buildLedgerEntry({ title, desp, delivery, nowIso = new Date().toISOString() } = {}) {
+  const verdict = delivery?.dryRun
+    ? '(dry-run,未投递)'
+    : delivery?.sent
+      ? `✅ 经 ${delivery.via || '?'} 送达`
+      : '❌ 全通道失败'
+  const lines = delivery?.attempts?.length ? delivery.attempts.map((a) => `  · ${a}`).join('\n') : ''
+  return `——— ${nowIso} ${title} ———\n${desp}\n投递: ${verdict}\n${lines}\n\n`
+}
 
 function appendLedger(title, desp, delivery) {
   try {
     mkdirSync(join(REPO, '.workbuddy'), { recursive: true })
-    const head = `——— ${new Date().toISOString()} ${title} ———\n${desp}\n投递: ${
-      delivery ? (delivery.sent ? `✅ 经 ${delivery.via} 送达` : '❌ 全通道失败') : '(dry-run,未投递)'
-    }\n${delivery ? delivery.attempts.map((a) => `  · ${a}`).join('\n') : ''}\n\n`
-    appendFileSync(LEDGER, head, 'utf8')
+    appendFileSync(LEDGER, buildLedgerEntry({ title, desp, delivery }), 'utf8')
   } catch (e) {
     console.error(`⚠️ 告警账本写入失败(${e?.message})—— 台账本身也不能静默失败`)
   }
 }
 
-function loadState() {
-  try {
-    return JSON.parse(readFileSync(STATE, 'utf8'))
-  } catch {
-    return null
-  }
-}
 /** 通用 POST(https)已随第三方推送腿摘除一并删除;发信一律走下方品牌派发器 */
 
 // ── 品牌邮件通道(2026-09-23 迁移,守门 81「品牌邮件通道对账」)─────────────────────
@@ -917,110 +1113,148 @@ async function deliver(title, desp, severity = 'critical') {
 
 async function maybeAlert(results, dryRun) {
   const fails = results.filter((r) => r.level === 'fail')
-  const sig = fails.map((f) => f.name).sort().join(' | ')
-  const prev = loadState()
+  const names = fails.map((f) => f.name)
+  const sig = [...names].sort().join(' | ')
   const now = Date.now()
-  const changed = !prev || (prev.sig || '') !== sig
-  const overdue = prev && prev.ts && now - Date.parse(prev.ts) > 20 * 3600 * 1000
-  const recovered = fails.length === 0 && prev && prev.sig
-  if (fails.length === 0 && !recovered) return { sent: false, why: '无失败且此前也未告警,不打扰' }
-  if (fails.length > 0 && !changed && !overdue) return { sent: false, why: '同一故障已在窗口内通报过(仍会每 20h 重发)' }
+  const st = loadAlertState()
+  const d0 = decideAlert({ failNames: names, state: st, nowMs: now })
+  // 判不出的降级必须喊出来:静默 = 把"没判"写成"判过了"(本仓最高频失效型)。
+  if (d0.degraded) console.log(`⚠️ 去重状态不可判定 ⇒ ${d0.degraded};本轮按"无记录"处理,寄成功后写回新格式`)
+  if (!d0.shouldSend) return { sent: false, why: d0.degraded ? `${d0.reason}(状态侧:${d0.degraded})` : d0.reason }
 
+  const recovered = d0.recovered
   const title = recovered ? `【${envLabelHere()}】凭据巡检已恢复` : `【${envLabelHere()}】凭据失效/部署停摆告警`
   // 严重度进品牌模板的色带/前缀:恢复通知不该长得和一次凭据失效一样
   const severity = recovered ? 'info' : 'critical'
+  // 正文形态按现状列**全量**(失效项 + 全部结果),不改成"只列本轮新身份的那几项"。
+  // 理由:① 改动最小(判据换了粒度,正文一个字不动);② 邮件是"这一轮的整体体检报告",
+  //      只列增量会让人以为其余项已恢复 —— 那正是本文件反对的另一种谎。
   const desp = recovered
-    ? `上一轮失效项已恢复: ${prev.sig}\n\n全部检查: ${results.map((r) => `${r.level} ${r.name}`).join('\n')}`
+    ? `上一轮失效项已恢复: ${Object.keys(normalizeAlertState(st).table).join(' ; ') || '(旧记录无逐项身份)'}\n\n全部检查: ${results.map((r) => `${r.level} ${r.name}`).join('\n')}`
     : `失效项(${fails.length}):\n${fails.map((f) => `- ${f.name}\n  ${redactAlertDetail(f.detail)}`).join('\n')}\n\n` +
       `全部结果:\n${results.map((r) => `- [${r.level}] ${r.name} — ${redactAlertDetail(r.detail)}`).join('\n')}\n\n` +
+      `本轮通报身份(${d0.due.length}/${names.length}): ${d0.due.join(' ; ')}\n` +
+      `窗口内已通报、本次未重寄:${d0.pending.length} 项\n\n` +
       `处置:更新对应凭据后**必须同步服务环境块**(nssm AppEnvironmentExtra),` +
       `再跑 node scripts/check-credential-health.mjs 复验。限流/网络不可达不算失效。\n` +
       `来源:本机即生产机(D:/IHUI-AI 上跑 IHUI-API / IHUI-DEPLOYLOOP)。`
-  // 台账先落盘:即便所有远端通道都失败,这一条也已经留下人类可读记录
-  appendLedger(title, desp, null)
   if (dryRun) {
     console.log(`[alert-dry] title=${title}\n${desp.slice(0, 300)}…`)
+    // 这一条是真没投递 ⇒ 才允许写"未投递"(缺陷②的判据就是这一句不得恒写)
+    appendLedger(title, desp, { sent: false, dryRun: true, via: null, attempts: ['alert-dry:只打印正文,未调用派发器'] })
     return { sent: false, why: 'dry-run 未发送' }
   }
-  const d = await deliver(title, desp, severity)
+  // 台账改到投递**之后**落盘,并带上真实结果:旧写法在寄出之前就用 null 落一条,于是
+  // "(dry-run,未投递)"被恒写进每一行投递史(缺陷②)。deliver() 内部层层 catch 不会抛,
+  // 这里再兜一层 try 是为"投递流程自己崩了也留痕",而不是为"先落一条再说"。
+  let d
+  try {
+    d = await deliver(title, desp, severity)
+  } catch (e) {
+    d = { sent: false, via: null, attempts: [`投递流程异常: ${redactChildOutput((e && e.message) || String(e))}`] }
+  }
+  appendLedger(title, desp, d)
   if (d.sent) {
     mkdirSync(join(REPO, '.workbuddy'), { recursive: true })
-    writeFileSync(STATE, JSON.stringify({ ts: new Date().toISOString(), sig, fails: fails.length }), 'utf8')
+    const table = normalizeAlertState(st).table
+    const next = advanceAlertState({ table, failNames: names, notified: recovered ? [] : d0.due, nowMs: now, recovered })
+    writeFileSync(STATE, JSON.stringify(next), 'utf8')
     rmSync(UNDEL, { force: true })
   } else {
-    writeFileSync(UNDEL, JSON.stringify({ ts: new Date().toISOString(), sig, attempts: d.attempts }, null, 2), 'utf8')
+    writeFileSync(UNDEL, JSON.stringify({ ts: new Date().toISOString(), sig, items: d0.due, attempts: d.attempts }, null, 2), 'utf8')
   }
   return {
     sent: d.sent,
     via: d.via,
     attempts: d.attempts,
-    why: d.sent ? `经 ${d.via} 送达` : `全通道失败(已写标记 ${UNDEL})`,
+    why: d.sent ? `经 ${d.via} 送达(${d0.due.length} 项身份)` : `全通道失败(已写标记 ${UNDEL})`,
   }
 }
 
-const argv = process.argv.slice(2)
-if (argv.includes('--help') || argv.includes('-h')) {
-  // 必须是真分支:此前未知参数(含 --help)一律落到默认巡检 —— 想查用法的人会顺手打一轮
-  // 厂商 API,还可能因当轮判红而真发一封告警邮件(唯一到人通道,打扰真实收件人,须节制)。
-  console.log(
-    [
-      '用法: node scripts/check-credential-health.mjs [模式]',
-      '',
-      '  (缺省)        全量巡检并判定告警,异常 exit 1',
-      '  --json        机器可读输出(写 .workbuddy/credential-health-last.json 心跳)',
-      '  --alert-dry   跑完整巡检,但只打印告警正文,不投递',
-      '  --mail-dry-run 只问品牌邮件派发器「通道是否齐备」(零网络请求,不占配额)',
-      '  --test-alert  真发一次通道自测(会真打扰收件人,须节制)',
-      '  --self-test   逻辑自检(不触网、不读真凭据)',
-      '  --install | --uninstall | --status  计划任务注册/卸载/健康',
-      '',
-      '告警通道: 仅邮件一条(只按签名去重、无总量封顶);邮件一律经 apps/api/scripts/notify-deploy-failure.ts',
-      '          的品牌模板(守门 81),投递失败会写 UNDELIVERED 标记并在下一轮判红。',
-    ].join('\n'),
-  )
-  process.exit(0)
-} else if (argv.includes('--self-test')) selfTest()
-else if (argv.includes('--test-alert')) {
-  // 通道可用性必须可证:只看"代码写了发信"不算,必须真发一次并回读结果。
-  const d = await deliver(`【${envLabelHere()}】凭据巡检通道自测`, '这是一条通道自测消息(非故障)。用于验证唯一到人通道(邮件)是否真能落地。')
-  console.log(`通道自测: sent=${d.sent} via=${d.via || '-'}`)
-  for (const t of d.attempts) console.log(`  · ${t}`)
-  process.exit(d.sent ? 0 : 1)
-} else if (argv.includes('--mail-dry-run')) {
-  // 邮件通道要能在"不打扰收件人、不占配额"的前提下自证:派发器的 --dry-run 只做渲染与通道
-  // 判定,零网络请求(输出里的 html 字节数 + 机械风横幅命中=yes 就是版式真生效的证据)。
-  const r = await sendEmail(
-    `【${envLabelHere()}】凭据巡检邮件通道演练(dry-run)`,
-    '这是一条 dry-run 演练正文,未实际发送。\n第二行用于验证多行中文经文件通道原样送达。',
-    'critical',
-    { dryRun: true },
-  )
-  console.log(`邮件通道(dry-run): ok=${r.ok} ${r.why}`)
-  process.exit(r.ok ? 0 : 1)
-} else if (argv.includes('--install')) installTask()
-else if (argv.includes('--uninstall')) uninstallTask()
-else if (argv.includes('--status')) taskStatus()
-else {
-  const results = await runChecks()
-  const bad = results.filter((r) => r.level === 'fail')
-  if (argv.includes('--json')) {
-    mkdirSync(join(REPO, '.workbuddy'), { recursive: true })
-    const a = await maybeAlert(results, false)
-    const line = JSON.stringify({ ts: new Date().toISOString(), fail: bad.length, alert: a, results })
-    writeFileSync(join(REPO, '.workbuddy', 'credential-health-last.json'), line, 'utf8')
-    console.log(line)
-    if (!a.sent) console.log(`告警判定: sent=false ${a.why}`)
+// §22d 双形态入口守护:本文件的判据(normalizeAlertState / decideAlert / advanceAlertState /
+// buildLedgerEntry …)已 export 给 §22c 镜像测试直接 import,而下面这条 argv 分发链会真打厂商
+// API、判红还会真发一封到人邮件(唯一到人通道,须节制)—— 没有这道守卫,测试一 import 就把整轮
+// 巡检跑一遍(§22d 的立项理由)。形态取 §22d 模板给的正面写法:整条链收进 main(),顶层只在
+// "本模块被直接 node 执行"时调一次;不写成"守卫先空转、链挂在它的 else 上"那种倒装 —— 那样
+// 分发链在结构上成了守卫的分支,读代码的人会以为参数语义被顺手改过。
+const isDirectRun = Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href
+
+async function main() {
+  const argv = process.argv.slice(2)
+  if (argv.includes('--help') || argv.includes('-h')) {
+    // 必须是真分支:此前未知参数(含 --help)一律落到默认巡检 —— 想查用法的人会顺手打一轮
+    // 厂商 API,还可能因当轮判红而真发一封告警邮件(唯一到人通道,打扰真实收件人,须节制)。
+    console.log(
+      [
+        '用法: node scripts/check-credential-health.mjs [模式]',
+        '',
+        '  (缺省)        全量巡检并判定告警,异常 exit 1',
+        '  --json        机器可读输出(写 .workbuddy/credential-health-last.json 心跳)',
+        '  --alert-dry   跑完整巡检,只打印告警正文;台账如实记一条 "(dry-run,未投递)"(不调用派发器)',
+        '  --mail-dry-run 只问品牌邮件派发器「通道是否齐备」(零网络请求,不占配额)',
+        '  --test-alert  真发一次通道自测(会真打扰收件人,须节制)',
+        '  --self-test   逻辑自检(不触网、不读真凭据)',
+        '  --install | --uninstall | --status  计划任务注册/卸载/健康',
+        '',
+        '告警通道: 仅邮件一条(按**逐项身份**去重、无总量封顶;一封汇总信里只要有一项是新身份或到点',
+        '          重发才寄,已在窗口内的项不因失败组合翻转而重寄)。邮件一律经',
+        '          apps/api/scripts/notify-deploy-failure.ts 的品牌模板(守门 81),投递失败会写',
+        '          UNDELIVERED 标记并在下一轮判红;台账逐条记真实投递结果(成功/失败/dry-run 三态)。',
+      ].join('\n'),
+    )
+    process.exit(0)
+  } else if (argv.includes('--self-test')) selfTest()
+  else if (argv.includes('--test-alert')) {
+    // 通道可用性必须可证:只看"代码写了发信"不算,必须真发一次并回读结果。
+    const d = await deliver(`【${envLabelHere()}】凭据巡检通道自测`, '这是一条通道自测消息(非故障)。用于验证唯一到人通道(邮件)是否真能落地。')
+    console.log(`通道自测: sent=${d.sent} via=${d.via || '-'}`)
+    for (const t of d.attempts) console.log(`  · ${t}`)
+    process.exit(d.sent ? 0 : 1)
+  } else if (argv.includes('--mail-dry-run')) {
+    // 邮件通道要能在"不打扰收件人、不占配额"的前提下自证:派发器的 --dry-run 只做渲染与通道
+    // 判定,零网络请求(输出里的 html 字节数 + 机械风横幅命中=yes 就是版式真生效的证据)。
+    const r = await sendEmail(
+      `【${envLabelHere()}】凭据巡检邮件通道演练(dry-run)`,
+      '这是一条 dry-run 演练正文,未实际发送。\n第二行用于验证多行中文经文件通道原样送达。',
+      'critical',
+      { dryRun: true },
+    )
+    console.log(`邮件通道(dry-run): ok=${r.ok} ${r.why}`)
+    process.exit(r.ok ? 0 : 1)
+  } else if (argv.includes('--install')) installTask()
+  else if (argv.includes('--uninstall')) uninstallTask()
+  else if (argv.includes('--status')) taskStatus()
+  else {
+    const results = await runChecks()
+    const bad = results.filter((r) => r.level === 'fail')
+    if (argv.includes('--json')) {
+      mkdirSync(join(REPO, '.workbuddy'), { recursive: true })
+      const a = await maybeAlert(results, false)
+      const line = JSON.stringify({ ts: new Date().toISOString(), fail: bad.length, alert: a, results })
+      writeFileSync(join(REPO, '.workbuddy', 'credential-health-last.json'), line, 'utf8')
+      console.log(line)
+      if (!a.sent) console.log(`告警判定: sent=false ${a.why}`)
+      process.exit(bad.length ? 1 : 0)
+    } else {
+      for (const r of results) console.log(`${{ ok: '✅', fail: '❌', limited: '⚠️', unreachable: '⚠️', unknown: '· ' }[r.level]} [${r.level}] ${r.name} — ${r.detail}`)
+      const warn = results.filter((r) => r.level === 'limited' || r.level === 'unreachable')
+      if (warn.length) console.log(`· 另有 ${warn.length} 项限流/网络不可达(不计为失效): ${warn.map((w) => w.name).join(' ; ')}`)
+      if (bad.length) console.log('⚠️ 被限流/网络不可达 ≠ 凭据过期,不要据此换 key(本会话真实误判过一次)')
+      console.log(bad.length ? `❌ ${bad.length} 项凭据失效: ${bad.map((b) => b.name).join(' ; ')}` : '✅ 全部凭据有效')
+    }
+    const a = await maybeAlert(results, argv.includes('--alert-dry'))
+    console.log(`告警判定: sent=${a.sent} ${a.why}`)
+    for (const t of a.attempts || []) console.log(`  · ${t}`)
     process.exit(bad.length ? 1 : 0)
-  } else {
-    for (const r of results) console.log(`${{ ok: '✅', fail: '❌', limited: '⚠️', unreachable: '⚠️', unknown: '· ' }[r.level]} [${r.level}] ${r.name} — ${r.detail}`)
-    const warn = results.filter((r) => r.level === 'limited' || r.level === 'unreachable')
-    if (warn.length) console.log(`· 另有 ${warn.length} 项限流/网络不可达(不计为失效): ${warn.map((w) => w.name).join(' ; ')}`)
-    if (bad.length) console.log('⚠️ 被限流/网络不可达 ≠ 凭据过期,不要据此换 key(本会话真实误判过一次)')
-    console.log(bad.length ? `❌ ${bad.length} 项凭据失效: ${bad.map((b) => b.name).join(' ; ')}` : '✅ 全部凭据有效')
   }
-  const a = await maybeAlert(results, argv.includes('--alert-dry'))
-  console.log(`告警判定: sent=${a.sent} ${a.why}`)
-  for (const t of a.attempts || []) console.log(`  · ${t}`)
-  process.exit(bad.length ? 1 : 0)
+}
+
+// §22b/§22d 的退出码约定:2 = 脚本自身异常(main 内每条分支自己 exit,所以走到 catch 只可能是崩了),
+// 1 = 业务判红。崩了不得冒充"巡检通过",也不得静默挂着不退。
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

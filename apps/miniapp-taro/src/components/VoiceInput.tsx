@@ -113,7 +113,7 @@ export default function VoiceInput({
               {WAVE_BARS.map((i) => (
                 <View
                   key={i}
-                  className="w-1 mx-0.5 bg-[var(--color-danger)] rounded-sm animate-pulse"
+                  className="w-1 mx-[4rpx] bg-[var(--color-danger)] rounded-sm animate-pulse"
                   style={{ height: '60%', animationDelay: `${i * 0.12}s` }}
                 />
               ))}
