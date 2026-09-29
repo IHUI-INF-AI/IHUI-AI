@@ -602,6 +602,20 @@ function readBaseline(root) {
  * @param before 差值棘轮的基准面读数(仅 `--staged` 档给:索引面 vs HEAD 面同轮各算一次)
  *               取不到基准面 ⇒ **不判差值**并喊出来(把"没判"写成"判过了"是本仓最高频失效型)
  */
+/**
+ * 绝对层(基线棘轮 / 存续性棘轮)在**哪一种档**里才参与退出码 —— 定级判据只留这一份。
+ *
+ * 两层比的是"当次面的存量 vs 基线文件",与本次提交改了什么无关:别人跳门塞进 HEAD 的增长,
+ * 会让**每一次无关提交**都变红,而红门的唯一结局是各会话 --no-verify、连带链上全部守门作废
+ * (§12f;AGENTS §1 也早已写明"提交链上跑的是差值棘轮,存量永不拦")。所以:
+ *  - 提交链(有 `before` ⇒ 差值档)⇒ **不拦**,但必须逐维打印 + 给问责出口,不得静默;
+ *  - 全量档 / `--strict`(人工与 CI 问责)⇒ 照常判红。
+ * 差值棘轮(`grewViolations`)不在此函数管辖内 —— 它才是链上的拦点,一行没被放宽。
+ */
+export function absoluteLayerBlocks({ strict, before }) {
+  return Boolean(strict) || !before
+}
+
 /** 导出给自检与镜像测试用(§22c):判据的红/绿两向都必须能拿构造面证明,不能只靠 CLI 跑真仓。 */
 export function gate(a, strict, root, before, beforeErr) {
   const items = probe(a)
@@ -665,7 +679,14 @@ export function gate(a, strict, root, before, beforeErr) {
         ? `   出路:逐组判"哪侧是后来者"并归并(G-312 明令不得批量改号)。清偿后人工跑 \`node scripts/plan-tasks.mjs --update-baseline\` —— 它只允许**收窄**键集,把新键写进基线等于关掉这一维。`
         : `   出路:清偿后人工跑 \`node scripts/plan-tasks.mjs --update-baseline\` 并说明为什么 —— 调高基线等于关掉这一维。`,
     )
-    return 1
+    if (absoluteLayerBlocks({ strict, before })) return 1
+    console.log(
+      '   ↑ 本层比的是"HEAD 当下存量 vs 基线",与本次提交改了什么无关 ⇒ 在提交链(差值档)只报数不拦提交。',
+    )
+    console.log(
+      '     定级理由见函数 absoluteLayerBlocks 头注(§12f:与提交无关的恒红门 = 全队跳钩子 = 全部守门作废);',
+    )
+    console.log('     问责口径不变:`pnpm check:plan-task-state`(= --gate --strict)照判红;差值棘轮照旧 blocking。')
   }
   // F5 与上面同层但方向相反:基线记的是"至少要有这么多条落账注记",**掉了**才判红。
   // 这一维专治"四条状态判据全绿而内容已被旧副本顶掉"(2026-09-26 一小时内实测发生两次)。
@@ -674,7 +695,8 @@ export function gate(a, strict, root, before, beforeErr) {
     console.log(
       '   成因只会是"按内存里那份旧计划文档整文件提交"或跳门回写;出路是重放那批注记,不是下调基线。',
     )
-    return 1
+    if (absoluteLayerBlocks({ strict, before })) return 1
+    console.log('   ↑ 同上:绝对层在提交链只报数,问责档 --strict 判红。')
   }
   // ── F8b 到期清单 ─────────────────────────────────────────────
   // 默认档**只报数并报名**,`--strict` 才判红。理由是这一维与其余六条不同:
