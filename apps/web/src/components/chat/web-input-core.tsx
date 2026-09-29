@@ -10,7 +10,6 @@ import { Brush } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
 import { Tooltip } from '@/components/feedback'
-import { shouldSubmitOnEnter } from './enter-submit-policy'
 
 export const MAX_LENGTH = 10000
 const MAX_HEIGHT_PX = 320 // 最大约 16 行,超出后滚动
@@ -111,22 +110,19 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
             onChange?.(e)
           }}
           onKeyDown={(e) => {
-            // 判序(G-843):先透传外部,外部握有否决权 —— 该顺序本身是被测契约,见
-            // __tests__/web-input-core-enter-key-ordering.test.tsx。"该不该吃这一下 Enter"
-            // 的全部判据住在 shouldSubmitOnEnter(G-844 IME 双腿并在其中),组件只做装配。
+            // G-843 判序修正(bug 根因):原先内部先吃 Enter(preventDefault + onSend),
+            // 外部 onKeyDown?.(e) 只在 else 分支被调用 ⇒ 上层(message-input.tsx 的 handleKeyDown
+            // 第一行 contextSelector.handleKeyDown(e))对"未 preventDefault 的 Enter"结构上永不可达,
+            // 于是 `#` 上下文选择器开着且有匹配项时,按 Enter 直接发消息而不是选中。
+            // 对齐上游 prompt-input-textarea.tsx:33-41 —— 先透传外部 → 外部已 preventDefault 即整条
+            // return(外部握有否决权,Enter 只被消费一次,绝不"既选中又发送")→ 才走内部提交。
             onKeyDown?.(e)
-            if (
-              shouldSubmitOnEnter({
-                key: e.key,
-                shiftKey: e.shiftKey,
-                defaultPrevented: e.defaultPrevented,
-                localComposing: isComposing,
-                nativeComposing: e.nativeEvent.isComposing,
-              })
-            ) {
-              e.preventDefault()
-              onSend()
-            }
+            if (e.defaultPrevented) return
+            if (e.key !== 'Enter' || e.shiftKey) return
+            // G-844 双保险:本地 composition 标志 ‖ 事件自带标志,任一成立即视为组合态,不提交。
+            if (isComposing || e.nativeEvent.isComposing) return
+            e.preventDefault()
+            onSend()
           }}
           onCompositionStart={() => setIsComposing(true)}
           onCompositionEnd={() => setIsComposing(false)}

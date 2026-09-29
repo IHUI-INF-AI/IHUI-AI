@@ -10,18 +10,6 @@
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
 import { generateCompactId } from '../../utils/crypto-random.js'
-import { fetchWithinDeadline } from '../../utils/fetch-deadline.js'
-import { OUTBOUND_REQUEST_TIMEOUT_MS } from '../im-outbound-policy.js'
-
-/**
- * G-815413:本文件此前 8 处 `await fetch(` 全部**没有 signal** —— 平台不响应时这些调用
- * 永久挂起,而 `sendMessage` 的 `await` 把它上面所有串行链路一起拖住(没有超时就没有失败,
- * 只有"永远不返回")。现在统一走 `utils/fetch-deadline.ts`(唯一超时出口,不得再造第二份),
- * 数值也取自同一条策略档 `OUTBOUND_REQUEST_TIMEOUT_MS`,不在端内另立第二个数字。
- */
-function channelFetch(url: string, init: RequestInit, label: string): Promise<Response> {
-  return fetchWithinDeadline(url, init, { timeoutMs: OUTBOUND_REQUEST_TIMEOUT_MS, label })
-}
 
 export type ChannelType =
   'web' | 'wechat' | 'dingtalk' | 'feishu' | 'slack' | 'telegram' | 'api' | 'custom'
@@ -188,14 +176,13 @@ async function sendFeishu(channel: ChannelConfig, content: string, userId?: stri
     throw new Error('feishu 渠道缺少 appId/appSecret/receiveId 配置')
   }
   // 1. 获取 tenant_access_token
-  const tokenResp = await channelFetch(
+  const tokenResp = await fetch(
     'https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
     },
-    'clawdbot→feishu tenant_access_token',
   )
   if (!tokenResp.ok) throw new Error(`feishu token 请求失败: ${tokenResp.status}`)
   const tokenData = (await tokenResp.json()) as { tenant_access_token?: string; msg?: string }
@@ -204,7 +191,7 @@ async function sendFeishu(channel: ChannelConfig, content: string, userId?: stri
   }
   // 2. 发送消息(默认发到 chat_id,可通过 receiveIdType 切换为 open_id/user_id 等私信)
   const receiveIdType = cfg.receiveIdType ?? 'chat_id'
-  const msgResp = await channelFetch(
+  const msgResp = await fetch(
     `https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=${receiveIdType}`,
     {
       method: 'POST',
@@ -218,7 +205,6 @@ async function sendFeishu(channel: ChannelConfig, content: string, userId?: stri
         content: JSON.stringify({ text: content }),
       }),
     },
-    'clawdbot→feishu im/messages',
   )
   if (!msgResp.ok) {
     const errText = await msgResp.text().catch(() => 'unknown')
@@ -245,10 +231,8 @@ async function sendWechat(channel: ChannelConfig, content: string, userId?: stri
     throw new Error('wechat 渠道缺少 corpId/secret/agentId 配置')
   }
   // 1. 获取 access_token
-  const tokenResp = await channelFetch(
+  const tokenResp = await fetch(
     `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${encodeURIComponent(corpId)}&corpsecret=${encodeURIComponent(secret)}`,
-    {},
-    'clawdbot→wechat gettoken',
   )
   if (!tokenResp.ok) throw new Error(`wechat token 请求失败: ${tokenResp.status}`)
   const tokenData = (await tokenResp.json()) as {
@@ -260,7 +244,7 @@ async function sendWechat(channel: ChannelConfig, content: string, userId?: stri
     throw new Error(`wechat token 获取失败: ${tokenData.errmsg ?? tokenData.errcode ?? 'unknown'}`)
   }
   // 2. 发送应用消息
-  const msgResp = await channelFetch(
+  const msgResp = await fetch(
     `https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=${tokenData.access_token}`,
     {
       method: 'POST',
@@ -274,7 +258,6 @@ async function sendWechat(channel: ChannelConfig, content: string, userId?: stri
         text: { content },
       }),
     },
-    'clawdbot→wechat message/send',
   )
   if (!msgResp.ok) {
     const errText = await msgResp.text().catch(() => 'unknown')
@@ -306,15 +289,11 @@ async function sendDingtalk(
   }
   // NOTE: 钉钉机器人加签流程(secret 字段)后续接入,当前仅支持明文 webhook/accessToken 模式
   const url = webhook ?? `https://oapi.dingtalk.com/robot/send?access_token=${accessToken}`
-  const resp = await channelFetch(
-    url,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ msgtype: 'text', text: { content } }),
-    },
-    'clawdbot→dingtalk robot/send',
-  )
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ msgtype: 'text', text: { content } }),
+  })
   if (!resp.ok) {
     const errText = await resp.text().catch(() => 'unknown')
     throw new Error(`dingtalk 发送失败: ${resp.status} ${errText}`)
@@ -341,15 +320,11 @@ async function sendSlack(channel: ChannelConfig, content: string, userId?: strin
   }
   if (webhook) {
     // Incoming Webhook(最简,无需 OAuth)
-    const resp = await channelFetch(
-      webhook,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: content }),
-      },
-      'clawdbot→slack incoming webhook',
-    )
+    const resp = await fetch(webhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: content }),
+    })
     if (!resp.ok) {
       const errText = await resp.text().catch(() => 'unknown')
       throw new Error(`slack webhook 发送失败: ${resp.status} ${errText}`)
@@ -357,18 +332,14 @@ async function sendSlack(channel: ChannelConfig, content: string, userId?: strin
   } else {
     // NOTE: Slack Web API 完整 OAuth 流程(chat:write scope)后续接入
     if (!cfg.channel) throw new Error('slack Web API 缺少 channel 配置')
-    const resp = await channelFetch(
-      'https://slack.com/api/chat.postMessage',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ channel: cfg.channel, text: content }),
+    const resp = await fetch('https://slack.com/api/chat.postMessage', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
-      'clawdbot→slack chat.postMessage',
-    )
+      body: JSON.stringify({ channel: cfg.channel, text: content }),
+    })
     if (!resp.ok) {
       const errText = await resp.text().catch(() => 'unknown')
       throw new Error(`slack Web API 发送失败: ${resp.status} ${errText}`)
@@ -395,15 +366,11 @@ async function sendTelegram(
   if (!botToken || !chatId) {
     throw new Error('telegram 渠道缺少 botToken/chatId 配置')
   }
-  const resp = await channelFetch(
-    `https://api.telegram.org/bot${botToken}/sendMessage`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text: content, parse_mode: 'HTML' }),
-    },
-    'clawdbot→telegram sendMessage',
-  )
+  const resp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text: content, parse_mode: 'HTML' }),
+  })
   if (!resp.ok) {
     const errText = await resp.text().catch(() => 'unknown')
     throw new Error(`telegram 发送失败: ${resp.status} ${errText}`)

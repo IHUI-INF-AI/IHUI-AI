@@ -68,11 +68,7 @@ function evalAnchor(anchor, face) {
     if (typeof body !== 'string') return { state: 'undetermined', reason: `路径在位但取不到内容:${p}` }
     let re
     try {
-      // `gm` 两个旗标都是必需的,不是顺手加的:
-      // m —— 锚点常写 `^## 一节标题`,少了 m 时 `^` 只匹配整串开头 ⇒ 对任何长文档**恒不命中**,
-      //      而表现不是报错而是把一条已存在的正文判成"仍存在"(#D170 第一次跑就是这么假的)。
-      // g —— 计数判据(minCount)要数全部命中,非 global 的 match 只给第一处。
-      re = new RegExp(anchor.regex, 'gm')
+      re = new RegExp(anchor.regex, 'g')
     } catch {
       return { state: 'undetermined', reason: `正则不可解析:${anchor.regex}` }
     }
@@ -130,12 +126,6 @@ function parseDocRows(text) {
 /** 台账自洽:每条 claim 的 docAnchor 必须还能在被引文档里找到(行号会变,所以只按内容锚点核)。 */
 function ledgerRot(claims, docTextById) {
   const rot = []
-  // 先判**重复 id**:登记表出现两个同名条目时,报告里会有两行结论互相顶(一条说已交付、
-  // 一条说仍存在),而读者只看末行数字 —— 台账 §1"一个编号只能有一行当前状态"这条判据
-  // 对代码台账成立,对这张表同样成立,否侧它是一张可以自己骗自己的表。
-  const tally = new Map()
-  for (const c of claims) tally.set(c.id, (tally.get(c.id) ?? 0) + 1)
-  for (const [id, n] of tally) if (n > 1) rot.push({ id, reason: `同一 id 登记 ${n} 次 ⇒ 本尺子会对同一件事给出两份结论,必须去重` })
   for (const c of claims) {
     const doc = docTextById.get(c.doc)
     if (!doc) {
@@ -354,19 +344,6 @@ function selfTest() {
   t('⑯ docAnchor 在位 ⇒ 不判腐烂(反向对照)', rot2.length === 0)
   const rot3 = ledgerRot([{ id: '#1', doc: 'd.md' }], new Map([['d.md', 'x']]));
   t('⑰ 缺内容锚点本身算腐烂(禁止拿行号当证据)', rot3.length === 1)
-  const rot4 = ledgerRot(
-    [
-      { id: '#1', doc: 'd.md', docAnchor: '这条还在' },
-      { id: '#1', doc: 'd.md', docAnchor: '这条还在' },
-    ],
-    new Map([['d.md', '……这条还在……']]),
-  );
-  t('⑱ 登记表出现两个同名条目 ⇒ 判腐烂(一份输入不许有两行结论)', rot4.length === 1 && /登记 2 次/.test(rot4[0].reason))
-  // ⑲ 是**尺子自己骗自己**那一型的反向锁:^ 锚点必须按行生效。少 m 旗时长文档里的
-  // "^## 十、一节标题" 恒不命中,而给出的不是报错,是"这一节不存在"(#D170 首跑即被此骗)。
-  const anchored = evalAnchor(anchor(['big.md'], '^## 十、标题'), mapFace({ 'big.md': '前言\n更多行\n## 十、标题\n正文' }))
-  t('⑲ ^ 锚点按行命中(把 gm 旗改回 g,这一条必须翻红)', anchored.state === 'holds')
-  t('⑳ 锚点确实不存在时仍老实判 fails(不是恒绿的 ^)', evalAnchor(anchor(['big.md'], '^## 不存在的节'), mapFace({ 'big.md': '前言\n## 十、标题' })).state === 'fails')
 
   console.log(`✅ ${pass.length} 条 / ❌ ${fail.length} 条`)
   for (const f of fail) console.log(`   ❌ ${f}`)

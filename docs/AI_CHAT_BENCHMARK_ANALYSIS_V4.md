@@ -1747,43 +1747,4 @@ AGENTS §24 要求新增对外能力/改变用户可见行为须显式同意。�
 | D154 | **载体同 D153**（同一枚拍板，两票不得各选一路）；OAuth completed 帧本票不做；ConnectorAuthCard 在通道之后接线 | 与预填一致 |
 | D159 | **网络放行三档到底**：允许一次 / 本次对话允许该目标 / **始终允许（写库、TTL 90 天、规则面板"网络目标"分节、单条可撤销、弹窗原样显示 `host:port` 不显示哈希）**；路径授权本票不做 | 与预填一致 |
 
----
 
-## 十二、竞品缺口清单（不得列为我方差距）(2026-09-29 立;票 D156,一手取证 2026-09-28)
-
-> **本节唯一的用途是拦掉幻影任务。** 下一轮做对标的人，凡想写「竞品有 X 而我们没有」，必须先拿到
-> **竞品侧正向证据（键名 + 显示串成对）**。只在官网文档或常识里读到 X、而包体/协议面零命中的，
-> 一律登记为「未取证到」，**不得**补进差距表——本线已经为此重做过至少一次（D156 票面原话：
-> 「取证代理主动交回了一份竞品缺口清单，作用是给下一个做对标的人拦掉幻影任务」）。
->
-> ⚠️ **反向禁令（同样重要，别只读半边）**：把「未取证到」读成「竞品确实没有」，进而反向确认
-> 「那我方也不必做」，是同一种病的另一面。本节只说明**这些条目不该作为差距派单**，
-> 不构成「我方永远不做某能力」的产品决定；真要决定不做，得另起一票、写明理由。
->
-> **版本前提**（版本一变，本节全部结论立即作废，必须重取）：Qoder CN `v0.4.3`、
-> Codex `codex-cli 0.137.0`、Trae CN `appVersion 3.3.104` / SOLO `0.1.69`；
-> WorkBuddy **本机无取证物**（`~/.workbuddy` 是我方自建体），不参与有/无判定。
-
-| # | 竞品侧「未取证到」的东西 | 现读出处（受控面，行号为 2026-09-29 实测） | 复现命令 |
-| --- | --- | --- | --- |
-| ① | Qoder 用户消息**逐条时间戳**：只有轮次兜底文案，没有时间 | `docs/benchmark-evidence/2026-09/qoder/chat-stream-inventory.md:32`（未取证到陈述）与 `:350`（正向对照：`chatTimeline.turnFallback` = 「第 {{count}} 轮」） | `MSYS_NO_PATHCONV=1 node scripts/benchmark-asar-read.mjs "G:/Qoder CN/resources/app.asar" --grep "turnFallback"` |
-| ② | Qoder 思考块**显示 token 数**：只给时长 | 同文件 `:36`（未取证到）与 `:403`（正向对照：`chatActivity.agentWorkDuration` = 「耗时 {{seconds}}秒」） | `... --grep "agentWorkDuration"` |
-| ③ | Qoder 工具卡内**全文搜索**：在位的是执行事件流的**分类筛选**（另一件事） | 同文件 `:38`（未取证到 + 相邻机制 `executionTrace.filter`「筛选执行事件」+ 10 个类别）与 `:507`（该键的显示串原文） | `... --grep "executionTrace.filter"` |
-| ④ | Qoder **Mermaid 之外的图表能力**：`echarts` / `Chart.js` 零命中，「图表」5 处全在 Mermaid 默认标签 | 同文件 `:34`（未取证到）与 `:4903`（实测 `grep -cE "echarts\|Chart\.js"` → 0，表格走 `chatSession.markdownTable.*` 一套） | `... --grep "echarts\|Chart\.js"` |
-| ⑤ | Codex 客户端两个文本面里，任务书点名的 **四个键字面量全零命中**：`conversation_detail_mode`、`thread_history_projection_state`、`followUpQueueMode`、`project_doc_max_bytes` | `docs/benchmark-evidence/2026-09/codex/chat-stream-inventory.md:122 / :123 / :124 / :544`（逐条未取证到）＋ `:389 / :426 / :576`（汇总与替代取证法）——**该清单里这四处出现的位置本身就是「未取证到」陈述**，不是正向命中 | `"C:/Users/<user>/AppData/Local/Programs/codex/codex.exe" app-server generate-json-schema --experimental` |
-| ⑥ | Trae 中文语言包里 **10MB / 50MB / 1000 文件三个具体数值只是占位符** `{a}/{b}/{c}` | **`未取证`** —— 该结论的一手载体 `trae/_work` 中间产物**不在受控面**（D157 的登记），入库的 `trae/chat-stream-inventory.md` 内未定位到该组 ⇒ 本条按「未取证」措辞登记，**不得**被读成已实证 | 待 D157 线把中间产物入库后才能重跑 |
-
-### 使用本节的三条规矩
-
-1. **正向证据 = 键名与显示串成对**。只有键名没有显示串（或反之）不算正向证据；只有官网文档截图也不算，
-   文档与包体不一致时以包体为准（本线 §十一 勘误表里已有多条「文档这么写而包体没有」的先例）。
-2. **相邻机制不得替它背书**。③ 那一型最容易被误读：`executionTrace.filter` 是**分类筛选**，
-   与「全文搜索」是两件事；看到同区域有个像的键就写「竞品也有」，是本节要拦的第二种错。
-3. **「未取证」与「判为不存在」是两个状态**，输出里必须分列。整节的定位与尺子②
-   （`scripts/audit-benchmark-delivery.mjs`）的三态口径一致：判不出绝不并入「已交付」，
-   也绝不并入「仍存在」。
-
-### 本节由谁维护
-
-新增一行前必须附：竞品侧命令原文 + 现读出处 `file:line` + 版本实测值；缺任一项就写进「未取证」而不是正文。
-删除一行只有在**该能力后来被正向取证到**时才成立（那是好事：它变成一张真差距票，不是本节的一次静默收缩）。
