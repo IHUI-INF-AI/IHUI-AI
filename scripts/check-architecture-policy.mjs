@@ -41,14 +41,31 @@
  *   字面量里的同名样例会被算成抑制(真仓实测:`scripts/tests/check-ts-ignore.test.mjs` 原始面 34 处、
  *   清空字面量后 3 处;门把自己写的散文判成违规那一型,守门 131 同日刚踩过)。
  *
- * 内容口径(与本仓高阶门同取向):全量判 **HEAD blob**,`--staged` 判**索引 blob**。
- *   共享工作树常年滞后 HEAD,按磁盘算会在恒红/假绿之间来回跳。
- *   DC 的**锚点面恒为 HEAD**(棘轮),取锚只为"当前面确有抑制"的那几个文件二次 `catBatch`,
- *   不整面重读;取不到(新增文件)按存量 0 起算 ⇒ 新文件里的裸抑制同样拦。
+ * 内容口径(与本仓高阶门同取向):**三个面,一次只认一个,取不到就判"无法判定",绝不回落。**
+ *   缺省(全量档)   判 HEAD blob
+ *   `--staged`      判索引 blob(只咬暂存源文件;暂存集为空 ⇒ 回退 HEAD 全量,并大声写明)
+ *   `--worktree`    判磁盘副本 —— **仅人工 / 逃生舱**,路径清单仍是被跟踪的路径(未跟踪文件不在
+ *                    任何面的射程内,这一条印在口径行里);该档取不到策略表 ⇒ exit 2,
+ *                    **不回落** HEAD/索引 —— 回落就是把"没判到"写成"判过了"。
+ *   `--staged` 与 `--worktree` 同给 ⇒ exit 2「矛盾旗标」(任选一面都会让另一面成为假绿)。
+ *   共享工作树常年滞后 HEAD,所以问责一律走前两个面;按磁盘判会在恒红/假绿之间来回跳。
+ *   DC 与 X1 的**锚点面恒为 HEAD**(棘轮):凡内容面不是 HEAD 的档(暂存窄口径 / 工作树)都按当前面
+ *   预筛补读 HEAD,不整面重读;取不到的文件按存量 0 起算 ⇒ 新文件里的裸抑制同样拦。
+ *
+ * 参数闸门(2026-09-29 与 `--worktree` 同批立):**未知旗标不得掉进默认分支。**
+ *   此前 `main(argv)` 只 `argv.includes(已知旗标)`,不认识的 token 被静默忽略,于是
+ *   `--worktree`(当时从未实现)直接落进默认 HEAD 档并打出 HEAD 的结论 —— 实测
+ *   `--worktree --json` 与 `--json` 输出逐字同形(RC 同为 1),传旗标的人有充分理由以为自己在审
+ *   工作树,而实际审的是上一提交态(与本仓 `plan-tasks-merge.mjs`「未知参数降级成无参就是造
+ *   合格证」、`i18n-apply --help` 进写盘模式是同一条禁令)。现:不认识的旗标、以及没被值旗标
+ *   领着的裸位置参数 ⇒ **exit 2 并原样点名**,且不打印任何一档的结论。
+ *   白名单与"谁能吃位置参数"共用 `VALUE_FLAGS` 这一份名单(分两处写必然自相矛盾:旗标认识、
+ *   值被当成未知位置参数拒掉,那道拒绝误用的判据就会把自己的合法用法拒了)。
  *
  * 用法:
  *   node scripts/check-architecture-policy.mjs                  # 全量(判 HEAD)
  *   node scripts/check-architecture-policy.mjs --staged         # pre-commit(判索引,只咬暂存文件;暂存集为空 ⇒ 回退全量)
+ *   node scripts/check-architecture-policy.mjs --worktree       # 仅人工:判磁盘副本(不回落 HEAD;两面旗同给判死)
  *   node scripts/check-architecture-policy.mjs --json           # 机器可读报告
  *   node scripts/check-architecture-policy.mjs --managed-trial packages/sdk
  *   node scripts/check-architecture-policy.mjs --strict         # 未登记模块/存量债也判红(人工巡检用,默认关)
@@ -59,7 +76,7 @@ import { readFileSync } from 'node:fs'
 import { dirname as pDirname, resolve as pResolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { catBatch, gitRaw } from './lib/face-reader.mjs'
+import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { blankStrings } from './lib/code-mask.mjs'
 // DC 的计数实现与守门 108 共用**同一份** `scanFile()`(两处算同一件事必漂移,本仓最高频失效型);
 // "到期日当天仍有效、次日才判红"这条方向也直接取它那份 `isPast()` —— 守门 108 的作者在写它时
@@ -74,6 +91,26 @@ const POLICY_REL = 'config/architecture-policy.yaml'
 const SELF_SKIP = 'HUSKY_SKIP_ARCH_POLICY'
 const SRC_RE = /\.(ts|tsx|js|jsx|mjs|cjs)$/
 const GIT_TIMEOUT = 180000
+/**
+ * 三个判定面的**唯一**名字。`readFace` / `treePaths` / `declarationContext` 的第三个参数都吃它
+ * (兼容旧调用形态的 rev 串见 `revToFace`)。刻意不用布尔 `isStaged` 当参数 ——
+ * "多一个面就得记两件事"正是 `--worktree` 掉进默认分支的原因(见头注「参数闸门」)。
+ */
+const FACES = ['head', 'staged', 'worktree']
+/** 面名 → git rev 前缀(工作树面没有 rev,用哨兵串,由 readFace 分流到磁盘读法) */
+const FACE_REV = { head: 'HEAD', staged: '', worktree: 'worktree' }
+/** 面名 → 报告里用的中文面名(与 `pickPolicySource` 的候选标签同一套词,两处不得各写一份) */
+const FACE_LABEL_CN = { head: 'HEAD', staged: '索引', worktree: '工作树' }
+/**
+ * 认识的旗标 —— **唯一**一份。不在这里的旗标一律拒(见 `inspectArgs`),绝不静默忽略:
+ * 静默忽略的结局是把"审 HEAD"打印成看起来像"审工作树",而账面一切正常。
+ * `--self-test` 由文件末尾的 CLI 入口先接走,但仍要登记在这里 —— 漏了它,`--self-test`
+ * 与别的旗标同给时会被本闸门先拒掉(那等于把自检出口关掉)。
+ */
+const KNOWN_FLAGS = ['--staged', '--worktree', '--json', '--strict', '--self-test', '--managed-trial']
+/** 吃"紧邻下一个 token 作为值"的旗标(与 KNOWN_FLAGS 同一处维护,分两处写必然自相矛盾)。 */
+const VALUE_FLAGS = ['--managed-trial']
+
 /** 表级例外到期日的**唯一**格式:`20YY-MM-DD`(年份值域与守门 108 的 `DATE_RE` 逐字同族,两把尺子
  *  不得对"什么叫一个日期"给出两种答案)。非法月日判"没有日期",绝不进 NaN 比较
  *  (NaN 与任何日期比较都是 false ⇒ 一条写歪的到期日会永久不红,守门 108 同一条禁令)。
@@ -852,21 +889,109 @@ export function analyze(P, files, opts = {}) {
 }
 
 // ── 取材 ───────────────────────────────────────────────────────────────────────────────
-function readFace(rev, paths) {
-  const map = new Map()
-  if (!paths.length) return map
-  // 层的 catBatch 对每个 rev 都给一项(missing ⇒ null);本门的判据把"没这项"与"这项是空文件"
-  // 分得很清 —— `files.size` 会直接打进结论行(`HEAD blob(N 个源文件)`),把 null 也塞进去就等于
-  // 凭空把 N 涨成"所有请求数"。所以这里只做形状适配:**只收命中的**,missing 继续不占位。
+/**
+ * 把"面的说法"归一到 FACES 的三个名字。
+ * 刻意**不猜默认面**:拿到认不出的值就抛。理由与 `--worktree` 那次事故同型 ——
+ * 一个掉进默认分支的面名,表现不是报错而是"审了另一份内容还打印成审了这一份"。
+ * 兼容旧调用:`'HEAD'` / `''`(索引)两种 rev 串仍是合法输入,`scripts/module-context.mjs`
+ * 就是用它调 `declarationContext` 的,不得因为换参数形态而把它改坏。
+ */
+export function revToFace(revOrFace) {
+  if (revOrFace === 'HEAD') return 'head'
+  if (revOrFace === '') return 'staged'
+  if (FACES.includes(revOrFace)) return revOrFace
+  throw new Error(`无法识别的取材面:${JSON.stringify(revOrFace)} —— 只认 ${FACES.join('/')} 或旧形态 'HEAD' / ''(索引)`)
+}
+
+/** 派生 git 只读调用(带 root 是为了让镜像测试能在**临时仓**里造"索引≠磁盘"的现场)。 */
+const gitAt = (root, args) => gitRaw(args, root, { timeout: GIT_TIMEOUT, maxBuffer: 1 << 29 })
+
+/**
+ * 某一面的**路径清单**。
+ *   head     ⇒ `ls-tree -r HEAD`(已入库的那一份)
+ *   staged   ⇒ `ls-files`(索引)
+ *   worktree ⇒ `ls-files`(被跟踪的路径)+ 内容取磁盘
+ * 工作树档用同一份清单而**不**去枚举磁盘,是为了让"面"只改变内容来源、不改变射程:
+ * 未跟踪文件不在任何面的射程内(必须在结论行如实写明),否则读报告的人会把它当成"连新文件也审了"。
+ */
+export function listFacePaths(root, faceOrRev) {
+  const f = revToFace(faceOrRev)
+  return f === 'head' ? gitAt(root, ['ls-tree', '-r', '--name-only', 'HEAD', '-z']).split('\0').filter(Boolean) : gitAt(root, ['ls-files', '-z']).split('\0').filter(Boolean)
+}
+
+/**
+ * 三面取材的**唯一**实现,返回 `{files, missed}`。
+ * 工作树档走 `readWorktreeFile`(层的唯一磁盘出口):目录里没有 ⇒ null 进 `missed` 报名,
+ * 读失败**原样抛**(一个编码/权限错误不得伪装成"该文件不存在")⇒ 由 main 的 catch 落 exit 2。
+ * catBatch 那两档的既有形状不变:**只收命中的**,missing 不占位(`files.size` 直接打进结论行,
+ * 把 null 塞进去等于凭空把 N 涨成"所有请求数")。
+ */
+export function readFaceDetailed(faceOrRev, paths, root = ROOT) {
+  const face = revToFace(faceOrRev)
+  const out = new Map()
+  const missed = []
+  if (!paths.length) return { files: out, missed }
+  if (face === 'worktree') {
+    for (const p of paths) {
+      const text = readWorktreeFile(root, p)
+      if (typeof text === 'string') out.set(p, text)
+      else missed.push(p)
+    }
+    return { files: out, missed }
+  }
+  const rev = FACE_REV[face]
   const specs = paths.map((p) => `${rev}:${p}`)
-  const got = catBatch(ROOT, specs, { maxBuffer: 1 << 29, timeout: GIT_TIMEOUT })
+  const got = catBatch(root, specs, { maxBuffer: 1 << 29, timeout: GIT_TIMEOUT })
   for (let i = 0; i < paths.length; i++) {
     const text = got.get(specs[i])
-    if (typeof text === 'string') map.set(paths[i], text)
+    if (typeof text === 'string') out.set(paths[i], text)
   }
-  return map
+  return { files: out, missed }
 }
-const treePaths = (rev) => (rev === '' ? git(['ls-files', '-z']).split('\0').filter(Boolean) : git(['ls-tree', '-r', '--name-only', rev, '-z']).split('\0').filter(Boolean))
+
+function readFace(rev, paths, root = ROOT) {
+  return readFaceDetailed(rev, paths, root).files
+}
+const treePaths = (rev, root = ROOT) => listFacePaths(root, rev)
+
+/**
+ * argv 的参数闸门:`{unknown, notes}` —— `unknown` 非空即**必须拒绝执行**(exit 2),
+ * 不得落进任何一档。位置参数只允许"值旗标的紧邻值"(`--managed-trial packages/sdk` 的模块 id),
+ * 别的裸位置参数一律拒(它多半是漏写旗标的那个值 —— 同 `plan-tasks-merge.mjs` 的 `inspectArgs`)。
+ * 白名单与"谁能吃位置参数"共用 `VALUE_FLAGS` 这一份名单:分两处写迟早出现"旗标认识、
+ * 值被当成未知位置参数"的自相矛盾(那道拒绝误用的判据会把自己的合法用法拒了)。
+ */
+export function inspectArgs(list) {
+  const unknown = []
+  const notes = []
+  for (let i = 0; i < list.length; i++) {
+    const t = list[i]
+    if (typeof t !== 'string' || t === '') continue
+    if (t.startsWith('-')) {
+      if (!KNOWN_FLAGS.includes(t)) unknown.push(t)
+      continue
+    }
+    if (VALUE_FLAGS.includes(list[i - 1])) continue
+    unknown.push(t)
+    notes.push(`位置参数 ${JSON.stringify(t)} 不是 ${VALUE_FLAGS.join('/')} 的值`)
+  }
+  return { unknown, notes }
+}
+
+/** 面选择(纯函数,便于用构造面证明)。两面旗同给 = 矛盾,由 `selectFace` 给 error。 */
+export function pickFace(argv) {
+  const picked = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
+  if (picked.error) return { face: null, error: picked.error }
+  if (!FACES.includes(picked.face)) return { face: null, error: `内部错误:面名 ${JSON.stringify(picked.face)} 不在 ${FACES.join('/')}` }
+  return { face: picked.face, error: null }
+}
+
+/** `--managed-trial` 的值清单(只吃紧随其后的非旗标 token)。 */
+export function trialModulesFrom(argv) {
+  const ti = argv.indexOf('--managed-trial')
+  return ti >= 0 ? argv.slice(ti + 1).filter((a) => !a.startsWith('--')) : []
+}
+
 
 /**
  * E1/E2 判据的取材上下文:路径清单 + 包清单读取器,**全部来自同一个面**。
@@ -902,20 +1027,23 @@ export function declarationContext(P, facePaths, rev) {
   }
 }
 
-/** 策略表自身的取材:按 `policyFaceOrder(isStaged)` 给定的顺序,取第一个读得到的。
- *  三档降级(而非 exit 2)的理由仍然成立:新落表的那一枚提交之前,若坚持只认 HEAD
+/** 策略表自身的取材:按 `policyFaceOrder(face)` 给定的顺序,取第一个读得到的。
+ *  两档降级(而非 exit 2)的理由仍然成立:新落表的那一枚提交之前,若坚持只认 HEAD
  *  就会在"表还没入库"时把整条提交链打死(= 恒红机器)。
  *  但"表只是输入、不是被审对象"这半句**不成立**(2026-09-25 实测推翻,见
  *  `policyFaceOrder` 的注释):改表恰好是某些提交的唯一内容,故 `--staged` 档必须
  *  索引优先 —— 否则本门对"把 managed 翻错/把 requires 写歪"这类改动全程盲视。
- *  退到工作树仍须**大声说明**,镜像测试钉的是"每个面各自的档位顺序不得回退"。 */
+ *  退到工作树仍须**大声说明**,镜像测试钉的是"每个面各自的档位顺序不得回退"。
+ *  `--worktree` 档**不降级**:那一档的定义就是"审磁盘这一份",取不到即无法判定,
+ *  回落 HEAD 等于把"没判到"写成"判过了"(与本仓对回落的那条禁令同一条)。 */
 export function pickPolicySource(cands) {
   for (const [label, text] of cands) if (typeof text === 'string' && text.trim()) return { label, text }
   return null
 }
 
 /**
- * 策略表的取材面顺序 —— 与源码内容同向:全量档判 HEAD,`--staged` 档判**索引**。
+ * 策略表的取材面顺序 —— 与源码内容同向:全量档判 HEAD,`--staged` 档判**索引**,
+ * `--worktree` 档**只**判工作树(单元素,无回落)。
  *
  * 单独抽成函数是为了让镜像测试能钉住**行为**而不是注释。它曾经两种情况都 HEAD 优先,
  * 后果不是"少读一份表"而是**改表的那枚提交完全脱离本门审查**:2026-09-25 实测往索引版
@@ -924,9 +1052,19 @@ export function pickPolicySource(cands) {
  * (`managed:true packages/api-client`)。而本文件头"改这张表的规矩 2"恰恰要求
  * "翻 managed:true 之前先试跑" —— 提交链上是唯一无验的一环。
  * 判据存在而永不调用 = 没有。
+ *
+ * 参数是**面名**而不是布尔。布尔是本函数的前一形态(只有"是不是暂存档"两态),而这一维现在
+ * 有三态 —— 若继续收布尔,`--worktree` 就只能被读成 `false`,于是工作树档静默取得 HEAD 顺序,
+ * 那正是本函数 2026-09-25 刚修掉的那一型的翻版。**旧形态仍兼容**(true⇒staged / false⇒head),
+ * 但除此之外认不出的输入一律抛,绝不落回默认顺序:一条会自己猜的判据,让下一个加面的人
+ * 永远拿到"跑通了"而不是"跑错了"。
+ * @param {'head'|'staged'|'worktree'|'HEAD'|''|boolean} faceOrRev 面名 / 旧 rev 串 / 旧布尔
  */
-export function policyFaceOrder(isStaged) {
-  return isStaged ? ['索引', 'HEAD', '工作树'] : ['HEAD', '索引', '工作树']
+export function policyFaceOrder(faceOrRev) {
+  const legacy = typeof faceOrRev === 'boolean' ? (faceOrRev ? 'staged' : 'head') : faceOrRev
+  const face = revToFace(legacy)
+  if (face === 'worktree') return ['工作树']
+  return face === 'staged' ? ['索引', 'HEAD', '工作树'] : ['HEAD', '索引', '工作树']
 }
 
 /**
@@ -972,13 +1110,17 @@ export function planStagedScope(srcPathsInFace, stagedSet, opts = {}) {
  *   索引 且 oid==HEAD   ⇒ 安静(读的就是那份已入库的表)
  *   索引 且 oid!=HEAD   ⇒ info:本次提交正在改这张表,审将要落地的那份
  *   索引 而 HEAD 无此表 ⇒ warn:表尚未入库,落表提交必须与本门注册同批
- *   工作树              ⇒ warn:HEAD 与索引都取不到,既没入库也没暂存
+ *   工作树              ⇒ **看是哪一档要求的**:
+ *                          · `--worktree` 档要求的就是它 ⇒ 安静(这是本档的定义,不是降级 ——
+ *                            把它打成"退到"就是把正常行为喊成异常,而人会对警告脱敏);
+ *                          · 其余档位落到工作树 ⇒ warn:HEAD 与索引都取不到,既没入库也没暂存
  *
  * @param {string} pickedLabel pickPolicySource 选中的面名
  * @param {{HEAD?:string|null, 索引?:string|null}} oids 各面 blob oid(取不到给 null)
+ * @param {{requestedFace?:string}} [opts] 本次调用要求的档(决定"工作树"是正常取材还是降级)
  * @returns {null|{level:'info'|'warn', msg:string}}
  */
-export function policyFaceNotice(pickedLabel, oids = {}) {
+export function policyFaceNotice(pickedLabel, oids = {}, opts = {}) {
   const head = oids.HEAD ?? null
   const index = oids['索引'] ?? null
   if (pickedLabel === 'HEAD') return null
@@ -987,7 +1129,10 @@ export function policyFaceNotice(pickedLabel, oids = {}) {
     if (index !== null && index === head) return null
     return { level: 'info', msg: `策略表取自索引且与 HEAD 不同版(${String(index).slice(0, 8)} ≠ ${String(head).slice(0, 8)})—— 本次提交正在改这张表,审的是将要落地的那份,属正常形态` }
   }
-  if (pickedLabel === '工作树') return { level: 'warn', msg: `策略表退到工作树副本 —— HEAD 与索引都取不到它,这张表既没入库也没暂存` }
+  if (pickedLabel === '工作树') {
+    if (opts.requestedFace === 'worktree') return null
+    return { level: 'warn', msg: `策略表退到工作树副本 —— HEAD 与索引都取不到它,这张表既没入库也没暂存` }
+  }
   return { level: 'warn', msg: `策略表取自「${pickedLabel}」而非 HEAD,请核对取材面` }
 }
 
@@ -1006,30 +1151,55 @@ function readPolicyOids() {
 }
 
 function main(argv) {
-  const isStaged = argv.includes('--staged')
+  // ── 参数闸门(在任何一个面的判定之前)──────────────────────────────────────────────
+  // 不认识的旗标 / 裸位置参数 ⇒ exit 2 并原样点名,**不打印任何一档的结论**。
+  // 旧形态 `argv.includes('--worktree')` 根本没解析过这个 token,于是它被静默忽略、
+  // 落回默认 HEAD 档并打出 HEAD 的结论 —— 传旗标的人以为在审工作树,实际审的是上一提交态
+  // (实测 `--worktree --json` 与 `--json` 输出逐字同形)。见头注「参数闸门」。
+  const { unknown, notes } = inspectArgs(argv)
+  if (unknown.length) {
+    console.error(`❌ 未识别的参数:${unknown.map((u) => JSON.stringify(u)).join(' ')}`)
+    for (const n of notes) console.error(`   ${n}`)
+    console.error(`   本门**不会**把未知参数当"无参"降级执行(那等于替人做出一张合格证)。可用旗标:${KNOWN_FLAGS.join(' ')};值旗标:${VALUE_FLAGS.join('(其后跟模块 id)')}`)
+    return 2
+  }
+  const pickedFace = pickFace(argv)
+  if (pickedFace.error) {
+    console.error(`❌ 矛盾旗标:${pickedFace.error} —— 取哪一面都会让另一面成为假绿,故不判定、不出结论`)
+    return 2
+  }
+  const face = pickedFace.face
+  const isStaged = face === 'staged'
+  const isWorktree = face === 'worktree'
   const json = argv.includes('--json')
   const strict = argv.includes('--strict')
-  const ti = argv.indexOf('--managed-trial')
-  const trialModules = ti >= 0 ? argv.slice(ti + 1).filter((a) => !a.startsWith('--')) : []
-  const rev = isStaged ? '' : 'HEAD'
+  const trialModules = trialModulesFrom(argv)
+  const rev = FACE_REV[face]
   let policyText
-  let policyFace = 'HEAD'
+  let policyFace = FACE_LABEL_CN[face]
   let policyOids = { HEAD: null, 索引: null }
   try {
-    let worktreeText = null
-    try {
-      worktreeText = readFileSync(pResolve(ROOT, POLICY_REL), 'utf8')
-    } catch {
-      /* 工作树取不到就留 null,由 pickPolicySource 继续降级 */
+    // **只**按本档的顺序去取表 —— 工作树档因此连 HEAD/索引都不读,结构上不可能回落。
+    const order = policyFaceOrder(face)
+    const texts = {}
+    for (const label of order) {
+      if (label === '工作树') {
+        try {
+          texts[label] = readFileSync(pResolve(ROOT, POLICY_REL), 'utf8')
+        } catch {
+          texts[label] = null
+        }
+      } else {
+        texts[label] = readFace(label === '索引' ? 'staged' : 'head', [POLICY_REL]).get(POLICY_REL)
+      }
     }
-    const texts = {
-      索引: readFace('', [POLICY_REL]).get(POLICY_REL),
-      HEAD: readFace('HEAD', [POLICY_REL]).get(POLICY_REL),
-      工作树: worktreeText,
-    }
-    const picked = pickPolicySource(policyFaceOrder(isStaged).map((label) => [label, texts[label]]))
+    const picked = pickPolicySource(order.map((label) => [label, texts[label]]))
     if (!picked) {
-      console.error(`❌ 无法判定:HEAD / 索引 / 工作树三处都取不到 ${POLICY_REL}`)
+      console.error(
+        isWorktree
+          ? `❌ 无法判定:--worktree 档在工作树取不到 ${POLICY_REL} —— 本档**不回落** HEAD / 索引(回落就是把"没判到"写成"判过了")`
+          : `❌ 无法判定:HEAD / 索引 / 工作树三处都取不到 ${POLICY_REL}`,
+      )
       return 2
     }
     policyFace = picked.label
@@ -1039,6 +1209,7 @@ function main(argv) {
     console.error(`❌ 无法判定:取策略表时 git 派生失败 —— ${e.message}`)
     return 2
   }
+
   let P
   try {
     P = loadPolicy(parseYaml(policyText, POLICY_REL))
@@ -1050,10 +1221,23 @@ function main(argv) {
   let existing
   let faceDesc
   let scopeMode = 'full'
+  let missedOnFace = []
   try {
     existing = treePaths(rev)
     const srcAll = existing.filter((p) => SRC_RE.test(p))
-    if (isStaged) {
+    if (isWorktree) {
+      // 工作树档:清单仍是被跟踪路径(与索引同一份),内容换成磁盘副本。
+      // 读不到的路径**必须报名**并把"未跟踪文件不在射程内"说清楚 —— 只报数不报名,
+      // 下一个人就会把"工作树档"读成"连没 add 的新文件也审了"。
+      const detail = readFaceDetailed('worktree', srcAll)
+      files = detail.files
+      missedOnFace = detail.missed
+      faceDesc = `工作树磁盘(被跟踪的源文件 ${srcAll.length} 个,磁盘上取到 ${files.size} 个${missedOnFace.length ? `,**缺 ${missedOnFace.length} 个**:${missedOnFace.slice(0, 5).join(' ')}` : ''};未跟踪文件不在任何面的射程内 —— 仅人工档,不回落 HEAD/索引)`
+      if (files.size === 0) {
+        console.error(`❌ 无法判定:--worktree 档一个源文件都取不到(被跟踪源文件 ${srcAll.length} 个,磁盘上 0 个)—— 审 0 个文件不得记为通过,也不得回落到 HEAD`)
+        return 2
+      }
+    } else if (isStaged) {
       scopeMode = 'staged'
       const staged = new Set(git(['diff', '--cached', '--name-only', '--diff-filter=ACMR']).split('\n').filter(Boolean))
       // D 形态单独取:回退全量时要把"本次提交正删掉的路径"剔出去(否则纯删除型修复永远落不了地)
@@ -1080,8 +1264,11 @@ function main(argv) {
         }
       }
     } else {
-      files = readFace('HEAD', srcAll)
+      const detail = readFaceDetailed('head', srcAll)
+      files = detail.files
+      missedOnFace = detail.missed
       faceDesc = `HEAD blob(${files.size} 个源文件)`
+
     }
   } catch (e) {
     console.error(`❌ 无法判定:git 取材失败 —— ${e.message}`)
@@ -1097,9 +1284,17 @@ function main(argv) {
   //   全量档内容与锚点同面(都是 HEAD)⇒ 无日期存量恒只报数;`--staged` 档取 HEAD 那份表 ⇒ 本次新登记的
   //   无日期例外当场判红(所以"必须有到期日"这条要求在提交链上是生效的,不是散文)。
   //   HEAD 那份取不到/解不开 ⇒ anchorUndated 留 null = **不设基线**,一律按新增问责并大声说明。
+  //
+  // 这里要分开的两件事(合成一个条件就会有一件静默失效,`--worktree` 落地时逐条对过):
+  //   · **表锚点**问的是「P 这份表是不是 HEAD 那一份」⇒ 由 `policyFace` 决定。
+  //     `--staged` 而暂存集为空时内容会回退到 HEAD,但表仍取自索引 —— 这一支必须照常设基线,
+  //     否则 HEAD 已有的表缺陷全被算成"本次新增",每一次提交都红(§12e 同型)。
+  //   · **DC 锚点**问的是「内容面是不是 HEAD」⇒ 由 `contentIsHead` 决定(见下一段)。
+  const tableNeedsHeadBaseline = policyFace !== 'HEAD'
+  const contentIsHead = face === 'head' || scopeMode === 'staged-empty-fallback-full'
   let baselineMsgs = new Set()
-  let anchorUndated = isStaged ? null : undatedExceptionIds(P)
-  if (isStaged) {
+  let anchorUndated = tableNeedsHeadBaseline ? null : undatedExceptionIds(P)
+  if (tableNeedsHeadBaseline) {
     try {
       const headText = readFace('HEAD', [POLICY_REL]).get(POLICY_REL)
       if (typeof headText === 'string') {
@@ -1115,12 +1310,15 @@ function main(argv) {
       anchorUndated = null
     }
   }
-  // DC 的锚点面**恒为 HEAD**。全量档内容本身就是 HEAD ⇒ 不二次读(一遍 catBatch 约 500MB,
-  // 一个"比较"不该付两遍);只有 `--staged` 的窄口径才需要为"当前面确有抑制"的文件补一次 HEAD 读,
-  // 按预筛挑文件而不是整面重读。取不到的文件 = HEAD 里没有这一份 ⇒ 按存量 0 起算(新文件里的裸抑制照判)。
+  // DC 的锚点面**恒为 HEAD**。内容面本身就是 HEAD 时不二次读(一遍 catBatch 约 500MB,
+  // 一个"比较"不该付两遍);只有**内容面不是 HEAD** 的那几档(暂存窄口径 / 工作树)才需要为
+  // "当前面确有抑制"的文件补一次 HEAD 读,按预筛挑文件而不是整面重读。
+  // 取不到的文件 = HEAD 里没有这一份 ⇒ 按存量 0 起算(新文件里的裸抑制照判)。
   let suppressionAnchors = null
-  let suppressionAnchorNote = '与内容同面(HEAD ⇒ 恒等,不产生增长红)'
-  if (isStaged && scopeMode === 'staged') {
+  let suppressionAnchorNote = contentIsHead
+    ? '与内容同面(HEAD ⇒ 恒等,不产生增长红)'
+    : `HEAD(内容面不是 HEAD,按当前面预筛补读${isWorktree && missedOnFace.length ? `;磁盘上还缺 ${missedOnFace.length} 个被跟踪源文件,已如实报名` : ''})`
+  if (!contentIsHead) {
     const need = [...files.keys()].filter((p) => mayHaveSuppression(files.get(p)))
     suppressionAnchors = new Map()
     try {
@@ -1129,10 +1327,12 @@ function main(argv) {
       console.error(`❌ 无法判定:DC 锚点面(HEAD)取不到 —— ${e.message};DC 判据在缺锚点时不得冒判"没有增长",也不得静默跳过`)
       return 2
     }
-    suppressionAnchorNote = `HEAD(按当前面预筛补读 ${need.length} 个文件,取到的 ${suppressionAnchors.size} 个;其余按存量 0 起算)`
+    suppressionAnchorNote = `HEAD(按当前面预筛补读 ${need.length} 个文件,取到的 ${suppressionAnchors.size} 个;其余按存量 0 起算${isWorktree && missedOnFace.length ? `;工作树磁盘上缺 ${missedOnFace.length} 个被跟踪源文件,已如实报名` : ''})`
   }
   const exc = auditExceptionExpiry(P, { anchorUndatedIds: anchorUndated, today: new Date().toISOString().slice(0, 10), strict })
-  const hardTable = [...(isStaged ? filterNewTableDefects(table, baselineMsgs) : table.filter((x) => !x.soft)), ...exc.hard]
+  // 表棘轮的开关跟着**表在哪一面**(见上方 tableNeedsHeadBaseline 的注释),不跟着 isStaged 走:
+  // 工作树档的表来自磁盘,同样要以 HEAD 那份为基线,否则"别人已入库的表缺陷"被每一档新面算成新账。
+  const hardTable = [...(tableNeedsHeadBaseline ? filterNewTableDefects(table, baselineMsgs) : table.filter((x) => !x.soft)), ...exc.hard]
   const res = analyze(P, files, { trialModules, suppressionAnchors })
   const hard = [...hardTable, ...res.red]
   // 被棘轮放过的那几条表缺陷也必须出现在报数面里,不得静默;X1 的待裁存量同理(它进 soft 面,不静默)。
@@ -1144,11 +1344,11 @@ function main(argv) {
 
   const fellBack = scopeMode === 'staged-empty-fallback-full'
   if (json) {
-    console.log(JSON.stringify({ face: isStaged ? (fellBack ? 'index-fallback-head' : 'index') : 'HEAD', stagedFallback: fellBack, policyFace, modules: P.modules.size, managed: managedIds, scanned: res.stats.scanned, edges: res.edges.size, byRule: tally(res.violations), redByRule: tally(hard), hard: hard.slice(0, 80), softTotal: soft.length, unowned: [...res.stats.unowned], unknownPkg: [...res.stats.unknownPkg], exempted: res.stats.exempted, policyExceptions: res.stats.policyExceptions, invalidExempt: res.stats.invalidExempt, staleExceptions: softTable.filter((x) => x.rule === 'table-integrity').length, softTableTotal: softTable.length, exceptionLifetime: exc.counters, lintSuppressions: { managedTotal: res.stats.suppressions, managedFiles: res.stats.suppressionFiles, allTotal: res.stats.suppressionsAll, allFiles: res.stats.suppressionFilesAll, growthFiles: res.stats.suppressionGrowthFiles, anchorFace: suppressionAnchorNote }, declarations: decl.counters, unparsedManifests: declCtx.unparsed }, null, 2))
+    console.log(JSON.stringify({ face: face === 'head' ? 'HEAD' : face === 'worktree' ? 'worktree' : fellBack ? 'index-fallback-head' : 'index', contentFace: face, missedOnFace: missedOnFace.slice(0, 40), missedOnFaceTotal: missedOnFace.length, stagedFallback: fellBack, policyFace, modules: P.modules.size, managed: managedIds, scanned: res.stats.scanned, edges: res.edges.size, byRule: tally(res.violations), redByRule: tally(hard), hard: hard.slice(0, 80), softTotal: soft.length, unowned: [...res.stats.unowned], unknownPkg: [...res.stats.unknownPkg], exempted: res.stats.exempted, policyExceptions: res.stats.policyExceptions, invalidExempt: res.stats.invalidExempt, staleExceptions: softTable.filter((x) => x.rule === 'table-integrity').length, softTableTotal: softTable.length, exceptionLifetime: exc.counters, lintSuppressions: { managedTotal: res.stats.suppressions, managedFiles: res.stats.suppressionFiles, allTotal: res.stats.suppressionsAll, allFiles: res.stats.suppressionFilesAll, growthFiles: res.stats.suppressionGrowthFiles, anchorFace: suppressionAnchorNote }, declarations: decl.counters, unparsedManifests: declCtx.unparsed }, null, 2))
     return hard.length ? 1 : 0
   }
   console.log(`[arch-policy] 内容取材口径:${faceDesc}`)
-  const notice = policyFaceNotice(policyFace, policyOids)
+  const notice = policyFaceNotice(policyFace, policyOids, { requestedFace: face })
   if (notice) console.log(`[arch-policy] ${notice.level === 'warn' ? '⚠️' : 'ℹ️'} ${notice.msg}`)
   console.log(`[arch-policy] 模块 ${P.modules.size} 个 | managed:true ${managedIds.length ? managedIds.join(', ') : '0 个(存量一律只报数)'} | 扫描 ${res.stats.scanned} 文件 | 跨模块边 ${res.edges.size} 条 | 非本表射程的说明符 ${res.stats.foreign} 处(第三方/别名,不判但如实计数)`)
   console.log(`[arch-policy] 违规合计 ${res.violations.length + table.length + exc.hard.length + exc.soft.length} 处:` + Object.entries({ ...tally(res.violations), ...tally(table), ...tally([...exc.hard, ...exc.soft]) }).map(([k, n]) => ` ${(RULES[k] || k).split(' ')[0]}=${n}`).join(''))
@@ -1164,6 +1364,8 @@ function main(argv) {
   const staleExc = softTable.filter((x) => x.rule === 'table-integrity').length
   console.log(`[arch-policy] 判红 ${hard.length} 处(C1/T1 全仓即时 + 已收口模块的契约违规 + X2 例外已过期;E1/E2 的红只按 managed:true 问责;DC 只在"该文件当前数 > 其锚点面存量"时红)| 报数 ${soft.length} 处(managed:false 存量,不判红)` + (res.stats.exempted ? ` | 行内 arch-exempt 放过 ${res.stats.exempted} 处` : '') + (res.stats.policyExceptions ? ` | 策略表 exceptions 放过 ${res.stats.policyExceptions} 处` : '') + (res.stats.invalidExempt ? ` | arch-exempt 缺原因(不生效)${res.stats.invalidExempt} 处` : '') + (staleExc ? ` | 待清理的失效例外 ${staleExc} 条` : '') + (exc.soft.length ? ` | 待裁的无到期日例外 ${exc.soft.length} 条` : '') + (decl.counters.contractAbsentModules ? ` | E2 未齐备模块 ${decl.counters.contractAbsentModules} 块(默认只报数)` : ''))
   if (res.stats.unowned.size) console.log(`[arch-policy] ⚠️ 含源文件却未登记进表的目录 ${res.stats.unowned.size} 个(只报数):${[...res.stats.unowned].slice(0, 12).join(', ')}${res.stats.unowned.size > 12 ? ' …' : ''}`)
+  // 清单腐烂只在**已入库的审面**上报(全量档与人工工作树档);暂存档绝大多数例外天然不命中,
+  // 按它判会让每一次提交都喊 —— 与 unusedExceptions 内部那条 face 守卫同一个理由。
   const staleIds = unusedExceptions(P, res.stats.exceptionIds, isStaged ? 'index' : 'HEAD')
   if (staleIds.length) console.log(`[arch-policy] ⚠️ 本轮一条都没命中的例外 ${staleIds.length} 条(清单腐烂候补,确认后可删):${staleIds.join(', ')}`)
   if (res.stats.unknownPkg.size) console.log(`[arch-policy] ⚠️ 被 import 但未登记的 @ihui 包 ${res.stats.unknownPkg.size} 个(只报数):${[...res.stats.unknownPkg].join(', ')}`)
@@ -1172,11 +1374,11 @@ function main(argv) {
     for (const v of hard.slice(0, 60)) console.log(`   ${v.file}${v.line ? ':' + v.line : ''} [${(RULES[v.rule] || v.rule).split(' ')[0]}] ${v.msg}`)
     if (hard.length > 60) console.log(`   …另 ${hard.length - 60} 处,用 --json 看全量`)
     console.log(`   策略表:${POLICY_REL}(翻 managed:true 之前先 --managed-trial <id> 试跑)`)
-    console.log(`   单独复现:node scripts/check-architecture-policy.mjs${isStaged ? ' --staged' : ''}`)
+    console.log(`   单独复现:node scripts/check-architecture-policy.mjs${isStaged ? ' --staged' : isWorktree ? ' --worktree' : ''}`)
     console.log(`   紧急跳过:${SELF_SKIP}=1 git commit ...`)
     return 1
   }
-  console.log(`✅ 架构契约门通过(managed:false 的存量违规以报数形式留痕,不判红)`)
+  console.log(`✅ 架构契约门通过(面:${faceDesc})—— managed:false 的存量违规以报数形式留痕,不判红`)
   for (const s of [...softTable, ...soft].slice(0, 24)) console.log(`   · 报数 ${s.file}${s.line ? ':' + s.line : ''} [${(RULES[s.rule] || s.rule).split(' ')[0]}] ${s.msg}`)
   if (soft.length + softTable.length > 24) console.log(`   · …另 ${soft.length + softTable.length - 24} 条,用 --json 看全量`)
   return 0
@@ -1379,6 +1581,13 @@ exceptions:
   eq('policyFaceNotice:与上条成对,索引≠HEAD ⇒ 提示,且是 info 不是 warn(--staged 读索引属正常行为)', policyFaceNotice('索引', { HEAD: 'aaaa', 索引: 'bbbb' }).level, 'info')
   eq('policyFaceNotice:HEAD 根本没有这张表 ⇒ warn(只有这一型才允许说"尚未入库")', policyFaceNotice('索引', { HEAD: null, 索引: 'bbbb' }).level, 'warn')
   eq('policyFaceNotice:退到工作树 ⇒ warn(既没入库也没暂存)', policyFaceNotice('工作树', { HEAD: null, 索引: null }).level, 'warn')
+  // 2026-09-29 补(--worktree 落地时本门自己踩到的误报):同一份"取自工作树",在 **要求的**就是
+  // 工作树那一档时是正常取材,不是降级。把它继续喊成"退到"就是把正常行为打成异常,
+  // 而人对警告脱敏之后,真降级那次也没人看了。
+  eq('policyFaceNotice:--worktree 档取到工作树 ⇒ 安静(那是本档的定义,不是降级)', policyFaceNotice('工作树', { HEAD: null, 索引: null }, { requestedFace: 'worktree' }), null)
+  eq('与上条成对:同一输入而要求的是全量档 ⇒ 仍 warn(证明安静只关那一格,不是把警告整条关掉)', policyFaceNotice('工作树', { HEAD: null, 索引: null }, { requestedFace: 'head' })?.level, 'warn')
+  eq('与上两条成对:不传 opts(旧调用形态)必须仍是 warn(默认档不得被顺手放宽)', policyFaceNotice('工作树', { HEAD: 'h', 索引: 'i' })?.level, 'warn')
+  eq('requestedFace 不得影响 HEAD / 索引两档的既有结论(只允许改"工作树"那一格)', `${policyFaceNotice('HEAD', {}, { requestedFace: 'worktree' })}|${policyFaceNotice('索引', { HEAD: 'a', 索引: 'a' }, { requestedFace: 'worktree' })}`, 'null|null')
   eq('policyFaceNotice:全量档取 HEAD ⇒ 完全安静', policyFaceNotice('HEAD', { HEAD: 'aaaa', 索引: 'bbbb' }), null)
   // T1:表与现实脱节的四种形态(变异锚点必须唯一命中,否则本自检就是在测空气)
   const existing = ['packages/schema/src/a.ts', 'packages/kit/src/a.ts', 'apps/demo/src/a.ts', 'apps/demo/src/debt.ts', 'apps/demo/package.json']
@@ -1570,7 +1779,56 @@ ${entries}
   eq('预筛串必须逐字覆盖守门 108 认的两族字面量(它扩族而本门不跟,DC 就对新形态失明)', `${SUPPRESS_PREFILTER.join(',')}|${scanExemptionLedger('virtual', blankStrings(dcTsNocheck + dcComment)).suppressions['ts-ignore']}/${scanExemptionLedger('virtual', blankStrings(dcTsNocheck + dcComment)).suppressions['eslint-disable']}`, 'eslint-disable,@ts-|1/1')
   eq('计数实现只有一份:DC 的数必须等于守门 108 scanFile 在同一个遮罩面上的读数', suppressionCount(dcComment + dcTsIgnore) === Object.values(scanExemptionLedger('virtual', blankStrings(dcComment + dcTsIgnore)).suppressions).reduce((a, b) => a + b, 0) ? 1 : 0, 1)
   eq('analyze 未收口块也不得把增长红算进 red:同一份 import 违规 + 抑制上升,两类各归各', analyze(OFF, F({ [dcPath]: dcComment }), { suppressionAnchors: new Map() }).red.length, 0)
-  console.log(fail ? `\n❌ 自检 ${fail} 例失败` : `\n全部 ${ran} 例通过(成对正反例 + T1 表自洽 + E1/E2 声明齐备性 + X1/X2 例外寿命 + DC lint 抑制棘轮 + 两面口径差异 + 空暂存回退 + 取材面提示语 + 解析器大声失败 + glob/relFrom)`)
+  // ── 三面取材 + 参数闸门(`--worktree` 落地那一批,AGENTS §118 口径:面旗同给判死、不回落)──────
+  // 立因(实测):`--worktree` 在 AGENTS 里被 42 行提到,而本门 `main(argv)` 只解析四个旗标,
+  // 于是它被**静默忽略并落回默认 HEAD 档** —— `--worktree --json` 与 `--json` 输出逐字同形。
+  // 读的人以为在审工作树,实际审的是上一提交态;这与本仓"未知参数降级成无参就是造合格证"同型。
+  eq('policyFaceOrder(head):HEAD 优先,再降级索引/工作树', policyFaceOrder('head').join('>'), 'HEAD>索引>工作树')
+  eq('policyFaceOrder(staged):索引优先(改表那枚提交必须被审)', policyFaceOrder('staged').join('>'), '索引>HEAD>工作树')
+  eq('policyFaceOrder(worktree):**只有**工作树一个候选 —— 单元素就是"不回落"的结构保证', policyFaceOrder('worktree').join('>'), '工作树')
+  eq('与上条成对:工作树档磁盘没有表 ⇒ pickPolicySource 给 null(由 main 落 exit 2,不得借 HEAD 凑数)',
+    pickPolicySource(policyFaceOrder('worktree').map((l) => [l, { 工作树: null }[l]])) === null ? 1 : 0, 1)
+  eq('旧形态兼容:true/false 仍映射到 staged/head(镜像测试 T12 的调用面)', `${policyFaceOrder(true).join('>')}|${policyFaceOrder(false).join('>')}`, '索引>HEAD>工作树|HEAD>索引>工作树')
+  eq('revToFace 认旧 rev 串', `${revToFace('HEAD')}|${revToFace('')}|${revToFace('worktree')}`, 'head|staged|worktree')
+  eq('revToFace 认不出的输入必须抛(绝不猜默认面 —— 猜一次就把新面静默降回 HEAD)',
+    (() => {
+      try {
+        revToFace('nope')
+        return 'no-throw'
+      } catch (e) {
+        return /无法识别的取材面/.test(e.message) ? 'throws' : `wrong:${e.message}`
+      }
+    })(),
+    'throws')
+  eq('与上条成对:布尔不得被 revToFace 直接接受(它是 policyFaceOrder 的历史形态,不是面名)',
+    (() => {
+      try {
+        revToFace(true)
+        return 'no-throw'
+      } catch {
+        return 'throws'
+      }
+    })(),
+    'throws')
+  eq('pickFace:默认 head', pickFace([]).face, 'head')
+  eq('pickFace:--staged ⇒ staged', pickFace(['--staged']).face, 'staged')
+  eq('pickFace:--worktree ⇒ worktree(这次新增的那一档)', pickFace(['--worktree']).face, 'worktree')
+  eq('pickFace:两面旗同给 ⇒ error 且不给面名(不得任选一面)', `${pickFace(['--staged', '--worktree']).face}|/error=${pickFace(['--staged', '--worktree']).error ? 1 : 0}`, 'null|/error=1')
+  eq('inspectArgs:四个既有旗标 + 新旗标全部放行', inspectArgs(['--staged', '--json', '--strict', '--worktree', '--self-test']).unknown.length, 0)
+  eq('inspectArgs:拼错的旗标必须被点名(它曾掉进默认分支而账面一切正常)', inspectArgs(['--wroktree']).unknown.join(','), '--wroktree')
+  eq('与上条成对:同一批合法旗标在尺子下为 0(证明上一条不是"只要带旗标就红")', inspectArgs(['--worktree']).unknown.length, 0)
+  eq('inspectArgs:值旗标的紧邻值放行(--managed-trial 的模块 id)', inspectArgs(['--managed-trial', 'apps/demo', '--strict']).unknown.length, 0)
+  eq('inspectArgs:没有被值旗标领着的裸位置参数必须拒(它多半是漏写旗标的那个值)', inspectArgs(['apps/demo']).unknown.join(','), 'apps/demo')
+  eq('trialModulesFrom:只吃 --managed-trial 之后的非旗标 token', trialModulesFrom(['--managed-trial', 'apps/demo', 'packages/sdk', '--strict']).join(','), 'apps/demo,packages/sdk')
+  eq('trialModulesFrom:没有该旗标时给空(不得把位置参数当试跑模块)', trialModulesFrom(['--strict']).length, 0)
+  eq('KNOWN_FLAGS 与 VALUE_FLAGS 成套:值旗标必须同时在 KNOWN_FLAGS 里(否则"旗标认识、值被拒"= 自相矛盾)',
+    VALUE_FLAGS.every((f) => KNOWN_FLAGS.includes(f)) ? 1 : 0, 1)
+  eq('FACE_REV/FACE_LABEL_CN 必须覆盖 FACES 全集(漏一个面 = 那一面拿到 undefined rev 而静默读错面)',
+    FACES.every((f) => typeof FACE_REV[f] === 'string' && typeof FACE_LABEL_CN[f] === 'string') ? 1 : 0, 1)
+  eq('readFaceDetailed:空清单既不读也不报 missed(不得凭空派生 git)', `${readFaceDetailed('head', []).files.size}/${readFaceDetailed('head', []).missed.length}`, '0/0')
+  eq('工作树档的表顺序与工作树面的中文标签必须同词(pickPolicySource 按标签取,两处各写必漂移)',
+    policyFaceOrder('worktree').includes(FACE_LABEL_CN.worktree) ? 1 : 0, 1)
+  console.log(fail ? `\n❌ 自检 ${fail} 例失败` : `\n全部 ${ran} 例通过(成对正反例 + T1 表自洽 + E1/E2 声明齐备性 + X1/X2 例外寿命 + DC lint 抑制棘轮 + 三面取材与参数闸门(--worktree / 矛盾旗标 / 未知旗标)+ 两面口径差异 + 空暂存回退 + 取材面提示语 + 解析器大声失败 + glob/relFrom)`)
   process.exit(fail ? 1 : 0)
 }
 
@@ -1591,5 +1849,11 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { parseYaml, loadPolicy, analyze, auditPolicy, auditDeclarations, resolveEntrypoint, moduleContractArtifacts, declarationContext, extractSpecs, globToRe, mkMatcher, matchEntrypoint, relFrom, pickPolicySource, policyFaceOrder, planStagedScope, policyFaceNotice, registrationOf, unusedExceptions, validUntil, undatedExceptionIds, mayHaveSuppression, suppressionCount, auditExceptionExpiry, RULES, ALWAYS_RED, POLICY_REL, SUPPRESS_PREFILTER, UNTIL_RE }
+export const __test__ = { parseYaml, loadPolicy, analyze, auditPolicy, auditDeclarations, resolveEntrypoint, moduleContractArtifacts, declarationContext, extractSpecs, globToRe, mkMatcher, matchEntrypoint, relFrom, pickPolicySource, policyFaceOrder, planStagedScope, policyFaceNotice, registrationOf, unusedExceptions, validUntil, undatedExceptionIds, mayHaveSuppression, suppressionCount, auditExceptionExpiry, RULES, ALWAYS_RED, POLICY_REL, SUPPRESS_PREFILTER, UNTIL_RE,
+  // ── 三面取材 + 参数闸门(2026-09-29 补 `--worktree` 时新增的出口)──
+  // 镜像测试必须**import 这些判据**,不得在测试里再抄一份(§22c:两份真相必然漂移)。
+  // `listFacePaths` / `readFaceDetailed` 带 root 形参,是为了让取证在**临时 git 仓**里造
+  // "索引≠磁盘"的现场 —— 本门的 ROOT 由脚本自身位置推导(生产不可注入),而拿真仓瞬时状态
+  // 当前提正是本文件 T8/T12 记过的那一型。
+  revToFace, listFacePaths, readFaceDetailed, inspectArgs, pickFace, trialModulesFrom, FACES, FACE_REV, FACE_LABEL_CN, KNOWN_FLAGS, VALUE_FLAGS }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
