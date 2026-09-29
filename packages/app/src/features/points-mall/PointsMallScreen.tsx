@@ -40,7 +40,12 @@ export function PointsMallScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
+        <BackChevron
+          onPress={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          style={styles.backBtn}
+        />
         <Text style={styles.title}>{t('pointsMall.title')}</Text>
         <Text style={styles.subtitle}>{t('pointsMall.subtitle')}</Text>
       </View>
