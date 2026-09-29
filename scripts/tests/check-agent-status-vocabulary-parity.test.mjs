@@ -43,6 +43,13 @@ function realContents() {
   return {
     [gate.FILES.tsTypes]: readFileSync(join(ROOT, gate.FILES.tsTypes), 'utf8'),
     [gate.FILES.pyScheduler]: readFileSync(join(ROOT, gate.FILES.pyScheduler), 'utf8'),
+    // SV4(D145①)三份输入:广告面 / 注册表 / persona 投影
+    [gate.SV4_FILES.pyMcp]: readFileSync(join(ROOT, gate.SV4_FILES.pyMcp), 'utf8'),
+    [gate.SV4_FILES.pyOrchestrator]: readFileSync(
+      join(ROOT, gate.SV4_FILES.pyOrchestrator),
+      'utf8',
+    ),
+    [gate.SV4_FILES.tsPersonas]: readFileSync(join(ROOT, gate.SV4_FILES.tsPersonas), 'utf8'),
   }
 }
 
@@ -185,4 +192,218 @@ test('T10 三态不得并桶:候选取不到内容 ⇒ 未判定,且不得同时
     '把"没看清"写成"有问题"与写成"没问题"同罪',
   )
 })
+
+// ============================ SV4(D145①)============================
+
+const sv4Fx = (over = {}) =>
+  gate.decide({
+    ...realContents(),
+    [gate.SV4_FILES.pyMcp]: gate.FIXTURE_MCP_DYNAMIC,
+    [gate.SV4_FILES.pyOrchestrator]: gate.FIXTURE_ORCH,
+    [gate.SV4_FILES.tsPersonas]: gate.FIXTURE_PERSONAS_OK,
+    candidates: [],
+    ...over,
+  })
+
+test('T11 SV4 反向对照(夹具级,"清单腐烂"判据有牙):硬编码幽灵名单必红且逐名点名;动态拼接必绿', () => {
+  const ok = sv4Fx()
+  assert.equal(
+    ok.violations.filter((v) => v.startsWith('SV4')).length,
+    0,
+    `注册表现读拼接被自己判红(判据过宽):${JSON.stringify(ok.violations)}`,
+  )
+  const ghost = sv4Fx({ [gate.SV4_FILES.pyMcp]: gate.FIXTURE_MCP_GHOST })
+  for (const n of ['ghost-one', 'ghost-two', 'ghost-three'])
+    assert.ok(
+      ghost.violations.some((v) => v.startsWith('SV4') && v.includes(n)),
+      `幽灵名 ${n} 未被点名 ⇒ 反向对照空转`,
+    )
+})
+
+test('T12 SV4 真仓现读:三份输入解析成功、注册表读得出(≥10 档)、persona 全落注册表', () => {
+  const j = gate.sv4Judge({
+    mcp: realContents()[gate.SV4_FILES.pyMcp],
+    orchestrator: realContents()[gate.SV4_FILES.pyOrchestrator],
+    personas: realContents()[gate.SV4_FILES.tsPersonas],
+  })
+  assert.deepEqual(j.undetermined, [], `真仓输入被判不出 ⇒ 门对已入库形态失明:${j.undetermined}`)
+  assert.ok(j.registryCount >= 10, `注册表解析到 ${j.registryCount} 档(<10 ⇒ 解析面与票面取证脱节)`)
+  assert.deepEqual(j.bad.advertised, [], '广告面存在注册表解析不到的名字(模型照说明书调用必失败)')
+  assert.deepEqual(j.bad.persona, [], 'persona 存在注册表没有的名字')
+})
+
+test('T13 棘轮形状锁(§12e 防恒红):--staged 档必须拿 HEAD 面 SV4 当锚点,锚点不可用则不豁免', () => {
+  const src = readFileSync(join(ROOT, 'scripts', SRC_NAME), 'utf8')
+  assert.match(
+    src,
+    /readContents\(root, 'head', Object\.values\(SV4_FILES\)\)/,
+    'SV4 的 HEAD 锚点取材被摘 ⇒ 修复未入库窗口里每次提交被存量红逼跳门(§12e)',
+  )
+  assert.match(src, /SV4 棘轮本轮未生效/, '锚点失效方向被改成"静默豁免" ⇒ 多放跳门,禁止')
+  assert.ok(
+    src.includes('广告名在注册表解析不到|persona 名不属于注册表'),
+    'SV4 棘轮的 token 正则被摘/文案漂移而锚没跟着改 ⇒ 存量豁免会静默失灵',
+  )
+  // 评审修复轮 1①:SV4③ 的 token 也必须在同一条棘轮里,否则"第二广告面漏修"会在
+  // 修复未入库的窗口里把每次提交钉红(恒红门),而豁免清单又不得另立一份。
+  assert.ok(
+    src.includes('^SV4③ 产出面未接同一份广告出口:([a-z0-9_]+)'),
+    'SV4③ 没进那条棘轮的 token 正则 ⇒ 存量红逼跳门(§12e);且 [_] 必须在字符类里(函数名带下划线)',
+  )
+  assert.ok(
+    src.includes('...j4.bad.advertised, ...j4.bad.persona, ...j4.bad.expansion'),
+    'HEAD 锚点没算 SV4③ 的 token ⇒ 同一份豁免只覆盖了一半',
+  )
+})
+
+/**
+ * SV4 判据的纯函数通道(candidates=空数组会被 SV3 判死并令 tables=null,
+ * 所以要看 tables 只能直接问 sv4Judge —— 三态不并桶,也别把"没判"读成"判过")。
+ */
+const sv4Only = (mcp, personas = gate.FIXTURE_PERSONAS_OK) =>
+  gate.sv4Judge({ mcp, orchestrator: gate.FIXTURE_ORCH, personas })
+
+test('T14 SV4③ 有牙(评审 Important:运行期展开那一格):反查面交回 import 期快照必红并点名该函数', () => {
+  const snap = sv4Only(gate.FIXTURE_MCP_DEFER_SNAPSHOT)
+  assert.deepEqual(
+    snap.bad.expansion,
+    ['get_full_tool_schema'],
+    `反查面把快照原样交给模型却不判红 ⇒ 本门对立项那一型全盲:${JSON.stringify(snap.violations)}`,
+  )
+  assert.ok(
+    snap.violations.some((v) => v.startsWith('SV4③') && v.includes('get_full_tool_schema')),
+    '结论行必须点名是哪一条产出面',
+  )
+  // 端到端(判据真挂在 decide 上,不是只挂在纯函数上 —— 守门 102 GA5/GA6 同型)
+  const viaDecide = sv4Fx({ [gate.SV4_FILES.pyMcp]: gate.FIXTURE_MCP_DEFER_SNAPSHOT })
+  assert.ok(
+    viaDecide.violations.some((v) => v.startsWith('SV4③')),
+    'SV4③ 挂上了纯函数却没进 decide ⇒ 提交链上一路绿灯',
+  )
+  // 成对:两条面都引用同一份出口 ⇒ 一条都不许红(判据过宽会把合规实现钉死)
+  const live = sv4Only(gate.FIXTURE_MCP_DYNAMIC)
+  assert.deepEqual(
+    live.violations.filter((v) => v.startsWith('SV4③')),
+    [],
+    `合规的两面接线被自己判红:${JSON.stringify(live.violations)}`,
+  )
+  assert.deepEqual(live.expansion.checked, ['list_tools', 'get_full_tool_schema'])
+})
+
+test('T15 遮罩纪律双向成对(评审 Minor②):注释里的 marker 不判红,同一形态写进字符串必判红', () => {
+  const commented = sv4Only(gate.FIXTURE_MCP_GHOST_IN_COMMENT)
+  assert.deepEqual(
+    commented.bad.advertised,
+    [],
+    '注释里的名单被当广告面 ⇒ 门在判自己的散文(后人只能删说明),禁止',
+  )
+  assert.equal(commented.advertisedLiteralCount, 0)
+  const ghost = sv4Only(gate.FIXTURE_MCP_GHOST)
+  assert.ok(
+    ghost.bad.advertised.length >= 3,
+    '同一提取式对**字符串字面量**里的名单必须命中 —— 否则上面的"绿"只是门瞎了',
+  )
+  // TS 面同一条纪律:注释里的 persona 键不得被枚举
+  const commentedPersona = sv4Only(
+    gate.FIXTURE_MCP_DYNAMIC,
+    gate.FIXTURE_PERSONAS_COMMENTED,
+  )
+  assert.deepEqual(commentedPersona.bad.persona, [])
+  assert.equal(commentedPersona.personaCount, 1)
+})
+
+test('T16 遮罩只许一份实现 + SV4 判定面必须真走遮罩(源码锁)', () => {
+  const src = readFileSync(join(ROOT, 'scripts', SRC_NAME), 'utf8')
+  assert.match(
+    src,
+    /from '\.\/lib\/code-mask\.mjs'/,
+    '判定面没引唯一遮罩实现 ⇒ 各门自带词法器必漂移(守门 118/131 同型)',
+  )
+  assert.match(
+    src,
+    /import \{[^}]*maskedSpans[^}]*\} from '\.\/lib\/code-mask\.mjs'/,
+    'Python 注释面的字符串区间必须取自 maskedSpans(同一台分词器),不得自己再走一遍引号',
+  )
+  assert.match(src, /maskComments\(/, 'persona(TS)面必须走 maskComments')
+  // 判定面真的用了遮罩面:不得再拿原文喂广告名/persona 键提取
+  assert.doesNotMatch(
+    src,
+    /advertisedNamesInMcp\((?:mcp|rawMcp)\)/,
+    'SV4① 又回到"原文判注释"⇒ 门会判自己的散文',
+  )
+  assert.doesNotMatch(
+    src,
+    /personaKeys\((?:personas|rawPers)\)/,
+    'SV4② 又回到原文判注释 ⇒ 同上',
+  )
+  assert.match(src, /advertisedNamesInMcp\(mcpFace\)/)
+  assert.match(src, /personaKeys\(personaFace\)/)
+  // 反向锁:本门不得自带第二台引号状态机(词法只有一份)
+  assert.doesNotMatch(
+    src,
+    /function readStringSpan|while \(j < .*? !== q\)/,
+    '出现第二台字符串分词器 ⇒ 与 lib/code-mask 必然漂移',
+  )
+})
+
+test('T17 展开对账的接线与锚点成套(摘一面即半盲,复现本票漏修形态)', () => {
+  const src = readFileSync(join(ROOT, 'scripts', SRC_NAME), 'utf8')
+  assert.match(src, /sv4ExpansionJudge\(mcpFace\)/, 'SV4③ 判据写了但没人调 ⇒ 一路绿灯的尺子')
+  const surfaces = gate.SV4_EXPANSION.surfaces.map((s) => s.fn)
+  assert.ok(
+    surfaces.includes('list_tools') && surfaces.includes('get_full_tool_schema'),
+    `产出面清单必须**同时**含清单面与反查面:${JSON.stringify(surfaces)} —— 只列一面就等于没列`,
+  )
+  // 面清单与出口锚点必须指向被审面真实存在的那两个函数(改名 ⇒ 未判定,不静默放过)
+  const j = gate.sv4ExpansionJudge(gate.FIXTURE_MCP_DYNAMIC.replace(/def get_full_tool_schema/g, 'def renamed_reader'))
+  assert.ok(
+    j.notes.length > 0 || j.undetermined.length > 0 || j.violations.length > 0,
+    '把反查面改名后必须喊出来(note/未判定/红三者之一),不得读成"这一维已过"',
+  )
+})
+
+test('T19 注释 arm 用**真仓内容**跑(不只夹具):同一份 marker 写进注释 ⇒ 不判红,写进字符串 ⇒ 判红', () => {
+  // 取材用 HEAD blob(稳定内容,不依赖共享工作树此刻有什么在飞)。
+  const head = gitShow(`HEAD:${gate.SV4_FILES.pyMcp}`)
+  assert.ok(head && head.length > 1000, `HEAD 面取不到 ${gate.SV4_FILES.pyMcp} ⇒ 本 arm 空转`)
+  const ghostA = 'zzz-arm-comment-a'
+  const ghostB = 'zzz-arm-comment-b'
+  const markerLine = `可用 agent 名称:${ghostA}(甲)、${ghostB}(乙)。`
+  const asComment = `${head}\n# 说明性文字,不是广告面:${markerLine}\n`
+  const asString = `${head}\n_LEGACY_NOTE = "${markerLine}"\n`
+  const jComment = gate.sv4Judge({
+    mcp: asComment,
+    orchestrator: realContents()[gate.SV4_FILES.pyOrchestrator],
+    personas: realContents()[gate.SV4_FILES.tsPersonas],
+  })
+  const jString = gate.sv4Judge({
+    mcp: asString,
+    orchestrator: realContents()[gate.SV4_FILES.pyOrchestrator],
+    personas: realContents()[gate.SV4_FILES.tsPersonas],
+  })
+  assert.ok(
+    !jComment.bad.advertised.includes(ghostA) && !jComment.bad.advertised.includes(ghostB),
+    '注释里的名单被当广告面 ⇒ 门在判自己的散文(评审 Minor② 要修的就是这一格)',
+  )
+  assert.ok(
+    jString.bad.advertised.includes(ghostA) && jString.bad.advertised.includes(ghostB),
+    '同一行挪进字符串却不判红 ⇒ 上面的"绿"只是把判据遮瞎了',
+  )
+})
+
+test('T18 SV4③ 只认调用形态:docstring 写足出口名字而体内不接 ⇒ 必红(提到≠接线)', () => {
+  // 这一条不是设计出来的,是**真机变异**逼出来的:把 mcp_server.py 的展开摘掉跑本维,
+  // 旧判据(体内 includes 名字)全绿,因为 docstring 里逐字写着那个名字。
+  const j = sv4Only(gate.FIXTURE_MCP_DEFER_DOCSTRING_ONLY)
+  assert.ok(
+    j.bad.expansion.includes('get_full_tool_schema'),
+    `退回"名字被提到就算接线"⇒ 摘掉展开后门对真仓形态全盲:${JSON.stringify(j.violations)}`,
+  )
+  const src = readFileSync(join(ROOT, 'scripts', SRC_NAME), 'utf8')
+  assert.doesNotMatch(src, /mentionsExit/, '判据不得回到 body.includes(出口名)那种提及式写法')
+  assert.match(src, /exitCall\.test\(body\)/, '调用形态判据被摘 ⇒ SV4③ 对本票立项那一型失明')
+  // 成对:合规夹具(体内真有调用)不得被这条判据误伤
+  assert.deepEqual(sv4Only(gate.FIXTURE_MCP_DYNAMIC).bad.expansion, [])
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
