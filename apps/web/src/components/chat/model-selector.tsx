@@ -311,7 +311,7 @@ function ModelCategoryBadge({ category }: { category?: ModelUsageCategory }) {
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center rounded-sm px-1 py-px text-[10px] font-medium leading-tight',
+        'inline-flex shrink-0 items-center rounded-md px-1 py-px text-[10px] font-medium leading-tight',
         'bg-sky-500/15 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300',
       )}
     >

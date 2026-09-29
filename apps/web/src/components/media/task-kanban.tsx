@@ -190,7 +190,7 @@ function TaskKanbanCard({
 
   return (
     <li
-      className="space-y-1.5 rounded-sm border border-border/50 bg-card/60 p-2"
+      className="space-y-1.5 rounded-lg border border-border/50 bg-card/60 p-2"
       data-testid={`kanban-card-${task.task_id || task.id}`}
     >
       <div className="flex flex-wrap items-center gap-1.5">

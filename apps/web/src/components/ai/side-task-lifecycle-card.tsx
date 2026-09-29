@@ -73,7 +73,7 @@ export function SideTaskLifecycleCard({
     <div
       role="group"
       aria-label={t('ariaLabel')}
-      className={cn('flex flex-col gap-2 rounded-md bg-muted/30 p-3', className)}
+      className={cn('flex flex-col gap-2 rounded-lg bg-muted/30 p-3', className)}
       data-testid={testId}
       data-side-task-state={view?.state ?? 'none'}
       data-side-task-tone={view?.tone ?? 'none'}
