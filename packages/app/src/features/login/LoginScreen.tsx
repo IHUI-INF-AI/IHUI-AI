@@ -16,7 +16,7 @@ import {
 } from 'react-native'
 import { AlertTriangle, Check, ChevronDown, Eye, EyeOff, QrCode, X } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { OAUTH_BRAND_COLORS, withAlpha, rnRadius, rnGeometry } from '@ihui/design-tokens'
+import { OAUTH_BRAND_COLORS, OAUTH_BUTTON_FOREGROUND, withAlpha, rnRadius, rnGeometry } from '@ihui/design-tokens'
 import type { LoginScreenProps, TFunction } from '../../types'
 // LoginTab / QrLoginConfig / QrLoginStatus / ThirdPartyLoginOption / ThirdPartyPlatform
 // 仅在 @ihui/types 定义,packages/app/src/types.ts 未 re-export(任务约束禁止修改),
@@ -1944,7 +1944,10 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       // 上移 1.5px 校正(2026-09-04 像素级测量)
       transform: [{ translateY: -1.5 }],
     },
-    // 微信主推登录按钮:规格对齐主登录按钮,微信品牌绿底白字(图标为黑色描边设计,绿底对比清晰)
+    // 微信主推登录按钮:规格对齐主登录按钮,微信品牌绿底 + 白字。
+    // 前景取 OAUTH_BUTTON_FOREGROUND 而非 tk.surface.light —— 后者是随主题反转的档,
+    // 深色档案下 = #262626,压在恒定的品牌绿上就成了"绿底深灰字"(2026-09-29 真机实拍),
+    // 而同枚按钮的图标(wx-white.svg)是白的。品牌底恒定 ⇒ 其上前景也必须恒定。
     wechatLoginBtn: {
       flexDirection: 'row',
       height: 40,
@@ -1955,7 +1958,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       gap: 10,
     },
     wechatLoginBtnText: {
-      color: tk.surface.light,
+      color: OAUTH_BUTTON_FOREGROUND,
       fontSize: 14,
       fontWeight: '500',
       lineHeight: 20,
