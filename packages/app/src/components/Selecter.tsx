@@ -7,7 +7,7 @@ import type { CSSProperties } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { getTokens, type AppThemeTokens, type AppThemeMode } from '../theme/tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 
 /**
  * 通用选择器 — 跨端共享层。
@@ -83,7 +83,8 @@ const viewStyles = {
     paddingTop: 6,
     paddingBottom: 6,
     marginTop: 10,
-    borderRadius: rnRadius.xl,
+    // 角色档 card(弹窗内的整行内嵌区块 = 较大元素,不是弹窗体本身)→ lg(8)
+    borderRadius: rnRadiusFor.card,
     backgroundColor: tk.surface.muted,
   }),
   item: (
@@ -98,7 +99,9 @@ const viewStyles = {
     paddingLeft: 8,
     paddingRight: 8,
     height: 25,
-    borderRadius: rnRadius.xl,
+    // 角色档 chip(横滑选择项 = 中等元素/chip,与小程序端 adapters/Selecter.taro.tsx 的
+    // var(--radius-md) 同档)→ md(6);此前写 xl(12) 是给 25px 高的胶囊套了弹窗档
+    borderRadius: rnRadiusFor.chip,
     marginRight: 10,
     flexShrink: 0,
     border: `1px solid ${active ? tk.brandAccent.deep : tk.border.medium}`,
@@ -122,7 +125,8 @@ const viewStyles = {
     paddingLeft: 8,
     paddingRight: 8,
     height: 25,
-    borderRadius: rnRadius.sm,
+    // 角色档 control(按钮)→ sm(4)
+    borderRadius: rnRadiusFor.control,
     marginRight: 10,
     flexShrink: 0,
     border: '1px solid',

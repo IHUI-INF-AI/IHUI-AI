@@ -1,13 +1,14 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadiusFor } from '@ihui/design-tokens'
 
 /**
  * FloatingActionButton 悬浮发布按钮(mobile-rn 端)
  *
  * 共享组件:抽取自 LearnDevelopScreen / PlazaScreen / StudyIndexScreen 三处逐字复制的 FAB。
- * - 48×48 品牌色圆角方块(圆角 12,对齐原有内联样式,遵循 AGENTS.md §4 圆角守门)
+ * - 48×48 品牌色圆角方块(角色档 control→sm(4),与 web @ihui/ui-react Button 基座的
+ *   rounded-sm 同档;此处旧注释写"圆角 12"描述的是迁移前的内联值,已按实际取值更正)
  * - Pressable + pressed 态(opacity 0.8)
  * - 默认 ＋ 图标,可通过 label 自定义文字,accessibilityLabel 缺省回退到 label
  */
@@ -51,7 +52,7 @@ const styles = StyleSheet.create({
     bottom: 24,
     width: 48,
     height: 48,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadiusFor.control,
     backgroundColor: tokens.brand.cta,
     elevation: 3,
     shadowColor: tokens.gray[900],

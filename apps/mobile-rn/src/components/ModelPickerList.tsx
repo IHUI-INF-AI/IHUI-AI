@@ -1,7 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * ModelPickerList 模型选择器列表(mobile-rn 端,2026-08-29 立)
@@ -44,6 +43,8 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-nativ
 import ModelList, { type ModelListItem, type ModelListGroup } from './ModelList'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
+
+import { rnRadiusFor } from '@ihui/design-tokens'
 
 // 调用方需要用它自己组装条目(category / modelTier 是 ModelListItem 的字段),此处转出
 export type { ModelListItem }
@@ -261,7 +262,8 @@ const styles = StyleSheet.create({
     minHeight: 44,
     marginHorizontal: 12,
     paddingHorizontal: 12,
-    borderRadius: rnRadius.lg,
+    // 角色档 control(整行切换按钮)→ sm(4),与 web @ihui/ui-react Button 基座同档
+    borderRadius: rnRadiusFor.control,
     gap: 8,
     backgroundColor: tokens.surface.card,
   },
@@ -282,7 +284,8 @@ const styles = StyleSheet.create({
     minHeight: 40,
     marginHorizontal: 12,
     paddingHorizontal: 12,
-    borderRadius: rnRadius.lg,
+    // 角色档 control(搜索输入井)→ sm(4),与 web search-input / 小程序 SearchBar 同档
+    borderRadius: rnRadiusFor.control,
     gap: 8,
     backgroundColor: tokens.surface.inputBg,
   },
