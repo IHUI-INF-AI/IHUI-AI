@@ -34,6 +34,24 @@ vi.mock('../src/services/wechat-subscribe-message.js', () => ({
 
 import { __test__ as ledger } from '../src/services/edu-ledger.js'
 import { __test__ as reminder } from '../src/services/edu-arrear-remind-service.js'
+import { classifySmsAvailability } from '../src/services/edu-arrear-remind-service.js'
+
+describe('短信通道可达性(三态不并桶)', () => {
+  it('没配短信密钥 = not_configured,与个人号码无关', () => {
+    expect(classifySmsAvailability(false, '13800000000')).toEqual({ ok: false, bucket: 'not_configured' })
+    expect(classifySmsAvailability(false, null)).toEqual({ ok: false, bucket: 'not_configured' })
+  })
+  it('配了但这人没留号码/只有空白 = no_phone(不得冒充"已发送",也不得并入 failed)', () => {
+    expect(classifySmsAvailability(true, null)).toEqual({ ok: false, bucket: 'no_phone' })
+    expect(classifySmsAvailability(true, '   ')).toEqual({ ok: false, bucket: 'no_phone' })
+    expect(classifySmsAvailability(true, undefined)).toEqual({ ok: false, bucket: 'no_phone' })
+  })
+  it('两者齐备才 ok,并把号码规整成去空白后的值(带前后空格的号码不该被原样丢给运营商)', () => {
+    const r = classifySmsAvailability(true, ' 13800000000 ')
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.phone).toBe('13800000000')
+  })
+})
 
 const { deriveEnrollmentLedger, dayDiff, DUE_SOON_LEAD_DAYS, shouldAdoptUnattributed, buildSchedulePlan } =
   ledger
