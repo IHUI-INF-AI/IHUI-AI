@@ -7,8 +7,12 @@
 与 packages/shared/src/sse/contract.ts 的 SSE_EVENTS 保持集合完全一致,
 由 scripts/check-agent-event-parity.mjs 断言对齐。
 
-本模块零行为变化:仅作为事件名的事实来源与文档,不被 ai-service 运行时强依赖
-(llm.py 等仍直写事件,本文件不承担序列化职责)。
+本模块不承担序列化职责,但它**确实被运行时依赖**:全仓运行时 import 现读为
+SSE-CONTRACT-IMPORT-SITES = 1(app/routers/llm.py 函数内 import SSE_EVENT_CONTRACTS)。
+这里曾写过一句"零行为变化、运行时不需要它"的自述,与上面那行 grep 结果矛盾 —— 模块自述的
+依赖关系一旦与实况分叉,读注释的人就会以为改它没有影响。该等式由
+apps/ai-service/tests/test_sse_contract_self_description.py 现读核(声明数 != 现读数即失败),
+新增/删除 import 点时必须同步改上面那个数。
 """
 
 from dataclasses import dataclass, field
