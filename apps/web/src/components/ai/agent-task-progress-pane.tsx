@@ -50,6 +50,8 @@ import {
   hydrateAgentProgressPaneFromStorage,
 } from '@/stores/agent-progress-pane'
 import { useChatStore } from '@/stores/chat'
+// 上下文占用的分母唯一出口(按模型 id 查真实容量);发送侧早已用它,resume-stream.ts:211 是同一条链
+import { getModelContextCapacity } from '@ihui/api-client'
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useTimelineStore } from '@/stores/timeline-store'
 import { useLoginDialogStore } from '@/stores/login-dialog'
@@ -902,7 +904,21 @@ export function AgentTaskProgressPane() {
     return remaining > 0 ? Math.round(avgMs * remaining) : null
   }, [planSteps])
 
-  const contextUsage = totalTokens > 0 ? Math.min(100, (totalTokens / 128000) * 100) : 0
+  /**
+   * 上下文占用百分比的分母**必须取模型真实容量出口** `getModelContextCapacity`,不能写死 128000:
+   * 此前这里是"除以一个写死的容量字面量"(正是 `apps/web/tests/agent-pane-context-denominator.test.ts`
+   * 禁止的形态),而全站只有 `gpt-4o` 等少数模型真的是 128K ——
+   * 换成 32K 的模型就把 100% 显示成 39%,换成 200K 的显示成 64%,而且数字看着"很合理",
+   * 用户没有任何线索去怀疑它。同一件事在发送侧早就走这个出口了(`resume-stream.ts` 的
+   * `contextLimit: getModelContextCapacity(store.currentModel)`),两处算同一个分母必漂,
+   * 所以这里改成引用同一份出口。
+   * 已知残留(如实登记):这里取的是**会话当前选中模型**;若这一轮被后端自动路由到了别的厂商
+   * (`model=='auto'` 分支),真实容量仍以用量帧回带的 model 为准 —— 那一半需要 usage 帧的 model
+   * 进到本面板的状态里,已在台账另立一票,不在本次修范围内。
+   */
+  const currentModel = useChatStore((s) => s.currentModel)
+  const capacity = getModelContextCapacity(currentModel)
+  const contextUsage = totalTokens > 0 && capacity > 0 ? Math.min(100, (totalTokens / capacity) * 100) : 0
 
   // v10: completedCount + progressPct 用 useMemo 缓存
   const { completedCount, progressPct } = React.useMemo(() => {
