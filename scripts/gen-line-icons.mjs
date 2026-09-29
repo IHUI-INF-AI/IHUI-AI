@@ -157,29 +157,17 @@ function splice(orig, replacements, adds) {
 }
 
 /**
- * prettier 会把长条目折成 `key:` + 下一行字面量两行,于是"写在 key 上方"的豁免注释
- * 变成违规行的上上行 —— 门 77 B5 只认「同行或紧邻上行」,该约定在折行条目上结构性失效。
- * 故注释必须在 prettier 之后按违规行实际位置补(幂等:已有则不重复插)。
- *
- * 日期刻意写成**常量**而不是"跑一次算一次今天+90 天":后者每再生一次就改一次字节,
- * 生成器的幂等性(--check 必须零差异)当场作废。到期后果是门 108 E2 报一条待复核,
- * 而不是把 lucide 字形几何变成真债务 —— rx 属字形固有几何,这条本不该逐条目记账,
- * 真正的收口在"字形登记表整体归类"(见 icons.ts 的 custom 分类与 PLAN 图标载体票)。
+ * 生成器**不再注入圆角豁免标记**(2026-09-29 删掉原 `EXEMPT` / `ensureExemption`,原注释一并作废)。
+ * 两条理由必须一起成立,少一条就会复发:
+ *  ① O81 票㊵(`bacc59c25b`)把 `radius-exempt` 一族的"放行"语义**整体废除**,而"写这行标记"这件事
+ *     本身由守门 77 的新判据 **B8 判红** ⇒ 生成器每次 `--write` 都会往产物里种下一处必红;
+ *  ② 这张表根本不在守门 77 的射程内 —— 它被 `OUT_OF_SCOPE` 按"静态美术资产/内容渲染分支"声明摘除
+ *     (实测 `node scripts/check-radius-single-source.mjs --files apps/miniapp-taro/src/components/LineIcon/icons.ts`
+ *     报「扫描 0 文件(B 射程外按声明摘除 1 个)」),所以它**从来不需要**标记。
+ * 保留注入的后果已被现跑量到:注入让"再生一遍"与已入库的表逐行不等 ⇒ `--check` 恒红,
+ * 而要让它变绿只能把已入库文件重新写回带禁用标记的形态(那是拿放宽判据的反方向凑数)。
+ * 字形几何的归类住在表内的 generated/aliased/custom 三分类与 PLAN 图标载体票里,不靠逐条目注释。
  */
-const EXEMPT =
-  '// radius-exempt: lucide 字形几何,rx/ry 为 24 格 viewBox 单位而非 UI 圆角档位 until 2026-12-25'
-
-function ensureExemption(text) {
-  const out = []
-  for (const line of text.split('\n')) {
-    if (/[ry]x="[^"]*"/.test(line) && !line.includes('radius-exempt')) {
-      const prev = out.length ? out[out.length - 1] : ''
-      if (!prev.includes('radius-exempt')) out.push(`${/^\s*/.exec(line)[0]}${EXEMPT}`)
-    }
-    out.push(line)
-  }
-  return out.join('\n')
-}
 
 function run(entries, nodesOf, nameSet, args) {
   const existing = readFileSync(OUT, 'utf8')
@@ -238,7 +226,7 @@ async function main() {
     return 0
   }
 
-  const flowed = ensureExemption(prettify(splice(existing, replacements, adds.map((a) => a))))
+  const flowed = prettify(splice(existing, replacements, adds.map((a) => a)))
   if (!args.includes('--write')) {
     const same = flowed === existing
     console.log(

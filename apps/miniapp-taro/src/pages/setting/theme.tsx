@@ -149,11 +149,14 @@ export default function ThemePage() {
                   </View>
                 </View>
                 {/* 选中态对齐 RN SelectRow checkMark: 16dp→32rpx bold + brandAccent→--color-brand-accent;
-                    选中项由 ✓ 呈现,不再渲染 RN 没有的 Radio/RadioGroup 展示件 */}
+                    选中项由 check 矢量图标呈现,不再渲染 RN 没有的 Radio/RadioGroup 展示件 */}
                 {current === th.value ? (
-                  <Text className="ml-[16rpx] shrink-0 text-[length:32rpx] font-bold text-[color:var(--color-brand-accent-deep)]">
-                    ✓
-                  </Text>
+                  <LineIcon
+                    className="ml-[16rpx] shrink-0"
+                    name="check"
+                    size={32}
+                    color="var(--color-brand-accent-deep)"
+                  />
                 ) : null}
               </View>
             ))}

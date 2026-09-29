@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { setLanguage } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 type LangItem = {
   value: Locale
@@ -111,9 +112,7 @@ export default function LanguagePage() {
                 {/* 选中态对齐 RN SelectRow checkMark: 16dp→32rpx bold + brandAccent→--color-brand-accent;
                     当前语言由选中行呈现,不再渲染 RN 没有的"当前语言"卡片 */}
                 {current === l.value ? (
-                  <Text className="text-[length:32rpx] font-bold text-[color:var(--color-brand-accent-deep)]">
-                    ✓
-                  </Text>
+                  <LineIcon name="check" size={32} color="var(--color-brand-accent-deep)" />
                 ) : null}
               </View>
             ))}

@@ -3,17 +3,21 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 跨端 app 组件类型契约 �?@ihui/types
+ * 跨端 app 组件类型契约 — @ihui/types
  *
- * �?packages/app/src/types.ts 迁移而来(2026-07-25),作为单一来源�? * web/miniapp-taro 可直�?`import type { SharedUser } from '@ihui/types'`,
- * 无需安装 @ihui/rn-app(后者有 react-native peerDep)�? * packages/app/src/types.ts 改为 re-export 本文�?保持向后兼容(mobile-rn 不受影响)�? *
- * 平台无关�?props 契约,RN/web wrapper 通过 props 注入平台实现
- * (i18n t 函数、导航、API 调用、Alert/Confirm 弹窗�?,
- * 共享组件只负责纯 UI 渲染,不直接依赖任何平�?API�? */
+ * 从 packages/app/src/types.ts 迁移而来(2026-07-25),作为单一来源。
+ * web/miniapp-taro 可直接 `import type { SharedUser } from '@ihui/types'`,
+ * 无需安装 @ihui/rn-app(后者有 react-native peerDep)。
+ * packages/app/src/types.ts 改为 re-export 本文件,保持向后兼容(mobile-rn 不受影响)。
+ *
+ * 平台无关的 props 契约,RN/web wrapper 通过 props 注入平台实现
+ * (i18n t 函数、导航、API 调用、Alert/Confirm 弹窗等),
+ * 共享组件只负责纯 UI 渲染,不直接依赖任何平台 API。
+ */
 
 import type { ComponentType, ReactNode } from 'react'
 
-/** i18n 翻译函数契约(兼容 next-intl / i18next / 自定�? */
+/** i18n 翻译函数契约(兼容 next-intl / i18next / 自定义) */
 export type TFunction = (key: string, options?: Record<string, string | number>) => string
 
 /**
@@ -42,7 +46,7 @@ export interface SharedUserStatistics {
   points?: number
 }
 
-/** 菜单�?个人�?设置页通用) */
+/** 菜单项(个人页/设置页通用) */
 export interface SharedMenuItem {
   key: string
   label: string
@@ -61,13 +65,13 @@ export interface SharedLocaleOption {
   label: string
 }
 
-/** 主题选项(设置页主题切�? */
+/** 主题选项(设置页主题切换) */
 export interface SharedThemeOption {
   value: string
   label: string
 }
 
-/** 应用信息(About 页展�? */
+/** 应用信息(About 页展示) */
 export interface SharedAppInfo {
   appName?: string
   version?: string
@@ -77,21 +81,21 @@ export interface SharedAppInfo {
   license?: string
 }
 
-/** 通知开关状�?设置�? */
+/** 通知开关状态(设置页) */
 export interface SharedNotificationToggles {
   push: boolean
   message: boolean
   email: boolean
 }
 
-/** About �?props */
+/** About 屏 props */
 export interface AboutScreenProps {
   t: TFunction
   appInfo?: SharedAppInfo
   onBack: () => void
 }
 
-/** Profile �?props */
+/** Profile 屏 props */
 export interface ProfileScreenProps {
   t: TFunction
   user?: SharedUser | null
@@ -103,11 +107,11 @@ export interface ProfileScreenProps {
   onNavigate?: (key: string) => void
   onLogout?: () => void
   onBack: () => void
-  /** 已解析配色方�?驱动 tokens 明暗;默认 'light'。web 端不传即保持浅色行为 */
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light'。web 端不传即保持浅色行为 */
   colorScheme?: 'light' | 'dark'
 }
 
-/** Settings �?props */
+/** Settings 屏 props */
 export interface SettingsScreenProps {
   t: TFunction
   user?: SharedUser | null
@@ -128,14 +132,14 @@ export interface SettingsScreenProps {
   onMenuPress: (key: string) => void
   appVersion?: string
   onBack: () => void
-  /** 已解析配色方�?驱动 tokens 明暗;默认 'light'。web 端不传即保持浅色行为 */
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light'。web 端不传即保持浅色行为 */
   colorScheme?: 'light' | 'dark'
 }
 
-/** 反馈类型(与后�?/api/feedbacks 契约对齐) */
+/** 反馈类型(与后端 /api/feedbacks 契约对齐) */
 export type FeedbackType = 'bug' | 'suggestion' | 'question' | 'other'
 
-/** Feedback 屏提交载�?*/
+/** Feedback 屏提交载荷 */
 export interface FeedbackSubmitPayload {
   type: FeedbackType
   content: string
@@ -144,7 +148,7 @@ export interface FeedbackSubmitPayload {
   images?: string[]
 }
 
-/** Feedback �?props */
+/** Feedback 屏 props */
 export interface FeedbackScreenProps {
   t: TFunction
   /** 提交回调,返回 true 表示成功(平台注入实际 API 调用) */
@@ -152,14 +156,14 @@ export interface FeedbackScreenProps {
   onBack: () => void
   /** 选图回调(平台注入 expo-image-picker;返回已选图片 URL 数组,最多 9 张;不传则隐藏上传区) */
   onPickImages?: () => Promise<string[]>
-  /** 已解析配色方�?驱动 tokens 明暗;默认 'light' */
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
 
-/** 反馈状�?与后�?/api/feedbacks 契约对齐) */
+/** 反馈状态(与后端 /api/feedbacks 契约对齐) */
 export type FeedbackStatus = 'pending' | 'resolved' | 'closed'
 
-/** 反馈历史列表�?平台注入,字段对齐 mobile-rn FeedbackHistoryScreen Item) */
+/** 反馈历史列表项(平台注入,字段对齐 mobile-rn FeedbackHistoryScreen Item) */
 export interface FeedbackHistoryItem {
   id: string
   type: FeedbackType | string
@@ -168,7 +172,7 @@ export interface FeedbackHistoryItem {
   createdAt: string
 }
 
-/** FeedbackHistory �?props */
+/** FeedbackHistory 屏 props */
 export interface FeedbackHistoryScreenProps {
   t: TFunction
   items: FeedbackHistoryItem[]
@@ -176,29 +180,29 @@ export interface FeedbackHistoryScreenProps {
   refreshing: boolean
   error: string
   onRefresh: () => void
-  /** 点击列表项回�?平台注入导航跳转(�?navigate('FeedbackDetail', { id })) */
+  /** 点击列表项回调,平台注入导航跳转(如 navigate('FeedbackDetail', { id })) */
   onPressItem: (id: string) => void
   onBack: () => void
-  /** 已解析配色方�?驱动 tokens 明暗;默认 'light' */
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
 
-/** 收藏对象类型(与后�?/api/favorites 契约对齐,targetType 字段对齐 FavoriteItem) */
+/** 收藏对象类型(与后端 /api/favorites 契约对齐,targetType 字段对齐 FavoriteItem) */
 export type BookmarkTargetType = 'course' | 'article' | 'post' | 'note' | string
 
-/** 收藏列表�?平台注入,字段对齐 @ihui/api-client FavoriteItem) */
+/** 收藏列表项(平台注入,字段对齐 @ihui/api-client FavoriteItem) */
 export interface BookmarkItem {
   id: string
   targetId: string
   targetType: BookmarkTargetType
   title: string
-  /** 封面�?URL(可空) */
+  /** 封面图 URL(可空) */
   cover?: string | null
-  /** ISO 时间字符串或格式化后的时间文�?*/
+  /** ISO 时间字符串或格式化后的时间文本 */
   createdAt: string
 }
 
-/** Bookmark �?props */
+/** Bookmark 屏 props */
 export interface BookmarkScreenProps {
   t: TFunction
   items: BookmarkItem[]
@@ -206,30 +210,30 @@ export interface BookmarkScreenProps {
   refreshing: boolean
   error: string
   onRefresh: () => void
-  /** 点击列表项回�?平台注入导航跳转(参数�?BookmarkItem 完整对象,平台依据 targetType 决定目标路由) */
+  /** 点击列表项回调,平台注入导航跳转(参数为 BookmarkItem 完整对象,平台依据 targetType 决定目标路由) */
   onPressItem: (item: BookmarkItem) => void
-  /** 删除收藏回调,平台注入实际 API 调用 + 列表状态更�?*/
+  /** 删除收藏回调,平台注入实际 API 调用 + 列表状态更新 */
   onRemove: (item: BookmarkItem) => void | Promise<void>
   onBack: () => void
-  /** 已解析配色方�?驱动 tokens 明暗;默认 'light' */
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
 
-/** 通知类型(与后�?/api/notifications 契约对齐) */
+/** 通知类型(与后端 /api/notifications 契约对齐) */
 export type NotificationType = 'system' | 'order' | 'course' | 'social' | string
 
-/** 通知列表�?平台注入,字段对齐 mobile-rn NotificationListScreen Notif) */
+/** 通知列表项(平台注入,字段对齐 mobile-rn NotificationListScreen Notif) */
 export interface NotificationListItem {
   id: string
   type: NotificationType
   title: string
   content: string
-  /** 是否已读(未读�?success �?border + 浅色背景) */
+  /** 是否已读(未读用 success 色 border + 浅色背景) */
   read: boolean
   createdAt: string
 }
 
-/** NotificationList �?props */
+/** NotificationList 屏 props */
 export interface NotificationListScreenProps {
   t: TFunction
   items: NotificationListItem[]
@@ -237,17 +241,17 @@ export interface NotificationListScreenProps {
   refreshing: boolean
   error: string
   onRefresh: () => void
-  /** 点击通知卡片回调,可�?�?RN 实现无点击跳�?wrapper 可不�? */
+  /** 点击通知卡片回调,可选(原 RN 实现无点击跳转,wrapper 可不传) */
   onPressItem?: (item: NotificationListItem) => void
   onBack: () => void
-  /** 已解析配色方�?驱动 tokens 明暗;默认 'light' */
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
 
-/** 浏览历史对象类型(与后�?/api/history 契约对齐) */
+/** 浏览历史对象类型(与后端 /api/history 契约对齐) */
 export type HistoryTargetType = 'course' | 'article' | 'post' | 'note' | 'live' | string
 
-/** 浏览历史列表�?平台注入,字段对齐 mobile-rn HistoryScreen HistoryItem) */
+/** 浏览历史列表项(平台注入,字段对齐 mobile-rn HistoryScreen HistoryItem) */
 export interface HistoryItem {
   id: string
   targetId: string
@@ -257,7 +261,7 @@ export interface HistoryItem {
   visitedAt: string
 }
 
-/** History �?props */
+/** History 屏 props */
 export interface HistoryScreenProps {
   t: TFunction
   items: HistoryItem[]
@@ -265,32 +269,32 @@ export interface HistoryScreenProps {
   refreshing: boolean
   error: string
   onRefresh: () => void
-  /** 点击列表项回�?平台注入导航跳转(参数�?HistoryItem 完整对象,平台依据 targetType 决定目标路由) */
+  /** 点击列表项回调,平台注入导航跳转(参数为 HistoryItem 完整对象,平台依据 targetType 决定目标路由) */
   onPressItem: (item: HistoryItem) => void
   onBack: () => void
-  /** 已解析配色方�?驱动 tokens 明暗;默认 'light' */
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
 
-/** 证书状�?与后�?/api/certificates 契约对齐) */
+/** 证书状态(与后端 /api/certificates 契约对齐) */
 export type CertificateStatus = 'issued' | 'expired' | 'revoked' | string
 
-/** 证书列表�?平台注入,字段对齐 @ihui/api-client CertificateItem) */
+/** 证书列表项(平台注入,字段对齐 @ihui/api-client CertificateItem) */
 export interface CertificateItem {
   id: string
   /** 证书标题 */
   title: string
-  /** 课程�?*/
+  /** 课程名 */
   courseName: string
   /** 发证日期(ISO 字符串或已格式化文本) */
   issueDate: string
   /** 过期日期(可空,表示永久有效) */
   expiryDate: string | null
-  /** 证书状�?*/
+  /** 证书状态 */
   status: CertificateStatus
 }
 
-/** Certificate �?props */
+/** Certificate 屏 props */
 export interface CertificateScreenProps {
   t: TFunction
   items: CertificateItem[]
@@ -298,17 +302,17 @@ export interface CertificateScreenProps {
   refreshing: boolean
   error: string
   onRefresh: () => void
-  /** 点击证书卡片回调,平台注入导航跳转(�?navigate('CertificateDetail', { id })) */
+  /** 点击证书卡片回调,平台注入导航跳转(如 navigate('CertificateDetail', { id })) */
   onPressItem: (item: CertificateItem) => void
   onBack: () => void
-  /** 已解析配色方�?驱动 tokens 明暗;默认 'light' */
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
 
 /** 消息中心 Tab key(可扩展为任意 string) */
 export type MessageTab = 'system' | 'order' | 'course' | 'social' | (string & {})
 
-/** 消息�?平台注入,字段对齐 mobile-rn MessageCenterScreen Message) */
+/** 消息项(平台注入,字段对齐 mobile-rn MessageCenterScreen Message) */
 export interface MessageCenterItem {
   id: string
   type: MessageTab
@@ -337,11 +341,11 @@ export interface MessageConversationItem {
   pinned?: boolean
 }
 
-/** 消息中心共享�?props */
+/** 消息中心共享屏 props */
 export interface MessageCenterScreenProps {
   t: TFunction
   items: MessageCenterItem[]
-  /** 当前激�?tab */
+  /** 当前激活 tab */
   activeTab: MessageTab
   /** tab 切换回调,平台注入重新拉取逻辑 */
   onSelectTab: (tab: MessageTab) => void
@@ -349,7 +353,7 @@ export interface MessageCenterScreenProps {
   refreshing: boolean
   error: string
   onRefresh: () => void
-  /** 点击消息卡片回调,可�?*/
+  /** 点击消息卡片回调,可选 */
   onPressItem?: (item: MessageCenterItem) => void
   /** 会话列表(对齐 Uniapp message 页聊天列表;不传则不渲染该区块) */
   conversations?: MessageConversationItem[]
@@ -359,22 +363,24 @@ export interface MessageCenterScreenProps {
    *  调用方一律经 @ihui/api-client setConversationPinned 发起,失败必须有可见反馈。 */
   onTogglePin?: (item: MessageConversationItem) => void
   onBack: () => void
-  /** 已解析配色方�?驱动 tokens 明暗;默认 'light' */
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
 
 /**
- * 订单状�?用户端共享屏展示子集,与后�?/api/orders 契约对齐)�? *
- * 注意:admin-types.ts �?`OrderStatus` 是后台完整状态机(7 值含 refunding/failed),
- * 此处 `AppOrderStatus` 是用户端展示子集(�?shipped 实物发货),两者语义不�?
- * 故加 `App` 前缀避免 `export *` 冲突�? */
+ * 订单状态(用户端共享屏展示子集,与后端 /api/orders 契约对齐)。
+ *
+ * 注意:admin-types.ts 的 `OrderStatus` 是后台完整状态机(7 值含 refunding/failed),
+ * 此处 `AppOrderStatus` 是用户端展示子集(含 shipped 实物发货),两者语义不同,
+ * 故加 `App` 前缀避免 `export *` 冲突。
+ */
 export type AppOrderStatus =
   'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled' | 'refunded' | string
 
 /** 订单 Tab */
 export type OrderTab = 'all' | 'pending' | 'paid' | 'shipped' | 'completed' | string
 
-/** 订单列表�?平台注入,字段对齐 mobile-rn OrderScreen Order) */
+/** 订单列表项(平台注入,字段对齐 mobile-rn OrderScreen Order) */
 export interface OrderItem {
   id: string
   orderNo: string
@@ -386,11 +392,11 @@ export interface OrderItem {
   createdAt: string
 }
 
-/** Order �?props */
+/** Order 屏 props */
 export interface OrderScreenProps {
   t: TFunction
   items: OrderItem[]
-  /** 当前激�?tab */
+  /** 当前激活 tab */
   activeTab: OrderTab
   /** tab 切换回调,平台注入重新拉取逻辑 */
   onSelectTab: (tab: OrderTab) => void
@@ -401,14 +407,14 @@ export interface OrderScreenProps {
   /** 点击订单卡片回调,平台注入导航跳转 */
   onPressItem: (item: OrderItem) => void
   onBack: () => void
-  /** 已解析配色方�?驱动 tokens 明暗;默认 'light' */
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
 
-/** 学习计划状�?*/
+/** 学习计划状态 */
 export type PlanStatus = 'active' | 'paused' | 'completed' | 'overdue' | string
 
-/** 学习计划列表�?平台注入,字段对齐 mobile-rn StudyPlanScreen StudyPlan) */
+/** 学习计划列表项(平台注入,字段对齐 mobile-rn StudyPlanScreen StudyPlan) */
 export interface StudyPlanItem {
   id: string
   title: string
@@ -417,14 +423,14 @@ export interface StudyPlanItem {
   totalLessons: number
   /** 已完成课时数 */
   completedLessons: number
-  /** 学习进度(0-100,百分�? */
+  /** 学习进度(0-100,百分比) */
   progress: number
   status: PlanStatus
-  /** 截止日期(ISO 或格式化字符�? */
+  /** 截止日期(ISO 或格式化字符串) */
   deadline: string
 }
 
-/** StudyPlan �?props */
+/** StudyPlan 屏 props */
 export interface StudyPlanScreenProps {
   t: TFunction
   items: StudyPlanItem[]
@@ -435,7 +441,7 @@ export interface StudyPlanScreenProps {
   /** 点击计划卡片回调,平台注入导航跳转 */
   onPressItem: (item: StudyPlanItem) => void
   onBack: () => void
-  /** 已解析配色方�?驱动 tokens 明暗;默认 'light' */
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
 
@@ -445,17 +451,17 @@ export interface WalletBalance {
   balance: number
   /** 冻结金额 */
   frozenBalance: number
-  /** 累计充�?*/
+  /** 累计充值 */
   totalRecharge: number
   /** 累计提现 */
   totalWithdraw: number
 }
 
-/** 钱包记录类型(与后�?/api/wallet/records 契约对齐) */
+/** 钱包记录类型(与后端 /api/wallet/records 契约对齐) */
 export type WalletRecordType =
   'recharge' | 'withdraw' | 'consume' | 'refund' | 'commission' | string
 
-/** 钱包记录列表�?平台注入) */
+/** 钱包记录列表项(平台注入) */
 export interface WalletRecordItem {
   id: string
   amount: number
@@ -467,41 +473,41 @@ export interface WalletRecordItem {
   createdAt: string
 }
 
-/** Wallet �?props */
+/** Wallet 屏 props */
 export interface WalletScreenProps {
   t: TFunction
   balance: WalletBalance | null
   loading: boolean
   error: string
   onRefresh: () => void
-  /** 点击充�?提现等操作回�?平台注入导航跳转 */
+  /** 点击充值/提现等操作回调,平台注入导航跳转 */
   onAction?: (action: 'recharge' | 'withdraw') => void
   onBack: () => void
-  /** 已解析配色方�?驱动 tokens 明暗;默认 'light' */
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
 
-/** 课程目录�?平台注入,字段对齐 mobile-rn CourseCatalogScreen CatalogItem) */
+/** 课程目录项(平台注入,字段对齐 mobile-rn CourseCatalogScreen CatalogItem) */
 export interface CourseCatalogItem {
   id: string
   title: string
   type: string
   /** 时长(分钟) */
   duration: number
-  /** 子章�?可�?用于树形目录) */
+  /** 子章节(可选,用于树形目录) */
   children?: CourseCatalogItem[]
 }
 
-/** CourseCatalog �?props */
+/** CourseCatalog 屏 props */
 export interface CourseCatalogScreenProps {
   t: TFunction
   items: CourseCatalogItem[]
   loading: boolean
   error: string
-  /** 点击章节回调,平台注入导航跳转(�?navigate('CourseChapter', { id })) */
+  /** 点击章节回调,平台注入导航跳转(如 navigate('CourseChapter', { id })) */
   onPressItem: (item: CourseCatalogItem) => void
   onBack: () => void
-  /** 已解析配色方�?驱动 tokens 明暗;默认 'light' */
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
 
@@ -510,20 +516,20 @@ export interface CourseCatalogScreenProps {
 // Announcement/LivePlaybackList/RefundHistory/CourseQAList
 // ============================================================
 
-/** 积分历史列表�?平台注入,字段对齐 mobile-rn PointHistoryScreen Item) */
+/** 积分历史列表项(平台注入,字段对齐 mobile-rn PointHistoryScreen Item) */
 export interface PointHistoryItem {
   id: string
-  /** 操作描述(�?签到"/"消费") */
+  /** 操作描述(如"签到"/"消费") */
   action: string
-  /** 积分变动(正数获得,负数消�? */
+  /** 积分变动(正数获得,负数消耗) */
   points: number
-  /** 变动后余�?*/
+  /** 变动后余额 */
   balance: number
-  /** ISO 时间字符串或格式化后的时间文�?*/
+  /** ISO 时间字符串或格式化后的时间文本 */
   createdAt: string
 }
 
-/** PointHistory �?props */
+/** PointHistory 屏 props */
 export interface PointHistoryScreenProps {
   t: TFunction
   items: PointHistoryItem[]
@@ -535,7 +541,7 @@ export interface PointHistoryScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 笔记列表�?平台注入,字段对齐 mobile-rn NoteListScreen Note) */
+/** 笔记列表项(平台注入,字段对齐 mobile-rn NoteListScreen Note) */
 export interface NoteListItem {
   id: string
   title: string
@@ -545,7 +551,7 @@ export interface NoteListItem {
   createdAt: string
 }
 
-/** NoteList �?props */
+/** NoteList 屏 props */
 export interface NoteListScreenProps {
   t: TFunction
   items: NoteListItem[]
@@ -555,24 +561,24 @@ export interface NoteListScreenProps {
   onRefresh: () => void
   /** 点击笔记卡片回调,平台注入导航跳转 */
   onPressItem: (item: NoteListItem) => void
-  /** 新建笔记回调(可�?平台注入导航跳转) */
+  /** 新建笔记回调(可选,平台注入导航跳转) */
   onCreate?: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
 
-/** 文章列表�?平台注入,字段对齐 mobile-rn ArticleListScreen Article) */
+/** 文章列表项(平台注入,字段对齐 mobile-rn ArticleListScreen Article) */
 export interface ArticleListItem {
   id: string
   title: string
   author: string
   views: number
   publishedAt: string
-  /** 封面�?URL(可空) */
+  /** 封面图 URL(可空) */
   cover?: string
 }
 
-/** ArticleList �?props */
+/** ArticleList 屏 props */
 export interface ArticleListScreenProps {
   t: TFunction
   items: ArticleListItem[]
@@ -586,18 +592,18 @@ export interface ArticleListScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 公告列表�?平台注入,字段对齐 mobile-rn AnnouncementScreen Announcement) */
+/** 公告列表项(平台注入,字段对齐 mobile-rn AnnouncementScreen Announcement) */
 export interface AnnouncementItem {
   id: string
   title: string
   content: string
-  /** 发布时间(ISO 或格式化字符�? */
+  /** 发布时间(ISO 或格式化字符串) */
   publishTime: string
   /** 是否置顶 */
   pinned: boolean
 }
 
-/** Announcement �?props */
+/** Announcement 屏 props */
 export interface AnnouncementScreenProps {
   t: TFunction
   items: AnnouncementItem[]
@@ -611,18 +617,18 @@ export interface AnnouncementScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 直播回放列表�?平台注入,字段对齐 mobile-rn LivePlaybackListScreen Item) */
+/** 直播回放列表项(平台注入,字段对齐 mobile-rn LivePlaybackListScreen Item) */
 export interface LivePlaybackItem {
   id: string
   title: string
   lecturer: string
-  /** 时长(�? */
+  /** 时长(秒) */
   duration: number
   viewerCount: number
   createdAt: string
 }
 
-/** LivePlaybackList �?props */
+/** LivePlaybackList 屏 props */
 export interface LivePlaybackListScreenProps {
   t: TFunction
   items: LivePlaybackItem[]
@@ -636,8 +642,10 @@ export interface LivePlaybackListScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 退款状�?用户端共享屏展示子集,与后�?/api/refund 契约对齐)�? * 注意:admin-types.ts �?`RefundStatus` 是后台完整状态机,此处 `AppRefundStatus` 是用户端展示子集,
- * �?`App` 前缀避免 `export *` 冲突(�?`AppOrderStatus` 模式)�? */
+/** 退款状态(用户端共享屏展示子集,与后端 /api/refund 契约对齐)。
+ * 注意:admin-types.ts 的 `RefundStatus` 是后台完整状态机,此处 `AppRefundStatus` 是用户端展示子集,
+ * 加 `App` 前缀避免 `export *` 冲突(同 `AppOrderStatus` 模式)。
+ */
 export type AppRefundStatus = 'pending' | 'approved' | 'rejected' | 'refunded' | string
 
 /** 退款历史列表项(平台注入,字段对齐 mobile-rn RefundHistoryScreen Item) */
@@ -649,7 +657,7 @@ export interface RefundHistoryItem {
   createdAt: string
 }
 
-/** RefundHistory �?props */
+/** RefundHistory 屏 props */
 export interface RefundHistoryScreenProps {
   t: TFunction
   items: RefundHistoryItem[]
@@ -657,13 +665,13 @@ export interface RefundHistoryScreenProps {
   refreshing: boolean
   error: string
   onRefresh: () => void
-  /** 点击退款卡片回�?平台注入导航跳转 */
+  /** 点击退款卡片回调,平台注入导航跳转 */
   onPressItem: (item: RefundHistoryItem) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
 
-/** 课程问答列表�?平台注入,字段对齐 mobile-rn CourseQAListScreen Item) */
+/** 课程问答列表项(平台注入,字段对齐 mobile-rn CourseQAListScreen Item) */
 export interface CourseQAListItem {
   id: string
   question: string
@@ -672,7 +680,7 @@ export interface CourseQAListItem {
   createdAt: string
 }
 
-/** CourseQAList �?props */
+/** CourseQAList 屏 props */
 export interface CourseQAListScreenProps {
   t: TFunction
   items: CourseQAListItem[]
@@ -682,13 +690,13 @@ export interface CourseQAListScreenProps {
   onRefresh: () => void
   /** 点击问答卡片回调,平台注入导航跳转 */
   onPressItem: (item: CourseQAListItem) => void
-  /** 提问回调(可�?平台注入导航跳转) */
+  /** 提问回调(可选,平台注入导航跳转) */
   onAsk?: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
 
-// ============ 详情�?批次 7,2026-07-29) ============
+// ============ 详情屏(批次 7,2026-07-29) ============
 
 /** 笔记详情(平台注入,字段对齐 mobile-rn NoteDetailScreen Note) */
 export interface NoteDetailItem {
@@ -702,7 +710,7 @@ export interface NoteDetailItem {
   author: string
 }
 
-/** NoteDetail �?props */
+/** NoteDetail 屏 props */
 export interface NoteDetailScreenProps {
   t: TFunction
   item: NoteDetailItem | null
@@ -724,7 +732,7 @@ export interface ArticleDetailItem {
   publishedAt: string
 }
 
-/** ArticleDetail �?props */
+/** ArticleDetail 屏 props */
 export interface ArticleDetailScreenProps {
   t: TFunction
   item: ArticleDetailItem | null
@@ -742,7 +750,7 @@ export interface HelpDetailItem {
   category: string
 }
 
-/** HelpDetail �?props */
+/** HelpDetail 屏 props */
 export interface HelpDetailScreenProps {
   t: TFunction
   item: HelpDetailItem | null
@@ -762,7 +770,7 @@ export interface FeedbackDetailItem {
   createdAt: string
 }
 
-/** FeedbackDetail �?props */
+/** FeedbackDetail 屏 props */
 export interface FeedbackDetailScreenProps {
   t: TFunction
   item: FeedbackDetailItem | null
@@ -772,23 +780,23 @@ export interface FeedbackDetailScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-// ============ 批次 8:静态屏+列表�?详情�?2026-07-29) ============
+// ============ 批次 8:静态屏+列表屏+详情屏(2026-07-29) ============
 
-/** Privacy �?props(纯静态展�?�?API) */
+/** Privacy 屏 props(纯静态展示,无 API) */
 export interface PrivacyScreenProps {
   t: TFunction
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
 
-/** Agreement �?props(纯静态展�?�?API) */
+/** Agreement 屏 props(纯静态展示,无 API) */
 export interface AgreementScreenProps {
   t: TFunction
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
 
-/** 积分规则列表�?平台注入,字段对齐 mobile-rn PointRuleScreen Item) */
+/** 积分规则列表项(平台注入,字段对齐 mobile-rn PointRuleScreen Item) */
 export interface PointRuleItem {
   id: string
   action: string
@@ -796,7 +804,7 @@ export interface PointRuleItem {
   desc: string
 }
 
-/** PointRule �?props */
+/** PointRule 屏 props */
 export interface PointRuleScreenProps {
   t: TFunction
   items: PointRuleItem[]
@@ -817,7 +825,7 @@ export interface VipLevelItem {
   benefits: string
 }
 
-/** VipLevel �?props */
+/** VipLevel 屏 props */
 export interface VipLevelScreenProps {
   t: TFunction
   item: VipLevelItem | null
@@ -827,7 +835,7 @@ export interface VipLevelScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 退款详�?平台注入,字段对齐 mobile-rn RefundDetailScreen Detail) */
+/** 退款详情(平台注入,字段对齐 mobile-rn RefundDetailScreen Detail) */
 export interface RefundDetailItem {
   id: string
   orderNo: string
@@ -837,7 +845,7 @@ export interface RefundDetailItem {
   createdAt: string
 }
 
-/** RefundDetail �?props */
+/** RefundDetail 屏 props */
 export interface RefundDetailScreenProps {
   t: TFunction
   item: RefundDetailItem | null
@@ -858,7 +866,7 @@ export interface OrderDetailItem {
   paidAt?: string
 }
 
-/** OrderDetail �?props */
+/** OrderDetail 屏 props */
 export interface OrderDetailScreenProps {
   t: TFunction
   item: OrderDetailItem | null
@@ -881,7 +889,7 @@ export interface CertDetailItem {
   verifyUrl: string
 }
 
-/** CertDetail �?props */
+/** CertDetail 屏 props */
 export interface CertDetailScreenProps {
   t: TFunction
   item: CertDetailItem | null
@@ -893,7 +901,7 @@ export interface CertDetailScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 动态详�?平台注入,字段对齐 mobile-rn PostDetailScreen Post) */
+/** 动态详情(平台注入,字段对齐 mobile-rn PostDetailScreen Post) */
 export interface PostDetailItem {
   id: string
   title: string
@@ -916,7 +924,7 @@ export interface PostDetailItem {
   categories?: string[] | null
 }
 
-/** PostDetail �?props */
+/** PostDetail 屏 props */
 export interface PostDetailScreenProps {
   t: TFunction
   item: PostDetailItem | null
@@ -935,7 +943,7 @@ export interface AnnouncementDetailItem {
   publishTime: string
 }
 
-/** AnnouncementDetail �?props */
+/** AnnouncementDetail 屏 props */
 export interface AnnouncementDetailScreenProps {
   t: TFunction
   item: AnnouncementDetailItem | null
@@ -951,7 +959,7 @@ export interface LegalDocSection {
   body: string
 }
 
-/** LegalDoc �?props(通用静态页:隐私/协议/Cookie 政策�? */
+/** LegalDoc 屏 props(通用静态页:隐私/协议/Cookie 政策等) */
 export interface LegalDocScreenProps {
   t: TFunction
   title: string
@@ -962,7 +970,7 @@ export interface LegalDocScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 帮助列表�?平台注入,字段对齐 mobile-rn HelpScreen) */
+/** 帮助列表项(平台注入,字段对齐 mobile-rn HelpScreen) */
 export interface HelpListItem {
   id: string
   question: string
@@ -983,7 +991,7 @@ export interface HelpScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 搜索结果�?平台注入,字段对齐 mobile-rn SearchScreen) */
+/** 搜索结果项(平台注入,字段对齐 mobile-rn SearchScreen) */
 export interface SearchScreenItem {
   id: string
   title: string
@@ -1030,7 +1038,7 @@ export interface AgentDetailScreenProps {
   loading: boolean
   error: string
   onBack: () => void
-  /** 开始对话回�?平台注入导航跳转 AgentChat) */
+  /** 开始对话回调(平台注入导航跳转 AgentChat) */
   onStartChat?: (agentId: string, name: string) => void
   colorScheme?: 'light' | 'dark'
 }
@@ -1065,7 +1073,7 @@ export interface AskDetailScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 问答列表�?平台注入,字段对齐 mobile-rn AskListScreen Ask) */
+/** 问答列表项(平台注入,字段对齐 mobile-rn AskListScreen Ask) */
 export interface AskListItem {
   id: string
   title: string
@@ -1089,7 +1097,7 @@ export interface AskListScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 证书列表�?平台注入,字段对齐 mobile-rn CertListScreen Item) */
+/** 证书列表项(平台注入,字段对齐 mobile-rn CertListScreen Item) */
 export interface CertListItem {
   id: string
   name: string
@@ -1133,7 +1141,7 @@ export interface CertVerifyScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** WithdrawScreen props(表单�?状态由 wrapper 管理,共享层只负责渲染) */
+/** WithdrawScreen props(表单屏,状态由 wrapper 管理,共享层只负责渲染) */
 export interface WithdrawScreenProps {
   t: TFunction
   amount: string
@@ -1148,7 +1156,7 @@ export interface WithdrawScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** VIP 对比�?平台注入,字段对齐 mobile-rn VipCompareScreen CompareRow) */
+/** VIP 对比行(平台注入,字段对齐 mobile-rn VipCompareScreen CompareRow) */
 export interface VipCompareRow {
   feature: string
   basic: string
@@ -1200,7 +1208,7 @@ export interface ShareScreenProps {
 
 /** 批次 10(2026-07-29):订单日志/订单跟踪/课程章节/学习进度 */
 
-/** 订单日志�?平台注入,字段对齐 mobile-rn OrderLogScreen Item) */
+/** 订单日志项(平台注入,字段对齐 mobile-rn OrderLogScreen Item) */
 export interface OrderLogItem {
   id: string
   action: string
@@ -1221,7 +1229,7 @@ export interface OrderLogScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 订单跟踪�?平台注入,字段对齐 mobile-rn OrderTrackScreen Item) */
+/** 订单跟踪项(平台注入,字段对齐 mobile-rn OrderTrackScreen Item) */
 export interface OrderTrackItem {
   id: string
   status: string
@@ -1242,7 +1250,7 @@ export interface OrderTrackScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 课程章节�?平台注入,字段对齐 mobile-rn CourseChapterScreen Chapter) */
+/** 课程章节项(平台注入,字段对齐 mobile-rn CourseChapterScreen Chapter) */
 export interface CourseChapterItem {
   id: string
   title: string
@@ -1261,7 +1269,7 @@ export interface CourseChapterScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 学习进度课程�?*/
+/** 学习进度课程项 */
 export interface StudyProgressCourse {
   id: string
   title: string
@@ -1288,9 +1296,9 @@ export interface StudyProgressScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 批次 11(2026-07-29):表单�?问答创建/笔记创建/证书申请/账号设置) */
+/** 批次 11(2026-07-29):表单型(问答创建/笔记创建/证书申请/账号设置) */
 
-/** AskCreateScreen props(表单�?状态由 wrapper 管理) */
+/** AskCreateScreen props(表单屏,状态由 wrapper 管理) */
 export interface AskCreateScreenProps {
   t: TFunction
   title: string
@@ -1306,7 +1314,7 @@ export interface AskCreateScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** NoteCreateScreen props(表单�?状态由 wrapper 管理) */
+/** NoteCreateScreen props(表单屏,状态由 wrapper 管理) */
 export interface NoteCreateScreenProps {
   t: TFunction
   title: string
@@ -1324,7 +1332,7 @@ export interface NoteCreateScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** CertApplyScreen props(表单�?状态由 wrapper 管理) */
+/** CertApplyScreen props(表单屏,状态由 wrapper 管理) */
 export interface CertApplyScreenProps {
   t: TFunction
   name: string
@@ -1346,7 +1354,7 @@ export interface SettingsAccountItem {
   phone: string
 }
 
-/** SettingsAccountScreen props(表单�?状态由 wrapper 管理) */
+/** SettingsAccountScreen props(表单屏,状态由 wrapper 管理) */
 export interface SettingsAccountScreenProps {
   t: TFunction
   account: SettingsAccountItem | null
@@ -1362,12 +1370,12 @@ export interface SettingsAccountScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 批次 12(2026-07-29):直播列表/优惠�?关注/排行�?积分商城/考试/VIP */
+/** 批次 12(2026-07-29):直播列表/优惠券/关注/排行榜/积分商城/考试/VIP */
 
-/** 直播状�?*/
+/** 直播状态 */
 export type LiveStatus = 'upcoming' | 'ongoing' | 'ended' | string
 
-/** 直播列表�?平台注入,字段对齐 mobile-rn LiveListScreen LiveItem) */
+/** 直播列表项(平台注入,字段对齐 mobile-rn LiveListScreen LiveItem) */
 export interface LiveListItem {
   id: string
   title: string
@@ -1396,7 +1404,7 @@ export interface LiveListScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 优惠券状�?*/
+/** 优惠券状态 */
 export type CouponStatus = 'available' | 'used' | 'expired' | string
 
 /** 优惠券列表项(平台注入,字段对齐 mobile-rn CouponScreen CouponItem) */
@@ -1423,7 +1431,7 @@ export interface CouponScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 关注用户列表�?平台注入,字段对齐 mobile-rn FollowingScreen FollowUser) */
+/** 关注用户列表项(平台注入,字段对齐 mobile-rn FollowingScreen FollowUser) */
 export interface FollowingItem {
   id: string
   username: string
@@ -1448,7 +1456,7 @@ export interface FollowingScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 排行榜范�?*/
+/** 排行榜范围 */
 export type RankingRange = 'weekly' | 'monthly' | 'allTime' | string
 
 /** 排行榜项(平台注入,字段对齐 mobile-rn RankingScreen RankItem) */
@@ -1502,10 +1510,10 @@ export interface PointsMallScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 考试状�?*/
+/** 考试状态 */
 export type ExamStatus = 'notStarted' | 'inProgress' | 'ended' | string
 
-/** 考试�?平台注入,字段对齐 mobile-rn ExamScreen Exam) */
+/** 考试项(平台注入,字段对齐 mobile-rn ExamScreen Exam) */
 export interface ExamItem {
   id: string
   title: string
@@ -1524,7 +1532,7 @@ export interface ExamItem {
 export interface ExamScreenProps {
   t: TFunction
   items: ExamItem[]
-  /** 计算考试状�?平台注入) */
+  /** 计算考试状态(平台注入) */
   getStatus: (exam: ExamItem) => ExamStatus
   loading: boolean
   refreshing: boolean
@@ -1577,7 +1585,7 @@ export interface VipScreenProps {
 /** 登录 tab key(对齐 web ui-react LoginFormProps.tabs,默认顺序 email/phone/password/qr) */
 export type LoginTab = 'email' | 'phone' | 'password' | 'qr'
 
-/** 第三方登录平�?key(对齐 web ui-react ThirdPartyPlatform) */
+/** 第三方登录平台 key(对齐 web ui-react ThirdPartyPlatform) */
 export type ThirdPartyPlatform =
   | 'wechat'
   | 'google'
@@ -1594,57 +1602,59 @@ export type ThirdPartyPlatform =
 export interface ThirdPartyLoginOption {
   platform: ThirdPartyPlatform
   label: string
-  /** RN Image source(�?require('../../assets/icons/wechat.png')) */
+  /** RN Image source(如 require('../../assets/icons/wechat.png')) */
   iconSource?: number | { uri: string }
   /** RN 图标节点(react-native-svg-transformer 场景:require('*.svg') 返回 React 组件而非
    *  Image source 契约类型,须以节点方式渲染;存在时优先于 iconSource) */
   iconNode?: ReactNode
-  /** 平台品牌�?十六进制,�?'#07C160'),用于无图标时的圆形按钮背�?*/
+  /** 平台品牌色(十六进制,如 '#07C160'),用于无图标时的圆形按钮背景 */
   brandColor?: string
-  /** 是否启用(未配�?OAuth 的平台设�?false,按钮置灰) */
+  /** 是否启用(未配置 OAuth 的平台设为 false,按钮置灰) */
   enabled: boolean
-  /** 是否强制禁用(�?Apple "即将上线",显示 tooltip 但禁用点�? */
+  /** 是否强制禁用(如 Apple "即将上线",显示 tooltip 但禁用点击) */
   forceDisabled?: boolean
-  /** 禁用提示文案(forceDisabled=true 时显�? */
+  /** 禁用提示文案(forceDisabled=true 时显示) */
   disabledHint?: string
 }
 
-/** QR 扫码登录状�?wrapper 注入,驱动 QrTab UI) */
+/** QR 扫码登录状态(wrapper 注入,驱动 QrTab UI) */
 export type QrLoginStatus = 'idle' | 'loading' | 'waiting' | 'scanned' | 'expired' | 'error'
 
-/** QR 扫码登录配置(wrapper 注入,共享层只渲染占位 + 状态文�?不依赖任�?SDK) */
+/** QR 扫码登录配置(wrapper 注入,共享层只渲染占位 + 状态文案,不依赖任何 SDK) */
 export interface QrLoginConfig {
-  /** 当前状�?*/
+  /** 当前状态 */
   status: QrLoginStatus
-  /** 二维码图片源(RN Image source;null 则渲染占位图�? */
+  /** 二维码图片源(RN Image source;null 则渲染占位图标) */
   qrSource?: number | { uri: string } | null
-  /** 错误文案(status='error' 时显�? */
+  /** 错误文案(status='error' 时显示) */
   errorText?: string
-  /** 刷新回调(status='expired'/'error' 时显示刷新按�? */
+  /** 刷新回调(status='expired'/'error' 时显示刷新按钮) */
   onRefresh?: () => void
 }
 
-/** QR 扫码平台配置(平台注入,共享层渲染平台切�?tab + 二维码占�?
- * 2026-08-04 新增:对齐 web �?qr-tab.tsx 的平台切换设计�? * RN 端无法直接加载各厂商 SDK(WxLogin/WwLogin/DTFrameLogin/QRLogin 依赖 DOM),
- * 故共享层只渲染占位图�?+ "打开网页"按钮(跳到 web 端完成扫�?�? * web 平台后续可通过 renderQrPanel 注入真实 SDK 面板�?*/
+/** QR 扫码平台配置(平台注入,共享层渲染平台切换 tab + 二维码占位)
+ * 2026-08-04 新增:对齐 web 端 qr-tab.tsx 的平台切换设计。
+ * RN 端无法直接加载各厂商 SDK(WxLogin/WwLogin/DTFrameLogin/QRLogin 依赖 DOM),
+ * 故共享层只渲染占位图标 + "打开网页"按钮(跳到 web 端完成扫码)。
+ * web 平台后续可通过 renderQrPanel 注入真实 SDK 面板。 */
 export interface QrPlatformOption {
   /** 平台 key(wechat/enterpriseWechat/dingtalk/feishu) */
   key: ThirdPartyPlatform
-  /** 平台显示名称(�?微信"/"企业微信"/"钉钉"/"飞书") */
+  /** 平台显示名称(如"微信"/"企业微信"/"钉钉"/"飞书") */
   label: string
-  /** 平台图标(RN Image source;不传�?fallback 到首字母) */
+  /** 平台图标(RN Image source;不传则 fallback 到首字母) */
   iconSource?: number | { uri: string } | null
-  /** 品牌�?用于 fallback 圆角背景) */
+  /** 品牌色(用于 fallback 圆角背景) */
   brandColor?: string
-  /** web 端扫码页�?URL(用于"打开网页"按钮,原生平台点击后打开浏览�? */
+  /** web 端扫码页面 URL(用于"打开网页"按钮,原生平台点击后打开浏览器) */
   webUrl?: string
 }
 
-/** LoginScreen props(表单�?状态由 wrapper 管理)
+/** LoginScreen props(表单屏,状态由 wrapper 管理)
  *
- * 2026-07-30 升级:支持 4-tab(email/phone/password/qr)+ 第三方登�?+ 协议同意,
- * 对齐 web ui-react LoginForm。新增字段全部可�?保持向后兼容(仅传 account/password
- * 的旧调用方仍可工�?渲染为单一 password tab)�?*/
+ * 2026-07-30 升级:支持 4-tab(email/phone/password/qr)+ 第三方登录 + 协议同意,
+ * 对齐 web ui-react LoginForm。新增字段全部可选,保持向后兼容(仅传 account/password
+ * 的旧调用方仍可工作,渲染为单一 password tab)。 */
 export interface LoginScreenProps {
   t: TFunction
   account: string
@@ -1657,41 +1667,53 @@ export interface LoginScreenProps {
   onLogin: () => void
   onSsoLogin: () => void
   colorScheme?: 'light' | 'dark'
-  /** logo 图片�?RN Image source,�?require('../../assets/logo.png'))�?   * 不传则渲染深色方�?IHUI 文字作为 fallback,对齐 web AuthShell logo 占位�?*/
+  /** logo 图片源(RN Image source,如 require('../../assets/logo.png'))。
+   * 不传则渲染深色方块+IHUI 文字作为 fallback,对齐 web AuthShell logo 占位。 */
   logoSource?: number | { uri: string }
-  /** welcome 图标节点(logo 右侧的品牌文字图,对齐 web AuthShell �?welcome.svg)�?   * 推荐�?react-native-svg �?SvgXml 渲染 welcome.svg/baiwelcome.svg 内容�?   * 不传�?fallback 到纯文字 "IHUI AI"(不推�?�?�?web 端视觉不一�?�?*/
+  /**
+   * 2026-09-29 新增:logo 的 ReactNode 通道,与下面的 welcomeNode 同形、优先级更高。
+   * 存在的原因是实测出来的,不是审美:真机 release 包里 <Image source={本地 PNG require}>
+   * 渲染为空白(布局仍占 53dp),而同屏走 react-native-svg 的图标全部正常 —— 已用同格
+   * 对照实验钉死(枚 8a7926ead7)。故调用方应传 <SvgXml/>,不要再依赖 logoSource。
+   * logoSource 保留是为了不破坏既有调用方与 <Image> 兜底分支。
+   */
+  logoNode?: ReactNode
+  /** welcome 图标节点(logo 右侧的品牌文字图,对齐 web AuthShell 的 welcome.svg)。
+   * 推荐用 react-native-svg 的 SvgXml 渲染 welcome.svg/baiwelcome.svg 内容。
+   * 不传则 fallback 到纯文字 "IHUI AI"(不推荐 — 与 web 端视觉不一致)。 */
   welcomeNode?: ReactNode
 
-  // ===== 4-tab 扩展(可�?未传则只渲染 password tab,保持向后兼容) =====
+  // ===== 4-tab 扩展(可选,未传则只渲染 password tab,保持向后兼容) =====
 
-  /** 启用�?tab 列表(默认 ['password'],传多个则渲染 tab 切换�?�?   * 对齐 web ui-react LoginFormProps.tabs,顺序:email/phone/password/qr�?*/
+  /** 启用的 tab 列表(默认 ['password'],传多个则渲染 tab 切换条)。
+   * 对齐 web ui-react LoginFormProps.tabs,顺序:email/phone/password/qr。 */
   tabs?: readonly LoginTab[]
   /** 默认激活 tab(默认第一个 tab) */
   defaultTab?: LoginTab
   /** tab 切换回调(含初始激活的 defaultTab,每次 activeTab 变化都会触发;wrapper 可据此做 tab 进入时副作业) */
   onTabChange?: (tab: LoginTab) => void
 
-  // ===== 邮箱验证码登�?email tab) =====
+  // ===== 邮箱验证码登录(email tab) =====
 
   email?: string
   emailCode?: string
   /** 邮箱验证码发送中(按钮 loading) */
   emailCodeSending?: boolean
-  /** 邮箱验证码倒计�?>0 时按钮显�?"{n}s 后重�?,禁用点击) */
+  /** 邮箱验证码倒计时(>0 时按钮显示 "{n}s 后重发",禁用点击) */
   emailCountdown?: number
   onEmailChange?: (text: string) => void
   onEmailCodeChange?: (text: string) => void
   onSendEmailCode?: () => void
   onLoginByEmailCode?: () => void
 
-  // ===== 手机验证码登�?phone tab) =====
+  // ===== 手机验证码登录(phone tab) =====
 
   phone?: string
   phoneCode?: string
   phoneCodeSending?: boolean
   phoneCountdown?: number
-  /** 手机号输入框前缀节点(区号展示,�?"+86",对齐 uniapp login �?xiaicc 区号)
-   * 不传则输入框独占一�?向后兼容)�?026-08-15 新增�?*/
+  /** 手机号输入框前缀节点(区号展示,如 "+86",对齐 uniapp login 的 xiaicc 区号)
+   * 不传则输入框独占一行(向后兼容)。2026-08-15 新增。 */
   phonePrefixNode?: ReactNode
   /** 区号选择列表(传 nations + phoneHead 则渲染可点击区号选择器,优先级高于 phonePrefixNode)
    * 2026-08-20 新增,对齐 uniapp login 的 nation-box + ChangePhone 现有模式:
@@ -1717,52 +1739,58 @@ export interface LoginScreenProps {
 
   // ===== QR 扫码登录(qr tab) =====
 
-  /** QR 登录配置(传则渲染 QR 占位 + 状态文�?不传�?qr tab 显示"暂未启用") */
+  /** QR 登录配置(传则渲染 QR 占位 + 状态文案;不传则 qr tab 显示"暂未启用") */
   qrConfig?: QrLoginConfig
 
-  /** QR 扫码平台列表(传则渲染平台切换 tab;不传�?qr tab 只显示单平台占位)
-   * 2026-08-04 新增:对齐 web �?qr-tab.tsx 的平台切换设计�?   * 4 个平�?微信/企业微信/钉钉/飞书 */
+  /** QR 扫码平台列表(传则渲染平台切换 tab;不传则 qr tab 只显示单平台占位)
+   * 2026-08-04 新增:对齐 web 端 qr-tab.tsx 的平台切换设计。
+   * 4 个平台:微信/企业微信/钉钉/飞书 */
   qrPlatforms?: QrPlatformOption[]
 
-  /** QR 面板渲染函数(平台注入,接收 platform key + refreshKey,返回二维码面�?ReactNode)
-   * 2026-08-04 新增:mobile-rn 端可注入 WebView 加载 web 端二维码面板(显示真实二维�?;
-   * web 端可注入 SDK 面板(WxLogin/DTFrameLogin �?�?   * 不传则共享层渲染 �?占位图标(无真实二维码)�?*/
+  /** QR 面板渲染函数(平台注入,接收 platform key + refreshKey,返回二维码面板 ReactNode)
+   * 2026-08-04 新增:mobile-rn 端可注入 WebView 加载 web 端二维码面板(显示真实二维码);
+   * web 端可注入 SDK 面板(WxLogin/DTFrameLogin 等)。
+   * 不传则共享层渲染 ▦ 占位图标(无真实二维码)。 */
   renderQrPanel?: (platform: ThirdPartyPlatform, refreshKey: number) => ReactNode
 
   // ===== 第三方登录区 =====
 
   /** 第三方登录选项列表(传则渲染第三方登录区;不传则不显示) */
   thirdPartyOptions?: ThirdPartyLoginOption[]
-  /** 第三方登录点击回�?wrapper 实现 OAuth flow,�?WebBrowser.openAuthSessionAsync) */
+  /** 第三方登录点击回调(wrapper 实现 OAuth flow,如 WebBrowser.openAuthSessionAsync) */
   onThirdPartyLogin?: (platform: ThirdPartyPlatform) => void
   /** 当前正在登录的第三方平台 key(对应按钮 loading) */
   thirdPartyLoadingPlatform?: ThirdPartyPlatform | null
 
   // ===== 协议同意 =====
 
-  /** 是否已同意协�?双向绑定) */
+  /** 是否已同意协议(双向绑定) */
   agreed?: boolean
-  /** 协议同意回调(用户切换复选框时触�? */
+  /** 协议同意回调(用户切换复选框时触发) */
   onAgreedChange?: (agreed: boolean) => void
-  /** 服务条款链接回调(wrapper 注入导航跳转,�?navigate('Agreement')) */
+  /** 服务条款链接回调(wrapper 注入导航跳转,如 navigate('Agreement')) */
   onOpenTerms?: () => void
   /** 隐私政策链接回调 */
   onOpenPrivacy?: () => void
-  /** 协议未勾选时的提示文�?�?wrapper 控制是否显示,共享层不维护) */
+  /** 协议未勾选时的提示文案(由 wrapper 控制是否显示,共享层不维护) */
   agreementError?: string
 
   // ===== 忘记密码 + 注册链接(password tab 独有) =====
 
-  /** 忘记密码回调(传则 password tab 右上角显�?忘记密码"链接) */
+  /** 忘记密码回调(传则 password tab 右上角显示"忘记密码"链接) */
   onForgotPassword?: () => void
-  /** 注册回调(传则卡片底部显示"还没有账�?立即注册") */
+  /** 注册回调(传则卡片底部显示"还没有账号?立即注册") */
   onRegister?: () => void
 
-  // ===== 密码显示/隐藏 图标(可�?对齐 web lucide Eye/EyeOff 视觉) =====
+  // ===== 密码显示/隐藏 图标(可选,对齐 web lucide Eye/EyeOff 视觉) =====
 
-  /** 密码"显示"状态图�?眼睛睁开)�?   * 推荐 lucide-react-native �?`<Eye />` 组件,�?web �?lucide-react 同源视觉 100% 一致�?   * 不传�?fallback �?emoji 👁(不推�?�?emoji �?Windows 渲染为损坏图)�?   * 类型�?ReactNode 而非 ImageSource,以支�?SVG 组件(lucide-react-native 基于 react-native-svg)�?*/
+  /** 密码"显示"状态图标(眼睛睁开)。
+   * 推荐 lucide-react-native 的 `<Eye />` 组件,与 web 端 lucide-react 同源视觉 100% 一致。
+   * 不传则 fallback 到 emoji 👁(不推荐 — emoji 在 Windows 渲染为损坏图)。
+   * 类型为 ReactNode 而非 ImageSource,以支持 SVG 组件(lucide-react-native 基于 react-native-svg)。 */
   eyeIconShow?: ReactNode
-  /** 密码"隐藏"状态图�?眼睛闭起)�?   * 推荐 lucide-react-native �?`<EyeOff />` 组件�?*/
+  /** 密码"隐藏"状态图标(眼睛闭起)。
+   * 推荐 lucide-react-native 的 `<EyeOff />` 组件。 */
   eyeIconHide?: ReactNode
 
   // ===== 自动登录 + 历史账号(2026-09-04,对齐 web 密码登录功能) =====
@@ -1779,7 +1807,7 @@ export interface LoginScreenProps {
   onClearLoginHistory?: () => void
 }
 
-/** RegisterScreen props(表单�? */
+/** RegisterScreen props(表单屏) */
 export interface RegisterScreenProps {
   t: TFunction
   account: string
@@ -1793,13 +1821,13 @@ export interface RegisterScreenProps {
   onRegister: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
-  /** 是否显示协议同意�?默认 false,启用后需配合 agreed/onAgreedChange) */
+  /** 是否显示协议同意行(默认 false,启用后需配合 agreed/onAgreedChange) */
   enableAgreement?: boolean
-  /** 协议是否已勾�?�?enableAgreement=true 时有意义) */
+  /** 协议是否已勾选(仅 enableAgreement=true 时有意义) */
   agreed?: boolean
-  /** 协议勾选状态变更回�?*/
+  /** 协议勾选状态变更回调 */
   onAgreedChange?: (v: boolean) => void
-  /** 是否显示协议未勾选错�?提交失败时置 true) */
+  /** 是否显示协议未勾选错误(提交失败时置 true) */
   showAgreeErr?: boolean
   /** 服务条款点击回调 */
   onOpenTerms?: () => void
@@ -1807,10 +1835,10 @@ export interface RegisterScreenProps {
   onOpenPrivacy?: () => void
 }
 
-/** 性别(0=保密,1=�?2=�? */
+/** 性别(0=保密,1=男,2=女) */
 export type Gender = 0 | 1 | 2
 
-/** ProfileEditScreen props(表单�?状态由 wrapper 管理) */
+/** ProfileEditScreen props(表单屏,状态由 wrapper 管理) */
 export interface ProfileEditScreenProps {
   t: TFunction
   nickname: string
@@ -1842,7 +1870,7 @@ export interface NationOption {
   content: string
 }
 
-/** ChangePhoneScreen props(表单�?状态由 wrapper 管理) */
+/** ChangePhoneScreen props(表单屏,状态由 wrapper 管理) */
 export interface ChangePhoneScreenProps {
   t: TFunction
   phoneNumber: string
@@ -1866,7 +1894,7 @@ export interface ChangePhoneScreenProps {
 
 /** 批次 14(2026-07-29 P3-3.3 实际迁移批次 10):Agent 市场/Agent 评价/活动/收藏/签到 */
 
-/** Agent 市场�?平台注入,字段对齐 mobile-rn AgentMarketScreen Agent) */
+/** Agent 市场项(平台注入,字段对齐 mobile-rn AgentMarketScreen Agent) */
 export interface AgentMarketItem {
   id: string
   name: string
@@ -1891,7 +1919,7 @@ export interface AgentMarketScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** Agent 评价�?平台注入,字段对齐 mobile-rn AgentReviewListScreen Item) */
+/** Agent 评价项(平台注入,字段对齐 mobile-rn AgentReviewListScreen Item) */
 export interface AgentReviewListItem {
   id: string
   agentName: string
@@ -1913,10 +1941,10 @@ export interface AgentReviewListScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 活动状�?*/
+/** 活动状态 */
 export type ActivityStatus = 'upcoming' | 'ongoing' | 'ended'
 
-/** 活动�?平台注入,字段对齐 mobile-rn ActivityScreen Activity) */
+/** 活动项(平台注入,字段对齐 mobile-rn ActivityScreen Activity) */
 export interface ActivityItem {
   id: string
   title: string
@@ -1939,7 +1967,7 @@ export interface ActivityScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 收藏�?平台注入,字段对齐 mobile-rn FavoritesScreen FavoriteItem) */
+/** 收藏项(平台注入,字段对齐 mobile-rn FavoritesScreen FavoriteItem) */
 export interface FavoritesItem {
   id: string
   title: string
@@ -1963,7 +1991,7 @@ export interface FavoritesScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 签到日历�?平台注入,字段对齐 mobile-rn CheckInScreen CheckInDay) */
+/** 签到日历项(平台注入,字段对齐 mobile-rn CheckInScreen CheckInDay) */
 export interface CheckInDay {
   date: string
   signed: boolean
@@ -1994,7 +2022,7 @@ export interface CheckInScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 直播列表�?平台注入,字段对齐 mobile-rn LiveScreen Live) */
+/** 直播列表项(平台注入,字段对齐 mobile-rn LiveScreen Live) */
 export interface LiveScreenItem {
   id: string
   title: string
@@ -2004,7 +2032,7 @@ export interface LiveScreenItem {
   viewCount: number
 }
 
-/** LiveScreen props(简化版直播列表,�?tab 切换) */
+/** LiveScreen props(简化版直播列表,无 tab 切换) */
 export interface LiveScreenProps {
   t: TFunction
   items: LiveScreenItem[]
@@ -2017,9 +2045,9 @@ export interface LiveScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 批次 15(2026-07-29):消息/记录/关系�?私聊/群聊/系统/详情/积分/学习/收益/邀�?关注/收藏) */
+/** 批次 15(2026-07-29):消息/记录/关系类(私聊/群聊/系统/详情/积分/学习/收益/邀请/关注/收藏) */
 
-/** 私信列表�?对齐 mobile-rn MessageDirectScreen Item) */
+/** 私信列表项(对齐 mobile-rn MessageDirectScreen Item) */
 export interface MessageDirectItem {
   memberId: string
   nickname: string
@@ -2039,7 +2067,7 @@ export interface MessageDirectScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 群聊列表�?对齐 mobile-rn MessageGroupScreen Item) */
+/** 群聊列表项(对齐 mobile-rn MessageGroupScreen Item) */
 export interface MessageGroupItem {
   groupId: string
   groupName: string
@@ -2059,7 +2087,7 @@ export interface MessageGroupScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 系统消息列表�?对齐 mobile-rn MessageSystemScreen Item) */
+/** 系统消息列表项(对齐 mobile-rn MessageSystemScreen Item) */
 export interface MessageSystemItem {
   id: string
   title: string
@@ -2098,7 +2126,7 @@ export interface MessageDetailScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 积分记录�?对齐 mobile-rn PointsRecordScreen PointsRecord) */
+/** 积分记录项(对齐 mobile-rn PointsRecordScreen PointsRecord) */
 export type PointsRecordType = 'all' | 'earn' | 'spend'
 export interface PointsRecordItem {
   id: string
@@ -2189,7 +2217,7 @@ export interface IncomeScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 邀请信�?对齐 mobile-rn InviteScreen InviteInfo) */
+/** 邀请信息(对齐 mobile-rn InviteScreen InviteInfo) */
 export interface InviteInfo {
   inviteCode: string
   inviteUrl: string
@@ -2216,7 +2244,7 @@ export interface InviteScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 关注/粉丝�?对齐 mobile-rn FollowScreen FollowUser) */
+/** 关注/粉丝项(对齐 mobile-rn FollowScreen FollowUser) */
 export type FollowTab = 'following' | 'fans'
 export interface FollowUserItem {
   id: string
@@ -2242,7 +2270,7 @@ export interface FollowScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 收藏�?对齐 mobile-rn FavoriteScreen FavoriteItem) */
+/** 收藏项(对齐 mobile-rn FavoriteScreen FavoriteItem) */
 export type FavoriteFilterTab = 'all' | 'course' | 'live' | 'article'
 export interface FavoriteItemRow {
   id: string
@@ -2268,13 +2296,13 @@ export interface FavoriteScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 批次 18(2026-07-29):模型/AIGC �?模型广场/n8n 模型管理/模型编辑/AIGC 作品列表) */
+/** 批次 18(2026-07-29):模型/AIGC 屏(模型广场/n8n 模型管理/模型编辑/AIGC 作品列表) */
 
 /** 模型类型(对齐 mobile-rn ModelPlazaScreen ModelType) */
 export type ModelPlazaModelType = 'text' | 'image' | 'av'
 export type ModelPlazaTypeFilter = 'all' | ModelPlazaModelType
 
-/** 模型广场供应�?对齐 mobile-rn ModelPlazaScreen Provider) */
+/** 模型广场供应商(对齐 mobile-rn ModelPlazaScreen Provider) */
 export interface ModelPlazaProvider {
   id: string
   name: string
@@ -2282,7 +2310,7 @@ export interface ModelPlazaProvider {
   desc: string
 }
 
-/** 模型广场列表�?对齐 mobile-rn ModelPlazaScreen Model) */
+/** 模型广场列表项(对齐 mobile-rn ModelPlazaScreen Model) */
 export interface ModelPlazaItem {
   id: string
   providerId: string
@@ -2295,7 +2323,7 @@ export interface ModelPlazaItem {
   payMode: string
 }
 
-/** ModelPlazaScreen props �?注入�?状态由 wrapper 管理,�?UI 渲染) */
+/** ModelPlazaScreen props — 注入式(状态由 wrapper 管理,纯 UI 渲染) */
 export interface ModelPlazaScreenProps {
   t: TFunction
   items: ModelPlazaItem[]
@@ -2314,11 +2342,11 @@ export interface ModelPlazaScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** n8n 工作流状�?对齐 mobile-rn N8nModelScreen Status) */
+/** n8n 工作流状态(对齐 mobile-rn N8nModelScreen Status) */
 export type N8nModelStatus = 'running' | 'stopped'
 export type N8nModelTab = 'all' | 'running' | 'stopped'
 
-/** n8n 模型列表�?对齐 mobile-rn N8nModelScreen N8nModel) */
+/** n8n 模型列表项(对齐 mobile-rn N8nModelScreen N8nModel) */
 export interface N8nModelItem {
   id: string
   name: string
@@ -2331,7 +2359,7 @@ export interface N8nModelItem {
   paramsOut: number
 }
 
-/** N8nModelScreen props �?注入�?*/
+/** N8nModelScreen props — 注入式 */
 export interface N8nModelScreenProps {
   t: TFunction
   items: N8nModelItem[]
@@ -2370,7 +2398,7 @@ export interface ModelEditBaseInfo {
   prologue: string
 }
 
-/** 模型编辑表单字段�?�?wrapper 持有,onChange 回写) */
+/** 模型编辑表单字段值(由 wrapper 持有,onChange 回写) */
 export interface ModelEditFieldValues {
   categories: string[]
   dept: string
@@ -2382,7 +2410,7 @@ export interface ModelEditFieldValues {
   discount: string
 }
 
-/** ModelEditScreen props �?表单型注入式 */
+/** ModelEditScreen props — 表单型注入式 */
 export interface ModelEditScreenProps {
   t: TFunction
   baseInfo: ModelEditBaseInfo
@@ -2403,7 +2431,7 @@ export interface ModelEditScreenProps {
 export type AigcFileType = 0 | 1 | 3 | 4
 export type AigcCategory = 'all' | 'image' | 'video' | 'audio' | 'text'
 
-/** AIGC 作品列表�?对齐 mobile-rn AigcListScreen AigcWork) */
+/** AIGC 作品列表项(对齐 mobile-rn AigcListScreen AigcWork) */
 export interface AigcListItem {
   id: string
   title: string
@@ -2425,7 +2453,7 @@ export interface AigcCategoryOption {
   fileType?: AigcFileType
 }
 
-/** AigcListScreen props �?注入�?*/
+/** AigcListScreen props — 注入式 */
 export interface AigcListScreenProps {
   t: TFunction
   items: AigcListItem[]
@@ -2440,20 +2468,20 @@ export interface AigcListScreenProps {
   onPublish: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
-  /** 上拉触底加载下一�?注入�?由平台层提供 loadMore 实现) */
+  /** 上拉触底加载下一页(注入式,由平台层提供 loadMore 实现) */
   onLoadMore?: () => void
 }
 
-/** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价�?*/
+/** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价值 */
 
-/** 考试历史列表�?平台注入,字段对齐 mobile-rn ExamHistoryScreen ExamHistory) */
+/** 考试历史列表项(平台注入,字段对齐 mobile-rn ExamHistoryScreen ExamHistory) */
 export interface ExamHistoryItem {
   id: string
   examTitle: string
   score: number
   totalScore: number
   passed: boolean
-  /** 提交时间(ISO 或格式化字符�? */
+  /** 提交时间(ISO 或格式化字符串) */
   submittedAt: string
 }
 
@@ -2465,13 +2493,13 @@ export interface ExamHistoryScreenProps {
   refreshing: boolean
   error: string
   onRefresh: () => void
-  /** 点击历史记录回调,平台注入导航跳转(�?navigate('ExamResult', { id })) */
+  /** 点击历史记录回调,平台注入导航跳转(如 navigate('ExamResult', { id })) */
   onPressItem: (id: string) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
 
-/** 考试错题�?平台注入,字段对齐 mobile-rn ExamResultScreen wrongQuestions) */
+/** 考试错题项(平台注入,字段对齐 mobile-rn ExamResultScreen wrongQuestions) */
 export interface ExamResultWrongQuestion {
   /** 题目序号(0-based) */
   index: number
@@ -2505,19 +2533,19 @@ export interface ExamResultScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 模型收益 Tab key(全部/待结�?已结�? */
+/** 模型收益 Tab key(全部/待结算/已结算) */
 export type ModelIncomeTab = 'all' | 'pending' | 'settled' | string
 
-/** 模型收益列表�?平台注入,字段对齐 mobile-rn ModelIncomeScreen CommissionRecord) */
+/** 模型收益列表项(平台注入,字段对齐 mobile-rn ModelIncomeScreen CommissionRecord) */
 export interface ModelIncomeItem {
   id: string
   orderId: string
-  /** 结算状�?原始 status 字段,'settled'/'2' 视为已结�? */
+  /** 结算状态(原始 status 字段,'settled'/'2' 视为已结算) */
   status: string
   createdAt: string
   userNickname: string
   orderAmount: number
-  /** 佣金费率(百分�? */
+  /** 佣金费率(百分比) */
   rate: number
   commissionAmount: number
 }
@@ -2526,11 +2554,11 @@ export interface ModelIncomeItem {
 export interface ModelIncomeSummary {
   /** 累计收益 */
   totalCommission: number
-  /** 可提�?*/
+  /** 可提现 */
   availableCommission: number
-  /** 已提�?*/
+  /** 已提现 */
   withdrawnCommission: number
-  /** 待结�?*/
+  /** 待结算 */
   pendingCommission: number
   /** 今日收益 */
   day: number
@@ -2547,7 +2575,7 @@ export interface ModelIncomeScreenProps {
   activeTab: ModelIncomeTab
   onSelectTab: (tab: ModelIncomeTab) => void
   onRefresh: () => void
-  /** 提现弹窗可见�?wrapper 控制) */
+  /** 提现弹窗可见性(wrapper 控制) */
   showWithdrawModal: boolean
   onOpenWithdraw: () => void
   onCloseWithdraw: () => void
@@ -2556,31 +2584,31 @@ export interface ModelIncomeScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** Token 记录 Tab key(全部/消�?充�? */
+/** Token 记录 Tab key(全部/消耗/充值) */
 export type TokenRecordType = 'all' | 'cost' | 'recharge' | string
 
 /** Token 余额(平台注入,字段对齐 @ihui/api-client TokenBalance,补充 frozen 占位) */
 export interface TokenValueBalance {
   /** 可用算力 */
   balance: number
-  /** 冻结(TokenBalance API 不返�?占位 0) */
+  /** 冻结(TokenBalance API 不返回,占位 0) */
   frozen: number
-  /** 累计消�?*/
+  /** 累计消耗 */
   totalUsed: number
 }
 
-/** Token 流水记录�?平台注入,合并消�?+ 充�?字段对齐 mobile-rn TokenValueScreen Record) */
+/** Token 流水记录项(平台注入,合并消耗 + 充值,字段对齐 mobile-rn TokenValueScreen Record) */
 export interface TokenValueRecord {
   id: string
   type: 'cost' | 'recharge'
   title: string
-  /** 金额(消耗为�?充值为�? */
+  /** 金额(消耗为负,充值为正) */
   amount: number
-  /** 已格式化的时间文�?*/
+  /** 已格式化的时间文本 */
   time: string
 }
 
-/** Token 充值套�?产品配置,静态前端数�?字段对齐 mobile-rn TokenValueScreen Package) */
+/** Token 充值套餐(产品配置,静态前端数据,字段对齐 mobile-rn TokenValueScreen Package) */
 export interface TokenValuePackage {
   id: string
   tokens: number
@@ -2600,15 +2628,15 @@ export interface TokenValueScreenProps {
   activeTab: TokenRecordType
   onSelectTab: (tab: TokenRecordType) => void
   onRefresh: () => void
-  /** 点击充值套餐回�?平台注入支付确认(Alert/弹窗/导航) */
+  /** 点击充值套餐回调,平台注入支付确认(Alert/弹窗/导航) */
   onRecharge: (pkg: TokenValuePackage) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
 
-/** 批次 17(2026-07-29):直播详情/主播�?预告/回放(单条直播�?4 �? */
+/** 批次 17(2026-07-29):直播详情/主播端/预告/回放(单条直播深 4 屏) */
 
-/** LiveDetail 聊天连接状�?对齐 mobile-rn LiveChatClient ChatStatus) */
+/** LiveDetail 聊天连接状态(对齐 mobile-rn LiveChatClient ChatStatus) */
 export type LiveDetailChatStatus =
   'idle' | 'connecting' | 'open' | 'reconnecting' | 'error' | 'closed'
 
@@ -2617,7 +2645,7 @@ export interface LiveDetailChatMessage {
   id: string
   nickname: string
   content: string
-  /** 已格式化的时间文�?平台注入,避免共享层依赖日期工�? */
+  /** 已格式化的时间文本(平台注入,避免共享层依赖日期工具) */
   createdAt: string
 }
 
@@ -2632,7 +2660,7 @@ export interface LiveDetailItem {
   intro?: string | null
 }
 
-/** LiveDetailScreen props(注入�?wrapper 保留 WebSocket/API 调用) */
+/** LiveDetailScreen props(注入式:wrapper 保留 WebSocket/API 调用) */
 export interface LiveDetailScreenProps {
   t: TFunction
   live: LiveDetailItem | null
@@ -2653,7 +2681,7 @@ export interface LiveDetailScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** LiveHost 推流状�?对齐 mobile-rn LiveHostScreen StreamStatus) */
+/** LiveHost 推流状态(对齐 mobile-rn LiveHostScreen StreamStatus) */
 export type LiveHostStatus = 'idle' | 'active' | 'inactive'
 
 /** LiveHost 推流数据(平台注入,字段对齐 SRS API StreamData) */
@@ -2673,20 +2701,20 @@ export interface LiveHostProduct {
   price: number
 }
 
-/** LiveHostScreen props(注入�?wrapper 保留推流/SRS API 调用) */
+/** LiveHostScreen props(注入式:wrapper 保留推流/SRS API 调用) */
 export interface LiveHostScreenProps {
   t: TFunction
   status: LiveHostStatus
   streamTitle: string
   onStreamTitleChange: (text: string) => void
   stream: LiveHostStreamData | null
-  /** 观众�?平台注入,共享层不维护定时�? */
+  /** 观众数(平台注入,共享层不维护定时器) */
   viewers: number
-  /** 已格式化的时长文�?平台注入) */
+  /** 已格式化的时长文本(平台注入) */
   durationText: string
-  /** 已格式化的字节文�?平台注入,recvBytes) */
+  /** 已格式化的字节文本(平台注入,recvBytes) */
   recvBytesText: string
-  /** 已格式化的字节文�?平台注入,sendBytes) */
+  /** 已格式化的字节文本(平台注入,sendBytes) */
   sendBytesText: string
   loading: boolean
   error: string
@@ -2723,14 +2751,14 @@ export interface LivePreviewScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** LivePlayback 列表�?平台注入,字段对齐 @ihui/api-client Live 子集) */
+/** LivePlayback 列表项(平台注入,字段对齐 @ihui/api-client Live 子集) */
 export interface LivePlaybackScreenItem {
   id: string
   title: string
   lecturerName?: string
-  /** 已格式化的开始时间文�?平台注入) */
+  /** 已格式化的开始时间文本(平台注入) */
   startTimeText: string
-  /** 已格式化的时长文�?平台注入) */
+  /** 已格式化的时长文本(平台注入) */
   durationText: string
   viewCount: number
   playUrl?: string | null
@@ -2743,7 +2771,7 @@ export interface LivePlaybackScreenProps {
   loading: boolean
   refreshing: boolean
   error: string
-  /** 当前播放的回�?平台注入,控制 Modal 显隐) */
+  /** 当前播放的回放(平台注入,控制 Modal 显隐) */
   activeItem: LivePlaybackScreenItem | null
   /** 用户昵称(平台注入,header 展示) */
   userName: string
@@ -2754,32 +2782,32 @@ export interface LivePlaybackScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 批次 20(2026-07-29):AI/聊天�?助手管理/AI 群组/AIGC 封面/AIGC 发布,4 屏迁移自 mobile-rn) */
+/** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布,4 屏迁移自 mobile-rn) */
 
-/** 助手状�?*/
+/** 助手状态 */
 export type AssistantStatus = 'draft' | 'reviewing' | 'published' | 'rejected' | 'offline'
 
 /** 助手主标签页 */
 export type AssistantTab = 'draft' | 'reviewing' | 'published'
 
-/** 助子子标签页(draft 下细�? */
+/** 助子子标签页(draft 下细分) */
 export type AssistantSubTab = 'all' | 'rejected' | 'offline'
 
-/** 助手�?*/
+/** 助手项 */
 export interface AssistantItem {
   id: string
   name: string
   prologue: string
   status: AssistantStatus
-  /** 已格式化的类别文�?平台注入) */
+  /** 已格式化的类别文本(平台注入) */
   category?: string
-  /** 售卖价格(�? */
+  /** 售卖价格(分) */
   price?: number
-  /** 售卖周期文本(平台注入,�?"�?/"�?,为空表示永久) */
+  /** 售卖周期文本(平台注入,如 "月"/"年",为空表示永久) */
   cycle?: string
-  /** 已格式化的受众文�?平台注入,�?"会员"/"全部用户") */
+  /** 已格式化的受众文本(平台注入,如 "会员"/"全部用户") */
   audience?: string
-  /** 已格式化的上架时间文�?平台注入) */
+  /** 已格式化的上架时间文本(平台注入) */
   publishTime?: string
 }
 
@@ -2802,7 +2830,7 @@ export interface AssistantScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** AI 群组标签�?*/
+/** AI 群组标签页 */
 export type AiGroupTab = 'mine' | 'discover'
 
 /** AI 群组成员 */
@@ -2812,7 +2840,7 @@ export interface AiGroupMember {
   role: string
 }
 
-/** AI 群组�?*/
+/** AI 群组项 */
 export interface AiGroupItem {
   id: string
   name: string
@@ -2820,7 +2848,7 @@ export interface AiGroupItem {
   tag: string
   members: AiGroupMember[]
   messages: number
-  /** 已格式化的最近活跃时间文�?平台注入) */
+  /** 已格式化的最近活跃时间文本(平台注入) */
   lastActive: string
 }
 
@@ -2829,7 +2857,7 @@ export interface AiGroupScreenProps {
   t: TFunction
   items: AiGroupItem[]
   tab: AiGroupTab
-  /** 当前选中的群�?平台注入,控制详情视图显隐) */
+  /** 当前选中的群组(平台注入,控制详情视图显隐) */
   selectedItem: AiGroupItem | null
   loading: boolean
   refreshing: boolean
@@ -2847,7 +2875,7 @@ export interface AiGroupScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** AIGC 封面过滤�?*/
+/** AIGC 封面过滤器 */
 export type AigcCoverFilter = 'all' | 'work' | 'ai'
 
 /** AIGC 封面选项 */
@@ -2911,9 +2939,9 @@ export interface AigcPublishScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 批次 22(2026-07-29):AI 相关�?Agent 列表/AI 助手/AI 职业规划/AI 多模�?4 屏迁移自 mobile-rn) */
+/** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 职业规划/AI 多模态,4 屏迁移自 mobile-rn) */
 
-/** Agent 列表�?*/
+/** Agent 列表项 */
 export interface AgentScreenItem {
   id: string
   name: string
@@ -2950,7 +2978,7 @@ export interface AiAssistantCategory {
   label: string
 }
 
-/** AI 助手�?*/
+/** AI 助手项 */
 export interface AiAssistantItem {
   id: string
   name: string
@@ -2974,7 +3002,7 @@ export interface AiAssistantScreenProps {
   onKeywordChange: (kw: string) => void
   onRefresh: () => void
   onPressItem: (item: AiAssistantItem) => void
-  /** 点击"更多分类"按钮跳转分类详情�?可�?不传则不显示"更多"按钮) */
+  /** 点击"更多分类"按钮跳转分类详情页(可选,不传则不显示"更多"按钮) */
   onPressCategory?: (categoryId: string, title: string) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
@@ -3041,10 +3069,10 @@ export interface AiCareerScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** AI 多模态模�?*/
+/** AI 多模态模式 */
 export type AiMultimodalMode = 'text' | 'image' | 'audio'
 
-/** AI 多模态消�?*/
+/** AI 多模态消息 */
 export interface AiMultimodalMessage {
   id: string
   role: 'user' | 'assistant'
@@ -3071,7 +3099,7 @@ export interface AIMultimodalScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 批次 16(2026-07-29):简单详�?表单/展示�?活动详情/Agent评价详情/银行�?名片/课程报名/通知设置/发帖/二维�?实名认证/安全设置) */
+/** 批次 16(2026-07-29):简单详情/表单/展示类(活动详情/Agent评价详情/银行卡/名片/课程报名/通知设置/发帖/二维码/实名认证/安全设置) */
 
 /** 活动详情数据 */
 export interface ActivityDetailItem {
@@ -3113,7 +3141,7 @@ export interface AgentReviewDetailScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 银行卡数�?*/
+/** 银行卡数据 */
 export interface BankCardItem {
   id: string
   number: string
@@ -3167,7 +3195,7 @@ export interface BusinessCardScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 课程报名列表�?*/
+/** 课程报名列表项 */
 export interface CourseEnrollItem {
   id: string
   title: string
@@ -3222,7 +3250,7 @@ export interface NotificationSettingsScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** PostCreateScreen props(表单�?字段直接注入) */
+/** PostCreateScreen props(表单类,字段直接注入) */
 export interface PostCreateScreenProps {
   t: TFunction
   title: string
@@ -3238,7 +3266,7 @@ export interface PostCreateScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 二维码信�?*/
+/** 二维码信息 */
 export interface QrCodeItem {
   content: string
   url: string
@@ -3256,7 +3284,7 @@ export interface QrCodeScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 实名认证状态�?*/
+/** 实名认证状态值 */
 export type RealNameAuthStatus = 'unverified' | 'pending' | 'verified' | 'rejected'
 
 /** 实名认证数据 */
@@ -3302,7 +3330,7 @@ export interface SecuritySettingsScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 批次 23(2026-07-29):Agent 系深�?统计/设置/创建/聊天)+ 课程系深�?列表/详情/筛�?评论) */
+/** 批次 23(2026-07-29):Agent 系深屏(统计/设置/创建/聊天)+ 课程系深屏(列表/详情/筛选/评论) */
 
 /** Agent 统计数据 */
 export interface AgentStatData {
@@ -3386,7 +3414,7 @@ export interface AgentChatScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 课程列表�?*/
+/** 课程列表项 */
 export interface CourseScreenItem {
   id: string
   title: string
@@ -3515,7 +3543,7 @@ export interface CourseFilterScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 课程评论�?*/
+/** 课程评论项 */
 export interface CourseCommentItem {
   id: string
   user: string
@@ -3534,9 +3562,9 @@ export interface CourseCommentScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 批次 24(2026-07-29):Circle �?圈子)4 �?�?成员/详情/创建/聊天 */
+/** 批次 24(2026-07-29):Circle 系(圈子)4 屏 — 成员/详情/创建/聊天 */
 
-/** 圈子成员�?*/
+/** 圈子成员项 */
 export interface CircleMemberItem {
   id: string
   name: string
@@ -3631,7 +3659,7 @@ export interface ApiSettingsConfig {
   timeout: number
 }
 
-/** 连通性测试状�?*/
+/** 连通性测试状态 */
 export type ApiSettingsTestState = 'idle' | 'testing' | 'success' | 'failed'
 
 /** ApiSettingsScreen props */
@@ -3690,7 +3718,7 @@ export interface CarteScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 课程附件�?CourseAnnexScreen) */
+/** 课程附件项(CourseAnnexScreen) */
 export interface CourseAnnexItem {
   id: string
   name: string
@@ -3723,7 +3751,7 @@ export interface CourseQAAskScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 课程资源�?CourseResourceScreen) */
+/** 课程资源项(CourseResourceScreen) */
 export interface CourseResourceItem {
   id: string
   name: string
@@ -3833,7 +3861,7 @@ export interface LecturerDetailScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 笔记�?NoteScreen) */
+/** 笔记项(NoteScreen) */
 export interface NoteItem {
   id: string
   title: string
@@ -3841,7 +3869,7 @@ export interface NoteItem {
   updatedAt: string
 }
 
-/** NoteScreen props(含编�?Modal) */
+/** NoteScreen props(含编辑 Modal) */
 export interface NoteScreenProps {
   t: TFunction
   userLabel: string
@@ -3867,7 +3895,7 @@ export interface NoteScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 订阅�?SubscriptionsScreen) */
+/** 订阅项(SubscriptionsScreen) */
 export interface SubscriptionsItem {
   id: string
   targetType: string
@@ -3890,7 +3918,7 @@ export interface SubscriptionsScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 任务中心任务�?TaskCenterScreen) */
+/** 任务中心任务项(TaskCenterScreen) */
 export interface TaskCenterItem {
   id: string
   title: string
@@ -3968,7 +3996,7 @@ export interface DistributionInfo {
   products?: DistributionProduct[]
 }
 
-/** DistributionScreen props(注入�?wrapper 保留 API 调用 + Alert 弹窗) */
+/** DistributionScreen props(注入式:wrapper 保留 API 调用 + Alert 弹窗) */
 export interface DistributionScreenProps {
   t: TFunction
   info: DistributionInfo | null
@@ -3998,7 +4026,7 @@ export interface ExamQuestionPaper {
   duration: number
 }
 
-/** ExamQuestionScreen props(注入�?wrapper 保留 API 调用 + 状态管�? */
+/** ExamQuestionScreen props(注入式:wrapper 保留 API 调用 + 状态管理) */
 export interface ExamQuestionScreenProps {
   t: TFunction
   exam: ExamQuestionPaper | null
@@ -4014,7 +4042,7 @@ export interface ExamQuestionScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 财务汇�?平台注入,字段对齐 mobile-rn FinanceScreen FinanceSummary) */
+/** 财务汇总(平台注入,字段对齐 mobile-rn FinanceScreen FinanceSummary) */
 export interface FinanceSummary {
   balance: number
   todayIncome: number
@@ -4022,7 +4050,7 @@ export interface FinanceSummary {
   totalExpense: number
 }
 
-/** FinanceScreen props(注入�?wrapper 保留 API 调用) */
+/** FinanceScreen props(注入式:wrapper 保留 API 调用) */
 export interface FinanceScreenProps {
   t: TFunction
   summary: FinanceSummary | null
@@ -4032,7 +4060,7 @@ export interface FinanceScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 首页推荐课程�?平台注入,字段对齐 mobile-rn HomeScreen Course 子集) */
+/** 首页推荐课程项(平台注入,字段对齐 mobile-rn HomeScreen Course 子集) */
 export interface HomeRecommendItem {
   id: string
   title: string
@@ -4045,7 +4073,7 @@ export interface HomeRecommendItem {
   cover?: string | null
 }
 
-/** 首页直播预览�?平台注入,字段对齐 mobile-rn HomeScreen Live 子集) */
+/** 首页直播预览项(平台注入,字段对齐 mobile-rn HomeScreen Live 子集) */
 export interface HomeLiveItem {
   id: string
   title: string
@@ -4054,7 +4082,7 @@ export interface HomeLiveItem {
   startTimeText: string
 }
 
-/** 首页学习进度�?平台注入,字段对齐 mobile-rn HomeScreen StudyProgress 子集) */
+/** 首页学习进度项(平台注入,字段对齐 mobile-rn HomeScreen StudyProgress 子集) */
 export interface HomeProgressItem {
   courseId: string
   courseTitle?: string | null
@@ -4063,14 +4091,14 @@ export interface HomeProgressItem {
   totalLessons: number
 }
 
-/** 首页发现菜单�?平台注入,字段对齐 mobile-rn HomeScreen 菜单配置) */
+/** 首页发现菜单项(平台注入,字段对齐 mobile-rn HomeScreen 菜单配置) */
 export interface HomeMenuItem {
   key: string
   labelKey: string
   icon: AppIcon | string
 }
 
-/** HomeScreen props(注入�?wrapper 保留 useAuth/useNotificationStore/API 调用) */
+/** HomeScreen props(注入式:wrapper 保留 useAuth/useNotificationStore/API 调用) */
 export interface HomeScreenProps {
   t: TFunction
   userNickname: string
@@ -4094,10 +4122,10 @@ export interface HomeScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 实名认证状�?字段对齐 mobile-rn IdentityVerifyScreen VerifyStatus) */
+/** 实名认证状态(字段对齐 mobile-rn IdentityVerifyScreen VerifyStatus) */
 export type IdentityVerifyStatus = 'unverified' | 'pending' | 'verified' | 'rejected'
 
-/** IdentityVerifyScreen props(注入�?wrapper 保留 API 调用 + 状态管�? */
+/** IdentityVerifyScreen props(注入式:wrapper 保留 API 调用 + 状态管理) */
 export interface IdentityVerifyScreenProps {
   t: TFunction
   status: IdentityVerifyStatus
@@ -4110,10 +4138,10 @@ export interface IdentityVerifyScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 推广状�?active/inactive) */
+/** 推广状态(active/inactive) */
 export type PromoteStatus = 'active' | 'inactive'
 
-/** 推广信息汇�?平台注入,字段对齐 mobile-rn PromoteScreen Info) */
+/** 推广信息汇总(平台注入,字段对齐 mobile-rn PromoteScreen Info) */
 export interface PromoteInfo {
   referralCode: string
   referralLink: string
@@ -4124,7 +4152,7 @@ export interface PromoteInfo {
   rules: string[]
 }
 
-/** 推广邀请记�?平台注入,字段对齐 mobile-rn PromoteScreen InviteRecord) */
+/** 推广邀请记录(平台注入,字段对齐 mobile-rn PromoteScreen InviteRecord) */
 export interface PromoteInviteRecord {
   id: string
   nickname: string
@@ -4149,10 +4177,10 @@ export interface PromoteScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 优惠券状�?available/used/expired) */
+/** 优惠券状态(available/used/expired) */
 export type PromotionCouponStatus = 'available' | 'used' | 'expired'
 
-/** 优惠券条�?平台注入,字段对齐 mobile-rn PromotionScreen Coupon) */
+/** 优惠券条目(平台注入,字段对齐 mobile-rn PromotionScreen Coupon) */
 export interface PromotionCoupon {
   id: string
   name: string
@@ -4209,7 +4237,7 @@ export interface RecruitmentScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 推荐人信�?平台注入,字段对齐 mobile-rn ReferrerScreen Info) */
+/** 推荐人信息(平台注入,字段对齐 mobile-rn ReferrerScreen Info) */
 export interface ReferrerInfo {
   referrerName: string | null
   referrerCode: string | null
@@ -4230,7 +4258,7 @@ export interface ReferrerScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 团队成员状�?*/
+/** 团队成员状态 */
 export type TeamMemberStatus = 'active' | 'inactive'
 
 /** 成员关系(direct/indirect) */
@@ -4272,7 +4300,7 @@ export interface TeamScreenProps {
   onSelectTab: (tab: TeamTab) => void
   onRefresh: () => void
   onBack: () => void
-  /** 点击成员卡片跳转详情(可�?不传则卡片不可点�? */
+  /** 点击成员卡片跳转详情(可选,不传则卡片不可点击) */
   onPressMember?: (memberId: string) => void
   /** 搜索关键词(对齐 Uniapp distribution_personnel_list InputArea「搜索我的团友」;不传则隐藏搜索框) */
   keyword?: string
@@ -4290,7 +4318,7 @@ export interface VideoPlayerProgress {
   lastLearnedAt: string | null
 }
 
-/** VideoPlayerScreen props(平台无关,wrapper 注入数据+播放�?slot+回调) */
+/** VideoPlayerScreen props(平台无关,wrapper 注入数据+播放器 slot+回调) */
 export interface VideoPlayerScreenProps {
   t: TFunction
   title?: string
@@ -4342,66 +4370,66 @@ export interface ChatScreenModel {
   input_price: number
 }
 
-/** 顶部导航条目(wrapper 注入,避免共享层依�?react-navigation) */
+/** 顶部导航条目(wrapper 注入,避免共享层依赖 react-navigation) */
 export interface ChatScreenNavItem {
   key: string
   label: string
   onPress: () => void
 }
 
-/** 批次 30(2026-07-29):MessageInput 消息输入框共享组�?对标 D �?InputArea.vue 全量能力) */
+/** 批次 30(2026-07-29):MessageInput 消息输入框共享组件(对标 D 盘 InputArea.vue 全量能力) */
 
-/** 输入框附件类�?图片/文档/视频) */
+/** 输入框附件类型(图片/文档/视频) */
 export type MessageInputFileType = 'image' | 'document' | 'video'
 
-/** 输入框附件条�?*/
+/** 输入框附件条目 */
 export interface MessageInputFile {
   id: string
-  /** 远端 URL 或本�?uri */
+  /** 远端 URL 或本地 uri */
   url: string
-  /** 文件�?文档/视频场景使用) */
+  /** 文件名(文档/视频场景使用) */
   filename?: string
   type: MessageInputFileType
 }
 
-/** 智能体变量条�?�?D �?Agent 变量填槽使用) */
+/** 智能体变量条目(供 D 盘 Agent 变量填槽使用) */
 export interface MessageInputAgentVariable {
-  /** 变量�?空时显示描述) */
+  /** 变量名(空时显示描述) */
   name: string
   /** 变量类型(text/image) */
   type: 'text' | 'image'
-  /** 描述(占位�? */
+  /** 描述(占位符) */
   description: string
-  /** 当前�?text 时为字符�?image 时为 url) */
+  /** 当前值(text 时为字符串,image 时为 url) */
   value: string
 }
 
-/** MessageInput props(平台无关,wrapper 注入所有平台能�? */
+/** MessageInput props(平台无关,wrapper 注入所有平台能力) */
 export interface MessageInputProps {
   t: TFunction
   /** 当前输入文本 */
   text: string
-  /** 占位�?可�?默认�?t('messageInput.placeholder')) */
+  /** 占位符(可选,默认用 t('messageInput.placeholder')) */
   placeholder?: string
-  /** 是否流式�?显示停止按钮) */
+  /** 是否流式中(显示停止按钮) */
   isStreaming: boolean
-  /** 加载�?发送按钮变 loading) */
+  /** 加载中(发送按钮变 loading) */
   isSending: boolean
   /** 是否禁用输入 */
   disabled: boolean
   /** 附件列表 */
   files: MessageInputFile[]
-  /** Agent 变量填槽(无则不显�? */
+  /** Agent 变量填槽(无则不显示) */
   agentVariables?: MessageInputAgentVariable[]
   /** 是否显示添加附件按钮 */
   showAddFileBtn: boolean
-  /** 焦点状�?用于样式切换) */
+  /** 焦点状态(用于样式切换) */
   isFocused: boolean
-  /** 全屏放大模式(独立全屏编辑�? */
+  /** 全屏放大模式(独立全屏编辑区) */
   isFullscreen: boolean
   /** 是否处于语音输入模式 */
   isVoiceMode: boolean
-  /** 语音录制�?显示波形) */
+  /** 语音录制中(显示波形) */
   isRecording: boolean
   /** 错误提示 */
   error: string
@@ -4415,21 +4443,21 @@ export interface MessageInputProps {
   onFullscreenToggle: () => void
   /** 切换语音/键盘模式 */
   onVoiceToggle: () => void
-  /** 添加图片(�?wrapper 实现相册/相机) */
+  /** 添加图片(由 wrapper 实现相册/相机) */
   onAddImage: () => void
-  /** 添加文件(�?wrapper 实现文档选择) */
+  /** 添加文件(由 wrapper 实现文档选择) */
   onAddFile: () => void
   /** 移除附件 */
   onRemoveFile: (id: string) => void
   /** 清空输入 */
   onClear: () => void
-  /** 开始语音录�?*/
+  /** 开始语音录制 */
   onVoiceStart: () => void
   /** 结束语音录制 */
   onVoiceEnd: () => void
-  /** Agent 变量值变�?text) */
+  /** Agent 变量值变更(text) */
   onAgentVariableTextChange?: (index: number, value: string) => void
-  /** Agent 变量值变�?image) */
+  /** Agent 变量值变更(image) */
   onAgentVariableImageChange?: (index: number) => void
   colorScheme?: 'light' | 'dark'
 }
@@ -4445,17 +4473,17 @@ export interface ChatScreenProps {
   model: string
   pickerOpen: boolean
   navItems: ChatScreenNavItem[]
-  /** MessageInput 所需:wrapper 注入的附件列�?*/
+  /** MessageInput 所需:wrapper 注入的附件列表 */
   inputFiles?: MessageInputFile[]
-  /** MessageInput 所需:智能体变量填�?*/
+  /** MessageInput 所需:智能体变量填槽 */
   agentVariables?: MessageInputAgentVariable[]
-  /** MessageInput 所需:输入框焦�?*/
+  /** MessageInput 所需:输入框焦点 */
   isInputFocused?: boolean
   /** MessageInput 所需:全屏模式 */
   isInputFullscreen?: boolean
   /** MessageInput 所需:语音模式 */
   isVoiceMode?: boolean
-  /** MessageInput 所需:语音录制�?*/
+  /** MessageInput 所需:语音录制中 */
   isRecording?: boolean
   /** MessageInput 所需:发送中(loading) */
   isSending?: boolean
@@ -4469,9 +4497,9 @@ export interface ChatScreenProps {
   onLongPressMessage: (item: ChatScreenMessage) => void
   /** 消息气泡 ref 注册回调(wrapper 可用于截图等平台特定能力,共享层不依赖) */
   onMessageRef?: (id: string, el: unknown) => void
-  /** MessageInput 事件:输入框焦�?*/
+  /** MessageInput 事件:输入框焦点 */
   onInputFocus?: () => void
-  /** MessageInput 事件:输入框失�?*/
+  /** MessageInput 事件:输入框失焦 */
   onInputBlur?: () => void
   /** MessageInput 事件:全屏切换 */
   onInputFullscreenToggle?: () => void
@@ -4485,7 +4513,7 @@ export interface ChatScreenProps {
   onInputRemoveFile?: (id: string) => void
   /** MessageInput 事件:清空输入 */
   onInputClear?: () => void
-  /** MessageInput 事件:开始语�?*/
+  /** MessageInput 事件:开始语音 */
   onInputVoiceStart?: () => void
   /** MessageInput 事件:结束语音 */
   onInputVoiceEnd?: () => void
@@ -4516,10 +4544,10 @@ export interface ChatScreenProps {
   onListRef?: (ref: unknown) => void
 }
 
-/** 开发者套餐类�?*/
+/** 开发者套餐类型 */
 export type DeveloperPlanType = 'month' | 'year'
 
-/** 开发者套餐条�?平台注入,字段对齐 mobile-rn DeveloperScreen PayPlan) */
+/** 开发者套餐条目(平台注入,字段对齐 mobile-rn DeveloperScreen PayPlan) */
 export interface DeveloperPlan {
   type: DeveloperPlanType
   label: string
@@ -4528,7 +4556,7 @@ export interface DeveloperPlan {
   perks: string[]
 }
 
-/** 开发者特性条�?*/
+/** 开发者特性条目 */
 export interface DeveloperFeature {
   title: string
   desc: string

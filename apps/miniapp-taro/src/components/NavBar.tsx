@@ -285,13 +285,15 @@ export default function NavBar({
             >
               {notification.text}
             </Text>
-            <Text
-              className="ml-[16rpx] text-[length:32rpx] leading-none"
-              style={{ color: 'var(--color-notification-text)' }}
+            {/* 关闭键载体 = 矢量(O81 票:原为字符 × 冒充图标);
+                尺寸沿用该元素原数值档 32rpx,色档沿用 var(--color-notification-text) 不变 */}
+            <LineIcon
+              name="x"
+              size={32}
+              color="var(--color-notification-text)"
+              className="ml-[16rpx]"
               onClick={notification.onClose}
-            >
-              ×
-            </Text>
+            />
           </View>
         )}
       </View>
@@ -350,13 +352,14 @@ export default function NavBar({
           >
             {notification.text}
           </Text>
-          <Text
-            className="ml-[16rpx] text-[length:32rpx] leading-none"
-            style={{ color: 'var(--color-notification-text)' }}
+          {/* 关闭键载体 = 矢量(与上方 ai-home 同一处 × 同批收口);尺寸/色档同口径 */}
+          <LineIcon
+            name="x"
+            size={32}
+            color="var(--color-notification-text)"
+            className="ml-[16rpx]"
             onClick={notification.onClose}
-          >
-            ×
-          </Text>
+          />
         </View>
       )}
     </View>
