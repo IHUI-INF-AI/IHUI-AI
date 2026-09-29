@@ -148,7 +148,7 @@ function createStyles(tk: AppThemeTokens) {
     detailsButton: {
       width: '100%',
       height: '100%',
-      borderRadius: rnRadius.sm, // 订阅按钮是控件 ⇒ control 档 sm(项目不允许胶囊)
+      borderRadius: 30, // radius-exempt: 高 38 的胶囊按钮,半径≥高度一半,渲染为完整胶囊,吸附方档会破坏形状
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.warning.amber,

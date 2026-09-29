@@ -77,7 +77,12 @@ export function RankingScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
+        <BackChevron
+          onPress={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          style={styles.backBtn}
+        />
         <Text style={styles.title}>{t('ranking.title')}</Text>
         <Text style={styles.subtitle}>{t('ranking.subtitle')}</Text>
       </View>
@@ -191,7 +196,7 @@ function createStyles(tk: AppThemeTokens) {
     podiumAvatar: {
       width: 48,
       height: 48,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: 48 / 2, // radius-exempt: 领奖台头像几何正圆(48dp 直径/2)
       borderWidth: 2,
       alignItems: 'center',
       justifyContent: 'center',
@@ -225,7 +230,7 @@ function createStyles(tk: AppThemeTokens) {
     listAvatar: {
       width: 44,
       height: 44,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: 44 / 2, // radius-exempt: 榜单行头像几何正圆(44dp 直径/2)
       borderWidth: 1.5,
       alignItems: 'center',
       justifyContent: 'center',
