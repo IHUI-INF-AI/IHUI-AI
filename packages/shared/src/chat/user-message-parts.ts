@@ -1,0 +1,146 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 用户消息正文的"拍平附件"拆分(D129)。
+ *
+ * 病灶:发送侧 `apps/web/src/hooks/use-message-send.ts` 的 `doSend` 把附件拍平成四种文本形态
+ * (`![label](url)` / `<video src="…" controls></video>` / fenced code block / `> 📎 label`),
+ * 而用户气泡一直是 `<p className="whitespace-pre-wrap">{m.content}</p>` 纯文本渲染
+ * ⇒ 用户自己上传的图片在他自己的气泡里显示成一行 `![photo.png](/uploads/…)` 源码。
+ *
+ * **为什么不"复用助手侧那个 markdown 渲染器"(票面原本写的止血步)**:本仓另一条已入库的不变量
+ * G-825「消息级 markdown 边界」用一条负例用例钉死了"用户消息正文不经过 markdown 边界"
+ * (markdown 渲染炸了不得带走一整轮消息)。把用户正文整个塞进 MarkdownStream 会**直接踩掉那条锁**,
+ * 也并非必要 —— 要渲染的只是附件那几行,正文一个字都不该被重新解释(用户打 `*` 不该变斜体)。
+ * 所以这里走票面**根治方向**的前端子集:四类形态从正文拆出来各自渲染,正文保持纯文本原样。
+ *
+ * 三条不可漂的判据:
+ *  ① **只认整行的确切形态** —— 用户正文里讨论 `<video src="x" controls></video>` 写法的那段散文
+ *     不许被动(那是替用户改稿);fenced block 必须是"整行 ``` 开 + 整行 ``` 闭"的配对块。
+ *  ② URL 先过协议白名单;不合法(javascript: / data: / 其它协议)、URL 为空、标签为空、fence 不配对
+ *     ⇒ **不摘**,原文留在正文里可见可寻,并计入 `rejected` —— 宁可不美化,也绝不把用户的东西变没了。
+ *  ③ 拆出的顺序保留(界面按原顺序显示),四类各有计数,供用例断言"没有被吞"。
+ *
+ * 与发送侧形态的对应由本目录 `__tests__/user-message-parts.test.ts` 与
+ * `apps/web/src/components/chat/__tests__/d129-user-message-body.test.tsx` 钉住:那边改形态这边必须同改。
+ * 剩下的根治(另票):发送侧带**结构化附件字段**(渲染端不再从正文反解)+ 图片点开复用 D41 预览器。
+ */
+
+/** 发送侧产出的四种确切形态(全部按整行匹配)。 */
+const IMAGE_LINE = /^!\[([^\]]*)\]\(([^)\s]+)\)[ \t]*$/
+const VIDEO_LINE = /^<video src="([^"]*)" controls><\/video>[ \t]*$/
+const FILE_REF_LINE = /^> 📎 (.+)$/
+const FENCE = /^```[ \t]*$/
+
+export interface UserMessageImage {
+  alt: string
+  url: string
+}
+
+export interface UserMessageParts {
+  /** 摘走安全附件行之后剩下的用户正文(仍是纯文本,**不进 markdown 边界**)。 */
+  text: string
+  images: UserMessageImage[]
+  videos: string[]
+  /** 超长粘贴展开的 fenced block 正文(不含围栏本身)。 */
+  codeBlocks: string[]
+  /** 普通文件/文本引用的标签(`> 📎 label` 里的 label)。 */
+  fileRefs: string[]
+  /**
+   * 命中形态但**没被摘走**的行数(协议不合法 / URL 空 / 标签空 / fence 不配对)。
+   * 必须"看得见",不得被读成"没有附件"。
+   */
+  rejected: number
+}
+
+/** 只放行 `blob:`、同源绝对路径、http(s);其余一律不渲染成元素(原文留作可见文本)。 */
+export function safeMediaUrl(raw: string): string | null {
+  const url = raw.trim()
+  if (url.length === 0) return null
+  if (url.startsWith('blob:')) return url
+  if (url.startsWith('/')) return url
+  if (/^https?:\/\//i.test(url)) return url
+  return null
+}
+
+export function splitUserMessageParts(content: string): UserMessageParts {
+  const images: UserMessageImage[] = []
+  const videos: string[] = []
+  const codeBlocks: string[] = []
+  const fileRefs: string[] = []
+  let rejected = 0
+
+  const lines = content.split('\n')
+  const kept: string[] = []
+  let i = 0
+  while (i < lines.length) {
+    // `noUncheckedIndexedAccess` 下 `lines[i]` 是 `string | undefined`;循环条件已保证存在,
+    // 这里显式收成 string 而不是加非空断言(本仓类型层禁止用 `!` 糊推断)。
+    const line = lines[i] ?? ''
+
+    if (FENCE.test(line)) {
+      const closeIdx = lines.findIndex((l, k) => k > i && FENCE.test(l))
+      if (closeIdx < 0) {
+        // 不配对的围栏不猜它到哪儿结束 ⇒ 原样留着(可见),只记一笔未摘
+        rejected += 1
+        kept.push(line)
+        i += 1
+        continue
+      }
+      codeBlocks.push(lines.slice(i + 1, closeIdx).join('\n'))
+      i = closeIdx + 1
+      continue
+    }
+
+    const img = IMAGE_LINE.exec(line)
+    if (img) {
+      const url = safeMediaUrl(img[2] ?? '')
+      if (!url) {
+        rejected += 1
+        kept.push(line)
+      } else images.push({ alt: (img[1] ?? '').trim(), url })
+      i += 1
+      continue
+    }
+
+    const vid = VIDEO_LINE.exec(line)
+    if (vid) {
+      const url = safeMediaUrl(vid[1] ?? '')
+      if (!url) {
+        rejected += 1
+        kept.push(line)
+      } else videos.push(url)
+      i += 1
+      continue
+    }
+
+    const ref = FILE_REF_LINE.exec(line)
+    if (ref) {
+      const label = (ref[1] ?? '').trim()
+      if (label.length === 0) {
+        rejected += 1
+        kept.push(line)
+      } else fileRefs.push(label)
+      i += 1
+      continue
+    }
+
+    kept.push(line)
+    i += 1
+  }
+
+  const extractedSomething = images.length + videos.length + codeBlocks.length + fileRefs.length > 0
+  // 摘走行会留下连续空行;只在确实摘走过时收敛,不碰用户自己写的空行。
+  const text = extractedSomething
+    ? kept
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .replace(/^\n+/, '')
+        .replace(/\n+$/, '')
+    : content
+
+  return { text, images, videos, codeBlocks, fileRefs, rejected }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
