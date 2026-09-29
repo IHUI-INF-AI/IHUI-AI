@@ -17,6 +17,7 @@
 //!    且优先回跳「切离线前用户所在地址」而非一律回首页。
 //! 4. [通知] 离线/恢复/热刷新经系统通知告知(tauri_plugin_notification)。
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use tauri::Manager;
@@ -138,10 +139,52 @@ fn is_resumable_url(url: &str) -> bool {
     }
 }
 
+/// ── 更新检查世代互斥(G-698)──
+///
+/// 每小时静默链(本模块 `check_app_update`)与托盘→前端链(lib.rs emit + 前端
+/// useUpdater)并存,两条链都可能「请求在飞时被新检查取代」。互斥范围必须覆盖
+/// 「请求 + 结果处理」:每次发起检查先在此领取自增 checkId;结果/进度回调携带
+/// 该 checkId,处理前与当前世代比对,不一致即旧世代迟到回调,一律作废
+/// (不写任何状态、不触发任何副作用)。
+static UPDATE_CHECK_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+/// 发起一次新的更新检查:世代 +1,返回本次检查的 checkId(回调据此比对)。
+pub(crate) fn issue_update_check_id() -> u64 {
+    UPDATE_CHECK_GENERATION.fetch_add(1, Ordering::SeqCst) + 1
+}
+
+/// 作废当前在飞的更新检查回调(托盘→前端链发起检查前调用:新检查一旦开始,
+/// 旧检查的迟到回调就没有消费价值,按 checkId 作废)。
+pub(crate) fn invalidate_inflight_update_checks() {
+    UPDATE_CHECK_GENERATION.fetch_add(1, Ordering::SeqCst);
+}
+
+/// 旧世代迟到回调判定:回调携带的 checkId ≠ 当前世代 → 作废。纯函数,便于单测。
+fn is_stale_update_check(check_id: u64) -> bool {
+    check_id != UPDATE_CHECK_GENERATION.load(Ordering::SeqCst)
+}
+
 /// 应用自更新检查(每小时一次):经 updater endpoints(Gitee raw 优先)检查新版,
-/// 有则下载+静默安装(安装器接管后应用退出,重启即新版)。
+/// 有则下载+静默安装(安装器接管前先做退出准备,应用退出后重启即新版)。
 async fn check_app_update(app: &tauri::AppHandle) {
-    let updater = match app.updater() {
+    // G-698:领取本次检查的 checkId。后面每个 await 点之后都要先确认世代未被
+    // (另一条链的)新检查取代 —— 旧世代的迟到结果/回调一律按 checkId 作废。
+    let check_id = issue_update_check_id();
+    // G-699:退出准备是安装的硬前置。`updater_builder().on_before_exit(..)` 是插件
+    // 提供的退出前钩子(install_inner 尾部拉起安装器 + std::process::exit(0) 之前
+    // 调用,updater.rs:837-863):安装器覆盖可执行文件前,先把窗口状态落盘 ——
+    // 与 lib.rs restart_app 的退出准备同款,静默更新不得丢窗口位置/尺寸。
+    let updater = match app
+        .updater_builder()
+        .on_before_exit({
+            let app = app.clone();
+            move || {
+                let _ = crate::save_window_state(Some("main".to_string()), app.clone());
+                let _ = crate::save_window_state(Some("admin".to_string()), app.clone());
+            }
+        })
+        .build()
+    {
         Ok(u) => u,
         Err(e) => {
             log::warn!("[auto-refresh] updater 初始化失败: {e}");
@@ -152,7 +195,14 @@ async fn check_app_update(app: &tauri::AppHandle) {
     // 把「无新版」与「feed 404 / manifest 解析失败 / 版本号不合法 / 网络不可达」
     // 一并静默吞掉。自更新是后台无人触发的链路,静默 = 用户永远收不到更新而日志里
     // 一行痕迹都没有,故障与"本来就是最新版"不可区分。改为三分支,只有 None 静默。
-    match updater.check().await {
+    let check_result = updater.check().await;
+    // G-698:结果处理前校验世代 —— check().await 期间若托盘链发起了新检查,
+    // 本次即成旧世代,迟到结果(含"无更新"与"发现新版")一律作废。
+    if is_stale_update_check(check_id) {
+        log::info!("[auto-refresh] 更新检查 #{check_id} 已被新检查取代 → 迟到结果作废");
+        return;
+    }
+    match check_result {
         Ok(Some(update)) => {
             let ver = update.version.clone();
             log::info!("[auto-refresh] 发现应用新版 {ver} → 下载安装");
@@ -160,20 +210,39 @@ async fn check_app_update(app: &tauri::AppHandle) {
             // ⚠️ 第二个闭包**不是**"退出前钩子"。插件签名是
             //   `download_and_install(on_chunk, on_download_finish)`,而
             //   updater.rs:710 在 `verify_signature()`(:712)**之前**就调用它。
-            //   原先这里传的是 `|| app.restart()` —— 于是字节一落地应用就自杀:
+            //   更早的历史实现还传过 `|| app.restart()` —— 字节一落地应用就自杀:
             //     · 验签结果永远拿不到(进程已没了),下面那个 Err 分支形同虚设;
             //     · `install()` 里的 ShellExecuteW 拉起安装器与它赛跑,能不能装上全看
             //   谁先动手 → 实测同一份 feed 一次装上、七次没装上且不留任何错误日志;
             //     · 新实例起来后又检测到同一个新版 → **每小时一次的无限重启循环**
             //   (测试里 33s 一轮,日志 12:00:21→12:03:38 连续七轮即为实证)。
-            //   正解:这里传空闭包。插件在 install_inner 尾部自己
-            //   `ShellExecuteW(安装器)` + `std::process::exit(0)`(updater.rs:837-863),
-            //   根本不需要我们重启;要挂"退出前保存状态"请用
-            //   `app.updater_builder().on_before_exit(..)`(那个才是正确的时机)。
-            let result = update.download_and_install(|_, _| {}, || {}).await;
+            //   所以两个闭包都只挂 G-698 世代守卫(旧世代的迟到分片/完成事件直接
+            //   丢弃,不得触发任何副作用),真正的退出准备挂在上面
+            //   `updater_builder().on_before_exit(..)`(那个才是正确的时机)。
+            let result = update
+                .download_and_install(
+                    move |_received, _total| {
+                        if is_stale_update_check(check_id) {
+                            return;
+                        }
+                    },
+                    move || {
+                        if is_stale_update_check(check_id) {
+                            return;
+                        }
+                    },
+                )
+                .await;
             // 签名校验失败 / 下载中断 / 写临时文件失败都落在这里。只打插件给出的
             // 错误串(不含凭据、不含响应体),绝不打完整 manifest 或响应内容。
             if let Err(e) = result {
+                // G-698:下载安装横跨多个 await,收尾同样先校验世代。
+                if is_stale_update_check(check_id) {
+                    log::info!(
+                        "[auto-refresh] 更新 #{check_id} 安装收尾前已被新检查取代 → 结果作废"
+                    );
+                    return;
+                }
                 log::warn!("[auto-refresh] 应用更新失败(含签名校验不通过): {e}");
             }
         }
@@ -485,6 +554,29 @@ mod tests {
         // 超长路径段视为异常(可能命中非资源内容),不得采信为指纹
         let long = format!("/_next/static/{}", "a".repeat(200));
         assert!(extract_frontend_fingerprint(&long).is_none());
+    }
+
+    // ── G-698:更新检查世代互斥 —— 旧世代迟到回调必须按 checkId 作废 ──
+    // (本文件唯一触碰 UPDATE_CHECK_GENERATION 的用例;其余用例并行跑互不干扰)
+
+    #[test]
+    fn stale_generation_callbacks_are_discarded_by_check_id() {
+        // 发起一次检查:领取 checkId,当下不是旧世代
+        let check_id = issue_update_check_id();
+        assert!(!is_stale_update_check(check_id));
+        // 另一条链(托盘检查/下一轮)发起新检查 → 世代推进 → 旧 checkId 作废
+        invalidate_inflight_update_checks();
+        assert!(
+            is_stale_update_check(check_id),
+            "旧世代迟到回调必须按 checkId 作废"
+        );
+        // 新检查自己的 checkId 在当下有效,且旧 checkId 依然作废
+        let fresh_id = issue_update_check_id();
+        assert!(!is_stale_update_check(fresh_id));
+        assert!(is_stale_update_check(check_id));
+        // 再次作废后,上一个"新"checkId 也随之变成旧世代
+        invalidate_inflight_update_checks();
+        assert!(is_stale_update_check(fresh_id));
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
