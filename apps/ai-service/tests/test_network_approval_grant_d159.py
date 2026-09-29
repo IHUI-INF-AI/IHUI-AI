@@ -387,7 +387,17 @@ def test_llm路由真的调了这三个出口():
 def test_agent任务流也把环境事实挂上了事件():
     src = (SVC / "app/services/agent_loop_v2.py").read_text(encoding="utf-8")
     assert "approval_env_payload" in src
-    assert 'exec_environment=env_facts.get("exec_environment")' in src
+    # 原判据钉的是字面量 `exec_environment=env_facts.get("exec_environment")`。
+    # 本枚把三个字段统一成"先绑变量再 isinstance 收窄"(mypy 只对**名字**收窄,不对**调用表达式**收窄,
+    # 原写法在守门 35 上判 `Any | object` 不兼容),那条字面量因此必然消失。
+    # **要守的不变量从来没变**:实参位真的把这个字段递出去了,且值来自唯一出口、形状窄过。
+    # 所以判据换成形状无关的三条,而不是把旧字面量改回来(那等于为了让测试绿而退回类型洞)。
+    assert "exec_environment=" in src, "审批帧实参没接执行环境字段(造好没装车)"
+    assert 'exec_env = env_facts.get("exec_environment")' in src, "环境事实必须取自 approval_env_payload 那份"
+    assert "isinstance(exec_env, dict)" in src, "不得把未收窄的值直接递进实参位"
+    assert "blocked_net = env_facts.get(" in src and "isinstance(blocked_net, list)" in src, (
+        "三个字段一条规矩:blocked_network_targets 也必须先绑变量再收窄,不许两个窄一个不窄"
+    )
 
 
 def test_网络键的算法只有一份实现():

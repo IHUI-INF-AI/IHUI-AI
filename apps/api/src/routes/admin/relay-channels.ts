@@ -39,6 +39,8 @@ import { decryptJSON, type EncryptedPayload } from '../../utils/crypto.js'
 import { startStopwatch, type ElapsedSample } from '../../utils/elapsed-ms.js'
 import { persistableLatency } from '../../utils/latency-persistence.js'
 import { isUuidString } from '../../utils/uuid.js'
+// D172:traceparent → trace id 的唯一解析出口(不得在本文件另写 split)
+import { traceIdFromRequest } from '../../utils/trace-context.js'
 import {
   getCircuitState,
   getRecentCalls,
@@ -803,6 +805,10 @@ const relayChannelsRoutes: FastifyPluginAsync = async (server) => {
             keyPoolId: keyRow.id,
             providerCode: keyRow.providerCode,
             httpStatus: result.httpStatus,
+            // D172(2026-09-29):连通性测试这一笔也要有关联键 —— 它的排查诉求和普通调用
+            // 一样("给了编号就想知道那次上游调用发生了什么"),而它同样活在本请求的
+            // traceparent 下;测试调用不写编号,就等于把最常被回头看的那一类排除在外。
+            traceId: traceIdFromRequest(request),
             metadata: {
               isTestCall: true,
               chatUrl,

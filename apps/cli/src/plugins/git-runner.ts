@@ -422,6 +422,79 @@ export function toGitError(raw: unknown, verb: string, opts: { timeoutMs: number
  * 唯一出口:任何 cli 插件域的 git 派生都必须经这里。
  * 返回 stdout;`ENOBUFS` 一律抛结构化错误,**绝不返回半截内容**(票面验收点之一)。
  */
+
+/**
+ * G-814424：输出超上限时**降级到更便宜的查询模式并记住、喊出来**，而不是直接作废整份结论。
+ *
+ * 上游的做法（repo 层 collapsedUntrackedRepoRoots）是「大仓 status 超上限 ⇒ 切目录折叠、
+ * 把折叠记在 repoRoot 上、再 warn 说明」。我方此前只有一档 output-too-large ⇒ 抛
+ * GitOutputTooLargeError（「本次结果已作废」），表现是大仓里状态查询永远失败，而调用方
+ * 拿不到任何「我知道你少了什么」的信号。
+ *
+ * 三条不可漂的写法：
+ *  1. **只在 output-too-large 这一类上降级** —— 超时/中断/安全拒绝/普通失败一律原样上抛
+ *     （把别的失败也重跑一次，等于给「命令本身有问题」发第二次机会，那是掩盖不是降级）；
+ *  2. 折叠档 = git 自带的 --untracked-files=normal（含未跟踪文件的目录整目录成一条 dir/），
+ *     它是 git 的正式档，不是自造的「截断前 N 行」——半截输出会被读成「文件不存在」；
+ *  3. 降级必须**留痕且可问**：degraded 字段 + 按 cwd 记忆的 lastStatusDegradation(cwd) + 一行 warn。
+ *     第二档仍超限就照旧抛 ⇒ 宁可失败，绝不返回一份看起来完整的空结论。
+ */
+export interface GitStatusOutcome {
+  readonly lines: string[];
+  /** true ⇒ 这份列表是折叠过的，不得当「完整未跟踪清单」用。 */
+  readonly degraded: boolean;
+  /** 折叠档下形如 dir/ 的条目（即被并成一条的未跟踪目录根）。 */
+  readonly collapsedUntrackedRoots: string[];
+}
+
+export interface GitStatusOptions extends GitSpawnOptions {
+  /** warn 出口，默认写 stderr；测试传一个收集器。 */
+  readonly warn?: (msg: string) => void
+}
+
+interface DegradationMemo {
+  readonly at: number
+  readonly collapsedRoots: number
+  readonly maxBufferBytes: number
+}
+
+const statusDegrations = new Map<string, DegradationMemo>()
+
+/** 问某个工作目录最近一次状态查询是不是被折叠过（没有 ⇒ null，不猜）。 */
+export function lastStatusDegradation(cwd: string): DegradationMemo | null {
+  return statusDegrations.get(cwd) ?? null
+}
+
+/** 记账面在长跑进程里也必须有界 ⇒ 只留最近 64 个工作目录。 */
+function rememberDegradation(cwd: string, memo: DegradationMemo): void {
+  statusDegrations.set(cwd, memo)
+  if (statusDegrations.size <= 64) return
+  const oldest = statusDegrations.keys().next()
+  if (!oldest.done) statusDegrations.delete(oldest.value)
+}
+
+const STATUS_FULL_ARGS = ['status', '--porcelain', '-uall'] as const
+const STATUS_COLLAPSED_ARGS = ['status', '--porcelain', '--untracked-files=normal'] as const
+
+export function execGitStatus(cwd: string, opts: GitStatusOptions = {}): GitStatusOutcome {
+  const warn = opts.warn ?? ((m: string): void => { process.stderr.write(m + '\n') })
+  const split = (out: string): string[] => out.split('\n').filter((l) => l.length > 0)
+  try {
+    const out = execGitCapped([...STATUS_FULL_ARGS], { ...opts, cwd })
+    return { lines: split(out), degraded: false, collapsedUntrackedRoots: [] }
+  } catch (raw) {
+    if (!(raw instanceof GitOutputTooLargeError)) throw raw
+    const collapsed = split(execGitCapped([...STATUS_COLLAPSED_ARGS], { ...opts, cwd }))
+    const roots = collapsed.filter((l) => l.endsWith('/'))
+    rememberDegradation(cwd, { at: Date.now(), collapsedRoots: roots.length, maxBufferBytes: raw.maxBufferBytes })
+    warn(
+      '[git-runner] ' + cwd + ' 的 git status 输出超过 ' + raw.maxBufferBytes + 'B ⇒ 已降级为按目录折叠未跟踪项' +
+        '(' + roots.length + ' 个目录根被并成一条)。这份清单**不是完整未跟踪列表**，不得据此判「某文件不存在」。',
+    )
+    return { lines: collapsed, degraded: true, collapsedUntrackedRoots: roots }
+  }
+}
+
 export function execGitCapped(args: readonly string[], opts: GitSpawnOptions = {}): string {
   const resolved = resolveGitSpawnOptions(opts);
   const verb = gitVerbOf(args);
