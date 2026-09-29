@@ -199,6 +199,88 @@ export function gitErrText(e) {
 }
 
 /**
+ * `cat-file --batch-check` 的**三态**头解析(纯函数,与派生分开 —— `ambiguous` 与"行序错位"两支
+ * 在真仓里造不出来,只能构造证明)。
+ *
+ * 与 `parseBatchCheckSizes` / `catBatchOids` 的分工:那两个答"多大 / 是哪枚 oid",本出口答
+ * "git 认不认得这枚规格、认成了谁",所以它必须分得出**三态**而不是两态:
+ *  - `resolvable` —— git 回显了全量 oid,且它以输入为前缀(缩写被展开);
+ *  - `unresolvable` —— git 明说 missing,且**同时回显输入原样**(否则是行序错位);
+ *  - `undetermined` —— `ambiguous`(缩写撞号,git 自己认不出指哪个对象)、前缀对不上、行数为 0。
+ * 后两态里 `undetermined` **绝不并进 `unresolvable`**:把"没判"写成"判过了"是本仓最高频的失效型,
+ * 而 `--batch-check` 恰好是唯一会老实告诉你"我分不清"的探测形态。
+ * 行数与输入不等 ⇒ 抛 `Undetermined`(输出被截断 ≠ 对象不存在)。
+ *
+ * ⚠️ 解析成功那一支的判序是 **"回显的 40 hex 必须以输入为前缀"**，不是反过来的那一句。
+ * 本仓曾把这条写反(把"回显以输入开头"当成失败回显)，结果是**全仓所有短 sha 都落未判定**，
+ * 而账面读起来像"探测不可靠" —— 判据自己的假阴不会报错,只会让每一维都变成"没判"。
+ *
+ * 为什么这要把尺子住在层里而不是住在门里:守门 118 记过「管子共用不等于面共用」—— 借 `gitRaw`
+ * 派生却自己重写头解析,仍是半接线;本仓 `--batch-check` 的解析此前已有三份,第四份必然漂开。
+ * @returns {Map<string,'resolvable'|'unresolvable'|'undetermined'>}
+ */
+export function parseBatchCheckStates(stdout, specs) {
+  const map = new Map()
+  const lines = String(stdout)
+    .split(/\r?\n/)
+    .filter((l) => l !== '')
+  if (lines.length !== specs.length) {
+    throw new Undetermined(
+      `cat-file --batch-check 输出 ${lines.length} 行 ≠ 输入 ${specs.length} 条 ⇒ 无法判定(不是"都不存在")`,
+    )
+  }
+  for (let i = 0; i < specs.length; i++) {
+    const spec = specs[i]
+    const line = lines[i]
+    if (/(?:^|\s)ambiguous(?:\s|$)/.test(line)) {
+      map.set(spec, 'undetermined')
+    } else if (/(?:^|\s)missing(?:\s|$)/.test(line)) {
+      map.set(spec, line.startsWith(spec) ? 'unresolvable' : 'undetermined')
+    } else {
+      const m = /^([0-9a-f]{40})[ \t]/.exec(line)
+      map.set(spec, m && m[1].startsWith(spec) ? 'resolvable' : 'undetermined')
+    }
+  }
+  return map
+}
+
+/**
+ * 一次(分批)`cat-file --batch-check` 问完一批规格的三态存在性 —— 只问"在不在 / 认不认得",不取正文。
+ * 去重与切块都在这里:输出按行对齐,一批过大时一次挂起会换成整门失明,所以宁可分块多次问。
+ * 派生一律经 `gitRaw`(stdio[0]=pipe、maxBuffer、timeout、错误文本都只有层那一份实现)。
+ */
+export function catBatchStates(root, specs, opts = {}) {
+  const list = [...new Set(specs)]
+  const status = new Map()
+  const chunkSize = opts.chunkSize && opts.chunkSize > 0 ? opts.chunkSize : 400
+  for (let i = 0; i < list.length; i += chunkSize) {
+    const chunk = list.slice(i, i + chunkSize)
+    const out = gitRaw(['cat-file', '--batch-check'], root, {
+      input: chunk.join('\n') + '\n',
+      timeout: opts.timeout ?? BATCH_TIMEOUT,
+    })
+    for (const [k, v] of parseBatchCheckStates(out, chunk)) status.set(k, v)
+  }
+  return status
+}
+
+/**
+ * 单枚规格的 **git 原话首行**,只为报告可读,不改判据 —— 所以它**不抛**:取不到就回一句带原因的文本。
+ * 失败文本走 `gitRaw` 的 `Undetermined` 消息,与调用方自己 catch 时逐字同形(换出口不得换措辞)。
+ */
+export function catBatchEcho(root, spec, opts = {}) {
+  try {
+    const out = gitRaw(['cat-file', '--batch-check'], root, {
+      input: spec + '\n',
+      timeout: opts.timeout ?? 20_000,
+    })
+    return String(out).split(/\r?\n/)[0] || '(空)'
+  } catch (e) {
+    return `(探测失败:${e?.message ?? e})`
+  }
+}
+
+/**
  * 把 `execFileSync` 抛出的**派生层故障**翻成可诊断的一句话(纯函数,与真实 git 分开,所以每一支都能构造)。
  *
  * 为什么必须有这一层:2026-09-25 实测,守门 99 对"以删除为主的提交"一路报 `无法取材: (git 无输出)`,
