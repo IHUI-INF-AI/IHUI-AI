@@ -1481,6 +1481,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     head: z.string().min(1),
     base: z.string().min(1),
     body: z.string().optional(),
+    /** D183(2026-09-29):true = 创建 Draft PR(环境信息 popover 一键创建入口) */
+    draft: z.boolean().optional(),
   })
 
   server.post('/github/prs', async (request, reply) => {
