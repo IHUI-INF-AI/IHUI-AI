@@ -146,6 +146,22 @@ export async function fetchWithinDeadline(
 }
 
 /**
+ * 取消 + 超时组合器（b75-3#1，2026-09-30，上游出处 zcode script-workflow-utils.ts:116-123）：
+ * `AbortSignal.any([signal, AbortSignal.timeout(ms)])` 一行把「人控取消」与「超时」
+ * 合成单个 signal，调用方无需手写 race/监听器清理。超时计时由平台托管（Timer 不占调用方代码）。
+ * 缺省语义与上游一致：只传其一原样取其一；都不传返回 undefined（= 不加取消约束）。
+ * `timeoutMs` 为 0/undefined 时不挂超时（与上游 `!timeoutMs` 判据逐字同语义）。
+ */
+export function mergedSignal(
+  signal: AbortSignal | undefined,
+  timeoutMs: number | undefined,
+): AbortSignal | undefined {
+  if (!timeoutMs) return signal
+  const timeout = AbortSignal.timeout(timeoutMs)
+  return signal ? AbortSignal.any([signal, timeout]) : timeout
+}
+
+/**
  * 显式消费出口：在同一个 deadline 下读完响应体再返回结果（上游 :52-57 的形状）。
  * 传入非受管 Response 时退化为「直接调用 consume」，不报错、不伪造收口。
  */
