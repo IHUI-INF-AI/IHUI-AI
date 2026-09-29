@@ -1659,6 +1659,14 @@ export interface LoginScreenProps {
   colorScheme?: 'light' | 'dark'
   /** logo 图片�?RN Image source,�?require('../../assets/logo.png'))�?   * 不传则渲染深色方�?IHUI 文字作为 fallback,对齐 web AuthShell logo 占位�?*/
   logoSource?: number | { uri: string }
+  /**
+   * 2026-09-29 新增:logo 的 ReactNode 通道,与下面的 welcomeNode 同形、优先级更高。
+   * 存在的原因是实测出来的,不是审美:真机 release 包里 <Image source={本地 PNG require}>
+   * 渲染为空白(布局仍占 53dp),而同屏走 react-native-svg 的图标全部正常 —— 已用同格
+   * 对照实验钉死(枚 8a7926ead7)。故调用方应传 <SvgXml/>,不要再依赖 logoSource。
+   * logoSource 保留是为了不破坏既有调用方与 <Image> 兜底分支。
+   */
+  logoNode?: ReactNode
   /** welcome 图标节点(logo 右侧的品牌文字图,对齐 web AuthShell �?welcome.svg)�?   * 推荐�?react-native-svg �?SvgXml 渲染 welcome.svg/baiwelcome.svg 内容�?   * 不传�?fallback 到纯文字 "IHUI AI"(不推�?�?�?web 端视觉不一�?�?*/
   welcomeNode?: ReactNode
 
