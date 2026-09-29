@@ -22,10 +22,10 @@ export const APP_VERSION = PKG_VERSION
  * 字符串刻意不含任何 curl-like / bot 关键字。
  */
 export const APP_USER_AGENT = `IHUIAI-App/${APP_VERSION} (${Platform.OS}/${
-  typeof Platform.Version === 'number' ? Platform.Version : Platform.Version ?? 'unknown'
+  typeof Platform.Version === 'number' ? Platform.Version : (Platform.Version ?? 'unknown')
 })`
 
-const ENV_API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8802'
+const ENV_API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.1.6:8802'
 
 // 10.0.2.2 是 Android 模拟器访问宿主机的专用 IP,web 平台浏览器无法访问,替换为 localhost。
 // 生产环境配置的真实域名(如 https://api.example.com)不受影响。
