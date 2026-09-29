@@ -25,8 +25,6 @@
 - 持久化:每次变更把全量条目写回 data/cost_ledger.json(ai-service 数据目录),进程重启可恢复;
   文件缺失/损坏时静默降级为空账本。并发用 threading.Lock 保护原子性。
 - 全部确定性:cost/金额一律 round 6 位,与 recorder/tool_cost_accounting 口径一致。
-- 增量基线(G-821,2026-09-29):聚合读面的 prompt token 按 (来源链, session) 增量计,
-  唯一实现住 `app/core/token_baseline.py`(与 llm_usage_service 共用,不得各抄一份)。
 - 缓存感知(P0-①,2026-09-18):条目携带 cached_tokens/cache_creation_tokens
   (含在 tokens_in 内),缺省 cost 走三段计价(uncached + 读×0.1x 等 + 写×1.25x 等,
   乘数按厂商查 cache_multipliers);aggregate 输出缓存命中统计。
@@ -50,7 +48,6 @@ from ..core.model_pricing import (
     is_model_price_known,
     micro_usd_to_usd,
 )
-from ..core.token_baseline import PromptTokenSample, incremental_prompt_tokens
 from .agent_step_recorder import AgentStepRecorder, agent_step_recorder
 
 logger = logging.getLogger(__name__)
@@ -157,18 +154,6 @@ class LedgerEntry:
     def to_dict(self) -> dict[str, Any]:
         """序列化为可 JSON 化的 dict。"""
         return asdict(self)
-
-
-def _baseline_samples(entries: list[dict[str, Any]]) -> list[PromptTokenSample]:
-    """账本条目 → 增量基线输入;来源链用已有的 tool_name(本仓没有 kind 字段可依据)。"""
-    return [
-        PromptTokenSample(
-            source=str(e.get("tool_name") or "(unknown)"),
-            session_id=str(e.get("session_id") or ""),
-            prompt_tokens=int(_to_num(e.get("tokens_in"), 0)),
-        )
-        for e in entries
-    ]
 
 
 class CostLedger:
@@ -401,15 +386,12 @@ class CostLedger:
         by_tool / by_model、窗口边界(start/end)。
         P0-①(2026-09-18):新增缓存统计 —— total_cached_tokens /
         total_cache_creation_tokens / cache_hit_count(cached>0 的条目数)。
-        G-821(2026-09-29):prompt/total token 按 (来源链, session) 增量基线计,
-        逐条相加会把同一上下文按轮次重复计入(cost 仍按实际账单逐条相加)。
         """
         entries = self._filtered(filter)
-        increments = incremental_prompt_tokens(_baseline_samples(entries))
         n = len(entries)
-        total_in = sum(increments)
+        total_in = sum(int(e.get("tokens_in") or 0) for e in entries)
         total_out = sum(int(e.get("tokens_out") or 0) for e in entries)
-        total = total_in + total_out
+        total = sum(int(e.get("total_tokens") or 0) for e in entries)
         ok_count = sum(1 for e in entries if e.get("status") == "ok")
         estimated_count = sum(1 for e in entries if e.get("estimated"))
         total_cached = sum(int(e.get("cached_tokens") or 0) for e in entries)
@@ -421,19 +403,18 @@ class CostLedger:
         by_tool: dict[str, dict[str, Any]] = {}
         by_model: dict[str, dict[str, Any]] = {}
         parsed: list[datetime] = []
-        for e, increment in zip(entries, increments, strict=True):
+        for e in entries:
             tool = str(e.get("tool_name") or "(unknown)")
             model = str(e.get("model") or "") or "(unknown)"
-            tokens_out = int(e.get("tokens_out") or 0)
             for store, key in ((by_tool, tool), (by_model, model)):
                 b = store.setdefault(
                     key,
                     {"steps": 0, "tokens_in": 0, "tokens_out": 0, "tokens": 0, "cost": 0.0},
                 )
                 b["steps"] += 1
-                b["tokens_in"] += increment
-                b["tokens_out"] += tokens_out
-                b["tokens"] += increment + tokens_out
+                b["tokens_in"] += int(e.get("tokens_in") or 0)
+                b["tokens_out"] += int(e.get("tokens_out") or 0)
+                b["tokens"] += int(e.get("total_tokens") or 0)
                 b["cost"] = round(b["cost"] + float(e.get("cost_usd") or 0.0), 6)
             dt = _parse_at(e.get("at"))
             if dt is not None:
@@ -469,18 +450,15 @@ class CostLedger:
     def top_tools(self, n: int = 10, filter: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """按成本降序返回 Top 工具(含 steps/tokens/cost)。同成本按工具名稳定排序。"""
         by: dict[str, dict[str, Any]] = {}
-        entries = self._filtered(filter)
-        increments = incremental_prompt_tokens(_baseline_samples(entries))
-        for e, increment in zip(entries, increments, strict=True):
+        for e in self._filtered(filter):
             tool = str(e.get("tool_name") or "(unknown)")
-            tokens_out = int(e.get("tokens_out") or 0)
             b = by.setdefault(
                 tool, {"steps": 0, "tokens_in": 0, "tokens_out": 0, "tokens": 0, "cost": 0.0}
             )
             b["steps"] += 1
-            b["tokens_in"] += increment
-            b["tokens_out"] += tokens_out
-            b["tokens"] += increment + tokens_out
+            b["tokens_in"] += int(e.get("tokens_in") or 0)
+            b["tokens_out"] += int(e.get("tokens_out") or 0)
+            b["tokens"] += int(e.get("total_tokens") or 0)
             b["cost"] = round(b["cost"] + float(e.get("cost_usd") or 0.0), 6)
         ranked = sorted(by.items(), key=lambda kv: (-kv[1]["cost"], kv[0]))
         return [{"tool_name": name, **stats} for name, stats in ranked[: max(1, int(n))]]
@@ -497,10 +475,7 @@ class CostLedger:
                 f"granularity 必须是 {'/'.join(_VALID_GRANULARITY)},got {granularity!r}"
             )
         buckets: dict[str, dict[str, Any]] = {}
-        entries = self._filtered(filter)
-        # 基线按整条链算再分桶,否则每桶首条又会计入全量 context(桶合计与 aggregate 顶账)
-        increments = incremental_prompt_tokens(_baseline_samples(entries))
-        for e, increment in zip(entries, increments, strict=True):
+        for e in self._filtered(filter):
             dt = _parse_at(e.get("at"))
             if dt is None:
                 continue
@@ -509,7 +484,6 @@ class CostLedger:
                 if granularity == "day"
                 else dt.strftime("%Y-%m-%dT%H")
             )
-            tokens_out = int(e.get("tokens_out") or 0)
             b = buckets.setdefault(
                 key,
                 {
@@ -522,9 +496,9 @@ class CostLedger:
                 },
             )
             b["steps"] += 1
-            b["tokens_in"] += increment
-            b["tokens_out"] += tokens_out
-            b["tokens"] += increment + tokens_out
+            b["tokens_in"] += int(e.get("tokens_in") or 0)
+            b["tokens_out"] += int(e.get("tokens_out") or 0)
+            b["tokens"] += int(e.get("total_tokens") or 0)
             b["cost"] = round(b["cost"] + float(e.get("cost_usd") or 0.0), 6)
         items = [buckets[k] for k in sorted(buckets)]
         for b in items:
