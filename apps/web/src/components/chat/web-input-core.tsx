@@ -165,21 +165,25 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
             </button>
           </Tooltip>
         )}
-        <div className="pointer-events-none absolute inset-x-3 bottom-2 flex items-center justify-end">
-          <span
-            aria-live="polite"
-            className={cn(
-              'whitespace-nowrap text-[10px] tabular-nums text-muted-foreground/60 transition-colors',
-              // 渐进式字符计数警告(2026-07-31 对标 主流 AI IDE):
-              // - 90%+ 橙色警告(接近上限,提醒用户精简输入)
-              // - 100% 红色错误(已达上限,禁止继续输入)
-              text.length >= MAX_LENGTH && 'text-destructive',
-              text.length >= MAX_LENGTH * 0.9 && text.length < MAX_LENGTH && 'text-amber-500',
-            )}
-          >
-            {text.length}/{MAX_LENGTH}
-          </span>
-        </div>
+        {/* 字符计数(2026-09-30 立):空输入时不渲染 —— 对标 Trae/Cursor,空白输入框
+            不应有任何常驻杂讯;有内容后才出现,90%+ 琥珀 / 100% 红的渐进警告不变 */}
+        {text.length > 0 && (
+          <div className="pointer-events-none absolute inset-x-3 bottom-2 flex items-center justify-end">
+            <span
+              aria-live="polite"
+              className={cn(
+                'whitespace-nowrap text-[10px] tabular-nums text-muted-foreground/60 transition-colors',
+                // 渐进式字符计数警告(2026-07-31 对标 主流 AI IDE):
+                // - 90%+ 橙色警告(接近上限,提醒用户精简输入)
+                // - 100% 红色错误(已达上限,禁止继续输入)
+                text.length >= MAX_LENGTH && 'text-destructive',
+                text.length >= MAX_LENGTH * 0.9 && text.length < MAX_LENGTH && 'text-amber-500',
+              )}
+            >
+              {text.length}/{MAX_LENGTH}
+            </span>
+          </div>
+        )}
         {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
       </div>
     )

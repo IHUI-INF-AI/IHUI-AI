@@ -26,6 +26,7 @@ import { useModeStore } from '@/stores/mode'
 import { useChatStore } from '@/stores/chat'
 import { useNotificationStore } from '@/stores/notification'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+import { appVersionGateCheck } from '@/lib/app-version-gate'
 
 /** 设置页路由。桌面端托盘「打开设置」与 Ctrl+Shift+, 快捷键共用同一入口。 */
 const SETTINGS_PATH = '/settings'
@@ -164,6 +165,13 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   // App 端(Capacitor 壳)推送令牌注册:登录后监听 FCM registration 并上报设备注册表
   // (浏览器端 no-op,window.Capacitor 不存在;详见 use-native-push.ts)
   useNativePushRegister()
+  // G-700 接线:app-version 强更策略闸门的启动消费点(声明面此前零消费者)。
+  // 启动即拉 /api/app-version/check-update,按 minimumVersion/forceUpdate 判定强更;
+  // 决策经 window CustomEvent('app-version-gate:decision') 广播给 UI 钩子,
+  // 端点失败 fail-open 不拦启动(详见 lib/app-version-gate.ts 头注)。
+  React.useEffect(() => {
+    void appVersionGateCheck()
+  }, [])
   const { resolvedTheme, setTheme } = useTheme()
   const [showCommandPalette, setShowCommandPalette] = React.useState(false)
 

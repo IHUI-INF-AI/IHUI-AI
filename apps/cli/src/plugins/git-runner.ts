@@ -562,12 +562,14 @@ export function sleepAbortable(ms: number, signal?: AbortSignal): Promise<void> 
       reject(new GitOperationAbortedError());
       return;
     }
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const onAbort = (): void => {
-      if (timer) clearTimeout(timer);
+    // `onAbort` 用**函数声明**(整体提升)而不是箭头函数常量:这样 `timer` 可以是需要它的
+    // `const`(eslint `prefer-const` 原本报这一条),而 `setTimeout` 的回调里引用 `onAbort`
+    // 也不存在 TDZ 风险 —— 两处引用都在同一轮同步代码里已绑定之后才可能被调用。
+    function onAbort(): void {
+      clearTimeout(timer);
       reject(new GitOperationAbortedError());
-    };
-    timer = setTimeout(() => {
+    }
+    const timer = setTimeout(() => {
       signal?.removeEventListener('abort', onAbort);
       resolve();
     }, ms);
