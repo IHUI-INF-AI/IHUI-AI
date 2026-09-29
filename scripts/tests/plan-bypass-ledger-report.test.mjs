@@ -260,6 +260,38 @@ test('T5 同源 schema 锁:键名与 safe-commit 那本逐字同族,只多 gates
   }
 })
 
+/**
+ * T5b —— 装车锁必须判 **HEAD 面**,不能只判工作树。
+ * 立因(2026-09-29 实测):`object-space-land.mjs` 的留痕接线**被一次"按滞后工作树副本提交的旁路落地"
+ * 整体抹掉**(现读 `git show HEAD:<该文件> | grep -c recordBypassLanding` = 0),而 T5 读的是工作树副本
+ * ⇒ 台账里那一族的接线在 HEAD 上已经不存在,账面却一路报绿。这正是本仓最高频的那一型:
+ * **判据只问"盘上有没有",而仓库真正交付的是 HEAD**。工作树锁保留(T5,防"没写出来"),
+ * HEAD 锁补在它后面(本条,防"写了又被回写掉")。两条缺一不可,失效方向也不同。
+ */
+test('T5b HEAD 面装车锁:两个落地器在**被审面**上都必须真的接了留痕出口', () => {
+  const repo = resolve(SCRIPTS, '..')
+  for (const rel of ['object-space-land.mjs', 'live-doc-edit.mjs']) {
+    const head = execFileSync(
+      GIT,
+      ['-c', 'safe.directory=*', '-C', repo, 'show', `HEAD:scripts/${rel}`],
+      { encoding: 'utf8', maxBuffer: 1 << 28, windowsHide: true },
+    )
+    assert.ok(
+      head.includes("from './lib/commit-attestation.mjs'"),
+      `${rel} 的 HEAD 版本没有引唯一出口 ⇒ 接线已被回写掉(工作树副本仍算是"没入库",不能当已交付)`,
+    )
+    assert.equal(
+      head.split('recordBypassLanding(').length - 1,
+      2,
+      `${rel} 的 HEAD 版本里 recordBypassLanding 应出现 2 次(import + 调用),实测 ${head.split('recordBypassLanding(').length - 1} 次`,
+    )
+    assert.ok(
+      !head.includes('safe-commit-attestation.jsonl'),
+      `${rel} 的 HEAD 版本自己拼了台账路径 ⇒ 落点分叉`,
+    )
+  }
+})
+
 test('T6 只读性:统计器不写盘、不碰 ref', () => {
   const s = src('plan-bypass-ledger-report.mjs')
   for (const bad of ['writeFileSync(', 'appendFileSync(', 'mkdirSync(', 'update-ref', 'commit -'])
