@@ -4091,6 +4091,23 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 入站契约 .strict() 到达性对账(1 项,blocking)---
+  {
+    id: '161',
+    label:
+      '入站契约 .strict() 到达性对账',
+    script: 'scripts/check-inbound-schema-strict.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_INBOUND_SCHEMA_STRICT',
+    stagedTriggers: ['apps/api/src/,apps/cli/src/,apps/extension/,apps/desktop/'],
+    onFailHint: [
+      '',
+      '入站 Zod 契约未对未知字段表态:补 .strict()/z.strictObject,或写行内 inbound-strict-exempt: <原因>(该族已挂守门 108 存活期);存量按该文件 HEAD 自身锚点只报数,--strict 才问责',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
