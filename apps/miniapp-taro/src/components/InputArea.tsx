@@ -9,7 +9,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import type { CSSProperties } from 'react'
 import voiceRecorder from '@/utils/voice-recorder'
-import { cn, rnRadius, TARO_RPX_PER_PX, taroGeometry } from '@ihui/design-tokens'
+import { cn, rnRadiusFor, TARO_RPX_PER_PX, taroGeometry } from '@ihui/design-tokens'
 // 放大钮内缩 / 语音钮间距 —— 唯一源在 @ihui/shared/ui/input-area-spec(与 RN 端同档);
 // 本文件只做 rpx 换算。两侧的同族裸 6 必须同枚提交进 spec,漏一侧就是台账 +1(上一轮的 23→24)。
 import {
@@ -439,7 +439,7 @@ export default function InputArea({
                           style={{
                             width: toUnit(INPUT_AREA_VIDEO_THUMB_W_PX),
                             height: toUnit(INPUT_AREA_VIDEO_THUMB_H_PX),
-                            borderRadius: rnRadius.lg,
+                            borderRadius: rnRadiusFor.card,
                           }}
                         />
                       </View>
@@ -720,7 +720,7 @@ export default function InputArea({
                       因为两端的"展开面板"高亮此前一端有一端无)。 */}
                   <View
                     className={cn(
-                      'flex items-center justify-center rounded-sm',
+                      'ui-control flex items-center justify-center rounded-sm',
                       isShowIcon ? 'bg-cta text-cta-foreground' : '',
                     )}
                     style={{
