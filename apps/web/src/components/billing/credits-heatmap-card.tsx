@@ -83,7 +83,7 @@ export function CreditsHeatmapCard({
     <div
       role="group"
       aria-label={t('title')}
-      className={cn('flex flex-col gap-2 rounded-md border p-3', className)}
+      className={cn('flex flex-col gap-2 rounded-lg border p-3', className)}
       data-testid={testId}
       data-heatmap-mode={mode}
     >

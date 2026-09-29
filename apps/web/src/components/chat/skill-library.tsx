@@ -720,7 +720,7 @@ function SkillEditDialog({ skill, onCancel, onSave }: SkillEditDialogProps) {
   }
 
   return (
-    <div className="space-y-2 rounded-lg border border-border bg-card p-2">
+    <div className="space-y-2 rounded-xl border border-border bg-card p-2">
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium text-foreground">
           {skill ? t('editTitle') : t('createTitle')}
@@ -897,7 +897,7 @@ export function AiSkillInvokeDialog({
   // 占位 skill:显示引导 + GitHub 链接
   if (!skill.available) {
     return (
-      <div className="space-y-2 rounded-lg border border-border bg-card p-2">
+      <div className="space-y-2 rounded-xl border border-border bg-card p-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] font-medium text-foreground">{skill.name}</span>
@@ -966,7 +966,7 @@ export function AiSkillInvokeDialog({
   }
 
   return (
-    <div className="space-y-2 rounded-lg border border-border bg-card p-2">
+    <div className="space-y-2 rounded-xl border border-border bg-card p-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] font-medium text-foreground">{skill.name}</span>
@@ -1101,7 +1101,7 @@ export function AiSkillResultDialog({
 }: AiSkillResultDialogProps) {
   const t = useTranslations('chat.skillLibrary')
   return (
-    <div className="space-y-2 rounded-lg border border-border bg-card p-2">
+    <div className="space-y-2 rounded-xl border border-border bg-card p-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] font-medium text-foreground">
