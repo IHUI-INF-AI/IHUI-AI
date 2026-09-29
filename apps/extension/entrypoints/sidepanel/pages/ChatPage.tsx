@@ -14,8 +14,11 @@ import {
   getMessages as getConversationMessages,
   postToolResult,
   postToolApprovalResponse,
+  /** D151:把用户键入的那一行送回正在等待的子进程(唯一上行出口,端内不得自拼 fetch) */
+  postTerminalInput,
   type StreamChatOptions,
   type TerminalDeltaEvent,
+  type TerminalInteractionEvent,
   type ToolApprovalEvent,
   type LlmModel,
 } from '@ihui/api-client'
@@ -45,6 +48,7 @@ import { WorkspacePicker } from '../components/WorkspacePicker'
 import { ToolApprovalBanner } from '../components/ToolApprovalBanner'
 import { VoiceInput } from '../components/VoiceInput'
 import { MessageContent } from '../components/MessageContent'
+import type { TerminalInteractionView } from '../components/MessageContent'
 import QueueBar from '../components/QueueBar'
 import { TaskStatusBar } from '../components/TaskStatusBar'
 import {
@@ -148,6 +152,27 @@ export default function ChatPage() {
   // V3 #58 同族:主对话流的高危工具审批帧。null ⇒ 不渲染横幅;一轮流式结束(finally)必须收回 null,
   // 否则上一轮的决策按钮会留在屏幕上指向一个已经结束的会话。
   const [pendingApproval, setPendingApproval] = useState<ToolApprovalEvent | null>(null)
+  /**
+   * D151(2026-09-29 立):命令「等待键盘输入」的呈现态,键 = 原始 terminalId。
+   *
+   * 与 pendingApproval 同一档纪律:**流一结束就收回**(见下方 finally)—— 后端此时要么已
+   * 按超时判「未收到输入」,要么待决项已销毁,再点提交等于把一行字发往不存在的轮次。
+   *
+   * 刻意**不进 messages state**:messages 会被 `persistChatMessage` 落库并回放进会话历史,
+   * 而 promptTail 是命令自己打出的文本(常含路径/账号上下文),等待态是**流内瞬态**,
+   * 落进历史就是把一次性信息复制进第二条通道。键入内容本身更是只在输入框组件的本地 state。
+   * ref 只服务于「提交中不得重复送一行」这一条 guard(state 异步更新,读闭包值会放行两次)。
+   */
+  const [terminalInteractions, setTerminalInteractions] = useState<
+    Record<string, TerminalInteractionView & { sessionId: string }>
+  >({})
+  const terminalInteractionsRef = useRef(terminalInteractions)
+  const writeTerminalInteractions = (
+    next: Record<string, TerminalInteractionView & { sessionId: string }>,
+  ): void => {
+    terminalInteractionsRef.current = next
+    setTerminalInteractions(next)
+  }
   /**
    * Runtime 插话能力协商位:全仓尚无 runtimeSupportsInterjection 生产者
    * (PROJECT_PLAN D38 未闭环③),接线前宿主必须诚实传 false ⇒ steer 经 effectiveMode
@@ -533,7 +558,31 @@ export default function ChatPage() {
           evt.messageId,
         )
       },
+      // D151(本票):terminal_interaction —— 命令停在「等键盘输入」。本端与 web 同档
+      // (侧栏是 DOM,能长出一行输入并把字送回),不注册的表现是终端块一直 running 转圈,
+      // 用户既不知道命令在等人、也没有地方回,只能整轮停止 —— 正是守门 90 拦的静默丢弃。
+      onTerminalInteraction: (evt: TerminalInteractionEvent) => {
+        if (!evt.terminalId) return
+        writeTerminalInteractions({
+          ...terminalInteractionsRef.current,
+          [evt.terminalId]: {
+            promptTail: evt.promptTail,
+            maxInputChars: evt.maxInputChars,
+            // 帧自带 sessionId 是权威值(D151 起 mcp_server 一定填);缺了就只能失败,
+            // 不猜一个地址发出去 —— 猜错的表征是"点了发送没反应且不报错"。
+            sessionId: evt.sessionId,
+            submitting: false,
+            failed: false,
+          },
+        })
+      },
       onTerminalEnd: (evt) => {
+        // 命令已结算 ⇒ 等待态必须一起摘掉(留着就是把已发生的事写成没发生)
+        if (terminalInteractionsRef.current[evt.terminalId]) {
+          const next = { ...terminalInteractionsRef.current }
+          delete next[evt.terminalId]
+          writeTerminalInteractions(next)
+        }
         updateAssistantMessage(
           (m) => ({
             ...m,
@@ -649,6 +698,9 @@ export default function ChatPage() {
       // 流一结束就收回横幅:后端这时要么已按超时判"未批准",要么会话注册表已销毁,
       // 再点一次等于把决策发往一个不存在的轮次(屏幕上却是一片"已经处理过"的安静)。
       setPendingApproval(null)
+      // D151 同一理由收回「等待输入」那一行:待决项已随本轮结束销毁,
+      // 再留着就是给用户一个点了必然失败的把手(失败还表现为"网络正常、服务端说没有这条")。
+      writeTerminalInteractions({})
     }
   }
 
@@ -731,6 +783,54 @@ export default function ChatPage() {
     }
   }
 
+  /**
+   * D151:把用户在那一行里键入的内容送回正在等待的子进程。四条都是刻意的:
+   *  - **读 ack**:服务端对「没这条」与「不是你的」回 HTTP 200 + `{ok:false}`(不给存在性
+   *    预言机),所以 `resp.ok` 不是判据 —— 只看它会把「没送到」演成「送到了」(与审批同一课);
+   *  - 缺 `sessionId` 就不发:端点按会话寻址,猜一个地址发过去等于把这一行送到别人的轮次上,
+   *    表现却是"点了没反应",所以宁可直接落失败态;
+   *  - 失败**只写布尔**、不清输入框:用户不必重打那一行,而报错文本一律不取 error.message
+   *    (api-client 的消息里带 session/terminal 标识,而界面只需要"这次没送出去");
+   *  - 提交中挡第二次:一帧只许送一行,重复提交会往同一个子进程喂两行。
+   */
+  const submitTerminalInput = (terminalId: string, text: string): void => {
+    const entry = terminalInteractionsRef.current[terminalId]
+    if (!entry || entry.submitting) return
+    if (!entry.sessionId) {
+      writeTerminalInteractions({
+        ...terminalInteractionsRef.current,
+        [terminalId]: { ...entry, failed: true },
+      })
+      return
+    }
+    writeTerminalInteractions({
+      ...terminalInteractionsRef.current,
+      [terminalId]: { ...entry, submitting: true, failed: false },
+    })
+    void postTerminalInput(entry.sessionId, { terminalId, text })
+      .then((ack) => {
+        const cur = terminalInteractionsRef.current
+        if (!(terminalId in cur)) return // 等待态已被 terminal_end / 收轮清掉:不复活它
+        writeTerminalInteractions(
+          ack.ok
+            ? (() => {
+                const next = { ...cur }
+                delete next[terminalId]
+                return next
+              })()
+            : { ...cur, [terminalId]: { ...cur[terminalId]!, submitting: false, failed: true } },
+        )
+      })
+      .catch(() => {
+        const cur = terminalInteractionsRef.current
+        if (!(terminalId in cur)) return
+        writeTerminalInteractions({
+          ...cur,
+          [terminalId]: { ...cur[terminalId]!, submitting: false, failed: true },
+        })
+      })
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between pb-2 border-b border-border">
@@ -795,7 +895,12 @@ export default function ChatPage() {
                 ) : (
                   // W6:assistant 消息改为结构化渲染(轻量 Markdown + 推理/工具/计划/终端/子代理),
                   // 数据归一化由共享纯函数 @ihui/shared buildRenderModel 提供
-                  <MessageContent message={m} streaming={streaming && m.id === lastMessageId} />
+                  <MessageContent
+                    message={m}
+                    streaming={streaming && m.id === lastMessageId}
+                    terminalInteractions={terminalInteractions}
+                    onTerminalInputSubmit={submitTerminalInput}
+                  />
                 )}
               </div>
               {/* 分叉入口(2026-09-25):仅对**已落库的 AI 回复**给出 —— 判据见 chat-branch-utils */}

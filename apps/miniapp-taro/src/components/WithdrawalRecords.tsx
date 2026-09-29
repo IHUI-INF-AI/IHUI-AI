@@ -69,7 +69,7 @@ export default function WithdrawalRecords({
             return (
               <View
                 key={record.id}
-                className="flex items-center px-4 py-3 mb-1.5"
+                className="flex items-center px-4 py-3 mb-[12rpx]"
                 onClick={() => onViewDetail?.(record)}
                 hoverClass="opacity-60"
               >
@@ -80,7 +80,7 @@ export default function WithdrawalRecords({
                     </Text>
                     <Text className={`ml-2 text-xs ${status.color}`}>{status.label}</Text>
                   </View>
-                  <View className="flex items-center mt-0.5">
+                  <View className="flex items-center mt-[4rpx]">
                     {record.method && (
                       <Text className="text-xs text-muted-foreground mr-2">{record.method}</Text>
                     )}
@@ -89,7 +89,7 @@ export default function WithdrawalRecords({
                     )}
                   </View>
                   {record.remark && (
-                    <Text className="block text-xs text-muted-foreground mt-0.5 truncate">
+                    <Text className="block text-xs text-muted-foreground mt-[4rpx] truncate">
                       {record.remark}
                     </Text>
                   )}
