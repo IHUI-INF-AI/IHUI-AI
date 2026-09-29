@@ -300,6 +300,8 @@ describe('回执聚合:历史行不得被算成任何一侧', () => {
   })
 })
 
+describe('账期摊派与到期分级', () => {
+
   it('未归属的流水按到期日升序摊派,先填最紧的一期', () => {
     const r = deriveEnrollmentLedger({
       totalFee: 1200,
