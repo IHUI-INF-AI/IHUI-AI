@@ -757,6 +757,11 @@ function Get-CleanBuildWebDir {
                 Remove-Item $CleanBuildWt -Recurse -Force -ErrorAction SilentlyContinue
             }
             Log "[CLEAN-BUILD] git worktree add --detach $CleanBuildWt $Sha"
+            # 先 prune 再 add:宿主清理层会整目录删掉工作树(§5b 实测本机 `.git` 与工作区目录都曾被啃),
+            # 目录没了但**注册还在** `$Root\.git\worktrees\` 里时,`worktree add` 直接报
+            # "already registered by working tree at …" ⇒ 净面从此永久不可用,而这一型不会自己好。
+            # prune 只注销"目录已不存在"的登记,不动任何在用的工作树 ⇒ 零风险,放在 add 前一步。
+            git @gitFace -C $Root worktree prune 2>&1 | ForEach-Object { Log "[clean-prune] $_" }
             git @gitFace -C $Root worktree add --detach $CleanBuildWt $Sha 2>&1 | ForEach-Object { Log "[clean-out] $_" }
             if ($LASTEXITCODE -ne 0) { throw "worktree add 失败 exit=$LASTEXITCODE" }
         } else {
