@@ -9125,6 +9125,15 @@
     },
     "envInfoButton": "环境信息",
     "expandConversation": "展开对话",
+    "headerActions": {
+      "panelGroupButtons": "面板组按钮",
+      "workspaceUnavailable": "开始任务后可打开审阅工作面",
+      "enterWorkspaceFullscreen": "全屏显示工作面",
+      "exitWorkspaceFullscreen": "退出工作面全屏",
+      "createDraftPullRequest": "创建 Draft PR",
+      "createDraftPullRequestOk": "Draft PR 已创建",
+      "createDraftPullRequestFailed": "创建 Draft PR 失败"
+    },
     "floatMode": "浮窗模式",
     "handleHint": "点击或向右拉出AI工作区",
     "history": "任务列表",
@@ -11257,6 +11266,12 @@
     "errorCardTitle": "请求出错",
     "quoteSelection": "引用选中",
     "quoteSelectionAdded": "已加入引用",
+    "selectionActions": {
+      "ariaLabel": "选中文本操作",
+      "addAsAttachment": "作为附件添加",
+      "attachmentName": "选中的文本",
+      "attachmentLimitReached": "附件已达 {limit} 个,请先移除一个再添加选中文本。"
+    },
     "quotedReplyAssistant": "引用 AI 回复",
     "quotedReplyUser": "引用用户消息",
     "webSearch": "网页搜索",
