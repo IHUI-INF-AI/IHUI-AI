@@ -8,7 +8,6 @@ import {
   Text,
   TouchableOpacity,
   FlatList,
-  TextInput,
   StyleSheet,
   RefreshControl,
   ActivityIndicator,
@@ -18,6 +17,7 @@ import type { N8nModelItem, N8nModelScreenProps, N8nModelTab } from '../../types
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** n8n 模型管理共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { N8nModelItem, N8nModelScreenProps }
@@ -67,7 +67,8 @@ export function N8nModelScreen({
       </View>
 
       <View style={styles.searchRow}>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.searchInput}
           value={keyword}
           onChangeText={onKeywordChange}
