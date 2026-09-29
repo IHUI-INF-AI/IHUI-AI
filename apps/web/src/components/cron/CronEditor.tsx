@@ -10,30 +10,17 @@ import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { getNextRuns, describeCron } from './cron-parser'
+import {
+  CRON_FIELDS,
+  type FieldConfig,
+  type FieldKey,
+  type FieldState,
+  type Mode,
+  fieldToCron,
+  parseCronToBuilder,
+  canVisualizeCron,
+} from '@/lib/cron-roundtrip'
 
-type Mode = 'every' | 'step' | 'range' | 'specific'
-type FieldKey = 'minute' | 'hour' | 'day' | 'month' | 'weekday'
-
-interface FieldConfig {
-  key: FieldKey
-  min: number
-  max: number
-}
-interface FieldState {
-  mode: Mode
-  step: number
-  rangeStart: number
-  rangeEnd: number
-  specific: number[]
-}
-
-const FIELDS: FieldConfig[] = [
-  { key: 'minute', min: 0, max: 59 },
-  { key: 'hour', min: 0, max: 23 },
-  { key: 'day', min: 1, max: 31 },
-  { key: 'month', min: 1, max: 12 },
-  { key: 'weekday', min: 0, max: 6 },
-]
 const MODES: Mode[] = ['every', 'step', 'range', 'specific']
 
 /** i18n 静态映射表 — 用于消除 `t(\`field.${var}\`)` / `t(\`mode.${var}\`)` 动态拼接 */
@@ -51,67 +38,8 @@ const MODE_KEY: Record<Mode, string> = {
   specific: 'mode.specific',
 }
 
-function defaultState(cfg: FieldConfig): FieldState {
-  return { mode: 'every', step: 2, rangeStart: cfg.min, rangeEnd: cfg.max, specific: [cfg.min] }
-}
-
-function parseFieldState(raw: string, cfg: FieldConfig): FieldState {
-  const base = defaultState(cfg)
-  if (!raw || raw === '*') return { ...base, mode: 'every' }
-  const slashIdx = raw.indexOf('/')
-  if (slashIdx >= 0) {
-    const basePart = raw.slice(0, slashIdx)
-    const n = parseInt(raw.slice(slashIdx + 1), 10)
-    if (basePart === '*') return { ...base, mode: 'step', step: Number.isNaN(n) ? 2 : n }
-    if (basePart.includes('-')) {
-      const segs = basePart.split('-')
-      const a = parseInt(segs[0] ?? '', 10)
-      const b = parseInt(segs[1] ?? '', 10)
-      return {
-        ...base,
-        mode: 'range',
-        rangeStart: Number.isNaN(a) ? cfg.min : a,
-        rangeEnd: Number.isNaN(b) ? cfg.max : b,
-      }
-    }
-  }
-  if (raw.includes('-')) {
-    const segs = raw.split('-')
-    const a = parseInt(segs[0] ?? '', 10)
-    const b = parseInt(segs[1] ?? '', 10)
-    return {
-      ...base,
-      mode: 'range',
-      rangeStart: Number.isNaN(a) ? cfg.min : a,
-      rangeEnd: Number.isNaN(b) ? cfg.max : b,
-    }
-  }
-  if (raw.includes(',')) {
-    const arr = raw
-      .split(',')
-      .map((x) => parseInt(x.trim(), 10))
-      .filter((n) => !Number.isNaN(n))
-    return { ...base, mode: 'specific', specific: arr.length ? arr : [cfg.min] }
-  }
-  const n = parseInt(raw, 10)
-  return { ...base, mode: 'specific', specific: Number.isNaN(n) ? [cfg.min] : [n] }
-}
-
-function parseValue(expr: string): Record<FieldKey, FieldState> {
-  const parts = expr.trim().split(/\s+/)
-  const out = {} as Record<FieldKey, FieldState>
-  FIELDS.forEach((f, i) => {
-    out[f.key] = parseFieldState(parts[i] ?? '*', f)
-  })
-  return out
-}
-
-function fieldToCron(f: FieldState): string {
-  if (f.mode === 'every') return '*'
-  if (f.mode === 'step') return `*/${f.step || 1}`
-  if (f.mode === 'range') return `${f.rangeStart}-${f.rangeEnd}`
-  return f.specific.length ? [...f.specific].sort((a, b) => a - b).join(',') : '*'
-}
+/** 兼容旧名:builder 双表示真相源已迁 lib/cron-roundtrip,此处仅做薄别名 */
+const FIELDS: FieldConfig[] = [...CRON_FIELDS] as FieldConfig[]
 
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Number.isNaN(n) ? min : n))
@@ -122,17 +50,25 @@ interface CronEditorProps {
   onChange?: (cron: string) => void
 }
 
+const DEFAULT_CRON = '0 9 * * 1-5'
+
 export function CronEditor({ value, onChange }: CronEditorProps) {
   const t = useTranslations('cronEditor')
+  const initial = value ?? DEFAULT_CRON
   const [fields, setFields] = React.useState<Record<FieldKey, FieldState>>(() =>
-    parseValue(value ?? '0 9 * * 1-5'),
+    parseCronToBuilder(initial),
   )
+  /** b75-1#1:外部 value 无法由 builder 无损表达时进入自定义模式,保留原文不静默改写 */
+  const [customMode, setCustomMode] = React.useState<boolean>(() => !canVisualizeCron(initial))
+  const [customExpr, setCustomExpr] = React.useState<string>(initial)
 
   const cron = React.useMemo(
     () => FIELDS.map((f) => fieldToCron(fields[f.key])).join(' '),
     [fields],
   )
-  const runs = React.useMemo(() => getNextRuns(cron, 5), [cron])
+  /** 对外输出:自定义模式逐字保留原文,可视化模式用 builder 拼出的值 */
+  const output = customMode ? customExpr : cron
+  const runs = React.useMemo(() => getNextRuns(output, 5), [output])
   const dtf = React.useMemo(
     () =>
       new Intl.DateTimeFormat('zh-CN', {
@@ -144,28 +80,43 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
       }),
     [],
   )
-  const lastEmitted = React.useRef(cron)
+  const lastEmitted = React.useRef(output)
 
   React.useEffect(() => {
     if (value !== undefined) {
+      const visualizable = canVisualizeCron(value)
+      setCustomMode(!visualizable)
+      if (!visualizable) {
+        setCustomExpr(value)
+        lastEmitted.current = value
+        return
+      }
       setFields((prev) => {
         const cur = FIELDS.map((f) => fieldToCron(prev[f.key])).join(' ')
         if (cur === value) return prev
-        return parseValue(value)
+        return parseCronToBuilder(value)
       })
       lastEmitted.current = value
     }
   }, [value])
 
   React.useEffect(() => {
-    if (onChange && cron !== lastEmitted.current) {
-      lastEmitted.current = cron
-      onChange(cron)
+    if (onChange && output !== lastEmitted.current) {
+      lastEmitted.current = output
+      onChange(output)
     }
-  }, [cron, onChange])
+  }, [output, onChange])
 
   function update(key: FieldKey, patch: Partial<FieldState>) {
     setFields((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }))
+  }
+
+  /** 从自定义模式切回可视化:仅当当前原文可回环时才切换,否则保持自定义 */
+  function trySwitchToVisual() {
+    if (canVisualizeCron(customExpr)) {
+      setFields(parseCronToBuilder(customExpr))
+      setCustomMode(false)
+    }
   }
 
   return (
@@ -174,10 +125,38 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
         <CardTitle className="flex items-center gap-2 text-base">
           <Clock className="h-4 w-4 text-primary" />
           {t('title')}
+          {customMode && (
+            <span className="ml-1 rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-normal text-amber-600">
+              {t('customFallback', { defaultValue: '自定义表达式' })}
+            </span>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-1">
-        {FIELDS.map((cfg) => {
+        {customMode ? (
+          <div className="space-y-2 py-2">
+            <p className="text-xs text-muted-foreground">
+              {t('customHint', { defaultValue: '该表达式无法由可视化编辑器无损表达,以下原文逐字保留:' })}
+            </p>
+            <Input
+              value={customExpr}
+              onChange={(e) => setCustomExpr(e.target.value)}
+              className="font-mono text-sm"
+              spellCheck={false}
+            />
+            {canVisualizeCron(customExpr) && (
+              <Button
+                size="xs"
+                variant="ghost"
+                className="h-7 px-2 text-xs"
+                onClick={trySwitchToVisual}
+              >
+                {t('switchToVisual', { defaultValue: '切换到可视化编辑' })}
+              </Button>
+            )}
+          </div>
+        ) : (
+          FIELDS.map((cfg) => {
           const f = fields[cfg.key]
           const fieldLabel = t(FIELD_KEY[cfg.key] ?? 'field.unknown')
           return (
@@ -269,12 +248,13 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
               </div>
             </div>
           )
-        })}
+        })
+        )}
 
         <div className="mt-3 rounded-md border bg-muted/30 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <code className="font-mono text-base font-semibold">{cron}</code>
-            <span className="text-xs text-muted-foreground">{describeCron(cron)}</span>
+            <code className="font-mono text-base font-semibold">{output}</code>
+            <span className="text-xs text-muted-foreground">{describeCron(output)}</span>
           </div>
           {runs.length > 0 && (
             <div className="mt-2">

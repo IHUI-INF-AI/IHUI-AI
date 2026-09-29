@@ -31,10 +31,11 @@ import logging
 import os
 import secrets
 import time
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 import httpx
 
@@ -119,6 +120,194 @@ class MCPOAuthError(Exception):
     """OAuth 流程异常(网络/端点/认证失败统一抛此类型)。"""
 
 
+# ---------------------------------------------------------------------------
+# OAuth localhost 回调守卫状态机(b75-4#1,2026-09-30 立)
+# ---------------------------------------------------------------------------
+# 吸收自上游 zcode auth/localhost-callback.ts:62-100 的守卫状态机,降维为本仓
+# MCP OAuth 客户端域的纯 asyncio 实现(上游为 Node http server,一次性消费面
+# 在 scripts/mcp_oauth_realnet_e2e.py 此前是无守卫的裸 HTTPServer 监听):
+# - 陌生/不匹配 state 只回 HTTP 400 继续监听,不 kill 整个授权事务 —— 浏览器预取、
+#   并发授权事务、残留旧授权 URL 的回调都会打到本监听,一个陌生 state 不得让
+#   随后到达的正确回调再也无法成功;
+# - provider 回 error=access_denied 即时失败,带稳定错误码 MCP_OAUTH_CALLBACK_DENIED,
+#   不再等授权窗口超时;
+# - state 匹配但 code/error 双缺失的畸形回调立即结构化失败,不消耗授权窗口。
+# 调用方按 code/oauth_error 结构化字段区分「用户拒绝」与超时,不依赖错误文本。
+
+MCP_OAUTH_CALLBACK_DENIED_ERROR_CODE = "MCP_OAUTH_CALLBACK_DENIED"
+
+# 回调响应文案(与上游语义一致:成败都提示用户可关窗回到调用方)
+_CALLBACK_SUCCESS_TEXT = "Authorization successful! You may close this window and return to the CLI."
+_CALLBACK_FAILURE_TEXT = "Authorization failed. You may close this window and return to the CLI."
+# 单连接读超时(秒):loopback 回调只读请求行+头部,超时即弃连接,防慢速连接占住 handler
+_CALLBACK_READ_TIMEOUT = 10.0
+# 头部行数上限(防畸形请求无限读)
+_CALLBACK_MAX_HEADER_LINES = 100
+
+
+class MCPOAuthCallbackDeniedError(MCPOAuthError):
+    """授权服务器按 RFC 6749 §4.1.2.1 回传 `error` 时的结构化异常(稳定错误码)。"""
+
+    def __init__(self, oauth_error: str, oauth_error_description: str | None = None) -> None:
+        super().__init__(
+            f"OAuth authorization was rejected by the authorization server: {oauth_error}"
+        )
+        self.code = MCP_OAUTH_CALLBACK_DENIED_ERROR_CODE
+        self.oauth_error = oauth_error
+        self.oauth_error_description = oauth_error_description
+
+
+@dataclass
+class MCPOAuthCallback:
+    """守卫状态机成功结算的回调载荷。"""
+
+    code: str
+    url: str
+
+
+class MCPLocalhostOAuthCallbackServer:
+    """OAuth localhost 回调守卫状态机(纯 asyncio,监听 127.0.0.1)。
+
+    判据(逐条对齐上游 localhost-callback.ts):
+    - 回调路径不匹配 → HTTP 404,**继续监听**;
+    - state 陌生/与本事务不匹配 → HTTP 400,**继续监听**(不 kill 授权事务);
+    - state 匹配 + provider error → HTTP 400 + 立即失败(MCPOAuthCallbackDeniedError,
+      稳定错误码 MCP_OAUTH_CALLBACK_DENIED);
+    - state 匹配 + code/error 双缺 → HTTP 400 + 立即结构化失败(不消耗授权窗口);
+    - state 匹配 + 有 code(authCode 兼容别名)→ HTTP 200 + 成功结算;
+      此后重复回调不再改写结算结果(先到先得)。
+    """
+
+    def __init__(self, callback_path: str, state: str) -> None:
+        self._callback_path = callback_path
+        self._state = state
+        self._settled = False
+        self._done: asyncio.Future[MCPOAuthCallback] = (
+            asyncio.get_running_loop().create_future()
+        )
+        self._server: asyncio.Server | None = None
+        self._port = 0
+
+    async def start(self) -> str:
+        """启动监听(127.0.0.1 随机端口),返回完整回调 URL。"""
+        self._server = await asyncio.start_server(self._handle_client, host="127.0.0.1", port=0)
+        sock = self._server.sockets[0]
+        self._port = int(sock.getsockname()[1])
+        return f"http://127.0.0.1:{self._port}{self._callback_path}"
+
+    async def wait_for_callback(self) -> MCPOAuthCallback:
+        """等待本事务回调;守卫失败路径抛结构化异常,close() 未结算时也抛。"""
+        return await self._done
+
+    async def close(self) -> None:
+        """关闭监听;未结算时以结构化失败收口,等待方不会永久悬挂。"""
+        if self._server is not None:
+            self._server.close()
+            await self._server.wait_closed()
+            self._server = None
+        self._settle_failure(MCPOAuthError("OAuth 回调监听已关闭,授权事务未完成"))
+
+    # -- 内部:守卫状态机 --------------------------------------------------
+
+    def _settle_success(self, callback: MCPOAuthCallback) -> None:
+        if self._settled or self._done.done():
+            return
+        self._settled = True
+        self._done.set_result(callback)
+
+    def _settle_failure(self, error: Exception) -> None:
+        if self._settled or self._done.done():
+            return
+        self._settled = True
+        self._done.set_exception(error)
+
+    @staticmethod
+    async def _write_text(writer: asyncio.StreamWriter, status: int, message: str) -> None:
+        reason = {200: "OK", 400: "Bad Request", 404: "Not Found"}.get(status, "OK")
+        body = message.encode("utf-8")
+        head = (
+            f"HTTP/1.1 {status} {reason}\r\n"
+            "Content-Type: text/plain; charset=utf-8\r\n"
+            f"Content-Length: {len(body)}\r\n"
+            "Connection: close\r\n\r\n"
+        ).encode("latin-1")
+        writer.write(head + body)
+        await writer.drain()
+
+    async def _handle_client(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        try:
+            try:
+                request_line = await asyncio.wait_for(reader.readline(), _CALLBACK_READ_TIMEOUT)
+                for _ in range(_CALLBACK_MAX_HEADER_LINES):
+                    line = await asyncio.wait_for(reader.readline(), _CALLBACK_READ_TIMEOUT)
+                    if line in (b"\r\n", b"\n", b""):
+                        break
+            except (TimeoutError, ConnectionError, OSError):
+                return  # 连接层异常:不影响授权事务,继续监听
+            segments = request_line.decode("latin-1").split(" ")
+            if len(segments) < 2:
+                await self._write_text(writer, 400, _CALLBACK_FAILURE_TEXT)
+                return  # 畸形请求行:回 400 继续监听,不 kill 事务
+            parts = urlsplit(segments[1])
+            if parts.path != self._callback_path:
+                await self._write_text(writer, 404, _CALLBACK_FAILURE_TEXT)
+                return
+            params = parse_qs(parts.query)
+            state = (params.get("state") or [""])[0]
+            if state != self._state:
+                # 陌生/不匹配 state:浏览器预取/并发事务/残留旧授权 URL 的回调。
+                # 只回 400,不 kill 本授权事务,继续等待真回调(b75-4#1 判据①)。
+                await self._write_text(writer, 400, _CALLBACK_FAILURE_TEXT)
+                return
+            oauth_error = (params.get("error") or [""])[0]
+            if oauth_error:
+                # state 匹配说明确实是本事务的授权响应;用户点「拒绝」时授权服务器回
+                # error=access_denied,立即失败,不再等窗口超时(b75-4#1 判据②)。
+                await self._write_text(writer, 400, _CALLBACK_FAILURE_TEXT)
+                desc_list = params.get("error_description")
+                description = desc_list[0] if desc_list else None
+                self._settle_failure(MCPOAuthCallbackDeniedError(oauth_error, description))
+                return
+            code = (params.get("code") or [""])[0] or (params.get("authCode") or [""])[0]
+            if not code:
+                # state 匹配但既无 code 也无 error:授权响应不合法,本事务不可能成功,
+                # 直接失败,不消耗剩余授权窗口(b75-4#1 判据③)。
+                await self._write_text(writer, 400, _CALLBACK_FAILURE_TEXT)
+                self._settle_failure(
+                    MCPOAuthError("OAuth callback is missing an authorization code.")
+                )
+                return
+            await self._write_text(writer, 200, _CALLBACK_SUCCESS_TEXT)
+            self._settle_success(
+                MCPOAuthCallback(code=code, url=f"http://127.0.0.1:{self._port}{segments[1]}")
+            )
+        except Exception as e:  # noqa: BLE001 - handler 异常不逃逸(asyncio 仆从任务)
+            logger.warning("OAuth 回调守卫 handler 异常: %s", e)
+        finally:
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except Exception:  # noqa: BLE001 - 连接已被对端断开等,不影响事务
+                pass
+
+
+def _backup_corrupt_persist_file(path: Path) -> None:
+    """b75-4#2:凭据文件损坏先备份留证,绝不静默覆盖重置。
+
+    上游机制(auth/shared-credentials.ts backupCorruptFile)降维:损坏文件 rename 到
+    .corrupt-<毫秒时间戳> 隔离(留证不删),后续成功写入从干净状态开始,取证现场
+    保留在备份里。备份失败只告警,不阻断降级路径。
+    """
+    try:
+        backup = path.with_name(f"{path.name}.corrupt-{int(time.time() * 1000)}")
+        path.rename(backup)
+        logger.warning("OAuth 持久化 Token 文件损坏,已备份到 %s 后降级内存模式", backup)
+    except Exception as e:  # noqa: BLE001 - 备份失败不影响降级语义
+        logger.warning("OAuth 持久化 Token 文件损坏且备份失败: %s", e)
+
+
 def _load_persisted_token(config: MCPOAuthConfig) -> MCPOAuthToken | None:
     """从持久化文件读取 Token(加密/明文二选一);失败返回 None 不报错。"""
     if not config.persist_path:
@@ -141,6 +330,14 @@ def _load_persisted_token(config: MCPOAuthConfig) -> MCPOAuthToken | None:
         return MCPOAuthToken.from_dict(data)
     except Exception as e:  # noqa: BLE001 - 任何异常降级内存模式
         logger.warning("读持久化 OAuth Token 失败(降级内存): %s", e)
+        # b75-4#2:内容层损坏(解密/解析失败)先备份留证再返回 None —— 若不备份,
+        # 后续成功的写入会静默覆盖掉取证现场(上游 backupCorruptFile 判据)。
+        # 文件不存在等非损坏路径在上面已提前返回,不会走到这里。
+        try:
+            if Path(config.persist_path).exists():
+                _backup_corrupt_persist_file(Path(config.persist_path))
+        except Exception:  # noqa: BLE001 - 备份探测失败不影响降级语义
+            pass
         return None
 
 
@@ -160,7 +357,12 @@ def _persist_token(config: MCPOAuthConfig, token: MCPOAuthToken) -> None:
             if key
             else payload
         )
-        tmp_path = path.with_suffix(".json.tmp")
+        tmp_path = path.with_name(
+            f"{path.name}.tmp-{os.getpid()}-{uuid.uuid4().hex[:8]}"
+        )
+        # b75-4#2:tmp 名带 pid+随机后缀,不再共用固定 .json.tmp —— 并发写方各自
+        # 独立 tmp 后原子 replace,杜绝两写方在同一 tmp 上交错产生半截文件;
+        # 最终一致语义为"最后完成者胜"(Token 缓存可容忍)。
         tmp_path.write_text(content, encoding="utf-8")
         tmp_path.replace(path)
     except Exception as e:  # noqa: BLE001 - 持久化失败只告警,不崩主流程
@@ -229,8 +431,18 @@ class MCPOAuthClient:
     # 获取 / 刷新
     # ------------------------------------------------------------------
 
-    def set_authorization_code(self, code: str) -> None:
-        """注入授权码流获得的 code(授权成功回调时调用)。"""
+    def set_authorization_code(self, code: str, state: str = "") -> None:
+        """注入授权码流获得的 code(授权成功回调时调用)。
+
+        b75-4#1 state 会话绑定守卫:本客户端经 build_authorization_url_async 发起
+        授权事务后持有 _state(此前为自证缺陷"state 无会话绑定校验",见
+        scan_login.py 同类探针结论);调用方携带与事务不匹配的 state 注入视为
+        伪造/串线回调 —— 拒绝注入且**不消耗本事务**(保留 _state 与既有 code,
+        真回调仍可继续注入)。state 缺省时保持旧宽松行为以兼容既有调用方;
+        强制绑定的执法点在 MCPLocalhostOAuthCallbackServer 守卫状态机。
+        """
+        if state and self._state and state != self._state:
+            raise MCPOAuthError("OAuth 回调 state 与本授权事务不匹配,已拒绝注入(事务保持等待)")
         self._authorization_code = code
         # 换新码后作废旧 token,确保下次 get_token 走授权码交换
         self._token = None

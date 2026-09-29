@@ -1,0 +1,51 @@
+{
+  "$comment": "本机(生产/开发机)时钟与时区的**声明真值**。散文写'生产机是 UTC'这类机器事实会腐烂且无人看守(AGENTS §5b/§15b:凡盘符/时钟/远端/代理/服务承载体/解释器身份六类必须每次现取);这张表把它变成可判红的声明,由 scripts/check-host-timezone.mjs 对账。改本机时区必须同批改这张表,否则本表替一个已不存在的状态背书。",
+  "schema": 1,
+  "appliesTo": "本机(Windows,工作树所在盘上的这份 checkout)。非 Windows / 取不到 ⇒ 判'未判定',不判通过,也不判红。",
+  "expected": {
+    "windowsZoneKey": "China Standard Time",
+    "iana": "Asia/Shanghai",
+    "utcOffsetMinutes": 480,
+    "signConvention": "utcOffsetMinutes = 本地时间 - UTC 的分钟数,UTC+8 ⇒ +480。注意与 JS Date.prototype.getTimezoneOffset()(符号相反)不同,判据两侧都算并要求同向。",
+    "rtcHoldsLocalTime": true,
+    "rtcNote": "本机注册表没有 RealTimeIsUniversal ⇒ Windows 约定硬件时钟存'当前时区的本地时间'。2026-09-30 改时区当场由内核改写 RTC(事件日志:RTC 时间 2026-09-30T01:17:29 / 当前时间偏移 -480),所以重启后时钟不会错 8 小时。若将来把 RTC 改成存 UTC,必须同时设 RealTimeIsUniversal 并改本字段。"
+  },
+  "changedAt": {
+    "utc": "2026-09-29T17:17:29Z",
+    "local": "2026-09-30T01:17:29+08:00",
+    "from": "UTC",
+    "to": "China Standard Time",
+    "by": "agent 会话(用户 2026-09-30 01:14 明确授权),入口 .ihui-agent/tmp/tz-restore/restore-cn-tz.ps1,取证 .ihui-agent/tmp/tz-restore/flip.evidence.txt",
+    "reason": "2026-09-04 时区被一次未登记的改动从东八区改成 UTC,持续 25 天无人发现;期间支付宝对账单网关签名按主机本地时间算(应为 GMT+8 ⇒ 一直差 8 小时)、异常检测把北京 08:00-13:00 高峰当时判成'凌晨可疑行为'、数据库备份在全机最忙的 11:00 跑。"
+  },
+  "incidentTrail": [
+    {
+      "utc": "2026-06-04T07:40:20Z",
+      "what": "时区改为东八区(当前时间偏移 -480)",
+      "byProcess": "C:\\Windows\\System32\\wbem\\WmiPrvSE.exe (PID 21268)",
+      "source": "System 日志 / Microsoft-Windows-Kernel-General / Event ID 1 / 'System time adjusted to the new time zone'"
+    },
+    {
+      "utc": "2026-09-04T09:16:03Z",
+      "what": "时区改为 UTC(当前时间偏移 0)—— 本次事故的起点,当时无任何登记,全部门禁报绿",
+      "byProcess": "C:\\Program Files\\PowerShell\\7\\pwsh.exe (PID 7340)",
+      "source": "同上"
+    },
+    {
+      "utc": "2026-09-29T17:17:29Z",
+      "what": "改回东八区(当前时间偏移 -480),调整量 0 ms(UTC 瞬间未跳变),RTC 同步改写为本地时间",
+      "byProcess": "tzutil.exe (PID 36108) ← agent 会话",
+      "source": "同上"
+    }
+  ],
+  "logStampConsumers": {
+    "$comment": "运维日志里大量时间戳是**不带偏移的主机本地时间**(如 [2026-09-30 01:23:45])。这类串的含义只能由'写它的那台机当时是什么时区'决定,所以读它的判据必须引用本表的 utcOffsetMinutes,禁止把'没有偏移'默认成 UTC —— 那在东八区主机上会把每条事件写到未来 8 小时,分桶静默错位而账面全绿(实测 scripts/alert-volume-report.mjs 旧写法把 tz-less 一律当 +00:00)。",
+    "naiveStampDefault": "+08:00",
+    "transitionAmbiguityUntil": "2026-09-30T17:17:29Z",
+    "transitionNote": "改时区前 24 小时内的无偏移日志戳是 UTC 时代的,之后是东八区的;窗口跨过 changedAt 的报告必须点名这段不确定,不得静默给结论。"
+  },
+  "restartRequirement": {
+    "$comment": "**结论只来自实测,不来自'哪个运行时缓存'的先验**。2026-09-30 01:17 改完区后:Node 系(IHUI-API / IHUI-AI-SERVICE)日志仍打 17:2x(= UTC 时刻)⇒ 它们把时区缓存在进程启动时,**必须重启**;而 2026-09-26 起就没重启过的 IHUI-DEPLOYLOOP(PowerShell 7 / .NET)在 02:51 的日志内层戳已自行写成 [02:51:33 +08:00] ⇒ .NET 会随系统时区变更刷新,**不需要重启**。CPython / libc 那一路本机没有独立取证,不写结论。所以处置动作是:改区后跑 H3 逐条量活日志戳,红了才重启对应服务 —— 不要整片重启监控栈(PG 自己钉 Asia/Shanghai、Prometheus/Grafana/Loki 内部按 UTC 算,重启只会造成监控空窗)。",
+    "detector": "scripts/check-host-timezone.mjs 的 H3 维(读活日志最新戳与主机本地时刻之差)"
+  }
+}

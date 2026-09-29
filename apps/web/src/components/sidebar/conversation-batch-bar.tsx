@@ -32,6 +32,8 @@ export interface ConversationBatchBarProps {
   someSelected: boolean
   /** 批量请求在飞:所有动作互斥,避免两个批量写并行打架 */
   busy: boolean
+  /** D186:在飞的具体动作(批量归档在途时归档钮文案切「正在归档任务...」) */
+  busyAction?: BatchConversationAction | null
   /** 全选 / 全不选 */
   onToggleAll: (checked: boolean) => void
   /** 反选 */
@@ -52,6 +54,7 @@ export function ConversationBatchBar({
   allSelected,
   someSelected,
   busy,
+  busyAction = null,
   onToggleAll,
   onInvert,
   onBatch,
@@ -99,7 +102,10 @@ export function ConversationBatchBar({
           data-testid="batch-archive"
         >
           <Archive className="mr-1 h-3.5 w-3.5" />
-          <span>{t('batchArchive')}</span>
+          {/* D186:批量归档在途 →「正在归档任务...」(aria-busy 同步给读屏) */}
+          <span aria-busy={busyAction === 'archive'}>
+            {busyAction === 'archive' ? t('archivingChats') : t('batchArchive')}
+          </span>
         </Button>
         <Button
           variant="ghost"

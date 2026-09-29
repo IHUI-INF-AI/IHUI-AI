@@ -10,7 +10,10 @@ import { AnomalyDetector, type AnomalyContext } from '../anomaly-detector'
  *
  * 覆盖 6 维评分核心判定:
  * 1. 请求频率(>60 次/分钟 → 70+)
- * 2. 时间分布(凌晨 + 无历史活跃 → 70)
+ * 2. 时间分布(北京凌晨 + 无历史活跃 → 70)—— 凌晨一律按北京时间判定,
+ *    断言用显式 UTC 瞬时构造并至少跨两个宿主时区('UTC' / 'America/New_York')复跑:
+ *    旧写法 `Date.parse('...T03:00:00')`(无 Z)+ 本地 getHours 会把断言绑回宿主时区,
+ *    2026-09 宿主被静默切到 UTC 25 天期间该测试始终绿灯,即"判据失效的表现永远是安静"。
  * 3. 地理位置(同 IP 不触发;跨网段由 geoip 降级逻辑覆盖)
  * 4. 设备指纹突变(1 小时 ≥3 新设备 → 80)
  * 5. 请求模式(扫描器路径 → 95)
@@ -24,6 +27,18 @@ function ctx(overrides: Partial<AnomalyContext> = {}): AnomalyContext {
     method: 'GET',
     timestamp: Date.parse('2026-08-02T12:00:00Z'),
     ...overrides,
+  }
+}
+
+/** 在指定宿主时区下运行断言;结束后恢复原 TZ(Node 的 Date 格式化会重读 process.env.TZ)。 */
+async function inZone<T>(zone: string, fn: () => Promise<T>): Promise<T> {
+  const original = process.env.TZ
+  process.env.TZ = zone
+  try {
+    return await fn()
+  } finally {
+    if (original === undefined) delete process.env.TZ
+    else process.env.TZ = original
   }
 }
 
@@ -64,22 +79,34 @@ describe('anomaly-detector — 6 维评分(内存降级模式)', () => {
     })
   })
 
-  describe('维度 2:时间分布', () => {
-    it('凌晨 + 无历史活跃记录 → 70 分', async () => {
-      const d = new AnomalyDetector(null)
-      // 不带 Z 后缀:按本地时区解析 → getHours() ∈ [0,5) 判定凌晨
-      const nightTs = Date.parse('2026-08-02T03:00:00')
-      const result = await d.detectAnomaly(ctx({ userId: 'u-night', timestamp: nightTs }))
-      const dim = result.dimensions.find((x) => x.name === 'time-distribution')
-      expect(dim?.score).toBe(70)
-    })
+  describe('维度 2:时间分布(凌晨 = 北京时间 0-4 时,断言不随宿主时区漂)', () => {
+    // 显式 UTC 瞬时,北京语义:北京 02:00 = 02 - 8 → 前一日 18:00Z
+    const beijingTwoAm = Date.UTC(2026, 8, 30, 18, 0, 0) // → 北京 2026-08-31 02:00
+    // 北京 10:00 = 10 - 8 → 当日 02:00Z —— 宿主曾处于 UTC 时,本地 getHours 把这一档当成"凌晨 2 点"
+    const beijingTenAm = Date.UTC(2026, 8, 30, 2, 0, 0) // → 北京 2026-08-30 10:00
+    for (const zone of ['UTC', 'America/New_York']) {
+      it(`[${zone}] 北京凌晨 02:00 + 无历史活跃记录 → 70 分`, async () => {
+        await inZone(zone, async () => {
+          const d = new AnomalyDetector(null)
+          const result = await d.detectAnomaly(
+            ctx({ userId: `u-night-${zone}`, timestamp: beijingTwoAm }),
+          )
+          const dim = result.dimensions.find((x) => x.name === 'time-distribution')
+          expect(dim?.score).toBe(70)
+        })
+      })
 
-    it('白天 → 0 分', async () => {
-      const d = new AnomalyDetector(null)
-      const result = await d.detectAnomaly(ctx({ userId: 'u-day' }))
-      const dim = result.dimensions.find((x) => x.name === 'time-distribution')
-      expect(dim?.score).toBe(0)
-    })
+      it(`[${zone}] 北京上午 10:00 → 0 分`, async () => {
+        await inZone(zone, async () => {
+          const d = new AnomalyDetector(null)
+          const result = await d.detectAnomaly(
+            ctx({ userId: `u-day-${zone}`, timestamp: beijingTenAm }),
+          )
+          const dim = result.dimensions.find((x) => x.name === 'time-distribution')
+          expect(dim?.score).toBe(0)
+        })
+      })
+    }
   })
 
   describe('维度 3:地理位置', () => {
@@ -179,66 +206,78 @@ describe('anomaly-detector — 6 维评分(内存降级模式)', () => {
       expect(result.score).toBe(0)
     })
 
-    it('频率 70 + 凌晨 30 + curl 60 加权 → monitor(30-60)', async () => {
-      const d = new AnomalyDetector(null)
-      // 本地时区凌晨 4:30(无 Z 后缀,避免 UTC 偏移导致白天判定)
-      const night = Date.parse('2026-08-02T04:30:00')
-      const ip = '10.0.0.203'
-      for (let i = 0; i < 61; i++) {
-        await d.detectAnomaly(ctx({ ip, url: `/api/test/ch/${i}`, timestamp: night }))
+    it('频率 70 + 北京凌晨 30 + curl 60 加权 → monitor(30-60)', async () => {
+      for (const zone of ['UTC', 'America/New_York']) {
+        await inZone(zone, async () => {
+          const d = new AnomalyDetector(null)
+          // 北京 04:30 = 04:30 - 8h → 前一日 20:30Z;显式 UTC 瞬时,不随宿主时区漂
+          const night = Date.UTC(2026, 7, 1, 20, 30, 0) // → 北京 2026-08-02 04:30
+          const ip = `10.0.0.${zone === 'UTC' ? 203 : 204}` // 各时区独立频率窗口(静态 Map 跨用例存续)
+          for (let i = 0; i < 61; i++) {
+            await d.detectAnomaly(ctx({ ip, url: `/api/test/ch/${i}`, timestamp: night }))
+          }
+          const result = await d.detectAnomaly(
+            ctx({ ip, url: '/api/test/ch/61', timestamp: night, userAgent: 'curl/8.0.0' }),
+          )
+          // 无 userId → 时间维按"匿名凌晨"计 30;这条维度级断言是牙齿:
+          // 若实现退回宿主本地 getHours(),UTC 下 20:30 与 NY 下 16:30 都不落凌晨窗口 → 0 分,必红
+          expect(result.dimensions.find((x) => x.name === 'time-distribution')?.score).toBe(30)
+          // 70*0.25 + 30*0.1 + 60*0.2 = 17.5 + 3 + 12 = 32.5 → 33
+          expect(result.score).toBeGreaterThanOrEqual(30)
+          expect(result.score).toBeLessThanOrEqual(60)
+          expect(result.recommendation).toBe('monitor')
+        })
       }
-      const result = await d.detectAnomaly(
-        ctx({ ip, url: '/api/test/ch/61', timestamp: night, userAgent: 'curl/8.0.0' }),
-      )
-      // 70*0.25 + 30*0.1 + 60*0.2 = 17.5 + 3 + 12 = 32.5 → 33
-      expect(result.score).toBeGreaterThanOrEqual(30)
-      expect(result.score).toBeLessThanOrEqual(60)
-      expect(result.recommendation).toBe('monitor')
     })
 
-    it('六维叠加(频率 100 + 设备 80 + 扫描 95 + 凌晨 70 + geo 90 + 基线 75)→ block(>80)', async () => {
-      const d = new AnomalyDetector(null)
-      // 本地时区凌晨 2:30(无 Z 后缀)
-      const night = Date.parse('2026-08-02T02:30:00')
-      const userId = 'u-block-e2e'
-      const ipA = '10.0.0.210'
-      const ipB = '192.168.50.210'
-      const ipC = '10.0.0.211'
-      // 基线样本 ≥10(recordUserBehavior 独立调用,不污染频率窗口)
-      for (let i = 0; i < 11; i++) {
-        await d.recordUserBehavior(userId, 'view')
-      }
-      // 频率 >180 次(→100)+ 首次 IP 记录(lastIp=ipA)
-      for (let i = 0; i < 181; i++) {
-        await d.detectAnomaly(ctx({ ip: ipA, userId, timestamp: night, url: `/api/block/a/${i}` }))
-      }
-      // 设备指纹 3 个(dev-a 首次切 ipB 触发 geo 90,后续同 IP 归 0)
-      for (const [i, fp] of ['dev-a', 'dev-b', 'dev-c'].entries()) {
-        await d.detectAnomaly(
+    it('六维叠加(频率 100 + 设备 80 + 扫描 95 + 北京凌晨 70 + geo 90 + 基线 75)→ block(>80)', async () => {
+      await inZone('America/New_York', async () => {
+        const d = new AnomalyDetector(null)
+        // 北京 02:30 = 02:30 - 8h → 前一日 18:30Z;NY 宿主本地时读是 22:30 —— 旧 getHours 实现下
+        // 时间维归 0、总分 81 仍 >80,故此用例锁的是"跨时区聚合不倒",凌晨语义由维度 2 用例锁
+        const night = Date.UTC(2026, 7, 1, 18, 30, 0) // → 北京 2026-08-02 02:30
+        const userId = 'u-block-e2e'
+        const ipA = '10.0.0.210'
+        const ipB = '192.168.50.210'
+        const ipC = '10.0.0.211'
+        // 基线样本 ≥10(recordUserBehavior 独立调用,不污染频率窗口)
+        for (let i = 0; i < 11; i++) {
+          await d.recordUserBehavior(userId, 'view')
+        }
+        // 频率 >180 次(→100)+ 首次 IP 记录(lastIp=ipA)
+        for (let i = 0; i < 181; i++) {
+          await d.detectAnomaly(
+            ctx({ ip: ipA, userId, timestamp: night, url: `/api/block/a/${i}` }),
+          )
+        }
+        // 设备指纹 3 个(dev-a 首次切 ipB 触发 geo 90,后续同 IP 归 0)
+        for (const [i, fp] of ['dev-a', 'dev-b', 'dev-c'].entries()) {
+          await d.detectAnomaly(
+            ctx({
+              ip: ipB,
+              userId,
+              timestamp: night,
+              deviceFingerprint: fp,
+              url: `/api/block/b/${i}`,
+            }),
+          )
+        }
+        // 最终调用:新 IP(ipB→ipC 前两段剧变 → geo 90)+ 第 4 个新设备(→80)+ 扫描路径(→95)
+        // 频率窗口 userCount=186(仍 >180 → 100);基线 threshold≈15.5,recentCount=186 → 75
+        const result = await d.detectAnomaly(
           ctx({
-            ip: ipB,
+            ip: ipC,
             userId,
             timestamp: night,
-            deviceFingerprint: fp,
-            url: `/api/block/b/${i}`,
+            deviceFingerprint: 'dev-d',
+            url: '/.env',
           }),
         )
-      }
-      // 最终调用:新 IP(ipB→ipC 前两段剧变 → geo 90)+ 第 4 个新设备(→80)+ 扫描路径(→95)
-      // 频率窗口 userCount=186(仍 >180 → 100);基线 threshold≈15.5,recentCount=186 → 75
-      const result = await d.detectAnomaly(
-        ctx({
-          ip: ipC,
-          userId,
-          timestamp: night,
-          deviceFingerprint: 'dev-d',
-          url: '/.env',
-        }),
-      )
-      // 100*0.25 + 80*0.15 + 95*0.2 + 70*0.1 + 90*0.15 + 75*0.15 = 87.75 → 88
-      // (若测试恰好运行在凌晨 2-4 点,markActiveHour 会命中 → time 0 分 → 80.75 → 81,仍 >80)
-      expect(result.score).toBeGreaterThan(80)
-      expect(result.recommendation).toBe('block')
+        // 100*0.25 + 80*0.15 + 95*0.2 + 70*0.1 + 90*0.15 + 75*0.15 = 87.75 → 88
+        // (若测试恰好运行在北京凌晨 0-4 点,markActiveHour 会命中 → time 0 分 → 80.75 → 81,仍 >80)
+        expect(result.score).toBeGreaterThan(80)
+        expect(result.recommendation).toBe('block')
+      })
     })
   })
 })
