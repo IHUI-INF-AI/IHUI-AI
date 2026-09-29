@@ -259,6 +259,27 @@ test('反向锁:B3 不得回到"值里出现 var( 就整条放行"的旧形状',
 })
 
 /**
+ * B6 的标识符表必须含 `rnRadiusFor`(2026-09-29 立)。本门 §4 推荐的"把类别写进代码"就是
+ * `rnRadiusFor.<role>`,而使用式 `\brnRadius\s*.` 在 `rnRadiusFor.card` 里既不匹配词边界也不匹配点
+ * —— 门规定的写法恰好是门看不见的那一种。实测代价:一枚只换取值不改 import 的提交带着
+ * TS2552 + TS6133 进了 HEAD,门 77 / 门 98 / 门 150 全绿,只有 typecheck 红。
+ * 判"锁在不在"用**字面文本**而不是正则:正则里的反斜杠在测试侧再转义一次会静默失配,
+ * 失配的表现是"锁着,其实恒绿"(与本文件上面 B3 那条反向锁同一条理由)。
+ */
+test('B6 标识符表必须含 rnRadiusFor —— 门不得对自己规定的写法失明', () => {
+  const norm = (s) => s.replace(/\s+/g, ' ').trim()
+  const src = norm(readFileSync(GUARD, 'utf8'))
+  assert.ok(
+    src.includes("for (const name of ['rnRadius', 'rnRadiusFor', 'RADIUS_CSS_PX'])"),
+    'B6 的循环必须同时判 rnRadius / rnRadiusFor / RADIUS_CSS_PX —— 少一个就等于那一族整族隐身',
+  )
+  assert.ok(
+    src.includes('`\\\\b${name}\\\\s*\\\\.`'),
+    '使用式必须是按词元拼的 `\\b<name>\\s*\\.`:写成子串匹配会让 rnRadius 与 rnRadiusFor 互相冒充',
+  )
+})
+
+/**
  * A4 端到端(2026-09-28 O81 票㉙)。五态纯函数在门自己的 --self-test 里已经钉过,这里证的是
  * **另一件事**:角色漂移能一路走到提交链上把提交挡下,而不是只有函数会答话。
  * 立因是本票给 radius.js 加了 popover/bubble,而 .d.ts 是手抄的第二份 —— 运行时取到值、
