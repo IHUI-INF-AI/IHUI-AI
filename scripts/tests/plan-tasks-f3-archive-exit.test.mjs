@@ -170,10 +170,27 @@ test('T6 ref 一族即便键在归档里也不自动改(族表的"无出口"登�
 })
 
 test('T7 出口摘掉 ⇒ 对应用例翻红(变异自证,不是恒绿断言)', () => {
-  // 把 archived 档从出口表里摘掉(等价于"只留旧面内出口"),真仓样本必须一个都救不回来
+  // 把 archived 档从出口表里摘掉(等价于"只留旧面内出口"),归档那一臂必须一个都救不回来。
+  //
+  // ⚠️ 本例第一版写成"不喂归档索引 ⇒ rotatedAuto 必须回 0",2026-09-29 现读已不成立并被实测
+  // 打成红(42 !== 0):它把"HEAD 台账上恰好没有面内出口"这条**当下状态**当成了判据前提。面内出口
+  // (`autoFixable`:目标行还在面上且同复合主键)与归档反查是**两条独立出口**,前者本来就能非零 ——
+  // 归并器每收一条面内指针都会让别的行指向"还在面上的同主键登记",所以这一维只会随ledger演化而涨。
+  // 保留的原语只有一个:**归档那一臂必须净增**,且增的量恰好等于 archived 档的计数(它只可能由
+  // 归档反查产生)。这比"auto > 0"更严:若归档臂把面内臂顶掉(两侧共用一个计数),等式当场不成立。
   const plan = git(['show', 'HEAD:PROJECT_PLAN.md'])
   const idx = realArchiveIndex()
-  assert.equal(auditPlan(plan).counts.rotatedAuto, 0, '不喂归档索引 ⇒ auto 必须回 0')
-  assert.ok(auditPlan(plan, { archivedKeys: idx }).counts.rotatedAuto > 0, '喂了就必须 >0(两臂同时成立才叫有牙)')
+  const face = auditPlan(plan)
+  const both = auditPlan(plan, { archivedKeys: idx })
+  assert.equal(face.counts.rotatedArchived, 0, '不喂归档索引 ⇒ archived 档必须回 0(它只能由归档反查产生)')
+  assert.ok(
+    both.counts.rotatedArchived > 0,
+    `喂了归档索引就必须救回至少一条,实测 ${both.counts.rotatedArchived}(为 0 就是归档臂空转)`,
+  )
+  assert.equal(
+    both.counts.rotatedAuto,
+    face.counts.rotatedAuto + both.counts.rotatedArchived,
+    `归档臂必须是**净增**而非替换:面内 ${face.counts.rotatedAuto} + 归档 ${both.counts.rotatedArchived} 应等于合并后的 ${both.counts.rotatedAuto}`,
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
