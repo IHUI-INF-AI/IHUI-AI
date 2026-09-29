@@ -31,8 +31,9 @@ import re
 import threading
 import time
 import uuid
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any
 from urllib.parse import urlparse
 
 from ..core.config import settings
@@ -139,9 +140,17 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
     },
     "qq": {
         "name": "企鹅号",
-        "login_url": "https://om.qq.com/userAuth/login",
+        # 2026-09-29 实测:/userAuth/login 已 404;根域 om.qq.com/ 会重定向到 /userAuth/index(真登录页),直达少一跳
+        "login_url": "https://om.qq.com/userAuth/index",
         "success_cookies": ["p_skey", "ptcz"],  # 2026-09-15:剔除 pgv_pvid/RK 统计 cookie
         "success_url_pattern": r"om\.qq\.com/(main|companion)",
+        # 2026-09-29 实测:默认停在 QQ登录 tab,点 tab 必弹"服务协议"层(layui),
+        # 点"同意"(a.layui-layer-btn0)后 ptlogin2 快捷登录二维码才渲染。
+        # 顺序点击计划:逐步"有则点、无则跳"。走 QQ扫码(与 success_cookies 的
+        # p_skey/ptcz 同源);微信 tab 的码容器实测始终 about:blank 不加载。
+        "scan_tab_selectors": (
+            ('span.tab-text:has-text("QQ登录")', 'a.layui-layer-btn0'),
+        ),
     },
     "dayihao": {
         "name": "大鱼号",
@@ -157,9 +166,16 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
     },
     "sohu": {
         "name": "搜狐号",
-        "login_url": "https://mp.sohu.com/mp/login",
+        # 2026-09-29 实测:/mp/login 与 /login 均 404/跳走;登录弹层挂在首页,
+        # 点"登录"(.navigation-login-wrap .login)弹出(极少数情况开新窗,点击跨页兜底)
+        "login_url": "https://mp.sohu.com/",
         "success_cookies": ["sct", "_mp_key"],  # 2026-09-15:剔除 SUV/IPLOC 统计/地域 cookie
         "success_url_pattern": r"mp\.sohu\.com/(mp4|home)",
+        # 2026-09-29 实测:登录层默认"账号登录"表单,扫码入口是"其他方式"排的
+        # 微信圆标(.third .wx),点完 [class*="qrcode"] img 160×160 出现在页面里
+        "scan_tab_selectors": (
+            ('.navigation-login-wrap .login', '.third .wx'),
+        ),
     },
     "sina": {
         "name": "新浪看点",
@@ -231,9 +247,11 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
     },
     "zhihu_daily": {
         "name": "知乎日报",
-        "login_url": "https://daily.zhihu.com/login",
+        # 2026-09-29 实测:daily.zhihu.com/login 404,日报无独立 Web 登录 —— 复用
+        # 知乎主站扫码:z_c0 种在 .zhihu.com,天然覆盖 daily 子域(success_cookies 本就只认 z_c0)
+        "login_url": "https://www.zhihu.com/signin",
         "success_cookies": ["z_c0"],  # 2026-09-15:剔除 d_c0 登录前游客 cookie
-        "success_url_pattern": r"daily\.zhihu\.com/account",
+        "success_url_pattern": r"daily\.zhihu\.com/account|^https?://(www\.)?zhihu\.com/?($|#|\?)|/people/|/follow",
     },
     "people": {
         "name": "人民网",
@@ -856,8 +874,12 @@ def _run_scan_task(task: ScanTask) -> None:
             page.wait_for_timeout(3000)
 
             # 2. 尝试切换到扫码登录 tab(2026-09-29:平台可用 scan_tab_selectors 前置
-            #    自己的入口 —— 如思否的"微信登录"按钮;通用文案清单作兜底)
-            scan_selectors = [
+            #    自己的入口;每项可以是选择器串,也可以是"顺序点击计划"(元组/列表:
+            #    逐步有则点、无则跳,如企鹅号 点 QQ登录 tab → 点协议层"同意",
+            #    搜狐号 点"登录"弹层 → 点"其他方式"微信圆标)。通用文案清单作兜底。
+            #    点击跨页兜底:sohu 登录层极少数情况开新窗,主页找不到就到上下文
+            #    其它页(新→旧)找同选择器点掉。
+            scan_plans: list[Any] = [
                 *config.get("scan_tab_selectors", ()),
                 'text=扫码登录',
                 'text=二维码登录',
@@ -871,16 +893,16 @@ def _run_scan_task(task: ScanTask) -> None:
                 '[class*="scan"]',
                 '[class*="qrcode-tab"]',
             ]
-            for sel in scan_selectors:
-                try:
-                    el = page.locator(sel).first
-                    if el.count() > 0:
-                        el.click(timeout=2000)
+            for plan in scan_plans:
+                steps = list(plan) if isinstance(plan, (list, tuple)) else [plan]
+                clicked_any = False
+                for sel in steps:
+                    if _click_selector_anywhere(context, sel):
+                        clicked_any = True
                         page.wait_for_timeout(1500)
-                        logger.info(f"[scan_login] 切换扫码: {sel}")
-                        break
-                except Exception:
-                    pass
+                if clicked_any:
+                    logger.info(f"[scan_login] 切换扫码: {steps}")
+                    break
 
             page.wait_for_timeout(2000)
 
@@ -1050,6 +1072,13 @@ _QR_ELEMENT_SELECTORS: tuple[str, ...] = (
     '[class*="qrcode"] svg',
     '[class*="qrcode"]',
     '[id*="qrcode"]',
+    # 2026-09-29:QQ 企鹅号 om.qq.com 实测 —— ptlogin2 快捷登录二维码是
+    # <img id="qrlogin_img" class="qrImg" src="https://xui.ptlogin2.qq.com/ssl/ptqrshow?...">
+    # id/class 都不含 "qrcode",src 是 https 非 data:image,必须点名;
+    # 且要排在 img[data:image] 之前 —— 腾讯验证码框(captcha.gtimg)里有 300×214 的
+    # data:image 滑块底图,跨 frame 找码时若先扫到它会误裁验证码。
+    "#qrlogin_img",
+    'img[src*="ptqrshow"]',
     'img[src^="data:image"]',
     # 2026-09-29:跨站内嵌的二维码 iframe —— 截图是合成像素,clip 住 iframe 的
     # bounding_box 即可(不需要进 frame 取内部元素)。思否"微信登录"实测把
@@ -1060,33 +1089,92 @@ _QR_ELEMENT_SELECTORS: tuple[str, ...] = (
 )
 
 
+def _click_selector_anywhere(context: Any, selector: str) -> bool:
+    """在浏览器上下文的任一页面里点掉选择器;主页优先,其余页新→旧。
+
+    2026-09-29:搜狐号登录层极少数情况 window.open 新窗 —— 主页定位不到弹层
+    元素时,到上下文其它页找同选择器点掉。找不到/点不中返回 False(调用方
+    按计划继续,不影响主流程)。
+    """
+    pages = list(getattr(context, "pages", []) or [])
+    ordered = pages[:1] + list(reversed(pages[1:]))
+    for pg in ordered:
+        try:
+            loc = pg.locator(selector).first
+            if loc.count() == 0 or not loc.is_visible():
+                continue
+            loc.click(timeout=2000)
+            return True
+        except Exception:  # noqa: BLE001 — 单页失败换下一页
+            continue
+    return False
+
+
+def _find_qr_clip(pg: Any, vp_w: int, vp_h: int) -> dict[str, float] | None:
+    """在一页里找二维码 clip 盒:先主 DOM,再全部嵌套 frame;两遍尺寸门槛。
+
+    2026-09-29 跨 frame:企鹅号 ptlogin2 的码在 xui.ptlogin2.qq.com 嵌套 iframe
+    里,主页面 locator 够不着;locator.bounding_box() 返回主视口坐标,可直接喂
+    page.screenshot(clip=...)。选择器优先级与主 DOM 一致(#qrlogin_img 等点名
+    选择器排在 data:image/canvas 兜底之前,避免误裁腾讯验证码滑块底图)。
+    两遍门槛:同一选择器命中的盒子先按 120px 高标准裁,尺寸不足(80~119px)
+    就地降档救援,再轮到下一选择器 —— 选择器优先级(置信度)始终压过尺寸。
+    背景:ptlogin2 的码实测只有 87×87,不降档就只能整屏,手机不好扫;而
+    sohu 首页 60×60 推广码在两档之下仍然会拒。
+    """
+    sources: list[Any] = [pg.main_frame, *[f for f in getattr(pg, "frames", []) if f is not pg.main_frame]]
+    for sel in _QR_ELEMENT_SELECTORS:
+        for fr in sources:
+            try:
+                loc = fr.locator(sel).first
+                if loc.count() == 0 or not loc.is_visible():
+                    continue
+                box = loc.bounding_box()
+                # 同源两档:120 高标准 → 80 救援;都不合格(如 60×60 推广码)才换下一源
+                clip = _pick_qr_clip(box, vp_w, vp_h, min_side=120)
+                if clip is None:
+                    clip = _pick_qr_clip(box, vp_w, vp_h, min_side=80)
+                if clip is not None:
+                    return clip
+            except Exception:  # noqa: BLE001 — 单源读不到就试下一个
+                continue
+    return None
+
+
 def _update_qr_screenshot(task: ScanTask, page: Any) -> None:
     """更新任务的二维码截图(base64 PNG)。
 
-    优先只截二维码那一块(见 `_pick_qr_clip`);量不到合格盒子时退回整屏 ——
+    优先只截二维码那一块(见 `_find_qr_clip`);量不到合格盒子时退回整屏 ——
     退回不是失败:整屏至少还能看到页面,比什么都不返回好。
+    2026-09-29:主页面全落空时,再试上下文其它页(sohu 登录层开新窗形态)。
     """
     clip: dict[str, float] | None = None
+    target = page
     try:
         vp = page.viewport_size or {}
         vp_w = int(vp.get("width") or 0)
         vp_h = int(vp.get("height") or 0)
         if vp_w and vp_h:
-            for sel in _QR_ELEMENT_SELECTORS:
-                try:
-                    loc = page.locator(sel).first
-                    if loc.count() == 0 or not loc.is_visible():
+            clip = _find_qr_clip(page, vp_w, vp_h)
+            if clip is None:
+                for other in [p for p in page.context.pages if p is not page]:
+                    try:
+                        ov = other.viewport_size or {}
+                        ow = int(ov.get("width") or 0)
+                        oh = int(ov.get("height") or 0)
+                    except Exception:  # noqa: BLE001 — 页面可能已关
                         continue
-                    clip = _pick_qr_clip(loc.bounding_box(), vp_w, vp_h)
-                except Exception:  # noqa: BLE001 — 单个选择器读不到就试下一个
-                    continue
-                if clip:
-                    break
+                    if not (ow and oh):
+                        continue
+                    clip = _find_qr_clip(other, ow, oh)
+                    if clip is not None:
+                        target = other
+                        break
     except Exception as e:  # noqa: BLE001 — 定位失败一律退回整屏截图
         logger.debug(f"[scan_login] 二维码元素定位失败(退回整屏):{e}")
         clip = None
     try:
-        png_bytes = page.screenshot(type="png", clip=clip) if clip else page.screenshot(
+        png_bytes = target.screenshot(type="png", clip=clip) if clip else target.screenshot(
             type="png", full_page=False
         )
         with task._lock:
