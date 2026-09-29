@@ -69,7 +69,7 @@ from ..services.vector_memory import vector_memory
 
 if TYPE_CHECKING:
     # 仅类型注解使用(运行时在函数内延迟导入,避免循环依赖)
-    from ..services.agent_loop_v2 import AgentLoopResult
+    from ..services.agent_loop_v2 import AgentLoopResult, AgentLoopV2
     from ..services.mcp_tool_aggregator import SuperToolPool
 
 logger = logging.getLogger(__name__)
@@ -475,7 +475,7 @@ async def _new_v2_loop(
     current_user: str,
     user_role: int,
     permission_mode: str | None = None,
-) -> Any:
+) -> "AgentLoopV2":
     """构造 AgentLoopV2 的**唯一**入口(D144③ 2026-09-29 从 execute/stream 抽出)。
 
     为什么必须是函数而不是"各调用点各写一份参数表":本文件此前有两处内联构造
@@ -1195,10 +1195,12 @@ async def execute_agent(
             repo_name=req.repo_name,
         )
         # 未显式传 session_id 时由执行器生成,补登记(此后同进程订阅者可判定属主)
-        sid = result.get("session_id")
-        if isinstance(sid, str) and sid and sid not in owned:
-            record_ownership(sid, current_user)
-            owned.append(sid)
+        # 刻意不叫 `sid`:上面 v2 分支的 `for sid in owned` 已把该名字钉成 str,
+        # 而复用同名会让 mypy 报"Any|None 赋给 str"——那是名字重叠的假冲突,不是缺陷。
+        produced_sid = result.get("session_id")
+        if isinstance(produced_sid, str) and produced_sid and produced_sid not in owned:
+            record_ownership(produced_sid, current_user)
+            owned.append(produced_sid)
         return result
     finally:
         for sid in owned:
