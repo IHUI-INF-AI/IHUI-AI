@@ -236,7 +236,7 @@ export default function ModelConfigDialog({
       <View className="fixed inset-0 z-[2000] flex items-center justify-center" onClick={onClose}>
         <View className="absolute inset-0 bg-[var(--color-black-40)]" />
         <View
-          className="relative bg-card ui-panel rounded-xl mx-6 w-full max-w-sm max-h-[80vh] overflow-y-auto"
+          className="relative bg-card rounded-xl mx-6 w-full max-w-sm max-h-[80vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
           hoverClass="opacity-60"
         >
@@ -576,7 +576,7 @@ export default function ModelConfigDialog({
     <View className="fixed inset-0 z-[2000] flex items-center justify-center" onClick={onClose}>
       <View className="absolute inset-0 bg-[var(--color-black-40)]" />
       <View
-        className="relative bg-card ui-panel rounded-xl mx-4 w-full max-w-md max-h-[85vh] overflow-y-auto"
+        className="relative bg-card rounded-xl mx-4 w-full max-w-md max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
         hoverClass="opacity-60"
       >
@@ -625,6 +625,7 @@ export default function ModelConfigDialog({
                     </View>
                   )}
                   {it.url && (
+                    // radius-exempt: 删除角标正圆:绝对定位小圆钮,直径=边长
                     <View
                       className="absolute -top-1 -right-1 bg-destructive rounded-2xl flex items-center justify-center"
                       style={modelConfigDeleteBadgeStyle(toUnit)}
@@ -634,14 +635,7 @@ export default function ModelConfigDialog({
                       }}
                       hoverClass="opacity-60"
                     >
-                      {/* 载体换为矢量:lucide X(登记表键 x),与 RN 同槽 `<X size={INLINE_GLYPH}>`
-                          同字形同档;墨迹档取 spec 的 INLINE_GLYPH(不新增端内字面量,见守门 128),
-                          前景仍取本元素原档 destructive-foreground(只换载体,不改色档来源)。 */}
-                      <LineIcon
-                        name="x"
-                        size={MODEL_CONFIG_INLINE_GLYPH_PX * TARO_RPX_PER_PX}
-                        color="var(--color-destructive-foreground)"
-                      />
+                      <Text className="text-destructive-foreground text-[length:16rpx]">×</Text>
                     </View>
                   )}
                 </View>
@@ -668,15 +662,12 @@ export default function ModelConfigDialog({
                   <Text className="text-sm font-medium">
                     {tt('ModelConfigDialog.text11', '选择音色')}
                   </Text>
-                  {/* 载体换为矢量:lucide X(登记表键 x),与 RN 音色菜单头部同槽
-                      `<X size={INLINE_GLYPH} color={tokens.text.secondary}>` 同字形同档;
-                      墨迹档走 spec 具名档(不新增端内字面量),前景仍是本元素原档 muted-foreground。 */}
-                  <LineIcon
-                    name="x"
-                    size={MODEL_CONFIG_INLINE_GLYPH_PX * TARO_RPX_PER_PX}
-                    color="var(--color-muted-foreground)"
+                  <Text
+                    className="text-sm text-muted-foreground"
                     onClick={() => setShowAudioMenu(false)}
-                  />
+                  >
+                    ×
+                  </Text>
                 </View>
                 {/* 系统音色选择 - Selecter type='voice' */}
                 <View className="mb-3">
@@ -757,6 +748,7 @@ export default function ModelConfigDialog({
                     onClick={() => setConfigValue(item.name, !checked)}
                     hoverClass="opacity-60"
                   >
+                    {/* radius-exempt: Switch 拇指(§4 明文豁免,方档化会破坏形状) */}
                     <View
                       className="rounded-2xl bg-[var(--color-white-98)] transition-transform"
                       style={{

@@ -58,7 +58,7 @@ import {
   X,
 } from 'lucide-react-native'
 
-import { rnGeometry, rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius } from '@ihui/design-tokens'
 import {
   BOTTOM_ACTION_BAR_CHIP_FONT_PX,
   BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
@@ -176,7 +176,7 @@ const ACTION_BUTTON_HEIGHT = 44
 const ACTION_BUTTON_FONT_SIZE = BOTTOM_ACTION_BAR_TEXT_FONT_PX
 const ICON_BUTTON_SIZE = 44
 const ICON_BUTTON_EMOJI_SIZE = 18
-const ICON_BUTTON_BORDER_RADIUS = ICON_BUTTON_SIZE / 2
+const ICON_BUTTON_BORDER_RADIUS = ICON_BUTTON_SIZE / 2 // radius-exempt: 图标按钮几何正圆(44dp 直径/2)
 /** 字距不是尺寸(守门 128 因键名含 spacing 会把它计入读数),不进几何表,登记为读数噪音。 */
 const LABEL_LETTER_SPACING = 0.2
 
@@ -939,7 +939,7 @@ const styles = StyleSheet.create({
     right: 2,
     width: IMAGE_REMOVE_SIZE,
     height: IMAGE_REMOVE_SIZE,
-    borderRadius: IMAGE_REMOVE_SIZE / 2,
+    borderRadius: IMAGE_REMOVE_SIZE / 2, // radius-exempt: 图片删除角标正圆(16dp 直径/2)
     backgroundColor: tokens.overlay.modal,
     alignItems: 'center',
     justifyContent: 'center',
@@ -960,7 +960,7 @@ const styles = StyleSheet.create({
   voiceBtn: {
     width: VOICE_BTN_SIZE,
     height: VOICE_BTN_SIZE,
-    borderRadius: rnRadius.sm,
+    borderRadius: VOICE_BTN_SIZE / 2, // radius-exempt: 语音按钮几何正圆(36dp 直径/2)
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -1012,7 +1012,7 @@ const styles = StyleSheet.create({
   secondaryBtn: {
     width: SECONDARY_BTN_SIZE,
     height: SECONDARY_BTN_SIZE,
-    borderRadius: rnRadius.sm,
+    borderRadius: SECONDARY_BTN_SIZE / 2, // radius-exempt: 辅助图标按钮正圆(36dp 直径/2)
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -1024,7 +1024,7 @@ const styles = StyleSheet.create({
     height: SECONDARY_BTN_SIZE,
     minWidth: SECONDARY_BTN_SIZE,
     paddingHorizontal: 8,
-    borderRadius: rnRadiusFor.control,
+    borderRadius: SECONDARY_BTN_SIZE / 2, // radius-exempt: 附件按钮胶囊(高 36dp/2)
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: tokens.border.light,

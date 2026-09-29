@@ -163,7 +163,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                     boxSizing: 'border-box',
                     width: 'calc(25% - 12rpx)',
                     border: '4rpx solid var(--color-card)',
-                    borderRadius: rnRadius.lg,
+                    borderRadius: rnRadius.md,
                     fontSize: toUnit(BOTTOM_ACTION_BAR_CHIP_FONT_PX),
                     padding: '12rpx 0',
                     background: active ? 'var(--color-brand)' : 'var(--color-muted)',
@@ -206,7 +206,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                   width: rpx(160),
                   height: rpx(150),
                   background: 'var(--color-muted)',
-                  borderRadius: rnRadius['2xl'],
+                  borderRadius: rnRadius.lg,
                   border: '6rpx solid var(--color-card)',
                 }}
                 onClick={() => onIconButtonClick?.(btn)}
@@ -235,7 +235,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                 width: rpx(160),
                 height: rpx(150),
                 background: isVoiceInput ? 'var(--color-brand)' : 'var(--color-muted)',
-                borderRadius: rnRadius['2xl'],
+                borderRadius: rnRadius.lg,
                 border: '6rpx solid var(--color-card)',
               }}
               onClick={onVoiceInputToggle}
@@ -316,7 +316,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
     <View className={cn('flex items-center px-3 py-2 bg-card mt-2')}>
       {showAttach && (
         <View
-          className="flex items-center justify-center mr-2 rounded-lg bg-muted"
+          className="flex items-center justify-center mr-2 rounded-sm bg-muted"
           style={{
             width: toUnit(BOTTOM_ACTION_BAR_CONTROL_BOX_PX),
             height: toUnit(BOTTOM_ACTION_BAR_CONTROL_BOX_PX),
@@ -341,7 +341,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
       {showSend && (
         <View
           className={cn(
-            'flex items-center justify-center ml-2 rounded-lg',
+            'flex items-center justify-center ml-2 rounded-sm',
             value ? 'bg-cta text-cta-foreground' : 'bg-muted',
           )}
           style={{
