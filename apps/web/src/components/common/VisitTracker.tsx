@@ -20,6 +20,7 @@
  */
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
+import { stripUrlCredentialSegments } from '@ihui/shared/utils/sanitize-url'
 import { useAuthStore } from '@/stores/auth'
 
 const REPORT_API = '/api/visit-tracking/visit-log' // method: POST
@@ -57,7 +58,8 @@ export function VisitTracker() {
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return
-    const path = window.location.pathname + window.location.search
+    // 上报面前先剥凭据段(?code / ?sig / userinfo / hash),落库的 visit_logs 不接受原文 query
+    const path = stripUrlCredentialSegments(window.location.pathname + window.location.search)
     if (isIgnored(path)) return
 
     const now = Date.now()
@@ -68,7 +70,7 @@ export function VisitTracker() {
 
     const payload = JSON.stringify({
       url: path,
-      referer: document.referrer?.slice(0, 500) || undefined,
+      referer: stripUrlCredentialSegments(document.referrer?.slice(0, 500) ?? '') || undefined,
       sessionId: getSessionId(),
       userId: userId ?? undefined,
       visitDate: new Date().toISOString().slice(0, 10),
