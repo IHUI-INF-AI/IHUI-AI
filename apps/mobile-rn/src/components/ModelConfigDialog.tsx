@@ -327,13 +327,16 @@ function RatioSelector({
   return (
     <View>
       <View className="mb-1.5 flex-row items-center">
+        {/* back-label-exempt: 弹窗内子面板收合按钮,文字是标签、箭头已矢量化,非页头返回键 until 2026-12-31 */}
         <Pressable
           onPress={() => setSizeIndex(null)}
           className="mr-1.5 flex-row items-center rounded-md px-2.5 py-1.5"
           style={{ backgroundColor: tokens.surface.muted }}
-          accessibilityLabel={t('common.back')}
         >
           <ChevronLeft size={MODEL_CONFIG_INLINE_GLYPH_PX} color={tokens.text.secondary} />
+          <Text className="text-xs" style={{ color: tokens.text.secondary }}>
+            {t('common.back')}
+          </Text>
         </Pressable>
         <Text className="text-xs font-medium" style={{ color: tokens.text.tertiary }}>
           {sizeKey}
@@ -1190,6 +1193,7 @@ function UploadButton({
         </Text>
       </Pressable>
       {url && onDelete ? (
+        // radius-exempt: 删除角标正圆:绝对定位小圆钮,直径=边长
         <Pressable
           onPress={(e) => {
             e.stopPropagation()
