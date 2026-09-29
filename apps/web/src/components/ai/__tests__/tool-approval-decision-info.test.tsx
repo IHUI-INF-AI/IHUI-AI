@@ -19,7 +19,7 @@
  */
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import React from 'react'
-import { render, cleanup, screen, fireEvent, act } from '@testing-library/react'
+import { render, cleanup, screen, act } from '@testing-library/react'
 
 // checkpoint 通道 mock:可按用例注入实现;调用记录用于"无会话不得查询"的反向断言
 const ckpt = vi.hoisted(() => ({

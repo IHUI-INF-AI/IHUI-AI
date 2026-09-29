@@ -131,7 +131,7 @@ export interface LoadPluginsOptions {
  * 把失败编码成数据(稳定 code)而不是异常,才能被日志/CI/上层按码分档处理。
  *
  * `plugin-dependency-cycle` 是 G-684 点名要求的「环依赖专属判别码」:
- * 它与 `manifest-name-ambiguous` **语义不同、文案不得复用** ——
+ * 它与 `plugin_ambiguous_name` **语义不同、文案不得复用** ——
  * 前者是"依赖图成环"(需要拆开环),后者是"两份清单抢同一个名字"(需要改名或删一份)。
  * `dependencies` 字段本身由 G-682 引入,引入后由装载器产出该码;现阶段无产出方。
  */
@@ -148,8 +148,8 @@ export const PLUGIN_DIAGNOSTIC_CODES = [
   'manifest-version-missing',
   /** 同目录内被高优先级清单压掉的那一份(plugin.config.json vs plugin.json) */
   'manifest-shadowed-by-priority',
-  /** 同名歧义:多份清单声明同一个 name ⇒ 全部不装载(G-684) */
-  'manifest-name-ambiguous',
+  /** 同名歧义:多份清单(不同 rootPath)声明同一个 name ⇒ 全部不装载(G-684/G-658) */
+  'plugin_ambiguous_name',
   /** 兜底:未预期的抛点,一律编码成诊断而不让单点失败抛穿整次装载 */
   'manifest-unexpected-error',
   /** 依赖环(G-682 的 dependencies 落地后由装载器产出;刻意不复用歧义码) */

@@ -70,6 +70,14 @@ jobs:
         # 工具任何一片解析不到 pass/fail 计数就按失败计,不会把"runner 崩了"洗成绿
         run: node scripts/run-script-tests.mjs
 
+      - name: Run deploy/win PowerShell self-tests
+        shell: pwsh
+        # 部署脚本的判据住在 .ps1 里,node 镜像测试结构上跑不到它。而 `Test-CleanBuildEnvInlined`
+        # 判的是"净面产物有没有把 NEXT_PUBLIC_* 烘进去"——它一旦失效,症状要到屏幕上看才看得见
+        # (登录按钮消失/验证码不工作),所以它必须有一把**每次都在干净检出上跑**的尺子。
+        # 该自检按 AST 只取被测函数,不会执行部署主流程(点源整份脚本 = 当场开始部署)。
+        run: "& 'deploy/win/test-clean-build-guard.ps1'"
+
       - name: 发现清单(诊断用,不参与判定)
         if: always()
         run: node scripts/run-script-tests.mjs --list

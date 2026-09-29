@@ -15,6 +15,12 @@
  *  T5 —— **同源 schema 锁**(硬要求①):留痕的键名必须与 safe-commit 那本逐字同族,只允许多
  *         gatesRun/landedSha/source 三个;safe-commit 改了键名本测试即红(不得各写一份)。
  *  T6 —— 只读性:统计器不得写盘。
+ *  T7 —— **整档流式读必须与整串解析同结论**:带色日志、跨块边界(chunkBytes=5 故意把中文与 ANSI
+ *         序列切成两半)、超上限必须量出被跳过的字节、文件不在位 = 未判定而不是"0 轮"。
+ *         (这一格不是补装饰:改成整档读之后我第一版**漏了在流式路径里剥 ANSI**,真仓当场
+ *          报"读到 0 轮 / normal=0" —— 读得更全反而什么都看不见。)
+ *  T8 —— **覆盖面自证三态**:窗口没走全(`not-covered`)、取尽历史后窗口真 0 枚(`covered`+0)、
+ *         仓库问不到东西(`ok=false`)必须三种答法,不得共用"0 枚"这一个词。
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -330,6 +336,96 @@ test('T8 台账坏行不得被算成"没发生"', () => {
     assert.equal(led.records.length, 1)
     assert.equal(led.badLines.length, 1, '解不出的行必须点名,不得静默丢')
     assert.equal(led.badLines[0].n, 2)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T7 整档流式读必须与整串解析同结论(带色日志 + 跨块半行)', () => {
+  const dir = mkScratch('bypass-stream')
+  try {
+    const E = String.fromCharCode(27)
+    const log = [
+      'ℹ️  staged 文件清单(2 个):',
+      '  - 中文路径/组件名.tsx',
+      '  - b.ts',
+      `  ${E}[31m失败: 0${E}[0m`,
+      'ℹ️  staged 文件清单(1 个):',
+      '  - c.ts',
+      `  ${E}[32m失败: 1${E}[0m`,
+    ].join('\n')
+    const p = join(dir, 'hook.log')
+    writeFileSync(p, log, 'utf8')
+    const full = report.readHookRounds(p)
+    assert.equal(full.ok, true, `取不到就说取不到:${full.why}`)
+    assert.equal(full.rounds.length, 2, '整档流式读不得比整串解析少认轮')
+    assert.equal(full.rounds[0].failed, 0)
+    assert.equal(full.rounds[1].failed, 1)
+    assert.deepEqual(full.rounds[0].files, ['中文路径/组件名.tsx', 'b.ts'], '多字节行名不得被切坏')
+    assert.equal(full.capped, false)
+    assert.equal(full.bytesParsed, statSync(p).size, '未截断时"已读字节"必须等于文件大小')
+    // 同一份内容两条路径必须逐字同结论(流式 vs 整串):漂开 = 同一本日志两种真相
+    assert.deepEqual(full.rounds, report.parseHookRounds(readFileSync(p, 'utf8')))
+    // 块边界刻意切在多字节字符与 ANSI 序列中间(chunkBytes=5):结论不得变
+    const tiny = report.readHookRounds(p, { chunkBytes: 5 })
+    assert.deepEqual(tiny.rounds, full.rounds, '分块边界把中文切成 U+FFFD 或把色码切断 ⇒ 判据失效而账面无声')
+    // 上限退回读尾部时必须**大声**报被跳过的字节,不得静默当成"全读过了"
+    const capped = report.readHookRounds(p, { capBytes: 40 })
+    assert.equal(capped.ok, true)
+    assert.equal(capped.capped, true)
+    assert.ok(capped.skippedBytes > 0, '超上限必须量出被跳过多少字节')
+    // 文件不在位 = 未判定,不得被读成"0 轮 = 今天没人跑门"
+    const missing = report.readHookRounds(join(dir, 'nope.log'))
+    assert.equal(missing.ok, false)
+    assert.equal(missing.state, 'missing')
+    assert.equal(missing.rounds.length, 0)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T8 覆盖面自证:窗口没走全时不得把枚数当全量(三态)', () => {
+  const dir = mkScratch('bypass-cov')
+  try {
+    const gitHere = (...args) => execFileSync('git', ['-c', 'safe.directory=*', ...args], { cwd: dir, encoding: 'utf8' })
+    gitHere('init', '-q', '-b', 'main', dir)
+    gitHere('config', 'user.email', 't@example.invalid')
+    gitHere('config', 'user.name', 'T')
+    for (const f of ['one.md', 'two.md', 'three.md']) {
+      writeFileSync(join(dir, f), `${f}\n`, 'utf8')
+      gitHere('add', '--', f)
+      gitHere('commit', '-q', '-m', `seed ${f}`)
+    }
+    // 本地日,不是 UTC 日:本仓在 +08:00,凌晨两点用 toISOString() 会得到**昨天**,
+    // 于是窗口把刚造的三枚提交整批滤掉、`covered` 被读成 `empty`(判据没坏,是夹具算错了日子)。
+    const nowD = new Date()
+    const p = (n) => String(n).padStart(2, '0')
+    const today = `${nowD.getFullYear()}-${p(nowD.getMonth() + 1)}-${p(nowD.getDate())}`
+    const wide = report.collectCommits({ root: dir, sinceDay: '2000-01-01', untilDay: today })
+    assert.equal(wide.ok, true)
+    assert.equal(wide.coverage, 'covered', '历史取到底(未用尽 --limit)才许说"完整"')
+    assert.equal(wide.commits.length, 3)
+    // limit=1 ⇒ 只走到最新一枚,窗口起点根本没碰到 ⇒ 必须自证"不完整"
+    const thin = report.collectCommits({ root: dir, sinceDay: '2000-01-01', untilDay: today, limit: 1 })
+    assert.equal(thin.coverage, 'not-covered', '吃满 --limit 且没走到 sinceDay ⇒ 枚数是下界,不得当全量报')
+    assert.equal(thin.truncated, true)
+    // 窗口落在未来:历史已被走尽(没用满 --limit)⇒ 'covered' + 0 枚是**有效结论**,
+    // 不是"没取到"。把这两种情形混成一格,就会 Either 把真 0 报成未判定(狼来了),
+    // Or 把"根本没走到窗口"报成"这个窗口没有提交"(假干净)。
+    const future = report.collectCommits({ root: dir, sinceDay: '2099-01-01', untilDay: '2099-12-31' })
+    assert.equal(future.coverage, 'covered', '取数走尽历史 ⇒ 窗口 0 枚是真结论')
+    assert.equal(future.commits.length, 0)
+    // 仓库一枚提交都没有:git 直接报错 ⇒ ok=false(调用方必须落"未判定",不得打"0 枚提交")。
+    // 与上面那一格**不同形**才是关键 —— "窗口里没有提交"与"问不到提交"不能共用一个答案。
+    const bareDir = mkScratch('bypass-cov-bare')
+    try {
+      execFileSync('git', ['-c', 'safe.directory=*', 'init', '-q', '-b', 'main', bareDir], { encoding: 'utf8' })
+      const bare = report.collectCommits({ root: bareDir, sinceDay: '2000-01-01', untilDay: today })
+      assert.equal(bare.ok, false, '空仓必须报"取不到",不得报"窗口内 0 枚"')
+      assert.ok(String(bare.why ?? '').length > 0, '取不到必须带原因')
+    } finally {
+      rmScratch(bareDir)
+    }
   } finally {
     rmScratch(dir)
   }

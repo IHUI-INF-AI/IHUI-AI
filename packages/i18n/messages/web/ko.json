@@ -20165,6 +20165,7 @@
       "subtitle": "각 플랫폼의 로그인 자격 증명 구성(암호화 저장)",
       "switchToAppQr": "App 스캔으로 전환",
       "switchToWechatQr": "WeChat 스캔으로 전환",
+      "morePlatforms": "더 많은 플랫폼",
       "taskId": "작업",
       "title": "플랫폼 계정 관리",
       "verify": "연결 테스트",
