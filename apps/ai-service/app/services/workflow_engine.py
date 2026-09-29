@@ -23,7 +23,13 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
+
+# G-916424 配套(2026-09-29):工作流终态词汇的单一出处。上游同课
+# (ZCode contracts/src/workflow/index.ts 由 const 推 zod schema):状态词汇只活在
+# 注释里时,新档位/错档位都不报错。新增终态必须同笔改这里;改注释不改 Literal
+# 会被 tests/test_workflow_status_parity.py 的源码锁当场判红。
+WorkflowStatus = Literal["pending", "running", "completed", "failed", "cancelled"]
 
 from ..core.jwt_auth import DEV_ANONYMOUS_PRINCIPAL
 from ..core.llm_gateway import llm_gateway
@@ -84,7 +90,10 @@ class WorkflowInstance:
     id: str
     workflowId: str
     workflowName: str
-    status: str  # pending / running / completed / failed / cancelled
+    # G-916424 配套(2026-09-29):状态从注释升为 Literal —— 上游同课
+    # (contracts/src/workflow/index.ts 由 const 推 schema):状态词汇一旦只活在
+    # 注释里,新档位/错档位都不报错。新增终态必须同笔改这里的 Literal。
+    status: WorkflowStatus
     startedAt: str = ""
     completedAt: str = ""
     input: dict[str, Any] = field(default_factory=dict)
@@ -103,7 +112,7 @@ class WorkflowTask:
     step: int
     name: str
     type: str  # skill / llm / tool / echo
-    status: str  # pending / running / completed / failed / cancelled
+    status: WorkflowStatus
     input: str = ""
     output: str = ""
     error: str = ""
