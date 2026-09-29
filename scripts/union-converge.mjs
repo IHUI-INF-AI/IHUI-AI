@@ -172,6 +172,23 @@ function blobText(oid, cwd) {
   }
 }
 
+/**
+ * 生成物自证标记(G-814415)。判据只认**文件自己声明"我是生成物"**的两种原文标记:
+ * `GENERATED FILE — DO NOT EDIT`(生成器头注)与 `IHUI-GEN-PIN-BEGIN`(输入内容哈希钉块,
+ * 由 scripts/lib/generated-input-pin.mjs 写)。不靠路径猜、不维护第二份清单 ——
+ * 手工清单必然腐烂(§4 对 RN_ONLY_BRAND_KEYS 的教训),而这两个标记是生成器自己落的,
+ * 没有生成器就没有标记 ⇒ 判据只对该走"重生成"通道的那一类成立。
+ */
+export const GENERATED_ARTIFACT_MARKERS = ['GENERATED FILE — DO NOT EDIT', 'IHUI-GEN-PIN-BEGIN']
+
+export function generatedArtifactMarker(texts) {
+  for (const t of texts) {
+    if (typeof t !== 'string' || t === '') continue
+    for (const m of GENERATED_ARTIFACT_MARKERS) if (t.includes(m)) return m
+  }
+  return null
+}
+
 /** 树里该路径的 mode(100644/100755/120000/160000);取不到返回 ''(交人工,不猜)。 */
 function modeOf(rev, p, cwd) {
   try {
@@ -563,6 +580,7 @@ export function buildUnion(
     const mergedClean = []
     const skippedDeletes = []
     const needHuman = []
+    const generatedDeferred = [] // 生成物冲突:不判人工、不选边,登记"待重生成"(见 G-814415)
     const keptOurs = []
     const humanResolved = []
     const violations = []
@@ -621,6 +639,24 @@ export function buildUnion(
         // 喂进去的内容照样过"两侧独有行不得减少"的断言,少了哪一侧就当场 violations。
         const viaFile = resolutions.get(p)
         if (!viaFile) {
+          /**
+           * 生成物路径(G-814415):两侧各自从各自词源重生成 ⇒ 独有行是**互斥的同形替代**,
+           * 任何合法内容都不可能同时含两侧 ⇒ "两侧独有行不得减少"这条锁在这一型路径上永无解,
+           * 后果不是这一项判不了,而是**整枚合并卡住**(其余 12 个可合路径一起躺在后面)。
+           * 生成物的权威在"重生成"而不是"合并",所以这里的正确处置是:按本侧内容留下、
+           * **点名登记为待重生成**、让其余路径照常落地 —— 并在提交信息里带上这份清单,
+           * 免得"落地了"被读成"内容已对齐"。非生成物路径一律照旧走 needHuman(反向锁由自检钉住:
+           * 这条分支绝不能变成新的选边后门)。
+           */
+          const marker = generatedArtifactMarker([
+            blobText(oursBlob, cwd),
+            blobText(theirsBlob, cwd),
+          ])
+          if (marker) {
+            generatedDeferred.push({ path: p, marker, detail: m.detail })
+            mergedClean.push(p)
+            continue
+          }
           needHuman.push({ path: p, kind: m.kind, detail: m.detail })
           continue
         }
@@ -705,6 +741,7 @@ export function buildUnion(
       mergedClean,
       skippedDeletes,
       needHuman,
+      generatedDeferred,
       keptOurs,
       humanResolved,
       violations,
@@ -1232,6 +1269,7 @@ function selfTest() {
 
       writeFileSync(join(d2, 'clean.ts'), 'L1\nl2\nl3\nl4\nl5\n', 'utf8')
       writeFileSync(join(d2, 'clash.ts'), 'x1\nOURS\nx3\n', 'utf8')
+      writeFileSync(join(d2, 'gen.art'), 'GENERATED FILE — DO NOT EDIT\nOURS\n', 'utf8')
       writeFileSync(join(d2, 'both.bin'), Buffer.from('A\u0000b\u0000c\n'))
       writeFileSync(join(d2, 'PROJECT_PLAN.md'), 'a\nb\nours-line\n', 'utf8')
       r2('add', '-A')
@@ -1241,6 +1279,7 @@ function selfTest() {
       r2('checkout', '-q', 'HEAD~1')
       writeFileSync(join(d2, 'clean.ts'), 'l1\nl2\nl3\nTHEIRS\nl5\n', 'utf8')
       writeFileSync(join(d2, 'clash.ts'), 'x1\nTHEIRS\nx3\n', 'utf8')
+      writeFileSync(join(d2, 'gen.art'), 'GENERATED FILE — DO NOT EDIT\nTHEIRS\n', 'utf8')
       writeFileSync(join(d2, 'only-theirs.ts'), 'ot-theirs\n', 'utf8')
       writeFileSync(join(d2, 'both.bin'), Buffer.from('a\u0000B\u0000c\n'))
       writeFileSync(join(d2, 'PROJECT_PLAN.md'), 'a\nb\ntheirs-line\n', 'utf8')
@@ -1276,6 +1315,24 @@ function selfTest() {
         '冲突文件的树内容仍是本侧版本(未被悄悄换成对侧)',
         show(q.tree, 'clash.ts', d2) === 'x1\nOURS\nx3',
         show(q.tree, 'clash.ts', d2),
+      )
+      // —— 生成物通道(G-814415):冲突不得把整枚合并卡死,但要登记"待重生成" ——
+      ok(
+        '生成物两侧各自重生成 ⇒ 不进 needHuman、登记 generatedDeferred 并点名自证标记',
+        !q.needHuman.some((h) => h.path === 'gen.art') &&
+          q.generatedDeferred.some((d) => d.path === 'gen.art' && d.marker === 'GENERATED FILE — DO NOT EDIT'),
+        JSON.stringify([q.needHuman.map((h) => h.path), q.generatedDeferred]),
+      )
+      ok(
+        '生成物 Deferred 不得进落地闸 bad(否则还是卡死),且树内容按本侧留下',
+        !q.bad.some((b) => b.includes('gen.art')) &&
+          show(q.tree, 'gen.art', d2) === 'GENERATED FILE — DO NOT EDIT\nOURS',
+        `${q.bad.slice(0, 2).join(' / ')} | ${show(q.tree, 'gen.art', d2).replace(/\n/g, '|')}`,
+      )
+      ok(
+        '反向锁:同一枚合并里非生成物冲突必须照旧交人工(生成物通道不得变成选边后门)',
+        q.needHuman.some((h) => h.path === 'clash.ts' && h.kind === 'conflict'),
+        JSON.stringify(q.needHuman.map((h) => [h.path, h.kind])),
       )
       ok(
         '二进制两侧同改 ⇒ 无法文本三方,交人工',
@@ -1795,6 +1852,12 @@ async function main() {
       `  ❌ ${h.path} —— ${h.kind}:${h.detail}(本工具不猜、不选边,请人工判这一个文件;` +
         `判好后用 --resolve '${h.path}=<整份内容文件>' 回灌,它会替你的判断做两侧丢行断言)`,
     )
+  for (const d of p.generatedDeferred || [])
+    console.log(
+      `  🧾 ${d.path} —— 生成物冲突(自证标记 "${d.marker}")⇒ 不按人工判、也不选边:` +
+        `内容权威在"重生成"而不是"合并"。本枚按本侧内容留下,**落地后必须立刻跑该文件的生成器**` +
+        `(否则 HEAD 里留着的是一份旧产物,而守门 105 一类的钉判据会咬到陈旧)。`,
+    )
   for (const r of p.humanResolved || [])
     console.log(
       `  · 人工归并已回灌:${r}(内容取自 --resolve;两侧独有行丢行断言已在这份内容上跑过,未过即 bad)`,
@@ -1822,6 +1885,10 @@ async function main() {
       ? `;人工归并回灌(已过两侧丢行断言): ${p.humanResolved.join(' ')}`
       : '') +
     (p.keptOurs?.length ? `;取本侧(已声明+可复核): ${p.keptOurs.join(' ')}` : '') +
+    // 生成物"待重生成"必须进提交信息:后来人只读 git log 也要知道这一项不是已对齐
+    (p.generatedDeferred?.length
+      ? `;生成物按本侧留下、落地后需重生成: ${p.generatedDeferred.map((d) => d.path).join(' ')}`
+      : '') +
     // 例外必须进提交信息:后来人只读 `git log` 也要知道"份数少带"是本票的判据,不是一次丢行
     (capDropped
       ? `;副本指针行有意少带 ${capDropped} 份(每条仍保留 ≥1 份;判据见台账 G-814386)`
