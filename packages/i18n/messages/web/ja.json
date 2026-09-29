@@ -10500,6 +10500,23 @@
       "tokens": "{used} / {limit} を使用",
       "resetAt": "{time} にリセット"
     },
+    "streamAlert": {
+      "configWarning": {
+        "title": "設定の通知"
+      },
+      "deprecationNotice": {
+        "title": "機能廃止予告"
+      },
+      "guardianWarning": {
+        "title": "安全性レビューの通知"
+      },
+      "severity": {
+        "info": "情報",
+        "warning": "警告",
+        "critical": "重大"
+      },
+      "dismiss": "閉じる"
+    },
     "voiceNote": {
       "title": "ボイスメモ",
       "phase": {
@@ -13464,7 +13481,24 @@
       "envUnknown": "報告されていません(権限レベルから推測できません。拒否して再試行してください)",
       "envAllowTargetOnce": "この1回のみこの先を許可",
       "envAllowTargetSession": "この会話ではこの先を許可",
-      "envAllowTargetAlways": "この先を常時許可(90日後に失効)"
+      "envAllowTargetAlways": "この先を常時許可(90日後に失効)",
+      "decisionLabel": "判断情報",
+      "decisionAdmission": "エンジン側から導ける事実だけを表示します。読み取れない情報は表示されません。",
+      "decisionEmptyTitle": "読み取れる判断情報はありません",
+      "decisionEmptyDescription": "エンジン側に導ける根拠がありません。このリクエストはそのまま承認または拒否できます。",
+      "decisionWhyNow": "なぜ今か",
+      "decisionWhyNowValue": "{toolName} は実行前に承認ゲートで止まっています(危険度 {dangerLevel})。あなたの判断まで実行されません",
+      "decisionWhyYou": "なぜあなたか",
+      "decisionWhyYouValue": "この呼び出しはあなたのセッション {sessionId} で発生し、承認依頼があなたに届いています",
+      "decisionReversibility": "可逆性",
+      "decisionReversible": "元に戻せます:このセッションには {count} 個のチェックポイントがあり、判断後にロールバックできます",
+      "decisionIrreversible": "元に戻せません:このセッションにはロールバック可能なチェックポイントがありません",
+      "decisionAfterDecision": "決定後",
+      "decisionAfterDecisionValue": "承認すると {toolName} を即座に実行します。拒否すると実行されず、結果をエラーとしてモデルに返します",
+      "stateBlocking": "ブロック中",
+      "stateRequested": "対応待ち",
+      "stateWaitingForMe": "私の判断待ち",
+      "stateOverdue": "期限切れ"
     },
     "toolbar": {
       "addColumn": "列を追加",

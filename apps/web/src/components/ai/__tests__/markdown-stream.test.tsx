@@ -479,4 +479,36 @@ describe('MarkdownStream — G-826 GFM singleTilde 关闭(单波浪号不划掉)
     expect(container.textContent).toContain('活跃段 ~乙~ 结束')
   })
 })
+
+// ─────────────── G-842(2026-09-29):代码块 header 语言名/文件名显示 ───────────────
+//
+// 此前 CodeBlock 三条渲染路径(高亮/纯文本/降级)只有 <pre> + 绝对定位按钮,无任何
+// header,语言信息只能靠猜。G-842 补「文件图标 + 语言名映射示例文件名」header 条:
+// 映射命中走映射表,未收录语言兜底 code.<lang>,纯文本/无语言兜底 code.txt。
+
+describe('MarkdownStream — G-842 代码块 header 显示语言名/文件名', () => {
+  it('header 出现语言名(映射命中 main.py + 文件图标;未收录兜底;纯文本兜底)', async () => {
+    // 映射命中:python → main.py,header 含文件图标(lucide 渲染为 svg)
+    const { container } = render(<MarkdownStream content={'```python\nprint(1)\n```'} />)
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="syntax-highlighter"]')).toBeTruthy()
+    })
+    const header = container.querySelector('[data-testid="code-block-header"]')
+    expect(header).toBeTruthy()
+    expect(header?.textContent).toContain('main.py')
+    expect(header?.querySelector('svg')).toBeTruthy()
+
+    // 未收录语言 → 兜底 code.<lang>
+    const { container: c2 } = render(<MarkdownStream content={'```rkt\n(define x 1)\n```'} />)
+    await waitFor(() => {
+      expect(c2.querySelector('[data-testid="syntax-highlighter"]')).toBeTruthy()
+    })
+    expect(c2.querySelector('[data-testid="code-block-header"]')?.textContent).toContain('code.rkt')
+
+    // 纯文本路径(不走 SyntaxHighlighter)也显示 header,无语言 → 兜底 code.txt
+    const { container: c3 } = render(<MarkdownStream content={'```text\nplain code\n```'} />)
+    expect(c3.querySelector('[data-testid="code-block-header"]')?.textContent).toContain('code.txt')
+    expect(c3.querySelector('[data-testid="syntax-highlighter"]')).toBeNull()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

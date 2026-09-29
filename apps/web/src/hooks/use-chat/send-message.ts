@@ -29,6 +29,10 @@ import {
   type WorkspacePermissionMode,
   // Budget 用量分档提醒事件(2026-09-19 立,网关发,流首 toast 提示用量进度)
   type BudgetEvent,
+  // D155(2026-09-29 立):下行告警三档事件(config-warning/deprecation-notice/guardian-warning)
+  type ConfigWarningEvent,
+  type DeprecationNoticeEvent,
+  type GuardianWarningEvent,
 } from '@ihui/api-client'
 // V3 #58(2026-09-26 立):审批请求桥接到全局 ToolApprovalDialog(channel 标记让
 // 弹窗把决策回传到主聊天流端点,而非 agent 任务流端点 —— 两套注册表互不相通)
@@ -80,6 +84,9 @@ import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
 import { estimateLiveUsage } from './live-usage'
 // V3 #69:budget 命名帧的唯一落点(输入框上方 ContextBudgetBar 读它;toast 照旧)
 import { clearBudgetEvent, noteBudgetTrustedZeroPhase, setBudgetEvent } from './budget-state'
+// D155(2026-09-29 立):下行告警三档(config-warning/deprecation-notice/guardian-warning)
+// 的落点(输入框上方 StreamAlertBar 读它)。契约见 shared contract.ts SSE_ALERT_EVENTS 段。
+import { setStreamAlert } from './stream-alerts'
 // V3 #63(2026-09-27 立):form_request 帧 → 消息流业务表单的对话流消费点。
 // 投影判据(什么帧才配渲染成表单)只在 form-request-frame.ts 一处;此处只接线。
 import { projectFormRequestFrame } from './form-request-frame'
@@ -1078,6 +1085,18 @@ export function createSendMessage(
             // 80%~95% 提醒档:信息级提示,不打断阅读
             toast.info('今日 AI 用量较高', { description: parts.join(',') })
           }
+        },
+        // D155 下行告警三档(2026-09-29 立):帧 → stream-alerts 落点(输入框上方
+        // StreamAlertBar 渲染)。message/severity 已由 api-client 解析层逐字段收窄
+        // (表外 severity 回退 warning),此处整帧照收,chrome 文案在组件层走 i18n。
+        onConfigWarning: (evt: ConfigWarningEvent) => {
+          setStreamAlert('configWarning', evt)
+        },
+        onDeprecationNotice: (evt: DeprecationNoticeEvent) => {
+          setStreamAlert('deprecationNotice', evt)
+        },
+        onGuardianWarning: (evt: GuardianWarningEvent) => {
+          setStreamAlert('guardianWarning', evt)
         },
         // 阶段 2:浏览器端工具执行代理(2026-08-02 立)
         // ai-service 在远程服务器无法访问本地文件,LLM 调用 fs 类工具时通过 SSE
