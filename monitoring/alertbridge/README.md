@@ -43,6 +43,7 @@ Prometheus(127.0.0.1:8815)
 | 关闭     | `BRIDGE_MAIL_ENABLED=0`（亦认 `false` / `off` / `no`）——关的是"要不要发"，不是"发几封"                                                                                                                                                                                                                                                                            |
 | 去重     | 按告警身份（`alertname`+`instance`）在 `BRIDGE_DEDUP_MIN` 窗口（默认 240=4h）内只寄一封；状态在回响应前**同步落盘**，跨重启延续                                                                                                                                                                                                                                   |
 | 封顶     | **无**。不同身份的告警一律照寄；旧实现（第三方推送时代）的每日预算/冷却队列已随该腿一并摘除                                                                                                                                                                                                                                                                       |
+| 分流     | **按日志来源分两档**（G-472 告警侧）：带采集侧分区标签（`job`，取值现读 `monitoring/promtail/promtail-config.yml`）且落在 `report-only` 档的告警 = 采集器/监控自身造成的日志 ⇒ **只记账不炸到人**（逐条落日志 + 计 `alerts_selfscope_reported_total`）；其余照旧进邮件。两侧名字对不上 ⇒ **fail-open**（一条都不压，全部照旧到人）并让 `log_anchor_ok=0` 去响 `LogSourceSplitBlind`。**不新增任何发信通道**，到人仍只有品牌邮件那一条 |
 | 失败留痕 | 品牌模板失败先 `--plain` 降级；两条都失败 ⇒ 写 `alert-bridge-mail-UNDELIVERED.json`（与 `STATE_FILE` 同目录）+ `[mail][ERROR]` 日志，`/health` 报 `mailUndelivered=true`；下一次成功投递自动清除                                                                                                                                                                  |
 | 隔离     | 邮件派发用异步 `spawn`（同步会把 tsx 冷启 + SMTP 握手几十秒钉死事件循环 → Alertmanager 推送超时、后续告警堆积）                                                                                                                                                                                                                                                   |
 | 只读端点 | **两个，读者不同，不可互换**：`GET /health` = `application/json`，给值守巡检班次读；`GET /metrics` = `text/plain; version=0.0.4`，给 Prometheus 抓。Prometheus 3.x 校验抓取的 Content-Type，把 job 指到 `/health` 会让该 target 恒 `down` ⇒ `AlertBridgeDown` 成一条永远在响的假告警（2026-09-27 现量的就是这一型）。`/metrics` 只做观测，不参与任何投递/去重判定 |
@@ -53,6 +54,8 @@ Prometheus(127.0.0.1:8815)
 | ----------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------ |
 | `up` / `uptime_seconds`                                                       | gauge   | 桥进程是否活着（`up` 恒 1，真判据是"抓取本身成不成"）              |
 | `alerts_dedup_suppressed_total`                                               | counter | 按身份**压下了多少**                                               |
+| `alerts_selfscope_reported_total`                                             | counter | 按来源判为"采集器/监控自身噪声"、**只记账没炸到人**的条数（=0 且 `log_anchor_ok=0` ⇒ 分流其实没在跑） |
+| `log_anchor_ok`                                                               | gauge   | 分流是否在跑：1=采集侧与规则侧的 `LOG_SOURCE_ANCHOR` 对得上；0=失明（此时桥 fail-open，全部照旧到人）。`alerts.yml` 的 `LogSourceSplitBlind` 读它 |
 | `alerts_received_total` / `webhooks_received_total`                           | counter | 去重前收到多少条 / 多少次推送                                      |
 | `mail_batches_delivered_total` / `mail_alerts_delivered_total`                | counter | **真寄出多少**（批次 / 条数）                                      |
 | `mail_batches_failed_total` / `mail_batches_skipped_total`                    | counter | 两条路都失败（从未到人）/ 闸门跳过——**跳过不是失败，不并桶**       |
@@ -76,7 +79,9 @@ node monitoring/alertbridge/alert-webhook-bridge.cjs --help
 
 自检覆盖：argv 契约（含**绝不传 `--env-file`**、必带 `--strict`/`--message-file`）、正文写成**无 BOM** UTF-8、
 身份去重、**去重态跨重启（正反对照：陈旧条目不复活）**、**无总量封顶（第 11 个不同身份告警照寄、
-状态文件形态只有 `dedup`）**、**邮件失败必留未送达标记 / 成功必清痕**、脱敏、版式零手抄。
+状态文件形态只有 `dedup`）**、**邮件失败必留未送达标记 / 成功必清痕**、脱敏、版式零手抄、
+**日志来源分流（成对：采集器来源那一条只报不炸 / 业务错误与没有该标签的指标型告警照旧到人 /
+锚点判不出时 fail-open 一条都不压；另有三条改名与摘线的反向锁，以及改后 `alerts.yml` 的自写结构校验）**。
 
 ## 服务（NSSM）
 
