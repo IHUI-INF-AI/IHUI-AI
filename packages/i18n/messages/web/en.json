@@ -7252,6 +7252,7 @@
       "viewResult": "View Result"
     },
     "checkpointHistory": {
+      "rollbackConfirmContentUnreadable": "Some version content could not be read; this file is not previewed as a diff",
       "empty": "No checkpoints",
       "restore": "Restore",
       "title": "Checkpoint History",
@@ -15800,6 +15801,7 @@
       "searchPlaceholder": "Search views..."
     },
     "diffReview": {
+      "copyGitApplyUnreadable": "Skipped {count} file(s) whose content could not be read",
       "copyGitApply": "Copy git apply",
       "copyGitApplyToast": "git apply command copied to clipboard",
       "copyGitApplyFailed": "Failed to copy the git apply command",
@@ -20149,6 +20151,11 @@
       "taskCount": "{count} tasks",
       "title": "Publish Calendar",
       "today": "Today"
+    },
+    "cookieAutoRefresh": {
+      "lastRun": "Last run {time}",
+      "on": "Cookie auto keep-alive · every {hours}h",
+      "pending": "First run in progress"
     },
     "cookieHealth": {
       "days": "days",
