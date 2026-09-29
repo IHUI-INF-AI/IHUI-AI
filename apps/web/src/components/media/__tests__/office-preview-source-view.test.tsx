@@ -71,6 +71,7 @@ import {
   officeSourceAvailability,
   type OfficePreviewStatus,
 } from '../office-preview'
+import { PreviewSourceText, truncationDisclosed } from '../preview-view-switch'
 import { CsvPreview, PdfEmbed } from '../message-file-preview'
 
 // ---------------------------------------------------------------- fixtures ----
@@ -202,6 +203,8 @@ describe('OfficePreview preview ↔ 源码切换', () => {
     const pane = screen.getByTestId('preview-source-text')
     expect(pane.textContent).toContain('--- ppt/slides/slide1.xml ---')
     expect(pane.textContent).toContain('<a:t>标题一</a:t>')
+    // G-647:shown === total(未截断)→ 不许出现截断披露
+    expect(screen.queryByText(/W_SOURCE_TRUNCATED/)).toBeNull()
     // 源码档是原文,不是渲染结果:渲染视图的大纲容器不得同时在场
     expect(screen.queryByTestId('pptx-outline')).toBeNull()
   })
@@ -356,6 +359,58 @@ describe('OfficePreview preview ↔ 源码切换', () => {
     expect(out.text).not.toContain('ppt/media/logo.png')
     expect(out.text).not.toContain('PNGBINARY')
     expect(out.truncated).toBe(false)
+    // G-647:未截断时 shown === total,披露判据自然不念
+    expect(out.totalChars).toBe(out.text.length)
+  })
+
+  it('extractOfficeSourceText(G-647):截断时 total 是真全文长(余下部件也数进去),不拿上限充数', async () => {
+    const body = await makePptx()
+    const out = await extractOfficeSourceText(body, 40)
+    expect(out.truncated).toBe(true)
+    expect(out.text.length).toBeLessThan(out.totalChars)
+    expect(out.totalChars).toBeGreaterThan(40)
+  })
+})
+
+// ------------------------------------------------- G-647:截断披露判据 ----
+
+describe('G-647:截断披露只认 shown<total,布尔 truncated 不作 gating', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('truncationDisclosed 判据表:shown<total 才真,持平与倒挂都假', () => {
+    expect(truncationDisclosed(1, 2)).toBe(true)
+    expect(truncationDisclosed(2, 2)).toBe(false)
+    expect(truncationDisclosed(3, 2)).toBe(false)
+    expect(truncationDisclosed(0, 0)).toBe(false)
+  })
+
+  it('PreviewSourceText:shown<total 才念截断,阈值照常写进文案', () => {
+    render(
+      <PreviewSourceText status="ready" text="abc" totalChars={9} maxChars={100} />,
+    )
+    expect(screen.getByTestId('preview-source-text').textContent).toContain(
+      'W_SOURCE_TRUNCATED(100)',
+    )
+  })
+
+  it('PreviewSourceText:布尔 truncated=true 但 shown===total → 不念(标志不可单独 summon 披露)', () => {
+    render(
+      <PreviewSourceText
+        status="ready"
+        text="abcdef"
+        truncated={true}
+        totalChars={6}
+        maxChars={100}
+      />,
+    )
+    expect(screen.queryByText(/W_SOURCE_TRUNCATED/)).toBeNull()
+  })
+
+  it('PreviewSourceText:total 未知(缺 totalChars)→ 不念,拿 shown 充 total 是谎报', () => {
+    render(<PreviewSourceText status="ready" text="abc" truncated={true} maxChars={100} />)
+    expect(screen.queryByText(/W_SOURCE_TRUNCATED/)).toBeNull()
   })
 })
 

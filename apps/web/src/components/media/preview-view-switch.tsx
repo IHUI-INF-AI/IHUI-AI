@@ -64,10 +64,22 @@ export type PreviewSourceAvailability =
 export interface PreviewSourceText {
   readonly text: string
   readonly truncated: boolean
+  /** G-647:派生源全文总长(截断前)—— 披露判据 shown<total 的 total 半边。 */
+  readonly totalChars: number
 }
 
 /** 源码视图默认字符上限(超出即截断并如实说明,不静默变短)。 */
 export const PREVIEW_SOURCE_MAX_CHARS = 200_000
+
+/**
+ * G-647(2026-09-29 立):截断披露判据唯一真相源 —— **只有 shown<total 才念**。
+ * 布尔 truncated 与真实维度会漂移(标志为真 ≠ 此刻真的有内容被藏住),所以渲染 gating
+ * 一律走本判据,布尔标志不得单独作渲染条件。xlsx 行截断(office-preview 的卡片表格)
+ * 与源码档字符截断(下方 PreviewSourceText 详情档)共用这一份,不许出现第二套判据。
+ */
+export function truncationDisclosed(shown: number, total: number): boolean {
+  return shown < total
+}
 
 /**
  * 内联兜底文案:**只在缺词时**生效的降落伞(取词点永远先走 `t()`,见 `previewViewCopyText`)。
@@ -241,7 +253,11 @@ export function PreviewViewSwitch({
 export interface PreviewSourceTextProps {
   readonly status: 'extracting' | 'failed' | 'ready'
   readonly text: string
-  readonly truncated: boolean
+  /** @deprecated G-647(2026-09-29 立):布尔不再作披露判据(标志与真实维度会漂移),
+   *  组件不再读取;仅为尚未迁移的调用方(delimited/message-file-preview)保留入参位。 */
+  readonly truncated?: boolean
+  /** 派生源全文总长(截断前)。缺省 = 总长未知 → 不念(宁可少说,不可谎报)。 */
+  readonly totalChars?: number
   /** 截断阈值,写进如实说明的文案里。 */
   readonly maxChars?: number
   readonly className?: string
@@ -254,7 +270,7 @@ export interface PreviewSourceTextProps {
 export function PreviewSourceText({
   status,
   text,
-  truncated,
+  totalChars,
   maxChars = PREVIEW_SOURCE_MAX_CHARS,
   className,
   testId = 'preview-source-text',
@@ -285,7 +301,8 @@ export function PreviewSourceText({
   }
   return (
     <div data-testid={testId} data-source-state="ready" className="overflow-hidden">
-      {truncated && (
+      {/* G-647:披露只认 shown<total(共用判据见 truncationDisclosed),布尔 truncated 不作 gating。 */}
+      {truncationDisclosed(text.length, totalChars ?? text.length) && (
         <p className="px-3 pt-1 text-[10px] leading-tight text-muted-foreground">
           {copy('previewSourceTruncated', { chars: maxChars })}
         </p>
