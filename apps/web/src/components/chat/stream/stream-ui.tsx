@@ -474,7 +474,7 @@ export function StreamTag({
   return (
     <span
       className={cn(
-        'inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-sm px-1 text-[11px] leading-none tabular-nums',
+        'inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-md px-1 text-[11px] leading-none tabular-nums',
         strong && 'font-semibold',
         tone === 'danger' && 'bg-red-500/10 text-red-600 dark:text-red-400',
         tone === 'success' && 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',

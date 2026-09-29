@@ -77,7 +77,7 @@ export function QuotaOwnershipCard({
     <div
       role="status"
       aria-label={t('ariaLabel')}
-      className={cn('flex flex-col gap-2 rounded-md bg-muted/30 p-3', className)}
+      className={cn('flex flex-col gap-2 rounded-lg bg-muted/30 p-3', className)}
       data-testid={testId}
       data-quota-kind={view.kind}
       data-quota-escalate={String(view.escalate)}

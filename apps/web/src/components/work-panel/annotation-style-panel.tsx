@@ -127,7 +127,7 @@ export function AnnotationStylePanel({
       role="group"
       aria-label={t('panelTitle')}
       className={cn(
-        'thin-scroll flex flex-col gap-2 overflow-auto rounded-md border border-border bg-popover p-3 shadow-lg animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified',
+        'thin-scroll flex flex-col gap-2 overflow-auto rounded-xl border border-border bg-popover p-3 shadow-lg animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified',
         className,
       )}
       data-testid="annotation-style-panel"
