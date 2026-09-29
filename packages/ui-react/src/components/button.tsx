@@ -14,9 +14,14 @@ import {
 import { cn } from '../lib/utils'
 
 // 共享 variant/size 档位唯一源:@ihui/design-tokens 的 button-variants.ts(ui-native 同源)。
-// 本端在共享档位上追加 web 平台修饰(hover/shadow),并扩展 web 独占 variant/size ——
+// 耦合范围必须逐档写清 —— 一句"改一处两端都跟"若只对一部分档位成立,它就是假账:
+//   default / destructive —— 在共享基座上追加 web 平台修饰(shadow/hover),改共享值两端同步;
+//   outline / ghost —— web 整档覆盖(RN 无 hover 且底取 bg-transparent,web 底取 bg-background
+//     并带 hover:bg-accent),所以这两档的共享值当前只约束 ui-native;
+//   size sm —— 共享基座 + web 追加 rounded/text-xs;size lg —— web 整档覆盖(h-10 rounded-sm px-8)。
+// 并档(让 outline/ghost/lg 也真同值)属全端观感决策,不在本轮范围:不得为让上面那句话成立去改
+// 任一端取值,也不得把共享值改成某一端的特化值 —— 那等于把一个端的观感推给另一个端。
 // 故不继承 ButtonBaseProps(限制为共同子集会丢失 web 侧类型支持)。
-// 唯一的共享耦合是"键名与主档语义色":改共享档位只改 button-variants.ts 一处。
 
 // 图标尺寸档(2026-09-17 用户指令:全项目图标按钮唯一尺寸 32×32,单一来源 @ihui/design-tokens icon-button.ts)
 // icon-xs/icon-sm/icon 三档全部同值,仅保留名称兼容既有调用
