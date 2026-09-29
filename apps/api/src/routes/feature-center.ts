@@ -433,13 +433,17 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
         .from(aiModelConfig)
         .where(eq(aiModelConfig.enabled, true))
         .limit(200)
-      // 可用+配额铁律(2026-08-27):按 ai-service provider 健康度剔除硬不可用模型;
-      // health 拉取失败(空 Map)则全保留(宽松,不因瞬时抖动清空)。
-      const healthMap = await fetchProviderHealth()
-      const visibleRows =
-        healthMap.size === 0
-          ? rows
-          : rows.filter((r) => !isProviderHardUnavailable(r.providerCode ?? undefined, healthMap))
+      // 可用+配额铁律(2026-08-27):按 ai-service provider 健康度剔除硬不可用模型。
+      // G-726(2026-09-29):失败代理(空表)换成显式的 known 事实 ——
+      // known:false(非 2xx / 网络 / 超时 / 解析失败)= 本轮没问到,全保留;
+      // 保留的只是"不剔除"这一行为,不再被读成"全部健康"(本响应不输出健康字段)。
+      // known:true 而某 code 未上报 ⇒ 仍走 isProviderHardUnavailable 的宽松分支,与改动前同形。
+      const health = await fetchProviderHealth()
+      const visibleRows = health.known
+        ? rows.filter(
+            (r) => !isProviderHardUnavailable(r.providerCode ?? undefined, health.providers),
+          )
+        : rows
       const list = visibleRows.map((r) => ({
         id: String(r.id),
         name: r.name,
