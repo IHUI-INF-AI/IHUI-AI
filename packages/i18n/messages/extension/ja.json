@@ -141,8 +141,7 @@
     "orUseAccount": "またはアカウントでログイン",
     "ssoCancelled": "SSO ログインがキャンセルされました",
     "ssoLoading": "SSO 認証中...",
-    "ssoLogin": "SSO ワンクリックログイン",
-    "ssoFailed": "SSO ログインに失敗しました"
+    "ssoLogin": "SSO ワンクリックログイン"
   },
   "popup": {
     "copyFailed": "コピー失敗",
@@ -166,13 +165,14 @@
     "emptyHint": "単語帳は空です,単語を検索して保存してください"
   },
   "chat": {
+    "retryMessage": "再試行",
+    "citationTitle": "参考元",
+    "retryScheduled": "上流が一時的に利用できません。{attempt}/{max} 回目を {seconds} 秒後に再試行します",
+    "retryScheduledNow": "上流チャネルを切り替え中。{attempt}/{max} 回目をすぐに再試行します",
     "history": "履歴",
     "title": "AI チャット",
     "exit": "終了",
     "selectModel": "モデルを選択",
-    "selectWorkspace": "ワークスペースフォルダーを選択",
-    "workspaceNotWritable": "このフォルダーへの書き込み権限がないため、AI はファイルを編集できません",
-    "approveForSession": "このセッション中は常に許可",
     "emptyHint": "メッセージを入力して開始",
     "inputPlaceholder": "何か入力してください...",
     "compactionNotice": "コンテキストを自動圧縮しました:{before} → {after}({removed} 件の履歴を削除)",
@@ -189,25 +189,10 @@
     "toolStatusError": "失敗",
     "toolDetail": "呼び出し詳細",
     "terminal": "ターミナル",
+    "terminalIsolation": "コマンドは分離されたサンドボックス内で実行され、既定ではネットワークにアクセスしません",
     "terminalStatusRunning": "実行中",
     "terminalStatusCompleted": "完了",
     "terminalStatusFailed": "失敗",
-    "planStatusPending": "待機中",
-    "planStatusInProgress": "進行中",
-    "planStatusCompleted": "完了",
-    "subagentTools": "サブエージェントツール ×{count}",
-    "usage": "使用量",
-    "retryMessage": "再試行",
-    "branchFromHere": "ここから分岐",
-    "branchDone": "新しい会話に分岐しました",
-    "branchFailed": "分岐に失敗しました:{reason}(サービス状態 {status})",
-    "conversationCreateFailed": "会話の作成に失敗しました:{reason}(サービス状態 {status})",
-    "messageSaveFailed": "メッセージを会話に保存できませんでした:{reason}(サービス状態 {status})",
-    "citationTitle": "参考元",
-    "steerNoticeTitle": "{count} 回誘導済み",
-    "retryScheduled": "上流が一時的に利用できません。{attempt}/{max} 回目を {seconds} 秒後に再試行します",
-    "retryScheduledNow": "上流チャネルを切り替え中。{attempt}/{max} 回目をすぐに再試行します",
-    "terminalIsolation": "コマンドは分離されたサンドボックス内で実行され、既定ではネットワークにアクセスしません",
     "terminalTruncated": "…(省略済み、全 {total} 文字)",
     "injectionTitle": "今回のコンテキスト:{count} 件",
     "injectionExpand": "他 {count} 件を表示",
@@ -216,6 +201,11 @@
     "injectionKindWorkspace": "ワークスペースメモリ / AGENTS.md を注入しました",
     "injectionKindRepoWiki": "Repo Wiki プロジェクト百科を注入しました",
     "injectionKindAutoContext": "{count, plural, other {自動検索したコードコンテキスト {count} 件を注入しました}}",
+    "planStatusPending": "待機中",
+    "planStatusInProgress": "進行中",
+    "planStatusCompleted": "完了",
+    "subagentTools": "サブエージェントツール ×{count}",
+    "usage": "使用量",
     "subagentRoleValidator": "検証役",
     "subagentRoleReviewer": "レビュー役",
     "subagentRoleExplorer": "探索役",
@@ -225,19 +215,7 @@
     "subagentRoleResearcher": "リサーチャー",
     "subagentRoleOptimizer": "最適化役",
     "subagentRoleDebugger": "デバッガー",
-    "subagentRoleRefactorer": "リファクタリング役",
-    "modelCategoryChat": "対話・推論",
-    "modelCategoryVision": "画像理解",
-    "modelCategoryEmbedding": "埋め込み",
-    "modelCategoryRerank": "リランク",
-    "modelCategoryTts": "音声合成",
-    "modelCategoryAsr": "音声認識",
-    "modelCategoryImage": "画像生成",
-    "modelCategoryVideo": "動画生成",
-    "modelCategoryGuard": "安全性審査",
-    "modelCategoryOcr": "文字認識",
-    "modelCategoryOther": "その他",
-    "modelHistoryToggle": "過去のモデル"
+    "subagentRoleRefactorer": "リファクタリング役"
   },
   "settings": {
     "language": "インターフェース言語",
@@ -291,6 +269,9 @@
     "approvalSent": "送信済み",
     "approvalFailed": "送信に失敗しました",
     "approvalUnavailable": "このチャネルはオンライン承認に対応していません",
+    "decisionAllow": "許可済み",
+    "decisionAsk": "承認待ち",
+    "decisionDeny": "拒否済み",
     "levelRead": "読み取り専用",
     "levelWrite": "書き込み",
     "levelDangerous": "危険",
@@ -456,10 +437,6 @@
       "benefitsTitle": "含まれる特典",
       "note": "価格と特典はウェブ版の実際の表示に準じます。",
       "open": "ウェブ版で開通"
-    },
-    "topics": {
-      "discussions": "{count}件の討論",
-      "followers": "{count}人のフォロワー"
     }
   },
   "permissionTier": {
@@ -604,17 +581,5 @@
       }
     },
     "vividTail": "、まもなくです"
-  },
-  "ai": {
-    "pane": {
-      "inputNotices": {
-        "queue": {
-          "denied": {
-            "reorder": "キューの順序を変更できません",
-            "undo": "キュー内のメッセージを取り消せません"
-          }
-        }
-      }
-    }
   }
 }
