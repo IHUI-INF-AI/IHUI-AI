@@ -230,6 +230,41 @@
       ]
     },
     {
+      "id": "#D174",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md",
+      "docAnchor": "### D147 可观测",
+      "title": "SSE 帧内不带回 trace 关联键(只有响应头那一半)",
+      "assertions": [
+        {
+          "text": "两侧契约都登记了帧级 traceId 键名(键名只许有一份)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": ["apps/ai-service/app/core/sse_contract.py"],
+              "regex": "SSE_TRACE_ID_PAYLOAD_KEY",
+              "expect": "present"
+            },
+            {
+              "paths": ["packages/shared/src/sse/contract.ts"],
+              "regex": "SSE_TRACE_ID_PAYLOAD_KEY|traceId",
+              "expect": "present"
+            }
+          ]
+        },
+        {
+          "text": "前端解析面在泛化兜底之前认领该键(三次同型的唯一判据)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": ["packages/shared/src/utils/sse-parse.ts"],
+              "regex": "frameTraceIdOfLine",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "#D156",
       "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md",
       "docAnchor": "竞品缺口清单（不得列为我方差距）",
