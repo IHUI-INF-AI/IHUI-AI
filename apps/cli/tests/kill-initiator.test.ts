@@ -55,8 +55,16 @@ describe('G-816026 反向锁(源码级)', () => {
 
   it('close 处理器不得再按 signal 形状反推 timedOut(旧塌陷写法不得回来)', () => {
     expect(reg.includes('timedOut = signal ===')).toBe(false)
-    expect(reg.includes('timedOut = true')).toBe(false)
     expect(reg).toContain('t.stopInitiator = initiator')
+  })
+
+  it('G-896416:timedOut=true 只许由 killTask 的 deadline 持有者显式置位,close 只保不冲', () => {
+    // 全文件恰好一处 `timedOut = true`(killTask 发信号前的置位点);close 处理器的
+    // 守卫写法是 `!== true`(保住持有者事实),=== / 无守覆写都算按形状反推的回归。
+    const hits = reg.match(/timedOut = true/g) ?? []
+    expect(hits.length).toBe(1)
+    expect(reg).toContain('if (opts?.timedOut === true)')
+    expect(reg).toContain('if (task.timedOut !== true)')
   })
 
   it('两个发起方必须各自落盘:模型走 model,用户走 user', () => {
