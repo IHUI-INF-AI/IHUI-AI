@@ -1649,6 +1649,9 @@ importers:
       '@ihui/design-tokens':
         specifier: workspace:*
         version: link:../design-tokens
+      '@ihui/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@radix-ui/react-checkbox':
         specifier: ^1.3.11
         version: 1.3.11(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
