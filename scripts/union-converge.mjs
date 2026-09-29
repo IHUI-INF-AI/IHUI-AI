@@ -466,10 +466,16 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
           rest -= cov
         }
       }
-      // ③ 副本指针行只许"从无到有带一份"(G-814386 原额度,语义原样保留)。
+      /**
+       * ③ 副本指针行的额度**有下限**:只许"从无到有带一份",整族归零不得由这一档解释掉。
+       * 旧实现把 rest 全额记账 ⇒ 注释写着"留一份"而代码允许留零份 —— 镜像 R-O 保护的正是这里。
+       * 2026-09-29 隔离检出复现:一条带副本指针的注记行在合并结果里一份不剩,仍然报绿。
+       * 可记额度 = (wantOcc - occ) 减去 ①② 已记部分 = max(0, rest + haveOcc - occ)。
+       */
       if (rest > 0 && DUP_POINTER_RE.test(l)) {
-        byDupPointer += rest
-        rest = 0
+        const cov = Math.min(rest, Math.max(0, rest + haveOcc - occ))
+        byDupPointer += cov
+        rest -= cov
       }
       if (rest > 0) unexplained.push(`缺 ${rest} 份 :: ${l.slice(0, 70)}`)
       allowed += wantOcc - haveOcc - rest
