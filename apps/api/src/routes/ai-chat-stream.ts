@@ -5,7 +5,12 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
-import { PERMISSION_MODE_WIRE_VALUES, repairMessages } from '@ihui/types'
+import {
+  PERMISSION_MODE_WIRE_VALUES,
+  REASONING_EFFORT_VALUES,
+  type ReasoningEffort,
+  repairMessages,
+} from '@ihui/types'
 import {
   compressContextIfNeeded,
   estimateMessagesTokens,
@@ -100,6 +105,11 @@ const chatStreamSchema = z.object({
    *  清单从注册表派生(G-164:路由不得再抄第二份字面量,`packages/types/permission-mode.ts`
    *  是唯一定义处);本端点只收 wire(kebab)拼写,与 workspace.ts 的 ACP 入参面刻意不同形。 */
   permissionMode: z.enum(PERMISSION_MODE_WIRE_VALUES).optional(),
+  /** D130(2026-09-30 立):推理强度档位(输入区第三轴)。值域取 @ihui/types 的封闭联合,
+   *  本路由不得写字面量清单(G-164 同课:各路由自抄一份 ⇒ 总有一份少一档并静默归 null)。
+   *  未在此声明会被 zod strip 静默丢弃 —— 与 workspaceContext/mode/permissionMode 同型断链。
+   *  camel 入 / snake 出:转发行见 streamToClient 的 `reasoning_effort`。 */
+  reasoningEffort: z.enum(REASONING_EFFORT_VALUES).optional(),
   /** 原生 function calling(2026-08-31 立,OpenAI tools 格式弱类型透传):
    *  CLI 直连 ai-service 已支持(tools + tool_choice → tool-call-start SSE 事件),
    *  经网关中转的客户端(Web 等)同样需要透传。元素为 OpenAI tool 定义
@@ -260,6 +270,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       mode?: 'ask' | 'build' | 'plan' | 'review' | 'spec'
       /** V3 #58(2026-09-26 立):权限模式档位,透传为 ai-service 的 permission_mode(工具审批门) */
       permissionMode?: 'default' | 'accept-edits' | 'bypass-permissions' | 'plan'
+      /** D130(2026-09-30 立):推理强度档位,透传为 ai-service 的 reasoning_effort(上游采样档)。
+       *  值域唯一源 = @ihui/types/reasoning-effort.ts,本文件不写第二份清单。 */
+      reasoningEffort?: ReasoningEffort
       /** 原生 function calling(OpenAI tools 格式),undefined 时 JSON.stringify 自动省略,不注入 */
       tools?: Array<Record<string, unknown>>
       toolChoice?: string | Record<string, unknown>
@@ -486,6 +499,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // Pydantic 字段名 permission_mode)。undefined 时 JSON.stringify 自动省略,
           // ai-service 端按 default 档处理(高危工具需审批)。
           permission_mode: opts.permissionMode,
+          // D130(2026-09-30 立):推理强度档位 camel 入 / snake 出(与 permission_mode、top_p 同区同规)。
+          // undefined 时 JSON.stringify 省略该 key ⇒ 不发字段,ai-service 按默认档处理。
+          // 票第 8 栏点名的静默失效就在这一行:删掉它,前端选了档而上游收不到,界面仍一切正常。
+          reasoning_effort: opts.reasoningEffort,
           // 原生 function calling 透传:字段名与 ai-service LLMCompleteRequest
           // (tools: list[dict] | None, tool_choice: str | dict | None) 对齐;
           // undefined 时 JSON.stringify 省略该 key,不会注入到上游请求。
@@ -641,6 +658,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         mode,
         // V3 #58(2026-09-26 立):权限模式档位(工具审批门),透传到 ai-service
         permissionMode,
+        // D130(2026-09-30 立):推理强度档位(chatAnswerSchema extends chatStreamSchema,
+        // 续答同样支持 —— 不在这里解构就会被静默留在 parsed.data 里,链路掐断)。
+        reasoningEffort,
         tools,
         tool_choice: toolChoice,
         temperature,
@@ -822,6 +842,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           mode,
           // V3 #58(2026-09-26 立):权限模式档位,经上游请求体 permission_mode 字段透传
           permissionMode,
+          // D130(2026-09-30 立):推理强度档位,经上游请求体 reasoning_effort 字段透传
+          reasoningEffort,
           tools,
           toolChoice,
           // P1-7(2026-09-13):会话级采样参数 + 自定义 system prompt 透传
@@ -879,6 +901,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         mode,
         // V3 #58(2026-09-26 立):权限模式档位(工具审批门),透传到 ai-service
         permissionMode,
+        // D130(2026-09-30 立):推理强度档位(chatAnswerSchema extends chatStreamSchema,
+        // 续答同样支持 —— 不在这里解构就会被静默留在 parsed.data 里,链路掐断)。
+        reasoningEffort,
         tools,
         tool_choice: toolChoice,
         // P1-7(2026-09-13 立):chatAnswerSchema extends chatStreamSchema,
@@ -1089,6 +1114,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           mode,
           // V3 #58(2026-09-26 立):权限模式档位,经上游请求体 permission_mode 字段透传
           permissionMode,
+          // D130(2026-09-30 立):推理强度档位,经上游请求体 reasoning_effort 字段透传
+          reasoningEffort,
           tools,
           toolChoice,
           // P1-7(2026-09-13):续答透传会话级采样参数
