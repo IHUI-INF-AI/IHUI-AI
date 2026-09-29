@@ -472,4 +472,58 @@ async def test_http_restore_with_file_rollback(ckpt_client, workspace):
     )
     assert resp2.json()["file_changes"] == 0
     assert target.read_text(encoding="utf-8") == "changed-again"
+
+
+# =============================================================================
+# G-814423:impact 影响预览"读不到"≠"空文件"(禁止单侧补空串)
+# =============================================================================
+
+
+async def test_http_impact_marks_unreadable_sides(ckpt_client, workspace, monkeypatch):
+    """G-814423 验收:任一侧读失败必须显式标记(readError/snapshotError)并停止伪统计,
+    不得把"读不到"折叠成空串 —— 那会让前端把不可读渲染成整文件新增/删除。
+
+    上游判据(gitCliRepo.ts:88-99):"任一侧补成空字符串,UI 就把'不可读'读成
+    '文件为空',进而把整文件渲染成新增/删除"。本用例对磁盘侧与快照侧分别注入
+    读失败,断言:标记在场、增删行数不再按"vs 空文件"伪造;双侧可读时无标记。
+    """
+    env = ckpt_client
+    mgr = env["mgr"]
+    ac = env["client"]
+    gone = workspace / "gone.txt"  # 磁盘上不存在 ⇒ 磁盘侧读失败
+    real = workspace / "real.txt"
+    real.write_text("kept-line\n", encoding="utf-8")
+    snap = file_editor.snapshot_file("file-sess", str(real))
+
+    async def fake_restore(session_id, checkpoint_id):
+        return {
+            "checkpoint_id": checkpoint_id,
+            "session_id": session_id,
+            "restored_message_count": 2,
+            "file_versions": [
+                {"path": str(gone), "version_id": "v-gone", "session_id": "file-sess"},
+                {"path": str(real), "version_id": snap["version_id"], "session_id": "file-sess"},
+                {"path": str(real), "version_id": "v-nope", "session_id": "file-sess"},
+            ],
+        }
+
+    monkeypatch.setattr(mgr, "restore", fake_restore)
+    resp = await ac.get("/api/checkpoints/ckpt-1/impact?session_id=file-sess&scope=code")
+    assert resp.status_code == 200
+    files = resp.json()["files"]
+    assert len(files) == 3
+
+    # 磁盘侧读不到 ⇒ readError 标记在场,增删统计置 0(不与空文件伪比对)
+    assert files[0]["readError"] is True
+    assert files[0]["added"] == 0
+    assert files[0]["deleted"] == 0
+
+    # 对照组:双侧都读到 ⇒ 无任何错误标记(空串/等值是合法数据)
+    assert "readError" not in files[1]
+    assert "snapshotError" not in files[1]
+
+    # 快照侧版本取不到 ⇒ snapshotError 标记在场(不得渲染成整文件删除)
+    assert files[2]["snapshotError"] is True
+    assert files[2]["added"] == 0
+    assert files[2]["deleted"] == 0
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
