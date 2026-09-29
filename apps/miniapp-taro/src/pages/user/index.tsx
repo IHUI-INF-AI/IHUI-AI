@@ -103,6 +103,15 @@ const menus = [
     key: 'taskCenter.title',
     path: '/pkg-user/task-center/index',
   },
+  // 2026-09-30 实锤(生产就绪确认):账单页 /pkg-user/bill/index 唯一入口此前埋在
+  // 通知设置页(setting/notification.tsx)深处,家长几乎不可能发现 = 缴费触达断在最后一米。
+  // 此处补"我的"页功能行;i18n 复用 setting.notification.myBills(5 语言已有,零 i18n 增量),
+  // 主包增量仅此一个对象字面量(编译后 <200B)。
+  {
+    icon: 'wallet',
+    key: 'setting.notification.myBills',
+    path: '/pkg-user/bill/index',
+  },
 ]
 
 // 会员权益项:对齐原项目 UserMembershipBenefits 3 项数据(原项目 index.vue:297-310)

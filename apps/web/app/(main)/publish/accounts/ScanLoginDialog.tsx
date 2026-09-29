@@ -53,6 +53,7 @@ import {
   SelectItem,
 } from '@ihui/ui-react'
 import { CountdownTimer } from '@/components/publish/CountdownTimer'
+import { PlatformIcon } from '@/components/publish/platform-icon'
 import { apiFailureToError } from '@ihui/shared/utils'
 
 export interface ScanLoginDialogProps {
@@ -81,6 +82,30 @@ const MAX_NETWORK_RETRIES = 3
 const SISTER_CHANNEL: Record<string, string> = {
   toutiao: 'toutiao_app',
   toutiao_app: 'toutiao',
+}
+
+/**
+ * 2026-09-30 用户规则:平台选择面只留一个「今日头条」= App 扫码(toutiao_app)。
+ * 微信网页码(toutiao)被头条 need_bind_mobile 策略拦截,不再出现在下拉/网格里,
+ * 仅经 polling 态「切换到微信码」按钮(SISTER_CHANNEL)可达。
+ */
+const HIDDEN_PLATFORM_KEYS = new Set(['toutiao'])
+
+/** 常用平台 pill 网格(按此顺序取与后端列表的交集),其余平台收进「更多平台」下拉 */
+const COMMON_PLATFORM_KEYS = [
+  'toutiao_app',
+  'douyin',
+  'bilibili',
+  'xiaohongshu',
+  'zhihu',
+  'wechat',
+  'weibo',
+  'kuaishou',
+]
+
+/** pill 显示名净化:「今日头条(App扫码)」→「今日头条」(通道语义对用户是内部细节) */
+function platformDisplayName(name: string): string {
+  return name.replace(/\(App扫码\)$/, '').replace(/（App扫码）$/, '')
 }
 
 export function ScanLoginDialog({
@@ -126,8 +151,16 @@ export function ScanLoginDialog({
           setPlatforms(r.data.platforms)
           // 2026-09-15 fix:指定了平台时不得覆盖;函数式更新避免 stale closure
           // (此前闭包捕获 open 时的旧 platform='' 导致误覆盖为列表第一个平台=知乎)
+          // 2026-09-30 用户规则:默认选「今日头条(App扫码)」——微信网页码被头条
+          // need_bind_mobile 策略拦截(网页端身份未绑手机号),App 码才是全自动通道。
           if (!defaultPlatform) {
-            setPlatform((prev) => prev || r.data.platforms[0]?.platform || '')
+            setPlatform(
+              (prev) =>
+                prev ||
+                r.data.platforms.find((p) => p.platform === 'toutiao_app')?.platform ||
+                r.data.platforms[0]?.platform ||
+                '',
+            )
           }
         }
       } catch (e) {
@@ -298,6 +331,27 @@ export function ScanLoginDialog({
     void handleStart(sister)
   }
 
+  // 2026-09-30:登录成功 2s 后自动关闭(用户要求)——"已自动保存"提示可见即走,不挡后续
+  // 操作。清理动作与下方成功态「关闭」按钮逐字一致;failed 态保持手动关闭(用户要读错误)。
+  React.useEffect(() => {
+    if (phase !== 'success') return
+    const timer = setTimeout(() => {
+      setPhase('idle')
+      setErrorMsg('')
+      taskIdRef.current = ''
+      onOpenChange(false)
+    }, 2000)
+    return () => clearTimeout(timer)
+  }, [phase, onOpenChange])
+
+  // 选择面数据派生:隐藏微信网页码;常用 8 个进 pill 网格,其余收进「更多平台」下拉
+  const visiblePlatforms = platforms.filter((p) => !HIDDEN_PLATFORM_KEYS.has(p.platform))
+  const commonPlatforms = COMMON_PLATFORM_KEYS.map((k) =>
+    visiblePlatforms.find((p) => p.platform === k),
+  ).filter((p): p is ScanLoginPlatform => Boolean(p))
+  const restPlatforms = visiblePlatforms.filter((p) => !COMMON_PLATFORM_KEYS.includes(p.platform))
+  const restPlatformSet = new Set(restPlatforms.map((p) => p.platform))
+
   /** 手动导入 cookies(2026-09-16):系统默认浏览器登录闭环的最后一步。 */
   async function handleImportCookies() {
     if (!cookiesInput.trim() || importing) return
@@ -336,22 +390,62 @@ export function ScanLoginDialog({
             <>
               <div className="space-y-2">
                 <label className="text-sm font-medium">{t('accounts.platform')}</label>
-                <Select
-                  value={platform}
-                  onValueChange={setPlatform}
-                  disabled={platforms.length === 0}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('accounts.selectPlatform')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {platforms.map((p) => (
-                      <SelectItem key={p.platform} value={p.platform}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* 2026-09-30 重设计:常用平台 pill 网格直选(2 列,大点击区),其余收进下拉 */}
+                {commonPlatforms.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {commonPlatforms.map((p) => {
+                      const active = platform === p.platform
+                      return (
+                        <button
+                          key={p.platform}
+                          type="button"
+                          onClick={() => setPlatform(p.platform)}
+                          disabled={isBusy}
+                          aria-pressed={active}
+                          className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                            active
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-border bg-background text-foreground hover:border-primary/40 hover:bg-muted'
+                          }`}
+                        >
+                          <PlatformIcon
+                            platform={p.platform}
+                            platformName={p.name}
+                            size={20}
+                            className="bg-transparent"
+                          />
+                          <span className="truncate">{platformDisplayName(p.name)}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                {restPlatforms.length > 0 && (
+                  <Select
+                    value={restPlatformSet.has(platform) ? platform : ''}
+                    onValueChange={setPlatform}
+                    disabled={isBusy}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t('accounts.morePlatforms')} />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {restPlatforms.map((p) => (
+                        <SelectItem key={p.platform} value={p.platform}>
+                          <span className="flex items-center gap-2">
+                            <PlatformIcon
+                              platform={p.platform}
+                              platformName={p.name}
+                              size={16}
+                              className="bg-transparent"
+                            />
+                            <span>{platformDisplayName(p.name)}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <Button
                 onClick={() => void handleStart()}

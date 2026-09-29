@@ -263,12 +263,12 @@ function TerminalTaskItem({
           </View>
         </View>
       ) : null}
-      {/* 后端只下发截断后的文本,复制按钮拿到的也只是这段 → 必须交代原始长度 */}
-      {task.truncated ? (
+      {/* 后端只下发截断后的文本,复制按钮拿到的也只是这段 → 必须交代原始长度。
+          G-647(2026-09-29 立):披露只认 shown<total,布尔 truncated 不作判据 ——
+          totalChars 缺席时拿 output.length 充 total,等于喊"共 N 字"而 N 就是屏上这段,宁可不念。 */}
+      {(task.output?.length ?? 0) < (task.totalChars ?? 0) ? (
         <Text className="ai-card-term-truncated">
-          {t('ai.cards.terminal.truncated', {
-            total: task.totalChars ?? task.output?.length ?? 0,
-          })}
+          {t('ai.cards.terminal.truncated', { total: task.totalChars ?? 0 })}
         </Text>
       ) : null}
       {task.status === 'failed' ? (

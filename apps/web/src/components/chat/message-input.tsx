@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Square, Info, Zap, MessageCircle, X, Wand2, ListFilter } from 'lucide-react'
+import { ArrowUp, Square, Zap, MessageCircle, X, Wand2, ListFilter, ListTodo } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -41,7 +41,6 @@ import {
 } from '@/components/ai/permission-mode-popover'
 import { PermissionShortcutsModal } from '@/components/ai/permission-shortcuts-modal'
 import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-modal'
-import { PermissionHistoryPanel } from '@/components/ai/permission-history-panel'
 import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
 import { ModeSwitcher } from '@/components/chat/mode-switcher'
 import { SamplingParamsButton } from '@/components/chat/sampling-params-panel'
@@ -62,7 +61,7 @@ import { McpStatusNotice } from '@/components/chat/mcp-status-notice'
 import { TaskStatusBar } from '@/components/ai/task-status-bar'
 import { AddMenuPopover } from '@/components/chat/add-menu-popover'
 import { INPUT_ATTACHMENT_BAR_CLASS } from '@/lib/nav-styles'
-import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission-auto-revert'
+import { usePermissionAutoRevert } from '@/hooks/use-permission-auto-revert'
 import { useSlashCommands } from '@/hooks/use-slash-commands'
 import { usePermissionModeCycle } from '@/hooks/use-permission-mode-cycle'
 import { useSlashAction } from '@/hooks/use-slash-action'
@@ -98,8 +97,9 @@ import { getMessages } from '@ihui/api-client'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@plugins-data'
 import { AiSkillInvokeDialog, AiSkillResultDialog } from '@/components/chat/skill-library'
 import type { AiSkillMeta, AiSkillInvokeResponse } from '@ihui/api-client/endpoints/ai-skills'
-import { permissionTierText } from '@/lib/permission-tier-text'
 // 权限档取词(G-166):档位归一与词表键的共享真相源,见 packages/shared/src/chat/permission-tier.ts
+// (2026-09-30 底栏单行化:权限徽章标题行删除,permissionTierText 直读点迁入
+//  permission-mode-popover / permission-history-panel,本文件不再直读)
 // D82 就地润色与失败保稿(G-95):单次生成复用既有 /api/best-of-n/run 通道
 // (与 /btw、/side、/commit 同一条 REST),提示词复用既有 /polish 命令文案(`chat.cmdPolish`),
 // **不新建提示词栈**;状态迁移一律走共享判定层。
@@ -128,14 +128,23 @@ export interface PromptPolishEntryProps {
   /** 外部禁用(如流式生成中) */
   disabled?: boolean
   onPolish: () => void
+  /** 形态(2026-09-30 底栏单行化):
+   *  - 'toolbar'(默认):原工具栏紧凑按钮,单测 Harness 直接渲染的就是这一形态;
+   *  - 'menu-item':"添加"菜单内的菜单项行(带相位说明,menuitem 语义) */
+  variant?: 'toolbar' | 'menu-item'
 }
 
 /**
- * D82 润色入口按钮(工具栏)。
+ * D82 润色入口按钮。
  * 判定与取词都走共享层 / 词包:`disabled` 由 `canStartPolish(state.draft)` 决定,
  * 文案走 `ai.pane.promptPolish.*`,**不硬编码中文**。
  */
-export function PromptPolishEntry({ state, disabled, onPolish }: PromptPolishEntryProps) {
+export function PromptPolishEntry({
+  state,
+  disabled,
+  onPolish,
+  variant = 'toolbar',
+}: PromptPolishEntryProps) {
   const t = useTranslations('ai.pane.promptPolish')
   // next-intl 要求静态键字面量:四相位集中映射一次,与判定层 polishPhaseKey 同源
   const phaseLabel: Record<PolishPhase, string> = {
@@ -146,13 +155,38 @@ export function PromptPolishEntry({ state, disabled, onPolish }: PromptPolishEnt
   }
   const busy = state.phase === 'polishing'
   const emptyDraft = !canStartPolish(state.draft)
+  const disabledReason = emptyDraft ? 'emptyDraft' : 'none'
+  if (variant === 'menu-item') {
+    return (
+      <button
+        type="button"
+        role="menuitem"
+        data-testid="prompt-polish-entry"
+        data-polish-phase={state.phase}
+        data-polish-key={polishPhaseKey(state.phase)}
+        data-polish-disabled-reason={disabledReason}
+        disabled={disabled === true || busy || emptyDraft}
+        onClick={onPolish}
+        aria-label={t('ariaLabel')}
+        className={cn(
+          'flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
+          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
+          'disabled:cursor-not-allowed disabled:opacity-50',
+        )}
+      >
+        <Wand2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate">{t('entryLabel')}</span>
+        <span className="shrink-0 text-[10px] text-muted-foreground">{phaseLabel[state.phase]}</span>
+      </button>
+    )
+  }
   return (
     <button
       type="button"
       data-testid="prompt-polish-entry"
       data-polish-phase={state.phase}
       data-polish-key={polishPhaseKey(state.phase)}
-      data-polish-disabled-reason={emptyDraft ? 'emptyDraft' : 'none'}
+      data-polish-disabled-reason={disabledReason}
       disabled={disabled === true || busy || emptyDraft}
       onClick={onPolish}
       aria-label={t('ariaLabel')}
@@ -254,8 +288,6 @@ export function MessageInput({
   onFloatDragStart,
 }: MessageInputProps) {
   const t = useTranslations('chat')
-  // G-166:权限档徽章的档名走跨端共享词表(permissionTier),不再用 chat.permission.mode.* 私有键
-  const tTier = useTranslations()
   // 2026-08-02 修复: Bug 3 — useRouter 替代 window.location.href,避免整页刷新丢失状态
   const router = useRouter()
   // 权限模式循环切换 hook(2026-07-29 提取自本文件,深度对标 Codex CLI Shift+Tab 循环):
@@ -1100,24 +1132,53 @@ export function MessageInput({
                 <p className="text-sm font-medium text-primary">{t('dropAttachmentHint')}</p>
               </div>
             )}
-            {/* 浮窗折叠态:floatHeader(展开/停靠/最小化)并入顶部工具栏右侧(ml-auto),
-                拖拽回调绑定在工具栏上(handleFloatDragStart 自身排除 button 目标:
-                点按钮仍是点击,拖空白处/按钮间隙才是拖动),工具栏重新成为卡片首行(圆角自然恢复) */}
-            <div
-              onPointerDown={onFloatDragStart}
-              className={INPUT_ATTACHMENT_BAR_CLASS}
-              data-toolbar-float-merged="v2"
-            >
-              {!floatHeader && <AgentProgressTrigger iconOnly />}
-              <PermissionModePopover disabled={isStreaming} />
-              {/* 权限模式历史(2026-07-25 深化,放在附加栏跟盾牌按钮成组,与 popover 内"查看历史"互斥):
-                  - trigger 按钮(Clock4 图标)作为 Popover 锚点,定位弹层
-                  - 高度走 INPUT_ATTACHMENT_BAR_BTN_BASE(h-7)+ w-7(28×28 正方形),与权限/添加按钮严丝合缝
-                  - 通过 window.__IHUI_OPEN_HISTORY__?.() 由外部组件触发,自身不渲染任何重复入口 */}
-              <PermissionHistoryPanel />
+            {/* 浮窗折叠态:窄拖拽条(2026-09-30 底栏单行化)—— 仅 floatHeader(展开/停靠/最小化)
+                存在时才渲染,只剩拖拽热区把手 + 浮窗按钮组;原顶部控件栏(任务进度/权限/历史/添加)
+                全部降位到底部工具栏,输入卡恒 2 行(textarea 行 + 唯一底栏),对标 Trae/Qoder/Codex。
+                拖拽回调绑定在条上(handleFloatDragStart 自身排除 button 目标:点按钮仍是点击,
+                拖空白处/按钮间隙才是拖动) */}
+            {floatHeader && (
+              <div
+                onPointerDown={onFloatDragStart}
+                className={INPUT_ATTACHMENT_BAR_CLASS}
+                data-toolbar-float-merged="v3"
+              >
+                <span className="h-1 w-10 rounded-full bg-border/70" aria-hidden="true" />
+                <div className="ml-auto flex cursor-move items-center gap-1">{floatHeader}</div>
+              </div>
+            )}
+            {/* 共享层 WebInputCore(textarea + 字符计数 + 清除 + 发送/停止),契约对齐 packages/types MessageInputProps */}
+            <WebInputCore
+              ref={inputCoreRef}
+              text={value}
+              placeholder={effectivePlaceholder}
+              isStreaming={isStreaming}
+              onTextChange={setValue}
+              onSend={submit}
+              onStop={onStop}
+              onClear={() => setValue('')}
+              t={t}
+              sendLabel={sendLabel}
+              stopLabel={stopLabel}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePasteWithReferencePreview}
+            />
+            {/* 底部工具栏(2026-09-30 底栏单行化,深度对标 Trae/Qoder/Codex 输入卡):
+                单行两簇 —— 左簇"任务进度 + 添加",右簇"权限 + 模式 + 上下文 + 模型 + 语音 + 发送"。
+                相比旧版(顶部栏 5 控件 + 权限标题行 + 底栏 9 控件,三处堆叠):
+                - 顶部栏控件全部降位:任务进度→底栏左簇;权限→底栏右簇 icon-only;
+                  历史→权限弹层内嵌;权限标题行/徽章行整行删除
+                - 多源建议 / 一键润色 → "添加"菜单收纳(extraMenuItems);
+                - 推理强度轴(D130)+ 采样参数 → 模型弹层 footer(footer prop)。
+                容器降级阶梯见 globals.css .ai-input-toolbar(原生 CSS container query)。 */}
+            <div className="ai-input-toolbar flex min-w-0 items-center gap-1 overflow-hidden px-2 pb-2 pt-1">
+              {/* ── 左簇:任务进度 + 添加 ───────────────────────────────────── */}
+              {/* leftIcon 固定为任务清单语义(2026-09-30 用户指出双锤子:
+                  默认跟随当前模式取图标 → build 档与 ModeSwitcher 的 Hammer 同屏撞脸;
+                  本入口语义是"任务进度面板",对标 Trae/Qoder 任务列表用 ListTodo) */}
+              <AgentProgressTrigger iconOnly leftIcon={ListTodo} />
               {/* "添加"下拉菜单(2026-07-25 终极整合,2026-07-30 提取到 AddMenuPopover 子组件)
-                  收纳 5 类动作,内部按 mode 切换 content(menu/prompt/skill 三态)
-                  高度由 AddMenuPopover 内部 button className 走 INPUT_ATTACHMENT_BAR_BTN_BASE 统一(h-7)
                   行为零变更:关闭时重置 menu 态 / disabled 状态 / 所有回调透传 */}
               <AddMenuPopover
                 open={addMenuOpen}
@@ -1183,121 +1244,46 @@ export function MessageInput({
                 onCompactContext={handleCompact}
                 compacting={compacting}
                 compactDisabled={!conversationId}
-              />
-              {allReferences.length > 0 && (
-                <span className="ml-auto rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                  {allReferences.length} 个引用
-                </span>
-              )}
-              {/* 浮窗折叠态按钮组(展开/停靠/最小化):推到工具栏右侧,cursor-move 提示可拖拽浮窗 */}
-              {floatHeader && (
-                <div className="ml-auto flex cursor-move items-center gap-1">{floatHeader}</div>
-              )}
-            </div>
-            {/* 当前 ChatMode 徽章(2026-07-28 立,移除 4 按钮后改用小徽章显示):
-                模式切换入口:
-                · 斜杠命令 /build /plan /review /spec(message-input.tsx tryHandleChatModeSlash 拦截)
-                · Ctrl+1/2/3/4 全局快捷键(ai-side-panel.tsx keydown handler)
-                · AI 自动判断(用户输入发送时由 use-chat.ts suggestMode 触发)
-                视觉风格对齐右侧权限模式徽章:compact (h-6 px-2 text-xs)、subtle bg-muted、
-                圆角 6px(rounded-md),与 4 按钮时代风格统一。
-                权限模式徽章(2026-07-25 深化):在模式徽章右侧持续显示当前权限模式,
-                高风险时附倒计时(与顶部高风险警告横幅同步),透明性 + 时效性双指标。
-                CurrentModeBadge 已整合到 AgentProgressTrigger 按钮前部(2026-07-29)。 */}
-            {/* 权限模式标题栏(2026-08-06 修复):仅在 activeWorkspaceMode 有值时渲染,
-                避免空模式时也占用 pt-2 + flex 行高(原实现始终渲染但内容为空,
-                视觉上是无内容的 8-12px 空白条,被用户反馈"啥也没显示 + 高度太高")。
-                ml-auto 保证徽章右对齐(与底部工具栏右对齐基线一致)。 */}
-            {activeWorkspaceMode && (
-              <div className="flex items-center gap-2 px-3 pt-2">
-                <div
-                  className="ml-auto flex items-center gap-1.5"
-                  data-testid="titlebar-permission-mode"
-                >
-                  <span
-                    className={cn(
-                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors',
-                      isHighRisk
-                        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                        : activeWorkspaceMode === 'accept-edits'
-                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                          : 'bg-muted text-muted-foreground',
-                    )}
-                  >
-                    <span
-                      className="h-1.5 w-1.5 shrink-0 rounded-full bg-current"
-                      aria-hidden="true"
-                    />
-                    {permissionTierText(activeWorkspaceMode, tTier).title}
-                  </span>
-                  {/* 高风险模式 ⓘ 详细说明按钮(2026-07-25 深化,可解释性增强):
-                    只在 bypass-permissions 模式显示,点击唤起 PermissionModeInfoModal
-                    展示 4 条该模式的详细说明 bullet,底部"知道了"关闭 */}
-                  {activeWorkspaceMode === 'bypass-permissions' && (
-                    <Tooltip content={t('permission.infoButtonTitle')}>
-                      <button
-                        type="button"
-                        onClick={() => setInfoMode('bypass-permissions')}
-                        className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-sm text-amber-700 hover:bg-amber-500/15 dark:text-amber-400"
-                        aria-label={t('permission.infoButtonLabel')}
-                        data-testid="permission-mode-info-button"
-                      >
-                        <Info className="h-3 w-3" aria-hidden="true" />
-                      </button>
-                    </Tooltip>
-                  )}
-                  {/* 高风险 + 倒计时激活 → 在徽章右侧追加倒计时(2026-07-25 深化)
-                    复用 autoRevert hook 的同一份 1s tick,保证顶部警告和标题栏倒计时一致 */}
-                  {isHighRisk && autoRevert.isActive && (
-                    <span
-                      className="inline-flex items-center gap-0.5 rounded-md bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-amber-700 dark:text-amber-400"
-                      data-testid="titlebar-auto-revert"
+                extraMenuItems={
+                  <>
+                    {/* D68 统一多源建议面板入口(2026-09-30 底栏单行化收纳):单一聚合建议面。
+                        不新增全局快捷键,复用面板内 ↑↓/Enter/ESC 键位。 */}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      aria-label={tSuggest('title')}
+                      aria-haspopup="dialog"
+                      data-testid="unified-suggestion-entry"
+                      disabled={isStreaming}
+                      onClick={() => {
+                        setAddMenuOpen(false)
+                        setAddMenuMode('menu')
+                        setUnifiedOpen(true)
+                      }}
+                      className={cn(
+                        'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
+                        'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
+                        'disabled:cursor-not-allowed disabled:opacity-50',
+                      )}
                     >
-                      {t('permission.titleBarAutoRevert', {
-                        time: formatRemaining(autoRevert.remainingMs),
-                      })}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-            {/* 共享层 WebInputCore(textarea + 字符计数 + 清除 + 发送/停止),契约对齐 packages/types MessageInputProps */}
-            <WebInputCore
-              ref={inputCoreRef}
-              text={value}
-              placeholder={effectivePlaceholder}
-              isStreaming={isStreaming}
-              onTextChange={setValue}
-              onSend={submit}
-              onStop={onStop}
-              onClear={() => setValue('')}
-              t={t}
-              sendLabel={sendLabel}
-              stopLabel={stopLabel}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePasteWithReferencePreview}
-            />
-            {/* D130(2026-09-30 立):推理强度第三轴 —— 挂在 textarea 与底部工具栏之间独占一行。
-                为什么不塞进 ai-input-toolbar:那一行是 overflow-hidden + 容器查询窄屏降级区
-                (<=359px 时连 ModelSelector 的文字都要收起),再挤进"标签 + 四个档位"必然把
-                发送/停止按钮挤出右边界 —— 这条轴点不动比看不见更难查。
-                摘掉下面这一行挂载 ⇒ 档位永远进不了请求(展示件、store、通道全在,
-                typecheck/lint 一路绿),apps/web/src/components/chat/__tests__/
-                reasoning-effort-axis-mount.test.tsx 的①③正是守这一行。 */}
-            <ReasoningEffortInputAxis model={model} disabled={isStreaming} />
-            {/* 底部工具栏:左侧 / @ 触发按钮,右侧 ContextUsageRing + ModelSelector + VoiceInput
-                + 流式指示(发送/停止按钮已上移至 WebInputCore)
-                ai-input-toolbar + globals.css 原生 CSS container query:
-                面板宽度 320-720px(默认 400px),容器内容宽 288-688px;
-                容器 <= 359px(面板 <= 391px)时隐藏 ModelSelector 文字 + 徽章只显示图标,
-                防止左侧 2 按钮 + ModelSelector + VoiceInput 总宽超过容器右边界。
-                用原生 CSS 不依赖 Tailwind v4 container variant 编译(实测 Tailwind v4
-                仅编译 .@container 类不编译 @sm: 断点规则)。 */}
-            <div className="ai-input-toolbar flex min-w-0 items-center gap-1 overflow-hidden px-2 pb-2 pt-1">
-              {/* 附件入口已合并到上方"添加"下拉菜单第 4 项(2026-07-25 合并),此处不再保留独立按钮,
-                  避免和"添加 → 添加附件"重复造成用户认知负担。
-                  若需要触发 file input,在"添加"菜单中点击"添加附件"项即可(fileInputRef 共享)。 */}
+                      <ListFilter className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate">{tSuggest('title')}</span>
+                    </button>
+                    {/* D82 一键润色入口(2026-09-30 底栏单行化收纳):对当前草稿**就地改写**
+                        (空草稿禁用),失败保稿见输入卡上方提示条 */}
+                    <PromptPolishEntry
+                      state={polish}
+                      disabled={isStreaming}
+                      variant="menu-item"
+                      onPolish={() => {
+                        handlePolish()
+                        setAddMenuOpen(false)
+                        setAddMenuMode('menu')
+                      }}
+                    />
+                  </>
+                }
+              />
               {/* 斜杠 / @ / 截图 三个独立按钮已移除(2026-09-18 用户规则:"这里这么多按钮都重合了"):
                   改用全局快捷键呼出(见 use-global-shortcuts.ts DEFAULT_SHORTCUTS):
                     · Ctrl+Shift+/  → global-shortcut:open-slash  → 打开 SlashCommandPalette
@@ -1326,37 +1312,6 @@ export function MessageInput({
                   }}
                 />
               </SlashCommandPalette>
-              {/* D68 统一多源建议面板入口(2026-09-26):单一聚合建议面的开关按钮。
-                  不新增全局快捷键(守门 69 声明与归属对账),复用面板内 ↑↓/Enter/ESC 键位。 */}
-              <button
-                type="button"
-                aria-label={tSuggest('title')}
-                data-testid="unified-suggestion-entry"
-                aria-haspopup="dialog"
-                aria-expanded={unifiedOpen}
-                data-state={unifiedOpen ? 'open' : 'closed'}
-                disabled={isStreaming}
-                onClick={() => setUnifiedOpen((o) => !o)}
-                className={cn(
-                  'inline-flex h-8 min-w-0 items-center gap-1.5 rounded-sm px-2 text-xs font-medium leading-none',
-                  'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                  'disabled:cursor-not-allowed disabled:opacity-50',
-                )}
-              >
-                <ListFilter className="h-3.5 w-3.5 shrink-0" />
-                <span className="min-w-0 truncate">{tSuggest('title')}</span>
-              </button>
-              {/* 模式选择器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
-                  与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源 */}
-              <ModeSwitcher disabled={isStreaming} />
-              {/* D21 折叠策略、D22 网页搜索两个入口均已迁入设置页「偏好设置」卡片
-                  (2026-09-21 用户裁决:偏好类开关归位设置页,工具栏只留会话级控件);
-                  状态链路不变(chat store + mergeAgentTools 消费)。 */}
-              {/* 高级参数入口(P1-7,2026-09-13):temperature/top_p/top_k/max_tokens +
-                  自定义 system prompt,会话级持久化,随请求下发 LLM 网关 */}
-              <SamplingParamsButton disabled={isStreaming} />
-              {/* D82 一键润色入口:对当前草稿**就地改写**(空草稿禁用),失败保稿见输入卡上方提示条 */}
-              <PromptPolishEntry state={polish} disabled={isStreaming} onPolish={handlePolish} />
               <input
                 ref={fileInputRef}
                 type="file"
@@ -1370,15 +1325,40 @@ export function MessageInput({
                 aria-hidden="true"
                 tabIndex={-1}
               />
-              <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
-                {/* 手动压缩上下文入口已整合到"添加"下拉菜单(2026-09-06),工具栏不再保留独立按钮 */}
+              {/* ── 右簇:权限 + 模式 + 上下文 + 模型 + 语音 + 发送 ─────────────── */}
+              <div className="ml-auto flex min-w-0 items-center justify-end gap-1">
+                {/* 权限模式(2026-09-30 icon-only 化):盾/手/罗盘/警盾图标 + 档位色语义,
+                    档名走 Tooltip;弹层内含模式卡片 + 高危说明 ⓘ + 历史内嵌段 */}
+                <PermissionModePopover
+                  disabled={isStreaming}
+                  onExplainMode={(mode) => setInfoMode(mode)}
+                />
+                {/* 模式选择器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
+                    与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源 */}
+                <ModeSwitcher disabled={isStreaming} />
+                {/* 高级参数入口(P1-7)与推理强度轴收纳进模型弹层 footer,见 ModelSelector */}
                 <ContextUsageRing model={model} isStreaming={isStreaming} />
-                <ModelSelector value={model} onChange={onModelChange} label={modelLabel} />
+                {/* 模型选择器 + footer(推理强度轴 D130 + 采样参数 P1-7):
+                    D130 守门判据要求 <ReasoningEffortInputAxis model={model} 挂载行留在本文件,
+                    footer 节点即该挂载点 —— 摘掉它档位就永远进不了请求(测试①③) */}
+                <ModelSelector
+                  value={model}
+                  onChange={onModelChange}
+                  label={modelLabel}
+                  footer={
+                    <>
+                      <ReasoningEffortInputAxis model={model} disabled={isStreaming} />
+                      {/* 高级参数入口(P1-7,2026-09-13):temperature/top_p/top_k/max_tokens +
+                          自定义 system prompt,会话级持久化,随请求下发 LLM 网关 */}
+                      <SamplingParamsButton disabled={isStreaming} />
+                    </>
+                  }
+                />
                 {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
                 <VoiceToolbar onTranscript={handleVoiceTranscript} disabled={isStreaming} />
-                {/* 发送/停止按钮(2026-07-30 用户规则:清除按钮已挪回 WebInputCore 内部 textarea 右上角悬浮呈现,
-                    不再占用 toolbar 槽位)
-                    - 流式中切 Stop(天蓝底 sky-500),否则 Send(主色,空输入/流式中禁用) */}
+                {/* 发送/停止(2026-09-30 修订,用户规则:项目禁止圆形发送按钮,改方形 rounded-sm;
+                    空输入禁用(灰),有内容 bg-cta 主色 + ArrowUp;
+                    流式中切 Steer(琥珀,中途引导)+ Stop(天蓝),同规格方形 */}
                 {isStreaming ? (
                   <>
                     {/* Steer 中途引导(2026-09-19 立):流式期间闪电按钮,不打断当前工具执行,
@@ -1391,7 +1371,7 @@ export function MessageInput({
                           onClick={() => void steer()}
                           disabled={!value.trim()}
                           className={cn(
-                            'inline-flex h-8 w-8 items-center justify-center rounded-sm transition-colors',
+                            'inline-flex h-9 w-9 items-center justify-center rounded-sm transition-colors',
                             value.trim()
                               ? 'bg-amber-500 text-white hover:bg-amber-600'
                               : 'cursor-not-allowed bg-muted text-muted-foreground/50',
@@ -1399,7 +1379,7 @@ export function MessageInput({
                           aria-label={t('steer')}
                           data-testid="steer-button"
                         >
-                          <Zap className="h-3.5 w-3.5" />
+                          <Zap className="h-4 w-4" />
                         </button>
                       </span>
                     </Tooltip>
@@ -1407,10 +1387,10 @@ export function MessageInput({
                       <button
                         type="button"
                         onClick={onStop}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-sm bg-sky-500 text-white hover:bg-sky-600"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-sky-500 text-white hover:bg-sky-600"
                         aria-label={stopLabel ?? t('stop')}
                       >
-                        <Square className="h-3.5 w-3.5" fill="currentColor" />
+                        <Square className="h-4 w-4" fill="currentColor" />
                       </button>
                     </Tooltip>
                   </>
@@ -1423,22 +1403,18 @@ export function MessageInput({
                         onClick={() => void submit()}
                         disabled={!canSend}
                         className={cn(
-                          'inline-flex h-8 w-8 items-center justify-center rounded-sm transition-colors',
+                          'inline-flex h-9 w-9 items-center justify-center rounded-sm transition-colors',
                           canSend
                             ? 'bg-cta text-cta-foreground hover:bg-cta/90'
                             : 'cursor-not-allowed bg-muted text-muted-foreground/50',
                         )}
                         aria-label={sendLabel ?? t('send')}
                       >
-                        <Send className="h-3.5 w-3.5" />
+                        <ArrowUp className="h-4 w-4" />
                       </button>
                     </span>
                   </Tooltip>
                 )}
-                {/* 流式生成指示已移除(2026-08-01 立,用户规则):
-                    不在输入区右侧显示"AI 正在生成中"文字 + 脉冲点。
-                    AI 生成状态由对话框内 TypingIndicator(三个跳动点,message-list showTyping)承担,
-                    停止操作由上方 stop 按钮承担(替换 send 按钮,大小一致)。 */}
               </div>
             </div>
           </div>
