@@ -1222,69 +1222,120 @@ test('R-P 行为锁(真临时仓):指针行只带回一份且必须点名,不带
   }
 })
 
-/**
- * R-Q 显式 `--theirs` 的短路判据(G-814402,2026-09-29 主会话亲历:一次已验证交付差点被
- * "本地纯落后 ⇒ 无需合并" + exit 0 整吞)。
- *
- * 判据只放在 `resolveTargets` 这一层(它是缺陷所在地),CLI 那一支刻意不在这里真跑:
- * 本器的 `ROOT` 由**脚本自身位置**推导(守门 70 的同一课),在临时仓里 spawn 真脚本会去操作真仓,
- * 所以"落地动作"的端到端由 union-converge 自带的 `--self-test` 覆盖,这里只钉分流。
- */
-test('R-Q 显式 --theirs 时"本地纯落后"不得当成无需合并;只有"目标已被包含"才准短路', () => {
-  const dir = mkScratch('union-explicit-')
+/* ── R-Q / R-R / R-S:「对侧就地改写、本侧未动」的折叠判据(2026-09-29 立)────────────────
+ * 立因是现读:`G-823` 与 `G-814425` 两组 F9 里,一侧拿着基底原文(相对基底**一个字节都没改**),
+ * 另一侧把同一枚主键就地改写成「已落地」形态 —— 而归并把改写读成"对侧相对基底新增",
+ * 于是同号两个形态并存、落地闸判需人工。那一格既不是任何人的登记错误,也不是"并集天然后果"
+ * (F1/F4 那种),而是**归并器少了一条对称规则**:它已有"本侧改写、对侧未动 ⇒ 不复活旧行",
+ * 却没有"对侧改写、本侧未动 ⇒ 不带旧行"。三条用例各钉一件事:折得对、不该折不折、有人调它。 */
+test('R-Q 折叠判据(真临时仓端到端):对侧改写主键 ∧ 本侧未动 ⇒ 合并树只带改写形态,任何一侧的独有行照留', () => {
+  const dir = mkScratch('union-fold-it-')
   try {
-    const run = (...a) =>
+    const g = (...a) =>
       execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
         cwd: dir,
         encoding: 'utf8',
         windowsHide: true,
         timeout: 120000,
       }).trim()
-    run('init', '-q', '-b', 'main')
-    run('config', 'user.email', 't@t')
-    run('config', 'user.name', 't')
-    run('config', 'core.autocrlf', 'false')
-    writeFileSync(join(dir, 'PROJECT_PLAN.md'), '# 台账\n- [ ] 底座\n', 'utf8')
-    run('add', '-A')
-    run('commit', '-qm', 'base')
-    const base = run('rev-parse', 'HEAD')
-    // 对侧:本地之后的一枚提交,带着本地没有的文件(模拟"别人的交付等着被合进来")
-    writeFileSync(join(dir, 'only-theirs.ts'), '要合进来的交付\n', 'utf8')
-    run('add', '-A')
-    run('commit', '-qm', 'theirs-ahead')
-    const ahead = run('rev-parse', 'HEAD')
-    run('reset', '-q', '--hard', base) // 本地退回,造成"本地纯落后于 ahead"这一格
-
-    assert.equal(U.hasCommit(ahead, dir), true, '夹具自证:两枚对象都必须在本机')
-    const g = U.resolveTargets(ahead, dir)
+    g('init', '-q', '-b', 'main')
+    g('config', 'user.email', 't@t')
+    g('config', 'user.name', 't')
+    g('config', 'core.autocrlf', 'false')
+    const OLD = '- [ ] G-770 折叠夹具:基底形态。'
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# 台账\n- [ ] 公共行\n${OLD}\n`, 'utf8')
+    g('add', '-A')
+    g('commit', '-qm', 'base')
+    const base = g('rev-parse', 'HEAD')
+    const DOC = join(dir, 'PROJECT_PLAN.md')
+    // 本侧**动了同一份活文档**(否则走不到活文档归并这条路),但一个字都没碰 G-770
+    g('checkout', '-q', '-B', 'ours', base)
+    writeFileSync(DOC, `# 台账\n- [ ] 公共行\n${OLD}\n- [ ] ours 独有\n`, 'utf8')
+    g('add', '-A')
+    g('commit', '-qm', 'ours(只加自己的行)')
+    const ours = g('rev-parse', 'HEAD')
+    const NEW = '- [x] ✅(2026-09-29) G-770 折叠夹具:对侧改写后的形态。'
+    g('checkout', '-q', '-B', 'theirs', base)
+    writeFileSync(DOC, `# 台账\n- [ ] 公共行\n${NEW}\n- [ ] theirs 独有\n`, 'utf8')
+    g('add', '-A')
+    g('commit', '-qm', 'theirs(就地改写 G-770)')
+    const theirs = g('rev-parse', 'HEAD')
+    const p = U.plan(ours, theirs, dir)
+    const doc = U.show(p.tree, 'PROJECT_PLAN.md', dir)
+    assert.ok(doc.includes(NEW), '改写形态必须进合并树')
     assert.equal(
-      g.skip,
-      null,
-      `显式点了 --theirs 而本地落后 ⇒ 绝不能给出 skip(旧行为是 skip="本地纯落后…" + exit 0"无需合并"):${JSON.stringify(g)}`,
+      doc.split('\n').filter((l) => l === OLD).length,
+      0,
+      '基底旧形态不得再留一份 —— 留两份正是 F9「同号两形态」的产地,而它会被读成"别人把我的行改坏了"',
     )
-    assert.ok(!g.undetermined, '对象都在本机 ⇒ 这不是"没资格判",不得混进未判定那一支')
+    assert.ok(
+      doc.includes('- [ ] ours 独有') && doc.includes('- [ ] theirs 独有'),
+      '折叠只碰"本侧未动的主键",任何一侧的独有行一份都不许多',
+    )
+    assert.equal(p.bad.length, 0, `零丢失与状态分叉自证必须一起过:${p.bad.slice(0, 2).join(' / ')}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
 
-    // 反向对照:目标已被本地包含时,短路照旧合法(否则每次都白合一遍)。
-    // 注意要**再往前加一枚提交**再验:纯 ff 之后 head 与 theirs 会是同一个 sha,那走的是
-    // 更早那一格 `skip:'已同步'`(也合法,但就把"已被包含"这一格验不到了 —— 夹具必须自己
-    // 证明两种形态确有差异,否则这条断言恒真)。
-    run('merge', '-q', '--no-edit', ahead)
-    writeFileSync(join(dir, 'post-merge.ts'), '合并之后本地又走了一步\n', 'utf8')
-    run('add', '-A')
-    run('commit', '-qm', 'post')
-    const nowHead = run('rev-parse', 'HEAD')
-    assert.notEqual(nowHead, ahead, '夹具自证:本地必须真的走在 ahead 前面,否则本例退化成"已同步"那一格')
-    const g2 = U.resolveTargets(ahead, dir)
-    assert.equal(g2.skip, '目标已被本地包含', `已被包含才准短路:${JSON.stringify(g2)}`)
-
-    // 形状锁:那句"本地纯落后"只保留给**自动解析远端真值**那一支(不显式点目标时它是对的建议)
-    const src = readFileSync(new URL('../union-converge.mjs', import.meta.url), 'utf8')
+test('R-R 反向锁(真临时仓):本侧对同一主键**也改过** ⇒ 两侧同改,机器不许折,交人工并点名 F9', () => {
+  const dir = mkScratch('union-fold-neg-')
+  try {
+    const g = (...a) =>
+      execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+        cwd: dir,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+      }).trim()
+    g('init', '-q', '-b', 'main')
+    g('config', 'user.email', 't@t')
+    g('config', 'user.name', 't')
+    g('config', 'core.autocrlf', 'false')
+    const OLD = '- [ ] G-771 折叠夹具:基底形态。'
+    // 两侧改出来的**标题必须不同**(前 24 字就分叉):同主键同标题会被判 F1「两态并存」,
+    // 那是另一条维;本例要钉的是 F9「同号两议题」,所以措辞必须走到那个形状上。
+    const MINE = '- [ ] G-771 本侧把它改成了另一个议题的措辞。'
+    const NEW = '- [x] ✅(2026-09-29) G-771 对侧把它改成了第三种完全不同的措辞。'
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# 台账\n${OLD}\n`, 'utf8')
+    g('add', '-A')
+    g('commit', '-qm', 'base')
+    const base = g('rev-parse', 'HEAD')
+    const DOC = join(dir, 'PROJECT_PLAN.md')
+    g('checkout', '-q', '-B', 'ours', base)
+    writeFileSync(DOC, `# 台账\n${MINE}\n`, 'utf8')
+    g('add', '-A')
+    g('commit', '-qm', 'ours(把同一主键改成第三种形态)')
+    const ours = g('rev-parse', 'HEAD')
+    g('checkout', '-q', '-B', 'theirs', base)
+    writeFileSync(DOC, `# 台账\n${NEW}\n`, 'utf8')
+    g('add', '-A')
+    g('commit', '-qm', 'theirs(把同一主键改成另一种形态)')
+    const theirs = g('rev-parse', 'HEAD')
+    const p = U.plan(ours, theirs, dir)
+    const doc = U.show(p.tree, 'PROJECT_PLAN.md', dir)
+    assert.ok(doc.includes(MINE) && doc.includes(NEW), '两侧同改 ⇒ 两份都得留,少哪一份都是替别人裁决')
     assert.match(
-      maskComments(src),
-      /if \(!explicit && isAncestor\(head, theirs, cwd\)\)\s*return \{ head, theirs, skip: '本地纯落后/,
-      '"本地纯落后"短路必须被 !explicit 夹住 —— 摘掉这个条件就是回到 G-814402 那一吞',
+      p.bad.join('\n'),
+      /F9 归并新增撞号组[\s\S]*G-771/,
+      `两侧同改那一格必须仍被点名交人工(折叠判据不得把它洗成"已归并"):${p.bad.slice(0, 2).join(' / ')}`,
     )
   } finally {
     rmScratch(dir)
   }
 })
+
+test('R-S 装车锁(源码级):折叠表必须接进 liveDocExpectedCounts 本体 —— 只写函数不接,产出面与自证面就会各读一张表', () => {
+  const src = maskComments(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../union-converge.mjs'), 'utf8'))
+  assert.match(
+    src,
+    /for \(const \[l, n\] of theirsRewriteCaps\(oursText, theirsText, baseText, suppress\)\)/,
+    '期望表里不得没有这一行:它同时是产出面与自证面的唯一来源',
+  )
+  assert.match(
+    src,
+    /const over = n - \(want\.get\(l\) \|\| 0\)/,
+    '脊柱裁剪必须按**期望表**扣份数,不得在 unionLines 里再算第二次 caps(两处各写一遍必漂移)',
+  )
+})
+
