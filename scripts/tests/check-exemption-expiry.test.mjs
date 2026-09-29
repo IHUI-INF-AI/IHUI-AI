@@ -57,6 +57,8 @@ test('T01 源脚本必须 export __test__ 且含判据核心(缺锚点即漂移)
     'isPast',
     'parseMarkerTail',
     'BASELINE_REL',
+    'suppressionUndatedCountsOf',
+    'resolveSuppressionAnchor',
   ]) {
     assert.ok(key in gate, `__test__ 缺键 ${key}`)
   }
@@ -136,13 +138,15 @@ test('T06 E3 基线自身过期即整门红;账销完即绿;字段缺失按"过�
   )
 })
 
-test('T07 lint 抑制面只报数不判红(规格 §7 的"不得独立成第二道同类门")', () => {
+test('T07 lint 抑制面总账只报数(锚点缺失档,E5 退回只报数 —— 规格 §7 + G-666)', () => {
   const s = gate.scanFile(
     'g.ts',
     '/* eslint-disable no-console */\n// eslint-disable-next-line x/y\n// @ts-ignore\n',
   )
   assert.equal(s.suppressions['eslint-disable'], 2)
   assert.equal(s.suppressions['ts-ignore'], 1)
+  // 不传 headSuppressionCounts(= HEAD 锚点取不到的退化档)⇒ E5 整维退回只报数,
+  // 与真仓旧基线(无 suppressionUndatedCounts 字段)同形 —— 拿 0 当锚点就是上线恒红 342/70 处。
   const r = gate.analyze({
     entries: [],
     suppressionsByFile: { 'g.ts': s.suppressions },
@@ -151,6 +155,7 @@ test('T07 lint 抑制面只报数不判红(规格 §7 的"不得独立成第二�
   })
   assert.equal(r.red.length, 0)
   assert.equal(r.totals.suppressTotals['eslint-disable'], 2)
+  assert.ok(r.soft.some((x) => x.code === 'S5'), '锚点缺失必须喊出,不得静默装绿')
 })
 
 // ---------------------------------------------------------------- 语法覆盖面
@@ -487,6 +492,172 @@ test('T25 存档面只报数不入账,但活文件同一条过期豁免照旧判
     assert.match(SRC, re, `判据缺"存档面"半边:${name}`)
   // 报数不得静默并入别的档
   assert.match(SRC, /archiveFace: entries\.filter\(\(e\) => e\.archiveFace\)\.length/, 'totals 缺存档面计数')
+})
+
+// T26/T27/T28:G-666 的 E5(新增 lint 抑制须同笔带到期豁免)。票面验收 = 棘轮四向 + 阳性对照;
+// 镜像侧断**不变量**(观测/锚点同函数、独立键空间、锚点缺失退回只报数),存量数字一律不写死。
+test('T26 scanFile 把抑制账劈成"有到期豁免/无到期豁免"两半,与总账同轮同面', () => {
+  const undated = gate.scanFile(
+    'g.ts',
+    '/* eslint-disable no-console */\n// eslint-disable-next-line x/y\n// @ts-ignore\n',
+  ).suppressionUndated
+  assert.deepEqual(undated, { 'eslint-disable': 2, 'ts-ignore': 1 }, '无 until 的抑制进 E5 观测面')
+  const dated = gate.scanFile('g.ts', '/* eslint-disable no-console */ // 等清理 until 2099-12-31')
+  assert.deepEqual(
+    dated.suppressionUndated,
+    {},
+    '同行带 until 的抑制算有到期豁免,不得进 E5 观测面(出口必须是真的)',
+  )
+  assert.equal(dated.suppressions['eslint-disable'], 1, '总账照旧计,不得因为劈账丢数')
+  // 观测/锚点两侧走同一个函数(T21 的对称性同一条规矩)
+  assert.deepEqual(
+    gate.suppressionUndatedCountsOf({ 'g.ts': undated }),
+    { 'g.ts::eslint-disable': 2, 'g.ts::ts-ignore': 1 },
+  )
+})
+
+test('T27 E5 棘轮四向:新增红 / 锚点兜底绿 / 带 until 绿 / 锚点缺失退回只报数', () => {
+  const s = gate.scanFile(
+    'g.ts',
+    '/* eslint-disable no-console */\n// eslint-disable-next-line x/y\n// @ts-ignore\n',
+  )
+  const supU = { 'g.ts': s.suppressionUndated }
+  const base = { grandfatherUntil: '2099-01-01', undatedCounts: {} }
+  const run = (headSup, supBase) =>
+    gate.analyze({
+      entries: [],
+      suppressionsByFile: { 'g.ts': s.suppressions },
+      suppressionUndatedByFile: supU,
+      baseline: supBase ? { ...base, suppressionUndatedCounts: supBase } : base,
+      today: TODAY,
+      headSuppressionCounts: headSup,
+    })
+  // ① 新增超锚点 ⇒ 红,恰好只红多出的那一笔(锚点 1、观测 2;ts-ignore 1≤1 不得陪绑)
+  const hit = run({ 'g.ts::eslint-disable': 1, 'g.ts::ts-ignore': 1 })
+  assert.equal(hit.red.length, 1)
+  assert.equal(hit.red[0].code, 'E5')
+  assert.equal(hit.red[0].file, 'g.ts')
+  assert.equal(hit.red[0].family, 'eslint-disable')
+  assert.match(hit.red[0].msg, /until YYYY-MM-DD/)
+  // ② 锚点取大兜住存量 ⇒ 不红(与 ① 同输入:绿必须来自锚点,不是判据失效)
+  assert.deepEqual(run({ 'g.ts::eslint-disable': 2, 'g.ts::ts-ignore': 1 }).red, [])
+  // ③ 基线额度兜底(取大含基线)⇒ 不红
+  assert.deepEqual(run({}, { 'g.ts::eslint-disable': 5, 'g.ts::ts-ignore': 5 }).red, [])
+  // ④ 锚点缺失 ⇒ 整维退回只报数 + S5 喊出(旧基线无该字段,拿 0 当锚点 = 恒红存量)
+  const degraded = run(undefined)
+  assert.deepEqual(degraded.red, [])
+  assert.ok(degraded.soft.some((x) => x.code === 'S5'))
+  // 阳性对照:从真扫产物判出的红,不是手拼计数表喂出来的
+  const e2eSup = gate.scanFile('apps/x.ts', 'x // eslint-disable-next-line z\n')
+  const armed = gate.analyze({
+    entries: [],
+    suppressionsByFile: { 'apps/x.ts': e2eSup.suppressions },
+    suppressionUndatedByFile: { 'apps/x.ts': e2eSup.suppressionUndated },
+    baseline: base,
+    today: TODAY,
+    headSuppressionCounts: {},
+  })
+  assert.equal(armed.red[0]?.code, 'E5')
+  // resolveSuppressionAnchor 三情形(与 resolveAnchor 的 N01–N03 同型)
+  assert.deepEqual(
+    gate.resolveSuppressionAnchor({ face: 'head', undatedByFile: { 'g.ts': s.suppressionUndated } }),
+    { 'g.ts::eslint-disable': 2, 'g.ts::ts-ignore': 1 },
+    '面=head 自比 ⇒ 观测=锚点,结构上不响',
+  )
+  assert.equal(
+    gate.resolveSuppressionAnchor({ face: 'index', undatedByFile: { 'g.ts': s.suppressionUndated }, headUndatedByFile: null }),
+    null,
+    'HEAD 取不到 ⇒ null(退回只报数,不得拿 0 当锚点)',
+  )
+  // mergeBaseline:第二类账并集 + 只下调,且不被族清除误清(kind 不是族名)
+  const m = gate.mergeBaseline(
+    { undatedCounts: { 'apps/x.ts::radius-exempt': 41 }, suppressionUndatedCounts: { 'g.ts::eslint-disable': 3 } },
+    { undatedCounts: {}, suppressionUndatedCounts: { 'g.ts::eslint-disable': 2, 'i.ts::ts-ignore': 1 } },
+  )
+  assert.equal(m.next.suppressionUndatedCounts['g.ts::eslint-disable'], 2, '只下调')
+  assert.equal(m.next.suppressionUndatedCounts['i.ts::ts-ignore'], 1, '并集')
+  assert.equal(
+    gate.mergeBaseline(
+      { suppressionUndatedCounts: { 'g.ts::eslint-disable': 1 } },
+      { suppressionUndatedCounts: { 'g.ts::eslint-disable': 99 } },
+    ).next.suppressionUndatedCounts['g.ts::eslint-disable'],
+    1,
+    '绝不上调(与 undatedCounts 的 M02 同锁,独立键空间各锁各的)',
+  )
+})
+
+test('T28 E5 端到端有牙:临时索引新增无 until 抑制必红、新增带 until 的不红', () => {
+  const dir = mkScratch('exemption-e5')
+  const git = (a) =>
+    execFileSync('git', ['-c', 'safe.directory=*', '-C', dir, ...a], {
+      encoding: 'utf8',
+      timeout: 30000,
+    })
+  try {
+    git(['init', '-q'])
+    git(['config', 'user.email', 't@test.invalid'])
+    git(['config', 'user.name', 't'])
+    mkdirSync(join(dir, 'scripts'), { recursive: true })
+    writeFileSync(
+      join(dir, gate.BASELINE_REL),
+      JSON.stringify({ grandfatherUntil: '2099-01-01', undatedCounts: {} }),
+    )
+    // HEAD 面:一条无到期豁免的抑制(存量,锚点的来源)。
+    // 附一条带远期日期的**豁免标记**:collect 的反假绿闸要求候选里必须解析出 ≥1 条豁免,
+    // 纯抑制夹具(不含 -exempt 字样)会被它判成"判据失效"exit 2 —— 那道闸是对的,E5 夹具绕它。
+    writeFileSync(
+      join(dir, 'a.ts'),
+      'x // eslint-disable-next-line no-console\n// border-ink-exempt: 夹具 until 2099-12-31\n',
+    )
+    git(['add', '.'])
+    git(['commit', '-q', '-m', 'fixture'])
+    const runJSON = (args) => {
+      const r = spawnSync(process.execPath, [SCRIPT, '--root', dir, '--json', ...args], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+      })
+      return { status: r.status, out: JSON.parse(r.stdout || '{}') }
+    }
+    assert.deepEqual(runJSON(['--staged']).out.red, [], '干净索引不得判红')
+    // ① 索引新增**带 until** 的抑制 ⇒ 有到期豁免,E5 不响
+    writeFileSync(
+      join(dir, 'a.ts'),
+      'x // eslint-disable-next-line no-console\ny // eslint-disable no-console -- 等清理 until 2099-12-31\n' +
+        '// border-ink-exempt: 夹具 until 2099-12-31\n',
+    )
+    git(['add', 'a.ts'])
+    assert.deepEqual(
+      runJSON(['--staged']).out.red,
+      [],
+      '带同行 until 的新增抑制是合法出口,不得判红',
+    )
+    // ② 索引新增**无 until** 的抑制 ⇒ E5 必须点名 kind@file(棘轮:锚点=HEAD 现测 1)
+    writeFileSync(
+      join(dir, 'a.ts'),
+      'x // eslint-disable-next-line no-console\ny // eslint-disable no-console -- 先压住\n' +
+        '// border-ink-exempt: 夹具 until 2099-12-31\n',
+    )
+    git(['add', 'a.ts'])
+    const hit = runJSON(['--staged'])
+    assert.equal(hit.status, 1, '新增无到期豁免的抑制必须判红')
+    assert.ok(
+      (hit.out.red || []).some((v) => v.code === 'E5' && v.file === 'a.ts' && v.family === 'eslint-disable'),
+      `E5 必须点名 kind@file:${JSON.stringify(hit.out.red)}`,
+    )
+    // ③ --update-baseline 后同面复跑 ⇒ 绿(存量已并账,棘轮额度抬到现状)
+    const upd = spawnSync(process.execPath, [SCRIPT, '--root', dir, '--update-baseline', '--staged'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120000,
+    })
+    assert.equal(upd.status, 0, upd.stderr)
+    const bl = JSON.parse(readFileSync(join(dir, gate.BASELINE_REL), 'utf8'))
+    assert.equal(bl.suppressionUndatedCounts['a.ts::eslint-disable'], 2, '第二类账必须进基线')
+    assert.deepEqual(runJSON(['--staged']).out.red, [], '并账后同面复跑必须绿')
+  } finally {
+    rmScratch(dir)
+  }
 })
 
 /**
