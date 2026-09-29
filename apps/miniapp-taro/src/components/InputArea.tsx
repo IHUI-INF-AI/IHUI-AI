@@ -854,12 +854,13 @@ export default function InputArea({
 
         <View className="flex items-center ml-2 flex-shrink-0">
           {mode === 'text' ? (
-            <Text
-              className={`w-9 h-9 leading-9 text-center text-xl rounded-sm ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`}
+            // 开关钮载体 = 矢量(AGENTS §4「UI 图标一律用矢量图标库,禁止 emoji 充当图标」);命中盒 w-9 h-9 / 圆角档 rounded-sm / 开合两态色档与原字符实现同档,墨迹取本文件既有具名档 ⇒ 不新增端内数字
+            <View
+              className={`w-9 h-9 flex items-center justify-center rounded-sm ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`}
               onClick={toggleEmoji}
             >
-              😊
-            </Text>
+              <LineIcon name="smile" size={toUnit(INPUT_AREA_GLYPH_MD_PX)} color={showEmoji ? 'var(--color-primary)' : 'var(--color-muted-foreground)'} />
+            </View>
           ) : null}
           <View className="flex flex-col items-center ml-1">
             {/* 在 weapp 端为死样式(:active 伪类对 View 不生效),改用 hoverClass 按压反馈 */}
