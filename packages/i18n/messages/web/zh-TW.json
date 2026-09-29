@@ -9030,6 +9030,26 @@
       "restoreSuccess": "已回退到該檢查點",
       "restoreFailed": "回退失敗"
     },
+    "recap": {
+      "title": "任務回顧",
+      "handoff": {
+        "menuItem": "移交到新任務",
+        "title": "移交到新任務"
+      },
+      "previewDescription": "檢查交接內容後,可以在檔案位置查看,或直接建立一個新任務繼續工作。",
+      "purposeLabel": "交接目的",
+      "purposePlaceholder": "交接目的",
+      "waitingPreview": "正在準備預覽…",
+      "phase": {
+        "generating": "模型正在產生交接內容…",
+        "finalizing": "正在完成收尾…",
+        "done": "交接文件已產生。"
+      },
+      "revealFile": "顯示檔案",
+      "createSession": "建立新任務",
+      "creating": "正在建立新任務…",
+      "createFailed": "建立新任務失敗,請重試。"
+    },
     "addWorkspace": "添加工作區",
     "assistant": "助手",
     "back": "返回",
@@ -22820,6 +22840,21 @@
       "hoursAgo": "{hr} 小時前",
       "justNow": "剛剛",
       "markAllRead": "全部標記已讀",
+      "important": "需要了解",
+      "viewActive": "返回動態",
+      "markAllReadFailed": "未能把動態標為已讀,請重試。",
+      "hiding": "正在隱藏…",
+      "hideFailed": "這條動態未隱藏,請重試。",
+      "restoring": "正在恢復…",
+      "restoreFailed": "這條動態未恢復,請重試。",
+      "emptyDescription": "評論、提及和訂閱的變化會出現在這裡。",
+      "emptyArchivedDescription": "你隱藏的動態會保留在這裡,隨時可以恢復。",
+      "unavailable": "動態暫時無法載入,請稍後重試。",
+      "tabActive": "動態",
+      "tabArchived": "已歸檔",
+      "hide": "隱藏",
+      "restore": "恢復",
+      "retry": "重試",
       "minutesAgo": "{min} 分鐘前",
       "tab": {
         "all": "全部",
@@ -27892,6 +27927,15 @@
     "pasteValid": "有效",
     "pasteUnknown": "未辨識",
     "pastePreviewDismiss": "關閉貼上引用預覽",
+    "referencePreview": {
+      "available": "可用引用",
+      "clear": "清空",
+      "editor": "引用預覽編輯器",
+      "placeholder": "編輯引用內容,可直接傳送…",
+      "select": "選擇引用",
+      "send": "傳送",
+      "source": "來源"
+    },
     "authorizationNotice": "引用標籤不新增執行授權",
     "hintSelect": "選擇",
     "hintConfirm": "確認",

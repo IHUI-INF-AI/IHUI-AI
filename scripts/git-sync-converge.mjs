@@ -1193,7 +1193,12 @@ function main() {
         }
         log(
           C.red,
-          `❌ 合并冲突,且 union-converge 亦判需人工(见上)。\n原始输出:\n${e.stdout ?? e.message}`,
+          `❌ 合并冲突,且 union-converge 亦判需人工。\n` +
+            // 打**归并那一次**的输出,不是 merge-tree 的 stdout —— 后者在这里通常是空的,
+            // 于是"归并说了什么"整个丢掉,只剩一条堆栈;这正是本文件一直在修的那一型
+            // ("红要说得出为什么"),而 need-human 分支恰恰是最需要理由的一支。
+            `归并器输出(末尾 24 行):\n${uni.trim().split('\n').slice(-24).join('\n')}\n` +
+            `merge-tree 侧:\n${String(e.stdout ?? e.message).split('\n').slice(0, 12).join('\n')}`,
         )
         process.exit(1)
       }

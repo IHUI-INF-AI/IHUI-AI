@@ -9030,6 +9030,26 @@
       "restoreSuccess": "已回退到该检查点",
       "restoreFailed": "回退失败"
     },
+    "recap": {
+      "title": "任务回顾",
+      "handoff": {
+        "menuItem": "移交到新任务",
+        "title": "移交到新任务"
+      },
+      "previewDescription": "检查交接内容后,可以在文件位置查看,或直接创建一个新任务继续工作。",
+      "purposeLabel": "交接目的",
+      "purposePlaceholder": "交接目的",
+      "waitingPreview": "正在准备预览…",
+      "phase": {
+        "generating": "模型正在生成交接内容…",
+        "finalizing": "正在完成收尾…",
+        "done": "交接文档已生成。"
+      },
+      "revealFile": "显示文件",
+      "createSession": "创建新任务",
+      "creating": "正在创建新任务…",
+      "createFailed": "创建新任务失败,请重试。"
+    },
     "addWorkspace": "添加工作区",
     "assistant": "助手",
     "back": "返回",
@@ -22820,6 +22840,21 @@
       "hoursAgo": "{hr} 小时前",
       "justNow": "刚刚",
       "markAllRead": "全部标记已读",
+      "important": "需要了解",
+      "viewActive": "返回动态",
+      "markAllReadFailed": "未能把动态标为已读,请重试。",
+      "hiding": "正在隐藏…",
+      "hideFailed": "这条动态未隐藏,请重试。",
+      "restoring": "正在恢复…",
+      "restoreFailed": "这条动态未恢复,请重试。",
+      "emptyDescription": "评论、提及和订阅的变化会出现在这里。",
+      "emptyArchivedDescription": "你隐藏的动态会保留在这里,随时可以恢复。",
+      "unavailable": "动态暂时无法加载,请稍后重试。",
+      "tabActive": "动态",
+      "tabArchived": "已归档",
+      "hide": "隐藏",
+      "restore": "恢复",
+      "retry": "重试",
       "minutesAgo": "{min} 分钟前",
       "tab": {
         "all": "全部",
@@ -27892,6 +27927,15 @@
     "pasteValid": "有效",
     "pasteUnknown": "未识别",
     "pastePreviewDismiss": "关闭粘贴引用预览",
+    "referencePreview": {
+      "available": "可用引用",
+      "clear": "清空",
+      "editor": "引用预览编辑器",
+      "placeholder": "编辑引用内容,可直接发送…",
+      "select": "选择引用",
+      "send": "发送",
+      "source": "来源"
+    },
     "authorizationNotice": "引用标签不新增执行授权",
     "hintSelect": "选择",
     "hintConfirm": "确认",

@@ -30,8 +30,10 @@ export interface ReferenceItem {
   fileId?: string
   /** 服务端公开 URL(矩阵 A #19:响应 data.file.path,发送时替代仅本会话有效的 blob: objectURL) */
   serverUrl?: string
-  /** 上传状态(矩阵 A #19):uploading 进行中 / ready 成功 / error 失败 */
-  uploadState?: 'uploading' | 'ready' | 'error'
+  /** 上传状态(矩阵 A #19):uploading 进行中 / ready 成功 / error 失败 / terminal 超配额终态 */
+  uploadState?: 'uploading' | 'ready' | 'error' | 'terminal'
+  /** b75-5#1:单附件重试次数(配额 5,超过置 terminal) */
+  retryCount?: number
 }
 
 const MAX_LABEL_LENGTH = 30
@@ -153,6 +155,25 @@ interface UploadFormPayload {
   data?: { file?: { id?: string; path?: string; name?: string; size?: number; mimeType?: string } }
 }
 
+/** b75-5#1:单附件重传配额(上游 useComposerAttachments.ts:54),超配额置 terminal 终态 */
+export const ATTACHMENT_RETRY_QUOTA = 5
+
+/** b75-5#1:发送门禁判据(纯函数,脱离 React 可单测)。
+ *  附件未到 ready 状态(uploading/error/terminal/未定义)一律阻发,防附件断链。
+ *  返回 { canSend, blockingReason } 供 UI 解释禁用原因。 */
+export function canSendReferences(refs: readonly ReferenceItem[]): {
+  canSend: boolean
+  blockingReason: 'uploading' | 'error' | null
+} {
+  for (const r of refs) {
+    if (r.uploadState === 'uploading') return { canSend: false, blockingReason: 'uploading' }
+    if (r.uploadState === 'error' || r.uploadState === 'terminal') {
+      return { canSend: false, blockingReason: 'error' }
+    }
+  }
+  return { canSend: true, blockingReason: null }
+}
+
 const generateId = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
 /**
@@ -191,6 +212,8 @@ export function useMessageReferences(): {
   }
   /** G-833:提交已过三档校验的文件(不再校验,仅创建 ref + 异步上传) */
   commitFileReference: (file: File) => void
+  /** b75-5#1:重传指定失败附件(配额 5 次,超配额置 terminal 终态) */
+  retryReference: (id: string) => void
   addTextReference: (text: string) => void
   addCodeReference: (code: string, language: string) => void
   removeReference: (id: string) => void
@@ -201,26 +224,11 @@ export function useMessageReferences(): {
   // 供组件卸载时 cleanup 释放所有 objectURL。
   const refsRef = React.useRef(references)
   refsRef.current = references
+  // b75-5#1:保留原始 File 供重试(retryReference 走同一端点)
+  const pendingFiles = React.useRef<Map<string, File>>(new Map())
 
-  /** G-833:提交已过三档校验的文件 —— 原 addFileReference 主体,类型/大小/数量判据
-   *  已上移到 screenAttachmentFiles,此处不再静默 return */
-  const commitFileReference = React.useCallback((file: File) => {
-    const isImage = file.type.startsWith('image/')
-    const isVideo = file.type.startsWith('video/')
-    const objectUrl = URL.createObjectURL(file)
-    const ref: ReferenceItem = {
-      id: generateId(),
-      type: isImage ? 'image' : isVideo ? 'video' : 'file',
-      label: file.name,
-      preview: `${file.name} · ${formatFileSize(file.size)}`,
-      // 图片/视频仍用本地 objectURL 缩略图做即时预览;其他文件无缩略图
-      thumbnail: isImage || isVideo ? objectUrl : undefined,
-      size: file.size,
-      uploadState: 'uploading',
-    }
-    setReferences((prev) => [...prev, ref])
-    // 矩阵 A #19 断链修复:异步上传到服务端,成功后回写 serverUrl(公开 URL),
-    // 发送时以 serverUrl 替代 blob: objectURL。fetchApi 统一承担鉴权/credentials。
+  /** 实际上传动作(commit 与 retry 共用)。按 ref.id 回写状态。 */
+  const uploadRef = React.useCallback((refId: string, file: File) => {
     void (async () => {
       try {
         const formData = new FormData()
@@ -233,22 +241,71 @@ export function useMessageReferences(): {
         })
         if (!res.success) throw new Error(res.error ?? '附件上传失败')
         const f = res.data.file ?? res.data.data?.file
-        // path 为服务端公开 URL(如 /api/files/<uuid>),以响应为准直接透传
         if (!f?.id || !f.path) throw new Error('上传响应缺少 file.id/file.path')
         setReferences((prev) =>
           prev.map((r) =>
-            r.id === ref.id
+            r.id === refId
               ? { ...r, fileId: f.id, serverUrl: f.path, uploadState: 'ready' as const }
               : r,
           ),
         )
       } catch {
         setReferences((prev) =>
-          prev.map((r) => (r.id === ref.id ? { ...r, uploadState: 'error' as const } : r)),
+          prev.map((r) => (r.id === refId ? { ...r, uploadState: 'error' as const } : r)),
         )
       }
     })()
   }, [])
+
+  /** G-833:提交已过三档校验的文件 —— 原 addFileReference 主体,类型/大小/数量判据
+   *  已上移到 screenAttachmentFiles,此处不再静默 return */
+  const commitFileReference = React.useCallback(
+    (file: File) => {
+      const isImage = file.type.startsWith('image/')
+      const isVideo = file.type.startsWith('video/')
+      const objectUrl = URL.createObjectURL(file)
+      const ref: ReferenceItem = {
+        id: generateId(),
+        type: isImage ? 'image' : isVideo ? 'video' : 'file',
+        label: file.name,
+        preview: `${file.name} · ${formatFileSize(file.size)}`,
+        thumbnail: isImage || isVideo ? objectUrl : undefined,
+        size: file.size,
+        uploadState: 'uploading',
+        retryCount: 0,
+      }
+      pendingFiles.current.set(ref.id, file)
+      setReferences((prev) => [...prev, ref])
+      uploadRef(ref.id, file)
+    },
+    [uploadRef],
+  )
+
+  /** b75-5#1:重传指定失败附件。配额 ATTACHMENT_RETRY_QUOTA,超配额置 terminal 终态。 */
+  const retryReference = React.useCallback(
+    (id: string) => {
+      const ref = refsRef.current.find((r) => r.id === id)
+      if (!ref || ref.uploadState !== 'error') return
+      const file = pendingFiles.current.get(id)
+      if (!file) return
+      const count = ref.retryCount ?? 0
+      if (count >= ATTACHMENT_RETRY_QUOTA) {
+        setReferences((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, uploadState: 'terminal' as const } : r)),
+        )
+        return
+      }
+      setReferences((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? { ...r, uploadState: 'uploading' as const, retryCount: count + 1 }
+            : r,
+        ),
+      )
+      uploadRef(id, file)
+    },
+    [uploadRef],
+  )
 
   /** G-833:入口预筛 —— 容量按当前 references 数(refsRef 恒为最新渲染值) */
   const screenAttachments = React.useCallback(
@@ -315,6 +372,7 @@ export function useMessageReferences(): {
       if (removed?.thumbnail) URL.revokeObjectURL(removed.thumbnail)
       return prev.filter((r) => r.id !== id)
     })
+    pendingFiles.current.delete(id)
   }, [])
 
   // 2026-08-02 修复 P1 内存泄露:resetReferences 中释放所有 objectURL,
@@ -329,6 +387,7 @@ export function useMessageReferences(): {
       })
       return []
     })
+    pendingFiles.current.clear()
   }, [])
 
   // 2026-08-02 修复 P1 内存泄露:组件卸载时释放 references 中所有 objectURL。
@@ -348,6 +407,7 @@ export function useMessageReferences(): {
     addFileReferences,
     screenAttachments,
     commitFileReference,
+    retryReference,
     addTextReference,
     addCodeReference,
     removeReference,

@@ -9030,6 +9030,26 @@
       "restoreSuccess": "Rolled back to the checkpoint",
       "restoreFailed": "Rollback failed"
     },
+    "recap": {
+      "title": "Task recap",
+      "handoff": {
+        "menuItem": "Hand off to a new task",
+        "title": "Hand off to a new task"
+      },
+      "previewDescription": "Review the handoff content, view it at the file location, or create a new task to continue working.",
+      "purposeLabel": "Handoff purpose",
+      "purposePlaceholder": "Handoff purpose",
+      "waitingPreview": "Preparing preview…",
+      "phase": {
+        "generating": "The model is generating the handoff content…",
+        "finalizing": "Wrapping up…",
+        "done": "The handoff document is ready."
+      },
+      "revealFile": "Show file",
+      "createSession": "Create new task",
+      "creating": "Creating new task…",
+      "createFailed": "Failed to create the new task. Please try again."
+    },
     "addWorkspace": "Add Workspace",
     "assistant": "Assistant",
     "back": "Back",
@@ -22662,6 +22682,21 @@
       "hoursAgo": "{hr} hr ago",
       "justNow": "just now",
       "markAllRead": "Mark all read",
+      "important": "For your awareness",
+      "viewActive": "Back to activity",
+      "markAllReadFailed": "Couldn't mark activity as read. Please try again.",
+      "hiding": "Hiding…",
+      "hideFailed": "This activity wasn't hidden. Please try again.",
+      "restoring": "Restoring…",
+      "restoreFailed": "This activity wasn't restored. Please try again.",
+      "emptyDescription": "Comments, mentions, and subscription updates will appear here.",
+      "emptyArchivedDescription": "Activity you hide will be kept here and can be restored anytime.",
+      "unavailable": "Activity is temporarily unavailable. Please try again later.",
+      "tabActive": "Activity",
+      "tabArchived": "Archived",
+      "hide": "Hide",
+      "restore": "Restore",
+      "retry": "Retry",
       "minutesAgo": "{min} min ago",
       "tab": {
         "all": "All",
@@ -27734,6 +27769,15 @@
     "pasteValid": "Valid",
     "pasteUnknown": "Unrecognized",
     "pastePreviewDismiss": "Dismiss pasted reference preview",
+    "referencePreview": {
+      "available": "Available references",
+      "clear": "Clear",
+      "editor": "Reference preview editor",
+      "placeholder": "Edit the referenced content and send it directly…",
+      "select": "Select reference",
+      "send": "Send",
+      "source": "Source"
+    },
     "authorizationNotice": "Reference tags do not grant additional execution permission.",
     "hintSelect": "select",
     "hintConfirm": "confirm",
