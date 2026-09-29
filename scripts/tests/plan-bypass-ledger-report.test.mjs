@@ -282,8 +282,8 @@ test('T5b HEAD 面装车锁:两个落地器在**被审面**上都必须真的接
     )
     assert.equal(
       head.split('recordBypassLanding(').length - 1,
-      2,
-      `${rel} 的 HEAD 版本里 recordBypassLanding 应出现 2 次(import + 调用),实测 ${head.split('recordBypassLanding(').length - 1} 次`,
+      1,
+      `${rel} 的 HEAD 版本里 recordBypassLanding( 的**调用**应恰好 1 处(import 那行不带左括号,由上面那条断言单独锁),实测 ${head.split('recordBypassLanding(').length - 1} 处`,
     )
     assert.ok(
       !head.includes('safe-commit-attestation.jsonl'),
