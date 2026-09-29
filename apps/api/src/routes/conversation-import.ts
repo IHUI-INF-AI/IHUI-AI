@@ -81,6 +81,14 @@ function parseTimestamp(value: string | undefined, fallback: Date): Date {
 /** /commit 路由级请求体上限,与 ai-service 侧上传上限一致(全局 bodyLimit 是 10MiB) */
 const COMMIT_BODY_LIMIT_BYTES = 20 * 1024 * 1024
 
+/**
+ * /parse 单文件读入上限(b75-3#4,2026-09-30,上游 SCRIPT_READ_MAX_BYTES 同型):
+ * 超限**显式 413 拒绝**,不静默截断、不把超限 buffer 送进解析链。
+ * 全局 bodyLimit(10MiB)是第一道闸;此常量兜"bodyLimit 被调宽后 /parse 仍有自己的读入上限",
+ * 与 ai-service 侧 20MiB 上传上限对齐,上限集中在本常量一处可配。
+ */
+export const PARSE_UPLOAD_MAX_BYTES = 20 * 1024 * 1024
+
 export const conversationImportRoutes: FastifyPluginAsync = async (server) => {
   // 所有路由要求登录
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -106,6 +114,14 @@ export const conversationImportRoutes: FastifyPluginAsync = async (server) => {
       for await (const part of request.parts()) {
         if (part.type === 'file') {
           const buffer = await part.toBuffer()
+          // b75-3#4:读超限文件显式拒绝(too large),不静默截断也不把半截数据送解析
+          if (buffer.byteLength > PARSE_UPLOAD_MAX_BYTES) {
+            request.log.warn(
+              { userId, fileName: part.filename, bytes: buffer.byteLength },
+              '[conversation-import] parse upload too large',
+            )
+            return reply.status(413).send(error(413, `会话导出文件 ${part.filename} 超过 ${Math.floor(PARSE_UPLOAD_MAX_BYTES / 1024 / 1024)}MiB 上限,已拒绝(不做截断解析)`))
+          }
           formData.append(part.fieldname, new Blob([new Uint8Array(buffer)]), part.filename)
           hasFile = true
         } else {
