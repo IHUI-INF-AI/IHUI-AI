@@ -537,6 +537,32 @@ export const POINTER_NO_AUTO_REPAIR = { ref: '目标行已腐烂且意图不可�
  */
 export const POINTER_RAW_REF_RE = /(?:存活于|登记在|见|指向)\s*L(\d{1,6})/g
 
+/** 条目行(带复选框)的形状 —— 判据、归档反查、出口资格三处共用这一份,不得各抄正则。 */
+export const ENTRY_LINE_RE = /^\s*[-*]\s\[[ xX]\]/
+
+/**
+ * F3 的**第二条出口**:指针指向的行已经不在面上了,但它当初指的那条登记
+ * **被归档搬走了** —— 归档件受版本控制、逐字可查,所以"同主键的另一条在 `<归档件>` 的条目「…」"
+ * 是一句**可核验的真话**,而不是行号(§1 第 3 条要求的正是内容锚点形态)。
+ *
+ * 索引只从**被审面上的归档件**推得(调用方给文本,本层不读磁盘也不读 git —— 面归调用方管,
+ * 见 `check-project-plan-archive.mjs` 的 `archiveFaceEntries`,两处共用那一份面判据)。
+ * 只用复合主键做判据、不做相似度:与本层其余四把尺子同一条规矩。
+ */
+export function archivedEntryIndex(archiveTexts) {
+  const byKey = new Map()
+  for (const item of archiveTexts ?? []) {
+    const name = item?.name ?? ''
+    for (const line of String(item?.text ?? '').split(/\r?\n/)) {
+      if (!ENTRY_LINE_RE.test(line)) continue
+      const k = compositeKeyOf(line)
+      if (!k || byKey.has(k)) continue
+      byKey.set(k, { name, title: k.slice(k.indexOf('#') + 1) })
+    }
+  }
+  return byKey
+}
+
 /**
  * 「…」与反引号包裹的片段是**叙述**(在描述这个形态),不是可执行指针 ——
  * 与守门 109 对 `（进行中）` 的同一条判序一致(它把反引号内的认领标记排除在"挂牌"之外)。
@@ -612,7 +638,7 @@ export function findRotatedPointers(content) {
         const t = lines[target - 1]
         const reason = !t
           ? '目标行不存在'
-          : !/^\s*[-*]\s\[[ xX]\]/.test(t)
+          : !ENTRY_LINE_RE.test(t)
             ? '目标行不是条目行'
             : compositeKeyOf(t) !== compositeKeyOf(r.raw)
               ? '目标行是另一条(复合主键不等)'
@@ -643,7 +669,7 @@ export function findRotatedPointers(content) {
               // 于是自愈档因"无可施加的改写"整轮停手(2026-09-28 实测 L88 就是这个形态)。
               !POINTER_NO_AUTO_REPAIR[fam.id] &&
               !!t &&
-              /^\s*[-*]\s\[[ xX]\]/.test(t) &&
+              ENTRY_LINE_RE.test(t) &&
               // ↓ 这一行是本层语义的落点:两侧**都有**主键且逐字等值,才算"同主键";任一侧没有主键,
               //   就退回"逐字孪生"那把尺子(与本层 `compositeKeyOf`/F4b 的既有口径同形)。
               //   写成旧版那样 `compositeKeyOf(t) === compositeKeyOf(r.raw)` 会让 null===null 通过,
@@ -883,6 +909,206 @@ export function findIdCollisions(content) {
   return groups
 }
 
+/**
+ * F9 逐组点名的**唯一**文案出口(差值档 / 基线档 / 收敛落地闸三处共用一份)。
+ * 住在台账层而不是台账 CLI 里,是因为消费者有三处而在别处再抄一遍就是第二把尺子(必漂移);
+ * ⚠ 证据文本只给「编号 + 各标题」—— 行号在任何一次 append 后都会挪位,§1 明令它不得当判据、
+ *   也不得写进证据文本(印 `@L…` 等于每条红都自带一句下一轮就失效的话;定位需要时读 `--json`
+ *   的 `collisions[].titles[].lines` / `malformedRows[].line`,那是机器字段而不是证据)。
+ *   这一条由 `scripts/tests/plan-tasks-f9.test.mjs` 的第 ⑥ 组逐字钉住,别在搬迁时把它加回来。
+ */
+export function f9GroupLine(g) {
+  return (
+    `编号 ${g.key} 被 ${g.titleCount} 个不同标题共用 —— ` +
+    `${(g.titles ?? []).map((t) => `「${t.title}」`).join(' / ')}`
+  )
+}
+
+/**
+ * F9b 畸形登记号 —— 族名在**编号段里出现两次**(`G-G-354` / `DD128` / `OO90`)。
+ *
+ * ⚠️ 本文件是这一判据的**唯一实现**(2026-09-28 G-606 从 `live-doc-edit.mjs` 收上来)。
+ * 收上来的理由不是整洁:该形态的**生产者**是取号令牌(`{{NEXT_ID:G}}` 展开值本身已含族名,
+ * 正文再手写一个字面 `G-` 就产出 `G-G-…`),而**判据**住在台账层。两处各写一份"什么算畸形号"
+ * 必然漂开(本仓对 `code-mask` / `box-geometry` / `design-token-blocks` 各记过同一条),
+ * 而漂开的两种方向账面都是绿的:生产侧改窄 ⇒ 门还在按旧形状报存量;门改窄 ⇒ 生产者新造的形态
+ * 入库那一刻无人拦,等放大成几十组才在 blocking 门上炸出来(今天就是这样)。
+ * 判据锚在"族名在编号段里出现两次"这一**形状**上,不认具体族名、不做白名单 —— 台账以后新增任何
+ * 一族都自动被覆盖(白名单必然腐烂,见 §4 对 `RN_ONLY_BRAND_KEYS` 的教训)。
+ * 装饰档必须一起判:翻勾产出的正是 `- [x] ✅(日期) <号>`,认领产出的正是
+ * `- [ ]（进行中@日期/持有者） <号>` —— 只判"复选框后立刻是编号"会让这两整档隐身,而本层就是
+ * 这两档的生产者。剥装饰只引本文件的 `bodyOfRow` 那一份实现,不在判据里再抄一份"什么算状态装饰"。
+ */
+export const MALFORMED_ID_RE = /^-\s\[[ xX]\]\s*\**\s*([A-Za-z]{1,4})[-－]?\1[-－]?\d/
+export const MALFORMED_BODY_RE = /^[`*\s]*([A-Za-z]{1,4})[-－]?\1[-－]?\d/
+
+/** 一行是不是畸形号(先按整行形状判,再按剥掉状态装饰后的正文判)。两档同视是硬要求。 */
+function malformedFamilyOf(rawLine) {
+  const direct = MALFORMED_ID_RE.exec(rawLine)
+  if (direct) return direct[1]
+  const body = bodyOfRow(rawLine)
+  if (body === null) return null
+  const viaBody = MALFORMED_BODY_RE.exec(body)
+  return viaBody ? viaBody[1] : null
+}
+
+/** 按**原文文本**扫畸形行(给"块 / 两面相减"用,输出形状与收上来之前逐字一致)。 */
+export function findMalformedIds(text = '') {
+  const out = []
+  for (const l of String(text).split(/\r?\n/)) {
+    const fam = malformedFamilyOf(l)
+    if (fam) out.push({ line: l.trim().slice(0, 90), family: fam })
+  }
+  return out
+}
+
+/**
+ * 按**条目行**扫畸形号(与 F1–F9 同一遍 `parseTaskRows`,带被审面行号)。
+ * 判据本体只有一份(`malformedFamilyOf`),这一把与 `findMalformedIds` 都是它的投影 ——
+ * 不另抄正则:两把尺子各判一次"什么算畸形"就是本层存在的理由。
+ */
+export function findMalformedRows(content) {
+  const out = []
+  for (const r of parseTaskRows(content)) {
+    const family = malformedFamilyOf(r.raw)
+    if (family) out.push({ line: r.line, raw: r.raw, family })
+  }
+  return out
+}
+
+/**
+ * F9b 逐行点名的文案出口。与 `f9GroupLine` 同一条禁令:**行号不进证据文本**(§1 第三条),
+ * 定位需要时读 `--json` 的 `malformedRows[].line`。点名文本给的是**原文片段**,因为 F9b 的修复
+ * 动作就是"删掉正文里那一个字面族名",逐字原文比行号更经得住并发 append 挪位。
+ */
+export function malformedLine(r) {
+  return `「${String(r.raw).trim().slice(0, 88)}」—— 族名 ${r.family} 在编号段出现两次`
+}
+
+/**
+ * 只拦"本次新引入"的畸形行,存量只报数。
+ * 这一条是本判据不沦为恒红门的全部前提(§12e:与本次改动无关的红,唯一结局是逼人 --no-verify
+ * 并连带废掉全部守门):台账里由他人历史留下的畸形号不能钉红每一次落地,但必须打印出来,
+ * 否则"存量"和"我刚造的"在账面上长得一样。
+ */
+export function newMalformed(baselineText = '', landedText = '') {
+  const norm = (rows) => new Set(rows.map((r) => r.raw.trim().slice(0, 90)))
+  const before = norm(findMalformedRows(baselineText))
+  const after = findMalformedRows(landedText)
+  const key = (r) => r.raw.trim().slice(0, 90)
+  return {
+    added: after.filter((r) => !before.has(key(r))),
+    preexisting: after.filter((r) => before.has(key(r))),
+  }
+}
+
+/**
+ * 剥掉多余的那一层族名前缀,其余字节一字不动(修复出口的**唯一改写动作**)。
+ *
+ * 为什么保留第一层族名而不是第二层:`G-G334`(作者只在手写的 `G-` 后面漏了个连字符)剥掉第二段
+ * 会得到 `G334`,而本仓 G 族的书写形状是 `G-<n>` —— 一个族名认不出的号等于把这行从对账里
+ * 摘掉(keyOfRow 取不到主键 ⇒ F1/F4 全盲,正是本层记过的那一型)。留第一段 + 它自己写的分隔符
+ * 才能同时保住 `DD128→D128`、`OO90→O90`、`G-G-354→G-354` 三种真实形态。
+ * 剥完必须仍取得到主键(取不到 ⇒ 调用方拒绝,不猜)。
+ * 返回体里除 `stripped` 还带 **改动证明三件套** `at / from / to`:改动在原文里的偏移、被改掉的片段、
+ * 换上去的片段。落地档拿它做"只删不改写"的逐行自证(`verifyMalformedRepair`)—— 没有这三件,
+ * 落地后只能比较整行是否相等,而"相等"证明不了"没有顺手改正文"。
+ * @returns {null|{raw:string,stripped:string,family:string,key:string|null,at:number,from:string,to:string}}
+ */
+const STRIP_RE = /^([`*\s]*)([A-Za-z]{1,4})([-－]?)(\2)([-－]?)(\d+)/
+export function stripMalformedPrefix(line) {
+  const body = bodyOfRow(line)
+  if (body === null) return null
+  const m = STRIP_RE.exec(body)
+  if (!m) return null
+  const [, noise, fam, sep1, , sep2, digits] = m
+  const kept = fam + (sep1 || sep2 || '') + digits
+  const newBody = noise + kept + body.slice(m[0].length)
+  // bodyOfRow 只剥**前缀** ⇒ body 恒是该行的后缀,偏移可这样算;不满足就是判据漂了,交回 null 而不是猜
+  const at = line.length - body.length
+  if (at < 0 || line.slice(at) !== body) return null
+  const stripped = line.slice(0, at) + newBody
+  return { raw: line, stripped, family: fam, key: keyOfRow(stripped) }
+}
+
+/**
+ * 畸形号清偿的**规划档**(纯函数,零副作用):给出可安全剥的名单 + 必须交人工的名单。
+ *
+ * 三条拒绝条件,一条都不许静默放过:
+ *  - 剥完取不到主键 ⇒ 拒(那一行会从状态对账里消失,比留着畸形号更坏);
+ *  - 目标号已被**另一行**占用 ⇒ 拒并点名那一行。这一条同时挡住两种新债:同键不同标题 = F9 新撞号,
+ *    同键同标题 = F4 新孪生 —— 两者都是"用一个更响的门替掉现在这扇",G-312 明令不得批量改号。
+ *  - 本批内两行剥到同一个号 ⇒ 两份一起拒(机器不裁谁让号)。
+ * 落地前还要过一组**守恒断言**(任一不过即整批不落):行数不变 ∧ 未触及行逐字不变 ∧
+ * 被触行剥完不再被判畸形 ∧ F1/F2/F3(可自动收口)/F4/F4b/F6/F9b/F9 读数一律不高于底稿。
+ * @returns {{candidates:number,approved:Array,refused:Array,undetermined:Array,text:string}}
+ */
+export function planMalformedStrip(content) {
+  const rows = parseTaskRows(content)
+  const lines = String(content).split('\n')
+  const usedBy = new Map() // 主键 -> [行号]
+  for (const r of rows) {
+    if (!r.key) continue
+    if (!usedBy.has(r.key)) usedBy.set(r.key, [])
+    usedBy.get(r.key).push(r.line)
+  }
+  const approved = []
+  const refused = []
+  const undetermined = []
+  const claimedNow = new Set()
+  for (const r of findMalformedRows(content)) {
+    const s = stripMalformedPrefix(r.raw)
+    if (!s) {
+      undetermined.push({ line: r.line, raw: r.raw, reason: '畸形判据命中而剥前缀的式子给不出结果 ⇒ 交人工' })
+      continue
+    }
+    if (!s.key) {
+      refused.push({ ...s, line: r.line, reason: '剥完取不到主键 ⇒ 这一行会从 F1/F4 的对账里消失' })
+      continue
+    }
+    const others = (usedBy.get(s.key) ?? []).filter((l) => l !== r.line)
+    if (others.length || claimedNow.has(s.key)) {
+      refused.push({
+        ...s,
+        line: r.line,
+        reason: `目标号 ${s.key} 已被另一行占用(行 ${others.join(',') || '本批内互撞'})⇒ 剥完必产同主键对,交人工让号`,
+      })
+      continue
+    }
+    claimedNow.add(s.key)
+    approved.push({ ...s, line: r.line })
+  }
+  // 行号降序 splice:前面的替换不会挪后面的行号
+  const out = lines.slice()
+  for (const a of [...approved].sort((x, y) => y.line - x.line))
+    out[a.line - 1] = a.stripped
+  return {
+    candidates: approved.length + refused.length + undetermined.length,
+    approved,
+    refused,
+    undetermined,
+    text: out.join('\n'),
+  }
+}
+
+/**
+ * 剥完之后的守恒校验(纯函数)。`before`/`after` 是两面的 `auditPlan` 结果,由调用方各跑一次
+ * —— 判据必须与读数同源,不在这里再解析一遍文档(两处解析必漂移,见 auditPlan 头注)。
+ * 返回空数组**只在 `checked` 为真时**才等于"通过";没判与判过是两件事(§12f)。
+ */
+export function verifyMalformedStrip(plan, beforeCounts, afterCounts) {
+  const problems = []
+  if (!plan || !Array.isArray(plan.approved)) return { problems: ['规划结果形状不对 ⇒ 未判定'], checked: false }
+  if (!beforeCounts || !afterCounts) return { problems: ['两把读数没给齐 ⇒ 未判定'], checked: false }
+  const KEYS = ['forks', 'voidRows', 'rotatedAuto', 'dupOpenCopies', 'verbatimDupCopies', 'dupBlocks', 'collisionGroups', 'malformedIds']
+  for (const k of KEYS)
+    if ((afterCounts[k] ?? 0) > (beforeCounts[k] ?? 0))
+      problems.push(`守恒断言不过:${k} 由底稿 ${beforeCounts[k] ?? 0} 涨到 ${afterCounts[k] ?? 0}`)
+  if (afterCounts.malformedIds >= beforeCounts.malformedIds && plan.approved.length)
+    problems.push(`剥了 ${plan.approved.length} 行而畸形号读数没降(底稿 ${beforeCounts.malformedIds} → 落地面 ${afterCounts.malformedIds})`)
+  return { problems, checked: true }
+}
+
 /** 一把跑完四条统计。数字一律现读,不得写进文档当恒定事实。 */
 /**
  * 取号出口(生产侧防"同编号抢两个不同任务")。
@@ -937,11 +1163,29 @@ export function nextTaskIdLabel(content, prefix) {
   return u === null ? null : u.template.replace('%d', String(u.max + 1))
 }
 
-export function auditPlan(content) {
+export function auditPlan(content, { archivedKeys = null } = {}) {
   const rows = parseTaskRows(content)
   const { groups, forks, dupOpen, dupDone } = findForks(content)
   const voidRows = findVoidRows(content)
   const rotated = findRotatedPointers(content)
+  /**
+   * 给每条腐烂指针标"此刻有没有出口"。两条出口按**次序**判,先强后弱:
+   *  - `face`     :目标行还在面上、且与本行同复合主键(唯一实现 `autoFixable`,不重写);
+   *  - `archived` :目标行已不在面上,但本行的复合主键**逐字存在于某份被审归档件**
+   *               (调用方经 `archiveFaceEntries` + `archivedCompositeKeys` 同面同轮推得)。
+   * 判不出(没给归档索引 / 本行没有复合主键 / 该族措辞不承诺同主键)一律 `null` = 交人工,
+   * **绝不猜**:猜出来的锚点写进台账,比留一个腐烂行号更危险(见 findRotatedPointers 的注释)。
+   */
+  for (const p of rotated) {
+    p.exit = p.autoFixable
+      ? 'face'
+      : archivedKeys &&
+          !POINTER_NO_AUTO_REPAIR[p.family] &&
+          compositeKeyOf(p.raw) &&
+          archivedKeys.has(compositeKeyOf(p.raw))
+        ? 'archived'
+        : null
+  }
   const openRows = rows.filter((r) => r.state === 'open')
   const forkOpenLines = new Set(forks.flatMap((g) => g.open.map((r) => r.line)))
   const voidLines = new Set(voidRows.map((r) => r.line))
@@ -953,6 +1197,9 @@ export function auditPlan(content) {
   const verbatimDups = findVerbatimDupOpenRows(content)
   const dupBlocks = findDupBlocks(content)
   const collisions = findIdCollisions(content)
+  // F9b:与上面几条同一遍 parseTaskRows 的结果上算(不得为它再解析一次文档 —— 两处解析必漂移),
+  // 判据本体是 `malformedFamilyOf` 那一份,生产者(live-doc-edit)与本层读的是同一个出口。
+  const malformedRows = findMalformedRows(content)
   const dupCopyLines = new Set([
     ...dupCopies.map((c) => c.row.line),
     ...verbatimDups.copies.map((c) => c.row.line),
@@ -995,6 +1242,7 @@ export function auditPlan(content) {
     verbatimDups,
     dupBlocks,
     collisions,
+    malformedRows,
     dispBuckets,
     undisposed,
     staleRows,
@@ -1014,11 +1262,21 @@ export function auditPlan(content) {
       /**
        * F3 的两个量纲必须分开,否则同一枚提交里既要"全看见"又要"能自愈"是矛盾的:
        * `rotatedAuto` = 能换成**真**锚点的(并入归零判据与差值棘轮);
-       * `rotatedNoExit` = 目标行已不可推断的(只点名交人工 —— 并进归零判据就是一台永不落地
-       * 的自愈档,并进棘轮就是凭"判据变尖"给别人记债,见 findRotatedPointers 里 autoFixable 的注释)。
+       * `rotatedNoExit` = 目标行已不可推断、**且也没有归档出口**的(只点名交人工 —— 并进归零判据
+       * 就是一台永不落地的自愈档,并进棘轮就是凭"判据变尖"给别人记债,见 findRotatedPointers 里
+       * autoFixable 的注释)。
+       *
+       * `rotatedAuto` 的**第二条出口**(2026-09-29,归档反查):指针指向的行已不在面上,但该行
+       * 当初指的登记**被归档搬走了** ⇒ "同主键的另一条在 `<归档件>` 的条目「…」"是可核验的真话。
+       * 这一维**只有调用方给了 `archivedKeys` 才参与计算**;没给时逐字退回旧口径(面内同主键那一族),
+       * 因为"没算归档反查"与"算了但没有出口"必须在账面上分得开 —— 把前者写成后者,就是本仓最高频
+       * 的失效型"把没判写成判过了"。故另发 `rotatedArchived`(经归档救回的那一半)与
+       * `archivedIndexSupplied`(这把尺子这次到底看没看归档面)两个字段,谁打印谁带口径。
        */
-      rotatedAuto: rotated.filter((b) => b.autoFixable).length,
-      rotatedNoExit: rotated.filter((b) => !b.autoFixable).length,
+      rotatedAuto: rotated.filter((b) => b.exit).length,
+      rotatedArchived: rotated.filter((b) => b.exit === 'archived').length,
+      rotatedNoExit: rotated.filter((b) => !b.exit).length,
+      archivedIndexSupplied: archivedKeys !== null,
       dupOpenGroups: dupOpen.length,
       dupOpenCopies: dupCopies.length,
       // F4b:无主键的逐字孪生行 —— F4 按复合主键分组,而这一族永远没有编号,所以在 F4 里恒为 0、
@@ -1037,6 +1295,9 @@ export function auditPlan(content) {
       dupDoneGroups: dupDone.length,
       // F9 撞号(见 findIdCollisions 头注定级理由):存量只报数,提交链只拦新增撞号组。
       collisionGroups: collisions.length,
+      // F9b 畸形登记号(见 findMalformedRows 头注):判据与取号器的生产者侧同源一份实现。
+      // 同 F9 定级 —— 存量只报数,红路只有差值棘轮与基线天花板两层(§12e)。
+      malformedIds: malformedRows.length,
       claimable: unclaimedRows.filter(isClaimable).length,
       // ── F7 归属分层(未认领口径,与 claimable 同集合基数)──
       // 基数校验:四桶相加必须等于 unclaimed,不等就是分类逻辑漏桶(已由 selfTest 钉住)。
