@@ -87,6 +87,7 @@ grep -E '<your-|<generate-' .env.production  # 应无输出(校验占位符)
 | `PROMETHEUS_PORT` / `GRAFANA_PORT` / `NODE_EXPORTER_PORT` | 8815 / 8816 / 9100 | 主机映射 |
 | `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` | `admin` / `ihui-admin` | **生产必改强密码** |
 | `ENABLE_WORKER` / `AI_CALLBACK_SECRET` | `true` / _(空)_ | BullMQ Worker / ai-service 回调校验(建议配置) |
+| `EDU_ARREAR_REMIND_CHANNELS` | `wechat` | 每天 09:00 欠费自动催缴的外发通道,可 `sms` 或 `wechat,sms`。**默认不开短信**——那是按名单计费的批量动作,须运营显式确认;未配短信密钥时逐收件人回 `not_configured`,该人没留号码回 `no_phone`,两者都不算"已送达" |
 | `OTEL_ENABLED` / `DATABASE_READ_REPLICA_URL` | `false` / _(空)_ | OpenTelemetry / 读副本 |
 
 ### 2.4 微信支付(生产必填)
