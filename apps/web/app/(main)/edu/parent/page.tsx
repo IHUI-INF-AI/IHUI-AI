@@ -27,7 +27,6 @@ import {
   CalendarDays,
   TrendingUp,
   TrendingDown,
-  Wallet,
   LogOut,
 } from 'lucide-react'
 
@@ -378,9 +377,6 @@ function ChildDetailView({
     { value: 'study-plans', labelKey: 'subTabStudyPlans', icon: ClipboardList },
     { value: 'grades', labelKey: 'subTabGrades', icon: Award },
     { value: 'attendance', labelKey: 'subTabAttendance', icon: CalendarCheck },
-    // 催缴通知现在会发给已确认家长,家长侧必须有一处能核对"哪期、多少、何时到期" ——
-    // 没有这一格,通知就是一条没有落点的信息。
-    { value: 'bills', labelKey: 'subTabBills', icon: Wallet },
   ]
 
   return (
@@ -429,10 +425,6 @@ function ChildDetailView({
 
         <TabsContent value="grades" className="space-y-4">
           <GradesView childId={childId} />
-        </TabsContent>
-
-        <TabsContent value="bills" className="space-y-4">
-          <BillsView childId={childId} />
         </TabsContent>
 
         <TabsContent value="attendance" className="space-y-4">
@@ -599,134 +591,6 @@ function MealsView({ childId }: { childId: string }) {
 }
 
 /* ─── Study Plans View ─── */
-
-/**
- * 孩子的学费账单(只读)。
- * 欠费额、到期日、逾期天数全部由 api 侧账目出口算好递过来(ledger 字段),
- * 本页**不做任何减法** —— 前端自己算欠费是第三个口径,本仓已因"三处各算一遍"
- * 产出过"催缴发给错人"与"汇总把总欠费冲小"两类事故。
- * ledger 取不到时明写"未就绪",不猜一个数字出来。
- */
-function BillsView({ childId }: { childId: string }) {
-  const t = useTranslations('eduParent')
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['parent', 'children', childId, 'bills'],
-    queryFn: () =>
-      api<{
-        bills: Array<{
-          enrollmentId: string
-          className: string
-          termName: string
-          status: string
-          totalFee: number
-          ledger: {
-            arrears: number
-            paidAmount: number
-            nextDueDate: string | null
-            overdueCount: number
-            dueSoonCount: number
-            schedules: Array<{
-              dueDate: string
-              amountDue: number
-              status: string
-              overdueDays: number
-            }>
-          } | null
-        }>
-      }>(`/api/edu-ai-management/parent/children/${childId}/bills`),
-  })
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-8 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loadingBills')}
-        </CardContent>
-      </Card>
-    )
-  }
-  if (error) {
-    return (
-      <Card>
-        <CardContent className="py-8 text-center text-muted-foreground">
-          {t('billsLoadFailed')}
-        </CardContent>
-      </Card>
-    )
-  }
-  const bills = data?.bills ?? []
-  if (bills.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-8 text-center text-muted-foreground">{t('noBills')}</CardContent>
-      </Card>
-    )
-  }
-
-  return (
-    <div className="space-y-4">
-      {bills.map((b) => {
-        const ledger = b.ledger
-        return (
-          <Card key={b.enrollmentId}>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between text-sm">
-                <span>{`${b.className} · ${b.termName}`}</span>
-                <span
-                  className={
-                    ledger && ledger.arrears > 0
-                      ? 'rounded-sm bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive'
-                      : 'rounded-sm bg-muted px-2 py-0.5 text-xs text-muted-foreground'
-                  }
-                >
-                  {ledger
-                    ? ledger.arrears > 0
-                      ? `${t('arrearsLabel')} ¥${ledger.arrears}`
-                      : t('allPaid')
-                    : t('ledgerNotReady')}
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{t('totalFeeLabel')}</span>
-                <span>¥{b.totalFee}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{t('paidLabel')}</span>
-                <span>¥{ledger?.paidAmount ?? 0}</span>
-              </div>
-              {ledger?.schedules?.length ? (
-                <div className="space-y-1">
-                  {ledger.schedules.map((s, i) => (
-                    <div
-                      key={`${b.enrollmentId}-${s.dueDate}-${i}`}
-                      className="flex items-center justify-between text-xs"
-                    >
-                      <span className="text-muted-foreground">
-                        {`${s.dueDate} · ¥${s.amountDue}`}
-                      </span>
-                      <span
-                        className={
-                          s.overdueDays > 0 ? 'font-medium text-destructive' : 'text-muted-foreground'
-                        }
-                      >
-                        {s.overdueDays > 0
-                          ? `${t('overdueLabel')} ${s.overdueDays}`
-                          : s.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-        )
-      })}
-    </div>
-  )
-}
 
 function StudyPlansView({ childId }: { childId: string }) {
   const t = useTranslations('eduParent')

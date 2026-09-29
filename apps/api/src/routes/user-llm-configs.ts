@@ -42,9 +42,7 @@ const createConfigSchema = z.object({
 
 const updateConfigSchema = z.object({
   name: z.string().min(1).max(64).optional(),
-  // G-644 三态:undefined=未触碰;null=显式清除(置空库里的 apiKeyEnc);''=沿用(接受但不动库)。
-  // 旧版 z.string().min(1) 把 '' 和 null 都挡成 400 ⇒「清除凭据」这条路结构上不存在。
-  apiKey: z.union([z.string().max(500), z.null()]).optional(),
+  apiKey: z.string().min(1).max(500).optional(),
   modelId: z.string().min(1).max(128).optional(),
   contextLength: z.number().int().min(512).max(2000000).optional(),
   description: z.string().max(500).optional(),
@@ -357,24 +355,14 @@ export const userLlmConfigRoutes: FastifyPluginAsync = async (server) => {
     if (body.data.description !== undefined) update.description = body.data.description
     if (body.data.enabled !== undefined) update.enabled = body.data.enabled
     if (body.data.baseUrlOverride !== undefined) update.baseUrl = body.data.baseUrlOverride
-    // G-644 三态:null=显式清除(库里的凭据置空);''=沿用(不动);非空串=换新。
-    // 旧版 `if (body.data.apiKey)` 把 null/'' 一并当"未触碰",清除这条路结构上不存在。
-    if (body.data.apiKey === null) update.apiKeyEnc = null
-    else if (body.data.apiKey) update.apiKeyEnc = JSON.stringify(encryptJSON(body.data.apiKey))
+    if (body.data.apiKey) update.apiKeyEnc = JSON.stringify(encryptJSON(body.data.apiKey))
     if (body.data.contextLength !== undefined) {
       let extra: Record<string, unknown> = {}
       if (existing.extraConfig) {
         try {
           extra = JSON.parse(existing.extraConfig) as Record<string, unknown>
-        } catch (err) {
-          // G-644:存量 extraConfig 是坏 JSON 时**点名拒绝**,不得静默 ignore ——
-          // 否则本次写会把既有(可能大量)配置整体覆写成一个只含 contextLength 的新对象,
-          // 用户侧表现为"改了个上下文长度,其余配置全没了"而账面 200。
-          request.log.error(
-            { err: String(err), configId: id },
-            'user-llm-configs:存量 extraConfig 不是合法 JSON,拒绝本次覆写以保护既有配置',
-          )
-          return reply.status(500).send(error(500, '配置的扩展字段已损坏,请联系管理员修复后再修改'))
+        } catch {
+          /* ignore */
         }
       }
       extra.contextLength = body.data.contextLength

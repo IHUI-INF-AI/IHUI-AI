@@ -3,17 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 批量扫码弹窗行为测试(2026-09-16 立;2026-09-29 随内置档换通道更新)。
+ * 批量扫码弹窗行为测试(2026-09-16 立)。
  *
  * 锁定用户反馈的缺陷不再复发:
  * 1. 关闭弹窗后队列仍在后台跑,不停打开新平台 → 关闭即停;
  * 2. 点"停止队列"半天没反应 → 点击立即停止且不再打开下一个平台;
  * 3. 用户手动关掉浏览器窗口后仍继续打开下一个平台 → 视为结束队列;
  * 4. 外部模式必须在**用户自己日常使用的浏览器**里打开(openExternalUrl),
- *    而不是本应用托管的窗口。
- * 2026-09-29 新增(B1-B6):内置档必须走扫码任务 HTTP 通道(startScanLogin →
- * getScanLoginStatus → fetchScanLoginQr → cancelScanLogin,与单平台弹窗同一契约),
- * 不得再走生产 404 的 CDP 通道;二维码直接显示在本弹窗内;两档轮询失败都不许静默。
+ *    而不是本应用托管的窗口(createBrowserSession)。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
@@ -22,11 +19,11 @@ import { BatchScanLoginDialog } from '../BatchScanLoginDialog'
 
 const openExternalUrl = vi.fn()
 const detectLoginFromProfile = vi.fn()
-const startScanLogin = vi.fn()
-const getScanLoginStatus = vi.fn()
-const fetchScanLoginQr = vi.fn()
-const cancelScanLogin = vi.fn()
+const closeBrowserSession = vi.fn()
+const createBrowserSession = vi.fn()
+const detectLoginFromCdp = vi.fn()
 const listScanLoginPlatforms = vi.fn()
+const openCdpSession = vi.fn()
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
@@ -73,11 +70,10 @@ vi.mock('@ihui/ui-react', () => ({
 
 vi.mock('@ihui/api-client', () => ({
   detectLoginFromProfile: (platform: string) => detectLoginFromProfile(platform),
+  createBrowserSession: (args: unknown) => createBrowserSession(args),
+  detectLoginFromCdp: (sid: string, platform: string) => detectLoginFromCdp(sid, platform),
+  closeBrowserSession: (sid: string) => closeBrowserSession(sid),
   listScanLoginPlatforms: () => listScanLoginPlatforms(),
-  startScanLogin: (platform: string) => startScanLogin(platform),
-  getScanLoginStatus: (taskId: string) => getScanLoginStatus(taskId),
-  fetchScanLoginQr: (taskId: string) => fetchScanLoginQr(taskId),
-  cancelScanLogin: (taskId: string) => cancelScanLogin(taskId),
 }))
 
 vi.mock('@/lib/tauri-bridge', () => ({
@@ -89,27 +85,12 @@ vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }),
 }))
 
+vi.mock('@/stores/work-panel', () => ({
+  useWorkPanelStore: (selector: (s: { openCdpSession: typeof openCdpSession }) => unknown) =>
+    selector({ openCdpSession }),
+}))
+
 const QUEUE = ['zhihu', 'bilibili']
-
-/** 扫码任务状态快照(与后端 ScanLoginTask 同形) */
-function scanSnapshot(over: Record<string, unknown> = {}) {
-  return {
-    task_id: 'task-1',
-    user_id: 'u-1',
-    platform: 'zhihu',
-    status: 'waiting_scan',
-    message: '',
-    has_qr: false,
-    qr_updated_at: 0,
-    cookies_count: 0,
-    account_id: null,
-    created_at: 1,
-    completed_at: null,
-    ...over,
-  }
-}
-
-const ok = <T,>(data: T) => Promise.resolve({ success: true as const, data })
 
 function renderDialog(open: boolean) {
   return <BatchScanLoginDialog open={open} onOpenChange={() => {}} queuePlatforms={QUEUE} />
@@ -122,14 +103,6 @@ async function startQueue() {
   await waitFor(() =>
     expect(openExternalUrl).toHaveBeenCalledWith('https://www.zhihu.com/signin', 'ihui-scan-login'),
   )
-}
-
-/** 切到"内置浏览器"档并启动队列(内置档走扫码任务通道) */
-async function startInternalQueue() {
-  await waitFor(() => expect(screen.getByText('accounts.batchScanStart')).toBeTruthy())
-  fireEvent.click(screen.getByText('accounts.batchScanModeInternal'))
-  fireEvent.click(screen.getByText('accounts.batchScanStart'))
-  await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('zhihu'))
 }
 
 beforeEach(() => {
@@ -152,21 +125,7 @@ beforeEach(() => {
     success: true,
     data: { detected: false, cookies_count: 0, account_id: null, profile_available: true },
   })
-  // 内置档默认:任务起得来、状态停在 waiting_scan(不回二维码),模拟等待用户扫码
-  startScanLogin.mockImplementation((platform: string) =>
-    ok({
-      task_id: `task-${platform}`,
-      platform,
-      status: 'pending',
-      snapshot: scanSnapshot({ task_id: `task-${platform}`, platform }),
-    }),
-  )
-  getScanLoginStatus.mockImplementation((taskId: string) => ok(scanSnapshot({ task_id: taskId })))
-  fetchScanLoginQr.mockResolvedValue(new Blob(['x'], { type: 'image/png' }))
-  // 停止/关窗/卸载路径必然调到它 —— 不给返回值会让每个用例在 cleanup 阶段炸一次
-  cancelScanLogin.mockResolvedValue(ok({ task_id: 'task-1', cancelled: true }))
-  globalThis.URL.createObjectURL = vi.fn(() => 'blob:mock-qr')
-  globalThis.URL.revokeObjectURL = vi.fn()
+  closeBrowserSession.mockResolvedValue({ success: true })
   // 默认"确实打开了"(真实浏览器/桌面端);弹窗被拦截的场景单独用一个用例覆盖
   openExternalUrl.mockResolvedValue(true)
 })
@@ -233,112 +192,14 @@ describe('BatchScanLoginDialog 关闭/停止行为', () => {
     expect(detectLoginFromProfile).not.toHaveBeenCalled()
   })
 
-  it('外部模式不使用扫码任务通道(不 startScanLogin/不轮询任务/不取消任务)', async () => {
+  it('外部模式不托管浏览器会话(不使用内置浏览器/会话关闭)', async () => {
     render(renderDialog(true))
     await startQueue()
 
     await new Promise((r) => setTimeout(r, 300))
-    expect(startScanLogin).not.toHaveBeenCalled()
-    expect(getScanLoginStatus).not.toHaveBeenCalled()
-    expect(cancelScanLogin).not.toHaveBeenCalled()
-  })
-})
-
-describe('BatchScanLoginDialog 内置档走扫码任务通道(2026-09-29)', () => {
-  it('B1 内置模式走扫码任务通道:逐平台调 startScanLogin 并推进队列', async () => {
-    getScanLoginStatus.mockImplementation((taskId: string) =>
-      ok(scanSnapshot({ task_id: taskId, status: 'success', cookies_count: 2 })),
-    )
-    const onSuccess = vi.fn()
-    render(
-      <BatchScanLoginDialog
-        open
-        onOpenChange={() => {}}
-        queuePlatforms={QUEUE}
-        onSuccess={onSuccess}
-      />,
-    )
-    await startInternalQueue()
-
-    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('bilibili'))
-    expect(startScanLogin).toHaveBeenCalledTimes(2)
-    expect(getScanLoginStatus).toHaveBeenCalledWith('task-zhihu')
-    expect(getScanLoginStatus).toHaveBeenCalledWith('task-bilibili')
-    // 两平台都成功入库
-    expect(onSuccess).toHaveBeenCalledTimes(2)
-  })
-
-  it('B2 二维码直接显示在本弹窗内:has_qr 时经 fetchScanLoginQr 取图渲染', async () => {
-    getScanLoginStatus.mockImplementation((taskId: string) =>
-      ok(scanSnapshot({ task_id: taskId, has_qr: true, qr_updated_at: 1 })),
-    )
-    render(renderDialog(true))
-    await startInternalQueue()
-
-    const img = await screen.findByTestId('batch-qr-image')
-    expect(img.getAttribute('src')).toMatch(/^blob:/)
-    expect(fetchScanLoginQr).toHaveBeenCalledWith('task-zhihu')
-  })
-
-  it('B3 状态应答失败当场点名:条目 error 且任务被取消,不静默轮到超时', async () => {
-    // ApiResult 失败分支:服务端有应答但失败(如线上 CDP 通道那种 404)
-    getScanLoginStatus.mockResolvedValue({
-      success: false,
-      status: 404,
-      error: 'Route POST:/api/publish/scan-login/zz/status not found',
-      errorCode: 'E_TEST_404',
-    })
-    render(renderDialog(true))
-    await startInternalQueue()
-
-    // 失败原因写进条目 msg,当场可见(旧实现会吞掉继续轮询到超时);两平台都会失败,故 All
-    await screen.findAllByText(/not found/i)
-    expect(screen.getAllByText(/not found/i)).toHaveLength(2)
-    expect(cancelScanLogin).toHaveBeenCalledWith('task-zhihu')
-    // 同一任务只轮询一次就判 error,不许反复静默重试
-    expect(getScanLoginStatus.mock.calls.filter((c) => c[0] === 'task-zhihu')).toHaveLength(1)
-  })
-
-  it('B4 后端报 success 即推进队列:第一平台成功后为 bilibili 起新任务', async () => {
-    getScanLoginStatus.mockImplementation((taskId: string) =>
-      ok(scanSnapshot({ task_id: taskId, status: 'success' })),
-    )
-    const onSuccess = vi.fn()
-    render(
-      <BatchScanLoginDialog
-        open
-        onOpenChange={() => {}}
-        queuePlatforms={QUEUE}
-        onSuccess={onSuccess}
-      />,
-    )
-    await startInternalQueue()
-
-    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('bilibili'))
-    expect(onSuccess).toHaveBeenCalled()
-  })
-
-  it('B5 点"停止队列"立即取消当前扫码任务(后端 Chromium 不许挂着)', async () => {
-    render(renderDialog(true))
-    await startInternalQueue()
-
-    fireEvent.click(screen.getByText('accounts.batchScanStop'))
-    await waitFor(() => expect(cancelScanLogin).toHaveBeenCalledWith('task-zhihu'))
-  })
-})
-
-describe('BatchScanLoginDialog 外部档轮询不再静默(2026-09-29)', () => {
-  it('B6 检测应答 success:false → 条目当场 error(不再装作未检测到继续等)', async () => {
-    detectLoginFromProfile.mockResolvedValue({ success: false, error: 'profile read failed' })
-    render(renderDialog(true))
-    await startQueue()
-
-    // 两个平台都当场判 error,不静默重试(旧实现会一直轮询到 2 分钟超时)
-    await waitFor(() =>
-      expect(screen.getAllByText('accounts.batchScanDetectError')).toHaveLength(2),
-    )
-    expect(detectLoginFromProfile).toHaveBeenCalledWith('zhihu')
-    expect(detectLoginFromProfile).toHaveBeenCalledWith('bilibili')
+    expect(createBrowserSession).not.toHaveBeenCalled()
+    expect(detectLoginFromCdp).not.toHaveBeenCalled()
+    expect(closeBrowserSession).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
