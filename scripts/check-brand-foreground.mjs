@@ -282,8 +282,43 @@ const R8_CSS_BORDER =
 const R8_CLASS_GREP_PATTERN =
   '(border(-[xysteblr])?|ring)-(primary|foreground)|border[a-z-]*:[^;]*var\\(\\s*--color-(primary|foreground)\\s*\\)'
 const R8_EXEMPT = /border-ink-exempt:/
+/**
+ * 聚焦/激活书写位(2026-09-30 立,AGENTS §4「描边不得取墨档」的**唯一合法例外位**)。
+ * 用户定的两句话是同一件事的两半:「静态描边没有纯黑色」+「输入框激活态要纯白纯黑」——
+ * 所以判据必须能区分"这一笔墨档描边出现在聚焦态还是静态",而不是整型一刀切。
+ * 三种书写形态各有一条**结构性**认法(都不按键名猜元素类型,静态取用照旧判红):
+ *  - 类名形态:命中 token 前紧邻 `focus:` / `focus-visible:` / `focus-within:` / `active:`
+ *    (含 `group-`/`peer-` 前缀)变体;
+ *  - CSS 声明形态:命中行**或它所属选择器行**含 `:focus` / `:active` 伪类(向后找最近一个 `{`);
+ *  - RN style 形态:命中行本身或其上一行是 `focused ? {` / `isActive ? {` 这类条件对象头。
+ * 为什么必须同批改这道门:规矩写"要墨档"而门判"墨档即红",按规矩写就红的那道门
+ * 唯一结局是逼人 `--no-verify`、连带全部守门作废(§12e/§12f)。
+ */
+const R8_FOCUS_VARIANT =
+  /(?:^|[\s'"`{,(])(?:group-|peer-)?focus(?:-[a-z]+)*:$/
+const R8_CSS_FOCUS_SELECTOR = /:(?:focus|focus-visible|focus-within)\b/
+const R8_RN_FOCUS_GUARD = /(?:^|[^\w])(?:isFocused|focused|hasFocus)\s*\?\s*/
 /** R8 注释行不判(与 R5_COMMENT_LINE 同一条理由:零容忍门不得被叙述行钉红) */
 const R8_COMMENT_LINE = /^\s*(?:\/\/|\/\*|\*)/
+
+/** 类名形态:逐个命中判"处在聚焦/激活变体位吗"。**不做整行豁免** —— 同一行可能既有静态债
+ *  又有合法的聚焦位,按行放过会把静态那一半一起洗掉(与 GA1"一行救不了别处"同一条理由)。 */
+function classTokenAtFocus(line, matchText, matchIndex) {
+  const lead = /^\W/.test(matchText) ? 1 : 0
+  return R8_FOCUS_VARIANT.test(line.slice(0, matchIndex + lead))
+}
+/** CSS 形态:向后找最近一个含 `{` 的行(即所属选择器行),判它带不带 `:focus` / `:active`。
+ *  窗口 12 行:声明块的选择器与声明通常相邻,超过窗口就当判不出 ⇒ 不放过(宁可点名交人工)。 */
+function cssBlockIsFocus(lines, i) {
+  for (let j = i; j >= 0 && i - j <= 12; j--) {
+    if (lines[j].includes('{')) return R8_CSS_FOCUS_SELECTOR.test(lines[j])
+  }
+  return false
+}
+/** RN 形态:命中行本身或其紧邻上一行是 `focused ? {` / `isActive ? {` 这类条件对象头。 */
+function rnLineIsFocusGuard(lines, i) {
+  return R8_RN_FOCUS_GUARD.test(lines[i]) || (i > 0 && R8_RN_FOCUS_GUARD.test(lines[i - 1]))
+}
 
 /**
  * R5 前置:类名 token 是否作为**完整 Tailwind 类**出现在这一行。
@@ -354,17 +389,19 @@ export function findR8ClassHits(lines) {
     const line = lines[i]
     if (R8_COMMENT_LINE.test(line)) continue
     if (R8_EXEMPT.test(line)) continue
-    const hits = line.match(R8_CLASS_BORDER)
+    const hits = [...line.matchAll(R8_CLASS_BORDER)].filter(
+      (h) => !classTokenAtFocus(line, h[0], h.index),
+    )
     // 命中的首字符是"前一个非单词字符"(引号/冒号/空格),报告里剥掉它,否则明细写成
     // `满不透明 'border-primary` 这种带引号的串,读的人以为在点另一个标识符
-    if (hits) out.push(`L${i + 1} 满不透明 ${hits.map((h) => h.replace(/^[^\w]+/, '')).join(',')}`)
+    if (hits.length) out.push(`L${i + 1} 满不透明 ${hits.map((h) => h[0].replace(/^[^\w]+/, '')).join(',')}`)
     /**
      * CSS 声明形态与类名形态**同一条判据、同一个计数口**,但两条各记各的:
      * 同一行同时写了 `border-primary` 与 `var(--color-primary)` 的概率极低,而把它们并成一条
      * 会让"一行两处债"被记成一处 —— 计数与明细必须同形(见上),这里两条 push 天然同形。
      */
     const css = R8_CSS_BORDER.exec(line)
-    if (css) out.push(`L${i + 1} CSS 实底墨档描边 ${css[0].trim()}`)
+    if (css && !cssBlockIsFocus(lines, i)) out.push(`L${i + 1} CSS 实底墨档描边 ${css[0].trim()}`)
   }
   return out
 }
@@ -387,7 +424,7 @@ export function findR8Violations(lines) {
     )
       continue
     const m = line.match(R8_RN_BORDER)
-    if (m) out.push(`L${i + 1} 描边取墨档 ${m[1]}:${line.trim()}`)
+    if (m && !rnLineIsFocusGuard(lines, i)) out.push(`L${i + 1} 描边取墨档 ${m[1]}:${line.trim()}`)
   }
   return out
 }
@@ -2734,6 +2771,50 @@ function selfTest() {
   assert(
     countInkBorderClasses(['  border-color: var(--color-foreground);']) === 1,
     'R8-M8g CSS 声明面同批认 foreground(与类名面同一条判据,只扩一半就是没扩)',
+  )
+  // (M8h..M8k) 聚焦/激活书写位例外(2026-09-30 立)—— **成对**写:合法位必须放过,
+  //  静态位必须照旧判红,同一行混写只计静态。少了任一半,这条例外就是无牙的或过宽的。
+  assert(
+    countInkBorderClasses(["  return <input className='border border-input focus-visible:border-primary' />"]) ===
+      0,
+    'R8-M8h 正向:类名聚焦位(focus-visible:border-primary)是 AGENTS §4 唯一合法例外,不得判红',
+  )
+  assert(
+    countInkBorderClasses(["  return <div className='border-primary focus-visible:border-primary' />"]) ===
+      1,
+    'R8-M8h2 反向:同一行既有静态 border-primary 又有聚焦合法位 ⇒ 只计静态那一处(按行放过会把静态洗掉)',
+  )
+  assert(
+    findR8ClassHits(['input:focus {', '  border-color: var(--color-primary);', '}']).length === 0,
+    'R8-M8i 正向:CSS 声明所属选择器带 :focus ⇒ 合法例外位',
+  )
+  assert(
+    findR8ClassHits(['input {', '  border-color: var(--color-primary);', '}']).length === 1,
+    'R8-M8i2 反向:同一声明在选择器不带 :focus 的块里 ⇒ 静态墨档照旧判红',
+  )
+  assert(
+    findR8Violations(['      focused ? { borderColor: tokens.brand.DEFAULT } : null,']).length === 0,
+    'R8-M8j 正向:RN 聚焦条件对象里的墨档描边合法(SearchInput 的真实形态)',
+  )
+  assert(
+    findR8Violations(['      focused ? {', '        borderColor: tokens.brand.DEFAULT,', '      } : null,'])
+      .length === 0,
+    'R8-M8j2 正向:多行条件对象(上一行是 focused ? {)同样认作聚焦位',
+  )
+  assert(
+    findR8Violations(['    inputBox: { borderColor: tk.brand.DEFAULT },']).length === 1,
+    'R8-M8j3 反向:静态 style 键取墨档描边 ⇒ 不得被例外放过(例外只认书写位,不认键名)',
+  )
+  // (M8k) 例外的**边界**:用户定档是"只恢复输入框聚焦态",所以 active/选中态必须仍在射程里。
+  //  少了这两条,例外就从"聚焦位"悄悄扩成"任何条件态"——那等于替用户选了另一个方案。
+  assert(
+    findR8Violations(['    border: `1px solid ${active ? tk.brand.DEFAULT : tk.border.medium}`,'])
+      .length === 1,
+    'R8-M8k 边界:RN 条件名是 active(选中态)⇒ 仍判红(与 M5 同形夹具互证:收紧例外没有把 M5 判松)',
+  )
+  assert(
+    countInkBorderClasses(["  return <div className='active:border-primary' />"]) === 1,
+    'R8-M8k2 边界:类名前缀是 active: ⇒ 不属聚焦位,照旧判红',
   )
   // (M9) 预筛必须是判据的严格超集:真仓上"预筛候选" ⊇ "实际命中",
   //      否则 git grep 的 `-P` 一旦失效(shell 历史展开把 `(?!` 变成 `\(!` 那类),
