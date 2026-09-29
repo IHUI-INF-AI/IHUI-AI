@@ -63,7 +63,7 @@ export function SnapshotSourceCard({
   return (
     <div
       role="group"
-      className={cn('flex flex-col gap-1.5 rounded-md bg-muted/30 p-3', className)}
+      className={cn('flex flex-col gap-1.5 rounded-lg bg-muted/30 p-3', className)}
       data-testid={testId}
       data-input-source="snapshot"
       data-snapshot-state={view.state}
@@ -130,7 +130,7 @@ export function QueueCommandCard({
   return (
     <div
       role="group"
-      className={cn('flex flex-col gap-1.5 rounded-md bg-muted/30 p-3', className)}
+      className={cn('flex flex-col gap-1.5 rounded-lg bg-muted/30 p-3', className)}
       data-testid={testId}
       data-input-source="queue"
     >
@@ -200,7 +200,7 @@ export function MemoryRefCard({ count, totalTimeMs, className, 'data-testid': te
   return (
     <div
       role="group"
-      className={cn('flex flex-col gap-1.5 rounded-md bg-muted/30 p-3', className)}
+      className={cn('flex flex-col gap-1.5 rounded-lg bg-muted/30 p-3', className)}
       data-testid={testId}
       data-input-source="memory"
     >
