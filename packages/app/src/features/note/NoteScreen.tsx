@@ -14,7 +14,6 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { NoteItem, NoteScreenProps } from '../../types'
 
@@ -63,13 +62,13 @@ export function NoteScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{error}</Text>
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
         <TouchableOpacity
           style={styles.retryBtn}
           onPress={onBack}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityLabel={t('common.back')}
         >
-          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
+          <Text style={styles.retryText}>{t('common.back')}</Text>
         </TouchableOpacity>
       </View>
     )
@@ -261,6 +260,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
+    retryText: { color: tk.surface.light, fontSize: 16 },
     modalOverlay: {
       flex: 1,
       backgroundColor: 'rgba(0,0,0,0.5)',
