@@ -7438,7 +7438,24 @@
           "denied": {
             "reorder": "Cannot reorder queued messages",
             "undo": "Cannot unsend the queued message",
-            "interject": "The current Runtime does not support interjection; your message will stay queued"
+            "interject": "The current Runtime does not support interjection; your message will stay queued",
+            "cause": {
+              "streaming": "The reply is still generating, so the queue order is locked for now",
+              "emptyQueue": "There are no queued messages left to undo",
+              "runtimeNoInterject": "This runtime has no interjection support; the message stays in the queue"
+            }
+          },
+          "blocked": {
+            "runtimeNoInterject": "This runtime does not support interjection, so it cannot be injected into a running turn",
+            "noRunningTurn": "No turn is currently running, so there is nothing to interject into",
+            "waitingRequestFirst": "Waiting requests must be handled first; please try again later",
+            "controlCommandNoInterject": "Control commands cannot be inserted into a running turn; send it after the current turn ends",
+            "queueChanged": "The queue has changed; review the latest state before acting",
+            "sourceMismatch": "Source mismatch: this action is only available for voice-delegated tasks"
+          },
+          "outcome": {
+            "deferred": "Message not sent; it is kept in the queue",
+            "failed": "Message failed to send; please retry"
           },
           "reorderAria": "Drag to reorder queued messages; use the up and down arrow keys while focused"
         }
@@ -8804,7 +8821,10 @@
       "planStepFailed": "Failed",
       "rollbackAdded": "Will be added",
       "rollbackModified": "Will be modified",
-      "rollbackDeleted": "Will be deleted"
+      "rollbackDeleted": "Will be deleted",
+      "commandSummaryLabel": "Command to run",
+      "deleteSummaryLabel": "Deletion targets",
+      "deleteRecursiveTag": "recursive"
     },
     "tokenUsage": {
       "promptTokens": "Prompt",

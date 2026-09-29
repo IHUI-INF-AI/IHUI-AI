@@ -2094,6 +2094,13 @@
       "when": 1790697600000,
       "tag": "20260929160000_sequence_autofill_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 300,
+      "version": "7",
+      "when": 1790704800000,
+      "tag": "20260929180000_edu_time_check_constraint",
+      "breakpoints": true
     }
   ]
 }
