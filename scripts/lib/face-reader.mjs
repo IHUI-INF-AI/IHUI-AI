@@ -245,9 +245,46 @@ export function parseBatchCheckStates(stdout, specs) {
 }
 
 /**
+ * 层内 `cat-file --batch-check` 的**唯一**派生出口(供 `catBatchStates` / `catBatchEcho` 共用)。
+ *
+ * 为什么不用 `gitRaw`:本层的形态锁要求**每个 batch 调用点自己看得见** stdio[0]=pipe /
+ * `input: Buffer.from(` / 数字 timeout / maxBuffer 四项 —— 它防的正是"靠别处保证了"这种推理
+ * (`gitRaw` 的 stdio 是按 `opts.input` 有无分两态算出来的,调用点上看不见,而 stdio[0]='ignore'
+ * 喂进清单时 git **不报错**,只是每个对象都"取不到")。委派少四行,换来的是判据对整型出口失明,
+ * 这笔账不划算;所以这里与三个同族出口(`catBatchCheck` / `catBatchOids` / `catBatchSizes`)同形。
+ * 错误消息仍与 `gitRaw` 逐字同形(`git cat-file 失败: ` 前缀 + ENOENT 那一档补 root),
+ * 因为调用方的报告把这句话原样打进"探测失败"一行,换出口不得换措辞。
+ *
+ * ⚠️ 四个属性必须**写成显式形态**而不是 `timeout,` 这类简写 —— 本层的形态锁按字面读它们,
+ * 简写不会让锁变绿而是让锁看不见下限(实测第一次就红在这一条)。
+ */
+function runBatchCheck(root, input, opts = {}) {
+  try {
+    return execFileSync(
+      GIT,
+      ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', root, 'cat-file', '--batch-check'],
+      {
+        cwd: root,
+        input: Buffer.from(input, 'utf8'),
+        encoding: 'utf8',
+        windowsHide: true,
+        maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
+        timeout: opts.timeout ?? BATCH_TIMEOUT,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    )
+  } catch (e) {
+    const hint = e?.code === 'ENOENT' ? `(git 二进制或该 root 不可达:root=${root})` : ''
+    const err = new Undetermined(`git cat-file 失败: ${gitErrText(e)}${hint}`)
+    if (typeof e?.status === 'number') err.status = e.status
+    throw err
+  }
+}
+
+/**
  * 一次(分批)`cat-file --batch-check` 问完一批规格的三态存在性 —— 只问"在不在 / 认不认得",不取正文。
  * 去重与切块都在这里:输出按行对齐,一批过大时一次挂起会换成整门失明,所以宁可分块多次问。
- * 派生一律经 `gitRaw`(stdio[0]=pipe、maxBuffer、timeout、错误文本都只有层那一份实现)。
+ * 派生走层内那一个出口(`runBatchCheck`),三态解析走 `parseBatchCheckStates`。
  */
 export function catBatchStates(root, specs, opts = {}) {
   const list = [...new Set(specs)]
@@ -255,10 +292,7 @@ export function catBatchStates(root, specs, opts = {}) {
   const chunkSize = opts.chunkSize && opts.chunkSize > 0 ? opts.chunkSize : 400
   for (let i = 0; i < list.length; i += chunkSize) {
     const chunk = list.slice(i, i + chunkSize)
-    const out = gitRaw(['cat-file', '--batch-check'], root, {
-      input: chunk.join('\n') + '\n',
-      timeout: opts.timeout ?? BATCH_TIMEOUT,
-    })
+    const out = runBatchCheck(root, chunk.join('\n') + '\n', { timeout: opts.timeout })
     for (const [k, v] of parseBatchCheckStates(out, chunk)) status.set(k, v)
   }
   return status
@@ -266,14 +300,11 @@ export function catBatchStates(root, specs, opts = {}) {
 
 /**
  * 单枚规格的 **git 原话首行**,只为报告可读,不改判据 —— 所以它**不抛**:取不到就回一句带原因的文本。
- * 失败文本走 `gitRaw` 的 `Undetermined` 消息,与调用方自己 catch 时逐字同形(换出口不得换措辞)。
+ * 失败文本与调用方自己 catch `runBatchCheck` 的异常时逐字同形(换出口不得换措辞)。
  */
 export function catBatchEcho(root, spec, opts = {}) {
   try {
-    const out = gitRaw(['cat-file', '--batch-check'], root, {
-      input: spec + '\n',
-      timeout: opts.timeout ?? 20_000,
-    })
+    const out = runBatchCheck(root, spec + '\n', { timeout: opts.timeout ?? 20_000 })
     return String(out).split(/\r?\n/)[0] || '(空)'
   } catch (e) {
     return `(探测失败:${e?.message ?? e})`
