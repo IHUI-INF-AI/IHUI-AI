@@ -307,4 +307,175 @@ function assertNeverDeniedAction(action: never): never {
 export function queueReorderAria(): string {
   return 'reorderAria'
 }
+
+// ---------------------------------------------------------------------------
+// ④ D162 队列动作「为什么现在不能按」—— 六格具体拒因(一格一条件,互不相同)
+// ---------------------------------------------------------------------------
+
+/**
+ * 队列动作不可用的具体拒因六格(D162;取值即 i18n 键片段,
+ * `ai.pane.inputNotices.queue.blocked.<key>`)。
+ *
+ * 六格**必须互不相同**(一格一个具体条件,禁止一句"当前不可用"覆盖全部):
+ *   · runtimeNoInterject        —— 当前 Runtime 不支持插话(能力协商硬缺口)
+ *   · noRunningTurn             —— 当前没有运行中的 Turn(插话/引导没有落点)
+ *   · waitingRequestFirst       —— 需先处理等待中的请求(前面的排队尚未处理完)
+ *   · controlCommandNoInterject —— 控制命令不能插入运行中的 Turn
+ *   · queueChanged              —— 队列已发生变化(并发变更,用户看到的是旧队列)
+ *   · sourceMismatch            —— 来源不符(该动作仅对语音委派任务可用)
+ */
+export const QUEUE_ACTION_BLOCK_REASONS = [
+  'runtimeNoInterject',
+  'noRunningTurn',
+  'waitingRequestFirst',
+  'controlCommandNoInterject',
+  'queueChanged',
+  'sourceMismatch',
+] as const
+export type QueueActionBlockReason = (typeof QUEUE_ACTION_BLOCK_REASONS)[number]
+
+/**
+ * 可解释「为什么现在不能按」的队列动作六种(steer = 语音委派引导。
+ * setMode 不在其中 —— 模式是用户偏好恒可切,不存在"不能按")。
+ */
+export const QUEUE_BLOCKABLE_ACTIONS = [
+  'reorder',
+  'undo',
+  'edit',
+  'interject',
+  'steer',
+  'interruptAndRun',
+] as const
+export type QueueBlockableAction = (typeof QUEUE_BLOCKABLE_ACTIONS)[number]
+
+/** 判定输入(全部只读;能力协商 / 队列快照 / 命令类型由调用方注入,判定层不取数) */
+export interface QueueActionBlockContext {
+  /** 当前 Runtime 是否支持插话(能力协商结果) */
+  readonly runtimeSupportsInterjection: boolean
+  /** 当前是否有运行中的 Turn(插话 / 引导的落点) */
+  readonly hasRunningTurn: boolean
+  /** 是否存在等待中的请求(前面的排队尚未处理完,动作需让行) */
+  readonly hasWaitingRequests: boolean
+  /** 本次动作的对象是否控制命令(控制命令不能插入运行中的 Turn) */
+  readonly isControlCommand: boolean
+  /** 自用户查看后队列是否已发生变化(并发变更,看到的是旧队列) */
+  readonly queueChanged: boolean
+  /** 动作来源是否匹配(如:引导仅对语音委派任务可用) */
+  readonly sourceMatches: boolean
+}
+
+export interface QueueActionBlockView {
+  /** true = 动作当前不可用;false = 可用(reason / reasonKey 恒 null) */
+  readonly blocked: boolean
+  /** 具体拒因;blocked=false 恒 null */
+  readonly reason: QueueActionBlockReason | null
+  /** `ai.pane.inputNotices.queue.blocked.<key>`;blocked=false 恒 null */
+  readonly reasonKey: string | null
+}
+
+/** 拒因 → 文案键(`blocked.<key>`) */
+export function queueActionBlockReasonKey(reason: QueueActionBlockReason): string {
+  return `blocked.${reason}`
+}
+
+const QUEUE_ACTION_ALLOWED_VIEW: QueueActionBlockView = {
+  blocked: false,
+  reason: null,
+  reasonKey: null,
+}
+
+function blockedActionView(reason: QueueActionBlockReason): QueueActionBlockView {
+  return { blocked: true, reason, reasonKey: queueActionBlockReasonKey(reason) }
+}
+
+/**
+ * 队列动作 → 具体拒因的**唯一**派发点(一格一条件,判定顺序即优先级;
+ * switch 穷尽六动作、**无 default**:漏改任一动作 ⇒ assertNever 处编译失败)。
+ */
+export function queueActionBlockView(
+  action: QueueBlockableAction,
+  ctx: QueueActionBlockContext,
+): QueueActionBlockView {
+  switch (action) {
+    case 'interject':
+      // 插话:能力缺口 > 控制命令不能插运行中 Turn > 无运行中 Turn(没有落点)。
+      if (!ctx.runtimeSupportsInterjection) return blockedActionView('runtimeNoInterject')
+      if (ctx.hasRunningTurn && ctx.isControlCommand) {
+        return blockedActionView('controlCommandNoInterject')
+      }
+      if (!ctx.hasRunningTurn) return blockedActionView('noRunningTurn')
+      return QUEUE_ACTION_ALLOWED_VIEW
+    case 'steer':
+      // 语音委派引导:来源不符 > 能力缺口 > 有等待请求需先处理 > 无运行中 Turn。
+      if (!ctx.sourceMatches) return blockedActionView('sourceMismatch')
+      if (!ctx.runtimeSupportsInterjection) return blockedActionView('runtimeNoInterject')
+      if (ctx.hasWaitingRequests) return blockedActionView('waitingRequestFirst')
+      if (!ctx.hasRunningTurn) return blockedActionView('noRunningTurn')
+      return QUEUE_ACTION_ALLOWED_VIEW
+    case 'reorder':
+      // 重排:并发变更(看到的是旧队列)> 等待中的请求尚未处理完(W27 顺序等待)。
+      if (ctx.queueChanged) return blockedActionView('queueChanged')
+      if (ctx.hasWaitingRequests) return blockedActionView('waitingRequestFirst')
+      return QUEUE_ACTION_ALLOWED_VIEW
+    case 'undo':
+    case 'edit':
+      // 撤回 / 编辑:并发变更(目标项可能已被别人动过)。
+      if (ctx.queueChanged) return blockedActionView('queueChanged')
+      return QUEUE_ACTION_ALLOWED_VIEW
+    case 'interruptAndRun':
+      // 打断并执行:并发变更(队首可能已不是看到的那个)> Runtime 不支持插话(D38 同门)。
+      if (ctx.queueChanged) return blockedActionView('queueChanged')
+      if (!ctx.runtimeSupportsInterjection) return blockedActionView('runtimeNoInterject')
+      return QUEUE_ACTION_ALLOWED_VIEW
+  }
+  return assertNeverBlockableAction(action)
+}
+
+function assertNeverBlockableAction(action: never): never {
+  throw new Error(`unhandled queue blockable action: ${String(action)}`)
+}
+
+// ---------------------------------------------------------------------------
+// ⑤ D162 队列动作终态两分 —— deferred(未发送)≠ failed(发送失败)
+// ---------------------------------------------------------------------------
+
+/**
+ * 队列动作终态两分(D162):「未发送」(deferred —— 还没做,消息仍保留在队列)与
+ * 「发送失败」(failed —— 做了但失败)是两个词、两条文案,不得共用一句笼统话。
+ * 取值即 i18n 键片段;`ai.pane.inputNotices.queue.outcome.<key>`。
+ */
+export const QUEUE_SEND_OUTCOMES = ['deferred', 'failed'] as const
+export type QueueSendOutcome = (typeof QUEUE_SEND_OUTCOMES)[number]
+
+const QUEUE_SEND_OUTCOME_SET: ReadonlySet<string> = new Set<string>(QUEUE_SEND_OUTCOMES)
+
+export function isQueueSendOutcome(value: string): value is QueueSendOutcome {
+  return QUEUE_SEND_OUTCOME_SET.has(value)
+}
+
+export interface QueueSendOutcomeView {
+  readonly outcome: QueueSendOutcome
+  /** `ai.pane.inputNotices.queue.outcome.<key>` */
+  readonly labelKey: string
+}
+
+/** 终态 → 文案键(`outcome.<key>`) */
+export function queueSendOutcomeKey(outcome: QueueSendOutcome): string {
+  return `outcome.${outcome}`
+}
+
+/** 终态 → 视图(穷尽两态、零 default;deferred 与 failed 的 labelKey 由键名保证互异)。 */
+export function queueSendOutcomeView(outcome: QueueSendOutcome): QueueSendOutcomeView {
+  switch (outcome) {
+    case 'deferred':
+      return { outcome, labelKey: queueSendOutcomeKey(outcome) }
+    case 'failed':
+      return { outcome, labelKey: queueSendOutcomeKey(outcome) }
+  }
+  return assertNeverSendOutcome(outcome)
+}
+
+function assertNeverSendOutcome(outcome: never): never {
+  throw new Error(`unhandled queue send outcome: ${String(outcome)}`)
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
