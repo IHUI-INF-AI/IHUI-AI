@@ -54,7 +54,7 @@ import os
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -74,7 +74,8 @@ _DEFAULT_CONFIG = _ROOT / ".ihui-agent" / "db-sync.local.json"
 # 与 scripts/db/db_sync.py 的 JSON_PREFIX 保持一致(跨进程契约)
 _JSON_PREFIX = "__IHUI_DB_SYNC_JSON__"
 # 东八区(用户主时区),每日镜像时刻按此解释
-_CN_TZ = timezone(timedelta(hours=8))
+from app.core.cn_time import CN_TZ as _CN_TZ
+
 _HISTORY_LIMIT = 40
 _TAIL_CHARS = 6000
 _TICK_SECONDS = 60
