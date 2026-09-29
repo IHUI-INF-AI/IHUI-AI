@@ -1194,9 +1194,6 @@ class AgentEventStream:
         args_preview: str,
         session_id: str,
         guardian_review: dict[str, Any] | None = None,
-        exec_environment: dict[str, Any] | None = None,
-        network_target: dict[str, Any] | None = None,
-        blocked_network_targets: list[dict[str, Any]] | None = None,
     ) -> None:
         payload: dict[str, Any] = {
             "approval_id": approval_id,
@@ -1209,17 +1206,6 @@ class AgentEventStream:
         # V3 #80:guardian 复核三态随弹窗事件下发(status 恒在,缺席≠无风险)。
         if guardian_review is not None:
             payload["guardian_review"] = guardian_review
-        # D159(2026-09-30 立):**逐请求的执行环境/网络目标**随事件下发。
-        # 三个字段都是"读得到才带",缺席 = 服务端没上报 ⇒ 前端渲染"未上报",
-        # 绝不因为"这一档通常是怎么配的"就替它编一个真值(票第 1 条不可漂)。
-        # 组装只有一份实现(``network_approval.approval_env_payload``),本层只转发 ——
-        # 主对话流(llm.py)与 agent 任务流两条链路的审批条目因此同形。
-        if exec_environment is not None:
-            payload["exec_environment"] = exec_environment
-        if network_target is not None:
-            payload["network_target"] = network_target
-        if blocked_network_targets is not None:
-            payload["blocked_network_targets"] = blocked_network_targets
         await self.emit("tool.approval", payload)
 
     async def permission_mode(
@@ -4466,26 +4452,6 @@ class AgentLoopV2:
             # 通过事件流层发 tool.approval 事件(订阅者 = SSE 转发 + 前端弹窗)。
             # emit 内部有 _broadcast 向 SSE 订阅者推送;失败降级不抛(但审批继续等待,
             # 若事件完全无法送达,工具会在超时后以 approval_timeout 返回,安全兜底)。
-            #
-            # D159:审批时刻的执行环境/网络目标事实。取不到 ⇒ 三个字段一起缺席
-            # (回退开关 IHUI_APPROVAL_ENV_REPORT=0 也走这一格),前端因此可以拿
-            # "字段在不在"分辨"没上报"与"上报了但读不到",而**不需要**猜。
-            env_facts: dict[str, Any] = {}
-            try:
-                from .network_approval import approval_env_payload
-
-                env_facts = approval_env_payload(tc.name, tc.args, owner=self._user_id)
-            except Exception as exc:  # noqa: BLE001 - 事实取不到不阻断弹窗
-                logger.warning("D159 审批环境字段组装失败(tool=%s): %s", tc.name, exc)
-                env_facts = {}
-            net_target = env_facts.get("network_target")
-            # 三个字段一条规矩:**先绑变量再 isinstance 收窄**,与网络目标同形。
-            # 直接在实参位写 `env_facts.get(...) if isinstance(env_facts.get(...), list) else None`
-            # 不收窄(mypy 只对名字收窄,不对调用表达式收窄),于是 HEAD 面判
-            # `Any | object` 与 `dict[str, Any] | None` / `list[dict[str, Any]] | None` 不兼容(守门 35)。
-            # 语义一字未变:读不到/形状不对 ⇒ 该字段缺席(与"上报了但读不到"仍是两件事)。
-            exec_env = env_facts.get("exec_environment")
-            blocked_net = env_facts.get("blocked_network_targets")
             await self._events.tool_approval(
                 approval_id=approval_id,
                 tool_name=tc.name,
@@ -4493,11 +4459,6 @@ class AgentLoopV2:
                 args_preview=args_preview,
                 session_id=self._session_id or "",
                 guardian_review=review.to_event_payload(),
-                exec_environment=exec_env if isinstance(exec_env, dict) else None,
-                network_target=net_target if isinstance(net_target, dict) else None,
-                blocked_network_targets=(
-                    blocked_net if isinstance(blocked_net, list) else None
-                ),
             )
             # 等待用户决策(批准/拒绝/超时)
             try:

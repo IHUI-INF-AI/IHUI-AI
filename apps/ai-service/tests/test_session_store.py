@@ -11,9 +11,7 @@ fork 前缀正确性、rollback 后历史重建、compact 边界回放、FTS5 �
 
 from __future__ import annotations
 
-import re
 import threading
-import time
 from pathlib import Path
 
 import pytest
@@ -589,111 +587,4 @@ def test_list_items_kind_filter(store: SessionStore) -> None:
 def test_resume_nonexistent_thread(store: SessionStore) -> None:
     with pytest.raises(ThreadNotFoundError):
         store.resume("no_such_thread")
-
-
-# ==================== 41-43: 活动时钟单调性(G-821 Python 半边) ====================
-
-# 库里已是"另一时刻"时,维护性写入不得把它压回本次读到的旧值。
-_AHEAD_S = 3600.0
-
-
-def _seed_updated_at(store: SessionStore, thread_id: str, value: float) -> None:
-    """直写连接:绕过 store 的 max 闸门,造出并发另一方刚推进过时钟的前置。"""
-    store._conn.execute(
-        "UPDATE threads SET updated_at=? WHERE thread_id=?", (value, thread_id)
-    )
-
-
-def _read_updated_at(store: SessionStore, thread_id: str) -> float:
-    row = store._conn.execute(
-        "SELECT updated_at FROM threads WHERE thread_id=?", (thread_id,)
-    ).fetchone()
-    assert row is not None
-    return float(row["updated_at"])
-
-
-def _assert_clock_held(
-    store: SessionStore, thread_id: str, ahead: float, label: str
-) -> None:
-    assert _read_updated_at(store, thread_id) == ahead, f"{label} 把时钟压回了过去"
-
-
-def test_thread_updated_at_never_regresses_when_clock_is_stale(
-    store: SessionStore,
-) -> None:
-    """核心一条:用比库里现值更旧的时刻去更新 ⇒ updated_at 不得倒退。"""
-    t = store.create_thread(title="t")
-    ahead = time.time() + _AHEAD_S
-    _seed_updated_at(store, t.thread_id, ahead)
-
-    turn = store.start_turn(t.thread_id)
-    _assert_clock_held(store, t.thread_id, ahead, "start_turn")
-    store.append_item(turn.turn_id, UserMessageItem(content="u"))
-    _assert_clock_held(store, t.thread_id, ahead, "append_item")
-    store.end_turn(turn.turn_id)
-    _assert_clock_held(store, t.thread_id, ahead, "end_turn")
-    store.set_thread_name(t.thread_id, "renamed")
-    _assert_clock_held(store, t.thread_id, ahead, "set_thread_name")
-    store.update_thread_metadata(t.thread_id, {"k": "v"})
-    _assert_clock_held(store, t.thread_id, ahead, "update_thread_metadata")
-    store.set_thread_goal_state(t.thread_id, {"phase": "active"})
-    _assert_clock_held(store, t.thread_id, ahead, "set_thread_goal_state")
-    store.set_thread_archived(t.thread_id, True)
-    _assert_clock_held(store, t.thread_id, ahead, "set_thread_archived")
-    store.revert_thread(t.thread_id, turn.turn_id)
-    _assert_clock_held(store, t.thread_id, ahead, "revert_thread")
-
-
-def test_thread_updated_at_still_advances_on_normal_write(store: SessionStore) -> None:
-    """正向对照:库里是较旧时刻时,时钟照常被推进(证明闸门没把功能改坏)。"""
-    t = store.create_thread(title="t")
-    past = time.time() - _AHEAD_S
-    _seed_updated_at(store, t.thread_id, past)
-
-    assert store.set_thread_name(t.thread_id, "renamed") is True
-
-    advanced = _read_updated_at(store, t.thread_id)
-    assert advanced > past
-    assert abs(advanced - time.time()) < 60.0
-
-
-def _write_shape(sql: str) -> str:
-    """语句形态骨架。trace 回调会把绑定参数展开进文本,故先归一化字面量再比。"""
-    s = re.sub(r"'[^']*'", "'?'", sql)
-    s = re.sub(r"-?\d+(?:\.\d+)?", "?", s)
-    return s.split(" WHERE")[0]
-
-
-def test_all_thread_updated_at_writes_use_monotonic_max(store: SessionStore) -> None:
-    """SQL 形状断言:每条 threads.updated_at 写入都必须在语句里取 max。"""
-    captured: list[str] = []
-    store._conn.set_trace_callback(captured.append)
-    try:
-        t = store.create_thread(title="t")
-        # revert 必须早于 fork:fork 按原 turn_id 复制 items,之后再删 turns 会触发 FK。
-        turn1 = store.start_turn(t.thread_id)
-        store.append_item(turn1.turn_id, UserMessageItem(content="u1"))
-        store.end_turn(turn1.turn_id)
-        store.revert_thread(t.thread_id, turn1.turn_id)
-
-        turn2 = store.start_turn(t.thread_id)
-        item2 = store.append_item(turn2.turn_id, UserMessageItem(content="u2"))
-        store.end_turn(turn2.turn_id)
-        store.fork(t.thread_id, item2.seq)
-
-        store.set_thread_archived(t.thread_id, True)
-        store.set_thread_name(t.thread_id, "renamed")
-        store.set_thread_goal_state(t.thread_id, {"phase": "active"})
-        store.update_thread_metadata(t.thread_id, {"k": "v"})
-    finally:
-        store._conn.set_trace_callback(None)
-
-    writes = [s for s in captured if "UPDATE threads SET" in s and "updated_at" in s]
-    assert writes, "未捕获到任何 threads.updated_at 写入,判据在空转"
-    bare = [s for s in writes if "max(updated_at" not in s]
-    assert not bare, f"这些写入未取 max,会把并发新时刻压回过去: {bare}"
-    shapes = {_write_shape(s) for s in writes}
-    assert len(shapes) == 4, f"应覆盖 4 种 SET 形态(archived/title/metadata/裸时钟),实得 {shapes}"
-    assert len(writes) == 12, f"9 个写入点应共触发 12 条语句,实得 {len(writes)}"
-
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

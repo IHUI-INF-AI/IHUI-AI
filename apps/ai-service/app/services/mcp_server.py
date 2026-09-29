@@ -9949,23 +9949,16 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="edu_create_payment_record",
         description=(
-            "教育管理-登记缴费(写操作):为**某一条报名的某个期次**新增一条缴费记录,"
-            "服务端会据此重算该报名的已缴额与欠费。amount 单位为元(整数);"
+            "教育管理-登记缴费(写操作):为学员新增一条缴费记录。amount 单位为元(整数);"
             "paymentDate 格式 YYYY-MM-DD;paymentMethod 如 现金/微信/支付宝/银行转账;"
-            "status 默认 paid。enrollmentId 必填,用 edu_list_students(返回 enrollmentId)"
-            "或 edu_list_arrears 查得 —— 同一学员在同一班级可能有多期报名(续读),"
-            "钱必须记到确定的那一期上,因此不接受只给 studentId/classId 的写法。"
-            "缺金额/日期/方式时先向用户确认再调用。"
+            "status 默认 paid(计入汇总收入),pending 为待确认。studentId/classId 用"
+            " edu_list_students 查得;缺金额/日期/方式时先向用户确认再调用。"
         ),
         input_schema={
             "type": "object",
             "properties": {
-                "enrollmentId": {
-                    "type": "string",
-                    "description": "归属报名(期次)ID(必填;edu_list_students 返回里的 enrollmentId)",
-                },
-                "studentId": {"type": "string", "description": "学员 ID(可选,仅做一致性校验)"},
-                "classId": {"type": "string", "description": "班级 ID(可选,仅做一致性校验)"},
+                "studentId": {"type": "string", "description": "学员 ID(必填)"},
+                "classId": {"type": "string", "description": "班级 ID(必填)"},
                 "amount": {"type": "integer", "description": "缴费金额,单位元(必填)"},
                 "paymentDate": {"type": "string", "description": "缴费日期 YYYY-MM-DD(必填)"},
                 "paymentMethod": {"type": "string", "description": "缴费方式,如 现金/微信/支付宝/银行转账(必填)"},
@@ -9973,7 +9966,7 @@ _TOOLS: list[MCPTool] = [
                 "receiptNo": {"type": "string", "description": "收据号(可选)"},
                 "remark": {"type": "string", "description": "备注(可选)"},
             },
-            "required": ["enrollmentId", "amount", "paymentDate", "paymentMethod"],
+            "required": ["studentId", "classId", "amount", "paymentDate", "paymentMethod"],
             "additionalProperties": False,
         },
     ),
@@ -10217,20 +10210,12 @@ def _edu_internal_headers(user_id: Any) -> dict[str, str]:
 
     api 侧 checkInternalServiceToken 校验 token 并把 X-User-Id 注入 request.userId,
     随后 requireAnyPermission 的 RBAC 查询对该用户做权限兜底。
-
-    2026-09-27(短期票):改由 `app.core.internal_ticket` 统一构造,兼容窗口内**同时**带
-    一次性短期票头 `x-internal-service-ticket`。外层守卫与返回值形状**一字未动**
-    (仍是"没有常驻密钥 / uid 不合法 ⇒ 返回空头"),这样本次改动对既有调用方与既有用例
-    是纯加法。翻到 ticket-only 档时,这一行守卫是必须一起改的地方 —— 判据见
-    apps/api/src/plugins/internal-service-token.ts 末尾注释。
     """
     uid = str(user_id or "").strip()
     secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
     if not secret or not uid or not re.fullmatch(r"[a-zA-Z0-9-]{1,128}", uid):
         return {}
-    from app.core.internal_ticket import internal_service_headers
-
-    return internal_service_headers(uid, "mcp-edu", legacy_token=secret)
+    return {"x-internal-service-token": secret, "x-user-id": uid}
 
 
 def _edu_query_params(args: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:
@@ -10367,19 +10352,14 @@ async def _tool_edu_send_fee_reminder_batch(args: dict[str, Any]) -> dict[str, A
 
 
 async def _tool_edu_create_payment_record(args: dict[str, Any]) -> dict[str, Any]:
-    """edu_create_payment_record: 登记缴费记录(amount 单位元)。
-
-    归属只认 enrollmentId(=哪一期报名)。api 侧同一契约:报名行是唯一权威,
-    自报的 studentId/classId 仅用于一致性校验,不一致直接拒 ——
-    让模型/调用方自报归属等于把钱记到别人账上。
-    """
+    """edu_create_payment_record: 登记缴费记录(amount 单位元)。"""
     body = _edu_query_params(
         args,
-        ("enrollmentId", "studentId", "classId", "feeId", "amount", "paymentDate", "paymentMethod", "status", "receiptNo", "remark"),
+        ("studentId", "classId", "feeId", "amount", "paymentDate", "paymentMethod", "status", "receiptNo", "remark"),
     )
-    missing = [k for k in ("enrollmentId", "amount", "paymentDate", "paymentMethod") if k not in body]
+    missing = [k for k in ("studentId", "classId", "amount", "paymentDate", "paymentMethod") if k not in body]
     if missing:
-        return {"ok": False, "error": f"缺少必填字段: {', '.join(missing)}(enrollmentId 可用 edu_list_students 或 edu_list_arrears 查得)"}
+        return {"ok": False, "error": f"缺少必填字段: {', '.join(missing)}(studentId/classId 可用 edu_list_students 查得)"}
     err = _edu_coerce_amount(body)
     if err:
         return err

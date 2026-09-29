@@ -33,7 +33,6 @@ from ..core.model_pricing import (
     cost_micro_usd,
     cost_micro_usd_from_per_1m,
 )
-from ..core.token_baseline import PromptTokenSample, incremental_prompt_tokens
 
 # 默认配额(每月 token 上限)
 DEFAULT_QUOTA_LIMIT = 10_000_000
@@ -112,62 +111,47 @@ class LLMUsageService:
         return record
 
     def get_user_stats(self, user_id: str, days: int = 7) -> dict[str, Any]:
-        """获取用户用量统计。
-
-        G-821(2026-09-29):input tokens 走「按 (来源链, session) 增量基线」,
-        逐条相加会把同一会话的上下文按轮次重复计入(平方级虚高)。
-        算法只在 core.token_baseline 那一份里,与 cost_ledger.aggregate 共用。
-        """
+        """获取用户用量统计。"""
         cutoff = time.time() - days * 86400
         user_records = [r for r in self._records if r.user_id == user_id and r.timestamp >= cutoff]
-        increments = incremental_prompt_tokens(
-            [
-                PromptTokenSample(
-                    source=f"{r.provider}/{r.model}",
-                    session_id=r.session_id,
-                    prompt_tokens=r.input_tokens,
-                )
-                for r in user_records
-            ]
-        )
 
-        total_input = sum(increments)
+        total_input = sum(r.input_tokens for r in user_records)
         total_output = sum(r.output_tokens for r in user_records)
         total_tokens = total_input + total_output
         total_cost = round(sum(r.estimated_cost for r in user_records), 4)
 
         # 按天汇总
         daily: dict[str, dict[str, int | float]] = {}
-        for r, increment in zip(user_records, increments, strict=True):
+        for r in user_records:
             day_key = datetime.fromtimestamp(r.timestamp).strftime("%Y-%m-%d")
             if day_key not in daily:
                 daily[day_key] = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost": 0.0}
-            daily[day_key]["input_tokens"] += increment
+            daily[day_key]["input_tokens"] += r.input_tokens
             daily[day_key]["output_tokens"] += r.output_tokens
-            daily[day_key]["total_tokens"] += increment + r.output_tokens
+            daily[day_key]["total_tokens"] += r.input_tokens + r.output_tokens
             daily[day_key]["cost"] += r.estimated_cost
 
         # 按模型汇总
         model_breakdown: dict[str, dict[str, int | float]] = {}
-        for r, increment in zip(user_records, increments, strict=True):
+        for r in user_records:
             key = f"{r.provider}/{r.model}"
             if key not in model_breakdown:
                 model_breakdown[key] = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost": 0.0, "calls": 0}
-            model_breakdown[key]["input_tokens"] += increment
+            model_breakdown[key]["input_tokens"] += r.input_tokens
             model_breakdown[key]["output_tokens"] += r.output_tokens
-            model_breakdown[key]["total_tokens"] += increment + r.output_tokens
+            model_breakdown[key]["total_tokens"] += r.input_tokens + r.output_tokens
             model_breakdown[key]["cost"] += r.estimated_cost
             model_breakdown[key]["calls"] += 1
 
         # 按厂商汇总
         provider_breakdown: dict[str, dict[str, int | float]] = {}
-        for r, increment in zip(user_records, increments, strict=True):
+        for r in user_records:
             p = r.provider
             if p not in provider_breakdown:
                 provider_breakdown[p] = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost": 0.0, "calls": 0}
-            provider_breakdown[p]["input_tokens"] += increment
+            provider_breakdown[p]["input_tokens"] += r.input_tokens
             provider_breakdown[p]["output_tokens"] += r.output_tokens
-            provider_breakdown[p]["total_tokens"] += increment + r.output_tokens
+            provider_breakdown[p]["total_tokens"] += r.input_tokens + r.output_tokens
             provider_breakdown[p]["cost"] += r.estimated_cost
             provider_breakdown[p]["calls"] += 1
 
