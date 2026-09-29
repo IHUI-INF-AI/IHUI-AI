@@ -61,6 +61,15 @@
  *              (真缺口 / 叙述性举例 / 台账已登记),编号维**永不判红**(AGENTS 明令"编号以
  *              runner 现值为准,勿照抄文档")。与 R4 严格互补不重复计债:R4 判"runner 有、文档无"。
  *              判据头注记着 2026-09-28 的现读三态计数与"为什么现读 0 也不开 blocking"。
+ *   R11 blocking:CI 面(.github/workflows/)出现任一门的 `--update-baseline` ⇒ 守门基线被
+ *              CI 自动刷新,防劣化承诺变成自动追认(票 G-665;现状是巧合而非约束,30 个脚本
+ *              暴露该旗标而 workflow 面一行判据都没有)。各门自带该旗标是合法的人工巡检档,
+ *              本维不判脚本自身、只判 CI 面;取材 = HEAD ∪ 索引(与 R2/R4 例外同源:同一枚
+ *              提交里把旗标写进 workflow 时,pre-commit 阶段还没进 HEAD),索引面走 --cached,
+ *              刻意不落无 rev 的 git grep(那搜的是工作区)。grep 异常 = 判红(查不了 ≠ 没有);
+ *              CI 面两面皆无 workflow = 判红(判据无对象不是通过,R9 同一条教训)。
+ *              双向用例:self-test P41/P41b(解析)+ M5(CI 面注入即红)+ E2 基线恰两红
+ *              (现状必绿的反向锁)。
 
  *   R7 blocking:台账 type=dispatcher 的"依据"文件不存在、或文件里没提被豁免脚本 =
  *              假依据(实测抓到 check-lock.mjs 一条编造的 dispatcher 说明)。
@@ -1066,6 +1075,57 @@ export function validateAllowlist(raw) {
 }
 
 // ─── 主流程 ───────────────────────────────────────────────────────────
+// ─── R11(票 G-665):CI 永不自动刷新基线 ──────────────────────────────────
+/** CI 面目录(workflow 是唯一权威 CI 面:清单可枚举、内容可 grep) */
+export const R11_CI_DIR = '.github/workflows'
+/** 被禁旗标:任一门的基础旗标出现在 CI 面 = 基线被 CI 自动刷新 */
+export const R11_BASELINE_FLAG = '--update-baseline'
+
+/**
+ * 解析 `git grep -n -F -e <flag> <rev> -- <dir>` 的输出行:
+ *   HEAD 面:`HEAD:.github/workflows/ci.yml:12:      - run: … --update-baseline …`
+ *   索引面(--cached,无 rev 前缀):`.github/workflows/ci.yml:12:      - run: …`
+ * 返回 [{path, line}]。content 里的冒号不干扰(行号是唯一数字锚);
+ * rev 前缀先剥再解析,两次调用(HEAD/索引)的 path 口径一致。逐行如实返回,去重交给 main。
+ */
+export function parseBaselineUpdateHits(grepOut, rev = '') {
+  const hits = []
+  for (const raw of String(grepOut ?? '').split('\n')) {
+    if (!raw) continue
+    // rev 给定时只认本面前缀的行:其它 rev(如 'main:')的输出混进来时,
+    // 懒惰 path 正则会把 'main:.github/...' 整段吞成 path —— 那是别的面的行,不是本面的
+    if (rev && !raw.startsWith(`${rev}:`)) continue
+    const stripped = rev ? raw.slice(rev.length + 1) : raw
+    const m = stripped.match(/^([^:]+):(\d+):(.*)$/)
+    if (!m) continue
+    hits.push({ path: m[1], line: Number(m[2]) })
+  }
+  return hits
+}
+
+/**
+ * 带行号的 git grep(本门既有的 gitGrep() 不带 -n,而 R11 的红条目必须点名 file:line)。
+ * mode='HEAD' 判 HEAD blob;mode='index' 判 **--cached**(索引)—— 刻意不落无 rev 的
+ * `git grep`,那个形态搜的是**工作树**,本门取材铁律明令不读工作区。
+ * exit 1 = 无匹配(合法绿);其余异常如实带 err 返回,由 main 判「查不了 ≠ 没有」。
+ */
+function gitGrepNumbered(pattern, mode, root) {
+  const args = ['grep', '-n', '-I', '-F', '-e', pattern]
+  args.push(...(mode === 'index' ? ['--cached'] : ['HEAD']))
+  args.push('--', R11_CI_DIR)
+  try {
+    return { ok: true, out: git(args, root, { quiet: true }) }
+  } catch (err) {
+    const code = err && typeof err.status === 'number' ? err.status : -1
+    if (code === 1) return { ok: true, out: '' }
+    return {
+      ok: false,
+      out: '',
+      err: String((err && err.stderr) || (err && err.message) || err),
+    }
+  }
+}
+
 async function main(argv = process.argv.slice(2)) {
   const opts = {
     root: DEFAULT_ROOT,
@@ -1455,6 +1515,58 @@ async function main(argv = process.argv.slice(2)) {
     }
   }
 
+  // ── R11(票 G-665):CI 永不自动刷新基线 ──────────────────────────────
+  // CI 面(.github/workflows/)出现任一门的 `--update-baseline` ⇒ 守门的棘轮/防劣化
+  // 语义被 CI 自动追认:每次 CI 都把基线改成「当前现状」,守门从此只报新账、旧账永远洗白
+  // (现状是巧合而非约束:30 个脚本暴露该旗标,workflow 面一行判据都没有)。各门自带该
+  // 旗标是合法的人工巡检档,本维不判脚本自身、只判 CI 面。取材 = HEAD ∪ 索引(与 R2/R4
+  // 例外同源:同一枚提交里把该旗写进 workflow,pre-commit 阶段还没进 HEAD,只判 HEAD
+  // 就是结构性漏判);索引面走 --cached,刻意不落无 rev 的 git grep(那搜的是工作树)。
+  const r11 = { hits: [], face: 'HEAD∪索引', grepOk: true, emptyFace: false }
+  const headSide = gitGrepNumbered(R11_BASELINE_FLAG, 'HEAD', root)
+  const indexSide = gitGrepNumbered(R11_BASELINE_FLAG, 'index', root)
+  if (!headSide.ok || !indexSide.ok) {
+    r11.grepOk = false
+    reds.push({
+      script: `(CI ${R11_CI_DIR})`,
+      status: 'red-r11',
+      reason: `git grep 取材失败(${(headSide.err || indexSide.err || '').trim().slice(0, 200)})—— 查不了不等于没有,不得静默放行`,
+    })
+  } else {
+    const seen = new Set()
+    for (const h of [
+      ...parseBaselineUpdateHits(headSide.out, 'HEAD'),
+      ...parseBaselineUpdateHits(indexSide.out, ''),
+    ]) {
+      const key = `${h.path}:${h.line}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      r11.hits.push(h)
+      reds.push({
+        script: `(CI ${h.path}:${h.line})`,
+        status: 'red-r11',
+        reason: `CI 面出现 ${R11_BASELINE_FLAG} ⇒ 守门基线被 CI 自动刷新,防劣化承诺变成自动追认(票 G-665;人工巡检请走本地档,CI 只许判不许写基线)`,
+      })
+    }
+    // 空面 = 判据无对象(R9 同一条教训:「0 对象」先怀疑尺子,不得读成通过)。
+    // HEAD 侧看 tracked 全树前缀,索引侧看 ls-files;两面都没有 workflow ⇒ 判红。
+    const headHasCI = [...tracked].some((p) => p.startsWith(`${R11_CI_DIR}/`))
+    let indexHasCI = false
+    try {
+      indexHasCI = git(['ls-files', R11_CI_DIR], root).split('\n').some((l) => l.trim() !== '')
+    } catch {
+      indexHasCI = false
+    }
+    if (!headHasCI && !indexHasCI) {
+      r11.emptyFace = true
+      reds.push({
+        script: `(CI ${R11_CI_DIR})`,
+        status: 'red-r11',
+        reason: 'CI 面不存在(HEAD 与索引都无 workflow 文件)⇒ R11 无对象可判,尺子失效不是通过',
+      })
+    }
+  }
+
   const docModes = docReader.modes()
 
   if (opts.json) {
@@ -1484,8 +1596,11 @@ async function main(argv = process.argv.slice(2)) {
             malformedTriggers: badTriggers.length,
             sharedSkipEnvs: sharedEnvs.length,
             dispatcherProblems: dispatcherProblems.length,
+            baselineUpdateHitsR11: r11.hits.length,
           },
           dispatcherProblems,
+          // R11(票 G-665)明细:CI 面的 --update-baseline 命中(file:line),供复核
+          baselineUpdatesR11: r11,
           duplicateIds: dupIds,
           malformedTriggers: badTriggers,
           sharedSkipEnvs: sharedEnvs,
@@ -1565,6 +1680,16 @@ async function main(argv = process.argv.slice(2)) {
         `     · 守门 ${s.id} @ ${s.doc}:${s.line}${s.actual ? ` [该行点的门体实际登记在 id ${s.actual}]` : ''} —— ${s.excerpt}`,
       )
     }
+
+    console.log(
+      `   R11(CI 面出现 --update-baseline ⇒ 基线被 CI 自动刷新,判红;取材=${r11.face},不读工作区): ` +
+        (r11.grepOk
+          ? r11.hits.length
+            ? r11.hits.map((h) => `${h.path}:${h.line}`).join(' / ')
+            : '0 处'
+          : '取材失败(已判红)') +
+        (r11.emptyFace ? ' | ⚠️ CI 面不存在,判据无对象(已判红)' : ''),
+    )
 
     if (undocumented.length) {
       console.log(
@@ -2041,6 +2166,35 @@ function runSelfTest() {
     findAbsentGateScripts('const GATES = []\n', hasA).registered === 0 &&
       findAbsentGateScripts('const GATES = []\n', hasA).absent.length === 0,
   )
+  // ── R11(G-665)解析层三例成对:两种面形态都认、content 冒号不干扰、无关行不算 ──
+  assert(
+    'P41 R11 解析:HEAD 前缀行与索引行(--cached 无 rev)都解析出 path+line;content 里的冒号不干扰',
+    JSON.stringify([
+      ...parseBaselineUpdateHits(
+        'HEAD:.github/workflows/ci.yml:12:  - run: node scripts/check-x.mjs --update-baseline --json\n',
+        'HEAD',
+      ),
+      ...parseBaselineUpdateHits(
+        '.github/workflows/release.yml:3:  - run: node scripts/scan-y.mjs --update-baseline --root=G:/x:y\n',
+        '',
+      ),
+    ]) ===
+      JSON.stringify([
+        { path: '.github/workflows/ci.yml', line: 12 },
+        { path: '.github/workflows/release.yml', line: 3 },
+      ]),
+  )
+  assert(
+    'P41b R11 解析负向:空输出、无行号锚的杂行、另一 rev 前缀都不得算命中(把"没判到"当"没命中"是假绿)',
+    parseBaselineUpdateHits('', 'HEAD').length === 0 &&
+      parseBaselineUpdateHits('HEAD:.github/workflows/ci.yml:没有数字:文字', 'HEAD').length === 0 &&
+      parseBaselineUpdateHits('main:.github/workflows/ci.yml:5:x --update-baseline', 'HEAD').length ===
+        0 &&
+      parseBaselineUpdateHits(
+        'HEAD:.github/workflows/ci.yml:5:x --update-baseline',
+        'HEAD',
+      ).length === 1,
+  )
   assert(
     'P24 R5 负向 + R6 语义:编号唯一不得报红;共用 skipEnv 只计数不判红',
     findDuplicateIds(
@@ -2227,6 +2381,28 @@ function runSelfTest() {
     const r4 = runGateCli([`--root=${repo4}`, '--json'])
     const j4 = JSON.parse(r4.out.slice(r4.out.indexOf('{')))
     assert(`M3 全部真接线后 exit 0(实得 ${r4.code})`, r4.code === 0 && j4.reds.length === 0)
+
+    // 变异 5(R11/G-665):CI 面注入 --update-baseline ⇒ 必判红且点名 file:line。
+    // E2(基线假仓 ci.yml 无该旗标恰两红)同时是「现状必绿」的反向锁:R11 不得在干净 CI 面上喊红。
+    const repoCI = makeFixtureRepo(base, {
+      files: {
+        '.github/workflows/ci.yml':
+          'name: ci\njobs:\n  a:\n    steps:\n      - run: node scripts/check-ci-only.mjs --update-baseline\n',
+      },
+    })
+    const rCI = runGateCli([`--root=${repoCI}`, '--json'])
+    const jCI = JSON.parse(rCI.out.slice(rCI.out.indexOf('{')))
+    const r11Red = jCI.reds.find((x) => x.status === 'red-r11')
+    assert(
+      `M5 R11 CI 面写进 --update-baseline ⇒ 判红并点名 file:line(实得 ${
+        r11Red ? r11Red.script : '无 red-r11'
+      })`,
+      rCI.code === 1 &&
+        !!r11Red &&
+        r11Red.script.includes('.github/workflows/ci.yml') &&
+        r11Red.script.endsWith(':5)') &&
+        !jCI.reds.some((x) => x.status === 'red-r11' && x.script !== r11Red.script),
+    )
 
     // 变异 4:台账登记了实际已接线的门 → 必须报「可撤销豁免」
     writeFileSync(
@@ -2701,6 +2877,10 @@ export const __test__ = {
   // R8:红条件委托给 lib,镜像测试要能直接拿到这三个出口构造正反例(§22c)
   findMalformedTriggers,
   findAbsentGateScripts,
+  // R11(G-665):解析与旗标/目录常量,镜像测试直接 import 判据(§22c,不另写一份)
+  parseBaselineUpdateHits,
+  R11_BASELINE_FLAG,
+  R11_CI_DIR,
   parseTriggersLiteral,
   normalizeTriggers,
   // R4 与 R10 的互补性由镜像测试在同一份夹具上双向判(§22c:测试必须 import 判据,不得另写一份)
