@@ -466,6 +466,134 @@ def _is_loop_v2_enabled() -> bool:
     return val.strip().lower() in ("loop_v2", "v2")
 
 
+async def _new_v2_loop(
+    *,
+    model: str | None,
+    tools: list[str] | None,
+    max_iterations: int | None,
+    session_id: str | None,
+    current_user: str,
+    user_role: int,
+    permission_mode: str | None = None,
+) -> Any:
+    """构造 AgentLoopV2 的**唯一**入口(D144③ 2026-09-29 从 execute/stream 抽出)。
+
+    为什么必须是函数而不是"各调用点各写一份参数表":本文件此前有两处内联构造
+    (execute/stream 的 v2 分支、`_resume_agent_loop_from_checkpoint`),两处参数表
+    已经漂开 —— resume 那份没有 `permission_mode`,于是 G-161 修掉的"端上选了档
+    却永远走 default"在断点续跑链上原地复发。第三处(非流式 execute)如果再抄一遍,
+    就会长出第四个真相。§3「同一件事只许一处交集实现」在这条链上的落点就是本函数。
+
+    Args:
+        model: 请求模型名(用于 llm 包装与 V3 #55 压缩上限的动态解析)。
+        tools: 客户端请求的工具白名单(经 `_build_loop_v2_tools` 过角色/矩阵)。
+        max_iterations: 请求显式轮次上限;为空时沿用**请求级兜底 8**(与两处旧构造
+            逐字同值)。注意它与引擎构造器默认档 `core/doom_loop.py`
+            `AGENT_MAX_ITERATIONS=10` **不是同一档** —— 这一格差异由
+            `scripts/check-doom-loop-parity.mjs` 的 P4 登记表逐条写明理由与到期日,
+            不得读成"已归一"。
+        session_id: 会话 ID;resume 链上不传(由 loop 自己从 checkpoint 恢复)。
+        current_user: **令牌主体**(O19:审批属主登记与记忆隔离都据此),不得取请求体自报值。
+        user_role: V3 #47 的角色桥;取不到 = 0 = 普通用户。
+        permission_mode: G-161 权限档;None 时沿用 env 默认(与旧 resume 构造同语义)。
+
+    Returns:
+        构造好的 AgentLoopV2 实例(调用方负责 run / resume_from_checkpoint 与属主登记)。
+    """
+    from app.core.model_context_window import resolve_with_env_priority
+
+    from ..services.agent_loop_v2 import AgentLoopV2
+
+    return AgentLoopV2(
+        _make_loop_v2_llm(model),
+        tools=await _build_loop_v2_tools(tools, user_role=user_role, user_id=current_user),
+        user_role=user_role,
+        session_id=session_id,
+        max_iterations=max_iterations or 8,
+        enable_checkpoint=True,
+        # G-161:此前根本没把请求里的 permission_mode 传进来 →
+        # 端上选的权限档在这条主执行链上永远是 default。
+        permission_mode=permission_mode,
+        # O19:principal 贯通到执行路径 —— 高危工具审批条目据此登记属主
+        # (agent_loop_v2._request_approval → self._user_id),并启用 P1-6
+        # 记忆闭环的用户隔离。
+        user_id=current_user,
+        # V3 #55(2026-09-26):压缩上限缺省按请求模型动态解析
+        # (env AGENT_COMPACTION_CONTEXT_LIMIT 显式配置仍优先;彻底关压缩
+        # 走灰度总闸 AGENT_COMPACTION_MODE=off,语义正确且可放量)。
+        # 此前缺省 0=永不压缩,放量基建(灰度/指标/回退)齐备但线上从未生效。
+        compaction_context_limit=resolve_with_env_priority(model),
+    )
+
+
+def _v2_result_to_execute_payload(session_id: str, result: Any) -> dict[str, Any]:
+    """AgentLoopResult → 非流式 execute 的既有响应形状(**键集一字未改**)。
+
+    D144③ 归一执行内核时,对外契约必须逐键保持 `agent_loop.py` V1 的形态:
+    task_id / session_id / status / iterations / steps / result / error。
+    调用方(apps/api 的 automations agent 执行器、packages/api-client 的
+    `executeAgent`、v1-ai-core 的 /v1/agents/execute)读的就是这几个键,
+    换内核不等于换响应形状 —— 新增键一律不加(加就是对外契约变化,另计票)。
+    """
+    stop_reason = getattr(result, "stop_reason", "") or ""
+    success = bool(getattr(result, "success", False))
+    if success:
+        status = "completed"
+    elif stop_reason in ("cancelled", "canceled", "paused"):
+        # V1 的取消态用单 l("canceled"),这里两种拼写都归到既有取值上
+        status = "canceled"
+    else:
+        status = "failed"
+
+    steps: list[dict[str, Any]] = []
+    for it in getattr(result, "iterations", []) or []:
+        idx = getattr(it, "iteration", len(steps) + 1)
+        reasoning = getattr(it, "reasoning", "") or ""
+        if reasoning:
+            steps.append(
+                {
+                    "iteration": idx,
+                    "type": "assistant",
+                    "tool_name": None,
+                    "tool_args": None,
+                    "content": reasoning,
+                    "status": "completed",
+                }
+            )
+        for tr in getattr(it, "tool_results", []) or []:
+            err = getattr(tr, "error", None)
+            steps.append(
+                {
+                    "iteration": idx,
+                    "type": "tool",
+                    "tool_name": getattr(tr, "name", ""),
+                    "tool_args": None,
+                    "content": err if err else getattr(tr, "result", ""),
+                    "status": "failed" if err else "completed",
+                }
+            )
+
+    error: str | None = getattr(result, "error", None)
+    if error is None and not success:
+        # 无 error 文本却未成功(如 max_iterations / budget_exceeded):把停止原因
+        # 如实写进既有的 error 字段,而不是新增一个键或伪装成成功。
+        error = f"stop_reason={stop_reason}" if stop_reason else "agent 未成功完成"
+    return {
+        # V2 没有 V1 的 task 自增号;task_id 由 session 派生,稳定且可在响应里回显。
+        # ⚠️ 已知后果(如实登记):`/agents/{task_id}/status|cancel` 与 `/agents/running`
+        # 读的是 V1 执行器的 `_running`,V2 跑法不在那张表里 ⇒ 归一后这些端点对
+        # V2 run 返回 404。V2 时代的在飞索引是 `agent_run_control`(本端点已登记),
+        # 把那几个端点改指它是**另一票**(不在 D144"只归一一处出口"的口径内)。
+        "task_id": f"task-{session_id}",
+        "session_id": session_id,
+        "status": status,
+        "iterations": len(getattr(result, "iterations", []) or []),
+        "steps": steps,
+        "result": getattr(result, "final_response", "") or "",
+        "error": error,
+    }
+
+
 # 单一事实源迁移(2026-09-17):映射表移至 services/agent_events.HOOK_EVENT_TO_SSE
 # (补齐 session.end/permission.mode/message.send 映射),此处保留别名供既有
 # 调用点与 tests/test_agents.py 引用。
@@ -975,27 +1103,42 @@ async def agent_approval_response(
 @router.post("/agents/execute")
 async def execute_agent(
     req: AgentExecuteRequest,
+    request: Request,
     current_user: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """执行 agent(同步返回结果)。
 
     O19(2026-09-21):必须登录,且把 principal 贯通到执行路径 ——
-    ① `user_id` 传给 v1 执行器,会话记忆按 P1-6 复合 key(memory:{user}:{sid})读写,
-       与 GET /agents/sessions* 的隔离口径一致;
+    ① `user_id` 传给执行器,会话记忆按 P1-6 复合 key(memory:{user}:{sid})读写,
+       本端点与 GET /agents/sessions* 的隔离口径一致;
     ② run 期间把 session→user 登记进 run_ownership,供事件流按属主过滤,run 结束即释放。
+
+    D144③(2026-09-29 归一):执行内核改指 **AgentLoopV2**,与 execute/stream 共用
+    `_new_v2_loop` 这一份构造 —— 此前本端点**无条件**调用 V1 的 `agent_executor.run`,
+    于是"同一个 agent 有两种跑法"由入口决定而不是由部署档位决定:V1 从不构造 V2,
+    所以 G-161 的审批门、V3 #55 的压缩上限、V3 #65 的 checkpoint/暂停控制面在这里
+    全部缺席(上面那两条 400 拒答就是为了不把"发了≠生效"卖给调用方)。
+    V1 只保留为**显式**回退档(env `AGENT_EXECUTOR=v1|legacy|langgraph`),灰度出口
+    一字未改;响应键集逐字不变(见 `_v2_result_to_execute_payload`)。
     """
     owned: list[str] = []
-    # G-161:本端点走的是已弃用的单轮执行器(AgentExecutor),它从不构造 AgentLoopV2,
+    # G-161:本端点过去走的是已弃用的单轮执行器(AgentExecutor),它从不构造 AgentLoopV2,
     # 因此权限档在此**无法生效**。此前 permission_mode 字段干脆不存在 → 被静默丢弃,
     # 客户端以为自己设了 bypassPermissions。宁可拒 400,也不允许"发了≠生效"。
+    # ⚠️ D144③ 归一后本条拒答**继续成立且理由换了**:非流式响应里没有任何通道能把
+    # 高危审批送到人面前(V2 的审批要经 SSE/hook 帧下发,再由 POST /agents/approvals
+    # 回执),所以"选了 acceptEdits/bypassPermissions 却没人能批"仍是"发了≠生效"。
+    # default 档下若真撞到高危工具,由 V2 自带的 approval_timeout(默认 60s)判**不执行**
+    # —— 失效方向是拒绝,不是放行。把审批投递通道接进本端点属另一票,不得顺手做。
     resolved_mode = _resolved_permission_mode(req.permission_mode)
     if resolved_mode is not None and resolved_mode != "default":
         raise HTTPException(
             status_code=400,
             detail=(
-                f"permissionMode={resolved_mode} 仅在 POST /agents/execute/stream 生效"
-                "(非流式端点使用弃用的单轮执行器,不含审批门)"
-            ),
+                "permissionMode=%s 仅在 POST /agents/execute/stream 生效"
+                "(非流式端点没有审批投递通道,选了也没人能够得着)"
+            )
+            % resolved_mode,
         )
     # 同一条"发了≠生效就不许发"的规矩(§8 第 3 步):独立校验闸门只接在流式端点上,
     # 因为它是唯一留下 iterations 当机器事实入口的执行路径。此处若不拒,声明了
@@ -1006,12 +1149,41 @@ async def execute_agent(
             status_code=400,
             detail=(
                 "hard_criteria 仅在 POST /agents/execute/stream 生效"
-                "(单轮执行器不产出工具调用记录,独立校验无从取证,宁可不答)"
+                "(独立校验闸门未接在非流式端点上,单轮响应不产出可取证的工具调用记录)"
             ),
         )
     if req.session_id:
         record_ownership(req.session_id, current_user)
         owned.append(req.session_id)
+
+    if _is_loop_v2_enabled():
+        # D144③ 主路径:与 execute/stream 同一份构造、同一个 run 控制面登记口径
+        # (owner 取令牌主体 current_user,不是 req.session_id 之类的自报值)。
+        session_id = req.session_id or f"session-{asyncio.get_running_loop().time()}"
+        if session_id not in owned:
+            record_ownership(session_id, current_user)
+            owned.append(session_id)
+        registered = False
+        try:
+            loop = await _new_v2_loop(
+                model=req.model,
+                tools=req.tools,
+                max_iterations=req.max_iterations,
+                session_id=session_id,
+                current_user=current_user,
+                user_role=resolve_request_role_id(request),
+                permission_mode=resolved_mode,
+            )
+            await register_run(session_id, owner_user_id=current_user, loop=loop)
+            registered = True
+            v2_result = await loop.run([{"role": "user", "content": req.goal}])
+        finally:
+            if registered:
+                await detach_run(session_id, owner_user_id=current_user)
+            for sid in owned:
+                release_ownership(sid)
+        return _v2_result_to_execute_payload(session_id, v2_result)
+
     try:
         result = await agent_executor.run(
             goal=req.goal,
@@ -1143,12 +1315,9 @@ async def execute_agent_stream(
             # L5-10(2026-08-12):AgentLoopV2 执行器(env AGENT_EXECUTOR=loop_v2 启用)。
             # 重试/错误分类/元学习/事件总线,SSE 事件经 hook_engine 订阅器按 session 过滤。
             if _is_loop_v2_enabled():
-                from ..services.agent_loop_v2 import AgentLoopV2
                 from ..services.hook_engine import hook_engine
 
                 session_id = req.session_id or f"session-{asyncio.get_running_loop().time()}"
-                # V3 #55:压缩上限按模型动态解析(函数内局部 import,与本文件风格一致)
-                from app.core.model_context_window import resolve_with_env_priority
 
                 # O19:登记属主,供 tasks/stream 与 /agents/{id}/stream 做事件级属主过滤
                 record_ownership(session_id, current_user)
@@ -1158,27 +1327,16 @@ async def execute_agent_stream(
                 # 走,admin 在主执行链上永远拿不到 `_ADMIN_ONLY_TOOLS` 里的能力;
                 # 而引擎自带工具连矩阵都不经过 —— 两头同时错。取不到角色 = 0 = 普通用户。
                 user_role = resolve_request_role_id(request)
-                loop = AgentLoopV2(
-                    _make_loop_v2_llm(req.model),
-                    tools=await _build_loop_v2_tools(
-                        req.tools, user_role=user_role, user_id=current_user
-                    ),
-                    user_role=user_role,
+                # D144③(2026-09-29):构造参数表从本处**移出**到 `_new_v2_loop`,
+                # 与非流式 execute、断点续跑三处共用一份 —— 逐参数取值一字未改。
+                loop = await _new_v2_loop(
+                    model=req.model,
+                    tools=req.tools,
+                    max_iterations=req.max_iterations,
                     session_id=session_id,
-                    max_iterations=req.max_iterations or 8,
-                    enable_checkpoint=True,
-                    # G-161:此前根本没把请求里的 permission_mode 传进来 →
-                    # 端上选的权限档在这条主执行链上永远是 default。
+                    current_user=current_user,
+                    user_role=user_role,
                     permission_mode=_resolved_permission_mode(req.permission_mode),
-                    # O19:principal 贯通到执行路径 —— 高危工具审批条目据此登记属主
-                    # (agent_loop_v2._request_approval → self._user_id),并启用 P1-6
-                    # 记忆闭环的用户隔离。
-                    user_id=current_user,
-                    # V3 #55(2026-09-26):压缩上限缺省按请求模型动态解析
-                    # (env AGENT_COMPACTION_CONTEXT_LIMIT 显式配置仍优先;彻底关压缩
-                    # 走灰度总闸 AGENT_COMPACTION_MODE=off,语义正确且可放量)。
-                    # 此前缺省 0=永不压缩,放量基建(灰度/指标/回退)齐备但线上从未生效。
-                    compaction_context_limit=resolve_with_env_priority(req.model),
                 )
                 # V3 #65(2026-09-28):把这枚在飞循环登记进 run 控制面,`pause()` 从此
                 # 才有人能够得着 —— 此前 loop 实例是生成器的局部变量,HTTP 面无任何
@@ -1367,31 +1525,24 @@ async def _resume_run_from_checkpoint(
         ValueError: checkpoint 不存在 / 已过期,由 `resume_from_checkpoint` 抛出;
             调用方各自映射成自己的响应形态(不在此层决定 HTTP 语义)。
     """
-    from app.core.model_context_window import resolve_with_env_priority
-
-    from ..services.agent_loop_v2 import AgentLoopV2
-
     # V3 #47 第二格:角色在此取一次,下面两处(工具装配 + 循环构造)共用同一个值,
     # 不允许各取各的 —— 两次读取之间若身份被改,就会出现"工具按 A 角色装配、
     # 执行按 B 角色判定"的分叉。
     resumed_role = resolve_request_role_id(request)
 
-    loop = AgentLoopV2(
-        _make_loop_v2_llm(model),
-        # V3 #47 第二格(2026-09-26):与 execute/stream 同口径把角色过桥 ——
-        # 断点续跑恢复的是同一调用方的会话,若这里漏传,admin 在 resume 链上
-        # 会被静默降成普通用户(与 stream 修掉的那半是同一个洞的两半)。
-        tools=await _build_loop_v2_tools(
-            tools, user_role=resumed_role, user_id=current_user
-        ),
+    # D144③(2026-09-29):本处的内联构造与 execute/stream 那份已经漂开 —— 它**没有**
+    # 传 permission_mode,于是 G-161 修掉的"选了档却永远走 default"在断点续跑链上原地
+    # 复发。现在三处(非流式 execute / execute_stream / resume)都走 `_new_v2_loop`,
+    # 参数表只有一份;本票口径是"只归一出口、不改其余语义",所以 resume 继续传
+    # permission_mode=None(= 沿用 env 默认,与旧内联构造逐字同值)。把请求里的档位
+    # 贯通到 resume 是**另一票**(要同时改 AgentResumeRequest 的字段与用例)。
+    loop = await _new_v2_loop(
+        model=model,
+        tools=tools,
+        max_iterations=max_iterations,
+        session_id=None,
+        current_user=current_user,
         user_role=resumed_role,
-        max_iterations=max_iterations or 8,
-        enable_checkpoint=True,
-        # O19:principal 贯通(审批属主登记 + 记忆隔离口径与 execute 一致)
-        user_id=current_user,
-        # V3 #55(2026-09-26):与 execute/stream 同口径,压缩上限按模型动态解析
-        # (env 显式配置优先;断点续跑恢复的历史消息同样受压缩保护)。
-        compaction_context_limit=resolve_with_env_priority(model),
     )
     return await loop.resume_from_checkpoint(checkpoint_id)
 

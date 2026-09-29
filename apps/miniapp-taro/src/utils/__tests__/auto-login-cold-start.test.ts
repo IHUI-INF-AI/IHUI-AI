@@ -15,6 +15,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { canSilentlyReLogin, SESSION_LOGGED_OUT_STORAGE_KEY } from '@ihui/shared/auth/auto-login-policy'
@@ -190,8 +191,11 @@ describe('401 静默续期同闸(与 RN / web 同一条判据)', () => {
 describe('不经 clearAuth 的两条登出入口必须显式落标记(装车证明)', () => {
   // 这两页只调后端登出接口 + reLaunch / clearStorageSync,不经过 utils/auth 的 clearAuth()。
   // 不点名它们,"登出必落标记"就只对 store 那一条出口成立 —— 判据失效的表现永远是安静。
+  // 取材用 node:path 拼绝对路径,不用 `new URL(rel, import.meta.url)`:该端 tsconfig 的 lib 里
+  // DOM 的 URL 与 node:url 的 URL 是两个类型,后者传给 fileURLToPath 会在 HEAD 上直接判 TS2345
+  // (端 typecheck 恒红 = 每台每次被逼跳门,§12e 同型),而两种写法解出的文件是同一个。
   const read = (rel: string): string =>
-    readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf-8')
+    readFileSync(join(dirname(fileURLToPath(import.meta.url)), rel), 'utf-8')
 
   it('pages/setting 的退出登录调用 markSessionLoggedOut', () => {
     const src = read('../../pages/setting/index.tsx')
