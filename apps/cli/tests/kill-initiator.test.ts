@@ -2,69 +2,73 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// A/B:同一份三面输入,分别在"有折叠判据"与"把折叠判据中和"两种口径下比较期望重数,
-// 用来回答「G-668 那行没存活,是折叠判据造成的,还是本来就少这一行」。
-// 中和只在**探针进程里**做(把 caps 加回期望表),不改磁盘任何文件(那份属于他人在飞)。
-import { execFileSync } from 'node:child_process'
-import { gitBinary } from '../../../scripts/lib/face-reader.mjs'
-import * as U from '../../../scripts/union-converge.mjs'
+import { describe, it, expect } from 'vitest'
+import { spawn } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 
-const GIT = gitBinary()
-const root = 'D:/IHUI-AI'
-const git = (args) =>
-  execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', root, ...args], {
-    encoding: 'utf8',
-    maxBuffer: 1 << 26,
-    windowsHide: true,
-    timeout: 180000,
+import { registerTask, killTask, getTaskOutput } from '../src/tools/background-registry.js'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const sleeper = () => spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)'])
+
+describe('G-816026 停止发起方(stopInitiator)', () => {
+  it('模型停 ⇒ 读得出 model,且 timedOut=false(不是超时)', async () => {
+    const child = sleeper()
+    const id = registerTask(child, 'sleep-long-model-kill')
+    const r = await killTask(id, 'model')
+    expect(r.killed).toBe(true)
+    const out = getTaskOutput(id)
+    expect(out!.status).toBe('killed')
+    expect(out!.stopInitiator).toBe('model')
+    expect(out!.timedOut).toBe(false)
+  }, 15_000)
+
+  it('用户停 ⇒ 读得出 user(这是用户的决定,不许被续上)', async () => {
+    const child = sleeper()
+    const id = registerTask(child, 'sleep-long-user-kill')
+    await killTask(id, 'user')
+    const out = getTaskOutput(id)
+    expect(out!.stopInitiator).toBe('user')
+    expect(out!.timedOut).toBe(false)
+  }, 15_000)
+
+  it('外部 SIGKILL(无 killTask)⇒ killed + 发起方未知 + 非超时(OOM 与用户手停不再同形)', async () => {
+    const child = sleeper()
+    const id = registerTask(child, 'oom-style-external-kill')
+    child.kill('SIGKILL')
+    await new Promise<void>((resolve) => {
+      child.on('close', () => resolve())
+      child.on('exit', () => setTimeout(resolve, 50))
+    })
+    await new Promise((r) => setTimeout(r, 50))
+    const out = getTaskOutput(id)
+    expect(out!.status).toBe('killed')
+    expect(out!.stopInitiator ?? null).toBeNull()
+    expect(out!.timedOut).toBe(false)
+  }, 15_000)
+})
+
+describe('G-816026 反向锁(源码级)', () => {
+  const reg = readFileSync(join(HERE, '../src/tools/background-registry.ts'), 'utf8')
+
+  it('close 处理器不得再按 signal 形状反推 timedOut(旧塌陷写法不得回来)', () => {
+    expect(reg.includes('timedOut = signal ===')).toBe(false)
+    expect(reg.includes('timedOut = true')).toBe(false)
+    expect(reg).toContain('t.stopInitiator = initiator')
   })
 
-const OURS = process.argv[2]
-const THEIRS = process.argv[3]
-const BASE = git(['merge-base', OURS, THEIRS]).trim()
-const ours = git(['show', `${OURS}:PROJECT_PLAN.md`])
-const theirs = git(['show', `${THEIRS}:PROJECT_PLAN.md`])
-const base = git(['show', `${BASE}:PROJECT_PLAN.md`])
-console.log(`base=${BASE.slice(0, 11)} ours=${OURS.slice(0, 11)} theirs=${THEIRS.slice(0, 11)}`)
+  it('两个发起方必须各自落盘:模型走 model,用户走 user', () => {
+    expect(readFileSync(join(HERE, '../src/tools/builtins.ts'), 'utf8')).toContain("killTask(taskId, 'model')")
+    expect(readFileSync(join(HERE, '../src/commands/repl.ts'), 'utf8')).toContain("killTask(id, 'user')")
+  })
 
-const count = (t) => {
-  const m = new Map()
-  for (const l of String(t).split('\n')) m.set(l, (m.get(l) || 0) + 1)
-  return m
-}
-const wFold = U.liveDocExpectedCounts(ours, theirs, base, null)
-const caps = U.theirsRewriteCaps(ours, theirs, base, null)
-const wNoFold = new Map(wFold)
-for (const [l, n] of caps) wNoFold.set(l, (wNoFold.get(l) || 0) + n)
-
-const cFold = wFold
-const cNoFold = wNoFold
-const cOurs = count(ours)
-const cTheirs = count(theirs)
-const cBase = count(base)
-
-console.log(`caps 命中 ${caps.size} 条(折叠判据本轮打算少带的东西)`)
-let shown = 0
-for (const [l, n] of caps) {
-  if (shown++ >= 12) {
-    console.log(`   …其余 ${caps.size - shown} 条未打印`)
-    break
-  }
-  console.log(
-    `   [折掉 ${n} 份] base=${cBase.get(l) || 0} ours=${cOurs.get(l) || 0} theirs=${cTheirs.get(l) || 0}` +
-      ` → 折后=${cFold.get(l) || 0} / 不折=${cNoFold.get(l) || 0} | ${l.slice(0, 96)}`,
-  )
-}
-for (const needle of ['G-668 忙时收到的 tick 不得丢']) {
-  const lines = new Set(
-    [...cBase.keys(), ...cOurs.keys(), ...cTheirs.keys()].filter((l) => l.includes(needle)),
-  )
-  console.log(`\n=== 含「${needle}」的行 ${lines.size} 条:`)
-  for (const l of lines) {
-    console.log(
-      `   base=${cBase.get(l) || 0} ours=${cOurs.get(l) || 0} theirs=${cTheirs.get(l) || 0}` +
-        ` → 期望(折)=${cFold.get(l) || 0} / 期望(不折)=${cNoFold.get(l) || 0}\n     文:${l.slice(0, 190)}`,
-    )
-  }
-}
+  it('模型可读文案必须区分三种停止方(不许只报 killed)', () => {
+    const builtins = readFileSync(join(HERE, '../src/tools/builtins.ts'), 'utf8')
+    expect(builtins).toContain('不要重跑')
+    expect(builtins).toContain('不要 resume')
+    expect(builtins).toContain('外部/未知')
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
