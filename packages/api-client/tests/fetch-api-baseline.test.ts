@@ -45,8 +45,22 @@ interface Snapshot {
 }
 
 /** 稳定序列化:显式保留值为 undefined 的键,使"新增可选字段"也能被逐字比出来 */
+/** W3C traceparent:version-traceId-spanId-flags(小写 hex)。 */
+const TRACEPARENT_SHAPE = /^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$/
+
 function stableStringify(value: unknown): string {
-  return JSON.stringify(value, (_key, v: unknown) => (v === undefined ? '<<undefined>>' : v))
+  return JSON.stringify(value, (_key, v: unknown) => {
+    if (v === undefined) return '<<undefined>>'
+    /**
+     * D147(2026-09-28)起出站都带 `traceparent`,而它的 id **每次运行都是新随机的** ——
+     * 逐字基线若不归一,这条测试就从"行为对账"退化成"永远红的噪声"。
+     * 归一只在形状合法时做:值被摘掉 ⇒ 键整个消失(与基线不等 ⇒ 红);值被写坏 ⇒ 原样进快照(⇒ 红)。
+     * 反过来"无条件替换成固定串"就是把"没发"与"发了但发错"洗成同一种绿。
+     */
+    if (_key === 'traceparent' && typeof v === 'string')
+      return TRACEPARENT_SHAPE.test(v) ? '<<traceparent:valid>>' : v
+    return v
+  })
 }
 
 function jsonResponse(status: number, body: unknown): TransportResponse {
@@ -109,26 +123,26 @@ const BASELINE: Record<Scenario, Snapshot> = {
   'ok200': {
     result: '{"success":true,"data":{"id":"x"},"status":200}',
     transportCalls:
-      '[{"url":"/api/things","method":"POST","headers":{"Authorization":"Bearer expired-token","X-Requested-With":"XMLHttpRequest"}}]',
+      "[{\"url\":\"/api/things\",\"method\":\"POST\",\"headers\":{\"Authorization\":\"Bearer expired-token\",\"X-Requested-With\":\"XMLHttpRequest\",\"traceparent\":\"<<traceparent:valid>>\"}}]",
     refreshCalls: 0,
   },
   'refresh-then-ok': {
     result: '{"success":true,"data":{"id":"retry"},"status":200}',
     transportCalls:
-      '[{"url":"/api/things","method":"POST","headers":{"Authorization":"Bearer expired-token","X-Requested-With":"XMLHttpRequest"}},{"url":"/api/things","method":"POST","headers":{"Authorization":"Bearer fresh-token","X-Requested-With":"XMLHttpRequest"}}]',
+      "[{\"url\":\"/api/things\",\"method\":\"POST\",\"headers\":{\"Authorization\":\"Bearer expired-token\",\"X-Requested-With\":\"XMLHttpRequest\",\"traceparent\":\"<<traceparent:valid>>\"}},{\"url\":\"/api/things\",\"method\":\"POST\",\"headers\":{\"Authorization\":\"Bearer fresh-token\",\"X-Requested-With\":\"XMLHttpRequest\",\"traceparent\":\"<<traceparent:valid>>\"}}]",
     refreshCalls: 1,
   },
   'refresh-fails': {
     result:
       '{"success":false,"error":"登录已过期","status":401,"errorCode":"<<undefined>>","retryAfter":"<<undefined>>"}',
     transportCalls:
-      '[{"url":"/api/things","method":"POST","headers":{"Authorization":"Bearer expired-token","X-Requested-With":"XMLHttpRequest"}}]',
+      "[{\"url\":\"/api/things\",\"method\":\"POST\",\"headers\":{\"Authorization\":\"Bearer expired-token\",\"X-Requested-With\":\"XMLHttpRequest\",\"traceparent\":\"<<traceparent:valid>>\"}}]",
     refreshCalls: 1,
   },
   'network-error': {
     result: '{"success":false,"error":"boom"}',
     transportCalls:
-      '[{"url":"/api/things","method":"POST","headers":{"Authorization":"Bearer expired-token","X-Requested-With":"XMLHttpRequest"}},{"url":"/api/things","method":"POST","headers":{"Authorization":"Bearer expired-token","X-Requested-With":"XMLHttpRequest"}}]',
+      "[{\"url\":\"/api/things\",\"method\":\"POST\",\"headers\":{\"Authorization\":\"Bearer expired-token\",\"X-Requested-With\":\"XMLHttpRequest\",\"traceparent\":\"<<traceparent:valid>>\"}},{\"url\":\"/api/things\",\"method\":\"POST\",\"headers\":{\"Authorization\":\"Bearer expired-token\",\"X-Requested-With\":\"XMLHttpRequest\",\"traceparent\":\"<<traceparent:valid>>\"}}]",
     refreshCalls: 0,
   },
 }
