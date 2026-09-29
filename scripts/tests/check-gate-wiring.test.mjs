@@ -74,6 +74,32 @@ test('T4 模板形态接线识别:分发器派生的子门算已接线,且不误
   assert.equal(G.gateMatchesTemplates('check-other.mjs', m), null)
 })
 
+test('T11 R11(G-665)解析判据:两面输出形态都认、content 冒号不干扰;异面前缀/杂行不算', () => {
+  assert.deepEqual(
+    [
+      ...G.parseBaselineUpdateHits(
+        'HEAD:.github/workflows/ci.yml:12: run node scripts/check-x.mjs --update-baseline\n',
+        'HEAD',
+      ),
+      ...G.parseBaselineUpdateHits(
+        '.github/workflows/release.yml:3: run node scripts/scan-y.mjs --update-baseline --root=G:/a:b\n',
+        '',
+      ),
+    ],
+    [
+      { path: '.github/workflows/ci.yml', line: 12 },
+      { path: '.github/workflows/release.yml', line: 3 },
+    ],
+  )
+  // 负向:空输出 / 无行号锚的杂行 / 其它 rev 前缀的行(别的面的输出混入)都不得算命中
+  assert.deepEqual(G.parseBaselineUpdateHits('', 'HEAD'), [])
+  assert.deepEqual(G.parseBaselineUpdateHits('HEAD:.github/workflows/ci.yml:没有数字:文字', 'HEAD'), [])
+  assert.deepEqual(G.parseBaselineUpdateHits('main:.github/workflows/ci.yml:5:x --update-baseline', 'HEAD'), [])
+  // 常量钉死:旗标与 CI 面目录改动必须显式过人(判据本体随常量漂移=失明)
+  assert.equal(G.R11_BASELINE_FLAG, '--update-baseline')
+  assert.equal(G.R11_CI_DIR, '.github/workflows')
+})
+
 test('T5 五处权威接线点结构:pre-commit 真实逻辑必须在强接线集合内', () => {
   const strongIds = G.WIRING_POINTS.strong.map((p) => p.id)
   assert.equal(G.WIRING_POINTS.strong.length, 4, '强接线点应为 4 处')
