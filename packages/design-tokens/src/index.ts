@@ -91,7 +91,7 @@ export type {
 } from './chart-templates.js'
 
 // 第三方 OAuth 平台品牌色唯一真相源(mobile-rn 登录页第三方按钮消费,明暗恒定)。
-export { OAUTH_BRAND_COLORS } from './oauth-colors.js'
+export { OAUTH_BRAND_COLORS, OAUTH_BUTTON_FOREGROUND } from './oauth-colors.js'
 
 // 关闭按钮统一样式 token(2026-09-16 立)— 弹窗/抽屉/浮层关闭按钮单一真相源,
 // ui-react CloseButton 组件 + 各端散装 Radix Close 全部引用,禁止手写散装样式。
