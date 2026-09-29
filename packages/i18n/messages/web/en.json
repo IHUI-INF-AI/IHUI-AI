@@ -8580,6 +8580,82 @@
         "WRITE_FAILED": {
           "title": "File read/write failed",
           "action": "Check the file and retry"
+        },
+        "FILE_SCAN_PENDING": {
+          "title": "Security scan in progress",
+          "action": "Wait for the scan to finish and retry"
+        },
+        "FILE_SCAN_FAILED": {
+          "title": "Security scan failed",
+          "action": "Try again later"
+        },
+        "FILE_SCAN_TIMEOUT": {
+          "title": "Security scan timed out",
+          "action": "Try again later"
+        },
+        "FILE_SCAN_UNSCANNABLE": {
+          "title": "This file cannot be security scanned",
+          "action": "Try a different file format"
+        },
+        "FILE_SCAN_BLOCKED": {
+          "title": "The file failed the security scan",
+          "action": "Try a different file"
+        },
+        "file_scan_failed": {
+          "title": "Security scan failed",
+          "action": "Try again later"
+        },
+        "file_content_rejected": {
+          "title": "The file content was rejected by the security scan",
+          "action": "Try a different file"
+        },
+        "FILE_NOT_READY": {
+          "title": "The file is not ready yet",
+          "action": "Wait a moment and try again"
+        },
+        "file_not_ready": {
+          "title": "The file is not ready yet",
+          "action": "Try again later"
+        },
+        "FILE_INTEGRITY_FAILED": {
+          "title": "File integrity check failed",
+          "action": "Download the file again and retry"
+        },
+        "FILE_DISK_SPACE": {
+          "title": "Not enough local disk space",
+          "action": "Free up disk space and retry"
+        },
+        "FILE_STORAGE_INVALID": {
+          "title": "The local file cache is unavailable",
+          "action": "Check your local storage and retry"
+        },
+        "CHAT_SESSION_HISTORY_MISSING": {
+          "title": "Session history is missing",
+          "action": "Reopen the session and retry"
+        },
+        "47902": {
+          "title": "You have reached the turn limit for this session",
+          "action": "Try again later or upgrade your plan"
+        },
+        "121": {
+          "title": "Organization data is being migrated",
+          "action": "Retry after the migration completes"
+        },
+        "speaking_banned": {
+          "title": "You are currently muted",
+          "action": "Contact your administrator for details"
+        },
+        "member_capacity_exceeded": {
+          "title": "The member limit has been reached",
+          "action": "Remove some members or upgrade your plan"
+        },
+        "context_limit": {
+          "title": "The request is too large",
+          "action": "Reduce the content and retry"
+        },
+        "invalid_arguments": {
+          "title": "The submitted information is invalid",
+          "action": "Check it and retry"
         }
       },
       "worktree": {

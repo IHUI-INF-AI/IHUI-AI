@@ -8580,6 +8580,82 @@
         "WRITE_FAILED": {
           "title": "ファイルの読み書きに失敗しました",
           "action": "ファイルを確認して再試行"
+        },
+        "FILE_SCAN_PENDING": {
+          "title": "セキュリティスキャンを実行中です",
+          "action": "スキャンが完了してから再試行"
+        },
+        "FILE_SCAN_FAILED": {
+          "title": "セキュリティスキャンに失敗しました",
+          "action": "しばらくしてから再試行"
+        },
+        "FILE_SCAN_TIMEOUT": {
+          "title": "セキュリティスキャンがタイムアウトしました",
+          "action": "しばらくしてから再試行"
+        },
+        "FILE_SCAN_UNSCANNABLE": {
+          "title": "このファイルはセキュリティスキャンできません",
+          "action": "別の形式のファイルで再試行"
+        },
+        "FILE_SCAN_BLOCKED": {
+          "title": "ファイルがセキュリティスキャンを通過しませんでした",
+          "action": "別のファイルで再試行"
+        },
+        "file_scan_failed": {
+          "title": "セキュリティスキャンに失敗しました",
+          "action": "しばらくしてから再試行"
+        },
+        "file_content_rejected": {
+          "title": "ファイルの内容がセキュリティスキャンで拒否されました",
+          "action": "別のファイルで再試行"
+        },
+        "FILE_NOT_READY": {
+          "title": "ファイルはまだ準備ができていません",
+          "action": "少し待ってから再試行"
+        },
+        "file_not_ready": {
+          "title": "ファイルはまだ準備ができていません",
+          "action": "しばらくしてから再試行"
+        },
+        "FILE_INTEGRITY_FAILED": {
+          "title": "ファイルの整合性検証に失敗しました",
+          "action": "ファイルを再ダウンロードして再試行"
+        },
+        "FILE_DISK_SPACE": {
+          "title": "ローカルディスクの空き容量が不足しています",
+          "action": "空き容量を確保してから再試行"
+        },
+        "FILE_STORAGE_INVALID": {
+          "title": "ローカルのファイルキャッシュを利用できません",
+          "action": "ローカルストレージを確認して再試行"
+        },
+        "CHAT_SESSION_HISTORY_MISSING": {
+          "title": "セッション履歴が見つかりません",
+          "action": "セッションを開き直してから再試行"
+        },
+        "47902": {
+          "title": "このセッションのターン数が上限に達しました",
+          "action": "しばらく待つかプランをアップグレード"
+        },
+        "121": {
+          "title": "組織データを移行中です",
+          "action": "移行が完了してから再試行"
+        },
+        "speaking_banned": {
+          "title": "現在発言が制限されています",
+          "action": "詳細は管理者に連絡"
+        },
+        "member_capacity_exceeded": {
+          "title": "メンバー数が上限に達しました",
+          "action": "メンバーを削除するかプランをアップグレード"
+        },
+        "context_limit": {
+          "title": "リクエストの内容が大きすぎます",
+          "action": "内容を減らしてから再試行"
+        },
+        "invalid_arguments": {
+          "title": "送信された内容に誤りがあります",
+          "action": "確認してから再試行"
         }
       },
       "worktree": {
