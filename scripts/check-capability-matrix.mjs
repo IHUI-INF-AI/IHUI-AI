@@ -26,6 +26,12 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
  *      出现(含常量定义 `ENV_X = "..."` 形态,如 ENABLE_MCP_EXPORT)。缺失即红。
  *   J2 代码中以 `os.environ.get("X", "false"|"0"|"off")` / `os.getenv(同型)`
  *      内联字面量出现的默认关 env,必须已登记进矩阵。缺失即红。
+ *   J3 (G-667) 被剪掉的矩阵格子必须带不变式:条目写 `"pruned": "<日期/记录>"`(或裸
+ *      True)即声明该能力已从代码剪除、格子留作墓碑 —— J1 对它的 env 免检(env 不在
+ *      代码里正是「已剪除」的本义),但每个 pruned 条目必须逐条带**非空** `invariant`
+ *      或 `guard` 字段(剪除为什么安全:哪条不变式仍然成立 / 哪道护栏接住了它),
+ *      缺即红并点名 key。"A missing test path is a gap, not coverage" —— 没有记录的
+ *      剪除是缺口,不是覆盖;同一 env 仍被活条目登记时不免检(防用墓碑洗白活条目)。
  *
  * 取材铁律(仓库血泪教训):Python 侧一律先剥行注释再 grep —— 注释里出现的
  * 同名字符串会被裸正则误吸,造成假绿/假红(参考 check-agent-event-parity.mjs
@@ -235,6 +241,46 @@ export function collectMatrixEnvs(matrixSrc) {
   return envs
 }
 
+/** CAPABILITY_MATRIX 列表声明(夹具 `CAPABILITY_MATRIX = [` 与真文件 `CAPABILITY_MATRIX: list[...] = [` 同吃)。 */
+const MATRIX_LIST_DECL_RE = /CAPABILITY_MATRIX[^=\n]*=\s*\[/
+/** 单条目截取:条目按类型注解是无嵌套 dict 的扁平字符串表,`\{[^{}]*\}` 恰好一圈取一条。 */
+const MATRIX_ENTRY_RE = /\{[^{}]*\}/g
+/** 条目内字符串字段抽取。 */
+function entryStrField(chunk, name) {
+  const m = chunk.match(new RegExp(`"${name}"\\s*:\\s*"([^"]*)"`, 's'))
+  return m ? m[1] : undefined
+}
+
+/**
+ * 解析 CAPABILITY_MATRIX 列表体的**逐条目**字段(key/env/pruned/invariant/guard)。
+ * J1/J2 的 env 集合仍走 collectMatrixEnvs 的全文件口径(既有行为,不因本条改动漂移);
+ * 这里只服务 J3(G-667):识别 pruned 墓碑条目并取出其 invariant/guard 有无。
+ * 列表体从声明行起、到第一条**行首 `]`** 截止 —— 条目全部缩进,行首 `]` 只可能是终止符。
+ * pruned 标记:非空字符串(日期/记录)或裸 True/true;空串 = 未剪除(格子还活着)。
+ */
+export function collectMatrixEntries(matrixSrc) {
+  const text = stripPyLineComments(matrixSrc)
+  const decl = MATRIX_LIST_DECL_RE.exec(text)
+  if (!decl) return []
+  const body = text.slice(decl.index + decl[0].length)
+  const endRel = body.search(/^\]/m)
+  const listSrc = endRel >= 0 ? body.slice(0, endRel) : body
+  const entries = []
+  for (const m of listSrc.matchAll(MATRIX_ENTRY_RE)) {
+    const chunk = m[0]
+    const prunedRaw = chunk.match(/"pruned"\s*:\s*(?:"([^"]*)"|(?:True|true)\b)/)
+    const prunedValue = prunedRaw ? (prunedRaw[1] === undefined ? 'true' : prunedRaw[1]) : undefined
+    entries.push({
+      key: entryStrField(chunk, 'key'),
+      env: entryStrField(chunk, 'env'),
+      pruned: prunedValue !== undefined && prunedValue !== '',
+      invariant: entryStrField(chunk, 'invariant'),
+      guard: entryStrField(chunk, 'guard'),
+    })
+  }
+  return entries
+}
+
 /**
  * 对账主流程。
  * @param {string} root 仓库根(或夹具根)
@@ -268,6 +314,14 @@ export function runCheck(root, opts = {}) {
   }
   const matrixEnvs = collectMatrixEnvs(matrixSrc)
   stats.matrixEnvs = matrixEnvs.size
+  // J3(G-667)的观测面:逐条目解析(只看列表体),算出墓碑 env 集合。
+  // 同一 env 仍被活条目登记时不免检 —— 墓碑不得拿来洗白活条目的幽灵红。
+  const matrixEntries = collectMatrixEntries(matrixSrc)
+  const liveEnvs = new Set(matrixEntries.filter((e) => !e.pruned && e.env).map((e) => e.env))
+  const prunedEnvs = new Set(
+    matrixEntries.filter((e) => e.pruned && e.env && !liveEnvs.has(e.env)).map((e) => e.env),
+  )
+  stats.prunedEntries = matrixEntries.filter((e) => e.pruned).length
 
   // 取材语料:除矩阵文件本身(登记动作当然会写出 env 名,不算"代码里存在"的证据)。
   const pyRels = loader.listPy(APP_DIR_REL).filter((r) => r !== MATRIX_REL)
@@ -309,7 +363,9 @@ export function runCheck(root, opts = {}) {
   stats.undocumentedNotOff = [...anyRead].filter((e) => !matrixEnvs.has(e)).length
 
   // J1: 幽灵条目 —— 矩阵登记的 env 必须在源码里真实存在。
+  // pruned 墓碑(G-667)免检:env 不在代码里正是「已剪除」的本义;免检的代价由 J3 收。
   for (const env of [...matrixEnvs].sort()) {
+    if (prunedEnvs.has(env)) continue
     if (!corpus.includes(`"${env}"`) && !corpus.includes(`'${env}'`)) {
       errors.push(`[J1 幽灵条目] 台账登记的 env "${env}" 在 apps/ai-service/app/ 源码中不存在(被改名/删除?), 请同步 capability_matrix.py`)
     }
@@ -320,6 +376,17 @@ export function runCheck(root, opts = {}) {
     if (!matrixEnvs.has(env)) {
       errors.push(`[J2 台账逃逸] 默认关 env "${env}"(${file})未登记进 capability_matrix.py, 生产能力状态再度不可知`)
     }
+  }
+
+  // J3 (G-667): 被剪掉的矩阵格子必须带不变式 —— 墓碑换了 J1 免检,代价是必须逐条写清
+  // 「剪除为什么安全」:invariant(剪除后仍然成立的不变式)或 guard(接住回归的护栏/测试路径)。
+  // 只写 reason_if_off 不算数:那是"为什么关",回答不了"剪掉之后靠什么保证它不缺角回来"。
+  for (const e of matrixEntries) {
+    if (!e.pruned || e.invariant || e.guard) continue
+    errors.push(
+      `[J3 剪除无据] 矩阵格子 "${e.key || e.env || '(未名)'}" 标记 pruned 但既无 invariant 也无 guard:` +
+        '被剪掉的能力必须逐条写明不变式或护栏("A missing test path is a gap, not coverage" —— 没有记录的剪除是缺口,不是覆盖)',
+    )
   }
 
   return { errors, stats }
@@ -359,6 +426,7 @@ function main() {
     console.log(
       `✅ check-capability-matrix: 台账 ${stats.matrixEnvs} 条 / 扫描 ${stats.scannedFiles} 个 py 文件 / ` +
         `代码可读到的 env 名 ${stats.envNamesRead} 个,其中可判「默认关」${stats.defaultOffEnvs} 个已全部登记; ` +
+        `pruned 墓碑 ${stats.prunedEntries} 条(J3:剪除格子须逐条带 invariant/guard); ` +
         `台账外且非默认关 ${stats.undocumentedNotOff} 个(阈值/URL/密钥路径等,按设计不属 J2 红域,只报数不判红)`,
     )
   }
@@ -369,7 +437,7 @@ function main() {
   process.exit(0)
 }
 
-/** --self-test: 用临时夹具验证 J1/J2 都能红、修正后能绿。返回 exit code。 */
+/** --self-test: 用临时夹具验证 J1/J2/J3 都能红、修正后能绿。返回 exit code。 */
 function selfTestRun() {
   const dir = mkScratch('ihui-cap-matrix-selftest-')
   try {
@@ -378,6 +446,9 @@ function selfTestRun() {
 
     const matrixSrc = (envs) =>
       `CAPABILITY_MATRIX = [\n${envs.map((e) => `    {"key": "${e.toLowerCase()}", "env": "${e}", "default": "false", "category": "开关类", "owner_module": "m", "doc_ref": "d", "reason_if_off": ""},\n`).join('')}]\n`
+    // G-667 夹具用:在 matrixSrc 的列表尾部追加自定义条目(如 pruned 墓碑)。
+    const matrixSrcPlus = (envs, extraEntries) =>
+      matrixSrc(envs).replace(/\]\n$/, `${extraEntries}]\n`)
     // 夹具代码:两个默认关 env,其中 MISSING_ENABLED 故意不登记;GHOST_ENABLED 是矩阵幽灵
     const fixtureCode =
       `import os\n` +
@@ -395,6 +466,12 @@ function selfTestRun() {
 
     const run = (envs) => {
       writeFileSync(join(coreDir, 'capability_matrix.py'), matrixSrc(envs))
+      writeFileSync(join(coreDir, 'fixture.py'), fixtureCode)
+      return runCheck(dir)
+    }
+    // G-667 场景用:列表尾部追加自定义条目(pruned 墓碑)再跑一遍。
+    const runPlus = (envs, extraEntries) => {
+      writeFileSync(join(coreDir, 'capability_matrix.py'), matrixSrcPlus(envs, extraEntries))
       writeFileSync(join(coreDir, 'fixture.py'), fixtureCode)
       return runCheck(dir)
     }
@@ -435,7 +512,38 @@ function selfTestRun() {
         return 1
       }
     }
-    if (!quiet) console.log('✅ check-capability-matrix self-test: J1/J2 红 + 绿场景全部咬合, 注释剥离生效')
+    // 场景 4(G-667 J3,应红): 剪一格不写理由 ⇒ J3 红并点名 key;同时 J1 必须给墓碑 env
+    // 免检(env 不在代码里正是 pruned 的本义,不得按幽灵条目陪绑出第二条红)。
+    {
+      const tombstone =
+        `    {"key": "fixture_pruned", "env": "FIXTURE_PRUNED_ENABLED", "default": "false", "category": "开关类", "owner_module": "m", "doc_ref": "d", "reason_if_off": "已剪除", "pruned": "2026-09-30"},\n`
+      const { errors } = runPlus(ALL_FOUR, tombstone)
+      if (!errors.some((e) => e.includes('J3') && e.includes('fixture_pruned'))) {
+        console.error('❌ self-test 场景 4 失败: 剪除无据的墓碑未被判红:', errors)
+        return 1
+      }
+      if (errors.some((e) => e.includes('J1') && e.includes('FIXTURE_PRUNED_ENABLED'))) {
+        console.error('❌ self-test 场景 4 失败: pruned 墓碑被 J1 按幽灵条目陪绑:', errors)
+        return 1
+      }
+    }
+    // 场景 5/6(G-667 应绿): 同一格写上 invariant(或只写 guard)⇒ 绿 —— 出口是真的,
+    // 不是判据没跑(反证即场景 4:同位置不写理由必红)。
+    {
+      for (const [extra, label] of [
+        [`, "invariant": "env 读取点已随能力一并删除,全仓无残留分支"`, 'invariant'],
+        [`, "guard": "test_capabilities_no_orphan_env 钉住不缺角回归"`, 'guard'],
+      ]) {
+        const tombstone =
+          `    {"key": "fixture_pruned", "env": "FIXTURE_PRUNED_ENABLED", "default": "false", "category": "开关类", "owner_module": "m", "doc_ref": "d", "reason_if_off": "已剪除", "pruned": "2026-09-30"${extra}},\n`
+        const { errors } = runPlus(ALL_FOUR, tombstone)
+        if (errors.length !== 0) {
+          console.error(`❌ self-test 场景 5/6(${label})失败: 期望 0 错误:`, errors)
+          return 1
+        }
+      }
+    }
+    if (!quiet) console.log('✅ check-capability-matrix self-test: J1/J2/J3 红 + 绿场景全部咬合, 注释剥离生效')
     return 0
   } finally {
     rmScratch(dir)
