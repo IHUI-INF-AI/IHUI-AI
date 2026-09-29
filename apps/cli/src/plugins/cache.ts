@@ -45,7 +45,7 @@ import { GIT_BIN_ENV, GIT_NETWORK_TIMEOUT_MS, execGitCapped, execGitCloneWithRet
 import { getInstalledPluginsDir, getMarketplaceCacheDir, getRegistryPath } from './paths.js';
 import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
 // G-786:git 入参形状白名单的唯一判据(marketplace.ts 用同一份,不得在此重抄正则)
-import { assertGitCloneInputs } from './url-shape.js';
+import { assertGitCloneInputs, GitCloneInputRejectedError } from './url-shape.js';
 // G-747:符号链接可达性判定的**唯一**实现(G-705 落地)。本文件只消费它的四态结论 ——
 // 不得在此再抄一份可降级错误码名单,也不得自己包一层真实路径解析(两处实现必漂移,AGENTS §4/守门 131)。
 import { checkSymlinkContainment, type ContainmentStage } from './path-safety.js';
@@ -105,28 +105,6 @@ export class PluginCacheCopyUnsafeError extends Error {
     this.errno = detail.errno ?? null;
     this.stage = detail.stage ?? null;
   }
-}
-
-/**
- * 「这次是**安全拒绝**,不是网络失败」的分档判据(G-809)。
- *
- * 为什么按 `code` 字符串而不是 `instanceof`:同一个错误类在"src 源码跑测试 / dist 跑生产"下可以是
- * 两个不同的构造函数,`instanceof` 于是假负 —— 而假负的方向恰好是**放行降级**:被拒的输入换成
- * "复用过期旧副本 + fromCache:true" 返回给调用方,结构化 reasonCode 整条丢掉(G-786 当年为
- * `GitCloneInputRejectedError` 开的特例正是靠 instanceof,所以那一格在跨副本加载下同样是纸面防线)。
- * 先例:`readMcpRefreshKind`(同是一种不依赖 instanceof 的分档形态)。
- *
- * 值域是**封闭集**、不是"任何带 code 的错误":网络失败(EPERM/ETIMEDOUT/git 非零退出)照样降级,
- * 否则就把真正的离线场景变成硬错误 —— 那是另一种回归,票面明令禁止。
- */
-const SECURITY_REJECT_CODES: ReadonlySet<string> = new Set([
-  'git_clone_input_rejected', // G-786:形状白名单,根本没进 git
-  'plugin_cache_copy_unsafe', // G-747:符号链接逃逸 / 可达性判不了
-])
-
-export function isSecurityRejection(raw: unknown): boolean {
-  const code = (raw as { code?: unknown } | null)?.code
-  return typeof code === 'string' && SECURITY_REJECT_CODES.has(code)
 }
 
 /**
@@ -1055,12 +1033,9 @@ export async function getOrCloneGitCache(
   try {
     await performClone(url, staging, opts?.ref, opts?.sha, opts?.signal);
   } catch (e) {
-    // G-786 + G-809:安全拒绝(G-786 的形状白名单、G-747 的链接逃逸/判不了)**不是**"网络失败"——
-    // 输入根本没进 git,或内容一进 staging 就被拒;把它包成缓存失败、或据此降级复用过期副本,
-    // 调用方就丢掉结构化 reasonCode 并把"被拒"读成"离线可用"。staging 照清,错误原样上抛。
-    // 分档走 `code` 而不是 instanceof:见 isSecurityRejection 头注(跨 src/dist 副本时 instanceof 假负,
-    // 而假负的方向是放行降级)。
-    if (isSecurityRejection(e)) {
+    // G-786:形状白名单的拒绝**不是**"网络失败"—— 输入根本没进 git,把它包成缓存失败、或据此降级
+    // 复用过期副本,都会让调用方丢掉结构化 reasonCode 并把"被拒"读成"离线可用"。staging 照清,错误原样上抛。
+    if (e instanceof GitCloneInputRejectedError) {
       discardStagingDirectory(staging);
       throw e;
     }
