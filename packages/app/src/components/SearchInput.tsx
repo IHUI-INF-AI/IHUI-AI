@@ -174,7 +174,9 @@ export function SearchInput({
       style={[
         styles.container,
         { backgroundColor: tokens.surface.muted, borderColor: tokens.border.light },
-        focused ? { borderColor: tokens.brandAccent.deep } : null,
+        // 聚焦态描边取墨档(亮纯黑/暗纯白)是 AGENTS §4 的**唯一合法例外位** —— 静态描边仍禁墨档。
+        // 守门 83 的 R8 按"是否处在聚焦书写位"放行 —— 只认 focused ? 这类聚焦条件,active/选中态不豁免。
+        focused ? { borderColor: tokens.brand.DEFAULT } : null,
       ]}
     >
       <Search size={ICON_FONT_SIZE} color={tokens.text.tertiary} />

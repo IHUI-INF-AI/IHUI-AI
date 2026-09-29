@@ -1515,6 +1515,29 @@ export async function selfTest(repoRoot = ROOT) {
   t(`69 真仓出处阳性对照(${PROBE_REF.slice(0, 9)}):${PROBE.split(String.fromCharCode(47)).pop()} 的 rounded-t-xl 必须被点名`, !!hit, hit ? `角色 ${hit.role} / 实际 ${hit.actualStep} / 应为 ${hit.expectedStep}` : '未命中 = 判据失明')
   t('70 同一形态只写进注释 ⇒ 必不命中(否则遮罩关掉的是判据)', !!probeSrc && blind)
   /**
+   * DR1–DR4:`declarationRanges` 找函数体开括号时必须**跳过参数表**。
+   * 立因(2026-09-29 实测):旧写法从声明行起配平并取第一个 `{`,而
+   * `function X({ a }: P) {` 的第一个花括号是解构参数的、同行即闭合 ⇒ 区间塌成 1 行 ⇒
+   * `ownerOfLine()` 恒 null ⇒ **C5 组件名档对"带解构 props 的组件"永久不生效**;
+   * 账面症状是「按组件名判 0 处 / 名字给不出唯一角色而不启用 0 处」两个互补计数同时为 0 ——
+   * 那是"判据没跑",不是"跑了判不出"。
+   */
+  {
+    const span = (src, line) => {
+      const rs = declarationRanges(src)
+      const own = rs.find((r) => line >= r.start && line <= r.end)
+      return own ? own.name : null
+    }
+    const destructure =
+      "export default function RetryButton({ text = 'x', onClick }: P) {\n  return (\n    <View\n      className=\"rounded-md\"\n    />\n  )\n}\n"
+    t('DR1 解构 props 的组件:函数体内的行必须归属到该组件(旧写法在这里返回 null)', span(destructure, 5) === 'RetryButton', '实得 ' + String(span(destructure, 5)))
+    t('DR2 反向:函数体**外**的行不得被认领(区间不是越大越好)', span(destructure, 9) === null, '实得 ' + String(span(destructure, 9)))
+    const arrow = "const SearchInput = ({ a }: P): JSX.Element => {\n  return <View className=\"rounded-sm\" />\n}\n"
+    t('DR3 箭头函数 + 括号包参数:同样要跳过参数表', span(arrow, 2) === 'SearchInput', '实得 ' + String(span(arrow, 2)))
+    const objLit = "const TEMPLATES = {\n  a: { x: 1 },\n}\n"
+    t('DR4 PascalCase 常量对象的新旧同结果(只放宽不收紧:旧区间必须被新版覆盖)', span(objLit, 2) === 'TEMPLATES', '实得 ' + String(span(objLit, 2)))
+  }
+  /**
    * 71–73:角色表**值支**必须认得数字开头的档名(`hero: '2xl'`)。
    * 立因:解析器原先只认"字母开头标识符"或"纯数字"两种值 ⇒ `hero:'2xl'` 整行不匹配,
    * 表里没有 role:hero,于是三个 hero 站点被报成 role-not-in-table(读起来像代码写错,
