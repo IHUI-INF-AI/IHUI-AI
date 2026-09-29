@@ -850,7 +850,25 @@ export function rejectProblem(r) {
   const until = Date.parse(`${r.until}T23:59:59Z`)
   if (Number.isNaN(until)) return `until 不是可解析的日期:${r.until}`
   if (until < Date.now()) return `拆对声明已到期(${r.until})⇒ 必须重新判这对到底是不是同一个元素`
+  /**
+   * `legs` 是**分腿维度**(2026-09-30 立,web 腿装上之后才出现的需要):
+   * 一条拆对声明若不分腿,就会连带把**另一条腿的在册配对**一起摘线 —— 实测 LoginPopUp / UserInfoCard
+   * 在主腿(miniapp↔RN)是有账的配对,而它们要拆的只是 web 腿那份同名件(不同物或零消费者)。
+   * 旧写法只有一张全局名单,拆 web 就等于替主腿卸闸(= 别人那一维静默归零而账面什么都看不见)。
+   * 缺省 = 两腿都拆,是为了让既有的 `FloatBox` 声明逐字不改行为。
+   */
+  if (r.legs !== undefined) {
+    if (!Array.isArray(r.legs) || r.legs.length === 0) return 'legs 必须是非空数组(main / web)'
+    const bad = r.legs.filter((l) => l !== 'main' && l !== 'web')
+    if (bad.length) return `legs 含未知腿名:${bad.join(',')} ⇒ 一条不认识的腿名会让该腿静默不拆`
+  }
   return null
+}
+
+/** 一条拆对声明作用在哪些腿上(缺省 = 两腿都拆;与 rejectProblem 的 `legs` 校验同处判定)。 */
+export function rejectLegs(r) {
+  const legs = Array.isArray(r?.legs) && r.legs.length ? r.legs : ['main', 'web']
+  return { main: legs.includes('main'), web: legs.includes('web') }
 }
 
 /* ───────────────── 端入口可达性:什么才算"一条腿" ───────────────── */
@@ -1564,8 +1582,20 @@ function listFace(repoRoot, face, dir) {
  * 面 → 两端清单 + 同名配对正文。一次 cat-file --batch 同面同轮读完;任一份取不到即 Undetermined。
  * `pairAll` 是人工核对的逃生舱:退回"只要同名就配对",不做可达性剔除(默认档必做)。
  */
-export function collect(repoRoot, face, { pairAll = false, rejected = [], aliases = {} } = {}) {
-  const rejSet = new Set(rejected)
+export function collect(
+  repoRoot,
+  face,
+  { pairAll = false, rejected = [], rejectMap = {}, aliases = {} } = {},
+) {
+  /**
+   * 拆对名单**按腿求**(`rejectLegs` 是那一份判据的唯一出口,这里不再判断形状)。
+   * 两腿共用一张全局名单会在"只想拆 web 那份同名件"时把主腿的在册配对一起摘掉 —— 表现不是报错,
+   * 而是主腿那一维静默归零(实测 LoginPopUp / UserInfoCard 在主腿有账)。
+   */
+  const rejFor = (leg) =>
+    new Set(rejected.filter((n) => (n in rejectMap ? rejectLegs(rejectMap[n]) : { main: true, web: true })[leg]))
+  const rejSet = rejFor('main')
+  const rejWebSet = rejFor('web')
   const lists = {}
   for (const [side, dirs] of Object.entries(SIDES)) {
     const acc = []
@@ -1583,6 +1613,7 @@ export function collect(repoRoot, face, { pairAll = false, rejected = [], aliase
    * 不牵动主腿的十几处硬编码,代价是下面读数时必须逐条点名"这是 web 腿"。
    */
   let webPairs = []
+  let webRejected = []
   let webBlocked = null
   {
     const webList = []
@@ -1601,7 +1632,13 @@ export function collect(repoRoot, face, { pairAll = false, rejected = [], aliase
       // 代价必须用另一条补:台账里挂着 web 键而本轮整腿没产出 ⇒ 下面按"整族消失"判红,
       // 所以"删掉 web 目录让这一维安静"走不通。
       if (webScan.undetermined) webBlocked = `web 腿配对判据失明:${webScan.reason}`
-      else webPairs = (webScan.pairs ?? []).filter((p) => !rejSet.has(p.name))
+      else {
+        const webAll = webScan.pairs ?? []
+        webPairs = webAll.filter((p) => !rejWebSet.has(p.name))
+        // 被 web 腿拆掉的族必须**留名**:静默删族与"这一腿本来就配不到"在账面上长得一样,
+        // 而前者是判据输入被改动 —— 与主腿的 rejected 同一条要求。
+        webRejected = webAll.filter((p) => rejWebSet.has(p.name))
+      }
     }
   }
   /**
@@ -1784,6 +1821,7 @@ export function collect(repoRoot, face, { pairAll = false, rejected = [], aliase
   return {
     pairs,
     webPairs,
+    webRejected,
     webBlocked,
     text,
     styles,
@@ -2236,14 +2274,17 @@ export function verdictOf(findings, baseline, keys = { counts: 'counts', radius:
  */
 export function anchorRegression(prior, next) {
   const out = []
-  const waivers = prior?.waivers ?? {}
+  const waivedSet = (map) =>
+    new Set(Object.keys(map ?? {}).filter((n) => map[n] && !waiverProblem(map[n])))
   // 只豁免"prior 里带了有效理由"的族 —— 与 verdictOf 的 `w && !waiverProblem(w)` 逐字同形。
-  const waivedNames = new Set(
-    Object.keys(waivers).filter((n) => waivers[n] && !waiverProblem(waivers[n])),
-  )
+  // **两腿各用自己的豁免表**:拿主腿的名单去免 web 键的消失,等于"给这条腿写了理由就能让
+  // 那条腿的锚点凭空蒸发" —— 而锚点消失正是本函数要拦的那件事(下一次分叉自带免费额度)。
+  const waivedMain = waivedSet(prior?.waivers)
+  const waivedWeb = waivedSet(prior?.[WEB_LEDGER.waivers])
   // web 腿的子账**必须一起核**:漏掉就是"主腿只允许下降、web 腿随便涨",而涨的那一份
   // 没人会去查(台账里明明写着"锚点只拦新增"—— 那是一句只对一半的账)。
   for (const key of ['counts', 'radiusCounts', 'elementRadiusCounts', WEB_LEDGER.counts, WEB_LEDGER.radius, WEB_LEDGER.element]) {
+    const waivedNames = key.startsWith('web') ? waivedWeb : waivedMain
     const before = prior?.[key] ?? {}
     const after = next?.[key] ?? {}
     for (const [name, v] of Object.entries(before)) {
@@ -2313,6 +2354,29 @@ export function emitBaseline(findings, prior = {}, webFindings = []) {
     else retired.push(name)
   }
   out.waivers = waivers
+  /**
+   * web 腿的豁免表同理必须**按族带过去**,而且它的"仍有差异"判据**不能沿用主腿那一把尺**:
+   * web 腿这一腿几何维恒不判(`webCounts` 恒 0),按主腿的 `counts>0` 筛会让每条 web 豁免
+   * 在第一次重锚时被静默撤下 —— 撤下的表现不是红,而是那一族回到"锚点还在、理由没了"的状态,
+   * 下一个人无从知道它为什么允许不同形。所以本腿按**它自己真在量的那一维**(RD / RE)筛。
+   */
+  const priorWebWaivers = prior && prior[WEB_LEDGER.waivers] ? prior[WEB_LEDGER.waivers] : {}
+  const webWaivers = {}
+  const webRetired = []
+  for (const [name, w] of Object.entries(priorWebWaivers)) {
+    if (
+      (webRadiusCounts[name] ?? 0) > 0 ||
+      (webElementRadiusCounts[name] ?? 0) > 0 ||
+      (webCounts[name] ?? 0) > 0
+    )
+      webWaivers[name] = w
+    else webRetired.push(name)
+  }
+  out[WEB_LEDGER.waivers] = webWaivers
+  if (webRetired.length)
+    console.error(
+      `  ⓘ web 腿本轮差异归零、理由随之撤下的族:${webRetired.join(', ')}(同样须回查是否只是覆盖面变窄)`,
+    )
   if (retired.length)
     console.error(
       `  ⓘ 本轮差异归零、理由随之撤下的族:${retired.join(', ')}(若它们并非真被修好,而是判据覆盖面变窄,须回查)`,
@@ -2375,7 +2439,10 @@ export function main(argv, repoRoot = ROOT) {
       .map((n) => ({ name: n, why: rejectProblem(rej[n]) }))
       .filter((x) => x.why)
     aliases = baseline.aliases ?? {}
-    collected = collect(repoRoot, face, { pairAll, rejected: rejNames, aliases })
+    // `rej` 一起喂进去:拆对从"一条全局名单"变成"按腿的声明",而**形状判定只住在 rejectProblem /
+    // rejectLegs 那一处**。调用方不得再判断形状(两处各写一遍必漂,而漂开的表现是"该拆的腿没拆、
+    // 不该拆的那条腿被静默摘线")。
+    collected = collect(repoRoot, face, { pairAll, rejected: rejNames, rejectMap: rej, aliases })
   } catch (e) {
     if (e instanceof Undetermined) {
       console.log(`⚠️ 无法判定:${e.message}`)
@@ -2482,6 +2549,13 @@ export function main(argv, repoRoot = ROOT) {
           shrunk: webVerdict.shrunk,
           undetermined: web.undetermined,
           blocked: collected.webBlocked ?? null,
+          // 被拆掉的 web 腿配对也要能被机器读:只印人读面的话,"这一族为什么不在账上"就只能靠
+          // 抄终端输出当取证(与 aliasPairs / multiCandidates 那两处同一条理由)。
+          rejected: (collected.webRejected ?? []).map((x) => ({
+            name: x.name,
+            miniapp: x.miniapp,
+            web: x.rn,
+          })),
           ghostRed: webPriorKeys.length && !web.findings.length ? webPriorKeys : [],
         },
       }),
@@ -2630,8 +2704,14 @@ export function main(argv, repoRoot = ROOT) {
       }
       console.log(
         `web 腿(RD 量纲,配对 ${web.findings.length} 对;几何 / 元素名 / 图标载体**未判**,不是"已确认相同")` +
-          `→ 判红 ${webVerdict.red.length} / 台账外新增 0 时才算收口 / 未判定 ${web.undetermined.length}`,
+          `→ 判红 ${webVerdict.red.length} / 台账外新增 0 时才算收口 / 带理由豁免 ${webVerdict.waived.length} / 未判定 ${web.undetermined.length}`,
       )
+      // 豁免不得静默:每条都要把理由与它的两个读数打在报告上(与主腿 PAIR/ALIAS 同一取向) ——
+      // 只写"已豁免 N"会替下一个人做出"这一族已被想过"的判断,而理由能不能复核全靠这一行。
+      for (const wv of webVerdict.waived) {
+        const rej = (baseline[WEB_LEDGER.waivers] ?? {})[wv.name]
+        console.log(`  ⊘ WD ${wv.name} 带理由豁免 —— ${rej?.reason ?? ''}`)
+      }
       if (collected.webBlocked)
         console.log(
           `  ? WD 整腿未判定:${collected.webBlocked} —— 这一维今天**没在看**,不得读成"web 与小程序已一致"`,
@@ -2774,30 +2854,51 @@ export function main(argv, repoRoot = ROOT) {
   }
   /*
    * ── PAIR 拆对声明对账 ───────────────────────────────────────────
-   * 三条红:① 声明本身坏(无理由 / 过期 / 形态不对);② 拆掉的族仍挂 `counts` 或 `waivers`
-   * (同一族既被声明"不是同一个元素"又被记账"两端差 N 档"= 双记账,必有一份是假的);
-   * ③ 台账声明拆了某族,而配对面上**根本没这个名字** —— 要么文件改名/删了(声明该跟着了结),
-   * 要么它已回到"只有一端有"的状态,两种都不该继续挂着。
+   * 三条红:① 声明本身坏(无理由 / 过期 / 形态不对 / legs 里有不认识的腿名);
+   * ② 拆掉的族仍挂**它所作用的那条腿**的锚点或豁免(同一族既被声明"不是同一个元素"又被记账
+   *    "两端差 N 档"= 双记账,必有一份是假的);
+   * ③ 台账声明拆了某族,而**每一条它声称作用的腿**上都找不到这一对 —— 要么文件改名/删了(声明该
+   *    跟着了结),要么它已回到"只有一端有"的状态,两种都不该继续挂着。
+   * ②与③都必须按腿分别核(2026-09-30 加 `legs` 那一维时同批改):用主腿的名单去查 web 腿的账,
+   * 会同时产出两种错 —— 一条只拆 web 的声明被误判成"仍挂主腿锚点"(假红,逼人删合法声明),
+   * 以及一条只拆主腿的声明在 web 腿整族找不到而被放过(真烂不掉)。
    * 刻意不因"未判定"放过:拆对是本门输入的改变,比调台账数字更需要证据。
    */
   const rejAll = baseline.pairingRejects ?? {}
-  const rejStillAnchored = Object.keys(rejAll).filter(
-    (n) => (baseline.counts ?? {})[n] !== undefined || (baseline.waivers ?? {})[n] !== undefined,
-  )
-  const pairedNames = new Set((collected.rejected ?? []).map((x) => x.name))
+  const rejStillAnchored = Object.keys(rejAll).filter((n) => {
+    const legs = rejectLegs(rejAll[n])
+    return (
+      (legs.main &&
+        ((baseline.counts ?? {})[n] !== undefined || (baseline.waivers ?? {})[n] !== undefined)) ||
+      (legs.web &&
+        ((baseline[WEB_LEDGER.counts] ?? {})[n] !== undefined ||
+          (baseline[WEB_LEDGER.radius] ?? {})[n] !== undefined ||
+          (baseline[WEB_LEDGER.element] ?? {})[n] !== undefined ||
+          (baseline[WEB_LEDGER.waivers] ?? {})[n] !== undefined))
+    )
+  })
+  const pairedNames = new Set([
+    ...(collected.rejected ?? []).map((x) => x.name),
+    ...(collected.webRejected ?? []).map((x) => x.name),
+  ])
   const rejGhosted = Object.keys(rejAll).filter((n) => !pairedNames.has(n))
   const rejInvalid = rejProblems.map((x) => `${x.name}:${x.why}`)
   if (!argv.includes('--json')) {
     for (const x of collected.rejected ?? [])
       console.log(`  ⊘ PAIR ${x.name} —— 同名不同物,已按声明拆对:${rejAll[x.name].reason}`)
+    for (const x of collected.webRejected ?? [])
+      console.log(
+        `  ⊘ WD-PAIR ${x.name} —— 只拆 web 腿:${rejAll[x.name].reason}` +
+          '(主腿那一维照旧在册,不得被这条声明连带摘线)',
+      )
     for (const m of rejInvalid) console.log(`  × PAIR 拆对声明无效:${m}`)
     for (const n of rejStillAnchored)
       console.log(
-        `  × PAIR ${n} 已声明拆对,台账仍挂它的锚点/豁免 ⇒ 双记账,删 ` + 'counts' + ' 那条',
+        `  × PAIR ${n} 已声明拆对,台账仍挂它**所作用那条腿**的锚点/豁免 ⇒ 双记账,删那条键`,
       )
     for (const n of rejGhosted)
       console.log(
-        `  × PAIR ${n} 声明拆对,而配对面上找不到这一对 ⇒ 文件已搬走或只剩一端,该了结这条声明`,
+        `  × PAIR ${n} 声明拆对,而它声称作用的每条腿上都找不到这一对 ⇒ 文件已搬走或只剩一端,该了结这条声明`,
       )
   }
   const rejRed = rejInvalid.length + rejStillAnchored.length + rejGhosted.length
@@ -4268,6 +4369,95 @@ function runSelfTest() {
     })(),
   )
   t(
+    'WD4 web 腿豁免自成一本账:重锚必须带过去(键按 webWaivers,不与主腿 waivers 互串),' +
+      '差异归零的理由要撤下并报名,而生效中的豁免必须逐条把理由打进报告(豁免不得静默)',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      const f = {
+        name: 'Card',
+        named: [],
+        geometry: { onlyMiniapp: [], onlyRn: [] },
+        radius: { onlyMiniapp: [6], onlyRn: [8] },
+        elementRadius: { mismatched: [], onlyMiniapp: [], onlyRn: [] },
+      }
+      const prior = {
+        // 主腿对同名族也挂了一份豁免:两腿的豁免表必须互不顶账(web 腿的差异不等于主腿的差异)
+        waivers: { Card: { reason: '主腿那一维的理由' } },
+        webWaivers: {
+          Card: { reason: 'web 侧多嵌一段联想面板,两端输入井同档' },
+          Gone: { reason: '本轮已经找不到差异,该撤下' },
+        },
+      }
+      const out = emitBaseline([], prior, [f])
+      const carried = !!out[WEB_LEDGER.waivers]?.Card
+      const ghostRetired = out[WEB_LEDGER.waivers]?.Gone === undefined
+      const notCrossed = out.waivers.Card === undefined // 主腿本轮无该族差异 ⇒ 主腿理由必须撤下,而不是被 web 腿带着
+      const waivedNotRed = (() => {
+        const ledger = { webCounts: {}, webRadiusCounts: { Card: 2 }, webWaivers: prior.webWaivers }
+        const v = verdictOf([f], ledger, WEB_LEDGER)
+        return v.red.length === 0 && v.waived.length === 1 && v.waived[0].name === 'Card'
+      })()
+      const printed =
+        /带理由豁免 \$\{webVerdict\.waived\.length\}/.test(src) &&
+        /webVerdict\.waived[\s\S]{0,240}⊘ WD \$\{wv\.name\} 带理由豁免/.test(src)
+      return carried && ghostRetired && notCrossed && waivedNotRed && printed
+    })(),
+  )
+  t(
+    'WD5 拆对必须能只作用于一条腿:legs=["web"] 时主腿在册配对不得被连带摘线,而 web 腿必须留名;' +
+      '缺省(不写 legs)= 两腿都拆(既有 FloatBox 声明逐字不改行为)',
+    (() => {
+      const future = new Date(Date.now() + 86400 * 300).toISOString().slice(0, 10)
+      const badLegName = rejectProblem({ reason: '两端不是同一个东西,证据见头注', until: future, legs: ['nope'] })
+      const emptyLegs = rejectProblem({ reason: '两端不是同一个东西,证据见头注', until: future, legs: [] })
+      const shape =
+        badLegName === null ? false : /腿名/.test(badLegName)
+      const both = rejectLegs({ reason: 'x', until: future })
+      const onlyWeb = rejectLegs({ reason: 'x', until: future, legs: ['web'] })
+      if (!(both.main && both.web && !onlyWeb.main && onlyWeb.web)) return false
+      if (!shape || !emptyLegs) return false
+      const files = {
+        ...FIXTURE_BASE({
+          rn: "import { Bar, Foo } from '@ihui/rn-app'\nexport function RootNavigator() { return null }\n",
+        }),
+        // web 腿目录里再放一份同名件:同一族现在同时存在于两条腿上。
+        // 刻意**不写圆角类**:FIXTURE_BASE 里没有 radius.js 那份档表,写了会让 collect 按
+        // "圆角维判据失明"判死 —— 那这条用例红的原因是夹具缺件,不是 legs 判据(与上面㊻同一条纪律)。
+        'apps/web/src/components/Foo.tsx':
+          'export function Foo() { return <div className="flex" /> }\n',
+      }
+      const dir = makeFixtureRepo(files)
+      try {
+        const decl = { reason: 'web 那份同名件是另一端口的死副本,与小程序/RN 不是同一个元素', until: future, legs: ['web'] }
+        const w = collect(dir, 'head', { rejected: ['Foo'], rejectMap: { Foo: decl } })
+        const m = collect(dir, 'head', {
+          rejected: ['Foo'],
+          rejectMap: { Foo: { ...decl, legs: ['main'] } },
+        })
+        const plain = collect(dir, 'head', {})
+        const mainKept = w.pairs.pairs.some((p) => p.name === 'Foo')
+        const webSplit = w.webRejected.length === 1 && w.webPairs.every((p) => p.name !== 'Foo')
+        const mainSplit = !m.pairs.pairs.some((p) => p.name === 'Foo') && m.webRejected.length === 0
+        // 不写 legs ⇒ 与旧行为逐字一致(两腿都拆),这条防的是"新维度顺手改了缺省语义"
+        const legacy = collect(dir, 'head', {
+          rejected: ['Foo'],
+          rejectMap: { Foo: { reason: decl.reason, until: future } },
+        })
+        const legacyBoth =
+          !legacy.pairs.pairs.some((p) => p.name === 'Foo') && legacy.webRejected.length === 1
+        return (
+          plain.webRejected.length === 0 &&
+          mainKept &&
+          webSplit &&
+          mainSplit &&
+          legacyBoth
+        )
+      } finally {
+        rmScratch(dir)
+      }
+    })(),
+  )
+  t(
     '㊪ 平台后缀必须能配对:`SectionHeader` 与 `SectionHeader.taro` 是同一元素;' +
       '带后缀那份优先当选;而真不同名的两个文件不得被并成一对(宁可少配)',
     (() => {
@@ -4437,7 +4627,7 @@ function runSelfTest() {
     (() => {
       const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
       return (
-        /collect\(repoRoot, face, \{ pairAll, rejected: rejNames, aliases \}\)/.test(src) &&
+        /collect\(repoRoot, face, \{ pairAll, rejected: rejNames, rejectMap: rej, aliases \}\)/.test(src) &&
         (src.match(/collect\(repoRoot, 'head', \{ pairAll, aliases \}\)/g) ?? []).length === 2 &&
         /if \(aliasRed\) return 1/.test(src) &&
         /aliasPairs: \(collected\.pairs\?\.pairs \?\? \[\]\)/.test(src)
