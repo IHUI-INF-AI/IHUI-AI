@@ -247,7 +247,7 @@ export class AnomalyDetector {
     ctx: AnomalyContext,
     ts: number,
   ): Promise<{ name: string; score: number }> {
-    const hour = new Date(ts).getHours()
+    const hour = beijingHourOf(ts)
     const isLateNight = hour >= 0 && hour < 5
     if (!isLateNight) return { name: 'time-distribution', score: 0 }
 
@@ -478,7 +478,8 @@ export class AnomalyDetector {
     })
 
     // 记录当前活跃小时(供 dimTimeDistribution 判断"历史是否在此时段活跃过")
-    const hour = new Date(now).getHours()
+    // 与凌晨判定同一小时空间(北京时间),见 beijingHourOf 注释
+    const hour = beijingHourOf(now)
     await this.markActiveHour(userId, hour)
 
     void action
@@ -690,6 +691,30 @@ export class AnomalyDetector {
 /* -------------------------------------------------------------------------- */
 /* 辅助函数                                                                    */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * 把 epoch 瞬时显式映射为北京时间(Asia/Shanghai,UTC+8 无夏令时)的小时(0-23)。
+ * 禁止用 `new Date(ts).getHours()` —— 那是宿主 OS 时区的读数。2026-09 实测宿主被静默
+ * 切到 UTC 25 天,期间"凌晨 0-5"判的其实是北京 08:00-13:00:正常营业时间被打 70 分,
+ * 真实凌晨窗口反而全盲。本仓惯例 = `Intl.DateTimeFormat` 显式 `timeZone`
+ * (先例 apps/api/src/db/order-queries.ts:425)。
+ * 注意:此纠正使 `anom:activehour:<uid>:<hour>`(Redis)与 memActiveHour 降级表的小时
+ * 键空间一次性位移(旧键按宿主小时写入,此后不再被查询命中),按既有 7 天 TTL 自愈,
+ * 不做迁移。
+ */
+const BEIJING_HOUR_FORMAT = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Shanghai',
+  hour: '2-digit',
+  hourCycle: 'h23',
+})
+function beijingHourOf(ts: number): number {
+  const hourPart = BEIJING_HOUR_FORMAT.formatToParts(new Date(ts)).find(
+    (p) => p.type === 'hour',
+  )?.value
+  const hour = Number.parseInt(hourPart ?? '', 10)
+  // h23 恒为 00-23;万一解析不出按 24 返回(落在凌晨窗口外,不凭空造分数)。
+  return Number.isNaN(hour) ? 24 : hour
+}
 
 /**
  * 按地理距离评分:距离越远分越高。
