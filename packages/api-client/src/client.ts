@@ -12,6 +12,9 @@ import type {
   // D152(2026-09-29):goal 状态封闭集(六档 + 线格式第七值 'cleared'),权威在
   // packages/types/src/agent-runtime.ts 的 GOAL_WIRE_STATUSES —— 本包不得抄第二份。
   GoalWireStatus,
+  // D130(2026-09-30 立):推理强度档位封闭集 —— 值域唯一源在 packages/types/reasoning-effort.ts,
+  // 本包不得抄第二份字面量(守门 check-model-capacity-parity C6 已把它登记为第四落点)。
+  ReasoningEffort,
 } from '@ihui/types'
 // #11 Citations 全链路(2026-09-13 立):类型已迁至 @ihui/types(与 PlanUpdateEvent 等一致),
 // 本地不再重复定义,消除 import 与本地声明的 TS2440 冲突。
@@ -1065,6 +1068,29 @@ export interface UsageEvent {
   costUsd?: number | null
 }
 
+/**
+ * 推理强度档位回落通知(D130,2026-09-30 立)。
+ *
+ * 后端(reasoning_effort_pin)可能把用户选定的档位**钉回**另一个值(override 未启用 /
+ * 模型不在白名单 / 与既有钉扎冲突)。票第 8 栏点名的正是这一型静默失效:前端显示"深思",
+ * 实际发出去的是默认档,而账面一片绿。
+ *
+ * 载体是**已有的 `done` 帧新增一个可选字段** `reasoningEffort`,不是新增 SSE 事件 ——
+ * 新增事件名要动 SSE 契约两侧 + sse-parse + dispatch 台账,而本票的文件清单刻意把它们
+ * 划给并行代理(sse/**、sse-parse.ts、services/**),半截接入就是给下游留断链。
+ * `memoryUpdates` / `citations` 走的是同一条"done 帧加可选字段"的先例。
+ */
+export interface ReasoningEffortNotice {
+  /** 用户本次选定的档位(undefined = 客户端根本没选) */
+  requested?: ReasoningEffort | null
+  /** 上游实际生效的档位 */
+  effective?: ReasoningEffort | null
+  /** true = 生效值与选定值不同,或被钉扎丢弃 ⇒ 必须上屏,不得静默 */
+  fallback: boolean
+  /** 回落原因(服务端给出,前端只做展示) */
+  reason?: string
+}
+
 export interface StreamChatOptions {
   model: string
   // role 含 'tool':与 @ihui/context-compaction 的 ChatMessage 及 OpenAI 兼容协议对齐
@@ -1128,6 +1154,11 @@ export interface StreamChatOptions {
    *  permission_mode,工具审批门据此决定高危工具是否弹审批
    *  (bypass-permissions 不拦截;accept-edits 放行文件编辑类)。 */
   permissionMode?: string
+  /** D130(2026-09-30 立):推理强度档位(输入区第三轴)。camel 入网关,网关转 snake 出到 ai-service
+   *  (与 temperature/topP 同区、与 ai-chat-stream.ts 的 camel-in/snake-out 先例同形)。
+   *  值域 = @ihui/types 的封闭联合,端内不得再写字面量数组。undefined = 不发该字段,
+   *  后端按既有默认档处理 ⇒ 旧客户端零行为变化。 */
+  reasoningEffort?: ReasoningEffort
   /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一)。
    * 由 use-chat.ts 调 getModelContextCapacity(model) 取得,后端不传则不压缩。 */
   contextLimit?: number
@@ -1198,6 +1229,9 @@ export interface StreamChatOptions {
    *  ai-service 在 done 事件 payload 携带 memoryUpdates: string[](本轮 LTM 新增条目摘要),
    *  前端据此在对应助手消息下方渲染「已记住:N 条」提示条。空数组表示本轮无新记忆。 */
   onMemoryUpdates?: (event: MemoryUpdatesEvent) => void
+  /** D130(2026-09-30 立):后端把选定档位钉回时的通知(见 ReasoningEffortNotice)。
+   *  不注册则不解析(与本包其余 per-field 解析器同形),注册了就必须上屏 —— 静默丢档是本票点名的那一型。 */
+  onReasoningEffortNotice?: (info: ReasoningEffortNotice) => void
   /** Token 用量回调:后端在 SSE 流末尾发送 usage 事件时触发,
    *  前端据此更新消息 meta.usage(UI 展示 token 数 / 耗时 / 模型)。
    *
@@ -2183,6 +2217,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // 网关 schema 已声明 permissionMode(否则 zod strip 静默丢弃,链路掐断),
   // 网关再以 permission_mode(snake_case)透传到 ai-service 审批门。
   if (opts.permissionMode) body.permissionMode = opts.permissionMode
+  // D130(2026-09-30 立):推理强度档位。仅字段存在时写入(与 permissionMode 同形):
+  // undefined 不进 body ⇒ 后端走默认档,旧客户端零行为变化。
+  if (opts.reasoningEffort !== undefined) body.reasoningEffort = opts.reasoningEffort
   if (opts.extraBody) Object.assign(body, opts.extraBody)
   // 2026-08-15 立:streamChat 默认流式,后端 detectStreamUsage 依赖 request.stream===true 才启用 usage chunk。
   // 默认 true,允许 extraBody 或显式 opts.stream 覆盖为 false。
@@ -2273,6 +2310,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       const hasCitations = typeof opts.onCitations === 'function'
       // P1 #27(2026-09-16 立):done 事件携带 memoryUpdates(已记住提示条数据源)
       const hasMemoryUpdates = typeof opts.onMemoryUpdates === 'function'
+      // D130(2026-09-30 立):done 帧携带 reasoningEffort 回落通知(未注册回调不解析)
+      const hasReasoningEffortNotice = typeof opts.onReasoningEffortNotice === 'function'
       const hasUsage = typeof opts.onUsage === 'function'
       // Steer(中途引导,2026-09-19 立):onSteer 存在时启用解析
       const hasSteer = typeof opts.onSteer === 'function'
@@ -3110,6 +3149,46 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
+      /** 解析 done 帧的推理强度档位回落通知(D130,2026-09-30 立)。
+       *  与 tryParseMemoryUpdates 同形:读的是**同一个已存在的 done 帧**上新增的可选字段,
+       *  不新增事件名 ⇒ 不动 SSE 契约两侧 / sse-parse / dispatch 台账(本票文件清单外)。
+       *  只在 requested ≠ effective 或后端显式标 fallback 时回调 —— 没回落就不该有徽章。 */
+      const tryParseReasoningEffortNotice = (line: string): void => {
+        if (!hasReasoningEffortNotice) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'done') return
+          const raw = json.reasoningEffort
+          if (raw === undefined || raw === null || typeof raw !== 'object') return
+          const info = raw as Record<string, unknown>
+          const requested = typeof info.requested === 'string' ? (info.requested as ReasoningEffort) : null
+          const effective = typeof info.effective === 'string' ? (info.effective as ReasoningEffort) : null
+          const fallback =
+            info.fallback === true || (requested !== null && effective !== requested)
+          if (!fallback) return
+          opts.onReasoningEffortNotice!({
+            requested,
+            effective,
+            fallback: true,
+            reason: typeof info.reason === 'string' ? info.reason : undefined,
+          })
+        } catch {
+          /* 非 JSON 或非 done 事件忽略 */
+        }
+      }
+
       /** 解析 usage 帧(D1,2026-09-19 升级):
        *  ① 命名帧 event: usage → data: { type:'usage', messageId, usage:{promptTokens,...},
        *     timing:{firstTokenMs,durationMs}, model, costUsd }(ai-service 流收尾下发);
@@ -3558,6 +3637,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseCitations(line)
           tryParseUsage(line)
           tryParseMemoryUpdates(line)
+          tryParseReasoningEffortNotice(line)
           tryParseTerminalDelta(line)
           tryParseTerminalInteraction(line)
           tryParseGoalUpdate(line)

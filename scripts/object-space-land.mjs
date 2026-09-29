@@ -9,8 +9,11 @@
  * 滞后 HEAD,按 pathspec 交工作树就把别人已入库的行整批写回旧态(AGENTS §12 一夜三次自伤)。当时在同一次
  * 会话里手写了 6 份近乎同形的落地脚本且已漂开(细节见 scripts/lib/bypass-git.mjs 头注),其中本器收的是
  * land-r24 + reconcile-index 两份:
- *  - ① 落地后 `git show --name-only` 回读,证明"消息声称的每条路径真在提交里"(本仓规矩:commit message
- *    只能写能被回读证明的东西;声明路径无差异 ⇒ 事先拒绝,而不是落地后让 proof 步骤扑空);
+ *  - ① 落地后逐路径 `git cat-file -e <commit>:<path>` 回读存在性,证明"消息声称的每条路径真在提交里"
+ *    (本仓规矩:commit message 只能写能被回读证明的东西;声明路径无差异 ⇒ 事先拒绝,而不是落地后让
+ *    proof 步骤扑空)。**存在性判据问 git 的结论而不是解析它的输出**(G-801):`git show --name-only`
+ *    的输出文本默认按 core.quotePath 把非 ASCII 路径八进制转写并加引号,拿输出字节当路径身份,
+ *    中文/带空格路径必然比不中 ⇒ 已成功的交付被报成"缺路径";该清单只留作"是否混提"的辅助且必须 -c core.quotePath=false;
  *  - ② 逐路径把共享主索引对齐到新 blob —— commit-tree+update-ref 不碰主索引,新文件在别人眼里就成了
  *    `D ` 暂存删除、改动文件成 `M `,此后一次不带 pathspec 的普通提交就把本轮交付写回旧版。
  *    对齐只在"索引 blob == 父提交 blob 或索引里没有"时动(判据住在 lib,只有一份实现);
@@ -33,8 +36,10 @@
  * 退出码:0 = 已落地且回读通过(对齐的 skipped/未判定只在 stdout 点名);
  *        1 = 业务拒绝(某目标路径被别人改过 ⇒ 需重新归并 / 声明路径无差异 / 盘上副本等于祖先版本且会抹掉基线里活着的行 /
  *            落地内容里存在"基线已删、祖先版本写过"的复活行,或该维判据未判定 ⇒ 未判定不等于通过 /
- *            CAS 12 次未抢到 / 提交面回读缺路径 / 索引锁龄超上限);
- *        2 = 用法或环境错(空清单 / 空消息 / 声明路径不在盘上 / 根不可当仓库问)。
+ *            CAS 12 次未抢到 / 提交面回读 git 明确回答"不在树里"(G-801 起存在性逐路径 cat-file -e 判) / 索引锁龄超上限);
+ *        2 = 用法或环境错(空清单 / 空消息 / 声明路径不在盘上 / 根不可当仓库问 /
+ *            提交面回读"问不到"⇒ 未判定:落地已推进 HEAD,但存在性未能判定 —— 既不报成功也不报"缺路径",
+ *            因为假失败会诱使重跑一次已经成功的落地,而"未判定"折成"没有"是同一型失真)。
  *
  * ⚠️ 头注刻意不写"已接 pre-commit / CI / 第 N 项"—— 它是手动常驻工具,那种话会被守门 89 判"声称已接线而零命中"。
  *
@@ -78,6 +83,8 @@ import {
   resolveBlobs,
 } from './check-stale-revert.mjs'
 import { catBatch, readWorktreeFile } from './lib/face-reader.mjs'
+// 存在性三态探针需要 git 二进制的解析出口(与 bypass-git 同一份,不在本器另立候选路径)。
+import { resolveGitBin } from './lib/gitdir.mjs'
 // 行级复活/计行判据的**单一实现**(2026-09-28 提取到 lib:守门 84 的 R1r 要用同一把尺子,
 // 两处各写一遍必然漂开 —— 本层只留 import 与再导出,不再持有第二份计数口径)。
 import {
@@ -86,11 +93,15 @@ import {
   RESURRECT_MAX_BLOB_BYTES,
   RESURRECT_MIN_LINE_LEN,
 } from './lib/stale-content-analysis.mjs'
+// G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
+import { recordBypassLanding } from './lib/commit-attestation.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 // 水印 CLI 与本器同目录:用它而不是拼 cwd 相对路径,理由见 watermarkPreflight 内注释。
 const WATERMARK_CLI = join(HERE, 'watermark.mjs')
 const REPO_ROOT = resolve(HERE, '..')
+// 与 lib/bypass-git.mjs 同一个解析出口(候选路径只有一份,本器不另立)。
+const GIT_BIN = resolveGitBin() || 'git'
 const MAX_CAS_ATTEMPTS = 12
 
 /** 读 env 并判用法;不合法 ⇒ {error, code:2}。 */
@@ -579,8 +590,22 @@ export function blobBannerPreserved({ root, paths, blobOf, baseRef = 'HEAD' }) {
   const notes = []
   for (const p of paths) {
     const baseOid = headBlobOf(baseRef, p, { root })
-    if (baseOid === ABSENT || baseOid === UNKNOWN || !blobOf.get(p)) {
-      unjudged.push({ path: p, why: '基线或目标 blob 取不到' })
+    if (!blobOf.get(p)) {
+      unjudged.push({ path: p, why: '清单里没有该路径的 blob' })
+      continue
+    }
+    /**
+     * "基线里没有"与"问不到基线"是两件事(与上面祖先对账第 509 行同一约定,那里一直是对的):
+     * 新增文件**按定义**没有可保持的横幅,把它计成未判定会让任何带新文件的落地整体 exit 2,
+     * 而这台工具是共享落地出口 —— 卡住的不是本次提交,是所有会话。新增件的横幅覆盖交
+     * 水印守门(它有"新增必须注入"的权威判据),本器只守"别把已入库的横幅改掉/放进无横幅内容"。
+     */
+    if (baseOid === ABSENT) {
+      notes.push({ path: p, why: '基线里没有该路径(新增文件)⇒ 无横幅可保持,新增覆盖交水印守门判' })
+      continue
+    }
+    if (baseOid === UNKNOWN) {
+      unjudged.push({ path: p, why: '基线 blob 问不到 ⇒ 无法判横幅是否保持' })
       continue
     }
     const bt = git(['cat-file', 'blob', baseOid], { root, raw: true, allowFail: true })
@@ -594,6 +619,69 @@ export function blobBannerPreserved({ root, paths, blobOf, baseRef = 'HEAD' }) {
     else if (d.verdict === 'note' || d.verdict === 'repaired') notes.push({ path: p, why: d.why })
   }
   return { broken, unjudged, notes }
+}
+
+/**
+ * 提交面存在性三态探针(2026-09-29 票 G-801)。存在性一律**问 git 的结论**,不再拿
+ * `git show --name-only` 的输出字节当路径身份 —— git 默认按 core.quotePath 把非 ASCII 路径
+ * 八进制转写并加引号,旧式逐字比对使任何中文/带空格路径**必然**比不中,把已成功的交付报成
+ * "缺路径"(枚 `fea980104b` 实测:`docs/项目说明/8端一致性认证矩阵-2026-09-15.md` 真在树里、
+ * `cat-file -e` 成立,回读却打了红)。假失败的后果不是多看一眼日志:读到"没入库"的人会重跑
+ * 同一次落地(幂等判据 G-321① 拦的就是这个),或改走 `git add && git commit` 的 pathspec 路径 —— 那才是 §12 的真事故。
+ *
+ * 为什么不复用 lib 的 `git()`:它把任何非零一律折叠(throw 掉数字退出码 / allowFail 时 null),
+ * 而这一维的三态各自有结论 —— "git 明确说不在树里"(absent,业务红,exit 1)与
+ * "问不到"(未判定,exit 2,不得冒充前者)是两件事。同型先例:bypass-git 的 `isAncestor`
+ * 也为此自带一次 spawnSync(见其头注),不在调用方各写一份的是**判据**,不是派生姿势。
+ *
+ * 归因规则(实测 git 2.55,`cat-file -e` 对"路径不在树"与"commit 解不出"**都返回 128**,
+ * 所以状态数字本身不足以分两态,必须两路正交信号):
+ *  - 派生 rc=0 ⇒ present;
+ *  - rc 为数字 且 stderr 命中"树里应答"签名(does not exist in / exists on disk, but not in)
+ *    且 提交对象本身可解析(前置一次性 rev-parse,解不出则整批未判定)⇒ absent;
+ *  - 其余(ENOENT/超时/被信号终止/退出码不带应答签名)⇒ undetermined。
+ * 三条不变量:present+absent+undetermined 恒等于 paths.length(非 ASCII 路径**不得被静默跳过**);
+ * 未判定不得折成 absent;git 给不出应答时绝不冒称判过。
+ */
+export function commitFacePresence({ root, commit, paths, timeoutMs = 30_000 }) {
+  const present = []
+  const absent = []
+  const undetermined = []
+  const baseArgs = ['-c', 'safe.directory=*']
+  if (process.platform === 'win32') baseArgs.push('-c', 'core.protectNTFS=false')
+  const ask = (args) => {
+    try {
+      execFileSync(GIT_BIN, [...baseArgs, '-C', root, ...args], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: timeoutMs,
+        maxBuffer: 8 << 20,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      return { status: 0, errText: '' }
+    } catch (e) {
+      return { status: e.status, errText: `${e.stderr ?? ''}${e.message ?? ''}` }
+    }
+  }
+  // 前置一次"问得到吗":提交对象本身解析不出 ⇒ 整批未判定(不得把"问不到"折叠成"没有")。
+  const probe = ask(['rev-parse', '--verify', '--quiet', `${commit}^{commit}`])
+  if (probe.status !== 0) {
+    for (const p of paths)
+      undetermined.push({ path: p, why: '落地的提交本身问不到(rev-parse 非 0)⇒ 存在性未判定,不是"缺路径"' })
+    return { present, absent, undetermined }
+  }
+  for (const p of paths) {
+    const r = ask(['cat-file', '-e', `${commit}:${p}`])
+    if (r.status === 0) present.push(p)
+    else if (typeof r.status === 'number' && /does not exist in|exists on disk, but not in/.test(r.errText))
+      absent.push(p)
+    else
+      undetermined.push({
+        path: p,
+        why: `cat-file -e 未给出"树里应答"(status=${r.status ?? '派生失败/超时/信号'})⇒ 未判定,不折成"缺路径"`,
+      })
+  }
+  return { present, absent, undetermined }
 }
 
 async function main() {
@@ -735,22 +823,63 @@ async function main() {
     process.exit(1)
   }
 
-  // ① 提交面回读:声明的每条路径必须出现在 git show --name-only 清单里
-  const inCommit = new Set(
-    git(['show', '--name-only', '--format=', landed], { root })
-      .split('\n')
-      .map((x) => x.trim())
-      .filter(Boolean),
-  )
-  const notProven = paths.filter((p) => !inCommit.has(p))
+  // ① 提交面回读(G-801):存在性逐路径问 git 的结论 `cat-file -e <commit>:<path>`,三态不并桶。
+  //    旧写法解析 `git show --name-only` 的输出文本并与声明路径逐字比对 —— git 默认按
+  //    core.quotePath 把非 ASCII 路径八进制转写并加引号,中文/带空格路径必然比不中,
+  //    把已成功的交付报成"缺路径";假失败会诱使重跑一次已经成功的落地(G-321① 幂等判据要拦的事)。
+  const face = commitFacePresence({ root, commit: landed, paths })
+  if (face.undetermined.length > 0) {
+    console.error(`❌ 提交面回读未判定(${face.undetermined.length} 路径):git 对"在不在树里"给不出结论 ⇒ 既不报"在树"也不报"缺路径":`)
+    for (const u of face.undetermined) console.error(`   ${u.path} (${u.why})`)
+    console.error(`   落地已推进 HEAD=${landed};先查 git 为何问不到,再逐路径核验 \`git cat-file -e ${landed.slice(0, 9)}:<path>\`;禁止按"缺路径"重跑本次落地`)
+    process.exit(2)
+  }
+  const notProven = face.absent
   if (notProven.length > 0) {
-    console.error(`❌ 提交面回读缺路径(消息声称的改动没真进树):\n  ${notProven.join('\n  ')}`)
+    console.error(`❌ 提交面回读缺路径(消息声称的改动没真进树;git 逐路径答"不在 ${landed.slice(0, 9)} 的树里"):\n  ${notProven.join('\n  ')}`)
     process.exit(1)
   }
-  const extras = [...inCommit].filter((p) => !paths.includes(p))
+  // `--name-only` 清单只留作"是否混提"的辅助提醒,且**必须**带 -c core.quotePath=false ——
+  // 否则非 ASCII 路径会被转写成引号形态,辅助判据自己重演 G-801 那一型。它不参与存在性结论。
+  let listed = null
+  try {
+    listed = new Set(
+      git(['-c', 'core.quotePath=false', 'show', '--name-only', '--format=', landed], { root })
+        .split('\n')
+        .map((x) => x.trim())
+        .filter(Boolean),
+    )
+  } catch (e) {
+    console.log(
+      `⚠️ 混提核查问不到(辅助提醒维,不参与存在性结论):${e && e.message ? e.message : e}`,
+    )
+  }
+  const extras = listed ? [...listed].filter((p) => !paths.includes(p)) : []
   console.log(
-    `✅ 提交面回读 ${paths.length}/${paths.length} 路径在树${extras.length ? `;另有非声明路径 ${extras.length} 条(检查是否混提)` : ''}`,
+    `✅ 提交面回读 ${paths.length}/${paths.length} 路径在树${listed ? (extras.length ? `;另有非声明路径 ${extras.length} 条(检查是否混提)` : '') : '(混提核查未判定)'}`,
   )
+
+  /**
+   * G-725 留痕:走到这里"这枚提交已在 HEAD 里、且声明路径都过了逐路径存在性判定"是既成事实 ——
+   * 主索引对齐(下一步)成功与否都不改变"它绕过了提交链"这一点,所以留痕必须写在对齐**之前**、
+   * 写在回读三态判定**之后**(回读未判定/缺路径的分支各有自己的退出码,那些情形不该记成"已落地")。
+   * 硬要求:写失败只喊一行 WARN,绝不把一次成功落地判红(它记的是账,不是门禁)。
+   * 这一族曾被一次"按滞后工作树副本提交的旁路落地"整体抹掉过(2026-09-29 现读 HEAD 计数 0),
+   * 所以它的存续由 `scripts/tests/plan-tasks-f9.test.mjs` 同族的形状锁看着,不靠人记得。
+   */
+  const attest = recordBypassLanding({
+    root,
+    source: 'object-space-land',
+    landedSha: landed,
+    headBefore: parentSha,
+    declaredFiles: paths,
+    watermarkSkipped: skipWatermark,
+  })
+  if (!attest.ok)
+    console.log(
+      `⚠️ 跳门留痕未写入(落地已成功 HEAD=${landed.slice(0, 11)},不改退出码):${attest.why}`,
+    )
+  else console.log(`✅ 跳门留痕 1 行已写入 ${attest.path}(kind=bypass-landing,gatesRun=false)`)
 
   // ② 共享主索引对齐(判据在 lib,只有一份):未尽事项点名后退出码仍 0 —— 落地本身已成功
   const align = alignSharedIndex({ root, paths, parentRef: parentSha })
@@ -793,5 +922,6 @@ export const __test__ = {
   resurrectAnalysis,
   detectStaleLanding,
   staleReport,
+  commitFacePresence,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

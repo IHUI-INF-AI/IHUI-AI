@@ -5,6 +5,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+import type { ReasoningEffort } from '@ihui/types'
 import { createPersistConfig } from './persist-helpers'
 
 /** 会话级采样参数 + 自定义 system prompt(P1-7,2026-09-13 立)
@@ -26,6 +27,17 @@ export interface SamplingParams {
    *  false = 显式关闭(streamChat 仅在 false 时透传,降级纯对话);
    *  true 归一为 undefined(开关「打开」即回到默认,不产生覆盖记录)。 */
   knowledgeContext?: boolean
+  /**
+   * D130(2026-09-30 立):推理强度档位(输入区第三轴)。
+   *
+   * 值域唯一源 = `@ihui/types` 的封闭联合 `ReasoningEffort`(第四落点,由守门
+   * `scripts/check-model-capacity-parity.mjs` C5/C6 与既有三处对账)—— **本文件不得写档位字面量**,
+   * 写出来就是第五份表,而它漂开时两侧都不会红。undefined = 不发该字段,后端按默认档处理。
+   *
+   * 为什么住这个 store:它是本仓「会话级请求参数 → 发送时一次性快照 → 随请求下发」的唯一既有通道
+   * (send-message.ts 已在此读 temperature/topP),另起一个 store 就是第二份真相 + 第二套快照时机。
+   */
+  reasoningEffort?: ReasoningEffort
 }
 
 /** 取值范围:与后端 zod(chatStreamSchema)/ Pydantic 校验保持一致,前端先拦一层 */
