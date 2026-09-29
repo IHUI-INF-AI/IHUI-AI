@@ -7,12 +7,8 @@
 与 packages/shared/src/sse/contract.ts 的 SSE_EVENTS 保持集合完全一致,
 由 scripts/check-agent-event-parity.mjs 断言对齐。
 
-本模块不承担序列化职责,但它**确实被运行时依赖**:全仓运行时 import 现读为
-SSE-CONTRACT-IMPORT-SITES = 1(app/routers/llm.py 函数内 import SSE_EVENT_CONTRACTS)。
-这里曾写过一句"零行为变化、运行时不需要它"的自述,与上面那行 grep 结果矛盾 —— 模块自述的
-依赖关系一旦与实况分叉,读注释的人就会以为改它没有影响。该等式由
-apps/ai-service/tests/test_sse_contract_self_description.py 现读核(声明数 != 现读数即失败),
-新增/删除 import 点时必须同步改上面那个数。
+本模块零行为变化:仅作为事件名的事实来源与文档,不被 ai-service 运行时强依赖
+(llm.py 等仍直写事件,本文件不承担序列化职责)。
 """
 
 from dataclasses import dataclass, field
@@ -140,24 +136,6 @@ SSE_COMPAT_EVENTS: frozenset[str] = frozenset(
     }
 )
 
-# ── D174(2026-09-30 立)帧级关联键 traceId ────────────────────────────────────
-# 它**不是某一帧的字段**,而是每一帧都带的顶层键,所以它不进各条目的 payload_fields:
-# 那份清单被 `app/routers/llm.py::_sse()` 的契约诊断当"必填"来查(missing ⇒ 告警),
-# 把"本轮没有有效 trace ⇒ 整字段缺席"这一合法形态列进去,就等于让诊断对合法帧恒告警
-# —— 与 TS 侧的处理同形:那边把它记在 `SSEEventMeta`(每个事件的共享元信息/顶层注入
-# 字段),而不是逐个判别成员里抄一遍。
-#
-# 值规则(小写 32 hex / 全 0 非法 / 无有效 trace 时整字段缺席)住在
-# `app/core/trace_context.py::sse_frame_trace_id`;键名的唯一真相源在这里。
-#
-# ⚠️ **SSE_COMPAT_EVENTS 不带这个键**:上面那段自己写的原话是"wire 形态与 Anthropic
-# 官方一致",往里加我方自定键是单方面改那个协议。所以生产点按"事件名 ∈ 兼容集 ⇒ 不注入"
-# 分流,兼容帧保持逐字节旧形状。
-SSE_TRACE_ID_PAYLOAD_KEY: str = "traceId"
-
-#: 顶层注入的帧级元信息键(与本模块的 payload_fields 分属两层,理由见上方注释)。
-SSE_FRAME_META_FIELDS: frozenset[str] = frozenset({SSE_TRACE_ID_PAYLOAD_KEY})
-
 
 @dataclass(frozen=True)
 class SSEEventContract:
@@ -172,11 +150,6 @@ class SSEEventContract:
     payload_fields: tuple[str, ...] = field(default_factory=tuple)
     # 是否为 agent 绑定流上会注入 agentId 顶层字段的事件
     injects_agent_id: bool = True
-    # D174(2026-09-30):是否为**每一帧**注入顶层 traceId 的事件。
-    # 默认 True —— 本清单里 32 条全是对话流帧,生产点 `llm.py::_sse()` 是唯一注入处;
-    # Anthropic 兼容面(SSE_COMPAT_EVENTS)不在本清单里,因此也不会被这条误认成带 traceId。
-    # 只有"确实不该带"(例如某帧改走兼容协议)才显式写 False,并在那里写明理由。
-    injects_trace_id: bool = True
 
 
 # 事件清单(注释性文档;payload_fields 为待收紧字段提示)
