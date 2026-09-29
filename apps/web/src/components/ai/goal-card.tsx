@@ -28,7 +28,10 @@ import { useGoalStore, type GoalStatus } from '@/stores/goal'
 /**
  * GoalCard — /goal 会话目标卡片(W24,2026-09-14 立)。
  *
- * 展示当前会话目标的状态机全貌:目标文本 / 四态状态徽章 / 进度条 / 阻塞原因列表。
+ * 展示当前会话目标的状态机全貌:目标文本 / 六态状态徽章 / 进度条 / 阻塞原因列表。
+ * 状态词汇的唯一来源是 `@ihui/types` 的 `GOAL_STATUSES`(D152 起四态扩到六态),
+ * 而这一份卡读的是 `stores/goal` 的**本地缓存** —— 服务端主副本经 `goal_updated`
+ * 帧到达即覆盖(见该 store 的 applyServerGoal)。
  * 操作:
  * - 进度 ±10(到达 100 自动提示标记完成)
  * - 添加 / 移除阻塞原因(首条阻塞自动切 blocked,清空自动恢复 active)
@@ -41,13 +44,28 @@ const STATUS_BADGE: Record<GoalStatus, string> = {
   paused: 'bg-amber-500/15 text-amber-600',
   blocked: 'bg-destructive/10 text-destructive',
   done: 'bg-primary/15 text-primary',
+  // D152(2026-09-29 拍板六态):两档"受限"各占一色,不与 paused 的琥珀混档 ——
+  // 同一屏同时出现"已暂停"和"额度受限"时,同色就是同义,而它们的原因完全不同。
+  usageLimited: 'bg-orange-500/15 text-orange-600',
+  budgetLimited: 'bg-violet-500/15 text-violet-600',
 }
 
-const STATUS_KEY: Record<GoalStatus, string> = {
-  active: 'statusActive',
-  paused: 'statusPaused',
-  blocked: 'statusBlocked',
-  done: 'statusDone',
+/**
+ * 六档 → 取词位置。D152 把状态机从四态扩到六态,而两档新词住在 **跨端共享命名空间**
+ * `chat.goal.status.*`(§19 五语言同批):小程序端读不到本端的 `goalCard` 命名空间,
+ * 同一句话不得在两个语包里各写一遍。四档旧词按现读**沿用** `goalCard.status*`,
+ * 不另起第二套键名。
+ *
+ * 类型是 `Record<GoalStatus, …>`,而 `GoalStatus` 取自 `@ihui/types` 的 `GOAL_STATUSES`
+ * ⇒ 服务端加一档时本组件**编译期**红,而不是运行时念出裸键名(AGENTS §30)。
+ */
+const STATUS_LABEL: Record<GoalStatus, readonly ['goalCard' | 'chat.goal.status', string]> = {
+  active: ['goalCard', 'statusActive'],
+  paused: ['goalCard', 'statusPaused'],
+  blocked: ['goalCard', 'statusBlocked'],
+  done: ['goalCard', 'statusDone'],
+  usageLimited: ['chat.goal.status', 'usageLimited'],
+  budgetLimited: ['chat.goal.status', 'budgetLimited'],
 }
 
 /**
@@ -67,6 +85,8 @@ function formatGoalDuration(ms: number): string {
 
 export function GoalCard() {
   const t = useTranslations('goalCard')
+  // D152:两档新词的取词面在跨端共享命名空间(小程序端念同一份文案),四档旧词照本端 goalCard
+  const tShared = useTranslations('chat.goal.status')
   const goal = useGoalStore((s) => s.goal)
   // D64 ⑥:折叠态(持久化于 goal store,对标 Trae isGoalExpanded)+ 编辑目标通道(renameGoal)
   const expanded = useGoalStore((s) => s.expanded)
@@ -125,6 +145,19 @@ export function GoalCard() {
     setBlockerDraft('')
   }
 
+  /** 六档取词:旧四档走本端 goalCard,新两档走跨端共享 chat.goal.status(见 STATUS_LABEL 注释) */
+  const statusLabel = (status: GoalStatus): string => {
+    const [ns, key] = STATUS_LABEL[status]
+    return ns === 'goalCard' ? t(key) : tShared(key)
+  }
+
+  /**
+   * D152:耗时优先取**服务端计量**的 elapsedMs(下行帧带来),没有它才退回端内
+   * createdAt/updatedAt 差值(D89 旧口径)。服务端那一份是跨端同值的主副本计量,
+   * 端内差值只在"这台机器什么时候点的按钮"上成立 —— 两个都留着时不得让后者盖掉前者。
+   */
+  const achievedMs = goal.elapsedMs ?? goal.updatedAt - goal.createdAt
+
   return (
     <div data-testid="goal-card" className="space-y-3 rounded-lg border p-3 text-sm">
       {/* 目标文本 + 状态徽章 + 编辑/折叠(D64 ⑥) */}
@@ -157,7 +190,7 @@ export function GoalCard() {
             STATUS_BADGE[goal.status],
           )}
         >
-          {t(STATUS_KEY[goal.status])}
+          {statusLabel(goal.status)}
         </span>
         {editing ? (
           <>
@@ -221,7 +254,7 @@ export function GoalCard() {
               <CheckCircle2 className="h-3 w-3 shrink-0" />
               <span>
                 {t('achievedInTime', {
-                  totalTime: formatGoalDuration(goal.updatedAt - goal.createdAt),
+                  totalTime: formatGoalDuration(achievedMs),
                 })}
               </span>
             </div>

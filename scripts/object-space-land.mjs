@@ -17,16 +17,22 @@
  *    别人真暂存过的一律**不动并点名"归属他人"**(退出码 0,但逐条喊出来,绝不静默)。
  *
  * CLI 契约(env 驱动,无参数):
- *  LAND_PATHS  必填,以 `;` 分隔的仓库相对路径清单(内容取各路径的工作树当前字节)
+ *  LAND_PATHS  必填,以 `;` 分隔的仓库相对路径清单
+ *              · 缺省(工作树模式)内容取各路径的工作树当前字节
+ *              · 配 LAND_BLOBS 时内容来自清单,**不读工作树** —— 用于"同一文件里别人有在飞改动"
+ *                的场景:那种情况下交工作树字节 = 替别人落地(§12 污染型),正确内容只能是 HEAD⊕本票行
  *  LAND_MSG    必填,提交信息
+ *  LAND_BLOBS  可选,JSON 清单 `{files:[{path,blob}]}`(blob 由 hash-object -w 得到,须已在对象库)
+ *  LAND_BLOB_PROOF 配 LAND_BLOBS 时必填:一句话写明"构造内容相对基线只动了本票行"是靠什么证的。
+ *              工作树取材的两道陈旧守卫在 blob 模式结构上不适用(它们比的是盘上那份),
+ *              替代尺 = 祖先 blob 对账 + 水印横幅保持 + 这句证明;三者都大声报数,少守卫不静默。
  *  LAND_ROOT   测试/换仓通道:被落地的仓库根(缺省 = 本脚本所在仓根)
  *  LAND_BASE_REF 取证通道:防覆盖对账的基线 ref(缺省 HEAD;只有测试用它造"别人已改过"的现场)
  *  LAND_ALLOW_STALE 显式放行"陈旧落地"(见 staleLandingGuard 的成因),放行时必打一行留痕
- *  LAND_ALLOW_MALFORMED_ID 显式放行"活文档新增畸形登记编号"(默认关闭;打开时逐条点名放过了什么行)
+ *              (只对工作树模式有意义;blob 模式的对应判据是祖先对账,不放行)
  * 退出码:0 = 已落地且回读通过(对齐的 skipped/未判定只在 stdout 点名);
  *        1 = 业务拒绝(某目标路径被别人改过 ⇒ 需重新归并 / 声明路径无差异 / 盘上副本等于祖先版本且会抹掉基线里活着的行 /
  *            落地内容里存在"基线已删、祖先版本写过"的复活行,或该维判据未判定 ⇒ 未判定不等于通过 /
- *            活文档里本次新增畸形登记编号(父提交里的存量只报数;父提交取不到落"未判定"不判红)/
  *            CAS 12 次未抢到 / 提交面回读缺路径 / 索引锁龄超上限);
  *        2 = 用法或环境错(空清单 / 空消息 / 声明路径不在盘上 / 根不可当仓库问)。
  *
@@ -47,17 +53,10 @@
  * 陈旧拼接才造 ①②③ —— 这个不对称就是判据的牙(镜像测试两臂各钉一边,两臂同色即判据无牙)。
  * 祖先窗口**不在本器重复数字**:走守门 84 的 `ancestorCommits` 那一个出口(窗口长度住在它内部);
  * 一个路径的全部祖先正文经 `face-reader.catBatch` **一次批量**读完(不逐行、不逐 blob 派生)。
- *
- * 2026-09-29 补的第四道拒绝(判据不在本器,只在落地点问一次):活文档的**畸形登记编号**(族名在编号段
- * 出现两次,如 `G-G-334`/`DD128`)那条唯一实现住在活文档编辑器 `live-doc-edit.mjs`,而**旁路落地不跑任何
- * 钩子** —— 拿一份陈旧工作树副本经本器交台账时,畸形号能一路进 HEAD 而全程无人拦(守门 71 头注 :54 记了
- * 那次复发;存量现值一律跑本器或 `live-doc-edit` 那把尺子读,本行**不**钉数字 —— 钉死的数下次收紧就成假账)。
- * 现由本器在水印预检与 write-tree **之前**问那一份实现一次:只拦"父提交里没有、本次内容里有"的新增行,
- * 他人历史存量只报数;父提交取不到 ⇒ 未判定(不判红,也不当零存量)。显式出口
- * `LAND_ALLOW_MALFORMED_ID=1`,默认关闭,放行必大声留痕。
  */
 
-import { existsSync } from 'node:fs'
+import { hasAnyWatermarkTrace, hasExactCanonicalBanner } from './lib/watermark-lines.mjs'
+import { existsSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -71,8 +70,13 @@ import {
   resolveHeadRef,
   writeBlobOfWorktree,
   ABSENT,
+  UNKNOWN,
 } from './lib/bypass-git.mjs'
-import { analyze as staleAncestorAnalysis, ancestorCommits } from './check-stale-revert.mjs'
+import {
+  analyze as staleAncestorAnalysis,
+  ancestorCommits,
+  resolveBlobs,
+} from './check-stale-revert.mjs'
 import { catBatch, readWorktreeFile } from './lib/face-reader.mjs'
 // 行级复活/计行判据的**单一实现**(2026-09-28 提取到 lib:守门 84 的 R1r 要用同一把尺子,
 // 两处各写一遍必然漂开 —— 本层只留 import 与再导出,不再持有第二份计数口径)。
@@ -82,28 +86,6 @@ import {
   RESURRECT_MAX_BLOB_BYTES,
   RESURRECT_MIN_LINE_LEN,
 } from './lib/stale-content-analysis.mjs'
-// G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
-import { recordBypassLanding } from './lib/commit-attestation.mjs'
-/**
- * 畸形登记编号判据的**唯一实现**(2026-09-29 立)。
- * 判据住在活文档编辑器 `live-doc-edit.mjs` 的 `newMalformed`(:534,它内部再引 `MALFORMED_ID_RE`
- * /`MALFORMED_BODY_RE` 与 `bodyOfRow` 那一份)—— 守门 71 的头注(:48/:90)就写着"编号形态判据的
- * 唯一实现住在活文档编辑器里"。**本器不得再写一份正则**:两处各写一遍"什么算畸形号"必然漂开,
- * 而漂开的表现永远是安静(本仓记过最多次的失败型)。
- * 补这道闸的理由是那条唯一实现**只覆盖跑得到钩子的那条面**:守门 71 的编号形态维在 `--staged` 档
- * 判本次新增(G-722 接入提交链),而旁路落地**不跑任何钩子** —— 拿一份陈旧工作树副本经本器交台账时,
- * 畸形号照样能一路进 HEAD 而全程无人拦(守门 71 头注 :54 记的那次事故就是同一批畸形号被并发旧底稿
- * 带回;存量现值一律跑本器现读,本注**不**钉数字)。
- */
-import { newMalformed } from './live-doc-edit.mjs'
-/**
- * 活文档清单的**权威出处** = `scripts/union-converge.mjs:94` 的 `export const LIVE_DOCS`。
- * 为什么不是任务书点名的那两处:`scripts/merge-live-doc.mjs` 走 `--file <单个路径>`、通篇没有清单;
- * `scripts/check-plan-line-loss.mjs:98` 只有 `const PLAN = 'PROJECT_PLAN.md'`(单本,未导出)。
- * 全仓唯一导出这三本之处就是 union-converge,且它的用法也是 `LIVE_DOCS.includes(p)` 精确匹配(:475/:501/:693)。
- * 本器复用那一份,**不新立第四本、不在这里重抄一遍名字**。
- */
-import { LIVE_DOCS } from './union-converge.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 // 水印 CLI 与本器同目录:用它而不是拼 cwd 相对路径,理由见 watermarkPreflight 内注释。
@@ -120,12 +102,37 @@ export function parseArgs(env = process.env) {
     .filter(Boolean)
   const msg = env.LAND_MSG ?? ''
   const baseRef = env.LAND_BASE_REF || 'HEAD'
-  if (paths.length === 0) return { error: '缺 LAND_PATHS(以 ; 分隔)⇒ 拒绝执行(空清单会把 undefined 当路径提交,本仓踩过)' }
+  /**
+   * `LAND_BLOBS` = 内容清单(JSON:`{files:[{path,blob}]}`)。为什么要有这条通道:
+   * 共享工作树里**别人的在飞改动**与本票的改动常常落在同一个文件的不同行上,而"交工作树字节"
+   * 就是替别人落地(§12 污染型)。这时正确内容只能是 `HEAD ⊕ 本票行`,它只存在于对象空间。
+   * 磁盘那条路(`writeBlobOfWorktree`)对这种内容根本不成立,所以必须显式声明来源,而不是
+   * 让调用方再手写第六份 commit-tree 装置(AGENTS 记过:6 份同形脚本已互相漂开)。
+   */
+  const blobs = env.LAND_BLOBS ? JSON.parse(readFileSync(env.LAND_BLOBS, 'utf8')) : null
+  const blobOf = blobs ? new Map((blobs.files || []).map((f) => [f.path, f.blob])) : null
+  if (paths.length === 0)
+    return { error: '缺 LAND_PATHS(以 ; 分隔)⇒ 拒绝执行(空清单会把 undefined 当路径提交,本仓踩过)' }
   if (msg === '') return { error: '缺 LAND_MSG ⇒ 拒绝执行(不允许空消息落地,提交史无法归因)' }
-  if (!resolveHeadRef({ root })) return { error: `${root} 不是可用仓库(HEAD 不可解析或 detached)⇒ 无法判定,不落` }
-  const missing = paths.filter((p) => !existsSync(join(root, p)))
-  if (missing.length > 0) return { error: `声明路径不在盘上:\n  ${missing.join('\n  ')}` }
-  return { root, paths, msg, baseRef }
+  if (!resolveHeadRef({ root }))
+    return { error: `${root} 不是可用仓库(HEAD 不可解析或 detached)⇒ 无法判定,不落` }
+  if (blobOf) {
+    const noBlob = paths.filter((p) => !blobOf.get(p))
+    if (noBlob.length > 0)
+      return {
+        error: `LAND_BLOBS 清单里缺这些声明路径 ⇒ 内容无从取得,拒绝落地:\n  ${noBlob.join('\n  ')}`,
+      }
+    const unknown = [...blobOf.keys()].filter((p) => !paths.includes(p))
+    if (unknown.length > 0)
+      return {
+        error: `LAND_BLOBS 里有未声明路径(${unknown.join(', ')})⇒ 声明面与内容面必须一致,拒绝落地`,
+      }
+    // blob 模式不要求盘上有该文件:内容来自对象空间,工作树那份属于别人
+  } else {
+    const missing = paths.filter((p) => !existsSync(join(root, p)))
+    if (missing.length > 0) return { error: `声明路径不在盘上:\n  ${missing.join('\n  ')}` }
+  }
+  return { root, paths, msg, baseRef, blobOf }
 }
 
 /** 防覆盖护栏:基线快照与当下 HEAD 之间,哪些目标路径的内容被别人动过。 */
@@ -179,10 +186,12 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
   } catch (e) {
     return {
       ok: false,
-      offenders: judged.map((p) => mkEntry(p, null, null, null, {
-        status: 'undetermined',
-        reason: '整 blob 判据未能运行 ⇒ 行级判据无从对齐',
-      })),
+      offenders: judged.map((p) =>
+        mkEntry(p, null, null, null, {
+          status: 'undetermined',
+          reason: '整 blob 判据未能运行 ⇒ 行级判据无从对齐',
+        }),
+      ),
       notes,
       reason: `陈旧判据未能运行:${firstLine(e)}`,
     }
@@ -206,7 +215,10 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
   let texts = new Map()
   let batchError = null
   try {
-    texts = catBatch(root, judged.map((p) => `${baseRef}:${p}`))
+    texts = catBatch(
+      root,
+      judged.map((p) => `${baseRef}:${p}`),
+    )
   } catch (e) {
     batchError = firstLine(e)
   }
@@ -214,7 +226,11 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
     for (const p of judged) {
       const wt = worktreeOf.get(p)
       const base = texts.get(`${baseRef}:${p}`)
-      if (typeof wt === 'string' && typeof base === 'string' && Math.max(wt.length, base.length) > RESURRECT_MAX_BLOB_BYTES) {
+      if (
+        typeof wt === 'string' &&
+        typeof base === 'string' &&
+        Math.max(wt.length, base.length) > RESURRECT_MAX_BLOB_BYTES
+      ) {
         sizeExceeded.add(p)
         continue
       }
@@ -245,7 +261,13 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
     const delta = lineDelta(baseText, newText)
     const wholeHit = hitBy.get(p) ?? null
     let line
-    if (batchError) line = { status: 'undetermined', reason: `祖先正文批量读取失败:${batchError}`, sample: [], commits: [] }
+    if (batchError)
+      line = {
+        status: 'undetermined',
+        reason: `祖先正文批量读取失败:${batchError}`,
+        sample: [],
+        commits: [],
+      }
     else if (sizeExceeded.has(p))
       line = {
         status: 'out-of-scope',
@@ -253,7 +275,13 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
         sample: [],
         commits: [],
       }
-    else if (logFailed.has(p)) line = { status: 'undetermined', reason: '祖先提交清单取不到(git log 未能运行)', sample: [], commits: [] }
+    else if (logFailed.has(p))
+      line = {
+        status: 'undetermined',
+        reason: '祖先提交清单取不到(git log 未能运行)',
+        sample: [],
+        commits: [],
+      }
     else
       line = resurrectAnalysis({
         baseText,
@@ -269,7 +297,11 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
     // 未覆盖必须**逐条报名**,且与"是否参与拒绝"无关 —— 一台只在放行时才沉默的守卫,
     // 读报告的人会把"没判"当成"判过了"(本仓最高频失效型)。
     if (line.status === 'out-of-scope')
-      notes.push({ ...entry, kind: 'line-out-of-scope', why: `行级复活判据未覆盖此路径:${line.reason}` })
+      notes.push({
+        ...entry,
+        kind: 'line-out-of-scope',
+        why: `行级复活判据未覆盖此路径:${line.reason}`,
+      })
     const refuseByBlob = !!wholeHit && (delta.vanished === null || delta.vanished > 0)
     const refuseByLines = line.status === 'judged' ? line.count > 0 : line.status === 'undetermined'
     if (refuseByBlob || refuseByLines) {
@@ -331,7 +363,11 @@ function staleReport(guard, { allowStale }) {
   for (const o of guard.offenders) {
     const v = o.vanished === null ? '消失行数未判定' : `消失 ${o.vanished} 行`
     const a = o.appeared === null ? '重现行数未判定' : `重现 ${o.appeared} 行`
-    const blob = o.commit ? `== 祖先 ${o.commit}` : o.lineStatus === 'judged' ? '(内容不等于任何祖先)' : '(祖先版本取不到)'
+    const blob = o.commit
+      ? `== 祖先 ${o.commit}`
+      : o.lineStatus === 'judged'
+        ? '(内容不等于任何祖先)'
+        : '(祖先版本取不到)'
     const who = o.resurrectedBy.length ? `(见于祖先 ${o.resurrectedBy.slice(0, 3).join(', ')})` : ''
     const r =
       o.lineStatus === 'judged'
@@ -341,12 +377,20 @@ function staleReport(guard, { allowStale }) {
     appendSamples(lines, o)
   }
   if (!allowStale) {
-    lines.push('   最常见成因:共享工作树副本滞后 HEAD ⇒ 落地器取的是磁盘字节(走 pathspec 只会更糟),')
-    lines.push('   而调用方又在这份滞后副本上补了自己的改动(所以整 blob 判据看不见,只有行级复活看得见)。')
+    lines.push(
+      '   最常见成因:共享工作树副本滞后 HEAD ⇒ 落地器取的是磁盘字节(走 pathspec 只会更糟),',
+    )
+    lines.push(
+      '   而调用方又在这份滞后副本上补了自己的改动(所以整 blob 判据看不见,只有行级复活看得见)。',
+    )
     lines.push('   出口 ① 取 HEAD 形态重新施加改动(先看判据再动手,别覆盖别人的在飞现场):')
-    lines.push('            git cat-file blob HEAD:<path> > <path>   ← 覆盖工作树副本,确认其中没有你自己的未提交内容才用')
+    lines.push(
+      '            git cat-file blob HEAD:<path> > <path>   ← 覆盖工作树副本,确认其中没有你自己的未提交内容才用',
+    )
     lines.push('   出口 ② 确属有意重生成 ⇒ LAND_ALLOW_STALE=1 重跑本器(会大声留痕,不会静默放行)')
-    lines.push('   标了"未判定"的行是**判据没读到东西**(浅历史 / 超过尺寸护栏 / git 派生失败),不是"检查过且干净";')
+    lines.push(
+      '   标了"未判定"的行是**判据没读到东西**(浅历史 / 超过尺寸护栏 / git 派生失败),不是"检查过且干净";',
+    )
     lines.push('   未判定不得被读成通过 —— 要放行只有出口 ② 这一条显式路径。')
   }
   return lines
@@ -356,144 +400,6 @@ function appendSamples(lines, entry) {
   for (const l of entry.vanishedSample ?? []) lines.push(`       - 消失: ${l}`)
   for (const l of entry.appearedSample ?? []) lines.push(`       + 重现: ${l}`)
   for (const l of entry.resurrectedSample ?? []) lines.push(`       ↺ 复活: ${l}`)
-}
-
-/**
- * 活文档编号形态复核(2026-09-29 立;本器是"畸形号绕过唯一判据进 HEAD"那条通道的唯一拦截点)。
- *
- * 只对**活文档路径**生效:清单不自己造,取 `union-converge.mjs` 导出的那一份 `LIVE_DOCS`
- * (依据写在文件顶部 import 处)。非清单路径不进射程 —— 同一形态写在 `.ts` 或别的 `.md` 里不判,
- * 这是射程不是遗漏:判据按清单走,全局误伤会让本器对每次普通落地都喊红。
- *
- * 只拦**本次新引入**:判据本体 `newMalformed(baseText, landedText)` 给两档 ——
- *  - `added`      = 落地内容里有、父提交(CAS 基线 `baseRef`)那份里没有的畸形行 ⇒ 拒绝
- *  - `preexisting`= 落地内容里有、父提交里**已在**的畸形行 ⇒ 只报数不拦
- * 存量为什么不拦(§12e 恒红门同一条):他人历史留下的畸形号钉红每一次落地,唯一结局是逼人绕开本器
- * 改用 pathspec 硬交 —— 拿一个更危险的出口换一个账面好看。但必须打印出来,否则"存量"与"我刚造的"
- * 在账面上同形(本仓最高频失效型就是"把没判写成判过了",而这里连"没分家"都读不出来)。
- *
- * **未判定既不判红也不记绿**(与 `detectStaleLanding` 把未判定算进 offenders 刻意不同,按本票票面):
- * 父提交里取不到该路径正文(新文件 / 对象不可读 / 二进制)时,存量这一维结构上无从对齐,把它当
- * "零存量"直接判红就是替本次改动无关的债造恒红门;而沉默不喊等于把"没判"写成"判过了"。
- * 所以这一格落 `undetermined` 并逐条报名。
- *
- * @param {{ root: string, paths: string[], baseRef?: string }} a
- * @returns {{ ok: boolean,
- *   offenders: Array<{ path: string, added: Array<{ line: string, family: string }> }>,
- *   stock: Array<{ path: string, preexisting: Array<{ line: string, family: string }> }>,
- *   undetermined: Array<{ path: string, reason: string }>,
- *   scanned: number }}
- */
-export function detectMalformedLiveDocIds({ root, paths, baseRef = 'HEAD' }) {
-  const docs = paths.filter((p) => LIVE_DOCS.includes(p))
-  const gate = { ok: true, offenders: [], stock: [], undetermined: [], scanned: docs.length }
-  if (docs.length === 0) return gate
-  // 父提交那一面**一次批量读满**(face-reader 的 cat-file --batch,守门 118 的取材面纪律:
-  // 枚举与内容同面同轮,不逐 blob 派生)。maxBuffer 给足 1<<28 —— 整面文档不得用默认值,
-  // face-reader 头注第 5 条记过"真仓语言包 1,080,001 字节被默认 1MB 截成'读不出/仓库坏了'"那一型,
-  // 而 PROJECT_PLAN.md 现 4.7MB。
-  let texts
-  try {
-    texts = catBatch(
-      root,
-      docs.map((p) => `${baseRef}:${p}`),
-      { maxBuffer: 1 << 28 },
-    )
-  } catch (e) {
-    for (const p of docs)
-      gate.undetermined.push({
-        path: p,
-        reason: `父提交面(${baseRef})批量取材失败 ⇒ 存量无从对齐:${firstLine(e)}`,
-      })
-    return gate
-  }
-  for (const p of docs) {
-    const baseText = texts.get(`${baseRef}:${p}`) ?? null
-    if (baseText === null) {
-      gate.undetermined.push({
-        path: p,
-        reason:
-          `父提交 ${baseRef} 里取不到该路径正文(新文件 / 对象不可读 / 二进制)⇒ 存量这一维**未判定**,` +
-          '不据此判红,更不得当"零存量"',
-      })
-      continue
-    }
-    let landedText
-    try {
-      landedText = readWorktreeFile(root, p)
-    } catch (e) {
-      gate.undetermined.push({
-        path: p,
-        reason: `要落地的正文读不到:${firstLine(e)} ⇒ 未判定(不记通过)`,
-      })
-      continue
-    }
-    if (landedText === null) {
-      gate.undetermined.push({
-        path: p,
-        reason: '要落地的正文读不到或含 NUL(二进制)⇒ 行形态判据按定义不适用,未判定(不记通过)',
-      })
-      continue
-    }
-    const mal = newMalformed(baseText, landedText)
-    if (mal.added.length > 0) gate.offenders.push({ path: p, added: mal.added })
-    if (mal.preexisting.length > 0) gate.stock.push({ path: p, preexisting: mal.preexisting })
-  }
-  gate.ok = gate.offenders.length === 0
-  return gate
-}
-
-/**
- * 编号形态闸的措辞出口(纯函数,与 `staleReport` 同取向:话说在哪儿,只在一种场合说一次)。
- * 三态不并桶 —— "射程外"、"未判定"、"存量只报数"、"新增拒绝"各有句式,读报告的人据此才知道该动哪一手。
- * "跑了且干净"那句**只在真有判定结果时**才印:未判定存在却照印,就是把"没判"写成"判过了"(本仓最高频失效型)。
- */
-export function malformedIdReport(gate, { allowMalformed = false, baseRef = 'HEAD' } = {}) {
-  const lines = []
-  // "没跑这一维"与"跑了且干净"必须**可读出来不同形**(本仓"只报数不报名"记过多次):
-  // 两种情形各给一句,免得下一个接手的人把沉默读成合格证。
-  if (gate.scanned === 0)
-    lines.push(
-      `ℹ 活文档编号形态闸:本次声明路径不含活文档(${LIVE_DOCS.join(' / ')})⇒ 不进射程,这是**射程**,不是"判过且干净"`,
-    )
-  for (const u of gate.undetermined)
-    lines.push(`ℹ️ ${u.path}:未判定 —— ${u.reason}(未判定 ≠ 零存量,也 ≠ 查过了且干净)`)
-  for (const s of gate.stock)
-    lines.push(
-      `ℹ 活文档存量畸形登记编号 ${s.preexisting.length} 行(${s.path}:父提交 ${baseRef} 里已在 ⇒ ` +
-        '只报数不拦,与本次落地无关;逐条清偿另计批)',
-    )
-  if (gate.ok && gate.scanned > 0 && gate.undetermined.length === 0)
-    lines.push(`✅ 活文档编号形态闸:已判 ${gate.scanned} 本活文档(本次新增畸形 0 行)`)
-  if (!gate.ok) {
-    const total = gate.offenders.reduce((a, o) => a + o.added.length, 0)
-    lines.push(
-      allowMalformed
-        ? `⚠️ LAND_ALLOW_MALFORMED_ID=1 ⇒ 本次由人工放行 ${total} 行畸形登记编号落地` +
-            '(判据:object-space-land.detectMalformedLiveDocIds → live-doc-edit.newMalformed;' +
-            '放行不等于判过 —— 下面这些行会真进 HEAD,该行输出即留痕)'
-        : `❌ 活文档编号形态闸:本次要落地的内容里有 ${total} 行畸形登记编号(族名在编号段出现两次)⇒ 拒绝落地`,
-    )
-    for (const o of gate.offenders) {
-      lines.push(
-        `   - ${o.path} 本次新增 ${o.added.length} 行(畸形号会让台账撞号维 F9 把它多计一个"编号挂两个标题",替别人造债):`,
-      )
-      for (const x of o.added.slice(0, 4)) lines.push(`       · [族 ${x.family}] ${x.line}`)
-      if (o.added.length > 4) lines.push(`       · …另 ${o.added.length - 4} 行未逐条打印`)
-    }
-    if (!allowMalformed) {
-      lines.push(
-        '   成因固定:取号令牌 {{NEXT_ID:X}} 的展开值**本身已含族名**,正文再手写一个字面 X 就产出 XX123(在案另一形态 G-G-334 同源)。',
-      )
-      lines.push(
-        '   改法:删掉正文里那一个字面族名,只留令牌。判据只有 live-doc-edit.mjs 那一份,本器不写第二份。',
-      )
-      lines.push(
-        '   应急出口(默认关闭):LAND_ALLOW_MALFORMED_ID=1 重跑本器 ⇒ 大声留痕,不会静默放行。',
-      )
-    }
-  }
-  return lines
 }
 
 /**
@@ -569,23 +475,190 @@ function defaultRun(cmd, args, opts) {
   return { status: 0 }
 }
 
+/**
+ * **blob 模式**的陈旧判据:`detectStaleLanding` 的两条判据都以"工作树那份字节 = 要落地的内容"
+ * 为前提,而 blob 模式要落的内容根本不在盘上(盘上那份属于别人的在飞改动)—— 套它等于用
+ * 别人的内容给自己做证。所以这里换一条同义但可判的尺子:**构造出来的 blob 不得等于该路径
+ * 历史上任何一枚 blob**(守门 84 R1 的判据形状,只是取材从索引换成显式 blob)。
+ * 等于祖先 ⇒ 这不是新内容,是一次写回。
+ * 行级复活那一维在本模式**结构上不适用**(它比较的是"盘上有没有把删掉的行搬回来"),
+ * 因此调用方必须用 `LAND_BLOB_PROOF` 出具"构造内容相对基线只动了本票行"的证据,本器把那句话
+ * 原样打进输出 —— 少一道守卫必须写明少了哪道、由什么替代,不得静默当"判过了"。
+ */
+export function blobAncestorClash({ root, paths, blobOf, baseRef = 'HEAD' }) {
+  const clashes = []
+  const unjudged = []
+  const notes = []
+  for (const p of paths) {
+    const oid = blobOf.get(p)
+    if (!oid) {
+      unjudged.push({ path: p, why: '清单里没有该路径的 blob' })
+      continue
+    }
+    if (headBlobOf(baseRef, p, { root }) === ABSENT) {
+      notes.push({ path: p, why: '基线里没有该路径(新增文件)⇒ 无祖先可对账,按定义不构成写回' })
+      continue
+    }
+    // 祖先清单与批量取 blob 都用守门 84 的那两份出口(窗口数字、失败语义都住在它内部)
+    const anc = ancestorCommits(root, p)
+    if (!anc.length) {
+      // 一个祖先都取不到 ⇒ 这一维**没判**,不得读成"不等于任何祖先"
+      unjudged.push({ path: p, why: '祖先清单为空/取不到 ⇒ 无法对账' })
+      continue
+    }
+    const ab = resolveBlobs(
+      root,
+      anc.map((c) => `${c}:${p}`),
+    )
+    if (ab.size !== anc.length) {
+      unjudged.push({ path: p, why: `祖先正文只取到 ${ab.size}/${anc.length} 个 ⇒ 对账不完整` })
+      continue
+    }
+    const hit = anc.filter((c) => ab.get(`${c}:${p}`) === oid)
+    if (hit.length)
+      clashes.push({ path: p, oid, commits: hit.slice(0, 3).map((c) => c.slice(0, 9)) })
+  }
+  return { clashes, unjudged, notes }
+}
+
+/**
+ * blob 模式的水幕检查:`watermark.mjs_verify` 读的是盘上文件,对 blob 内容零覆盖。
+ *
+ * 判的是**单向**关系:基线有横幅而构造内容没有 ⇒ 有人把横幅抹掉了 ⇒ 拒落。
+ * 刻意不要求"两边前三行逐字等值" —— 那等于**强制**目标必须带横幅,于是新增文件/第三方台账
+ * 内容(按 §5c 与守门 107 P8 的口径本来就没有我们的横幅)会被本器自己的预检挡住,
+ * 而"给出路且跑不通"正是本仓反复登记过的那类缺陷。
+ * 载荷可解码性仍由提交链上的水印守门负责,本器只保证"不是我抹的"。
+ */
+/**
+ * blob 模式的水幕检查:`watermark.mjs verify` 读的是盘上文件,对 blob 内容零覆盖。
+ *
+ * 判的是**单向**关系:基线有横幅而构造内容没有 ⇒ 有人把横幅抹掉了 ⇒ 拒落。
+ * 刻意不要求"两边前三行逐字等值" —— 那等于**强制**目标必须带横幅,于是新增文件/第三方台账
+ * 内容(按 §5c 与守门 107 P8 的口径本来就没有我们的横幅)会被本器自己的预检挡住,
+ * 而"给出路且跑不通"正是本仓反复登记过的那类缺陷。
+ *
+ * 2026-09-29 补第三态:基线的横幅**不可认**(整块缺失、只剩载荷行、或版权行被编码往返改成乱码)
+ * 而构造内容带规范横幅 ⇒ 这是修复,放行并报名。判据最初把这一格也判红,于是"补回被抹掉的署名"
+ * 这件正是本器该鼓励的事,被本器自己拦住了 —— 而它拦住的那三份文件,HEAD 上现在仍然没有署名。
+ * "篡改规范文案"(两边都规范而文字不同)照旧判红,这一格不让步。
+ */
+export function decideBanner({ baseText, newText }) {
+  const hasAny = hasAnyWatermarkTrace
+  const baseCanonical = hasExactCanonicalBanner(baseText)
+  const newCanonical = hasExactCanonicalBanner(newText)
+  const head3 = (text) => String(text).split('\n').slice(0, 3).join('\n')
+  if (!hasAny(baseText) && !hasAny(newText)) {
+    return {
+      verdict: 'note',
+      why: '两边都没有横幅(新增/第三方台账内容)⇒ 本器不逼它长出横幅,交水印守门与 107 P8 判',
+    }
+  }
+  if (hasAny(baseText) && !hasAny(newText))
+    return { verdict: 'broken', why: '基线有横幅而构造内容没有 ⇒ 横幅被抹' }
+  if (!baseCanonical && newCanonical) {
+    return {
+      verdict: 'repaired',
+      why: '基线横幅不可认(缺失/只剩载荷行/版权行被编码往返改坏)而构造内容带规范横幅 ⇒ 这是补回署名,放行并报名',
+    }
+  }
+  if (head3(baseText) !== head3(newText)) {
+    if (!newCanonical)
+      return { verdict: 'broken', why: '构造内容的横幅不可认 ⇒ 拒绝把无署名内容放进 HEAD' }
+    return {
+      verdict: 'broken',
+      why: '两边都是规范横幅而前三行仍被换掉 ⇒ 这是在改写横幅文字,不是保持',
+    }
+  }
+  return { verdict: 'kept', why: '前三行与基线逐字等值 ⇒ 横幅未被触碰' }
+}
+
+export function blobBannerPreserved({ root, paths, blobOf, baseRef = 'HEAD' }) {
+  const broken = []
+  const unjudged = []
+  const notes = []
+  for (const p of paths) {
+    const baseOid = headBlobOf(baseRef, p, { root })
+    if (baseOid === ABSENT || baseOid === UNKNOWN || !blobOf.get(p)) {
+      unjudged.push({ path: p, why: '基线或目标 blob 取不到' })
+      continue
+    }
+    const bt = git(['cat-file', 'blob', baseOid], { root, raw: true, allowFail: true })
+    const nt = git(['cat-file', 'blob', blobOf.get(p)], { root, raw: true, allowFail: true })
+    if (bt === null || nt === null) {
+      unjudged.push({ path: p, why: 'blob 正文取不到' })
+      continue
+    }
+    const d = decideBanner({ baseText: bt, newText: nt })
+    if (d.verdict === 'broken') broken.push({ path: p, why: d.why })
+    else if (d.verdict === 'note' || d.verdict === 'repaired') notes.push({ path: p, why: d.why })
+  }
+  return { broken, unjudged, notes }
+}
+
 async function main() {
   const parsed = parseArgs()
   if (parsed.error) {
     console.error(`❌ ${parsed.error}`)
     process.exit(2)
   }
-  const { root, paths, msg, baseRef } = parsed
+  const { root, paths, msg, baseRef, blobOf } = parsed
   const skipWatermark = process.env.IHUI_LAND_SKIP_WATERMARK === '1'
 
   const head0 = git(['rev-parse', 'HEAD'], { root })
   const base = new Map(paths.map((p) => [p, headBlobOf(baseRef, p, { root })]))
-  const mine = new Map(paths.map((p) => [p, writeBlobOfWorktree(p, { root })]))
+  const mine = new Map(
+    paths.map((p) => [p, blobOf ? blobOf.get(p) : writeBlobOfWorktree(p, { root })]),
+  )
+  if (blobOf) {
+    const proof = String(process.env.LAND_BLOB_PROOF ?? '').trim()
+    if (proof === '') {
+      console.error(
+        '❌ blob 模式必须出具 LAND_BLOB_PROOF(一句话说明"构造内容相对基线只动了本票行"是靠什么证的)\n' +
+          '   理由:工作树取材的两道陈旧守卫在 blob 模式结构上不适用,少了守卫必须写明由什么替代,\n' +
+          '   不得让"没判"在账面上读成"判过了"。',
+      )
+      process.exit(2)
+    }
+    console.log(
+      `ℹ️ blob 模式(内容来自对象空间清单,不取工作树字节)⇒ 盘上那份属于他人改动,本器不读它`,
+    )
+    console.log(`   替代证据:${proof}`)
+    const clash = blobAncestorClash({ root, paths, blobOf })
+    if (clash.clashes.length) {
+      console.error(`❌ 构造内容与该路径某历史 blob 逐字节相同 ⇒ 那是写回旧版,不是新内容:`)
+      for (const c of clash.clashes) console.error(`   ${c.path} == ${c.commits.join('/')}`)
+      process.exit(1)
+    }
+    if (clash.unjudged.length) {
+      console.error(
+        `❌ 祖先对账未能运行(${clash.unjudged.length} 个路径):把"问不到"写成"不等于任何祖先"就是给合格证背书`,
+      )
+      process.exit(2)
+    }
+    console.log(`✅ 祖先对账 ${paths.length}/${paths.length} 路径:构造内容不等于任何历史 blob`)
+    const banner = blobBannerPreserved({ root, paths, blobOf, baseRef })
+    for (const n of banner.notes || []) console.log(`   ℹ️ ${n.path}:${n.why}`)
+    if (banner.broken.length) {
+      console.error(`❌ 水印横幅未保持(把无横幅内容放进 HEAD,或改写了横幅本身):`)
+      for (const b of banner.broken) console.error(`   ${b.path}:${b.why}`)
+      process.exit(1)
+    }
+    if (banner.unjudged.length) {
+      console.error(`❌ 横幅检查未能运行(${banner.unjudged.length} 个路径):取不到不等于保持`)
+      process.exit(2)
+    }
+    console.log(
+      `✅ 水印横幅保持 ${paths.length - (banner.notes || []).length}/${paths.length} 路径${(banner.notes || []).length ? `(另有 ${(banner.notes || []).length} 个基线本就无横幅,只点名不逼它长出横幅)` : ''}`,
+    )
+  }
 
   // 声明无差异 ⇒ 事先拒绝(提交面回读结构上证明不了"改了它";safe-commit Step③ 同型的中止语义,前置到写盘之前)
   const noDiff = paths.filter((p) => mine.get(p) === base.get(p))
   if (noDiff.length > 0) {
-    console.error(`❌ 这些声明路径与基线(${baseRef})内容逐字节相同 ⇒ 拒绝落地(提交面回读永远证不了它们被改):\n  ${noDiff.join('\n  ')}`)
+    console.error(
+      `❌ 这些声明路径与基线(${baseRef})内容逐字节相同 ⇒ 拒绝落地(提交面回读永远证不了它们被改):\n  ${noDiff.join('\n  ')}`,
+    )
     process.exit(1)
   }
 
@@ -593,62 +666,51 @@ async function main() {
    * 陈旧落地守卫:放在 CAS **与水印预检之前** —— 拒绝路径上对象库、ref、索引都没被碰过,
    * 也不必先花一次 verify 派生去为一个注定不落地的内容做证。
    * 判据本身不在此重述(见 detectStaleLanding),这里只接线。
+   * **blob 模式不走这一段**:它的两条判据都以"盘上那份 = 要落的内容"为前提,而 blob 模式的
+   * 盘上那份属于别人;上面已换成祖先对账 + 横幅保持 + 调用方出具的证明,三条各自大声报数。
    */
   const allowStale = process.env.LAND_ALLOW_STALE === '1'
-  if (allowStale)
-    console.log('⚠️ LAND_ALLOW_STALE=1 ⇒ 陈旧落地守卫只做报告、不参与拒绝(该行输出即留痕)')
-  const guard = detectStaleLanding({ root, paths, baseRef, head: head0 })
-  const refusing = !guard.ok && !allowStale
-  for (const line of staleReport(guard, { allowStale })) {
-    if (refusing) console.error(line)
-    else console.log(line)
+  if (!blobOf) {
+    if (allowStale)
+      console.log('⚠️ LAND_ALLOW_STALE=1 ⇒ 陈旧落地守卫只做报告、不参与拒绝(该行输出即留痕)')
+    const guard = detectStaleLanding({ root, paths, baseRef, head: head0 })
+    const refusing = !guard.ok && !allowStale
+    for (const line of staleReport(guard, { allowStale })) {
+      if (refusing) console.error(line)
+      else console.log(line)
+    }
+    if (refusing) process.exit(1)
   }
-  if (refusing) process.exit(1)
-
-  /**
-   * 活文档编号形态闸(2026-09-29 立):判据只有一份,住在 `live-doc-edit.mjs` 的 `newMalformed`
-   * (本器只 import 不重写 —— 见文件顶部与 detectMalformedLiveDocIds 的依据)。
-   * 位置刻意排在**祖先回写/行级复活两道拒绝之后、水印预检与 write-tree/commit-tree 之前**:
-   *  - 排在它们之后:陈旧落地那一型先把内容整批写回旧态,编号形态在那份内容上谈"本次新引入"没有意义;
-   *  - 排在水印预检之前:与上面守卫同一条理由 —— 拒绝路径上不必先花一次 verify 派生去为一个
-   *    注定不落地的内容做证;而且**必须在 write-tree/commit-tree 之前**:内容一旦 commit,
-   *    再 exit 1 就是把"已入库"谎报成"没落地",而"没落地"的唯一反应是重跑(本器 G-321 花两档
-   *    退出码要消灭的正是这一混淆)。
-   * 失败时对象库、ref、索引都还没被碰过 ⇒ 不留半截索引,也不留半截提交。
-   */
-  const allowMalformed = process.env.LAND_ALLOW_MALFORMED_ID === '1'
-  if (allowMalformed)
-    console.log(
-      '⚠️ LAND_ALLOW_MALFORMED_ID=1 ⇒ 活文档编号形态闸只做报告、不参与拒绝(该行输出即留痕)',
-    )
-  const malGate = detectMalformedLiveDocIds({ root, paths, baseRef })
-  const malRefusing = !malGate.ok && !allowMalformed
-  for (const line of malformedIdReport(malGate, { allowMalformed, baseRef })) {
-    if (malRefusing) console.error(line)
-    else console.log(line)
-  }
-  if (malRefusing) process.exit(1)
 
   let landed = ''
   let parentSha = ''
   // 水印预检(G-253):旁路提交不跑钩子,这道检查是"无横幅文件进 HEAD"的唯一拦截点。
   // 放在 CAS **之前** —— 校验不通过时对象库与 ref 都未被动过。
-  if (!skipWatermark) {
+  // blob 模式改由 blobBannerPreserved 判(上面已跑):verify 读的是盘上文件,而盘上那份属于别人,
+  // 拿它给要落地的内容做证就是替别人的内容签字。
+  if (!skipWatermark && !blobOf) {
     const preflight = watermarkPreflight({ root, paths })
     if (!preflight.ok) {
       console.error(`❌ 水印预检不通过,拒绝落地:${preflight.why}`)
       console.error('   应急跳过(仅限确属台账第三方内容):IHUI_LAND_SKIP_WATERMARK=1')
       process.exit(1)
     }
-    console.log(`✅ 水印预检通过 ${paths.length}/${paths.length} 路径(verify 口径,含第三方台账排除)`)
-  } else {
+    console.log(
+      `✅ 水印预检通过 ${paths.length}/${paths.length} 路径(verify 口径,含第三方台账排除)`,
+    )
+  } else if (skipWatermark) {
+    // 上一版把这条写成 `else`,于是 **blob 模式**(它有自己的横幅判据,已在上面跑过)也走进这一支,
+    // 打印出一句"本次跳过水印预检"—— 那是**凭空声称一个没发生的放行**:环境变量根本没设,
+    // 读报告的人会以为有人绕过了守卫(而这类"账面声称的出路"正是本仓记过多次的失效型)。
     console.log('⚠️ IHUI_LAND_SKIP_WATERMARK=1 ⇒ 本次跳过水印预检(该行输出即留痕)')
   }
   for (let attempt = 1; attempt <= MAX_CAS_ATTEMPTS; attempt++) {
     const head = git(['rev-parse', 'HEAD'], { root })
     const clobber = clobberedPaths(paths, base, head, { root })
     if (clobber.length > 0) {
-      console.error(`❌ 放弃落地:HEAD 已推进且这些目标路径被别人改过 ⇒ 需重新归并而非覆盖(第 ${attempt} 次尝试):\n  ${clobber.join('\n  ')}`)
+      console.error(
+        `❌ 放弃落地:HEAD 已推进且这些目标路径被别人改过 ⇒ 需重新归并而非覆盖(第 ${attempt} 次尝试):\n  ${clobber.join('\n  ')}`,
+      )
       process.exit(1)
     }
     const { commit } = commitTreeWithIndex({
@@ -661,7 +723,9 @@ async function main() {
     if (casUpdateRef(commit, head, { root })) {
       landed = commit
       parentSha = head
-      console.log(`✅ 第 ${attempt} 次 CAS 成功 HEAD=${commit}(基线 ${baseRef}=${head0.slice(0, 9)})`)
+      console.log(
+        `✅ 第 ${attempt} 次 CAS 成功 HEAD=${commit}(基线 ${baseRef}=${head0.slice(0, 9)})`,
+      )
       break
     }
     console.log(`⚠️ 第 ${attempt} 次 CAS 失败(别人先推进了 HEAD),重读重试`)
@@ -688,25 +752,6 @@ async function main() {
     `✅ 提交面回读 ${paths.length}/${paths.length} 路径在树${extras.length ? `;另有非声明路径 ${extras.length} 条(检查是否混提)` : ''}`,
   )
 
-  /**
-   * G-725 留痕:走到这里"这枚提交已在 HEAD 里、且声明路径都过了回读"是既成事实 ——
-   * 主索引对齐(下一步)成功与否都不改变"它绕过了提交链"这一点,所以留痕必须写在对齐**之前**。
-   * 硬要求:写失败只喊一行 WARN,绝不把一次成功落地判红(它记的是账,不是门禁)。
-   */
-  const attest = recordBypassLanding({
-    root,
-    source: 'object-space-land',
-    landedSha: landed,
-    headBefore: parentSha,
-    declaredFiles: paths,
-    watermarkSkipped: skipWatermark,
-  })
-  if (!attest.ok)
-    console.log(
-      `⚠️ 跳门留痕未写入(落地已成功 HEAD=${landed.slice(0, 11)},不改退出码):${attest.why}`,
-    )
-  else console.log(`✅ 跳门留痕 1 行已写入 ${attest.path}(kind=bypass-landing,gatesRun=false)`)
-
   // ② 共享主索引对齐(判据在 lib,只有一份):未尽事项点名后退出码仍 0 —— 落地本身已成功
   const align = alignSharedIndex({ root, paths, parentRef: parentSha })
   if (align.lockAbandoned) {
@@ -717,12 +762,18 @@ async function main() {
     console.error(`❌ 索引对齐未完成(轮次耗尽/派生持续失败):${align.error ?? ''}`)
     process.exit(1)
   }
-  console.log(`✅ 主索引已对齐 ${align.moved.length + align.already.length}/${paths.length} 路径(移动 ${align.moved.length} / 已就位 ${align.already.length})`)
+  console.log(
+    `✅ 主索引已对齐 ${align.moved.length + align.already.length}/${paths.length} 路径(移动 ${align.moved.length} / 已就位 ${align.already.length})`,
+  )
   if (align.skipped.length > 0) {
-    console.log(`⚠️ 未动(归属他人):\n  ${align.skipped.map((s) => `${s.path} (${s.reason})`).join('\n  ')}`)
+    console.log(
+      `⚠️ 未动(归属他人):\n  ${align.skipped.map((s) => `${s.path} (${s.reason})`).join('\n  ')}`,
+    )
   }
   if (align.undetermined.length > 0) {
-    console.log(`⚠️ 未判定:\n  ${align.undetermined.map((u) => `${u.path} (${u.reason})`).join('\n  ')}`)
+    console.log(
+      `⚠️ 未判定:\n  ${align.undetermined.map((u) => `${u.path} (${u.reason})`).join('\n  ')}`,
+    )
   }
   process.exit(0)
 }
@@ -742,11 +793,5 @@ export const __test__ = {
   resurrectAnalysis,
   detectStaleLanding,
   staleReport,
-  detectMalformedLiveDocIds,
-  malformedIdReport,
-  // 再导出**判据宿主那一个函数对象**(不是包一层的复制品)—— 镜像测试 T19 用它做同一性锁:
-  // 形状锁只能证明源码里没有第二份"形状",拷贝一份再改名就绕过去了;同一对象 ⇒ 结构上不可能有两份。
-  newMalformed,
-  LIVE_DOCS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,4 +1,14 @@
 {
+  "llmSettings": {
+    "v2": {
+      "health": {
+        "healthy": "健康",
+        "degraded": "降级",
+        "down": "不可用",
+        "unknown": "未知"
+      }
+    }
+  },
   "taskStatus": {
     "toolGenericActivity": "{state, select, running {正在执行：{name}} completed {已完成：{name}} other {执行：{name}}}",
     "toolReadFileActivity": "{state, select, running {正在读取文件} completed {已读取文件} other {读取文件}}",
@@ -508,6 +518,16 @@
       "flowState": "{state, select, running {{count, plural, =0 {对话流运行中，暂无待处理工具} other {对话流运行中，已调度 {count} 个工具}}} paused {对话流已暂停} failed {执行失败：<b>{reason}</b>}}"
     },
     "send": "发送",
+    "goal": {
+      "status": {
+        "active": "进行中",
+        "paused": "已暂停",
+        "blocked": "已阻塞",
+        "done": "已完成",
+        "usageLimited": "额度受限",
+        "budgetLimited": "预算受限"
+      }
+    },
     "terminal": {
       "waitingInput": "等待你的输入",
       "promptLabel": "命令提示：{{prompt}}",

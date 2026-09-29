@@ -916,8 +916,8 @@ export function verifyBlockDedupe(srcText, outText, deletedCount) {
     if (m === 0 && n > 0) problems.push(`值「${line.slice(0, 40)}…」在输出里一份都不剩`)
     if (m > n) problems.push(`值「${line.slice(0, 40)}…」反而变多 ${n}→${m}`)
   }
-  const before = audit(srcText).counts
-  const after = audit(outText).counts
+  const before = auditPlan(srcText).counts
+  const after = auditPlan(outText).counts
   problems.push(...fDimRegressions(before, after))
   if (deletedCount > 0 && after.dupBlocks >= before.dupBlocks)
     problems.push(`删了 ${deletedCount} 行而块数没降(${before.dupBlocks}→${after.dupBlocks})—— 判据或实现有一边是错的`)
@@ -1035,8 +1035,8 @@ export function verifyRowDedupeCore(srcText, outText, deletedCount, match, findT
     if (!ca.has(line)) problems.push(`产物里出现输入中不存在的行(= 新增,本档只许删):「${line.slice(0, 40)}…」`)
   }
   // ③ F1–F4 + F6 无一上涨(这把尺子不许替别的维度制造红点)
-  const before = audit(srcText).counts
-  const after = audit(outText).counts
+  const before = auditPlan(srcText).counts
+  const after = auditPlan(outText).counts
   problems.push(...fDimRegressions(before, after))
   // ④ 归并落账注记不得随副本一起丢 —— 判的是"**种类**是否整类消失",不是"份数有没有变少"。
   //    本档删的正是逐字相同的孪生**指针行**,按份数比等于禁止本档存在:2026-09-29 真仓
