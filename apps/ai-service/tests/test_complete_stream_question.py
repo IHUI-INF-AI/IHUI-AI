@@ -273,6 +273,13 @@ class TestCompleteStreamToolLoopPlanTerminalEvents:
         monkeypatch.setattr(llm_router.llm_gateway, "astream", mock_astream)
         monkeypatch.setattr(llm_router.llm_gateway, "complete", mock_complete)
         monkeypatch.setattr(_mcp_inst, "call_tool", mock_call_tool)
+        # V3 #58 之后主对话流对高危工具会**停下等一个审批决定**(`_resolve_tool_approval` →
+        # 建 approval_id + asyncio.Event 等回传),而本用例测的是 tool loop 的**帧顺序契约**
+        # (plan_updated / terminal_start / terminal_end / tool-call-start),不是审批门 ——
+        # 门本身由 tests/test_chat_mode_tool_gate.py 与 D158/D159 那批用例逐档覆盖。
+        # 这里显式声明"本次不需要审批",**没有**放宽任何断言:本次红恰恰是这些断言逮到的
+        # ("工具没执行"),放宽或删除就等于让同一回归重新变得看不见。
+        monkeypatch.setattr(llm_router, "_resolve_tool_approval", lambda mode, name: (False, "high"))
 
         raw = await _stream_chat(client, {
             "messages": [{"role": "user", "content": "执行 echo hi"}],
