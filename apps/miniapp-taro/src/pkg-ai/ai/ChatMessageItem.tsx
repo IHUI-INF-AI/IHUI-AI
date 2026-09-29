@@ -9,10 +9,7 @@ import LineIcon from '@/components/LineIcon'
 import { StreamActivityCards, SteerNoticeCard } from './cards/ai-cards'
 import { isErrorTurn } from '@ihui/shared/chat'
 import { thinkingTitleView } from '@ihui/shared/chat/element-pack'
-import {
-  taroPreviewChatImages,
-  taroSaveChatImageToAlbum,
-} from '@/lib/image-preview-pack'
+import { taroPreviewChatImages, taroSaveChatImageToAlbum } from '@/lib/image-preview-pack'
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import type { ChatMessage } from '@/api'
@@ -458,9 +455,27 @@ export default function ChatMessageItem({
                     onClick={() => setCodeCollapsed((v) => !v)}
                     hoverClass="opacity-60"
                   >
-                    <Text style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}>
-                      {codeCollapsed ? '▸' : '▾'} code
-                    </Text>
+                    <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                      {/* 折叠箭头:原 '▸'/'▾' 字符 → 矢量。size/color 取该字符实际渲染档:
+                          同行内联 fontSize 24rpx / color var(--color-muted-foreground);
+                          收起 = chevron-right、展开 = chevron-down(与字符指向一致)。
+                          与 'code' 文案的 8rpx 间距沿用本文件既有的 8rpx 档(见上面的
+                          marginRight: '8rpx'),不是新数。 */}
+                      <LineIcon
+                        name={codeCollapsed ? 'chevron-right' : 'chevron-down'}
+                        size={24}
+                        color="var(--color-muted-foreground)"
+                      />
+                      <Text
+                        style={{
+                          marginLeft: '8rpx',
+                          fontSize: '24rpx',
+                          color: 'var(--color-muted-foreground)',
+                        }}
+                      >
+                        code
+                      </Text>
+                    </View>
                     <Text style={{ fontSize: '22rpx', color: 'var(--color-muted-foreground)' }}>
                       {t('ai.chatMessageItem.collapse')}
                     </Text>
