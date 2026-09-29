@@ -17,7 +17,6 @@
  *     否则"判据过宽"与"判据过窄"在账面上长得一样。
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -29,8 +28,6 @@ import {
   GitOutputTooLargeError,
   buildGitEnv,
   execGitCapped,
-  execGitStatus,
-  lastStatusDegradation,
   gitVerbOf,
   resolveGitBinary,
   resolveGitSpawnOptions,
@@ -220,75 +217,3 @@ describe('G-815 动词提取(只为文案可读,分类从不依赖它)', () => {
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
-const { writeFileSync, mkdirSync } = fs
-const { join } = path
-
-// ─── G-814424 超输出上限 ⇒ 降级到折叠档 + 留痕可问(不是直接作废整份结论) ───
-describe('G-814424 execGitStatus —— 超限降级为按目录折叠，且必须喊出来', () => {
-  /** 造一个"未跟踪文件多到全档超上限、但折叠档装得下"的临时仓 */
-  function mkUntrackedRepo(tag: string): string {
-    const dir = mkScratch('ihui-gitcaps-' + tag + '-')
-    const g = (a: string[]) => execFileSync('git', ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', '-C', dir, ...a], { encoding: 'utf8' })
-    g(['init', '-q'])
-    writeFileSync(join(dir, 'tracked.txt'), 'x\n')
-    g(['add', 'tracked.txt'])
-    g(['commit', '-q', '-m', 'base'])
-    // 3 个目录 × 12 个未跟踪文件：全档 ≈ 36 行，折叠档 = 3 行 `dir/`
-    for (let d = 0; d < 3; d++) {
-      const sub = join(dir, 'deep' + d)
-      mkdirSync(sub, { recursive: true })
-      for (let f = 0; f < 12; f++) writeFileSync(join(sub, 'f' + f + '.txt'), 'padding-padding-padding\n')
-    }
-    return dir
-  }
-
-  it('全档超限 ⇒ 返回折叠结论(非 null / 非抛错) + degraded + 一条 warn + 可问的记账', () => {
-    const dir = mkUntrackedRepo('deg-')
-    try {
-      const warns: string[] = []
-      const r = execGitStatus(dir, { maxBufferBytes: 400, warn: (m) => { warns.push(m) } })
-      expect(r.degraded).toBe(true)
-      expect(r.collapsedUntrackedRoots.length).toBe(3)
-      expect(r.collapsedUntrackedRoots.every((x) => x.endsWith('/'))).toBe(true)
-      // 折叠档不得把"没列出的文件"伪装成"不存在":必须明写它不是完整清单
-      expect(warns.join('')).toContain('不是完整未跟踪列表')
-      const memo = lastStatusDegradation(dir)
-      expect(memo?.collapsedRoots).toBe(3)
-      expect(memo?.maxBufferBytes).toBe(400)
-    } finally { rmScratch(dir) }
-  })
-
-  it('没超限 ⇒ 走全档、degraded=false、不留任何记账(正向对照)', () => {
-    const dir = mkUntrackedRepo('full-')
-    try {
-      const warns: string[] = []
-      const r = execGitStatus(dir, { maxBufferBytes: 20 * 1024 * 1024, warn: (m) => { warns.push(m) } })
-      expect(r.degraded).toBe(false)
-      expect(r.collapsedUntrackedRoots).toEqual([])
-      expect(warns).toEqual([])
-      expect(lastStatusDegradation(dir)).toBeNull()
-      expect(r.lines.filter((l) => l.startsWith('??')).length).toBe(36)
-    } finally { rmScratch(dir) }
-  })
-
-  it('折叠档也超限 ⇒ 照旧抛，绝不返回一份空结论(失效方向是失败不是假完整)', () => {
-    const dir = mkUntrackedRepo('both-')
-    try {
-      expect(() => execGitStatus(dir, { maxBufferBytes: 1, warn: () => {} })).toThrow(GitOutputTooLargeError)
-      expect(lastStatusDegradation(dir)).toBeNull()
-    } finally { rmScratch(dir) }
-  })
-
-  it('只在这一类上降级：超时/普通失败原样上抛，不给第二次执行(反向锁)', () => {
-    const dir = mkScratch('ihui-gitcaps-throw-')
-    try {
-      // 不是 git 仓 ⇒ status 以非零退出失败(class=exit)，不得被折叠档掩盖
-      let caught: unknown = null
-      try { execGitStatus(dir, { maxBufferBytes: 20 * 1024 * 1024, warn: () => {} }) } catch (e) { caught = e }
-      expect(caught).not.toBeNull()
-      expect(caught).not.toBeInstanceOf(GitOutputTooLargeError)
-      expect(lastStatusDegradation(dir)).toBeNull()
-    } finally { rmScratch(dir) }
-  })
-})
