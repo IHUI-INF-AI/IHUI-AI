@@ -594,6 +594,75 @@ function dbRowToAdapter(row: typeof imAdapters.$inferSelect): ImAdapterConfig {
   }
 }
 
+/**
+ * G-815418 ①/② 的唯一判定出口(纯函数:不碰 DB、不碰 fastify,便于逐条配对用例钉死)。
+ *
+ * 为什么必须是"候选集 + 签名匹配",而不是"按 body.userId 取那一行":
+ *  旧写法把"用哪个 adapter 的密钥验签"交给请求方自报 ⇒ 任何人指一个别人的 userId,
+ *  就用自己的签名走别人的链路;而 404/403 还发生在验签**之前**,等于一个存在性 oracle
+ *  (AGENTS §5"两条同形的拒绝口径")。现在同平台的启用行都是候选,**谁家的密钥验过
+ *  就是谁家的消息**,归属由服务端算出,请求方说什么都不能替它决定。
+ *
+ * ② HMAC 的输入是 `rawBody`(原始字节串)。它由调用方负责取到真字节 —— 本函数只看入参,
+ *  这样"对再序列化结果算签名"这一型坏法能被构造面直接钉住(见测试的 key-order 对照)。
+ *
+ * 失败只有一种形状:`{ kind: 'unauthorized' }`。候选缺失 / 全部未启用 / 缺 header /
+ *  签名不符 / 无密钥又有多候选 —— 一律同一个结论,由路由回同一个状态码同一句话。
+ */
+export type WebhookCandidate = { userId: string; enabled: boolean; webhookSecret?: string }
+export type WebhookAuthzInput<T extends WebhookCandidate> = {
+  rows: T[]
+  signatureHeader?: string | null
+  signatureEncoding?: string | null
+  headers: Record<string, unknown>
+  rawBody: string
+}
+export type WebhookAuthzOutcome<T extends WebhookCandidate> =
+  | { kind: 'resolved'; adapter: T }
+  | { kind: 'unauthorized' }
+
+/** 兜底 header 清单与旧路由逐字同形(改这里必须同步路由注释,不得两处各写一遍) */
+export const WEBHOOK_SIGNATURE_FALLBACK_HEADERS = [
+  'x-im-signature',
+  'x-lark-signature',
+  'x-wecom-signature',
+  'x-telegram-bot-api-secret-token',
+  'x-hub-signature-256',
+  'x-line-signature',
+  'x-kakao-signature',
+] as const
+
+export function resolveWebhookAdapter<T extends WebhookCandidate>(
+  input: WebhookAuthzInput<T>,
+): WebhookAuthzOutcome<T> {
+  const readHeader = (name: string): string | undefined => {
+    const v = input.headers[name]
+    return typeof v === 'string' ? v : undefined
+  }
+  const sig =
+    (input.signatureHeader ? readHeader(input.signatureHeader) : undefined) ??
+    WEBHOOK_SIGNATURE_FALLBACK_HEADERS.map(readHeader).find((s) => s !== undefined)
+
+  const usable = input.rows.filter((r) => r.enabled)
+  const withSecret = usable.filter((r) => typeof r.webhookSecret === 'string' && r.webhookSecret)
+  if (withSecret.length > 0) {
+    if (!sig) return { kind: 'unauthorized' }
+    const normalized = sig.startsWith('sha256=') ? sig.slice(7) : sig
+    for (const r of withSecret) {
+      const ok =
+        input.signatureEncoding === 'base64'
+          ? verifyHmacBase64(r.webhookSecret as string, input.rawBody, sig)
+          : verifyHmac(r.webhookSecret as string, input.rawBody, normalized)
+      if (ok) return { kind: 'resolved', adapter: r }
+    }
+    return { kind: 'unauthorized' }
+  }
+  // 该平台一个密钥都没配 ⇒ 没有任何可验证的归属凭据。此时只许"恰好一个启用候选"这一种
+  // 无歧义形态通过(单机开发部署);多于一个就必须拒,否则又回到"由请求方挑归属"。
+  if (usable.length === 1) return { kind: 'resolved', adapter: usable[0] as T }
+  return { kind: 'unauthorized' }
+}
+
 /** ImAdapterConfig → DB insert(凭证合并到 credentialsJson) */
 function adapterToDbRow(userId: string, config: ImAdapterUpsertInput) {
   const credentialsJson: Record<string, unknown> = {}
@@ -1127,6 +1196,24 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(platforms))
   })
 
+  // G-815418 ②:验签必须对**原始字节**做 HMAC。默认 JSON parser 会把正文变成对象,再序列化时
+  // key 顺序/空白/数字格式任一差异都会让合法签名失败(失败方向是拒绝,所以它今天不响而一直坏)。
+  // 这里在**本插件作用域**内按字符串收正文、把真字节挂在 request.raw 上,再 JSON.parse 交回给
+  // 既有 handler —— 语义与默认 parser 一致,只是多留一份原始串。不用 fastify-plugin ⇒ 不污染全 API。
+  server.addContentTypeParser(
+    'application/json',
+    { parseAs: 'string' },
+    (req, payload, done) => {
+      const text = typeof payload === 'string' ? payload : ''
+      ;(req as unknown as { rawBody?: string }).rawBody = text
+      try {
+        done(null, text.length ? (JSON.parse(text) as unknown) : {})
+      } catch (e) {
+        done(e as Error)
+      }
+    },
+  )
+
   // 2. POST /im-gateway/webhook/:platform — 接收 IM 平台 webhook(无需登录)
   server.post<{ Params: { platform: string } }>(
     '/im-gateway/webhook/:platform',
@@ -1139,56 +1226,46 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
       }
       const platform = parsedPlatform.data as ImPlatform
 
-      const body = (request.body ?? {}) as Record<string, unknown> & { userId?: string }
-      const userId = body.userId
-      if (!userId || typeof userId !== 'string') {
-        return reply.status(400).send(error(400, 'body.userId 必填(用于定位 adapter 配置)'))
-      }
-
-      // 从 Postgres 查找对应 adapter
-      const [adapterRow] = await dbRead
+      const body = (request.body ?? {}) as Record<string, unknown>
+      // G-815418 ①:归属由服务端按"谁家密钥验得过"算出,不再由客户端自报的 body.userId 挑密钥。
+      // G-815418 ②:HMAC 的输入是**原始字节串**(由本插件作用域的 JSON parser 挂在 request 上);
+      //   取不到真字节才退回再序列化,并把这件事喊出来 —— 静默用错档会让合法签名被误拒。
+      const meta = PLATFORMS_META[platform]
+      const adapterRows = await dbRead
         .select()
         .from(imAdapters)
-        .where(and(eq(imAdapters.userId, userId), eq(imAdapters.platform, platform)))
-        .limit(1)
-      if (!adapterRow) {
-        return reply.status(404).send(error(404, `未配置 ${platform} 适配器`))
+        .where(eq(imAdapters.platform, platform))
+      const reqWithRaw = request.raw as unknown as { rawBody?: string }
+      const rawBody =
+        typeof reqWithRaw.rawBody === 'string' ? reqWithRaw.rawBody : JSON.stringify(body)
+      if (typeof reqWithRaw.rawBody !== 'string') {
+        request.log.warn(
+          'im-gateway webhook:未取到原始字节,本趟退回再序列化(合法签名可能被误拒,不是放行)',
+        )
       }
-      if (!adapterRow.enabled) {
-        return reply.status(403).send(error(403, `${platform} 适配器未启用`))
+      const decided = resolveWebhookAdapter({
+        rows: adapterRows.map((r) => {
+          const cred = (r.credentialsJson ?? {}) as Record<string, unknown>
+          return {
+            userId: r.userId,
+            enabled: r.enabled,
+            webhookSecret: typeof cred.webhookSecret === 'string' ? cred.webhookSecret : undefined,
+          }
+        }),
+        signatureHeader: meta.signatureHeader,
+        signatureEncoding: meta.signatureEncoding,
+        headers: request.headers,
+        rawBody,
+      })
+      if (decided.kind === 'unauthorized') {
+        // 同形回包:没有候选 / 全部未启用 / 缺 header / 签名不符 —— 状态码与消息一字不差,
+        // 请求方因此问不出"这个平台上有没有配过 adapter"(存在性 oracle 关闭)。
+        return reply.status(401).send(error(401, '签名校验失败'))
       }
-      const adapter = dbRowToAdapter(adapterRow)
-
-      // 验签(若有 webhookSecret)— 按平台读取特定 header
-      if (adapter.webhookSecret) {
-        const meta = PLATFORMS_META[platform]
-        const sig =
-          (meta.signatureHeader
-            ? (request.headers[meta.signatureHeader] as string | undefined)
-            : undefined) ??
-          (request.headers['x-im-signature'] as string | undefined) ??
-          (request.headers['x-lark-signature'] as string | undefined) ??
-          (request.headers['x-wecom-signature'] as string | undefined) ??
-          (request.headers['x-telegram-bot-api-secret-token'] as string | undefined) ??
-          (request.headers['x-hub-signature-256'] as string | undefined) ??
-          (request.headers['x-line-signature'] as string | undefined) ??
-          (request.headers['x-kakao-signature'] as string | undefined)
-        if (!sig) {
-          return reply.status(401).send(error(401, '缺少签名 header'))
-        }
-        const rawBody = JSON.stringify(body)
-        let normalizedSig = sig
-        if (sig.startsWith('sha256=')) {
-          normalizedSig = sig.slice(7)
-        }
-        const ok =
-          meta.signatureEncoding === 'base64'
-            ? verifyHmacBase64(adapter.webhookSecret, rawBody, sig)
-            : verifyHmac(adapter.webhookSecret, rawBody, normalizedSig)
-        if (!ok) {
-          return reply.status(401).send(error(401, '签名校验失败'))
-        }
-      }
+      // 落库与入队用的 userId 现在**只能来自验签结果**,不接受请求体自报值。
+      // (旧代码在这里还要 dbRowToAdapter(adapterRow) 拿整份配置,但验签之后的链路只认
+      //  owner 身份;需要出站配置时另有 GET /im-gateway/adapters 面,不在这一支。)
+      const userId = decided.adapter.userId
 
       // 解析入站消息
       const extracted = parseInboundPayload(body, platform)
