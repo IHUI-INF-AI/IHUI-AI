@@ -22,6 +22,19 @@
  *      所以 P6 产出的不是"把这两条判红",而是"给这一类待偿项一套有死亡机制的裁决账"
  *      (`scripts/data/inert-alert-rules.json`,四件套 anchor+reason+owner+reviewBy,
  *      三条红:字段不齐 / 到期未复裁 / 锚点已不在规则文件里 = 清单腐烂)。
+ *   P7(2026-09-29 机主拍板"只加一把副本没出机就喊的尺子"):备份的"异地"腿此前**没有任何判据量过副本**。
+ *      实测形态:源 `D:\DevEnv\backups\pg`(现读 29 份 .dump,保留 7 天)与"异地"副本
+ *      `D:\BaiduSyncdisk\IHUI-PG-BACKUP` **同在 D: 卷**,而网盘同步进程(tasklist 里 BaiduNetbox)
+ *      此刻不在跑 —— 即"异地容灾"只成立了"复制到另一个目录"这一半。P7 判三件事,各自三态、
+ *      任一 finding 计入红:
+ *        覆盖对账 —— 源里仍在保留期内(≤ LIMITS.pgBackupRetentionDays)的每个 .dump,副本必须有同名文件(报名);
+ *        新鲜度对账 —— 副本目录最新 .dump 的年龄,阈值沿用 LIMITS.pgDumpMaxAgeHours(不新造第二个数);
+ *        内容一致性 —— 对两侧同名且都在的、修改时间最新的一对做**流式** SHA-256 全文件比对,
+ *                      只打印哈希与字节数,**永不打印任何 dump 内容**。
+ *      **能力边界(机主原话,逐字留档)**:"三条都绿只证明副本文件在位且与源同哈希,
+ *      **不证明它已离开这台机器** —— 两者同在 D: 卷,真正的出机依赖第三方同步客户端在跑,
+ *      而那是机主专属裁决,本判据不启动它、也不假装能验证它。" 同步客户端进程在不在位这一维
+ *      继续由 P5 的「网盘同步客户端」行看守,**P7 不重复计账**(同一条债不得在两个判据各计一次)。
  *
  * 定级与接线:本脚本判的是**机器运行状态**,提交者结构上满足不了,所以它**不进提交链**
  * (挂 blocking 就是每台每次被逼 `--no-verify`、连带全部守门作废,AGENTS §12e 同型)。
@@ -55,11 +68,16 @@ import {
   rmSync,
   mkdtempSync,
   symlinkSync,
+  createReadStream,
+  utimesSync,
 } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { devEnvRoot } from './seal-c-root-stray.mjs'
 import { scratchRoot } from './lib/scratch-dir.mjs'
+// 网盘根的唯一候选序出口(§5d:"调用方禁止再自己抄一份 F→D→E→G→C 候选表")。
+// P7 只借它推导 `<drive>/BaiduSyncdisk`,不复制第二份候选清单。
+import { resolveSecretsRoot } from './lib/key-dir.mjs'
 // 遮噪只许引这一份(AGENTS §3 / 守门 131·135·150 同一条禁令):本文件**不得**再自带
 // 一遍注释/字符串状态机 —— 两处实现必漂移,而漂移的表现是安静。
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
@@ -81,6 +99,12 @@ export const LIMITS = {
   deployFailLookbackBytes: 260000,
   /** 备份每日 03:00;留 2 小时抖动余量。 */
   pgDumpMaxAgeHours: 26,
+  /**
+   * P7 覆盖对账的"保留期内"窗口 —— 与备份脚本的 7 天保留策略同值(源目录现读 29 份 .dump
+   * ≈ 7 天 × 每日多库的产出速率)。它**不是**新鲜度阈值:新鲜度恒沿用上面的 pgDumpMaxAgeHours,
+   * 机主明令"不要新造第二个数";这个 7 回答的是"哪些源文件**有资格**要求副本",两问不同。
+   */
+  pgBackupRetentionDays: 7,
   /** 凭据巡检每 6 小时一轮。 */
   credentialHealthMaxAgeHours: 8,
   /** 公网探测由守护每 30 分钟派一次。 */
@@ -820,6 +844,152 @@ export async function checkInertAlertRules({
   return out
 }
 
+/**
+ * 列出一个目录里的 `*.dump` **普通文件**(lstat 判,重解析点/目录/符号链接一律不取 ——
+ * §26 junction 穿透事故同族:枚举与后续读都不许跟随链接)。
+ * 返回 null = 目录不存在或读不出清单(调用方必须落成"未判定",不得当成"空目录"判红,
+ * 更不得当成"没有缺项"记绿 —— 三态不并桶是本文件的立身前提)。
+ * 单项 stat 失败只跳过该项:一份被别的进程短暂锁住的文件不该让整维失明。
+ */
+export function listDumpFiles(dir) {
+  if (!existsSync(dir)) return null
+  let names
+  try {
+    names = readdirSync(dir)
+  } catch {
+    return null
+  }
+  const out = []
+  for (const n of names) {
+    if (!/\.dump$/i.test(n)) continue
+    try {
+      const st = lstatSync(join(dir, n))
+      if (st.isFile()) out.push({ name: n, mtimeMs: st.mtimeMs, bytes: st.size })
+    } catch {
+      /* 单项取不到不影响整体判定 */
+    }
+  }
+  return out
+}
+
+/**
+ * 流式 SHA-256(114MB 的 dump 绝不整读进内存)。
+ * resolve ⇒ { hash(64 位十六进制), bytes };读不到/读一半出错 ⇒ reject,由调用方落未判定。
+ * 全文件比对而非"头一段":只比头 4KB 会在"前缀相同、后段分叉"时产出假绿,
+ * 而备份文件的损坏恰恰多在尾部(写一半被截断)。
+ */
+export function sha256File(path) {
+  return new Promise((resolveP, rejectP) => {
+    const h = createHash('sha256')
+    let bytes = 0
+    const rs = createReadStream(path)
+    rs.on('data', (c) => {
+      h.update(c)
+      bytes += c.length
+    })
+    rs.on('error', (e) => rejectP(new Error(String(e?.code || e?.message || e))))
+    rs.on('close', () => {
+      /* createReadStream 出错时也会 close;以 end/error 定结论,这里不结算 */
+    })
+    rs.on('end', () => resolveP({ hash: h.digest('hex'), bytes }))
+  })
+}
+
+/**
+ * 副本目录的默认推导(禁写死盘符,§15b/§5b"机器事实每次现取"):
+ * ① `IHUI_OFFSITE_BACKUP_DIR` 显式覆盖优先(换机/验证用);
+ * ② 否则借 `key-dir.mjs` 的唯一候选序拿到 `<drive>/BaiduSyncdisk/密钥`,取其父目录再拼
+ *    `IHUI-PG-BACKUP`(与备份脚本既有的"异地"落点同名)。**不在别处再抄一份 F→D→E→G→C**。
+ * ③ 全落空 ⇒ null —— 调用方一律落未判定并点名原因,不得读成"备份失败"或"没问题"。
+ */
+function defaultOffsiteReplicaDir() {
+  const fromEnv = String(process.env.IHUI_OFFSITE_BACKUP_DIR || '').trim()
+  if (fromEnv) return fromEnv.replace(/\\/g, '/')
+  const secretsRoot = resolveSecretsRoot()
+  if (!secretsRoot) return null
+  return join(dirname(secretsRoot), 'IHUI-PG-BACKUP').replace(/\\/g, '/')
+}
+
+/** 能力边界 —— 逐字取自机主拍板的原话,写进每条 P7 行的 detail 与上面的注释。 */
+const P7_BOUNDARY_NOTE =
+  '能力边界:三条都绿只证明副本文件在位且与源同哈希,**不证明它已离开这台机器** —— 两者同在 D: 卷,真正的出机依赖第三方同步客户端在跑,而那是机主专属裁决,本判据不启动它、也不假装能验证它;同步客户端进程在不在位由 P5「网盘同步客户端」行看守,P7 不重复计账'
+
+/**
+ * P7 —— 备份副本的覆盖 / 新鲜度 / 内容一致性,三条各自三态。
+ * 全部入参可注入(sourceDir / replicaDir / hashFile / now),所以自检与镜像测试拿构造夹具
+ * 判三态,**不碰真备份目录、不跑真机同步**。
+ * 返回行数组(三条,ids: P7·覆盖对账 / P7·新鲜度对账 / P7·同哈希),调用方逐条 add 进分档。
+ */
+export async function checkBackupReplicaPresence({
+  now = Date.now(),
+  devEnv = devEnvRoot(REPO),
+  sourceDir = join(devEnv, 'backups', 'pg'),
+  replicaDir = defaultOffsiteReplicaDir(),
+  retentionDays = LIMITS.pgBackupRetentionDays,
+  maxAgeHours = LIMITS.pgDumpMaxAgeHours,
+  hashFile = sha256File,
+} = {}) {
+  const rows = []
+  const src = listDumpFiles(sourceDir)
+  const rep = replicaDir ? listDumpFiles(replicaDir) : null
+  const srcWindow = src ? src.filter((f) => now - f.mtimeMs <= retentionDays * 86400000) : []
+
+  // ① 覆盖对账:保留期内的每个源 .dump,副本必须有同名文件 —— 缺哪些就点哪些名。
+  if (!src) {
+    rows.push({ id: 'P7·覆盖对账', state: 'undetermined', detail: `源备份目录取不到:${sourceDir} ⇒ 未判定(机主明令:源目录取不到不得判红)(${P7_BOUNDARY_NOTE})` })
+  } else if (!replicaDir) {
+    rows.push({ id: 'P7·覆盖对账', state: 'undetermined', detail: '网盘根解析不到(IHUI_OFFSITE_BACKUP_DIR 未设且 key-dir 候选序全落空)⇒ 未判定,不读成"没副本"也不读成"没这回事"。出路:设 IHUI_OFFSITE_BACKUP_DIR 指到副本目录(${P7_BOUNDARY_NOTE})' })
+  } else if (!rep) {
+    rows.push({ id: 'P7·覆盖对账', state: 'undetermined', detail: `副本目录取不到:${replicaDir} ⇒ 未判定(本机可能没有该层,属机器态;写"没问题"或"有问题"都是把没读成判过)(${P7_BOUNDARY_NOTE})` })
+  } else {
+    const have = new Set(rep.map((f) => f.name))
+    const missing = srcWindow.map((f) => f.name).filter((n) => !have.has(n))
+    rows.push(
+      missing.length
+        ? { id: 'P7·覆盖对账', state: 'finding', detail: `保留期(≤${retentionDays} 天)内 ${srcWindow.length} 份 .dump 有 ${missing.length} 份在副本目录缺同名文件:${missing.join(', ')}(${P7_BOUNDARY_NOTE})` }
+        : { id: 'P7·覆盖对账', state: 'ok', detail: `源保留期内 ${srcWindow.length} 份(全量 ${src.length} 份)在副本(${rep.length} 份)里逐名都在(${P7_BOUNDARY_NOTE})` },
+    )
+  }
+
+  // ② 新鲜度对账:副本最新 .dump 的年龄;阈值沿用 pgDumpMaxAgeHours,不新造第二个数。
+  if (!rep || !rep.length) {
+    rows.push({ id: 'P7·新鲜度对账', state: 'undetermined', detail: `副本里没有可定龄的 .dump${rep ? `(目录在位:${replicaDir})` : '(目录取不到)'}⇒ 未判定;缺份的事已由覆盖对账点名,不在此重复计红(${P7_BOUNDARY_NOTE})` })
+  } else {
+    const newest = rep.reduce((a, b) => (b.mtimeMs > a.mtimeMs ? b : a))
+    const v = ageVerdict(now - newest.mtimeMs, maxAgeHours * 60)
+    rows.push({ id: 'P7·新鲜度对账', state: v, detail: `副本最新 ${newest.name} 距今 ${Math.round((now - newest.mtimeMs) / 60000)} 分钟 | 阈 ${maxAgeHours}h(沿用 LIMITS.pgDumpMaxAgeHours,与源侧备份产出同一数)(${P7_BOUNDARY_NOTE})` })
+  }
+
+  // ③ 内容一致性:两侧同名且都在的、mtime 最新的一对做流式全文件 SHA-256。
+  //    配对按**源侧 mtime** 取最新(源是权威侧);任一侧读不到 ⇒ 未判定并写原因,不判红。
+  //    打印只许哈希与字节数 —— 明细里出现 dump 路径可以,出现其内容不可以(自检钉死)。
+  if (!src || !rep) {
+    rows.push({ id: 'P7·同哈希', state: 'undetermined', detail: `两侧至少一边取不到清单(源${src ? '在' : '无'}/副本${rep ? '在' : '无'})⇒ 未判定(${P7_BOUNDARY_NOTE})` })
+  } else {
+    const repByName = new Map(rep.map((f) => [f.name, f]))
+    const pairs = src.filter((f) => repByName.has(f.name))
+    if (!pairs.length) {
+      rows.push({ id: 'P7·同哈希', state: 'undetermined', detail: '两侧没有任何同名 .dump 可配 ⇒ 未判定(副本缺份由覆盖对账点名,不在这里顶账)(' + P7_BOUNDARY_NOTE + ')' })
+    } else {
+      const pair = pairs.reduce((a, b) => (b.mtimeMs > a.mtimeMs ? b : a))
+      try {
+        const a = await hashFile(join(sourceDir, pair.name))
+        const b = await hashFile(join(replicaDir, pair.name))
+        const same = a.hash === b.hash && a.bytes === b.bytes
+        const evidence = `对 ${pair.name} 流式全文件:源 sha256:${a.hash.slice(0, 16)}…/${a.bytes} B vs 副本 sha256:${b.hash.slice(0, 16)}…/${b.bytes} B(只报哈希与字节数,内容永不打印)`
+        rows.push(
+          same
+            ? { id: 'P7·同哈希', state: 'ok', detail: `${evidence} ⇒ 同值(${P7_BOUNDARY_NOTE})` }
+            : { id: 'P7·同哈希', state: 'finding', detail: `${evidence} ⇒ **不同值**,副本那份不是源的重拷(出路:确认同步客户端在跑后等它追平,或人工重拷;禁止为消红去动源)(${P7_BOUNDARY_NOTE})` },
+        )
+      } catch (e) {
+        rows.push({ id: 'P7·同哈希', state: 'undetermined', detail: `配对 ${pair.name} 的哈希读不到:${String(e?.message || e).slice(0, 160)} ⇒ 未判定,不判红(${P7_BOUNDARY_NOTE})` })
+      }
+    }
+  }
+  return rows
+}
+
 export async function patrol({ now = Date.now(), apply = false, strict = false, devEnv = devEnvRoot(REPO) } = {}) {
   const amUrl = 'http://127.0.0.1:9093/-/reload'
   const promUrl = 'http://127.0.0.1:8815/-/reload'
@@ -876,6 +1046,9 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
           ? '进程在位(注:同步**完成与否**仍无判据,这里只判进程)'
           : 'tasklist 派生失败 ⇒ 未判定',
   })
+  // P7:副本在位/新鲜/同哈希三维。"网盘客户端在不在跑"这一维**留在上面 P5 那一行**,
+  // 这里只量副本本身 —— 同一条债不在两个判据各计一次(机主明令)。
+  ;(await checkBackupReplicaPresence({ now, devEnv })).forEach(add)
 
   const findings = rows.filter((r) => r.state === 'finding')
   const undetermined = rows.filter((r) => r.state === 'undetermined')
@@ -1039,6 +1212,77 @@ async function p6EndToEnd() {
   }
 }
 
+/**
+ * P7 的五组构造面夹具(真小文件 + 真流式哈希,时间戳用 utimes 钉死 ⇒ 判定与真实时钟无关;
+ * **绝不碰真备份目录、绝不起任何同步进程**):
+ *  A 副本齐且同哈希 ⇒ 三行全绿;保留期外文件不参与覆盖要求
+ *  B 副本缺一份 ⇒ 覆盖必红且点到文件名,其余行不重复计红
+ *  C 两侧目录都取不到 ⇒ 三行全未判定、零红(机主明令:"没读到"两头都不许写)
+ *  D 同名而内容不同 ⇒ 同哈希必红,且 detail 里不得出现任何一个字符的内容(只哈希+字节)
+ *  E 副本目录在位但为空 ⇒ 只产出一条红(缺份由覆盖点名),新鲜度/同哈希落未判定不重复记账
+ */
+async function p7BackupFixture() {
+  const root = scratchRoot()
+  mkdirSync(root, { recursive: true })
+  const base = mkdtempSync(join(root, 'p7-'))
+  try {
+    const DAY = 86400000
+    const NOW = Date.parse('2026-09-29T00:00:00Z')
+    const mk = (dir, name, content, ageMs) => {
+      const d = join(base, dir)
+      mkdirSync(d, { recursive: true })
+      const p = join(d, name)
+      writeFileSync(p, content, 'utf8')
+      const t = (NOW - ageMs) / 1000
+      utimesSync(p, t, t)
+    }
+    mk('A-src', 'a.dump', 'ALPHA-AAA', 2 * 3600000)
+    mk('A-src', 'b.dump', 'BETA-BBB', 3 * 3600000)
+    mk('A-src', 'old.dump', 'OLD-OLD-OLD', 10 * DAY)
+    mk('A-rep', 'a.dump', 'ALPHA-AAA', 2 * 3600000)
+    mk('A-rep', 'b.dump', 'BETA-BBB', 3 * 3600000)
+    mk('B-src', 'a.dump', 'ALPHA-AAA', 2 * 3600000)
+    mk('B-src', 'b.dump', 'BETA-BBB', 3 * 3600000)
+    mk('B-rep', 'a.dump', 'ALPHA-AAA', 2 * 3600000)
+    mk('D-src', 'a.dump', 'SECRET-ALPHA-DO-NOT-PRINT', 1 * 3600000)
+    mk('D-rep', 'a.dump', 'SECRET-BETA-DO-NOT-PRINT', 1 * 3600000)
+    mk('E-src', 'a.dump', 'E-AAA', 0)
+    mkdirSync(join(base, 'E-rep'), { recursive: true })
+    const run = (tag) =>
+      checkBackupReplicaPresence({
+        now: NOW,
+        sourceDir: join(base, `${tag}-src`),
+        replicaDir: join(base, `${tag}-rep`),
+      })
+    const A = await run('A')
+    const B = await run('B')
+    const C = await checkBackupReplicaPresence({ now: NOW, sourceDir: join(base, 'C-none-src'), replicaDir: join(base, 'C-none-rep') })
+    const D = await run('D')
+    const E = await run('E')
+    const rowOf = (rows, id) => rows.find((r) => r.id === id) || {}
+    const reds = (rows) => rows.filter((r) => r.state === 'finding').length
+    return {
+      aAllGreen: A.length === 3 && A.every((r) => r.state === 'ok') && reds(A) === 0,
+      // 保留期外的 old.dump 没被复制,不得算缺项:覆盖行报的是"保留期内 2 份(全量 3 份)"
+      aRetentionScoped: rowOf(A, 'P7·覆盖对账').detail?.includes('保留期内 2 份(全量 3 份)') === true,
+      bMissingNamed: reds(B) === 1 && rowOf(B, 'P7·覆盖对账').state === 'finding' && rowOf(B, 'P7·覆盖对账').detail?.includes('b.dump') === true,
+      bOthersNotRed: rowOf(B, 'P7·新鲜度对账').state === 'ok' && rowOf(B, 'P7·同哈希').state === 'ok',
+      cAllUndetermined: C.length === 3 && C.every((r) => r.state === 'undetermined') && reds(C) === 0,
+      dHashDiffRed: reds(D) === 1 && rowOf(D, 'P7·同哈希').state === 'finding' && rowOf(D, 'P7·同哈希').detail?.includes('sha256:') === true,
+      dNoContentLeak: ![...D.map((r) => r.detail)].join('\n').includes('SECRET-') === true,
+      // 配对取"同名且都在"里 mtime 最新的一对:这里两侧都只有 a.dump
+      dPairNameShown: rowOf(D, 'P7·同哈希').detail?.includes('对 a.dump') === true,
+      eSingleRedNoDouble: reds(E) === 1 && rowOf(E, 'P7·覆盖对账').state === 'finding' && rowOf(E, 'P7·新鲜度对账').state === 'undetermined' && rowOf(E, 'P7·同哈希').state === 'undetermined',
+    }
+  } finally {
+    try {
+      rmSync(base, { recursive: true, force: true })
+    } catch {
+      /* 清理失败不改判定 */
+    }
+  }
+}
+
 export async function selfTest() {
   const cases = []
   const t = (name, cond) => cases.push({ name, pass: (() => { if (typeof cond === 'function') throw new Error(`${name}: cond 是函数 ⇒ 断言从未求值`); return cond === true })() })
@@ -1178,6 +1422,20 @@ export async function selfTest() {
     return got.length === 1 && got[0].name === 'BlockGhost' && metricRefsFromExpr(got[0].expr).join() === 'block_ghost_total'
   })())
   t('P6 端到端(构造文件 + 注入 probe):接口不可达 ⇒ 整条未判定且零红;可达+有台账 ⇒ deferred', await p6EndToEnd())
+  // ── P7(2026-09-29 补,机主裁决):副本在位/新鲜/同哈希三维。**全部走构造面**(scratch 里真造
+  //    .dump 小文件 + utimesSync 摆 mtime),既不读真实备份目录,也不启动任何同步客户端。
+  //    成对喂:A 全绿 ↔ B 缺一份必红且点名 ↔ C 两侧都读不到必须全未判定零红 ↔ D 内容不同必红。
+  //    只测"绿"的那一态会让尺子沦为把实现复读一遍 —— 所以每维都配了它会红的输入。
+  const p7 = await p7BackupFixture()
+  t('P7 副本齐且同哈希 ⇒ 三行全绿、零红', p7.aAllGreen)
+  t('P7 覆盖按保留期取范围:保留期外那份未复制不得算缺项', p7.aRetentionScoped)
+  t('P7 副本缺一份 ⇒ 必红,且把缺的文件名念出来(不是只报个数)', p7.bMissingNamed)
+  t('P7 缺份那一红不牵连另两维:新鲜度/同哈希各判各的', p7.bOthersNotRed)
+  t('P7 两侧目录都读不到 ⇒ 三行全未判定、零红("没读到"不许写成"没事"也不许写成"出事")', p7.cAllUndetermined)
+  t('P7 同名而内容不同 ⇒ 同哈希那一行必红且只报哈希', p7.dHashDiffRed)
+  t('P7 判红也不得把文件内容打印出来(detail 里只有哈希与字节数)', p7.dNoContentLeak)
+  t('P7 同哈希行要说清比的是哪一对文件', p7.dPairNameShown)
+  t('P7 副本目录在位但为空 ⇒ 只在覆盖行点名一次,另两维落未判定(同债不双计)', p7.eSingleRedNoDouble)
   let pass = 0
   for (const c of cases) {
     console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
@@ -1214,5 +1472,10 @@ export const __test__ = {
   metricRefsFromExpr,
   scanInertAlertRules,
   checkInertAlertRules,
+  // P7 的构造面入口:镜像测试(import __test__)必须复用同一把尺子,不得在测试里重写判定(§22c)。
+  checkBackupReplicaPresence,
+  listDumpFiles,
+  sha256File,
+  P7_BOUNDARY_NOTE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

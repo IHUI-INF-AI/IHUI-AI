@@ -58,6 +58,10 @@ export interface CheckpointImpactFile {
   added: number
   deleted: number
   contentTruncated?: boolean
+  /** G-814423:磁盘侧(恢复前)内容读失败 —— "读不到"≠"空文件",不得渲染成整文件新增 */
+  readError?: boolean
+  /** G-814423:快照侧(恢复后)版本内容取不到 —— 不得渲染成整文件删除 */
+  snapshotError?: boolean
 }
 
 /** GET /api/checkpoints/{checkpoint_id}/impact 响应(回退前影响预览) */

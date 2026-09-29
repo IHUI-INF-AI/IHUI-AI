@@ -9914,9 +9914,11 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="edu_send_fee_reminder",
         description=(
-            "教育管理-发送学费催缴(写操作):向指定报名记录发送催费通知,站内信必达,"
-            "channel=wechat 时尽力发微信订阅消息。enrollmentId 先用 edu_list_students 或"
-            " edu_list_arrears 查得;该报名无欠费会被拒绝。"
+            "教育管理-发送学费催缴(写操作):向指定报名记录发送催费通知,站内信必达。"
+            "channel=wechat 尽力发微信订阅消息(用户未订阅/一次性额度用尽会明确回 "
+            "user_refused,不当作成功);channel=sms 会**真实发送**到学员与已确认绑定家长"
+            "各自的手机号,无号码回 no_phone、服务端未配置回 not_configured,都不是失败即静默。"
+            "enrollmentId 先用 edu_list_students 或 edu_list_arrears 查得;该报名无欠费会被拒绝。"
         ),
         input_schema={
             "type": "object",
@@ -9983,6 +9985,11 @@ _TOOLS: list[MCPTool] = [
             "教育管理-创建退费申请(写操作):登记退费单(初始 pending),需再用"
             " edu_approve_refund/edu_reject_refund 审批。amount 单位为元(整数);"
             "refundDate 格式 YYYY-MM-DD;reason 退费原因必填。"
+            "审批通过会**冲减该报名的已缴额**(欠费随之回升),不是只改状态。"
+            "归属规则:带 paymentId 时按该笔缴费所属报名记账;不带 paymentId 时仅当该学员"
+            "在该班级只有一条有效报名才自动归属,多期报名(续读)会返回 unattributed=true 且"
+            "不影响任何报名的账 —— 所以要退某一期的钱,请先用 edu_list_payment_records 取 "
+            "paymentId 一并传入。"
         ),
         input_schema={
             "type": "object",
@@ -10218,19 +10225,28 @@ def _edu_internal_headers(user_id: Any) -> dict[str, str]:
     api 侧 checkInternalServiceToken 校验 token 并把 X-User-Id 注入 request.userId,
     随后 requireAnyPermission 的 RBAC 查询对该用户做权限兜底。
 
-    2026-09-27(短期票):改由 `app.core.internal_ticket` 统一构造,兼容窗口内**同时**带
-    一次性短期票头 `x-internal-service-ticket`。外层守卫与返回值形状**一字未动**
-    (仍是"没有常驻密钥 / uid 不合法 ⇒ 返回空头"),这样本次改动对既有调用方与既有用例
-    是纯加法。翻到 ticket-only 档时,这一行守卫是必须一起改的地方 —— 判据见
-    apps/api/src/plugins/internal-service-token.ts 末尾注释。
+    2026-09-29 回退到本函数原来那一份(不是"顺手简化",是它当时根本跑不通):枚 `f613fee296`
+    把下面三行换成 `from app.core.internal_ticket import internal_service_headers`,而
+    `app/core/internal_ticket.py` **在仓库任何一次提交里都不存在** —— 判据是
+    HEAD 树 0 条 + `git log --all --diff-filter=A -- '*internal_ticket*'` 0 命中(不是"我没找到")。
+    后果有两层,都不在编译期可见:① import 写在函数体内 ⇒ 只有真的调用一个 edu 工具才炸
+    ModuleNotFoundError,14 个 edu 工具静默不可用;② 本仓 mypy 守门带 `--ignore-missing-imports`,
+    它把"导入了不存在的模块"报成 `Returning Any`(no-any-return)而不是"找不到模块" ——
+    **一个为了让邻居在飞文件不红的开关,顺手把"幽灵导入"洗成了类型噪声**。
+    另有一格同时量到:守门 98(HEAD 悬空具名导入)只扫 JS/TS 系扩展名,**Python 的同类形态零判据**
+    —— 所以这一型既没有类型层也没有守门层拦它。
+
+    没有去"补一个 internal_ticket.py":那个模块的短期票语义我拿不到(仓库里既没有实现也没有
+    任何验证端 —— `apps/api/src/plugins/internal-service-token.ts` 现读只认
+    `x-internal-service-token`,全仓无 `x-internal-service-ticket` 的校验代码),凭空写一份
+    就是拿编造冒充恢复。要做短期票,正确形态是**模块与调用方同一枚提交入库**,并让 api 侧
+    验证函数同时认两种头(那才是"兼容窗口")。
     """
     uid = str(user_id or "").strip()
     secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
     if not secret or not uid or not re.fullmatch(r"[a-zA-Z0-9-]{1,128}", uid):
         return {}
-    from app.core.internal_ticket import internal_service_headers
-
-    return internal_service_headers(uid, "mcp-edu", legacy_token=secret)
+    return {"x-internal-service-token": secret, "x-user-id": uid}
 
 
 def _edu_query_params(args: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:

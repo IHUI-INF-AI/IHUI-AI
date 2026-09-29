@@ -49,7 +49,20 @@ import {
   GitMerge,
 } from 'lucide-react'
 
-type DiffContent = { oldContent: string; newContent: string }
+/**
+ * 缓存的 diff 内容条目。G-814423:除了内容本身,必须带上**每侧是否真的读到**的标志 ——
+ * 上游判据(gitCliRepo.ts:88-99)是"任一侧补成空字符串,UI 就把'不可读'读成'文件为空',
+ * 进而把整文件渲染成新增/删除"。空串对 added/deleted 是合法数据(真 /dev/null 侧),
+ * 对 modified 是"没读到";两者必须靠 ok 标志分辨,不能靠字符串内容分辨。
+ */
+type DiffContent = {
+  oldContent: string
+  newContent: string
+  /** old 侧确实读到(added 文件恒 true —— 该侧语义上就是 /dev/null) */
+  oldOk: boolean
+  /** new 侧确实读到(deleted 文件恒 true) */
+  newOk: boolean
+}
 
 /** 内容加载最大重试次数(超过后展示"重试后仍无法加载",D98③) */
 export const MAX_LOAD_RETRIES = 2
@@ -84,8 +97,10 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
   const [reviewedIds, setReviewedIds] = React.useState<Set<string>>(() =>
     loadReviewedIds(workspacePath),
   )
-  // D98③:内容加载失败态(可读错误 + 重试;超过 MAX_LOAD_RETRIES 展示终态)
-  const [loadErrorFileId, setLoadErrorFileId] = React.useState<string | null>(null)
+  // D98③:内容加载失败态(可读错误 + 重试;超过 MAX_LOAD_RETRIES 展示终态)。
+  // G-814423:失败态不再单独存文件 id —— 直接从缓存条目的 oldOk/newOk 派生(见下方
+  // contentLoadFailed),这样"切走再切回"不会把缺省态弄丢(旧实现按单值 id 记失败,
+  // 切换文件时重置,切回后只剩 '' 渲染的伪 diff,连错误横幅都没了)。
   const [retryCount, setRetryCount] = React.useState(0)
   const [fetchNonce, setFetchNonce] = React.useState(0)
   // D98⑤(G-135):导出 git apply 命令进行态
@@ -119,6 +134,8 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
 
   // 选中文件变化时拉取真实 diff 内容(old/new),缓存避免重复请求
   // D98③:任一必需侧拉取失败即记 loadError(给可读错误 + 重试出口,不再静默空内容)
+  // G-814423:失败侧落缓存时**必须**带 oldOk/newOk=false —— 只要有任何一侧没读到,
+  // 渲染层就不许把它当成"空文件"喂给 diff 视图(全或无降级)。
   React.useEffect(() => {
     if (!activeFileId || !activeFilename || !activeStatus || !workspacePath) return
     if (contentCacheRef.current.has(activeFileId)) return
@@ -168,11 +185,10 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
       if (cancelled) return
       setContentCache((prev) => {
         const next = new Map(prev)
-        next.set(activeFileId, { oldContent, newContent })
+        next.set(activeFileId, { oldContent, newContent, oldOk, newOk })
         return next
       })
       setLoadingFileId((curr) => (curr === activeFileId ? null : curr))
-      setLoadErrorFileId(!oldOk || !newOk ? activeFileId : null)
     }
 
     void fetchContent()
@@ -229,6 +245,9 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
     conflicted: boolean
   } | null>(null)
   const [threeWayBusy, setThreeWayBusy] = React.useState(false)
+  // G-814423:非冲突态回退读 HEAD/工作区内容失败 ⇒ 显式缺省态,不得拿 '' 伪渲染
+  // (base 读成空串会把工作区整文件标成"我们新增")。
+  const [threeWayLoadFailed, setThreeWayLoadFailed] = React.useState(false)
   const [threeWayNonce, setThreeWayNonce] = React.useState(0)
   React.useEffect(() => {
     if (!threeWayOpen || !activeFilename || !workspacePath) return
@@ -254,6 +273,9 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
       let base = st1
       let ours = st2
       let theirs = st3
+      // G-814423:回退读不到 ≠ 文件为空。base/ours 任一侧读失败 ⇒ 整个三方数据置缺省,
+      // 不许把该侧折叠成 '' 喂给合并视图(全或无)。
+      let fallbackFailed = false
       if (base === null) {
         try {
           const r = await runCommand({
@@ -261,23 +283,31 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
             workspacePath,
             mode: 'read-only',
           })
-          base = r.success ? r.data.stdout : ''
+          if (r.success) base = r.data.stdout
+          else fallbackFailed = true
         } catch {
-          base = ''
+          fallbackFailed = true
         }
       }
       if (ours === null) {
         try {
           const r = await readFile({ path: `${workspacePath}/${activeFilename}`, workspacePath })
-          ours = r.success ? r.data.content : ''
+          if (r.success) ours = r.data.content
+          else fallbackFailed = true
         } catch {
-          ours = ''
+          fallbackFailed = true
         }
       }
       // 无 stage 3 ⇒ 没有"传入"这一侧,以祖先充当(全部块自动可解),而不是伪造一份改动
       if (theirs === null) theirs = base
       if (cancelled) return
-      setThreeWayContents({ base, ours, theirs, conflicted })
+      if (fallbackFailed) {
+        setThreeWayLoadFailed(true)
+        setThreeWayContents(null)
+      } else {
+        setThreeWayLoadFailed(false)
+        setThreeWayContents({ base: base ?? '', ours: ours ?? '', theirs: theirs ?? '', conflicted })
+      }
       setThreeWayBusy(false)
     })()
     return () => {
@@ -287,9 +317,9 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
 
   // D98③:切换文件时重置失败/重试计数
   React.useEffect(() => {
-    setLoadErrorFileId(null)
     setRetryCount(0)
     setThreeWayContents(null)
+    setThreeWayLoadFailed(false)
   }, [activeFileId])
 
   const toggleReviewed = React.useCallback((id: string) => {
@@ -327,42 +357,70 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
       next.delete(activeFileId)
       return next
     })
-    setLoadErrorFileId(null)
     setRetryCount((c) => c + 1)
     setFetchNonce((n) => n + 1)
   }, [activeFileId])
 
   // D98⑤(G-135):一键导出可执行迁移命令(缺失侧按需拉取 → patch → heredoc 命令 → 剪贴板 + 成功 toast)
+  // G-814423:一侧读不到的文件**跳过不进 patch** —— 旧行为把读失败折叠成空串,
+  // buildFilePatch 只能把它判成"新文件/删除文件",导出的 git apply 会整文件增删。
   const handleCopyGitApply = React.useCallback(async () => {
     if (exporting || diffFiles.length === 0 || !workspacePath) return
     setExporting(true)
     try {
       const inputs: PatchFileInput[] = []
+      let skippedUnreadable = 0
       for (const f of diffFiles) {
-        const cached = contentCacheRef.current.get(f.id)
-        let oldContent = cached?.oldContent ?? f.oldContent ?? ''
-        let newContent = cached?.newContent ?? f.newContent ?? ''
-        if (f.status !== 'added' && oldContent === '') {
+        const entry = contentCacheRef.current.get(f.id)
+        let oldContent = entry?.oldContent ?? f.oldContent ?? ''
+        let newContent = entry?.newContent ?? f.newContent ?? ''
+        // 状态是 git name-status 的权威事实:added 的 old / deleted 的 new 语义上就是 /dev/null
+        let oldOk = f.status === 'added'
+        let newOk = f.status === 'deleted'
+        if (entry) {
+          oldOk = oldOk || entry.oldOk
+          newOk = newOk || entry.newOk
+        }
+        if (!oldOk && oldContent === '') {
           try {
             const r = await runCommand({
               command: `git show HEAD:"${f.filename}"`,
               workspacePath,
               mode: 'read-only',
             })
-            if (r.success) oldContent = r.data.stdout
+            if (r.success) {
+              oldContent = r.data.stdout
+              oldOk = true
+            }
           } catch {
-            /* 缺失则保留空串,buildUnifiedPatch 跳过无改动文件 */
+            /* 读失败 ⇒ oldOk 仍 false,下方跳过 */
           }
+        } else if (f.status !== 'added') {
+          // 缓存条目带过内容(可能来自旧版本缓存)但 ok 标志缺失 ⇒ 保守视为已读
+          oldOk = oldOk || oldContent !== ''
         }
-        if (f.status !== 'deleted' && newContent === '') {
+        if (!newOk && newContent === '') {
           try {
             const r = await readFile({ path: `${workspacePath}/${f.filename}`, workspacePath })
-            if (r.success) newContent = r.data.content
+            if (r.success) {
+              newContent = r.data.content
+              newOk = true
+            }
           } catch {
             /* 同上 */
           }
+        } else if (f.status !== 'deleted') {
+          newOk = newOk || newContent !== ''
+        }
+        if (!oldOk || !newOk) {
+          // 全或无:该文件任一侧没读到 ⇒ 不进 patch,并显式计数交代,不静默丢
+          skippedUnreadable++
+          continue
         }
         inputs.push({ filename: f.filename, oldContent, newContent })
+      }
+      if (skippedUnreadable > 0) {
+        toastError(t('diffReview.copyGitApplyUnreadable', { count: skippedUnreadable }))
       }
       const patch = buildUnifiedPatch(inputs)
       if (!patch) {
@@ -381,6 +439,11 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
   const cached = activeDiff ? contentCache.get(activeDiff.id) : undefined
   const effectiveOld = cached?.oldContent ?? activeDiff?.oldContent ?? ''
   const effectiveNew = cached?.newContent ?? activeDiff?.newContent ?? ''
+  // G-814423:全或无判据 —— 缓存条目已存在但任一侧没读到 ⇒ 该文件不允许渲染成
+  // "空文件 vs 内容"的伪 diff(既不渲染两栏/unified,也不渲染三方合并)。
+  // added 的 oldOk / deleted 的 newOk 在 fetchContent 预置为 true(该侧语义上是 /dev/null),
+  // 所以这里的 !ok 只可能来自"必需侧真的没读到"。
+  const contentLoadFailed = !!cached && (!cached.oldOk || !cached.newOk)
   const isLoading = loadingFileId !== null && loadingFileId === activeDiffFileId
   const effectiveDiff: DiffFile | undefined = activeDiff
     ? { ...activeDiff, oldContent: effectiveOld, newContent: effectiveNew }
@@ -559,8 +622,10 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
             </button>
           </div>
           {effectiveDiff && <ChangeSummary file={effectiveDiff} />}
-          {/* D98③:内容加载失败可读横幅(首次失败给原因 + 重试;超限给终态) */}
-          {loadErrorFileId !== null && loadErrorFileId === activeDiffFileId && (
+          {/* D98③:内容加载失败可读横幅(首次失败给原因 + 重试;超限给终态)。
+              G-814423:判据从"单值 loadErrorFileId"改为派生的 contentLoadFailed,
+              切走再切回缺省态不丢;同屏**不得**再渲染伪 diff(见下方渲染守卫)。 */}
+          {contentLoadFailed && (
             <div
               className="flex items-center gap-1.5 bg-red-500/10 px-3 py-1.5 text-xs text-red-600 dark:text-red-400"
               data-testid="diff-content-error"
@@ -601,14 +666,27 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
                 <span>{t('diffReview.loading')}</span>
               </div>
             )}
-            {threeWayOpen && effectiveDiff && !threeWayBusy && threeWayContents && (
-              <ThreeWayMergeView
-                base={threeWayContents.base}
-                ours={threeWayContents.ours}
-                theirs={threeWayContents.theirs}
-              />
+            {threeWayOpen && effectiveDiff && !threeWayBusy && threeWayLoadFailed && (
+              <div
+                className="flex items-center gap-1.5 px-3 py-2 text-xs text-red-600 dark:text-red-400"
+                data-testid="diff-3way-error"
+              >
+                <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                <span>{t('diffReview.fullContentLoadFailed')}</span>
+              </div>
             )}
-            {!threeWayOpen && !isLoading && effectiveDiff && diffViewMode === 'split' && (
+            {threeWayOpen &&
+              effectiveDiff &&
+              !threeWayBusy &&
+              !threeWayLoadFailed &&
+              threeWayContents && (
+                <ThreeWayMergeView
+                  base={threeWayContents.base}
+                  ours={threeWayContents.ours}
+                  theirs={threeWayContents.theirs}
+                />
+              )}
+            {!threeWayOpen && !isLoading && !contentLoadFailed && effectiveDiff && diffViewMode === 'split' && (
               <DiffPreview
                 oldContent={effectiveOld}
                 newContent={effectiveNew}
@@ -616,7 +694,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
                 filename={effectiveDiff.filename}
               />
             )}
-            {!threeWayOpen && !isLoading && effectiveDiff && diffViewMode === 'unified' && (
+            {!threeWayOpen && !isLoading && !contentLoadFailed && effectiveDiff && diffViewMode === 'unified' && (
               <InlineDiffViewer
                 oldContent={effectiveOld}
                 newContent={effectiveNew}
