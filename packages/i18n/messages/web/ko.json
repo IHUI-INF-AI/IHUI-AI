@@ -8187,6 +8187,10 @@
           "title": "요청 시간이 초과되었습니다",
           "action": "재시도"
         },
+        "DELETE_FAILED": {
+          "title": "파일 삭제가 실패했습니다",
+          "action": "파일 잠금을 해제한 후 재시도"
+        },
         "DEP_MISSING": {
           "title": "종속성이 누락되었습니다",
           "action": "종속성 설치 후 재시도"
@@ -8474,6 +8478,10 @@
         "SENSITIVE_FILE_BLOCKED": {
           "title": "이 작업은 보안 정책에 의해 차단되었습니다",
           "action": "수정 후 재시도"
+        },
+        "SNAPSHOT_UNREADABLE": {
+          "title": "스냅샷 내용을 읽을 수 없습니다",
+          "action": "다른 버전을 선택하거나 롤백을 취소"
         },
         "SSRF_BLOCKED": {
           "title": "이 주소는 접근이 허용되지 않습니다",

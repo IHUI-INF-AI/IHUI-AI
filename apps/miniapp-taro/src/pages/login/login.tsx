@@ -16,6 +16,7 @@ import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
 import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
 import LoginPopUp from '@/components/LoginPopUp'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 import './login.css'
 import { aizhsUrl } from '@/constants/icon-urls'
 
@@ -611,7 +612,13 @@ export default function Login() {
                   <View
                     className={`custom-checkbox ${form.autoLogin ? 'custom-checkbox-checked' : ''}`}
                   >
-                    {form.autoLogin ? <Text className="custom-checkmark">✓</Text> : null}
+                    {/* 勾选符:原勾字符 → LineIcon。取值就是该字符实际渲染出来的那档:
+                        login.css 的 .custom-checkmark 记 font-size 22rpx / color
+                        var(--color-card)(该规则只剩排版属性,已随之删除,故类名不再挂)。
+                        居中由父级 .custom-checkbox 的 flex 负责,与原先字符居中同位。 */}
+                    {form.autoLogin ? (
+                      <LineIcon name="check" size={22} color="var(--color-card)" />
+                    ) : null}
                   </View>
                   <Text className="login-autologin-text">{tt('login.autoLogin', '自动登录')}</Text>
                 </View>
@@ -716,7 +723,9 @@ function AgreementRow({
           hoverClass="opacity-60"
           onClick={() => onChange(!checked)}
         >
-          {checked ? <Text className="custom-checkmark">✓</Text> : null}
+          {/* 勾选符:原勾字符 → LineIcon;两处勾选(自动登录 / 协议)同取值,
+              详见上方自动登录那处的取值出处说明。 */}
+          {checked ? <LineIcon name="check" size={22} color="var(--color-card)" /> : null}
         </View>
         <Text className="login-agreement-text">
           {tt('login.agreePrefix', '我已阅读并同意')}
