@@ -83,10 +83,14 @@ import { git as bypassGit } from './lib/bypass-git.mjs'
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
 // 次序判据要在**代码面**上找"哪一段代码真的正向落了地"(见 landingAttestationStructure:
 // 六个档的提交信息正文里就写着 plumbing 字面量,不遮 ⇒ 判据把散文读成调用点,给自己发合格证)。
-// 两档遮噪各守一侧:`maskCommentsStringsAndRegex` 给"函数头"(串里的 `^function` 不算头),
-// `maskComments` 给"落地标记"(字符串可见,因为 `gitIn(null, ['update-ref', …])` 的标记本身就写在串里)。
+// 遮噪只用一档:`maskCommentsStringsAndRegex`(抹注释 + 抹字符串 + 抹正则体,**等长**)。
+// 曾经在这里还导过 `maskComments`(只抹注释、字符串可见),用来认 `gitIn(null, ['update-ref', …])`
+// 那种"动词整个写在串里"的落地形态 —— 已废弃:**`maskComments` 把行注释整段删掉,不等长**,
+// 拿它的下标回原文会错位(实测曾把一句解释判据的注释读成"一处未接留痕的落地调用")。
+// 判据改用抹串面上"`gitIn(null, [ , , commit, head])` 逗号后的 `commit,`"这一形状识别正向落地、
+// 而回退支写的是 `head, commit]`(后面无逗号)⇒ 天然不匹配。现行实现与本注释的出处见 :362-373。
 // 遮噪只引这一份实现(守门 131/135/148 同规,§22c)。
-import { maskComments, maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
+import { maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PLAN_REL = 'PROJECT_PLAN.md'
@@ -1308,7 +1312,7 @@ export function verifyRowDedupeCore(srcText, outText, deletedCount, match, findT
     if (m === 0 && n > 0) problems.push(`值「${line.slice(0, 40)}…」在输出里一份都不剩`)
     if (m > n) problems.push(`值「${line.slice(0, 40)}…」反而变多 ${n}→${m}`)
   }
-  for (const [line, m] of cb) {
+  for (const [line] of cb) {
     if (!ca.has(line)) problems.push(`产物里出现输入中不存在的行(= 新增,本档只许删):「${line.slice(0, 40)}…」`)
   }
   // ③ F1–F4 + F6 无一上涨(这把尺子不许替别的维度制造红点)
