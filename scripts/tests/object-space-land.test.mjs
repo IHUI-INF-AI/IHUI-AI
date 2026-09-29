@@ -24,6 +24,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { __test__ } from '../object-space-land.mjs'
+import { decideBanner } from '../object-space-land.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 import { git, headBlobOf, indexBlobOf, writeBlob } from '../lib/bypass-git.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -1155,5 +1156,42 @@ test('T-BLOB-10 形状锁:多重集口径只住在 lib,本器只 import', () => 
   assert.equal((lib.match(/const extras = \(/g) ?? []).length, 1, 'lib 里差集口径只能有一处(计数与样本必须同源)')
   assert.match(lib, /const maps = lineDeltaMaps\(baseText, newText\)/, 'lineDelta 必须是 lineDeltaMaps 的投影,不是并列的第二份实现')
 })
+
+/**
+ * `decideBanner` 的载荷档(2026-09-30)。这条判据此前**一条测试都没有** —— 于是它把
+ * "§5c 要求的载荷修复"判成"改写横幅文字",4 个已损坏文件因此没有任何落地通道
+ * (提交链上的水印门只会改磁盘,而磁盘那份属他人现场)。判据没有构造面自证 = 它随时可能
+ * 咬到自己该放行的那一型。
+ */
+test('T-BANNER-P 纯函数面:只差在零宽载荷位 ⇒ 默认拒(fail-closed),经 verify 复核后才算修复', () => {
+  const ZW = String.fromCodePoint(0x200b, 0x200d, 0x2060)
+  const good = '// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top\n// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。\n// [IHUI-AI-PROVENANCE]:' + ZW.repeat(6) + '\n正文 A\n'
+  // 夹具必须**只用零宽族**造差异:掺进任何可见字符,判据就会走"改写可见文案"那一支,
+  // 而我这条测的是"只差在载荷位"那一支(第一版掺了 'x'/'y',测到的其实是另一条判序)。
+  const damaged = good.replace(ZW.repeat(6), String.fromCodePoint(0x200c).repeat(6))
+  assert.notEqual(damaged, good, '夹具必须真的不同')
+  const a = decideBanner({ baseText: damaged, newText: good })
+  assert.equal(a.verdict, 'broken', '没复核过就不得放行(默认坏 = fail-closed)')
+  assert.equal(a.needsPayloadCheck, true, '要标明这是"待复核"而不是"已判定坏"')
+  const b = decideBanner({ baseText: damaged, newText: good, newPayloadOk: true })
+  assert.equal(b.verdict, 'repaired', '经唯一判据(verify)复核载荷完好 ⇒ 这是修复')
+})
+
+test('T-BANNER-Q 反向锁:可见文案被改写 ⇒ 不得借"载荷复核"通道洗白', () => {
+  const base =
+    '// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top\n// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。\n// [IHUI-AI-PROVENANCE]:x\n正文\n'
+  const rewritten = base.replace('2026 IHUI AI', '2027 IHUI AI')
+  const r = decideBanner({ baseText: base, newText: rewritten, newPayloadOk: true })
+  assert.equal(r.verdict, 'broken', '换了可见文案就是改写,载荷复核过也不认')
+  assert.notEqual(r.needsPayloadCheck, true, '这一档不得带"待复核"旗 —— 带了就等于给真改写开了第二次机会')
+})
+
+test('T-BANNER-R 形状锁:零宽族的剥离只许有一份实现,且载荷完坏只能问 watermark CLI', () => {
+  const src = readFileSync(TOOL, 'utf8')
+  assert.match(src, /import \{[^}]*dropZeroWidth[^}]*\} from '\.\/lib\/watermark-lines\.mjs'/, '前三行的比较必须引 lib 的剥离出口')
+  assert.ok(!/fromCodePoint\(0x2060/.test(src), '本器里不得再拼一份零宽族(§5c:哪一行算隐写只许有一份)')
+  assert.match(src, /WATERMARK_CLI, 'verify'/, '"载荷完不完好"只能问那份 CLI,不在本器里重写解码')
+})
+
 
 
