@@ -21,7 +21,7 @@ import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { ClipboardPaste, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { ClipboardPaste, Eye, EyeOff, Loader2, Star } from 'lucide-react'
 
 import {
   Button,
@@ -202,7 +202,8 @@ export function ProviderFormDialog({
                 <SelectContent>
                   {templates.map((tpl) => (
                     <SelectItem key={tpl.code} value={tpl.code}>
-                      {tpl.name} {tpl.isOfficial ? '★' : ''}
+                      {tpl.name}{' '}
+                      {tpl.isOfficial && <Star className="inline h-3.5 w-3.5 fill-current" />}
                     </SelectItem>
                   ))}
                 </SelectContent>

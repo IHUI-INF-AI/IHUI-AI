@@ -4,6 +4,7 @@
 
 import { useTt, useI18n } from '@/i18n'
 import { View, Text, Input } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import { useState } from 'react'
 
 export interface CourseRatingProps {
@@ -58,19 +59,25 @@ export default function CourseRating({
 
         <View className="flex justify-center mb-2">
           {[1, 2, 3, 4, 5].map((star) => (
-            <Text
+            // 命中区/间距留在包装 View 上(原 Text 的 mx-1 与三个触摸回调一字未动),
+            // 载体换成 LineIcon:60rpx = 原 text-3xl(30px)的同档取值。
+            <View
               key={star}
-              className={`text-3xl mx-1 ${
-                (hoverRating || rating) >= star
-                  ? 'text-[var(--color-warning-amber)]'
-                  : 'text-muted-foreground'
-              }`}
+              className="mx-1"
               onClick={() => setRating(star)}
               onTouchStart={() => setHoverRating(star)}
               onTouchEnd={() => setHoverRating(0)}
             >
-              ★
-            </Text>
+              <LineIcon
+                name={(hoverRating || rating) >= star ? 'star-fill' : 'star'}
+                size={60}
+                color={
+                  (hoverRating || rating) >= star
+                    ? 'var(--color-warning-amber)'
+                    : 'var(--color-muted-foreground)'
+                }
+              />
+            </View>
           ))}
         </View>
         <Text className="block text-xs text-muted-foreground text-center mb-4">
