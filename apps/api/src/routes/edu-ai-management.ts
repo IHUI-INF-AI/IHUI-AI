@@ -2912,6 +2912,64 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 孩子考试成绩
+  /**
+   * 家长查看孩子的学费账单(账期 + 欠费 + 到期日)。
+   *
+   * 立因:催缴通知现在会发给已确认绑定的家长,但家长登录后**没有任何地方**能看到
+   * "哪一期、多少、什么时候到期、已交过什么" —— 收到"孩子欠费 800"却无从核对,
+   * 等于把一条通知丢进没有落点的通道。
+   *
+   * 三条口径:
+   * 1. 鉴权与同族家长端点同形:childId 必须在**调用者自己**的 confirmed 绑定集里。
+   *    绑定不存在一律 403,不回 404 —— "这个孩子不存在"与"不是你的孩子"必须同形,
+   *    否则端点自己变成存在性预言机(与 §5"认证不等于授权"那条同族)。
+   * 2. 欠费额只由账目出口 loadEnrollmentLedger 给,这里不重算(守门 AR1 也会拦)。
+   * 3. 只读:家长侧不得经本端点写缴费(缴费是机构动作,走 POST /payment-record 且需 edu:manage)。
+   */
+  server.get('/parent/children/:childId/bills', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const childId = idParsed.data.id
+
+    const [bound] = await db
+      .select({ id: eduParentStudentBinding.id })
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.parentId, userId),
+          eq(eduParentStudentBinding.studentId, childId),
+          eq(eduParentStudentBinding.status, 'confirmed'),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!bound) return reply.status(403).send(error(403, '无权查看该学员的账单'))
+
+    const enrollments = await db
+      .select({
+        enrollmentId: eduEnrollment.id,
+        classId: eduEnrollment.classId,
+        className: eduClass.name,
+        termId: eduEnrollment.termId,
+        termName: eduTerm.name,
+        status: eduEnrollment.status,
+        totalFee: eduEnrollment.totalFee,
+      })
+      .from(eduEnrollment)
+      .innerJoin(eduClass, eq(eduEnrollment.classId, eduClass.id))
+      .innerJoin(eduTerm, eq(eduEnrollment.termId, eduTerm.id))
+      .where(and(eq(eduEnrollment.studentId, childId), isNull(eduEnrollment.deletedAt)))
+      .orderBy(eduEnrollment.enrollDate)
+
+    const bills = await Promise.all(
+      enrollments.map(async (e) => ({ ...e, ledger: await loadEnrollmentLedger(e.enrollmentId) })),
+    )
+    return reply.send(success({ childId, bills }))
+  })
+
   server.get('/parent/children/:childId/grades', async (request, reply) => {
     const childId = (request.params as { childId: string }).childId
     if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
