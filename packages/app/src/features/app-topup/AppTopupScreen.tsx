@@ -7,7 +7,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  TextInput,
   ScrollView,
   RefreshControl,
   Modal,
@@ -18,6 +17,7 @@ import type { AppTopupScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** AppTopupScreen props re-export(单一来源 @ihui/types) */
 export type { AppTopupScreenProps }
@@ -114,7 +114,8 @@ export function AppTopupScreen({
               </TouchableOpacity>
             ))}
           </View>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.customInput}
             value={customAmount}
             onChangeText={onCustomAmountChange}

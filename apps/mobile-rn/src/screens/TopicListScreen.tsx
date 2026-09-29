@@ -22,7 +22,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type TextStyle,
   type ViewStyle,
@@ -32,7 +31,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { ChevronRight, Search } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
 import { getRnTokens, type RnThemeTokens, rnRadius } from '@ihui/design-tokens'
-import { CategoryInlineBar } from '@ihui/rn-app'
+import { TextField, CategoryInlineBar } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
@@ -189,7 +188,8 @@ export function TopicListScreen() {
           <View>
             <View style={styles.searchWrap}>
               <Search size={16} color={tk.text.tertiary} />
-              <TextInput
+              <TextField
+                colorScheme={resolvedTheme}
                 style={styles.searchInput}
                 value={searchText}
                 onChangeText={setSearchText}

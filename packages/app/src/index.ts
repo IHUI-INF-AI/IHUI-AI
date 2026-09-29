@@ -232,6 +232,13 @@ export type {
 export { Selecter, SearchInput } from './components'
 export type { SelecterProps, SelecterType, SelecterOption, SearchInputProps } from './components'
 
+/**
+ * 带聚焦描边的输入框 —— RN/共享屏的唯一实现(§4"描边不得取墨档"的唯一例外位是聚焦态)。
+ * 新增输入框不得在端内再手写一份 `useState(focused)`:那会让"两端取同一档"这件事退回散文约束。
+ */
+export { TextField } from './components'
+export type { TextFieldProps } from './components'
+
 /** 区块头「更多」入口:RN 端唯一实现,箭头走 lucide 矢量(勿在端内再用 `›` 字符自拼) */
 export { MoreLink } from './components'
 export type { MoreLinkProps } from './components'
