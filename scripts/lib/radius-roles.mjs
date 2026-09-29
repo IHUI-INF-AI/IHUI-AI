@@ -410,24 +410,60 @@ export function declarationRanges(codeSource) {
     const m = RE.exec(lines[i])
     if (!m) continue
     if (!/^[A-Z]/.test(m[2])) continue // 只有 PascalCase 才是"这是个界面元素"的主张
+    /**
+     * 函数体的 `{` 必须是**括号族整体深度归零之后**的第一个开括号。
+     *
+     * 为什么不直接从行首配平(旧写法):`export default function RetryButton({ text, onClick }: P) {`
+     * 里第一个 `{` 是**解构参数**的花括号,它在同一行就闭合 —— 于是配平结果把整条声明压成
+     * `start == end == 那一行`,`ownerOfLine()` 对函数体内任何一行都返回 null,守门 150 的
+     * C5 组件名档于是对"带解构 props 的组件"(React 组件的多数写法)**永久不生效**。
+     * 症状是两个互补计数同时为 0(「按组件名判 0 处 / 名字给不出唯一角色而不启用 0 处」),
+     * 读起来像"这一族都判不出",实际上是判据根本没跑 —— 2026-09-29 由一枚真缺陷
+     * (`RetryButton.tsx` 的 `rounded-md` 应为 control=sm)反手抓出。
+     *
+     * 深度按 `( [ {` **一起**算,而不是只算圆括号:`const X = ({a}) => {…}` 的参数括号包在
+     * 圆括号里、`const TEMPLATES = {…}` 的开括号深度 0 即命中(与旧行为逐字同结果)。
+     * 真仓 971 个组件文件上 A/B:声明条数 2752 → 2752,**旧区间被新版覆盖 = 0 条丢失**
+     * (只放宽、不收紧,所以这一改动不会让任何既有归属判据失效)。
+     */
     let depth = 0
+    let braceLine = -1
+    let braceCol = -1
+    let k = (m.index || 0) + m[0].length - 1
+    let j = i
+    outer: for (; j < lines.length && j - i <= 40; j++) {
+      for (let c = j === i ? k : 0; c < lines[j].length; c++) {
+        const ch = lines[j][c]
+        if (ch === '(' || ch === '[' || ch === '{') {
+          depth++
+          if (ch === '{' && depth === 1) {
+            braceLine = j
+            braceCol = c
+            break outer
+          }
+        } else if (ch === ')' || ch === ']' || ch === '}') depth = Math.max(0, depth - 1)
+      }
+    }
+    if (braceLine < 0) continue // 40 行内找不到开括号 ⇒ 判不出,不猜一个范围
+    depth = 0
     let seen = false
     let end = -1
-    for (let j = i; j < lines.length; j++) {
-      for (const ch of lines[j]) {
+    for (let q = braceLine; q < lines.length; q++) {
+      const seg = q === braceLine ? lines[q].slice(braceCol) : lines[q]
+      for (const ch of seg) {
         if (ch === '{') {
           depth++
           seen = true
         } else if (ch === '}') {
           depth--
           if (seen && depth === 0) {
-            end = j + 1
+            end = q + 1
             break
           }
         }
       }
       if (end > 0) break
-      if (j - i > 1200) break // 病态文件护栏:配平不到就判"判不出",不扫全文件
+      if (q - braceLine > 1200) break // 病态文件护栏:配平不到就判"判不出",不扫全文件
     }
     if (end > 0) found.push({ name: m[2], start: i + 1, end, exported: Boolean(m[1]) })
   }
