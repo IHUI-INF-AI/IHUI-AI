@@ -170,9 +170,9 @@ export default function UserInfoCard({
         <View hoverClass="opacity-85" onClick={onClick}>
           <View className="flex items-center" style={HEADER_GAP_STYLE}>
             {/* 头像:有 avatar 用 avatar,无则用原项目默认头像 daixaodiming.png(可点击编辑) */}
-            {/* 头像取**真圆**:§4 把头像列在"真圆/装饰件"族(明令不得方档化),RN 端同一元素
-                写的是 `USER_INFO_CARD_AVATAR_PX / 2`(=24dp)⇒ 两端同一形状。这里旧写法是
-                `rounded-lg`(8dp 方档),即"同一头像两端各一档"的那一格(此前误记为"与 RN 同档") */}
+            {/* 头像半径 = 2xl(16),与 RN 两份实现(features/cards 的 avatar/avatarImg、
+                mobile-rn 的 avatarWrap/avatar/avatarFallback)逐档同值。48 边长上写不出真圆:
+                半边 = 24 越过 §4 的半径一刀切上限(≤2xl),故这一族取的是"上限档"而非几何真圆。 */}
             <Image
               src={avatar || defaultAvatarImg}
               mode="aspectFill"
