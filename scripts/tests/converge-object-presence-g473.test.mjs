@@ -99,9 +99,14 @@ test('调用方措辞锁:收敛器与推送守护都不许把"没取回"说成�
   const site = sync.indexOf('const uni = attemptUnionConverge(')
   assert.ok(site > 0, '找不到冲突分支的调用点 ⇒ 本锁对着空气判绿')
   const win = sync.slice(site, site + 1600)
-  const iDivert = win.indexOf("uni.includes('未判定:')")
+  // 判据载体随 G-815406 换了形态:分流从"字面 `uni.includes('未判定:')`"收进了
+  // `classifyUnionAttempt(uni)` 这一份实现(两支调用点各写一遍字符串判据必然漂移)。
+  // 旧 needle 在 HEAD 上本来就命中不到(那句写的是 `uni.includes('UNDETERMINED')`)⇒ 这条锁
+  // 早已恒红,只是被"本测试文件 import 不到 union-converge"的装载崩溃挡在门外没人看见。
+  // 不变量一字未松:分流必须排在"亦判需人工"那句之前。
+  const iDivert = win.indexOf('classifyUnionAttempt(uni)')
   const iHuman = win.indexOf('亦判需人工')
-  assert.ok(iDivert > 0, '分流分支缺失 ⇒ 一次 fetch 会被报成"union 判需人工"(G-473 ②的调用方那一半)')
+  assert.ok(iDivert > 0, '分流分支缺失 ⇒ 一次 fetch/一次依赖崩会被报成"union 判需人工"(G-473 ②的调用方那一半)')
   assert.ok(iHuman > iDivert, '分流必须排在"需人工"那句之前,否则那句先被打印,分流形同不存在')
   const guard = readFileSync(join(ROOT, 'scripts', 'git-push-guard.mjs'), 'utf8')
   const gSite = guard.indexOf('if (ahead === 0) {')
