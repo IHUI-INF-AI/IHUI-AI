@@ -7438,7 +7438,12 @@
           "denied": {
             "reorder": "无法调整排队顺序",
             "undo": "无法撤回排队消息",
-            "interject": "当前 Runtime 不支持插话，消息将继续排队"
+            "interject": "当前 Runtime 不支持插话，消息将继续排队",
+            "cause": {
+              "streaming": "本轮回答还在生成，排队顺序暂时锁定",
+              "emptyQueue": "队列里已经没有可以撤回的消息",
+              "runtimeNoInterject": "该 Runtime 未开放插话，消息会留在队列里按顺序处理"
+            }
           },
           "reorderAria": "拖动调整排队顺序；聚焦后可使用上下方向键"
         }
