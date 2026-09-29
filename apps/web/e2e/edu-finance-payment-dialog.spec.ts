@@ -10,14 +10,13 @@ import type { Page } from '@playwright/test'
  * 教育财务 - 缴费登记与账期的运行时取证(2026-09-29)。
  *
  * 分工写清楚,免得后来人把这台机上"哪一层验到哪"读糊了:
- *  · **浏览器验到上屏**:财务页五个 tab(含本次新增的「账期管理」)确实渲染出来 ——
- *    只靠 typecheck 与单测证不了上屏,而本仓最高频失效型就是"代码全在、界面上没有"。
+ *  · **浏览器验到上屏**:财务页五个 tab(含「账期管理」)确实渲染出来 + 催费管理 tab 的
+ *    「催缴触达统计」卡(后端 GET /fee-reminder/stats 已建成,前端必须真的调用并展示 ——
+ *    "造好没装车"本仓最高频)。点 tab 后面板切换此前有"不切换"的存疑记录,
+ *    2026-09-29 浏览器实测不复现(data-state 与面板均正确切换),本条 spec 即常驻证明。
  *  · **源码验形态**:缴费弹窗的三个自由文本框必须消失、改为期次下拉;账期面板不得预填
- *    期数/首期日(预填值会被当成机构选过的值存进账期,再原样出现在给家长的催缴文案里)。
- *  · **未由浏览器验证**:点 tab 后面板内容 —— 实测在本机 `getByRole('tab').click()` 之后
- *    激活面板仍是第一个(`data-state="active"` 未随之切换),这是该页 Tabs 的待查交互问题,
- *    **不是本次改动引入的**(改动前后的 tab 顺序里,学费标准一直是第一个)。
- *    留一条明知会红的 DOM 断言只会逼人跳门,所以这里把它写成显式未覆盖 + 一条可诊断的软证据。
+ *    期数/首期日(预填值会被当成机构选过的值存进账期,再原样出现在给家长的催缴文案里);
+ *    催缴触达统计卡必须带上 caveat 与 unknownReminders(口径说明跟数字走,不留在注释里)。
  *
  * 断言一律不依赖库里有没有名册数据,否则空库环境会把它变成一台与内容无关的恒红 spec。
  */
@@ -81,6 +80,38 @@ test.describe('教育财务 - 缴费登记按报名期次归属', () => {
     // 未选期次时生成按钮禁用 —— 校验留在前端,不等后端 400
     expect(s).toContain('!!enrollmentId')
     expect(s).toContain('canSubmit')
+  })
+
+  /**
+   * 源码维:催缴触达统计卡必须真的装在催费管理 tab 里(调 stats 端点 + 展示 caveat 与
+   * unknownReminders)。后端 GET /fee-reminder/stats 落地后前端一度没有任何调用 ——
+   * 数字只在 API 响应里,机构在界面上看不到,等价于没交付。此锁防它被静默拆掉。
+   */
+  test('催费 tab 装有催缴触达统计卡(调 stats 端点,caveat 与 unknown 随数字上屏)', () => {
+    const s = src.finance()
+    expect(s).toContain('/api/edu-ai-management/fee-reminder/stats?days=30')
+    expect(s).toContain('催缴触达统计')
+    expect(s).toContain('reminderStats.caveat')
+    expect(s).toContain('reminderStats.delivery.unknownReminders')
+  })
+
+  /**
+   * 上屏维:点「催费管理」tab 后统计卡可见(空库也成立 —— total=0 仍渲染"登记催缴 0 条")。
+   * 同时是"点 tab 面板会切换"的常驻证明:此前该页有"点击后面板不切换"的存疑记录,
+   * 2026-09-29 浏览器实测不复现;若此条红,先看是不是又回到那个交互问题。
+   */
+  test('催费管理 tab 打开后催缴触达统计卡上屏', async ({ adminPage: page }) => {
+    await page.goto('/edu/edu-management/finance', { waitUntil: 'domcontentloaded' })
+    await requireLoggedIn(page)
+    await expect
+      .poll(async () => page.getByRole('tab').count(), { timeout: 30_000 })
+      .toBeGreaterThan(0)
+    // 该页是受控 Tabs:click 若发生在 React hydration 之前,onValueChange 不触发,
+    // 面板不切换(实测稳定复现的 flaky 根因)。networkidle ⇒ 首轮取数完成,hydration 必已完成。
+    await page.waitForLoadState('networkidle')
+    await page.getByRole('tab', { name: /催费管理/ }).click()
+    await expect(page.getByText('催缴触达统计（近 30 天）')).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(/登记催缴 \d+ 条/)).toBeVisible({ timeout: 20_000 })
   })
 
   /**

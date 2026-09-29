@@ -399,5 +399,147 @@ export function isAutoApprovableCommand(input: string, options: { yolo?: boolean
   return assessment.verdict === 'read-only';
 }
 
+// ==================== 权限规则稳定前缀建议(G-937955)====================
+
+/**
+ * 从命令提炼"下次别再问"的建议规则,并给出规则命中判定(机制对齐 ZCode 的
+ * bash-command-permission-policy / bash-command-rule-evaluator):
+ *   - 静态可解析、非危险、登记在语法表的命令 → 提炼**稳定动作前缀**,建议 `前缀:*`
+ *     (`pnpm run lint` ⇒ `pnpm run lint:*`);保存后同前缀的新命令直接命中;
+ *   - 危险/破坏性/判不出语义的命令(rm -rf、heredoc、变量命令名、复合命令)→ 退回
+ *     **整命令精确**规则,绝不带 :* —— 精确规则只放行逐字相同的命令;
+ *   - 命中判定吃 **raw subject + 稳定前缀双 subject**:`pnpm -C dir run lint` 的 raw
+ *     不以 `pnpm run lint` 开头,但同一 resolver 得出的稳定前缀是 —— 双轨使
+ *     "UI 明明保存了建议规则,下一轮却命不中"那一类事故在机制上不可能发生。
+ */
+
+const RUN_SCRIPT_PROGRAMS = new Set(['npm', 'pnpm', 'yarn', 'bun']);
+const RUN_SCRIPT_ACTIONS = new Set(['run', 'run-script']);
+
+export interface CommandRuleSuggestion {
+  /** 'prefix' = `前缀:*`(同前缀新命令命中);'exact' = 整命令精确规则 */
+  kind: 'prefix' | 'exact';
+  /** 规则正文:prefix 形如 `pnpm run lint:*`;exact 为 trim 后的整命令 */
+  rule: string;
+}
+
+/** 稳定动作 token:非选项、非变量展开、无空白、不是路径/URL。 */
+function isStableActionToken(token: ArgToken): boolean {
+  return (
+    !token.expanded &&
+    token.value.length > 0 &&
+    !token.value.startsWith('-') &&
+    !/\s/.test(token.value) &&
+    !looksLikePathOrUrl(token.value)
+  );
+}
+
+function looksLikePathOrUrl(token: string): boolean {
+  return (
+    token.includes('://') ||
+    token.startsWith('./') ||
+    token.startsWith('../') ||
+    token.startsWith('/') ||
+    token.startsWith('~') ||
+    /^[A-Za-z]:[\\/]/.test(token)
+  );
+}
+
+/** 单段命令的 argv(复合命令 / 含判不出语义的构造 ⇒ undefined)。 */
+function singleSegmentArgv(command: string): readonly ArgToken[] | undefined {
+  const { segments, issues } = tokenizeCommand(command);
+  if (segments.length !== 1) return undefined;
+  if (issues.some((issue) => issue.kind !== 'empty-command')) return undefined;
+  const segment = segments[0]!;
+  if (segment.writesTo.length > 0) return undefined; // 重定向 = 写副作用,前缀不担保
+  return segment.argv;
+}
+
+/**
+ * 稳定前缀解析(resolveStableCommandPrefix 语义的本地化):能被登记语法表 + 登记子命令
+ * 静态担保的最长动作前缀。`pnpm run lint --fix` ⇒ `pnpm run lint`、`git status` ⇒
+ * `git status`、`pnpm -C dir run lint` ⇒ `pnpm run lint`(登记的全局选项连值一起跳过)。
+ * 判不出/不可担保(未登记命令、未登记子命令、危险面、变量展开、复合、重定向、`--`)⇒ null。
+ */
+export function resolveStableCommandPrefix(command: string): string | null {
+  const input = (command ?? '').trim();
+  if (!input) return null;
+  const argv = singleSegmentArgv(input);
+  if (!argv || argv.length === 0) return null;
+  if (argv.some((t) => t.expanded)) return null; // 有变量展开 = 动态语义,不担保
+  const basename = normalizeProgram(argv[0]!.value);
+  if (!basename) return null;
+  const spec = SYNTAX_TABLE[basename];
+  if (!spec) return null;
+  // 危险面一票否决:dangerous / destructive / alwaysConfirm 命中的命令绝不给前缀
+  // (rm -rf 绝不能建议出 `rm:*`),退回整命令精确规则。
+  const verdict = evaluateSegment({ argv: [...argv], writesTo: [], readsFrom: [] }, false);
+  if (verdict.dangerous || verdict.destructive || verdict.alwaysConfirm) return null;
+  if (!spec.structured) return null; // 非结构化命令没有可担保的"动作"位
+  // 走过登记选项(含取值),第一个操作数 = 子命令
+  const knownOptions = indexOptions([...(spec.globalOptions ?? []), ...(spec.options ?? [])]);
+  let index = 1;
+  while (index < argv.length) {
+    const token = argv[index]!;
+    const value = token.value;
+    if (value === '--') return null; // 终止符之后按字面量,前缀语义不可靠
+    if (!value.startsWith('-') || value.length <= 1) break;
+    const name = (value.startsWith('--') ? value.slice(2) : value.slice(1)).split('=')[0]!.toLowerCase();
+    const option = knownOptions.get(name);
+    if (!option) return null; // 未登记选项 ⇒ 语义判不出
+    if (option.arity === 'required' && !value.includes('=')) index += 2;
+    else index += 1;
+  }
+  const subToken = argv[index];
+  if (!subToken || subToken.expanded) return null;
+  const subName = subToken.value.toLowerCase();
+  if (!spec.subcommands?.[subName]) return null; // 未登记子命令 ⇒ unknown ⇒ 不担保
+  const prefix = [basename, subName];
+  // run 脚本族:动作 = 紧随 run 的脚本名(`pnpm run lint` ⇒ `pnpm run lint`)
+  if (RUN_SCRIPT_PROGRAMS.has(basename) && RUN_SCRIPT_ACTIONS.has(subName)) {
+    const script = argv[index + 1];
+    if (script && isStableActionToken(script)) prefix.push(script.value);
+  }
+  if (prefix.some((part) => part.length === 0)) return null;
+  return prefix.join(' ');
+}
+
+/**
+ * 建议规则生成:`pnpm run lint` ⇒ `pnpm run lint:*`;`rm -rf x` ⇒ 精确规则 `rm -rf x`。
+ * 空命令 ⇒ null(没有值得建议的东西)。
+ */
+export function suggestCommandPermissionRule(command: string): CommandRuleSuggestion | null {
+  const raw = (command ?? '').trim();
+  if (!raw) return null;
+  const prefix = resolveStableCommandPrefix(raw);
+  if (prefix) return { kind: 'prefix', rule: `${prefix}:*` };
+  return { kind: 'exact', rule: raw };
+}
+
+function collapseWhitespace(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * 规则命中判定(评估器对 `prefix:*` 的支持):规则 `前缀:*` 对 raw subject 与稳定前缀
+ * 双 subject 求命中(等于前缀,或以前缀+空格开头 —— `pnpm run linter` **不**命中
+ * `pnpm run lint:*`);非 `:*` 规则按精确匹配(空白归一后逐字相等)。其余通配形态
+ * 不在担保范围,一律不命中(fail-closed)。
+ */
+export function commandMatchesPermissionRule(command: string, rule: string): boolean {
+  const subject = collapseWhitespace(command ?? '');
+  const pattern = collapseWhitespace(rule ?? '');
+  if (!subject || !pattern) return false;
+  if (pattern.endsWith(':*')) {
+    const prefix = pattern.slice(0, -2);
+    if (!prefix) return false;
+    if (subject === prefix || subject.startsWith(`${prefix} `)) return true;
+    const stable = resolveStableCommandPrefix(command);
+    return stable !== null && (stable === prefix || stable.startsWith(`${prefix} `));
+  }
+  if (pattern.includes('*')) return false; // 只登记 :* 前缀与精确两种,其余通配不担保
+  return subject === pattern;
+}
+
 export type { CommandAssessment, CommandEffect, CommandFinding, CommandSpec, OptionSpec, SubcommandSpec, SyntaxVerdict };
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -17,6 +17,18 @@
 import type { Tool, ToolResult } from './index.js';
 import { assertSafeFetchUrl, formatSsrfRejection } from '@ihui/shared/utils/ssrf-guard';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
+import {
+  assertFetchLiteralEgress,
+  EGRESS_BLOCKED_ERROR_TYPE,
+  formatEgressBlockedMessage,
+  isEgressBlockedError,
+  isProxyAllowlistBlock,
+  proxyAllowlistBlockedMessage,
+} from './fetch-url-egress.js';
+
+function egressBlockedResult(error: string): ToolResult {
+  return { success: false, output: '', error, errorType: EGRESS_BLOCKED_ERROR_TYPE };
+}
 
 const MAX_OUTPUT_CHARS = 10_000;
 const FETCH_TIMEOUT_MS = 15_000;
@@ -77,6 +89,17 @@ export const fetch_url: Tool = {
       let hops = 0;
       let res: Response;
       for (;;) {
+        // Literal-egress guard first: judges only what the URL itself says (no
+        // DNS). A literal private/benchmark/special-use IP must surface as
+        // EgressBlocked even when the SSRF guard would also reject it.
+        const hopUrl = new URL(target);
+        try {
+          assertFetchLiteralEgress(hopUrl);
+        } catch (err) {
+          if (!isEgressBlockedError(err)) throw err;
+          runPostToolCall('fetch_url', { error: EGRESS_BLOCKED_ERROR_TYPE });
+          return egressBlockedResult(err.message);
+        }
         const verdict = await assertSafeFetchUrl(target);
         if (!verdict.safe) {
           runPostToolCall('fetch_url', { error: verdict.code ?? 'ssrf-denied' });
@@ -87,6 +110,13 @@ export const fetch_url: Tool = {
           redirect: 'manual',
           headers: { 'User-Agent': 'IHUI-CLI-Agent/1.0' },
         });
+        // Egress-proxy allowlist rejection arrives as a response header (the
+        // proxy owns the connection; there is no body to inspect).
+        if (isProxyAllowlistBlock(res.headers)) {
+          runPostToolCall('fetch_url', { error: EGRESS_BLOCKED_ERROR_TYPE });
+          await res.body?.cancel().catch(() => {});
+          return egressBlockedResult(proxyAllowlistBlockedMessage(hopUrl.hostname));
+        }
         if (res.status < 300 || res.status >= 400) break;
         const loc = res.headers.get('location');
         if (!loc) break;
@@ -134,7 +164,15 @@ export const fetch_url: Tool = {
       if (msg.includes('aborted')) {
         return { success: false, output: '', error: `请求超时(${FETCH_TIMEOUT_MS / 1000}s)` };
       }
-      return { success: false, output: '', error: msg };
+      // Scrub before model context: a lower-layer message that names what a
+      // host "resolved to" leaks the resolved private/metadata IP.
+      let host = url;
+      try {
+        host = new URL(url).hostname;
+      } catch {
+        /* keep raw url as the domain label */
+      }
+      return { success: false, output: '', error: formatEgressBlockedMessage(msg, host) };
     } finally {
       clearTimeout(timer);
     }

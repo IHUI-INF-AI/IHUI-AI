@@ -13,6 +13,10 @@
  *
  * 因此本模块是**唯一出口**:宿主级块只能经 `frameSystemReminder` 产出,
  * 而一切非宿主内容进提示前必须过 `neutralizeBoundaries`(两处共用同一份标签定义)。
+ *
+ * 同时托管 surrogate-safe 截断的**唯一出口**(`truncateToCodePoints` / `codePointLength` /
+ * `sliceSurrogateSafe`):skills 域与 repl 的码位口径都从这儿进口,别处不得再写 0xD800 判断
+ * (票 G-937964;tests/g937964-surrogate-safe-truncation.test.ts 里有结构性扫描钉住这一点)。
  */
 
 /** 宿主级块的标签名。判据与产出共用这一个常量,不得在别处再写字面量。 */
@@ -81,6 +85,41 @@ export function truncateToCodePoints(text: string, maxCodePoints: number): strin
     if (taken >= maxCodePoints) break;
   }
   return out;
+}
+
+/**
+ * 码位数(按码位迭代,代理对算 1;孤立的半代理不计数)。
+ *
+ * 与 `truncateToCodePoints` 是同一次迭代的两个投影:计数(本函数)与截断(上函数)。
+ * 过去 skills/index.ts 自带一份私有 `codePointLength`,注释写着"与 truncateToCodePoints
+ * 同口径" —— 同口径却各抄一份,拷贝就在等两边漂移;票 G-937964 收敛为这一份。
+ */
+export function codePointLength(text: string): number {
+  let n = 0;
+  for (const ch of text) {
+    if (ch.length === 1) {
+      const unit = ch.charCodeAt(0);
+      if (unit >= 0xd800 && unit <= 0xdfff) continue;
+    }
+    n += 1;
+  }
+  return n;
+}
+
+/**
+ * 按 UTF-16 码元数截断;截断边界恰好落在高位代理(0xD800–0xDBFF)中间时丢弃半字符,
+ * 保证载荷可安全序列化(上游出处 `create-workflow-graph-bounds.boundGraphText`,票 G-937964)。
+ *
+ * 与 `truncateToCodePoints` 的分工:那个按**码位**预算逐码位累加,顺带丢弃输入里本就孤立的
+ * 代理;本函数按**码元**数直接 slice、只修自己这一刀 —— 面向"外部已有限长口径、只要结果
+ * 不含新劈出的半对"的载荷(脚本字面量→模型面文本)。它不负责清洗输入:输入若本就带孤立
+ * 代理,先过 `truncateToCodePoints` 那一道闸。
+ */
+export function sliceSurrogateSafe(text: string, maxChars: number): string {
+  if (!Number.isFinite(maxChars) || maxChars <= 0) return '';
+  const bounded = text.slice(0, maxChars);
+  const lastCodeUnit = bounded.charCodeAt(bounded.length - 1);
+  return lastCodeUnit >= 0xd800 && lastCodeUnit <= 0xdbff ? bounded.slice(0, -1) : bounded;
 }
 
 /** 清洗名称:剥控制符/零宽字符(Cf 类,本仓 §5c 有零宽事故史)、剥尖括号与换行、按码位限长。 */
