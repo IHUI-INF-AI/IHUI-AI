@@ -24,7 +24,7 @@
  */
 
 import * as React from 'react'
-import { Loader2, QrCode, CheckCircle2, XCircle, ExternalLink } from 'lucide-react'
+import { Loader2, QrCode, CheckCircle2, XCircle, ExternalLink, RefreshCw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
   cancelScanLogin,
@@ -70,6 +70,18 @@ type Phase = 'idle' | 'starting' | 'polling' | 'manual-import' | 'success' | 'fa
 
 /** 连续多少次"根本没拿到应答"(网络层失败)才判失败。有状态码的应答一律当场点名,不拖到超时。 */
 const MAX_NETWORK_RETRIES = 3
+
+/**
+ * 头条双通道姊妹映射(2026-09-29):同一个头条账号有两条出码通道 ——
+ * `toutiao` 是纯 HTTP 的微信网页扫码码,`toutiao_app` 是头条 App 原生码。
+ * 两码不互通(网页端首登还强制手机验证),但用户不必回平台下拉重开:
+ * 弹窗 polling 态一键互切 = 取消当前任务 + 用姊妹通道重新出码。
+ * 微信通道每次 start 都拿新鲜 state,后端零改动。
+ */
+const SISTER_CHANNEL: Record<string, string> = {
+  toutiao: 'toutiao_app',
+  toutiao_app: 'toutiao',
+}
 
 export function ScanLoginDialog({
   open,
@@ -186,15 +198,17 @@ export function ScanLoginDialog({
     failTask(t('accounts.scanLoginTimeout'))
   }
 
-  async function handleStart() {
-    if (!platform) return
-    const plat = platforms.find((p) => p.platform === platform)
+  async function handleStart(platOverride?: string) {
+    // platOverride:姊妹通道切换时同步调用,setState 是异步的,读 state 会拿到旧值
+    const plat = platOverride ?? platform
     if (!plat) return
+    const platInfo = platforms.find((p) => p.platform === plat)
+    if (!platInfo) return
     setPhase('starting')
     setErrorMsg('')
     networkFailRef.current = 0
     try {
-      const r = await startScanLogin(platform)
+      const r = await startScanLogin(plat)
       if (!r.success) throw apiFailureToError(r, t('accounts.scanLoginFailed'))
       const id = r.data?.task_id
       if (!id) throw new Error(t('accounts.scanLoginFailed'))
@@ -275,6 +289,15 @@ export function ScanLoginDialog({
     setPhase('idle')
   }
 
+  /** 弹窗内一键换姊妹通道(微信码 ↔ App码):取消当前任务,立刻用另一条通道重新出码。 */
+  function handleSwitchChannel() {
+    const sister = SISTER_CHANNEL[platform]
+    if (!sister) return
+    handleCancel()
+    setPlatform(sister)
+    void handleStart(sister)
+  }
+
   /** 手动导入 cookies(2026-09-16):系统默认浏览器登录闭环的最后一步。 */
   async function handleImportCookies() {
     if (!cookiesInput.trim() || importing) return
@@ -330,7 +353,11 @@ export function ScanLoginDialog({
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={handleStart} disabled={!platform || isBusy} className="w-full">
+              <Button
+                onClick={() => void handleStart()}
+                disabled={!platform || isBusy}
+                className="w-full"
+              >
                 {isBusy && <Loader2 className="h-4 w-4 animate-spin" />}
                 <QrCode className="h-4 w-4" />
                 {t('accounts.startScanLogin')}
@@ -446,9 +473,19 @@ export function ScanLoginDialog({
             </Button>
           )}
           {phase === 'polling' && (
-            <Button variant="outline" onClick={handleCancel}>
-              {t('accounts.cancelScan')}
-            </Button>
+            <>
+              {SISTER_CHANNEL[platform] && (
+                <Button variant="outline" onClick={handleSwitchChannel}>
+                  <RefreshCw className="h-4 w-4" />
+                  {SISTER_CHANNEL[platform] === 'toutiao_app'
+                    ? t('accounts.switchToAppQr')
+                    : t('accounts.switchToWechatQr')}
+                </Button>
+              )}
+              <Button variant="outline" onClick={handleCancel}>
+                {t('accounts.cancelScan')}
+              </Button>
+            </>
           )}
           {phase === 'manual-import' && (
             <>

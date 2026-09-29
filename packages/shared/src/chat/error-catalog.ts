@@ -620,6 +620,114 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'WRITE_FAILED.action',
     category: 'runtimeException',
   },
+  // —— D200 错误码 19 缺口闭集补码(2026-09-29,竞品裁定 19G/60F/8U;证据:
+  // docs/benchmark-evidence/2026-09/adjudication-2026-09-30/report-errcodes.md)——
+  // 四域语义槽位闭集登记,契约先行(同 TURN_ERROR_CLASSES 八类"尚未产出先登记"口径):
+  // 码尚未在我方生产端产出时,本表先行登记 + 五语言词包就位,等后端真正产出时零改动可用。
+  // 8 条 UNDETERMINED(102 / issue_execution_active / origin_not_allowed / organization_mismatch /
+  // project_member_removed / organization_unavailable / FILE_IDENTITY_CHANGED /
+  // AGENT_TOOL_RULE_CONFLICT)按裁定挂起待探,不入表。
+  // 键即产出方原始码(不改名、不归一):小写蛇形与数字码原样入表,排障时 grep 不断链。
+  // 域1 文件安全扫描(7)
+  FILE_SCAN_PENDING: {
+    titleKey: 'FILE_SCAN_PENDING.title',
+    actionKey: 'FILE_SCAN_PENDING.action',
+    category: 'runtimeException',
+  },
+  FILE_SCAN_FAILED: {
+    titleKey: 'FILE_SCAN_FAILED.title',
+    actionKey: 'FILE_SCAN_FAILED.action',
+    category: 'runtimeException',
+  },
+  FILE_SCAN_TIMEOUT: {
+    titleKey: 'FILE_SCAN_TIMEOUT.title',
+    actionKey: 'FILE_SCAN_TIMEOUT.action',
+    category: 'backendTimeout',
+  },
+  FILE_SCAN_UNSCANNABLE: {
+    titleKey: 'FILE_SCAN_UNSCANNABLE.title',
+    actionKey: 'FILE_SCAN_UNSCANNABLE.action',
+    category: 'capabilityNotOffered',
+  },
+  FILE_SCAN_BLOCKED: {
+    titleKey: 'FILE_SCAN_BLOCKED.title',
+    actionKey: 'FILE_SCAN_BLOCKED.action',
+    category: 'authForbidden',
+  },
+  file_scan_failed: {
+    titleKey: 'file_scan_failed.title',
+    actionKey: 'file_scan_failed.action',
+    category: 'runtimeException',
+  },
+  file_content_rejected: {
+    titleKey: 'file_content_rejected.title',
+    actionKey: 'file_content_rejected.action',
+    category: 'authForbidden',
+  },
+  // 域2 文件下载就绪 / 完整性 / 本地缓存(6)
+  FILE_NOT_READY: {
+    titleKey: 'FILE_NOT_READY.title',
+    actionKey: 'FILE_NOT_READY.action',
+    category: 'runtimeException',
+  },
+  file_not_ready: {
+    titleKey: 'file_not_ready.title',
+    actionKey: 'file_not_ready.action',
+    category: 'runtimeException',
+  },
+  FILE_INTEGRITY_FAILED: {
+    titleKey: 'FILE_INTEGRITY_FAILED.title',
+    actionKey: 'FILE_INTEGRITY_FAILED.action',
+    category: 'invalidResponse',
+  },
+  FILE_DISK_SPACE: {
+    titleKey: 'FILE_DISK_SPACE.title',
+    actionKey: 'FILE_DISK_SPACE.action',
+    category: 'resourceLimitExceeded',
+  },
+  FILE_STORAGE_INVALID: {
+    titleKey: 'FILE_STORAGE_INVALID.title',
+    actionKey: 'FILE_STORAGE_INVALID.action',
+    category: 'environmentInitFailed',
+  },
+  CHAT_SESSION_HISTORY_MISSING: {
+    titleKey: 'CHAT_SESSION_HISTORY_MISSING.title',
+    actionKey: 'CHAT_SESSION_HISTORY_MISSING.action',
+    category: 'resourceNotFound',
+  },
+  // 域3 配额与容量业务码(4)
+  47902: {
+    titleKey: '47902.title',
+    actionKey: '47902.action',
+    category: 'resourceLimitExceeded',
+  },
+  121: {
+    titleKey: '121.title',
+    actionKey: '121.action',
+    category: 'runtimeException',
+  },
+  speaking_banned: {
+    titleKey: 'speaking_banned.title',
+    actionKey: 'speaking_banned.action',
+    category: 'authForbidden',
+  },
+  member_capacity_exceeded: {
+    titleKey: 'member_capacity_exceeded.title',
+    actionKey: 'member_capacity_exceeded.action',
+    category: 'resourceLimitExceeded',
+  },
+  // 域4 HTTP 413/422 专门档(2):映射方向沿 packages/types/src/failure-code.ts 的
+  // failureCodeFromHttpStatus(413→context_limit、422→invalid_arguments);A 层 STATUS_TO_ZH 同步补档。
+  context_limit: {
+    titleKey: 'context_limit.title',
+    actionKey: 'context_limit.action',
+    category: 'resourceLimitExceeded',
+  },
+  invalid_arguments: {
+    titleKey: 'invalid_arguments.title',
+    actionKey: 'invalid_arguments.action',
+    category: 'invalidResponse',
+  },
 })
 
 /**

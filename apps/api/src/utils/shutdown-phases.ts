@@ -276,4 +276,93 @@ export function createServingGate(label = 'service'): ServingGate {
     },
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* 迟到句柄闸(G-662):关停信号不等卡住的 init,init 之后才建成的句柄走 disposeLate */
+/* -------------------------------------------------------------------------- */
+
+export interface LateDisposeRecord {
+  name: string
+  ok: boolean
+  /** ok=false 时的可读原因(close 抛错原文) */
+  reason?: string
+}
+
+export interface LateDisposeGate {
+  /** 关停信号:立即生效,**不等待任何 in-flight 的 init/create**(那是 G-662 的第一条判据) */
+  beginShutdown(): void
+  isShutdown(): boolean
+  /**
+   * init 之后才建成的句柄**唯一出口**:
+   * - 关停未开始:登记进表(memoized close),等正常关闭链 disposeAll 统一回收,原样返回句柄;
+   * - 关停已开始(abort 早于 create resolve):当场回收(memoized close),close 失败打 warn,
+   *   然后抛 ServingError —— 调用方不得把迟到句柄当正常产物继续使用。
+   */
+  disposeLate<T extends { close: () => unknown | Promise<unknown> }>(
+    name: string,
+    handle: T,
+  ): Promise<T>
+  /** 正常关闭链:逐个回收已登记句柄;单个 close 失败 warn 并记 failed,不中断后续。 */
+  disposeAll(): Promise<LateDisposeRecord[]>
+}
+
+/**
+ * 迟到句柄闸工厂(G-662)。与 createServingGate(G-664)是一对姊妹原语:
+ * serving 闸管"stopping 后才出生的对象当场回收",本闸管"关停信号先到、句柄后建成"的
+ * 迟到面 —— 信号不等 init,init 的产物经 disposeLate 进闸,闸保证它**必被**回收且失败必 warn。
+ */
+export function createLateDisposeGate(
+  label = 'service',
+  log: ShutdownPhasesLogger = logger,
+): LateDisposeGate {
+  let stopping = false
+  const registered: Array<{ name: string; handle: { close: () => unknown | Promise<unknown> } }> = []
+
+  async function disposeOnce(
+    name: string,
+    handle: { close: () => unknown | Promise<unknown> },
+  ): Promise<LateDisposeRecord> {
+    memoizeClose(handle)
+    try {
+      await handle.close()
+      return { name, ok: true }
+    } catch (e) {
+      const reason = errorMessage(e)
+      // 失败必 warn(票面判据):回收失败不得只在错误对象里沉默地携带
+      log.warn(`[${label}] 迟到句柄 ${name} dispose 失败:${reason}`, { name, reason })
+      return { name, ok: false, reason }
+    }
+  }
+
+  return {
+    beginShutdown() {
+      stopping = true
+    },
+    isShutdown: () => stopping,
+    async disposeLate(name, handle) {
+      if (!stopping) {
+        // 正常期:登记等关闭链。memoize 在这里就包上 —— 若关闭链与下一次 disposeLate
+        // 撞车,真实 close 仍只执行一次。
+        memoizeClose(handle)
+        registered.push({ name, handle })
+        return handle
+      }
+      // 关停已开始:迟到句柄当场回收(验收格:abort 早于 create resolve ⇒ dispose 被调用)
+      const record = await disposeOnce(name, handle)
+      throw new ServingError(
+        record.ok
+          ? `${label} 已进入关停,迟到句柄 ${name} 已由 disposeLate 当场回收`
+          : `${label} 已进入关停,迟到句柄 ${name} 回收失败:${record.reason}`,
+      )
+    },
+    async disposeAll() {
+      const pending = registered.splice(0, registered.length)
+      const records: LateDisposeRecord[] = []
+      for (const { name, handle } of pending) {
+        records.push(await disposeOnce(name, handle))
+      }
+      return records
+    },
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
