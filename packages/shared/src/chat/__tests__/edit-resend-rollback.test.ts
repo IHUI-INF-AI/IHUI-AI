@@ -66,9 +66,7 @@ describe('D66 部分回退警示 needsPartialRollbackWarning(本票灵魂,正反
   })
 
   it('反例:无文件改动 / 无影响面 → 不虚警', () => {
-    expect(needsPartialRollbackWarning({ checkpointId: 'cp-1', files: [], editDraft: 'x' })).toBe(
-      false,
-    )
+    expect(needsPartialRollbackWarning({ checkpointId: 'cp-1', files: [], editDraft: 'x' })).toBe(false)
     expect(needsPartialRollbackWarning(null)).toBe(false)
   })
 
@@ -95,8 +93,7 @@ describe('D66 预览视图 previewView(文件清单 + 编辑文本)', () => {
 describe('D66 键名生成器与常量', () => {
   it('相位 / 失败态 / 固定文案键名生成,词包键对齐', () => {
     for (const phase of EDIT_RESEND_PHASES) expect(editResendPhaseKey(phase)).toBe(`phase.${phase}`)
-    for (const phase of EDIT_RESEND_FAILURE_PHASES)
-      expect(editResendFailureKey(phase)).toBe(`failure.${phase}`)
+    for (const phase of EDIT_RESEND_FAILURE_PHASES) expect(editResendFailureKey(phase)).toBe(`failure.${phase}`)
     for (const key of EDIT_RESEND_FIXED_KEYS) expect(editResendFixedKey(key)).toBe(key)
   })
 
@@ -145,11 +142,7 @@ describe('D66 状态机 applyEditResendAction(switch 穷尽 + 非法迁移原样
   })
 
   it('startPreview:影响面未取到 → editFailed(不得拿空预览让用户确认)', () => {
-    const s = applyEditResendAction(
-      createEditResendState(),
-      { type: 'startPreview' },
-      { impact: null },
-    )
+    const s = applyEditResendAction(createEditResendState(), { type: 'startPreview' }, { impact: null })
     expect(s.phase).toBe('editFailed')
   })
 
@@ -195,11 +188,7 @@ describe('D66 状态机 applyEditResendAction(switch 穷尽 + 非法迁移原样
       { type: 'execute' },
       ctx,
     )
-    const ok = applyEditResendAction(
-      executing,
-      { type: 'rollbackDone', result: { kind: 'ok', rolledBackFiles: 2 } },
-      ctx,
-    )
+    const ok = applyEditResendAction(executing, { type: 'rollbackDone', result: { kind: 'ok', rolledBackFiles: 2 } }, ctx)
     expect(ok.phase).toBe('executing')
     expect(ok.rolledBackFiles).toBe(2)
 
@@ -227,11 +216,7 @@ describe('D66 状态机 applyEditResendAction(switch 穷尽 + 非法迁移原样
       ['sync', 'syncFailed'],
       ['replace', 'replaceFailed'],
     ] as const) {
-      const s = applyEditResendAction(
-        createEditResendState(),
-        { type: 'fail', step, error: 'x' },
-        ctx,
-      )
+      const s = applyEditResendAction(createEditResendState(), { type: 'fail', step, error: 'x' }, ctx)
       expect(s.phase, step).toBe(phase)
       expect(s.stoppedAt, step).toBe(step)
     }
@@ -242,11 +227,7 @@ describe('D66 状态机 applyEditResendAction(switch 穷尽 + 非法迁移原样
     s = applyEditResendAction(s, { type: 'startPreview' }, ctx)
     s = applyEditResendAction(s, { type: 'confirm' }, ctx)
     s = applyEditResendAction(s, { type: 'execute' }, ctx)
-    s = applyEditResendAction(
-      s,
-      { type: 'rollbackDone', result: { kind: 'ok', rolledBackFiles: 2 } },
-      ctx,
-    )
+    s = applyEditResendAction(s, { type: 'rollbackDone', result: { kind: 'ok', rolledBackFiles: 2 } }, ctx)
     s = applyEditResendAction(s, { type: 'replaceDone' }, ctx)
     expect(s.phase).toBe('completed')
     expect(s.stoppedAt).toBeNull()
