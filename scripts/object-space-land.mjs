@@ -81,10 +81,11 @@
  * 一个路径的全部祖先正文经 `face-reader.catBatch` **一次批量**读完(不逐行、不逐 blob 派生)。
  */
 
-import { hasAnyWatermarkTrace, hasExactCanonicalBanner } from './lib/watermark-lines.mjs'
-import { existsSync, readFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { hasAnyWatermarkTrace, hasExactCanonicalBanner, dropZeroWidth } from './lib/watermark-lines.mjs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { dirname, join, normalize, resolve } from 'node:path'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { maskComments, scanLiterals } from './lib/code-mask.mjs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -1027,7 +1028,7 @@ export function blobAncestorClash({ root, paths, blobOf, baseRef = 'HEAD', scope
  * 这件正是本器该鼓励的事,被本器自己拦住了 —— 而它拦住的那三份文件,HEAD 上现在仍然没有署名。
  * "篡改规范文案"(两边都规范而文字不同)照旧判红,这一格不让步。
  */
-export function decideBanner({ baseText, newText }) {
+export function decideBanner({ baseText, newText, newPayloadOk = false }) {
   const hasAny = hasAnyWatermarkTrace
   const baseCanonical = hasExactCanonicalBanner(baseText)
   const newCanonical = hasExactCanonicalBanner(newText)
@@ -1049,6 +1050,28 @@ export function decideBanner({ baseText, newText }) {
   if (head3(baseText) !== head3(newText)) {
     if (!newCanonical)
       return { verdict: 'broken', why: '构造内容的横幅不可认 ⇒ 拒绝把无署名内容放进 HEAD' }
+    // 2026-09-30 补的一档:可见文案逐字未动、只差在**隐写载荷位**。
+    // 旧写法拿前三行逐字比,于是"基线载荷被编码往返改坏(§5c 的 载荷损坏 那一态)、这次把它注回规范值"
+    // 这件正事被判成"改写横幅文字"而拒 —— 三个已入库的损坏文件因此**没有任何落地通道**
+    // (提交链上的水印门是自愈式,它只会改磁盘;而磁盘那份属他人现场,§12 不许我写)。
+    // 收紧而非放宽:这一档必须同时满足"剥掉零宽族后前三行逐字相等"**且**"构造内容经
+    // `watermark.mjs verify` 判为完好(载荷可解码 = WATERMARK_TEXT)"。verify 不过 ⇒ 照旧拒。
+    // 载荷可解码性由调用方在 I/O 层量好再传进来 —— 本函数保持纯,构造面就能证明判序。
+    if (dropZeroWidth(head3(baseText)) === dropZeroWidth(head3(newText))) {
+      if (newPayloadOk)
+        return {
+          verdict: 'repaired',
+          why: '只差在隐写载荷位(可见文案逐字未动)且构造内容经 watermark verify 判完好 ⇒ 这是 §5c 要求的"载荷损坏"修复',
+        }
+      return {
+        verdict: 'broken',
+        why: '差异只在零宽载荷位,但构造内容没能经 watermark verify ⇒ 不认这次"修复",拒绝把解不出载荷的内容放进 HEAD',
+        // 这一格是"待复核"而不是"已判定坏":调用方有权问一次唯一判据(`watermark.mjs verify`)
+        // 再带 `newPayloadOk:true` 重试。**默认坏 = fail-closed** —— 调用方不复核就落不了地,
+        // 而不是悄悄放行。
+        needsPayloadCheck: true,
+      }
+    }
     return {
       verdict: 'broken',
       why: '两边都是规范横幅而前三行仍被换掉 ⇒ 这是在改写横幅文字,不是保持',
@@ -1087,11 +1110,49 @@ export function blobBannerPreserved({ root, paths, blobOf, baseRef = 'HEAD' }) {
       unjudged.push({ path: p, why: 'blob 正文取不到' })
       continue
     }
-    const d = decideBanner({ baseText: bt, newText: nt })
+    const d0 = decideBanner({ baseText: bt, newText: nt })
+    // 只有走到"载荷位复核"那一格才派生 verify —— 其余分支不为此多花一次进程(落地器是共享出口,
+    // 每次给每个路径都验一遍会把无关提交一起拖慢)。
+    let d = d0
+    if (d0.needsPayloadCheck) {
+      const v = payloadIntactViaVerify(String(nt))
+      if (!v.judged) {
+        unjudged.push({ path: p, why: `差异只在零宽载荷位,而 watermark verify 问不到:${v.why}` })
+        continue
+      }
+      d = decideBanner({ baseText: bt, newText: nt, newPayloadOk: v.ok })
+    }
     if (d.verdict === 'broken') broken.push({ path: p, why: d.why })
     else if (d.verdict === 'note' || d.verdict === 'repaired') notes.push({ path: p, why: d.why })
   }
   return { broken, unjudged, notes }
+}
+
+/**
+ * 问"这份构造内容的载荷到底完不完好"—— **只能问那一份判据**(`watermark.mjs verify`),
+ * 不在本器里重写解码:§5c 明写"哪一行算横幅 / 哪一行算隐写 / 规范文案长什么样只许有一份",
+ * 解码是同一族事实。临时件落点走 `scripts/lib/scratch-dir.mjs`(§26:不落 os.tmpdir、不落仓库树内)。
+ * 三态:`judged=false` 是"问不到"(派生失败/超时),**不得**折成"不完好"或"完好"。
+ */
+function payloadIntactViaVerify(text) {
+  const dir = mkScratch('osl-banner-')
+  try {
+    const f = join(dir, 'probe.txt')
+    writeFileSync(f, text, 'utf8')
+    const r = spawnSync(process.execPath, [WATERMARK_CLI, 'verify', f], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+    })
+    if (r.error) return { judged: false, why: String(r.error.message ?? r.error).split('\n')[0] }
+    if (r.signal) return { judged: false, why: `verify 被 ${r.signal} 终止` }
+    return { judged: true, ok: r.status === 0, rc: r.status }
+  } catch (e) {
+    return { judged: false, why: String(e?.message ?? e).split('\n')[0] }
+  } finally {
+    rmScratch(dir)
+  }
 }
 
 /**
