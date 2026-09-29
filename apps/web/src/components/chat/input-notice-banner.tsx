@@ -22,13 +22,18 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import {
   compactionBlockView,
+  queueActionBlockView,
   queueInteractionPerms,
   queueReasonView,
   queueReorderAria,
+  queueSendOutcomeView,
   resolveCompactionBlockReason,
   type CompactionBlockContext,
   type CompactionBlockReason,
+  type QueueActionBlockContext,
+  type QueueBlockableAction,
   type QueueInteractionContext,
+  type QueueSendOutcome,
 } from '@ihui/shared/chat/input-notices'
 
 export interface InputNoticeBannerProps {
@@ -38,6 +43,12 @@ export interface InputNoticeBannerProps {
   compactionReason?: CompactionBlockReason
   /** 排队原始上下文;缺省 ⇒ 不渲染排队提示面 */
   queueCtx?: QueueInteractionContext
+  /** D162:要解释「为什么现在不能按」的队列动作(与 actionBlockCtx 配套;缺省默认 interject) */
+  actionBlockAction?: QueueBlockableAction
+  /** D162:队列动作不可用判定上下文;缺省 ⇒ 不渲染具体拒因面 */
+  actionBlockCtx?: QueueActionBlockContext
+  /** D162:队列动作终态(deferred 未发送 / failed 发送失败);缺省 ⇒ 不渲染终态面 */
+  sendOutcome?: QueueSendOutcome
   className?: string
   'data-testid'?: string
 }
@@ -49,6 +60,9 @@ export function InputNoticeBanner({
   compactionCtx,
   compactionReason,
   queueCtx,
+  actionBlockAction,
+  actionBlockCtx,
+  sendOutcome,
   className,
   'data-testid': testId,
 }: InputNoticeBannerProps) {
@@ -61,7 +75,13 @@ export function InputNoticeBanner({
   const perms = queueCtx ? queueInteractionPerms(queueCtx) : null
   const reasonView = queueCtx ? queueReasonView(queueCtx) : null
 
-  if (!blockView && !reasonView) return null
+  // D162:队列动作「为什么现在不能按」具体拒因 + deferred/failed 终态(判定走 shared,零端内逻辑)
+  const actionBlock = actionBlockCtx
+    ? queueActionBlockView(actionBlockAction ?? 'interject', actionBlockCtx)
+    : null
+  const outcomeView = sendOutcome ? queueSendOutcomeView(sendOutcome) : null
+
+  if (!blockView && !reasonView && !actionBlock?.blocked && !outcomeView) return null
 
   return (
     <div
@@ -110,6 +130,27 @@ export function InputNoticeBanner({
               {t('queue.denied.interject')}
             </span>
           ) : null}
+        </div>
+      ) : null}
+
+      {/* D162:队列动作不可用时的具体拒因(一格一条件,非一句"当前不可用") */}
+      {actionBlock?.blocked && actionBlock.reason && actionBlock.reasonKey ? (
+        <div className="flex flex-col gap-0.5" data-queue-action-block={actionBlock.reason}>
+          <span
+            className="font-medium text-amber-600 dark:text-amber-500"
+            data-queue-action-block-reason={actionBlock.reason}
+          >
+            {t(`queue.${actionBlock.reasonKey}`)}
+          </span>
+        </div>
+      ) : null}
+
+      {/* D162:队列动作终态两分(deferred 未发送 ≠ failed 发送失败,两条文案) */}
+      {outcomeView ? (
+        <div className="flex flex-col gap-0.5" data-queue-send-outcome={outcomeView.outcome}>
+          <span className="text-muted-foreground" data-queue-send-outcome-label>
+            {t(`queue.${outcomeView.labelKey}`)}
+          </span>
         </div>
       ) : null}
     </div>
