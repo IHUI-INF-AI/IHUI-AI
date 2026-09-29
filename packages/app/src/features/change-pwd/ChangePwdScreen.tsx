@@ -3,12 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ChangePwdScreenProps, TFunction } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** 修改密码/Props 类型 re-export(单一来源 @ihui/types) */
 export type { ChangePwdScreenProps }
@@ -57,6 +58,7 @@ export function ChangePwdScreen({
           tokens={tk}
           styles={styles}
           t={t}
+          colorScheme={colorScheme}
         />
         <PwdInput
           label={t('settings.newPassword') || '新密码'}
@@ -67,6 +69,7 @@ export function ChangePwdScreen({
           tokens={tk}
           styles={styles}
           t={t}
+          colorScheme={colorScheme}
         />
         <PwdInput
           label={t('settings.confirmPassword') || '确认新密码'}
@@ -77,6 +80,7 @@ export function ChangePwdScreen({
           tokens={tk}
           styles={styles}
           t={t}
+          colorScheme={colorScheme}
         />
         <TouchableOpacity
           style={[styles.submitBtn, submitting && styles.submitDisabled]}
@@ -103,14 +107,16 @@ interface PwdInputProps {
   tokens: AppThemeTokens
   styles: ReturnType<typeof createStyles>
   t: TFunction
+  colorScheme: 'light' | 'dark'
 }
 
-function PwdInput({ label, value, onChange, show, onToggle, tokens, styles, t }: PwdInputProps) {
+function PwdInput({ label, value, onChange, show, onToggle, tokens, styles, t, colorScheme }: PwdInputProps) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       <View style={styles.inputBox}>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={value}
           onChangeText={onChange}

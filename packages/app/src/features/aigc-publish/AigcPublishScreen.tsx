@@ -9,7 +9,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -18,6 +17,7 @@ import type { AigcPublishFile, AigcPublishScreenProps, AigcPublishWorkType } fro
 import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { TextField } from '../../components/TextField'
 
 /** AIGC 发布作品共享屏 — 表单型 props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AigcPublishFile, AigcPublishScreenProps, AigcPublishWorkType }
@@ -93,7 +93,8 @@ export function AigcPublishScreen({
       {showTextInput ? (
         <>
           <Text style={styles.label}>{t('aigcPublish.labelTextContent')}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={[styles.input, styles.textarea]}
             value={textContent}
             onChangeText={onTextContentChange}
@@ -108,7 +109,8 @@ export function AigcPublishScreen({
         <>
           <Text style={styles.label}>{t('aigcPublish.labelUpload', { count: files.length })}</Text>
           <View style={styles.urlRow}>
-            <TextInput
+            <TextField
+              colorScheme={colorScheme}
               style={styles.urlInput}
               value={urlInput}
               onChangeText={onUrlInputChange}
@@ -163,7 +165,8 @@ export function AigcPublishScreen({
       )}
 
       <Text style={styles.label}>{t('aigcPublish.labelTitle')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={styles.input}
         value={title}
         onChangeText={onTitleChange}
@@ -173,7 +176,8 @@ export function AigcPublishScreen({
       />
 
       <Text style={styles.label}>{t('aigcPublish.labelDescription')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={[styles.input, styles.textarea]}
         value={description}
         onChangeText={onDescriptionChange}
@@ -184,7 +188,8 @@ export function AigcPublishScreen({
       />
 
       <Text style={styles.label}>{t('aigcPublish.labelPrompt')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={[styles.input, styles.textarea]}
         value={prompt}
         onChangeText={onPromptChange}
