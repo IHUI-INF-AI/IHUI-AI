@@ -94,7 +94,7 @@ export function ReasoningEffortAxis({
                 data-testid={`reasoning-effort-${effort}`}
                 data-disabled={blocked ? 'true' : 'false'}
                 className={
-                  'rounded-xs px-2 py-0.5 text-xs transition-colors ' +
+                  'rounded-sm px-2 py-0.5 text-xs transition-colors ' +
                   (active
                     ? 'bg-primary font-medium text-primary-foreground'
                     : 'bg-muted text-muted-foreground hover:bg-accent')
