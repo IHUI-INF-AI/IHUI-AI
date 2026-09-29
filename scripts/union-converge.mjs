@@ -1142,6 +1142,8 @@ export function resolveTargets(theirsArg, cwd = ROOT) {
   const head = git(['rev-parse', 'HEAD'], cwd)
   const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
   let theirs = theirsArg
+  // "调用方有没有点名一枚 --theirs" 决定"本地纯落后"能不能当短路用(见下面那条注释)。
+  const explicit = String(theirsArg || '').trim() !== ''
   if (!theirs) {
     try {
       // 远端位置只认**当次真值**(§5b:跟踪 ref 会被清理层删掉,packed-refs 里的旧值照样被读回来)。
@@ -1177,7 +1179,13 @@ export function resolveTargets(theirsArg, cwd = ROOT) {
       undetermined: `对象不在本机(${missing.map((s) => String(s).slice(0, 11)).join('、')})⇒ 本器不代跑 fetch;出口:git fetch --no-tags origin ${missing[0]} 后重跑`,
     }
   if (isAncestor(theirs, head, cwd)) return { head, theirs, skip: '目标已被本地包含' }
-  if (isAncestor(head, theirs, cwd))
+  // ⚠️ "本地纯落后 ⇒ 交给 ff/converge"这一短路**只对"远端真值自动解析"那一支成立**。
+  // 显式喂了 `--theirs` 却说这句是错的(G-815406 同族、G-814402 实测):调用方点名要合的那枚提交
+  // 是不是已经在本地,只有 `isAncestor(theirs, head)` 能回答;而"本地落后于它"完全不等于
+  // "无事可做"—— 它恰恰意味着**还差一次合并**。旧写法在这里 exit 0 并打印"无需合并",
+  // 一次已验证的交付差点就这么没了(票面:复核的人都被那句合理话术劝退)。
+  // 现在显式档照常走归并:落地闸仍然硬判"两侧路径零丢失",所以它不会比 ff 更危险,而它说真话。
+  if (!explicit && isAncestor(head, theirs, cwd))
     return { head, theirs, skip: '本地纯落后 ⇒ 走 ff/converge,不用 union' }
   return { head, theirs, skip: null }
 }
@@ -2161,6 +2169,14 @@ async function main() {
     console.log(`[union-converge] UNDETERMINED 未判定:${t.undetermined}`)
     process.exit(2)
   }
+  // 显式点名了 --theirs 而本地又落后于它:不再打印"无需合并"(G-815406 同族、G-814402 实测的那次
+  // 差点吞掉一整个已验证交付),而是**照常归并并说清为什么**。快进确实是更省的动作,但那是对调用方
+  // 说的,不该由本器代替他下结论后 exit 0。
+  if (ti >= 0 && String(argv[ti + 1] || '').trim() !== '' && isAncestor(t.head, t.theirs, ROOT))
+    console.log(
+      '[union-converge] 本地落后于所点名的 --theirs ⇒ 这不是"无需合并";按显式目标照常归并' +
+        '(要快进请自己跑 git merge --ff-only,本器不替调用方决定动作)',
+    )
   const p = plan(t.head, t.theirs, ROOT, takeOurs, resolutions, takeTheirs, accepted)
   console.log(
     `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 活文档行 union`,
