@@ -30,6 +30,8 @@ import type { InlineDiffInfo } from '@/components/ai/types'
 import { CommunityPublishDialog } from '@/components/chat/community-publish-dialog'
 import CheckpointRewindPanel from '@/components/checkpoint/CheckpointRewindPanel'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
+// D129:用户气泡的正文渲染器(附件拍平形态的止血;详见该文件头注)
+import { UserMessageBody } from './user-message-body'
 // G-825(2026-09-29 立):消息级 markdown 错误边界 —— 一条消息的渲染异常此前会冒泡到路由级 error(整页挂掉)。
 // 复位语义复用既有 ErrorBoundary 的 resetKeys 档,不写第二份边界实现;键的形状住纯函数层。
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
@@ -898,8 +900,12 @@ const MessageItem = React.memo(function MessageItem({
             />
           </MessageErrorCard>
         ) : isUser ? (
-          // 2026-08-02:用户消息字号同步调整 14px → 15px(text-[15px]),与 AI 消息对齐
-          <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{m.content}</p>
+          // D129(2026-09-29):此前这一行是 `<p className="whitespace-pre-wrap">{m.content}</p>`,
+          // 不过任何解析 —— 而发送侧把附件拍平成 `![label](url)` / `<video …>` / fenced block /
+          // `> 📎 label` 四种文本形态,于是用户自己上传的东西在他自己的气泡里显示成源码。
+          // 交给 UserMessageBody 拆附件渲染,**正文仍走纯文本 `<p>`**:G-825「消息级 markdown 边界」
+          // 有一条负例锁住"用户正文不进 markdown",所以不能图省事复用助手侧那个渲染器。
+          <UserMessageBody content={m.content} testId={`user-message-body-${m.id}`} />
         ) : (
           <div
             ref={contentAreaRef}

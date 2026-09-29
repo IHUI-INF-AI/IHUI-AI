@@ -51,7 +51,13 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT = 60_000
 /** 账目出口本体:AR1/AR2 的定义处,不在射程内(否则门替自己的定义判红) */
 const LEDGER_FILE = 'apps/api/src/services/edu-ledger.ts'
-const SCAN_ROOT = 'apps/api/src/'
+/**
+ * 射程。刻意不止 api:欠费数字最终会在 web 名单/缴费弹窗、小程序账单页、RN 共享屏上被展示,
+ * "前端再减一次"与"后端再减一次"是同一型缺陷的两个宿主 —— 只扫后端等于给前端留一格无人看守
+ * (本仓把"给守门扩面必须同批改两半:判据 scope + 枚举目录表"记过多次,这里一次做完)。
+ * 扩面带来的存量按"该文件 HEAD 自身存量"棘轮处理,不会把别人的历史债算成本次的红。
+ */
+const SCAN_ROOTS = ['apps/api/src/', 'apps/web/', 'apps/miniapp-taro/src/', 'packages/app/src/']
 const SCAN_EXT = /\.(ts|tsx|mts)$/
 const TEST_NOISE = /(^|\/)(tests?|__tests__|e2e)(\/|$)|\.(test|spec)\.[cm]?tsx?$/
 /** 豁免标记必须带原因;裸标记(只写标记不写理由)不放行 */
@@ -63,13 +69,25 @@ const SET_KEYS = /\b(paidAmount|nextDueDate)\s*:/
  * 整段词法从此漂走(本门第一次自跑就栽在类似处,报错落在三十行开外的注释上)。
  * 欠费算式只可能是加减乘与比较,所以这个集合已足够。
  */
+/**
+ * AR1 的运算符判据。**必须同时覆盖两种书写形态**,否则门对自己要防的那一型全盲:
+ *  ① drizzle 列引用(SQL 模板内插):`sql\`... ${eduEnrollment.totalFee} - ${eduEnrollment.paidAmount}\``
+ *  ② 读出来的对象属性:`Math.max(enrollment.totalFee - enrollment.paidAmount, 0)`
+ *     —— 本门第一版只认 ①,而 HEAD 面上真实存在的两处第二口径恰好是 ②,
+ *     于是门一路报绿、第二口径活着(守门 77/83/98 记过同一条教训)。
+ * 所以两支都写成"属性名 + 运算符 + 属性名",并且要求**同一行两列都在**,
+ * 避免把 `select({ totalFee: ..., paidAmount: ... })` 这种"只取列不做算"误判成重写。
+ *
+ * 字符类里刻意不含斜杠:正则字面量内一个裸斜杠会被当除号,整段词法从此漂走。
+ */
 const ARITH_RE =
-  /eduEnrollment\.totalFee[^\n]{0,60}?[-+*<>]|[-+*<>][^\n]{0,60}?eduEnrollment\.paidAmount/
-const BOTH_ON_LINE = /eduEnrollment\.totalFee/
+  /\.totalFee\b[^\n]{0,60}?[-+*<>]|[-+*<>][^\n]{0,60}?\.paidAmount\b/
+/** 同行必须两列同时出现,才算"在这一行重写了欠费" */
+const BOTH_ON_LINE = /\.totalFee\b[\s\S]*?\.paidAmount\b|\.paidAmount\b[\s\S]*?\.totalFee\b/
 
 export function isScanTarget(p) {
   if (!SCAN_EXT.test(p)) return false
-  if (!p.startsWith(SCAN_ROOT)) return false
+  if (!SCAN_ROOTS.some((d) => p.startsWith(d))) return false
   if (TEST_NOISE.test(p)) return false
   if (p === LEDGER_FILE) return false
   return true
@@ -231,7 +249,7 @@ export function runCheck({ face, onlyFiles = null }) {
   if (candidates.length === 0) {
     return {
       status: 'undetermined',
-      reason: `射程内枚举到 0 个文件(face=${face},SCAN_ROOT=${SCAN_ROOT})—— 空扫不是通过`,
+      reason: `射程内枚举到 0 个文件(face=${face},SCAN_ROOTS=${SCAN_ROOTS.join(',')})—— 空扫不是通过`,
     }
   }
   const faceMap = readFace(candidates, effFace)
@@ -288,6 +306,15 @@ export function selfTest() {
 
   const a5 = A('// 旧写法 totalFee 减 paidAmount 已废弃\nconst ok = 1')
   t('AR1 反例:注释里的同类描述不得红', a5.violations.length === 0, a5.violations.length)
+
+  const a6 = A('const dueAmount = Math.max(enrollment.totalFee - enrollment.paidAmount, 0)')
+  t('AR1 正例:对象属性形态的减法同样必须被看见(门第一版只认列引用形态,对这两处全盲)', a6.violations.length === 1 && a6.violations[0].kind === 'AR1', JSON.stringify(a6.violations))
+
+  const a7 = A('  totalFee: eduEnrollment.totalFee, paidAmount: eduEnrollment.paidAmount,')
+  t('AR1 反例:同一行只取两列、无运算符相连不得红(否则名单查询全被误伤)', a7.violations.length === 0, JSON.stringify(a7.violations))
+
+  const a8 = A('const r = Math.max(row.totalFee - row.paidAmount, 0) // 与上面同型,只是变量名不同')
+  t('AR1 正例:换变量名不构成逃逸(row.totalFee - row.paidAmount 也红)', a8.violations.length === 1, a8.violations.length)
 
   const b1 = A('await db.update( eduEnrollment ).set({ paidAmount: 3 })')
   t('AR2 正例:set 内含派生列必红', b1.violations.some((v) => v.kind === 'AR2'), JSON.stringify(b1.violations))
