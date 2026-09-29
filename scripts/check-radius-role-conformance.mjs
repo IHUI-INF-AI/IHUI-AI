@@ -76,6 +76,13 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw, readWorktreeFile, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { radiusLookup, blockOwnerOf, constantMapOf } from './lib/radius-tokens.mjs'
+/**
+ * 单位换算系数(`TARO_RPX_PER_PX`)与长度折算**共用 `lib/length-units.mjs` 那一份**:
+ * 本门要把系数喂进具名档表,让"边长写成 `toUnit(SPEC_X_PX)`"的盒量得出来 —— 倍率必须由
+ * 系数在**同一个被审面**上的定义给,不得在本门里写死一个 2(那等于把一次改名换成一个静默
+ * 失效的假定,见 `pxWrappersOf` 头注)。
+ */
+import { unitCoefficientsOfSources } from './lib/length-units.mjs'
 import { radiusExemptMarkerAt } from './lib/radius-exempt-marker.mjs'
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
@@ -114,6 +121,21 @@ import { specTiers } from './check-cross-end-ui-parity.mjs'
  */
 const TIER_SOURCE_RE =
   /(^|[\\/])geometry\.[jt]s$|^packages\/shared\/src\/ui\/[A-Za-z0-9._-]+\.ts$/
+
+/**
+ * 具名档表 + **单位换算系数**的一张合并常量表。
+ * 两条来源必须**同一面同一轮**取(都是 `tierSources`,已按被审面读满),否则会出现
+ * "档表是新的、系数是旧的"这种自洽错值。系数只在 `geometry.js` 里定义,`specTiers` 按设计
+ * 把 `*_PER_PX` 排除在档表之外(比率不是档),所以这里补的是它排除的那一族,键不冲突。
+ */
+export function baseConstsOf(tierSources) {
+  return new Map(
+    [
+      ...Object.entries(unitCoefficientsOfSources(tierSources)),
+      ...Object.entries(specTiers(tierSources)),
+    ].map(([k, v]) => [k, String(v)]),
+  )
+}
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const RADIUS_TABLE_REL = 'packages/design-tokens/src/radius.js'
@@ -833,9 +855,7 @@ export function runAudit(repoRoot, face, { only } = {}) {
     const s = got.get(specAt(rel))
     if (typeof s === 'string') tierSources[rel] = s
   }
-  const baseConsts = new Map(
-    Object.entries(specTiers(tierSources)).map(([k, v]) => [k, String(v)]),
-  )
+  const baseConsts = baseConstsOf(tierSources)
   const violations = []
   const undetermined = []
   const unclassified = []
@@ -952,9 +972,7 @@ function runAuditWorktree(repoRoot, only) {
     const s = readWorktreeFile(repoRoot, rel)
     if (typeof s === 'string') tierSources[rel] = s
   }
-  const baseConsts = new Map(
-    Object.entries(specTiers(tierSources)).map(([k, v]) => [k, String(v)]),
-  )
+  const baseConsts = baseConstsOf(tierSources)
   const violations = []
   const undetermined = []
   const unclassified = []
