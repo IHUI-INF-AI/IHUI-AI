@@ -50,113 +50,22 @@ const trim = (l) => l.trim()
 // 打断 —— 2026-09-25 实测把 `check-task-claims.mjs` 弄死过一次,故把纯函数抽出去而不是被 import。
 // 这里**原样再导出**同名符号,既有调用方(`SIM_THRESHOLD` / `tokenize` / `jaccard`)一字不变。
 export { SIM_THRESHOLD, jaccard, tokenize } from './lib/live-doc-similarity.mjs'
-import { SIM_THRESHOLD, CONTAIN_MIN, jaccard, squash, stripState, tokenize } from './lib/live-doc-similarity.mjs'
+import { SIM_THRESHOLD, jaccard, squash, stripState, tokenize } from './lib/live-doc-similarity.mjs'
 
 /**
- * 容器短路:HEAD 行的**全部非空白字符**原样出现在工作树某行里 ⇒ 内容逐字存活,只是被就地延长。
- * 为什么必须有这一条(2026-09-25 实测到机制):翻勾的仓库写法是「改前缀 + 追加证据」,而追加会让
- * 字符二元组 Jaccard 随新增长度**单调下降** —— 短行 40 字 / 改后 120 字时相似度只剩 ~0.33,
- * 于是"补证据"这个动作本身被判成真丢失,exit 1 逼人跑 `--apply`,而 `--apply` 会把**改写前的短行
- * 原样插回** ⇒ 同一票两行并存。台账里那批双态行的制造路径之一就是这里,不是谁手滑。
- * 下界 CONTAIN_MIN 个非空白字符:再短的裸标记行(`- [ ]` 等)在满屏清单里必然被"包含",会被误洗成存活。
- */
-
-/**
- * 登记锚点:这三份文档里「一件事一行」的写法都有稳定头部(`- **名称**` / `### 标题`),
- * 所以同一锚点在「HEAD 缺失集」与「工作树独有集」里各出现**一次** ⇒ 那是就地改写,不是吃掉。
+ * 「丢了没有 / 丢了算什么」判据的**唯一实现**住在 `scripts/lib/live-doc-classify.mjs`(2026-09-29 抽出)。
  *
- * 为什么必须有它(2026-09-25 实测):容器短路只管"HEAD 行逐字存活在更长的新行里",
- * 而我改守门 84 那行时改的是**中段**(把"merge 整轮豁免"换成 R1m 三条件),旧行并不逐字
- * 存活,长行大改后 Jaccard 又掉到阈值下 ⇒ 被判真丢失、跑 --apply 会把旧行原样插回 ⇒
- * 新旧两行并存,正是本仓已出现三次的那种重复登记行。
- * 唯一性是本条规则的生命线:锚点在任一侧出现不止一次 ⇒ 不猜,退回原判据(宁可多报一行,
- * 也不能把"整段登记被人删掉"洗成"他改写了")。
+ * 为什么搬出去而不是在本文件继续持有:新增的常驻判据 `scripts/check-live-doc-pathspec.mjs` 要问
+ * 同一个问题(要被提交的那一份是否逐字含住 HEAD 的非空行),而**同一件事在两处各算一次必然漂开**
+ * —— 漂开的两个方向账面都是绿的:归并器判 lost 而行不插回,或门判 stale 而归并器插回(§22c)。
+ * 对外符号名与行为**一字未动**(这里原来就是 `export function`,现在是"导入 + 同名再导出":
+ * 本文件的 CLI 与自测要用到这两个函数,所以必须先 import 再 export,不能只写 `export ... from`,
+ * 那样符号不进本地作用域(实测:改成纯转发后 CLI 与自测全部 ReferenceError)。
+ * 反向锁由 `scripts/tests/check-live-doc-pathspec.test.mjs` 的 T2 钉住:本文件里不得再出现
+ * `function classifyMissing(` / `function anchorKey(` 的第二份实现。
  */
-export function anchorKey(line) {
-  const s = String(line).trim()
-  if (!s.length) return null
-  let m = /^[-*]\s+\*\*(.{2,80}?)\*\*/.exec(s)
-  if (m) return `B#${m[1].trim()}`
-  m = /^#{2,4}\s+(.{2,140}?)(?=[(（:：—-]|$)/.exec(s)
-  if (m) return `H#${m[1].trim()}`
-  // 表格行:守门速查表就是「一行一件事」,行身份 = 前两格(编号 + 脚本文件名)。
-  // 没有这一条,改写 README 里某道门的描述会被判成"真丢失"⇒ --apply 把旧的补齐空格那一行
-  // 原样插回 ⇒ 同一个编号留下两行(本节上面那段讲的正是这个形态)。
-  // 只认「第二格是个 ASCII 标识符形状」的行 ⇒ 分隔行 `| --- |` 与中文表头天然不匹配。
-  m = /^\|\s*([^|]{1,40}?)\s*\|\s*([^|]{1,60}?)\s*\|/.exec(s)
-  if (m && /^[\w.@\-]{2,60}$/.test(m[2].trim()) && /\w/.test(m[2].trim())) return `T#${m[1].trim()}|${m[2].trim()}`
-  return null
-}
-
-/** 给每个「HEAD 有而工作树无」的行定性 lost / superseded(被就地改写取代)。 */
-export function classifyMissing(headLines, wtLines, threshold = SIM_THRESHOLD) {
-  const wtSet = new Set(wtLines.map(trim).filter(Boolean))
-  const headSet = new Set(headLines.map(trim).filter(Boolean))
-  const localOnly = wtLines.map(trim).filter((t) => t.length > 0 && !headSet.has(t))
-  const localTok = localOnly.map(tokenize)
-  const localSquashed = localOnly.map(squash)
-  const bump = (map, k) => {
-    if (k) map.set(k, (map.get(k) || 0) + 1)
-  }
-  const localAnchor = new Map()
-  for (const l of localOnly) bump(localAnchor, anchorKey(l))
-  const missingAnchor = new Map()
-  for (const raw of headLines) {
-    const t = trim(raw)
-    if (t.length && !wtSet.has(t)) bump(missingAnchor, anchorKey(t))
-  }
-  // 翻勾会改行首状态(`- [ ]（进行中）` → `- [x] ✅(日期)`),不剥掉它就永远"不逐字包含",
-  // 于是把刚翻勾的那行判成真丢失、`--apply` 再插回一遍 —— 双态行就是这么造出来的。
-  const localBare = localOnly.map((l) => squash(stripState(l)))
-  const verdict = new Map()
-  for (const raw of headLines) {
-    const t = trim(raw)
-    if (!t.length || wtSet.has(t)) continue
-    const tt = tokenize(t)
-    const sq = squash(t)
-    const bare = squash(stripState(t))
-    if (
-      (sq.length >= CONTAIN_MIN && localSquashed.some((w) => w.includes(sq))) ||
-      (bare.length >= CONTAIN_MIN && localBare.some((w) => w.includes(bare)))
-    ) {
-      verdict.set(t, 'superseded')
-      continue
-    }
-    const ak = anchorKey(t)
-    if (ak && localAnchor.get(ak) === 1 && missingAnchor.get(ak) === 1) {
-      verdict.set(t, 'superseded')
-      continue
-    }
-    /**
-     * 第三种"不是丢"的形态:**工作树那一行是 HEAD 同一行的更旧前缀**(翻勾 + 追加注记都发生在
-     * HEAD 侧)。它既不满足容器短路(旧行不是新行的超集),大改时也会掉到 Jaccard 阈值之下,
-     * 于是过去被并入 `superseded` —— 而 superseded 的语义是"别人改写了这行",这一种的语义是
-     * "我这副本落后了,提交会把这行退回旧态"。两者处置动作不同,必须分开报。
-     * 判据保守到只做**一条**、且方向唯一:剥掉勾选态后 WT 是 HEAD 的严格前缀 + 唯一候选 +
-     * HEAD 已勾而工作树未勾。任何一条不成立就退回原判据(宁可交人工,绝不把真删除洗成"旧态")。
-     */
-    if (/^- \[x\]/i.test(t)) {
-      const cands = []
-      for (let i = 0; i < localOnly.length; i++) {
-        const w = localOnly[i]
-        if (!/^- \[ \]/.test(w)) continue
-        const wb = squash(stripState(w))
-        if (wb.length >= CONTAIN_MIN && bare.length > wb.length && bare.startsWith(wb)) cands.push(w)
-      }
-      if (cands.length === 1) {
-        verdict.set(t, 'stale')
-        continue
-      }
-    }
-    let best = 0
-    for (const lt of localTok) {
-      const s = jaccard(tt, lt)
-      if (s > best) best = s
-    }
-    verdict.set(t, best >= threshold ? 'superseded' : 'lost')
-  }
-  return verdict
-}
+import { anchorKey, classifyMissing } from './lib/live-doc-classify.mjs'
+export { anchorKey, classifyMissing }
 
 /**
  * 把 HEAD 里"连续的 lost 段"(段尾空行一并带上,保排版)插回工作树的锚点之后。
@@ -356,17 +265,22 @@ function selfTest() {
   // 改行首状态(`- [ ]（进行中）` → `- [x] ✅(日期)`)。状态前缀不剥,容器通道对这一整类
   // 直接失效 —— 后果就是 `--apply` 把我刚翻勾的那行按"真丢失"插回来,当场造出双态行。
   ck('⑰ 工作树停在旧形态(HEAD = 同一行翻勾 + 追加注记)⇒ 判 stale,与 superseded 分开', () => {
-    const old = '- [ ] 计划任务 `IHUI-C-Drive AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);'
+    const old =
+      '- [ ] 计划任务 `IHUI-C-Drive AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);'
     const newer =
       '- [x] ✅(2026-09-25) 计划任务 `IHUI-C-Drive AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);' +
       ' 〔2026-09-25 孪生旧副本翻勾:同题已勾于 L9134〕'
     const v = classifyMissing(['anchor', newer, 'tail'], ['anchor', old, 'tail'])
     assert(v.get(trim(newer)) === 'stale', `应判 stale,实判 ${v.get(trim(newer))}`)
-    assert(mergeByAnchors(['anchor', newer, 'tail'], ['anchor', old, 'tail'], v).lines === 0, 'stale 不得被 --apply 插回(那会造新旧并存)')
+    assert(
+      mergeByAnchors(['anchor', newer, 'tail'], ['anchor', old, 'tail'], v).lines === 0,
+      'stale 不得被 --apply 插回(那会造新旧并存)',
+    )
     return true
   })
   ck('⑰b 反向对照一:HEAD 行整体不见且无同形旧行 ⇒ 仍判 lost(不得被 stale 通道洗白)', () => {
-    const gone = '- [x] ✅(2026-09-25) **一整条与本机无关的登记行**,它的正文长到足以进入判定,别处不留副本'
+    const gone =
+      '- [x] ✅(2026-09-25) **一整条与本机无关的登记行**,它的正文长到足以进入判定,别处不留副本'
     const v = classifyMissing(['anchor', gone, 'tail'], ['anchor', 'tail'])
     assert(v.get(trim(gone)) === 'lost', `真删除必须判 lost,实判 ${v.get(trim(gone))}`)
     return true
@@ -388,13 +302,20 @@ function selfTest() {
     return true
   })
   ck('⑱ README 守门表行被就地改写 ⇒ 判 superseded(没有表格锚点时它会伪装成"真丢失")', () => {
-    const oldRow = '| 13c | check-project-plan-archive.mjs | **旧的一句话描述**                    |'
+    const oldRow =
+      '| 13c | check-project-plan-archive.mjs | **旧的一句话描述**                    |'
     const newRow =
       '| 13c | check-project-plan-archive.mjs | **新描述:防误删 + 归档锚点存续性(A0/A1/A2/A3,blocking),内容长到与旧行完全不像** |'
     const v = classifyMissing(['h', oldRow, 't'], ['h', newRow, 't'])
-    assert(v.get(trim(oldRow)) === 'superseded', `表行改写应判 superseded,实判 ${v.get(trim(oldRow))}`)
+    assert(
+      v.get(trim(oldRow)) === 'superseded',
+      `表行改写应判 superseded,实判 ${v.get(trim(oldRow))}`,
+    )
     const merged = mergeByAnchors(['h', oldRow, 't'], ['h', newRow, 't'], v)
-    assert(merged.lines === 0, `--apply 不得把旧表行插回(那会让同一编号留下两行),实插 ${merged.lines}`)
+    assert(
+      merged.lines === 0,
+      `--apply 不得把旧表行插回(那会让同一编号留下两行),实插 ${merged.lines}`,
+    )
     return true
   })
   ck('⑱b 反向对照:整行表格登记被删(工作树无同键行)⇒ 仍判 lost,锚点规则不许洗绿', () => {
@@ -414,7 +335,10 @@ function selfTest() {
     const flipped =
       '- [x] ✅(2026-09-25) **D17(生态统一入口)**:页面已写完但缺语言包,按住' +
       ' **同票补齐并入库**:五语 30 键已插入,vitest 8 passed,check-i18n-keys 由红转 parity OK。'
-    assert(!squash(flipped).includes(squash(held)), '本例必须"带状态前缀就不互含",否则测不到 stripState 的意义')
+    assert(
+      !squash(flipped).includes(squash(held)),
+      '本例必须"带状态前缀就不互含",否则测不到 stripState 的意义',
+    )
     const head = ['anchor', held, 'tail']
     const wt = ['anchor', flipped, 'tail']
     const v = classifyMissing(head, wt)
@@ -442,7 +366,8 @@ function selfTest() {
   // 而 `--apply` 会把已翻勾的那行**原样再插回一遍**,造出"未勾 + 已勾"双态行(正是本工具
   // 立项要消灭的形态)。同一条注释里写着"必须枚举本项目所有合法编辑形态",第二次应验。
   ck('⑲ 认领租约前缀（进行中@日期/持有者）摘牌后判 superseded,不得插回造双态行', () => {
-    const held = '- [ ]（进行中@2026-09-26/D29票） D29 团队级知识引擎:记忆/Wiki/知识卡云端共享(G-35)'
+    const held =
+      '- [ ]（进行中@2026-09-26/D29票） D29 团队级知识引擎:记忆/Wiki/知识卡云端共享(G-35)'
     const flipped =
       '- [x] ✅(2026-09-26) D29 团队级知识引擎:记忆/Wiki/知识卡云端共享(G-35)' +
       ' 〔2026-09-26 摘牌:本票已落地,详见台账内 ✅ 详情行〕'
@@ -452,11 +377,18 @@ function selfTest() {
     )
     const v = classifyMissing(['anchor', held, 'tail'], ['anchor', flipped, 'tail'])
     assert(v.get(held) === 'superseded', `应判 superseded,实判 ${v.get(held)}`)
-    assert(mergeByAnchors(['anchor', held, 'tail'], ['anchor', flipped, 'tail'], v).lines === 0, '把摘牌行又插回一遍')
+    assert(
+      mergeByAnchors(['anchor', held, 'tail'], ['anchor', flipped, 'tail'], v).lines === 0,
+      '把摘牌行又插回一遍',
+    )
     // 反向对照:租约通道不得替真丢失洗地(与 ⑫ 同一条禁令,换了前缀形态也必须仍然拦)
-    const gone = '- [ ]（进行中@2026-09-26/D99票） **D99 交还前必须自行复验**:按权威入口复跑并贴末行输出'
+    const gone =
+      '- [ ]（进行中@2026-09-26/D99票） **D99 交还前必须自行复验**:按权威入口复跑并贴末行输出'
     const other = '- [x] ✅(2026-09-26) **D98 别的条目**:已完成,与 D99 无关,只是同样带租约前缀'
-    assert(classifyMissing(['anchor', gone], ['anchor', other]).get(gone) === 'lost', '租约前缀洗掉了真丢失')
+    assert(
+      classifyMissing(['anchor', gone], ['anchor', other]).get(gone) === 'lost',
+      '租约前缀洗掉了真丢失',
+    )
   })
   // ⑫ ⑪/⑬ 的对照组:状态前缀**不能**变成万能洗地通道。
   ck('⑫ 剥状态前缀不得替真丢失洗地(整条正文没存活的行仍判 lost)', () => {
