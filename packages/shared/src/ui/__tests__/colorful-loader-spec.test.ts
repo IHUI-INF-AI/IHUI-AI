@@ -52,18 +52,14 @@ function maxRadiusStepPx(): number {
   const src = readFileSync(join(root, 'packages/design-tokens/src/radius.js'), 'utf8')
   const block = src.match(/RADIUS_STEPS\s*=\s*\{([\s\S]*?)\}/)
   if (!block) throw new Error('radius.js 里找不到 RADIUS_STEPS ⇒ 本测试的耦合前提已失效')
-  // `noUncheckedIndexedAccess` 下 `block[1]` 是 `string | undefined`(匹配组也算越界可能),
-  // 而这里"没有第 1 组"在上一次 throw 之后按定义不可能发生 ⇒ 用解构显式承认这一点,
-  // 不用 `!`(§3 类型零技术债:禁把断言当类型兜底)。
-  const [, stepsBlock = ''] = block
-  const steps = [...stepsBlock.matchAll(/['"]?(\w+)['"]?\s*:\s*(\d+(?:\.\d+)?)/g)].map((m) => Number(m[2]))
+  const steps = [...block[1].matchAll(/['"]?(\w+)['"]?\s*:\s*(\d+(?:\.\d+)?)/g)].map((m) => Number(m[2]))
   if (steps.length === 0) throw new Error('RADIUS_STEPS 解析到 0 档 ⇒ 解析式已漂,不是"没有上限"')
   /**
    * 覆盖面自证:解析到的档数必须等于块内"冒号 + 数字"的出现次数。第一版没写这条,而它正好抓住了
    * 真缺陷 —— 表里 `'2xl': 16` 是**带引号**的键,不含引号的解析式把它整条漏掉,于是"最大档"读成 12。
    * 一份会漏读最大档的尺子,比没有尺子更危险:它让"上界 = 2 × 上限"这条断言自洽地通过。
    */
-  const numericEntries = (stepsBlock.match(/:\s*\d+(?:\.\d+)?/g) || []).length
+  const numericEntries = (block[1].match(/:\s*\d+(?:\.\d+)?/g) || []).length
   if (steps.length !== numericEntries) {
     throw new Error(
       `RADIUS_STEPS 解析不全:读到 ${steps.length} 档,块内实有 ${numericEntries} 个数值档 ⇒ 修解析式,别改断言`,
