@@ -4190,6 +4190,36 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '167',
+    label:
+      '🔒 turn 序号分配点上锁(blocking,max(turnOrdinal) 与 insert(chatMessages) 同体 ⇒ 体内必须有 .for(\'update\') 或 db.transaction;全量档只报数)',
+    script: 'check-turn-ordinal-lock.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TURN_ORDINAL_LOCK',
+    stagedTriggers: ['apps/api/src/'],
+    onFailHint: [
+      '',
+      '  💡 本门钉的是 G-818 那格不变量:turn_ordinal 是轮次组号,索引刻意非唯一,唯一约束',
+      '     结构上不可用 ⇒ "读 max 再分配"的每一段都必须锁;真库实测无事务的"读 max → 插"',
+      '     同会话并发双插撞号率 100%(60 对全撞,turn-ordinal-concurrency.test.ts)。',
+      '     红点名的形态 = max(${chatMessages.turnOrdinal}) 与 insert(chatMessages) 落在同一个',
+      '     语句块里,块内既无 .for(\'update\') 也无 db.transaction。',
+      '     修法:把 max 读取与 insert 一并包进 db.transaction,并先对会话行 .for(\'update\')',
+      '     —— 参照 apps/api/src/db/chat-queries.ts createMessage 与 routes/message.ts 的既有形态。',
+      '     本门只咬本次改动动过的文件(apps/api/src);全量档存量红(patrol-scheduler.ts:198)',
+      '     只报数 —— 改到它的那一刻必须顺手补锁,不得原样提交。',
+      '     单独复验:node scripts/check-turn-ordinal-lock.mjs --staged',
+      '     自检:node scripts/check-turn-ordinal-lock.mjs --self-test(16 例,正反成对)',
+      '     镜像测试:node --test scripts/tests/check-turn-ordinal-lock.test.mjs(10 例,含',
+      '     临时仓端到端 staged 棘轮双向 + 全量只报数)',
+      '     紧急跳过:HUSKY_SKIP_TURN_ORDINAL_LOCK=1(跳过即放弃"分配点上锁"这格不变量,',
+      '     必须在提交信息里写明理由与清偿票)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
