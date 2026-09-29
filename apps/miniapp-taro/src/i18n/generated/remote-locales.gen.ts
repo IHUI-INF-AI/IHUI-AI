@@ -6,17 +6,17 @@
 // 非中文语言包离线 gzip+base64 内联,运行时经 fflate 解压,数据与源 JSON 无损等价(见 __tests__/i18n-compressed.test.ts)
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/gen-i18n-compressed.mjs
-// sourceCommit: 76e5f49067d7d957e2dc124e2afd3ccc7fd6b92a
-// inputsSha256: aae0f5c5ce010b67dc8a18c0449f04ed7f6eb40ccb8a46f182246b7886eec5a3
+// sourceCommit: 0807614ef5647d6c814e93741c81fc18fe55114c
+// inputsSha256: 279d18b673cb1972d22093d82cf1ebbb2beaf8aea4009d9ee4f43fdbfb4bfcfd
 // input: packages/i18n/messages/miniapp-taro/en.json 3652a5597c286360ba7aeefe3cdac8d4910083148296e53f93fdb736602e42bf
 // input: packages/i18n/messages/miniapp-taro/ja.json e4fad8aed3ad4942072fc7bdf176d07232741e983440a045af09f2060bc26d1d
 // input: packages/i18n/messages/miniapp-taro/ko.json c6360daf3405be66394230842e35361d7ebd2172c96b1b3c3e0496b67e60c8fd
 // input: packages/i18n/messages/miniapp-taro/zh-TW.json c12a347873427e2fa32e113035577e844d08084f27067e9694f1152815e3b52f
-// input: packages/i18n/messages/shared/en.json 4a33b97235893c41ea13d6d525c153eb4530e2b2bc0889b6d709de9e2cff998c
-// input: packages/i18n/messages/shared/ja.json 920abeea9d34b172028bd8ab05507a01b706aed6f73929ecfa5f0e0d0d8d447b
-// input: packages/i18n/messages/shared/ko.json 8ce4a2fb984c29925823f27ccab161619e0b16af97e8dbe9101f9617bf1bc203
-// input: packages/i18n/messages/shared/zh-TW.json 74378d4b85a68a0ea528746db2e4cb247469152283732c6f1605dff0283bf28c
-// generatedAt: 2026-09-28T23:19:50.788Z
+// input: packages/i18n/messages/shared/en.json 497bf86717444beb90bed6cbd082718f260593495026a55e31bda41b1c5dffcd
+// input: packages/i18n/messages/shared/ja.json 37b23a5062403c195dd8600daba7aa84f122ec1dd482f235813098b903172555
+// input: packages/i18n/messages/shared/ko.json 055e2133dcdeb3a9c80b521836ab2071ff60da7ffd8c1eb387828306191f0c7d
+// input: packages/i18n/messages/shared/zh-TW.json 33bed7f309103edc865d996d68a2428a72b76a36617531b77b1054213c4861f1
+// generatedAt: 2026-09-28T23:56:03.994Z
 // IHUI-GEN-PIN-END
 export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'
 export const REMOTE_LOCALE_B64: Record<RemoteLocale, string> = {
