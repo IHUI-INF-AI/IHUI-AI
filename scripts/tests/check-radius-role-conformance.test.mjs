@@ -120,8 +120,8 @@ test('T3 取材面形状锁:内容必须走 face-reader 的 catBatch,枚举必�
   // 一旦改成"另开一次读盘"就与正文不同面(表读盘 + 内容读 HEAD 会产出自洽却错位的尺子,门 83/101 同条)。
   assert.match(
     src,
-    /\[\.\.\.files,[^\]]*RADIUS_TABLE_REL,[^\]]*BASELINE_REL\]/,
-    '档位表/台账必须与正文同一次批量读',
+    /\[\.\.\.files,[^\]]*RADIUS_TABLE_REL,[^\]]*BASELINE_REL,[^\]]*ADJUDICATIONS_REL\s*\]/,
+    '档位表/台账/裁决账必须与正文同一次批量读(裁决账按磁盘读 ⇒ 别台机上已了结的裁决照旧免检)',
   )
   assert.match(
     src,
@@ -509,6 +509,68 @@ test('T24 豁免出口不得回来:形状锁 + 带标记/不带标记结论逐�
   assert.deepEqual(g(b), g(a), '带标记的一侧结论与不带标记不同 ⇒ 标记仍在改变判定,通道没废除干净')
   assert.equal(a.marked, 0, '不带标记不该计 marked')
   assert.ok(b.marked >= 1, '带标记必须被数出来(报"没看见"与"看见了但无效"在账面上必须不同形)')
+})
+
+/**
+ * T25/T26/T27 弱证据队列的裁决账(2026-09-29):一条**只能变长、不能变短**的队列等于没有判据 ——
+ * 它既不会让任何人去处理,又替人做出"这一格已被看过"的判断(与守门 108 对豁免的"只出生不死亡"同条)。
+ * 三条各锁一维:T25 接线(退出码必须尊重账问题)、T26 行为四型成对、T27 真仓台账不得是张死表。
+ */
+test('T25 裁决账必须改退出码:只打印不改红 = 账烂了也没人被打断', () => {
+  const src = readFileSync(SRC, 'utf8')
+  assert.match(src, /applyAdjudications\(/, 'main 未接裁决账 ⇒ 队列仍是只能变长的死账')
+  assert.match(
+    src,
+    /if \(res\.adjudicationProblems\.length\) return 1/,
+    '账问题必须参与退出码;只 console.log 不算接线',
+  )
+  assert.match(src, /ADJUDICATIONS_REL/, '台账必须按被审面取(与 baseline 同面同轮),不得读盘')
+})
+
+test('T26 四型行为成对:齐备则出队,无理由或过期则红且不出队,站点消失则腐烂红', async () => {
+  const { applyAdjudications } = await import(pathToFileURL(SRC).href)
+  const site = [
+    { file: 'a/X.tsx', line: 10, form: 'rounded-md', role: 'card', expectedStep: 'lg', evidence: 'weak' },
+  ]
+  const item = {
+    file: 'a/X.tsx',
+    form: 'rounded-md',
+    role: 'card',
+    expectedStep: 'lg',
+    reason: '带边框 + 自身内边距 + 纵向堆行',
+    owner: 'X 持有人',
+    reviewBy: '2099-01-01',
+  }
+  const ok = applyAdjudications(site, [item], '2026-09-29')
+  assert.deepEqual([ok.pending.length, ok.adjudicated.length, ok.problems.length], [0, 1, 0])
+  const noReason = applyAdjudications(site, [{ ...item, reason: '' }], '2026-09-29')
+  assert.equal(noReason.problems.length, 1, '缺理由必须点名')
+  assert.equal(noReason.pending.length, 1, '坏账不得把站点抹出队列 —— 否则写个空条目就免检')
+  const expired = applyAdjudications(site, [{ ...item, reviewBy: '2020-01-01' }], '2026-09-29')
+  assert.ok(expired.problems.some((p) => p.startsWith('AJ2')), '到期要红')
+  assert.equal(expired.pending.length, 1, '到期后站点必须回到队列,不得继续免检')
+  const gone = applyAdjudications([], [item], '2026-09-29')
+  assert.ok(gone.problems.some((p) => p.startsWith('AJ3')), '站点消失而账还挂着 = 清单腐烂,必须红')
+})
+
+test('T27 真仓台账装车证明:必须可解析、字段齐备,且至少一条真匹配门在 HEAD 上量到的弱证据', async () => {
+  const { parseAdjudications, runAudit } = await import(pathToFileURL(SRC).href)
+  const items = parseAdjudications(headBlob('scripts/data/radius-role-adjudications.json'), 'ledger')
+  if (items.length === 0) return // 队列已清空 ⇒ 台账应为空;空表不是谎,因为没有可腐烂的条目
+  for (const it of items) {
+    for (const k of ['file', 'form', 'role', 'expectedStep', 'reason', 'owner', 'reviewBy']) {
+      assert.ok(String(it[k] ?? '').trim(), '台账条目缺字段 ' + k + ':' + it.file)
+    }
+    assert.match(it.reviewBy, /^\d{4}-\d{2}-\d{2}$/, '到期日形态不对:' + it.file)
+  }
+  const res = await runAudit('head', REPO)
+  const keys = new Set(
+    res.weakFindings.map((f) => [f.file, f.form, f.role, f.expectedStep].join('|'))
+  )
+  const hits = items.filter((it) =>
+    keys.has([it.file, it.form, it.role, it.expectedStep].join('|'))
+  )
+  assert.ok(hits.length >= 1, '台账与门量到的弱证据零交集 ⇒ 这是一张死表(条目要么早该删、要么键写歪了)')
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
