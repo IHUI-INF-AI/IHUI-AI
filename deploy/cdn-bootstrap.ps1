@@ -83,6 +83,16 @@ if ($Key  -and (Test-Path $Key))  { $srvArgs += @('--key',  $Key) }
 
 # --- 5. optional scheduled task ---------------------------------------------
 if ($Install) {
+  # 单一所有者守卫:2026-09-29 起本机 :80 由 nssm 服务 IHUI-IMAGE-CDN 承载(见
+  # deploy\win\install-image-cdn-service.ps1),它会在装服务时把本任务禁用。
+  # 如果这里照旧 Register-ScheduledTask -Force,就把那条禁用重新打开了 ⇒ 开机时
+  # 服务与任务抢 :80,抢输的一方因 cdn-server.js 的 listen 没有 error 监听而整进程退出,
+  # 表现为服务被 nssm 反复重启。所以检测到服务在位就拒绝再注册任务,并给出正路。
+  $svcOwningPort = Get-Service -Name 'IHUI-IMAGE-CDN' -ErrorAction SilentlyContinue
+  if ($svcOwningPort) {
+    Write-Host "[skip] -Install 未执行:端口 $HttpPort 已由服务 IHUI-IMAGE-CDN 承载(状态 $($svcOwningPort.Status))。" -ForegroundColor Yellow
+    Write-Host "       要改常驻配置请跑 deploy\win\install-image-cdn-service.ps1(幂等),不要注册第二个所有者。" -ForegroundColor Yellow
+  } else {
   try {
     # Register as S4U (non-interactive → session 0, no desktop): an Interactive-token task
     # whose action is a console program (node.exe) shows a console window at every logon.
@@ -96,6 +106,7 @@ if ($Install) {
     Write-Host '[ok] scheduled task registered: IHUI-ImageCDN (S4U, runs at logon without a window)'
   } catch {
     Write-Host "[warn] task registration failed: $($_.Exception.Message)" -ForegroundColor Yellow
+  }
   }
 }
 
