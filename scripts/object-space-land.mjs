@@ -63,7 +63,8 @@
 import { hasAnyWatermarkTrace, hasExactCanonicalBanner } from './lib/watermark-lines.mjs'
 import { existsSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, normalize, resolve } from 'node:path'
+import { maskComments, scanLiterals } from './lib/code-mask.mjs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
@@ -684,6 +685,93 @@ export function commitFacePresence({ root, commit, paths, timeoutMs = 30_000 }) 
   return { present, absent, undetermined }
 }
 
+/**
+ * 悬空相对引用预检(G-815985,2026-09-29 立)。
+ *
+ * 存在理由是本会话自己闯的祸:把 `./lib/lock-atomic-init.mjs` 与 `./lib/atomic-write.mjs` 的 import
+ * 交进了 HEAD,而把被 import 的文件留在未跟踪面 —— 旁路提交**不跑 pre-commit**,所以没有任何一道门
+ * 在场;本机一切正常(文件就在盘上),而干净检出上 `git archive HEAD | tar -x` 后
+ * `node <副本>/scripts/git-lock.mjs check` 直接 `ERR_MODULE_NOT_FOUND`。
+ *
+ * 本函数只判**一条**且刻意判得窄:声明面某个源文件写了相对引用,而**落地后的树里**没有任何候选落点。
+ * 符号级("文件在而不导出该符号")仍归守门 98 判 —— 它判整棵 HEAD,本判据只判"这次落地是否自洽",
+ * 两处算同一件事必然漂移,所以宁可各判一维也不复制判据。
+ *
+ * 三态,不并桶:
+ *  - `missing`     ⇒ 候选全部不在新树 ⇒ 拒绝落地(此刻**尚未创建任何 commit**,所以不留悬空对象)
+ *  - `undetermined`⇒ 说明符带的是未建模扩展名(.css/.csv/…)或取不到内容 ⇒ 只报数,绝不拦、也绝不静默
+ *  - 其余          ⇒ 命中候选,放过
+ */
+const SOURCE_LIKE_RE = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/i
+const KNOWN_CODE_EXT_RE = /\.(?:ts|tsx|js|jsx|mjs|cjs|json)$/i
+const RESOLVE_EXTS = Object.freeze(['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json'])
+// 说明符必须是一个**字符串字面量 token**,而不是"某串文本里出现了 import 字样"。
+// 这条不是洁癖:第一版用正则在注释遮罩后的原文上扫,结果**本闸拒绝了自己的落地枚次** ——
+// 镜像测试夹具里有 `writeFileSync(p, "import { x } from './lib/missing.mjs'\n")`,
+// 那句外层字符串的内容被当成了调用点,报出 4 条根本不存在的缺失。误拦一次,后人就学会整闸跳掉,
+// 所以按 token 取:外层字面量的 body 不以 `./` 开头 ⇒ 不是说明符。
+// 注释面仍要先抹(maskComments):注释里提一句路径不算装车(与本仓守门 131/135 同一条口径)。
+function relativeSpecifiers(code) {
+  const found = []
+  for (const s of scanLiterals(code).strings) {
+    const body = s.body ?? ''
+    if (!/^\.{1,2}\//u.test(body)) continue
+    const before = code.slice(0, s.start).replace(/\s+$/u, '')
+    if (/(?:\bfrom$|\brequire\($|\bimport\($|\bimport$)/u.test(before)) found.push({ spec: body, start: s.start })
+  }
+  return found
+}
+
+/** 把 ESM/TS 的相对说明符展开成候选落点(`./x.js` 在 TS 仓里合法地指向 `x.ts`)。 */
+function candidateTargets(importerPath, spec) {
+  const dir = importerPath.includes('/') ? importerPath.slice(0, importerPath.lastIndexOf('/')) : ''
+  const joined = normalize(`${dir}/${spec}`).replace(/\\/g, '/').replace(/^\.\//, '')
+  const out = [joined]
+  if (KNOWN_CODE_EXT_RE.test(joined)) {
+    const stem = joined.replace(KNOWN_CODE_EXT_RE, '')
+    for (const e of RESOLVE_EXTS) if (e) out.push(stem + e)
+  } else {
+    for (const e of RESOLVE_EXTS) if (e) out.push(joined + e)
+    for (const e of RESOLVE_EXTS) if (e) out.push(`${joined}/index${e}`)
+  }
+  return Array.from(new Set(out))
+}
+
+/**
+ * @param files 本次声明的 {path, blob}
+ * 注入 listTree/readBlob 是为了让镜像测试能在临时仓里跑同一份实现(不另造第二套判据)。
+ */
+function relativeImportGaps({ root, files, listTree, readBlob }) {
+  const treePaths = new Set(String(listTree ?? '').split('\0').filter(Boolean))
+  const missing = []
+  const undetermined = []
+  let scanned = 0
+  for (const f of files) {
+    if (!SOURCE_LIKE_RE.test(f.path)) continue
+    scanned += 1
+    let src = ''
+    try {
+      src = String(readBlob(f))
+    } catch {
+      undetermined.push({ path: f.path, spec: '(取不到本次内容)', why: '内容不可读' })
+      continue
+    }
+    const code = maskComments(src)
+    for (const { spec, start } of relativeSpecifiers(code)) {
+      const cands = candidateTargets(f.path, spec)
+      if (cands.some((c) => treePaths.has(c))) continue
+      const tail = (spec.match(/\.[A-Za-z0-9]+$/u) || [''])[0]
+      if (tail !== '' && !KNOWN_CODE_EXT_RE.test(spec)) {
+        undetermined.push({ path: f.path, spec, why: `未建模扩展名 ${tail}` })
+        continue
+      }
+      const onDisk = cands.filter((c) => existsSync(resolve(root ?? '.', c)))
+      missing.push({ path: f.path, spec, line: src.slice(0, start).split('\n').length, onDisk })
+    }
+  }
+  return { scanned, missing, undetermined }
+}
+
 async function main() {
   const parsed = parseArgs()
   if (parsed.error) {
@@ -692,6 +780,9 @@ async function main() {
   }
   const { root, paths, msg, baseRef, blobOf } = parsed
   const skipWatermark = process.env.IHUI_LAND_SKIP_WATERMARK === '1'
+  // 与水印预检同级:默认必查,跳过要出声(IHUI_LAND_SKIP_IMPORT_CHECK=1)。
+  const skipImportCheck = process.env.IHUI_LAND_SKIP_IMPORT_CHECK === '1'
+  let importGaps = { scanned: 0, missing: [], undetermined: [] }
 
   const head0 = git(['rev-parse', 'HEAD'], { root })
   const base = new Map(paths.map((p) => [p, headBlobOf(baseRef, p, { root })]))
@@ -801,13 +892,53 @@ async function main() {
       )
       process.exit(1)
     }
-    const { commit } = commitTreeWithIndex({
+    const entries = paths.map((p) => ({ path: p, blob: mine.get(p) }))
+    const made = commitTreeWithIndex({
       root,
       parent: head,
       message: msg,
-      entries: paths.map((p) => ({ path: p, blob: mine.get(p) })),
+      entries,
       baseRef: head,
+      // 校验放在 write-tree 之后、commit-tree 之前:被拒时不产生任何 commit 对象,
+      // 因此不会给守门 30a 留"unreachable commit"地雷(它只数 commit 行)。
+      onTree: skipImportCheck
+        ? undefined
+        : (tree) => {
+            const g = relativeImportGaps({
+              root,
+              files: entries,
+              listTree: git(['ls-tree', '-r', '--name-only', '-z', tree], { root }),
+              readBlob: (f) => git(['cat-file', 'blob', f.blob], { root }),
+            })
+            importGaps = g
+            return g.missing.length > 0 ? `悬空相对引用 ${g.missing.length} 处` : ''
+          },
     })
+    if (made.rejected) {
+      console.error(`❌ 悬空相对引用预检不通过,拒绝落地(未创建任何 commit、HEAD 与主索引均未动):`)
+      for (const m of importGaps.missing) {
+        console.error(
+          `   ${m.path}:${m.line} → ${m.spec}  ⇒ 落地后的树里没有任何候选落点${
+            m.onDisk.length > 0 ? `;但盘上有 ${m.onDisk.join(' / ')} ⇒ 典型的"忘了随本次声明一起入库"` : ''
+          }`,
+        )
+      }
+      console.error(
+        '   出路只有两条:把被引用的文件一起加进 LAND_PATHS,或去掉这条引用。' +
+          '应急跳过 IHUI_LAND_SKIP_IMPORT_CHECK=1(会把跳过那行打进输出留痕)',
+      )
+      process.exit(1)
+    }
+    if (!skipImportCheck) {
+      const g = importGaps
+      console.log(
+        `✅ 悬空相对引用预检:声明面源文件 ${g.scanned} 个 / 缺失 ${g.missing.length} / 判不出 ${g.undetermined.length}` +
+          (g.undetermined.length > 0 ? `(只报不拦:${g.undetermined.map((u) => `${u.path} ${u.spec}(${u.why})`).join('; ')})` : ''),
+      )
+    } else {
+      console.log('⚠️ IHUI_LAND_SKIP_IMPORT_CHECK=1 ⇒ 本次跳过悬空相对引用预检(该行输出即留痕)')
+    }
+    const commit = made.commit
     if (casUpdateRef(commit, head, { root })) {
       landed = commit
       parentSha = head
