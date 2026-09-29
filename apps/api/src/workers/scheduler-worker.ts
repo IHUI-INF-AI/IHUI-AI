@@ -46,7 +46,11 @@ import {
   drainLlmBacklog,
 } from '../services/ai-feed-service.js'
 import { checkBudgetAlerts } from '../services/budget-alert-service.js'
-import { scanAndRemindArrears } from '../services/edu-arrear-remind-service.js'
+import {
+  externalDeliveryMissed,
+  parseRemindChannels,
+  scanAndRemindArrears,
+} from '../services/edu-arrear-remind-service.js'
 // O5(2026-09-21):llm_call_logs 到期原文清除(只清 prompt/response,计费/归因列保留)
 import { purgeAllExpiredLlmCallLogRawText } from '../services/audit-log-service.js'
 
@@ -804,20 +808,48 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             return result
           }
           case 'edu-arrear-remind-daily': {
-            const result = await scanAndRemindArrears()
+            // 通道显式可配(默认只微信);日志把**所有**触达档打全 ——
+            // 上一版只打 6 个字段,算出来的 wxNotConfigured/parentRecipients/sms* 没人看得见,
+            // "失败必须响"这一维等于只做了一半。
+            const remindChannels = parseRemindChannels(process.env.EDU_ARREAR_REMIND_CHANNELS)
+            const result = await scanAndRemindArrears({ channels: remindChannels })
             server.log.info(
               {
+                channels: remindChannels,
                 scanned: result.scanned,
                 reminded: result.reminded,
                 skippedToday: result.skippedToday,
                 notifyFailed: result.notifyFailed,
+                recipients: result.recipients,
+                parentRecipients: result.parentRecipients,
+                overdue: result.overdueCount,
+                dueSoon: result.dueSoonCount,
+                withoutSchedule: result.withoutSchedule,
                 wxSent: result.wxSent,
                 wxFailed: result.wxFailed,
+                wxNotConfigured: result.wxNotConfigured,
+                wxNoOpenid: result.wxNoOpenid,
+                wxUserRefused: result.wxUserRefused,
+                smsSent: result.smsSent,
+                smsFailed: result.smsFailed,
+                smsNotConfigured: result.smsNotConfigured,
+                smsNoPhone: result.smsNoPhone,
               },
               'edu arrear remind done',
             )
             try {
-              server.recordJobExecution(name, result.notifyFailed > 0 ? 'failed' : 'success')
+              // 站内信没抛异常 ≠ 催缴送达:外部通道全零送达时记 failed,
+              // 否则"微信未配置"会一直显示成任务成功(与旧行为同形)。
+              const missed = externalDeliveryMissed({
+                channels: remindChannels,
+                reminded: result.reminded,
+                wxSent: result.wxSent,
+                smsSent: result.smsSent,
+              })
+              server.recordJobExecution(
+                name,
+                result.notifyFailed > 0 || missed ? 'failed' : 'success',
+              )
             } catch {
               /* 指标采集失败不影响业务 */
             }
