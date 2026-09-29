@@ -59,7 +59,11 @@ import { usePermissionAutoRevert } from '@/hooks/use-permission-auto-revert'
 import { useSlashCommands } from '@/hooks/use-slash-commands'
 import { usePermissionModeCycle } from '@/hooks/use-permission-mode-cycle'
 import { useSlashAction } from '@/hooks/use-slash-action'
-import { CHAT_ATTACHMENT_ACCEPT, useMessageReferences } from '@/hooks/use-message-references'
+import {
+  CHAT_ATTACHMENT_ACCEPT,
+  CHAT_ATTACHMENT_MAX_FILES,
+  useMessageReferences,
+} from '@/hooks/use-message-references'
 import { useContextSelector } from '@/hooks/use-context-selector'
 // V3 第 61 票:`@` 与 `#` 的「有哪些维度」与「触发符怎么解」都归到引擎那一份表,
 // 本组件不再自写触发正则、不再自持九类目表、也不再自持一份 # 侧 chip 局部 state。
@@ -516,6 +520,30 @@ export function MessageInput({
     return () =>
       window.removeEventListener('ihui:add-text-reference', onAddTextRef as EventListener)
   }, [addTextReference])
+  // D184(2026-09-29 立,对标竞品 chatSession.selectionActions):选中文本作为附件 ——
+  // MessageItem「作为附件添加」按钮派发 ihui:add-selection-attachment,此处包装为
+  // "选中的文本.txt" 附件文件走 addFileReferences 三档校验(G-833)通道;容量满(max_files)
+  // 时以 attachmentLimitReached 文案回报(竞品串"附件已达 {limit} 个,请先移除一个再添加选中文本。")。
+  React.useEffect(() => {
+    const onAddSelectionAttachment = (e: Event) => {
+      const text = (e as CustomEvent<{ text?: string }>).detail?.text
+      const trimmed = typeof text === 'string' ? text.trim() : ''
+      if (!trimmed) return
+      const file = new File([trimmed], `${t('selectionActions.attachmentName')}.txt`, {
+        type: 'text/plain',
+      })
+      const rejections = addFileReferences([file])
+      if (rejections.some((r) => r.code === 'max_files')) {
+        toast.error(t('selectionActions.attachmentLimitReached', { limit: CHAT_ATTACHMENT_MAX_FILES }))
+      }
+    }
+    window.addEventListener('ihui:add-selection-attachment', onAddSelectionAttachment as EventListener)
+    return () =>
+      window.removeEventListener(
+        'ihui:add-selection-attachment',
+        onAddSelectionAttachment as EventListener,
+      )
+  }, [addFileReferences, t])
   // D22 会话拖入输入框引用(2026-09-19 立,对标 Qoder 0.2.x):侧栏会话行 draggable,
   // dataTransfer 携带 application/x-ihui-conversation JSON;drop 后拉取会话消息
   // 拼成对话快照文本引用(失败回退用标题),与文件拖拽通道互不影响。
