@@ -24,8 +24,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
 
 // 遮罩只有一份实现(§22c「两处算同一件事必漂移」);本行是测试面取用工具层,不是生产依赖边。
-// arch-exempt: 判据面必须与被审门共用同一份遮罩实现,否则"整块注释掉的接线"会被读成已装车;
-// 正解 = 给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
+// 正解 = 给"测试支持层"在策略表建档并降到 apps 之下
+// arch-exempt: 判据面必须与被审门共用同一份遮罩实现,否则"整块注释掉的接线"会被读成已装车 until 2026-12-28
 import { maskComments } from '../../../../../../scripts/lib/code-mask.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -39,7 +39,10 @@ const readPack = (name: string): Record<string, unknown> =>
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
 /** 与 @ihui/i18n mergeMessages 同语义:web 端覆盖 shared */
-const mergePack = (base: Record<string, unknown>, over: Record<string, unknown>): Record<string, unknown> => {
+const mergePack = (
+  base: Record<string, unknown>,
+  over: Record<string, unknown>,
+): Record<string, unknown> => {
   const out: Record<string, unknown> = { ...base }
   for (const [k, v] of Object.entries(over)) {
     const b = out[k]
@@ -105,7 +108,9 @@ describe('D152 ① 下行帧进缓存并上屏', () => {
     useGoalStore.getState().setGoal('把发布链路做完')
     useGoalStore
       .getState()
-      .applyServerGoal(frame({ status: 'usageLimited', objective: '把发布链路做完', elapsedMs: 61_000 }))
+      .applyServerGoal(
+        frame({ status: 'usageLimited', objective: '把发布链路做完', elapsedMs: 61_000 }),
+      )
     expect(useGoalStore.getState().goal?.status).toBe('usageLimited')
     expect(useGoalStore.getState().goal?.elapsedMs).toBe(61_000)
     const { container } = render(<GoalCard />)
@@ -127,7 +132,9 @@ describe('D152 ① 下行帧进缓存并上屏', () => {
   it('别的端先 /goal:本端**没有本地目标**时按帧新建(票面验收①"不刷新即见目标")', () => {
     useGoalStore
       .getState()
-      .applyServerGoal(frame({ status: 'active', objective: '另一端设的目标', updatedAt: 1_700_000_000 }))
+      .applyServerGoal(
+        frame({ status: 'active', objective: '另一端设的目标', updatedAt: 1_700_000_000 }),
+      )
     const g = useGoalStore.getState().goal
     expect(g?.text).toBe('另一端设的目标')
     expect(g?.status).toBe('active')
