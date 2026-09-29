@@ -214,6 +214,35 @@ function writeBlob(content, p, cwd) {
   ).trim()
 }
 
+/**
+ * 影子 `.js` 的同 stem `.ts/.tsx` 候选(非影子路径返回空数组)。
+ * 方向刻意只此一路:本仓约定是"`./x.js` 说明符指的是 `x.ts`",所以"该消失的是 `.js`"。
+ */
+export function shadowTsSiblings(p) {
+  const m = /^(.*)\.(?:js|cjs|mjs)$/.exec(p)
+  return m && m[1] ? [`${m[1]}.ts`, `${m[1]}.tsx`] : []
+}
+/**
+ * 纯判据:`p` 那份内容为 `shadowOid` 的文件,在 `rev` 那棵树里是否有**同一份字节**的 `.ts/.tsx` 同伴?
+ * 等值证明用 **blob oid 逐字相等**(git 内容寻址给的,比读正文再比更强),不做相似度、不做长度比较。
+ * 命中 ⇒ 返回 {path, oid};否则 null。测试可直接调用,不需要真仓。
+ */
+export function shadowTwinIsIdentical(p, shadowOid, siblingOids) {
+  if (!shadowOid || typeof shadowOid !== 'string') return null
+  for (const s of shadowTsSiblings(p)) {
+    const oid = siblingOids && siblingOids[s]
+    if (oid && oid === shadowOid) return { path: s, oid }
+  }
+  return null
+}
+/** 上面那条判据的 git 侧包装:去 `rev` 那棵树里取同 stem 同伴的 oid。 */
+function shadowTwinOf(p, shadowOid, rev, cwd) {
+  if (!shadowOid) return null
+  const siblingOids = {}
+  for (const s of shadowTsSiblings(p)) siblingOids[s] = blobOf(rev, s, cwd)
+  return shadowTwinIsIdentical(p, shadowOid, siblingOids)
+}
+
 function emptyBlob(cwd) {
   try {
     return git(['hash-object', '-w', '--stdin'], cwd, '')
@@ -748,18 +777,43 @@ export function buildUnion(
     const keptTheirs = []
     const humanResolved = []
     const caps = [] // 因副本指针有意少带的份数:不拦落地,但必须逐条点名(见 recordSideLosses)
+    // 影子 .js 的两格(见下面循环里那条"刻意例外"):随合并传播掉的删除 / 被拦住没恢复的回归。
+    const shadowDeletes = []
+    const shadowRestores = []
     const touchedOurs = new Set(diffNames(base, ours, cwd))
     for (const p of diffNames(base, theirs, cwd)) {
       if (LIVE_DOCS.includes(p)) continue
       const theirsBlob = blobOf(theirs, p, cwd)
+      const oursBlob = blobOf(ours, p, cwd)
+      if (oursBlob === theirsBlob) continue
       if (theirsBlob === null) {
+        /**
+         * **影子 .js 的删除要传播**,这一条是对"对侧删除不随合并传播"那条通则的**刻意例外**。
+         * 依据不是猜测而是内容寻址:本侧那份 `.js` 的 blob oid 与本侧同 stem `.ts` 的 oid **逐字相等**
+         * ⇒ 两边装的是同一份字节,删掉它不可能丢任何内容。不堵这一格,实测就会看到
+         * 同一份"用 .js 文件名装着 TypeScript 语法"的影子被对侧一次带走、下一次合并又带回来
+         * (2026-09-29 一天内两次:01:12 删、04:27 回;后果是干净检出/服务重启即 `SyntaxError`,
+         * 而守门 98 的 D4 影子维是全仓唯一看得见这一型的尺子 —— 它只能事后喊,拦不住合并)。
+         * 只认 `.js/.cjs/.mjs → .ts/.tsx` 这一个方向:反过来(留 .js 扔 .ts)等于把本仓
+         * "`./x.js` 说明符指的是 `.ts`"这条约定倒过来写,那不是收口而是制造第二份真相。
+         */
+        const twin = shadowTwinOf(p, oursBlob, ours, cwd)
+        if (twin) {
+          run(['update-index', '--force-remove', p])
+          shadowDeletes.push({ path: p, twin: twin.path })
+          continue
+        }
         skippedDeletes.push(p) // 对侧删除不随合并传播,否则本工具的产物会被守门 100 判红
         continue
       }
-      const oursBlob = blobOf(ours, p, cwd)
-      if (oursBlob === theirsBlob) continue
       // 本侧未动(或本侧已删 ⇒ 删除同样不传播,与"对侧删除"对称)⇒ 整文件取对侧,语义与改前逐字一致
       if (!touchedOurs.has(p) || oursBlob === null) {
+        // 同一个例外的反方向:对侧把那份等值影子**带回来**时不取(本侧已经没有它了)。
+        const twin = shadowTwinOf(p, theirsBlob, ours, cwd)
+        if (twin) {
+          shadowRestores.push({ path: p, twin: twin.path })
+          continue
+        }
         run(['update-index', '--add', '--cacheinfo', `100644,${theirsBlob},${p}`])
         tookTheirs.push(p)
         continue
@@ -922,6 +976,8 @@ export function buildUnion(
       acceptedGrowth,
       mergedClean,
       skippedDeletes,
+      shadowDeletes,
+      shadowRestores,
       needHuman,
       generatedDeferred,
       keptOurs,
@@ -977,7 +1033,28 @@ export function verifyUnion(
   const moved = []
   const pointerCaps = []
   const moveAware = []
-  for (const p of listPaths(ours, cwd)) if (!M.has(p)) bad.push(`合并树丢了本侧路径 ${p}`)
+  for (const p of listPaths(ours, cwd)) {
+    if (M.has(p)) continue
+    /**
+     * "零损失"断言的**内容寻址豁免**(不是白名单、不信任调用方给的清单):
+     * 本侧这个路径没进合并结果,但它那份字节在合并树里由同 stem 的 `.ts/.tsx` **同一个 blob oid**
+     * 承载 ⇒ 内容一行都没少,少的是那个多余的影子文件名,这正是收口。
+     * 与下面"对侧丢失"分支里早已有的 blob 移动豁免(1046 行 `moved`)是同一条证明的两半 ——
+     * 本侧这一半此前缺,于是"影子删除被传播"会被自己的零损失断言判成丢内容,合并落地不了。
+     * 只有 blob oid 逐字相等才走这一支;内容不等值 ⇒ 照旧 `bad`(自检影子 C 臂钉住)。
+     */
+    const oid = blobOf(ours, p, cwd)
+    const sibOids = {}
+    for (const s of shadowTsSiblings(p)) sibOids[s] = blobOf(tree, s, cwd)
+    const twin = shadowTwinIsIdentical(p, oid, sibOids)
+    if (twin) {
+      moved.push(
+        `${p} 的字节由 ${twin.path} 同一个 blob(${String(oid).slice(0, 9)})承载 ⇒ 合并结果不含它属收口,不是丢失`,
+      )
+      continue
+    }
+    bad.push(`合并树丢了本侧路径 ${p}`)
+  }
   const theirsLost = listPaths(theirs, cwd).filter((p) => !M.has(p))
   if (theirsLost.length) {
     const oursOids = oidMap(ours, cwd)
@@ -2193,6 +2270,116 @@ function selfTest() {
           rmScratch(d5)
         }
       }
+      // ── 端到端:影子 .js 不得随合并恢复,而它的**删除**要传播(2026-09-29 用户拍板"在合并规则里堵死")──
+      // 三臂成对:A=对侧删影子 ⇒ 删除传播;B=对侧带回与 .ts 同一份字节的影子 ⇒ 拦住;
+      // C=对侧那份影子内容与 .ts **不等值** ⇒ 照旧取对侧(证明这一刀是按字节切的,不是按名字切的)。
+      {
+        const d6 = mkScratch('ihui-union-shadow-')
+        try {
+          const g6 = (...a) => git(a, d6)
+          const TS = 'a.ts'
+          const JS = 'a.js'
+          const C = 'export const v = 1\n'
+          const treeHas = (tree, p) => {
+            try {
+              git(['rev-parse', `${tree}:${p}`], d6)
+              return true
+            } catch {
+              return false
+            }
+          }
+          g6('init', '-q', '-b', 'main')
+          g6('config', 'user.email', 't@t')
+          g6('config', 'user.name', 't')
+          g6('config', 'core.autocrlf', 'false')
+          writeFileSync(join(d6, TS), C, 'utf8')
+          writeFileSync(join(d6, JS), C, 'utf8') // 影子:与 .ts 同一份字节
+          writeFileSync(join(d6, 'keep.md'), '# keep\n', 'utf8')
+          g6('add', '-A')
+          g6('commit', '-qm', 'base(ts + 等值影子)')
+          const base6 = g6('rev-parse', 'HEAD').trim()
+
+          // A 臂:对侧删掉影子,本侧没动 ⇒ 本工具的产物树里也不该再有它
+          g6('checkout', '-q', '-b', 'theirs', base6)
+          g6('rm', '-q', JS)
+          g6('commit', '-qm', 'theirs(删影子)')
+          const theirs6a = g6('rev-parse', 'HEAD').trim()
+          g6('checkout', '-q', '-B', 'ours', base6)
+          g6('commit', '-q', '--allow-empty', '-m', 'ours(没动)')
+          const pa = plan(g6('rev-parse', 'HEAD').trim(), theirs6a, d6)
+          ok(
+            '端到端 影子A:对侧删掉"与 .ts 同一份字节"的影子 ⇒ 删除随合并传播(不再走 skippedDeletes)',
+            !treeHas(pa.tree, JS) &&
+              treeHas(pa.tree, TS) &&
+              // 字节没丢:合并树里那份 .ts 的 oid **就是**原影子的 oid(内容寻址证明,不是文字比对)
+              blobOf(pa.tree, TS, d6) === blobOf(base6, JS, d6) &&
+              (pa.shadowDeletes ?? []).length === 1 &&
+              pa.shadowDeletes[0].path === JS &&
+              !(pa.skippedDeletes ?? []).includes(JS) &&
+              pa.bad.length === 0,
+            JSON.stringify([pa.shadowDeletes, pa.skippedDeletes, pa.bad]),
+          )
+
+          // B 臂:对侧把影子**加回来**(内容仍等于 .ts),本侧从未有过 ⇒ 不恢复
+          g6('checkout', '-q', '-B', 'theirs', base6)
+          g6('rm', '-q', JS)
+          g6('commit', '-qm', 'theirs 基线调整')
+          const tb6 = g6('rev-parse', 'HEAD').trim()
+          writeFileSync(join(d6, JS), C, 'utf8')
+          g6('add', '-A')
+          g6('commit', '-qm', 'theirs(把同一份字节又写成 .js)')
+          const theirs6b = g6('rev-parse', 'HEAD').trim()
+          g6('checkout', '-q', '-B', 'ours', tb6)
+          const pb = plan(g6('rev-parse', 'HEAD').trim(), theirs6b, d6)
+          ok(
+            '端到端 影子B:对侧新增等值影子 ⇒ 不恢复,且必须点名(不得静默当成"这一侧没有")',
+            !treeHas(pb.tree, JS) &&
+              treeHas(pb.tree, TS) &&
+              blobOf(pb.tree, TS, d6) === blobOf(theirs6b, JS, d6) &&
+              (pb.shadowRestores ?? []).length === 1 &&
+              pb.shadowRestores[0].path === JS &&
+              !(pb.tookTheirs ?? []).includes(JS),
+            JSON.stringify([pb.shadowRestores, pb.tookTheirs]),
+          )
+
+          // C 臂(反向对照,这条才是"没有放宽"):内容与 .ts **不等值** ⇒ 照旧取对侧
+          g6('checkout', '-q', '-B', 'theirs', base6)
+          writeFileSync(join(d6, JS), C + 'export const other = 2\n', 'utf8')
+          g6('add', '-A')
+          g6('commit', '-qm', 'theirs(影子有独有内容)')
+          const theirs6c = g6('rev-parse', 'HEAD').trim()
+          g6('checkout', '-q', '-B', 'ours', base6)
+          const pc = plan(g6('rev-parse', 'HEAD').trim(), theirs6c, d6)
+          // 内容等值一律按 **blob oid** 证(不按文本比 —— 换行风格会骗人,而 oid 不会)
+          const cTreeOid = blobOf(pc.tree, JS, d6)
+          const cTheirsOid = blobOf(theirs6c, JS, d6)
+          const cTsOid = blobOf(pc.tree, TS, d6)
+          ok(
+            '端到端 影子C:影子内容与 .ts 不等值 ⇒ 本规则**不触发**,照旧取对侧(按字节切,不按名字切)',
+            (pc.tookTheirs ?? []).includes(JS) &&
+              cTreeOid === cTheirsOid &&
+              cTreeOid !== cTsOid &&
+              (pc.shadowRestores ?? []).length === 0 &&
+              (pc.shadowDeletes ?? []).length === 0 &&
+              pc.bad.length === 0,
+            JSON.stringify([pc.tookTheirs, pc.shadowRestores, pc.shadowDeletes, pc.bad]),
+          )
+        } finally {
+          rmScratch(d6)
+        }
+      }
+      // ── 纯函数:影子候选名只认 .js/.cjs/.mjs → .ts/.tsx 这一个方向 ──
+      ok(
+        '纯函数 影子:候选名方向唯一(.js/.cjs/.mjs → .ts/.tsx;给 .ts 返回空 ⇒ 不会反过来丢 TS 保 JS)',
+        JSON.stringify(shadowTsSiblings('a/b.js')) === JSON.stringify(['a/b.ts', 'a/b.tsx']) &&
+          JSON.stringify(shadowTsSiblings('a/b.mjs')) === JSON.stringify(['a/b.ts', 'a/b.tsx']) &&
+          shadowTsSiblings('a/b.ts').length === 0 &&
+          shadowTsSiblings('a/b.md').length === 0 &&
+          shadowTsSiblings('a/b').length === 0 &&
+          shadowTwinIsIdentical('a/b.js', 'oid1', { 'a/b.ts': 'oid2' }) === null &&
+          shadowTwinIsIdentical('a/b.js', 'oid1', { 'a/b.ts': 'oid1' }).path === 'a/b.ts' &&
+          shadowTwinIsIdentical('a/b.ts', 'oid1', { 'a/b.js': 'oid1' }) === null,
+      )
     }
   } finally {
     rmScratch(dir)
@@ -2280,7 +2467,7 @@ async function main() {
     )
   const p = plan(t.head, t.theirs, ROOT, takeOurs, resolutions, takeTheirs, accepted)
   console.log(
-    `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 活文档行 union`,
+    `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 影子 .js 随合并删掉 ${p.shadowDeletes?.length ?? 0} / 影子 .js 未恢复 ${p.shadowRestores?.length ?? 0} / 活文档行 union`,
   )
   for (const d of p.skippedDeletes)
     console.log(`  · 对侧删除不随合并生效:${d}(确要删请在合并之后显式 git rm)`)
@@ -2340,6 +2527,14 @@ async function main() {
       ? `;人工归并回灌(已过两侧丢行断言): ${p.humanResolved.join(' ')}`
       : '') +
     (p.keptOurs?.length ? `;取本侧(已声明+可复核): ${p.keptOurs.join(' ')}` : '') +
+    // 影子 .js 两格的留痕:这一型是"删除被传播 / 回归被拦住",零损失由 blob oid 逐字相等证明,
+    // 但后来人只读 git log 也必须能看出**这两条不在默认通则里**(对侧删除本来是刻意不传播的)。
+    (p.shadowDeletes?.length
+      ? `;影子 .js 删除已传播(与同 stem .ts 同一份字节,零损失由内容寻址证明): ${p.shadowDeletes.map((x) => `${x.path}⇔${x.twin}`).join(' ')}`
+      : '') +
+    (p.shadowRestores?.length
+      ? `;影子 .js 未随合并恢复(同一份字节): ${p.shadowRestores.map((x) => `${x.path}⇔${x.twin}`).join(' ')}`
+      : '') +
     (p.keptTheirs?.length ? `;取对侧(已声明+可复核): ${p.keptTheirs.join(' ')}` : '') +
     (p.acceptedGrowth?.length
       ? `;已声明放行的量纲放大(带理由,非静默): ${p.acceptedGrowth.join(' | ')}`
