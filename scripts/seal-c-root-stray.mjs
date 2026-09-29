@@ -37,8 +37,9 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, parse, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { countScratchSegments } from './lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..')
@@ -46,12 +47,24 @@ const REPO = resolve(HERE, '..')
 /**
  * 外置根推导:与 lib/scratch-dir.mjs 同一套(工作树所在盘的 DevEnv),不写死盘符。
  * 之所以不直接 import 那个模块:它只导出夹具出口,没有 DevEnv 根出口。
+ *
+ * **为什么不能"仓根向上数两级"**(G-345 第④格,2026-09-29 实测):`resolve(REPO,'..','..')`
+ * 只有在"工作树恰好挂在盘根下一层"时才凑巧等于盘根;工作树落在两层深的目录里
+ * (`X:\a\b\IHUI-AI`,本仓的夹具/次级 worktree 就是这个形态)时它返回 `X:\a`,
+ * 于是 `DevEnv` 被推进**别人正在写的父目录** —— 而守门 92 / 备份审计 / 恢复演练都吃这一个出口。
+ * 正解是问 `path.parse` 要**根**(它对任何深度都稳定),并按 `scratch-dir.countScratchSegments`
+ * (判据只此一份,`lib/gitdir.mjs` 吃的是同一个出口)拒绝"仓本身在夹具里"——那种情况下安静返回一个
+ * 落在夹具内的 DevEnv 等于把 §26 唯一批准的临时物落点当成真外置根,错推导必须喊出来而不是被用下去。
  */
-export function devEnvRoot() {
+export function devEnvRoot(repoRoot = REPO) {
   const override = process.env.IHUI_DEVENV_ROOT
   if (override) return resolve(override)
-  const driveRoot = resolve(REPO, '..', '..')
-  return join(driveRoot, 'DevEnv')
+  if (countScratchSegments(repoRoot) > 0)
+    throw new Error(
+      `devEnvRoot 拒绝推导:仓库根本身位于 scratch 夹具内(${repoRoot})—— ` +
+        `此时"盘根 + DevEnv"会落在夹具里,而 §26 批准的临时物落点与真外置根是两回事。先修调用方的 ROOT 推导,别换路径继续跑。`,
+    )
+  return join(parse(repoRoot).root, 'DevEnv')
 }
 
 /**
