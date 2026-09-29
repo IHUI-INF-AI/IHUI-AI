@@ -30,16 +30,6 @@ import type { InlineDiffInfo } from '@/components/ai/types'
 import { CommunityPublishDialog } from '@/components/chat/community-publish-dialog'
 import CheckpointRewindPanel from '@/components/checkpoint/CheckpointRewindPanel'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
-// G-825(2026-09-29 立):消息级 markdown 错误边界 —— 一条消息的渲染异常此前会冒泡到路由级 error(整页挂掉)。
-// 复位语义复用既有 ErrorBoundary 的 resetKeys 档,不写第二份边界实现;键的形状住纯函数层。
-import { ErrorBoundary } from '@/components/common/ErrorBoundary'
-import {
-  MARKDOWN_RENDER_FAILURE_EVENT,
-  markdownRenderFailureFacts,
-  markdownRenderModeFor,
-  markdownResetKeys,
-  type MarkdownRenderContext,
-} from '@/components/chat/message-list/markdown-render-guard'
 // D87(2026-09-23 立):AI 回复文本批注双向锚点(圈选回复选区 → 持久锚点 + 失效态 + 再编辑/删除)
 import { ReplyAnnotationLayer } from '@/components/ai/reply-annotation'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
@@ -794,14 +784,6 @@ const MessageItem = React.memo(function MessageItem({
       })()
     : null
 
-  // G-825:边界复位键与降级交代事实**共用这一份上下文** —— 两处各算一遍必然漂开
-  // (键按新内容算、warn 按旧内容报,是本仓记过最多次的"两把尺子互相指认"同型)。
-  const markdownGuard: MarkdownRenderContext = {
-    content: m.content,
-    renderStreaming: streamingThis,
-    mode: markdownRenderModeFor(codeCollapseLines),
-  }
-
   return (
     <div
       className={cn(
@@ -1150,32 +1132,11 @@ const MessageItem = React.memo(function MessageItem({
               </StreamGroup>
             )}
             <ReplyAnnotationLayer messageId={m.id} conversationId={conversationId}>
-              {/* G-825:消息级 markdown 边界。降级形态是 pre-wrap 纯文本 ⇒ 内容还在,只是不格式化
-                  (刻意零文案:要写一句"渲染失败"就得新增 i18n 键,而语言包此刻由并行会话持有)。 */}
-              <ErrorBoundary
-                resetKeys={markdownResetKeys(markdownGuard)}
-                fallback={
-                  <pre
-                    data-testid={`message-markdown-fallback-${m.id}`}
-                    className="whitespace-pre-wrap break-words px-3 py-2 text-sm leading-relaxed"
-                  >
-                    {m.content}
-                  </pre>
-                }
-                onError={() => {
-                  // 结构化 warn:只报量,正文一个字符都不进日志(markdownRenderFailureFacts 的契约)
-                  console.warn(
-                    MARKDOWN_RENDER_FAILURE_EVENT,
-                    markdownRenderFailureFacts(markdownGuard),
-                  )
-                }}
-              >
-                <MarkdownStream
-                  content={m.content}
-                  isStreaming={streamingThis}
-                  collapseLines={codeCollapseLines}
-                />
-              </ErrorBoundary>
+              <MarkdownStream
+                content={m.content}
+                isStreaming={streamingThis}
+                collapseLines={codeCollapseLines}
+              />
             </ReplyAnnotationLayer>
             {/* D33 消息级降级交代行:顶部 FallbackBanner 是瞬态,历史态由水合把 metadata.fallback
                 挂到消息上(见 stores/chat.ts 的 fallback 字段注释),词与横幅同源(chat ns 既有两键)。 */}
