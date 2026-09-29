@@ -8,8 +8,9 @@
  *
  * 两端真实实现(2026-09-26 现读更正;原文写"RN 端唯一实现 = …(features 各屏经 @ihui/rn-app 消费)"
  * 是一句做不到的承诺 —— 按它去 RN 端找消费方会一无所获,而账面读起来像已收口):
- *  - RN 端:**本表当前零渲染腿**。packages/app/src/components/SectionHeader.tsx 确是 RN 形态
- *    (View/StyleSheet)并由同目录 barrel re-export,但全仓没有任何屏具名取用它;
+ *  - RN 端:**本表当前零渲染腿**。曾在的那一份 packages/app/src/components/SectionHeader.tsx
+ *    是 RN 形态(View/StyleSheet)并由同目录 barrel re-export,但全仓没有任何屏具名取用它,
+ *    2026-09-30 随 O92 票摘除(判据:零具名消费者 + 零深导入;摘除后 @ihui/rn-app 也不再出口该名);
  *    course-tab 与 learn 两屏里检索到的同名命中,是各自在屏内自绘的局部渲染函数
  *    (取证:两屏各有一处以自绘函数排「标题 + 更多」头部),与本表、与该组件都无引用关系。
  *    因此 RN 侧的区段头部目前**没有单一源**,把它接进本表要先改 9+ 屏的头部观感 —— 那属产品决策,
