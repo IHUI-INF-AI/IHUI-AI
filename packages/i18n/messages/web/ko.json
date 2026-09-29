@@ -16622,6 +16622,12 @@
         "step4": "사용할 모델을 추가하세요",
         "step5": "호출 시 자동으로 당신의 Key가 우선 사용됩니다",
         "gotIt": "알겠습니다"
+      },
+      "health": {
+        "degraded": "성능 저하",
+        "down": "사용 불가",
+        "healthy": "정상",
+        "unknown": "미확인"
       }
     }
   },
@@ -20026,7 +20032,6 @@
       "batchScanWaitingHintExternal": "일상적으로 쓰는 브라우저에서 열었습니다. 그곳에서 로그인을 완료하세요(아직 로그인 상태를 읽지 못했습니다)",
       "batchScanWaitingHintExternalOwn": "일상적으로 쓰는 브라우저에서 열었습니다. 로그인된 플랫폼은 자동 저장되고, 나머지는 한 번만 로그인하면 됩니다",
       "batchScanStart": "일괄 스캔 시작",
-      "batchScanWaitingHint": "아래 QR 코드를 휴대폰으로 스캔하여 해당 플랫폼에 로그인해 주세요. 시간 초과(2분) 시 자동으로 건너뛰며, 수동으로 건너뛸 수도 있습니다",
       "batchScanLoading": "플랫폼 대기열 준비 중...",
       "batchScanSkip": "이 플랫폼 건너뛰기",
       "batchScanStop": "대기열 중지",
@@ -20044,7 +20049,8 @@
       "batchScanStoppedToast": "스캔 로그인 대기열을 중지했습니다",
       "batchScanPopupBlocked": "브라우저가 새 탭을 차단했습니다. 주소 표시줄 오른쪽 아이콘에서 이 사이트의 팝업을 허용한 뒤 다시 시작하세요(또는 내장 브라우저 모드 사용).",
       "batchScanPopupBlockedToast": "새 탭이 차단되어 대기열을 중지했습니다. 팝업을 허용한 뒤 다시 시도하세요",
-      "batchScanWindowClosedToast": "브라우저 창이 닫혀 대기열을 중지했습니다"
+      "batchScanWindowClosedToast": "브라우저 창이 닫혀 대기열을 중지했습니다",
+      "batchScanWaitingHint": "아래 QR 코드를 휴대폰으로 스캔하여 해당 플랫폼에 로그인해 주세요. 시간 초과(2분) 시 자동으로 건너뛰며, 수동으로 건너뛸 수도 있습니다"
     },
     "ai": {
       "analyzeAll": "일괄 분석",
@@ -26563,7 +26569,17 @@
     "actionDelete": "삭제",
     "confirmDelete": "삭제 확인",
     "confirmDeleteContent": "이 연결을 해제하시겠습니까? 되돌릴 수 없습니다.",
-    "cancel": "취소"
+    "cancel": "취소",
+    "subTabBills": "납부",
+    "loadingBills": "납부 내역 불러오는 중…",
+    "billsLoadFailed": "납부 내역을 불러오지 못했습니다",
+    "noBills": "납부 내역이 없습니다",
+    "arrearsLabel": "미납",
+    "allPaid": "납부 완료",
+    "ledgerNotReady": "장부 준비 중",
+    "totalFeeLabel": "납부 예정 합계",
+    "paidLabel": "납부 완료 합계",
+    "overdueLabel": "기간 초과"
   },
   "eduSchedule": {
     "title": "시간표 관리",

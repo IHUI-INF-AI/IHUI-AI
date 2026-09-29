@@ -16632,6 +16632,12 @@
         "step4": "Add the models you want to use",
         "step5": "When calling, the system automatically prefers your key",
         "gotIt": "Got it"
+      },
+      "health": {
+        "degraded": "Degraded",
+        "down": "Down",
+        "healthy": "Healthy",
+        "unknown": "Unknown"
       }
     }
   },
@@ -20047,7 +20053,6 @@
       "batchScanWaitingHintExternal": "Opened in your everyday browser — please finish signing in there (your sign-in state was not readable yet)",
       "batchScanWaitingHintExternalOwn": "Opened in your everyday browser; already signed-in platforms are saved automatically, just sign in once for the rest",
       "batchScanStart": "Start batch scan",
-      "batchScanWaitingHint": "Scan the QR code below with your phone to sign in to this platform. Each platform times out after 2 minutes and is skipped automatically; you can also skip manually.",
       "batchScanLoading": "Preparing platform queue...",
       "batchScanSkip": "Skip this platform",
       "batchScanStop": "Stop queue",
@@ -20065,7 +20070,8 @@
       "batchScanStoppedToast": "Scan login queue stopped",
       "batchScanPopupBlocked": "Your browser blocked the new tab: click the blocked-popup icon in the address bar to allow pop-ups for this site, then start again (or use the built-in browser mode).",
       "batchScanPopupBlockedToast": "A new tab was blocked — queue stopped; allow pop-ups for this site and retry",
-      "batchScanWindowClosedToast": "Browser window closed — queue stopped"
+      "batchScanWindowClosedToast": "Browser window closed — queue stopped",
+      "batchScanWaitingHint": "Scan the QR code below with your phone to sign in to this platform. Each platform times out after 2 minutes and is skipped automatically; you can also skip manually."
     },
     "ai": {
       "analyzeAll": "Batch Analysis",
@@ -26584,7 +26590,17 @@
     "actionDelete": "Delete",
     "confirmDelete": "Confirm Deletion",
     "confirmDeleteContent": "Are you sure you want to remove this binding? This action cannot be undone.",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "subTabBills": "Payments",
+    "loadingBills": "Loading bills…",
+    "billsLoadFailed": "Failed to load bills",
+    "noBills": "No bills yet",
+    "arrearsLabel": "Overdue",
+    "allPaid": "Paid in full",
+    "ledgerNotReady": "Ledger not ready",
+    "totalFeeLabel": "Total due",
+    "paidLabel": "Total paid",
+    "overdueLabel": "Overdue by"
   },
   "eduSchedule": {
     "title": "Class Schedule",
