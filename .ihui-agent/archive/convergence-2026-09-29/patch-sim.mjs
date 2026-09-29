@@ -10,7 +10,7 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { gitBinary } from '../../../scripts/lib/face-reader.mjs'
+import { gitBinary } from '../../../../scripts/lib/face-reader.mjs'
 
 const GIT = gitBinary()
 const root = 'D:/IHUI-AI'

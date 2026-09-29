@@ -308,11 +308,7 @@ export function validateTarget(
     return { ok: false, errorKey: 'target.error.wholeNumber', values: {} }
   }
   if (parsed > ctx.maximumCredits) {
-    return {
-      ok: false,
-      errorKey: 'target.error.maximum',
-      values: { maximumCredits: ctx.maximumCredits },
-    }
+    return { ok: false, errorKey: 'target.error.maximum', values: { maximumCredits: ctx.maximumCredits } }
   }
   if (ctx.currentThreshold > 0 && parsed <= ctx.currentThreshold) {
     return { ok: false, errorKey: 'target.error.minimumDifference', values: {} }
@@ -409,7 +405,8 @@ export type AutoTopupRecoveryAction = (typeof AUTO_TOPUP_RECOVERY_ACTIONS)[numbe
 
 /** 首充失败两形状:amount(带预计金额)/ generic(无金额) */
 export type AutoTopupImmediateFailure =
-  { readonly kind: 'amount'; readonly amount: string } | { readonly kind: 'generic' }
+  | { readonly kind: 'amount'; readonly amount: string }
+  | { readonly kind: 'generic' }
 
 export interface FailureRecoveryView {
   readonly kind: 'amount' | 'generic'

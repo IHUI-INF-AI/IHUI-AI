@@ -1243,30 +1243,6 @@ export const WORKSPACE_AGENT_TASK_STATUSES = ['running', 'completed', 'failed', 
 export type WorkspaceAgentTaskStatus = (typeof WORKSPACE_AGENT_TASK_STATUSES)[number]
 
 /**
- * 第二域(工作空间进程内任务态)的 i18n 键表 —— **键集由上面那张登记表推导**,不再抄一份成员清单:
- * 抄一份就等于多出第二处要同步的地方(守门 151 SV3 判的正是"端内再抄第二份成员清单"那一型)。
- * 词条五语言必须同批齐(AGENTS §30);漏一条的端上表现是徽章把 `agentTasks.statusFailed`
- * 原样回显给用户,看护在 `packages/types/tests/agent-status-vocabulary-labels.test.ts`
- * (它同时钉了"漏一条 ⇒ 判红"的构造面反例,所以这张表不是自证的)。
- */
-export const WORKSPACE_AGENT_TASK_STATUS_LABEL_KEYS = Object.fromEntries(
-  WORKSPACE_AGENT_TASK_STATUSES.map(
-    (s) => [s, `agentTasks.status${s.charAt(0).toUpperCase()}${s.slice(1)}`] as const,
-  ),
-) as Record<WorkspaceAgentTaskStatus, string>
-
-/**
- * 取第二域某一档的 i18n 键;登记表之外的值一律 null,不替未知值猜一档。
- * 刻意不让 `cancelled`(双 l)通过:那是第三域的拼写,认领它等于把两域在端内并成一张表
- * (拼写分叉的登记见本文件上方 `WORKSPACE_AGENT_TASK_STATUSES` 的注释)。
- */
-export function workspaceAgentTaskStatusLabelKey(status: string): string | null {
-  return Object.prototype.hasOwnProperty.call(WORKSPACE_AGENT_TASK_STATUS_LABEL_KEYS, status)
-    ? WORKSPACE_AGENT_TASK_STATUS_LABEL_KEYS[status as WorkspaceAgentTaskStatus]
-    : null
-}
-
-/**
  * D152(2026-09-29 立,用户拍板「六态」):会话内「目标(goal)」状态机的封闭集 ——
  * **第三个域**,与上面两个刻意不相交、也不得并集:
  *  · `AGENT_TASK_STATUSES` 是 Kanban 任务卡的六列(triage/todo/ready/in_progress/blocked/done),

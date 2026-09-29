@@ -131,8 +131,7 @@ export function createConfig(input: CreateConfigInput) {
 
 export interface UpdateConfigInput {
   name?: string
-  /** G-644 三态:undefined=未触碰;null=显式清除服务端已存的凭据;''=沿用(发送空串不改变现值)。 */
-  apiKey?: string | null
+  apiKey?: string
   modelId?: string
   contextLength?: number
   description?: string
@@ -140,7 +139,7 @@ export interface UpdateConfigInput {
   enabled?: boolean
 }
 
-/** 更新 LLM 配置(apiKey 传 null 显式清除,'' 或不传则沿用现值) */
+/** 更新 LLM 配置(API Key 留空则不更新) */
 export function updateConfig(id: number, input: UpdateConfigInput) {
   return api<{ id: number; updated: boolean }>(`/api/user/llm-configs/${id}`, {
     method: 'PUT',
