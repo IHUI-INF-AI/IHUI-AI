@@ -1038,3 +1038,122 @@ test('T-JS-5 形状锁:结构档三条件都在,且 blob 模式明确不套用�
   )
 })
 
+/**
+ * 祖先命中的**行级子集出口**(2026-09-30 立,量纲修正)。
+ *
+ * 立因是真实一票:5 个 apps/web/src/components/ai/*-panel.tsx 的角色档清偿,目标内容逐字节等于
+ * 09-27 之前的形态,旧判据按"整 blob 等值"一律当写回旧版拒落 —— 而逐行核过祖先↔基线只差
+ * 本票那几行圆角,没有任何他人行被抹。判据的担忧成立、量纲不成立。
+ * 这两条臂必须成对:放行臂证明出口能用,拒落臂证明出口**没有把事故那一型一起放掉**
+ * (只留前者就是给"门瞎了"背书 —— 本仓 §22c 记过多次)。
+ */
+test('T-BLOB-7 出口放行臂:祖先命中 + 声明与差集逐行等值 ⇒ 落地并逐条点名是哪几行', (t) => {
+  const dir = makeRepo(t)
+  const ancestorBlob = runGit(dir, ['rev-parse', 'HEAD:a.txt']).trim() // "v1"
+  writeFileSync(join(dir, 'a.txt'), '别人的新内容\n')
+  runGit(dir, ['add', '--', 'a.txt'])
+  runGit(dir, ['commit', '-q', '-m', 'B: 前进'])
+  const mf = join(dir, 'mf-clash.json')
+  writeFileSync(mf, JSON.stringify({ files: [{ path: 'a.txt', blob: ancestorBlob }] }))
+  const sc = join(dir, 'scope-ok.json')
+  writeFileSync(sc, JSON.stringify({ files: [{ path: 'a.txt', removed: ['别人的新内容'], added: ['v1'] }] }))
+  const env = {
+    ...process.env,
+    LAND_ROOT: dir,
+    LAND_PATHS: 'a.txt',
+    LAND_MSG: 'chore: 行级声明放行',
+    LAND_BLOB_PROOF: 'e2e:本票只动 a.txt 的那一行',
+    LAND_BLOBS: mf,
+    LAND_CLASH_SCOPE: sc,
+  }
+  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
+  assert.equal(r.status, 0, `声明与差集等值时应放行,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  const out = r.stdout + r.stderr
+  assert.match(out, /命中祖先 .* 但差集与本票声明逐行等值/, '必须点名"命中过祖先"这件事,不得静默放行')
+  assert.match(out, /写回旧态的本票行: 别人的新内容/, '放行的每一条都要列出会被写回的行')
+  assert.match(out, /恢复的本票行: *v1/, '同理列出被恢复的行')
+  assert.match(out, /1 个命中祖先但已按行级声明点名放行/, '汇总行必须把两档分开报数')
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD:a.txt']).trim(), ancestorBlob, '放行后新 HEAD 内容必须是清单那份')
+})
+
+test('T-BLOB-8 出口有牙臂(阳性对照):声明漏报他人行 ⇒ 照旧拒落并点名那几行', (t) => {
+  const dir = makeRepo(t)
+  // 祖先 A:两行都是旧形态。B:别人把两行都推进了。本票只想恢复自己那一行 ⇒ 落 A 的整份 blob
+  // 会连带把别人的行写回旧态 —— 这正是本判据存在的理由,出口不得把它放掉。
+  writeFileSync(join(dir, 'two.txt'), 'mine-v1\nother-v1\n')
+  runGit(dir, ['add', '--', 'two.txt'])
+  runGit(dir, ['commit', '-q', '-m', 'A: 旧形态'])
+  const ancestorBlob = runGit(dir, ['rev-parse', 'HEAD:two.txt']).trim()
+  writeFileSync(join(dir, 'two.txt'), 'mine-v2\nother-v2\n')
+  runGit(dir, ['add', '--', 'two.txt'])
+  runGit(dir, ['commit', '-q', '-m', 'B: 别人推进了两行'])
+  const mf = join(dir, 'mf-partial.json')
+  writeFileSync(mf, JSON.stringify({ files: [{ path: 'two.txt', blob: ancestorBlob }] }))
+  const sc = join(dir, 'scope-partial.json')
+  writeFileSync(sc, JSON.stringify({ files: [{ path: 'two.txt', removed: ['mine-v2'], added: ['mine-v1'] }] }))
+  const env = {
+    ...process.env,
+    LAND_ROOT: dir,
+    LAND_PATHS: 'two.txt',
+    LAND_MSG: 'chore: 声明漏报他人行',
+    LAND_BLOB_PROOF: 'e2e',
+    LAND_BLOBS: mf,
+    LAND_CLASH_SCOPE: sc,
+  }
+  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
+  assert.equal(r.status, 1, `声明不完整必须仍拒落,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  const out = r.stdout + r.stderr
+  assert.match(out, /声明的改动行与祖先↔基线的实际差集不等/, '要说清是"不等"而不是笼统的"等于祖先"')
+  assert.match(out, /other-v2/, '必须点名那条会被写回旧态的他人行')
+  assert.match(out, /other-v1/, '也必须点名那条会被搬回来的行')
+  assert.notEqual(runGit(dir, ['rev-parse', 'HEAD']).trim(), '', '拒落路径上 HEAD 不应前进')
+})
+
+test('T-BLOB-9 出口的两个判死臂:坏 JSON 与射程外声明都不得被读成"没有命中祖先"', (t) => {
+  const dir = makeRepo(t)
+  const ancestorBlob = runGit(dir, ['rev-parse', 'HEAD:a.txt']).trim()
+  writeFileSync(join(dir, 'a.txt'), '别人的新内容\n')
+  runGit(dir, ['add', '--', 'a.txt'])
+  runGit(dir, ['commit', '-q', '-m', 'B: 前进'])
+  const mf = join(dir, 'mf-c.json')
+  writeFileSync(mf, JSON.stringify({ files: [{ path: 'a.txt', blob: ancestorBlob }] }))
+
+  const bad = join(dir, 'scope-bad.json')
+  writeFileSync(bad, '{这不是 JSON')
+  const r1 = spawnSync(process.execPath, [TOOL], {
+    env: { ...process.env, LAND_ROOT: dir, LAND_PATHS: 'a.txt', LAND_MSG: 'm', LAND_BLOB_PROOF: 'p', LAND_BLOBS: mf, LAND_CLASH_SCOPE: bad },
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+  })
+  assert.equal(r1.status, 2, `坏声明文件必须判死而不是当"无声明"落,实得 ${r1.status}:${r1.stdout}|${r1.stderr}`)
+  assert.match(r1.stdout + r1.stderr, /LAND_CLASH_SCOPE/)
+
+  const unknown = join(dir, 'scope-unknown.json')
+  writeFileSync(unknown, JSON.stringify({ files: [{ path: 'sub/keep.txt', removed: [], added: [] }] }))
+  const r2 = spawnSync(process.execPath, [TOOL], {
+    env: { ...process.env, LAND_ROOT: dir, LAND_PATHS: 'a.txt', LAND_MSG: 'm', LAND_BLOB_PROOF: 'p', LAND_BLOBS: mf, LAND_CLASH_SCOPE: unknown },
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+  })
+  assert.equal(r2.status, 2, `射程外声明永不被核验 ⇒ 判死,实得 ${r2.status}:${r2.stdout}|${r2.stderr}`)
+  assert.match(r2.stdout + r2.stderr, /射程外|未声明落地/)
+})
+
+/**
+ * 形状锁:行级多重集只能有一份实现。本器**不得**自己再写一遍计行/差集/等值 ——
+ * 两处算同一件事必漂移,而漂移的表现是"数字合理、结论相反"(§3、守门 134/135 同一课)。
+ */
+test('T-BLOB-10 形状锁:多重集口径只住在 lib,本器只 import', () => {
+  const src = readFileSync(TOOL, 'utf8')
+  for (const name of ['lineDeltaMaps', 'multisetOfLines', 'multisetsEqual']) {
+    assert.ok(src.includes(name), `本器必须引 lib 的 ${name}(自己算 = 第二份真相)`)
+  }
+  assert.ok(!/function\s+tallyLines\b/.test(src), '本器里不得出现第二份 tallyLines')
+  const lib = readFileSync(join(HERE, '..', 'lib', 'stale-content-analysis.mjs'), 'utf8')
+  assert.equal((lib.match(/const extras = \(/g) ?? []).length, 1, 'lib 里差集口径只能有一处(计数与样本必须同源)')
+  assert.match(lib, /const maps = lineDeltaMaps\(baseText, newText\)/, 'lineDelta 必须是 lineDeltaMaps 的投影,不是并列的第二份实现')
+})
+
+
