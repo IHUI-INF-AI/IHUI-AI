@@ -17,6 +17,8 @@ import {
   type ImageTransferResult,
 } from '@ihui/shared/chat/element-pack'
 import { cn } from '@/lib/utils'
+import { fetchGatedBlob } from '@/lib/gated-blob-fetch'
+import { downloadFilenameFor } from '@/lib/file-preview-attachment'
 import { OfficeViewer } from './OfficeViewer'
 import { ThreeDViewer } from './ThreeDViewer'
 import { PDFViewer } from './PDFViewer'
@@ -210,18 +212,24 @@ function ImagePreview({
   } | null>(null)
   const transferLabel = transfer ? te(imageTransferView(transfer.kind, transfer.result)) : null
 
-  const handleSave = React.useCallback(() => {
+  const handleSave = React.useCallback(async () => {
     try {
+      // 浏览器对跨域 URL 会忽略 download 属性(变成一次导航),所以先把字节取到手再落盘;
+      // 取不到(被 CORS 拒 / 网络错 / 超上限)一律报失败,不播报"已保存"(G-851)。
+      const blob = await fetchGatedBlob(current.url)
+      const objectUrl = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = current.url
-      a.download = current.name ?? `image-${active + 1}`
+      a.href = objectUrl
+      a.download = downloadFilenameFor(current.name, `image-${active + 1}`, blob.type)
       a.rel = 'noopener'
       document.body.appendChild(a)
       a.click()
       a.remove()
+      // 同一 tick revoke 会被部分浏览器当成取消下载(仓内同款见 ai-career/page.tsx)
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
       setTransfer({ kind: 'save', result: 'success' })
     } catch {
-      // 下载被宿主拦下(无手势 / 策略拒绝)时**明说失败**,不静默吞
+      // 下载被宿主拦下(无手势 / 策略拒绝 / 取体被拒)时**明说失败**,不静默吞
       setTransfer({ kind: 'save', result: 'failed' })
     }
   }, [current.url, current.name, active])
@@ -350,7 +358,7 @@ function ImagePreview({
           <button
             type="button"
             className={toolBtn}
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             aria-label={te('imagePreview.save')}
             data-image-transfer-btn="save"
           >
