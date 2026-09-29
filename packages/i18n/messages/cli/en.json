@@ -3,6 +3,15 @@
     "notFound": "{target} not found"
   },
   "cli": {
+    "custom": {
+      "unknown": "Custom command /{name} is not defined. Add it by creating {name}.md inside the custom command folder {dir} (use $ARGUMENTS for the whole input, or $1 and $2 for positional arguments). Run /help to see the built-in commands.",
+      "reserved": "The name /{name} collides with the built-in command /{owner}, so it was rejected: built-in commands always take priority. Choose another name.",
+      "invalidName": "The custom command name \"{name}\" is invalid: start it with a lowercase letter and use only lowercase letters, digits, hyphens and underscores.",
+      "emptyBody": "Custom command /{name} has an empty body, so there is nothing to send. Write the prompt into {path}.",
+      "unsupportedShell": "Custom command /{name} uses dynamic shell expansion (a bang backtick or a fenced bang block), which is not supported yet, so it was refused. Write the text you need directly into the body.",
+      "missingArgs": "Custom command /{name} needs argument {required} but only {given} were provided. Pass the missing arguments, or use $ARGUMENTS in the body to accept the whole input.",
+      "saved": "Saved custom command /{name} to {path}"
+    },
     "permNoteDefault": "Every step asks for confirmation (safest)",
     "permNotePlan": "Plan only: your files stay untouched until you approve",
     "permNoteAcceptEdits": "File edits auto-approved; commands and dangerous tools still ask",

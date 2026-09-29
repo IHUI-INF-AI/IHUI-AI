@@ -44,6 +44,26 @@ import type {
 } from '@ihui/types'
 import { checkAuth, checkAuthOrInternalService } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { fetchWithinDeadline, withBody } from '../utils/fetch-deadline.js'
+import {
+  INBOUND_DEDUP_TTL_MS,
+  OUTBOUND_REQUEST_TIMEOUT_MS,
+  applyFoldToOutcome,
+  buildInboundDedupKey,
+  classifyTransportError,
+  createMemoryDedupStore,
+  createRedisDedupStore,
+  deliverWithPolicy,
+  deriveInboundMessageId,
+  imOutboundCircuitBreaker,
+  interpretPlatformResponse,
+  localRejection,
+  planOutboundMessages,
+  runInboundIntake,
+  OutboundCircuitBreaker,
+  type ImDeliveryOutcome,
+  type InboundDedupStore,
+} from '../services/im-outbound-policy.js'
 
 // ============================================================================
 // Zod schemas
@@ -618,8 +638,7 @@ export type WebhookAuthzInput<T extends WebhookCandidate> = {
   rawBody: string
 }
 export type WebhookAuthzOutcome<T extends WebhookCandidate> =
-  | { kind: 'resolved'; adapter: T }
-  | { kind: 'unauthorized' }
+  { kind: 'resolved'; adapter: T } | { kind: 'unauthorized' }
 
 /** 兜底 header 清单与旧路由逐字同形(改这里必须同步路由注释,不得两处各写一遍) */
 export const WEBHOOK_SIGNATURE_FALLBACK_HEADERS = [
@@ -631,6 +650,31 @@ export const WEBHOOK_SIGNATURE_FALLBACK_HEADERS = [
   'x-line-signature',
   'x-kakao-signature',
 ] as const
+
+/**
+ * G-815418 ② 的**承载位**:原始字节串由 content-type parser 挂在 fastify 的 request 对象上,
+ * 由 webhook handler 取出来喂给 HMAC。
+ *
+ * 为什么单独成两个函数而不是就地写 `(req as unknown as {rawBody?:string}).rawBody = text`:
+ * 落地那一版把值写在 **parser 的第一参数**上,而 handler 读的是 `request.raw` ——
+ * fastify v5 的 `lib/content-type-parser.js:219/305` 实参是 `parser.fn(request, body, done)`,
+ * 也就是**第一个参数是 FastifyRequest,不是 IncomingMessage**。两个承载对象不同 ⇒
+ * 读侧恒 `undefined` ⇒ HMAC 每一次都在算**再序列化结果**(带 warn 但方向是"拒绝合法签名"),
+ * 而它自己的源锁用例只钉字符串形状,所以那一条一直是绿的(AGENTS:「判据失效的表现永远是安静」)。
+ * 现在写侧与读侧只能经由这两个函数,配对由测试的运行时用例钉住,不再靠人眼对齐属性名。
+ */
+interface RawBodyCarrier {
+  rawBody?: string
+}
+
+export function attachWebhookRawBody(carrier: object, text: string): void {
+  ;(carrier as RawBodyCarrier).rawBody = text
+}
+
+export function readWebhookRawBody(carrier: unknown): string | undefined {
+  const value = (carrier as RawBodyCarrier | undefined)?.rawBody
+  return typeof value === 'string' ? value : undefined
+}
 
 export function resolveWebhookAdapter<T extends WebhookCandidate>(
   input: WebhookAuthzInput<T>,
@@ -918,8 +962,8 @@ async function enqueueInboundForAiService(
   userId: string,
   platform: ImPlatform,
   inbound: ImInboundMessage,
-): Promise<void> {
-  if (!redis) return
+): Promise<{ queued: boolean; reason?: string }> {
+  if (!redis) return { queued: false, reason: 'Redis 未就绪' }
   try {
     const key = `im:inbound:${userId}:${platform}`
     const raw = await redis.get(key)
@@ -928,25 +972,50 @@ async function enqueueInboundForAiService(
     // 保留最近 100 条,防止无限增长
     if (list.length > 100) list.splice(0, list.length - 100)
     await redis.set(key, JSON.stringify(list))
-  } catch {
-    // Redis 不可用:忽略(消息已持久化到 Postgres,ai-service 降级不消费)
+    return { queued: true }
+  } catch (e) {
+    // Redis 不可用:消息已持久化到 Postgres,ai-service 降级不消费 —— 如实回 queued=false,
+    // 由调用方写进响应(G-815416 的"账面绿而没人知道那一步发生了什么"就坏在旧写法静默 return)。
+    return { queued: false, reason: (e as Error).message || 'Redis 写入失败' }
   }
 }
 
 // ============================================================================
-// 辅助:通用 fetch(超时 10s,失败返回错误描述,不抛异常)
+// 辅助:通用 fetch(G-815413 — deadline 罩到响应体消费结束;失败返回可分辨结论,不抛异常)
 // ============================================================================
 
-async function doFetch(url: string, init: RequestInit): Promise<{ sent: boolean; error?: string }> {
+/**
+ * 旧写法三处同时坏:
+ *  ① `clearTimeout` 紧跟 `await fetch(...)` ⇒ 罩子在**响应头到达**时就撤了,而 `fetch` 正是
+ *     在 headers 到达时 resolve 的(providerRequest.ts:29-40 写的就是这个);
+ *  ② 从不消费响应体 ⇒ 平台"发完 headers 之后停滞"时这条请求既不超时也不报错,
+ *     永久占住调用方;
+ *  ③ 只回 `resp.ok` ⇒ 2xx 里的业务拒绝与"没回 message_id"全被记成投递成功。
+ * 现在超时出口复用 `utils/fetch-deadline.ts`(**不得造第二份超时出口**),
+ * 并在同一个罩子里把响应体读完,再交给 `interpretPlatformResponse`。
+ */
+export async function doFetch(
+  url: string,
+  init: RequestInit,
+  label: string,
+): Promise<ImDeliveryOutcome> {
+  let resp: Response
   try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 10000)
-    const resp = await fetch(url, { ...init, signal: controller.signal })
-    clearTimeout(timer)
-    return { sent: resp.ok, error: resp.ok ? undefined : `HTTP ${resp.status}` }
+    resp = await fetchWithinDeadline(url, init, {
+      timeoutMs: OUTBOUND_REQUEST_TIMEOUT_MS,
+      label,
+    })
   } catch (e) {
-    return { sent: false, error: (e as Error).message || '投递失败' }
+    return classifyTransportError(e)
   }
+  let bodyText = ''
+  try {
+    // withBody:消费 settle(成功或抛错)之后才 clearTimeout —— 这一行就是本票的落点。
+    bodyText = await withBody(resp, (r) => r.text())
+  } catch (e) {
+    return classifyTransportError(e)
+  }
+  return interpretPlatformResponse(resp.status, bodyText)
 }
 
 // ============================================================================
@@ -956,15 +1025,19 @@ async function doFetch(url: string, init: RequestInit): Promise<{ sent: boolean;
 async function deliverOutbound(
   adapter: ImAdapterConfig,
   message: ImOutboundMessage,
-): Promise<{ sent: boolean; error?: string }> {
+): Promise<ImDeliveryOutcome> {
   if (!adapter.callbackUrl) {
-    return { sent: false, error: 'callbackUrl 未配置' }
+    return localRejection('callbackUrl 未配置')
   }
-  return doFetch(adapter.callbackUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(message),
-  })
+  return doFetch(
+    adapter.callbackUrl,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(message),
+    },
+    `im-gateway→${message.platform} callbackUrl`,
+  )
 }
 
 // ============================================================================
@@ -974,181 +1047,209 @@ async function deliverOutbound(
 async function sendWhatsApp(
   message: ImOutboundMessage,
   adapter: ImAdapterConfig,
-): Promise<{ sent: boolean; error?: string }> {
+): Promise<ImDeliveryOutcome> {
   if (!adapter.botToken || !adapter.appId) {
-    return { sent: false, error: 'WhatsApp 需要 botToken(访问令牌)和 appId(电话号码 ID)' }
+    return localRejection('WhatsApp 需要 botToken(访问令牌)和 appId(电话号码 ID)')
   }
   const url = `https://graph.facebook.com/v17.0/${adapter.appId}/messages`
-  return doFetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${adapter.botToken}`,
-      'Content-Type': 'application/json',
+  return doFetch(
+    url,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${adapter.botToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: message.chatId,
+        type: 'text',
+        text: { body: message.text ?? '' },
+      }),
     },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      to: message.chatId,
-      type: 'text',
-      text: { body: message.text ?? '' },
-    }),
-  })
+    'im-gateway→whatsapp messages',
+  )
 }
 
 async function sendLine(
   message: ImOutboundMessage,
   adapter: ImAdapterConfig,
-): Promise<{ sent: boolean; error?: string }> {
+): Promise<ImDeliveryOutcome> {
   if (!adapter.botToken) {
-    return { sent: false, error: 'LINE 需要 botToken(Channel Access Token)' }
+    return localRejection('LINE 需要 botToken(Channel Access Token)')
   }
-  return doFetch('https://api.line.me/v2/bot/message/push', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${adapter.botToken}`,
-      'Content-Type': 'application/json',
+  return doFetch(
+    'https://api.line.me/v2/bot/message/push',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${adapter.botToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: message.chatId,
+        messages: [{ type: 'text', text: message.text ?? '' }],
+      }),
     },
-    body: JSON.stringify({
-      to: message.chatId,
-      messages: [{ type: 'text', text: message.text ?? '' }],
-    }),
-  })
+    'im-gateway→line push',
+  )
 }
 
 async function sendKakaoTalk(
   message: ImOutboundMessage,
   adapter: ImAdapterConfig,
-): Promise<{ sent: boolean; error?: string }> {
+): Promise<ImDeliveryOutcome> {
   if (!adapter.botToken) {
-    return { sent: false, error: 'KakaoTalk 需要 botToken(用户访问令牌)' }
+    return localRejection('KakaoTalk 需要 botToken(用户访问令牌)')
   }
   const template = {
     object_type: 'text',
     text: message.text ?? '',
     link: { web_url: 'https://example.com' },
   }
-  return doFetch('https://kapi.kakao.com/v2/api/talk/memo/send', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${adapter.botToken}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
+  return doFetch(
+    'https://kapi.kakao.com/v2/api/talk/memo/send',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${adapter.botToken}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `template_object=${encodeURIComponent(JSON.stringify(template))}`,
     },
-    body: `template_object=${encodeURIComponent(JSON.stringify(template))}`,
-  })
+    'im-gateway→kakao memo',
+  )
 }
 
 async function sendSignal(
   message: ImOutboundMessage,
   adapter: ImAdapterConfig,
-): Promise<{ sent: boolean; error?: string }> {
+): Promise<ImDeliveryOutcome> {
   const baseUrl = adapter.callbackUrl ?? 'http://localhost:8808'
-  return doFetch(`${baseUrl}/v2/send`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      message: message.text ?? '',
-      number: message.chatId,
-    }),
-  })
+  return doFetch(
+    `${baseUrl}/v2/send`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: message.text ?? '',
+        number: message.chatId,
+      }),
+    },
+    'im-gateway→signal v2/send',
+  )
 }
 
 async function sendMatrix(
   message: ImOutboundMessage,
   adapter: ImAdapterConfig,
-): Promise<{ sent: boolean; error?: string }> {
+): Promise<ImDeliveryOutcome> {
   if (!adapter.botToken || !adapter.callbackUrl) {
-    return { sent: false, error: 'Matrix 需要 botToken(访问令牌)和 callbackUrl(homeserver)' }
+    return localRejection('Matrix 需要 botToken(访问令牌)和 callbackUrl(homeserver)')
   }
   const txnId = randomUUID()
   const url = `${adapter.callbackUrl}/_matrix/client/r0/rooms/${encodeURIComponent(message.chatId)}/send/m.room.message/${txnId}`
-  return doFetch(url, {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${adapter.botToken}`,
-      'Content-Type': 'application/json',
+  return doFetch(
+    url,
+    {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${adapter.botToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        msgtype: 'm.text',
+        body: message.text ?? '',
+      }),
     },
-    body: JSON.stringify({
-      msgtype: 'm.text',
-      body: message.text ?? '',
-    }),
-  })
+    'im-gateway→matrix room send',
+  )
 }
 
 async function sendRocketChat(
   message: ImOutboundMessage,
   adapter: ImAdapterConfig,
-): Promise<{ sent: boolean; error?: string }> {
+): Promise<ImDeliveryOutcome> {
   if (!adapter.botToken || !adapter.appId || !adapter.callbackUrl) {
-    return {
-      sent: false,
-      error: 'Rocket.Chat 需要 botToken(X-Auth-Token)、appId(X-User-Id)、callbackUrl(server)',
-    }
+    return localRejection(
+      'Rocket.Chat 需要 botToken(X-Auth-Token)、appId(X-User-Id)、callbackUrl(server)',
+    )
   }
-  return doFetch(`${adapter.callbackUrl}/api/v1/chat.postMessage`, {
-    method: 'POST',
-    headers: {
-      'X-Auth-Token': adapter.botToken,
-      'X-User-Id': adapter.appId,
-      'Content-Type': 'application/json',
+  return doFetch(
+    `${adapter.callbackUrl}/api/v1/chat.postMessage`,
+    {
+      method: 'POST',
+      headers: {
+        'X-Auth-Token': adapter.botToken,
+        'X-User-Id': adapter.appId,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        channel: message.chatId,
+        msg: message.text ?? '',
+      }),
     },
-    body: JSON.stringify({
-      channel: message.chatId,
-      msg: message.text ?? '',
-    }),
-  })
+    'im-gateway→rocketchat postMessage',
+  )
 }
 
 async function sendMattermost(
   message: ImOutboundMessage,
   adapter: ImAdapterConfig,
-): Promise<{ sent: boolean; error?: string }> {
+): Promise<ImDeliveryOutcome> {
   if (!adapter.botToken || !adapter.callbackUrl) {
-    return { sent: false, error: 'Mattermost 需要 botToken(Bearer)和 callbackUrl(server)' }
+    return localRejection('Mattermost 需要 botToken(Bearer)和 callbackUrl(server)')
   }
-  return doFetch(`${adapter.callbackUrl}/api/v4/posts`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${adapter.botToken}`,
-      'Content-Type': 'application/json',
+  return doFetch(
+    `${adapter.callbackUrl}/api/v4/posts`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${adapter.botToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        channel_id: message.chatId,
+        message: message.text ?? '',
+      }),
     },
-    body: JSON.stringify({
-      channel_id: message.chatId,
-      message: message.text ?? '',
-    }),
-  })
+    'im-gateway→mattermost posts',
+  )
 }
 
 async function sendZulip(
   message: ImOutboundMessage,
   adapter: ImAdapterConfig,
-): Promise<{ sent: boolean; error?: string }> {
+): Promise<ImDeliveryOutcome> {
   if (!adapter.botToken || !adapter.appId || !adapter.callbackUrl) {
-    return {
-      sent: false,
-      error: 'Zulip 需要 botToken(api_key)、appId(bot_email)、callbackUrl(server)',
-    }
+    return localRejection('Zulip 需要 botToken(api_key)、appId(bot_email)、callbackUrl(server)')
   }
   const basicAuth = Buffer.from(`${adapter.appId}:${adapter.botToken}`).toString('base64')
-  return doFetch(`${adapter.callbackUrl}/api/v1/messages`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${basicAuth}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
+  return doFetch(
+    `${adapter.callbackUrl}/api/v1/messages`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${basicAuth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        type: 'stream',
+        to: message.chatId,
+        content: message.text ?? '',
+        subject: 'message',
+      }).toString(),
     },
-    body: new URLSearchParams({
-      type: 'stream',
-      to: message.chatId,
-      content: message.text ?? '',
-      subject: 'message',
-    }).toString(),
-  })
+    'im-gateway→zulip messages',
+  )
 }
 
-/** 出站消息统一分发:新 8 平台走平台 API,原 8 平台走通用 callbackUrl */
+/** 出站消息统一分发:新 8 平台走平台 API,原 8 平台走通用 callbackUrl(单份载荷,不含重试) */
 async function sendToPlatform(
   platform: ImPlatform,
   message: ImOutboundMessage,
   adapter: ImAdapterConfig,
-): Promise<{ sent: boolean; error?: string }> {
+): Promise<ImDeliveryOutcome> {
   switch (platform) {
     case 'whatsapp':
       return sendWhatsApp(message, adapter)
@@ -1169,6 +1270,26 @@ async function sendToPlatform(
     default:
       return deliverOutbound(adapter, message)
   }
+}
+
+// ============================================================================
+// 辅助:入站去重存储(G-815415)
+// ============================================================================
+
+/**
+ * Redis 在位时用它(多实例共享);不可用时退到进程内存档。
+ * 内存档**不跨进程**——这是降级不是等价,所以多实例部署必须让 Redis 在位。
+ */
+const memoryDedupStore = createMemoryDedupStore()
+let redisDedupStoreCache: { redis: unknown; store: InboundDedupStore } | null = null
+
+function dedupStoreFor(redis: unknown): InboundDedupStore {
+  if (!redis) return memoryDedupStore
+  if (redisDedupStoreCache && redisDedupStoreCache.redis === redis)
+    return redisDedupStoreCache.store
+  const store = createRedisDedupStore(redis as Parameters<typeof createRedisDedupStore>[0])
+  redisDedupStoreCache = { redis, store }
+  return store
 }
 
 // ============================================================================
@@ -1200,12 +1321,18 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
   // key 顺序/空白/数字格式任一差异都会让合法签名失败(失败方向是拒绝,所以它今天不响而一直坏)。
   // 这里在**本插件作用域**内按字符串收正文、把真字节挂在 request.raw 上,再 JSON.parse 交回给
   // 既有 handler —— 语义与默认 parser 一致,只是多留一份原始串。不用 fastify-plugin ⇒ 不污染全 API。
+  //
+  // 形参显式标注(而不是让 TS 去推断)另有一条现实理由:签名 callback 一旦带上类型标注,
+  // 这一行的宽度就超过 prettier 的 100 列,展开形态成为**规范形态**;而不展开时
+  // `tests/im-gateway-webhook-authz.test.ts` 那条"parser 必须保留"的源锁会因为
+  // lint-staged 的 prettier 重排而红(它钉的是换行后的字面形状)。一处显式类型,同时买
+  // 「类型诚实」与「格式化稳定」两件事。
   server.addContentTypeParser(
     'application/json',
     { parseAs: 'string' },
-    (req, payload, done) => {
+    (req: FastifyRequest, payload: string, done: (err: Error | null, body?: unknown) => void) => {
       const text = typeof payload === 'string' ? payload : ''
-      ;(req as unknown as { rawBody?: string }).rawBody = text
+      attachWebhookRawBody(req, text)
       try {
         done(null, text.length ? (JSON.parse(text) as unknown) : {})
       } catch (e) {
@@ -1230,15 +1357,16 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
       // G-815418 ①:归属由服务端按"谁家密钥验得过"算出,不再由客户端自报的 body.userId 挑密钥。
       // G-815418 ②:HMAC 的输入是**原始字节串**(由本插件作用域的 JSON parser 挂在 request 上);
       //   取不到真字节才退回再序列化,并把这件事喊出来 —— 静默用错档会让合法签名被误拒。
+      //   承载对象必须是 `request` 本身而不是 `request.raw`:fastify 把 parser 的第一个实参
+      //   就是 request(FastifyRequest),写侧与读侧不同对象 ⇒ 读侧恒 undefined(见 attachWebhookRawBody 头注)。
       const meta = PLATFORMS_META[platform]
       const adapterRows = await dbRead
         .select()
         .from(imAdapters)
         .where(eq(imAdapters.platform, platform))
-      const reqWithRaw = request.raw as unknown as { rawBody?: string }
-      const rawBody =
-        typeof reqWithRaw.rawBody === 'string' ? reqWithRaw.rawBody : JSON.stringify(body)
-      if (typeof reqWithRaw.rawBody !== 'string') {
+      const carriedRawBody = readWebhookRawBody(request)
+      const rawBody = carriedRawBody ?? JSON.stringify(body)
+      if (carriedRawBody === undefined) {
         request.log.warn(
           'im-gateway webhook:未取到原始字节,本趟退回再序列化(合法签名可能被误拒,不是放行)',
         )
@@ -1270,9 +1398,24 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
       // 解析入站消息
       const extracted = parseInboundPayload(body, platform)
       const now = new Date().toISOString()
+
+      // G-815415:去重范围 = 平台 + 归属用户(验签算出的那个)+ 会话(没有会话退到发送者),
+      // 消息标识 = 平台带的 id,没带则用「发送者 + 正文哈希」的**可复现** id。
+      const dedupInput = {
+        platform,
+        userId,
+        chatId: extracted.chatId,
+        fromUserId: extracted.fromUserId,
+        platformMessageId: extracted.platformMessageId,
+        text: extracted.text,
+      }
+      // 旧写法这里写的是 `extracted.platformMessageId ?? randomUUID()`:平台不带 id 时
+      // 每次重投都换一个 id ⇒ 二次落库 + 二次入队 + LLM 回两遍。
+      const platformMessageId = deriveInboundMessageId(dedupInput)
+      const dedupKey = buildInboundDedupKey(dedupInput)
       const inbound: ImInboundMessage = {
         platform,
-        platformMessageId: extracted.platformMessageId ?? randomUUID(),
+        platformMessageId,
         fromUserId: extracted.fromUserId ?? 'unknown',
         fromUserName: extracted.fromUserName,
         chatId: extracted.chatId ?? 'default',
@@ -1289,21 +1432,48 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
       const contentText =
         extracted.text ??
         (extracted.mediaUrl ? `[${extracted.messageType}] ${extracted.mediaUrl}` : '')
-      await db.insert(imMessages).values({
-        userId,
-        platform,
-        direction: 'inbound' as ImMessageDirection,
-        chatId: inbound.chatId,
-        platformMessageId: inbound.platformMessageId,
-        content: contentText,
-        rawPayload: body,
-        deliveryStatus: 'sent',
-      })
 
-      // 推入站消息到 Redis 队列(供 ai-service im_bridge.py 消费,自动 LLM 回复)
-      await enqueueInboundForAiService(server.redis, userId, platform, inbound)
+      // claim → persist → handoff 的唯一流程在策略层(runInboundIntake),失败撤回也在那一处;
+      // 路由只负责把三个动作接起来并把结论写进响应。
+      const intake = await runInboundIntake(
+        dedupStoreFor(server.redis),
+        dedupKey,
+        INBOUND_DEDUP_TTL_MS,
+        {
+          persist: async () => {
+            await db.insert(imMessages).values({
+              userId,
+              platform,
+              direction: 'inbound' as ImMessageDirection,
+              chatId: inbound.chatId,
+              platformMessageId: inbound.platformMessageId,
+              content: contentText,
+              rawPayload: body,
+              deliveryStatus: 'sent',
+            })
+          },
+          handoff: () => enqueueInboundForAiService(server.redis, userId, platform, inbound),
+        },
+      )
 
-      return reply.send(success({ received: true, platform, messageId: inbound.platformMessageId }))
+      if (intake.disposition === 'duplicate') {
+        // 重投被吞掉是**预期行为**,但必须留痕:静默返回和"收到了新消息"在账面上长得一样。
+        return reply.send(
+          success({ received: true, platform, messageId: platformMessageId, duplicated: true }),
+        )
+      }
+
+      return reply.send(
+        success({
+          received: true,
+          platform,
+          messageId: inbound.platformMessageId,
+          // claim==='unknown' ⇒ 去重判不出(Redis 命令失败)。放行优先于去重:
+          // 宁可重复落库,也不静默丢消息 —— 但这件事必须写进响应而不是咽下去。
+          ...(intake.dedupUndetermined ? { dedupUndetermined: true } : {}),
+          ...(intake.queued ? {} : { aiQueued: false, aiQueueReason: intake.queueReason }),
+        }),
+      )
     },
   )
 
@@ -1341,7 +1511,16 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
       replyToMessageId,
     }
 
-    const result = await sendToPlatform(platform, outbound, adapter)
+    // G-815417:长文本按平台上限分段(优先 \n/空格边界、无边界才带标记硬切);
+    // G-815416:逐段走**同一份**投递策略(有界重试 + 退避 + 熔断),路由不再自己抄循环。
+    const planned = planOutboundMessages(outbound)
+    const report = await deliverWithPolicy(planned.items, {
+      circuit: imOutboundCircuitBreaker,
+      circuitKey: OutboundCircuitBreaker.keyFor(userId, platform),
+      sendItem: (item) => sendToPlatform(platform, item, adapter),
+    })
+    const result = applyFoldToOutcome(report.outcome, planned.rendered?.omittedSegmentCount ?? 0)
+    const segmentsPlanned = planned.rendered?.messages.length
 
     // 持久化到 Postgres im_messages 表(无论成功失败都记录,便于审计)
     const contentText =
@@ -1351,18 +1530,37 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
       platform,
       direction: 'outbound' as ImMessageDirection,
       chatId,
+      platformMessageId: result.providerMessageId,
       content: contentText,
-      rawPayload: { ...outbound, ...(result.error ? { deliveryError: result.error } : {}) },
-      deliveryStatus: result.sent ? 'sent' : 'failed',
-      errorMessage: result.error,
+      rawPayload: {
+        ...outbound,
+        ...(result.reason ? { deliveryError: result.reason } : {}),
+        deliveryStatus: result.status,
+        deliveryAttempts: result.attempts,
+        ...(segmentsPlanned ? { segmentsPlanned } : {}),
+      },
+      deliveryStatus: result.ok ? 'sent' : 'failed',
+      errorMessage: result.reason,
     })
 
     return reply.send(
       success({
-        sent: result.sent,
+        // `sent` 保留(api-client 的 SendImMessageResult 契约),但它不再是一切的结论:
+        // 结论在 status —— business-rejected / no-receipt / partial / circuit-open 都能被区分。
+        sent: result.ok,
+        status: result.status,
         platform,
         chatId,
-        ...(result.error ? { error: result.error } : {}),
+        attempts: result.attempts,
+        ...(result.providerMessageId ? { providerMessageId: result.providerMessageId } : {}),
+        ...(planned.rendered
+          ? {
+              segments: planned.rendered.messages.length,
+              omittedSegmentCount: planned.rendered.omittedSegmentCount,
+              hardCutCount: planned.rendered.hardCutCount,
+            }
+          : {}),
+        ...(result.reason ? { error: result.reason } : {}),
       }),
     )
   })
