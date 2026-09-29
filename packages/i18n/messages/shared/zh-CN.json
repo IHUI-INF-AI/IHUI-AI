@@ -1,4 +1,14 @@
 {
+  "llmSettings": {
+    "v2": {
+      "health": {
+        "healthy": "健康",
+        "degraded": "降级",
+        "down": "不可用",
+        "unknown": "未知"
+      }
+    }
+  },
   "taskStatus": {
     "toolGenericActivity": "{state, select, running {正在执行：{name}} completed {已完成：{name}} other {执行：{name}}}",
     "toolReadFileActivity": "{state, select, running {正在读取文件} completed {已读取文件} other {读取文件}}",

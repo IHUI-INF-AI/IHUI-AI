@@ -16,6 +16,50 @@ import type { PlatformTemplate, TestResult, UpstreamModel } from './types'
 
 export type { PlatformTemplate, TestResult, UpstreamModel }
 
+/**
+ * provider / model 健康档封闭联合(G-716 立,2026-09-29)。
+ *
+ * 立因:此前这里是裸 `healthStatus?: string`,而 `ProviderCardV2.tsx` 用三档 if 猜色、
+ * 并把**原始英文枚举直接渲染进徽章**(同文件 noKey 徽章反而走 `t()` ⇒ 同一组件两种口径)。
+ * 封闭联合把值域钉住,渲染面从此拿得到"每一档都有词表键"这一编译期保证。
+ *
+ * **取值域是反查出来的,不是手抄的**(按当次 schema 实测,勿照本注释派单):
+ *   - `packages/database/src/schema/ai-config.ts:77`
+ *       `healthStatus: varchar('health_status', { length: 16 }).default('unknown')`
+ *     ⇒ 缺省档是 `unknown`,所以"没有健康记录"是一个**真实档位**,不是兜底文案;
+ *   - `packages/database/src/schema/ai-relay.ts:28` 的列注释原文
+ *       `healthStatus:unknown/healthy/degraded/down,healthCheckedAt 最近检查时间`
+ *     ⇒ 同一列在 relay 侧的文档值域,与上面缺省档合起来就是这四档;
+ *   - 写入面实测同值:`services/relay-health-check-service.ts:273`('healthy')、
+ *     `routes/user-llm-configs-v2.ts:564`(缺省建值 'unknown')、
+ *     `routes/relay-monitor-public.ts:108`(`?? 'unknown'`)。
+ *   - 同族既有写法:`app/(main)/models/channels/channels-api.ts:13` 的
+ *     `RelayKeyPoolHealthStatus` 是同一值域的第二份声明(不同表、同档位)。
+ *     **合并成一份是另一票**(动它要连 channels/PageClient 一起改),本票只登记不并表。
+ *
+ * 词表落在 `llmSettings.v2.health` 下的四档(healthy / degraded / down / unknown,五语言齐)。
+ * 刻意**不**复用 `shared` 里 `capabilityMarket.healthy|degraded|unhealthy` 那张表 ——
+ * 那是 MCP 能力市场的档位(`unhealthy` 与本域的 `down` 不同名同不同义,`degraded` 在那里
+ * 译成"需网络"是能力市场专属语义),把两张表并成一张会同时改坏两个域的文案。
+ */
+export const PROVIDER_HEALTH_STATUSES = ['unknown', 'healthy', 'degraded', 'down'] as const
+
+export type ProviderHealthStatus = (typeof PROVIDER_HEALTH_STATUSES)[number]
+
+/**
+ * 把接口来的原始字符串收敛成封闭档位。
+ *
+ * 落在值域外的值 ⇒ `unknown`。这不是"把未知档兜底成某个已知文案":
+ * `unknown` 正是 schema 的缺省档,语义是"本轮无法判定"(上游 constants 的同一口径),
+ * 它自己就是一句显式的"没判到",不是一个被冒充的健康结论。
+ * 反过来,把认不出的值原样渲染出去(改动前的行为)才是把"判不出"写成"某个状态"。
+ */
+export function toProviderHealthStatus(raw: string | null | undefined): ProviderHealthStatus {
+  return (PROVIDER_HEALTH_STATUSES as readonly string[]).includes(raw ?? '')
+    ? (raw as ProviderHealthStatus)
+    : 'unknown'
+}
+
 /** 单个 model 子表行(对应 ai_model_config_models) */
 export interface UserLlmModel {
   id: number
@@ -29,7 +73,8 @@ export interface UserLlmModel {
   enabled: boolean
   isDefault: boolean
   sortOrder: number
-  healthStatus?: string
+  /** G-716:封闭档位;取回原始串时用 toProviderHealthStatus 收敛,勿直接 cast */
+  healthStatus?: ProviderHealthStatus
   lastHealthCheckAt?: string | null
   extraMetadata?: Record<string, unknown>
   usage30dTokens?: number
@@ -58,8 +103,8 @@ export interface UserLlmProvider {
   defaultModelId: string | null
   /** Phase 1 新增:同分组内排序 */
   sortOrderInGroup: number
-  /** Phase 1 新增:健康状态 */
-  healthStatus: string
+  /** Phase 1 新增:健康状态(G-716:封闭档位,值域见 ProviderHealthStatus 上方反查注释) */
+  healthStatus: ProviderHealthStatus
   /** Phase 1 新增:上次健康检查时间 */
   lastHealthCheckAt: string | null
   /** Phase 1 新增:30 天 token 用量 */
