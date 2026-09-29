@@ -4096,7 +4096,7 @@ const checks = [
     id: '161',
     label:
       '入站契约 .strict() 到达性对账',
-    script: 'scripts/check-inbound-schema-strict.mjs',
+    script: 'check-inbound-schema-strict.mjs',
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_INBOUND_SCHEMA_STRICT',
