@@ -740,4 +740,110 @@ export interface FormResponseWireBody {
   reject_reason?: string
   message_id?: string
 }
+
+// ===========================================================================
+// D155(2026-09-29 立):下行告警族另外三档 —— config-warning / deprecation-notice /
+// guardian-warning(独立声明段,**暂不入 SSE_EVENTS**,理由见下)
+// ===========================================================================
+//
+// 额度告警档已由 `budget`(SSE_EVENTS.BUDGET)覆盖,本票不新建它。缺的是同族另外
+// 三档,语义是我方自有口径(**不按竞品名反推界面长相**,竞品侧只证明了"存在这类
+// 通知变体",显示文案零取证):
+//   ① config-warning —— 生效配置有问题(如模型 base URL 被覆盖到非预期端点);
+//   ② deprecation-notice —— 某能力/模型/端点即将弃用;
+//   ③ guardian-warning —— 自动审查(guardian)发现风险。
+//
+// **为什么独立成段而不进 SSE_EVENTS**(两条硬判据,缺一不可):
+//   a. 对账 0(scripts/check-agent-event-parity.mjs)要求 contract.ts 与
+//      `apps/ai-service/app/core/sse_contract.py` 的 SSE_EVENTS **逐名等值**,而 PY 侧
+//      文件在本票射程外(apps/ai-service 整树他人现场在飞,禁碰)——单侧加名即红;
+//   b. 「契约 ⊆ 生产」纪律(D34 第 36 轮收回 settings_applied / terminal_output 的
+//      同一判据):三档的**生产判定点**都在 ai-service 侧(base URL 覆盖判定在
+//      provider/vendor 解析层、能力弃用判定在 provider 层、guardian 审查在 agent
+//      loop),TS 侧(apps/api / web)现读零生产点可接。零生产的名字进 SSE_EVENTS
+//      就是空心帧。
+//  ⇒ 本段先落"契约声明 + 消费端通道"(api-client 解析 + web 落点,与 budget 帧同构),
+//    生产端在 ai-service 现场释放时把三档名**同时并进两侧 SSE_EVENTS**(对账 0 会强制
+//    两端同步),本段声明随之收编进主契约、此段降级为索引。
+//
+// wire 形态与 budget 命名帧同构:`event: <名>` + `data: {JSON}`,顶层 `type` 判别,
+// 载荷 camelCase;severity 是三档共用的强度域(与 budget.level 同位但跨档同域),
+// **消费端对未知 severity 值回退 'warning'**(不崩、不静默丢帧 —— D34/D40 教训:
+// 至少 message/severity 要进落点,未知字段不得整帧丢弃)。
+export const SSE_ALERT_EVENTS = {
+  /** 配置告警:生效配置有问题(如 base URL 被覆盖到非预期端点) */
+  CONFIG_WARNING: 'config-warning',
+  /** 弃用预告:某能力/模型/端点即将下线(sunsetAt 之前仍可用) */
+  DEPRECATION_NOTICE: 'deprecation-notice',
+  /** 守护告警:自动审查(guardian)发现风险 */
+  GUARDIAN_WARNING: 'guardian-warning',
+} as const
+
+/** 告警三档事件名联合。 */
+export type SSEAlertEventName = (typeof SSE_ALERT_EVENTS)[keyof typeof SSE_ALERT_EVENTS]
+
+/** 告警三档事件名数组(去重派生,用于契约对账/测试)。 */
+export const SSE_ALERT_EVENT_NAMES: readonly SSEAlertEventName[] = Object.values(SSE_ALERT_EVENTS)
+
+/** 判断字符串是否为已知告警档事件名(类型守卫)。 */
+export function isSSEAlertEventName(value: string): value is SSEAlertEventName {
+  return (SSE_ALERT_EVENT_NAMES as readonly string[]).includes(value)
+}
+
+/** 三档告警共用的强度域(封闭集合;解析端对表外值回退 warning,不整帧丢弃)。 */
+export const SSE_ALERT_SEVERITIES = ['info', 'warning', 'critical'] as const
+
+export type SSEAlertSeverity = (typeof SSE_ALERT_SEVERITIES)[number]
+
+/**
+ * severity 归一:表上三值原样放行,其余(缺省/空/未知串/非串)一律回退 'warning'。
+ * "未知强度"是可上屏的事实(按 warning 提示),不是丢弃整帧的理由。
+ */
+export function normalizeSSEAlertSeverity(value: unknown): SSEAlertSeverity {
+  return (SSE_ALERT_SEVERITIES as readonly unknown[]).includes(value)
+    ? (value as SSEAlertSeverity)
+    : 'warning'
+}
+
+/**
+ * 告警三档的判别联合(独立于 `SSEEventPayload`:后者的成员与 SSE_EVENTS 逐名对齐,
+ * 由 `packages/shared/src/sse/__tests__/contract.test.ts` 的穷尽性断言钉住;三档在
+ * 并进 SSE_EVENTS 之前不进该联合,避免制造"联合里有、事件注册表里没有"的第二种漂移)。
+ */
+export type SSEAlertEventPayload =
+  | SSEEventWithMeta<{
+      type: 'config-warning'
+      severity: SSEAlertSeverity
+      /** 人可读的问题描述(生产端措辞;界面把它作为正文渲染,chrome 文案走 i18n) */
+      message: string
+      /** 出问题的配置项(如 'baseUrl' / 'apiKey' / 'model');缺省表示未定位到单项 */
+      field?: string
+      /** 关联的供应商标识(如 'deepseek');缺省表示全局配置问题 */
+      provider?: string
+      /** 当前生效值;**生产端判定值可能敏感(如含 key)时整字段省略**,端上不回显猜值 */
+      effectiveValue?: string
+    }>
+  | SSEEventWithMeta<{
+      type: 'deprecation-notice'
+      severity: SSEAlertSeverity
+      /** 人可读的弃用说明(哪些能力、影响什么) */
+      message: string
+      /** 即将弃用的能力标识(模型名/端点名/参数名) */
+      capability?: string
+      /** 建议的替代品(模型名/新端点);缺省表示暂无替代 */
+      alternative?: string
+      /** 彻底停用时间(ISO);在此之前能力仍可用 */
+      sunsetAt?: string
+    }>
+  | SSEEventWithMeta<{
+      type: 'guardian-warning'
+      severity: SSEAlertSeverity
+      /** 人可读的风险描述(发现了什么、建议怎么处理) */
+      message: string
+      /** 风险类别(值域由生产端定义,端上不做枚举校验、只原样透传) */
+      category?: string
+      /** 触发本次审查的审查器 id(便于对账 guardian-runner 日志) */
+      reviewId?: string
+    }>
+// ⁠​‌​​
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
