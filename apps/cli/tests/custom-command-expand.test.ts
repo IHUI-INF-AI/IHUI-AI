@@ -17,15 +17,22 @@
  *     「未定义命令名回非空可操作文案」+「参数不足可操作报错」+「七条文案都能取到且不是键名回显」
  *     +「内置同名命令不被用户命令顶掉」(先证明那份文件确实在盘上,否则"没被顶掉"可能只是没读到)
  */
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import * as fsNode from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { t } from '../src/i18n/index.js';
-import { getAllSlashNames } from '../src/commands/slash-registry.js';
+import { t, getLocale, setLocale, type Locale } from '../src/i18n/index.js';
+import {
+  findSlashCommand,
+  getAllSlashNames,
+  renderSlashHelp,
+  slashCompleter,
+  suggestSlashCommands,
+} from '../src/commands/slash-registry.js';
+import { handleCustomCommandSave } from '../src/commands/repl.js';
 import {
   CustomCommandError,
   buildCustomCommandInvocation,
@@ -376,6 +383,159 @@ describe('repl 接线:自定义命令必须有生产调用方', () => {
   it('变异对照:摘掉调用点后判据必须翻红(证明上面几条有牙)', () => {
     const mutated = replSrc.replace('buildCustomCommandInvocation(cmd,', '/* 摘线 */ (cmd,');
     expect(callSiteInDefaultBranch(dispatchCode(mutated))).toBe(-1);
+  });
+});
+
+/**
+ * `/custom save` —— 把"保存"这一半接到屏幕上(台账号 G-814413 的后半 / 死键 `cli.custom.saved` 的接线)。
+ *
+ * 上面那一组用例只证明 `saveCustomCommand()` 能用;它此前**全仓零生产调用方**,
+ * 用户能跑自定义命令却不能存 —— 回执文案因此是"五语言都翻好了、没人发出去"的死键。
+ * 本组钉四件事,每件都配正反对照:
+ *  ① 成功路径:文件真落盘 + 回执真被打到输出面(不是只 return 一个对象);
+ *  ② 占位符原样:`$ARGUMENTS` / `$1` 写在正文里必须逐字进文件(吃掉它的表现是"存成功了但没参数");
+ *  ③ 三条拒绝各不落盘:缺正文 / 缺参数 / 撞内置名 —— 走既有文案,不新写措辞、不静默保存空正文;
+ *  ④ 五语言都解析得出这句回执(复用 i18n 加载器的 setLocale/t 入口,不另写一份 parity 校验)。
+ */
+describe('REPL `/custom save`:保存入口 + 回执接线', () => {
+  let tmpHome = '';
+  let originalEnv: NodeJS.ProcessEnv = {};
+  let originalLocale: Locale = 'zh-CN';
+  let emitted: string[] = [];
+
+  beforeEach(() => {
+    tmpHome = fsNode.mkdtempSync(path.join(os.tmpdir(), 'ihui-custom-save-'));
+    originalEnv = { ...process.env };
+    process.env.IHUI_HOME = tmpHome; // §15b:落点在用户级目录,测试换根,不碰真实 ~/.ihui
+    originalLocale = getLocale();
+    setLocale('zh-CN'); // 语言档钉住:断言里既要 t() 现取的期望值,也要 zh-CN 的观感
+    emitted = [];
+    vi.spyOn(console, 'info').mockImplementation((...a: unknown[]) => {
+      emitted.push(a.map((x) => String(x)).join(' '));
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    setLocale(originalLocale);
+    process.env = originalEnv;
+    fsNode.rmSync(tmpHome, { recursive: true, force: true });
+  });
+
+  function commandFile(name: string): string {
+    return path.join(getCustomCommandsDir(), `${name}.md`);
+  }
+
+  it('① 成功:文件真落盘,回执真被打到输出面(含「已保存自定义命令 /demo」)', () => {
+    handleCustomCommandSave('save demo 请解释这段 diff');
+    const file = commandFile('demo');
+    expect(fsNode.existsSync(file)).toBe(true);
+    const receipt = t('cli.custom.saved', { name: 'demo', path: file });
+    expect(emitted.some((line) => line.includes(receipt))).toBe(true);
+    expect(emitted.join('\n')).toContain('已保存自定义命令 /demo');
+    // 反向对照:成功路径不该同时念一条拒因(那会让"存好了"与"没存"在输出上同形)
+    expect(emitted.join('\n')).not.toContain(t('cli.custom.emptyBody', { name: 'demo', path: file }));
+  });
+
+  it('② 正文里的 $ARGUMENTS / $1 原样落盘(占位符不得在保存这一环被吃掉)', () => {
+    handleCustomCommandSave('save echo 全参:$ARGUMENTS 首位:$1  次位:$2');
+    const written = fsNode.readFileSync(commandFile('echo'), 'utf-8');
+    expect(written).toContain('$ARGUMENTS');
+    expect(written).toContain('首位:$1  次位:$2'); // 连正文内部的双空白都原样(未被 split/join 归一)
+    expect(written).toContain('全参:');
+    // 存进去的仍是可用占位符:读回展开后才真的被替换(证明保存环没提前替换成空串)
+    const out = expandCustomCommandPrompt(loadCustomCommand('echo'), '甲 乙');
+    expect(out.prompt).toContain('全参:甲 乙 首位:甲  次位:乙');
+  });
+
+  it('③a 缺正文 ⇒ 走既有 emptyBody 文案、给出用法、不落盘', () => {
+    handleCustomCommandSave('save nobody');
+    expect(fsNode.existsSync(commandFile('nobody'))).toBe(false);
+    const out = emitted.join('\n');
+    expect(out).toContain(t('cli.custom.emptyBody', { name: 'nobody', path: commandFile('nobody') }));
+    expect(out).toContain(findSlashCommand('custom')?.usage ?? 'NO-USAGE');
+    // 反向对照:回执一个字节都没漏出去(拒绝与成功在输出面上必须不同形)
+    expect(out).not.toContain(t('cli.custom.saved', { name: 'nobody', path: commandFile('nobody') }));
+  });
+
+  it('③b 连名字都没给 / 子命令不认识 ⇒ 只报用法,不落任何文件、不报"未知命令"', () => {
+    handleCustomCommandSave('save');
+    handleCustomCommandSave('list');
+    const out = emitted.join('\n');
+    const usage = findSlashCommand('custom')?.usage ?? 'NO-USAGE';
+    expect(usage).not.toBe('NO-USAGE'); // 阳性对照:注册表里那条 usage 在位,用法行不是空串
+    expect(out.split('✗').length - 1).toBe(2); // 两次调用各给一行用法
+    expect(out).toContain(usage);
+    expect(out).not.toContain('未知命令'); // 退化成"未知命令"会把真缺陷说成用户拼错
+    const dir = getCustomCommandsDir();
+    expect(fsNode.existsSync(dir) ? fsNode.readdirSync(dir) : []).toEqual([]);
+  });
+
+  it('③c 撞内置名(model)⇒ 走既有 reserved 文案并点名正主,不落盘', () => {
+    handleCustomCommandSave('save model 替你把模型切成最贵的');
+    expect(fsNode.existsSync(commandFile('model'))).toBe(false);
+    const out = emitted.join('\n');
+    expect(out).toContain(t('cli.custom.reserved', { name: 'model', owner: 'model' }));
+    expect(out).toContain('model');
+    // 反向对照:同一位置放一个不撞名的命令必须能存下(证明拦的是撞名而不是整条入口坏了)
+    handleCustomCommandSave('save notmodel ok');
+    expect(fsNode.existsSync(commandFile('notmodel'))).toBe(true);
+  });
+
+  it('④ 五语言都解析得出这句回执(复用加载器 setLocale/t,不写第二份 parity 校验)', () => {
+    for (const locale of ['zh-CN', 'en', 'ja', 'ko', 'zh-TW'] as Locale[]) {
+      setLocale(locale);
+      const text = t('cli.custom.saved', { name: 'demo', path: 'p/q.md' });
+      expect(text, locale).not.toBe('cli.custom.saved');
+      expect(text, locale).toContain('demo');
+      expect(text, locale).toContain('p/q.md');
+    }
+  });
+
+  it('⑤ 结构锁:分派块里真的有 case custom 且调用保存入口(摘线必读红)', () => {
+    const src = fsNode.readFileSync(
+      path.join(path.dirname(fileURLToPath(import.meta.url)), '../src/commands/repl.ts'),
+      'utf8',
+    );
+    // 注释里的名字不算装车 —— 过滤必须发生在**变异之后**(先过滤再变异会让被注释掉的调用点
+    // 仍以"代码行"的身份留在窗口里,那条反向对照就永远不红 = 一台没牙的尺子)。
+    const codeLinesOnly = (text: string): string =>
+      text
+        .split('\n')
+        .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+        .join('\n');
+    const code = codeLinesOnly(src);
+    const start = code.indexOf("case 'custom':");
+    expect(start).toBeGreaterThan(-1);
+    expect(code.slice(start, start + 240)).toContain('handleCustomCommandSave(');
+    // 变异对照:把调用点注释掉后,同一判据必须翻红
+    const mutated = codeLinesOnly(src.replace('handleCustomCommandSave(input.slice', '// handleCustomCommandSave(input.slice'));
+    const mutatedStart = mutated.indexOf("case 'custom':");
+    expect(mutatedStart).toBeGreaterThan(-1);
+    expect(mutated.slice(mutatedStart, mutatedStart + 240)).not.toContain('handleCustomCommandSave(');
+  });
+
+  it('⑥ /help 与 Tab 补全都看得见它(与既有 /queue 同形:同一注册表驱动,判据对二者一模一样)', () => {
+    const custom = findSlashCommand('custom');
+    const queue = findSlashCommand('queue');
+    expect(custom, '注册表里必须有 custom(否则 /help、补全、保留名判据都查不到它)').toBeDefined();
+    // 阳性对照:同一条获取路径也必须取到既有命令 —— 取不到就说明判据读的是空表
+    expect(queue, '阳性对照:注册表里的 queue 在位').toBeDefined();
+
+    const help = renderSlashHelp();
+    for (const meta of [custom!, queue!]) {
+      const line = help.split('\n').find((l) => l.includes(meta.usage));
+      expect(line, `${meta.name}: /help 里要有一行含 usage`).toBeDefined();
+      expect(line!, `${meta.name}: 同一行还要带上描述`).toContain(meta.description);
+    }
+
+    expect(getAllSlashNames()).toContain('/custom');
+    expect(slashCompleter('/cus').hits).toContain('/custom');
+    expect(slashCompleter('/que').hits).toContain('/queue');
+    // 反向锁:没注册过的名字不得被补出来(否则上面两条 hits 断言是恒真的)
+    expect(slashCompleter('/customx').hits).toEqual([]);
+    // 打错字时"相似度建议"也指向正主(同一张表,不用维护第二份名单)
+    expect(suggestSlashCommands('custm').map((c) => c.name)).toContain('custom');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
