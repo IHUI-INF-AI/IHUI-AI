@@ -546,47 +546,16 @@ describe('installPlugin(local) 顶层路径 — 判不了不再被读成"没有�
 // ==================== 一份实现:源码级反向锁 ====================
 
 describe('G-705 判据只有一份实现', () => {
-  it('src/plugins/ 下除 path-safety.ts 外不得再出现第二份 errno **名单**(单码同词不同义不计)', () => {
-    /**
-     * 口径修正(2026-09-29,主会话现读红在**已入库**代码上):
-     * 原写法是"任何文件出现三码之一即红"。而 `git-runner.ts:153` 的 `this.code = 'ENOENT'`
-     * 是 **node spawn 的"git 二进制不存在"**(该文件 :25/:389/:408 自己把它归成 `binary-missing`),
-     * 与 `path-safety.ts` 的"realpath 失败里哪些算明确缺失"**同词不同义**。
-     * 后果不是账面难看:一条对合法形态恒红的反向锁,会让所有人学会不看这个文件的输出,
-     * 而它守的那一格(EACCES/EPERM 被静默放行)恰恰只在有人读它时才被看着。
-     *
-     * 判据改成它本来想判的东西:**一份复制出来的名单**。三码集的定义就是"这三个都算缺失",
-     * 所以复制必然同时出现 ≥2 个;单码使用不可能是这份名单的复制品。
-     * 有牙证明在下面两条构造面用例里(1 码 ⇒ 绿、2 码 ⇒ 红),不是靠注释。
-     */
-    const CODES = ['ENOENT', 'ENOTDIR', 'EISDIR'] as const;
-    const offendersOf = (name: string, text: string): string[] => {
-      if (name === 'path-safety.ts') return [];
-      const hits = CODES.filter((c) => text.includes(`'${c}'`) || text.includes(`"${c}"`));
-      return hits.length >= 2 ? [`${name}:${hits.join('+')}`] : [];
-    };
-
-    // 构造面·反例(不得误伤):合法的单码用法必须为绿 —— 这一条就是 git-runner 那一格
-    expect(offendersOf('git-runner.ts', "this.code = 'ENOENT';")).toEqual([]);
-    // 构造面·正例(判据有牙):抄了名单的两个成员就必须红
-    expect(offendersOf('elsewhere.ts', "if (SKIPPABLE.includes('ENOENT') || SKIPPABLE.includes('ENOTDIR')) {}")).toEqual([
-      'elsewhere.ts:ENOENT+ENOTDIR',
-    ]);
-
+  it('src/plugins/ 下除 path-safety.ts 外不得再出现 errno 字面量', () => {
     const pluginsDir = fileURLToPath(new URL('../src/plugins/', import.meta.url));
     const offenders: string[] = [];
-    let ownerHasSet = false;
     for (const entry of fs.readdirSync(pluginsDir)) {
-      if (!entry.endsWith('.ts')) continue;
+      if (!entry.endsWith('.ts') || entry === 'path-safety.ts') continue;
       const text = fs.readFileSync(path.join(pluginsDir, entry), 'utf-8');
-      if (entry === 'path-safety.ts') {
-        // 装车证明:名单的唯一主人必须真含着这三个码,否则"除它之外不许有第二份"是句空话
-        ownerHasSet = CODES.every((c) => text.includes(`'${c}'`) || text.includes(`"${c}"`));
-        continue;
+      for (const code of ['ENOENT', 'ENOTDIR', 'EISDIR']) {
+        if (text.includes(`'${code}'`) || text.includes(`"${code}"`)) offenders.push(`${entry}:${code}`);
       }
-      offenders.push(...offendersOf(entry, text));
     }
-    expect(ownerHasSet, 'path-safety.ts 里找不到那份封闭集 ⇒ 本锁没有主人,判据已失效').toBe(true);
     expect(offenders).toEqual([]);
   });
 

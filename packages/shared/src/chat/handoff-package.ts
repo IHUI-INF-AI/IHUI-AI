@@ -583,8 +583,7 @@ export function formatHandoffText(pkg: HandoffPackage): string {
   lines.push(HANDOFF_ZH['section.diagnosis'])
   lines.push(`- ${pkg.diagnosis.method}`)
   for (const line of pkg.diagnosis.lines) {
-    const prefix =
-      line.source === 'local' ? HANDOFF_ZH['source.local'] : HANDOFF_ZH['source.external']
+    const prefix = line.source === 'local' ? HANDOFF_ZH['source.local'] : HANDOFF_ZH['source.external']
     lines.push(`- [${prefix}] ${line.text}`)
   }
   if (pkg.diagnosis.caveat) lines.push(`- 注:${pkg.diagnosis.caveat}`)

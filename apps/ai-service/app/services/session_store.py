@@ -694,7 +694,6 @@ CREATE INDEX IF NOT EXISTS idx_relay_created ON relay_summaries(created_at DESC)
 
 
 def _now() -> float:
-    # 并发写入会把"读快照时的旧时刻"压到已推进的值之上,故 threads.updated_at 一律写 max(列现值, 本函数值)。
     return time.time()
 
 
@@ -961,7 +960,7 @@ class SessionStore:
         """
         with self._lock, self._tx() as conn:
             cur = conn.execute(
-                "UPDATE threads SET archived = ?, updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                "UPDATE threads SET archived = ?, updated_at = ? WHERE thread_id = ?",
                 (1 if archived else 0, _now(), thread_id),
             )
             return cur.rowcount > 0
@@ -978,7 +977,7 @@ class SessionStore:
         """
         with self._lock, self._tx() as conn:
             cur = conn.execute(
-                "UPDATE threads SET title = ?, updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                "UPDATE threads SET title = ?, updated_at = ? WHERE thread_id = ?",
                 (name, _now(), thread_id),
             )
             return cur.rowcount > 0
@@ -1013,7 +1012,7 @@ class SessionStore:
             else:
                 new_meta["goalState"] = state
             conn.execute(
-                "UPDATE threads SET metadata = ?, updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                "UPDATE threads SET metadata = ?, updated_at = ? WHERE thread_id = ?",
                 (json.dumps(new_meta, ensure_ascii=False), _now(), thread_id),
             )
         return new_meta
@@ -1083,7 +1082,7 @@ class SessionStore:
             )
             new_meta = carry_goal_keys(current, carry_identity_keys(current, merged))
             conn.execute(
-                "UPDATE threads SET metadata = ?, updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                "UPDATE threads SET metadata = ?, updated_at = ? WHERE thread_id = ?",
                 (json.dumps(new_meta, ensure_ascii=False), _now(), thread_id),
             )
         return new_meta
@@ -1196,7 +1195,7 @@ class SessionStore:
                 (tid, thread_id, turn_seq, now, json.dumps(metadata or {}, ensure_ascii=False)),
             )
             conn.execute(
-                "UPDATE threads SET updated_at = max(updated_at, ?) WHERE thread_id = ?", (now, thread_id)
+                "UPDATE threads SET updated_at = ? WHERE thread_id = ?", (now, thread_id)
             )
         return Turn(
             turn_id=tid,
@@ -1232,7 +1231,7 @@ class SessionStore:
                 (status, now, error, turn_id),
             )
             conn.execute(
-                "UPDATE threads SET updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                "UPDATE threads SET updated_at = ? WHERE thread_id = ?",
                 (now, _row_str(row, "thread_id")),
             )
         return self.get_turn(turn_id) or self._ensure_turn(turn_id)
@@ -1285,7 +1284,7 @@ class SessionStore:
             )
             deleted = cur.rowcount
             conn.execute(
-                "UPDATE threads SET updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                "UPDATE threads SET updated_at = ? WHERE thread_id = ?",
                 (_now(), thread_id),
             )
         return deleted
@@ -1365,7 +1364,7 @@ class SessionStore:
                     (search, seq, effective_thread, item.item_type),
                 )
             conn.execute(
-                "UPDATE threads SET updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                "UPDATE threads SET updated_at = ? WHERE thread_id = ?",
                 (_now(), effective_thread),
             )
         return item.model_copy(
@@ -1538,7 +1537,7 @@ class SessionStore:
                         ),
                     )
             conn.execute(
-                "UPDATE threads SET updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                "UPDATE threads SET updated_at = ? WHERE thread_id = ?",
                 (_now(), new_thread.thread_id),
             )
         return new_thread
