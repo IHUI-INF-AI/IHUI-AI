@@ -46,7 +46,9 @@ function makeItem(
   provenance?: UnifiedSuggestionItem['provenance'],
 ): UnifiedSuggestionItem {
   return {
-    id: `${source}:${id}`,
+    // id 兜底:个别源脏行缺 id(如 agent 行运行时无 id)会把 key 打成 `source:undefined`,
+    // 多行同缺时 React duplicate key 会把 chips 渲染重复/残留(2026-09-30 实锤),退回 label。
+    id: `${source}:${id || label}`,
     source,
     label,
     detail,
@@ -97,7 +99,11 @@ async function fetchSourceItems(source: RemoteSourceKind): Promise<UnifiedSugges
       if (!res.success || !res.data) {
         throw new Error(res.success ? 'agents payload missing' : (res.error ?? 'agents request failed'))
       }
-      return res.data.list.map((a) => makeItem('agent', a.id, a.name, a.description))
+      // 2026-09-30 实锤:/api/agents 行主键是 agentId(Agent 接口的 id 声明与真实载荷不符,
+      // 运行时 a.id 全为 undefined,10 行全部撞成 `agent:undefined` 重复 key),取真实字段。
+      return res.data.list.map((a) =>
+        makeItem('agent', (a as { agentId?: string }).agentId ?? a.id, a.name, a.description),
+      )
     }
   }
 }

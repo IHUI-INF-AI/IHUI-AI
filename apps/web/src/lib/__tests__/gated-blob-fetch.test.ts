@@ -18,7 +18,8 @@ import {
  *
  * 核心一组是"Content-Length 谎报小值":声明 10 字节而流里真吐了 24 字节 ——
  * 声明侧全部放过、真实侧必须拦。把闸写成读一次 content-length 就收工,这组用例
- * 就是它唯一的反证(仓内既有形态 `delimited-file-preview.tsx` 正是只看声明值)。
+ * 就是它唯一的反证(立项时仓内既有形态 `delimited-file-preview.tsx` 正是只看声明值;
+ * 2026-09-29 G-815996 已把该站点接入本出口,这句留作史证)。
  */
 
 /** 夹具:按 sizes 逐块吐字节;contentLength 可与它矛盾。 */

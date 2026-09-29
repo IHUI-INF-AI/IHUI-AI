@@ -23,7 +23,11 @@ import { db } from '../db/index.js'
 import { userAutomations, chatConversations } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
-import { parseNextRun, executeAutomation } from '../services/agent-automation-scheduler.js'
+import {
+  DEFAULT_SCHEDULE_TIMEZONE,
+  parseNextRun,
+  executeAutomation,
+} from '../services/agent-automation-scheduler.js'
 import type { AutomationRepairService } from '../services/automation-repair-service.js'
 import { buildRepairService } from '../services/automation-repair-service.js'
 
@@ -37,7 +41,9 @@ const rruleSchema = z
   .string()
   .min(1)
   .max(500)
-  .refine((v) => parseNextRun(v, new Date()) !== null, { message: 'rrule 格式不支持' })
+  // 这里只判"结构上能不能算出下一次"(null ⇔ FREQ/BY* 非法),与墙钟时区无关,
+  // 故 timezone 传 null 走默认档即可;真正按行 timezone 算的是 create/patch/run-now 三处。
+  .refine((v) => parseNextRun(v, new Date(), null) !== null, { message: 'rrule 格式不支持' })
 
 const createSchema = z
   .object({
@@ -86,16 +92,21 @@ interface CreateInput {
   conversationId?: string | null
 }
 
-/** 按计划类型计算 nextRunAt:once=scheduledAt;recurring=parseNextRun。 */
+/**
+ * 按计划类型计算 nextRunAt:once=scheduledAt;recurring=parseNextRun。
+ * timezone 必须是**这一行生效的那份** timezone —— RRULE 的 BYHOUR 是那个时区的墙钟
+ * 时刻,不是宿主的(宿主被改成 UTC 的 25 天里全体用户任务错点即此成因)。
+ */
 function computeNextRunAt(input: {
   scheduleType: string
   rrule?: string | null
   scheduledAt?: string | null
+  timezone?: string | null
 }): Date | null {
   if (input.scheduleType === 'once') {
     return input.scheduledAt ? new Date(input.scheduledAt) : null
   }
-  if (input.rrule) return parseNextRun(input.rrule, new Date())
+  if (input.rrule) return parseNextRun(input.rrule, new Date(), input.timezone)
   return null
 }
 
@@ -225,7 +236,8 @@ const automationsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '会话不存在或无权绑定'))
     }
 
-    const nextRunAt = computeNextRunAt(input)
+    const timezone = input.timezone ?? DEFAULT_SCHEDULE_TIMEZONE
+    const nextRunAt = computeNextRunAt({ ...input, timezone })
     if (input.scheduleType === 'recurring' && !nextRunAt) {
       return reply.status(400).send(error(400, 'rrule 无法计算出下次执行时间'))
     }
@@ -239,7 +251,7 @@ const automationsRoutes: FastifyPluginAsync = async (server) => {
         scheduleType: input.scheduleType,
         rrule: input.rrule ?? null,
         scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
-        timezone: input.timezone ?? 'Asia/Shanghai',
+        timezone,
         status: 'active',
         nextRunAt,
         ...(input.conversationId !== undefined ? { conversationId: input.conversationId } : {}),
@@ -319,13 +331,16 @@ const automationsRoutes: FastifyPluginAsync = async (server) => {
     const rrule = input.rrule !== undefined ? input.rrule : existing.rrule
     const scheduledAt =
       input.scheduledAt !== undefined ? input.scheduledAt : existing.scheduledAt?.toISOString()
-    let nextRunAt = computeNextRunAt({ scheduleType, rrule, scheduledAt })
+    // 本次 PATCH 同时改 timezone 时,新时刻必须按**更新后那一份** timezone 算,
+    // 否则"把 09:00 从 Beijing 改到 New York"会先按旧档落库一次再自己否决自己。
+    const timezone = input.timezone ?? existing.timezone
+    let nextRunAt = computeNextRunAt({ scheduleType, rrule, scheduledAt, timezone })
     if (scheduleType === 'recurring' && input.rrule !== undefined && !nextRunAt) {
       return reply.status(400).send(error(400, 'rrule 无法计算出下次执行时间'))
     }
     // 恢复 active 且 recurring 下无有效 nextRunAt 时重算(暂停期间过期的时间已无意义)
     if (input.status === 'active' && scheduleType === 'recurring' && !nextRunAt && rrule) {
-      nextRunAt = parseNextRun(rrule, new Date())
+      nextRunAt = parseNextRun(rrule, new Date(), timezone)
     }
 
     const [row] = await db
