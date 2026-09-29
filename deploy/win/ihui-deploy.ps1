@@ -1855,7 +1855,11 @@ if (-not (Test-HealthGate)) {
 # 构建失败在交换前 exit 1、门禁失败走 Do-Rollback 后 exit 0,两条失败路径都**不会**把标记
 # 留在 HEAD 上 —— 前者从未写过,后者被 .rollback 自带的旧 sha 覆盖回去。
 Write-Host ""
-Log "=== 部署完成,HEAD=$(git rev-parse --short HEAD | Out-String).Trim() 活跃组=win(8801/8802/8803) ==="
+# 注意 `.Trim()` 必须**在 `$(...)` 里面**:写成 `"$(...).Trim()"` 时 PowerShell 把 `.Trim()`
+# 当字面量留在字符串里,这行日志会打成 `HEAD=.Trim()` —— 而它正是运维判"线上跑哪一枚"的那一行。
+# 全脚本现读只有这一处该形态(`grep -nE '"[^"]*\$\([^"]*\)\.Trim\(\)'` 命中 1),改法:先求值再拼字符串。
+$deployDoneSha = (git rev-parse --short HEAD | Out-String).Trim()
+Log "=== 部署完成,HEAD=$deployDoneSha 活跃组=win(8801/8802/8803) ==="
 Release-DeployLock
 if ($script:DbMigrateDegraded) {
     Log "WARN  本轮收尾:DB 迁移未落地(发布按设计继续),状态见 deploy\win\.migrate-alert-state.json;-diagnose 的 [7b] 会复述落后条数"

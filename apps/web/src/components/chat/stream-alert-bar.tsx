@@ -23,8 +23,19 @@ import {
   getStreamAlertsServerSnapshot,
   STREAM_ALERT_KINDS,
   subscribeStreamAlerts,
+  type StreamAlertFrame,
   type StreamAlertKind,
 } from '@/hooks/use-chat/stream-alerts'
+
+/**
+ * 已上屏的一条 = 档位名 + 非空帧。`filter` 不带类型谓词时 TS 不收窄,渲染处会按
+ * `StreamAlertFrame | null` 判空 —— 所以下面每一条 `alert.severity` 都得再写一次断言。
+ */
+type ActiveAlert = { kind: StreamAlertKind; alert: StreamAlertFrame }
+
+const isActiveAlert = (
+  entry: { kind: StreamAlertKind; alert: StreamAlertFrame | null },
+): entry is ActiveAlert => entry.alert !== null
 
 /** 强度 → 色档:info 蓝 / warning 琥珀 / critical 红(与 ContextBudgetBar 的 warning/critical 同族) */
 const SEVERITY_STYLES: Record<string, string> = {
@@ -42,7 +53,7 @@ export function StreamAlertBar() {
   const t = useTranslations('chat')
 
   const active = STREAM_ALERT_KINDS.map((kind) => ({ kind, alert: alerts[kind] })).filter(
-    (entry) => entry.alert !== null,
+    isActiveAlert,
   )
   if (active.length === 0) return null
 
