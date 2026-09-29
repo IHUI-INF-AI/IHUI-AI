@@ -6,7 +6,6 @@ import { useMemo } from 'react'
 import {
   View,
   Text,
-  TextInput,
   Image,
   ScrollView,
   Pressable,
@@ -22,6 +21,7 @@ import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { TextField } from '../../components/TextField'
 
 export interface SetNeedScreenProps {
   t: TFunction
@@ -110,7 +110,8 @@ export function SetNeedScreen({
           <Text style={styles.label}>
             需求标题<Text style={styles.required}>*</Text>
           </Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
             value={form.title}
             onChangeText={(v) => onFieldChange('title', v)}
@@ -123,7 +124,8 @@ export function SetNeedScreen({
           <Text style={styles.label}>
             需求描述<Text style={styles.required}>*</Text>
           </Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={[styles.input, styles.textarea]}
             value={form.description}
             onChangeText={(v) => onFieldChange('description', v)}
@@ -139,7 +141,8 @@ export function SetNeedScreen({
             预算区间(元)<Text style={styles.required}>*</Text>
           </Text>
           <View style={styles.priceRow}>
-            <TextInput
+            <TextField
+              colorScheme={colorScheme}
               style={[styles.input, styles.priceInput]}
               value={form.lowestPrice}
               onChangeText={(v) => onFieldChange('lowestPrice', v)}
@@ -148,7 +151,8 @@ export function SetNeedScreen({
               keyboardType="numeric"
             />
             <Text style={styles.priceDash}>~</Text>
-            <TextInput
+            <TextField
+              colorScheme={colorScheme}
               style={[styles.input, styles.priceInput]}
               value={form.peakPrice}
               onChangeText={(v) => onFieldChange('peakPrice', v)}
@@ -162,7 +166,8 @@ export function SetNeedScreen({
           <Text style={styles.label}>
             联系方式<Text style={styles.required}>*</Text>
           </Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
             value={form.contact}
             onChangeText={(v) => onFieldChange('contact', v)}
@@ -173,7 +178,8 @@ export function SetNeedScreen({
         </View>
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>图片（逗号分隔 URL）</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
             value={form.imgs}
             onChangeText={(v) => onFieldChange('imgs', v)}
@@ -197,7 +203,8 @@ export function SetNeedScreen({
           <Text style={styles.label}>
             任务截止时间<Text style={styles.required}>*</Text>
           </Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
             value={form.closingTime}
             onChangeText={(v) => onFieldChange('closingTime', v)}
