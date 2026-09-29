@@ -1,0 +1,18 @@
+{
+  "$schemaNote": "P6(scripts/check-ops-patrol.mjs 的'规则引用的指标序列在不在'判据)唯一的裁决账。它**不是豁免通道**:登记只把'永不触发'从判红改成 deferred(只报数不判红),到期未复裁即回到红队。四件套 anchor+reason+owner+reviewBy 缺任一字段 ⇒ 判红'台账条目字段不齐';reviewBy 不是 YYYY-MM-DD ⇒ 判红'等于没有死亡机制';到期(按当天 23:59:59 UTC 之后)⇒ 判红'已到期未复裁';anchor 在 monitoring/prometheus/alerts.yml 里已找不到同名 alert/record ⇒ 判红'清单腐烂'。anchor 是**规则名(内容锚),不含行号** —— 行号在任何一次 append 后都会挪位(AGENTS §1 判据 3)。指标名一律现读 `GET http://127.0.0.1:8815/api/v1/label/__name__/values`,不得在本表另存一份指标名快照(两处算同一件事必漂移)。",
+  "$evidenceNote": "下面每条 reason 里的取证命令都在 git-bash 下可直接执行。'0(rc=1)'的含义:grep -c 计数为 0 时退出码是 1,这是命令在跑、答案为零,不是没跑。任何一条命令读不出对应结论 ⇒ 该条裁决作废,应判红而不是免检。",
+  "rules": [
+    {
+      "anchor": "LlmTokenCostSurge",
+      "reason": "预留待指标出现(引用注释)。规则自带的注释即此意:alerts.yml:104 '`ihui_llm_tokens_total` 同为按需采样计数; 阈值 100k 需按真实基线校准(当前尚无采样, 规则已就位待指标出现即生效)'、:105 '当前 ai-service 尚未打点该指标(absent)'。取证三条:① `curl -s http://127.0.0.1:8815/api/v1/label/__name__/values | grep -c ihui_llm_tokens_total` ⇒ 0(rc=1,现读 1876 个指标名里 ihui_llm* 只有 ihui_llm_active_sessions)⇒ 该 expr 的结构上恒不成立,规则永不触发;② `grep -n ihui_llm_tokens_total apps/ai-service/app/middleware/llm_metrics.py` ⇒ 23 行有定义 ⇒ 打点代码在仓库里,缺的是它被跑起来的那台 ai-service 真往外吐(所以这不是'写了个不存在的指标名'的笔误型,是待偿型);③ `grep -n 'LlmTokenCostSurge' monitoring/prometheus/alerts.yml` ⇒ 规则在位。另注:该规则用 `or on() vector(0)` 兜底,指标缺席时算式为 0 > 100000 = 假,表达式自己保证'接入打点前不会误报',故 Prometheus 3.x 不认的 `disabled:` 字段不需要写(写了会让整份规则文件加载失败)。解阻前置/失效条件:ai-service 一旦被采到 `ihui_llm_tokens_total`,本条立即失效并**必须把条目撤掉**(不撤 = 台账在裁一个其实已在监的维度);阈值 100k 未经真实基线校准前,该规则的'在监'仍不可信。",
+      "owner": "LLM 指标面持有人(ai-service 打点侧,apps/ai-service/app/middleware/llm_metrics.py 的维护者)",
+      "reviewBy": "2026-10-29"
+    },
+    {
+      "anchor": "LlmProviderErrorBurst",
+      "reason": "预留待指标出现(引用注释)。规则自带的注释即此意:alerts.yml:86 '`ihui_llm_provider_errors_total` 为按需采样计数(无事件时不出现), 用 `or on() vector(0)` 兜底为 0,指标一出现即生效'。取证三条:① `curl -s http://127.0.0.1:8815/api/v1/label/__name__/values | grep -c ihui_llm_provider_errors_total` ⇒ 0(rc=1,同上 1876 个名字里无此序列)⇒ 该规则永不触发;② `grep -n ihui_llm_provider_errors_total apps/ai-service/app/middleware/llm_metrics.py` ⇒ 38 行有定义 ⇒ 待偿型而非笔误型;③ `grep -n 'LlmProviderErrorBurst' monitoring/prometheus/alerts.yml` ⇒ 规则在位。特别一条:**按需计数(无事件时不出现)与'永不触发'是两件事** —— 该 expr 有 `or on() vector(0)` 兜底,所以指标在采而零事件时 sum 侧为空、兜底给 0,0 > 0 为假;指标完全缺席时同理。真正会漏的是'provider 出错但 ai-service 没跑/没被采'那一型,这条 P6 判据管不到(它只看指标名在不在 Prometheus 已知集合里),需要靠 ihui_alertbridge_up / up 那一维去兜。解阻前置/失效条件:ai-service 一旦被采到 `ihui_llm_provider_errors_total`,本条立即失效并必须撤条目;若 llm_metrics.py 里该计数器改名,本 anchor 随之按'清单腐烂'判红而不是自动续期。",
+      "owner": "LLM 指标面持有人(ai-service 打点侧,apps/ai-service/app/middleware/llm_metrics.py 的维护者)",
+      "reviewBy": "2026-10-29"
+    }
+  ]
+}

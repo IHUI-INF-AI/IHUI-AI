@@ -4037,7 +4037,16 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 21. 学费标准 CRUD (edu_tuition_fee)
   // ===========================================================================
 
-  server.get('/tuition-fee', async (request, reply) => {
+  /**
+   * 学费标准读侧的**唯一实现**。
+   * 立因:此前写侧有 `/tuition-fee` 与 `/tuition-standard` 两套别名各 3 个端点,
+   * 而读侧只注册了 `/tuition-fee` —— 前端整页用的是 `/tuition-standard`,
+   * 于是「学费标准」tab 永远 404 显示"加载学费标准失败",
+   * 但新增/编辑/删除却能成功 ⇒ 用户看到的是"加进去了、列表永远是空的"。
+   * 补齐读侧别名(共用同一实现,不复制第二份逻辑);把两套路径真正合并成一套属另一票,
+   * 那要先核全部调用方(web / 小程序 / ai-service 的 6 个教育工具)。
+   */
+  async function listTuitionFees(request: FastifyRequest, reply: FastifyReply) {
     await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = tuitionFeeListQuerySchema.safeParse(request.query)
@@ -4056,7 +4065,10 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       pageSize,
     )
     return reply.send(success(result))
-  })
+  }
+
+  server.get('/tuition-fee', listTuitionFees)
+  server.get('/tuition-standard', listTuitionFees)
 
   server.post('/tuition-fee', async (request, reply) => {
     await requireEduManage(request, reply)
@@ -4267,7 +4279,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 23. 退费记录 CRUD + 审批 (edu_refund_record)
   // ===========================================================================
 
-  server.get('/refund-record', async (request, reply) => {
+  /** 退费列表读侧唯一实现;同样补 `/refund` 读侧别名(前端用这个路径,此前只有写侧有别名) */
+  async function listRefundRecords(request: FastifyRequest, reply: FastifyReply) {
     await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = refundRecordListQuerySchema.safeParse(request.query)
@@ -4287,7 +4300,10 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       pageSize,
     )
     return reply.send(success(result))
-  })
+  }
+
+  server.get('/refund-record', listRefundRecords)
+  server.get('/refund', listRefundRecords)
 
   server.post('/refund-record', async (request, reply) => {
     await requireEduManage(request, reply)
