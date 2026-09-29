@@ -79,12 +79,6 @@ const FAMILY_LIFETIME_DAYS = {
    * 表里若再出现它们,即"通道被悄悄接回来",由门 77 的镜像 T-B8 与本门的族表用例各拦一半。
    */
   'arch-exempt': 90,
-  // 守门「教育欠费口径单一出口对账」(check-edu-arrears-single-source)的行内出口:
-  // 豁免的是"这里确实需要在出口外表达一次欠费"的待偿算法债,出路只有把算式并入出口或
-  // 引用 arrearsSqlExpr()/hasArrearsCond() 两条,所以取最短档 30 天,到期由人重新定性。
-  // 同笔登记的理由:一条没有到期档的豁免出口 = 无人看管的出口,而守门 108 对未登记族
-  // 只报数不判红,账面看起来是绿的。
-  'arrears-single-source-exempt': 30,
   'ihui-allow-important': 90,
   'brand-mail-exempt': 30,
   // 守门 137(名字承诺/实现兑现对账)的行内出口:豁免的是"命名没错、判据看不见"的那一类,
@@ -128,16 +122,6 @@ const FAMILY_LIFETIME_DAYS = {
   // 守门 135 的行内出口:同一条"豁免不得只出生不死亡"规矩,30 天(与它守的那一型同寿命档 ——
   // 迁移是排期活,不是结构性定性,所以不取 back-label-exempt 的 365 天)
   'api-error-exempt': 30,
-  /**
-   * 守门 `check-error-code-not-text-matching`(G-710:失败码不得由文本决定)的行内出口。
-   * 取 **30 天**,与 `api-error-exempt` / `interop-style-exempt` / `border-ink-exempt` 同档 ——
-   * 这一族豁免的是**待偿的补码债**:那一处确实只能按上游文本判定(第三方驱动/CLI 没给错误码),
-   * 出路只有两条 —— 给抛出方补 `ToolError(code, …)`,或把判定挪到结构化字段(`errorCode` / `status`)。
-   * 不给长周期:本票立项的原因恰恰是"文本判分支活得比它服务的契约长",365 天等于把它登记成永久惯例;
-   * 也不走 `DEFAULT_LIFETIME_DAYS` 的 90 天默认档(没人给它拍过寿命)。
-   * 判据侧要求带原因、只救本行与紧邻上一纯注释行(与 135/131 同一条收紧)。
-   */
-  'error-code-exempt': 30,
   /**
    * 双层页头对账(check-rn-double-header,判据 DH1/DH2)的行内出口。取 **30 天** —— 它豁免的是
    * "这一处确实要两条 chrome,但收口要动共享屏的 props 契约"的**待偿迁移债**(共享侧补抑制通道
