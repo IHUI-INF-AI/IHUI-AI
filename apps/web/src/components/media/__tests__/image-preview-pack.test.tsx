@@ -154,20 +154,67 @@ describe('D64 ② 图片预览器装车', () => {
     )
   })
 
-  it('保存:走 download 锚点并播报 saveSuccess', () => {
+  it('保存:先把字节取到手再落盘,播报 saveSuccess(G-851 改写本用例)', async () => {
+    // 这一条原来把"同步点锚点 + 无条件 success"钉成规格 —— 而那**正是 G-851 的缺陷本身**:
+    // 跨域 URL 下浏览器忽略 download 属性(变成导航),`a.click()` 不抛错,于是磁盘上什么都没有
+    // 而界面报"已保存"。所以判据换向:**success 必须以"字节真到手"为前件**,不是以"没抛错"为前件。
+    // 反向那一半(fetch 被拒 ⇒ save-failed)在 `image-preview-save-gated.test.tsx` 里钉。
     const clicks: string[] = []
     const realClick = HTMLElement.prototype.click
     HTMLElement.prototype.click = function (this: HTMLElement) {
       if (this instanceof HTMLAnchorElement) clicks.push(this.getAttribute('download') ?? '')
       // 不委托实现:jsdom 的锚点 click 会触发 "not implemented" 噪音
     }
-    render(<FilePreview url={galleryAt(1).url} type="image" gallery={GALLERY} galleryIndex={1} />)
-    fireEvent.click(screen.getByRole('button', { name: 'imagePreview.save' }))
-    expect(clicks).toEqual(['b.png'])
-    expect(
-      document.querySelector('[data-image-transfer]')?.getAttribute('data-image-transfer'),
-    ).toBe('save-success')
-    HTMLElement.prototype.click = realClick
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      headers: {
+        get: (name: string) => (name.toLowerCase() === 'content-type' ? 'image/png' : null),
+      },
+      body: {
+        getReader: () => {
+          let sent = false
+          return {
+            read: async () =>
+              sent
+                ? { done: true, value: undefined }
+                : ((sent = true), { done: false, value: new Uint8Array([1, 2, 3]) }),
+          }
+        },
+      },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('URL', { createObjectURL: () => 'blob:x', revokeObjectURL: () => {} })
+    // 组件把 revoke 推迟 1s(真浏览器里同 tick revoke 会掐掉下载)。这里**只截 1s 那一档**、
+    // 其余原样转发 —— waitFor 自己靠 setTimeout 轮询,整个换掉它就是把测试挂死(第一版就撞在这)。
+    let revokeLater: Array<() => void> = []
+    const realSetTimeout = window.setTimeout.bind(window)
+    window.setTimeout = ((fn: TimerHandler, ms?: number, ...args: unknown[]) => {
+      if (ms === 1000 && typeof fn === 'function') {
+        revokeLater.push(fn as () => void)
+        return 0 as unknown as ReturnType<typeof window.setTimeout>
+      }
+      return realSetTimeout(fn as () => void, ms, ...args)
+    }) as unknown as typeof window.setTimeout
+
+    try {
+      render(<FilePreview url={galleryAt(1).url} type="image" gallery={GALLERY} galleryIndex={1} />)
+      fireEvent.click(screen.getByRole('button', { name: 'imagePreview.save' }))
+      await waitFor(() => {
+        expect(
+          document.querySelector('[data-image-transfer]')?.getAttribute('data-image-transfer'),
+        ).toBe('save-success')
+      })
+      expect(clicks).toEqual(['b.png'])
+      // 前件本身也要断到:没取体就播 success 正是本票要拦的形态,只测结果测不出它
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(document.querySelector('[data-image-transfer]')?.textContent).toBe(
+        'imagePreview.saveSuccess',
+      )
+    } finally {
+      window.setTimeout = realSetTimeout
+      revokeLater.forEach((f) => f())
+      HTMLElement.prototype.click = realClick
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
