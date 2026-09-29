@@ -51,9 +51,30 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 $AndroidDir = Join-Path $RepoRoot 'apps/mobile-rn/android'
 $Gradle = Join-Path $AndroidDir 'gradlew.bat'
 
-# 包名从 app.json 现读,不抄第二份(appId 改了这里会跟着走)
-$RnPackage = (Get-Content -Raw -LiteralPath (Join-Path $RepoRoot 'apps/mobile-rn/app.json') |
-  ConvertFrom-Json).android.package
+# 包名解析:先读 app.json 的 android.package,取不到再回落到 android/app/build.gradle 的
+# applicationId(android/ 是 Expo prebuild 生成物,但 gradle 真正用的就是它,所以它是权威落点)。
+# ⚠️ 2026-09-29 实测修掉的缺陷:apps/mobile-rn/app.json 的 android 段是空的 {} ⇒ 旧写法恒得
+# $null,于是下面 `adb shell dumpsys package <空>` 变成 dump **全部应用**,而正则取的是第一个
+# versionCode= 匹配 ⇒ 拿到的是机上某个无关 app 的版本号(实测读到 41503031,而本 app 实为
+# 41503032),于是"自动定档"从来没对过、且会产出重号或降级的包。两个来源都取不到时必须 throw,
+# 绝不允许带空包名去查 —— 静默查错对象比直接失败贵得多。
+$RnPackage = $null
+$AppJsonPath = Join-Path $RepoRoot 'apps/mobile-rn/app.json'
+if (Test-Path -LiteralPath $AppJsonPath) {
+  $RnPackage = (Get-Content -Raw -LiteralPath $AppJsonPath | ConvertFrom-Json).android.package
+}
+if (-not $RnPackage) {
+  $GradleApp = Join-Path $AndroidDir 'app/build.gradle'
+  if (Test-Path -LiteralPath $GradleApp) {
+    $m = Select-String -Path $GradleApp -Pattern "applicationId\s+'([^']+)'" | Select-Object -First 1
+    if (-not $m) { $m = Select-String -Path $GradleApp -Pattern 'applicationId\s+"([^"]+)"' | Select-Object -First 1 }
+    if ($m) { $RnPackage = $m.Matches[0].Groups[1].Value }
+  }
+}
+if (-not $RnPackage) {
+  throw '无法解析 Android 包名:app.json 的 android.package 与 build.gradle 的 applicationId 都取不到。拒绝继续 —— 带空包名跑 dumpsys 会 dump 全部应用,把无关 app 的 versionCode 当成本 app 的。'
+}
+Write-Host "  包名(现读):$RnPackage" -ForegroundColor DarkGray
 
 function Resolve-AutoVersionCode {
   <#
@@ -61,6 +82,10 @@ function Resolve-AutoVersionCode {
     三条失败路径一律回落 1 但**必须喊出原因** —— 静默用 1 等于把"装不上"重新藏回构建成功里。
   #>
   param([string]$Package)
+  # 第二道锁:即使调用方漏判,空包名也绝不进 dumpsys。
+  if ([string]::IsNullOrWhiteSpace($Package)) {
+    return @{ Value = 1; Source = '包名为空 ⇒ 拒绝查 dumpsys(空包名会 dump 全部应用,把无关 app 的 versionCode 当成本 app 的),回落 1 并在此大声说明' }
+  }
   $adb = Get-Command adb.exe -ErrorAction SilentlyContinue
   if (-not $adb) { return @{ Value = 1; Source = 'PATH 里没有 adb.exe ⇒ 无法问机上版本,回落 1' } }
   $dev = & $adb.Source devices 2>$null | Out-String
