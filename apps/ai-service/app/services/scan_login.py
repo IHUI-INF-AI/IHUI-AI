@@ -114,9 +114,6 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         "login_url": "https://segmentfault.com/user/login",
         "success_cookies": ["SFSSID"],  # 2026-09-15:剔除 PHPSESSID(登录页即存在的服务端会话)
         "success_url_pattern": r"segmentfault\.com/u/",
-        # 2026-09-29:登录页默认是密码表单,扫码入口是"微信登录"按钮 —— 通用文案清单
-        # (扫码登录/二维码登录/微信扫码…)在思否页面上一个都匹配不到,二维码永远出不来。
-        "scan_tab_selectors": ('button:has-text("微信登录")',),
     },
     "oschina": {
         "name": "开源中国",
@@ -855,10 +852,8 @@ def _run_scan_task(task: ScanTask) -> None:
 
             page.wait_for_timeout(3000)
 
-            # 2. 尝试切换到扫码登录 tab(2026-09-29:平台可用 scan_tab_selectors 前置
-            #    自己的入口 —— 如思否的"微信登录"按钮;通用文案清单作兜底)
+            # 2. 尝试切换到扫码登录 tab
             scan_selectors = [
-                *config.get("scan_tab_selectors", ()),
                 'text=扫码登录',
                 'text=二维码登录',
                 'text=手机扫码登录',
@@ -1002,93 +997,10 @@ def _run_scan_task(task: ScanTask) -> None:
         _persist_task(task)  # P2 修复(2026-08-06): 终态同步到 Redis
 
 
-def _pick_qr_clip(
-    box: dict[str, Any] | None,
-    viewport_w: int,
-    viewport_h: int,
-    *,
-    min_side: int = 120,
-    pad: int = 16,
-) -> dict[str, float] | None:
-    """把"二维码元素的盒子"折成可截的 clip 矩形;不合格返回 None(调用方退回整屏)。
-
-    为什么需要它:`page.screenshot(full_page=False)` 截的是**整个登录页**,二维码只占其中
-    一小块 —— 2026-09-29 用户实拍知乎那张,二维码在 1024x720 的画面里不足 200px,
-    手机对着屏幕扫很难对上,这正是"扫码不好使"里最直觉的那一层。
-    判据保守:盒子必须量得到、边长够大、且裁后仍在视口内(越界就收缩而不是外扩)。
-    """
-    if not box:
-        return None
-    try:
-        x = float(box.get("x", -1))
-        y = float(box.get("y", -1))
-        w = float(box.get("width", 0))
-        h = float(box.get("height", 0))
-    except (TypeError, ValueError):
-        return None
-    if x < 0 or y < 0 or w < min_side or h < min_side:
-        return None
-    left = max(0.0, x - pad)
-    top = max(0.0, y - pad)
-    right = min(float(viewport_w), x + w + pad)
-    bottom = min(float(viewport_h), y + h + pad)
-    cw = right - left
-    ch = bottom - top
-    if cw < min_side or ch < min_side:
-        return None
-    return {"x": left, "y": top, "width": cw, "height": ch}
-
-
-# 二维码元素候选(顺序即优先级:明确的 qrcode 语义容器 > 通用位图载体)。
-# 刻意不写"第一个 img":登录页上 logo 也是 img,截了等于给用户一张扫不了的图。
-_QR_ELEMENT_SELECTORS: tuple[str, ...] = (
-    '[class*="qrcode"] img',
-    '[id*="qrcode"] img',
-    '[class*="qr-code"] img',
-    '[class*="qrcode"] canvas',
-    '[class*="qr-code"] canvas',
-    '[class*="qrcode"] svg',
-    '[class*="qrcode"]',
-    '[id*="qrcode"]',
-    'img[src^="data:image"]',
-    # 2026-09-29:跨站内嵌的二维码 iframe —— 截图是合成像素,clip 住 iframe 的
-    # bounding_box 即可(不需要进 frame 取内部元素)。思否"微信登录"实测把
-    # open.weixin.qq.com/connect/qrconnect 嵌进来,主页面选择器全数落空。
-    'iframe[src*="qrconnect"]',
-    '[class*="qrCode"] iframe',
-    "canvas",
-)
-
-
 def _update_qr_screenshot(task: ScanTask, page: Any) -> None:
-    """更新任务的二维码截图(base64 PNG)。
-
-    优先只截二维码那一块(见 `_pick_qr_clip`);量不到合格盒子时退回整屏 ——
-    退回不是失败:整屏至少还能看到页面,比什么都不返回好。
-    """
-    clip: dict[str, float] | None = None
+    """更新任务的二维码截图(base64 PNG)。"""
     try:
-        vp = page.viewport_size or {}
-        vp_w = int(vp.get("width") or 0)
-        vp_h = int(vp.get("height") or 0)
-        if vp_w and vp_h:
-            for sel in _QR_ELEMENT_SELECTORS:
-                try:
-                    loc = page.locator(sel).first
-                    if loc.count() == 0 or not loc.is_visible():
-                        continue
-                    clip = _pick_qr_clip(loc.bounding_box(), vp_w, vp_h)
-                except Exception:  # noqa: BLE001 — 单个选择器读不到就试下一个
-                    continue
-                if clip:
-                    break
-    except Exception as e:  # noqa: BLE001 — 定位失败一律退回整屏截图
-        logger.debug(f"[scan_login] 二维码元素定位失败(退回整屏):{e}")
-        clip = None
-    try:
-        png_bytes = page.screenshot(type="png", clip=clip) if clip else page.screenshot(
-            type="png", full_page=False
-        )
+        png_bytes = page.screenshot(type="png", full_page=False)
         with task._lock:
             task.qr_image_b64 = base64.b64encode(png_bytes).decode("ascii")
             task.qr_image_updated_at = time.time()

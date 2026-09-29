@@ -22,11 +22,7 @@
  *
  * 放行口径(默认最小):
  *   - `https://` —— 生产唯一默认放行档;
- *   - `http://`  —— **仅回环**(`localhost` / `127.0.0.1` / `::1` / `ip6-localhost`),且**仅在测试钩子在位时**
- *      (G-797 收紧:旧措辞"回环 http 放行(测试用)"过宽 —— 远端 manifest 写 `http://127.0.0.1:PORT/evil.git`
- *      就能让**受害者自己的 git** 去连本机任意服务(SSRF-into-git;本机常挂着 api / ai-service / dev server)。
- *      生产路径因此只允许 https 与结构解析通过的 ssh/scp-like;回环 http 的放行条件由调用方以
- *      `loopbackTestHook` 显式注入,缺省 = 不放行(**fail-closed**,新增调用点不会因为忘了传参而放宽)。
+ *   - `http://`  —— **仅回环**(`localhost` / `127.0.0.1` / `::1` / `ip6-localhost`),用途是本地测试夹具;
  *   - `ssh://` 与 scp-like `user@host:path` —— 按**结构**解析放行(不是按前缀猜),两段的字符集各自受审;
  *   - 其余一切(`git://` / `file://` / `ext::` / 裸路径 / 相对路径 / 空串)—— 拒。
  *
@@ -45,8 +41,6 @@ export type GitUrlRejectReason =
   | 'urlWhitespace'
   | 'urlHostMissing'
   | 'urlSchemeUnsupported'
-  | 'urlCredentialsInUrl'
-  | 'urlLoopbackHttpNeedsTestHook'
   | 'urlMalformed';
 
 /** ref 维度的稳定拒绝码 */
@@ -119,13 +113,8 @@ function isLoopbackHost(host: string): boolean {
 
 /**
  * 审 url 的形状。**纯函数、零副作用、不碰进程** —— 咽喉点 `performClone` 在任何派生之前调它。
- *
- * `loopbackTestHook`(G-797):回环 `http://` 只在调用方**显式声明**"此刻处于测试夹具环境"时放行。
- * 这个量刻意由调用方注入而不是在本函数里读 `process.env`:① 保持纯函数与可构造面证明(注入 false/true
- * 各一条用例就是判据的牙,不需要真去改环境);② 键名只有一个主人(`cache.ts` 那两个既有测试钩子),
- * 这里再读一遍就是第二份真相;③ 缺省不放行 —— 新增调用点忘了传参只会更严,不会更松。
  */
-export function evaluateGitUrl(raw: unknown, opts: { loopbackTestHook?: boolean } = {}): GitUrlVerdict {
+export function evaluateGitUrl(raw: unknown): GitUrlVerdict {
   if (typeof raw !== 'string') {
     return { ok: false, reasonCode: 'urlNotString', detail: previewOf(raw) };
   }
@@ -160,41 +149,8 @@ export function evaluateGitUrl(raw: unknown, opts: { loopbackTestHook?: boolean 
     if (/\s/.test(raw)) {
       return { ok: false, reasonCode: 'urlWhitespace', detail: previewOf(raw) };
     }
-    /**
-     * G-798:内嵌凭据的 userinfo 段一律不进这一档 URL。
-     * 判据取的是" userinfo 存不存在",不是"看着像不像密钥":这一段会被原样递进 `git` 的 **argv**,
-     * 而 argv 在 Windows 上可被任意进程枚举(WMI/命令行审计都能看到),
-     * 于是"把 token 写在 URL 里"等于把凭据发给整台机的观察者。
-     * `ssh://` 那一档**刻意只禁密码不禁用户名**:`ssh://git@host/…` 与 scp-like `git@host:path`
-     * 里的 `git` 是登录名而不是凭据,禁掉就是把 SSH 通道整条封死(现仓既有测试正拿它当放行档)。
-     */
-    const hasUser = parsed.username.length > 0
-    const hasPass = parsed.password.length > 0
-    if ((kind === 'https' || kind === 'loopbackHttp') && (hasUser || hasPass)) {
-      return {
-        ok: false,
-        reasonCode: 'urlCredentialsInUrl',
-        detail: `${protocol}: userinfo(改用凭据助手 / credential helper,不要把口令写进 URL)`,
-      }
-    }
-    if (kind === 'sshUrl' && hasPass) {
-      return {
-        ok: false,
-        reasonCode: 'urlCredentialsInUrl',
-        detail: 'ssh: userinfo 口令段(ssh 只提供登录名,口令请走密钥/agent)',
-      }
-    }
     if (kind === 'loopbackHttp' && !isLoopbackHost(host)) {
       return { ok: false, reasonCode: 'urlSchemeUnsupported', detail: `http:${previewOf(host)}` };
-    }
-    if (kind === 'loopbackHttp' && opts.loopbackTestHook !== true) {
-      // G-797:回环不等于"安全"。远端 manifest 指本机端口时,是**受害者自己的 git** 去发这个请求,
-      // 而本机常驻着 api / ai-service / dev server 等监听面 —— 放行等于把 SSRF 的靶子换成由攻击者挑选。
-      return {
-        ok: false,
-        reasonCode: 'urlLoopbackHttpNeedsTestHook',
-        detail: `http:${previewOf(host)}`,
-      };
     }
     return { ok: true, kind, host };
   }
@@ -247,12 +203,6 @@ export function evaluateGitSha(raw: unknown): GitShaVerdict {
  * message **刻意不含**入参原文(见 previewOf 的理由),流程判断只读 `field` / `reasonCode`。
  */
 export class GitCloneInputRejectedError extends Error {
-  /**
-   * 稳定分档码(G-809):调用方按**这个字符串**分流,而不是 `instanceof` ——
-   * 同一个类在"源码 + dist"两份模块下不是同一个构造函数,instanceof 会假负,
-   * 于是安全拒绝被降级成"刷新失败"。仓内已有同形态先例(`readMcpRefreshKind`)。
-   */
-  readonly code = 'git_clone_input_rejected';
   readonly field: 'url' | 'ref' | 'sha';
   readonly reasonCode: GitInputRejectReason;
   readonly detail: string;
@@ -270,11 +220,8 @@ export class GitCloneInputRejectedError extends Error {
  * 一次审全三个维度,url 优先(它是最外层也最致命的那一格)。
  * `performClone` 只调这一个出口;任何新增 git 派生点都必须先过它。
  */
-export function assertGitCloneInputs(
-  input: { url: unknown; ref?: unknown; sha?: unknown },
-  opts: { loopbackTestHook?: boolean } = {},
-): void {
-  const urlVerdict = evaluateGitUrl(input.url, opts);
+export function assertGitCloneInputs(input: { url: unknown; ref?: unknown; sha?: unknown }): void {
+  const urlVerdict = evaluateGitUrl(input.url);
   if (!urlVerdict.ok) {
     throw new GitCloneInputRejectedError('url', urlVerdict.reasonCode, urlVerdict.detail);
   }
