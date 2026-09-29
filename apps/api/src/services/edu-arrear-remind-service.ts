@@ -28,12 +28,13 @@
  * 只是文案不带"逾期 N 天" —— 没排期就不假装知道到期日。
  */
 
-import { and, asc, eq, gte, isNull, ne } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, isNull, ne } from 'drizzle-orm'
 import { eduEnrollment, eduFeeReminder, eduParentStudentBinding, users } from '@ihui/database'
 import { db } from '../db/index.js'
 import { createNotification } from '../db/notification-queries.js'
 import { logger } from '../utils/logger.js'
 import { DUE_SOON_LEAD_DAYS, hasArrearsCond, loadEnrollmentLedger } from './edu-ledger.js'
+import { isSmsConfigured, sendSmsMessage } from './sms.js'
 import {
   isSubscribeMessageConfigured,
   getWechatMiniOpenId,
@@ -59,6 +60,11 @@ export interface ArrearRemindResult {
   wxNoOpenid: number
   /** errcode 43101 一类:用户未订阅或一次性额度已耗尽 */
   wxUserRefused: number
+  /** 短信通道四档(2026-09-29 接上真实发送;此前 channel='sms' 只是写进留痕的意图标记) */
+  smsSent: number
+  smsFailed: number
+  smsNotConfigured: number
+  smsNoPhone: number
   overdueCount: number
   dueSoonCount: number
   /** 无账期数据、只能按"欠多少"提醒的报名数 */
@@ -94,6 +100,8 @@ function beijingMidnightUtc(): Date {
 export interface ReminderRecipient {
   userId: string
   role: 'student' | 'parent'
+  /** 收件人手机号;null = 该用户没留手机号,短信通道对它结构性不可达(必须计数,不得静默) */
+  phone: string | null
 }
 
 /**
@@ -101,7 +109,7 @@ export interface ReminderRecipient {
  * status 只认 'confirmed' —— pending 的绑定还没被家长承认,发给它等于发给陌生人。
  */
 export async function resolveReminderRecipients(studentId: string): Promise<ReminderRecipient[]> {
-  const out: ReminderRecipient[] = [{ userId: studentId, role: 'student' }]
+  const ids = [studentId]
   const rows = await db
     .select({ parentId: eduParentStudentBinding.parentId })
     .from(eduParentStudentBinding)
@@ -116,9 +124,20 @@ export async function resolveReminderRecipients(studentId: string): Promise<Remi
   for (const r of rows) {
     if (seen.has(r.parentId)) continue
     seen.add(r.parentId)
-    out.push({ userId: r.parentId, role: 'parent' })
+    ids.push(r.parentId)
   }
-  return out
+  // 一次性取手机号(不逐个查):短信通道要按收件人各自的花名册号码发,
+  // 家长号码常与学生号码不同 —— 只按 student.phone 发等于给没付钱的人发。
+  const phoneRows = await db
+    .select({ id: users.id, phone: users.phone })
+    .from(users)
+    .where(inArray(users.id, ids))
+  const phoneById = new Map(phoneRows.map((u) => [u.id, u.phone ?? null]))
+  return ids.map((id) => ({
+    userId: id,
+    role: id === studentId ? ('student' as const) : ('parent' as const),
+    phone: phoneById.get(id) ?? null,
+  }))
 }
 
 interface ChannelOutcome {
@@ -158,7 +177,93 @@ async function sendWxToRecipient(
   }
 }
 
-export async function scanAndRemindArrears(): Promise<ArrearRemindResult> {
+export type ExternalChannel = 'in_app' | 'sms' | 'wechat'
+
+export interface SmsOutcome {
+  sent: boolean
+  bucket: 'sent' | 'failed' | 'not_configured' | 'no_phone'
+  detail?: string
+}
+
+/**
+ * 对一个收件人尽力发短信。与微信那支同构:**返回分档而不是布尔** ——
+ * "没配短信密钥""这人没留手机号""运营商拒了"是三件不同的事,
+ * 并成一档就会重现"整天零触达与一切正常在账面上无法区分"那一型。
+ * 刻意不在此处降级成 console 打日志充数:`sendSmsMessage` 内部未配置时本身会降级,
+ * 但**本函数的 not_configured 档必须如实报**,否则运营看到的是"已发送"。
+ */
+export async function sendArrearSmsToRecipient(
+  recipient: ReminderRecipient,
+  message: string,
+): Promise<SmsOutcome> {
+  const avail = classifySmsAvailability(isSmsConfigured(), recipient.phone)
+  if (!avail.ok) return { sent: false, bucket: avail.bucket }
+  try {
+    const r = await sendSmsMessage(avail.phone, message)
+    return r.success
+      ? { sent: true, bucket: 'sent' }
+      : { sent: false, bucket: 'failed', detail: r.error ?? 'unknown' }
+  } catch (err) {
+    return { sent: false, bucket: 'failed', detail: (err as Error)?.message ?? 'exception' }
+  }
+}
+
+export interface ChannelDispatch {
+  /** 微信订阅消息:仅当请求了 wechat 通道才有值 */
+  wx?: { sent: boolean; reason?: string }
+  /** 短信:逐收件人分档(2026-09-29 起 channel='sms' 才真的发出去) */
+  sms: Array<{ userId: string; role: string; bucket: SmsOutcome['bucket']; detail?: string }>
+  smsSent: number
+  smsFailed: number
+  smsNotConfigured: number
+  smsNoPhone: number
+}
+
+/**
+ * 手动催费的通道编排,放在服务层而不是路由里:
+ * 单发与批量两个端点此前各写一份 wechat 尽力外发 + 站内信,再加一条通道就要改两处
+ * (本仓最贵的模式就是"同一件事两处各写一遍",欠费算式那次是同一个教训)。
+ */
+export async function dispatchArrearChannels(input: {
+  studentId: string
+  message: string
+  studentName: string
+  dueAmount: number
+  channel: ExternalChannel
+  /** 微信那支由调用方注入,保持本模块不直接依赖小程序通道实现细节 */
+  sendWx?: (studentId: string, studentName: string, dueAmount: number) => Promise<{ sent: boolean; reason?: string }>
+}): Promise<ChannelDispatch> {
+  const out: ChannelDispatch = {
+    sms: [],
+    smsSent: 0,
+    smsFailed: 0,
+    smsNotConfigured: 0,
+    smsNoPhone: 0,
+  }
+  if (input.channel === 'wechat' && input.sendWx) {
+    out.wx = await input.sendWx(input.studentId, input.studentName, input.dueAmount)
+  }
+  if (input.channel === 'sms') {
+    const recipients = await resolveReminderRecipients(input.studentId)
+    for (const r of recipients) {
+      const s = await sendArrearSmsToRecipient(r, input.message)
+      out.sms.push({ userId: r.userId, role: r.role, bucket: s.bucket, detail: s.detail })
+      if (s.bucket === 'sent') out.smsSent += 1
+      else if (s.bucket === 'no_phone') out.smsNoPhone += 1
+      else if (s.bucket === 'not_configured') out.smsNotConfigured += 1
+      else out.smsFailed += 1
+    }
+  }
+  return out
+}
+
+/**
+ * 定时任务的外部通道集合;默认只走微信(与接短信之前的行为逐字一致,不偷偷扩面)。
+ */
+export async function scanAndRemindArrears(
+  options?: { channels?: ExternalChannel[] },
+): Promise<ArrearRemindResult> {
+  const channels = options?.channels ?? ['wechat']
   const result: ArrearRemindResult = {
     scanned: 0,
     reminded: 0,
@@ -171,6 +276,10 @@ export async function scanAndRemindArrears(): Promise<ArrearRemindResult> {
     wxNotConfigured: 0,
     wxNoOpenid: 0,
     wxUserRefused: 0,
+    smsSent: 0,
+    smsFailed: 0,
+    smsNotConfigured: 0,
+    smsNoPhone: 0,
     overdueCount: 0,
     dueSoonCount: 0,
     withoutSchedule: 0,
@@ -253,6 +362,14 @@ export async function scanAndRemindArrears(): Promise<ArrearRemindResult> {
       else if (wx.bucket === 'user_refused') result.wxUserRefused += 1
       else result.wxFailed += 1
 
+      if (channels.includes('sms')) {
+        const sms = await sendArrearSmsToRecipient(recipient, message)
+        if (sms.bucket === 'sent') result.smsSent += 1
+        else if (sms.bucket === 'no_phone') result.smsNoPhone += 1
+        else if (sms.bucket === 'not_configured') result.smsNotConfigured += 1
+        else result.smsFailed += 1
+      }
+
       // 站内信逐收件人必达；失败只标记留痕,不中断其余人
       try {
         await createNotification({
@@ -288,10 +405,32 @@ export async function scanAndRemindArrears(): Promise<ArrearRemindResult> {
   return result
 }
 
+export type SmsAvailability =
+  | { ok: true; phone: string }
+  | { ok: false; bucket: 'not_configured' | 'no_phone' }
+
+/**
+ * 短信通道的"可达性"判定,抽成纯函数:它决定的是**这条通道对这个人有没有意义**,
+ * 与网络结果无关。三态不得并桶 —— 把"没配通道"与"这人没号码"混成一档,
+ * 运营就会去查运营商,而真正的原因是没配密钥或花名册缺号码。
+ * 返回判别联合而不是字符串:调用方拿到 ok:true 时 phone 已是非空字符串,
+ * 不需要 `as string` 那种自我安慰式断言(断言不会证明任何事,只会让 typecheck 闭嘴)。
+ */
+export function classifySmsAvailability(
+  configured: boolean,
+  phone: string | null | undefined,
+): SmsAvailability {
+  if (!configured) return { ok: false, bucket: 'not_configured' }
+  const trimmed = (phone ?? '').trim()
+  if (!trimmed) return { ok: false, bucket: 'no_phone' }
+  return { ok: true, phone: trimmed }
+}
+
 export const __test__ = {
   buildReminderMessage,
   resolveReminderRecipients,
   beijingMidnightUtc,
+  classifySmsAvailability,
   WX_ERRCODE_NOT_SUBSCRIBED,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
