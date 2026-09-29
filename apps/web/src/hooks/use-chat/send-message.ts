@@ -1119,14 +1119,6 @@ export function createSendMessage(
             dangerLevel: event.dangerLevel,
             sessionId: event.sessionId,
             channel: 'chat-stream',
-            // D159(2026-09-30 立):把解析层递出的逐请求事实原样交给弹窗。
-            // 这一行是"到端渲染"的唯一通路 —— 组件测得再全,桥这一段不接,屏幕上
-            // 永远是"字段缺席 ⇒ 整块不渲染"(与开关关档同形,因此既不会报错也没人发现)。
-            ...(event.execEnvironment ? { execEnvironment: event.execEnvironment } : {}),
-            ...(event.networkTarget ? { networkTarget: event.networkTarget } : {}),
-            ...(event.blockedNetworkTargets
-              ? { blockedNetworkTargets: event.blockedNetworkTargets }
-              : {}),
           })
         },
         // V3 #63(2026-09-27 立):对话流业务表单 —— 把 form_request 帧挂到本轮
