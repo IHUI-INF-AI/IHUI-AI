@@ -11,11 +11,13 @@ import {
   Copy,
   Download,
   FileText,
+  ImageDown,
   ImageOff,
   Play,
   Loader2,
   FilePlus2,
   TextCursorInput,
+  TextWrap,
   Maximize2,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -33,6 +35,9 @@ import { useWorkPanelStore } from '@/stores/work-panel'
 import { openImageSource } from '@/lib/open-image-source'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { applyCodeBlockToFile } from '@/lib/apply-code-block'
+// D197:代码块「自动换行」偏好(zustand persist,跨会话记忆);D198:代码块「复制为图片」落盘
+import { useCodeBlockPrefsStore } from '@/stores/code-block-prefs'
+import { codeTextToPngBlob } from '@/lib/copy-as-image'
 import { useCodeBlockRun, isRunnableLanguage, type RunResult } from '@/components/ai/code-block-run'
 // P3 #35(2026-09-16 立):流式稳定段/活跃段切分——稳定前缀 memo 缓存跳过 parse
 import { splitMarkdownStable } from '@/lib/markdown-stable-split'
@@ -297,6 +302,7 @@ const CodeBlockImpl = function CodeBlock({
   syntaxStyle,
   collapseLines = 5,
   lineNumberStyle,
+  dark = false,
 }: {
   language?: string
   code: string
@@ -305,12 +311,39 @@ const CodeBlockImpl = function CodeBlock({
   collapseLines?: number
   /** 四竞品对标 V2 #17(2026-09-15):行号样式,undefined = 不显示行号(纯文本/降级路径不传) */
   lineNumberStyle?: React.CSSProperties
+  /** D198:复制为图片的底色/前景色取深色或浅色主题(由 ThemedCodeBlock 注入,与语法高亮同生命周期) */
+  dark?: boolean
 }): React.ReactElement {
   const tA11y = useTranslations('a11y')
   const t = useTranslations('chat')
   const { copied, copy } = useCopy()
   // 流式场景下 mermaid 代码会频繁变化,用 debounce 减少 mermaid.render 调用
   const debouncedCode = useDebounce(code, 300)
+
+  // D197:自动换行偏好(全站单选持久,zustand persist store ihui-code-block-prefs)
+  const wrap = useCodeBlockPrefsStore((s) => s.wrap)
+  const toggleWrap = useCodeBlockPrefsStore((s) => s.toggleWrap)
+
+  // D198:「复制为图片」状态(成功后短暂显示 Check,与 applyState/copy 回退同型)
+  const [imageCopied, setImageCopied] = React.useState(false)
+  const imageTimerRef = React.useRef<number | null>(null)
+  React.useEffect(() => {
+    return () => {
+      if (imageTimerRef.current !== null) window.clearTimeout(imageTimerRef.current)
+    }
+  }, [])
+
+  const handleCopyImage = React.useCallback(() => {
+    if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) return
+    void codeTextToPngBlob(code, { dark })
+      .then((blob) => navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]))
+      .then(() => {
+        setImageCopied(true)
+        if (imageTimerRef.current !== null) window.clearTimeout(imageTimerRef.current)
+        imageTimerRef.current = window.setTimeout(() => setImageCopied(false), 1500)
+      })
+      .catch(() => {})
+  }, [code, dark])
 
   // P0-2「应用到文件」状态:idle / applying / done(成功后短暂显示 Check)
   const [applyState, setApplyState] = React.useState<'idle' | 'applying' | 'done'>('idle')
@@ -453,6 +486,29 @@ const CodeBlockImpl = function CodeBlock({
           </IconButton>
         </Tooltip>
       )}
+      {/* D197:自动换行开关(偏好持久化;aria-pressed 表达当前态,文案随态切换 开启/关闭) */}
+      <Tooltip content={wrap ? t('codeBlock.wrapOff') : t('codeBlock.wrapOn')}>
+        <IconButton
+          onClick={toggleWrap}
+          data-testid="wrap-toggle-button"
+          className={iconBtnClass}
+          aria-label={wrap ? t('codeBlock.wrapOff') : t('codeBlock.wrapOn')}
+          aria-pressed={wrap}
+        >
+          <TextWrap className={cn(wrap && 'text-primary')} />
+        </IconButton>
+      </Tooltip>
+      {/* D198:复制为图片(代码块文本 canvas 绘制为 PNG 写入剪贴板) */}
+      <Tooltip content={t('codeBlock.copyImage')}>
+        <IconButton
+          onClick={handleCopyImage}
+          data-testid="copy-image-button"
+          className={iconBtnClass}
+          aria-label={t('codeBlock.copyImage')}
+        >
+          {imageCopied ? <Check className="text-green-600" /> : <ImageDown />}
+        </IconButton>
+      </Tooltip>
       <IconButton
         onClick={() => copy(code)}
         data-testid="copy-button"
@@ -469,15 +525,16 @@ const CodeBlockImpl = function CodeBlock({
   // 2026-08-17 P3:dark 模式代码块统一用更深 zinc-950(与 markdown-stream.test 期望对齐,
   // 原实现用 zinc-900 + 注释"较浅避免同色",但实际测试断言 zinc-950 已通过,改为一致 token)
   // G-842:边框/圆角上移到外层 frame(header + <pre> 同框),<pre> 只保留底色与排版
+  // D197:开启自动换行时横滚让位于 pre-wrap(白空格继承到内层 code),否则维持横滚原状
   const preClassName = cn(
-    'relative my-0 overflow-x-auto p-3 text-[15px]',
+    'relative my-0 p-3 text-[15px]',
+    wrap ? 'whitespace-pre-wrap break-words' : 'overflow-x-auto',
     'bg-zinc-100 text-zinc-900',
     'dark:bg-zinc-950 dark:text-zinc-100',
     isStreaming && 'opacity-60',
   )
   // G-842:外层 frame(仿本文件 CodeRunOutput 的「外框 + header 条 + 主体」形态)
-  const codeFrameClass =
-    'overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700'
+  const codeFrameClass = 'overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700'
   // G-842:代码块 header —— 文件图标 + 语言名映射的示例文件名(纯展示,非交互)
   const codeHeader = (
     <div
@@ -550,6 +607,8 @@ const CodeBlockImpl = function CodeBlock({
               style={syntaxStyle}
               showLineNumbers={!!lineNumberStyle}
               lineNumberStyle={lineNumberStyle}
+              // D197:换行偏好传导进高亮器(code 标签 whiteSpace: pre-wrap;与行号并存时行转 flex)
+              wrapLongLines={wrap}
               customStyle={{
                 margin: 0,
                 padding: 0,
@@ -590,7 +649,15 @@ function ThemedCodeBlock(props: {
     resolvedTheme === 'dark'
       ? { color: '#a1a1aa', opacity: 0.7, userSelect: 'none' }
       : { color: '#71717a', opacity: 0.7, userSelect: 'none' }
-  return <CodeBlock {...props} syntaxStyle={syntaxStyle} lineNumberStyle={lineNumberStyle} />
+  // D198:主题同时供给「复制为图片」的底色/前景色选择
+  return (
+    <CodeBlock
+      {...props}
+      syntaxStyle={syntaxStyle}
+      lineNumberStyle={lineNumberStyle}
+      dark={resolvedTheme === 'dark'}
+    />
+  )
 }
 
 // 图片放大容器:点击图片在 WorkPanel 打开(同源);外链在新标签页打开
@@ -733,7 +800,12 @@ function MarkdownLink({
     // (pdf = pdf.js 真渲染 + 页码/翻页/缩放;csv|tsv = 表头固定 + 列宽自适应 + 行数如实提示)
     if (
       !isStreaming &&
-      (ext === 'pdf' || ext === 'csv' || ext === 'tsv' || ext === 'docx' || ext === 'xlsx' || ext === 'pptx')
+      (ext === 'pdf' ||
+        ext === 'csv' ||
+        ext === 'tsv' ||
+        ext === 'docx' ||
+        ext === 'xlsx' ||
+        ext === 'pptx')
     ) {
       return <RichFilePreview href={hrefStr} ext={ext} />
     }
