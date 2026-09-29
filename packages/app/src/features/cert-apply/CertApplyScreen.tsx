@@ -7,7 +7,6 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
-  TextInput,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native'
@@ -16,6 +15,7 @@ import type { CertApplyScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** 证书申请共享屏 — props 注入式跨端组件(wrapper 负责 POST /certificates) */
 export type { CertApplyScreenProps }
@@ -41,7 +41,8 @@ export function CertApplyScreen({
       <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
       <Text style={styles.title}>{t('certApply.title')}</Text>
       <Text style={styles.label}>{t('certApply.name')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={styles.input}
         value={name}
         onChangeText={onNameChange}
@@ -49,7 +50,8 @@ export function CertApplyScreen({
         placeholderTextColor={tk.text.tertiary}
       />
       <Text style={styles.label}>{t('certApply.idCard')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={styles.input}
         value={idCard}
         onChangeText={onIdCardChange}
