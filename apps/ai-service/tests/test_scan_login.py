@@ -9,14 +9,16 @@
 - ScanTask.snapshot: 可序列化状态(has_qr/cookies_count 计算)
 - 2026-09-16 补:_cookie_hits 前缀通配 + 平台配置完整性(38 平台与前端注册表对齐)
 - 2026-09-16 补:_parse_raw_cookies 手动导入 Cookie 三格式解析(JSON/cookies.txt/请求头)
+- 2026-09-29 补:扫码 tab 顺序点击计划 + qq/sohu/zhihu_daily 死链实证修复 +
+  ptlogin2 二维码(#qrlogin_img/ptqrshow)选择器次序
 """
 
 from __future__ import annotations
 
 from app.services.scan_login import (
+    _QR_ELEMENT_SELECTORS,
     PLATFORM_SCAN_CONFIG,
     ScanTask,
-    _QR_ELEMENT_SELECTORS,
     _cookie_hits,
     _parse_raw_cookies,
     _url_is_login_page,
@@ -159,13 +161,19 @@ def test_segmentfault_scan_tab_selector():
 
 
 def test_scan_tab_selectors_shape():
-    """所有平台声明的 scan_tab_selectors 必须是非空字符串元组/列表(写错了等于没写)。"""
+    """所有平台声明的 scan_tab_selectors 必须是合法计划项:
+    非空字符串,或"顺序点击计划"(非空元组/列表,元素全为非空字符串)—— 写错了等于没写。"""
     for pid, cfg in PLATFORM_SCAN_CONFIG.items():
         tabs = cfg.get("scan_tab_selectors")
         if tabs is None:
             continue
         assert isinstance(tabs, (tuple, list)) and tabs, f"{pid} scan_tab_selectors 为空"
-        assert all(isinstance(s, str) and s for s in tabs), f"{pid} scan_tab_selectors 含非法项"
+        for item in tabs:
+            if isinstance(item, str):
+                assert item, f"{pid} scan_tab_selectors 含空字符串"
+            else:
+                assert isinstance(item, (tuple, list)) and item, f"{pid} 计划项非法: {item!r}"
+                assert all(isinstance(s, str) and s for s in item), f"{pid} 计划项含非法选择器: {item!r}"
 
 
 def test_qr_element_selectors_cover_wechat_qrconnect_iframe():
@@ -177,6 +185,56 @@ def test_qr_element_selectors_cover_wechat_qrconnect_iframe():
     assert _QR_ELEMENT_SELECTORS.index('iframe[src*="qrconnect"]') < _QR_ELEMENT_SELECTORS.index(
         "canvas"
     ), "iframe 候选必须先于裸 canvas 兜底"
+
+
+def test_qr_element_selectors_cover_qq_ptlogin_img():
+    """企鹅号 om.qq.com 实测:ptlogin2 快捷登录码是 <img id="qrlogin_img" class="qrImg"
+    src=".../ptqrshow?...">,id/class 不含 "qrcode"、src 非 data:image,必须点名;
+    且必须排在 img[data:image] 之前 —— 腾讯验证码框有 300×214 data:image 滑块底图,
+    跨 frame 找码时先命中它就会误裁验证码。"""
+    joined = "\n".join(_QR_ELEMENT_SELECTORS)
+    assert "#qrlogin_img" in joined, "缺 ptlogin2 qrlogin_img 点名候选"
+    assert 'img[src*="ptqrshow"]' in joined, "缺 ptqrshow 端点候选"
+    data_idx = _QR_ELEMENT_SELECTORS.index('img[src^="data:image"]')
+    assert _QR_ELEMENT_SELECTORS.index("#qrlogin_img") < data_idx, "qrlogin_img 必须先于 data:image 兜底"
+    assert _QR_ELEMENT_SELECTORS.index('img[src*="ptqrshow"]') < data_idx, "ptqrshow 必须先于 data:image 兜底"
+
+
+# --- 2026-09-29 死链平台实证修复(qq/sohu/zhihu_daily) ---
+
+
+def test_qq_login_url_live_and_scan_plan():
+    """企鹅号:/userAuth/login 已 404(实测),换 /userAuth/index;扫码计划 =
+    点 QQ登录 tab → 点协议层"同意"(a.layui-layer-btn0),顺序计划形态。"""
+    qq = PLATFORM_SCAN_CONFIG["qq"]
+    assert qq["login_url"] == "https://om.qq.com/userAuth/index"
+    plans = qq.get("scan_tab_selectors")
+    assert plans and isinstance(plans[0], (tuple, list)), f"qq 缺顺序点击计划: {plans!r}"
+    joined = " ".join(plans[0])
+    assert "QQ登录" in joined, "计划必须点 QQ登录 tab(与 p_skey/ptcz 同源)"
+    assert "layui-layer-btn0" in joined, "计划必须点协议层同意按钮"
+
+
+def test_sohu_login_url_live_and_scan_plan():
+    """搜狐号:/mp/login 404(实测),换首页;扫码计划 = 点"登录"弹层 →
+    点"其他方式"微信圆标(.third .wx)。"""
+    sohu = PLATFORM_SCAN_CONFIG["sohu"]
+    assert sohu["login_url"] == "https://mp.sohu.com/"
+    plans = sohu.get("scan_tab_selectors")
+    assert plans and isinstance(plans[0], (tuple, list)), f"sohu 缺顺序点击计划: {plans!r}"
+    joined = " ".join(plans[0])
+    assert "navigation-login-wrap" in joined, "计划必须点首页登录入口"
+    assert ".third .wx" in joined, "计划必须点其他方式排的微信图标"
+
+
+def test_zhihu_daily_reuses_zhihu_login():
+    """知乎日报:daily.zhihu.com/login 404(实测),日报无独立 Web 登录 ——
+    复用知乎主站扫码页;z_c0 种在 .zhihu.com 天然覆盖 daily 子域。"""
+    zd = PLATFORM_SCAN_CONFIG["zhihu_daily"]
+    zh = PLATFORM_SCAN_CONFIG["zhihu"]
+    assert zd["login_url"] == zh["login_url"], "日报必须复用知乎主站登录页"
+    assert zd["success_cookies"] == ["z_c0"]
+    assert "zhihu\\.com" in zd["success_url_pattern"], "成功 URL 判定须覆盖主站落地页"
 
 
 # --- URL 登录页判定(新平台回归) ---
