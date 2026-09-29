@@ -1,0 +1,20 @@
+{
+  "$comment": "C8 死规则分族棘轮锚点(scripts/check-miniapp-css-landing.mjs)。各族**只减不增**:现读超过哪一族就点名哪一族。重锚 = 人工跑 `node scripts/check-miniapp-css-landing.mjs --emit-dead-rule-baseline > scripts/miniapp-css-dead-rule-baseline.json`(该出口在产物非新鲜时拒收),禁止为让门变绿而调高。逐族各自立锚、不合并成一个总数 —— 一族变好不得替另一族变坏顶名额(守门 134 的净零逃逸通道同型)。",
+  "families": {
+    "fractional": 15,
+    "prefixed": 5,
+    "other": 11
+  },
+  "total": 31,
+  "provenance": {
+    "measuredAt": "2026-09-29",
+    "face": "head",
+    "artifact": "apps/miniapp-taro/dist,最新写入 2026-09-28T16:36:40.897Z",
+    "c0FreshnessAtAnchorTime": "stale",
+    "command": "node scripts/check-miniapp-css-landing.mjs --json --min-coverage 0",
+    "evidence": "锚点取的是 C4 `deadRuleKindsList` 那 31 个名字按【令牌形状】分族的结果(15 fractional / 5 prefixed / 11 other)。逐名清单来自那次封缄取证(.ihui-agent/tmp/css-deadrule/measure1.json,#EVIDENCE-RC=2 —— 2 是 C0 判旧产物,不是判据失败)。",
+    "familyCauses": "fractional = `.` 被 weapp 的 CSS 侧转写成 `_d`,而运行时改名腿永不产出 `_d`(形如 `mt-1_d5` 的规则存在、谁也没挂上);prefixed = `!` / `:` 同理转写成 `_e` / `_c` 而运行时侧跳过 —— 属【工具链缺陷】,源码 grep 修不掉;other = 现读数全部来自【根本没被编译进产物的子树】:`src/custom-tab-bar/index.tsx` 6 条(而 `src/app.config.ts` 的 tabBar 是 `custom:false` ⇒ dist 里没有 `custom-tab-bar/`),以及四个零引用方组件 `TitleSwitchOverlap` / `TitleSwitchScrollPicker` / `ConfirmDialog` / `Toast` 共 5 条。成因是这一轮读出来的、形状判不出来,所以只写在这里、不进判据。",
+    "pendingLowering": "fractional 一族在本票(2026-09-29)已被换成等值的 rpx 任意值形态(刻度值 × `TARO_RPX_PER_PX` = 2,如 `mt-1.5` → `mt-[12rpx]`),但锚点仍钉 15 —— 被审面是 HEAD,该改动尚未入库;把锚点提前降到 0 会让下一次从 HEAD 干净检出的构建凭空判红。该改动入库并重建后,由人跑上面那条重锚命令把 fractional 降到实际读数。",
+    "notAProofOfFix": "本台账只登记允许的上限,不证明任何一族已修好;修没修好只认重建后的现读(AGENTS:凡数字一律现读,勿照文档派单)。"
+  }
+}
