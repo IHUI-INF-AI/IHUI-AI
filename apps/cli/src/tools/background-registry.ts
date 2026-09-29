@@ -42,6 +42,12 @@ export interface BackgroundTask {
   droppedStderrBytes: number;
   timedOut: boolean;
   /**
+   * 谁主动停的(G-816026):只能由 `killTask(id, initiator)` 落盘,close 处理器只读不猜。
+   * 三态互斥:有发起方 ⇒ 主动停;无发起方的信号终止 ⇒ 外部(OOM/别的进程),发起方记
+   * undefined;超时档只能由 deadline 持有者显式置 `timedOut=true`,绝不按 signal 形状反推。
+   */
+  stopInitiator?: 'user' | 'model' | null;
+  /**
    * 「已投递」位 —— 终态快照有没有已经交给过等待者(G-814418 判据①)。
    *
    * 它必须是**任务对象上的一个位**而不是 `Map<id, boolean>`:id 由 `genId()` 生成
@@ -135,7 +141,7 @@ function isTerminalStatus(status: BackgroundTaskStatus): boolean {
 export type BackgroundTaskSnapshot = Readonly<
   Pick<
     BackgroundTask,
-    'id' | 'command' | 'startedAt' | 'exitedAt' | 'exitCode' | 'status' | 'stdoutBuf' | 'stderrBuf' | 'truncated' | 'droppedStdoutBytes' | 'droppedStderrBytes' | 'timedOut'
+    'id' | 'command' | 'startedAt' | 'exitedAt' | 'exitCode' | 'status' | 'stdoutBuf' | 'stderrBuf' | 'truncated' | 'droppedStdoutBytes' | 'droppedStderrBytes' | 'timedOut' | 'stopInitiator'
   >
 >;
 
@@ -153,6 +159,7 @@ function toSnapshot(t: BackgroundTask): BackgroundTaskSnapshot {
     droppedStdoutBytes: t.droppedStdoutBytes,
     droppedStderrBytes: t.droppedStderrBytes,
     timedOut: t.timedOut,
+    stopInitiator: t.stopInitiator,
   });
 }
 
@@ -334,7 +341,11 @@ export function registerTask(
       task.exitCode = code;
       if (signal === 'SIGTERM' || signal === 'SIGKILL') {
         task.status = 'killed';
-        task.timedOut = signal === 'SIGTERM';
+        // G-816026:谁停的是另一条轴,只能读 killTask 落盘的 stopInitiator,绝不按 signal
+        // 形状反推(旧写法把用户手停/模型停/外部杀按 signal 形状塌成一件事,模型读到
+        // `killed+timedOut` 只会去重跑同一条命令)。无发起方的信号终止(OOM/外部 kill)
+        // 记 undefined,同样非超时 —— 反向锁见 kill-initiator 测试。
+        task.timedOut = false;
       } else {
         task.status = 'exited';
       }
@@ -415,6 +426,10 @@ export interface TaskOutput {
   /** 丢弃量下界(字节):G-816028 要求截断时能回答"省略了多少"。 */
   droppedStdoutBytes: number;
   droppedStderrBytes: number;
+  /** 谁主动停的(G-816026):user/model 由 killTask 落盘;undefined = 外部终止(OOM/别的进程)。 */
+  stopInitiator?: 'user' | 'model' | null;
+  /** 只有"deadline 持有者"显式置位才为 true;绝不按 signal 形状反推(G-816026)。 */
+  timedOut: boolean;
   exitCode?: number | null;
   startedAt: string;
   exitedAt?: string;
@@ -451,6 +466,8 @@ export function getTaskOutput(id: string, tailLines?: number): TaskOutput | null
     truncated: t.truncated,
     droppedStdoutBytes: t.droppedStdoutBytes,
     droppedStderrBytes: t.droppedStderrBytes,
+    stopInitiator: t.stopInitiator,
+    timedOut: t.timedOut,
     exitCode: t.exitCode,
     startedAt: t.startedAt,
     exitedAt: t.exitedAt,
@@ -620,11 +637,19 @@ export async function settleAllInFlight(timeoutMs = 30_000): Promise<SettleAllIn
 }
 
 /** 终止任务,signal 默认 SIGTERM,5 秒后未退出强杀 SIGKILL。 */
-export async function killTask(id: string): Promise<{ killed: boolean; reason?: string; exitConfirmed: boolean }> {
+export async function killTask(
+  id: string,
+  initiator?: 'user' | 'model' | null,
+): Promise<{ killed: boolean; reason?: string; exitConfirmed: boolean }> {
   const t = tasks.get(id);
   if (!t) return { killed: false, exitConfirmed: false, reason: `任务 ${id} 不存在` };
   if (t.status !== 'running') return { killed: false, exitConfirmed: true, reason: `任务已结束(状态: ${t.status})` };
   if (!t.process) return { killed: false, exitConfirmed: false, reason: '无进程引用' };
+
+  // G-816026:发起方**必须在发信号之前落盘** —— close 事件是异步的,晚写就会让
+  // close 处理器读到 undefined,把主动停误判成"外部终止"(上游同课:
+  // background-stop-dynamic-workflow.ts:45-57「写在 abort 之前,否则结算可能抢先一步读到空值」)。
+  t.stopInitiator = initiator ?? null;
 
   try {
     t.process.kill('SIGTERM');
