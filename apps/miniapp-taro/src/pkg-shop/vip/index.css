@@ -228,13 +228,8 @@
   background: var(--color-brand-accent);
   border-color: var(--color-brand-accent);
 }
-.auto-mark {
-  /* accent 底配 foreground 文字 */
-  color: var(--color-brand-accent-foreground);
-  font-size: 24rpx;
-  font-weight: 700;
-  line-height: 1;
-}
+/* .auto-mark 已删:只剩排版属性(accent 底配 foreground 字),唯一使用者是勾选位上的勾字符;
+   换成 LineIcon 后尺寸/颜色由组件 size / color prop 单点给出(见 index.tsx)。 */
 .auto-text {
   font-size: 24rpx;
   color: var(--vip-text-muted);
@@ -423,13 +418,8 @@
   background: var(--color-brand-accent);
   border-color: var(--color-brand-accent);
 }
-.pp-check-mark {
-  /* accent 底配 foreground 文字 */
-  color: var(--color-brand-accent-foreground);
-  font-size: 24rpx;
-  font-weight: 700;
-  line-height: 1;
-}
+/* .pp-check-mark 已删:只剩排版属性(accent 底配 foreground 字),唯一使用者是协议勾选位上的
+   勾字符;换成 LineIcon 后尺寸/颜色由组件 size / color prop 单点给出(见 index.tsx)。 */
 .pp-check-text {
   font-size: 26rpx;
   color: var(--vip-text-muted);
