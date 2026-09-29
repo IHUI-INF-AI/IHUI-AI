@@ -204,8 +204,14 @@ def split_scoped_key(key: str) -> tuple[str | None, str]:
     return None, key
 
 
-def key_is_owned_by(key: str, owner: str) -> bool:
+def key_is_owned_by(key: str, owner: str | None) -> bool:
     """该 cache_key 是否绑定在指定主体上(管理出口列表过滤 / 撤销归属闸用)。
+
+    `owner` 允许是 None:调用方那侧的主体是从 `request.state.user_id` 派生的
+    (`_resolve_owner_uuid` 的签名就是 `-> str | None`),而本函数第一行已经把
+    "空/None 主体"归一成 `""` 并返回 False —— **判据本来就吃 None**,把它写成
+    `str` 只是让 mypy 在两个调用点上红,而红着的门会让每次提交被逼跳门。
+    失效方向因此是 fail-closed(列不出、撤不掉),不是放行。
 
     无主体键(存量行)对任何主体都返回 False —— 它不再属于任何人,
     面板不可见、不可撤,只能由 DB 级 purge 处置(不在此判据射程)。
