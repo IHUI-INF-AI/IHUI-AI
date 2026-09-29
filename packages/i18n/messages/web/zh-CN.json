@@ -8187,6 +8187,10 @@
           "title": "请求超时",
           "action": "重试"
         },
+        "DELETE_FAILED": {
+          "title": "文件删除失败",
+          "action": "释放文件占用后重试"
+        },
         "DEP_MISSING": {
           "title": "依赖缺失",
           "action": "安装依赖后重试"
@@ -8474,6 +8478,10 @@
         "SENSITIVE_FILE_BLOCKED": {
           "title": "该操作已被安全策略拦截",
           "action": "修改后重试"
+        },
+        "SNAPSHOT_UNREADABLE": {
+          "title": "快照内容不可读",
+          "action": "改用其他版本或放弃回滚"
         },
         "SSRF_BLOCKED": {
           "title": "该地址不被允许访问",
