@@ -119,6 +119,11 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const RADIUS_TABLE_REL = 'packages/design-tokens/src/radius.js'
 const BASELINE_REL = 'scripts/radius-role-conformance-baseline.json'
 /**
+ * 弱证据队列的**裁决账**(有出生也有死亡)—— 见 `parseAdjudications` 那条为什么必须有它。
+ * 它是判据输入而不是存量清单:站点被裁决掉就不再进队列,站点消失而条目还挂着则判"清单腐烂"红。
+ */
+const ADJUDICATIONS_REL = 'scripts/data/radius-role-adjudications.json'
+/**
  * 胶囊的形状维哨兵角色 —— 锚点键不能落 `文件|undefined`(理由见判定处那条)。
  * 它刻意不是一个真实角色档:`roleSpec(table, CAPSULE_ROLE)` 取不到档,所以这条永远不会被
  * 当成"应有档 X"去比对 —— 形状一旦成立,档位问题就不再是它的问题。
@@ -675,6 +680,79 @@ export function parseBaseline(text, label) {
   }
 }
 
+/**
+ * 弱证据队列的裁决账。为什么必须有它:**一条只能变长、不能变短的队列,等于没有判据** ——
+ * 它既不会让任何人去处理,又会让"这一格已被看过"的判断永远做不出来(与守门 108 对豁免的
+ * "只出生不死亡"是同一条禁令)。三条判据各挡一型:
+ *  AJ1 条目缺 `reason` / `owner` / `reviewBy`,或形状不对 ⇒ 红(登记不是免检,要写清谁、依据什么、何时复裁);
+ *  AJ2 `reviewBy` 已过 ⇒ 红(债到期,出路只有续期或真改档);
+ *  AJ3 条目在账而**被审面上找不到对应站点** ⇒ 红 = 清单腐烂 —— 这正是"文件被别人删掉了 / 档已经改对
+ *      了却还挂着裁决"的自动收口点:它把"下线一族"这件事变成一次必须有人签字的账,而不是静默消失。
+ * 匹配用**四元内容键**(file + 书写形态 + 推得角色 + 应取档),不用行号 —— 行号在任何一次 append 后都会挪。
+ */
+export function parseAdjudications(text, label) {
+  if (text === null || text === undefined) return []
+  let j
+  try {
+    j = JSON.parse(text)
+  } catch (e) {
+    throw new Undetermined(`${label} 解析失败:${e.message} —— 坏台账不得静默当空清单用`)
+  }
+  if (!j || !Array.isArray(j.items)) throw new Undetermined(`${label} 缺 items 数组 ⇒ 本门判据失明`)
+  return j.items
+}
+
+/** 一条弱证据站点与一条裁决条目的匹配键(内容键,不含行号)。 */
+export function adjudicationKey({ file, form, role, expectedStep }) {
+  return [file, form, role, expectedStep].join('|')
+}
+
+/**
+ * @returns {{pending: object[], adjudicated: object[], problems: string[]}}
+ *   pending 仍需人裁(队列,不判红);adjudicated 已带理由与到期日;problems 是 AJ1/AJ2/AJ3 三型红。
+ */
+export function applyAdjudications(weakFindings, items, today) {
+  const seen = new Set()
+  const pending = []
+  const adjudicated = []
+  const problems = []
+  const keys = new Map(weakFindings.map((f) => [adjudicationKey(f), f]))
+  for (const it of items) {
+    const where = `${it?.file ?? '(缺 file)'}#${it?.owner ?? '(缺 owner)'}`
+    if (!it || typeof it !== 'object' || !it.file || !it.form || !it.role || !it.expectedStep) {
+      problems.push(`AJ1 条目形状不全(file/form/role/expectedStep 四元内容键缺一不可):${where}`)
+      continue
+    }
+    if (typeof it.reason !== 'string' || it.reason.trim() === '') {
+      problems.push(`AJ1 裁决无理由:${where}`)
+      continue
+    }
+    if (typeof it.owner !== 'string' || it.owner.trim() === '') {
+      problems.push(`AJ1 裁决无归属(谁负责复裁):${where}`)
+      continue
+    }
+    if (typeof it.reviewBy !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(it.reviewBy)) {
+      problems.push(`AJ1 到期日缺失或形态不对(要 YYYY-MM-DD):${where}`)
+      continue
+    }
+    const k = adjudicationKey(it)
+    if (!keys.has(k)) {
+      problems.push(`AJ3 清单腐烂:被审面上找不到对应站点 ⇒ 要么已改档要么文件已下线,必须把这条了结:${k}`)
+      continue
+    }
+    if (it.reviewBy < today) {
+      // 到期就退回队列:让一条过期裁决继续替站点免检,等于"登记一次、永久免检"。
+      problems.push(`AJ2 裁决到期未复裁(reviewBy=${it.reviewBy} < ${today}),该站点已退回待裁队列:${k}`)
+      continue
+    }
+    seen.add(k)
+    adjudicated.push({ ...keys.get(k), owner: it.owner, reviewBy: it.reviewBy, reason: it.reason })
+  }
+  for (const f of weakFindings) {
+    if (!seen.has(adjudicationKey(f))) pending.push(f)
+  }
+  return { pending, adjudicated, problems }
+}
 /** 清单按面取:`ls-tree` 不认 `--cached`,索引面只能走 `ls-files`;内容与清单**同面同轮**。 */
 function listTracked(repoRoot, face) {
   const args = face === 'staged' ? ['ls-files'] : ['ls-tree', '-r', '--name-only', 'HEAD']
@@ -713,7 +791,7 @@ export function runAudit(repoRoot, face, { only } = {}) {
   // 具名档来源与正文**同面同轮**取:表读盘、内容读 HEAD 会产出自洽却错位的尺子(门 83/101 同条)。
   const tierFiles = listTracked(repoRoot, face).filter((p) => TIER_SOURCE_RE.test(p))
   const specAt = (p) => (face === 'staged' ? `:${p}` : `HEAD:${p}`)
-  const specs = [...files, ...tierFiles, RADIUS_TABLE_REL, BASELINE_REL].map(specAt)
+  const specs = [...files, ...tierFiles, RADIUS_TABLE_REL, BASELINE_REL, ADJUDICATIONS_REL].map(specAt)
   const got = catBatch(repoRoot, specs, { maxBuffer: 1 << 29, timeout: 180000 })
   const tableSrc = got.get(face === 'staged' ? `:${RADIUS_TABLE_REL}` : `HEAD:${RADIUS_TABLE_REL}`)
   if (tableSrc === null || tableSrc === undefined)
@@ -727,6 +805,14 @@ export function runAudit(repoRoot, face, { only } = {}) {
     baselineSrc === null || baselineSrc === undefined
       ? { anchors: {}, $note: '台账不在被审面上 —— 本次按"零锚点"判,任何存量都会判红(接线前须先入锚)' }
       : parseBaseline(baselineSrc, BASELINE_REL)
+  /**
+   * 裁决账与内容**同面同轮**取(理由与 baseline 同源)。账不在面上 ⇒ 按"零裁决"判:
+   * 弱证据全部留在队列里 —— 那比"没账就当没有债"诚实,也因为缺账不会让任何站点被静默放行。
+   */
+  const adjudications = parseAdjudications(
+    got.get(face === 'staged' ? `:${ADJUDICATIONS_REL}` : `HEAD:${ADJUDICATIONS_REL}`),
+    ADJUDICATIONS_REL,
+  )
   /**
    * 具名档表(`geometry.tapBox` / `SPEC_X_PX`)—— 供除法形态半径的被除数取值。
    * 取不到表(文件不在面上 / 解析为空)⇒ 表为空 Map,那些行照旧落「未判定」报名,**不猜**。
@@ -792,6 +878,7 @@ export function runAudit(repoRoot, face, { only } = {}) {
     files,
     table,
     baseline,
+    adjudications,
     violations,
     undetermined,
     unclassified,
@@ -842,6 +929,10 @@ function runAuditWorktree(repoRoot, only) {
   if (!table) throw new Undetermined('档位表解析不出内容(空表不判绿)')
   const baseSrc = readWorktreeFile(repoRoot, BASELINE_REL)
   const baseline = baseSrc ? parseBaseline(baseSrc, BASELINE_REL) : { anchors: {} }
+  const adjudications = parseAdjudications(
+    readWorktreeFile(repoRoot, ADJUDICATIONS_REL),
+    ADJUDICATIONS_REL,
+  )
   // 具名档表:工作树档本就整面读盘,这里同面取,不与内容面错开。
   const tierSources = {}
   for (const rel of listTracked(repoRoot, 'head')) {
@@ -904,6 +995,7 @@ function runAuditWorktree(repoRoot, only) {
     files,
     table,
     baseline,
+    adjudications,
     violations,
     undetermined,
     unclassified,
@@ -992,6 +1084,19 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
     return 0
   }
   const undetFileCount = new Set(res.undetermined.map((u) => u.file)).size
+  /**
+   * 弱证据队列过一遍裁决账(三型红见 `applyAdjudications`)。放在这里而不是各 collector 里,
+   * 是为了**只有一处实现**:HEAD / 索引 / 工作树三面共用同一条判序,否则"哪个面上算已裁决"
+   * 会随面漂开 —— 而漂开的表现是同一份代码在两个面上一个红一个绿。
+   */
+  const adj = applyAdjudications(
+    res.weakFindings,
+    res.adjudications || [],
+    new Date().toISOString().slice(0, 10),
+  )
+  res.weakFindings = adj.pending
+  res.adjudicated = adj.adjudicated
+  res.adjudicationProblems = adj.problems
   if (argv.includes('--json')) {
     // stdout 只准出现 JSON:任何尾随说明行都会砸碎镜像测试的 JSON.parse
     console.log(
@@ -1009,6 +1114,8 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
         unclassifiedCount: res.unclassified.length,
         unclassified: argv.includes('--all') ? res.unclassified : undefined,
         weakFindings: res.weakFindings,
+        adjudicated: res.adjudicated,
+        adjudicationProblems: res.adjudicationProblems,
         surfaceOverrides: res.surfaceOverrides,
         componentEvidence: res.componentEvidence,
         identityEvidence: res.identityEvidence,
@@ -1080,6 +1187,23 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
       if (res.weakFindings.length > 15)
         console.log(`   …其余 ${res.weakFindings.length - 15} 条见 --json 的 weakFindings`)
     }
+    /**
+     * 已裁决的站点与三型账问题都要打印:账问题**判红**,而已裁决条目必须看得见是谁、依据什么、
+     * 何时复裁 —— 一笔查不到的裁决等于一笔可以随口写下的裁决。
+     */
+    if (res.adjudicated.length) {
+      console.log(
+        `◦ 弱证据已裁决 ${res.adjudicated.length} 处(带归属与复裁日;到期未复裁或站点消失即判红):`,
+      )
+      for (const a of res.adjudicated)
+        console.log(
+          `   · ${a.file}:${a.line} 「${a.form}」推得 ${a.role} 应取 ${a.expectedStep} —— 归属 ${a.owner},复裁 ${a.reviewBy}`,
+        )
+    }
+    if (res.adjudicationProblems.length) {
+      console.log(`❌ 裁决账问题 ${res.adjudicationProblems.length} 条(判红):`)
+      for (const p of res.adjudicationProblems) console.log(`   · ${p}`)
+    }
     console.log(
       `◦ 身份通道(票㉘):ARIA role / data-testid / ui-<role> / bg-popover 给得出身份的 ${res.identityEvidence} 行。
    ` +
@@ -1127,13 +1251,18 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
       `结论(五个体各算各的,谁也不替谁背书):判红 ${res.red.length} 族 / ` +
         `已判合规 ${res.compliant} 处(角色档一致)/ ` +
         `角色档不一致 ${res.violations.length} 处(其中超出自身锚点的就是上面 ${res.red.length} 族)/ ` +
-        `弱证据待裁 ${res.weakFindings.length} 处(不判红)/ ` +
+        `弱证据待裁 ${res.weakFindings.length} 处(不判红)/ 已裁决 ${res.adjudicated.length} 处(账问题 ${res.adjudicationProblems.length} 条判红)/ ` +
         `未判定 ${res.undetermined.length} 处(逐条报名,不是通过)/ ` +
         `不在射程 = 无类别证据的取用 ${res.unclassified.length} 处` +
         `${argv.includes('--all') ? '(--all 已逐条列出)' : '(--all 逐条列出)'}`,
     )
   }
   if (res.red.length) return 1
+  /**
+   * 裁决账的问题与判红族同权:账烂了比"某一处配错档"更严重 —— 它会让**所有**已登记的站点
+   * 一起变成免检。`--strict` 那条只管"判不出",不管这一维,所以这里不分档都判红。
+   */
+  if (res.adjudicationProblems.length) return 1
   if (strict && (res.undetermined.length || res.roleTableProblems.length)) return 2
   return 0
 }
@@ -1885,6 +2014,69 @@ export default function P() {
       )
     })(),
   )
+  const weakSite = [
+    { file: 'a/X.tsx', line: 10, form: 'rounded-md', role: 'card', expectedStep: 'lg', evidence: 'weak' },
+  ]
+  const goodItem = {
+    file: 'a/X.tsx',
+    form: 'rounded-md',
+    role: 'card',
+    expectedStep: 'lg',
+    reason: '带边框 + 自身内边距 + 纵向堆行 ⇒ 小信息卡',
+    owner: 'X 持有人',
+    reviewBy: '2099-01-01',
+  }
+  t(
+    'AJ-正例:字段齐备且未到期 ⇒ 站点离开队列、无红(裁决账的意义就在于此)',
+    (() => {
+      const r = applyAdjudications(weakSite, [goodItem], '2026-09-29')
+      return r.pending.length === 0 && r.adjudicated.length === 1 && r.problems.length === 0
+    })(),
+  )
+  t(
+    'AJ1-无理由 ⇒ 红,且站点**不得**被这条坏账抹出队列(写个空条目就能免检 = 没有判据)',
+    (() => {
+      const r = applyAdjudications(weakSite, [{ ...goodItem, reason: '  ' }], '2026-09-29')
+      return (
+        r.problems.some((p) => p.startsWith('AJ1')) &&
+        r.adjudicated.length === 0 &&
+        r.pending.length === 1
+      )
+    })(),
+  )
+  t(
+    'AJ2-到期 ⇒ 红并把站点退回队列(过期账继续免检 = 登记一次、永久免检)',
+    (() => {
+      const r = applyAdjudications(weakSite, [{ ...goodItem, reviewBy: '2026-01-01' }], '2026-09-29')
+      return r.problems.some((p) => p.startsWith('AJ2')) && r.pending.length === 1
+    })(),
+  )
+  t(
+    'AJ3-账上有条目而被审面找不到站点 ⇒ 判"清单腐烂"(文件被下线/档已改对时,必须有人了结这条)',
+    (() => {
+      const r = applyAdjudications([], [goodItem], '2026-09-29')
+      return r.problems.length === 1 && r.problems[0].startsWith('AJ3')
+    })(),
+  )
+  t(
+    'AJ-键是四元内容键不是行号:同一站点的行号变化不得让裁决失效(§1 第 3 条)',
+    (() => {
+      const moved = [{ ...weakSite[0], line: 999 }]
+      const r = applyAdjudications(moved, [goodItem], '2026-09-29')
+      return r.pending.length === 0 && r.problems.length === 0
+    })(),
+  )
+  t(
+    'AJ-坏 JSON 台账必须抛"无法判定",不得静默当空清单(那会把所有已裁决站点洗成免检)',
+    (() => {
+      try {
+        parseAdjudications('{"items": [', 'x.json')
+        return false
+      } catch (e) {
+        return e instanceof Undetermined
+      }
+    })(),
+  )
   const bad = results.filter((r) => !r.ok)
   for (const r of results) console.log(`${r.ok ? '✅' : '❌'} ${r.name}${r.extra ? ` —— ${r.extra}` : ''}`)
   console.log(`--self-test: ${results.length} 条,失败 ${bad.length} 条`)
@@ -1917,6 +2109,10 @@ export const __test__ = {
   anchorRegression,
   emitBaseline,
   parseBaseline,
+  ADJUDICATIONS_REL,
+  parseAdjudications,
+  adjudicationKey,
+  applyAdjudications,
   faceFromArgv,
   runAudit,
   roleTableProblems,
