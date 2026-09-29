@@ -24,6 +24,12 @@
  * 在两条流上各自生产)。
  */
 
+import {
+  projectToolApprovalEnvFacts,
+  type ToolApprovalExecEnvironment as ApiToolApprovalExecEnvironment,
+  type ToolApprovalNetworkTarget as ApiToolApprovalNetworkTarget,
+} from '@ihui/api-client'
+
 /** Agent 任务流事件名常量(单一事实源)。值即 wire 上的 `event: <名>`。 */
 export const AGENT_TASK_EVENTS = {
   /** hook session.start → 会话建立 */
@@ -161,6 +167,16 @@ export interface ToolApprovalWirePayload {
   args_preview?: string
   danger_level?: string
   session_id?: string
+  /**
+   * D159(2026-09-30 立):执行环境/网络目标事实。外层键 snake、内层键 camel,
+   * 字段清单的权威在 `./contract.ts`(与 Python 侧 sse_contract.py 由守门对账)。
+   * 这里刻意**不重列内层形状**:把哪些线字段算作一条环境事实的判据只有
+   * `@ihui/api-client` 的 `projectToolApprovalEnvFacts` 一处,在此再画一份类型
+   * 就是允许两边各自漂开(AGENTS"两处算同一件事必漂移")。
+   */
+  exec_environment?: Record<string, unknown>
+  network_target?: Record<string, unknown>
+  blocked_network_targets?: Record<string, unknown>[]
 }
 
 // ============================================================================
@@ -256,6 +272,16 @@ export interface ToolApprovalEvent {
   argsPreview: string
   dangerLevel: string
   sessionId: string
+  /**
+   * D159(2026-09-30 立)三个可选字段。类型直接取 @ihui/api-client 那一份 —— 不是偷懒:
+   * 投影判据(`projectToolApprovalEnvFacts`)只有那一个实现,两条通道(chat-stream 与
+   * agent 任务流)都调它,再声明一份同名字段就是允许两边各自漂开(AGENTS"两处算同一件
+   * 事必漂移")。agent 任务流今天可能根本不发这些字段 ⇒ 缺席 ⇒ 弹窗整块不渲染,与开关
+   * 关档同形,这是**正确**行为而不是漏接。
+   */
+  execEnvironment?: ApiToolApprovalExecEnvironment
+  networkTarget?: ApiToolApprovalNetworkTarget
+  blockedNetworkTargets?: ApiToolApprovalNetworkTarget[]
 }
 
 // ============================================================================
@@ -407,6 +433,9 @@ export function parseToolApprovalEvent(raw: unknown): ToolApprovalEvent | null {
     argsPreview: String(p.args_preview ?? ''),
     dangerLevel: p.danger_level ?? 'high',
     sessionId: String(data.session_id ?? p.session_id ?? ''),
+    // D159:与 chat-stream 通道共用同一份投影(见上 import 处注释)—— 判据只有一份,
+    // 两条流各自"认哪些字段算环境事实"不可能漂开。
+    ...projectToolApprovalEnvFacts(p),
   }
 }
 
