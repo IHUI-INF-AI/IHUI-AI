@@ -476,8 +476,14 @@ export function anchorVerdict({ diskAnchors, faceFiles, planText, archiveText = 
   return { red, baseline }
 }
 
-/** 从被审面读四件套:盘上文件名、审面上的文件名(全集)、计划文档正文、归档件正文合流(A3 用)。 */
-function readAnchorInputs(root, face) {
+/**
+ * 归档件的**被审面**清单与正文(单一实现)。A2/A3 用它,`plan-tasks-merge.mjs` 的 F3「归档反查出口」
+ * 也用它 —— 后者要回答的是"这条登记行是不是已被某份归档件代表",那与 A2 问的是同一件事
+ * (占位点名的文件真在审面里吗),两处各写一遍必然在"面"的口径上漂开(staged 走索引、全量走 HEAD)。
+ * ⚠ 刻意**不读磁盘**:面里没有的路径不构成代表依据(G-184 关掉的正是那个洞)。
+ * 单份 blob 取不到 ⇒ 进 `undetermined` 并点名,不静默当成"那一层没有"。
+ */
+export function archiveFaceEntries(root, face) {
   const args =
     face === 'staged'
       ? ['ls-files', '-z', '--', ARCHIVE_DIR]
@@ -488,19 +494,10 @@ function readAnchorInputs(root, face) {
   } catch {
     faceRaw = ''
   }
-  const faceFiles = faceRaw
-    .split('\0')
-    .filter(Boolean)
-    .map((p) => p.split('/').pop())
   const facePaths = faceRaw.split('\0').filter(Boolean)
-  const planSpec = face === 'staged' ? `:${FILE}` : `HEAD:${FILE}`
-  let planText = catBatch(root, [planSpec], { timeout: 60000 }).get(planSpec) ?? ''
-  if (face === 'worktree') planText = readWorktreeFile(root, FILE) ?? planText
-  // A3 的取材面**必须与被审面同一个**:归档清单来自索引/HEAD,正文也就从同一个面取。
-  // 单个 blob 取不到 ⇒ 跳过并如实计数,不因此判红(面与内容分叉时,宁可少判一层)。
-  let archiveText = ''
-  let archiveUndetermined = 0
   const anchorPaths = facePaths.filter((p) => ANCHOR_RE.test(p.split('/').pop()))
+  const entries = []
+  const undetermined = []
   if (anchorPaths.length) {
     const specs = anchorPaths.map((p) => (face === 'staged' ? `:${p}` : `HEAD:${p}`))
     let blobs
@@ -509,12 +506,27 @@ function readAnchorInputs(root, face) {
     } catch {
       blobs = new Map()
     }
-    for (const spec of specs) {
+    for (const [i, spec] of specs.entries()) {
       const src = blobs.get(spec)
-      if (typeof src === 'string') archiveText += src
-      else archiveUndetermined++
+      if (typeof src === 'string')
+        entries.push({ path: anchorPaths[i], name: anchorPaths[i].split('/').pop(), text: src })
+      else undetermined.push(anchorPaths[i])
     }
   }
+  return { entries, undetermined, faceFiles: facePaths.map((p) => p.split('/').pop()) }
+}
+
+/** 从被审面读四件套:盘上文件名、审面上的文件名(全集)、计划文档正文、归档件正文合流(A3 用)。 */
+function readAnchorInputs(root, face) {
+  const { entries, undetermined, faceFiles } = archiveFaceEntries(root, face)
+  const planSpec = face === 'staged' ? `:${FILE}` : `HEAD:${FILE}`
+  let planText = catBatch(root, [planSpec], { timeout: 60000 }).get(planSpec) ?? ''
+  if (face === 'worktree') planText = readWorktreeFile(root, FILE) ?? planText
+  // A3 的取材面**必须与被审面同一个**:归档清单来自索引/HEAD,正文也就从同一个面取。
+  // 单个 blob 取不到 ⇒ 跳过并如实计数,不因此判红(面与内容分叉时,宁可少判一层)。
+  let archiveText = ''
+  for (const e of entries) archiveText += e.text
+  const archiveUndetermined = undetermined.length
   let diskAnchors = []
   try {
     diskAnchors = existsSync(path.join(root, ARCHIVE_DIR)) ? readdirSync(path.join(root, ARCHIVE_DIR)) : []

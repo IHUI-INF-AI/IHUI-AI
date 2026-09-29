@@ -46,7 +46,7 @@ export default function ConfirmDialog({
         )}
         <View className="flex space-x-3">
           <View
-            className="flex-1 py-2.5 rounded-md bg-muted text-center"
+            className="flex-1 py-[20rpx] rounded-md bg-muted text-center"
             onClick={onCancel}
             hoverClass="opacity-60"
           >
@@ -54,7 +54,7 @@ export default function ConfirmDialog({
           </View>
           {/* 确认=品牌灰蓝渐变点缀(2026-09-07 复刻旧App隐私弹窗"同意"主按钮形态;纯色主按钮走 bg-primary) */}
           <View
-            className="flex-1 py-2.5 rounded-md text-center"
+            className="flex-1 py-[20rpx] rounded-md text-center"
             style={{
               background:
                 'linear-gradient(135deg, var(--color-brand-accent-grad-from) 0%, var(--color-brand-accent-grad-to) 100%)',

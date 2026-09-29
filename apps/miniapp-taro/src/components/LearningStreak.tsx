@@ -64,7 +64,7 @@ export default function LearningStreak({
               {day.date}
             </Text>
             <Text
-              className={`text-sm mt-0.5 ${day.signed ? 'text-warning' : 'text-muted-foreground'}`}
+              className={`text-sm mt-[4rpx] ${day.signed ? 'text-warning' : 'text-muted-foreground'}`}
             >
               {day.signed ? '✓' : '·'}
             </Text>
