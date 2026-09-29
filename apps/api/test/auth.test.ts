@@ -481,6 +481,48 @@ describe('auth routes', () => {
       expect(mockRevokeRefreshTokenFamily).toHaveBeenCalledWith('fam-1')
     })
 
+    it('宽限期内的已吊销 token 重放视为多标签页竞态,放行轮转且不吊销家族', async () => {
+      // 竞态复现路径:两个页签同秒刷新,后到者重放已被轮转吊销的 v1。
+      // 修复前:走进重用检测 → revokeRefreshTokenFamily 吊销全家 → 15min 后自动登录丢失。
+      mockVerifyRefreshToken.mockResolvedValueOnce({
+        userId: 'user-001',
+        familyId: 'fam-1',
+      })
+      // 吊销时间 = 刚刚(revokedAt 距今 0ms < 30s 宽限期)
+      mockFindRefreshToken.mockResolvedValueOnce({ revokedAt: new Date() })
+      mockFindUserById.mockResolvedValueOnce(makeUser())
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/refresh',
+        payload: { refreshToken: 'race-replayed-token' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.accessToken).toBe('access-token')
+      // 不吊销家族(family 里 tab A 刚拿到的 v2 保持有效)
+      expect(mockRevokeRefreshTokenFamily).not.toHaveBeenCalled()
+      // 固定窗口:放行分支跳过重复 revoke(revokedAt 保持首次吊销时间,不滑动续窗)
+      expect(mockRevokeRefreshToken).not.toHaveBeenCalled()
+    })
+
+    it('超过宽限期(31s)的已吊销 token 重放仍触发家族吊销', async () => {
+      mockVerifyRefreshToken.mockResolvedValueOnce({
+        userId: 'user-001',
+        familyId: 'fam-1',
+      })
+      // 吊销时间 = 31s 前(> 30s 宽限期)
+      mockFindRefreshToken.mockResolvedValueOnce({
+        revokedAt: new Date(Date.now() - 31_000),
+      })
+      mockRevokeRefreshTokenFamily.mockResolvedValueOnce(2)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/refresh',
+        payload: { refreshToken: 'late-replayed-token' },
+      })
+      expect(res.statusCode).toBe(401)
+      expect(mockRevokeRefreshTokenFamily).toHaveBeenCalledWith('fam-1')
+    })
+
     it('用户不存在或被禁用返回 401', async () => {
       mockVerifyRefreshToken.mockResolvedValueOnce({
         userId: 'user-001',
