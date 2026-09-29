@@ -36,6 +36,10 @@ export * from './worktree-lifecycle'
 export * from './writing-block'
 // D82 就地润色与失败保稿四相位(成功替换草稿 / 失败草稿字节级不变 / 二次可重试;不新建提示词栈)
 export * from './prompt-polish'
+// D129 用户气泡里"拍平附件"的 video 形态摘取:只认整行的确切形态 + URL 协议白名单;
+// 判不出/不安全的一律**原样留在正文**(可见),绝不静默丢弃。与发送侧 doSend 的四种拍平形态同形,
+// 由 apps/web 的 d129 用例钉住(那边改形态这边必须同改,否则用户又会看见源码)。
+export * from './user-message-parts'
 // D71 十态 turn 状态词汇表(排队中/准备中/思考中/使用工具/等待确认/后台执行中/正在停止/已完成/失败/已停止;
 // 等待确认 waitsUser 与后台执行中 offTurn 十态各唯一,不得退化成思考中/运行中的别名)
 export * from './turn-status'
