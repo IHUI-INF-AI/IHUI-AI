@@ -532,6 +532,13 @@
     "mermaidSkipSourceTooLarge": "图表源码过长,已改为显示源码",
     "mermaidSkipLineCountTooLarge": "图表行数过多,已改为显示源码",
     "mermaidSkipComplexityTooLarge": "图表节点与连线过多,已改为显示源码",
+    "mermaidZoomIn": "放大",
+    "mermaidZoomOut": "缩小",
+    "mermaidZoomReset": "重置缩放",
+    "mermaidZoomLevel": "缩放比例",
+    "mermaidZoomToFit": "适应屏幕",
+    "mermaidCopyImage": "复制为图片",
+    "mermaidImageCopied": "图表图片已复制",
     "pdfLoadFailed": "PDF 加载失败: {message}",
     "renderFailed": "渲染失败: {message}",
     "unknownError": "未知错误",
@@ -10692,7 +10699,10 @@
     "cmdWechatArticle": "请帮我生成一篇公众号文章。要求:\n1. 主题:\n2. 摘要:\n3. 重点标记(金句卡 / 提示块 / 引用 / 代码块 / 小标题)\n4. 配图建议:\n请走 content-engine 流水线(摸鱼绿主题 + 22 项自检 + 草稿箱推送)。",
     "codeBlock": {
       "applyToFile": "应用到文件",
-      "insertAtCursor": "插入光标处"
+      "insertAtCursor": "插入光标处",
+      "wrapOn": "开启代码换行",
+      "wrapOff": "关闭代码换行",
+      "copyImage": "复制为图片"
     },
     "commandArg": {
       "goalBenchmark": {

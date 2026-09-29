@@ -7,7 +7,10 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
+import { Check, ImageDown, RotateCcw, Scan, ZoomIn, ZoomOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
+// D198:渲染成功图表一键「复制为图片」(SVG→PNG→剪贴板),落盘实现见 lib/copy-as-image.ts
+import { svgElementToPngBlob } from '@/lib/copy-as-image'
 import {
   MERMAID_SKIP_NOTICE_KEYS,
   decideMermaidRender,
@@ -19,6 +22,15 @@ import {
 interface MermaidDiagramProps {
   code: string
   className?: string
+}
+
+// D196:缩放边界与步进(1 = 100%;倍率制而非固定档位,粒度足够且实现简单)
+const MIN_ZOOM = 0.4
+const MAX_ZOOM = 4
+const ZOOM_STEP = 1.2
+/** D196:把任意倍率收敛到 [MIN_ZOOM, MAX_ZOOM] 并保留两位小数,避免 1.2 连乘浮点尾巴 */
+function clampZoom(value: number): number {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(value * 100) / 100))
 }
 
 /**
@@ -77,7 +89,8 @@ class MermaidErrorBoundary extends React.Component<
  *   `<pre>` 源码 + 一条走 i18n 的提示(判据见 `@/components/ai/mermaid-render-budget`)。
  *   这一道是前置的,因为下面的 ErrorBoundary 抓得到抛错、抓不到挂死。
  * - 渲染失败时显示错误降级块 + 源码,不影响外层页面
- * - SVG 容器 overflow-x-auto,长图表可横向滚动
+ * - SVG 容器 overflow-auto,长图表可横向滚动;D196 起右上角悬浮缩放工具条
+ *   (transform 缩放,scrollable overflow 随之扩展,横/纵滚动可达全部内容)
  *
  * 本组件是 web 端**唯一**的 mermaid 客户端渲染点(4 个调用方:markdown-stream /
  * MarkdownViewer / vision-analysis / mcp-resource-viewer 都 dynamic-import 它),
@@ -152,6 +165,67 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
     }
   }, [shouldRender, code, resolvedTheme, id])
 
+  // ── D196 缩放 + D198 复制为图片(全部 hook 置于下方条件 return 之前,rules-of-hooks)──
+  const [zoom, setZoom] = React.useState(1)
+  const [imageCopied, setImageCopied] = React.useState(false)
+  // 滚动视口(适应屏幕的视口测量基准)与被 transform 的内容(量取真实内容尺寸)
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+  const zoomedRef = React.useRef<HTMLDivElement>(null)
+  // 「图片已复制」回退 timer 收进 ref,卸载时清理(与 markdown-stream useCopy 同纪律)
+  const imageTimerRef = React.useRef<number | null>(null)
+  React.useEffect(() => {
+    return () => {
+      if (imageTimerRef.current !== null) {
+        window.clearTimeout(imageTimerRef.current)
+        imageTimerRef.current = null
+      }
+    }
+  }, [])
+
+  const handleZoomIn = (): void => setZoom((z) => clampZoom(z * ZOOM_STEP))
+  const handleZoomOut = (): void => setZoom((z) => clampZoom(z / ZOOM_STEP))
+  const handleZoomReset = (): void => setZoom(1)
+  /** 适应屏幕:量取内容自然尺寸(实测值含当前缩放,除回当前倍率),取「完整可见」的最大不放大倍率 */
+  const handleZoomToFit = (): void => {
+    const viewport = scrollRef.current
+    const content = zoomedRef.current
+    if (!viewport || !content) {
+      setZoom(1)
+      return
+    }
+    const rect = content.getBoundingClientRect()
+    const naturalW = rect.width / zoom
+    const naturalH = rect.height / zoom
+    if (!Number.isFinite(naturalW) || naturalW <= 0 || naturalH <= 0) {
+      // 无测量数据(jsdom/未挂载)时安全回落 100%,不猜尺寸
+      setZoom(1)
+      return
+    }
+    const fit = Math.min(1, viewport.clientWidth / naturalW, viewport.clientHeight / naturalH)
+    setZoom(clampZoom(Number.isFinite(fit) && fit > 0 ? fit : 1))
+    viewport.scrollTop = 0
+    viewport.scrollLeft = 0
+  }
+
+  /** D198:把渲染出的 SVG 绘成 PNG 写入剪贴板;环境不支持(无 ClipboardItem)时静默保持原状 */
+  const handleCopyImage = (): void => {
+    if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) return
+    const svgEl = zoomedRef.current?.querySelector('svg')
+    if (!svgEl) return
+    const background = resolvedTheme === 'dark' ? '#09090b' : '#ffffff'
+    svgElementToPngBlob(svgEl, { background })
+      .then((blob) => navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]))
+      .then(() => {
+        setImageCopied(true)
+        if (imageTimerRef.current !== null) window.clearTimeout(imageTimerRef.current)
+        imageTimerRef.current = window.setTimeout(() => setImageCopied(false), 1500)
+      })
+      .catch(() => {})
+  }
+
+  const zoomToolBtnClass =
+    'inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+
   // 预算判退:不进 render,回落成源码 + 一条明示原因的提示(不得静默变空白)
   if (skipNoticeKey !== null) {
     return (
@@ -181,8 +255,80 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
 
   // 渲染成功,展示 SVG(横向滚动以适配长图表)
   return (
-    <div className={cn('overflow-x-auto', className)}>
-      <div dangerouslySetInnerHTML={{ __html: svg }} />
+    <div className={cn('relative', className)}>
+      {/* D196/D198:缩放 + 复制为图片 工具条(悬浮右上角,形态同 markdown-stream 代码块动作区) */}
+      <div
+        className="absolute right-2 top-2 z-10 flex items-center gap-0.5 rounded-md border border-border/60 bg-float-indicator-bg p-0.5"
+        data-testid="mermaid-zoom-toolbar"
+      >
+        <button
+          type="button"
+          onClick={handleZoomOut}
+          data-testid="mermaid-zoom-out"
+          className={zoomToolBtnClass}
+          aria-label={t('mermaidZoomOut')}
+        >
+          <ZoomOut className="h-3.5 w-3.5" />
+        </button>
+        <span
+          data-testid="mermaid-zoom-level"
+          aria-label={t('mermaidZoomLevel')}
+          className="min-w-9 text-center text-[11px] tabular-nums text-muted-foreground"
+        >
+          {Math.round(zoom * 100)}%
+        </span>
+        <button
+          type="button"
+          onClick={handleZoomIn}
+          data-testid="mermaid-zoom-in"
+          className={zoomToolBtnClass}
+          aria-label={t('mermaidZoomIn')}
+        >
+          <ZoomIn className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={handleZoomToFit}
+          data-testid="mermaid-zoom-fit"
+          className={zoomToolBtnClass}
+          aria-label={t('mermaidZoomToFit')}
+        >
+          <Scan className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={handleZoomReset}
+          data-testid="mermaid-zoom-reset"
+          className={zoomToolBtnClass}
+          aria-label={t('mermaidZoomReset')}
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={handleCopyImage}
+          data-testid="mermaid-copy-image"
+          className={zoomToolBtnClass}
+          aria-label={imageCopied ? t('mermaidImageCopied') : t('mermaidCopyImage')}
+        >
+          {imageCopied ? (
+            <Check className="h-3.5 w-3.5 text-green-600" />
+          ) : (
+            <ImageDown className="h-3.5 w-3.5" />
+          )}
+        </button>
+      </div>
+      {/* transform 缩放:scrollable overflow 含被变换内容的包围盒,缩放后横/纵滚动可达;
+          zoom=1 时不挂 style,渲染路径与引入缩放前逐字节一致 */}
+      <div ref={scrollRef} className="overflow-auto" data-testid="mermaid-scroll">
+        <div
+          ref={zoomedRef}
+          style={
+            zoom === 1 ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'top left' }
+          }
+          dangerouslySetInnerHTML={{ __html: svg }}
+        />
+      </div>
     </div>
   )
 }
