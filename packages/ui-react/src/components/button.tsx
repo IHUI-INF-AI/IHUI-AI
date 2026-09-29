@@ -5,25 +5,40 @@
 import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { ICON_BUTTON_SIZE } from '@ihui/design-tokens'
+import {
+  ICON_BUTTON_SIZE,
+  SHARED_BUTTON_BASE_CLASS,
+  SHARED_BUTTON_SIZE_CLASSES,
+  SHARED_BUTTON_VARIANT_CLASSES,
+} from '@ihui/design-tokens'
 import { cn } from '../lib/utils'
 
-// 共享 variant/size 子集见 @ihui/design-tokens ButtonBaseVariant/ButtonBaseSize(default/destructive/outline/ghost + sm/lg)
-// ui-react 额外扩展 secondary/link/hero-cta/login 等 11 个 variant + default/icon size,故不继承 ButtonBaseProps(限制为共同子集会丢失类型支持)
+// 共享 variant/size 档位唯一源:@ihui/design-tokens 的 button-variants.ts(ui-native 同源)。
+// 耦合范围必须逐档写清 —— 一句"改一处两端都跟"若只对一部分档位成立,它就是假账:
+//   default / destructive —— 在共享基座上追加 web 平台修饰(shadow/hover),改共享值两端同步;
+//   outline / ghost —— web 整档覆盖(RN 无 hover 且底取 bg-transparent,web 底取 bg-background
+//     并带 hover:bg-accent),所以这两档的共享值当前只约束 ui-native;
+//   size sm —— 共享基座 + web 追加 rounded/text-xs;size lg —— web 整档覆盖(h-10 rounded-sm px-8)。
+// 并档(让 outline/ghost/lg 也真同值)属全端观感决策,不在本轮范围:不得为让上面那句话成立去改
+// 任一端取值,也不得把共享值改成某一端的特化值 —— 那等于把一个端的观感推给另一个端。
+// 故不继承 ButtonBaseProps(限制为共同子集会丢失 web 侧类型支持)。
 
 // 图标尺寸档(2026-09-17 用户指令:全项目图标按钮唯一尺寸 32×32,单一来源 @ihui/design-tokens icon-button.ts)
 // icon-xs/icon-sm/icon 三档全部同值,仅保留名称兼容既有调用
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  `inline-flex ${SHARED_BUTTON_BASE_CLASS} gap-2 whitespace-nowrap rounded-sm text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0`,
   {
     variants: {
       variant: {
-        default: 'bg-cta text-cta-foreground shadow hover:bg-cta/90',
-        destructive: 'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
+        // 共享档位(唯一源)先展开;下面按 web 平台覆盖/追加修饰
+        ...SHARED_BUTTON_VARIANT_CLASSES,
+        default: `${SHARED_BUTTON_VARIANT_CLASSES.default} shadow hover:bg-cta/90`,
+        destructive: `${SHARED_BUTTON_VARIANT_CLASSES.destructive} shadow-sm hover:bg-destructive/90`,
         outline:
           'border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground',
-        secondary: 'bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
+        // web 独占档位
+        secondary: 'bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80',
         link: 'text-primary underline-offset-4 hover:underline',
 
         primary: 'bg-cta text-cta-foreground shadow-sm hover:bg-cta/90',
@@ -43,10 +58,13 @@ const buttonVariants = cva(
           'border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-sm px-3 py-1.5 text-sm',
       },
       size: {
+        // 共享档位(唯一源)先展开;下面按 web 平台覆盖
+        ...SHARED_BUTTON_SIZE_CLASSES,
+        sm: `${SHARED_BUTTON_SIZE_CLASSES.sm} rounded-sm text-xs`,
+        lg: 'h-10 rounded-sm px-8',
+        // web 独占档位
         xs: 'h-7 rounded-sm px-3 text-xs',
         default: 'h-9 px-4 py-2',
-        sm: 'h-8 rounded-sm px-3 text-xs',
-        lg: 'h-10 rounded-sm px-8',
         // 2026-09-21 立档:28px 紧凑图标档(表格行内操作钮 / 密集工具条)。
         // 背景:此前 28px 需求只能靠 className="h-7 w-7" 覆盖既有档位满足 —— 这既违反
         // AGENTS.md §4「禁止 className 覆盖高度」,又因 check-button-height 是全仓扫描,

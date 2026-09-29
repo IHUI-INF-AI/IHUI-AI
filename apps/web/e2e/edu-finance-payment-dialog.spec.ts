@@ -41,6 +41,12 @@ test.describe('教育财务 - 缴费登记按报名期次归属', () => {
   test('财务页五个 tab 上屏(含新增的「账期管理」)', async ({ adminPage: page }) => {
     await page.goto('/edu/edu-management/finance', { waitUntil: 'domcontentloaded' })
     await requireLoggedIn(page)
+    // 先等 tab 组出现再取文案:该页取数后才渲染 Tabs,直接 allInnerTexts 会拿到空数组
+    // (实测间歇性红 —— 不是页面坏了,是探针比渲染快)。断言用"包含",不用固定数量,
+    // 否则将来有人加一个 tab 就把这条钉红。
+    await expect
+      .poll(async () => page.getByRole('tab').count(), { timeout: 30_000 })
+      .toBeGreaterThan(0)
     const tabs = await page.getByRole('tab').allInnerTexts()
     for (const label of ['学费标准', '缴费记录', '退费管理', '账期管理', '催费管理']) {
       expect(tabs.some((t) => t.includes(label)), `tab 里应有「${label}」,实得:${tabs.join('|')}`).toBe(
@@ -75,6 +81,21 @@ test.describe('教育财务 - 缴费登记按报名期次归属', () => {
     // 未选期次时生成按钮禁用 —— 校验留在前端,不等后端 400
     expect(s).toContain('!!enrollmentId')
     expect(s).toContain('canSubmit')
+  })
+
+  /**
+   * 侧栏读的是 ADMIN_NAV_GROUPS 那份 items,不是扁平 ADMIN_NAV(后者只喂 path-labels 的标题映射)。
+   * 上一版锁打在扁平清单上 —— 那等于锁在一份不影响渲染的数据里(类型检查与断言都绿,
+   * 侧栏却一条不显)。所以这里单独锁分组段,并在 AdminNav 注释里写明"仍未上屏"。
+   */
+  test('教育三页挂在侧栏实际读取的分组清单里(不是只挂扁平清单)', () => {
+    const nav = src.nav()
+    const groupStart = nav.indexOf('ADMIN_NAV_GROUPS')
+    expect(groupStart, '找不到 ADMIN_NAV_GROUPS 定义').toBeGreaterThan(-1)
+    const groups = nav.slice(groupStart)
+    for (const href of ['/admin/edu/class/schedule', '/admin/edu/student', '/admin/edu/finance']) {
+      expect(groups, `分组清单里应有 ${href}`).toContain(`href: '${href}'`)
+    }
   })
 
   test('AdminNav 静态清单已登记三个后台教育页(登记维,非上屏维)', () => {
