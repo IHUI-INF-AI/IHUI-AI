@@ -34,6 +34,18 @@ const VIDEO_LINE = /^<video src="([^"]*)" controls><\/video>[ \t]*$/
 const FILE_REF_LINE = /^> 📎 (.+)$/
 const FENCE = /^```[ \t]*$/
 
+/** 引用回复块的起始行:`> 💬 {角色标签}:`(发送侧在正文末尾追加,角色标签已本地化)。
+ *  标签用 `(.*)` 而非 `(.+?)`:发送侧理论上可能给出空标签(词包缺键时),那一块仍必须被摘出来
+ *  而不是以 `> 💬 :` 的源码示人 —— 归到引用块并回落成兜底标签,比"看起来像坏掉的 Markdown"好。 */
+const QUOTE_OPEN = /^> 💬 (.*):[ \t]*$/
+const QUOTE_LINE = /^> ?(.*)$/
+
+export interface UserMessageQuote {
+  /** 发送侧写入的角色标签(如「用户」「助手」),本身来自词包,这里只透传不翻译。 */
+  label: string
+  lines: string[]
+}
+
 export interface UserMessageImage {
   alt: string
   url: string
@@ -48,6 +60,8 @@ export interface UserMessageParts {
   codeBlocks: string[]
   /** 普通文件/文本引用的标签(`> 📎 label` 里的 label)。 */
   fileRefs: string[]
+  /** 引用回复(D22 的 quotedMessage)整块;不拆则它会以 `> 💬 …` 的 Markdown 源码露在气泡里。 */
+  quote?: UserMessageQuote
   /**
    * 命中形态但**没被摘走**的行数(协议不合法 / URL 空 / 标签空 / fence 不配对)。
    * 必须"看得见",不得被读成"没有附件"。
@@ -70,6 +84,7 @@ export function splitUserMessageParts(content: string): UserMessageParts {
   const videos: string[] = []
   const codeBlocks: string[] = []
   const fileRefs: string[] = []
+  let quote: UserMessageQuote | undefined
   let rejected = 0
 
   const lines = content.split('\n')
@@ -116,6 +131,33 @@ export function splitUserMessageParts(content: string): UserMessageParts {
       continue
     }
 
+    // 引用回复块:起始行 `> 💬 角色:` + 其后连续 `> …` 行(D22 的 quotedMessage 拍平形态)。
+    // 刻意不吞 `> 📎` 那类附件/参考行(语义不同,混进来会让两块互相伪装),也不跨空行合并。
+    const qopen = QUOTE_OPEN.exec(line)
+    if (qopen) {
+      // 一条消息按发送侧只会有一个引用块;**第二个块不再摘**(只保留第一块),
+      // 否则后写覆盖前写 = 用户引用的内容静默消失(比"显示成源码"更糟)。
+      if (quote !== undefined) {
+        kept.push(line)
+        i += 1
+        continue
+      }
+      const rawLabel = (qopen[1] ?? '').trim()
+      const collected: string[] = []
+      let k = i + 1
+      while (k < lines.length) {
+        const nl = lines[k] ?? ''
+        if (FILE_REF_LINE.test(nl) || QUOTE_OPEN.test(nl)) break
+        const m = QUOTE_LINE.exec(nl)
+        if (!m) break
+        collected.push(m[1] ?? '')
+        k += 1
+      }
+      quote = { label: rawLabel.length > 0 ? rawLabel : '引用', lines: collected }
+      i = k
+      continue
+    }
+
     const ref = FILE_REF_LINE.exec(line)
     if (ref) {
       const label = (ref[1] ?? '').trim()
@@ -131,7 +173,8 @@ export function splitUserMessageParts(content: string): UserMessageParts {
     i += 1
   }
 
-  const extractedSomething = images.length + videos.length + codeBlocks.length + fileRefs.length > 0
+  const extractedSomething =
+    images.length + videos.length + codeBlocks.length + fileRefs.length > 0 || quote !== undefined
   // 摘走行会留下连续空行;只在确实摘走过时收敛,不碰用户自己写的空行。
   const text = extractedSomething
     ? kept
@@ -141,6 +184,6 @@ export function splitUserMessageParts(content: string): UserMessageParts {
         .replace(/\n+$/, '')
     : content
 
-  return { text, images, videos, codeBlocks, fileRefs, rejected }
+  return { text, images, videos, codeBlocks, fileRefs, quote, rejected }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
