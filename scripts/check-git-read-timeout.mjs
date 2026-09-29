@@ -97,6 +97,18 @@ export const HOT = [
   //  登记的意义是"这一族里以后任何只读 git 调用都必须封顶"。
   'apps/cli/src/plugins/git-runner.ts',
   'apps/cli/src/plugins/cache.ts',
+  //  G-814388:插件域其余各环全部并入射程。HOT 是静态名单、不支持 glob,故逐个登记
+  //  apps/cli/src/plugins/** 的现存文件 —— 它们与 cache.ts 同一条安装执行链,一旦回归成
+  //  直连 child_process 派生,本门可见。只登记路径、不改判据(同 G-815 那条口径)。
+  'apps/cli/src/plugins/installer.ts',
+  'apps/cli/src/plugins/marketplace.ts',
+  'apps/cli/src/plugins/loader.ts',
+  'apps/cli/src/plugins/registry.ts',
+  'apps/cli/src/plugins/paths.ts',
+  'apps/cli/src/plugins/path-safety.ts',
+  'apps/cli/src/plugins/url-shape.ts',
+  'apps/cli/src/plugins/types.ts',
+  'apps/cli/src/plugins/index.ts',
 ]
 
 /** 只读动词:被 SIGTERM 中断不改变仓库状态,可安全封顶 */
