@@ -16,6 +16,18 @@ import {
   takeScreenshot,
 } from '@ihui/api-client'
 import { WORK_PANEL_STORAGE_KEY } from '@ihui/shared/constants'
+
+/**
+ * "这次打开是从哪儿来的"的档位,**唯一定义处**:openPanel / navigate 的入参类型都指向它,
+ * 共享出口的 `openImageSource` 也用它。D129 加"用户自己上传的图"这一档时只改这一处 ——
+ * 原先这个联合类型在 openPanel 与 navigate 各抄了一遍,加一档要改两处,两处算同一件事必漂移。
+ */
+export type WorkPanelOpenSource =
+  | 'user'
+  | 'ai-tool'
+  | 'markdown-link'
+  | 'markdown-image'
+  | 'user-attachment-image'
 import type { WebViewMode, WebViewStatus, WorkPanelTab } from '@ihui/types'
 
 import { createPersistConfig } from './persist-helpers'
@@ -297,13 +309,14 @@ interface WorkPanelState {
   recentUrls: RecentUrlItem[]
 
   // actions
-  openPanel: (params?: {
-    url?: string
-    source?: 'user' | 'ai-tool' | 'markdown-link' | 'markdown-image'
-  }) => void
+  /**
+   * 面板打开来源。这一档**只有这一个定义处**(原先在 openPanel 与 navigate 两处各抄一遍联合类型,
+   * 加一档就得改两处 —— 两处算同一件事必漂移,本仓记过多次)。新增一档请只改这里。
+   */
+  openPanel: (params?: { url?: string; source?: WorkPanelOpenSource }) => void
   closePanel: () => void
   toggle: () => void
-  navigate: (url: string, source?: 'user' | 'ai-tool' | 'markdown-link' | 'markdown-image') => void
+  navigate: (url: string, source?: WorkPanelOpenSource) => void
   /** 启动 URL 加载(主动探测嵌入能力 + 截图降级) */
   loadUrl: (url: string) => void
   back: () => void
