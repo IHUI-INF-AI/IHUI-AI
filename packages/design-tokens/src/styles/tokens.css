@@ -46,6 +46,17 @@
   --color-card-foreground: hsl(0 0% 3.9%);
   --color-popover: hsl(0 0% 100%);
   --color-popover-foreground: hsl(0 0% 3.9%);
+  /* 选中态档(2026-09-30 用户定稿,登录页分段控件三端收口):"被选中的胶囊"这一形态的底色与其上文字。
+   * 立因:同一枚选中胶囊三端各取一档 —— web 写死 bg-white/dark:bg-black、RN 走三元表达式
+   * (gray.black / surface.light)、小程序走 --color-card(暗档 hsl(0 0% 10%)=#1A1A1A),
+   * 于是暗色档案下 App=纯黑而小程序=#1A1A1A,真机实拍分叉。用户裁决统一到纯黑,并新增这一对
+   * 具名档作唯一源头 —— 端里不得再写死 #000/#fff,也不得再自行判明暗。
+   * 亮档取值与 --color-card 亮档逐位同值、暗档前景与同主题 --color-foreground 同值,
+   * 所以 web 观感零变化(改的是档名不是颜色)。
+   * 成对存在(底色 + 其上文字)是 §4「品牌实底 + 其上文字必须成对」那条判据能机械认出配对的前提。
+   * .dark 显式覆盖,行为与 --color-primary/--color-cta 同一套明暗反转。 */
+  --color-selection: hsl(0 0% 100%);
+  --color-selection-foreground: hsl(0 0% 3.9%);
   /* 按钮:亮色纯黑底 + 白字 (2026-07-24,用户要求消除绿色) */
   --color-primary: hsl(0 0% 0%);
   --color-primary-foreground: hsl(0 0% 100%);
@@ -501,6 +512,10 @@ select:-webkit-autofill:focus {
   --color-card-foreground: hsl(0 0% 98%);
   --color-popover: hsl(0 0% 11%);
   --color-popover-foreground: hsl(0 0% 98%);
+  /* 选中态档暗色覆盖(2026-09-30 用户定稿):纯黑底 + 前景取同主题 --color-foreground。
+     与 --color-primary / --color-cta 的暗档行为一致(显式翻面,不靠 cascade 回退)。 */
+  --color-selection: hsl(0 0% 0%);
+  --color-selection-foreground: hsl(0 0% 98%);
   /* 按钮:暗色纯白底 + 黑字 (2026-07-24,用户要求消除绿色) */
   --color-primary: hsl(0 0% 100%);
   --color-primary-foreground: hsl(0 0% 0%);

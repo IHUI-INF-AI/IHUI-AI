@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -17,6 +16,7 @@ import type { AgentCreateScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** Agent 创建共享屏 — props 注入式跨端组件(表单,状态由 wrapper 管理) */
 export type { AgentCreateScreenProps }
@@ -57,7 +57,8 @@ export function AgentCreateScreen({
       <Text style={styles.title}>{t('agentCreate.title')}</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Text style={styles.label}>{t('agentCreate.name')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={styles.input}
         value={name}
         onChangeText={onNameChange}
@@ -65,7 +66,8 @@ export function AgentCreateScreen({
         placeholderTextColor={tk.text.tertiary}
       />
       <Text style={styles.label}>{t('agentCreate.category')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={styles.input}
         value={category}
         onChangeText={onCategoryChange}
@@ -73,7 +75,8 @@ export function AgentCreateScreen({
         placeholderTextColor={tk.text.tertiary}
       />
       <Text style={styles.label}>{t('agentCreate.description')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={[styles.input, styles.inputMultiline]}
         value={description}
         onChangeText={onDescriptionChange}
@@ -83,7 +86,8 @@ export function AgentCreateScreen({
         textAlignVertical="top"
       />
       <Text style={styles.label}>{t('agentCreate.systemPrompt')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={[styles.input, styles.inputMultiline]}
         value={systemPrompt}
         onChangeText={onSystemPromptChange}
