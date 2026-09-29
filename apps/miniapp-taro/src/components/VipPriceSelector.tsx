@@ -68,7 +68,7 @@ export default function VipPriceSelector(props: VipPriceSelectorProps) {
           >
             {opt.popular && (
               <View
-                className="absolute -top-2 left-1/2 px-2 py-0.5 rounded-md bg-destructive"
+                className="absolute -top-2 left-1/2 px-2 py-[4rpx] rounded-md bg-destructive"
                 style={{ transform: 'translateX(-50%)' }}
               >
                 <Text className="text-[length:20rpx] text-destructive-foreground">
@@ -94,14 +94,14 @@ export default function VipPriceSelector(props: VipPriceSelectorProps) {
               </Text>
             </View>
             {opt.originalPrice && (
-              <Text className="block text-xs vip-text-muted line-through text-center mt-0.5">
+              <Text className="block text-xs vip-text-muted line-through text-center mt-[4rpx]">
                 ¥{opt.originalPrice}
               </Text>
             )}
             <Text className="block text-xs vip-text-muted text-center mt-1">{opt.period}</Text>
             {opt.discount && (
               <View
-                className="mt-1.5 px-1.5 py-0.5 rounded bg-warning/10 inline-block"
+                className="mt-[12rpx] px-[12rpx] py-[4rpx] rounded bg-warning/10 inline-block"
                 style={{ display: 'block', textAlign: 'center' }}
               >
                 <Text className="text-[length:20rpx] text-warning">{opt.discount}</Text>

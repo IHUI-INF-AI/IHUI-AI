@@ -91,7 +91,7 @@ export default function CourseRating({
         </View>
 
         <View
-          className="w-full py-2.5 rounded-md bg-primary text-center"
+          className="w-full py-[20rpx] rounded-md bg-primary text-center"
           hoverClass="opacity-60"
           onClick={() => onSubmit?.(rating, comment)}
         >
