@@ -11,6 +11,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import type * as SsrfGuardModule from '@ihui/shared/utils/ssrf-guard';
+import type * as FetchUrlEgressModule from '../src/tools/fetch-url-egress.js';
 
 /**
  * 本文件测的是 fetch_url 自己的"取内容 → HTML 清洗 → 截断 → 状态行"行为。
@@ -26,6 +27,17 @@ vi.mock('@ihui/shared/utils/ssrf-guard', async (importOriginal) => {
   return {
     ...actual,
     assertSafeFetchUrl: async (rawUrl: string) => ({ safe: true, host: new URL(rawUrl).hostname }),
+  };
+});
+
+// 同理:本文件夹具 server 只能听在 127.0.0.1,而字面出口守卫(fetch-url-egress,G-937973)
+// 的**正确行为恰恰是拒绝回环 IP 字面量**(EgressBlocked,且先于 SSRF 守卫判定)。
+// 这里同样桩成放行;守卫自身的判定与接线行为由 tests/fetch-url-egress.test.ts 证明。
+vi.mock('../src/tools/fetch-url-egress.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof FetchUrlEgressModule>();
+  return {
+    ...actual,
+    assertFetchLiteralEgress: () => {},
   };
 });
 
