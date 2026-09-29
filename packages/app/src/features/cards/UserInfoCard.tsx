@@ -33,10 +33,17 @@ function initials(name: string): string {
 }
 
 /**
- * UserInfoCard — 用户信息卡(跨端共享)。
+ * UserInfoCard — 社交资料卡(跨端共享,经 `@ihui/rn-app` 出口递出)。
  *
- * 纯展示组件:头像(圆形,§4 圆角豁免)+ 昵称 + 简介 + 关注/粉丝数 + 关注按钮。
+ * 纯展示组件:头像 + 昵称 + 简介 + 关注/粉丝数 + 关注按钮(实底/描边双态)。
  * 数据由调用方传入,样式遵循 packages/app 现有模式(StyleSheet + getTokens)。
+ *
+ * ⚠️ 它与 `apps/miniapp-taro/src/components/UserInfoCard.tsx` **同名不同物**:那一端吃的是
+ * 等级/成长值/智汇值/退订(会员钱包卡,其 RN 同物是 `apps/mobile-rn/src/components/UserInfoCard.tsx`,
+ * 两端共用 `@ihui/shared/ui/user-info-card-spec`);本组件吃的是 followingCount/fansCount/isFollowing,
+ * 小程序端没有任何一端渲染它(唯一消费点是 SharedDemoScreen 的组件陈列)。
+ * 所以"两端界面没对齐"的账不该记在它和小程序会员卡之间 —— 跨端对账门按文件名 + 出口指向
+ * 把它们配成了一对,是一条假配对。
  */
 export function UserInfoCard({
   avatar,
