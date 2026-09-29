@@ -20159,6 +20159,8 @@
       "statusExpired": "期限切れ",
       "statusUnknown": "不明",
       "subtitle": "各プラットフォームのログイン認証情報を設定(暗号化保存)",
+      "switchToAppQr": "Appスキャンに切替",
+      "switchToWechatQr": "WeChatスキャンに切替",
       "taskId": "タスク",
       "title": "プラットフォームアカウント管理",
       "verify": "接続テスト",
