@@ -45,12 +45,32 @@ vi.mock('node:dns/promises', () => ({
   lookup: vi.fn(async () => [{ address: '93.184.216.34', family: 4 }]),
 }));
 
-// mock child_process.spawn 防止 openBrowser 真实打开浏览器
+// mock child_process:① spawn 防止 openBrowser 真开浏览器;
+// ② execFile 是 D146(枚 `07fea59348`)在 `mcp-credentials.ts::runOneEngine` 里新引入的
+//    DPAPI 引擎调用 —— 当时 mock 只补了 spawn,于是"完整流程"这条端到端用例自落地起恒红
+//    (`No "execFile" export is defined on the "node:child_process" mock`),而它在 HEAD 上
+//    红的是**测试自己**,源码侧 `mcp-credentials.ts` 逐字干净(2026-09-29 实测)。
+//    这里把 execFile 判成"本机没有可用引擎",让 DPAPI 那一档真实地被试过并失败;
+//    机器主密钥档(tier2)是文件实现,不经过 child_process,所以下面断言的是
+//    **"写入后必须有不静默的档位宣告"**,而不是"一定落到明文档"。
+const cpMocks = vi.hoisted(() => ({
+  spawn: vi.fn(() => ({ on: vi.fn(), unref: vi.fn() })),
+  execFile: vi.fn(
+    (
+      _file: string,
+      _args: string[],
+      _opts: unknown,
+      cb: (err: Error | null, stdout: string, stderr: string) => void,
+    ) => {
+      // 真 execFile 是异步回调;同步回调会让上层"以为引擎秒回",掩盖时序问题
+      queueMicrotask(() => cb(new Error('mock: 本机不提供 DPAPI 引擎'), '', 'mock-no-engine'))
+      return { stdin: { end: vi.fn() }, kill: vi.fn() }
+    },
+  ),
+}));
 vi.mock('node:child_process', () => ({
-  spawn: vi.fn(() => ({
-    on: vi.fn(),
-    unref: vi.fn(),
-  })),
+  spawn: cpMocks.spawn,
+  execFile: cpMocks.execFile,
 }));
 
 // 共享 mock state:某些测试(如"完整流程")通过 deps 注入 fake startLocalCallbackServer,
@@ -474,13 +494,22 @@ describe('mcp-oauth startOAuthFlow 端到端', () => {
     });
 
     const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    // 三档里任何一档都不许静默(`reportStoreState` 是本票唯一的档位出口),所以三个出口都要收;
+    // 只收 console.warn 会把"加密档"(info)误判成"什么都没喊"。
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // 启动 OAuth flow,显式注入 fake callback(避免真实 listen 端口)
     const result = await startOAuthFlow(config, 0, {
       startLocalCallbackServer: fakeCallbackImpl,
     });
 
+    const announced = [infoSpy, warnSpy, errSpy]
+      .flatMap((s) => s.mock.calls.map((c) => String(c[0])))
+      .join('\n');
     infoSpy.mockRestore();
+    warnSpy.mockRestore();
+    errSpy.mockRestore();
 
     expect(result.accessToken).toBe('e2e-access');
     expect(result.refreshToken).toBe('e2e-refresh');
@@ -489,6 +518,16 @@ describe('mcp-oauth startOAuthFlow 端到端', () => {
     const creds = await loadMcpCredentials();
     expect(creds['https://mcp.example.com']).toBeDefined();
     expect(creds['https://mcp.example.com'].accessToken).toBe('e2e-access');
+
+    // DPAPI 那一档必须**真的被试过**(而不是因为 mock 缺导出而整段跳过):
+    // 有人把 runOneEngine 换掉或删掉时,这条是唯一的报警器。
+    expect(cpMocks.execFile).toHaveBeenCalled();
+    // 写入后必须有不静默的档位宣告(§5e"失败必须响")。
+    expect(announced).toMatch(/🔐|⚠️|❌/);
+    // 而宣告"存的是明文 / 解不开"的那两档,必须带原因 —— 只喊一句不含原因的警告不算可见。
+    if (/⚠️|❌/.test(announced)) {
+      expect(announced).toMatch(/reason=\S/);
+    }
 
     // 验证 lock 已释放
     const lock = await readLockForTest();
