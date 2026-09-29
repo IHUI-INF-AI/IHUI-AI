@@ -2101,6 +2101,13 @@
       "when": 1790704800000,
       "tag": "20260929180000_edu_time_check_constraint",
       "breakpoints": true
+    },
+    {
+      "idx": 301,
+      "version": "7",
+      "when": 1790708400000,
+      "tag": "20260929190000_edu_reminder_delivery",
+      "breakpoints": true
     }
   ]
 }
