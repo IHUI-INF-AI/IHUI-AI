@@ -765,11 +765,11 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       },
       // 教育教务三页挂在**分组 items** 上(而不是只挂扁平 ADMIN_NAV —— 那份只被
       // path-labels.ts 用于"路径→标题"映射)。
-      // ⚠️ 仍未生效,别误读成已修好:实测 `/admin` 页面上找不到
-      //    `button[aria-controls="admin-nav-group-courseExam"]`,侧栏里 edu 链接数仍是 0
-      //    —— 说明这条路由根本没渲染 ADMIN_NAV_GROUPS 这套结构,根因在 Sidebar / nav-data
-      //    那条渲染链上,需专门一票排查(现象对所有 /admin/edu/** 页一致,含既有页,非本改动引入)。
-      //    本次已在此处排除一次错误解释:"条目加错清单"是必要条件,不是充分条件。
+      // 补充(第九批曾据探针写"仍未生效",那是**无效证据**,别再照它排查):我找的
+      // `button[aria-controls="admin-nav-group-courseExam"]` 属于本组件自身,而本组件
+      // 没有任何布局挂载 —— 那个按钮注定不存在,不能用来证明侧栏没有这些项。
+      // 有效事实是:`nav-data.ts` 把 ADMIN_NAV_GROUPS 经 adminGroupToNavItem 转成三级子菜单,
+      // 所以数据已在渲染链上。可见性请按用户真实路径确认:侧栏 → 管理域(adminOnly) → 课程考试。
       {
         href: '/admin/edu/class/schedule',
         labelKey: 'dashboard',
