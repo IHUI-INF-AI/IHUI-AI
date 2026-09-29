@@ -23,7 +23,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 # 压缩事件列表函数位于 routers 层(进程内存储),延迟导入避免循环依赖。
@@ -37,6 +37,10 @@ logger = logging.getLogger(__name__)
 
 # 单次聚合返回的事件上限(防止超长会话响应爆炸)
 MAX_EVENTS = 500
+
+# 东八区(用户主时区),与 db_sync_scheduler / news_scheduler / self_media_scheduler 的
+# `_CN_TZ` 同形(本仓各文件各自声明,无共享模块)。
+_CN_TZ = timezone(timedelta(hours=8))
 
 
 def _to_epoch(value: Any) -> float:
@@ -55,12 +59,20 @@ def _to_epoch(value: Any) -> float:
 
 
 def _iso(value: Any) -> str:
-    """把任意 at 值尽量回填成 ISO 字符串(前端展示用)。"""
+    """把任意 at 值尽量回填成 ISO 字符串(前端展示用)。
+
+    时区口径必须显式:同一数组里 string 型来源是**原样透传**(多为 UTC `Z` / `+00:00`,
+    `_to_epoch` 即按 UTC 解析它们做排序),而 epoch 型此前用 naive
+    `datetime.fromtimestamp(v)` 渲染成**宿主墙钟且不带任何偏移** —— 同一个 `at_iso`
+    字段因此混了两套时区,宿主从东八区被静默改成 UTC 的那 25 天里,数字来源的事件
+    整体相对字符串来源滑了 8 小时。现固定渲染为东八区并**带上 +08:00 偏移**
+    (墙钟读数与修复前的东八区宿主一致,只是不再依赖宿主、也不再可被误读成本地时间)。
+    """
     if value is None:
         return ""
     if isinstance(value, (int, float)):
         try:
-            return datetime.fromtimestamp(float(value)).isoformat()
+            return datetime.fromtimestamp(float(value), tz=_CN_TZ).isoformat()
         except Exception:
             return ""
     return str(value)
