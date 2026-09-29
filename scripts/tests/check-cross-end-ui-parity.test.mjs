@@ -42,7 +42,11 @@ function runAtRef(ref) {
       timeout: 600000,
       maxBuffer: 128 * 1024 * 1024,
     })
-    if (r.status !== 0)
+    // rc 0 与 rc 1 **都算"跑出了结论"**:退出码里的 1 是"相对当今天台账的棘轮红了",而出处面的锚点
+    // 本就不是为那一棵树校准的(给 web 腿装上首锚之后,任何一枚早于它的 ref 都会超锚 ⇒ 旧写法把
+    // "有结论"读成"跑不动")。只有 rc≥2(故障/无法判定)或 JSON 解不出才算没跑到 —— 那才是本函数
+    // 存在的理由:调用方不得把"没判"读成"没有"。放宽 rc 不影响被钉的那半句(断言读的是 json.exitNotes)。
+    if (r.status !== 0 && r.status !== 1)
       return { ok: false, why: `尺子在 ${ref} 面 rc=${r.status}:${String(r.stdout || r.stderr).slice(-160)}` }
     let json
     try {
@@ -50,7 +54,7 @@ function runAtRef(ref) {
     } catch (e) {
       return { ok: false, why: `${ref} 面的 --json 不可解析:${e.message}` }
     }
-    return { ok: true, json }
+    return { ok: true, json, rc: r.status }
   } finally {
     rmScratch(dir)
   }
@@ -630,6 +634,12 @@ test('T24 三份同名:进审候选逐条点名 + 一份族只许一条腿(真�
   const PINNED_EXIT_REF = '4f1f7e84d4^'
   const pinned = runAtRef(PINNED_EXIT_REF)
   assert.ok(pinned.ok, `出处面 ${PINNED_EXIT_REF} 跑不出结论(未判定,不等于没有):${pinned.why}`)
+  // 允许 rc=1 的代价由这一条兜住:出了红必须同时拿出**结构完整**的判定 —— 空对象/半截输出不算跑到。
+  // (只放宽退出码、不加这一句,等于让"崩在半路而恰好打了点字"冒充结论。)
+  assert.ok(
+    Array.isArray(pinned.json.findings) && pinned.json.findings.length > 0,
+    `出处面 ${PINNED_EXIT_REF} 报了退出码却没有配对 ⇒ "跑出了结论"是假的,不得拿 rc 冒充判定`,
+  )
   assert.ok(
     Array.isArray(pinned.json.exitNotes) && pinned.json.exitNotes.length > 0,
     `出处面 ${PINNED_EXIT_REF} 的出口链报名归零 ⇒ "判不出必须报名"这一半真被摘线了(不是账清了)`,
@@ -638,6 +648,12 @@ test('T24 三份同名:进审候选逐条点名 + 一份族只许一条腿(真�
     ui.others.includes('packages/app/src/components/UserInfoCard.tsx'),
     '未选名单漏了 components 那一份 ⇒ 点名只点一半',
   )
+})
+
+test('T24b 出处面跑不动时仍须判"没跑到"(放宽 rc 的反向锁:不得变成无条件接受)', () => {
+  const r = runAtRef('0000000000000000000000000000000000000000')
+  assert.equal(r.ok, false, '一个根本不存在的 ref 被读成"跑出了结论" ⇒ 本函数的失败分支没牙')
+  assert.match(r.why, /read-tree/, `失败原因没落到实际那一步(得让人看出是取不到面还是尺子崩了):${r.why}`)
 })
 
 test('T25 同侧多候选不得只查一侧;选腿比较器与出口链只许一份实现', () => {
