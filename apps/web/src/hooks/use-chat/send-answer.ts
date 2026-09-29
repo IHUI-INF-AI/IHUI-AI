@@ -10,6 +10,12 @@ import { useModeStore } from '@/stores/mode'
 import { getSamplingParams } from '@/stores/sampling-params'
 import { useTimelineStore } from '@/stores/timeline-store'
 import { toast } from '@/components/common'
+// D131:主对话流连接状态位的信号出口(侧问题流与主流同一状态位,不得各立一套)
+import {
+  clearStreamConnection,
+  markStreamDisconnected,
+  markStreamReconnecting,
+} from '@/components/chat/connection-status-bar'
 import {
   streamChat,
   formatSSEError,
@@ -91,6 +97,8 @@ export function createSendAnswer(
     })
 
     store.setStreaming(true)
+    // D131:与主流同一口径 —— 续答开始即把连接位归零,断开态只在这里清
+    clearStreamConnection()
     store.setError(null)
     store.resetSubAgentActivities()
     // P4-2: 清除上一轮 fallback 通知(与 sendMessage 对称)
@@ -313,6 +321,8 @@ export function createSendAnswer(
         },
         // P1 重连提示(2026-08-02 立,与 sendMessage 对称):streamChat 自动重连时 toast 通知用户
         onReconnect: (attempt: number, delay: number) => {
+          // D131:侧问题流的重连同样落到常驻状态位(与主流同一信号源)
+          markStreamReconnecting(attempt)
           const reconnectingMsg =
             t('reconnecting') === 'reconnecting' ? 'Reconnecting...' : t('reconnecting')
           const attemptMsg =
@@ -456,6 +466,8 @@ export function createSendAnswer(
           return agentTools.length > 0 ? { agentTools } : {}
         })(),
         onError: (errMsg, info) => {
+          // D131(2026-09-29 立):与主流同形 —— 续答以错误收场时落"已断开"并占位
+          markStreamDisconnected(errMsg)
           // #9 错误前先 flush 累积 token,避免最后一批内容丢失
           contentBatcher.flush()
           reasoningBatcher.flush()

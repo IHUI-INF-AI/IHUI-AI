@@ -85,9 +85,20 @@ async def create_session(
         user_agent=body.user_agent,
         owner_user_id=user_id,
     )
-    url = await session.get_current_url()
-    title = await session.get_title()
-    cookies = await session.get_cookies()
+    try:
+        url = await session.get_current_url()
+        title = await session.get_title()
+        cookies = await session.get_cookies()
+    except Exception as e:  # noqa: BLE001 — 页面在 goto 之后被关闭是常态,不是服务器故障
+        # 实测(2026-09-29 本机 xiaohongshu):会话建成、页面随即被平台侧关掉,
+        # 于是 `Page.title` 抛 TargetClosedError → 未捕获 → 整个请求 500「服务内部错误」,
+        # 而那个已经死掉的会话仍留在 hub 里(占着一个 context 直到超时)。
+        # 现在:先关会话再如实报 502,并把"改走外部浏览器/手动导入"这条出路写进文案。
+        await session.close()
+        raise HTTPException(
+            status_code=502,
+            detail=f"登录页打开后被关闭({type(e).__name__}),请改用外部浏览器或手动导入 Cookie",
+        ) from e
     return {
         "code": 0,
         "message": "会话已创建",
