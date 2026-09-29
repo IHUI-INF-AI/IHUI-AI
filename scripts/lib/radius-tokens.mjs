@@ -292,19 +292,26 @@ function isGeometricRadius(lines, i, raw) {
 
 /** 整份源码 → 圆角档集合。返回排序后的去重数组。 */
 export function radiusSetOf(src, table) {
-  const lines = (src || '').split('\n')
+  /**
+   * RD 维的遮噪**必须与 RE 维同一条口径**,所以走本文件那一份唯一的 `maskComments`
+   * (RE 的 `radiusEntriesOf` 与 :107 都在用它),不另派生第二遍状态机。
+   * 旧实现这里刻意只做"整行注释"判断,理由是"块注释状态机需要字符串感知遮罩,另票做"。
+   * 那句理由当时是对的,但半吊子判断的代价是实测到的两型漏读:
+   * ① 行尾注释(`borderRadius: rnRadius.md, // 旧写法 rounded-md`)、
+   * ② **跨行块注释的续行** —— 真仓 `apps/miniapp-taro/src/components/LoginPopUp.tsx` 里一段
+   *   `{/* … 旧写法 rounded-md … */}` 说明文字,让 RD 凭空记上一档 6,账面就写成
+   *   "小程序 6 / RN 无"的**假分叉**;下一个人照它去"修",改的是端上本来正确的代码
+   *   —— 假阳比漏报更贵(它指使人去修没坏的东西,还把口径说歪成"问题很多")。
+   * 残余如实登记:本 mask 仍不认字符串字面量,所以串内含 `/*` 会连代码一起遮掉;
+   * 那一格要换 `code-mask.maskComments`(字符串感知),但它同时是 RE 维的锚点输入,
+   * 换它必须按守门 128 的"重锚要中和本次读数改动后的旧口径"另笔做,不在这里顺手改。
+   */
+  const lines = maskComments(src || '').split('\n')
   const consts = constantMapOf(src)
   const set = new Set()
   for (let i = 0; i < lines.length; i++) {
     const t = lines[i].trim()
-    /**
-     * 整行注释一律跳过:注释里出现 `rounded-2xl` / `border-radius: 50%` 是在**说明规则或对齐
-     * 意图**,不是取用。实测本仓第一例假阳就是 `ModelConfigDialog.css:16` 那句
-     * "用规范圆角 rounded-2xl 等价" 被读成 16px 档,把一族的锚点顶高了一格。
-     * 刻意只做"整行注释"这一条零风险判断,不上块注释状态机 —— 串内含 `/*` 会让状态机把代码
-     * 当注释吃掉(守门 70 的 `'https://x/*'` 假绿同型),那需要一份字符串感知的遮罩,另票做。
-     */
-    if (/^(\/\/|\/\*|\*|\{\/\*|<!--)/.test(t)) continue
+    if (t === '') continue
     /**
      * RD 维排除真圆/胶囊:逐取用点问 `classifyRadiusGeometry`(那份唯一的几何判定)是几何还是档位。
      * 只按 px 值分不了(UserInfoCard 头像 24 = 48 边 / 2,而 rnRadius.xl 也 = 12 —— 同值两义),

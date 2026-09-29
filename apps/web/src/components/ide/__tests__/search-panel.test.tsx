@@ -48,8 +48,9 @@ describe('SearchPanel', () => {
     expect(getByRole('button', { name: 'searchPanel.caseSensitive' })).not.toBeNull()
     expect(getByRole('button', { name: 'searchPanel.wholeWord' })).not.toBeNull()
     expect(getByRole('button', { name: 'searchPanel.useRegex' })).not.toBeNull()
-    // 文件类型筛选(filterAll 走 i18n,其余走字面 label)
-    expect(getByText('searchPanel.filterAll')).not.toBeNull()
+    // 文件类型筛选:「全部」改指 shared canonical `common.all`(mock 按 key 回显,故期望 'all'),
+    // 其余三档仍走字面 label —— 判据不变:这一行验的是「该 chip 走 i18n 而非硬编码文案」
+    expect(getByText('all')).not.toBeNull()
     expect(getByText('TSX')).not.toBeNull()
     expect(getByText('CSS')).not.toBeNull()
     // 初始无输入 → inputHint
