@@ -23,7 +23,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import Any
 
 # 压缩事件列表函数位于 routers 层(进程内存储),延迟导入避免循环依赖。
@@ -39,8 +39,8 @@ logger = logging.getLogger(__name__)
 MAX_EVENTS = 500
 
 # 东八区(用户主时区),与 db_sync_scheduler / news_scheduler / self_media_scheduler 的
-# `_CN_TZ` 同形(本仓各文件各自声明,无共享模块)。
-_CN_TZ = timezone(timedelta(hours=8))
+# `_CN_TZ` 同形(2026-09-30 收口:值取自 app/core/cn_time.py 的 CN_TZ 唯一出口)。
+from app.core.cn_time import CN_TZ as _CN_TZ
 
 
 def _to_epoch(value: Any) -> float:
