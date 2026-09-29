@@ -56,14 +56,6 @@ import { getKeyGroup } from './api-key-group-service.js'
 // O5 原文留存(2026-09-21):写入口侧的"按 key 关闭原文留存"判定,纯函数、无副作用。
 import { buildRawTextColumns } from './audit-log-service.js'
 import { apiKeyGroups } from '@ihui/database'
-// D172(2026-09-29 立):trace id 的取值出口。两个 import 都不是"顺手":
-//  - trace-context 是本仓 traceparent 解析的唯一实现(§"两处算同一件事必漂移"),
-//    本文件**不得**再写一份 split('-') 判长;
-//  - principal 的 ALS 里带着 request,这是"深层调用没有 request 参数"时唯一
-//    拿得到本轮请求头的既有机制(db/background-context.ts、utils/scoped-guard.ts 同一取向),
-//    所以不为此新增第三套上下文传递。
-import { traceIdFromRequest } from '../utils/trace-context.js'
-import { currentPrincipalScope } from '../plugins/principal.js'
 
 // =============================================================================
 // 类型定义
@@ -124,12 +116,6 @@ export interface RecordCallInput {
   costCents?: number
   /** 上游 HTTP 状态码(如 200/429/500),未传则不写入 */
   httpStatus?: number
-  /**
-   * D172(2026-09-29 立):本轮调用的 W3C trace id(32 位小写 hex),写入 `llm_call_logs.trace_id`。
-   * **未传则自动从当前请求上下文取**(见 `resolveTraceId`),所以调用方通常什么都不用写;
-   * 显式传 `null` 才是"这次调用确实没有关联键"的主动声明(后台任务/worker 批量补账用)。
-   */
-  traceId?: string | null
   /** Time To First Token 毫秒数(首 token 耗时,流式才有),未传则不写入 */
   ttftMs?: number
   /**
@@ -1041,24 +1027,6 @@ export async function getByokCommissionRate(providerCode: string): Promise<numbe
  * 幂等性:llm_call_logs 每次 call 写一行(无去重),developerApiKeys 余额原子扣减。
  * 失败容错:写流水失败不抛错(只 log),扣减失败也不抛错(避免影响已返回给用户的响应)。
  */
-/**
- * D172:落库前把"这一轮的 trace id"定下来,只有三种答案。
- *
- * 判序是刻意的:
- *  1. 调用方**显式给了**(含显式 `null`)⇒ 用它,不再猜。后台补账/批量重放这类调用方
- *     手里没有本轮请求,给它一个"自己声明没有"的出口,免得把"没传"读成"有"。
- *  2. 没给 ⇒ 从 principal ALS 里的 request 现取。`recordCall` 大多在请求生命周期内
- *     **同步**进入(`void recordCall({...})`),此刻 ALS 仍在,所以 15+ 个调用点
- *     一行都不用改就能带上编号;ALS 不在(非 HTTP 入口)自然落到第 3 档。
- *  3. 都拿不到 ⇒ NULL。**NULL 是"这条记录没有关联键"这个事实**,不写一个自造的 id 顶上
- *     —— 自造的编号会让排查时把两条无关调用读成同一条。
- */
-export function resolveTraceId(explicit?: string | null): string | null {
-  if (explicit !== undefined) return explicit
-  const scope = currentPrincipalScope()
-  return scope?.request ? traceIdFromRequest(scope.request) : null
-}
-
 export async function recordCall(input: RecordCallInput): Promise<RecordCallResult> {
   // P0 修复(2026-08-02):顶层 try/catch 统一捕获所有错误。
   // 大量调用方使用 `void recordCall({...})` 模式(fire-and-forget),若内部 db 操作抛错
@@ -1215,8 +1183,6 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
       httpStatus: input.httpStatus ?? null,
       ttftMs: input.ttftMs ?? null,
       callType: input.callType ?? 'chat',
-      // D172:关联键由唯一出口 resolveTraceId 定(显式 > ALS > NULL),本行不解析 traceparent。
-      traceId: resolveTraceId(input.traceId),
     })
     .returning({ id: llmCallLogs.id })
 
