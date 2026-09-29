@@ -9052,6 +9052,7 @@
     "openTerminal": "Open Terminal",
     "renameDialog": {
       "cancel": "Cancel",
+      "description": "Keep it short and easy to recognize",
       "label": "Conversation title",
       "placeholder": "Enter a new conversation title",
       "save": "Save",
@@ -11653,7 +11654,16 @@
     "viewFavorites": "View Favorites",
     "attentionWaiting": "Waiting on you",
     "attentionUnread": "{count} unread updates",
-    "batchAttentionSummary": "Of these: {waiting} waiting on you · {unread} unread"
+    "batchAttentionSummary": "Of these: {waiting} waiting on you · {unread} unread",
+    "loadingMore": "Loading…",
+    "markUnread": "Mark as unread",
+    "markUnreadSuccess": "Marked as unread",
+    "retryLoadMore": "Retry loading",
+    "sorting": {
+      "byTime": "By time",
+      "label": "Sort by",
+      "pinnedFirst": "Pinned first"
+    }
   },
   "chatSettingsPage": {
     "back": "Back",
