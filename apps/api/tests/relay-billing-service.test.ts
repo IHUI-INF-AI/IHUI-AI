@@ -16,6 +16,7 @@
  * 测试文件豁免 any(mock 类型断言必需,AGENTS.md §3)。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type { FastifyRequest } from 'fastify'
 
 /**
  * 构建链式 mock:dbRead.select(...).from(...).where(...).limit() / .orderBy().limit()
@@ -109,7 +110,9 @@ import {
   isByokCall,
   getByokCommissionRate,
   recordCall,
+  resolveTraceId,
 } from '../src/services/relay-billing-service.js'
+import { runWithRequestScope } from '../src/plugins/principal.js'
 
 describe('relay-billing-service — BYOK 计费链路', () => {
   beforeEach(() => {
@@ -388,6 +391,93 @@ describe('relay-billing-service — BYOK 计费链路', () => {
       expect(setArg!.costBalanceCents).toBeDefined()
       expect(setArg!.tokenUsedTotal).toBeDefined()
       expect(setArg!.costUsedTotalCents).toBeDefined()
+    })
+  })
+
+  // ===========================================================================
+  // 6. D172(2026-09-29 立)— recordCall 落库时把"本轮 trace id"带进 llm_call_logs
+  // ===========================================================================
+  describe('D172 trace 关联键落库', () => {
+    const TP = '00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01'
+    const TRACE = '0af7651916cd43dd8448eb211c80319c'
+    const fakeReq = { headers: { traceparent: TP } } as unknown as FastifyRequest
+
+    /** 复用 5. 的桩:两次定价 select + insert(捕获 values) + 余额 update。 */
+    function stubInsert() {
+      mockDbReadSelect
+        .mockReturnValueOnce(chain([{ inputPricePer1k: 10, outputPricePer1k: 10 }]))
+        .mockReturnValueOnce(chain([]))
+      const valuesFn = vi
+        .fn()
+        .mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 'log-t' }]) })
+      mockDbInsert.mockReturnValue({ values: valuesFn })
+      mockDbUpdate.mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([{ tokenBalance: 1000, costBalanceCents: 0 }]),
+          }),
+        }),
+      })
+      return valuesFn
+    }
+
+    const byokInput = {
+      apiKeyId: 'key-1',
+      userId: 'user-1',
+      model: 'deepseek-chat',
+      prompt: 'hello',
+      response: 'world',
+      promptTokens: 100,
+      completionTokens: 100,
+      totalTokens: 200,
+      latencyMs: 50,
+      status: 'success',
+      mode: 'byok',
+      commissionRate: 0.1,
+    } as const
+
+    const firstValues = (valuesFn: ReturnType<typeof vi.fn>) =>
+      valuesFn.mock.calls[0]?.[0] as { traceId?: string | null } | undefined
+
+    /**
+     * 这一条是本票的全部价值所在:15+ 个 `void recordCall({...})` 调用点**一行都没改**,
+     * 却能带上编号 —— 因为 recordCall 在请求生命周期内**同步**进入,principal ALS 仍在。
+     * 反过来它也证明"ALS 真被读了":桩里不注入作用域就拿不到值(见下一条)。
+     */
+    it('在请求 ALS 作用域内 ⇒ 自动带本轮 trace id', async () => {
+      const valuesFn = stubInsert()
+      await runWithRequestScope(fakeReq, () => recordCall({ ...byokInput }))
+      expect(firstValues(valuesFn)?.traceId).toBe(TRACE)
+    })
+
+    it('不在请求作用域、也没显式传 ⇒ NULL(不造一个看起来像的编号)', async () => {
+      const valuesFn = stubInsert()
+      await recordCall({ ...byokInput })
+      expect(firstValues(valuesFn)?.traceId).toBeNull()
+    })
+
+    /**
+     * 显式 `null` 必须赢过 ALS —— 这是"后台补账/批量重放没有本轮请求"的合法出口。
+     * 若判序反过来(先 ALS 后显式),补账行会被挂上一个毫不相关的编号,而那种错
+     * 只有在事后反查时才发现,届时已污染了审计面。
+     */
+    it('显式 traceId:null 覆盖 ALS', async () => {
+      const valuesFn = stubInsert()
+      await runWithRequestScope(fakeReq, () => recordCall({ ...byokInput, traceId: null }))
+      expect(firstValues(valuesFn)?.traceId).toBeNull()
+    })
+
+    it('显式字符串原样落库(出口只验形,不改写调用方给的值)', () => {
+      expect(resolveTraceId('ffffffffffffffffffffffffffffffff')).toBe(
+        'ffffffffffffffffffffffffffffffff',
+      )
+    })
+
+    it('头非法时 ALS 里也拿不到 ⇒ NULL(出口与落库串起来仍然不写脏键)', async () => {
+      const valuesFn = stubInsert()
+      const bad = { headers: { traceparent: '00-nope-1' } } as unknown as FastifyRequest
+      await runWithRequestScope(bad, () => recordCall({ ...byokInput }))
+      expect(firstValues(valuesFn)?.traceId).toBeNull()
     })
   })
 })

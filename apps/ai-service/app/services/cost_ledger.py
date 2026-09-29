@@ -21,10 +21,15 @@
 
 设计:
 - 主存储:进程内 dict[record_id -> LedgerEntry](读写快、跨请求可见)
-- 幂等:append 以 record_id 去重,同 record_id 不重复入账
+- 幂等:append 以 record_id 为键;同 record_id 再投递不新增行,而是**逐列定向合并**(G-822,2026-09-29)
+  —— `at` = min(旧,新) 首见时刻;身份列与已入账测量列 = coalesce(旧,新) 先到先定(哨兵值不覆盖已知值);
+  `duration_ms` / `ended_at` = coalesce(新,旧) 后到补齐(倒退的投递不得把已量到的值改小)。
+  方向表只有一份,住 `app/core/ledger_merge.py`(`append` 与 `sync_from_recorder` 共用同一条合并路径)。
 - 持久化:每次变更把全量条目写回 data/cost_ledger.json(ai-service 数据目录),进程重启可恢复;
   文件缺失/损坏时静默降级为空账本。并发用 threading.Lock 保护原子性。
 - 全部确定性:cost/金额一律 round 6 位,与 recorder/tool_cost_accounting 口径一致。
+- 增量基线(G-821,2026-09-29):聚合读面的 prompt token 按 (来源链, session) 增量计,
+  唯一实现住 `app/core/token_baseline.py`(与 llm_usage_service 共用,不得各抄一份)。
 - 缓存感知(P0-①,2026-09-18):条目携带 cached_tokens/cache_creation_tokens
   (含在 tokens_in 内),缺省 cost 走三段计价(uncached + 读×0.1x 等 + 写×1.25x 等,
   乘数按厂商查 cache_multipliers);aggregate 输出缓存命中统计。
@@ -41,6 +46,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from ..core.ledger_merge import LedgerRow, merge_entry, parse_timestamp
 from ..core.model_pricing import (
     cache_multipliers,
     cost_micro_usd_from_per_1k,
@@ -48,6 +54,7 @@ from ..core.model_pricing import (
     is_model_price_known,
     micro_usd_to_usd,
 )
+from ..core.token_baseline import PromptTokenSample, incremental_prompt_tokens
 from .agent_step_recorder import AgentStepRecorder, agent_step_recorder
 
 logger = logging.getLogger(__name__)
@@ -115,16 +122,12 @@ def _infer_provider(model: str, provider: str | None = None) -> str:
 
 
 def _parse_at(value: Any) -> datetime | None:
-    """把 ISO 时间戳解析为 aware datetime;失败返回 None。"""
-    if not value:
-        return None
-    text = str(value)
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
-    try:
-        return datetime.fromisoformat(text)
-    except (ValueError, TypeError):
-        return None
+    """把 ISO 时间戳解析为 aware datetime;失败返回 None。
+
+    解析只许有一份实现(G-822):合并面的 earliest/latest 判据与读面的窗口/分桶
+    必须对同一个字符串给同一个答案,否则"窗口取最早时刻"与"合并取最早时刻"会分叉。
+    """
+    return parse_timestamp(value)
 
 
 @dataclass
@@ -148,7 +151,9 @@ class LedgerEntry:
     cost_usd: float = 0.0       # USD,round 6 位(与 recorder/tool_cost_accounting 口径一致)
     duration_ms: float = 0.0
     status: str = "ok"          # ok / error
-    at: str = ""                # UTC ISO8601
+    at: str = ""                # UTC ISO8601(首次见到该记录的时刻;G-822 取最早)
+    # G-822(2026-09-29):迟到的"一次性完成事件"带回的结束时刻(空=尚未完成)
+    ended_at: str = ""
     estimated: bool = False     # cost 是否来自估算(未知模型用默认价)
 
     def to_dict(self) -> dict[str, Any]:
@@ -156,12 +161,24 @@ class LedgerEntry:
         return asdict(self)
 
 
+def _baseline_samples(entries: list[dict[str, Any]]) -> list[PromptTokenSample]:
+    """账本条目 → 增量基线输入;来源链用已有的 tool_name(本仓没有 kind 字段可依据)。"""
+    return [
+        PromptTokenSample(
+            source=str(e.get("tool_name") or "(unknown)"),
+            session_id=str(e.get("session_id") or ""),
+            prompt_tokens=int(_to_num(e.get("tokens_in"), 0)),
+        )
+        for e in entries
+    ]
+
+
 class CostLedger:
     """全链路成本账本(进程内 dict + JSON 文件持久化,threading.Lock 原子)。
 
     用法:
         ledger = CostLedger(file_path=...)        # 测试用 tmp_path
-        ledger.append(entry)                       # 幂等(record_id 去重)
+        ledger.append(entry)                       # 幂等(record_id:新行入账 / 重投逐列合并)
         ledger.sync_from_recorder("run-1", rec)    # 把 recorder 的 run 合并入账
         ledger.aggregate({"user_id": "u1"})        # 任意维度过滤聚合
         ledger.top_tools(5)                        # 成本 Top 工具
@@ -273,6 +290,7 @@ class CostLedger:
             "duration_ms": round(_to_num(e.get("duration_ms")), 2),
             "status": status,
             "at": str(e.get("at") or _now_iso()),
+            "ended_at": str(e.get("ended_at") or ""),
             "estimated": estimated,
         }
 
@@ -308,17 +326,41 @@ class CostLedger:
     # ---------------- 写入 ----------------
 
     def append(self, entry: Any) -> dict[str, Any]:
-        """追加一条账目(幂等:同 record_id 不重复)。返回 {"appended", "entry"}。"""
+        """追加一条账目(幂等:同 record_id 不新增行,而是**逐列定向合并**)。
+
+        返回 {"appended", "outcome", "changed_columns", "entry"}:
+        - outcome="appended"  新增了一行(appended=True);
+        - outcome="merged"    已有行被补齐了若干列(appended=False,changed_columns 点名是哪些列);
+        - outcome="identical" 逐列合并后行一字未变 = 真的重投(方向表拒掉的迟到值不算变化,
+          因为行内容没动 —— 报成 merged 会把"账没变"写成"账变了")。
+        `appended` 既有含义不变(是否新增一行),本次只加键、不改键义。
+        """
         with self._lock:
             self._load()
             norm = self._normalize(entry)
             if not norm["record_id"]:
                 raise ValueError("record_id 不能为空")
-            if norm["record_id"] in self._data:
-                return {"appended": False, "entry": dict(self._data[norm["record_id"]])}
-            self._data[norm["record_id"]] = norm
-            self._persist()
-            return {"appended": True, "entry": dict(norm)}
+            existing: LedgerRow | None = self._data.get(norm["record_id"])
+            if existing is None:
+                self._data[norm["record_id"]] = norm
+                self._persist()
+                return {
+                    "appended": True,
+                    "outcome": "appended",
+                    "changed_columns": [],
+                    "entry": dict(norm),
+                }
+            merged = merge_entry(existing, norm)
+            changed = list(merged.changed_columns)
+            if changed:
+                self._data[norm["record_id"]] = merged.row
+                self._persist()
+            return {
+                "appended": False,
+                "outcome": "merged" if changed else "identical",
+                "changed_columns": changed,
+                "entry": dict(self._data[norm["record_id"]]),
+            }
 
     def sync_from_recorder(
         self,
@@ -331,7 +373,8 @@ class CostLedger:
         """把 recorder 某 run 的全部步骤合并成本账本条目。
 
         复用 recorder 的 cost(已 round 6 位),保证与 recorder 口径一致、可审计;
-        返回 {"run_id", "synced", "skipped"(幂等去重跳过)}。
+        入账一律走 `self.append`(G-822:同 record_id 由同一张方向表逐列合并,
+        本函数不写第二份合并逻辑),返回 {"run_id", "synced", "skipped"(幂等去重跳过)}。
         """
         if recorder is None:
             recorder = agent_step_recorder
@@ -386,12 +429,15 @@ class CostLedger:
         by_tool / by_model、窗口边界(start/end)。
         P0-①(2026-09-18):新增缓存统计 —— total_cached_tokens /
         total_cache_creation_tokens / cache_hit_count(cached>0 的条目数)。
+        G-821(2026-09-29):prompt/total token 按 (来源链, session) 增量基线计,
+        逐条相加会把同一上下文按轮次重复计入(cost 仍按实际账单逐条相加)。
         """
         entries = self._filtered(filter)
+        increments = incremental_prompt_tokens(_baseline_samples(entries))
         n = len(entries)
-        total_in = sum(int(e.get("tokens_in") or 0) for e in entries)
+        total_in = sum(increments)
         total_out = sum(int(e.get("tokens_out") or 0) for e in entries)
-        total = sum(int(e.get("total_tokens") or 0) for e in entries)
+        total = total_in + total_out
         ok_count = sum(1 for e in entries if e.get("status") == "ok")
         estimated_count = sum(1 for e in entries if e.get("estimated"))
         total_cached = sum(int(e.get("cached_tokens") or 0) for e in entries)
@@ -403,18 +449,19 @@ class CostLedger:
         by_tool: dict[str, dict[str, Any]] = {}
         by_model: dict[str, dict[str, Any]] = {}
         parsed: list[datetime] = []
-        for e in entries:
+        for e, increment in zip(entries, increments, strict=True):
             tool = str(e.get("tool_name") or "(unknown)")
             model = str(e.get("model") or "") or "(unknown)"
+            tokens_out = int(e.get("tokens_out") or 0)
             for store, key in ((by_tool, tool), (by_model, model)):
                 b = store.setdefault(
                     key,
                     {"steps": 0, "tokens_in": 0, "tokens_out": 0, "tokens": 0, "cost": 0.0},
                 )
                 b["steps"] += 1
-                b["tokens_in"] += int(e.get("tokens_in") or 0)
-                b["tokens_out"] += int(e.get("tokens_out") or 0)
-                b["tokens"] += int(e.get("total_tokens") or 0)
+                b["tokens_in"] += increment
+                b["tokens_out"] += tokens_out
+                b["tokens"] += increment + tokens_out
                 b["cost"] = round(b["cost"] + float(e.get("cost_usd") or 0.0), 6)
             dt = _parse_at(e.get("at"))
             if dt is not None:
@@ -450,15 +497,18 @@ class CostLedger:
     def top_tools(self, n: int = 10, filter: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """按成本降序返回 Top 工具(含 steps/tokens/cost)。同成本按工具名稳定排序。"""
         by: dict[str, dict[str, Any]] = {}
-        for e in self._filtered(filter):
+        entries = self._filtered(filter)
+        increments = incremental_prompt_tokens(_baseline_samples(entries))
+        for e, increment in zip(entries, increments, strict=True):
             tool = str(e.get("tool_name") or "(unknown)")
+            tokens_out = int(e.get("tokens_out") or 0)
             b = by.setdefault(
                 tool, {"steps": 0, "tokens_in": 0, "tokens_out": 0, "tokens": 0, "cost": 0.0}
             )
             b["steps"] += 1
-            b["tokens_in"] += int(e.get("tokens_in") or 0)
-            b["tokens_out"] += int(e.get("tokens_out") or 0)
-            b["tokens"] += int(e.get("total_tokens") or 0)
+            b["tokens_in"] += increment
+            b["tokens_out"] += tokens_out
+            b["tokens"] += increment + tokens_out
             b["cost"] = round(b["cost"] + float(e.get("cost_usd") or 0.0), 6)
         ranked = sorted(by.items(), key=lambda kv: (-kv[1]["cost"], kv[0]))
         return [{"tool_name": name, **stats} for name, stats in ranked[: max(1, int(n))]]
@@ -475,7 +525,10 @@ class CostLedger:
                 f"granularity 必须是 {'/'.join(_VALID_GRANULARITY)},got {granularity!r}"
             )
         buckets: dict[str, dict[str, Any]] = {}
-        for e in self._filtered(filter):
+        entries = self._filtered(filter)
+        # 基线按整条链算再分桶,否则每桶首条又会计入全量 context(桶合计与 aggregate 顶账)
+        increments = incremental_prompt_tokens(_baseline_samples(entries))
+        for e, increment in zip(entries, increments, strict=True):
             dt = _parse_at(e.get("at"))
             if dt is None:
                 continue
@@ -484,6 +537,7 @@ class CostLedger:
                 if granularity == "day"
                 else dt.strftime("%Y-%m-%dT%H")
             )
+            tokens_out = int(e.get("tokens_out") or 0)
             b = buckets.setdefault(
                 key,
                 {
@@ -496,9 +550,9 @@ class CostLedger:
                 },
             )
             b["steps"] += 1
-            b["tokens_in"] += int(e.get("tokens_in") or 0)
-            b["tokens_out"] += int(e.get("tokens_out") or 0)
-            b["tokens"] += int(e.get("total_tokens") or 0)
+            b["tokens_in"] += increment
+            b["tokens_out"] += tokens_out
+            b["tokens"] += increment + tokens_out
             b["cost"] = round(b["cost"] + float(e.get("cost_usd") or 0.0), 6)
         items = [buckets[k] for k in sorted(buckets)]
         for b in items:
