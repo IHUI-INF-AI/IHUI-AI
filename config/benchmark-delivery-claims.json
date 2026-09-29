@@ -228,6 +228,65 @@
           ]
         }
       ]
+    },
+    {
+      "id": "#D151",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md",
+      "docAnchor": "### D151",
+      "title": "终端「等待输入」没有回送通道(交互命令当场死等)",
+      "assertions": [
+        {
+          "text": "交互帧名两侧契约都登记(Python 侧与 TS 侧任一缺一条即算未收口)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": ["apps/ai-service/app/core/sse_contract.py"],
+              "regex": "terminal_interaction",
+              "expect": "present"
+            },
+            {
+              "paths": ["packages/shared/src/sse/contract.ts"],
+              "regex": "terminal_interaction",
+              "expect": "present"
+            }
+          ]
+        },
+        {
+          "text": "前端解析面在泛化兜底之前认领该帧(D19-A1/D113/D151 三次同型的唯一判据)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": ["packages/shared/src/utils/sse-parse.ts"],
+              "regex": "terminal_interaction",
+              "expect": "present"
+            }
+          ]
+        },
+        {
+          "text": "等待有界:默认 300s 超时常量真在执行路径上(不是只写在注释里)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": ["apps/ai-service/app/services/mcp_server.py"],
+              "regex": "TERMINAL_INTERACTION_WAIT_TIMEOUT_S",
+              "expect": "present"
+            }
+          ]
+        }
+      ],
+      "observations": [
+        {
+          "text": "extension 端仍登记为未接线(有解阻判据,不是散文)—— 这一格不构成 D151 未交付,但必须打印",
+          "blocking": false,
+          "anchors": [
+            {
+              "paths": ["scripts/data/sse-dispatch-coverage.json"],
+              "regex": "extension",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
     }
   ]
 }
