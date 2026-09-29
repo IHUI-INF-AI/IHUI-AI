@@ -36,7 +36,7 @@ export default function PrivateMessageList({ list, onClick }: PrivateMessageList
       {list.map((item) => (
         <View
           key={item.id}
-          className="flex items-center px-3 py-3 mb-1.5"
+          className="flex items-center px-3 py-3 mb-[12rpx]"
           onClick={() => onClick?.(item)}
           hoverClass="opacity-60"
         >
@@ -53,7 +53,7 @@ export default function PrivateMessageList({ list, onClick }: PrivateMessageList
               </View>
             )}
             {item.online && (
-              <View className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-primary border-2 border-[var(--color-white-98)]" />
+              <View className="absolute bottom-0 right-0 w-[20rpx] h-[20rpx] rounded-full bg-primary border-2 border-[var(--color-white-98)]" />
             )}
           </View>
           <View className="flex-1 min-w-0">
@@ -61,9 +61,11 @@ export default function PrivateMessageList({ list, onClick }: PrivateMessageList
               <Text className="text-sm font-medium text-foreground truncate flex-1">
                 {item.userName}
               </Text>
-              <Text className="text-[length:20rpx] text-muted-foreground ml-2">{item.lastTime}</Text>
+              <Text className="text-[length:20rpx] text-muted-foreground ml-2">
+                {item.lastTime}
+              </Text>
             </View>
-            <View className="flex items-center mt-0.5">
+            <View className="flex items-center mt-[4rpx]">
               <Text className="text-xs text-muted-foreground truncate flex-1">
                 {item.lastMessage}
               </Text>

@@ -56,7 +56,7 @@ export default function TeamManager({
           members.map((member) => (
             <View
               key={member.id}
-              className="flex items-center px-4 py-3 mb-1.5"
+              className="flex items-center px-4 py-3 mb-[12rpx]"
               onClick={() => onViewDetail?.(member)}
               hoverClass="opacity-60"
             >
@@ -67,13 +67,13 @@ export default function TeamManager({
                     {member.name}
                   </Text>
                   {member.level && (
-                    <Text className="ml-2 text-[length:20rpx] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                    <Text className="ml-2 text-[length:20rpx] px-[12rpx] py-[4rpx] rounded bg-primary/10 text-primary">
                       L{member.level}
                     </Text>
                   )}
                 </View>
                 {member.joinedAt && (
-                  <Text className="block text-xs text-muted-foreground mt-0.5">
+                  <Text className="block text-xs text-muted-foreground mt-[4rpx]">
                     {tt('tail.13', '加入于 {m}', { m: member.joinedAt })}
                   </Text>
                 )}
