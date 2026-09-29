@@ -267,6 +267,83 @@ export function shouldAdoptUnattributed(activeEnrollmentsForStudentClass: number
   return activeEnrollmentsForStudentClass === 1
 }
 
+/**
+ * 账期展开(纯函数,不猜业务规则)。
+ *
+ * 为什么要它:`edu_fee_schedule` 建好后是一张空表,而"什么时间该缴费"这条能力
+ * 必须有账期才成立 —— 没有生成通道,到期分级、提前提醒、按账期摊派全是空转。
+ * 但**分期规则属机构的经营决定**(几期、首期哪天、按月还是按学期),
+ * 所以这里只做机械展开:三个入参一律由调用方给,任何一项缺失或非法都返回 null,
+ * 绝不替使用者编一个"看起来合理"的到期日(编出来的到期日会直接变成催缴文案里的日期)。
+ *
+ * 两条确定性要求:
+ *  ① 金额摊派必须**逐期相加恰好等于总额**(整数元,余数给末期) —— 摊完少 1 元,
+ *     末期永远"差一点缴清",而那 1 元会一直挂在欠费里。
+ *  ② 月末钳制:1/31 起按月推,2 月没有 31 日 ⇒ 落到当月最后一天,
+ *     不得产出 `2026-02-31` 这种能被字符串比较排序、却永远 parse 不出的日期。
+ */
+export interface SchedulePlanInput {
+  periodCount: number
+  amountTotal: number
+  firstDueDate: string
+  cycle: 'once' | 'monthly' | 'termly'
+  /** cycle=termly 时每期之间的月数(由调用方给,例如一学期 6 个月) */
+  monthsPerPeriod?: number
+}
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+function daysInMonth(y: number, m1: number): number {
+  return new Date(Date.UTC(y, m1, 0)).getUTCDate()
+}
+
+/** 把 YYYY-MM-DD 往后推 n 个月,钳制到当月最后一天 */
+function addMonthsClamped(iso: string, n: number): string | null {
+  const parts = iso.split('-')
+  const y = Number(parts[0])
+  const m = Number(parts[1])
+  const d = Number(parts[2])
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null
+  const total = m - 1 + n
+  const ny = y + Math.floor(total / 12)
+  const nm = (total % 12 + 12) % 12 + 1
+  const nd = Math.min(d, daysInMonth(ny, nm))
+  return `${String(ny).padStart(4, '0')}-${String(nm).padStart(2, '0')}-${String(nd).padStart(2, '0')}`
+}
+
+export function buildSchedulePlan(
+  input: SchedulePlanInput,
+): Array<{ periodLabel: string; dueDate: string; amountDue: number }> | null {
+  const { periodCount, amountTotal, firstDueDate, cycle } = input
+  if (!Number.isInteger(periodCount) || periodCount < 1) return null
+  if (!Number.isInteger(amountTotal) || amountTotal < 0) return null
+  if (!ISO_DATE_RE.test(firstDueDate)) return null
+  if (Number.isNaN(Date.parse(`${firstDueDate}T00:00:00Z`))) return null
+  if (cycle !== 'once' && cycle !== 'monthly' && cycle !== 'termly') return null
+  // cycle=once 配多期是**矛盾输入**(一次缴清 vs 分成几期)。
+  // 放任它会产出多条"同一天到期"的账期:到期提醒会对同一报名连发多条,
+  // 而摊派看着像系统算错 —— 矛盾输入应当被拒,不是被将就成一个能跑的形状。
+  if (cycle === 'once' && periodCount !== 1) return null
+  const stepMonths =
+    cycle === 'once' ? 0 : cycle === 'monthly' ? 1 : (input.monthsPerPeriod ?? 0)
+  if (cycle === 'termly' && (!Number.isInteger(stepMonths) || stepMonths < 1)) return null
+
+  // 摊派:基础值 × (n-1) + 末期(带余数) = 总额,逐分不差
+  const base = Math.floor(amountTotal / periodCount)
+  const last = amountTotal - base * (periodCount - 1)
+  const out: Array<{ periodLabel: string; dueDate: string; amountDue: number }> = []
+  for (let i = 0; i < periodCount; i++) {
+    const dueDate = i === 0 ? firstDueDate : addMonthsClamped(firstDueDate, stepMonths * i)
+    if (!dueDate) return null
+    out.push({
+      periodLabel: periodCount === 1 ? '全额' : `第 ${i + 1}/${periodCount} 期`,
+      dueDate,
+      amountDue: i === periodCount - 1 ? last : base,
+    })
+  }
+  return out
+}
+
 function todayIso(): string {  // 用北京日界,与催费定时任务的"当日幂等"口径一致(那边按北京时间 0 点算)
   return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
 }
@@ -557,6 +634,7 @@ export const __test__ = {
   deriveEnrollmentLedger,
   dayDiff,
   shouldAdoptUnattributed,
+  buildSchedulePlan,
   PAYMENT_CREDIT_STATUSES,
   REFUND_SETTLED_STATUSES,
   EDU_REMINDER_CHANNELS,
