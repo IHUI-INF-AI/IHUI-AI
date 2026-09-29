@@ -3368,6 +3368,7 @@ const checks = [
     stagedTriggers: [
       'apps/miniapp-taro/src/components/',
       'packages/app/src/components/',
+      'packages/app/src/features/',
       'apps/mobile-rn/src/components/',
       'scripts/check-cross-end-ui-parity.mjs',
       'scripts/cross-end-ui-parity-baseline.json',
