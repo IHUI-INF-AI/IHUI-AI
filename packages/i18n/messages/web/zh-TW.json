@@ -8580,6 +8580,82 @@
         "SNAPSHOT_UNREADABLE": {
           "title": "快照內容不可讀",
           "action": "改用其他版本或放棄回滾"
+        },
+        "FILE_SCAN_PENDING": {
+          "title": "安全檢查進行中",
+          "action": "等待安全檢查完成後重試"
+        },
+        "FILE_SCAN_FAILED": {
+          "title": "安全檢查失敗",
+          "action": "稍後重試"
+        },
+        "FILE_SCAN_TIMEOUT": {
+          "title": "安全檢查逾時",
+          "action": "稍後重試"
+        },
+        "FILE_SCAN_UNSCANNABLE": {
+          "title": "此檔案無法進行安全檢查",
+          "action": "更換檔案格式後重試"
+        },
+        "FILE_SCAN_BLOCKED": {
+          "title": "檔案未通過安全檢查",
+          "action": "更換檔案後重試"
+        },
+        "file_scan_failed": {
+          "title": "安全檢查失敗",
+          "action": "稍後重試"
+        },
+        "file_content_rejected": {
+          "title": "檔案內容未通過安全檢查",
+          "action": "更換檔案後重試"
+        },
+        "FILE_NOT_READY": {
+          "title": "檔案尚未就緒",
+          "action": "稍候片刻再重試"
+        },
+        "file_not_ready": {
+          "title": "檔案尚未就緒",
+          "action": "稍後重試"
+        },
+        "FILE_INTEGRITY_FAILED": {
+          "title": "檔案完整性驗證失敗",
+          "action": "重新下載後重試"
+        },
+        "FILE_DISK_SPACE": {
+          "title": "本機磁碟空間不足",
+          "action": "清理磁碟空間後重試"
+        },
+        "FILE_STORAGE_INVALID": {
+          "title": "本機檔案快取不可用",
+          "action": "檢查本機儲存空間後重試"
+        },
+        "CHAT_SESSION_HISTORY_MISSING": {
+          "title": "會話歷史缺失",
+          "action": "重新開啟會話後重試"
+        },
+        "47902": {
+          "title": "本輪對話次數已達上限",
+          "action": "稍後再試或升級方案"
+        },
+        "121": {
+          "title": "組織資料正在遷移",
+          "action": "遷移完成後重試"
+        },
+        "speaking_banned": {
+          "title": "目前處於禁言狀態",
+          "action": "聯絡管理員了解詳情"
+        },
+        "member_capacity_exceeded": {
+          "title": "成員數量已達上限",
+          "action": "移除部分成員或升級方案"
+        },
+        "context_limit": {
+          "title": "請求內容過大",
+          "action": "精簡內容後重試"
+        },
+        "invalid_arguments": {
+          "title": "提交的資訊有誤",
+          "action": "檢查後重試"
         }
       },
       "worktree": {
