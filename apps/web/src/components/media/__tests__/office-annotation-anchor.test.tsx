@@ -81,14 +81,7 @@ function toArrayBuffer(x: unknown): ArrayBuffer {
 
 function makeXlsx(): ArrayBuffer {
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(
-    wb,
-    XLSX.utils.aoa_to_sheet([
-      ['H1', 'H2'],
-      ['V1', 'V2'],
-    ]),
-    '表A',
-  )
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['H1', 'H2'], ['V1', 'V2']]), '表A')
   return toArrayBuffer(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }))
 }
 
@@ -109,11 +102,7 @@ function stubFetch(plan: FetchPlan): void {
       return { ok: plan.head.ok, headers: { get: (_name: string) => size } }
     }
     const body: ArrayBuffer = plan.get.body
-    return {
-      ok: plan.get.ok,
-      headers: { get: (_name: string) => null },
-      arrayBuffer: async () => body,
-    }
+    return { ok: plan.get.ok, headers: { get: (_name: string) => null }, arrayBuffer: async () => body }
   }
   vi.stubGlobal('fetch', vi.fn(impl))
 }
@@ -209,10 +198,7 @@ describe('D91 XLSX 单元格选区 → 批注锚 → 注事件', () => {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['A'], ['A2']]), '表A')
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['B'], ['B2']]), '表B')
-    stubFetch({
-      head: { ok: true, size: 100 },
-      get: { ok: true, body: toArrayBuffer(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })) },
-    })
+    stubFetch({ head: { ok: true, size: 100 }, get: { ok: true, body: toArrayBuffer(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })) } })
     render(<OfficePreview src="/f.xlsx" ext="xlsx" />)
     const grid = await screen.findByTestId('xlsx-grid', {}, { timeout: 5000 })
     const cell = await waitFor(() => {
@@ -224,9 +210,7 @@ describe('D91 XLSX 单元格选区 → 批注锚 → 注事件', () => {
     expect(document.querySelector('[data-testid="xlsx-anchor-capture"]')).not.toBeNull()
     const tabs = [...grid.querySelectorAll('[data-testid="xlsx-sheet-tab"]')]
     fireEvent.click(tabs.find((el) => el.textContent === '表B') as HTMLElement)
-    await waitFor(() =>
-      expect(document.querySelector('[data-testid="xlsx-anchor-capture"]')).toBeNull(),
-    )
+    await waitFor(() => expect(document.querySelector('[data-testid="xlsx-anchor-capture"]')).toBeNull())
   })
 })
 
@@ -251,9 +235,9 @@ describe('D91 DOCX 文本选区 → 段落锚 → 注事件', () => {
     expect(card).not.toBeNull()
     expect(card.getAttribute('data-anchor-kind')).toBe('docx')
     expect(card.querySelector('[data-anchor-label="main"]')?.textContent).toBe('文档第 2 段')
-    expect(
-      (card.querySelector('[data-testid="annotation-anchor-note"]') as HTMLTextAreaElement).value,
-    ).toBe('第二段内容选区')
+    expect((card.querySelector('[data-testid="annotation-anchor-note"]') as HTMLTextAreaElement).value).toBe(
+      '第二段内容选区',
+    )
   })
 
   it('添加到任务:detail.text = [文档第 N 段] 描述,带 paragraph/excerpt 结构化字段', async () => {
@@ -322,18 +306,12 @@ describe('D91 AnnotationAnchorCapture / 取消与删除态(单一状态机)', ()
     const { container } = render(
       <AnnotationAnchorCapture anchor={xlsxAnchor} source="xlsx-selection" />,
     )
-    const note = container.querySelector(
-      '[data-testid="annotation-anchor-note"]',
-    ) as HTMLTextAreaElement
+    const note = container.querySelector('[data-testid="annotation-anchor-note"]') as HTMLTextAreaElement
     fireEvent.change(note, { target: { value: '改这格' } })
     const received = captureEvents()
     const addBtn = container.querySelector('[data-action="add"]') as HTMLButtonElement
     fireEvent.click(addBtn)
-    expect(
-      (container.querySelector('[data-anchor-kind="xlsx"]') as HTMLElement).getAttribute(
-        'data-anchor-state',
-      ),
-    ).toBe('added')
+    expect((container.querySelector('[data-anchor-kind="xlsx"]') as HTMLElement).getAttribute('data-anchor-state')).toBe('added')
     expect(addBtn.disabled).toBe(true)
     fireEvent.click(addBtn)
     expect(received).toHaveLength(1)
@@ -351,9 +329,7 @@ describe('D91 AnnotationAnchorCapture / 取消与删除态(单一状态机)', ()
     const pdf = render(
       <AnnotationAnchorCapture anchor={{ kind: 'pdf', page: 4 }} source="xlsx-selection" />,
     )
-    expect(pdf.container.querySelector('[data-anchor-label="main"]')?.textContent).toBe(
-      'PDF 第 4 页',
-    )
+    expect(pdf.container.querySelector('[data-anchor-label="main"]')?.textContent).toBe('PDF 第 4 页')
     pdf.unmount()
   })
 })
