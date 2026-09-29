@@ -55,9 +55,15 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         "success_url_pattern": r"^https?://(www\.)?zhihu\.com/?($|#|\?)|/people/|/follow",
         "fallback_url_pattern": r"^https?://(www\.)?zhihu\.com/?$",
         # 2026-09-30 实测:默认 tab 即「打开知乎App」码,链路本就可用;微信切换合成点击
-        # 不触发(监听绑内层节点)留档放弃。码载体 = canvas.Qrcode-qrcode 但**画入了跨域
-        # 图被污染(TAINTED),toDataURL 抛 SecurityError** → 无法提取,回退截图兜底
-        # (截图路径的 _find_qr_clip 会裁码区,体验可接受)。
+        # 不触发(监听绑内层节点)留档放弃。码 canvas 画入跨域图被污染(TAINTED,
+        # SecurityError)无法直接提取 → 走「网络捕获重绘」:页面 token 接口
+        # /api/v3/account/api/login/qrcode 响应含 link(扫码链接,与官方 canvas 码
+        # 内容一致),segno 用页面同一 token 重绘干净码,登录检测链路不受影响。
+        "qr_capture": {
+            "url_substring": "api/v3/account/api/login/qrcode",
+            "store_key": "zhihu_link",
+            "field_paths": ("link", "data.link"),
+        },
     },
     "bilibili": {
         "name": "B站",
@@ -90,7 +96,9 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         "success_url_pattern": r"douyin\.com/$",
         # 2026-09-30 探针实测:抖音登录页无任何微信入口(全平台唯一),走 App 扫码。
         # 登录弹层自动弹出、默认「扫码登录」tab 即 App 码,链路本就可用。
-        # 码载体未定位到 img/canvas(渲染方式待逆向)→ 暂走截图兜底。
+        # 码是动画合成渲染(#animate_qrcode_container,无独立 img/canvas/bg 载体,
+        # iframe/shadow 穿透亦无)→ 对码容器元素级截图,只有码区无页面杂物。
+        "qr_element_screenshot": "#animate_qrcode_container",
     },
     "kuaishou": {
         "name": "快手",
@@ -571,6 +579,10 @@ class ScanTask:
     _context: Any = field(default=None, repr=False)
     _page: Any = field(default=None, repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    # 2026-09-30 网络层码图捕获:qr_capture 配置的平台,page.on("response") 把官方
+    # 码数据(token/link/base64)存在这里,与页面同会话 —— 知乎等页面自己轮询 token
+    # 的平台必须复用页面 token 生成码,否则用户扫的是"服务端另取的码",页面轮询不知情
+    _net_captured: dict[str, str] = field(default_factory=dict, repr=False)
 
     def is_terminal(self) -> bool:
         # P2 修复(2026-08-06): 新增 expired 终态
@@ -1230,6 +1242,33 @@ def _run_scan_task(task: ScanTask) -> None:
             page = context.new_page()
             task._page = page
 
+            # 2026-09-30 网络层码图捕获(qr_capture 平台):监听页面自己的码接口响应,
+            # 存 task._net_captured。知乎的码 canvas 画入跨域图被污染无法直接提取,
+            # 但其 token 接口响应里有 link 字段 —— 用页面同一 token 重绘码,
+            # 扫码后页面轮询能感知登录,success_cookies 检测链路不受影响。
+            capture_cfg = config.get("qr_capture")
+            if capture_cfg:
+
+                def _on_response(resp: Any, _cfg: dict[str, Any] = capture_cfg) -> None:
+                    try:
+                        if _cfg["url_substring"] in resp.url:
+                            data = resp.json()
+                            for key_path in _cfg.get("field_paths", []):
+                                node: Any = data
+                                for part in key_path.split("."):
+                                    if not isinstance(node, dict):
+                                        node = None
+                                        break
+                                    node = node.get(part)
+                                if node:
+                                    with task._lock:
+                                        task._net_captured[_cfg["store_key"]] = str(node)
+                                    return
+                    except Exception:  # noqa: BLE001 — 非 JSON/已消费响应忽略
+                        pass
+
+                page.on("response", _on_response)
+
             # 1. 打开登录页
             task.status = "waiting_scan"
             task.message = f"正在打开 {config['name']} 登录页..."
@@ -1564,8 +1603,9 @@ def _extract_qr_image(page: Any, selectors: Sequence[str]) -> str | None:
             # 快手等页面存在几十个 16px data:PNG 图标,码 img 排位靠后,
             # 逐个 is_visible 遍历既慢又会被 count 截断漏掉真码
             idxs = loc.evaluate_all(
-                "els => els.map((el, i) => ({ i, w: Math.round(el.getBoundingClientRect().width),"
-                " vis: !!el.offsetParent })).filter(x => x.vis && x.w >= 120).map(x => x.i)"
+                "els => els.map((el, i) => { const r = el.getBoundingClientRect();"
+                " return { i, w: Math.round(r.width), vis: r.width > 0 && r.height > 0 }; })"
+                ".filter(x => x.vis && x.w >= 120).map(x => x.i)"
             )
             for i in idxs[:5]:
                 cand = loc.nth(i)
@@ -1589,6 +1629,26 @@ def _extract_qr_image(page: Any, selectors: Sequence[str]) -> str | None:
     return None
 
 
+def _render_qr_png(content: str) -> str | None:
+    """2026-09-30 segno 生成码图 PNG(base64)。
+
+    知乎等"码 canvas 画入跨域图被污染"的平台,用页面自己 token 接口响应里的
+    link 重绘 —— 扫码内容与官方 canvas 码完全一致,等效官方原图体验。
+    """
+    try:
+        import io
+
+        import segno
+
+        qr = segno.make(content, error="m")
+        buf = io.BytesIO()
+        qr.save(buf, kind="png", scale=8, border=2, dark="#000000", light="#ffffff")
+        return base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception as e:  # noqa: BLE001 — 生成失败回退截图
+        logger.debug(f"[scan_login] 码图重绘失败:{e}")
+        return None
+
+
 def _update_qr_screenshot(task: ScanTask, page: Any) -> None:
     """更新任务的二维码图(base64 PNG)。
 
@@ -1598,7 +1658,22 @@ def _update_qr_screenshot(task: ScanTask, page: Any) -> None:
     退回不是失败:整屏至少还能看到页面,比什么都不返回好。
     2026-09-29:主页面全落空时,再试上下文其它页(sohu 登录层开新窗形态)。
     """
-    # 2026-09-30 统一「码图直接获取」:平台配置了 qr_image_selectors 就先提取原图
+    # 2026-09-30 优先级 1「网络捕获重绘」:qr_capture 平台(知乎)从页面自己的码接口
+    # 响应拿 link/token,segno 重绘干净码 —— 扫码内容与官方 canvas 码一致
+    capture_cfg = PLATFORM_SCAN_CONFIG.get(task.platform, {}).get("qr_capture")
+    if capture_cfg:
+        with task._lock:
+            captured = task._net_captured.get(capture_cfg["store_key"])
+        if captured:
+            rendered = _render_qr_png(captured)
+            if rendered:
+                with task._lock:
+                    task.qr_image_b64 = rendered
+                    task.qr_image_updated_at = time.time()
+                _persist_task(task)
+                return
+        logger.debug(f"[scan_login] {task.platform} 码数据未捕获/重绘失败,降级 DOM 提取或截图")
+    # 2026-09-30 优先级 2「DOM 码图直接提取」:平台配置了 qr_image_selectors 就先提取原图
     extract_selectors = PLATFORM_SCAN_CONFIG.get(task.platform, {}).get("qr_image_selectors")
     if extract_selectors:
         extracted = _extract_qr_image(page, extract_selectors)
@@ -1609,6 +1684,27 @@ def _update_qr_screenshot(task: ScanTask, page: Any) -> None:
             _persist_task(task)
             return
         logger.debug(f"[scan_login] {task.platform} 码图提取落空,回退截图兜底")
+    # 2026-09-30 优先级 3「码容器元素截图」:码是动画合成渲染(如抖音
+    # #animate_qrcode_container,无独立 img/canvas/bg 载体)的平台,对码容器本身
+    # 截图 —— 只有码区没有页面杂物,远优于整页/散点定位截图
+    element_shot_sel = PLATFORM_SCAN_CONFIG.get(task.platform, {}).get("qr_element_screenshot")
+    if element_shot_sel:
+        for p2 in (page, *[q for q in page.context.pages if q is not page]):
+            try:
+                el = p2.locator(element_shot_sel).first
+                # bounding box 判定而非 is_visible:fixed 定位元素 offsetParent=null,
+                # is_visible 会误报不可见(抖音弹层实测 180×180 正常可截)
+                box = el.bounding_box()
+                if box and box["width"] >= 120:
+                    png = el.screenshot(type="png", timeout=5_000)
+                    with task._lock:
+                        task.qr_image_b64 = base64.b64encode(png).decode("ascii")
+                        task.qr_image_updated_at = time.time()
+                    _persist_task(task)
+                    return
+            except Exception:  # noqa: BLE001 — 本页没有/未渲染,试下一页
+                continue
+        logger.debug(f"[scan_login] {task.platform} 码容器未定位到,回退截图兜底")
     clip: dict[str, float] | None = None
     target = page
     try:
