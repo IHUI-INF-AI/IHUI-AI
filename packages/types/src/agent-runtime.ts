@@ -1243,6 +1243,41 @@ export const WORKSPACE_AGENT_TASK_STATUSES = ['running', 'completed', 'failed', 
 export type WorkspaceAgentTaskStatus = (typeof WORKSPACE_AGENT_TASK_STATUSES)[number]
 
 /**
+ * 第二域(工作空间进程内任务态)的**词条键表** —— 值域逐字等于上面那张登记表,
+ * 不多一档也不少一档(判据:`packages/types/tests/agent-status-vocabulary-labels.test.ts`)。
+ *
+ * 为什么表里放**键名**而不是文案:语言包是五个文件 × 逐语言的形态,把中文抄进类型层
+ * 就是第二个真相(§3 共享层优先 / §19 翻译策略)。
+ *
+ * `canceled` 单 l 是数据库与 REST 契约的拼写,不得"顺手修正"成 cancelled ——
+ * 同文件 `BgAgentStatus` 的双 l 拼写属第三个域,两域不得并置(见 :1238 的注释)。
+ */
+export const WORKSPACE_AGENT_TASK_STATUS_LABEL_KEYS: Readonly<
+  Record<WorkspaceAgentTaskStatus, string>
+> = {
+  running: 'agentTasks.statusRunning',
+  completed: 'agentTasks.statusCompleted',
+  failed: 'agentTasks.statusFailed',
+  canceled: 'agentTasks.statusCanceled',
+}
+
+/**
+ * 状态值 → 词条键;登记表之外的值一律 `null`。
+ *
+ * 刻意的失败方向:**不替未知值猜一档**。猜出来的那一档会让屏幕上显示一句"翻译过的错话",
+ * 而调用方拿到 null 时才必须走"原样显示 + 标未判定"那条分支(AGENTS §30"没有终态就写已完成"
+ * 是同一条禁令的反面)。六档(`in_progress`/`done`)与双 l 的 `cancelled` 都必须落 null,
+ * 否则两域在端内又被并成一张表。
+ */
+export function workspaceAgentTaskStatusLabelKey(
+  status: string,
+): string | null {
+  return (
+    (WORKSPACE_AGENT_TASK_STATUS_LABEL_KEYS as Readonly<Record<string, string>>)[status] ?? null
+  )
+}
+
+/**
  * D152(2026-09-29 立,用户拍板「六态」):会话内「目标(goal)」状态机的封闭集 ——
  * **第三个域**,与上面两个刻意不相交、也不得并集:
  *  · `AGENT_TASK_STATUSES` 是 Kanban 任务卡的六列(triage/todo/ready/in_progress/blocked/done),
