@@ -7,9 +7,16 @@
 import { execFileSync } from 'node:child_process'
 import { unionLines } from '../union-converge.mjs'
 
-const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim()
+const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+  encoding: 'utf8',
+  windowsHide: true,
+}).trim()
 const g = (args) =>
-  execFileSync('git', ['-C', ROOT, ...args], { encoding: 'utf8', maxBuffer: 1 << 28 })
+  execFileSync('git', ['-C', ROOT, ...args], {
+    encoding: 'utf8',
+    maxBuffer: 1 << 28,
+    windowsHide: true,
+  })
 
 const theirs = process.argv[2]
 if (!theirs) {
