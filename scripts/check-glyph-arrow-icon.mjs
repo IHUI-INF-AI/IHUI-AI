@@ -193,6 +193,12 @@ const MECHANISMS = [
     icon: /\bChevronLeft\b/,
     note: 'RN + 跨端共享屏层:lucide-react-native ChevronLeft(与小程序那份同名不同实现,两边都要被 S0 看着 —— 只登记端内那一份时,共享层被摘线无人喊红)',
   },
+  {
+    file: 'packages/app/src/components/TextField.tsx',
+    symbol: 'TextField',
+    icon: /borderColor:\s*(?:tk|tokens)\.brand\.DEFAULT\b/,
+    note: 'RN + 跨端共享屏层:输入框聚焦描边唯一实现(AGENTS §4「唯一例外位」那一档的载体)。判"在位"看的是它确实还把墨档画在聚焦边框上 —— 改成别的档就等于把这条例外位悄悄关掉,而 47 个消费点全都跟着变脸',
+  },
 ]
 
 /** GA1:整格文本箭头(含左向 `‹`/`←` —— 2026-09-25 随小程序端返回键收口一起纳进来:
@@ -1787,6 +1793,9 @@ const MECH_SNIPPETS = {
     "import LineIcon from '@/components/LineIcon'\nexport default function BackChevron({ onTap }) {\n  return <View onClick={onTap}><LineIcon name=\"chevron-left\" size={40} /></View>\n}\n",
   'packages/app/src/components/BackChevron.tsx':
     "import { Pressable } from 'react-native'\nimport { ChevronLeft } from 'lucide-react-native'\nexport function BackChevron({ onPress }) {\n  return <Pressable onPress={onPress}><ChevronLeft size={18} /></Pressable>\n}\n",
+  // 聚焦描边唯一实现:夹具必须真把墨档画在聚焦边框上,否则"机制在位"这一判据是在验空气
+  'packages/app/src/components/TextField.tsx':
+    "import { useState } from 'react'\nimport { TextInput } from 'react-native'\nexport function TextField({ tk }) {\n  const [focused, setFocused] = useState(false)\n  return <TextInput style={focused ? { borderColor: tk.brand.DEFAULT } : null} onPressIn={setFocused} />\n}\n",
 }
 
 function selfTest() {
@@ -1819,7 +1828,7 @@ function selfTest() {
   const only = (files) =>
     run({
       'packages/app/consumer.tsx':
-        "import { MoreLink } from '@ihui/rn-app'\nimport { ViewMoreLink } from '@/components/common/view-more-link'\nimport SectionHeader from '@/components/SectionHeader'\nimport LineIcon from '@/components/LineIcon'\nimport BackChevron from '@/components/BackChevron'\nexport const K = [MoreLink, ViewMoreLink, SectionHeader, LineIcon, BackChevron]\n",
+        "import { MoreLink } from '@ihui/rn-app'\nimport { TextField } from '@ihui/rn-app'\nimport { ViewMoreLink } from '@/components/common/view-more-link'\nimport SectionHeader from '@/components/SectionHeader'\nimport LineIcon from '@/components/LineIcon'\nimport BackChevron from '@/components/BackChevron'\nexport const K = [MoreLink, TextField, ViewMoreLink, SectionHeader, LineIcon, BackChevron]\n",
       ...MECH_SNIPPETS,
       ...files,
     })
