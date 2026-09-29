@@ -36,7 +36,8 @@ describe('SSE_ALERT_EVENTS 事件名(D155)', () => {
   })
 
   it('与主注册表 SSE_EVENTS 无名字冲突(将来并册时不产生第二语义)', () => {
-    const main = new Set(Object.values(SSE_EVENTS))
+    // 显式 Set<string>:本用例的命题就是"跨两个命名空间问成员关系",而告警档名字按设计不在主册联合类型里
+    const main: Set<string> = new Set<string>(Object.values(SSE_EVENTS))
     for (const name of SSE_ALERT_EVENT_NAMES) {
       expect(main.has(name)).toBe(false)
     }
