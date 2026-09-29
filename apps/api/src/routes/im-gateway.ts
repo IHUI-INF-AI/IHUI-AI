@@ -45,6 +45,7 @@ import type {
 import { checkAuth, checkAuthOrInternalService } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { fetchWithinDeadline, withBody } from '../utils/fetch-deadline.js'
+import { t } from '../services/i18n-outbound.js'
 import {
   INBOUND_DEDUP_TTL_MS,
   OUTBOUND_REQUEST_TIMEOUT_MS,
@@ -153,7 +154,7 @@ interface InternalPlatformMeta {
 
 const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
   feishu: {
-    displayName: '飞书',
+    displayName: t('apiOutbound.platforms.feishu.displayName'),
     icon: '🐦',
     inboundFieldType: 'flat',
     signatureHeader: 'x-lark-signature',
@@ -166,33 +167,33 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         type: 'text',
         required: true,
         placeholder: 'cli_xxx',
-        helpText: '飞书应用 App ID',
+        helpText: t('apiOutbound.platforms.feishu.fields.appId.help'),
       },
       {
         name: 'appSecret',
         label: 'App Secret',
         type: 'password',
         required: true,
-        helpText: '飞书应用 App Secret',
+        helpText: t('apiOutbound.platforms.feishu.fields.appSecret.help'),
       },
       {
         name: 'webhookSecret',
         label: 'Webhook Secret',
         type: 'password',
         required: false,
-        helpText: '事件订阅验签字段',
+        helpText: t('apiOutbound.platforms.feishu.fields.webhookSecret.help'),
       },
       {
         name: 'useLarkCli',
-        label: '使用 Lark CLI 长连接',
+        label: t('apiOutbound.platforms.feishu.fields.useLarkCli.label'),
         type: 'switch',
         required: false,
-        helpText: '启用后走 lark-cli SDK 替代 webhook',
+        helpText: t('apiOutbound.platforms.feishu.fields.useLarkCli.help'),
       },
     ],
   },
   wecom: {
-    displayName: '企业微信',
+    displayName: t('apiOutbound.platforms.wecom.displayName'),
     icon: '💬',
     inboundFieldType: 'flat',
     signatureHeader: 'x-wecom-signature',
@@ -203,33 +204,33 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         label: 'Corp ID',
         type: 'text',
         required: true,
-        helpText: '企业 ID(CorpID)',
+        helpText: t('apiOutbound.platforms.wecom.fields.appId.help'),
       },
       {
         name: 'appSecret',
         label: 'Secret',
         type: 'password',
         required: true,
-        helpText: '应用 Secret',
+        helpText: t('apiOutbound.platforms.wecom.fields.appSecret.help'),
       },
       {
         name: 'webhookSecret',
         label: 'Token',
         type: 'password',
         required: false,
-        helpText: '回调 Token(验签)',
+        helpText: t('apiOutbound.platforms.wecom.fields.webhookSecret.help'),
       },
       {
         name: 'callbackUrl',
-        label: '回调 URL',
+        label: t('apiOutbound.shared.callbackUrlLabel'),
         type: 'url',
         required: false,
-        helpText: '出站消息回调地址',
+        helpText: t('apiOutbound.shared.callbackUrlHelp'),
       },
     ],
   },
   dingtalk: {
-    displayName: '钉钉',
+    displayName: t('apiOutbound.platforms.dingtalk.displayName'),
     icon: '📌',
     inboundFieldType: 'flat',
     signatureEncoding: 'none',
@@ -239,21 +240,21 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         label: 'App Key',
         type: 'text',
         required: true,
-        helpText: '钉钉应用 AppKey',
+        helpText: t('apiOutbound.platforms.dingtalk.fields.appId.help'),
       },
       {
         name: 'appSecret',
         label: 'App Secret',
         type: 'password',
         required: true,
-        helpText: '钉钉应用 AppSecret',
+        helpText: t('apiOutbound.platforms.dingtalk.fields.appSecret.help'),
       },
       {
         name: 'callbackUrl',
-        label: '回调 URL',
+        label: t('apiOutbound.shared.callbackUrlLabel'),
         type: 'url',
         required: false,
-        helpText: '出站消息回调地址',
+        helpText: t('apiOutbound.shared.callbackUrlHelp'),
       },
     ],
   },
@@ -273,10 +274,10 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
       },
       {
         name: 'callbackUrl',
-        label: '回调 URL',
+        label: t('apiOutbound.shared.callbackUrlLabel'),
         type: 'url',
         required: false,
-        helpText: '出站消息回调地址',
+        helpText: t('apiOutbound.shared.callbackUrlHelp'),
       },
     ],
   },
@@ -293,7 +294,7 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         label: 'Bot Token',
         type: 'password',
         required: true,
-        helpText: 'Telegram Bot Token(从 @BotFather 获取)',
+        helpText: t('apiOutbound.platforms.telegram.fields.botToken.help'),
       },
       {
         name: 'webhookSecret',
@@ -326,15 +327,15 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
       },
       {
         name: 'callbackUrl',
-        label: '回调 URL',
+        label: t('apiOutbound.shared.callbackUrlLabel'),
         type: 'url',
         required: false,
-        helpText: '出站消息回调地址',
+        helpText: t('apiOutbound.shared.callbackUrlHelp'),
       },
     ],
   },
   wechat: {
-    displayName: '微信',
+    displayName: t('apiOutbound.platforms.wechat.displayName'),
     icon: 'wechat',
     inboundFieldType: 'flat',
     signatureEncoding: 'none',
@@ -344,26 +345,26 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         label: 'App ID',
         type: 'text',
         required: true,
-        helpText: '微信公众号/小程序 AppID',
+        helpText: t('apiOutbound.platforms.wechat.fields.appId.help'),
       },
       {
         name: 'appSecret',
         label: 'App Secret',
         type: 'password',
         required: true,
-        helpText: '微信公众号/小程序 AppSecret',
+        helpText: t('apiOutbound.platforms.wechat.fields.appSecret.help'),
       },
       {
         name: 'callbackUrl',
-        label: '回调 URL',
+        label: t('apiOutbound.shared.callbackUrlLabel'),
         type: 'url',
         required: false,
-        helpText: '出站消息回调地址',
+        helpText: t('apiOutbound.shared.callbackUrlHelp'),
       },
     ],
   },
   webhook: {
-    displayName: '通用 Webhook',
+    displayName: t('apiOutbound.platforms.webhook.displayName'),
     icon: '🔗',
     inboundFieldType: 'flat',
     signatureHeader: 'x-im-signature',
@@ -374,14 +375,14 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         label: 'Webhook Secret',
         type: 'password',
         required: false,
-        helpText: 'HMAC-SHA256 验签密钥',
+        helpText: t('apiOutbound.platforms.webhook.fields.webhookSecret.help'),
       },
       {
         name: 'callbackUrl',
-        label: '回调 URL',
+        label: t('apiOutbound.shared.callbackUrlLabel'),
         type: 'url',
         required: true,
-        helpText: '出站消息回调地址',
+        helpText: t('apiOutbound.shared.callbackUrlHelp'),
       },
     ],
   },
@@ -398,21 +399,21 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         label: 'Access Token',
         type: 'password',
         required: true,
-        helpText: 'WhatsApp Business API 访问令牌',
+        helpText: t('apiOutbound.platforms.whatsapp.fields.botToken.help'),
       },
       {
         name: 'appId',
         label: 'Phone Number ID',
         type: 'text',
         required: true,
-        helpText: '电话号码 ID',
+        helpText: t('apiOutbound.platforms.whatsapp.fields.appId.help'),
       },
       {
         name: 'webhookSecret',
         label: 'App Secret',
         type: 'password',
         required: false,
-        helpText: 'Meta App Secret(验签)',
+        helpText: t('apiOutbound.platforms.whatsapp.fields.webhookSecret.help'),
       },
     ],
   },
@@ -436,7 +437,7 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         label: 'Channel Secret',
         type: 'password',
         required: true,
-        helpText: 'LINE Channel Secret(验签)',
+        helpText: t('apiOutbound.platforms.line.fields.webhookSecret.help'),
       },
     ],
   },
@@ -453,14 +454,14 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         label: 'Access Token',
         type: 'password',
         required: true,
-        helpText: 'KakaoTalk 用户访问令牌',
+        helpText: t('apiOutbound.platforms.kakaotalk.fields.botToken.help'),
       },
       {
         name: 'webhookSecret',
         label: 'Admin Key',
         type: 'password',
         required: false,
-        helpText: 'Kakao Admin Key(验签)',
+        helpText: t('apiOutbound.platforms.kakaotalk.fields.webhookSecret.help'),
       },
     ],
   },
@@ -473,11 +474,11 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
     fields: [
       {
         name: 'callbackUrl',
-        label: 'signal-cli-rest-api 地址',
+        label: t('apiOutbound.platforms.signal.fields.callbackUrl.label'),
         type: 'url',
         required: true,
         placeholder: 'http://localhost:8808',
-        helpText: '本地 signal-cli-rest-api 服务地址',
+        helpText: t('apiOutbound.platforms.signal.fields.callbackUrl.help'),
       },
     ],
   },
@@ -494,7 +495,7 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         label: 'Access Token',
         type: 'password',
         required: true,
-        helpText: 'Matrix 访问令牌',
+        helpText: t('apiOutbound.platforms.matrix.fields.botToken.help'),
       },
       {
         name: 'callbackUrl',
@@ -502,7 +503,7 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         type: 'url',
         required: true,
         placeholder: 'https://matrix.org',
-        helpText: 'Matrix homeserver 地址',
+        helpText: t('apiOutbound.platforms.matrix.fields.callbackUrl.help'),
       },
     ],
   },
@@ -518,14 +519,14 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         label: 'X-Auth-Token',
         type: 'password',
         required: true,
-        helpText: 'Rocket.Chat 访问令牌',
+        helpText: t('apiOutbound.platforms.rocketchat.fields.botToken.help'),
       },
       {
         name: 'appId',
         label: 'X-User-Id',
         type: 'text',
         required: true,
-        helpText: 'Rocket.Chat 用户 ID',
+        helpText: t('apiOutbound.platforms.rocketchat.fields.appId.help'),
       },
       {
         name: 'callbackUrl',
@@ -533,7 +534,7 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         type: 'url',
         required: true,
         placeholder: 'https://open.rocket.chat',
-        helpText: 'Rocket.Chat 服务器地址',
+        helpText: t('apiOutbound.platforms.rocketchat.fields.callbackUrl.help'),
       },
     ],
   },
@@ -549,7 +550,7 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         label: 'Bearer Token',
         type: 'password',
         required: true,
-        helpText: 'Mattermost 个人访问令牌',
+        helpText: t('apiOutbound.platforms.mattermost.fields.botToken.help'),
       },
       {
         name: 'callbackUrl',
@@ -557,7 +558,7 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         type: 'url',
         required: true,
         placeholder: 'https://mattermost.example.com',
-        helpText: 'Mattermost 服务器地址',
+        helpText: t('apiOutbound.platforms.mattermost.fields.callbackUrl.help'),
       },
     ],
   },
@@ -581,7 +582,7 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         type: 'text',
         required: true,
         placeholder: 'bot@example.com',
-        helpText: 'Zulip Bot 邮箱',
+        helpText: t('apiOutbound.platforms.zulip.fields.appId.help'),
       },
       {
         name: 'callbackUrl',
@@ -589,7 +590,7 @@ const PLATFORMS_META: Record<ImPlatform, InternalPlatformMeta> = {
         type: 'url',
         required: true,
         placeholder: 'https://example.zulipchat.com',
-        helpText: 'Zulip 服务器地址',
+        helpText: t('apiOutbound.platforms.zulip.fields.callbackUrl.help'),
       },
     ],
   },
@@ -963,7 +964,7 @@ async function enqueueInboundForAiService(
   platform: ImPlatform,
   inbound: ImInboundMessage,
 ): Promise<{ queued: boolean; reason?: string }> {
-  if (!redis) return { queued: false, reason: 'Redis 未就绪' }
+  if (!redis) return { queued: false, reason: t('apiOutbound.redisNotReady') }
   try {
     const key = `im:inbound:${userId}:${platform}`
     const raw = await redis.get(key)
@@ -976,7 +977,7 @@ async function enqueueInboundForAiService(
   } catch (e) {
     // Redis 不可用:消息已持久化到 Postgres,ai-service 降级不消费 —— 如实回 queued=false,
     // 由调用方写进响应(G-815416 的"账面绿而没人知道那一步发生了什么"就坏在旧写法静默 return)。
-    return { queued: false, reason: (e as Error).message || 'Redis 写入失败' }
+    return { queued: false, reason: (e as Error).message || t('apiOutbound.redisWriteFailed') }
   }
 }
 
@@ -1027,7 +1028,7 @@ async function deliverOutbound(
   message: ImOutboundMessage,
 ): Promise<ImDeliveryOutcome> {
   if (!adapter.callbackUrl) {
-    return localRejection('callbackUrl 未配置')
+    return localRejection(t('apiOutbound.callbackUrlMissing'))
   }
   return doFetch(
     adapter.callbackUrl,
@@ -1049,7 +1050,7 @@ async function sendWhatsApp(
   adapter: ImAdapterConfig,
 ): Promise<ImDeliveryOutcome> {
   if (!adapter.botToken || !adapter.appId) {
-    return localRejection('WhatsApp 需要 botToken(访问令牌)和 appId(电话号码 ID)')
+    return localRejection(t('apiOutbound.needWhatsApp'))
   }
   const url = `https://graph.facebook.com/v17.0/${adapter.appId}/messages`
   return doFetch(
@@ -1076,7 +1077,7 @@ async function sendLine(
   adapter: ImAdapterConfig,
 ): Promise<ImDeliveryOutcome> {
   if (!adapter.botToken) {
-    return localRejection('LINE 需要 botToken(Channel Access Token)')
+    return localRejection(t('apiOutbound.needLine'))
   }
   return doFetch(
     'https://api.line.me/v2/bot/message/push',
@@ -1100,7 +1101,7 @@ async function sendKakaoTalk(
   adapter: ImAdapterConfig,
 ): Promise<ImDeliveryOutcome> {
   if (!adapter.botToken) {
-    return localRejection('KakaoTalk 需要 botToken(用户访问令牌)')
+    return localRejection(t('apiOutbound.needKakaoTalk'))
   }
   const template = {
     object_type: 'text',
@@ -1145,7 +1146,7 @@ async function sendMatrix(
   adapter: ImAdapterConfig,
 ): Promise<ImDeliveryOutcome> {
   if (!adapter.botToken || !adapter.callbackUrl) {
-    return localRejection('Matrix 需要 botToken(访问令牌)和 callbackUrl(homeserver)')
+    return localRejection(t('apiOutbound.needMatrix'))
   }
   const txnId = randomUUID()
   const url = `${adapter.callbackUrl}/_matrix/client/r0/rooms/${encodeURIComponent(message.chatId)}/send/m.room.message/${txnId}`
@@ -1171,9 +1172,7 @@ async function sendRocketChat(
   adapter: ImAdapterConfig,
 ): Promise<ImDeliveryOutcome> {
   if (!adapter.botToken || !adapter.appId || !adapter.callbackUrl) {
-    return localRejection(
-      'Rocket.Chat 需要 botToken(X-Auth-Token)、appId(X-User-Id)、callbackUrl(server)',
-    )
+    return localRejection(t('apiOutbound.needRocketChat'))
   }
   return doFetch(
     `${adapter.callbackUrl}/api/v1/chat.postMessage`,
@@ -1198,7 +1197,7 @@ async function sendMattermost(
   adapter: ImAdapterConfig,
 ): Promise<ImDeliveryOutcome> {
   if (!adapter.botToken || !adapter.callbackUrl) {
-    return localRejection('Mattermost 需要 botToken(Bearer)和 callbackUrl(server)')
+    return localRejection(t('apiOutbound.needMattermost'))
   }
   return doFetch(
     `${adapter.callbackUrl}/api/v4/posts`,
@@ -1222,7 +1221,7 @@ async function sendZulip(
   adapter: ImAdapterConfig,
 ): Promise<ImDeliveryOutcome> {
   if (!adapter.botToken || !adapter.appId || !adapter.callbackUrl) {
-    return localRejection('Zulip 需要 botToken(api_key)、appId(bot_email)、callbackUrl(server)')
+    return localRejection(t('apiOutbound.needZulip'))
   }
   const basicAuth = Buffer.from(`${adapter.appId}:${adapter.botToken}`).toString('base64')
   return doFetch(
@@ -1347,9 +1346,10 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
     async (request: FastifyRequest<{ Params: { platform: string } }>, reply: FastifyReply) => {
       const parsedPlatform = platformSchema.safeParse(request.params.platform)
       if (!parsedPlatform.success) {
+        const fallback = t('apiOutbound.invalidPlatform')
         return reply
           .status(400)
-          .send(error(400, parsedPlatform.error.issues[0]?.message ?? '无效平台'))
+          .send(error(400, parsedPlatform.error.issues[0]?.message ?? fallback))
       }
       const platform = parsedPlatform.data as ImPlatform
 
@@ -1388,7 +1388,7 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
       if (decided.kind === 'unauthorized') {
         // 同形回包:没有候选 / 全部未启用 / 缺 header / 签名不符 —— 状态码与消息一字不差,
         // 请求方因此问不出"这个平台上有没有配过 adapter"(存在性 oracle 关闭)。
-        return reply.status(401).send(error(401, '签名校验失败'))
+        return reply.status(401).send(error(401, t('apiOutbound.signatureFailed')))
       }
       // 落库与入队用的 userId 现在**只能来自验签结果**,不接受请求体自报值。
       // (旧代码在这里还要 dbRowToAdapter(adapterRow) 拿整份配置,但验签之后的链路只认
@@ -1484,7 +1484,7 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = sendBodySchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? t('apiOutbound.invalidParams')))
     }
 
     const { platform, chatId, messageType, text, mediaUrl, card, replyToMessageId } = parsed.data
@@ -1494,10 +1494,10 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(imAdapters.userId, userId), eq(imAdapters.platform, platform)))
       .limit(1)
     if (!adapterRow) {
-      return reply.status(404).send(error(404, `未配置 ${platform} 适配器`))
+      return reply.status(404).send(error(404, t('apiOutbound.adapterMissing', { platform })))
     }
     if (!adapterRow.enabled) {
-      return reply.status(403).send(error(403, `${platform} 适配器未启用`))
+      return reply.status(403).send(error(403, t('apiOutbound.adapterDisabled', { platform })))
     }
     const adapter = dbRowToAdapter(adapterRow)
 
@@ -1586,7 +1586,7 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = adapterConfigSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? t('apiOutbound.invalidParams')))
     }
 
     const input = parsed.data as ImAdapterUpsertInput
@@ -1610,7 +1610,7 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
       .returning()
 
     if (!upserted) {
-      return reply.status(500).send(error(500, '保存适配器配置失败'))
+      return reply.status(500).send(error(500, t('apiOutbound.adapterSaveFailed')))
     }
 
     return reply.status(201).send(success(dbRowToAdapter(upserted)))
@@ -1669,7 +1669,7 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
 
     const parsed = messagesQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? t('apiOutbound.invalidParams')))
     }
     const { platform, direction, limit, offset } = parsed.data
 
