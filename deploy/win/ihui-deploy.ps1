@@ -1858,7 +1858,15 @@ Write-Host ""
 # 注意 `.Trim()` 必须**在 `$(...)` 里面**:写成 `"$(...).Trim()"` 时 PowerShell 把 `.Trim()`
 # 当字面量留在字符串里,这行日志会打成 `HEAD=.Trim()` —— 而它正是运维判"线上跑哪一枚"的那一行。
 # 全脚本现读只有这一处该形态(`grep -nE '"[^"]*\$\([^"]*\)\.Trim\(\)'` 命中 1),改法:先求值再拼字符串。
-$deployDoneSha = (git rev-parse --short HEAD | Out-String).Trim()
+# ⚠️ 但"先求值"只是第一层,当场就被实测推翻:改成先求值后 19:02 那轮打的是 `HEAD=`(**空值**)——
+#    也就是①那个字面量一直掩着②"这句 git 一个字都没输出"这件事(看着像"只是没 Trim")。
+#    **②的成因我还没证出来**(候选:服务身份 PATH 里那台机器级死目录 / 当时 cwd 不在仓库内 /
+#    与 :706 同形但被外层重定向吞掉),所以不做归因断言,改成**让它自己说**:调用换成同文件 :706
+#    已在用的形态(`& git -C $Root … 2>&1`,不依赖当前目录),再对结果做**形状校验**——拿不到
+#    7-40 位十六进制就打印 `未判定(实得:<git 的原文>)`,而不是留一个空的 `HEAD=`。
+#    空值与"这一版真没有提交"在账面上长得一模一样,而下一轮日志会直接带出 git 说的是什么。
+$deployDoneSha = (& git -C $Root rev-parse --short HEAD 2>&1 | Out-String).Trim()
+if ($deployDoneSha -notmatch '^[0-9a-f]{7,40}$') { $deployDoneSha = "未判定(实得:$deployDoneSha)" }
 Log "=== 部署完成,HEAD=$deployDoneSha 活跃组=win(8801/8802/8803) ==="
 Release-DeployLock
 if ($script:DbMigrateDegraded) {
