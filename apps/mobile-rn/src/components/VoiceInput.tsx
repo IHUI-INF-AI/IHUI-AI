@@ -36,7 +36,7 @@ import { getToken } from '../lib/token'
 import type { VoiceInputMinimalProps } from '@ihui/types'
 import { Camera, Folder, Image as ImageIcon, type LucideIcon } from 'lucide-react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadiusFor } from '@ihui/design-tokens'
 
 /** 图片弹出层来源类型(对齐 Uniapp handleIconClick(type):camera/album/file) */
 export type VoiceImageSource = 'camera' | 'album' | 'file'
@@ -360,7 +360,8 @@ const styles = StyleSheet.create({
   imageToggleBtn: {
     width: 32,
     height: 32,
-    borderRadius: rnRadius.sm,
+    // 角色档 control(图标按钮)→ sm(4)
+    borderRadius: rnRadiusFor.control,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -376,7 +377,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: rnRadius.sm,
+    // 角色档 control(按住说话 = 按钮)→ sm(4)
+    borderRadius: rnRadiusFor.control,
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: tokens.surface.muted,
@@ -397,7 +399,8 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   bar: {
     width: 3,
-    borderRadius: rnRadius.xs,
+    // 角色档 tiny(波形指示条 = 极小元素)→ xs(2);3px 宽的条取更大的档会变成胶囊
+    borderRadius: rnRadiusFor.tiny,
     backgroundColor: tokens.danger.DEFAULT,
   } as ViewStyle,
   recordingText: {
@@ -417,7 +420,10 @@ const styles = StyleSheet.create({
   clearBtn: {
     width: 24,
     height: 24,
-    borderRadius: rnRadius.xl,
+    // 24×24 正方盒 + 半径 = 半边 ⇒ 几何真圆(§4:靠量出来的形状,不靠标记)。
+    // 旧写法取的是档值并挂了一句已废除的圆角豁免注释(写标记本身由守门 77 B8 判红);
+    // 换成同一作用域内的 size / 2 表达式后,守门 150 的 C6 按盒形直接判它出角色档射程,无需任何自述。
+    borderRadius: 24 / 2,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -435,7 +441,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 4,
     padding: 8,
-    borderRadius: rnRadius.lg,
+    // 角色档 popover(贴锚点的轻量浮层,不是弹窗体也不是卡片)→ md(6)
+    borderRadius: rnRadiusFor.popover,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,

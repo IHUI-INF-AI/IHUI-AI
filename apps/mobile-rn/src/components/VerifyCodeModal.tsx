@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadiusFor } from '@ihui/design-tokens'
 
 /**
  * 验证码模态框(mobile-rn 端)
@@ -231,7 +231,8 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: CARD_MAX_WIDTH,
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
+    // 角色档 panel(弹窗体)→ xl(12),与小程序端 VerifyCodeModal 的 ui-panel rounded-xl 同档
+    borderRadius: rnRadiusFor.panel,
     padding: CARD_PADDING,
   },
   closeBtn: {
@@ -282,7 +283,9 @@ const styles = StyleSheet.create({
   box: {
     width: BOX_SIZE,
     height: BOX_SIZE,
-    borderRadius: rnRadius.lg,
+    // 角色档 control(验证码输入格 = 输入框)→ sm(4),与小程序端同位格子的 rounded-sm 同档;
+    // 此前写 lg(8) 是"卡片档套在控件上"
+    borderRadius: rnRadiusFor.control,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.bg,
@@ -323,7 +326,8 @@ const styles = StyleSheet.create({
   },
   confirm: {
     height: CONFIRM_BUTTON_HEIGHT,
-    borderRadius: rnRadius.lg,
+    // 角色档 control(按钮)→ sm(4),与 web @ihui/ui-react Button 基座同档
+    borderRadius: rnRadiusFor.control,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',

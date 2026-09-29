@@ -1,7 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * PrivacyPolicyModal 隐私政策弹窗(mobile-rn 端)
@@ -34,6 +33,8 @@ import {
 import { Shield, Lock, CornerDownLeft } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 import { PRIVACY_POLICY_PARAGRAPHS, PRIVACY_POLICY_TITLE } from '../constants/privacyPolicy'
+
+import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 
 export interface PrivacyPolicyModalProps {
   /** 是否显示弹窗 */
@@ -157,7 +158,8 @@ const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH_RATIO,
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
+    // 角色档 panel(弹窗体)→ xl(12)
+    borderRadius: rnRadiusFor.panel,
     paddingHorizontal: CARD_PADDING_HORIZONTAL,
     paddingTop: CARD_PADDING_VERTICAL,
     paddingBottom: CARD_PADDING_VERTICAL,
@@ -204,7 +206,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: SAFE_BAR_BG,
-    borderRadius: rnRadius.md,
+    // 角色档 chip(提示条 = 中等元素/chip 族)→ md(6)
+    borderRadius: rnRadiusFor.chip,
     paddingHorizontal: 10,
     paddingVertical: 6,
     marginTop: 10,
@@ -244,14 +247,16 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   disagreeButton: {
     height: BUTTON_HEIGHT,
-    borderRadius: rnRadius.sm,
+    // 角色档 control(按钮)→ sm(4),与 web @ihui/ui-react Button 基座同档
+    borderRadius: rnRadiusFor.control,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.surface.card,
   } as ViewStyle,
   agreeButton: {
     height: BUTTON_HEIGHT,
-    borderRadius: rnRadius.sm,
+    // 角色档 control(按钮)→ sm(4)
+    borderRadius: rnRadiusFor.control,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
