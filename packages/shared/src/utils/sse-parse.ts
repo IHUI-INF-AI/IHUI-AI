@@ -25,12 +25,6 @@ import type {
 } from '@ihui/api-client'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
 
-// D174(2026-09-30 立):帧级 traceId 的键名与归一规则只有一份,住在 SSE 契约层
-// (`sse/contract.ts`,与 Python 侧 `core/sse_contract.py` + `core/trace_context.py` 对应)。
-// 本解析器不另写一遍 hex/全 0 判据 —— 两处算同一件事必漂移,而漂开的表现是"有的帧的
-// trace 被采信、有的被判废",排查时最难归因。
-import { normalizeSSEFrameTraceId, SSE_TRACE_ID_PAYLOAD_KEY } from '../sse/contract'
-
 /**
  * SSE 事件对象。
  *
@@ -91,15 +85,6 @@ export interface SSEEvent {
     | 'goal_updated'
   content?: string
   sessionId?: string
-  /**
-   * D174(2026-09-30 立):帧级 trace id(小写 32 hex)。**由认领链最外层统一挂回**,
-   * 见下方 `parseLine` 的注入注释 —— 内层各分支不得自己再挂一遍。
-   *
-   * 缺席 = 本轮服务端没有有效 trace(**不是**空串、**不是** null),消费侧按
-   * `typeof === 'string'` 判。它是关联键,不是授权凭据(值来自客户端可自写的
-   * `traceparent` 头)—— 归属/权限判定不得读它。
-   */
-  traceId?: string
   /** 错误码(对齐 @ihui/api-client SSEErrorInfo 字段) */
   code?: number
   errorCode?: string
@@ -220,64 +205,15 @@ export function parseSSEChunk(buffer: string): {
   return { events, remainder: rest, lastId }
 }
 
-/**
- * 行 → data 负载的**唯一**剥前缀实现(D174 抽出)。
- *
- * `parseLineEvent` 与帧级 trace 提取共用它:两处各剥一遍 `data:` / `\r` / 前导空格,
- * 迟早有一处漏掉某条规矩,而漂开的表现不是报错,是"trace 取不到"这种静默丢字段。
- * 返回 `null` = 这一行不承载 data(空行 / `:` 注释行 / `event:`|`id:`|`retry:` 控制行)。
- */
-function dataPayloadOfLine(line: string): string | null {
-  if (!line || line.startsWith(':')) return null
-  if (line.startsWith('data:')) return line.slice(5).replace(/^\s/, '')
-  if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) return null
-  return line
-}
-
-/**
- * D174(2026-09-30 立):帧级 traceId 的**唯一认领点** —— 挂在整条认领链的最外层。
- *
- * 为什么必须在包装层、而不是在某个分支里挂:本函数尾部有一条泛化兜底
- * `typeof json?.sessionId === 'string' ⇒ {type:'meta', sessionId}`,内层分支 `return`
- * 出来的是**已经收窄完**的对象,兜底之后再去补字段就补不上了(整帧已被折成一条 meta)。
- * 本仓同型已栽过三次 —— terminal_delta 被折成 chunk(D19-A1)、tool-delta 被整帧丢掉
- * (D113)、terminal_interaction 被折成 meta(D151);判据
- * `scripts/check-sse-parser-parity.mjs`。在这一层挂,**每一帧**都过这一次,连被兜底
- * 折掉的那些也带着自己的 traceId。
- *
- * 代价如实登记:具名帧的 data JSON 因此被解析两次(`parseLineEvent` 一次、取 trace 一次)。
- * 一次 parse 的是几百字节的对象(实测每帧微秒级),换来的是"新分支不需要记得挂 trace"
- * —— 少一处会漏的地方,比省一次 parse 值钱。
- */
 function parseLine(line: string): SSEEvent | null {
-  const evt = parseLineEvent(line)
-  if (!evt) return null
-  const traceId = frameTraceIdOfLine(line)
-  return traceId ? { ...evt, traceId } : evt
-}
+  if (!line || line.startsWith(':')) return null
 
-/**
- * 从一行 SSE 文本里取帧级 traceId;取不到 ⇒ `undefined`(**不写空串、不写 null**)。
- *
- * 值规则(小写 32 hex / 全 0 非法)只在 `sse/contract.ts::normalizeSSEFrameTraceId`
- * 那一份里定义,生产侧对应 `apps/ai-service/app/core/trace_context.py::normalize_trace_id`。
- * `[DONE]` 与 Vercel data-stream 的 `0:"…"` 协议帧不带我方 payload ⇒ 直接不给 trace。
- */
-function frameTraceIdOfLine(line: string): string | undefined {
-  const data = dataPayloadOfLine(line)
-  if (!data || data === '[DONE]') return undefined
-  if (/^\d+:.*$/su.test(data)) return undefined
-  try {
-    const json = JSON.parse(data) as Record<string, unknown>
-    return normalizeSSEFrameTraceId(json?.[SSE_TRACE_ID_PAYLOAD_KEY])
-  } catch {
-    return undefined
+  let data = line
+  if (line.startsWith('data:')) {
+    data = line.slice(5).replace(/^\s/, '')
+  } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+    return null
   }
-}
-
-function parseLineEvent(line: string): SSEEvent | null {
-  const data = dataPayloadOfLine(line)
-  if (data === null) return null
 
   if (data === '[DONE]') return { type: 'done' }
 
