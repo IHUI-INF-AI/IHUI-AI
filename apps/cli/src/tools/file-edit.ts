@@ -35,6 +35,7 @@ import {
   SymlinkTargetError,
   WriteConflictError,
 } from '../util/atomic-write.js';
+import { withMissingFileSuggestion } from '../util/file-suggest.js';
 
 /**
  * 落盘失败 → ToolResult 的归一出口。
@@ -201,6 +202,9 @@ interface AppliedBlock {
   line: number;
 }
 
+/** 应用失败的三态错误码(稳定字面量,调用方/测试读 errorType,不读中文短句) */
+export type SearchReplaceErrorCode = 'OLD_STRING_NOT_FOUND' | 'AMBIGUOUS_REPLACE';
+
 interface ApplyResult {
   result: string;
   replacements: number;
@@ -208,7 +212,55 @@ interface ApplyResult {
   blocks: AppliedBlock[];
 }
 
-function applySearchReplace(original: string, patch: string): ApplyResult | { error: string } {
+/**
+ * 逐字计数(吸收 G-937970):needle 在 content 里的非重叠出现次数。
+ *
+ * 为什么不复用 seekSequence 的命中信息:seek 只回**一处**命中,而歧义判据是
+ * "**逐字**命中了几处" —— 4 级模糊匹配会把"其实有三处"的 SEARCH 当成一处替换掉。
+ * 所以歧义判定走独立计数,seek 只负责模糊兜底,两条证据互不代管。
+ * needle 为空串直接回 0(indexOf('') 恒命中会让循环原地打转)。
+ */
+export function countOccurrences(content: string, needle: string): number {
+  if (needle === '') return 0;
+  let count = 0;
+  let position = 0;
+  while (position < content.length) {
+    const index = content.indexOf(needle, position);
+    if (index === -1) break;
+    count += 1;
+    position = index + needle.length;
+  }
+  return count;
+}
+
+/** 歧义命中文案(必须带命中数:模型要知道往上下文里加多少才算唯一) */
+function createAmbiguousReplaceMessage(matchCount: number, searchText: string): string {
+  return (
+    `Found ${matchCount} matches of the string to replace, but replace_all is false. ` +
+    'To replace all occurrences, set replace_all to true. ' +
+    'To replace only one occurrence, provide more surrounding context to uniquely identify the instance.\n' +
+    `SEARCH: ${searchText.slice(0, 200)}`
+  );
+}
+
+/**
+ * search-and-replace 的三态命中处置(吸收 G-937970):
+ *   - **多**(SEARCH 文本逐字命中 >1 且未开 replace_all)⇒ AMBIGUOUS_REPLACE 硬错,
+ *     文案带命中数。此前这里会静默替换"最像的那一处",两处同文的误改没有任何信号。
+ *   - **1**(逐字命中恰 1)⇒ 照常替换;空 replace 删串时优先吞掉行尾换行
+ *     (`old+\n` 优先匹配):否则删完在原位置留一个空行。
+ *   - **0**(逐字零命中)⇒ 走 4 级模糊匹配兜底(既有行为,弱级照旧告警);
+ *     模糊也找不到 ⇒ OLD_STRING_NOT_FOUND。
+ *
+ * replacement 一律走**函数形式**(replace(needle, () => replaceText))或 slice+拼接:
+ * String.replace 的字符串 replacement 会把 `$&`/`$$` 当特殊 token,patch 里写
+ * 字面 `$&` 会被展开成命中文本 —— 逐字写入是契约,不解释。
+ */
+function applySearchReplace(
+  original: string,
+  patch: string,
+  replaceAll: boolean,
+): ApplyResult | { error: string; errorCode?: SearchReplaceErrorCode } {
   let result = original;
   let replacements = 0;
   const blocks: AppliedBlock[] = [];
@@ -217,11 +269,38 @@ function applySearchReplace(original: string, patch: string): ApplyResult | { er
   while ((match = SEARCH_REPLACE_REGEX.exec(patch)) !== null) {
     const searchText = match[1]!;
     const replaceText = match[2]!;
-    // P0-1 4 级模糊匹配:exact → rstrip → trim → unicode
-    // 解决 LLM 生成 patch 时 typographic 标点(– '' "" nbsp)或行尾空白差异导致的匹配失败
+    // 三态之一:**多** —— 逐字命中 >1 且未开 replace_all,歧义硬错(带命中数)
+    const exactCount = countOccurrences(result, searchText);
+    if (exactCount > 1 && !replaceAll) {
+      return { error: createAmbiguousReplaceMessage(exactCount, searchText), errorCode: 'AMBIGUOUS_REPLACE' };
+    }
+    // 三态之二:**1**(或 replace_all 放行的多命中)—— 逐字替换
+    if (exactCount > 0) {
+      // 空 new_string 删串:`old+\n` 优先匹配,吞掉行尾换行不留空行
+      let needle = searchText;
+      if (replaceText === '' && !searchText.endsWith('\n')) {
+        const withNewline = `${searchText}\n`;
+        if (result.includes(withNewline)) needle = withNewline;
+      }
+      const needleCount = countOccurrences(result, needle);
+      const matchIndex = result.indexOf(needle);
+      result = replaceAll
+        ? result.split(needle).join(replaceText) // split/join 逐字拼接,不解释 $ 特殊 token
+        : result.replace(needle, () => replaceText); // 函数形式同理
+      blocks.push({
+        level: 'exact',
+        line: result.slice(0, matchIndex).split('\n').length,
+      });
+      replacements += replaceAll ? needleCount : 1;
+      continue;
+    }
+    // 三态之三:**0** —— 4 级模糊匹配兜底(exact → rstrip → trim → unicode)
     const seek = seekSequence(result, searchText);
     if (!seek) {
-      return { error: `未找到匹配的文本(已尝试 4 级模糊匹配 exact/rstrip/trim/unicode):\n${searchText.slice(0, 100)}...` };
+      return {
+        error: `未找到匹配的文本(已尝试 4 级模糊匹配 exact/rstrip/trim/unicode):\n${searchText.slice(0, 100)}...`,
+        errorCode: 'OLD_STRING_NOT_FOUND',
+      };
     }
     blocks.push({
       level: seek.level,
@@ -261,12 +340,13 @@ function fuzzyMatchWarning(blocks: AppliedBlock[]): string {
 export function createEditFileTool(ctx: EditToolContext): Tool {
   return {
     name: 'edit_file',
-    description: '编辑文件(search-and-replace)。参数:path(文件路径),search(搜索文本),replace(替换文本)。或用 patch 参数传入多个 SEARCH/REPLACE 块。',
+    description: '编辑文件(search-and-replace)。参数:path(文件路径),search(搜索文本),replace(替换文本),replace_all(可选,多处命中时替换全部)。或用 patch 参数传入多个 SEARCH/REPLACE 块。',
     dangerLevel: 'write',
     parameters: {
       path: { type: 'string', description: '文件路径' },
       search: { type: 'string', description: '要搜索的文本(精确匹配)' },
       replace: { type: 'string', description: '替换为的文本' },
+      replace_all: { type: 'boolean', description: 'SEARCH 文本多处命中时替换全部(默认 false:多处命中报 AMBIGUOUS_REPLACE)' },
       patch: { type: 'string', description: '多个 SEARCH/REPLACE 块(格式: <<<<<<< SEARCH\\n...\\n=======\\n...\\n>>>>>>> REPLACE)' },
     },
     required: ['path'],
@@ -287,7 +367,11 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
       try {
         const baseline = captureWriteBaseline(abs);
         if (baseline.content === null) {
-          return { success: false, output: '', error: `文件不存在: ${filePath}` };
+          return {
+            success: false,
+            output: '',
+            error: withMissingFileSuggestion(`文件不存在: ${filePath}`, abs),
+          };
         }
         original = baseline.content;
         snapshotBeforeEdit(ctx, [abs], 'auto_pre_edit_file');
@@ -301,9 +385,9 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
           return { success: false, output: '', error: '需要 search+replace 或 patch 参数' };
         }
 
-        const applied = applySearchReplace(original, patchStr);
+        const applied = applySearchReplace(original, patchStr, args.replace_all === true);
         if ('error' in applied) {
-          return { success: false, output: '', error: applied.error };
+          return { success: false, output: '', error: applied.error, errorType: applied.errorCode };
         }
 
         const { startLine, endLine } = computeChangedRange(original, applied.result);
@@ -346,7 +430,13 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
       const abs = resolvePath(ctx, filePath);
-      if (!fs.existsSync(abs)) return { success: false, output: '', error: `文件不存在: ${filePath}` };
+      if (!fs.existsSync(abs)) {
+        return {
+          success: false,
+          output: '',
+          error: withMissingFileSuggestion(`文件不存在: ${filePath}`, abs),
+        };
+      }
       if (fs.statSync(abs).isDirectory()) return { success: false, output: '', error: `是目录,不是文件: ${filePath}` };
 
       const original = fs.readFileSync(abs, 'utf-8');
