@@ -4169,6 +4169,27 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 活文档写回对账(1 项,blocking)---
+  {
+    id: '166',
+    label:
+      '🧵 活文档按旧副本提交会写回他人已入库行(blocking,2026-09-29 立;只判本次真改掉的那份文档,索引==HEAD 记跳过不记通过)',
+    script: 'check-live-doc-pathspec.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_LIVE_DOC_PATHSPEC',
+    stagedTriggers: ['PROJECT_PLAN.md', 'AGENTS.md', 'README.md'],
+    onFailHint: [
+      '',
+      '红 = 这次要提交进去的那份活文档,逐字丢了 HEAD 里已有的登记行(lost)。',
+      '1) 归并:`node scripts/merge-live-doc.mjs --file <该文档> --apply` —— 只补 lost,不补 stale;',
+      '2) 被点名成 stale 的行要人工取 HEAD 形态(`git show HEAD:<该文档>` 逐行取回),禁止整文件覆盖;',
+      '3) 真要删行:走 AGENTS §1 归档两步走,或合并之后显式 `git rm` —— 本门刻意不给行内豁免;',
+      '4) 确认红来自别人正在写的旧副本而不是本次改动:紧急跳过 HUSKY_SKIP_LIVE_DOC_PATHSPEC=1 并留痕。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
