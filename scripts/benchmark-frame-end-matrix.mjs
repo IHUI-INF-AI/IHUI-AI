@@ -285,6 +285,15 @@ function main(argv) {
   const abs = join(ROOT, OUT_REL)
   mkdirSync(dirname(abs), { recursive: true })
   writeFileSync(abs, md, 'utf8')
+  // AGENTS §5c:产出被跟踪文件后由生成器自己注入水印(否则"重新生成一次"就把溯源横幅洗掉,
+  // 而覆盖率门禁是自愈式的,会替生成器擦屁股 —— 于是这条纪律在提交链上永远不响)。
+  // 幂等判据:同一份输入连续生成两次,文件的 git hash 必须不变。
+  execFileSync(process.execPath, [join(ROOT, 'scripts', 'watermark.mjs'), 'inject', abs], {
+    cwd: ROOT,
+    stdio: 'pipe',
+    windowsHide: true,
+    timeout: 120000,
+  })
   console.log(`已写 ${OUT_REL}:帧 ${built.frames.length} 名 × 端 ${ENDS.length} 列(TS ${built.counts.ts} / py ${built.counts.py})`)
   return 0
 }
