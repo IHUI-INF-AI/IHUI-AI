@@ -24,6 +24,8 @@ import { promisify } from 'node:util'
 
 import type { SandboxExecOptions, SandboxExecResult, SandboxPolicy } from '../policy.js'
 import { evaluateCommand, validatePolicy } from '../policy.js'
+// b75-4#4:Windows 子进程输出编码回退链(重定向文件里的字节不承诺 UTF-8,解码出口唯一化)
+import { applyPythonUtf8Env, decodeBufferWithFallback, resolveLegacyEncoding } from './output-encoding.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -181,13 +183,19 @@ export async function runSandboxedWindows(
       }
     }
 
-    // 5. 收集输出并按字节上限截断
+    // 5. 收集输出并按字节上限截断。
+    //    b75-4#4:重定向文件按 **Buffer** 读(原 readFile(utf8) 把非 UTF-8 码页的字节
+    //    永久解坏了,后续无可回退);解码统一走回退链 —— 纯 ASCII / 合法 UTF-8 零成本直出,
+    //    判不出才惰性花钱跑 chcp 探测(1s 超时)→ locale 兜底。
     const [stdoutBuf, stderrBuf] = await Promise.all([
-      readFile(stdoutFile, 'utf8').catch(() => ''),
-      readFile(stderrFile, 'utf8').catch(() => ''),
+      readFile(stdoutFile).catch(() => null),
+      readFile(stderrFile).catch(() => null),
     ])
-    const truncated = Buffer.byteLength(stdoutBuf, 'utf8') > maxOutputBytes
-    const stdout = truncated ? stdoutBuf.slice(0, maxOutputBytes) : stdoutBuf
+    const resolveLegacy = (): ReturnType<typeof resolveLegacyEncoding> => resolveLegacyEncoding()
+    const stdoutText = stdoutBuf ? decodeBufferWithFallback(stdoutBuf, resolveLegacy) : ''
+    const stderrText = stderrBuf ? decodeBufferWithFallback(stderrBuf, resolveLegacy) : ''
+    const truncated = Buffer.byteLength(stdoutText, 'utf8') > maxOutputBytes
+    const stdout = truncated ? stdoutText.slice(0, maxOutputBytes) : stdoutText
 
     // 6. icacls 只读探测(不修改 ACL,供诊断输出)
     if (options.onOutput)
@@ -200,7 +208,7 @@ export async function runSandboxedWindows(
       exitCode,
       signal: null,
       stdout,
-      stderr: stderrBuf,
+      stderr: stderrText,
       timedOut: exitCode === 124,
       truncated,
       refused: false,
@@ -229,6 +237,8 @@ export function buildSanitizedEnv(
       if (!isBlocked(key)) env[key] = value
     }
   }
+  // b75-4#4:Python 系子进程直接吐 UTF-8(回退链就不必花钱);上游 applyExecutionTextEnv 的降维
+  applyPythonUtf8Env(env)
   return env
 }
 
