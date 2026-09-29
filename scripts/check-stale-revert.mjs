@@ -52,6 +52,13 @@
  *    `❓ [R1 未判定] … 窗口不足`,并计入结论行尾注;不判红(窗口外没有证据,判红=凭空定罪),
  *    **但绝不记绿**。R1r 侧同样把"窗口用尽"作为独立一维写进 uncovered/报名(与预算截断分开)。
  *    2,744 > 400 ⇒ 深窗口只压低 ② 的触发频率、不可能根除 —— 这正是 ② 必须先于 ① 存在的原因。
+ *  ③ **巡检档**(2026-09-30,G-806 续):扩容的前置是先量成本,而量成本的第一步是门**自己**每轮
+ *    报账 —— 输出尾行固定多一行机器可 grep 的成本读数(`[成本读数] mode=… paths=… elapsed_ms=…
+ *    git_log=… ancestor_commits=… window_truncated=…`,git_log = 逐路径祖先取材次数);凡路径的
+ *    祖先清单被窗口截断(确证窗外还有更老的"动过它"的提交),输出 `⚠️ [窗口截断]` 逐条点名路径
+ *    与窗口值,不得静默绿。`--window-probe` 对真仓量窗口 40/80/320(×1/×2/×8)三档对热路径的
+ *    取材耗时,输出三档对比供扩容定档 —— probe 只读不判,**不改默认窗口**(默认仍 40,扩容定档
+ *    是下一票)。
  *
  * 合并上下文(2026-09-25 由"整轮豁免"收窄):旧口径因"merge/cherry-pick/revert 的解析结果
  * 本就可能是历史内容"而整轮跳过 R1,于是**本门自己的豁免**成了这一族的无人看守区(登记在
@@ -64,6 +71,7 @@
  *   node scripts/check-stale-revert.mjs --staged      # pre-commit(runner 自动下发)
  *   node scripts/check-stale-revert.mjs               # 全量:比对工作区 vs HEAD
  *   node scripts/check-stale-revert.mjs --self-test   # 独立临时仓端到端演练
+ *   node scripts/check-stale-revert.mjs --window-probe # 巡检档:量窗口 40/80/320 三档取材耗时(只读,不改默认窗口)
  * 紧急跳过:HUSKY_SKIP_STALE_REVERT_GUARD=1(确属有意回退请改用 git revert 生成前向提交)
  */
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
@@ -174,6 +182,9 @@ export function resolveBlobs(repoRoot, specs) {
  */
 export function ancestorWindow(repoRoot, path) {
   const window = windowFor(path)
+  // 巡检档(G-806 ③):一次"逐路径祖先取材" = 一次 git log。meter 只在 audit 运行期非空,
+  // 外部消费者(object-space-land / check-baseline-freshness)的直接调用不记到门的账上。
+  if (costMeter) costMeter.gitLog++
   let shas
   try {
     shas = git([
@@ -197,6 +208,11 @@ export function ancestorWindow(repoRoot, path) {
     return { shas: [], truncated: false, window }
   }
   const truncated = shas.length > window
+  if (costMeter) {
+    costMeter.ancestorCommits += truncated ? window : shas.length
+    // 截断报名的收集口:同一路径经 R1 与 R1r 两条通道各取一次,按路径只记一次(Map)。
+    if (truncated) costMeter.truncated.set(path, window)
+  }
   return { shas: truncated ? shas.slice(0, window) : shas, truncated, window }
 }
 
@@ -792,7 +808,134 @@ function verdictLine(modifiedCount, rr, r1WindowLoss = 0) {
   return `✅ 反回退守门通过(判定 ${modifiedCount} 个文件,无历史版本回写)${tail.length ? ` —— 但其中 ${tail.join('、')},见上` : ''}`
 }
 
-function audit(repoRoot, { staged }) {
+// ─────────────────────────────────────────────────────────────────────────────
+// G-806 巡检档 ②:窗口成本巡检(--window-probe)。逐路径放宽窗口会按路径数放大
+// git log / cat-file 次数(本门同时判几百个暂存路径),扩容定档前必须先量
+// "窗口 ×1 / ×2 / ×8 时取材耗时" —— probe 对真仓按三档量**同一条**取材路径
+// (git log 取 window+1 枚探针 + 一次批量 cat-file 解 oid,与 ancestorWindow 同形),
+// 只读不判、不落任何状态,**不改默认窗口**(默认仍是 ANCESTOR_WINDOW=40,扩容定档是下一票)。
+// ─────────────────────────────────────────────────────────────────────────────
+export const WINDOW_PROBE_TIERS = [40, 80, 320]
+export const WINDOW_PROBE_DEFAULT_PATHS = ['PROJECT_PLAN.md']
+
+/** 单档单路径的取材计时:分 log / cat 两段各记毫秒;读数失败折成 error 字段,不得静默成 0。 */
+export function probeWindowOnce(repoRoot, path, window) {
+  const t0 = performance.now()
+  let shas = []
+  let logError = null
+  try {
+    shas = git([
+      '-C',
+      repoRoot,
+      'log',
+      `--max-count=${window + 1}`,
+      '--format=%H',
+      'HEAD',
+      '--',
+      path,
+    ])
+      .split('\n')
+      .filter(Boolean)
+  } catch (e) {
+    logError = firstLine(e)
+  }
+  const logMs = Math.round((performance.now() - t0) * 10) / 10
+  let catMs = 0
+  let resolved = 0
+  let catError = null
+  if (!logError && shas.length) {
+    const t1 = performance.now()
+    try {
+      resolved = resolveBlobs(
+        repoRoot,
+        shas.slice(0, window).map((c) => `${c}:${path}`),
+      ).size
+    } catch (e) {
+      catError = firstLine(e)
+    }
+    catMs = Math.round((performance.now() - t1) * 10) / 10
+  }
+  return {
+    path,
+    window,
+    fetched: shas.length,
+    truncated: !logError && shas.length > window,
+    logMs,
+    catMs,
+    totalMs: Math.round((logMs + catMs) * 10) / 10,
+    resolved,
+    error: logError ?? catError,
+  }
+}
+
+/** 三档巡检:每档每路径各量一次,返回按档展开的读数(自测断言与渲染共用同一份数据)。 */
+export function runWindowProbe(
+  repoRoot,
+  paths = WINDOW_PROBE_DEFAULT_PATHS,
+  tiers = WINDOW_PROBE_TIERS,
+) {
+  const out = []
+  for (const w of tiers) for (const p of paths) out.push(probeWindowOnce(repoRoot, p, w))
+  return out
+}
+
+/** 渲染:每档一行 + 每路径一行三档汇总,前缀 `[window-probe]` 机器可 grep。 */
+export function renderProbe(results) {
+  const lines = results.map((r) =>
+    r.error
+      ? `📊 [window-probe] path=${r.path} window=${r.window} error=${JSON.stringify(r.error)}`
+      : `📊 [window-probe] path=${r.path} window=${r.window} log_ms=${r.logMs} cat_ms=${r.catMs} total_ms=${r.totalMs} commits=${r.fetched} truncated=${r.truncated}`,
+  )
+  for (const p of [...new Set(results.map((r) => r.path))]) {
+    const tier = results.filter((r) => r.path === p)
+    lines.push(
+      `📊 [window-probe 汇总] path=${p} ` +
+        tier.map((r) => `x${r.window}=${r.error ? 'ERR' : `${r.totalMs}ms`}`).join(' ') +
+        (tier.some((r) => r.error) ? ' (有档报错,读数不完整)' : ''),
+    )
+  }
+  return lines
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// G-806 巡检档 ①:成本读数。meter 只在一次 audit 运行期间累计 —— ancestorWindow 是
+// 外部消费者(object-space-land / check-baseline-freshness)的共用出口,它们的调用
+// 不该记到门的账上。truncated Map 是"截断报名"的收集口(同路径多通道只记一次)。
+// ─────────────────────────────────────────────────────────────────────────────
+let costMeter = null
+
+function beginCostMeter() {
+  costMeter = {
+    t0: performance.now(),
+    gitLog: 0,
+    ancestorCommits: 0,
+    truncated: new Map(),
+    paths: 0,
+  }
+}
+
+function endCostMeter() {
+  const m = costMeter
+  costMeter = null
+  return {
+    elapsedMs: Math.round((performance.now() - m.t0) * 10) / 10,
+    gitLog: m.gitLog,
+    ancestorCommits: m.ancestorCommits,
+    truncated: m.truncated,
+    paths: m.paths,
+  }
+}
+
+/** 机器可 grep 的一行成本读数(固定前缀 `[成本读数]`,key=value;挂在 audit 输出尾行)。 */
+export function renderCostLine(cost, { mode }) {
+  return (
+    `📊 [成本读数] mode=${mode} paths=${cost.paths} elapsed_ms=${cost.elapsedMs}` +
+    ` git_log=${cost.gitLog} ancestor_commits=${cost.ancestorCommits}` +
+    ` window_truncated=${cost.truncated.size}`
+  )
+}
+
+function auditInner(repoRoot, { staged }) {
   const { modified, deleted } = staged
     ? stagedPaths(repoRoot)
     : { modified: worktreeDirtyPaths(repoRoot), deleted: [] }
@@ -808,11 +951,13 @@ function audit(repoRoot, { staged }) {
   const always = modified.filter(isMultiplierPath)
   const rest = modified.filter((p) => !isMultiplierPath(p))
   let judged = modified
+  if (costMeter) costMeter.paths = judged.length
   if (rest.length > MAX_FILES) {
     lines.push(
       `ℹ️  普通文件 ${rest.length} 个 > 上限 ${MAX_FILES} ⇒ 本轮只判**乘数级** ${always.length} 个(它们的回写不会表现为少一个功能,而是让一批守门静默失效)`,
     )
     judged = always
+    if (costMeter) costMeter.paths = judged.length
     if (!judged.length) {
       if (deleted.length) lines.push(...deleteWarn(deleted))
       lines.push('✅ 反回退守门通过(超限跳过普通文件,无乘数级路径待判)')
@@ -909,9 +1054,40 @@ function audit(repoRoot, { staged }) {
     )
     lines.push('   热档(三本活文档)已走深窗口 ANCESTOR_WINDOW_HOT,仍报这一型说明回写点深于该窗口。')
   }
+  /**
+   * G-806 ③ 截断报名:凡本轮有路径的祖先清单被窗口上限截断(确证窗外还有更老的
+   * "动过该路径"的提交),就在这里逐条点名路径与窗口值 —— 不论它最终判红、判绿还是
+   * 未判定。判红里它是无害的补充(已经红了),判绿里它是"这次只看到了最近 W 枚"的
+   * 唯一账面痕迹;没有这一块,窗口深度就永远只有写门的人知道。成本读数行尾的
+   * window_truncated 是同一事实的计数面,两者必须同源(meter 的同一个 Map)。
+   */
+  if (costMeter?.truncated.size) {
+    lines.push(
+      `⚠️  [窗口截断] ${costMeter.truncated.size} 个路径的祖先清单被窗口上限截断(更早的版本本轮未取材,深于窗口的回写判不到):`,
+    )
+    for (const [p, w] of costMeter.truncated) lines.push(`   - ${p}: 窗口 ${w} 枚用尽`)
+  }
   if (deleted.length) lines.push(...deleteWarn(deleted))
   if (!failed) lines.push(verdictLine(modified.length, rr, windowLoss.length))
   return { code: failed ? 1 : 0, lines }
+}
+
+/**
+ * audit 的巡检档包装(G-806 ③):整轮包一层成本读数 —— 耗时与逐路径祖先取材在 meter 里
+ * 现算,输出尾行固定多一行机器可 grep 的 `[成本读数]`。返回形状({code, lines})是外部
+ * 契约,不因包装漂;auditInner 抛出时不打读数(meter 在 finally 里照常复位,不留脏状态)。
+ */
+export function audit(repoRoot, opts = {}) {
+  const mode = opts?.staged ? 'staged' : 'worktree'
+  beginCostMeter()
+  let out
+  try {
+    out = auditInner(repoRoot, opts)
+  } finally {
+    const cost = endCostMeter()
+    if (out) out.lines.push(renderCostLine(cost, { mode }))
+  }
+  return out
 }
 
 function deleteWarn(deleted) {
@@ -1043,6 +1219,68 @@ function selfTestRun() {
     g(['add', '-A'])
     check('8 worktree 源同样判新编辑', analyze(repo, ['a.ts'], { source: 'worktree' }).length === 0)
 
+    // ── G-806 巡检档:截断报名 + 成本读数 + probe 三档形态 ──
+    // 9:造 45 枚(窗口+5)提交的深路径,把第 1 枚(v1)写回暂存区 —— v1 在窗口 40 之外,
+    //    R1 判不了红(窗外无从取证),但输出必须点名路径与窗口值、必须报截断,成本读数行
+    //    必须在场;结论行必须带"窗口不足"尾注 —— 哪一格缺了都是"把没判写成判过了"。
+    const G806_DEPTH = ANCESTOR_WINDOW + 5
+    writeFileSync(join(repo, 'deep.ts'), 'v1\n')
+    g(['add', '-A'])
+    g(['commit', '-qm', 'D1'])
+    for (let i = 2; i <= G806_DEPTH; i++) {
+      writeFileSync(join(repo, 'deep.ts'), `v${i}\n`)
+      g(['commit', '-qam', `D${i}`])
+    }
+    writeFileSync(join(repo, 'deep.ts'), 'v1\n')
+    g(['add', '-A'])
+    const deep = audit(repo, { staged: true })
+    const deepOut = deep.lines.join('\n')
+    check('9 窗口外回写不判红(窗外无从取证,判红=凭空定罪)', deep.code === 0)
+    check(
+      '9b 截断报名点名路径与窗口值',
+      deepOut.includes('deep.ts') && deepOut.includes('窗口 40 枚用尽'),
+    )
+    check(
+      '9c 截断报名块与 R1 未判定块都在场(不得静默绿)',
+      deepOut.includes('⚠️  [窗口截断]') && deepOut.includes('❓ [R1 未判定]'),
+    )
+    check(
+      '9d 成本读数行在输出且机器可 grep(耗时/取材次数/截断数)',
+      /\[成本读数\] mode=staged paths=\d+ elapsed_ms=[\d.]+ git_log=\d+ ancestor_commits=\d+ window_truncated=1/.test(
+        deepOut,
+      ),
+    )
+    check('9e 结论行带"窗口不足"尾注(不是光秃秃的通过)', deepOut.includes('窗口不足未判定(R1)'))
+
+    // 10:probe 三档输出形态(临时仓小档演练 —— 档位、读数形状、深档取到更多)。
+    const probe = runWindowProbe(repo, ['deep.ts'], [5, 10, 20])
+    check(
+      '10 probe 三档读数齐全且档位正确',
+      probe.length === 3 &&
+        probe.map((r) => r.window).join(',') === '5,10,20' &&
+        probe.every((r) => !r.error),
+    )
+    check(
+      '10b probe 每档都是机器可 grep 的读数形状',
+      probe.every(
+        (r) =>
+          r.path === 'deep.ts' &&
+          typeof r.totalMs === 'number' &&
+          typeof r.logMs === 'number' &&
+          typeof r.fetched === 'number',
+      ),
+    )
+    check(
+      '10c 深档取到更多祖先提交(×2/×8 方向正确)',
+      probe[2].fetched > probe[1].fetched && probe[1].fetched > probe[0].fetched,
+    )
+    const probeOut = renderProbe(probe).join('\n')
+    check(
+      '10d probe 渲染:三行 [window-probe] + 汇总行',
+      (probeOut.match(/\[window-probe\]/g) ?? []).length === 3 &&
+        probeOut.includes('[window-probe 汇总]'),
+    )
+
     let fail = 0
     for (const r of results) {
       console.log(`${r.ok ? '✅' : '❌'} ${r.name}`)
@@ -1063,6 +1301,13 @@ async function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return selfTestRun()
   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+  if (argv.includes('--window-probe')) {
+    // 巡检档(G-806):只读量成本,不判不拦;可带若干路径参数,缺省量热路径 PROJECT_PLAN.md。
+    const paths = argv.filter((a) => !a.startsWith('--'))
+    const results = runWindowProbe(repoRoot, paths.length ? paths : WINDOW_PROBE_DEFAULT_PATHS)
+    console.log(renderProbe(results).join('\n'))
+    return 0
+  }
   if (process.env[SKIP_ENV]) {
     console.log(`⚠️  已跳过反回退守门(${SKIP_ENV}=1)`)
     return 0
@@ -1109,5 +1354,11 @@ export const __test__ = {
   RESURRECT_GATE_MAX_BLOB_BYTES,
   RESURRECT_PATH_BUDGET_BYTES,
   RESURRECT_RUN_BUDGET_BYTES,
+  renderCostLine,
+  probeWindowOnce,
+  runWindowProbe,
+  renderProbe,
+  WINDOW_PROBE_TIERS,
+  WINDOW_PROBE_DEFAULT_PATHS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
