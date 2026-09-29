@@ -35,7 +35,23 @@ vi.mock('../src/services/wechat-subscribe-message.js', () => ({
 import { __test__ as ledger } from '../src/services/edu-ledger.js'
 import { __test__ as reminder } from '../src/services/edu-arrear-remind-service.js'
 
-const { deriveEnrollmentLedger, dayDiff, DUE_SOON_LEAD_DAYS } = ledger
+const { deriveEnrollmentLedger, dayDiff, DUE_SOON_LEAD_DAYS, shouldAdoptUnattributed } = ledger
+
+describe('无归属流水/退费能不能认领', () => {
+  // 这一维决定"历史 NULL 归属的钱去哪了":
+  // 唯一报名却不认领 ⇒ 已缴额凭空变小,学员被多催(本模块自己引入过的形状);
+  // 多期报名还认领 ⇒ 同一笔钱在两个期次各算一次(本模块要消灭的第一型)。
+  it('该 student×class 只有一条有效报名 → 必须认领这笔钱', () => {
+    expect(shouldAdoptUnattributed(1)).toBe(true)
+  })
+  it('有多条报名(续读)→ 谁都不认领,交 loadUnattributedPayments 点名', () => {
+    expect(shouldAdoptUnattributed(2)).toBe(false)
+    expect(shouldAdoptUnattributed(3)).toBe(false)
+  })
+  it('0 条(理论上不该发生)→ 同样不认领,不猜归属', () => {
+    expect(shouldAdoptUnattributed(0)).toBe(false)
+  })
+})
 const { buildReminderMessage, beijingMidnightUtc } = reminder
 
 const TODAY = '2026-09-29'
