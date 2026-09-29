@@ -708,14 +708,21 @@ export function adjudicationKey({ file, form, role, expectedStep }) {
 }
 
 /**
- * @returns {{pending: object[], adjudicated: object[], problems: string[]}}
+ * @returns {{pending: object[], adjudicated: object[], problems: string[], unjudged: object[]}}
  *   pending 仍需人裁(队列,不判红);adjudicated 已带理由与到期日;problems 是 AJ1/AJ2/AJ3 三型红。
+ *
+ * `scopeNarrowed` = 本次扫描被 `--files` 收成了子集。**裁决账是全局面才可能对账的东西**:
+ * 拿收窄面去比全量台账,每一条不在这几个文件里的裁决都会被判成"清单腐烂",于是人工自验档
+ * (`--worktree --files <两三个文件>`)对任何一条正常裁决都恒红 —— 而红在自验档上的代价是
+ * 让人以为门坏了(本轮三张派单全部被这一条绊住并回报"存量红"),不是让人去了结真正腐烂的账。
+ * 收窄时 AJ3 一律记 **unjudged(未判定)**:不冒红,也绝不记为通过(照旧逐条点名并计入 --strict 的拒绝出合格证)。
  */
-export function applyAdjudications(weakFindings, items, today) {
+export function applyAdjudications(weakFindings, items, today, { scopeNarrowed = false } = {}) {
   const seen = new Set()
   const pending = []
   const adjudicated = []
   const problems = []
+  const unjudged = []
   const keys = new Map(weakFindings.map((f) => [adjudicationKey(f), f]))
   for (const it of items) {
     const where = `${it?.file ?? '(缺 file)'}#${it?.owner ?? '(缺 owner)'}`
@@ -737,6 +744,10 @@ export function applyAdjudications(weakFindings, items, today) {
     }
     const k = adjudicationKey(it)
     if (!keys.has(k)) {
+      if (scopeNarrowed) {
+        unjudged.push({ key: k, file: it.file, owner: it.owner })
+        continue
+      }
       problems.push(`AJ3 清单腐烂:被审面上找不到对应站点 ⇒ 要么已改档要么文件已下线,必须把这条了结:${k}`)
       continue
     }
@@ -751,7 +762,7 @@ export function applyAdjudications(weakFindings, items, today) {
   for (const f of weakFindings) {
     if (!seen.has(adjudicationKey(f))) pending.push(f)
   }
-  return { pending, adjudicated, problems }
+  return { pending, adjudicated, problems, unjudged }
 }
 /** 清单按面取:`ls-tree` 不认 `--cached`,索引面只能走 `ls-files`;内容与清单**同面同轮**。 */
 function listTracked(repoRoot, face) {
@@ -876,6 +887,7 @@ export function runAudit(repoRoot, face, { only } = {}) {
   return {
     face,
     files,
+    scopeNarrowed: !!(only && only.length),
     table,
     baseline,
     adjudications,
@@ -993,6 +1005,7 @@ function runAuditWorktree(repoRoot, only) {
   return {
     face: 'worktree',
     files,
+    scopeNarrowed: !!(only && only.length),
     table,
     baseline,
     adjudications,
@@ -1089,14 +1102,14 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
    * 是为了**只有一处实现**:HEAD / 索引 / 工作树三面共用同一条判序,否则"哪个面上算已裁决"
    * 会随面漂开 —— 而漂开的表现是同一份代码在两个面上一个红一个绿。
    */
-  const adj = applyAdjudications(
-    res.weakFindings,
-    res.adjudications || [],
-    new Date().toISOString().slice(0, 10),
-  )
+  const adj = applyAdjudications(res.weakFindings, res.adjudications || [], new Date().toISOString().slice(0, 10), {
+    // 只有 `--files` 会把面对象切窄成子集(`--staged` 扫的是整个索引 ⇒ 全局台账对得上账)
+    scopeNarrowed: !!res.scopeNarrowed,
+  })
   res.weakFindings = adj.pending
   res.adjudicated = adj.adjudicated
   res.adjudicationProblems = adj.problems
+  res.adjudicationUnjudged = adj.unjudged || []
   if (argv.includes('--json')) {
     // stdout 只准出现 JSON:任何尾随说明行都会砸碎镜像测试的 JSON.parse
     console.log(
@@ -1116,6 +1129,7 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
         weakFindings: res.weakFindings,
         adjudicated: res.adjudicated,
         adjudicationProblems: res.adjudicationProblems,
+        adjudicationUnjudged: res.adjudicationUnjudged,
         surfaceOverrides: res.surfaceOverrides,
         componentEvidence: res.componentEvidence,
         identityEvidence: res.identityEvidence,
@@ -1204,6 +1218,14 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
       console.log(`❌ 裁决账问题 ${res.adjudicationProblems.length} 条(判红):`)
       for (const p of res.adjudicationProblems) console.log(`   · ${p}`)
     }
+    if (res.adjudicationUnjudged.length) {
+      // 收窄面上"找不到站点"不是腐烂,是**没看全** —— 报数点名,既不冒红也绝不静默算通过。
+      console.log(
+        `⚠️ 裁决账 ${res.adjudicationUnjudged.length} 条本次未判定:扫描被 --files 收成子集,这些条目对应的站点不在射程内` +
+          `(不判红,但也不得读成"账已对平";要问责请跑不带 --files 的全量/索引档):` +
+          res.adjudicationUnjudged.map((u) => `\n   · ${u.key}(归属 ${u.owner})`).join(''),
+      )
+    }
     console.log(
       `◦ 身份通道(票㉘):ARIA role / data-testid / ui-<role> / bg-popover 给得出身份的 ${res.identityEvidence} 行。
    ` +
@@ -1251,7 +1273,8 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
       `结论(五个体各算各的,谁也不替谁背书):判红 ${res.red.length} 族 / ` +
         `已判合规 ${res.compliant} 处(角色档一致)/ ` +
         `角色档不一致 ${res.violations.length} 处(其中超出自身锚点的就是上面 ${res.red.length} 族)/ ` +
-        `弱证据待裁 ${res.weakFindings.length} 处(不判红)/ 已裁决 ${res.adjudicated.length} 处(账问题 ${res.adjudicationProblems.length} 条判红)/ ` +
+        `弱证据待裁 ${res.weakFindings.length} 处(不判红)/ 已裁决 ${res.adjudicated.length} 处(账问题 ${res.adjudicationProblems.length} 条判红` +
+        `${res.adjudicationUnjudged.length ? ` / 另有 ${res.adjudicationUnjudged.length} 条因扫描收窄**未判定**` : ''})/ ` +
         `未判定 ${res.undetermined.length} 处(逐条报名,不是通过)/ ` +
         `不在射程 = 无类别证据的取用 ${res.unclassified.length} 处` +
         `${argv.includes('--all') ? '(--all 已逐条列出)' : '(--all 逐条列出)'}`,
@@ -1263,7 +1286,7 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
    * 一起变成免检。`--strict` 那条只管"判不出",不管这一维,所以这里不分档都判红。
    */
   if (res.adjudicationProblems.length) return 1
-  if (strict && (res.undetermined.length || res.roleTableProblems.length)) return 2
+  if (strict && (res.undetermined.length || res.roleTableProblems.length || res.adjudicationUnjudged.length)) return 2
   return 0
 }
 
@@ -2056,6 +2079,37 @@ export default function P() {
     (() => {
       const r = applyAdjudications([], [goodItem], '2026-09-29')
       return r.problems.length === 1 && r.problems[0].startsWith('AJ3')
+    })(),
+  )
+  /**
+   * 成对反向例(本轮被三张派单同时绊到才补上的那条边界):`--files` 把面对象切成子集时,
+   * "找不到站点"是**没看全**而不是腐烂 —— 拿全量台账去和两三个文件的收窄面判红,会让人以为门坏了,
+   * 而真正腐烂的账混在假红里反而没人去了结。失效方向必须是"多要一次全量问责",不是"多放一次免检",
+   * 所以未判定必须逐条点名并计入 --strict 的拒绝出合格证。
+   */
+  t(
+    'AJ3-反向:扫描被 --files 收窄时不得判腐烂,改记"未判定"并逐条点名(不冒红也不记通过)',
+    (() => {
+      const r = applyAdjudications([], [goodItem], '2026-09-29', { scopeNarrowed: true })
+      return (
+        r.problems.length === 0 &&
+        r.adjudicated.length === 0 &&
+        r.unjudged.length === 1 &&
+        r.unjudged[0].key === adjudicationKey(goodItem)
+      )
+    })(),
+  )
+  t(
+    'AJ3-方向锁:同一条目在同一次收窄调用里既不被判红、也不被算成"已裁决"(收窄只换定性,不换结论)',
+    (() => {
+      const narrowed = applyAdjudications(weakSite, [goodItem], '2026-09-29', { scopeNarrowed: true })
+      const full = applyAdjudications(weakSite, [goodItem], '2026-09-29', { scopeNarrowed: false })
+      return (
+        narrowed.adjudicated.length === 1 &&
+        narrowed.unjudged.length === 0 &&
+        full.adjudicated.length === 1 &&
+        applyAdjudications([], [goodItem], '2026-09-29', { scopeNarrowed: false }).unjudged.length === 0
+      )
     })(),
   )
   t(
