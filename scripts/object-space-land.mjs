@@ -93,6 +93,8 @@ import {
   RESURRECT_MAX_BLOB_BYTES,
   RESURRECT_MIN_LINE_LEN,
 } from './lib/stale-content-analysis.mjs'
+// G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
+import { recordBypassLanding } from './lib/commit-attestation.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 // 水印 CLI 与本器同目录:用它而不是拼 cwd 相对路径,理由见 watermarkPreflight 内注释。
@@ -842,6 +844,28 @@ async function main() {
   console.log(
     `✅ 提交面回读 ${paths.length}/${paths.length} 路径在树${listed ? (extras.length ? `;另有非声明路径 ${extras.length} 条(检查是否混提)` : '') : '(混提核查未判定)'}`,
   )
+
+  /**
+   * G-725 留痕:走到这里"这枚提交已在 HEAD 里、且声明路径都过了逐路径存在性判定"是既成事实 ——
+   * 主索引对齐(下一步)成功与否都不改变"它绕过了提交链"这一点,所以留痕必须写在对齐**之前**、
+   * 写在回读三态判定**之后**(回读未判定/缺路径的分支各有自己的退出码,那些情形不该记成"已落地")。
+   * 硬要求:写失败只喊一行 WARN,绝不把一次成功落地判红(它记的是账,不是门禁)。
+   * 这一族曾被一次"按滞后工作树副本提交的旁路落地"整体抹掉过(2026-09-29 现读 HEAD 计数 0),
+   * 所以它的存续由 `scripts/tests/plan-tasks-f9.test.mjs` 同族的形状锁看着,不靠人记得。
+   */
+  const attest = recordBypassLanding({
+    root,
+    source: 'object-space-land',
+    landedSha: landed,
+    headBefore: parentSha,
+    declaredFiles: paths,
+    watermarkSkipped: skipWatermark,
+  })
+  if (!attest.ok)
+    console.log(
+      `⚠️ 跳门留痕未写入(落地已成功 HEAD=${landed.slice(0, 11)},不改退出码):${attest.why}`,
+    )
+  else console.log(`✅ 跳门留痕 1 行已写入 ${attest.path}(kind=bypass-landing,gatesRun=false)`)
 
   // ② 共享主索引对齐(判据在 lib,只有一份):未尽事项点名后退出码仍 0 —— 落地本身已成功
   const align = alignSharedIndex({ root, paths, parentRef: parentSha })
