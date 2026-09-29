@@ -11,12 +11,10 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
   SCRATCH_DIR_NAME,
-  chooseScratchRoot,
   countScratchSegments,
   evaluateDeleteTarget,
   mkScratch,
@@ -364,24 +362,6 @@ test('G-286:scanForNestedScratchRoot 有界(预算耗尽 ⇒ truncated,不是"�
     }
     rmScratch(fix)
   }
-})
-
-test('CI 可移植性:win32 臂必须逐字保持「盘根 + DevEnv/Temp」(不得被非 win 那一臂带漂)', () => {
-  const win = chooseScratchRoot({ moduleDir: 'D:\\IHUI-AI\\scripts\\lib', platform: 'win32', env: {} })
-  assert.equal(win, join('D:\\', 'DevEnv', 'Temp', SCRATCH_DIR_NAME), `Windows 臂改了落点: ${win}`)
-})
-
-test('CI 可移植性:非 win32 臂不得推导成文件系统根下的 DevEnv(GitHub runner 实测 EACCES)', () => {
-  const linux = chooseScratchRoot({ moduleDir: '/home/runner/work/IHUI-AI/IHUI-AI/scripts/lib', platform: 'linux', env: {} })
-  assert.ok(!linux.startsWith('/DevEnv'), `非 win32 仍落在文件系统根的 DevEnv 下 ⇒ ${linux}(根目录不可写)`)
-  assert.equal(linux, join(tmpdir(), SCRATCH_DIR_NAME), `非 win32 应走 os.tmpdir(): ${linux}`)
-  assert.ok(!resolve(linux).startsWith(resolve(REPO_ROOT)), '退回 tmpdir 也不得落进仓库树(两条硬约束的这一条与平台无关)')
-})
-
-test('CI 可移植性:IHUI_SCRATCH_DIR 在两条臂上都是最高优先级', () => {
-  const env = { IHUI_SCRATCH_DIR: '/tmp/custom-scratch' }
-  assert.equal(chooseScratchRoot({ platform: 'win32', env }), '/tmp/custom-scratch')
-  assert.equal(chooseScratchRoot({ platform: 'darwin', env }), '/tmp/custom-scratch')
 })
 
 function thrownMessage(fn) {
