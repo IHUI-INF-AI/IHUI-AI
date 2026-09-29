@@ -19,7 +19,7 @@ import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { verifyAccessToken } from '@ihui/auth'
 import { success, error } from '../utils/response.js'
-import { fetchWithinDeadline } from '../utils/fetch-deadline.js'
+import { fetchWithinDeadline, isDeadlineAbort } from '../utils/fetch-deadline.js'
 
 // ============================================================================
 // 通用工具
@@ -35,6 +35,25 @@ async function fetchWithTimeout(
   // / arrayBuffer() 永久挂住该请求处理链。deadline 现在罩到响应体消费结束(见 utils/fetch-deadline.ts)。
   // label 刻意不带 url:audioUrl 是供应商签发的带签名参数的 OSS 地址,不得进错误文案(守门 67 同型)。
   return fetchWithinDeadline(url, options, { timeoutMs, label: 'ai-audio→DashScope 出站请求' })
+}
+
+// G-815411(2026-09-29):出站 deadline 的 abort(reason 带 label)不得被 `.catch(() => ({}))`
+// 折叠成空对象 —— 旧形态「headers 200 + body 停滞 ⇒ data={}」把网络故障伪装成空结果
+// (§5e 失败必须响;守门 134 同族:改了 0 行与改成功不得同形)。只有非 abort 的解析失败
+// 保持旧折叠(只降级错误文案,不改成败判定)。
+function readOutboundJson(resp: Response): Promise<unknown> {
+  return resp.json().catch((e: unknown) => {
+    if (isDeadlineAbort(e)) throw e
+    return {}
+  })
+}
+
+// abort 在响应体阶段浮出时,日志必须点名 label(响应文案里已带,日志再记一份结构化的)。
+function logOutboundFailure(request: FastifyRequest, e: unknown): void {
+  const info = isDeadlineAbort(e)
+    ? { label: e.deadlineLabel, kind: 'deadline-abort' }
+    : { kind: 'outbound-failure' }
+  request.log.error({ ...info, err: (e as Error)?.message ?? String(e) }, 'ai-audio 出站请求失败')
 }
 
 const DASHSCOPE_BASE = process.env.DASHSCOPE_BASE ?? 'https://dashscope.aliyuncs.com/api/v1'
@@ -288,13 +307,15 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
         return
       }
 
-      // JSON 响应(可能为异步任务或错误)
-      const data = await resp.json().catch(() => ({}))
+      // JSON 响应(可能为异步任务或错误)。G-815411:!resp.ok 在读 body 之前判;
+      // 成功分支的 abort 不再被折叠成空结果(读失败必须响,不得伪装成空数据)。
       if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}))
         const msg = (data as { message?: string }).message ?? `TTS 请求失败 ${resp.status}`
         reply.status(502).send(error(502, `语音合成失败: ${msg}`))
         return
       }
+      const data = await readOutboundJson(resp)
       const output = (data as { output?: { task_id?: string; task_status?: string } }).output ?? {}
       if (output.task_id) {
         reply.send(success({ task_id: output.task_id, status: output.task_status ?? 'PENDING' }))
@@ -302,6 +323,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       }
       reply.status(502).send(error(502, '语音合成未返回音频数据'))
     } catch (e) {
+      logOutboundFailure(request, e)
       const msg =
         (e as Error).name === 'AbortError' ? '语音合成超时,请缩短文本后重试' : (e as Error).message
       reply.status(502).send(error(502, `语音合成异常: ${msg}`))
@@ -342,12 +364,14 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
           { method: 'POST', headers: dsHeaders(), body: JSON.stringify(payload) },
           120_000,
         )
-        const data = await resp.json().catch(() => ({}))
+        // G-815411:!resp.ok 先判;成功分支 abort 不折叠成空结果
         if (!resp.ok) {
+          const data = await resp.json().catch(() => ({}))
           const msg = (data as { message?: string }).message ?? '语音识别请求失败'
           reply.status(502).send(error(502, `语音识别失败: ${msg}`))
           return
         }
+        const data = await readOutboundJson(resp)
         const output =
           (
             data as {
@@ -372,6 +396,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
           }),
         )
       } catch (e) {
+        logOutboundFailure(request, e)
         const msg = (e as Error).name === 'AbortError' ? '语音识别超时' : (e as Error).message
         reply.status(502).send(error(502, `语音识别异常: ${msg}`))
       }
@@ -392,12 +417,14 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
         { method: 'POST', headers: dsHeaders(true), body: JSON.stringify(payload) },
         120_000,
       )
-      const data = await resp.json().catch(() => ({}))
+      // G-815411:!resp.ok 先判;成功分支 abort 不折叠成空结果
       if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}))
         const msg = (data as { message?: string }).message ?? 'ASR 请求失败'
         reply.status(502).send(error(502, `语音识别失败: ${msg}`))
         return
       }
+      const data = await readOutboundJson(resp)
       const output =
         (
           data as {
@@ -429,7 +456,15 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
             { method: 'GET', headers: dsHeaders() },
             60_000,
           )
-          const pollData = await pollResp.json().catch(() => ({}))
+          // G-815411:poll 完全无守卫的这一格补上 —— !ok 先判,成功分支 abort 不折叠
+          if (!pollResp.ok) {
+            const pollErr = await pollResp.json().catch(() => ({}))
+            const msg =
+              (pollErr as { message?: string }).message ?? `任务查询失败 ${pollResp.status}`
+            reply.status(502).send(error(502, `语音识别失败: ${msg}`))
+            return
+          }
+          const pollData = await readOutboundJson(pollResp)
           const pollOutput =
             (
               pollData as {
@@ -463,7 +498,13 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
           reply.send(
             success({ task_id: taskId, status, msg: '任务处理中,请稍后使用 task_id 查询结果' }),
           )
-        } catch {
+        } catch (e) {
+          if (isDeadlineAbort(e)) {
+            // G-815411:poll 的 deadline abort 不得被读成「任务处理中」(把网络故障伪装成空结果)
+            logOutboundFailure(request, e)
+            reply.status(502).send(error(502, `语音识别失败: ${(e as Error).message}`))
+            return
+          }
           reply.send(
             success({
               task_id: taskId,
@@ -476,6 +517,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       }
       reply.status(502).send(error(502, '语音识别未返回结果'))
     } catch (e) {
+      logOutboundFailure(request, e)
       const msg = (e as Error).name === 'AbortError' ? '语音识别超时' : (e as Error).message
       reply.status(502).send(error(502, `语音识别异常: ${msg}`))
     }
@@ -505,14 +547,29 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
           { method: 'POST', headers: dsHeaders(true), body: JSON.stringify(asrPayload) },
           120_000,
         )
-        const asrData = await asrResp.json().catch(() => ({}))
+        // G-815411:ASR 前置完全无守卫的这一格补上 —— !ok 先判,成功分支 abort 不折叠
+        if (!asrResp.ok) {
+          const asrErr = await asrResp.json().catch(() => ({}))
+          const msg =
+            (asrErr as { message?: string }).message ?? `ASR 请求失败 ${asrResp.status}`
+          logOutboundFailure(request, new Error(`ASR ${asrResp.status}: ${msg}`))
+          reply.status(502).send(error(502, `语音识别失败: ${msg}`))
+          return
+        }
+        const asrData = await readOutboundJson(asrResp)
         const asrOutput =
           (asrData as { output?: { results?: Array<{ transcription_text?: string }> } }).output ??
           {}
         const results = asrOutput.results ?? []
         if (results.length > 0) userText = results[0]?.transcription_text ?? ''
-      } catch {
-        /* 忽略,后续校验 userText */
+      } catch (e) {
+        if (isDeadlineAbort(e)) {
+          // G-815411:abort 不得被读成「语音识别未获取到有效文本」(网络故障伪装成用户输入问题)
+          logOutboundFailure(request, e)
+          reply.status(502).send(error(502, `语音识别异常: ${(e as Error).message}`))
+          return
+        }
+        /* 其余失败保持旧忽略行为,后续校验 userText */
       }
       if (!userText) {
         reply.status(400).send(error(400, '语音识别未获取到有效文本'))
@@ -543,12 +600,14 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
         { method: 'POST', headers: dsHeaders(), body: JSON.stringify(chatPayload) },
         60_000,
       )
-      const data = await resp.json().catch(() => ({}))
+      // G-815411:!resp.ok 先判;成功分支 abort 不折叠成空结果
       if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}))
         const msg = (data as { message?: string }).message ?? '对话请求失败'
         reply.status(502).send(error(502, `AI对话失败: ${msg}`))
         return
       }
+      const data = await readOutboundJson(resp)
       const output =
         (
           data as {
@@ -558,6 +617,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       const choices = output.choices ?? []
       aiReply = choices.length > 0 ? (choices[0]?.message?.content ?? '') : (output.text ?? '')
     } catch (e) {
+      logOutboundFailure(request, e)
       const msg = (e as Error).name === 'AbortError' ? 'AI 对话超时' : (e as Error).message
       reply.status(502).send(error(502, `AI对话异常: ${msg}`))
       return
@@ -595,7 +655,15 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
         { method: 'GET', headers: dsHeaders() },
         30_000,
       )
-      const data = await resp.json().catch(() => ({}))
+      // G-815411:完全无守卫的这一格补上 —— !ok 先判,成功分支 abort 不折叠成空结果
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}))
+        const msg =
+          (errData as { message?: string }).message ?? `任务查询失败 ${resp.status}`
+        reply.status(502).send(error(502, `下载音频异常: ${msg}`))
+        return
+      }
+      const data = await readOutboundJson(resp)
       const output =
         (
           data as {
@@ -635,6 +703,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       }
       reply.send(success({ task_id, status, msg: '任务处理中' }))
     } catch (e) {
+      logOutboundFailure(request, e)
       const msg = (e as Error).name === 'AbortError' ? '下载音频超时' : (e as Error).message
       reply.status(502).send(error(502, `下载音频异常: ${msg}`))
     }
@@ -691,12 +760,14 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
         { method: 'POST', headers: dsHeaders(true), body: JSON.stringify(payload) },
         120_000,
       )
-      const data = await resp.json().catch(() => ({}))
+      // G-815411:!resp.ok 先判;成功分支 abort 不折叠成空结果
       if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}))
         const msg = (data as { message?: string }).message ?? 'ASR 请求失败'
         reply.status(502).send(error(502, `语音识别失败: ${msg}`))
         return
       }
+      const data = await readOutboundJson(resp)
       const output =
         (
           data as {
@@ -715,6 +786,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       }
       reply.status(502).send(error(502, '语音识别未返回结果'))
     } catch (e) {
+      logOutboundFailure(request, e)
       const msg = (e as Error).name === 'AbortError' ? '语音识别超时' : (e as Error).message
       reply.status(502).send(error(502, `语音识别异常: ${msg}`))
     }
@@ -753,12 +825,14 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
         { method: 'POST', headers: dsHeaders(), body: JSON.stringify(payload) },
         60_000,
       )
-      const data = await resp.json().catch(() => ({}))
+      // G-815411:!resp.ok 先判;成功分支 abort 不折叠成空结果
       if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}))
         const msg = (data as { message?: string }).message ?? `注册失败 ${resp.status}`
         reply.status(502).send(error(502, `声纹注册失败: ${msg}`))
         return
       }
+      const data = await readOutboundJson(resp)
       const output = (data as { output?: { voice_id?: string; status?: string } }).output ?? {}
       reply.send(
         success({
@@ -767,6 +841,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
+      logOutboundFailure(request, e)
       const msg = (e as Error).name === 'AbortError' ? '声纹注册超时' : (e as Error).message
       reply.status(502).send(error(502, `声纹注册异常: ${msg}`))
     }
@@ -801,12 +876,14 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
         { method: 'POST', headers: dsHeaders(), body: JSON.stringify(payload) },
         60_000,
       )
-      const data = await resp.json().catch(() => ({}))
+      // G-815411:!resp.ok 先判;成功分支 abort 不折叠成空结果
       if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}))
         const msg = (data as { message?: string }).message ?? `比对失败 ${resp.status}`
         reply.status(502).send(error(502, `声纹比对失败: ${msg}`))
         return
       }
+      const data = await readOutboundJson(resp)
       const output =
         (data as { output?: { matched?: boolean; confidence?: number; score?: number } }).output ??
         {}
@@ -818,13 +895,14 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
+      logOutboundFailure(request, e)
       const msg = (e as Error).name === 'AbortError' ? '声纹比对超时' : (e as Error).message
       reply.status(502).send(error(502, `声纹比对异常: ${msg}`))
     }
   })
 
   // 9. GET /speaker/list — 声纹组列表
-  server.get('/speaker/list', async (_request, reply) => {
+  server.get('/speaker/list', async (request, reply) => {
     if (!requireDsKey(reply)) return
     try {
       const resp = await fetchWithTimeout(
@@ -832,15 +910,18 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
         { method: 'GET', headers: dsHeaders() },
         30_000,
       )
-      const data = await resp.json().catch(() => ({}))
+      // G-815411:!resp.ok 先判;成功分支 abort 不折叠成空结果
       if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}))
         const msg = (data as { message?: string }).message ?? `查询失败 ${resp.status}`
         reply.status(502).send(error(502, `声纹列表查询失败: ${msg}`))
         return
       }
+      const data = await readOutboundJson(resp)
       const output = (data as { output?: { voices?: unknown[] } }).output ?? {}
       reply.send(success({ voices: output.voices ?? [], count: (output.voices ?? []).length }))
     } catch (e) {
+      logOutboundFailure(request, e)
       const msg = (e as Error).name === 'AbortError' ? '查询超时' : (e as Error).message
       reply.status(502).send(error(502, `声纹列表查询异常: ${msg}`))
     }
@@ -860,14 +941,17 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
         { method: 'DELETE', headers: dsHeaders() },
         30_000,
       )
-      const data = await resp.json().catch(() => ({}))
+      // G-815411:!resp.ok 先判;成功分支 abort 不折叠成空结果
       if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}))
         const msg = (data as { message?: string }).message ?? `删除失败 ${resp.status}`
         reply.status(502).send(error(502, `声纹删除失败: ${msg}`))
         return
       }
+      await readOutboundJson(resp)
       reply.send(success({ voice_id: voiceId, deleted: true }))
     } catch (e) {
+      logOutboundFailure(request, e)
       const msg = (e as Error).name === 'AbortError' ? '删除超时' : (e as Error).message
       reply.status(502).send(error(502, `声纹删除异常: ${msg}`))
     }
