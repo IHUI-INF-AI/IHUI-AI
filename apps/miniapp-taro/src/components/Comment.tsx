@@ -58,7 +58,7 @@ export default function Comment({
             <View key={item.id} className="py-3 mb-2">
               <View className="flex items-start">
                 <Image
-                  className="w-8 h-8 mr-2.5 rounded-lg bg-muted"
+                  className="w-8 h-8 mr-[20rpx] rounded-lg bg-muted"
                   src={item.avatar || '/static/default-avatar.png'}
                   mode="aspectFill"
                 />
@@ -78,9 +78,9 @@ export default function Comment({
                     </Text>
                   </View>
                   {item.replies && item.replies.length > 0 && (
-                    <View className="mt-2 ml-2 pl-3 py-1.5 pr-2 bg-muted rounded-md">
+                    <View className="mt-2 ml-2 pl-3 py-[12rpx] pr-2 bg-muted rounded-md">
                       {item.replies.map((reply) => (
-                        <View key={reply.id} className="py-1.5">
+                        <View key={reply.id} className="py-[12rpx]">
                           <Text className="text-xs text-primary">
                             {reply.nickname || tt('comment.anonymous', '匿名')}
                           </Text>

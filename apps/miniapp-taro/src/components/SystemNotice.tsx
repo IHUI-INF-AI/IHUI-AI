@@ -64,7 +64,7 @@ export default function SystemNotice({ list, onClick }: SystemNoticeProps) {
             <View className="flex items-center">
               {item.type && (
                 <Text
-                  className={`text-[length:20rpx] px-1.5 py-0.5 rounded mr-2 ${
+                  className={`text-[length:20rpx] px-[12rpx] py-[4rpx] rounded mr-2 ${
                     TYPE_STYLE[item.type] || TYPE_STYLE.system
                   }`}
                 >
