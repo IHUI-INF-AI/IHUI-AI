@@ -4954,7 +4954,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(eduEnrollment.id, parsed.data.enrollmentId), isNull(eduEnrollment.deletedAt)))
       .limit(1)
     if (!enrollment) return reply.status(404).send(error(404, '报名记录不存在'))
-    const dueAmount = Math.max(enrollment.totalFee - enrollment.paidAmount, 0)
+    // 欠费额一律取账目出口。旧版这里写 `enrollment.totalFee - enrollment.paidAmount`,
+    // 那是第二个口径(且因为读的是**对象属性**而非 drizzle 列,列引用形态的对账判据看不见它),
+    // 后果是账期摊派与"无归属流水认领"都进不了这个数 —— 催缴金额会和名单不一致。
+    const ledger = await loadEnrollmentLedger(parsed.data.enrollmentId)
+    const dueAmount = ledger?.arrears ?? 0
     if (dueAmount <= 0) return reply.status(400).send(error(400, '该报名无欠费,无需催缴'))
 
     const [student] = await db
@@ -5036,6 +5040,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         and(inArray(eduEnrollment.id, parsed.data.enrollmentIds), isNull(eduEnrollment.deletedAt)),
       )
     const enrollmentMap = new Map(enrollments.map((e) => [e.id, e]))
+    // 欠费额逐条取自账目出口(与名单、汇总、定时催费同一把尺子),不再各自减一次。
+    // 批量上限 100,并发取数;取不到账目按 0 处理并落进 skipped 明细,不猜金额。
+    const arrearsById = new Map<string, number>()
+    await Promise.all(
+      parsed.data.enrollmentIds.map(async (id) => {
+        const l = await loadEnrollmentLedger(id)
+        arrearsById.set(id, l?.arrears ?? 0)
+      }),
+    )
     const skipped: Array<{ enrollmentId: string; reason: string }> = []
     const dueList = parsed.data.enrollmentIds
       .map((id) => {
@@ -5044,7 +5057,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
           skipped.push({ enrollmentId: id, reason: 'not_found' })
           return null
         }
-        const dueAmount = Math.max(enrollment.totalFee - enrollment.paidAmount, 0)
+        const dueAmount = arrearsById.get(id) ?? 0
         if (dueAmount <= 0) {
           skipped.push({ enrollmentId: id, reason: 'no_arrears' })
           return null
