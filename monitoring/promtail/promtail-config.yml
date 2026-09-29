@@ -117,6 +117,13 @@ scrape_configs:
   # "谁查过这个关键字"而不是"谁在报这个错"(同一条查询连发两次,计数就变大)。
   # 拆出 job=monitorlogs 后,应用侧判据恒 {job=~"api|ai-service|applogs"},
   # 监控自检判据走 {job="monitorlogs"};**不要**用"关掉 Loki 查询日志"来消噪(拿可审计性换账面)。
+  #
+  # LOG_SOURCE_ANCHOR: page={job=~"api|ai-service|applogs"} report-only={job="monitorlogs"}
+  #   ↑ 这一行是**机器读的那一份**(告警侧 monitoring/alertbridge/log-source-anchor.js 与
+  #   monitoring/prometheus/alerts.yml 各带一行同名标记,由同一个解析函数对账):
+  #   page= 是"照旧炸到人"的分区,report-only= 是"只报不炸"的分区。改这里的名/值,规则侧
+  #   不同值 ⇒ 桥 fail-open(一条都不压)并让 LogSourceSplitBlind 响,而不是静默分错。
+  #   取值必须真是下面某个 static_configs.labels.job(判据会核),排除面同形性也一起核。
   - job_name: windows-monitor-logs
     static_configs:
       - targets: [localhost]
