@@ -18,7 +18,23 @@ import { downloadBill as wxDownloadBill, closeOrder as wxCloseOrder } from './we
 import { closeOrder as aliCloseOrder } from './alipay.js'
 import { findPaidOrdersByDate, findExpiredOrders } from './order-service.js'
 import { updateOrderStatus } from '../db/payment-queries.js'
+import { formatDateByTemplate } from '@ihui/shared'
 import type { Order } from '@ihui/database'
+
+const MS_PER_DAY = 86400_000
+
+/**
+ * 「昨日账单日」的唯一实现:北京时区的昨日日历日。
+ *
+ * 支付宝/微信的 bill_date 由**服务端按北京时间**归档,所以这个值必须是北京日历日,
+ * 既不得取宿主时区(宿主时钟被改就错一天 —— 2026-09-04 本机被静默改成 UTC,25 天无人发现),
+ * 也不得取 UTC 日历日(北京 00:00–08:00 之间会请求**前两天的**账单)。
+ * 取时区一律经共享出口 `formatDateByTemplate`(AGENTS §3 共享层优先,与 alipay.ts 的
+ * `formatTimestamp` 同一份「北京怎么说」的实现),不得在本文件或调用方再抄一份。
+ */
+export function billDateForYesterday(nowMs: number = Date.now()): string {
+  return formatDateByTemplate(new Date(nowMs - MS_PER_DAY), 'YYYY-MM-DD')
+}
 
 export interface ReconcileDiff {
   onlyRemote: Array<{ outTradeNo: string; amount: string; tradeStatus: string }>
@@ -95,8 +111,7 @@ export async function autoReconcileYesterday(): Promise<{
   alipay: ReconcileResult
   wechat: ReconcileResult
 }> {
-  const yesterday = new Date(Date.now() - 86400_000)
-  const billDate = formatDate(yesterday)
+  const billDate = billDateForYesterday()
   return reconcileAll(billDate)
 }
 
@@ -274,10 +289,5 @@ function buildDiff(
     remoteCount: remoteTrades.length,
     diff: { onlyRemote, onlyLocal },
   }
-}
-
-function formatDate(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

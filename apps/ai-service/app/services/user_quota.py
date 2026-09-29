@@ -24,6 +24,9 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+# 试用额度的日窗键 = **UTC**(与 llm_budget_governor 的日/时窗键同一套约定,键空间共用
+# 语义)。这里产生的是 Redis 计数键而非用户可见日期,改约定会让当日在途计数换键归零,
+# 故刻意不与东八区口径对齐 —— 见 llm_budget_governor.py 上方同一段说明。
 def _today_key() -> str:
     return datetime.now(UTC).strftime("%Y%m%d")
 
