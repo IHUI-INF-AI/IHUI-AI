@@ -1685,7 +1685,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: surface,
     },
     inputFocused: {
-      borderColor: colorScheme === 'dark' ? tk.surface.light : tk.gray.black,
+      borderColor: tk.brand.DEFAULT, // 聚焦态墨档(亮纯黑/暗纯白,§4 唯一例外位);旧写法 dark 取 surface.light=#262626,深色页上等于看不见
       borderWidth: 2,
     },
     codeRow: {
@@ -1710,7 +1710,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       overflow: 'hidden',
     },
     phoneRowFocused: {
-      borderColor: colorScheme === 'dark' ? tk.surface.light : tk.gray.black,
+      borderColor: tk.brand.DEFAULT, // 聚焦态墨档(亮纯黑/暗纯白,§4 唯一例外位);旧写法 dark 取 surface.light=#262626,深色页上等于看不见
       borderWidth: 2,
     },
     areaBox: {
