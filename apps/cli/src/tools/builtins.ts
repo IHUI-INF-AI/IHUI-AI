@@ -14,6 +14,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { runSandboxed, runSandboxedAsync } from '../sandbox/index.js';
+import type { SandboxResult } from '../sandbox/index.js';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
 import { highlightCode } from '../highlight.js';
 import {
@@ -656,14 +657,72 @@ export const glob: Tool = {
   },
 };
 
+// ==================== G-896416 超时自动转后台 ====================
+
+/**
+ * 收编任务的后台预算(毫秒):与显式后台分支同款 600s,不另立第二处真相。
+ * 上游 ZCode 没有这个数 —— 它的 `bash.ts:178-184` 只把执行模式切到
+ * `auto_on_timeout`,后续预算由它自己的 background lifecycle 管;我方的预算
+ * 统一落在注册表调用方,显式后台是 600s,收编任务沿用同一预算。
+ */
+const ADOPTED_BACKGROUND_BUDGET_MS = 600_000;
+
+/** 收编任务的预算定时器记账:正常结算路径 clearTimeout + 摘除,不留悬挂句柄。 */
+const adoptedDeadlineTimers = new Set<NodeJS.Timeout>();
+
+/**
+ * 前台超时钳制:默认 30s(与历史行为同值),下界 1s(防 0/负数把 race 变成
+ * "还没跑就转后台"),上界 600s(与后台预算同一条天花板)。非有限数回默认。
+ * `export` 只为让回归测试引用同一份实现,不在测试里抄第二处判据。
+ */
+export function clampForegroundTimeout(v: unknown): number {
+  const n = typeof v === 'number' ? v : Number(v);
+  if (!Number.isFinite(n) || n <= 0) return 30_000;
+  return Math.min(Math.max(Math.round(n), 1_000), 600_000);
+}
+
+/**
+ * 可收编判据 —— 形状照上游 ZCode `tool/handlers/bash-background-policy.ts:3-9`
+ * (`isBashAutoBackgroundEligible`):trim 后非空、首 token ≠ 'sleep'(sleep 类
+ * 纯等待命令转后台毫无意义,等于把无输出原样押后)。
+ * 偏离如实登记:上游还有第二维"闲时 turn 才允许自动后台"(`bash.ts:138-152`
+ * 的 offPeakTurn,闲时连显式后台一起拒),我方 HEAD 没有"闲时 turn"概念
+ * (git grep offPeak 0 命中),该维无落点;重开条件=未来引入闲时 turn 调度。
+ * `export` 同 clampForegroundTimeout:回归直接引同一份判据,不抄第二处。
+ */
+export function isAutoBackgroundEligible(command: string): boolean {
+  const trimmed = command.trim();
+  if (!trimmed) return false;
+  const first = (trimmed.split(/\s+/)[0] ?? '').toLowerCase();
+  return first !== 'sleep';
+}
+
+/**
+ * 前台结算:原 run_command 同步路径的 parts 拼装原样抽成一处,收编路径
+ * (" race 输给了正常结束")与原路径共用,保证两条路对同一结果的输出逐字节同形。
+ */
+function settleForegroundResult(result: SandboxResult): ToolResult {
+  const parts: string[] = [];
+  if (result.stdout.trim()) parts.push(result.stdout.trimEnd());
+  if (result.stderr.trim()) parts.push(`[stderr] ${result.stderr.trimEnd()}`);
+  if (result.timedOut) parts.push('[超时]');
+  if (result.exitCode !== null && result.exitCode !== 0) parts.push(`[exit: ${result.exitCode}]`);
+  return {
+    success: result.exitCode === 0,
+    output: parts.join('\n') || '(无输出)',
+    error: result.exitCode !== 0 ? `退出码 ${result.exitCode}` : undefined,
+  };
+}
+
 export const run_command: Tool = {
   name: 'run_command',
   description:
-    '在沙盒中执行 shell 命令(带超时和路径限制)。参数:command(shell 命令),background(可选 true=后台执行立即返回 task_id)。',
+    '在沙盒中执行 shell 命令(带超时和路径限制)。参数:command(shell 命令),background(可选 true=后台执行立即返回 task_id),timeout_ms(可选前台超时,默认 30000)。前台命令超时且可收编时自动转入后台继续执行并返回 task_id(sleep 等纯等待命令除外)。',
   dangerLevel: 'dangerous',
   parameters: {
     command: { type: 'string', description: '要执行的 shell 命令' },
     background: { type: 'boolean', description: '后台执行,立即返回 task_id(用 list_background_tasks/get_command_output/wait_command 查询)' },
+    timeout_ms: { type: 'number', description: '前台超时毫秒(可选,默认 30000,范围 1000~600000);超时且命令可收编时自动转后台' },
   },
   required: ['command'],
   async execute(args, ctx): Promise<ToolResult> {
@@ -720,25 +779,64 @@ export const run_command: Tool = {
       };
     }
 
-    // 同步执行(原有逻辑)
-    const result = runSandboxed(command, {
+    // 同步执行。可收编的命令(G-896416)走"到点不杀、收编进后台"变体;其余命令保持
+    // runSandboxed 同步原路径逐字不变(失败现场诊断 failureKind/fsExhaustion 只在
+    // 同步结算里,不给非收编路径降级)。
+    const timeoutMs = clampForegroundTimeout(args.timeout_ms);
+    const sandboxOpts = {
       cwd: ctx.workspacePath,
-      timeoutMs: 30_000,
+      timeoutMs,
       allowedPaths: [ctx.workspacePath, ...(ctx.sandbox?.allowedPaths ?? [])],
       commandAllowlist: ctx.sandbox?.commandAllowlist,
       blockedEnvVars: ctx.sandbox?.blockedEnvVars,
-    });
-    runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut });
-    const parts: string[] = [];
-    if (result.stdout.trim()) parts.push(result.stdout.trimEnd());
-    if (result.stderr.trim()) parts.push(`[stderr] ${result.stderr.trimEnd()}`);
-    if (result.timedOut) parts.push('[超时]');
-    if (result.exitCode !== null && result.exitCode !== 0) parts.push(`[exit: ${result.exitCode}]`);
-    return {
-      success: result.exitCode === 0,
-      output: parts.join('\n') || '(无输出)',
-      error: result.exitCode !== 0 ? `退出码 ${result.exitCode}` : undefined,
     };
+    if (isAutoBackgroundEligible(command)) {
+      // G-896416 超时自动转后台 —— 上游 ZCode `tool/handlers/bash.ts:178-184`:
+      // `eligibleForAutoBackground && backgroundLifecyclePort ⇒ runBashWithBackgroundLifecycle(request,{mode:"auto_on_timeout"})`。
+      // 到点是分叉点不是终点:先回一句"已转后台 bg_xxx",进程不死,由注册表接管。
+      let fireDeadline: () => void = () => {};
+      const deadlineHit = new Promise<void>((resolve) => {
+        fireDeadline = resolve;
+      });
+      const handle = runSandboxedAsync(command, { ...sandboxOpts, onDeadline: () => fireDeadline() });
+      const winner = await Promise.race([
+        deadlineHit.then(() => 'deadline' as const),
+        handle.result.then(() => 'done' as const),
+      ]);
+      if (winner === 'deadline') {
+        const taskId = registerTask(handle.process, command);
+        // 收编后的后台预算:与显式后台同款 600s。到点杀,且必须留 `timedOut` 档
+        // (killTask 的 deadline 持有者形态)而不是 user/model —— 与 G-816026 三态互斥。
+        const bgDeadline = setTimeout(() => {
+          adoptedDeadlineTimers.delete(bgDeadline);
+          void killTask(taskId, undefined, { timedOut: true });
+        }, ADOPTED_BACKGROUND_BUDGET_MS);
+        adoptedDeadlineTimers.add(bgDeadline);
+        handle.result
+          .then((result) => {
+            clearTimeout(bgDeadline);
+            adoptedDeadlineTimers.delete(bgDeadline);
+            runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut, background: true, taskId });
+          })
+          .catch(() => {
+            /* ignore */
+          });
+        return {
+          success: true,
+          output:
+            `[前台等待超时(${timeoutMs}ms),已自动转入后台继续执行(进程未被终止)]\n` +
+            `  task_id: ${taskId}\n` +
+            `  command: ${command}\n` +
+            `  收编前的输出不进后台缓冲;用 get_command_output ${taskId} 看输出,wait_command ${taskId} 等结束,kill_command ${taskId} 终止。` +
+            `后台预算 ${Math.round(ADOPTED_BACKGROUND_BUDGET_MS / 1000)}s,到点会被终止并标为超时(不要当作用户/模型手停)`,
+        };
+      }
+      const result = await handle.result;
+      return settleForegroundResult(result);
+    }
+    const result = runSandboxed(command, sandboxOpts);
+    runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut });
+    return settleForegroundResult(result);
   },
 };
 
