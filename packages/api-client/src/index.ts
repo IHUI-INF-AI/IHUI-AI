@@ -90,6 +90,14 @@ export type {
   SteerEvent,
   InjectionAppliedEvent,
   RetryScheduledEvent,
+  // D130(2026-09-30 立,F1 补刀 2026-09-29):推理强度档位被后端钉回时的回落通知类型。
+  // 本包入口是**显式命名清单**,漏一条端内拿到 undefined —— 而 `apps/web/next.config.ts` 的
+  // `typescript.ignoreBuildErrors: true` 吞掉 TS2724、打包器按 `exports → dist/index.js` 解析,
+  // 构建与其余对账一路绿(守门 149 与上面 D106/postToolApprovalResponse 同一型)。
+  // 车证:apps/web/src/components/chat/__tests__/reasoning-effort-axis-mount.test.tsx D130⑥。
+  // `onReasoningEffortNotice` 不单独递出 —— 它是上面 StreamChatOptions 的**字段**(回调入参
+  // 即本类型),递出这两个名字就等于递出了那条回调的两端类型。
+  ReasoningEffortNotice,
 } from './client.js'
 // AI 对话可视化 Phase 4a 事件类型 re-export(2026-08-01,消息级 plan/terminal inline 展示)
 export type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'

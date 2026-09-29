@@ -103,6 +103,9 @@ test('T7 装车证明:已注册则必须成套(blocking + skipEnv 用门自己�
   const entry = runner.slice(Math.max(0, at - 900), at + 900)
   assert.match(entry, /mode:\s*'blocking'/)
   assert.match(entry, new RegExp(`skipEnv:\\s*'${gate.SELF_SKIP}'`), '应急跳过名必须与门自己声明的同一个')
+  // 本门**默认档只报数**(存量漂移不该造恒红门),所以提交链上必须有 --strict 才有牙;
+  // 少了它,这道门就是一个永不拦截的装饰 —— 与守门 117 升档时"不带 args 的升档是假的"同一课。
+  assert.match(entry, /args:\s*\[[^\]]*'--strict'/, "runner 条目缺 '--strict' ⇒ 提交链上判据永不判红")
 })
 
 test('T8 门自己不得谎报接线(头注措辞受守门 89 R1 管辖)', () => {
