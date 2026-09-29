@@ -8387,6 +8387,10 @@
           "title": "参数不完整或无效",
           "action": "修改后重试"
         },
+        "NEEDS_INPUT_TIMEOUT": {
+          "title": "命令等待输入超时",
+          "action": "补答后重试"
+        },
         "NESTING_DEPTH_EXCEEDED": {
           "title": "结构层级超出可处理范围",
           "action": "简化后重试"
@@ -10444,6 +10448,9 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "attachRejectType": "类型不支持,已跳过 {count} 个文件:{names}",
+    "attachRejectSize": "文件超过大小上限({max}MB),已跳过 {count} 个文件:{names}",
+    "attachRejectCount": "附件最多 {max} 个,本次被拒 {count} 个",
     "mentionEngine": {
       "tabFile": "文件",
       "tabFolder": "文件夹",
@@ -25879,6 +25886,10 @@
     "title": "Agent 运行任务",
     "refresh": "刷新",
     "empty": "暂无 agent 任务(由 /agent/run 或自动化创建)",
+    "statusRunning": "运行中",
+    "statusCompleted": "已完成",
+    "statusFailed": "失败",
+    "statusCanceled": "已取消",
     "iterations": "已迭代 {count} 轮",
     "injectPlaceholder": "中途插话:补充指令/纠偏…",
     "inject": "插话",

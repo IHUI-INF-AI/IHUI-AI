@@ -25,10 +25,34 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from ..core.jwt_auth import DEV_ANONYMOUS_PRINCIPAL
 from ..core.llm_gateway import llm_gateway
+from .session_store import owner_scoped_allows
 from .skills import skill_registry
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_caller(principal: str | None) -> str | None:
+    """把 `require_request_user_id` 的开发降级身份归一成 None(= 无身份通道)。
+
+    存在理由:该出口在"本进程根本没做 JWT 校验"时回落单一 `DEV_ANONYMOUS_PRINCIPAL`,
+    那是**一个假主体**而不是一个人的身份 —— 把它当属主写进行,等于用"dev-anonymous"
+    把开发期产生的所有行互相绑定,以后任何真实用户都再也读不到它们;而把它当主体喂给
+    工具(`__user_id`),下游会按一个不存在的用户去查长期记忆/教务数据。
+
+    归一成 None 的语义是"无从对账":属主闸不生效、落库不写属主、工具不带身份,
+    与改动前逐字同形(AGENTS §5「没有属主」与「属主是攻击者选的那个人」必须区分)。
+    生产侧(`auth_globally_enforced()` 为真)永远不会拿到这个常量,所以这一归一
+    不会把任何真实的越权路径放过去。
+    """
+    if principal is None or principal == DEV_ANONYMOUS_PRINCIPAL:
+        return None
+    return cast_str_or_none(principal)
+
+
+def cast_str_or_none(value: object) -> str | None:
+    return value if isinstance(value, str) and value else None
 
 # ---------------------------------------------------------------------------
 # 数据模型
@@ -48,6 +72,9 @@ class Workflow:
     createdAt: str = ""
     updatedAt: str = ""
     seq: int = 0  # 创建序号(同微秒时间戳排序 tiebreaker,保证 list_workflows 确定性)
+    # 属主(令牌主体)。None = 无身份通道创建(开发降级),属主闸对这类行不生效。
+    # 刻意不进 workflow_to_dict:它是授权事实不是对外字段,加进响应会改响应 shape。
+    userId: str | None = None
 
 
 @dataclass
@@ -62,6 +89,9 @@ class WorkflowInstance:
     completedAt: str = ""
     input: dict[str, Any] = field(default_factory=dict)
     output: str = ""
+    # 触发者主体:后台执行链(_execute_instance)已脱离 request,工具步骤的身份
+    # 只能由这条记录带着 —— 否则"谁的工作流跑了什么工具"在账面上永远无人。
+    userId: str | None = None
 
 
 @dataclass
@@ -120,8 +150,10 @@ class WorkflowEngine:
         description: str,
         triggerType: str,
         steps: list[dict[str, Any]],
+        *,
+        owner: str | None = None,
     ) -> Workflow:
-        """创建新工作流。"""
+        """创建新工作流。owner 由承载层用令牌主体传入,绝不取请求体自报字段。"""
         now = datetime.now(UTC).isoformat()
         self._create_seq += 1
         wf = Workflow(
@@ -134,22 +166,30 @@ class WorkflowEngine:
             createdAt=now,
             updatedAt=now,
             seq=self._create_seq,
+            userId=owner,
         )
         self._workflows[wf.id] = wf
         logger.info("workflow_engine 创建工作流: id=%s name=%s", wf.id, wf.name)
         return wf
 
-    def list_workflows(self) -> list[Workflow]:
-        """列出所有工作流(按创建时间降序,同微秒按创建序号倒序保证确定性)。"""
+    def list_workflows(self, principal: str | None = None) -> list[Workflow]:
+        """列出调用方可见的工作流(按创建时间降序,同微秒按创建序号倒序保证确定性)。
+
+        principal=None(无身份通道)时不加闸 —— 逐字保持改动前行为;带身份时只列自己那份。
+        """
+        rows = [w for w in self._workflows.values() if owner_scoped_allows(principal, w.userId)]
         return sorted(
-            self._workflows.values(),
+            rows,
             key=lambda w: (w.createdAt, w.seq),
             reverse=True,
         )
 
-    def get_workflow(self, workflow_id: str) -> Workflow | None:
-        """获取单个工作流。"""
-        return self._workflows.get(workflow_id)
+    def get_workflow(self, workflow_id: str, principal: str | None = None) -> Workflow | None:
+        """获取单个工作流。带身份且非属主时返回 None(与"不存在"同形,不给存在性 oracle)。"""
+        wf = self._workflows.get(workflow_id)
+        if wf is None or not owner_scoped_allows(principal, wf.userId):
+            return None
+        return wf
 
     def update_workflow(
         self,
@@ -159,9 +199,11 @@ class WorkflowEngine:
         triggerType: str | None = None,
         steps: list[dict[str, Any]] | None = None,
         isActive: bool | None = None,
+        *,
+        principal: str | None = None,
     ) -> Workflow | None:
-        """更新工作流。返回 None 表示不存在。"""
-        wf = self._workflows.get(workflow_id)
+        """更新工作流。返回 None 表示不存在或非本人可见。"""
+        wf = self.get_workflow(workflow_id, principal)
         if not wf:
             return None
         if name is not None:
@@ -177,11 +219,12 @@ class WorkflowEngine:
         wf.updatedAt = datetime.now(UTC).isoformat()
         return wf
 
-    def delete_workflow(self, workflow_id: str) -> bool:
-        """删除工作流。"""
-        if workflow_id not in self._workflows:
+    def delete_workflow(self, workflow_id: str, principal: str | None = None) -> bool:
+        """删除工作流。非本人可见的那一行返回 False 且**不被删除**(先判属主再动字典)。"""
+        wf = self.get_workflow(workflow_id, principal)
+        if wf is None:
             return False
-        del self._workflows[workflow_id]
+        del self._workflows[wf.id]
         return True
 
     # =========================================================================
@@ -192,13 +235,19 @@ class WorkflowEngine:
         self,
         workflow_id: str,
         input_data: dict[str, Any] | None = None,
+        *,
+        principal: str | None = None,
     ) -> WorkflowInstance | None:
         """触发工作流执行。
 
         返回 WorkflowInstance(异步执行,状态 pending)。
         实际执行在后台 task 中异步推进。
+
+        属主闸排在"已禁用/正在运行"这类状态判定**之前**:非本人可见的工作流一律返回
+        None,既不创建实例、也不置 `_running_instances`、更不起后台 task —— 否则
+        "别人的禁用工作流"与"别人的正常运行中工作流"在响应上仍可被区分出来。
         """
-        wf = self._workflows.get(workflow_id)
+        wf = self.get_workflow(workflow_id, principal)
         if not wf:
             return None
         if not wf.isActive:
@@ -218,6 +267,9 @@ class WorkflowEngine:
             status="pending",
             startedAt=now,
             input=input_data or {},
+            # 无身份通道触发时,实例继承定义行的属主(而不是写一个假主体),
+            # 这样后台工具步骤仍拿到"这条流水线本该以谁的身份跑"。
+            userId=principal if principal is not None else wf.userId,
         )
         self._instances[inst.id] = inst
         self._tasks[inst.id] = []
@@ -276,7 +328,9 @@ class WorkflowEngine:
             self._log(inst.id, "info", f"执行第 {idx + 1} 步: {step_name}({step_type})")
 
             try:
-                result = await self._execute_step(step, inst.input, inst.id)
+                result = await self._execute_step(
+                    step, inst.input, inst.id, user_id=inst.userId
+                )
                 if result.get("error"):
                     task.status = "failed"
                     task.error = str(result["error"])
@@ -381,6 +435,8 @@ class WorkflowEngine:
         step: dict[str, Any],
         context: dict[str, Any],
         instance_id: str,
+        *,
+        user_id: str | None = None,
     ) -> dict[str, Any]:
         """执行单步。
 
@@ -393,6 +449,10 @@ class WorkflowEngine:
         - loop: 按 count 次循环执行 steps(默认 1,上限 20),注入 loop_index
         - parallel: asyncio.gather 并发执行 steps,单步失败不影响其他步
         - tool: 调 mcp_server 的 MCP 工具(按 config.tool/toolName 查找)
+
+        user_id 是**承载层注入**的调用者主体(由实例记录带进后台执行链),
+        不是 step 里的字段 —— 步骤 JSON 属调用方可写面,自报身份一律不认。
+        None(无身份通道)时 call_tool 的形参照旧取默认,与改动前逐字同形。
         """
         step_type = str(step.get("type", "llm"))
         step_input = str(step.get("input", ""))
@@ -450,7 +510,7 @@ class WorkflowEngine:
             branch_results: list[dict[str, Any]] = []
             for sub_step in branch:
                 branch_results.append(
-                    await self._execute_step(sub_step, context, instance_id)
+                    await self._execute_step(sub_step, context, instance_id, user_id=user_id)
                 )
             return {
                 "output": json.dumps(
@@ -491,7 +551,9 @@ class WorkflowEngine:
                 iteration_results: list[dict[str, Any]] = []
                 for sub_step in loop_steps:
                     iteration_results.append(
-                        await self._execute_step(sub_step, loop_context, instance_id)
+                        await self._execute_step(
+                            sub_step, loop_context, instance_id, user_id=user_id
+                        )
                     )
                 iterations.append(iteration_results)
             return {
@@ -509,7 +571,9 @@ class WorkflowEngine:
                 sub_step: dict[str, Any],
             ) -> dict[str, Any]:
                 try:
-                    return await self._execute_step(sub_step, context, instance_id)
+                    return await self._execute_step(
+                        sub_step, context, instance_id, user_id=user_id
+                    )
                 except Exception as e:
                     return {"error": str(e)}
 
@@ -541,7 +605,10 @@ class WorkflowEngine:
             if tool_name not in _TOOL_HANDLERS:
                 return {"error": f"工具不存在: {tool_name}"}
             try:
-                result = await mcp_server.call_tool(tool_name, arguments)
+                # 身份由承载层(实例记录带着触发者主体)显式喂进去,不是由 step 配置自报:
+                # 步骤 JSON 是调用方可写字段,`config.user` 这类键一旦生效就是"可认领别人身份"。
+                # user_id=None(无身份通道)与改动前逐字同形(call_tool 默认 None,跳过 LTM)。
+                result = await mcp_server.call_tool(tool_name, arguments, user_id=user_id)
             except Exception as e:
                 return {"error": f"工具调用失败: {e}"}
             return {
@@ -554,9 +621,15 @@ class WorkflowEngine:
     # 实例管理
     # =========================================================================
 
-    def list_instances(self, workflow_id: str | None = None) -> list[WorkflowInstance]:
-        """列出实例(按开始时间降序)。"""
-        instances = list(self._instances.values())
+    def list_instances(
+        self,
+        workflow_id: str | None = None,
+        principal: str | None = None,
+    ) -> list[WorkflowInstance]:
+        """列出调用方可见的实例(按开始时间降序)。"""
+        instances = [
+            i for i in self._instances.values() if owner_scoped_allows(principal, i.userId)
+        ]
         if workflow_id:
             instances = [i for i in instances if i.workflowId == workflow_id]
         return sorted(
@@ -565,21 +638,36 @@ class WorkflowEngine:
             reverse=True,
         )
 
-    def get_instance(self, instance_id: str) -> WorkflowInstance | None:
-        """获取单个实例。"""
-        return self._instances.get(instance_id)
+    def get_instance(self, instance_id: str, principal: str | None = None) -> WorkflowInstance | None:
+        """获取单个实例。带身份且非属主时返回 None(与"不存在"同形)。"""
+        inst = self._instances.get(instance_id)
+        if inst is None or not owner_scoped_allows(principal, inst.userId):
+            return None
+        return inst
 
-    def get_instance_tasks(self, instance_id: str) -> list[WorkflowTask]:
-        """获取实例的任务列表。"""
+    def get_instance_tasks(
+        self, instance_id: str, principal: str | None = None
+    ) -> list[WorkflowTask]:
+        """获取实例的任务列表(非本人可见的实例返回空列表,与"该实例没有任务"同形)。"""
+        if self.get_instance(instance_id, principal) is None:
+            return []
         return self._tasks.get(instance_id, [])
 
-    def get_instance_logs(self, instance_id: str) -> list[WorkflowLog]:
-        """获取实例的日志列表。"""
+    def get_instance_logs(
+        self, instance_id: str, principal: str | None = None
+    ) -> list[WorkflowLog]:
+        """获取实例的日志列表(非本人可见的实例返回空列表,同上)。"""
+        if self.get_instance(instance_id, principal) is None:
+            return []
         return self._logs.get(instance_id, [])
 
-    async def cancel_instance(self, instance_id: str) -> bool:
-        """取消运行中的实例。"""
-        inst = self._instances.get(instance_id)
+    async def cancel_instance(self, instance_id: str, principal: str | None = None) -> bool:
+        """取消运行中的实例。
+
+        属主闸**先于**状态判定:非本人可见时直接返回 False,不 set 取消事件,
+        于是"别人的实例"与"不存在的实例"在副作用与响应上都不留差异。
+        """
+        inst = self.get_instance(instance_id, principal)
         if not inst:
             return False
         if inst.status not in ("pending", "running"):
@@ -589,17 +677,23 @@ class WorkflowEngine:
             cancel_event.set()
         return True
 
-    async def retry_instance(self, instance_id: str) -> WorkflowInstance | None:
-        """重试失败的实例(创建新实例,使用原工作流)。"""
-        inst = self._instances.get(instance_id)
+    async def retry_instance(
+        self, instance_id: str, principal: str | None = None
+    ) -> WorkflowInstance | None:
+        """重试失败的实例(创建新实例,使用原工作流)。
+
+        源实例与工作流两道属主闸都在状态判定之前;新实例的属主是**当前调用者**,
+        没有调用者身份时继承源实例的属主(与 trigger_workflow 同规则,不写假主体)。
+        """
+        inst = self.get_instance(instance_id, principal)
         if not inst:
             return None
         if inst.status not in ("failed", "cancelled"):
             return None
-        wf = self._workflows.get(inst.workflowId)
+        wf = self.get_workflow(inst.workflowId, principal)
         if not wf:
             return None
-        return await self.trigger_workflow(inst.workflowId, inst.input)
+        return await self.trigger_workflow(inst.workflowId, inst.input, principal=principal)
 
     # =========================================================================
     # 序列化

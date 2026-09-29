@@ -79,9 +79,11 @@ test('T1 装配对账:未注册时不得冒充已装车;注册后必须成套(bl
     return
   }
   // 注册后:条目必须成套。按脚本名定位注册块(不硬写编号 —— 编号以 runner 现值为准)
-  const occurrences = runner.match(/check-doom-loop-parity\.mjs/g) ?? []
-  assert.equal(occurrences.length, 1, 'runner 中本门脚本名只允许出现一次(撞号/重复注册)')
-  const at = runner.indexOf("script: 'scripts/check-doom-loop-parity.mjs'")
+  // 判"注册条目唯一",不判"脚本文本出现一次":runner 的 onFailHint 里必然再提一次门的名字,
+  // 拿文本次数当撞号判据会把**正常注册**判成红(本仓 §22c:镜像测试只复读实现就是复读机)。
+  const registrations = runner.match(/script:\s*'[^']*check-doom-loop-parity\.mjs'/g) ?? []
+  assert.equal(registrations.length, 1, `本门在 runner 中的注册条目必须恰好一条(现 ${registrations.length} 条)`)
+  const at = runner.search(/script:\s*'[^']*check-doom-loop-parity\.mjs'/)
   assert.ok(at >= 0, 'runner 注册块缺 script 字段(仅路径字符串不构成装车)')
   const block = runner.slice(Math.max(0, at - 1200), at + 1200)
   assert.match(block, /mode:\s*'blocking'/, '本门注册必须是 blocking')
