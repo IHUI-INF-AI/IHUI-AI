@@ -214,6 +214,9 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         "login_url": "https://login.sina.com.cn/signup/signin.php",
         "success_cookies": ["SCF", "SUB", "SUBP", "ALF"],
         "success_url_pattern": r"login\.sina\.com\.cn/cgi|weibo\.com/u/",
+        # 2026-09-30 探针实测:登录页 span[微信登录] 点击后出真微信官方码
+        # (open.weixin.qq.com/connect/qrcode)→ 接入微信码通道
+        "scan_tab_selectors": ('span:text("微信登录")',),
     },
     # ===== 视频平台(2026-08-01 扩展)=====
     "xigua": {
@@ -234,18 +237,27 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         "login_url": "https://passport.baidu.com/v2/?login",
         "success_cookies": ["BDUSS", "STOKEN"],
         "success_url_pattern": r"passport\.baidu\.com/center|zhidao\.baidu\.com",
+        # 2026-09-30 探针实测:百度统一登录层第三方行(.pass-phoenix-btn)微信图标
+        # 点击后出微信码(passport.baidu.com/v2/api/qrcode)→ 接入;扫码确认后
+        # BDUSS 登录态照常发放,success_cookies 检测不变
+        "scan_tab_selectors": ('.pass-phoenix-btn a:has-text("微信")',),
     },
     "baidu_tieba": {
         "name": "百度贴吧",
         "login_url": "https://passport.baidu.com/v2/?login",
         "success_cookies": ["BDUSS", "STOKEN", "TIEBA_USERTYPE"],
         "success_url_pattern": r"tieba\.baidu\.com/(index|home)",
+        # 2026-09-30 探针实测:与百度知道同一 passport 登录层,微信图标同款可点出码
+        "scan_tab_selectors": ('.pass-phoenix-btn a:has-text("微信")',),
     },
     "douban": {
         "name": "豆瓣",
         "login_url": "https://accounts.douban.com/passport/login",
         "success_cookies": ["dbcl2", "ck"],
         "success_url_pattern": r"accounts\.douban\.com/passport|douban\.com/mine",
+        # 2026-09-30 探针实测:登录表单第三方图标 a.link-3rd-wx 点击后出**真微信官方码**
+        # (open.weixin.qq.com/connect/qrcode,160px)→ 接入
+        "scan_tab_selectors": ('a.link-3rd-wx',),
     },
     "36kr": {
         "name": "36氪",
