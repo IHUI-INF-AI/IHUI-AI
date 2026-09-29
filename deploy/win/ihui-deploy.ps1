@@ -66,6 +66,28 @@ try {
 $Root       = 'D:\IHUI-AI'
 $WebDir     = "$Root\apps\web"
 $ApiDir     = "$Root\apps\api"
+# ── 构建取源码面:干净导出(worktree @ 目标 SHA)而**不再是共享工作树**(2026-09-29 机主拍板)──
+# 成因(当天实测,不是假想):本机就是生产机,而旧口径从 `$WebDir`(共享工作树)取源码,
+# 于是任何一个并行会话写一半的文件都能当场把全队上线打死 —— 16:10/16:14/16:21/16:27 四轮
+# `next build` 全红,报错 5 条全在 `apps/web/src/components/chat/stream-alert-bar.tsx`,
+# 其中被判"未使用"的符号 `isActiveAlert` 在 **HEAD 面出现 0 次** ⇒ 红来自一份**未提交**的副本,
+# 线上因此停在 `34d27084f1` 而 origin 已到 `65b8ac19`。蓝绿只隔离产物不隔离源码,这就是那一格。
+# 两臂对照已跑过:同一枚 HEAD,脏面 4 连败;`git worktree add --detach` + `pnpm install` 后
+# 在导出面跑 `pnpm --filter @ihui/web typecheck` = RC 0(证据 `.ihui-agent/tmp/ledger/ev-clean-tc.txt`)。
+# 应急回退:`IHUI_DEPLOY_CLEAN_BUILD=0` 退回旧行为(读共享工作树);导出面本身准备失败时也会
+# **大声回退**并打 `[CLEAN-BUILD] FALLBACK` 行 —— 宁可线上继续更新但隔离暂时失效,也不要没有部署。
+$CleanBuildEnabled = ($env:IHUI_DEPLOY_CLEAN_BUILD -ne '0')
+$CleanBuildWt = if ($env:IHUI_DEPLOY_CLEAN_WT) { $env:IHUI_DEPLOY_CLEAN_WT } else { "$Root\.ihui-agent\tmp\clean-build-wt" }
+# 爆炸半径防线:本函数会在新建净面前 `Remove-Item -Recurse -Force` 那个目录。环境变量被写歪
+# (拼错、指到仓库根、指到盘根)时,那一条就成了"删掉整个仓库"。所以路径必须同时满足:
+# 落在 $Root\.ihui-agent\tmp\ 之下、去尾斜杠后长度明显大于该前缀。不满足 ⇒ 直接禁用净面并喊出来,
+# **宁可退回旧行为,也绝不带着一个可疑路径去递归删**。
+$CleanBuildPrefix = "$Root\.ihui-agent\tmp\"
+$CleanBuildPathOk = ($CleanBuildWt -like ($CleanBuildPrefix + '*')) -and ($CleanBuildWt.TrimEnd('\').Length -gt $CleanBuildPrefix.Length)
+if (-not $CleanBuildPathOk) {
+    Write-Output "[CLEAN-BUILD] DISABLED: 净面路径不落在 .ihui-agent/tmp 之下,拒绝带着它执行递归删除:$CleanBuildWt"
+    $CleanBuildEnabled = $false
+}
 $AiDir      = "$Root\apps\ai-service"
 $BackupDir  = 'D:\DevEnv\backups\deploy'
 # 健康门禁凭据的生产机本地兜底文件(仓库外;IHUI_ADMIN_PASSWORD 优先)
@@ -707,15 +729,72 @@ function Clear-BuildCooldown {
     if (Test-Path $BuildCooldownFile) { Remove-Item $BuildCooldownFile -Force -ErrorAction SilentlyContinue }
 }
 
+function Get-CleanBuildWebDir {
+    <#
+      返回一个"内容恰等于目标 SHA"的 apps\web 目录路径;返回 '' 表示不可用(调用方大声回退)。
+      为什么要有它:旧口径直接编译 $WebDir(共享工作树),于是任何一个并行会话的半截编辑都能
+      打死全队上线(2026-09-29 16:10–16:27 四轮构建全红,红源是一份**未提交**的文件,HEAD 面
+      连那个符号都没有)。linked worktree 与主仓**共用对象库** ⇒ 同步到目标 SHA 不联网、不 fetch。
+      三条"不许把没判当成判过":① 不信命令的退出码,`rev-parse HEAD` 回读必须等于目标 SHA;
+      ② 导出面 `status --porcelain` 非空即拒绝使用(它就不再是净面);③ 依赖缺失时是**装完再回读**
+      判定,而不是"pnpm install 没报错就算好"。
+    #>
+    param([string]$Sha)
+    if (-not $CleanBuildEnabled) { return '' }
+    if (-not $Sha) { Log '[CLEAN-BUILD] 目标 SHA 取不到 ⇒ 本轮不启用净面(未判定,不是已通过)'; return '' }
+    try {
+        if (-not (Test-Path (Join-Path $CleanBuildWt '.git'))) {
+            if (Test-Path $CleanBuildWt) {
+                Log "[CLEAN-BUILD] 目录存在但不是 worktree(疑半截残留)⇒ 删除重建:$CleanBuildWt"
+                Remove-Item $CleanBuildWt -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            Log "[CLEAN-BUILD] git worktree add --detach $CleanBuildWt $Sha"
+            git worktree add --detach $CleanBuildWt $Sha 2>&1 | ForEach-Object { Log "[clean-out] $_" }
+            if ($LASTEXITCODE -ne 0) { throw "worktree add 失败 exit=$LASTEXITCODE" }
+        } else {
+            git -C $CleanBuildWt checkout --detach --force $Sha 2>&1 | ForEach-Object { Log "[clean-out] $_" }
+            if ($LASTEXITCODE -ne 0) { throw "checkout --detach 失败 exit=$LASTEXITCODE" }
+        }
+        $at = ((git -C $CleanBuildWt rev-parse HEAD) | Out-String).Trim()
+        if ($at -ne $Sha) { throw "回读不一致:导出面 HEAD=$at 目标=$Sha" }
+        $dirtyLines = @((git -C $CleanBuildWt status --porcelain 2>$null | Out-String) -split "`n" | Where-Object { $_.Trim() -ne '' }).Count
+        if ($dirtyLines -gt 0) { throw "导出面有 $dirtyLines 项改动 ⇒ 它不是净面,拒绝用来构建" }
+        $webBin = Join-Path $CleanBuildWt 'apps\web\node_modules\.bin\next.cmd'
+        if (-not (Test-Path $webBin)) {
+            Log '[CLEAN-BUILD] 导出面依赖缺失 ⇒ pnpm install --frozen-lockfile(首次数分钟,期间持续续心跳)'
+            Push-Location $CleanBuildWt
+            try {
+                & 'D:\DevEnv\tools\npm-global\pnpm.cmd' install --frozen-lockfile 2>&1 |
+                    Select-Object -Last 6 | ForEach-Object { Log "[clean-install] $_" }
+                $irc = $LASTEXITCODE
+            } finally { Pop-Location }
+            Update-DeployLockHeartbeat
+            if ($irc -ne 0) { throw "导出面 pnpm install 失败 exit=$irc" }
+            if (-not (Test-Path $webBin)) { throw 'install 后 next.cmd 仍不在位 ⇒ 判定失败,不当作就绪' }
+        }
+        Ok ("[CLEAN-BUILD] 净面就绪:{0} @ {1}" -f $CleanBuildWt, $Sha.Substring(0, [Math]::Min(10, $Sha.Length)))
+        return (Join-Path $CleanBuildWt 'apps\web')
+    } catch {
+        Log ("[CLEAN-BUILD] FALLBACK 净面不可用({0})⇒ 本轮退回共享工作树构建:隔离暂时失效,线上仍在更新,需人工修" -f $_.Exception.Message)
+        return ''
+    }
+}
+
 function Build-Web {
-    param([string]$DistDir = 'staging', [int]$MaxTries = 4)
+    param(
+        [string]$DistDir = 'staging',
+        [int]$MaxTries = 4,
+        # 非空 ⇒ 编译这一份(净面)而不是 $WebDir;产物仍搬回 $WebDir 走既有交换链。
+        [string]$SrcWebDir = ''
+    )
+    $bwd = if ($SrcWebDir) { $SrcWebDir } else { $WebDir }
     # 心跳(判据 C4 的持有侧):本函数是最长的一段(依赖安装 + 6 个 workspace 包 dist +
     # 最多 4 次 next build try),不续心跳就会被下一轮轮询或手工部署按"陈旧"抢占 ⇒
     # 两个构建同时写 .next —— 那正是这把锁存在的理由。上限 45 分钟的推导见
     # deploy-lock-common.ps1 头注;函数内部 15s 节流,放在循环里代价只有一次时间判断。
     Update-DeployLockHeartbeat
-    Set-Location $WebDir
-    if (-not (Test-Path "node_modules\.bin\next.cmd")) {
+    Set-Location $bwd
+    if (-not (Test-Path (Join-Path $bwd 'node_modules\.bin\next.cmd'))) {
         Log "web 依赖缺失,先 pnpm install"
         & "D:\DevEnv\tools\npm-global\pnpm.cmd" install
         # throw 而非 Fail(2026-09-21 根治):Fail 直接 exit 1 会绕过外层 catch 的失败冷却,
@@ -748,9 +827,9 @@ function Build-Web {
     $env:NODE_OPTIONS = "--max-old-space-size=8192$(if ($prevNodeOptions -and $prevNodeOptions -notmatch 'max-old-space-size') { ' ' + $prevNodeOptions })"
     try {
         for ($try = 1; $try -le $MaxTries; $try++) {
-            Log "构建尝试 $try/$MaxTries -> .next-$DistDir"
+            Log "构建尝试 $try/$MaxTries -> .next-$DistDir (源码面=$(if ($SrcWebDir) { '净面:' + $CleanBuildWt } else { '共享工作树' }))"
             Update-DeployLockHeartbeat      # 每次 try 开头续心跳(单次 try 墙钟 30 分钟 < 45 分钟上限)
-            Remove-Item "$WebDir\.next-$DistDir" -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item "$bwd\.next-$DistDir" -Recurse -Force -ErrorAction SilentlyContinue
             $env:IHUI_BUILD_DIST = ".next-$DistDir"
             # 2026-09-21 加固(实测):`& pnpm build` 直调出现过「构建进程 2 分钟内静默死亡,
             # pwsh 却因孤儿孙进程持有 stdout 管道而永久挂起」——守护进程等子进程退出才落日志,
@@ -762,7 +841,7 @@ function Build-Web {
             $bldErr = Join-Path $env:TEMP "ihui-next-build-$PID-try$try-err.log"
             try {
                 $bldProc = Start-Process -FilePath 'D:\DevEnv\tools\npm-global\pnpm.cmd' -ArgumentList 'build' `
-                    -WorkingDirectory $WebDir -NoNewWindow -PassThru `
+                    -WorkingDirectory $bwd -NoNewWindow -PassThru `
                     -RedirectStandardOutput $bldOut -RedirectStandardError $bldErr
                 if (-not $bldProc.WaitForExit(30 * 60 * 1000)) {
                     Log "构建 try$try 超 30 分钟墙钟(pid=$($bldProc.Id))判挂死,taskkill /T 整树"
@@ -786,9 +865,29 @@ function Build-Web {
             try {
                 Remove-Item -LiteralPath $bldOut, $bldErr -Force -ErrorAction SilentlyContinue
             } catch {}
-            $ok = ($exitCode -eq 0) -and (Test-Path "$WebDir\.next-$DistDir\BUILD_ID")
+            $ok = ($exitCode -eq 0) -and (Test-Path "$bwd\.next-$DistDir\BUILD_ID")
             Update-DeployLockHeartbeat      # try 结束再续一次:上一行之后还要跑 Tail 读日志与判定
-            if ($ok) { Ok "next build 完成 -> .next-$DistDir"; return }
+            if ($ok) {
+                # 净面构建 ⇒ 产物必须搬回 $WebDir 才能走既有 `.rollback → 交换 → 重启` 链。
+                # 刻意用"清空目标再整目录复制"而不是就地构建:交换链、回滚点、`IHUI_BUILD_SHA`
+                # 写入、健康门禁全部保持原样,本票只换"源码从哪来"这一维。
+                if ($SrcWebDir) {
+                    # next build 会把**被跟踪的** next-env.d.ts 改写成引用 `.next-staging/...`
+                    # (主流程 1635 行那条老修复说的就是这件事)。在净面上留着他,下一轮
+                    # Get-CleanBuildWebDir 的"导出面必须零改动"判据就会红 ⇒ 从此永久回退到共享
+                    # 工作树,隔离静默失效。所以回搬之前先把导出面还原成已提交版本。
+                    try { git -C $CleanBuildWt checkout -- apps/web/next-env.d.ts 2>$null } catch {}
+                    $dirtyAfter = @((git -C $CleanBuildWt status --porcelain 2>$null | Out-String) -split "`n" | Where-Object { $_.Trim() -ne '' }).Count
+                    if ($dirtyAfter -gt 0) { Log "[CLEAN-BUILD] 警告:构建后导出面仍残留 $dirtyAfter 项改动(下一轮会拒绝用净面)⇒ 需人工看是什么写脏了它" }
+                    $dstStaging = "$WebDir\.next-$DistDir"
+                    Log "[CLEAN-BUILD] 产物回搬 $bwd\.next-$DistDir → $dstStaging"
+                    Remove-Item $dstStaging -Recurse -Force -ErrorAction SilentlyContinue
+                    Copy-Item "$bwd\.next-$DistDir" $dstStaging -Recurse -Force
+                    if (-not (Test-Path "$dstStaging\BUILD_ID")) { throw "产物回搬后 BUILD_ID 不在位 ⇒ 不交换,保持当前在线版本" }
+                    Update-DeployLockHeartbeat
+                }
+                Ok "next build 完成 -> .next-$DistDir"; return
+            }
             Log "第 $try 次失败(exit=$exitCode),清缓存重试"
         }
         throw "next build 连续 $MaxTries 次失败,保持当前在线版本"
@@ -1523,7 +1622,11 @@ if (Test-Path "$curNext\BUILD_ID") {
 #    持久 cache 遮蔽的 CSS 解析偶发问题);web 在线,构建期零停机
 try {
         Remove-Item "$WebDir\.next-staging" -Recurse -Force -ErrorAction SilentlyContinue
-        Build-Web -DistDir 'staging'
+        # 源码面:净面(内容 == 本轮要上线的那枚提交)优先;拿不到净面则大声回退到共享工作树。
+        # 放在 merge 之后取 SHA ⇒ 编译的就是这一轮决定要上线的那一份,不会与交换后的标记错位。
+        $buildSha = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
+        $cleanWeb = Get-CleanBuildWebDir -Sha $buildSha
+        Build-Web -DistDir 'staging' -SrcWebDir $cleanWeb
     } catch {
         # 2026-09-21 根治:失败轮不再 Set-BuildMarker(旧逻辑写「尝试标记」导致
         # marker=HEAD → 下一轮误判新鲜 → 永久跳过,根因消失也无法自愈)。
