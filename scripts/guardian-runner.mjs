@@ -4074,6 +4074,23 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 斜杠命令注册到达性对账(G-814404)(1 项,blocking)---
+  {
+    id: '160',
+    label:
+      '斜杠命令「注册表 ↔ 分派 switch」到达性对账 + 注册名去重:注册名(含别名)必须各有活 case/if 分支(W1)、注册名多重集零重复(W2)、分派顶层必须有 default 兜底(W4),三维零容忍;分派有而注册表无(W3 名字漂移)默认只报数、--strict 才判红(HEAD 面现读 2 条存量,当场判红就是恒红门);注册表/分派解析不到 ⇒ exit 2 未判定,枚举到 0 个判死不记绿',
+    script: 'check-slash-command-wired.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_SLASH_COMMAND_WIRED',
+    stagedTriggers: ['apps/cli/src/commands/'],
+    onFailHint: [
+      '',
+      '修复出口二选一:在 apps/cli/src/commands/repl.ts 的分派里补上该名字的 case(或等价 if 比较),或把这条命令从 slash-registry.ts 的注册表摘掉;W3 报数的两条按同法处置。禁止为消红放宽判据或改注册表入口名',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
