@@ -1736,7 +1736,7 @@ _CHAT_MODE_PROMPTS: dict[str, str] = {
 }
 
 
-def _resolve_reasoning_effort(req: "LLMCompleteRequest") -> tuple[str | None, dict[str, object] | None]:
+def _resolve_reasoning_effort(req: "LLMCompleteRequest") -> tuple[str | None, dict | None]:
     """推理强度档位的唯一解析出口(D130,2026-09-30 立)。
 
     返回 `(发给上游的生效档位, 回落通知或 None)`。三段判定,顺序不可颠倒:

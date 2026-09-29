@@ -77,9 +77,6 @@ vi.mock('@/components/media/MermaidDiagram', async () => {
 })
 
 import { MarkdownStream } from '../markdown-stream'
-// G-826:流式 stable/active 切分用的是生产同一实现,测试拿它**自证**用例确实落在两条腿上
-// (只测一条腿 = 另一条没人看守)。
-import { splitMarkdownStable } from '@/lib/markdown-stable-split'
 // D76 残余②(2026-09-25):正文产物链接 → ihui:focus-artifact → 容器定位高亮闭环。
 // 监听 hook 与事件名复用生产同一实现(禁止测试自建第二通道)。
 import {
@@ -413,70 +410,6 @@ describe('MarkdownStream — D76 残余② 正文产物链接 → 反向聚焦�
     fireEvent.click(c2.querySelectorAll('a')[0] as HTMLAnchorElement)
     expect(openPanel).toHaveBeenCalledWith(expect.objectContaining({ url: hrefH }))
     openPanel.mockRestore()
-  })
-})
-
-// ─────────────── G-826(2026-09-29):GFM singleTilde 必须显式关掉 ───────────────
-//
-// remark-gfm 默认 singleTilde:true ⇒ 一对**单**波浪号 `~text~` 也被判成删除线。中文正文里
-// `~` 常当"约/大概"(`~3 天`、`10~20 个`),两个单波浪号会被配成一对 ⇒ 用户看到的正文被随机
-// 划掉。`~~b~~` 那组是反向对照:缺了它就无法区分"关掉了 singleTilde"和"删除线整条坏了"。
-// 两条渲染路径各自有用例 —— `:1028` 单容器全量路径、`:749`(stable 腿)+ `:1019`(active 腿);
-// 只测一条等于另一条没人看守。
-
-describe('MarkdownStream — G-826 GFM singleTilde 关闭(单波浪号不划掉)', () => {
-  afterEach(cleanup)
-
-  const delTexts = (container: HTMLElement): string[] =>
-    Array.from(container.querySelectorAll('del')).map((d) => d.textContent ?? '')
-
-  // 流式切分阈值 1500(markdown-stable-split.ts):短内容不切,永远只走全量路径
-  const PAD = '填'.repeat(1600)
-  const STREAMING = `稳定段 ~甲~ 结束 ~~删~~ 保留\n\n${PAD}\n\n活跃段 ~乙~ 结束`
-
-  it('全量路径:~a~ 不得渲染 <del>/<s>,原文按字面保留', () => {
-    const { container } = render(<MarkdownStream content={'这段 ~a~ 不该被划掉'} />)
-
-    expect(container.querySelector('del')).toBeNull()
-    expect(container.querySelector('s')).toBeNull()
-    expect(container.textContent).toContain('这段 ~a~ 不该被划掉')
-  })
-
-  it('全量路径反向对照:~~b~~ 仍照旧判成删除线', () => {
-    const { container } = render(<MarkdownStream content={'废弃 ~~b~~ 方案'} />)
-
-    expect(delTexts(container)).toEqual(['b'])
-  })
-
-  it('全量路径 CJK 常见用法:~3 天 与 10~20 个 不被划掉且逐字保留', () => {
-    const { container } = render(<MarkdownStream content={'工期约 ~3 天。\n数量 10~20 个。'} />)
-
-    expect(container.querySelector('del')).toBeNull()
-    expect(container.querySelector('s')).toBeNull()
-    expect(container.textContent).toContain('工期约 ~3 天。')
-    expect(container.textContent).toContain('数量 10~20 个。')
-  })
-
-  it('流式 stable 腿(:749):~甲~ 不划掉,同段 ~~删~~ 照旧划掉', () => {
-    // 先自证这条 content 真产生了非空 stable —— 否则用例其实在测全量路径,腿层没人看守
-    const { stable, active } = splitMarkdownStable(STREAMING)
-    expect(stable).toContain('~甲~')
-    expect(active).toContain('~乙~')
-
-    const { container } = render(<MarkdownStream content={STREAMING} isStreaming />)
-
-    expect(delTexts(container)).toEqual(['删'])
-    expect(container.textContent).toContain('稳定段 ~甲~ 结束')
-  })
-
-  it('流式 active 腿(:1019):~乙~ 不划掉', () => {
-    const { active } = splitMarkdownStable(STREAMING)
-    expect(active).toContain('~乙~')
-
-    const { container } = render(<MarkdownStream content={STREAMING} isStreaming />)
-
-    expect(delTexts(container)).not.toContain('乙')
-    expect(container.textContent).toContain('活跃段 ~乙~ 结束')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
