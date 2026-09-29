@@ -23,6 +23,13 @@ vi.hoisted(() => {
 })
 
 const USER_ID = '00000000-0000-4000-8000-000000000001'
+// refresh_tokens.id 是 uuid 主键(packages/database/src/schema/users.ts:88,
+// DDL 0043_neat_the_spike.sql "id" uuid PRIMARY KEY)。DELETE /settings/authorizations/:id
+// 在进 SQL 前挂 isUuidString 形状闸(src/routes/user/settings-routes.ts:139),
+// 假 id 'sess-1' 被拦成 400 ⇒ 本用例要判的"0 行 ⇒ 404 / 1 行 ⇒ revoked:true"压根没跑到。
+// 注:该路由的成功响应只有 { revoked } 一键,不回传 id,所以这里没有"原样回传"可断言 ——
+// 能跑到写链本身就是 uuid 通过形状闸的证据(由 state.writeRows 旋钮控制命中集)。
+const SESSION_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
 
 // 写链回报的唯一旋钮:selectRows 喂"读侧"(存在性预读),writeRows 喂 RETURNING 命中集。
 const state = vi.hoisted(() => ({
@@ -278,16 +285,16 @@ describe('settings 两处 DELETE — 0 行回报不得判成动作完成', () =>
     state.writeRows = []
     const res = await app.inject({
       method: 'DELETE',
-      url: '/api/settings/authorizations/sess-1',
+      url: `/api/settings/authorizations/${SESSION_ID}`,
     })
     expect(res.statusCode).toBe(404)
   })
 
   it('DELETE /api/settings/authorizations/:id — 命中 1 行 ⇒ revoked: true', async () => {
-    state.writeRows = [{ id: 'sess-1' }]
+    state.writeRows = [{ id: SESSION_ID }]
     const res = await app.inject({
       method: 'DELETE',
-      url: '/api/settings/authorizations/sess-1',
+      url: `/api/settings/authorizations/${SESSION_ID}`,
     })
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toEqual({ revoked: true })

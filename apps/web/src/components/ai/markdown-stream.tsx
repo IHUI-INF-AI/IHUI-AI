@@ -386,7 +386,7 @@ const CodeBlockImpl = function CodeBlock({
               {applyState === 'done' ? (
                 <Check className="text-green-600" />
               ) : applyState === 'applying' ? (
-                <span className="animate-spin rounded-full border-2 border-current border-t-transparent" />
+                <Loader2 className="animate-spin" />
               ) : (
                 <FilePlus2 />
               )}

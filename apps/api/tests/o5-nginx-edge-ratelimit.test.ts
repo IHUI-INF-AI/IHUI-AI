@@ -41,6 +41,139 @@ const AISVC_FRAGMENT = resolve(
 )
 
 /**
+ * 2026-09-29 G-462 新增:ai-service **宽面**(非精确前缀代理)的申报清单 —— 两片 nginx 配置
+ * 共用的一本账(不是 docker 单独一本、站点单独一本)。它申报的是"整段路径前缀代理到 ai-service"
+ * 这类 location,与白名单片段是两种东西:白名单里每条都带 `@public-exposure: open …` 注解、
+ * 只许 `location =` 精确形态(判据 ⑪⑫ + scripts/check-public-exposure-list.mjs 的 X1/X3/X5);
+ * 而那条注解若落在非精确 location 上会被 X5 判成"兜底正则型"直接红,所以宽面**不能**靠它申报。
+ */
+const BROAD_LEDGER_REL = 'deploy/nginx/public-broad-surface.list'
+const BROAD_LEDGER = resolve(REPO_ROOT, BROAD_LEDGER_REL)
+const BROAD_ENTRY_PREFIX = '@broad-surface:'
+/** file/location/upstream 三键是**连接键**,取值受严格字符集约束(与 @public-exposure 同一条规矩)。 */
+const BROAD_STRICT_FIELDS = ['file', 'location', 'upstream'] as const
+/** reason/consumers/exit 三项是有内容的正文,空壳与占位都不算申报。 */
+const BROAD_PROSE_FIELDS = ['reason', 'consumers', 'exit'] as const
+const BROAD_STRICT_VALUE_RE = /^[\w:./-]+$/
+const BROAD_PLACEHOLDER_RE = /[<>]|TBD|TODO|待填|待定/i
+/**
+ * ai-service 上游标识:提到模块级,免得"哪些 location 算 ai-service 面"存在第二份实现
+ * (两处写同一件事必漂移,是本仓记过最多次的失效型)。字面量与
+ * scripts/check-public-exposure-list.mjs 的 AI_SERVICE_UPSTREAM_RE 同形。
+ */
+const AI_SERVICE_UPSTREAM_RE =
+  /proxy_pass\s+http:\/\/(?:ihui_ai_service_public|ai-service)(?![\w.-])/
+
+/** 精确匹配形态(`location = /一条/精确/路径`)—— 白名单判据管的正是这一族。 */
+function isExactLocationArgs(args: string): boolean {
+  return /^=\s+\S+$/.test(args)
+}
+
+/** 归一 location 参数,供与清单里的 `location=` 取值对齐(内层多空格不应当成两条不同的面)。 */
+function normLocationArgs(args: string): string {
+  return args.replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * 解析申报行。**刻意不做"坏行静默丢弃"**:解析出 fields 就交出去,由 audit 逐条判红 ——
+ * 把"读不懂"写成"没有申报",等于让一台瞎掉的尺子报绿。
+ * 头注里的格式示例行以 `#` 起头,天然不匹配本前缀(不靠字符集侥幸)。
+ */
+function parseBroadSurfaceEntries(ledgerText: string): Array<Record<string, string>> {
+  const out: Array<Record<string, string>> = []
+  for (const line of ledgerText.split(/\r?\n/)) {
+    const t = line.trim()
+    if (!t.startsWith(BROAD_ENTRY_PREFIX)) continue
+    const fields: Record<string, string> = {}
+    for (const seg of t.slice(BROAD_ENTRY_PREFIX.length).split(';;')) {
+      const eq = seg.indexOf('=')
+      if (eq <= 0) continue
+      const k = seg.slice(0, eq).trim()
+      const v = seg.slice(eq + 1).trim()
+      if (k && v) fields[k] = v
+    }
+    out.push(fields)
+  }
+  return out
+}
+
+/**
+ * 现读"宽面":四个被审面里每一个**代理到 ai-service 的非精确 location**。
+ *
+ * 走 `stripStructural` 之后才取 location ⇒ 注释里写的 `proxy_pass http://ai-service…` 造不出
+ * 一条假宽口(否则本判据会被自己的说明文字判红,与守门 131 那型同)。
+ * `location @name` 排除:named location 不可由 URI 直达,不是对外面。
+ */
+function findBroadSurfaces(
+  faces: Array<{ file: string; text: string }>,
+): Array<{ file: string; args: string }> {
+  const out: Array<{ file: string; args: string }> = []
+  for (const f of faces) {
+    for (const l of collectLocations(stripStructural(f.text))) {
+      if (!AI_SERVICE_UPSTREAM_RE.test(l.body)) continue
+      if (isExactLocationArgs(l.args)) continue
+      if (l.args.startsWith('@')) continue
+      out.push({ file: f.file, args: normLocationArgs(l.args) })
+    }
+  }
+  return out
+}
+
+/**
+ * 纯判据:宽面 ⇄ 申报 两侧闭合。返回红项清单,空数组 = 一致。
+ *
+ * 写成纯函数是为了让"有牙证明"能用**构造面**做,而不是去改真实文件
+ * (改真实文件取证 = 在同一枚提交里留下半成品,而且共享工作区里那是在动别人的现场)。
+ *   B1 有宽面而未申报 ⇒ 红(票面要的"未申报的宽面必红");
+ *   B2 申报落不到真实宽面 ⇒ 红(清单腐烂比没有清单更糟:它替后来人做出"这条已被想过"的判断);
+ *   B3 申报字段不齐 / 连接键取值不合法 / 正文是空壳或占位 ⇒ 红。
+ */
+function auditBroadSurfaces(
+  faces: Array<{ file: string; text: string }>,
+  ledgerText: string,
+): string[] {
+  const reds: string[] = []
+  const entries = parseBroadSurfaceEntries(ledgerText)
+  const entryKey = (f: string, a: string) => `${f}|${a}`
+  const seen = new Set<string>()
+
+  for (const [i, e] of entries.entries()) {
+    const tag = `申报第 ${i + 1} 行`
+    const missing = [...BROAD_STRICT_FIELDS, ...BROAD_PROSE_FIELDS].filter((k) => !e[k])
+    if (missing.length > 0) {
+      reds.push(`${tag} 字段不齐,缺:${missing.join(', ')}`)
+      continue
+    }
+    for (const k of BROAD_STRICT_FIELDS) {
+      if (!BROAD_STRICT_VALUE_RE.test(e[k] ?? ''))
+        reds.push(`${tag} 的 ${k}=${e[k]} 不是合法取值(只许 [\\w:./-],尖括号占位不许留在实盘)`)
+    }
+    for (const k of BROAD_PROSE_FIELDS) {
+      const v = (e[k] ?? '').trim()
+      if (v.length < 8) reds.push(`${tag} 的 ${k} 正文过短 ⇒ 申报不是一句空话`)
+      if (BROAD_PLACEHOLDER_RE.test(v)) reds.push(`${tag} 的 ${k} 仍是占位/待办措辞`)
+    }
+    const key = entryKey(e['file'] ?? '', normLocationArgs(e['location'] ?? ''))
+    if (seen.has(key)) reds.push(`${tag} 与前一行重复申报:${key}`)
+    seen.add(key)
+  }
+
+  const observed = findBroadSurfaces(faces)
+  for (const b of observed) {
+    if (!seen.has(entryKey(b.file, b.args)))
+      reds.push(`B1 ${b.file} 的 location ${b.args} 整片代理到 ai-service 而未申报(未申报的宽面)`)
+  }
+  for (const [i, e] of entries.entries()) {
+    const key = entryKey(e['file'] ?? '', normLocationArgs(e['location'] ?? ''))
+    if (!observed.some((b) => entryKey(b.file, b.args) === key))
+      reds.push(
+        `B2 申报第 ${i + 1} 行(${key})落不到真实宽面 ⇒ 清单腐烂(或它申报的是精确项,精确项归 @public-exposure 那本账)`,
+      )
+  }
+  return reds
+}
+
+/**
  * 负面清单:这些 scope 一律**不得**出现在任何 nginx 对外白名单里。
  * 它不是"当前没放"的快照,而是判据:② 该只内网的四项 + ③ 判不准的一项,逐条写死。
  * 理由住在 deploy/nginx/conf.d/public-ai-service.locations.fragment 的头注(一份正文),
@@ -253,9 +386,7 @@ describe('O5 nginx 边缘限流静态自检(替代跑不了的 nginx -t)', () =>
 
   /** 代理到 ai-service 的 location(两种壳的上游标识不同,列在一处以免判据有第二份)。 */
   function aiServiceLocations(parsed: Parsed) {
-    return parsed.locations.filter((l) =>
-      /proxy_pass\s+http:\/\/(?:ihui_ai_service_public|ai-service)(?![\w.-])/.test(l.body),
-    )
+    return parsed.locations.filter((l) => AI_SERVICE_UPSTREAM_RE.test(l.body))
   }
 
   it('① 结构:括号配平、每条指令以 ; / { / } 收尾', () => {
@@ -494,6 +625,8 @@ describe('O5 nginx 边缘限流静态自检(替代跑不了的 nginx -t)', () =>
     // 限流闸不许"顺手省掉":每条**本票新增的精确白名单** location 必须同时引用
     // 会话档与未带凭据档。docker 侧那条 `location /ai-service/`(整棵子树,2026-07-24 A 套壳)
     // 刻意不在这里判 —— 它早于本票、收窄属其持有人决策,把它一并判红就是替别人背债的恒红门。
+    // (2026-09-29 G-462:那一族改由判据 ⑮ 管,且 ⑮ 只判"有没有申报",不判它的限流档与剥头 ——
+    //  所以 ⑬ 与 ⑮ 不矛盾:同一个 location,一条判限流齐不齐(不碰它),一条判申报闭不闭合。)
     for (const l of aiServiceLocations(frag)) {
       const reqs = [...l.body.matchAll(/limit_req\s+zone=([^\s;]+)/g)].map((m) => m[1] ?? '')
       expect(reqs.sort(), `${l.args} 的两段闸不齐`).toEqual(['aisvc_anon_zone', 'aisvc_open_zone'])
@@ -524,6 +657,109 @@ describe('O5 nginx 边缘限流静态自检(替代跑不了的 nginx -t)', () =>
     expect(body, '独立壳缺 named location').toBeTruthy()
     expect(body).toMatch(/add_header Retry-After "" always/)
     expect(body).toMatch(/return 429/)
+  })
+
+  it('⑮ ai-service 宽面逐条申报对账(未申报的宽面判红;清单腐烂同样判红)', () => {
+    const faces = [
+      { file: 'deploy/docker/nginx.web.conf', text: dk.raw },
+      { file: 'deploy/nginx/conf.d/public-ai-service.conf', text: shell.raw },
+      { file: 'deploy/nginx/conf.d/public-ai-service.locations.fragment', text: frag.raw },
+      { file: 'deploy/nginx/nginx-blue-green.conf', text: bg.raw },
+    ]
+    let ledger: string
+    try {
+      ledger = readFileSync(BROAD_LEDGER, 'utf8')
+    } catch {
+      return expect.fail(
+        `宽面申报清单取不到:${BROAD_LEDGER_REL} —— 申报机制被摘线不等于零宽面,这一格必须喊红`,
+      )
+    }
+    // 反向锁(判据失明的对照):四个面里至少读得到一条 ai-service 代理 location。
+    // 读不到 ⇒ 不是"宽面已清完",而是取材/解析坏了或配置搬了家 —— 那正是"把没判写成判过了"。
+    const anyAiProxy = faces.reduce(
+      (n, f) =>
+        n +
+        collectLocations(stripStructural(f.text)).filter((l) => AI_SERVICE_UPSTREAM_RE.test(l.body))
+          .length,
+      0,
+    )
+    expect(
+      anyAiProxy,
+      '四个面都读不到任何 ai-service 代理 location = 判据失明,不是通过',
+    ).toBeGreaterThan(0)
+
+    // 真仓现读:两侧闭合 ⇒ 存量已申报的两条宽面不会把本判据变成人人跳门的恒红门。
+    expect(auditBroadSurfaces(faces, ledger), '宽面 ⇄ 申报 不闭合').toEqual([])
+
+    // ── 有牙证明:以下全部走**构造面**,不碰真实文件也不碰共享工作区 ──────────
+    const WIDE_FACE =
+      'server {\n  location /ai-service/ {\n    proxy_pass http://ai-service:8803/;\n  }\n}\n'
+    const OK_ENTRY =
+      '@broad-surface: file=deploy/x.conf;;location=/ai-service/;;upstream=ai-service:8803' +
+      ';;reason=整棵子树按前缀转出,精确形态接不住多段握手路径;;consumers=部署自检 curl :8801/ai-service/health 两处调用点' +
+      ';;exit=调用点改指精确项且六项能力逐条给出对外结论之后'
+    const faces1 = [{ file: 'deploy/x.conf', text: WIDE_FACE }]
+
+    // ⑴ 未申报的宽面 ⇒ 必红(本判据存在的全部理由)
+    const undeclared = auditBroadSurfaces(faces1, '')
+    expect(undeclared.length, '未申报的宽面没被判红 ⇒ 判据无牙').toBeGreaterThan(0)
+    expect(undeclared.join('\n')).toContain('未申报的宽面')
+
+    // ⑵ 同一条宽面申报齐备 ⇒ 不红(否则"申报"这条路本身走不通,只能去削判据)
+    expect(auditBroadSurfaces(faces1, OK_ENTRY), '已申报的宽面仍被判红').toEqual([])
+
+    // ⑶ 精确项归 @public-exposure 那本账:把它塞进宽面清单 ⇒ 清单腐烂判红
+    const EXACT_FACE =
+      'server {\n  location = /api/mcp {\n    proxy_pass http://ai-service:8803/api/mcp;\n  }\n}\n'
+    const stale = auditBroadSurfaces([{ file: 'deploy/x.conf', text: EXACT_FACE }], OK_ENTRY)
+    expect(stale.join('\n'), '精确项被当成宽面申报 ⇒ 应判清单腐烂').toContain('B2')
+
+    // ⑷ 空壳/占位申报不算申报(否则一张写满 `<一句正文>` 的表就能把 B1 洗成绿)
+    const PLACEHOLDER_ENTRY = OK_ENTRY.replace(
+      'reason=整棵子树按前缀转出,精确形态接不住多段握手路径',
+      'reason=<一句正文>',
+    )
+    expect(
+      auditBroadSurfaces(faces1, PLACEHOLDER_ENTRY).join('\n'),
+      '占位正文的申报被放过了',
+    ).toContain('占位')
+
+    // ⑸ 坏连接键(路径写歪带空格之外的字符)判红,不静默丢行
+    const BADKEY_ENTRY = OK_ENTRY.replace('location=/ai-service/', 'location=/ai service/')
+    expect(
+      auditBroadSurfaces(faces1, BADKEY_ENTRY).join('\n'),
+      '非法 location 取值被放过了',
+    ).toContain('不是合法取值')
+
+    // ⑹ 注释里的 proxy_pass 造不出一条宽面(本判据不得被自己的说明文字判红)
+    const COMMENT_ONLY =
+      'server {\n  location /api/ {\n    # proxy_pass http://ai-service:8803/;\n    return 404;\n  }\n}\n'
+    expect(
+      findBroadSurfaces([{ file: 'deploy/x.conf', text: COMMENT_ONLY }]),
+      '注释形态被读成了真宽面',
+    ).toEqual([])
+
+    // ⑺ 清单头注里的格式示例行不得被读成一条申报(该型在 check-public-exposure-list 里咬过前人)
+    expect(
+      parseBroadSurfaceEntries('# @broad-surface: file=<仓库相对路径>;;location=<参数>').length,
+      '格式示例行被读成申报',
+    ).toBe(0)
+    expect(
+      parseBroadSurfaceEntries(ledger).length,
+      '真清单的申报条数与现读不符 ⇒ 有人静默加了坏行,逐条看 B3',
+    ).toBeGreaterThan(0)
+
+    // ⑻ 两片同责(AGENTS §5"改一处必须同步另一处"在这一格的可判形态):把宽面加到
+    //    **站点侧**而不是 docker 侧,同样必须申报,且站点侧的上游写法(ihui_ai_service_public)
+    //    与 docker 侧(ai-service)同视 —— 否则"只申报 docker 那一片"就是这一票自己的洞。
+    const SITE_WIDE =
+      'server {\n  location /ai-service/ {\n    proxy_pass http://ihui_ai_service_public:8443/;\n  }\n}\n'
+    expect(
+      auditBroadSurfaces([{ file: 'deploy/nginx/conf.d/site.conf', text: SITE_WIDE }], ledger).join(
+        '\n',
+      ),
+      '站点侧新增宽面没被判红 ⇒ 判据只看得见申报过的那一片',
+    ).toContain('未申报的宽面')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
