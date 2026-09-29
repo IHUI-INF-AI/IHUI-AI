@@ -14,7 +14,6 @@ import {
 import {
   Alert,
   ActivityIndicator,
-  Image,
   Modal,
   Platform,
   Pressable,
@@ -136,7 +135,10 @@ const WELCOME_SVG_DARK = `<!--
 // 2026-09-04 修复:metro.config.cjs 的 react-native-svg-transformer(2026-09-03 复位)把 .svg
 // 编译为 React 组件,不再符合共享组件 <Image source={number|{uri}}>(packages/types app.ts)
 // 的 iconSource 契约,此前直接喂 Image 导致除 feishu.png 外全部不渲染(web/Android 同病)。
-// 现走 iconNode 节点通道(共享 ThirdPartyLoginArea 优先渲染 iconNode);PNG 仍走 iconSource。
+// 现走 iconNode 节点通道(共享 ThirdPartyLoginArea 优先渲染 iconNode)。
+// ⚠️ 末句"PNG 仍走 iconSource"已于 2026-09-29 作废:真机 release 包上唯一剩下的那个本地 PNG
+// (feishu.png)实测渲染为空白,已把它也改走 SVG 通道并删除该资产。今后新增本行图标一律用
+// svgIconNode(require('….svg')),不得再引入本地 PNG。
 /* eslint-disable @typescript-eslint/no-require-imports */
 type SvgComponent = ComponentType<SvgProps>
 /** transformer 产物可能是默认导出包装(require 返回 module 对象)或直接组件,统一解包 */
@@ -146,12 +148,11 @@ const svgIconNode = (mod: unknown, size = 28): ReactNode => {
   const Icon = resolveSvgComponent(mod)
   return <Icon width={size} height={size} />
 }
-const FEISHU_PNG_ICON: number = require('../../assets/images/common/feishu.png')
 /**
  * 2026-09-04 视觉等大校准:各平台 SVG 的墨迹在 viewBox 中的占比不同,统一 28 渲染会
  * 出现"企微偏小 / 飞书偏大"。按实测墨迹高度占比换算渲染尺寸,目标墨迹高 ≈ 26:
  *   企微 75%(28 渲染仅 21 墨迹)→ 35;钉钉 90% → 29;GitHub 97.5% / Apple 95% → 27;
- *   Google 92% / 支付宝(扁宽标)维持 28。飞书 PNG 走 iconNode 32×32(见下)。
+ *   Google 92% / 支付宝(扁宽标)维持 28。
  */
 const THIRD_PARTY_ICON_NODES: Partial<Record<ThirdPartyPlatform, ReactNode>> = {
   // 微信大按钮(绿底)用白色官方气泡造型;wx.svg(黑色)保留给其他浅底场景
@@ -160,9 +161,11 @@ const THIRD_PARTY_ICON_NODES: Partial<Record<ThirdPartyPlatform, ReactNode>> = {
   dingtalk: svgIconNode(require('../../assets/images/dingtalk.svg'), 29),
   enterpriseWechat: svgIconNode(require('../../assets/images/enterprise-wechat.svg'), 35),
   alipay: svgIconNode(require('../../assets/images/common/ZFB.svg')),
-  // 飞书 PNG 原走 iconSource(命中共享 thirdPartyIconLg 36×36,墨迹 33.6 宽为全行最宽,
-  // 视觉偏大);改走 iconNode 收窄到 32×32 contain,墨迹 ≈ 30×23.6,与行内其他标等大
-  feishu: <Image source={FEISHU_PNG_ICON} style={{ width: 32, height: 32 }} resizeMode="contain" />,
+  // 2026-09-29 飞书从「本地 PNG + <Image>」改走 SVG 通道:真机 release 包上该 PNG 渲染为空白
+  // (按钮位 100×100 在、像素没有),而同屏其余 5 个走 svgIconNode 的标全部正常 —— 资产本身
+  // 完好(已 aapt2 验资源名、抽出 res/Y4.png 验可解码),所以断点在本地 PNG 的 Image 取源链。
+  // 源文件与 apps/web/public/images/oauth-providers/feishu.svg 逐字相同(本仓对品牌标的既有惯例)。
+  feishu: svgIconNode(require('../../assets/images/common/feishu.svg')),
 }
 /**
  * 单色图标按主题选择:GitHub/Apple 的官方标是单色 Logo,深色背景下用白色、
