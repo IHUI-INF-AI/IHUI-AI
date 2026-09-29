@@ -40,6 +40,8 @@ const PNG_ICONS: Record<string, PngPlatformIcon> = {
   // 图文社交
   wechat: { src: '/publish-icons/wechat.png', alt: '微信公众号' },
   toutiao: { src: '/publish-icons/toutiao.png', alt: '今日头条' },
+  // toutiao_app(扫码登录弹窗的 App 码通道)与 toutiao 同源图标(2026-09-30)
+  toutiao_app: { src: '/publish-icons/toutiao.png', alt: '今日头条' },
   weibo: { src: '/publish-icons/weibo.png', alt: '微博' },
   xiaohongshu: { src: '/publish-icons/xiaohongshu.png', alt: '小红书' },
   // 技术社区
