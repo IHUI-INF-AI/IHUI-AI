@@ -45,7 +45,6 @@ export type GitUrlRejectReason =
   | 'urlWhitespace'
   | 'urlHostMissing'
   | 'urlSchemeUnsupported'
-  | 'urlCredentialsInUrl'
   | 'urlLoopbackHttpNeedsTestHook'
   | 'urlMalformed';
 
@@ -160,30 +159,6 @@ export function evaluateGitUrl(raw: unknown, opts: { loopbackTestHook?: boolean 
     if (/\s/.test(raw)) {
       return { ok: false, reasonCode: 'urlWhitespace', detail: previewOf(raw) };
     }
-    /**
-     * G-798:内嵌凭据的 userinfo 段一律不进这一档 URL。
-     * 判据取的是" userinfo 存不存在",不是"看着像不像密钥":这一段会被原样递进 `git` 的 **argv**,
-     * 而 argv 在 Windows 上可被任意进程枚举(WMI/命令行审计都能看到),
-     * 于是"把 token 写在 URL 里"等于把凭据发给整台机的观察者。
-     * `ssh://` 那一档**刻意只禁密码不禁用户名**:`ssh://git@host/…` 与 scp-like `git@host:path`
-     * 里的 `git` 是登录名而不是凭据,禁掉就是把 SSH 通道整条封死(现仓既有测试正拿它当放行档)。
-     */
-    const hasUser = parsed.username.length > 0
-    const hasPass = parsed.password.length > 0
-    if ((kind === 'https' || kind === 'loopbackHttp') && (hasUser || hasPass)) {
-      return {
-        ok: false,
-        reasonCode: 'urlCredentialsInUrl',
-        detail: `${protocol}: userinfo(改用凭据助手 / credential helper,不要把口令写进 URL)`,
-      }
-    }
-    if (kind === 'sshUrl' && hasPass) {
-      return {
-        ok: false,
-        reasonCode: 'urlCredentialsInUrl',
-        detail: 'ssh: userinfo 口令段(ssh 只提供登录名,口令请走密钥/agent)',
-      }
-    }
     if (kind === 'loopbackHttp' && !isLoopbackHost(host)) {
       return { ok: false, reasonCode: 'urlSchemeUnsupported', detail: `http:${previewOf(host)}` };
     }
@@ -247,12 +222,6 @@ export function evaluateGitSha(raw: unknown): GitShaVerdict {
  * message **刻意不含**入参原文(见 previewOf 的理由),流程判断只读 `field` / `reasonCode`。
  */
 export class GitCloneInputRejectedError extends Error {
-  /**
-   * 稳定分档码(G-809):调用方按**这个字符串**分流,而不是 `instanceof` ——
-   * 同一个类在"源码 + dist"两份模块下不是同一个构造函数,instanceof 会假负,
-   * 于是安全拒绝被降级成"刷新失败"。仓内已有同形态先例(`readMcpRefreshKind`)。
-   */
-  readonly code = 'git_clone_input_rejected';
   readonly field: 'url' | 'ref' | 'sha';
   readonly reasonCode: GitInputRejectReason;
   readonly detail: string;
