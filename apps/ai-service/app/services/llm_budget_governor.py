@@ -84,6 +84,10 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
+# 日/时窗 Redis 键的约定 = **UTC** —— 键名即窗口身份,刻意不跟本仓别处的东八区口径统一:
+# 改约定等于换一套键空间(当日在途计数全部归零),而配额窗口本身无用户可见日期语义。
+# 同约定也适用于 user_quota._today_key。llm_usage_service 的日桶是东八区,两者不同形是
+# 已知事实,勿在此处"顺手改齐"。
 def _today_key() -> str:
     """当日日期 key(UTC,YYYY-MM-DD)。"""
     return datetime.now(UTC).strftime("%Y-%m-%d")
@@ -95,7 +99,7 @@ def _hour_key() -> str:
 
 
 def _date_from_days_ago(days: int) -> str:
-    """N 天前的日期 key。"""
+    """N 天前的日期 key(UTC 日界,与 _today_key 同窗)。"""
     return (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%d")
 
 

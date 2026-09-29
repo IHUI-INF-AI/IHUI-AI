@@ -107,12 +107,39 @@ export function sigId(sig) {
   return createHash('sha1').update(sig, 'latin1').digest('hex').slice(0, 10)
 }
 
-/** 一行日志 → `{ms, keyword, rest}` | null。 */
-export function parseLogLine(line) {
+/**
+ * 无偏移时间戳的归属区**只能来自声明表** `config/host-timezone.json`(见 declaredNaiveOffset)。
+ * 旧写法把 tz-less 一律当 `+00:00` 硬编码,而 `ihui-monitor.ps1` / 备份调度器写的是**主机本地无偏移**串
+ * —— 本机时区 2026-09-04 被悄悄改成 UTC、25 天无人发现(2026-09-30 才靠事件日志指认)。"没写偏移"不是
+ * 一个事实,是一个需要有人回答的问题;默认成 UTC 的后果不是少一维信息,而是东八区主机上每条新事件被
+ * 算成**未来 8 小时**,窗口比较静默少算而账面全绿。
+ */
+let naiveOffsetCache
+function declaredNaiveOffset() {
+  if (naiveOffsetCache !== undefined) return naiveOffsetCache
+  try {
+    const cfg = JSON.parse(readFileSync(join(ROOT, 'config', 'host-timezone.json'), 'utf8'))
+    const v = cfg && cfg.logStampConsumers && cfg.logStampConsumers.naiveStampDefault
+    naiveOffsetCache = typeof v === 'string' && /^[+-]\d{2}:\d{2}$/.test(v) ? v : null
+  } catch {
+    naiveOffsetCache = null
+  }
+  return naiveOffsetCache
+}
+
+/** 测试用:清声明表缓存(判据自己不得顺手清)。 */
+export function resetDeclaredNaiveOffsetCache() {
+  naiveOffsetCache = undefined
+}
+
+/** 一行日志 → `{ms, keyword, rest}` | null。无偏移且无声明 ⇒ null(不猜,也不冒充看过)。 */
+export function parseLogLine(line, opts = {}) {
   const m = TS_RE.exec(line)
   if (!m) return null
   const [, d, hh, mm, ss, tzH, tzM] = m
-  const tz = tzH === undefined ? '+00:00' : `${tzH}:${tzM || '00'}`
+  const declared = opts.naiveOffset === undefined ? declaredNaiveOffset() : opts.naiveOffset
+  if (tzH === undefined && !declared) return null
+  const tz = tzH === undefined ? declared : `${tzH}:${tzM || '00'}`
   const ms = Date.parse(`${d}T${hh}:${mm}:${ss}${tz}`)
   if (!Number.isFinite(ms)) return null
   const rest = line.slice(m[0].length)
@@ -966,10 +993,15 @@ async function selfTest() {
       if (!human.includes('[近 24h]')) throw new Error('紧凑补节缺失 ⇒ 读报告的人拿不到"一天"这一行,只能拿 4h 当 24h')
     })
 
-    t('S12 时间戳形状:无 tz 按 UTC;非法日期落 null;半行不得冒充"无时间戳行"', () => {
+    t('S12 时间戳形状:无 tz 按声明表偏移(不得默认 UTC);无声明落 null;非法日期落 null;半行不得冒充"无时间戳行"', () => {
       const ok = parseLogLine('[2026-09-27 04:00:00] [deploy] MAIL  x')
+      // 配对:无偏移串必须由**声明表**定区,不得默认成 UTC(本机时区被改 25 天无人发现那一型的另一半)。
+      const naive = parseLogLine('[2026-09-27 04:00:00] [deploy] MAIL  x', { naiveOffset: '+08:00' })
+      if (naive && naive.ms !== Date.parse('2026-09-26T20:00:00Z')) throw new Error('无偏移串未按声明的 +08:00 归属')
+      if (parseLogLine('[2026-09-27 04:00:00] MAIL x', { naiveOffset: null }) !== null) throw new Error('无偏移且无声明 ⇒ 必须落 null,不得猜成 UTC')
+      if (ok === null) throw new Error('带声明时正常行不得被丢掉')
       if (!ok || ok.keyword !== 'MAIL') throw new Error('无 tz 形态没解析')
-      if (ok.ms !== Date.parse('2026-09-27T04:00:00Z')) throw new Error('无 tz 必须按 UTC')
+      if (ok.ms !== Date.parse('2026-09-26T20:00:00Z')) throw new Error('无 tz 串必须按 config/host-timezone.json 声明的偏移归属(现声明 +08:00 ⇒ 04:00 北京 = 前一日 20:00Z);拿 UTC 当默认就是本次判据变更要消灭的那一型')
       if (parseLogLine('no timestamp here MAIL x')) throw new Error('无时间戳行不得算成判据输入')
       if (parseLogLine('[2026-13-45 99:99:99 +00:00] MAIL  x')) throw new Error('非法时间必须落 null,否则 NaN 会污染窗口比较')
       const r = readTextTail(write('tail.log', 'zzz'))

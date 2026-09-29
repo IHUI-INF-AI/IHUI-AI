@@ -18,6 +18,7 @@ import {
   activateOrderSubscription,
 } from '../services/order-service.js'
 import { feedbackInvite } from '../services/commission-service.js'
+import { billDateForYesterday } from '../services/reconciliation-service.js'
 import {
   isWechatPayConfigured,
   jsapiPrepay,
@@ -2020,6 +2021,9 @@ export const adminPaymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // 三个对账端点缺省 billDate 时取「北京时区的昨日日历日」(唯一实现见
+  // reconciliation-service.billDateForYesterday)——网关按北京时间归档账单,
+  // 用 UTC 日历日会在北京 00:00–08:00 请求到前天的账单。
   server.get(
     '/payments/reconciliation/alipay',
     {
@@ -2031,7 +2035,7 @@ export const adminPaymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const { billDate } = billDateQuery.parse(request.query)
-      const date = billDate ?? new Date(Date.now() - 86400_000).toISOString().slice(0, 10)
+      const date = billDate ?? billDateForYesterday()
       if (!isAlipayConfigured()) return reply.send(success({ billDate: date, mock: true }))
       const billUrl = await aliDownloadBillUrl(date, 'trade')
       return reply.send(success({ billDate: date, billUrl }))
@@ -2049,7 +2053,7 @@ export const adminPaymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const { billDate } = billDateQuery.parse(request.query)
-      const date = billDate ?? new Date(Date.now() - 86400_000).toISOString().slice(0, 10)
+      const date = billDate ?? billDateForYesterday()
       if (!isWechatPayConfigured()) return reply.send(success({ billDate: date, mock: true }))
       const csv = await wxDownloadBill(date, 'ALL')
       return reply.send(success({ billDate: date, csv }))
@@ -2067,7 +2071,7 @@ export const adminPaymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const { billDate } = billDateQuery.parse(request.query)
-      const date = billDate ?? new Date(Date.now() - 86400_000).toISOString().slice(0, 10)
+      const date = billDate ?? billDateForYesterday()
       const result: Record<string, unknown> = { billDate: date }
       if (isAlipayConfigured()) {
         try {
