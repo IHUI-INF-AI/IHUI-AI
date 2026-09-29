@@ -35,6 +35,20 @@ export interface BackgroundTask {
   stderrBuf: string;
   truncated: boolean;
   timedOut: boolean;
+  /**
+   * 「已投递」位 —— 终态快照有没有已经交给过等待者(G-814418 判据①)。
+   *
+   * 它必须是**任务对象上的一个位**而不是 `Map<id, boolean>`:id 由 `genId()` 生成
+   * (`Date.now()` + 3 随机字节),`pruneCompleted()` 之后同 id 复用是真路径,而按 id 记账
+   * 会把**上一轮生命周期**的"已投递"顶到新任务头上 —— 新任务的等待者就永远收不到终态,
+   * 只能等自己的 deadline 报 `timed-out-unknown`(把一个其实会结束的任务报成不知道)。
+   * 上游同族实现(ZCode `background-task-registry.ts:168-192`)把这个位放在条目上、
+   * 并在"重臂"(同 id 开新的一轮)时显式复位,判的是同一件事。
+   *
+   * 刻意**不**进 `BackgroundTaskSnapshot` 的 Pick 清单:它是投递台账不是任务结果,
+   * 交给等待者的快照不该因为多了一个字段而形状变化。
+   */
+  notified: boolean;
   /** 后台任务关联的 worktree 路径(可选,注册时记录,任务结束自动清理) */
   worktreePath?: string;
   /** worktree 对应的源仓库路径(清理时作为 git 命令工作目录) */
@@ -95,6 +109,11 @@ function ledgerSettle(task: BackgroundTask, note: string): void {
     note,
     command: task.command,
   });
+}
+
+/** 任务是否已进入终态(四档里除 'running' 都算)—— 终态单向门的判据,只此一份。 */
+function isTerminalStatus(status: BackgroundTaskStatus): boolean {
+  return status !== 'running';
 }
 
 /**
@@ -160,13 +179,59 @@ function addSettleListener(id: string, fn: SettleListener): () => void {
   };
 }
 
-/** 任务进入终态:算一份快照,所有等待者拿同一份(而不是各读一次活对象)。 */
+/**
+ * 任务进入终态:算一份快照,所有等待者拿同一份(而不是各读一次活对象)。
+ *
+ * 三条判据(G-814418 判据①;机制形状照上游 ZCode
+ * `background-task-registry.ts:168-192` 的 claim/release 一对,那边"入队"这一格
+ * 在我们这里就是"把快照交给等待者"):
+ *  ① **claim 先行**:本轮生命周期已经投递过 ⇒ 直接返回,不再通知监听者。
+ *     它与下面的终态单向门各判一件事、互不替代 —— 门拦的是"迟到的快照改写状态",
+ *     claim 拦的是"同一轮里通知发两次";去掉任一条,对应的成对用例必红。
+ *  ② **投递抛错 ⇒ 回退 claim**:某一个监听者体内抛错,不等于这次投递成功了。
+ *     不回退的话这些等待者此后永远收不到终态(位已经是 true,再来什么事件都不发),
+ *     只能等自己的 deadline 到点报 `timed-out-unknown` —— 那是把"没送到"写成"已送到"。
+ *  ③ **逐个摘除而不是整块 delete**:旧写法在调用任何监听者之前就把整个 Set 从 Map 上
+ *     摘掉,于是第一个抛错的监听者会连带吞掉排在它后面所有等待者的终态 —— 与本文件
+ *     `clearAllTasks` 里那句"留一个没人回答的等待 = Promise 泄漏"是同一条禁令。
+ *     现只摘**真送达**的那些,抛错的原样留在集合里等下一次投递重试。
+ */
 function notifySettled(task: BackgroundTask): void {
   const set = settleListeners.get(task.id);
+  // 没有等待者就没有"待投递的东西",也就不该消耗 claim —— 位一旦被一个不存在的接收方
+  // 占掉,随后登记进来的等待者会被 ① 拒收,而它从来没有被通知过。
   if (!set || set.size === 0) return;
-  settleListeners.delete(task.id);
+  if (task.notified) return; // ① 本轮已投递过,不重复
+  task.notified = true;
   const snapshot = toSnapshot(task);
-  for (const fn of set) fn(snapshot);
+  const failures: unknown[] = [];
+  // 迭代副本:监听者体内会走 waitForTask 的 cleanup 自行摘除自己(载荷性动作),
+  // 直接在活集合上 for-of 会跟着边跑边变。
+  for (const fn of Array.from(set)) {
+    try {
+      fn(snapshot);
+      set.delete(fn); // ③ 只有真送达的才摘
+    } catch (e) {
+      failures.push(e);
+    }
+  }
+  // 空集合不留(与 addSettleListener 的撤销路径同一条纪律)
+  if (set.size === 0) settleListeners.delete(task.id);
+  if (failures.length > 0) {
+    task.notified = false; // ② 没送全 ⇒ 位回退,下一次终态事件仍能重投
+    // 失败必须响:这一格不能只靠"位回退了"来自证,否则投递失败的表现永远是安静。
+    // 本端诊断出口的既有形态就是 stderr 一行(见 commands/agent.ts),不另立日志设施。
+    try {
+      process.stderr.write(
+        `[background-registry] terminal delivery to ${failures.length} waiter(s) threw for task ${task.id}; ` +
+          `claim released so a later terminal event can retry — ${String(
+            (failures[0] as Error | undefined)?.message ?? failures[0],
+          )}\n`,
+      );
+    } catch {
+      /* 诊断出口本身抛错不该把终态处理带崩 */
+    }
+  }
 }
 
 /**
@@ -192,6 +257,7 @@ export function registerTask(
     stderrBuf: '',
     truncated: false,
     timedOut: false,
+    notified: false,
     worktreePath: opts?.worktreePath,
     worktreeSourcePath: opts?.worktreeSourcePath,
   };
@@ -223,6 +289,15 @@ export function registerTask(
       recordHeartbeat(id);
     });
     process.on('error', () => {
+      // 终态单向门(G-814418 判据②):已经终态的条目不许被**迟到的快照**改写。
+      // 形状照上游 ZCode `background-task-registry.ts:127-147`
+      // (`isTerminalRuntimeTask(current) ? current : {...}`)与
+      // `runtime/methods/background.ts:235-244`(同一判据的第二处用法)。
+      // 真实可达路径不止一条:Node 在 spawn 失败时会先 'error' 后 'close';测试与某些
+      // 宿主(Windows 上 taskkill 之后)还会再补一发;而 pruneCompleted() 之后同 id 复用
+      // 会让上一轮的收尾事件打到**新条目**的监听器上 —— 那时新条目还在 running,门不误伤,
+      // 但旧条目已经终态,再改写就是凭空造第二个终态。
+      if (isTerminalStatus(task.status)) return;
       task.status = 'error';
       task.exitedAt = new Date().toISOString();
       // 任务异常结束,自动清理关联 worktree
@@ -234,6 +309,8 @@ export function registerTask(
       notifySettled(task);
     });
     process.on('close', (code, signal) => {
+      // 同上 —— 第二次 close 不得改写 status/exitedAt/exitCode/timedOut,也不得二次通知。
+      if (isTerminalStatus(task.status)) return;
       task.exitedAt = new Date().toISOString();
       task.exitCode = code;
       if (signal === 'SIGTERM' || signal === 'SIGKILL') {
@@ -269,6 +346,10 @@ export function registerFailedTask(command: string, errorMessage: string): strin
     stderrBuf: errorMessage,
     truncated: false,
     timedOut: false,
+    // 占位任务生下来就是终态,但"已投递"位仍要显式起在 false:
+    // 它标的是"有没有把终态交给过等待者",不是"是不是终态"—— 两者分开,
+    // 单向门与 claim 才各自有牙(见 notifySettled 判据①)。
+    notified: false,
   };
   tasks.set(id, task);
   pruneCompleted();
@@ -427,6 +508,80 @@ export async function waitForTask(id: string, timeoutMs = 30_000): Promise<WaitF
   });
 }
 
+/**
+ * `settleAllInFlight` 的结论:三档**互相可分辨**(G-814419)。
+ *
+ * 立论与 `WaitForTaskState` 四态同一条:一个 `settled` 计数不许同时表达
+ * "全都结束了"和"我什么都没等到"。所以到点没终态的那些必须**逐名**落在 `unknown`,
+ * 而不是被折进 `settled` 或干脆不报。
+ */
+export interface SettleAllInFlightResult {
+  /** 在窗口内**观察到终态**的任务数(唯一的"结束了"凭据)。 */
+  settled: number;
+  /** 到点仍未终态(或此刻还在跑)的任务 id —— 结果无从判定,不等于没结束也不等于结束。 */
+  unknown: string[];
+  /** 等待期间记录从注册表消失(被裁/被清)的任务 id —— 同样不是结论,但成因不同。 */
+  gone: string[];
+}
+
+/**
+ * 集合级出口:等**本刻所有在飞任务**收敛,给一个可分辨的结论。
+ *
+ * 判据三条:
+ *  ① 集合是**入口时刻**的 running 快照。窗口内新派生的任务不在此列 —— 这一格的语义是
+ *     "把此刻已知的在飞项结算掉",不是"保证之后不再有在飞项"(要那个得靠调用点自己不再派生)。
+ *  ② 到点未终态 ⇒ 进 `unknown` 并**点名**,绝不并入 `settled`。
+ *     上游同族机制(ZCode `headless-workflow.ts:341-347` 的 100ms 轮询 +
+ *     `runtime-command-queue.ts:100-109` 的两个 busy 布尔)在 abort 时
+ *     "既不报'没结束'也不报'不知道'",返回 `Promise<void>` 就把这一格洗成了沉默;
+ *     本出口不许那样收场。
+ *  ③ 复用 `waitForTask`,因此"先登记监听器再读状态""交出的是快照""超时不等于静默"
+ *     三条判据一处生效、不在这里重写第二遍(两处算同一件事必漂移)。
+ *
+ * 现状登记(为什么不接 `apps/cli/src/index.ts` 的一次性入口):实测
+ * 一次性进程带在飞后台任务时**根本不会提前退出** —— 子进程自己的 `ProcessWrap` 与
+ * 两族 flowing 的 `PipeWrap` 句柄钉住事件循环。取证 2026-09-29 用一次性探针跑三支 arm
+ * (临时探针按 §25 交付后已清理,数字记在这里,复现只需复刻这三步):
+ *   · 真实路径(`runSandboxedAsync` + `registerTask` + `handle.result.then`,尾巴与
+ *     index.ts:452 同形):`TAIL_REACHED` 在 12ms 到达(此刻 status 仍是 running、子进程活着、
+ *     activeResources 含 PipeWrap×4 + ProcessWrap + Timeout),进程在 **7104ms** 才退出,
+ *     退出时子进程已不在 ⇒ 没有孤儿;
+ *   · 对照"pipe + data 监听、无 setTimeout":同样 7064ms ⇒ 钉住的是**管道**不是那个 600s 闹钟;
+ *   · 对照"stdio ignore + unref":3ms 就退、子进程仍在跑 ⇒ 孤儿化这一型需要**不读管道**才成立,
+ *     而本端四个登记点(repl.ts:1698/1748、builtins.ts:704/711)全部走
+ *     `runSandboxedAsync` 的 `stdio:['pipe','pipe','pipe']`,没有这样的载体。
+ * 所以"不接线就会孤儿化"这一故障形态在本端**当前不成立**,把本出口接到退出点等于
+ * 为实现票造一个不存在的故障;它今天的用处是给有界等待/主动收敛的调用点(以及测试)
+ * 一个可问责的结论形状。
+ *
+ * 与同族机制的分工(不是第二份真相):`commands/agent.ts` 的
+ * `drainInFlightBackgroundTasks`(2026-09-29 现读**尚未入 HEAD**,是并行会话的在飞改动)
+ * 判的是"**等到完或等到被取消**"—— 不设总上限、每轮重并清单(覆盖"在飞派生在飞"),
+ * 结论是 `drained | interrupted(unsettledTaskIds)`。本出口判的是另一格:
+ * **给定窗口内能收多少、收不到的逐名报名**,单轮、不重并、不看取消信号。
+ * 两者不可互替:把本出口改成无限等待就没了"有界"这一维,把排水改成一轮就漏了
+ * 在飞派生那一型。谁落地都不要"顺手合并"另一个。
+ */
+export async function settleAllInFlight(timeoutMs = 30_000): Promise<SettleAllInFlightResult> {
+  // ① 入口快照(先取名单再等,免得边等边被新条目改动遍历面)
+  const ids: string[] = [];
+  for (const t of tasks.values()) {
+    if (!isTerminalStatus(t.status)) ids.push(t.id);
+  }
+  const results = await Promise.all(ids.map((id) => waitForTask(id, timeoutMs)));
+  let settled = 0;
+  const unknown: string[] = [];
+  const gone: string[] = [];
+  results.forEach((r, i) => {
+    const id = ids[i]!;
+    if (r.state === 'settled') settled += 1;
+    else if (r.state === 'gone') gone.push(id);
+    // timed-out-unknown / still-running 都是"没结论",逐名报名(②)
+    else unknown.push(id);
+  });
+  return { settled, unknown, gone };
+}
+
 /** 终止任务,signal 默认 SIGTERM,5 秒后未退出强杀 SIGKILL。 */
 export async function killTask(id: string): Promise<{ killed: boolean; reason?: string; exitConfirmed: boolean }> {
   const t = tasks.get(id);
@@ -503,11 +658,19 @@ export function clearAllTasks(): void {
   }
   // 整表清空前逐个结掉等待者:留一个没人回答的等待 = Promise 泄漏
   // (与本文件 killTask 处 P0-4 修复记的是同一型故障)。
+  // 与 notifySettled 同一条纪律:**逐个包**,一个监听者体内抛错不许吞掉它后面所有等待者
+  // —— 那正是本段存在的理由要排除的形态。清空是终局动作,所以这里不参与 claim/回退语义。
   for (const id of settleListeners.keys()) {
     const set = settleListeners.get(id);
     if (!set) continue;
     settleListeners.delete(id);
-    for (const fn of set) fn(null);
+    for (const fn of Array.from(set)) {
+      try {
+        fn(null);
+      } catch {
+        /* 单个等待者的清理体内抛错不带崩整表清空 */
+      }
+    }
   }
   tasks.clear();
 }
@@ -598,4 +761,19 @@ export function clearAllLoops(): void {
   }
   loops.clear();
 }
+
+/**
+ * 测试通道(本端既有形态:`apps/cli/src/plugins/path-safety.ts:237`)。
+ *
+ * 为什么只暴露这两个:投递的 claim/回退语义要能**脱离真实进程事件**被驱动
+ * (一个会抛错的监听者体内没有任何生产入口能构造出来 —— `waitForTask` 自己的监听体
+ * 只做 resolve,而 resolve 不抛)。把 `addSettleListener`/`notifySettled` 交出去,
+ * 判据就能被成对用例正面问出"抛错之后位有没有回退、下一次还能不能投",
+ * 而不必靠改产品代码去撞一条不可达分支。
+ * 终态单向门**不放**进这个通道:它只认 `task.status`,由真事件驱动才有意义。
+ */
+export const __test__ = {
+  addSettleListener,
+  notifySettled,
+};
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
