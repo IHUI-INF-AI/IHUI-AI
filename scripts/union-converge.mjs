@@ -85,7 +85,15 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { auditOne } from './check-merge-addition-loss.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { resolveRemoteHead, catBatch } from './lib/face-reader.mjs'
-import { auditPlan, malformedLine, f9GroupLine, DUP_POINTER_RE, MERGE_NOTE_RE } from './lib/plan-task-index.mjs'
+import {
+  auditPlan,
+  malformedLine,
+  f9GroupLine,
+  DUP_POINTER_RE,
+  MERGE_NOTE_RE,
+  keyOfRow,
+} from './lib/plan-task-index.mjs'
+import { SIM_THRESHOLD, jaccard, tokenize, stripState } from './lib/live-doc-similarity.mjs'
 // 搬运感知判据(2026-09-28):占位注释的解析与"哪些行属于那个被搬走的条目"的块归属,
 // 一律复用归档器那一份实现(`lib/plan-task-headings.mjs` 的 parseCompletedTaskBlocks),
 // **不得在本归并器里再抄一条"什么算一个已完成条目"的正则** —— 两处各写一遍必漂移。
@@ -556,13 +564,121 @@ export function liveDocExpectedCounts(oursText, theirsText, baseText = null, sup
         : Math.max(0, n - Math.max(cb.get(l) || 0, own))
     if (addedByTheirs > 0) want.set(l, own + addedByTheirs)
   }
+  /**
+   * 「对侧改写、本侧未动」那一格:把本侧脊柱里那份**来自基底的旧形态**按对侧剩下的份数下调。
+   * 与 `unionLines` 的补回循环共用这一张表 ⇒ 产出面与自证面天然同形(两处各写一遍必漂移,
+   * 而漂开的表现是"落地闸对着一个产出面根本不存在的数字红")。
+   */
+  for (const [l, n] of theirsRewriteCaps(oursText, theirsText, baseText, suppress)) {
+    const left = (want.get(l) || 0) - n
+    if (left <= 0) want.delete(l)
+    else want.set(l, left)
+  }
   return want
+}
+
+/**
+ * 「**对侧**就地改写、而**本侧**对该主键完全未动」的折叠表 —— 已有那一条对称规则的另一半。
+ *
+ * 现有公式(`liveDocExpectedCounts`)已经处理了"本侧改写、对侧未动 ⇒ 不复活旧行"(靠基底那一维)。
+ * 缺的是反方向:本侧未改、对侧把 base 的第 i 行改成新形态时,本侧脊柱里那份 base 行会原样留下,
+ * 而对侧的新形态又被当"对侧相对基底新增"补回 ⇒ **同一主键两个形态并存**。
+ * 台账上的表现就是 F9「归并新增撞号组」(实测 `G-823` / `G-814425` 两组:一侧是未勾原文、
+ * 另一侧是同一件事的「已落地」改写形态 ⇒ 两侧都不撞、合并才撞),而它**不是**任何人的登记错误 ——
+ * 是这台归并器把"改写"读成了"新增"。
+ *
+ * 只在四条同时成立时才折(每一条都在防一个具体的误伤):
+ *  ① 有基底(无基底就无从判"谁动了",此时两侧都是独有行 ⇒ 一份都不能少带);
+ *  ② 该主键两侧**行数相等**(不等 ⇒ 对侧是增行或整族删,增行必须两边都在,整族删按"删除不传播"放过);
+ *  ③ 本侧该主键的行多重集**逐字等于基底**(= 本侧对这一族没有任何独有工作 ⇒ 少带一份不丢任何东西);
+ *  ④ 对侧该主键与基底不同(否则无事可做)。
+ * 折的数量取 `max(0, 基底重数 − 对侧重数)`,所以"对侧只换掉一族里的某一行"时另一行照留。
+ *
+ * **失效方向**:判不准 ⇒ 不折(多留一份,F9 照常红并交人工)。绝不反过来少带别人的行 ——
+ * 与上面 `suppress` 那条"少扣一行=带回已归档内容 / 多扣一行=丢掉别人新写的行"是同一条禁令。
+ * 只认台账主键(`keyOfRow`),AGENTS.md / README.md 那些非登记行因此**结构上不参与折叠**,
+ * 行为与改动前逐字相同。
+ */
+export function theirsRewriteCaps(oursText, theirsText, baseText, suppress = null) {
+  const caps = new Map()
+  if (typeof baseText !== 'string' || baseText === '') return caps
+  const group = (text) => {
+    const m = new Map()
+    for (const l of text.split('\n')) {
+      const k = keyOfRow(l)
+      if (!k) continue
+      if (!m.has(k)) m.set(k, [])
+      m.get(k).push(l)
+    }
+    return m
+  }
+  const gB = group(baseText)
+  const gO = group(oursText)
+  // 搬运感知已代表的那些份**不算对侧持有**:否则同一份会被 suppress 与 caps 各扣一次(少带 = 丢内容)。
+  // 代价是这一族会因"行数不等"而落回不折 ⇒ 失效方向是多留一份,不是少带一份。
+  const left = new Map(suppress || [])
+  const tEff = []
+  for (const l of theirsText.split('\n')) {
+    const s = left.get(l) || 0
+    if (s > 0) {
+      left.set(l, s - 1)
+      continue
+    }
+    tEff.push(l)
+  }
+  const gT = group(tEff.join('\n'))
+  const multisetEq = (a, b) => {
+    if (a.length !== b.length) return false
+    const ca = counter(a.join('\n'))
+    const cb = counter(b.join('\n'))
+    for (const [l, n] of ca) if ((cb.get(l) || 0) !== n) return false
+    return true
+  }
+  for (const [k, bLines] of gB) {
+    const oLines = gO.get(k) || []
+    const tLines = gT.get(k) || []
+    if (tLines.length === 0) continue
+    if (bLines.length !== tLines.length) continue
+    if (!multisetEq(bLines, oLines)) continue
+    if (multisetEq(bLines, tLines)) continue
+    // 同号**两个不同议题**(并发取号撞上的)不是就地改写:两侧各是一件活着的登记,
+    // 折掉哪一侧都是替别人删事。判"是不是同一件事"的尺子只许有一份,故复用 merge-live-doc
+    // 那把字符二元组 Jaccard 与同源阈值(按词切在 CJK 混排行上会断崖下跌,该层头注已记过)。
+    const sim = jaccard(
+      tokenize(stripState(bLines.join('\n'))),
+      tokenize(stripState(tLines.join('\n'))),
+    )
+    if (sim < SIM_THRESHOLD) continue
+    const ct = counter(tLines.join('\n'))
+    for (const [l, n] of counter(bLines.join('\n'))) {
+      const dropped = n - (ct.get(l) || 0)
+      if (dropped > 0) caps.set(l, (caps.get(l) || 0) + dropped)
+    }
+  }
+  return caps
 }
 
 /** 行级 union:以本侧顺序为脊柱,把对侧**相对基底新增、且未被搬运感知代表**的重数补在末尾。 */
 export function unionLines(oursText, theirsText, baseText = null, suppress = null) {
   const want = liveDocExpectedCounts(oursText, theirsText, baseText, suppress)
-  const out = oursText.split('\n')
+  // 脊柱裁剪:期望表已按改写折叠下调过的行,这里必须真把多出来的份数从本侧脊柱里去掉,
+  // 否则"折叠"只存在于断言侧而产出面仍是双份 —— 那等于 F9 判据看不见、落地闸却对着一个不存在的数红。
+  const remove = new Map()
+  const coAll = counter(oursText)
+  for (const [l, n] of coAll) {
+    const over = n - (want.get(l) || 0)
+    if (over > 0) remove.set(l, over)
+  }
+  const spine = []
+  for (const l of oursText.split('\n')) {
+    const r = remove.get(l) || 0
+    if (r > 0) {
+      remove.set(l, r - 1)
+      continue
+    }
+    spine.push(l)
+  }
+  const out = spine
   const need = new Map(want)
   for (const [l, n] of counter(oursText)) need.set(l, (need.get(l) || 0) - n)
   // 逐行消费时也要按同一张抑制表计数,否则"该少带的那一份"会从末尾漏回来。
@@ -1952,6 +2068,58 @@ function selfTest() {
       '防复活必须是**有基底的三方判据**:只给两侧文本时旧行为不变(证明收紧靠的是 base 而不是削判据)',
       counter(unionLines('a\n', 'a\nb\n')).get('b') === 1,
     )
+    // 「对侧改写、本侧未动」那一族的四条成对用例(正例 + 三条"判不准就不许折"的反向对照)。
+    // 反向三条各自的失效方向都是**多留一份**,绝不是少带 —— 少带就是丢别人的行,比 F9 红更贵。
+    const RW_BASE = '- [ ] G-770 折叠夹具:同一议题的甲写法,含落点与判据两段说明。\n'
+    const RW_NEW = '- [x] G-770 折叠夹具:同一议题的乙写法,含落点与判据两段说明。\n'
+    const RW_MINE = '- [ ] G-770 折叠夹具:本侧自己改成的第三种形态。\n'
+    const rwHas = (r, s) => (s === '' ? false : r.includes(s.trim()))
+    ok(
+      '对侧就地改写 ∧ 本侧对该主键逐字未动 ⇒ 结果只带改写那一份(旧写法把改写读成「对侧新增」,' +
+        '于是同号两个形态并存 —— 实测 G-823 与 G-814425 两组 F9 就是这么造出来的)',
+      (() => {
+        const r = unionLines(`a\n${RW_BASE}`, `a\n${RW_NEW}`, `a\n${RW_BASE}`)
+        return rwHas(r, RW_NEW) && !rwHas(r, RW_BASE)
+      })(),
+    )
+    ok(
+      '反向锁:本侧对同一主键**也改过** ⇒ 两侧同改,机器不许折(交人工),两份形态都必须留在结果里',
+      (() => {
+        const r = unionLines(`a\n${RW_MINE}`, `a\n${RW_NEW}`, `a\n${RW_BASE}`)
+        return rwHas(r, RW_MINE) && rwHas(r, RW_NEW)
+      })(),
+    )
+    ok(
+      '反向锁:对侧是**增行**而不是改写(该主键行数不等)⇒ 不折,本侧那份基底行一份都不能少',
+      (() => {
+        const r = unionLines(`a\n${RW_BASE}`, `a\n${RW_BASE}${RW_NEW}`, `a\n${RW_BASE}`)
+        return rwHas(r, RW_BASE) && rwHas(r, RW_NEW)
+      })(),
+    )
+    ok(
+      '反向锁:同一枚号被两侧各登记成**不同议题**(并发取号撞的)⇒ 不许折 —— 折掉任何一侧都是替别人删一件活账,比 F9 红贵得多;这条就是本判据唯一的假阳方向',
+      (() => {
+        const A = '- [ ] G-773 构建脚本的包名解析恒为空,versionCode 读错 app 的清单。'
+        const B = '- [ ] G-773 派单阻塞登记:排队语义在满载时把已终态任务再次入队。'
+        const r = unionLines(`a\n${A}\n`, `a\n${B}\n`, `a\n${A}\n`)
+        return r.includes(A.trim()) && r.includes(B.trim())
+      })(),
+    )
+    ok(
+      '反向锁:对侧把该主键**整族删掉** ⇒ 删除不随合并传播(本侧那份照留),与上面「本侧删而对侧未动」那条对称',
+      (() => {
+        const r = unionLines(`a\n${RW_BASE}`, 'a\n', `a\n${RW_BASE}`)
+        return rwHas(r, RW_BASE)
+      })(),
+    )
+    ok(
+      '期望表与产出面必须同一张尺:折叠登记在 liveDocExpectedCounts 里,自证侧读到同一个数 ' +
+        '(否则落地闸对着一个产出面根本不存在的数字红,而那种红会被读成「别人把我的行改坏了」)',
+      (() => {
+        const want = liveDocExpectedCounts(`a\n${RW_BASE}`, `a\n${RW_NEW}`, `a\n${RW_BASE}`)
+        return (want.get(RW_BASE.trimEnd()) || 0) === 0 && want.get(RW_NEW.trimEnd()) === 1
+      })(),
+    )
     // 多重行的口径(真仓第一天就把我这条反向对照判成假阳:台账同一行本来就有 4 份)
     ok(
       '活文档:同一行有多份时按重数算,本侧删掉一份 ≠ "旧行被复活"',
@@ -2411,6 +2579,7 @@ export const __test__ = {
   planStateRegressions,
   mergeThreeBlobs,
   liveDocExpectedCounts,
+  theirsRewriteCaps,
   moveAwareForDoc,
   formatMoveAwareReport,
   formatPointerCapReport,
