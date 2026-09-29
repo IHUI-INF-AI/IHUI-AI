@@ -306,8 +306,43 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
     "toutiao": {
         "name": "今日头条",
         "login_url": "https://www.toutiao.com/",
-        "success_cookies": ["sid_tt", "sessionid", "tt_scid"],
+        # 2026-09-29 剔除 tt_scid:它是字节跳动设备追踪 cookie,游客访问首页就带,
+        # 曾导致"打开首页 3 秒未扫码即假成功"(任一命中即判登录,_cookie_hits 是 any 语义)。
+        # 真正的登录会话 cookie 只有 sid_tt / sessionid(未登录时不存在)。
+        "success_cookies": ["sid_tt", "sessionid"],
         "success_url_pattern": r"^https?://(www\.)?toutiao\.com/?($|#|\?)|mp\.toutiao\.com/(dashboard|home|main)",
+        # 2026-09-29 微信扫码通道(纯 HTTP,不起浏览器):用户要微信码而非头条 App 码。
+        # 链路 = wap_login 302 直出**新鲜 state** 的 qrconnect → 页内 fordevtool 取
+        # uuid → /connect/qrcode/{uuid} 即微信官方码 → 长轮询 405 拿 wx_code
+        # → login_success 302 链 cookie 落袋。
+        # ⚠️ Playwright 点击式 OAuth 已定性死路勿回头:头条前端对 CDP 通道确定性拦截
+        # (三轮对照实验 v12-v15,协议勾选/隐身参数/精确 aria 点击全无效,0 微信请求);
+        # 直接命中 wap_login 服务端端点则完全绕开前端。state 每任务新鲜生成,
+        # 无会话绑定校验(fake code 探针:2h 前的 state 仍走通 callback 链)。
+        "http_flow": "toutiao_wechat",
+    },
+    # 2026-09-29 双通道共存:伪平台,复用通用 Playwright 流走"头条 App 扫码"原生码,
+    # 供微信未绑定头条的用户兜底。落库/cookie 归属经 account_platform 归并回 toutiao,
+    # 账号不会分裂成两个平台。
+    "toutiao_app": {
+        "name": "今日头条(App扫码)",
+        "login_url": "https://www.toutiao.com/",
+        "success_cookies": ["sid_tt", "sessionid"],
+        "success_url_pattern": r"^https?://(www\.)?toutiao\.com/?($|#|\?)|mp\.toutiao\.com/(dashboard|home|main)",
+        "account_platform": "toutiao",
+        # 出码路径 = 点 a.login-button:visible(首个实例藏在 SSR 骨架里 is_visible=False,
+        # 必须 :visible 限定)→ 弹层右侧"扫码登录"tab 即真码。⚠️ 勿配右下"扫码下载"推广码。
+        # ⚠️ 码有效期 ~140s,过期后码区变"点击刷新"提示(wrapper 多出 qrcode-tip 类),
+        # qr_refresh_selectors 守门自动点刷新(ttp-modal-mask 拦普通 click,JS click 可绕)。
+        "scan_tab_selectors": (
+            ('a.login-button:visible',),
+        ),
+        "qr_refresh_selectors": (
+            (
+                '[class*="qrcode-wrapper"][class*="qrcode-tip"]',
+                "li.tool-item.refresh",
+            ),
+        ),
     },
     "wechat": {
         "name": "微信公众号",
@@ -375,6 +410,11 @@ def _cookie_domain_map(raw_cookies: Sequence[Mapping[str, Any]]) -> dict[str, st
         if name and dom:
             out[name] = dom
     return out
+
+
+def _account_platform_of(platform: str) -> str:
+    """伪平台(如 toutiao_app)归并到真实账号平台;未配置 account_platform 时原样返回。"""
+    return PLATFORM_SCAN_CONFIG.get(platform, {}).get("account_platform", platform)
 
 
 def _collect_platform_relevant(
@@ -813,11 +853,224 @@ def _find_chromium_executable() -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# 头条·微信扫码通道(2026-09-29 新增:纯 HTTP 全链路,不起浏览器)
+# ---------------------------------------------------------------------------
+_TOUTIAO_WX_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+)
+# wap_login 是头条 SSO 的服务端微信 OAuth 入口:302 直出 open.weixin.qq.com/
+# connect/qrconnect(内含**每次请求都新鲜的 state**,同时 Set-Cookie
+# passport_csrf_token_wap_state)。state 无会话绑定校验(fake code 探针实证)。
+_TOUTIAO_WAP_LOGIN_URL = (
+    "https://www.toutiao.com/passport/auth/wap_login/?aid=24&type=sso"
+    "&use_local_host=undefined&scopes=user_info"
+    "&next=https%3A%2F%2Fsso.toutiao.com%2Fauth%2Flogin_success%2F"
+    "%3Fservice%3Dhttps%253A%252F%252Fwww.toutiao.com%252F"
+    "&url_params=&platform_app_id=43&platform="
+)
+_TOUTIAO_WX_QR_URL = "https://open.weixin.qq.com/connect/qrcode/{uuid}"
+_TOUTIAO_WX_LONGPOLL_URL = "https://long.open.weixin.qq.com/connect/l/qrconnect"
+_TOUTIAO_WX_CALLBACK_URL = "https://api.snssdk.com/auth/login_success"
+# 长轮询 errcode:408 等待扫码 / 404 已扫码待确认 / 405 已确认(wx_code 就绪)
+# / 402 码过期 / 403 用户手机端拒绝。
+_TOUTIAO_WX_POLL_TIMEOUT = 15.0  # 服务端长轮询 ~25s 才放行,客户端 15s 主动断开
+                                  # 重连(uuid 不变),保证取消/超时检查延迟 ≤15s。
+
+
+def _toutiao_wx_fetch_new_qr(client: Any, task: ScanTask) -> tuple[str, str]:
+    """wap_login → qrconnect 拿新鲜 state + uuid,并把微信官方码写入任务。
+
+    返回 (state, uuid);任一环节失败抛 RuntimeError(带阶段说明)。
+    """
+    r = client.get(_TOUTIAO_WAP_LOGIN_URL)
+    loc = r.headers.get("location", "")
+    if r.status_code not in (301, 302, 303, 307, 308) or "qrconnect" not in loc:
+        raise RuntimeError(f"wap_login 未重定向到 qrconnect(status={r.status_code})")
+    m = re.search(r"[?&]state=([^&#]+)", loc)
+    if not m:
+        raise RuntimeError("qrconnect URL 缺少 state")
+    state = m.group(1)
+    r2 = client.get(loc)
+    m2 = re.search(r'fordevtool\s*=\s*"[^"]*uuid=([0-9A-Za-z]+)"', r2.text)
+    if not m2:
+        raise RuntimeError("qrconnect 页面未找到 uuid(fordevtool)")
+    qr_uuid = m2.group(1)
+    r3 = client.get(_TOUTIAO_WX_QR_URL.format(uuid=qr_uuid))
+    ctype = (r3.headers.get("content-type") or "").lower()
+    if r3.status_code != 200 or "image" not in ctype:
+        raise RuntimeError(f"微信码下载失败(status={r3.status_code}, ctype={ctype})")
+    with task._lock:
+        task.qr_image_b64 = base64.b64encode(r3.content).decode("ascii")
+        task.qr_image_updated_at = time.time()
+    _persist_task(task)
+    return state, qr_uuid
+
+
+def _run_toutiao_wechat_flow(task: ScanTask) -> None:
+    """头条微信扫码:wap_login→qrconnect→微信官方码→长轮询→callback 链 cookie 落袋。"""
+    config = PLATFORM_SCAN_CONFIG[task.platform]
+    logger.info(f"[scan_login] 任务 {task.task_id} 启动(头条微信 HTTP 通道)")
+    try:
+        import httpx
+    except ImportError as e:
+        task.status = "failed"
+        task.message = f"httpx 未安装:{e}"
+        task.completed_at = time.time()
+        _persist_task(task)
+        return
+
+    task.status = "waiting_scan"
+    task.message = "正在获取微信登录二维码..."
+    _persist_task(task)
+
+    try:
+        with httpx.Client(
+            headers={"User-Agent": _TOUTIAO_WX_UA, "Referer": "https://www.toutiao.com/"},
+            timeout=30.0,
+            follow_redirects=False,
+        ) as client:
+            state, qr_uuid = _toutiao_wx_fetch_new_qr(client, task)
+            task.message = "请用微信扫描二维码登录今日头条"
+            _persist_task(task)
+
+            timeout_seconds = 5 * 60
+            start_time = time.time()
+            while not task._stop_event.is_set():
+                # 跨实例取消/过期检测(与通用 Playwright 流同机制)
+                _redis = _TASK_STORE._get_redis()
+                if _redis:
+                    try:
+                        _raw = _redis.get(_TASK_STORE._key(task.task_id))
+                        if _raw:
+                            _remote = json.loads(_raw)
+                            _rs = _remote.get("status")
+                            if _rs in ("cancelled", "expired"):
+                                task.status = _rs
+                                task.message = _remote.get("message", "") or (
+                                    "用户取消" if _rs == "cancelled"
+                                    else "二维码已过期,请重新发起扫码登录"
+                                )
+                                task.completed_at = time.time()
+                                break
+                    except Exception:
+                        pass
+
+                if time.time() - start_time > timeout_seconds:
+                    task.status = "timeout"
+                    task.message = f"等待超时(> {timeout_seconds}s)"
+                    task.completed_at = time.time()
+                    _persist_task(task)
+                    break
+
+                # 长轮询微信扫码状态(阻塞 ≤15s)
+                try:
+                    resp = client.get(
+                        _TOUTIAO_WX_LONGPOLL_URL,
+                        params={"uuid": qr_uuid},
+                        timeout=_TOUTIAO_WX_POLL_TIMEOUT,
+                    )
+                except Exception:
+                    continue  # 客户端超时/网络抖动:uuid 不变直接重连
+                err_m = re.search(r"wx_errcode=(\d+)", resp.text)
+                code_m = re.search(r"wx_code='([^']*)'", resp.text)
+                errcode = err_m.group(1) if err_m else ""
+                wx_code = code_m.group(1) if code_m else ""
+
+                if errcode == "405" and wx_code:
+                    # 已确认 → 头条 callback 302 链,cookie 全程落同一 jar
+                    task.message = "微信已确认,正在获取头条登录状态..."
+                    _persist_task(task)
+                    cb = client.get(
+                        _TOUTIAO_WX_CALLBACK_URL,
+                        params={"code": wx_code, "state": state},
+                        follow_redirects=True,
+                    )
+                    cookies_dict: dict[str, str] = {}
+                    raw_cookies: list[dict[str, str]] = []
+                    for c in client.cookies.jar:
+                        dom = c.domain or ""
+                        if not c.name or not c.value:
+                            continue
+                        if "toutiao" not in dom and "snssdk" not in dom:
+                            continue
+                        cookies_dict[c.name] = c.value
+                        raw_cookies.append(
+                            {"name": c.name, "value": c.value, "domain": dom, "path": c.path or "/"}
+                        )
+                    matched = _cookie_hits(config, cookies_dict)
+                    if matched:
+                        task.cookies = {k: cookies_dict[k] for k in matched}
+                        task.all_relevant_cookies = _collect_platform_relevant(
+                            _account_platform_of(task.platform), cookies_dict, raw_cookies, config
+                        )
+                        task.status = "success"
+                        task.message = f"登录成功,获取到 {len(task.all_relevant_cookies)} 个 cookies"
+                        task.completed_at = time.time()
+                        _schedule_account_save(task)
+                        _persist_task(task)
+                        logger.info(f"[scan_login] 任务 {task.task_id} 微信扫码成功: {matched}")
+                        break
+                    # 回跳完成但没拿到登录 cookie(微信未绑定头条账号/风控拦截)
+                    final_url = str(cb.url)
+                    if "need_bind_mobile" in final_url:
+                        # 2026-09-29 真机实证:微信从未绑定头条时,头条 callback 302 到
+                        # wap_bind_mobile_index?auth_err=2001:need_bind_mobile(带 profile_key),
+                        # 强制先绑手机号才放行 —— 产品级门槛,管道本身全通。
+                        task.status = "failed"
+                        task.message = (
+                            "该微信未绑定过今日头条账号,头条要求首次微信登录先绑定手机号。"
+                            "请先在手机上用微信登录今日头条 App 完成手机号绑定,"
+                            "之后回到这里重新扫码即可全自动登录"
+                        )
+                        task.completed_at = time.time()
+                        _persist_task(task)
+                        logger.warning(f"[scan_login] 任务 {task.task_id} 头条要求先绑手机号(need_bind_mobile)")
+                        break
+                    err_hint = final_url.split("error=")[-1].split("&")[0][:80] if "error=" in final_url else ""
+                    task.status = "failed"
+                    task.message = "微信确认完成但未获取到头条登录 cookie" + (f"(error:{err_hint})" if err_hint else "")
+                    task.completed_at = time.time()
+                    _persist_task(task)
+                    logger.warning(f"[scan_login] 任务 {task.task_id} callback 未命中: final={final_url[:200]}")
+                    break
+
+                if errcode == "404":
+                    if task.status != "scanned":
+                        task.status = "scanned"
+                        task.message = "已扫码,请在手机上确认登录"
+                        _persist_task(task)
+                    continue
+
+                if errcode in ("402", "403"):
+                    # 码过期 / 用户手机端拒绝:重走一遍出全新码(与旧截图流"刷新"等价)
+                    logger.info(f"[scan_login] 任务 {task.task_id} 微信码 errcode={errcode},刷新重出")
+                    state, qr_uuid = _toutiao_wx_fetch_new_qr(client, task)
+                    task.status = "waiting_scan"
+                    task.message = "二维码已刷新,请重新扫码"
+                    _persist_task(task)
+                    continue
+                # 408 / 其它:继续等
+
+    except Exception as e:
+        logger.exception(f"[scan_login] 任务 {task.task_id} 微信通道异常")
+        if not task.is_terminal():
+            task.status = "failed"
+            task.message = f"微信扫码异常:{type(e).__name__}: {str(e)[:200]}"
+            task.completed_at = time.time()
+            _persist_task(task)
+
+
+# ---------------------------------------------------------------------------
 # 后台扫码登录任务
 # ---------------------------------------------------------------------------
 def _run_scan_task(task: ScanTask) -> None:
     """在后台线程中执行扫码登录流程。"""
     config = PLATFORM_SCAN_CONFIG[task.platform]
+    # 2026-09-29:配置了 http_flow 的平台走纯 HTTP 专用通道(不起浏览器),
+    # 目前仅 toutiao_wechat 一种。
+    if config.get("http_flow") == "toutiao_wechat":
+        return _run_toutiao_wechat_flow(task)
     logger.info(f"[scan_login] 任务 {task.task_id} 启动: platform={task.platform}, user_id={task.user_id}")
 
     try:
@@ -950,6 +1203,39 @@ def _run_scan_task(task: ScanTask) -> None:
 
                 # 每 2 秒更新一次截图
                 if time.time() - last_screenshot_time >= 2.0:
+                    # 2026-09-29:二维码有有效期(头条 ~140s 实测),过期后码区变
+                    # "点击刷新"提示图,弹窗里的截图用户根本没法扫(用户实际踩坑,
+                    # 首次扫码失败即此因——码本身是真的,只是过期没人刷)。
+                    # 平台可配 qr_refresh_selectors,项为二选一:
+                    #   字符串 sel            → 检测+点击同一元素
+                    #   (detect_sel, click_sel) → 检测 A(如过期提示覆盖层)、点击 B(刷新按钮,
+                    #     可能常驻可见,绝不能凭"可见"就点,必须由 detect 态守门)
+                    # 探测轻量(is_visible 立即返回);click 用 JS click 绕弹层 mask
+                    # (头条 ttp-modal-mask 会拦普通 click 的 actionability)。
+                    _refresh_hit = False
+                    for _item in config.get("qr_refresh_selectors", ()):
+                        _det, _clk = (
+                            _item if isinstance(_item, (tuple, list)) else (_item, _item)
+                        )
+                        try:
+                            _el = page.locator(_det).first
+                            if not _el.is_visible():
+                                continue
+                            try:
+                                page.evaluate(
+                                    "s => document.querySelector(s)?.click()", _clk
+                                )
+                            except Exception:
+                                page.locator(_clk).first.click(timeout=2000, force=True)
+                            _refresh_hit = True
+                            break
+                        except Exception:
+                            continue
+                    if _refresh_hit:
+                        logger.info(
+                            f"[scan_login] 任务 {task.task_id} 检测到二维码过期,已点击刷新出新码"
+                        )
+                        page.wait_for_timeout(2000)
                     _update_qr_screenshot(task, page)
                     last_screenshot_time = time.time()
 
@@ -972,7 +1258,7 @@ def _run_scan_task(task: ScanTask) -> None:
                     task.cookies = {k: v for k, v in cookies_dict.items() if k in _matched}
                     # 落库集按平台归属筛(域名优先),不再用 5 项名字黑名单
                     task.all_relevant_cookies = _collect_platform_relevant(
-                        task.platform, cookies_dict, cookies, config
+                        _account_platform_of(task.platform), cookies_dict, cookies, config
                     )
                     task.status = "success"
                     task.message = f"登录成功,获取到 {len(task.all_relevant_cookies)} 个 cookies"
@@ -998,7 +1284,7 @@ def _run_scan_task(task: ScanTask) -> None:
                     if _present:
                         task.cookies = {k: v for k, v in cookies_dict.items() if k in _present}
                         task.all_relevant_cookies = _collect_platform_relevant(
-                            task.platform, cookies_dict, cookies, config
+                            _account_platform_of(task.platform), cookies_dict, cookies, config
                         )
                         task.status = "success"
                         task.message = f"登录成功(URL 跳转),获取到 {len(task.all_relevant_cookies)} 个 cookies"
@@ -1337,11 +1623,13 @@ async def _save_account_async(task: ScanTask) -> None:
     try:
         credentials = dict(task.all_relevant_cookies)
         credentials.update(task.cookies)
+        # 伪平台(如 toutiao_app)落库归并到真实平台,账号归属不分裂
+        account_platform = _account_platform_of(task.platform)
         task.account_id = await _save_account_to_db(
             task.user_id,
-            task.platform,
+            account_platform,
             credentials,
-            PLATFORM_SCAN_CONFIG[task.platform]["name"],
+            PLATFORM_SCAN_CONFIG[account_platform]["name"],
         )
     except Exception as e:
         logger.exception(f"[scan_login] 保存账号失败:{e}")

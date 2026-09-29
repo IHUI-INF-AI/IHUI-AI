@@ -110,8 +110,13 @@ function makeError(
  *
  * Unix: `kill(-pid, SIGKILL)` — `detached: true` 让 child 自成进程组,负 pid 即组 ID
  * Windows: `taskkill /pid <pid> /T /F` — Windows 没有 process group 概念,用 /T 杀进程树
+ *
+ * G-690(2026-09-29)`export`:MCP stdio 子进程此前自己写 `child.kill()`,只杀得掉 npx/cmd 壳,
+ * 壳派生的 node 子进程永留。机制早就在这份文件里,缺的只是出口 —— 按 AGENTS §3「复用现有实现」
+ * 加 export 而**不是**在调用端另抄一份杀进程树逻辑(两处算同一件事必漂移)。
+ * 调用端配合条件:`detached: true` 只在 Unix 侧有意义(Windows 无进程组,靠 /T)。
  */
-function killProcessTree(child: ChildProcess): void {
+export function killProcessTree(child: ChildProcess): void {
   if (!child.pid) return
   if (os.platform() === 'win32') {
     try {

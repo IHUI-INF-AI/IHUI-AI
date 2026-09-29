@@ -58,6 +58,18 @@ import { verifyTurnstile } from '../services/turnstile-service.js'
 import { db } from '../db/index.js'
 import { userDevices } from '@ihui/database'
 
+/**
+ * G-642(2026-09-29):设备指纹落库前归一 —— trim 首尾空白;归一后为空(如 " ")视为
+ * 无指纹 ⇒ 不落库(不得把空白当有效身份);超长(>64,即 user_devices.fingerprint_hash
+ * varchar(64) 硬上限)视为非法输入拒收 —— 截断会把不同设备折到同一键上,制造假"同设备"。
+ */
+export function normalizeDeviceFingerprint(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined
+  const trimmed = raw.trim()
+  if (trimmed === '' || trimmed.length > 64) return undefined
+  return trimmed
+}
+
 // =============================================================================
 // Zod schemas
 // =============================================================================
@@ -761,9 +773,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       setAuthCookies(reply, tokens, true)
 
       // 登录成功 → upsert 设备指纹到 user_devices 表(从 x-device-fingerprint header 取)
-      // 指纹为空时跳过(不阻塞登录);失败仅 log,不影响登录流程
-      const fingerprintHeader = request.headers['x-device-fingerprint']
-      const fingerprint = typeof fingerprintHeader === 'string' ? fingerprintHeader : undefined
+      // 指纹经 normalizeDeviceFingerprint 归一:空白/超长不落库(G-642);失败仅 log,不影响登录流程
+      const fingerprint = normalizeDeviceFingerprint(request.headers['x-device-fingerprint'])
       if (fingerprint) {
         try {
           const userAgent =
