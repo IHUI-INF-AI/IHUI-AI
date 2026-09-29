@@ -24,6 +24,7 @@ import {
   type PreviewViewMode,
 } from '@/components/media/preview-view-switch'
 import { PreviewErrorCard, type FilePreviewFailure } from './preview-error-card'
+import { GatedBlobError, readGatedBlob } from '@/lib/gated-blob-fetch'
 
 /**
  * CSV / TSV 分隔符表格富预览(V3 #70 判据 2)。
@@ -47,14 +48,6 @@ export interface DelimitedFilePreviewProps {
   /** 预览行数上限(默认沿用 CSV_PREVIEW_MAX_ROWS,展开态显示全部)。 */
   readonly maxRows?: number
   readonly className?: string
-}
-
-/** 从 Content-Length 取字节数;缺失/非法一律返回 null(不得猜大小)。 */
-function readContentLength(res: Response): number | null {
-  const raw = res.headers.get('content-length')
-  if (!raw) return null
-  const n = Number(raw)
-  return Number.isFinite(n) && n >= 0 ? n : null
 }
 
 export function DelimitedFilePreview({
@@ -81,23 +74,23 @@ export function DelimitedFilePreview({
     setExpanded(false)
     setMode('preview')
 
-    fetch(src)
-      .then(async (res) => {
+    const controller = new AbortController()
+    ;(async () => {
+      try {
+        const res = await fetch(src, { signal: controller.signal })
         if (cancelled) return
         if (!res.ok) {
           setFailure('failed')
           setDetail(String(res.status))
           return
         }
-        // 声明体积超上限就先拒,不把 20MB 正文拉进内存再判(那才是真"过大")
-        const declared = readContentLength(res)
-        if (declared !== null && declared > RICH_PREVIEW_MAX_TEXT_BYTES) {
-          setFailure('tooLarge')
-          return
-        }
-        const text = await res.text()
+        // 字节闸走唯一出口(G-815996):声明值只当"提前收手"的优化,
+        // 最终判定只看累计真实字节 —— 谎报小 Content-Length 的上游拦得住。
+        const blob = await readGatedBlob(res, controller, RICH_PREVIEW_MAX_TEXT_BYTES)
         if (cancelled) return
-        const bad = classifyDelimitedText(text, declared)
+        const text = await blob.text()
+        if (cancelled) return
+        const bad = classifyDelimitedText(text, blob.size)
         if (bad) {
           setFailure(bad === 'binary' ? 'typeMismatch' : bad)
           return
@@ -110,12 +103,19 @@ export function DelimitedFilePreview({
         // 原文留在手里:源码视图直接用它,切视图不再发第二次 fetch
         setRaw(text)
         setRows(parsed)
-      })
-      .catch(() => {
+      } catch (e) {
         if (cancelled) return
-        // 网络/解析异常一律可见:错误卡 + 下载出口,不吞异常、不白屏
+        // 过大(出口的 declaredTooLarge/tooLarge)单独成态,其余按网络失败
+        if (
+          e instanceof GatedBlobError &&
+          (e.reasonCode === 'tooLarge' || e.reasonCode === 'declaredTooLarge')
+        ) {
+          setFailure('tooLarge')
+          return
+        }
         setFailure('failed')
-      })
+      }
+    })()
 
     return () => {
       cancelled = true
