@@ -35,9 +35,14 @@ export const MCP_SETTINGS_PATH = '/mcp-store'
 /** 会渲染成对话内一行的状态(connected 不在此列 —— 见判据①) */
 const VISIBLE_STATES = new Set(['connecting', 'failed', 'reconnecting'])
 
+/** 「此刻有 MCP 异常态行可显示」的唯一判据:组件渲染与 InputStatusSlot 激活判定共用。 */
+export function selectVisibleMcpStatuses(statuses: readonly McpStatusEntry[]): McpStatusEntry[] {
+  return statuses.filter((s) => VISIBLE_STATES.has(s.state))
+}
+
 export function McpStatusNotice(): React.JSX.Element | null {
   const { statuses } = useMcpStatusBroadcast()
-  const visible = statuses.filter((s) => VISIBLE_STATES.has(s.state))
+  const visible = selectVisibleMcpStatuses(statuses)
   if (visible.length === 0) return null
 
   return (
@@ -45,7 +50,7 @@ export function McpStatusNotice(): React.JSX.Element | null {
       role="status"
       aria-live="polite"
       data-testid="mcp-status-notice"
-      className="mb-2 flex flex-col gap-1 rounded-md border border-border bg-card px-2.5 py-1.5"
+      className="flex flex-col gap-1 rounded-md border border-border bg-card px-2.5 py-1.5"
     >
       {visible.map((entry) => (
         <McpStatusRow key={entry.server} entry={entry} />

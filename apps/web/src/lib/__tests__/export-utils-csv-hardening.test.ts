@@ -3,6 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { neutralizeFormulaCell } from '@/lib/export-utils'
 
@@ -57,6 +60,39 @@ describe('neutralizeFormulaCell', () => {
   it('null/undefined 归一为空字符串且不中和', () => {
     expect(neutralizeFormulaCell(null)).toBe('')
     expect(neutralizeFormulaCell(undefined)).toBe('')
+  })
+})
+
+// G-815997 装车证明:web 面三处独立 CSV writer 必须经出口(判据存在但没人调用 = 没有)
+describe('装车证明:web 面独立 CSV writer 逐格过 neutralizeFormulaCell(G-815997)', () => {
+  const WEB_ROOT = join(HERE, '..', '..', '..')
+
+  it('developer/relay/usage exportCsv 逐格过出口(含 head)', () => {
+    const src = readFileSync(
+      join(WEB_ROOT, 'app', '(main)', 'developer', 'relay', 'usage', 'PageClient.tsx'),
+      'utf8',
+    )
+    expect(src).toMatch(/from '@\/lib\/export-utils'/)
+    expect(src).toMatch(/\.map\(neutralizeFormulaCell\)/)
+    expect(src).toContain('head.map(neutralizeFormulaCell)')
+  })
+
+  it('edu/edu-management/grades 导出逐格过出口', () => {
+    const src = readFileSync(
+      join(WEB_ROOT, 'app', '(main)', 'edu', 'edu-management', 'grades', 'PageClient.tsx'),
+      'utf8',
+    )
+    expect(src).toMatch(/from '@\/lib\/export-utils'/)
+    expect(src).toMatch(/r\.map\(neutralizeFormulaCell\)\.join\(','\)/)
+  })
+
+  it('反向对照:BatchImportDialog 无前端独立 writer,内容来自服务端 r.data.csv', () => {
+    const src = readFileSync(
+      join(WEB_ROOT, 'src', 'components', 'publish', 'BatchImportDialog.tsx'),
+      'utf8',
+    )
+    expect(src).toContain('r.data.csv')
+    expect(src).not.toMatch(/\.join\(','\)/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

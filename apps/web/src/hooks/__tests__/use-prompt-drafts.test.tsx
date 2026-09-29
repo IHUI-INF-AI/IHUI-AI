@@ -141,3 +141,58 @@ describe('D36 按会话输入草稿(组件级接线)', () => {
     expect(stored).toHaveLength(PROMPT_DRAFT_MAX_LENGTH)
   })
 })
+
+describe('b75-5#2 pagehide/blur/visibilitychange 立即 flush(绕过防抖)', () => {
+  it('pagehide:防抖未到期的草稿立即落盘', () => {
+    render(<Harness initialKey={KEY_A} />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    act(() => {
+      fireEvent.change(ta, { target: { value: 'before-hide' } })
+    })
+    expect(window.localStorage.getItem(KEY_A)).toBeNull()
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'))
+    })
+    expect(window.localStorage.getItem(KEY_A)).toBe('before-hide')
+  })
+
+  it('blur:防抖未到期的草稿立即落盘', () => {
+    render(<Harness initialKey={KEY_A} />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    act(() => {
+      fireEvent.change(ta, { target: { value: 'before-blur' } })
+    })
+    expect(window.localStorage.getItem(KEY_A)).toBeNull()
+    act(() => {
+      window.dispatchEvent(new Event('blur'))
+    })
+    expect(window.localStorage.getItem(KEY_A)).toBe('before-blur')
+  })
+
+  it('visibilitychange(hidden):防抖未到期的草稿立即落盘', () => {
+    render(<Harness initialKey={KEY_A} />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    act(() => {
+      fireEvent.change(ta, { target: { value: 'before-hidden' } })
+    })
+    expect(window.localStorage.getItem(KEY_A)).toBeNull()
+    act(() => {
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    expect(window.localStorage.getItem(KEY_A)).toBe('before-hidden')
+  })
+
+  it('空内容 flush:removeItem 清桶', () => {
+    window.localStorage.setItem(KEY_A, 'stale')
+    render(<Harness initialKey={KEY_A} />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    act(() => {
+      fireEvent.change(ta, { target: { value: '' } })
+    })
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'))
+    })
+    expect(window.localStorage.getItem(KEY_A)).toBeNull()
+  })
+})
