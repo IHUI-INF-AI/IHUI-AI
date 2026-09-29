@@ -1117,13 +1117,19 @@ test('R-K 调用方分流顺序:git-sync-converge 必须先认 UNDETERMINED 再�
   const calls = [...conv.matchAll(/classifyUnionAttempt\((uni|uniOut)\)/g)]
   assert.equal(calls.length, 2, `两处归并出口都要分流(实测 ${calls.length}):冲突分支与状态放大分支同型`)
   for (const c of calls) {
-    // 窗口从分流那一刻起算 ⇒ "亦判需人工"只能出现在它后面(命中位置 > 0)。
-    // 一旦有人把那句提到分流之前,这里就取不到或取到窗口外 ⇒ 本锁翻红。
+    // 载体随转述层换了出口(五态各一句,"亦判需人工"如今只是 need-human 那一句的原文,而第二个
+    // 调用点写的是"判需人工")。所以本锁改判**顺序**而不是某个短语:分流 → 取措辞 → 下结论。
+    // 有人若把结论提到分流之前(= G-473/G-815406 那一型:把"没判"写成"判过了"),这里立刻翻红。
     const win = conv.slice(c.index, c.index + 1500)
-    const h = win.indexOf('亦判需人工')
+    const r = win.indexOf('describeUnionRelay(')
+    const h = win.search(/判需人工/)
     assert.ok(
-      h > 0,
-      `调用点 #${c.index} 的窗口里找不到"亦判需人工"(位置 ${h})⇒ 要么那句被提到分流之前,要么真需人工那条路被删了`,
+      r > 0,
+      `调用点 #${c.index}:窗口里必须经 describeUnionRelay 取措辞(实测位置 ${r})⇒ 短语被硬编回调用点就是第二份措辞`,
+    )
+    assert.ok(
+      h > r,
+      `调用点 #${c.index}:需人工结论(h=${h})必须排在转述出口(r=${r})之后 —— 顺序反了就是先下结论再找依据`,
     )
   }
 })
