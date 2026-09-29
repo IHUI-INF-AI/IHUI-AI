@@ -34,7 +34,7 @@ const ROOT = TEST_ROOT ? resolve(TEST_ROOT) : resolve(dirname(fileURLToPath(impo
 const TICK = String.fromCodePoint(0x2705)
 const SELF_DECL = /〔[^〕]*(重复登记副本|派单以那条为准|本行不再单独派单)[^〕]*〕/
 const CLAIM = /（进行中/
-const git = (a) => execFileSync('git', ['-c', 'safe.directory=*', '-C', ROOT, ...a], { maxBuffer: 1 << 28 }).toString()
+const git = (a) => execFileSync('git', ['-c', 'safe.directory=*', '-C', ROOT, ...a], { maxBuffer: 1 << 28, windowsHide: true }).toString()
 
 const argv = process.argv.slice(2)
 const flag = (n, d) => {
@@ -133,6 +133,7 @@ if (APPLY) {
   const blob = execFileSync('git', ['-c', 'safe.directory=*', '-C', ROOT, 'hash-object', '-w', '--stdin'], {
     input: next,
     maxBuffer: 1 << 26,
+    windowsHide: true,
   })
     .toString()
     .trim()
