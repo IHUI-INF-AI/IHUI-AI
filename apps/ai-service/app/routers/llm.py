@@ -57,11 +57,6 @@ from ..core.provider_caps import (
     get_provider_cap,
 )
 from ..core.question_parser import QuestionStreamParser
-# D174(2026-09-30 立):帧级 traceId 的键名与兼容面清单取自契约层,取值经
-# core/trace_context.py 那份投影 —— 本路由不解析 traceparent、不自建 trace 上下文
-# (载体只有一份,在 middleware/trace_context.py;两处算同一件事必漂移)。
-from ..core.sse_contract import SSE_COMPAT_EVENTS, SSE_TRACE_ID_PAYLOAD_KEY
-from ..core.trace_context import sse_frame_trace_id
 from ..services.agent_events import (
     SSE_CHUNK,
     SSE_CONTENT_BLOCK_DELTA,
@@ -336,117 +331,6 @@ def _exec_prefix_grant_hits(argv: list[str] | tuple[str, ...], owner_uuid: str |
         return False
     except Exception:  # noqa: BLE001
         return False
-
-# D159(2026-09-30 立,用户批"三档到底"):审批载荷的**执行环境/网络目标**事实
-# ----------------------------------------------------------------------------
-# 组装只有一份实现(``network_approval.approval_env_payload``),本路由只是调用它 ——
-# 两处读法必漂移,而这一族漂移的代价是"弹窗说在沙箱里、实际直跑"(票第 8 栏爆炸半径)。
-# 回退开关 ``IHUI_APPROVAL_ENV_REPORT=0`` 也在那一份实现里判:关档 ⇒ 一个新字段都不发
-# ⇒ 前端整块不渲染,逐字回到本票落地前的形态(已入库载荷不受影响)。
-def _approval_env_fields(
-    tool_name: str, args: dict[str, Any] | None, owner_uuid: str | None
-) -> dict[str, Any]:
-    """审批帧的新字段(读不到就整块缺席,绝不发一个"看起来像事实"的默认值)。
-
-    出口自身故障也不能把审批链打断:那条链的失效方向必须是"信息少了(弹窗喊未上报)",
-    而不是"高危工具没经过弹窗就执行了"。异常 ⇒ 回空 dict(= 不发新字段)。
-    """
-    try:
-        from ..services.network_approval import approval_env_payload
-
-        payload = approval_env_payload(tool_name, args, owner=owner_uuid)
-    except Exception as exc:  # noqa: BLE001 - 载荷事实取不到不阻断弹窗
-        logger.warning("D159 审批环境字段组装失败(tool=%s): %s", tool_name, exc)
-        return {}
-    return dict(payload)
-
-
-def _approval_network_fact(
-    tool_name: str, args: dict[str, Any] | None, owner_uuid: str | None
-) -> Any:
-    """本次审批**要放行的那一个网络目标**(存进待决条目,结算时按它落规则)。
-
-    与帧上的 ``network_target`` 同一次取值 ⇒ 弹窗上显示的与库里落的结构上同一条。
-    取不到(无目标/解析失败/出口故障)⇒ None ⇒ 三档不落任何规则(不退化成"按工具名放行")。
-    """
-    try:
-        from ..services.network_approval import network_target_from_args
-
-        return network_target_from_args(args, owner=owner_uuid)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("D159 网络目标读取失败(tool=%s): %s", tool_name, exc)
-        return None
-
-
-def _persist_network_grant(
-    fact: Any, decision: str, scope: str, session_id: str, owner_uuid: str | None
-) -> None:
-    """D159 三档落库:拒绝/非 approve ⇒ 什么都不写;``once`` ⇒ 不落库;其余按目标落规则。
-
-    主体只用**承载层**那一份(owner_uuid = ``_resolve_owner_uuid(request)``,即 JWT),
-    目标只用**发帧时存在条目里**的那一份 —— 两者都不读回传体,所以"批 A 连 B"与
-    "自报别人的键去撤销"两条都进不来(AGENTS §5"认证不等于授权")。
-    缺主体 ⇒ 持久层抛/跳过,本次已批准的执行照常进行(与 D158 第四档同一退化)。
-    """
-    if decision != "approve" or fact is None or owner_uuid is None:
-        return
-    try:
-        from ..services.network_approval import grant_network_target
-
-        granted = grant_network_target(fact, scope)
-        if not granted:
-            logger.warning(
-                "D159 网络放行未落规则(scope=%s, target=%s, session=%s)",
-                scope,
-                getattr(fact, "display", "?"),
-                session_id,
-            )
-    except Exception as exc:  # noqa: BLE001 - 落库失败不阻断已批准的执行,但必须响
-        logger.warning(
-            "D159 网络放行落库异常(scope=%s, session=%s): %s", scope, session_id, exc
-        )
-
-
-def _network_grant_hits(args: dict[str, Any] | None, owner_uuid: str | None) -> bool:
-    """D159 三档的**命中侧**(与 `_persist_network_grant` 写入侧成套)。
-
-    只有落库没有这一读,"始终允许该目标"就是一条没人查的死规则 ⇒ 弹窗照样每轮弹,
-    而按钮文案已经向用户承诺了 90 天(票第 8 栏预填表"三档到底"的全部意义就在这里,
-    与 D158 `_exec_prefix_grant_hits` 是同一课)。
-
-    判据(逐条对应票面):
-    - 只认**主体级命中**(pending_network_targets 带 owner ⇒ 查 ``<uuid>\\x1e net\\x1f…`` 键)。
-      批 52 的无主体 session 键**不算命中** —— 那是 requester 链路的既有放行面,把它并进
-      免弹窗判据会重新打开 D158 修掉的"A 批准、B 免弹"(AGENTS §5 认证不等于授权);
-    - 本次调用**所有**可读目标都命中才免弹:命中 1/2 就放行等于把没批过的目标静默连出去,
-      同"批 A 连 B"一个方向;
-    - 无目标 / 缺主体 / 出口异常 ⇒ False(照弹)。免弹窗是放行动作,判不了就不放。
-    """
-    if owner_uuid is None:
-        return False
-    try:
-        from ..services.network_approval import pending_network_targets
-
-        targets = pending_network_targets(args, owner=owner_uuid)
-    except Exception as exc:  # noqa: BLE001 - 判据故障不放大成免弹
-        logger.warning("D159 网络放行命中查询失败(照弹): %s", exc)
-        return False
-    if not targets:
-        return False
-    try:
-        from app.services import approval_persistence as _ap
-
-        from ..services.network_approval import KIND_NET as _NET_KIND
-
-        return all(
-            t.owner_bound_key is not None
-            and _ap.check(t.owner_bound_key, _NET_KIND) is not None
-            for t in targets
-        )
-    except Exception as exc:  # noqa: BLE001 - 持久层故障 fail-closed(照弹)
-        logger.warning("D159 持久层命中查询异常(照弹): %s", exc)
-        return False
-
 
 # 会话内「总是允许」授权缓存(内存 dict;轻量对齐 agent_loop_v2 审批缓存语义):
 # bucket -> {tool_name -> (scope('session'|'always'), 到期时刻)}。
@@ -804,10 +688,7 @@ def _format_plan_updated_event(
     }
     if message_id:
         _evt["messageId"] = message_id
-    # D174:此前这一帧自己拼 f-string、绕过帧工厂 ⇒ 它是"72 个站点之外"的漏网帧之一,
-    # 单点注入对它不成立。改走 `_sse` 后**线格式逐字节不变**(同一 dict、同一段
-    # `json.dumps(..., ensure_ascii=False)`、同一个 `\n\n` 结尾),只是多经过一次工厂。
-    return _sse("plan_updated", _evt)
+    return f"event: plan_updated\ndata: {json.dumps(_evt, ensure_ascii=False)}\n\n"
 
 
 def _sse_contract_enabled() -> bool:
@@ -824,50 +705,10 @@ def _sse_contract_enabled() -> bool:
     )
 
 
-def _with_frame_trace_id(evt: str, payload: Any) -> Any:
-    """D174(2026-09-30 立):帧级 traceId 的**唯一**注入点。
-
-    本路由有 70+ 个 `yield _sse(...)` 站点,这一个函数是它们共同的出口 —— 票面硬约束
-    就是"不得在 20 个 yield 站点各写一遍"(两处算同一件事必漂移,而漂开的表现是"有的帧
-    带、有的帧不带",排查时最难归因的那一型)。
-
-    四条判序,缺一不可:
-
-    1. **兼容面不注入**:`SSE_COMPAT_EVENTS`(Anthropic Messages API 兼容事件)两份契约
-       文件对它的原话都是"wire 形态与 Anthropic 官方一致",往里加我方自定键 = 单方面
-       改那个协议。要补的是对话流帧(`SSE_EVENTS`)那一格。
-    2. **取值只经一个出口**:`sse_frame_trace_id()`(它读的是 middleware 那一份 ContextVar,
-       并在那里做 W3C 有效性判)。本函数不碰 `request`、不解析 traceparent。
-    3. **没有有效 trace ⇒ 整字段缺席**:不写空串、不写 null。"空串"与"没有"必须可分,
-       消费侧按 `typeof === 'string'` 判;写空串就是把"没接上"写成"接上了"。
-    4. **不改入参**:`payload` 常在 yield 之后被调用方继续用(同一 dict 进落库记录 /
-       被复用,例:`_evt` 与 `_build_terminal_task` 同源),就地写键会把 trace 带进持久化
-       面 —— 本票没做那件事,也不该被顺手做掉。
-    """
-    if evt in SSE_COMPAT_EVENTS:
-        return payload
-    trace_id = sse_frame_trace_id()
-    if not isinstance(payload, dict):
-        return payload
-    if trace_id is None:
-        # 无有效 trace ⇒ 帧上**不该有**这个键。但调用方递进来的 dict 可能已经带着一个
-        # `traceId`(模型/上游把字段名猜对了、或有人在 payload 里自写)。此时留着的不是一个
-        # "看起来合理"的值,而是一个**没有出处**的值 —— 它的线格式与工厂写出来的完全一样,
-        # 于是"帧上的 traceId 只能出自这一处"这条不变量就被绕过了。剥掉它,让缺席就是缺席。
-        # 不判红、不告警:本票只做线格式,trace 是关联键不是凭据,自写它没有授权收益。
-        if SSE_TRACE_ID_PAYLOAD_KEY in payload:
-            stripped = dict(payload)
-            stripped.pop(SSE_TRACE_ID_PAYLOAD_KEY)
-            return stripped
-        return payload
-    return {**payload, SSE_TRACE_ID_PAYLOAD_KEY: trace_id}
-
-
 def _sse(evt: str, payload: Any) -> str:
     """SSE 帧构造(事件契约 agent_events.SSE_* 单一事实源)。
 
     批58(接线):开关开启时经 sse_contract 做跨端契约漂移诊断(仅告警)。
-    D174(2026-09-30):帧级 traceId 在这里注入一次(判序见 `_with_frame_trace_id`)。
     """
     if _sse_contract_enabled():
         try:
@@ -884,7 +725,7 @@ def _sse(evt: str, payload: Any) -> str:
                     )
         except Exception as e:  # noqa: BLE001 - 契约诊断失败不影响帧产出
             _sse_contract_warn(f"SSE 契约诊断异常(降级跳过): {e}")
-    return f"event: {evt}\ndata: {json.dumps(_with_frame_trace_id(evt, payload), ensure_ascii=False)}\n\n"
+    return f"event: {evt}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
 def _sse_contract_warn(msg: str) -> None:
@@ -1207,8 +1048,7 @@ def _format_tool_summary_event(tool_calls_history: list[dict[str, Any]]) -> str 
     summary = _build_tool_summary(tool_calls_history)
     if summary is None:
         return None
-    # D174:同 plan_updated —— 改走帧工厂后线格式逐字节不变,但单点注入对它成立了。
-    return _sse("tool-summary", summary)
+    return f"event: tool-summary\ndata: {json.dumps(summary, ensure_ascii=False)}\n\n"
 
 
 
@@ -1344,8 +1184,7 @@ def _format_citations_event(
     evt: dict[str, Any] = {"type": "citations", "citations": citations}
     if message_id:
         evt["messageId"] = message_id
-    # D174:同上,改走帧工厂(线格式逐字节不变)。
-    return _sse("citations", evt)
+    return f"event: citations\ndata: {json.dumps(evt, ensure_ascii=False)}\n\n"
 
 
 # =============================================================================
@@ -1786,7 +1625,7 @@ _CHAT_MODE_PROMPTS: dict[str, str] = {
 }
 
 
-def _resolve_reasoning_effort(req: "LLMCompleteRequest") -> tuple[str | None, dict[str, object] | None]:
+def _resolve_reasoning_effort(req: "LLMCompleteRequest") -> tuple[str | None, dict | None]:
     """推理强度档位的唯一解析出口(D130,2026-09-30 立)。
 
     返回 `(发给上游的生效档位, 回落通知或 None)`。三段判定,顺序不可颠倒:
@@ -4235,15 +4074,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     )
                                 ):
                                     _approval_needed = False
-                                # D159 三档命中侧(与 _persist_network_grant 写入侧成套):
-                                # 本次调用**所有**可读网络目标都被本人主体级规则覆盖 ⇒ 免弹。
-                                # 没有这一读,"始终允许该目标(90 天后失效)"落库后无人查,
-                                # 下一轮照弹 —— 写-only 的规则就是假承诺。撤销经同一对
-                                # GET/DELETE /llm/approval-grants,撤完下一轮即恢复弹窗。
-                                if _approval_needed and _network_grant_hits(
-                                    args if isinstance(args, dict) else None, owner_uuid
-                                ):
-                                    _approval_needed = False
                             if _approval_needed:
                                 # 类型收窄兜底(与 delegate 分支同一模式):走到本块 ⇒ 上方 grant
                                 # 块必已执行且未置 False,session_id 在那时已被保证非 None,
@@ -4268,14 +4098,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     # 非 run_command / argv 缺失时 _persist_grant_rule 自行跳过。
                                     "argv": args.get("argv") if isinstance(args, dict) else None,
                                     "tool_name": tool_name,
-                                    # D159:本次审批**要放行的网络目标**(读工具参数里的 url,
-                                    # 服务端存着,结算时按它落规则)。存的是**发帧那一刻**的
-                                    # 取值 ⇒ 帧上显示的与库里落的必然同一条;客户端回传里
-                                    # 没有 target 这一格,所以"批 A 连 B"进不来。
-                                    "net_fact": _approval_network_fact(
-                                        tool_name, args if isinstance(args, dict) else None,
-                                        owner_uuid,
-                                    ),
                                 }
                                 # 发 tool-approval SSE 帧(帧名/payload 见模块头注释,与
                                 # agent 任务流同形,前端 ToolApprovalDialog 可复用解析)
@@ -4289,13 +4111,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "args_preview": _args_preview,
                                         "danger_level": _danger,
                                         "session_id": session_id,
-                                        # D159:执行环境 + 网络目标事实(开关关档 ⇒ 整块缺席,
-                                        # 前端整块不渲染;开着但读不到 ⇒ 弹窗喊"未上报")
-                                        **_approval_env_fields(
-                                            tool_name,
-                                            args if isinstance(args, dict) else None,
-                                            owner_uuid,
-                                        ),
                                     },
                                 )
                                 # 等待人工决策:分段等待 + 注释行 keepalive。
@@ -4339,16 +4154,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # _persist_grant_rule(可单测;失败不阻断本次执行)。
                                 if _decision == "approve":
                                     _persist_grant_rule(_entry, tool_name, session_id, owner_uuid)
-                                    # D159:网络放行三档 —— 目标取**发帧时存在条目里**的那一份,
-                                    # 主体取承载层的 owner_uuid,scope 取用户刚选的档(once 不落库)。
-                                    # 条目里没有网络目标(非出站工具)⇒ 这个调用什么都不做。
-                                    _persist_network_grant(
-                                        _entry.get("net_fact") if isinstance(_entry, dict) else None,
-                                        _decision,
-                                        _scope,
-                                        session_id,
-                                        owner_uuid,
-                                    )
                                 if _decision is None or _decision != "approve":
                                     _is_timeout = _decision is None
                                     _denied_why = (
@@ -6894,9 +6699,7 @@ async def compaction_demo(
 # 缺失即 401;不接受请求体/Query 自报身份。
 
 # 本出口只管前缀规则(exec_prefix);其余 kind(exec_once / mcp_tool)不经这里删。
-#: 本出口代管的放行规则 kind(D158 前缀 + D159 网络目标)。**撤销与列表共用这一张表**,
-#: 所以"面板能看见某条规则却撤不掉它"这种半接线在结构上不可能出现(两把白名单必漂移)。
-_APPROVAL_GRANT_MANAGED_KINDS = ("exec_prefix", "network")
+_APPROVAL_GRANT_MANAGED_KINDS = ("exec_prefix",)
 
 
 def _readable_exec_prefix(cache_key: str) -> str:
@@ -6904,53 +6707,27 @@ def _readable_exec_prefix(cache_key: str) -> str:
     return cache_key.replace("\x1f", " ").strip()
 
 
-def _readable_grant_prefix(kind: str, bare_key: str) -> str:
-    """把某一条放行规则的**裸键**还原成给人看的形态(两种 kind 各用自己的可读映射)。
-
-    - ``exec_prefix``:\\x1f 连接 → 空格(``git push``);
-    - ``network``:走 ``network_approval.display_from_cache_key`` 那一份(票面口径
-      "弹窗上把键原样显示成 host:port,不显示哈希")。
-    未知 kind 原样返回 —— 面板宁可看见一串怪键,也不该看见空白。
-    """
-    if kind == "network":
-        try:
-            from ..services.network_approval import display_from_cache_key
-
-            return display_from_cache_key(bare_key)
-        except Exception as exc:  # noqa: BLE001 - 显示层故障不回退成空白行
-            logger.warning("D159 网络目标可读名计算失败: %s", exc)
-            return bare_key
-    return _readable_exec_prefix(bare_key)
-
-
 @router.get("/llm/approval-grants", response_model=None)
 async def list_approval_grants(request: Request) -> dict[str, Any]:
-    """D158/D159:列出放行规则(前缀规则 + 网络目标规则,**同一个出口、同一张面板**)。
+    """D158:列出前缀放行规则(审批第四档授予的持久层规则)。
 
     未过期判定复用 approval_persistence.list_keys 的权威集(单一实现,不复制第二份
     过期过滤逻辑);created_at / expires_at 明细是 list_keys 没有的投影,经同一把
-    连接锁做只读 SELECT —— 本票约束不改 approval_persistence 的表,也不新建存储层,
+    连接锁做只读 SELECT —— 本票约束不改 approval_persistence,也不新建存储层,
     借用其私有连接出口是刻意为之(单一 DB 路径,不抄第二份 _DB_PATH 解析)。
-
-    D159 把网络目标并进**这两条既有路由**而不是新开一套:票面第 3 条不可漂"与 D158
-    已有的 exec_prefix 规则共面板共 API,不得新建第二套规则存储或第二个面板组件"。
     """
     if not getattr(request.state, "user_id", None):
         raise HTTPException(status_code=401, detail="Not authenticated")
-    _kinds = list(_APPROVAL_GRANT_MANAGED_KINDS)
     try:
         from app.services import approval_persistence as _ap
 
-        unexpired: set[str] = set()
-        for _kind in _kinds:
-            unexpired.update(_ap.list_keys(_kind))
+        unexpired = set(_ap.list_keys("exec_prefix"))
         uid = _resolve_owner_uuid(request)  # D158 owner-binding:只看自己主体的规则
         conn = _ap._get_conn()
         with _ap._lock:
             rows = conn.execute(
-                "SELECT kind, cache_key, scope, created_at, expires_at FROM approval_grants "
-                f"WHERE kind IN ({','.join('?' for _ in _kinds)})",
-                tuple(_kinds),
+                "SELECT cache_key, scope, created_at, expires_at FROM approval_grants "
+                "WHERE kind='exec_prefix'"
             ).fetchall()
     except HTTPException:
         raise
@@ -6967,15 +6744,14 @@ async def list_approval_grants(request: Request) -> dict[str, Any]:
             # D158 owner-binding:别人主体的规则与存量无主体行一律不可见
             # (cacheKey 回显保留完整绑定键,撤销用它精确回传并再过归属闸)
             continue
-        _kind = str(row["kind"])
         _bare = _ap.split_scoped_key(key)[1]
         grant = by_key.setdefault(
             key,
             {
                 "cacheKey": key,
-                "prefix": _readable_grant_prefix(_kind, _bare),
+                "prefix": _readable_exec_prefix(_bare),
                 "tokenCount": len([t for t in _bare.split("\x1f") if t]),
-                "kind": _kind,
+                "kind": "exec_prefix",
                 "scopes": [],
                 "createdAt": None,
                 "expiresAt": None,
@@ -7019,13 +6795,6 @@ async def revoke_approval_grant(request: Request) -> dict[str, Any] | JSONRespon
             # 撤销 ⇒ A 的规则原样存活,B 也探测不出它存在。
             return {"ok": True}
         _ap.revoke(cache_key, kind)
-        # D159:撤销**必须回读确认库里真没了**,不能只看"DELETE 调用没抛"。
-        # 这条不是装饰:面板的撤销按钮按 ok 就把行从界面上摘掉,而 revoke 的
-        # SQL 若因为键形不同(比如主体段拼错)没命中,ok:True 就是假的成功 ——
-        # 用户以为撤掉了,规则还在跑(票第 2 条不可漂"撤销要断言库/内存里真没了")。
-        if _ap.check(cache_key, kind) is not None:
-            logger.warning("D159 撤销后规则仍可命中(kind=%s),判为失败", kind)
-            return {"ok": False, "error": "revoke not confirmed"}
     except Exception as e:  # noqa: BLE001
         logger.warning("D158 放行规则撤销失败(kind=%s): %s", kind, e)
         return {"ok": False, "error": "revoke failed"}

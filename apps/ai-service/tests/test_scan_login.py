@@ -16,7 +16,6 @@ from __future__ import annotations
 from app.services.scan_login import (
     PLATFORM_SCAN_CONFIG,
     ScanTask,
-    _QR_ELEMENT_SELECTORS,
     _cookie_hits,
     _parse_raw_cookies,
     _url_is_login_page,
@@ -145,38 +144,6 @@ def test_new_batch_platforms_configured():
     assert wp["success_cookies"] == ["wordpress_logged_in*"], "WordPress 必须用前缀通配"
     yt = PLATFORM_SCAN_CONFIG["youtube"]
     assert yt.get("require_url_match") is True, "YouTube 登录页在 Google 域,必须 URL 双重确认"
-
-
-# --- 扫码 tab 选择器 / 二维码 iframe 候选(2026-09-29 回归) ---
-
-
-def test_segmentfault_scan_tab_selector():
-    """思否登录页默认密码表单,扫码入口是"微信登录"按钮 —— 必须按平台前置,否则二维码永远出不来。"""
-    sf = PLATFORM_SCAN_CONFIG["segmentfault"]
-    tabs = sf.get("scan_tab_selectors")
-    assert tabs, "segmentfault 缺 scan_tab_selectors"
-    assert any("微信登录" in s for s in tabs), f"segmentfault 的 tab 选择器未指向微信登录: {tabs}"
-
-
-def test_scan_tab_selectors_shape():
-    """所有平台声明的 scan_tab_selectors 必须是非空字符串元组/列表(写错了等于没写)。"""
-    for pid, cfg in PLATFORM_SCAN_CONFIG.items():
-        tabs = cfg.get("scan_tab_selectors")
-        if tabs is None:
-            continue
-        assert isinstance(tabs, (tuple, list)) and tabs, f"{pid} scan_tab_selectors 为空"
-        assert all(isinstance(s, str) and s for s in tabs), f"{pid} scan_tab_selectors 含非法项"
-
-
-def test_qr_element_selectors_cover_wechat_qrconnect_iframe():
-    """二维码候选必须含微信 qrconnect 内嵌 iframe(思否实测:主页面 img/canvas 全落空,
-    码在 open.weixin.qq.com/connect/qrconnect 的 iframe 里 —— 截图合成像素,clip 外框即可)。"""
-    joined = "\n".join(_QR_ELEMENT_SELECTORS)
-    assert "iframe[src*=\"qrconnect\"]" in joined, "缺微信 qrconnect iframe 候选"
-    # iframe 形态必须排在裸 canvas 之前(canvas 是最后兜底,先命中 iframe 才不会误裁装饰画布)
-    assert _QR_ELEMENT_SELECTORS.index('iframe[src*="qrconnect"]') < _QR_ELEMENT_SELECTORS.index(
-        "canvas"
-    ), "iframe 候选必须先于裸 canvas 兜底"
 
 
 # --- URL 登录页判定(新平台回归) ---
