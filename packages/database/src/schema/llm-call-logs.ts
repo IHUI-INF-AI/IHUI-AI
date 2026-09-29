@@ -15,6 +15,7 @@ import {
   bigint,
   boolean,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 import { users } from './users.js'
 
 /**
@@ -93,6 +94,22 @@ export const llmCallLogs = pgTable(
     rawRetained: boolean('raw_retained').default(true).notNull(),
     /** 原文被清除的时间;NULL = 尚未清除。保留该列以便回答"这条记录的原文何时按策略消失"。 */
     rawPurgedAt: timestamp('raw_purged_at', { withTimezone: true }),
+    /**
+     * D172(2026-09-29 立):本轮调用的 **W3C trace id**(32 位小写 hex),与 D147 回带给客户端的
+     * `X-Trace-Id` 响应头、ai-service 的 `trace.id` span 属性是同一个值(同一份 traceparent 投影)。
+     *
+     * **为什么要有这一列**:链路的每一段都拿得到 id(端 → api 由 `plugins/otel.ts` 的 onRequest
+     * 兜底生成、api → ai-service 由 `utils/trace-context.ts` 透传),唯独这张计费/审计流水表
+     * 存不下 ⇒ "用户报障给了一个编号,却查不到那次调用花了多少 token、错在哪一段"。
+     * 症状是**账面什么都不缺、排查时一片空白**,所以它属于"带得到、落不下"那一型。
+     *
+     * **长度锁 32 不是随手取的**:写入口只接受解析成功的 trace id(非法/缺失一律 NULL,
+     * 由 `traceIdFromRequest` 那一份实现保证),所以"值比 32 长"这一型结构上不出现;
+     * 与其加一条截断兜底(那等于把脏值洗成看起来合法),不如让超长值直接报错。
+     *
+     * **它是关联键不是凭据**:本列不参与任何授权判定,谁读它都只是"找到同一轮调用"。
+     */
+    traceId: varchar('trace_id', { length: 32 }),
   },
   (t) => ({
     userIdx: index('llm_call_logs_user_idx').on(t.userId),
@@ -103,6 +120,20 @@ export const llmCallLogs = pgTable(
     providerIdx: index('llm_call_logs_provider_idx').on(t.providerCode),
     clientIpIdx: index('llm_call_logs_client_ip_idx').on(t.clientIp),
     httpStatusIdx: index('llm_call_logs_http_status_idx').on(t.httpStatus),
+    /**
+     * D172:按 trace id 反查"这一轮调用"的入口(排查时人手里只有编号,没有 userId/时间窗)。
+     *
+     * 与下面那条"刻意不建索引"的决策**不冲突**,因为两者问的不是同一种查询:
+     * 清除器是**范围扫**(`WHERE raw_retained = true AND created_at < cutoff`),既有
+     * `llm_call_logs_created_at_idx` 已能服务它,再加一条只换来写放大;
+     * 本列是**点查**(等值命中一条 trace),没有索引就是全表扫,而这是一张高频计费流水表。
+     *
+     * 用 **partial index**(`WHERE trace_id IS NOT NULL`)把体量压到"有编号的行":
+     * 历史行该列永久为 NULL ⇒ 不进索引,新链路的增量才付索引成本。
+     */
+    traceIdx: index('llm_call_logs_trace_idx')
+      .on(t.traceId)
+      .where(sql`${t.traceId} IS NOT NULL`),
     // 注:留存清除扫描(WHERE raw_retained = true AND created_at < cutoff)
     // 刻意**不新建索引** —— 复用既有 llm_call_logs_created_at_idx 做范围扫,
     // 本表是高频写入的计费流水表,再加一条索引只换来写放大,收益不成比例。
