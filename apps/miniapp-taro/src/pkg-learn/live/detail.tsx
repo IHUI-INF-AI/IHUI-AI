@@ -179,9 +179,10 @@ export default function LiveDetail() {
           {subscribed ? (
             <View className="p-[24rpx] rounded-xl bg-[var(--color-success-lighter)]">
               <View className="flex items-center">
-                <Text className="text-[length:28rpx] leading-none text-[var(--color-success-deep-text)]">
-                  ✓
-                </Text>
+                {/* 已订阅勾选:原勾字符 → LineIcon。取值即该字符实际渲染档位:
+                    原类名 text-[length:28rpx] → size 28,text-[var(--color-success-deep-text)]
+                    → color 同 token;line-height 对 mask 载体无效故不保留。 */}
+                <LineIcon name="check" size={28} color="var(--color-success-deep-text)" />
                 <Text className="ml-[8rpx] text-[length:28rpx] text-[var(--color-success-deep-text)]">
                   {t('live.subscribe.subscribed')}
                 </Text>

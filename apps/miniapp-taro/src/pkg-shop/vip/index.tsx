@@ -326,7 +326,14 @@ export default function VipIndexPage() {
             onClick={() => setAutoRenew((v) => !v)}
           >
             <View className={`auto-check ${autoRenew ? 'checked' : ''}`}>
-              {autoRenew ? <Text className="auto-mark">✓</Text> : null}
+              {/* 勾选位:原勾字符 → LineIcon。取值即该字符实际渲染档位 ——
+                  vip/index.css 的 .auto-mark 记 font-size 24rpx / color
+                  var(--color-brand-accent-foreground);该规则只剩排版属性已随之删除,
+                  故类名不再挂(挂在 mask 载体上既不染色也不定尺寸)。
+                  居中由父级 .auto-check 的 flex 负责,与原先字符同位。 */}
+              {autoRenew ? (
+                <LineIcon name="check" size={24} color="var(--color-brand-accent-foreground)" />
+              ) : null}
             </View>
             <Text className="auto-text">{t('vip.index.autoRenew')}</Text>
           </View>
@@ -427,7 +434,17 @@ export default function VipIndexPage() {
                   onClick={() => setNoticeAgreed(!noticeAgreed)}
                 >
                   <View className={`pp-checkbox ${noticeAgreed ? 'checked' : ''}`}>
-                    {noticeAgreed ? <Text className="pp-check-mark">✓</Text> : null}
+                    {/* 勾选位:原勾字符 → LineIcon。取值即该字符实际渲染档位 ——
+                        vip/index.css 的 .pp-check-mark 记 font-size 24rpx / color
+                        var(--color-brand-accent-foreground);该规则只剩排版属性已随之删除,
+                        故类名不再挂(挂在 mask 载体上既不染色也不定尺寸)。 */}
+                    {noticeAgreed ? (
+                      <LineIcon
+                        name="check"
+                        size={24}
+                        color="var(--color-brand-accent-foreground)"
+                      />
+                    ) : null}
                   </View>
                   <Text className="pp-check-text">{t('vip.index.noticeAgree')}</Text>
                 </View>

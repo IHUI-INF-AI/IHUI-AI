@@ -196,7 +196,9 @@ export default function Cart() {
                     onClick={() => onToggleItem(item.id)}
                     hoverClass="opacity-60"
                   >
-                    {item.selected ? <Text className="checkbox-icon">✓</Text> : null}
+                    {item.selected ? (
+                      <LineIcon name="check" size={24} color="var(--color-surface-light)" />
+                    ) : null}
                   </View>
                   {item.coverUrl ? (
                     <Image className="cart-item-cover" src={item.coverUrl} mode="aspectFill" />
@@ -250,7 +252,9 @@ export default function Cart() {
               onClick={onToggleAll}
               hoverClass="opacity-60"
             >
-              {allSelected ? <Text className="checkbox-icon">✓</Text> : null}
+              {allSelected ? (
+                <LineIcon name="check" size={24} color="var(--color-surface-light)" />
+              ) : null}
             </View>
             <Text className="select-all-label" onClick={onToggleAll}>
               {t('common.all')}
