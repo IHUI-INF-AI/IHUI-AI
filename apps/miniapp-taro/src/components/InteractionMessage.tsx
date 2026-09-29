@@ -97,7 +97,7 @@ export default function InteractionMessage({ list, onClick }: InteractionMessage
             </View>
             <Text className="text-xs text-muted-foreground mt-1 line-clamp-1">{item.content}</Text>
             {item.targetTitle && (
-              <View className="mt-1.5 px-2 py-1 bg-muted rounded">
+              <View className="mt-[12rpx] px-2 py-1 bg-muted rounded">
                 <Text className="text-xs text-muted-foreground line-clamp-1">
                   @{item.targetTitle}
                 </Text>

@@ -88,6 +88,9 @@ const FAMILY_LIFETIME_DAYS = {
   'glyph-arrow-exempt': 30,
   'alpha-plugin-exempt': 30,
   'r5-cta-exempt': 60,
+  // 入站契约豁免族(G-674 的出口):30 天 —— 它是**待偿的契约债**(出路只有补 .strict()/z.strictObject,
+  // 或删掉这条静默接受未知字段的入站面),不是结构性定性;到期只判红点名、绝不自动摘除。
+  'inbound-strict-exempt': 30,
   'r3-cta-exempt': 60,
   'r7-nest-exempt': 60,
   /**

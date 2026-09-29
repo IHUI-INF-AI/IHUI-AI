@@ -170,15 +170,31 @@ function git(args, { allowFail = false, timeout = 60_000, maxBuffer = 64 << 20 }
 function attemptUnionConverge(freshRemote, repoRoot) {
   // 子进程非零退出会 throw,必须在**这里**接住再看输出 —— 否则"需要人工"这条路永远走不到,
   // 而镜像测试就是按"紧跟 catch 的那一句必须回吐 stdout"来钉这一格的。
+  // 三条"并集天然后果"的量纲在这里**逐条带理由**声明放行(F5/F6/F9/F9b 与路径零丢失仍硬判):
+  // 活文档归并的定义是"两侧行的并集",同一件事两台机器各登记一次时并集必然新造出 F1/F4 的
+  // 分叉与副本 ⇒ "不得高于任何一侧"在合并这条路上不可满足(2026-09-28 实测:部署环连续 113 轮
+  // BLOCKED-DIVERGED、线上停在 17:41 那版约 4 小时)。放行不静默:--apply 会把两个读数与理由
+  // 打印并写进合并提交信息;`IHUI_UNION_NO_STATE_ACCEPT=1` 让任何一次运行退回严格判据用于取证。
+  const acceptDims = [
+    'forks=两台机器各登记一次同一件事,并集天然成对(调用方常驻裁决,非静默)',
+    'dupOpenCopies=同一件事两侧各写一条待办,保住双方行是零丢失承诺的必然结果(同上)',
+    'rotatedAuto=目标行随并集回到台面,合并之后由 plan-tasks-merge --heal 收口(同上)',
+  ]
+  const strict = process.env.IHUI_UNION_NO_STATE_ACCEPT === '1'
+  const args = ['scripts/union-converge.mjs', '--apply', '--theirs', freshRemote]
+  for (const r of strict ? [] : acceptDims) args.push('--accept-state-growth', r)
   try {
     return execFileSync(
       process.execPath,
-      ['scripts/union-converge.mjs', '--apply', '--theirs', freshRemote],
+      args,
       {
         cwd: repoRoot,
         encoding: 'utf8',
         windowsHide: true, // §5b:漏此参数在钩子/守护派生下必弹控制台窗
-        timeout: 300000, // 守门 80:热路径 git 派生一律封顶,挂起会拖死整条收敛链
+        // 300s 在这台机上跑不完一次归并:实测一次 --apply(取对侧 9 路径 + 活文档并集 + 台账
+        // 逐行解析)要 2–13 分钟 ⇒ 超时等于自动收敛永不成功。与"落地闸不可满足"是同一次停摆的
+        // 两半,只修判据不修这里的封顶,部署环仍会每轮白等。守门 80 的"热路径一律封顶"保留。
+        timeout: Number(process.env.IHUI_UNION_CONVERGE_TIMEOUT_MS || 1500000),
       },
     )
   } catch (ue) {

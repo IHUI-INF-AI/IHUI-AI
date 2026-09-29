@@ -570,7 +570,7 @@ export default function ModelList({
             <View className="w-10 h-10 mr-3 rounded-lg bg-muted" />
             <View className="flex-1 space-y-2">
               <View className="h-3 w-1/3 rounded bg-muted" />
-              <View className="h-2.5 w-2/3 rounded bg-muted" />
+              <View className="h-[20rpx] w-2/3 rounded bg-muted" />
             </View>
           </View>
         ))}
@@ -611,7 +611,7 @@ export default function ModelList({
         return (
           <View
             key={model.id}
-            className={`flex items-center py-2.5 px-3 mb-2 rounded-lg transition-colors ${
+            className={`flex items-center py-[20rpx] px-3 mb-2 rounded-lg transition-colors ${
               selected ? 'bg-muted' : 'bg-card'
             }`}
             onClick={() => onSelect?.(model)}
@@ -639,7 +639,7 @@ export default function ModelList({
       {/* ===== 历史模型折叠区(默认收起) ===== */}
       {split.archivedCount > 0 ? (
         <View
-          className="flex items-center justify-between px-3 py-2.5 mb-2 rounded-lg bg-muted"
+          className="flex items-center justify-between px-3 py-[20rpx] mb-2 rounded-lg bg-muted"
           onClick={() => setHistoryExpanded((v) => !v)}
           hoverClass="opacity-60"
         >
@@ -671,7 +671,7 @@ export default function ModelList({
                 return (
                   <View
                     key={model.id}
-                    className={`flex items-center py-2.5 px-3 mb-2 rounded-lg transition-colors ${
+                    className={`flex items-center py-[20rpx] px-3 mb-2 rounded-lg transition-colors ${
                       selected ? 'bg-muted' : 'bg-card'
                     }`}
                     onClick={() => onSelect?.(model)}
