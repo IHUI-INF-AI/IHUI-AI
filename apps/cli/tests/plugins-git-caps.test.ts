@@ -248,14 +248,38 @@ describe('G-814424 execGitStatus —— 超限降级为按目录折叠，且必�
     try {
       const warns: string[] = []
       const r = execGitStatus(dir, { maxBufferBytes: 400, warn: (m) => { warns.push(m) } })
+      expect(r).not.toBeNull()
       expect(r.degraded).toBe(true)
       expect(r.collapsedUntrackedRoots.length).toBe(3)
       expect(r.collapsedUntrackedRoots.every((x) => x.endsWith('/'))).toBe(true)
+      // 可识别标记的结构面:折叠档下不存在任何"具体文件"行 —— 若哪天折叠坏了、返回半截全量输出,
+      // 这里就会露出具体文件名而这条断言立刻红(半截输出会被消费方读成「文件不存在」)。
+      expect(r.lines.length).toBe(3)
+      expect(r.lines.every((l) => l.endsWith('/'))).toBe(true)
+      // 恰好一条 warn:既不静默(消费方无从知道清单不完整)也不刷屏(长跑进程里每次查询都喊)
+      expect(warns.length).toBe(1)
       // 折叠档不得把"没列出的文件"伪装成"不存在":必须明写它不是完整清单
       expect(warns.join('')).toContain('不是完整未跟踪列表')
       const memo = lastStatusDegradation(dir)
       expect(memo?.collapsedRoots).toBe(3)
       expect(memo?.maxBufferBytes).toBe(400)
+    } finally { rmScratch(dir) }
+  })
+
+  it('同 key 第二次调用直接走折叠档:不再触发上限路径(被记住),也不重复喊 warn', () => {
+    const dir = mkUntrackedRepo('memo-')
+    try {
+      const first: string[] = []
+      execGitStatus(dir, { maxBufferBytes: 400, warn: (m) => { first.push(m) } })
+      expect(first.length).toBe(1)
+      // 判据:全档输出 36 行 ≈600B 必超 400B —— 若第二次仍先撞全档,必然再抛一次 ENOBUFS、再喊一条 warn。
+      // 记住之后直奔折叠档 ⇒ 结论照旧 degraded(留痕不撒谎),但既不再撞限也不再刷屏。
+      const second: string[] = []
+      const r2 = execGitStatus(dir, { maxBufferBytes: 400, warn: (m) => { second.push(m) } })
+      expect(r2.degraded).toBe(true)
+      expect(r2.collapsedUntrackedRoots.length).toBe(3)
+      expect(second).toEqual([])
+      expect(lastStatusDegradation(dir)).not.toBeNull()
     } finally { rmScratch(dir) }
   })
 
