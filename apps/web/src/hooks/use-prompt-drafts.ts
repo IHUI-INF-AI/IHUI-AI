@@ -34,14 +34,43 @@ export interface UsePromptDraftsParams {
 export function usePromptDrafts(params: UsePromptDraftsParams): void {
   const { draftKey, value, setValue, onRestored } = params
   const valueRef = React.useRef(value)
+  const draftKeyRef = React.useRef(draftKey)
+  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   React.useEffect(() => {
     valueRef.current = value
   }, [value])
+  React.useEffect(() => {
+    draftKeyRef.current = draftKey
+  }, [draftKey])
+
+  // b75-5#2:立即刷新当前桶草稿(绕过防抖)。pagehide/visibilitychange/blur 时调用,
+  // 避免防抖窗口未到期页面就卸载/隐藏导致草稿丢失。从 ref 取值,不依赖闭包。
+  const flushNow = React.useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+    if (typeof window === 'undefined') return
+    const key = draftKeyRef.current
+    const current = valueRef.current
+    if (!key) return
+    try {
+      if (current) {
+        localStorage.setItem(key, truncatePromptDraft(current))
+        touchAndEvictBuckets(PROMPT_DRAFT_PREFIX, key)
+      } else {
+        localStorage.removeItem(key)
+      }
+    } catch {
+      // 忽略存储异常(隐私模式 / 配额)
+    }
+  }, [])
 
   // 输入变化:防抖写入当前桶。draftKey 入依赖——切换会话时旧计时器先被清理,
   // 旧内容不会误写进新桶;旧桶内容由下方切换 effect 显式同步回写。
   React.useEffect(() => {
-    const timer = setTimeout(() => {
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null
       if (typeof window === 'undefined') return
       try {
         localStorage.setItem(draftKey, truncatePromptDraft(value))
@@ -50,8 +79,32 @@ export function usePromptDrafts(params: UsePromptDraftsParams): void {
         // 忽略存储异常(隐私模式 / 配额)
       }
     }, PROMPT_DRAFT_WRITE_DEBOUNCE_MS)
-    return () => clearTimeout(timer)
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+    }
   }, [value, draftKey])
+
+  // b75-5#2:页面卸载/隐藏/失焦时立即刷新草稿(绕过防抖窗口)。
+  // 监听器只建一次,从 ref 取最新 draftKey/value。
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onPageHide = () => flushNow()
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flushNow()
+    }
+    const onBlur = () => flushNow()
+    window.addEventListener('pagehide', onPageHide)
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('blur', onBlur)
+    }
+  }, [flushNow])
 
   // 会话切换:旧桶回写当前输入(空则 removeItem),再载入新桶草稿(无则清空输入)。
   // 首次挂载只记录 key:初始 value 已由调用方按该 key 读取。
