@@ -13,6 +13,7 @@ import {
   PreviewSourceText,
   PreviewViewSwitch,
   PREVIEW_SOURCE_MAX_CHARS,
+  truncationDisclosed,
   type PreviewSourceAvailability,
   type PreviewSourceText as SourceTextValue,
   type PreviewViewMode,
@@ -104,20 +105,28 @@ export async function extractOfficeSourceText(
   const chunks: string[] = []
   let used = 0
   let truncated = false
+  // G-647(2026-09-29 立):披露判据是 shown<total,total 必须是真全文长 —— 触发截断后
+  // 余下部件也要把长度数完(只计长、不再蓄正文),拿 maxChars 充 total 是谎报。
+  let totalChars = 0
+  let seen = 0
   for (const part of parts) {
     const entry = zip.file(part)
     if (!entry) continue
     const body = await entry.async('string')
     const header = `--- ${part} ---\n`
+    totalChars += header.length + body.length
+    seen += 1
+    if (truncated) continue
     if (used + header.length + body.length > maxChars) {
       chunks.push(header + body.slice(0, Math.max(0, maxChars - used - header.length)))
       truncated = true
-      break
+      continue
     }
     chunks.push(header + body)
     used += header.length + body.length
   }
-  return { text: chunks.join('\n'), truncated }
+  // join('\n') 的分隔符一并计入全文总长;未截断时 shown === total,判据自然不念。
+  return { text: chunks.join('\n'), truncated, totalChars: totalChars + Math.max(0, seen - 1) }
 }
 
 /** 0 基列号 → 表格列标(A/B/…/Z/AA/…)。 */
@@ -318,7 +327,6 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
 
   const header = state.rows[0] ?? []
   const bodyRows = state.rows.slice(1)
-  const truncated = state.total > state.rows.length
   const selectedRef = state.selected
     ? `${xlsxColumnRef(state.selected.col)}${state.selected.row + 1}`
     : null
@@ -352,7 +360,9 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
               {t('officeSelectedCell', { cell: selectedRef })}
             </span>
           )}
-          {truncated && (
+          {/* G-647:行截断披露只认 shown<total(与源码档共用 truncationDisclosed 这一份判据),
+              不认布尔标志 —— shown === total 时,行数一个不少就不许喊"仅展示"。 */}
+          {truncationDisclosed(state.rows.length, state.total) && (
             <span data-testid="xlsx-truncated">
               {t('officeRowsTruncated', { rows: state.rows.length })}
             </span>
@@ -510,14 +520,15 @@ export interface OfficePreviewProps {
   readonly sourceMaxChars?: number
 }
 
-/** 源码文本的解析进度形态:idle = 还没开始(只有切到源码档才解析)。 */
+/** 源码文本的解析进度形态:idle = 还没开始(只有切到源码档才解析)。
+ *  G-647:渲染态只携带 shown/total 两个真维度,布尔 truncated 不进渲染面。 */
 type OfficeSourceState = Readonly<{
   status: 'idle' | 'extracting' | 'ready' | 'failed'
   text: string
-  truncated: boolean
+  totalChars: number
 }>
 
-const IDLE_OFFICE_SOURCE: OfficeSourceState = { status: 'idle', text: '', truncated: false }
+const IDLE_OFFICE_SOURCE: OfficeSourceState = { status: 'idle', text: '', totalChars: 0 }
 
 export function OfficePreview({
   src,
@@ -609,11 +620,11 @@ export function OfficePreview({
     setSource((prev) => (prev.status === 'idle' ? { ...prev, status: 'extracting' } : prev))
     extractOfficeSourceText(data, sourceMaxChars)
       .then((r) => {
-        setSource({ status: 'ready', text: r.text, truncated: r.truncated })
+        setSource({ status: 'ready', text: r.text, totalChars: r.totalChars })
       })
       .catch(() => {
         // 落 failed(不是退回 idle):退回 idle 会让一次解析失败变成反复重试
-        setSource({ status: 'failed', text: '', truncated: false })
+        setSource({ status: 'failed', text: '', totalChars: 0 })
       })
   }, [view, status, data, sourceMaxChars])
 
@@ -649,7 +660,7 @@ export function OfficePreview({
         <PreviewSourceText
           status={source.status === 'idle' ? 'extracting' : source.status}
           text={source.text}
-          truncated={source.truncated}
+          totalChars={source.totalChars}
           maxChars={sourceMaxChars}
         />
       ) : (
