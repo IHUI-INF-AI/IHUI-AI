@@ -634,7 +634,14 @@ export default function ModelConfigDialog({
                       }}
                       hoverClass="opacity-60"
                     >
-                      <Text className="text-destructive-foreground text-[length:16rpx]">×</Text>
+                      {/* 载体换为矢量:lucide X(登记表键 x),与 RN 同槽 `<X size={INLINE_GLYPH}>`
+                          同字形同档;墨迹档取 spec 的 INLINE_GLYPH(不新增端内字面量,见守门 128),
+                          前景仍取本元素原档 destructive-foreground(只换载体,不改色档来源)。 */}
+                      <LineIcon
+                        name="x"
+                        size={MODEL_CONFIG_INLINE_GLYPH_PX * TARO_RPX_PER_PX}
+                        color="var(--color-destructive-foreground)"
+                      />
                     </View>
                   )}
                 </View>
@@ -661,12 +668,15 @@ export default function ModelConfigDialog({
                   <Text className="text-sm font-medium">
                     {tt('ModelConfigDialog.text11', '选择音色')}
                   </Text>
-                  <Text
-                    className="text-sm text-muted-foreground"
+                  {/* 载体换为矢量:lucide X(登记表键 x),与 RN 音色菜单头部同槽
+                      `<X size={INLINE_GLYPH} color={tokens.text.secondary}>` 同字形同档;
+                      墨迹档走 spec 具名档(不新增端内字面量),前景仍是本元素原档 muted-foreground。 */}
+                  <LineIcon
+                    name="x"
+                    size={MODEL_CONFIG_INLINE_GLYPH_PX * TARO_RPX_PER_PX}
+                    color="var(--color-muted-foreground)"
                     onClick={() => setShowAudioMenu(false)}
-                  >
-                    ×
-                  </Text>
+                  />
                 </View>
                 {/* 系统音色选择 - Selecter type='voice' */}
                 <View className="mb-3">

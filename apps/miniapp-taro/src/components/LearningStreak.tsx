@@ -63,11 +63,14 @@ export default function LearningStreak({
             >
               {day.date}
             </Text>
-            <Text
-              className={`text-sm mt-[4rpx] ${day.signed ? 'text-warning' : 'text-muted-foreground'}`}
-            >
-              {day.signed ? '✓' : '·'}
-            </Text>
+            {/* 已签到勾改为矢量图标(原载体是 U+2713 勾字符,当图标用);中点 U+00B7 是
+                未签到的占位符、不是图标,按 §4 保留字符形态。size 28rpx = 原 text-sm(14px)
+                同档,color 取原类名三元里 signed 分支的 text-warning。 */}
+            {day.signed ? (
+              <LineIcon name="check" size={28} color="var(--color-warning)" className="mt-[4rpx]" />
+            ) : (
+              <Text className="text-sm mt-[4rpx] text-muted-foreground">·</Text>
+            )}
           </View>
         ))}
       </View>

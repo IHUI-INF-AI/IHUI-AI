@@ -12,6 +12,7 @@ import {
   MODEL_LIST_BADGE_MARGIN_LEFT_PX,
   MODEL_LIST_BADGE_PADDING_X_PX,
   MODEL_LIST_BADGE_PADDING_Y_PX,
+  MODEL_LIST_CHECK_BOX_PX,
   MODEL_LIST_CHECK_GLYPH_PX,
   MODEL_LIST_CONTENT_BOTTOM_PADDING_PX,
   MODEL_LIST_EMPTY_FONT_PX,
@@ -143,7 +144,7 @@ export default function ModelList({
                 style={{
                   width: rpx(40),
                   height: rpx(40),
-                  borderRadius: rnRadius.sm,
+                  borderRadius: rnRadius.lg,
                   background: 'var(--color-border)',
                 }}
               />
@@ -265,9 +266,9 @@ export default function ModelList({
               <View
                 className="flex items-center justify-center"
                 style={{
-                  width: rpx(32),
-                  height: rpx(32),
-                  borderRadius: rnRadius['2xl'],
+                  width: toUnit(MODEL_LIST_CHECK_BOX_PX),
+                  height: toUnit(MODEL_LIST_CHECK_BOX_PX),
+                  borderRadius: MODEL_LIST_CHECK_BOX_PX / 2,
                   // 票⑤续:底色与字形改为 §4 品牌实底成对档,与 RN `styles.check`
                   // (brand.cta 底 + ctaForeground 勾)同形;此前位图压在 --color-foreground 上
                   background: 'var(--color-cta)',
@@ -303,7 +304,7 @@ export default function ModelList({
                   style={{
                     width: rpx(40),
                     height: rpx(40),
-                    borderRadius: rnRadius.sm,
+                    borderRadius: rnRadius.lg,
                     background: 'var(--color-muted)',
                   }}
                 >
@@ -501,7 +502,7 @@ export default function ModelList({
                           style={{
                             width: rpx(40),
                             height: rpx(40),
-                            borderRadius: rnRadius.sm,
+                            borderRadius: rnRadius.lg,
                             background: 'var(--color-muted)',
                           }}
                         >
@@ -625,7 +626,17 @@ export default function ModelList({
             <View className="flex-1 min-w-0">
               <View className="flex items-center">
                 <Text className="text-sm font-medium text-foreground truncate">{model.name}</Text>
-                {selected && <Text className="ml-2 text-xs text-primary">✓</Text>}
+                {/* 选中态:U+2713 勾字符改矢量;size 走本族勾字号单一源
+                    MODEL_LIST_CHECK_GLYPH_PX(=12px,与原 text-xs 同档)× TARO_RPX_PER_PX,
+                    端内不另立数字;color = 原类名的 text-primary */}
+                {selected && (
+                  <LineIcon
+                    name="check"
+                    size={MODEL_LIST_CHECK_GLYPH_PX * TARO_RPX_PER_PX}
+                    color="var(--color-primary)"
+                    className="ml-2"
+                  />
+                )}
               </View>
               <Text className="text-xs text-muted-foreground truncate">{model.provider}</Text>
             </View>
@@ -687,7 +698,15 @@ export default function ModelList({
                         <Text className="text-sm font-medium text-foreground truncate">
                           {model.name}
                         </Text>
-                        {selected && <Text className="ml-2 text-xs text-primary">✓</Text>}
+                        {/* 选中态:U+2713 勾字符改矢量;取值同上默认列表那一处 */}
+                        {selected && (
+                          <LineIcon
+                            name="check"
+                            size={MODEL_LIST_CHECK_GLYPH_PX * TARO_RPX_PER_PX}
+                            color="var(--color-primary)"
+                            className="ml-2"
+                          />
+                        )}
                       </View>
                       <Text className="text-xs text-muted-foreground truncate">
                         {model.provider}

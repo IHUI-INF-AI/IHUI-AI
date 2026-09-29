@@ -7,7 +7,8 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-nativ
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { RegisterScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnGeometry } from '@ihui/design-tokens'
+import { Check } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
 
 /** 注册共享屏 — props 注入式跨端组件(wrapper 负责 register API 调用 + 自动登录) */
@@ -171,7 +172,7 @@ export function RegisterScreen({
                 accessibilityState={{ checked: agreed }}
                 accessibilityLabel={t('auth.agreePrefix')}
               >
-                {agreed ? <Text style={[styles.checkmark, { color: onBrandText }]}>✓</Text> : null}
+                {agreed ? <Check size={rnGeometry.controlGlyph} color={onBrandText} /> : null}
               </TouchableOpacity>
               <Text style={styles.agreementText}>
                 {t('auth.agreePrefix')}
