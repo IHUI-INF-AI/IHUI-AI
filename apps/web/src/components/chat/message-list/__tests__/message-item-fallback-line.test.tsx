@@ -14,12 +14,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 // next-intl mock 保留插值参数:话术切换用例要断"取的是哪个键、带没带 primary/backup"
 const takeWordCalls: Array<{ key: string; values?: Record<string, string> }> = []
 vi.mock('next-intl', () => ({
-  useTranslations:
-    () =>
-    (key: string, values?: Record<string, string>): string => {
-      takeWordCalls.push({ key, values })
-      return `[${key}]`
-    },
+  useTranslations: () => (key: string, values?: Record<string, string>): string => {
+    takeWordCalls.push({ key, values })
+    return `[${key}]`
+  },
   useLocale: () => 'zh-CN',
 }))
 
