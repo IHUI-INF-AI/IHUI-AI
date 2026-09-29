@@ -19,7 +19,8 @@
 //
 // 读各端源码用 readFileSync,不构成 import 边(与 tests/chat/waiting-keys-in-end-packages.test.ts
 // 同一落点理由:架构契约门 103 判 D2 只看层序 rank,端在 shared 之下,反向引用即红)。
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -178,46 +179,54 @@ export function findPersistedAuthTruth(src: string): number[] {
   return hits
 }
 
-function walk(dir: string, acc: string[]): string[] {
-  let entries: string[] = []
+/**
+ * 枚举面 = **git 跟踪的文件**,不是磁盘遍历(2026-09-29 实测改,原为 `readdirSync` 递归)。
+ *
+ * 磁盘遍历在本机扫到 24,207 个文件,其中 `apps/mobile-cap/www/`(被 `apps/mobile-cap/.gitignore:1`
+ * 忽略)与 `apps/web/.next-static-r2/`(根 `.gitignore:79` 的 next-static 前缀规则)是**构建产物镜像** ——
+ * 里面是几 MB 的压缩 chunk。于是本用例同时坏在两处,而且都是"看起来像发现,其实是尺子自己的洞":
+ * ① "新增站点即红"把产物里出现的 `isAuthenticated` 当成"第二份真相"(那是 web 打包结果的镜像,
+ *    源码本来就在里面,不是新增站点);
+ * ② 同步读大 chunk 把 vitest 默认 5s 顶穿,三条用同一个 `scanRepo()` 的用例一起超时。
+ * 口径与本仓所有对账门一致(77/83/98/118):**判"仓库内容"要先问 git 这文件跟不跟踪**。
+ * 取材不到 ⇒ 大声失败并写明"无从判定",既不冒绿也不让人误读成"缺陷还在"。
+ */
+function trackedSources(): string[] {
+  let out = ''
   try {
-    entries = readdirSync(dir)
-  } catch {
-    return acc
+    out = execFileSync(
+      'git',
+      ['-c', 'safe.directory=*', '-C', REPO_ROOT, 'ls-files', '-z', '--', ...SCAN_ROOTS],
+      { encoding: 'utf8', windowsHide: true, timeout: 60000, maxBuffer: 1 << 26 },
+    )
+  } catch (e) {
+    throw new Error(
+      `[persisted-auth-truth-shape-lock] 问不到 git 跟踪清单 ⇒ 本尺子没有取材面,不得读成通过,也不得读成"缺陷仍在":${(e as Error)?.message ?? e}`,
+    )
   }
-  for (const name of entries) {
-    if (SKIP_DIR.has(name)) continue
-    const full = join(dir, name)
-    const rel = full.slice(REPO_ROOT.length + 1).replace(/\\/g, '/')
-    let isDir = false
-    let isFile = false
-    try {
-      const st = statSync(full)
-      isDir = st.isDirectory()
-      isFile = st.isFile()
-    } catch {
-      continue
-    }
-    if (isDir) walk(full, acc)
-    else if (isFile && SOURCE_EXT.test(name) && !isTestSurface(rel)) acc.push(rel)
-  }
-  return acc
+  return out
+    .split('\0')
+    .filter(
+      (rel) =>
+        rel.length > 0 &&
+        SOURCE_EXT.test(rel) &&
+        !isTestSurface(rel) &&
+        !rel.split('/').some((seg) => SKIP_DIR.has(seg)),
+    )
 }
 
 /** 扫全仓 store 面,返回"把 isAuthenticated 交给持久化"的文件清单。 */
 export function scanRepo(): Array<{ file: string; lines: number[] }> {
   const results: Array<{ file: string; lines: number[] }> = []
-  for (const root of SCAN_ROOTS) {
-    for (const rel of walk(join(REPO_ROOT, root), [])) {
-      let src = ''
-      try {
-        src = readFileSync(join(REPO_ROOT, rel), 'utf8')
-      } catch {
-        continue
-      }
-      const lines = findPersistedAuthTruth(src)
-      if (lines.length > 0) results.push({ file: rel, lines })
+  for (const rel of trackedSources()) {
+    let src = ''
+    try {
+      src = readFileSync(join(REPO_ROOT, rel), 'utf8')
+    } catch {
+      continue
     }
+    const lines = findPersistedAuthTruth(src)
+    if (lines.length > 0) results.push({ file: rel, lines })
   }
   return results
 }
