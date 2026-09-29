@@ -20,11 +20,30 @@
  *             绝不允许「没人应答 = 放行」。
  */
 import type { Tool } from './index.js'
+// D142(2026-09-29 立):「这次调用必须由人来批准」的判据**只住** `@ihui/types` 的那一份投影
+// (`tool-contract.ts` 的 `humanApprovalMandated`)。本文件是它第一个**生产面**消费者:
+// 会话级 `--allow-dangerous` 是一条自动放行档,而契约上写着"无论多宽松都必须问"
+// (`ToolPermissionContract.alwaysAsk`)—— 两件事此前从未相遇,于是 flag 会替人回答。
+// 走包根而非子路径:`@ihui/types` 的 exports 表没有 `./tool-contract`(架构契约表未登记子入口,
+// 深导入会被守门 103 判 D3 红),而根 barrel 的运行时值导入在本包已有先例
+// (`tools/index.ts` 的 `projectToolInputSchema`)。
+import { humanApprovalMandated } from '@ihui/types'
 
 export type DangerGateRoute = 'flag' | 'approved' | 'denied'
 
 /** 拒绝成因:三种 fail-closed 情形如实区分,便于观测与排障 */
-export type DangerGateDenyCause = 'no-prompt' | 'prompt-declined' | 'prompt-empty' | 'prompt-error'
+export type DangerGateDenyCause =
+  | 'no-prompt'
+  | 'prompt-declined'
+  | 'prompt-empty'
+  | 'prompt-error'
+  /**
+   * D142:契约权限轴要求真人批准、会话级 flag 在位却**无人可问** ⇒ 拒绝。
+   * 刻意不与 `no-prompt` 混用:那一档的含义是"这条工具本来可以由 flag 放行、只是没人可问",
+   * 而这一档是"flag 结构上无权放行它" —— 排障时要把这两件事分开,否则会把"该补人"
+   * 误读成"该开 flag"。
+   */
+  | 'contract-approval-required'
 
 export interface DangerGateDecision {
   route: DangerGateRoute
@@ -86,8 +105,13 @@ export function createDangerGate(opts: DangerGateOptions): DangerGate {
   }
 
   return async (tool, args) => {
+    // 契约权限轴先问一遍(D142):工具**声明过**"必须由人批准"(显式 alwaysAsk,或
+    // requiresApproval ∧ 这次调用碰外部世界)⇒ flag 这一档无权替人回答。
+    // 契约缺席 ⇒ humanApprovalMandated 恒 false ⇒ 下面每一条路径与改前逐字同形
+    // (这是"不改缺省语义"的落点;翻缺省属第二阶段另计一票)。
+    const mandated = humanApprovalMandated(tool);
     // flag 优先:即使同时提供了 prompt,--allow-dangerous 也直接放行且不打扰人
-    if (opts.allowDangerous === true) {
+    if (opts.allowDangerous === true && !mandated) {
       return decide('flag', tool, args)
     }
     if (opts.prompt) {
@@ -101,6 +125,11 @@ export function createDangerGate(opts: DangerGateOptions): DangerGate {
         return decide('approved', tool, args)
       }
       return decide('denied', tool, args, answer === null || answer === undefined ? 'prompt-empty' : 'prompt-declined')
+    }
+    // 走到这里:要么没有 flag,要么 flag 被契约否掉。后者的拒绝必须点名"是契约拦的",
+    // 否则观测面上它与"只是没人可问"同形 ⇒ 下一个人会去开 flag(那正是本票要终结的形态)。
+    if (mandated && opts.allowDangerous === true) {
+      return decide('denied', tool, args, 'contract-approval-required')
     }
     return decide('denied', tool, args, 'no-prompt')
   }
