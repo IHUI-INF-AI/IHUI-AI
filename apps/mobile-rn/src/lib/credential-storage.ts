@@ -25,13 +25,23 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { CredentialStorage, RememberedCredentials } from '@ihui/shared/hooks'
+// key 名与历史上限的唯一真相在 @ihui/shared —— §3「跨端常量不得端内硬编码」。
+// 取深路径而不是 barrel:本端 vitest 把 '@ihui/shared/constants' 别名指到端内替身(那份手抄了
+// 一个子集、并把 FALLBACK_MODELS / SSO_CLIENT_IDS 清空),改指真实 barrel 会动到别人用例的输入。
+import {
+  AUTO_LOGIN_STORAGE_KEY,
+  LOGIN_HISTORY_STORAGE_KEY,
+  REMEMBERED_ACCOUNT_STORAGE_KEY,
+} from '@ihui/shared/constants/storage-keys'
+import {
+  encodeRememberedAccount,
+  normalizeLoginHistory,
+  pushLoginHistory,
+} from '@ihui/shared/auth/remembered-account'
 import { deleteSecureItem, getSecureItem, isSecureBackendEncrypted, setSecureItem } from './auth/secure-store'
 
-const CREDENTIALS_KEY = 'ihui-remember-credentials'
+/** 口令在 Keychain 侧的项名:只有 RN 有安全存储原语,所以这一把留在端内。 */
 const PASSWORD_KEY = 'ihui-remember-password'
-const AUTO_LOGIN_KEY = 'ihui-auto-login'
-const HISTORY_KEY = 'ihui-login-history'
-const MAX_HISTORY = 5
 
 // 模块级同步缓存(供 loadRemembered/loadAutoLogin/loadLoginHistory 同步读取)
 let cachedRemembered: RememberedCredentials | null = null
@@ -44,13 +54,16 @@ void hydrate()
 async function hydrate(): Promise<void> {
   try {
     const [credRaw, autoRaw, historyRaw] = await Promise.all([
-      AsyncStorage.getItem(CREDENTIALS_KEY),
-      AsyncStorage.getItem(AUTO_LOGIN_KEY),
-      AsyncStorage.getItem(HISTORY_KEY),
+      AsyncStorage.getItem(REMEMBERED_ACCOUNT_STORAGE_KEY),
+      AsyncStorage.getItem(AUTO_LOGIN_STORAGE_KEY),
+      AsyncStorage.getItem(LOGIN_HISTORY_STORAGE_KEY),
     ])
     let account: string | null = null
     let legacyPassword: string | null = null
     if (credRaw) {
+      // 这一处**不经** decodeRememberedAccount:共享解码刻意不把口令交回调用方,
+      // 而本端要把盘上的旧明文迁进 Keychain —— 它是唯一需要读回 password 的地方,
+      // 读回来只用于"搬一次然后抹掉",不写回 AsyncStorage(见下面的 persistAccount)。
       const parsed = JSON.parse(credRaw) as Partial<RememberedCredentials>
       if (typeof parsed.account === 'string' && parsed.account) account = parsed.account
       // 旧版(以及任何被回滚的写入)把密码和账号写在同一条明文记录里 ⇒ 读出来只为迁移掉
@@ -72,12 +85,7 @@ async function hydrate(): Promise<void> {
       }
     }
     cachedAutoLogin = autoRaw === '1'
-    if (historyRaw) {
-      const parsed = JSON.parse(historyRaw) as unknown
-      if (Array.isArray(parsed)) {
-        cachedHistory = parsed.filter((a): a is string => typeof a === 'string' && a.length > 0)
-      }
-    }
+    cachedHistory = normalizeLoginHistory(historyRaw)
   } catch {
     // AsyncStorage 不可用时静默失败,保持默认空值
   }
@@ -85,8 +93,9 @@ async function hydrate(): Promise<void> {
 
 /** 账号记录:只可能含 account,永远不含 password —— 这条是本票的判据对象。 */
 async function persistAccount(account: string | null): Promise<void> {
-  if (account) await AsyncStorage.setItem(CREDENTIALS_KEY, JSON.stringify({ account }))
-  else await AsyncStorage.removeItem(CREDENTIALS_KEY)
+  if (account)
+    await AsyncStorage.setItem(REMEMBERED_ACCOUNT_STORAGE_KEY, encodeRememberedAccount(account))
+  else await AsyncStorage.removeItem(REMEMBERED_ACCOUNT_STORAGE_KEY)
 }
 
 function persist(key: string, value: string | null): void {
@@ -111,7 +120,7 @@ export const credentialStorage: CredentialStorage = {
 
   clearRemembered: () => {
     cachedRemembered = null
-    void AsyncStorage.removeItem(CREDENTIALS_KEY)
+    void AsyncStorage.removeItem(REMEMBERED_ACCOUNT_STORAGE_KEY)
     void deleteSecureItem(PASSWORD_KEY)
   },
 
@@ -119,24 +128,25 @@ export const credentialStorage: CredentialStorage = {
 
   saveAutoLogin: (enabled) => {
     cachedAutoLogin = enabled
-    persist(AUTO_LOGIN_KEY, enabled ? '1' : '0')
+    persist(AUTO_LOGIN_STORAGE_KEY, enabled ? '1' : '0')
   },
 
   clearAutoLogin: () => {
     cachedAutoLogin = false
-    persist(AUTO_LOGIN_KEY, null)
+    persist(AUTO_LOGIN_STORAGE_KEY, null)
   },
 
   saveLoginHistory: (account) => {
     // 同步更新缓存(下拉立即生效)+ 异步持久化(hook 仅在登录成功后调用一次,无并发风险)
-    cachedHistory = [account, ...cachedHistory.filter((a) => a !== account)].slice(0, MAX_HISTORY)
+    // 去重 → 置顶 → 截断的规则唯一住在 @ihui/shared/auth/remembered-account,端内不再抄第二遍
+    cachedHistory = pushLoginHistory(cachedHistory, account)
     void (async () => {
       try {
-        const raw = await AsyncStorage.getItem(HISTORY_KEY)
-        const list: string[] = raw ? (JSON.parse(raw) as string[]) : []
-        const filtered = list.filter((a) => a !== account)
-        filtered.unshift(account)
-        await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(filtered.slice(0, MAX_HISTORY)))
+        const raw = await AsyncStorage.getItem(LOGIN_HISTORY_STORAGE_KEY)
+        await AsyncStorage.setItem(
+          LOGIN_HISTORY_STORAGE_KEY,
+          JSON.stringify(pushLoginHistory(normalizeLoginHistory(raw), account)),
+        )
       } catch {
         // 静默失败
       }
@@ -148,11 +158,13 @@ export const credentialStorage: CredentialStorage = {
   removeFromLoginHistory: (account) => {
     // 同步更新缓存(下拉立即生效)+ 异步持久化
     cachedHistory = cachedHistory.filter((a) => a !== account)
-    void AsyncStorage.getItem(HISTORY_KEY)
-      .then((raw) => {
-        const list: string[] = raw ? (JSON.parse(raw) as string[]) : []
-        return AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(list.filter((a) => a !== account)))
-      })
+    void AsyncStorage.getItem(LOGIN_HISTORY_STORAGE_KEY)
+      .then((raw) =>
+        AsyncStorage.setItem(
+          LOGIN_HISTORY_STORAGE_KEY,
+          JSON.stringify(normalizeLoginHistory(raw).filter((a) => a !== account)),
+        ),
+      )
       .catch(() => {
         // 静默失败
       })
@@ -161,7 +173,7 @@ export const credentialStorage: CredentialStorage = {
 
   clearLoginHistory: () => {
     cachedHistory = []
-    void AsyncStorage.removeItem(HISTORY_KEY).catch(() => {
+    void AsyncStorage.removeItem(LOGIN_HISTORY_STORAGE_KEY).catch(() => {
       // 静默失败
     })
     return cachedHistory

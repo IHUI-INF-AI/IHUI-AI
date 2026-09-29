@@ -40,6 +40,19 @@ vi.hoisted(() => {
 const ADMIN_USER_ID = '00000000-0000-4000-8000-0000000000ad'
 const USER_ID = '00000000-0000-4000-8000-000000000001'
 
+// 这三张表的主键在 schema 与 DDL 里都是 uuid:
+//  relay_peak_pricing_rules.id  packages/database/src/schema/relay-peak-pricing.ts:40
+//    + drizzle/20260916170000_..._peak_pricing.sql:73 "id" uuid PRIMARY KEY
+//  price_discount_schedules.id  packages/database/src/schema/model-price-history.ts:70
+//    + drizzle/20260801020000_add_missing_20_tables.sql:175 "id" UUID PRIMARY KEY
+//  relay_prompt_audit_rules.id  packages/database/src/schema/relay-prompt-audit.ts:31
+//    + drizzle/20260917020000_relay_prompt_audit.sql:11 "id" uuid PRIMARY KEY
+// 三条 DELETE 路由在进 SQL 前都挂 isUuidString 形状闸,非 uuid 直接 400 —— 早先这里的
+// '33' / '7' / '5' 属这一型假 id(用例被闸拦住,压根没走到删除链)。
+const PEAK_RULE_ID = '66666666-6666-4666-8666-666666666666'
+const DISCOUNT_ID = '77777777-7777-4777-8777-777777777777'
+const AUDIT_RULE_ID = '88888888-8888-4888-8888-888888888888'
+
 /** 写链回报与"是否发出查询"的捕获面(每用例 beforeEach 重置)。 */
 const capture = vi.hoisted(() => ({
   /** db.delete(...) 被构造的次数 —— 未授权用例判"未发出查询" */
@@ -194,20 +207,20 @@ const ENDPOINTS: ReadonlyArray<{
   {
     name: 'DELETE /api/admin/relay/peak-pricing/rules/:id',
     plugin: adminRelayPeakPricingRoutes,
-    url: '/api/admin/relay/peak-pricing/rules/33',
-    hitRow: { id: '33' },
+    url: `/api/admin/relay/peak-pricing/rules/${PEAK_RULE_ID}`,
+    hitRow: { id: PEAK_RULE_ID },
   },
   {
     name: 'DELETE /api/admin/admin/relay/pricing/discounts/:id',
     plugin: adminRelayPricingRoutes,
-    url: '/api/admin/admin/relay/pricing/discounts/7',
-    hitRow: { id: '7' },
+    url: `/api/admin/admin/relay/pricing/discounts/${DISCOUNT_ID}`,
+    hitRow: { id: DISCOUNT_ID },
   },
   {
     name: 'DELETE /api/admin/relay/prompt-audit/rules/:id',
     plugin: adminRelayPromptAuditRoutes,
-    url: '/api/admin/relay/prompt-audit/rules/5',
-    hitRow: { id: '5' },
+    url: `/api/admin/relay/prompt-audit/rules/${AUDIT_RULE_ID}`,
+    hitRow: { id: AUDIT_RULE_ID },
   },
   {
     name: 'DELETE /api/admin/relay/user-attributes/:userId/:key',

@@ -11550,7 +11550,14 @@
     "voiceHandsFreeOn": "连续对话已开启（说话即发送）",
     "voiceHandsFreeOff": "连续对话已关闭",
     "voicePlayback": "朗读",
-    "voiceHandsFree": "连续"
+    "voiceHandsFree": "连续",
+    "reasoningEffortLabel": "推理强度",
+    "reasoningEffortMinimal": "极简",
+    "reasoningEffortLow": "快速",
+    "reasoningEffortMedium": "均衡",
+    "reasoningEffortHigh": "深思",
+    "reasoningEffortUnsupported": "该模型不支持选择推理强度",
+    "reasoningEffortFallback": "推理强度已由后端调整为 {requested} → {effective}"
   },
   "chatHistory": {
     "selectModeAriaLabel": "切换任务多选模式",

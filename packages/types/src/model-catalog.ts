@@ -45,7 +45,15 @@ export type ModelCapabilityKey = 'vision' | 'reasoning' | 'tools' | 'fim'
 export interface ModelCapabilities {
   /** 视觉理解(多模态图片输入) */
   vision?: boolean
-  /** 深度推理(推理系命名或 latest 对话模型) */
+  /**
+   * 深度推理(推理系命名或 latest 对话模型)。
+   *
+   * D130(2026-09-30 立):这一档同时是"输入区推理强度第三轴"的可用性开关 ——
+   * 但**判灰不得在本文件里写表达式**:唯一出口是 `reasoning-effort.ts` 的
+   * `reasoningEffortSelectable()`(它区分"对象缺失=未知,不灰"与"对象在位而值非 true=灰")。
+   * 端内直接写 `caps?.reasoning !== true` 会把"未知"也判成不支持,与既有
+   * `filterByCapabilities` 的"宁可多显示也不误藏"相反。
+   */
   reasoning?: boolean
   /** 工具调用(对话类且非 legacy) */
   tools?: boolean

@@ -11550,7 +11550,14 @@
     "voiceHandsFreeOn": "연속 대화 켜짐（말하면 전송）",
     "voiceHandsFreeOff": "연속 대화 꺼짐",
     "voicePlayback": "재생",
-    "voiceHandsFree": "핸즈프리"
+    "voiceHandsFree": "핸즈프리",
+    "reasoningEffortLabel": "추론 강도",
+    "reasoningEffortMinimal": "최소",
+    "reasoningEffortLow": "신속",
+    "reasoningEffortMedium": "균형",
+    "reasoningEffortHigh": "심층",
+    "reasoningEffortUnsupported": "이 모델은 추론 강도를 선택할 수 없습니다",
+    "reasoningEffortFallback": "추론 강도가 서버에서 조정되었습니다: {requested} → {effective}"
   },
   "chatHistory": {
     "selectModeAriaLabel": "작업 다중 선택 모드 전환",

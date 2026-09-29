@@ -45,9 +45,30 @@ import { resolveRemoteHead } from './lib/face-reader.mjs'
 // 判据只有一份:`planStateRegressions` 住在 union-converge(在收敛器里再写一遍
 // "什么算状态放大"必然与它漂移,而漂移的代价固定是"一条尺子绿灯、另一条同一改动判红")。
 // probe/ratchetViolations 同理 —— 维度清单不得在别处再抄一份 `['F1', …]`。
-import { planStateRegressions } from './union-converge.mjs'
+// ⚠️ 唯独 union-converge 那一份**不得静态 import**(G-815406,2026-09-29 实测):本器是并行会话的
+// 公共同步/推送通道,而 union-converge 的依赖图比本器宽(它还吃 malformedLine / f9GroupLine)。
+// 那份 lib 一旦被在飞改动改得少一个导出,静态 import 会让本器**在任何一条分支打出字之前**就死,
+// 账面只剩一截 Node 堆栈 —— 既不归因(看不出断在谁的依赖上)也不降级(连与台账闸门无关的
+// 快路径一起陪着死)。改成异步装载后,装载失败只会让**第①把尺子**落"未判定"并点名原因。
 import { probe, ratchetViolations } from './plan-tasks.mjs'
 import { auditPlan } from './lib/plan-task-index.mjs'
+
+/** 装载状态:mod 为 null 时 error 必为非空一句话 ⇒ 调用方不得把它读成"闸门通过"。 */
+const unionGate = { mod: null, error: '' }
+
+/** 幂等装载 union-converge(闸门尺子的宿主)。装不上不抛,只留原因 —— 本器的降级路径靠它。 */
+export async function ensureUnionModule() {
+  if (unionGate.mod || unionGate.error) return unionGate
+  try {
+    unionGate.mod = await import('./union-converge.mjs')
+  } catch (e) {
+    // execFileSync 的教训同款:第一行才是起因,堆栈只是尸检报告。
+    unionGate.error = String((e && e.message) || e || '未知原因').split('\n')[0].trim()
+  }
+  return unionGate
+}
+
+export { unionGate }
 
 const C = {
   green: '\x1b[32m',
@@ -197,8 +218,60 @@ function attemptUnionConverge(freshRemote, repoRoot) {
         timeout: Number(process.env.IHUI_UNION_CONVERGE_TIMEOUT_MS || 1500000),
       },
     )
+  // stdout 优先(它是 union-converge 自己的裁决文本);但**必须把 stderr 接上** —— 子进程死在
+  // import 期时 stdout 是空的,只回吐 `Command failed: <argv>` 那一行 message 就等于让下一个人
+  // 重新去猜"到底是内容裁决还是通道断了"(本文件下方 alignFailureNote 头注记过同一型)。
   } catch (ue) {
-    return String(ue.stdout || ue.message || '')
+    return String(ue.stdout || ue.message || '') + stderrTail(ue)
+  }
+}
+
+/** 取子进程 stderr 的首个非空行(崩溃的真正出处),封顶 300 字符防把整截堆栈灌进判定文本。 */
+function stderrTail(ue) {
+  const first = String((ue && ue.stderr) || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)[0]
+  return first ? `\n[子进程 stderr] ${first}`.slice(0, 300) : ''
+}
+
+/** 闸门尺子没跑成时的点名前缀 —— 调用方按它分流,不得与"内容放大"混进同一个红。 */
+export const STATE_GATE_UNDETERMINED = '[台账闸门未判定]'
+
+/**
+ * 把 union-converge 那次尝试的**输出文本**分成四态。为什么必须由判据分而不是看退出码:
+ * 非零退出同时覆盖了"它判了需人工"(内容裁决,人要接着解冲突)与"它根本没判"(依赖崩/空输出),
+ * 把后者说成前者就会把人引去手工选边 —— 而 2026-09-24 的实测正是选边合并抹掉了对侧 35 个独有路径。
+ * `crashed` 的两种形状:Node 的模块/异常指纹,或者**一个字都没打**(空输出同样判不出内容)。
+ */
+export function classifyUnionAttempt(text) {
+  const t = String(text ?? '')
+  if (t.includes('✅ 合并落地')) return 'landed'
+  if (t.includes('UNDETERMINED') || t.includes('未判定:')) return 'undetermined'
+  if (t.trim() === '') return 'crashed'
+  if (
+    /does not provide an export|Cannot find module|ERR_MODULE_|ReferenceError|SyntaxError|TypeError|RangeError|#asyncInstantiate|at node:internal|Command failed/.test(
+      t,
+    )
+  )
+    return 'crashed'
+  return 'need-human'
+}
+
+/**
+ * 四态各自要说的那句话(措辞本身就是分流结果,所以单独成函数给镜像测试判"崩溃不得被说成需人工")。
+ * 只有 need-human 那一支允许出现"需人工";其余三支都必须给出**可执行的下一步**。
+ */
+export function unionOutcomeMessage(kind) {
+  switch (kind) {
+    case 'landed':
+      return 'union-converge 已归并落地,转下一轮复核'
+    case 'undetermined':
+      return 'union-converge 判"无法判定"(远端真值/对象不在本机)⇒ 本轮不推进;这不是内容裁决:先按它给的出口补一次 fetch(或喂一个本地可达的 --theirs sha),再重跑本器'
+    case 'crashed':
+      return 'union-converge 这个进程**崩了**(import 期或运行时异常),它一处内容都没判 ⇒ 本轮不推进。这不是内容裁决,把冲突交给人工解只会走成"选边"并写没对侧独有内容;出路是先修那条被在飞改动打破的依赖(或等它落盘),再重跑本器'
+    default:
+      return 'union-converge 亦判需人工(见上)'
   }
 }
 
@@ -212,7 +285,7 @@ function attemptUnionConverge(freshRemote, repoRoot) {
  * 基线一律从**合并树**取(与被审内容同一时刻同一面,不读磁盘也不读工作树);
  * 合并树里没有计划文档 ⇒ 这一维在该面上没有语义,返回 [] 而不是记绿。
  */
-function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) {
+export function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) {
   const REL = 'PROJECT_PLAN.md'
   const BASE_REL = 'scripts/plan-task-state-baseline.json'
   const blobOf = (rev, rel) => {
@@ -224,7 +297,14 @@ function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) {
   }
   const merged = blobOf(mergedTree, REL)
   if (!merged.trim()) return []
-  const out = planStateRegressions(merged, [blobOf(local, REL), blobOf(remote, REL)])
+  // 闸门尺子没装载成功 ⇒ 这一维**没跑**。绝不允许在这里返回 [] —— 那会把"看不见"写成"没有放大",
+  // 而本器随后就 update-ref + 推送(本仓最高频的失效型:判据失效的表现永远是安静)。
+  if (!unionGate.mod)
+    return [
+      `${STATE_GATE_UNDETERMINED} union-converge 装载失败 ⇒ 「相对两侧上限」那把尺子一处都没判(${unionGate.error});` +
+        '这不是"没有放大"也不是"判了放大",本轮不推进。出路:把缺的那半边导出补上(或等它落盘)再重跑本器。',
+    ]
+  const out = unionGate.mod.planStateRegressions(merged, [blobOf(local, REL), blobOf(remote, REL)])
   const baseTxt = blobOf(mergedTree, BASE_REL)
   if (!baseTxt.trim()) return out
   let base = null
@@ -484,6 +564,9 @@ function swapBlob(lines, path, newBlob) {
 
 function selfTest() {
   const results = []
+  // 未判定清单:尺子本身没装载成功时，这两例**没跑** —— 既不得记通过也不得记红，
+  // 只点名并把原因打到末行(把"看不见"写成"判过了"是本仓最高频的失效型)。
+  const undetermined = []
   const ok = (name, cond, extra = '') => {
     results.push(cond)
     console.log(`${cond ? '✅' : '❌'} ${name}${cond || !extra ? '' : ` (${extra})`}`)
@@ -564,7 +647,7 @@ function selfTest() {
     // 今天真实发生过的账复活在这道闸上就是隐形的。
     tgit(repo, ['checkout', '-q', 'main'])
     tgit(repo, ['checkout', '-qb', 'ps-debt', base])
-    {
+    if (unionGate.mod) {
       const LP = (s) => s + '　'.repeat(Math.max(0, 46 - [...s].length))
       const BLK = [
         LP('- 块行一:整块登记被并发并集留下两份,行级四条看不见'),
@@ -604,6 +687,8 @@ function selfTest() {
         mergedPlanStateRegressions(sha2, sha2, sha2, repo).length === 0,
         JSON.stringify(mergedPlanStateRegressions(sha2, sha2, sha2, repo)).slice(0, 160),
       )
+    } else {
+      undetermined.push(`用例 PS-1/PS-2 未跑:union-converge 装载失败(${unionGate.error})`)
     }
     // 用例 3:单边删除被"复活"同样拦截(期望缺失)
     tgit(repo, ['checkout', '-q', 'main'])
@@ -910,8 +995,13 @@ function selfTest() {
     return false
   }
   const pass = results.every(Boolean)
-  console.log(pass ? `\nself-test 全通过(${results.length} 例)` : `\nself-test 失败`)
-  if (pass && tmp) rmSync(tmp, { recursive: true, force: true })
+  for (const u of undetermined) console.log(`ℹ ${u} ⇒ 不计通过，也不判红`)
+  console.log(
+    pass
+      ? `\nself-test 全通过(${results.length} 例${undetermined.length ? `,**另有 ${undetermined.length} 组未判定**` : ''})`
+      : `\nself-test 失败`,
+  )
+  if (pass && tmp && undetermined.length === 0) rmSync(tmp, { recursive: true, force: true })
   return pass
 }
 
@@ -1089,18 +1179,16 @@ function main() {
         // 所以先让 union-converge 试一次**文件面零丢失**的归并(本侧整棵树 ∪ 对侧自身改动 ∪ 活文档
         // 行 union,落地前自证 0 丢失、落地后由守门 100 复核);它也不收敛才退回人工。
         const uni = attemptUnionConverge(freshRemote, repoRoot)
-        if (uni.includes('✅ 合并落地')) {
+        const uniKind = classifyUnionAttempt(uni)
+        if (uniKind === 'landed') {
           log(C.green, `↻ merge-tree 冲突已由 union-converge 归并,转下一轮复核\n${uni.trim()}`)
           continue
         }
-        // 先分"没资格判",再谈"需人工":顺序反过来就等于把一次网络失败说成一次内容裁决,
-        // 而下一条路会把人引去手工解冲突(那时两侧的行确实都得保住,但没有可判的内容可保)。
-        if (uni.includes('UNDETERMINED')) {
-          log(
-            C.red,
-            `❌ union-converge 判"无法判定"(远端真值/对象不在本机)⇒ 本轮不推进。这不是内容裁决:\n` +
-              `   先按它给的出口补一次 fetch(或喂一个本地可达的 --theirs sha),再重跑本器。\n原始输出:\n${uni.trim()}`,
-          )
+        // 先分"没资格判",再谈"需人工":顺序反过来就等于把一次网络失败(G-473 那一型)或一次
+        // **依赖崩溃**(G-815406 那一型:子进程根本没跑到判内容)说成一次内容裁决,
+        // 而下一条路会把人引去手工解冲突 —— 手工最容易犯的错正是选边,而选边会写没对侧独有内容。
+        if (uniKind === 'undetermined' || uniKind === 'crashed') {
+          log(C.red, `❌ ${unionOutcomeMessage(uniKind)}\n原始输出:\n${uni.trim()}`)
           process.exit(1)
         }
         log(
@@ -1120,23 +1208,26 @@ function main() {
        * `mergedPlanStateRegressions` 头注;维度清单只有一份 = plan-tasks 导出的 probe()。
        */
       const regressions = mergedPlanStateRegressions(tree, freshLocal, freshRemote, repoRoot)
+      // 闸门尺子自己没跑成 ⇒ 这不是"内容放大"，也不得读成"没有放大"。单列一支、给出口，
+      // 不要顺着下面的"放大"文案把人引去手工选边(G-815406)。
+      if (regressions.length > 0 && regressions[0].startsWith(STATE_GATE_UNDETERMINED)) {
+        log(C.red, `❌ ${regressions[0]}`)
+        process.exit(1)
+      }
       if (regressions.length > 0) {
         log(C.red, `❌ 无冲突合并放大了活文档任务状态(${regressions.length} 条),拒绝推进:`)
         for (const r of regressions.slice(0, 8)) log(C.red, `   ${r}`)
         const uniOut = attemptUnionConverge(freshRemote, repoRoot)
-        if (uniOut.includes('✅ 合并落地')) {
+        const uniOutKind = classifyUnionAttempt(uniOut)
+        if (uniOutKind === 'landed') {
           log(
             C.green,
             `↻ 状态放大已由 union-converge 归并,转下一轮复核\n${uniOut.trim().split('\n').slice(-2).join('\n')}`,
           )
           continue
         }
-        if (uniOut.includes('UNDETERMINED')) {
-          log(
-            C.red,
-            '❌ union-converge 判"无法判定"(远端真值/对象不在本机)⇒ 本轮不推进;这不是内容裁决,' +
-              '先按它给的出口补一次 fetch 或喂本地可达的 --theirs sha 再重跑。',
-          )
+        if (uniOutKind === 'undetermined' || uniOutKind === 'crashed') {
+          log(C.red, `❌ ${unionOutcomeMessage(uniOutKind)}`)
           process.exit(1)
         }
         log(
@@ -1298,19 +1389,28 @@ export const __test__ = {
   mergeCommitArgs,
   GIT_MACHINE_IDENTITY,
   selfTest,
+  ensureUnionModule,
+  unionGate,
+  classifyUnionAttempt,
+  unionOutcomeMessage,
+  STATE_GATE_UNDETERMINED,
+  mergedPlanStateRegressions,
 }
 
 const isDirectRun =
   process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 if (isDirectRun) {
-  try {
-    main()
-  } catch (e) {
-    // 未预期路径也要留一行可读原因:execFileSync 的 e.message 只有 `Command failed: <argv>`,
-    // 真因在 e.stderr(今早的崩溃账面只剩栈,起因 `Not a valid commit name` 要人去猜)。
-    // 不再打印裸栈 —— 收敛器是并行会话的公共通道,"崩了"必须读得出"为什么"。
-    console.error(`❌ 收敛器异常中断:${alignFailureNote(e)}`)
-    process.exit(2)
-  }
+  // 先异步装载闸门尺子，再把同步的 main 交出去 —— 装载失败**不拦启动**：本器多数分支与台账闸门
+  // 无关，把它整体判死才是 G-815406 要修的那个"公共通道陪着一条依赖一起死"。
+  // 整条链共用一个 catch:未预期路径也要留一行可读原因,而不是裸栈。
+  ensureUnionModule()
+    .then(() => main())
+    .catch((e) => {
+      // execFileSync 的 e.message 只有 `Command failed: <argv>`,真因在 e.stderr(今早的崩溃
+      // 账面只剩栈,起因 `Not a valid commit name` 要人去猜)。收敛器是并行会话的公共通道,
+      // "崩了"必须读得出"为什么"。
+      console.error(`❌ 收敛器异常中断:${alignFailureNote(e)}`)
+      process.exit(2)
+    })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
