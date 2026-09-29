@@ -153,7 +153,7 @@ interface ChannelOutcome {
  * 返回的是**分档结论**而不是布尔 —— 调用方要能把"没配置""没 openid""没授权"
  * 三种情况分别报出来,否则这三种在账面上长得一模一样。
  */
-async function sendWxToRecipient(
+export async function sendWxToRecipient(
   recipient: ReminderRecipient,
   studentName: string,
   dueAmount: number,
