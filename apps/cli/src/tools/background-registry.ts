@@ -34,19 +34,7 @@ export interface BackgroundTask {
   stdoutBuf: string;
   stderrBuf: string;
   truncated: boolean;
-  /**
-   * 超出 MAX_OUTPUT_PER_TASK 后被丢弃的输出量(下界,按 chunk 计)。
-   * G-816028:截断必须能回答"省略了多少"—— 只立一个布尔,模型会把截断文本当全貌。
-   */
-  droppedStdoutBytes: number;
-  droppedStderrBytes: number;
   timedOut: boolean;
-  /**
-   * 谁主动停的(G-816026):只能由 `killTask(id, initiator)` 落盘,close 处理器只读不猜。
-   * 三态互斥:有发起方 ⇒ 主动停;无发起方的信号终止 ⇒ 外部(OOM/别的进程),发起方记
-   * undefined;超时档只能由 deadline 持有者显式置 `timedOut=true`,绝不按 signal 形状反推。
-   */
-  stopInitiator?: 'user' | 'model' | null;
   /**
    * 「已投递」位 —— 终态快照有没有已经交给过等待者(G-814418 判据①)。
    *
@@ -141,7 +129,7 @@ function isTerminalStatus(status: BackgroundTaskStatus): boolean {
 export type BackgroundTaskSnapshot = Readonly<
   Pick<
     BackgroundTask,
-    'id' | 'command' | 'startedAt' | 'exitedAt' | 'exitCode' | 'status' | 'stdoutBuf' | 'stderrBuf' | 'truncated' | 'droppedStdoutBytes' | 'droppedStderrBytes' | 'timedOut' | 'stopInitiator'
+    'id' | 'command' | 'startedAt' | 'exitedAt' | 'exitCode' | 'status' | 'stdoutBuf' | 'stderrBuf' | 'truncated' | 'timedOut'
   >
 >;
 
@@ -156,10 +144,7 @@ function toSnapshot(t: BackgroundTask): BackgroundTaskSnapshot {
     stdoutBuf: t.stdoutBuf,
     stderrBuf: t.stderrBuf,
     truncated: t.truncated,
-    droppedStdoutBytes: t.droppedStdoutBytes,
-    droppedStderrBytes: t.droppedStderrBytes,
     timedOut: t.timedOut,
-    stopInitiator: t.stopInitiator,
   });
 }
 
@@ -271,8 +256,6 @@ export function registerTask(
     stdoutBuf: '',
     stderrBuf: '',
     truncated: false,
-    droppedStdoutBytes: 0,
-    droppedStderrBytes: 0,
     timedOut: false,
     notified: false,
     worktreePath: opts?.worktreePath,
@@ -290,14 +273,8 @@ export function registerTask(
         task.stdoutBuf += chunk.toString('utf-8');
         if (task.stdoutBuf.length >= MAX_OUTPUT_PER_TASK) {
           task.truncated = true;
-          // G-816028:跨界那一段的溢出同样是被丢弃的输出,必须与 else 分支同一口径(字符)入账,
-          // 否则"已省略 ≥N"在单大块输出下会少报。
-          task.droppedStdoutBytes += task.stdoutBuf.length - MAX_OUTPUT_PER_TASK;
           task.stdoutBuf = task.stdoutBuf.slice(0, MAX_OUTPUT_PER_TASK);
         }
-      } else {
-        // G-816028:丢弃也要记账,否则"截断了"回答不了"省略了多少"。按字符计,与缓冲上限同口径。
-        task.droppedStdoutBytes += chunk.toString('utf-8').length;
       }
       recordHeartbeat(id); // 有输出就是"还活着"的证据(模块内按 30s 节流)
     });
@@ -306,11 +283,8 @@ export function registerTask(
         task.stderrBuf += chunk.toString('utf-8');
         if (task.stderrBuf.length >= MAX_OUTPUT_PER_TASK) {
           task.truncated = true;
-          task.droppedStderrBytes += task.stderrBuf.length - MAX_OUTPUT_PER_TASK;
           task.stderrBuf = task.stderrBuf.slice(0, MAX_OUTPUT_PER_TASK);
         }
-      } else {
-        task.droppedStderrBytes += chunk.toString('utf-8').length;
       }
       recordHeartbeat(id);
     });
@@ -341,11 +315,7 @@ export function registerTask(
       task.exitCode = code;
       if (signal === 'SIGTERM' || signal === 'SIGKILL') {
         task.status = 'killed';
-        // G-816026:谁停的是另一条轴,只能读 killTask 落盘的 stopInitiator,绝不按 signal
-        // 形状反推(旧写法把用户手停/模型停/外部杀按 signal 形状塌成一件事,模型读到
-        // `killed+timedOut` 只会去重跑同一条命令)。无发起方的信号终止(OOM/外部 kill)
-        // 记 undefined,同样非超时 —— 反向锁见 kill-initiator 测试。
-        task.timedOut = false;
+        task.timedOut = signal === 'SIGTERM';
       } else {
         task.status = 'exited';
       }
@@ -375,8 +345,6 @@ export function registerFailedTask(command: string, errorMessage: string): strin
     stdoutBuf: '',
     stderrBuf: errorMessage,
     truncated: false,
-    droppedStdoutBytes: 0,
-    droppedStderrBytes: 0,
     timedOut: false,
     // 占位任务生下来就是终态,但"已投递"位仍要显式起在 false:
     // 它标的是"有没有把终态交给过等待者",不是"是不是终态"—— 两者分开,
@@ -423,27 +391,9 @@ export interface TaskOutput {
   stdout: string;
   stderr: string;
   truncated: boolean;
-  /** 丢弃量下界(字节):G-816028 要求截断时能回答"省略了多少"。 */
-  droppedStdoutBytes: number;
-  droppedStderrBytes: number;
-  /** 谁主动停的(G-816026):user/model 由 killTask 落盘;undefined = 外部终止(OOM/别的进程)。 */
-  stopInitiator?: 'user' | 'model' | null;
-  /** 只有"deadline 持有者"显式置位才为 true;绝不按 signal 形状反推(G-816026)。 */
-  timedOut: boolean;
   exitCode?: number | null;
   startedAt: string;
   exitedAt?: string;
-}
-
-/**
- * G-816028 的诚实截断注记:截断必须同时回答"省略了多少"与"全量还在不在"。
- * 我方没有全量落盘 —— 超出 MAX_OUTPUT_PER_TASK 的部分**当场丢弃且继续丢**,
- * 所以诚实的说法是"未保留全量",而不是上游那种 `[Truncated. Full output: <path>]`
- * (它有 artifact 文件才写得出来;照抄会变成一句兑现不了的话)。
- */
-export function formatTruncatedNote(dropped: { droppedStdoutBytes: number; droppedStderrBytes: number }): string {
-  const total = dropped.droppedStdoutBytes + dropped.droppedStderrBytes;
-  return `[输出被截断: 已省略 ≥${total} 字符;超出单任务上限(每流 1MiB)的部分未保留,后续输出同样被丢弃,需要完整输出请重跑任务]`;
 }
 
 /** 获取任务输出,支持 tail 截取最后 N 行(默认全部)。 */
@@ -464,10 +414,6 @@ export function getTaskOutput(id: string, tailLines?: number): TaskOutput | null
     stdout,
     stderr,
     truncated: t.truncated,
-    droppedStdoutBytes: t.droppedStdoutBytes,
-    droppedStderrBytes: t.droppedStderrBytes,
-    stopInitiator: t.stopInitiator,
-    timedOut: t.timedOut,
     exitCode: t.exitCode,
     startedAt: t.startedAt,
     exitedAt: t.exitedAt,
@@ -637,19 +583,11 @@ export async function settleAllInFlight(timeoutMs = 30_000): Promise<SettleAllIn
 }
 
 /** 终止任务,signal 默认 SIGTERM,5 秒后未退出强杀 SIGKILL。 */
-export async function killTask(
-  id: string,
-  initiator?: 'user' | 'model' | null,
-): Promise<{ killed: boolean; reason?: string; exitConfirmed: boolean }> {
+export async function killTask(id: string): Promise<{ killed: boolean; reason?: string; exitConfirmed: boolean }> {
   const t = tasks.get(id);
   if (!t) return { killed: false, exitConfirmed: false, reason: `任务 ${id} 不存在` };
   if (t.status !== 'running') return { killed: false, exitConfirmed: true, reason: `任务已结束(状态: ${t.status})` };
   if (!t.process) return { killed: false, exitConfirmed: false, reason: '无进程引用' };
-
-  // G-816026:发起方**必须在发信号之前落盘** —— close 事件是异步的,晚写就会让
-  // close 处理器读到 undefined,把主动停误判成"外部终止"(上游同课:
-  // background-stop-dynamic-workflow.ts:45-57「写在 abort 之前,否则结算可能抢先一步读到空值」)。
-  t.stopInitiator = initiator ?? null;
 
   try {
     t.process.kill('SIGTERM');

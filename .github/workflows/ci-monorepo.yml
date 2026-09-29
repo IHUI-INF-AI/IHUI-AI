@@ -53,80 +53,39 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        id: checkout
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
-      - name: Install dependencies
-        id: install
-        run: pnpm install --frozen-lockfile
-      - name: Lint (strict)
-        id: lint-strict
-        run: pnpm run lint:strict
-      - name: Format check
-        id: format-check
-        run: pnpm run format:check
-      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
-      - name: Failure triage (public annotations)
-        id: failure-triage
-        if: failure()
-        env:
-          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
-          TRIAGE_IDS: checkout install lint-strict format-check
-          O_CHECKOUT: ${{ steps.checkout.outcome }}
-          O_INSTALL: ${{ steps.install.outcome }}
-          O_LINT_STRICT: ${{ steps.lint-strict.outcome }}
-          O_FORMAT_CHECK: ${{ steps.format-check.outcome }}
-        run: bash scripts/ci-failure-triage.sh
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint:strict
+      - run: pnpm run format:check
 
   typecheck:
     needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        id: checkout
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
-      - name: Install dependencies
-        id: install
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       # WXT 生成 apps/extension/.wxt/tsconfig.json(extension 的 tsconfig 继承它)。
       # 缺此步 -> .wxt/ 被 gitignore 未入库 -> tsc 读不到 → TS5083 + 200+ 级联错误(2026-09-10 实测)。
       - name: Prepare WXT types (extension)
-        id: prepare-wxt
         run: pnpm --filter @ihui/extension exec wxt prepare
-      - name: Typecheck
-        id: typecheck
-        run: pnpm run typecheck
+      - run: pnpm run typecheck
       - name: e2e typecheck (@ihui/web)
-        id: typecheck-e2e
         run: pnpm --filter @ihui/web typecheck:e2e
-      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
-      - name: Failure triage (public annotations)
-        id: failure-triage
-        if: failure()
-        env:
-          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
-          TRIAGE_IDS: checkout install prepare-wxt typecheck typecheck-e2e
-          O_CHECKOUT: ${{ steps.checkout.outcome }}
-          O_INSTALL: ${{ steps.install.outcome }}
-          O_PREPARE_WXT: ${{ steps.prepare-wxt.outcome }}
-          O_TYPECHECK: ${{ steps.typecheck.outcome }}
-          O_TYPECHECK_E2E: ${{ steps.typecheck-e2e.outcome }}
-        run: bash scripts/ci-failure-triage.sh
 
   source-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        id: checkout
       - name: Check for .js/.jsx/.vue files in apps/*/src/
-        id: source-check
         run: |
           set -e
           FILES=$(find apps -path 'apps/*/src/*' -type f \( -name '*.js' -o -name '*.jsx' -o -name '*.vue' \) || true)
@@ -136,65 +95,26 @@ jobs:
             exit 1
           fi
           echo "OK: No .js/.jsx/.vue files found in apps/*/src/"
-      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
-      # 本 job 不装 node/setup-node —— 该脚本只用 POSIX awk/grep,不依赖被测工具链。
-      - name: Failure triage (public annotations)
-        id: failure-triage
-        if: failure()
-        env:
-          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
-          TRIAGE_IDS: checkout source-check
-          O_CHECKOUT: ${{ steps.checkout.outcome }}
-          O_SOURCE_CHECK: ${{ steps.source-check.outcome }}
-        run: bash scripts/ci-failure-triage.sh
 
   port-registry-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        id: checkout
       - name: Check port registry
-        id: port-registry
         run: node scripts/check-port-registry.mjs --all
-      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
-      - name: Failure triage (public annotations)
-        id: failure-triage
-        if: failure()
-        env:
-          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
-          TRIAGE_IDS: checkout port-registry
-          O_CHECKOUT: ${{ steps.checkout.outcome }}
-          O_PORT_REGISTRY: ${{ steps.port-registry.outcome }}
-        run: bash scripts/ci-failure-triage.sh
 
   test:
     needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        id: checkout
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
-      - name: Install dependencies
-        id: install
-        run: pnpm install --frozen-lockfile
-      - name: Unit tests
-        id: test
-        run: pnpm run test
-      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
-      - name: Failure triage (public annotations)
-        id: failure-triage
-        if: failure()
-        env:
-          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
-          TRIAGE_IDS: checkout install test
-          O_CHECKOUT: ${{ steps.checkout.outcome }}
-          O_INSTALL: ${{ steps.install.outcome }}
-          O_TEST: ${{ steps.test.outcome }}
-        run: bash scripts/ci-failure-triage.sh
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test
 
   build:
     needs: [lint, typecheck, test]
@@ -204,67 +124,41 @@ jobs:
         app: [web, api, miniapp-taro]
     steps:
       - uses: actions/checkout@v4
-        id: checkout
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
-      - name: Install dependencies
-        id: install
-        run: pnpm install --frozen-lockfile
-      - name: Turbo build (${{ matrix.app }})
-        id: turbo-build
-        run: pnpm turbo run build --filter=@ihui/${{ matrix.app }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run build --filter=@ihui/${{ matrix.app }}
       # 产物预算门只在 CI 问责:此处产物必然新鲜存在,超上限就是真红;
       # 本机跑它只会得到"未判定(产物不在)" —— 提交链里它是 warn,没有这一步就等于没有问责面。
       - name: 产物预算对账(仅 miniapp 档,主包口径上限 2,097,152 B)
-        id: artifact-budget
         if: matrix.app == 'miniapp-taro'
         run: node scripts/check-artifact-budget.mjs --target miniapp
       - uses: actions/upload-artifact@v4
-        id: upload
         with:
           name: build-${{ matrix.app }}
           path: |
             apps/${{ matrix.app }}/.next
             apps/${{ matrix.app }}/dist
           retention-days: 7
-      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
-      # build 是矩阵 job(web/api/miniapp-taro)⇒ 注解里必须带是哪个 app 红的,否则三条红长得一样。
-      - name: Failure triage (public annotations)
-        id: failure-triage
-        if: failure()
-        env:
-          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
-          TRIAGE_IDS: checkout install turbo-build artifact-budget upload
-          O_CHECKOUT: ${{ steps.checkout.outcome }}
-          O_INSTALL: ${{ steps.install.outcome }}
-          O_TURBO_BUILD: ${{ steps.turbo-build.outcome }}
-          O_ARTIFACT_BUDGET: ${{ steps.artifact-budget.outcome }}
-          O_UPLOAD: ${{ steps.upload.outcome }}
-        run: bash scripts/ci-failure-triage.sh
 
   cli-smoke:
     needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        id: checkout
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
-      - name: Install dependencies
-        id: install
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       - name: reset-admin-password --help 冒烟测试
-        id: smoke-help
         working-directory: apps/api
         run: pnpm reset:admin-password --help
       - name: reset-admin-password 缺 --yes 拒绝测试
-        id: smoke-no-yes
         working-directory: apps/api
         run: |
           output=$(pnpm reset:admin-password --account admin --generate 2>&1 || true)
@@ -276,7 +170,6 @@ jobs:
             exit 1
           fi
       - name: reset-admin-password 生产环境拒绝测试
-        id: smoke-prod-refuse
         working-directory: apps/api
         run: |
           output=$(NODE_ENV=production pnpm reset:admin-password --account admin --generate --yes 2>&1 || true)
@@ -287,21 +180,6 @@ jobs:
             echo "$output"
             exit 1
           fi
-      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
-      # 这两条冒烟步骤是**多行块标量** ⇒ 脚本按契约打"重跑映射缺失"并点名步骤名(刻意不猜命令);
-      # 点名本身仍是价值:红在哪一步从此不必点开日志看。
-      - name: Failure triage (public annotations)
-        id: failure-triage
-        if: failure()
-        env:
-          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
-          TRIAGE_IDS: checkout install smoke-help smoke-no-yes smoke-prod-refuse
-          O_CHECKOUT: ${{ steps.checkout.outcome }}
-          O_INSTALL: ${{ steps.install.outcome }}
-          O_SMOKE_HELP: ${{ steps.smoke-help.outcome }}
-          O_SMOKE_NO_YES: ${{ steps.smoke-no-yes.outcome }}
-          O_SMOKE_PROD_REFUSE: ${{ steps.smoke-prod-refuse.outcome }}
-        run: bash scripts/ci-failure-triage.sh
 
   test-python:
     runs-on: ubuntu-latest

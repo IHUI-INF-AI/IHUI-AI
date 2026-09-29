@@ -38,22 +38,11 @@ ihui 现状:
 - requester 为 ``None`` → 拒绝(无审批人即 fail-closed)。
 """
 
-# 合并归位说明(2026-09-29,枚 f57e0c9983 的后续修复):两台机器从同一个 380 行基底**各自**把 D159 那一族
-# 函数重写了一遍(本侧 646 行 / 对侧 716 行),行级三方归并不报冲突,却把两份同名函数都留
-# 在文件里 —— describe_network_target / network_target_from_args / pending_network_targets /
-# grant_network_target / check_network_grant / revoke_network_grant / display_from_cache_key /
-# approval_env_payload 各定义两次,类型名两属(NetworkTargetFact 与 NetworkTargetFacts),
-# 守门 35(mypy)当场报 10 条 no-redef/arg-type。本文件因此**整档取对侧那一族**:调用方
-# (agent_loop_v2.py 与 routers/llm.py)在同一枚合并里已取对侧形态,模块与调用方必须同族;
-# 本侧独有的 _host_is_local / _targets_from_args 经 ast 现读 HEAD 面 34 个引用文件的具名导入
-# 逐条比对,外部零引用,随那一族一起移除不留悬空。取证:该形态跑守门 35 ⇒ 576 源文件 0 错误,
-# 直接依赖本模块的五个测试文件 ⇒ 54 passed。
-
 from __future__ import annotations
 
 import ipaddress
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
@@ -71,36 +60,6 @@ _UNIT_SEP = "\x1f"
 # 端口缺省值(按协议)
 _DEFAULT_PORT_HTTPS = 443
 _DEFAULT_PORT_HTTP = 80
-
-# =============================================================================
-# D159(2026-09-30 立,用户批"三档到底"):网络目标的对外事实 + 归属键 + 三档落库
-# =============================================================================
-# 回退开关**只有一处实现**:`approval_persistence.env_report_enabled()`
-# (读 `IHUI_APPROVAL_ENV_REPORT`)。本模块不再自己读 env —— 两处读法必漂移,
-# 而漂移的表现是"关档关不干净"。
-ENV_REPORT_FLAG = ap.ENV_REPORT_FLAG  # re-export:调用方按名取,判据在持久层那一份
-
-# 「始终允许该目标」的寿命(用户批的口径:90 天,与 D158 第四档同值同出口 `ttl_days`)。
-NETWORK_ALWAYS_TTL_DAYS = 90
-# 「本次对话允许该目标」的 session 级有效期(秒)。session 行本来就带 expires_at,
-# check / purge_expired 判过期;票面"重启失效"指的是**内存桶**失效,持久层这一档刻意
-# 保留(与 D158 同形 —— 为过门而把它删掉等于回滚那一条决策)。
-NETWORK_SESSION_TTL_SECONDS_DEFAULT = 2 * 3600
-
-# 三档的封闭集(回传侧按它归一,不认其它写法)。`once` = 不落库的最小特权档。
-NETWORK_SCOPE_ONCE = "once"
-NETWORK_SCOPE_SESSION = "session"
-NETWORK_SCOPE_ALWAYS = "always"
-NETWORK_SCOPES = frozenset({NETWORK_SCOPE_ONCE, NETWORK_SCOPE_SESSION, NETWORK_SCOPE_ALWAYS})
-
-# 拒绝原因词表(与 evaluate_detailed 的 denial_reason 同源;前端把它当**枚举**渲染,
-# 不得当自由文本 —— 未收录的原因一律走 unknown 档,不猜)。
-DENIAL_REASON_NOT_ALLOWED = "not_allowed"
-DENIAL_REASON_NOT_ALLOWED_LOCAL = "not_allowed_local"
-DENIAL_REASON_DENIED = "denied"
-DENIAL_REASONS = frozenset(
-    {DENIAL_REASON_NOT_ALLOWED, DENIAL_REASON_NOT_ALLOWED_LOCAL, DENIAL_REASON_DENIED}
-)
 
 
 # =============================================================================
@@ -156,16 +115,6 @@ def _parse_target(
     return host, final_port, scheme
 
 
-def _net_key_from_parts(host: str, final_port: int, scheme: str) -> str:
-    """``net\\x1f<host>\\x1f<port>\\x1f<scheme>`` 裸键拼接的**唯一实现**。
-
-    ``normalize_net_key``(既有出口)与 D159 的 ``describe_network_target`` 共用这一份
-    —— 两处各拼一遍必漂移,而键形一漂,写入的规则就永远查不到,"始终允许该目标"
-    变成一条永远命中不了的死账(AGENTS §5"两处算同一件事必漂移"同一条)。
-    """
-    return f"{_UNIT_SEP.join(('net', host, str(final_port), scheme))}"
-
-
 def normalize_net_key(
     target: str, *, port: int | None = None, protocol: str = "https"
 ) -> str:
@@ -176,284 +125,7 @@ def normalize_net_key(
     返回 ``net\\x1f<host>\\x1f<port>\\x1f<scheme>``;解析失败抛 ``ValueError``。
     """
     host, final_port, scheme = _parse_target(target, port=port, protocol=protocol)
-    return _net_key_from_parts(host, final_port, scheme)
-
-
-# =============================================================================
-# D159(2026-09-30 立,用户批"三档到底"):网络目标的对外事实 + 归属键 + 三档落库
-# =============================================================================
-# 与批 52 那道内存门的关系(必读,别读成重复实现):
-# - 批 52 的 ``NetworkApprovalGate`` 落的是**无主体** session 键(requester 批准后自动
-#   续期那一条),键空间是 ``net\x1fhost\x1fport\x1fscheme``;
-# - D159 的三档是**用户在审批弹窗里显式选的授权**,必须绑**令牌主体**(AGENTS §5
-#   "认证不等于授权";D158 的 owner-binding 修复就是同一课 —— 无主体键会让 A 批准的
-#   规则替 B 免弹窗)。因此这里只写 ``scoped_cache_key(owner, normalize_net_key(...))``。
-# - 两种键空间**共存但互不顶替**:`check` 先查主体键,再查无主体键(后者是批 52 既有
-#   行为,不删它 = 不改变任何在跑的放行)。调用方需要"只看这条规则能不能放行"时,
-#   走本节的 ``check_network_grant``(它同时看两面并回报命中面),不要自己拼键。
-# 主体从**承载层**显式入参传进来(路由 owner_uuid / loop 构造参数),本模块永不读
-# 请求体里的 userId,也不读全局。owner 缺失 ⇒ 不落规则、不判命中(fail-closed)。
-
-#: 工具参数里承载出站目标的键(主对话流审批门据此从 args 取"这次要连哪个目标")。
-#: 只列**已现读到的**键名(mcp_server 的 fetch_url / webhook 两条出站工具),不猜通用名
-#: (把 `to` / `href` 之类纳进来会把无关参数读成网络目标 —— 那正是"显示沙箱内而实际
-#: plain"的同一种谎,只是方向相反)。
-TARGET_ARG_KEYS: tuple[str, ...] = ("url", "webhook_url")
-
-
-@dataclass(frozen=True)
-class NetworkTargetFacts:
-    """一个网络目标的**对外事实**(审批弹窗与规则面板共用的展示形态)。
-
-    Attributes:
-        host:     规范化小写 hostname(读出来的真值,不是模型自报的原文);
-        port:     规范化端口(协议默认已填充);
-        protocol: scheme;
-        display:  ``host:port`` —— 票面口径"弹窗上把键原样显示成 host:port,不显示哈希";
-        reason:   拒绝原因码(``DENIAL_REASONS`` 词表)或 None = 当前**未被拦**;
-        cache_key: 无主体裸键(审计与匹配用,不给人看);
-        owner_bound_key: 主体绑定键,owner 为 None 时也是 None(⇒ 不落规则)。
-    """
-
-    host: str
-    port: int
-    protocol: str
-    display: str
-    reason: str | None
-    cache_key: str
-    owner_bound_key: str | None
-
-    def to_event_payload(self) -> dict[str, object]:
-        """审批帧上的形态(snake_case,与 tool-approval 其余字段同族)。
-
-        **不含** cache_key / owner_bound_key:那两个是服务端把手,给前端就等于让
-        客户端能自报一个键去 DELETE(本票第 2 条不可漂的正是这一型)。
-        """
-        payload: dict[str, object] = {
-            "host": self.host,
-            "port": self.port,
-            "protocol": self.protocol,
-            "display": self.display,
-        }
-        if self.reason is not None:
-            payload["reason"] = self.reason
-        return payload
-
-
-def describe_network_target(
-    target: str, *, owner: str | None = None, port: int | None = None, protocol: str = "https"
-) -> NetworkTargetFacts | None:
-    """把一个 URL / 裸 host 读成对外事实;读不到(解析失败)⇒ None,**绝不编一个**。
-
-    ``reason`` 的口径(这条决定本票第 1 条不可漂能不能立住):
-    **只报静态策略已判死的拒绝**(本地/私网/解析不出),不报"还没有规则覆盖它"。
-    理由是:审批帧本来就在"还没有规则"的那一刻发,把"没规则"写成"被拦"会让弹窗
-    对用户谎称"这个目标连不通",而它其实只是需要用户点一次允许 —— 那是把一个
-    决策偷换成一个事实陈述,与"显示沙箱内而实际 plain"是同一条禁令的方向相反的
-    那一半。命中查询走 ``check_network_grant``,那是另一件事。
-    """
-    try:
-        host, final_port, scheme = _parse_target(target, port=port, protocol=protocol)
-    except ValueError:
-        return None
-    bare_key = _UNIT_SEP.join(("net", host, str(final_port), scheme))
-    bound_key: str | None = None
-    o = str(owner or "").strip()
-    if o:
-        try:
-            bound_key = ap.scoped_cache_key(o, bare_key)
-        except ValueError:
-            bound_key = None
-    return NetworkTargetFacts(
-        host=host,
-        port=final_port,
-        protocol=scheme,
-        display=f"{host}:{final_port}",
-        reason=_policy_denial_reason(host),
-        cache_key=bare_key,
-        owner_bound_key=bound_key,
-    )
-
-
-def _policy_denial_reason(host: str) -> str | None:
-    """该 host 是否被**静态策略**判死(本地/回环/私网/link-local ⇒ 有原因;其余 None)。
-
-    判据与 ``NetworkApprovalGate`` 拒绝分支用的 ``_unparsable_denial_reason`` 同形
-    (同一组字符判据,不做第二套语义),但只在这条 host 上量一次 —— 本函数的值域是
-    ``DENIAL_REASON_NOT_ALLOWED_LOCAL`` 或 None,不产出 ``denied``:
-    "被审批人拒"是**结算之后**才知道的事,不属于发帧时刻的事实。
-    """
-    if not host:
-        return DENIAL_REASON_NOT_ALLOWED
-    if host in ("localhost", "127.0.0.1", "::1") or host.endswith(".local"):
-        return DENIAL_REASON_NOT_ALLOWED_LOCAL
-    try:
-        addr = ipaddress.ip_address(host)
-    except ValueError:
-        return None
-    if addr.is_private or addr.is_loopback or addr.is_link_local:
-        return DENIAL_REASON_NOT_ALLOWED_LOCAL
-    return None
-
-
-def pending_network_targets(
-    args: Mapping[str, object] | None, *, owner: str | None = None
-) -> list[NetworkTargetFacts]:
-    """从工具参数里读出**这次调用要连的网络目标**(审批帧的 blocked/target 字段来源)。
-
-    只读 ``TARGET_ARG_KEYS`` 列出的键,值为非空字符串才试解析;解析不出来的**跳过**
-    (不冒充"被拦",也不报错 —— 报错了调用方会把整帧丢掉,那才是真丢信息)。
-    返回顺序 = 键声明顺序,稳定可测。
-    """
-    if not isinstance(args, Mapping):
-        return []
-    facts: list[NetworkTargetFacts] = []
-    seen: set[str] = set()
-    for key in TARGET_ARG_KEYS:
-        raw = args.get(key)
-        if not isinstance(raw, str) or not raw.strip():
-            continue
-        fact = describe_network_target(raw, owner=owner)
-        if fact is None or fact.cache_key in seen:
-            continue
-        seen.add(fact.cache_key)
-        facts.append(fact)
-    return facts
-
-
-def approval_env_payload(
-    tool_name: str,
-    args: Mapping[str, object] | None,
-    *,
-    owner: str | None = None,
-    env: Mapping[str, str] | None = None,
-) -> dict[str, object]:
-    """把"这次调用在哪儿跑 + 要连哪个目标"读成审批帧的**新增字段**(唯一组装出口)。
-
-    三种返回形态,前端按形状分流(这条区分是本票第 1 条不可漂的实现):
-
-    - ``{}`` ⇒ **回退开关关档**(``IHUI_APPROVAL_ENV_REPORT=0``)⇒ 一个新字段都不发,
-      弹窗整块不渲染,逐字回到本票落地前的形态;
-    - 有 ``exec_environment`` 且其 ``available`` 为 False ⇒ 开关开着但**读不到事实**
-      ⇒ 弹窗必须显示"未上报",绝不显示"沙箱内/沙箱外";
-    - ``available`` 为 True ⇒ 显示真值;``network_target`` 在位时才给三档按钮。
-
-    网络目标只取**第一个**当"本次要放行谁"(与 ``grant_network_target`` 落的键同一份,
-    所以弹窗上点下的档位与库里落的那条规则结构上不可能对不上);其余目标列进
-    ``blocked_network_targets`` 只展示不落档。
-    """
-    if not ap.env_report_enabled(env):
-        return {}
-    payload: dict[str, object] = {}
-    facts = ap.describe_exec_environment(tool_name, args)
-    payload["exec_environment"] = (
-        {"available": True, **facts} if facts is not None else {"available": False}
-    )
-    targets = pending_network_targets(args, owner=owner)
-    if targets:
-        payload["network_target"] = targets[0].to_event_payload()
-        blocked = [t.to_event_payload() for t in targets if t.reason is not None]
-        if blocked:
-            payload["blocked_network_targets"] = blocked
-    return payload
-
-
-def network_target_from_args(
-    args: Mapping[str, object] | None, *, owner: str | None = None
-) -> NetworkTargetFacts | None:
-    """审批**条目**上记的那一个目标(与 ``approval_env_payload`` 取的同一个)。
-
-    服务端把它存在待决条目里,结算时按它落规则 —— 客户端回传只有 scope,选不了目标
-    (客户端能自报 target 就等于"批的是 A 连的是 B",本票第 2 条不可漂点名的形态)。
-    """
-    targets = pending_network_targets(args, owner=owner)
-    return targets[0] if targets else None
-
-
-def grant_network_target(fact: NetworkTargetFacts, scope: str) -> bool:
-    """按档位落一条网络放行规则(三档;``once`` 不落库)。
-
-    返回是否**真的**写了规则(once / 缺主体 / 非法档 / 落库失败 ⇒ False)。
-    落库失败必须喊出来并留 warning —— 静默失败的表现是"用户点了始终允许,下一次照旧弹",
-    而弹窗此时显示的文案已经承诺了 90 天(§5e"失败必须响"同一条禁令)。
-    """
-    normalized = str(scope or "").strip().lower()
-    if normalized == NETWORK_SCOPE_ONCE:
-        return True  # 档位成立但刻意不落库:最小特权,下次照问
-    if normalized not in NETWORK_SCOPES:
-        logger.warning("网络放行档位非法,未落规则: %r", scope)
-        return False
-    if fact.owner_bound_key is None:
-        logger.warning(
-            "网络放行未落规则:缺令牌主体(target=%s, scope=%s)", fact.display, normalized
-        )
-        return False
-    try:
-        if normalized == NETWORK_SCOPE_ALWAYS:
-            ap.grant(
-                ap.SCOPE_ALWAYS,
-                fact.owner_bound_key,
-                KIND_NET,
-                ttl_days=NETWORK_ALWAYS_TTL_DAYS,
-            )
-        else:
-            ap.grant(
-                ap.SCOPE_SESSION,
-                fact.owner_bound_key,
-                KIND_NET,
-                ttl_seconds=NETWORK_SESSION_TTL_SECONDS_DEFAULT,
-            )
-    except Exception as exc:  # noqa: BLE001 - 落库失败不阻断已批准的执行,但必须响
-        logger.warning("网络放行规则落库失败(target=%s): %s", fact.display, exc)
-        return False
-    return True
-
-
-def check_network_grant(fact: NetworkTargetFacts) -> str | None:
-    """该目标此刻是否放行(主体键优先,其次批 52 的无主体 session 键)。
-
-    返回命中的 scope('always'/'session')或 None。
-    """
-    try:
-        if fact.owner_bound_key is not None:
-            hit = ap.check(fact.owner_bound_key, KIND_NET)
-            if hit is not None:
-                return hit
-        return ap.check(fact.cache_key, KIND_NET)
-    except Exception as exc:  # noqa: BLE001 - 持久层故障按未命中(fail-closed)
-        logger.warning("网络放行命中查询异常(按未命中处理): %s", exc)
-        return None
-
-
-def revoke_network_grant(fact: NetworkTargetFacts) -> bool:
-    """撤销该目标在**主体键与裸键两面**的全部授权。
-
-    返回两面是否都执行成功。撤销必须"库里真没了"才算数 —— 调用方(路由)在撤销后
-    会用 ``check_network_grant`` 复核,用例也按那个断言,不看 HTTP 状态码。
-    """
-    ok = True
-    try:
-        if fact.owner_bound_key is not None:
-            ap.revoke(fact.owner_bound_key, KIND_NET)
-        ap.revoke(fact.cache_key, KIND_NET)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("网络放行撤销失败(target=%s): %s", fact.display, exc)
-        ok = False
-    return ok
-
-
-def display_from_cache_key(cache_key: str) -> str:
-    """把库里那条网络放行键还原成给人看的 ``host:port``(规则面板与弹窗同一出口)。
-
-    入参可能是**主体绑定键**(``<owner>\\x1e net\\x1fhost\\x1fport\\x1fscheme``),先剥主体段
-    再拆单元;拆不出四段 ⇒ 原样返回并让调用方看见它不是 host:port 形态(不编一个假的,
-    也不回空串 —— 面板拿空串会渲染出一行看不见目标名称的放行规则,那比报错更糟)。
-    """
-    _owner, bare = ap.split_scoped_key(str(cache_key or ""))
-    units = bare.split(_UNIT_SEP)
-    if len(units) == 4 and units[0] == "net" and units[1]:
-        return f"{units[1]}:{units[2]}"
-    return bare
+    return f"{_UNIT_SEP.join(('net', host, str(final_port), scheme))}"
 
 
 # =============================================================================
@@ -704,24 +376,5 @@ __all__ = [
     "configure",
     "evaluate_network_access",
     "evaluate_network_access_detailed",
-    # D159(网络放行三档 + 审批载荷事实)
-    "ENV_REPORT_FLAG",
-    "NETWORK_SCOPES",
-    "NETWORK_SCOPE_ONCE",
-    "NETWORK_SCOPE_SESSION",
-    "NETWORK_SCOPE_ALWAYS",
-    "NETWORK_ALWAYS_TTL_DAYS",
-    "NETWORK_SESSION_TTL_SECONDS_DEFAULT",
-    "DENIAL_REASONS",
-    "TARGET_ARG_KEYS",
-    "NetworkTargetFacts",
-    "describe_network_target",
-    "pending_network_targets",
-    "network_target_from_args",
-    "approval_env_payload",
-    "grant_network_target",
-    "check_network_grant",
-    "revoke_network_grant",
-    "display_from_cache_key",
 ]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

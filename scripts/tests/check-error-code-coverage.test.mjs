@@ -14,9 +14,8 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { copyFileSync, mkdirSync, statSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
@@ -92,54 +91,6 @@ function git(dir, ...args) {
   )
 }
 
-/**
- * 把一份源码文件连同它的**相对依赖闭包**复制进夹具。
- *
- * 为什么不再手写清单(2026-09-29 实测事故):夹具原先用三条 `copyFileSync` 手工维护
- * "门脚本 + gitdir + face-reader",而 `scripts/lib/gitdir.mjs` 后来新增了
- * `import { countScratchSegments } from './scratch-dir.mjs'` —— 没人回头补第三份清单,
- * 于是临时仓里的门脚本整片 `ERR_MODULE_NOT_FOUND`,镜像 8 例里 6 例红且红的全是 e2e
- * 那几条。手工闭单子的失效形态从来不是"报错提醒你去补",而是"隔壁测试默默变红",
- * 而读报告的人会把它当成仓库缺陷(本次就先被读成"门 94 自己在红")。
- * 现在从源码走:凡 `from './x'` / `export … from './x'` / 动态 `import('./x')` 都跟着复制,
- * 递归 + 去重;解析不到文件的说明符(注释/散文里出现的形态)一律跳过,不造假失败。
- */
-const SCRIPTS_DIR = fileURLToPath(new URL('../', import.meta.url))
-// 说明符本身必须能匹配到,而**不要求 `from` 与 `import` 同行** —— 门脚本用的是多行 import 块
-// (`import {\n  makeFaceReader,\n} from './lib/face-reader.mjs'`),按"行首 import … from"
-// 写的正则会整块漏掉它,症状不是报错而是夹具少一份依赖 ⇒ e2e 那片红。
-// 散文里的相对说明符(注释/文档)由下面的 existsSync 兜住:解析不到文件就跳过,不造假失败。
-const REL_IMPORT_RE = /(?:\bfrom|\bimport)\s*['"](\.[^'"]+)['"]/g
-/** 只跟"解析得到一个**文件**"的说明符:目录形态(`./lib`)与散文里的假说明符一并跳过。 */
-function isFile(p) {
-  try {
-    return statSync(p).isFile()
-  } catch {
-    return false
-  }
-}
-
-function copyWithClosure(dir, rootUrl) {
-  const queue = [rootUrl]
-  const seen = new Set()
-  while (queue.length) {
-    const url = queue.shift()
-    const from = fileURLToPath(url)
-    if (seen.has(from) || !isFile(from)) continue
-    seen.add(from)
-    const rel = from.slice(SCRIPTS_DIR.length).replace(/\\/g, '/')
-    const to = join(dir, 'scripts', ...rel.split('/'))
-    mkdirSync(dirname(to), { recursive: true })
-    copyFileSync(from, to)
-    const text = readFileSync(from, 'utf8')
-    for (const m of text.matchAll(REL_IMPORT_RE)) {
-      const child = new URL(m[1], url)
-      if (isFile(fileURLToPath(child))) queue.push(child)
-    }
-  }
-  return seen.size
-}
-
 /** 把真实门脚本 + 它 import 的 lib 复制进临时 git 仓,造一棵最小码面/词表/词包。
  *  `catalogText` 可换形状,用来证明"同一张内容、不同排版 ⇒ 同一份结论"。 */
 function fixture(catalogText = CATALOG) {
@@ -151,7 +102,17 @@ function fixture(catalogText = CATALOG) {
       writeFileSync(p, text, 'utf8')
     }
     mkdirSync(join(dir, 'scripts', 'lib'), { recursive: true })
-    copyWithClosure(dir, new URL(`../${SCRIPT}`, import.meta.url))
+    copyFileSync(new URL(`../${SCRIPT}`, import.meta.url), join(dir, 'scripts', SCRIPT))
+    copyFileSync(
+      new URL('../lib/gitdir.mjs', import.meta.url),
+      join(dir, 'scripts', 'lib', 'gitdir.mjs'),
+    )
+    // 2026-09-25:本门取材层改为复用 scripts/lib/face-reader.mjs(它自身只依赖 node 内建 + gitdir.mjs),
+    // 夹具必须一起复制,否则临时仓里的门脚本 Cannot find module —— e2e 四条会全红。
+    copyFileSync(
+      new URL('../lib/face-reader.mjs', import.meta.url),
+      join(dir, 'scripts', 'lib', 'face-reader.mjs'),
+    )
     w('packages/shared/src/chat/error-catalog.ts', catalogText)
     w('packages/i18n/messages/web/zh-CN.json', MESSAGES)
     w('packages/api-client/src/client.ts', "const e = { errorCode: 'TIMEOUT' }\n")

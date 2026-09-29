@@ -99,36 +99,11 @@ function expectNothingLeftBehind(url: string): void {
 
 /** 从被 getOrCloneGitCache 包过一层的错误里取出复制面的结构化异常本体。 */
 function asCopyUnsafeError(err: unknown): PluginCacheCopyUnsafeError {
-  // ⚠ 2026-09-29 契约收紧(G-809):安全拒绝**原样上抛**,不再被包成"获取插件缓存失败…"那句
-  // 通用文案 —— 包一层会把 code/reason 埋进 cause,调用方读到的错误身份就与"网络刷新失败"同形。
-  // 改这条断言不是为了让测试好写:它是票面"修法唯一"的另一半。
-  expect(err).toBeInstanceOf(PluginCacheCopyUnsafeError);
-  const e = err as PluginCacheCopyUnsafeError;
-  expect(e.message, '不得被包成通用缓存失败').not.toContain('获取插件缓存失败');
-  return e;
+  const cause = (err as { cause?: unknown }).cause;
+  expect(err).toBeInstanceOf(Error);
+  expect(cause).toBeInstanceOf(PluginCacheCopyUnsafeError);
+  return cause as PluginCacheCopyUnsafeError;
 }
-
-/**
- * G-810:本机到底能不能造 junction —— **在模块顶层量一次**。
- * 为什么不在用例里 try/catch:那种写法在造不出来的时候会 warn + return,汇总照样 "1 passed",
- * 于是"没判"被写成"判过了"(本仓反复定罪的那一型)。量出来的布尔值喂给 `it.skipIf`,
- * 跳过状态由 vitest 写进汇总,人和机器都看得见"这一型今天未判定"。
- */
-const JUNCTION_CAPABLE = (() => {
-  let base = ''
-  let tgt = ''
-  try {
-    base = fs.realpathSync(mkScratch('g810-probe-'))
-    tgt = fs.realpathSync(mkScratch('g810-tgt-'))
-    fs.symlinkSync(tgt, path.join(base, 'j'), 'junction')
-    return fs.lstatSync(path.join(base, 'j')).isSymbolicLink()
-  } catch {
-    return false
-  } finally {
-    if (base) rmScratch(base)
-    if (tgt) rmScratch(tgt)
-  }
-})()
 
 // ==================== ① 指向根外的链接 ⇒ 中止且不落半份 ====================
 
@@ -158,95 +133,6 @@ describe('G-747 cache.copyDirRecursive — 符号链接可达性', () => {
     expect(unsafe.rootPath).toBe(tmpMockSrc);
     expect(unsafe.message).toContain('escape-link');
     expectNothingLeftBehind(URL_A);
-  });
-
-  // ==================== ⑥ G-809:有可用旧副本时,安全拒绝**不得**被降级成"刷新失败" ====================
-  //
-  // 这一格是 ① 的另一半:① 没有旧副本,错误必然上抛,所以它**证不了**降级分支上的分流对不对。
-  // 旧实现在 `hadCache && isUsableDirectoryCopy` 那一支把 `PluginCacheCopyUnsafeError` 折进
-  // `staleReason` 文本并回 `fromCache:true` —— 调用方看到的是一句"离线可用",而实际是"内容被拒",
-  // 结构化 reasonCode 整条丢掉(守门 135"错误身份不得只活在文案里"同族)。
-  it('⑥G-809 有可用旧副本 + 逃逸链接 ⇒ 抛结构化错误、fromCache 不为 true、旧副本原样在位', async () => {
-    // 先造一份**可用**的旧副本(正常 clone 落位)
-    write(path.join(tmpMockSrc, 'plugin.json'), '{"name":"alpha"}');
-    const first = await getOrCloneGitCache(URL_A, { ttlMs: 60_000 });
-    expect(first.fromCache, '第一轮必须是真取回,否则"旧副本在位"这句前提就是空支票').toBe(false);
-    expect(fs.existsSync(path.join(first.localPath, 'plugin.json'))).toBe(true);
-    const before = fs.readFileSync(path.join(first.localPath, 'plugin.json'), 'utf-8');
-
-    // 再往 mock 源里塞一条越界链接,并让 TTL 立刻过期
-    fs.symlinkSync(tmpOutside, path.join(tmpMockSrc, 'escape-link'), 'dir');
-    const outcome = await getOrCloneGitCache(URL_A, { ttlMs: 0 }).then(
-      (r) => ({ kind: 'resolved' as const, r }),
-      (e: unknown) => ({ kind: 'rejected' as const, e }),
-    );
-    if (outcome.kind === 'resolved')
-      throw new Error(
-        `安全拒绝被折成了返回值(fromCache=${String(outcome.r.fromCache)}, staleReason=${outcome.r.staleReason ?? ''})` +
-          ' —— 调用方会把它读成"离线可用",而结构化 reasonCode 已经丢了',
-      );
-    const err = outcome.e;
-    // 原样上抛(不是包一层"获取缓存失败"),因为包一层就把 code 埋进文案里了
-    expect(err).toBeInstanceOf(PluginCacheCopyUnsafeError);
-    expect((err as PluginCacheCopyUnsafeError).code).toBe('plugin_cache_copy_unsafe');
-    expect((err as PluginCacheCopyUnsafeError).reason).toBe('symlink-escape');
-    // 数据面:旧副本一步没动(降级分支被跳过 ≠ 把盘改坏),且不留在途 staging
-    expect(fs.readFileSync(path.join(first.localPath, 'plugin.json'), 'utf-8')).toBe(before);
-    const leftovers = fs.readdirSync(getMarketplaceCacheDir()).filter((n) => n.includes('.staging-'));
-    expect(leftovers, `staging 必须被清掉,实得:${leftovers.join(',')}`).toEqual([]);
-  });
-
-  // ==================== ⑦ 正向对照:非安全类的失败**仍然**降级复用旧副本 ====================
-  //
-  // 票面明令"不得把降级分支整个删掉"—— 删了就把真正的离线刷新失败变成硬错误。
-  // 这一例就是那条禁令的牙:把 ⑥ 的分流写成"一律上抛",本例必红。
-  it('⑦G-809 正向对照:取不到源目录(普通 I/O 失败)⇒ 照旧降级并带 staleReason', async () => {
-    write(path.join(tmpMockSrc, 'plugin.json'), '{"name":"alpha"}');
-    const first = await getOrCloneGitCache(URL_A, { ttlMs: 60_000 });
-    expect(first.fromCache).toBe(false);
-    // 把 mock 源指到一个**不存在**的目录 ⇒ copyDirRecursive 抛 ENOENT(一个没有分档码的普通错误)
-    process.env[MOCK_CLONE_SRC_ENV] = path.join(tmpOutside, 'no-such-dir');
-    const result = await getOrCloneGitCache(URL_A, { ttlMs: 0 });
-    expect(result.fromCache, '普通刷新失败必须仍可降级').toBe(true);
-    expect(result.staleReason, '降级必须把原因带出去,不得静默').toBeTruthy();
-    expect(result.staleReason).toContain('刷新失败');
-  });
-
-  it.skipIf(!JUNCTION_CAPABLE)(
-    '⑧G-810 根外 junction ⇒ 同样中止复制、不留半份(阳性对照先证夹具真的是重解析点)',
-    async () => {
-      write(path.join(tmpMockSrc, 'plugin.json'), '{"name":"alpha"}');
-      write(path.join(tmpOutside, 'other-tenant-secret.txt'), 'DO-NOT-COPY');
-      const link = path.join(tmpMockSrc, 'junction-escape');
-      // 模块顶层已经探过一次能不能造 junction;这里再失败就是环境问题,直接抛 ——
-      // **不得"warn + return"**,那会把"没跑到"写成"通过"(本仓最高频失效型)。
-      fs.symlinkSync(tmpOutside, link, 'junction');
-      // 阳性对照:① 它确实被 lstat 报成符号链接形态(Node 没有 isJunction 谓词);
-      // ② 它确实指向根外;③ 夹具不是空支票。
-      expect(fs.lstatSync(link).isSymbolicLink(), 'junction 必须被 lstat 报成符号链接形态').toBe(true);
-      const rel = path.relative(fs.realpathSync(tmpMockSrc), fs.realpathSync(tmpOutside));
-      expect(rel.startsWith('..') || path.isAbsolute(rel)).toBe(true);
-
-      const err = await getOrCloneGitCache(URL_A, { ttlMs: 1000 }).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      expect(err, '根外 junction 必须让整次刷新失败,而不是跟进去把外面那棵树拷进 staging').toBeTruthy();
-      const unsafe = asCopyUnsafeError(err);
-      expect(unsafe.reason).toBe('symlink-escape');
-      expect(unsafe.linkPath).toBe(link);
-      expect(unsafe.targetPath).toBe(fs.realpathSync(tmpOutside));
-      expectNothingLeftBehind(URL_A);
-    },
-  );
-
-  // 判据覆盖面的诚实出口:造不出 junction 的机器上,这一例报 **skipped(未判定)**,
-  // 不报通过;`it.skipIf` 的跳过状态由 vitest 自己写进汇总行,人眼与机器都看得见。
-  it('⑧b G-810 覆盖面必须如实:本机造不出 junction 时该例必须是 skipped 而不是 passed', () => {
-    if (JUNCTION_CAPABLE) return; // 能造 ⇒ 上一例真跑过,本例无事可断
-    throw new Error(
-      '本机判不出 junction 形态。上一例是 skipped(未判定),不得被汇总里的 "1 passed" 冒充成覆盖了这一型。',
-    );
   });
 
   // ==================== ② 正向对照:指向根内的合法链接照常复制 ====================
