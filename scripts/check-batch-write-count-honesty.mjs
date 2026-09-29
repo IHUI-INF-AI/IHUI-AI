@@ -131,6 +131,49 @@
  *     调用方那一遍得出、在同一次 analyze 里一次读满;枚举表(`ls-tree`/`ls-files`)也按同一面取,
  *     不得"清单来自磁盘 + 内容来自 HEAD"。
  *
+ * B3(2026-09-30 立,G-815953):批量回填的 UPDATE 必须带「上一次迁移应用时刻」的时间上界谓词。
+ *   背景:回填按"当前最新数据"重算历史,会把两次迁移之间用户写入的值当旧格式覆盖。唯一出口
+ *   `apps/api/src/utils/backfill-baseline.ts`(assertBaselineTime fail-closed + backfillWhere 强制
+ *   lte(col, baseline))已先行落库;本判据守的是"下一个回填落点只能走这里"。
+ *   判据一条:`db|tx|trx` 的 `.update(` 链,`set(` 实参命中**迁移记账列**(migrationBatch /
+ *   migration_batch / legacyId / legacy_id / legacyTable / legacy_table)—— 收窄到"写迁移记账列"才算
+ *   回填:软删形状 `set({deletedAt/revokedAt: new Date()}).where(and(eq(...), isNull(...)))` 与回填词法
+ *   同形且 HEAD 实测十几处,任何按 isNull 划线的判据都是恒红门(§12e),自检 B3d 钉死这一条;
+ *   且 `where(` 实参里**没有**时间上界谓词(lte( / lt( / backfillWhere( / `<=` 任一)⇒ 违规;
+ *   无 where 的全表无界 update 同判。裸 SQL 维:`db.execute` 的 `UPDATE` 语句同判(取材"保留字符串"
+ *   那一档,`<=` 在 SQL 串里可读)。
+ *   放过:where 实参出现上界谓词即绿 —— 走 backfillWhere 出口的,其实参自带 `backfillWhere(` 字样。
+ *   **无行内豁免通道**:回填没有"确属有意无界"的合法场景(fail-closed 出口已把语义钉死),红点的
+ *   唯一正解是补上界/走出口;应急走 SELF_SKIP。
+ *   存量口径:head 实测 0(drizzle 与裸 SQL 两维),走与 B1/B2 同款「head 默认只报数、--strict 判红、
+ *   staged 差值棘轮」三档,decide 签名收 b3Violations(签名即判据)。
+ *   判不了格(如实登记):①落点在 SCAN_DIRS 之外的独立回填脚本;②接收者非 db|tx|trx 裸标识符
+ *   (含 `db.with(...).update` —— 既有链扫描对这一形态整体失明,V/B1/B2 同一取材,非本判据新欠的债);
+ *   ③上界谓词经中间变量间接拼装(如 `const w = cond ? lte(...) : undefined` —— whereText 只看一跳字面);
+ *   ④drizzle 链 where 里用 sql`…<=…` 模板写上界 ⇒ 遮蔽面(blankStrings 档)读不到模板内容,按无上界计
+ *   (fail-closed:新写该形态请用 lte() 表达式,别用模板串)。
+ *
+ * B4(2026-09-30 立,G-815956):迟到终态事件不得把已终态记录改回活动态 —— `update` 写 status/state
+ *   列而 where 无对**同一状态列**的 eq/in/ne 前置,等于把"改哪几行"交给调用方纪律。
+ *   判据一条:`.update(` 链 `set(` 实参里出现**字面量** status/state 键(遮蔽面把字符串值抹空 ⇒
+ *   `status:` 后紧跟 `,`/`}` 才算字面量;变量值/简写/spread 在遮蔽面上有可见 token,一律不进面)
+ *   且 whereText 无同列 eq/ne/inArray/in 前置 ⇒ 违规。
+ *   **棘轮专用维(与 B1/B2/B3 不同档,理由如实登记)**:head 实测存量 53 处(agents/order/team/
+ *   workflow 等 db 层与 edu-ai-management 等路由层),镜像红形状与存量词法**完全同形**、收窄到 0 不得
+ *   —— 按票面拍板"现存违规报数不判红,只拦新增":head 面(含 --strict)**只报数、永不判红**
+ *   (decide 签名**刻意不收** b4Violations —— "签名即判据"是结构锁不是注释约定,自检 B4D 钉住);
+ *   staged 面走「该文件 HEAD 自身 B4 计数」差值棘轮,净新增即红。棘轮粒度 = 文件 × 判据(**无键**:
+ *   状态列没有 ack 键族,"换值逃逸"在这一维不成立)。
+ *   判不了格(如实登记;票面明说上游 settleSessionInput / markSessionInput 等判不了):
+ *   ① set 值来自变量/简写/spread ⇒ 词法非字面量,不进面(状态机收口的语义判定不做);
+ *   ② 值是数字枚举码(set({status: 2}))⇒ 数字字面量在遮蔽面可见、与变量同格,字面量判据
+ *     (值被抹空形态)结构上不认 —— 判不了,不假装已解决;
+ *   ③ `as` 断言字面量(set({status: 'x' as T}))⇒ 遮蔽面 `status:` 后跟标识符,不进面;
+ *   ④ 前置写在 sql`…` 模板里 ⇒ 遮蔽面读不到,按无前置计(fail-closed:新写请用 eq() 表达前置);
+ *   ⑤ 裸 SQL 的 `UPDATE … SET status = 'x'`:存量实测 0,但字面量与前置在 SQL 串里另成词法体,
+ *     本版**刻意只认 drizzle 链**(收窄,登记;该形状出现的那天由镜像正例扩面接维);
+ *   ⑥ "该列是否真是终态列"是语义问题,词法只认列名 status/state。
+ *
  * 两份"惯例存量"计数(可见性,不是判据 —— **永不影响退出码**):上面那两个"刻意放过"的形状此前只有
  * 注释里的一句"全仓 257 处"撑着,而那句是人肉量的,下次谁扩面/收面账面没人知道它变了多少。现由本门
  * 每次现读数并报数:
@@ -488,6 +531,8 @@ export function findWriteChains(code) {
       links.push({ name: cm[1], text: code.slice(open + 1, cend - 1) })
       cur = cend
     }
+    const whereLink = links.find((l) => l.name === 'where')
+    const setLink = links.find((l) => l.name === 'set')
     out.push({
       start: m.index,
       end: cur,
@@ -497,6 +542,10 @@ export function findWriteChains(code) {
       hasInArray: links.some((l) => /\binArray\s*\(/.test(l.text)),
       hasReturning: links.some((l) => l.name === 'returning'),
       opaque: links.some((l) => /=>|\bfunction\b/.test(l.text)),
+      // B3/B4(G-815953/G-815956)的取材:where/set 各自的实参原文(遮蔽面上的)。
+      // 与 hasWhere/hasReturning 同源 —— links 只此一份,不存在第二份链扫描(§22c)。
+      whereText: whereLink ? whereLink.text : '',
+      setText: setLink ? setLink.text : '',
     })
   }
   return out
@@ -748,10 +797,10 @@ export function findHonestCarrierSibling(objText) {
  * `${…}` 插值先剥成 `?`,不拿 JS 表达式里的标识符当 SQL 关键字。
  *
  * @returns {{chains:Array<{start:number,end:number,receiver:string,hasReturning:boolean,
- *            hasWhere:boolean,hasInArray:boolean,rawSql:true,opaque:false}>,
+ *            hasWhere:boolean,hasInArray:boolean,rawSql:true,opaque:false,sqlText:string}>,
  *            unparsed:Array<{index:number}>}}
  *   `unparsed` = 括号配平不到的 execute 调用(判不了它的动词与 RETURNING)⇒ 由调用方按"未判定"点名,
- *   **既不冒红也不静默算通过**。
+ *   **既不冒红也不静默算通过**。`sqlText` = 剥掉 `${…}` 插值后的语句原文(B3 裸 SQL 维的取材)。
  */
 export function findRawSqlWriteChains(nonBlankCode) {
   const chains = []
@@ -768,7 +817,12 @@ export function findRawSqlWriteChains(nonBlankCode) {
       continue
     }
     const call = nonBlankCode.slice(open, end)
-    const sqlish = call.replace(/\$\{[^{}]*\}/g, ' ? ')
+    // SQL 正文:execute 的实参通常包一层 sql`…` 模板 —— 把模板体剥出来当正文,锚定判词(如 B3 的
+    // /^\s*UPDATE/)才有干净的开头;没有模板包装的实参按原文走。对既有的非锚定判词(写动词/WHERE/
+    // RETURNING)无影响 —— 它们本就不锚定开头。
+    const bt0 = call.indexOf('`')
+    const sqlBody = bt0 >= 0 && call.lastIndexOf('`') > bt0 ? call.slice(bt0 + 1, call.lastIndexOf('`')) : call
+    const sqlish = sqlBody.replace(/\$\{[^{}]*\}/g, ' ? ')
     // 尾部的 `\b` 曾把这一判据**整体打死**:`UPDATE\s+"?[A-Za-z_]` 后面紧跟标识符的第二个字母 ⇒ 不是词边界 ⇒
     // 真仓 HEAD 上 4 条 `UPDATE ai_model_config_*` 全部不被认出(阳性对照量出来的,见镜像 M23 与自检 K4b)。
     if (!/\b(?:DELETE\s+FROM|UPDATE\s+"?[A-Za-z_]|INSERT\s+INTO|TRUNCATE\s+TABLE)/.test(sqlish))
@@ -782,6 +836,8 @@ export function findRawSqlWriteChains(nonBlankCode) {
       hasInArray: /\bIN\s*\(/i.test(sqlish) || /\binArray\s*\(/.test(call),
       rawSql: true,
       opaque: false,
+      // B3 裸 SQL 维的取材:同一份 sqlish(插值已剥成 ?),不二次扫描(§22c)。
+      sqlText: sqlish,
     })
   }
   return { chains, unparsed }
@@ -1404,6 +1460,113 @@ export function measureB2RawSqlTrigger(root, face) {
   return { hits, hops: hops.length, undetermined }
 }
 
+/* --------- B3/B4:回填时间上界与终态回退(G-815953 / G-815956,2026-09-30) --------- */
+
+/** 迁移记账列:写这些列的 update 才算"回填"。收窄是判据的命门 —— 软删形状
+ *  `set({deletedAt: new Date()}).where(and(eq(...), isNull(...)))` 与回填词法同形且 HEAD 存量十几处,
+ *  任何按 isNull 划线的判据都是恒红门(§12e);按"写迁移记账列"划线后 head 实测 0。 */
+export const MIGRATION_COL_RE =
+  /\b(?:migrationBatch|migration_batch|legacyId|legacy_id|legacyTable|legacy_table)\b/
+/** 时间上界谓词:回填 where 的合法上界。走唯一出口的,其实参自带 `backfillWhere(`;手写的认 lte(/lt(/<=。 */
+export const BACKFILL_BOUND_RE = /\blte\s*\(|\blt\s*\(|\bbackfillWhere\s*\(|<=/
+/** 字面量状态键:遮蔽面(blankStrings 档)把字符串值抹空 ⇒ `status:` 后紧跟 `,`/`}` 才是字面量。
+ *  变量值/简写/spread/`as` 断言在遮蔽面上有可见 token,一律不进面(判不了格,头注 B4 段如实登记)。 */
+export const STATE_LITERAL_KEY_RE = /(?:^|[,{]\s*)(status|state)\s*:\s*(?=[,}])/
+
+/** 同列前置:where 实参里出现 `eq(<t>.<col>` / `ne(` / `inArray(` / `in(` 指着**同一个**状态列。 */
+export function statePreconditionRE(col) {
+  return new RegExp(`\\b(?:eq|ne|inArray|in)\\s*\\(\\s*(?:[A-Za-z_$][\\w$]*\\s*\\.\\s*)?${col}\\b`)
+}
+
+/**
+ * B3(G-815953):写迁移记账列的 update,where 必须带时间上界谓词(判据与判不了格见头注 B3 段)。
+ * drizzle 链与裸 SQL UPDATE 两维共用 MIGRATION_COL_RE / BACKFILL_BOUND_RE(单一实现,§22c);
+ * 链取材只吃注入的 chains/rawChains —— 链扫描全仓只有 findWriteChains / findRawSqlWriteChains 各一份。
+ */
+export function findBackfillBoundSites(relPath, code, chains = null, rawChains = null) {
+  const out = { file: relPath, candidates: [], violations: [] }
+  const push = (site, bounded, why) => {
+    if (bounded) site.disposition = 'bounded'
+    else {
+      site.disposition = 'violation'
+      site.whereWhy = why
+      out.violations.push(site)
+    }
+    out.candidates.push(site)
+  }
+  for (const c of chains || findWriteChains(code)) {
+    if (c.opaque || c.rawSql || !c.names || c.names[0] !== 'update') continue
+    const setText = c.setText || ''
+    const mc = MIGRATION_COL_RE.exec(setText)
+    if (!mc) continue
+    push(
+      {
+        file: relPath,
+        line: lineAt(code, c.start),
+        receiver: c.receiver,
+        col: mc[0],
+        via: 'drizzle',
+        setExcerpt: setText.replace(/\s+/g, ' ').trim().slice(0, 60),
+      },
+      BACKFILL_BOUND_RE.test(c.whereText || ''),
+      c.hasWhere ? 'where 无时间上界(lte/lt/backfillWhere/<= 均未见)' : '无 where(全表无界)',
+    )
+  }
+  for (const c of rawChains || []) {
+    const sql = c.sqlText || ''
+    if (!/^\s*UPDATE\b/i.test(sql)) continue
+    const mc = MIGRATION_COL_RE.exec(sql)
+    if (!mc) continue
+    push(
+      {
+        file: relPath,
+        line: lineAt(code, c.start),
+        receiver: c.receiver,
+        col: mc[0],
+        via: 'raw-sql',
+        setExcerpt: sql.replace(/\s+/g, ' ').trim().slice(0, 60),
+      },
+      BACKFILL_BOUND_RE.test(sql),
+      c.hasWhere ? 'WHERE 无时间上界(<= / backfillWhere 均未见)' : '无 WHERE(全表无界)',
+    )
+  }
+  return out
+}
+
+/**
+ * B4(G-815956):set 写**字面量** status/state 而 where 无同列 eq/in/ne 前置。
+ * **棘轮专用维**:调用方(head 面,含 --strict)对 violations 只报数、永不判红 —— 票面拍板
+ * "现存违规报数不判红,只拦新增",拦截发生在 analyze 的 staged 差值棘轮(kind='b4');
+ * decide 签名刻意不收 b4Violations,那是结构锁(头注 B4 段)。判不了格见头注,绝不静默算通过。
+ */
+export function findTerminalStateSites(relPath, code, chains = null) {
+  const out = { file: relPath, candidates: [], violations: [] }
+  for (const c of chains || findWriteChains(code)) {
+    if (c.opaque || c.rawSql || !c.names || c.names[0] !== 'update') continue
+    const setText = c.setText || ''
+    const mk = STATE_LITERAL_KEY_RE.exec(setText)
+    if (!mk) continue
+    const col = mk[1]
+    const site = {
+      file: relPath,
+      line: lineAt(code, c.start),
+      receiver: c.receiver,
+      col,
+      via: 'drizzle',
+      setExcerpt: setText.replace(/\s+/g, ' ').trim().slice(0, 60),
+    }
+    if (statePreconditionRE(col).test(c.whereText || '')) {
+      site.disposition = 'precondition'
+    } else {
+      site.disposition = 'violation'
+      site.whereWhy = c.hasWhere ? 'where 无同列 eq/in/ne 前置' : '无 where'
+      out.violations.push(site)
+    }
+    out.candidates.push(site)
+  }
+  return out
+}
+
 /* ------------------------------- 单文件判据 ------------------------------- */
 
 /** 纯函数:一份文件正文 → 候选与处置。自检与端到面都跑它(判据只此一份实现)。 */
@@ -1457,6 +1620,9 @@ export function scanFileText(relPath, text, opts = {}) {
     // undefined.needs —— 一份"别人写坏的词法"把整道门换成 exit 2,而 exit 2 看起来像"无法判定",
     // 实际是本门自己崩了。
     b2: emptyB2(),
+    // B3/B4(G-815953/G-815956)与 B2 同一条教训:壳必须建在 U2 提前 return 之前。
+    b3: { candidates: [], violations: [] },
+    b4: { candidates: [], violations: [] },
   }
   if (res.leaks.length) {
     res.undetermined.push({
@@ -1533,6 +1699,10 @@ export function scanFileText(relPath, text, opts = {}) {
   for (const b of res.booleanAck) res.booleanAckByKey[b.key] = (res.booleanAckByKey[b.key] || 0) + 1
   const allChains = findWriteChains(code)
   res.b1 = findBoolAckB1Sites(relPath, code, rawLines, allChains, boolSites, nonBlank, rawPool)
+  // B3/B4:与 B1/B2 共用同一份 allChains(§22c —— 链扫描只有 findWriteChains 一份);
+  // 裸 SQL 维复用 rawPool(同一遍 findRawSqlWriteChains,不二次扫描)。
+  res.b3 = findBackfillBoundSites(relPath, code, allChains, rawPool.chains)
+  res.b4 = findTerminalStateSites(relPath, code, allChains)
   // 裸 SQL 写链**解析不到**(括号配平失败)那一格:只有当同一函数体里确实有 ack 时,判据的结论
   // 才依赖它 ⇒ 记"未判定"(与 U1/U2 同档,--strict 下拒绝出合格证);体里没有 ack 的解析失败不影响
   // 任何结论,只进 rawSqlUnparsed 可见性桶(报数点名,不冒红也不静默算通过)。
@@ -1711,6 +1881,9 @@ export function analyze(root, face, opts = {}) {
   const b1NoBody = per.reduce((a, r) => a + r.b1.noBodySites.length, 0)
   const b2Violations = per.flatMap((r) => r.b2.violations)
   const b2Undetermined = per.flatMap((r) => r.b2.undetermined)
+  // B3/B4(G-815953/G-815956)自己的聚合 —— 与 b1*/b2* 同形,不并入任何既有数。
+  const b3Violations = per.flatMap((r) => r.b3.violations)
+  const b4Violations = per.flatMap((r) => r.b4.violations)
   const exempt = ['returning', 'db', 'outlet', 'marker'].reduce(
     (a, k) => ({ ...a, [k]: per.reduce((x, r) => x + r.exempt[k], 0) }),
     {},
@@ -1747,6 +1920,13 @@ export function analyze(root, face, opts = {}) {
     b2Files: per.filter((r) => r.b2.violations.length > 0).length,
     b2Undetermined: b2Undetermined.length,
     b2Exempt: per.reduce((a, r) => a + r.b2.exempt.confirmed + r.b2.exempt.marker, 0),
+    // B3/B4 自己的键(G-815953/G-815956):追加在 b2* 之后、惯例计数之前,一字不并入既有数。
+    b3Candidates: per.reduce((a, r) => a + r.b3.candidates.length, 0),
+    b3Violations: b3Violations.length,
+    b3Files: per.filter((r) => r.b3.violations.length > 0).length,
+    b4Candidates: per.reduce((a, r) => a + r.b4.candidates.length, 0),
+    b4Violations: b4Violations.length,
+    b4Files: per.filter((r) => r.b4.violations.length > 0).length,
     // 2026-09-27 追加在**最末尾**:布尔 ack 按键分组的现读数(五键恒在位,含 0)。
     // 语义变化必须如实说:`booleanAckSites` / `booleanAckFiles` 自本批改用**键族五键**计数,
     // 所以这两个数的口径比扩面前宽(扩面前只有 `deleted`)—— 它们仍**不参与任何退出码**(X1/R7/R8/M13
@@ -1761,14 +1941,24 @@ export function analyze(root, face, opts = {}) {
   }
   // 棘轮锚点:只在这一档才回读 HEAD 面(全量档本来就是 HEAD)。新文件不在 HEAD ⇒ 锚点 0,
   // 这是"第一个端点第一次就写错"必须判红的那一格;锚点文件取不到则判死,不拿 0 顶替。
-  // 三条判据(计数自算 / B1 假 ack / B2 一跳委托)各按**各自**的 HEAD 计数当锚点 —— 共用一个数就是
-  // 互相顶账(门 67/83 记过"同一笔债两道门各计一次会让两份基线互相顶掉"的反面:键必须分开)。
+  // 五条判据(计数自算 / B1 假 ack / B2 一跳委托 / B3 回填无界 / B4 终态回退)各按**各自**的 HEAD
+  // 计数当锚点 —— 共用一个数就是互相顶账(门 67/83 记过"同一笔债两道门各计一次会让两份基线互相
+  // 顶掉"的反面:键必须分开)。
   // **锚点的粒度 = 文件 × 判据 × ack 键**(2026-09-27 第二十九批随键族扩面同批改):
   //  只到"文件 × 判据"那一层,把一处 `deleted` 假 ack 换成 `removed` 假 ack 就是 1 → 1 净零,
   //  而这恰恰是扩键族**新造出来**的一条逃逸路径(扩面前只有一族,换无可换)。自检 BK1 用一次性临时
   //  仓把这条换键路径钉成必红;代价是红点会更细,而细红点正是本门存在的理由。
+  //  B3/B4 两维**无 ack 键**(key 恒空串):状态列/迁移列没有 ack 键族,"换值逃逸"在这一维不成立,
+  //  粒度自然落在 文件 × 判据。
   let ratcheted = null
-  if (face === 'staged' && (violations.length || b1Violations.length || b2Violations.length)) {
+  if (
+    face === 'staged' &&
+    (violations.length ||
+      b1Violations.length ||
+      b2Violations.length ||
+      b3Violations.length ||
+      b4Violations.length)
+  ) {
     const bucketBy = (list) => {
       const m = new Map()
       for (const v of list) {
@@ -1780,11 +1970,17 @@ export function analyze(root, face, opts = {}) {
     const legacyByFile = bucketBy(violations)
     const b1ByFile = bucketBy(b1Violations)
     const b2ByFile = bucketBy(b2Violations)
+    const b3ByFile = bucketBy(b3Violations)
+    const b4ByFile = bucketBy(b4Violations)
     const files = [
       ...new Set(
-        [...legacyByFile.keys(), ...b1ByFile.keys(), ...b2ByFile.keys()].map(
-          (k) => k.split('\u0000')[0],
-        ),
+        [
+          ...legacyByFile.keys(),
+          ...b1ByFile.keys(),
+          ...b2ByFile.keys(),
+          ...b3ByFile.keys(),
+          ...b4ByFile.keys(),
+        ].map((k) => k.split('\u0000')[0]),
       ),
     ]
     const headSet = new Set(listCandidates(root, 'head'))
@@ -1805,6 +2001,8 @@ export function analyze(root, face, opts = {}) {
     const headLegacyBy = bucketBy(headPer.flatMap((r) => r.violations))
     const headB1By = bucketBy(headPer.flatMap((r) => r.b1.violations))
     const headB2By = bucketBy(headPer.flatMap((r) => r.b2.violations))
+    const headB3By = bucketBy(headPer.flatMap((r) => r.b3.violations))
+    const headB4By = bucketBy(headPer.flatMap((r) => r.b4.violations))
     ratcheted = []
     const pushRatchet = (bucket, headBucket, compositeKey, kind) => {
       const [file, key] = compositeKey.split('\u0000')
@@ -1821,6 +2019,8 @@ export function analyze(root, face, opts = {}) {
     for (const k of legacyByFile.keys()) pushRatchet(legacyByFile, headLegacyBy, k, 'count')
     for (const k of b1ByFile.keys()) pushRatchet(b1ByFile, headB1By, k, 'b1')
     for (const k of b2ByFile.keys()) pushRatchet(b2ByFile, headB2By, k, 'b2')
+    for (const k of b3ByFile.keys()) pushRatchet(b3ByFile, headB3By, k, 'b3')
+    for (const k of b4ByFile.keys()) pushRatchet(b4ByFile, headB4By, k, 'b4')
   }
   const exit = decide({
     face,
@@ -1832,6 +2032,10 @@ export function analyze(root, face, opts = {}) {
     b1NoBody,
     b2Violations,
     b2Undetermined,
+    // b3Violations 进 decide(--strict 全量判红,B1/B2 同档);
+    // b4Violations **刻意不传** —— 棘轮专用维,head 面(含 --strict)只报数不判红(头注 B4 段),
+    // "签名即判据"的结构锁:谁想把 B4 接进 --strict,必须先改 decide 签名并推翻票面拍板。
+    b3Violations,
   })
   return {
     face,
@@ -1847,6 +2051,8 @@ export function analyze(root, face, opts = {}) {
     b1NoBody,
     b2Violations,
     b2Undetermined,
+    b3Violations,
+    b4Violations,
   }
 }
 
@@ -1854,10 +2060,13 @@ export function analyze(root, face, opts = {}) {
  * 纯映射:面 + 结论 → 退出码。判红只算两型:staged 的差值棘轮、全量档的 --strict。
  * 全量档默认不判红是设计前提而不是偷懒:HEAD 有存量时当场判红 = 恒红门(§12e)。
  * 未判定永不冒红,但 --strict 下拒绝出合格证 ⇒ exit 2(不冒红也不记绿)。
- * **签名即判据(2026-09-27 更新)**:本函数收 violations / undetermined / ratcheted / strict,
- * 外加 **B1 的 b1Violations / b1NoBody** 与 **B2 的 b2Violations / b2Undetermined** —— 两条都是判据,
- * 进退出码是它们的本职(默认档仍只由 staged 棘轮与 --strict 触发,存量不冒红)。而两份**惯例存量**
- * 计数(booleanAck* / readQueryCount*)**依旧刻意不在参数里**,所以"把可见性计数接进退出码"这一改法
+ * **签名即判据(2026-09-27 更新;2026-09-30 随 B3/B4 再更新)**:本函数收 violations / undetermined /
+ * ratcheted / strict,外加 **B1 的 b1Violations / b1NoBody**、**B2 的 b2Violations / b2Undetermined**、
+ * **B3 的 b3Violations** —— 三条都是判据,进退出码是它们的本职(默认档仍只由 staged 棘轮与 --strict
+ * 触发,存量不冒红)。**B4 刻意不在参数里**:它是棘轮专用维(G-815956 票面拍板"现存违规报数不判红,
+ * 只拦新增"),拦截发生在 staged 的 ratcheted(kind='b4'),head 面(含 --strict)只报数 —— 把 B4 接进
+ * --strict 必须先改本签名,那是一步显式动作而不是顺手一个 `||`。而两份**惯例存量**计数
+ * (booleanAck* / readQueryCount*)**依旧刻意不在参数里**,所以"把可见性计数接进退出码"这一改法
  * 在结构上就要求改签名,而那一步由 self-test 的 X1/X1b + 镜像 M13 判红(惯例存量是**决策依据**不是**债**)。
  */
 export function decide({
@@ -1870,6 +2079,7 @@ export function decide({
   b1NoBody = 0,
   b2Violations = [],
   b2Undetermined = [],
+  b3Violations = [],
 }) {
   if (strict) {
     // 未判定(B1 找不到函数体 / B2 那一跳解析不到)在 --strict 下与既有 undetermined 同档:拒绝出合格证。
@@ -1877,7 +2087,10 @@ export function decide({
     if (
       face === 'staged'
         ? ratcheted && ratcheted.length
-        : violations.length || b1Violations.length || b2Violations.length
+        : violations.length ||
+          b1Violations.length ||
+          b2Violations.length ||
+          b3Violations.length // B4 刻意缺席(见上):棘轮专用维,head+strict 不判红
     )
       return 1
     return 0
@@ -1900,16 +2113,20 @@ export function formatReport(out) {
   const b1v = out.b1Violations || []
   const b2v = out.b2Violations || []
   const b2u = out.b2Undetermined || []
+  const b3v = out.b3Violations || []
+  const b4v = out.b4Violations || []
   if (out.ratcheted && out.ratcheted.length) {
     const nLegacy = out.ratcheted.filter((r) => (r.kind || 'count') === 'count').length
     const nB1 = out.ratcheted.filter((r) => r.kind === 'b1').length
     const nB2 = out.ratcheted.filter((r) => r.kind === 'b2').length
+    const nB3 = out.ratcheted.filter((r) => r.kind === 'b3').length
+    const nB4 = out.ratcheted.filter((r) => r.kind === 'b4').length
     L.push(
-      `❌ 判红:${out.ratcheted.length} 条净新增越线(按 文件×判据;计数自算 ${nLegacy} · B1 假 ack ${nB1} · B2 委托假 ack ${nB2};锚点 = 该文件 HEAD 自身同判据计数)`,
+      `❌ 判红:${out.ratcheted.length} 条净新增越线(按 文件×判据;计数自算 ${nLegacy} · B1 假 ack ${nB1} · B2 委托假 ack ${nB2} · B3 回填无界 ${nB3} · B4 终态回退 ${nB4};锚点 = 该文件 HEAD 自身同判据计数)`,
     )
     for (const r of out.ratcheted)
       L.push(
-        `   [${{ b1: 'B1假ack', b2: 'B2委托假ack' }[r.kind] || '计数自算'}] ${r.file}${r.key ? `〈ack 键 ${r.key}〉` : ''}:索引 ${r.now} 处 > HEAD ${r.anchor} 处 ⇒ 净新增 ${r.added} 处`,
+        `   [${{ b1: 'B1假ack', b2: 'B2委托假ack', b3: 'B3回填无界', b4: 'B4终态回退' }[r.kind] || '计数自算'}] ${r.file}${r.key ? `〈ack 键 ${r.key}〉` : ''}:索引 ${r.now} 处 > HEAD ${r.anchor} 处 ⇒ 净新增 ${r.added} 处`,
       )
     if (nLegacy) {
       L.push(
@@ -1936,9 +2153,25 @@ export function formatReport(out) {
         `   同一处确属有意(如级联清理必删主记录):写**同行**行内豁免 ${DELETE_ACK_EXEMPT_TOKEN}: <原因>(与 B1 同一条通道)。`,
       )
     }
+    if (nB3) {
+      L.push(
+        '   B3 修法:走唯一出口 apps/api/src/utils/backfill-baseline.ts 的 backfillWhere({ column, baselineTime }),',
+      )
+      L.push(
+        '   或给 where 补 lte(<时间列>, baseline) 上界 —— baseline 取「上一次迁移的应用时刻」;无行内豁免通道(回填没有"确属有意无界"的合法场景)。',
+      )
+    }
+    if (nB4) {
+      L.push(
+        '   B4 修法:给 where 补**同一状态列**的前置(如 and(eq(t.id, id), eq(t.status, <活动态>))),',
+      )
+      L.push(
+        '   让迟到终态事件只落在还处于活动态的行上 —— 已终态记录不得被改回活动态;这一维按票面拍板只拦新增。',
+      )
+    }
   } else if (out.face === 'staged')
     L.push(
-      '✅ 索引面未见新增"批量写自算计数 / B1 假 ack / B2 委托假 ack"(存量按各文件 HEAD 自身计数豁免,不代裁)。',
+      '✅ 索引面未见新增"批量写自算计数 / B1 假 ack / B2 委托假 ack / B3 回填无界 / B4 终态回退"(存量按各文件 HEAD 自身计数豁免,不代裁)。',
     )
   if (out.face !== 'staged' && c.violations) {
     L.push(
@@ -1966,6 +2199,29 @@ export function formatReport(out) {
         `   ${v.file}:${v.line}  → ${v.callee?.file ?? '?'}#${v.callee?.name ?? '?'}(被调体写链无 .returning(),响应布尔档键=${v.key})`,
       )
     if (c.b2Violations > 40) L.push(`   …另 ${c.b2Violations - 40} 处(--explain 看全量)`)
+  }
+  // B3 与 B1/B2 同档:判据,--strict 全量判红,提交链走差值棘轮。措辞同形。
+  if (out.face !== 'staged' && c.b3Violations) {
+    L.push(
+      `${out.strict ? '❌' : '⚠️'} 全量档现读 B3 回填无界 ${c.b3Violations} 处 / ${c.b3Files} 文件(写迁移记账列的 update/UPDATE,where 无 lte/lt/backfillWhere/<= 时间上界)${out.strict ? ' —— --strict 判红' : ' —— 存量只报数不拦提交;提交链走差值棘轮,新增即红(§12e)'}`,
+    )
+    for (const v of b3v.slice(0, 40))
+      L.push(
+        `   ${v.file}:${v.line}  (写链=${v.receiver}.update set→${v.setExcerpt} ⇒ ${v.whereWhy};via=${v.via})`,
+      )
+    if (c.b3Violations > 40) L.push(`   …另 ${c.b3Violations - 40} 处(--explain 看全量)`)
+  }
+  // B4 是**棘轮专用维**(G-815956 票面拍板"现存违规报数不判红,只拦新增"):head 面含 --strict 一律
+  // ⚠️ 只报数 —— 这一行永远不出 ❌,拦截只发生在 staged 差值棘轮(kind='b4')。措辞里必须把这句话喊出来。
+  if (out.face !== 'staged' && c.b4Violations) {
+    L.push(
+      `⚠️ 全量档现读 B4 终态回退 ${c.b4Violations} 处 / ${c.b4Files} 文件(set 写字面量 status/state 而 where 无同列 eq/in/ne 前置)—— **只报数不判红(--strict 也不判)**:票面拍板"现存违规报数不判红,只拦新增",提交链走差值棘轮,净新增即红;面内共 ${c.b4Candidates ?? 0} 处、其中已带前置而放过 ${c.b4Candidates != null ? c.b4Candidates - c.b4Violations : 0} 处`,
+    )
+    for (const v of b4v.slice(0, 40))
+      L.push(
+        `   ${v.file}:${v.line}  (写链=${v.receiver}.update set→${v.setExcerpt} ⇒ ${v.whereWhy})`,
+      )
+    if (c.b4Violations > 40) L.push(`   …另 ${c.b4Violations - 40} 处(--explain 看全量)`)
   }
   if (c.undetermined) {
     L.push(`⚠️ 未判定 ${c.undetermined} 处 —— **未判定不等于通过**,下列每一处本门都承认自己看不见:`)
@@ -1999,9 +2255,11 @@ export function formatReport(out) {
     !c.b1Violations &&
     !c.b1NoBody &&
     !c.b2Violations &&
-    !c.b2Undetermined
+    !c.b2Undetermined &&
+    !c.b3Violations &&
+    !c.b4Violations
   )
-    L.push('✅ 通过:覆盖面内无自算计数、无 B1/B2 假 ack,且无未判定项。')
+    L.push('✅ 通过:覆盖面内无自算计数、无 B1/B2 假 ack、无 B3 回填无界、无 B4 终态回退,且无未判定项。')
   if (
     out.face === 'staged' &&
     !out.ratcheted?.length &&
@@ -2028,6 +2286,12 @@ export function formatReport(out) {
       `;B2 委托假 ack(判据:违规 ${c.b2Violations ?? 0} 处 / ${c.b2Files ?? 0} 文件,` +
       `候选 ${c.b2Candidates ?? 0},放过 ${c.b2Exempt ?? 0} 只报数,` +
       `那一跳解析不到不判 ${c.b2Undetermined ?? 0})` +
+      // B3(G-815953)与 B1/B2 同形:0 也照喊。
+      `;B3 回填无界(判据:违规 ${c.b3Violations ?? 0} 处 / ${c.b3Files ?? 0} 文件,` +
+      `候选 ${c.b3Candidates ?? 0};--strict 全量判红,提交链差值棘轮)` +
+      // B4(G-815956)是棘轮专用维:现读点名 + 把"只拦新增"喊出来 —— 这一句是 B4 行的约束力所在。
+      `;B4 终态回退(判据:违规 ${c.b4Violations ?? 0} 处 / ${c.b4Files ?? 0} 文件,` +
+      `候选 ${c.b4Candidates ?? 0};只报数不进 --strict,票面拍板只拦新增,提交链差值棘轮)` +
       // 逐键点名(2026-09-27):扩键族后"合计 12 处"这句话什么都没说 —— 新那一族可能一处都没有,
       // 也可能全是新那一族。含 0 也照喊,理由与 B1/B2 段同一句("0 处 ≠ 没扫过")。
       // 表由 BOOL_ACK_KEYS 派生:**报表漏键在这里结构上不可能发生**,自检 K0 再用一份独立写死的
@@ -2048,9 +2312,18 @@ const USAGE = `用法: node scripts/${GATE}.mjs [--staged|--worktree] [--strict]
     ${API_SRC_DIR} 内某文件的具名导出函数,而被调函数体有带 .where( 的写链却无 .returning( / batchWriteOutcome(
     被调体做两件写事时按 ack 键的写动词筛(见 BOOL_ACK_KEY_VERBS);那一跳判不出 ⇒ 未判定并点名
     放过:被调体走库确认 / 与 B1 同一条行内豁免通道
+  判据四(B3 回填无界,2026-09-30 G-815953):.update( 写**迁移记账列**(migrationBatch/migration_batch/legacy*)
+    而 where 无时间上界谓词(lte(/lt(/backfillWhere(/<=)⇒ 违规;无 where 全表无界同判;裸 SQL UPDATE 同判
+    放过:走唯一出口 apps/api/src/utils/backfill-baseline.ts 的 backfillWhere({ column, baselineTime })
+    **无行内豁免通道**(回填没有"确属有意无界"的合法场景;软删形状 set({deletedAt}).where(isNull) 不算回填)
+  判据五(B4 终态回退,2026-09-30 G-815956,**棘轮专用维**):.update( 的 set( 写**字面量** status/state
+    而 where 无对**同一状态列**的 eq/ne/inArray/in 前置 ⇒ 违规
+    判不了格如实登记:值来自变量/简写/spread/as 断言/数字枚举码 ⇒ 不进面;前置写在 sql\`…\` 模板 ⇒ 按无前置计;
+    裸 SQL 的 SET status = 'x' 本版刻意不认(存量 0)
+    **head 面(含 --strict)只报数不判红**(decide 签名刻意不收 b4Violations);staged 差值棘轮净新增即红
   只报数不判红(现读惯例存量,写在结论行):布尔 ack(五键按键分组现读,无写链的那一半)与读查询 \`count: X.length\`;--explain 逐条点名
-  三条判据的存量都按「该文件 HEAD 自身同判据计数」差值棘轮:全量档只报数(恒红门=逼人 --no-verify,§12e),
-  提交链档与 --strict 才问责。
+  五条判据的存量都按「该文件 HEAD 自身同判据计数」差值棘轮:全量档只报数(恒红门=逼人 --no-verify,§12e),
+  提交链档与 --strict 才问责(B4 例外:全量档含 --strict 都只报数,只拦新增)。
   紧急跳过(接入提交链后):${SELF_SKIP}=1`
 
 function main(argv) {
@@ -2116,6 +2389,17 @@ function main(argv) {
           console.log(
             `  · B2未判定 ${u.file}:${u.line} ${k.kind}${k.name ? ` (${k.name})` : ''}${k.specifier ? ` ← '${k.specifier}'` : ''} 那一跳判不出,不记通过也不判红`,
           )
+    // B3/B4 的逐条处置(候选含"绿"的处置,bounded/precondition 各说各话 —— 复核入口同 B1/B2)。
+    for (const r of out.per)
+      for (const s of r.b3.candidates)
+        console.log(
+          `  · B3回填 ${s.file}:${s.line} set→${s.col}(via=${s.via}) ⇒ ${s.disposition}${s.whereWhy ? ` (${s.whereWhy})` : ''}`,
+        )
+    for (const r of out.per)
+      for (const s of r.b4.candidates)
+        console.log(
+          `  · B4终态 ${s.file}:${s.line} set→${s.col} ⇒ ${s.disposition}${s.whereWhy ? ` (${s.whereWhy})` : ''}(只拦新增,不进 --strict)`,
+        )
   }
   if (argv.includes('--json')) {
     console.log(
@@ -2137,6 +2421,9 @@ function main(argv) {
           b1NoBody: out.b1NoBody,
           b2Violations: out.b2Violations,
           b2Undetermined: out.b2Undetermined,
+          // G-815953/G-815956:继续**追加在末尾**(镜像 M10/M18 同一条契约 —— 只追加不改写)。
+          b3Violations: out.b3Violations,
+          b4Violations: out.b4Violations,
         },
         null,
         2,
@@ -2375,6 +2662,82 @@ const FIX = {
     '  const rows = await db.delete(table).where(eq(table.id, id)).returning({ id: table.id })',
     '  return reply.send(success({ id, deleted: rows.length > 0 }))',
   ]),
+  // ---- B3(G-815953)夹具:回填 UPDATE 的正反例(判据四)----
+  /** 红腿(票面镜像形状):按 isNull 划线的无界回填 —— 迁移记账列 + 无时间上界。 */
+  b3Unbounded: [
+    'export async function backfillBatch() {',
+    '  await db.update(idMapping).set({ migrationBatch: "batch-2" }).where(isNull(idMapping.migratedAt))',
+    '}',
+    '',
+  ].join('\n'),
+  /** 绿腿①:lte 时间上界(票面镜像的绿腿)。 */
+  b3BoundedLte: [
+    'export async function backfillBatch(baseline: Date) {',
+    '  await db.update(idMapping).set({ migrationBatch: "batch-2" }).where(and(eq(idMapping.migrationBatch, "batch-1"), lte(idMapping.updatedAt, baseline)))',
+    '}',
+    '',
+  ].join('\n'),
+  /** 绿腿②:走唯一出口 backfillWhere(其实参自带 backfillWhere( 字样)。 */
+  b3BoundedOutlet: [
+    "import { backfillWhere } from '../utils/backfill-baseline.js'",
+    'export async function backfillBatch(baseline: Date) {',
+    '  await db.update(idMapping).set({ migrationBatch: "batch-2" }).where(backfillWhere({ column: idMapping.updatedAt, baselineTime: baseline, conditions: [eq(idMapping.migrationBatch, "batch-1")] }))',
+    '}',
+    '',
+  ].join('\n'),
+  /** 反假阳锁:软删形状与回填词法同形,但 set 不含迁移记账列 ⇒ 不得进 B3 的面(收窄判据的命门)。 */
+  b3SoftDelete: [
+    'export async function softDeleteSession(id: string) {',
+    '  await db.update(sessions).set({ deletedAt: new Date() }).where(and(eq(sessions.id, id), isNull(sessions.deletedAt)))',
+    '}',
+    '',
+  ].join('\n'),
+  /** 裸 SQL 维红腿:UPDATE 迁移列、WHERE 无上界。 */
+  b3RawUnbounded: [
+    'export async function backfillRaw(from: string, to: string) {',
+    '  await db.execute(sql`UPDATE id_mapping SET migration_batch = ${to} WHERE migration_batch = ${from}`)',
+    '}',
+    '',
+  ].join('\n'),
+  /** 裸 SQL 维绿腿:SQL 串里带 <= 上界。 */
+  b3RawBounded: [
+    'export async function backfillRaw(from: string, to: string, baseline: Date) {',
+    '  await db.execute(sql`UPDATE id_mapping SET migration_batch = ${to} WHERE migration_batch = ${from} AND time_updated <= ${baseline}`)',
+    '}',
+    '',
+  ].join('\n'),
+  // ---- B4(G-815956)夹具:终态回退的正反例(判据五,棘轮专用维)----
+  /** 红腿(票面镜像形状):字面量 status、where 只有主键 eq —— 迟到终态事件会覆盖已终态记录。 */
+  b4LiteralNoPre: [
+    'export async function cancelOrder(id: string) {',
+    '  await db.update(orders).set({ status: "cancelled" }).where(eq(orders.id, id))',
+    '}',
+    '',
+  ].join('\n'),
+  /** 绿腿:补**同一状态列**的前置(票面镜像的绿腿)。 */
+  b4LiteralWithPre: [
+    'export async function cancelOrder(id: string) {',
+    '  await db.update(orders).set({ status: "cancelled" }).where(and(eq(orders.id, id), eq(orders.status, "pending")))',
+    '}',
+    '',
+  ].join('\n'),
+  /** 无 where 变体:全表改状态 ⇒ 同判红(比带 where 的更裸)。 */
+  b4NoWhere: [
+    'export async function cancelAllOrders() {',
+    '  await db.update(orders).set({ status: "cancelled" })',
+    '}',
+    '',
+  ].join('\n'),
+  /** 判不了格钉子(票面明说上游 settleSessionInput/markSessionInput 等判不了):
+   *  变量值 / 简写 / spread ⇒ 遮蔽面上有可见 token,不进面 —— 不判红也不计候选,绝不假装已解决。 */
+  b4Unjudgeable: [
+    'export async function settle(input: { id: string; next: string }) {',
+    '  await db.update(orders).set({ status: input.next }).where(eq(orders.id, input.id))',
+    '  await db.update(orders).set({ status }).where(eq(orders.id, id))',
+    '  await db.update(orders).set({ ...patch }).where(eq(orders.id, id))',
+    '}',
+    '',
+  ].join('\n'),
 }
 
 /* ---- 2026-09-27 第二十九批:键族扩面 + "证据在别处"四型的夹具 ----
@@ -3456,6 +3819,114 @@ function selfTest(argv) {
     })(),
     [true, true, true, true],
   )
+  // ---- B3/B4(G-815953/G-815956,2026-09-30):回填上界与终态回退。
+  //      四元组 = [b3候选, b3违规, b4候选, b4违规]。判据/常量一律取模块导出(§22c)。----
+  const b34 = (t) => {
+    const r = v(t)
+    return [r.b3.candidates.length, r.b3.violations.length, r.b4.candidates.length, r.b4.violations.length]
+  }
+  eq('B3 无界回填(where isNull 划线)⇒ 违规 1(票面镜像形状)', b34(FIX.b3Unbounded), [1, 1, 0, 0])
+  eq('B3b lte 时间上界 ⇒ 绿(候选 1 违规 0)', b34(FIX.b3BoundedLte), [1, 0, 0, 0])
+  eq('B3c backfillWhere 唯一出口 ⇒ 绿(出口产物自带 backfillWhere( 字样)', b34(FIX.b3BoundedOutlet), [1, 0, 0, 0])
+  eq(
+    'B3d 反假阳锁:软删形状(set({deletedAt}).where(isNull))与回填词法同形 ⇒ 不进 B3 的面(按迁移记账列收窄)',
+    b34(FIX.b3SoftDelete),
+    [0, 0, 0, 0],
+  )
+  eq('B3e 裸 SQL 维:UPDATE 迁移列无上界 ⇒ 违规 1', b34(FIX.b3RawUnbounded), [1, 1, 0, 0])
+  eq('B3f 裸 SQL 维绿腿:SQL 串带 <= 上界 ⇒ 绿', b34(FIX.b3RawBounded), [1, 0, 0, 0])
+  eq('B4 字面量 status 无同列前置 ⇒ 违规 1(票面镜像形状)', b34(FIX.b4LiteralNoPre), [0, 0, 1, 1])
+  eq('B4b 补 and(eq(t.status,…)) 同列前置 ⇒ 绿(候选 1 违规 0)', b34(FIX.b4LiteralWithPre), [0, 0, 1, 0])
+  eq('B4c 无 where 全表改状态 ⇒ 违规 1', b34(FIX.b4NoWhere), [0, 0, 1, 1])
+  eq(
+    'B4d 判不了格钉子:变量值/简写/spread ⇒ 不进面(0 候选 —— 判不了就登记,绝不假装已解决)',
+    b34(FIX.b4Unjudgeable),
+    [0, 0, 0, 0],
+  )
+  eq(
+    'B3D decide:B3 进签名即进退出码 —— --strict 全量判红 / 默认档只报数(与 B1/B2 同档)',
+    [
+      D({ face: 'head', violations: [], undetermined: [], ratcheted: null, strict: true, b3Violations: [{}] }),
+      D({ face: 'head', violations: [], undetermined: [], ratcheted: null, strict: false, b3Violations: [{}] }),
+    ],
+    [1, 0],
+  )
+  eq(
+    'B4D decide:B4 刻意**不在签名里** —— head+strict 即便有 B4 存量也不判红(棘轮专用维,票面拍板只拦新增);staged 净新增经 ratcheted(kind=b4)照红',
+    [
+      D({ face: 'head', violations: [], undetermined: [], ratcheted: null, strict: true }),
+      D({
+        face: 'staged',
+        violations: [],
+        undetermined: [],
+        ratcheted: [{ file: 'a.ts', kind: 'b4', now: 1, anchor: 0, added: 1 }],
+        strict: false,
+      }),
+    ],
+    [0, 1],
+  )
+  eq(
+    'B34fmt 报告面:B3 违规行(--strict 换 ❌、不出 ✅);B4 行**永远 ⚠️ 只报数**(strict 也不许出 ❌);棘红块 kind 分列点名 B3/B4',
+    (() => {
+      const base = {
+        face: 'head',
+        strict: false,
+        ratcheted: null,
+        violations: [],
+        undetermined: [],
+        exempt: { returning: 0, db: 0, outlet: 0, marker: 0 },
+        b1Violations: [],
+        b2Violations: [],
+        b2Undetermined: [],
+      }
+      const t1 = formatReport({
+        ...base,
+        b3Violations: [
+          {
+            file: 'apps/api/src/db/x.ts',
+            line: 3,
+            receiver: 'db',
+            col: 'migrationBatch',
+            via: 'drizzle',
+            whereWhy: '无 where(全表无界)',
+          },
+        ],
+        counts: { ...BASE_COUNTS, b3Violations: 1, b3Files: 1, b3Candidates: 1 },
+      }).join('\n')
+      const t2 = formatReport({
+        ...base,
+        strict: true,
+        b4Violations: [
+          {
+            file: 'apps/api/src/db/y.ts',
+            line: 5,
+            receiver: 'db',
+            col: 'status',
+            via: 'drizzle',
+            whereWhy: 'where 无同列 eq/in/ne 前置',
+          },
+        ],
+        counts: { ...BASE_COUNTS, b4Violations: 1, b4Files: 1, b4Candidates: 1 },
+      }).join('\n')
+      const t3 = formatReport({
+        ...base,
+        face: 'staged',
+        ratcheted: [
+          { file: 'a.ts', kind: 'b3', now: 1, anchor: 0, added: 1 },
+          { file: 'b.ts', kind: 'b4', now: 2, anchor: 1, added: 1 },
+        ],
+        counts: BASE_COUNTS,
+      }).join('\n')
+      return [
+        /B3 回填无界 1 处 \/ 1 文件/.test(t1) && !/✅ 通过/.test(t1),
+        /B4 终态回退 1 处/.test(t2) && /只报数不判红/.test(t2) && !/❌/.test(t2),
+        t3.includes('[B3回填无界] a.ts') &&
+          t3.includes('[B4终态回退] b.ts') &&
+          /B3 回填无界 1 · B4 终态回退 1/.test(t3),
+      ]
+    })(),
+    [true, true, true],
+  )
   eq(
     'S1 词法未闭合 ⇒ 整文件未判定(U2)',
     (() => {
@@ -3872,5 +4343,12 @@ export const __test__ = {
   B2_CALLER,
   B2_CALLEE,
   API_SRC_DIR,
+  // B3/B4(G-815953/G-815956)同族:判据函数与三条判词常量都从这里取 —— 测试里再抄一份
+  // 迁移列名单或上界判词,就成了第二真相(§22c)。
+  findBackfillBoundSites,
+  findTerminalStateSites,
+  MIGRATION_COL_RE,
+  BACKFILL_BOUND_RE,
+  STATE_LITERAL_KEY_RE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
