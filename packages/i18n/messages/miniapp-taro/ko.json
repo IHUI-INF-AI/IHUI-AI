@@ -3314,7 +3314,18 @@
     "members": "멤버"
   },
   "chat": {
-    "send": "전송"
+    "send": "전송",
+    "meta": {
+      "pullOnly": "미니 프로그램에서는 다음에 열 때 이 변경 사항이 동기화됩니다"
+    },
+    "mcp": {
+      "state": {
+        "connecting": "{server}에 연결 중…",
+        "failed": "{server} 연결에 실패했습니다",
+        "reconnecting": "{server}을(를) {attempt}/{maxAttempts}번 재연결 중"
+      },
+      "mobileSettingsHint": "MCP 연결은 데스크톱 또는 웹에서 관리해 주세요"
+    }
   },
   "tabBar": {
     "community": "커뮤니티",

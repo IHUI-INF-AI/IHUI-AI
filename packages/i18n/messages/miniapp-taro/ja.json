@@ -3314,7 +3314,18 @@
     "members": "メンバー"
   },
   "chat": {
-    "send": "送信"
+    "send": "送信",
+    "meta": {
+      "pullOnly": "ミニアプリでは、次回開いたときにこの変更が同期されます"
+    },
+    "mcp": {
+      "state": {
+        "connecting": "{server} に接続中…",
+        "failed": "{server} の接続に失敗しました",
+        "reconnecting": "{server} を {attempt}/{maxAttempts} 回目で再接続中"
+      },
+      "mobileSettingsHint": "MCP 接続はデスクトップ版または Web 版で管理してください"
+    }
   },
   "tabBar": {
     "community": "コミュニティ",
