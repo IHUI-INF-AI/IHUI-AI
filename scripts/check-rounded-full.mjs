@@ -554,7 +554,7 @@ const MAX_CAP = RADIUS_TABLE
         .filter((n) => Number.isFinite(n)),
     )
   : null
-const c7 = { breached: 0, unknown: 0 }
+const c7 = { breached: 0, unknown: 0, unknownList: [] }
 /**
  * 全圆写法在一行上的等效半径(px)。刻意**只判本门自己那一族**(`rounded-full` / `rounded-pill` /
  * `9999px` / `50%`),数值与档位形态的圆角由守门 77 的 B9 判 —— 同一笔债两道门各计一次,
@@ -635,7 +635,14 @@ for (let fi = 0; fi < keptRel.length; fi++) {
       })
       return
     }
-    if (capUndetermined(line, lines, idx)) c7.unknown++
+    if (capUndetermined(line, lines, idx)) {
+      c7.unknown++
+      c7.unknownList.push({
+        file: relative(ROOT, file).replace(/\\/g, '/'),
+        line: lineNumber,
+        snippet: line.trim().slice(0, 120),
+      })
+    }
     if (isExempt(line, file, lines, idx)) return
     if (isCssExempt(lines, idx, file)) return
     /**
@@ -701,6 +708,20 @@ console.log(
     `超标 ${c7.breached} 处(已计入违规) / 全圆写法但量不到自己那个盒 ${c7.unknown} 处 —— ` +
     `后者**不是"没超标"**,是把尺寸写在别的行或动态类名里,尺子看不见(报数不静默)。${C.reset}`,
 )
+/**
+ * **未判定必须报名,不得只报数**(2026-09-29):一个计数无法被下一个人清偿 —— 他既不知道该看哪个文件,
+ * 也无法证明这一格后来是被修好了还是被尺子漏掉了。门 128 的"射程边界必须报名"是同一条规矩。
+ * 报名只给"文件:行 + 原文 + 为什么量不到",不改判定、不改退出码。
+ */
+if (c7.unknownList.length > 0) {
+  console.log(
+    `${C.dim}  ⚠ C7 未判定逐条 ${c7.unknownList.length} 处(出路只有一条:把盒尺寸写进同一作用域,` +
+      `让尺子量得到 —— 不是给站点补标记):${C.reset}`,
+  )
+  for (const u of c7.unknownList) {
+    console.log(`${C.dim}     ${u.file}:${u.line}  「${u.snippet}」${C.reset}`)
+  }
+}
 console.log(`${C.bold}扫描结果:${C.reset}`)
 console.log(`  扫描文件: ${files.length} 个`)
 console.log(`  违规数:   ${totalViolations} 处`)

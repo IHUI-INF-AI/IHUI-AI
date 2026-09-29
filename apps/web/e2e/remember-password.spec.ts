@@ -184,7 +184,13 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     await expect(autoLoginCheckbox).toHaveAttribute('aria-checked', 'false')
   })
 
-  test('有已保存凭据时自动填充 + 复选框默认勾选', async ({ page }) => {
+  // 票 #27 web 端收口(2026-09-29):记住的记录里不再有口令。
+  // 旧断言"password 输入框被预填 SavedPass1"钉的正是缺陷本身(base64 明文口令长期落盘),
+  // 现改为新契约:账号预填、口令框为空、盘上旧形态被就地抹成"只含账号"。
+  // 自动登录不再重放账密,由 use-auth-bootstrap 的 httpOnly refresh 静默续期承担。
+  test('有已保存凭据时自动填充账号(不填充口令)+ 就地抹除旧明文 + 复选框默认勾选', async ({
+    page,
+  }) => {
     await page.addInitScript(() => {
       const data = btoa(
         unescape(
@@ -199,10 +205,19 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
 
     // useEffect 在 active 变 true 后异步执行 setValue,需要等待
     await expect(page.locator('#login-form-account')).toHaveValue('saveduser', { timeout: 10000 })
-    await expect(page.locator('#login-form-password')).toHaveValue('SavedPass1', { timeout: 5000 })
+    // 口令不再从本地预填(这一档已从"记住"里移除)
+    await expect(page.locator('#login-form-password')).toHaveValue('', { timeout: 5000 })
 
     const checkbox = page.getByTestId('remember-password-checkbox')
     await expect(checkbox).toHaveAttribute('aria-checked', 'true')
+
+    // 迁移义务:读侧必须把旧 base64 明文记录就地改写成"只含账号"的新形态
+    const stored = await page.evaluate(() =>
+      localStorage.getItem('ihui-remember-credentials'),
+    )
+    expect(stored, '记住的记录应仍在(账号那一半不得丢)').toBeTruthy()
+    expect(stored!).not.toContain('SavedPass1')
+    expect(JSON.parse(stored!)).toEqual({ account: 'saveduser' })
   })
 
   test('账号历史下拉:双击账号输入框弹出历史', async ({ page }) => {
