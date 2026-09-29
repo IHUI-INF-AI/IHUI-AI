@@ -182,16 +182,49 @@ test('T8 判据与编码无关:同一份真日志按不同码解,ASCII 判据读
 })
 
 test('T9 风暴判据在真数据上也有牙(不只是夹具里绿)', () => {
+  // 阳性对照**不得钉在活日志上**:deploy-loop.log 现在 31MB 且在持续增长,那条"凌晨一小时 16 封"
+  // 的簇正贴着 8MB 尾部边界被逐步切掉(2026-09-30 实测:tail 首日恰是 2026-09-27,count 掉到 3)。
+  // 那与判据好坏无关 —— 判据没变,数据边界变了,而账面会读成"尺子无牙"。
+  // 所以牙齿由**合成切片**保证(形状复刻:一小时内 9 封 + 一小时外 1 封);真日志只当"能不能跑通
+  // 取材与解析"的烟雾测,且只在**那一簇确实在读取范围内**时才要求认出来。
+  // 风暴的定义是"**同一件事**(签名归一后同键)在一小时窗口内多封",所以合成面必须重复同一条正文 ——
+  // 用九条不同正文会得到"九个各一封",判据正确地不判风暴(实得 n/a),那是夹具错不是判据错。
+  const same = 'MAIL  same alert x@y.com (tag)'
+  const synthetic = [
+    `[2026-09-27 04:00:10] [deploy] ${same}`,
+    `[2026-09-27 04:10:10] [deploy] ${same}`,
+    `[2026-09-27 04:20:10] [deploy] ${same}`,
+    `[2026-09-27 04:30:10] [deploy] ${same}`,
+    `[2026-09-27 04:40:10] [deploy] ${same}`,
+    `[2026-09-27 04:50:10] [deploy] ${same}`,
+    `[2026-09-27 04:55:10] [deploy] ${same}`,
+    `[2026-09-27 04:56:10] [deploy] ${same}`,
+    `[2026-09-27 04:57:10] [deploy] ${same}`,
+    `[2026-09-27 05:30:10] [deploy] ${same}`,
+  ].join('\n')
+  const wide = { nowMs: Date.parse('2030-01-01T00:00:00Z'), hours: 24 * 3650, days: 24 * 3650 }
+  const syn = scanMailLog(synthetic, wide)
+  const sw = syn.windows['87600h']
+  assert.ok(sw, '合成切片必须能成窗')
+  const speak = sw.storms[0]
+  assert.ok(speak && speak.count >= 8, `合成簇必须被认出来(判据无牙实得 ${speak ? speak.count : 'n/a'})`)
+  for (const ln of speak.lines) assert.match(ln.ts, /^\d{4}-\d{2}-\d{2}T/)
+
   const f = resolve(ROOT, 'deploy', 'win', 'deploy-loop.log')
   const r = readTextTail(f, 8 << 20)
-  if (!r.ok) return
-  const wide = { nowMs: Date.parse('2030-01-01T00:00:00Z'), hours: 24 * 3650, days: 24 * 3650 }
+  if (!r.ok) {
+    console.log('  [烟雾] 真日志读不到 ⇒ 只跑合成面,不算失败也不算已验')
+    return
+  }
   const res = scanMailLog(r.text, wide)
   const w = res.windows['87600h']
   assert.ok(w, `窗口键名与参数不符:${Object.keys(res.windows)}`)
-  // 阳性对照:2026-09-27 那次"凌晨 4 点一小时 16 封"必须被本判据认出来;认不出来就是尺子失效。
   const peak = w.storms[0]
-  assert.ok(peak && peak.count >= 8, `真日志里连一小时 8 封的那一簇都没认出来 ⇒ 风暴判据无牙(count=${peak ? peak.count : 'n/a'})`)
+  if (!peak || peak.count < 8) {
+    console.log(`  [烟雾] 真日志当前 8MB 尾部里没有 ≥8 的一小时簇(实得 ${peak ? peak.count : '无'});` +
+      '历史簇已滑出读取范围,牙齿由上面的合成面对账保证 —— 不得据此判"风暴判据无牙"')
+    return
+  }
   for (const ln of peak.lines) {
     assert.match(ln.ts, /^\d{4}-\d{2}-\d{2}T/)
     assert.equal(ln.keyword, 'MAIL')

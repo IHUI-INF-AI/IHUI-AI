@@ -20,6 +20,7 @@ import { wechatPay } from '@/api'
 import { requestWxPayment } from '@/utils/pay'
 import { requestPushSubscription } from '@/utils/push-init'
 import ThemeRoot from '@/components/ThemeRoot'
+import { useTt } from '@/i18n'
 
 interface EnrollmentBill {
   id: string
@@ -76,35 +77,46 @@ interface WechatPayCreateResp {
   paySign?: string
 }
 
-const BUSINESS_LINE_TEXT: Record<string, string> = {
-  after_school_care: '托管',
-  kindergarten: '幼儿园',
-  academic: '文化课',
-  ai_course: 'AI课',
-  other: '其他',
+/** 枚举码 → i18n key(文案在 packages/i18n/messages/miniapp-taro/*.json 的 bill 命名空间;码不在表内原样展示) */
+const BUSINESS_LINE_KEY: Record<string, string> = {
+  after_school_care: 'bill.businessLine.after_school_care',
+  kindergarten: 'bill.businessLine.kindergarten',
+  academic: 'bill.businessLine.academic',
+  ai_course: 'bill.businessLine.ai_course',
+  other: 'bill.businessLine.other',
 }
 
-const ENROLL_STATUS_TEXT: Record<string, string> = {
-  enrolled: '在读',
-  graduated: '已结业',
-  withdrawn: '已退学',
-  suspended: '停课',
+const ENROLL_STATUS_KEY: Record<string, string> = {
+  enrolled: 'bill.enrollStatus.enrolled',
+  graduated: 'bill.enrollStatus.graduated',
+  withdrawn: 'bill.enrollStatus.withdrawn',
+  suspended: 'bill.enrollStatus.suspended',
 }
 
-const PAY_METHOD_TEXT: Record<string, string> = {
-  cash: '现金',
-  transfer: '转账',
-  wechat: '微信',
-  alipay: '支付宝',
-  credit_card: '刷卡',
-  other: '其他',
+const PAY_METHOD_KEY: Record<string, string> = {
+  cash: 'bill.payMethod.cash',
+  transfer: 'bill.payMethod.transfer',
+  wechat: 'bill.payMethod.wechat',
+  alipay: 'bill.payMethod.alipay',
+  credit_card: 'bill.payMethod.credit_card',
+  other: 'bill.payMethod.other',
 }
 
 export default function Bill() {
+  const tt = useTt()
   const [data, setData] = useState<MyBillsResp>({ enrollments: [], payments: [], ledgers: [] })
   const [loading, setLoading] = useState(false)
   const [payingId, setPayingId] = useState('')
   const mountedRef = useRef(false)
+
+  /** 枚举码翻译:码在映射表内走词典,不在(后端新码)原样展示 —— 同旧 `MAP[code] ?? code` 语义 */
+  const codeText = useCallback(
+    (map: Record<string, string>, code: string) => {
+      const k = map[code]
+      return k ? tt(k, code) : code
+    },
+    [tt],
+  )
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -150,7 +162,9 @@ export default function Bill() {
   const onSubscribe = async () => {
     const ok = await requestPushSubscription()
     Taro.showToast({
-      title: ok ? '已开启微信催费提醒' : '未完成订阅授权',
+      title: ok
+        ? tt('bill.subscribed', '已开启微信催费提醒')
+        : tt('bill.subscribeFailed', '未完成订阅授权'),
       icon: ok ? 'success' : 'none',
     })
   }
@@ -166,16 +180,20 @@ export default function Bill() {
         amount: due * 100,
         orderType: '9',
         productId: item.id,
-        description: `学费-${item.className}`,
+        description: tt('bill.payDesc', '学费-{name}', { name: item.className }),
       })) as WechatPayCreateResp
       // mock 模式(后端未配置微信支付凭证)
       if (res.mock) {
-        Taro.showToast({ title: '支付成功(mock,支付凭证未配置)', icon: 'none', duration: 2500 })
+        Taro.showToast({
+          title: tt('bill.payMockOk', '支付成功(mock,支付凭证未配置)'),
+          icon: 'none',
+          duration: 2500,
+        })
         await load()
         return
       }
       if (!res.paySign || !res.timestamp || !res.nonceStr || !res.package) {
-        Taro.showToast({ title: '支付参数缺失,请联系机构', icon: 'none' })
+        Taro.showToast({ title: tt('bill.payParamsMissing', '支付参数缺失,请联系机构'), icon: 'none' })
         return
       }
       await requestWxPayment({
@@ -185,7 +203,7 @@ export default function Bill() {
         signType: res.signType ?? 'RSA',
         paySign: res.paySign,
       } as AnyPayParams)
-      Taro.showToast({ title: '缴费成功', icon: 'success' })
+      Taro.showToast({ title: tt('bill.payOk', '缴费成功'), icon: 'success' })
       await load()
     } catch {
       // requestWxPayment 内部已提示(取消/失败),静默
@@ -201,10 +219,10 @@ export default function Bill() {
         <View className="mx-[20rpx] mt-[20rpx] flex items-center justify-between rounded-xl bg-primary px-[28rpx] py-[24rpx]">
           <View className="flex-1 pr-[16rpx]">
             <Text className="text-[length:30rpx] font-semibold text-[var(--color-surface-light)]">
-              微信催费提醒
+              {tt('bill.wxSubscribe', '微信催费提醒')}
             </Text>
             <Text className="mt-[6rpx] block text-[length:22rpx] text-[var(--color-surface-light)] opacity-80">
-              订阅后欠费催缴将推送到微信
+              {tt('bill.wxSubscribeDesc', '订阅后欠费催缴将推送到微信')}
             </Text>
           </View>
           <View
@@ -212,13 +230,17 @@ export default function Bill() {
             hoverClass="opacity-60"
             onClick={() => void onSubscribe()}
           >
-            <Text className="text-[length:26rpx] font-medium text-primary">订阅</Text>
+            <Text className="text-[length:26rpx] font-medium text-primary">
+              {tt('bill.subscribe', '订阅')}
+            </Text>
           </View>
         </View>
 
         {/* 学费账单(报名维度) */}
         <View className="mx-[20rpx] mt-[24rpx]">
-          <Text className="text-[length:28rpx] font-semibold text-foreground">学费账单</Text>
+          <Text className="text-[length:28rpx] font-semibold text-foreground">
+            {tt('bill.title', '学费账单')}
+          </Text>
         </View>
         {data.enrollments.length > 0 ? (
           <View className="mt-[16rpx] px-[20rpx]">
@@ -239,7 +261,7 @@ export default function Bill() {
                     </Text>
                     <View className="shrink-0 rounded-sm bg-[var(--color-muted)] px-[12rpx] py-[4rpx]">
                       <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                        {ENROLL_STATUS_TEXT[item.status] ?? item.status}
+                        {codeText(ENROLL_STATUS_KEY, item.status)}
                       </Text>
                     </View>
                   </View>
@@ -248,13 +270,15 @@ export default function Bill() {
                       {item.termName}
                     </Text>
                     <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                      {BUSINESS_LINE_TEXT[item.businessLine] ?? item.businessLine}
+                      {codeText(BUSINESS_LINE_KEY, item.businessLine)}
                     </Text>
                   </View>
                   <View className="mt-[16rpx] flex items-center justify-between">
                     <Text className="text-[length:24rpx] text-muted-foreground">
-                      应缴 ¥{item.totalFee.toLocaleString()} · 已缴 ¥
-                      {item.paidAmount.toLocaleString()}
+                      {tt('bill.feeSummary', '应缴 ¥{total} · 已缴 ¥{paid}', {
+                        total: item.totalFee.toLocaleString(),
+                        paid: item.paidAmount.toLocaleString(),
+                      })}
                     </Text>
                     <Text
                       className={`text-[length:30rpx] font-bold ${
@@ -264,18 +288,18 @@ export default function Bill() {
                       }`}
                     >
                       {!ledger
-                        ? '账目未就绪'
+                        ? tt('bill.ledgerNotReady', '账目未就绪')
                         : due > 0
-                          ? `欠费 ¥${due.toLocaleString()}`
-                          : '已缴清'}
+                          ? tt('bill.arrears', '欠费 ¥{amount}', { amount: due.toLocaleString() })
+                          : tt('bill.paidOff', '已缴清')}
                     </Text>
                   </View>
                   {ledger?.nextDueDate ? (
                     <View className="mt-[8rpx]">
                       <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                         {overdueDays > 0
-                          ? `已逾期 ${overdueDays} 天`
-                          : `${ledger.nextDueDate} 到期`}
+                          ? tt('bill.overdue', '已逾期 {days} 天', { days: overdueDays })
+                          : tt('bill.dueOn', '{date} 到期', { date: ledger.nextDueDate })}
                       </Text>
                     </View>
                   ) : null}
@@ -288,7 +312,11 @@ export default function Bill() {
                       onClick={() => void onPay(item)}
                     >
                       <Text className="text-[length:28rpx] font-semibold text-[var(--color-surface-light)]">
-                        {payingId === item.id ? '支付中…' : `在线缴纳 ¥${due.toLocaleString()}`}
+                        {payingId === item.id
+                          ? tt('bill.paying', '支付中…')
+                          : tt('bill.payOnline', '在线缴纳 ¥{amount}', {
+                              amount: due.toLocaleString(),
+                            })}
                       </Text>
                     </View>
                   ) : null}
@@ -298,14 +326,16 @@ export default function Bill() {
           </View>
         ) : (
           <View className="py-[48rpx] text-center text-[length:26rpx] text-muted-foreground">
-            <Text>{loading ? '加载中…' : '暂无报名账单'}</Text>
+            <Text>{loading ? tt('bill.loading', '加载中…') : tt('bill.empty', '暂无报名账单')}</Text>
           </View>
         )}
 
         {/* 缴费记录 */}
         {data.payments.length > 0 ? (
           <View className="mx-[20rpx] mt-[32rpx]">
-            <Text className="text-[length:28rpx] font-semibold text-foreground">缴费记录</Text>
+            <Text className="text-[length:28rpx] font-semibold text-foreground">
+              {tt('bill.paymentHistory', '缴费记录')}
+            </Text>
             <View className="mt-[16rpx] rounded-lg border border-[var(--color-border)] bg-card px-[24rpx]">
               {data.payments.map((p, idx) => (
                 <View
@@ -316,12 +346,12 @@ export default function Bill() {
                 >
                   <View className="flex-1">
                     <Text className="block text-[length:26rpx] text-foreground">
-                      {PAY_METHOD_TEXT[p.paymentMethod] ?? p.paymentMethod}
-                      {p.status === 'refunded' ? '(已退费)' : ''}
+                      {codeText(PAY_METHOD_KEY, p.paymentMethod)}
+                      {p.status === 'refunded' ? tt('bill.refunded', '(已退费)') : ''}
                     </Text>
                     <Text className="mt-[4rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
                       {p.paymentDate}
-                      {p.receiptNo ? ` · 单号 ${p.receiptNo}` : ''}
+                      {p.receiptNo ? ` · ${tt('bill.receiptNo', '单号 {no}', { no: p.receiptNo })}` : ''}
                     </Text>
                   </View>
                   <Text className="text-[length:30rpx] font-bold text-foreground">
@@ -340,7 +370,7 @@ export default function Bill() {
             plain
             onClick={() => void onSubscribe()}
           >
-            开启欠费提醒
+            {tt('bill.enableArrearsRemind', '开启欠费提醒')}
           </Button>
         </View>
       </View>
