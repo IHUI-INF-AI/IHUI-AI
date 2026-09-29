@@ -1,7 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 import { useEffect, useState } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
@@ -27,6 +26,9 @@ import { getProfile, getUserStatistics, type AuthUser, type UserStatistics } fro
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { rpx } from '../utils/rpx'
+import { APP_VERSION } from '../lib/config'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 type Tab = 'about' | 'profile' | 'settings' | 'cards'
 
@@ -167,7 +169,7 @@ export function SharedDemoScreen() {
           onLogout={() => console.info('logout')}
           menuItems={menuItems}
           onMenuPress={(key) => console.info('menu:', key)}
-          appVersion="1.0.0"
+          appVersion={APP_VERSION}
           onBack={() => setTab('about')}
         />
       )}
@@ -262,7 +264,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
   },
-  tabActive: { backgroundColor: tokens.brand.DEFAULT },
+  tabActive: { backgroundColor: tokens.brand.cta },
   tabText: { fontSize: 13, fontWeight: '500', color: tokens.text.medium },
   statusText: {
     padding: rpx(24),
