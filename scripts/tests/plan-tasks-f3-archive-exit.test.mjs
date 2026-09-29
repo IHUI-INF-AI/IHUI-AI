@@ -27,7 +27,13 @@ import {
   findRotatedPointers,
   DUP_POINTER_RE,
 } from '../lib/plan-task-index.mjs'
-import { buildMerge, setArchivedIndex, __test__ as mergeT } from '../plan-tasks-merge.mjs'
+import {
+  buildMerge,
+  setArchivedIndex,
+  healStopReasons,
+  verifyMerge,
+  __test__ as mergeT,
+} from '../plan-tasks-merge.mjs'
 const { rewritePointer } = mergeT
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -87,6 +93,50 @@ test('T1 目标已被归档代表 ⇒ 出口成立,改写产物是内容锚点�
     assert.match(one.after, /PROJECT_PLAN_TEST\.md/, '锚点必须点名归档件,否则不可复核')
     assert.doesNotMatch(one.after, /(?:存活于|登记在|另见|参见|指向)\s*L\d/, '改写后不得再含行号指针')
     assert.equal(one.before.split('\n').length, 1, '只动这一行')
+  } finally {
+    setArchivedIndex(null)
+  }
+})
+
+test('T1b F1 与归档档 F3 落在同一行 ⇒ 两道落地闸都不得停手;把归档值摘掉则必须各自翻红', () => {
+  // 为什么这条必须住在镜像而不是只住工具自检:CI 与提交链跑的是 `node --test`(镜像),
+  // 而 `--self-test` 里那几条成对断言只有人工/自检档才跑 —— 只在那儿锁,等于"revert 掉本次修复
+  // 也能过 CI"(台账 G-815914 那处少传参数就是这么活下来的:127 条自检全绿而真仓 8 行卡死)。
+  const idx = archivedEntryIndex([
+    {
+      name: 'PROJECT_PLAN_TEST.md',
+      text: ARCH_TEXT.replace('O21 只在归档里的那条登记', 'O20 公网拓扑:ai-service 零暴露'),
+    },
+  ])
+  // PTRO(未勾、指针指向 L9999 且那条只在归档里)+ DONE_ON_FACE(同复合主键的已勾那份)
+  // ⇒ 同一行同时命中 F1 与 F3(归档档)—— 这正是修复前折不动的那一型。
+  const doc = `${PTRO}\n${DONE_ON_FACE}\n${OPEN_NOEXIT}\n`
+  setArchivedIndex(idx)
+  try {
+    const r = buildMerge(doc, '2026-09-29')
+    const rec = r.changed.find(
+      (c) => /(?:^|\+)F3(?:\+|$)/.test(c.kind) && /(?:^|\+)F1(?:\+|$)/.test(c.kind),
+    )
+    assert.ok(rec, `夹具必须产出 F1+F3 同一行,实测 kind=${r.changed.map((c) => c.kind).join(',')}`)
+    assert.match(rec.after, /已随归档搬至/, '这一行的 F3 必须走归档档措辞(否则本例退化成 T1 的面内档测试)')
+    assert.ok(rec.pointerArchived, '生产侧必须把实际用过的归档值随记录交出(闸门要靠它复现同一次改写)')
+    assert.equal(rec.pointerArchived.name, 'PROJECT_PLAN_TEST.md', '交出的必须是生产侧真用过的那一份归档件')
+    // ① 正当产物:两道闸都不许停手(停手 = 这一型永久折不动,即 G-815914 的现象)
+    const stop = healStopReasons(doc, r.text, r.changed, 0)
+    assert.deepEqual(stop, [], `归档档的 F1+F3 正当归并不得停手,实测:${JSON.stringify(stop)}`)
+    const rep = verifyMerge(doc, r.text, r.changed)
+    assert.deepEqual(rep.problems, [], `报告档同一形态也不得报问题:${JSON.stringify(rep.problems)}`)
+    assert.equal(rep.after.rotatedAuto, 0, '可自动收口那一维必须归零')
+    // ② 变异对照:把那个值摘掉(等价于修复前的闸门)⇒ 两闸必须各自重新翻红,否则①的绿可能只是恒真
+    const stripped = r.changed.map((c) => ({ line: c.line, kind: c.kind, before: c.before, after: c.after }))
+    assert.ok(
+      healStopReasons(doc, r.text, stripped, 0).some((x) => x.includes('逐字保留')),
+      '少传归档值时自愈档必须拦下来 —— 这条就是"闸门不得重推生产侧分支"的回归锁',
+    )
+    assert.ok(
+      verifyMerge(doc, r.text, stripped).problems.some((x) => x.includes('逐字相等')),
+      '少传归档值时报告档也必须点名(两闸各一份,只装一道将来另一道会漂)',
+    )
   } finally {
     setArchivedIndex(null)
   }
