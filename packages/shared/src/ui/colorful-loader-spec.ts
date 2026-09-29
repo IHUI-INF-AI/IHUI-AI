@@ -5,9 +5,11 @@
 /**
  * ColorfulLoader 加载器的结构与几何单一源(小程序端与 RN 端共用),形状照 back-chevron-spec。
  *
- * 两端真实实现:apps/miniapp-taro/src/components/ColorfulLoader.tsx 与
- * .../components/adapters/ColorfulLoader.taro.tsx(72 彩点环)↔
- * apps/mobile-rn/src/components/ColorfulLoader.tsx(单环 spinner)。
+ * 两端渲染腿(2026-09-30 现读更正;原文把端内那份 `components/ColorfulLoader.tsx` 列为
+ * "两端真实实现"之一,是错的 —— 它零 import,页面走的是 `@/components/adapters`,该 barrel 只
+ * 再导出 `./ColorfulLoader.taro`;该死副本已于本票摘除,不得再照旧文去端内找它):
+ *   小程序 = apps/miniapp-taro/src/components/adapters/ColorfulLoader.taro.tsx(72 彩点环)↔
+ *   RN = apps/mobile-rn/src/components/ColorfulLoader.tsx(单环 spinner)。
  * (packages/app/src/components/ColorfulLoader.tsx 是 DOM 副本,同样改读本表,不留第三份数字。)
  *
  * 消费方式只能是子路径 `@ihui/shared/ui/colorful-loader-spec`(禁挂根桶)。
