@@ -22,9 +22,16 @@ import { IconButton } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { createPortal } from 'react-dom'
 import { useChatStore } from '@/stores/chat'
-import { compressConversation } from '@ihui/api-client'
+import { compressConversation, type BudgetEvent } from '@ihui/api-client'
 // G-404(2026-09-29):/compress 成功是结构化重置信号 ⇒ 向 budget 写点登记一次性例外阶段。
-import { noteBudgetTrustedZeroPhase } from '@/hooks/use-chat/budget-state'
+// B 节(2026-09-30):ring 订阅同一枚 budget 帧,承接今日额度档位色(见 mergeBudgetLevel)。
+import {
+  budgetBarPercent,
+  getBudgetEvent,
+  getBudgetEventServerSnapshot,
+  noteBudgetTrustedZeroPhase,
+  subscribeBudgetEvent,
+} from '@/hooks/use-chat/budget-state'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
 import {
   LABEL_SENTINELS,
@@ -79,6 +86,22 @@ function getUsageLevel(ratio: number): UsageLevel {
   if (ratio >= 0.8) return 'high'
   if (ratio >= 0.5) return 'medium'
   return 'low'
+}
+
+const USAGE_RANK: Record<UsageLevel, number> = { low: 0, medium: 1, high: 2, critical: 3 }
+
+/**
+ * B 节(2026-09-30):今日额度档位并入 trigger 环色档 —— 预算条被折叠进
+ * InputStatusSlot(+N)后,底栏仍由小圆环保留一个醒目的额度警示通道。
+ * 档位**只升不降**:环色的语义是"当前最需要警惕的事",额度将尽与窗口将满
+ * 同属一档警示,不允许高占用被低档预算色拉回来;warning 至少顶到 amber
+ * (USAGE_STYLES.medium,与 ContextBudgetBar 的 warning 档同族),critical 一律 red。
+ * 数字/进度/读屏口径不变 —— 它们仍只反映窗口占用。
+ */
+function mergeBudgetLevel(usage: UsageLevel, budget: BudgetEvent | null): UsageLevel {
+  if (!budget) return usage
+  if (budget.level === 'critical') return 'critical'
+  return USAGE_RANK[usage] >= USAGE_RANK.medium ? usage : 'medium'
 }
 
 // ============================================================================
@@ -182,11 +205,12 @@ interface TriggerRingProps {
   ratio: number
   usedTokens: number
   maxTokens: number
+  /** 环色档位(窗口占用档与预算档合并,见 mergeBudgetLevel);数字与进度仍只反映窗口占用 */
+  level: UsageLevel
 }
 
-function TriggerRing({ ratio, usedTokens, maxTokens }: TriggerRingProps) {
+function TriggerRing({ ratio, usedTokens, maxTokens, level }: TriggerRingProps) {
   const t = useTranslations('chat.contextUsage')
-  const level = getUsageLevel(ratio)
   const style = USAGE_STYLES[level]
   // ratio > 1 时 clamp 到 1,但中心数字仍显示真实百分比(警示超限)
   const progressRatio = Math.min(ratio, 1)
@@ -433,6 +457,13 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
 
   const level = getUsageLevel(ratio)
   const style = USAGE_STYLES[level]
+  // B 节(2026-09-30):trigger 环色承接今日额度档(只升不降);panel 档位徽章仍用 usage 口径
+  const budgetEvent = React.useSyncExternalStore(
+    subscribeBudgetEvent,
+    getBudgetEvent,
+    getBudgetEventServerSnapshot,
+  )
+  const triggerLevel = mergeBudgetLevel(level, budgetEvent)
   // 2026-07-20 修:next-intl ICU 在调用 t() 时就校验 {percent} 变量,
   // 之前的 .replace 是在 t() 返回后客户端字符串替换,导致 SSR 报
   // FORMATTING_ERROR "context variable 'percent' was not provided"
@@ -566,7 +597,12 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
           // 仍可能短暂持有焦点,加 data-state 是零成本防御)。
           data-state={isOpen ? 'open' : 'closed'}
         >
-          <TriggerRing ratio={ratio} usedTokens={usedTokens} maxTokens={maxTokens} />
+          <TriggerRing
+            ratio={ratio}
+            usedTokens={usedTokens}
+            maxTokens={maxTokens}
+            level={triggerLevel}
+          />
         </IconButton>
       </Tooltip>
       {isOpen &&
@@ -610,6 +646,19 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
                 <StatRow label={t('used')} value={formatTokenCount(usedTokens)} mono />
                 <StatRow label={t('max')} value={formatTokenCount(maxTokens)} mono />
                 <StatRow label={t('messages')} value={String(messageCount)} mono />
+                {/* B 节(2026-09-30):今日额度行 —— 收到过 budget 帧才渲染,不假装有任何进度;
+                    percent 走 budgetBarPercent(与 ContextBudgetBar 同源同式),tier 是服务端
+                    措辞原样显示(端内不翻译,与 stream-alert 帧正文同纪律) */}
+                {budgetEvent && (
+                  <StatRow
+                    label={t('budgetRow')}
+                    value={
+                      `${budgetBarPercent(budgetEvent)}%` +
+                      (budgetEvent.tier ? ` · ${budgetEvent.tier}` : '')
+                    }
+                    mono
+                  />
+                )}
               </div>
             </div>
 
