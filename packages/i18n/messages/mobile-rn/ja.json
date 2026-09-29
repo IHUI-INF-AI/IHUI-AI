@@ -202,6 +202,17 @@
     "runtimeSend": "送信"
   },
   "chat": {
+    "meta": {
+      "pullOnly": "この会話は次回一覧を開いたときに同期されます"
+    },
+    "mcp": {
+      "state": {
+        "connecting": "{server} に接続中…",
+        "failed": "{server} の接続に失敗しました",
+        "reconnecting": "{server} を {attempt}/{maxAttempts} 回目で再接続中"
+      },
+      "mobileSettingsHint": "MCP 接続はデスクトップ版または Web 版で管理してください"
+    },
     "connectorAuth": {
       "title": "{connectorName} に接続",
       "connected": "接続済み",
