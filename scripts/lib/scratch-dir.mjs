@@ -20,6 +20,7 @@
 
 import { lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { dirname, join, parse, resolve, sep } from 'node:path'
+import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -43,7 +44,8 @@ export const NEST_SCAN_DEFAULTS = { maxDepth: 4, entryBudget: 1500 }
  * `git rev-parse --show-toplevel` 会向上逃逸到真仓库,使该用例恒红(已 A/B 实证)。
  *
  * 结论:与 scripts/lib/gitdir.mjs 的 gitArchiveDir() 同族推导 —— 工作树所在盘的
- * DevEnv/Temp(§15b 批准的临时物落点),不写死盘符。
+ * DevEnv/Temp(§15b 批准的临时物落点),不写死盘符。**该结论只对 Windows 成立**,
+ * 非 win32 的那一臂见下方 `chooseScratchRoot` 的注(GitHub runner 实测 EACCES)。
  *
  * G-286:盘根一律取 `parse(HERE).root`(**模块所在盘的盘根本身**),不再由
  * 「脚本位置向上两级」推导 —— 旧推导只对「仓库恰在 `<盘>:/IHUI-AI`」这一种布局成立,
@@ -51,10 +53,28 @@ export const NEST_SCAN_DEFAULTS = { maxDepth: 4, entryBudget: 1500 }
  * 对真实布局两者逐字同值(换机/换盘语义不变);对被拷进夹具的副本,盘根锚定
  * 始终回到同一个盘级 scratch 根 —— 夹具与真仓同盘,这正是选址的本意。
  */
-export function scratchRoot() {
-  const override = process.env.IHUI_SCRATCH_DIR
+/**
+ * 纯函数:落点的**唯一**推导处,输入全部显式给出(moduleDir / platform / env),
+ * 所以两条平台臂都能用构造面证明,不必赌本机此刻是什么系统(§22c「证明行为只能用
+ * 纯函数 + 构造面」)。`scratchRoot()` 只是它的一个绑定。
+ *
+ * 非 win32 为什么退回 `os.tmpdir()`:上面那套「盘根 + DevEnv/Temp」的选址理由**只在
+ * Windows 成立**(§15b 批准的 D 盘落点 + §26 的 C 盘污染),而 Linux/macOS 上
+ * `parse(dir).root` 就是 `/` ⇒ 推导出 `<fs根>/DevEnv/Temp/ihui-scratch`,根目录不可写。
+ * 实测:GitHub runner 上 i18n 工作流整个 CLI 入口测试组挂在
+ * `EACCES: permission denied, mkdir '/DevEnv/Temp/ihui-scratch'`(hookFailed ⇒ 子用例
+ * 全被 cancelledByParent,账面读起来像"测试自己坏了")。`/tmp` 在 runner 上必然在仓库树外,
+ * 所以两条硬约束里"不得落在仓库内"仍然成立,"不跟随进程 TEMP"那一条本来就是 Windows 病灶。
+ */
+export function chooseScratchRoot({ moduleDir = HERE, platform = process.platform, env = process.env } = {}) {
+  const override = env && env.IHUI_SCRATCH_DIR
   if (override) return normalize(override)
-  return normalize(join(parse(HERE).root, 'DevEnv', 'Temp', 'ihui-scratch'))
+  if (platform !== 'win32') return normalize(join(tmpdir(), SCRATCH_DIR_NAME))
+  return normalize(join(parse(moduleDir).root, 'DevEnv', 'Temp', SCRATCH_DIR_NAME))
+}
+
+export function scratchRoot() {
+  return chooseScratchRoot({ moduleDir: HERE, platform: process.platform, env: process.env })
 }
 
 function normalize(p) {
