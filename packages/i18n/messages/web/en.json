@@ -9125,6 +9125,15 @@
     },
     "envInfoButton": "Environment Info",
     "expandConversation": "Expand Conversation",
+    "headerActions": {
+      "panelGroupButtons": "Panel action buttons",
+      "workspaceUnavailable": "Start a task to open the review workspace",
+      "enterWorkspaceFullscreen": "Enter workspace fullscreen",
+      "exitWorkspaceFullscreen": "Exit workspace fullscreen",
+      "createDraftPullRequest": "Create Draft PR",
+      "createDraftPullRequestOk": "Draft PR created",
+      "createDraftPullRequestFailed": "Failed to create Draft PR"
+    },
     "floatMode": "Float Mode",
     "handleHint": "Click or drag right to open AI workspace",
     "history": "HistoryChat",
@@ -11257,6 +11266,12 @@
     "errorCardTitle": "Request failed",
     "quoteSelection": "Quote selection",
     "quoteSelectionAdded": "Added to references",
+    "selectionActions": {
+      "ariaLabel": "Selected text actions",
+      "addAsAttachment": "Add as attachment",
+      "attachmentName": "Selected text",
+      "attachmentLimitReached": "Attachment limit of {limit} reached. Remove one before adding the selected text."
+    },
     "quotedReplyAssistant": "Quoted AI reply",
     "quotedReplyUser": "Quoted user message",
     "webSearch": "Web search",
