@@ -60,6 +60,7 @@ import { BatchScanLoginDialog } from './BatchScanLoginDialog'
 import { Dropdown, type DropdownItem } from '@/components/feedback'
 import { RiskBadge, type RiskLevel } from '@/components/publish/RiskBadge'
 import { CookieHealthIndicator } from '@/components/publish/CookieHealthIndicator'
+import { CookieAutoRefreshChip } from '@/components/publish/CookieAutoRefreshChip'
 import { BatchImportDialog } from '@/components/publish/BatchImportDialog'
 import { AccountGroupManager } from '@/components/publish/AccountGroupManager'
 
@@ -201,6 +202,8 @@ export default function AccountsPage() {
         <div>
           <h2 className="text-base font-semibold">{t('accounts.title')}</h2>
           <p className="text-xs text-muted-foreground">{t('accounts.subtitle')}</p>
+          {/* 2026-09-29:Cookie 自动保活状态一行(守护跑在 ai-service,这里只读 stats) */}
+          <CookieAutoRefreshChip />
         </div>
         <div className="flex gap-2">
           {/* 2026-09-07:次要功能收纳进"开发者"下拉,头部只保留高频操作 */}
