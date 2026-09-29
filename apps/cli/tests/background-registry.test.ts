@@ -23,6 +23,9 @@ import {
   listLoops,
   stopLoop,
   clearAllLoops,
+  formatSettledTaskNotification,
+  truncateTaskNotification,
+  TASK_NOTIFICATION_MAX_CHARS,
   __test__,
 } from '../src/tools/background-registry.js';
 import { runSandboxedAsync } from '../src/sandbox/index.js';
@@ -630,6 +633,181 @@ describe('Loop 周期任务', () => {
       clearAllLoops();
       expect(listLoops()).toEqual([]);
     });
+  });
+});
+
+// ==================== G-937956 终态通知的顺序化截断 ====================
+
+describe('G-937956 终态通知顺序化截断(上游 notification.ts 机制)', () => {
+  it('< 预算的通知逐字不变(预算是安全网,不改变常规形状)', () => {
+    const small = formatSettledTaskNotification({
+      status: '任务 bg_1  状态: exited  exitCode: 0',
+      result: '[stdout]\nhello',
+      error: '[stderr]\nwarm',
+    });
+    expect(small).toBe('任务 bg_1  状态: exited  exitCode: 0\n[stdout]\nhello\n[stderr]\nwarm');
+    expect(small.endsWith('[truncated]')).toBe(false);
+  });
+
+  it('总长恰为预算(边界)⇒ 不加标记', () => {
+    // status(1) + 换行 + 主体,凑到恰好 TASK_NOTIFICATION_MAX_CHARS
+    const body = 'x'.repeat(TASK_NOTIFICATION_MAX_CHARS - 2);
+    const exact = formatSettledTaskNotification({ status: 's', result: body });
+    expect(exact.length).toBe(TASK_NOTIFICATION_MAX_CHARS);
+    expect(exact.endsWith('[truncated]')).toBe(false);
+    expect(truncateTaskNotification(exact)).toBe(exact);
+  });
+
+  it('> 预算:guidance/artifacts 被整段斩、reports 只剩前缘,result/error 与状态行完整,尾部立 [truncated]', () => {
+    const status = '任务 bg_1  状态: exited  exitCode: 0'; // 20 段头
+    const result = `[stdout]\n${'R'.repeat(60_000)}`; // 正文
+    const error = `[stderr]\n${'E'.repeat(40_000)}`; // 正文
+    const reports = `<reports>${'p'.repeat(30_000)}</reports>`; // 次之被斩(这里恰好被切在中间)
+    const artifacts = `<artifacts>${'a'.repeat(30_000)}</artifacts>`; // 次之被斩
+    const guidance = `<guidance>${'g'.repeat(30_000)}</guidance>`; // 先斩
+
+    const notice = formatSettledTaskNotification({ status, result, error, reports, artifacts, guidance });
+
+    // 总预算:从头保留 TASK_NOTIFICATION_MAX_CHARS,尾部立标记
+    expect(notice.length).toBe(TASK_NOTIFICATION_MAX_CHARS + '\n[truncated]'.length);
+    expect(notice.endsWith('\n[truncated]')).toBe(true);
+    // 段序即斩序:正文(result/error)排在前 ⇒ 完整保住
+    expect(notice).toContain(status);
+    expect(notice).toContain(result);
+    expect(notice).toContain(error);
+    // 斩序:guidance(最后段)整段消失,artifacts 整段消失,reports 被切在前缘(部分在场)
+    expect(notice).not.toContain(guidance);
+    expect(notice).not.toContain(artifacts);
+    expect(notice).not.toContain(reports);
+    // reports 的前缘确实进了通知 —— 证明切点落在 reports 段内(先于 artifacts/guidance)
+    expect(notice).toContain('<reports>');
+  });
+
+  it('空段(零长度)不产生空行:缺席的节不发(上游 reports/artifacts 同规)', () => {
+    const notice = formatSettledTaskNotification({ status: 's', result: '', error: undefined });
+    expect(notice).toBe('s');
+  });
+});
+
+// ==================== G-937958 notified claim 时序 ====================
+
+describe('G-937958 notified claim 时序(读已完成任务不预支 claim)', () => {
+  function fakeChild(): ChildProcess {
+    return new EventEmitter() as unknown as ChildProcess;
+  }
+
+  it('block=false 读已完成任务:claim 不被消耗,投影首程抛错后 output 仍可再取、通知不吞', async () => {
+    const child = fakeChild();
+    const id = registerTask(child, 'fake settled read');
+    const task = getTask(id)!;
+    child.emit('close', 0, null); // 终态先落,再做非阻塞读(wait_command 的 block=false 形态)
+    expect(task.notified).toBe(false); // close 时无等待者 ⇒ 不消耗 claim(既有判据)
+
+    const first = await waitForTask(id, 0);
+    expect(first.state).toBe('settled');
+    expect(first.snapshot!.exitCode).toBe(0);
+    // 关键判据(上游 task-output.ts:56-66 的机制等价):读已完成任务**不预支 claim** ——
+    // 投影发生在拿到快照之后,它抛错不得把"通知已送达"写成事实。
+    expect(task.notified).toBe(false);
+
+    // 投影首程抛错(wait_command 拿到快照后的格式化一步失败)
+    const projectionFailure = (): string => {
+      const snap = first.snapshot!;
+      if (snap.status !== 'running') throw new Error('projection exploded');
+      return snap.status;
+    };
+    expect(projectionFailure).toThrow('projection exploded');
+
+    // 通知不吞:再次非阻塞读仍拿到同一份终态(成功路径幂等),output 面也仍在
+    const second = await waitForTask(id, 0);
+    expect(second.state).toBe('settled');
+    expect(second.snapshot!.exitCode).toBe(0);
+    expect(getTaskOutput(id)!.status).toBe('exited');
+    expect(task.notified).toBe(false);
+  });
+
+  it('真事件路径的对照:claim 只由投递消耗,且送达成功后幂等(第二次通知不再投)', async () => {
+    const child = fakeChild();
+    const id = registerTask(child, 'fake claim via delivery');
+    const task = getTask(id)!;
+    let notices = 0;
+    const off = __test__.addSettleListener(id, () => {
+      notices += 1;
+    });
+    child.emit('close', 0, null);
+    expect(notices).toBe(1);
+    expect(task.notified).toBe(true);
+    // 成功路径第二次幂等:位已立,重放通知不重投
+    __test__.notifySettled(task);
+    expect(notices).toBe(1);
+    off();
+  });
+});
+
+// ==================== G-937959 输出投影:运行中头窗 / 终态尾窗 ====================
+
+describe('G-937959 输出投影(运行中读头、终态读尾、省略量入账)', () => {
+  function fakeChild(): ChildProcess {
+    // 与注册表的捕获面同形:process.stdout?.on('data') / stderr 同 —— 流也得是 EventEmitter
+    const child = new EventEmitter() as unknown as ChildProcess & { stdout: EventEmitter; stderr: EventEmitter };
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    return child;
+  }
+  const TAIL_CAP = 1024 * 1024;
+  const HEAD_CAP = 30_000;
+
+  it('运行中读 ⇒ 含第 1 行;超头窗 ⇒ 带省略前缀且主体 ≤ 头窗上限', () => {
+    const child = fakeChild();
+    const id = registerTask(child, 'fake running head view');
+    child.stdout.emit('data', Buffer.from(`HEAD-MARK first line\n${'x'.repeat(50_000)}`, 'utf-8'));
+    const out = getTaskOutput(id)!;
+    expect(out.status).toBe('running');
+    expect(out.stdout).toContain('HEAD-MARK first line'); // 含第 1 行
+    expect(out.stdout.startsWith('[运行中预览:仅保留前 30000 字符')).toBe(true);
+    // 主体(去前缀一行)≤ 头窗上限
+    const body = out.stdout.slice(out.stdout.indexOf('\n') + 1);
+    expect(body.length).toBeLessThanOrEqual(HEAD_CAP);
+    expect(out.truncated).toBe(true);
+    clearAllTasks();
+  });
+
+  it('结束后读 ⇒ 含末尾;超尾窗 ⇒ omitted 前缀且总长 ≤ 尾窗上限+前缀;头部确实被斩', () => {
+    const child = fakeChild();
+    const id = registerTask(child, 'fake terminal tail view');
+    child.stdout.emit('data', Buffer.from(`HEAD-MARK\n${'x'.repeat(50_000)}`, 'utf-8'));
+    child.stdout.emit('data', Buffer.from(`${'y'.repeat(TAIL_CAP)}\nTAIL-MARK the end\n`, 'utf-8'));
+    child.emit('close', 0, null);
+    const task = getTask(id)!;
+    const total = task.totalStdoutChars;
+    const out = getTaskOutput(id)!;
+    expect(out.status).toBe('exited');
+    expect(out.stdout).toContain('TAIL-MARK the end'); // 含末尾
+    expect(out.stdout).not.toContain('HEAD-MARK'); // 头部已被尾窗挤掉
+    expect(out.stdout.startsWith('[1KB of earlier output omitted]') || out.stdout.includes('of earlier output omitted')).toBe(true);
+    // 总长 ≤ 尾窗上限 + 前缀一行(上游同形:尾读 ≤ 8MiB,前缀另计)
+    const body = out.stdout.slice(out.stdout.indexOf('\n') + 1);
+    expect(body.length).toBeLessThanOrEqual(TAIL_CAP);
+    // G-816028 记账律不变:dropped = total − 尾窗保留量
+    expect(out.droppedStdoutBytes).toBe(total - Math.min(total, TAIL_CAP));
+    expect(out.truncated).toBe(true);
+    clearAllTasks();
+  });
+
+  it('小输出(未越任何窗口)⇒ 无前缀逐字保真,truncated=false、dropped=0', async () => {
+    const handle = runSandboxedAsync(makeCmd('echo tiny-view'), { cwd: os.tmpdir(), timeoutMs: 5000 });
+    const id = registerTask(handle.process, 'echo tiny-view');
+    await waitForTask(id, 5000);
+    const out = getTaskOutput(id)!;
+    // Windows 上 echo 产出 CRLF:归一后再逐字比对(保真判据不受换行符形态干扰)
+    expect(out.stdout.replace(/\r\n/g, '\n')).toBe('tiny-view\n');
+    expect(out.stdout.startsWith('[')).toBe(false);
+    expect(out.truncated).toBe(false);
+    expect(out.droppedStdoutBytes).toBe(0);
+  });
+
+  it('读不存在 ⇒ 返回 null(available:false),绝不抛', () => {
+    expect(getTaskOutput('no-such-task')).toBeNull();
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
