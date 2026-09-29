@@ -93,4 +93,127 @@ test('端到端:真跑一次,不得以未捕获异常收场(崩溃 ≠ 违规)',
   assert.match(out, /扫描文件/, '没打印扫描结果 ⇒ 很可能没真跑')
   assert.ok(r.status === 0 || r.status === 1, `退出码只能是 0(通过)/1(违规),实得 ${r.status}`)
 })
+
+/**
+ * ── 2026-09-29 追加:三处**失明**的锁(与本文件上方"读文件容错"两码事)────────────────
+ *
+ * 当天现读到的事实:这道 blocking 门在仓库里明明有 26 处"字符当 UI 图标",而 `--staged` 与
+ * 全量两档**都报绿**。三个原因各自独立,少修一个都还是瞎的:
+ *  ① 表情面板(InputArea)整文件豁免 ⇒ 同文件里按钮位的 emoji 一起被放过;
+ *  ② `RENDER_EMOJI_RE` 是行内判据 ⇒ 被 prettier 拆成独立行的 JSX 文本子节点(`>␤ ★ ␤ </Text>`)看不见;
+ *  ③ 注释豁免写成"整行以 `{` 起手即放过",而 JSX 表达式行**全都**以 `{` 起手
+ *     ⇒ `{selected && <Text>✓</Text>}` 这一族整族隐身(这才是 26→5 的差)。
+ * 下面 T1–T6 就是把这三处 + "判据只许有一份实现"钉成机器可查。区段表只从 `EMOJI_RE.source`
+ * 派生(本文件原本已有三处逐字复制,第四处就是下一次漂移的起点)。
+ */
+import { writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
+
+const GATE_PATH = SCRIPT
+const norm = (s) => s.replace(/\s+/g, ' ').trim()
+let cachedSrc = null
+const srcText = () => (cachedSrc ??= readFileSync(GATE_PATH, 'utf8'))
+
+/** 跑一次 `--self-test`。刻意清掉跳门 env —— 否则"跳过"会被读成"通过"。 */
+function runSelfTest(scriptPath) {
+  try {
+    const out = execFileSync(process.execPath, [scriptPath, '--self-test'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      env: { ...process.env, HUSKY_SKIP_NO_EMOJI: '' },
+    })
+    return { rc: 0, out }
+  } catch (e) {
+    return { rc: e.status ?? -1, out: `${e.stdout || ''}${e.stderr || ''}` }
+  }
+}
+
+test('T1 注释豁免不得再吃掉整行 JSX 表达式(旧写法 `|\\{` 是 26 处隐身的根因)', () => {
+  const line = norm(srcText()).match(/if \(\/\^\\s\*\([^)]*\)\//)?.[0] || ''
+  assert.ok(line, '未定位到豁免 1 的判定式 ⇒ 尺子失效,不得视作通过')
+  assert.ok(line.includes(String.raw`{\/\*`), `豁免 1 必须只认 \`{/*\` 起手的 JSX 注释,实得:${line}`)
+  assert.ok(!/\|\{\)/.test(line), `豁免 1 不得再出现裸 \\{ 分支(它放过所有 JSX 表达式行):${line}`)
+})
+
+test('T2 区段表只许有一份:派生正则必须从 EMOJI_RE.source 取,不得自己抄', () => {
+  // 用**逐字子串**而不是再写一层转义正则:上一版这里断言自己写错了转义(`\.\*` 对 `.*`),
+  // 结果是"测试红"被误读成"判据被改"—— 形状锁的表达式越复杂,越容易锁的是它自己。
+  assert.ok(
+    srcText().includes(String.raw`EMOJI_CHAR_CLASS = /^\[(.*)\]$/u.exec(EMOJI_RE.source)`),
+    'EMOJI_CHAR_CLASS 必须从 EMOJI_RE.source 提取(区段表只许有一份)',
+  )
+  for (const name of ['PANEL_ELEMENT_RE', 'PANEL_ARRAY_RE', 'BARE_EMOJI_LINE_RE']) {
+    const at = srcText().indexOf(`const ${name}`)
+    assert.ok(at > 0, `未找到 ${name} 的定义 ⇒ 该判据已被摘线`)
+    const def = srcText().slice(at, at + 340)
+    assert.ok(!/\\u\{1F000\}/.test(def), `${name} 不得自己抄一份 Unicode 区段表:${def.slice(0, 140)}`)
+    assert.match(def, /EMOJI_CHAR_CLASS/, `${name} 必须由 EMOJI_CHAR_CLASS 派生`)
+  }
+})
+
+test('T3 区段表提取失败必须大声退出 2,不得静默降级成"全不豁免"或"全放行"', () => {
+  assert.match(srcText(), /if \(!EMOJI_CHAR_CLASS\)[\s\S]{0,300}process\.exit\(2\)/)
+})
+
+test('T4 主循环与自检共用同一份判定(judgeLine),不得留第二份内联实现', () => {
+  const calls = srcText().match(/judgeLine\(/g) || []
+  assert.ok(calls.length >= 2, `judgeLine 必须既有定义又有调用点,实得 ${calls.length} 处`)
+  // 判"主循环里不许自己跑 isExempt"必须**按循环体窗口**取,不能全文搜 ——
+  // 上一版全文负向断言被 judgeLine 自己体内那句 `if (isExempt(...)) return null` 顶红,
+  // 红的是断言写法,不是门被改了(本仓记过多次"假阳比漏报更贵")。
+  const at = srcText().indexOf('lines.forEach((line, idx) => {')
+  assert.ok(at > 0, '未定位到扫描主循环 ⇒ 该锁失效,不得视作通过')
+  const body = srcText().slice(at, at + 600)
+  assert.ok(body.includes('judgeLine('), `主循环没走 judgeLine:${body.slice(0, 200)}`)
+  assert.ok(!body.includes('isExempt('), '主循环不得再直接调 isExempt 后自跑三个正则(那正是"自检绿而门瞎"的形态)')
+})
+
+test('T5 门体自检必须真绿(装车证明,不读文档数字)', () => {
+  const r = runSelfTest(GATE_PATH)
+  assert.equal(r.rc, 0, `--self-test 应 rc=0,实得 ${r.rc}\n${r.out}`)
+  assert.match(r.out, /自检 \d+ 通过 \/ 0 失败/)
+})
+
+test('T6 三条变异各自必须把自检翻红(证明每条新判据都有牙,不是恒绿断言)', () => {
+  const dir = mkScratch('emoji-gate-mutation-')
+  try {
+    copyScriptWithClosure(join(REPO, 'scripts'), 'check-no-emoji-icons.mjs', join(dir, 'scripts'))
+    const dst = join(dir, 'scripts', 'check-no-emoji-icons.mjs')
+    const base = readFileSync(dst, 'utf8')
+    const mutations = [
+      [
+        '豁免 1 回退成"整行以 { 即放过"',
+        // String.raw 免掉双层转义:目标文件里那段式子的字面文本就是 `|\{\/\*`
+        () => base.replace(String.raw`|\{\/\*`, String.raw`|\{`),
+      ],
+      [
+        '豁免 2 回退成整文件豁免',
+        () =>
+          base.replace(
+            /if \(EMOJI_PICKER_FILE_RE\.test\(file\)\) \{[\s\S]*?\n  \}\n/,
+            'if (EMOJI_PICKER_FILE_RE.test(file)) return true\n',
+          ),
+      ],
+      [
+        '违规 3(裸 emoji 行)摘线',
+        () =>
+          base.replace(
+            /const bare = BARE_EMOJI_LINE_RE\.exec\(line\.trim\(\)\)[\s\S]*?\n  \}\n\n  return null/,
+            'return null',
+          ),
+      ],
+    ]
+    for (const [label, mutate] of mutations) {
+      const mutated = mutate()
+      assert.notEqual(mutated, base, `变异「${label}」没有真的改动源码 ⇒ 这条臂是空转的`)
+      writeFileSync(dst, mutated)
+      const r = runSelfTest(dst)
+      assert.notEqual(r.rc, 0, `变异「${label}」之后自检仍全绿 ⇒ 该判据没有牙\n${r.out}`)
+    }
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
