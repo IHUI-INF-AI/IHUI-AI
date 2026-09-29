@@ -71,6 +71,39 @@ export function extractTraceId(traceparent: string | undefined | null): string |
 }
 
 /**
+ * D172(2026-09-29 立):取"这一轮请求"的 trace id,供落库/审计写入口使用。
+ *
+ * 为什么单列一个出口:写入口需要的是**可空且已验形**的 id,而各调用点自己
+ * `headers['traceparent']` + 自己 split 会造出第二份解析规则(两处算同一件事必漂移,
+ * 本仓记过多次)。本函数只做"取头 → 走 parseTraceparent → 拿 traceId",**不新加解析器**。
+ *
+ * 三类"没有编号"的形态一律返回 null,不猜、不补一个看起来像的:
+ *  - 没有 traceparent 头(非 HTTP 入口 / 未进入 onRequest 钩子)
+ *  - 头是数组(同名重复头,"哪一条是本轮的"没有定义)
+ *  - 头在但格式非法(长度/十六进制不合 W3C)
+ * 返回 null 时列落 NULL ⇒ "这条记录没有关联键"是可见事实,而不是伪装成有。
+ *
+ * 最后一律 `toLowerCase()`:W3C 规定 trace-id 是小写十六进制,而 PG 的等值比较区分大小写
+ * —— 同一个编号被写成两种大小写,就会变成**两条查不到对方的记录**(排查时正是按等值命中)。
+ * 归一只发生在本出口,不是在解析器里放宽判据(非法仍返回 null)。
+ */
+export function traceIdFromRequest(
+  request: FastifyRequest | undefined | null,
+): string | null {
+  if (!request) return null
+  const raw = request.headers['traceparent']
+  if (typeof raw !== 'string') return null
+  const traceId = extractTraceId(raw)
+  if (!traceId) return null
+  // 全 0 的 trace id 按 W3C 是**非法值**(表示"没有 trace"),但本地 parseTraceparent 只看
+  // "32 位十六进制" ⇒ 会放过它(这一格与 @ihui/types/src/traceparent.ts 那份更严的实现有分歧,
+  // 已作为残余登记,不在本票顺手改旧解析器:放宽容易、改严会波及既有透传链路)。
+  // 本出口只判"能不能当关联键":存进去等于给一批无关调用发同一个编号,反查必然串台。
+  if (/^0+$/.test(traceId)) return null
+  return traceId.toLowerCase()
+}
+
+/**
  * 把 traceparent 注入到出站请求 headers。
  * 用于 api 调用 ai-service 时透传 trace 上下文。
  *

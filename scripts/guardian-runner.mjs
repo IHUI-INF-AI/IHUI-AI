@@ -31,7 +31,7 @@
  *   stagedTriggers 路径前缀数组;声明后该项**仅在暂存区触及这些路径时**执行(见执行循环),
  *                  用于把与绝大多数提交无关的领域守门(桌面安装器等)挂上而不拖慢/误伤
  */
-import { execSync, execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createHash } from 'node:crypto'
@@ -44,6 +44,8 @@ import {
   shouldPropagateAsInterrupt,
   TEMPFAIL_EXIT_CODE,
 } from './lib/signal-exit.mjs'
+// 2026-09-29:把"跑不起来(崩溃)"与"判据判红"分流的纯函数(构造面四条分支各有正反例)。
+import { crashAdvisory, decideGateOutcome } from './lib/gate-failure-kind.mjs'
 
 // === 颜色 ===
 const C = {
@@ -4108,6 +4110,25 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 错误码文本判分支对账(1 项,blocking)---
+
+  // --- 维护性写归属对账(1 项,blocking)---
+  {
+    id: '163',
+    label:
+      '维护性写归属/CAS/回报计数三态对账(G-815920)',
+    script: 'check-write-owner-predicate.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_WRITE_OWNER_PREDICATE',
+    stagedTriggers: ['apps/api/src/db/', 'apps/api/src/routes/'],
+    onFailHint: [
+      '',
+      '读三态请跑 pnpm check:write-owner(它走 --strict,有未判定即 exit 2,那是拒绝出合格证不是仓库故障);默认档与提交链只拦"该文件 HEAD 自身 missing 存量"之上的新增',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
@@ -4318,6 +4339,8 @@ const startTime = Date.now()
 const stopOnFirst = process.env.GUARDIAN_STOP_ON_FIRST === '1'
 /** blocking 失败门清单(末尾汇总用)。 */
 const failedGates = []
+/** 跑不起来的门(崩溃指纹 ⇒ 未判定)。仍计入 failed(不放行),但**不进** failedGates,免得被当"判据判红"。 */
+const crashedGates = []
 
 /** 打印批量检查汇总。早退与跑完两条路径共用,避免两份实现漂移。 */
 function printSummary(useStderr) {
@@ -4391,13 +4414,34 @@ for (const check of effectiveChecks) {
   }
   const cmdArgs = [...check.args]
   if (passStaged) cmdArgs.push('--staged')
-  const cmd = `node scripts/${check.script}${cmdArgs.length > 0 ? ' ' + cmdArgs.join(' ') : ''}`
+  // (旧版这里拼一条 shell 字符串给 execSync;改 spawnSync 用 argv 数组后不再需要,
+  //  顺带去掉 shell 一层。复现命令由汇总段按 `node scripts/<script>` 现拼,不在此处留变量。)
 
   console.log(`[${check.id}] ${check.label}...`)
   const checkStart = Date.now()
 
+  // 2026-09-29:执行改走 spawnSync —— 唯一理由是**要读到子进程 stderr**(崩溃指纹只在那里)。
+  // execSync 在 stdio:'pipe' 下只回 stdout,成功门的 stderr 会被**吞掉**,那是比"分不清崩溃与判红"
+  // 更糟的回归(判据失效的表现永远是安静)。stdout 仍 'inherit' 实时输出,观感与逐门进度一字不变;
+  // 失败路径合成一个带 status/signal 的 Error,使下方 shouldPropagateAsInterrupt(G-611 的中断传播)
+  // 与所有旧分支的读法保持同形 —— 退出码语义不因这次改动而变化:崩溃仍然计失败,不静默放行。
+  const r = spawnSync(process.execPath, [`scripts/${check.script}`, ...cmdArgs], {
+    cwd: process.cwd(),
+    windowsHide: true,
+    stdio: ['ignore', 'inherit', 'pipe'],
+    maxBuffer: 20 * 1024 * 1024,
+    encoding: 'utf8',
+  })
+  const gateStderr = typeof r.stderr === 'string' ? r.stderr : ''
   try {
-    execSync(cmd, { stdio: 'inherit', cwd: process.cwd(), windowsHide: true })
+    if (gateStderr.length > 0) process.stderr.write(gateStderr)
+    if (r.error) throw r.error
+    if (r.status !== 0 || r.signal !== null) {
+      const err = new Error(`守门脚本以 exit ${String(r.status)} 退出`)
+      err.status = r.status ?? null
+      err.signal = r.signal ?? null
+      throw err
+    }
     passed++
     if (showTiming) {
       console.log(`  ${C.dim}⏱  ${Date.now() - checkStart}ms${C.reset}`)
@@ -4417,17 +4461,33 @@ for (const check of effectiveChecks) {
       )
       process.exit(TEMPFAIL_EXIT_CODE)
     }
-    // 2026-08-19 立:catch {} 同时覆盖三种情况 — 脚本 exit 1 / 脚本崩溃 / 脚本不存在
-    // stdio:inherit 已把 stderr/stdout 透传给上游,无需额外 silent-skip 检测。
-    // (执行 stdio:inherit 后,子进程任何 stdout/stderr 都会立即打印,
-    //  silent-skip 仅在 stdio:pipe 但未读 stdout 的场景才可能发生,本 runner 不存在该风险)
+    // 2026-08-19 立的这条注释已过时(原写"stdio:inherit 已把 stderr 透传,无需 silent-skip 检测"):
+    // 现在 stderr 是**管道进来的**,由上方 `process.stderr.write(gateStderr)` 负责原样吐回上游 ——
+    // 也就是说"子进程的话一定被打印"这件事仍然成立,但**保障它的是这段代码,不是 stdio 模式**。
+    // 谁再改 stdio 配置,必须同时回头看那一句 write,否则判据的输出会被静默吞掉(比误报更难查)。
     if (check.mode === 'blocking') {
       failed++
-      failedGates.push({ id: check.id, label: check.label, script: check.script })
-      if (check.onFailHint) {
-        console.log(check.onFailHint)
+      // 崩溃 ≠ 判红(纯函数与四条分支的构造面证明在 scripts/lib/gate-failure-kind.mjs)。
+      // 分流只改**说法与归类**,不改后果:仍然 failed、批量仍然非零退出 —— 把"跑不起来"洗成
+      // 通过,等于给一台瞎掉的尺子发合格证(本仓对"未判定"的一贯要求:大声、点名、不清偿不放行)。
+      const kind = decideGateOutcome({
+        status: e?.status ?? null,
+        signal: e?.signal ?? null,
+        stderr: gateStderr,
+      })
+      if (kind.kind === 'crash') {
+        crashedGates.push({ id: check.id, label: check.label, script: check.script, reason: kind.reason })
+        console.error(
+          `${C.yellow}⚠️ [${check.id}] ${check.label} ${kind.reason}${C.reset} —— 跑不起来(未判定),不是检查结论;` +
+            `提交仍被阻止,但**请勿把它读成"这道门发现了缺陷"**。先跑全量 pnpm install 再复跑本批。`,
+        )
+      } else {
+        failedGates.push({ id: check.id, label: check.label, script: check.script })
+        if (check.onFailHint) {
+          console.log(check.onFailHint)
+        }
+        console.error(`${C.red}❌ [${check.id}] ${check.label} 失败,提交已阻止${C.reset}`)
       }
-      console.error(`${C.red}❌ [${check.id}] ${check.label} 失败,提交已阻止${C.reset}`)
       // 默认继续跑完(见 failedGates 声明处注释);逃生舱才早退。
       if (stopOnFirst) {
         printSummary(true)
@@ -4454,6 +4514,15 @@ for (const check of effectiveChecks) {
 // === 汇总 ===
 
 printSummary(false)
+if (crashedGates.length > 0) {
+  console.error('')
+  console.error(
+    `${C.bold}${C.yellow}⚠️ ${crashedGates.length} 道门**跑不起来(未判定)**—— 与"判据判红"分开列,别按缺陷派单:${C.reset}`,
+  )
+  for (const g of crashedGates)
+    console.error(`   · [${g.id}] ${g.label} —— ${g.reason}(复现:node scripts/${g.script})`)
+  console.error(`   ${crashAdvisory(crashedGates.length)}`)
+}
 if (failedGates.length > 0) {
   console.error('')
   console.error(
