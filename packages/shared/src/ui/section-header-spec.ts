@@ -14,9 +14,19 @@
  *    (取证:两屏各有一处以自绘函数排「标题 + 更多」头部),与本表、与该组件都无引用关系。
  *    因此 RN 侧的区段头部目前**没有单一源**,把它接进本表要先改 9+ 屏的头部观感 —— 那属产品决策,
  *    未决前不得把本表读成"两端已共用"。
- *  - 小程序端两条渲染腿 = apps/miniapp-taro/src/components/SectionHeader.tsx(页面直连)
- *    与 apps/miniapp-taro/src/components/adapters/SectionHeader.taro.tsx(pkg-learn/pkg-shop 经适配层),
- *    两条腿同取本表 —— 只改一条就是"把某一条腿改成另一条腿的值却不收进共享源"。
+ *  - 小程序端**只有一条渲染腿** = apps/miniapp-taro/src/components/adapters/SectionHeader.taro.tsx
+ *    (pkg-learn / pkg-shop 经适配层)。2026-09-29 实测更正本段原文:它写的是"两条渲染腿 =
+ *    apps/miniapp-taro/src/components/SectionHeader.tsx(页面直连)与 …(经适配层),两条腿同取本表"。
+ *    前半句"同取本表"是真的(两份的 SECTION_HEADER_* 取值集合逐字相同),后半句"页面直连"已经不做:
+ *    那一份**没有任何消费者**,由两把互相独立的尺子各自量到 —— ① 按 import **绑定名**解析说明符的归因
+ *    (阳性对照同一把尺量到 LineIcon 119 个、ThemeRoot 153 个消费点,证明它看得见在役件);② 穷尽
+ *    `…/components/SectionHeader` 说明符的 git grep,默认导出形态也在内。`components/index.ts` 也没递它。
+ *    P2-F 接线把三个页面切到适配层之后,它就成了"引用同一张表、却不在任何屏上"的副本;而它与适配层
+ *    **并不等价** —— 适配层接 colorScheme 注入,它不接 ⇒ 谁按名字误接它,拿到的是一份静默脱主题的头部。
+ *    所以本枚把它删掉,并把这段改成实测口径:留着一句"两条腿"比少一个文件危险得多 —— 它会让人以为
+ *    改一条腿就算收口,而屏上其实只有一条。
+ *    (守门 99 对这枚删除判放行,但它的理由是"同名同后缀件仍在库",指的是 packages/app 那份 **RN 形态**件,
+ *    不是这条小程序腿的等价物 —— 那一格属该门 E2 的口径边界,不得当成本段的佐证引用。)
  *
  * 消费方式只能是子路径 `@ihui/shared/ui/section-header-spec`(禁挂根桶)。
  * spec 内只存逻辑 px;小程序端换算 `(px) => rpx(px * TARO_RPX_PER_PX)`,RN 端 1:1。
