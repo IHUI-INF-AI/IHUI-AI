@@ -3,6 +3,15 @@
     "notFound": "未找到 {target}"
   },
   "cli": {
+    "custom": {
+      "unknown": "未找到自定义命令 /{name}。在自定义命令目录 {dir} 下新建 {name}.md 即可添加(正文用 $ARGUMENTS 接收全部输入,或用 $1、$2 接收位置参数)。内置命令请用 /help 查看。",
+      "reserved": "自定义命令名 /{name} 与内置命令 /{owner} 冲突,已拒绝(内置命令永远优先)。请换一个名字。",
+      "invalidName": "自定义命令名 \"{name}\" 不合法:须以小写字母开头,仅可包含小写字母、数字、- 与 _。",
+      "emptyBody": "自定义命令 /{name} 的正文为空,没有可发送的内容。请在 {path} 写入正文。",
+      "unsupportedShell": "自定义命令 /{name} 使用了暂不支持的动态 shell 展开(! 反引号 或 ```! 代码块),已拒绝执行。请把需要的内容直接写进正文。",
+      "missingArgs": "自定义命令 /{name} 需要第 {required} 个参数,但本次只收到 {given} 个。请补全参数后重试,或把正文改为用 $ARGUMENTS 接收全部输入。",
+      "saved": "已保存自定义命令 /{name}:{path}"
+    },
     "permNoteDefault": "每一步都会请求确认(最保守)",
     "permNotePlan": "只读规划:不会改动你的文件,批准后才执行",
     "permNoteAcceptEdits": "文件编辑自动通过,命令与危险工具仍需确认",
