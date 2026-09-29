@@ -193,7 +193,7 @@
 .login-phone-row-focused {
   /* 聚焦态描边取墨档:亮纯黑 / 暗纯白(AGENTS §4 的唯一例外位,2026-09-30 定档)。
      旧写法取 brand-accent-deep 是把它当"静态描边"处理了 —— 静态仍禁墨档,聚焦态反过来要墨档。 */
-  border-color: var(--color-primary);
+  border-color: var(--color-primary); /* border-ink-exempt: 聚焦态描边取墨档是 AGENTS §4 唯一例外位(44a248fbf0 定档,非静态/非选中态) */
 }
 
 .login-phone-input {
