@@ -45,7 +45,7 @@ export async function getMessageDetail(id: string): Promise<ApiResult<MessageIte
   return fetchApi<MessageItem>(`/api/messages/${id}`)
 }
 
-/** 发送消�?*/
+/** 发送消息 */
 export async function sendMessage(input: {
   toUserId: string
   content: string
@@ -72,7 +72,7 @@ export async function deleteMessage(id: string): Promise<ApiResult<{ success: bo
   return fetchApi<{ success: boolean }>(`/api/messages/${id}`, { method: 'DELETE' })
 }
 
-// ===================== notification（通知�?=====================
+// ===================== notification（通知） =====================
 
 /** 获取通知列表 */
 export async function getNotifications(
@@ -86,19 +86,9 @@ export async function getNotificationDetail(id: string): Promise<ApiResult<Notif
   return fetchApi<NotificationItem>(`/api/notifications/${id}`)
 }
 
-/** 创建通知（管理员�?*/
-export async function createNotification(input: {
-  type: string
-  title: string
-  content: string
-  userIds?: string[]
-  link?: string
-}): Promise<ApiResult<NotificationItem>> {
-  return fetchApi<NotificationItem>('/api/notifications', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-}
+// 创建通知(管理员) —— 2026-09-28 门 8 死调用清账:删除。
+// POST /api/notifications 从未注册(后端通知由服务端事件产生,管理面在 /admin/notifications/*);
+// 本仓零消费方(命中的 createNotification* 是后端同名 db 函数与 createNotificationClient,均非本函数)。
 
 /** 标记通知已读 */
 export async function markNotificationRead(id: string): Promise<ApiResult<{ success: boolean }>> {
@@ -144,14 +134,9 @@ export async function getCustomerServiceSessionDetail(
   return fetchApi<CustomerServiceSession>(`/api/customer-service/tickets/${id}`)
 }
 
-/** 关闭客服会话 */
-export async function closeCustomerServiceSession(
-  id: string,
-): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/customer-service/tickets/${id}/close`, {
-    method: 'POST',
-  })
-}
+/** 关闭客服会话 —— 2026-09-28 门 8 死调用清账:删除。
+ * POST /api/customer-service/tickets/:id/close 从未注册(后端关单面是 admin 侧
+ * PUT /support/tickets/:id/status,admin-support-tickets.ts:106);本仓零消费方。 */
 
 /** 获取客服消息列表 */
 export async function getCustomerServiceMessages(
@@ -163,7 +148,7 @@ export async function getCustomerServiceMessages(
   )
 }
 
-/** 发送客服消�?*/
+/** 发送客服消息 */
 export async function sendCustomerServiceMessage(input: {
   sessionId: string
   content: string
