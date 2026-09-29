@@ -35,10 +35,12 @@
  * 存量逐条点名报数;要连存量一起问责跑 --strict。
  *
  * 用法:node scripts/check-edu-arrears-single-source.mjs [--staged|--worktree|--json|--strict|--self-test|--files a b]
- * 接线现状:**尚未注册进提交链**(本枚只交门体与判据,注册由后续动作补,届时才能声明 skipEnv=
- * HUSKY_SKIP_EDU_ARREARS_SINGLE_SOURCE)。头注此处刻意不自称已接线 —— 守门 89 的 R1 判的正是
- * "声称已接 pre-commit 而权威点零命中",而"判据存在却无人调度"本身就是本仓最高频的失效形态。
- * 手动问责入口:pnpm check:edu-arrears(注册时一并补别名)。
+ * 接线现状:**已注册 guardian id 165**(blocking,`stagedTriggers=apps/api/src/`,
+ * 紧急跳过 `HUSKY_SKIP_EDU_ARREARS_SINGLE_SOURCE=1` —— 由 runner 分发,门体自身不读该 env)。
+ * 接线的正当性:真仓 HEAD 全量档现读 exit 0(存量站点全部已收进账目出口,
+ * 棘轮锚点=该文件 HEAD 自身存量,所以"存量非零"也不会被算成本次的红),
+ * 因此挂 blocking 不产生恒红面(AGENTS §12e 那条前置满足才接线)。
+ * 编号一律以 `scripts/guardian-runner.mjs` 现值为准,勿照本行派单。
  */
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
