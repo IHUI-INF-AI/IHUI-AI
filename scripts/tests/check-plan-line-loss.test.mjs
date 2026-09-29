@@ -149,11 +149,13 @@ test('端到端夹具的装车面:闭包必须覆盖相对 import,复制后的�
       closure.some((p) => p.endsWith('lib/face-reader.mjs')),
       `闭包实得 ${closure.join(' , ')} —— 内容面已走取材层,闭包不含它即说明判据又搬家了`,
     )
-    // G-722:编号形态判据从 live-doc-edit.mjs import ⇒ 闭包必须带上它(连同它自己的相对 import),
-    // 否则端到端夹具在 spawn 门的那一刻 ERR_MODULE_NOT_FOUND —— 那正是"14 例端到端红 5 例"的旧事故型。
+    // G-722 载体对账:编号形态判据的家 2026-09-29 从 `live-doc-edit.mjs` 搬进 `lib/plan-task-index.mjs`
+    // (生产侧与判据侧各写一份必然漂开)。断言跟着改址,防的东西没变:**判据搬家而闭包没跟上,
+    // 端到端夹具就会在 spawn 门的那一刻 ERR_MODULE_NOT_FOUND**(那正是"14 例端到端红 5 例"的旧事故型)。
+    // 断言的是"载体在闭包里"而不是"某个具体文件在",所以真搬家时这条会红着逼人改址,不会静默放行。
     assert.ok(
-      closure.includes('scripts/live-doc-edit.mjs'),
-      `闭包缺 scripts/live-doc-edit.mjs(实得 ${closure.join(' , ')})⇒ 编号形态判据的载体没搬进夹具`,
+      closure.some((p) => p.endsWith('lib/plan-task-index.mjs')),
+      `闭包实得 ${closure.join(' , ')} —— 编号形态判据的载体(lib/plan-task-index.mjs)没搬进夹具`,
     )
   } finally {
     rmScratch(dir)
@@ -666,9 +668,14 @@ const MAL_BASE = [
   '',
 ].join('\n')
 
-test('形状锁(G-722):编号形态判据只许 live-doc-edit 一份,门体内不得再抄第二份形态正则', () => {
+test('形状锁(G-722):编号形态判据只许 lib 那一份,门体内不得再抄第二份形态正则', () => {
   const s = readFileSync(join(REPO, SCRIPT_REL), 'utf8')
-  assert.match(s, /from '\.\/live-doc-edit\.mjs'/, '门必须从 live-doc-edit.mjs import 判据(票面指定的接法)')
+  // 判据的家 2026-09-29 从 live-doc-edit.mjs 搬到 lib/plan-task-index.mjs(生产侧与判据侧各写一份
+  // "什么算畸形"必然漂开,漂开的两个方向账面都是绿的)。这一支跟着改址 —— **不是放宽**:反向锁照旧,
+  // 只是"那一份"的位置变了;再加一条反向锁:不得从生产器转口 import(那条边造出 门→生产器→lib→门
+  // 的循环依赖,模块实例化期读自己的导出 ⇒ TDZ,实测把整个测试文件打挂)。
+  assert.match(s, /from '\.\/lib\/plan-task-index\.mjs'/, '门必须从 lib/plan-task-index.mjs import 判据(单一实现的家)')
+  assert.doesNotMatch(s, /from '\.\/live-doc-edit\.mjs'/, '不得从生产器转口 import 畸形判据(循环依赖)')
   assert.match(s, /newMalformed\(/, 'staged/worktree 档必须真调 newMalformed —— 只 import 不接线 = 没有这道维')
   assert.match(s, /findMalformedIds\(/, 'head 档的存量报名必须走 findMalformedIds,不得只报"无"')
   // 反向锁:共享判据的三个形状记号在门体内出现即说明抄了第二份(族名字符类量词 / 全角连字符 / 反向引用)
