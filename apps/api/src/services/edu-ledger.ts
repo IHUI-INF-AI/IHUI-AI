@@ -566,6 +566,79 @@ export async function voidPaymentRecord(
 }
 
 /**
+ * 唯一的「记一笔退费」入口(2026-09-29 抽口)。
+ *
+ * 为什么必须抽:退费登记此前是路由里**两个别名端点各写一遍** `insert(eduRefundRecord)`,
+ * 于是"归属解析 + 重算"这段账目逻辑要在两处保持同步 —— 而它一旦只做一半就是静默错账
+ * (实际发生过:早期版本只在带 paymentId 时重算,不带 paymentId 的退费退了钱却不减已缴额)。
+ * 结构与 `recordPayment` 对称:归属解析 → 落库 → 重算,一次做完,调用方拿不到"半成品"选项。
+ *
+ * 归属仍走**两级**、不猜:① 关联流水的 enrollment_id(确定信息);
+ * ② 无 paymentId 时仅当该 student×class 只有一条有效报名才认领(复用同一个纯函数)。
+ * 两级都不成立 ⇒ enrollmentId 为 null 并原样回传,由 `loadUnattributedPayments` 点名。
+ */
+export async function recordRefund(input: {
+  studentId: string
+  classId: string
+  amount: number
+  refundDate: string
+  reason: string
+  paymentId?: string | null
+  refundMethod?: string | null
+  operatorId?: string | null
+}): Promise<{
+  refund: { id: string; enrollmentId: string | null; amount: number; status: string }
+  enrollmentId: string | null
+  ledger: EnrollmentLedger | null
+}> {
+  let ownerEnrollmentId: string | null = null
+  if (input.paymentId) {
+    const [pay] = await db
+      .select({ enrollmentId: eduPaymentRecord.enrollmentId })
+      .from(eduPaymentRecord)
+      .where(
+        and(
+          eq(eduPaymentRecord.id, input.paymentId),
+          isNull(eduPaymentRecord.deletedAt),
+        ),
+      )
+      .limit(1)
+    ownerEnrollmentId = pay?.enrollmentId ?? null
+  }
+  if (!ownerEnrollmentId) {
+    const siblings = await db
+      .select({ id: eduEnrollment.id })
+      .from(eduEnrollment)
+      .where(
+        and(
+          eq(eduEnrollment.studentId, input.studentId),
+          eq(eduEnrollment.classId, input.classId),
+          isNull(eduEnrollment.deletedAt),
+        ),
+      )
+      .limit(2)
+    if (shouldAdoptUnattributed(siblings.length)) ownerEnrollmentId = siblings[0]?.id ?? null
+  }
+  const [row] = await db
+    .insert(eduRefundRecord)
+    .values({
+      studentId: input.studentId,
+      classId: input.classId,
+      paymentId: input.paymentId ?? null,
+      enrollmentId: ownerEnrollmentId,
+      amount: input.amount,
+      refundDate: input.refundDate,
+      refundMethod: input.refundMethod ?? null,
+      reason: input.reason,
+      operatorId: input.operatorId ?? null,
+    })
+    .returning()
+  if (!row) throw new Error(`退费写入未返回记录:学员 ${input.studentId}`)
+  const ledger = ownerEnrollmentId ? await recomputeEnrollment(ownerEnrollmentId) : null
+  return { refund: row, enrollmentId: ownerEnrollmentId, ledger }
+}
+
+/**
  * 退费落账(审批通过 / 驳回都走这里,由 status 决定要不要重算)。
  * 退费必须同时把关联流水的状态推离 'paid',否则它仍会被当已收计入。
  */
