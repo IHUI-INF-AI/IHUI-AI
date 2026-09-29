@@ -20026,7 +20026,7 @@
       "batchScanWaitingHintExternal": "일상적으로 쓰는 브라우저에서 열었습니다. 그곳에서 로그인을 완료하세요(아직 로그인 상태를 읽지 못했습니다)",
       "batchScanWaitingHintExternalOwn": "일상적으로 쓰는 브라우저에서 열었습니다. 로그인된 플랫폼은 자동 저장되고, 나머지는 한 번만 로그인하면 됩니다",
       "batchScanStart": "일괄 스캔 시작",
-      "batchScanWaitingHint": "오른쪽 내장 브라우저에서 해당 플랫폼의 QR 스캔/로그인을 완료해 주세요. 시간 초과(2분) 시 자동으로 건너뛰며, 수동으로 건너뛸 수도 있습니다",
+      "batchScanWaitingHint": "아래 QR 코드를 휴대폰으로 스캔하여 해당 플랫폼에 로그인해 주세요. 시간 초과(2분) 시 자동으로 건너뛰며, 수동으로 건너뛸 수도 있습니다",
       "batchScanLoading": "플랫폼 대기열 준비 중...",
       "batchScanSkip": "이 플랫폼 건너뛰기",
       "batchScanStop": "대기열 중지",
