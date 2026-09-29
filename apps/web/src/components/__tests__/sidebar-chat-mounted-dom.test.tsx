@@ -23,6 +23,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { TooltipProvider } from '@radix-ui/react-tooltip'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // 语言包真值(嵌套路径取词 + {count} 插值):不在测试里另抄一份文案表(§22c)。
@@ -36,14 +37,31 @@ const packPath = resolve(
 )
 const pack = JSON.parse(readFileSync(packPath, 'utf8')) as unknown as Record<string, unknown>
 
+// shared 包真值(D188 运行中徽标等跨端键;msg() 在 web 包未命中时回退到此包)
+const sharedPackPath = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../../../..',
+  'packages/i18n/messages/shared/zh-CN.json',
+)
+const sharedPack = JSON.parse(readFileSync(sharedPackPath, 'utf8')) as unknown as Record<
+  string,
+  unknown
+>
+const ACTIVITY_RUNNING = (sharedPack.taskStatus as { activityRunning: string }).activityRunning
+
 function msg(path: string, vars?: Record<string, number | string>): string {
-  let cur: unknown = pack
-  for (const s of path.split('.')) {
-    if (cur && typeof cur === 'object') cur = (cur as Record<string, unknown>)[s]
-    else return path
+  const resolveIn = (root: unknown): string | null => {
+    let cur: unknown = root
+    for (const s of path.split('.')) {
+      if (cur && typeof cur === 'object') cur = (cur as Record<string, unknown>)[s]
+      else return null
+    }
+    return typeof cur === 'string' ? cur : null
   }
-  if (typeof cur !== 'string') return path
-  return vars ? cur.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? '')) : cur
+  // web 包优先,shared 包回退(D188 运行中徽标等跨端键;两包都没有才回落键名)
+  const raw = resolveIn(pack) ?? resolveIn(sharedPack)
+  if (raw === null) return path
+  return vars ? raw.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? '')) : raw
 }
 
 const SEARCH_NAME = msg('chatSearchBar.searchAriaLabel')
@@ -88,6 +106,8 @@ const h = vi.hoisted(() => ({
   setConversationIdSpy: vi.fn(),
   successSpy: vi.fn(),
   errorSpy: vi.fn(),
+  // D188:chat store 可变状态面(mock 工厂把它同时挂到 h,测试可按用例改字段后 rerender)
+  chatState: null as Record<string, unknown> | null,
 }))
 
 vi.mock('next-intl', () => ({
@@ -127,8 +147,11 @@ vi.mock('@/stores/chat', () => {
   const state = {
     conversationId: null as string | null,
     pendingQuestion: null,
+    // D188:侧栏运行中徽标读这一键(mock 状态挂在 h.chatState,测试可变)
+    isStreaming: false,
     setConversationId: h.setConversationIdSpy,
   }
+  h.chatState = state
   const useChatStore = (sel: (s: typeof state) => unknown) => sel(state)
   Object.assign(useChatStore, { getState: () => state })
   return { useChatStore }
@@ -161,14 +184,21 @@ vi.mock('@/hooks/use-sidebar', () => ({
 }))
 
 import { SidebarChatHistory } from '../sidebar-chat-history'
+// D187/D190:真实 store(未读标记)+ mock 出口(翻页覆盖)
+import { useConversationUnreadMarkStore } from '@/stores/conversation-unread-mark'
+import { fetchApi } from '@/lib/api'
+import type { Mock } from 'vitest'
 
 function renderSidebar() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(
-    <QueryClientProvider client={client}>
-      <SidebarChatHistory collapsed={false} />
-    </QueryClientProvider>,
+  const view = render(
+    <TooltipProvider>
+      <QueryClientProvider client={client}>
+        <SidebarChatHistory collapsed={false} />
+      </QueryClientProvider>
+    </TooltipProvider>,
   )
+  return { view, client }
 }
 
 const checkbox = (id: string) =>
@@ -205,6 +235,12 @@ beforeEach(() => {
   h.setConversationIdSpy.mockReset()
   h.successSpy.mockReset()
   h.errorSpy.mockReset()
+  // D187/D188:每用例干净状态(未读标记集 + chat store 运行态)
+  if (h.chatState) {
+    h.chatState.conversationId = null
+    h.chatState.isStreaming = false
+  }
+  useConversationUnreadMarkStore.setState({ byUser: {} })
 })
 
 // 本仓 vitest 未开 globals ⇒ RTL 的自动 cleanup 不会挂上 afterEach,必须显式清
@@ -469,6 +505,132 @@ describe('判据 2:侧栏批量选择(进入 / 勾选 / 动作出口 / 退出 / 
 
     await waitFor(() => expect(h.errorSpy).toHaveBeenCalledWith('单次最多 100 个对话'))
     expect(h.successSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('D187/D188/D189/D190:侧栏补格四票(挂载级,语言包真值)', () => {
+  /** 翻页夹具:pageSize 固定 2,D190 用 total=40 造出"有下一页" */
+  const PAGE = (conversations: unknown[], total: number, page: number) => ({
+    success: true,
+    data: { conversations, total, page, pageSize: 2 },
+  })
+  /** D189:后端返回序中的置顶行(排在普通行 A 之后、普通行 B 之前) */
+  const PINNED_CONV = {
+    id: '44444444-4444-4444-8444-444444444444',
+    title: '置顶会话',
+    model: 'gpt-4o',
+    lastMessageAt: '',
+    messageCount: 1,
+    pinned: true,
+  }
+  const PINNED_TITLE = PINNED_CONV.title
+  const ALL_TITLES = [TITLE_A, TITLE_B, PINNED_TITLE]
+
+  /** 行序读取:按 li 的 DOM 顺序映射回会话标题(分组头是 div,不影响 li 顺序) */
+  const rowTitles = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll('ul li')).map((li) =>
+      ALL_TITLES.find((title) => (li.textContent ?? '').includes(title)),
+    )
+
+  /**
+   * 打开 Radix DropdownMenu:happy-dom 下 pointer 事件序列不可靠,
+   * 走键盘路径(Enter)—— Radix 触发器的正规 a11y 打开方式。
+   */
+  const openDropdown = (trigger: HTMLElement) => {
+    fireEvent.keyDown(trigger, { key: 'Enter' })
+    fireEvent.click(trigger)
+  }
+
+  it('D187:菜单「标记为未读」→ 成功 toast + 行内圆点;打开该会话即清除', async () => {
+    renderSidebar()
+    await screen.findByText(TITLE_A)
+
+    openDropdown(screen.getAllByTestId('conversation-more-menu')[0] as HTMLElement)
+    fireEvent.click(screen.getByTestId('conversation-mark-unread-action'))
+
+    await waitFor(() =>
+      expect(h.successSpy).toHaveBeenCalledWith(msg('chatHistory.markUnreadSuccess')),
+    )
+    const dot = screen.getByTestId('conversation-marked-unread')
+    expect(dot.getAttribute('aria-label')).toBe(msg('chatHistory.markUnreadSuccess'))
+    expect(dot.querySelector('span[aria-hidden]')).toBeTruthy()
+
+    // 打开会话 = 已读:圆点从 DOM 消失
+    fireEvent.click(screen.getByText(TITLE_A))
+    await waitFor(() => expect(screen.queryByTestId('conversation-marked-unread')).toBeNull())
+  })
+
+  it('D188:当前会话流式运行中 → 行内「执行中」徽标(shared 既有词汇);未运行不渲染', async () => {
+    if (h.chatState) {
+      h.chatState.conversationId = ID_A
+      h.chatState.isStreaming = true
+    }
+    const { view } = renderSidebar()
+    await screen.findByText(TITLE_A)
+
+    const badge = screen.getByTestId('attention-badge-running')
+    expect(badge.textContent).toContain(ACTIVITY_RUNNING)
+    expect(badge.getAttribute('aria-label')).toBe(ACTIVITY_RUNNING)
+    // 停止运行(mock 状态翻转 + rerender)→ 徽标消失
+    if (h.chatState) h.chatState.isStreaming = false
+    view.rerender(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <SidebarChatHistory collapsed={false} />
+      </QueryClientProvider>,
+    )
+    expect(screen.queryByTestId('attention-badge-running')).toBeNull()
+  })
+
+  it('D189:排序切换器 — 默认置顶优先把 pinned 行提顶;选「按时间」恢复后端返回序', async () => {
+    const fetchApiMock = fetchApi as unknown as Mock
+    // 后端返回序:[普通A, 置顶, 普通B](按 lastMessageAt desc 的真实后端序)
+    fetchApiMock.mockImplementationOnce(async () => PAGE([CONV_A, PINNED_CONV, CONV_B], 3, 1))
+    const { view } = renderSidebar()
+    const container = view.container
+    await screen.findByText(TITLE_A)
+
+    // 默认 = 置顶优先(既有行为):置顶行提到最前
+    expect(rowTitles(container)).toEqual([PINNED_TITLE, TITLE_A, TITLE_B])
+
+    openDropdown(screen.getByTestId('conversation-sort-toggle'))
+    fireEvent.click(screen.getByText(msg('chatHistory.sorting.byTime')))
+    expect(rowTitles(container)).toEqual([TITLE_A, PINNED_TITLE, TITLE_B])
+
+    // 切回「置顶优先」恢复既有排序
+    openDropdown(screen.getByTestId('conversation-sort-toggle'))
+    fireEvent.click(screen.getByText(msg('chatHistory.sorting.pinnedFirst')))
+    expect(rowTitles(container)).toEqual([PINNED_TITLE, TITLE_A, TITLE_B])
+  })
+
+  it('D190:翻页中显示「正在加载…」;翻页失败保留列表并出现「重试加载」,点重试恢复', async () => {
+    const fetchApiMock = fetchApi as unknown as Mock
+    // 首屏成功(total=40 ⇒ 有下一页);第二页先挂起后失败;重试成功
+    fetchApiMock.mockImplementationOnce(async () => PAGE([CONV_A], 40, 1))
+    let releaseSecondPage: (v: unknown) => void = () => {}
+    fetchApiMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseSecondPage = resolve
+        }),
+    )
+    const { view } = renderSidebar()
+    const container = view.container
+    await screen.findByText(TITLE_A)
+
+    // 滚动到底(happy-dom 布局面积为 0,条件恒真)触发翻页 → 加载中文案出现
+    fireEvent.scroll(container.querySelector('.thin-scroll') as HTMLElement)
+    expect(await screen.findByText(msg('chatHistory.loadingMore'))).toBeTruthy()
+
+    // 翻页失败:error 置位但 data 保留 → 列表不被整块替换,底部出重试入口
+    releaseSecondPage({ success: false, error: '翻页失败' })
+    await waitFor(() => expect(screen.getByTestId('conversation-load-more-retry')).toBeTruthy())
+    expect(screen.getByText(TITLE_A)).toBeTruthy()
+
+    // 点重试 → 第三次调用成功返回下一页(每页纯增量,flatMap 累积)→ 重试入口消失
+    fetchApiMock.mockImplementationOnce(async () => PAGE([CONV_B], 40, 2))
+    fireEvent.click(screen.getByTestId('conversation-load-more-retry'))
+    await screen.findByText(TITLE_B)
+    expect(screen.queryByTestId('conversation-load-more-retry')).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
