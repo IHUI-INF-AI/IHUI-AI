@@ -12,6 +12,17 @@ import { ExpandableNavItem } from './ExpandableNavItem'
 import type { NavItem, RegisterRef } from './types'
 
 /**
+ * 折叠动画时长(G-815942 立):档位与卸载延时是同一件事的两个投影,所以只许这一份定义 ——
+ * className 里的 `duration-200` 与 setTimeout 的毫秒数必须同值,改档位只改这两行。
+ * 为什么卸载要等满时长:`grid-rows-[0fr]` + 内层 `overflow-hidden` **只裁高度**,内容始终挂载,
+ * 于是键盘 Tab 会走进视觉上已经收起的链接(用户看不见焦点在哪)。上游同款技法
+ * (`packages/ui/src/workspace-grouped-tasks/group-item.tsx`)的口径是"收起动画跑完之后才卸载组内内容" ——
+ * 立刻卸载会把动画做没(内容瞬间消失),一直挂载就是本票的病灶,所以两条都不许。
+ */
+const COLLAPSE_DURATION_CLASS = 'duration-200'
+const COLLAPSE_UNMOUNT_DELAY_MS = 200
+
+/**
  * 顶级分组渲染器(2026-07-20 立):支持分组级别的展开/折叠。
  *
  * 业务诉求:AI教育 / 内容 / 交易 / 个人 / 管理 等次要分类默认折叠(只显示分组标题),
@@ -27,6 +38,9 @@ import type { NavItem, RegisterRef } from './types'
  *      · localStorage 持久化用户切换结果,跨会话保留偏好
  *  - SSR 安全:初始 open 固定 false(hydration 一致),真实状态由 useEffect 注入,
  *    避免与 ExpandableNavItem 同型的 hydration mismatch。
+ *  - 折叠的可访问性(G-815942):收起动画跑完(COLLAPSE_UNMOUNT_DELAY_MS)后组内 items 整体卸载,
+ *    键盘 Tab 因此不会走进已收起、看不见的链接;header 的 aria-controls 与内容容器的 id
+ *    由同一个 useId() 配对。展开时立刻渲染,不等动画。
  */
 interface NavGroupSectionProps {
   group: { label: string; items: NavItem[] }
@@ -93,6 +107,20 @@ const NavGroupSection = React.memo(function NavGroupSection({
   // - 持久化展开的非默认分组:mount 后一次 0fr→1fr 过渡,属于持久化状态恢复的正确行为
   // - 本 effect 只读不写,不复发 2026-07-20 的"mount 时写 localStorage 污染测试环境"问题
   const [open, setOpen] = React.useState(defaultOpen)
+
+  // 折叠后内容的挂载状态(G-815942):收起动画跑完才卸载,展开时立刻渲染。
+  // 首帧取 !open —— 与 SSR 首帧(固定 defaultOpen)同形,不产生 hydration mismatch;
+  // 卸载/回退时由 cleanup 清掉定时器,所以 StrictMode 双跑 effect 也不会提前卸载或泄漏。
+  const contentId = React.useId()
+  const [contentMounted, setContentMounted] = React.useState(() => !open)
+  React.useEffect(() => {
+    if (open) {
+      setContentMounted(true)
+      return undefined
+    }
+    const timer = window.setTimeout(() => setContentMounted(false), COLLAPSE_UNMOUNT_DELAY_MS)
+    return () => window.clearTimeout(timer)
+  }, [open])
 
   // mount 后同步 localStorage 持久化值(见上方注释)
   React.useEffect(() => {
@@ -178,6 +206,7 @@ const NavGroupSection = React.memo(function NavGroupSection({
         type="button"
         onClick={handleToggle}
         aria-expanded={open}
+        aria-controls={contentId}
         aria-label={groupLabel}
         data-testid={`nav-group-${group.label}-toggle`}
         className="group/grp flex w-full items-center gap-1.5 px-2.5 pb-1.5 pt-1.5 text-sm font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
@@ -197,7 +226,8 @@ const NavGroupSection = React.memo(function NavGroupSection({
         )}
         <ChevronDown
           className={cn(
-            'ml-auto h-4 w-4 shrink-0 transition-transform duration-200',
+            'ml-auto h-4 w-4 shrink-0 transition-transform',
+            COLLAPSE_DURATION_CLASS,
             !open && '-rotate-90',
           )}
           aria-hidden="true"
@@ -211,15 +241,23 @@ const NavGroupSection = React.memo(function NavGroupSection({
         实现:外层 grid 容器过渡 rows,内层 overflow-hidden 裁剪 0fr 时的内容。
         折叠态(grid-rows-[0fr]):内容高度 0,被 overflow-hidden 裁剪不可见。
         展开态(grid-rows-[1fr]):内容高度自适应,可见。
+        G-815942 补:裁剪只解决"看不见",不解决"摸得着" —— 收起动画跑完后内容整体卸载,
+        于是组内链接撤出 Tab 序;卸载后不留 visibility/opacity 假隐藏(那只是把问题藏起来)。
+        header 与本容器由同一个 useId 配对(aria-controls ↔ id),屏幕阅读器能跟着折叠状态走。
       */}
       <div
+        id={contentId}
         className={cn(
-          'grid transition-[grid-template-rows] duration-200 ease-out',
+          'grid transition-[grid-template-rows]',
+          COLLAPSE_DURATION_CLASS,
+          'ease-out',
           open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
         )}
       >
         <div className="overflow-hidden">
-          <div className="flex flex-col gap-0.5">{group.items.map(renderItem)}</div>
+          {contentMounted ? (
+            <div className="flex flex-col gap-0.5">{group.items.map(renderItem)}</div>
+          ) : null}
         </div>
       </div>
     </div>
