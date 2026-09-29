@@ -125,7 +125,12 @@ export function AgentScreen({
 
   return (
     <View style={styles.container}>
-      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
+      <BackChevron
+        onPress={onBack}
+        label={t('common.back')}
+        colorScheme={colorScheme}
+        style={styles.backBtn}
+      />
       <Text style={styles.title}>{t('agentScreen.title')}</Text>
       <FlatList
         data={items}
