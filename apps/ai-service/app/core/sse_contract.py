@@ -267,6 +267,10 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     #   "还没有规则覆盖"不算被拦 —— 那是这条审批本身要问的事,写成被拦就是把一个
     #   决策偷装成事实陈述。
     # 三个字段在 ``IHUI_APPROVAL_ENV_REPORT=0`` 时**整块不发**(回退形态 = 本票落地前)。
+    # D159(2026-09-30 立)追加的三个字段是**同一帧**的新载荷字段,不新建事件名:
+    # 与 TS 侧 packages/shared/src/sse/contract.ts 的 tool-approval 分支逐字同形
+    # (两份清单由 scripts/check-agent-event-parity.mjs 对账)。生产侧组装只有一份
+    # 实现:`app/services/network_approval.py::approval_env_payload`。
     SSEEventContract(
         "tool-approval",
         (

@@ -15,6 +15,7 @@ import {
 } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 import './index.css'
 
 const PRESET_AMOUNTS = [10, 50, 100, 500, 1000]
@@ -259,7 +260,13 @@ export default function RechargePage() {
             <View className="rc-method-icon rc-method-icon--wx">{tt('pay.wechat', '微')}</View>
             <Text className="rc-method-name">{tt('wallet.recharge.methodWechat', '微信支付')}</Text>
             <View className={`rc-radio ${payMethod === 'wechat' ? 'rc-radio--on' : ''}`}>
-              {payMethod === 'wechat' && <Text className="rc-radio-mark">✓</Text>}
+              {/* 勾选位:原勾字符 → LineIcon。取值即该字符实际渲染档位 ——
+                  index.css 的 .rc-radio-mark 记 font-size 24rpx / color
+                  var(--color-cta-foreground);该规则只剩排版属性已随之删除,故类名不再挂
+                  (挂在 mask 载体上既不染色也不定尺寸)。居中由父级 .rc-radio 的 flex 负责。 */}
+              {payMethod === 'wechat' && (
+                <LineIcon name="check" size={24} color="var(--color-cta-foreground)" />
+              )}
             </View>
           </View>
           <View
@@ -270,7 +277,10 @@ export default function RechargePage() {
             <View className="rc-method-icon rc-method-icon--ali">{tt('pay.alipay', '支')}</View>
             <Text className="rc-method-name">{tt('wallet.recharge.methodAlipay', '支付宝')}</Text>
             <View className={`rc-radio ${payMethod === 'alipay' ? 'rc-radio--on' : ''}`}>
-              {payMethod === 'alipay' && <Text className="rc-radio-mark">✓</Text>}
+              {/* 勾选位:取值同微信支付方式那一处(.rc-radio-mark 的两个使用者同档) */}
+              {payMethod === 'alipay' && (
+                <LineIcon name="check" size={24} color="var(--color-cta-foreground)" />
+              )}
             </View>
           </View>
         </View>

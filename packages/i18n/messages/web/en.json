@@ -8187,6 +8187,10 @@
           "title": "Request timed out",
           "action": "Retry"
         },
+        "DELETE_FAILED": {
+          "title": "File deletion failed",
+          "action": "Release the file lock and retry"
+        },
         "DEP_MISSING": {
           "title": "A dependency is missing",
           "action": "Install it and retry"
@@ -8474,6 +8478,10 @@
         "SENSITIVE_FILE_BLOCKED": {
           "title": "This action was blocked by a security policy",
           "action": "Adjust and retry"
+        },
+        "SNAPSHOT_UNREADABLE": {
+          "title": "Snapshot content unreadable",
+          "action": "Pick another version or skip the rollback"
         },
         "SSRF_BLOCKED": {
           "title": "This address is not allowed",

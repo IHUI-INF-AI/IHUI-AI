@@ -127,6 +127,10 @@ export const MODEL_LIST_AGENT_GLYPH_PX = 20
  */
 export const MODEL_LIST_CHECK_GLYPH_PX = 12
 
+/** 勾选底盒边长(px)。两端同一个圆:半径一律取本档的一半(几何表达式,不写死数字、不取档位)。
+ *  立因:此前 RN 写 20、小程序写 32rpx(=16px),同一元素两端差 4px。 */
+export const MODEL_LIST_CHECK_BOX_PX = 20
+
 /**
  * 「排名第一 / NEW」文字徽章容器内衬(横向 5 / 纵向 1,逻辑 px)与左间距 6、字号 9。
  * 取值依据(2026-09-27 收口票):四档此前全部住在 RN `styles.rankBadge/newBadge*` 里当端内数,
