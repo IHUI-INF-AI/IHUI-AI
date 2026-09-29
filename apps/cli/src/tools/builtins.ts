@@ -25,9 +25,10 @@ import {
   getTaskOutput,
   waitForTask,
   killTask,
-  formatTruncatedNote,
+  formatSettledTaskNotification,
 } from './background-registry.js';
 import type { Tool, ToolContext, ToolResult } from './index.js';
+import { mapTerminalState, ABORTED_BEFORE_COMPLETION_NOTE } from './failure-classification.js';
 import { todo_write } from './todo-write.js';
 import { ask_user_question } from './ask-user.js';
 import { gateCommandExecution, describeCommandBlock } from './command-safety.js';
@@ -700,18 +701,87 @@ export function isAutoBackgroundEligible(command: string): boolean {
 /**
  * 前台结算:原 run_command 同步路径的 parts 拼装原样抽成一处,收编路径
  * (" race 输给了正常结束")与原路径共用,保证两条路对同一结果的输出逐字节同形。
+ *
+ * G-937951 接线:timedOut 的 SandboxResult 经 {@link mapTerminalState} 归档成
+ * `terminalState: 'timed_out'` + `interrupted: true`,并在模型面输出追加
+ * "完成前被中止"尾注 —— 强杀现场不得被读成干净终态。cancelled 档在我方
+ * 落在执行链边界(index.ts `execBudgetResult`),沙箱结果层没有 cancelled 形状。
  */
 function settleForegroundResult(result: SandboxResult): ToolResult {
+  const terminal = mapTerminalState({ timedOut: result.timedOut });
   const parts: string[] = [];
   if (result.stdout.trim()) parts.push(result.stdout.trimEnd());
   if (result.stderr.trim()) parts.push(`[stderr] ${result.stderr.trimEnd()}`);
-  if (result.timedOut) parts.push('[超时]');
+  if (result.timedOut) {
+    parts.push('[超时]');
+    parts.push(ABORTED_BEFORE_COMPLETION_NOTE);
+  }
   if (result.exitCode !== null && result.exitCode !== 0) parts.push(`[exit: ${result.exitCode}]`);
   return {
     success: result.exitCode === 0,
     output: parts.join('\n') || '(无输出)',
     error: result.exitCode !== 0 ? `退出码 ${result.exitCode}` : undefined,
+    ...(terminal
+      ? { terminalState: terminal.status, interrupted: terminal.interrupted }
+      : {}),
   };
+}
+
+// ==================== G-937954 gh rate limit 提示(命令形状 + 输出匹配 + per-context 冷却) ====================
+
+/** 二次提示的最短间隔:60s 内同一个 ctx 只提示一次(上游 GH_RATE_LIMIT_HINT_COOLDOWN_MS 同值)。 */
+const GH_RATE_LIMIT_HINT_COOLDOWN_MS = 60_000;
+
+/**
+ * 命令形状:要真发 GitHub API 的 gh 子命令才值得提示。排除不发 API 调用的本地档
+ * (auth/help/version/alias/completion/config)—— `gh auth status` 打的是认证端点,
+ * 撞到同串文案也该按别的病处置,不能被这条提示带偏。形状与上游
+ * `bash-gh-rate-limit.ts` 的 GH_COMMAND_RE 同形。
+ */
+export const GH_COMMAND_RE =
+  /(?:^|[;&|]|\b(?:then|do)\b)\s*gh\s+(?!auth\b|help\b|version\b|alias\b|completion\b|config\b)/;
+
+/** 输出匹配:主限流与次限流两种官方文案(+ GraphQL 的 RATE_LIMITED),大小写不敏感。 */
+export const GH_RATE_LIMIT_RE =
+  /API rate limit (?:already )?exceeded|exceeded a secondary rate limit|\bRATE_LIMITED\b/i;
+
+const GH_RATE_LIMIT_HINT =
+  '<system-reminder>GitHub API rate limit exceeded (5,000/hr shared across all tools and agents). ' +
+  'Run `gh api rate_limit --jq .resources` and wait until the reset window before further gh calls; ' +
+  'do not retry in a tight loop.</system-reminder>';
+
+/**
+ * 冷却账本:**WeakMap 按 ctx 记账**,刻意不做模块级可变标量 —— 模块级全局会让
+ * 多 runtime / 多会话互相压制冷却(上游否证过的形态:一个会话的提示把别家 60s 窗口
+ * 一起吃掉)。ctx 每会话一份(agent.ts setupAgentTools 构造一次并贯穿工具循环),
+ * 冷却天然 per-context;ctx 被回收后账本条目随 GC 走,无泄漏无清扫代码。
+ */
+const ghRateLimitHintCooldownAt = new WeakMap<object, number>();
+
+/**
+ * gh 限流提示的唯一出口(上游 `bash-gh-rate-limit.ts` `getGhRateLimitHint` 的机制等价版):
+ * 命中命令形状 + 输出文案 ⇒ 返回提示(调用方附加到模型面输出);同一 ctx 60s 冷却内二发不附。
+ * `export` 只为让回归测试引用同一份判据(与 clampForegroundTimeout 同一先例)。
+ */
+export function getGhRateLimitHint(command: string, output: string, ctx: object): string | undefined {
+  if (!GH_COMMAND_RE.test(command) || !GH_RATE_LIMIT_RE.test(output)) return undefined;
+  const now = Date.now();
+  if (now < (ghRateLimitHintCooldownAt.get(ctx) ?? 0)) return undefined;
+  ghRateLimitHintCooldownAt.set(ctx, now + GH_RATE_LIMIT_HINT_COOLDOWN_MS);
+  return GH_RATE_LIMIT_HINT;
+}
+
+/**
+ * 前台结算出口,两条前台路径(收编 race 输了 / 纯同步)共用的**唯一**收口:
+ * 终态映射(G-937951)在 settleForegroundResult 里,这里再叠 gh 限流提示(G-937954)
+ * —— 输出(stdout+stderr 都进匹配面,gh 的限流文案经常走 stderr)命中且不在
+ * 冷却窗 ⇒ 把 system-reminder 提示附加到模型面输出尾部。
+ * `export` 只为让回归测试引用同一份实现,不在测试里抄第二处拼装。
+ */
+export function settleForegroundCommand(result: SandboxResult, command: string, ctx: ToolContext): ToolResult {
+  const settled = settleForegroundResult(result);
+  const hint = getGhRateLimitHint(command, `${result.stdout}\n${result.stderr}`, ctx);
+  return hint ? { ...settled, output: `${settled.output}\n${hint}` } : settled;
 }
 
 export const run_command: Tool = {
@@ -832,11 +902,11 @@ export const run_command: Tool = {
         };
       }
       const result = await handle.result;
-      return settleForegroundResult(result);
+      return settleForegroundCommand(result, command, ctx);
     }
     const result = runSandboxed(command, sandboxOpts);
     runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut });
-    return settleForegroundResult(result);
+    return settleForegroundCommand(result, command, ctx);
   },
 };
 
@@ -892,9 +962,9 @@ export const get_command_output: Tool = {
     ];
     if (output.stdout.trim()) parts.push(`[stdout]\n${output.stdout.trimEnd()}`);
     if (output.stderr.trim()) parts.push(`[stderr]\n${output.stderr.trimEnd()}`);
-    // G-816028:截断必须回答"省略了多少 + 全量还在不在"(上游 ZCode workflow-artifact.ts:40-60
-    // 的"截断与计数两者都重要";我方无全量落盘,注记由 formatTruncatedNote 如实说明)。
-    if (output.truncated) parts.push(formatTruncatedNote(output));
+    // G-816028 + G-937959:截断注记已由 getTaskOutput 的视图感知投影嵌入内容头部
+    // (终态 `[NKB of earlier output omitted]` / 运行中"仅保留前 30k"),此处不再追加第二份注记
+    // —— 两份注记会说两个数,读侧无法对账。
     return {
       success: output.status !== 'error',
       output: parts.join('\n') || '(无输出)',
@@ -927,28 +997,44 @@ export const wait_command: Tool = {
     }
     const snap = result.snapshot;
 
-    const parts: string[] = [
+    // G-937959 视图感知:终态读**尾部**(结论/报错在末尾),未终态的观测读**头部**(含第 1 行)。
+    const settledView = result.state === 'settled';
+    const stdoutView = settledView ? snap.stdoutBuf : snap.stdoutHead;
+    const stderrView = settledView ? snap.stderrBuf : snap.stderrHead;
+
+    // G-937956:终态通知走注册表的顺序化截断组装 —— 状态事实(含结论限定语)是通知的头,
+    // stdout/stderr 是 result/error 正文(保住),120k 总预算由 formatSettledTaskNotification 统一执行。
+    const statusLines = [
       `任务 ${snap.id}  状态: ${snap.status}  exitCode: ${snap.exitCode ?? '-'}`,
     ];
-    if (snap.stdoutBuf.trim()) parts.push(`[stdout]\n${snap.stdoutBuf.trimEnd().slice(-2000)}`);
-    if (snap.stderrBuf.trim()) parts.push(`[stderr]\n${snap.stderrBuf.trimEnd().slice(-2000)}`);
-    if (snap.timedOut) parts.push('[任务超时]');
+    if (snap.timedOut) statusLines.push('[任务超时]');
     if (result.state === 'timed-out-unknown') {
-      // 如实说明"这一份是等待窗口用尽时的观测",而不是结论
-      parts.push(`[未等到终态] 本次等待 ${timeoutMs}ms 已用尽,上面是**该时刻的观测**而非最终结果;请再次调用 wait_command 或改用 get_command_output`);
+      // 如实说明"下面的输出是等待窗口用尽时的观测",而不是结论
+      statusLines.push(
+        `[未等到终态] 本次等待 ${timeoutMs}ms 已用尽,下面的输出是**该时刻的观测**而非最终结果;请再次调用 wait_command 或改用 get_command_output`,
+      );
+    } else if (result.state === 'still-running') {
+      statusLines.push(`[仍在运行] 未做等待(timeoutMs=${timeoutMs})`);
+    }
+    const output = formatSettledTaskNotification({
+      status: statusLines.join('\n'),
+      result: stdoutView.trim() ? `[stdout]\n${stdoutView.trimEnd()}` : undefined,
+      error: stderrView.trim() ? `[stderr]\n${stderrView.trimEnd()}` : undefined,
+    });
+
+    if (result.state === 'timed-out-unknown') {
       return {
         success: false,
-        output: parts.join('\n'),
+        output,
         error: `等待超时,任务终态未知(此刻状态: ${snap.status})`,
       };
     }
     if (result.state === 'still-running') {
-      parts.push(`[仍在运行] 未做等待(timeoutMs=${timeoutMs})`);
-      return { success: false, output: parts.join('\n'), error: `任务仍在运行(此刻状态: ${snap.status})` };
+      return { success: false, output, error: `任务仍在运行(此刻状态: ${snap.status})` };
     }
     return {
       success: snap.status === 'exited' && snap.exitCode === 0,
-      output: parts.join('\n'),
+      output,
       error: snap.status !== 'exited' ? `状态: ${snap.status}` : (snap.exitCode !== 0 ? `退出码 ${snap.exitCode}` : undefined),
     };
   },

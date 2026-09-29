@@ -214,88 +214,6 @@ function gitUsable() {
 }
 
 /**
- * 工作树视角是否可用 —— 与 gitUsable() **不是同一件事**,这一格此前无人看守。
- *
- * 实测事故(2026-09-28 18:29):`D:/IHUI-AI-git-repo/config` 的 `core.bare` 被翻成 `true`,
- * 于是守护自评 `pointerOk:true / gitdirOk:true / gitUsable:true / dirty:0`,而工作树里
- * **每一条** git 命令都报 `fatal: this operation must be run in a work tree` ——
- * 提交、钩子、落地器、推送门全部不可用,而账面全绿。`rev-parse HEAD` 在裸仓库下照样成功,
- * 所以"git 可用"从来推不出"这个仓库还能被工作树使用"。
- *
- * 为什么会带上裸档:§5b 的恢复是 `cpSync(BACKUP → GITDIR)`,而备份是整份 gitdir 副本 ——
- * 它自己的 `core.bare=true` 会随任何一次恢复**注回**活仓库。故本自愈同时归一两侧,
- * 只修活仓库等于留一颗定时炸弹。
- */
-function worktreeUsable() {
-  return git(['rev-parse', '--is-inside-work-tree'], true) === 'true'
-}
-
-/**
- * 核心健康判据 —— main 与 daemon **共用这一份实现**(两处各写必然漂移)。
- *
- * 漂移的实证:`core.bare=true` 时 `pointerOk / gitdirOk / gitUsable` **三条全绿**
- * (`rev-parse` 在裸档下照样成功),所以旧表达式把这一型判成"健康"、直接进健康分支早退,
- * `remediate()` 结构上到不了 —— 我先前落进 `remediate()` 的自愈**在提交链上生效次数为 0**,
- * 实测活仓库带裸档跑了数小时而守护每 2 分钟一趟、每趟都把其余 heal* 跑完再 return 0。
- * "函数在、判据对、调度路径不经过它"与本仓反复登记的「造好没装车」是同一型(守门 70/76/81)。
- */
-function coreHealthy(s) {
-  return Boolean(s.pointerOk && s.gitdirOk && s.gitUsable && s.worktreeUsable)
-}
-
-/** 用显式 `--git-dir` 读写某个 gitdir 的 core.bare(裸档下 `-C 工作树` 这条路是走不通的) */
-function readBareFlag(gitdir = GITDIR) {
-  const bin = resolveGitBin()
-  if (!bin) return null
-  try {
-    return execFileSync(bin, [...GIT_SAFE_ARGS, '--git-dir', gitdir, 'config', '--get', 'core.bare'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 60000,
-      windowsHide: true,
-    }).trim()
-  } catch {
-    return null
-  }
-}
-
-function writeBareFalse(gitdir = GITDIR) {
-  const bin = resolveGitBin()
-  if (!bin) return false
-  try {
-    execFileSync(bin, [...GIT_SAFE_ARGS, '--git-dir', gitdir, 'config', 'core.bare', 'false'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 60000,
-      windowsHide: true,
-    })
-    return readBareFlag(gitdir) === 'false'
-  } catch {
-    return false
-  }
-}
-
-/**
- * 把"活仓库 + 本地恢复源"两侧的 `core.bare` 一起归一为 false。
- * 恢复源不修:下一次 cpSync 恢复就把裸档注回来,同一故障必然复发。
- * `gitdir` / `backup` / `probeUsable` 仅供镜像测试在临时仓库上取证 —— 生产调用一律走默认值。
- */
-function healWorktreeBare({ gitdir = GITDIR, backup = BACKUP, probeUsable = worktreeUsable } = {}) {
-  const liveWas = readBareFlag(gitdir)
-  const backupWas = existsSync(join(backup, 'config')) ? readBareFlag(backup) : null
-  if (liveWas !== 'true' && backupWas !== 'true') return probeUsable()
-  const liveOk = writeBareFalse(gitdir)
-  const backupOk = backupWas === 'true' ? writeBareFalse(backup) : true
-  const usable = probeUsable()
-  log(
-    `${usable && liveOk && backupOk ? '修复' : '修复失败'}: core.bare 归一为 false ` +
-      `(活仓库 ${liveWas}→${readBareFlag(gitdir)},恢复源 ${backupWas}→${existsSync(join(backup, 'config')) ? readBareFlag(backup) : '无 config'})` +
-      ` | 工作树可用=${usable}`,
-  )
-  return usable && liveOk && backupOk
-}
-
-/**
  * 重建 `.git` 指针文件(原子写 + 回读校验)。
  * 安全护栏(2026-09-15):仅当 needsGitdirPointer()=true(separate-git-dir 形态)才执行。
  * 常规仓库的 `.git` 是真实目录,若误执行会删除整个 gitdir → 不可逆删库,故直接跳过。
@@ -1574,341 +1492,6 @@ function watchWatchdog() {
 }
 
 /**
- * 公网路径与换流窗口的**常驻**探测派发点(台账票 G-301;尺子本体 = `scripts/check-public-path-probe.mjs`)。
- *
- * 为什么挂在这里而不是新建计划任务:该机有明令"注册计划任务属影响全机的自动动作,须机主授权",
- * 而本守护已经是全部运维告警的派发点(每 2 分钟一趟、自身分层自愈、已升 S4U)。
- * 挂点语义与 healWorktreeTracked / watchWatchdog 同一条:**健康轮次的早退之前 + `!CHECK_ONLY`** ——
- * 挂进 CHECK_ONLY 分支等于永不执行(本文件已两次踩过,见上方注释)。
- *
- * 三条不可漂的写法:
- *  ① **节流而非封量**:两次真实探测之间隔 `PUBLIC_PROBE_INTERVAL_MS`(默认 30 分钟),
- *     这是"别每 2 分钟打一次公网"的**节奏**控制,**不是**每日封顶 —— §5e 写死了
- *     "第三方额度是别人的配额,自设上限等于把告警静默再复制一遍"。
- *  ② 告警一律经 `notifyGuardRed()`:按 alert 身份 + 内容指纹去重、失败写 UNDELIVERED 标记、
- *     **不在此文件自拼 SMTP/Resend**(守门 81 硬拦的就是这个)。
- *  ③ 判"未判定"与"没跑到"**不得静默**:尺子 exit 3 或 JSON 取不到时只写日志、不发信 ——
- *     发一封"我什么都没量到"的邮件是把噪音冒充成告警;但日志必须点名原因,不得沉默。
- */
-const PUBLIC_PROBE_TICK = join(WORKTREE, '.workbuddy', 'public-path-probe-tick.ts')
-const PUBLIC_PROBE_LAST = join(WORKTREE, '.workbuddy', 'public-path-probe-last.json')
-const PUBLIC_PROBE_INTERVAL_MS = Number(process.env.IHUI_PUBLIC_PROBE_INTERVAL_MS || 30 * 60 * 1000)
-/** 尺子最坏墙钟:90 次公网 × 上限 15s 的极端不可能全中,但一次守护不能被网络拖死 ⇒ 硬超时 */
-const PUBLIC_PROBE_TIMEOUT_MS = Number(process.env.IHUI_PUBLIC_PROBE_TIMEOUT_MS || 240_000)
-/**
- * 元运维巡检节流:尺子要开 PowerShell 问服务/任务/时钟,还要走一遍 Temp(4.8 万条目),
- * 2 分钟一轮太贵、每天一轮又兜不住"环停了 3 小时"这一型 ⇒ 15 分钟。
- * 两个执行体(2 分钟计划任务 + 常驻 daemon)**共用这一个戳**,谁先到谁干活。
- */
-const OPS_PATROL_TICK = join(WORKTREE, '.workbuddy', 'ops-patrol-tick.ts')
-const OPS_PATROL_INTERVAL_MS = Number(process.env.IHUI_OPS_PATROL_INTERVAL_MS || 15 * 60 * 1000)
-const OPS_PATROL_TIMEOUT_MS = Number(process.env.IHUI_OPS_PATROL_TIMEOUT_MS || 180_000)
-
-/** 节流判定(纯函数):距上次派发是否已够一个间隔。取不到 tick 文件 ⇒ 视为**该跑了**。 */
-export function publicProbeDue(nowMs, tickMs, intervalMs = PUBLIC_PROBE_INTERVAL_MS) {
-  if (!Number.isFinite(tickMs)) return true
-  return nowMs - tickMs >= intervalMs
-}
-
-/**
- * 元运维巡检的**常驻**派发点(尺子本体 = `scripts/check-ops-patrol.mjs`)。
- *
- * 为什么必须挂在这里:这把尺子判的是"某件事**没有发生**"(任务消失、规则没上岗、运行副本漂了、
- * 时钟 13 小时没同步、备份不产出、异地那条腿的同步客户端根本没开)。这类故障不产生任何一行错误日志,
- * 而它按设计**不能进提交链** —— 判据落在机器状态上,提交者结构上满足不了,挂 blocking 就是每台每次
- * 被逼 `--no-verify`、连带链上全部守门对该提交作废(§12e/§12f)。"留作手动问责"的实际含义是
- * **只有人在跑、没有班次在跑**,而本仓对这一型的名字就叫"造好没装车"。本守护是唯一的调度器。
- *
- * 2026-09-29 实录(本条目自身被这一型咬过,故把教训写在装它的函数头上):本派发点曾于
- * `2dfb456fce` 装好并实测发信成功,一小时内被并发提交 `a3ad07092f`(一枚"扫码死链修复")
- * **按旧基线整份写回** `git-guardian.mjs` 而抹掉(净删 1552 行)—— 尺子还在、判据还对、
- * 账面全绿,而它已经无人调度。镜像测试 T1/T2/T4 就是为抓住这一次而存在的。
- *
- * 三个执行体细节,漏一个都会变成"看起来在跑":
- * - 节流戳与 `--apply` **两个执行体共用**:谁先到谁干活,同窗口内另一个直接跳过;
- * - 红经 `notifyGuardRed` 走邮件,沿用"身份 + 内容指纹 4h 去重",无总量封顶;
- * - 未判定**只写日志不喊人**(与 auditPublicPathProbe 同规矩),但必须报名。
- */
-export function auditOpsPatrol(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = OPS_PATROL_INTERVAL_MS,
-    tickFile = OPS_PATROL_TICK,
-    logger = log,
-    notify = notifyGuardRed,
-    runner = null,
-  } = opts
-  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-ops-patrol.mjs')
-  if (!existsSync(script)) {
-    logger('ℹ️ 元运维巡检:尺子脚本不在位(scripts/check-ops-patrol.mjs)⇒ 本轮跳过,不记为已巡检')
-    return { ran: false, why: '尺子脚本不在位' }
-  }
-  let lastTick = NaN
-  try {
-    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
-  } catch {
-    /* 没跑过 */
-  }
-  if (Number.isFinite(lastTick) && now - lastTick < intervalMs) return { ran: false, why: '未到节流窗口' }
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
-    const call =
-      runner ||
-      (() => {
-        try {
-          const stdout = execFileSync(process.execPath, [script, '--json', '--apply'], {
-            cwd: WORKTREE,
-            windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
-            timeout: OPS_PATROL_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
-            maxBuffer: 1 << 22,
-            stdio: ['ignore', 'pipe', 'pipe'],
-            encoding: 'utf8',
-          })
-          return { status: 0, stdout: String(stdout || ''), stderr: '' }
-        } catch (e) {
-          return { status: typeof e.status === 'number' ? e.status : 2, stdout: String(e.stdout || ''), stderr: String(e.stderr || e.message || '') }
-        }
-      })
-    const r = call()
-    let parsed = null
-    try {
-      parsed = JSON.parse(String(r.stdout || ''))
-    } catch {
-      /* 落到下面的未判定分支 */
-    }
-    if (!parsed || !parsed.counts) {
-      logger(`⚠️ 元运维巡检未拿到可解析结论(rc=${r.status}):${(r.stderr || r.stdout || '(无输出)').split(/\r?\n/).slice(0, 2).join(' | ')}`)
-      return { ran: true, ok: false, why: '结论不可解析' }
-    }
-    const findings = parsed.findings || []
-    const undet = parsed.undetermined || []
-    if (undet.length) logger(`ℹ️ 元运维巡检:${undet.length} 格未判定(只登记不喊人)—— ${undet.map((x) => x.id).join(', ')}`)
-    if (findings.length) {
-      const body = findings.map((x) => `· ${x.id} ${x.detail}`).join('\n')
-      logger(`❌ 元运维巡检判红 ${findings.length} 格:\n${body}`)
-      notify(`元运维巡检红(${findings.length} 格)`, `${body}\n\n手动复现:node scripts/check-ops-patrol.mjs(只读) / --apply(顺手修可修的)`, {
-        severity: 'warning',
-      })
-    } else {
-      logger(`✅ 元运维巡检:${parsed.counts.ok} 格绿,无红(${undet.length} 格未判定)`)
-    }
-    return { ran: true, ok: true, findings: findings.length, undetermined: undet.length }
-  } catch (e) {
-    // 派发点自身异常不得改守护退出码(与 auditPublicPathProbe 同一条禁令):巡检失败不等于 .git 失败。
-    logger(`⚠️ 元运维巡检派发异常(忽略,不影响本轮自愈):${e?.message || e}`)
-    return { ran: true, ok: false, why: String(e?.message || e) }
-  }
-}
-
-export function auditPublicPathProbe(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = PUBLIC_PROBE_INTERVAL_MS,
-    tickFile = PUBLIC_PROBE_TICK,
-    lastFile = PUBLIC_PROBE_LAST,
-    logger = log,
-    notify = notifyGuardRed,
-    runner = null,
-  } = opts
-  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-public-path-probe.mjs')
-  if (!existsSync(script)) {
-    logger('ℹ️ 公网路径探测:尺子脚本不在位(scripts/check-public-path-probe.mjs)⇒ 本轮跳过,不记为已探测')
-    return { ran: false, why: '尺子脚本不在位' }
-  }
-  let lastTick = NaN
-  try {
-    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
-  } catch {
-    /* 没跑过 */
-  }
-  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
-    const call = runner || (() => {
-      try {
-        const out = execFileSync(process.execPath, [script, '--burst', '--sequence', 'both', '--json'], {
-          cwd: WORKTREE,
-          encoding: 'utf8',
-          windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
-          timeout: PUBLIC_PROBE_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
-          maxBuffer: 1 << 22,
-          stdio: ['ignore', 'pipe', 'pipe'],
-        })
-        return { status: 0, stdout: String(out || ''), stderr: '' }
-      } catch (e) {
-        return { status: typeof e.status === 'number' ? e.status : 2, stdout: String(e.stdout || ''), stderr: String(e.stderr || e.message || '') }
-      }
-    })()
-    const v = readProbeVerdict(call)
-    if (!v.parsed) {
-      // 只写日志不发信:没量到 ≠ 出事了(§5e 的"失败必须响"针对的是**投递失败**,不是"没跑")
-      logger(`⚠️ 公网路径探测未产出结论(未判定,不记为已探测):${v.why}`)
-      return { ran: true, judged: false, why: v.why }
-    }
-    const results = v.parsed.results && typeof v.parsed.results === 'object' ? v.parsed.results : {}
-    try {
-      mkdirSync(dirname(lastFile), { recursive: true })
-      writeFileSync(lastFile, JSON.stringify({ at: new Date(now).toISOString(), rc: v.parsed.rc, results }, null, 1), 'utf8')
-    } catch {
-      /* 状态件写不掉只影响 --status 的可见性,不影响告警本身 */
-    }
-    let breaches = 0
-    let unjudged = 0
-    for (const [key, r] of Object.entries(results)) {
-      const verdict = String(r?.verdict || '')
-      const reasons = Array.isArray(r?.reasons) ? r.reasons : []
-      if (verdict === 'breach') {
-        breaches += 1
-        // alert 身份**按序列+目标分开**:A(换流窗口)与 B(常态公网)是两个不同的故障,
-        // 合并成一个身份会让先响的那条把后响的那条压掉 —— 正是票面禁止的"互相掩盖"。
-        notify(`公网路径探测越阈值:${key}`, `${String(r?.numbers || '(无读数控)')}\n${reasons.join('\n')}\n\n尺子:scripts/check-public-path-probe.mjs 序列 ${key}(A=换流窗口 / B=常态公网)。取证回读:node scripts/check-public-path-probe.mjs --report .ihui-agent/tmp/probers/public-path-burst.jsonl`, { severity: 'warning' })
-      } else if (verdict === 'unjudged') {
-        unjudged += 1
-        logger(`ℹ️ 公网路径探测 ${key}:未判定 —— ${reasons.join(' | ') || '(无原因)'}`)
-      }
-    }
-    if (breaches === 0 && unjudged === 0) logger('✅ 公网路径探测:已判定且未越阈值(A/B 两条序列各自的结论见 .workbuddy/public-path-probe-last.json)')
-    return { ran: true, judged: true, breaches, unjudged }
-  } catch (e) {
-    logger('⚠️ 公网路径探测派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
-    return { ran: false, why: '派发异常' }
-  }
-}
-
-/**
- * 孤儿删除引用巡检的**常驻**派发点(尺子本体 = `scripts/check-orphan-deletion-refs.mjs`)。
- *
- * 为什么必须挂在这里而不是"留作手动问责":这把尺子判的是**此刻索引与 HEAD 的错位**
- * (HEAD 有该路径、索引与磁盘都没有、而树内仍有源码 import 它)—— 它按设计不能进提交链
- * (与某次提交内容无关的 blocking 红 = 每台每次被逼 --no-verify,§12e/§12f),而"手动问责入口"
- * 的实际含义是**只有人在跑、没有班次在跑**:2026-09-29 现读该尺子的五个权威接线点零命中,
- * 而同一型缺陷(HEAD 有 / 索引与磁盘都无 / 源码仍 import)当晚已两次炸构建。挂本守护是
- * 唯一不改提交链、又保证每 30 分钟必有一次现读的落点。
- * 挂点语义与 healWorktreeTracked / auditPublicPathProbe 同一条:**健康轮次的早退之前 + `!CHECK_ONLY`**。
- *
- * 三条不可漂的写法(照抄 auditPublicPathProbe):
- *  ① **节流而非封量**:两次真实巡检之间隔 `ORPHAN_AUDIT_INTERVAL_MS`(默认 30 分钟)是节奏控制,
- *     不是每日封顶 —— §5e 明令不得自设总量上限把"告警静默"再复制一遍。
- *  ② 告警一律经 `notifyGuardRed()`:按 alert 身份 + 内容指纹去重,不在本文件自拼 SMTP(守门 81)。
- *  ③ **判"未判定"不得静默也不得喊人**:尺子 rc=2 / JSON 取不到 ⇒ 只写日志并点名原因 ——
- *     发一封"我什么都没量到"的信是把噪音冒充成告警;但日志必须报名,不得沉默成"跑过了"。
- */
-const ORPHAN_AUDIT_TICK = join(WORKTREE, '.workbuddy', 'orphan-audit-tick.ts')
-const ORPHAN_AUDIT_INTERVAL_MS = Number(process.env.IHUI_ORPHAN_AUDIT_INTERVAL_MS || 30 * 60 * 1000)
-/** 尺子是纯只读 git 问答,正常 <1s;给 2 分钟硬上限只为"一次守护绝不被它拖死"(守门 80 同取向) */
-const ORPHAN_AUDIT_TIMEOUT_MS = Number(process.env.IHUI_ORPHAN_AUDIT_TIMEOUT_MS || 120_000)
-
-/** 节流判定(纯函数):距上次巡检是否已够一个间隔。取不到 tick 文件 ⇒ 视为**该跑了**。 */
-export function orphanAuditDue(nowMs, tickMs, intervalMs = ORPHAN_AUDIT_INTERVAL_MS) {
-  if (!Number.isFinite(tickMs)) return true
-  return nowMs - tickMs >= intervalMs
-}
-
-export function auditOrphanDeletionRefs(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = ORPHAN_AUDIT_INTERVAL_MS,
-    tickFile = ORPHAN_AUDIT_TICK,
-    logger = log,
-    notify = notifyGuardRed,
-    runner = null,
-  } = opts
-  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-orphan-deletion-refs.mjs')
-  if (!existsSync(script)) {
-    logger(
-      'ℹ️ 孤儿删除引用巡检:尺子脚本不在位(scripts/check-orphan-deletion-refs.mjs)⇒ 本轮跳过,不记为已巡检',
-    )
-    return { ran: false, why: '尺子脚本不在位' }
-  }
-  let lastTick = NaN
-  try {
-    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
-  } catch {
-    /* 没跑过 */
-  }
-  if (!orphanAuditDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
-    // 注意判序:`runner || (iife())` 那种写法在传入了假 runner 时会让 `call` **等于函数本身**
-    // (短路掉调用),而不是它的返回值 —— 本仓 auditPublicPathProbe 此刻就是这一型(无调用方所以未爆),
-    // 本函数按"显式注入优先调用"写,镜像测试才能在不派生真进程的前提下取到三态。
-    const call =
-      typeof runner === 'function'
-        ? runner()
-        : (() => {
-            try {
-              const out = execFileSync(process.execPath, [script, '--json'], {
-                cwd: WORKTREE,
-                encoding: 'utf8',
-                windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
-                timeout: ORPHAN_AUDIT_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
-                maxBuffer: 1 << 22,
-                stdio: ['ignore', 'pipe', 'pipe'],
-              })
-              return { status: 0, stdout: String(out || ''), stderr: '' }
-            } catch (e) {
-              return {
-                status: typeof e.status === 'number' ? e.status : 2,
-                stdout: String(e.stdout || ''),
-                stderr: String(e.stderr || e.message || ''),
-              }
-            }
-          })()
-    if (call.status === 2) {
-      logger(
-        `ℹ️ 孤儿删除引用巡检:未判定(尺子 rc=2,用法/环境错 —— ${String(call.stderr || '').slice(0, 120)})`,
-      )
-      return { ran: true, judged: false, why: '尺子 rc=2' }
-    }
-    let parsed = null
-    try {
-      parsed = JSON.parse(String(call.stdout || '').trim())
-    } catch {
-      parsed = null
-    }
-    if (!parsed || !Array.isArray(parsed.hits)) {
-      logger(
-        '⚠️ 孤儿删除引用巡检:输出取不到 JSON ⇒ 未判定,不记为已巡检(不得把"没解析出"写成"没有命中")',
-      )
-      return { ran: true, judged: false, why: 'JSON 取不到' }
-    }
-    const undet = Array.isArray(parsed.undetermined) ? parsed.undetermined : []
-    if (parsed.hits.length) {
-      const list = parsed.hits
-        .slice(0, 12)
-        .map(
-          (h) =>
-            `  · ${h && h.path ? h.path : '(无名)'} ← 仍被引用于 ${h && h.via ? h.via : '(出处未判定)'}`,
-        )
-        .join('\n')
-      const more =
-        parsed.hits.length > 12 ? `\n  …另有 ${parsed.hits.length - 12} 条,回读命令见下行` : ''
-      notify(
-        '孤儿删除引用巡检命中',
-        `HEAD 树里还有这些路径,而索引与磁盘都没有它们,且源码仍 import 它们 ⇒ 任何一次干净检出/CI 构建都会 Module not found。\n${list}${more}\n\n尺子:node scripts/check-orphan-deletion-refs.mjs(只读;修法是把该文件补回索引,或改掉那处引用 —— 二者由该路径的持有人定)`,
-        { severity: 'warning' },
-      )
-      logger(`❌ 孤儿删除引用巡检:命中 ${parsed.hits.length} 条(已派发到邮件通道)`)
-    } else if (undet.length) {
-      logger(
-        `ℹ️ 孤儿删除引用巡检:零命中,但有 ${undet.length} 条未判定 —— ${undet.slice(0, 3).join(' | ')}`,
-      )
-    } else {
-      logger('✅ 孤儿删除引用巡检:已判定且零命中')
-    }
-    return { ran: true, judged: true, hits: parsed.hits.length, undetermined: undet.length }
-  } catch (e) {
-    logger(
-      '⚠️ 孤儿删除引用巡检派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160),
-    )
-    return { ran: false, why: '派发异常' }
-  }
-}
-
-/**
  * 把本守护的计划任务确保为 S4U(幂等;已是 S4U 时脚本自己秒退)。
  * 为什么必须做:两个看门任务原先是 InteractiveToken ⇒ **无人登录时它们根本不跑**,
  * 于是 .git 存续守护与凭据告警会在"机器重启后没人登录"这段时间里同时静默 ——
@@ -1961,23 +1544,15 @@ function archiveGitdir(tag) {
  */
 function remediate(before) {
   if (!before.gitdirOk) {
-    const ok = !!(healFromBackup() || healFromRemote())
-    // 恢复源是整份 gitdir 副本 ⇒ cpSync 会把它自己的 core.bare 一起带回来,恢复后必须再归一一次
-    if (ok && !worktreeUsable()) return healWorktreeBare()
-    return ok
+    return !!(healFromBackup() || healFromRemote())
   }
   if (!before.pointerOk) healPointer()
   if (!gitUsable()) healEnv()
   if (!gitUsable()) healHead()
   if (!gitUsable()) {
     if (!archiveGitdir(Date.now())) return false
-    const ok = !!(healFromBackup() || healFromRemote())
-    if (ok && !worktreeUsable()) return healWorktreeBare()
-    return ok
+    return !!(healFromBackup() || healFromRemote())
   }
-  // git 可用 ≠ 工作树可用:core.bare=true 时 rev-parse 成功而每条工作树命令都失败;
-  // 放在恢复阶梯之后跑,任何一次 cpSync 恢复带回来的裸档都在这里被归一(活仓库 + 恢复源两侧)
-  if (!worktreeUsable()) healWorktreeBare()
   // git 可用 ≠ 健康:宿主会单独清理 depth>=2 的嵌套 ref 目录(见上文事故注释)
   if (!refsOk()) healRefs()
   return true
@@ -2049,9 +1624,6 @@ function status() {
     pointerOk: pointerOk(),
     gitdirOk: gitdirOk(),
     gitUsable: gitUsable(),
-    // 与 gitUsable 分开的第二把尺子:裸档(config.core.bare=true)下 rev-parse 照样成功,
-    // 而工作树里每条 git 命令都失败 —— 只看 gitUsable 会把"仓库不可用"报成"一切正常"。
-    worktreeUsable: worktreeUsable(),
     gitBin: GIT_BIN,
     gitVersion: GIT_VERSION,
     head: git(['rev-parse', '--short', 'HEAD'], true),
@@ -2074,9 +1646,7 @@ function anomalyLine(h) {
       ? ` | HEAD=${JSON.stringify(headContent().slice(0, 60))}`
       : ''
   const refsHint = h.refsOk === false ? ` | 缺失嵌套 ref ${(h.refsMissing || []).length} 个` : ''
-  // 单独点名"裸档"这一型:它让其余四项全绿,却是唯一让全队 git 命令失效的那一格
-  const bareHint = h.gitUsable && h.worktreeUsable === false ? ' | core.bare=true(工作树不可用)' : ''
-  return `⚠️ 检测到 .git 异常: pointer=${h.pointerOk} gitdir=${h.gitdirOk} git=${h.gitUsable} worktree=${h.worktreeUsable}${hint}${refsHint}${bareHint}`
+  return `⚠️ 检测到 .git 异常: pointer=${h.pointerOk} gitdir=${h.gitdirOk} git=${h.gitUsable}${hint}${refsHint}`
 }
 
 // —— 计划任务必须跑在非交互会话(2026-09-22 立「任务漂移自检」,2026-09-23 换 S4U 根治) ——
@@ -2175,40 +1745,6 @@ function taskActionOk() {
 }
 
 /**
- * 把"探针跑出了结论"与"探针没跑起来"分成三态,退出码**不参与**前者判定:
- *  ① stdout 是可解析对象 ⇒ 采用结论,哪怕 rc=1;
- *  ② stdout 为空 ⇒ 未判定,并点名 rc 与 stderr;
- *  ③ stdout 有内容但不是 JSON / 顶层不是对象 ⇒ 未判定,同样点名 rc。
- *
- * 为什么 rc=1 必须走①:探针轴①②判红时 `process.exit(1)`,而结论整份在 stdout 的 JSON 里。
- * 旧实现只有成功分支能拿到 stdout(execFileSync 在非零退出时抛异常),于是守护每每逢它说出
- * 最响的一条结论,就把整块扔掉、并往日志写"账不可用:未判定"。实测(2026-09-27 现读):
- * 便宜档 rc=1 + stdout 1530 B 合法 JSON,其中 `upstream.status='red'`/`behind=3` ——
- * "本地落后主线 3 个提交"这条信号被这台守护结构上看不见,而它正是值守最该先看的一维。
- * 失效方向照旧是"多写一行未判定",绝不是"顺手当它绿了"。
- */
-export function readProbeVerdict({ status, stdout, stderr } = {}) {
-  const text = String(stdout ?? '')
-  const rc = status ?? '?'
-  if (text.trim() === '') {
-    const errText = String(stderr ?? '')
-      .replace(/\s+/g, ' ')
-      .slice(0, 240)
-    return { parsed: null, why: `探针未产出 stdout(rc=${rc} stderr=${errText || '(空)'})` }
-  }
-  try {
-    const raw = JSON.parse(text)
-    if (raw && typeof raw === 'object' && !Array.isArray(raw)) return { parsed: raw, why: null }
-    return { parsed: null, why: `stdout 顶层不是对象(rc=${rc})` }
-  } catch (e) {
-    return {
-      parsed: null,
-      why: `输出不是 JSON(rc=${rc}):${String(e?.message ?? e).replace(/\s+/g, ' ').slice(0, 120)}`,
-    }
-  }
-}
-
-/**
  * 开工前基线新鲜度的**只报数**账(机制规格 MECHANISM-SPEC-2 §2 的守护侧挂点)。
  *
  * 三条刻意:
@@ -2236,37 +1772,18 @@ function reportBaselineFreshness() {
   const args = ['--json', '--no-fetch']
   if (!full) args.push('--skip-drift-analysis')
   let parsed = null
-  let why = null
-  {
-    let status = null
-    let stdout = ''
-    let stderr = ''
-    try {
-      stdout = String(
-        execFileSync(process.execPath, [script, ...args], {
-          cwd: WORKTREE,
-          encoding: 'utf8',
-          windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
-          timeout: 240000, // 守门 80:热路径派生一律带上限
-          stdio: ['ignore', 'pipe', 'pipe'],
-        }) ?? '',
-      )
-      status = 0
-    } catch (e) {
-      // 非零退出**不是**"探针坏了":判红就 exit 1。把 stdout/stderr/status 全部取回来交给
-      // readProbeVerdict 分三态,不得在此直接判定为未判定(成因见该函数头注与 §5e)。
-      status = typeof e?.status === 'number' ? e.status : null
-      stdout = String(e?.stdout ?? '')
-      stderr = String(e?.stderr ?? '')
-    }
-    const v = readProbeVerdict({ status, stdout, stderr })
-    parsed = v.parsed
-    why = v.why
-  }
-  if (!parsed) {
+  try {
+    const out = execFileSync(process.execPath, [script, ...args], {
+      cwd: WORKTREE,
+      encoding: 'utf8',
+      windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+      timeout: 240000, // 守门 80:热路径派生一律带上限
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    parsed = JSON.parse(String(out || ''))
+  } catch {
     // 判据自己跑不动 ≠ 基线过期;也 ≠ 可以静默。留一行,免得"账没了"和"账绿了"长得一样。
-    // 原因必须上账:stderr 曾被 stdio 第三项 'ignore' 整条丢掉,这条"未判定"连续两天无人能答为什么。
-    log(`⚠️ 基线新鲜度账不可用:未判定 —— ${why ?? '原因未取到'},不影响自愈与退出码`)
+    log('⚠️ 基线新鲜度账不可用:未判定,不影响自愈与退出码')
     return
   }
   if (full) {
@@ -2395,13 +1912,17 @@ function main() {
     registerTask()
   }
 
-  const coreOk = coreHealthy(before)
+  const coreOk = before.pointerOk && before.gitdirOk && before.gitUsable
   if (coreOk && before.refsOk) {
     // `.git` 与嵌套 ref 都健康 ≠ 工作区健康:宿主会成批删除工作区里的已跟踪文件
     // (实测同日三轮 137→27→1)。计划任务跑的是本单轮路径(startDaemon 未启用),
     // 健康轮次的早退之前是唯一能挂工作区自愈的位置 —— 不在此处就永远不执行。
     // --check 保持零副作用(CI 口径);真巡检才动手,且只在真恢复/发现他人删除时写日志。
     if (!CHECK_ONLY) healWorktreeTracked()
+    // 运行日志保留期回收(对标 ZCode logRetention)。刻意排在 healWorktreeTracked 之后、
+    // refreshRecoverySource / auditEnvDrift 之前:后面那两步各含一次增量 fetch 与 tsx 冷启,
+    // 实测一轮可占用几十秒 —— 清理挂在它们后面会被慢步骤饿掉(挂进 CHECK_ONLY 分支则永不执行)。
+    if (!CHECK_ONLY) rotateRunLogs()
     // 盘根封口同理:重启会清掉 junction,而第三方重建真目录只需要一次启动。
     if (!CHECK_ONLY) healRootSeal()
     // §26 家目录改道同理:改道树被清掉后工具会立刻在 C 盘重建实体目录,而门 96 是 blocking
@@ -2414,31 +1935,19 @@ function main() {
     if (!CHECK_ONLY) reportBaselineFreshness()
     // §5b 的"唯一空白层":恢复源刷新原本挂在计划任务上,而那个任务已实测消失 ⇒ 并入 tick。
     if (!CHECK_ONLY) refreshRecoverySource()
-    // 运行日志保留期回收(对标 ZCode logRetention):同一挂点语义 —— 挂进 CHECK_ONLY 分支等于永不执行。
-    if (!CHECK_ONLY) rotateRunLogs()
     // 受管 .env 的"键值被悄悄清空"巡检 + 到人(G-223 第三格):判机器状态,所以绝不进提交链;
     // 挂点与 heal*/refreshRecoverySource 同一分支 —— 挂进 CHECK_ONLY 早退路径等于永不执行。
     if (!CHECK_ONLY) auditEnvDrift()
     // 收敛器收尾对齐停摆喊人(票 O74):收敛器一次性进程只写状态,派发点在此(与
     // heal*/watchWatchdog 同一真正会执行的分支;挂进 CHECK_ONLY 早退分支等于永不执行)。
     if (!CHECK_ONLY) checkConvergeAlignStall()
-    // 元运维巡检(尺子 = scripts/check-ops-patrol.mjs):判"没发生"的那一族。它按设计不能进提交链
-    // (判机器状态 ⇒ 恒红 ⇒ 每台每次 --no-verify),而本行就是它唯一的调度器。
-    if (!CHECK_ONLY) auditOpsPatrol()
-    // 公网路径与换流窗口的常驻探测(票 G-301):两条序列互不顶账,节流 30 分钟,
-    // 判"未判定"只写日志不喊人;它不改本守护退出码 —— 探测失败不等于 .git 失败。
-    if (!CHECK_ONLY) auditPublicPathProbe()
-    // 不能进提交链,而"手动问责"等于只有人在跑 —— 本行是它唯一的调度器。挂进 CHECK_ONLY 分支等于永不执行。
-    if (!CHECK_ONLY) auditOrphanDeletionRefs()
-    // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 失效时它**自己不会喊**(故障形态是"安静",正是今天两天冻结的同类)。本守护每 2 分钟
     // 一趟且自身分层自愈,由它盯心跳最省。--check 仍零副作用。
     if (!CHECK_ONLY) watchWatchdog()
     // 幂等确保自身是 S4U(已是则内部秒退,不重建任务、不产生抖动)
     if (!CHECK_ONLY) ensureS4u()
-    if (CHECK_ONLY)
-      console.log('✅ .git 健康(pointer + gitdir + git 可用 + 工作树可用 + 嵌套 ref 完整)')
+    if (CHECK_ONLY) console.log('✅ .git 健康(pointer + gitdir + git 可用 + 嵌套 ref 完整)')
     return 0
   }
 
@@ -2456,8 +1965,7 @@ function main() {
   remediate(before)
 
   const after = status()
-  const ok =
-    after.pointerOk && after.gitdirOk && after.gitUsable && after.refsOk && after.worktreeUsable
+  const ok = after.pointerOk && after.gitdirOk && after.gitUsable && after.refsOk
   log(ok ? `✅ 自愈成功(HEAD=${after.head})` : '❌ 自愈失败,需人工介入')
   return ok ? 0 : 1
 }
@@ -2473,13 +1981,15 @@ function startDaemon() {
   const tick = () => {
     try {
       const h = status()
-      const coreOk = coreHealthy(h)
+      const coreOk = h.pointerOk && h.gitdirOk && h.gitUsable
       if (!coreOk) {
         log(anomalyLine(h))
         remediate(h)
         const a = status()
         log(
-          coreHealthy(a) && a.refsOk ? `✅ 自愈成功(HEAD=${a.head})` : '❌ 自愈失败,需人工介入',
+          a.pointerOk && a.gitdirOk && a.gitUsable && a.refsOk
+            ? `✅ 自愈成功(HEAD=${a.head})`
+            : '❌ 自愈失败,需人工介入',
         )
       } else if (!h.refsOk) {
         // 核心健康但嵌套 ref 被宿主清理(实测高频) → 离线重建, 不打扰人
@@ -2500,9 +2010,6 @@ function startDaemon() {
         // 收敛器收尾对齐停摆喊人(票 O74;与 main() 单轮路径同一挂点语义,notify 内部
         // 还有一层 CHECK_ONLY/去重保护,双执行体并存也不会翻倍发信)
         checkConvergeAlignStall()
-        // 元运维巡检:与 main() 单轮路径同一挂点语义,共用 .workbuddy/ops-patrol-tick.ts 节流戳
-        // ⇒ 双执行体并存时只有先到那一个真跑,不会翻倍发信。
-        auditOpsPatrol()
       }
     } catch (e) {
       log('巡检异常(忽略): ' + String(e.message || e))
@@ -2543,14 +2050,6 @@ export const __test__ = {
   auditEnvDrift,
   envDriftDetail,
   homeHealDue,
-  readProbeVerdict,
-  orphanAuditDue,
-  auditOrphanDeletionRefs,
-  // 裸档自愈(2026-09-28 立):测试在临时仓库上取证,不碰活仓库
-  readBareFlag,
-  writeBareFalse,
-  healWorktreeBare,
-  coreHealthy,
   NOTIFY_DEFAULT_WINDOW_MS,
   NOTIFY_DEFAULT_FAIL_COOLDOWN_MS,
 }
