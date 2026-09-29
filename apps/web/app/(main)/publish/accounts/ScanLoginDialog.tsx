@@ -126,8 +126,16 @@ export function ScanLoginDialog({
           setPlatforms(r.data.platforms)
           // 2026-09-15 fix:指定了平台时不得覆盖;函数式更新避免 stale closure
           // (此前闭包捕获 open 时的旧 platform='' 导致误覆盖为列表第一个平台=知乎)
+          // 2026-09-30 用户规则:默认选「今日头条(App扫码)」——微信网页码被头条
+          // need_bind_mobile 策略拦截(网页端身份未绑手机号),App 码才是全自动通道。
           if (!defaultPlatform) {
-            setPlatform((prev) => prev || r.data.platforms[0]?.platform || '')
+            setPlatform(
+              (prev) =>
+                prev ||
+                r.data.platforms.find((p) => p.platform === 'toutiao_app')?.platform ||
+                r.data.platforms[0]?.platform ||
+                '',
+            )
           }
         }
       } catch (e) {
@@ -297,6 +305,19 @@ export function ScanLoginDialog({
     setPlatform(sister)
     void handleStart(sister)
   }
+
+  // 2026-09-30:登录成功 2s 后自动关闭(用户要求)——"已自动保存"提示可见即走,不挡后续
+  // 操作。清理动作与下方成功态「关闭」按钮逐字一致;failed 态保持手动关闭(用户要读错误)。
+  React.useEffect(() => {
+    if (phase !== 'success') return
+    const timer = setTimeout(() => {
+      setPhase('idle')
+      setErrorMsg('')
+      taskIdRef.current = ''
+      onOpenChange(false)
+    }, 2000)
+    return () => clearTimeout(timer)
+  }, [phase, onOpenChange])
 
   /** 手动导入 cookies(2026-09-16):系统默认浏览器登录闭环的最后一步。 */
   async function handleImportCookies() {
