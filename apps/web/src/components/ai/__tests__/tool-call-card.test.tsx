@@ -47,6 +47,11 @@ vi.mock('next-intl', () => {
     toolMusicGeneration: '生成音乐',
     toolVoiceTts: '文字转语音',
     toolVideoGeneration: '生成视频',
+    // D134:两族结构化摘要标签。刻意**不**收 deleteRecursiveTag —— 它作为
+    // "词包缺 key"的夹具供缺语言回退用例使用(mock 的 ZH[key] ?? key 与
+    // next-intl 缺消息时回退键名的行为一致)。
+    commandSummaryLabel: '将执行的命令',
+    deleteSummaryLabel: '将删除的目标',
   }
   const translate = (key: string, params?: Record<string, number>) => {
     const template = ZH[key] ?? key
@@ -392,6 +397,93 @@ describe('ToolCallCard media rendering (music/video)', () => {
     fireEvent.click(rowOf('read_file'))
     expect(screen.queryByTestId('tool-media-audio')).toBeNull()
     expect(screen.queryByTestId('tool-media-video')).toBeNull()
+  })
+})
+
+/**
+ * D134(2026-09-29)两族结构化摘要守门测试:对话流保真④ —— 工具参数是 JSON 裸 dump,
+ * 不足以支撑当场批准,缺按副作用分类的结构化摘要。
+ *
+ * 两族判定依据(HEAD 面取证,与 tool-call-card.tsx 名单注释一致):
+ *   命令族 run_command(注册面 required ["command"],别名 execute_command / run_shell /
+ *   shell_command 为 llm.py 归一与 _TERMINAL_TOOL_NAMES 等价名)→ 摘要突出命令文本;
+ *   删除族 delete_file(llm.py 高危档 + _DELEGATE_ONLY_TOOLS;args 形状 {path, recursive})
+ *   → 摘要突出目标路径;其余工具回退 JSON 裸 dump(零回归)。
+ *
+ * 断言风格沿用本文件:getByTestId + toBe / toBeNull(仓内未引入 jest-dom)。
+ */
+describe('ToolCallCard effect summary (D134 两族结构化摘要)', () => {
+  afterEach(() => cleanup())
+
+  it('命令族 run_command:结构化摘要出现且含将执行的命令文本,JSON dump 保留为详情', () => {
+    render(
+      <ToolCallCard
+        toolName="run_command"
+        args={{ command: 'pytest tests/d134 -q', cwd: '.', timeout: 60 }}
+        status="running"
+      />,
+    )
+    fireEvent.click(rowOf('run_command'))
+    // 摘要块出现,命令文本逐字呈现(等宽块)
+    const block = screen.getByTestId('tool-call-command-summary')
+    expect(block).toBeTruthy()
+    expect(screen.getByTestId('tool-call-command-text').textContent).toBe('pytest tests/d134 -q')
+    // 本地化标签命中(词表键接线正确)
+    expect(screen.getByText('将执行的命令')).toBeTruthy()
+    // JSON 裸 dump 未被摘除:仍作为展开详情保留在其下方
+    const argsDump = screen.getByTestId('tool-call-args')
+    expect(argsDump.textContent).toContain('"command"')
+    expect(argsDump.textContent).toContain('pytest tests/d134 -q')
+  })
+
+  it('删除族 delete_file:结构化摘要出现且含目标路径', () => {
+    render(
+      <ToolCallCard
+        toolName="delete_file"
+        args={{ path: 'src/legacy/old.js' }}
+        status="success"
+      />,
+    )
+    fireEvent.click(rowOf('delete_file'))
+    const block = screen.getByTestId('tool-call-delete-summary')
+    expect(block).toBeTruthy()
+    expect(screen.getByTestId('tool-call-delete-path').textContent).toBe('src/legacy/old.js')
+    expect(screen.getByText('将删除的目标')).toBeTruthy()
+    // 未标 recursive 时不渲染递归徽章
+    expect(screen.queryByText('递归删除')).toBeNull()
+    // JSON dump 仍保留(展开详情)
+    expect(screen.getByTestId('tool-call-args').textContent).toContain('src/legacy/old.js')
+  })
+
+  it('非两族 read_file:不渲染结构化摘要,仍走 JSON 裸 dump 现状(零回归)', () => {
+    render(<ToolCallCard toolName="read_file" args={{ path: '/tmp/notes.txt' }} status="success" />)
+    fireEvent.click(rowOf('read_file'))
+    expect(screen.queryByTestId('tool-call-command-summary')).toBeNull()
+    expect(screen.queryByTestId('tool-call-delete-summary')).toBeNull()
+    expect(screen.queryByTestId('tool-call-command-text')).toBeNull()
+    expect(screen.queryByTestId('tool-call-delete-path')).toBeNull()
+    // JSON 现状不变
+    const argsDump = screen.getByTestId('tool-call-args')
+    expect(argsDump.textContent).toContain('"path"')
+    expect(argsDump.textContent).toContain('/tmp/notes.txt')
+  })
+
+  it('缺语言回退不崩:词包缺 deleteRecursiveTag 时回退键名,摘要主体照常渲染', () => {
+    // 测试词表刻意缺 deleteRecursiveTag(mock 的 ZH[key] ?? key 镜像 next-intl
+    // 缺消息回退键名的行为):递归徽章以键名原样落界面,卡片不抛错、路径照常呈现
+    render(
+      <ToolCallCard
+        toolName="delete_file"
+        args={{ path: 'tmp/logs/archive', recursive: true }}
+        status="running"
+      />,
+    )
+    fireEvent.click(rowOf('delete_file'))
+    // 回退键名原样渲染(即"缺语言"形态),组件未崩
+    expect(screen.getByText('deleteRecursiveTag')).toBeTruthy()
+    // 摘要主体不受缺 key 影响
+    expect(screen.getByTestId('tool-call-delete-path').textContent).toBe('tmp/logs/archive')
+    expect(screen.getByText('将删除的目标')).toBeTruthy()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
