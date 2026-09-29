@@ -16622,7 +16622,8 @@
         "step4": "使うモデルを追加",
         "step5": "呼び出し時は自動的にあなたの Key が優先されます",
         "gotIt": "了解"
-      }
+      },
+      "health": { "degraded": "低下", "down": "利用不可", "healthy": "正常", "unknown": "不明" }
     }
   },
   "market": {
@@ -20037,7 +20038,6 @@
       "batchScanWaitingHintExternal": "お使いのブラウザで開きました。そこでログインを完了してください(まだログイン状態を読み取れていません)",
       "batchScanWaitingHintExternalOwn": "お使いのブラウザで開きました。ログイン済みは自動保存、未ログインは一度ログインするだけです",
       "batchScanStart": "一括スキャン開始",
-      "batchScanWaitingHint": "下の QR コードをスマホでスキャンして該プラットフォームにログインしてください。2 分でタイムアウト自動スキップします(手動スキップも可能)。",
       "batchScanLoading": "プラットフォームキューを準備中...",
       "batchScanSkip": "このプラットフォームをスキップ",
       "batchScanStop": "キューを停止",
@@ -20055,7 +20055,8 @@
       "batchScanStoppedToast": "スキャンログインキューを停止しました",
       "batchScanPopupBlocked": "ブラウザが新しいタブをブロックしました。アドレスバー右側のアイコンからこのサイトのポップアップを許可して再開してください(または内蔵ブラウザモードをご利用ください)。",
       "batchScanPopupBlockedToast": "新しいタブがブロックされたためキューを停止しました。ポップアップを許可して再試行してください",
-      "batchScanWindowClosedToast": "ブラウザウィンドウが閉じられたため、キューを停止しました"
+      "batchScanWindowClosedToast": "ブラウザウィンドウが閉じられたため、キューを停止しました",
+      "batchScanWaitingHint": "下の QR コードをスマホでスキャンして該プラットフォームにログインしてください。2 分でタイムアウト自動スキップします(手動スキップも可能)。"
     },
     "ai": {
       "analyzeAll": "一括分析",
@@ -26574,7 +26575,17 @@
     "actionDelete": "削除",
     "confirmDelete": "削除を確認",
     "confirmDeleteContent": "この紐付けを解除しますか？この操作は元に戻せません。",
-    "cancel": "キャンセル"
+    "cancel": "キャンセル",
+    "subTabBills": "納付",
+    "loadingBills": "納付明細を読み込んでいます…",
+    "billsLoadFailed": "納付明細の読み込みに失敗しました",
+    "noBills": "納付明細はありません",
+    "arrearsLabel": "未払い",
+    "allPaid": "納付済み",
+    "ledgerNotReady": "帳票の準備ができません",
+    "totalFeeLabel": "納付予定合計",
+    "paidLabel": "納付済み合計",
+    "overdueLabel": "期限超過"
   },
   "eduSchedule": {
     "title": "時間割管理",
