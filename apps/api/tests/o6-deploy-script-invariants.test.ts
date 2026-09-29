@@ -111,14 +111,44 @@ describe('O6 部署脚本静态判据(deploy/win/ihui-deploy.ps1)', () => {
     assert.ok(!/12h\s*内已推过/.test(src), '旧的"12h 内已推过,跳过"文案仍在,说明又回到固定静音')
     // 存在"小时级重发周期"常量,且值是 4(不是按天/按 12 小时)
     assert.match(src, /^\$FailAlertRepeatHours\s*=\s*4\s*$/m, '缺少 4 小时级别的重发周期常量')
+    // ⚠️ 锚点 2026-09-29 跟着脚本改形:判龄比较被抽进了共享出口 `deploy/win/alert-dedup.ps1`
+    // 的 `Test-AlertDueByIdentity`(参数名 `-RepeatHours`),所以"比较式在 Invoke-FailNotify 体内"
+    // 这个旧形状**已经不存在**,而行为一条没少。只认调用侧传参 = 传了也可能白传,
+    // 因此这里把两端都钉住:调用侧必须把常量交出去 **+** 共享出口必须真的拿它去比。
+    // 任一侧被改回"固定静音窗口",两条里必有一条红 —— 这比旧的一条断言更严,不是放宽。
     assert.match(
       body,
-      /-lt\s+\$FailAlertRepeatHours/,
-      '同签名判定未使用重发周期常量(等于没有到点重发)',
+      /(?:-lt\s+\$FailAlertRepeatHours|-RepeatHours\s+\$FailAlertRepeatHours)/,
+      '同签名判定未把重发周期常量交给判据(等于没有到点重发)',
     )
-    // 签名变化必须绕过去重直接发:去重条件里必须比对签名
-    assert.match(body, /\$state\.sig\s*-eq\s+\$sig/, '去重未比对签名 ⇒ 换了新故障也会被静音')
-    assert.match(body, /repeatNo/, '未记录重发序号 ⇒ 正文无法说明"故障还在发生"')
+    const dedupSrc = readFileSync(resolve(REPO_ROOT, 'deploy/win/alert-dedup.ps1'), 'utf8')
+    assert.match(
+      dedupSrc,
+      /\[Parameter\(Mandatory\s*=\s*\$true\)\]\[double\]\$RepeatHours/,
+      '共享去重出口不再收重发周期参数 ⇒ 调用侧传了也没用',
+    )
+    assert.match(
+      dedupSrc,
+      /\$ageH\s*-lt\s+\$RepeatHours/,
+      '共享去重出口没有用重发周期去比龄 ⇒ 回退成固定静音窗口(本条要防的原始缺陷)',
+    )
+    // 签名变化必须绕过去重直接发:去重条件里必须比对签名。
+    // 同上一条的改形:比对已从调用点的 `$state.sig -eq $sig` 变成共享出口里的**按签名分槽**
+    // (`Get-AlertDedupKey -Sig` ⇒ `$map.ContainsKey($key)`),所以两条都要钉:调用侧交出签名、
+    // 出口侧真的按签名取槽 —— 只钉一条就会让"传了签名但整表当一个槽用"那种回潮溜过去。
+    assert.match(body, /-Sig\s+\$sig/, 'Invoke-FailNotify 没把签名交给去重出口')
+    assert.match(dedupSrc, /Get-AlertDedupKey\s+-Sig\s+\$Sig/, '去重出口不再按签名算键')
+    // 压住也要查得清:被去重那条必须给出 window-hit 决策与"压住的是哪件事"(身份 + 摘要)。
+    // 否则"这段时间压住了几件不同故障"从日志结构上判不出 —— 本仓被这条咬过一次:一次 2h39m 的
+    // 生产崩溃循环被一条"这是预期现象"的无限期抑制掩成没人收信(抑制必须有理由、有终态)。
+    assert.match(dedupSrc, /Decision\s*=\s*'window-hit'/, '去重不再区分"压住"与其他 ⇒ 掩盖量不到')
+    assert.match(dedupSrc, /本轮跳过 \| 身份=\$key/, '被压住的告警不点名身份 ⇒ 抑制变成静默')
+    assert.match(
+      dedupSrc,
+      /\$map\.ContainsKey\(\$key\)/,
+      '去重不再按签名分槽 ⇒ 换了新故障也会被静音',
+    )
+    assert.match(dedupSrc, /repeatNo/, '未记录重发序号 ⇒ 正文无法说明"故障还在发生"')
   })
 
   it('④ 配套:健康门禁探测令牌本轮缓存,限流/不可达不得判为部署失败', () => {
@@ -146,7 +176,18 @@ describe('O6 部署脚本静态判据(deploy/win/ihui-deploy.ps1)', () => {
     // "Not possible to fast-forward",但旧代码只判断"树上有没有脏文件",于是把结论写成
     // "有真人在写,等对方收尾"(并列出全部 41 个无关脏文件)。排查因此被带去清扫工作树,
     // 白耗 1.5h,还寄出一封错因告警。三条断言各钉住这个缺陷的一面。
-    const branch = src.slice(src.indexOf('& git merge --ff-only FETCH_HEAD'))
+    // ⚠️ 锚点 2026-09-29 跟着"钉住远端显式 sha"那次改动更新:合并目标从 `FETCH_HEAD` 换成了
+    // 本轮钉住的 `$remoteTip`(那是修一条真实竞态,不是回归),而三条断言量的东西一条没变。
+    // 旧锚点写死 FETCH_HEAD ⇒ 那次正当改动一落地,本条就红成"脚本不再识别 git 的分叉原话",
+    // 把**测试的锚点过期**说成**脚本的回归** —— 两种错法后果相同(下一个人去改脚本而不是改锚点),
+    // 所以这里既改锚,也把"锚点找不到"与"判据消失"分成两条不同的话。
+    const anchor = /&\s*git merge --ff-only\s+\$\w+|&\s*git merge --ff-only\s+FETCH_HEAD/
+    const mAnchor = src.match(anchor)
+    assert.ok(
+      mAnchor,
+      '找不到 ff-only 合并调用 ⇒ 本条锁的锚点过期(脚本改形),不是脚本回归:先看脚本,再改锚,别削断言',
+    )
+    const branch = src.slice(mAnchor!.index!)
     const iDiv = branch.search(/Not possible to fast-forward/)
     const iWip = branch.indexOf('Report-BlockedWip')
     assert.ok(iDiv >= 0, '部署脚本已不再识别 git 的分叉原话(误诊回归)')
@@ -160,7 +201,7 @@ describe('O6 部署脚本静态判据(deploy/win/ihui-deploy.ps1)', () => {
     // 交集的两个来源都得真在算,否则 $blockers 是凭空来的
     assert.match(
       branch,
-      /\$mustTouch\s*=\s*@\(&\s*git[\s\S]{0,120}diff --name-only HEAD FETCH_HEAD/,
+      /\$mustTouch\s*=\s*@\(&\s*git(?:\s*-C\s+\$\w+)?[\s\S]{0,120}diff --name-only HEAD\s+(?:FETCH_HEAD|\$\w+)/,
     )
     assert.match(
       branch,
@@ -170,7 +211,7 @@ describe('O6 部署脚本静态判据(deploy/win/ihui-deploy.ps1)', () => {
     // 三条出口都不得静默:未归类分支也要 Fail,且要吐出 git 原文
     const unknown = branch.slice(branch.indexOf('merge 失败成因未归类'))
     assert.ok(unknown.length > 0, '未归类分支消失(会退回"看起来全绿")')
-    assert.match(unknown, /Fail\s+"git merge --ff-only FETCH_HEAD 失败/)
+    assert.match(unknown, /Fail\s+"git merge --ff-only[ 不]*失败/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
