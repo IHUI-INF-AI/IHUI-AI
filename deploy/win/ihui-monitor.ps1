@@ -30,6 +30,9 @@
 #     ③ 密钥内联在脚本里(AGENTS.md §5d:密钥不入仓、不入脚本)。
 #   邮件侧不设"每日 N 封"封顶:那是第三方免费配额时代的自保措施,自建 SMTP 没有该约束;
 #   限制只按**告警身份**去重(见 $AlertRepeatHours),持续故障按周期重发并标注持续时长。
+#   "部署重启中-预期现象"这一类抑制另有**时长上限**($ExpectedWindowGraceMinutes,默认 20 分钟):
+#   没有上限的抑制等于永久豁免,而永久豁免的症状就是安静 —— 09-29 那场 2.5 小时的 API 崩溃循环
+#   正是被无条件抑制掩掉的,判据在 alert-dedup.ps1 的 Test-AlertSuppressionGrace。
 # 日志: D:\DevEnv\logs\monitor.log(NSSM AppStdout)
 #
 # 落点说明:本文件是**入库源**(deploy/win/),NSSM 服务 IHUI-MONITOR 的 AppParameters 指向
@@ -44,7 +47,8 @@
 #   验到人   :pwsh -File deploy/win/ihui-monitor.ps1 -ProbeMail
 #             (发一封【核验信】标题的品牌邮件;通知路径的唯一真凭据是"信到了且带版式")
 #   环境变量 :IHUI_MONITOR_ALERT_LOG / IHUI_MONITOR_STATE_FILE / IHUI_MONITOR_UNDEL_FILE /
-#             IHUI_MONITOR_BUILD_LOG_DIR / IHUI_MONITOR_REPEAT_HOURS / IHUI_MONITOR_MAIL_DRY_RUN
+#             IHUI_MONITOR_BUILD_LOG_DIR / IHUI_MONITOR_REPEAT_HOURS /
+#             IHUI_MONITOR_EXPECTED_WINDOW_GRACE_MIN / IHUI_MONITOR_MAIL_DRY_RUN
 #             —— 存在意义是让 -Once 自检与常驻服务**各写各的状态**;共用一份会互相吞告警
 #             (自检把 sig 记进档案,服务随后巡检即判"已寄过",于是真故障静默)。
 # =============================================================================
@@ -100,6 +104,11 @@ if ($DryRun) { $MailDryRun = $true }
 # 同一告警身份的重发周期(小时)。这是**按身份去重**,不是总量封顶 —— 没有任何"每日 N 封"
 # 计数闸(成因见文件头)。5 分钟一轮巡检若按轮次发,一条持续故障一天就是 288 封。
 $AlertRepeatHours    = [double](EnvOr 'IHUI_MONITOR_REPEAT_HOURS' '4')
+# "按预期现象抑制"的时长上限(分钟)。09-28 我加抑制时只写了"这一轮不寄",没写"最多不寄多久",
+# 于是 00:35-03:00 那场 API 崩溃循环被每轮 [INFO] 掩了 2.5 小时(成因与判据见 alert-dedup.ps1 的
+# Test-AlertSuppressionGrace)。默认 20 分钟 = 4 轮巡检:一次正常换流窗口实测 6-9 秒拒连,
+# 最慢的整包重建也远短于此,所以连续 20 分钟仍报"部署重启中"只可能是别的东西坏了。
+$ExpectedWindowGraceMinutes = [int](EnvOr 'IHUI_MONITOR_EXPECTED_WINDOW_GRACE_MIN' '20')
 
 function Log($m) { "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $m" | Add-Content $alertLog -Encoding utf8 }
 
@@ -316,25 +325,36 @@ function Get-Diagnosis {
 }
 
 function Send-Alert($msg) {
-  $diag = Get-Diagnosis
-  # 诊断已判"部署重启中-预期现象"(部署锁在 / 15 分钟内有构建)⇒ 换流窗口的短暂拒连是
-  # 预期内现象,只记日志不寄信。2026-09-28 实测:两天 30+ 封告警邮件全是这一种 —— 每轮部署
-  # 窗口里 web/api/ai 与各公网域名各算一个不同告警身份,按身份去重拦不住。窗口结束后服务仍
-  # 异常时,诊断会落到真实原因分支([服务进程异常]/[公网隧道异常]),本函数照常寄信,不漏报。
-  if ($diag.Contains('[部署重启中-预期现象]')) {
-    "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [INFO] 预期窗口(部署重启中)告警已抑制,不推送: $msg | 诊断: $($diag -replace '`n', ' | ')" | Add-Content $alertLog -Encoding utf8
-    return
-  }
   # 去重身份只取**异常清单**,不含诊断段:诊断里的构建时间/pid/持续分钟每轮都变,
   # 拿它当身份等于没去重(5 分钟一轮 → 一条持续故障一天 288 封)。
   $sig = ($msg -replace '\s+', ' ').Trim()
+  $diag = Get-Diagnosis
+  # 诊断已判"部署重启中-预期现象"(部署锁在 / 15 分钟内有构建)⇒ 换流窗口的短暂拒连是
+  # 预期内现象,只记日志不寄信。2026-09-28 实测:两天 30+ 封告警邮件全是这一种 —— 每轮部署
+  # 窗口里 web/api/ai 与各公网域名各算一个不同告警身份,按身份去重拦不住。
+  #
+  # 但抑制**必须有终态**(2026-09-29 补,修我自己的缺陷):上一版这里无条件 return,而
+  # "部署锁在 / 最近有构建"这两个条件在崩溃循环里会一直成立(部署环每轮重建即刷新"最近构建"),
+  # 于是 00:35-03:00 API 反复启动即死的那 2.5 小时,每轮都只留下一行 [INFO] 而没有人被通知。
+  # 现在连续抑制超过 $ExpectedWindowGraceMinutes 分钟就不再当预期现象,落回正常发信路径,
+  # 并把"为什么这轮不再抑制"写进正文 —— 抑制的理由与放行的理由一样都要可见。
+  $graceNote = ''
+  if ($diag.Contains('[部署重启中-预期现象]')) {
+    $g = Test-AlertSuppressionGrace -Sig $sig -StateFile $MonitorStateFile -GraceMinutes $ExpectedWindowGraceMinutes
+    if ($g.Suppressed) {
+      "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [INFO] 预期窗口(部署重启中)告警已抑制,不推送: $msg | 诊断: $($diag -replace "`r?`n", ' | ') | $($g.Note)" | Add-Content $alertLog -Encoding utf8
+      return
+    }
+    $graceNote = "`n- 抑制已到期: $($g.Note)"
+    $diag = $diag + "`n[预期窗口已超期] 该现象已连续超过 $ExpectedWindowGraceMinutes 分钟,不再按'部署重启中的正常现象'抑制"
+  }
   $due = Test-AlertDue -Sig $sig
   if (-not $due.Due) {
     Write-Host "$(Get-Date -Format 'HH:mm:ss') 告警按身份去重跳过: $($due.Note)" -ForegroundColor DarkYellow
     return
   }
-  $full = "$msg`n--------------------------------`n[原因诊断] $diag$($due.Note)"
-  "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [ALERT] $msg | 诊断: $($diag -replace '`n', ' | ')" | Add-Content $alertLog -Encoding utf8
+  $full = "$msg`n--------------------------------`n[原因诊断] $diag$($due.Note)$graceNote"
+  "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [ALERT] $msg | 诊断: $($diag -replace "`r?`n", ' | ')" | Add-Content $alertLog -Encoding utf8
   Send-MailAlert -Subject "[IHUI-AI 监控告警] $sig" -BodyText $full | Out-Null
 }
 
