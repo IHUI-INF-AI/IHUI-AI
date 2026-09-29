@@ -17,19 +17,30 @@
  * `workspace:` 声明,要求 `<包目录>/node_modules/<依赖>` 可解析(根 node_modules 命中也算,
  * 兼容 publicHoist)。existsSync 跟随符号链接,**悬空链接同样判红** —— 那正是本次故障形态。
  *
- * 判据二(链接↔内容,2026-09-24 补):根 + 各包的 `node_modules/<dep>` **符号链接**目标必须是
- * 一个真包(有可 parse 的 package.json)。因为 existsSync 对"指向**空目录**的链接"仍返回 true,
- * 而 2026-09-24 的全机门禁停摆正是这一型:`node_modules/typescript`、`node_modules/eslint`
+ * 判据二(链接↔目标,2026-09-24 补):根 + 各包的 `node_modules/<dep>` **符号链接**目标必须是
+ * 一个可解析的真包(有可 parse 且带 name 的 package.json)。两类红点分列:`悬空` = 目标不存在
+ * (形态错误那一型)/ `掏空` = 目标在、里面却没有有效清单(被掏空那一型)。旧判据看不见这一维,
+ * 因为 existsSync 跟随符号链接、对"指向**空目录**的链接"仍返回 true。2026-09-24 的全机门禁
+ * 停摆两型齐发:`node_modules/typescript`、`node_modules/eslint`
  * 指向 `.pnpm` 里的空目录,`.bin` 只剩 16 项(无 eslint/tsc/vitest/next)⇒ lint-staged 第一步
  * `✖ eslint --fix` 并阻止提交 ⇒ **每次提交都被迫 --no-verify,约 110 道守门对全队同时失效**,
- * 而 git status / typecheck / 其余守门报告全都看不出来。该维度默认只浅扫(根 + 各包
- * `node_modules/` 的直接链接);`--strict` 档额外深扫 `node_modules/.pnpm/<key>/node_modules/`
- * 下的传递链接(含 @scope 两层形态,判据逐字相同,浅/深计数分列)—— 深扫严禁进提交链,
- * 理由见 findGuttedLinks 头注。
+ * 而 git status / typecheck / 其余守门报告全都看不出来。
+ *
+ * 判据二的取证(同日补;`悬空` 这一型不打印 target 就修不动):实测同一场事故里还有第二种
+ * 形态 —— 相对 target 被写成 `..\IHUI-AI\node_modules\.pnpm\eslint@10.8.1_\node_modules\eslint`
+ * (多出一层 `<repo>\node_modules` 前缀),从 `node_modules/` 出发解析成 `D:\IHUI-AI\IHUI-AI\...`,
+ * 而该目录**根本不存在**;当时一次受影响 11 条(eslint / lint-staged / prettier / turbo / sharp /
+ * knip / rimraf / @types/node / @ihui/eslint-config)。**pnpm 对这一型不自愈**:`install` 与
+ * `install --force` 当时都只回 "Already up to date"(实测 427ms)而不重链(target 字符串不在
+ * lockfile 里,install 只看"链接在不在")。故本门必须打出**原始 target 字符串**、**解析后的
+ * 绝对路径**、**断在哪一层目录**、以及**在 `.pnpm` 里找到的等价可解析 target**。
+ *
+ * 扫描面与豁免(必须如实报数,不得静默):只判**符号链接**;`.bin` / `.pnpm` / `.cache` 等
+ * 点开头条目有自己的组织方式 ⇒ 不判但计数;真目录(file:/workspace: 直连形态、scope 容器)
+ * 不参与链接判定 ⇒ 计数;指向**仓外**但能解析到真包的链接(第三方工具自装)⇒ 放过,计数。
  *
  * 用法:
- *   node scripts/check-workspace-dep-links.mjs            # 全量审计(链接完整性只浅扫,不深扫)
- *   node scripts/check-workspace-dep-links.mjs --strict   # 严格档:深扫 .pnpm 传递闭包 + shim 完整性判红(仅 check:all / CI,严禁接进提交链)
+ *   node scripts/check-workspace-dep-links.mjs            # 全量审计
  *   node scripts/check-workspace-dep-links.mjs --staged   # 仅审计 package.json 被暂存的包
  *   node scripts/check-workspace-dep-links.mjs --self-test
  *   node scripts/check-workspace-dep-links.mjs --root=<dir>  # 指定仓库根(自测夹具必须显式注入)
@@ -40,11 +51,12 @@ import {
   readdirSync,
   mkdirSync,
   readFileSync,
+  readlinkSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { basename, dirname, join, relative, sep } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve as resolvePath, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
@@ -147,8 +159,82 @@ export function findMissingLinks(rootDir, pkgDirs) {
   return missing
 }
 
+/** 读一条链接的原始 target;读不到(不是链接 / 权限)返回 null —— 如实留空,不猜 */
+function readLinkTarget(abs) {
+  try {
+    return readlinkSync(abs)
+  } catch {
+    return null
+  }
+}
+
 /**
- * 第二维判据(2026-09-24 全机门禁停摆后补):**"链接在、内容被掏空"**。
+ * pnpm 在 Windows 上写的都是**相对** target(相对链接所在目录),故基准必须是 dirname(link)。
+ * 拿绝对 target 当绝对用(某些工具自装的),不做二次猜测。
+ */
+function resolveLinkTarget(linkDir, raw) {
+  return isAbsolute(raw) ? raw : resolvePath(linkDir, raw)
+}
+
+/** 解析后的目标是否落在仓库内(Windows 大小写不敏感;判据只宽不严,不影响是否判红) */
+function isUnderRoot(rootDir, absPath) {
+  const dir = rootDir.endsWith(sep) ? rootDir : rootDir + sep
+  return absPath.toLowerCase().startsWith(dir.toLowerCase())
+}
+
+/**
+ * `悬空` 那一型的全部取证(2026-09-24 实测 11 条同型:`..\IHUI-AI\node_modules\.pnpm\…`
+ * 多出一层 `<repo>\node_modules` 前缀,从 node_modules 出发解析到 `D:\IHUI-AI\IHUI-AI\…`)。
+ *
+ *   brokenAt      —— 从解析结果往上走,"最高一层仍不存在"的祖先目录 ⇒ 断点一眼可辨
+ *   correctTarget —— target 里 `.pnpm` 之后的那截在本仓若确实是个包,给出该链接**应有的**
+ *                    相对写法(可直接照抄去手改;找不到就留 null,绝不编一个出路)
+ *
+ * 为什么这两条是判据的一部分而不是"提示":pnpm 对这一型不自愈(install / --force 实测都只回
+ * "Already up to date",因为 target 字符串不在 lockfile 里),所以没有取证 = 报告无人能修。
+ */
+function describeMissingTarget(rootDir, linkDir, raw, resolvedAbs) {
+  const out = { brokenAt: null, correctTarget: null }
+  if (resolvedAbs === null) return out
+  let p = resolvedAbs
+  let firstMissing = resolvedAbs
+  for (;;) {
+    const parent = dirname(p)
+    if (parent === p || existsSync(parent)) break
+    firstMissing = parent
+    p = parent
+  }
+  out.brokenAt = toPosix(firstMissing)
+  if (typeof raw === 'string') {
+    const toks = raw.split(/[\\/]+/).filter(Boolean)
+    const i = toks.indexOf('.pnpm')
+    if (i >= 0) {
+      const cand = join(rootDir, 'node_modules', ...toks.slice(i))
+      if (existsSync(join(cand, 'package.json'))) out.correctTarget = toPosix(relative(linkDir, cand))
+    }
+  }
+  return out
+}
+
+/**
+ * 单条链接取证入口(供自检/人工排查复用):返回 { target, resolved, alive, brokenAt, correctTarget }。
+ * 主判据走 findGuttedLinks 内的内联路径(省一次 stat),本函数是同一套算法的可调用面。
+ */
+export function inspectLinkTarget(rootDir, linkAbs) {
+  const raw = readLinkTarget(linkAbs)
+  const linkDir = dirname(linkAbs)
+  const resolvedAbs = raw === null ? null : resolveLinkTarget(linkDir, raw)
+  const alive = resolvedAbs === null ? existsSync(linkAbs) : existsSync(resolvedAbs)
+  return {
+    target: raw,
+    resolved: resolvedAbs === null ? null : toPosix(resolvedAbs),
+    alive,
+    ...(alive ? {} : describeMissingTarget(rootDir, linkDir, raw, resolvedAbs)),
+  }
+}
+
+/**
+ * 第二维判据(2026-09-24 全机门禁停摆后补,同日补齐"目标取证"):**链接指向哪儿、那儿是不是包**。
  *
  * 为什么既有判据看不见:pnpm 的 `node_modules/<dep>` 是指向 `.pnpm/<pkg>/node_modules/<dep>`
  * 的符号链接,而 `existsSync` 跟随符号链接 —— 只要目标目录**存在**(哪怕是空的)就返回 true。
@@ -159,47 +245,56 @@ export function findMissingLinks(rootDir, pkgDirs) {
  * 里没有任何一处能看出这件事。
  *
  * 判据(宁漏不误报):只统计**符号链接**(真目录是 file:/workspace: 直连形态,不参与),
- * 要求目标里有**可 parse 的 package.json**。刻意**不**比 name —— pnpm 的别名安装
- * (`foo@npm:bar`)会在链接名下指向另一个 name 的包,比 name 必产假阳。
- * 两类红点如实分列:`悬空`(目标不存在)/ `掏空`(目标在但无有效清单)。
+ * 要求目标里有**可 parse 且带 name 的 package.json**。刻意**不**比 name 是否等于链接名 ——
+ * pnpm 的别名安装(`foo@npm:bar`)会在链接名下指向另一个 name 的包,比 name 必产假阳。
+ * 两类红点如实分列:`悬空`(目标不存在,含"相对 target 多出一层 `<repo>\node_modules` 前缀"
+ * 这一型)/ `掏空`(目标在但无有效清单)。指向**仓外**但能解析到真包的链接放过(第三方工具
+ * 自装的形态),只计入 `outsideRepo` 报数。
  *
- * 深扫扩展(2026-09-24 补,`{ deep: true }`):把上面**逐字相同**的判据延伸到
- * `node_modules/.pnpm/<key>/node_modules/*` 的传递符号链接(含 `@scope/*` 两层形态)。
- * 真仓实测:深扫面 10,015 条链接、破损 0、全量约 1.1s —— 成本可接受,今天真仓零红。
- * **落点纪律:深扫只允许挂在 --strict 档(check:all / CI),严禁进入 pre-commit 提交链。**
- * 理由(本仓优先级最高的反面教训):并发 `pnpm install` 正在往 .pnpm 里半复制时,这一维会
- * 一次闪出成百上千条红(浅扫实测也会 0↔113 跳,但浅扫只有 717 条;深扫是 10,015 条量级),
- * 而 78 在提交链上是 blocking ⇒ 恒红门 = 各会话 --no-verify = 其余全部守门作废。
- * 安装中临时键(`_tmp_` / `__tmp__` 形态的 .pnpm 目录)是 pnpm 正在写的中间态,必须跳过并
- * 如实计数 —— 把中间态判成债务就是逼人跳门。浅扫/深扫的扫描面**分列**报告,不得合成一个数,
- * 否则"扫到 0 条判红"的反空扫护栏失去意义。
+ * `悬空` 必须带取证四元组才能落地修复(实测 2026-09-24 那 11 条):pnpm install 只回
+ * "Already up to date" 不重链,人能做的只有"删掉这一条坏链接再重装",而那必须先看清
+ * target 字符串长什么样。故每条红点带 `target`(原样,不归一)/ `resolved` / `brokenAt`
+ * (断在哪一层)/ `correctTarget`(在 `.pnpm` 里找到等价可解析包时给出的正确写法)。
  */
-export function findGuttedLinks(rootDir, pkgDirs, { deep = false } = {}) {
+export function findGuttedLinks(rootDir, pkgDirs) {
   const nmDirs = [join(rootDir, 'node_modules'), ...pkgDirs.map((d) => join(d, 'node_modules'))]
   const gutted = []
   const missingBins = []
-  // 浅扫/深扫计数**分列**返回(见上方落点纪律):合成一个数会让反空扫护栏失去意义
+  // 豁免/失效面**如实计数**(绝不静默):点开头条目、真目录、scope 内的非链接、缺失或不可读的
+  // node_modules 目录 —— 这四类"没判"如果不出数,门就退化成"看起来扫过了"的假绿。
+  const exempt = { dotEntries: 0, realDirs: 0, nonLinkInScope: 0, noNmDirs: 0, unreadableNm: 0 }
   let scanned = 0
-  let deepScanned = 0
-  let tmpKeysSkipped = 0
-  const check = (abs, rel, owner, nmDir, name, isDeep = false) => {
-    if (isDeep) deepScanned += 1
-    else scanned += 1
-    if (!existsSync(abs)) {
-      gutted.push({ kind: '悬空', link: rel, owner })
+  let outsideRepo = 0
+  const check = (abs, rel, owner, nmDir, name) => {
+    scanned += 1
+    const raw = readLinkTarget(abs)
+    const linkDir = dirname(abs)
+    const resolvedAbs = raw === null ? null : resolveLinkTarget(linkDir, raw)
+    const alive = resolvedAbs === null ? existsSync(abs) : existsSync(resolvedAbs)
+    if (!alive) {
+      gutted.push({
+        kind: '悬空',
+        link: rel,
+        owner,
+        target: raw,
+        resolved: resolvedAbs === null ? null : toPosix(resolvedAbs),
+        ...describeMissingTarget(rootDir, linkDir, raw, resolvedAbs),
+      })
       return
     }
     let manifest
     try {
       manifest = JSON.parse(readFileSync(join(abs, 'package.json'), 'utf8'))
     } catch {
-      gutted.push({ kind: '掏空', link: rel, owner })
+      gutted.push({ kind: '掏空', link: rel, owner, target: raw, resolved: resolvedAbs && toPosix(resolvedAbs), why: '目标里读不到/解析不了 package.json' })
       return
     }
     if (typeof manifest.name !== 'string' || !manifest.name) {
-      gutted.push({ kind: '掏空', link: rel, owner })
+      gutted.push({ kind: '掏空', link: rel, owner, target: raw, resolved: resolvedAbs && toPosix(resolvedAbs), why: 'package.json 里没有 name(不是可安装的包)' })
       return
     }
+    // 指向仓库外(如某工具自己装的绝对路径)但确实是个真包 ⇒ 放过,只报数
+    if (resolvedAbs && !isUnderRoot(rootDir, resolvedAbs)) outsideRepo += 1
     /**
      * 第三型(2026-09-24 同一场事故的第二个半边,当前**只报数不判红**):包内容完好,
      * 但 `.bin` 里的可执行入口没了 ⇒ 直接跑 `node_modules/eslint/bin/eslint.js --version`
@@ -249,19 +344,30 @@ export function findGuttedLinks(rootDir, pkgDirs, { deep = false } = {}) {
     declaredCache.set(owner, set)
     return set
   }
-  const scan = (nm, owner, isDeep = false) => {
+  const scan = (nm, owner) => {
     let ents
     try {
       ents = readdirSync(nm, { withFileTypes: true })
-    } catch {
-      return // 该包没有 node_modules(纯配置包等),不是破损
+    } catch (e) {
+      // 该包没有 node_modules(纯配置包等)不是破损;但**必须出数** —— 全部目录都"取不到"时
+      // scanned 会是 0,由 run() 的空扫护栏判红,所以这里静默 = 判据失效可见。
+      if (e && e.code === 'ENOENT') exempt.noNmDirs += 1
+      else exempt.unreadableNm += 1
+      return
     }
     for (const e of ents) {
-      if (e.name.startsWith('.')) continue // .bin / .pnpm / .modules.yaml 不是"被解析的依赖"
+      if (e.name.startsWith('.')) {
+        // .bin / .pnpm / .cache / .modules.yaml 有自己的组织方式,不参与依赖链接判定
+        exempt.dotEntries += 1
+        continue
+      }
       const abs = join(nm, e.name)
       if (e.isSymbolicLink()) {
-        check(abs, toPosix(relative(rootDir, abs)), owner, nm, e.name, isDeep)
-      } else if (e.isDirectory() && e.name.startsWith('@')) {
+        check(abs, toPosix(relative(rootDir, abs)), owner, nm, e.name)
+      } else if (e.isDirectory()) {
+        // 真目录:file:/workspace: 直连形态,或 @scope 容器(既有约定,保持不判)
+        exempt.realDirs += 1
+        if (!e.name.startsWith('@')) continue
         let sub
         try {
           sub = readdirSync(abs, { withFileTypes: true })
@@ -269,44 +375,17 @@ export function findGuttedLinks(rootDir, pkgDirs, { deep = false } = {}) {
           continue
         }
         for (const s of sub) {
-          if (!s.isSymbolicLink()) continue
-          check(
-            join(abs, s.name),
-            toPosix(relative(rootDir, join(abs, s.name))),
-            owner,
-            nm,
-            `${e.name}/${s.name}`,
-            isDeep,
-          )
+          if (!s.isSymbolicLink()) {
+            if (s.isDirectory()) exempt.nonLinkInScope += 1
+            continue
+          }
+          check(join(abs, s.name), toPosix(relative(rootDir, join(abs, s.name))), owner, nm, `${e.name}/${s.name}`)
         }
       }
     }
   }
   for (const nm of nmDirs) scan(nm, toPosix(relative(rootDir, dirname(nm))) || '.')
-  if (deep) {
-    // 深扫面:node_modules/.pnpm/<key>/node_modules/* 的传递符号链接(含 @scope 两层形态)。
-    // 判据与浅扫逐字相同(scan/check 复用)。owner 记为 `node_modules/.pnpm/<key>`,
-    // 该目录下没有 package.json ⇒ declaredFor 为空集 ⇒ 第三维(bin shim)天然不参与深扫 ——
-    // .pnpm 内部是传递依赖,按 pnpm 语义本就没有顶层 shim,把它的缺 shim 计进来必假阳。
-    const storeDir = join(rootDir, 'node_modules', '.pnpm')
-    let keys
-    try {
-      keys = readdirSync(storeDir, { withFileTypes: true })
-    } catch {
-      keys = [] // 没有 .pnpm 存储(非 pnpm 布局/未安装):深扫面为 0,如实报数,不报错
-    }
-    for (const k of keys) {
-      if (!k.isDirectory()) continue // lock.yaml / 文件形态
-      // `_tmp_` 同时覆盖 `__tmp__`(子串关系):pnpm 安装中的临时键是正在写入的中间态,
-      // 判它红 = 逼人 --no-verify;跳过,但计数如实进 tmpKeysSkipped,不静默。
-      if (/_tmp_/i.test(k.name)) {
-        tmpKeysSkipped += 1
-        continue
-      }
-      scan(join(storeDir, k.name, 'node_modules'), `node_modules/.pnpm/${toPosix(k.name)}`, true)
-    }
-  }
-  return { gutted, missingBins, scanned, deepScanned, tmpKeysSkipped }
+  return { gutted, missingBins, scanned, exempt, outsideRepo, ok: scanned - gutted.length }
 }
 
 /**
@@ -366,107 +445,8 @@ export function findUnresolvableHookCommands(rootDir, cmds) {
   return bad
 }
 
-/**
- * 第五维(2026-09-24 独立复核后补):shim **指向的入口文件**必须真的存在。
- *
- * 为什么单独要这一维:第四维只验"`node_modules/.bin/<cmd>(.CMD)` 在不在"。复核用夹具证伪过一型:
- * 包体完好、`.CMD` 完好、但 `bin/eslint.js` 被删 ⇒ 四维全绿,而 lint-staged 一 spawn 就
- * `Cannot find module`。也就是说"入口存在"和"入口可执行"是两件事。
- *
- * 判法刻意保守(宁漏不误报):
- *   · 先读 shim 文本,把 pnpm 的 `%~dp0` / `$basedir` 模板剥成真实相对路径 —— **取全部候选**
- *     而不是第一个:实测 pnpm 的 `.CMD` 里第一个带引号候选是 `"%~dp0\node.exe"`(存在性判定
- *     的分支头),按"第一个命中"来判会让每一道门在正常仓库上恒红(写第一版时就是这样,靠真仓
- *     复跑才暴露)。故:任一候选存在即通过,`node.exe`/`node` 这类宿主不算入口候选。
- *   · 候选都不存在(或 shim 里根本没模板)再查包自己的 `manifest.bin[cmd]` 拼包目录 —— 这条路
- *     不依赖 shim 文本格式;两条路互为兜底。
- *   · **两条路都解析不出来 ⇒ 不判(记 unresolved 如实报数)**。这一条是硬要求:
- *     模板没剥净就让判据"永远解析不出目标"= 上线即恒红 = 各会话跳门 = 其余守门全废。
- */
-const SHIM_HOST_BASENAMES = new Set(['node.exe', 'node', 'deno.exe', 'deno', 'bun.exe', 'bun'])
-
-/** 从 shim 文本里抽全部"入口相对路径"候选(Windows `.CMD` 与 POSIX sh 两种模板) */
-export function shimEntryCandidates(shimText) {
-  const out = []
-  const push = (rel) => {
-    const clean = String(rel)
-      .trim()
-      .replace(/^["']+|["']+$/g, '')
-    if (!clean) return
-    if (SHIM_HOST_BASENAMES.has(basename(clean).toLowerCase())) return
-    out.push(clean)
-  }
-  // pnpm npm-style .CMD: "%~dp0\node.exe"  "%~dp0\..\eslint\bin\eslint.js" %*
-  for (const m of shimText.matchAll(/%~?d?p?0%?[\\/]+([^"'()\r\n]+)/g)) push(m[1])
-  // POSIX shim: basedir=$(dirname "$(echo "$0" | sed -e 's,\\,/,g')") … "$basedir/../eslint/bin/eslint.js"
-  for (const m of shimText.matchAll(/\$basedir[\\/]+([^"'()\r\n]+)/g)) push(m[1])
-  return out
-}
-
-export function resolveShimEntry(rootDir, cmd) {
-  const nmDir = join(rootDir, 'node_modules')
-  const shimWin = join(nmDir, '.bin', `${cmd}.CMD`)
-  const shimPosix = join(nmDir, '.bin', cmd)
-  const shim = existsSync(shimWin) ? shimWin : existsSync(shimPosix) ? shimPosix : null
-  if (!shim) return { state: 'no-shim' }
-  const binDir = join(nmDir, '.bin')
-  // 路径 1:shim 文本(单文件一次读,且是"实际会被执行的那条路径",最贴近真相)
-  let text = null
-  try {
-    text = readFileSync(shim, 'utf8')
-  } catch {
-    text = null
-  }
-  const cands = text === null ? [] : shimEntryCandidates(text)
-  const resolved = []
-  for (const rel of cands) {
-    // `%~dp0` / `$basedir` 本身就是 `.bin` 目录,所以候选里的 `..` 已经表达"退出 .bin",
-    // 再拼一次 '..' 会多跳一层(第一版就是这么错的:目标算到 node_modules 外面 ⇒ 完好仓库恒红)
-    const target = join(binDir, rel.split(/[\\/]/g).join(sep))
-    resolved.push(target)
-    if (existsSync(target)) return { state: 'ok', via: 'shim', target }
-  }
-  // 路径 2:包清单的 bin 字段(name→相对路径)。命令名≠包名时靠扫 bin 值找同名键。
-  let manifestHit = null
-  try {
-    for (const e of readdirSync(nmDir, { withFileTypes: true })) {
-      if (e.name.startsWith('.')) continue
-      const names = []
-      if (e.name.startsWith('@')) {
-        try {
-          for (const s of readdirSync(join(nmDir, e.name), { withFileTypes: true })) {
-            if (s.isSymbolicLink() || s.isDirectory()) names.push(`${e.name}/${s.name}`)
-          }
-        } catch {
-          /* 该 scope 目录读不动:跳过 */
-        }
-      } else if (e.isSymbolicLink() || e.isDirectory()) names.push(e.name)
-      for (const name of names) {
-        let man
-        try {
-          man = JSON.parse(readFileSync(join(nmDir, ...name.split('/'), 'package.json'), 'utf8'))
-        } catch {
-          continue
-        }
-        const bins = typeof man.bin === 'string' ? { [man.name || name]: man.bin } : man.bin || {}
-        if (!Object.prototype.hasOwnProperty.call(bins, cmd)) continue
-        const target = join(nmDir, ...name.split('/'), String(bins[cmd]).replace(/^\.\//, ''))
-        if (existsSync(target)) return { state: 'ok', via: 'manifest', target }
-        manifestHit = { target, pkg: name }
-      }
-    }
-  } catch {
-    /* 根 node_modules 不可读:只能按已有候选下结论 */
-  }
-  if (manifestHit)
-    return { state: 'missing-entry', target: manifestHit.target, pkg: manifestHit.pkg }
-  // shim 里有模板但都不存在 ⇒ 入口确实没了;一个模板都没抽到 ⇒ 判不出(不判红)
-  if (cands.length) return { state: 'missing-entry', target: resolved[0], pkg: cmd }
-  return { state: 'unresolved', shim }
-}
-
 /** 返回 { missing, scanned };判据失效一律 exit(1),不返绿灯 */
-export function audit({ staged = false, root = REPO, strict = false } = {}) {
+export function audit({ staged = false, root = REPO } = {}) {
   const yamlPath = join(root, 'pnpm-workspace.yaml')
   if (!existsSync(yamlPath)) fail('找不到 pnpm-workspace.yaml,判据无法成立')
   const all = expandPatterns(root, parseWorkspacePatterns(readFileSync(yamlPath, 'utf8')))
@@ -501,16 +481,14 @@ export function audit({ staged = false, root = REPO, strict = false } = {}) {
     return { missing: [], scanned: targets.length, skipped: true }
   }
   const t0 = Date.now()
-  // 深扫(.pnpm 传递闭包)只随 --strict 走 —— 落点纪律见 findGuttedLinks 头注:
-  // 并发 install 半复制态会闪出成百上千条红,而本门在提交链上是 blocking,
-  // 恒红门 = 各会话 --no-verify = 其余全部守门作废。--staged / 默认档行为逐字不变。
   const {
     gutted,
     missingBins = [],
     scanned: linksScanned,
-    deepScanned = 0,
-    tmpKeysSkipped = 0,
-  } = findGuttedLinks(root, targets, { deep: strict })
+    exempt = {},
+    outsideRepo = 0,
+    ok: linksOk = linksScanned - gutted.length,
+  } = findGuttedLinks(root, targets)
   // 第四维(判红):pre-commit 第一步必然 spawn 的命令能不能解析到
   let hookCmds = []
   try {
@@ -519,52 +497,33 @@ export function audit({ staged = false, root = REPO, strict = false } = {}) {
     hookCmds = []
   }
   const hookBad = hookCmds.length === 0 ? [] : findUnresolvableHookCommands(root, hookCmds)
-  // 第五维(判红):shim 在,但它指向的入口文件不在 —— 第四维看不见这一型
-  const shimBad = []
-  let shimUnresolved = 0
-  for (const cmd of new Set(hookCmds)) {
-    const r = resolveShimEntry(root, cmd)
-    if (r.state === 'missing-entry') shimBad.push({ cmd, target: r.target, pkg: r.pkg })
-    else if (r.state === 'unresolved') shimUnresolved += 1
-  }
   console.log(
     `workspace 依赖链接对账:${scope} / 判定 ${targets.length} 个包` +
-      (strict
-        ? ` | 链接完整性:浅扫 ${linksScanned} 条 / 深扫 ${deepScanned} 条(合计 ${linksScanned + deepScanned} 条;.pnpm 安装中临时键跳过 ${tmpKeysSkipped} 个),破损 ${gutted.length} 条,`
-        : ` | 链接完整性:扫 ${linksScanned} 条,破损 ${gutted.length} 条,`) +
-      `钩子命令 ${hookCmds.length} 条(解析不到 ${hookBad.length} 条、入口缺失 ${shimBad.length} 条、判不出 ${shimUnresolved} 条)` +
+      ` | 链接:判 ${linksScanned} 条(完好 ${linksOk} / 红 ${gutted.length})` +
+      `,钩子命令 ${hookCmds.length} 条(解析不到 ${hookBad.length} 条)` +
       `(${Date.now() - t0}ms)`,
   )
+  // 豁免面如实报数(绝不静默):"没判"如果不出数,门就退化成"看起来扫过了"的假绿
+  console.log(
+    `   豁免不判:点开头条目 ${exempt.dotEntries || 0}(.bin/.pnpm/.cache 等)` +
+      ` / 真目录 ${exempt.realDirs || 0}(file:/workspace: 直连形态或 scope 容器)` +
+      ` / scope 内真目录 ${exempt.nonLinkInScope || 0}` +
+      ` / 无 node_modules 的目录 ${exempt.noNmDirs || 0}` +
+      ` / 读取失败 ${exempt.unreadableNm || 0}` +
+      ` | 指向仓外且可解析(放过,计入完好)${outsideRepo}`,
+  )
   if (missingBins.length) {
-    // 2026-09-24 取证后的定档:提交链里**只报数**,`--strict`(check:all / CI)才判红。
-    // 取证过程(值得留):我一度以为"102 条缺 shim"是未证明的基线、不敢拦人;
-    // 直到一轮**完整跑完**的 install 之后复测 = **0 条**,且 25 个包的 `.bin` 全部存在
-    // (apps/api 45 项 / web 33 / extension 24 / shared 15 …) —— 说明那 102 条不是"本来就该没有",
-    // 而是同一场削损的一部分。但它在并发 install 期间会闪成上百条(实测 0↔113 跳),
-    // 而 pre-commit 每天都跑 ⇒ 拿它做 blocking 会在别人装依赖的窗口里把全队逼进 --no-verify
-    // (本仓最高反面教训:恒红门=全队关闸)。所以判红放到不在提交链上的严格入口。
+    // 只报数:基线未证明(见 findGuttedLinks 内注释),不允许拿它当红点拦人
     const byOwner = {}
     for (const m of missingBins) byOwner[m.owner] = (byOwner[m.owner] || 0) + 1
-    const summary =
-      Object.entries(byOwner)
-        .slice(0, 6)
-        .map(([o, n]) => `${o || '.'}=${n}`)
-        .join(' ') +
-      (Object.keys(byOwner).length > 6 ? ` …等 ${Object.keys(byOwner).length} 处` : '')
-    if (strict) {
-      console.error(
-        `❌ ${missingBins.length} 条直接依赖声明了 bin 而该处 .bin 无同名 shim(严格模式判红;提交链默认只报数,` +
-          `因并发 install 期间会闪红):${summary}`,
-      )
-      for (const m of missingBins.slice(0, 20))
-        console.error(`   [缺可执行入口] ${m.link}  bin: ${m.bin}  ← ${m.owner}`)
-      if (missingBins.length > 20) console.error(`   … 另有 ${missingBins.length - 20} 条`)
-      console.error('   修复:node scripts/repair-node-bin-links.mjs(根)或全量 pnpm install(包级)。')
-    } else {
-      console.log(
-        `   ℹ️ 另有 ${missingBins.length} 条"声明了 bin 但该处无 shim"(提交链只报数;--strict 判红):${summary}`,
-      )
-    }
+    console.log(
+      `   ℹ️ 另有 ${missingBins.length} 条直接依赖声明了 bin 但 .bin 里没有 shim(仅报数,不计红):` +
+        Object.entries(byOwner)
+          .slice(0, 6)
+          .map(([o, n]) => `${o || '.'}=${n}`)
+          .join(' ') +
+        (Object.keys(byOwner).length > 6 ? ` …等 ${Object.keys(byOwner).length} 处` : ''),
+    )
   }
   return {
     missing,
@@ -572,11 +531,10 @@ export function audit({ staged = false, root = REPO, strict = false } = {}) {
     gutted,
     missingBins,
     hookBad,
-    shimBad,
-    shimUnresolved,
     linksScanned,
-    deepScanned,
-    tmpKeysSkipped,
+    linksOk,
+    outsideRepo,
+    exempt,
     skipped: false,
   }
 }
@@ -591,7 +549,19 @@ function hint() {
     [
       '',
       '  💡 这是"装过但被削掉"或"改了 package.json 没重装",不是代码写错。',
-      '     修复:跑 **全量** `pnpm install`(不带 --filter)。',
+      '     三型各有修法(2026-09-24 实测:其中一型连 `pnpm install --force` 都只回',
+      '     "Already up to date"、不重链 —— §12e 那句"修复动作只有一个:全量 pnpm install"',
+      '     对那一型**不成立**,给一个跑不通的出路等于逼人 --no-verify):',
+      '     ① 声明了 workspace 依赖但链接**没了**:跑全量 `pnpm install`(不带 --filter)即重链。',
+      '     ② 链接在、目标被**掏空**(目标目录里没有有效清单):先试全量 install;短路不修则按 ③。',
+      '     ③ 链接在、目标**不存在** = 相对 target 形态被写错(上面每条红点都印了:原样 target、',
+      '        解析后的绝对路径、断在哪一层目录、以及在 .pnpm 里找到的等价可解析写法)。',
+      '        **pnpm 对这一型不自愈**:target 字符串不在 lockfile 里,install 只看链接在不在。',
+      '        改法二选一:(a) 照给的「等价可解析 target」只改这一条链接;',
+      '        (b) 或**只删这一条链接本身**(禁止递归删 —— 递归会顺着链接清掉 .pnpm 里的真包),',
+      '            再跑全量 `pnpm install` 让它按 lockfile 重链。',
+      '        两种改法都必须用本门复验(该条不再出现才算好),并实测命令活着:',
+      '        `node_modules/.bin/eslint --version` 与 `node_modules/.bin/tsc --version` 出号。',
       '     AGENTS.md §12e:`pnpm install --filter <包>` 会剪掉根 node_modules 的链接,',
       '     曾让 lint-staged 消失、109 道守门全废;本仓 workspace 依赖变更一律全量安装。',
       '     为什么本地看不出来:typecheck 走 tsconfig paths,不看 node_modules;',
@@ -599,11 +569,12 @@ function hint() {
       '     2026-09-24 新增的第二型(比"声明未链接"更隐蔽):链接**在**、目标目录却被**掏空**',
       '     (.pnpm/<pkg>/node_modules/<dep> 变成空目录)—— existsSync 仍返回 true,所以旧判据',
       '     恒绿,而 eslint/tsc 已从 node_modules/.bin 消失 ⇒ lint-staged 失败、每次提交被迫',
-      '     --no-verify、约 110 道守门对全队同时失效。修复同样是全量 `pnpm install`,',
+      '     --no-verify、约 110 道守门对全队同时失效。修复见上方 ②/③(单跑 install 不保证重链),',
       '     恢复判据必须实测:`node_modules/.bin/eslint --version` 与 `tsc --version` 都出版本号。',
       '     ⚠️ 只补内容不够:bin shim 要 **`pnpm install --frozen-lockfile --force`** 才会重建',
       '     (实测 2026-09-24 11:22:56,.CMD shim 正是这一条命令写回来的;普通 `pnpm install`',
-      '     与不带 --force 的重跑都只回 "Already up to date",shim 一个都不补)。',
+      '     与不带 --force 的重跑都只回 "Already up to date",shim 一个都不补;但那条 --force 对上面',
+      '     ③ 那一型无效 —— 两个「不会自愈」不是一回事,别指望一条命令修完所有)。',
       '     本门对"命令解析不到"判红,对"某包声明 bin 但该处无 shim"只报数(后者不等于坏:',
       '     apps/api 无自身 .bin 而 typecheck 仍经根 .bin 通过 —— 拿未证明的基线拦人=恒红机)。',
       '     单独复验:node scripts/check-workspace-dep-links.mjs',
@@ -619,58 +590,34 @@ function run(argv) {
   // --root 供自测夹具显式注入(教训:自测只改 cwd 会静默扫真仓,产出"看起来全绿"的空转结果)
   const rootArg = argv.find((a) => a.startsWith('--root='))
   const root = rootArg ? rootArg.slice('--root='.length) : REPO
-  // --strict:把"声明了 bin 但该处无 shim"计入退出码,并**开启第二维深扫**(.pnpm 传递闭包)。
-  // 两者同理,故共用一档:都只在不在提交链上的严格入口(check:all / CI)执行 ——
-  // 并发 install 期间这些维度会闪出上百~上千项(实测浅扫也会 0↔113),
-  // 而在提交链上拦人 = 各会话 --no-verify = 其余约 110 道守门同时被跳过。
-  const strict = argv.includes('--strict')
   const {
     missing,
     scanned,
     gutted = [],
     missingBins = [],
     hookBad = [],
-    shimBad = [],
-    shimUnresolved = 0,
     linksScanned = 0,
-    deepScanned = 0,
-    tmpKeysSkipped = 0,
+    linksOk = 0,
+    outsideRepo = 0,
+    exempt = {},
     skipped,
   } = audit({
     staged: argv.includes('--staged'),
     root,
-    strict,
   })
-  const redBins = strict ? missingBins.length : 0
-  // exit 0 → **exit 2**(2026-09-27,G-268 同批):这一支上面刚打印了"本门无法判定",
-  // 却回 exit 0 —— 文档与代码分歧的方向恰好造出**假归因**:safe-commit 的差分拿基线面(隔离
-  // 检出里没有 node_modules)与本面对照,一面恒绿、一面按磁盘红 ⇒ 判成"这枚提交引入了红"。
-  // 与本仓"取不到判无法判定、不记为通过"的约定对齐(守门 94/103/118 同一条),并让归因层
-  // 看见 exit 2 就走"未判定"档(见 lib/commit-gate-attribution.mjs 态①b)。
-  if (skipped) return 2
-  // 反假绿:一条链接都没扫到 = 判据没跑到东西,绝不记绿(与"扫不到包必须红"同族)。
-  // 默认档 deepScanned 恒为 0,故本判据与改前逐字等值;strict 档浅/深任一有链接即算扫到。
-  if (linksScanned + deepScanned === 0) {
+  if (skipped) return 0
+  // 反假绿:一条链接都没扫到 = 判据没跑到东西,绝不记绿(与"扫不到包必须红"同族)
+  if (linksScanned === 0) {
     console.error('❌ 扫到 0 条 node_modules 链接 —— 判据无从成立,不允许报绿(先确认依赖已安装)')
     return 1
   }
-  if (
-    missing.length === 0 &&
-    gutted.length === 0 &&
-    redBins === 0 &&
-    hookBad.length === 0 &&
-    shimBad.length === 0
-  ) {
+  if (missing.length === 0 && gutted.length === 0 && hookBad.length === 0) {
     console.log(
-      `✅ ${scanned} 个包声明的 workspace 依赖均已链接,` +
-        (strict
-          ? `浅扫 ${linksScanned} 条 / 深扫 ${deepScanned} 条(.pnpm 临时键跳过 ${tmpKeysSkipped} 个)链接目标内容完好,`
-          : `${linksScanned} 条链接目标内容完好,`) +
-        `钩子命令全部可解析且入口在位` +
-        (shimUnresolved ? `(另有 ${shimUnresolved} 条 shim 模板解析不出目标,不判红)` : '') +
-        (strict
-          ? `,直接依赖声明的 bin 均有 shim`
-          : `(shim 完整性现测 ${missingBins.length} 条缺失,只报数;要判红加 --strict)`),
+      `✅ ${scanned} 个包声明的 workspace 依赖均已链接,${linksScanned} 条链接的目标全部可解析到真包` +
+        `(完好 ${linksOk},其中指向仓外但可解析 ${outsideRepo};豁免不判:点开头条目 ${exempt.dotEntries || 0}、` +
+        `真目录 ${exempt.realDirs || 0}、scope 内真目录 ${exempt.nonLinkInScope || 0}、无 node_modules 目录 ${exempt.noNmDirs || 0})` +
+        `(另有 ${missingBins.length} 条"声明了 bin 但该处无 shim"仅报数 —— 见 §12e 说明:该形态` +
+        `**不**等于坏,实测 apps/api 无自身 .bin 而 \`pnpm --filter @ihui/api run typecheck\` 仍走根 .bin 通过)`,
     )
     return 0
   }
@@ -682,40 +629,32 @@ function run(argv) {
     const byKind = {}
     for (const x of gutted) byKind[x.kind] = (byKind[x.kind] || 0) + 1
     console.error(
-      `❌ ${gutted.length} 条链接目标内容不成立(${Object.entries(byKind)
+      `❌ ${gutted.length} 条链接的目标不成立(${Object.entries(byKind)
         .map(([k, v]) => `${k} ${v}`)
-        .join(' / ')})—— existsSync 对"指向空目录的链接"仍返回 true,所以这一类旧判据看不见:`,
+        .join(' / ')};悬空 = 目标不存在(target 形态写错)/ 掏空 = 目标在但没有有效清单,` +
+        `后者 existsSync 仍返回 true ⇒ 判据一看不见。每条红点下面给出取证:`,
     )
-    for (const x of gutted.slice(0, 25)) console.error(`   [${x.kind}] ${x.link}  ← ${x.owner}`)
-    if (gutted.length > 25) console.error(`   … 另有 ${gutted.length - 25} 条`)
-    if (strict) {
-      const deepHits = gutted.filter((x) => x.link.includes('/.pnpm/')).length
+    for (const x of gutted.slice(0, 25)) {
+      console.error(`   [${x.kind}] ${x.link}  ← 归属 ${x.owner}`)
       console.error(
-        `   （口径:浅扫面 ${linksScanned} 条 / 深扫面 ${deepScanned} 条分列;红点中深扫面 ${deepHits} 条、浅扫面 ${gutted.length - deepHits} 条）`,
+        `      target(原样,未归一): ${x.target === null ? '<读不到>' : JSON.stringify(x.target)}`,
       )
+      if (x.resolved)
+        console.error(
+          `      从链接所在目录解析为: ${x.resolved}${x.brokenAt ? `  ⇒ 断在这一层不存在: ${x.brokenAt}` : ''}`,
+        )
+      if (x.why) console.error(`      为什么判红: ${x.why}`)
+      if (x.correctTarget)
+        console.error(
+          `      等价可解析的 target 写法(基准 = 链接所在目录,可照抄): ${JSON.stringify(x.correctTarget)}`,
+        )
     }
-    console.error('   ⚠️ 若此刻有并发 `pnpm install` 在跑,这类红会在装完后自行消失(半复制态)。')
-    console.error(
-      '      正确反应是**等一等再复跑本门**,不是 --no-verify(那会连带跳过其余全部守门)。',
-    )
+    if (gutted.length > 25) console.error(`   … 另有 ${gutted.length - 25} 条`)
   }
   if (hookBad.length) {
-    console.error(
-      `❌ ${hookBad.length} 条 pre-commit 第一步必然 spawn 的 lint-staged 命令解析不到(根 node_modules/.bin 里没有 shim):`,
-    )
-    for (const x of hookBad)
-      console.error(`   [命令不可解析] ${x.cmd}  ⇒ lint-staged 报「'${x.cmd}' 不是内部或外部命令」`)
+    console.error(`❌ ${hookBad.length} 条 pre-commit 第一步必然 spawn 的 lint-staged 命令解析不到(根 node_modules/.bin 里没有 shim):`)
+    for (const x of hookBad) console.error(`   [命令不可解析] ${x.cmd}  ⇒ lint-staged 报「'${x.cmd}' 不是内部或外部命令」`)
     console.error('   ⇒ 每一次提交都被迫 --no-verify ⇒ 其余全部守门同时对全队失效。')
-  }
-  if (shimBad.length) {
-    console.error(
-      `❌ ${shimBad.length} 条钩子命令的 shim **在位**,但它指向的入口文件不存在(第四维只看 shim 存不存在,看不见这一型):`,
-    )
-    for (const x of shimBad)
-      console.error(`   [入口缺失] ${x.cmd} → ${x.target}${x.pkg ? `  ← ${x.pkg}` : ''}`)
-    console.error(
-      '   ⇒ lint-staged 能 spawn 到命令,随即 `Cannot find module` —— 症状与"没有 shim"不同,修复动作也不同。',
-    )
   }
   hint()
   return 1
@@ -806,7 +745,7 @@ function selfTest() {
         try {
           symlinkSync(target, abs, 'dir')
           return true
-        } catch {
+        } catch (e) {
           return false // Windows 无符号链接权限 ⇒ 由下一条用例显式报告
         }
       }
@@ -850,243 +789,75 @@ function selfTest() {
      * **直接指纹**:内容完好但 `.bin` 里没有 shim ⇒ lint-staged 第一步就炸,
      * 而"包目录存在"这种判断会当场报绿(尺子必须在故障现场报红)。
      */
-    t(
-      '第三型"声明 bin 但无 shim"只进 missingBins 不计红,补 shim 后归零;hoist 传递依赖不得算',
-      () => {
-        const nm = join(root, 'node_modules')
-        const store = join(root, '.pnpm-fixture2')
-        const mkPkg = (name, bin) => {
-          mkdirSync(join(store, `${name}@1.0.0`, 'node_modules', name), { recursive: true })
-          writeFileSync(
-            join(store, `${name}@1.0.0`, 'node_modules', name, 'package.json'),
-            JSON.stringify({ name, bin }),
-          )
-          try {
-            symlinkSync(join(store, `${name}@1.0.0`, 'node_modules', name), join(nm, name), 'dir')
-          } catch {
-            assert(false, '本机无法创建符号链接,第三型未被真正验证')
-          }
+    t('第三型"声明 bin 但无 shim"只进 missingBins 不计红,补 shim 后归零;hoist 传递依赖不得算', () => {
+      const nm = join(root, 'node_modules')
+      const store = join(root, '.pnpm-fixture2')
+      const mkPkg = (name, bin) => {
+        mkdirSync(join(store, `${name}@1.0.0`, 'node_modules', name), { recursive: true })
+        writeFileSync(
+          join(store, `${name}@1.0.0`, 'node_modules', name, 'package.json'),
+          JSON.stringify({ name, bin }),
+        )
+        try {
+          symlinkSync(join(store, `${name}@1.0.0`, 'node_modules', name), join(nm, name), 'dir')
+        } catch {
+          assert(false, '本机无法创建符号链接,第三型未被真正验证')
         }
-        writeFileSync(
-          join(root, 'package.json'),
-          JSON.stringify({ name: 'fixture-root', dependencies: { mytool: '1.0.0' } }),
-        )
-        mkPkg('mytool', { mytool: './cli.js' }) // 直接声明 ⇒ 应有 shim
-        mkPkg('hoisted', { hoisted: './cli.js' }) // 未声明(根里 hoist 上来的传递依赖)⇒ 按 pnpm 语义不该有 shim
-        const r1 = findGuttedLinks(root, dirs)
-        assert(
-          r1.gutted.every((x) => x.link !== 'node_modules/mytool'),
-          '声明 bin 无 shim 不得进 gutted(未证明的基线不拦人)',
-        )
-        assert(
-          r1.missingBins.some((x) => x.link === 'node_modules/mytool' && x.bin === 'mytool'),
-          `missingBins 应点名 mytool, got ${JSON.stringify(r1.missingBins)}`,
-        )
-        assert(
-          !r1.missingBins.some((x) => x.link === 'node_modules/hoisted'),
-          'hoist 的传递依赖被算进红点 = 假阳机(真仓实测 expo / react-native 正是这一型,不在根 package.json 里)',
-        )
-        mkdirSync(join(nm, '.bin'), { recursive: true })
-        writeFileSync(
-          join(nm, '.bin', process.platform === 'win32' ? 'mytool.CMD' : 'mytool'),
-          '@ECHO off\n',
-        )
-        const r2 = findGuttedLinks(root, dirs)
-        assert(
-          !r2.missingBins.some((x) => x.link === 'node_modules/mytool'),
-          '补上 shim 后必须归零(否则该维度是单向断言)',
-        )
-        rmSync(join(nm, 'mytool'), { recursive: true, force: true })
-        rmSync(join(nm, 'hoisted'), { recursive: true, force: true })
-        rmSync(join(nm, '.bin', process.platform === 'win32' ? 'mytool.CMD' : 'mytool'), {
-          force: true,
-        })
-        rmSync(join(root, 'package.json'), { force: true })
-      },
-    )
-    t(
-      'lintStagedCommands:字符串/数组/嵌套对象三种形态都要提出命令名,且 node/pnpm 首 token 不算',
-      () => {
-        const cmds = lintStagedCommands({
-          'lint-staged': {
-            '*.ts': 'eslint --fix',
-            '*.js': ['prettier --write', 'node scripts/own-check.mjs'],
-            '*.{css,md}': { commands: ['prettier --write'], packageManager: 'pnpm exec' },
-          },
-        })
-        assert(
-          cmds.includes('eslint') && cmds.includes('prettier'),
-          `漏提命令名: ${cmds.join(',')}`,
-        )
-        assert(!cmds.includes('node'), '`node x.mjs` 的命令名应是 node 本身以外 ⇒ 不参与 shim 对账')
-        assert(!cmds.includes('pnpm'), 'pnpm exec 由 PATH 承载,不要求 .bin shim')
-        assert(new Set(cmds).size <= 3, `去重前应≤3 种命令, got ${cmds.join(',')}`)
-        assert(lintStagedCommands({}).length === 0, '无 lint-staged 配置应返回空集(不得凭猜测判红)')
-      },
-    )
+      }
+      writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'fixture-root', dependencies: { mytool: '1.0.0' } }))
+      mkPkg('mytool', { mytool: './cli.js' }) // 直接声明 ⇒ 应有 shim
+      mkPkg('hoisted', { hoisted: './cli.js' }) // 未声明(根里 hoist 上来的传递依赖)⇒ 按 pnpm 语义不该有 shim
+      const r1 = findGuttedLinks(root, dirs)
+      assert(r1.gutted.every((x) => x.link !== 'node_modules/mytool'), '声明 bin 无 shim 不得进 gutted(未证明的基线不拦人)')
+      assert(
+        r1.missingBins.some((x) => x.link === 'node_modules/mytool' && x.bin === 'mytool'),
+        `missingBins 应点名 mytool, got ${JSON.stringify(r1.missingBins)}`,
+      )
+      assert(
+        !r1.missingBins.some((x) => x.link === 'node_modules/hoisted'),
+        'hoist 的传递依赖被算进红点 = 假阳机(真仓实测 expo / react-native 正是这一型,不在根 package.json 里)',
+      )
+      mkdirSync(join(nm, '.bin'), { recursive: true })
+      writeFileSync(join(nm, '.bin', process.platform === 'win32' ? 'mytool.CMD' : 'mytool'), '@ECHO off\n')
+      const r2 = findGuttedLinks(root, dirs)
+      assert(
+        !r2.missingBins.some((x) => x.link === 'node_modules/mytool'),
+        '补上 shim 后必须归零(否则该维度是单向断言)',
+      )
+      rmSync(join(nm, 'mytool'), { recursive: true, force: true })
+      rmSync(join(nm, 'hoisted'), { recursive: true, force: true })
+      rmSync(join(nm, '.bin', process.platform === 'win32' ? 'mytool.CMD' : 'mytool'), { force: true })
+      rmSync(join(root, 'package.json'), { force: true })
+    })
+    t('lintStagedCommands:字符串/数组/嵌套对象三种形态都要提出命令名,且 node/pnpm 首 token 不算', () => {
+      const cmds = lintStagedCommands({
+        'lint-staged': {
+          '*.ts': 'eslint --fix',
+          '*.js': ['prettier --write', 'node scripts/own-check.mjs'],
+          '*.{css,md}': { commands: ['prettier --write'], packageManager: 'pnpm exec' },
+        },
+      })
+      assert(cmds.includes('eslint') && cmds.includes('prettier'), `漏提命令名: ${cmds.join(',')}`)
+      assert(!cmds.includes('node'), '`node x.mjs` 的命令名应是 node 本身以外 ⇒ 不参与 shim 对账')
+      assert(!cmds.includes('pnpm'), 'pnpm exec 由 PATH 承载,不要求 .bin shim')
+      assert(new Set(cmds).size <= 3, `去重前应≤3 种命令, got ${cmds.join(',')}`)
+      assert(lintStagedCommands({}).length === 0, '无 lint-staged 配置应返回空集(不得凭猜测判红)')
+    })
     t('第四型判红双向:命令无 shim 必红,补 shim 必绿;且"包目录在而 shim 没了"不得算绿', () => {
       const h = mkScratch('ihui-hook-cmd-')
       try {
         mkdirSync(join(h, 'node_modules', '.bin'), { recursive: true })
         mkdirSync(join(h, 'node_modules', 'eslint', 'node_modules'), { recursive: true })
-        writeFileSync(
-          join(h, 'node_modules', 'eslint', 'package.json'),
-          JSON.stringify({ name: 'eslint' }),
-        )
+        writeFileSync(join(h, 'node_modules', 'eslint', 'package.json'), JSON.stringify({ name: 'eslint' }))
         const bad = findUnresolvableHookCommands(h, ['eslint', 'prettier'])
         assert(
           bad.length === 2 && bad.every((x) => ['eslint', 'prettier'].includes(x.cmd)),
           `包内容在、shim 没了必须判红(这正是 2026-09-24 的现场), got ${JSON.stringify(bad)}`,
         )
-        writeFileSync(
-          join(h, 'node_modules', '.bin', process.platform === 'win32' ? 'eslint.CMD' : 'eslint'),
-          '@ECHO off\n',
-        )
+        writeFileSync(join(h, 'node_modules', '.bin', process.platform === 'win32' ? 'eslint.CMD' : 'eslint'), '@ECHO off\n')
         const after = findUnresolvableHookCommands(h, ['eslint', 'prettier'])
-        assert(
-          after.length === 1 && after[0].cmd === 'prettier',
-          `补一个 shim 只应消一个红, got ${JSON.stringify(after)}`,
-        )
+        assert(after.length === 1 && after[0].cmd === 'prettier', `补一个 shim 只应消一个红, got ${JSON.stringify(after)}`)
         assert(findUnresolvableHookCommands(h, []).length === 0, '空命令集不得凭空造红')
-      } finally {
-        rmScratch(h)
-      }
-    })
-    /**
-     * 第五维(入口文件在不在)三段可逆对照。**中间那段"正常 shim 必须判绿"是本用例的全部意义**:
-     * pnpm 的 .CMD 里第一个带引号候选是 `"%~dp0\node.exe"`(存在性分支头),第一版判据按"第一个
-     * 命中"取值,于是在**完好仓库**上把 eslint 判成入口缺失 —— 一道恒红门。写判据的人自己踩的坑,
-     * 必须由反向对照钉住,而不是靠"跑真仓看看"(真仓跑了才知道,但那时已经提交出去了)。
-     */
-    t(
-      '第五维双向:shim 在而入口文件被删必红;pnpm 正常 %~dp0 模板(首个候选是 node.exe)必须判绿',
-      () => {
-        const h = mkScratch('ihui-shim-entry-')
-        try {
-          const nm = join(h, 'node_modules')
-          const store = join(h, '.pnpm-fixture4')
-          mkdirSync(join(store, 'mytool@1.0.0', 'node_modules', 'mytool', 'bin'), {
-            recursive: true,
-          })
-          mkdirSync(nm, { recursive: true })
-          mkdirSync(join(nm, '.bin'), { recursive: true })
-          writeFileSync(
-            join(store, 'mytool@1.0.0', 'node_modules', 'mytool', 'package.json'),
-            JSON.stringify({ name: 'mytool', bin: { mytool: './bin/tool.js' } }),
-          )
-          writeFileSync(
-            join(store, 'mytool@1.0.0', 'node_modules', 'mytool', 'bin', 'tool.js'),
-            '//\n',
-          )
-          try {
-            symlinkSync(
-              join(store, 'mytool@1.0.0', 'node_modules', 'mytool'),
-              join(nm, 'mytool'),
-              'dir',
-            )
-          } catch {
-            assert(false, '本机无法创建符号链接,第五维未被真正验证')
-          }
-          // 逐字照抄 pnpm 生成的 .CMD 骨架(第一候选 = %~dp0\node.exe)
-          const cmd = process.platform === 'win32' ? 'mytool.CMD' : 'mytool'
-          const shimPath = join(nm, '.bin', cmd)
-          writeFileSync(
-            shimPath,
-            '@ECHO off\r\n' +
-              '@IF EXIST "%~dp0\\node.exe" (\r\n' +
-              '  "%~dp0\\node.exe"  "%~dp0\\..\\mytool\\bin\\tool.js" %*\r\n' +
-              ') ELSE (\r\n' +
-              '  @SET PATHEXT=%PATHEXT:;.JS;=;%\r\n' +
-              '  node  "%~dp0\\..\\mytool\\bin\\tool.js" %*\r\n' +
-              ')\r\n',
-          )
-          const ok = resolveShimEntry(h, 'mytool')
-          assert(
-            ok.state === 'ok',
-            `正常 pnpm shim 必须判绿(否则本门在完好仓库上恒红), got ${JSON.stringify(ok)}`,
-          )
-          assert(
-            shimEntryCandidates(readFileSync(shimPath, 'utf8')).every(
-              (c) => !/node\.exe$/i.test(c),
-            ),
-            'node.exe 不得算入口候选',
-          )
-          rmSync(join(store, 'mytool@1.0.0', 'node_modules', 'mytool', 'bin', 'tool.js'), {
-            force: true,
-          })
-          const bad = resolveShimEntry(h, 'mytool')
-          assert(bad.state === 'missing-entry', `删掉入口文件必须判红, got ${bad.state}`)
-          // 无 shim ⇒ 交给第四维,本维不重复计红
-          rmSync(shimPath, { force: true })
-          assert(resolveShimEntry(h, 'mytool').state === 'no-shim', '没有 shim 应判 no-shim')
-          // 无模板 **且** 清单也认领不到这个命令 ⇒ 才算"判不出"(绝不冒红)。
-          // 反过来:清单能认领到 bin 时,即使 shim 文本没模板也照样判得准 —— 两条路互为兜底。
-          mkdirSync(join(nm, '.bin'), { recursive: true })
-          writeFileSync(join(nm, '.bin', cmd), '@ECHO off\r\n@CALL some-weird-launcher\r\n')
-          assert(
-            resolveShimEntry(h, 'mytool').state === 'missing-entry',
-            'shim 无模板但清单认领得到 ⇒ 仍应按清单判(入口此时确实不在)',
-          )
-          writeFileSync(join(nm, '.bin', 'weird.CMD'), '@ECHO off\r\n@CALL some-weird-launcher\r\n')
-          assert(
-            resolveShimEntry(h, 'weird').state === 'unresolved',
-            '两条路都探不到必须判"判不出"而非红',
-          )
-          rmSync(join(nm, '.bin', 'weird.CMD'), { force: true })
-        } finally {
-          rmScratch(h)
-        }
-      },
-    )
-    t('第五维端到端:shim 在、入口没了 ⇒ run() 必 exit 1,恢复入口必归零(不靠单元层自证)', () => {
-      const h = mkScratch('ihui-shim-e2e-')
-      try {
-        mkdirSync(join(h, 'packages', 'aa'), { recursive: true })
-        writeFileSync(join(h, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n")
-        writeFileSync(
-          join(h, 'packages', 'aa', 'package.json'),
-          JSON.stringify({ name: '@ihui/aa' }),
-        )
-        writeFileSync(
-          join(h, 'package.json'),
-          JSON.stringify({
-            name: 'e2e-root',
-            dependencies: { mytool: '1.0.0' },
-            'lint-staged': { '*.ts': 'mytool --fix' },
-          }),
-        )
-        const store = join(h, '.pnpm-fixture5')
-        const pkg = join(store, 'mytool@1.0.0', 'node_modules', 'mytool')
-        mkdirSync(join(pkg, 'bin'), { recursive: true })
-        mkdirSync(join(h, 'node_modules', '.bin'), { recursive: true })
-        writeFileSync(
-          join(pkg, 'package.json'),
-          JSON.stringify({ name: 'mytool', bin: { mytool: './bin/tool.js' } }),
-        )
-        writeFileSync(join(pkg, 'bin', 'tool.js'), '//\n')
-        // 必须走符号链接:findGuttedLinks 只把链接算作"扫到的一条",真目录不参与 ——
-        // 用目录搭夹具会让 scanned=0,run() 在"空扫必须红"那一道就 exit 1,本用例就变成自证。
-        try {
-          symlinkSync(pkg, join(h, 'node_modules', 'mytool'), 'dir')
-        } catch {
-          assert(false, '本机无法创建符号链接,第五维端到端未被真正验证')
-        }
-        writeFileSync(
-          join(h, 'node_modules', '.bin', 'mytool'),
-          '#!/bin/sh\nexec node "$basedir/../mytool/bin/tool.js" "$@"\n',
-        )
-        const cands = shimEntryCandidates(
-          readFileSync(join(h, 'node_modules', '.bin', 'mytool'), 'utf8'),
-        )
-        assert(
-          cands.length === 1 && cands[0].includes('tool.js'),
-          `POSIX $basedir 模板应抽出 1 条候选, got ${JSON.stringify(cands)}`,
-        )
-        assert(run([`--root=${h}`]) === 0, '完好夹具必须绿(否则下面判红无从证明是入口造成的)')
-        rmSync(join(pkg, 'bin', 'tool.js'), { force: true })
-        assert(run([`--root=${h}`]) === 1, 'shim 在而入口被删必须红(第四维看不见这一型)')
-        writeFileSync(join(pkg, 'bin', 'tool.js'), '//\n')
-        assert(run([`--root=${h}`]) === 0, '恢复入口必须归零(单向断言不算证明)')
       } finally {
         rmScratch(h)
       }
@@ -1111,242 +882,6 @@ function selfTest() {
       const code = run([`--root=${root}`])
       assert(code === 1, `scanned=0 时 run() 应返回 1, got ${code}`)
     })
-    t(
-      '--strict 开关是**双向**的:同一夹具默认 exit 0、加 --strict 必 exit 1(缺一半就是空开关)',
-      () => {
-        const h = mkScratch('ihui-strict-switch-')
-        try {
-          mkdirSync(join(h, 'packages', 'aa'), { recursive: true })
-          writeFileSync(join(h, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n")
-          writeFileSync(
-            join(h, 'package.json'),
-            JSON.stringify({ name: 'strict-root', dependencies: { mytool: '1.0.0' } }),
-          )
-          writeFileSync(
-            join(h, 'packages', 'aa', 'package.json'),
-            JSON.stringify({ name: '@ihui/aa' }),
-          )
-          const store = join(h, '.pnpm-fixture3')
-          mkdirSync(join(store, 'mytool@1.0.0', 'node_modules', 'mytool'), { recursive: true })
-          writeFileSync(
-            join(store, 'mytool@1.0.0', 'node_modules', 'mytool', 'package.json'),
-            JSON.stringify({ name: 'mytool', bin: { mytool: './cli.js' } }),
-          )
-          mkdirSync(join(h, 'node_modules'), { recursive: true })
-          try {
-            symlinkSync(
-              join(store, 'mytool@1.0.0', 'node_modules', 'mytool'),
-              join(h, 'node_modules', 'mytool'),
-              'dir',
-            )
-          } catch {
-            assert(false, '本机无法创建符号链接,--strict 未被真正验证')
-          }
-          const code1 = run([`--root=${h}`])
-          const code2 = run([`--root=${h}`, '--strict'])
-          assert(code1 === 0, `默认模式不得因缺 shim 拦人(实得 ${code1})`)
-          assert(code2 === 1, `--strict 必须把同一状态判红(实得 ${code2})`)
-          // 补上 shim ⇒ 两种模式都归零(证明判的是"有没有",不是"报不报")
-          mkdirSync(join(h, 'node_modules', '.bin'), { recursive: true })
-          writeFileSync(
-            join(h, 'node_modules', '.bin', process.platform === 'win32' ? 'mytool.CMD' : 'mytool'),
-            '@ECHO off\n',
-          )
-          assert(run([`--root=${h}`, '--strict']) === 0, '补 shim 后 strict 仍红 = 判据不成立')
-        } finally {
-          rmScratch(h)
-        }
-      },
-    )
-    /**
-     * 深扫(第二维扩面到 .pnpm 传递闭包,2026-09-24)的三段取证。为什么必须显式做:
-     * "写了一个没人调的函数"是本仓吃过的亏(§22c),而深扫的落点纪律(**只允许挂 --strict、
-     * 严禁进提交链**)决定了它一旦接错档,后果就是并发 install 期一次闪出成百上千条红,
-     * 把全队逼进 --no-verify。故除单元层双向对照外,必须有 run() 层的接线方向证明。
-     */
-    t(
-      '深扫双向:.pnpm 传递链接掏空/悬空浅扫必须绿、deep:true 必红且点名;_tmp_ 临时键跳过并计数',
-      () => {
-        const h = mkScratch('ihui-deep-scan-')
-        try {
-          mkdirSync(join(h, 'packages', 'aa'), { recursive: true })
-          writeFileSync(join(h, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n")
-          writeFileSync(join(h, 'package.json'), JSON.stringify({ name: 'deep-root' }))
-          writeFileSync(
-            join(h, 'packages', 'aa', 'package.json'),
-            JSON.stringify({ name: '@ihui/aa' }),
-          )
-          const dirs = expandPatterns(h, ['packages/*'])
-          assert(dirs.length === 1, '夹具未展开出包,后面全是空转')
-          const store = join(h, 'node_modules', '.pnpm')
-          const good = join(store, 'good@1.0.0', 'node_modules', 'good')
-          mkdirSync(good, { recursive: true })
-          writeFileSync(join(good, 'package.json'), JSON.stringify({ name: 'good' }))
-          const hollow = join(store, 'hollow@1.0.0', 'node_modules', 'hollow')
-          mkdirSync(hollow, { recursive: true }) // 空目录 = 掏空形态
-          mkdirSync(join(h, 'node_modules'), { recursive: true })
-          const link = (target, abs) => {
-            try {
-              symlinkSync(target, abs, 'dir')
-              return true
-            } catch {
-              return false
-            }
-          }
-          // 浅扫面:一条完好链接(防"空扫必红"抢戏;也证明深扫渗不进浅扫计数)
-          assert(
-            link(good, join(h, 'node_modules', 'good')),
-            '本机无法创建符号链接,深扫未被真正验证',
-          )
-          // 深扫面:.pnpm/good@1.0.0/node_modules/ 下的传递链接 —— 一好、一掏空、一悬空,再加 scoped 两层形态
-          const gnm = join(store, 'good@1.0.0', 'node_modules')
-          assert(link(good, join(gnm, 'other-good')), '符号链接创建失败(深扫)')
-          link(hollow, join(gnm, 'bad-hollow'))
-          link(join(store, 'ghost@1.0.0', 'node_modules', 'ghost'), join(gnm, 'bad-dangling'))
-          mkdirSync(join(gnm, '@sc'), { recursive: true })
-          link(hollow, join(gnm, '@sc', 'bad-hollow'))
-          // 安装中临时键:里面放一条"必红"链接,判据必须整目录跳过(反向对照:中间态≠债务)
-          const tmpKey = '_tmp_good@1.0.0_tmp_1234'
-          mkdirSync(join(store, tmpKey, 'node_modules'), { recursive: true })
-          link(hollow, join(store, tmpKey, 'node_modules', 'in-tmp'))
-          // (a) 默认(浅扫)不得被深扫面污染
-          const shallow = findGuttedLinks(h, dirs)
-          assert(
-            shallow.gutted.length === 0 && shallow.scanned === 1 && shallow.deepScanned === 0,
-            `浅扫被深扫面污染或计数未分列: ${JSON.stringify(shallow)}`,
-          )
-          // (b) deep:true 判红且点名,浅/深计数分列,临时键跳过并计数
-          const r = findGuttedLinks(h, dirs, { deep: true })
-          assert(
-            r.deepScanned === 4,
-            `深扫应扫到 4 条传递链接(good/hollow/dangling/@sc), got ${r.deepScanned}`,
-          )
-          assert(r.scanned === 1, '浅扫计数必须与深评分列,不得合成一个数(反空扫护栏依赖它)')
-          assert(r.tmpKeysSkipped === 1, `_tmp_ 临时键必须跳过并如实计数, got ${r.tmpKeysSkipped}`)
-          const names = r.gutted.map((x) => x.link).sort()
-          assert(
-            JSON.stringify(names) ===
-              JSON.stringify([
-                'node_modules/.pnpm/good@1.0.0/node_modules/@sc/bad-hollow',
-                'node_modules/.pnpm/good@1.0.0/node_modules/bad-dangling',
-                'node_modules/.pnpm/good@1.0.0/node_modules/bad-hollow',
-              ]),
-            `深扫红点清单不对: ${names.join(' | ')}`,
-          )
-          assert(
-            !names.some((n) => n.includes('_tmp_')),
-            '安装中中间态被判成债务 = 逼人 --no-verify',
-          )
-          assert(
-            r.gutted.every((x) => x.kind === '掏空' || x.kind === '悬空'),
-            '深扫红点必须沿用维度二同一套 kind 分类',
-          )
-          assert(
-            r.gutted.every((x) => x.owner.startsWith('node_modules/.pnpm/')),
-            `深扫红点归属必须点名 .pnpm/<key>, got ${JSON.stringify(r.gutted.map((x) => x.owner))}`,
-          )
-        } finally {
-          rmScratch(h)
-        }
-      },
-    )
-    t(
-      '深扫接线方向:同一夹具 run() 默认档必绿、--strict 必红(证明深扫真挂在 strict 而非没人调)',
-      () => {
-        const h = mkScratch('ihui-deep-e2e-')
-        try {
-          mkdirSync(join(h, 'packages', 'aa'), { recursive: true })
-          writeFileSync(join(h, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n")
-          writeFileSync(join(h, 'package.json'), JSON.stringify({ name: 'deep-e2e-root' }))
-          writeFileSync(
-            join(h, 'packages', 'aa', 'package.json'),
-            JSON.stringify({ name: '@ihui/aa' }),
-          )
-          const gnm = join(h, 'node_modules', '.pnpm', 'good@1.0.0', 'node_modules')
-          mkdirSync(join(gnm, 'good'), { recursive: true })
-          writeFileSync(
-            join(gnm, 'good', 'package.json'),
-            JSON.stringify({ name: 'good', version: '1.0.0' }),
-          )
-          mkdirSync(join(gnm, 'hollow'), { recursive: true }) // store 内的空包体
-          mkdirSync(join(h, 'node_modules'), { recursive: true })
-          try {
-            symlinkSync(join(gnm, 'good'), join(h, 'node_modules', 'good'), 'dir')
-            symlinkSync(join(gnm, 'hollow'), join(gnm, 'broken-dep'), 'dir')
-          } catch {
-            assert(false, '本机无法创建符号链接,深扫接线方向未被真正验证')
-          }
-          assert(
-            run([`--root=${h}`]) === 0,
-            '默认档不得因 .pnpm 深扫破损拦人(深扫进提交链 = 恒红机,严禁)',
-          )
-          assert(
-            run([`--root=${h}`, '--strict']) === 1,
-            '--strict 必须把深扫破损判红(否则深扫是造好没装车,§22c 教训)',
-          )
-        } finally {
-          rmScratch(h)
-        }
-      },
-    )
-    t(
-      '深扫行为不变:破损只在浅扫层时,默认档与 --strict 的红点集合逐字相同(差异只允许来自深扫新增)',
-      () => {
-        const h = mkScratch('ihui-deep-nodiff-')
-        try {
-          mkdirSync(join(h, 'packages', 'aa'), { recursive: true })
-          writeFileSync(join(h, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n")
-          writeFileSync(join(h, 'package.json'), JSON.stringify({ name: 'nodiff-root' }))
-          writeFileSync(
-            join(h, 'packages', 'aa', 'package.json'),
-            JSON.stringify({ name: '@ihui/aa' }),
-          )
-          const gnm = join(h, 'node_modules', '.pnpm', 'good@1.0.0', 'node_modules')
-          mkdirSync(join(gnm, 'good'), { recursive: true })
-          writeFileSync(join(gnm, 'good', 'package.json'), JSON.stringify({ name: 'good' }))
-          mkdirSync(join(h, 'node_modules'), { recursive: true })
-          try {
-            // 深扫面完好的一条(证明深扫真在跑,只是不产出红点)
-            symlinkSync(join(gnm, 'good'), join(gnm, 'dep'), 'dir')
-            symlinkSync(join(gnm, 'good'), join(h, 'node_modules', 'good'), 'dir')
-            // 破损只在浅扫层:根链接指向被掏空的 store 目录
-            const hollow = join(
-              h,
-              'node_modules',
-              '.pnpm',
-              'hollow@1.0.0',
-              'node_modules',
-              'hollow',
-            )
-            mkdirSync(hollow, { recursive: true })
-            symlinkSync(hollow, join(h, 'node_modules', 'hollow'), 'dir')
-          } catch {
-            assert(false, '本机无法创建符号链接,行为不变对账未被真正验证')
-          }
-          const a1 = audit({ root: h })
-          const a2 = audit({ root: h, strict: true })
-          assert(
-            a1.gutted.length === 1 && a2.gutted.length === 1,
-            `浅扫破损两档必须等量, got ${a1.gutted.length}/${a2.gutted.length}`,
-          )
-          assert(
-            a1.gutted[0].link === a2.gutted[0].link,
-            `两档红点集合不一致(差异只允许来自深扫新增): ${a1.gutted[0].link} vs ${a2.gutted[0].link}`,
-          )
-          assert(a1.deepScanned === 0, '默认档不得有深扫计数(深扫渗进默认档 = 落点纪律破了)')
-          assert(
-            a2.deepScanned === 1 && a2.tmpKeysSkipped === 0,
-            `strict 档深扫应扫到 1 条完好传递链接, got ${a2.deepScanned}/${a2.tmpKeysSkipped}`,
-          )
-          assert(
-            run([`--root=${h}`]) === 1 && run([`--root=${h}`, '--strict']) === 1,
-            '浅扫破损在两档都必须红(不得因档位在退出码上有差异)',
-          )
-        } finally {
-          rmScratch(h)
-        }
-      },
-    )
     t('真仓不参判据自测(共享工作区在装依赖时链接数会瞬时下跌,写进自检必成 flaky 红)', () => {
       // 真仓规模的"装车证明"放在镜像测试 scripts/tests/check-workspace-dep-links.test.mjs,
       // 那里手动/CI 跑,不进每次提交的自检链(教训:自测夹具不得依赖真仓瞬时状态)。
@@ -1417,8 +952,6 @@ export const __test__ = {
   findGuttedLinks,
   lintStagedCommands,
   findUnresolvableHookCommands,
-  resolveShimEntry,
-  shimEntryCandidates,
   audit,
 }
 

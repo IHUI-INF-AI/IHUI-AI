@@ -13391,7 +13391,7 @@
   },
   "aiApprovedRules": {
     "title": "命令放行规则",
-    "description": "审批时生成的命令前缀与网络目标放行规则;到期自动过期,可随时撤销",
+    "description": "审批时生成的命令前缀放行规则;90 天自动过期,可随时撤销",
     "empty": "暂无放行规则",
     "prefixHeader": "命令前缀",
     "createdAtHeader": "创建时间",
@@ -13404,10 +13404,7 @@
     "loadFailed": "加载放行规则失败",
     "refresh": "刷新",
     "scopeAlways": "长期生效",
-    "scopeSession": "本次会话",
-    "sectionCommands": "命令前缀",
-    "sectionNetwork": "网络目标",
-    "revokeConfirmContentNetwork": "撤销后,目标「{target}」的访问将重新需要人工审批。"
+    "scopeSession": "本次会话"
   },
   "editor": {
     "toolApproval": {
@@ -13421,21 +13418,7 @@
       "description": "AI 请求执行以下高危操作,请确认是否允许",
       "pendingCount": "还有 {count} 个待审批",
       "reject": "拒绝",
-      "title": "工具审批",
-      "envLabel": "执行环境",
-      "envInSandbox": "在沙箱中运行",
-      "envOutsideSandbox": "在沙箱外运行",
-      "envBackend": "隔离方式:{backend}",
-      "envDegraded": "沙箱能力不可用,已降级为受限直跑",
-      "envNetworkSection": "网络",
-      "envNetworkBlocked": "被拦截的网络目标",
-      "envNetworkBlockedOne": "{host}:{port}({reason})",
-      "envNetworkOpen": "本次可访问外网",
-      "envNetworkOff": "本次不开放网络",
-      "envUnknown": "未上报(不据档位推断,请拒绝并要求重试)",
-      "envAllowTargetOnce": "仅本次允许该目标",
-      "envAllowTargetSession": "本次对话允许该目标",
-      "envAllowTargetAlways": "始终允许该目标(90 天后失效)"
+      "title": "工具审批"
     },
     "toolbar": {
       "addColumn": "添加列",
