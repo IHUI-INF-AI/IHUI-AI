@@ -114,6 +114,9 @@ type Mode = 'text' | 'voice'
 /**
  * InputArea 输入区(受控组件模式)
  *
+ * 平台特有:本端的 ai-home 变体(三层嵌套 + fixed 全屏放大浮层 + 表情面板 + 原项目 rpx 复刻的
+ * 图标盒)依赖 Taro/小程序 API,RN 端没有这些元素,故其几何档天然只在本端取用(AGENTS §3)。
+ *
  * 两种 variant:
  * - 'default'(默认):Tailwind bg-muted 输入框,无发送按钮显式宽度
  * - 'ai-home'(首页专用):对齐原项目 .input-area:
