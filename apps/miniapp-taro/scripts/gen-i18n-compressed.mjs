@@ -13,6 +13,11 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
+// 正解 = 把本生成器搬到根 scripts/(与 sync-miniapp-tokens.mjs 同一条先例;D2 只比 rank,
+// 所以只改说明符照样红),前置 = 等两台机的分叉裁决定后再搬,避免刚搬完就被并回旧路径。
+// 在这之前这条边**不能撤**:守门 105 的镜像 T14 断言"门与生成器都必须引那份唯一实现",
+// 撤掉即变成两处各算一遍哈希 —— 正是本仓记过两次的漂移成因。
+// arch-exempt: 端内生成器按镜像 T14 必须共用根层那份钉实现,属工具层反向边,非业务依赖 until 2026-12-28
 import { renderPin } from '../../../scripts/lib/generated-input-pin.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
