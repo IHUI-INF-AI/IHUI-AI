@@ -104,12 +104,19 @@ function makeLocaleRepo(t) {
   return { dir, ancestor9: ancestor.slice(0, 9) }
 }
 
-function runLand(dir, { paths = '', msg = 'chore: e2e land', baseRef, allowStale } = {}) {
+function runLand(dir, { paths = '', msg = 'chore: e2e land', baseRef, allowStale, blobs, proof } = {}) {
   const env = { ...process.env, LAND_ROOT: dir, LAND_PATHS: paths, LAND_MSG: msg }
   if (baseRef) env.LAND_BASE_REF = baseRef
   else delete env.LAND_BASE_REF
   if (allowStale) env.LAND_ALLOW_STALE = '1'
   else delete env.LAND_ALLOW_STALE
+  if (blobs) {
+    env.LAND_BLOBS = writeFileSync(join(dir, '.blobs.json'), JSON.stringify({ files: blobs })) || join(dir, '.blobs.json')
+    env.LAND_BLOB_PROOF = proof || 'e2e 取证:构造内容只动本票行'
+  } else {
+    delete env.LAND_BLOBS
+    delete env.LAND_BLOB_PROOF
+  }
   return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
 }
 
@@ -751,6 +758,46 @@ test('T-G801-4 形状锁:回读走 cat-file -e 探针且 --name-only 只作混�
     !/paths\.filter\(\(p\) => !inCommit\.has\(p\)\)/.test(src),
     '旧的"输出文本逐字比对"判据不得回来:那正是 G-801 的事故形态',
   )
+})
+
+/**
+ * blob 模式 + 新增文件:必须**成功**。
+ * 2026-09-29 10:46 那次把 `headBlobOf()==ABSENT`(基线里根本没有这条路径)与
+ * `UNKNOWN`(问不到)合并成一个 unjudged,于是任何带新文件的 blob 落地一律 exit 2 ——
+ * 而 blob 模式正是 §12 要求共脏文件走的路径,等于把所有"往 HEAD 加新文件"的交付堵死,
+ * 且 T2 那条 happy path 抓不到它(它走工作树模式,不进 blobBannerPreserved)。
+ */
+test('T-NEWFILE-blobmode 新增文件不得被算成"横幅检查未判定"(blob 模式端到端)', (t) => {
+  const dir = makeRepo(t)
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
+  const blob = writeBlob('// 新增件正文\n', { root: dir })
+  const r = runLand(dir, {
+    paths: 'brand/new.ts',
+    blobs: [{ path: 'brand/new.ts', blob }],
+    proof: '该路径基线不存在,构造内容由本票写出',
+  })
+  assert.equal(r.status, 0, `新增文件必须能落地,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  assert.match(r.stdout, /基线里没有该路径\(新增文件\)/, '必须点名"按定义无从保持",不得静默')
+  assert.notEqual(git(['rev-parse', 'HEAD'], { root: dir }), before, 'HEAD 必须前进')
+})
+
+/** 反向对照:这一维的牙不能被这次放宽顺手卸掉 —— 已有横幅被抹仍必须 exit 1。 */
+test('T-BANNER-TEETH blob 模式把基线横幅抹掉仍必须拒绝(放宽只针对新增文件)', (t) => {
+  const dir = makeRepo(t)
+  const banner = readFileSync(TOOL, 'utf8').split('\n').slice(0, 2).join('\n')
+  writeFileSync(join(dir, 'signed.txt'), `${banner}\nconst x = 1\n`)
+  runGit(dir, ['add', '--', 'signed.txt'])
+  runGit(dir, ['commit', '-q', '-m', '带横幅的基线'])
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
+  const blob = writeBlob('const x = 2\n', { root: dir })
+  const r = runLand(dir, {
+    paths: 'signed.txt',
+    blobs: [{ path: 'signed.txt', blob }],
+    proof: '只改正文一行',
+  })
+  assert.equal(r.status, 1, `抹横幅必须拦,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  assert.match(r.stderr, /水印横幅未保持|横幅被抹/)
+  assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before, '被拒时 HEAD 不得前进')
 })
 
 

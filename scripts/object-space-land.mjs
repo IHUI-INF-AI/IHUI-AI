@@ -590,8 +590,22 @@ export function blobBannerPreserved({ root, paths, blobOf, baseRef = 'HEAD' }) {
   const notes = []
   for (const p of paths) {
     const baseOid = headBlobOf(baseRef, p, { root })
-    if (baseOid === ABSENT || baseOid === UNKNOWN || !blobOf.get(p)) {
-      unjudged.push({ path: p, why: '基线或目标 blob 取不到' })
+    if (!blobOf.get(p)) {
+      unjudged.push({ path: p, why: '清单里没有该路径的 blob' })
+      continue
+    }
+    /**
+     * "基线里没有"与"问不到基线"是两件事(与上面祖先对账第 509 行同一约定,那里一直是对的):
+     * 新增文件**按定义**没有可保持的横幅,把它计成未判定会让任何带新文件的落地整体 exit 2,
+     * 而这台工具是共享落地出口 —— 卡住的不是本次提交,是所有会话。新增件的横幅覆盖交
+     * 水印守门(它有"新增必须注入"的权威判据),本器只守"别把已入库的横幅改掉/放进无横幅内容"。
+     */
+    if (baseOid === ABSENT) {
+      notes.push({ path: p, why: '基线里没有该路径(新增文件)⇒ 无横幅可保持,新增覆盖交水印守门判' })
+      continue
+    }
+    if (baseOid === UNKNOWN) {
+      unjudged.push({ path: p, why: '基线 blob 问不到 ⇒ 无法判横幅是否保持' })
       continue
     }
     const bt = git(['cat-file', 'blob', baseOid], { root, raw: true, allowFail: true })
