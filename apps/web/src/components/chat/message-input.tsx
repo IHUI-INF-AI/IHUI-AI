@@ -62,6 +62,7 @@ import { useSlashAction } from '@/hooks/use-slash-action'
 import {
   CHAT_ATTACHMENT_ACCEPT,
   CHAT_ATTACHMENT_MAX_FILES,
+  canSendReferences,
   useMessageReferences,
 } from '@/hooks/use-message-references'
 import { useContextSelector } from '@/hooks/use-context-selector'
@@ -288,6 +289,7 @@ export function MessageInput({
     addFileReferences,
     screenAttachments,
     commitFileReference,
+    retryReference,
     addTextReference,
     removeReference,
     resetReferences,
@@ -610,7 +612,9 @@ export function MessageInput({
   )
   // 发送按钮可用态(2026-07-30:清除按钮已挪回 WebInputCore 内部悬浮呈现,canClear 不再需要)
   // 2026-08-14 修改:流式期间也允许发送(保存为 pending 消息,流式结束后自动发出)
-  const canSend = value.trim().length > 0
+  // b75-5#1:附件未到 ready(uploading/error/terminal)时阻发,防附件断链
+  const refsReady = canSendReferences(references).canSend
+  const canSend = value.trim().length > 0 && refsReady
   // 斜杠命令选中技能时触发的调用流程状态(2026-08-08 立)
   const [skillInvokeSkill, setSkillInvokeSkill] = React.useState<AiSkillMeta | null>(null)
   const [skillInvokeResult, setSkillInvokeResult] = React.useState<AiSkillInvokeResponse | null>(
@@ -965,6 +969,7 @@ export function MessageInput({
         <ContextChipsRow
           references={allReferences}
           onRemoveReference={handleRemoveReference}
+          onRetryReference={retryReference}
           tools={selectedToolItems}
           onRemoveTool={removeSelectedTool}
           quoted={quotedMessage}
@@ -973,6 +978,7 @@ export function MessageInput({
           onRemoveMention={mentionWiring.removeSelection}
           pastePreviews={pastedRefPreviews}
           onDismissPastePreviews={() => setPastedRefPreviews([])}
+          onSendPastePreview={(text) => void submit(text)}
           queueItems={pendingMessages}
           onQueueRemove={handleQueueRemove}
         />

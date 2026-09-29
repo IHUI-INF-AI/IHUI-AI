@@ -458,7 +458,7 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
               lessLabel={t('toolSummaryShowLess')}
               renderItem={(run) => (
                 <CategoryCard
-                  key={run.categoryKey}
+                  key={run.groupKey}
                   run={run}
                   t={t}
                   tStatus={tStatus}
