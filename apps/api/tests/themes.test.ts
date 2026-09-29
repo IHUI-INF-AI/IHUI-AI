@@ -85,6 +85,12 @@ const ADMIN_USER = '00000000-0000-4000-8000-000000000001'
 const REGULAR_USER = '00000000-0000-4000-8000-000000000002'
 const THEME_ID = '11111111-1111-4111-8111-111111111111'
 const COLOR_ID = '22222222-2222-4222-8222-222222222222'
+// theme_fonts.id / theme_assets.id 都是 uuid 主键(packages/database/src/schema/themes.ts:56/:76,
+// DDL packages/database/drizzle/0094_themes.sql)。路由在进 SQL 前挂 isUuidString 形状闸
+// (src/routes/admin-extended/theme-routes.ts:335/:348/:389),非 uuid 字面量会被判 400 ——
+// 早先这里的 'f1'/'a1' 就是这一型假 id。集中成常量,不散落字面量。
+const FONT_ID = '33333333-3333-4333-8333-333333333333'
+const ASSET_ID = '44444444-4444-4444-8444-444444444444'
 
 function mockAdmin() {
   mockAuthenticate.mockImplementation(async (request: any) => {
@@ -384,7 +390,7 @@ describe('themes admin routes — /api/admin/themes/*', () => {
   it('GET /admin/themes/fonts 返回字体列表 200', async () => {
     mockAdmin()
     mockSelectResult
-      .mockResolvedValueOnce([{ id: 'f1', name: '默认字体', family: 'sans-serif' }])
+      .mockResolvedValueOnce([{ id: FONT_ID, name: '默认字体', family: 'sans-serif' }])
       .mockResolvedValueOnce([{ count: 1 }])
     const res = await server.inject({
       method: 'GET',
@@ -399,7 +405,7 @@ describe('themes admin routes — /api/admin/themes/*', () => {
   it('POST /admin/themes/fonts 创建字体 201', async () => {
     mockAdmin()
     mockInsertReturning.mockResolvedValueOnce([
-      { id: 'f1', name: 'Inter', family: 'Inter, sans-serif' },
+      { id: FONT_ID, name: 'Inter', family: 'Inter, sans-serif' },
     ])
     const res = await server.inject({
       method: 'POST',
@@ -416,13 +422,17 @@ describe('themes admin routes — /api/admin/themes/*', () => {
 
   it('PATCH /admin/themes/fonts/:id 更新字体 200', async () => {
     mockAdmin()
-    mockUpdateReturning.mockResolvedValueOnce([{ id: 'f1', name: '更新字体', family: 'serif' }])
+    mockUpdateReturning.mockResolvedValueOnce([
+      { id: FONT_ID, name: '更新字体', family: 'serif' },
+    ])
     const res = await server.inject({
       method: 'PATCH',
-      url: `${PREFIX}/admin/themes/fonts/f1`,
+      url: `${PREFIX}/admin/themes/fonts/${FONT_ID}`,
       payload: { name: '更新字体' },
     })
     expect(res.statusCode).toBe(200)
+    // 路由 PATCH fonts/:id 回的是 .returning() 那一行,形状闸放行 uuid 后才走到这里
+    expect(res.json().data.id).toBe(FONT_ID)
     expect(res.json().data.name).toBe('更新字体')
   })
 
@@ -430,16 +440,17 @@ describe('themes admin routes — /api/admin/themes/*', () => {
     mockAdmin()
     const res = await server.inject({
       method: 'DELETE',
-      url: `${PREFIX}/admin/themes/fonts/f1`,
+      url: `${PREFIX}/admin/themes/fonts/${FONT_ID}`,
     })
     expect(res.statusCode).toBe(200)
+    expect(res.json().data.deleted).toBe(true)
     expect(db.delete).toHaveBeenCalled()
   })
 
   it('GET /admin/themes/assets 返回资源列表 200', async () => {
     mockAdmin()
     mockSelectResult
-      .mockResolvedValueOnce([{ id: 'a1', type: 'logo', url: 'https://example.com/logo.png' }])
+      .mockResolvedValueOnce([{ id: ASSET_ID, type: 'logo', url: 'https://example.com/logo.png' }])
       .mockResolvedValueOnce([{ count: 1 }])
     const res = await server.inject({
       method: 'GET',
@@ -452,7 +463,7 @@ describe('themes admin routes — /api/admin/themes/*', () => {
   it('POST /admin/themes/assets 创建资源 201', async () => {
     mockAdmin()
     mockInsertReturning.mockResolvedValueOnce([
-      { id: 'a1', type: 'logo', url: 'https://example.com/logo.png' },
+      { id: ASSET_ID, type: 'logo', url: 'https://example.com/logo.png' },
     ])
     const res = await server.inject({
       method: 'POST',
@@ -470,9 +481,10 @@ describe('themes admin routes — /api/admin/themes/*', () => {
     mockAdmin()
     const res = await server.inject({
       method: 'DELETE',
-      url: `${PREFIX}/admin/themes/assets/a1`,
+      url: `${PREFIX}/admin/themes/assets/${ASSET_ID}`,
     })
     expect(res.statusCode).toBe(200)
+    expect(res.json().data.deleted).toBe(true)
     expect(db.delete).toHaveBeenCalled()
   })
 

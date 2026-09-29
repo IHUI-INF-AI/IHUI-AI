@@ -113,6 +113,11 @@ import { requireAdmin } from '../src/plugins/require-permission.js'
 const ADMIN_TOKEN = 'Bearer admin-token'
 const USER_TOKEN = 'Bearer user-token'
 const UUID = '00000000-0000-4000-8000-000000000001'
+// customer_service_tickets.id 是 uuid 主键(packages/database/src/schema/customer-service.ts:49,
+// DDL 0043_neat_the_spike.sql "id" uuid PRIMARY KEY)。工单状态/回复两条路由在进 SQL 前都挂
+// isUuidString 形状闸(src/routes/admin-support-tickets.ts:112 回 400、:200 回 404),
+// 所以这里的假 id 't-1' 会在闸上被拦掉 —— 集中成一个合法 uuid 常量,不散落字面量。
+const TICKET_ID = '55555555-5555-4555-8555-555555555555'
 
 function mockAdmin() {
   mockVerifyAccessToken.mockResolvedValue({
@@ -356,7 +361,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
     it('未登录返回 401', async () => {
       const res = await server.inject({
         method: 'PUT',
-        url: '/api/admin/support/tickets/t-1/status',
+        url: `/api/admin/support/tickets/${TICKET_ID}/status`,
         body: { status: 'processing' },
       })
       expect(res.statusCode).toBe(401)
@@ -366,7 +371,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       mockRegularUser()
       const res = await server.inject({
         method: 'PUT',
-        url: '/api/admin/support/tickets/t-1/status',
+        url: `/api/admin/support/tickets/${TICKET_ID}/status`,
         body: { status: 'processing' },
         headers: { authorization: USER_TOKEN },
       })
@@ -376,25 +381,26 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
 
     it('admin 更新状态为 processing 成功', async () => {
       mockAdmin()
-      mockUpdateReturning.mockResolvedValueOnce([{ id: 't-1', status: 'open' }])
+      mockUpdateReturning.mockResolvedValueOnce([{ id: TICKET_ID, status: 'open' }])
       const res = await server.inject({
         method: 'PUT',
-        url: '/api/admin/support/tickets/t-1/status',
+        url: `/api/admin/support/tickets/${TICKET_ID}/status`,
         body: { status: 'processing' },
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(200)
       const body = res.json()
       expect(body.code).toBe(0)
-      expect(body.data).toEqual({ id: 't-1', status: 'processing' })
+      // 路由 PUT status/:id 回的是 .returning() 那一行 ⇒ id 必须原样等于被传入的 uuid
+      expect(body.data).toEqual({ id: TICKET_ID, status: 'processing' })
     })
 
     it('admin 更新状态为 resolved 成功', async () => {
       mockAdmin()
-      mockUpdateReturning.mockResolvedValueOnce([{ id: 't-1', status: 'resolved' }])
+      mockUpdateReturning.mockResolvedValueOnce([{ id: TICKET_ID, status: 'resolved' }])
       const res = await server.inject({
         method: 'PUT',
-        url: '/api/admin/support/tickets/t-1/status',
+        url: `/api/admin/support/tickets/${TICKET_ID}/status`,
         body: { status: 'resolved' },
         headers: { authorization: ADMIN_TOKEN },
       })
@@ -406,7 +412,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       mockAdmin()
       const res = await server.inject({
         method: 'PUT',
-        url: '/api/admin/support/tickets/t-1/status',
+        url: `/api/admin/support/tickets/${TICKET_ID}/status`,
         body: { status: 'closed' },
         headers: { authorization: ADMIN_TOKEN },
       })
@@ -417,7 +423,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       mockAdmin()
       const res = await server.inject({
         method: 'PUT',
-        url: '/api/admin/support/tickets/t-1/status',
+        url: `/api/admin/support/tickets/${TICKET_ID}/status`,
         body: { status: 'invalid' },
         headers: { authorization: ADMIN_TOKEN },
       })
@@ -429,7 +435,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       mockAdmin()
       const res = await server.inject({
         method: 'PUT',
-        url: '/api/admin/support/tickets/t-1/status',
+        url: `/api/admin/support/tickets/${TICKET_ID}/status`,
         body: {},
         headers: { authorization: ADMIN_TOKEN },
       })
@@ -446,7 +452,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
     it('未登录返回 401', async () => {
       const res = await server.inject({
         method: 'POST',
-        url: '/api/admin/support/tickets/t-1/reply',
+        url: `/api/admin/support/tickets/${TICKET_ID}/reply`,
         body: { content: '回复内容' },
       })
       expect(res.statusCode).toBe(401)
@@ -456,7 +462,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       mockRegularUser()
       const res = await server.inject({
         method: 'POST',
-        url: '/api/admin/support/tickets/t-1/reply',
+        url: `/api/admin/support/tickets/${TICKET_ID}/reply`,
         body: { content: '回复内容' },
         headers: { authorization: USER_TOKEN },
       })
@@ -465,10 +471,10 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
 
     it('admin 回复成功返回 201', async () => {
       mockAdmin()
-      mockSelectResult.mockResolvedValueOnce([{ id: 't-1' }])
+      mockSelectResult.mockResolvedValueOnce([{ id: TICKET_ID }])
       const res = await server.inject({
         method: 'POST',
-        url: '/api/admin/support/tickets/t-1/reply',
+        url: `/api/admin/support/tickets/${TICKET_ID}/reply`,
         body: { content: '客服回复', isAdmin: true },
         headers: { authorization: ADMIN_TOKEN },
       })
@@ -476,7 +482,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       const body = res.json()
       expect(body.code).toBe(0)
       expect(body.data).toEqual({
-        ticketId: 't-1',
+        ticketId: TICKET_ID,
         replied: true,
         isAdmin: true,
         commentId: 'mock-id',
@@ -485,10 +491,10 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
 
     it('isAdmin 默认为 true(body 未传)', async () => {
       mockAdmin()
-      mockSelectResult.mockResolvedValueOnce([{ id: 't-1' }])
+      mockSelectResult.mockResolvedValueOnce([{ id: TICKET_ID }])
       const res = await server.inject({
         method: 'POST',
-        url: '/api/admin/support/tickets/t-1/reply',
+        url: `/api/admin/support/tickets/${TICKET_ID}/reply`,
         body: { content: '回复' },
         headers: { authorization: ADMIN_TOKEN },
       })
@@ -500,7 +506,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       mockAdmin()
       const res = await server.inject({
         method: 'POST',
-        url: '/api/admin/support/tickets/t-1/reply',
+        url: `/api/admin/support/tickets/${TICKET_ID}/reply`,
         body: { content: '' },
         headers: { authorization: ADMIN_TOKEN },
       })
@@ -511,7 +517,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       mockAdmin()
       const res = await server.inject({
         method: 'POST',
-        url: '/api/admin/support/tickets/t-1/reply',
+        url: `/api/admin/support/tickets/${TICKET_ID}/reply`,
         body: { content: 'x'.repeat(5001) },
         headers: { authorization: ADMIN_TOKEN },
       })
@@ -522,7 +528,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       mockAdmin()
       const res = await server.inject({
         method: 'POST',
-        url: '/api/admin/support/tickets/t-1/reply',
+        url: `/api/admin/support/tickets/${TICKET_ID}/reply`,
         body: { isAdmin: true },
         headers: { authorization: ADMIN_TOKEN },
       })
@@ -539,7 +545,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
     it('未登录返回 401', async () => {
       const res = await server.inject({
         method: 'GET',
-        url: '/api/admin/support/tickets/t-1/replies',
+        url: `/api/admin/support/tickets/${TICKET_ID}/replies`,
       })
       expect(res.statusCode).toBe(401)
     })
@@ -548,7 +554,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       mockRegularUser()
       const res = await server.inject({
         method: 'GET',
-        url: '/api/admin/support/tickets/t-1/replies',
+        url: `/api/admin/support/tickets/${TICKET_ID}/replies`,
         headers: { authorization: USER_TOKEN },
       })
       expect(res.statusCode).toBe(403)
@@ -556,10 +562,10 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
 
     it('admin 获取回复列表成功(空桩返回空列表)', async () => {
       mockAdmin()
-      mockSelectResult.mockResolvedValueOnce([{ id: 't-1' }])
+      mockSelectResult.mockResolvedValueOnce([{ id: TICKET_ID }])
       const res = await server.inject({
         method: 'GET',
-        url: '/api/admin/support/tickets/t-1/replies',
+        url: `/api/admin/support/tickets/${TICKET_ID}/replies`,
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(200)
@@ -571,10 +577,10 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
 
     it('支持分页参数 page/pageSize', async () => {
       mockAdmin()
-      mockSelectResult.mockResolvedValueOnce([{ id: 't-1' }])
+      mockSelectResult.mockResolvedValueOnce([{ id: TICKET_ID }])
       const res = await server.inject({
         method: 'GET',
-        url: '/api/admin/support/tickets/t-1/replies?page=2&pageSize=5',
+        url: `/api/admin/support/tickets/${TICKET_ID}/replies?page=2&pageSize=5`,
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(200)
@@ -584,7 +590,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       mockAdmin()
       const res = await server.inject({
         method: 'GET',
-        url: '/api/admin/support/tickets/t-1/replies?pageSize=0',
+        url: `/api/admin/support/tickets/${TICKET_ID}/replies?pageSize=0`,
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(400)
@@ -594,7 +600,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       mockAdmin()
       const res = await server.inject({
         method: 'GET',
-        url: '/api/admin/support/tickets/t-1/replies?page=0',
+        url: `/api/admin/support/tickets/${TICKET_ID}/replies?page=0`,
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(400)
@@ -639,7 +645,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       mockAdmin()
       const res = await server.inject({
         method: 'PUT',
-        url: '/api/admin/support/tickets/t-1/status',
+        url: `/api/admin/support/tickets/${TICKET_ID}/status`,
         body: { status: 'open' },
         headers: { authorization: ADMIN_TOKEN },
       })
@@ -651,10 +657,10 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
 
     it('ticket reply 成功响应含三字段', async () => {
       mockAdmin()
-      mockSelectResult.mockResolvedValueOnce([{ id: 't-1' }])
+      mockSelectResult.mockResolvedValueOnce([{ id: TICKET_ID }])
       const res = await server.inject({
         method: 'POST',
-        url: '/api/admin/support/tickets/t-1/reply',
+        url: `/api/admin/support/tickets/${TICKET_ID}/reply`,
         body: { content: 'hi' },
         headers: { authorization: ADMIN_TOKEN },
       })
@@ -666,10 +672,10 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
 
     it('ticket replies 成功响应含三字段', async () => {
       mockAdmin()
-      mockSelectResult.mockResolvedValueOnce([{ id: 't-1' }])
+      mockSelectResult.mockResolvedValueOnce([{ id: TICKET_ID }])
       const res = await server.inject({
         method: 'GET',
-        url: '/api/admin/support/tickets/t-1/replies',
+        url: `/api/admin/support/tickets/${TICKET_ID}/replies`,
         headers: { authorization: ADMIN_TOKEN },
       })
       const body = res.json()

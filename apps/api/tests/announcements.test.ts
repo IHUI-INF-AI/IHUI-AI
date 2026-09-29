@@ -33,6 +33,17 @@ vi.mock('../src/db/content-queries.js', () => ({
 import { announcementsRoutes } from '../src/routes/announcements'
 import { findAnnouncements, findAnnouncementById } from '../src/db/content-queries.js'
 
+// announcements.id 是 uuid 主键(packages/database/src/schema/content.ts:25,
+// DDL 0043_neat_the_spike.sql "id" uuid PRIMARY KEY)。
+// GET /cli/announcements/:id 在进 SQL 前挂 isUuidString 形状闸
+// (src/routes/announcements.ts:64,回 404),所以 'a-1' 这类假 id 会被闸拦掉:
+//  "已发布 ⇒ 200" 得到 404;而两条 expect(404) 的用例只是**恰好**同码 —— 它们此前压根
+//  没走到 findAnnouncementById 的那两个分支(不存在 / 未发布)。换成合法 uuid 后,404 才真的
+//  来自被测分支,200 才真的走通整条读链。
+// 刻意不动:/latest 与 /version 那两条用例的列表夹具('a-1'/'a-2')喂的是无形状闸的读列表,
+//  改它们与本票无关,只会放大 diff。
+const ANNOUNCEMENT_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+
 describe('announcements routes (CLI)', () => {
   const server = Fastify({ logger: false })
 
@@ -157,14 +168,14 @@ describe('announcements routes (CLI)', () => {
     vi.mocked(findAnnouncementById).mockResolvedValueOnce(undefined)
     const res = await server.inject({
       method: 'GET',
-      url: '/api/cli/announcements/non-existent-id',
+      url: `/api/cli/announcements/${ANNOUNCEMENT_ID}`,
     })
     expect(res.statusCode).toBe(404)
   })
 
   it('GET /api/cli/announcements/:id 未发布的公告返回 404', async () => {
     vi.mocked(findAnnouncementById).mockResolvedValueOnce({
-      id: 'a-1',
+      id: ANNOUNCEMENT_ID,
       title: '草稿',
       content: '内容',
       type: 'info',
@@ -176,13 +187,16 @@ describe('announcements routes (CLI)', () => {
       updatedAt: new Date(),
       createdBy: null,
     } as never)
-    const res = await server.inject({ method: 'GET', url: '/api/cli/announcements/a-1' })
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/cli/announcements/${ANNOUNCEMENT_ID}`,
+    })
     expect(res.statusCode).toBe(404)
   })
 
   it('GET /api/cli/announcements/:id 已发布的公告返回完整内容', async () => {
     vi.mocked(findAnnouncementById).mockResolvedValueOnce({
-      id: 'a-1',
+      id: ANNOUNCEMENT_ID,
       title: '公告1',
       content: '正文内容',
       type: 'info',
@@ -194,11 +208,14 @@ describe('announcements routes (CLI)', () => {
       updatedAt: new Date(),
       createdBy: null,
     } as never)
-    const res = await server.inject({ method: 'GET', url: '/api/cli/announcements/a-1' })
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/cli/announcements/${ANNOUNCEMENT_ID}`,
+    })
     expect(res.statusCode).toBe(200)
     const body = res.json()
     expect(body.code).toBe(0)
-    expect(body.data.announcement.id).toBe('a-1')
+    expect(body.data.announcement.id).toBe(ANNOUNCEMENT_ID)
     expect(body.data.announcement.title).toBe('公告1')
     expect(body.data.announcement.content).toBe('正文内容')
     expect(body.data.announcement.summary).toBe('正文内容') // content 前 100 字符
