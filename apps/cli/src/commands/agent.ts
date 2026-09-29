@@ -506,6 +506,8 @@ export interface RunToolLoopOptions {
   onBudget?: NonNullable<StreamChatOptions['onBudget']>;
   /** D19 终端实时输出增量(terminal_delta) — 透传 api-client 的 onTerminalDelta,未传时零开销(与 onPlanUpdate 同一条纪律) */
   onTerminalDelta?: NonNullable<StreamChatOptions['onTerminalDelta']>;
+  /** D151 命令等待键盘输入(terminal_interaction) — 透传 api-client 的 onTerminalInteraction,未传时零开销(同上) */
+  onTerminalInteraction?: NonNullable<StreamChatOptions['onTerminalInteraction']>;
   /** 模型上下文窗口大小(tokens)。达 85% 自动压缩到 60%,默认 128_000(与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致)。 */
   contextLimit?: number;
   /** 是否启用 plan 强制阻断(配合 planApproved 控制) */
@@ -1066,6 +1068,8 @@ interface SampleWithRetryOptions {
   onUsage?: NonNullable<StreamChatOptions['onUsage']>;
   /** D19 终端实时输出增量(terminal_delta)— 未传时零开销(与 onPlanUpdate 同一条纪律) */
   onTerminalDelta?: NonNullable<StreamChatOptions['onTerminalDelta']>;
+  /** D151 命令等待键盘输入(terminal_interaction)— 未传时零开销(与 onPlanUpdate 同一条纪律) */
+  onTerminalInteraction?: NonNullable<StreamChatOptions['onTerminalInteraction']>;
 }
 
 /**
@@ -1177,6 +1181,7 @@ async function sampleWithRetry(
         ...(opts.onBudget ? { onBudget: opts.onBudget } : {}),
         ...(opts.onUsage ? { onUsage: opts.onUsage } : {}),
         ...(opts.onTerminalDelta ? { onTerminalDelta: opts.onTerminalDelta } : {}),
+        ...(opts.onTerminalInteraction ? { onTerminalInteraction: opts.onTerminalInteraction } : {}),
         ...(opts.sampler ?? {}),
         onError: (msg, info) => { streamErr = msg; streamErrInfo = info; },
       } as Parameters<typeof streamChat>[0]);
@@ -1642,6 +1647,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         ...(opts.onBudget ? { onBudget: opts.onBudget } : {}),
         // D19 终端实时输出增量透传(terminal_delta):REPL 借此把命令 stdout/stderr 逐行打进终端
         ...(opts.onTerminalDelta ? { onTerminalDelta: opts.onTerminalDelta } : {}),
+        // D151 命令等待键盘输入透传(terminal_interaction):REPL 借此在终端交代"命令在等你敲一行"
+        ...(opts.onTerminalInteraction ? { onTerminalInteraction: opts.onTerminalInteraction } : {}),
             sampler: opts.sampler,
             ...(withTools && nativeExtraBody ? { extraBody: nativeExtraBody } : {}),
             ...(withTools

@@ -81,7 +81,7 @@ export default function CourseCatalog({
                 if (!joined) onJoin?.(id)
               }}
               className={cn(
-                'px-4 py-1.5 rounded-md',
+                'px-4 py-[12rpx] rounded-md',
                 joined ? 'bg-muted text-muted-foreground' : 'bg-cta text-cta-foreground',
               )}
             >

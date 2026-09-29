@@ -2713,6 +2713,19 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       // stdout/stderr,本端把**已完整成行**的输出打进 noteLine 家族同一出口(半行缓冲在
       // sink 内部拼接,不把正文打碎);空帧丢弃。CLI 此前对该帧 0 命中 = 静默丢帧。
       onTerminalDelta: createTerminalDeltaSink((line) => state.statusLine.noteLine(line)),
+      // D151(本票接):terminal_interaction —— 命令**停住了、在等你敲一行**(与上面那条
+      // "它在输出"是两件事)。此前本端对该帧 0 命中 = 静默丢帧,用户在终端里只会看到"卡住"。
+      // 渲染位置仍走 noteLine 家族同一出口(CLI 本身就是终端,不需要卡片宿主);固定两行:
+      // 先说"在等什么",再原样给出命令自己打的那句提示(`Password:` / `(y/n)` 这类)。
+      // 措辞取共享词包 chat.terminal.*(五语言已在,不新增界面字符串);promptTail 是**内容**
+      // 不是界面 chrome,故原样内插、不做本地化、也不持久化。
+      // 如实登记的边界:本票只让状态**可见**。把键入送回服务端的上行通道(api-client 的
+      // POST /llm/complete/stream/{sessionId}/terminal-input)在 CLI 侧尚无宿主 —— 那是另一票。
+      onTerminalInteraction: (event) => {
+        state.statusLine.noteLine(t('chat.terminal.waitingInput'));
+        const promptTail = event.promptTail.trim();
+        if (promptTail) state.statusLine.noteLine(t('chat.terminal.promptLabel', { prompt: promptTail }));
+      },
       planFirst: state.opts.planFirst,
       planApproved: state.planApproved,
       planMachine: state.planMachine,
