@@ -169,4 +169,84 @@ function Test-AlertDueByIdentity {
     try { Write-AlertDedupState -StateFile $StateFile -Map $map -MaxEntries $MaxEntries | Out-Null } catch { }
     return @{ Due = $true; Decision = $decision; Key = $key; Note = $note }
 }
+
+function Test-AlertSuppressionGrace {
+    <#
+      「按预期现象抑制告警」必须带时长上限 —— 2026-09-29 实测事故:IHUI-API 崩溃循环连续 2 小时 39 分
+      (Loki 现读 `{job="api"} |= "does not provide an export named"` 777 次,首 22:17:49 / 末 00:57:11,
+      无 >5 分钟中断 ⇒ 约每 12 秒被 nssm 拉活一次),而监控每 5 分钟都把诊断落在 `[部署重启中-预期现象]`(部署环被挡住时每 ~85 秒
+      重跑一轮、每轮都刷新 `deploy-loop.log` 的 mtime,而 `Get-Diagnosis` 那条"最近构建于 X 分钟前 ≤ 15"
+      正是读这个 mtime ⇒ 判据**永远**成立),于是每轮只写一行 [INFO] 就 return。
+      抑制本身是对的(换流窗口的短暂拒连确属预期),错的是它**没有终态**:一个会自己结束的现象被当成
+      永久豁免,而"永久豁免"的症状就是安静 —— 与去重那侧"读不懂就静默当作已寄过"是同一条禁令。
+
+      返回 @{ Suppressed; ElapsedMinutes; Decision; Note }
+        Decision = 'grace-window'    仍在宽限窗内 ⇒ 抑制(ElapsedMinutes 必须写进日志,让人看得见"还差多久升级")
+                 | 'grace-reopened'  这条身份已断了一个窗以上 ⇒ 视为**新一轮**预期窗口,重新起锚并抑制
+                                      (不这样修就会造出新的假阳:上周一次部署留下的旧锚,会让今天正常
+                                       的 3 分钟换流在第一轮就直接寄信 —— 修噪声不能以造噪声为代价)
+                 | 'escalated'       连续抑制已超过 GraceMinutes ⇒ **不再抑制**,交回正常发信路径
+                 | 'undetermined'    状态读不出/时间戳解析不出 ⇒ 同样不抑制(宁可多喊一次)
+      与 Test-AlertDueByIdentity 共用同一份状态档案,但身份键带 `grace:` 前缀 ⇒ 两种语义永不互相顶账。
+      调用方**必须**把 Note 落到日志或正文:抑制的理由和放行的理由一样都要可见。
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Sig,
+        [Parameter(Mandatory = $true)][string]$StateFile,
+        [Parameter(Mandatory = $true)][int]$GraceMinutes,
+        [int]$MaxEntries = 50
+    )
+    $clean = ($Sig -replace '\s+', ' ').Trim()
+    if ($clean.Length -gt 120) { $clean = $clean.Substring(0, 120) }
+    $key = Get-AlertDedupKey -Sig ("grace:" + $clean)
+    $now = Get-Date
+    $state = Read-AlertDedupState -StateFile $StateFile
+
+    if ($state.Error) {
+        return @{ Suppressed = $false; ElapsedMinutes = 0; Decision = 'undetermined'; Key = $key;
+                  Note = "抑制档案读不出($($state.Error))⇒ 不按预期现象抑制,本轮照常告警" }
+    }
+    $map = $state.Map
+    $label = $clean
+
+    $entry = $null
+    if ($map.ContainsKey($key)) { $entry = $map[$key] }
+
+    $anchor = $null
+    $lastSeen = $null
+    if ($entry) {
+        if ($entry.firstTs) { try { $anchor = [datetime]$entry.firstTs } catch { $anchor = $null } }
+        if ($entry.lastSend) { try { $lastSeen = [datetime]$entry.lastSend } catch { $lastSeen = $null } }
+        if (-not $lastSeen -and $entry.sigTs) { try { $lastSeen = [datetime]$entry.sigTs } catch { $lastSeen = $null } }
+    }
+
+    $decision = $null
+    if (-not $entry -or -not $anchor -or -not $lastSeen) {
+        # 没有条目 = 第一次;有条目但时刻解析不出 = 判不出。前者起锚抑制,后者**不抑制**。
+        if (-not $entry) { $anchor = $now; $decision = 'grace-window' }
+        else {
+            return @{ Suppressed = $false; ElapsedMinutes = 0; Decision = 'undetermined'; Key = $key;
+                      Note = '抑制档案里的时刻解析不出 ⇒ 不按预期现象抑制,本轮照常告警' }
+        }
+    } elseif (($now - $lastSeen).TotalMinutes -gt $GraceMinutes) {
+        $anchor = $now
+        $decision = 'grace-reopened'
+    } else {
+        $decision = 'grace-window'
+    }
+
+    $elapsed = [Math]::Round(($now - $anchor).TotalMinutes, 1)
+    $suppressed = $true
+    $note = "预期窗口内已连续抑制 ${elapsed} 分钟(上限 ${GraceMinutes} 分钟,超期即转为正式告警)"
+    if ($decision -eq 'grace-reopened') { $note = "距上次同身份抑制已超一个窗口,按新一轮预期现象重新起锚;" + $note }
+    if ($elapsed -ge $GraceMinutes) {
+        $suppressed = $false
+        $note = "预期窗口已连续 ${elapsed} 分钟(上限 ${GraceMinutes} 分钟)⇒ 不再按预期现象抑制,本条是正式告警"
+        $decision = 'escalated'
+    }
+
+    $map[$key] = @{ sigTs = $now.ToString('o'); firstTs = $anchor.ToString('o'); repeatNo = 0; lastSend = $now.ToString('o'); label = $label }
+    try { Write-AlertDedupState -StateFile $StateFile -Map $map -MaxEntries $MaxEntries | Out-Null } catch { }
+    return @{ Suppressed = $suppressed; ElapsedMinutes = $elapsed; Decision = $decision; Key = $key; Note = $note }
+}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
