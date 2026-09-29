@@ -193,4 +193,87 @@ export async function runShutdownPhases(
     totalDurationMs,
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* 关停闸(G-664):stopping 后 create() 出来的对象当场回收                      */
+/* -------------------------------------------------------------------------- */
+
+/** 关停期拒绝新建的错误类型(assertServing / guardCreate 抛) */
+export class ServingError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ServingError'
+  }
+}
+
+/**
+ * 把 `close` 变成 memoize + 聚合错误的幂等出口:真正 close **至多执行一次**;
+ * 失败被记住并在每次后续 close 上重放(错误不得因幂等而丢失,也不得重复执行)。
+ * 迟到实例会被两条路径各 close 一次(gate 的当场回收 + 拥有者既有清理链),
+ * 没有 memoize 就会二次执行;没有重放,第二次调用就会把首次失败静默吞掉。
+ */
+function memoizeClose<T extends { close: () => unknown | Promise<unknown> }>(instance: T): void {
+  const original = instance.close.bind(instance)
+  let settled: { ok: true } | { ok: false; error: unknown } | undefined
+  instance.close = async (): Promise<void> => {
+    if (settled === undefined) {
+      try {
+        await original()
+        settled = { ok: true }
+      } catch (e) {
+        settled = { ok: false, error: e }
+      }
+    }
+    if (settled.ok === false) throw settled.error
+  }
+}
+
+export interface ServingGate {
+  /** 关停开始:此后 assertServing() 抛、guardCreate() 进回收路径 */
+  beginShutdown(): void
+  isServing(): boolean
+  /** stopping 后抛 ServingError(点名 label) */
+  assertServing(): void
+  /**
+   * 包一层实例工厂:serving 期原样返回;若关停在 create() **等待窗口内**开始,
+   * 产物当场 close(memoize)并抛 ServingError —— 迟到资源由创建边界释放,不泄漏。
+   */
+  guardCreate<T extends { close: () => unknown | Promise<unknown> }>(
+    create: () => T | Promise<T>,
+  ): Promise<T>
+}
+
+/** 关停闸工厂。label 进错误文案,便于多实例进程里点名是哪个服务在拒绝新建。 */
+export function createServingGate(label = 'service'): ServingGate {
+  let stopping = false
+  return {
+    beginShutdown() {
+      stopping = true
+    },
+    isServing: () => !stopping,
+    assertServing() {
+      if (stopping) throw new ServingError(`${label} 已进入关停,拒绝新建实例`)
+    },
+    async guardCreate(create) {
+      // 刻意不做入口预检:票面判据是"stopping 后 create() 出来的对象**当场 close** 再抛"
+      // —— 若在 create 之前就拦,迟到实例照常出生(调用方自己裸调 create 的路径),
+      // 闸就只剩"不发放"一半,回收那一半落空。
+      const instance = await create()
+      if (stopping) {
+        memoizeClose(instance)
+        let closeReason = ''
+        try {
+          await instance.close()
+        } catch (e) {
+          // close 的失败聚合进拒绝原因,不吞 —— 否则"回收失败"在账面只有"已拒绝"一半
+          closeReason = `,close 失败:${errorMessage(e)}`
+        }
+        throw new ServingError(
+          `${label} 已进入关停,新建实例已立即回收(memoized close)${closeReason}`,
+        )
+      }
+      return instance
+    },
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
