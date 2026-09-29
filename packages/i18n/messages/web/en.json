@@ -20174,6 +20174,8 @@
       "statusExpired": "Expired",
       "statusUnknown": "Unknown",
       "subtitle": "Configure login credentials for each platform (encrypted storage)",
+      "switchToAppQr": "Switch to App QR",
+      "switchToWechatQr": "Switch to WeChat QR",
       "taskId": "Task",
       "title": "Account Management",
       "verify": "Verify",
