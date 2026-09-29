@@ -231,9 +231,24 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     SSEEventContract("steer", ("phase", "text", "timestamp", "messageId")),
     # V3 #58(2026-09-26):主聊天流工具审批帧(与 agent 任务流 tool-approval 同形,
     # 前端同一弹窗消费;approval_id 为流内唯一标识,decision 回传走流级端点)
+    #
+    # D159(2026-09-30 立)追加的三个字段是**同一帧**的新载荷字段,不新建事件名:
+    # 与 TS 侧 packages/shared/src/sse/contract.ts 的 tool-approval 分支逐字同形
+    # (两份清单由 scripts/check-agent-event-parity.mjs 对账)。生产侧组装只有一份
+    # 实现:`app/services/network_approval.py::approval_env_payload`。
     SSEEventContract(
         "tool-approval",
-        ("approval_id", "tool_name", "tool_call_id", "args_preview", "danger_level", "session_id"),
+        (
+            "approval_id",
+            "tool_name",
+            "tool_call_id",
+            "args_preview",
+            "danger_level",
+            "session_id",
+            "exec_environment",
+            "network_target",
+            "blocked_network_targets",
+        ),
     ),
     # D113(2026-09-27,G-227)入集合时漏登记的契约条目 —— 本清单与 SSE_EVENTS 由
     # tests/test_sse_contract.py::test_contracts_align_with_events 严格双射,少一条即红
