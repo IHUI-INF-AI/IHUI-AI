@@ -17,16 +17,22 @@ import {
 import { registerUiField, type UiFieldHandle } from './field-host'
 
 // 共享 variant/size 档位唯一源:@ihui/design-tokens 的 button-variants.ts(ui-react 同源)。
-// 本端只追加 RN 独占的 md size;平台修饰(hover/shadow)在 RN 侧不存在,故不追加。
+// 本端形态 = 共享基座 + RN 追加:RN 没有 CSS 继承,所以底与字色必须显式写出来,而这些原子
+// web 侧靠继承拿到、不写在类名里 —— 于是它们进不了共享基座(基座只收两端共同持有的原子)。
+// hover/shadow 这类平台修饰在 RN 侧不存在,故不追加。
 // default 档由共享配置给 `bg-cta text-cta-foreground`(AGENTS §4 主 CTA 唯一写法),
 // 替换此前的 `bg-primary text-primary-foreground`(值全等、语义错位 —— primary 在 web 兼任墨色)。
 export const buttonVariants = cva(`flex flex-row ${SHARED_BUTTON_BASE_CLASS} rounded-md`, {
   variants: {
     variant: {
       ...SHARED_BUTTON_VARIANT_CLASSES,
+      outline: `${SHARED_BUTTON_VARIANT_CLASSES.outline} bg-transparent text-foreground`,
+      ghost: `${SHARED_BUTTON_VARIANT_CLASSES.ghost} bg-transparent text-foreground`,
     },
     size: {
       ...SHARED_BUTTON_SIZE_CLASSES,
+      // 两端 lg 今天不同值(web h-10),取同值属全端观感决策 ⇒ 各自在基座外追加,不得单方面收敛
+      lg: `${SHARED_BUTTON_SIZE_CLASSES.lg} h-12 px-6`,
       md: 'h-10 px-4',
     },
   },
