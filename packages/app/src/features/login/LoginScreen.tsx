@@ -14,9 +14,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { AlertTriangle, ChevronDown, Eye, EyeOff, QrCode, X } from 'lucide-react-native'
+import { AlertTriangle, Check, ChevronDown, Eye, EyeOff, QrCode, X } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { OAUTH_BRAND_COLORS, withAlpha, rnRadius } from '@ihui/design-tokens'
+import { OAUTH_BRAND_COLORS, withAlpha, rnRadius, rnGeometry } from '@ihui/design-tokens'
 import type { LoginScreenProps, TFunction } from '../../types'
 // LoginTab / QrLoginConfig / QrLoginStatus / ThirdPartyLoginOption / ThirdPartyPlatform
 // 仅在 @ihui/types 定义,packages/app/src/types.ts 未 re-export(任务约束禁止修改),
@@ -314,7 +314,7 @@ function AgreementRow({
           accessibilityState={{ checked: agreed }}
           accessibilityLabel="同意协议复选框"
         >
-          {agreed ? <Text style={styles.checkmark}>✓</Text> : null}
+          {agreed ? <Check size={rnGeometry.controlGlyph} color={styles.checkmark.color} /> : null}
         </TouchableOpacity>
         <Text style={styles.agreementText}>
           {t('auth.agreePrefix')}
@@ -1021,7 +1021,7 @@ function PasswordTabContent({
                 autoLogin ? styles.checkboxChecked : styles.checkboxUnchecked,
               ]}
             >
-              {autoLogin ? <Text style={styles.checkmark}>✓</Text> : null}
+              {autoLogin ? <Check size={rnGeometry.controlGlyph} color={styles.checkmark.color} /> : null}
             </View>
             <Text style={styles.autoLoginText}>{'自动登录'}</Text>
           </TouchableOpacity>
