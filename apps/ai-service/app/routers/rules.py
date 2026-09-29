@@ -14,6 +14,22 @@
   - POST   /rules/match        匹配消息,返回应用规则 + prompt 后缀
 
 注册到 main.py:app.include_router(rules.router, prefix="/api", tags=["rules"])
+
+行为样本接入点(2026-09-29 G-805 接线,读侧 = /rules/auto-generate):
+  - 已接:POST /rules(create)、PATCH /rules/:id(update)、DELETE /rules/:id(delete)
+    三处走唯一出口 `rules_engine.record_rule_action_behavior`,身份取令牌主体。
+  - **刻意未接**三档,各有一条不复述的理由:
+      · POST /rules/match(→ apply):该端点由 agent loop 每条消息调用,给它加端点级
+        身份依赖会改变"内部服务间调用是否需要带用户令牌"这一对外语义,而加写更会把
+        一次 Redis HSET+HLEN(+HKEYS/HDEL)挂到消息热路径上 —— 属台账记的待拍板项,
+        不得由本票顺手定。
+      · POST /rules/:id/test:对不存在的规则同样会回结构化结果,按现状判不出"这次
+        试探到底落在了谁的哪条规则上",写进样本表就是把噪声喂给模式统计。
+      · POST /rules/:id/learn-feedback:它的 accepted/rejected 信号由
+        `record_learn_feedback` 自述"用于未来 _extract_patterns 的优化",那是读侧的
+        加权改造,另计一票,不在本票的"把生产者接上"范围内。
+  - 未接档的存量事实:_track_behavior 的 action 词表里 match/feedback/apply 三档
+    至今仍无写入方,所以读侧的模式统计只看得到 create/update/delete。
 """
 
 from typing import Any
@@ -22,7 +38,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from ..core.jwt_auth import require_request_user_id
-from ..services.rules_engine import rules_engine
+from ..services.rules_engine import record_rule_action_behavior, rules_engine
 
 router = APIRouter()
 
@@ -88,9 +104,22 @@ async def list_rules() -> dict[str, Any]:
 
 
 @router.post("/rules")
-async def create_rule(body: RuleCreateBody) -> dict[str, Any]:
-    """创建规则。"""
+async def create_rule(
+    body: RuleCreateBody,
+    principal: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """创建规则,并把这次动作计入该用户的行为样本(G-805 接线)。
+
+    身份 = **令牌主体**,与 `/rules/auto-generate` 用同一份出口
+    (`require_request_user_id`),不新造第二套身份判定。此前本文件除 auto-generate
+    外的端点一个身份都没有,于是行为样本的生产侧无处可写 —— `_record_audit` 的 `user`
+    形参自述"router 层可传入实际用户",而 router 从未传过(现值恒为默认 "system")。
+    """
     rule = rules_engine.create(body.model_dump())
+    if rule:
+        await record_rule_action_behavior(
+            principal, "create", rule.id, {"scope": rule.scope}
+        )
     return {"code": 0, "message": "success", "data": rule.to_dict()}
 
 
@@ -148,21 +177,37 @@ async def get_rule(rule_id: str) -> dict[str, Any]:
 
 
 @router.patch("/rules/{rule_id}")
-async def update_rule(rule_id: str, body: RuleUpdateBody) -> dict[str, Any]:
-    """更新规则(部分字段)。"""
+async def update_rule(
+    rule_id: str,
+    body: RuleUpdateBody,
+    principal: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """更新规则(部分字段)+ 行为样本(同 create,身份取令牌主体)。"""
     data = body.model_dump(exclude_none=True)
     rule = rules_engine.update(rule_id, data)
     if not rule:
         raise HTTPException(status_code=404, detail=f"规则不存在: {rule_id}")
+    await record_rule_action_behavior(
+        principal, "update", rule.id, {"scope": rule.scope}
+    )
     return {"code": 0, "message": "success", "data": rule.to_dict()}
 
 
 @router.delete("/rules/{rule_id}")
-async def delete_rule(rule_id: str) -> dict[str, Any]:
-    """删除规则。"""
+async def delete_rule(
+    rule_id: str,
+    principal: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """删除规则 + 行为样本(同 create,身份取令牌主体)。
+
+    details 刻意不带 scope:规则此时已从存储里消失,现读它的 scope 要么多发一次查询、
+    要么用删除前缓存的旧值造出第二份真相 —— 读侧 `_extract_patterns_statistical`
+    对缺失 scope 归一到 "global",与删除动作的语义无冲突,所以留空。
+    """
     deleted = rules_engine.delete(rule_id)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"规则不存在: {rule_id}")
+    await record_rule_action_behavior(principal, "delete", rule_id)
     return {"code": 0, "message": "success", "data": {"id": rule_id, "deleted": True}}
 
 
