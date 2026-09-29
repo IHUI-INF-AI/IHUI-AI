@@ -233,6 +233,20 @@ export function detectOutlet(text, requiredExports) {
 }
 
 /**
+ * 接线状态与出口在位性必须**成对**判 —— 这是本门被摘出提交链那一次留下的契约。写成纯函数是为了
+ * 让两侧都能喂构造面(镜像若只判仓库瞬时状态,就等于把"此刻恰好不红"当证据;守门 103 那一课)。
+ *
+ * 两个方向各拦一型:① 出口还没入库就把门接进提交链 ⇒ 干净 HEAD 恒红,唯一结局是各会话跳钩子、
+ * 该枚提交上全部守门作废(§12e);② 出口已经入库却没人接线 ⇒ 判据存在而零调度器,即"造好没装车"。
+ * 注册面问不到 ⇒ 判"未判定"并返回 false,绝不冒充通过。
+ */
+export function wiringConsistent(outletStatus, runnerText, selfPath = SELF) {
+  if (typeof runnerText !== 'string') return false
+  const wired = runnerText.includes(selfPath)
+  return outletStatus === 'ok' ? wired : !wired
+}
+
+/**
  * 两个出口文件在**同一轮、同一面**上各自查一遍(清单与内容必须同面同轮 —— 门 101/103/118 同条纪律)。
  * 聚合方向刻意保守:任一文件被摘线 ⇒ stripped;任一读不到 ⇒ unreadable;全部齐备才 ok。
  * `self-not-landed` 只在前两者出现且本门自身还没入库时替换(见 analyze 里的注)。
@@ -526,7 +540,14 @@ function runSelfTest() {
   })())
   const head = analyze('head')
   ok(`真仓 HEAD 阳性对照:必须看得见存量(实得 ${head.total} 处,枚举档 ${head.enumeration},自落格 ${head.selfLanded})`, head.total > 0)
-  ok('HEAD 全量档不得因存量判红(锚点是该文件 HEAD 自身,当场判红就是恒红门 ⇒ 逼人跳门)', head.exit !== 1)
+  // 这一格原本写的是 `head.exit !== 1`,那是把**两维**混成了一维:head 面结构上不可能因存量判红
+  // (棘轮只在 staged/worktree 档往 red 里 push),所以它真正在判的其实是"出口在不在位"。等 HEAD 里
+  // 还没有失败码出口时,这条就顶着"存量"的名义红 —— 措辞与病因不一致,而下一个人会照措辞去放宽出口表。
+  ok('HEAD 全量档的存量维不得判红(棘轮锚点是该文件 HEAD 自身;当场判红就是恒红门 ⇒ 逼人跳门)', head.red.length === 0)
+  ok(
+    '出口不在位 ⇒ 本门不得在提交链上;出口已入库 ⇒ 本门必须已接线(两个方向各拦一型,都不靠人记得)',
+    wiringConsistent(head.outlet, readFace(['scripts/guardian-runner.mjs'], 'head').get('scripts/guardian-runner.mjs')),
+  )
   ok('门未入库时出口那一格报 self-not-landed,不冒充 ok 也不冒充 stripped', (() => {
     const r = analyze('head')
     if (r.selfLanded) return r.outlet === 'ok' || r.outlet === 'stripped' || r.outlet === 'unreadable'
@@ -592,6 +613,7 @@ export const __test__ = {
   findTextMatching,
   classifyLine,
   detectOutlet,
+  wiringConsistent,
   analyze,
   inScope,
   isTestSurface,
