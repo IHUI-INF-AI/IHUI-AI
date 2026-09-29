@@ -50,8 +50,14 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
  * UserInfoCard 等三份同名实现的出口份,不在配对源里就等于给"改了它任何读数都不动"发绿灯)
  * + `apps/mobile-rn/src/components`(端内自绘层)。只扫一层会漏判 —— 小程序组件若只与端内层同名,
  * 只扫共享层就把它算成"仅小程序",而那正应当被收进"两端同源"的目标形态。
- * 同名多命中**不再静默取先者**:选腿走 pickCandidate(平台后缀 > 出口指向 > 目录序),
+ * 同名多命中**不再静默取先者**:选腿走 pickCandidate(平台后缀 > **同端自绘层** > 出口指向 > 目录序),
  * 候选逐条点名(见 scan 的 multiCandidates)。
+ * 「同端自绘层」这一序(G- 2026-09-29 票#9)是给本门的**问题本身**定的:它问的是"同一个界面元素
+ * 在小程序与 App 上长成同一张脸吗",而两端各自屏幕上渲染的那一份才是被问的那个元素。
+ * 实测形态:`UserInfoCard` 在 RN 侧有三份活实现(`apps/mobile-rn/src/components/` = ProfileScreen
+ * 直接 import 的那份、`packages/app/src/features/cards/` = `@ihui/rn-app` 桶出口那份、
+ * `packages/app/src/components/` = 第二份桶出口),按"出口指向"选会拿**共享层卡**去对**小程序端内卡**
+ * —— 一层不同形的比较,读数再大也不回答用户看的那两张脸。
  */
 const SIDES = {
   miniapp: ['apps/miniapp-taro/src/components'],
@@ -61,6 +67,12 @@ const SIDES = {
     'apps/mobile-rn/src/components',
   ],
 }
+/**
+ * 每端"自己屏幕上那份"的目录前缀。可达性层(pruneUnreachableLegs)按端各跑一遍图,
+ * 走到这个前缀下的候选就是该端**自己**渲染的那一份 —— 所以这一序只在"两份都可达"时生效,
+ * 端内那份是死副本时它根本进不了候选(不会把绿灯换成红灯)。
+ */
+const OWN_END_PREFIX = { miniapp: 'apps/miniapp-taro/', rn: 'apps/mobile-rn/' }
 const BASELINE_REL = 'scripts/cross-end-ui-parity-baseline.json'
 /** 落在这些键/标识符上下文里的数字才算"看得见的尺寸"。 */
 const GEO_KEY =
@@ -425,18 +437,26 @@ const candRank = (f) => (PLATFORM_SUFFIX.test(normKey(f)) ? 0 : 1)
 /**
  * 同侧多候选的唯一选腿比较器 —— scan() 与 pruneUnreachableLegs() 的换腿**共用它**
  * (两处各写一份选法必然漂移,与票⑪"换腿桶必须与配对键同键同序"是同一条禁令)。
- * 三序取小者胜(lex):
+ * 四序取小者胜(lex):
  *   1) candRank:平台后缀那份先 —— Taro 构建期解析的是 `Foo.taro.tsx`,出口链不懂平台解析,
  *      若出口反指 plain 那份,按出口选反而造出一条不渲染的假腿;
- *   2) 出口指向:`preferFile` 是该族 re-export 链解到的那份(判据,不是猜测);
- *   3) 先入桶序:即 SIDES 目录优先级不变(共享层在前)—— 没有出口证据时的兜底。
- * 返回 {chosen, others, by};by = 击败次名的那一序('suffix'|'exit'|'order'),供报告点名
+ *   2) 同端自绘层:`ownEndPrefix` 之下那份(该端屏幕上真渲染的那一份)—— 本门比的是"同一元素
+ *      在两端的脸",拿共享层卡去对端内卡就是拿两个不同的元素互相记账;
+ *   3) 出口指向:`preferFile` 是该族 re-export 链解到的那份(判据,不是猜测);
+ *   4) 先入桶序:即 SIDES 目录优先级不变(共享层在前)—— 没有以上证据时的兜底。
+ * 返回 {chosen, others, by};by = 击败次名的那一序('suffix'|'own-end'|'exit'|'order'),供报告点名
  * "为什么选这份" —— 只报 chosen 不报依据,与静默选一份只差一层措辞。
+ * `ownEndPrefix` 不传 ⇒ 第二序对所有候选同值 ⇒ 行为与票#9 之前**逐字一致**(既有调用与镜像用例不受影响)。
  */
-export function pickCandidate(cands, preferFile = null) {
-  const score = (f, i) => [candRank(f), f === preferFile ? 0 : 1, i]
+export function pickCandidate(cands, preferFile = null, ownEndPrefix = null) {
+  const score = (f, i) => [
+    candRank(f),
+    ownEndPrefix && f.startsWith(ownEndPrefix) ? 0 : 1,
+    f === preferFile ? 0 : 1,
+    i,
+  ]
   const cmp = (a, b) => {
-    for (let j = 0; j < 3; j++) if (a[j] !== b[j]) return a[j] - b[j]
+    for (let j = 0; j < 4; j++) if (a[j] !== b[j]) return a[j] - b[j]
     return 0
   }
   const order = cands.map((_, i) => i).sort((x, y) => cmp(score(cands[x], x), score(cands[y], y)))
@@ -445,9 +465,9 @@ export function pickCandidate(cands, preferFile = null) {
   if (order.length > 1) {
     const a = score(cands[w], w)
     const b = score(cands[order[1]], order[1])
-    for (let j = 0; j < 3; j++)
+    for (let j = 0; j < 4; j++)
       if (a[j] !== b[j]) {
-        by = ['suffix', 'exit', 'order'][j]
+        by = ['suffix', 'own-end', 'exit', 'order'][j]
         break
       }
   }
@@ -468,18 +488,18 @@ export function scan(listMini, listRn, aliases = {}, preferMaps = {}) {
     }
     return m
   }
-  const resolveSide = (list, prefer) => {
+  const resolveSide = (list, prefer, ownEnd) => {
     const winner = new Map()
     const multi = new Map()
     for (const [k, cands] of bucketize(list)) {
-      const pick = pickCandidate(cands, prefer?.get(k) ?? null)
+      const pick = pickCandidate(cands, prefer?.get(k) ?? null, ownEnd)
       winner.set(k, pick.chosen)
       if (cands.length > 1) multi.set(k, pick)
     }
     return { winner, multi }
   }
-  const rnSide = resolveSide(listRn, preferMaps.rn)
-  const miniSide = resolveSide(listMini, preferMaps.miniapp)
+  const rnSide = resolveSide(listRn, preferMaps.rn, OWN_END_PREFIX.rn)
+  const miniSide = resolveSide(listMini, preferMaps.miniapp, OWN_END_PREFIX.miniapp)
   const rnMap = rnSide.winner
   const miniMap = miniSide.winner
   const pairs = []
@@ -1412,7 +1432,7 @@ export function pruneUnreachableLegs(repoRoot, face, scanned, opts = {}) {
   const fallbacks = []
   /**
    * 换腿规则(2026-09-27 票⑭ 起统一):可达候选里用**同一个** pickCandidate 重选,与 scan() 同判据
-   * (后缀 > 出口指向 > 目录序)。两种触发各有实测出处:
+   * (后缀 > 同端自绘层 > 出口指向 > 目录序)。两种触发各有实测出处:
    *   ① 首选层是死副本(2026-09-26:UserInfoCard / NavBar / Carousel 的 `packages/app` 那份零可达
    *      消费者,而 `apps/mobile-rn` 的同名件真在屏幕上)—— 旧行为"锁定首选层 → 不可达 → 剔对"
    *      会让这三对覆盖率为 0 而账面不喊;
@@ -1445,8 +1465,12 @@ export function pruneUnreachableLegs(repoRoot, face, scanned, opts = {}) {
       const usable = bucket.filter((f) => !missing.has(f) && reach.has(f))
       if (!usable.length) continue // 整桶都不可达 ⇒ 维持原位,交给下面的 bad 判定剔对(旧行为)
       // pairKey 剥掉平台后缀之后,同一个桶里会同时躺着 `Foo.taro.tsx` 与 `Foo.tsx` —— 选腿与 scan()
-      // 共用 pickCandidate,三序同判据;并列时保留先入桶者,即 SIDES 目录优先级不变。
-      const pick = pickCandidate(usable, preferMaps[side]?.get(pairKey(cur[side])) ?? null)
+      // 共用 pickCandidate,四序同判据;并列时保留先入桶者,即 SIDES 目录优先级不变。
+      const pick = pickCandidate(
+        usable,
+        preferMaps[side]?.get(pairKey(cur[side])) ?? null,
+        OWN_END_PREFIX[side] ?? null,
+      )
       if (pick.chosen !== cur[side]) {
         moved.push(`${cur[side]} → ${pick.chosen}`)
         cur[side] = pick.chosen
@@ -4331,31 +4355,44 @@ function runSelfTest() {
     })(),
   )
   t(
-    '㉴ 三份同名:扩面前后进审的候选逐条点名,且两份实现不得被并成一条假同值腿',
+    '㉴ 三份同名:扩面前后进审的候选逐条点名,且两份实现不得被并成一条假同值腿;' +
+      '而"端内自绘层"必须压过出口指向(票#9 —— 本门比的是两端各自屏幕上的那张脸)',
     (() => {
       const mini = ['apps/miniapp-taro/src/components/UserInfoCard.tsx']
-      const before = [
-        'packages/app/src/components/UserInfoCard.tsx',
-        'apps/mobile-rn/src/components/UserInfoCard.tsx',
-      ]
+      const ownEnd = 'apps/mobile-rn/src/components/UserInfoCard.tsx'
+      const sharedComponents = 'packages/app/src/components/UserInfoCard.tsx'
       const feat = 'packages/app/src/features/cards/UserInfoCard.tsx'
-      const b = scan(mini, before, {})
-      const a = scan(mini, [...before, feat], {}, { rn: new Map([['userinfocard', feat]]) })
+      // 扩面前:只有共享层两份 + 没有出口证据 ⇒ 按目录序,且两份都点名
+      const b = scan(mini, [sharedComponents, ownEnd], {})
       const bb = b.multiCandidates.find((e) => e.name === 'UserInfoCard' && e.side === 'rn')
+      // 扩面后:三份都在,出口指向 features ⇒ 端内那份仍胜(它就是 ProfileScreen 渲染的那份)
+      const a = scan(
+        mini,
+        [sharedComponents, ownEnd, feat],
+        {},
+        { rn: new Map([['userinfocard', feat]]) },
+      )
       const aa = a.multiCandidates.find((e) => e.name === 'UserInfoCard' && e.side === 'rn')
+      // 成对反向:该端**没有**自绘层副本时,出口指向照旧生效(新序不得把旧判据整支吞掉)
+      const c = scan(mini, [sharedComponents, feat], {}, { rn: new Map([['userinfocard', feat]]) })
+      const cc = c.multiCandidates.find((e) => e.name === 'UserInfoCard' && e.side === 'rn')
       return (
         b.pairs.length === 1 &&
         a.pairs.length === 1 &&
         !!bb &&
-        bb.chosen === before[0] &&
-        bb.others.join() === before[1] &&
+        bb.chosen === sharedComponents &&
+        bb.others.join() === ownEnd &&
         bb.by === 'order' &&
         !!aa &&
-        aa.chosen === feat &&
-        aa.by === 'exit' &&
-        aa.others.slice().sort().join() === before.slice().sort().join() &&
-        a.pairs[0].rn === feat &&
-        a.pairs[0].name === 'UserInfoCard'
+        aa.chosen === ownEnd &&
+        aa.by === 'own-end' &&
+        aa.others.slice().sort().join() === [sharedComponents, feat].sort().join() &&
+        a.pairs[0].rn === ownEnd &&
+        a.pairs[0].name === 'UserInfoCard' &&
+        !!cc &&
+        cc.chosen === feat &&
+        cc.by === 'exit' &&
+        c.pairs[0].rn === feat
       )
     })(),
   )
