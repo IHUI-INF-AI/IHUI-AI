@@ -9,7 +9,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   type TextStyle,
@@ -21,6 +20,7 @@ import type { TFunction } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** MemoryScreen props(注入式:wrapper 保留 fetchApi/Alert/导航/登录态) */
 export interface MemoryScreenProps {
@@ -234,7 +234,8 @@ export function MemoryScreen({
           ListHeaderComponent={
             <View style={styles.filterHeader}>
               {/* 搜索 */}
-              <TextInput
+              <TextField
+                colorScheme={colorScheme}
                 style={styles.searchInput}
                 value={search}
                 onChangeText={onSearchChange}
@@ -304,7 +305,8 @@ export function MemoryScreen({
                 <Text style={styles.cancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </View>
-            <TextInput
+            <TextField
+              colorScheme={colorScheme}
               style={styles.textInput}
               value={newText}
               onChangeText={onNewTextChange}
@@ -314,7 +316,8 @@ export function MemoryScreen({
               numberOfLines={4}
               textAlignVertical="top"
             />
-            <TextInput
+            <TextField
+              colorScheme={colorScheme}
               style={styles.categoryInput}
               value={newCategory}
               onChangeText={onNewCategoryChange}

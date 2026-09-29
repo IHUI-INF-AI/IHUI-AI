@@ -38,7 +38,6 @@ import {
   Modal,
   View,
   Text,
-  TextInput,
   Pressable,
   ScrollView,
   Switch,
@@ -48,7 +47,7 @@ import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import type { ModelConfigType } from '@ihui/ui-native'
 import { Check, ChevronLeft, Mic, Music, Plus, Square, X } from 'lucide-react-native'
-import { tokens } from '../theme/active-tokens'
+import { currentRnTheme, tokens } from '../theme/active-tokens'
 import { ChevronRight } from 'lucide-react-native'
 // 本组件所有会显形的几何数字(删除角标 / 音色菜单图标块 / 上传卡宽与标记盒 / 参数输入行高与横向
 // 内衬 / 选项胶囊内衬与间距 / 字段标签间距 / 音色弹窗内衬与行纵向内衬 / 自绘录音按钮 / 三档字形)
@@ -80,6 +79,7 @@ import {
   modelConfigSquareStyle,
   modelConfigUploadCardStyle,
 } from '@ihui/shared/ui/model-config-dialog-spec'
+import { TextField } from '@ihui/rn-app'
 
 const toUnit = (px: number) => px
 
@@ -449,7 +449,8 @@ function DynamicVariables({
           // 其他 → 输入框
           return (
             <Row key={v.name} label={v.desc}>
-              <TextInput
+              <TextField
+                colorScheme={currentRnTheme()}
                 value={String(cur ?? '')}
                 onChangeText={(t) => emit({ [v.name]: t })}
                 placeholder={`请输入${v.desc}`}
@@ -538,7 +539,8 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
     <>
       <Row label="Temperature">
         <View className="flex-row items-center">
-          <TextInput
+          <TextField
+            colorScheme={currentRnTheme()}
             value={String(config.temperature)}
             keyboardType="numeric"
             onChangeText={(v) => update({ temperature: Number(v) || 0 })}
@@ -556,7 +558,8 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
       </Row>
 
       <Row label="Max Tokens">
-        <TextInput
+        <TextField
+          colorScheme={currentRnTheme()}
           value={String(config.maxTokens)}
           keyboardType="numeric"
           onChangeText={(v) => update({ maxTokens: Number(v) || 0 })}
@@ -570,7 +573,8 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
       </Row>
 
       <Row label="Top P">
-        <TextInput
+        <TextField
+          colorScheme={currentRnTheme()}
           value={String(config.topP)}
           keyboardType="numeric"
           onChangeText={(v) => update({ topP: Number(v) || 0 })}
@@ -584,7 +588,8 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
       </Row>
 
       <Row label="System Prompt">
-        <TextInput
+        <TextField
+          colorScheme={currentRnTheme()}
           value={config.systemPrompt}
           onChangeText={(v) => update({ systemPrompt: v })}
           placeholder="请输入系统提示词"
