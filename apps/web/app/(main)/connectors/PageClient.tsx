@@ -38,6 +38,7 @@ import {
   type ConnectorSyncItem,
   type ConnectorType,
 } from '@ihui/api-client/endpoints/connectors'
+import { useAuthStore } from '@/stores/auth'
 import { BackButton } from '@/components/common'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { Badge } from '@/components/data'
@@ -110,13 +111,33 @@ function toSlug(input: string): string {
 export default function ConnectorsPageClient() {
   const t = useTranslations('connectors')
   const queryClient = useQueryClient()
+  /**
+   * 当前登录主体 id(未取到主体时为 null)。只订阅 `user?.id` 这一个标量,
+   * 与 `use-ecosystem-overview.ts:57` / `providers/query-provider.tsx:52` 同一读法。
+   */
+  const principalId = useAuthStore((s) => s.user?.id ?? null)
 
+  /**
+   * 连接器列表(脱敏,不含 app_id/app_secret 明文)
+   *
+   * queryKey 必须含登录主体(2026-09-29 立):后端 `GET /api/connectors` 已按调用方
+   * 收窄成"只返回你自己拥有的连接器"(connectors.py:123 → `connector_store.list_owned(user_id)`),
+   * 条目含 name / key / type ⇒ 属个人配置数据。而这份缓存落在模块级单例
+   * (lib/query-client.ts,staleTime 5min / gcTime 10min),键里不带主体时同一浏览器
+   * 换账号会在 refetch 完成前把上一个账号的连接器渲染给新账号。
+   *
+   * 口径与 `useConnectors()`(ecosystem 总览)一致:刻意**不用** `enabled: principal !== null`
+   * 把请求关掉 —— 那会把本页永久停在 loading 态(D17 在
+   * `src/components/ecosystem/__tests__/ecosystem-hub.test.tsx` 里钉的就是这一型)。
+   * 无主体时请求照发,结果落 'anonymous' 这一格;跨账号的另一半由
+   * `providers/query-provider.tsx:52-59` 的"主体由有到无 ⇒ 清空缓存"补上。
+   */
   const {
     data: list,
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['connectors', 'list'],
+    queryKey: ['connectors', 'list', principalId ?? 'anonymous'],
     queryFn: async (): Promise<ConnectorListResponse> => {
       const r = await getConnectors()
       if (!r.success || !r.data) throw new Error(r.error ?? 'load failed')
@@ -146,8 +167,14 @@ export default function ConnectorsPageClient() {
   const [deleteTarget, setDeleteTarget] = React.useState<ConnectorEntry | null>(null)
   const [deleting, setDeleting] = React.useState(false)
 
+  /**
+   * 失效必须打在**含主体**的三段键上(与上面的 queryKey 同形):
+   * 失效裸两段键在新键形态下什么都匹配不到,保存/启停/同步/删除后界面会停在旧列表。
+   */
   const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: ['connectors', 'list'] })
+    void queryClient.invalidateQueries({
+      queryKey: ['connectors', 'list', principalId ?? 'anonymous'],
+    })
   }
 
   /** 打开新建对话框 */

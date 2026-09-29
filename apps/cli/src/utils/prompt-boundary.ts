@@ -52,17 +52,44 @@ export function isFramedReminder(text: string): boolean {
   return text.startsWith(`<${BOUNDARY_TAG} kind="`);
 }
 
-/** 技能名清洗后的最大长度(字符)。 */
+/** 技能名清洗后保留的最大**码位**数(不是 UTF-16 码元数,理由见 `truncateToCodePoints`)。 */
 export const SKILL_NAME_MAX_CHARS = 80;
 
-/** 清洗名称:剥控制符/零宽字符(Cf 类,本仓 §5c 有零宽事故史)、剥尖括号与换行、限长。 */
+/**
+ * 按码位截断,并丢弃输入里本就孤立的代理(单码元落在 D800–DFFF)。
+ *
+ * 为什么不能用 `.slice(0, n)`:那是 UTF-16 **码元**口径,而 BMP 外字符(emoji、生僻汉字)
+ * 占两个码元,边界正好落在中间时会切出半个代理对 —— 显示成 `?`/乱码,序列化进 JSON 后是
+ * `\udXXX`,而落库/上报时是非法串(Postgres 对孤立高位代理直接报 unsupported Unicode escape)。
+ * 同文件的 `truncateUtf8` 早已逐码位累加并注明"不切断代理对";名称档当时漏跟那一份口径 ——
+ * 一个文件里两处算法,注释承诺了对的那一份、代码走的是错的那一份(票 G-414 ①)。
+ *
+ * 实现只借字符串迭代器(`for...of` 逐码位,代理对天然是整体),不写正则 hack、不留第三份判断。
+ */
+export function truncateToCodePoints(text: string, maxCodePoints: number): string {
+  if (!Number.isFinite(maxCodePoints) || maxCodePoints <= 0) return '';
+  let out = '';
+  let taken = 0;
+  for (const ch of text) {
+    // ch 恒为一个码位:BMP 内长度 1、代理对长度 2。长度 1 却落在代理区 ⇒ 本就孤立的半对,丢弃。
+    if (ch.length === 1) {
+      const unit = ch.charCodeAt(0);
+      if (unit >= 0xd800 && unit <= 0xdfff) continue;
+    }
+    out += ch;
+    taken += 1;
+    if (taken >= maxCodePoints) break;
+  }
+  return out;
+}
+
+/** 清洗名称:剥控制符/零宽字符(Cf 类,本仓 §5c 有零宽事故史)、剥尖括号与换行、按码位限长。 */
 export function sanitizeSkillName(name: string): string {
-  return name
-     
+  const cleaned = name
     .replace(/[\u0000-\u001f\u007f-\u009f\u200b\u200c\u200d\u2060\ufeff]/g, '')
     .replace(/[<>]/g, '')
-    .trim()
-    .slice(0, SKILL_NAME_MAX_CHARS);
+    .trim();
+  return truncateToCodePoints(cleaned, SKILL_NAME_MAX_CHARS);
 }
 
 /** 单个技能正文的字节预算(UTF-8)。超出即截断并留可见标记,不得静默丢尾。 */
