@@ -163,15 +163,9 @@ export const REPO_GIT_IDENTITY_ARGS = ['-c', 'user.name=智汇AGI社区', '-c', 
  * 临时索引提交:read-tree <baseRef> → 逐条 update-index --cacheinfo → write-tree → commit-tree。
  * 全程不触碰共享主索引、不触碰工作树(GIT_INDEX_FILE 只挂在本函数派生上)。
  * entries:[{path, blob}] 或 [{path, text}](text 走 writeBlob);也兼容单路径 {treePath, text|blob}。
- * 返回 { tree, commit, entries:[{path,blob}] };传 onTree 时另可返回 { rejected }。
- *
- * onTree(tree) ⇒ 在 commit-tree **之前**拿树做校验的钩子(G-815985)。返回非空字符串即放弃提交,
- *   返回 { tree, commit: '', entries, rejected: <该字符串> }。放这里的理由是硬性的:
- *   若先 commit-tree 再校验,被拒的那枚就成了 unreachable commit —— 守门 30a 只看
- *   `git fsck --unreachable` 里的 `unreachable commit` 行,于是"一次被拦的落地"会给全仓
- *   埋一颗"下次提交必须先把这枚悬空 commit 备份成 tag"的地雷。树/blob 不在它的判据面内。
+ * 返回 { tree, commit, entries:[{path,blob}] }。
  */
-export function commitTreeWithIndex({ root, parent, message, entries, treePath, text, blob, baseRef = 'HEAD', mode = '100644', onTree }) {
+export function commitTreeWithIndex({ root, parent, message, entries, treePath, text, blob, baseRef = 'HEAD', mode = '100644' }) {
   const list = entries
     ? entries.map((e) => ({ path: e.path, blob: e.blob ?? writeBlob(e.text, { root }), mode: e.mode ?? mode }))
     : [{ path: treePath, blob: blob ?? writeBlob(text, { root }), mode }]
@@ -184,13 +178,6 @@ export function commitTreeWithIndex({ root, parent, message, entries, treePath, 
       git(['update-index', '--add', '--cacheinfo', `${e.mode},${e.blob},${e.path}`], { root, env })
     }
     const tree = git(['write-tree'], { root, env })
-    if (typeof onTree === 'function') {
-      const rejected = onTree(tree)
-      if (typeof rejected === 'string' && rejected !== '') {
-        // 只留下 unreachable tree/blob(30a 不判这两类),不产生任何 commit 对象。
-        return { tree, commit: '', entries: list.map((e) => ({ path: e.path, blob: e.blob })), rejected }
-      }
-    }
     const commit = git([...REPO_GIT_IDENTITY_ARGS, 'commit-tree', tree, '-p', parent, '-m', message], { root, env })
     return { tree, commit, entries: list.map((e) => ({ path: e.path, blob: e.blob })) }
   } finally {

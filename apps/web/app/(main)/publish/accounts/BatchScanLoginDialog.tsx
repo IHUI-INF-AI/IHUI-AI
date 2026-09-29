@@ -22,21 +22,10 @@
  * ④ 用户手动关掉浏览器窗口 = 结束队列:后端返回"浏览器已关闭"此前被当成普通检测异常,
  *    队列会继续弹下一个平台(用户视角"我都关了怎么还在弹");现已识别该信号并停止队列。
  *
- * 2026-09-15:启动前支持选择"内置浏览器"或"你自己的浏览器(系统默认浏览器)"。
- * 内置:startScanLogin 起扫码任务 → getScanLoginStatus 轮询 → fetchScanLoginQr 取二维码
- * 直接显示在本弹窗内(2026-09-29 换通道,原 createBrowserSession → openCdpSession →
- * detectLoginFromCdp 的 CDP 通道已废,见下);
+ * 2026-09-15:启动前支持选择"内置浏览器(CDP)"或"你自己的浏览器(系统默认浏览器)"。
+ * 内置:createBrowserSession → openCdpSession → detectLoginFromCdp 轮询;
  * 外部:openExternalUrl 在用户真实浏览器打开登录页 + detectLoginFromProfile 读真实 profile →
  * 同一轮询语义,但检测走 detectLoginFromProfile(读用户真实 profile),不再托管浏览器会话。
- *
- * 2026-09-29 内置档换到扫码任务 HTTP 通道(与单平台弹窗 ScanLoginDialog 同一契约:
- * startScanLogin → getScanLoginStatus 轮询 → fetchScanLoginQr 取图 → cancelScanLogin 取消,
- * 二维码直接显示在本弹窗内,不再依赖 WorkPanel 侧栏画面)。
- * 为什么换:内置档此前走内置浏览器 CDP(`POST /api/browser/sessions` + `WS /api/browser/ws/*`),
- * 生产 nginx 把 `/api/` 整段交给 Fastify(8802),该层没有这几条路由 → 线上整条通道 404
- * (单平台弹窗同日实测:同枚合法 token,`POST /api/browser/sessions` → 404,
- * `POST /api/publish/scan-login/start` → 200)。扫码任务这条 HTTP 腿整条是通的,只是批量档没接。
- * 同时两档轮询都不再静默吞错:服务端失败应答当场点名,网络层异常连续 3 次才判失败。
  */
 
 import * as React from 'react'
@@ -54,15 +43,15 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
-  cancelScanLogin,
+  createBrowserSession,
+  closeBrowserSession,
+  detectLoginFromCdp,
   detectLoginFromProfile,
-  fetchScanLoginQr,
-  getScanLoginStatus,
   listScanLoginPlatforms,
-  startScanLogin,
   type ScanLoginPlatform,
 } from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
+import { useWorkPanelStore } from '@/stores/work-panel'
 import { openExternalUrl } from '@/lib/tauri-bridge'
 import {
   Button,
@@ -86,12 +75,7 @@ export interface BatchScanLoginDialogProps {
 
 type ItemStatus = 'pending' | 'active' | 'success' | 'timeout' | 'error' | 'skipped'
 type PollOutcome = 'success' | 'timeout' | 'cancelled' | 'skipped' | 'error' | 'closed'
-/** 内置档扫码任务轮询结果:msg 把失败原因带回去写进条目(不许静默等超时) */
-interface ScanPollResult {
-  outcome: PollOutcome
-  msg?: string
-}
-/** 扫码打开方式:内置(扫码任务,二维码直接显示在本弹窗)/ 用户自己日常使用的浏览器(真实 profile) */
+/** 扫码打开方式:内置 CDP 视图 / 用户自己日常使用的浏览器(真实 profile) */
 type BrowserMode = 'internal' | 'external'
 
 interface QueueItem {
@@ -106,13 +90,6 @@ const POLL_INTERVAL_MS = 3000
 const CANCEL_POLL_MS = 100
 /** 单平台超时:2 分钟(连续扫码场景下单个平台通常 30s 内完成) */
 const PER_PLATFORM_TIMEOUT_MS = 2 * 60 * 1000
-/**
- * 扫码任务终态集合(与单平台弹窗一致):后端 expired 不在 ScanLoginTask 的类型并集里,
- * 故按字符串集合判,不做字面量比较。
- */
-const TERMINAL_STATUSES = new Set(['success', 'failed', 'timeout', 'cancelled', 'expired'])
-/** 连续多少次"根本没拿到应答"(网络层失败)才判失败;有状态码的应答一律当场点名。 */
-const MAX_NETWORK_RETRIES = 3
 
 const ITEM_STATUS_STYLE: Record<ItemStatus, string> = {
   pending: 'bg-muted/40 text-muted-foreground',
@@ -169,6 +146,7 @@ export function BatchScanLoginDialog({
 }: BatchScanLoginDialogProps) {
   const t = useTranslations('publish')
   const toast = useToast()
+  const openCdpSession = useWorkPanelStore((s) => s.openCdpSession)
 
   const [items, setItems] = React.useState<QueueItem[]>([])
   const [running, setRunning] = React.useState(false)
@@ -181,60 +159,32 @@ export function BatchScanLoginDialog({
   const [profileAvailable, setProfileAvailable] = React.useState<boolean | null>(null)
   /** 浏览器拦截了新标签页(外部模式在 web 端可能发生):需提示用户允许弹出窗口 */
   const [popupBlocked, setPopupBlocked] = React.useState(false)
-  /** 内置档当前这一帧二维码(经 fetchScanLoginQr 取字节的 blob objectURL) */
-  const [qrUrl, setQrUrl] = React.useState('')
 
   const itemsRef = React.useRef<QueueItem[]>([])
   const platMapRef = React.useRef<Map<string, ScanLoginPlatform>>(new Map())
   const runningRef = React.useRef(false)
   const cancelRef = React.useRef(false)
   const skipRef = React.useRef(false)
-  /** 当前扫码任务 id(内置档)。轮询闭包里读 state 会拿到旧值,取消/收尾路径必须读这一份。 */
-  const taskIdRef = React.useRef('')
-  /** 已渲染的二维码批次(qr_updated_at),用它避免每轮重复拉同一张图 */
-  const qrStampRef = React.useRef(0)
-  /** 二维码 blob 的 objectURL,换图/收尾/卸载时必须释放,否则每轮漏一个 Blob */
-  const qrUrlRef = React.useRef('')
+  const sessionRef = React.useRef('')
   const lastQueueKeyRef = React.useRef('')
   const modeRef = React.useRef<BrowserMode>('external')
   const queueKey = queuePlatforms.join(',')
 
-  /** 释放二维码 blob。换平台/收尾/停止/关窗/卸载每条路径都必须走这里。 */
-  const releaseQr = React.useCallback(() => {
-    if (qrUrlRef.current) {
-      URL.revokeObjectURL(qrUrlRef.current)
-      qrUrlRef.current = ''
-    }
-    qrStampRef.current = 0
-    setQrUrl('')
-  }, [])
-
-  /** 拉当前这一帧二维码(与单平台弹窗同款:该口要带 Authorization,裸 URL 拿不到)。 */
-  async function showQr(taskId: string, stamp: number) {
-    const blob = await fetchScanLoginQr(taskId)
-    const next = URL.createObjectURL(blob)
-    if (qrUrlRef.current) URL.revokeObjectURL(qrUrlRef.current)
-    qrUrlRef.current = next
-    qrStampRef.current = stamp
-    setQrUrl(next)
-  }
-
   /**
    * 立即取消整个队列(2026-09-16):
-   * 置取消标记 → 轮询/串行循环在 ≤100ms 内退出;同时立刻取消当前扫码任务并释放二维码,
-   * 否则后端那枚 Chromium 一直挂到 5 分钟才收。
+   * 置取消标记 → 轮询/串行循环在 ≤100ms 内退出;同时立刻关闭当前浏览器会话,
+   * 点"停止队列"或关闭弹窗时用户能当场看到浏览器窗口关掉(不再"点了半天没反应")。
    */
   const cancelQueue = React.useCallback(() => {
     cancelRef.current = true
     skipRef.current = false
     setStopping(true)
-    releaseQr()
-    const tid = taskIdRef.current
-    if (tid) {
-      taskIdRef.current = ''
-      void cancelScanLogin(tid).catch(() => undefined)
+    const sid = sessionRef.current
+    if (sid) {
+      sessionRef.current = ''
+      void closeBrowserSession(sid)
     }
-  }, [releaseQr])
+  }, [])
 
   const updateItem = React.useCallback((idx: number, patch: Partial<QueueItem>) => {
     setItems((prev) => {
@@ -289,20 +239,16 @@ export function BatchScanLoginDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, cancelQueue])
 
-  // 卸载兜底(2026-09-29):取消当前扫码任务 + 释放二维码
-  // (后端任务不取消会占着一枚 Chromium 直到 5 分钟超时)
+  // 卸载兜底:关闭残留会话
   React.useEffect(() => {
     return () => {
-      releaseQr()
-      const tid = taskIdRef.current
-      if (tid) void cancelScanLogin(tid).catch(() => undefined)
+      if (sessionRef.current) void closeBrowserSession(sessionRef.current)
     }
-  }, [releaseQr])
+  }, [])
 
   function pollPlatform(detect: DetectFn): Promise<PollOutcome> {
     return (async () => {
       const start = Date.now()
-      let networkFails = 0
       while (true) {
         if (cancelRef.current) return 'cancelled'
         if (skipRef.current) {
@@ -317,79 +263,18 @@ export function BatchScanLoginDialog({
           // 2026-09-16:检测请求返回期间用户可能已点停止/关窗 → 立即退出,不再等下一轮
           if (cancelRef.current) return 'cancelled'
           if (r.success && r.data?.detected) return 'success'
-          // 2026-09-29:服务端有应答但失败 → 当场判失败,不再装作"未检测到"继续空等
-          // (旧实现把每一次失败应答都吞成继续轮询,用户看到的就是一直转圈到超时)
-          if (!r.success) return 'error'
-          networkFails = 0
           // 用户手动关掉浏览器窗口 → 视为"本人结束队列",不能当普通异常继续下一个
-          if (r.data?.error) {
+          if (r.success && r.data?.error) {
             return isBrowserClosedError(r.data.error) ? 'closed' : 'error'
           }
         } catch {
-          // 只有"根本没拿到应答"(网络层异常)才计入重试预算,连续 3 次判失败
-          // (与单平台弹窗 MAX_NETWORK_RETRIES 一致);中间任何一次拿到应答即清零。
-          networkFails += 1
-          if (networkFails >= MAX_NETWORK_RETRIES) return 'error'
+          /* 网络错误静默,继续轮询 */
           if (cancelRef.current) return 'cancelled'
         }
         // 可中断等待(停止后 ≤100ms 返回,不再傻等完整轮询间隔)
         await sleepCancelable(POLL_INTERVAL_MS, () => cancelRef.current)
       }
     })()
-  }
-
-  /**
-   * 内置档:轮询扫码任务状态(与单平台弹窗同一契约)。
-   * success → 推进队列;后端终态(failed/timeout/cancelled/expired)→ 当场判 error 并把
-   * message 带回写进条目(不许静默等 2 分钟超时);has_qr 且 qr_updated_at 变化时取一帧
-   * 二维码。服务端失败应答当场点名;网络层异常连续 3 次才判失败,中间有应答即清零。
-   * 观测到后端终态时自行清掉 taskIdRef(任务已收,无需再 cancel);其余出口由调用方取消。
-   */
-  async function pollScanTask(taskId: string): Promise<ScanPollResult> {
-    const start = Date.now()
-    let networkFails = 0
-    while (true) {
-      if (cancelRef.current) return { outcome: 'cancelled' }
-      if (skipRef.current) {
-        skipRef.current = false
-        return { outcome: 'skipped' }
-      }
-      if (Date.now() - start > PER_PLATFORM_TIMEOUT_MS) return { outcome: 'timeout' }
-      try {
-        const r = await getScanLoginStatus(taskId)
-        if (cancelRef.current) return { outcome: 'cancelled' }
-        if (!r.success) {
-          return {
-            outcome: 'error',
-            msg: apiFailureToError(r, t('accounts.batchScanDetectError')).message,
-          }
-        }
-        networkFails = 0
-        const d = r.data
-        if (d?.status === 'success') {
-          taskIdRef.current = ''
-          return { outcome: 'success' }
-        }
-        if (d && TERMINAL_STATUSES.has(d.status)) {
-          taskIdRef.current = ''
-          return { outcome: 'error', msg: d.message || t('accounts.batchScanDetectError') }
-        }
-        if (d?.has_qr && d.qr_updated_at !== qrStampRef.current) {
-          try {
-            await showQr(taskId, d.qr_updated_at)
-          } catch {
-            /* 这一帧图没取到:下一轮还会再取,不能因此把整个任务判失败 */
-          }
-        }
-      } catch {
-        networkFails += 1
-        if (networkFails >= MAX_NETWORK_RETRIES) {
-          return { outcome: 'error', msg: t('accounts.batchScanDetectError') }
-        }
-        if (cancelRef.current) return { outcome: 'cancelled' }
-      }
-      await sleepCancelable(POLL_INTERVAL_MS, () => cancelRef.current)
-    }
   }
 
   async function startQueue() {
@@ -423,8 +308,8 @@ export function BatchScanLoginDialog({
         continue
       }
       updateItem(i, { status: 'active', msg: undefined })
-      let tid = ''
       try {
+        let sid = ''
         if (useExternal) {
           // 外部模式:在**用户自己日常使用的浏览器**里打开该平台登录页(系统默认浏览器/新标签,
           // 真实 profile —— 平台登录态与 Google 账号都在,不需要重新登录),随后由后端从真实
@@ -441,40 +326,30 @@ export function BatchScanLoginDialog({
             break
           }
         } else {
-          // 内置模式(2026-09-29 换到扫码任务 HTTP 通道):后端起浏览器截二维码,
-          // 前端轮询任务状态并把二维码直接显示在本弹窗内。
-          const r = await startScanLogin(item.platform)
+          // 内置模式:BrowserHub Playwright Chromium + WorkPanel CDP 截图流视图
+          const r = await createBrowserSession({
+            url: plat.login_url,
+            viewport_width: 1024,
+            viewport_height: 720,
+          })
           if (cancelRef.current) {
-            if (r.success && r.data?.task_id) {
-              void cancelScanLogin(r.data.task_id).catch(() => undefined)
-            }
+            if (r.success && r.data?.session_id) void closeBrowserSession(r.data.session_id)
             markStoppedFrom(i)
             break
           }
-          if (!r.success) throw apiFailureToError(r, t('accounts.batchScanDetectError'))
-          tid = r.data?.task_id ?? ''
-          if (!tid) throw new Error(t('accounts.batchScanDetectError'))
-          taskIdRef.current = tid
+          if (!r.success) throw apiFailureToError(r, '创建浏览器会话失败')
+          if (!r.data?.session_id) throw new Error('创建浏览器会话失败')
+          sid = r.data.session_id
+          openCdpSession(plat.login_url, sid, plat.name)
         }
-        let outcome: PollOutcome
-        let outcomeMsg: string | undefined
-        if (useExternal) {
-          outcome = await pollPlatform(() => detectLoginFromProfile(item.platform))
-        } else {
-          const polled = await pollScanTask(tid)
-          outcome = polled.outcome
-          outcomeMsg = polled.msg
-        }
-        // 内置档收尾:释放二维码;后端未自己收尾的任务(超时/跳过/停止/网络断)必须显式
-        // cancel,否则那枚 Chromium 一直挂到后端 5 分钟才收。pollScanTask 观测到后端终态时
-        // 已自行清掉 taskIdRef,这里以 taskIdRef 是否仍等于 tid 判"任务未终态"。
-        if (!useExternal) {
-          releaseQr()
-          if (tid && taskIdRef.current === tid) {
-            taskIdRef.current = ''
-            void cancelScanLogin(tid).catch(() => undefined)
-          }
-        }
+        sessionRef.current = sid
+        const outcome = await pollPlatform(
+          useExternal
+            ? () => detectLoginFromProfile(item.platform)
+            : () => detectLoginFromCdp(sid, item.platform),
+        )
+        if (sid && sessionRef.current === sid) sessionRef.current = ''
+        if (sid) void closeBrowserSession(sid)
         if (outcome === 'success') {
           successCount++
           updateItem(i, { status: 'success' })
@@ -501,13 +376,11 @@ export function BatchScanLoginDialog({
           toast.info(t('accounts.batchScanWindowClosedToast'))
           break
         }
-        updateItem(i, { status: 'error', msg: outcomeMsg ?? t('accounts.batchScanDetectError') })
+        updateItem(i, { status: 'error', msg: t('accounts.batchScanDetectError') })
       } catch (e) {
-        releaseQr()
-        const pendingTid = taskIdRef.current
-        if (pendingTid) {
-          taskIdRef.current = ''
-          void cancelScanLogin(pendingTid).catch(() => undefined)
+        if (sessionRef.current) {
+          void closeBrowserSession(sessionRef.current)
+          sessionRef.current = ''
         }
         if (cancelRef.current) {
           markStoppedFrom(i)
@@ -608,23 +481,7 @@ export function BatchScanLoginDialog({
 
           {running && activeItem && (
             <div className="flex flex-col items-center gap-2 rounded-lg border bg-muted/30 p-3">
-              {mode === 'internal' && qrUrl ? (
-                <>
-                  {/* 二维码由后端截取登录页后逐帧更新(qr_updated_at 变一次取一帧),
-                      经 fetchScanLoginQr 取字节(该口要带 Authorization)后直接显示在本弹窗内 */}
-                  <img
-                    src={qrUrl}
-                    alt={t('accounts.scanLoginQrAlt')}
-                    className="h-60 w-60 bg-white object-contain"
-                    data-testid="batch-qr-image"
-                  />
-                  <p className="text-center text-xs text-muted-foreground">
-                    {t('accounts.scanWithPhoneHint')}
-                  </p>
-                </>
-              ) : (
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              )}
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
               <p className="text-sm font-medium">
                 {stopping
                   ? t('accounts.batchScanStopping')

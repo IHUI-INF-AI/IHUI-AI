@@ -3327,18 +3327,7 @@
     "members": "Members"
   },
   "chat": {
-    "send": "Send",
-    "meta": {
-      "pullOnly": "On the mini program, this change syncs the next time you open it"
-    },
-    "mcp": {
-      "state": {
-        "connecting": "Connecting to {server}…",
-        "failed": "{server} failed to connect",
-        "reconnecting": "Reconnecting to {server} (attempt {attempt}/{maxAttempts})"
-      },
-      "mobileSettingsHint": "Manage MCP connections on desktop or web"
-    }
+    "send": "Send"
   },
   "tabBar": {
     "community": "Community",

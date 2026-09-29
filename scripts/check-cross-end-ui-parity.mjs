@@ -40,6 +40,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitBinary, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { radiusEntriesOf, radiusLookup, radiusSetOf } from './lib/radius-tokens.mjs'
+import { facePx } from './lib/length-units.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -60,9 +61,6 @@ const SIDES = {
     'apps/mobile-rn/src/components',
   ],
 }
-/** 一个逻辑 px 折成该端单位要乘多少:小程序 750 设计宽 / 375pt ⇒ 2;RN 1:1。反向即除。 */
-const TO_PX = { miniapp: 2, rn: 1 }
-
 const BASELINE_REL = 'scripts/cross-end-ui-parity-baseline.json'
 /** 落在这些键/标识符上下文里的数字才算"看得见的尺寸"。 */
 const GEO_KEY =
@@ -144,13 +142,19 @@ export function stripComments(src) {
 
 const round = (n) => Math.round(n * 100) / 100
 
-/** 原始数字 → px。带 rpx 后缀除 2;小程序端裸数字按该端量纲即 rpx,故同样折算。 */
-export function toPx(raw, unit, side) {
-  const v = Number(raw)
-  if (!Number.isFinite(v) || v <= 0) return null
-  const isRpx = unit === 'rpx' || (unit === undefined && side === 'miniapp')
-  const px = round(isRpx ? v / TO_PX.miniapp : v)
-  return px > MAX_GEO_PX ? null : px
+/**
+ * 原始数字 + 书写单位 → 逻辑 px。折算与单位归属都在 `lib/length-units.mjs` 的 `facePx` 里,只此一份。
+ * `where` 说的是**这一格落在哪一面**:`'css'`(默认)= 经构建进样式表(小程序的 `Npx` 被 pxtransform
+ * 1:1 写成 `Nrpx`,与 rpx 同折);`'runtime'` = 引号里的运行时串(端内 `px(n)` 助手那一型),不换。
+ * 判哪一面的依据是取值的**书写形态** —— 只有引号里的值到不了 postcss,其余带单位的字面量都会落地成 rpx。
+ */
+export function toPx(raw, unit, side, where = 'css') {
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n <= 0) return null
+  const px = facePx(`${raw}${unit || ''}`, side, where)
+  if (px === null) return null
+  const r = round(px)
+  return r > MAX_GEO_PX ? null : r
 }
 
 /**
@@ -210,6 +214,9 @@ export function readGeometry(src, side, tiers = {}) {
    * 后果不是"少读一个数"而是**造出假分叉**:对面写了同一个值,这边读不到 ⇒ 报成"仅 RN 档"。
    * 口径:引号内按空白切 token,逐 token 去掉引号后只认纯 `<数字><rpx|px>`;
    * `calc(50% - 26rpx)` 这类混算式**不计**(它不是档,是机制)。
+   * 引号里的那个数**不过 postcss**(运行时才落到 style 上),所以这一支交 `toPx` 时显式说明
+   * 落地面是 `runtime` —— 否则小程序 `minHeight:'120px'` 会被当成样式表的 120px 折成 60,
+   * 而对面写的 120 是真 120,一次折半就把同档读成分叉(实测 AgentRuntimePanel)。
    */
   for (const m of code.matchAll(
     /([a-z][\w]*(?:-[a-z0-9]+)*)\s*[:=]\s*(['"`])([^'"`\n]*)\2/gi,
@@ -217,7 +224,7 @@ export function readGeometry(src, side, tiers = {}) {
     if (!keyed(m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
     for (const raw of m[3].trim().split(/\s+/)) {
       const one = /^(\d+(?:\.\d+)?)(rpx|px)$/.exec(raw)
-      if (one) push(toPx(one[1], one[2], side))
+      if (one) push(toPx(one[1], one[2], side, 'runtime'))
     }
   }
   /**

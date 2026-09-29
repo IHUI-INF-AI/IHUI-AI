@@ -3295,18 +3295,7 @@
     "members": "成员"
   },
   "chat": {
-    "send": "发送",
-    "meta": {
-      "pullOnly": "小程序端将在下次打开时同步该改动"
-    },
-    "mcp": {
-      "state": {
-        "connecting": "正在连接 {server}…",
-        "failed": "{server} 连接失败",
-        "reconnecting": "第 {attempt}/{maxAttempts} 次重连 {server}"
-      },
-      "mobileSettingsHint": "请在桌面端或网页端管理 MCP 连接"
-    }
+    "send": "发送"
   },
   "tabBar": {
     "community": "智汇社区",
