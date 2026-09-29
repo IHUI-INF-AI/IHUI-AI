@@ -139,6 +139,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 - **唯一真相源**:`packages/design-tokens/src/radius.js` 的 `RADIUS_STEPS` = `xs 2 / sm 4 / md 6 / lg 8 / xl 12 / 2xl 16`(px;`DEFAULT`=8 对齐 web `--radius: 0.5rem`)。改档位只改这一处。`tailwind-preset.js` 必须写 `borderRadius: RADIUS_REM`,`tokens.css` / `app.css` 的 `--radius-*` 必须与之逐档同值。
 - **"哪类元素取哪档"也有唯一真相源(2026-09-27 立)**:同文件的 `RADIUS_ROLES` = `tiny→xs / control→sm / chip→md / card→lg / panel→xl / hero→2xl`,JS 侧按 `rnRadiusFor.<角色>` 取,文档侧是 `docs/UI_GUIDELINES.md` §3.1 的展开。**立因**:项目此前只定义了档位**值**,从未定义角色→值,于是两端各按直觉选 —— 同一张 `UserInfoCard` 小程序 8px、App 12px,`ModelList` 一端 8 一端 12,而守门 77 一路报绿(它只判"有没有绕档位表写死数字")。§3.1 表格当时还写着 `rounded-sm`=2px、`rounded`=4px,与档位表差一档 —— 照文档写必错,那两行已随本表更正。**新增角色必须同笔有消费方**,不得先建表再等人用(与 `geometry.js` 同一条规矩)。
+- **角色档判据必须能"够到"真实写法,否则账面一路报绿(2026-09-30 实测并修)**:`scripts/lib/radius-roles.mjs` 的 `declarationRanges` 曾取"匹配行起第一个花括号"当函数体起始 —— `(props)` 解构写法里那个花括号是**参数对象**,于是行号归属算错、守门 150 的组件名档(C5)对多数 React 组件永久不生效。现读口径三条:① 判"归属类判据是否生效"看**两个互补计数**(该档判了几处 + 该档因何未启用几处),**同 0 ⇒ 判据根本没跑**,不是"跑了判不出";② 修 parser 之后必须先证覆盖面不减(本轮 2752 站 → 2752 站、丢失 0),再谈存量;③ 存量读数一律现读(修后 HEAD 面 62 处 / 52 族,三枚提交内清零;终读 `node scripts/check-radius-role-conformance.mjs --strict` = 判红 0 族 / 角色档不一致 0 处 / 弱证据待裁 0 / 未判定 0)。**清存量时不得顺手改判据,也不得把 card 一律改成某个档** —— 按名/按色推断的类别证据实测判错率两到七成,只能开队列逐条裁(同本节上方"弱证据"口径)。
 - **各端取用形态(不得自创写法)**:
 
   | 场景                                         | 唯一写法                                                                      |
