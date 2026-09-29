@@ -68,7 +68,7 @@ import {
   LOGIN_POPUP_TITLE_FONT_PX,
   LOGIN_POPUP_TITLE_MARGIN_BOTTOM_PX,
 } from '@ihui/shared/ui/login-popup-spec'
-import { Check } from 'lucide-react-native'
+import { BadgeCheck, Check, Phone, User } from 'lucide-react-native'
 import {
   ActivityIndicator,
   Image,
@@ -390,7 +390,7 @@ function ProfileForm({
       {/* 昵称 */}
       <View style={styles.row}>
         <View style={styles.iconBadge}>
-          <Text style={styles.iconGlyph}>人</Text>
+          <User size={LOGIN_POPUP_ICON_GLYPH_FONT_PX} color={tokens.text.secondary} />
         </View>
         <TextInput
           style={styles.input}
@@ -410,7 +410,7 @@ function ProfileForm({
       {/* 角色 + 升级入口 */}
       <View style={[styles.row, styles.roleRow]}>
         <View style={styles.iconBadge}>
-          <Text style={styles.iconGlyph}>证</Text>
+          <BadgeCheck size={LOGIN_POPUP_ICON_GLYPH_FONT_PX} color={tokens.text.secondary} />
         </View>
         <Text style={[styles.roleText, { color: roleColor }]}>{roleLabel(role)}</Text>
         {showUpgrade ? (
@@ -431,7 +431,7 @@ function ProfileForm({
       {/* 手机号 */}
       <View style={styles.row}>
         <View style={styles.iconBadge}>
-          <Text style={styles.iconGlyph}>电</Text>
+          <Phone size={LOGIN_POPUP_ICON_GLYPH_FONT_PX} color={tokens.text.secondary} />
         </View>
         <TextInput
           style={styles.input}
@@ -688,10 +688,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: LOGIN_POPUP_ICON_BADGE_MARGIN_RIGHT_PX,
-  },
-  iconGlyph: {
-    fontSize: LOGIN_POPUP_ICON_GLYPH_FONT_PX,
-    color: tokens.text.secondary,
   },
   input: {
     flex: 1,
