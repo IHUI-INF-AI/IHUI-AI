@@ -29,6 +29,10 @@ import {
 
 /**
  * LoginPopUp 登录弹窗 — 对齐原项目 loginPopUp/index.vue
+ *
+ * 平台特有:本端是**居中弹窗**承载 —— 顶距四边同档、靠 maxWidth 居中,关闭走底部整宽文字按钮;
+ * RN 端是底部抽屉(拖拽条 + 右上 × + 授权卡),两套顶距/宽度档属承载机制差异而非取值分叉,
+ * 逐档裁决与不成对理由见 @ihui/shared/ui/login-popup-spec 头注(AGENTS §3)。
  * 含:遮罩 + 弹窗主体 + 头像选择 + 昵称输入 + 角色显示(普通用户/会员/操盘手) + 升级按钮
  *
  * 角色判定(对齐原项目 loginPopUp/index.vue line 35-39):
