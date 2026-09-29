@@ -573,4 +573,166 @@ test('T27 真仓台账装车证明:必须可解析、字段齐备,且至少一�
   assert.ok(hits.length >= 1, '台账与门量到的弱证据零交集 ⇒ 这是一张死表(条目要么早该删、要么键写歪了)')
 })
 
+
+/**
+ * T28–T32 单参长度包裹器与盒形量算(2026-09-29 续票:把门 150 现读唯一那格「未判定」判成结论)。
+ *
+ * 现场:`apps/miniapp-taro/src/components/ModelList.tsx:271` 的勾选框把边长写成
+ * `width: toUnit(MODEL_LIST_CHECK_BOX_PX)`,半径写成 `MODEL_LIST_CHECK_BOX_PX / 2` ——
+ * 语义上是"正方盒 + 半径 = 半边长"的**几何真圆装饰件**(§4 的 C6 档,不再需要任何标记),
+ * 但尺子量不到被函数包住的边长,于是它报成 `off-scale 10px` 的未判定。
+ * **仓库里没有缺陷,缺的是尺子**,所以这一组用例锁的是"尺子怎么长回去、以及它不许顺手多判什么":
+ *  - T28 真仓逐字成对(带系数 ⇒ 真圆 / 去掉系数 ⇒ 必须退回未判定,不得"按名字当恒等");
+ *  - T29 两族写法各自成立(小程序 `rpx(p * 系数)` / RN `p => p`),未注册的名字一律不剥;
+ *  - T30 包裹器不得把胶囊洗成圆(非正方盒 ⇒ 判红),与"量不到"成对;
+ *  - T31 倍率诚实性(系数=3 ⇒ 折 30,不是 20);
+ *  - T32 单份实现反向锁(折算算术只住 length-units;门 150 的两个取面必须走同一个建表出口)。
+ */
+const WRAPPER_SRC = [
+  "import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'",
+  "import { rpx } from '@/utils/rpx'",
+  'const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)',
+  'const BOX_PX = 20',
+].join('\n')
+
+test('T28 真仓逐字成对:ModelList 的包裹边长配 `X / 2` ⇒ 判真圆;把系数抽掉 ⇒ 必须退回未判定', async () => {
+  const { auditFileText, baseConstsOf } = await import(pathToFileURL(SRC).href)
+  const table = radiusLookup(headBlob('packages/design-tokens/src/radius.js'))
+  const rel = 'apps/miniapp-taro/src/components/ModelList.tsx'
+  const src = headBlob(rel)
+  // 与门自己的取数口径同形:系数与具名档都从**被审面**的那两份源里导出来,不在测试里抄数字。
+  const tierSources = {
+    'packages/design-tokens/src/geometry.js': headBlob('packages/design-tokens/src/geometry.js'),
+    'packages/shared/src/ui/model-list-spec.ts': headBlob(
+      'packages/shared/src/ui/model-list-spec.ts',
+    ),
+  }
+  const withCoef = baseConstsOf(tierSources)
+  assert.equal(withCoef.get('TARO_RPX_PER_PX'), '2', '系数没进表 ⇒ 下面那一臂的"通过"就是空的')
+  const hitRow = (r) => r.undetermined.filter((u) => u.line === 271)
+
+  const a = auditFileText(rel, src, table, withCoef)
+  assert.equal(hitRow(a).length, 0, '带系数那一臂:271 行不得还停在未判定(尺子仍量不到)')
+  assert.ok(a.trueCircle >= 1, '带系数那一臂:这一格必须落 C6 真圆(§4:该形状不再需要任何标记)')
+  assert.equal(a.capsule, 0, '正方盒不得被判成胶囊')
+
+  // 反臂:把系数从表里抽掉(等价于"这条 import 解不到")⇒ 结论必须**退回**未判定,
+  // 而不是"按 toUnit 这个名字假定恒等"。名字不携带语义,这是本票唯一可能的失效方向。
+  const noCoef = new Map([...withCoef].filter(([k]) => k !== 'TARO_RPX_PER_PX'))
+  assert.ok(!noCoef.has('TARO_RPX_PER_PX'))
+  const b = auditFileText(rel, src, table, noCoef)
+  assert.equal(b.trueCircle, 0, '解不到系数却判出真圆 ⇒ 尺子在按名字猜,合格证作废')
+  assert.equal(b.capsule, 0)
+  assert.equal(hitRow(b).length, 1, '反臂必须回到"未判定"并逐条报名(不冒红也不记绿)')
+})
+
+test('T29 两族包裹写法都成立,未注册的名字一律不剥(成对)', async () => {
+  const { constantMapOf, constExprPx, pxWrappersOf } = await import(
+    pathToFileURL(join(import.meta.dirname, '..', 'lib', 'length-units.mjs')).href
+  )
+  const { dimsFromText } = await import(
+    pathToFileURL(join(import.meta.dirname, '..', 'lib', 'box-geometry.mjs')).href
+  )
+  const merged = (extra) => new Map([...Object.entries(extra), ...constantMapOf(WRAPPER_SRC)])
+  // ① 小程序族:rpx(p * 系数) —— 只有系数折回来等于 RPX_PER_PX 才是 px 保形
+  assert.equal(constExprPx('toUnit(BOX_PX)', merged({ TARO_RPX_PER_PX: '2' })), 20)
+  // ② RN 族:恒等(逐字取自 apps/mobile-rn/src/components/Menu.tsx:98),不需要系数
+  const rn = ['const toUnit = (px: number) => px', 'const BOX_PX = 20'].join('\n')
+  assert.equal(constExprPx('toUnit(BOX_PX)', constantMapOf(rn)), 20)
+  // ③ 未注册的名字**不得**被剥:同名同形但不是长度包裹器 ⇒ 维持"量不到"(= 改动前结论)
+  assert.equal(constExprPx('maybeWrap(BOX_PX)', merged({ TARO_RPX_PER_PX: '2' })), null)
+  assert.equal(
+    pxWrappersOf('const maybeWrap = (px: number) => px * 2').size,
+    0,
+    '乘完不返回长度的一律不注册',
+  )
+  assert.equal(
+    pxWrappersOf('// const toUnit = (px: number) => px').size,
+    0,
+    '注释行不得注册(否则门给自己发合格证)',
+  )
+  // ④ 模板字面量式(`toRpx` 那一族)刻意不在射程内 —— 登记为边界,不得"顺手也认了"
+  assert.equal(
+    pxWrappersOf('const toRpx = (px: number): string => `${px * 2}rpx`').size,
+    0,
+    '模板字面量式属另一票(先清存量再收紧),本支必须判"不注册"',
+  )
+  // ⑤ 盒形侧同样只多这一口:注册了才量得到,没注册与改动前逐字同
+  const win = 'width: toUnit(BOX_PX), height: toUnit(BOX_PX), borderRadius: BOX_PX / 2,'
+  const ok = dimsFromText(win, merged({ TARO_RPX_PER_PX: '2' }))
+  assert.ok(ok.w === 20 && ok.h === 20 && ok.shape === 'square', '包裹写法量得出 20×20 方盒')
+  const bad = dimsFromText(win.replace(/toUnit/g, 'unknownWrap'), merged({ TARO_RPX_PER_PX: '2' }))
+  assert.ok(bad.w === 0 && bad.h === 0, '未注册的名字不得被剥成数值(宁漏不误判)')
+})
+
+test('T30 包裹器不得把胶囊洗成圆:非正方盒必须判红,与"量不到"成对', async () => {
+  const { auditFileText } = await import(pathToFileURL(SRC).href)
+  const table = radiusLookup(headBlob('packages/design-tokens/src/radius.js'))
+  const src = [
+    WRAPPER_SRC,
+    'export const s = {',
+    '  card: {',
+    '    width: toUnit(WIDE_PX),',
+    '    height: toUnit(TALL_PX),',
+    '    borderRadius: TALL_PX / 2,',
+    '  },',
+    '}',
+  ].join('\n')
+  const base = new Map([
+    ['WIDE_PX', '40'],
+    ['TALL_PX', '20'],
+    ['TARO_RPX_PER_PX', '2'],
+  ])
+  const r = auditFileText('x/WrapperPill.tsx', src, table, base)
+  assert.equal(r.trueCircle, 0, '40×20 的盒配 10 的半径不是圆')
+  assert.equal(r.capsule, 1, '短边 20 ≥ 下限且半径=半边 ⇒ 必须落胶囊判红(项目不允许,且不吃豁免)')
+  assert.equal(r.violations.filter((v) => v.reason === 'capsule').length, 1)
+  // 反臂:同一个形状,把系数拿掉 ⇒ 退回改动前的"量不到/未判定",既不得判红也不得判绿
+  const noCoef = new Map([...base].filter(([k]) => k !== 'TARO_RPX_PER_PX'))
+  const r2 = auditFileText('x/WrapperPill.tsx', src, table, noCoef)
+  assert.equal(r2.capsule, 0, '解不到系数却判红 = 拿猜出来的盒形当证据')
+  assert.equal(r2.trueCircle, 0)
+  assert.ok(r2.undetermined.length >= 1, '量不到必须留在"未判定/报名"那一格里,不得静默算通过')
+})
+
+test('T31 倍率诚实性:系数不是 rpx-per-px 时按倍率折算,绝不按名字假定恒等', async () => {
+  const L = await import(
+    pathToFileURL(join(import.meta.dirname, '..', 'lib', 'length-units.mjs')).href
+  )
+  assert.equal(L.RPX_PER_PX, 2, '尺子自己的 rpx↔px 口径(改了它就要重看折算)')
+  const constsWith = (coef) =>
+    new Map([['BOX_PX', '20'], ['TARO_RPX_PER_PX', coef], ...L.constantMapOf(WRAPPER_SRC)])
+  // 有人把系数改成 3 ⇒ 落地是 `60rpx` = 30px,不是 20。按倍率折算,而不是"认名字"。
+  assert.equal(L.constExprPx('toUnit(BOX_PX)', constsWith('3')), 30)
+  assert.equal(L.constExprPx('toUnit(BOX_PX)', constsWith('2')), 20)
+  // 系数写成解不到的东西 ⇒ 整体 null(不得退化成"当作 2"或"当作恒等")
+  assert.equal(
+    L.constExprPx('toUnit(BOX_PX)', new Map([['BOX_PX', '20'], ...L.constantMapOf(WRAPPER_SRC)])),
+    null,
+  )
+})
+
+test('T32 单份实现反向锁:折算算术只住 length-units,建表出口只有一个且两个取面同口径', () => {
+  const geo = readFileSync(join(import.meta.dirname, '..', 'lib', 'box-geometry.mjs'), 'utf8')
+  assert.ok(
+    !/PX_WRAPPERS|pxWrappersOf|RPX_PER_PX/.test(geo),
+    '盒形层自己解析包裹器或抄倍率 = 第二份真相(半径侧认得、盒形侧不认那一型)',
+  )
+  assert.match(
+    geo,
+    /constExprPx\(m\[2\], consts\)/,
+    '新增那支必须把右值交回 constExprPx 那一份求值',
+  )
+  const gate = readFileSync(SRC, 'utf8')
+  assert.match(gate, /unitCoefficientsOfSources/, '系数必须从被审面的 geometry.js 现读')
+  assert.equal(
+    (gate.match(/= baseConstsOf\(tierSources\)/g) || []).length,
+    2,
+    'HEAD 档与索引/工作树档必须同口径(只有一处喂系数 = 另一面看不见包裹器)',
+  )
+  assert.ok(
+    !/TARO_RPX_PER_PX\s*=\s*2/.test(gate),
+    '门里写死系数值 = 改了源头它还在按旧值判(空支票)',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
