@@ -79,7 +79,7 @@ export function WorktreeCard({
     <div
       role="group"
       aria-label={t('ariaLabel')}
-      className={cn('flex flex-col gap-2 rounded-md bg-muted/30 p-3', className)}
+      className={cn('flex flex-col gap-2 rounded-lg bg-muted/30 p-3', className)}
       data-testid={testId}
       data-worktree-state={view.state}
       data-worktree-tone={view.tone}

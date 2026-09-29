@@ -53,7 +53,7 @@ export function SpecPanel({ className }: { className?: string }) {
   const p = useSpecPanel()
 
   return (
-    <div className={cn('rounded-lg border border-border bg-card p-3', className)}>
+    <div className={cn('rounded-xl border border-border bg-card p-3', className)}>
       {/* 范围选择 */}
       <SpecScopeSelector p={p} />
 
