@@ -231,9 +231,32 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     SSEEventContract("steer", ("phase", "text", "timestamp", "messageId")),
     # V3 #58(2026-09-26):主聊天流工具审批帧(与 agent 任务流 tool-approval 同形,
     # 前端同一弹窗消费;approval_id 为流内唯一标识,decision 回传走流级端点)
+    #
+    # D159(2026-09-30 立,用户批"三档到底")后三个是**新增可选字段**,不是新帧:
+    # - exec_environment:这次调用**在哪儿跑**的逐请求事实。组装只有一份实现
+    #   (``services/network_approval.py::approval_env_payload`` ←
+    #   ``services/approval_persistence.py::describe_exec_environment``),
+    #   读不到 ⇒ 发 ``{"available": false}``(**不是**省略、**不是**发一个默认值)——
+    #   显示"沙箱内"而实际 plain 等于误导用户放行,比不显示更糟(票第 8 栏爆炸半径)。
+    # - network_target:本次要连的目标 ``{host, port, protocol, display, reason?}``。
+    #   ``display`` 恒为 ``host:port`` 原样(票面:弹窗不显示哈希/归一键)。
+    # - blocked_network_targets:同一次调用里**已被静态策略判死**的目标清单。
+    #   "还没有规则覆盖"不算被拦 —— 那是这条审批本身要问的事,写成被拦就是把一个
+    #   决策偷装成事实陈述。
+    # 三个字段在 ``IHUI_APPROVAL_ENV_REPORT=0`` 时**整块不发**(回退形态 = 本票落地前)。
     SSEEventContract(
         "tool-approval",
-        ("approval_id", "tool_name", "tool_call_id", "args_preview", "danger_level", "session_id"),
+        (
+            "approval_id",
+            "tool_name",
+            "tool_call_id",
+            "args_preview",
+            "danger_level",
+            "session_id",
+            "exec_environment",
+            "network_target",
+            "blocked_network_targets",
+        ),
     ),
     # D113(2026-09-27,G-227)入集合时漏登记的契约条目 —— 本清单与 SSE_EVENTS 由
     # tests/test_sse_contract.py::test_contracts_align_with_events 严格双射,少一条即红
