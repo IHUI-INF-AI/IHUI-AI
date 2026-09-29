@@ -120,6 +120,53 @@ export type SSEEventName = (typeof SSE_EVENTS)[keyof typeof SSE_EVENTS]
 export interface SSEEventMeta {
   /** 网关在 agent 绑定的流上注入,用于前端 subagent 卡片分流(见 ai-chat-stream.ts)。 */
   agentId?: string
+  /**
+   * D174(2026-09-30 立):帧级 trace id —— 本轮请求的 W3C trace-id,**小写 32 hex**。
+   *
+   * 为什么帧里还要带一遍(响应头 `X-Trace-Id` 早已在,D147):头在整趟流式响应上只出现
+   * 一次,而一条响应有几十到几千帧 ⇒ 拿头只能定位到"这一整轮",定位不到"这一帧"。
+   *
+   * 三条判据与生产侧逐字同形(`apps/ai-service/app/core/sse_contract.py` 的
+   * `SSE_TRACE_ID_PAYLOAD_KEY` + `app/core/trace_context.py::sse_frame_trace_id`):
+   *  ① 注入点是**唯一**的帧工厂 `llm.py::_sse()`,不在各 yield 站点各写一遍;
+   *  ② 值必须是小写 32 hex,**全 0 是 W3C 非法值** ⇒ 不写;
+   *  ③ 本轮没有有效 trace 时**整字段缺席** —— 不是空串、不是 null。"空串"与"没有"
+   *     必须可分,所以消费侧一律按 `typeof === 'string'` 判,不得写 `?? ''`。
+   *
+   * ⚠️ **它是关联键,不是授权凭据**:值来自客户端可自写的 `traceparent` 头,任何归属/
+   * 权限判定都不得读它(读了等于让调用方自报"我属于哪条链")。阳性对照:
+   * `apps/ai-service/tests/test_sse_trace_frame_d174.py::test_foreign_trace_id_does_not_change_ownership`。
+   */
+  traceId?: string
+}
+
+/**
+ * D174:帧级 traceId 的**线格式键名**(唯一真相源)。
+ *
+ * 生产侧的对应常量是 `apps/ai-service/app/core/sse_contract.py::SSE_TRACE_ID_PAYLOAD_KEY`,
+ * 值同为 `'traceId'`(camelCase,与 messageId / terminalId 一族)。两份语言各有一份是
+ * 跨语言的必然,但两侧测试喂的是**同一张判例表**(见 `normalizeSSEFrameTraceId` 注释)。
+ */
+export const SSE_TRACE_ID_PAYLOAD_KEY = 'traceId'
+
+/**
+ * D174:把一个候选值归一成**可以进帧/可以采信**的 trace id;不合格一律 `undefined`。
+ *
+ * 与 `apps/ai-service/app/core/trace_context.py::normalize_trace_id` 同规则:
+ * 小写 32 hex、**全 0 非法**(W3C:all-zero trace-id 表示无效)、其余(短/长/非 hex/
+ * 非字符串/空串)一律 `undefined`。判例表在两侧的测试里逐字同形:
+ * `packages/shared/src/sse/__tests__/sse-frame-trace-id.test.ts` 与
+ * `apps/ai-service/tests/test_sse_trace_frame_d174.py`。
+ */
+const TRACE_ID_RE = /^[0-9a-fA-F]{32}$/
+const ALL_ZERO_TRACE_ID = '0'.repeat(32)
+
+export function normalizeSSEFrameTraceId(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const candidate = value.trim().toLowerCase()
+  if (!TRACE_ID_RE.test(candidate)) return undefined
+  if (candidate === ALL_ZERO_TRACE_ID) return undefined
+  return candidate
 }
 
 /** 携带元信息的事件(判别联合成员的基础)。 */
