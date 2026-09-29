@@ -53,7 +53,7 @@ const DIAGNOSTIC_SEVERITY: Record<PluginDiagnosticCode, PluginDiagnosticSeverity
   'manifest-name-missing': 'error',
   'manifest-version-missing': 'error',
   'manifest-shadowed-by-priority': 'warning',
-  'manifest-name-ambiguous': 'error',
+  'plugin_ambiguous_name': 'error',
   'manifest-unexpected-error': 'error',
   'plugin-dependency-cycle': 'error',
 };
@@ -256,7 +256,7 @@ export function loadPluginsWithDiagnostics(opts: LoadPluginsOptions): PluginLoad
   }
 
   /**
-   * G-684:同名多份 ⇒ **两个都不装载**,各留一条点名双方路径的诊断。
+   * G-684/G-658:同名多份 ⇒ **两个都不装载**,各留一条点名双方路径的 plugin_ambiguous_name 诊断。
    *
    * 原实现是 `results.set(manifest.name, …)`(后写覆盖前写):谁的凭据/工具生效由
    * 目录枚举顺序决定,而"扫描顺序"不是任何人声明过的意图 —— 歧义被静默裁决等于掷骰子,
@@ -275,7 +275,7 @@ export function loadPluginsWithDiagnostics(opts: LoadPluginsOptions): PluginLoad
         const relatedFiles = list.filter((other) => other.file !== candidate.file).map((other) => other.file);
         diagnostics.push(
           diagnostic(
-            'manifest-name-ambiguous',
+            'plugin_ambiguous_name',
             candidate.file,
             `Plugin name "${name}" is declared by ${list.length} manifests, so none of them is loaded (scan order is not an intent)`,
             { pluginName: name, relatedFiles },

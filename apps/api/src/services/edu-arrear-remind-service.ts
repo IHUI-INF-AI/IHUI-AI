@@ -34,7 +34,7 @@ import { db } from '../db/index.js'
 import { createNotification } from '../db/notification-queries.js'
 import { logger } from '../utils/logger.js'
 import { DUE_SOON_LEAD_DAYS, hasArrearsCond, loadEnrollmentLedger } from './edu-ledger.js'
-import { isSmsConfigured, sendSmsMessage } from './sms.js'
+import { isArrearSmsConfigured, sendArrearSms } from './sms.js'
 import {
   isSubscribeMessageConfigured,
   getWechatMiniOpenId,
@@ -104,6 +104,8 @@ export interface ReminderRecipient {
   role: 'student' | 'parent'
   /** 收件人手机号;null = 该用户没留手机号,短信通道对它结构性不可达(必须计数,不得静默) */
   phone: string | null
+  /** 收件人昵称(短信结构化模板的 ${name} 变量用;user_nick 属性 ≤20 字符且不支持空格,发送侧会清洗) */
+  nickname: string | null
 }
 
 /**
@@ -128,17 +130,20 @@ export async function resolveReminderRecipients(studentId: string): Promise<Remi
     seen.add(r.parentId)
     ids.push(r.parentId)
   }
-  // 一次性取手机号(不逐个查):短信通道要按收件人各自的花名册号码发,
+  // 一次性取手机号与昵称(不逐个查):短信通道要按收件人各自的花名册号码发,
   // 家长号码常与学生号码不同 —— 只按 student.phone 发等于给没付钱的人发。
+  // 昵称供催缴短信的结构化模板 ${name} 变量使用。
   const phoneRows = await db
-    .select({ id: users.id, phone: users.phone })
+    .select({ id: users.id, phone: users.phone, nickname: users.nickname })
     .from(users)
     .where(inArray(users.id, ids))
   const phoneById = new Map(phoneRows.map((u) => [u.id, u.phone ?? null]))
+  const nicknameById = new Map(phoneRows.map((u) => [u.id, u.nickname ?? null]))
   return ids.map((id) => ({
     userId: id,
     role: id === studentId ? ('student' as const) : ('parent' as const),
     phone: phoneById.get(id) ?? null,
+    nickname: nicknameById.get(id) ?? null,
   }))
 }
 
@@ -189,19 +194,29 @@ export interface SmsOutcome {
 
 /**
  * 对一个收件人尽力发短信。与微信那支同构:**返回分档而不是布尔** ——
- * "没配短信密钥""这人没留手机号""运营商拒了"是三件不同的事,
+ * "没配短信密钥/模板""这人没留手机号""运营商拒了"是三件不同的事,
  * 并成一档就会重现"整天零触达与一切正常在账面上无法区分"那一型。
- * 刻意不在此处降级成 console 打日志充数:`sendSmsMessage` 内部未配置时本身会降级,
- * 但**本函数的 not_configured 档必须如实报**,否则运营看到的是"已发送"。
+ * 刻意不在此处降级成 console 打日志充数,但**本函数的 not_configured 档必须如实报**,
+ * 否则运营看到的是"已发送"。
+ *
+ * 2026-09-30 起走催缴专用结构化模板(env.ALI_SMS_ARREAR_TEMPLATE_CODE,阿里云 API 申请的
+ * "学费催缴通知"):阿里云变量属性最长 35 字符,"整段 message 塞单变量"不可行 ——
+ * 短信只带 name(收件人称呼)/student(学员名)/money(欠费数字)三个变量,自定义文案仅进站内留痕。
  */
 export async function sendArrearSmsToRecipient(
   recipient: ReminderRecipient,
-  message: string,
+  vars: { student: string; money: string },
 ): Promise<SmsOutcome> {
-  const avail = classifySmsAvailability(isSmsConfigured(), recipient.phone)
+  const avail = classifySmsAvailability(isArrearSmsConfigured(), recipient.phone)
   if (!avail.ok) return { sent: false, bucket: avail.bucket }
+  // user_nick 属性规范:≤20字符、不支持空格(实测昵称常带空格);空昵称回落"家长"称呼。
+  const name = (recipient.nickname ?? '').replace(/\s+/g, '').slice(0, 20) || '家长'
   try {
-    const r = await sendSmsMessage(avail.phone, message)
+    const r = await sendArrearSms(avail.phone, {
+      name,
+      student: vars.student,
+      money: vars.money,
+    })
     return r.success
       ? { sent: true, bucket: 'sent' }
       : { sent: false, bucket: 'failed', detail: r.error ?? 'unknown' }
@@ -248,7 +263,11 @@ export async function dispatchArrearChannels(input: {
   if (input.channel === 'sms') {
     const recipients = await resolveReminderRecipients(input.studentId)
     for (const r of recipients) {
-      const s = await sendArrearSmsToRecipient(r, input.message)
+      // 短信走结构化模板(input.message 是机构自定义文案,只进站内/微信留痕,不进短信)
+      const s = await sendArrearSmsToRecipient(r, {
+        student: input.studentName,
+        money: String(input.dueAmount),
+      })
       out.sms.push({ userId: r.userId, role: r.role, bucket: s.bucket, detail: s.detail })
       if (s.bucket === 'sent') out.smsSent += 1
       else if (s.bucket === 'no_phone') out.smsNoPhone += 1
@@ -412,7 +431,10 @@ export async function scanAndRemindArrears(
       })
 
       if (channels.includes('sms')) {
-        const sms = await sendArrearSmsToRecipient(recipient, message)
+        const sms = await sendArrearSmsToRecipient(recipient, {
+          student: item.studentName ?? '学员',
+          money: String(dueAmount),
+        })
         if (sms.bucket === 'sent') result.smsSent += 1
         else if (sms.bucket === 'no_phone') result.smsNoPhone += 1
         else if (sms.bucket === 'not_configured') result.smsNotConfigured += 1

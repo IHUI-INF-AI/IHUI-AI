@@ -990,7 +990,7 @@ export async function checkBackupReplicaPresence({
   return rows
 }
 
-export async function patrol({ now = Date.now(), apply = false, strict = false, devEnv = devEnvRoot(REPO) } = {}) {
+export async function patrol({ now = Date.now(), apply = false, strict = false, devEnv = devEnvRoot(REPO), ledgerFile = join(REPO, 'scripts/data/ops-patrol-adjudications.json') } = {}) {
   const amUrl = 'http://127.0.0.1:9093/-/reload'
   const promUrl = 'http://127.0.0.1:8815/-/reload'
   const rows = []
@@ -1050,19 +1050,98 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
   // 这里只量副本本身 —— 同一条债不在两个判据各计一次(机主明令)。
   ;(await checkBackupReplicaPresence({ now, devEnv })).forEach(add)
 
-  const findings = rows.filter((r) => r.state === 'finding')
-  const undetermined = rows.filter((r) => r.state === 'undetermined')
-  const ok = rows.filter((r) => r.state !== 'finding' && r.state !== 'undetermined')
+  /**
+   * 裁决台账:把"机主已裁、且只有他能解除"的那条红挪出红档(照旧逐轮打印,只是不再触发发信),
+   * 带**到期日**自动回红。放在分档之前、且分档按**最终状态**算 —— 若在 add() 时分桶,
+   * 被降级的行会留在红档里,那等于降级动作没发生(与本文件上方"先判后分桶"同一条理由)。
+   */
+  const ledger = loadAdjudications(ledgerFile)
+  const adjud = applyAdjudications({ rows, entries: ledger.entries, readError: ledger.readError, now })
+  const findings = adjud.rows.filter((r) => r.state === 'finding')
+  const adjudicated = adjud.rows.filter((r) => r.state === 'adjudicated')
+  const undetermined = [...adjud.rows.filter((r) => r.state === 'undetermined'), ...adjud.ledgerFindings]
+  const ok = adjud.rows.filter((r) => r.state !== 'finding' && r.state !== 'undetermined' && r.state !== 'adjudicated')
   const rc = findings.length ? 1 : strict && undetermined.length ? 2 : 0
   return {
     at: ISO(now),
     devEnv,
-    counts: { findings: findings.length, undetermined: undetermined.length, ok: ok.length },
+    counts: {
+      findings: findings.length,
+      undetermined: undetermined.length,
+      ok: ok.length,
+      adjudicated: adjudicated.length,
+      rotten: adjud.rotten.length,
+    },
     rc,
     findings,
     undetermined,
     ok,
+    adjudicated,
+    rotten: adjud.rotten,
   }
+}
+
+/**
+ * 裁决台账的读取口。三条不可漂的读法:
+ *  - **文件不存在** ⇒ 零条目、不报错(确实没有待裁项,这与"读不到"是两件事);
+ *  - **坏 JSON / 读失败** ⇒ 落 `readError`,由 applyAdjudications 折成一条**未判定**行 ——
+ *    绝不静默当空台账。静默当空 = 把所有已裁的重新判成红(噪声风暴),而读报告的人会以为"裁决丢了";
+ *  - 条目缺四件套任一字段 ⇒ **不生效**(站点照旧红),并在行内点名原因。
+ */
+export function loadAdjudications(ledgerFile = join(REPO, 'scripts/data/ops-patrol-adjudications.json')) {
+  try {
+    const parsed = JSON.parse(readFileSync(ledgerFile, 'utf8'))
+    const list = Array.isArray(parsed?.entries) ? parsed.entries : null
+    if (!list) return { entries: [], readError: null, note: '台账里没有 entries 数组(按零条目判)' }
+    return { entries: list, readError: null }
+  } catch (e) {
+    if (e?.code === 'ENOENT') return { entries: [], readError: null, note: '台账文件不在位(按零条目判)' }
+    return { entries: [], readError: `裁决台账 JSON 取不到/解析失败:${e?.message || e}` }
+  }
+}
+
+/**
+ * 把"已裁且未到期"的红行降级成 `adjudicated`(纯函数,零 I/O —— 与 P6 那把尺子同形,
+ * 这样镜像测试能构造输入证明四条分支各有牙,而不是靠改真台账文件)。
+ * 降级**只改两件事**:是否进取红计数(= 是否触发发信)、打印前缀。判据本身、行文本、
+ * 到期日都不动 —— 改判据把它改成"只报数"就是造一条永久静音的通道,那是本仓明令禁止的方向。
+ */
+export function applyAdjudications({ rows, entries = [], readError = null, now = Date.now() }) {
+  const ledgerFindings = []
+  const rotten = []
+  if (readError) {
+    ledgerFindings.push({
+      id: 'P0·裁决台账',
+      state: 'undetermined',
+      detail: `${readError} ⇒ 本轮所有红一律照旧(不静默当空台账,也不静默降级)`,
+    })
+    return { rows, ledgerFindings, rotten }
+  }
+  const byAnchor = new Map()
+  for (const e of entries) {
+    const anchor = String(e?.anchor ?? '').trim()
+    if (!anchor) {
+      ledgerFindings.push({ id: 'P0·裁决条目', state: 'finding', detail: '有一条裁决没有 anchor ⇒ 无法定位它裁的是哪一格,按未生效处理' })
+      continue
+    }
+    byAnchor.set(anchor, e)
+  }
+  const next = rows.map((r) => {
+    const e = byAnchor.get(r.id)
+    if (!e) return r
+    const missing = ['reason', 'owner', 'reviewBy'].filter((k) => !String(e[k] ?? '').trim())
+    if (missing.length) return { ...r, detail: `${r.detail} | ⚠️ 裁决条目不完整(缺 ${missing.join('/')})⇒ 不生效,站点照旧红` }
+    // 到期判定按**当天 23:59:59 UTC 之后**才算过期(与 P6 那把尺子同口径),日期串本身做形状校验。
+    const until = Date.parse(`${String(e.reviewBy).trim()}T23:59:59Z`)
+    if (!Number.isFinite(until)) return { ...r, detail: `${r.detail} | ⚠️ reviewBy 不是 YYYY-MM-DD(等于没有死亡机制)⇒ 不生效` }
+    if (now > until) return { ...r, detail: `${r.detail} | ❗ 裁决已到期(${e.reviewBy})未复裁 ⇒ 回到红队,出路只有续期或真修` }
+    if (r.state !== 'finding') return r
+    return { ...r, state: 'adjudicated', detail: `⏸ 已裁(owner:${e.owner};到期 ${e.reviewBy}):${String(e.reason).split(/\s+/)[0]}… | 原判据:${r.detail}` }
+  })
+  for (const [anchor] of byAnchor) {
+    if (!next.some((r) => r.id === anchor)) rotten.push({ anchor, why: '被审行里找不到这个 id ⇒ 台账腐烂,报名不判红(判红就是一台与任何现场都无关的恒红)' })
+  }
+  return { rows: next, ledgerFindings, rotten }
 }
 
 async function main(argv) {
@@ -1076,9 +1155,16 @@ async function main(argv) {
   } else {
     for (const x of r.findings) console.log(`❌ ${x.id} ${x.detail}`)
     for (const x of r.undetermined) console.log(`⚠️ 未判定 ${x.id} ${x.detail}`)
+    for (const x of r.adjudicated) console.log(`⏸ ${x.id} ${x.detail}`)
     for (const x of r.ok) console.log(`✓ ${x.id} ${x.detail}`)
-    console.log(`—— 巡检完 ${r.at} | 红 ${r.counts.findings} / 未判定 ${r.counts.undetermined} / 绿 ${r.counts.ok}${apply ? ' | 已 --apply' : ''}`)
+    for (const x of r.rotten) console.log(`♻ 台账腐烂:${x.anchor} —— ${x.why}`)
+    // 已裁与腐烂都进这一行:降级只改"是否计入红/是否触发发信",把它藏进计数里就等于
+    // 又造出一条"没人看守的安静档"(AGENTS:抑制必须有终态、理由必须可见)。
+    console.log(
+      `—— 巡检完 ${r.at} | 红 ${r.counts.findings} / 未判定 ${r.counts.undetermined} / 绿 ${r.counts.ok} / 已裁 ${r.counts.adjudicated}${r.counts.rotten ? ` / 台账腐烂 ${r.counts.rotten}` : ''}${apply ? ' | 已 --apply' : ''}`,
+    )
     if (!r.findings.length && r.counts.undetermined) console.log('   (没有红不等于健康:上面那些"未判定"是本脚本没看见的格子)')
+    if (r.counts.adjudicated) console.log('   (已裁 ≠ 已修:那一格仍在原地被量着,只是机主已裁"不代为处置";到期日之后自动回红)')
   }
   if (!json) {
     try {
@@ -1436,6 +1522,35 @@ export async function selfTest() {
   t('P7 判红也不得把文件内容打印出来(detail 里只有哈希与字节数)', p7.dNoContentLeak)
   t('P7 同哈希行要说清比的是哪一对文件', p7.dPairNameShown)
   t('P7 副本目录在位但为空 ⇒ 只在覆盖行点名一次,另两维落未判定(同债不双计)', p7.eSingleRedNoDouble)
+  // ── P0 裁决台账(2026-09-29 立):"已裁"这一档**必须同时**证它会降级与会把降级收回去。
+  //    只留降级那一臂,它就是一条只会被喂绿的静音键 —— 而本仓对告警噪声的定性是"噪声即缺陷",
+  //    对抑制的定性是"必须有终态"。两条一起证,才既不吵也不藏。
+  const NOW = Date.parse('2026-09-29T12:00:00Z')
+  const ADJ = 'P5·网盘同步客户端'
+  const row = (id, state = 'finding') => ({ id, state, detail: `${id} 的原判据文本` })
+  const okEntry = { anchor: ADJ, reason: '机主裁决:不代为启动第三方客户端', owner: '机主', reviewBy: '2026-10-29' }
+  const A = applyAdjudications({ rows: [row(ADJ)], entries: [okEntry], now: NOW })
+  t('台账未到期 ⇒ 该格不进取红计数、行仍被打印且带"已裁"与到期日', (() => {
+    return A.rows[0].state === 'adjudicated' && /已裁/.test(A.rows[0].detail) && /2026-10-29/.test(A.rows[0].detail)
+  })())
+  t('降级只改计数与发信方向,**不改判据本身**(原判据文本必须仍在行里)', A.rows[0].detail.includes('原判据文本'))
+  const B = applyAdjudications({ rows: [row(ADJ)], entries: [{ ...okEntry, reviewBy: '2026-09-01' }], now: NOW })
+  t('到期 ⇒ 自动回红并写明"已到期未复裁"(不留"永久已裁"这一档)', B.rows[0].state === 'finding' && /已到期/.test(B.rows[0].detail))
+  const C = applyAdjudications({ rows: [row(ADJ)], entries: [{ ...okEntry, reason: '' }], now: NOW })
+  t('条目缺 reason ⇒ 不生效、站点照旧红(登记坏掉不等于免检)', C.rows[0].state === 'finding' && /不完整/.test(C.rows[0].detail))
+  const D = applyAdjudications({ rows: [row('P3·时钟')], entries: [okEntry], now: NOW })
+  t('登记的 anchor 在本轮找不到对应行 ⇒ 报名"台账腐烂"且**不改任何计数**', D.rows.length === 1 && D.rotten.length === 1 && D.rows[0].state === 'finding')
+  const E = applyAdjudications({ rows: [row(ADJ), row('P5b·部署环')], entries: [], readError: '坏 JSON:boom', now: NOW })
+  t('台账坏 JSON ⇒ 一律照旧红 + 一条未判定(绝不静默当空台账)', E.rows.every((r) => r.state === 'finding') && E.ledgerFindings.length === 1 && E.ledgerFindings[0].state === 'undetermined')
+  const F = applyAdjudications({ rows: [row(ADJ)], entries: [], now: NOW })
+  t('台账没登记任何条目 ⇒ 零红零未判定,站点照旧(没有裁决 ≠ 出了故障)', F.rows[0].state === 'finding' && F.ledgerFindings.length === 0 && F.rotten.length === 0)
+  const G = applyAdjudications({ rows: [row(ADJ, 'ok')], entries: [okEntry], now: NOW })
+  t('非 finding 的行不被降级;"本轮不红"也不算台账腐烂', G.rows[0].state === 'ok' && G.rotten.length === 0)
+  t('装车锁:applyAdjudications 必须真被 patrol 接上(判据写出来而没装车 = 本仓最高频失效型)', (() => {
+    const src = readFileSync(join(SELF_DIR, 'check-ops-patrol.mjs'), 'utf8')
+    const body = src.slice(src.indexOf('export async function patrol'), src.indexOf('export function loadAdjudications'))
+    return /applyAdjudications\(/.test(body) && /adjudicated/.test(body)
+  })())
   let pass = 0
   for (const c of cases) {
     console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
@@ -1477,5 +1592,8 @@ export const __test__ = {
   listDumpFiles,
   sha256File,
   P7_BOUNDARY_NOTE,
+  // 裁决台账同一条理由:降级动作与它的四条分支都由这里那一份实现判,测试不得再抄一份。
+  loadAdjudications,
+  applyAdjudications,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
