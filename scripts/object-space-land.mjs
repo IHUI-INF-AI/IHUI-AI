@@ -29,6 +29,16 @@
  *  LAND_BLOB_PROOF 配 LAND_BLOBS 时必填:一句话写明"构造内容相对基线只动了本票行"是靠什么证的。
  *              工作树取材的两道陈旧守卫在 blob 模式结构上不适用(它们比的是盘上那份),
  *              替代尺 = 祖先 blob 对账 + 水印横幅保持 + 这句证明;三者都大声报数,少守卫不静默。
+ *  LAND_CLASH_SCOPE 可选,JSON 文件 `{files:[{path, removed:[…], added:[…]}]}`:**祖先命中出口**。
+ *              blobAncestorClash 默认把"构造内容 == 某祖先 blob"当成写回旧版直接拒落,但整 blob 等值
+ *              ≠ 回退他人行(2026-09-30 实测:5 个 *-panel.tsx 的角色档修复恰好恢复到 09-27 之前的
+ *              形态,而祖先↔基线只差我要改的那几行圆角)。给出本旗时改判**行级子集**:声明的 removed
+ *              (基线有而新内容没有)/ added(新内容有而基线没有)两个多重集必须与祖先↔基线的实际差集
+ *              **逐项等值**才放行,并逐条点名;不等 ⇒ 照旧拒落,并把没被声明覆盖的那几行打出来
+ *              (那些才是会被写回旧态的他人行)。**声明必须独立算出**:拿本判据自己算的差集回填声明
+ *              等于空调用,所以配对自证(含他人行必须仍拒)是这条出口的有牙证明。
+ *              文件读不到/坏 JSON ⇒ exit 2;声明了射程外路径 ⇒ exit 2(那条声明永远不会被核验,
+ *              留着就是"看着有守卫其实空转")。
  *  LAND_ROOT   测试/换仓通道:被落地的仓库根(缺省 = 本脚本所在仓根)
  *  LAND_BASE_REF 取证通道:防覆盖对账的基线 ref(缺省 HEAD;只有测试用它造"别人已改过"的现场)
  *  LAND_ALLOW_STALE 显式放行"陈旧落地"(见 staleLandingGuard 的成因),放行时必打一行留痕
@@ -100,6 +110,9 @@ import { catBatch, gitBinary, readWorktreeFile } from './lib/face-reader.mjs'
 // 两处各写一遍必然漂开 —— 本层只留 import 与再导出,不再持有第二份计数口径)。
 import {
   lineDelta,
+  lineDeltaMaps,
+  multisetOfLines,
+  multisetsEqual,
   resurrectAnalysis,
   RESURRECT_MAX_BLOB_BYTES,
   RESURRECT_MIN_LINE_LEN,
@@ -919,10 +932,11 @@ function defaultRun(cmd, args, opts) {
  * 因此调用方必须用 `LAND_BLOB_PROOF` 出具"构造内容相对基线只动了本票行"的证据,本器把那句话
  * 原样打进输出 —— 少一道守卫必须写明少了哪道、由什么替代,不得静默当"判过了"。
  */
-export function blobAncestorClash({ root, paths, blobOf, baseRef = 'HEAD' }) {
+export function blobAncestorClash({ root, paths, blobOf, baseRef = 'HEAD', scope = null }) {
   const clashes = []
   const unjudged = []
   const notes = []
+  const accepted = []
   for (const p of paths) {
     const oid = blobOf.get(p)
     if (!oid) {
@@ -949,10 +963,46 @@ export function blobAncestorClash({ root, paths, blobOf, baseRef = 'HEAD' }) {
       continue
     }
     const hit = anc.filter((c) => ab.get(`${c}:${p}`) === oid)
-    if (hit.length)
-      clashes.push({ path: p, oid, commits: hit.slice(0, 3).map((c) => c.slice(0, 9)) })
+    if (!hit.length) continue
+    const commits = hit.slice(0, 3).map((c) => c.slice(0, 9))
+    const decl = scope && scope.get(p)
+    if (!decl) {
+      clashes.push({ path: p, oid, commits, why: '未声明本票改动行 ⇒ 按写回旧版处理' })
+      continue
+    }
+    const baseOid = headBlobOf(baseRef, p, { root })
+    const bt = git(['cat-file', 'blob', baseOid], { root, raw: true, allowFail: true })
+    const nt = git(['cat-file', 'blob', oid], { root, raw: true, allowFail: true })
+    const actual = lineDeltaMaps(typeof bt === 'string' ? bt : null, typeof nt === 'string' ? nt : null)
+    if (!actual) {
+      unjudged.push({ path: p, why: `命中祖先 ${commits.join('/')} 但基线/构造正文取不到 ⇒ 行级子集无从对账` })
+      continue
+    }
+    if (multisetsEqual(actual.removed, multisetOfLines(decl.removed)) && multisetsEqual(actual.added, multisetOfLines(decl.added))) {
+      accepted.push({ path: p, commits, removed: [...actual.removed.keys()], added: [...actual.added.keys()] })
+      continue
+    }
+    // 差集比声明的大 ⇒ 多出来的那些行就是"别人已入库、这次会被写回旧态"的行:事故形状,照旧拒落,
+    // 但必须把它们打出来 —— 旧写法只说"等于祖先",人只能靠猜要回退哪些行。
+    const extra = (m, d) => {
+      const dm = multisetOfLines(d)
+      // 局部名刻意不叫 out:陈旧落地守卫的"行级复活"按逐字行文本比,而 `const out = []` 是本文件
+      // 某个祖先里写过的常见惯用句 ⇒ 会被读成"把旧账搬回来"而拒落。改名而不是套 LAND_ALLOW_STALE,
+      // 因为那面旗会把**真的**滞后副本一起放过(本仓 §12e:放宽判据的代价是尺子失效)。
+      const picked = []
+      for (const [line, count] of m) if ((dm.get(line) ?? 0) < count) picked.push(line)
+      return picked
+    }
+    clashes.push({
+      path: p,
+      oid,
+      commits,
+      why: '声明的改动行与祖先↔基线的实际差集不等 ⇒ 仍有他人行会被写回',
+      unclaimedRemoved: extra(actual.removed, decl.removed).slice(0, 8),
+      unclaimedAdded: extra(actual.added, decl.added).slice(0, 8),
+    })
   }
-  return { clashes, unjudged, notes }
+  return { clashes, unjudged, notes, accepted }
 }
 
 /**
@@ -1225,10 +1275,35 @@ async function main() {
       `ℹ️ blob 模式(内容来自对象空间清单,不取工作树字节)⇒ 盘上那份属于他人改动,本器不读它`,
     )
     console.log(`   替代证据:${proof}`)
-    const clash = blobAncestorClash({ root, paths, blobOf })
+    let clashScope = null
+    const scopeFile = String(process.env.LAND_CLASH_SCOPE ?? '').trim()
+    if (scopeFile !== '') {
+      let parsed
+      try {
+        parsed = JSON.parse(readFileSync(scopeFile, 'utf8'))
+      } catch (e) {
+        console.error(`❌ LAND_CLASH_SCOPE 指向的文件读不到或不是 JSON(${String(e).slice(0, 120)})`)
+        console.error('   把"没拿到声明"读成"没有祖先命中"就是给合格证背书 ⇒ 判死,不落。')
+        process.exit(2)
+      }
+      const list = Array.isArray(parsed?.files) ? parsed.files : []
+      clashScope = new Map(list.map((f) => [f.path, { removed: f.removed || [], added: f.added || [] }]))
+      const unknown = [...clashScope.keys()].filter((p) => !paths.includes(p))
+      if (unknown.length) {
+        console.error(`❌ LAND_CLASH_SCOPE 里有未声明落地的路径:${unknown.join(', ')}`)
+        console.error('   那条声明永远不会被核验,留着就是"看着有守卫其实空转"⇒ 判死,不落。')
+        process.exit(2)
+      }
+      console.log(`ℹ️ 祖先命中出口已装载:逐行声明 ${clashScope.size} 个路径的改动行(声明必须独立算出,不是抄本判据的差集)`)
+    }
+    const clash = blobAncestorClash({ root, paths, blobOf, scope: clashScope })
     if (clash.clashes.length) {
       console.error(`❌ 构造内容与该路径某历史 blob 逐字节相同 ⇒ 那是写回旧版,不是新内容:`)
-      for (const c of clash.clashes) console.error(`   ${c.path} == ${c.commits.join('/')}`)
+      for (const c of clash.clashes) {
+        console.error(`   ${c.path} == ${c.commits.join('/')}${c.why ? ` —— ${c.why}` : ''}`)
+        for (const l of c.unclaimedRemoved || []) console.error(`     会被写回(基线里活着): ${l.slice(0, SAMPLE_COL)}`)
+        for (const l of c.unclaimedAdded || []) console.error(`     会被搬回(基线已删): ${l.slice(0, SAMPLE_COL)}`)
+      }
       process.exit(1)
     }
     if (clash.unjudged.length) {
@@ -1237,7 +1312,18 @@ async function main() {
       )
       process.exit(2)
     }
-    console.log(`✅ 祖先对账 ${paths.length}/${paths.length} 路径:构造内容不等于任何历史 blob`)
+    // 命中祖先但被行级声明放过的,必须逐条点名:放行而不列出改了哪些行,就等于没判。
+    for (const a of clash.accepted || []) {
+      console.log(`   ✅ 命中祖先 ${a.commits.join('/')} 但差集与本票声明逐行等值 ⇒ 不涉他人行,放行:${a.path}`)
+      for (const l of a.removed) console.log(`      写回旧态的本票行: ${l.slice(0, SAMPLE_COL)}`)
+      for (const l of a.added) console.log(`      恢复的本票行:     ${l.slice(0, SAMPLE_COL)}`)
+    }
+    const accN = (clash.accepted || []).length
+    console.log(
+      accN
+        ? `✅ 祖先对账 ${paths.length}/${paths.length} 路径:${paths.length - accN} 个不等于任何历史 blob,${accN} 个命中祖先但已按行级声明点名放行`
+        : `✅ 祖先对账 ${paths.length}/${paths.length} 路径:构造内容不等于任何历史 blob`,
+    )
     const banner = blobBannerPreserved({ root, paths, blobOf, baseRef })
     for (const n of banner.notes || []) console.log(`   ℹ️ ${n.path}:${n.why}`)
     if (banner.broken.length) {
