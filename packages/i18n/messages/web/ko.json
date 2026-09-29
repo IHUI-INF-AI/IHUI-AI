@@ -7252,6 +7252,7 @@
       "viewResult": "결과 보기"
     },
     "checkpointHistory": {
+      "rollbackConfirmContentUnreadable": "일부 버전 내용을 읽지 못해 이 파일은 diff 미리보기에서 제외됩니다",
       "empty": "체크포인트가 없습니다",
       "restore": "복원",
       "title": "체크포인트 기록",
@@ -15790,6 +15791,7 @@
       "searchPlaceholder": "보기 검색..."
     },
     "diffReview": {
+      "copyGitApplyUnreadable": "내용을 읽지 못한 파일 {count}개를 건너뛰었습니다",
       "copyGitApply": "git apply 복사",
       "copyGitApplyToast": "git apply 명령을 클립보드에 복사했습니다",
       "copyGitApplyFailed": "git apply 명령 복사 실패",
@@ -20128,6 +20130,11 @@
       "taskCount": "{count}개 작업",
       "title": "게시 캘린더",
       "today": "오늘"
+    },
+    "cookieAutoRefresh": {
+      "lastRun": "마지막 실행 {time}",
+      "on": "Cookie 자동 유지 · {hours}시간마다",
+      "pending": "첫 실행 진행 중"
     },
     "cookieHealth": {
       "days": "일",

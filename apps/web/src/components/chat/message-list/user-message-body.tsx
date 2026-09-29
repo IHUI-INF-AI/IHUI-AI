@@ -62,7 +62,7 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
           type="button"
           data-testid="user-message-image-button"
           onClick={() => openImageSource(im.url, 'user-attachment-image')}
-          className="block max-w-full overflow-hidden rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+          className="block max-w-full overflow-hidden rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
         >
           <img
             data-testid="user-message-image"
