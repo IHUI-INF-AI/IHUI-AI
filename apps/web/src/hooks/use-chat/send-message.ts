@@ -621,6 +621,12 @@ export function createSendMessage(
       // 不接这一格会让切会话/重新生成后继续挂着上一轮的百分比(同上方"消费即清"姿势)。
       clearBudgetEvent()
 
+      // D130(2026-09-30 立):与上面同一姿势 —— 每轮发起前回收**上一轮**的档位回落通知。
+      // 不清的表现:上一轮被钉档,这一轮用户换了模型/没选档,轴上还挂着"推理强度已调整为 …",
+      // 读起来像本轮发生了什么(本仓最高频失效型之一是"上一轮的瞬时态挂到下一轮的卡上",
+      //  terminalInteractions / steer 提示条都按同一条清过)。
+      useChatStore.getState().setReasoningEffortNotice(null)
+
       await streamChat({
         model: effectiveModel,
         // W25:#Rule 展开后的文本发给 LLM(重新生成模式:用户消息已在 store/历史中,直接作为完整上下文发送,不重复追加)
@@ -632,6 +638,11 @@ export function createSendMessage(
         topP: samplingParams.topP,
         topK: samplingParams.topK,
         maxTokens: samplingParams.maxTokens,
+        // D130(2026-09-30 立):推理强度档位(输入区第三轴),与上面四项**同一份快照**。
+        // 同快照不是形式主义:另走一条实时读取,流式途中用户改档就会让"这一轮实际发出去的档"
+        // 与"界面显示的档"分叉,而两边都读不出错。undefined = 不发该字段(api-client 侧同形判空),
+        // 后端按默认档处理 ⇒ 没碰过这条轴的用户零行为变化。
+        reasoningEffort: samplingParams.reasoningEffort,
         // P1 #26(2026-09-16 立):知识库默认注入开关。
         // undefined = 后端默认开(top-3 检索注入);false = 显式关闭(api-client 仅在 false 时写入 body)。
         knowledgeContext: samplingParams.knowledgeContext,
@@ -1012,6 +1023,13 @@ export function createSendMessage(
           const targetId = evt.messageId ?? assistantId
           if (!targetId || !evt.items?.length) return
           useChatStore.getState().appendMemoryNotice(targetId, evt.items)
+        },
+        // D130(2026-09-30 立):后端把选定档位钉回时的回落通知 → 写进 store,输入区第三轴读它。
+        // 这一格是本票的**验收核心**:上游静默降档时,前端显示"深思"而实际发出去的是默认档,
+        // 而 typecheck/其余门全绿 —— 不注册回调就是"知道有这件事但什么都不说"。
+        // api-client 只在真有回落时才发(fallback=false 不回调),所以这里不二次判等,直接落。
+        onReasoningEffortNotice: (info) => {
+          useChatStore.getState().setReasoningEffortNotice(info)
         },
         // Steer(中途引导,2026-09-19 立):ai-service 在 tool loop 边界注入用户引导后
         // 下发 steer 事件(phase='injected')确认,写入消息级引导徽章数据,
