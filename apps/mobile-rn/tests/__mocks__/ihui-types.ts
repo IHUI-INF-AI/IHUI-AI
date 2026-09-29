@@ -4,6 +4,16 @@
 
 // Stub for @ihui/types - vitest mock
 // Real package has "main": "./src/index.ts" with `typeof` type syntax that esbuild can't parse.
+//
+// 但 @ihui/api-client 的 src 里有 **按值**(非 type-only)导入,本替身若只留类型桩就会在
+// 调用点炸成 "xxx is not a function"(D147:transport.ts:19 取 withTraceparentHeader /
+// readTraceIdFromResponse;client.ts:34 取 GOAL_WIRE_STATUSES)。
+// 处置与本仓既有口径一致(vitest.config.ts 对 '@ihui/api-client' 替身的"不删、只转发",
+// 以及 '@ihui/types/permission-mode' 直指真源码):**转传真源,不抄第二份实现** ——
+// 抄一份就等于给"两处算同一件事必漂移"那一型开门。下面两条是纯转发,桩里自己写的那些
+// 名字仍按原样保留(消费面对它们有桩语义依赖)。
+export * from '../../../../packages/types/src/traceparent.js'
+export * from '../../../../packages/types/src/agent-runtime.js'
 export const API_KEY_PERMISSIONS = {} as const
 export const PILLARS = [] as const
 export const PILLAR_EVENT_TYPES = [] as const
