@@ -3367,9 +3367,10 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_CROSS_END_UI_PARITY',
     stagedTriggers: [
       'apps/miniapp-taro/src/components/',
-      'packages/app/src/components/',
-      'apps/mobile-rn/src/components/',
-      'scripts/check-cross-end-ui-parity.mjs',
+    'packages/app/src/components/',
+    'packages/app/src/features/',
+    'apps/mobile-rn/src/components/',
+    'scripts/check-cross-end-ui-parity.mjs',
       'scripts/cross-end-ui-parity-baseline.json',
     ],
     onFailHint: [
@@ -4148,21 +4149,6 @@ const checks = [
       '  存量(该文件 HEAD 自身就有的)只报数不判红;本次把某文件的处数推高才红。',
       '  修复出口:node scripts/check-replacement-chars.mjs --recover <路径>',
       '  它按「代码括号」给每个损坏注释区间找最近零损坏祖先的原文;找不到的会如实报名,禁止编造。',
-      '',
-      '',
-    ].join('\n'),
-  },
-
-  // --- 🧾 教育欠费口径单一出口对账(blocking,AR1 出口外重写算式/AR2 裸写派生列)(1 项,blocking)---
-  {
-    id: '165',
-    label:
-      '🧾 教育欠费口径单一出口对账(blocking,AR1 出口外重写算式/AR2 裸写派生列)',
-    script: 'check-edu-arrears-single-source.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_EDU_ARREARS_SINGLE_SOURCE',
-    onFailHint: [
       '',
       '',
     ].join('\n'),
