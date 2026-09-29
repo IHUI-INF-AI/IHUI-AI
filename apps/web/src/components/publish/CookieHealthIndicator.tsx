@@ -209,7 +209,10 @@ export function CookieHealthIndicator({
                 {detail.predictedExpiry ? TIME_FMT.format(new Date(detail.predictedExpiry)) : '-'}
               </span>
             </div>
-            {detail.daysSince !== null && (
+            {/* 2026-09-29:守卫必须连 undefined 一起防(!= null)。后端字段一旦缺省
+                (如脱敏中间件误伤,见 ai-service response_sanitizer SAFE_KEYS B11),
+                这里若只防 null,.toFixed() 会在悬浮时抛 TypeError 炸掉整页。 */}
+            {detail.daysSince != null && (
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">{t('cookieHealth.daysSince')}</span>
                 <span>
