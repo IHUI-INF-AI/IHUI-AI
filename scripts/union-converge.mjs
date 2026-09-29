@@ -378,19 +378,57 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null) {
      * 逐行判必须用**非全局副本** —— 带 `g` 的 `.test()` 会推进 lastIndex,第二次调用就漏判。
      */
     const noteRe = new RegExp(MERGE_NOTE_RE.source)
+    const dpRe = new RegExp(DUP_POINTER_RE.source)
     const mm = counter(mergedText)
     const sideCounters = sides.map((t) => counter(t))
     let allowed = 0
+    const credited = new Set()
     for (const [l, n] of mm) {
       if (n < 1 || !noteRe.test(l) || !DUP_POINTER_RE.test(l)) continue
       const sideMax = Math.max(...sideCounters.map((c) => c.get(l) || 0))
-      if (sideMax > n) allowed += sideMax - n
+      if (sideMax > n) {
+        allowed += sideMax - n
+        credited.add(l)
+      }
     }
-    if (m.mergeNotes < noteMax - allowed)
+    /**
+     * 报数必须报名(与 F3/F9 同一规矩):只给总数,下一手只能重新猜,而"猜"在这本账上
+     * 产出过的代价是把别人的落账证据读成噪声删掉。这里逐行算出**未被额度覆盖**的欠账名单。
+     */
+    const f5Deficit = []
+    {
+      const seen = new Set()
+      for (const c of sideCounters) {
+        for (const [l, nSide] of c) {
+          if (seen.has(l)) continue
+          seen.add(l)
+          if (!noteRe.test(l)) continue
+          const n = mm.get(l) || 0
+          if (n >= nSide || credited.has(l)) continue
+          // 同一行既被整条折半、又仍带 ≥1 份时,额度只覆盖"折掉的那几份";剩下的仍欠
+          const rest = n >= 1 && dpRe.test(l) ? 0 : nSide - n
+          if (rest <= 0) continue
+          f5Deficit.push({ line: l.slice(0, 140), short: rest, carried: n })
+        }
+      }
+      f5Deficit.sort((a, b) => b.short - a.short)
+    }
+    out.f5Deficit = f5Deficit
+    if (m.mergeNotes < noteMax - allowed) {
+      const gap = noteMax - allowed - m.mergeNotes
+      const named = f5Deficit
+        .slice(0, 6)
+        .map((d) => `少 ${d.short} 份(结果里剩 ${d.carried} 份)← ${d.line}`)
+        .join('\n      · ')
       out.push(
         `F5 归并落账注记 各侧最多 ${noteMax} 条,归并结果只剩 ${m.mergeNotes} 条(被未落账形态顶掉)` +
-          `(已扣除"副本指针行有意少带"的合法额度 ${allowed} 条,扣完仍差 ${noteMax - allowed - m.mergeNotes} 条)`,
+          `(已扣除"副本指针行有意少带"的合法额度 ${allowed} 条,扣完仍差 ${gap} 条)` +
+          (f5Deficit.length
+            ? `\n   欠账名单(共 ${f5Deficit.length} 行,逐行判据=注记行 ∧ 结果份数 < 各侧份数 ∧ 未被额度覆盖;前 6 行):\n      · ${named}`
+            : '\n   欠账名单为空 ⇒ 差额来自"条数按行计、份数按重数计"两个量纲之差,' +
+              '**不得据此读成"已查明无内容损失"**,也不得反过来据此放行'),
       )
+    }
   }
   return out
 }
