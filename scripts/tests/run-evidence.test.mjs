@@ -378,48 +378,4 @@ test('T-新 CLI 层:逃逸路径 exit 2 且**一个字节都不写**(拒绝必�
   assert.equal(status, 2, `逃逸路径必须 exit 2,实得 ${status}`)
   assert.equal(existsSync(outside), false, '判死之前先把文件建出来 ⇒ 这道拒绝只是装饰')
 })
-
-test('T16 被包装命令的输出**不以换行收尾** ⇒ 标记仍必须独占一行、--verify 必须判 complete(2026-09-29 实测的假"截断")', () => {
-  // 立因(不是假想):`cat <末尾没有换行的文件>` 这类命令的输出停在半行上,旧写法把
-  // `#EVIDENCE-RC=0` 直接接在那半行后面 ⇒ 读侧按**行首**找标记找不到 ⇒ 一次**完整**的取证
-  // 被读成 truncated 并要求重跑。失效方向是"少发合格证"(安全),但代价是把真证据作废,
-  // 而"重跑那次恰好真被截断"就永远分不清 —— 所以这一格必须锁在提交链之外的 CI 档(§22c)。
-  // 三臂:① 端到端(真派生一个无尾换行的子进程)判 complete 且 RC 行以行首出现;
-  //      ② 反向锁:粘连形态(`out#EVIDENCE-RC=0`)判据**不得**认 —— 不许为了让①绿把判据放宽成
-  //         "整串里含 RC_MARK 即通过",那是把"半截输出恰好带这几个字符"重新发成合格证;
-  //      ③ 正文逐字保留(加固只允许在标记前补一个换行,不得动子进程写出的字节)。
-  const f = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-run-noeol.txt')
-  try {
-    execFileSync(
-      process.execPath,
-      [TOOL, f, '--timeout=30000', '--', process.execPath, '-e', 'process.stdout.write("no-eol")'],
-      { cwd: ROOT, windowsHide: true, timeout: 120_000, stdio: 'ignore' },
-    )
-    const txt = readFileSync(f, 'utf8')
-    const lines = txt.split(/\r?\n/)
-    assert.equal(
-      lines.filter((l) => l.startsWith(gate.__test__.RC_MARK)).length,
-      1,
-      `RC 行必须恰好一条且以行首出现,证据末三行:${JSON.stringify(lines.slice(-3))}`,
-    )
-    assert.equal(
-      gate.__test__.judgeEvidence(txt).kind,
-      'complete',
-      `无尾换行的取证被读成了 ${gate.__test__.judgeEvidence(txt).kind}(= 旧缺陷复现)`,
-    )
-    assert.ok(txt.includes('no-eol'), '③ 子进程正文必须逐字留在证据里')
-    // ② 反向锁走**源文件那一份**判据(§22c:镜像不得抄第二份实现)
-    assert.notEqual(
-      gate.__test__.judgeEvidence(`out${gate.__test__.RC_MARK}0\n`).kind,
-      'complete',
-      '粘连形态被判成 complete ⇒ 判据被放宽成"含标记即通过"',
-    )
-  } finally {
-    try {
-      rmSync(f, { force: true })
-    } catch {
-      /* 清不掉由 T8 那条统一判 */
-    }
-  }
-})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

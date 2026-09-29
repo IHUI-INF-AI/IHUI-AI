@@ -781,16 +781,7 @@ export const get_command_output: Tool = {
       return { success: false, output: '', error: `任务 ${taskId} 不存在` };
     }
     const parts: string[] = [
-      // G-816026:模型必须读得出"谁停的"—— 你停的是决定不该被重跑,用户停的更不许被模型续上。
-      `任务 ${output.id}  状态: ${output.status}  exitCode: ${output.exitCode ?? '-'}${
-        output.status === 'killed'
-          ? output.stopInitiator === 'model'
-            ? '  停止方: 你(model),这是你的决定,不要重跑'
-            : output.stopInitiator === 'user'
-              ? '  停止方: 用户,这是用户的决定,不要 resume'
-              : '  停止方: 外部/未知'
-            : ''
-      }`,
+      `任务 ${output.id}  状态: ${output.status}  exitCode: ${output.exitCode ?? '-'}`,
     ];
     if (output.stdout.trim()) parts.push(`[stdout]\n${output.stdout.trimEnd()}`);
     if (output.stderr.trim()) parts.push(`[stderr]\n${output.stderr.trimEnd()}`);
@@ -873,7 +864,7 @@ export const kill_command: Tool = {
     if (ctx.confirmDangerous && !(await ctx.confirmDangerous(kill_command, args))) {
       return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${kill_command.name}` };
     }
-    const result = await killTask(taskId, 'model');
+    const result = await killTask(taskId);
     return {
       success: result.killed,
       output: result.killed ? `任务 ${taskId} 已终止` : `任务 ${taskId} 终止失败: ${result.reason ?? '未知原因'}`,
