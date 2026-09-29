@@ -37,7 +37,9 @@ import {
 } from '../services/edu-ledger.js'
 import {
   aggregateDeliveries,
+  attachReminderDelivery,
   dispatchArrearChannels,
+  type DeliveryEntry,
 } from '../services/edu-arrear-remind-service.js'
 import { findScheduleConflicts } from '../services/edu-schedule-conflict.js'
 import {
@@ -5139,6 +5141,32 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     })
     const wxSent = dispatch.wx?.sent ?? false
     const wxFailReason = dispatch.wx?.reason
+    // 回执持久化:微信那支此前只有整体结论,所以按整体落一条(reason 命中已知档时原样保留,
+    // 否则归 failed —— 不确定的一律不冒充某个具体档);短信是逐收件人明细,直接落。
+    // 批量手动催费仍不写(它只有聚合计数),故统计里的 unknown 含"历史行 + 批量手动"两类。
+    const deliveryEntries: DeliveryEntry[] = []
+    if (parsed.data.channel === 'wechat') {
+      const known = ['not_configured', 'no_openid', 'user_refused']
+      const r = dispatch.wx?.reason ?? ''
+      deliveryEntries.push({
+        userId: enrollment.studentId,
+        role: 'student',
+        channel: 'wechat',
+        bucket: dispatch.wx?.sent ? 'sent' : ((known.includes(r) ? r : 'failed') as DeliveryEntry['bucket']),
+        at: new Date().toISOString(),
+      })
+    }
+    for (const s of dispatch.sms) {
+      deliveryEntries.push({
+        userId: s.userId,
+        role: s.role,
+        channel: 'sms',
+        bucket: s.bucket,
+        ...(s.detail ? { detail: s.detail } : {}),
+        at: new Date().toISOString(),
+      })
+    }
+    if (deliveryEntries.length) await attachReminderDelivery(row.id, deliveryEntries)
 
     // 站内信必达:sms/wechat 亦同步发一条站内通知兜底
     try {
