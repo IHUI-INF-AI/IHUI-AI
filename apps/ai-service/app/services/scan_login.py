@@ -1014,14 +1014,17 @@ def _run_toutiao_wechat_flow(task: ScanTask) -> None:
                     # 回跳完成但没拿到登录 cookie(微信未绑定头条账号/风控拦截)
                     final_url = str(cb.url)
                     if "need_bind_mobile" in final_url:
-                        # 2026-09-29 真机实证:微信从未绑定头条时,头条 callback 302 到
-                        # wap_bind_mobile_index?auth_err=2001:need_bind_mobile(带 profile_key),
-                        # 强制先绑手机号才放行 —— 产品级门槛,管道本身全通。
+                        # 2026-09-29 真机实证:头条 callback 302 到
+                        # wap_bind_mobile_index?auth_err=2001:need_bind_mobile(带 profile_key)。
+                        # 注意口径:这是"该微信在头条**网页端**首次登录"的强制手机号验证,
+                        # 与 App 内是否绑定过微信无关(App 绑定走移动端 openid,网页扫码是
+                        # 网页应用 openid,头条不据此放行)——App 已绑微信的用户也会命中。
                         task.status = "failed"
                         task.message = (
-                            "该微信未绑定过今日头条账号,头条要求首次微信登录先绑定手机号。"
-                            "请先在手机上用微信登录今日头条 App 完成手机号绑定,"
-                            "之后回到这里重新扫码即可全自动登录"
+                            "头条要求该微信先完成一次网页端手机号验证(与 App 内是否绑定微信无关:"
+                            "App 绑定的是移动端身份,网页扫码是网页端身份,头条不互通)。"
+                            "推荐改选「今日头条(App扫码)」通道,用头条 App 扫码即全自动登录;"
+                            "另请确认扫码的微信就是 App 内绑定的那个微信"
                         )
                         task.completed_at = time.time()
                         _persist_task(task)
