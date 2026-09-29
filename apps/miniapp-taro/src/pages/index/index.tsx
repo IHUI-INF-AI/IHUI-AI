@@ -67,6 +67,8 @@ import * as api from '@/api'
 import type { ChatMessage } from '@/api'
 import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
 import { FALLBACK_MODELS } from '@ihui/shared/constants'
+// 兜底模型的上下文容量按模型 id 取真实值(写死一个数会让广场/首页对非 128K 模型显示错误容量)
+import { getModelContextCapacity } from '@ihui/api-client'
 import ThemeRoot from '@/components/ThemeRoot'
 import { buildTaroWaitingText, deriveTaroWaitingTurn } from '@/pkg-ai/ai/waiting-text'
 
@@ -83,7 +85,7 @@ const FALLBACK_MODEL_ITEMS: ModelItem[] = FALLBACK_MODELS.map((f) => ({
   id: f.value,
   name: f.label,
   provider: f.vendor,
-  context_length: 128000,
+  context_length: getModelContextCapacity(f.value),
   input_price: 0,
 }))
 
