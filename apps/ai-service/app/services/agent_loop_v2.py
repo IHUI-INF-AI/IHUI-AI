@@ -1194,6 +1194,9 @@ class AgentEventStream:
         args_preview: str,
         session_id: str,
         guardian_review: dict[str, Any] | None = None,
+        exec_environment: dict[str, Any] | None = None,
+        network_target: dict[str, Any] | None = None,
+        blocked_network_targets: list[dict[str, Any]] | None = None,
     ) -> None:
         payload: dict[str, Any] = {
             "approval_id": approval_id,
@@ -1206,6 +1209,16 @@ class AgentEventStream:
         # V3 #80:guardian 复核三态随弹窗事件下发(status 恒在,缺席≠无风险)。
         if guardian_review is not None:
             payload["guardian_review"] = guardian_review
+        # D159(2026-09-30):执行环境事实 / 网络目标 / 已被静态策略判死的目标随同一帧
+        # 下发。三态刻意分开:`None` = 整块不发(回退开关关档,前端不渲染);
+        # `{"available": false}` = 开档但读不到(前端写"未上报")。合成一态就等于用一句
+        # 通用文案冒充"读到了",而票面点名的爆炸半径正是"弹窗说在沙箱里、实际直跑"。
+        if exec_environment is not None:
+            payload["exec_environment"] = exec_environment
+        if network_target is not None:
+            payload["network_target"] = network_target
+        if blocked_network_targets:
+            payload["blocked_network_targets"] = blocked_network_targets
         await self.emit("tool.approval", payload)
 
     async def permission_mode(
@@ -4452,6 +4465,21 @@ class AgentLoopV2:
             # 通过事件流层发 tool.approval 事件(订阅者 = SSE 转发 + 前端弹窗)。
             # emit 内部有 _broadcast 向 SSE 订阅者推送;失败降级不抛(但审批继续等待,
             # 若事件完全无法送达,工具会在超时后以 approval_timeout 返回,安全兜底)。
+            #
+            # D159:执行环境/网络目标事实与主聊天流共用**同一个**组装出口
+            # (`network_approval.approval_env_payload`)—— 两处各写一份必漂移,而这一族
+            # 漂移的代价正是"弹窗说在沙箱里、实际直跑"。主体只取 `self._user_id`
+            # (路由/引擎显式注入的 JWT 主体),绝不从 tc.args 里读自报身份。
+            # 出口自身故障 ⇒ 少发字段并喊一声,**绝不**因为取不到事实而跳过弹窗。
+            try:
+                from .network_approval import approval_env_payload
+
+                env_facts: dict[str, Any] = approval_env_payload(
+                    tc.name, tc.args, owner=self._user_id
+                )
+            except Exception as exc:  # noqa: BLE001 - 载荷组装失败不阻断审批链
+                logger.warning("D159 审批环境字段组装失败(agent 任务流,tool=%s): %s", tc.name, exc)
+                env_facts = {}
             await self._events.tool_approval(
                 approval_id=approval_id,
                 tool_name=tc.name,
@@ -4459,6 +4487,9 @@ class AgentLoopV2:
                 args_preview=args_preview,
                 session_id=self._session_id or "",
                 guardian_review=review.to_event_payload(),
+                exec_environment=env_facts.get("exec_environment"),
+                network_target=env_facts.get("network_target"),
+                blocked_network_targets=env_facts.get("blocked_network_targets"),
             )
             # 等待用户决策(批准/拒绝/超时)
             try:
