@@ -35,7 +35,12 @@ import {
   settleRefund,
   voidPaymentRecord,
 } from '../services/edu-ledger.js'
-import { dispatchArrearChannels } from '../services/edu-arrear-remind-service.js'
+import {
+  aggregateDeliveries,
+  attachReminderDelivery,
+  dispatchArrearChannels,
+  type DeliveryEntry,
+} from '../services/edu-arrear-remind-service.js'
 import { findScheduleConflicts } from '../services/edu-schedule-conflict.js'
 import {
   eduTerm,
@@ -5136,6 +5141,32 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     })
     const wxSent = dispatch.wx?.sent ?? false
     const wxFailReason = dispatch.wx?.reason
+    // 回执持久化:微信那支此前只有整体结论,所以按整体落一条(reason 命中已知档时原样保留,
+    // 否则归 failed —— 不确定的一律不冒充某个具体档);短信是逐收件人明细,直接落。
+    // 批量手动催费仍不写(它只有聚合计数),故统计里的 unknown 含"历史行 + 批量手动"两类。
+    const deliveryEntries: DeliveryEntry[] = []
+    if (parsed.data.channel === 'wechat') {
+      const known = ['not_configured', 'no_openid', 'user_refused']
+      const r = dispatch.wx?.reason ?? ''
+      deliveryEntries.push({
+        userId: enrollment.studentId,
+        role: 'student',
+        channel: 'wechat',
+        bucket: dispatch.wx?.sent ? 'sent' : ((known.includes(r) ? r : 'failed') as DeliveryEntry['bucket']),
+        at: new Date().toISOString(),
+      })
+    }
+    for (const s of dispatch.sms) {
+      deliveryEntries.push({
+        userId: s.userId,
+        role: s.role,
+        channel: 'sms',
+        bucket: s.bucket,
+        ...(s.detail ? { detail: s.detail } : {}),
+        at: new Date().toISOString(),
+      })
+    }
+    if (deliveryEntries.length) await attachReminderDelivery(row.id, deliveryEntries)
 
     // 站内信必达:sms/wechat 亦同步发一条站内通知兜底
     try {
@@ -5321,7 +5352,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const windowCond = gte(eduFeeReminder.createdAt, since)
     const dayExpr = sql<string>`to_char(${eduFeeReminder.createdAt}, 'YYYY-MM-DD')`
 
-    const [totalRow, byChannel, byDay] = await Promise.all([
+    const [totalRow, byChannel, byDay, deliveryRows] = await Promise.all([
       db.select({ n: count() }).from(eduFeeReminder).where(windowCond),
       db
         .select({ channel: eduFeeReminder.channel, status: eduFeeReminder.status, n: count() })
@@ -5334,7 +5365,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         .where(windowCond)
         .groupBy(dayExpr)
         .orderBy(dayExpr),
+      db.select({ delivery: eduFeeReminder.delivery }).from(eduFeeReminder).where(windowCond),
     ])
+    const delivery = aggregateDeliveries(deliveryRows)
 
     return reply.send(
       success({
@@ -5343,8 +5376,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         total: totalRow[0]?.n ?? 0,
         byChannel,
         byDay,
+        // 真实触达计数(仅覆盖已落回执的留痕;更早的行计入 unknown,不猜任何一侧)
+        delivery,
         caveat:
-          '本统计为催缴**留痕**计数,不等于送达:通道级回执(sent/failed/not_configured/no_phone,以及微信 user_refused)未落库,只回给调用方并写日志。要算真实触达率需先把逐收件人回执持久化。',
+          'byChannel/byDay 是催缴**留痕**计数(登记了几条、走哪条通道、留痕状态),不等于送达。' +
+          '真实触达看 delivery.buckets:目前**只有每日 09:00 自动催缴**写逐收件人回执;' +
+          `手动单发/批量催费与该列落地前的历史行都没有回执,共 ${delivery.unknownReminders} 条归入 unknownReminders —— ` +
+          '既不计入送达也不计入失败,读作"这一部分触达情况未知"。',
       }),
     )
   })
