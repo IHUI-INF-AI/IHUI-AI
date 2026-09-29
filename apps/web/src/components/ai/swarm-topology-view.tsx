@@ -37,6 +37,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { Check, X } from 'lucide-react'
 import { useSwarmTopology } from '@/hooks/use-subagent-dispatch'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -1147,7 +1148,7 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
               className="flex items-center gap-1.5 rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px]"
             >
               <span className={r.success ? 'text-green-600' : 'text-red-500'}>
-                {r.success ? '✓' : '✗'}
+                {r.success ? <Check className="h-2.5 w-2.5" /> : <X className="h-2.5 w-2.5" />}
               </span>
               <span className="flex-1 truncate text-muted-foreground">{r.taskDescription}</span>
               {r.retryCount > 0 && (

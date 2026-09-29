@@ -467,19 +467,19 @@ export default function DeveloperIncome() {
                 <Text style={{ flex: 1, fontSize: '28rpx', color: 'var(--color-foreground)' }}>
                   {tt('developer.income.wechat', '微信')}
                 </Text>
-                <Text
+                {/* 勾选位宽槽沿用原 Text 的 36rpx(未选时同样占位,行宽不跳);
+                    槽内改 flex 居中 —— 原 textAlign:center 只对文字生效,挂在 mask 载体上无效。 */}
+                <View
                   style={{
                     width: '36rpx',
-                    textAlign: 'center',
-                    color:
-                      incomeType === 'wechat'
-                        ? 'var(--color-primary)'
-                        : 'var(--color-muted-foreground)',
-                    fontSize: '32rpx',
+                    display: 'flex',
+                    justifyContent: 'center',
                   }}
                 >
-                  {incomeType === 'wechat' ? '✓' : ''}
-                </Text>
+                  {incomeType === 'wechat' ? (
+                    <LineIcon name="check" size={32} color="var(--color-primary)" />
+                  ) : null}
+                </View>
               </View>
               <View style={{ display: 'flex', width: '100%', gap: '20rpx' }}>
                 <View
