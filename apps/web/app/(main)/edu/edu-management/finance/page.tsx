@@ -447,9 +447,8 @@ function TuitionDialog({
 /* ─── Payment Dialog ─── */
 
 interface PaymentFormData {
-  studentName: string
-  className: string
-  feeName: string
+  /** 归属报名(期次)。必须是选出来的 id,不是敲出来的名字 */
+  enrollmentId: string
   amount: number
   paymentDate: string
   paymentMethod: string
@@ -461,15 +460,15 @@ function PaymentDialog({
   open,
   onOpenChange,
   onSave,
+  enrollments,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   onSave: (data: PaymentFormData) => Promise<void>
+  enrollments: RosterItem[]
 }) {
   const [form, setForm] = React.useState<PaymentFormData>({
-    studentName: '',
-    className: '',
-    feeName: '',
+    enrollmentId: '',
     amount: 0,
     paymentDate: new Date().toISOString().split('T')[0]!,
     paymentMethod: 'cash',
@@ -481,9 +480,7 @@ function PaymentDialog({
   React.useEffect(() => {
     if (open) {
       setForm({
-        studentName: '',
-        className: '',
-        feeName: '',
+        enrollmentId: '',
         amount: 0,
         paymentDate: new Date().toISOString().split('T')[0]!,
         paymentMethod: 'cash',
@@ -497,8 +494,11 @@ function PaymentDialog({
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  /** 选中的那条报名:欠费额与应缴额都从名册(即账目出口)带,不在前端自己减 */
+  const selected = enrollments.find((e) => e.enrollmentId === form.enrollmentId) ?? null
+
   const handleSave = async () => {
-    if (!form.studentName.trim() || !form.feeName.trim() || !form.paymentDate) return
+    if (!form.enrollmentId || !form.paymentDate || form.amount <= 0) return
     setSaving(true)
     try {
       await onSave(form)
@@ -515,31 +515,35 @@ function PaymentDialog({
           <DialogTitle>添加缴费记录</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 py-2">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label>学员姓名</Label>
-              <Input
-                value={form.studentName}
-                onChange={(e) => update('studentName', e.target.value)}
-                placeholder="学员姓名"
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label>班级</Label>
-              <Input
-                value={form.className}
-                onChange={(e) => update('className', e.target.value)}
-                placeholder="班级名称"
-              />
-            </div>
+          <div className="grid gap-1.5">
+            <Label>期次（报名）</Label>
+            <Select
+              value={form.enrollmentId}
+              onValueChange={(v) => update('enrollmentId', v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="选择学员的某一期报名" />
+              </SelectTrigger>
+              <SelectContent>
+                {enrollments.map((e) => (
+                  <SelectItem key={e.enrollmentId} value={e.enrollmentId}>
+                    {`${e.studentName} · ${e.className} · 应缴 ${e.totalFee} 已缴 ${e.paidAmount}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* 刻意不给「学员姓名 / 班级 / 费用名称」手填框：旧版把三个名字文本直接当
+                studentId/classId 发给后端，而后端 zod 要的是 uuid ⇒ 每次必 400，
+                这个「添加缴费」按钮实际从未成功过一次。归属只能是选出来的 id。 */}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>费用名称</Label>
+              <Label>本期欠费</Label>
               <Input
-                value={form.feeName}
-                onChange={(e) => update('feeName', e.target.value)}
-                placeholder="如：学费"
+                type="number"
+                readOnly
+                value={selected?.dueAmount ?? ''}
+                placeholder="选期次后带出"
               />
             </div>
             <div className="grid gap-1.5">
@@ -598,9 +602,7 @@ function PaymentDialog({
         <DialogFooter>
           <Button
             onClick={handleSave}
-            disabled={
-              saving || !form.studentName.trim() || !form.feeName.trim() || !form.paymentDate
-            }
+            disabled={saving || !form.enrollmentId || !form.paymentDate || form.amount <= 0}
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             添加缴费
@@ -955,6 +957,19 @@ export default function FinancePage() {
   })
   const arrearsList = arrearsQuery.data?.list ?? []
 
+  /**
+   * 缴费登记与退费都要能"选到哪一期"。名册端点已按报名递 studentId/classId/dueAmount
+   * (欠费额由账目出口统一算),所以这里不再自己拼名字去猜归属。
+   */
+  const payableRosterQuery = useQuery({
+    queryKey: ['edu-ai-management', 'student-roster', 'payable'],
+    queryFn: () =>
+      api<{ list: RosterItem[]; total: number }>(
+        '/api/edu-ai-management/student-roster?page=1&pageSize=200',
+      ),
+  })
+  const payableEnrollments = payableRosterQuery.data?.list ?? []
+
   const reminderRecordsQuery = useQuery({
     queryKey: ['edu-ai-management', 'fee-reminder', reminderRecordChannel],
     queryFn: () => {
@@ -1065,7 +1080,15 @@ export default function FinancePage() {
   }
 
   const handleAddPayment = async (data: PaymentFormData) => {
-    await createPayment.mutateAsync(data)
+    try {
+      await createPayment.mutateAsync(data)
+      toast.success('缴费已登记,欠费数字已同步重算')
+    } catch (err) {
+      // 后端 400 的文案本身就在教操作者怎么补救(例如"请重新选择期次"),
+      // 必须原样递到脸上 —— 否则表现是"点了没反应",而这一格此前正是这样坏掉的。
+      toast.error(err instanceof Error ? err.message : '缴费登记失败')
+      throw err
+    }
   }
 
   const handleAddRefund = async (data: RefundFormData) => {
@@ -1875,6 +1898,7 @@ export default function FinancePage() {
         open={paymentDialogOpen}
         onOpenChange={setPaymentDialogOpen}
         onSave={handleAddPayment}
+        enrollments={payableEnrollments}
       />
 
       <RefundDialog
