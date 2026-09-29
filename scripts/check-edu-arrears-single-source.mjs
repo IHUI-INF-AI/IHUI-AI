@@ -142,6 +142,7 @@ export function scanSource(text) {
     if (!line) continue
     let hit = null
     if (BOTH_ON_LINE.test(line) && ARITH_RE.test(line)) hit = 'AR1'
+    else if (/\.insert\(\s*edu(?:Payment|Refund)Record\s*\)/.test(line)) hit = 'AR3'
     else if (
       line.includes('eduEnrollment') &&
       /\.\s*set\s*\(/.test(line) &&
@@ -315,6 +316,12 @@ export function selfTest() {
 
   const a8 = A('const r = Math.max(row.totalFee - row.paidAmount, 0) // 与上面同型,只是变量名不同')
   t('AR1 正例:换变量名不构成逃逸(row.totalFee - row.paidAmount 也红)', a8.violations.length === 1, a8.violations.length)
+
+  const b0 = A('await db.insert(eduRefundRecord).values({ studentId, amount: 300 }).returning()')
+  t('AR3 正例:账目出口之外直接写流水/退费表必红(钱动了账没动那一型)', b0.violations.some((v) => v.kind === 'AR3'), JSON.stringify(b0.violations))
+
+  const b0b = A('await db.insert(eduRefundRecordX).values({ a: 1 })')
+  t('AR3 反例:别名的表不得误伤(只认这两张账目表)', b0b.violations.length === 0, b0b.violations.length)
 
   const b1 = A('await db.update( eduEnrollment ).set({ paidAmount: 3 })')
   t('AR2 正例:set 内含派生列必红', b1.violations.some((v) => v.kind === 'AR2'), JSON.stringify(b1.violations))

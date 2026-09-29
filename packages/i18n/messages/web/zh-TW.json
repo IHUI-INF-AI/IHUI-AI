@@ -7438,7 +7438,24 @@
           "denied": {
             "reorder": "無法調整排隊順序",
             "undo": "無法撤回排隊訊息",
-            "interject": "目前 Runtime 不支援插話，訊息將繼續排隊"
+            "interject": "目前 Runtime 不支援插話，訊息將繼續排隊",
+            "cause": {
+              "streaming": "無法在回覆生成期間調整佇列順序",
+              "emptyQueue": "佇列中已沒有可復原的訊息",
+              "runtimeNoInterject": "此 Runtime 不支援插入語句，訊息將留在佇列依序處理"
+            }
+          },
+          "blocked": {
+            "runtimeNoInterject": "目前 Runtime 不支援插話，無法注入執行中的 Turn",
+            "noRunningTurn": "目前沒有執行中的 Turn，沒有可插話的對象",
+            "waitingRequestFirst": "需先處理等待中的請求，請稍後再試",
+            "controlCommandNoInterject": "控制命令不能插入執行中的 Turn，請在本輪結束後傳送",
+            "queueChanged": "佇列已發生變化，請確認最新狀態後再操作",
+            "sourceMismatch": "來源不符：該動作僅適用於語音委派任務"
+          },
+          "outcome": {
+            "deferred": "訊息未傳送，仍保留在佇列中",
+            "failed": "訊息傳送失敗，請重試"
           },
           "reorderAria": "拖動調整排隊順序；聚焦後可使用上下方向鍵"
         }
@@ -8804,7 +8821,10 @@
       "planStepFailed": "失敗",
       "rollbackAdded": "將被添加",
       "rollbackModified": "將修改",
-      "rollbackDeleted": "將刪除"
+      "rollbackDeleted": "將刪除",
+      "commandSummaryLabel": "將執行的命令",
+      "deleteSummaryLabel": "將刪除的目標",
+      "deleteRecursiveTag": "遞迴刪除"
     },
     "tokenUsage": {
       "promptTokens": "提示詞",
