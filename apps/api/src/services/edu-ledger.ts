@@ -33,7 +33,7 @@
  * 让机构看得见"有几笔钱归不到期次",而不是让它在两个期次里各出现一次。
  */
 
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import { eduEnrollment, eduFeeSchedule, eduPaymentRecord, eduRefundRecord } from '@ihui/database'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
@@ -256,8 +256,18 @@ export function deriveEnrollmentLedger(input: LedgerInput): EnrollmentLedger {
   }
 }
 
-function todayIso(): string {
-  // 用北京日界,与催费定时任务的"当日幂等"口径一致(那边按北京时间 0 点算)
+/**
+ * 「没有归属报名的流水/退费」能不能算到本报名头上 —— 只取决于该 student×class 下
+ * 有效报名的条数:1 条 ⇒ 认领(否则这笔钱在账面上凭空消失,学员被多催);
+ * ≥2 条 ⇒ 谁都不算(算给任一边都会让同一笔钱出现两次,那是本模块要消灭的第一型)。
+ * 刻意抽成纯函数:这是**判据**,必须能在没有库的情况下被断言(本仓最高频失效型
+ * 就是"判据只能连库跑,于是没人跑")。
+ */
+export function shouldAdoptUnattributed(activeEnrollmentsForStudentClass: number): boolean {
+  return activeEnrollmentsForStudentClass === 1
+}
+
+function todayIso(): string {  // 用北京日界,与催费定时任务的"当日幂等"口径一致(那边按北京时间 0 点算)
   return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
 }
 
@@ -267,11 +277,58 @@ function todayIso(): string {
  */
 export async function loadEnrollmentLedger(enrollmentId: string): Promise<EnrollmentLedger | null> {
   const [enrollment] = await db
-    .select({ totalFee: eduEnrollment.totalFee })
+    .select({
+      totalFee: eduEnrollment.totalFee,
+      studentId: eduEnrollment.studentId,
+      classId: eduEnrollment.classId,
+    })
     .from(eduEnrollment)
     .where(and(eq(eduEnrollment.id, enrollmentId), isNull(eduEnrollment.deletedAt)))
     .limit(1)
   if (!enrollment) return null
+
+  /**
+   * 该 student×class 下有几条有效报名 —— 决定"没有归属的流水/退费"能不能算到本报名头上。
+   * 只有一条时可以确定地认领;有多条(续读)时**两边都不算**:
+   * 算给本报名 = 同一笔钱在两个期次各出现一次(重复计钱,正是本模块要消灭的),
+   * 完全不算 = 学员已缴额凭空变小、又被催缴(我上一版按 enrollment_id 精确过滤就是这个形状,
+   * 而顶部注释写的是"仍计入报名级" —— 注释与实现分叉比两处都缺更坏,因为读代码的人会信注释)。
+   * 两种情形都由 loadUnattributedPayments 点名,不静默。
+   */
+  const [sibling] = await db
+    .select({ n: count() })
+    .from(eduEnrollment)
+    .where(
+      and(
+        eq(eduEnrollment.studentId, enrollment.studentId),
+        eq(eduEnrollment.classId, enrollment.classId),
+        isNull(eduEnrollment.deletedAt),
+      ),
+    )
+  const adoptUnattributed = shouldAdoptUnattributed(Number(sibling?.n ?? 0))
+
+  // 归属条件:确定归属(enrollment_id 命中) always-in;无归属行只在"唯一报名"时认领。
+  // 刻意各表写各表的列(不抽泛型 helper)—— 跨表混用列会生成坏 SQL,而这里两处条件不同形。
+  const payOwner = adoptUnattributed
+    ? or(
+        eq(eduPaymentRecord.enrollmentId, enrollmentId),
+        and(
+          isNull(eduPaymentRecord.enrollmentId),
+          eq(eduPaymentRecord.studentId, enrollment.studentId),
+          eq(eduPaymentRecord.classId, enrollment.classId),
+        ),
+      )
+    : eq(eduPaymentRecord.enrollmentId, enrollmentId)
+  const refundOwner = adoptUnattributed
+    ? or(
+        eq(eduRefundRecord.enrollmentId, enrollmentId),
+        and(
+          isNull(eduRefundRecord.enrollmentId),
+          eq(eduRefundRecord.studentId, enrollment.studentId),
+          eq(eduRefundRecord.classId, enrollment.classId),
+        ),
+      )
+    : eq(eduRefundRecord.enrollmentId, enrollmentId)
 
   const [payments, refunds, schedules] = await Promise.all([
     db
@@ -283,7 +340,7 @@ export async function loadEnrollmentLedger(enrollmentId: string): Promise<Enroll
       })
       .from(eduPaymentRecord)
       .where(
-        and(eq(eduPaymentRecord.enrollmentId, enrollmentId), isNull(eduPaymentRecord.deletedAt)),
+        and(payOwner, isNull(eduPaymentRecord.deletedAt)),
       ),
     db
       .select({
@@ -294,7 +351,7 @@ export async function loadEnrollmentLedger(enrollmentId: string): Promise<Enroll
       .from(eduRefundRecord)
       .leftJoin(eduPaymentRecord, eq(eduRefundRecord.paymentId, eduPaymentRecord.id))
       .where(
-        and(eq(eduRefundRecord.enrollmentId, enrollmentId), isNull(eduRefundRecord.deletedAt)),
+        and(refundOwner, isNull(eduRefundRecord.deletedAt)),
       ),
     db
       .select({
@@ -499,6 +556,7 @@ export async function loadUnattributedPayments(
 export const __test__ = {
   deriveEnrollmentLedger,
   dayDiff,
+  shouldAdoptUnattributed,
   PAYMENT_CREDIT_STATUSES,
   REFUND_SETTLED_STATUSES,
   EDU_REMINDER_CHANNELS,
