@@ -153,19 +153,33 @@ export function CheckpointRollbackConfirm({
                             {isOpen ? t('rollbackConfirmHideDiff') : t('rollbackConfirmViewDiff')}
                           </Button>
                         </div>
-                        {f.contentTruncated && (
-                          <p className="mt-1 text-[11px] text-muted-foreground">
-                            {t('rollbackConfirmContentTruncated')}
+                        {f.readError || f.snapshotError ? (
+                          /* G-814423:任一侧"读不到" ⇒ 显式缺省态,不渲染
+                             "空文件 vs 内容"的伪 diff(整文件新增/删除) */
+                          <p
+                            className="mt-1 flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-500"
+                            data-testid="rollback-confirm-content-unreadable"
+                          >
+                            <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />
+                            {t('rollbackConfirmContentUnreadable')}
                           </p>
-                        )}
-                        {isOpen && (
-                          <div className="mt-2">
-                            <DiffPreview
-                              oldContent={f.oldContent}
-                              newContent={f.newContent}
-                              filename={f.path}
-                            />
-                          </div>
+                        ) : (
+                          <>
+                            {f.contentTruncated && (
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                {t('rollbackConfirmContentTruncated')}
+                              </p>
+                            )}
+                            {isOpen && (
+                              <div className="mt-2">
+                                <DiffPreview
+                                  oldContent={f.oldContent}
+                                  newContent={f.newContent}
+                                  filename={f.path}
+                                />
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     )

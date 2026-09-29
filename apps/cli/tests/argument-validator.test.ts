@@ -8,6 +8,7 @@ import {
   formatValidationErrors,
   type ValidationError,
 } from '../src/tools/argument-validator.js'
+import { recordsForValidation } from '../src/tools/argument-validation-report.js'
 import type { ToolSchema } from '../src/tools/index.js'
 
 // ==================== 基础类型校验 ====================
@@ -433,6 +434,90 @@ describe('validateToolArguments - 可选字段的 null 与缺席同义', () => {
     const r = validateToolArguments({ note: 'x' }, schema)
     expect(r.valid).toBe(false)
     expect(r.errors.some((e) => e.field === 'todos' && e.reason === 'missing_required')).toBe(true)
+  })
+})
+
+// ==================== 全违规一次返回 + 严格档未知字段(G-937978) ====================
+
+describe('validateToolArguments - 收集式返回与严格档(G-937978)', () => {
+  // additionalProperties 是严格档开关(schema 自我声明"闭集");ToolSchema 字面类型尚未
+  // 收编该字段,这里用交叉类型表达真实形状,不用 as 断言。
+  type StrictToolSchema = ToolSchema & {
+    parameters: ToolSchema['parameters'] & { additionalProperties?: boolean }
+  }
+  const strictSchema: StrictToolSchema = {
+    name: 'strict',
+    description: '',
+    parameters: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        a: { type: 'string', description: '' },
+        b: { type: 'number', description: '' },
+        c: { type: 'number', description: '' },
+      },
+      required: ['a', 'b', 'c'],
+    },
+  }
+
+  it('同时缺 required 与多传 unknown ⇒ errors 一次含两条(不是遇首错即停)', () => {
+    const r = validateToolArguments({ a: 'x', b: 1, zz: 1 }, strictSchema)
+    expect(r.valid).toBe(false)
+    expect(r.errors).toHaveLength(2)
+    expect(r.errors.some((e) => e.field === 'c' && e.reason === 'missing_required')).toBe(true)
+    expect(r.errors.some((e) => e.field === 'zz' && e.reason === 'unknown_field')).toBe(true)
+    const withUnknown = validateToolArguments({ a: 'x', b: 1, c: 2, zz: 1, yy: 's' }, strictSchema)
+    expect(withUnknown.valid).toBe(false)
+    const unknowns = withUnknown.errors.filter((e) => e.reason === 'unknown_field')
+    expect(unknowns.map((e) => e.field).sort()).toEqual(['yy', 'zz'])
+  })
+
+  it('收集齐再一次返回:2 条缺失 + 1 条类型错 = 3 条一次到齐', () => {
+    const r = validateToolArguments({ a: {} }, strictSchema)
+    expect(r.valid).toBe(false)
+    expect(r.errors).toHaveLength(3)
+    const reasons = r.errors.map((e) => e.reason).sort()
+    expect(reasons).toEqual(['missing_required', 'missing_required', 'type_mismatch'])
+  })
+
+  it('unknown_field 的 actual 只装形态类别,不装原值(与台账隐私口径同线)', () => {
+    const r = validateToolArguments({ a: 'x', b: 1, c: 2, secret: 'hunter2' }, strictSchema)
+    const u = r.errors.find((e) => e.reason === 'unknown_field')
+    expect(u?.field).toBe('secret')
+    expect(u?.actual).toBe('string')
+    expect(JSON.stringify(r.errors)).not.toContain('hunter2')
+  })
+
+  it('默认档(未声明 additionalProperties)多传字段照旧忽略 —— 行为不翻', () => {
+    const openSchema: ToolSchema = {
+      name: 'open',
+      description: '',
+      parameters: {
+        type: 'object',
+        properties: { a: { type: 'string', description: '' } },
+        required: ['a'],
+      },
+    }
+    const r = validateToolArguments({ a: 'x', extra: 1 }, openSchema)
+    expect(r.valid).toBe(true)
+    expect(r.errors).toEqual([])
+  })
+
+  it('严格档下所有字段都对 ⇒ valid,未知档开关不误伤', () => {
+    const r = validateToolArguments({ a: 'x', b: 1, c: 2 }, strictSchema)
+    expect(r.valid).toBe(true)
+  })
+
+  it('unknown_field 流进台账投影:reason/observed 齐全且不携带原值', () => {
+    const records = recordsForValidation(
+      strictSchema,
+      { a: 'x', b: 1, c: 2, zz: [1, 2] },
+      validateToolArguments({ a: 'x', b: 1, c: 2, zz: [1, 2] }, strictSchema),
+    )
+    const row = records.find((r) => r.reason === 'unknown_field')
+    expect(row?.field).toBe('zz')
+    expect(row?.observed).toBe('array')
+    expect(JSON.stringify(records)).not.toContain('[1,2]')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

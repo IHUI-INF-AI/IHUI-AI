@@ -306,8 +306,23 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
     "toutiao": {
         "name": "今日头条",
         "login_url": "https://www.toutiao.com/",
-        "success_cookies": ["sid_tt", "sessionid", "tt_scid"],
+        # 2026-09-29 剔除 tt_scid:它是字节跳动设备追踪 cookie,游客访问首页就带,
+        # 曾导致"打开首页 3 秒未扫码即假成功"(任一命中即判登录,_cookie_hits 是 any 语义)。
+        # 真正的登录会话 cookie 只有 sid_tt / sessionid(未登录时不存在)。
+        "success_cookies": ["sid_tt", "sessionid"],
         "success_url_pattern": r"^https?://(www\.)?toutiao\.com/?($|#|\?)|mp\.toutiao\.com/(dashboard|home|main)",
+        # 2026-09-29 探测(headless 1920×900,复刻受控环境):出码路径 = 点可见的
+        # 登录按钮(a.login-button 首个实例藏在 SSR 骨架里不可见,必须 :visible 限定,
+        # 否则 .first 点不中弹层永远不开)→ 弹层右侧默认就是"扫码登录"tab 的
+        # 头条 App 码(web-login-scan-code__content__qrcode-wrapper img,136×136,
+        # class 含 qrcode → 通用 _QR_ELEMENT_SELECTORS 已可裁剪放大)。
+        # ⚠️ 不配首页弹层右下"扫码下载今日头条"推广码 —— 那是下载码,上一轮
+        # 5 分钟超时的根因就是通用清单 div:has-text("扫码") 误点它 + 整屏截图。
+        # 微信圆标(__icon__weixin)在 headless 受控环境实测点击无响应(风控),
+        # 用户侧用今日头条 App 扫码即可,同一账号。
+        "scan_tab_selectors": (
+            ('a.login-button:visible',),
+        ),
     },
     "wechat": {
         "name": "微信公众号",

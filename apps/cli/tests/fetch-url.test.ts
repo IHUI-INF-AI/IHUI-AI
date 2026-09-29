@@ -29,6 +29,17 @@ vi.mock('@ihui/shared/utils/ssrf-guard', async (importOriginal) => {
   };
 });
 
+// 同理:本文件夹具 server 只能听在 127.0.0.1,而字面出口守卫(fetch-url-egress,G-937973)
+// 的**正确行为恰恰是拒绝回环 IP 字面量**(EgressBlocked,且先于 SSRF 守卫判定)。
+// 这里同样桩成放行;守卫自身的判定与接线行为由 tests/fetch-url-egress.test.ts 证明。
+vi.mock('../src/tools/fetch-url-egress.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/tools/fetch-url-egress.js')>();
+  return {
+    ...actual,
+    assertFetchLiteralEgress: () => {},
+  };
+});
+
 import { FETCH_TOOLS, fetch_url } from '../src/tools/fetch-url.js';
 
 describe('FETCH_TOOLS 注册', () => {
