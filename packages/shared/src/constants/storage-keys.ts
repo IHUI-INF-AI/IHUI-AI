@@ -21,6 +21,23 @@ export { THEME_STORAGE_KEY, LOCALE_STORAGE_KEY } from './theme'
 
 // 新规范:连字符前缀(与 theme.ts 一致)
 export const USER_INFO_STORAGE_KEY = 'ihui-user-info' as const
+
+/**
+ * 「记住登录」三件的 storage key(2026-09-29 由三端本地字面量提升)。
+ *
+ * 名字**跨端同值**(RN AsyncStorage / web localStorage / Taro storage 用同一串),
+ * 但各自落在自己的沙箱里,数据不互通。值本身:
+ * - `REMEMBERED_ACCOUNT_STORAGE_KEY`:**只可能含账号**(判据 = `@ihui/shared/auth/remembered-account`)。
+ *   键名沿用历史 `ihui-remember-credentials` 是为了让存量记录被读到并**就地抹掉口令**,
+ *   不是"这一档还存口令"—— 改名等于放弃迁移:旧记录会在没人读的时刻自然腐烂,口令留在盘上。
+ * - `AUTO_LOGIN_STORAGE_KEY`:布尔事实('1' / '0'),不是凭据。
+ * - `LOGIN_HISTORY_STORAGE_KEY`:账号列表,不含口令。
+ */
+export const REMEMBERED_ACCOUNT_STORAGE_KEY = 'ihui-remember-credentials' as const
+export const AUTO_LOGIN_STORAGE_KEY = 'ihui-auto-login' as const
+export const LOGIN_HISTORY_STORAGE_KEY = 'ihui-login-history' as const
+/** 账号历史上限(超出丢最旧)。 */
+export const LOGIN_HISTORY_MAX = 5 as const
 export const VIP_STORAGE_KEY = 'ihui-vip-info' as const
 export const INVITE_CODE_STORAGE_KEY = 'ihui-invite-code' as const
 export const SSO_CODE_STORAGE_KEY = 'ihui-sso-code' as const
