@@ -11,7 +11,6 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
 import { resourceFromAttributes } from '@opentelemetry/resources'
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions'
 import { generateTraceparent } from '../utils/trace-context.js'
-import { TRACE_ID_RESPONSE_HEADER, traceIdFromTraceparent } from '@ihui/types'
 
 /**
  * OpenTelemetry 分布式追踪插件（R74 P2 增强）。
@@ -111,21 +110,6 @@ const otelPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const userId = request.userId ?? request.jwtPayload?.userId
     if (userId) attrs['enduser.id'] = userId
     span.setAttributes(attrs)
-  })
-
-  // D147(2026-09-29 立):把本轮 trace id **回带给自己的客户端**。
-  // 上面那条 onRequest 已经保证"每个请求都有 traceparent"(客户端没带就由 api 起一条 root),
-  // 但客户端拿不到 ⇒ 四段里"端 ↔ api"这一跳只能单向串。用户在对话里报障时不说编号
-  // (口径「编号不上 UI」),排查侧要能从一个 id 反查整条链,所以回带是这条链的**必要**一段。
-  // 挂在 onSend 而不是 onRequest:reply 的头要在路由处理之后仍然在,且 onRequest 阶段
-  // 还没有 reply 对象可写。非法/缺失 traceparent 时不发该头(不造一个"看起来像"的 id)。
-  server.addHook('onSend', async (request: FastifyRequest, reply, payload) => {
-    // header 类型为 `string | string[] | undefined`(Node 允许同名重复头),而重复头时
-    // "哪一条是本轮的"没有定义 ⇒ 刻意不猜:只在拿到单个字符串时解,数组一律不回带。
-    const raw = request.headers['traceparent']
-    const traceId = typeof raw === 'string' ? traceIdFromTraceparent(raw) : null
-    if (traceId) reply.header(TRACE_ID_RESPONSE_HEADER, traceId)
-    return payload
   })
 
   // 请求出错时标记 span 状态

@@ -73,10 +73,7 @@
  *   node scripts/union-converge.mjs --self-test      # 真临时仓取证(含"选边必判失败"反向对照)
  *   node scripts/union-converge.mjs --move-aware-detail
  *       # 把"因搬运感知而未取回"的行**逐行**打印(默认只按条目块给计数 + 出处归档件路径)。
- * 退出码:0 = 无需合并或已落地且复核干净;1 = 判据不过/两侧同改冲突需人工/CAS 失败;
- *        2 = 脚本自身异常,**或"本器没资格判"**(取不到远端当次真值 / 目标对象不在本机)——
- *        后者走 `unreachableObjectGuidance` 打印三条出口并落 `UNDETERMINED 未判定`,
- *        绝不能落在 0 那一支(把"判不了"报成"无事可做"= 账面全绿而分叉永久留着)。
+ * 退出码:0 = 无需合并或已落地且复核干净;1 = 判据不过/两侧同改冲突需人工/CAS 失败;2 = 脚本自身异常。
  */
 import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -1236,100 +1233,29 @@ export function hasCommit(sha, cwd = ROOT) {
   )
 }
 
-/**
- * 「本器没资格判」那一支的**唯一出路文案出口**(G-473 收口)。
- *
- * 为什么要单列成一份函数而不是在三个分支里各拼一句:调用方(git-sync-converge)按
- * `UNDETERMINED` 分流,而**人**按这三条出口办事 —— 三处各写一遍必然漂开,而漂开的表现是
- * "同一次故障,CLI 用户与 import 者拿到的指导不一样"(本仓"两处算同一件事必漂移"那一族)。
- *
- * 三条出口的**编号按种类固定,不随缺哪条而重排**:①=联网按分支 fetch、②=免联网显式喂可达 sha、
- * ③=ref 存续体检。R-B 依赖这一点:缺的是**本地 HEAD** 时 ① 结构上无效(fetch 回不来本机 HEAD 的
- * 对象,那是 gitdir/refs 受损),所以只发 ③ —— 编号若按位置重排,③ 就会被印成"出口①",
- * 读的人照它去 fetch,白跑一轮还以为是自己网络的问题。
- *
- * 一条硬约束(由 R-A 的反向锁钉死):**不得把"按 sha 直取"包装成可执行命令**。
- * 公共托管默认拒绝未公布对象,而那枚 sha 是否还公布着恰恰在并发高峰最先失效 ——
- * 给出去就是第二条"文档写了却跑不通的出路"(§26 那一族的禁令)。
- *
- * @param {object} o
- * @param {string[]} [o.missing]  本机取不到的 commit(对象不在本机那一型)
- * @param {string} [o.theirs]     本轮想合的目标
- * @param {string} [o.head]       本地 HEAD
- * @param {string} [o.branch]     被审仓库的当前分支名(detached 时 --abbrev-ref 回的 "HEAD" 不算)
- * @param {string|null} [o.noRemoteTruth]  远端当次真值根本没问到时的原因(那一型与"对象不在本机"不同因)
- * @returns {string} 多行文本,首行定性,其后逐行是出口
- */
-export function unreachableObjectGuidance({
-  missing = [],
-  theirs = '',
-  head = '',
-  branch = '',
-  noRemoteTruth = null,
-} = {}) {
-  // detached 仓库的 `--abbrev-ref HEAD` 回字面量 "HEAD",照抄会产出一条必败的 `fetch origin HEAD`
-  // ⇒ 归一成占位,让人自己补(G-RG 的变异自证抓的就是这一步被"简化")。
-  const b = branch && branch !== 'HEAD' ? branch : '<当前分支名>'
-  const list = (Array.isArray(missing) ? missing : [missing]).filter(Boolean)
-  const headMissing = list.length > 0 && !!head && list.includes(head)
-  const out = []
-  if (noRemoteTruth)
-    out.push(
-      `问不到远端当次真值:${String(noRemoteTruth).slice(0, 120)}(跟踪 ref 的残值不参与落槌 ⇒ 更不能据此说"已同步")`,
-    )
-  else if (headMissing)
-    out.push(`本地 HEAD 的那枚对象都取不到(${String(head).slice(0, 11)}) ⇒ 这不是"少 fetch 一次",是 gitdir/refs 受损`)
-  else {
-    // 每枚取不到的 sha 都**按角色**报名:只给一串截断哈希,读的人分不清该 fetch 的是远端还是本机坏了。
-    const role = (s) => (s === theirs ? '本轮目标' : s === head ? '本地 HEAD' : '另一枚对象')
-    out.push(`对象不在本机(${list.map((s) => `${role(s)} ${String(s).slice(0, 11)}`).join(' / ')})`)
-  }
-  if (!headMissing) {
-    out.push(`  出口① 联网取当次真值:git fetch origin ${b}(随后自行 rev-parse 复核,别信跟踪 ref 的残值)`)
-    out.push(
-      `  出口② 免联网:显式喂一枚本机已可达的目标 —— node scripts/union-converge.mjs --theirs <本机已可达的 sha>` +
-        `(本器不代跑 fetch:网络动作与 ref 写入的归属留给调用方)`,
-    )
-  }
-  out.push(
-    `  出口③ ref 存续体检:node scripts/git-refs-heal.mjs --status,缺失即 node scripts/git-refs-heal.mjs` +
-      `(§5b:嵌套 ref 会被清理层删掉,update-ref 对它还会假成功)`,
-  )
-  return out.join('\n')
-}
-
 /** 找一对需要合并的输入;skip 非空表示无事可做,undetermined 非空表示"这一步还没资格判"。 */
 export function resolveTargets(theirsArg, cwd = ROOT) {
   const head = git(['rev-parse', 'HEAD'], cwd)
   const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
   let theirs = theirsArg
-  // "调用方有没有点名一枚 --theirs" 决定"本地纯落后"能不能当短路用(见下面那条注释)。
-  const explicit = String(theirsArg || '').trim() !== ''
   if (!theirs) {
     try {
       // 远端位置只认**当次真值**(§5b:跟踪 ref 会被清理层删掉,packed-refs 里的旧值照样被读回来)。
       // 拿残值落槌有两种都不报错的错向:残值==本地 ⇒ 报"已同步"而根本不合并;残值落后 ⇒ 去合一个
       // 早已不存在的分叉。取不到就当"无法判定"交回上层,绝不猜一个 stage 用。
-      // ⚠️ 这一支过去落 `skip`(⇒ CLI 打印"无需合并"并 exit 0),那是把"判不了"报成"无事可做":
-      // 调用方据此跳过一整轮收敛,账面全绿而分叉永久留着。现在落 undetermined ⇒ exit 2。
       const r = resolveRemoteHead(branch, { root: cwd })
       if (!r.sha)
         return {
           head,
           theirs: '',
-          skip: null,
-          undetermined: unreachableObjectGuidance({ noRemoteTruth: r.reason, branch }),
+          skip: `取不到 ${branch} 的当次远端真值(不拿跟踪 ref 残值落槌):${r.reason}`,
         }
       theirs = r.sha
     } catch (e) {
       return {
         head,
         theirs: '',
-        skip: null,
-        undetermined: unreachableObjectGuidance({
-          noRemoteTruth: `取远端异常:${String((e && e.message) || e).slice(0, 90)}`,
-          branch,
-        }),
+        skip: `取远端 ${branch} 异常:${String((e && e.message) || e).slice(0, 90)}`,
       }
     }
   }
@@ -1344,16 +1270,10 @@ export function resolveTargets(theirsArg, cwd = ROOT) {
       head,
       theirs,
       skip: null,
-      undetermined: unreachableObjectGuidance({ missing, theirs, head, branch }),
+      undetermined: `对象不在本机(${missing.map((s) => String(s).slice(0, 11)).join('、')})⇒ 本器不代跑 fetch;出口:git fetch --no-tags origin ${missing[0]} 后重跑`,
     }
   if (isAncestor(theirs, head, cwd)) return { head, theirs, skip: '目标已被本地包含' }
-  // ⚠️ "本地纯落后 ⇒ 交给 ff/converge"这一短路**只对"远端真值自动解析"那一支成立**。
-  // 显式喂了 `--theirs` 却说这句是错的(G-815406 同族、G-814402 实测):调用方点名要合的那枚提交
-  // 是不是已经在本地,只有 `isAncestor(theirs, head)` 能回答;而"本地落后于它"完全不等于
-  // "无事可做"—— 它恰恰意味着**还差一次合并**。旧写法在这里 exit 0 并打印"无需合并",
-  // 一次已验证的交付差点就这么没了(票面:复核的人都被那句合理话术劝退)。
-  // 现在显式档照常走归并:落地闸仍然硬判"两侧路径零丢失",所以它不会比 ff 更危险,而它说真话。
-  if (!explicit && isAncestor(head, theirs, cwd))
+  if (isAncestor(head, theirs, cwd))
     return { head, theirs, skip: '本地纯落后 ⇒ 走 ff/converge,不用 union' }
   return { head, theirs, skip: null }
 }
@@ -1380,20 +1300,12 @@ export function plan(
 ) {
   // 直接走 API 的调用方也必须拿到同一句诊断,而不是 git 的 "Not a valid commit name" 加一串堆栈
   // (G-473 ②:取不到要写成"未判定 + 出口",不得表现为工具故障)。CLI 那一支在 resolveTargets
-  // 已经拦下,这条是给 import 者的 —— 两处判据与**两处出路文案**同一份实现(unreachableObjectGuidance),
-  // 各写一遍的后果是"CLI 用户与 import 者拿到的指导不一样"。
+  // 已经拦下,这条是给 import 者的 —— 两处判据同一份实现(hasCommit)。
   const miss = [ours, theirs].filter((s) => s && !hasCommit(s, cwd))
-  if (miss.length) {
-    let branch = ''
-    try {
-      branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
-    } catch {
-      /* 分支名问不到 ⇒ guidance 自己落占位,不因此改变"未判定"这一结论 */
-    }
+  if (miss.length)
     throw new Error(
-      `未判定:${unreachableObjectGuidance({ missing: miss, theirs, head: ours, branch })}`,
+      `未判定:对象不在本机(${miss.map((s) => String(s).slice(0, 11)).join('、')})⇒ 本器不代跑 fetch;出口:git fetch --no-tags origin ${miss[0]} 后重跑`,
     )
-  }
   const base = git(['merge-base', ours, theirs], cwd)
   // 一张抑制表同时喂归并与落地断言(分开算必漂移,而漂移的固定代价是"落地闸把合法未取回判成丢行")。
   const moveAwareCache = new Map()
@@ -2420,14 +2332,6 @@ async function main() {
     console.log(`[union-converge] UNDETERMINED 未判定:${t.undetermined}`)
     process.exit(2)
   }
-  // 显式点名了 --theirs 而本地又落后于它:不再打印"无需合并"(G-815406 同族、G-814402 实测的那次
-  // 差点吞掉一整个已验证交付),而是**照常归并并说清为什么**。快进确实是更省的动作,但那是对调用方
-  // 说的,不该由本器代替他下结论后 exit 0。
-  if (ti >= 0 && String(argv[ti + 1] || '').trim() !== '' && isAncestor(t.head, t.theirs, ROOT))
-    console.log(
-      '[union-converge] 本地落后于所点名的 --theirs ⇒ 这不是"无需合并";按显式目标照常归并' +
-        '(要快进请自己跑 git merge --ff-only,本器不替调用方决定动作)',
-    )
   const p = plan(t.head, t.theirs, ROOT, takeOurs, resolutions, takeTheirs, accepted)
   console.log(
     `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 活文档行 union`,
@@ -2551,7 +2455,6 @@ export const __test__ = {
   verifyUnion,
   resolveTargets,
   hasCommit,
-  unreachableObjectGuidance,
   plan,
   listPaths,
   show,
