@@ -8187,10 +8187,6 @@
           "title": "Request timed out",
           "action": "Retry"
         },
-        "DELETE_FAILED": {
-          "title": "File deletion failed",
-          "action": "Release the file lock and retry"
-        },
         "DEP_MISSING": {
           "title": "A dependency is missing",
           "action": "Install it and retry"
@@ -8478,10 +8474,6 @@
         "SENSITIVE_FILE_BLOCKED": {
           "title": "This action was blocked by a security policy",
           "action": "Adjust and retry"
-        },
-        "SNAPSHOT_UNREADABLE": {
-          "title": "Snapshot content unreadable",
-          "action": "Pick another version or skip the rollback"
         },
         "SSRF_BLOCKED": {
           "title": "This address is not allowed",
@@ -13409,7 +13401,7 @@
   },
   "aiApprovedRules": {
     "title": "Approved command rules",
-    "description": "Prefix and network-target allow rules created during approval; they expire automatically and can be revoked anytime.",
+    "description": "Prefix allow rules created via approval. They expire after 90 days and can be revoked anytime.",
     "empty": "No approved rules yet",
     "prefixHeader": "Command prefix",
     "createdAtHeader": "Created",
@@ -13422,10 +13414,7 @@
     "loadFailed": "Failed to load approved rules",
     "refresh": "Refresh",
     "scopeAlways": "Long-term",
-    "scopeSession": "This session",
-    "sectionCommands": "Command prefix",
-    "sectionNetwork": "Network targets",
-    "revokeConfirmContentNetwork": "After revoking, access to target \"{target}\" will require approval again."
+    "scopeSession": "This session"
   },
   "editor": {
     "toolApproval": {
@@ -13439,21 +13428,7 @@
       "description": "AI requests to run the following high-risk operation. Please confirm whether to allow it.",
       "pendingCount": "{count} more pending",
       "reject": "Reject",
-      "title": "Tool Approval",
-      "envLabel": "Execution environment",
-      "envInSandbox": "Runs inside a sandbox",
-      "envOutsideSandbox": "Runs outside a sandbox",
-      "envBackend": "Isolation: {backend}",
-      "envDegraded": "Sandbox capability unavailable; fell back to restricted direct execution",
-      "envNetworkSection": "Network",
-      "envNetworkBlocked": "Blocked network targets",
-      "envNetworkBlockedOne": "{host}:{port} ({reason})",
-      "envNetworkOpen": "Outbound network is available for this request",
-      "envNetworkOff": "Outbound network is not available for this request",
-      "envUnknown": "Not reported (do not infer from the permission tier; reject and ask for a retry)",
-      "envAllowTargetOnce": "Allow this target once",
-      "envAllowTargetSession": "Allow this target for this conversation",
-      "envAllowTargetAlways": "Always allow this target (expires in 90 days)"
+      "title": "Tool Approval"
     },
     "toolbar": {
       "addColumn": "Add Column",

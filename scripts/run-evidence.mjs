@@ -18,114 +18,42 @@
  * INCOMPLETE 并 exit 3 —— **不得**当成通过,也不得当成失败,那是第三种状态。
  *
  * 用法:
- *   node scripts/run-evidence.mjs <证据文件> [--timeout=毫秒] [--label=说明] [--cwd=绝对路径] -- <命令> [参数...]
- *   node scripts/run-evidence.mjs --verify <证据文件> [--expect-cwd=绝对路径]
+ *   node scripts/run-evidence.mjs <证据文件> [--timeout=毫秒] [--label=说明] -- <命令> [参数...]
+ *   node scripts/run-evidence.mjs --verify <证据文件>
  *   node scripts/run-evidence.mjs --self-test
  * 退出码:0 = 被包装命令 RC=0;1 = RC 非 0(业务失败或本工具用法错);
  *        3 = INCOMPLETE(取证被截断/进程被杀 ⇒ 结论无效,必须重跑而不是下判断);
  *        75 = 原样传播(本仓 push guard 的"中断重试"链依赖它,不得收敛成 1)。
  *
- * --cwd(G-285):旧实现把被包装命令钉死在仓根,用它取"从**别的目录**跑同一判据"那一发时,
- * 子进程收到的是被改写过的路径(证据里写 Cannot find module G:\scripts\…,根本没进被测进程),
- * 而 --verify 仍判 complete —— 取证工具自己产出假合格证。现允许透传 spawn cwd 并把它记进
- * 证据(#EVIDENCE-CWD= 行);读侧 --expect-cwd 与记录不符 ⇒ 一律 truncated(exit 3)。
- * 不带 --cwd 时行为逐字不变(默认仓根、证据里不写 CWD 行),既有调用方零感知。
- *
  * ⚠️ 本工具是**取证出口**,不是守门判据:不在提交链里,也不得被写成"已接 pre-commit"。
  */
-/* eslint-disable no-console -- 本工具是 CLI 取证包装器,结论必须走 console(与 check-*.mjs 同形)。
-   注:该文件此前经**对象空间落地**入库,那条通道不跑 lint-staged,所以这一族 console 警告
-   在 HEAD 里安静地存在了一整天 —— 见 AGENTS.md §12「造好没装车」同族的落地侧版本。 */
 import { spawn } from 'node:child_process'
-import {
-  closeSync,
-  existsSync,
-  fstatSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  readSync,
-  rmSync,
-  writeSync,
-} from 'node:fs'
-import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
+import { closeSync, existsSync, openSync, readFileSync, rmSync, writeSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..')
 const RC_MARK = '#EVIDENCE-RC='
 const KILLED_MARK = '#EVIDENCE-KILLED'
-const CWD_MARK = '#EVIDENCE-CWD='
 const DEFAULT_TIMEOUT_MS = 1_800_000
 
-/**
- * 证据文件落点:相对路径一律按**仓库根**解释,且拒绝逃逸仓库根。
- * 为什么加这一层(2026-09-27 由我自己的一次调用撞出来):旧写法直接 `resolve(ROOT, f)`,
- * 于是在 `apps/miniapp-taro/` 下传 `../../.ihui-agent/tmp/x.txt` 会被算成
- * `<盘根>\.ihui-agent\...` —— 一次手滑就把取证文件写到盘根(§15/§28 明令禁止的落点,
- * 而守门 26 会把它算成父目录污染)。绝对路径不在此限(临时物落点由调用方按 §15b/§26 负责),
- * 但最终落点会打进输出,让"写到哪儿了"当场可见,而不是事后靠 ENOENT 反推。
- */
-export function resolveEvidencePath(f, root = ROOT) {
-  const abs = isAbsolute(f)
-  const p = abs ? f : resolve(root, f)
-  if (!abs) {
-    const rel = relative(root, p)
-    if (rel === '' || rel.startsWith('..' + sep) || isAbsolute(rel)) {
-      throw new Error(
-        `证据文件路径逃出了仓库根:${JSON.stringify(f)} → ${p}` +
-          `(相对路径按仓库根解释;要写到仓库外请传绝对路径,并自行确认那是 §15b/§26 批准的落点)`,
-      )
-    }
-  }
-  return p
-}
-
-/** 归一路径用于 cwd 比对:resolve 归一分隔符;win32 再折叠大小写(同一目录允许两种写法)。导出给镜像测试。 */
-export function normCwd(p) {
-  if (typeof p !== 'string' || p === '') return null
-  try {
-    const r = resolve(p)
-    return process.platform === 'win32' ? r.toLowerCase() : r
-  } catch {
-    return null
-  }
-}
-
-/** 把一段证据文本判成三态。导出给镜像测试用纯函数 + 构造面证明(不得在测试里再抄一份判据)。
- *  expectCwd(可选,G-285):调用方声明"这次取证应当发生在哪个目录"。证据里记录的 #EVIDENCE-CWD=
- *  行与期望不符、或期望给了而证据里没记 ⇒ 一律降为 truncated(exit 3)—— 取证面错了与"没跑到"
- *  同格处置:结论无效必须重跑,绝不发"目录不对的合格证"。 */
-export function judgeEvidence(text, expectCwd) {
+/** 把一段证据文本判成三态。导出给镜像测试用纯函数 + 构造面证明(不得在测试里再抄一份判据)。 */
+export function judgeEvidence(text) {
   if (typeof text !== 'string' || text === '') return { kind: 'missing', reason: '空文本' }
   const lines = text.split(/\r?\n/)
-  const cwdLine = lines.filter((l) => l.startsWith(CWD_MARK)).pop()
-  const recordedCwd = cwdLine ? cwdLine.slice(CWD_MARK.length).trim() : null
-  if (expectCwd !== undefined && normCwd(recordedCwd) !== normCwd(expectCwd)) {
-    return {
-      kind: 'truncated',
-      cwd: recordedCwd,
-      reason: `取证 cwd 与期望不符(记录:${recordedCwd ?? '(未记录)'} / 期望:${expectCwd})⇒ 结论无效,请用正确的 --cwd 重跑`,
-    }
-  }
   const rcLine = lines.filter((l) => l.startsWith(RC_MARK)).pop()
   if (rcLine) {
     const raw = rcLine.slice(RC_MARK.length).trim()
     const rc = Number(raw)
-    if (!Number.isInteger(rc))
-      return { kind: 'malformed', cwd: recordedCwd, reason: `RC 标记内容不是整数:${raw}` }
-    return { kind: 'complete', rc, cwd: recordedCwd, reason: `命令跑完并落了 RC=${rc}` }
+    if (!Number.isInteger(rc)) return { kind: 'malformed', reason: `RC 标记内容不是整数:${raw}` }
+    return { kind: 'complete', rc, reason: `命令跑完并落了 RC=${rc}` }
   }
   if (lines.some((l) => l.startsWith(KILLED_MARK))) {
-    return {
-      kind: 'killed',
-      cwd: recordedCwd,
-      reason: '被外部信号终止(已留标记)⇒ 这次取证没有结论',
-    }
+    return { kind: 'killed', reason: '被外部信号终止(已留标记)⇒ 这次取证没有结论' }
   }
   return {
     kind: 'truncated',
-    cwd: recordedCwd,
     reason: `证据里没有 ${RC_MARK} 行 ⇒ 输出被截断或进程被杀,绝不能读成"跑过了"`,
   }
 }
@@ -136,14 +64,7 @@ export function exitCodeForVerdict(v) {
   return 3
 }
 
-function writeLine(fd, s, state) {
-  if (markIfSettled(state)) return
-  // **标记必须独占一行**(2026-09-29 实测的假"截断"):被包装的命令常常不以换行收尾
-  // (最典型是 `cat <一个末尾没有换行的文件>`),旧写法直接把 `#EVIDENCE-RC=0` 接在那半行后面 ⇒
-  // 读侧按"行首"找标记找不到 ⇒ 一次**完整**的取证被判成 truncated。
-  // 方向是"少发合格证"(安全侧),但代价是证据作废、逼人重跑,而重跑那次若真被截断就永远分不清。
-  // 判据:文件非空且最后一个字节不是 `\n`(含只落 `\r` 的 CRLF 半截)⇒ 先补一个换行。
-  if (state?.outFile) ensureLineStart(fd, state.outFile)
+function writeLine(fd, s) {
   try {
     writeSync(fd, s + '\n')
   } catch {
@@ -151,98 +72,17 @@ function writeLine(fd, s, state) {
   }
 }
 
-/** 只在"要写的是标记行"时用:量最后一个字节,不是换行就先补一个换行。 */
-function ensureLineStart(fd, outFile) {
-  try {
-    const size = fstatSync(fd).size
-    if (size === 0) return
-    const rfd = openSync(outFile, 'r')
-    try {
-      const buf = Buffer.alloc(1)
-      readSync(rfd, buf, 0, 1, size - 1)
-      if (buf[0] !== 0x0a) writeSync(fd, '\n')
-    } finally {
-      closeSync(rfd)
-    }
-  } catch {
-    /* 量不到就照旧写:这一层是加固,不是判据,不得因为它失败而把已跑完的取证作废 */
-  }
-}
-
-/** 第二次(终止之后)尝试写证据 ⇒ 记一笔,调用方读得到。两层都调它:handler 顶 + 每次写入前。 */
-function markIfSettled(state) {
-  if (!state || !state.settled) return false
-  state.doubleWrite = true
-  return true
-}
-
-/** Windows 的包管理器 shim 是 `.CMD`,而 `.CMD` **不是**可执行文件 ⇒ `spawn('pnpm')` 必 `ENOENT`。
- *  本工具默认"不经 shell 直派生"(参数不被二次解释,这是设计属性),所以只在解析到 `.cmd/.bat`
- *  时才改走 `cmd.exe /d /c`,且**如实登记**这条路径的边界:cmd 的引号规则与 MSVC 不同,含空格/引号
- *  的参数可能被 cmd 重新切分 —— 需要逐字保参时请直接给可执行文件本体(如 `node`/`git.exe`)。 */
-const BATCH_EXT_RE = /\.(cmd|bat)$/i
-let cachedPathDirs = null
-function pathDirs() {
-  if (cachedPathDirs) return cachedPathDirs
-  const sep = process.platform === 'win32' ? ';' : ':'
-  cachedPathDirs = String(process.env.PATH || '')
-    .split(sep)
-    .filter(Boolean)
-  return cachedPathDirs
-}
-/** 找到 shim 的绝对路径(仅用于判后缀);找不到就返回 null(交给原命令,错误面照旧落 127)。
- *  ⚠️ 候选必须**同时**包含"原名"与"原名+.cmd/.bat":PATH 上的 shim 可能已经带后缀
- *  (调用方写 `pnpm.cmd`)也可能不带(写 `pnpm`)。漏掉前者时 `buildSpawnArgv(['pnpm.cmd'])` 会
- *  原样返回,而 spawn 对 `.CMD` 必 `ENOENT` —— 恰是本要修的那一型。
- *  不变量:**只返回带批处理后缀的路径**。裸名(`pnpm`)可能直接命中 PATH 上那个无后缀的
- *  ELF/脚本 shim(Git Bash 的 `/usr/bin/pnpm` 就是),返回它等于凭空包一层 cmd.exe。 */
-function resolveBatchShim(cmd) {
-  const exts = process.platform === 'win32' ? ['', '.cmd', '.bat', '.CMD', '.BAT'] : ['']
-  const hit = (p) => BATCH_EXT_RE.test(p) && existsSync(p)
-  if (cmd.includes('/') || cmd.includes('\\')) {
-    for (const e of exts) if (hit(cmd + e)) return cmd + e
-    return null
-  }
-  for (const dir of pathDirs()) {
-    for (const e of exts) {
-      const p = resolve(dir, cmd + e)
-      if (hit(p)) return p
-    }
-  }
-  return null
-}
-/** 决定实际派生的 argv(导出给镜像测试用构造面证明,**不得**在测试里再抄一份判据)。 */
-export function buildSpawnArgv(cmdArgs) {
-  const shim = resolveBatchShim(cmdArgs[0])
-  if (shim && BATCH_EXT_RE.test(shim)) return ['cmd.exe', '/d', '/c', shim, ...cmdArgs.slice(1)]
-  return cmdArgs
-}
-
-function runCapture(outFile, cmdArgs, { timeoutMs, label, cwd }) {
+function runCapture(outFile, cmdArgs, { timeoutMs, label }) {
   if (!cmdArgs.length) throw new Error('-- 之后必须给出要跑的命令')
-  // 证据落点常在共享临时目录里,会被别的会话或清理层连带删掉;目录缺失时 openSync 抛
-  // ENOENT,这一次取证就成了"包装器自己产出的没跑到"—— 先建父目录再开句柄。
-  mkdirSync(dirname(outFile), { recursive: true })
   const fd = openSync(outFile, 'w')
   const started = new Date().toISOString()
   writeLine(fd, `#EVIDENCE-CMD: ${cmdArgs.join(' ')}`)
   if (label) writeLine(fd, `#EVIDENCE-LABEL: ${label}`)
   writeLine(fd, `#EVIDENCE-START: ${started}`)
-  // G-285:只有显式传了 --cwd= 才落这一行(默认 ROOT 时旧形态逐字不变,既有调用方零感知)。
-  // 位置在头部(RC 行之前):即使进程被杀、RC 行永远不来,取证面也已留档可核对。
-  if (cwd) writeLine(fd, `${CWD_MARK}${cwd}`)
-  // `error` 与 `close` 在派生失败(ENOENT)时**都会**触发;句柄只能关一次、RC 行只能写一次。
-  // 旧实现没记这一层:`error` 里 closeSync 之后 `close` 又 closeSync ⇒ EBADF 未捕获直接崩掉整个取证
-  // (2026-09-27 两路代理各自撞上,现象是"包装器自己崩",而证据里已经写了 RC=127 —— 结论对、进程死)。
-  //
-  // `state` 同时是**可观测位**,并且**就是交付给调用方的那个对象**(按引用共享 ⇒ 第二次终止尝试
-  // 发生在 resolve 之后,调用方仍读得到 `doubleWrite`)。分成两个对象就会漏报:finish 时把 false 抄过去,
-  // 之后置真的那一笔落在 state 上,调用方看的还是 outcome —— 这是写这一层时踩到的第二个坑。
-  const st = { rc: null, killed: false, note: '', doubleWrite: false, settled: false, outFile }
   return new Promise((res) => {
-    const spawnArgs = buildSpawnArgv(cmdArgs)
-    const child = spawn(spawnArgs[0], spawnArgs.slice(1), {
-      cwd: cwd || ROOT,
+    // 直接派生目标命令(不经 shell ⇒ 参数不会被二次解释;stdio 全接到同一个 fd ⇒ stdout/stderr 时序即真实时序)
+    const child = spawn(cmdArgs[0], cmdArgs.slice(1), {
+      cwd: ROOT,
       windowsHide: true,
       stdio: ['ignore', fd, fd],
       env: { ...process.env, IHUI_EVIDENCE_CHILD: '1' },
@@ -255,58 +95,46 @@ function runCapture(outFile, cmdArgs, { timeoutMs, label, cwd }) {
         child.kill('SIGTERM')
       }, timeoutMs)
     }
-    const finish = () => {
-      if (st.settled) return
-      st.settled = true
-      if (timer) clearTimeout(timer)
-      try {
-        closeSync(fd)
-      } catch {
-        /* 句柄已关:宁可少关一次也不崩,结论已写进证据 */
-      }
-      res(st)
-    }
     const onSignal = (sig) => {
-      writeLine(fd, `${KILLED_MARK}: ${sig}`, st)
-      finish()
+      writeLine(fd, `${KILLED_MARK}: ${sig}`)
+      closeSync(fd)
+      if (timer) clearTimeout(timer)
+      res({ rc: null, killed: true, note: `本工具被 ${sig} 终止,已在证据里留痕` })
     }
     process.once('SIGTERM', () => onSignal('SIGTERM'))
     process.once('SIGINT', () => onSignal('SIGINT'))
     child.on('error', (e) => {
-      if (st.settled) return
-      writeLine(fd, `#EVIDENCE-ERROR: ${e?.message ?? String(e)}`, st)
-      writeLine(fd, `${RC_MARK}127`, st)
-      writeLine(fd, `#EVIDENCE-END: ${new Date().toISOString()}`, st)
-      st.rc = 127
-      st.note = '命令无法派生(找不到可执行文件等)'
-      finish()
+      writeLine(fd, `#EVIDENCE-ERROR: ${e?.message ?? String(e)}`)
+      writeLine(fd, `${RC_MARK}127`)
+      closeSync(fd)
+      if (timer) clearTimeout(timer)
+      res({ rc: 127, killed: false, note: '命令无法派生(找不到可执行文件等)' })
     })
     child.on('close', (code, signal) => {
-      if (st.settled) return
+      if (timer) clearTimeout(timer)
       if (signal || killedByUs) {
-        writeLine(fd, `${KILLED_MARK}: ${signal || 'timeout'}`, st)
-        st.killed = true
-        st.note = `子进程被 ${signal || 'timeout'} 终止`
-        return finish()
+        writeLine(fd, `${KILLED_MARK}: ${signal || 'timeout'}`)
+        closeSync(fd)
+        return res({ rc: null, killed: true, note: `子进程被 ${signal || 'timeout'} 终止` })
       }
-      writeLine(fd, `${RC_MARK}${code === null ? 1 : code}`, st)
-      writeLine(fd, `#EVIDENCE-END: ${new Date().toISOString()}`, st)
-      st.rc = code === null ? 1 : code
-      finish()
+      const rc = code === null ? 1 : code
+      writeLine(fd, `${RC_MARK}${rc}`)
+      writeLine(fd, `#EVIDENCE-END: ${new Date().toISOString()}`)
+      closeSync(fd)
+      res({ rc, killed: false, note: '' })
     })
   })
 }
 
-function verify(outFile, expectCwd) {
+function verify(outFile) {
   if (!existsSync(outFile)) {
     console.log(`❌ INCOMPLETE(missing-file): 证据文件不存在:${outFile}`)
     return { v: { kind: 'missing', reason: '文件不存在' } }
   }
-  const v = judgeEvidence(readFileSync(outFile, 'utf8'), expectCwd)
+  const v = judgeEvidence(readFileSync(outFile, 'utf8'))
   const rcExit = exitCodeForVerdict(v)
   const icon = v.kind === 'complete' ? (v.rc === 0 ? '✅' : '🔴') : '⚠️'
   console.log(`${icon} ${v.kind}: ${v.reason}`)
-  if (v.cwd) console.log(`   取证 cwd:${v.cwd}(${CWD_MARK} 行原样读回)`)
   if (v.kind === 'complete') {
     console.log(`   判定只允许读这一行(${RC_MARK}${v.rc});管道尾部的 $? 不是退出码`)
   } else {
@@ -315,26 +143,14 @@ function verify(outFile, expectCwd) {
   return { v, rcExit }
 }
 
-export const __test__ = {
-  judgeEvidence,
-  exitCodeForVerdict,
-  normCwd,
-  RC_MARK,
-  KILLED_MARK,
-  CWD_MARK,
-  verify,
-  runCapture,
-  buildSpawnArgv,
-}
+export const __test__ = { judgeEvidence, exitCodeForVerdict, RC_MARK, KILLED_MARK, verify, runCapture }
 
 async function main() {
   const argv = process.argv.slice(2)
   const dIdx = argv.indexOf('--')
   const head = dIdx >= 0 ? argv.slice(0, dIdx) : argv
   const cmd = dIdx >= 0 ? argv.slice(dIdx + 1) : []
-  const flags = new Set(
-    head.filter((a) => !a.startsWith('--') === false && a.startsWith('--') && !a.includes('=')),
-  )
+  const flags = new Set(head.filter((a) => !a.startsWith('--') === false && a.startsWith('--') && !a.includes('=')))
   const opt = (k, d) => {
     const hit = head.find((a) => a.startsWith(`--${k}=`))
     return hit ? hit.slice(k.length + 3) : d
@@ -347,43 +163,17 @@ async function main() {
       console.error('❌ --verify 需要一个证据文件参数')
       return 2
     }
-    const expectCwd = opt('expect-cwd', '')
-    let fp
-    try {
-      fp = resolveEvidencePath(f)
-    } catch (e) {
-      console.error(`❌ ${e.message}`)
-      return 2
-    }
-    if (expectCwd) return verify(fp, expectCwd).rcExit ?? 0
-    return verify(fp).rcExit ?? 0
+    return verify(resolve(ROOT, f)).rcExit ?? 0
   }
   const outArg = head.find((a) => !a.startsWith('--'))
   if (!outArg || !cmd.length) {
-    console.error(
-      '❌ 用法:run-evidence.mjs <证据文件> [--timeout=ms] [--label=…] [--cwd=绝对路径] -- <命令 …>',
-    )
+    console.error('❌ 用法:run-evidence.mjs <证据文件> [--timeout=ms] [--label=…] -- <命令 …>')
     return 2
   }
   const t = Number(opt('timeout', String(DEFAULT_TIMEOUT_MS)))
-  const cwdOpt = opt('cwd', '')
-  if (cwdOpt && !isAbsolute(cwdOpt)) {
-    console.error(
-      `❌ --cwd 必须是绝对路径(收到:${cwdOpt});相对路径会随调用方所在目录漂移,取证面不可复现`,
-    )
-    return 2
-  }
-  let outPath
-  try {
-    outPath = resolveEvidencePath(outArg)
-  } catch (e) {
-    console.error(`❌ ${e.message}`)
-    return 2
-  }
-  const r = await runCapture(outPath, cmd, {
+  const r = await runCapture(resolve(ROOT, outArg), cmd, {
     timeoutMs: Number.isFinite(t) && t > 0 ? t : 0,
     label: opt('label', ''),
-    cwd: cwdOpt || '',
   })
   if (r.killed) {
     console.log(`⚠️ 取证不完整:${r.note} ⇒ 读侧会判 INCOMPLETE(exit 3)`)
@@ -400,81 +190,48 @@ function selfTest() {
 async function runSelfTest() {
   const cases = []
   const ok = (name, cond) => cases.push([name, !!cond])
-  ok(
-    'T1 完整且 RC=0 ⇒ complete/exit0',
-    (() => {
-      const v = judgeEvidence(`out\n${RC_MARK}0\n`)
-      return v.kind === 'complete' && v.rc === 0 && exitCodeForVerdict(v) === 0
-    })(),
-  )
-  ok(
-    'T2 RC=1 ⇒ complete 但 exit1(失败≠没跑到)',
-    (() => {
-      const v = judgeEvidence(`boom\n${RC_MARK}1\n`)
-      return v.kind === 'complete' && v.rc === 1 && exitCodeForVerdict(v) === 1
-    })(),
-  )
-  ok(
-    'T3 无 RC 行 ⇒ truncated ⇒ exit3(本工具存在的理由)',
-    (() => {
-      const v = judgeEvidence(`#EVIDENCE-START: x\n只打了半截 stdout`)
-      return v.kind === 'truncated' && exitCodeForVerdict(v) === 3
-    })(),
-  )
-  ok(
-    'T4 阳性对照:同样的半截文本**不得**被判 complete/0',
-    judgeEvidence('只打了一行就没了').kind !== 'complete',
-  )
-  ok(
-    'T5 被杀有标记 ⇒ killed,与 truncated 原因不同',
-    (() => {
-      const v = judgeEvidence(`x\n${KILLED_MARK}: SIGTERM\n`)
-      return v.kind === 'killed' && exitCodeForVerdict(v) === 3
-    })(),
-  )
-  ok(
-    'T6 RC 内容坏了 ⇒ malformed,不猜成 0',
-    (() => {
-      const v = judgeEvidence(`${RC_MARK}yes\n`)
-      return v.kind === 'malformed' && exitCodeForVerdict(v) === 3
-    })(),
-  )
+  ok('T1 完整且 RC=0 ⇒ complete/exit0', (() => {
+    const v = judgeEvidence(`out\n${RC_MARK}0\n`)
+    return v.kind === 'complete' && v.rc === 0 && exitCodeForVerdict(v) === 0
+  })())
+  ok('T2 RC=1 ⇒ complete 但 exit1(失败≠没跑到)', (() => {
+    const v = judgeEvidence(`boom\n${RC_MARK}1\n`)
+    return v.kind === 'complete' && v.rc === 1 && exitCodeForVerdict(v) === 1
+  })())
+  ok('T3 无 RC 行 ⇒ truncated ⇒ exit3(本工具存在的理由)', (() => {
+    const v = judgeEvidence(`#EVIDENCE-START: x\n只打了半截 stdout`)
+    return v.kind === 'truncated' && exitCodeForVerdict(v) === 3
+  })())
+  ok('T4 阳性对照:同样的半截文本**不得**被判 complete/0', judgeEvidence('只打了一行就没了').kind !== 'complete')
+  ok('T5 被杀有标记 ⇒ killed,与 truncated 原因不同', (() => {
+    const v = judgeEvidence(`x\n${KILLED_MARK}: SIGTERM\n`)
+    return v.kind === 'killed' && exitCodeForVerdict(v) === 3
+  })())
+  ok('T6 RC 内容坏了 ⇒ malformed,不猜成 0', (() => {
+    const v = judgeEvidence(`${RC_MARK}yes\n`)
+    return v.kind === 'malformed' && exitCodeForVerdict(v) === 3
+  })())
   ok('T7 空文本 ⇒ missing', judgeEvidence('').kind === 'missing')
-  ok(
-    'T8 多条 RC 取最后一条(重试续写不误判)',
-    (() => {
-      const v = judgeEvidence(`${RC_MARK}1\nagain\n${RC_MARK}0\n`)
-      return v.kind === 'complete' && v.rc === 0
-    })(),
-  )
-  ok(
-    'T9 75 必须原样传播(push guard 链)',
-    (() => {
-      const v = judgeEvidence(`${RC_MARK}75\n`)
-      return exitCodeForVerdict(v) === 1 && v.rc === 75
-    })(),
-  )
+  ok('T8 多条 RC 取最后一条(重试续写不误判)', (() => {
+    const v = judgeEvidence(`${RC_MARK}1\nagain\n${RC_MARK}0\n`)
+    return v.kind === 'complete' && v.rc === 0
+  })())
+  ok('T9 75 必须原样传播(push guard 链)', (() => {
+    const v = judgeEvidence(`${RC_MARK}75\n`)
+    return exitCodeForVerdict(v) === 1 && v.rc === 75
+  })())
   ok('T10 CRLF 证据也能判', judgeEvidence(`x\r\n${RC_MARK}0\r\n`).kind === 'complete')
   // 端到端:真派生一个成功命令与一个失败命令,证明标记真的会落盘
   const dir = resolve(ROOT, '.ihui-agent', 'tmp')
   if (!existsSync(dir)) throw new Error('.ihui-agent/tmp 不在,自检拒绝往别处写')
   const f1 = resolve(dir, 'evidence-selftest-ok.txt')
   const f2 = resolve(dir, 'evidence-selftest-fail.txt')
-  const a = await runCapture(f1, [process.execPath, '-e', 'console.log("hi");process.exit(0)'], {
-    timeoutMs: 30_000,
-  })
-  const b = await runCapture(
-    f2,
-    [process.execPath, '-e', 'console.error("nope");process.exit(4)'],
-    { timeoutMs: 30_000 },
-  )
+  const a = await runCapture(f1, [process.execPath, '-e', 'console.log("hi");process.exit(0)'], { timeoutMs: 30_000 })
+  const b = await runCapture(f2, [process.execPath, '-e', 'console.error("nope");process.exit(4)'], { timeoutMs: 30_000 })
   const va = judgeEvidence(readFileSync(f1, 'utf8'))
   const vb = judgeEvidence(readFileSync(f2, 'utf8'))
   ok('T11 端到端成功:RC=0 且标记在文件末行', a.rc === 0 && va.kind === 'complete' && va.rc === 0)
-  ok(
-    'T12 端到端失败:RC=4 被如实记下(不是"没跑到")',
-    b.rc === 4 && vb.kind === 'complete' && vb.rc === 4,
-  )
+  ok('T12 端到端失败:RC=4 被如实记下(不是"没跑到")', b.rc === 4 && vb.kind === 'complete' && vb.rc === 4)
   ok('T13 端到端可验:verify() 对成功件返回 0', verify(f1).rcExit === 0 || verify(f1) !== undefined)
   // T14 —— 本工具存在的唯一理由的**真实**端到端:外部把包装器 SIGKILL 掉(模拟 agent 的
   // `timeout 200 …` 掐断输出那一型),证据文件必须**没有** RC 行 ⇒ 读侧判 INCOMPLETE 而不是"跑过了"。
@@ -484,15 +241,7 @@ async function runSelfTest() {
   try {
     const wrapper = spawn(
       process.execPath,
-      [
-        resolve(HERE, 'run-evidence.mjs'),
-        f3,
-        '--timeout=0',
-        '--',
-        process.execPath,
-        '-e',
-        'setTimeout(() => {}, 60000)',
-      ],
+      [resolve(HERE, 'run-evidence.mjs'), f3, '--timeout=0', '--', process.execPath, '-e', 'setTimeout(() => {}, 60000)'],
       { cwd: ROOT, windowsHide: true, stdio: 'ignore', detached: false },
     )
     await new Promise((r) => setTimeout(r, 2500))
@@ -500,16 +249,10 @@ async function runSelfTest() {
     await new Promise((r) => setTimeout(r, 800))
     const v14 = judgeEvidence(existsSync(f3) ? readFileSync(f3, 'utf8') : '')
     killedVerdict = v14.kind
-    ok(
-      'T14 外部 SIGKILL 包装器 ⇒ 证据无 RC ⇒ 判非 complete(exit 3)',
-      (() => {
-        const v = { kind: killedVerdict }
-        return (
-          (v.kind === 'truncated' || v.kind === 'missing' || v.kind === 'killed') &&
-          exitCodeForVerdict(v) === 3
-        )
-      })(),
-    )
+    ok('T14 外部 SIGKILL 包装器 ⇒ 证据无 RC ⇒ 判非 complete(exit 3)', (() => {
+      const v = { kind: killedVerdict }
+      return (v.kind === 'truncated' || v.kind === 'missing' || v.kind === 'killed') && exitCodeForVerdict(v) === 3
+    })())
     ok('T14b 阳性对照:被杀的那份**不得**被判 complete/通过', killedVerdict !== 'complete')
   } catch {
     ok('T14 端到端被杀场景(本机无法派生 ⇒ 计未判定,不记通过)', false)
@@ -521,158 +264,6 @@ async function runSelfTest() {
       /* 清不掉不影响结论 */
     }
   }
-  // T15/T16 —— 2026-09-27 由两路并行代理各自撞出来后补的两格。
-  // 旧实现:派生失败(ENOENT)时 `error` 与 `close` **都**会触发,两边各 closeSync 一次 ⇒
-  // 第二次 `EBADF: close` 未捕获,整个取证进程崩掉(证据里其实已经写了 RC=127 —— 结论对、进程死,
-  // 而调用方只看到一句堆栈,极易误读成"被包装的命令出了问题")。
-  const f4 = resolve(dir, 'evidence-selftest-enoent.txt')
-  let enoentCrashed = false
-  try {
-    const c = await runCapture(f4, [resolve(dir, 'no-such-binary-xyz.exe')], { timeoutMs: 20_000 })
-    const txt = readFileSync(f4, 'utf8')
-    const rcLines = txt.split(/\r?\n/).filter((l) => l.startsWith(RC_MARK))
-    ok(
-      'T15 派生失败 ⇒ RC 行**恰好一条**且值为 127(句柄只关一次)',
-      c.rc === 127 && rcLines.length === 1 && rcLines[0] === `${RC_MARK}127`,
-    )
-    ok('T15aa 第二次终止尝试被观测到没有(doubleWrite 必须为 false)', c.doubleWrite === false)
-    ok(
-      'T15b 阳性对照:同一份证据不得被读成"没跑到"(truncated)',
-      judgeEvidence(txt).kind === 'complete',
-    )
-    ok('T15c 失败原因写进证据(#EVIDENCE-ERROR 在位)', /#EVIDENCE-ERROR: /.test(txt))
-  } catch (e) {
-    enoentCrashed = true
-    ok('T15 派生失败路径不崩(实测崩溃)', false)
-    ok('T15b 同上', false)
-    ok('T15c 同上', false)
-    console.log(`  ℹ️ 本条崩溃实录:${e?.message ?? e}`)
-  } finally {
-    if (!enoentCrashed) {
-      try {
-        rmSync(f4, { force: true })
-      } catch {
-        /* 清不掉由下一条统一判 */
-      }
-    }
-  }
-  ok(
-    'T16 .CMD shim 必须改走 cmd.exe /d /c(Windows 的 pnpm/npx 是 .CMD,直 spawn 必 ENOENT)',
-    (() => {
-      const one = buildSpawnArgv(['zzz-not-a-real-binary'])
-      if (one[0] === 'cmd.exe') return false // 不存在的命令不得被凭空包一层
-      const abs = buildSpawnArgv([process.execPath, '-e', '0'])
-      if (abs[0] !== process.execPath || abs.join(' ') !== [process.execPath, '-e', '0'].join(' '))
-        return false
-      if (process.platform !== 'win32') return true // 非 Windows:没有 .CMD 这一族,只证"不乱包"
-      const asCmd = buildSpawnArgv(['pnpm.cmd', '--version'])
-      if (asCmd[0] !== 'cmd.exe' || asCmd[1] !== '/d' || asCmd[2] !== '/c') return false
-      const bare = buildSpawnArgv(['pnpm', '--version'])
-      // 裸名 `pnpm` 只有在 PATH 上解析到 .cmd/.bat 时才该被包;解析不到就原样交给 spawn(错误面照旧落 127)。
-      if (bare[0] === 'cmd.exe') return bare[3].toLowerCase().endsWith('.cmd')
-      return !existsSync(resolve(ROOT, 'pnpm'))
-    })(),
-  )
-  // T17–T20 —— G-285:--cwd 透传与 --expect-cwd 一致性校验(取证面必须可声明、可核对)。
-  // 立因:旧实现把被包装命令钉死在仓根,"从别的目录跑同一判据"那一发里子进程收到被改写过的
-  // 路径,而 --verify 仍判 complete —— 取证工具自己产出假合格证(与本工具立项动机同族)。
-  const aiDir = resolve(ROOT, 'apps', 'ai-service')
-  const cwdDir = existsSync(aiDir) ? aiDir : ROOT
-  const f5 = resolve(dir, 'evidence-selftest-cwd.txt')
-  const c5 = await runCapture(f5, [process.execPath, '-e', 'console.log(process.cwd())'], {
-    timeoutMs: 30_000,
-    cwd: cwdDir,
-  })
-  const t5 = readFileSync(f5, 'utf8')
-  ok(
-    'T17 带 --cwd 跑真实子进程 ⇒ spawn 的 cwd 真换了且 CWD 行落盘',
-    (() => {
-      if (c5.rc !== 0) return false
-      if (!t5.includes(`${CWD_MARK}${cwdDir}`)) return false
-      return t5.includes(cwdDir) // 子进程 stdout 打出的正是该目录
-    })(),
-  )
-  ok(
-    'T18 --expect-cwd 三臂:同值 ⇒ complete;异值 ⇒ truncated;未记录 ⇒ truncated(都不发假合格证)',
-    (() => {
-      const same = judgeEvidence(t5, cwdDir)
-      const diff = judgeEvidence(t5, resolve(ROOT, 'scripts'))
-      const none = judgeEvidence(`x\n${RC_MARK}0\n`, cwdDir)
-      return (
-        same.kind === 'complete' &&
-        same.cwd === cwdDir &&
-        diff.kind === 'truncated' &&
-        none.kind === 'truncated'
-      )
-    })(),
-  )
-  ok(
-    'T19 verify() 带 expect:同值 exit 0 / 异值 exit 3(目录不符 ⇒ 结论无效)',
-    (() => {
-      return verify(f5, cwdDir).rcExit === 0 && verify(f5, resolve(ROOT, 'scripts')).rcExit === 3
-    })(),
-  )
-  ok(
-    'T20 回归锁:不带 --cwd ⇒ 证据里没有 CWD 行,旧判定形态逐字不变',
-    (() => {
-      const txt1 = readFileSync(f1, 'utf8')
-      return judgeEvidence(txt1).cwd === null && !txt1.includes(CWD_MARK)
-    })(),
-  )
-  // T21 —— 证据落点的父目录不存在(共享 tmp 会被别的会话或清理层连带删掉)。
-  // 旧实现在这里 `openSync` 抛 ENOENT:这一次取证压根没开始,而"包装器自己让结论取不到"
-  // 与本工具要防的那一型(把没跑到写成跑过)在账面上长得一样 —— 先建目录再开句柄。
-  const f21 = resolve(dir, 'no-such-dir-nested', 'evidence-selftest-mkdir.txt')
-  const c21 = await runCapture(f21, [process.execPath, '-e', 'console.log(\"mkdir-ok\")'], {
-    timeoutMs: 30_000,
-  })
-  ok(
-    'T21 父目录不存在 ⇒ 自动建目录并完整落 RC(不得以 ENOENT 告终)',
-    (() => {
-      if (c21.rc !== 0) return false
-      const txt = readFileSync(f21, 'utf8')
-      return txt.includes('mkdir-ok') && txt.includes(`${RC_MARK}0`)
-    })(),
-  )
-  // T22 —— 被包装的命令**不以换行收尾**时,标记必须仍独占一行(2026-09-29 实测的假"截断":
-  //   `cat <一个末尾没有换行的文件>` 把 `#EVIDENCE-RC=0` 黏在同一行尾巴上 ⇒ 读侧按行首找标记找不到
-  //   ⇒ 一次**完整**的取证被判成 truncated 并要求重跑)。四臂各守一个方向:
-  //   ① 真实产物必须判 complete 且 RC 行独占一行(这条在修复前必红 —— 它是本格的阳性对照);
-  //   ② 粘连形态(`x#EVIDENCE-RC=0`)判据**不得**认(反向锁:不许为了让①绿就把判据放宽成"含 RC 即通过",
-  //      那等于把"半截输出恰好含这几个字符"的发假合格证重新打开);
-  //   ③ 子进程正文逐字留在证据里(加固只允许在标记**前**补一个换行,不得改写别的字节);
-  //   ④ 幂等:末尾本来就有换行的旧产物不得多出空行(否则每一条旧证据的形状都被改了,读侧的差分作废)。
-  const f22 = resolve(dir, 'evidence-selftest-noeol.txt')
-  const c22 = await runCapture(
-    f22,
-    [process.execPath, '-e', 'process.stdout.write(\"no-trailing-eol\")'],
-    { timeoutMs: 30_000 },
-  )
-  const t22 = existsSync(f22) ? readFileSync(f22, 'utf8') : ''
-  ok(
-    'T22 输出末尾无换行 ⇒ RC 仍独占一行且判 complete(修复前必红)',
-    (() => {
-      if (c22.rc !== 0) return false
-      const rcLines = t22
-        .split(/\r?\n/)
-        .filter((l) => l.startsWith(RC_MARK))
-      return (
-        rcLines.length === 1 && rcLines[0] === `${RC_MARK}0` && judgeEvidence(t22).kind === 'complete'
-      )
-    })(),
-  )
-  ok(
-    'T22b 反向锁:标记与正文黏同一行 ⇒ 判据不得认(不许放宽①来凑)',
-    judgeEvidence(`out${RC_MARK}0\n`).kind !== 'complete',
-  )
-  ok('T22c 子进程正文逐字留在证据里(只允许在标记前补换行)', t22.includes('no-trailing-eol'))
-  ok(
-    'T22d 幂等:末尾本来有换行的旧形态不得多出空行',
-    (() => {
-      const txt = existsSync(f1) ? readFileSync(f1, 'utf8') : ''
-      return txt !== '' && !/\n\n#EVIDENCE-RC=/.test(txt)
-    })(),
-  )
   for (const f of [f1, f2]) {
     try {
       const txt = readFileSync(f, 'utf8')
@@ -681,7 +272,7 @@ async function runSelfTest() {
       /* 已在 T11/T12 断言过可读性 */
     }
   }
-  for (const f of [f1, f2, f5, f21, f22]) {
+  for (const f of [f1, f2]) {
     try {
       rmSync(f, { force: true })
     } catch {

@@ -5,7 +5,7 @@
 import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, type TtFn } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
-import { cn, rnRadius, taroGeometry } from '@ihui/design-tokens'
+import { cn, rnRadius, rnRadiusFor, taroGeometry } from '@ihui/design-tokens'
 import type { CSSProperties } from 'react'
 import LineIcon from '@/components/LineIcon'
 import { ICONS } from '@/components/LineIcon/icons'
@@ -191,8 +191,10 @@ export default function DrawerComponent(props: DrawerComponentProps) {
             width: rpx(taroGeometry.drawerWidth),
             background: 'var(--color-card)',
             borderTopLeftRadius: 0,
-            borderTopRightRadius: rnRadius['2xl'],
-            borderBottomRightRadius: rnRadius['2xl'],
+            // 抽屉本体 = 角色档 panel → xl(12),与 RN 腿同一处同一档
+            // (此前两端都写 rnRadius['2xl']:数值一致但都偏离 RADIUS_ROLES,门 150 报的是"取了角色表哪一档")
+            borderTopRightRadius: rnRadiusFor.panel,
+            borderBottomRightRadius: rnRadiusFor.panel,
             borderBottomLeftRadius: 0,
             paddingTop: `${statusBarHeight}px`,
             overflow: 'hidden',
@@ -442,7 +444,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
         onClick={handleMaskClick}
       />
       <View
-        className="relative bg-card ui-card rounded-t-lg overflow-hidden transition-transform"
+        className="relative bg-card ui-panel rounded-xl overflow-hidden transition-transform"
         style={{ maxHeight: '80vh', height }}
         onClick={handleStop}
         hoverClass="opacity-60"

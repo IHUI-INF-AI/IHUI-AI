@@ -73,10 +73,7 @@
  *   node scripts/union-converge.mjs --self-test      # 真临时仓取证(含"选边必判失败"反向对照)
  *   node scripts/union-converge.mjs --move-aware-detail
  *       # 把"因搬运感知而未取回"的行**逐行**打印(默认只按条目块给计数 + 出处归档件路径)。
- * 退出码:0 = 无需合并或已落地且复核干净;1 = 判据不过/两侧同改冲突需人工/CAS 失败;
- *        2 = 脚本自身异常,**或"本器没资格判"**(取不到远端当次真值 / 目标对象不在本机)——
- *        后者走 `unreachableObjectGuidance` 打印三条出口并落 `UNDETERMINED 未判定`,
- *        绝不能落在 0 那一支(把"判不了"报成"无事可做"= 账面全绿而分叉永久留着)。
+ * 退出码:0 = 无需合并或已落地且复核干净;1 = 判据不过/两侧同改冲突需人工/CAS 失败;2 = 脚本自身异常。
  */
 import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -93,7 +90,6 @@ import {
   MERGE_NOTE_RE,
   keyOfRow,
 } from './lib/plan-task-index.mjs'
-import { SIM_THRESHOLD, jaccard, tokenize, stripState } from './lib/live-doc-similarity.mjs'
 // 搬运感知判据(2026-09-28):占位注释的解析与"哪些行属于那个被搬走的条目"的块归属,
 // 一律复用归档器那一份实现(`lib/plan-task-headings.mjs` 的 parseCompletedTaskBlocks),
 // **不得在本归并器里再抄一条"什么算一个已完成条目"的正则** —— 两处各写一遍必漂移。
@@ -222,35 +218,6 @@ function writeBlob(content, p, cwd) {
   ).trim()
 }
 
-/**
- * 影子 `.js` 的同 stem `.ts/.tsx` 候选(非影子路径返回空数组)。
- * 方向刻意只此一路:本仓约定是"`./x.js` 说明符指的是 `x.ts`",所以"该消失的是 `.js`"。
- */
-export function shadowTsSiblings(p) {
-  const m = /^(.*)\.(?:js|cjs|mjs)$/.exec(p)
-  return m && m[1] ? [`${m[1]}.ts`, `${m[1]}.tsx`] : []
-}
-/**
- * 纯判据:`p` 那份内容为 `shadowOid` 的文件,在 `rev` 那棵树里是否有**同一份字节**的 `.ts/.tsx` 同伴?
- * 等值证明用 **blob oid 逐字相等**(git 内容寻址给的,比读正文再比更强),不做相似度、不做长度比较。
- * 命中 ⇒ 返回 {path, oid};否则 null。测试可直接调用,不需要真仓。
- */
-export function shadowTwinIsIdentical(p, shadowOid, siblingOids) {
-  if (!shadowOid || typeof shadowOid !== 'string') return null
-  for (const s of shadowTsSiblings(p)) {
-    const oid = siblingOids && siblingOids[s]
-    if (oid && oid === shadowOid) return { path: s, oid }
-  }
-  return null
-}
-/** 上面那条判据的 git 侧包装:去 `rev` 那棵树里取同 stem 同伴的 oid。 */
-function shadowTwinOf(p, shadowOid, rev, cwd) {
-  if (!shadowOid) return null
-  const siblingOids = {}
-  for (const s of shadowTsSiblings(p)) siblingOids[s] = blobOf(rev, s, cwd)
-  return shadowTwinIsIdentical(p, shadowOid, siblingOids)
-}
-
 function emptyBlob(cwd) {
   try {
     return git(['hash-object', '-w', '--stdin'], cwd, '')
@@ -328,7 +295,7 @@ function mergeThreeBlobs(baseOid, oursOid, theirsOid, cwd) {
  *    已有一侧就撞的组**刻意不判红**:让同组多挂一行只能靠人工让号(F9 的差值档在提交链上拦),
  *    而落地闸若为此拒绝归并,唯一出路是删掉某一侧的行 —— 那违反本工具的零丢失承诺,更贵。
  */
-export function planStateRegressions(mergedText, sideTexts, accepted = null, noteCredits = null) {
+export function planStateRegressions(mergedText, sideTexts, accepted = null, suppressed = null) {
   const KEYS = [
     ['forks', 'F1 同主键两态并存(组)'],
     ['voidRows', 'F2 带作废声明未落账(行)'],
@@ -418,69 +385,89 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
      * 逐行判必须用**非全局副本** —— 带 `g` 的 `.test()` 会推进 lastIndex,第二次调用就漏判。
      */
     const noteRe = new RegExp(MERGE_NOTE_RE.source)
-    const occOf = (l) => {
-      const r = new RegExp(MERGE_NOTE_RE.source, 'g')
-      let n = 0
-      while (r.exec(l) !== null) n++
-      return n
+    const dpRe = new RegExp(DUP_POINTER_RE.source)
+    /**
+     * 量纲对齐(2026-09-29 实测逼出):F5 的读数 `mergeNotes` 数的是**标记个数**,而额度是按
+     * "行"算的 —— 一行里可以带两枚及以上 〔【归并】…〕(本轮实测:并集重放过的行正是这一型)。
+     * 不乘这个系数,额度永远扣不满读数,残差表现为"名单为空却仍差 14 条",而那既不能读成
+     * 无损失、也不能读成有损失 —— 是一台量错的尺子。每行单独现数,不建第二份登记表。
+     */
+    const markersIn = (l) => {
+      const g = new RegExp(MERGE_NOTE_RE.source, 'g')
+      const n = (l.match(g) || []).length
+      return n > 0 ? n : 1
     }
     const mm = counter(mergedText)
     const sideCounters = sides.map((t) => counter(t))
-    /**
-     * 遍历域必须是**所有面的并**(2026-09-29 修,原先遍历结果面 `mm`):一条注记行如果在归并结果里
-     * 一份都没剩下(`have=0`),它就不在 `mm` 里 ⇒ 结构上永远进不了额度 ⇒ 无论机制如何解释都恒红。
-     * 而"结果里一份都没有"恰恰是最需要被解释的那一型 —— 旧写法把"最坏的情形"写成了"不可申诉的情形"。
-     */
-    const universe = new Set()
-    for (const c of [...sideCounters, mm])
-      for (const [l, n] of c) if (n > 0 && noteRe.test(l)) universe.add(l)
-    const suppress = noteCredits && noteCredits.suppress ? noteCredits.suppress : null
-    const baseC = noteCredits && noteCredits.baseText ? counter(noteCredits.baseText) : null
-    const oursC = noteCredits && noteCredits.oursText ? counter(noteCredits.oursText) : null
     let allowed = 0
-    let byPlaceholder = 0
-    let byOwnShrink = 0
-    let byDupPointer = 0
-    const unexplained = []
-    for (const l of universe) {
-      const occ = occOf(l)
-      if (!occ) continue
-      const haveOcc = (mm.get(l) || 0) * occ
-      const wantOcc = Math.max(...sideCounters.map((c) => (c.get(l) || 0) * occ))
-      if (wantOcc <= haveOcc) continue
-      let rest = wantOcc - haveOcc
-      // ① 搬运感知:这些份数由基准面上的 `已归档` 占位代表(表按行给**份数**,× 每行条数换到同一量纲)。
-      if (suppress && rest > 0) {
-        const cov = Math.min((suppress.get(l) || 0) * occ, rest)
-        byPlaceholder += cov
-        rest -= cov
+    const credited = new Set()
+    for (const [l, n] of mm) {
+      if (n < 1 || !noteRe.test(l) || !DUP_POINTER_RE.test(l)) continue
+      const sideMax = Math.max(...sideCounters.map((c) => c.get(l) || 0))
+      if (sideMax > n) {
+        allowed += (sideMax - n) * markersIn(l)
+        credited.add(l)
       }
-      // ② 本侧相对**共同基底**自己缩了量 ⇒ `liveDocExpectedCounts` 的约定"基底有而本侧清了 ⇒ 处置权
-      //    仍在本侧",这一部分本就不该从对侧补回。刻意要求 `o < b`:只有对侧加过的行永不进这一档。
-      if (rest > 0 && oursC && baseC) {
-        const o = (oursC.get(l) || 0) * occ
-        const b = (baseC.get(l) || 0) * occ
-        if (o < b) {
-          const cov = Math.min(rest, b - o)
-          byOwnShrink += cov
-          rest -= cov
+    }
+    /**
+     * 报数必须报名(与 F3/F9 同一规矩):只给总数,下一手只能重新猜,而"猜"在这本账上
+     * 产出过的代价是把别人的落账证据读成噪声删掉。这里逐行算出**未被额度覆盖**的欠账名单。
+     */
+    /**
+     * 合法额度有**两型**,各由一条对照用例钉住(第二型 2026-09-29 补):
+     *  ① 副本指针行折半(G-814386):同一行第 2..N 份有意少带,内容仍留 ≥1 份;
+     *  ② 被本侧归档搬走:条目已移进 `.ihui-agent/archive/PROJECT_PLAN_*.md` 并在原位留 `已归档` 占位,
+     *     而 moveAware 抑制表就是这件事的**现成证据**(由同一份实现算出,本处绝不另判一次"是否真归档")。
+     * 第二型过去完全不计分,后果就是本票实测的那副样子:落地闸对着一堆**内容仍在库里**的行拒收整枚合并,
+     * 唯一出路是各会话手工构造合并 —— 而那比这道闸想防的事故更危险。
+     * 判据与①同样窄:只认抑制表里**逐字点名**的那一行,额度不超过该行欠的份数。
+     */
+    const suppMap = suppressed instanceof Map ? suppressed : null
+    let suppCredit = 0
+    const f5Deficit = []
+    {
+      const seen = new Set()
+      for (const c of sideCounters) {
+        for (const [l, nSide] of c) {
+          if (seen.has(l)) continue
+          seen.add(l)
+          if (!noteRe.test(l)) continue
+          const n = mm.get(l) || 0
+          if (n >= nSide || credited.has(l)) continue
+          // 同一行既被整条折半、又仍带 ≥1 份时,额度只覆盖"折掉的那几份";剩下的仍欠
+          const mk = markersIn(l)
+          const rest0 = n >= 1 && dpRe.test(l) ? 0 : (nSide - n) * mk
+          if (rest0 <= 0) continue
+          let rest = rest0
+          if (suppMap) {
+            const covered = Math.min(rest, (suppMap.get(l) || 0) * mk)
+            if (covered > 0) {
+              suppCredit += covered
+              allowed += covered
+              rest -= covered
+            }
+          }
+          if (rest <= 0) continue
+          f5Deficit.push({ line: l.slice(0, 140), short: rest, carried: n })
         }
       }
-      // ③ 副本指针行只许"从无到有带一份"(G-814386 原额度,语义原样保留)。
-      if (rest > 0 && DUP_POINTER_RE.test(l)) {
-        byDupPointer += rest
-        rest = 0
-      }
-      if (rest > 0) unexplained.push(`缺 ${rest} 份 :: ${l.slice(0, 70)}`)
-      allowed += wantOcc - haveOcc - rest
+      f5Deficit.sort((a, b) => b.short - a.short)
     }
+    out.f5Deficit = f5Deficit
+    out.f5SuppressedCredit = suppCredit
     if (m.mergeNotes < noteMax - allowed) {
-      const named = unexplained.length
-        ? `;未被任何机制解释的 ${unexplained.length} 条(列前 5):${unexplained.slice(0, 5).join(' | ')}`
-        : ''
+      const gap = noteMax - allowed - m.mergeNotes
+      const named = f5Deficit
+        .slice(0, 6)
+        .map((d) => `少 ${d.short} 份(结果里剩 ${d.carried} 份)← ${d.line}`)
+        .join('\n      · ')
       out.push(
-        `F5 归并落账注记 各侧最多 ${noteMax} 条,归并结果只剩 ${m.mergeNotes} 条` +
-          `(已按行扣除三类**有据**额度共 ${allowed} 条:归档占位代表 ${byPlaceholder} / 本侧相对基底自缩 ${byOwnShrink} / 副本指针有意少带 ${byDupPointer};扣完仍差 ${noteMax - allowed - m.mergeNotes} 条)${named}`,
+        `F5 归并落账注记 各侧最多 ${noteMax} 条,归并结果只剩 ${m.mergeNotes} 条(被未落账形态顶掉)` +
+          `(已扣除合法额度 ${allowed} 条 = 副本指针折半 + 被归档抑制 ${suppCredit} 条,扣完仍差 ${gap} 条)` +
+          (f5Deficit.length
+            ? `\n   欠账名单(共 ${f5Deficit.length} 行,逐行判据=注记行 ∧ 结果份数 < 各侧份数 ∧ 未被额度覆盖;前 6 行):\n      · ${named}`
+            : '\n   欠账名单为空 ⇒ 差额来自"条数按行计、份数按重数计"两个量纲之差,' +
+              '**不得据此读成"已查明无内容损失"**,也不得反过来据此放行'),
       )
     }
   }
@@ -670,14 +657,6 @@ export function theirsRewriteCaps(oursText, theirsText, baseText, suppress = nul
     if (bLines.length !== tLines.length) continue
     if (!multisetEq(bLines, oLines)) continue
     if (multisetEq(bLines, tLines)) continue
-    // 同号**两个不同议题**(并发取号撞上的)不是就地改写:两侧各是一件活着的登记,
-    // 折掉哪一侧都是替别人删事。判"是不是同一件事"的尺子只许有一份,故复用 merge-live-doc
-    // 那把字符二元组 Jaccard 与同源阈值(按词切在 CJK 混排行上会断崖下跌,该层头注已记过)。
-    const sim = jaccard(
-      tokenize(stripState(bLines.join('\n'))),
-      tokenize(stripState(tLines.join('\n'))),
-    )
-    if (sim < SIM_THRESHOLD) continue
     const ct = counter(tLines.join('\n'))
     for (const [l, n] of counter(bLines.join('\n'))) {
       const dropped = n - (ct.get(l) || 0)
@@ -709,7 +688,8 @@ export function unionLines(oursText, theirsText, baseText = null, suppress = nul
   }
   const out = spine
   const need = new Map(want)
-  for (const [l, n] of counter(oursText)) need.set(l, (need.get(l) || 0) - n)
+  for (const [l, n] of counter(spine.join('\n'))) need.set(l, (need.get(l) || 0) - n)
+
   // 逐行消费时也要按同一张抑制表计数,否则"该少带的那一份"会从末尾漏回来。
   const left = new Map(suppress || [])
   const extra = []
@@ -871,11 +851,7 @@ export function buildUnion(
        */
       if (p.endsWith('PROJECT_PLAN.md')) {
         const sides = [bt, a, b].filter((t) => typeof t === 'string' && t !== '')
-        const __rg = planStateRegressions(mergedText, sides, accepted, {
-          suppress: ma.suppress,
-          baseText: bt,
-          oursText: a,
-        })
+        const __rg = planStateRegressions(mergedText, sides, accepted, ma.suppress)
         for (const msg of __rg) violations.push(`${p} 归并放大任务状态分叉:${msg}`)
         for (const msg of __rg.accepted || []) acceptedGrowth.push(msg)
         console.log(`   ${f3ExitCaliber(mergedText, sides)}`)
@@ -893,43 +869,18 @@ export function buildUnion(
     const keptTheirs = []
     const humanResolved = []
     const caps = [] // 因副本指针有意少带的份数:不拦落地,但必须逐条点名(见 recordSideLosses)
-    // 影子 .js 的两格(见下面循环里那条"刻意例外"):随合并传播掉的删除 / 被拦住没恢复的回归。
-    const shadowDeletes = []
-    const shadowRestores = []
     const touchedOurs = new Set(diffNames(base, ours, cwd))
     for (const p of diffNames(base, theirs, cwd)) {
       if (LIVE_DOCS.includes(p)) continue
       const theirsBlob = blobOf(theirs, p, cwd)
-      const oursBlob = blobOf(ours, p, cwd)
-      if (oursBlob === theirsBlob) continue
       if (theirsBlob === null) {
-        /**
-         * **影子 .js 的删除要传播**,这一条是对"对侧删除不随合并传播"那条通则的**刻意例外**。
-         * 依据不是猜测而是内容寻址:本侧那份 `.js` 的 blob oid 与本侧同 stem `.ts` 的 oid **逐字相等**
-         * ⇒ 两边装的是同一份字节,删掉它不可能丢任何内容。不堵这一格,实测就会看到
-         * 同一份"用 .js 文件名装着 TypeScript 语法"的影子被对侧一次带走、下一次合并又带回来
-         * (2026-09-29 一天内两次:01:12 删、04:27 回;后果是干净检出/服务重启即 `SyntaxError`,
-         * 而守门 98 的 D4 影子维是全仓唯一看得见这一型的尺子 —— 它只能事后喊,拦不住合并)。
-         * 只认 `.js/.cjs/.mjs → .ts/.tsx` 这一个方向:反过来(留 .js 扔 .ts)等于把本仓
-         * "`./x.js` 说明符指的是 `.ts`"这条约定倒过来写,那不是收口而是制造第二份真相。
-         */
-        const twin = shadowTwinOf(p, oursBlob, ours, cwd)
-        if (twin) {
-          run(['update-index', '--force-remove', p])
-          shadowDeletes.push({ path: p, twin: twin.path })
-          continue
-        }
         skippedDeletes.push(p) // 对侧删除不随合并传播,否则本工具的产物会被守门 100 判红
         continue
       }
+      const oursBlob = blobOf(ours, p, cwd)
+      if (oursBlob === theirsBlob) continue
       // 本侧未动(或本侧已删 ⇒ 删除同样不传播,与"对侧删除"对称)⇒ 整文件取对侧,语义与改前逐字一致
       if (!touchedOurs.has(p) || oursBlob === null) {
-        // 同一个例外的反方向:对侧把那份等值影子**带回来**时不取(本侧已经没有它了)。
-        const twin = shadowTwinOf(p, theirsBlob, ours, cwd)
-        if (twin) {
-          shadowRestores.push({ path: p, twin: twin.path })
-          continue
-        }
         run(['update-index', '--add', '--cacheinfo', `100644,${theirsBlob},${p}`])
         tookTheirs.push(p)
         continue
@@ -1077,12 +1028,7 @@ export function buildUnion(
         .map((oid) => blobText(oid, cwd))
       const __cal = f3ExitCaliber(blobText(mergedOid, cwd), sideTexts)
       if (__cal) console.log(`   ${__cal}`)
-      const __sideBlobs = [base, ours, theirs].map((rev) => blobOf(rev, p, cwd)).map((oid) => (oid ? blobText(oid, cwd) : null))
-      const __rg2 = planStateRegressions(blobText(mergedOid, cwd), sideTexts, accepted, {
-        suppress: null,
-        baseText: __sideBlobs[0],
-        oursText: __sideBlobs[1],
-      })
+      const __rg2 = planStateRegressions(blobText(mergedOid, cwd), sideTexts, accepted)
       for (const msg of __rg2) violations.push(`${p} 归并放大任务状态分叉:${msg}`)
       for (const msg of __rg2.accepted || []) acceptedGrowth.push(msg)
     }
@@ -1092,8 +1038,6 @@ export function buildUnion(
       acceptedGrowth,
       mergedClean,
       skippedDeletes,
-      shadowDeletes,
-      shadowRestores,
       needHuman,
       generatedDeferred,
       keptOurs,
@@ -1149,28 +1093,7 @@ export function verifyUnion(
   const moved = []
   const pointerCaps = []
   const moveAware = []
-  for (const p of listPaths(ours, cwd)) {
-    if (M.has(p)) continue
-    /**
-     * "零损失"断言的**内容寻址豁免**(不是白名单、不信任调用方给的清单):
-     * 本侧这个路径没进合并结果,但它那份字节在合并树里由同 stem 的 `.ts/.tsx` **同一个 blob oid**
-     * 承载 ⇒ 内容一行都没少,少的是那个多余的影子文件名,这正是收口。
-     * 与下面"对侧丢失"分支里早已有的 blob 移动豁免(1046 行 `moved`)是同一条证明的两半 ——
-     * 本侧这一半此前缺,于是"影子删除被传播"会被自己的零损失断言判成丢内容,合并落地不了。
-     * 只有 blob oid 逐字相等才走这一支;内容不等值 ⇒ 照旧 `bad`(自检影子 C 臂钉住)。
-     */
-    const oid = blobOf(ours, p, cwd)
-    const sibOids = {}
-    for (const s of shadowTsSiblings(p)) sibOids[s] = blobOf(tree, s, cwd)
-    const twin = shadowTwinIsIdentical(p, oid, sibOids)
-    if (twin) {
-      moved.push(
-        `${p} 的字节由 ${twin.path} 同一个 blob(${String(oid).slice(0, 9)})承载 ⇒ 合并结果不含它属收口,不是丢失`,
-      )
-      continue
-    }
-    bad.push(`合并树丢了本侧路径 ${p}`)
-  }
+  for (const p of listPaths(ours, cwd)) if (!M.has(p)) bad.push(`合并树丢了本侧路径 ${p}`)
   const theirsLost = listPaths(theirs, cwd).filter((p) => !M.has(p))
   if (theirsLost.length) {
     const oursOids = oidMap(ours, cwd)
@@ -1322,100 +1245,29 @@ export function hasCommit(sha, cwd = ROOT) {
   )
 }
 
-/**
- * 「本器没资格判」那一支的**唯一出路文案出口**(G-473 收口)。
- *
- * 为什么要单列成一份函数而不是在三个分支里各拼一句:调用方(git-sync-converge)按
- * `UNDETERMINED` 分流,而**人**按这三条出口办事 —— 三处各写一遍必然漂开,而漂开的表现是
- * "同一次故障,CLI 用户与 import 者拿到的指导不一样"(本仓"两处算同一件事必漂移"那一族)。
- *
- * 三条出口的**编号按种类固定,不随缺哪条而重排**:①=联网按分支 fetch、②=免联网显式喂可达 sha、
- * ③=ref 存续体检。R-B 依赖这一点:缺的是**本地 HEAD** 时 ① 结构上无效(fetch 回不来本机 HEAD 的
- * 对象,那是 gitdir/refs 受损),所以只发 ③ —— 编号若按位置重排,③ 就会被印成"出口①",
- * 读的人照它去 fetch,白跑一轮还以为是自己网络的问题。
- *
- * 一条硬约束(由 R-A 的反向锁钉死):**不得把"按 sha 直取"包装成可执行命令**。
- * 公共托管默认拒绝未公布对象,而那枚 sha 是否还公布着恰恰在并发高峰最先失效 ——
- * 给出去就是第二条"文档写了却跑不通的出路"(§26 那一族的禁令)。
- *
- * @param {object} o
- * @param {string[]} [o.missing]  本机取不到的 commit(对象不在本机那一型)
- * @param {string} [o.theirs]     本轮想合的目标
- * @param {string} [o.head]       本地 HEAD
- * @param {string} [o.branch]     被审仓库的当前分支名(detached 时 --abbrev-ref 回的 "HEAD" 不算)
- * @param {string|null} [o.noRemoteTruth]  远端当次真值根本没问到时的原因(那一型与"对象不在本机"不同因)
- * @returns {string} 多行文本,首行定性,其后逐行是出口
- */
-export function unreachableObjectGuidance({
-  missing = [],
-  theirs = '',
-  head = '',
-  branch = '',
-  noRemoteTruth = null,
-} = {}) {
-  // detached 仓库的 `--abbrev-ref HEAD` 回字面量 "HEAD",照抄会产出一条必败的 `fetch origin HEAD`
-  // ⇒ 归一成占位,让人自己补(G-RG 的变异自证抓的就是这一步被"简化")。
-  const b = branch && branch !== 'HEAD' ? branch : '<当前分支名>'
-  const list = (Array.isArray(missing) ? missing : [missing]).filter(Boolean)
-  const headMissing = list.length > 0 && !!head && list.includes(head)
-  const out = []
-  if (noRemoteTruth)
-    out.push(
-      `问不到远端当次真值:${String(noRemoteTruth).slice(0, 120)}(跟踪 ref 的残值不参与落槌 ⇒ 更不能据此说"已同步")`,
-    )
-  else if (headMissing)
-    out.push(`本地 HEAD 的那枚对象都取不到(${String(head).slice(0, 11)}) ⇒ 这不是"少 fetch 一次",是 gitdir/refs 受损`)
-  else {
-    // 每枚取不到的 sha 都**按角色**报名:只给一串截断哈希,读的人分不清该 fetch 的是远端还是本机坏了。
-    const role = (s) => (s === theirs ? '本轮目标' : s === head ? '本地 HEAD' : '另一枚对象')
-    out.push(`对象不在本机(${list.map((s) => `${role(s)} ${String(s).slice(0, 11)}`).join(' / ')})`)
-  }
-  if (!headMissing) {
-    out.push(`  出口① 联网取当次真值:git fetch origin ${b}(随后自行 rev-parse 复核,别信跟踪 ref 的残值)`)
-    out.push(
-      `  出口② 免联网:显式喂一枚本机已可达的目标 —— node scripts/union-converge.mjs --theirs <本机已可达的 sha>` +
-        `(本器不代跑 fetch:网络动作与 ref 写入的归属留给调用方)`,
-    )
-  }
-  out.push(
-    `  出口③ ref 存续体检:node scripts/git-refs-heal.mjs --status,缺失即 node scripts/git-refs-heal.mjs` +
-      `(§5b:嵌套 ref 会被清理层删掉,update-ref 对它还会假成功)`,
-  )
-  return out.join('\n')
-}
-
 /** 找一对需要合并的输入;skip 非空表示无事可做,undetermined 非空表示"这一步还没资格判"。 */
 export function resolveTargets(theirsArg, cwd = ROOT) {
   const head = git(['rev-parse', 'HEAD'], cwd)
   const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
   let theirs = theirsArg
-  // "调用方有没有点名一枚 --theirs" 决定"本地纯落后"能不能当短路用(见下面那条注释)。
-  const explicit = String(theirsArg || '').trim() !== ''
   if (!theirs) {
     try {
       // 远端位置只认**当次真值**(§5b:跟踪 ref 会被清理层删掉,packed-refs 里的旧值照样被读回来)。
       // 拿残值落槌有两种都不报错的错向:残值==本地 ⇒ 报"已同步"而根本不合并;残值落后 ⇒ 去合一个
       // 早已不存在的分叉。取不到就当"无法判定"交回上层,绝不猜一个 stage 用。
-      // ⚠️ 这一支过去落 `skip`(⇒ CLI 打印"无需合并"并 exit 0),那是把"判不了"报成"无事可做":
-      // 调用方据此跳过一整轮收敛,账面全绿而分叉永久留着。现在落 undetermined ⇒ exit 2。
       const r = resolveRemoteHead(branch, { root: cwd })
       if (!r.sha)
         return {
           head,
           theirs: '',
-          skip: null,
-          undetermined: unreachableObjectGuidance({ noRemoteTruth: r.reason, branch }),
+          skip: `取不到 ${branch} 的当次远端真值(不拿跟踪 ref 残值落槌):${r.reason}`,
         }
       theirs = r.sha
     } catch (e) {
       return {
         head,
         theirs: '',
-        skip: null,
-        undetermined: unreachableObjectGuidance({
-          noRemoteTruth: `取远端异常:${String((e && e.message) || e).slice(0, 90)}`,
-          branch,
-        }),
+        skip: `取远端 ${branch} 异常:${String((e && e.message) || e).slice(0, 90)}`,
       }
     }
   }
@@ -1430,16 +1282,10 @@ export function resolveTargets(theirsArg, cwd = ROOT) {
       head,
       theirs,
       skip: null,
-      undetermined: unreachableObjectGuidance({ missing, theirs, head, branch }),
+      undetermined: `对象不在本机(${missing.map((s) => String(s).slice(0, 11)).join('、')})⇒ 本器不代跑 fetch;出口:git fetch --no-tags origin ${missing[0]} 后重跑`,
     }
   if (isAncestor(theirs, head, cwd)) return { head, theirs, skip: '目标已被本地包含' }
-  // ⚠️ "本地纯落后 ⇒ 交给 ff/converge"这一短路**只对"远端真值自动解析"那一支成立**。
-  // 显式喂了 `--theirs` 却说这句是错的(G-815406 同族、G-814402 实测):调用方点名要合的那枚提交
-  // 是不是已经在本地,只有 `isAncestor(theirs, head)` 能回答;而"本地落后于它"完全不等于
-  // "无事可做"—— 它恰恰意味着**还差一次合并**。旧写法在这里 exit 0 并打印"无需合并",
-  // 一次已验证的交付差点就这么没了(票面:复核的人都被那句合理话术劝退)。
-  // 现在显式档照常走归并:落地闸仍然硬判"两侧路径零丢失",所以它不会比 ff 更危险,而它说真话。
-  if (!explicit && isAncestor(head, theirs, cwd))
+  if (isAncestor(head, theirs, cwd))
     return { head, theirs, skip: '本地纯落后 ⇒ 走 ff/converge,不用 union' }
   return { head, theirs, skip: null }
 }
@@ -1466,20 +1312,12 @@ export function plan(
 ) {
   // 直接走 API 的调用方也必须拿到同一句诊断,而不是 git 的 "Not a valid commit name" 加一串堆栈
   // (G-473 ②:取不到要写成"未判定 + 出口",不得表现为工具故障)。CLI 那一支在 resolveTargets
-  // 已经拦下,这条是给 import 者的 —— 两处判据与**两处出路文案**同一份实现(unreachableObjectGuidance),
-  // 各写一遍的后果是"CLI 用户与 import 者拿到的指导不一样"。
+  // 已经拦下,这条是给 import 者的 —— 两处判据同一份实现(hasCommit)。
   const miss = [ours, theirs].filter((s) => s && !hasCommit(s, cwd))
-  if (miss.length) {
-    let branch = ''
-    try {
-      branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
-    } catch {
-      /* 分支名问不到 ⇒ guidance 自己落占位,不因此改变"未判定"这一结论 */
-    }
+  if (miss.length)
     throw new Error(
-      `未判定:${unreachableObjectGuidance({ missing: miss, theirs, head: ours, branch })}`,
+      `未判定:对象不在本机(${miss.map((s) => String(s).slice(0, 11)).join('、')})⇒ 本器不代跑 fetch;出口:git fetch --no-tags origin ${miss[0]} 后重跑`,
     )
-  }
   const base = git(['merge-base', ours, theirs], cwd)
   // 一张抑制表同时喂归并与落地断言(分开算必漂移,而漂移的固定代价是"落地闸把合法未取回判成丢行")。
   const moveAwareCache = new Map()
@@ -1774,27 +1612,14 @@ function selfTest() {
         })(),
       )
       ok(
-        '声明放行:accepted 必须真的传到落地闸的两处调用点(只加形参不传 = 自检绿而生效次数 0)',
+        '声明放行:accepted 必须真的传到落地闸的两处调用点(只加形参不传 = 自检绿而生效次数 0);' +
+          '活文档那一处还必须把 moveAware 抑制表一起传下去(第二型额度不接线就等于没有)',
         (() => {
           const src = readFileSync(new URL(import.meta.url), 'utf8')
           return (
-            src.includes('planStateRegressions(mergedText, sides, accepted, {') &&
-            src.includes('planStateRegressions(blobText(mergedOid, cwd), sideTexts, accepted, {') &&
+            src.includes('planStateRegressions(mergedText, sides, accepted, ma.suppress)') &&
+            src.includes('planStateRegressions(blobText(mergedOid, cwd), sideTexts, accepted)') &&
             src.includes('moveAwareCache, takeTheirs, accepted,')
-          )
-        })(),
-      )
-      ok(
-        'F5 额度:三类有据额度必须由**调用点**喂进内容(搬运感知表 / 基底面 / 本侧面)—— ' +
-          '只在判据函数里读形参而没人传,等价于这一维从未生效过(守门 70/76/81/105/115 同族)',
-        (() => {
-          const src = readFileSync(new URL(import.meta.url), 'utf8')
-          return (
-            src.includes('suppress: ma.suppress') &&
-            src.includes('baseText: bt') &&
-            src.includes('oursText: a') &&
-            src.includes('baseText: __sideBlobs[0]') &&
-            src.includes('oursText: __sideBlobs[1]')
           )
         })(),
       )
@@ -2013,57 +1838,38 @@ function selfTest() {
       planStateRegressions(PS_N1, [PS_N1, PS_N0]).length === 0 &&
         planStateRegressions(PS_N1 + PS_N1, [PS_N1]).length === 0,
     )
-    // ── F5 的三类"有据额度"(2026-09-29)──
-    // 立因:落地闸报「各侧最多 537,归并只剩 501」却不给逐份出处,而按行量下来 64 份缺口
-    // **全部**能落到两类合法机制上(38 份由基准面的 `已归档` 占位代表、26 份是本侧相对基底自缩)。
-    // 旧写法只认"副本指针行"一档,且**遍历结果面** ⇒ "一份都没剩下"那种行结构上不可申诉。
-    // 这三条成对用例钉的是:有据的两档必须认下来(否则每次台账合并自杀),而无据那一档**照旧判红**
-    // (放宽的是形状,不是方向 —— 把判据改成"永远放过"就等于没有这道门)。
-    const AR =
-      '<!-- 已归档(2026-09-26:某条目收口,随块带走的归并落账注记: 〔【归并】D9 落账:复测 2026-09-26〕 〔【归并】D10 落账:复测 2026-09-26〕 -->'
-    const ARn = (k) => (k > 0 ? `${AR}\n`.repeat(k) : '')
+    // ── F5 第二型额度(2026-09-29):本侧已把该条目归档,对侧那份带注记写法被 moveAware 抑制 ──
+    // 立因:落地闸对着 9 行"内容仍在 .ihui-agent/archive/* 里"的行拒收整枚合并,而唯一出路是
+    // 手工构造合并 —— 那道闸想防的事故比它造成的更轻。抑制表本身就是归档证据,不在此处另判。
     ok(
-      'F5 额度①:搬运感知表按行点名的"占位代表"份数 ⇒ 不得判红(结果里一份都没有也必须能申诉)',
-      planStateRegressions('x\n', ['x\n', 'x\n', ARn(2)], null, {
-        suppress: new Map([[AR, 2]]),
-        baseText: 'x\n',
-        oursText: 'x\n',
-      }).length === 0,
-    )
-    ok(
-      'F5 额度②:本侧相对共同基底自己缩了量 ⇒ 依"处置权在本侧"不判红(与 liveDocExpectedCounts 同形)',
-      planStateRegressions(ARn(1), [ARn(3), ARn(1), ARn(3)], null, {
-        suppress: null,
-        baseText: ARn(3),
-        oursText: ARn(1),
-      }).length === 0,
-    )
-    ok(
-      'F5 有牙:对侧相对基底**加**了注记、归并却没带(既非占位代表也非自缩)⇒ 照常判红并点名未解释条数',
+      'F5 第二型:被抑制表**逐字点名**的那一行 ⇒ 不得判红,且额度必须报出条数(不得静默放过)',
       (() => {
-        const r = planStateRegressions(ARn(1), [ARn(1), ARn(1), ARn(3)], null, {
-          suppress: null,
-          baseText: ARn(1),
-          oursText: ARn(1),
-        }).join('')
-        return r.includes('F5') && r.includes('未被任何机制解释')
+        const supp = new Map([[PS_N1.replace(/\n$/, ''), 1]])
+        const r = planStateRegressions(PS_N0, [PS_N1, PS_N0], null, supp)
+        return !r.some((x) => x.includes('F5')) && r.f5SuppressedCredit === 1
       })(),
     )
     ok(
-      'F5 量纲:搬运感知表给的是**份数**,一行挂两条注记时必须换算成 2 个 occurrence —— ' +
-        '把行数当份数(本仓反复复发的那一单位错)会让这一档少扣一半,把正常合并钉成恒红',
-      planStateRegressions('x\n', ['x\n', 'x\n', ARn(1)], null, {
-        suppress: new Map([[AR, 1]]),
-        baseText: 'x\n',
-        oursText: 'x\n',
-      }).length === 0 &&
-        // 反向对照:同一张表什么都不给 ⇒ 必须红(有牙,不是"能解释就算过")
-        planStateRegressions('x\n', ['x\n', 'x\n', ARn(1)], null, {
-          suppress: new Map(),
-          baseText: 'x\n',
-          oursText: 'x\n',
-        }).join('')
-          .includes('F5') === true,
+      'F5 第二型的反面:抑制表点名的是**另一行** ⇒ 照常判红(加额度不等于放过,只认整行等值)',
+      planStateRegressions(PS_N0, [PS_N1, PS_N0], null, new Map([['- [ ] 别人的行', 9]]))
+        .join('')
+        .includes('F5'),
+    )
+    // 量纲成对:读数按标记个数算,额度也必须按标记个数算 —— 否则一行带两枚注记时永远扣不满,
+    // 残差表现为"名单为空却仍差 N 条"(2026-09-29 实测 14 条即此型)。
+    ok(
+      'F5 量纲:一行带两枚注记 ⇒ 欠账按 2 条计,抑制一行恰好抵掉 2 条(不得只抵 1 条)',
+      (() => {
+        const two =
+          '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。' +
+          '〔【归并】D9 落账:复测 2026-09-26: 取证 A。〕 另有同题一条。' +
+          '〔【归并】D9 落账:复测 2026-09-27: 取证 B。〕\n'
+        const none = '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。\n'
+        const red = planStateRegressions(none, [two, none], null, null).join('')
+        const gap2 = red.includes('F5') && red.includes('仍差 2 条')
+        const cleared = planStateRegressions(none, [two, none], null, new Map([[two.replace(/\n$/, ''), 1]]))
+        return gap2 && !cleared.some((x) => x.includes('F5')) && cleared.f5SuppressedCredit === 2
+      })(),
     )
     // ── F9b 畸形号 / F9 撞号两维进落地闸(2026-09-28 G-606)──
     // 成对:① 归并自己造的必须点名;② 两侧本来就带着的存量不得钉红归并(否则每次收敛都红)。
@@ -2147,8 +1953,8 @@ function selfTest() {
     )
     // 「对侧改写、本侧未动」那一族的四条成对用例(正例 + 三条"判不准就不许折"的反向对照)。
     // 反向三条各自的失效方向都是**多留一份**,绝不是少带 —— 少带就是丢别人的行,比 F9 红更贵。
-    const RW_BASE = '- [ ] G-770 折叠夹具:同一议题的甲写法,含落点与判据两段说明。\n'
-    const RW_NEW = '- [x] G-770 折叠夹具:同一议题的乙写法,含落点与判据两段说明。\n'
+    const RW_BASE = '- [ ] G-770 折叠夹具:基底形态。\n'
+    const RW_NEW = '- [x] G-770 折叠夹具:对侧改写后的形态。\n'
     const RW_MINE = '- [ ] G-770 折叠夹具:本侧自己改成的第三种形态。\n'
     const rwHas = (r, s) => (s === '' ? false : r.includes(s.trim()))
     ok(
@@ -2171,15 +1977,6 @@ function selfTest() {
       (() => {
         const r = unionLines(`a\n${RW_BASE}`, `a\n${RW_BASE}${RW_NEW}`, `a\n${RW_BASE}`)
         return rwHas(r, RW_BASE) && rwHas(r, RW_NEW)
-      })(),
-    )
-    ok(
-      '反向锁:同一枚号被两侧各登记成**不同议题**(并发取号撞的)⇒ 不许折 —— 折掉任何一侧都是替别人删一件活账,比 F9 红贵得多;这条就是本判据唯一的假阳方向',
-      (() => {
-        const A = '- [ ] G-773 构建脚本的包名解析恒为空,versionCode 读错 app 的清单。'
-        const B = '- [ ] G-773 派单阻塞登记:排队语义在满载时把已终态任务再次入队。'
-        const r = unionLines(`a\n${A}\n`, `a\n${B}\n`, `a\n${A}\n`)
-        return r.includes(A.trim()) && r.includes(B.trim())
       })(),
     )
     ok(
@@ -2438,116 +2235,6 @@ function selfTest() {
           rmScratch(d5)
         }
       }
-      // ── 端到端:影子 .js 不得随合并恢复,而它的**删除**要传播(2026-09-29 用户拍板"在合并规则里堵死")──
-      // 三臂成对:A=对侧删影子 ⇒ 删除传播;B=对侧带回与 .ts 同一份字节的影子 ⇒ 拦住;
-      // C=对侧那份影子内容与 .ts **不等值** ⇒ 照旧取对侧(证明这一刀是按字节切的,不是按名字切的)。
-      {
-        const d6 = mkScratch('ihui-union-shadow-')
-        try {
-          const g6 = (...a) => git(a, d6)
-          const TS = 'a.ts'
-          const JS = 'a.js'
-          const C = 'export const v = 1\n'
-          const treeHas = (tree, p) => {
-            try {
-              git(['rev-parse', `${tree}:${p}`], d6)
-              return true
-            } catch {
-              return false
-            }
-          }
-          g6('init', '-q', '-b', 'main')
-          g6('config', 'user.email', 't@t')
-          g6('config', 'user.name', 't')
-          g6('config', 'core.autocrlf', 'false')
-          writeFileSync(join(d6, TS), C, 'utf8')
-          writeFileSync(join(d6, JS), C, 'utf8') // 影子:与 .ts 同一份字节
-          writeFileSync(join(d6, 'keep.md'), '# keep\n', 'utf8')
-          g6('add', '-A')
-          g6('commit', '-qm', 'base(ts + 等值影子)')
-          const base6 = g6('rev-parse', 'HEAD').trim()
-
-          // A 臂:对侧删掉影子,本侧没动 ⇒ 本工具的产物树里也不该再有它
-          g6('checkout', '-q', '-b', 'theirs', base6)
-          g6('rm', '-q', JS)
-          g6('commit', '-qm', 'theirs(删影子)')
-          const theirs6a = g6('rev-parse', 'HEAD').trim()
-          g6('checkout', '-q', '-B', 'ours', base6)
-          g6('commit', '-q', '--allow-empty', '-m', 'ours(没动)')
-          const pa = plan(g6('rev-parse', 'HEAD').trim(), theirs6a, d6)
-          ok(
-            '端到端 影子A:对侧删掉"与 .ts 同一份字节"的影子 ⇒ 删除随合并传播(不再走 skippedDeletes)',
-            !treeHas(pa.tree, JS) &&
-              treeHas(pa.tree, TS) &&
-              // 字节没丢:合并树里那份 .ts 的 oid **就是**原影子的 oid(内容寻址证明,不是文字比对)
-              blobOf(pa.tree, TS, d6) === blobOf(base6, JS, d6) &&
-              (pa.shadowDeletes ?? []).length === 1 &&
-              pa.shadowDeletes[0].path === JS &&
-              !(pa.skippedDeletes ?? []).includes(JS) &&
-              pa.bad.length === 0,
-            JSON.stringify([pa.shadowDeletes, pa.skippedDeletes, pa.bad]),
-          )
-
-          // B 臂:对侧把影子**加回来**(内容仍等于 .ts),本侧从未有过 ⇒ 不恢复
-          g6('checkout', '-q', '-B', 'theirs', base6)
-          g6('rm', '-q', JS)
-          g6('commit', '-qm', 'theirs 基线调整')
-          const tb6 = g6('rev-parse', 'HEAD').trim()
-          writeFileSync(join(d6, JS), C, 'utf8')
-          g6('add', '-A')
-          g6('commit', '-qm', 'theirs(把同一份字节又写成 .js)')
-          const theirs6b = g6('rev-parse', 'HEAD').trim()
-          g6('checkout', '-q', '-B', 'ours', tb6)
-          const pb = plan(g6('rev-parse', 'HEAD').trim(), theirs6b, d6)
-          ok(
-            '端到端 影子B:对侧新增等值影子 ⇒ 不恢复,且必须点名(不得静默当成"这一侧没有")',
-            !treeHas(pb.tree, JS) &&
-              treeHas(pb.tree, TS) &&
-              blobOf(pb.tree, TS, d6) === blobOf(theirs6b, JS, d6) &&
-              (pb.shadowRestores ?? []).length === 1 &&
-              pb.shadowRestores[0].path === JS &&
-              !(pb.tookTheirs ?? []).includes(JS),
-            JSON.stringify([pb.shadowRestores, pb.tookTheirs]),
-          )
-
-          // C 臂(反向对照,这条才是"没有放宽"):内容与 .ts **不等值** ⇒ 照旧取对侧
-          g6('checkout', '-q', '-B', 'theirs', base6)
-          writeFileSync(join(d6, JS), C + 'export const other = 2\n', 'utf8')
-          g6('add', '-A')
-          g6('commit', '-qm', 'theirs(影子有独有内容)')
-          const theirs6c = g6('rev-parse', 'HEAD').trim()
-          g6('checkout', '-q', '-B', 'ours', base6)
-          const pc = plan(g6('rev-parse', 'HEAD').trim(), theirs6c, d6)
-          // 内容等值一律按 **blob oid** 证(不按文本比 —— 换行风格会骗人,而 oid 不会)
-          const cTreeOid = blobOf(pc.tree, JS, d6)
-          const cTheirsOid = blobOf(theirs6c, JS, d6)
-          const cTsOid = blobOf(pc.tree, TS, d6)
-          ok(
-            '端到端 影子C:影子内容与 .ts 不等值 ⇒ 本规则**不触发**,照旧取对侧(按字节切,不按名字切)',
-            (pc.tookTheirs ?? []).includes(JS) &&
-              cTreeOid === cTheirsOid &&
-              cTreeOid !== cTsOid &&
-              (pc.shadowRestores ?? []).length === 0 &&
-              (pc.shadowDeletes ?? []).length === 0 &&
-              pc.bad.length === 0,
-            JSON.stringify([pc.tookTheirs, pc.shadowRestores, pc.shadowDeletes, pc.bad]),
-          )
-        } finally {
-          rmScratch(d6)
-        }
-      }
-      // ── 纯函数:影子候选名只认 .js/.cjs/.mjs → .ts/.tsx 这一个方向 ──
-      ok(
-        '纯函数 影子:候选名方向唯一(.js/.cjs/.mjs → .ts/.tsx;给 .ts 返回空 ⇒ 不会反过来丢 TS 保 JS)',
-        JSON.stringify(shadowTsSiblings('a/b.js')) === JSON.stringify(['a/b.ts', 'a/b.tsx']) &&
-          JSON.stringify(shadowTsSiblings('a/b.mjs')) === JSON.stringify(['a/b.ts', 'a/b.tsx']) &&
-          shadowTsSiblings('a/b.ts').length === 0 &&
-          shadowTsSiblings('a/b.md').length === 0 &&
-          shadowTsSiblings('a/b').length === 0 &&
-          shadowTwinIsIdentical('a/b.js', 'oid1', { 'a/b.ts': 'oid2' }) === null &&
-          shadowTwinIsIdentical('a/b.js', 'oid1', { 'a/b.ts': 'oid1' }).path === 'a/b.ts' &&
-          shadowTwinIsIdentical('a/b.ts', 'oid1', { 'a/b.js': 'oid1' }) === null,
-      )
     }
   } finally {
     rmScratch(dir)
@@ -2625,17 +2312,9 @@ async function main() {
     console.log(`[union-converge] UNDETERMINED 未判定:${t.undetermined}`)
     process.exit(2)
   }
-  // 显式点名了 --theirs 而本地又落后于它:不再打印"无需合并"(G-815406 同族、G-814402 实测的那次
-  // 差点吞掉一整个已验证交付),而是**照常归并并说清为什么**。快进确实是更省的动作,但那是对调用方
-  // 说的,不该由本器代替他下结论后 exit 0。
-  if (ti >= 0 && String(argv[ti + 1] || '').trim() !== '' && isAncestor(t.head, t.theirs, ROOT))
-    console.log(
-      '[union-converge] 本地落后于所点名的 --theirs ⇒ 这不是"无需合并";按显式目标照常归并' +
-        '(要快进请自己跑 git merge --ff-only,本器不替调用方决定动作)',
-    )
   const p = plan(t.head, t.theirs, ROOT, takeOurs, resolutions, takeTheirs, accepted)
   console.log(
-    `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 影子 .js 随合并删掉 ${p.shadowDeletes?.length ?? 0} / 影子 .js 未恢复 ${p.shadowRestores?.length ?? 0} / 活文档行 union`,
+    `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 活文档行 union`,
   )
   for (const d of p.skippedDeletes)
     console.log(`  · 对侧删除不随合并生效:${d}(确要删请在合并之后显式 git rm)`)
@@ -2695,14 +2374,6 @@ async function main() {
       ? `;人工归并回灌(已过两侧丢行断言): ${p.humanResolved.join(' ')}`
       : '') +
     (p.keptOurs?.length ? `;取本侧(已声明+可复核): ${p.keptOurs.join(' ')}` : '') +
-    // 影子 .js 两格的留痕:这一型是"删除被传播 / 回归被拦住",零损失由 blob oid 逐字相等证明,
-    // 但后来人只读 git log 也必须能看出**这两条不在默认通则里**(对侧删除本来是刻意不传播的)。
-    (p.shadowDeletes?.length
-      ? `;影子 .js 删除已传播(与同 stem .ts 同一份字节,零损失由内容寻址证明): ${p.shadowDeletes.map((x) => `${x.path}⇔${x.twin}`).join(' ')}`
-      : '') +
-    (p.shadowRestores?.length
-      ? `;影子 .js 未随合并恢复(同一份字节): ${p.shadowRestores.map((x) => `${x.path}⇔${x.twin}`).join(' ')}`
-      : '') +
     (p.keptTheirs?.length ? `;取对侧(已声明+可复核): ${p.keptTheirs.join(' ')}` : '') +
     (p.acceptedGrowth?.length
       ? `;已声明放行的量纲放大(带理由,非静默): ${p.acceptedGrowth.join(' | ')}`
@@ -2764,7 +2435,6 @@ export const __test__ = {
   verifyUnion,
   resolveTargets,
   hasCommit,
-  unreachableObjectGuidance,
   plan,
   listPaths,
   show,
