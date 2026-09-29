@@ -15,6 +15,13 @@
  *   P3 时钟:本机 `w32tm` 实测已连续约 12 小时没同步成功,而所有"多久一次/去重窗口/时间轴"判据都踩着它;
  *   P4 D 盘增长:清理脚本只扫 C 盘,D:\DevEnv 下 Temp/logs/archives 三块无任何上限保护;
  *   P5 心跳:部署环不迭代、备份不产出、凭据巡检不跑、网盘同步客户端没开 —— 全部无人判"多久没响"。
+ *   P6(2026-09-29 补这一格):告警规则**引用了根本不存在的指标序列** ⇒ 那条规则永远不会响,而台账
+ *      读成"这一维已覆盖"。真实现场两条 —— `LlmTokenCostSurge` 取 `ihui_llm_tokens_total`、
+ *      `LlmProviderErrorBurst` 取 `ihui_llm_provider_errors_total`,而 ai-service `/metrics` 今天
+ *      不产出这两个序列。它们的注释写着"待指标出现即生效",是**已定档的待偿项**,不该被冒判成违规;
+ *      所以 P6 产出的不是"把这两条判红",而是"给这一类待偿项一套有死亡机制的裁决账"
+ *      (`scripts/data/inert-alert-rules.json`,四件套 anchor+reason+owner+reviewBy,
+ *      三条红:字段不齐 / 到期未复裁 / 锚点已不在规则文件里 = 清单腐烂)。
  *
  * 定级与接线:本脚本判的是**机器运行状态**,提交者结构上满足不了,所以它**不进提交链**
  * (挂 blocking 就是每台每次被逼 `--no-verify`、连带全部守门作废,AGENTS §12e 同型)。
@@ -53,6 +60,9 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { devEnvRoot } from './seal-c-root-stray.mjs'
 import { scratchRoot } from './lib/scratch-dir.mjs'
+// 遮噪只许引这一份(AGENTS §3 / 守门 131·135·150 同一条禁令):本文件**不得**再自带
+// 一遍注释/字符串状态机 —— 两处实现必漂移,而漂移的表现是安静。
+import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(SELF_DIR, '..')
@@ -467,6 +477,349 @@ export function checkDeployLoopOutcome({ logFile = join(REPO, 'deploy/win/deploy
   return { id: 'P5b', state: 'finding', detail: `最近一轮 exit=1,未切流。最后一条 FAIL:${why}` }
 }
 
+/**
+ * P6 —— 告警规则引用的指标**根本不存在**,于是那条规则永远不会响,而账面读起来像"这一格已有人看守"。
+ *
+ * 立因(2026-09-29 现读):`monitoring/prometheus/alerts.yml` 的 `LlmTokenCostSurge` 取
+ * `ihui_llm_tokens_total`、`LlmProviderErrorBurst` 取 `ihui_llm_provider_errors_total`,而
+ * `GET /api/v1/label/__name__/values`(1876 个名字)里两个都没有 ⇒ 两条规则的表达式恒不评估。
+ * 这两条**不是要判红的违规**:它们的注释明确写着"待指标出现即生效",是本仓已定档的**待偿项**
+ * (`or on() vector(0)` 兜底保证指标缺席时不误报)。所以本判据产出的不是"把它们判红",而是
+ * **给这一类待偿项一套有死亡机制的裁决账**(AGENTS「工作队列必须有死亡机制」那条原文照抄):
+ * 每条四件套 `anchor(内容锚 = 规则名,不含行号)+ reason + owner + reviewBy`,三条红 =
+ * 字段不齐 / 到期未复裁(站点回到队列)/ 锚点在被审面已找不到(清单腐烂)。
+ * **裁决账不是豁免通道** —— 它只登记"这一处证据不足,由具名的人限期再看",不裁"这一处不算错"。
+ *
+ * 四态不并桶:`live`(至少一个引用指标在采)/ `inert`(引用全部不在 ⇒ 候选永不触发)/
+ * `undetermined`(接口取不到 / 提不出候选名 / 引用的是 recording rule 派生名)/
+ * `deferred`(inert 且台账在裁未到期 ⇒ **只报数不判红**)。
+ * 判红只发生在:inert 且无台账 / 台账过期 / 台账腐烂。接口不可达时整条 P6 落未判定**不判红**
+ * —— 它判的是机器状态,机器态判红就是与任何提交无关的恒红门(§12e 同型)。
+ */
+
+/**
+ * PromQL 里"裸出现但不是指标名"的关键字。
+ * 只收**不带括号也会出现在式子里**的那些(`on`/`ignoring`/`bool`/`offset`/`and` …);
+ * 函数一律由"后面跟左括号"那条规则摘掉,不在这张表里重复登记 —— 两处摘同一件事必漂移。
+ */
+const PROM_NON_METRIC_WORDS = new Set([
+  'and',
+  'or',
+  'unless',
+  'bool',
+  'offset',
+  'on',
+  'ignoring',
+  'group_left',
+  'group_right',
+  'by',
+  'without',
+  'inf',
+  'nan',
+])
+
+/**
+ * 从规则文本里取每条 `alert:` / `record:` 的名字与它的 `expr:`。
+ * 版式只认本仓实际写法(两种都真在 `alerts.yml` 里):单行 `expr: …` 与块标量 `expr: |` + 缩进续行。
+ * 解析不出任何一条 ⇒ 调用方落未判定,**不得把"没解析到"读成"没有规则"**(本仓最高频失效型)。
+ */
+export function parseAlertRules(yamlText) {
+  const rules = []
+  const lines = String(yamlText || '').split(/\r?\n/)
+  let cur = null
+  for (const raw of lines) {
+    const line = raw.replace(/\t/g, '    ')
+    const t = line.trim()
+    if (!t || t.startsWith('#')) continue
+    const named = line.match(/^\s*-\s+(alert|record):\s*([A-Za-z0-9_:.]+)\s*$/)
+    if (named) {
+      cur = { name: named[2], kind: named[1], expr: '', block: false, exprIndent: -1 }
+      rules.push(cur)
+      continue
+    }
+    // 另一个列表项(组名等)⇒ 当前规则结束;此后不再有 expr 归属它
+    if (/^\s*-\s+/.test(line)) {
+      cur = null
+      continue
+    }
+    if (!cur) continue
+    const eM = line.match(/^(\s+)expr:\s*(.*)$/)
+    if (eM) {
+      const rest = eM[2]
+      if (rest === '|' || rest === '|-' || rest === '>' || rest === '>-') {
+        cur.block = true
+        cur.exprIndent = eM[1].length
+      } else {
+        cur.block = false
+        cur.expr = rest
+      }
+      continue
+    }
+    if (!cur.block) continue
+    const indent = line.match(/^(\s*)/)[1].length
+    // 块标量只收比 `expr:` 更缩进的续行;一遇同级/更浅(如 `for:`)就结束 —— 否则会把
+    // `for`、`annotations` 整段吞进表达式,凭空造出候选名。
+    if (indent > cur.exprIndent) cur.expr += (cur.expr ? '\n' : '') + t
+    else cur.block = false
+  }
+  return rules
+}
+
+/**
+ * 从一段 PromQL 里取"疑似指标名"。
+ * 三条摘噪顺序不能换:① **遮噪走唯一实现** `scripts/lib/code-mask.mjs`(本文件不得再抄一份
+ * 注释/字符串遮蔽 —— 两处实现必漂移,§3/§22c 记过最多次),标签值 `"api"` 里的字必须消失;
+ * ② 摘掉标签选择器 `{…}` 与范围选择器 `[…]`、以及 `by (…) / on (…) / group_left (…)` 这类
+ * **集合修饰的括号组** —— 其中是标签名不是指标名(任务书点名的 `sum by (...)` 那一型);
+ * ③ 名字后紧跟左括号 ⇒ 函数调用(`rate`/`sum`/`vector`/`histogram_quantile`),不是指标。
+ * 另外要求候选左邻不是 `[A-Za-z0-9_.]`,否则 `15m` 里的 `m`、小数尾巴会被当名字。
+ */
+export function metricRefsFromExpr(expr) {
+  const masked = maskCommentsAndStrings(String(expr || ''))
+  const cleaned = masked
+    .replace(/#[^\n]*/g, ' ')
+    .replace(/\{[^{}]*\}/g, ' ')
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/\b(?:by|without|on|ignoring|group_left|group_right)\s*\([^()]*\)/g, ' ')
+  const out = []
+  const seen = new Set()
+  const re = /[A-Za-z_:][A-Za-z0-9_:]*/g
+  let m
+  while ((m = re.exec(cleaned)) !== null) {
+    const prev = m.index > 0 ? cleaned[m.index - 1] : ''
+    if (prev && /[A-Za-z0-9_.]/.test(prev)) continue
+    let j = m.index + m[0].length
+    while (j < cleaned.length && (cleaned[j] === ' ' || cleaned[j] === '\t')) j += 1
+    if (cleaned[j] === '(') continue
+    if (PROM_NON_METRIC_WORDS.has(m[0])) continue
+    if (!seen.has(m[0])) {
+      seen.add(m[0])
+      out.push(m[0])
+    }
+  }
+  return out
+}
+
+/** reviewBy 的"到期"按**当天结束**算(UTC),所以 2026-10-29 在 10-29 当天仍未到期。 */
+function reviewDeadlineMs(reviewBy) {
+  if (typeof reviewBy !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(reviewBy.trim())) return null
+  const at = Date.parse(`${reviewBy.trim()}T23:59:59Z`)
+  return Number.isFinite(at) ? at : null
+}
+
+/**
+ * P6 的判定核心 —— **纯函数**,YAML 文本 / 指标名集合 / 台账条目 / now 全部由调用方喂进来,
+ * 所以自检与镜像测试能拿构造面判四态,不连 Prometheus 也不读盘。
+ * 返回 `{ rows, counts }`:`rows` 是 `{id,state,detail}` 数组(与 patrol 现有条目同格式),
+ * 判红与未判定**逐条点名**,live/deferred 收在汇总行里(deferred 按口径只报数)。
+ */
+export function scanInertAlertRules({ yamlText, liveNames, ledgerEntries, now = Date.now(), ledgerWhy = null }) {
+  const rules = parseAlertRules(yamlText)
+  const names = liveNames instanceof Set ? liveNames : new Set(liveNames || [])
+  if (!rules.length) {
+    return {
+      rows: [{ id: 'P6', state: 'undetermined', detail: '规则文件里一条 alert/record 都没解析到 ⇒ 尺子失效,不读成"没有永不触发的规则"' }],
+      counts: { live: 0, inert: 0, deferred: 0, undetermined: 1, red: 0 },
+    }
+  }
+  if (!names.size) {
+    return {
+      rows: [{ id: 'P6', state: 'undetermined', detail: '指标名集合为空(0 个名字)⇒ 枚举到 0 不记绿,整维未判定' }],
+      counts: { live: 0, inert: 0, deferred: 0, undetermined: 1, red: 0 },
+    }
+  }
+  const recordNames = new Set(rules.filter((r) => r.kind === 'record').map((r) => r.name))
+  const rows = []
+  const counts = { live: 0, inert: 0, deferred: 0, undetermined: 0, red: 0 }
+  const deferredNames = []
+  const verdictOf = new Map() // 规则名 → 结论,给台账腐烂/多余条目对账用
+
+  const take = (key, rank, next) => {
+    const prev = verdictOf.get(key)
+    if (!prev || rank > prev.rank) verdictOf.set(key, { rank, ...next })
+  }
+
+  for (const r of rules) {
+    const name = r.name
+    const refs = metricRefsFromExpr(r.expr)
+    if (!String(r.expr || '').trim() || !refs.length) {
+      counts.undetermined += 1
+      rows.push({
+        id: `P6·${name}`,
+        state: 'undetermined',
+        detail: `${r.kind} 表达式里提不出任何候选指标名(expr=${JSON.stringify(String(r.expr || '').slice(0, 80))})⇒ 未判定,不记绿`,
+      })
+      take(name, 3, { state: 'undetermined' })
+      continue
+    }
+    const live = refs.filter((n) => names.has(n))
+    const absent = refs.filter((n) => !names.has(n))
+    if (live.length) {
+      counts.live += 1
+      take(name, 0, { state: 'live' })
+      continue
+    }
+    const derived = absent.filter((n) => recordNames.has(n))
+    if (derived.length) {
+      counts.undetermined += 1
+      rows.push({
+        id: `P6·${name}`,
+        state: 'undetermined',
+        detail: `引用的是本文件内 recording rule 的派生名(${derived.join(', ')}),而它此刻也不在指标名集合里 —— 派生序列是否真在产出本判据看不见,未判定而非判红`,
+      })
+      take(name, 3, { state: 'undetermined' })
+      continue
+    }
+    // inert:先查台账
+    const entry = (ledgerEntries || []).find((e) => e && e.anchor === name)
+    const inertText = `引用的指标全部不在 Prometheus 已知指标名里(${absent.join(', ')})⇒ 该规则结构上永不触发`
+    if (!entry) {
+      counts.inert += 1
+      counts.red += 1
+      rows.push({
+        id: `P6·${name}`,
+        state: 'finding',
+        detail: `${inertText};出路二选一:① 把表达式改成真在采的指标名,② 在 scripts/data/inert-alert-rules.json 按四件套登记裁决(anchor + reason + owner + reviewBy,reason 里带可核验的取证命令)`,
+      })
+      take(name, 2, { state: 'finding' })
+      continue
+    }
+    const problems = []
+    for (const f of ['anchor', 'reason', 'owner', 'reviewBy']) {
+      const v = entry[f]
+      if (typeof v !== 'string' || !v.trim()) problems.push(`${f} 缺失/为空`)
+    }
+    if (problems.length) {
+      counts.inert += 1
+      counts.red += 1
+      rows.push({
+        id: `P6·${name}`,
+        state: 'finding',
+        detail: `台账条目字段不齐(${problems.join(';')})⇒ 站点继续可见、不因写坏而免检。${inertText}`,
+      })
+      take(name, 2, { state: 'finding' })
+      continue
+    }
+    const due = reviewDeadlineMs(entry.reviewBy)
+    if (due === null) {
+      counts.inert += 1
+      counts.red += 1
+      rows.push({
+        id: `P6·${name}`,
+        state: 'finding',
+        detail: `台账 reviewBy=${JSON.stringify(entry.reviewBy)} 不是 YYYY-MM-DD ⇒ 等于没有到期日 = 没有死亡机制。${inertText}`,
+      })
+      take(name, 2, { state: 'finding' })
+      continue
+    }
+    if (now > due) {
+      counts.inert += 1
+      counts.red += 1
+      rows.push({
+        id: `P6·${name}`,
+        state: 'finding',
+        detail: `裁决已到期未复裁(reviewBy=${entry.reviewBy},持有者=${entry.owner})⇒ 站点回到队列。${inertText};出路:续进展(改 reviewBy + 写明新证据)或把表达式改到真在采的指标上`,
+      })
+      take(name, 2, { state: 'finding' })
+      continue
+    }
+    counts.inert += 1
+    counts.deferred += 1
+    deferredNames.push(`${name}(到期 ${entry.reviewBy})`)
+    take(name, 1, { state: 'deferred' })
+  }
+
+  // 台账侧两型腐烂:锚点指向的规则已不在被审面 / 条目在裁而规则其实已 live(只报数)
+  for (const e of ledgerEntries || []) {
+    const a = typeof e?.anchor === 'string' ? e.anchor.trim() : ''
+    if (a && !verdictOf.has(a)) {
+      counts.red += 1
+      rows.push({
+        id: `P6·${a}`,
+        state: 'finding',
+        detail: '台账腐烂:该锚点在规则文件里已经找不到条目(规则被改名或删掉而账没跟着清)⇒ 登记表过期比没有表更糟,它会替人做出"这一条已被想过"的判断',
+      })
+    } else if (a && verdictOf.get(a)?.state === 'live') {
+      rows.push({
+        id: `P6·${a}`,
+        state: 'ok',
+        detail: '台账仍在裁而该规则引用的指标其实已在采(只报数):裁完请把条目撤掉,免得账变成第二份现状',
+      })
+    }
+  }
+
+  const summaryState = counts.red ? 'finding' : counts.undetermined ? 'undetermined' : 'ok'
+  rows.unshift({
+    id: 'P6',
+    state: summaryState,
+    detail: `规则 ${rules.length} 条:在采 ${counts.live} / 永不触发 ${counts.inert}(其中台账在裁 ${counts.deferred})/ 判红 ${counts.red} / 未判定 ${counts.undetermined}${deferredNames.length ? `;deferred:${deferredNames.join('、')}` : ''}${ledgerWhy ? `;台账:${ledgerWhy}` : ''}`,
+  })
+  return { rows, counts }
+}
+
+/** 现读"这台 Prometheus 真知道哪些指标名"。取不到 ⇒ 返回 {err},由调用方落未判定(不得当成空集判红)。 */
+async function fetchLiveMetricNames(baseUrl, timeoutMs = 10000) {
+  const ac = new AbortController()
+  const timer = setTimeout(() => ac.abort(), timeoutMs)
+  try {
+    const res = await fetch(`${baseUrl}/api/v1/label/__name__/values`, { signal: ac.signal })
+    if (!res.ok) return { err: `接口返回 ${res.status}` }
+    const body = await res.json()
+    const values = Array.isArray(body?.data) ? body.data : null
+    if (!values) return { err: '响应里没有 data 数组(接口形态变了?)' }
+    return { names: new Set(values.map(String)) }
+  } catch (e) {
+    return { err: `${e?.name || 'Error'}:${e?.message || e}` }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * P6 的装配层:读规则文件 + 读裁决台账 + 现读指标名,再交给纯函数判。
+ * 台账文件缺失/坏 JSON **不当空表用**:照样按"无台账"判红(fail-closed,判决方向是"多要一次交代"),
+ * 但一定把原因写在汇总行里 —— 否则读报告的人会以为"没人登记过这两条"。
+ */
+export async function checkInertAlertRules({
+  alertsFile = join(REPO, 'monitoring/prometheus/alerts.yml'),
+  ledgerFile = join(REPO, 'scripts/data/inert-alert-rules.json'),
+  baseUrl = 'http://127.0.0.1:8815',
+  now = Date.now(),
+  probe = null,
+} = {}) {
+  let yamlText = null
+  let readWhy = null
+  try {
+    yamlText = readFileSync(alertsFile, 'utf8')
+  } catch (e) {
+    readWhy = `规则文件取不到:${e?.message || e}`
+    return {
+      rows: [{ id: 'P6', state: 'undetermined', detail: `${readWhy} ⇒ 未判定,不判红` }],
+      counts: { live: 0, inert: 0, deferred: 0, undetermined: 1, red: 0 },
+    }
+  }
+  const got = probe ? await probe() : await fetchLiveMetricNames(baseUrl)
+  if (got.err) {
+    return {
+      rows: [{ id: 'P6', state: 'undetermined', detail: `指标名接口取不到(${got.err})⇒ 整条 P6 未判定;它判的是机器状态,取不到不判红也不记绿` }],
+      counts: { live: 0, inert: 0, deferred: 0, undetermined: 1, red: 0 },
+    }
+  }
+  let ledgerEntries = []
+  let ledgerWhy = null
+  try {
+    const parsed = JSON.parse(readFileSync(ledgerFile, 'utf8'))
+    const list = Array.isArray(parsed?.rules) ? parsed.rules : Array.isArray(parsed) ? parsed : null
+    if (!list) ledgerWhy = `台账里没有 rules 数组(按零条目判)`
+    else ledgerEntries = list
+  } catch (e) {
+    ledgerWhy = `台账 JSON 取不到/解析失败:${e?.message || e}(按零条目判 ⇒ 站点回到队列,这是刻意方向)`
+  }
+  const out = scanInertAlertRules({ yamlText, liveNames: got.names, ledgerEntries, ledgerWhy, now })
+  if (ledgerWhy) out.rows.push({ id: 'P6·台账', state: 'undetermined', detail: ledgerWhy })
+  return out
+}
+
 export async function patrol({ now = Date.now(), apply = false, strict = false, devEnv = devEnvRoot(REPO) } = {}) {
   const amUrl = 'http://127.0.0.1:9093/-/reload'
   const promUrl = 'http://127.0.0.1:8815/-/reload'
@@ -494,6 +847,9 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
     }
   }
   add(rules)
+  // P6:规则引用的指标序列在不在。取不到一律未判定(机器态),不判红 —— 见该判据头注。
+  const p6 = await checkInertAlertRules({ now })
+  p6.rows.forEach(add)
   const am = add(checkAlertmanagerLive({ now, apply, devEnv }))
   if (am.state === 'needs-reload') {
     const code = await reloadEndpoint(amUrl)
@@ -633,7 +989,57 @@ function p5bThreeStates() {
   }
 }
 
-export function selfTest() {
+/**
+ * P6 的端到端夹具(只走构造文件 + 注入的 probe,**不真连 Prometheus**):
+ * A 臂 = 接口不可达 ⇒ 整条 P6 必须落"未判定"且**一条红都不产**(机器态判红 = 恒红门,§12e);
+ * B 臂 = 同一份构造规则 + 同一份指标名 + 带未到期台账 ⇒ deferred,不判红。
+ * 两臂各写一份临时规则文件/台账落在 §26 规定的 scratch 根,跑完即删(零副作用)。
+ */
+async function p6EndToEnd() {
+  const root = scratchRoot()
+  mkdirSync(root, { recursive: true })
+  const base = mkdtempSync(join(root, 'p6-'))
+  try {
+    const alertsFile = join(base, 'alerts.yml')
+    const ledgerFile = join(base, 'ledger.json')
+    const yaml = ['groups:', '  - name: t', '    rules:', '      - alert: GhostRule', '        expr: ghost_metric_total > 0', '        for: 5m'].join('\n')
+    writeFileSync(alertsFile, yaml, 'utf8')
+    writeFileSync(
+      ledgerFile,
+      JSON.stringify(
+        { rules: [{ anchor: 'GhostRule', reason: '预留待指标出现', owner: 'LLM 指标面持有人', reviewBy: '2026-10-29' }] },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+    const a = await checkInertAlertRules({
+      alertsFile,
+      ledgerFile,
+      now: Date.parse('2026-10-01T00:00:00Z'),
+      probe: async () => ({ err: '模拟:接口不可达' }),
+    })
+    const b = await checkInertAlertRules({
+      alertsFile,
+      ledgerFile,
+      now: Date.parse('2026-10-01T00:00:00Z'),
+      probe: async () => ({ names: new Set(['up', 'process_start_time_seconds']) }),
+    })
+    const aOk = a.counts.red === 0 && a.rows.length === 1 && a.rows[0].state === 'undetermined'
+    const bOk = b.counts.red === 0 && b.counts.deferred === 1 && b.rows.every((r) => r.state !== 'finding')
+    return aOk && bOk
+  } catch {
+    return false
+  } finally {
+    try {
+      rmSync(base, { recursive: true, force: true })
+    } catch {
+      /* 清理失败不改判定 */
+    }
+  }
+}
+
+export async function selfTest() {
   const cases = []
   const t = (name, cond) => cases.push({ name, pass: (() => { if (typeof cond === 'function') throw new Error(`${name}: cond 是函数 ⇒ 断言从未求值`); return cond === true })() })
   const DAY = 86400000
@@ -655,6 +1061,123 @@ export function selfTest() {
   t('重解析点不得被跟随(真造 junction 测)', junctionNotFollowed())
   t('不存在的目录量不到(返回 null 而非 0)', measureDir(join(REPO, '__no_such_dir__')) === null)
   t('P5b 三态成对(exit=1 红 / exit=0 绿 / 正在构建 未判定)', p5bThreeStates())
+  // ── P6(2026-09-29 补):规则引用的指标序列在不在。以下**全部是构造面** —— 自己造 YAML 文本、
+  //    自己造指标名集合、自己造台账数组,既不读 monitoring/prometheus/alerts.yml 也不连 Prometheus。
+  //    核心四对成对喂:同一段文本换台账/换日期/换锚点,结论必须翻(只测一态 = 把实现复读一遍)。
+  const P6_GHOST_YAML = [
+    'groups:',
+    '  - name: llm',
+    '    rules:',
+    '      - alert: GhostSurge',
+    '        expr: (sum(rate(ghost_metric_total{job="svc"}[15m])) or on() vector(0)) > 100',
+    '        for: 5m',
+    '        labels:',
+    '          severity: warning',
+  ].join('\n')
+  const P6_NOW = Date.parse('2026-09-29T08:00:00Z')
+  // 完整四件套、且 reviewBy 恰取"今天" —— 顺带锁死"到期按当天 23:59:59 算,当天不算过期"这条口径
+  const P6_GOOD_LEDGER = [{ anchor: 'GhostSurge', reason: '预留待指标出现(引用注释)', owner: 'LLM 指标面持有人', reviewBy: '2026-09-29' }]
+  const P6_LIVE_THIN = new Set(['up', 'process_start_time_seconds'])
+  const P6_LIVE_HAS = new Set(['ghost_metric_total', 'up'])
+  const p6go = (liveNames, ledgerEntries, extra = {}) => scanInertAlertRules({ yamlText: P6_GHOST_YAML, liveNames, ledgerEntries, now: P6_NOW, ...extra })
+  // 判红**逐条点名**才是 P6 的产出;'P6' 是维度的汇总行(它自己也会随子条目变红,所以这里
+  // 必须把它从"站点"名单里摘出去 —— 混在一起会让"有几条规则坏了"这个数虚高一行)。
+  const p6red = (r) => r.rows.filter((x) => x.state === 'finding' && x.id !== 'P6').map((x) => x.id)
+  const p6row = (r, id) => r.rows.find((x) => x.id === id) || {}
+
+  t('P6 成对①:引用不存在的指标 + 无台账 ⇒ 必判红(点名到规则名)', (() => {
+    const r = p6go(P6_LIVE_THIN, [])
+    return (
+      r.counts.inert === 1 && r.counts.red === 1 && p6red(r).join() === 'P6·GhostSurge' && p6row(r, 'P6').state === 'finding' && p6row(r, 'P6·GhostSurge').detail?.includes('ghost_metric_total') === true
+    )
+  })())
+  t('P6 成对②:同一段文本 + 未过期四件套台账 ⇒ 一条不判红,但汇总行逐条报名(只报数)', (() => {
+    const r = p6go(P6_LIVE_THIN, P6_GOOD_LEDGER)
+    return (
+      r.counts.red === 0 &&
+      r.counts.deferred === 1 &&
+      r.rows.every((x) => x.state !== 'finding') &&
+      p6row(r, 'P6').state === 'ok' &&
+      p6row(r, 'P6').detail.includes('GhostSurge(到期 2026-09-29)') === true
+    )
+  })())
+  t('P6 成对③:台账 reviewBy 改成过去日期 ⇒ 必判红(到期未复裁,站点回到队列)', (() => {
+    const r = p6go(P6_LIVE_THIN, [{ ...P6_GOOD_LEDGER[0], reviewBy: '2026-09-01' }])
+    return r.counts.red === 1 && p6red(r).join() === 'P6·GhostSurge' && p6row(r, 'P6·GhostSurge').detail.includes('已到期未复裁') === true
+  })())
+  t('P6 成对④:台账锚点指向不存在的规则名 ⇒ 必判红(清单腐烂)', (() => {
+    const r = p6go(P6_LIVE_HAS, [{ anchor: 'GhostRuleWasDeleted', reason: '构造', owner: '构造', reviewBy: '2026-09-29' }])
+    return (
+      r.counts.live === 1 && r.counts.red === 1 && p6red(r).join() === 'P6·GhostRuleWasDeleted' && p6row(r, 'P6·GhostRuleWasDeleted').detail.includes('腐烂') === true
+    )
+  })())
+  t('P6 反向对照:引用的指标真在采 ⇒ 不判红也不判未判定(绿)', (() => {
+    const r = p6go(P6_LIVE_HAS, [])
+    return r.counts.live === 1 && r.counts.red === 0 && r.counts.undetermined === 0 && r.rows.length === 1 && r.rows[0].state === 'ok'
+  })())
+  t('P6 死亡机制①:台账字段不齐(缺 owner)⇒ 判红,写坏的条目不得免检', (() => {
+    const bad = [{ anchor: 'GhostSurge', reason: '构造', reviewBy: '2026-09-29' }]
+    const r = p6go(P6_LIVE_THIN, bad)
+    return r.counts.red === 1 && p6row(r, 'P6·GhostSurge').detail.includes('字段不齐') === true
+  })())
+  t('P6 死亡机制②:reviewBy 不是 YYYY-MM-DD ⇒ 判红(等于没有到期日)', (() => {
+    const r = p6go(P6_LIVE_THIN, [{ anchor: 'GhostSurge', reason: '构造', owner: '构造', reviewBy: '30 天后再说' }])
+    return r.counts.red === 1 && p6row(r, 'P6·GhostSurge').detail.includes('没有死亡机制') === true
+  })())
+  t('P6 台账记的是已经采上的指标 ⇒ 只报数不判红,并催撤条目', (() => {
+    const r = p6go(P6_LIVE_HAS, P6_GOOD_LEDGER)
+    return r.counts.red === 0 && p6row(r, 'P6·GhostSurge').state === 'ok' && p6row(r, 'P6·GhostSurge').detail.includes('只报数') === true
+  })())
+  t('P6 提不出候选指标名的规则 ⇒ 逐条点名未判定(不得读成"这维干净")', (() => {
+    const yaml = ['groups:', '  - name: n', '    rules:', '      - alert: NoRefRule', '        expr: vector(0) > 0'].join('\n')
+    const r = scanInertAlertRules({ yamlText: yaml, liveNames: P6_LIVE_THIN, ledgerEntries: [], now: P6_NOW })
+    return r.counts.red === 0 && r.counts.undetermined === 1 && p6row(r, 'P6·NoRefRule').state === 'undetermined' && p6row(r, 'P6').state === 'undetermined'
+  })())
+  t('P6 引用 recording rule 派生名而它此刻也不在 ⇒ 未判定而非判红', (() => {
+    const yaml = [
+      'groups:',
+      '  - name: rec',
+      '    rules:',
+      '      - record: job:ghost_rate:5m',
+      '        expr: sum(rate(ghost_metric_total[5m]))',
+      '      - alert: DerivedGhost',
+      '        expr: job:ghost_rate:5m > 0',
+    ].join('\n')
+    const r = scanInertAlertRules({ yamlText: yaml, liveNames: P6_LIVE_HAS, ledgerEntries: [], now: P6_NOW })
+    return r.counts.red === 0 && r.counts.undetermined === 1 && p6row(r, 'P6·DerivedGhost').state === 'undetermined'
+  })())
+  t('P6 解析不到任何规则 ⇒ 未判定(尺子失效,不是"没有永不触发的规则")', (() => {
+    const r = scanInertAlertRules({ yamlText: '# 空文件\n', liveNames: P6_LIVE_THIN, ledgerEntries: [], now: P6_NOW })
+    return r.counts.red === 0 && r.counts.undetermined === 1 && r.rows.length === 1 && r.rows[0].state === 'undetermined'
+  })())
+  t('P6 指标名集合为空 ⇒ 未判定(枚举到 0 不记绿)', (() => {
+    const r = scanInertAlertRules({ yamlText: P6_GHOST_YAML, liveNames: new Set(), ledgerEntries: P6_GOOD_LEDGER, now: P6_NOW })
+    return r.counts.red === 0 && r.counts.deferred === 0 && r.rows.length === 1 && r.rows[0].state === 'undetermined'
+  })())
+  t('P6 台账读坏了 ⇒ 仍按零条目判红,但把原因写进汇总行(fail-closed + fail-loud)', (() => {
+    const r = p6go(P6_LIVE_THIN, [], { ledgerWhy: '台账 JSON 取不到/解析失败' })
+    return r.counts.red === 1 && p6row(r, 'P6').detail.includes('台账:台账 JSON 取不到/解析失败') === true
+  })())
+  t('P6 摘噪:函数名 / 标签名 / 范围选择器都不得当成指标名', (() => {
+    const a = metricRefsFromExpr('(sum(rate(ghost_metric_total{job="svc"}[15m])) or on() vector(0)) > 100')
+    const b = metricRefsFromExpr('histogram_quantile(0.95, sum by (route, code) (rate(http_server_requests_seconds_count{uri=~"/api/.*"}[5m]))) / sum by (route) (rate(http_server_requests_seconds_count[5m]))')
+    return a.join() === 'ghost_metric_total' && b.join() === 'http_server_requests_seconds_count'
+  })())
+  t('P6 版式:块标量 expr(`>-` 续行)也能取到规则名与指标名', (() => {
+    const yaml = [
+      'groups:',
+      '  - name: api',
+      '    rules:',
+      '      - alert: BlockGhost',
+      '        expr: >-',
+      '          sum(rate(block_ghost_total{job="api"}[5m]))',
+      '            > 10',
+      '        for: 10m',
+    ].join('\n')
+    const got = parseAlertRules(yaml)
+    return got.length === 1 && got[0].name === 'BlockGhost' && metricRefsFromExpr(got[0].expr).join() === 'block_ghost_total'
+  })())
+  t('P6 端到端(构造文件 + 注入 probe):接口不可达 ⇒ 整条未判定且零红;可达+有台账 ⇒ deferred', await p6EndToEnd())
   let pass = 0
   for (const c of cases) {
     console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
@@ -678,5 +1201,18 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { measureDir, ageVerdict, parseLastSync, LIMITS, patrol, selfTest, checkDeployLoopOutcome, checkRulesLoaded }
+export const __test__ = {
+  measureDir,
+  ageVerdict,
+  parseLastSync,
+  LIMITS,
+  patrol,
+  selfTest,
+  checkDeployLoopOutcome,
+  checkRulesLoaded,
+  parseAlertRules,
+  metricRefsFromExpr,
+  scanInertAlertRules,
+  checkInertAlertRules,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
