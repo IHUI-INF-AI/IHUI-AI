@@ -85,6 +85,12 @@ interface AiPanelState {
   floatPosition: { x: number; y: number }
   /** 工作展示区折叠态:true = 隐藏右侧 work-area,AI 面板占满(2026-08-17 用户需求) */
   workAreaCollapsed: boolean
+  /**
+   * 工作面全屏(D182,对标竞品 chatSession.headerActions enter/exitWorkspaceFullscreen):
+   * true = 隐藏 AI 面板,右侧审阅工作面(work-area)占满整行;退出按钮经 portal 渲染在
+   * work-area 右上角。会话级 UI 态不持久化(与 floatMode 同理,刷新回到 docked 默认态)。
+   */
+  workAreaFullscreen: boolean
   openPanel: () => void
   closePanel: () => void
   togglePanel: () => void
@@ -101,6 +107,7 @@ interface AiPanelState {
   setFloatMode: (v: boolean) => void
   setFloatMinimized: (v: boolean) => void
   toggleWorkAreaCollapsed: () => void
+  setWorkAreaFullscreen: (v: boolean) => void
   setFloatCollapsed: (v: boolean) => void
   setFloatPosition: (pos: { x: number; y: number }) => void
 }
@@ -128,6 +135,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       floatCollapsed: false,
       floatPosition: FLOAT_DEFAULT_POSITION,
       workAreaCollapsed: false,
+      workAreaFullscreen: false,
 
       openPanel: () => set({ open: true }),
       closePanel: () => set({ open: false }),
@@ -164,6 +172,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       setFloatMode: (v: boolean) => set({ floatMode: v }),
       setFloatMinimized: (v: boolean) => set({ floatMinimized: v }),
       toggleWorkAreaCollapsed: () => set((s) => ({ workAreaCollapsed: !s.workAreaCollapsed })),
+      setWorkAreaFullscreen: (v: boolean) => set({ workAreaFullscreen: v }),
       setFloatCollapsed: (v: boolean) => set({ floatCollapsed: v }),
       setFloatPosition: (pos: { x: number; y: number }) => set({ floatPosition: pos }),
     }),
@@ -198,6 +207,8 @@ export const useAiPanelStore = create<AiPanelState>()(
         ...((persistedState as Partial<AiPanelState>) || {}),
         open: true,
         floatMode: false,
+        // D182 工作面全屏同为会话级:rehydrate 后强制回默认,防旧残留把工作面锁在全屏
+        workAreaFullscreen: false,
         // 强制非最小化/非折叠:防旧版本 localStorage 残留 floatMinimized:true
         // 导致 AI 对话框默认收成 FAB(用户规则:默认展开正常态)
         floatMinimized: false,

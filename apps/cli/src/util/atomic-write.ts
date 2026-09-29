@@ -107,8 +107,9 @@ function errCode(e: unknown): string | undefined {
   return typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: unknown }).code) : undefined;
 }
 
-/** 同步退避:本模块的调用方(handler)本就是同步落盘,不引入 async 以免改签名扩散。 */
-function sleepSync(ms: number): void {
+/** 同步退避:本模块的调用方(handler)本就是同步落盘,不引入 async 以免改签名扩散。
+ *  b75-3#3 起导出:plugins/cache.ts 的 copyFileGuarded 复用同一形态,不另抄一份 Atomics 套路。 */
+export function sleepSync(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
@@ -166,6 +167,32 @@ function tmpPathFor(absPath: string): string {
   return path.join(dir, `.${base}.tmp-${process.pid}-${tmpSeq}`);
 }
 
+/**
+ * b75-4#8:tmp 以 O_EXCL|O_NOFOLLOW 独占创建(替换裸 'w')。
+ *  - **O_EXCL**:tmp 名哪怕极端撞车也绝不静默截断既有文件 —— 撞了就是 EEXIST,如实失败;
+ *  - **O_NOFOLLOW**:tmp 分量本身被换成符号链接时拒绝打开(POSIX 返回 ELOOP ⇒ 映射为
+ *    SymlinkTargetError,与 assertNotReparsePoint 同一口径)。Windows 的 Node 未暴露
+ *    O_NOFOLLOW(兜底 0),该平台链接拒绝由 lstat 判据承担 —— 平台差异如实登记,不装同语义。
+ *  mode 显式给 0o666(与裸 'w' 的默认一致,umask 照常生效):POSIX 已有文件在 rename 前由
+ *  chmodSync 保 mode,新文件权限不得因本守卫被收紧。
+ */
+const O_NOFOLLOW_FLAG = typeof fs.constants.O_NOFOLLOW === 'number' ? fs.constants.O_NOFOLLOW : 0;
+
+function openTmpExclusive(tmp: string): number {
+  try {
+    return fs.openSync(
+      tmp,
+      fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | O_NOFOLLOW_FLAG,
+      0o666,
+    );
+  } catch (e) {
+    if (errCode(e) === 'ELOOP') {
+      throw new SymlinkTargetError(tmp, '(tmp 分量当前是重解析点)');
+    }
+    throw e;
+  }
+}
+
 function removeQuietly(p: string): void {
   try {
     fs.rmSync(p, { force: true, maxRetries: 5, retryDelay: 50 });
@@ -204,7 +231,7 @@ export function commitAtomicWrite(baseline: WriteBaseline, content: string): voi
   const tmp = tmpPathFor(absPath);
   let fd: number | null = null;
   try {
-    fd = fs.openSync(tmp, 'w');
+    fd = openTmpExclusive(tmp);
     const written = fs.writeSync(fd, content, 0, 'utf-8');
     // 短写(partial write)本身就是"半截文件"的另一条路 —— 宁可失败也不让 rename 把它换上去
     if (written !== Buffer.byteLength(content, 'utf-8')) {
@@ -249,4 +276,10 @@ function renameWithRetry(tmp: string, absPath: string): void {
   }
   throw lastErr instanceof Error ? lastErr : new Error(`rename 失败:${absPath}`);
 }
+
+/** 测试缝:tmp 独占创建的 EEXIST/O_EXCL 判据要有直接断言面(仿 path-safety.ts 的 __test__ 先例)。 */
+export const __test__ = {
+  tmpPathFor,
+  openTmpExclusive,
+};
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
