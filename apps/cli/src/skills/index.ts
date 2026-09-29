@@ -56,7 +56,8 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { buildSkillPromptSection, sanitizeSkillName } from '../utils/prompt-boundary.js';
+import { buildSkillPromptSection, codePointLength, sanitizeSkillName } from '../utils/prompt-boundary.js';
+import { parseSkillsFrontmatter } from './frontmatter.js';
 import { recordInjectionInjected, recordInjectionSkipped } from '../utils/prompt-injection-registry.js';
 import * as os from 'node:os';
 import type { SkillFrontmatter, SkillPrerequisites, SkillSource } from '@ihui/types';
@@ -306,19 +307,6 @@ export const SAFE_FRONTMATTER_KEYS: ReadonlySet<string> = new Set<string>([
  */
 export const SKILL_DESCRIPTION_MAX_CODE_POINTS = 1024;
 
-/** 码位数(按码位迭代,代理对算 1;孤立的半代理被丢弃,与 truncateToCodePoints 同口径)。 */
-function codePointLength(text: string): number {
-  let n = 0;
-  for (const ch of text) {
-    if (ch.length === 1) {
-      const unit = ch.charCodeAt(0);
-      if (unit >= 0xd800 && unit <= 0xdfff) continue;
-    }
-    n += 1;
-  }
-  return n;
-}
-
 /**
  * 顶格键名的判据。`^` 就是"顶格"这一维的**唯一**强制:缩进行(`metadata:` 下的 `requires:`、
  * `prerequisites:` 下的 `commands:`)、注释行、块列表项都天然匹配不到。
@@ -487,14 +475,18 @@ function parseFrontmatter(front: string): SkillFrontmatter {
  * 解析 skill 文件内容为 SkillDefinition(含 frontmatter + 正文 + 路径信息)。
  * 无 frontmatter 块时 hasFrontmatter=false,frontmatter={},content=原文 trimmed。
  * frontmatter 解析失败(无法识别字段)时降级为空 frontmatter,不抛错。
- * 正则中 \n? 容忍空 frontmatter 块(---\n---\nbody)。
+ *
+ * 围栏结构(开启/闭合/截取/bodyLineOffset)统一走 `parseSkillsFrontmatter` 唯一出口:
+ * `---` 有开无闭(unterminated_frontmatter,典型是手删了闭合行)同样容错降级 —— 整份原文
+ * 当正文、frontmatter 置空、加载不中断;具名 reason 收在 codec 里供测试与诊断点名,
+ * 不在这里静默冒充"本来就没有 frontmatter"。
  */
 export function parseSkillDefinition(content: string, filePath: string): SkillDefinition {
   const sourceDir = path.dirname(filePath);
-  const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n?---\s*\n([\s\S]*)$/);
-  if (frontmatterMatch) {
-    const front = frontmatterMatch[1]!;
-    const body = frontmatterMatch[2]!.trim();
+  const fence = parseSkillsFrontmatter(content);
+  if (fence.ok) {
+    const front = fence.front;
+    const body = fence.body.trim();
     let frontmatter: SkillFrontmatter;
     try {
       frontmatter = parseFrontmatter(front);

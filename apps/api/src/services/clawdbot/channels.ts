@@ -11,7 +11,7 @@ import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
 import { generateCompactId } from '../../utils/crypto-random.js'
 import { fetchWithinDeadline } from '../../utils/fetch-deadline.js'
-import { OUTBOUND_REQUEST_TIMEOUT_MS } from '../im-outbound-policy.js'
+import { OUTBOUND_REQUEST_TIMEOUT_MS, interpretPlatformResponse } from '../im-outbound-policy.js'
 
 /**
  * G-815413:本文件此前 8 处 `await fetch(` 全部**没有 signal** —— 平台不响应时这些调用
@@ -89,6 +89,11 @@ export class ChannelManager extends EventEmitter {
     return fullMessage
   }
 
+  /**
+   * 返回形态与 ImDeliveryOutcome 对齐:true ⇔ outcome.ok(即 status==='delivered');
+   * business-rejected / no-receipt / http-error / transport-error 一律 false ——
+   * 只有两态,不新造第三态(clawdbot 路由的 `{ sent }` 直接消费该布尔)。
+   */
   async sendMessage(channelId: string, content: string, userId?: string): Promise<boolean> {
     const channel = this.channels.get(channelId)
     if (!channel || !channel.enabled) {
@@ -220,11 +225,20 @@ async function sendFeishu(channel: ChannelConfig, content: string, userId?: stri
     },
     'clawdbot→feishu im/messages',
   )
-  if (!msgResp.ok) {
-    const errText = await msgResp.text().catch(() => 'unknown')
-    throw new Error(`feishu 发送失败: ${msgResp.status} ${errText}`)
+  // G-815928:投递判定收口到 interpretPlatformResponse —— HTTP 2xx 仍可能业务拒绝
+  // (body code≠0),code=0 但未回 message_id 也算失败;与 im-gateway doFetch 同判一份,
+  // 不再本文件自判 resp.ok(同一语义两处各判必漂移)。
+  const outcome = interpretPlatformResponse(
+    msgResp.status,
+    await msgResp.text().catch(() => 'unknown'),
+  )
+  if (!outcome.ok) {
+    throw new Error(`feishu 发送失败: ${outcome.status} ${outcome.reason ?? 'unknown'}`)
   }
-  logger.debug({ channelId: channel.id, userId, receiveIdType }, '[Channels] feishu 发送成功')
+  logger.debug(
+    { channelId: channel.id, userId, receiveIdType, providerMessageId: outcome.providerMessageId },
+    '[Channels] feishu 发送成功',
+  )
 }
 
 interface WechatChannelConfig {
