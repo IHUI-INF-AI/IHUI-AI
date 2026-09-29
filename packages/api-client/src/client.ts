@@ -20,7 +20,12 @@ import type {
 // 本地不再重复定义,消除 import 与本地声明的 TS2440 冲突。
 export type { CitationsEvent }
 import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker.js'
-import { getTransport, type TransportInit } from './transport.js'
+import {
+  applyTraceparentToHeaders,
+  getTransport,
+  recordTraceIdFromResponse,
+  type TransportInit,
+} from './transport.js'
 // D116 原始 SSE 全帧采集(默认关闭,零开销;展示端 stream-inspector 挂工具托盘)
 import { recordStreamFrame } from './stream-frame-log.js'
 import type { DeviceFingerprintCollector } from '@ihui/types'
@@ -2333,13 +2338,18 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
 
       const resp = await fetch(url, {
         method: 'POST',
-        headers,
+        // D147(2026-09-29 立):这一腿用 native fetch,绕过了 transport 的出站装配点,
+        // 而它正是"一轮对话"的主路径 —— 不在这里带,trace id 的第一段就永远缺一条腿
+        // (普通 JSON 请求带、流式请求不带,两侧各自自洽)。判据仍住在 transport 那一份出口里。
+        headers: applyTraceparentToHeaders(headers),
         body: JSON.stringify(body),
         signal: opts.signal,
         // 2026-07-27 跨域 SSE 直连:携带 credentials 让 CORS 允许凭证,
         // Bearer token 在 Authorization header 中不受影响。
         credentials: 'include',
       })
+      // 回带:服务端若把编号写回响应头,记为"本轮排查编号"(编号不上 UI,只留读取出口)。
+      recordTraceIdFromResponse(resp.headers)
       if (!resp.ok || !resp.body) {
         const text = await resp.text().catch(() => '')
         // 与另两条腿共用同一个派生出口(空白 body 走兜底、message 优先于 detail、errorCode 一并取出),
