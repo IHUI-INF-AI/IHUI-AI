@@ -35,6 +35,10 @@
  * 2026-09-25 扩租约三要素(MECHANISM-SPEC-3 §2 / A9):认领不再只是文本标记,
  *   `- [ ]（进行中@YYYY-MM-DD/持有者）` 是带到期时间的租约。三条判据:
  *   CL1 租约过期(年龄 > 阈值,默认 72h)→ 点名行号+持有者+年龄;
+ *     2026-09-29 起套 **HEAD 面同一时刻量到的过期租约行文本**做棘轮锚点(与 CL3 同一条设计):
+ *     这一维是**被时钟判红**的,不是被本次改动判红的 —— 不套棘轮就等于在干净 HEAD 上恒红,
+ *     而 PROJECT_PLAN.md 正是本门 stagedTriggers 的文件,恒红唯一结局是各会话走应急跳门
+ *     连带约 190 道守门作废(§12e/§12f)。存量逐条报名不静默;新增(本次带进来的)照红。
  *   CL2 有 @日期 而无 /持有者(半个租约比没有租约更危险)→ 红;
  *   CL3 同一行**在勾选框位置**同时出现 `[x]` 与租约形态 `（进行中@…）`(清账方向矛盾)→ 红;
  *     2026-09-26 起套 **HEAD 自身存量**做棘轮锚点(HEAD 里那批残留是归并器修好前种下的
@@ -297,12 +301,36 @@ function resolveTtlHours(flagValue, envValue) {
  * 是为了让它**只会自己收紧**:谁把残留清进 HEAD,下一次的红线就跟着降。
  * `cl3Stock === undefined` ⇒ 不套棘轮(人工/取证面),`null` ⇒ 锚点取不到,判"未判定"而非通过。
  */
-function checkLeaseGate(content, { nowMs, ttlHours, cl3Stock }) {
+function checkLeaseGate(content, { nowMs, ttlHours, cl3Stock, cl1Stock }) {
   const { inProgress } = scanTasks(content)
   const { stale, missingHolder, counts } = analyzeLeases(inProgress, { nowMs, ttlHours })
   const { contradictions, legacyContradictions, undeterminedCode } = findContradictions(content)
   const useRatchet = Array.isArray(cl3Stock)
   const anchorUnknown = cl3Stock === null
+  /**
+   * CL1 的棘轮(2026-09-29 补,与 CL3 同一条设计、同一个理由):
+   * **租约是被时钟判红的,不是被本次改动判红的。**一条 09-26 登记的租约,今天谁提交都过期 ——
+   * 于是本门在干净 HEAD 上恒红 27 处,而 PROJECT_PLAN.md 正是它的 stagedTriggers 文件:
+   * 与提交内容无关的恒红门唯一结局是各会话走应急跳门、连带约 190 道守门对每次提交作废(§12e/§12f)。
+   * 锚点 = **同一份文档在 HEAD 面、用同一个 nowMs 与阈值量到的过期租约行文本多重集**,所以:
+   *  - 别人欠的旧账 ⇒ 只报数且逐条点名(绝不静默);
+   *  - 本次**带进来**的过期租约(新登记就写旧日期 / 换个文案塞回来)⇒ 判红;
+   *  - 谁把一条续租或翻勾清进 HEAD,锚点自己下降 —— 不需要手工清单,因此不会腐烂。
+   * `cl1Stock === undefined` ⇒ 不套棘轮(人工/取证面,照旧全量判红);`null` ⇒ 锚点取不到,判"未判定"。
+   */
+  const useRatchet1 = Array.isArray(cl1Stock)
+  const anchor1Unknown = cl1Stock === null
+  const stockLeft1 = new Map()
+  if (useRatchet1) for (const k of cl1Stock) stockLeft1.set(k, (stockLeft1.get(k) || 0) + 1)
+  const cl1StockRows = []
+  const cl1NewRows = []
+  for (const v of stale) {
+    const n = useRatchet1 ? stockLeft1.get(v.text) || 0 : 0
+    if (n > 0) {
+      stockLeft1.set(v.text, n - 1)
+      cl1StockRows.push(v)
+    } else cl1NewRows.push(v)
+  }
   /**
    * 存量按**行文本多重集**认领,不按"前 N 条"切。计数式棘轮在这里是错的:新塞进文档前面的
    * 一颗矛盾会把后面某颗旧残留顶进"存量名额",于是**新增的那颗被洗成存量、谁也不会红** ——
@@ -321,12 +349,20 @@ function checkLeaseGate(content, { nowMs, ttlHours, cl3Stock }) {
     } else cl3NewRows.push(v)
   }
   const violations = [
-    ...stale.map((v) => ({ kind: 'CL1', ...v })),
+    ...cl1NewRows.map((v) => ({ kind: 'CL1', ...v })),
     ...missingHolder.map((v) => ({ kind: 'CL2', ...v })),
     ...cl3NewRows.map((v) => ({ kind: 'CL3', ...v })),
   ]
   return {
     violations,
+    cl1: {
+      total: stale.length,
+      stock: cl1StockRows.length,
+      fresh: cl1NewRows.length,
+      anchorApplied: useRatchet1,
+      anchorUnknown: anchor1Unknown,
+      stockRows: cl1StockRows,
+    },
     cl3: {
       total: contradictions.length,
       stock: cl3StockRows.length,
@@ -600,8 +636,8 @@ function claimDisplaySuffix(row) {
   return '  【标记形态不可辨】'
 }
 
-function runCheckGate(flags, content, { nowMs, ttlHours, ttlSource, faceLabel, cl3Stock }) {
-  const gate = checkLeaseGate(content, { nowMs, ttlHours, cl3Stock })
+function runCheckGate(flags, content, { nowMs, ttlHours, ttlSource, faceLabel, cl3Stock, cl1Stock }) {
+  const gate = checkLeaseGate(content, { nowMs, ttlHours, cl3Stock, cl1Stock })
   if (flags.has('--json')) {
     console.log(
       JSON.stringify(
@@ -612,6 +648,7 @@ function runCheckGate(flags, content, { nowMs, ttlHours, ttlSource, faceLabel, c
           // 判定面必须进 JSON(镜像测试靠它断"读的是哪一面",而人类末行只对文本输出负责)
           face: faceLabel,
           leases: gate.summary,
+          cl1: gate.cl1,
           cl3: gate.cl3,
           violations: gate.violations,
         },
@@ -664,6 +701,24 @@ function runCheckGate(flags, content, { nowMs, ttlHours, ttlSource, faceLabel, c
       )
     } else {
       console.log(`  CL3 本轮未套棘轮(人工/取证面,全量判)：矛盾行 ${gate.cl3.total} 处`)
+    }
+    /**
+     * CL1 的锚点三态同形(见 checkLeaseGate 里的理由:**被时钟判红的那一型必须套棘轮**)。
+     * 存量必须**逐条报名**(持有者 + 认领日 + 年龄),不得只印一个计数 —— 拿到计数的人无法判断
+     * "该谁续租",而这一格恰恰需要人来清(守门 70/76/81 同族:只报数不报名等于把账锁死)。
+     */
+    if (gate.cl1.anchorUnknown) {
+      console.log(
+        `  ⚠️ CL1 **锚点取不到**:HEAD 版 ${PLAN_REL} 读不到 ⇒ 没有棘轮锚点。此时按**最严方向**处理:过期租约 ${gate.cl1.total} 处全部判红并逐条点名(把"看不见"写成"没问题"是本仓反复登记过的那一类失效),但这**不是**一条通过结论 —— 请先修取材面。`,
+      )
+    } else if (gate.cl1.anchorApplied) {
+      console.log(
+        `  CL1 棘轮:锚点 = HEAD 面同一时刻量到的过期租约行文本(换个文案/改日期就落进新增)⇒ 本轮存量 ${gate.cl1.stock} 处只报数、新增 ${gate.cl1.fresh} 处判红。存量归各行持有者清账(续租改日期 / 翻勾摘牌 / 显式让渡),本门绝不代摘。`,
+      )
+      for (const v of gate.cl1.stockRows)
+        console.log(`    · 存量过期租约  L${v.line}  持有者 ${v.holder}  认领于 ${v.date}  年龄 ${v.ageHours}h`)
+    } else {
+      console.log(`  CL1 本轮未套棘轮(人工/取证面,全量判)：过期租约 ${gate.cl1.total} 处`)
     }
     console.log(`  判定面:${faceLabel}`)
   }
@@ -735,6 +790,40 @@ function selfTest(realNow = Date.now()) {
     const g = gate('- [x] ✅(2026-09-25)（进行中）旧双态行\n')
     eq(g.violations.length, 0, '裸标记矛盾行不得判红')
     eq(g.summary.legacyContradictions, 1, '裸标记矛盾行必须如实报数')
+  })
+  // S4c CL1 棘轮(2026-09-29):被时钟判红的那一型必须套 HEAD 存量锚点,且**四态各有一条用例**
+  check('S4c CL1 棘轮:存量只报数、新增判红、锚点空全红、锚点缺失未判定', () => {
+    const a = '- [ ]（进行中@2026-09-20/qa）A 任务正文\n'
+    const b = '- [ ]（进行中@2026-09-21/qa）B 任务正文\n'
+    const doc = a + b
+    const texts = (d) =>
+      analyzeLeases(scanTasks(d).inProgress, { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS }).stale.map((v) => v.text)
+    const st = texts(doc)
+    // 不套棘轮(人工/取证面)⇒ 两条都红,这一档不得被棘轮改动语义
+    eq(checkLeaseGate(doc, { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS }).violations.length, 2, '未套棘轮必须全量判红')
+    // ① 锚点 = 同一份内容 ⇒ 0 红,但存量必须**逐条报名**(只印计数等于把账锁死)
+    const gStock = checkLeaseGate(doc, { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS, cl1Stock: st })
+    eq(gStock.violations.length, 0, 'HEAD 存量不得判红(恒红门唯一出路是跳门)')
+    eq(gStock.cl1.stock, 2, '存量必须计 2')
+    eq(gStock.cl1.stockRows.length, 2, '存量必须逐条带着持有者/日期/年龄交出去,不得只给计数')
+    eq(gStock.cl1.stockRows.every((v) => v.holder === 'qa' && Number.isFinite(v.ageHours)), true, '报名要素必须齐')
+    // ② 锚点只覆盖一条 ⇒ 另一条是"本次带进来的新账",必红且点的是**没被覆盖**的那条
+    const gFresh = checkLeaseGate(doc, { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS, cl1Stock: [st[0]] })
+    eq(gFresh.violations.length, 1, '新增过期租约必须判红')
+    eq(gFresh.violations[0].kind, 'CL1')
+    eq(gFresh.violations[0].text === st[1], true, '红的必须是没被锚点覆盖的那条')
+    // ③ 锚点为空数组 ⇒ 全红(空锚点不是"没有存量",是"HEAD 里一条都没有")
+    eq(checkLeaseGate(doc, { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS, cl1Stock: [] }).violations.length, 2, '空锚点⇒全红')
+    // ④ 锚点取不到(null)⇒ 按**最严方向**判红(绝不把"看不见"写成"没问题"),并如实标 anchorUnknown
+    const gUn = checkLeaseGate(doc, { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS, cl1Stock: null })
+    eq(gUn.violations.length, 2, '锚点缺失必须走最严方向(判红),不得静默放行')
+    eq(gUn.cl1.anchorUnknown, true, '锚点缺失必须标 anchorUnknown,报告措辞不得写成通过')
+    eq(gUn.cl1.total, 2, '同时把量到的条数报出来')
+    // ⑤ 反向锁:换个文案塞回同一件事 ⇒ 行文本不同 ⇒ 落进新增(棘轮不是"数量够就行")
+    const rewritten = '- [ ]（进行中@2026-09-20/qa）A 任务正文改写过一遍\n' + b
+    const g5 = checkLeaseGate(rewritten, { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS, cl1Stock: st })
+    eq(g5.violations.length, 1, '换文案必须落进新增(计数式棘轮在这里会洗白)')
+    eq(g5.violations[0].text.includes('改写过一遍'), true, '红的必须是新写的那条')
   })
   // S5 全角括号可选性正反例(本仓记过的坑:`（进行中）?` 的 `?` 只管最后一个全角字符)
   check('S5 可选标记整组包住:`（进行中）?` 陷阱有牙证明', () => {
@@ -968,12 +1057,26 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
       const h = readPlanOnFace('head')
       cl3Stock = h.error ? null : findContradictions(h.content).contradictions.map((v) => v.key)
     } else cl3Stock = undefined
+    /**
+     * CL1 棘轮锚点(2026-09-29):同一套面规则,取的是"HEAD 面、同一个 nowMs 与阈值量到的过期租约行文本"。
+     * 判据本身一字未放宽(阈值、租约形态、点名内容全部照旧),只是**把时钟自己造出来的那批红**
+     * 归成存量报数 —— 否则本门在干净 HEAD 上恒红,而它是 PROJECT_PLAN.md 的 blocking 触发门。
+     */
+    const staleTextsOf = (text) =>
+      analyzeLeases(scanTasks(text).inProgress, { nowMs, ttlHours: ttl.ttlHours }).stale.map((v) => v.text)
+    let cl1Stock
+    if (planFace === 'head') cl1Stock = staleTextsOf(content)
+    else if (planFace === 'index') {
+      const h = readPlanOnFace('head')
+      cl1Stock = h.error ? null : staleTextsOf(h.content)
+    } else cl1Stock = undefined
     runCheckGate(parsed.flags, content, {
       nowMs,
       ttlHours: ttl.ttlHours,
       ttlSource: ttl.source,
       faceLabel,
       cl3Stock,
+      cl1Stock,
     })
     return
   }
