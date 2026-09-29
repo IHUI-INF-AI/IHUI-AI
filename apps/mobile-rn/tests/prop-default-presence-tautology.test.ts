@@ -21,14 +21,14 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { findDefaultParamTautologies } from '../../../scripts/lib/default-param-tautology.mjs'
+import { findDefaultParamTautologies } from '../../../scripts/lib/default-param-tautology.mjs' // arch-exempt: 判据只许有一份实现(§22c,两处算同一件事必漂移),本测试是它的消费者而不是第二份抄本;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
 
 const FACES = ['apps/mobile-rn/src', 'packages/app/src', 'apps/miniapp-taro/src']
 // 被审路径是**仓库相对**的,而 vitest 的 cwd 是包根(apps/mobile-rn)—— 不显式定根会让
 // `git grep` 直接失败,而本测试把"失败"照实抛错而不是记绿(第一版就是这么暴露的)。
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 
-function git(args) {
+function git(args: string[]): string {
   return execFileSync('git', args, {
     encoding: 'utf8',
     maxBuffer: 256 * 1024 * 1024,

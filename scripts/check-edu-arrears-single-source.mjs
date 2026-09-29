@@ -51,7 +51,13 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT = 60_000
 /** 账目出口本体:AR1/AR2 的定义处,不在射程内(否则门替自己的定义判红) */
 const LEDGER_FILE = 'apps/api/src/services/edu-ledger.ts'
-const SCAN_ROOT = 'apps/api/src/'
+/**
+ * 射程。刻意不止 api:欠费数字最终会在 web 名单/缴费弹窗、小程序账单页、RN 共享屏上被展示,
+ * "前端再减一次"与"后端再减一次"是同一型缺陷的两个宿主 —— 只扫后端等于给前端留一格无人看守
+ * (本仓把"给守门扩面必须同批改两半:判据 scope + 枚举目录表"记过多次,这里一次做完)。
+ * 扩面带来的存量按"该文件 HEAD 自身存量"棘轮处理,不会把别人的历史债算成本次的红。
+ */
+const SCAN_ROOTS = ['apps/api/src/', 'apps/web/', 'apps/miniapp-taro/src/', 'packages/app/src/']
 const SCAN_EXT = /\.(ts|tsx|mts)$/
 const TEST_NOISE = /(^|\/)(tests?|__tests__|e2e)(\/|$)|\.(test|spec)\.[cm]?tsx?$/
 /** 豁免标记必须带原因;裸标记(只写标记不写理由)不放行 */
@@ -81,7 +87,7 @@ const BOTH_ON_LINE = /\.totalFee\b[\s\S]*?\.paidAmount\b|\.paidAmount\b[\s\S]*?\
 
 export function isScanTarget(p) {
   if (!SCAN_EXT.test(p)) return false
-  if (!p.startsWith(SCAN_ROOT)) return false
+  if (!SCAN_ROOTS.some((d) => p.startsWith(d))) return false
   if (TEST_NOISE.test(p)) return false
   if (p === LEDGER_FILE) return false
   return true
@@ -243,7 +249,7 @@ export function runCheck({ face, onlyFiles = null }) {
   if (candidates.length === 0) {
     return {
       status: 'undetermined',
-      reason: `射程内枚举到 0 个文件(face=${face},SCAN_ROOT=${SCAN_ROOT})—— 空扫不是通过`,
+      reason: `射程内枚举到 0 个文件(face=${face},SCAN_ROOTS=${SCAN_ROOTS.join(',')})—— 空扫不是通过`,
     }
   }
   const faceMap = readFace(candidates, effFace)
