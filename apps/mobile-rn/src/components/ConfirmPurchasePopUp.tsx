@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: ICON_BG_SIZE,
     height: ICON_BG_SIZE,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: ICON_BG_SIZE / 2, // radius-exempt: 48dp 见方图标底板,半径=边长一半为真圆
     backgroundColor: tokens.success.lighter,
     alignItems: 'center',
     justifyContent: 'center',
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
   radio: {
     width: RADIO_SIZE,
     height: RADIO_SIZE,
-    borderRadius: RADIO_SIZE / 2,
+    borderRadius: RADIO_SIZE / 2, // radius-exempt: 18dp 见方单选外圈,半径=边长一半为真圆
     borderWidth: 1.5,
     borderColor: tokens.border.medium,
     alignItems: 'center',
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
   radioDot: {
     width: 10,
     height: 10,
-    borderRadius: 10 / 2,
+    borderRadius: 10 / 2, // radius-exempt: 选中态圆点正圆(10dp 直径/2)
     backgroundColor: tokens.success.DEFAULT,
   } as ViewStyle,
   agreementRow: {
