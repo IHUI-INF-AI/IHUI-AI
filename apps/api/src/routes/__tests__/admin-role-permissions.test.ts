@@ -49,6 +49,18 @@ import {
 } from '../../db/rbac-queries.js'
 
 const AUTH_HEADERS = { authorization: 'Bearer mock-admin-token' }
+// roles.id / permissions.id / role_permissions.role_id 都是 uuid:
+//   packages/database/src/schema/rbac.ts:15(roles.id)、:31(permissions.id)、
+//     :48-52(role_permissions.role_id / permission_id uuid NOT NULL)
+//   DDL 0002_lucky_hiroim.sql:17-19 同形
+// GET /role-permissions 在参数校验之后、进 SQL 之前挂 isUuidString 形状闸
+// (src/routes/admin/role-permissions.ts:31,回 404),所以 'role-1' 这个假 id 让
+// "返回角色已挂权限列表" 用例拿到 404 —— 断言 findRolePermissions 被喂什么也一并失效。
+// 注:PUT /role-permissions 没有形状闸(只走 findRoleById 的存在性判断),所以
+//   'role-404' / 'perm-404' 两枚"查不到"哨兵刻意保留原样 —— 它们表达的是 mock 返回
+//   undefined 这一分支,不是 id 形状。
+const ROLE_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+const PERM_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
 
 function mockAdminAuth(): void {
   vi.mocked(verifyAccessToken).mockResolvedValue({
@@ -83,7 +95,7 @@ describe('Admin Role Permissions — 角色权限点配置(2026-08-30)', () => {
     )
     const res = await app.inject({
       method: 'GET',
-      url: '/api/admin/role-permissions?roleId=role-1',
+      url: `/api/admin/role-permissions?roleId=${ROLE_ID}`,
     })
     expect(res.statusCode).toBe(401)
   })
@@ -99,7 +111,7 @@ describe('Admin Role Permissions — 角色权限点配置(2026-08-30)', () => {
       method: 'PUT',
       url: '/api/admin/role-permissions',
       headers: AUTH_HEADERS,
-      payload: { roleId: 'role-1', permissionIds: ['perm-1'] },
+      payload: { roleId: ROLE_ID, permissionIds: [PERM_ID] },
     })
     expect(res.statusCode).toBe(403)
   })
@@ -119,29 +131,29 @@ describe('Admin Role Permissions — 角色权限点配置(2026-08-30)', () => {
       method: 'PUT',
       url: '/api/admin/role-permissions',
       headers: AUTH_HEADERS,
-      payload: { permissionIds: ['perm-1'] },
+      payload: { permissionIds: [PERM_ID] },
     })
     expect(res.statusCode).toBe(400)
     expect(res.json().code).toBe(400)
   })
 
   it('GET /role-permissions 返回角色已挂权限列表', async () => {
-    vi.mocked(findRolePermissions).mockResolvedValue([{ id: 'perm-1', name: 'edu:view' }] as never)
+    vi.mocked(findRolePermissions).mockResolvedValue([{ id: PERM_ID, name: 'edu:view' }] as never)
     const res = await app.inject({
       method: 'GET',
-      url: '/api/admin/role-permissions?roleId=role-1',
+      url: `/api/admin/role-permissions?roleId=${ROLE_ID}`,
       headers: AUTH_HEADERS,
     })
     expect(res.statusCode).toBe(200)
     const body = res.json()
     expect(body.code).toBe(0)
     expect(body.data.list).toHaveLength(1)
-    expect(findRolePermissions).toHaveBeenCalledWith('role-1')
+    expect(findRolePermissions).toHaveBeenCalledWith(ROLE_ID)
   })
 
   it('GET /permissions 返回全部权限点列表', async () => {
     vi.mocked(findPermissions).mockResolvedValue([
-      { id: 'perm-1', name: 'edu:view' },
+      { id: PERM_ID, name: 'edu:view' },
       { id: 'perm-2', name: 'edu:manage' },
     ] as never)
     const res = await app.inject({
@@ -159,57 +171,57 @@ describe('Admin Role Permissions — 角色权限点配置(2026-08-30)', () => {
       method: 'PUT',
       url: '/api/admin/role-permissions',
       headers: AUTH_HEADERS,
-      payload: { roleId: 'role-404', permissionIds: ['perm-1'] },
+      payload: { roleId: 'role-404', permissionIds: [PERM_ID] },
     })
     expect(res.statusCode).toBe(404)
     expect(res.json().message).toBe('角色不存在')
   })
 
   it('PUT 存在未知权限 ID 返回 404', async () => {
-    vi.mocked(findRoleById).mockResolvedValue({ id: 'role-1' } as never)
+    vi.mocked(findRoleById).mockResolvedValue({ id: ROLE_ID } as never)
     vi.mocked(findPermissionById).mockResolvedValue(undefined)
     const res = await app.inject({
       method: 'PUT',
       url: '/api/admin/role-permissions',
       headers: AUTH_HEADERS,
-      payload: { roleId: 'role-1', permissionIds: ['perm-404'] },
+      payload: { roleId: ROLE_ID, permissionIds: ['perm-404'] },
     })
     expect(res.statusCode).toBe(404)
     expect(res.json().message).toBe('存在未知的权限 ID')
   })
 
   it('PUT 成功全量替换(去重)并返回最新列表', async () => {
-    vi.mocked(findRoleById).mockResolvedValue({ id: 'role-1' } as never)
-    vi.mocked(findPermissionById).mockResolvedValue({ id: 'perm-1' } as never)
+    vi.mocked(findRoleById).mockResolvedValue({ id: ROLE_ID } as never)
+    vi.mocked(findPermissionById).mockResolvedValue({ id: PERM_ID } as never)
     vi.mocked(replaceRolePermissions).mockResolvedValue(undefined)
-    vi.mocked(findRolePermissions).mockResolvedValue([{ id: 'perm-1', name: 'edu:view' }] as never)
+    vi.mocked(findRolePermissions).mockResolvedValue([{ id: PERM_ID, name: 'edu:view' }] as never)
     const res = await app.inject({
       method: 'PUT',
       url: '/api/admin/role-permissions',
       headers: AUTH_HEADERS,
-      payload: { roleId: 'role-1', permissionIds: ['perm-1', 'perm-1'] },
+      payload: { roleId: ROLE_ID, permissionIds: [PERM_ID, PERM_ID] },
     })
     expect(res.statusCode).toBe(200)
     const body = res.json()
     expect(body.code).toBe(0)
-    expect(body.data.roleId).toBe('role-1')
+    expect(body.data.roleId).toBe(ROLE_ID)
     expect(body.data.list).toHaveLength(1)
     // 重复 permissionIds 去重后传入替换函数
-    expect(replaceRolePermissions).toHaveBeenCalledWith('role-1', ['perm-1'])
+    expect(replaceRolePermissions).toHaveBeenCalledWith(ROLE_ID, [PERM_ID])
   })
 
   it('PUT 空数组清空角色权限', async () => {
-    vi.mocked(findRoleById).mockResolvedValue({ id: 'role-1' } as never)
+    vi.mocked(findRoleById).mockResolvedValue({ id: ROLE_ID } as never)
     vi.mocked(replaceRolePermissions).mockResolvedValue(undefined)
     vi.mocked(findRolePermissions).mockResolvedValue([] as never)
     const res = await app.inject({
       method: 'PUT',
       url: '/api/admin/role-permissions',
       headers: AUTH_HEADERS,
-      payload: { roleId: 'role-1', permissionIds: [] },
+      payload: { roleId: ROLE_ID, permissionIds: [] },
     })
     expect(res.statusCode).toBe(200)
-    expect(replaceRolePermissions).toHaveBeenCalledWith('role-1', [])
+    expect(replaceRolePermissions).toHaveBeenCalledWith(ROLE_ID, [])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

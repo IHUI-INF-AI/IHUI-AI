@@ -8,6 +8,11 @@ import { persist } from 'zustand/middleware'
 import { ssrStorage } from './persist-helpers'
 import { createChatPersistStorage } from '@/lib/chat-persist-crypto'
 import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
+// D130(2026-09-30 立):推理强度档位回落通知的呈现形状。类型只从**消费者那一份**取
+// (reasoning-effort-axis 是本通知在 web 的唯一读者);不引 @ihui/api-client 的那个同名接口 ——
+// 本包入口是显式命名清单,ReasoningEffortNotice 尚未递出(两侧结构逐字同形,赋值安全),
+// 引一个入口里没有的名字就是守门 149 记过的那一型运行时 undefined。
+import type { ReasoningEffortFallbackNotice as ReasoningEffortNotice } from '@/components/chat/reasoning-effort-axis'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import type {
   SubagentSpawnEvent,
@@ -290,6 +295,12 @@ interface ChatState {
    *  键 messageId 对应 assistant 消息,items 为该消息触发的新增长期记忆条目摘要。
    *  done 事件携带 memoryUpdates 时由 appendMemoryNotice 写入;MessageItem 按 message.id 查找渲染。 */
   memoryUpdateNotices: { messageId: string; items: string[] }[]
+  /** D130(2026-09-30 立):后端把用户选定的推理强度档位**钉回**时的回落通知。
+   *  载体 = done 帧新增的可选字段(见 @ihui/api-client 的 ReasoningEffortNotice),
+   *  由 send-message.ts 的 onReasoningEffortNotice 回调写入,输入区第三轴读出并**上屏**。
+   *  null = 本轮没有回落(或用户根本没选档)⇒ 轴上不显示任何东西。
+   *  刻意不持久化:它是"这一轮发生了什么"的运行态,刷新后重放一条旧回落反而是假信息。 */
+  reasoningEffortNotice: ReasoningEffortNotice | null
   /** P3 #30 diff 评论驱动返工(2026-09-16 立):用户在 diff 卡片上留下的待发送评审意见队列。
    *  下一轮 sendMessage 时格式化为 `<diff_review>` 块定向注入 agent 上下文,注入后清空。
    *  持久化:评论可能跨刷新保留(用户评论后切走再回来仍可发送),故纳入 partialize。 */
@@ -476,6 +487,10 @@ interface ChatState {
    *  由 send-message.ts onMemoryUpdates 回调调用,把本轮新增的长期记忆条目摘要挂到对应助手消息。
    *  存储为 store 级数组(键 messageId),MessageItem 按 message.id 过滤渲染「已记住」提示条。 */
   appendMemoryNotice: (messageId: string, items: string[]) => void
+  /** D130(2026-09-30 立):写入/清空推理强度档位的回落通知。
+   *  写入点 = send-message.ts 的 onReasoningEffortNotice(done 帧带回落才发);
+   *  清空点 = 每一轮发起前(sendMessage 体),否则上一轮的钉档会挂在下一轮的轴上读成"本轮被回落"。 */
+  setReasoningEffortNotice: (notice: ReasoningEffortNotice | null) => void
   /** P3 #30 diff 评论驱动返工(2026-09-16 立):新增一条 diff 评审意见(入待发送队列)。
    *  同 filePath+line+comment 完全重复时忽略(防重复提交)。 */
   addDiffComment: (comment: Omit<DiffComment, 'id' | 'createdAt'>) => void
@@ -638,6 +653,8 @@ export const useChatStore = create<ChatState>()(
       compactionStatus: null,
       // P1 #27 记忆更新可视化(2026-09-16 立)
       memoryUpdateNotices: [],
+      // D130(2026-09-30 立):本轮没有钉档回落 = null(运行态,不持久化)
+      reasoningEffortNotice: null,
       pendingDiffComments: [],
       // 2026-09-18 终端实时输出缓冲(执行期瞬时态,不持久化)
       terminalOutputs: {},
@@ -793,6 +810,9 @@ export const useChatStore = create<ChatState>()(
           messages: [],
           error: null,
           memoryUpdateNotices: [],
+          // D130:上一轮的钉档回落属那一轮的运行态,新建对话必须一起清 ——
+          // 留着的表现是"新会话第一件事就告诉用户档位被改了",而本轮根本没选过档。
+          reasoningEffortNotice: null,
           // P3 #30:新建对话时 diff 卡片随消息消失,待发送评论一并清空避免悬空
           pendingDiffComments: [],
           // 2026-09-18:终端实时输出属消息级瞬时态,新建对话一并清空
@@ -839,6 +859,22 @@ export const useChatStore = create<ChatState>()(
           return { messages: s.messages.slice(0, idx + 1) }
         }),
       setCompactionStatus: (status) => set({ compactionStatus: status }),
+      /** D130(2026-09-30 立):推理强度回落通知的唯一写入口。
+       *  值等价即不写(与 G-704 同一取向):done 帧重放/续接时同一份回落会被再送一次,
+       *  无条件重建会让订阅侧收到"变了"并白刷一轮轴。 */
+      setReasoningEffortNotice: (notice) =>
+        set((s) => {
+          const same =
+            (s.reasoningEffortNotice === null && notice === null) ||
+            (s.reasoningEffortNotice !== null &&
+              notice !== null &&
+              s.reasoningEffortNotice.fallback === notice.fallback &&
+              s.reasoningEffortNotice.requested === notice.requested &&
+              s.reasoningEffortNotice.effective === notice.effective &&
+              s.reasoningEffortNotice.reason === notice.reason)
+          if (same) return s
+          return { reasoningEffortNotice: notice }
+        }),
       /** G-703:false 侧不再裸写单键 —— "本轮不再在跑"这一件事必然同时意味着"上一轮的寻址凭据
        *  作废",所以它只能是一次 RUN_SCOPED_RESET 写入。true 侧保持只置运行标志,
        *  不得顺手清凭据(本轮的 sessionId 是在 setStreaming(true) **之后**由同源帧观察登记的)。 */
