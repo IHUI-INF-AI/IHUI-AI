@@ -20761,3 +20761,4 @@ services 归档/分享/HTTP 层)判"值得抄"的 **26 条**逐条立项(每条�
   - 窗口上限 365 天是防"全表扫描式报表请求拖库",非业务规则;边界有 2 例契约测试(0/负数/非整数/超上限必拒)。
   - 取证:私有实例三臂对照 —— 新端点 `401`(存在需登录)、假路径 `404`(证明 401 不等于路由缺失)、非法 `days=0` 也回 401(鉴权在参数校验之前,属预期顺序,不作为校验证据)。契约测试现读 10 例全绿、`api typecheck` rc=0;部署手册补了该端点入口与"留痕≠送达"的读法。
   - 教育财务线至此的我方职责内工程项已扫完:账目/账期/催缴/家长端/后台入口/统计出口、防回潮判据(AR1-AR3)、迁移与记账一致性。仍需你定的仍是那两条(通道选型、是否重启共享 api 进程),它们不阻塞任何代码。
+- [ ]G-814411 令牌刷新写回前加「旧 token 仍是当前值」的 CAS 复核:上游 `oauth/oauthService.ts:997-1007` 写回必须走串行 `runSessionMutation` 且 generation + activeProvider + 旧 accessToken 三者匹配才落盘;`oauthUnauthorizedRequest.ts:63-64` 的 401→logout 先复核"这请求确实属于当前那份凭据",防 provider 切换竞态误清。我方现状:`git grep -n "refreshAccessTokenOnce" HEAD -- packages/api-client/src` = `client.ts:299`(单例 + :322 失败冷却窗口已等价),但**未见写回前的三匹配复核**。**验收**:落点 `packages/api-client/src/client.ts`,用例"刷新返回后 activeProvider 已切换 ⇒ 旧响应不得覆盖新凭据",`pnpm --filter @ihui/api-client test` RC=0。
