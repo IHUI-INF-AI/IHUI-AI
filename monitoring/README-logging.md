@@ -174,6 +174,15 @@ sum by (level) (count_over_time({job="api"}[1h]))
 >    把监控自身另立一个 job(如 `monitorlogs`)是根治方向,但它是**流分区改动**,
 >    会同时影响面板与告警的可见性,归监控面持有人在核对后做;
 >    **不得**用"关掉 Loki 查询日志"消噪(那是拿可审计性换账面)。台账 G-472 记了机制与本条复现法。
+> 3. **上面那两半都已落地,写上按这一格来(2026-09-29,承接 G-472 的告警侧半)**:
+>    ① 采集侧已把监控自身另立成 `job=monitorlogs`(promtail 现配置,含 loki/promtail/prometheus/
+>    alertmanager/alert-bridge/各 exporter 的 nssm 日志);② 告警侧按同一维分流 ——
+>    `monitoring/alertbridge/log-source-anchor.js` 现读采集侧产出并与 `monitoring/prometheus/alerts.yml`
+>    的 `LOG_SOURCE_ANCHOR` 行对账,落在 `report-only` 档的那一条**只记账不炸到人**,
+>    `page` 档与"没有该标签"的指标型告警照旧进邮件;两侧名字对不上 ⇒ 桥 fail-open
+>    (一条都不压)并由 `LogSourceSplitBlind` 喊"分流失明"。
+>    **所以:新增日志型告警时,分区标签名一律用 `job`、取值只能取自 promtail 现产出**,
+>    既不得在告警侧另造第二个标签名,也不得把两档并进同一条规则 —— 那正是本条第 2 点描述的故障形态。
 
 ### LogQL 语法速查
 
