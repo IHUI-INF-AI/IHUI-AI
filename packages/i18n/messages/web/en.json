@@ -11560,7 +11560,14 @@
     "voiceHandsFreeOn": "Hands-free on (speak to send)",
     "voiceHandsFreeOff": "Hands-free off",
     "voicePlayback": "Playback",
-    "voiceHandsFree": "Hands-free"
+    "voiceHandsFree": "Hands-free",
+    "reasoningEffortLabel": "Reasoning depth",
+    "reasoningEffortMinimal": "Minimal",
+    "reasoningEffortLow": "Fast",
+    "reasoningEffortMedium": "Balanced",
+    "reasoningEffortHigh": "Deep",
+    "reasoningEffortUnsupported": "This model does not allow choosing a reasoning depth",
+    "reasoningEffortFallback": "Reasoning depth adjusted by the server: {requested} → {effective}"
   },
   "chatHistory": {
     "selectModeAriaLabel": "Toggle task multi-select mode",

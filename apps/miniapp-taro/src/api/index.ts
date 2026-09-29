@@ -60,7 +60,13 @@ import type { TerminalInteractionEvent } from '@ihui/api-client'
 // @ihui/api-client 的 GoalUpdateEvent,本端不得抄第二份字段(§3 共享层优先)。
 import type { GoalUpdateEvent } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
-import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
+import type {
+  PlanUpdateEvent,
+  TerminalStartEvent,
+  TerminalEndEvent,
+  // D130(2026-09-30 立):推理强度档位封闭集 —— 值域唯一源在 @ihui/types,端内不抄第二份
+  ReasoningEffort,
+} from '@ihui/types'
 import type { AICardsData } from '@/pkg-ai/ai/cards/types'
 import {
   signRecurringContract as _signRecurringContract,
@@ -293,6 +299,10 @@ export interface MiniappStreamOptions extends ChatOptions {
   tools?: Array<Record<string, unknown>>
   /** 工具选择策略(对齐 chatStreamSchema.tool_choice) */
   tool_choice?: string | Record<string, unknown>
+  /** D130(2026-09-30 立):推理强度档位(对齐 chatStreamSchema.reasoningEffort)。
+   *  值域唯一源 = @ihui/types 的封闭联合,端内不得抄第二份档位字面量。
+   *  小程序侧首票只做**通道**(控件另票,见 D130 第 5 栏"通道在位、控件另票")。 */
+  reasoningEffort?: ReasoningEffort
 }
 
 /**
@@ -556,6 +566,11 @@ export const chatStream = async (
     workspaceContext: options.workspaceContext,
     agentTools,
     plan_mode: options.plan_mode,
+    // D130(2026-09-30 立):推理强度档位。键名按**网关** chatStreamSchema 的 camel 拼写发
+    // (与本 body 里 plan_mode/tool_choice 的 snake 不同形,是网关 schema 就长这样的两套:
+    // 网关只对 permissionMode/reasoningEffort 用 camel,转发行再改 snake 给 ai-service)。
+    // undefined 时 JSON.stringify 省略该键 ⇒ 旧版本小程序零行为变化。
+    reasoningEffort: options.reasoningEffort,
     tools: options.tools,
     tool_choice: options.tool_choice,
   })
