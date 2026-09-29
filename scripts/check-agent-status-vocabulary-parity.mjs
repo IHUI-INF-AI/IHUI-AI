@@ -24,30 +24,96 @@
 //   SV3 端内第二份成员清单:某文件代码面(注释不计)出现 ≥COPY_THRESHOLD 个不同成员字面量
 //     且不含任一 canonical 标识符 ⇒ 违规。棘轮锚点 = 该文件 HEAD 面的同一判定结果 ⇒ 只有
 //     新增才判红;被审面即锚点面的那一档(全量)拿不到"新",只报名并把原因印出来。
+//   SV4(D145①,2026-09-29 补;评审修复轮 1 同日扩 ③ 并收口遮罩)子代理广告面/persona 名
+//     对注册表的可解析性 —— 三分离里**执行名 = 注册表键**这一轴的静态面:
+//     ① mcp_server.py 里"可用 agent 名称"/"子智能体名称(如 X / Y)"形态出现在**字符串字面量**
+//       里的每个 ASCII 名,必须能在 agent_orchestrator.py `_register_defaults` 解析到的注册表
+//       名单里查到;查不到即红(旧描述硬编码 5 个幽灵名 code-reviewer/bug-fixer/… 即此型,
+//       模型照说明书调用必回"Agent 不存在")。描述改为注册表现读拼接 ⇒ 字面量里没有名单 ⇒
+//       本维天然绿;**"烘死一份今天全合法的名单"这一型由运行时面
+//       apps/ai-service/tests/test_dispatch_subagent_advertised_names.py 钉,两维各有反向对照,
+//       谁也不顶谁的结论**。
+//     ② apps/cli/src/personas/contracts.ts 的 persona 键必须 ⊆ 注册表名单(persona 是执行名
+//       的投影,不是第三个域)。
+//     ③ **运行期展开那一格**(评审 Important:第二广告面漏修):TOOL_DEFERRAL=on 时模型只拿到
+//       截断骨架,完整描述**只能**经 deferral 反查面取回,而那张注册表是 import 期从 _TOOLS 灌的
+//       快照 ⇒ 清单面修好、反查面仍退化成 0 个名,① 读源码看不见这一格。判据:代码面里读取
+//       deferral 注册表的那条面(以及清单面 list_tools)必须**调用**同一份广告出口 ——
+//       `_dispatch_subagent_description()` 或 `_ADVERTISED_DESCRIPTION_PROVIDERS.get(`。
+//       **只认调用形态,不认名字提及**:本维第一次真机变异(把展开摘掉)时函数 docstring 里
+//       仍逐字写着出口的名字,按"名字在体内"判就完全绿灯 —— 提到 ≠ 接线(§"判据必须覆盖门
+//       自己产出的形态";Python 三引号在 JS 词法下不成对,多行 docstring 中段抹不干净)。
+//       未接即判红并点名该函数;两条面都不在面上 ⇒ note(该面不存在/搬家,不读成判过)。
+//       锚点硬命名与本门 SV1 的 SYMBOLS 同一条规矩:改名必须与被审面同笔,解析不到 ⇒ 未判定。
+//     **判定面一律先遮注释**(评审 Minor:① 用原文而 SV3 用遮罩,头注却自称"字符串字面量里"):
+//       Python 面 = `maskPythonCommentFace`(词法仍只有一份 —— 字符串区间取自
+//       lib/code-mask 的 `maskedSpans`,本门只在其上补 Python 的 `#` 到行尾),TS 面 =
+//       `maskComments`;两处都**保留字符串**(广告文本就住在字符串里,整层抹字符串=失明)。
+//       已知边界如实登记:JS 词法不认 Python 三引号 ⇒ 住在 docstring 里的 marker 仍会被解析,
+//       那是"多算"不是"漏判",不得读成"注释都已遮"。
+//     广告面/persona 输入整轮未提供 ⇒ note(不判也不装判过);提供而取不到/解析不到/枚举到 0
+//     ⇒ 未判定 exit 2;--staged 档的判红同样套"该 token 在 HEAD 面已红 ⇒ 存量只报名"的棘轮
+//     (与 SV3 同一条 §12e 防恒红规矩)。wire 值不归本门判(动值域属另一票)。
 //
 // 三态绝不并桶:输入取不到 / 声明解析不到 / 表体有解析不进的行 / 候选枚举到 0 ⇒ 未判定
 // exit 2(既不冒红也绝不记绿)。定级:默认档违规只报数 exit 0,--strict 才判红 —— 与本次
 // 提交无关的恒红门唯一结局是逼人 --no-verify、连带废掉全部守门(AGENTS §12e)。
 // 两旗同给 exit 2;--root 只在 --worktree 档有效(换根仍按 HEAD 读 = 双根分裂,判死)。
 //
-// 覆盖边界(如实登记,不得读成"已确认没有"):判的是**声明层**,改成运行时计算 ⇒ 未判定
-// 而非跳过;六态值是落库/REST/SSE 三重对外契约,**本门不改任何已在线上的字符串值**;
+// 覆盖边界(如实登记,不得读成"已确认没有"):六态族判的是**声明层**,改成运行时计算 ⇒ 未判定
+// 而非跳过;SV4③ 只判"两条广告面有没有接同一份出口"(静态接线对账),**不执行**被审实现,
+// 所以"接了但出口自己算错名单"仍归运行时面(pytest)那一维;六态值是落库/REST/SSE 三重对外
+// 契约,**本门不改任何已在线上的字符串值**;
 // apps/api 的两份 z.enum 与 web 的 TaskDetailDialog 等副本不在本票清单内 ⇒ 只报名不代裁。
 
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { maskCommentsAndStrings } from './lib/code-mask.mjs'
+import { maskComments, maskCommentsAndStrings, maskedSpans } from './lib/code-mask.mjs'
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-/** 注册进提交链时 runner 条目应使用的应急跳过名(由主会话落,本门不自行接线) */
-export const SELF_SKIP = 'HUSKY_SKIP_AGENT_STATUS_VOCAB_PARITY'
+/**
+ * 本门在 runner 条目里**实际注册并被读取**的应急跳过名(现值以 scripts/guardian-runner.mjs 为准)。
+ * 2026-09-29 D145 轮对齐:此处旧常量写着 HUSKY_SKIP_AGENT_STATUS_VOCAB_PARITY,而 runner 登记的
+ * skipEnv 是 HUSKY_SKIP_STATUS_VOCABULARY_PARITY(AGENTS 守门速查亦同)—— 两处各叫一个名时,
+ * 镜像 T7(装车成套性)自注册之日起就恒红;运行时真正生效的是 runner 那份。
+ * 修法是**声明跟现实对齐**,判据本身一字未动。
+ */
+export const SELF_SKIP = 'HUSKY_SKIP_STATUS_VOCABULARY_PARITY'
 
 export const FILES = {
   tsTypes: 'packages/types/src/agent-runtime.ts',
   pyScheduler: 'apps/ai-service/app/services/dag_scheduler.py',
+}
+
+/**
+ * SV4 的输入面(D145①):广告面 / 注册表(执行名单一真相源)/ CLI persona 投影。
+ * 这些是**判据输入**,不参与 SV3 的"canonical 排除"(SV3 候选语义保持一字不动)。
+ */
+export const SV4_FILES = {
+  pyMcp: 'apps/ai-service/app/services/mcp_server.py',
+  pyOrchestrator: 'apps/ai-service/app/services/agent_orchestrator.py',
+  tsPersonas: 'apps/cli/src/personas/contracts.ts',
+}
+
+/**
+ * SV4③ 锚点(评审修复轮 1①:"运行期展开那一格"的静态接线对账)。
+ * 硬命名与本门 SV1 的 SYMBOLS 同一条规矩:改名必须与被审面**同笔**,否则判"解析不到"(未判定),
+ * 而不是静默读成"这一维没分叉"。
+ *  - exitFn / exitMap  = 广告名单的唯一出口(函数)与它的登记表(两条面都经它);
+ *  - registryVar        = deferral 注册表(import 期从 _TOOLS 灌的那一份快照);
+ *  - surfaces           = 已知的两条模型可见描述产出面(缺一条即本维立项那一型:只修一面)。
+ */
+export const SV4_EXPANSION = {
+  exitFn: '_dispatch_subagent_description',
+  exitMap: '_ADVERTISED_DESCRIPTION_PROVIDERS',
+  registryVar: '_DEFERRED_TOOL_SCHEMAS',
+  surfaces: [
+    { fn: 'list_tools', label: '清单面 list_tools' },
+    { fn: 'get_full_tool_schema', label: 'deferral 反查面 get_full_tool_schema' },
+  ],
 }
 
 /** 判据引用的 canonical 符号名(改名要两侧同笔改,否则本门判"解析不到声明") */
@@ -288,6 +354,269 @@ export function judgeCopy(codeMaskedSrc, rawSrc, memberSet) {
   return { candidate: true, violation: !hasRef, members }
 }
 
+// ---- SV4(D145①)判据输入解析层:全部纯函数,输入三份源码文本 ----
+// 语法与 apps/ai-service/tests/test_dispatch_subagent_advertised_names.py 的运行时提取式
+// **同形**(、 分档 + 每档头部 ASCII 名串);两处各判各的面,漂移由两条反向对照互相兜住。
+
+/**
+ * Python 面的"遮注释、留字符串"判定面(评审修复轮 1②:SV4 的判定面此前用**原文**,
+ * 于是"解释这条判据的注释"里写出 marker + 名单就会被判成广告面 —— 守门 131/70 记过同型:
+ * 判据开始咬自己的散文,后人只能把说明删掉)。
+ *
+ * 词法只有一份:字符串区间取自 `lib/code-mask` 的 `maskedSpans`(= 那台 scanSpans 的投影),
+ * 本函数只在其上补 Python 自己的注释语法(`#` 起、到行尾止;**串内的 `#` 不是注释**)。
+ * 为什么不用现成的整层遮罩:JS 词法不认 `#`,而 SV4 判的广告文本恰恰**住在字符串里** ——
+ * 抹掉字符串等于没收这把尺子(所以 mask()/maskCommentsAndStrings 只服务 SV3)。
+ * 等长是硬约束(命中要能落回原文行号)。
+ * 已知边界(登记,不谎称已遮):JS 词法不认 Python 三引号 ⇒ docstring 里的 marker 仍会被解析,
+ * 那是"多算"方向(可能多要一次说明),不是"漏判"。
+ */
+export function maskPythonCommentFace(src) {
+  if (typeof src !== 'string') return ''
+  const s = src.replace(/\r\n/g, '\n')
+  const inString = new Uint8Array(s.length)
+  for (const sp of maskedSpans(s)) {
+    if (sp.kind !== 'string') continue
+    for (let k = sp.start; k < sp.end && k < s.length; k++) inString[k] = 1
+  }
+  const out = s.split('')
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] !== '#' || inString[i]) continue
+    let j = i
+    while (j < s.length && s[j] !== '\n') {
+      out[j] = ' '
+      j += 1
+    }
+    i = j - 1
+  }
+  return out.join('')
+}
+
+/**
+ * 取某个 Python 函数的**函数体**(评审修复轮 1①:SV4③ 要问的是"这条产出面有没有引用同一份
+ * 出口",按体判而不是按整文件判 —— 全文匹配会让"另一条面引用了"替这条面顶掉结论)。
+ * 返回 null = 解析不到该函数(改名/搬家 ⇒ 调用方按未判定处理,不猜)。
+ */
+export function pythonFunctionBody(src, fnName) {
+  const s = src.replace(/\r\n/g, '\n')
+  const lines = s.split('\n')
+  const head = new RegExp(`^[ \\t]*(?:async[ \\t]+)?def[ \\t]+${fnName}[ \\t]*[(]`)
+  const at = lines.findIndex((l) => head.test(l))
+  if (at < 0) return null
+  const indent = /^[ \t]*/.exec(lines[at])[0].length
+  const body = []
+  for (let i = at + 1; i < lines.length; i++) {
+    const l = lines[i]
+    if (l.trim() === '') continue
+    if (/^[ \t]*/.exec(l)[0].length <= indent) break
+    body.push(l)
+  }
+  return body.join('\n')
+}
+
+/**
+ * SV4③ 判定(纯函数):两条模型可见描述产出面必须引用**同一份**广告出口。
+ * 三态分流:面上根本没有 deferral 注册表的读取 ⇒ note(该面不存在/搬家,不读成判过);
+ * 有读取但函数体解析不到 ⇒ 未判定(不猜它引用了谁);引用了出口 ⇒ 该面合规。
+ */
+export function sv4ExpansionJudge(mcpFace) {
+  const A = SV4_EXPANSION
+  const violations = []
+  const badTokens = []
+  const undetermined = []
+  const notes = []
+  const checked = []
+  // **接线要认调用形态,不认名字提及**(评审修复轮 1 的变异实测):把反查面的展开摘掉之后,
+  // 函数体里的 docstring 仍逐字写着 `_ADVERTISED_DESCRIPTION_PROVIDERS` —— 按"名字出现在体内"
+  // 判,门对这次变异完全绿灯(我自己摘掉它才验出来)。Python 三引号在 JS 词法下不成对,
+  // 多行 docstring 的中段抹不干净,所以这里唯一可靠的形态是**调用/取用**:`X()` 或 `X.get(`。
+  const exitCall = new RegExp(`(?:${A.exitFn}|${A.exitMap})\\s*(?:\\.\\s*get\\s*\\(|[(])`)
+  const returnsSnapshot = new RegExp(`return[^(\\n]*${A.registryVar}\\s*(?:\\.|\\[)`)
+  const registryRead = new RegExp(`${A.registryVar}\\s*\\.\\s*get\\s*\\(`)
+  const writesSnapshot = mcpFace.includes(`${A.registryVar}[`) || registryRead.test(mcpFace)
+  if (!writesSnapshot) {
+    notes.push(
+      `SV4③ 本轮面内读不到 deferral 注册表(${A.registryVar})⇒ 反查面不存在/搬家,该维不判(不读成判过)`,
+    )
+  }
+  for (const s of A.surfaces) {
+    const isReader = s.fn === 'get_full_tool_schema'
+    if (isReader && !mcpFace.includes(A.registryVar)) continue
+    const body = pythonFunctionBody(mcpFace, s.fn)
+    if (body === null) {
+      undetermined.push(
+        `SV4③ 解析不到产出面函数 def ${s.fn}(改名/搬家 ⇒ 展开对账失明,不记绿):判据锚点见 SV4_EXPANSION`,
+      )
+      continue
+    }
+    checked.push(s.fn)
+    if (exitCall.test(body) && !returnsSnapshot.test(body)) continue
+    badTokens.push(s.fn)
+    violations.push(
+      `SV4③ 产出面未接同一份广告出口:${s.fn}(${s.label} 体内没有 ${A.exitFn}()/${A.exitMap}.get( 的**调用形态**` +
+        (returnsSnapshot.test(body)
+          ? `;而且直接把 ${A.registryVar} 的 import 期快照 return 给模型`
+          : '') +
+        ':' +
+        (isReader
+          ? 'TOOL_DEFERRAL=on 时第二条广告名清单退化成 0 个名'
+          : '该产出面把描述烘成第二份真相,名单不随注册表演进') +
+        ')',
+    )
+  }
+  return { violations, badTokens, undetermined, notes, checked }
+}
+
+const ASCII_HEAD_RE = /^[a-z][a-z0-9-]*/
+
+/** 从分档文本取头部名:先剥掉档位开头的标点/中文引导(":code-reviewer(代码审查)" → code-reviewer)。 */
+function chunkHeadName(chunk) {
+  const m = ASCII_HEAD_RE.exec(chunk.replace(/^[^a-z0-9]*/, '').trim())
+  return m ? m[0] : null
+}
+
+/**
+ * marker 之后**字符串字面量内**的广告段,含 Python 隐式相邻拼接(闭合引号 + 纯空白 + 同种开引号
+ * 继续)。取字面量正文而不越界进代码 —— "、".join(names) 这类动态拼接的代码文本绝不能被
+ * 当成名单解析(否则 join/names 会伪装成"广告名",对正确实现产假阳)。
+ */
+function advertisedSegments(src, marker) {
+  const out = []
+  let from = 0
+  for (;;) {
+    const idx = src.indexOf(marker, from)
+    if (idx < 0) break
+    from = idx + marker.length
+    let i = from
+    let seg = ''
+    let guard = 0
+    while (i < src.length && guard++ < 4000) {
+      const c = src[i]
+      if (c === '"' || c === "'") {
+        let j = i + 1
+        while (j < src.length && /[ \t\r\n]/.test(src[j])) j++
+        if (src[j] === c) {
+          i = j + 1
+          continue
+        }
+        break
+      }
+      if (c !== '\n' && c !== '\r') seg += c
+      i++
+    }
+    out.push(seg)
+  }
+  return out
+}
+
+/** mcp 面:两条广告语法 —— "可用 agent 名称"清单段,与"子智能体名称(如 X / Y)"括注。 */
+export function advertisedNamesInMcp(src) {
+  const names = []
+  for (const seg of advertisedSegments(src, '可用 agent 名称')) {
+    for (const c of seg.split('、')) {
+      const n = chunkHeadName(c)
+      if (n) names.push(n)
+    }
+  }
+  for (const m of src.matchAll(/子智能体名称[(（]([^)\n）]{1,200})[)）]/g)) {
+    const body = m[1].replace(/^\s*如\s*/, '')
+    for (const piece of body.split(/\s*\/\s*|、/)) {
+      const n = chunkHeadName(piece)
+      if (n) names.push(n)
+    }
+  }
+  return [...new Set(names)]
+}
+
+/** 注册表(执行名单一真相源):_register_defaults 体内的 name="..." 逐条。 */
+export function registryDefaultNames(src) {
+  const s = src.replace(/\r\n/g, '\n')
+  const key = 'def _register_defaults'
+  const i = s.indexOf(key)
+  if (i < 0)
+    return {
+      names: [],
+      error: '解析不到 _register_defaults(注册表默认档改名/搬家 ⇒ SV4 失明,不记绿)',
+    }
+  const rest = s.slice(i + key.length)
+  const e = rest.search(/\n[ \t]+def /)
+  const body = e < 0 ? rest : rest.slice(0, e)
+  const names = [...body.matchAll(/\bname="([a-z0-9][a-z0-9_-]*)"/g)].map((m) => m[1])
+  if (names.length === 0)
+    return { names: [], error: '_register_defaults 体内解析到 0 个 name="…"(形态变了 ⇒ 不猜)' }
+  return { names }
+}
+
+/** persona 投影:contracts.ts 顶层两空格缩进的键。 */
+export function personaKeys(src) {
+  if (!/PERSONAS_CONTRACTS/.test(src))
+    return { keys: [], error: '解析不到 PERSONAS_CONTRACTS 导出面(改名/搬家 ⇒ 不记绿)' }
+  const keys = [...src.matchAll(/^ {2}([a-z_]+): \{/gm)].map((m) => m[1])
+  if (keys.length === 0)
+    return { keys: [], error: 'persona 清单解析到 0 个键(该文件形态变了 ⇒ SV4②失明,不记绿)' }
+  return { keys }
+}
+
+/**
+ * SV4 聚合判定(纯函数):三份文本进,违规/未判定/坏 token 名单出。
+ * bad 名单同时给 --staged 棘轮当"HEAD 已红 token"的对账集用(违规文本可被下一个人改文案,
+ * token 集合不行 —— 锚点粒度落在 token,不落在行文本,守门 134「换个写法净零逃逸」同课)。
+ * **判定面先遮注释**(评审修复轮 1②):广告文本住在字符串里,所以遮的是 Python 的 `#` 行注释;
+ * TS persona 面同理走 maskComments(只遮 JS 注释,代码与字面量逐字保留)。
+ */
+export function sv4Judge({ mcp, orchestrator, personas }) {
+  const violations = []
+  const undetermined = []
+  const notes = []
+  const mcpFace = maskPythonCommentFace(mcp)
+  const personaFace = maskComments(personas)
+  const reg = registryDefaultNames(orchestrator)
+  if (reg.error) undetermined.push(`SV4 ${reg.error}`)
+  const pers = personaKeys(personaFace)
+  if (pers.error) undetermined.push(`SV4 ${pers.error}`)
+  if (!mcpFace.includes('"dispatch_subagent"') && !mcpFace.includes("'dispatch_subagent'"))
+    undetermined.push(
+      `SV4 广告面找不到 dispatch_subagent(工具改名/搬家 ⇒ 本维失明,不记绿):${SV4_FILES.pyMcp}`,
+    )
+  const advertisedBad = []
+  const personaBad = []
+  const exp = sv4ExpansionJudge(mcpFace)
+  const advertised = advertisedNamesInMcp(mcpFace)
+  if (undetermined.length === 0) {
+    const R = new Set(reg.names)
+    for (const n of advertised) if (!R.has(n)) advertisedBad.push(n)
+    for (const k of pers.keys) if (!R.has(k)) personaBad.push(k)
+  }
+  for (const n of advertisedBad)
+    violations.push(
+      `SV4 广告名在注册表解析不到:${n}(说明书指了一条不存在的门 —— 模型照调必回"Agent 不存在")`,
+    )
+  for (const k of personaBad)
+    violations.push(
+      `SV4 persona 名不属于注册表:${k}(persona 是执行名的投影,不是第三个域;要么注册该 persona 对应的 agent,要么改名归一)`,
+    )
+  // SV4③ 的展开对账独立于"注册表读不读得出":它判的是接线,不是名单,
+  // 所以注册表解析失败时仍照判(不得让一维失明把另一维也洗成绿)。
+  for (const v of exp.violations) violations.push(v)
+  for (const u of exp.undetermined) undetermined.push(u)
+  for (const n of exp.notes) notes.push(n)
+  return {
+    violations,
+    undetermined,
+    notes,
+    bad: {
+      advertised: advertisedBad,
+      persona: personaBad,
+      // 棘轮 token:产出面函数名(与违规行 `:` 后的同一个),锚点粒度落在面上不落在文案上
+      expansion: exp.badTokens,
+    },
+    expansion: { checked: exp.checked, violations: exp.violations.length },
+    registryCount: reg.names.length,
+    personaCount: pers.keys.length,
+    advertisedLiteralCount: advertised.length,
+  }
+}
+
 /**
  * @param {{tsTypes?:string|null, pyScheduler?:string|null, candidates?:Array<{path:string,src:string|null}>}} inputs
  */
@@ -380,6 +709,34 @@ export function decide(inputs) {
   const dups = [...A.dups, ...PT.dups, ...PL.dups, ...W.dups]
   if (dups.length > 0) notes.push(`表内重复成员(last-wins,只报数):[${dups.join(',')}]`)
 
+  // ---- SV4 子代理广告面 / persona 名对注册表的可解析性(D145①) ----
+  // 输入三选一分流:**整轮未提供** = note(调用方只取状态词汇,不代表广告面已核);
+  // **提供而取不到/解析不到** = 未判定;三态不并桶(与本门"把没判写成判过是最高频失效型"同禁令)。
+  const sv4Pick = (p, a) =>
+    inputs[p] !== undefined || inputs[a] !== undefined ? (inputs[p] ?? inputs[a]) : undefined
+  const rawMcp = sv4Pick(SV4_FILES.pyMcp, 'pyMcp')
+  const rawOrch = sv4Pick(SV4_FILES.pyOrchestrator, 'pyOrchestrator')
+  const rawPers = sv4Pick(SV4_FILES.tsPersonas, 'tsPersonas')
+  let sv4 = null
+  if (rawMcp === undefined && rawOrch === undefined && rawPers === undefined) {
+    notes.push('SV4 本轮未提供广告面/persona 输入(不代表广告面无硬编码名单;问责需全量/--staged 档)')
+  } else {
+    const miss = []
+    if (typeof rawMcp !== 'string' || rawMcp.length === 0) miss.push(`广告面 ${SV4_FILES.pyMcp}`)
+    if (typeof rawOrch !== 'string' || rawOrch.length === 0)
+      miss.push(`注册表 ${SV4_FILES.pyOrchestrator}`)
+    if (typeof rawPers !== 'string' || rawPers.length === 0)
+      miss.push(`persona ${SV4_FILES.tsPersonas}`)
+    if (miss.length > 0) {
+      undetermined.push(`SV4 被审面取不到:${miss.join(' / ')}(不记绿也不冒红)`)
+    } else {
+      sv4 = sv4Judge({ mcp: rawMcp, orchestrator: rawOrch, personas: rawPers })
+      for (const u of sv4.undetermined) undetermined.push(u)
+      for (const n of sv4.notes) notes.push(n)
+      if (sv4.undetermined.length === 0) for (const v of sv4.violations) violations.push(v)
+    }
+  }
+
   const candidates = []
   const buildTables = () => ({
     members: [...A.set].sort(),
@@ -391,6 +748,17 @@ export function decide(inputs) {
     variantsCount: V.set.size,
     wsMembers: [...W.set].sort(),
     candidateFiles: candidates.length,
+    sv4: sv4
+      ? {
+          advertisedBad: sv4.bad.advertised,
+          personaBad: sv4.bad.persona,
+          expansionBad: sv4.bad.expansion,
+          expansionChecked: sv4.expansion.checked,
+          registryCount: sv4.registryCount,
+          personaCount: sv4.personaCount,
+          advertisedLiteralCount: sv4.advertisedLiteralCount,
+        }
+      : null,
   })
 
   // ---- SV3 端内第二份成员清单 ----
@@ -492,8 +860,9 @@ export function runAudit({ root = ROOT, face } = {}) {
     : selectFace({ staged: false, worktree: false, def: 'head' })
   if (sel.error) throw new Undetermined(sel.error)
   const canonical = readContents(root, sel.face, Object.values(FILES))
+  const sv4Contents = readContents(root, sel.face, Object.values(SV4_FILES))
   // 预读轮**不给 candidates**(空数组是"枚举跑了而一个都没有"= 判死,不是"这一轮不判该维")
-  const pre = decide({ ...canonical })
+  const pre = decide({ ...canonical, ...sv4Contents })
   // 成员集合读不出来(含 candidates=0 那条)时先按 canonical 的 undetermined 报死,
   // 不带着"猜出来的成员表"去扫全仓。
   const members = pre.tables ? pre.tables.members : null
@@ -505,6 +874,27 @@ export function runAudit({ root = ROOT, face } = {}) {
   )
   const candContents = readContents(root, sel.face, candPaths)
   let headCopyState = null
+  // SV4 的 HEAD 锚点:--staged 档把"HEAD 面上本来就解析不到的名字"当存量只报名 ——
+  // 否则修复未入库的窗口里,每台每次提交都被这台与内容无关的红逼成 --no-verify(§12e)。
+  // 锚点落在 **token**(名字本身)而不是行文本:换文案不清账,加新幽灵名必红
+  // (守门 134「锚点粒度不够细 ⇒ 换个写法净零逃逸」同课)。
+  let sv4HeadBad = null
+  let sv4AnchorUnusable = null
+  if (sel.face === 'staged') {
+    const hc = readContents(root, 'head', Object.values(SV4_FILES))
+    const a = hc[SV4_FILES.pyMcp]
+    const b = hc[SV4_FILES.pyOrchestrator]
+    const c = hc[SV4_FILES.tsPersonas]
+    if (typeof a !== 'string' || typeof b !== 'string' || typeof c !== 'string') {
+      sv4AnchorUnusable = 'HEAD 面 SV4 输入取不到'
+    } else {
+      const j4 = sv4Judge({ mcp: a, orchestrator: b, personas: c })
+      if (j4.undetermined.length > 0)
+        sv4AnchorUnusable = `HEAD 面 SV4 解析不到(${j4.undetermined[0]})`
+      else
+        sv4HeadBad = new Set([...j4.bad.advertised, ...j4.bad.persona, ...j4.bad.expansion])
+    }
+  }
   if (sel.face === 'staged') {
     const hc = readContents(root, 'head', candPaths)
     headCopyState = {}
@@ -518,7 +908,7 @@ export function runAudit({ root = ROOT, face } = {}) {
     }
   }
   const candidates = candPaths.map((p) => ({ path: p, src: candContents[p] }))
-  const res = decide({ ...canonical, candidates })
+  const res = decide({ ...canonical, ...sv4Contents, candidates })
   // 棘轮:只拦"本次改动新引入的第二份";HEAD 已经是第二份的,算存量、只报名。
   let ratcheted = res.violations
   let inherited = []
@@ -531,15 +921,45 @@ export function runAudit({ root = ROOT, face } = {}) {
       return !m || keep.has(m[1])
     })
   }
+  // SV4 棘轮(token 粒度):被审面里"注册表解析不到"的名字,若 HEAD 面同一个名字已红 ⇒ 存量报名;
+  // 新名字必红。锚点取不到/解析不到 ⇒ **不豁免**(失效方向是多要一次说明,不是多放一次跳门)。
+  // SV4 棘轮(token 粒度):被审面里"注册表解析不到"的名字、以及"没接同一份出口"的产出面函数名,
+  // 若 HEAD 面同一个 token 已红 ⇒ 存量报名;新 token 必红。锚点取不到/解析不到 ⇒ **不豁免**
+  // (失效方向是多要一次说明,不是多放一次跳门)。token 类必须含 `_`(SV4③ 的 token 是函数名,
+  // 只写 [a-z0-9-] 会让该维的存量豁免静默失灵 —— 与 134 那条"换个写法净零逃逸"同一课)。
+  let sv4Inherited = []
+  if (res.tables && res.tables.sv4 && sel.face === 'staged') {
+    const badNow = [
+      ...res.tables.sv4.advertisedBad,
+      ...res.tables.sv4.personaBad,
+      ...res.tables.sv4.expansionBad,
+    ]
+    if (sv4HeadBad) {
+      const keep = new Set(badNow.filter((n) => !sv4HeadBad.has(n)))
+      sv4Inherited = badNow.filter((n) => sv4HeadBad.has(n))
+      ratcheted = ratcheted.filter((v) => {
+        const m =
+          /^SV4 (?:广告名在注册表解析不到|persona 名不属于注册表):([a-z0-9-]+)|^SV4③ 产出面未接同一份广告出口:([a-z0-9_]+)/.exec(
+            v,
+          )
+        return !m || keep.has(m[1] ?? m[2])
+      })
+    } else {
+      res.notes.push(
+        `SV4 棘轮本轮未生效(${sv4AnchorUnusable || '锚点不可用'})⇒ 存量不豁免:方向是"多要一次定向说明",不是"多放一次跳门"`,
+      )
+    }
+  }
   if (res.tables && sel.face !== 'staged')
     res.notes.push(
-      `SV3 本档不判红的原因:被审面(${sel.face})就是锚点面 ⇒ 拿不到"新引入"这一维(锚点与结论同面)。要问责新增副本,跑 --staged。`,
+      `SV3/SV4 本档不判"新增"的原因:被审面(${sel.face})就是锚点面 ⇒ 拿不到"新引入"这一维(锚点与结论同面)。要问责新增副本/新增幽灵名,跑 --staged。`,
     )
   return {
     face: sel.face,
     ...res,
     violations: ratcheted,
     sv3Inherited: inherited,
+    sv4Inherited,
     fileCount: Object.keys(canonical).length + candidates.length,
   }
 }
@@ -587,6 +1007,203 @@ export const COLS = ['aa', 'bb', 'cc', 'dd']
 const FIXTURE_COPY_COMMENT = `
 // 逐条列出只是说明:'aa' 'bb' 'cc' 'dd' —— 注释不是代码
 const A = 1
+`
+
+// ---- SV4 夹具(D145①;档位名全是合成词,与真仓六态/真 agent 名无交集) ----
+const FIXTURE_ORCH = `
+class AgentRegistry:
+    def _register_defaults(self) -> None:
+        defaults = [
+            AgentDefinition(
+                name="ra",
+                description="甲",
+            ),
+            AgentDefinition(
+                name="rb-old",
+                description="乙",
+            ),
+        ]
+
+    def register(self, agent): pass
+`
+// 合规形(评审修复轮 1 的目标形态):两条产出面都引用**同一份**出口。
+// 注释里刻意写出 marker + 一份名单 —— 它不得被解析成广告面(遮罩的反向对照,SV4 的牙之一)。
+const FIXTURE_MCP_DYNAMIC = `
+# 早期这里写过静态名单"可用 agent 名称:ghost-in-comment、ghost-in-comment2",
+# 已改为注册表现读;注释不是广告面,不得被本门判红。
+class MCPServer:
+    def list_tools(self):
+        tools = list(_TOOLS)
+        for i, t in enumerate(tools):
+            provider = _ADVERTISED_DESCRIPTION_PROVIDERS.get(t.name)
+            if provider is None:
+                continue
+            tools[i] = MCPTool(
+                name=t.name,
+                description=provider(),
+                input_schema=t.input_schema,
+            )
+        return tools
+
+
+def _dispatch_subagent_description():
+    return (
+        _DISPATCH_SUBAGENT_DESC_CORE
+        + "可用 agent 名称(注册表现读):"
+        + "、".join(names)
+        + "。未知名回包带 availableAgents 供自纠。"
+    )
+
+
+_ADVERTISED_DESCRIPTION_PROVIDERS = {"dispatch_subagent": _dispatch_subagent_description}
+
+
+def get_full_tool_schema(name):
+    entry = _DEFERRED_TOOL_SCHEMAS.get(name)
+    if entry is None:
+        return None
+    provider = _ADVERTISED_DESCRIPTION_PROVIDERS.get(name)
+    if provider is None:
+        return entry
+    return {**entry, "description": provider()}
+`
+// 评审 Important 那一型:清单面修好了,而 deferral 反查面把 import 期快照原样交给模型
+// ⇒ 第二条广告名清单退化成 0 个名。本夹具必须被 SV4③ 点名(构造面,不依赖仓库瞬时状态)。
+const FIXTURE_MCP_DEFER_SNAPSHOT = `
+class MCPServer:
+    def list_tools(self):
+        tools = list(_TOOLS)
+        for i, t in enumerate(tools):
+            provider = _ADVERTISED_DESCRIPTION_PROVIDERS.get(t.name)
+            if provider is None:
+                continue
+            tools[i] = MCPTool(name=t.name, description=provider(), input_schema=t.input_schema)
+        return tools
+
+
+def _dispatch_subagent_description():
+    return _DISPATCH_SUBAGENT_DESC_CORE + "可用 agent 名称(注册表现读):" + "、".join(names)
+
+
+_ADVERTISED_DESCRIPTION_PROVIDERS = {"dispatch_subagent": _dispatch_subagent_description}
+
+
+def get_full_tool_schema(name):
+    return _DEFERRED_TOOL_SCHEMAS.get(name)
+`
+// 同一型的**第二种写法**,也是本维第一次变异真机抓到的那一种:展开被摘掉,但 docstring 里
+// 逐字写着出口的名字 ⇒ 按"名字出现在体内"判就完全绿灯。判据因此只认**调用形态**。
+const FIXTURE_MCP_DEFER_DOCSTRING_ONLY = `
+class MCPServer:
+    def list_tools(self):
+        tools = list(_TOOLS)
+        for i, t in enumerate(tools):
+            provider = _ADVERTISED_DESCRIPTION_PROVIDERS.get(t.name)
+            if provider is None:
+                continue
+            tools[i] = MCPTool(name=t.name, description=provider(), input_schema=t.input_schema)
+        return tools
+
+
+def _dispatch_subagent_description():
+    return _DISPATCH_SUBAGENT_DESC_CORE + "可用 agent 名称(注册表现读):" + "、".join(names)
+
+
+_ADVERTISED_DESCRIPTION_PROVIDERS = {"dispatch_subagent": _dispatch_subagent_description}
+
+
+def get_full_tool_schema(name):
+    \"\"\"返回完整 schema。带 provider 的工具必须在返回时现读同一份
+    _ADVERTISED_DESCRIPTION_PROVIDERS —— 这句话只是说明,不是接线。
+    \"\"\"
+    entry = _DEFERRED_TOOL_SCHEMAS.get(name)
+    if entry is None:
+        return None
+    return entry
+`
+const FIXTURE_MCP_GHOST = `
+class MCPServer:
+    def list_tools(self):
+        return [
+            MCPTool(
+                name="dispatch_subagent",
+                description=(
+                    "派发子智能体执行独立任务。"
+                    "可用 agent 名称:ghost-one(幽灵甲)、ghost-two(Bug 修复)、ra(合法甲)。"
+                    "调用后独立执行。"
+                ),
+                input_schema={
+                    "properties": {
+                        "name": {
+                            "description": "单 agent 模式:要派发的子智能体名称(如 ghost-three / ra)",
+                        },
+                    },
+                },
+            ),
+        ]
+`
+// 与 FIXTURE_MCP_GHOST 同一份名单,**逐字**只写在 `#` 注释里 ⇒ 一个名字都不许点(遮罩的牙)。
+const FIXTURE_MCP_GHOST_IN_COMMENT = `
+# 历史形态(仅供读者对照,不是广告面):
+#   可用 agent 名称:ghost-four(幽灵丁)、ghost-five(幽灵戊)。
+#   子智能体名称(如 ghost-six / ra)
+class MCPServer:
+    def list_tools(self):
+        tools = list(_TOOLS)
+        for i, t in enumerate(tools):
+            provider = _ADVERTISED_DESCRIPTION_PROVIDERS.get(t.name)
+            if provider is None:
+                continue
+            tools[i] = MCPTool(name=t.name, description=provider(), input_schema=t.input_schema)
+        return tools
+
+
+def _dispatch_subagent_description():
+    return _DISPATCH_SUBAGENT_DESC_CORE + "可用 agent 名称(注册表现读):" + "、".join(names)
+
+
+_ADVERTISED_DESCRIPTION_PROVIDERS = {"dispatch_subagent": _dispatch_subagent_description}
+
+
+def get_full_tool_schema(name):
+    entry = _DEFERRED_TOOL_SCHEMAS.get(name)
+    return {**entry, "description": _dispatch_subagent_description()} if entry else None
+`
+const FIXTURE_PERSONAS_OK = `
+export const PERSONAS_CONTRACTS = Object.freeze({
+  ra: {
+    input_schema: {},
+  },
+
+  "rb-old": {
+    input_schema: {},
+  },
+})
+`
+// persona 键的引号形态夹具:regex 只认两空格裸键 —— 带引号的 rb-old 因此**不被枚举**,
+// 该形态登记为 SV4② 的已知盲区(contracts.ts 现行形态没有带引号键;新增即由 0 键失明判死兜住)。
+const FIXTURE_PERSONAS_BAD = `
+export const PERSONAS_CONTRACTS = Object.freeze({
+  ra: {
+    input_schema: {},
+  },
+
+  ghostpersona: {
+    input_schema: {},
+  },
+})
+`
+// 与 BAD 同一份幽灵键,只写在注释里 ⇒ 不得被枚举(评审修复轮 1②:TS 面同样遮注释)。
+const FIXTURE_PERSONAS_COMMENTED = `
+// 曾考虑过这样一档:
+//   ghostpersona: {
+//     input_schema: {},
+//   },
+export const PERSONAS_CONTRACTS = Object.freeze({
+  ra: {
+    input_schema: {},
+  },
+})
 `
 
 function selfTest() {
@@ -637,6 +1254,131 @@ function selfTest() {
   )
   const m15 = mu(FIXTURE_PY, '(\n    "aa",\n    "bb",\n    "cc",\n    "dd",\n)', '()')
   t('A15 空表判死,不记两侧一致', m15.c && U(py(m15.s), '判死'))
+
+  // ---- SV4(D145①)构造面正反成对 ----
+  const d4 = (over = {}) =>
+    D({
+      [SV4_FILES.pyMcp]: FIXTURE_MCP_DYNAMIC,
+      [SV4_FILES.pyOrchestrator]: FIXTURE_ORCH,
+      [SV4_FILES.tsPersonas]: FIXTURE_PERSONAS_OK,
+      ...over,
+    })
+  const ok4 = d4()
+  t(
+    'A16 SV4 绿形:注册表现读动态拼接 ⇒ 广告面不产生字面名,不红',
+    ok4.violations.filter((v) => v.startsWith('SV4')).length === 0 &&
+      !!ok4.tables.sv4 &&
+      ok4.tables.sv4.advertisedBad.length === 0 &&
+      ok4.tables.sv4.personaBad.length === 0,
+  )
+  const gh = d4({ [SV4_FILES.pyMcp]: FIXTURE_MCP_GHOST })
+  t(
+    'A17 SV4 有牙(反向对照):把现读拼接改回硬编码幽灵清单 ⇒ 必红并逐名点名',
+    ['ghost-one', 'ghost-two', 'ghost-three'].every((x) =>
+      gh.violations.some((v) => v.startsWith('SV4') && v.includes(x)),
+    ),
+  )
+  t(
+    'A17b 两条广告语法各自都要判(清单段 + "名称(如 X / Y)"括注,缺一即半盲)',
+    gh.violations.filter((v) => v.startsWith('SV4 广告名')).length === 3,
+  )
+  const pb = d4({ [SV4_FILES.tsPersonas]: FIXTURE_PERSONAS_BAD })
+  t(
+    'A18 SV4 persona ∉ 注册表必红',
+    pb.violations.some((v) => v.startsWith('SV4 persona') && v.includes('ghostpersona')),
+  )
+  const noreg = d4({ [SV4_FILES.pyOrchestrator]: 'class X:\n    def other(self):\n        pass\n' })
+  t(
+    'A19 注册表解析不到 ⇒ SV4 未判定,不记绿也不冒红',
+    noreg.undetermined.some((u) => u.includes('SV4')) &&
+      !noreg.violations.some((v) => v.startsWith('SV4')),
+  )
+  const notool = d4({ [SV4_FILES.pyMcp]: 'TOOLS = []' })
+  t(
+    'A20 广告面找不到 dispatch_subagent ⇒ 未判定(失明不记绿)',
+    notool.undetermined.some((u) => u.includes('dispatch_subagent')),
+  )
+  const miss4 = D({})
+  t(
+    'A21 SV4 整轮未提供输入 ⇒ note(不判也不装判过),且不产 SV4 红',
+    miss4.tables.sv4 === null &&
+      miss4.notes.some((n) => n.includes('SV4 本轮未提供')) &&
+      !miss4.violations.some((v) => v.startsWith('SV4')),
+  )
+  const legalHard = d4({
+    [SV4_FILES.pyMcp]:
+      'MCPTool(name="dispatch_subagent", description="可用 agent 名称:ra、rb-old。")',
+  })
+  t(
+    'A22 边界如实:今天全部合法的硬编码名单在 SV4①(名字可解析性)这一维放过 —— 名单漂移由 pytest 运行时面钉',
+    legalHard.tables.sv4.advertisedBad.length === 0,
+  )
+
+  // ---- SV4③(评审修复轮 1①:运行期展开那一格)构造面正反成对 ----
+  const snap = d4({ [SV4_FILES.pyMcp]: FIXTURE_MCP_DEFER_SNAPSHOT })
+  t(
+    'A23 SV4③ 有牙:清单面修好而 deferral 反查面仍交回 import 期快照 ⇒ 必红并点名该函数',
+    snap.violations.some((v) => v.startsWith('SV4③') && v.includes('get_full_tool_schema')) &&
+      snap.tables.sv4.expansionBad.includes('get_full_tool_schema'),
+  )
+  t(
+    'A24 SV4③ 反向(判据不得过宽):两条面都引用同一份出口 ⇒ 一条都不红',
+    ok4.violations.filter((v) => v.startsWith('SV4③')).length === 0 &&
+      ok4.tables.sv4.expansionBad.length === 0 &&
+      ok4.tables.sv4.expansionChecked.length === 2,
+  )
+  t(
+    'A25 面内没有 deferral 注册表 ⇒ note 不判(不得读成"已判过"),且不产 SV4③ 红',
+    N(gh, 'SV4③ 本轮面内读不到 deferral 注册表') &&
+      gh.violations.filter((v) => v.startsWith('SV4③') && v.includes('get_full_tool_schema'))
+        .length === 0,
+  )
+
+  // ---- 遮罩(评审修复轮 1②)双向成对:注释里的 marker 不判红,同一形态写在串里必判红 ----
+  const gcom = d4({ [SV4_FILES.pyMcp]: FIXTURE_MCP_GHOST_IN_COMMENT })
+  t(
+    'A26 注释里写 marker ⇒ 不得判红(门不得判自己的散文)',
+    ['ghost-in-comment', 'ghost-in-comment2', 'ghost-four', 'ghost-five', 'ghost-six'].every(
+      (x) => !gcom.violations.some((v) => v.startsWith('SV4 广告名') && v.includes(x)),
+    ) && gcom.tables.sv4.advertisedLiteralCount === 0,
+  )
+  t(
+    'A27 同一份幽灵名单逐字写在字符串字面量里 ⇒ 必红(证明 A26 的绿来自遮注释,不是把判据遮瞎)',
+    ['ghost-one', 'ghost-two', 'ghost-three'].every((x) =>
+      gh.violations.some((v) => v.startsWith('SV4 广告名') && v.includes(x)),
+    ),
+  )
+  const pcom = d4({ [SV4_FILES.tsPersonas]: FIXTURE_PERSONAS_COMMENTED })
+  t(
+    'A28 persona 键写在注释里 ⇒ 不被枚举(TS 面同一条遮罩纪律),而代码里的键照旧算',
+    pcom.tables.sv4.personaBad.length === 0 &&
+      pcom.tables.sv4.personaCount === 1 &&
+      pb.tables.sv4.personaBad.includes('ghostpersona'),
+  )
+  const mutGcom = mu(FIXTURE_MCP_GHOST_IN_COMMENT, '#   可用 agent 名称:ghost-four', '"可用 agent 名称:ghost-four')
+  t(
+    'A29 遮罩开关的牙:把同一行从注释挪进字符串 ⇒ 必须翻红(否则 A26 只是"门瞎了")',
+    mutGcom.c &&
+      d4({ [SV4_FILES.pyMcp]: mutGcom.s }).violations.some((v) => v.includes('ghost-four')),
+  )
+  // 本维第一次真机变异(把 mcp_server 的展开摘掉)抓到的形态:docstring 里逐字写着出口名字
+  // ⇒ 按"名字被提到"判就全绿。判据只认调用形态,这一条把它钉成必红。
+  const dononly = d4({ [SV4_FILES.pyMcp]: FIXTURE_MCP_DEFER_DOCSTRING_ONLY })
+  t(
+    'A30 SV4③ 只认调用形态:docstring 里写足出口名字而体内不接 ⇒ 必红(提到≠接线)',
+    dononly.tables.sv4.expansionBad.includes('get_full_tool_schema') &&
+      dononly.violations.some((v) => v.startsWith('SV4③') && v.includes('get_full_tool_schema')),
+  )
+  const mutSnap = mu(
+    FIXTURE_MCP_DYNAMIC,
+    '    provider = _ADVERTISED_DESCRIPTION_PROVIDERS.get(name)\n    if provider is None:\n        return entry\n    return {**entry, "description": provider()}',
+    '    return _DEFERRED_TOOL_SCHEMAS.get(name)',
+  )
+  t(
+    'A31 变异自证:把合规夹具的反查面改成交回快照 ⇒ 同一条判据当场翻红(不是恒红,是这条改动红)',
+    mutSnap.c &&
+      d4({ [SV4_FILES.pyMcp]: mutSnap.s }).tables.sv4.expansionBad.includes('get_full_tool_schema'),
+  )
 
   // 真仓对照跑工作树面:单一真相源与本门同枚提交落地,HEAD 面在落地前必然读不到
   // AGENT_TASK_STATUSES ⇒ 判未判定(A14 已钉"取不到 ⇒ 未判定、不记绿")。由此一条硬要求:
@@ -738,6 +1480,10 @@ function main() {
       console.log(
         `   成员集合(${tb.count} 档):[${tb.members.join(',')}] | 联合形态:${tb.tsUnionDerived ? `派生自 ${tb.tsUnionDerived}` : '字面量联合'} | Py 对齐表 ${tb.pyTableCount} 条 / Py Literal ${tb.pyLiteralCount} 条 | 状态机表 ${tb.transitionsCount}+${tb.variantsCount} 键 | 第二域 [${tb.wsMembers.join(',')}] | SV3 候选 ${tb.candidateFiles} 文件`,
       )
+      if (tb.sv4)
+        console.log(
+          `   SV4:注册表现读 ${tb.sv4.registryCount} 档 | persona ${tb.sv4.personaCount} 个 | 广告面字面名 ${tb.sv4.advertisedLiteralCount} 个 | SV4③ 已核产出面 [${tb.sv4.expansionChecked.join(',')}] | 解析不到 广告=[${tb.sv4.advertisedBad.join(',')}] persona=[${tb.sv4.personaBad.join(',')}] 未接出口=[${tb.sv4.expansionBad.join(',')}]`,
+        )
     }
     for (const n of res.notes) console.log(`   · ${n}`)
     if (showAll && res.candidates.length > 0) {
@@ -747,6 +1493,10 @@ function main() {
     }
     if (res.sv3Inherited && res.sv3Inherited.length > 0)
       console.log(`   SV3 存量(HEAD 面已经是第二份,按棘轮只报名):${res.sv3Inherited.join(', ')}`)
+    if (res.sv4Inherited && res.sv4Inherited.length > 0)
+      console.log(
+        `   SV4 存量(HEAD 面已解析不到的名字,按棘轮只报名;修复未入库窗口内不得逼跳门 §12e):${res.sv4Inherited.join(', ')}`,
+      )
   }
   if (res.undetermined.length > 0) {
     console.error(
@@ -782,14 +1532,29 @@ function main() {
 /** 只递镜像测试真的调用的符号(多导出的解析原语无人调用 = 会腐烂的第二份入口) */
 export const __test__ = {
   FILES,
+  SV4_FILES,
+  SV4_EXPANSION,
   SELF_SKIP,
   decide,
   judgeCopy,
+  sv4Judge,
+  sv4ExpansionJudge,
+  maskPythonCommentFace,
+  pythonFunctionBody,
   FIXTURE_TS,
   FIXTURE_PY,
   FIXTURE_COPY_OK,
   FIXTURE_COPY_BAD,
   FIXTURE_COPY_COMMENT,
+  FIXTURE_ORCH,
+  FIXTURE_MCP_DYNAMIC,
+  FIXTURE_MCP_DEFER_SNAPSHOT,
+  FIXTURE_MCP_DEFER_DOCSTRING_ONLY,
+  FIXTURE_MCP_GHOST,
+  FIXTURE_MCP_GHOST_IN_COMMENT,
+  FIXTURE_PERSONAS_OK,
+  FIXTURE_PERSONAS_BAD,
+  FIXTURE_PERSONAS_COMMENTED,
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href

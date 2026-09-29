@@ -19,12 +19,19 @@
 //     `--strict` 才判红。**升提交链 blocking 的前置 = 真仓 HEAD 代码面现读为 0**
 //     (§12e:一台上线即红的门唯一结局是逼人 --no-verify,连带废掉全部守门)。
 //
-// 退出码: 0 = 判定面通过(默认档调用侧不计入), 1 = 有违规
-// 用法: node scripts/check-pwsh-version.mjs [--staged] [--strict] [--root <path>]
-//   --staged : 仅检查 git index 中已暂存的文件(pre-commit 钩子用此模式)
+// 退出码: 0 = 判定面通过(默认档调用侧不计入), 1 = 有违规, 2 = 无法判定(取材面失败 / 两面旗同给)
+// 用法: node scripts/check-pwsh-version.mjs [--staged|--worktree] [--strict] [--root <path>]
+//   --staged : 判**索引 blob** —— 文件清单取 git diff --cached,内容一次 catBatch 读 `:<rel>`(pre-commit 用此档)
+//   --worktree: 判**工作树(磁盘)** —— 只作人工排查与测试夹具逃生舱,与 --staged 同给判死(exit 2)
 //   --strict : 把 ③ 调用侧命中计入退出码(人工问责 / CI;提交链不传)
-//   缺省     : 全树扫描(供人工 / CI 全量审计)
-//   --root   : 测试夹具通道(镜像测试用临时仓跑端到端;生产调用不带)
+//   缺省     : 全量档,判 **HEAD blob**(清单来自 ls-tree HEAD,内容同轮一次 catBatch 读满;供人工 / CI 全量审计)
+//   --root   : 测试夹具通道(镜像测试用临时目录跑端到端;生产调用不带)。该通道下"全量档"被**强制折向
+//              worktree 面** —— 临时目录未必是 git 仓,判 HEAD 结构上取不到;--staged 在该通道仍走该
+//              夹具仓的**索引**(镜像 T14 就是拿它证"索引与工作树内容不同时,两档结论必不同")。
+//              实际取了哪一面由 [FACE] 行如实打印,不静默。
+// 三面口径与 70/77/83/98/101/103/118 同形(票 G-814393 迁入):清单与内容**同面同轮**,
+//   任何一面取不到 ⇒ exit 2「无法判定」,**绝不回落到另一个面**;此前按磁盘判 ⇒ 守门 118 分类
+//   loose-fs ⇒ 谁改这道门谁被 118 判红(该门对 HEAD 那份同样成立,即"结构上没人能合规地改它")。
 //
 // 2026-09-15 修复(本守门自身的 P0 回归):
 //   本脚本自挂载起就**没有实现 --staged** —— 用法注释声明了、pre-commit 也照传了,
@@ -48,11 +55,18 @@ import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 // `#` / `REM` / `::` / `'`,与 JS 词法不同形;而**字符串不遮**(那正是"引号里的真调用"所在)。
 import { maskCommentsAndStrings, maskScriptComments } from './lib/code-mask.mjs'
 import { resolveGitBin } from './lib/gitdir.mjs'
+// 判定面取材只走这一层(票 G-814393)。⚠️ 半接线形态(import 了层却仍自己 git show / 按磁盘
+// readFileSync 读内容)正是守门 118 判红的 half-wired —— "引了层"不构成合规,必须**真调用**
+// 层的读取入口(catBatch)取内容;镜像 T13 拿分类器按脚本名反查这道门的分类钉住这一点。
+import { catBatch, gitRaw, selectFace, FACE_LABEL, Undetermined } from './lib/face-reader.mjs'
 
 const GIT_BIN = resolveGitBin() || 'git'
+/** 取材档的 git 派生上限:枚举(ls-tree/grep)与内容(catBatch)共用同一个数,不各写各的。 */
+const GIT_FACE_TIMEOUT = 120_000
 
 const args = process.argv.slice(2)
 const STAGED = args.includes('--staged')
+const WORKTREE = args.includes('--worktree')
 const STRICT = args.includes('--strict')
 const rootIdx = args.indexOf('--root')
 const ROOT =
@@ -62,6 +76,30 @@ if (!existsSync(ROOT)) {
   console.error(`[FAIL] root path does not exist: ${ROOT}`)
   process.exit(1)
 }
+
+// ── 取材面选定(G-814393)──────────────────────────────────────────────────────
+// 全量档 = HEAD blob;--staged = 索引 blob;--worktree = 磁盘(人工/夹具逃生舱)。
+// 两面旗同给 = 自相矛盾 ⇒ 判死 exit 2(取哪一面都会让另一面成为假绿)。
+// --root 夹具通道:默认面强制折向 worktree(临时目录未必是 git 仓);--staged 仍按索引。
+const FACE_SEL = selectFace({ staged: STAGED, worktree: WORKTREE })
+if (FACE_SEL.error) {
+  console.error(`[FAIL] 无法判定: ${FACE_SEL.error}`)
+  process.exit(2)
+}
+let face = FACE_SEL.face
+let faceNote = ''
+if (rootIdx >= 0) {
+  if (face === 'head') {
+    face = 'worktree'
+    faceNote = ';--root 夹具通道 ⇒ 全量档强制走工作树面(临时目录未必是 git 仓,判 HEAD 结构上取不到)'
+  } else if (face === 'staged') {
+    faceNote = ';--root 夹具通道下 --staged 仍取该夹具仓的索引 blob(不需要 HEAD)'
+  } else {
+    faceNote = ';--root 夹具通道'
+  }
+}
+// 如实打印取材档,不得静默 —— 读报告的人必须能看出这一轮判的是哪一份内容。
+console.log(`[FACE] 取材面 = ${face} —— ${FACE_LABEL[face]}${faceNote}`)
 
 // 跳过的目录(整棵树,gitignore 等价)
 const SKIP_DIRS = new Set([
@@ -105,6 +143,12 @@ const SKIP_PATH_PATTERNS = [
 const violations = []
 /** 已判(非豁免面)的 .ps1 计数 —— 结论行必须说清"判了多少",不得笼统声称全仓合规 */
 let judgedPsiCount = 0
+/**
+ * "在途消失"计数:被审判面枚举到、内容却是 null,且磁盘上也没有该文件(别人恰好 unstage 并删了盘
+ * 上一份)—— 属机器态而非提交态,计"未判定"并如实报数,**不判红也不冒充已判**。
+ * 与它相对的一支(面上取不到而盘上仍在 ⇒ unmerged/取材故障)由 contentMissing 抛 Undetermined 判死。
+ */
+let goneCount = 0
 
 // ── ② 豁免面:deploy/**(可见、不判红)──────────────────────────────────────────
 // 为什么不能摘掉豁免去判红:`#requires` 在 Windows PowerShell 5.1 上是**直接拒绝执行**,
@@ -139,17 +183,26 @@ function hasRequires7(content) {
   return lines.some((l) => /^\s*#requires\s+-Version\s+7\b/.test(l))
 }
 
+/** 判定面内容的统一入口 —— 磁盘路径与 git 面路径共用这**一份**判据,只有取材来源不同。 */
+function judgePsiContent(rel, content) {
+  judgedPsiCount += 1
+  if (!hasRequires7(content)) violations.push(rel)
+}
+
+/** 豁免面内容的统一入口(与磁盘语义同形:内容读不到 ⇒ readable=false,计"未判定"不计缺 pragma)。 */
+function pushExemptContent(rel, content) {
+  if (content === null) exemptPsi.push({ rel, missing: false, readable: false })
+  else exemptPsi.push({ rel, missing: !hasRequires7(content), readable: true })
+}
+
 function checkFile(filePath) {
   let content
   try {
     content = readFileSync(filePath, 'utf8')
   } catch {
-    return // 读不到的跳过
+    return // 读不到的跳过(磁盘面既有语义)
   }
-  judgedPsiCount += 1
-  if (!hasRequires7(content)) {
-    violations.push(relative(ROOT, filePath))
-  }
+  judgePsiContent(relative(ROOT, filePath), content)
 }
 
 /** 递归收集一个 deploy 目录之下的全部 .ps1,归入豁免面(不判红,但缺 pragma 要点名)。 */
@@ -171,15 +224,15 @@ function collectExemptPsi(dir) {
   }
 }
 
+/** 磁盘面的豁免入口:读盘失败与"面上取不到内容"折成同一份 null,交 pushExemptContent 判语义。 */
 function pushExempt(rel, absPath) {
-  let missing = false
-  let readable = true
+  let content = null
   try {
-    missing = !hasRequires7(readFileSync(absPath, 'utf8'))
+    content = readFileSync(absPath, 'utf8')
   } catch {
-    readable = false
+    content = null
   }
-  exemptPsi.push({ rel, missing, readable })
+  pushExemptContent(rel, content)
 }
 
 // ── ③ 调用侧判据:代码面调用 deploy/**.ps1 必须指名 PS7 引擎或经 vbs 包装 ────────
@@ -224,19 +277,22 @@ const BARE_POWERSHELL_CALL = /\bpowershell(?:\.exe)?\s+-[A-Za-z]/
 const DEPLOY_PS1_REF = /deploy[\\/][^\s]*\.ps1(?![A-Za-z0-9_])/i
 const COMPLIANT_ENGINE = /\bpwsh(?:\.exe)?\b/i
 const COMPLIANT_VBS_WRAPPER = /\.vbs\b/i
+/**
+ * 调用侧的**唯一**预筛字面量。两个用途共享这一个定义:
+ *  ① scanCallerContent 的内容预筛(遮噪前 text.includes(它));
+ *  ② HEAD 面的枚举预筛(`git grep -l -z -I -e <它> HEAD`)。
+ * 枚举必须是判据字面量的超集(此处是恒等),漏一个字符门就在该形态上失明却一路报绿
+ * (守门 102 左向箭头那一课);写成两处字面量则必漂(§"两处算同一件事必漂移")。
+ */
+const CALLER_PRESCREEN = 'powershell'
 
 const callerHits = []
 
-function scanCallerFile(absPath, relForReport, dialect) {
-  let text
-  try {
-    text = readFileSync(absPath, 'utf8')
-  } catch {
-    return
-  }
+/** 调用侧判据的统一入口(磁盘面与 git 面共用这一份;遮噪只走 lib/code-mask)。 */
+function scanCallerContent(text, relForReport, dialect) {
   // 预筛:必须是判据字面量的**超集**(调用形态按小写 powershell 判,这里同词直取)。
   // 预筛漏一个形态,门就在该形态上失明 —— 与判据不同形的预筛等于没有(守门 102 同课)。
-  if (!text.includes('powershell')) return
+  if (!text.includes(CALLER_PRESCREEN)) return
   // 遮噪只许走 lib/code-mask 那一份实现:JS 档遮注释+字符串,脚本档按各语言词法只遮注释。
   // 方言由调用方按扩展名传入(callerDialectForExt);lib 收到未知方言**抛错**而不是返回原文,
   // 所以"漏映射"当场炸而不是静默把整棵子树判成代码面(§"把没判写成判过了"同型禁令)。
@@ -249,6 +305,16 @@ function scanCallerFile(absPath, relForReport, dialect) {
     if (COMPLIANT_ENGINE.test(l) || COMPLIANT_VBS_WRAPPER.test(l)) continue
     callerHits.push({ rel: relForReport, line: i + 1, text: l.trim().slice(0, 160), dialect })
   }
+}
+
+function scanCallerFile(absPath, relForReport, dialect) {
+  let text
+  try {
+    text = readFileSync(absPath, 'utf8')
+  } catch {
+    return
+  }
+  scanCallerContent(text, relForReport, dialect)
 }
 
 /** 全量档的第二个遍历:豁免面收集 + 调用侧候选(deploy 目录不跳过,它两边都要看)。 */
@@ -302,13 +368,26 @@ function scan(dir) {
  * 2026-09-27(G-225):改 execFileSync + 绝对路径 git + `-c safe.directory=*` + timeout
  * (§5b"git 调用不得依赖环境"与守门 80"热路径 git 调用必须带 timeout");并去掉 .ps1 过滤
  * —— 调用侧判据需要看见暂存的全部代码文件。
+ * 2026-09-27(G-814393):加 `-c core.quotepath=false` —— 本清单此后**直接充当 catBatch 的索引
+ * 规格素材**(`:<rel>`),非 ASCII 名若被转义成 `"...\346..."`,一次转写就把"清单来自索引、
+ * 内容取不到"变成常态(转写名在盘上必然不存在 ⇒ 被记成"在途消失"而静默少扫)。清单与内容
+ * 必须解同一份名字,这是同面同轮的另一半。
  */
 function listStagedFiles() {
   let out
   try {
     out = execFileSync(
       GIT_BIN,
-      ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only', '--diff-filter=ACMR'],
+      [
+        '-c',
+        'safe.directory=*',
+        '-c',
+        'core.quotepath=false',
+        'diff',
+        '--cached',
+        '--name-only',
+        '--diff-filter=ACMR',
+      ],
       {
         cwd: ROOT,
         encoding: 'utf8',
@@ -339,42 +418,189 @@ function runFull() {
   walkExemptAndCallers(ROOT)
 }
 
-if (STAGED) {
-  const staged = listStagedFiles()
-  if (staged === null) {
-    console.warn('[WARN] 非 git 环境,--staged 退化为全树扫描')
-    runFull()
-  } else {
-    for (const relRaw of staged) {
-      const rel = relRaw.replace(/\\/g, '/')
-      const segs = rel.split('/')
-      const dot = rel.lastIndexOf('.')
-      const ext = dot >= 0 ? rel.slice(dot).toLowerCase() : ''
-      const dialect = callerDialectForExt(ext)
-      // 调用侧:与全量档 `walkExemptAndCallers` **同形** —— 那一遍对每个在射程内的文件都跑
-      // (deploy/**.ps1 既进豁免面也进调用侧),暂存档若对 .ps1 只跑 pragma 面就跑掉了这一半。
-      // .ps1 现在是调用面扩展名之一,这一格从"理论不一致"变成"实测会分叉"(镜像 T8 钉住)。
-      const callerOk =
-        dialect &&
-        !CALLER_SELF_EXEMPT.has(rel) &&
-        !segs.some((s) => NEVER_ENTER_DIRS.has(s) || isExcludedDirName(s))
-      const isPsi = ext === '.ps1'
-      if (isPsi && segs.includes(DEPLOY_DIR_NAME)) {
-        pushExempt(rel, join(ROOT, relRaw)) // 豁免面:进报告、不判红
-        if (callerOk) scanCallerFile(join(ROOT, relRaw), rel, dialect)
-        continue
-      }
-      if (isPsi) {
-        if (!isSkippedPath(relRaw)) checkFile(join(ROOT, relRaw)) // 已删除的文件 readFileSync 失败即跳过
-        if (callerOk) scanCallerFile(join(ROOT, relRaw), rel, dialect)
-        continue
-      }
-      if (!callerOk) continue
-      scanCallerFile(join(ROOT, relRaw), rel, dialect)
+// ── 取材面执行层(G-814393):清单与内容同面同轮,一次 catBatch 读满 ─────────────
+// 本节只改"内容从哪个面取",不改判据。三种形态各自的"同面"是:
+//   head   —— 清单 ls-tree(-z) HEAD + 调用侧枚举 git grep HEAD(同一面),内容一次 catBatch 读 `HEAD:<rel>`;
+//   staged —— 清单 git diff --cached(索引),内容一次 catBatch 读 `:<rel>`;
+//   worktree—— 磁盘 walk 出清单,磁盘读出内容(人工/夹具逃生舱,即 runFull 的既有形态)。
+// 旧"混面"写法(清单来自索引、内容来自磁盘)会产出自洽却错位的尺子 —— 已消灭。
+
+/** 路径扩展名(小写含点;无扩展名返回空串)。与磁盘面 lastIndexOf('.') 的取法同形。 */
+function extOf(rel) {
+  const dot = rel.lastIndexOf('.')
+  return dot >= 0 ? rel.slice(dot).toLowerCase() : ''
+}
+
+/** 磁盘两个遍历都不得进入的目录(SEGMENT 级,与 collectExemptPsi / walkExemptAndCallers 同形)。 */
+function segsBlocked(segs) {
+  return segs.some((s) => NEVER_ENTER_DIRS.has(s) || isExcludedDirName(s))
+}
+
+/**
+ * HEAD 面的调用侧枚举:`git grep -l -z` 找含 CALLER_PRESCREEN 的文件。
+ * 预筛模式串与 scanCallerContent 的内容预筛共用 CALLER_PRESCREEN 这一个定义(超集=恒等)。
+ * 已知边界(如实登记,不静默):`-I` 会跳过二进制文件,而磁盘面把二进制也读进内容预筛;
+ * 仓内无二进制同扩展名文件实测,若出现则属"看不见"而非"已确认没有"。
+ */
+function grepPowershellHits(rev) {
+  let raw
+  try {
+    raw = gitRaw(['grep', '-l', '-z', '-I', '-e', CALLER_PRESCREEN, rev], ROOT, {
+      timeout: GIT_FACE_TIMEOUT,
+    })
+  } catch (e) {
+    // git grep rc=1 是"零命中"的正常结论,不是取数失败;其余(rc>1 / 派生故障)一律判死,
+    // 把"没枚举成"折进空集 = 调用侧整面隐身而账面全绿(守门 70/76/81 同型禁令)。
+    if (e && e.status === 1) return new Set()
+    throw new Undetermined(`${rev} 面枚举含 "${CALLER_PRESCREEN}" 的文件失败: ${e.message ?? e}`)
+  }
+  const set = new Set()
+  const prefix = `${rev}:`
+  for (const tok of String(raw).split('\0')) {
+    if (!tok) continue
+    // 实测输出形态:每条 `<rev>:<path>` 以 NUL 结尾。前缀对不上 ⇒ 形态漂了 ⇒ 判死,不猜。
+    if (!tok.startsWith(prefix)) {
+      throw new Undetermined(
+        `git grep -z 输出解不开(第 ${set.size + 1} 条缺 "${prefix}" 前缀):${tok.slice(0, 60)}`,
+      )
+    }
+    set.add(tok.slice(prefix.length))
+  }
+  return set
+}
+
+/** 面上一次读满;catBatch 内部按字节装箱,但对调用方仍是**同一轮**。失败 ⇒ Undetermined。 */
+function batchRead(specs) {
+  try {
+    return catBatch(ROOT, specs, { maxBuffer: 1 << 29, timeout: GIT_FACE_TIMEOUT })
+  } catch (e) {
+    throw new Undetermined(
+      `${face} 面一次 catBatch 读内容失败(${specs.length} 个规格): ${e.message ?? e}`,
+    )
+  }
+}
+
+/**
+ * 面上枚举到的路径取不到内容(got 里为 null/undefined)的两分支:
+ *  - 盘上仍 ⇒ unmerged 索引 / git 取数故障 —— 这是**取材失败**,不是"没有违规" ⇒ 判死 exit 2;
+ *  - 盘上也不在 ⇒ 条目在取证瞬间被人撤下(机器态,不是提交态)⇒ 计"未判定"(goneCount),报数不判红。
+ * 两支都必须点名到这里,绝不静默 continue —— 静默少扫就是一道假绿。
+ */
+function contentMissing(rel, role) {
+  if (existsSync(join(ROOT, rel))) {
+    throw new Undetermined(
+      `${role}在审判面取不到内容而盘上仍在(${rel})—— 未合并索引或取材故障,判"无法判定"`,
+    )
+  }
+  goneCount += 1
+}
+
+/** 三面共用的落地器:roles = [{rel, judge, exempt, caller|null}],内容按 specOf 从**同一面**取。 */
+function applyRoles(roles, specOf) {
+  if (roles.length === 0) return
+  const specs = roles.map(specOf)
+  const got = batchRead(specs)
+  for (let i = 0; i < roles.length; i++) {
+    const r = roles[i]
+    const raw = got.get(specs[i])
+    const content = raw === undefined ? null : raw
+    if (content === null) {
+      if (r.exempt) pushExemptContent(r.rel, null) // 豁免面旧语义:读不到 ⇒ "未判定",进报告不判红
+      else if (r.judge) contentMissing(r.rel, '判定面 .ps1 ')
+      else contentMissing(r.rel, '调用侧文件 ')
+      continue
+    }
+    if (r.exempt) pushExemptContent(r.rel, content)
+    else if (r.judge) judgePsiContent(r.rel, content)
+    if (r.caller) scanCallerContent(content, r.rel, r.caller)
+  }
+}
+
+/** 全量档 = HEAD blob。枚举与内容同面同轮;任何一步取不到 ⇒ exit 2,不回落到磁盘。 */
+function runHead() {
+  let tracked
+  try {
+    tracked = gitRaw(['ls-tree', '-r', '--name-only', '-z', 'HEAD'], ROOT, {
+      timeout: GIT_FACE_TIMEOUT,
+    })
+      .split('\0')
+      .filter(Boolean)
+  } catch (e) {
+    throw new Undetermined(`HEAD 面枚举文件清单失败: ${e.message ?? e}`)
+  }
+  if (tracked.length === 0)
+    throw new Undetermined('HEAD 面枚举到 0 个文件 ⇒ 判据失效,不记通过(空扫不是"都合规")')
+  const grepSet = grepPowershellHits('HEAD')
+  const roles = []
+  for (const rel of tracked) {
+    const segs = rel.split('/')
+    if (segsBlocked(segs)) continue
+    const ext = extOf(rel)
+    const dialect = callerDialectForExt(ext)
+    if (ext === '.ps1') {
+      const exempt = segs.includes(DEPLOY_DIR_NAME)
+      // 与磁盘两面同形:.ps1 同时进判定/豁免面,且(在扩展名射程内)也进调用侧。
+      roles.push({
+        rel,
+        judge: !exempt && !isSkippedPath(rel),
+        exempt,
+        caller: dialect && !CALLER_SELF_EXEMPT.has(rel) ? dialect : null,
+      })
+    } else if (dialect && !CALLER_SELF_EXEMPT.has(rel) && grepSet.has(rel)) {
+      roles.push({ rel, judge: false, exempt: false, caller: dialect })
     }
   }
-} else {
-  runFull()
+  applyRoles(roles, (r) => `HEAD:${r.rel}`)
+}
+
+/** 提交档 = 索引 blob:清单来自 git diff --cached,内容一次 catBatch 读 `:<rel>`。 */
+function runStaged(stagedList) {
+  const roles = []
+  for (const relRaw of stagedList) {
+    const rel = relRaw.replace(/\\/g, '/')
+    const segs = rel.split('/')
+    const ext = extOf(rel)
+    const dialect = callerDialectForExt(ext)
+    const callerOk = dialect && !CALLER_SELF_EXEMPT.has(rel) && !segsBlocked(segs)
+    const isPsi = ext === '.ps1'
+    if (isPsi && segs.includes(DEPLOY_DIR_NAME)) {
+      roles.push({ rel, judge: false, exempt: true, caller: callerOk ? dialect : null })
+      continue
+    }
+    if (isPsi) {
+      roles.push({ rel, judge: !isSkippedPath(rel), exempt: false, caller: callerOk ? dialect : null })
+      continue
+    }
+    if (!callerOk) continue
+    roles.push({ rel, judge: false, exempt: false, caller: dialect })
+  }
+  applyRoles(roles, (r) => `:${r.rel}`)
+}
+
+try {
+  if (face === 'staged') {
+    const staged = listStagedFiles()
+    if (staged === null) {
+      // 机器态(非 git 环境 / git 不可达)的**显式**退化 —— 与"取不到就回落另一个面"是两件事:
+      // 这里回落的是判据本来的旧全树形态,且喊出来(T6 钉住"退化必须可见")。
+      console.warn('[WARN] 非 git 环境,--staged 退化为全树扫描')
+      runFull()
+    } else {
+      runStaged(staged)
+    }
+  } else if (face === 'head') {
+    runHead()
+  } else {
+    runFull()
+  }
+} catch (e) {
+  if (e instanceof Undetermined) {
+    // 取不到 ⇒ exit 2 显式"无法判定"。不得冒红(把没判写成有问题),也不得记绿(写成没问题),
+    // 更**不得回落到另一个面**(那会把"这一面没读到"洗成自洽的假结论)。
+    console.error(`[FAIL] 无法判定(审判面取材失败,不回落其他面): ${e.message ?? e}`)
+    process.exit(2)
+  }
+  throw e
 }
 
 // ── 结论输出:三面分列,措辞不得互相顶替 ──────────────────────────────────────
@@ -387,6 +613,12 @@ console.log(
 for (const e of exemptMissing) console.log(`  - ${e.rel}`)
 if (exemptUnreadable.length > 0) {
   console.log(`  (${exemptUnreadable.length} 个读不到内容，计"未判定"，不计入缺 pragma 数)`)
+}
+if (goneCount > 0) {
+  console.log(
+    `  (${goneCount} 个文件在审判面枚举到、内容却取不到且盘上也不存在 —— 条目在取证瞬间被移除(机器态)，` +
+      `计"未判定"，不判红也不冒充已判)`,
+  )
 }
 if (exemptPsi.length > 0) {
   console.log(

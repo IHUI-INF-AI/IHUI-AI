@@ -4714,6 +4714,69 @@ def _get_orchestrator() -> "AgentOrchestrator":
     return _orchestrator
 
 
+# ===== D145①(2026-09-29)dispatch_subagent 广告面的唯一派生出口 =====
+# 病(取证 docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md §十一.3 D145 行 + §十 D145 第 2 栏):
+# 旧工具描述硬编码 5 个注册表里**根本不存在**的名(code-reviewer/bug-fixer/feature-planner/
+# test-writer/refactorer),模型照说明书调用必回 "Agent 不存在"(agent_orchestrator.invoke
+# 的 registry.get 落空分支)。三分离口径:**执行名 = 注册表键**,是模型可见的唯一名单;
+# 展示名(昵称池 / i18n 角色词)不在这条面上;wire 值一字不动(未知名回包只是**新增**
+# availableAgents/errorCode 两个键,既有键名与状态值逐字未变)。
+# 判据两条:
+#   · 静态面 scripts/check-agent-status-vocabulary-parity.mjs SV4 —— 描述文本里出现的
+#     agent 名必须逐个能在注册表解析(把拼接改回硬编码幽灵名 ⇒ 该门必红);
+#   · 运行时面 apps/ai-service/tests/test_dispatch_subagent_advertised_names.py ——
+#     广告名单必须与注册表现读集合**相等**,注册表增删一档 ⇒ 广告面必须跟随
+#     (改回 import 期硬编码清单,该用例必红 —— 反向对照)。
+# 不得再抄第二份名字清单(§"两处算同一件事必漂移",本仓记过多次)。
+_DISPATCH_SUBAGENT_DESC_CORE = (
+    "派发子智能体执行独立任务(子任务分解 / 多视角审查 / 并行执行)。"
+    "调用后子智能体独立执行并返回结果,不污染主对话上下文。"
+)
+
+
+def _dispatch_subagent_advertised_names() -> list[str]:
+    """注册表现读的执行名清单(排序去重)。读不到 ⇒ 空列表,**绝不广告猜出来的名**。"""
+    try:
+        return sorted(set(_get_orchestrator().registry.names()))
+    except Exception as e:  # noqa: BLE001 - 广告面降级为空并点名原因,不静默冒充名单
+        logger.warning("dispatch_subagent 广告名注册表现读失败(广告面留空): %s", e)
+        return []
+
+
+def _dispatch_subagent_description() -> str:
+    """dispatch_subagent 面向模型的完整描述 = 静态骨架 + 注册表现读名单(每次调用现拼)。"""
+    names = _dispatch_subagent_advertised_names()
+    if not names:
+        return (
+            _DISPATCH_SUBAGENT_DESC_CORE
+            + "当前注册表读不到可用名单,未知名回包会带 availableAgents 供自纠。"
+        )
+    return (
+        _DISPATCH_SUBAGENT_DESC_CORE
+        + "可用 agent 名称(注册表现读):"
+        + "、".join(names)
+        + "。未知名回包带 availableAgents 供自纠。"
+    )
+
+
+# ===== D145 评审修复轮 1①(2026-09-29)两条广告面必须同源 =====
+# 评审判定的第二广告面漏修:`_populate_deferred_schemas()` 在 **import 期**把 `_TOOLS`
+# 灌进 `_DEFERRED_TOOL_SCHEMAS`,那里只有静态骨架 ⇒ TOOL_DEFERRAL=on(默认,见
+# routers/agents.py:141 `_TOOL_DEFERRAL_SUFFIX` —— 描述被截成"…〔完整参数用 get_tool_schema
+# 查询〕")时,模型拿到 80 字符骨架后**只能**经 `get_full_tool_schema()` 反查完整描述,
+# 而那条面交回的是 import 期快照 ⇒ 名单退化成 0 个名。实测取证见交付报告"评审修复轮 1"
+# 一节(同一次调用里 list_tools 的描述有 10 档、get_full_tool_schema 的有 0 档)。
+# 判据必须覆盖门自己产出的形态(§4 圆角那一课),所以两张面**都**走下面这一张 provider 表:
+#   · 清单面 MCPServer.list_tools() —— 重建条目时现读;
+#   · 反查面 get_full_tool_schema() —— 返回浅拷贝并现读,**绝不**回写注册表
+#     (注册表存的是 import 期那一份完整 schema,改写它会让两条面各自漂移,且 deferral
+#      的 input_schema 仍是那一份真相)。
+# 名单不在这里抄第二份:唯一来源仍是 `_dispatch_subagent_description` → 注册表现读。
+_ADVERTISED_DESCRIPTION_PROVIDERS: dict[str, Callable[[], str]] = {
+    "dispatch_subagent": _dispatch_subagent_description,
+}
+
+
 async def _tool_dispatch_subagent(
     arguments: dict[str, Any],
     progress_callback: Callable[[dict[str, Any]], None] | None = None,
@@ -4880,6 +4943,19 @@ async def _tool_dispatch_subagent(
             "error": step_result.error,
             "ok": step_result.status == "completed",
         }
+        # D145①:未知名回包补 availableAgents —— 撞"Agent 不存在"后调用方(模型)能
+        # 自我纠正,而不是照猜再撞第二次。判据与 invoke 的落空同源(registry.get 为空);
+        # 对拿不到 registry 的替身(既有测试的 _FakeOrchestrator)不判也不加键 ——
+        # **纯加键**:status/error 等 wire 值一字未动(动值域属另一票)。
+        _reg = getattr(orchestrator, "registry", None)
+        if _reg is not None:
+            try:
+                _known = _reg.get(name)
+            except Exception:  # noqa: BLE001 - registry 形态读不到 ⇒ 不猜,不加假名单
+                _known = True
+            if _known is None:
+                _payload["errorCode"] = "AGENT_NOT_FOUND"
+                _payload["availableAgents"] = sorted(set(_reg.names()))
         # 0-6 单子代理输出限额:复用 0-2 截断助手
         return _truncate_tool_output(_payload)
     except Exception as e:
@@ -8757,18 +8833,16 @@ _TOOLS: list[MCPTool] = [
     # ===== 子智能体派发工具(2026-07-24 新增)=====
     MCPTool(
         name="dispatch_subagent",
-        description=(
-            "派发子智能体执行独立任务(子任务分解 / 多视角审查 / 并行执行)。"
-            "可用 agent 名称:code-reviewer(代码审查)、bug-fixer(Bug 修复)、"
-            "feature-planner(功能规划)、test-writer(测试编写)、refactorer(重构建议)。"
-            "调用后子智能体独立执行并返回结果,不污染主对话上下文。"
-        ),
+        # D145①:静态骨架;名单不在这里写死 —— 两条广告面(list_tools() 与
+        # get_full_tool_schema())都用 `_ADVERTISED_DESCRIPTION_PROVIDERS` 现读拼接
+        # (唯一出口 `_dispatch_subagent_description`,理由见其定义处注释)。
+        description=_DISPATCH_SUBAGENT_DESC_CORE,
         input_schema={
             "type": "object",
             "properties": {
                 "name": {
                     "type": "string",
-                    "description": "单 agent 模式:要派发的子智能体名称(如 code-reviewer / bug-fixer)",
+                    "description": "单 agent 模式:要派发的子智能体名称(可用名见工具描述,注册表现读)",
                 },
                 "task": {
                     "type": "string",
@@ -10080,8 +10154,20 @@ def get_full_tool_schema(name: str) -> dict[str, Any] | None:
     """返回 deferral 注册表中某工具的完整 schema(name/description/input_schema)。
 
     name 不存在返回 None。供内置 get_tool_schema 工具与 agent loop 的按需展开复用。
+
+    D145 评审修复轮 1①:这条面**也是**一条广告面。TOOL_DEFERRAL=on 时模型只看到被截断的
+    骨架,完整描述只能经本函数反查(`_tool_get_tool_schema` → routers/agents.py 的工具清单),
+    所以带 provider 的工具必须在返回时现读同一份 `_ADVERTISED_DESCRIPTION_PROVIDERS` ——
+    原样交回 import 期快照等于向模型广告 0 个可用名。返回浅拷贝:注册表里那份仍是
+    import 期的完整 schema 真相,回写它会让两条面各自漂移(deferral 的 input_schema 不动)。
     """
-    return _DEFERRED_TOOL_SCHEMAS.get(name)
+    entry = _DEFERRED_TOOL_SCHEMAS.get(name)
+    if entry is None:
+        return None
+    provider = _ADVERTISED_DESCRIPTION_PROVIDERS.get(name)
+    if provider is None:
+        return entry
+    return {**entry, "description": provider()}
 
 
 def list_deferred_tool_names() -> list[str]:
@@ -10614,6 +10700,21 @@ class MCPServer:
         归一化出的延迟工具条目,不改动既有 _TOOLS。
         """
         tools: list[MCPTool] = list(_TOOLS)
+        # D145① + 评审修复轮 1①:广告名单在**每次现读注册表**时拼接,而不是 import 期烘死。
+        # 凡登记进 `_ADVERTISED_DESCRIPTION_PROVIDERS` 的工具都走同一条出口 —— 与
+        # get_full_tool_schema()(TOOL_DEFERRAL=on 时模型唯一的完整描述来源)**同源**,
+        # 否则两条广告面会各自漂移:本票的原病灶正是"清单面修了、反查面仍是骨架"。
+        # 判据/反向对照见 _DISPATCH_SUBAGENT_DESC_CORE 定义处注释。
+        # 重建对象而非原地改,避免污染 _TOOLS。
+        for i, t in enumerate(tools):
+            provider = _ADVERTISED_DESCRIPTION_PROVIDERS.get(t.name)
+            if provider is None:
+                continue
+            tools[i] = MCPTool(
+                name=t.name,
+                description=provider(),
+                input_schema=t.input_schema,
+            )
         if (
             _mcp_world_state_tools_enabled_from_env()
             and _MCP_WORLD_STATE_DEFERRED_NAMESPACES

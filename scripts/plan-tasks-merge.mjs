@@ -78,6 +78,15 @@ import { alignSharedIndex, casUpdateRef, commitTreeWithIndex } from './lib/bypas
 // 都收 root 参数)。单独一条 import 语句不是笔误:镜像测试 R4 把上一行逐字钉成"落地只走
 // bypass-git 那一份 plumbing"的装车证明,把 `git` 塞进那一行会让那条锁静默失效。
 import { git as bypassGit } from './lib/bypass-git.mjs'
+// G-800(承 G-725):旁路留痕的**唯一出口**。键名与落点都住在 lib,本器不得另拼一份 JSON、
+// 不得另写 schema、不得再拼一次台账路径 —— 那是"两处算同一件事必漂移"的本家形态。
+import { recordBypassLanding } from './lib/commit-attestation.mjs'
+// 次序判据要在**代码面**上找"哪一段代码真的正向落了地"(见 landingAttestationStructure:
+// 六个档的提交信息正文里就写着 plumbing 字面量,不遮 ⇒ 判据把散文读成调用点,给自己发合格证)。
+// 两档遮噪各守一侧:`maskCommentsStringsAndRegex` 给"函数头"(串里的 `^function` 不算头),
+// `maskComments` 给"落地标记"(字符串可见,因为 `gitIn(null, ['update-ref', …])` 的标记本身就写在串里)。
+// 遮噪只引这一份实现(守门 131/135/148 同规,§22c)。
+import { maskComments, maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PLAN_REL = 'PROJECT_PLAN.md'
@@ -122,6 +131,267 @@ export function loadArchivedIndex(root, face) {
   }
 }
 const LABEL = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(逃生舱)' }
+
+/**
+ * 旁路落地留痕的**一处**包装 —— 本器六个落地站点共用(G-800)。
+ *
+ * 为什么要有这一层,而不是六处各调一次出口:reason 文案与"写失败只喊一行"写六遍必漂,而
+ * `rowsDedupeAndLand` / `openRowsDedupeOnce` 两个函数体上挂着"不得再自派生 plumbing 字面量"的
+ * 形状锁(镜像 R4/R5 那条 `!/commit-tree|read-tree|update-index/`)—— 把带那三个字面量的 reason
+ * 原文摊进调用点,门就会踩在自己的锁上。所以**字面量集中在这一处,调用点只传 source / sha / root**。
+ *
+ * 三条口径(票面写死,不得换成自发明的出口):
+ *  1. **只在"CAS 成功 ∧ 落地后回读复验通过"之后调用**。六个站点里有若干处在复验不过时会
+ *     `casUpdateRef(parent, landed.commit)` **回退**;留痕写在回退之前,统计器就会把已经不在
+ *     HEAD 上的提交数成旁路 —— 那比不写更坏(票面①)。这条次序不靠注释承诺,由
+ *     `landingAttestationStructure` 当场判,并由镜像 T26 的三条变异各自反证。
+ *  2. **写失败绝不改变落地成败**:只打一行 WARN,不改退出码、不因此回退提交(它记的是账,
+ *     不是门禁;lib 的硬要求②同规)。
+ *  3. `declaredFiles` 恒为本器唯一写出的那条路径 —— 六个档产出的每一枚提交都只含台账。
+ */
+export function attestLanding({ source, landedSha, headBefore, root = ROOT }) {
+  const attest = recordBypassLanding({
+    root,
+    source,
+    landedSha,
+    headBefore,
+    declaredFiles: [PLAN_REL],
+    reason: `旁路落地(commit-tree + CAS,${source})不触发钩子 ⇒ 提交链上的门禁对本枚未执行`,
+  })
+  if (!attest.ok) {
+    console.log(
+      `⚠️ 跳门留痕未写入(落地已成功 HEAD=${String(landedSha).slice(0, 11)},不改退出码):${attest.why}`,
+    )
+    return { ok: false, why: attest.why }
+  }
+  console.log(
+    `✅ 跳门留痕 1 行已写入 ${attest.path}(kind=bypass-landing,gatesRun=false,source=${source})`,
+  )
+  return { ok: true, path: attest.path, record: attest.record }
+}
+
+/**
+ * 六个旁路落地站点的**次序判据表**(票 G-800 验收条款的可执行形态)。
+ *
+ * 锚点一律是「函数名 + 那句原文」,**不写行号**(§1 规矩 3:行号在任何一次 append 后都会挪位,
+ * 实测上一轮登记的 27 处行号指针复核通过率 0/27)。四条锚点各有各的判法:
+ *  - `cas`      正向 CAS 那一次调用 ⇒ 留痕必须排在它**之后**(抢输的尝试没进 HEAD,不配留痕);
+ *  - `guard`    "回读复验不过即回退"那条分支的起始行 ⇒ 留痕必须排在它**之后**;
+ *  - `rollback` 该站点的回退动作原文 ⇒ 留痕必须排在它**最后一次出现之后**(否则"回退了还记账",
+ *               正是票面①禁止的那一种插法);`healAndLand` 没有回退分支 ⇒ 该判据对它不适用,
+ *               已在 `landingAttestationStructure` 里如实跳过并把这一格写进报告,不静默;
+ *  - `before`   共享主索引对齐/写回的原文 ⇒ 留痕必须排在它**之前**(对齐成没成都改变不了"这枚已经
+ *               绕过提交链进了 HEAD"这件事 —— 与 `live-doc-edit` 那一站同一条理由)。
+ *               ⚠️ 这一格的锚点**必须**带 `gitIn(null, ` 前缀:两档都写 `'update-index', '--add'`,
+ *               而临时索引那一次排在候选树构造里(在留痕之前)—— 拿裸字面量当锚点,判据就会把
+ *               合规读成违规(本枚第一次自跑就是红在这,已按真源码复验)。
+ * `source` 逐站点不同:台账只有按出口分名,事后才答得出"哪一档绕门绕得最勤"。
+ */
+export const BYPASS_LANDING_SITES = [
+  {
+    fn: 'restoreTerminalsAndLand',
+    source: 'plan-tasks-merge:restore-terminals',
+    cas: 'casUpdateRef(landed.commit, parent',
+    guard: 'if (recheck.problems.length) {',
+    rollback: 'casUpdateRef(parent,',
+    before: 'alignSharedIndex(',
+  },
+  {
+    fn: 'rowsDedupeAndLand',
+    source: 'plan-tasks-merge:dedupe-rows',
+    cas: 'casUpdateRef(landed.commit, parent',
+    guard: 'if (leftAfter.length > 0) {',
+    rollback: 'casUpdateRef(parent,',
+    before: 'alignSharedIndex(',
+  },
+  {
+    fn: 'openRowsDedupeOnce',
+    source: 'plan-tasks-merge:dedupe-open-rows',
+    cas: 'casUpdateRef(landed.commit, parent',
+    guard: 'if (leftAfter.length > 0 || after.claimable !== c0.claimable) {',
+    rollback: 'casUpdateRef(parent,',
+    before: 'alignSharedIndex(',
+  },
+  {
+    fn: 'twinFoldAndLand',
+    source: 'plan-tasks-merge:fold-twins',
+    cas: 'casUpdateRef(landed.commit, parent',
+    guard: 'if (recheck.problems.length) {',
+    rollback: 'casUpdateRef(parent,',
+    before: 'alignSharedIndex(',
+  },
+  {
+    fn: 'dedupeAndLand',
+    source: 'plan-tasks-merge:dedupe-blocks',
+    cas: "['update-ref', 'HEAD', commit, head]",
+    guard: 'if (after.dupBlocks >= b0.dupBlocks) {',
+    rollback: "['update-ref', 'HEAD', head, commit]",
+    // 锚点必须区分**共享主索引**与临时索引:两档都写 `'update-index', '--add'`,而临时索引那一次
+    // 排在候选树构造里(在留痕之前)—— 拿它当锚点,判据就会把合规读成违规(本枚第一次自跑就是红在这)。
+    before: "gitIn(null, ['update-index', '--add'",
+  },
+  {
+    // 自愈档是六个站点里**唯一挂在提交链上自动跑**的那一个(.husky/post-commit 的 --heal --commit)。
+    // 它没有"复验不过即回退"的分支:正向 CAS 由紧随的 rev-parse 回读确认,确认之后 HEAD 已经移,
+    // 后面那一次内容复验(现读 F1/F2/…)只决定退出码,**不会**把提交撤回来 —— 所以它的
+    // "已落地"最强证据就是 rev-parse 等值那一条,留痕排在它之后、共享索引写回之前。
+    fn: 'healAndLand',
+    source: 'plan-tasks-merge:heal',
+    cas: "['update-ref', 'HEAD', commit, head]",
+    guard: "if (gitIn(null, ['rev-parse', 'HEAD']) !== commit) {",
+    rollback: null,
+    before: "gitIn(null, ['update-index', '--add'",
+  },
+]
+
+/** 顶层函数声明的位置清单(名字 + 起点)。列 0 起笔才算,缩进的内部函数不吃这一判据。 */
+function topLevelFunctionHeads(maskedText) {
+  const heads = []
+  for (const m of maskedText.matchAll(/^(?:export )?function ([A-Za-z0-9_$]+)\s*\(/gm))
+    heads.push({ name: m[1], at: m.index })
+  return heads.sort((a, b) => a.at - b.at)
+}
+
+/**
+ * 判据表自身的成套性(输入是表本身,与被审文本无关):
+ * 函数名互异、source 互异、四条锚点都非空(heal 一档的 `rollback` 例外 —— 它没有回退分支,
+ * 那一格在 `landingAttestationStructure` 的站点循环里如实跳过并写进报告)。
+ * 为什么单列:`landingAttestationStructure` 的站点循环读的是**本模块的表**,而被审文本只是输入 ——
+ * 有人把两档的 source 写成同名(台账里就分不清是哪一档绕的门),改文本是改不到它的,只能按表判。
+ * 镜像测试另有一条等值的断言,那条才是"有人动了表"的牙。
+ */
+export function landingSiteTableProblems(sites = BYPASS_LANDING_SITES) {
+  const problems = []
+  const fnSeen = new Map()
+  const srcSeen = new Map()
+  for (const s of sites ?? []) {
+    if (!s || typeof s !== 'object') {
+      problems.push('条目不是对象')
+      continue
+    }
+    if (fnSeen.has(s.fn)) problems.push(`函数名重复登记:${s.fn}`)
+    fnSeen.set(s.fn, true)
+    if (srcSeen.has(s.source)) problems.push(`source 名重复:${s.source}(台账分不出是哪一档绕的门)`)
+    srcSeen.set(s.source, true)
+    for (const k of ['cas', 'guard', 'before'])
+      if (typeof s[k] !== 'string' || s[k] === '') problems.push(`${s.fn} 缺 ${k} 锚点`)
+  }
+  return problems
+}
+
+/**
+ * 「六个旁路落地站点是否都在复验之后、索引对齐之前写了留痕」的**纯函数结构判据**。
+ *
+ * 为什么行为测试不够(守门 70/76/81/115/138 那一族同一条理由):端到端只能证"某一臂写了一行",
+ * 而本票的病灶形态恰恰是**插错位置** —— 复验之前写的那一臂照样能跑出"成功 ⇒ 写一行",
+ * 只是回退那一臂也一并写了。只有按"站点体内相对次序"判,才能把那种插法当场判红。
+ * 输入是被审的那份源码文本(镜像测试喂真仓现读,自检喂构造面),不碰磁盘、不派生 git。
+ *
+ * @returns {{sites:Array,bad:string[],unwired:string[],counts:{sites:number,wired:number,markers:number}}}
+ *   `bad` 空 ∧ `unwired` 空 才算六个站点成套接好;取不到锚点**算红不算过**(判据失明不是通过)。
+ */
+export function landingAttestationStructure(srcText) {
+  const text = String(srcText ?? '')
+  const bad = []
+  const unwired = []
+  // 表自身的成套性先判:表坏了,后面每一站的"应当绿"都无从作保(与 §"判据必须覆盖门自己
+  // 产出的形态"同一条:判据读的是这张表,表漂了它只会安静地判错东西)。
+  for (const p of landingSiteTableProblems()) bad.push(`判据表:${p}`)
+  if (text.trim() === '')
+    return {
+      sites: [],
+      bad: [...bad, '输入为空 ⇒ 六个站点一个都判不到(不记为通过)'],
+      unwired: ['(空输入)'],
+      counts: { sites: 0, wired: 0, markers: 0 },
+    }
+  // 调用点/锚点必须落在**代码面**:本器六个档的提交信息正文里就写着 plumbing 字面量,
+  // 不遮就是把散文读成调用点(守门 131 第一次自跑栽的同一处)。遮罩与原文等长 ⇒ 下标可直接混用。
+  const masked = maskCommentsStringsAndRegex(text)
+  const heads = topLevelFunctionHeads(masked)
+  const bodyOf = (name) => {
+    const i = heads.findIndex((h) => h.name === name)
+    if (i < 0) return null
+    const start = heads[i].at
+    const end = i + 1 < heads.length ? heads[i + 1].at : text.length
+    return text.slice(start, end)
+  }
+  const sites = []
+  for (const s of BYPASS_LANDING_SITES) {
+    const problems = []
+    const body = bodyOf(s.fn)
+    if (body === null) {
+      problems.push(`找不到函数 ${s.fn}(改名/搬走 ⇒ 本判据对它失明,而不是它合规)`)
+    } else {
+      const calls = [...body.matchAll(/attestLanding\(\{/g)]
+      const attest = calls.length ? calls[0].index : -1
+      if (calls.length !== 1)
+        problems.push(`留痕调用出现 ${calls.length} 次(必须恰好 1 次:0 次=没接,>1 次=同一枚落地写两行)`)
+      if (!body.includes(`source: '${s.source}'`))
+        problems.push(`调用点没有点名 source='${s.source}' ⇒ 台账事后分不清是哪一档绕的门`)
+      const casAt = body.indexOf(s.cas)
+      const guardAt = body.indexOf(s.guard)
+      const beforeAt = body.indexOf(s.before)
+      for (const [role, at] of [['正向 CAS', casAt], ['复验守卫', guardAt], ['索引对齐', beforeAt]])
+        if (at < 0) problems.push(`${role}锚点取不到:${JSON.stringify(role === '索引对齐' ? s.before : role === '复验守卫' ? s.guard : s.cas)}`)
+      if (attest >= 0) {
+        if (casAt >= 0 && !(casAt < attest)) problems.push('留痕排在正向 CAS 之前 ⇒ 抢输的尝试也会被记成旁路')
+        if (guardAt >= 0 && !(guardAt < attest))
+          problems.push('留痕排在复验守卫之前 ⇒ 复验未过时也会写(票面①禁止的插法)')
+        if (beforeAt >= 0 && !(attest < beforeAt))
+          problems.push('留痕排在共享索引对齐之后 ⇒ 对齐没成的那一支会被漏记(它同样是既成旁路)')
+      }
+      if (s.rollback) {
+        const rb = body.lastIndexOf(s.rollback)
+        if (rb < 0) problems.push(`回退锚点取不到:${JSON.stringify(s.rollback)}`)
+        else if (attest >= 0 && !(rb < attest))
+          problems.push('留痕排在回退动作之前 ⇒ 已回退的落地会被计成 bypass(那比不写更坏)')
+      }
+    }
+    sites.push({ fn: s.fn, source: s.source, ok: problems.length === 0, problems })
+    for (const p of problems) bad.push(`${s.fn}:${p}`)
+  }
+  // 新站点不得悄悄漏接:**每一个**顶层函数体(而不是整份文件)在代码面上出现"正向落地的形状",
+  // 都必须在表里且已接留痕。为什么按函数体扫、而不是按整份文件扫:
+  //  - 判据表自身写的就是这些锚点(字符串形态),本器 selfTest 的变异臂也会逐字写出它们 ——
+  //    在"连字符串一起抹"的那一面扫,两类散文都不会被读成调用点(守门 131/135 同一条理由);
+  //  - 反过来,只按"标识符形状"扫会漏掉 `gitIn(null, ['update-ref', 'HEAD', commit, head])` 这种
+  //    标记整个落在串里的形态 ⇒ heal / dedupe 两档在"新站点"这一维上是隐身的。所以这里**两遍各扫
+  //    各的东西**:标识符形态走抹串面,`update-ref` 形态走只抹注释面,并把 owner 归到函数体后再判。
+  // 取不到判据表 ⇒ 判红(六个站点无从判定),不静默记绿。
+  const wired = new Set(BYPASS_LANDING_SITES.map((s) => s.fn))
+  /**
+   * "正向落地"的三种书写形态,**全部在抹掉注释与字符串的那一面**上取(等长 ⇒ 下标可与原文混用):
+   *  - `commitTreeWithIndex({` / `casUpdateRef(landed.commit` 是标识符形态,抹不没;
+   *  - 裸 git 那一型(`gitIn(null, ['update-ref', 'HEAD', commit, head])`)的动词整个写在串里,
+   *    抹串后只剩 `gitIn(null, [ , , commit, head])` ⇒ 判据认的是**逗号后的标识符 `commit,`**,
+   *    而回退那一支写的是 `head, commit]`(commit 在闭括号前,后面没有逗号)⇒ 天然不匹配。
+   * ⚠️ 这里刻意**不**用"只抹注释"的那一面:`maskComments` 把行注释整段**删掉**(不等长),
+   * 拿它的下标回原文会错位(本枚第一版就是这样把一句解释判据的注释读成了"一处未接留痕的落地调用",
+   * 判据表与判据说明双双被算成站点)。判据不得依赖遮噪器的第二种形态。
+   */
+  const markerRe =
+    /commitTreeWithIndex\(\{|casUpdateRef\(landed\.commit|gitIn\(null,\s*\[[^)\n]*commit,/g
+  let markers = 0
+  for (let k = 0; k < heads.length; k++) {
+    const h = heads[k]
+    const end = k + 1 < heads.length ? heads[k + 1].at : text.length
+    const found = [...masked.slice(h.at, end).matchAll(markerRe)].map((m) => m[0])
+    if (!found.length) continue
+    markers += found.length
+    if (!wired.has(h.name)) {
+      unwired.push(`${h.name}@${found.length} 处正向落地形态`)
+      continue
+    }
+    const body = bodyOf(h.name)
+    if (!body || !/attestLanding\(\{/.test(body)) unwired.push(`${h.name}(在表里却无留痕调用)`)
+  }
+  return {
+    sites,
+    bad,
+    unwired: [...new Set(unwired)],
+    counts: { sites: sites.length, wired: sites.filter((x) => x.ok).length, markers },
+  }
+}
 
 function readPlan(root, face) {
   if (face === 'worktree') {
@@ -812,6 +1082,13 @@ export function restoreTerminalsAndLand(maxAttempts = 8) {
       casUpdateRef(parent, landed.commit, { root: ROOT })
       return 1
     }
+    // G-800 留痕:复验通过之后、共享索引对齐之前(次序判据见 BYPASS_LANDING_SITES)。
+    attestLanding({
+      source: 'plan-tasks-merge:restore-terminals',
+      landedSha: landed.commit,
+      headBefore: parent,
+      root: ROOT,
+    })
     const align = alignSharedIndex({ root: ROOT, paths: [PLAN_REL], parentRef: parent })
     const nOf = (x) => (Array.isArray(x) ? x.length : Number(x) || 0)
     console.log(
@@ -1143,6 +1420,13 @@ export function rowsDedupeAndLand(match = null, maxAttempts = 8) {
       casUpdateRef(parent, landed.commit, { root: ROOT })
       return 1
     }
+    // G-800 留痕:回读闭合之后、共享索引对齐之前(次序判据见 BYPASS_LANDING_SITES)。
+    attestLanding({
+      source: 'plan-tasks-merge:dedupe-rows',
+      landedSha: landed.commit,
+      headBefore: parent,
+      root: ROOT,
+    })
     const align = alignSharedIndex({ root: ROOT, paths: [PLAN_REL], parentRef: parent })
     // alignSharedIndex 正常路径返回**数组**、等锁超上限那条返回 0 ⇒ 归一成计数再打印,
     // 否则同一条日志会在两种形态间跳(把"没对齐"读成"对齐了 0 个")。
@@ -1512,6 +1796,13 @@ function openRowsDedupeOnce(match = null, maxAttempts = 8, opts = {}) {
       casUpdateRef(parent, landed.commit, { root })
       return { kind: 'failed', deletedCount: 0, sha: null, remainingGroups: 0, remainingRows: 0 }
     }
+    // G-800 留痕:本轮认领的组已清零(回读闭合)之后、共享索引对齐之前。
+    attestLanding({
+      source: 'plan-tasks-merge:dedupe-open-rows',
+      landedSha: landed.commit,
+      headBefore: parent,
+      root,
+    })
     const align = alignSharedIndex({ root, paths: [PLAN_REL], parentRef: parent })
     const nOf = (v) => (Array.isArray(v) ? v.length : Number(v) || 0)
     const restGroups = leftAll.filter((g) => !scope || !scope.has(g.line))
@@ -2002,6 +2293,13 @@ export function twinFoldAndLand(maxAttempts = 8) {
       casUpdateRef(parent, landed.commit, { root: ROOT })
       return 1
     }
+    // G-800 留痕:折叠复验通过之后、共享索引对齐之前(次序判据见 BYPASS_LANDING_SITES)。
+    attestLanding({
+      source: 'plan-tasks-merge:fold-twins',
+      landedSha: landed.commit,
+      headBefore: parent,
+      root: ROOT,
+    })
     const align = alignSharedIndex({ root: ROOT, paths: [PLAN_REL], parentRef: parent })
     const nOf = (v) => (Array.isArray(v) ? v.length : Number(v) || 0)
     console.log(
@@ -2119,6 +2417,19 @@ export function healAndLand() {
       console.log('❌ CAS 失败(HEAD 被并发抢进),本次自愈放弃 —— 下一次提交会再试')
       return 1
     }
+    /**
+     * G-800 留痕(自动档 —— 六个站点里唯一挂在提交链上每次提交都唤起的那一个)。
+     * 本档**没有**"复验不过即回退"的分支:上面那次 rev-parse 回读一旦等值,HEAD 就已经移,
+     * 后面那一次内容复验只决定退出码、不会把提交撤回来。所以"已绕过提交链进了 HEAD"的最强
+     * 证据就是这一条 rev-parse,留痕必须写在它之后、共享索引写回之前(次序判据见
+     * BYPASS_LANDING_SITES 与本票报告:早退那一支(无状态分叉)一行都不写,只有真落地才写)。
+     */
+    attestLanding({
+      source: 'plan-tasks-merge:heal',
+      landedSha: commit,
+      headBefore: head,
+      root: ROOT,
+    })
     const t0 = Date.now()
     while (existsSync(path.join(ROOT, '.git', 'index.lock'))) {
       if (Date.now() - t0 > 120000) {
@@ -2223,6 +2534,13 @@ export function dedupeAndLand(maxAttempts = 8) {
         gitIn(null, ['update-ref', 'HEAD', head, commit])
         return 1
       }
+      // G-800 留痕:回读已证块数下降(复验通过)之后、共享索引写回之前。
+      attestLanding({
+        source: 'plan-tasks-merge:dedupe-blocks',
+        landedSha: commit,
+        headBefore: head,
+        root: ROOT,
+      })
       const t0 = Date.now()
       while (existsSync(path.join(ROOT, '.git', 'index.lock'))) {
         if (Date.now() - t0 > 120000) {
