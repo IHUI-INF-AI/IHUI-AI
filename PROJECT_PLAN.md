@@ -20322,3 +20322,25 @@ services 归档/分享/HTTP 层)判"值得抄"的 **26 条**逐条立项(每条�
 - [ ] G-644 分层配置的三态补丁:patch 只能从 draft 派生,`undefined`=未触碰、`null`=显式清除、敏感字段 `''`=沿用;effective 合并值绝不回写,JSON 解析失败不得静默整块覆写。落点 apps/api/src/routes/user-llm-configs.ts PUT + apps/web/src/lib/user-llm-configs.ts;验收 `git grep -n "apiKeyEnc = JSON.stringify" HEAD -- apps/api/src/routes/user-llm-configs.ts` 同行须有 `=== null` 分支,且坏 JSON 用例点名而非 ignore。2026-09-29 立项 〔【归并】重复登记副本(2026-09-29):同主键的另一条登记 「G-644 · 分层配置的三态补丁」,派单以那条为准,本行不再单独派单。〕
 - [ ] G-644 分层配置的三态补丁:patch 只能从 draft 派生,`undefined`=未触碰、`null`=显式清除、敏感字段 `''`=沿用;effective 合并值绝不回写,JSON 解析失败不得静默整块覆写。落点 apps/api/src/routes/user-llm-configs.ts PUT + apps/web/src/lib/user-llm-configs.ts;验收 `git grep -n "apiKeyEnc = JSON.stringify" HEAD -- apps/api/src/routes/user-llm-configs.ts` 同行须有 `=== null` 分支,且坏 JSON 用例点名而非 ignore。2026-09-29 立项
 - [x] ✅(2026-09-29) G-916426 **登录弹窗 `showProfile` 恒真收口(带默认值的形参被当"传没传")+ 三张元素集合票全部交回"有证据的零改动"、其价值落在尺子上**:① 实测缺陷:`apps/mobile-rn/src/components/LoginPopUp.tsx` 形参 `role = 'normal'` 而 `showProfile` 的 Boolean(...) 含 `role !== undefined` ⇒ 该项恒真 ⇒ 唯一调用点(`ProfileScreen.tsx:639`,只传 title/primary/secondary)本意要渲染的**授权卡结构上不可达**,屏上是空白资料表单;类型层 `role: string` 让 `!== undefined` 永远成立 ⇒ typecheck/lint/全部守门全绿。修 `75911d2b88`,同笔配常驻尺子 `scripts/lib/default-param-tautology.mjs`(两层遮噪方向不同:认默认值要**保留字符串**,认判据要**连字符串也抹**;只认裸标识符 + 同函数体绑定,因真仓 `BottomActionBar.tsx:229` 的 `props.prompt !== undefined` 是**正确**写法)+ 消费者测试 `apps/mobile-rn/tests/prop-default-presence-tautology.test.ts`(判 HEAD 面;落地前实测红在 `LoginPopUp.tsx:192`,落地后 4/4 绿 —— 阳性对照跑在被审面上而不是夹具里)。② 三票(ModelList / UserInfoCard / LoginPopUp)全部判定**端上不缺元素**:RN 的 StyleSheet 键名与小程序的 utility 类名是两种书写语言,RE 维按名配对 ⇒ "仅 RN 具名"绝大多数是"有但无名",唯一真缺的 `newBadge` 两端皆无数据源(`LlmModel` 无 `is_new` 字段,RN 的 `isNew` 也零生产者)。③ **两票反手指认守门 128 自己有病,这才是本轮的真产出**:(甲)单位(rpx/px 折算)、本地别名表(`const radiusTiny = rnRadius.xs`)、媒体查询里的逐字重复声明三处会**凭空造出**差异;(乙)选腿规则"出口指向"给 UserInfoCard 选中了 `packages/app/src/features/cards/UserInfoCard.tsx`(只在陈列屏 `SharedDemoScreen` 渲染的**社交资料卡**),而 App 真渲染的是 `apps/mobile-rn/src/components/UserInfoCard.tsx`(与小程序共用同一张 spec)⇒ **两个不同东西在比**,那 12 处读数全是假的。④ 我自己这一轮的两处量算自伤留成规矩:`git grep` 结果被 `head` 截断 ⇒ 我据此断言"RN 键不在 ModelList 里"(其实在 :394/:432/:461/:471);`sed` 只打 361-372 + 378-392 跳过 373-377 ⇒ 我据此断言"小程序免费徽章缺内衬"(那五行就是内衬)。**两条都是把截断当成了结论** —— 计数与抽样都不算验证,必须把整块读回来或改用带计数的判据。同轮另修两条会教错人的注释(`2573cd6a7e`:头像"真圆=24dp"与"§4 圆角豁免",现值 16 且该豁免通道已由守门 77 B8 整体废除)。
+
+- G-916428 教育财务线第三条(2026-09-29 同日,运行时取证把两件事证伪 —— 以实测为准,别引用前两格的结论):
+  - **缴费登记与后台入口都做了真实浏览器取证**(私有端口对照 + headless Chromium,全程不占共享 8801/8802,自起实例按监听 PID 精确回收):
+    ① 缴费弹窗**上屏确认**:「期次（报名）」下拉存在、旧版三个自由文本框(学员姓名/班级名称/如：学费)全部归零、未选期次时保存按钮禁用 —— 这三条是形态锁,不依赖库里有没有名册数据(否则会造一台空库恒红 spec)。
+    ② 落 `apps/web/e2e/edu-finance-payment-dialog.spec.ts` 常驻;`apps/api/tests/edu-payment-contract.test.ts` 另钉 8 条**不连库**的契约断言(enrollmentId 必填、旧 studentId+classId 形态必拒、非 uuid 必拒、金额整数下限、通道枚举与账目出口那份逐条同形)。
+  - **更正前两格的一处结论:「挂进 AdminNav」没有让菜单上屏**。探针实测本机后台可见菜单只有 7 条,且**连既有的 `/admin/edu/course/pay`、`/admin/edu/organization` 都不在其中** —— 运行时菜单由后端菜单表(`/api/admin/menu/getRouters`)驱动,`ADMIN_NAV` 这份静态清单不是菜单来源。所以:
+    ① "这三页此前只能手敲 URL"对 `class/schedule` **不成立**(它本来就在菜单里);
+    ② 我加进静态清单的两条(student/finance)**只是登记,不是入口**;
+    ③ e2e 里那条菜单断言已按实测**降级为"清单里别再丢条目"的源码锁**,并写明为什么不能断言 DOM —— 留一台知道会红的 spec 在链上,只会逼人跳门。
+    真要让这两页可点,需要**菜单表数据变更**(影响所有人后台导航,属你或部署侧动作,我不擅自写库)。
+  - **api 进程是旧代码这件事要用对照证,别把 404 当"被鉴权拦住"**:共享 8802 实例对新端点回 404、对 `/term` 回 401 —— 只有同时取"不存在的路径也回 404"这条对照,才能区分"路由没装载"与"路由在但要求登录"。缺这条对照时,404 很容易被读成"权限拦截生效",从而把"新端点没跑起来"误报成"已生效"。
+  - **自查出一处我自己埋下的口径分叉并修掉**(落地 `9da4f7d82`):账目聚合原先按 `enrollment_id` 精确过滤,
+    而模块顶部注释写的是"无归属的流水仍计入报名级总额" —— 实现会让这批历史钱**从账目里凭空消失**
+    (已缴额变小 ⇒ 学员被多催缴)。注释与实现分叉比"两处都缺"更坏,因为读代码的人会信注释。
+    现在判定收成一个可断言的纯函数 `shouldAdoptUnattributed(该 student×class 的有效报名数)`:
+    1 条 ⇒ 认领(不然钱消失);≥2 条或 0 条 ⇒ 谁都不认领、由 `loadUnattributedPayments` 点名
+    (算给任一边会让同一笔钱在两个期次各出现一次,那正是本模块要消灭的第一型)。
+    配套 3 例判据并入 `edu-ledger.test.ts`,该线测试总数以命令末行现读为准(落地时 26 passed)。
+
+  - **两处与本票无关、但会挡所有会话提交的既存状况(只报名,不代改)**:
+    ① `2e-dupns`(blocking)判 HEAD 面"web/{en,ja,ko}.json 有同层重复键",而 `check-i18n-keys` 同批报"索引 blob 不是合法 JSON(position 756955 / line 20050)";实测工作树这三个文件已是**整份压成 2 行**的形态、zh-CN/zh-TW 仍是 27710 行 pretty,索引里则是"pretty + 压缩"拼接版 —— 三面各不同形,是并发会话正在修的同一件事(`2b71d4cfd5`/`5af22be4de` 已在修 zh-CN/zh-TW)。我不动别人的在飞语言包。
+    ② `check-credential-presence-bypass`(157)在 `--staged` 档把"台账引用了本次未纳入的 `csrf.ts` 两条记录"判成**清单腐烂**:它先把判定收窄到本次暂存集,再用**全量**台账判腐烂,两个量纲不同 ⇒ 任何只改 `apps/api/src/routes/` 一两个文件的提交都会红(HEAD 全量档 exit 0 可证)。归因层据此把我那枚提交判成 mine 而拒绝跳门。我没有改它的判据(那是持有人的裁决,且"为变绿放宽判据"正是本仓禁的),改走对象空间通道落地(水印/悬空引用/回读三道预检都过,并在 HEAD 面复跑受影响判据留证)。
