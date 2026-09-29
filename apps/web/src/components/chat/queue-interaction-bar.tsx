@@ -25,6 +25,12 @@ import { GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   INPUT_NOTICES_NAMESPACE,
+  QUEUE_BLOCKABLE_ACTIONS,
+  queueActionBlockView,
+  type QueueActionBlockContext,
+  type QueueActionBlockReason,
+  type QueueActionBlockView,
+  type QueueBlockableAction,
   type QueueInteractionPerms,
 } from '@ihui/shared/chat/input-notices'
 import {
@@ -65,6 +71,13 @@ export interface QueueInteractionBarProps {
   }) => void
   /** 模式切换回调(setMode 恒可切) */
   onModeChange?: (mode: FollowUpMode) => void
+  /**
+   * D162:队列动作「为什么现在不能按」六格拒因判定上下文(Runtime 能力 / 有无运行中 Turn /
+   * 等待请求 / 控制命令 / 队列并发变更 / 来源匹配)。缺省 ⇒ 行为与 D38/D162① 完全一致
+   * (拒绝提示走 perms 的 deniedKey + causeKey);注入后六格命中的动作**被进一步拦下**,
+   * 按钮挂具体拒因 tooltip(`queue.blocked.<key>`),拒绝提示追加具体拒因串。
+   */
+  blockCtx?: QueueActionBlockContext
   className?: string
   'data-testid'?: string
 }
@@ -88,6 +101,7 @@ export function QueueInteractionBar({
   onEdit,
   onInterruptAndRun,
   onModeChange,
+  blockCtx,
   className,
   'data-testid': testId,
 }: QueueInteractionBarProps) {
@@ -116,6 +130,34 @@ export function QueueInteractionBar({
     return byKind
   }, [perms])
 
+  // D162:六格拒因逐动作求值(仅调用方注入 blockCtx 时启用;缺省 = 零行为变更)。
+  // 只读不写:这里只产出"哪个动作因哪个具体条件不能按",不触碰任何队列状态。
+  const blockedByKey = React.useMemo(() => {
+    if (!blockCtx) return null
+    const byAction = {} as Record<QueueBlockableAction, QueueActionBlockView>
+    for (const action of QUEUE_BLOCKABLE_ACTIONS) {
+      byAction[action] = queueActionBlockView(action, blockCtx)
+    }
+    return byAction
+  }, [blockCtx])
+
+  // 动作终局许可 = D69 perms 门 ∧ D162 六格门(队列并发变更时拦下对过期队列的操作)
+  const actionAllowed = (kind: (typeof DENIED_HINT_KINDS)[number]): boolean => {
+    if (!verdicts[kind].allowed) return false
+    const view = blockedByKey ? blockedByKey[kind] : null
+    return !(view && view.blocked)
+  }
+
+  // 六格命中的具体拒因 tooltip / data 属性(未注入或未命中 → undefined,不误导可用的按钮)
+  const blockedTitleOf = (action: QueueBlockableAction): string | undefined => {
+    const view = blockedByKey ? blockedByKey[action] : null
+    return view && view.blocked && view.reasonKey ? tn(`queue.${view.reasonKey}`) : undefined
+  }
+  const blockedReasonOf = (action: QueueBlockableAction): QueueActionBlockReason | undefined => {
+    const view = blockedByKey ? blockedByKey[action] : null
+    return view && view.blocked ? (view.reason ?? undefined) : undefined
+  }
+
   const modeResolution = React.useMemo(
     () => effectiveMode(mode, runtimeSupportsInterjection),
     [mode, runtimeSupportsInterjection],
@@ -124,7 +166,7 @@ export function QueueInteractionBar({
   if (items.length === 0) return null
 
   const tryReorder = (fromIndex: number, toIndex: number) => {
-    if (!verdicts.reorder.allowed) return
+    if (!actionAllowed('reorder')) return
     onReorder?.(fromIndex, toIndex)
   }
 
@@ -147,13 +189,16 @@ export function QueueInteractionBar({
   }
 
   const startEdit = (itemId: string, currentText: string) => {
-    if (!verdicts.edit.allowed) return
+    if (!actionAllowed('edit')) return
     setEditingId(itemId)
     setEditDraft(currentText)
   }
 
   const confirmEdit = () => {
     if (editingId === null) return
+    // D162:队列并发变更(queueChanged 命中六格)时确认被拦 —— 草稿保留在输入框,
+    // 不清空不写回,不得让用户误以为编辑已落到过期队列上。
+    if (!actionAllowed('edit')) return
     const text = editDraft.trim()
     setEditingId(null)
     setEditDraft('')
@@ -162,7 +207,7 @@ export function QueueInteractionBar({
   }
 
   const handleInterrupt = () => {
-    if (!verdicts.interruptAndRun.allowed) return
+    if (!actionAllowed('interruptAndRun')) return
     // 队首只读不改:items[0] 由调用方按既有队列顺序传入(W27:选择逻辑不在此)
     const plan = interruptPlan({ streaming, streamingMessageId: null }, items[0] ?? null)
     onInterruptAndRun?.(plan)
@@ -191,17 +236,19 @@ export function QueueInteractionBar({
             <span
               role="button"
               tabIndex={0}
-              draggable={verdicts.reorder.allowed}
+              draggable={actionAllowed('reorder')}
               aria-label={t('reorderAria')}
-              aria-disabled={!verdicts.reorder.allowed}
+              aria-disabled={!actionAllowed('reorder')}
+              title={blockedTitleOf('reorder')}
+              data-blocked-reason={blockedReasonOf('reorder')}
               className={cn(
                 'cursor-grab select-none text-xs text-muted-foreground',
-                !verdicts.reorder.allowed && 'cursor-not-allowed opacity-40',
+                !actionAllowed('reorder') && 'cursor-not-allowed opacity-40',
               )}
               data-queue-op="reorderHandle"
               data-item-id={item.id}
               data-index={index}
-              onDragStart={() => verdicts.reorder.allowed && setDragIndex(index)}
+              onDragStart={() => actionAllowed('reorder') && setDragIndex(index)}
               onKeyDown={(event) => handleReorderKey(event, index)}
             >
               <GripVertical className="h-3.5 w-3.5" aria-hidden />
@@ -253,17 +300,21 @@ export function QueueInteractionBar({
                 <button
                   type="button"
                   className="text-xs text-muted-foreground hover:text-foreground"
-                  aria-disabled={!verdicts.undo.allowed}
+                  aria-disabled={!actionAllowed('undo')}
+                  title={blockedTitleOf('undo')}
+                  data-blocked-reason={blockedReasonOf('undo')}
                   data-queue-op="undo"
                   data-item-id={item.id}
-                  onClick={() => verdicts.undo.allowed && onUndo?.(item.id)}
+                  onClick={() => actionAllowed('undo') && onUndo?.(item.id)}
                 >
                   {t('undo')}
                 </button>
                 <button
                   type="button"
                   className="text-xs text-muted-foreground hover:text-foreground"
-                  aria-disabled={!verdicts.edit.allowed}
+                  aria-disabled={!actionAllowed('edit')}
+                  title={blockedTitleOf('edit')}
+                  data-blocked-reason={blockedReasonOf('edit')}
                   data-queue-op="edit"
                   data-item-id={item.id}
                   onClick={() => startEdit(item.id, item.text)}
@@ -280,7 +331,9 @@ export function QueueInteractionBar({
         <button
           type="button"
           className="text-xs text-primary"
-          aria-disabled={!verdicts.interruptAndRun.allowed}
+          aria-disabled={!actionAllowed('interruptAndRun')}
+          title={blockedTitleOf('interruptAndRun')}
+          data-blocked-reason={blockedReasonOf('interruptAndRun')}
           data-queue-op="interruptAndRun"
           onClick={handleInterrupt}
         >
@@ -320,21 +373,35 @@ export function QueueInteractionBar({
       {/* 被拒动作显式渲染 deniedKey(D69 同键;静默 = 把"为什么不行"藏起来) */}
       {DENIED_HINT_KINDS.map((kind) => {
         const verdict = verdicts[kind]
-        if (verdict.allowed || !verdict.deniedKey) return null
+        const specific = blockedByKey ? blockedByKey[kind] : null
+        const sixGridBlocked = !!(specific && specific.blocked && specific.reasonKey && specific.reason)
+        if (verdict.allowed && !sixGridBlocked) return null
         return (
           <span
             key={kind}
             className="text-[11px] text-muted-foreground"
             data-queue-denied={kind}
-            data-denied-key={verdict.deniedKey}
+            data-denied-key={verdict.deniedKey ?? ''}
           >
-            {tn(`queue.${verdict.deniedKey}`)}
+            {verdict.deniedKey ? tn(`queue.${verdict.deniedKey}`) : null}
             {/* D162 ①:动作名之外必须同时给出**具体条件**(流式中锁定重排 / 队列已空 /
                 Runtime 不支持插话 …)。两串各自独立渲染并各带 data-*,用例才能断言
                 "两个不同条件得到的文案互不相同" —— 合成一句"当前不可用"就等于没写。 */}
-            {verdict.causeKey ? (
+            {verdict.causeKey && !sixGridBlocked ? (
               <span className="ml-1" data-queue-denied-cause={kind} data-cause-key={verdict.causeKey}>
                 {tn(`queue.${verdict.causeKey}`)}
+              </span>
+            ) : null}
+            {/* D162:六格命中的更具体拒因(queueChanged / controlCommandNoInterject /
+                waitingRequestFirst …)—— perms 模型判不出的条件从这里出词,
+                命中时取代笼统 cause 串,避免同一处解释两遍。 */}
+            {specific && specific.blocked && specific.reasonKey && specific.reason ? (
+              <span
+                className="ml-1"
+                data-queue-blocked-reason={specific.reason}
+                data-blocked-key={specific.reasonKey}
+              >
+                {tn(`queue.${specific.reasonKey}`)}
               </span>
             ) : null}
           </span>

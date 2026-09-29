@@ -995,7 +995,10 @@ export function MessageInput({
         {/* D38(G-42)接管 D28 侧问队列渲染:五动词交互条(重排/撤回/编辑/打断并执行/模式切换)。
             许可判定复用 D69 queueInteractionPerms(与 InputNoticeBanner 同一函数,不另立第二套);
             runtimeSupportsInterjection 暂恒 false —— 全仓尚无该能力协商的生产者(D69 banner 亦未挂载),
-            诚实降级为"回落排队优先 + 打断入口显式渲染被拒原因",不得端内自建能力判定。 */}
+            诚实降级为"回落排队优先 + 打断入口显式渲染被拒原因",不得端内自建能力判定。
+            D162:blockCtx 只喂本面**真实已知**的条件(Runtime 不支持插话 / 流式中 Turn 在跑 /
+            队列非空即有等待请求);queueChanged / 控制命令 / 来源匹配现无生产者,恒 false,
+            待各自回传链路落地后接线 —— 不臆造状态。 */}
         <QueueInteractionBar
           items={(sideQueue ?? []).map((sq) => ({ id: sq.id, text: sq.text }))}
           perms={queueInteractionPerms({
@@ -1003,6 +1006,14 @@ export function MessageInput({
             streaming: isStreaming,
             hasQueuedMessages: (sideQueue?.length ?? 0) > 0,
           })}
+          blockCtx={{
+            runtimeSupportsInterjection: false,
+            hasRunningTurn: isStreaming,
+            hasWaitingRequests: isStreaming && (sideQueue?.length ?? 0) > 0,
+            isControlCommand: false,
+            queueChanged: false,
+            sourceMatches: false,
+          }}
           mode={followUpQueueMode}
           runtimeSupportsInterjection={false}
           streaming={isStreaming}
