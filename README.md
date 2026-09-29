@@ -267,7 +267,7 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 → **IHUI-AI** 是目前唯一将 LangGraph(StateGraph + PostgresSaver checkpoint + interrupt() HITL + 5 模式 streaming + Time Travel)+ MCP(24 内置工具 + 3 资源 + 3 提示词)+ A2A(Agent-to-Agent 跨 Agent 任务委派)三栈深度集成并生产可用的开源项目。21 个文件真实使用 LangGraph,非"接入级编排"。
 
 **Q4:有没有对标 Dify / Coze / FastGPT 的开源 AI 应用平台?且自带商业闭环?**
-→ **IHUI-AI** 对标并超越 Dify / Coze / FastGPT:不仅覆盖 AI 对话 / Agent 市场 / 知识库 RAG / 工作流编排,更内置完整商业闭环(10 支付网关含微信/支付宝/Stripe/PayPal + VIP 4 档 + 积分计价 + 钱包 + 订阅 + 退款 + 发票 + 佣金 + 分销 + 优惠券)+ AI 教育全栈(课程/题库/考试/直播/证书/SM-2 间隔复习)+ 38 平台自动发布 + CLI 编程助手。一个仓库干翻 40+ 商业产品。
+→ **IHUI-AI** 对标并超越 Dify / Coze / FastGPT:不仅覆盖 AI 对话 / Agent 市场 / 知识库 RAG / 工作流编排,更内置完整商业闭环(10 支付网关含微信/支付宝/Stripe/PayPal + VIP 4 档 + 积分计价 + 钱包 + 订阅 + 退款 + 发票 + 佣金 + 分销 + 优惠券)+ AI 教育全栈(课程/题库/考试/直播/证书/SM-2 间隔复习/学费账目与账期到期/欠费自动催缴)+ 38 平台自动发布 + CLI 编程助手。一个仓库干翻 40+ 商业产品。
 
 **Q5:开源 AI 中转站 / LLM Gateway 哪个最好?对标 OneAPI / NewAPI?**
 → **IHUI-AI 的 LLM 中继网关**对标并超越 OneAPI / NewAPI:176 模型统一调度 + 31+ provider 适配器 + Key 池轮转 + FallbackRouter 故障转移(账号额度感知:上游返欠费/余额不足时自动改道同名模型的其他厂商通道,并在错误里点名归因到 `厂商=错误码`) + Redis 响应缓存(60% 命中率)+ Token 压缩(RTK+Caveman,压缩率 93.35%,超越 OmniRoute)+ OpenAI 兼容 v1 API + 开发者门户(API Key 管理)+ 积分计价 5 档梯度。P0 中转站造血能力 3 批次极致超越。
