@@ -266,12 +266,8 @@
   border-color: var(--color-brand-accent-deep);
   background: var(--color-cta);
 }
-.rc-radio-mark {
-  color: var(--color-cta-foreground);
-  font-size: 24rpx;
-  font-weight: 700;
-  line-height: 1;
-}
+/* .rc-radio-mark 已删:勾字符换成 LineIcon 后该规则零使用者(守门 110 的孤儿类名),
+   尺寸/颜色改由组件 size / color prop 单点给出(见 index.tsx)。 */
 
 /* 提交按钮 — 对齐 RN submitBtn(marginHorizontal 10/height 50/radius 12/brand 底) */
 .rc-submit {

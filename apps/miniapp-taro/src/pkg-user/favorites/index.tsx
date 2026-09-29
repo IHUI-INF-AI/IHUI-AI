@@ -219,11 +219,13 @@ export default function FavoritesPage() {
               }
             }}
           >
-            <Text
-              className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[length:24rpx] text-transparent bg-background border-[length:2rpx] border-primary/40 rounded-xs shrink-0 ${allChecked ? 'text-foreground bg-primary border-brand-accent-deep' : ''}`}
+            <View
+              className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] bg-background border-[length:2rpx] border-primary/40 rounded-xs shrink-0 ${allChecked ? 'bg-primary border-brand-accent-deep' : ''}`}
             >
-              {allChecked ? '✓' : ''}
-            </Text>
+              {allChecked ? (
+                <LineIcon name="check" size={24} color="var(--color-foreground)" />
+              ) : null}
+            </View>
             <Text className="ml-[12rpx] text-[length:26rpx] text-foreground">
               {tt('favorites.selectAll', '全选')}
             </Text>
@@ -253,11 +255,13 @@ export default function FavoritesPage() {
                   onClick={() => (manageMode ? toggleSelect(item.id) : viewDetail(item))}
                 >
                   {manageMode ? (
-                    <Text
-                      className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[length:24rpx] text-transparent bg-background border-[length:2rpx] border-primary/40 rounded-xs shrink-0 ${checked ? 'text-foreground bg-primary border-brand-accent-deep' : ''}`}
+                    <View
+                      className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] bg-background border-[length:2rpx] border-primary/40 rounded-xs shrink-0 ${checked ? 'bg-primary border-brand-accent-deep' : ''}`}
                     >
-                      {checked ? '✓' : ''}
-                    </Text>
+                      {checked ? (
+                        <LineIcon name="check" size={24} color="var(--color-foreground)" />
+                      ) : null}
+                    </View>
                   ) : null}
                   {item.cover ? (
                     <Image
