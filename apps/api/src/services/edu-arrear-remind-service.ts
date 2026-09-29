@@ -258,6 +258,42 @@ export async function dispatchArrearChannels(input: {
 }
 
 /**
+ * 解析定时任务的催费通道配置。**默认只走微信**,与接短信之前的行为逐字一致 ——
+ * 扩到短信要显式设 `EDU_ARREAR_REMIND_CHANNELS=sms`(或 `wechat,sms`)。
+ * 因为每天 09:00 是按名单批量外发,擅自多开一条计费通道等于替运营做花钱的决定。
+ * 非法值直接丢掉而不是抛错(配置写错不该让整个定时任务停摆);全丢光则回落默认档。
+ */
+export function parseRemindChannels(raw: string | undefined): ExternalChannel[] {
+  const picked = (raw ?? 'wechat')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((v): v is ExternalChannel => (['in_app', 'sms', 'wechat'] as string[]).includes(v))
+  return picked.length > 0 ? picked : ['wechat']
+}
+
+/**
+ * "这次催缴算不算外部触达失败"的判据,抽成纯函数。
+ * 立因:任务此前只要站内信没抛异常就记 success,于是"微信压根没配置、一条都没发出去"
+ * 与"全部送达"在运维面上完全同形 —— 而 §5e 那条"失败必须响"禁的就是这个。
+ * 规则:本次确有提醒对象,而被请求的外部通道全部零送达 ⇒ 判失败。
+ * 只要站内信(in_app)的请求不算,因为它本来就不涉及外发。
+ */
+export function externalDeliveryMissed(input: {
+  channels: ExternalChannel[]
+  reminded: number
+  wxSent: number
+  smsSent: number
+}): boolean {
+  if (input.reminded <= 0) return false
+  const wantWx = input.channels.includes('wechat')
+  const wantSms = input.channels.includes('sms')
+  if (!wantWx && !wantSms) return false
+  if (wantWx && input.wxSent > 0) return false
+  if (wantSms && input.smsSent > 0) return false
+  return true
+}
+
+/**
  * 定时任务的外部通道集合;默认只走微信(与接短信之前的行为逐字一致,不偷偷扩面)。
  */
 export async function scanAndRemindArrears(
@@ -431,6 +467,8 @@ export const __test__ = {
   resolveReminderRecipients,
   beijingMidnightUtc,
   classifySmsAvailability,
+  parseRemindChannels,
+  externalDeliveryMissed,
   WX_ERRCODE_NOT_SUBSCRIBED,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

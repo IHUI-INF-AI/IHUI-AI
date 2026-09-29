@@ -216,6 +216,8 @@ def test_self_reported_trace_id_never_wins() -> None:
 # ---------------------------------------------------------------------------
 
 _LLM_SRC = Path(llm.__file__).read_text(encoding="utf-8")
+# R3:注入实现已从路由提到 core/sse_frames.py,这条锁按整个 app 包计数,需要拿到那份源码的位置
+from app.core import sse_frames  # noqa: E402
 
 
 def test_frame_factory_is_the_only_named_frame_emitter() -> None:
@@ -229,10 +231,21 @@ def test_frame_factory_is_the_only_named_frame_emitter() -> None:
 
 
 def test_trace_key_is_written_at_exactly_one_place() -> None:
-    """写键的语句(`SSE_TRACE_ID_PAYLOAD_KEY: trace_id`)只许一行 —— 键名在 llm.py 里
-    不得被逐字抄第二遍(那会绕过契约层的唯一真相源)。"""
+    """写键语句(`SSE_TRACE_ID_PAYLOAD_KEY: trace_id`)全仓恰好一处。
+
+    R3 之后那一处在 `core/sse_frames.py`(两条拼帧路径共用),所以计数必须按**整个 app 包**
+    而不是按 llm.py 单文件 —— 只按单文件数会出两种错:搬去新文件被当成"0 处 = 通过",
+    或者在新文件又留一份而没人发现。路由里现在必须是 0 处。
+    """
     writer = "SSE_TRACE_ID_PAYLOAD_KEY: trace_id"
-    assert _LLM_SRC.count(writer) == 1, f"实得 {_LLM_SRC.count(writer)} 处"
+    app_root = Path(sse_frames.__file__).resolve().parent.parent
+    hits = {
+        p.name: p.read_text(encoding="utf-8").count(writer)
+        for p in sorted(app_root.rglob("*.py"))
+        if p.read_text(encoding="utf-8").count(writer) > 0
+    }
+    assert hits == {Path(sse_frames.__file__).name: 1}, f"全仓写键语句分布:{hits}"
+    assert _LLM_SRC.count(writer) == 0, "路由里不得再留一份写键语句"
     assert '"traceId"' not in _LLM_SRC and "'traceId'" not in _LLM_SRC, (
         "键名只经 SSE_TRACE_ID_PAYLOAD_KEY 引用,不在路由里写死字面量"
     )
