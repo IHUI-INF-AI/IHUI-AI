@@ -439,7 +439,7 @@ export default function InputArea({
                           style={{
                             width: toUnit(INPUT_AREA_VIDEO_THUMB_W_PX),
                             height: toUnit(INPUT_AREA_VIDEO_THUMB_H_PX),
-                            borderRadius: rnRadius.lg,
+                            borderRadius: rnRadiusFor.card,
                           }}
                         />
                       </View>
@@ -720,7 +720,7 @@ export default function InputArea({
                       因为两端的"展开面板"高亮此前一端有一端无)。 */}
                   <View
                     className={cn(
-                      'flex items-center justify-center rounded-sm',
+                      'ui-control flex items-center justify-center rounded-sm',
                       isShowIcon ? 'bg-cta text-cta-foreground' : '',
                     )}
                     style={{

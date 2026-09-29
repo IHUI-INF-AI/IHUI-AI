@@ -12,9 +12,11 @@
  *          + 语音切换按钮(🎤/⌨️ 20pt,键盘模式显 🎤 进入语音,语音模式显 ⌨️ 回键盘)
  * - 语音模式:中间 TextInput 替换为「按住说话」长按区(Pressable onLongPress,500ms),
  *   录音中背景 success.lightest + 边框 success.DEFAULT,提示切换为「松开结束」
- * - 容器:圆角输入井(h 40 / paddingHorizontal 12 / borderRadius 8 / bgColor surface.muted
+ * - 容器:圆角输入井(h 40 / paddingHorizontal 12 / 角色档 control→sm(4) / bgColor surface.muted
  *   / borderWidth 1 + borderColor border.light / gap 8),对齐全项目搜索框统一规范
- *   (web 基准:rounded-md + border-border + bg-muted/40,见 packages/ui-react SearchInput)
+ *   (web 基准:packages/ui-react/src/components/search-input.tsx 的 rounded-sm;
+ *   小程序基准:apps/miniapp-taro/src/components/SearchBar.tsx 的 rounded-sm。
+ *   2026-09-29 本端此前写的是 lg(8),即"两端各自收口"留下的第三档,已随角色表收为 control)
  * - 聚焦态:borderColor brand.DEFAULT 高亮
  *
  * Props(保留现有契约,语音能力全部可选,不破坏调用方):
@@ -46,7 +48,7 @@ import {
   type NativeSyntheticEvent,
   type TextInputSubmitEditingEventData,
 } from 'react-native'
-import { getRnTokens, rnRadius } from '@ihui/design-tokens'
+import { getRnTokens, rnRadiusFor } from '@ihui/design-tokens'
 import { Search, Mic, Keyboard, X } from 'lucide-react-native'
 
 export interface SearchInputProps {
@@ -259,7 +261,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: CONTAINER_HEIGHT,
     paddingHorizontal: CONTAINER_PADDING_HORIZONTAL,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadiusFor.control,
     borderWidth: CONTAINER_BORDER_WIDTH,
     gap: CONTAINER_GAP,
   },
@@ -287,7 +289,8 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: rnRadius.sm,
+    // 与 input 同一槽位的语音态(按住说话),角色档同取 control
+    borderRadius: rnRadiusFor.control,
   },
   voiceAreaText: {
     fontSize: INPUT_FONT_SIZE,
