@@ -20332,6 +20332,8 @@
       "statusExpired": "已過期",
       "statusUnknown": "未知",
       "subtitle": "配置各平臺的登錄憑證(加密存儲)",
+      "switchToAppQr": "切換為App掃碼",
+      "switchToWechatQr": "切換為微信掃碼",
       "taskId": "任務",
       "title": "平臺賬號管理",
       "verify": "測試連接",
