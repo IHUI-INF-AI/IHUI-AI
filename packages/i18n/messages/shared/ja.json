@@ -508,6 +508,16 @@
       "flowState": "{state, select, running {{count, plural, =0 {ストリーム実行中、待機ツールなし} other {ストリーム実行中、{count} 個のツールをスケジュール}}} paused {ストリーム一時停止} failed {実行失敗：<b>{reason}</b>}}"
     },
     "send": "送信",
+    "goal": {
+      "status": {
+        "active": "進行中",
+        "paused": "一時停止",
+        "blocked": "ブロック中",
+        "done": "完了",
+        "usageLimited": "利用枠に到達",
+        "budgetLimited": "予算上限に到達"
+      }
+    },
     "terminal": {
       "waitingInput": "入力をお待ちしています",
       "promptLabel": "コマンドのプロンプト：{{prompt}}",

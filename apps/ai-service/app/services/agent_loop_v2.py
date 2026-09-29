@@ -106,6 +106,7 @@ from ..core.current_time_reminder import CurrentTimeReminderState as _CurrentTim
 # TS 唯一算法源(packages/shared/src/agent/doom-loop-detector.ts)由
 # scripts/check-doom-loop-parity.mjs 钉死;阈值数字一律 import,不在此重抄。
 from ..core.doom_loop import (
+    AGENT_MAX_ITERATIONS,
     DOOM_ALERT_ROUNDS_TO_TERMINATE,
     STUCK_CONSECUTIVE_THRESHOLD,
     DoomLoopSentinel,
@@ -1482,7 +1483,7 @@ class AgentLoopV2:
         self,
         llm_complete_fn: Callable[..., Any],
         tools: list[ToolDefinition],
-        max_iterations: int = 10,
+        max_iterations: int = AGENT_MAX_ITERATIONS,
         tool_timeout: float = 60.0,
         parallel_tool_calls: bool = True,
         enable_checkpoint: bool = True,

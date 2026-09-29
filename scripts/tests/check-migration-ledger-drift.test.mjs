@@ -23,7 +23,7 @@ test('导入源模块不得触发 main() 副作用(§22d isDirectRun)', () => {
   assert.equal(typeof src.loadPostgresDriver, 'function', 'loadPostgresDriver 是函数(测试不调用,避免真实 import 副作用)')
 })
 
-test('parseJournal: idx/tag/when 提取,刻意丢弃 hash 字段(判据边界)', () => {
+test('parseJournal: idx/tag/when 提取;应用状态这一维不消费 hash 字段(分维边界见源码头注 G-789)', () => {
   const sample = JSON.stringify({
     version: '7',
     dialect: 'postgresql',
@@ -37,7 +37,10 @@ test('parseJournal: idx/tag/when 提取,刻意丢弃 hash 字段(判据边界)',
   assert.equal(parsed.entries.length, 3)
   assert.equal(parsed.entries[2].tag, '0002_lucky_hiroim')
   assert.equal(parsed.entries[0].idx, 1)
-  assert.ok(!('hash' in parsed.entries[0]), 'parseJournal: 不消费 hash 字段(按序号界定不按 hash)')
+  assert.ok(
+    !('hash' in parsed.entries[0]),
+    'parseJournal: 本门判的是应用状态,该维度按记录集(行数/水位序)判定;hash 不参与,但不等于项目没有 hash 判据(守门 49 的 B9/B11)',
+  )
 })
 
 test('parseJournal: entries 非数组抛错(损坏容错)', () => {

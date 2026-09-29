@@ -233,9 +233,10 @@ describe('installPlugin(local) — 提交点之前不得破坏现状', () => {
     expect(isUsableDirectoryCopy(dest)).toBe(true);
     expect(fs.readFileSync(path.join(dest, 'marker.txt'), 'utf-8')).toBe('v2');
     expect(readRegistry().records.filter((r) => r.name === 'p-late').map((r) => r.version)).toEqual([
-      '1.0.0',
       '2.0.0',
     ]);
+    // 原期望是 ['1.0.0','2.0.0']:那钉的是"同名多行"这个缺陷本身,不是本用例要验的取消语义。
+    // G-808 把写入侧改成按 name 就地替换 ⇒ 一行一名;本用例仍钉住"中止后新副本在位、账上只有当代那行"。
   });
 
   it('复制失败(符号链接逃逸):旧副本仍在位,不留交换残留', { skip: !canSymlink }, async () => {
@@ -503,11 +504,11 @@ describe('installPlugin — 权威落盘排在 finalize 之前(G-756)', () => {
     // 收尾行为与改动前一致:unknown 不拦处置 ⇒ 归档被收走,不留交换残留
     expect(leftoverSwapScratch()).toEqual([]);
     expect(isUsableDirectoryCopy(dest)).toBe(true);
-    // 新写的那一行确实带上了本次事务号(存量那一行原样不动)
+    // 原注释"存量那一行原样不动"与那三行双行断言钉的是缺陷形态:同名两行 ⇒ 读侧取首行(无事务号那条)
+    // 问归档 ⇒ 永远 not-committed。G-808 改写入侧为按 name 就地替换后,存量那一行被当代覆盖是**预期行为**。
     const rows = readRegistry().records.filter((r) => r.name === 'a-legacy');
-    expect(rows.map((r) => r.version)).toEqual(['1.0.0', '2.0.0']);
-    expect(rows[0].transactionId).toBeUndefined();
-    expect(rows[1].transactionId).toBe(outcome.transactionId);
+    expect(rows.map((r) => r.version)).toEqual(['2.0.0']);
+    expect(rows[0].transactionId).toBe(outcome.transactionId);
   });
 
   it('④ 收口判据:真实安装路径(不注入探针)之后,恢复侧问这笔事务得到 committed', async () => {
@@ -524,7 +525,7 @@ describe('installPlugin — 权威落盘排在 finalize 之前(G-756)', () => {
     expect(authorityTransactionVerdict(authority!, '00000000-0000-4000-8000-000000000000')).toBe('not-committed');
   });
 
-  it('⑤ 同一 name 有历史行(写侧接线后)⇒ 权威首行遮蔽本轮,归档零破坏保留不删', async () => {
+  it('⑤ 同一 name 有历史行 ⇒ 写入侧就地替换,当代事务号可被恢复侧问到(归档仍零破坏)', async () => {
     process.chdir(tmpCwd);
     writeLocalPlugin('v1', { name: 'a-dup', version: '1.0.0' }, { 'marker.txt': 'v1' });
     await installPlugin('./v1');
@@ -533,17 +534,17 @@ describe('installPlugin — 权威落盘排在 finalize 之前(G-756)', () => {
     writeLocalPlugin('v2', { name: 'a-dup', version: '2.0.0' }, { 'marker.txt': 'v2' });
     const outcome = await installPlugin('./v2');
 
-    // 安装本身成功、新副本在位(不是拦门),但 registry 里同名有两行,
-    // 而读侧按 name 取**首行**问事务号 ⇒ 覆盖安装的归档这一型收不走。
+    // 原注释钉的是缺陷:同名两行 ⇒ 读侧按 name 取**首行**(上一代那条)问事务号 ⇒ 覆盖安装的归档永远收不走。
+    // G-808 改写入侧为按 name 就地替换 ⇒ 账上只剩当代一行;这既让恢复侧问得到,也仍不删任何副本
+    // (安全方向不变:绝不删权威可能仍指向的那一代)。
     expect(outcome.wasInstalled).toBe(false);
     expect(fs.readFileSync(path.join(dest, 'marker.txt'), 'utf-8')).toBe('v2');
     expect(readRegistry().records.filter((r) => r.name === 'a-dup').map((r) => r.version)).toEqual([
-      '1.0.0',
       '2.0.0',
     ]);
-    // 钉的是安全方向(绝不删权威可能仍指向的那一代),不是把"归档堆积"当期望行为:
-    // 堆积的根因是一行一名未收口,清它另计一票(既有 ④ 号用例把双行形态钉成了现状语义)。
-    expect(fs.existsSync(supersededPathFor(dest))).toBe(true);
+    expect(readRegistry().records.filter((r) => r.name === 'a-dup')[0].transactionId).toBe(outcome.transactionId);
+    // 归档被收走 = 本票要的效果;若仍残留即说明读侧/清理侧没接上(不是把堆积当期望)
+    expect(fs.existsSync(supersededPathFor(dest))).toBe(false);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

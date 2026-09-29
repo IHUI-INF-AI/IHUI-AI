@@ -11,10 +11,12 @@ import { toast } from '@/components/common'
 import { switchPermissionMode } from '@/components/ai/permission-mode-popover'
 import { isFullAccessConfirmSuppressed } from '@/components/ai/full-access-confirm-dialog'
 import { recordModeChange, updateLatestRecordSource } from '@/lib/permission-mode-history'
+// 上次主动选择档位的读写单一出口(票 G-414 ②:此前只写不读)
+import { rememberPreferredPermissionMode, resolveCycleStartMode } from '@/lib/permission-mode-memory'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
-// 读侧归一(G-164):循环起点来自 store/localStorage,拼写可能不是 kebab,归一后再查循环表
-import { permissionModeWire } from '@ihui/types/permission-mode'
+// 读侧归一(G-164)现在住在 @/lib/permission-mode-memory:循环起点要归一 store/localStorage 两种拼写,
+// 归一逻辑只在那一处,本文件不再直接引 permissionModeWire。
 import { permissionTierText } from '@/lib/permission-tier-text'
 // 权限档取词(G-166):档位归一与词表键的共享真相源,见 packages/shared/src/chat/permission-tier.ts
 
@@ -34,9 +36,10 @@ const PERMISSION_CYCLE: WorkspacePermissionMode[] = [
 ]
 
 
-/** localStorage 键(2026-07-25 深化,跨刷新记忆用户上次主动选择的权限模式)
- * 仅记忆非默认模式;首次绑定工作区时如果 store 没指定,优先用这个值 */
-const PERMISSION_MEMORY_KEY = 'ihui:preferred-permission-mode'
+/**
+ * 上次主动选择的权限模式:键、写侧、读侧都在 `@/lib/permission-mode-memory`(票 G-414 ②)。
+ * 这里只留循环表 —— 存储住在 hook 里而无人读,正是本票立项那一格。
+ */
 
 /**
  * 权限模式循环切换 hook(2026-07-29 提取自 message-input.tsx,深度对标 Codex CLI Shift+Tab 循环)
@@ -46,19 +49,21 @@ const PERMISSION_MEMORY_KEY = 'ihui:preferred-permission-mode'
  * - 监听 activeWorkspaceMode 变化 → 同步到 localStorage(仅记忆非默认)
  * - 监听 activeWorkspaceMode 变化 → 写入历史记录
  * - 暴露 cyclePermissionMode 给 Shift+Tab 调用
- * - 全访问确认:切到 bypass-permissions + 未静默 → 弹 FullAccessConfirmDialog
+ * - 全访问确认:切到 bypass-permissions + 未被有效静默 → 弹 FullAccessConfirmDialog
  *
  * 数据流:
  * - 输入:useAiPanelStore.activeWorkspace / setActiveWorkspace / setPendingFullAccess
  * - 输出:{ shortcutsOpen, openShortcuts, closeShortcuts, cyclePermissionMode }
  *
- * 持久化:
- * - PERMISSION_MEMORY_KEY:记忆用户上次主动选择的权限模式
+ * 持久化(键与读写出口都在 @/lib/*,本文件不碰 localStorage 字面量):
+ * - 上次主动选择的权限模式:`@/lib/permission-mode-memory` —— 写侧在此,读侧是 `cycle-start`
+ *   (见该文件的封闭枚举;`workspace-bind-apply` 那一格待拍板,未接线)
  * - recordModeChange:写入模式变更历史(供 PermissionHistoryPanel 展示)
  *
  * 关键边界:
- * - 切到 bypass-permissions 时:若 isFullAccessConfirmSuppressed()=false,只 setPendingFullAccess(true)
- *   返回,不做实际切换;FullAccessConfirmBridge 确认后会自行调 switchPermissionMode
+ * - 切到 bypass-permissions 时:若 evaluateFullAccessSuppression 判不出有效静默(首次/到期/换档/换
+ *   风险说明版本),只 setPendingFullAccess(true) 返回,不做实际切换;
+ *   FullAccessConfirmBridge 确认后会自行调 switchPermissionMode
  * - 切完模式:把刚被 useEffect 占位为 'popover' 的最新一条记录 source 改为 'shift-tab'
  */
 /** 撤销 toast 持续时间(ms)。给用户足够的"哎呀我点错了"反悔窗口 */
@@ -114,19 +119,9 @@ export function usePermissionModeCycle(): {
   // - 模式改变时同步到 localStorage(只记忆非默认,避免污染用户)
   // - Shift+Tab 在 3 个模式间循环切,跳过斜杠面板/提及面板打开时
   // - 切到 bypass-permissions 复用 PermissionModePopover 同一撤销 toast
-  // 监听 mode 变化 → localStorage
+  // 监听 mode 变化 → localStorage(读侧与写侧同住 @/lib/permission-mode-memory)
   React.useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      if (activeWorkspaceMode) {
-        window.localStorage.setItem(PERMISSION_MEMORY_KEY, activeWorkspaceMode)
-      } else {
-        // 解除绑定时清掉记忆(避免下次自动套用过时模式)
-        window.localStorage.removeItem(PERMISSION_MEMORY_KEY)
-      }
-    } catch {
-      // 隐私模式/localStorage 不可用静默
-    }
+    rememberPreferredPermissionMode(activeWorkspaceMode)
   }, [activeWorkspaceMode])
 
   // 权限模式切换历史记录(2026-07-25 立,深度对标 Codex CLI 审计能力):
@@ -155,7 +150,9 @@ export function usePermissionModeCycle(): {
 
   // 切到下一个模式(Shift+Tab 循环)
   const cyclePermissionMode = React.useCallback(async () => {
-    const current = permissionModeWire(activeWorkspaceMode ?? 'default') ?? 'default'
+    // 循环起点:`cycle-start` 是"上次主动选择的权限模式"这一存储的**已接线读侧**
+    // (当场生效的档位永远优先于记忆;详见 @/lib/permission-mode-memory 的封闭枚举)
+    const current = resolveCycleStartMode(activeWorkspaceMode)
     const idx = PERMISSION_CYCLE.indexOf(current)
     const next = PERMISSION_CYCLE[(idx + 1) % PERMISSION_CYCLE.length] ?? 'default'
     if (next === current) return

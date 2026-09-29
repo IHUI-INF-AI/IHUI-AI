@@ -2,9 +2,9 @@
   "$comment": "SSE 帧端内 dispatch 覆盖台账(守门 scripts/check-sse-dispatch-parity.mjs 读取,D107)。帧清单**不写在这里** —— 由守门每次从 packages/api-client/src/client.ts 的 onXxx 成员自动提取并减去 toolCallbacks,故本文件不可能与代码脱节。baseline[端] = 该端命中数下限(ratchet,只挡倒退不挡增长;新增接入后请同步上调);missing[端] = 该端**未命中**的帧,键集合必须**精确等于**实测未命中集合,值直接写理由或指向 groups 里的复用分组。口径:帧回调名在该端源码出现即算已处理(不按写法区分,精度靠'精确等于'兜)。",
   "toolCallbacks": ["onAbort"],
   "baseline": {
-    "web": 31,
+    "web": 32,
     "extension": 20,
-    "miniapp-taro": 24,
+    "miniapp-taro": 25,
     "mobile-rn": 21,
     "cli": 15
   },
@@ -31,6 +31,7 @@
   "missing": {
     "web": {},
     "extension": {
+      "onGoalUpdate": "D152(2026-09-29 立):本端对话面板没有目标卡位,且 goal 的四个动作(set/pause/resume/clear)全部由 web 的 /goal 斜杠命令与 GoalCard 发起 —— 侧栏只承载正文增量与工具流,接一条「看得见状态却无处改状态」的帧会造出假 affordance(与 mobile-rn 拒绝假 affordance 的同一口径,见本端 onTerminalInteraction 那条)。解阻判据:与 web 同形接 onGoalUpdate(载荷已带 sessionId/status/objective),并先在 sidepanel 补 chat.goal.status.* 的胶囊渲染位;接入后从本 missing 删除并把该端 baseline 由 20 上调。",
       "onTerminalInteraction": "该端终端卡**是在的**(onTerminalStart/onTerminalDelta/onTerminalEnd 三条都不在本端 missing 里,现读 HEAD 面),缺的是等待态与输入行:sidepanel 的终端渲染件尚无 chat.terminal.* 展示位,也没有把键入送回的口 ⇒ 帧到本端会被静默丢弃,按 D107 口径显式登记。解阻判据:与 web 同形接 onTerminalInteraction(载荷已带 sessionId 与 maxInputChars,postTerminalInput 可直接复用),补 waitingInput + 单行输入 + 失败态;接入后从本 missing 删除并把该端 baseline 由 20 上调到 21。",
       "onAgentDelta": "no-agent-delta-ui",
       "onBudget": "no-budget-ui",
@@ -53,6 +54,7 @@
       "onToolApproval": "V3 #58(2026-09-26 立)当日只落了两侧:api-client 的解析开关(`onToolApproval 注册才解析`)+ web 宿主(send-message.ts:1004)。本端源码里没有该回调名 ⇒ 帧到本端会被**静默丢弃**,故按 D107 口径显式登记而非不写。解阻判据:该端把工具审批落到已有批准面上(mobile-rn/共享屏层走工具确认弹窗、miniapp-taro 走页内确认卡、extension 走 sidepanel 审批位、cli 走 REPL 内联批准提示),接上后从本 missing 删除并把该端 baseline 上调 —— 四端各自的渲染位是否存在,须在接的那一票里当场证,不得凭此条推断\"该端本就不该有\"。"
     },
     "mobile-rn": {
+      "onGoalUpdate": "D152(2026-09-29)立:本端没有目标卡位(GoalCard 只在 web `components/ai/ai-side-panel-tools.tsx:525` 挂载,现读),且 `/goal` 斜杠命令的拦截点在 web 的 slash-commands.ts —— 本端今天连**发起**目标都没有,接一条只读状态帧会造出「看得见不能改」的假 affordance(与本端 onTerminalInteraction 拒绝代答的同一口径)。解阻判据:端内先有 goal 发起入口(另计一票),再同笔接 onGoalUpdate + `chat.goal.status.*` 五语言;接入后删本行并把该端 baseline 由 21 上调。",
       "onAgentDelta": "no-agent-delta-ui",
       "onMemoryUpdates": "no-memory-update-ui",
       "onReconnect": "no-reconnect-ui",
@@ -65,6 +67,7 @@
       "onToolApproval": "V3 #58(2026-09-26 立)当日只落了两侧:api-client 的解析开关(`onToolApproval 注册才解析`)+ web 宿主(send-message.ts:1004)。本端源码里没有该回调名 ⇒ 帧到本端会被**静默丢弃**,故按 D107 口径显式登记而非不写。解阻判据:该端把工具审批落到已有批准面上(mobile-rn/共享屏层走工具确认弹窗、miniapp-taro 走页内确认卡、extension 走 sidepanel 审批位、cli 走 REPL 内联批准提示),接上后从本 missing 删除并把该端 baseline 上调 —— 四端各自的渲染位是否存在,须在接的那一票里当场证,不得凭此条推断\"该端本就不该有\"。"
     },
     "cli": {
+      "onGoalUpdate": "D152(2026-09-29)立:本端的 goal 是**另一套生命周期**(AGENTS §8 的 /goal 模式跑在 STATE.md + 7 步循环上,状态词是 active/paused/achieved/blocked/budget_limited —— snake_case 且含 achieved,与会话内 goal 六档不是同一个域),把它接到会话 goal 帧上会让两套词汇在同一端混用而账面全绿。本端只经 `postSessionGoal` 的 REST 面参与,不消费下行帧。解阻判据:若确要给 CLI 上屏,须先裁决两域映射(另计一票),不得为消红顺手接线。",
       "onTerminalInteraction": "本行原指向分组 no-terminal-stream-ui,而分组首句「该端无终端流展示位」与本帧实测冲突,不满足「写了就要能被复核」,故就地写明。本端**有**终端流展示位:apps/cli/src/commands/repl.ts:2673 把 onTerminalDelta 经 createTerminalDeltaSink(apps/cli/src/commands/agent.ts:1109)接进 statusLine.noteLine,与 citations/budget/injection 同族出口(D19,2026-09-25 起)。本端**没有**的是等待态行与键入送回链:postTerminalInput 全仓除 web(apps/web/src/components/ai/progress-sections/terminal-section.tsx:146)零调用点,且回调契约是 (event)=>void 不被 await(packages/api-client/src/client.ts:1151;流内唯一被 await 的是 onToolDelegate,client.ts:2676),半途弹 inquirer 会与流渲染争 stdout ⇒ 接它属于补链路(功能),不是照既有通道接线。刻意不只亮等待、不给代答:本端恰是唯一真能代答的端(终端+键盘),只亮等待不给出口,与 mobile-rn 拒绝假 affordance 的同一口径冲突(apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx:544)。解阻判据(须同一票内全部做完,才删本行并把该端 baseline 由 15 上调):① noteLine 族补等待行,promptTail 只上屏、不进日志通道(照 apps/web/src/hooks/use-chat/send-message.ts:906-912 同一理由);② 代答出口与流渲染的并发策略先定再实现;③ postTerminalInput 的 sessionId 取帧内自带值,不猜(猜错形态=按了发送没反应且不报错,client.ts:1003-1004);④ terminal_end 清等待,单一出口(照 send-message.ts:927 与 apps/miniapp-taro/src/pkg-ai/ai/cards/types.ts:183)。归属:D151(2026-09-29)本端按显式声明收口,本行是该裁决对现况实测的理由核正;分组 no-terminal-stream-ui 仍被本端 onTerminalStart/onTerminalEnd 引用 —— 那两帧缺的是任务卡/终态/退出码展示位(noteLine 只承载裸输出行,不承载任务生命周期),该说法对它们成立。",
       "onAgentDelta": "no-agent-delta-ui",
       "onCompaction": "no-compaction-ui",
@@ -85,6 +88,7 @@
   },
   "notes": {
     "cliTerminalInteractionReason": "2026-09-29(onTerminalInteraction 四端收口票):cli 的该行原指向分组 no-terminal-stream-ui,而分组首句「该端无终端流展示位」与 repl.ts:2673(D19 起 terminal_delta 打进 noteLine)实测冲突 —— 按守门 90 口径理由必须能被复核,故改为就地精确理由(含 file:line 证据与解阻判据);分组本体不动,仍只被同端 onTerminalStart/onTerminalEnd 引用(那两帧的「无任务生命周期展示位」对本端为真)。missing 键集合与 baseline 一字未动,③「精确等于」判据不受影响。",
-    "extensionToolDelegate": "2026-09-28 票㉑:扩展侧栏接上 workspaceContext 上行 + onToolDelegate 执行回传 + onToolApproval 审批横幅,baseline.extension 18→20;两条 missing 同日删除。组 no-tool-delegate-ui 仍被 mobile-rn 引用,不删。"
+    "extensionToolDelegate": "2026-09-28 票㉑:扩展侧栏接上 workspaceContext 上行 + onToolDelegate 执行回传 + onToolApproval 审批横幅,baseline.extension 18→20;两条 missing 同日删除。组 no-tool-delegate-ui 仍被 mobile-rn 引用,不删。",
+    "d152GoalUpdateWired": "2026-09-29 D152 端消费面重落:web 接 send-message.ts 的 onGoalUpdate + stores/goal.ts 主副本化(六态取自 @ihui/types)+ slash-commands.ts 乐观更新+上行 postSessionGoal + goal-card.tsx 两档徽章;miniapp-taro 接 api/index.ts 的 goal_updated dispatch + chat.tsx 胶囊(只呈现不可操作,无输入口)。两端 missing 同笔删除、baseline 31→32 / 24→25(现读命令:node scripts/check-sse-dispatch-parity.mjs --report --worktree)。extension / mobile-rn / cli 三端的 onGoalUpdate 仍留在 missing,理由逐条在那三行里(不是\"没接\",是\"接了会造假 affordance / 属另一域\")。"
   }
 }
