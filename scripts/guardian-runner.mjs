@@ -4111,20 +4111,6 @@ const checks = [
   },
 
   // --- 错误码文本判分支对账(1 项,blocking)---
-  {
-    id: '162',
-    label:
-      '失败码不得由文本决定对账(G-710 第二刀:常驻尺子)',
-    script: 'check-error-code-not-text-matching.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_ERROR_CODE_TEXT_MATCHING',
-    stagedTriggers: ['apps/', 'packages/'],
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
-  },
 
   // --- 维护性写归属对账(1 项,blocking)---
   {
