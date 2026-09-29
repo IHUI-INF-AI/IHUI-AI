@@ -749,6 +749,11 @@ const batchFeeReminderSchema = z.object({
   message: z.string().max(500).optional(),
 })
 
+/** 统计窗口:1–365 天。上限是防"全表扫描式"报表请求拖垮库,不是业务规则。 */
+const feeReminderStatsSchema = z.object({
+  days: z.coerce.number().int().min(1).max(365).default(30),
+})
+
 // =============================================================================
 // 23. 退费记录 (edu_refund_record)
 // =============================================================================
@@ -5293,6 +5298,57 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 催费记录列表
+  /**
+   * 催缴留痕统计(只读)。
+   *
+   * 为什么要有:在此之前,"这个月到底催了多少、各通道成了几条"没人答得上来 ——
+   * 数据其实都在 `edu_fee_reminder` 里,只是没有出口,于是催缴效果只能靠翻日志。
+   *
+   * **caveat 是本端点的一部分,不是脚注**:这里统计的是**留痕**(登记了催缴、走哪条通道、
+   * 留痕状态),**不等于送达**。通道级四档回执(`sent`/`failed`/`not_configured`/`no_phone`,
+   * 微信另有 `user_refused`)目前只回给调用方并写进日志,没有落到本表 ——
+   * 所以"sent=N"读作"N 条催缴被登记",读不出"N 条家长真收到"。
+   * 把这句话放进响应而不是只写在注释里,是因为数字一旦被搬进报表,注释不会跟着走。
+   */
+  server.get('/fee-reminder/stats', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
+    const parsed = feeReminderStatsSchema.safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { days } = parsed.data
+    const since = new Date(Date.now() - days * 86_400_000)
+    const windowCond = gte(eduFeeReminder.createdAt, since)
+    const dayExpr = sql<string>`to_char(${eduFeeReminder.createdAt}, 'YYYY-MM-DD')`
+
+    const [totalRow, byChannel, byDay] = await Promise.all([
+      db.select({ n: count() }).from(eduFeeReminder).where(windowCond),
+      db
+        .select({ channel: eduFeeReminder.channel, status: eduFeeReminder.status, n: count() })
+        .from(eduFeeReminder)
+        .where(windowCond)
+        .groupBy(eduFeeReminder.channel, eduFeeReminder.status),
+      db
+        .select({ day: dayExpr, n: count() })
+        .from(eduFeeReminder)
+        .where(windowCond)
+        .groupBy(dayExpr)
+        .orderBy(dayExpr),
+    ])
+
+    return reply.send(
+      success({
+        days,
+        since: since.toISOString(),
+        total: totalRow[0]?.n ?? 0,
+        byChannel,
+        byDay,
+        caveat:
+          '本统计为催缴**留痕**计数,不等于送达:通道级回执(sent/failed/not_configured/no_phone,以及微信 user_refused)未落库,只回给调用方并写日志。要算真实触达率需先把逐收件人回执持久化。',
+      }),
+    )
+  })
+
   server.get('/fee-reminder', async (request, reply) => {
     await requireEduView(request, reply)
     if (reply.sent) return
@@ -5385,6 +5441,7 @@ export const __test__ = {
   createFeeReminderSchema,
   batchFeeReminderSchema,
   generateFeeScheduleSchema,
+  feeReminderStatsSchema,
 }
 
 export default eduAiManagementRoutes
