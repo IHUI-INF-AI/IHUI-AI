@@ -9125,6 +9125,15 @@
     },
     "envInfoButton": "環境資訊",
     "expandConversation": "展開對話",
+    "headerActions": {
+      "panelGroupButtons": "面板組按鈕",
+      "workspaceUnavailable": "開始任務後可開啟審閱工作面",
+      "enterWorkspaceFullscreen": "全螢幕顯示工作面",
+      "exitWorkspaceFullscreen": "退出工作面全螢幕",
+      "createDraftPullRequest": "建立 Draft PR",
+      "createDraftPullRequestOk": "Draft PR 已建立",
+      "createDraftPullRequestFailed": "建立 Draft PR 失敗"
+    },
     "floatMode": "浮窗模式",
     "handleHint": "點擊或向右拉出AI工作區",
     "history": "任務列表",
@@ -11257,6 +11266,12 @@
     "errorCardTitle": "請求出錯",
     "quoteSelection": "引用選中",
     "quoteSelectionAdded": "已加入引用",
+    "selectionActions": {
+      "ariaLabel": "選取文字操作",
+      "addAsAttachment": "作為附件加入",
+      "attachmentName": "選取的文字",
+      "attachmentLimitReached": "附件已達 {limit} 個,請先移除一個再加入選取文字。"
+    },
     "quotedReplyAssistant": "引用 AI 回覆",
     "quotedReplyUser": "引用使用者訊息",
     "webSearch": "網頁搜尋",
