@@ -18,6 +18,7 @@ import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
 import AuthButton from '@/components/AuthButton'
 import ThemeRoot from '@/components/ThemeRoot'
 import BackChevron from '@/components/BackChevron'
+import LineIcon from '@/components/LineIcon'
 import './index.css'
 
 /** 把共享 hook 返回的通用错误 key(auth.*)映射到本页 register.* 文案(仅本页面用) */
@@ -185,7 +186,11 @@ export default function RegisterIndex() {
                 hoverClass="opacity-60"
                 onClick={() => form.setAgreed(!form.agreed)}
               >
-                {form.agreed ? <Text className="reg-checkmark">✓</Text> : null}
+                {/* 勾选符:原勾字符 → LineIcon。取值即该字符实际渲染档位:
+                    index.css 的 .reg-checkmark 记 font-size 22rpx / color var(--color-card)
+                    (该规则只剩排版属性,已随之删除,故类名不再挂);
+                    居中由父级 .reg-checkbox 的 flex 负责,与原先字符同位。 */}
+                {form.agreed ? <LineIcon name="check" size={22} color="var(--color-card)" /> : null}
               </View>
               <Text className="reg-agreement-text">
                 {tt('register.agreePrefix', '我已阅读并同意')}
