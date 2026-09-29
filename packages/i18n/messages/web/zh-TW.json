@@ -8187,6 +8187,10 @@
           "title": "請求逾時",
           "action": "重試"
         },
+        "DELETE_FAILED": {
+          "title": "檔案刪除失敗",
+          "action": "解除檔案佔用後重試"
+        },
         "DEP_MISSING": {
           "title": "相依套件缺失",
           "action": "安裝相依套件後重試"
@@ -8474,6 +8478,10 @@
         "SENSITIVE_FILE_BLOCKED": {
           "title": "該操作已被安全原則攔截",
           "action": "修改後重試"
+        },
+        "SNAPSHOT_UNREADABLE": {
+          "title": "快照內容不可讀",
+          "action": "改用其他版本或放棄回滾"
         },
         "SSRF_BLOCKED": {
           "title": "該位址不被允許存取",
