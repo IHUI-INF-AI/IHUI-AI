@@ -151,7 +151,7 @@ export function decide({ files, lineCounts, registry }) {
       read: readN,
       // M12:`read` 是自报数;"可复核份数"必须逐条落在被审面上(路径存在 + 行数与现量相符)。
       // 两者差额就是 legacy 自报部分,头条必须把它分开报,不得混成一个数。
-      verifiedRead: verifiedReadOf(s, lineCounts, errors).length,
+      verifiedRead: verifiedReadOf(s, lineCounts, files, errors).length,
       registeredFiles: Number(s.files ?? NaN),
       evidence: evidence.length,
       tickets: Array.isArray(s.tickets) ? s.tickets : [],
@@ -218,8 +218,9 @@ export function decide({ files, lineCounts, registry }) {
  * `read` 大于可复核数**不判红** —— 早期轮次确实没有留清单,那是历史状态不是本次故障;
  * 头条因此必须分开报两个数,把差额摆在明面上,而不是让它伪装成已证。
  */
-function verifiedReadOf(s, lineCounts, errors) {
+function verifiedReadOf(s, lineCounts, files, errors) {
   const list = Array.isArray(s.readFiles) ? s.readFiles : []
+  const face = new Set(files || [])
   const seen = new Set()
   const bad = []
   for (const item of list) {
@@ -228,11 +229,15 @@ function verifiedReadOf(s, lineCounts, errors) {
       bad.push('有条目没有路径')
       continue
     }
-    if (!(p in lineCounts)) {
-      bad.push(`面上找不到:${p}`)
+    if (!face.has(p)) {
+      bad.push(`不在被审面:${p}`)
       continue
     }
     const claimed = item && typeof item === 'object' ? Number(item.lines) : NaN
+    if (!(p in lineCounts)) {
+      bad.push(`在面上但行数取不到:${p}`)
+      continue
+    }
     if (Number.isFinite(claimed) && claimed !== lineCounts[p]) {
       bad.push(`行数不符:${p} 写 ${claimed} / 面上 ${lineCounts[p]}`)
       continue
@@ -265,6 +270,12 @@ function lineCountsFor(root, registry) {
     for (const e of s?.evidence ?? []) {
       const m = EVIDENCE_RE.exec(String(e))
       if (m) specs.add(m[1])
+    }
+    // M12 的清单也要取行数 —— 不取就没有"行数与现量相符"这条判据,
+    // 而把它当成"面上找不到"是**误报**(实测过:首版就是这么把 46 条全判红的)。
+    for (const f of s?.readFiles ?? []) {
+      const p = typeof f === 'string' ? f : f && typeof f.p === 'string' ? f.p : null
+      if (p) specs.add(p)
     }
   }
   if (specs.size === 0) return {}
@@ -362,7 +373,26 @@ function runSelfTest() {
   const vGood = mkVerified([{ p: 'packages/a/src/x.ts', lines: 10 }, { p: 'packages/a/src/y.ts', lines: 20 }])
   cases.push(['M12 清单逐条兑现 ⇒ 可复核数=2 且不红', vGood.ok && vGood.rows[0].verifiedRead === 2])
   const vGhost = mkVerified([{ p: 'packages/a/src/x.ts', lines: 10 }, { p: 'packages/a/src/gone.ts', lines: 5 }])
-  cases.push(['M12 清单里路径不在面上必须红', !vGhost.ok && vGhost.errors.some((e) => e.startsWith('M12'))])
+  cases.push(['M12 清单里路径不在面上必须红', !vGhost.ok && vGhost.errors.some((e) => e.includes('不在被审面'))])
+  // 「在面上但没取到行数」与「面上根本没有」是两件事:首版把它们混成一句"面上找不到",
+  // 于是 lineCountsFor 只取 evidence 点名文件时,46 条合法清单被报成不存在(实测自伤)。
+  const vNoCount = decide({
+    files: ['packages/a/src/x.ts', 'packages/a/src/y.ts'],
+    lineCounts: { 'packages/a/src/x.ts': 10 }, // y 在面上,但没被取过行数
+    registry: {
+      slices: [
+        {
+          path: 'packages/a/src',
+          status: 'deep',
+          read: 2,
+          evidence: ['packages/a/src/x.ts:1-3'],
+          verified: 'self',
+          readFiles: [{ p: 'packages/a/src/x.ts', lines: 10 }, { p: 'packages/a/src/y.ts', lines: 20 }],
+        },
+      ],
+    },
+  })
+  cases.push(['M12 在面上而行数未取到 ⇒ 单独一态并判红,不得说成"面上找不到"', vNoCount.errors.some((e) => e.includes('行数取不到')) && !vNoCount.errors.some((e) => e.includes('不在被审面:packages/a/src/y.ts'))])
   const vWrong = mkVerified([{ p: 'packages/a/src/x.ts', lines: 11 }])
   cases.push(['M12 行数与现量不符必须红', vWrong.errors.some((e) => e.includes('行数不符'))])
   const vDup = mkVerified([{ p: 'packages/a/src/x.ts', lines: 10 }, { p: 'packages/a/src/x.ts', lines: 10 }])
