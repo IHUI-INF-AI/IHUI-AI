@@ -44,6 +44,7 @@ import ipaddress
 import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from typing import Any
 from urllib.parse import urlparse
 
 from app.services import approval_persistence as ap
@@ -658,11 +659,270 @@ def evaluate_network_access_detailed(
     return _default_gate.evaluate_detailed(url, reason=reason)
 
 
+# =============================================================================
+# D159(2026-09-30 立,用户批"三档到底"):审批载荷的执行环境事实 + 网络目标三档
+# =============================================================================
+#
+# 这一族是 D159 的**写侧**:读侧(`app/routers/llm.py` 的 `_approval_env_fields` /
+# `_approval_network_fact` / `_persist_network_grant` / `_network_grant_hits` 与
+# `agent_loop_v2` 的 tool.approval 事件)与前端弹窗、`@ihui/api-client` 的投影、
+# SSE 契约(`packages/shared/src/sse/contract.ts`)都已入库,唯独这里从未落地 ——
+# 读侧全部包在 `except Exception` 里,所以症状不是崩,是"弹窗永远显示未上报、
+# 三档永远不落规则、免弹永远不命中",而 typecheck 与其余门一路报绿。
+#
+# 三条不可漂的口径(逐条对应票面):
+# ① 事实读不到 ⇒ `available:false`,**绝不**下发一个 `inSandbox` 冒充"读到了";
+# ② 授权主体只从承载层(`owner` = JWT 主体)进来,键走 `approval_persistence
+#    .scoped_cache_key` 那一份组合;归一键/主体键**不进**事件载荷 —— 递给客户端
+#    等于让它自报一个键去 DELETE / 去指认放行对象(AGENTS §5"认证不等于授权");
+# ③ 与 D158 共面板共 API:网络目标只是同一对 `GET/DELETE /llm/approval-grants`
+#    的另一种 kind,不新建第二套存储、不算第二份键语法。
+
+#: 拒绝原因码 —— 与 TS 侧 `TOOL_APPROVAL_DENIAL_REASONS` 同集合(值表只有一份语义)。
+DENIAL_REASON_NOT_ALLOWED = "not_allowed"
+DENIAL_REASON_NOT_ALLOWED_LOCAL = "not_allowed_local"
+DENIAL_REASON_DENIED = "denied"
+DENIAL_REASONS = frozenset(
+    {
+        DENIAL_REASON_NOT_ALLOWED,
+        DENIAL_REASON_NOT_ALLOWED_LOCAL,
+        DENIAL_REASON_DENIED,
+    }
+)
+
+#: 票面预填口径:"始终允许该目标(90 天后失效)" —— 天数只有这一处,撤销/列表都按它判。
+NETWORK_ALWAYS_TTL_DAYS = 90
+#: session 档寿命沿用本模块门的既有缺省(`NetworkApprovalGate(ttl_seconds=3600)`)。
+_NETWORK_SESSION_TTL_SECONDS = 3600
+
+#: 本仓工具参数里承载出站 URL 的那两个键(mcp_server.py 现读:`"url"` / `"webhook_url"`)。
+_OUTBOUND_ARG_KEYS = ("url", "webhook_url")
+
+
+def _host_is_local(host: str) -> bool:
+    """该 hostname 是否指向本地/私网(**唯一**一份判据)。
+
+    `_unparsable_denial_reason`(批 58 的拒绝标注)与 `describe_network_target`
+    (D159 的"这个目标已被静态策略判死")问的是同一件事,两处各写一遍必然在
+    `.local` / IPv6 / link-local 上漂开 —— 漂开的表现是同一地址在拒绝文案里算
+    本地、在审批载荷里不算,而两边各自都自洽。
+    """
+    h = (host or "").strip().lower()
+    if not h:
+        return False
+    if h in ("localhost", "127.0.0.1", "::1") or h.endswith(".local"):
+        return True
+    try:
+        addr = ipaddress.ip_address(h)
+    except ValueError:
+        return False
+    return bool(addr.is_private or addr.is_loopback or addr.is_link_local)
+
+
+@dataclass(frozen=True)
+class NetworkTargetFact:
+    """一次审批**要看的那一个网络目标**(载荷投影与落库键同源于这一次取值)。
+
+    Attributes:
+        target:          原始入参(URL / 裸 host),只用于审计,不进事件载荷;
+        host/port/protocol: 规范化三元组(与 codex NetworkAccess 同形);
+        reason:          仅当**静态策略**已判死该目标时非空;"还没有规则覆盖它"不算被拦
+                         —— 那正是这条审批要问用户的事,标成被拦会把审批本身问的路由说死;
+        owner_bound_key: 服务端把手(主体 + 归一键),**只落库、绝不下发**。
+    """
+
+    target: str
+    host: str
+    port: int
+    protocol: str
+    reason: str | None = None
+    owner_bound_key: str | None = None
+
+    @property
+    def display(self) -> str:
+        """给人看的那一行:恒 `host:port`,不显示归一键、不显示哈希。"""
+        return f"{self.host}:{self.port}"
+
+    def to_event_payload(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "host": self.host,
+            "port": self.port,
+            "protocol": self.protocol,
+            "display": self.display,
+        }
+        if self.reason is not None:
+            payload["reason"] = self.reason
+        return payload
+
+
+def describe_network_target(
+    target: str, *, owner: str | None = None
+) -> NetworkTargetFact | None:
+    """把一个 URL / 裸 host 解析成审批载荷用的网络目标事实;读不到 ⇒ ``None``。
+
+    ``owner`` 必须是承载层(JWT)那一份:传 None ⇒ ``owner_bound_key`` 为 None ⇒
+    后续 ``grant_network_target`` 不落任何规则(fail-closed)。空串主体同样按无主体处置
+    (`scoped_cache_key` 自己会拒)。
+    """
+    raw = (target or "").strip()
+    if not raw:
+        return None
+    try:
+        host, port, scheme = _parse_target(raw)
+        cache_key = normalize_net_key(raw)
+    except ValueError as exc:
+        logger.warning("D159 网络目标无法解析,按无目标处理: %s", exc)
+        return None
+    reason = DENIAL_REASON_NOT_ALLOWED_LOCAL if _host_is_local(host) else None
+    owner_bound: str | None = None
+    principal = str(owner or "").strip()
+    if principal:
+        try:
+            owner_bound = ap.scoped_cache_key(principal, cache_key)
+        except ValueError as exc:  # 主体形态不合 ⇒ 不落规则,但事实照报(弹窗仍要问)
+            logger.warning("D159 网络目标主体键计算失败,按无主体处理: %s", exc)
+    return NetworkTargetFact(
+        target=raw,
+        host=host,
+        port=port,
+        protocol=scheme,
+        reason=reason,
+        owner_bound_key=owner_bound,
+    )
+
+
+def _targets_from_args(
+    args: Mapping[str, Any] | None, *, owner: str | None
+) -> list[NetworkTargetFact]:
+    """按 ``_OUTBOUND_ARG_KEYS`` 的**固定顺序**取本次调用可读到的全部目标。
+
+    顺序即优先级:免弹窗判据取"全部目标都命中",写侧取第一个,两者读的是同一个列表,
+    所以"弹窗上显示的目标"与"库里落的那条"结构上同一条(顺序漂开 = 批 A 落 B)。
+    """
+    found: list[NetworkTargetFact] = []
+    for key in _OUTBOUND_ARG_KEYS:
+        raw = (args or {}).get(key)
+        if not isinstance(raw, str):
+            continue
+        fact = describe_network_target(raw, owner=owner)
+        if fact is not None:
+            found.append(fact)
+    return found
+
+
+def network_target_from_args(
+    args: Mapping[str, Any] | None, *, owner: str | None = None
+) -> NetworkTargetFact | None:
+    """本次审批要放行/要落规则的那一个目标(无可放行目标 ⇒ None)。
+
+    **只取未被静态策略判死的第一个目标**(``reason is None``),与
+    ``approval_env_payload`` 在帧上发的 ``network_target``(同一份列表的 ``live[0]``)
+    是同一条判据。两处各取一头就会分叉:一次同时带 ``url``(本地 ⇒ 已被判死)与
+    ``webhook_url``(公网)的调用,弹窗让用户批的是公网那个,而落库的 90 天免弹窗
+    规则挂在了本地那个上 —— 那是一条用户从未见过、也从未批准过的目标(与本文件用例
+    "多目标只命中其一不得免弹"编码的方向同一条禁令:不得把用户没批过的目标连出去)。
+    全部目标都被判死 ⇒ None ⇒ 什么都不落(实际请求仍由 ``network_guard`` 拒发,
+    免弹窗规则改变不了静态策略,落它只会把"永远该问"变成"永远不问")。
+    """
+    for fact in _targets_from_args(args, owner=owner):
+        if fact.reason is None:
+            return fact
+    return None
+
+
+def pending_network_targets(
+    args: Mapping[str, Any] | None, *, owner: str | None = None
+) -> list[NetworkTargetFact]:
+    """免弹窗判据要的**全部**目标(命中侧与写入侧成套;少一个就照弹)。"""
+    return _targets_from_args(args, owner=owner)
+
+
+def grant_network_target(fact: NetworkTargetFact, scope: str) -> bool:
+    """三档落规则:`once` 不落、`session` 短期、`always` 90 天;其余一律 False。
+
+    缺主体键 ⇒ False(等价"不落任何规则"),未知 scope ⇒ False —— 两者都**不退化成
+    "按工具名放行"**,那正是 D158 修掉的那一型。持久层异常一律向上抛,由调用方
+    (`llm._persist_network_grant`)记 warning 并继续已批准的执行。
+    """
+    if scope == "once":
+        return True
+    key = fact.owner_bound_key
+    if not key:
+        return False
+    if scope == ap.SCOPE_SESSION:
+        ap.grant(
+            ap.SCOPE_SESSION,
+            key,
+            KIND_NET,
+            ttl_seconds=_NETWORK_SESSION_TTL_SECONDS,
+        )
+        return True
+    if scope == ap.SCOPE_ALWAYS:
+        ap.grant(ap.SCOPE_ALWAYS, key, KIND_NET, ttl_days=NETWORK_ALWAYS_TTL_DAYS)
+        return True
+    return False
+
+
+def check_network_grant(fact: NetworkTargetFact) -> str | None:
+    """该目标已有的放行 scope(命中侧复用持久层那一份过期判定,不抄第二份)。"""
+    key = fact.owner_bound_key
+    if not key:
+        return None
+    return ap.check(key, KIND_NET)
+
+
+def revoke_network_grant(fact: NetworkTargetFact) -> bool:
+    """撤销并**确认库里真没了** —— `revoke` 是 `DELETE`,查而不删也算"成功"就是假 ack。"""
+    key = fact.owner_bound_key
+    if not key:
+        return False
+    ap.revoke(key, KIND_NET)
+    return ap.check(key, KIND_NET) is None
+
+
+def display_from_cache_key(cache_key: str) -> str:
+    """把 ``normalize_net_key`` 的归一键还原成 ``host:port``(面板列表用)。
+
+    解析不出就抛 —— 调用方(`llm._readable_grant_prefix`)的降级是"宁可看见一串怪键,
+    也不看见空白",这里静默返回空串会把"表里有条规则"这件事一起抹掉。
+    """
+    parts = [p for p in (cache_key or "").split(_UNIT_SEP) if p]
+    if len(parts) < 3 or parts[0] != "net" or not parts[1] or not parts[2]:
+        raise ValueError(f"不是网络审批归一键: {cache_key!r}")
+    return f"{parts[1]}:{parts[2]}"
+
+
+def approval_env_payload(
+    tool_name: str, args: Mapping[str, Any] | None, *, owner: str | None = None
+) -> dict[str, Any]:
+    """审批帧的 D159 新字段(唯一组装点;路由与 agent 任务流都只调它)。
+
+    关档 ⇒ 返回 ``{}``(整块不发,前端整块不渲染)。开档时"读不到"发
+    ``{"available": false}`` 而不是缺字段 —— 两态在界面上是两句不同的话:
+    "未上报" 与 "本票落地前的旧客户端"。
+    """
+    if not ap.approval_env_report_enabled():
+        return {}
+    env = ap.describe_exec_environment(tool_name, args)
+    payload: dict[str, Any] = {
+        "exec_environment": env if env is not None else {"available": False}
+    }
+    facts = _targets_from_args(args, owner=owner)
+    live = [f for f in facts if f.reason is None]
+    blocked = [f for f in facts if f.reason is not None]
+    if live:
+        payload["network_target"] = live[0].to_event_payload()
+    if blocked:
+        payload["blocked_network_targets"] = [f.to_event_payload() for f in blocked]
+    return payload
+
+
 def _unparsable_denial_reason(url: str) -> str:
     """解析失败时的拒绝原因码(对标 codex not_allowed / not_allowed_local 二分)。
 
     本地回环 / 私网 / link-local / ``.local`` 域名 → ``not_allowed_local``,
     其余无法解析目标 → ``not_allowed``。仅用于拒绝文案标注,不参与放行判定。
+    本地/私网的判定与 ``describe_network_target`` 共用 ``_host_is_local`` 那一份。
     """
     raw = (url or "").strip()
     candidate = raw if "://" in raw else f"https://{raw}"
@@ -671,20 +931,26 @@ def _unparsable_denial_reason(url: str) -> str:
     except ValueError:
         host = ""
     if not host:
-        return "not_allowed"
-    if host in ("localhost", "127.0.0.1", "::1") or host.endswith(".local"):
-        return "not_allowed_local"
-    try:
-        addr = ipaddress.ip_address(host)
-    except ValueError:
-        return "not_allowed"
-    if addr.is_private or addr.is_loopback or addr.is_link_local:
-        return "not_allowed_local"
-    return "not_allowed"
+        return DENIAL_REASON_NOT_ALLOWED
+    return DENIAL_REASON_NOT_ALLOWED_LOCAL if _host_is_local(host) else DENIAL_REASON_NOT_ALLOWED
 
 
 __all__ = [
     "KIND_NET",
+    "DENIAL_REASONS",
+    "DENIAL_REASON_DENIED",
+    "DENIAL_REASON_NOT_ALLOWED",
+    "DENIAL_REASON_NOT_ALLOWED_LOCAL",
+    "NETWORK_ALWAYS_TTL_DAYS",
+    "NetworkTargetFact",
+    "approval_env_payload",
+    "check_network_grant",
+    "describe_network_target",
+    "display_from_cache_key",
+    "grant_network_target",
+    "network_target_from_args",
+    "pending_network_targets",
+    "revoke_network_grant",
     "normalize_net_key",
     "NetworkApprovalRequest",
     "NetworkApprovalGate",
