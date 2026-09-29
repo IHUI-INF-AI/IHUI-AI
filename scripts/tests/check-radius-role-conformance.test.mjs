@@ -563,7 +563,7 @@ test('T27 真仓台账装车证明:必须可解析、字段齐备,且至少一�
     }
     assert.match(it.reviewBy, /^\d{4}-\d{2}-\d{2}$/, '到期日形态不对:' + it.file)
   }
-  const res = await runAudit('head', REPO)
+  const res = runAudit(REPO, 'head')
   const keys = new Set(
     res.weakFindings.map((f) => [f.file, f.form, f.role, f.expectedStep].join('|'))
   )
