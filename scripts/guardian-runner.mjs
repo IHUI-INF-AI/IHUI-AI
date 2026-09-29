@@ -36,6 +36,8 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 import { normalizeTriggers, triggersTouch } from './lib/guardian-triggers.mjs'
+import { resolveGitBin } from './lib/gitdir.mjs'
+import { probeSubstrate } from './lib/substrate-probe.mjs'
 // G-611:子门"被信号杀死"与"检查结论失败"的分界用共享尺子判(集合/分类唯一实现在该 lib;
 // 75 传播语义见执行段 catch)。此前本 runner 只认 status===75,子门被可捕获信号杀掉而
 // 产出 128+N、或没装产出侧只留下 signal 时,都被计成"结论失败"—— 归因分叉的 runner 层。
@@ -4129,6 +4131,28 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 源码 U+FFFD 对账(合法编码承载损坏内容那一型)(1 项,blocking)---
+  {
+    id: '164',
+    label:
+      '源码替换符(U+FFFD)对账 —— 字节级 UTF-8 完整性的缺失维度',
+    script: 'check-replacement-chars.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_REPLACEMENT_CHARS',
+    stagedTriggers: ['apps/', 'packages/', 'scripts/', 'sdks/'],
+    onFailHint: [
+      '',
+      '  这道门问的是「源码里有没有 U+FFFD 替换符」—— 守门 4c 判的是非法 UTF-8 字节序列,而 U+FFFD',
+      '  编码成 EF BF BD 完全合法,所以"内容已被有损解码换掉"在那道门上是隐形的(实测 718 处一路绿)。',
+      '  存量(该文件 HEAD 自身就有的)只报数不判红;本次把某文件的处数推高才红。',
+      '  修复出口:node scripts/check-replacement-chars.mjs --recover <路径>',
+      '  它按「代码括号」给每个损坏注释区间找最近零损坏祖先的原文;找不到的会如实报名,禁止编造。',
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
@@ -4392,6 +4416,47 @@ function stagedPathsTouch(prefixes) {
   // TypeError 崩掉整条守门链;空清单则抛错,不允许"永不运行"的隐形失踪。
   return triggersTouch(stagedFilesOrNull(), prefixes)
 }
+
+/**
+ * 地基探针:开跑整批门之前,先问一句"这个仓库此刻**答不答得上话**"。
+ * 判据与"为什么不住在 runner 里"写在 `scripts/lib/substrate-probe.mjs` 头注(本仓 2026-09-29
+ * 实测:五道门在 .git 抖动的 90 秒里各报"无法判定",而分发循环把任何非零码一律计成
+ * "blocking 失败,提交已阻止" ⇒ 全队要么被挡、要么 `--no-verify`,一次绕过 = 该枚提交上
+ * 全部守门作废)。结论走 `TEMPFAIL_EXIT_CODE`(75):它在本仓已经是"非检查结论、稍后重试"
+ * 的既有通道(push guard 的带 hook 重试链依赖它),归因层也把它读成"批没跑完"而不是"你的红"。
+ */
+function assertSubstrateUsable() {
+  let gitBin = null
+  try {
+    gitBin = resolveGitBin()
+  } catch (e) {
+    console.error(
+      `🚫 [substrate] 连 git 二进制都解析不到(${String((e && e.message) || e).slice(0, 100)})` +
+        ` —— 整批守门无法出具结论,以 ${TEMPFAIL_EXIT_CODE} 向上传播(非检查结论,等仓库恢复后重试)。`,
+    )
+    process.exit(TEMPFAIL_EXIT_CODE)
+  }
+  const v = probeSubstrate({
+    // 只读动词 + 显式 timeout(守门 80 的口径:热路径的只读 git 调用必须封顶)
+    run: () =>
+      execFileSync(gitBin, ['rev-parse', '--is-inside-work-tree'], {
+        encoding: 'utf8',
+        cwd: process.cwd(),
+        timeout: 15000,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }),
+  })
+  if (v.usable) return
+  console.error(
+    `🚫 [substrate] 仓库此刻答不上话:${v.reason}\n` +
+      `   ⇒ 本轮**不跑** ${effectiveChecks.length} 道门,也不把这场瞬时故障记成 ${effectiveChecks.length} 条"结论失败"` +
+      '(那正是逼全队 `--no-verify` 的形态)。等 gitdir 恢复(守护 ≤2 分钟自愈一轮)后重跑提交即可。',
+  )
+  process.exit(TEMPFAIL_EXIT_CODE)
+}
+
+assertSubstrateUsable()
 
 for (const check of effectiveChecks) {
   // 逐项应急放行(2026-09-21 立):与各门脚本内部 HUSKY_SKIP_* 惯例一致,由 item 的
