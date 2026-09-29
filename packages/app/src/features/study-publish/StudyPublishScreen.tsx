@@ -10,7 +10,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native'
 import { getTokens, tokens as baseTokens, type AppThemeTokens } from '../../theme/tokens'
@@ -18,6 +17,7 @@ import { CategoryDropdown } from '../../components/category/CategoryDropdown'
 import type { TFunction } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { TextField } from '../../components/TextField'
 
 /** 课程分类(共享层简化类型,对齐 @ihui/types CourseCategory) */
 export interface StudyCategory {
@@ -97,7 +97,8 @@ function LabeledInput({
   return (
     <View style={fieldStyles.wrap}>
       <Text style={fieldStyles.label}>{label}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={fieldStyles.input}
         value={value}
         onChangeText={onChangeText}
@@ -126,7 +127,8 @@ function LabeledTextarea({
   return (
     <View style={fieldStyles.wrap}>
       <Text style={fieldStyles.label}>{label}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={[fieldStyles.input, fieldStyles.textarea]}
         value={value}
         onChangeText={onChangeText}

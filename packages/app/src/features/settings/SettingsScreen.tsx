@@ -5,10 +5,11 @@ import { rnRadius, rnRadiusFor, rnGeometry } from '@ihui/design-tokens'
 
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { View, Text, Switch, TextInput, TouchableOpacity, Modal, StyleSheet, ScrollView } from 'react-native'
+import { View, Text, Switch, TouchableOpacity, Modal, StyleSheet, ScrollView } from 'react-native'
 import { Check, ChevronRight } from 'lucide-react-native'
 import type { SettingsScreenProps, SharedNotificationToggles } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { TextField } from '../../components/TextField'
 
 type NotifKey = keyof SharedNotificationToggles
 
@@ -193,18 +194,21 @@ export function SettingsScreen({
               value={oldPwd}
               onChange={setOldPwd}
               styles={styles}
+              colorScheme={colorScheme}
             />
             <PwdInput
               placeholder={t('settings.newPassword')}
               value={newPwd}
               onChange={setNewPwd}
               styles={styles}
+              colorScheme={colorScheme}
             />
             <PwdInput
               placeholder={t('settings.confirmPassword')}
               value={confirmPwd}
               onChange={setConfirmPwd}
               styles={styles}
+              colorScheme={colorScheme}
             />
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -274,14 +278,17 @@ function PwdInput({
   value,
   onChange,
   styles,
+  colorScheme,
 }: {
   placeholder: string
   value: string
   onChange: (v: string) => void
   styles: ThemedStyles
+  colorScheme: 'light' | 'dark'
 }) {
   return (
-    <TextInput
+    <TextField
+      colorScheme={colorScheme}
       style={styles.pwdInput}
       placeholder={placeholder}
       value={value}

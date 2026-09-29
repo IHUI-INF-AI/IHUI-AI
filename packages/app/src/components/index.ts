@@ -23,6 +23,9 @@ export type { UserInfoCardProps } from './UserInfoCard'
 export { SearchInput } from './SearchInput'
 export type { SearchInputProps } from './SearchInput'
 
+export { TextField } from './TextField'
+export type { TextFieldProps } from './TextField'
+
 export { CategoryInlineBar } from './category/CategoryInlineBar'
 export type { CategoryInlineBarProps } from './category/CategoryInlineBar'
 export { CategoryDropdown } from './category/CategoryDropdown'

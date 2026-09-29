@@ -55,7 +55,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useUiTextField } from '../lib/use-ui-text-field'
-import { tokens } from '../theme/active-tokens'
+import { tokens , currentRnTheme} from '../theme/active-tokens'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { PlusButton } from './AddPanel'
 import {
@@ -71,6 +71,7 @@ import {
 } from 'lucide-react-native'
 
 import { rnRadiusFor } from '@ihui/design-tokens'
+import { TextField } from '@ihui/rn-app'
 // 放大钮内缩 / 命中外扩 / 计数浮层距底 / 语音钮间距 —— 唯一源在
 // @ihui/shared/ui/input-area-spec(与小程序端同档;上一轮只搬小程序侧的 6 造成台账 23→24,
 // 两侧必须同枚改指本文件)。机制通道(hitSlop 仅 RN 有)各端保留,数值不再端内自定。
@@ -573,7 +574,8 @@ export function InputArea({
                 </View>
               ) : (
                 <View pointerEvents="none" style={styles.inputColumn}>
-                  <TextInput
+                  <TextField
+                    colorScheme={currentRnTheme()}
                     ref={inputRef}
                     style={[styles.inputBare, { height: inputHeight }]}
                     value={value}
@@ -692,7 +694,8 @@ export function InputArea({
                   <Text style={styles.voiceHint}>按住说话</Text>
                 </Pressable>
               ) : (
-                <TextInput
+                <TextField
+                  colorScheme={currentRnTheme()}
                   style={[styles.input, { height: inputHeight }]}
                   value={value}
                   onChangeText={onChangeText}
@@ -768,7 +771,8 @@ export function InputArea({
                         <Plus size={16} color={tokens.text.secondary} />
                       </TouchableOpacity>
                     ) : (
-                      <TextInput
+                      <TextField
+                        colorScheme={currentRnTheme()}
                         style={styles.paramInput}
                         value={comp.default_value ?? ''}
                         onChangeText={(t) => onPageAgentVariablesChange?.(t, ci, gi)}

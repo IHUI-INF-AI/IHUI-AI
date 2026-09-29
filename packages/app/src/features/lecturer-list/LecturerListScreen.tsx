@@ -11,7 +11,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type ImageStyle,
   type TextStyle,
@@ -23,6 +22,7 @@ import { BackChevron } from '../../components/BackChevron'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { TextField } from '../../components/TextField'
 
 /** 讲师列表条目(平台无关,由 wrapper 从各端数据源映射) */
 export interface LecturerListItem {
@@ -156,7 +156,8 @@ export function LecturerListScreen({
         ListHeaderComponent={
           <View style={styles.searchWrap}>
             <Search size={16} color={tk.text.tertiary} />
-            <TextInput
+            <TextField
+              colorScheme={colorScheme}
               style={styles.searchInput}
               value={searchText}
               onChangeText={setSearchText}

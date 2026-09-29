@@ -1386,6 +1386,11 @@ export function countCtaFills(lines) {
   let count = 0
   for (let i = 0; i < lines.length; i++) {
     if (!R3_BRAND_FILL.test(lines[i])) continue
+    // 聚焦态描边是 AGENTS §4 今天新立的**唯一例外位**,R8 已按聚焦守卫放行;R3 若继续把
+    // `focused ? { borderColor: brand.DEFAULT }` 算成"未配对前景的实底",就是门对自己
+    // 认可的那一种写法失明(教训同守门 77 的 B6 括号形态盲区:门推荐怎么写,判据就得看得见)。
+    // 复用 R8 那一份 rnLineIsFocusGuard,不在这里再抄一条正则 —— 两处算同一件事必然漂开。
+    if (rnLineIsFocusGuard(lines, i)) continue
     // 按档取前景集:cta 填充只认 ctaForeground,DEFAULT 填充只认 foreground
     const fgKeys = R3_FILL_CTA.test(lines[i]) ? fgKeysCta : fgKeysDefault
     const owner = ownerAt[i]
@@ -2823,6 +2828,20 @@ function selfTest() {
   assert(
     findR8Violations(['    itemActive: {', '      borderColor: tk.brand.DEFAULT,', '    },']).length === 1,
     'R8-M8j5 边界:键名是 Active(选中态)⇒ 不豁免,与 M8k 同一道线',
+  )
+  // R3 与 R8 必须认**同一种**聚焦位:共享 TextField 产出的就是 `focused ? { borderColor: brand.DEFAULT }`,
+  // R8 放行了而 R3 仍计数,等于门一边教这么写、一边把它当债务(§12f:按规矩写就红的门只会逼人跳门)。
+  assert(
+    countCtaFills(['      style={[base, focused ? { borderColor: tk.brand.DEFAULT } : null]}']) === 0,
+    'R3-M9a 正向:聚焦守卫下的墨档描边不得算进"未配对前景的实底"(与 R8 同一把尺子)',
+  )
+  assert(
+    countCtaFills(['      style={[base, { borderColor: tk.brand.DEFAULT }]}']) === 1,
+    'R3-M9b 反向:同一行去掉 focused 守卫 ⇒ 必须仍计数(豁免只开给聚焦位,不是开给 brand 描边)',
+  )
+  assert(
+    countCtaFills(['      itemActive: {', '        borderColor: tk.brand.DEFAULT,', '      },']) === 1,
+    'R3-M9c 边界:选中态(Active)键名不是聚焦位 ⇒ R3 也不放行,与 R8-M8j5 同一条线',
   )
   // (M8k) 例外的**边界**:用户定档是"只恢复输入框聚焦态",所以 active/选中态必须仍在射程里。
   //  少了这两条,例外就从"聚焦位"悄悄扩成"任何条件态"——那等于替用户选了另一个方案。
