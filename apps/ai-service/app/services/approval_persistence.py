@@ -27,6 +27,11 @@ session / always 两级 scope。
 - 仅同步 API(无 async),符合本仓 mcp_server 既有同步风格。
 """
 
+# 合并归位说明(2026-09-29,枚 f57e0c9983 的后续修复):describe_exec_environment 在同一次归并后
+# 出现两份定义(第 270 行与第 539 行),来源与 network_approval.py 那一族完全相同 ——
+# 两侧各写一遍同一功能,行级合并不报冲突却把两半都留下,mypy 报 no-redef。整档取对侧那一族,
+# 与调用方同族;引用面用 ast 逐条核过,对侧版不缺任何被具名导入的名字。
+
 from __future__ import annotations
 
 import os
@@ -504,72 +509,6 @@ def close() -> None:
             _conn = None
 
 
-# ==================== D159:执行环境事实(只报读得到的那一份) ====================
-#
-# 为什么住在持久层这一侧:审批弹窗要告诉用户"这条命令是在沙箱里跑还是直跑",
-# 而这个事实的**唯一权威**就是 sandbox backend 那套取值域(sandbox.py 现读)。
-# 放在路由里等于每个发帧点各抄一份后端名单;放在 sandbox.py 里又要把持久层的
-# 开档判定拖进执行层。两处算同一件事必漂移,所以只有这一处。
-#
-# 命令族名单与 routers/llm.py 的 ``_TERMINAL_TOOL_NAMES`` **刻意不是同一份**:
-# 那一族管"执行结果怎么格式化进 terminal 事件",本族管"这个工具有没有可读的
-# 执行环境"。并成一份会让下一次结果格式化改动顺手改到安全声明的射程(反之亦然)。
-_EXEC_ENV_COMMAND_TOOLS = frozenset({"run_command", "run_shell", "shell_command"})
-_SANDBOXED_BACKENDS = frozenset({"docker", "ssh", "modal", "daytona", "singularity"})
-# 网络隔离只报两条量得到的:sandbox.py:374 docker 是 `--network=none`(2026-07-22 立),
-# sandbox.py:261 local "无法隔离网络(无容器边界)"。ssh/modal/daytona/singularity
-# 没有可读的隔离语义 ⇒ 不下发该字段(宁可少说,绝不猜一个布尔冒充事实)。
-_NETWORK_ISOLATED_BACKENDS = frozenset({"docker"})
-_NETWORK_EXPOSED_BACKENDS = frozenset({"local"})
-_LOCAL_BACKEND = "local"
-
-
-def approval_env_report_enabled() -> bool:
-    """D159 回退开关(唯一判定点):``IHUI_APPROVAL_ENV_REPORT=0`` ⇒ 一个新字段都不发。
-
-    缺省开档(票 #57 禁止新增默认关的 env 开关)。关档的语义是"整块不发"而不是
-    "发一份未上报",这样前端会**整块不渲染**,逐字回到本票落地前的形态。
-    """
-    import os  # 局部导入:本模块其余部分不依赖 env,不为一个开关扩顶部导入面
-
-    raw = (os.environ.get("IHUI_APPROVAL_ENV_REPORT", "1") or "").strip().lower()
-    return raw not in ("0", "false", "off", "no")
-
-
-def describe_exec_environment(
-    tool_name: str, args: Mapping[str, Any] | None
-) -> dict[str, Any] | None:
-    """这次工具调用**实际**会走哪个执行环境(读不到 ⇒ None,调用方按"未上报"处置)。
-
-    三条口径缺一不可,它们各自对应一种会误导用户的假绿:
-
-    1. 非命令族工具 ⇒ ``None``。给 ``write_file`` 报一个 ``inSandbox: False`` 等于
-       宣称"我读到了:不在沙箱",而事实是"这个工具没有执行环境这一维";
-    2. ``sandbox_backend`` 缺省按 ``local`` 报(mcp_server.py:2497 的
-       ``arguments.get("sandbox_backend", "local")`` 同一缺省值)⇒ ``inSandbox`` 为
-       **False**。把缺省报成"沙箱内"就是本票点名要修的"弹窗说在沙箱里、实际直跑";
-    3. 后端名不在已知取值域 ⇒ ``None``(不猜 plain 冒充"沙箱外",也不冒充"沙箱内")。
-    """
-    if not approval_env_report_enabled():
-        return None
-    if tool_name not in _EXEC_ENV_COMMAND_TOOLS:
-        return None
-    raw_backend = (args or {}).get("sandbox_backend")
-    backend = str(raw_backend).strip().lower() if raw_backend is not None else _LOCAL_BACKEND
-    if backend not in _SANDBOXED_BACKENDS and backend != _LOCAL_BACKEND:
-        return None
-    env: dict[str, Any] = {
-        "available": True,
-        "inSandbox": backend != _LOCAL_BACKEND,
-        "backend": backend,
-    }
-    if backend in _NETWORK_ISOLATED_BACKENDS:
-        env["networkIsolated"] = True
-    elif backend in _NETWORK_EXPOSED_BACKENDS:
-        env["networkIsolated"] = False
-    return env
-
-
 __all__ = [
     "DEFAULT_DB_PATH",
     "SCOPE_SESSION",
@@ -589,7 +528,5 @@ __all__ = [
     "list_keys",
     "purge_expired",
     "stats",
-    "approval_env_report_enabled",
-    "describe_exec_environment",
     "close",
 ]
