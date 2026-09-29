@@ -13,17 +13,20 @@ import type { ButtonBaseSize, ButtonBaseVariant } from './component-props.js'
  * 与 class string 在两处各写一遍。设计规范一变(如主 CTA 色档),就得两处同改;漏改一端
  * 不报错、只在某端渲染成旧样式 —— 正是 AGENTS §4「跨端样式同步铁律」要治的那一型。
  *
- * 用法(各端在自己那次 cva() 调用里 spread 本配置,平台修饰 hover/shadow/rounded 追加或覆盖):
+ * 用法(各端在自己那次 cva() 调用里 spread 本配置,平台修饰 hover/shadow/rounded **在基座之外追加**;
+ * 共享键不得被任何一端整档另写成字面量 —— 那条不变量由 `scripts/tests/shared-button-tier-base.test.mjs`
+ * 按 HEAD 面钉住,回潮即红):
  *   cva(base, {
  *     variants: {
- *       variant: { ...SHARED_BUTTON_VARIANT_CLASSES, <各端独占档> },
- *       size: { ...SHARED_BUTTON_SIZE_CLASSES, <各端独占档> },
+ *       variant: { ...SHARED_BUTTON_VARIANT_CLASSES, <各端在基座外的追加 / 各端独占档> },
+ *       size: { ...SHARED_BUTTON_SIZE_CLASSES, <各端在基座外的追加 / 各端独占档> },
  *     },
  *     defaultVariants: <各端自己的默认档>,
  *   })
  *
  * 为什么共享的是"配置对象"而非 cva 实例:cva 没有官方的 compose / merge API,各端对共享
- * 档位的平台修饰必须能覆盖 —— 只能以普通对象为共享单元,由各端展开后各自 build。
+ * 档位的平台修饰必须能追加 —— 只能以普通对象为共享单元,由各端展开后各自 build。
+ * 追加的形态(而非"覆盖"的形态)才是这张表有意义的前提:整档覆盖会让共享值只约束没覆盖的那一端。
  *
  * 取值基准:主 CTA 档(default)统一为 `bg-cta` + `text-cta-foreground`(AGENTS §4「品牌 CTA /
  * 主按钮色同源」的唯一写法)。cta 与同主题 primary 取值全等、但语义独立 —— primary 在 web 端
@@ -35,17 +38,30 @@ import type { ButtonBaseSize, ButtonBaseVariant } from './component-props.js'
 /** 两端共享的 Button 基础布局原子(各端自行拼接 flex 前缀 / 圆角 / focus 修饰) */
 export const SHARED_BUTTON_BASE_CLASS = 'items-center justify-center'
 
-/** 共享 variant 档(4 档语义基座;平台修饰 shadow/hover 由各端追加或覆盖) */
+/**
+ * 共享 variant 档(4 档)。
+ *
+ * 取值口径:**每一档只放两端共同持有的那组原子**;各端在自己的 cva 调用里先展开本表、
+ * 再在基座**之外**追加平台专属原子(RN 的底与字色必须显式给,web 靠 CSS 继承)。
+ * 空串 = 两端在这一档的共同集合为空,受管的只是"键名 + 谁都不许整档另写"——
+ * 写成空串而不是某一端的特化值,是因为把一端的观感推给另一端比并不上档更坏。
+ */
 export const SHARED_BUTTON_VARIANT_CLASSES: Record<ButtonBaseVariant, string> = {
   default: 'bg-cta text-cta-foreground',
   destructive: 'bg-destructive text-destructive-foreground',
-  outline: 'border border-input bg-transparent text-foreground',
-  ghost: 'bg-transparent text-foreground',
+  // 两端都有 border + border-input;底(RN bg-transparent / web bg-background)与 hover 属平台追加
+  outline: 'border border-input',
+  // RN 无继承必须显式给底与字色,web 什么都不写 —— 共同集合为空
+  ghost: '',
 }
 
-/** 共享 size 档(2 档基础尺寸;各端可覆盖为平台专属值) */
+/**
+ * 共享 size 档(2 档)。取值口径同上。
+ * sm 两端同为 h-8 px-3(web 另追加 rounded-sm text-xs);
+ * lg 今天一端 h-12 一端 h-10,共同集合为空 ⇒ 空串,取同值属全端观感决策(未拍板前不得单方面收敛)。
+ */
 export const SHARED_BUTTON_SIZE_CLASSES: Record<ButtonBaseSize, string> = {
   sm: 'h-8 px-3',
-  lg: 'h-12 px-6',
+  lg: '',
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
