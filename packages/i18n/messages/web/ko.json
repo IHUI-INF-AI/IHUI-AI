@@ -13391,7 +13391,7 @@
   },
   "aiApprovedRules": {
     "title": "명령 허용 규칙",
-    "description": "승인 시 생성된 명령 접두사 허용 규칙입니다. 90일 후 자동 만료되며 언제든 철회할 수 있습니다.",
+    "description": "승인 시 생성되는 명령 접두사 및 네트워크 대상 승인 규칙입니다. 만료 시 자동 해제되며 언제든 취소할 수 있습니다",
     "empty": "허용 규칙이 없습니다",
     "prefixHeader": "명령 접두사",
     "createdAtHeader": "생성 시각",
@@ -13404,7 +13404,10 @@
     "loadFailed": "허용 규칙을 불러오지 못했습니다",
     "refresh": "새로 고침",
     "scopeAlways": "장기 유효",
-    "scopeSession": "이 세션"
+    "scopeSession": "이 세션",
+    "sectionCommands": "명령 접두사",
+    "sectionNetwork": "네트워크 대상",
+    "revokeConfirmContentNetwork": "취소하면 대상 \"{target}\" 접근이 다시 수동 승인을 요구합니다."
   },
   "editor": {
     "toolApproval": {
@@ -13418,7 +13421,21 @@
       "description": "AI가 다음 고위험 작업의 실행을 요청했습니다. 실행을 허용할지 확인해 주세요.",
       "pendingCount": "대기 중 {count}건",
       "reject": "거부",
-      "title": "도구 승인"
+      "title": "도구 승인",
+      "envLabel": "실행 환경",
+      "envInSandbox": "샌드박스 내에서 실행",
+      "envOutsideSandbox": "샌드박스 외부에서 실행",
+      "envBackend": "격리 방식: {backend}",
+      "envDegraded": "샌드박스 기능을 사용할 수 없어 제한된 직접 실행으로 대체되었습니다",
+      "envNetworkSection": "네트워크",
+      "envNetworkBlocked": "차단된 네트워크 대상",
+      "envNetworkBlockedOne": "{host}:{port}({reason})",
+      "envNetworkOpen": "이번에는 외부 네트워크에 접근할 수 있습니다",
+      "envNetworkOff": "이번에는 네트워크가 허용되지 않습니다",
+      "envUnknown": "보고되지 않음(권한 단계로 추측하지 마세요. 거부 후 다시 시도하세요)",
+      "envAllowTargetOnce": "이번에만 이 대상 허용",
+      "envAllowTargetSession": "이 대화에서 이 대상 허용",
+      "envAllowTargetAlways": "이 대상을 항상 허용(90일 후 만료)"
     },
     "toolbar": {
       "addColumn": "열 추가",
