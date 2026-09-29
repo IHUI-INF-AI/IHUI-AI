@@ -82,8 +82,10 @@
  *        (读报告的人会把"读不出"当成"没进程持锁")。
  *
  * 用法(CLI):
- *   node scripts/deploy-lock.mjs acquire [--mode <build|dev>] [--timeout <ms>] [--stale <ms>] [--owner-pid <pid>]
- *   node scripts/deploy-lock.mjs release [--mode <build|dev>]
+ *   node scripts/deploy-lock.mjs acquire [--mode <build|dev>] [--timeout <ms>] [--stale <ms>] [--owner-pid <pid>] [--token <t>]
+ *   node scripts/deploy-lock.mjs release [--mode <build|dev>] [--token <t>]
+ *   (G-696:meta 自 2026-09-29 起带 owner token —— release 必须凭同一凭据才许释放;
+ *    acquire 缺省现生成并打印 token,同进程 API 调用由进程内备忘自动携带。)
  *   node scripts/deploy-lock.mjs check            # 只读:exit 0=无锁 1=有锁(打印持锁信息)
  *   node scripts/deploy-lock.mjs break-stale --reason "<人工确认的理由>"   # G-412 人工出口:先归档再断
  *   node scripts/deploy-lock.mjs --self-test      # 临时夹具内自检,绝不触碰真实 .deploy.lock
@@ -105,6 +107,9 @@ import {
 } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { hostname, uptime } from 'node:os'
+// G-696(2026-09-29):owner token 的生成源。释放侧归属核验的凭据必须不可预测,
+// 否则"第二条 CLI 按猜就能删掉第一条正在用的锁"只是换了个更便宜的门。
+import { randomBytes } from 'node:crypto'
 // 抢占算法的唯一实现(2026-09-26 合并:本脚本与 git-lock.mjs 曾各写一份 claimStaleLock)。
 import { claimStaleLockCore } from './lib/stale-lock-claim.mjs'
 // 锁目录「写全再原子可见」初始化的唯一实现(2026-09-29 立,G-814425)—— 与 git-lock.mjs 共用同一份。
@@ -169,7 +174,7 @@ function metaFile(dir) {
  *
  * @param {string|null|undefined} rawText 文件内容文本;传 null 表示"文件不存在"(absent)
  * @returns {{kind:'absent',reason:string}
- *          | {{kind:'ok'},meta:{mode:string,pid:number,ownerPid:number,ts:number,host:string,pidStart:number,bootMs:number}}
+ *          | {{kind:'ok'},meta:{mode:string,pid:number,ownerPid:number,ts:number,host:string,pidStart:number,bootMs:number,token:string}}
  *          | {kind:'invalid'|'unreadable',raw:string|null,reason:string}}
  */
 function classifyMeta(rawText) {
@@ -214,6 +219,11 @@ function classifyMeta(rawText) {
   // "没有凭据"不等于"可以抢",更不等于"已核过没问题")。
   const bootMsRaw = Number(parsed.bootMs)
   const bootMs = Number.isFinite(bootMsRaw) && bootMsRaw > 0 ? bootMsRaw : 0
+  // 持锁凭据(G-696,2026-09-29):`token=''` 一律表示"旧 meta 没记"(与 host 同一纪律)。
+  // 判读侧(release)据此走旧格式处置并**报名**"归属无法核验",绝不把"没凭据"读成"已核过"。
+  // 与 host/pidStart 同一条理由,刻意**不进** `lockIdentity` 指纹:凭据字段进指纹只会让
+  // "补写凭据"被误判成换锁,与抢占原子性无关。
+  const token = typeof parsed.token === 'string' ? parsed.token : ''
   return {
     kind: 'ok',
     meta: {
@@ -226,6 +236,7 @@ function classifyMeta(rawText) {
       host,
       pidStart,
       bootMs,
+      token,
     },
   }
 }
@@ -267,6 +278,10 @@ function readMeta(dir) {
  *
  * 2026-09-29(G-653):落盘改走唯一出口 `lib/atomic-write.mjs` 的**原子替换**(同目录 tmp + rename)。
  * 上面两段讲的"键集与旧 meta 逐字同形"仍然成立 —— 换的只是怎么写,写出的字节一字未变。
+ *
+ * 2026-09-29(G-696):meta 多落一个 `token` —— **持锁凭据**,释放侧归属核验的唯一依据。
+ * 调用方给定了(opts.token / `IHUI_DEPLOY_LOCK_TOKEN`)就原样用("若已有则不动"),没给就现生成
+ * 16 字节随机 hex:同 acquire 的锁各持各的凭据,release 必须凭同一凭据才许删锁(见 release 头注)。
  */
 function writeMeta(dir, mode, opts = {}) {
   const declared = Number(opts.ownerPid ?? process.env.IHUI_DEPLOY_LOCK_OWNER_PID) || 0
@@ -295,6 +310,15 @@ function writeMeta(dir, mode, opts = {}) {
     Number.isFinite(nowMs) && Number.isFinite(uptimeMsRaw) && uptimeMsRaw > 0
       ? Math.round(nowMs - uptimeMsRaw)
       : undefined
+  // G-696:持锁凭据。空串/纯空白/非字符串一律视为"没给"⇒ 落回环境变量 ⇒ 再退回现生成,
+  // 绝不把空凭据写进锁里(那等价于把"无凭据"合法化,release 侧的比对会失去意义)。
+  const declaredToken =
+    typeof opts.token === 'string' && opts.token.trim() ? opts.token.trim() : undefined
+  const envToken =
+    typeof process.env.IHUI_DEPLOY_LOCK_TOKEN === 'string' && process.env.IHUI_DEPLOY_LOCK_TOKEN.trim()
+      ? process.env.IHUI_DEPLOY_LOCK_TOKEN.trim()
+      : undefined
+  const token = declaredToken ?? envToken ?? randomBytes(16).toString('hex')
   const meta = {
     mode: mode ?? '',
     pid: process.pid,
@@ -306,6 +330,8 @@ function writeMeta(dir, mode, opts = {}) {
     bootMs,
     // 量不到 ⇒ undefined ⇒ JSON.stringify 整键丢掉 ⇒ 与改动前的 meta 形态逐字相同
     pidStart: started.epoch ?? undefined,
+    // G-696:持锁凭据,release 侧必比(见 release 头注)
+    token,
     // 只在**推断**出来的那一档才多写一个键:调用方自己声明 owner(经 `--owner-pid`)时不写它 ——
     // 判读侧靠它区分"人明确说了 owner 是谁"与"我们按父进程猜的",后者不得被读成确证。
     // (注:G-412 起所有新写 meta 都多出 `bootMs` 键,这是本票新增的单调量锚点;
@@ -894,6 +920,7 @@ async function acquire({
   staleMs = 600_000,
   hardCapMs = HARD_CAP_MS,
   ownerPid,
+  token,
   dir = lockDir(),
   identityRun,
 } = {}) {
@@ -928,20 +955,29 @@ async function acquire({
     const made = createLockDirectoryAtomically({
       dir,
       pendingRoot: lockPendingRoot(),
-      writePayload: (staged) => writeMeta(staged, mode, { ownerPid, ...identityOpts }),
+      writePayload: (staged) => writeMeta(staged, mode, { ownerPid, token, ...identityOpts }),
     })
     if (made.ok) {
       // 用 writeMeta 的**返回值**而不是 readMeta:readMeta 会把 meta 归一成已知键的四态投影,
       // 新加的 ownerPidSource 在归一里被丢掉 —— 拿它当"是否推断"的依据就会打印成"调用方声明",
       // 把一条我们刻意标成"非确证"的凭据说成确证(本行日志正是给别人看的判读依据)。
       const written = made.payload
+      // G-696:记下本进程为**这个目录**写下的凭据 —— 同进程内 acquire⇒release 无需显式传 token
+      // (键按目录,多把锁互不串;dev+dev 共存不写 meta 也就不记,共存的第二方本就没有凭据)。
+      if (typeof written?.token === 'string' && written.token) {
+        ownerTokenMemo.set(resolve(dir), written.token)
+      }
       const owner =
         Number(written?.ownerPid) > 0
           ? written.ownerPidSource === 'inferred-ppid'
             ? `owner pid=${written.ownerPid}(未声明 ⇒ 按派生本次调用的父进程判活,非确证)`
             : `owner pid=${written.ownerPid}(调用方声明)`
           : 'owner 无从确定(父进程也量不到)⇒ 退回 CLI pid 判活,与改动前同形'
-      console.log(`[deploy-lock] ${mode} 锁已获取 (cli pid=${process.pid};${owner})`)
+      // token 打全量:这是**本调用方自己**的凭据,CLI 场景 acquire/release 不同进程,
+      // 调用方(构建脚本)要从这里把它带给 release(--token / IHUI_DEPLOY_LOCK_TOKEN)。
+      console.log(
+        `[deploy-lock] ${mode} 锁已获取 (cli pid=${process.pid};${owner};token=${written?.token ?? '(未生成)'})`,
+      )
       return true
     }
     // 只有"目录已存在"(contended,lib 一律归一成 code=EEXIST)才是"别人持锁"。
@@ -1042,12 +1078,33 @@ async function acquire({
   }
 }
 
+/** 凭据只打掩码:拒绝文案会进日志,把整枚凭据打进去等于把 release 的钥匙贴在门上。 */
+function maskToken(t) {
+  return typeof t === 'string' && t ? `${t.slice(0, 4)}…` : '(未提供)'
+}
+
 /**
- * 释放锁(CLI 场景 acquire/release 是不同进程,按 mode 匹配释放;持有者同 mode 时即视为可释放)。
- * A9-3 收紧:**元数据不可判定时拒绝释放**——旧实现在此处两个 `meta &&` 守卫全短路,
+ * 本进程为各目录写下的持锁凭据(G-696):键 = resolve 后的锁目录。
+ * 同进程 acquire⇒release 无需显式传 token;CLI 场景(acquire/release 不同进程)靠
+ * `--token` / `IHUI_DEPLOY_LOCK_TOKEN` 带凭据。dev+dev 共存不写 meta 也就不记 ——
+ * 共存的第二方本就没有凭据,release 时被拒是正确行为。
+ */
+const ownerTokenMemo = new Map()
+
+/**
+ * 释放锁。G-696(2026-09-29)收紧归属核验:旧口径是"CLI acquire/release 不同进程,
+ * 按 mode 匹配(+pid 判 self/死活)即视为可释放" ⇒ 同 mode 的第二条 CLI 能把第一条
+ * 正在用的锁当"悬挂锁"删掉(predev 的父 shell 先退、pid 被复用都是现成入口)。
+ * 现口径:**带 token 的锁必须凭同一 token 才许释放** ——
+ *   - 凭据来源:显式入参 `token` > 进程内备忘(acquire 写下那份)> 环境变量 `IHUI_DEPLOY_LOCK_TOKEN`;
+ *   - 不匹配(**含"根本没提供"**)⇒ 拒绝并点名,绝不静默成功;
+ *   - 锁 meta **没有** token(旧格式锁)⇒ 无凭据可比,维持改动前判据处置,但必须**报名**
+ *     "归属无法核验"——不把它读成"已核过"(与 host/pidStart 缺失同一纪律;旧锁随
+ *     acquire 侧全部带 token 后自然绝迹)。
+ * A9-3 收紧(沿用):**元数据不可判定时拒绝释放**——旧实现在此处两个 `meta &&` 守卫全短路,
  * 于是"坏锁 = 白拿",一次 release 就能删掉别人正在用的锁。
  */
-function release({ mode, dir = lockDir() } = {}) {
+function release({ mode, token, dir = lockDir() } = {}) {
   if (!existsSync(dir)) return { released: false, why: '无锁目录' }
   const state = readMeta(dir)
   if (state.kind !== 'ok') {
@@ -1061,6 +1118,31 @@ function release({ mode, dir = lockDir() } = {}) {
   // 若调用方指定 mode,要求锁的 mode 一致才释放(避免误删他人不同类型的锁)
   if (mode && state.meta.mode !== mode)
     return { released: false, why: `mode 不匹配(锁=${state.meta.mode} 调用=${mode})` }
+  // G-696 归属核验:带 token 的锁,凭据对不上(含没带)就拒绝 —— 删锁是持有者的动作。
+  const lockToken = state.meta.token || ''
+  if (lockToken) {
+    const callerToken =
+      (typeof token === 'string' && token.trim()) ||
+      ownerTokenMemo.get(resolve(dir)) ||
+      (typeof process.env.IHUI_DEPLOY_LOCK_TOKEN === 'string' &&
+      process.env.IHUI_DEPLOY_LOCK_TOKEN.trim()
+        ? process.env.IHUI_DEPLOY_LOCK_TOKEN.trim()
+        : '')
+    if (callerToken !== lockToken) {
+      console.error(
+        `[deploy-lock] ❌ 拒绝释放:owner token 不匹配(锁=${maskToken(lockToken)} 调用=${maskToken(callerToken)})。` +
+          `此刻删锁可能删掉别人正在用的锁。确是本锁持有者,请带上 acquire 时给出的凭据` +
+          `(--token <t> 或环境变量 IHUI_DEPLOY_LOCK_TOKEN);` +
+          '悬挂锁的自动出路是 acquire 侧「锁龄超 stale 后归档抢占」,或 `deploy-lock.mjs break-stale --reason "<理由>"`。',
+      )
+      return { released: false, why: 'owner token 不匹配(归属核验失败),拒绝释放' }
+    }
+  } else {
+    console.warn(
+      `[deploy-lock] ⚠️ 锁 meta 无 owner token(旧格式,归属无法核验)⇒ 按既有判据处置,` +
+        '新锁自 G-696 起均带 token;旧锁随下一次 acquire 抢占/重写自然绝迹。',
+    )
+  }
   const self = state.meta.pid === process.pid || Number(state.meta.ownerPid) === process.pid
   const holder = holderPid(state.meta)
   if (!self && isProcessAlive(holder)) {
@@ -1100,12 +1182,14 @@ function release({ mode, dir = lockDir() } = {}) {
       `代为收口非本进程持有的悬挂锁(cliPid=${state.meta.pid} ownerPid=${state.meta.ownerPid || '(未声明)'})`,
     )
     console.log(claim.log)
+    if (claim.ok) ownerTokenMemo.delete(resolve(dir))
     return claim.ok
       ? { released: true, why: '悬挂锁代为收口(原子改名,现场已留档)' }
       : { released: false, why: `抢占未成功:${claim.phase}${claim.ok ? '' : `(${claim.code ?? claim.stagedPath ?? '身份已变'})`}` }
   }
   // 走到这里 = self(本进程就是持有者,内容凭据已验明这把是我的)⇒ 按原语义直接删
   removeLock(dir)
+  ownerTokenMemo.delete(resolve(dir))
   console.log(`[deploy-lock] 锁已释放 (pid=${process.pid})`)
   return { released: true, why: self ? '持有者自释' : '悬挂锁代为收口' }
 }
@@ -1297,6 +1381,11 @@ async function runSelfTest() {
     const r3 = await elapsed(() => acquire({ mode: 'build', timeoutMs: 3000, dir: d3 }))
     t('S12 absent(连锁目录都没有)⇒ acquire 秒成功', r3.r === true && r3.ms < 2000, `ms=${r3.ms}`)
     t('S13 获取后 meta.json 记录了自己 pid', readMeta(d3).meta?.pid === process.pid)
+    t(
+      'S13b acquire 写下的 meta 带 owner token(G-696:release 归属核验的凭据必须落盘)',
+      typeof readMeta(d3).meta?.token === 'string' && readMeta(d3).meta.token.length >= 16,
+      JSON.stringify(readMeta(d3).meta?.token),
+    )
 
     // —— 4) 完好 + 持有者存活 ⇒ 等待并超时,且**绝不覆盖别人的锁**
     const d4 = freshDir()
@@ -1444,6 +1533,47 @@ async function runSelfTest() {
     putMeta(d12, JSON.stringify({ mode: 'build', pid: DEAD_PID, ts: Date.now() }))
     const rel12 = release({ mode: 'build', dir: d12 })
     t('S32 release:悬挂锁(持有者已死)可代为收口', rel12.released === true && !existsSync(d12))
+
+    // —— 32b..e) G-696:release 必须比对 owner token(旧口径"按 mode 匹配即视为可释放"
+    // 让同 mode 的第二条 CLI 能把第一条正在用的锁当悬挂锁删掉 —— predev 父 shell 先退、
+    // pid 被复用都是现成入口)。带 token 的锁,凭据对不上(**含根本没带**)就必须拒绝且不删锁。
+    const TOKEN_OK = 'selftest-token-ok-696'
+    const d12b = freshDir()
+    putMeta(
+      d12b,
+      JSON.stringify({ mode: 'build', pid: DEAD_PID, ts: Date.now(), token: TOKEN_OK }),
+    )
+    const rel12b = release({ mode: 'build', dir: d12b, token: 'selftest-token-wrong' })
+    t(
+      'S32b release:token 不匹配 ⇒ 拒绝且锁仍在(不得静默成功)',
+      rel12b.released === false && existsSync(d12b) && /owner token 不匹配/.test(rel12b.why),
+      JSON.stringify(rel12b),
+    )
+    const rel12c = release({ mode: 'build', dir: d12b, token: TOKEN_OK })
+    t(
+      'S32c release:token 匹配 ⇒ 悬挂锁凭凭据代为收口成功',
+      rel12c.released === true && !existsSync(d12b),
+      JSON.stringify(rel12c),
+    )
+    const d12d = freshDir()
+    putMeta(
+      d12d,
+      JSON.stringify({ mode: 'build', pid: DEAD_PID, ts: Date.now(), token: TOKEN_OK }),
+    )
+    const rel12d = release({ mode: 'build', dir: d12d })
+    t(
+      'S32d release:锁带 token 而调用方未带 ⇒ 同样视为不匹配,拒绝且锁仍在',
+      rel12d.released === false && existsSync(d12d) && /owner token 不匹配/.test(rel12d.why),
+      JSON.stringify(rel12d),
+    )
+    const d12e = freshDir()
+    putMeta(d12e, JSON.stringify({ mode: 'build', pid: DEAD_PID, ts: Date.now() }))
+    const rel12e = release({ mode: 'build', dir: d12e, token: TOKEN_OK })
+    t(
+      'S32e release:旧格式锁(无 token 字段)⇒ 归属无法核验,按既有判据处置(此处 = 悬挂锁代为收口)',
+      rel12e.released === true && !existsSync(d12e),
+      JSON.stringify(rel12e),
+    )
 
     // —— 33) dev+dev 共存语义不得回归
     const d13 = freshDir()
@@ -2037,10 +2167,17 @@ async function main() {
         staleMs: Number(getOpt('--stale') ?? 600_000),
         // 调用方(构建脚本)自己的 pid 才是这段锁的主人;CLI 自己会立刻退出。
         ownerPid: getOpt('--owner-pid') ? Number(getOpt('--owner-pid')) : undefined,
+        // G-696:调用方预先约定的凭据(缺省由 writeMeta 现生成并打印,release 侧须凭同一凭据)。
+        token: getOpt('--token'),
         ...(dir ? { dir } : {}),
       })
     } else if (cmd === 'release') {
-      release({ mode: getOpt('--mode') ?? 'build', ...(dir ? { dir } : {}) })
+      release({
+        mode: getOpt('--mode') ?? 'build',
+        // G-696:归属核验 —— 带 token 的锁必须凭同一凭据才许释放(见 release 头注)。
+        token: getOpt('--token'),
+        ...(dir ? { dir } : {}),
+      })
     } else if (cmd === 'break-stale') {
       // G-412 人工出口:显式断锁必须带理由;判据见 breakStale 头注(空理由不碰任何状态)。
       const r = breakStale({ ...(dir ? { dir } : {}), reason: getOpt('--reason') })
@@ -2053,6 +2190,8 @@ async function main() {
     } else {
       console.error(
         '用法: deploy-lock.mjs acquire|release|check [--mode <build|dev>] [--timeout <ms>] [--stale <ms>] [--lock-dir <path>]\n' +
+          '      acquire/release 另可带 --token <t>(G-696:锁的归属凭据;acquire 缺省会现生成并打印,\n' +
+          '      release 必须凭同一凭据才许释放,也可用环境变量 IHUI_DEPLOY_LOCK_TOKEN 传递)\n' +
           '      deploy-lock.mjs break-stale --reason "<人工确认的理由>" [--lock-dir <path>]\n' +
           '      deploy-lock.mjs --self-test',
       )
