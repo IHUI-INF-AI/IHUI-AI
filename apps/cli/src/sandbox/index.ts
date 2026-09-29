@@ -15,6 +15,7 @@
 
 import { spawnSync, spawn, type SpawnSyncOptions, type SpawnOptions, type ChildProcess } from 'node:child_process';
 import * as path from 'node:path';
+import * as os from 'node:os';
 import * as fs from 'node:fs';
 
 // 失败归因/安全边界文案走 cli 语言包(AGENTS §19)。与 tools/command-safety.ts 同一既有形态
@@ -22,6 +23,8 @@ import * as fs from 'node:fs';
 // ASCII 机器码前缀(spawn_error / output_limit / unattributed / fs_probe_unavailable /
 // fs_exhausted.*)留在模板里、不进词表 —— 取词失败时行仍读得出"没配上",不是"没发生"。
 import { t } from '../i18n/index.js';
+// b75-4#9:kill(-pgid,0) 探组存活性(ESRCH=已消亡 / EPERM=存活但无权),升级 SIGKILL 前先探
+import { isPosixProcessGroupAlive } from '../util/spawn-isolated.js';
 
 export interface SandboxOptions {
   cwd: string;
@@ -450,6 +453,10 @@ const SPAWN_LAUNCH_ERROR_CODES: ReadonlySet<string> = new Set([
  *  不进"空输出 ⇒ 文件系统已尽"的诊断门(票面口径 code!==137)。 */
 const EXIT_SIGKILL_SENTINEL = 137;
 
+/** b75-4#5:子进程自己把"写不动了"报上来的错误码(ENOSPC=设备空间尽 / EDQUOT=配额尽)。
+ *  这是**直接证据**(比 statfs 间接量数强),必须落 fs_exhausted 而不是 unattributed。 */
+const FS_EXHAUSTION_ERROR_CODES: ReadonlySet<string> = new Set(['ENOSPC', 'EDQUOT']);
+
 /** 诊断阈(票面口径):bavail×bsize 折算 <10MB ⇒ 空间已尽;ffree <1000 ⇒ inode 已尽。 */
 const FS_MIN_FREE_BYTES = 10n * 1024n * 1024n;
 const FS_MIN_FREE_INODES = 1000n;
@@ -520,6 +527,9 @@ export function classifySpawnSyncFailure(
 ): SandboxFailureKind | null {
   const { code } = spawnErrorInfo(outcome.error);
   if (code === 'ETIMEDOUT') return 'timed_out';
+  // b75-4#5:子进程自己报的"写不动了"是直接证据,先于 spawn 启动族判定(ENOSPC 不在其列,
+  // 旧归因会落 unattributed 把磁盘满伪装成"不知道")。
+  if (code !== undefined && FS_EXHAUSTION_ERROR_CODES.has(code)) return 'fs_exhausted';
   if (code !== undefined && !OUTPUT_LIMIT_ERROR_CODES.has(code)) {
     return SPAWN_LAUNCH_ERROR_CODES.has(code) ? 'spawn_error' : 'unattributed';
   }
@@ -597,6 +607,30 @@ export function settleSpawnSyncOutcome(
       stderr,
       `⚠ output_limit: ${t('cli.sandbox.outputLimit', { maxOutputBytes: opts.maxOutputBytes, code: code ?? 'ENOBUFS' })}`,
     );
+  } else if (kind === 'fs_exhausted' && code !== undefined) {
+    // b75-4#5 的错误码归因档:ENOSPC/EDQUOT 报自子进程,是直接证据;statfs 只负责补
+    // "现场还剩多少"的人话数字,量不到也不推翻子进程自己的结论(它比间接量数强)。
+    let read: FsSpaceProbeResult | null = null;
+    try {
+      read = (opts.statfs ?? defaultStatfsProbe)(opts.cwd);
+    } catch {
+      read = null;
+    }
+    const status = outcome.status ?? 0;
+    if (read) {
+      // EDQUOT 可能是空间也可能是 inode 配额:probe 两轴各自能判就按轴点名;ENOSPC 默认空间轴
+      const inodesOnly = code === 'EDQUOT' && read.freeInodes !== null && read.freeInodes < FS_MIN_FREE_INODES
+        && !(read.availableBytes !== null && read.availableBytes < FS_MIN_FREE_BYTES);
+      const axis: 'space' | 'inodes' = inodesOnly ? 'inodes' : 'space';
+      fsExhaustion = axis;
+      stderr = appendStderrNote(stderr, `${fsExhaustedNote(status, opts.cwd, read, axis)} (errno=${code})`);
+    } else {
+      fsExhaustion = 'space';
+      stderr = appendStderrNote(
+        stderr,
+        `⛔ fs_exhausted: ${t('cli.sandbox.fsProbeUnavailable', { status, why: `child reported ${code}` })} (errno=${code})`,
+      );
+    }
   } else if (kind === 'unattributed') {
     const raw = [
       code ? `code=${code}` : '',
@@ -878,16 +912,88 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
         process.kill(-pid, 'SIGTERM');
       } catch { /* 进程组可能已退出 */ }
       setTimeout(() => {
-        try {
-          process.kill(-pid, 'SIGKILL');
-        } catch { /* 已退出 */ }
+        // b75-4#9:升级 SIGKILL 前先探组存活性 —— ESRCH(组已消亡)不再补刀;
+        // EPERM(组存活但本进程无权发信号)视为存活,照常升级。旧写法不看存活性一律补刀。
+        if (isPosixProcessGroupAlive(pid)) {
+          try {
+            process.kill(-pid, 'SIGKILL');
+          } catch { /* 已退出 */ }
+        }
       }, 5000);
     }
   };
-  let stdoutBuf = '';
-  let stderrBuf = '';
   let truncated = false;
   let settled = false;
+
+  // b75-4#5 输出文件化:内存窗口按**字节**冻结(maxOutput;旧实现按字符累加,UTF-16 下内存翻倍),
+  // 超窗字节懒建 WriteStream 落 os.tmpdir() —— 大输出不再整段驻留内存,也不再被直接丢弃。
+  // 流式期间只攒 chunk 引用不拷贝(结算时才一次性 concat);spill 自身写不动(如磁盘满 ENOSPC)
+  // 时 best-effort 静默 —— 文件系统归因交给结算诊断矩阵,不让 spill 二次炸流。
+  const SPILL_TAIL_PREVIEW_BYTES = 4 * 1024;
+  const makeOutputSink = () => {
+    const parts: Buffer[] = [];
+    let size = 0;
+    let capped = false; // 窗口已封顶。恰好填满(size >= maxOutput)也置 truncated,与同步结算的 >= 语义一致
+    let spill: fs.WriteStream | null = null;
+    let spillPath: string | null = null;
+    const spillBytes = (part: Buffer) => {
+      if (part.length === 0) return;
+      if (!spill || !spillPath) {
+        spillPath = path.join(
+          os.tmpdir(),
+          `ihui-sandbox-spill-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.log`,
+        );
+        spill = fs.createWriteStream(spillPath, { flags: 'w' });
+        spill.on('error', () => { /* 磁盘满等写失败:诊断归结算矩阵,spill 尽力而为 */ });
+      }
+      spill.write(part);
+    };
+    return {
+      push(chunk: Buffer) {
+        if (capped) {
+          truncated = true;
+          spillBytes(chunk);
+          return;
+        }
+        parts.push(chunk);
+        size += chunk.length;
+        if (size >= maxOutput) {
+          truncated = true;
+          capped = true;
+          spillBytes(chunk.subarray(chunk.length - (size - maxOutput))); // 恰好填满时为空 → 不建文件
+        }
+      },
+      /** 内存窗口文本(最多 maxOutput 字节)。 */
+      view(): string {
+        const whole = Buffer.concat(parts);
+        return (whole.length > maxOutput ? whole.subarray(0, maxOutput) : whole).toString('utf-8');
+      },
+      /** close 后结算:收尾 spill 流并读尾 4KB 作预览;文件保留(输出文件化 —— 全量证据落盘,
+       *  路径进 stderr 供人工取证,临时目录由系统回收)。 */
+      async drain(): Promise<string> {
+        if (!spillPath) return '';
+        const stream = spill;
+        spill = null;
+        if (stream) await new Promise<void>((resolve) => stream.end(() => resolve()));
+        let tail = '';
+        try {
+          const stat = fs.statSync(spillPath);
+          const start = Math.max(0, stat.size - SPILL_TAIL_PREVIEW_BYTES);
+          const buf = Buffer.alloc(stat.size - start);
+          const fd = fs.openSync(spillPath, 'r');
+          try {
+            fs.readSync(fd, buf, 0, buf.length, start);
+          } finally {
+            fs.closeSync(fd);
+          }
+          tail = buf.toString('utf-8');
+        } catch { /* 预览读不到就只报路径,不冒充"没溢出" */ }
+        return `\n⚠ output_spilled: ${t('cli.sandbox.outputSpilled', { maxOutputBytes: maxOutput, path: spillPath })}\n${tail}`;
+      },
+    };
+  };
+  const stdoutSink = makeOutputSink();
+  const stderrSink = makeOutputSink();
 
   const startedAt = Date.now();
   const result = new Promise<SandboxResult>((resolve) => {
@@ -910,32 +1016,17 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
       }
     }, timeoutMs);
 
-    child.stdout?.on('data', (chunk: Buffer) => {
-      if (stdoutBuf.length < maxOutput) {
-        stdoutBuf += chunk.toString('utf-8');
-        if (stdoutBuf.length >= maxOutput) {
-          truncated = true;
-          stdoutBuf = stdoutBuf.slice(0, maxOutput);
-        }
-      }
-    });
-    child.stderr?.on('data', (chunk: Buffer) => {
-      if (stderrBuf.length < maxOutput) {
-        stderrBuf += chunk.toString('utf-8');
-        if (stderrBuf.length >= maxOutput) {
-          truncated = true;
-          stderrBuf = stderrBuf.slice(0, maxOutput);
-        }
-      }
-    });
+    child.stdout?.on('data', (chunk: Buffer) => stdoutSink.push(chunk));
+    child.stderr?.on('data', (chunk: Buffer) => stderrSink.push(chunk));
 
-    child.on('error', (err: Error) => {
+    child.on('error', async (err: Error) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      const spillNote = (await stdoutSink.drain()) + (await stderrSink.drain());
       resolve({
-        stdout: stdoutBuf,
-        stderr: stderrBuf + `\n[启动失败: ${err.message}]`,
+        stdout: stdoutSink.view(),
+        stderr: stderrSink.view() + spillNote + `\n[启动失败: ${err.message}]`,
         exitCode: null,
         timedOut: false,
         truncated,
@@ -943,10 +1034,11 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
       });
     });
 
-    child.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
+    child.on('close', async (code: number | null, signal: NodeJS.Signals | null) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      const spillNote = (await stdoutSink.drain()) + (await stderrSink.drain());
       // Windows taskkill /F 后 close 的 signal 为 null,必须用显式标志而非 signal 判断
       const timedOut = timedOutFlag || signal === 'SIGTERM' || signal === 'SIGKILL';
       appendSandboxAuditLog({
@@ -960,8 +1052,8 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
         durationMs: Date.now() - startedAt,
       });
       resolve({
-        stdout: stdoutBuf,
-        stderr: stderrBuf,
+        stdout: stdoutSink.view(),
+        stderr: stderrSink.view() + spillNote,
         exitCode: code,
         timedOut,
         truncated,

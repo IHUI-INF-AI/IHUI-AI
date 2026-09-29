@@ -110,6 +110,7 @@
     "sandbox": {
       "spawnError": "Command failed to start ({code}) — the child process never ran; this is NOT \"it ran with no output\". Check that the command and the current working directory ({cwd}) exist.",
       "outputLimit": "Output exceeded the {maxOutputBytes}-byte cap ({code}); the process was killed and its output truncated — this is a distinct \"output too long\" terminal state, not a timeout. To capture everything, raise maxOutputBytes or narrow the command's output.",
+      "outputSpilled": "Output exceeded the {maxOutputBytes}-byte in-memory window; the overflow was written to {path} — the full output is no longer held in memory. The spill file is kept as evidence; delete it when done.",
       "statusMissing": "missing",
       "unattributed": "Failure type unattributed (original info kept: {raw}) — classified neither as a timeout nor as normal completion. Verify manually before retrying.",
       "fsProbeUnavailable": "Command exited with status {status} and no output, but the filesystem state could not be queried ({why}) — undetermined: treated neither as \"space/inodes exhausted\" nor as \"nothing happened\".",
