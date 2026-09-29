@@ -6,9 +6,9 @@
 // 「因副本指针有意少带 1 份(每条仍保留 ≥1 份)」与「未存活行:同一行」不可能同时为真,
 // 只报截断前缀就永远分不出是哪一条、哪一把尺子错了。
 import { execFileSync } from 'node:child_process'
-import { gitBinary } from '../../../../scripts/lib/face-reader.mjs'
-import { DUP_POINTER_RE } from '../../../../scripts/lib/plan-task-index.mjs'
-import * as U from '../../../../scripts/union-converge.mjs'
+import { gitBinary } from '../../../scripts/lib/face-reader.mjs'
+import { DUP_POINTER_RE } from '../../../scripts/lib/plan-task-index.mjs'
+import * as U from '../../../scripts/union-converge.mjs'
 
 const GIT = gitBinary()
 const root = 'D:/IHUI-AI'
