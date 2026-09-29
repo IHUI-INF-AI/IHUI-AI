@@ -146,5 +146,47 @@ describe('G-684 同名插件不静默裁决:两个都不装载', () => {
     expect(new Set(codes)).toEqual(new Set(['manifest-name-ambiguous']));
     expect(codes).not.toContain('plugin-dependency-cycle');
   });
+
+  // G-658 验收格:「加载顺序翻转结论不变」——镜像夹具把两份清单的**内容**在两个目录名
+  // 之间对调。若实现回归成 last-write-wins,两次装载将由"哪份排在枚举前面"决定,镜像后
+  // 生效方互换;弃权语义下两次结论必须逐字同形(都空 + 同一 diagnosis 文件集),与内容
+  // 恰好落在哪个目录无关。
+  it('镜像夹具(内容对调)下结论不变:歧义裁决与扫描枚举顺序无关', () => {
+    const mirror = mkScratch('plugin-ambiguity-mirror-');
+    try {
+      const write = (base: string, dirName: string, version: string): string => {
+        const dir = path.join(base, dirName);
+        fs.mkdirSync(dir, { recursive: true });
+        const target = path.join(dir, 'plugin.json');
+        fs.writeFileSync(target, JSON.stringify({ name: AMBIGUOUS, version }), 'utf-8');
+        return target;
+      };
+      // root:aaa=v1.0.0, zzz=v2.0.0;mirror:内容对调 aaa=v2.0.0, zzz=v1.0.0
+      const rootFiles = [write(root, 'aaa', '1.0.0'), write(root, 'zzz', '2.0.0')].sort();
+      const mirrorFiles = [write(mirror, 'aaa', '2.0.0'), write(mirror, 'zzz', '1.0.0')].sort();
+
+      const a = loadPluginsWithDiagnostics({ pluginsDir: root });
+      const b = loadPluginsWithDiagnostics({ pluginsDir: mirror });
+
+      for (const result of [a, b]) {
+        // 装载面:两次都一个不装(生效方不得由枚举顺序决定)
+        expect(result.plugins).toEqual([]);
+      }
+      // 诊断面:两次同形 —— 各 2 条歧义,文件集逐字相同(即 rootFiles ∪ mirrorFiles 的
+      // 各自那两份,且互不串:诊断只点名本目录树里的路径)
+      const filesOf = (result: ReturnType<typeof loadPluginsWithDiagnostics>): string[] =>
+        ambiguousOf(result.diagnostics).map((d) => d.file).sort();
+      expect(a.diagnostics).toHaveLength(2);
+      expect(b.diagnostics).toHaveLength(2);
+      expect(filesOf(a)).toEqual(rootFiles);
+      expect(filesOf(b)).toEqual(mirrorFiles);
+      for (const diagnostic of [...ambiguousOf(a.diagnostics), ...ambiguousOf(b.diagnostics)]) {
+        expect(diagnostic.severity).toBe('error');
+        expect(diagnostic.pluginName).toBe(AMBIGUOUS);
+      }
+    } finally {
+      rmScratch(mirror);
+    }
+  });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
