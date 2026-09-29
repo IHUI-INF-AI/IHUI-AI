@@ -289,7 +289,11 @@ function lineCountsFor(root, registry) {
       missing.push(p)
       continue
     }
-    counts[p] = content.split(sep).length
+    // 行数口径必须与 `wc -l` 一致(数换行,不把结尾换行多出来的空尾段算一行)。
+    // 原来写 `content.split(sep).length` 对任何以换行收尾的文件都**多算一行**:
+    // M3 因此会放过"越界一行"的指针,而 M12 的"行数与现量相符"则在**正确**的清单上恒红(实测 46 条)。
+    const raw = content.split(sep)
+    counts[p] = content.endsWith(sep) ? raw.length - 1 : raw.length
   }
   // 问不到的文件也要进表(值给 -1 之外的可判形态):decide() 里 `p in lineCounts` 为假即红
   for (const p of missing) delete counts[p]
