@@ -175,6 +175,38 @@ export function radiusOperandPx(text, table, consts, depth = 0) {
 }
 
 /**
+ * 同一份源码里的**圆角别名表**:`const CARD_RADIUS = rnRadius.lg` / `rnRadius['2xl']` /
+ * `rnRadiusFor.panel` / `16` / `16rpx` / `ICON_BUTTON_SIZE / 2` → 该名字折出来的 px。
+ *
+ * 解值**整条复用 `radiusItemsInLine`**:喂它一条合成的 `borderRadius: <右值>` 声明,于是档位名、
+ * 角色名、带单位字面量、除法形态全部走既有那一份判据 —— 这一层不抄第二份单位折算,也不抄第二份档位名表
+ * (两处算同一件事必漂移,是本仓记过最多次的失败型)。
+ * `constantMapOf` 抓不到成员档与方括号档(`rnRadius['2xl']` 后面紧跟 `[`,不满足它的收尾),所以这里
+ * 自带一条**声明行**扫描;它只收"名字 → 右值原文",取值仍交回上面那一份。
+ *
+ * @param {string} src 源码(调用方已遮注释)
+ * @param {Record<string, number>} table `radiusLookup` 的档位表
+ * @returns {Map<string, number>} 别名 → px;解不到的名字**不进表**,由调用方按"读不到"报名
+ */
+export function radiusAliasMapOf(src, table) {
+  const out = new Map()
+  if (!src || !table) return out
+  const consts = constantMapOf(src)
+  const code = maskComments(src)
+  for (const m of code.matchAll(
+    /(?:^|[^\w$.])(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*([^;\n]+?)\s*(?:\/\/.*)?(?:$|[,)})])/gm,
+  )) {
+    const name = m[1]
+    const rhs = (m[2] || '').trim()
+    if (!rhs || out.has(name)) continue
+    if (!/radius|round|corner/i.test(name) && !/rnRadius|\//.test(rhs)) continue
+    const hit = radiusItemsInLine(`borderRadius: ${rhs}`, table, consts)[0]
+    if (hit && Number.isFinite(hit.px)) out.set(name, hit.px)
+  }
+  return out
+}
+
+/**
  * 一行源码里的圆角取用 → `[{px, raw}]`。`raw` 是**源码原文**(档名 / 数值 / `<被除数> / <数>`),
  * 供 RD 维按 `classifyRadiusGeometry(lines, i, raw)` 判这条半径是几何真圆/胶囊还是档位取用。
  * 之所以要带原文而不是只回 px:几何判据是**字面同形**比较(`width: 48, borderRadius: 24` 认得出,
@@ -182,10 +214,14 @@ export function radiusOperandPx(text, table, consts, depth = 0) {
  * 折成 px 再分类就等于把"作者写的是不是同一个量"这一维抹掉。
  * `radiusPxInLine` 现在是它到 px 的投影(既有调用方一字不动)。
  */
-export function radiusItemsInLine(line, table, consts) {
+export function radiusItemsInLine(line, table, consts, opts = {}) {
   const out = []
   const push = (v, raw) => {
     if (Number.isFinite(v) && v > 0) out.push({ px: Math.round(v * 100) / 100, raw })
+  }
+  /** 认不出的一格也要留痕(`{px:null}`),由调用方报名 —— 静默丢档等于给未判定发合格证。 */
+  const pushUnread = (raw) => {
+    if (opts.unreadable === true) out.push({ px: null, raw })
   }
   for (const m of line.matchAll(/\brounded-(?:(?:tr|tl|br|bl|[tblr])-)?(xs|sm|md|lg|xl|2xl)\b/g)) {
     if (table[m[1]] !== undefined) push(table[m[1]], m[1])
@@ -220,6 +256,29 @@ export function radiusItemsInLine(line, table, consts) {
   ))
     push(Number(m[1]), m[1])
   /**
+   * **别名取用**:`borderRadius: INPUT_BORDER_RADIUS`(同文件 `const INPUT_BORDER_RADIUS = rnRadius['2xl']`)。
+   * 只在调用方递来别名表时才判 —— 默认口径一位不动,因为 `radiusItemsInLine` 同时是守门 11/77/150
+   * 的输入,那三道的读数各有自己的锚点,本票不许替它们改账。
+   *
+   * 为什么必须有这一支:端内把档收进局部常量是 §4 **要求**的写法,而尺子只认 `rnRadius.xl` 的字面形态
+   * 就等于奖励不规范 —— 实测 HEAD `apps/mobile-rn/src/components/BottomActionBar.tsx:190` 定义、
+   * `:982`/`:997` 两处取用,三行都"看得见有圆角"却一处也归不到元素名,于是该族在 RE 维报成
+   * "两侧无一同名元素"(假零判据),而真值 16 只以 `unnamed` 的形态漏在账上。
+   * 档位/角色/字面量/除法的解值一律复用 `radiusOperandPx` 那一份,不在此重抄。
+   */
+  const aliases = opts.aliases
+  if (aliases) {
+    for (const m of line.matchAll(
+      /\bborder(?:Top|Bottom)?(?:Left|Right)?Radius\s*:\s*([A-Za-z_$][\w$]*)((?:\s*\.\s*[A-Za-z_$][\w$]*)?)(?![\w.])(?!\s*\/)/g,
+    )) {
+      const full = `${m[1]}${m[2] ? `.${m[2].replace(/\s+/g, '')}` : ''}`
+      if (/^(?:rnRadiusFor|rnRadius)\b/.test(full)) continue // 档表直取另有专门判据,不得双计
+      const px = aliases.get(full) ?? aliases.get(m[1])
+      if (px !== undefined) push(px, full)
+      else pushUnread(full)
+    }
+  }
+  /**
    * 除法形态 `borderRadius: <被除数> / <数>`(`60 / 2`、`rnRadius.lg / 2`、`rpx(40) / 2`、
    * `SIZE_PX / 2`)。被除数经 `radiusOperandPx` 折 px 再除右值;**解不到整条不 push**
    * (跨文件常量),由调用方按未判定报名 —— 宁可"读不出",绝不读成一个错的数。
@@ -228,7 +287,10 @@ export function radiusItemsInLine(line, table, consts) {
     /\bborder(?:Top|Bottom)?(?:Left|Right)?Radius\s*:\s*([^,;{}\n]+?)\s*\/\s*(\d+(?:\.\d+)?)/g,
   )) {
     const left = radiusOperandPx(m[1], table, consts)
-    if (left === null) continue
+    if (left === null) {
+      pushUnread(`${m[1].trim()} / ${m[2]}`)
+      continue
+    }
     push(left / Number(m[2]), `${m[1].trim()} / ${m[2]}`)
   }
   /**
@@ -273,8 +335,10 @@ export function radiusItemsInLine(line, table, consts) {
 }
 
 /** 一行源码里的圆角取档 → px 数组(`radiusItemsInLine` 到 px 的投影;既有调用方口径不变)。 */
-export function radiusPxInLine(line, table, consts) {
-  return radiusItemsInLine(line, table, consts).map((it) => it.px)
+export function radiusPxInLine(line, table, consts, opts = {}) {
+  return radiusItemsInLine(line, table, consts, opts)
+    .map((it) => it.px)
+    .filter((p) => p !== null)
 }
 
 /**
@@ -378,21 +442,33 @@ export function blockOwnerOf(prelude) {
  *  - 两端元素**不同名不配对**(kebab 的 `.mcd-upload-btn` 与 camel 的 `uploadBtn` 不并档)——
  *    这是设计而非缺陷:并档就是"猜",而猜出来的配对会产出假分叉。
  *
- * @returns {{ entries: Record<string, number[]>, unnamed: number, cssNames: string[] }}
+ * 本函数独有的三格覆盖口径(2026-09-30 O81 续票,只作用于 RE,不动 `radiusItemsInLine` 的默认口径):
+ *  - **同文件别名取用归到元素名下**:`borderRadius: INPUT_BORDER_RADIUS` 经 `radiusAliasMapOf` 解回档位
+ *    再按当前块归属;解不到的名字计入 `unresolved`(读不到 ≠ 没有,不得静默)。
+ *  - **别名声明行不重复计一次取用**:取值已在使用处归给了元素,声明行再计一次就是同一处算两遍。
+ *  - **`@media` 里的逐字副本只算一份**:样式表把同一条声明(空白归一后逐字相同)在 @media 内再写一遍是
+ *    常规响应式写法,它是副本不是第二次取用;**值不同就不是副本** ⇒ 响应式真分叉照计。
+ *
+ * @returns {{ entries: Record<string, number[]>, unnamed: number, unresolved: number, cssNames: string[] }}
  */
 export function radiusEntriesOf(src, table) {
   const lines = maskComments(src || '').split('\n')
   const entries = {}
   const cssNames = new Set()
   let unnamed = 0
+  let unresolved = 0
   const add = (name, px) => {
     if (!Number.isFinite(px) || px <= 0) return
     const cur = entries[name] || (entries[name] = [])
     if (!cur.includes(px)) cur.push(px)
   }
-  const stack = [] // { names: string[], indent: number }
+  const stack = [] // { names: string[], indent: number, media: boolean }
+  let mediaDepth = 0
   // 除法形态半径(`SIZE / 2`)的被除数常量大多定义在同一份源码里,这里归集一次供逐行使用。
   const consts = constantMapOf(src)
+  const aliases = radiusAliasMapOf(src, table)
+  const opts = { aliases, unreadable: true }
+  const records = [] // { names, items, key, media, decl }
   let pending = '' // 多行 CSS 选择器(`.a,` 换行 `.b {`)的预读
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i]
@@ -401,7 +477,10 @@ export function radiusEntriesOf(src, table) {
     const indent = raw.length - raw.trimStart().length
     const isCloser = /^[})\]]/.test(t)
     if (isCloser) {
-      while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop()
+      while (stack.length && stack[stack.length - 1].indent >= indent) {
+        if (stack[stack.length - 1].media) mediaDepth--
+        stack.pop()
+      }
     }
     const openAt = t.indexOf('{')
     let names = stack.length ? stack[stack.length - 1].names : []
@@ -413,31 +492,58 @@ export function radiusEntriesOf(src, table) {
       names = owner.names
       if (owner.css) for (const n of owner.names) cssNames.add(n)
       // 同行自包含(`card: { … },`)不入栈:入栈会把这个名字一直挂到后面的无关行上。
-      if (closes < opens) stack.push({ names, indent })
+      if (closes < opens) {
+        const media = /^@(?:media|supports)\b/.test(t)
+        stack.push({ names, indent, media })
+        if (media) mediaDepth++
+      }
     } else if (!isCloser && /^\.{1}[A-Za-z_]/.test(t)) {
       pending = (pending + ' ' + t).slice(-400)
       continue
     } else if (!isCloser) {
       pending = ''
     }
-    const pxs = radiusPxInLine(raw, table, consts)
-    if (!pxs.length) continue
+    const items = radiusItemsInLine(raw, table, consts, opts)
+    if (!items.length) continue
     /**
      * 类名串形态整条交给第二遍(只有它能归到真类名)。第一遍若也记一次,同一处取用会在
      * `unnamed` 与 `entries` 里各长一笔 —— 覆盖面读数虚高,而"有多少圆角无处归属"恰是
      * 下一票要不要扩配对判据的唯一输入,报错的数比不报更坏。
      */
     if (/\bclass(?:Name)?\s*=/.test(raw)) continue
-    if (!names.length) {
-      unnamed += pxs.length
+    records.push({
+      names: [...names],
+      items,
+      key: t.replace(/\s+/g, ''),
+      media: mediaDepth > 0,
+      decl: /^(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=/.exec(t),
+    })
+  }
+  /**
+   * 别名**使用处**的计数:声明行的值经使用处已经归到元素名下了,声明行本身不再算一次取用
+   * (否则同一处算两遍,覆盖面虚高);而**从没被用过**的别名仍留在 `unnamed` 里 —— 那是一格真读不到
+   * 元素归属的档,不能顺手抹掉。
+   */
+  const aliasUsed = new Set()
+  for (const r of records)
+    for (const it of r.items) if (it.px !== null && aliases.has(it.raw)) aliasUsed.add(it.raw)
+  const outsideMedia = new Set(records.filter((r) => !r.media).map((r) => r.key))
+  for (const r of records) {
+    if (r.media && outsideMedia.has(r.key)) continue // 逐字副本只算一份
+    if (r.decl && aliases.has(r.decl[1]) && aliasUsed.has(r.decl[1])) continue
+    const read = r.items.filter((it) => it.px !== null)
+    unresolved += r.items.length - read.length
+    if (!r.names.length) {
+      unnamed += read.length
       continue
     }
-    for (const n of names) for (const p of pxs) add(n, p)
+    for (const n of r.names) for (const it of read) add(n, it.px)
   }
   /**
    * 第二遍:`className` 串里的圆角档归给**同串里那个真实存在样式表的类名**。
    * 必须两遍分开 —— 第一遍跑完才知道本文件定义了哪些类名;先跑第一遍再跑这一遍,
    * 顺序本身是判据的一部分(反过来会有一半的类名认不出来)。
+   * 这一遍不看别名(类名串里不会有 `borderRadius:` 的标识符形态),口径与改动前逐字一致。
    */
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i]
@@ -457,6 +563,6 @@ export function radiusEntriesOf(src, table) {
     for (const n of known) for (const p of pxs) add(n, p)
   }
   for (const k of Object.keys(entries)) entries[k].sort((a, b) => a - b)
-  return { entries, unnamed, cssNames: [...cssNames].sort() }
+  return { entries, unnamed, unresolved, cssNames: [...cssNames].sort() }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

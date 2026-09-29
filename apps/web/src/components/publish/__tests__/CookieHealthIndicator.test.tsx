@@ -139,5 +139,17 @@ describe('CookieHealthIndicator 请求预算', () => {
     await waitFor(() => expect(onRefreshed).toHaveBeenCalledTimes(1))
     expect(getCookieHealthMock).not.toHaveBeenCalled()
   })
+
+  it('days_since_verified 缺省(undefined)时悬浮详情不得炸页(2026-09-29 回归)', () => {
+    // 事故:ai-service 响应脱敏中间件把 cookieHealth 对象打成 "***"(SAFE_KEYS B11),
+    // 前端读到的 days_since_verified 是 undefined;守卫若只防 null,悬浮即
+    // .toFixed() 抛 TypeError,整页落 error boundary("页面加载时发生错误")。
+    // 钉住:undefined 与 null 一体防御,悬浮正常渲染,"天数"行整体隐藏。
+    const bad = health({ days_since_verified: undefined as unknown as number | null })
+    const { container } = renderWith({ variant: 'badge+button', managed: true, health: bad })
+    fireEvent.mouseEnter(container.firstChild as Element)
+    expect(screen.getByText('cookieHealth.lastVerified')).toBeTruthy()
+    expect(screen.queryByText('cookieHealth.daysSince')).toBeNull()
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
