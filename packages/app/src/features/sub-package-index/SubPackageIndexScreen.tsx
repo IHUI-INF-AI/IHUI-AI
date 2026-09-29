@@ -4,7 +4,15 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, ScrollView, Pressable, StyleSheet, type TextStyle, type ViewStyle } from 'react-native'
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { SubPackageIndexScreenProps, SubPackageEntry } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
