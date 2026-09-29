@@ -532,6 +532,13 @@
     "mermaidSkipSourceTooLarge": "図のソースが長すぎるため、ソースコードを表示しています",
     "mermaidSkipLineCountTooLarge": "図の行数が多すぎるため、ソースコードを表示しています",
     "mermaidSkipComplexityTooLarge": "図のノードと接続が多すぎるため、ソースコードを表示しています",
+    "mermaidZoomIn": "拡大",
+    "mermaidZoomOut": "縮小",
+    "mermaidZoomReset": "ズームをリセット",
+    "mermaidZoomLevel": "ズーム倍率",
+    "mermaidZoomToFit": "画面に合わせる",
+    "mermaidCopyImage": "画像としてコピー",
+    "mermaidImageCopied": "図の画像をコピーしました",
     "pdfLoadFailed": "PDF の読み込みに失敗しました: {message}",
     "renderFailed": "描画に失敗しました: {message}",
     "unknownError": "不明なエラー",
@@ -10682,7 +10689,10 @@
     "cmdWechatArticle": "WeChat公式アカウント記事を生成してください。要件:\n1. テーマ:\n2. 要約:\n3. ハイライトマーカー(金言カード / ヒントブロック / 引用 / コードブロック / 小見出し)\n4. 画像提案:\ncontent-engineパイプラインを実行してください(摸魚緑テーマ + 22項目自己検証 + ドラフトボックスプッシュ)。",
     "codeBlock": {
       "applyToFile": "ファイルに適用",
-      "insertAtCursor": "カーソル位置に挿入"
+      "insertAtCursor": "カーソル位置に挿入",
+      "wrapOn": "コードの折り返しを有効にする",
+      "wrapOff": "コードの折り返しを無効にする",
+      "copyImage": "画像としてコピー"
     },
     "commandArg": {
       "goalBenchmark": {

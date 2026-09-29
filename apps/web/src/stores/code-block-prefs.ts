@@ -1,0 +1,34 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// D197 代码块「自动换行」用户偏好 store(v1,2026-09-30 立)。
+// - 单布尔偏好:代码块工具条开关直读直写,不派生第二状态;
+// - 持久化走既有 persist 工厂 createPersistConfig(localStorage,SSR 侧自动降级 noop),
+//   与 conversation-org / ai-panel 等同层惯例,不造第二套存储机制。
+// - 默认关闭:与代码块既有 overflow-x-auto 横滚行为一致,不改变存量观感。
+
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+
+import { createPersistConfig } from './persist-helpers'
+
+interface CodeBlockPrefsState {
+  /** 代码块是否自动换行 */
+  wrap: boolean
+  setWrap: (wrap: boolean) => void
+  toggleWrap: () => void
+}
+
+export const useCodeBlockPrefsStore = create<CodeBlockPrefsState>()(
+  persist(
+    (set) => ({
+      wrap: false,
+      setWrap: (wrap) => set({ wrap }),
+      toggleWrap: () => set((s) => ({ wrap: !s.wrap })),
+    }),
+    createPersistConfig<CodeBlockPrefsState>('ihui-code-block-prefs', (s) => ({
+      wrap: s.wrap,
+    })),
+  ),
+)

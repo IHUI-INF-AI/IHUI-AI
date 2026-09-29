@@ -532,6 +532,13 @@
     "mermaidSkipSourceTooLarge": "圖表源碼過長，已改為顯示源碼",
     "mermaidSkipLineCountTooLarge": "圖表的行數過多，已改為顯示源碼",
     "mermaidSkipComplexityTooLarge": "圖表節點與連線過多，已改為顯示源碼",
+    "mermaidZoomIn": "放大",
+    "mermaidZoomOut": "縮小",
+    "mermaidZoomReset": "重設縮放",
+    "mermaidZoomLevel": "縮放比例",
+    "mermaidZoomToFit": "適應螢幕",
+    "mermaidCopyImage": "複製為圖片",
+    "mermaidImageCopied": "圖表圖片已複製",
     "pdfLoadFailed": "PDF 載入失敗: {message}",
     "renderFailed": "渲染失敗: {message}",
     "unknownError": "未知錯誤",
@@ -10692,7 +10699,10 @@
     "cmdWechatArticle": "請幫我生成一篇公眾號文章。要求:\n1. 主題:\n2. 摘要:\n3. 重點標記(金句卡 / 提示塊 / 引用 / 代碼塊 / 小標題)\n4. 配圖建議:\n請走 content-engine 流水線(摸魚綠主題 + 22 項自檢 + 草稿箱推送)。",
     "codeBlock": {
       "applyToFile": "應用到檔案",
-      "insertAtCursor": "插入遊標處"
+      "insertAtCursor": "插入遊標處",
+      "wrapOn": "開啟程式碼換行",
+      "wrapOff": "關閉程式碼換行",
+      "copyImage": "複製為圖片"
     },
     "commandArg": {
       "goalBenchmark": {
