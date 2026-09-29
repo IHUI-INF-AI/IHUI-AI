@@ -27,6 +27,9 @@ import { useMemo } from 'react'
 
 import { splitUserMessageParts } from '@ihui/shared/chat'
 
+// 点开图片的唯一出口(与助手侧共用一份"外链开新窗 / 其余进面板"的判断)
+import { openImageSource } from '@/lib/open-image-source'
+
 export interface UserMessageBodyProps {
   content: string
   /** 供宿主与用例定位气泡内容区;命名沿用本目录 `message-*-${id}` 形态。 */
@@ -52,13 +55,22 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
       ) : null}
 
       {parts.images.map((im, i) => (
-        <img
+        // 可点开:行为走唯一出口 `openImageSource`(与助手侧同一份判断),来源档位自带 'user-attachment-image'。
+        // 无障碍名交给内层 <img alt>(不新增文案,也不在端内硬编码中文)。
+        <button
           key={`${im.url}-${i}`}
-          data-testid="user-message-image"
-          src={im.url}
-          alt={im.alt}
-          className="max-h-64 w-full rounded-lg bg-muted object-contain"
-        />
+          type="button"
+          data-testid="user-message-image-button"
+          onClick={() => openImageSource(im.url, 'user-attachment-image')}
+          className="block max-w-full overflow-hidden rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+        >
+          <img
+            data-testid="user-message-image"
+            src={im.url}
+            alt={im.alt}
+            className="max-h-64 w-full bg-muted object-contain"
+          />
+        </button>
       ))}
 
       {parts.videos.map((url, i) => (
