@@ -217,6 +217,9 @@ interface AdminNavItem {
     | 'eduCourseAudit'
     | 'eduCoursePay'
     | 'eduCoursePlatformLog'
+    | 'eduScheduleMgr'
+    | 'eduFinanceMgr'
+    | 'student'
     | 'systemLoginLogs'
     | 'systemOperationLogs'
     | 'systemTasksLog'
@@ -415,6 +418,11 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/edu/course/audit', labelKey: 'eduCourseAudit', icon: ClipboardCheck },
   { href: '/admin/edu/course/pay', labelKey: 'eduCoursePay', icon: PayIcon },
   { href: '/admin/edu/course/platform-log', labelKey: 'eduCoursePlatformLog', icon: LogIcon },
+  // 这三页早已实现、接口也在,但从未挂进这份静态清单 ⇒ 管理员只能手敲 URL 才进得去
+  // (本仓反复出现的"造好没装车"型:守门 64 / 115 同族)。
+  { href: '/admin/edu/class/schedule', labelKey: 'eduScheduleMgr', icon: School },
+  { href: '/admin/edu/student', labelKey: 'student', icon: UserSquare },
+  { href: '/admin/edu/finance', labelKey: 'eduFinanceMgr', icon: PayIcon },
   // System 模块扩展
   { href: '/admin/system/login-logs', labelKey: 'systemLoginLogs', icon: History },
   { href: '/admin/system/operation-logs', labelKey: 'systemOperationLogs', icon: FileSearch },
@@ -994,6 +1002,9 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   eduCourseAudit: 'nav.eduCourseAudit',
   eduCoursePay: 'nav.eduCoursePay',
   eduCoursePlatformLog: 'nav.eduCoursePlatformLog',
+  eduScheduleMgr: 'nav.eduScheduleMgr',
+  eduFinanceMgr: 'nav.eduFinanceMgr',
+  student: 'nav.student',
   systemLoginLogs: 'nav.systemLoginLogs',
   systemOperationLogs: 'nav.systemOperationLogs',
   systemTasksLog: 'nav.systemTasksLog',
