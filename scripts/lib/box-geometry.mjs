@@ -26,6 +26,7 @@ function findTagClose(lines, start) {
     const l = String(lines[i] ?? '')
     for (let k = 0; k < l.length; k++) {
       const ch = l[k]
+      const prev = l[k - 1] || ''
       if (inString) {
         if (ch === inString && l[k - 1] !== '\\') inString = 0
         continue
@@ -42,7 +43,15 @@ function findTagClose(lines, start) {
         ch === '>' &&
         braces <= 0 &&
         flat <= 0 &&
-        !/[=>&(<[!|?:,+\-*/%~^]/.test(l[k - 1] || '')
+        /**
+         * 前导字符黑名单**原本还含 `/`**,于是跨行书写的自闭合标签(`className` 一行、`style` 一行、
+         * `/>` 一行)永远找不到闭合 ⇒ `ownAttributeArea` 恒判"不确定" ⇒ C6/C7 对这一族全部量不到。
+         * HEAD 实测 4 处"全圆写法但量不到盒形"里有 2 处正是这个形状 —— 症状不是判错,是**免检**:
+         * 一枚 48px 的圆只要把尺寸写在上一行,就永远不出现在上限判据的射程里。
+         * 这里只把 `/` 摘出黑名单,其余(`=>` `>=` `->` `|>` 等)一字不改地继续排除;
+         * 表达式里的除法 `/` 由 `braces > 0` / `flat > 0` 那两道挡住,不会在这儿伪装成闭合。
+         */
+        !/[=>&(<[!|?:,+\-*%~^]/.test(prev)
       )
         return { end: i }
     }
@@ -370,6 +379,17 @@ export function ownShortSidePx(lines, idx, consts) {
   const c = constsForLines(lines, consts)
   let d = dimsFromText(String(lines[idx] ?? ''), c)
   if (!(d.w > 0 && d.h > 0)) d = objectDims(lines, idx, c)
+  /**
+   * 第三档兜底:**属性区跨行书写**的 JSX 元素 —— 尺寸在 `className`(常在上一两行、还套着 `cn(...)`),
+   * 半径在 `style={{ borderRadius: '50%' }}` 这一行。前两档都只看得见"本行"和"本行所属的对象字面量",
+   * 于是这一型整族量不到:HEAD 实测 4 处全圆写法里有 2 处是它,而"量不到"在上限判据那里
+   * 读起来和"没超标"一模一样 —— 一枚 40px 的圆只要把尺寸写在该行的上面一行,就能永远免检。
+   * 只认 `boxDimsOwn` 的**可确定闭合**结论(它自己已经拒绝"猜祖先"):不闭合 ⇒ 继续量不到,不猜。
+   */
+  if (!(d.w > 0 && d.h > 0)) {
+    const own = boxDimsOwn(lines, idx, c)
+    if (own.confident) d = own
+  }
   if (!(d.w > 0 && d.h > 0)) return null
   return Math.min(d.w, d.h)
 }

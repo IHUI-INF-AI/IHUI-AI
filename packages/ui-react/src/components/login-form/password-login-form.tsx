@@ -150,6 +150,12 @@ export function PasswordLoginForm({
   // 自动登录:加载时 autoLogin 为 true 且已有记住的凭据,则自动提交表单。
   // canAutoSubmitCredentials 排在最前:持久标志只说明"用户勾过自动登录",它压不过
   // "用户刚刚主动点了退出"——后者必须由调用方那侧的登出标记回答(见 props 注释)。
+  // 票 #27 web 端收口(2026-09-29)后的实态:loadRememberedCredentials() 返回的
+  // password 恒为 ''(本地不再持久化口令,自动登录由 use-auth-bootstrap 的 refresh
+  // 静默续期承担),下面 `!remembered?.password` 一条天然短路,本 effect 不再可能
+  // 重放账密。effect 与判据位序**刻意保留** —— 它是 canAutoSubmitCredentials 必填
+  // 契约的落点(apps/web auto-submit-gate-wiring 钉住),也是"未来任何人重新给这里
+  // 喂一个口令源"时必然路过的闸口。
   React.useEffect(() => {
     if (!canAutoSubmitCredentials()) return
     if (!enableCredentialPersistence) return

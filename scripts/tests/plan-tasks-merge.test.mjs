@@ -25,6 +25,7 @@ import {
   auditPlan,
   compositeKeyOf,
   keyOfRow,
+  matchBalancedGroupAt,
   titleOf,
 } from '../lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -223,6 +224,57 @@ test('T7 块级收口:开关必须真在 CLI 上,且真调落地函数', () => {
   // 与 --heal 的区别必须是**刻意的**:删行不进自动档
   const seg = src.slice(src.indexOf("has('--dedupe-blocks')"))
   if (!/if \(!has\('--commit'\)\)/.test(seg)) throw new Error('块级收口未加 --commit 时必须只出报告,不得自动删行')
+})
+
+/**
+ * T7b 未勾单行副本收口(`--dedupe-open-rows`)的装车锁。
+ *
+ * 为什么单独一条:T7 把源码读的是**磁盘**,而磁盘那份在共享工作区里常年是别人的滞后副本
+ * (2026-09-29 05:5x 实测 `scripts/plan-tasks-merge.mjs` 工作树 2656 行 vs HEAD 3546 行,且
+ * 暂存 index blob `c355678296` 按 `git log --all --find-object` **匹配不到任何祖先** ⇒ 自愈层
+ * 与守门 84 对这一型全部静默)。按磁盘判的后果有两头:副本被回写时它**跟着一起绿**,而它绿恰恰
+ * 是"这一格已被看过"的假承诺。所以本条只判**被审面(HEAD blob)**,并用构造面证明判据有牙。
+ * 四项缺一即"函数在而入口不在"(守门 70/76/81/115 同族);第四项最隐蔽:落地函数与 CLI 都在,
+ * 唯独没进 `KNOWN_FLAGS` ⇒ `inspectArgs` 把它当未知参数直接拒掉,这个出口对用户就是不存在。
+ */
+test('T7b 未勾单行副本收口:开关/落地函数/旗标白名单必须在 HEAD 面成套', () => {
+  const flagsBodyOf = (src) => {
+    const at = src.indexOf('export const KNOWN_FLAGS')
+    if (at < 0) return ''
+    const open = src.indexOf('[', at)
+    if (open < 0) return ''
+    const end = matchBalancedGroupAt(src, open, { '[': ']' })
+    return end < 0 ? '' : src.slice(open, end)
+  }
+  const gaps = (src) => {
+    const miss = []
+    if (!/has\('--dedupe-open-rows'\)/.test(src)) miss.push("CLI 未解析 --dedupe-open-rows")
+    if (!/return openRowsDedupeAndLand\(/.test(src)) miss.push('开关未真的调用 openRowsDedupeAndLand()')
+    if (!/export function openRowsDedupeAndLand/.test(src)) miss.push('落地函数未导出(在位但无人可调)')
+    if (!flagsBodyOf(src).includes("'--dedupe-open-rows'")) miss.push('旗标不在 KNOWN_FLAGS ⇒ inspectArgs 会拒掉它')
+    return miss
+  }
+  // 被审面取 HEAD:git 问不到会直接抛 ⇒ 本条判"红",不静默通过
+  const head = gitQ(ROOT, ['show', 'HEAD:scripts/plan-tasks-merge.mjs'])
+  if (!head || head.length < 1000) throw new Error(`HEAD 面取到的源码异常短(${head.length}),判据无法成立`)
+  const real = gaps(head)
+  if (real.length) throw new Error(`HEAD 面缺装车成套性:${real.join(' | ')}`)
+  // 有牙证明(构造面,不依赖仓库瞬时状态):四道各拆一次,必须各红在对应判据上
+  // 第四道的变异必须**在 KNOWN_FLAGS 数组体内**删这一项:文件里 `'--dedupe-open-rows',` 这个
+  // 字面量还出现在自检的 inspectArgs 夹具里,整串 replace 会先命中那里而白名单原样在位 —— 那样
+  // 这条变异测的是"replace 打没打到",不是"白名单缺失喊不喊"。
+  const fb = flagsBodyOf(head)
+  const flagsGap = head.replace(fb, fb.replace("'--dedupe-open-rows',", ''))
+  if (flagsGap === head) throw new Error('第四道变异没有改动文本 ⇒ KNOWN_FLAGS 体内找不到该字面量,先修夹具再谈判据')
+  const mustHit = [
+    ["CLI 未解析 --dedupe-open-rows", head.replace(/has\('--dedupe-open-rows'\)/, "has('--no-such-flag')")],
+    ['开关未真的调用 openRowsDedupeAndLand()', head.replace(/return openRowsDedupeAndLand\(/, 'return notTheLandingFn(')],
+    ['落地函数未导出', head.replace(/export function openRowsDedupeAndLand/, 'function openRowsDedupeAndLand')],
+    ['旗标不在 KNOWN_FLAGS', flagsGap],
+  ]
+  for (const [phrase, text] of mustHit) {
+    if (!gaps(text).some((m) => m.includes(phrase))) throw new Error(`变异未点名「${phrase}」⇒ 该项判据无牙`)
+  }
 })
 
 test('T8 块级收口行为:逐字相同的第 2..N 份删得对,唯一份与漂移副本一份都不许动', () => {
