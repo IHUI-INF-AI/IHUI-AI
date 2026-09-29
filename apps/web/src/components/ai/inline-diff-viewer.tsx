@@ -512,7 +512,7 @@ function ConflictPanel({
   ]
   return (
     <div
-      className="rounded-md bg-muted/20 p-2"
+      className="ui-card rounded-lg bg-muted/20 p-2"
       data-testid="diff-3way-conflict"
       data-block={block.id}
     >
