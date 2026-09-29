@@ -746,7 +746,7 @@ const StableBlock = React.memo(function StableBlock({
 }) {
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkMath]}
+      remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath]}
       rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
       components={components}
     >
@@ -1016,7 +1016,7 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
           {/* 稳定前缀:内容冻结,memo 命中时零 parse */}
           <StableBlock content={stable} components={components} />
           <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath]}
+            remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath]}
             rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
             components={components}
           >
@@ -1025,7 +1025,7 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
         </>
       ) : (
         <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkMath]}
+          remarkPlugins={[[remarkGfm, { singleTilde: false }], remarkMath]}
           rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
           components={components}
         >
