@@ -1348,7 +1348,7 @@ test('R-R 折叠判据(真临时仓端到端):对侧改写主键 ∧ 本侧未�
     g('config', 'user.email', 't@t')
     g('config', 'user.name', 't')
     g('config', 'core.autocrlf', 'false')
-    const OLD = '- [ ] G-770 折叠夹具:基底形态。'
+    const OLD = '- [ ] G-770 折叠夹具:同一议题的甲写法,含落点与判据两段说明。'
     writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# 台账\n- [ ] 公共行\n${OLD}\n`, 'utf8')
     g('add', '-A')
     g('commit', '-qm', 'base')
@@ -1360,7 +1360,7 @@ test('R-R 折叠判据(真临时仓端到端):对侧改写主键 ∧ 本侧未�
     g('add', '-A')
     g('commit', '-qm', 'ours(只加自己的行)')
     const ours = g('rev-parse', 'HEAD')
-    const NEW = '- [x] ✅(2026-09-29) G-770 折叠夹具:对侧改写后的形态。'
+    const NEW = '- [x] ✅(2026-09-29) G-770 折叠夹具:同一议题的乙写法,含落点与判据两段说明。'
     g('checkout', '-q', '-B', 'theirs', base)
     writeFileSync(DOC, `# 台账\n- [ ] 公共行\n${NEW}\n- [ ] theirs 独有\n`, 'utf8')
     g('add', '-A')
@@ -1443,4 +1443,9 @@ test('R-T 装车锁(源码级):折叠表必须接进 liveDocExpectedCounts 本�
     /const over = n - \(want\.get\(l\) \|\| 0\)/,
     '脊柱裁剪必须按**期望表**扣份数,不得在 unionLines 里再算第二次 caps(两处各写一遍必漂移)',
   )
+})
+test('R-U 装车锁(源码级):折叠判据必须先过"是不是同一件事"的相似度闸 —— 摘掉它,同号两个不同议题会被静默删掉一侧', () => {
+  const src = maskComments(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../union-converge.mjs'), 'utf8'))
+  assert.match(src, /if \(sim < SIM_THRESHOLD\) continue/, '相似度闸不得被摘掉')
+  assert.match(src, /from '\.\/lib\/live-doc-similarity\.mjs'/, '阈值与 Jaccard 必须复用那一份实现,不得在门里再写第二把尺子')
 })
