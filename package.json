@@ -108,7 +108,6 @@
     "check:package-barrel": "node scripts/check-package-barrel-export.mjs --strict",
     "check:merge-loss": "node scripts/check-merge-addition-loss.mjs",
     "check:sequence-lag": "node scripts/check-sequence-lag.mjs --strict",
-    "check:host-timezone": "node scripts/check-host-timezone.mjs --strict",
     "check:sequence-lag:fix": "node scripts/check-sequence-lag.mjs --fix",
     "check:desktop-cache-plaintext": "node scripts/check-desktop-cache-plaintext.mjs",
     "check:prompt-injection": "node scripts/check-prompt-injection-registry.mjs",

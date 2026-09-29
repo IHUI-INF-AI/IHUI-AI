@@ -48,9 +48,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // 派生下裸 'git' 依赖 PATH 会直接找不到二进制,而"自愈静默失效"正是本层要防的那一类)。
 // 判据复用守门 84(§22d 已把 CLI 入口与导出分离,import 不会触发副作用)
 import { analyze } from './check-stale-revert.mjs'
-// ②′ 通道要读两面内容(索引 blob 与 HEAD blob)—— 一律走 face-reader 那一份取材层,
-// 不在本器里自拼 `git show`(守门 118:引了层却自己读内容 = 半接线)。
-import { catBatch, catBatchSizes, gitRaw } from './lib/face-reader.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 // §26:新增临时夹具唯一落点(mkScratch 不落 os.tmpdir、不落仓库树内)。第四层取证用。
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
@@ -411,22 +409,7 @@ export function compositeDriftPaths(
  *   ③ 的后一形态是 CAS/`commit-tree` 提交后最常见的残留(本仓 2026-09-23 实测 4 个路径),
  *   只写"工作区==索引"会把它永久漏掉:那些陈旧 index blob 会一直躺在暂存区里,
  *   等任何人一次不带 pathspec 的普通 commit 把文件写回旧版。
- *
- * **第二条通道(②′,2026-09-29 立)**:③ 不成立(工作树另有现场)时,若
- *   **索引内容逐行是 HEAD 该路径内容的子集(按行重数判)**,同样刷新。
- *   理由:刷新只写索引、从不写工作树 —— 别人真正在写的现场在盘上,一行都不动;
- *   而"索引里没有一行比 HEAD 更新"这件事是**可判的**,比"工作树恰好等于索引"强得多:
- *   前者直接证明"把 index 对齐到 HEAD 不会消失任何一行已暂存内容"。
- *   立因:同一台机一天内三次把外来旧快照 `git add` 进共享索引(实测 38 个路径的暂存内容
- *   等于其祖先版本),而 ①②③ 里 ③ 把这些路径全部 held ⇒ 守门 84 每轮判红、谁碰谁被拦,
- *   修的人只能逐路径手工作业(本会话已手工收过一次,下一拍又长回来)——
- *   **判据缺的不是严格,是"能证明无损时应当动手"**。
- *   两条护栏:① 暂存删除(diff-filter=D)**永不**走这条通道(删除可以是有意意图,
- *   "索引里没有"在多重集判据里天然成立,那是把意图读成无损);
- *   ② 单侧尺寸超过 `SUBSET_MAX_BYTES`(默认 2 MB)的路径不判 —— 巨型活文档的行级子集判定
- *   每 2 分钟跑一次不划算,而那一格恰恰最不该自动动(AGENTS §12 的活文档纪律要人工归并)。
  */
-const SUBSET_MAX_BYTES = 2 * 1024 * 1024
 export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
   const g = makeGit(repoRoot)
   const staged = g(['diff', '--name-only', 'HEAD', '--cached', '--no-renames'])
@@ -466,8 +449,6 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
   }
 
   const refreshable = []
-  /** ②′ 通道的候选:③ 不成立,但索引内容逐行是 HEAD 的子集(证明见 subsetRefreshable 头注) */
-  const subsetHeld = []
   let held = 0
   for (const p of staged) {
     const ib = idxBlob.get(p)
@@ -480,97 +461,14 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
     const wt = wtBlob.get(p)
     const noLocalState = !wtBlob.size || wt === ib || wt === hb
     if (noLocalState && isAncestorBlob(g, p, ib)) refreshable.push([p, hb])
-    else subsetHeld.push(p) // 交给 ②′:能证明"索引没有一行比 HEAD 新"就刷新,否则才算 held
+    else held++
   }
-  const viaSubset = subsetRefreshable(repoRoot, subsetHeld, idxBlob, headBlob)
-  const refreshedPaths = [...refreshable, ...viaSubset]
-  held += subsetHeld.length - viaSubset.length
-  if (!refreshedPaths.length)
-    return { refreshed: 0, paths: [], held, subsetRefreshed: 0, subsetPaths: [] }
-  if (dryRun)
-    return {
-      refreshed: 0,
-      paths: refreshable.map(([p]) => p),
-      held,
-      subsetRefreshed: 0,
-      subsetPaths: viaSubset.map(([p]) => p),
-      dryRun: true,
-    }
-  for (const [p, hb] of refreshedPaths) {
+  if (!refreshable.length) return { refreshed: 0, paths: [], held }
+  if (dryRun) return { refreshed: 0, paths: refreshable.map(([p]) => p), held, dryRun: true }
+  for (const [p, hb] of refreshable) {
     g(['update-index', '--cacheinfo', `100644,${hb},${p}`])
   }
-  return {
-    refreshed: refreshedPaths.length,
-    paths: refreshedPaths.map(([p]) => p),
-    held,
-    subsetRefreshed: viaSubset.length,
-    subsetPaths: viaSubset.map(([p]) => p),
-  }
-}
-
-/**
- * ②′ 通道:索引内容是否**逐行(按重数)是 HEAD 的子集**。成立 ⇒ 对齐索引不可能让任何一行
- * 已暂存的内容消失,故"工作树另有现场"不再构成 held 的理由(刷新从不写工作树)。
- *
- * 三条不做的事,每一条都是代价换正确性:
- *  - **不看暂存删除**:`ib` 取不到就不进候选 —— "索引里没有"在多重集判据里天然成立,
- *    那会把一次有意的 `git rm` 读成无损(AGENTS §7 删除安全)。
- *  - **不碰超过 SUBSET_MAX_BYTES 的路径**:巨型活文档(PROJECT_PLAN.md 实测 15 MB)每 2 分钟
- *    做一次全量行判定不划算,而那一格恰恰最该走人工归并(§12 的活文档纪律)。
- *  - **取不到内容一律不算通过**:任何一侧读不出来 ⇒ held(判不出 ≠ 无损),
- *    并把条数带进返回值,免得"这一族没判"被读成"这一族干净"。
- */
-export function subsetRefreshable(repoRoot, candidates, idxBlob, headBlob) {
-  if (!candidates.length) return []
-  const specs = []
-  const sized = []
-  for (const p of candidates) {
-    const ib = idxBlob.get(p)
-    const hb = headBlob.get(p)
-    if (!ib || !hb) continue // 暂存删除 / 一侧不存在 ⇒ 永不自动动
-    specs.push(`:${p}`, `HEAD:${p}`)
-    sized.push(p)
-  }
-  if (!specs.length) return []
-  let sizes
-  try {
-    sizes = catBatchSizes(repoRoot, specs)
-  } catch {
-    return [] // 问不到尺寸 ⇒ 一条都不动
-  }
-  const keep = sized.filter((p) => (sizes.get(`:${p}`) ?? 1 << 30) <= (sizes.get(`HEAD:${p}`) ?? 0))
-  const readable = keep.filter(
-    (p) => (sizes.get(`:${p}`) ?? 1 << 30) <= SUBSET_MAX_BYTES && (sizes.get(`HEAD:${p}`) ?? 1 << 30) <= SUBSET_MAX_BYTES,
-  )
-  if (!readable.length) return []
-  const want = []
-  for (const p of readable) want.push(`:${p}`, `HEAD:${p}`)
-  let texts
-  try {
-    texts = catBatch(repoRoot, want)
-  } catch {
-    return [] // 取不到 ⇒ held,不猜
-  }
-  const out = []
-  for (const p of readable) {
-    const a = texts.get(`:${p}`)
-    const b = texts.get(`HEAD:${p}`)
-    if (typeof a !== 'string' || typeof b !== 'string') continue
-    if (linesAreSubMultiset(a, b)) out.push([p, headBlob.get(p)])
-  }
-  return out
-}
-
-/** 行多重集包含:a 的每一行重数 ≤ b —— 尾部空行差异不计(两次 split 同形,故无需特判)。 */
-function linesAreSubMultiset(a, b) {
-  const m = new Map()
-  for (const l of b.split('\n')) m.set(l, (m.get(l) || 0) + 1)
-  for (const l of a.split('\n')) {
-    const n = m.get(l) || 0
-    if (n === 0) return false
-    m.set(l, n - 1)
-  }
-  return true
+  return { refreshed: refreshable.length, paths: refreshable.map(([p]) => p), held }
 }
 
 /**
@@ -1242,54 +1140,6 @@ function selfTestRun() {
       readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v4 暂存后又改了\n',
     )
     g(['restore', '--staged', '--worktree', '--', 'keep.ts'])
-
-    // ⑧′ 第二条通道(②′):索引内容**逐行是 HEAD 的子集**但不是任何历史版本(拼合旧档),
-    //     而工作树另有现场 ⇒ ①②③ 挡下、②′ 放行。刷的只是索引,盘上那行新写必须一字不动。
-    writeFileSync(join(tmp, 'sub.ts'), 'k1\n')
-    g(['add', 'sub.ts'])
-    g(['commit', '-qm', 'S1 k1'])
-    writeFileSync(join(tmp, 'sub.ts'), 'k1\nk2\nk3\n')
-    g(['commit', '-qam', 'S2(HEAD) k1/k2/k3'])
-    const subBlob = g(['hash-object', '-w', '--stdin'], { input: 'k1\nk3\n' }) // 从未整体提交过 ⇒ ② 挡下
-    g(['update-index', '--cacheinfo', `100644,${subBlob.trim()},sub.ts`])
-    writeFileSync(join(tmp, 'sub.ts'), 'k1\nk2\nk3\nX 别人正在写的一行\n')
-    const rSub = refreshStaleIndex(tmp)
-    check(
-      '⑧′ 索引是 HEAD 的行子集(非祖先版本)而工作树有现场 ⇒ 走 ②′ 刷新,且不动盘上内容',
-      rSub.refreshed === 1 &&
-        rSub.subsetRefreshed === 1 &&
-        rSub.paths.join() === 'sub.ts' &&
-        g(['ls-files', '-s', '--', 'sub.ts']).split(/\s+/)[1] ===
-          g(['rev-parse', 'HEAD:sub.ts']).trim() &&
-        readFileSync(join(tmp, 'sub.ts'), 'utf8') === 'k1\nk2\nk3\nX 别人正在写的一行\n',
-    )
-    // ⑧″ 反向对照:索引里有**一行 HEAD 没有**(= 别人真暂存的新工作)⇒ 两条通道都不许动
-    writeFileSync(join(tmp, 'sub2.ts'), 'c1\nc2\n')
-    g(['add', 'sub2.ts'])
-    g(['commit', '-qm', 'T1 c1/c2'])
-    const newWork = g(['hash-object', '-w', '--stdin'], { input: 'c1\nc2\n别人新加的字段\n' })
-    g(['update-index', '--cacheinfo', `100644,${newWork.trim()},sub2.ts`])
-    writeFileSync(join(tmp, 'sub2.ts'), 'c1\nc2\n别人新加的字段\n再改一行\n')
-    const rKeep = refreshStaleIndex(tmp)
-    check(
-      '⑧″ 索引含 HEAD 没有的行 ⇒ held(新通道不得把"真新暂存"读成无损)',
-      !rKeep.subsetPaths.includes('sub2.ts') &&
-        !rKeep.paths.includes('sub2.ts') &&
-        g(['ls-files', '-s', '--', 'sub2.ts']).split(/\s+/)[1] === newWork.trim() &&
-        readFileSync(join(tmp, 'sub2.ts'), 'utf8') === 'c1\nc2\n别人新加的字段\n再改一行\n',
-    )
-    // ⑧‖ 删除护栏:暂存删除在多重集判据里"天然无损"(索引里没有该行),但它**可以**是有意的
-    //    `git rm` ⇒ 新通道必须完全不碰删除路径(AGENTS §7 删除安全)。
-    g(['rm', '-q', '--cached', '--', 'sub.ts'])
-    const rDel = refreshStaleIndex(tmp)
-    check(
-      '⑧‖ 暂存删除永不走 ②′(删除可能是有意意图,不是"没有行")',
-      !rDel.paths.includes('sub.ts') && !rDel.subsetPaths.includes('sub.ts'),
-    )
-    g(['update-index', '--add', '--cacheinfo', `100644,${g(['rev-parse', 'HEAD:sub.ts']).trim()},sub.ts`])
-    writeFileSync(join(tmp, 'sub.ts'), 'k1\nk2\nk3\n')
-    writeFileSync(join(tmp, 'sub2.ts'), 'c1\nc2\n')
-    g(['add', 'sub2.ts']) // 复位到 HEAD 形态即止(不额外造提交,`commit -a` 在无差异时会直接失败)
 
     // ⑨ 落后索引(CAS/converge 只推进 HEAD 的后遗症)⇒ 逐路径刷新,并随之对齐工作区
     writeFileSync(join(tmp, 'keep.ts'), 'v9\n')
