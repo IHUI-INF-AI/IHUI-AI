@@ -4,7 +4,7 @@
 
 import { useMemo } from 'react'
 import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
-import { ChevronLeft, Check } from 'lucide-react-native'
+import { Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AskDetailScreenProps } from '../../types'
 
@@ -36,8 +36,9 @@ export function AskDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error || t('askDetail.loadFailed')}</Text>
-        <TouchableOpacity style={styles.btn} onPress={onBack} accessibilityLabel={t('common.back')}>
-          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
+        <TouchableOpacity style={styles.btn} onPress={onBack}>
+          <Text style={styles.btnText}>{t('common.back')}</Text>
         </TouchableOpacity>
       </View>
     )
@@ -104,6 +105,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
+    btnText: { color: tk.surface.light, fontSize: 16 },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     metaRow: {
       flexDirection: 'row',
