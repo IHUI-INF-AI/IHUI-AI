@@ -19646,3 +19646,39 @@ services 归档/分享/HTTP 层)判"值得抄"的 **26 条**逐条立项(每条�
 - [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「D13」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 D13 逐消息上下文可解释视图(G-10)。V2 深化口径(2026-09-19 晚):须含 auto_context codebase 命中/RAG chunk/Wiki 片段/记忆卡四类注入明细,对标 Qoder Summary 可点击链接 **进度(2026-09-24)**:主体由 D37 ContextAssemblyBar 装配查看器闭合(注入明细逐 kind 本地化+fullText 可展开+citations/steer/retry 来源分组);剩余=Qoder Summary 式「可点击链接跳转到源」的交互细节,待装配查看器上线后按用户反馈定优先级。
 - [x] ✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「D13」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 D13 逐消息上下文可解释视图(G-10)。V2 深化口径(2026-09-19 晚):须含 auto_context codebase 命中/RAG chunk/Wiki 片段/记忆卡四类注入明细,对标 Qoder Summary 可点击链接 **进度(2026-09-24)**:主体由 D37 ContextAssemblyBar 装配查看器闭合(注入明细逐 kind 本地化+fullText 可展开+citations/steer/retry 来源分组);剩余=Qoder Summary 式「可点击链接跳转到源」的交互细节,待装配查看器上线后按用户反馈定优先级。
 - [x] ✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「D13」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 D13 逐消息上下文可解释视图(G-10)。V2 深化口径(2026-09-19 晚):须含 auto_context codebase 命中/RAG chunk/Wiki 片段/记忆卡四类注入明细,对标 Qoder Summary 可点击链接 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L2552,派单以那条为准,本行不再单独派单。〕
+
+- G-916417 接上一条的后续三格(2026-09-29 同日续做,清单里"六格"中的 ②③⑥ 已清偿,⑥ 另立判据):
+  - **缴费录不进去的入口已修**:`POST /payment-record` 旧契约要求 `studentId/classId` 为 uuid,
+    而 web「添加缴费记录」弹窗把**学员姓名/班级名/费用名三个自由文本**原样 POST ⇒ zod 必 400 ⇒
+    这个按钮实际从未成功过一次(机构录不进钱,欠费数字永远停在旧值,催缴照发)。
+    现契约改为 **enrollmentId 必填**:归属一律由服务端从报名行取(唯一权威),
+    请求自报的 studentId/classId 只作一致性校验、不一致即拒 —— 采信自报等于让调用方把钱记到别人账上。
+    同步改两个承载:`apps/web/.../edu-management/finance/page.tsx` 弹窗改成"选期次"(名册端点选 enrollmentId,
+    欠费额由后端带、不在前端减),`apps/ai-service/app/services/mcp_server.py` 的
+    `edu_create_payment_record` 工具声明与 handler 同步改必填 enrollmentId
+    (只改 api 不改它会静默变成"AI 侧缴费永久 400")。
+  - **家长端有了账单落点**:新增只读端点 `GET /parent/children/:childId/bills`
+    (childId 必须在调用者自己的 confirmed 绑定集内;绑定不存在一律 403 不回 404,
+    否则端点自己变成"这个孩子是否存在"的预言机),`edu/parent` 门户加 `bills` 一档 subTab。
+    页内不算减法,`ledger` 取不到时明写「账目未就绪」而不是凑一个数字。
+    10 个 eduParent 文案 key 走 i18n 流水线补齐五语。
+  - **防回潮尺子已立**:`scripts/check-edu-arrears-single-source.mjs`(手动问责档,**尚未注册进提交链**,
+    注册与 skipEnv 声明由接线动作一并补)。AR1 拦"在账目出口之外重写欠费算式(减法/比较)",
+    AR2 拦"update(eduEnrollment) 的 set 里裸写 paidAmount/nextDueDate"。
+    算式收口成出口导出的 `arrearsSqlExpr()/hasArrearsCond()` 两个构造函数,所以列表与定时扫描
+    既保住 SQL 性能又不留第二份文本。取证:自检 18 条(构造面成对正反例)+ §22c 镜像 7 例
+    (含"阳性对照必须钉出处 ref 而不是钉 HEAD" —— 把重构前那份路由喂同一判据命中 2 处,
+    而 HEAD 面存量已收净,钉 HEAD 会让这条证明随账一起消失)。
+    豁免族 `arrears-single-source-exempt` 同笔进守门 108 的 30 天存活期档(不登记就会被邻居
+    E4 判成"新引入的未登记豁免族",即这道门自己的合法出口被钉红)。
+  - **落地时抓到并修掉的两处自伤**(留着是因为它们都会以"数字看起来合理"的形态存在):
+    ① 门体在块注释里逐字写出了注释闭合序列 ⇒ 注释提前结束、词法一路漂到三十行外的反引号才炸
+    (AGENTS §22c 记过同型:"说明性文字也会带执行性字符");
+    ② `gitRaw` 的签名是 `(args, root, opts)`,我按 `(root, args)` 写 ⇒ 枚举返回 undefined ⇒
+    扫到 0 个文件,而"0 个"读起来和"都没违规"一模一样 —— 本门靠"空枚举判死 exit 2"才没让它伪装成绿。
+  - **i18n-apply 的滞后底稿必须复验**(本仓活文档那一坑在语言包上重现):apply 按工作树副本写,
+    而工作树 `web/zh-CN.json` 缺 4 个别人**已入库**的 `ai.pane.errorCatalog.*` 叶 ⇒ 直接提交就是
+    把别人的键删掉(守门 KR 会红,但根本不该让它红)。处置 = 逐字从 HEAD blob 补回缺失叶(五语各 4 个),
+    保留别人**在飞未入库**的 4 个 `llmSettings.v2.health.*`,复验"逐语言丢 0 / 我的 10 键齐"。
+    另注:`check-i18n-keys` 默认档判 **HEAD blob**,所以它此刻的绿**不包含**工作树改动 ——
+    工作树与 HEAD 的键集对账必须另算,不能拿那道门的绿当自己的合格证。
