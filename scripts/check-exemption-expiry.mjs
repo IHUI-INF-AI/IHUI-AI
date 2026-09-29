@@ -79,12 +79,6 @@ const FAMILY_LIFETIME_DAYS = {
    * 表里若再出现它们,即"通道被悄悄接回来",由门 77 的镜像 T-B8 与本门的族表用例各拦一半。
    */
   'arch-exempt': 90,
-  // 守门「教育欠费口径单一出口对账」(check-edu-arrears-single-source)的行内出口:
-  // 豁免的是"这里确实需要在出口外表达一次欠费"的待偿算法债,出路只有把算式并入出口或
-  // 引用 arrearsSqlExpr()/hasArrearsCond() 两条,所以取最短档 30 天,到期由人重新定性。
-  // 同笔登记的理由:一条没有到期档的豁免出口 = 无人看管的出口,而守门 108 对未登记族
-  // 只报数不判红,账面看起来是绿的。
-  'arrears-single-source-exempt': 30,
   'ihui-allow-important': 90,
   'brand-mail-exempt': 30,
   // 守门 137(名字承诺/实现兑现对账)的行内出口:豁免的是"命名没错、判据看不见"的那一类,
