@@ -20047,7 +20047,7 @@
       "batchScanWaitingHintExternal": "Opened in your everyday browser — please finish signing in there (your sign-in state was not readable yet)",
       "batchScanWaitingHintExternalOwn": "Opened in your everyday browser; already signed-in platforms are saved automatically, just sign in once for the rest",
       "batchScanStart": "Start batch scan",
-      "batchScanWaitingHint": "Scan or log in on the built-in browser on the right. Each platform times out after 2 minutes and is skipped automatically; you can also skip manually.",
+      "batchScanWaitingHint": "Scan the QR code below with your phone to sign in to this platform. Each platform times out after 2 minutes and is skipped automatically; you can also skip manually.",
       "batchScanLoading": "Preparing platform queue...",
       "batchScanSkip": "Skip this platform",
       "batchScanStop": "Stop queue",
