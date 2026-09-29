@@ -5,7 +5,7 @@
 // 一次性:把合并"顶掉"的那 30 条归并落账注记点名出来(工具只报总数)
 // 用法:在干净检出里跑  node .ihui-agent/tmp/uc/name-f5.mjs <theirs-sha>
 import { execFileSync } from 'node:child_process'
-import { unionLines } from '../../union-converge.mjs'
+import { unionLines } from '../union-converge.mjs'
 
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim()
 const g = (args) =>
