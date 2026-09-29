@@ -54,8 +54,10 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         "success_cookies": ["z_c0"],
         "success_url_pattern": r"^https?://(www\.)?zhihu\.com/?($|#|\?)|/people/|/follow",
         "fallback_url_pattern": r"^https?://(www\.)?zhihu\.com/?$",
-        # 2026-09-30 实测:「其他扫码方式:微信」(Qrcode-guide-message)合成点击不触发
-        # 码切换(监听绑内层节点),微信通道放弃,走知乎 App 扫码。
+        # 2026-09-30 实测:默认 tab 即「打开知乎App」码,链路本就可用;微信切换合成点击
+        # 不触发(监听绑内层节点)留档放弃。码载体 = canvas.Qrcode-qrcode 但**画入了跨域
+        # 图被污染(TAINTED),toDataURL 抛 SecurityError** → 无法提取,回退截图兜底
+        # (截图路径的 _find_qr_clip 会裁码区,体验可接受)。
     },
     "bilibili": {
         "name": "B站",
@@ -86,15 +88,20 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         "login_url": "https://www.douyin.com/",
         "success_cookies": ["sessionid", "uid_tt", "sid_tt"],
         "success_url_pattern": r"douyin\.com/$",
-        # 2026-09-30 探针实测:抖音登录页无任何微信入口(全平台唯一),走 App 扫码
+        # 2026-09-30 探针实测:抖音登录页无任何微信入口(全平台唯一),走 App 扫码。
+        # 登录弹层自动弹出、默认「扫码登录」tab 即 App 码,链路本就可用。
+        # 码载体未定位到 img/canvas(渲染方式待逆向)→ 暂走截图兜底。
     },
     "kuaishou": {
         "name": "快手",
         "login_url": "https://www.kuaishou.com/",
         "success_cookies": ["userId", "kuaishou.server.web_st"],
         "success_url_pattern": r"kuaishou\.com/$",
-        # 2026-09-30 实测:需先点「立即登录」弹层,但弹层内只有「快手APP登录/手机号登录」
-        # 两个 tab,无微信码入口(探针命中的「微信扫码」是页面隐藏元素)→ 走 App 扫码。
+        # 2026-09-30 实测:需先点「立即登录」弹层(默认「快手APP登录」tab 即 App 码);
+        # 弹层无微信入口(探针命中的「微信扫码」是页面隐藏元素)→ 走 App 扫码。
+        "scan_tab_selectors": ('text=立即登录',),
+        # 码图直接获取:弹层内唯一大尺寸 data:PNG img(无类名,提取器带 ≥120px 过滤)
+        "qr_image_selectors": ('img[src^="data:image"]',),
     },
     "csdn": {
         "name": "CSDN",
@@ -109,8 +116,10 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         "login_url": "https://juejin.cn/login",
         "success_cookies": ["sessionid", "signatureId"],
         "success_url_pattern": r"^https?://(www\.)?juejin\.cn/?($|#|\?)|/dashboard",
-        # 2026-09-30 实测:第三方「微信」图标是 OAuth 弹窗模式(点开独立窗口扫码),
-        # 主页面截图架构拿不到弹窗里的码 → 保持默认掘金 App 扫码,不配微信计划。
+        # 2026-09-30 实测:右侧「扫码登录」默认即掘金 App 码(img.qrcode-img,data:PNG),
+        # 链路本就可用。第三方「微信」图标是 OAuth 弹窗模式,主页面截图架构拿不到
+        # 弹窗里的码 → 不配微信计划。
+        "qr_image_selectors": ('img.qrcode-img',),
     },
     "shipinhao": {
         "name": "视频号",
@@ -1538,13 +1547,68 @@ def _find_qr_clip(pg: Any, vp_w: int, vp_h: int) -> dict[str, float] | None:
     return None
 
 
-def _update_qr_screenshot(task: ScanTask, page: Any) -> None:
-    """更新任务的二维码截图(base64 PNG)。
+def _extract_qr_image(page: Any, selectors: Sequence[str]) -> str | None:
+    """2026-09-30 统一「码图直接获取」:按平台配置的选择器定位码载体,提取原图。
 
+    与头条纯 HTTP 通道同一目标 —— 弹窗给用户的是干净的官方二维码原图,而不是
+    登录页截图。支持两类载体:
+    - <img>:src 为 data:image/* 直接解码;http(s) src 服务端拉取(头条同款手法)
+    - <canvas>:toDataURL('image/png') 导出(知乎等 canvas 渲染码)
+    任一命中(渲染宽 ≥120px 防误抓图标)即返回 base64 PNG;全败返回 None,
+    调用方回退截图兜底 —— 提取不到不影响出码,只是退回旧体验。
+    """
+    for sel in selectors:
+        try:
+            loc = page.locator(sel)
+            # 浏览器端一次性预筛(可见 + 渲染宽 ≥120px)再逐个提取:
+            # 快手等页面存在几十个 16px data:PNG 图标,码 img 排位靠后,
+            # 逐个 is_visible 遍历既慢又会被 count 截断漏掉真码
+            idxs = loc.evaluate_all(
+                "els => els.map((el, i) => ({ i, w: Math.round(el.getBoundingClientRect().width),"
+                " vis: !!el.offsetParent })).filter(x => x.vis && x.w >= 120).map(x => x.i)"
+            )
+            for i in idxs[:5]:
+                cand = loc.nth(i)
+                data_url: str | None = cand.evaluate(
+                    "el => el.tagName === 'CANVAS' ? el.toDataURL('image/png') : el.src"
+                )
+                if not data_url:
+                    continue
+                if data_url.startswith(("data:image/png", "data:image/jpeg")):
+                    _, _, b64 = data_url.partition(",")
+                    if b64:
+                        return b64
+                elif data_url.startswith(("http://", "https://")):
+                    import httpx
+
+                    r = httpx.get(data_url, timeout=10.0, follow_redirects=True)
+                    if r.status_code == 200 and r.content[:8].startswith(b"\x89PNG"):
+                        return base64.b64encode(r.content).decode("ascii")
+        except Exception as e:  # noqa: BLE001 — 单个候选失败继续下一个
+            logger.debug(f"[scan_login] 码图提取候选失败 {sel}:{e}")
+    return None
+
+
+def _update_qr_screenshot(task: ScanTask, page: Any) -> None:
+    """更新任务的二维码图(base64 PNG)。
+
+    2026-09-30 统一「码图直接获取」优先:平台配置 qr_image_selectors 时先尝试
+    提取官方码原图(与头条纯 HTTP 通道同一用户体验),失败回退原有截图路径。
     优先只截二维码那一块(见 `_find_qr_clip`);量不到合格盒子时退回整屏 ——
     退回不是失败:整屏至少还能看到页面,比什么都不返回好。
     2026-09-29:主页面全落空时,再试上下文其它页(sohu 登录层开新窗形态)。
     """
+    # 2026-09-30 统一「码图直接获取」:平台配置了 qr_image_selectors 就先提取原图
+    extract_selectors = PLATFORM_SCAN_CONFIG.get(task.platform, {}).get("qr_image_selectors")
+    if extract_selectors:
+        extracted = _extract_qr_image(page, extract_selectors)
+        if extracted:
+            with task._lock:
+                task.qr_image_b64 = extracted
+                task.qr_image_updated_at = time.time()
+            _persist_task(task)
+            return
+        logger.debug(f"[scan_login] {task.platform} 码图提取落空,回退截图兜底")
     clip: dict[str, float] | None = None
     target = page
     try:
