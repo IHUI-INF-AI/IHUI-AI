@@ -30,6 +30,19 @@ import {
   isPrivateOrReservedIp,
 } from '@ihui/shared/utils/ssrf-guard';
 import type * as SsrfGuardModule from '@ihui/shared/utils/ssrf-guard';
+import type * as FetchUrlEgressModule from '../src/tools/fetch-url-egress.js';
+
+// 字面出口守卫(G-937973)在 SSRF 守卫**之前**判定 URL 字面量:探针端口听在 127.0.0.1,
+// 该守卫的正确行为恰恰是拒绝回环字面量(EgressBlocked),会把本文件要证明的"SSRF 守卫
+// 未桩真链路"整个短路掉。这里只桩字面守卫,SSRF 守卫保持真实执行;字面守卫自身的
+// 判定与接线由 tests/fetch-url-egress.test.ts 证明。
+vi.mock('../src/tools/fetch-url-egress.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof FetchUrlEgressModule>();
+  return {
+    ...actual,
+    assertFetchLiteralEgress: () => {},
+  };
+});
 
 /** 名单里每一条 CIDR 各造一个命中地址(取网段基址,稳定且必然落在该段内)。 */
 function addressInCidr(cidr: string): string {
