@@ -86,6 +86,11 @@ export interface InteractionVerdict {
   readonly allowed: boolean
   /** 拒绝提示键(`denied.<action>`,渲染层在 D69 命名空间下加 `queue.` 前缀消费,即 `ai.pane.inputNotices.queue.denied.<action>`);allowed=true 时恒 null */
   readonly deniedKey: string | null
+  /**
+   * **具体条件**文案键(`denied.cause.<reason>`,D162 ①)。allowed=true 时恒 null。
+   * 渲染层禁止把 action 键与 cause 键合成一句"当前不可用" —— 那等于没写。
+   */
+  readonly causeKey: string | null
 }
 
 /**
@@ -143,12 +148,33 @@ function assertNeverDeniedAction(action: never): never {
  * 命名空间下加 `queue.` 前缀取词,单一文案本体):
  *   reorder → denied.reorder / undo,edit → denied.undo / interruptAndRun → denied.interject
  */
+/**
+ * 具体条件文案键(D162 ①):`denied.<action>` 只说"不能做什么",这一份说"为什么不能"。
+ * 穷尽 switch、无 default —— 漏一个因 ⇒ `reason` 收窄不成 `never`,编译期就红(与本文件
+ * `denyReasonFor` 同一条纪律)。键名与五份词包里的 `queue.denied.cause.*` 逐字同形。
+ */
+function deniedCauseKey(reason: QueueDenyReason): string {
+  switch (reason) {
+    case 'streaming':
+      return 'denied.cause.streaming'
+    case 'emptyQueue':
+      return 'denied.cause.emptyQueue'
+    case 'runtimeNoInterject':
+      return 'denied.cause.runtimeNoInterject'
+  }
+  return assertNeverDenyReason(reason)
+}
+
+function assertNeverDenyReason(reason: never): never {
+  throw new Error(`unhandled queue deny reason: ${String(reason)}`)
+}
+
 export function interactionAllowed(
   kind: QueueInteractionKind,
   perms: QueueInteractionPerms,
 ): InteractionVerdict {
   const d69Action = d69ActionOf(kind)
-  if (d69Action === null) return { allowed: true, deniedKey: null }
+  if (d69Action === null) return { allowed: true, deniedKey: null, causeKey: null }
 
   const allowed =
     d69Action === 'reorder'
@@ -156,10 +182,14 @@ export function interactionAllowed(
       : d69Action === 'undo'
         ? perms.canUndo
         : perms.canInterject
-  if (allowed) return { allowed: true, deniedKey: null }
+  if (allowed) return { allowed: true, deniedKey: null, causeKey: null }
+  const reason = denyReasonFor(d69Action, perms)
   return {
     allowed: false,
-    deniedKey: deniedNotice(d69Action, denyReasonFor(d69Action, perms)),
+    deniedKey: deniedNotice(d69Action, reason),
+    // D162 ①:"不能做什么"之外必须同时给出"为什么不能"。原因只由本文件的 denyReasonFor 判一次,
+    // 端内不得再抄一张 reason→文案 的表(两处算同一件事必漂移)。
+    causeKey: deniedCauseKey(reason),
   }
 }
 
