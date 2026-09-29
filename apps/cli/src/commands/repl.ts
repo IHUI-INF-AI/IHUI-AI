@@ -24,11 +24,6 @@ import { setupAgentTools, runToolLoop, decideCompaction, createTerminalDeltaSink
 import { createAuditedDangerGate } from '../tools/danger-gate-audit.js';
 import { InterjectionBuffer } from '../interjection.js';
 import { renderSlashHelp, suggestSlashCommands, slashCompleter } from './slash-registry.js';
-import {
-  buildCustomCommandInvocation,
-  CustomCommandError,
-  type CustomCommandInvocation,
-} from './custom-commands.js';
 // P0 CLI 友好度优化(2026-07-31):4 个新命令模块
 import { handleTasksCommand, renderCompactProgress as renderTasksProgress } from './tasks.js';
 import { handleConfigCommand } from './config-cmd.js';
@@ -1807,45 +1802,19 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       break;
 
     default: {
-      // 自定义命令的唯一入口,刻意落在 default: —— 内置命令都是本 switch 的 case,
-      // 所以「/sessions.md 抢走内置 /sessions」这类劫持在结构上不可能发生,
-      // 不依赖保留名清单是否列全(slash-registry 对少数分支本就漏项)。
-      let invocation: CustomCommandInvocation;
-      try {
-        invocation = buildCustomCommandInvocation(cmd, input.slice(1 + cmd.length).trim());
-      } catch (e) {
-        // 命令确实存在,只是这一条跑不了(动态 shell / 参数不足 / 空正文 / 名字不合法)。
-        // 文案已可操作,念出来即可 —— 不许吞,也不许退化成"未知命令"(那是把真缺陷说成拼错)。
-        if (e instanceof CustomCommandError) {
-          console.info(chalk.yellow(`\n✗ ${e.message}\n`));
-          break;
+      console.info(chalk.yellow(`\n✗ 未知命令: /${cmd}`));
+      const suggestions = suggestSlashCommands(cmd);
+      if (suggestions.length > 0) {
+        console.info(chalk.dim(`  ↳ 你是否想用:`));
+        for (const s of suggestions) {
+          console.info(`    ${chalk.cyan(`/${s.name.padEnd(12)}`)}  ${chalk.dim(s.description)}`);
         }
-        throw e;
+      } else {
+        console.info(chalk.dim('  ↳ /help 查看所有可用命令'));
       }
-      if (invocation.handled) {
-        await sendToAgent(invocation.prompt, state);
-        break;
-      }
-      reportUnknownSlashCommand(cmd);
-      // reason==='reserved' 时不补提示:名单漏项才会走到这里,而那时内置分支已经接住了。
-      if (invocation.message) console.info(chalk.dim(`  ↳ ${invocation.message}`));
       console.info('');
       break;
     }
-  }
-}
-
-/** 「这不是命令」的既有报告形态,原样保留(近似建议对拼错内置名的用户仍然最有用)。 */
-function reportUnknownSlashCommand(cmd: string): void {
-  console.info(chalk.yellow(`\n✗ 未知命令: /${cmd}`));
-  const suggestions = suggestSlashCommands(cmd);
-  if (suggestions.length > 0) {
-    console.info(chalk.dim(`  ↳ 你是否想用:`));
-    for (const s of suggestions) {
-      console.info(`    ${chalk.cyan(`/${s.name.padEnd(12)}`)}  ${chalk.dim(s.description)}`);
-    }
-  } else {
-    console.info(chalk.dim('  ↳ /help 查看所有可用命令'));
   }
 }
 
