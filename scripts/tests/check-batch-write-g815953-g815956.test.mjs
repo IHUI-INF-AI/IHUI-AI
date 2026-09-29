@@ -4,7 +4,9 @@
 
 /**
  * 镜像测试(§22c 模式 —— 判据与取材一律从守门 134 的 `__test__` 取,**不在这里抄第二份正则**):
- * 两张关联票的判据本体正反成对 + 棘轮端到面。
+ * 关联票的判据本体正反成对 + 棘轮端到面。文件名里的 G-815953/G-815956 是首两张票;G-815955(B5)
+ * 同属守门 134 的判据族,经本票拍板**追加在本文件**(不另起新文件):B5 与 B4 同为棘轮专用维,
+ * 取材/棘轮口径同构,分开文件只会让"同一把尺子"看起来像两把。
  *
  *  - G-815953(B3):批量回填的 UPDATE 必须带「上一次迁移应用时刻」的时间上界谓词。
  *    红:写迁移记账列(migrationBatch/migration_batch/legacyId/legacyTable…)而 where 无
@@ -16,6 +18,14 @@
  *    绿:补 and(eq(t.status,…)) 或同列 ne/inArray 前置;
  *    棘轮专用维:head+strict 只报数不判红(decide 签名刻意不收 b4Violations —— 结构锁),
  *    staged 净新增即红(kind='b4',锚点 = 该文件 HEAD 自身计数,新文件锚点 0)。
+ *  - G-815955(B5):按可空/非唯一排序列 ORDER BY 必须带确定性尾键(同值行两次查询间座位不定 ⇒ 分页漂移;
+ *    上游经验 `order by sequence is null, sequence, time_created, rowid` 每级都有确定性尾键)。
+ *    红:单键 `orderBy(asc(t.sortOrder))`/`orderBy(desc(t.<族列>))`(族 = sortOrder/sortOrderInGroup/
+ *    position/sequence)而无后续尾键;绿:补 `…, desc(t.createdAt), asc(t.id))`(尾键最后一键能唯一定位行);
+ *    **与 B4 同构的棘轮专用维**:head+strict 只报数不判红(decide 签名刻意不收 b5Violations —— 结构锁),
+ *    staged 净新增即红(kind='b5',锚点 = 该文件 HEAD 自身计数,新文件锚点 0)。
+ *    首落点:apps/api/src/db/billing-queries.ts findPlans 的单键 `asc(plans.sortOrder)` 已随本票补尾键;
+ *    判不了的形态(变量键 / sql` 模板 / 裸 SQL SELECT…ORDER BY / services/ 面)见守门头注 B5 段,不进面。
  *
  * **票面镜像形状的偏差说明(如实登记)**:票 A 红例写作"无界 where isNull(x)",但软删形状
  * `set({deletedAt:…}).where(and(eq(…), isNull(…)))` 与回填词法同形且 HEAD 实测十几处,按 isNull
@@ -58,6 +68,9 @@ const B3_REL = 'apps/api/src/db/backfill-g815953.ts'
 const B3_MORE_REL = 'apps/api/src/db/backfill-g815953-more.ts'
 const B4_REL = 'apps/api/src/db/status-g815956.ts'
 const B4_NEW_REL = 'apps/api/src/db/status-g815956-more.ts'
+// G-815955(B5):追加在本文件的第三张关联票(见头注),夹具落点与 B3/B4 同面。
+const B5_REL = 'apps/api/src/db/orderby-g815955.ts'
+const B5_NEW_REL = 'apps/api/src/db/orderby-g815955-more.ts'
 
 /** 直测夹具统一包进函数体(与真实落点同形,也避开"无函数体"的口径)。 */
 const wrap = (body) =>
@@ -71,6 +84,17 @@ const wrap = (body) =>
   ].join('\n')
 const b3Scan = (body) => T.scanFileText(DB_REL, wrap(body)).b3
 const b4Scan = (body) => T.scanFileText(DB_REL, wrap(body)).b4
+/** B5 直测夹具:orderBy 是读链,import 面换成 asc/desc(判据是词法的,import 行只为同形)。 */
+const b5Wrap = (body) =>
+  [
+    "import { asc, desc, sql } from 'drizzle-orm'",
+    "import { db } from './index.js'",
+    'export async function go(x, y) {',
+    body,
+    '}',
+    '',
+  ].join('\n')
+const b5Scan = (body) => T.scanFileText(DB_REL, b5Wrap(body)).b5
 
 /* ------------------------------- 临时 git 仓 ------------------------------- */
 
@@ -249,9 +273,12 @@ test('§22c 取材锁:__test__ 新出口在位,镜像测试不养第二份判据
   for (const [k, check] of [
     ['findBackfillBoundSites', (v) => typeof v === 'function'],
     ['findTerminalStateSites', (v) => typeof v === 'function'],
+    ['findOrderByTailKeySites', (v) => typeof v === 'function'],
     ['MIGRATION_COL_RE', (v) => v instanceof RegExp],
     ['BACKFILL_BOUND_RE', (v) => v instanceof RegExp],
     ['STATE_LITERAL_KEY_RE', (v) => v instanceof RegExp],
+    ['RISKY_ORDER_COL_RE', (v) => v instanceof RegExp],
+    ['ORDER_SINGLE_KEY_RE', (v) => v instanceof RegExp],
   ]) {
     if (!check(T[k]))
       throw new Error(`守门 __test__ 必须导出 ${k},镜像判据只此一份实现,实得 ${typeof T[k]}`)
@@ -409,6 +436,101 @@ test('G-815956 CLI 端到面:存量 head+strict 只报数不判红;staged 净新
     const r = (more.j.ratcheted || []).find((e) => e.kind === 'b4')
     if (!r) throw new Error(`ratcheted 必须含 kind='b4':${JSON.stringify(more.j.ratcheted)}`)
     if (r.file !== B4_NEW_REL || r.anchor !== 0 || r.added !== 1)
+      throw new Error(`新文件的锚点必须是 0:${JSON.stringify(r)}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/* --------------------------- G-815955:B5 判据直测 --------------------------- */
+
+test('G-815955 B5 正反成对:单键无尾键红 / 补尾键绿 / desc·sequence 变体 / 反假阳与判不了格不进面', () => {
+  // 红:票面红例逐字形状 —— 单键 asc(sortOrder),同值行两次查询间没有确定座位(分页漂移)。
+  const bad = b5Scan('  await db.select().from(plans).orderBy(asc(plans.sortOrder))')
+  if (bad.violations.length !== 1 || bad.candidates.length !== 1)
+    throw new Error(`单键无尾键必须 1 违规 1 候选,实得 ${JSON.stringify(bad)}`)
+  if (bad.violations[0].col !== 'sortOrder' || bad.violations[0].via !== 'drizzle')
+    throw new Error(`落点字段不对:${JSON.stringify(bad.violations[0])}`)
+  if (!/单键排序无确定性尾键/.test(bad.violations[0].orderByWhy || ''))
+    throw new Error(`红点必须说清缺什么:${bad.violations[0].orderByWhy}`)
+
+  // 绿:票面正例 —— 补 desc(createdAt), asc(id) 确定性尾键;首键同族但后面还有键 ⇒ 放过。
+  const green = b5Scan(
+    '  await db.select().from(plans).orderBy(asc(plans.sortOrder), desc(plans.createdAt), asc(plans.id))',
+  )
+  if (green.violations.length !== 0 || green.candidates.length !== 1)
+    throw new Error(`补尾键必须绿:${JSON.stringify(green)}`)
+  if (green.candidates[0].disposition !== 'tail-key')
+    throw new Error(`处置必须是 tail-key:${JSON.stringify(green.candidates[0])}`)
+
+  // 变体:desc + sequence 同判红 —— 键族与方向都不限 sortOrder·asc(判据按族划线)。
+  const seq = b5Scan('  await db.select().from(tasks).orderBy(desc(tasks.sequence))')
+  if (seq.violations.length !== 1 || seq.violations[0].col !== 'sequence')
+    throw new Error(`desc+sequence 必须同判:${JSON.stringify(seq)}`)
+  const pos = b5Scan('  await db.select().from(items).orderBy(asc(items.position))')
+  if (pos.violations.length !== 1 || pos.violations[0].col !== 'position')
+    throw new Error(`position 必须同判:${JSON.stringify(pos)}`)
+
+  // 反假阳锁:首键不在键族(asc(t.name))与守门既有的多键惯例形态 ⇒ 不进面(词法只认票面键族)。
+  const nonFamily = b5Scan('  await db.select().from(t).orderBy(asc(t.name))')
+  if (nonFamily.candidates.length !== 0 || nonFamily.violations.length !== 0)
+    throw new Error(`非键族首键不得进面:${JSON.stringify(nonFamily)}`)
+
+  // 判不了格(守门头注 B5 段,如实钉住:不进面 —— 既不判红也不冒绿)。
+  const unjudgeable = [
+    ['变量键', '  await db.select().from(t).orderBy(sortCol)'],
+    ['展开键', '  await db.select().from(t).orderBy(...keys)'],
+    ['sql 模板', '  await db.select().from(t).orderBy(sql`sort_order asc`)'],
+    ['裸 SQL SELECT…ORDER BY', "  await db.execute(sql`SELECT * FROM t ORDER BY sort_order`)"],
+  ]
+  for (const [why, body] of unjudgeable) {
+    const u = b5Scan(body)
+    if (u.candidates.length !== 0 || u.violations.length !== 0)
+      throw new Error(`判不了格「${why}」必须不进面(登记而非假装已解决):${JSON.stringify(u)}`)
+  }
+})
+
+/* ------------------------- G-815955:CLI 端到面 + 棘轮 ------------------------- */
+
+const B5_BAD_SRC = [
+  "import { asc } from 'drizzle-orm'",
+  "import { db } from './index.js'",
+  "import { plans } from '@ihui/database'",
+  'export async function listPlans() {',
+  '  await db.select().from(plans).orderBy(asc(plans.sortOrder))',
+  '}',
+  '',
+].join('\n')
+
+test('G-815955 CLI 端到面:存量 head+strict 只报数不判红;staged 净新增即红(kind=b5,新文件锚点 0)', () => {
+  const dir = mkScratch('g815-b5-')
+  try {
+    writeRepo(dir, { files: { [B5_REL]: B5_BAD_SRC } })
+    // 棘轮专用维的结构锁:head 面(含 --strict)对 B5 存量只报数 —— decide 刻意不收 b5Violations(与 B4 同构)。
+    const head = parse(run(dir, ['--root', dir, '--strict', '--json']))
+    if (head.code !== 0)
+      throw new Error(
+        `B5 存量 head+strict 不判红(只拦新增),实得 exit ${head.code}:${head.out.slice(0, 240)}`,
+      )
+    if (head.j.counts.b5Violations !== 1)
+      throw new Error(`存量必须报数可见(counts.b5Violations=1),实得 ${JSON.stringify(head.j.counts)}`)
+    if (head.j.b5Violations?.[0]?.file !== B5_REL || head.j.b5Violations[0].col !== 'sortOrder')
+      throw new Error(`报数必须点名文件与列:${JSON.stringify(head.j.b5Violations)}`)
+    // 持平:索引只追加一行注释(遮蔽面同文)⇒ B5 计数与锚点持平 ⇒ 不拦(防恒红门)。
+    put(dir, B5_REL, `${B5_BAD_SRC}// touched\n`)
+    gitIn(dir, ['add', B5_REL])
+    const flat = parse(run(dir, ['--root', dir, '--staged', '--json']))
+    if (flat.code !== 0)
+      throw new Error(`与锚点持平时不得判红,实得 exit ${flat.code}:${flat.out.slice(0, 240)}`)
+    // 净新增:新文件一条 B5 ⇒ 锚点 0 ⇒ 红。
+    put(dir, B5_NEW_REL, B5_BAD_SRC)
+    gitIn(dir, ['add', B5_NEW_REL])
+    const more = parse(run(dir, ['--root', dir, '--staged', '--json']))
+    if (more.code !== 1)
+      throw new Error(`净新增必须 exit 1,实得 ${more.code}:${more.out.slice(0, 240)}`)
+    const r = (more.j.ratcheted || []).find((e) => e.kind === 'b5')
+    if (!r) throw new Error(`ratcheted 必须含 kind='b5':${JSON.stringify(more.j.ratcheted)}`)
+    if (r.file !== B5_NEW_REL || r.anchor !== 0 || r.added !== 1)
       throw new Error(`新文件的锚点必须是 0:${JSON.stringify(r)}`)
   } finally {
     rmScratch(dir)
