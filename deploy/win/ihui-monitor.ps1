@@ -31,7 +31,7 @@
 #   邮件侧不设"每日 N 封"封顶:那是第三方免费配额时代的自保措施,自建 SMTP 没有该约束;
 #   限制只按**告警身份**去重(见 $AlertRepeatHours),持续故障按周期重发并标注持续时长。
 #   "部署重启中-预期现象"这一类抑制另有**时长上限**($ExpectedWindowGraceMinutes,默认 20 分钟):
-#   没有上限的抑制等于永久豁免,而永久豁免的症状就是安静 —— 09-29 那场 2.5 小时的 API 崩溃循环
+#   没有上限的抑制等于永久豁免,而永久豁免的症状就是安静 —— 09-29 那场 2 小时 39 分的 API 崩溃循环
 #   正是被无条件抑制掩掉的,判据在 alert-dedup.ps1 的 Test-AlertSuppressionGrace。
 # 日志: D:\DevEnv\logs\monitor.log(NSSM AppStdout)
 #
@@ -105,7 +105,7 @@ if ($DryRun) { $MailDryRun = $true }
 # 计数闸(成因见文件头)。5 分钟一轮巡检若按轮次发,一条持续故障一天就是 288 封。
 $AlertRepeatHours    = [double](EnvOr 'IHUI_MONITOR_REPEAT_HOURS' '4')
 # "按预期现象抑制"的时长上限(分钟)。09-28 我加抑制时只写了"这一轮不寄",没写"最多不寄多久",
-# 于是 00:35-03:00 那场 API 崩溃循环被每轮 [INFO] 掩了 2.5 小时(成因与判据见 alert-dedup.ps1 的
+# 于是 22:17:49→00:57:11 那场 API 崩溃循环被每轮 [INFO] 掩了 2 小时 39 分(成因与判据见 alert-dedup.ps1 的
 # Test-AlertSuppressionGrace)。默认 20 分钟 = 4 轮巡检:一次正常换流窗口实测 6-9 秒拒连,
 # 最慢的整包重建也远短于此,所以连续 20 分钟仍报"部署重启中"只可能是别的东西坏了。
 $ExpectedWindowGraceMinutes = [int](EnvOr 'IHUI_MONITOR_EXPECTED_WINDOW_GRACE_MIN' '20')
@@ -335,7 +335,8 @@ function Send-Alert($msg) {
   #
   # 但抑制**必须有终态**(2026-09-29 补,修我自己的缺陷):上一版这里无条件 return,而
   # "部署锁在 / 最近有构建"这两个条件在崩溃循环里会一直成立(部署环每轮重建即刷新"最近构建"),
-  # 于是 00:35-03:00 API 反复启动即死的那 2.5 小时,每轮都只留下一行 [INFO] 而没有人被通知。
+  # 于是 22:17:49→00:57:11 API 反复启动即死的那 2 小时 39 分(同一条身份最后一条抑制行落在 01:01:58),
+  # 每轮都只留下一行 [INFO] 而没有人被通知。
   # 现在连续抑制超过 $ExpectedWindowGraceMinutes 分钟就不再当预期现象,落回正常发信路径,
   # 并把"为什么这轮不再抑制"写进正文 —— 抑制的理由与放行的理由一样都要可见。
   $graceNote = ''
