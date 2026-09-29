@@ -114,7 +114,7 @@ function runLand(dir, { paths = '', msg = 'chore: e2e land', baseRef, allowStale
 }
 
 test('T1 §22c 导出面:判据函数必须在 __test__ 里', () => {
-  for (const k of ['parseArgs', 'clobberedPaths', 'lineDelta', 'resurrectAnalysis', 'detectStaleLanding', 'staleReport'])
+  for (const k of ['parseArgs', 'clobberedPaths', 'lineDelta', 'resurrectAnalysis', 'detectStaleLanding', 'staleReport', 'commitFacePresence'])
     assert.equal(typeof __test__[k], 'function', `__test__.${k} 缺失`)
 })
 
@@ -646,6 +646,111 @@ test('T-BLOB-6 阳性对照:基线有横幅而构造内容抹掉 ⇒ 必须拒�
   const r = runLandBlob(dir, { paths: 'src.txt', manifest: mf })
   assert.equal(r.status, 1, `抹横幅必须拒落,实得 ${r.status}:${r.stdout}|${r.stderr}`)
   assert.match(r.stderr + r.stdout, /横幅被抹/)
+})
+
+/**
+ * ── 票 G-801(2026-09-29):提交面回读把非 ASCII 路径误报成"缺路径" ──────────
+ * 旧判据拿 `git show --name-only` 的**输出文本**与声明路径逐字比,而 git 默认按 core.quotePath
+ * 把非 ASCII 路径八进制转写并加引号 ⇒ 中文/带空格路径必然比不中,已成功的交付被报成失败,
+ * 假失败诱使重跑同一次落地(幂等判据 G-321① 拦的正是这个)。
+ * 票面验收要求**两臂各钉一次**:只留修后那条等于没有反证。
+ * 夹具用 .txt 而非事故原文件的 .md:.md 在水印 verify 射程内(无横幅会被预检拒落),
+ * 而本票判据的唯一自变量是**路径字节**(非 ASCII + 空格),扩展位与此无关 —— 两臂都还成立。
+ */
+const ZH_PATH = 'docs/项目说明/8端一致性 认证矩阵.txt' // 中文目录 + 中文文件名 + 内含空格(事故原形)
+
+function makeZhRepo(t) {
+  const dir = makeRepo(t)
+  mkdirSync(join(dir, 'docs', '项目说明'), { recursive: true })
+  writeFileSync(join(dir, ZH_PATH), 'v1 初稿\n')
+  runGit(dir, ['add', '-A'])
+  runGit(dir, ['commit', '-q', '-m', 'init: 中文路径'])
+  return dir
+}
+
+test('T-G801-1 修后臂(端到端):含中文与空格的声明路径真落地 ⇒ 判"在树",不再报"缺路径"', (t) => {
+  const dir = makeZhRepo(t)
+  writeFileSync(join(dir, ZH_PATH), 'v2 本票改动\n')
+  const r = runLand(dir, { paths: ZH_PATH, msg: 'docs: G-801 中文路径落地' })
+  assert.equal(r.status, 0, `修后必须判在位,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  assert.match(r.stdout, /提交面回读 1\/1 路径在树/)
+  assert.ok(!/缺路径/.test(r.stderr + r.stdout), '不得再出现"缺路径"字样')
+  // git 自己的结论佐证:该路径确在新 HEAD 的树里(本器判据与之一致;rc 非 0 时 lib git() 抛错,本例即红)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  git(['cat-file', '-e', `${head}:${ZH_PATH}`], { root: dir })
+})
+
+test('T-G801-2 修前臂(阳性对照,本票存在理由):同一枚提交上旧式"逐字比输出文本"必须比不中该路径', (t) => {
+  const dir = makeZhRepo(t)
+  writeFileSync(join(dir, ZH_PATH), 'v2 本票改动\n')
+  const r = runLand(dir, { paths: ZH_PATH, msg: 'chore: G-801 修前对照夹具' })
+  assert.equal(r.status, 0, `夹具先要能落(修后判据),实得 ${r.status}:${r.stderr}`)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  // 复刻旧判据(显式 -c core.quotePath=true = git 内建默认,防全局配置把对照弄成恒绿):
+  const oldSet = new Set(
+    runGit(dir, ['-c', 'core.quotePath=true', 'show', '--name-only', '--format=', head])
+      .split('\n')
+      .map((x) => x.trim())
+      .filter(Boolean),
+  )
+  assert.ok(
+    !oldSet.has(ZH_PATH),
+    '旧式比对在本夹具上必须比不中 ⇒ 夹具就是事故原形;若它命中了,这一臂退化成 T-G801-1 的复读,没有反证力',
+  )
+  // 且失败原因必须精确到八进制转写(而不是"路径压根没进清单"的另一种红):
+  const escaped = [...oldSet].find((x) => x.startsWith('"docs/') && /\\\d{3}/.test(x))
+  assert.ok(escaped, `默认档必须把中文路径转写成引号+八进制形态,实得清单 ${JSON.stringify([...oldSet])}`)
+  // 加 quotePath=false 后同一条清单逐字命中 ⇒ 唯一变量就是转写,修法定位无歧义
+  const fixedSet = new Set(
+    runGit(dir, ['-c', 'core.quotePath=false', 'show', '--name-only', '--format=', head])
+      .split('\n')
+      .map((x) => x.trim())
+      .filter(Boolean),
+  )
+  assert.ok(fixedSet.has(ZH_PATH), 'quotePath=false 下该路径必须逐字出现在清单里')
+})
+
+/**
+ * T-G801-3 反恒绿锁 + 三态不并桶(判据函数直接 import,§22c):
+ *  ① 非 ASCII 路径被探针**判**而不是被静默跳过 —— present+absent+undetermined 恒等于清单长度;
+ *  ② "git 明确说不在树里"= absent(业务红),不许折进未判定;
+ *  ③ "问不到"(提交解不出/派生失败)= undetermined,不许折成 absent ——
+ *     两向折叠都会把"没判"写成结论,这正是本仓最高频的失效型。
+ */
+test('T-G801-3 commitFacePresence 三态闭合:非 ASCII 路径不得被静默跳过,问不到不得折成"没有"', (t) => {
+  const dir = makeZhRepo(t)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const zhMissing = 'docs/项目说明/不存在 的文件.md'
+  const paths = [ZH_PATH, zhMissing, 'a.txt']
+  const res = __test__.commitFacePresence({ root: dir, commit: head, paths })
+  assert.deepEqual(res.present, [ZH_PATH, 'a.txt'], '在位的(含非 ASCII)必须逐条判 present')
+  assert.deepEqual(res.absent, [zhMissing], '非 ASCII 的缺项必须判 absent —— 静默跳过或折进未判定都算失明')
+  assert.deepEqual(res.undetermined, [])
+  assert.equal(
+    res.present.length + res.absent.length + res.undetermined.length,
+    paths.length,
+    '三态必须闭合到清单长度:少一条就是有一条被静默吞掉',
+  )
+  // 未判定臂:提交对象解不出 ⇒ 整批 undetermined,absent 必须为空(不得把"问不到"当"没有")
+  const bogus = __test__.commitFacePresence({ root: dir, commit: '0'.repeat(40), paths })
+  assert.equal(bogus.absent.length, 0, '"问不到"不得被折成"没有"')
+  assert.equal(bogus.present.length, 0)
+  assert.equal(bogus.undetermined.length, paths.length)
+})
+
+/**
+ * T-G801-4 形状锁:存在性判据必须问 git 的结论,不得再拿 --name-only 的输出字节当路径身份;
+ * 辅助清单维必须带 core.quotePath=false(否则它自己重演 G-801 那一型)。
+ */
+test('T-G801-4 形状锁:回读走 cat-file -e 探针且 --name-only 只作混提辅助并带 quotePath=false', () => {
+  const src = readFileSync(TOOL, 'utf8')
+  assert.match(src, /commitFacePresence\(\{ root, commit: landed, paths \}\)/, 'main 必须真调用探针(判据在而无人调 = 判据不存在,守门 70/76/81 同型)')
+  assert.match(src, /'cat-file', '-e'/, '探针必须问 git 的存在性结论')
+  assert.match(src, /'-c', 'core\.quotePath=false', 'show', '--name-only'/, '混提辅助清单必须显式关转写')
+  assert.ok(
+    !/paths\.filter\(\(p\) => !inCommit\.has\(p\)\)/.test(src),
+    '旧的"输出文本逐字比对"判据不得回来:那正是 G-801 的事故形态',
+  )
 })
 
 
