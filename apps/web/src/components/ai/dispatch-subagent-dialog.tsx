@@ -24,6 +24,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
+import { Check, X } from 'lucide-react'
 import { toast } from '@/components/common'
 import {
   Dialog,
@@ -1390,7 +1391,7 @@ function EvolutionPanel() {
                   className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1 text-[10px]"
                 >
                   <span className={r.success ? 'text-green-600' : 'text-red-500'}>
-                    {r.success ? '✓' : '✗'}
+                    {r.success ? <Check className="h-2.5 w-2.5" /> : <X className="h-2.5 w-2.5" />}
                   </span>
                   <span className="flex-1 truncate text-muted-foreground">{r.taskDescription}</span>
                   {r.retryCount > 0 && (

@@ -299,12 +299,9 @@
   border-color: var(--color-danger);
 }
 
-.custom-checkmark {
-  color: var(--color-card);
-  font-size: 22rpx;
-  font-weight: 700;
-  line-height: 1;
-}
+/* .custom-checkmark 已删:该规则只剩排版属性(color/font-size/font-weight/line-height),
+   唯一使用者是勾选位上的那个勾字符;它换成 LineIcon 后,尺寸与颜色由组件的
+   size / color prop 单点给出(见 login.tsx),挂在 mask 载体上的类名不会再染色。 */
 
 .login-agreement-text {
   flex: 1;
