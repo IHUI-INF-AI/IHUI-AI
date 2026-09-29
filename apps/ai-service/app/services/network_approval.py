@@ -496,9 +496,21 @@ def _targets_from_args(
 def network_target_from_args(
     args: Mapping[str, Any] | None, *, owner: str | None = None
 ) -> NetworkTargetFact | None:
-    """本次审批要放行/要落规则的那一个目标(无出站参数 ⇒ None)。"""
-    facts = _targets_from_args(args, owner=owner)
-    return facts[0] if facts else None
+    """本次审批要放行/要落规则的那一个目标(无可放行目标 ⇒ None)。
+
+    **只取未被静态策略判死的第一个目标**(``reason is None``),与
+    ``approval_env_payload`` 在帧上发的 ``network_target``(同一份列表的 ``live[0]``)
+    是同一条判据。两处各取一头就会分叉:一次同时带 ``url``(本地 ⇒ 已被判死)与
+    ``webhook_url``(公网)的调用,弹窗让用户批的是公网那个,而落库的 90 天免弹窗
+    规则挂在了本地那个上 —— 那是一条用户从未见过、也从未批准过的目标(与本文件用例
+    "多目标只命中其一不得免弹"编码的方向同一条禁令:不得把用户没批过的目标连出去)。
+    全部目标都被判死 ⇒ None ⇒ 什么都不落(实际请求仍由 ``network_guard`` 拒发,
+    免弹窗规则改变不了静态策略,落它只会把"永远该问"变成"永远不问")。
+    """
+    for fact in _targets_from_args(args, owner=owner):
+        if fact.reason is None:
+            return fact
+    return None
 
 
 def pending_network_targets(
