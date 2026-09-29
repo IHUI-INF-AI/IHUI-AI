@@ -43,7 +43,7 @@ import * as crypto from 'node:crypto';
 // 本文件不再直接 import node:child_process —— 绕过它就没有封顶,而守门 80 的 HOT 清单已含本文件。
 import { GIT_BIN_ENV, GIT_NETWORK_TIMEOUT_MS, execGitCapped, execGitCloneWithRetry } from './git-runner.js';
 import { getInstalledPluginsDir, getMarketplaceCacheDir, getRegistryPath } from './paths.js';
-import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
+import { captureWriteBaseline, commitAtomicWrite, sleepSync } from '../util/atomic-write.js';
 // G-786:git 入参形状白名单的唯一判据(marketplace.ts 用同一份,不得在此重抄正则)
 import { assertGitCloneInputs } from './url-shape.js';
 // G-747:符号链接可达性判定的**唯一**实现(G-705 落地)。本文件只消费它的四态结论 ——
@@ -129,6 +129,47 @@ export function isSecurityRejection(raw: unknown): boolean {
   return typeof code === 'string' && SECURITY_REJECT_CODES.has(code)
 }
 
+/** b75-3#3:瞬时写冲突的退避序列(Windows 上杀软扫描/索引器/旧句柄短暂握住目标文件的典型窗口)。 */
+const COPY_BUSY_BACKOFF_MS = [25, 50, 100] as const;
+
+/** 跳写比对的字节数上限:超过它"读双侧内容换 mtime 保住"不划算,直接照写(不拿内存换 mtime)。 */
+const COPY_SKIP_COMPARE_MAX_BYTES = 16 * 1024 * 1024;
+
+/**
+ * b75-3#3:带守卫的文件复制(上游 official-plugin-cache-fs「字节相同跳写 + 瞬时占用重试」降维)。
+ *
+ *  - **字节相同跳写**:目标在位、同尺寸、不超比对上限且逐字节一致 ⇒ 不写 —— 目标 mtime 与
+ *    既有句柄完全不被触碰("内容没变"不该在文件系统上留下痕迹)。目标读不到(不存在/被短暂
+ *    握持)不构成跳写理由,照常走写入路径,握持态由重试兜住。
+ *  - **EACCES/EBUSY/EPERM 瞬时重试**:按 [25,50,100]ms 退避。这些码在 Windows 上常是毫秒级
+ *    窗口,把可自愈的抖动升格为硬错误只会让整次复制半途而废。名单是**封闭集**:ENOENT/
+ *    EISDIR/EXDEV 等结构性错误原样上抛,绝不模糊重试。
+ */
+export function copyFileGuarded(src: string, dest: string): void {
+  const srcStat = fs.statSync(src);
+  try {
+    const destStat = fs.statSync(dest);
+    if (destStat.isFile() && destStat.size === srcStat.size && srcStat.size <= COPY_SKIP_COMPARE_MAX_BYTES) {
+      if (fs.readFileSync(dest).equals(fs.readFileSync(src))) return;
+    }
+  } catch {
+    // 目标比对不了就照写:跳写是优化,不是正确性判据
+  }
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt <= COPY_BUSY_BACKOFF_MS.length; attempt++) {
+    if (attempt > 0) sleepSync(COPY_BUSY_BACKOFF_MS[attempt - 1] ?? 0);
+    try {
+      fs.copyFileSync(src, dest);
+      return;
+    } catch (e) {
+      lastErr = e;
+      const code = (e as NodeJS.ErrnoException).code;
+      if (!code || !(code === 'EACCES' || code === 'EBUSY' || code === 'EPERM')) throw e;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(`复制失败(已退避重试):${src} → ${dest}`);
+}
+
 /**
  * 递归复制目录(内部工具,供 mock clone 与降级使用)。
  *
@@ -180,12 +221,12 @@ function copyDirRecursive(src: string, dest: string, rootSrc?: string): void {
       if (fs.statSync(resolvedTarget).isDirectory()) {
         copyDirRecursive(resolvedTarget, d, root);
       } else {
-        fs.copyFileSync(resolvedTarget, d);
+        copyFileGuarded(resolvedTarget, d);
       }
     } else if (entry.isDirectory()) {
       copyDirRecursive(s, d, root);
     } else {
-      fs.copyFileSync(s, d);
+      copyFileGuarded(s, d);
     }
   }
 }
