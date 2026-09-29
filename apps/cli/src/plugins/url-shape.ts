@@ -45,6 +45,7 @@ export type GitUrlRejectReason =
   | 'urlWhitespace'
   | 'urlHostMissing'
   | 'urlSchemeUnsupported'
+  | 'urlCredentialsInUrl'
   | 'urlLoopbackHttpNeedsTestHook'
   | 'urlMalformed';
 
@@ -158,6 +159,30 @@ export function evaluateGitUrl(raw: unknown, opts: { loopbackTestHook?: boolean 
     // 空白不进 argv 是无害的,但带空白的"URL"要么是伪造形态、要么是 ext:: 的残渣 —— 一律拒。
     if (/\s/.test(raw)) {
       return { ok: false, reasonCode: 'urlWhitespace', detail: previewOf(raw) };
+    }
+    /**
+     * G-798:内嵌凭据的 userinfo 段一律不进这一档 URL。
+     * 判据取的是" userinfo 存不存在",不是"看着像不像密钥":这一段会被原样递进 `git` 的 **argv**,
+     * 而 argv 在 Windows 上可被任意进程枚举(WMI/命令行审计都能看到),
+     * 于是"把 token 写在 URL 里"等于把凭据发给整台机的观察者。
+     * `ssh://` 那一档**刻意只禁密码不禁用户名**:`ssh://git@host/…` 与 scp-like `git@host:path`
+     * 里的 `git` 是登录名而不是凭据,禁掉就是把 SSH 通道整条封死(现仓既有测试正拿它当放行档)。
+     */
+    const hasUser = parsed.username.length > 0
+    const hasPass = parsed.password.length > 0
+    if ((kind === 'https' || kind === 'loopbackHttp') && (hasUser || hasPass)) {
+      return {
+        ok: false,
+        reasonCode: 'urlCredentialsInUrl',
+        detail: `${protocol}: userinfo(改用凭据助手 / credential helper,不要把口令写进 URL)`,
+      }
+    }
+    if (kind === 'sshUrl' && hasPass) {
+      return {
+        ok: false,
+        reasonCode: 'urlCredentialsInUrl',
+        detail: 'ssh: userinfo 口令段(ssh 只提供登录名,口令请走密钥/agent)',
+      }
     }
     if (kind === 'loopbackHttp' && !isLoopbackHost(host)) {
       return { ok: false, reasonCode: 'urlSchemeUnsupported', detail: `http:${previewOf(host)}` };
