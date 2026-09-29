@@ -70,10 +70,13 @@ import {
   LEDGER_FILES as THIRD_PARTY_LEDGER_FILES,
   expandRootsToFiles,
 } from './lib/third-party-roots.mjs'
+// git 二进制的取法只有一处实现(face-reader 的 gitBinary:绝对路径优先、失败才退回 PATH)
+import { gitBinary } from './lib/face-reader.mjs'
 
 const SELF = fileURLToPath(import.meta.url)
 const DEFAULT_ROOT = resolve(dirname(SELF), '..')
-const GIT = 'git'
+// 裸 git 在钩子进程与服务账户下会因 PATH 不通而解析不到(§5b 记过同型)。
+const GIT = gitBinary()
 const GIT_TIMEOUT_MS = 30000
 
 /**

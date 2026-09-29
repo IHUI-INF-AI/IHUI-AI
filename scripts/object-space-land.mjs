@@ -87,9 +87,8 @@ import {
   ancestorCommits,
   resolveBlobs,
 } from './check-stale-revert.mjs'
-import { catBatch, readWorktreeFile } from './lib/face-reader.mjs'
+import { catBatch, gitBinary, readWorktreeFile } from './lib/face-reader.mjs'
 // 存在性三态探针需要 git 二进制的解析出口(与 bypass-git 同一份,不在本器另立候选路径)。
-import { resolveGitBin } from './lib/gitdir.mjs'
 // 行级复活/计行判据的**单一实现**(2026-09-28 提取到 lib:守门 84 的 R1r 要用同一把尺子,
 // 两处各写一遍必然漂开 —— 本层只留 import 与再导出,不再持有第二份计数口径)。
 import {
@@ -106,7 +105,8 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const WATERMARK_CLI = join(HERE, 'watermark.mjs')
 const REPO_ROOT = resolve(HERE, '..')
 // 与 lib/bypass-git.mjs 同一个解析出口(候选路径只有一份,本器不另立)。
-const GIT_BIN = resolveGitBin() || 'git'
+// 绝对路径与 PATH 兜底都由取材层那一份实现负责,本层不再自己绑一份裸 git。
+const GIT_BIN = gitBinary()
 const MAX_CAS_ATTEMPTS = 12
 
 /** 读 env 并判用法;不合法 ⇒ {error, code:2}。 */
