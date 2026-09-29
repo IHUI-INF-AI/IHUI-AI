@@ -1210,20 +1210,38 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(401).send(error(401, 'Invalid refresh token'))
       }
       if (record.revokedAt) {
-        // 2026-07-22 鲁棒性加固:RFC 6749 §10.4 重用检测
-        // 已被吊销的 refresh token 再次出现 = 重用攻击,立即吊销整个 family 所有活跃 token
-        if (payload.familyId) {
-          try {
-            const revokedCount = await revokeRefreshTokenFamily(payload.familyId)
-            request.log.warn(
-              { familyId: payload.familyId, userId: payload.userId, revokedCount },
-              '[security] refresh token reuse detected, family revoked',
-            )
-          } catch (e) {
-            request.log.error({ err: e }, '[security] family revocation failed')
+        // RFC 6749 §10.4 重用检测 + 2026-09-30 宽限期(leeway)竞态放行。
+        // 竞态来源:多标签页/多端共享同一账号时,15min access token 同批过期,各页签的
+        // in-flight 去重(refreshAccessTokenOnce)只在单 JS 上下文生效 —— 两个页签几乎
+        // 同时 POST /auth/refresh:先到者轮转 v1→v2;后到者带 v1 走进本分支,被旧逻辑
+        // 判为"重用攻击"→ revokeRefreshTokenFamily 吊销全家。当下无症状(access 未过期,
+        // /auth/me 照常 200),15min 后所有页签刷新全 401,自动登录丢失,只能重新登录。
+        // 修复:吊销后 REFRESH_REUSE_LEEWAY_MS 内的重放视为并发竞态(非攻击),放行为
+        // 正常轮转;超出宽限期的重放维持家族吊销。业界先例:AWS Cognito 默认 115s、
+        // Auth0 refresh rotation leeway。
+        // 固定窗口:放行分支跳过重复 revoke(L1236),revokedAt 保持首次吊销时间,
+        // 避免"多次重放不断续窗"。
+        const REFRESH_REUSE_LEEWAY_MS = 30_000
+        const revokedAgeMs = Date.now() - new Date(record.revokedAt).getTime()
+        if (revokedAgeMs >= REFRESH_REUSE_LEEWAY_MS) {
+          if (payload.familyId) {
+            try {
+              const revokedCount = await revokeRefreshTokenFamily(payload.familyId)
+              request.log.warn(
+                { familyId: payload.familyId, userId: payload.userId, revokedCount, revokedAgeMs },
+                '[security] refresh token reuse detected, family revoked',
+              )
+            } catch (e) {
+              request.log.error({ err: e }, '[security] family revocation failed')
+            }
           }
+          return reply.status(401).send(error(401, 'Invalid refresh token'))
         }
-        return reply.status(401).send(error(401, 'Invalid refresh token'))
+        // 宽限期内竞态放行:记 info 便于观测,不吊销家族,继续下方正常轮转流程
+        request.log.info(
+          { familyId: payload.familyId, userId: payload.userId, revokedAgeMs },
+          '[auth] refresh token replay within leeway, treated as multi-context race',
+        )
       }
 
       // 3. 确认用户仍然存在且启用
@@ -1233,7 +1251,11 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
 
       // 4. 吊销旧 refresh token（轮转）
-      await revokeRefreshToken(token)
+      // 宽限期竞态放行的 token 已处于"被吊销"状态,重复 revoke 只会把 revokedAt 刷成
+      // now(窗口滑动,多次重放可不断续窗)—— 跳过,保持首次吊销时间,固定 30s 窗口。
+      if (!record.revokedAt) {
+        await revokeRefreshToken(token)
+      }
 
       // 5. 用同一 familyId 签发新 token 对
       request.skipResponseSanitization = true
