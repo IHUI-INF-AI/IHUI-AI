@@ -6,19 +6,29 @@
 // D64 ②(2026-09-24 装车):图片预览的翻页 / 第 N·M 张 / 缩放档位 / 保存与复制成败。
 // 判据在 `@ihui/shared/chat/element-pack`;本用例验的是**渲染位真的用上了它**
 // (mock 翻译器回显键名 + 插值,断言不查文案)。
+// G-751(2026-09-29)追加:WorkPanel 全量查看器 ImageViewer 的加载三态用例(见文件尾部)。
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import React from 'react'
 import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react'
 
-vi.mock('next/image', () => ({
-  default: ({ src, alt }: { src: string; alt: string }) => React.createElement('img', { src, alt }),
-}))
+// mock 一律模块级稳定引用(vi.hoisted):worker 反复起文件时不因每次渲染新造闭包而堆积(OOM 假死预防)
+const { nextImageStub, useTranslationsStub } = vi.hoisted(() => {
+  // 键名 + 插值原样吐回,便于断言"用的是判定层的那个键"
+  const translateKey = (key: string, values?: Record<string, unknown>) =>
+    values ? `${key}:${JSON.stringify(values)}` : key
+  const useTranslationsStub = () => translateKey
+  // next/image → img 桩:白名单转发。onLoad/onError 必须转发 —— G-751 三态判据就打在 img 事件上;
+  // 只转发合法 img 属性,unoptimized/placeholder 等 next 专属 prop 不落 DOM(避免未知属性告警噪音)。
+  const nextImageStub = (props: Record<string, unknown>) => {
+    const { src, alt, onLoad, onError, style, className, width, height } = props
+    return React.createElement('img', { src, alt, onLoad, onError, style, className, width, height })
+  }
+  return { nextImageStub, useTranslationsStub }
+})
 
-// 键名 + 插值原样吐回,便于断言"用的是判定层的那个键"
-vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string, values?: Record<string, unknown>) =>
-    values ? `${key}:${JSON.stringify(values)}` : key,
-}))
+vi.mock('next/image', () => ({ default: nextImageStub }))
+
+vi.mock('next-intl', () => ({ useTranslations: useTranslationsStub }))
 
 vi.mock('../use-preview-staleness', () => ({
   usePreviewMediaProbe: () => ({ readAt: null, isRecord: false, notice: null, refresh: vi.fn() }),
@@ -43,6 +53,7 @@ vi.mock('../preview-degradation-banner', () => ({
 }))
 
 import { FilePreview } from '../FilePreview'
+import { ImageViewer } from '../ImageViewer'
 
 const GALLERY = [
   { url: 'https://cdn.example.com/a.png', name: 'a.png' },
@@ -215,6 +226,78 @@ describe('D64 ② 图片预览器装车', () => {
       revokeLater.forEach((f) => f())
       HTMLElement.prototype.click = realClick
     }
+  })
+})
+
+// ─── G-751(2026-09-29):WorkPanel 全量查看器 ImageViewer 的加载三态 ───
+// ImageViewer 是 next/image 语义(onLoad/onError 从 props 接线),与 G-738 流式内联图
+// (裸 <img> DOM 事件)不同 API;两条纪律同构复用:状态↔src 配对、key 按资源重建。
+// 判据键名走 next-intl mock 回显(不查文案,与本文件 D64 ② 同一取向)。
+describe('G-751 ImageViewer 加载三态', () => {
+  afterEach(() => cleanup())
+
+  it('加载中:role="status" 占位在位(spinner 非空白)、img 暂不可见;成功后占位消失、img 转可见(正反成对)', () => {
+    const { container } = render(<ImageViewer src={galleryAt(0).url} alt={galleryAt(0).name} />)
+    const statusEl = container.querySelector('[role="status"]')
+    expect(statusEl?.getAttribute('data-image-viewer-state')).toBe('loading')
+    // a11y.loading 键回显 + lucide Loader2 的 svg(禁止纯文字/空白占位)
+    expect(statusEl?.textContent).toContain('loading')
+    expect(statusEl?.querySelector('svg')).toBeTruthy()
+    // 加载中正例:图本体挂载但不可见;反例:不得已处于失败态
+    const img = container.querySelector('img') as HTMLImageElement
+    expect(img.className).toContain('invisible')
+    expect(container.querySelector('[data-image-viewer-state="error"]')).toBeNull()
+
+    // 成功:占位退场、图转可见,且不得残留任何失败态
+    fireEvent.load(img)
+    expect(container.querySelector('[role="status"]')).toBeNull()
+    expect(img.className).not.toContain('invisible')
+    expect(container.querySelector('[data-image-viewer-state="error"]')).toBeNull()
+  })
+
+  it('失败态:role="img" + aria-label(imageLoadFailed 既有键回显),含图标非空白;不再渲染破图本体,与 role="status" 分离', () => {
+    const { container } = render(<ImageViewer src={galleryAt(2).url} alt={galleryAt(2).name} />)
+    fireEvent.error(container.querySelector('img') as HTMLImageElement)
+    const errorEl = container.querySelector('[data-image-viewer-state="error"]')
+    expect(errorEl).toBeTruthy()
+    expect(errorEl?.getAttribute('role')).toBe('img')
+    expect(errorEl?.getAttribute('aria-label')).toBe('imageLoadFailed')
+    // 非空白区域:lucide ImageOff 的 <svg>(与 G-738 同款错误视觉语言)
+    expect(errorEl?.querySelector('svg')).toBeTruthy()
+    // 两种 aria 语义各自独立容器:失败时不得同时有 role="status",也不再渲染破图本体
+    expect(container.querySelector('[role="status"]')).toBeNull()
+    expect(container.querySelector('img')).toBeNull()
+  })
+
+  it('换图:喂 A 失败、翻到 B —— B 不继承 A 的失败态(状态↔src 配对),从加载中抵达成功;key 重建 ⇒ 非复用节点', () => {
+    const { container } = render(
+      <ImageViewer
+        src={galleryAt(0).url}
+        images={[galleryAt(0).url, galleryAt(1).url]}
+        alt={galleryAt(0).name}
+      />,
+    )
+    const nodeA = container.querySelector('img') as HTMLImageElement
+    fireEvent.error(nodeA)
+    expect(container.querySelector('[data-image-viewer-state="error"]')).toBeTruthy()
+
+    // 走查看器自己的翻页路径换图(不是 rerender 硬换 props)
+    fireEvent.click(screen.getByRole('button', { name: 'next' }))
+    // 配对判据:state.source(A) !== 当前 src(B) ⇒ A 的失败态作废,B 从加载中起步
+    expect(container.querySelector('[data-image-viewer-state="error"]')).toBeNull()
+    expect(container.querySelector('[role="status"]')).toBeTruthy()
+    const nodeB = container.querySelector(
+      `img[src="${galleryAt(1).url}"]`,
+    ) as HTMLImageElement
+    expect(nodeB).toBeTruthy()
+    // key 按资源重建:B 是全新节点,不是 A 的复用(否则 A 的迟到异步事件会命中 B 的处理器)
+    expect(nodeB).not.toBe(nodeA)
+
+    // B 抵达成功态(而非停在失败占位)
+    fireEvent.load(nodeB)
+    expect(container.querySelector('[role="status"]')).toBeNull()
+    expect(nodeB.className).not.toContain('invisible')
+    expect(container.querySelector('[data-image-viewer-state="error"]')).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
