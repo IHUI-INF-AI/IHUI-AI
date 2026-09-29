@@ -1646,12 +1646,20 @@ class RulesEngine:
         """记录用户行为到 Redis hash(失败降级到内存)。
 
         action ∈ {create, update, delete, match, feedback, apply}。
-        field = timestamp(ms),value = JSON({action, rule_id, details, timestamp})。
+        field = timestamp(ms),value = JSON({action, rule_id, user_id, details, timestamp})。
         超过 _BEHAVIOR_MAX_ENTRIES 时按 timestamp 删除最早条目。
+
+        生产入口是模块级 `record_rule_action_behavior()`(2026-09-29 G-805 接线),
+        **不要在 router 里直接调本方法** —— 身份校验与"埋点不得影响用户写操作"两条
+        约定住在那个出口里,绕过它就等于给自己发合格证。
         """
         entry = {
             "action": action,
             "rule_id": rule_id,
+            # user_id 冗余存一份:Redis 侧按 rules:behavior:<user_id> 分键天然隔离,
+            # 但内存降级面是**进程级共享**的一张列表,读侧必须靠这个字段分区
+            # (见 `_get_behaviors`)。
+            "user_id": user_id,
             "details": details or {},
             "timestamp": datetime.now(UTC).isoformat(),
         }
@@ -1681,7 +1689,15 @@ class RulesEngine:
                 ]
 
     async def _get_behaviors(self, user_id: str) -> list[dict[str, Any]]:
-        """读取用户行为列表(Redis hash,降级内存),按 timestamp 升序。"""
+        """读取用户行为列表(Redis hash,降级内存),按 timestamp 升序。
+
+        两条取径的隔离粒度不同,都必须按**主体**收口:
+          - Redis:键名就是 `rules:behavior:<user_id>`,天然按用户分键;
+          - 内存降级:`_behavior_fallback` 是进程级共享的一张列表,**没有键隔离**,
+            不按 user_id 过滤就等于把 A 的动作样本喂给 B 的自动草稿
+            (2026-09-29 G-805:生产者接线后这一格从"理论可达"变成"实际可达",
+            所以判据必须与写侧同时落地,不能留给下一票)。
+        """
         redis = self._get_redis()
         if redis:
             try:
@@ -1698,7 +1714,9 @@ class RulesEngine:
             except Exception as e:
                 logger.debug("[rules_engine] Redis 行为读取失败: %s", e)
         with self._lock:
-            return list(self._behavior_fallback)
+            return [
+                b for b in self._behavior_fallback if b.get("user_id") == user_id
+            ]
 
     def _extract_patterns_statistical(
         self, behaviors: list[dict[str, Any]]
@@ -1766,6 +1784,10 @@ class RulesEngine:
         """基于行为模式自动生成规则草稿(不自动创建,返回草稿供用户确认)。
 
         对 confidence > 0.6 的模式生成草稿。
+        冷启动(2026-09-29 G-805 如实登记):零动作样本的用户仍返回 [] —— 这是设计
+        (没有历史就没有可学的模式),不是缺陷;缺陷是"样本永远为零"那条,已由
+        routers/rules.py 在 create/update/delete 三个动作点接上唯一生产出口
+        `record_rule_action_behavior`。match/apply/feedback 三档尚未接入,另计。
         Returns:
             [{pattern, draft_rule: {name, description, content, scope}, confidence}]
         """
@@ -2091,4 +2113,44 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
 
 # 全局单例
 rules_engine = RulesEngine()
+
+
+async def record_rule_action_behavior(
+    user_id: object,
+    action: str,
+    rule_id: str,
+    details: dict[str, Any] | None = None,
+) -> None:
+    """规则动作行为样本的**唯一**生产入口(router 侧只认这一个把手)。
+
+    立票 G-805(台账在案),本出口 2026-09-29 接线:`_track_behavior` 是读链
+    `_get_behaviors` → `_extract_patterns` → `auto_generate_rules` 唯一的数据源生产者,
+    自立项起生产面零调用点 —— 于是样本恒为空、读侧在 `len(behaviors) <
+    _PATTERN_MIN_SAMPLES` 那一格直接 `return []`,`POST /rules/auto-generate` 对**任何**
+    用户都静态返回空草稿(票面记的"空草稿")。本出口把 create/update/delete 三个动作点
+    接上;`match`/`apply`/`feedback` 三档刻意**未**接(见 routers/rules.py 的说明)。
+
+    三条约定都住在这个出口里,不得绕过它直接调 `_track_behavior`:
+
+      1. **身份必须是已验证的字符串主体**,否则一律不写。拿不到真实 principal 的调用
+         (以裸函数方式调端点时 FastAPI 传进来的 `Depends` 占位、未来的匿名分支)一旦
+         入库,会以 `str(对象)` 的形态落在一个没人读的键上;而内存降级面是进程级共享
+         的(见 `_get_behaviors` 注释),这类幽灵键对所有用户都可见 —— 那不是"少一条
+         样本",那是给别人的草稿投毒。
+      2. **best-effort:埋点失败绝不让用户的写操作失败**。与 `_track_behavior` 内部
+         对 Redis 故障的降级同一条口径(本文件所有旁路记录都用 logger.debug)。
+      3. action 词表与 `_track_behavior` 的 docstring 同形,新增动作档必须先确认读侧
+         `_extract_patterns_statistical` 认得它,否则新档永远进不了模式统计。
+    """
+    if not isinstance(user_id, str) or not user_id:
+        return
+    try:
+        await rules_engine._track_behavior(user_id, action, rule_id, details)
+    except Exception as e:  # pragma: no cover - 埋点不得影响用户写操作
+        logger.debug(
+            "[rules_engine] 行为样本写入失败(已忽略): action=%s rule_id=%s err=%s",
+            action,
+            rule_id,
+            e,
+        )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
