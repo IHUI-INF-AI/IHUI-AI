@@ -31,11 +31,23 @@ export interface BackgroundTask {
   exitedAt?: string;
   exitCode?: number | null;
   status: BackgroundTaskStatus;
+  /**
+   * **尾部窗口**(G-937959):保留**最后** TASK_OUTPUT_TAIL_BYTES 字符 —— 终态视图读这里,
+   * 结论/报错在输出末尾。旧实现这里保留的是头部,超限任务的收场反而读不到。
+   */
   stdoutBuf: string;
+  /** 同 stdoutBuf:stderr 的尾部窗口。 */
   stderrBuf: string;
+  /** **头部窗口**:前 TASK_OUTPUT_RUNNING_BASH_PREFIX_BYTES 字符,运行中视图读这里(含第 1 行)。 */
+  stdoutHead: string;
+  stderrHead: string;
+  /** 累计产出量(字符,两窗口记账的分母):省略量 = total − 所选窗口长度,读时现算。 */
+  totalStdoutChars: number;
+  totalStderrChars: number;
   truncated: boolean;
   /**
-   * 超出 MAX_OUTPUT_PER_TASK 后被丢弃的输出量(下界,按 chunk 计)。
+   * 尾窗(TASK_OUTPUT_TAIL_BYTES)之外的输出量(下界,按字符计)= 终态视图的省略量;
+   * 运行中视图的省略量(total − 头窗)在投影时按 total* 现算,不占这个字段。
    * G-816028:截断必须能回答"省略了多少"—— 只立一个布尔,模型会把截断文本当全貌。
    */
   droppedStdoutBytes: number;
@@ -79,7 +91,19 @@ export interface BackgroundTaskMeta {
 }
 
 const MAX_COMPLETED_TASKS = 100;
-const MAX_OUTPUT_PER_TASK = 1024 * 1024;
+
+/**
+ * 输出投影的两个窗口(G-937959,机制照上游 ZCode `task-output-projection.ts:10-11` /
+ * `task-output-bash.ts:115-121` 的"终态尾读 + 运行中头读"模型):
+ *  - 终态视图读**尾部**:结论/报错在输出末尾,复用头部只会看到开头(上游 8 MiB 文件尾读;
+ *    我方无全量落盘,尾窗就是内存预算 1 MiB,规模不同、机制同构)。
+ *  - 运行中视图读**头部** 30000:运行中的尾部是半截滚动的进度,第 1 行(命令回显/早期报错)
+ *    才是模型定位任务用的信息(上游 `TASK_OUTPUT_RUNNING_BASH_PREFIX_BYTES` 同值)。
+ * 两个常量沿用上游命名;口径差异如实登记:上游按**字节**读文件,我方缓冲按**字符**(utf-16
+ * 码元)计 —— 与本文件既有 dropped* 记账同口径(见 G-816028 注)。
+ */
+const TASK_OUTPUT_TAIL_BYTES = 1024 * 1024;
+const TASK_OUTPUT_RUNNING_BASH_PREFIX_BYTES = 30_000;
 
 const tasks = new Map<string, BackgroundTask>();
 
@@ -141,7 +165,7 @@ function isTerminalStatus(status: BackgroundTaskStatus): boolean {
 export type BackgroundTaskSnapshot = Readonly<
   Pick<
     BackgroundTask,
-    'id' | 'command' | 'startedAt' | 'exitedAt' | 'exitCode' | 'status' | 'stdoutBuf' | 'stderrBuf' | 'truncated' | 'droppedStdoutBytes' | 'droppedStderrBytes' | 'timedOut' | 'stopInitiator'
+    'id' | 'command' | 'startedAt' | 'exitedAt' | 'exitCode' | 'status' | 'stdoutBuf' | 'stderrBuf' | 'stdoutHead' | 'stderrHead' | 'totalStdoutChars' | 'totalStderrChars' | 'truncated' | 'droppedStdoutBytes' | 'droppedStderrBytes' | 'timedOut' | 'stopInitiator'
   >
 >;
 
@@ -155,6 +179,10 @@ function toSnapshot(t: BackgroundTask): BackgroundTaskSnapshot {
     status: t.status,
     stdoutBuf: t.stdoutBuf,
     stderrBuf: t.stderrBuf,
+    stdoutHead: t.stdoutHead,
+    stderrHead: t.stderrHead,
+    totalStdoutChars: t.totalStdoutChars,
+    totalStderrChars: t.totalStderrChars,
     truncated: t.truncated,
     droppedStdoutBytes: t.droppedStdoutBytes,
     droppedStderrBytes: t.droppedStderrBytes,
@@ -270,6 +298,10 @@ export function registerTask(
     status: 'running',
     stdoutBuf: '',
     stderrBuf: '',
+    stdoutHead: '',
+    stderrHead: '',
+    totalStdoutChars: 0,
+    totalStderrChars: 0,
     truncated: false,
     droppedStdoutBytes: 0,
     droppedStderrBytes: 0,
@@ -285,33 +317,57 @@ export function registerTask(
   recordTaskStart({ id, command, childPid: process?.pid ?? null });
 
   if (process) {
-    process.stdout?.on('data', (chunk: Buffer) => {
-      if (task.stdoutBuf.length < MAX_OUTPUT_PER_TASK) {
-        task.stdoutBuf += chunk.toString('utf-8');
-        if (task.stdoutBuf.length >= MAX_OUTPUT_PER_TASK) {
-          task.truncated = true;
-          // G-816028:跨界那一段的溢出同样是被丢弃的输出,必须与 else 分支同一口径(字符)入账,
-          // 否则"已省略 ≥N"在单大块输出下会少报。
-          task.droppedStdoutBytes += task.stdoutBuf.length - MAX_OUTPUT_PER_TASK;
-          task.stdoutBuf = task.stdoutBuf.slice(0, MAX_OUTPUT_PER_TASK);
+    // 双窗口捕获(G-937959):每个流同时维护"头窗"(前 30k,运行中视图)与"尾窗"
+    // (后 1MiB,终态视图)。上游把全量落文件、读时投影头/尾;我方无全量落盘,
+    // 就在捕获层把两个窗口都留住 —— 内存上界 ≈ 旧实现(1MiB 头缓冲)+ 3%(头窗)。
+    const capture = (
+      chunk: Buffer,
+      win: { head: string; tail: string; total: number; dropped: number },
+    ): typeof win => {
+      const text = chunk.toString('utf-8');
+      win.total += text.length;
+      // 头窗:只收前 TASK_OUTPUT_RUNNING_BASH_PREFIX_BYTES,之后不再增长
+      if (win.head.length < TASK_OUTPUT_RUNNING_BASH_PREFIX_BYTES) {
+        win.head += text;
+        if (win.head.length > TASK_OUTPUT_RUNNING_BASH_PREFIX_BYTES) {
+          win.head = win.head.slice(0, TASK_OUTPUT_RUNNING_BASH_PREFIX_BYTES);
         }
-      } else {
-        // G-816028:丢弃也要记账,否则"截断了"回答不了"省略了多少"。按字符计,与缓冲上限同口径。
-        task.droppedStdoutBytes += chunk.toString('utf-8').length;
       }
+      // 尾窗:滚动保留最后 TASK_OUTPUT_TAIL_BYTES;溢出量入账(= 终态视图省略量,G-816028)
+      win.tail += text;
+      if (win.tail.length > TASK_OUTPUT_TAIL_BYTES) {
+        const overflow = win.tail.length - TASK_OUTPUT_TAIL_BYTES;
+        win.dropped += overflow;
+        win.tail = win.tail.slice(overflow);
+      }
+      return win;
+    };
+    process.stdout?.on('data', (chunk: Buffer) => {
+      const w = capture(chunk, {
+        head: task.stdoutHead,
+        tail: task.stdoutBuf,
+        total: task.totalStdoutChars,
+        dropped: task.droppedStdoutBytes,
+      });
+      task.stdoutHead = w.head;
+      task.stdoutBuf = w.tail;
+      task.totalStdoutChars = w.total;
+      task.droppedStdoutBytes = w.dropped;
+      if (w.dropped > 0) task.truncated = true;
       recordHeartbeat(id); // 有输出就是"还活着"的证据(模块内按 30s 节流)
     });
     process.stderr?.on('data', (chunk: Buffer) => {
-      if (task.stderrBuf.length < MAX_OUTPUT_PER_TASK) {
-        task.stderrBuf += chunk.toString('utf-8');
-        if (task.stderrBuf.length >= MAX_OUTPUT_PER_TASK) {
-          task.truncated = true;
-          task.droppedStderrBytes += task.stderrBuf.length - MAX_OUTPUT_PER_TASK;
-          task.stderrBuf = task.stderrBuf.slice(0, MAX_OUTPUT_PER_TASK);
-        }
-      } else {
-        task.droppedStderrBytes += chunk.toString('utf-8').length;
-      }
+      const w = capture(chunk, {
+        head: task.stderrHead,
+        tail: task.stderrBuf,
+        total: task.totalStderrChars,
+        dropped: task.droppedStderrBytes,
+      });
+      task.stderrHead = w.head;
+      task.stderrBuf = w.tail;
+      task.totalStderrChars = w.total;
+      task.droppedStderrBytes = w.dropped;
+      if (w.dropped > 0) task.truncated = true;
       recordHeartbeat(id);
     });
     process.on('error', () => {
@@ -379,6 +435,10 @@ export function registerFailedTask(command: string, errorMessage: string): strin
     status: 'error',
     stdoutBuf: '',
     stderrBuf: errorMessage,
+    stdoutHead: '',
+    stderrHead: '',
+    totalStdoutChars: 0,
+    totalStderrChars: errorMessage.length,
     truncated: false,
     droppedStdoutBytes: 0,
     droppedStderrBytes: 0,
@@ -422,13 +482,63 @@ export function listTasks(): BackgroundTaskMeta[] {
   return list.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
 }
 
+/**
+ * G-937959 的视图感知投影(机制照上游 `task-output-projection.ts:107-158` 的
+ * `readTaskOutputFileSnapshot`:读选中的窗口、算省略量、加 omitted 前缀、绝不抛)。
+ * 上游读的是**文件**(终态尾 8MB / 运行中头 30k);我方读的是捕获层的双窗口内存缓冲,
+ * 投影语义同构:省略量 = total − 所选窗口长度。
+ */
+interface TaskOutputViewRead {
+  available: boolean;
+  content: string;
+  truncated: boolean;
+  omittedChars: number;
+}
+
+/** 一次视图投影:running ⇒ 头窗(含第 1 行),终态 ⇒ 尾窗(含末尾)。 */
+function projectOutputView(
+  running: boolean,
+  head: string,
+  tail: string,
+  total: number,
+): TaskOutputViewRead {
+  if (running) {
+    const omitted = total - head.length;
+    // 运行中视图的截断也要能回答"省略了多少"(G-816028),前缀嵌入内容(上游同形:
+    // `[NKB of earlier output omitted]` 一族)。
+    return {
+      available: true,
+      content:
+        omitted > 0
+          ? `[运行中预览:仅保留前 ${TASK_OUTPUT_RUNNING_BASH_PREFIX_BYTES} 字符,已省略 ≥${omitted} 字符;结束后读取尾部窗口]\n${head}`
+          : head,
+      truncated: omitted > 0,
+      omittedChars: omitted,
+    };
+  }
+  const omitted = total - tail.length;
+  return {
+    available: true,
+    content:
+      omitted > 0
+        ? `[${Math.round(omitted / 1024)}KB of earlier output omitted]\n${tail}`
+        : tail,
+    truncated: omitted > 0,
+    omittedChars: omitted,
+  };
+}
+
 export interface TaskOutput {
   id: string;
   status: BackgroundTaskStatus;
+  /**
+   * 视图感知的输出投影(G-937959):running ⇒ 头窗(30k,含第 1 行),终态 ⇒ 尾窗(1MiB,
+   * 含末尾)。窗口装不下时内容自带 omitted 前缀(上游 `[NKB of earlier output omitted]` 同形)。
+   */
   stdout: string;
   stderr: string;
   truncated: boolean;
-  /** 丢弃量下界(字节):G-816028 要求截断时能回答"省略了多少"。 */
+  /** 丢弃量下界(字符):G-816028 要求截断时能回答"省略了多少"。= 终态视图(尾窗)的省略量。 */
   droppedStdoutBytes: number;
   droppedStderrBytes: number;
   /** 谁主动停的(G-816026):user/model 由 killTask 落盘;undefined = 外部终止(OOM/别的进程)。 */
@@ -441,22 +551,25 @@ export interface TaskOutput {
 }
 
 /**
- * G-816028 的诚实截断注记:截断必须同时回答"省略了多少"与"全量还在不在"。
- * 我方没有全量落盘 —— 超出 MAX_OUTPUT_PER_TASK 的部分**当场丢弃且继续丢**,
- * 所以诚实的说法是"未保留全量",而不是上游那种 `[Truncated. Full output: <path>]`
- * (它有 artifact 文件才写得出来;照抄会变成一句兑现不了的话)。
+ * 获取任务输出(视图感知投影)。
+ *
+ * 判据(G-937959 验收面):
+ *  - running ⇒ 读头窗 ⇒ 含第 1 行;装不下时带"已省略 ≥N"前缀;
+ *  - 终态 ⇒ 读尾窗 ⇒ 含末尾;装不下时带 `[NKB of earlier output omitted]` 前缀且长度 ≤ 尾窗上限;
+ *  - 任务不存在 ⇒ 返回 null(= 上游 `available:false`),**绝不抛** —— 读面不负责报错,
+ *    "不存在"是一个事实,不是一个异常。
+ * 与上游的口径差如实登记:上游还有 abort 感知,因为它是异步文件 IO、有可取消的 await 窗口;
+ * 我方读的是同步内存投影,没有让出点,不存在可中断的 IO —— abort 一格无载体,不虚设。
  */
-export function formatTruncatedNote(dropped: { droppedStdoutBytes: number; droppedStderrBytes: number }): string {
-  const total = dropped.droppedStdoutBytes + dropped.droppedStderrBytes;
-  return `[输出被截断: 已省略 ≥${total} 字符;超出单任务上限(每流 1MiB)的部分未保留,后续输出同样被丢弃,需要完整输出请重跑任务]`;
-}
-
-/** 获取任务输出,支持 tail 截取最后 N 行(默认全部)。 */
 export function getTaskOutput(id: string, tailLines?: number): TaskOutput | null {
   const t = tasks.get(id);
+  // 读不存在 ⇒ available:false 不抛(上游 readTaskOutputFileSnapshot 的 unavailable 档)
   if (!t) return null;
-  let stdout = t.stdoutBuf;
-  let stderr = t.stderrBuf;
+  const running = !isTerminalStatus(t.status);
+  const stdoutView = projectOutputView(running, t.stdoutHead, t.stdoutBuf, t.totalStdoutChars);
+  const stderrView = projectOutputView(running, t.stderrHead, t.stderrBuf, t.totalStderrChars);
+  let stdout = stdoutView.content;
+  let stderr = stderrView.content;
   if (tailLines !== undefined && tailLines > 0) {
     const stdoutLines = stdout.split('\n');
     const stderrLines = stderr.split('\n');
@@ -468,7 +581,7 @@ export function getTaskOutput(id: string, tailLines?: number): TaskOutput | null
     status: t.status,
     stdout,
     stderr,
-    truncated: t.truncated,
+    truncated: t.truncated || stdoutView.truncated || stderrView.truncated,
     droppedStdoutBytes: t.droppedStdoutBytes,
     droppedStderrBytes: t.droppedStderrBytes,
     stopInitiator: t.stopInitiator,
@@ -477,6 +590,59 @@ export function getTaskOutput(id: string, tailLines?: number): TaskOutput | null
     startedAt: t.startedAt,
     exitedAt: t.exitedAt,
   };
+}
+
+// ==================== 任务完成通知的顺序化截断(G-937956) ====================
+
+/**
+ * 终态通知总预算(机制照上游 ZCode `runtime-task/notification.ts:18` 同名常量):
+ * 超预算的通知按**段序**斩,不是按字符乱斩 —— 段序即优先级,见 formatSettledTaskNotification。
+ */
+export const TASK_NOTIFICATION_MAX_CHARS = 120_000;
+
+const TASK_NOTIFICATION_TRUNCATED_MARK = '[truncated]';
+
+export interface SettledTaskNotificationInput {
+  /** 状态事实行(等价上游 `<task-id>/<status>/<summary>` 块):通知的头,永在。 */
+  status: string;
+  /** 结果正文(我方 = stdout):任务的收场,**保住**(上游 result 同格)。 */
+  result?: string;
+  /** 失败正文(我方 = stderr):**保住**(上游 error 同格)。 */
+  error?: string;
+  /** 过程产物节(上游 `<reports>` 同格):次之被斩。 */
+  reports?: string;
+  /** 交付物节(上游 `<artifacts>` 同格):次之被斩。 */
+  artifacts?: string;
+  /** 呈现指引(上游 deliveryGuidance 同格):补充材料,**先斩**。 */
+  guidance?: string;
+}
+
+/**
+ * 总截断:超预算从头保留 TASK_NOTIFICATION_MAX_CHARS,尾部立 `[truncated]` 标记
+ * (上游 `truncateTaskNotification` 同形)。被斩掉的部分调用方靠段序预知:排在后面的先没。
+ */
+export function truncateTaskNotification(value: string): string {
+  if (value.length <= TASK_NOTIFICATION_MAX_CHARS) return value;
+  return `${value.slice(0, TASK_NOTIFICATION_MAX_CHARS)}\n${TASK_NOTIFICATION_TRUNCATED_MARK}`;
+}
+
+/**
+ * 组装一条终态通知,并应用 120k 总截断。
+ *
+ * 段序即斩序(上游 notification.ts:185-221 的立论原样适用):result/error 是通知的正文,
+ * 排在前;reports/artifacts 是补充材料,排在后;guidance 是最外围的指引,排最后。
+ * 总截断从头部保留 —— 于是 >120k 时**先斩 guidance、再斩 reports/artifacts、保住
+ * result/error**,读侧看到 `[truncated]` 就知道后面还有被斩掉的节。
+ */
+export function formatSettledTaskNotification(input: SettledTaskNotificationInput): string {
+  const lines = [input.status];
+  if (input.result !== undefined && input.result.length > 0) lines.push(input.result);
+  if (input.error !== undefined && input.error.length > 0) lines.push(input.error);
+  // 正文之后的节按"先产物后指引"排:总截断先斩指引、再斩产物(上游同序同理)
+  if (input.reports !== undefined && input.reports.length > 0) lines.push(input.reports);
+  if (input.artifacts !== undefined && input.artifacts.length > 0) lines.push(input.artifacts);
+  if (input.guidance !== undefined && input.guidance.length > 0) lines.push(input.guidance);
+  return truncateTaskNotification(lines.join('\n'));
 }
 
 /**
