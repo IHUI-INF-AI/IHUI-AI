@@ -248,6 +248,9 @@ export interface ToolNameCount {
 /** 聚合后的一个类目 run(一张卡) */
 export interface CategoryRun {
   categoryKey: CategoryKey
+  /** b75-5#3:流式稳定分组 key —— 锚定组内首行工具名,
+   *  同类目被其他类目打断后再次出现时 key 不冲突(原用 categoryKey 会撞 key)。 */
+  groupKey: string
   labelKey: string
   order: number
   countable: boolean
@@ -260,19 +263,24 @@ export interface CategoryRun {
 
 function makeRun(categoryKey: CategoryKey, tools: ToolNameCount[]): CategoryRun {
   const def = CATEGORY_TABLE_BY_KEY[categoryKey]
+  // groupKey 锚定首行工具名:同类目多段时各段首工具通常不同,避免 React key 冲突
+  const anchor = tools[0]?.toolName ?? ''
   return {
     categoryKey,
+    groupKey: `${categoryKey}::${anchor}`,
     labelKey: def.labelKey,
     order: def.order,
     countable: def.countable,
     expandStrategy: def.expandStrategy,
-    // totalCount 恒等于 run 内全部工具次数之和(两个调用方传入的 tools 均非空:
-    // 构造点即推入元素)。按数组求和而非取首个元素,避免在类型系统里留下
-    // "tools[0] 可能不存在"的空洞(原实现在 summarize 路径上取 tools[0] 且随后
-    // 用整段求和覆盖 totalCount,语义与此处完全一致)。
     totalCount: tools.reduce((s, t) => s + t.count, 0),
     tools,
   }
+}
+
+/** 给 run 列表的 groupKey 追加段序号,确保同类目多段(含同首工具)的 key 全局唯一。
+ *  流式末尾追加时,已有段的序号不变 → groupKey 稳定 → 展开态不丢。 */
+function withSegmentIndex(runs: CategoryRun[]): CategoryRun[] {
+  return runs.map((r, i) => ({ ...r, groupKey: `${r.groupKey}::${i}` }))
 }
 
 /** run 列表按类目 order 稳定排序,便于渲染顺序与断言 */
@@ -304,7 +312,7 @@ export function aggregateCategoryRuns(ordered: ToolNameCount[]): CategoryRun[] {
       runs.push(makeRun(cat, [item]))
     }
   }
-  return runs
+  return withSegmentIndex(runs)
 }
 
 /**
@@ -327,6 +335,6 @@ export function summarizeCategoriesByTool(toolsByCategory: Record<string, number
     // 不再经数组下标取值(noUncheckedIndexedAccess 下 `tools[0]` 类型为可空)。
     runs.push(makeRun(cat, tools))
   }
-  return sortRuns(runs)
+  return withSegmentIndex(sortRuns(runs))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
