@@ -17,6 +17,7 @@ import {
   Wallet,
   TrendingUp,
   Bell,
+  CalendarDays,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -613,6 +614,231 @@ function PaymentDialog({
   )
 }
 
+/* ─── 账期(缴费计划)面板 ─── */
+
+interface ScheduleItem {
+  id: string
+  enrollmentId: string
+  periodLabel: string
+  dueDate: string
+  amountDue: number
+  paidAmount: number
+  refundAmount: number
+  graceDays: number
+  status: string
+}
+
+interface GenerateScheduleBody {
+  enrollmentId: string
+  periodCount: number
+  firstDueDate: string
+  cycle: 'once' | 'monthly' | 'termly'
+  monthsPerPeriod?: number
+  graceDays: number
+  replace: boolean
+}
+
+/**
+ * 账期面板。
+ *
+ * 为什么必须在界面上有这一格而不是"让机构调 API":后端已经有 `POST /fee-schedule/generate`,
+ * 但 `edu_fee_schedule` 是空表 —— 没有入口,到期分级、提前提醒、按账期摊派全部空转,
+ * 这条能力等于没交付(本仓把"造好没装车"记过多次:守门 64/70/81/115 同族)。
+ *
+ * 分期参数一律由操作者填,**界面不提供任何"默认期数/默认到期日"** ——
+ * 预填值会被当成机构选过的值存进账期,然后原样出现在发给家长的催缴文案里。
+ */
+function SchedulePanel({ enrollments }: { enrollments: RosterItem[] }) {
+  const queryClient = useQueryClient()
+  const [enrollmentId, setEnrollmentId] = React.useState('')
+  const [periodCount, setPeriodCount] = React.useState(2)
+  const [cycle, setCycle] = React.useState<'once' | 'monthly' | 'termly'>('monthly')
+  const [firstDueDate, setFirstDueDate] = React.useState('')
+  const [monthsPerPeriod, setMonthsPerPeriod] = React.useState(6)
+  const [graceDays, setGraceDays] = React.useState(0)
+  const [replace, setReplace] = React.useState(false)
+  const [busy, setBusy] = React.useState(false)
+
+  const selected = enrollments.find((e) => e.enrollmentId === enrollmentId) ?? null
+
+  const listQuery = useQuery({
+    queryKey: ['edu-ai-management', 'fee-schedule', enrollmentId],
+    enabled: !!enrollmentId,
+    queryFn: () =>
+      api<{ list: ScheduleItem[]; total: number }>(
+        `/api/edu-ai-management/fee-schedule?enrollmentId=${enrollmentId}`,
+      ),
+  })
+  const schedules = listQuery.data?.list ?? []
+
+  const generate = useMutation({
+    mutationFn: (body: GenerateScheduleBody) =>
+      api<{
+        createdCount: number
+        replaced: boolean
+        planTotal: number
+        amountTotal: number
+        ledger: { arrears: number; nextDueDate: string | null } | null
+      }>('/api/edu-ai-management/fee-schedule/generate', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['edu-ai-management', 'fee-schedule'] })
+      queryClient.invalidateQueries({ queryKey: ['edu-ai-management', 'student-roster'] })
+      queryClient.invalidateQueries({ queryKey: ['edu-ai-management', 'payment-record'] })
+    },
+  })
+
+  const canSubmit =
+    !!enrollmentId &&
+    !!firstDueDate &&
+    periodCount >= 1 &&
+    (cycle !== 'termly' || monthsPerPeriod >= 1)
+
+  const onGenerate = async () => {
+    if (!canSubmit) return
+    setBusy(true)
+    try {
+      const res = await generate.mutateAsync({
+        enrollmentId,
+        periodCount,
+        firstDueDate,
+        cycle,
+        ...(cycle === 'termly' ? { monthsPerPeriod } : {}),
+        graceDays,
+        replace,
+      })
+      // 摊派自证由后端算好回传:两者不等就说明后端展开器算错了,必须当场显示而不是静默
+      const sumTip =
+        res.planTotal === res.amountTotal
+          ? `逐期相加 ${res.planTotal} 元与应缴一致`
+          : `⚠️ 摊派不符:逐期合计 ${res.planTotal} ≠ 应缴 ${res.amountTotal}`
+      toast.success(`已生成 ${res.createdCount} 期账期${res.replaced ? '(已替换旧账期)' : ''} · ${sumTip}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '账期生成失败')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">账期 / 缴费计划</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-1.5">
+          <Label>报名（期次）</Label>
+          <Select value={enrollmentId} onValueChange={setEnrollmentId}>
+            <SelectTrigger>
+              <SelectValue placeholder="选择学员的某一期报名" />
+            </SelectTrigger>
+            <SelectContent>
+              {enrollments.map((e) => (
+                <SelectItem key={e.enrollmentId} value={e.enrollmentId}>
+                  {`${e.studentName} · ${e.className} · 应缴 ${e.totalFee} 欠费 ${e.dueAmount}`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {selected ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label>分期方式</Label>
+              <Select value={cycle} onValueChange={(v) => setCycle(v as typeof cycle)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="once">一次缴清</SelectItem>
+                  <SelectItem value="monthly">按月</SelectItem>
+                  <SelectItem value="termly">按学期间隔</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label>期数</Label>
+              <Input
+                type="number"
+                min={1}
+                max={36}
+                disabled={cycle === 'once'}
+                value={cycle === 'once' ? 1 : periodCount}
+                onChange={(e) => setPeriodCount(Number(e.target.value))}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>首期到期日</Label>
+              <Input
+                type="date"
+                value={firstDueDate}
+                onChange={(e) => setFirstDueDate(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>逾期宽限（天）</Label>
+              <Input
+                type="number"
+                min={0}
+                max={90}
+                value={graceDays}
+                onChange={(e) => setGraceDays(Number(e.target.value))}
+              />
+            </div>
+            {cycle === 'termly' ? (
+              <div className="grid gap-1.5">
+                <Label>每期间隔（月）</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={24}
+                  value={monthsPerPeriod}
+                  onChange={(e) => setMonthsPerPeriod(Number(e.target.value))}
+                />
+              </div>
+            ) : null}
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
+              已有账期时替换（会断开旧账期上的缴费归属）
+            </label>
+          </div>
+        ) : null}
+
+        <Button size="sm" onClick={onGenerate} disabled={!canSubmit || busy}>
+          {busy ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <CalendarDays className="mr-1 h-3.5 w-3.5" />}
+          生成账期
+        </Button>
+
+        {enrollmentId ? (
+          listQuery.isLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              加载中…
+            </div>
+          ) : schedules.length === 0 ? (
+            <div className="text-sm text-muted-foreground">该报名还没有账期</div>
+          ) : (
+            <ul className="space-y-1">
+              {schedules.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex items-center justify-between text-xs text-muted-foreground"
+                >
+                  <span>{`${s.periodLabel} · ${s.dueDate} · 应缴 ${s.amountDue}`}</span>
+                  <span>{`${s.status} 已缴 ${s.paidAmount}${s.refundAmount ? ` 退 ${s.refundAmount}` : ''}`}</span>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
 /* ─── Refund Dialog ─── */
 
 interface RefundFormData {
@@ -1159,6 +1385,10 @@ export default function FinancePage() {
             <TrendingUp className="mr-1.5 h-4 w-4" />
             退费管理
           </TabsTrigger>
+          <TabsTrigger value="schedules">
+            <CalendarDays className="mr-1.5 h-4 w-4" />
+            账期管理
+          </TabsTrigger>
           <TabsTrigger value="reminders">
             <Bell className="mr-1.5 h-4 w-4" />
             催费管理
@@ -1475,6 +1705,10 @@ export default function FinancePage() {
         </TabsContent>
 
         {/* ════════════════ Tab 3: Refunds ════════════════ */}
+        <TabsContent value="schedules" className="space-y-4">
+          <SchedulePanel enrollments={payableEnrollments} />
+        </TabsContent>
+
         <TabsContent value="refunds" className="space-y-4">
           <Card>
             <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-3 p-3">
