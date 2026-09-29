@@ -48,7 +48,6 @@ import { useUserStore } from '@/stores/user'
 import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import ChatMessageItem from './ChatMessageItem'
 import ContextUsageStrip from './context-usage-strip'
-import McpStatusStrip from './mcp-status-strip'
 import { resolvePermissionTierText } from './permission-tier-text'
 import TaskStatusBar from './task-status-bar'
 import {
@@ -1499,14 +1498,6 @@ export default function ChatPage() {
 
       {/* 任务进度状态条(plan_updated 驱动;共享派生层返回 null 时整体不挂载,零占位) */}
       <TaskStatusBar cards={lastAssistantCards} isStreaming={thinking} />
-
-      {/*
-        D154(2026-10-01 收口渲染面):MCP 连接状态行。数据源是共享层那一份 `mcpStatusLedger`
-        (帧怎么进表由 `src/lib/user-broadcast.ts` 那条唯一接线负责,本端渲染侧只读表 ⇒ 无第二条连接)。
-        票面要求的是「至少显示状态行 + 桌面端管理提示」:toast 会过期,这一行不会。
-        空表 ⇒ 组件返回 null、零占位(连上不是要提示的事,与 TaskStatusBar 同一纪律)。
-      */}
-      <McpStatusStrip />
 
       {/*
         D152(2026-09-29 立):会话目标(goal)的服务端主副本经下行帧 `goal_updated` 到达后,

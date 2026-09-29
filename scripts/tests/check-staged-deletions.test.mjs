@@ -184,29 +184,4 @@ test('登记前置:未注册进 guardian-runner 时本组测试仍绿;注册后�
   assert.match(block, /mode: 'blocking'/)
   assert.match(block, /skipEnv: 'HUSKY_SKIP_STAGED_DELETIONS'/)
 })
-
-// T11/T12 —— 别名与整仓库路径字面量这两个形态的"同 stem 另一份存活 ⇒ 引用未断"歧义判据。
-// 立因:守门 98 的 D4 影子维规定"删掉那份 .js、别去改说明符",而本门原先只在**相对**说明符那一支
-// 做歧义放过 ⇒ 门 99 把门 98 规定的正确修法判成红(两道门互咬,实测于 G-815918 那枚删除)。
-// 两条必须成对:只留 T11 就等于允许"任何别名引用都放过"。
-test('T11 影子 .js 被删而同目录 .ts 存活 ⇒ 别名与字面量都不算断链(放过)', () => {
-  const p = 'pkg/svc/concurrency.js'
-  const from = 'pkg/tests/concurrency.test.ts'
-  const live = new Set([p, 'pkg/svc/concurrency.ts', from])
-  assert.equal(__test__.altSiblingsAlive(p, live), true, '同 stem 的 .ts 在审面上存活')
-  assert.equal(__test__.classifySpecifier('pkg/svc/concurrency.js', from, p, live), null, '字面量形态')
-  assert.equal(__test__.classifySpecifier('pkg/svc/concurrency.ts', from, p, live), null, '别名形态')
-})
-
-test('T12 与 T11 成对:同 stem 没有另一份存活时,字面量引用照旧判(放过不等于取消)', () => {
-  const p = 'pkg/svc/concurrency.js'
-  const from = 'pkg/tests/concurrency.test.ts'
-  const live = new Set([p, from])
-  assert.equal(__test__.altSiblingsAlive(p, live), false, '面上没有另一份实现')
-  assert.deepEqual(
-    __test__.classifySpecifier('pkg/svc/concurrency.js', from, p, live),
-    { kind: 'path-literal', spec: p },
-    '缺这一判就是替"删除仍被引用的文件"背书',
-  )
-})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

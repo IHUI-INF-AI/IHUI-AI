@@ -5,7 +5,6 @@
 import { eq, and, sql } from 'drizzle-orm'
 import { db } from './index.js'
 import { idMapping, type IdMapping } from '@ihui/database'
-import { backfillWhere } from '../utils/backfill-baseline.js'
 
 // =============================================================================
 // ID 映射查询 — Java Long 自增 ID ↔ TS uuid 随机 ID
@@ -88,29 +87,3 @@ export async function hasBeenMigrated(legacyTable: string, legacyId: number): Pr
   return rows.length > 0
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
-
-/**
- * G-815953 首个落点:按基线时刻划线的回填出口示例。
- * 只碰 baselineTime 之前创建(此后无人动过)的行 —— 批量改 migrationBatch 时不得
- * 把用户在两次迁移之间写入的映射当旧数据覆盖。上界谓词唯一来自 backfill-baseline.ts,
- * 本文件不得自拼 and(...) 绕过它。
- */
-export async function backfillMigrationBatch(options: {
-  fromBatch: string
-  toBatch: string
-  baselineTime: Date | string
-}): Promise<number> {
-  const rows = await db
-    .update(idMapping)
-    .set({ migrationBatch: options.toBatch })
-    .where(
-      backfillWhere({
-        column: idMapping.createdAt,
-        baselineTime: options.baselineTime,
-        conditions: [eq(idMapping.migrationBatch, options.fromBatch)],
-      }),
-    )
-    .returning({ id: idMapping.id })
-  return rows.length
-}
