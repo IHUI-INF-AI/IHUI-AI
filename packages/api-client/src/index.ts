@@ -85,6 +85,12 @@ export type {
   UsageEvent,
   // Budget 用量分档提醒事件(2026-09-19 立,网关发,前端 onBudget toast 提示用量进度)
   BudgetEvent,
+  // D155(2026-09-29 立):下行告警三档事件类型(契约见 shared contract.ts SSE_ALERT_EVENTS 段)。
+  // 显式命名清单纪律同 D130:漏一条端内拿到 undefined,回调入参类型点不到。
+  AlertSeverity,
+  ConfigWarningEvent,
+  DeprecationNoticeEvent,
+  GuardianWarningEvent,
   // D106(2026-09-22 立):这三帧的类型此前漏 re-export —— 端内要写 onSteer/onInjectionApplied/
   // onRetryScheduled 回调就点不到参数类型,只能自己重抄一份或用 any(§3 类型零技术债禁止)。
   SteerEvent,
