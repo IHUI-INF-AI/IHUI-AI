@@ -611,11 +611,6 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // GET /categories/agent/:agentId - 按智能体 ID 查分类
   server.get('/categories/agent/:agentId', async (request, reply) => {
     const { agentId } = agentIdParam.parse(request.params)
-    // 形状闸必须在进 SQL 之前(同 GET /agents/:agentId 那一处):`agents.agent_id` 是 uuid 列,
-    // 畸形段喂给 `eq()` 会让 Postgres 抛 22P02,而本 handler 没有兜住 ⇒ 打成 500。
-    // 口径按**读侧**回 404,并复用本路由族既有的"分类不存在"文案 —— 不得在响应里区分
-    // "格式不对"与"不存在"(那是存在性预言机),也不得新造第二套形状判据。
-    if (!isUuidString(agentId)) return reply.status(404).send(error(404, '分类不存在'))
     const category = await findCategoryByAgentId(agentId)
     const list = category ? [category] : []
     return reply.send(success({ list, total: list.length }))

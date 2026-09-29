@@ -38,52 +38,37 @@ export function lengthToPx(text) {
   return n
 }
 
-/** 常量表达式最多再解几层(`A = B`、`B = 44` 两层够;更深一律判"解不到",不猜)。 */
-const CONST_EXPR_MAX_DEPTH = Number(process.env.IHUI_CONST_EXPR_MAX_DEPTH || 6)
-
 /**
- * 一个**常量表达式**(标识符 / 成员档 / 指向另一个常量)折成 px。
+ * 一条**书写形态的长度**在指定端的构建后等于多少逻辑 px。折算算术仍只有 `lengthToPx` 那一份,
+ * 这里只回答"落地时它是什么单位"—— 而那是构建链事实,不是后缀语义:
  *
- * 为什么必须有这一份,而不是让半径侧与盒形侧各写一遍:两侧量的是同一批常量
- * (`SECONDARY_BTN_SIZE / 2` 与 `width: SECONDARY_BTN_SIZE` 是同一个数)。两处各写必然漂开成
- * "半径认得、盒形不认",而那一型产出的是**自洽的假结论**(半径 8 配上量不到的 16×16 盒 ⇒
- * 把一枚写规范了的圆钮判成"control 该取 sm"),比"读不出来"更坏 —— 它会替未判定发合格证。
+ *  ① 小程序端**无单位数字**按该端量纲即 rpx(750 稿半单位)—— 与旧 `toPx` 口径逐字一致。
+ *  ② 小程序端**编译进样式表**的 `Npx` 会被 postcss-pxtransform 按 **1:1** 写成 `Nrpx`
+ *     (`config/index.ts` designWidth 750 + `deviceRatio {750: 1}` + `pxtransform.enable`),
+ *     所以它与 rpx 折出同一个物理量,必须一起折半。实测产物:
+ *       `LessonListItem.css` `padding: 2px 10px`  →  `padding:2rpx 10rpx`
+ *       `carte/index.tsx` `text-[11px]`           →  `.text-_b11px_B{font-size:11rpx}`
+ *       `TitleSwitchTypeBar.css` `border: 1px`     →  `border:1rpx`
+ *     不折就是拿 2 倍的读数去比对面,而"小程序 11 ↔ RN 5.5/22"这类**假分叉**正是这么来的。
+ *  ③ `where='runtime'`:运行时字符串(`style={{ minHeight: '120px' }}` / 端内 `px(n)` 助手)
+ *     **不过 postcss**,落地仍是真 px ⇒ 不得折半。哪条支路属于哪一面由调用方说 ——
+ *     只有取值的书写形态知道自己是样式表声明、Tailwind 任意值,还是引号里的运行时串。
  *
- * 认的形态(按出处优先级):
- *  ① 字面量(`44` / `24rpx` / `rpx(40)` / `calc(0.5rem)`)⇒ 交 `lengthToPx`,口径与两侧同形;
- *  ② 标识符(`SECONDARY_BTN_SIZE`、`SPEC_X_PX`)⇒ 直接查常量表;
- *  ③ 成员档(`rnGeometry.tapBox` / `taroGeometry.x` / `GEOMETRY_PX.y`)⇒ 先按整串查,再按
- *     `geometry.<成员>` 查(具名档表 `specTiers` 的键就是这一形,对象名换了不改键名);
- *  ④ 常量指向常量 ⇒ 递归,受 `CONST_EXPR_MAX_DEPTH` 限深。
- *
- * **解不到返回 null**,由调用方按"未判定"报名。防自引用是这条的存在理由之一:`const A = A`
- * 曾把整门打成 RangeError(注释承诺"最多再解一层,防环"而实现没有 depth,正是"名字承诺了、
- * 实现没兑现"那一型,见守门 137)。限深而不是访问集,是因为跨文件具名档表可能同时含环与长链,
- * 而超过这个深度的等式本就没有可信答案。
- *
- * @param {string} text 表达式原文
- * @param {Map<string,string|number>} consts 常量表(同文件 `constantMapOf` ∪ 跨文件具名档 `specTiers`)
- * @param {number} [depth] 递归层数,调用方不传
+ * @param {string} text 长度字面量原文(可带 rpx/px/rem,也可裸数字)
+ * @param {'miniapp'|'rn'} side 该腿所属端
+ * @param {'css'|'runtime'} [where] 落地面,默认 'css'
  * @returns {number|null}
  */
-export function constExprPx(text, consts, depth = 0) {
-  const t = String(text ?? '').trim()
+export function facePx(text, side, where = 'css') {
+  let t = String(text ?? '')
+    .trim()
+    .replace(/^calc\(/, '')
+    .replace(/\)$/, '')
+    .trim()
   if (!t) return null
-  const direct = lengthToPx(t)
-  if (direct !== null) return direct
-  if (!(consts instanceof Map) || consts.size === 0) return null
-  if (depth >= CONST_EXPR_MAX_DEPTH) return null
-  const norm = t.replace(/\s+/g, '')
-  const iden = /^([A-Za-z_$][\w$]*)((?:\.[A-Za-z_$][\w$]*)*)$/.exec(norm)
-  if (!iden) return null
-  const keys = [norm]
-  if (iden[2]) keys.push(`geometry${iden[2]}`)
-  for (const k of keys) {
-    if (!consts.has(k)) continue
-    const v = constExprPx(consts.get(k), consts, depth + 1)
-    if (v !== null) return v
-  }
-  return null
+  if (side === 'miniapp' && !/(?:rpx|px|rem)$/.test(t)) t += 'rpx'
+  if (side === 'miniapp' && where !== 'runtime') t = t.replace(/(?<!r)px$/, 'rpx')
+  return lengthToPx(t)
 }
 
 /**
@@ -96,11 +81,36 @@ export function constantMapOf(src) {
   for (const raw of (src || '').split('\n')) {
     const t = raw.trim()
     if (/^(\/\/|\/\*|\*|\{\/\*|<!--)/.test(t)) continue
-    const m = /(?:^|[^\w$.])(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*(rpx\(\s*[0-9.]+\s*\)|\d+(?:\.\d+)?(?:rpx|px|rem)?|[A-Za-z_$][\w$]*)\s*(?:[,;)\]}]|$)/.exec(
+    const m = /(?:^|[^\w$.])(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*(rpx\(\s*[0-9.]+\s*\)|\d+(?:\.\d+)?(?:rpx|px|rem)?|[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)\s*(?:[,;)\]}]|$)/.exec(
       raw,
     )
     if (m && !map.has(m[1])) map.set(m[1], m[2])
   }
   return map
+}
+
+/**
+ * 一个**表达式文本** → px(数字字面量、`rpx(N)`、成员档 `rnGeometry.tapBox`、指向这些的标识符)。
+ *
+ * 半径侧与盒形侧都要问这同一句(`X / 2` 的分子、`width: X` 的 X),所以求值只留这一份:
+ * 实测半径认得成员档而盒形不认,结果是一个自洽的假结论 —— 半径算出 18、盒量不到,
+ * "半径=边长一半"永不成立,`BottomActionBar.tsx` 那枚按钮就这么停在未判定里(而它其实是胶囊)。
+ * 解不到一律返回 null 交调用方报名;限深 4 并排除自引用,不允许把"猜的值"当量到的值。
+ */
+export function constExprPx(text, consts, depth = 0) {
+  const t = String(text ?? '')
+    .trim()
+    .replace(/\s+/g, '')
+  if (!t) return null
+  const direct = lengthToPx(t)
+  if (direct !== null) return direct
+  if (depth >= 4 || !(consts instanceof Map)) return null
+  // 成员档按门 128 的表约定挂 `geometry.<键>`(它把 GEOMETRY_PX 的档统一存成这个名字)。
+  const member = /^[A-Za-z_$][\w$]*\.([A-Za-z_$][\w$]*)$/.exec(t)
+  const key = member ? `geometry.${member[1]}` : /^[A-Za-z_$][\w$]*$/.test(t) ? t : null
+  if (!key || !consts.has(key)) return null
+  const next = String(consts.get(key)).trim()
+  if (next === t) return null
+  return constExprPx(next, consts, depth + 1)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

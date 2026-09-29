@@ -12,9 +12,7 @@ import {
   date,
   timestamp,
   index,
-  uniqueIndex,
 } from 'drizzle-orm/pg-core'
-import { sql } from 'drizzle-orm'
 import { users } from './users.js'
 
 /**
@@ -633,17 +631,7 @@ export const eduEnrollment = pgTable(
       .references(() => eduTerm.id, { onDelete: 'cascade' }),
     enrollDate: date('enroll_date').notNull(),
     totalFee: integer('total_fee').notNull(),
-    /**
-     * paidAmount 与 nextDueDate 都是**派生缓存**,不是账目真相源。
-     * 唯一写入口 = apps/api/src/services/edu-ledger.ts(重算出口);真相源是
-     * edu_payment_record(status=paid) 之和 − edu_refund_record(approved/completed) 之和。
-     * 之所以留这两列而不是每次实时 SUM:欠费名单是每日定时扫描 + 多处列表读的高频查询,
-     * 逐次聚合要跨三张表 join;但缓存就必须有唯一写入口,否则就现在这样
-     * "后台录了缴费流水、paidAmount 不动、第二天继续催缴"。
-     * 禁止在任何端点/脚本里手工 set 这两列。
-     */
     paidAmount: integer('paid_amount').default(0).notNull(),
-    nextDueDate: date('next_due_date'),
     status: varchar('status', { length: 20 }).default('enrolled').notNull(),
     remark: text('remark'),
     operatorId: uuid('operator_id').references(() => users.id),
@@ -677,14 +665,6 @@ export const eduTuitionFee = pgTable(
     amount: integer('amount').notNull(),
     billingCycle: varchar('billing_cycle', { length: 30 }).default('term').notNull(), // term/monthly/yearly
     effectiveDate: date('effective_date').notNull(),
-    /**
-     * 该费用标准的默认应缴截止日(可空 = 未排期)。
-     * 立因:此前学费域**没有任何到期日载体** —— 全 schema 唯一的 dueDate 在学习计划表,
-     * 所以"自动分析什么时间该缴费"结构上算不出来,只能算"欠多少"。
-     * 逐期到期日落在 edu_fee_schedule.due_date;本列是生成账期时的默认值来源。
-     */
-    dueDate: date('due_date'),
-    graceDays: integer('grace_days').default(0).notNull(),
     isActive: boolean('is_active').default(true).notNull(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -719,23 +699,6 @@ export const eduPaymentRecord = pgTable(
     paymentMethod: varchar('payment_method', { length: 30 }).notNull(),
     status: varchar('status', { length: 20 }).default('paid').notNull(),
     receiptNo: varchar('receipt_no', { length: 100 }),
-    /**
-     * 归属账期(可空 = 历史流水 / 未排期的一次性缴费)。
-     * 有了它,"这笔钱抵的是哪一期"才答得出来,催费才能按到期日分级而不是"欠总额就喊一次"。
-     */
-    scheduleId: uuid('schedule_id').references(() => eduFeeSchedule.id, {
-      onDelete: 'set null',
-    }),
-    /**
-     * 归属报名(可空 = 回填时该 student×class 存在多期报名、无从确定)。
-     * 本列是"两套账"的地基修复:欠费按报名(student×class×term)算,而这张表过去只有
-     * (studentId, classId),同一班级续读两个学期的学生,流水归不到期次上,
-     * 于是 enrollment.paidAmount 与流水聚合可以长期互相矛盾而不报错。
-     * 留 NULL 的行仍计入报名级总额,只是不参与分期摊派。
-     */
-    enrollmentId: uuid('enrollment_id').references(() => eduEnrollment.id, {
-      onDelete: 'set null',
-    }),
     remark: text('remark'),
     operatorId: uuid('operator_id').references(() => users.id),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -743,17 +706,6 @@ export const eduPaymentRecord = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    /**
-     * 在线支付回调的幂等凭据。此前 applyEduTuitionOrder 靠"先按 receiptNo 查一次、
-     * 没命中就 insert + 累加"防重,而查与写不在同一事务、也没有唯一约束兜底
-     * ⇒ 两个并发回调可同时通过查重,把同一笔款**累加两次**(已缴翻倍、欠费变负)。
-     * 唯一索引让数据库来判重,不靠应用侧的一次读。
-     * partial(仅非空且未删除):手工录入的流水本就没有单号,软删行要保留可追溯。
-     */
-    receiptUniq: uniqueIndex('uq_edu_payment_receipt_no')
-      .on(t.receiptNo)
-      .where(sql`${t.receiptNo} is not null and ${t.deletedAt} is null`),
-    scheduleIdx: index('ix_edu_pay_schedule').on(t.scheduleId),
     studentIdx: index('ix_edu_pay_student').on(t.studentId),
     classIdx: index('ix_edu_pay_class').on(t.classId),
     feeIdx: index('ix_edu_pay_fee').on(t.feeId),
@@ -777,15 +729,6 @@ export const eduRefundRecord = pgTable(
       .notNull()
       .references(() => eduClass.id, { onDelete: 'cascade' }),
     paymentId: uuid('payment_id').references(() => eduPaymentRecord.id),
-    /**
-     * 归属报名(可空 = 回填时归不出来)。与 edu_payment_record.enrollment_id 对称。
-     * 没有它,退费就永远冲不进"该报名已缴多少" —— 而现状正是这样:审批通过只把本表
-     * status 改成 approved,既不冲销已缴额也不动流水,于是退完钱系统仍认为"已缴清",
-     * 从此不再催缴。
-     */
-    enrollmentId: uuid('enrollment_id').references(() => eduEnrollment.id, {
-      onDelete: 'set null',
-    }),
     amount: integer('amount').notNull(),
     refundDate: date('refund_date').notNull(),
     refundMethod: varchar('refund_method', { length: 30 }),
@@ -840,56 +783,6 @@ export const eduFeeReminder = pgTable(
   }),
 )
 
-/**
- * 缴费账期表 (edu_fee_schedule,2026-09-29 立)。
- *
- * 存在的理由:此前学费域**只有"欠多少"没有"什么时候该交"** —— 全 schema 唯一的 dueDate
- * 长在学习计划表上,billingCycle 只是 term/monthly/yearly 一个字符串档,所以
- * "自动分析缴费时间 / 到期前提醒 / 逾期分级"这些需求结构上算不出来。
- * 本表把"一期应缴"变成一行可挂到期日与状态的数据,催费才有分级依据。
- *
- * 金额单位与 eduEnrollment.totalFee / eduPaymentRecord.amount 一致 = **整数元**
- * (在线支付那边 order.amount 是分,入账时 Math.round(/100) 折成元)。
- * paidAmount / refundAmount / status 是派生态,唯一写入口在 api 层账目出口,不得手工 set。
- */
-export const eduFeeSchedule = pgTable(
-  'edu_fee_schedule',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    enrollmentId: uuid('enrollment_id')
-      .notNull()
-      .references(() => eduEnrollment.id, { onDelete: 'cascade' }),
-    /** 冗余自 enrollment:家长端与催费扫描要按学员直查,不冗余就得先 join 报名表 */
-    studentId: uuid('student_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    classId: uuid('class_id').references(() => eduClass.id, { onDelete: 'set null' }),
-    termId: uuid('term_id').references(() => eduTerm.id, { onDelete: 'set null' }),
-    feeId: uuid('fee_id').references(() => eduTuitionFee.id, { onDelete: 'set null' }),
-    /** 期次标签,如「2026 秋季·第 2 期」「9 月」;用于账单与催费文案 */
-    periodLabel: varchar('period_label', { length: 40 }).notNull(),
-    dueDate: date('due_date').notNull(),
-    /** 到期后宽限天数,宽限期内不算 overdue(0 = 到期即逾期) */
-    graceDays: integer('grace_days').default(0).notNull(),
-    amountDue: integer('amount_due').notNull(),
-    paidAmount: integer('paid_amount').default(0).notNull(),
-    refundAmount: integer('refund_amount').default(0).notNull(),
-    /** pending 未缴 / partial 部分 / paid 已缴清 / overdue 逾期 / cancelled 已取消 */
-    status: varchar('status', { length: 20 }).default('pending').notNull(),
-    lastRemindedAt: timestamp('last_reminded_at', { withTimezone: true }),
-    remark: text('remark'),
-    deletedAt: timestamp('deleted_at', { withTimezone: true }),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    enrollmentIdx: index('ix_edu_sched_enrollment').on(t.enrollmentId, t.dueDate),
-    /** 催费扫描与到期看板都按 (status, due_date) 范围查,没有它就是全表扫 */
-    statusDueIdx: index('ix_edu_sched_status_due').on(t.status, t.dueDate),
-    studentIdx: index('ix_edu_sched_student').on(t.studentId),
-  }),
-)
-
 export type NewEduTeacherSchedule = typeof eduTeacherSchedule.$inferInsert
 export type EduTeacherSchedule = typeof eduTeacherSchedule.$inferSelect
 export type NewEduSchedulingRule = typeof eduSchedulingRule.$inferInsert
@@ -912,6 +805,4 @@ export type NewEduRefundRecord = typeof eduRefundRecord.$inferInsert
 export type EduRefundRecord = typeof eduRefundRecord.$inferSelect
 export type NewEduFeeReminder = typeof eduFeeReminder.$inferInsert
 export type EduFeeReminder = typeof eduFeeReminder.$inferSelect
-export type NewEduFeeSchedule = typeof eduFeeSchedule.$inferInsert
-export type EduFeeSchedule = typeof eduFeeSchedule.$inferSelect
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
