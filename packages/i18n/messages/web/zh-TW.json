@@ -7438,7 +7438,12 @@
           "denied": {
             "reorder": "無法調整排隊順序",
             "undo": "無法撤回排隊訊息",
-            "interject": "目前 Runtime 不支援插話，訊息將繼續排隊"
+            "interject": "目前 Runtime 不支援插話，訊息將繼續排隊",
+            "cause": {
+              "streaming": "無法在回覆生成期間調整佇列順序",
+              "emptyQueue": "佇列中已沒有可復原的訊息",
+              "runtimeNoInterject": "此 Runtime 不支援插入語句，訊息將留在佇列依序處理"
+            }
           },
           "reorderAria": "拖動調整排隊順序；聚焦後可使用上下方向鍵"
         }
@@ -20161,7 +20166,7 @@
       "delete": "刪除",
       "deleteConfirm": "確定刪除此賬號嗎?",
       "edit": "編輯",
-      "externalBrowserHint": "用系統瀏覽器登入;登入成功後會自動儲存帳號到專案中",
+      "externalBrowserHint": "系統瀏覽器不受專案控制:登入後需回到此彈窗貼上 Cookie 才會儲存。一般直接用上方掃碼登入即可全自動完成",
       "importCookiesHint": "已用系統預設瀏覽器開啟 {platform} 登入頁。完成登入(或本來就已登入)後,按 F12 開啟開發者工具 → 網路(或應用程式)→ Cookie,全選複製後貼到下面",
       "importCookiesSuccess": "匯入成功,帳號已儲存",
       "lastVerified": "最近驗證",
@@ -20169,7 +20174,6 @@
       "nickname": "暱稱",
       "noAccounts": "暫無賬號,請先添加",
       "openExternalBrowser": "在外部瀏覽器開啟",
-      "openExternalBrowserSuccess": "已開啟 Chrome，登入後會自動儲存帳號",
       "orDivider": "或",
       "passwordPlaceholder": "請輸入密碼",
       "passwordHint": "普通用戶建議使用掃碼登錄,此處僅開發者備用。",
