@@ -219,7 +219,14 @@ function StatsFooter() {
   )
 }
 
-export function PermissionHistoryPanel() {
+export function PermissionHistoryPanel({
+  embedded = false,
+}: {
+  /** 内嵌形态(2026-09-30 底栏单行化):不再渲染独立触发器与 PortalPanel,改为一段
+   *  可直接嵌入权限模式弹层底部的视图(边框分隔 + 标题 + 列表 + 统计)。
+   *  数据拉取/相对时间 tick/清空确认等行为与浮层形态一致。 */
+  embedded?: boolean
+} = {}) {
   const t = useTranslations('chat.permission')
   const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [open, setOpen] = React.useState(false)
@@ -231,12 +238,13 @@ export function PermissionHistoryPanel() {
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
 
   // 打开时主动拉取最新数据 + 刷新"现在"锚点(用于相对时间显示)
+  // embedded 形态常开(挂在权限弹层内,随弹层开合由 React 挂载/卸载驱动刷新)
   React.useEffect(() => {
-    if (!open) return
+    if (!open && !embedded) return
     setEntries(getRecentHistory(undefined, HISTORY_DISPLAY_LIMIT))
     setNow(Date.now())
     setIsSuppressed(isFullAccessConfirmSuppressed())
-  }, [open])
+  }, [open, embedded])
 
   // "不再提醒"静默状态:mount 时读一次(打开时也会刷新,见上;不监听 storage)
   React.useEffect(() => {
@@ -256,8 +264,9 @@ export function PermissionHistoryPanel() {
 
   // 全局句柄(2026-07-25 立):PermissionModePopover 通过 window.__IHUI_OPEN_HISTORY__?.() 触发
   // 实现:编程式 click 触发器按钮(复用面板内部 open 状态,避免改 PortalPanel 组件)
+  // embedded 形态无触发器,不注册(桥随浮层实例的卸载而注销)
   React.useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined' || embedded) return
     const w = window as unknown as {
       __IHUI_OPEN_HISTORY__?: () => void
     }
@@ -267,14 +276,14 @@ export function PermissionHistoryPanel() {
     return () => {
       w.__IHUI_OPEN_HISTORY__ = undefined
     }
-  }, [])
+  }, [embedded])
 
   // 1min tick 强制重渲染"相对时间"(避免 1 小时前 → 1 小时 1 分钟前 不更新)
   React.useEffect(() => {
-    if (!open) return
+    if (!open && !embedded) return
     const id = window.setInterval(() => setNow(Date.now()), 60_000)
     return () => window.clearInterval(id)
-  }, [open])
+  }, [open, embedded])
 
   const handleClear = async () => {
     const ok = await confirm({
@@ -301,7 +310,6 @@ export function PermissionHistoryPanel() {
 
   // 面板内容层 ref:供下方 focus trap 的 querySelectorAll 使用(透传给 PortalPanel 挂载)
   const panelRef = React.useRef<HTMLDivElement>(null)
-
   React.useEffect(() => {
     if (!open) {
       triggerRef.current?.focus()
@@ -332,6 +340,72 @@ export function PermissionHistoryPanel() {
     document.addEventListener('keydown', onKey, true)
     return () => document.removeEventListener('keydown', onKey, true)
   }, [open])
+
+  // 面板主体(浮层形态与 embedded 内嵌形态共用同一份 header/列表/统计 JSX)
+  const body = (
+    <>
+      {/* 顶部标题 + 清空按钮 */}
+      <div className="flex items-center justify-between gap-2 px-1 pb-1">
+        <div className="flex items-center gap-1.5">
+          <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+          <span className="text-sm font-semibold text-foreground">{t('historyTitle')}</span>
+        </div>
+        {entries.length > 0 && (
+          <button
+            type="button"
+            onClick={handleClear}
+            aria-label={t('historyClearConfirm')}
+            className={cn(
+              'inline-flex items-center gap-0.5 text-[10px] font-medium',
+              'text-muted-foreground transition-colors hover:text-destructive',
+            )}
+          >
+            <Trash2 className="h-3 w-3" aria-hidden="true" />
+            <span>{t('historyClearConfirm')}</span>
+          </button>
+        )}
+      </div>
+      {/* 列表 */}
+      <div className="max-h-[260px] overflow-y-auto">
+        <HistoryList entries={entries} now={now} />
+      </div>
+      {/* 统计汇总 */}
+      <StatsFooter />
+      {/* 重新提醒高风险(仅当用户已勾"不再提醒"时显示,供恢复确认弹窗) */}
+      {isSuppressed && (
+        <div className="px-1">
+          <button
+            type="button"
+            onClick={handleResetSuppressed}
+            aria-label={t('resetSuppressedButton')}
+            data-testid="reset-full-access-suppressed"
+            className={cn(
+              'inline-flex items-center gap-0.5 text-[10px] font-medium',
+              'text-muted-foreground transition-colors hover:text-amber-600',
+            )}
+          >
+            <BellRing className="h-3 w-3" aria-hidden="true" />
+            <span>{t('resetSuppressedButton')}</span>
+          </button>
+        </div>
+      )}
+      {/* 屏幕阅读器宣告:打开 + 空状态时宣告"暂无历史" */}
+      <span className="sr-only" aria-live="polite">
+        {entries.length === 0 ? t('historyEmpty') : ''}
+      </span>
+    </>
+  )
+
+  // embedded 内嵌形态(2026-09-30 底栏单行化):权限模式弹层底部的常驻历史段,
+  // 无独立触发器/PortalPanel/焦点陷阱;清空确认 dialog 由随行 ConfirmDialogRenderer 承载
+  if (embedded) {
+    return (
+      <div data-testid="permission-history-embedded" className="border-t pt-2">
+        {body}
+        <ConfirmDialogRenderer />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -367,55 +441,7 @@ export function PermissionHistoryPanel() {
           tabIndex={-1}
           className="space-y-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {/* 顶部标题 + 清空按钮 */}
-          <div className="flex items-center justify-between gap-2 px-1 pb-1">
-            <div className="flex items-center gap-1.5">
-              <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-              <span className="text-sm font-semibold text-foreground">{t('historyTitle')}</span>
-            </div>
-            {entries.length > 0 && (
-              <button
-                type="button"
-                onClick={handleClear}
-                aria-label={t('historyClearConfirm')}
-                className={cn(
-                  'inline-flex items-center gap-0.5 text-[10px] font-medium',
-                  'text-muted-foreground transition-colors hover:text-destructive',
-                )}
-              >
-                <Trash2 className="h-3 w-3" aria-hidden="true" />
-                <span>{t('historyClearConfirm')}</span>
-              </button>
-            )}
-          </div>
-          {/* 列表 */}
-          <div className="max-h-[260px] overflow-y-auto">
-            <HistoryList entries={entries} now={now} />
-          </div>
-          {/* 统计汇总 */}
-          <StatsFooter />
-          {/* 重新提醒高风险(仅当用户已勾"不再提醒"时显示,供恢复确认弹窗) */}
-          {isSuppressed && (
-            <div className="px-1">
-              <button
-                type="button"
-                onClick={handleResetSuppressed}
-                aria-label={t('resetSuppressedButton')}
-                data-testid="reset-full-access-suppressed"
-                className={cn(
-                  'inline-flex items-center gap-0.5 text-[10px] font-medium',
-                  'text-muted-foreground transition-colors hover:text-amber-600',
-                )}
-              >
-                <BellRing className="h-3 w-3" aria-hidden="true" />
-                <span>{t('resetSuppressedButton')}</span>
-              </button>
-            </div>
-          )}
-          {/* 屏幕阅读器宣告:打开 + 空状态时宣告"暂无历史" */}
-          <span className="sr-only" aria-live="polite">
-            {entries.length === 0 ? t('historyEmpty') : ''}
-          </span>
+          {body}
         </div>
       </PortalPanel>
       <ConfirmDialogRenderer />
