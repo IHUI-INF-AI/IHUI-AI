@@ -161,6 +161,31 @@ describe('D58 同类连续聚合(aggregateCategoryRuns)', () => {
     // 输入顺序即输出顺序,不因 order 字段被重排
     expect(runs.map((r) => r.categoryKey)).toEqual(['web_search', 'file_read', 'file_modify'])
   })
+
+  it('b75-5#3 流式 fixture:同类目被打断后两段 groupKey 不冲突(锚定首行工具名+段序号)', () => {
+    // 模拟流式追加:read_file 连续 → 被 edit_file 打断 → 再次 read_file
+    const runs = aggregateCategoryRuns([
+      { toolName: 'read_file', count: 1 },
+      { toolName: 'read_file', count: 1 },
+      { toolName: 'edit_file', count: 1 },
+      { toolName: 'read_file', count: 1 },
+    ])
+    // 两段 file_read 的 categoryKey 相同(原实现用它做 React key 会撞 key)
+    expect(runs[0]!.categoryKey).toBe(runs[2]!.categoryKey)
+    // groupKey 带段序号后缀 → 两段同 key 的 file_read 不再冲突
+    expect(runs[0]!.groupKey).toBe('file_read::read_file::0')
+    expect(runs[2]!.groupKey).toBe('file_read::read_file::2')
+    expect(runs[0]!.groupKey).not.toBe(runs[2]!.groupKey)
+    // 不同类目段 groupKey 必然不同
+    expect(runs[0]!.groupKey).not.toBe(runs[1]!.groupKey)
+    // 流式追加第二行后,首段 groupKey 不变(段序号 0 稳定 → 展开态不丢)
+    const runsFirst = aggregateCategoryRuns([{ toolName: 'read_file', count: 1 }])
+    const runsSecond = aggregateCategoryRuns([
+      { toolName: 'read_file', count: 1 },
+      { toolName: 'read_file', count: 1 },
+    ])
+    expect(runsFirst[0]!.groupKey).toBe(runsSecond[0]!.groupKey)
+  })
 })
 
 describe('D58 countable 语义', () => {

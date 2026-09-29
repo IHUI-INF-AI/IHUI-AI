@@ -19,6 +19,8 @@ interface ConfirmDialogProps {
   onConfirm: () => void
   onCancel: () => void
   loading?: boolean
+  /** loading 时确认钮文案(D186 归档在途等本地化在途文案;默认保留旧兜底"处理中...") */
+  loadingText?: string
 }
 
 export function ConfirmDialog({
@@ -31,6 +33,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
   loading = false,
+  loadingText = '处理中...',
 }: ConfirmDialogProps) {
   return (
     <Modal
@@ -61,7 +64,7 @@ export function ConfirmDialog({
               variant === 'danger' ? 'bg-destructive' : 'bg-primary',
             )}
           >
-            {loading ? '处理中...' : confirmText}
+            {loading ? loadingText : confirmText}
           </button>
         </>
       }

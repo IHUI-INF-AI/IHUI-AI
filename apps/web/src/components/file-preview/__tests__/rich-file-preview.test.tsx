@@ -47,6 +47,7 @@ vi.mock('@/components/media/office-preview', () => ({
 import { DelimitedFilePreview } from '../delimited-file-preview'
 import { PreviewErrorCard } from '../preview-error-card'
 import { RichFilePreview } from '../rich-file-preview'
+import { RICH_PREVIEW_MAX_TEXT_BYTES } from '@/lib/file-preview-attachment'
 
 // ------------------------------------------------------------- fetch 替身 ----
 
@@ -60,6 +61,24 @@ interface FetchShape {
 
 const fetchMock = vi.fn()
 
+/**
+ * 正文以流式块给出(G-815996 起组件走 readGatedBlob 出口,只认 getReader(),
+ * 不再消费 res.text())—— 单块全量吐出,与真实 Response 结构同形。
+ */
+function byteStream(text: string) {
+  const bytes = new TextEncoder().encode(text)
+  let sent = false
+  return {
+    getReader: () => ({
+      read: async (): Promise<{ done: boolean; value?: Uint8Array }> => {
+        if (sent) return { done: true }
+        sent = true
+        return { done: false, value: bytes }
+      },
+    }),
+  }
+}
+
 function stubFetch(shape: FetchShape) {
   fetchMock.mockImplementation(async () => {
     if (shape.reject) throw new TypeError('network down')
@@ -70,6 +89,7 @@ function stubFetch(shape: FetchShape) {
         get: (k: string) =>
           k.toLowerCase() === 'content-length' ? (shape.contentLength ?? null) : null,
       },
+      body: byteStream(shape.body ?? ''),
       text: async () => shape.body ?? '',
     }
   })
@@ -269,6 +289,26 @@ describe('失败态:每型各一条文案 + 始终保留下载出口,不得白�
     const card = await screen.findByTestId('file-preview-error-card')
     expect(card.getAttribute('data-preview-failure')).toBe('tooLarge')
     expect(text).not.toHaveBeenCalled()
+  })
+
+  it('谎报小 Content-Length 而实流超限 ⇒ 判 tooLarge 且 abort 被调用(G-815996:最终判定只看累计字节)', async () => {
+    const big = 'x'.repeat(RICH_PREVIEW_MAX_TEXT_BYTES + 1)
+    const seen: { signal: AbortSignal | null } = { signal: null }
+    fetchMock.mockImplementation(async (_url: string, init?: { signal?: AbortSignal }) => {
+      seen.signal = init?.signal ?? null
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: (k: string) => (k.toLowerCase() === 'content-length' ? '10' : null) },
+        body: byteStream(big),
+        text: async () => big,
+      }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<DelimitedFilePreview src="/d/lie.csv" format="csv" delimiter="," />)
+    const card = await screen.findByTestId('file-preview-error-card')
+    expect(card.getAttribute('data-preview-failure')).toBe('tooLarge')
+    expect(seen.signal?.aborted).toBe(true)
   })
 
   it('扩展名写 csv 而正文含空字节判 typeMismatch(与"损坏"分两态)', async () => {

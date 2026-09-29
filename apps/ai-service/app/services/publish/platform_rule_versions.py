@@ -33,6 +33,15 @@ from .platform_rules import PLATFORM_RULES, PlatformRule
 
 logger = get_logger(__name__)
 
+# 东八区(用户主时区),与 db_sync_scheduler / news_scheduler / self_media_scheduler 的
+# `_CN_TZ` 同形(2026-09-30 收口:值取自 app/core/cn_time.py 的 CN_TZ 唯一出口)。
+# 为什么这里必须钉死:`last_updated` 一半来自 PLATFORM_RULES 里人工维护的日历日期
+# (按东八区书写),一半由 record_rule_change() 自动写入;两侧曾各用 naive
+# datetime.now()。宿主被静默改成 UTC 后,自动写入的那批记成了 UTC 日,与人工那批
+# 同日不同义 —— 过期判定按 30 天阈值逐条比较,差的就是那一天。读侧与写侧同笔改,
+# 只改一侧会**新造**一个 fork。
+from app.core.cn_time import CN_TZ as _CN_TZ
+
 
 @dataclass
 class RuleVersion:
@@ -152,7 +161,11 @@ class RuleVersionManager:
                 platform, version.last_updated,
             )
             return True
-        cutoff = datetime.now() - timedelta(days=self._outdated_days_threshold)
+        # 两侧都是**日精度**的 naive datetime(strptime("%Y-%m-%d") 无偏移),所以要拿
+        # 东八区墙钟再剥掉 tzinfo,而不是造一个 aware 值去和 naive 比(那会 TypeError)。
+        cutoff = datetime.now(_CN_TZ).replace(tzinfo=None) - timedelta(
+            days=self._outdated_days_threshold
+        )
         return updated_date < cutoff
 
     def list_all_outdated(self) -> list[str]:
@@ -214,7 +227,8 @@ class RuleVersionManager:
                 platform, old_version, version.current_version, new_version,
             )
 
-        today = datetime.now().strftime("%Y-%m-%d")
+        # 写侧与上面的读侧同一套时区口径(东八区日历日),见模块顶部 _CN_TZ 注释。
+        today = datetime.now(_CN_TZ).strftime("%Y-%m-%d")
         change_entry = (
             f"v{old_version} → v{new_version} ({today}): "
             + ("; ".join(changes) if changes else "无具体变更说明")
