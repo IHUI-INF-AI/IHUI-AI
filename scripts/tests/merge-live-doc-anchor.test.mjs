@@ -30,6 +30,22 @@ import { SIM_THRESHOLD, jaccard, tokenize } from '../lib/live-doc-similarity.mjs
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GIT = 'git'
 
+/**
+ * 闭包必须一起拷(2026-09-29 立)。`anchorKey`/`classifyMissing` 从 `merge-live-doc.mjs` 搬进了
+ * `scripts/lib/live-doc-classify.mjs`(唯一实现下沉,供新常驻判据 `check-live-doc-pathspec.mjs`
+ * 与归并器共用同一把尺子 —— 两处各算一遍"什么算丢了"必然漂开,§22c 同一条理由)。
+ * 搬走之后,只拷 `merge-live-doc.mjs` + `live-doc-similarity.mjs` 的夹具会 MODULE_NOT_FOUND:
+ * 被 spawn 的 CLI **一个字都不打**,而下面 `counts()` 把"没解析出来"折成 `-1` ⇒ 五条用例同时红,
+ * 红语是"改写被判吃掉/删行没报丢失" —— 夹具缺件伪装成判据失效,与本仓"取证工具坏了表现得像
+ * 仓库坏了"那一族同型。所以这一件单独抽成函数,两个夹具入口共用,且 `counts()` 先判"报告在不在"。
+ */
+function copyClassifyClosure(dir) {
+  copyFileSync(
+    join(REPO, 'scripts/lib/live-doc-classify.mjs'),
+    join(dir, 'scripts/lib/live-doc-classify.mjs'),
+  )
+}
+
 // 两行刻意"中段全换":锚点 `- **闸门甲**(7)` 相同,正文几乎不重叠。
 const OLD_LINE = '- **闸门甲**(7):旧口径把 merge 与 cherry-pick 一起整轮放行,取证 8 例'
 const NEW_LINE =
@@ -39,7 +55,12 @@ function seedRepo() {
   const dir = mkScratch('merge-live-doc-cli-')
   execFileSync(GIT, ['-c', 'safe.directory=*', 'init', '-q', '--initial-branch=main'], { cwd: dir })
   const g = (...a) =>
-    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 120000 })
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120000,
+    })
   g('config', 'user.email', 't@t')
   g('config', 'user.name', 't')
   // 被测对象是**仓库里那份**脚本(不是复制品)—— 拷贝只为让它在新仓里可被 spawn。
@@ -49,6 +70,7 @@ function seedRepo() {
     join(REPO, 'scripts/lib/live-doc-similarity.mjs'),
     join(dir, 'scripts/lib/live-doc-similarity.mjs'),
   )
+  copyClassifyClosure(dir)
   const doc = (body) => writeFileSync(join(dir, 'AGENTS.md'), body, 'utf8')
   doc(`# 头\n${OLD_LINE}\n- 无关行\n`)
   g('add', '-A')
@@ -87,7 +109,11 @@ test('A 就地改写(锚点相同、正文全换)⇒ 真丢失=0,且不再要求
      * 不在工作树里"。实测 20 条登记行就在这句绿灯下被退回旧态。所以本例现在断言的是:
      * **有任一非逐字存活行时,结论行不得声称 ⊇ HEAD**。
      */
-    assert.doesNotMatch(out, /工作树 ⊇ HEAD\(逐字包含/, '有改写行时不得再声称逐字 ⊇ HEAD(那是假保证)')
+    assert.doesNotMatch(
+      out,
+      /工作树 ⊇ HEAD\(逐字包含/,
+      '有改写行时不得再声称逐字 ⊇ HEAD(那是假保证)',
+    )
     assert.match(out, /不等于\*\*工作树 ⊇ HEAD/, '结论行必须按实际形态说话')
   } finally {
     rmScratch(dir)
@@ -99,11 +125,18 @@ test('D 工作树停在旧形态(HEAD 翻勾 + 追加注记)⇒ 报 stale=1,且�
     '一条登记行的正文长到足以进入判据集合,并且在工作树里存在一个未翻勾的旧副本,别处不留它的文字'
   const { dir, doc, run, counts } = seedRepo()
   const g = (...a) =>
-    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 120000 })
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120000,
+    })
   try {
     // 先把 HEAD 推到"已翻勾 + 追加注记"那一版并入库,再把工作树写回未翻勾的旧形态 ——
     // stale 的定义就是工作树比 HEAD 旧,所以必须先建 commit 再改盘(A 例不需要是因为它只比 seed)。
-    doc(`# 头\n- [x] ✅(2026-09-25) ${base} 〔同日追加的注记让 HEAD 侧成为工作树的严格超集〕\n- 无关行\n`)
+    doc(
+      `# 头\n- [x] ✅(2026-09-25) ${base} 〔同日追加的注记让 HEAD 侧成为工作树的严格超集〕\n- 无关行\n`,
+    )
     g('add', '-A')
     g('commit', '-qm', 'head 侧翻勾并追加注记')
     doc(`# 头\n- [ ] ${base}\n- 无关行\n`)
@@ -146,14 +179,20 @@ test('C 对照组自证:两行确实"不像",否则 A 臂测的是别的东西',
  * 补齐空格那一行原样插回,同一编号留下两行。表格行的稳定身份是前两格(编号 + 脚本名),
  * 锚点规则必须认它;但**整行被删**时仍要判 lost(B 臂的表格版)。
  */
-const TBL_OLD = '| 13c | check-project-plan-archive.mjs | **已完成任务条目防误删**                    |'
+const TBL_OLD =
+  '| 13c | check-project-plan-archive.mjs | **已完成任务条目防误删**                    |'
 const TBL_NEW =
   '| 13c | check-project-plan-archive.mjs | **防误删 + 归档锚点存续性 A0/A1/A2/A3,blocking,自测 17 条 + 镜像 20 例,无应急跳过通道** |'
 
 function seedTableRepo() {
   const dir = mkScratch('merge-live-doc-tbl-')
   const g = (...a) =>
-    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 120000 })
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120000,
+    })
   execFileSync(GIT, ['-c', 'safe.directory=*', 'init', '-q', '--initial-branch=main'], { cwd: dir })
   g('config', 'user.email', 't@t')
   g('config', 'user.name', 't')
@@ -163,6 +202,7 @@ function seedTableRepo() {
     join(REPO, 'scripts/lib/live-doc-similarity.mjs'),
     join(dir, 'scripts/lib/live-doc-similarity.mjs'),
   )
+  copyClassifyClosure(dir)
   const readme = (body) => writeFileSync(join(dir, 'README.md'), body, 'utf8')
   readme(`| 编号 | 脚本 | 说明 |\n| --- | --- | --- |\n${TBL_OLD}\n`)
   g('add', '-A')

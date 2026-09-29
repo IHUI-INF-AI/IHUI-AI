@@ -97,6 +97,14 @@ export interface ToolResult {
    *    不合作的 handler 仍在后台继续跑完(强杀子进程树属另一票 A8E-1 的范围,不在本票)。
    */
   abortedByExecBudget?: 'budget' | 'cancelled';
+  /**
+   * 沙箱一层自己说得出的终态(投影见 `failure-classification.ts::mapTerminalState`)。
+   * 与 `abortedByExecBudget` **不是同一格**:那一枚是"执行链边界代结算",这一枚是
+   * "沙箱结果自己带着 timedOut"。缺席 = 该结果没有可证的中止,不得由渲染侧猜。
+   */
+  terminalState?: 'timed_out';
+  /** 副作用不确定的盖章:与 `terminalState` 成对出现,单独一枚不产出(`mapTerminalState` 是唯一种它的出口)。 */
+  interrupted?: true;
 }
 
 /**

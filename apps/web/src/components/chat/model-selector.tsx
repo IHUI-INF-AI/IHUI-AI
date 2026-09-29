@@ -61,6 +61,9 @@ interface ModelSelectorProps {
   onChange: (model: string) => void
   disabled?: boolean
   label: string
+  /** 弹层底部扩展段(2026-09-30 底栏单行化):推理强度轴 + 采样参数入口等
+   *  "模型相关调参"控件收纳进模型弹层 footer,宿主以 ReactNode 传入。 */
+  footer?: React.ReactNode
 }
 
 // ============================================================================
@@ -590,7 +593,7 @@ function isConfiguredVendor(vendor: string | undefined, codes: Set<string>): boo
   return code !== null && codes.has(code)
 }
 
-export function ModelSelector({ value, onChange, disabled, label }: ModelSelectorProps) {
+export function ModelSelector({ value, onChange, disabled, label, footer }: ModelSelectorProps) {
   const t = useTranslations('chat')
   const router = useRouter()
   // 2026-08-14:未登录/无 token 不拉取鉴权接口,消除 dev overlay 401 噪音(models/providers-health/configs 均为 auth-gated)。
@@ -1042,6 +1045,10 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
               )}
             </DropdownMenu.Group>
           )}
+          {/* footer 扩展段(2026-09-30 底栏单行化):推理强度轴 + 采样参数等模型相关调参。
+              非 DropdownMenu.Item 的普通节点:点击/键盘不会触发 Radix 自动关单,
+              内部交互(档位切换/抽屉唤起)与弹层共存。 */}
+          {footer ? <div className="border-t px-1 pb-1 pt-1.5">{footer}</div> : null}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
       {/* 2026-08-12 bugfix:升级权益 popover 已收敛到 MemberDiscountSection 内部,

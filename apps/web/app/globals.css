@@ -1007,81 +1007,52 @@ iframe::-webkit-scrollbar {
 }
 
 /* ============================================================
- * AI 输入框底部工具栏 container query (2026-07-20 立,2026-07-25 修正阈值)
+ * AI 输入框底部工具栏 container query(2026-07-20 立,2026-09-30 单行化重构)
  * ============================================================
- * 背景:AI 面板宽度 320-720px(默认 400px),aside 宽 = 面板宽。
- * MessageInput 外层 mx-auto max-w-3xl px-4(32px)→ 内容宽 = 面板 - 32。
- * .ai-input-toolbar 自身 px-2(16px)→ container 内容盒宽 = 面板 - 48。
+ * 背景:输入卡恒 2 行(textarea 行 + 唯一底栏,对标 Trae/Qoder/Codex),
+ * 面板宽 400-720px(默认 480px)。MessageInput 外层 mx-auto max-w-3xl px-4(32px)
+ * → 容器内容宽 = 面板 - 32 - 2px 边框;.ai-input-toolbar 自身 px-2(16px)
+ * → container 内容盒宽 = 面板 - 48(下称 C)。
  *
- * 右侧集群 icon-only 基线宽:
- *   ContextRing(32) + ModelSelector icon-only(56) + VoiceInput(32) + Send(32) + 集群 gap-1(12) = 164px
- * 左侧 3 按钮 + gap:104px;固定占位合计 272px(等于 320px 面板时 container 宽,正好填满)。
+ * 底栏单行 8 控件全 icon-only 基线宽(验算,C 为 container 内容盒宽):
+ *   左簇 AgentProgress(32) + AddMenu 纯图标(40) = 72
+ *   右簇 权限(32) + 模式(40) + 上下文环(28) + 模型 icon-only(56) + 麦克风(28) + 发送(36) = 220
+ *   集群间 gap-1 ×7 = 28;toolbar px-2 = 16
+ *   合计 = 336 ⇒ C ≥ 336(面板 ≥ 384)全 icon-only 不溢出;MIN 400(C 352)余 16px。
  *
- * slack(container 宽 - 272)用于 text + badge:
- *   - 320px 面板(container 272):slack 0,只能 icon-only
- *   - 360px 面板(container 312):slack 40,text 可用 40px(约 6 字符 + 省略号)
- *   - 400px 面板(container 352):slack 80,text 可用 80px(约 12 字符)
- *
- * 双阈值分层(2026-07-25 修正原 359px 单阈值 bug):
- *   原阈值 359px 把"工具栏内容盒宽"误当作"面板内容宽",导致默认 400px 面板(container 352 < 359)
- *   时也被隐藏,即使有 80px slack。现拆为:
- *   - text 阈值 299px:container <= 299(面板 <= 347)时隐藏。slack < 28px 时 text 仅 1-3 字符无意义。
- *   - badge 阈值 359px:container <= 359(面板 <= 407)时隐藏。badge 占 20px,仅在宽面板显示,
- *     避免挤占 text 空间。默认 400px 面板优先显示 text,badge 留到 408px+ 面板。
+ * 降级阶梯(由宽到窄,升档条件 = 合计 ≤ C):
+ *   - 添加文字(+32,40→72)   ⇒ C ≥ 368,阈值 ≤367 隐藏
+ *   - 模型文字(+86,56→142)  ⇒ C ≥ 422,阈值 ≤421 隐藏(默认 480:C 432 ✓ 显示)
+ *   - 模式文字(+44,40→84)   ⇒ C ≥ 466,阈值 ≤465 隐藏(默认 480:C 432 ⇒ 图标态)
+ *   - 徽章(+20)             ⇒ C ≥ 486,阈值 ≤485 隐藏
+ *   默认 480 面板(C 432):左簇 72 + 右簇(32+40+28+142+28+36=306)+ 44 = 422 ≤ 432 ✓
+ *   最小 400 面板(C 352):全 icon-only 336 ≤ 352 ✓
+ * 模型名过长时由 trigger 的 max-w-[6rem] + truncate 收敛,flex min-w-0 兜底。
  *
  * 用原生 CSS 而非 Tailwind v4 container variant:
  * 实测 Tailwind v4 仅编译 .@container 类(container-type: inline-size),
- * 但 @sm:/@md: 等 container variant 不会生成对应 @container (min-width: ...) 规则,
- * 导致 className 中写 @sm:inline 在浏览器中无效。原生 CSS 100% 可靠。
- *
- * 选定 N-1 而非 N 是为了避免临界点抖动(用户拖拽到阈值时反复触发显隐)。 */
+ * 但 @sm:/@md: 等 container variant 不会生成对应 @container (min-width: ...) 规则。
+ * 选 N-1 而非 N 是为了避免临界点抖动(用户拖拽到阈值时反复触发显隐)。 */
 .ai-input-toolbar {
   container-type: inline-size;
 }
-@container (max-width: 299px) {
+@container (max-width: 367px) {
+  .ai-input-toolbar .add-menu-text {
+    display: none;
+  }
+}
+@container (max-width: 421px) {
   .ai-input-toolbar .model-selector-text {
     display: none;
   }
 }
-@container (max-width: 359px) {
-  .ai-input-toolbar .model-selector-badge {
-    display: none;
-  }
-}
-
-/* ============================================================
- * 窄容器降级:模式切换/高级参数/截图 (2026-09-14 回归修复)
- * ============================================================
- * 背景:2026-09-13 引入 ModeSwitcher(默认带文字"构建任务",w≈76px)与
- * SamplingParamsButton 后,底部 toolbar 左组按钮总宽在窄面板下达 ~346px,
- * 而右组(ContextRing+ModelSelector+Voice+Send)被 flex-1 min-w-0 squeeze 后
- * justify-end 溢出向左 —— 实测 300px 面板下模型选择器按钮(塌缩到 18px 图标态)
- * 中心点命中 ModeSwitcher 的 svg path,真实用户仅 ~2px 边缘可点(model-selector
- * e2e 6 例 120s 超时的产品侧根因)。
- *
- * 降级阶梯(sm: 是视口断点,管不住 300px AI 面板,必须用容器查询):
- * - ≤407: ModeSwitcher 文字隐藏(仅图标+chevron;tooltip 仍在)
- * - ≤319: SamplingParamsButton 隐藏(低频高级参数)
- * - ≤259: 截图按钮 + ModeSwitcher 整体隐藏
- *   等价入口不丢:模式切换 = Ctrl+1-5 快捷键 + SlashCommandPalette(/build 等,
- *   三通道共用 useModeStore);截图 = 剪贴板粘贴(handlePaste 已接管)。
- * 验算(面板宽-48=container 宽):
- * - 300px 面板(252):左组 slash32+@32+gaps+px ≈ 84,右组 icon-only ≈ 126 → 210 ✓
- * - 360px 面板(312):Mode 隐文字后左组 ≈ 176,右组 126 → 302 ≤ 312 ✓
- * - 460px 面板(412):全量显示 346 ≤ 412 ✓ */
-@container (max-width: 407px) {
+@container (max-width: 465px) {
   .ai-input-toolbar .mode-switcher-text {
     display: none;
   }
 }
-@container (max-width: 319px) {
-  .ai-input-toolbar [data-testid='sampling-params-trigger'] {
-    display: none;
-  }
-}
-@container (max-width: 259px) {
-  .ai-input-toolbar [data-testid='input-screenshot'],
-  .ai-input-toolbar .mode-switcher-trigger {
+@container (max-width: 485px) {
+  .ai-input-toolbar .model-selector-badge {
     display: none;
   }
 }

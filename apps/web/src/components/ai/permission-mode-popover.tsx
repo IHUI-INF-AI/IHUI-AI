@@ -13,9 +13,9 @@ import {
   Compass,
   ExternalLink,
   Hand,
+  Info,
   Loader2,
   Pin,
-  Shield,
   ShieldAlert,
   ShieldCheck,
   ShieldX,
@@ -40,6 +40,8 @@ import { Tooltip } from '@/components/feedback'
 // createPortal + 坐标 + scroll/resize/RO 监听 + 外点关闭;Escape 关闭因需归还
 // 焦点到 trigger 的特殊语义,仍由本组件自理)
 import { PortalPanel } from '@/components/feedback/portal-panel'
+// 权限模式历史(2026-09-30 底栏单行化):内嵌进本弹层底部,独立时钟触发器退役
+import { PermissionHistoryPanel } from './permission-history-panel'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { cn } from '@/lib/utils'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
@@ -109,7 +111,15 @@ const UNDO_TOAST_DURATION = 5000
 /** 普通提示 toast 持续时间(ms) */
 const INFO_TOAST_DURATION = 3000
 
-export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
+export function PermissionModePopover({
+  disabled,
+  onExplainMode,
+}: {
+  disabled?: boolean
+  /** 当前(高危)模式的详细说明回调(2026-09-30 底栏单行化):原标题栏 ⓘ 按钮退役,
+   *  移入弹层头部;宿主(message-input)用它唤起 PermissionModeInfoModal */
+  onExplainMode?: (mode: WorkspacePermissionMode) => void
+}) {
   const t = useTranslations('chat.permission')
   // G-166:档位名与说明改走跨端共享词表(permissionTier),端内私有键已退役
   const tTier = useTranslations()
@@ -387,8 +397,10 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
           // 无显式 focus-visible:ring,但 globals.css 规则对未来扩展可主动失效 ring)。
           data-state={isOpen ? 'open' : 'closed'}
           className={cn(
-            'inline-flex h-8 min-w-0 items-center gap-1.5 rounded-sm px-2 text-xs font-medium leading-none',
-            'duration-150 ease-out',
+            // icon-only(2026-09-30 底栏单行化):原"图标+档名"文字按钮改为纯图标方块,
+            // 档名由 Tooltip 承载;档位色彩语义(琥珀=高危/翡翠=替我审批)保留在底色上
+            'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm px-0 text-xs font-medium leading-none',
+            'relative duration-150 ease-out',
             currentMode === 'bypass-permissions'
               ? cn(
                   'bg-amber-500/10 text-amber-700 dark:text-amber-400',
@@ -408,17 +420,15 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
         >
           <CurrentIcon
             className={cn(
-              'h-3.5 w-3.5 shrink-0 transition-colors duration-200',
+              'h-4 w-4 shrink-0 transition-colors duration-200',
               currentMode === 'bypass-permissions' && 'text-amber-500',
               currentMode === 'accept-edits' && 'text-emerald-500',
               currentMode === 'default' && 'text-muted-foreground',
             )}
           />
-          <span className="min-w-0 truncate">{currentTitle}</span>
           {currentMode === 'bypass-permissions' && (
-            <TriangleAlert className="h-3 w-3 shrink-0 text-amber-500" aria-hidden="true" />
+            <TriangleAlert className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 text-amber-500" aria-hidden="true" />
           )}
-          <Shield className="h-3 w-3 shrink-0 opacity-50" aria-hidden="true" />
         </button>
       </Tooltip>
       {/* 首次启用高风险模式确认弹窗(2026-07-25 深化,深度对标 Codex CLI safety guard)
@@ -452,18 +462,35 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                 </span>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof window !== 'undefined') {
-                  window.open('/docs/SECURITY', '_blank', 'noopener,noreferrer')
-                }
-              }}
-              className="inline-flex shrink-0 items-center gap-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <span className="underline-offset-2 hover:underline">{t('learnMore')}</span>
-              <ExternalLink className="h-3 w-3" />
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              {/* 高风险模式 ⓘ 详细说明(2026-09-30 底栏单行化,从输入框标题栏迁入):
+                  只在 bypass-permissions 模式显示,点击唤起宿主的 PermissionModeInfoModal */}
+              {currentMode === 'bypass-permissions' && onExplainMode && (
+                <Tooltip content={t('infoButtonTitle')}>
+                  <button
+                    type="button"
+                    onClick={() => onExplainMode('bypass-permissions')}
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-amber-700 transition-colors hover:bg-amber-500/15 dark:text-amber-400"
+                    aria-label={t('infoButtonLabel')}
+                    data-testid="permission-mode-info-button"
+                  >
+                    <Info className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                </Tooltip>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    window.open('/docs/SECURITY', '_blank', 'noopener,noreferrer')
+                  }
+                }}
+                className="inline-flex items-center gap-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <span className="underline-offset-2 hover:underline">{t('learnMore')}</span>
+                <ExternalLink className="h-3 w-3" />
+              </button>
+            </div>
           </div>
 
           {/* 三个模式单选卡片(键盘可聚焦) */}
@@ -620,6 +647,10 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
               </kbd>
             </span>
           </div>
+
+          {/* 权限模式历史(2026-09-30 底栏单行化):独立时钟按钮 + 浮层退役,
+              历史以 embedded 形态常驻本弹层底部(列表 + 清空 + 累计统计) */}
+          <PermissionHistoryPanel embedded />
 
           {updateMode.isError && (
             <p className="px-1 text-[11px] text-destructive">

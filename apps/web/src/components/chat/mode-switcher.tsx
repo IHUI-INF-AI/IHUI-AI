@@ -57,6 +57,11 @@ export function ModeSwitcher({ disabled = false }: { disabled?: boolean }) {
           type="button"
           disabled={disabled}
           aria-label={t(current.labelKey)}
+          // mode-switch.spec.ts 契约(2026-09-13 矩阵 A #24):testid 定位 + data-mode
+          // 反映当前模式(Ctrl+5 等快捷键切换后断言 data-mode 即时更新)。
+          // 该 testid 自 spec 落地起缺失,2026-09-30 e2e 回归首次真正执行到断言才暴露。
+          data-testid="mode-switcher"
+          data-mode={currentMode}
           className={cn(
             'mode-switcher-trigger flex h-8 shrink-0 items-center gap-1 rounded-sm px-2 text-xs font-medium transition-colors',
             'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -95,6 +100,8 @@ export function ModeSwitcher({ disabled = false }: { disabled?: boolean }) {
           return (
             <DropdownMenuItem
               key={item.mode}
+              // mode-switch.spec.ts 契约:mode-option-{mode} 定位 5 个模式选项
+              data-testid={`mode-option-${item.mode}`}
               onSelect={() => setMode(item.mode)}
               className={cn('gap-2', active && 'bg-accent')}
             >
