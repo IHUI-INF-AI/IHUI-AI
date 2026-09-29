@@ -4,12 +4,12 @@
 
 // 登记本轮收敛链上量到的四件事(一条待办 + 一条事实注记),底稿取 HEAD 面、落点走对象空间。
 // 取号必须含远端面(本会话已两次贴着 max 取号被并发吃掉),跳距由 env 给,不写成常数。
-import { execFileSync, spawnSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { writeFileSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { gitBinary } from '../../../../scripts/lib/face-reader.mjs'
-import { usedIdsOfPrefix, keyOfRow } from '../../../../scripts/lib/plan-task-index.mjs'
-import { mkScratch, rmScratch } from '../../../../scripts/lib/scratch-dir.mjs'
+import { gitBinary } from '../../../scripts/lib/face-reader.mjs'
+import { usedIdsOfPrefix, keyOfRow } from '../../../scripts/lib/plan-task-index.mjs'
+import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'
 
 const GIT = gitBinary()
 const root = 'D:/IHUI-AI'
@@ -74,7 +74,7 @@ try {
   const p = join(scratch, 'PLAN.md')
   writeFileSync(p, newLedger, 'utf8')
   const back = readFileSync(p, 'utf8')
-  const b0 = git(['hash-object', '-w', p]).trim()
+  const _b0 = git(['hash-object', '-w', p]).trim()
   const bl = back.split('\n')
   // 期望形态:原文件(去掉因末尾换行产生的那个空串元素)+ 新行 + 末尾空串 ⇒ 净增 1 行、原行逐字不动
   const base = lines[lines.length - 1] === '' ? lines.slice(0, -1) : lines
