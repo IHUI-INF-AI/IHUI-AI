@@ -19,6 +19,7 @@ import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { verifyAccessToken } from '@ihui/auth'
 import { success, error } from '../utils/response.js'
+import { fetchWithinDeadline } from '../utils/fetch-deadline.js'
 
 // ============================================================================
 // 通用工具
@@ -29,13 +30,11 @@ async function fetchWithTimeout(
   options: RequestInit = {},
   timeoutMs = 30_000,
 ): Promise<Response> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    return await fetch(url, { ...options, signal: controller.signal })
-  } finally {
-    clearTimeout(timer)
-  }
+  // G-814420(2026-09-29):旧写法在 fetch() resolve(= 响应头到达)时就走 finally{clearTimeout},
+  // 于是 DashScope 发完 headers 之后停滞时,这条请求既没有 deadline 也不会被 abort —— await resp.json()
+  // / arrayBuffer() 永久挂住该请求处理链。deadline 现在罩到响应体消费结束(见 utils/fetch-deadline.ts)。
+  // label 刻意不带 url:audioUrl 是供应商签发的带签名参数的 OSS 地址,不得进错误文案(守门 67 同型)。
+  return fetchWithinDeadline(url, options, { timeoutMs, label: 'ai-audio→DashScope 出站请求' })
 }
 
 const DASHSCOPE_BASE = process.env.DASHSCOPE_BASE ?? 'https://dashscope.aliyuncs.com/api/v1'
