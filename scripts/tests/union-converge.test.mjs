@@ -1221,3 +1221,70 @@ test('R-P 行为锁(真临时仓):指针行只带回一份且必须点名,不带
     rmScratch(dir)
   }
 })
+
+/**
+ * R-Q 显式 `--theirs` 的短路判据(G-814402,2026-09-29 主会话亲历:一次已验证交付差点被
+ * "本地纯落后 ⇒ 无需合并" + exit 0 整吞)。
+ *
+ * 判据只放在 `resolveTargets` 这一层(它是缺陷所在地),CLI 那一支刻意不在这里真跑:
+ * 本器的 `ROOT` 由**脚本自身位置**推导(守门 70 的同一课),在临时仓里 spawn 真脚本会去操作真仓,
+ * 所以"落地动作"的端到端由 union-converge 自带的 `--self-test` 覆盖,这里只钉分流。
+ */
+test('R-Q 显式 --theirs 时"本地纯落后"不得当成无需合并;只有"目标已被包含"才准短路', () => {
+  const dir = mkScratch('union-explicit-')
+  try {
+    const run = (...a) =>
+      execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+        cwd: dir,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+      }).trim()
+    run('init', '-q', '-b', 'main')
+    run('config', 'user.email', 't@t')
+    run('config', 'user.name', 't')
+    run('config', 'core.autocrlf', 'false')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), '# 台账\n- [ ] 底座\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'base')
+    const base = run('rev-parse', 'HEAD')
+    // 对侧:本地之后的一枚提交,带着本地没有的文件(模拟"别人的交付等着被合进来")
+    writeFileSync(join(dir, 'only-theirs.ts'), '要合进来的交付\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'theirs-ahead')
+    const ahead = run('rev-parse', 'HEAD')
+    run('reset', '-q', '--hard', base) // 本地退回,造成"本地纯落后于 ahead"这一格
+
+    assert.equal(U.hasCommit(ahead, dir), true, '夹具自证:两枚对象都必须在本机')
+    const g = U.resolveTargets(ahead, dir)
+    assert.equal(
+      g.skip,
+      null,
+      `显式点了 --theirs 而本地落后 ⇒ 绝不能给出 skip(旧行为是 skip="本地纯落后…" + exit 0"无需合并"):${JSON.stringify(g)}`,
+    )
+    assert.ok(!g.undetermined, '对象都在本机 ⇒ 这不是"没资格判",不得混进未判定那一支')
+
+    // 反向对照:目标已被本地包含时,短路照旧合法(否则每次都白合一遍)。
+    // 注意要**再往前加一枚提交**再验:纯 ff 之后 head 与 theirs 会是同一个 sha,那走的是
+    // 更早那一格 `skip:'已同步'`(也合法,但就把"已被包含"这一格验不到了 —— 夹具必须自己
+    // 证明两种形态确有差异,否则这条断言恒真)。
+    run('merge', '-q', '--no-edit', ahead)
+    writeFileSync(join(dir, 'post-merge.ts'), '合并之后本地又走了一步\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'post')
+    const nowHead = run('rev-parse', 'HEAD')
+    assert.notEqual(nowHead, ahead, '夹具自证:本地必须真的走在 ahead 前面,否则本例退化成"已同步"那一格')
+    const g2 = U.resolveTargets(ahead, dir)
+    assert.equal(g2.skip, '目标已被本地包含', `已被包含才准短路:${JSON.stringify(g2)}`)
+
+    // 形状锁:那句"本地纯落后"只保留给**自动解析远端真值**那一支(不显式点目标时它是对的建议)
+    const src = readFileSync(new URL('../union-converge.mjs', import.meta.url), 'utf8')
+    assert.match(
+      maskComments(src),
+      /if \(!explicit && isAncestor\(head, theirs, cwd\)\)\s*return \{ head, theirs, skip: '本地纯落后/,
+      '"本地纯落后"短路必须被 !explicit 夹住 —— 摘掉这个条件就是回到 G-814402 那一吞',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
