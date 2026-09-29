@@ -18,6 +18,8 @@
 //      "永久出口"的分界:到期即把"已豁免"变回"新的"。
 //   E3 基线自身带到期日 grandfatherUntil → 过期仍有无日期存量时整门判红。这一条让"过期未
 //      销账**自己**变红",否则 E1 的棘轮就成了新的永久出口。
+//   E5 新增 lint 抑制(eslint-disable / @ts-ignore)不带同行到期豁免 → 红上棘轮,锚点 =
+//      max(基线, HEAD 现测);存量只报数,HEAD 锚点取不到时退回只报数(G-666)。
 //
 // 记账面只覆盖**被豁免的那一侧**:HEAD 面实测 372 条标记里有 125 条(34%)落在 `scripts/**`,
 // 那一面上的标记是"门在描述自己的出口"(正则定义 / 头注 / 自检夹具),不是一次正在生效的豁免。
@@ -25,9 +27,14 @@
 // 自身的 0,而门必须写出标记形状才能工作 ⇒ 没有合法出口),且 E3 的宽限期永远销不完。
 // 详见 TOOL_FACE_RE 注释与 G01–G03b 成对用例。
 //
-// 第二类账(规格 §7,只报数不判红):lint 抑制面 eslint-disable / @ts-ignore 计数。实测
-// 312 处 / 260 文件(md 除外),一次判红必然逼人绕钩子;它进同一本账走"只减不增"的可见性
-// 棘轮但**不计红**。规格明写"不得独立新建第二道同类门"。
+// 第二类账(规格 §7 + G-666 的 E5):lint 抑制面 eslint-disable / @ts-ignore。实测
+// 312 处 / 260 文件(md 除外),一次全额判红必然逼人绕钩子;原只走"只减不增"的可见性棘轮
+// 不计红,但守门 34 是 warn、本门 E3 只报数 ⇒ "新增一条无到期豁免的抑制"长期无闸。G-666 起
+// 升级为 **E5 棘轮判红**:锚点 = max(基线 suppressionUndatedCounts, HEAD 现测),新增须同行带
+// `until YYYY-MM-DD`,存量照旧只报数;HEAD 锚点取不到时退回只报数(宁漏判不恒红,G-174 同款)。
+// 独立键空间 suppressionUndatedCounts,kind(eslint-disable/ts-ignore)不是豁免族名 ——
+// 不得混入 undatedCounts(会被 E1 连带判红 / 被 mergeBaseline 的族清除误清),也不参与族清除。
+// 规格明写"不得独立新建第二道同类门",所以判据仍落在本门内。
 //
 // 各族真实语法差异(判据必须容得下,拿一种正则统一扫会同时产出假红与假绿):
 //   · 挂靠两种 —— **同行尾注释**(radius 绝大多数)与**紧邻上一行**独立注释(77 :259、
@@ -307,7 +314,9 @@ function parseMarkerTail(line, markerStart, markerLen) {
 export function scanFile(rel, text) {
   const entries = []
   const suppressions = {}
-  if (typeof text !== 'string' || text === '') return { entries, suppressions }
+  const suppressionUndated = {}
+  if (typeof text !== 'string' || text === '')
+    return { entries, suppressions, suppressionUndated }
   const toolFace = TOOL_FACE_RE.test(String(rel).replace(/\\/g, '/'))
   const archiveFace = ARCHIVE_FACE_RE.test(String(rel).replace(/\\/g, '/'))
   const seenFileScoped = new Set()
@@ -318,6 +327,11 @@ export function scanFile(rel, text) {
       let m
       while ((m = probe.exec(line)) !== null) {
         suppressions[kind] = (suppressions[kind] || 0) + 1
+        // G-666:同行带 `until <日期>` 的抑制算"有到期豁免",否则进无日期账(E5 的观测面)。
+        // 行粒度与豁免账的 attach 语义一致 —— 日期挂抑制所在行,不挂被豁免的代码。
+        if (!/until\s+20\d{2}-\d{2}-\d{2}/i.test(line)) {
+          suppressionUndated[kind] = (suppressionUndated[kind] || 0) + 1
+        }
         if (m[0].length === 0) probe.lastIndex += 1
       }
     }
@@ -346,7 +360,7 @@ export function scanFile(rel, text) {
       })
     }
   }
-  return { entries, suppressions }
+  return { entries, suppressions, suppressionUndated }
 }
 
 /** UTC 日期差(天)。只用 YYYY-MM-DD 解析,避免时区/夏令时把到期日挪一天。 */
@@ -436,13 +450,43 @@ export function resolveAnchor({ face, entries, headEntries }) {
   return undatedCountsOf(headEntries)
 }
 
+/**
+ * E5 的观测面/锚点面共用:(文件 → {kind → 无到期豁免的抑制数}) → `file::kind` 计数表。
+ * 与 undatedCountsOf 对称:两侧走同一个函数,不会出现"锚点按新口径、观测按旧口径"的错位假红。
+ * 刻意**不做工具面排除**:lint 抑制的既有报数账(suppressions)是全仓口径,head 注写得明白;
+ * 本门自己与镜像测试的夹具由 SELF_EXEMPT_RE 在取材层整文件豁免,不靠这里放水。
+ */
+export function suppressionUndatedCountsOf(byFile) {
+  const out = {}
+  for (const [file, per] of Object.entries(byFile || {})) {
+    for (const [kind, n] of Object.entries(per || {})) {
+      if (!n) continue
+      out[`${file}::${kind}`] = (out[`${file}::${kind}`] || 0) + Number(n)
+    }
+  }
+  return out
+}
+
+/** E5 的锚点取哪一份 —— 与 resolveAnchor 同型(G-174 同款棘轮,三种情形都要能被单测钉住):
+ *  - 面 = head(全量审计):本次即 HEAD 自己,自比必相等 ⇒ E5 结构上不响;
+ *  - HEAD 面取不到:返回 null ⇒ analyze 退回"只报数不判红"(基线可能还没有
+ *    suppressionUndatedCounts 字段,拿 0 当锚点 = 上线当场恒红 342 处);
+ *  - 否则取 HEAD 现测计数,analyze 内与基线取大。 */
+export function resolveSuppressionAnchor({ face, undatedByFile, headUndatedByFile }) {
+  if (face === 'head') return suppressionUndatedCountsOf(undatedByFile)
+  if (!headUndatedByFile) return null
+  return suppressionUndatedCountsOf(headUndatedByFile)
+}
+
 export function analyze({
   entries,
   suppressionsByFile,
+  suppressionUndatedByFile,
   baseline,
   today,
   headCounts,
   headUnregisteredFamilies,
+  headSuppressionCounts,
 }) {
   const grandfather = String(baseline?.grandfatherUntil || '')
   const grandfatherOpen = grandfather !== '' && !isPast(grandfather, today)
@@ -532,7 +576,10 @@ export function analyze({
     })
   }
 
-  // ④ lint 抑制面:同一条账的第二类,只报数
+  // ④ lint 抑制面:同一条账的第二类。总账只报数;**新增**部分由 E5 棘轮判红(G-666):
+  //    锚点 = max(基线 suppressionUndatedCounts, HEAD 现测),与 E1 同型 —— 取大防"基线被历史
+  //    低估 ⇒ 抬不动的恒红"(G-174),自比(face=head)结构上不响。锚点缺失(HEAD 取不到)时
+  //    整维退回只报数:基线可能还没有该字段,拿 0 当锚点 = 上线当场恒红存量 342/70 处。
   const suppressTotals = {}
   let suppressFiles = 0
   for (const per of Object.values(suppressionsByFile || {})) {
@@ -542,6 +589,36 @@ export function analyze({
       any += v
     }
     if (any > 0) suppressFiles += 1
+  }
+
+  const obsSupUndated = suppressionUndatedCountsOf(suppressionUndatedByFile)
+  const baseSupCounts = baseline?.suppressionUndatedCounts || {}
+  if (!headSuppressionCounts) {
+    soft.push({
+      code: 'S5',
+      msg:
+        'E5 锚点取不到(HEAD 面/基线无 suppressionUndatedCounts)⇒ lint 抑制新增本档退回只报数;' +
+        `现测无到期豁免抑制 ${Object.values(obsSupUndated).reduce((a, b) => a + Number(b || 0), 0)} 处 ` +
+        '(跑 --update-baseline 并账后,提交链档即恢复判红)',
+    })
+  } else {
+    // face=head 自比时 E5 结构上不响,这段文案只会在提交链档的判红里出现。
+    const supAnchorSource = 'HEAD 现测'
+    for (const k of new Set([...Object.keys(obsSupUndated), ...Object.keys(baseSupCounts)])) {
+      const n = obsSupUndated[k] || 0
+      const allowed = Math.max(Number(baseSupCounts[k] ?? 0), Number(headSuppressionCounts[k] ?? 0))
+      if (n > allowed) {
+        const [file, kind] = k.split('::')
+        red.push({
+          code: 'E5',
+          file,
+          family: kind,
+          msg:
+            `新增 lint 抑制不带到期豁免:${kind}@${file} 本次 ${n} 处、锚点(${supAnchorSource}) ${allowed} 处,` +
+            '多出的 ' + `${n - allowed} 处必须同行写 \`-- 理由 until YYYY-MM-DD\`(无到期豁免的抑制不得只出生不死亡)`,
+        })
+      }
+    }
   }
 
   const countBy = (key) => {
@@ -570,6 +647,8 @@ export function analyze({
       byAttach: countBy((e) => e.attach),
       suppressTotals,
       suppressFiles,
+      /** 无到期豁免的 lint 抑制总数(E5 的观测面,棘轮只拦新增,存量在此如实报数)。 */
+      suppressUndatedTotal: Object.values(obsSupUndated).reduce((a, b) => a + Number(b || 0), 0),
       unregisteredFamilies: [...new Set(entries.filter((e) => !e.registered).map((e) => e.family))],
       /** 被豁免侧真的用到的未登记族(E4 的观测面)。`unregisteredFamilies` 含工具面,两者不得混用。 */
       unregisteredUsedFamilies: [...obsUnregUsed].sort(),
@@ -657,6 +736,11 @@ export function loadBaseline(root) {
 /** 并集 + 只下调:未被本轮观测到的键一律保留(整表重写会冲掉并行会话的条目)。 */
 export function mergeBaseline(old, observed) {
   const next = { ...old, undatedCounts: { ...(old.undatedCounts || {}) } }
+  // G-666:第二类账(无到期豁免的 lint 抑制)独立键空间,并集 + 只下调。
+  // **不参与**下面的工具面/族清除:它的 `::` 后段是 kind(eslint-disable/ts-ignore),
+  // 不是豁免族名 —— 拿去查登记表必然查不到,把 isFamilyRegistered 的清除逻辑套上去
+  // 会把整本抑制账一夜清光(账面读起来像"账已清完"的自洽假绿,M03b 同型的反方向)。
+  next.suppressionUndatedCounts = { ...(old.suppressionUndatedCounts || {}) }
   const lowered = []
   const added = []
   const purged = []
@@ -677,13 +761,25 @@ export function mergeBaseline(old, observed) {
     purged.push(`${why}:${k}=${next.undatedCounts[k]}`)
     delete next.undatedCounts[k]
   }
-  for (const [k, v] of Object.entries(observed.undatedCounts)) {
+  for (const [k, v] of Object.entries(observed.undatedCounts || {})) {
     const cur = next.undatedCounts[k]
     if (cur === undefined) {
       next.undatedCounts[k] = v
       added.push(k)
     } else if (v < Number(cur)) {
       next.undatedCounts[k] = v
+      lowered.push(`${k} ${cur}->${v}`)
+    }
+  }
+  // 第二类账同方向合并(只下调 + 并集);报数并入同一组 lowered/added,键形态 file::kind
+  // 自可分辨,不另开计数口径(两个"added 数"只会让读账的人对不上)。
+  for (const [k, v] of Object.entries(observed.suppressionUndatedCounts || {})) {
+    const cur = next.suppressionUndatedCounts[k]
+    if (cur === undefined) {
+      next.suppressionUndatedCounts[k] = v
+      added.push(k)
+    } else if (v < Number(cur)) {
+      next.suppressionUndatedCounts[k] = v
       lowered.push(`${k} ${cur}->${v}`)
     }
   }
@@ -727,15 +823,31 @@ const F_FUTURE = '// brand-new-gate-exempt: 某道新门刚加的族'
 const F_ESLINT =
   '/* eslint-disable no-console */\n// eslint-disable-next-line @x/y\n// @ts-ignore\n'
 
-function detail(entries, undated, gf, today, sup, headCounts, headUnregFam) {
+function detail(
+  entries,
+  undated,
+  gf,
+  today,
+  sup,
+  headCounts,
+  headUnregFam,
+  supU,
+  headSupCounts,
+  supBase,
+) {
+  // supBase = 基线的 suppressionUndatedCounts(E5 的基线锚)。刻意独立成参而不混进 undated:
+  // undated 的键集就是 undatedCounts 本身,混进去会被 E1 的键集遍历当成一条 file::family 账。
   const baseline = { grandfatherUntil: gf ?? '2099-01-01', undatedCounts: undated || {} }
+  if (supBase) baseline.suppressionUndatedCounts = supBase
   return analyze({
     entries,
     suppressionsByFile: sup || {},
+    suppressionUndatedByFile: supU || {},
     baseline,
     today: today ?? TODAY,
     headCounts,
     headUnregisteredFamilies: headUnregFam,
+    headSuppressionCounts: headSupCounts,
   })
 }
 
@@ -829,7 +941,12 @@ function selfTest() {
   ok('R04 明日到期不算过期', redOf(detail([E({ expiry: shiftDay(TODAY, 1) })])) === '')
   ok('R05 昨天到期算过期', redOf(detail([E({ expiry: shiftDay(TODAY, -1) })])) === 'E2')
   const down = detail([], { 'z::border-ink-exempt': 5 })
-  ok('R01 存量减少 ⇒ 绿 + 提示可下调', down.red.length === 0 && down.soft.length === 1)
+  // 按 code 断言不锁 soft 总长:E5(G-666)起,构造面不传抑制锚点会多一条 S5(锚点缺失喊出),
+  // 那是如实报数,不该让 S1 的断言跟着挂。
+  ok(
+    'R01 存量减少 ⇒ 绿 + 提示可下调',
+    down.red.length === 0 && down.soft.some((s) => s.code === 'S1'),
+  )
   ok('R02 从 0 起的新豁免 ⇒ 红', redOf(detail([E()], { [KEY]: 0 })) === 'E1')
   // G01–G08 记账面 vs 工具面(scripts/**)。**六条成对**:每一格"不红"都必须由对面那一格"红"
   // 反向钉住 —— 否则"不红"完全可能只是判据失效(本仓最高频的那型假绿)。
@@ -922,6 +1039,71 @@ function selfTest() {
     sup['eslint-disable'] === 2 && sup['ts-ignore'] === 1,
   )
   ok('L02 抑制面只报数不判红', redOf(detail([], {}, undefined, undefined, { 'g.ts': sup })) === '')
+  // G-666:抑制账劈两半 —— 同行带 `until <日期>` 的算"有到期豁免",无 until 的进 E5 观测面。
+  // L03/L04 是 scanFile 层的正反例;E5a–E5e 是 analyze 层的棘轮四向 + 阳性对照(票面验收格)。
+  const supScan = scanFile('g.ts', F_ESLINT)
+  const supU = supScan.suppressionUndated
+  const supDated = scanFile('g.ts', '/* eslint-disable no-console */ // 等清理 until 2099-12-31')
+  ok(
+    'L03 同行带 until 的抑制算有到期豁免,不进无日期账(总账照旧计)',
+    supDated.suppressionUndated['eslint-disable'] === undefined &&
+      supDated.suppressions['eslint-disable'] === 1,
+  )
+  ok(
+    'L04 无 until 的抑制进无日期账,计数与总账同面同轮',
+    supU['eslint-disable'] === 2 && supU['ts-ignore'] === 1 && supScan.suppressions['eslint-disable'] === 2,
+  )
+  // E5 棘轮四向(与 E1 的 A01–A03/R02 同型):存量绿 / 新增红 / 带 until 绿 / 锚点兜底不当场红。
+  // 观测面一律从 scanFile 真扫出来(阳性对照:判据吃的是扫描产物,不是手拼的计数表)。
+  const e5a = detail(
+    [], {}, undefined, undefined, supScan.suppressions, undefined, undefined,
+    { 'g.ts': supU }, { 'g.ts::eslint-disable': 1, 'g.ts::ts-ignore': 1 },
+  )
+  ok(
+    'E5a 新增无到期抑制超锚点 ⇒ E5 红,恰好只红多出的那一笔并点名 kind@file',
+    e5a.red.length === 1 &&
+      e5a.red[0].code === 'E5' &&
+      e5a.red[0].file === 'g.ts' &&
+      e5a.red[0].family === 'eslint-disable',
+  )
+  ok(
+    'E5b 锚点取大(HEAD 现测兜住存量)⇒ 不红(E5a 同输入为反证:绿必须来自锚点,不是判据失效)',
+    detail(
+      [], {}, undefined, undefined, supScan.suppressions, undefined, undefined,
+      { 'g.ts': supU }, { 'g.ts::eslint-disable': 2, 'g.ts::ts-ignore': 1 },
+    ).red.length === 0,
+  )
+  ok(
+    'E5c 基线存量额度兜底(取大含基线)⇒ 不红',
+    detail(
+      [], {}, undefined, undefined, supScan.suppressions, undefined, undefined,
+      { 'g.ts': supU }, {}, { 'g.ts::eslint-disable': 5, 'g.ts::ts-ignore': 5 },
+    ).red.length === 0,
+  )
+  const e5d = detail(
+    [], {}, undefined, undefined, supScan.suppressions, undefined, undefined, { 'g.ts': supU },
+  )
+  ok(
+    'E5d 锚点缺失 ⇒ E5 整维退回只报数并喊出(基线可能还没这字段,拿 0 当锚点 = 恒红存量 342/70)',
+    !hasRed(e5d, 'E5') && e5d.soft.some((s) => s.code === 'S5'),
+  )
+  ok(
+    'E5e 新增抑制带同行 until ⇒ 有到期豁免,E5 不响(出口是真的,不是判据没跑)',
+    detail(
+      [], {}, undefined, undefined, supDated.suppressions, undefined, undefined,
+      supDated.suppressionUndated, {},
+    ).red.length === 0,
+  )
+  ok(
+    'N04 E5 锚点:面=head 自比 ⇒ 观测=锚点,结构上不响(与 N01 同型)',
+    JSON.stringify(resolveSuppressionAnchor({ face: 'head', undatedByFile: { 'g.ts': supU } })) ===
+      JSON.stringify({ 'g.ts::eslint-disable': 2, 'g.ts::ts-ignore': 1 }),
+  )
+  ok(
+    'N05 E5 锚点:HEAD 取不到 ⇒ null(退回只报数,与 N03 同型)',
+    resolveSuppressionAnchor({ face: 'index', undatedByFile: { 'g.ts': supU }, headUndatedByFile: null }) ===
+      null,
+  )
   // 清单腐烂可见性 + 基线合并方向
   const nf = e0(F_FUTURE)
   ok(
@@ -1023,6 +1205,31 @@ function selfTest() {
   ok(
     'M03c 反向:仍登记的族一条不许动(清宽了就是把存量债一夜抹平)',
     abol.next.undatedCounts['apps/y.ts::border-ink-exempt'] === 2,
+  )
+  // M04:第二类账独立键空间 —— kind(eslint-disable/ts-ignore)不是豁免族名,不得被
+  // undatedCounts 那一侧的族清除误清(清了 = 整本抑制账一夜抹平的自洽假绿)。
+  const m4 = mergeBaseline(
+    {
+      undatedCounts: { 'apps/x.ts::radius-exempt': 41 },
+      suppressionUndatedCounts: { 'g.ts::eslint-disable': 3, 'h.ts::ts-ignore': 7 },
+    },
+    {
+      undatedCounts: {},
+      suppressionUndatedCounts: { 'g.ts::eslint-disable': 2, 'i.ts::ts-ignore': 1 },
+    },
+  )
+  ok(
+    'M04 第二类账并集+只下调,且不被族清除波及(kind 不是族名)',
+    m4.next.suppressionUndatedCounts['g.ts::eslint-disable'] === 2 &&
+      m4.next.suppressionUndatedCounts['h.ts::ts-ignore'] === 7 &&
+      m4.next.suppressionUndatedCounts['i.ts::ts-ignore'] === 1,
+  )
+  ok(
+    'M05 绝不上调第二类账额度(与 M02 同一条反作弊锁,独立键空间各锁各的)',
+    mergeBaseline(
+      { suppressionUndatedCounts: { 'g.ts::eslint-disable': 1 } },
+      { suppressionUndatedCounts: { 'g.ts::eslint-disable': 99 } },
+    ).next.suppressionUndatedCounts['g.ts::eslint-disable'] === 1,
   )
   const e2e = endToEndCase()
   ok('X01 临时仓 HEAD 面:已过期豁免判红并点名', e2e.headRed)
@@ -1143,6 +1350,7 @@ function collect(root, face) {
   const contents = readFace(root, face, rels)
   const entries = []
   const suppressionsByFile = {}
+  const suppressionUndatedByFile = {}
   let unreadable = 0
   for (const rel of rels) {
     const text = contents.get(rel)
@@ -1153,6 +1361,8 @@ function collect(root, face) {
     const r = scanFile(rel, text)
     entries.push(...r.entries)
     if (Object.keys(r.suppressions).length > 0) suppressionsByFile[rel] = r.suppressions
+    if (Object.keys(r.suppressionUndated).length > 0)
+      suppressionUndatedByFile[rel] = r.suppressionUndated
   }
   // 反"假绿"第二道:候选>0 却解析出 0 条标记,说明**判据正则失效**而不是"仓库没有豁免"
   // (这正是 `HEAD:` 前缀那次故障的形状:366 个候选、0 条账、绿灯)。宁判死不误绿。
@@ -1162,20 +1372,28 @@ function collect(root, face) {
         '——判据可能失效,不按"没有豁免"记绿',
     )
   }
-  return { entries, suppressionsByFile, scannedFiles: rels.length, unreadable }
+  return { entries, suppressionsByFile, suppressionUndatedByFile, scannedFiles: rels.length, unreadable }
 }
 
-function writeBaseline(root, baseline, entries, today, face) {
-  const observed = { undatedCounts: undatedCountsOf(entries), updatedAt: today }
+// got = collect 的返回值(entries 与 suppressionUndatedByFile 同面同轮,拆开传就给了
+// "观测来自这一秒、抑制账来自上一秒"的错位窗,E4 锚点那条注释同款教训)。
+function writeBaseline(root, baseline, got, today, face) {
+  const observed = {
+    undatedCounts: undatedCountsOf(got.entries),
+    suppressionUndatedCounts: suppressionUndatedCountsOf(got.suppressionUndatedByFile),
+    updatedAt: today,
+  }
   const { next, lowered, added, purged } = mergeBaseline(baseline, observed)
   const abs = path.join(root, BASELINE_REL)
   mkdirSync(path.dirname(abs), { recursive: true })
   writeFileSync(abs, `${JSON.stringify(next, null, 2)}\n`, 'utf8')
   const keys = Object.keys(next.undatedCounts).length
+  const supKeys = Object.keys(next.suppressionUndatedCounts || {}).length
   console.log(
     `基线已合并(只下调+并集):下调 ${lowered.length} 键 / 新增 ${added.length} 键 / ` +
       `清出 ${purged.length} 键(工具面 prose ${purged.filter((p) => p.startsWith('工具面:')).length} / ` +
-      `已废除族 ${purged.filter((p) => p.startsWith('族已废除:')).length})/ 现共 ${keys} 键,面=${face}`,
+      `已废除族 ${purged.filter((p) => p.startsWith('族已废除:')).length})/ 现共 ${keys} 键` +
+      `(另 lint 抑制无到期账 ${supKeys} 键),面=${face}`,
   )
 }
 
@@ -1210,7 +1428,10 @@ function report(res, opts) {
   console.log(
     `  挂靠方式:${pairs(t.byAttach)};缺原因 ${t.reasonless} 处(各门自身判据负责,本门只计不判红)`,
   )
-  console.log(`  lint 抑制面(只报数):${pairs(t.suppressTotals)} / ${t.suppressFiles} 文件`)
+  console.log(
+    `  lint 抑制面(总账只报数):${pairs(t.suppressTotals)} / ${t.suppressFiles} 文件;` +
+      `其中无到期豁免 ${t.suppressUndatedTotal} 处(E5 棘轮:提交链档新增须同行带 until,存量照旧只报数)`,
+  )
   const fams2 = t.unregisteredFamilies.length ? t.unregisteredFamilies.join(',') : '(无)'
   const gState = t.grandfatherOpen ? '存量豁免仍只报数' : '已过期:缺日期即红'
   const g = t.grandfather || '(缺失)'
@@ -1244,14 +1465,20 @@ function cliRun(opts) {
   // 全量档(面=head)不取 —— 自己比自己必然相等,E1 在那里结构上不该响;它本来就是"本次提交
   // 相对上一次"的棘轮,不是存量账(存量由 grandfatherUntil / S1 报数管)。
   let headEntries = null
+  let headSuppressionUndatedByFile = null
   if (face !== 'head') {
     try {
-      headEntries = collect(root, 'head').entries
+      // 一次 collect 同时喂 E1/E4/E5 三把锚:E1/E4 要 entries、E5 要 suppressionUndatedByFile,
+      // 拆两次 collect 会各自看见不同的仓库瞬间(同面同轮铁律)。
+      const headGot = collect(root, 'head')
+      headEntries = headGot.entries
+      headSuppressionUndatedByFile = headGot.suppressionUndatedByFile
     } catch (e) {
       console.log(
         `  ⚠️ HEAD 锚点取不到(${e.message.slice(0, 70)})⇒ E1 退回"只看基线存量"口径,` +
           '此时若基线被历史低估,可能产出一条抬不动的恒红(见 PROJECT_PLAN G-174);' +
-          'E4 同批退回"族集合自己比自己"⇒ 该档不判红(不冒红也不假装判过)',
+          'E4 同批退回"族集合自己比自己"⇒ 该档不判红;E5 整维退回只报数(基线可能还没有' +
+          'suppressionUndatedCounts 字段,拿 0 当锚点 = 恒红存量)—— 不冒红也不假装判过',
       )
     }
   }
@@ -1260,13 +1487,22 @@ function cliRun(opts) {
   // 索引、锚点来自上一秒的 HEAD"这种自洽却错位的尺子。面=head 时不取,自己比自己必然相等。
   const headUnregisteredFamilies =
     face === 'head' || !headEntries ? null : unregisteredUsedFamiliesOf(headEntries)
+  // E5 的锚点同源同轮(与 E1 的 resolveAnchor 同型:面=head 自比必相等 ⇒ 结构上不响;
+  // HEAD 取不到 ⇒ null ⇒ analyze 退回只报数)。
+  const headSuppressionCounts = resolveSuppressionAnchor({
+    face,
+    undatedByFile: got.suppressionUndatedByFile,
+    headUndatedByFile: headSuppressionUndatedByFile,
+  })
   const res = analyze({
     entries: got.entries,
     suppressionsByFile: got.suppressionsByFile,
+    suppressionUndatedByFile: got.suppressionUndatedByFile,
     baseline,
     today,
     headCounts,
     headUnregisteredFamilies,
+    headSuppressionCounts,
   })
   res.totals.face = face
   res.totals.anchor =
@@ -1274,7 +1510,7 @@ function cliRun(opts) {
   res.totals.unreadable = got.unreadable
   res.totals.scannedFiles = got.scannedFiles
   if (update) {
-    writeBaseline(root, baseline, got.entries, today, face)
+    writeBaseline(root, baseline, got, today, face)
     return 0
   }
   report(res, opts)
@@ -1325,6 +1561,8 @@ export const __test__ = {
   analyze,
   mergeBaseline,
   resolveAnchor,
+  resolveSuppressionAnchor,
+  suppressionUndatedCountsOf,
   undatedCountsOf,
   isFamilyRegistered,
   unregisteredUsedFamiliesOf,
