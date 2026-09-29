@@ -10594,6 +10594,15 @@
       "tokens": "{used} of {limit} used",
       "resetAt": "resets at {time}"
     },
+    "statusSlot": {
+      "moreNotices": "{count} more status notices",
+      "connection": "Connection status",
+      "alerts": "Alerts",
+      "mcp": "MCP connection",
+      "polish": "Polish notice",
+      "diff": "Diff comments",
+      "budget": "Today's budget"
+    },
     "streamAlert": {
       "configWarning": {
         "title": "Configuration notice"
@@ -10812,6 +10821,7 @@
     },
     "contextUsage": {
       "breakdownTitle": "Token breakdown",
+      "budgetRow": "Daily quota",
       "categoryFiles": "Files",
       "categoryHistory": "History",
       "categorySystem": "System prompt",
@@ -27702,7 +27712,9 @@
     "hintSelect": "select",
     "hintConfirm": "confirm",
     "hintClose": "close",
-    "clearAriaLabel": "Clear search"
+    "clearAriaLabel": "Clear search",
+    "followupDismiss": "Dismiss suggestions",
+    "followupRowLabel": "Try these"
   },
   "statusPage": {
     "incidentsUnavailable": "Incident data for the last 30 days is temporarily unavailable"

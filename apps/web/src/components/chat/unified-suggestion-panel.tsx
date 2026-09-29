@@ -386,7 +386,8 @@ export function UnifiedPasteReferencePreview({
   return (
     <div
       data-testid="unified-paste-reference-preview"
-      className="flex flex-wrap items-center gap-1.5 rounded-md bg-muted/40 px-3 py-1.5"
+      // E 节(2026-09-30 深度对标二轮):限高 4.5rem 滚动,粘贴预览再多也不顶高输入区
+      className="flex max-h-[4.5rem] flex-wrap items-center gap-1.5 overflow-y-auto rounded-md bg-muted/40 px-3 py-1.5"
     >
       <span className="text-[10px] font-medium text-muted-foreground">
         {t('pastePreviewTitle')}

@@ -6,27 +6,24 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowUp, Square, Zap, MessageCircle, X, Wand2, ListFilter, ListTodo } from 'lucide-react'
+import { ArrowUp, Square, Zap, Wand2, ListFilter, ListTodo, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
-import { ContextReferencePanel } from '@/components/ai/context-reference-panel'
 import { VoiceToolbar } from './voice-toolbar'
 import { readHandsFree } from '@/components/chat/voice-stream-speaker'
 import { ModelSelector } from '@/components/chat/model-selector'
 import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
-import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
-import { MentionChips } from '@/components/chat/mention-popover'
+import type { SelectedToolItem } from '@/components/chat/selected-tools-panel'
+import { ContextChipsRow } from '@/components/chat/context-chips-row'
+import { useContextMentionStore } from '@/stores/context-mention'
 import { useMentionWiring } from '@/hooks/use-mention-wiring'
 // D68 统一多源建议面板(2026-09-26):六源聚合 + 逐源来源标注 + 部分失败三句降级 +
 // 粘贴引用有效性预览;"旧三浮层入口不回归"为硬验收,FileMentionPopover /
 // ContextSelectorPopover / SlashCommandPalette 的挂载与触发一律原样保留。
-import {
-  UnifiedSuggestionPanel,
-  UnifiedPasteReferencePreview,
-} from '@/components/chat/unified-suggestion-panel'
+import { UnifiedSuggestionPanel } from '@/components/chat/unified-suggestion-panel'
 import {
   capReferences,
   previewPastedReferences,
@@ -53,10 +50,7 @@ import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banne
 // D117(2026-09-27):/diff 会话改动总览弹窗(全局单实例,useSessionDiffStore 驱动)
 import { SessionDiffDialog } from '@/components/ai/session-diff-dialog'
 import { runManualCompact } from '@/hooks/use-chat/manual-compact'
-// P3 #30(2026-09-16 立):待发送 diff 评审意见提示条(输入框上方常驻提示 + 一键清空)
-import { DiffCommentsBar } from '@/components/chat/diff-comments-bar'
-// D154(2026-09-30 立):MCP 连接状态行 —— 连不上/重连中在对话里给一句可操作的话(数据来自 WS 常连)
-import { McpStatusNotice } from '@/components/chat/mcp-status-notice'
+// P3 #30 diff 意见条 / D154 MCP 状态行(2026-09-30 起)由 InputStatusSlot 统一按优先级挂载
 // 任务进度常驻状态条:输入框上方动态显示"在做什么 / 第几步 / 改了多少文件",plan_updated 驱动
 import { TaskStatusBar } from '@/components/ai/task-status-bar'
 import { AddMenuPopover } from '@/components/chat/add-menu-popover'
@@ -84,12 +78,7 @@ import { answerSideQuestion } from '@/hooks/use-chat/slash-commands'
 // D38 队列语义完整交互(G-42):交互条只做展示与回调上抛,许可判定一律走 D69 的
 // queueInteractionPerms(与本文件下方 queueCtx 同一对象),动作落 store 的四个新 action。
 import { QueueInteractionBar } from '@/components/chat/queue-interaction-bar'
-// V3 #69(2026-09-27):输入框上方的会话窗口额度实时进度条(budget 帧驱动,与压缩状态条同族同位)
-import { ContextBudgetBar } from '@/components/chat/context-budget-bar'
-// D155(2026-09-29):输入框上方的下行告警条(config-warning/deprecation-notice/guardian-warning
-// 三档帧驱动,与额度进度条同族同位;未收到帧不渲染不占位)
-import { StreamAlertBar } from '@/components/chat/stream-alert-bar'
-import { ConnectionStatusBar } from '@/components/chat/connection-status-bar'
+// V3 #69 额度条 / D155 下行告警条 / D131 连接状态位(2026-09-30 起)由 InputStatusSlot 统一挂载
 import { queueInteractionPerms } from '@ihui/shared/chat/input-notices'
 import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -107,14 +96,15 @@ import { runBestOfN } from '@/api/best-of-api'
 import {
   applyPolishResult,
   beginPolish,
-  canRetry,
   canStartPolish,
   createPolishState,
   polishPhaseKey,
   type PolishPhase,
-  type PolishRejection,
   type PromptPolishState,
 } from '@ihui/shared/chat/prompt-polish'
+
+// A 节单状态槽(2026-09-30 深度对标二轮):六源通知按优先级单槽展开 + +N 弹层
+import { InputStatusSlot } from './input-status-slot'
 
 /** D82:从失败对象里取「需重启生效」原因码。后端未给则 null —— **不臆造**重启提示。 */
 function polishRestartReasonOf(error: unknown): string | null {
@@ -199,55 +189,6 @@ export function PromptPolishEntry({
   )
 }
 
-export interface PromptPolishNoticeProps {
-  state: PromptPolishState
-  onRetry: () => void
-}
-
-/**
- * D82 保稿提示条(输入卡上方,无内容时返回 null 零占位)。
- * - 失败:`failureDraftKept`(「暂时无法润色提示词，草稿已保留。」同族)+ 「重试」(`canRetry` 为真才渲染);
- * - 空草稿被拒:`rejection.emptyDraft`;
- * - 需重启生效:`restartHint`(同样强调草稿已保留)。
- */
-export function PromptPolishNotice({ state, onRetry }: PromptPolishNoticeProps) {
-  const t = useTranslations('ai.pane.promptPolish')
-  const rejection: PolishRejection | null = state.rejection
-  const failed = state.phase === 'failed'
-  if (!rejection && !failed && !state.restartHint) return null
-  return (
-    <div
-      data-testid="prompt-polish-notice"
-      data-polish-phase={state.phase}
-      className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300"
-    >
-      {rejection ? (
-        <span data-testid="prompt-polish-empty" data-polish-reject={rejection}>
-          {t('rejection.emptyDraft')}
-        </span>
-      ) : null}
-      {failed ? (
-        <span data-testid="prompt-polish-failure" data-polish-error={state.error ?? 'none'}>
-          {t('failureDraftKept')}
-        </span>
-      ) : null}
-      {state.restartHint ? (
-        <span data-testid="prompt-polish-restart">{t('restartHint')}</span>
-      ) : null}
-      {canRetry(state) ? (
-        <button
-          type="button"
-          data-testid="prompt-polish-retry"
-          onClick={onRetry}
-          className="shrink-0 rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-800 transition-colors hover:bg-amber-500/25 dark:text-amber-200"
-        >
-          {t('action.retry')}
-        </button>
-      ) : null}
-    </div>
-  )
-}
-
 // 模板源统一为 5 个核心模板,与 message-list 空状态共用同一组 i18n key,
 // 避免 email/report/review/refactor 4 个无 i18n key 的项显示原始 key 的问题。
 // PROMPT_TEMPLATE_IDS / TPL_NAME_KEY_MAP / TPL_CONTENT_KEY_MAP / promptTemplates
@@ -324,6 +265,9 @@ export function MessageInput({
   const tSuggest = useTranslations('unifiedSuggestion')
   const [unifiedOpen, setUnifiedOpen] = React.useState(false)
   const [unifiedCapRejected, setUnifiedCapRejected] = React.useState(false)
+  // D 节(2026-09-30 深度对标二轮):空态 followup 建议行的关闭记忆 —— 用户点 X 后
+  // 本挂载周期(切会话会重挂)不再自动出现;点任一 chip 填入内容后行自然消失。
+  const [followupDismissed, setFollowupDismissed] = React.useState(false)
   const [pastedRefPreviews, setPastedRefPreviews] = React.useState<PastedReferencePreview[]>([])
   const unifiedAddedIdsRef = React.useRef<Set<string>>(new Set())
   // V3 第 61 票(2026-09-27):`@` 与 `#` 的提及状态与正文落点都收进 useMentionWiring(下方,
@@ -371,6 +315,8 @@ export function MessageInput({
   // V3 第 61 票:`@` / `#` 提及的唯一落点(写那份 store + 把 insertText 顶进正文 + 摘 chip 删正文)。
   // 判定的那一份实现在 @ihui/shared/chat/mention-engine,这里只是接线(可被 renderHook 直接验)。
   const mentionWiring = useMentionWiring({ setValue, inputRef: inputCoreRef })
+  // 统一上下文容器「全空不渲染」判定用(渲染仍由容器内 MentionChips 订阅 store 自理)
+  const hasMentions = useContextMentionStore((s) => s.mentions.length > 0)
   // D36 会话内输入历史栈接线(纯逻辑在 @ihui/shared/chat,本组件只做 DOM 接线):
   // - getHistoryKey 按 conversationId 分桶(chat:prompt-history:{id}),未持久化会话共用 chat:prompt-history
   // - applyHistoryText 仅回填文本并把光标移到行尾,绝不触碰 references(附件保持不动)
@@ -457,7 +403,25 @@ export function MessageInput({
       })),
     [mentionFiles],
   )
-  const unifiedSuggestions = useUnifiedSuggestions(unifiedOpen, unifiedFileItems)
+  // D 节(2026-09-30 深度对标二轮):空输入且建议未加载时也触发同一懒加载链(open 条件
+  // 并上 followupWanted),加载完成后 chips 行出现在输入卡正上方;面板与空态共用一份数据,
+  // loadedRef 保证不重复请求。file 源仍只随 @/# 入口加载(空态文件建议价值低,不扩触发面)。
+  const isInputEmpty = value.trim().length === 0
+  const followupWanted = isInputEmpty && !unifiedOpen && !followupDismissed
+  const unifiedSuggestions = useUnifiedSuggestions(unifiedOpen || followupWanted, unifiedFileItems)
+  // 空态建议取数:按六源固定顺序,取 ready 源条目的前 4 条;未就绪/全空则不渲染(零占位)。
+  const followupItems = React.useMemo<UnifiedSuggestionItem[]>(() => {
+    if (!followupWanted) return []
+    const picked: UnifiedSuggestionItem[] = []
+    for (const state of unifiedSuggestions.states) {
+      if (state.status !== 'ready') continue
+      for (const item of state.items) {
+        picked.push(item)
+        if (picked.length >= 4) return picked
+      }
+    }
+    return picked
+  }, [followupWanted, unifiedSuggestions.states])
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   // 输入区容器锚点:FileMentionPopover 的 PortalPanel 以它做定位(2026-09-15 对齐浮层收敛契约)
   const inputAreaRef = React.useRef<HTMLDivElement>(null)
@@ -958,75 +922,32 @@ export function MessageInput({
         <HighRiskWarningBanner autoRevert={autoRevert} />
         {/* 任务进度常驻状态条:此刻最该被看到的动态信息(流式时自动展开明细,空闲时零占位) */}
         <TaskStatusBar />
-        {/* P3 #30:diff 待发送意见提示条(有意见时才渲染,无意见时返回 null 零占位) */}
-        <DiffCommentsBar />
-        {/* D154:MCP 连不上/重连中的对话内状态行(帧来自 /ws/broadcast,常态零占位) */}
-        <McpStatusNotice />
-        {/* D82 润色保稿提示(失败 / 空草稿被拒 / 需重启生效;均带「草稿已保留」语义,无内容零占位) */}
-        <PromptPolishNotice state={polish} onRetry={handlePolish} />
-        {allReferences.length > 0 && (
-          <div className="mb-2">
-            <ContextReferencePanel references={allReferences} onRemove={handleRemoveReference} />
-          </div>
-        )}
-        {selectedToolItems.length > 0 && (
-          <div className="mb-2">
-            <SelectedToolsPanel tools={selectedToolItems} onRemove={removeSelectedTool} />
-          </div>
-        )}
-        {/* D22 引用回复 chip(2026-09-19 立,对标 Qoder 0.2.x):MessageList 监听
-            ihui:reply-message 后写入 store,此处渲染快照 chip,点击 X 清除 */}
-        {quotedMessage && (
-          <div
-            data-testid="quoted-reply-chip"
-            className="mb-2 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm"
-          >
-            <MessageCircle className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-primary">
-                {quotedMessage.role === 'user' ? t('quotedReplyUser') : t('quotedReplyAssistant')}
-              </p>
-              <p className="truncate text-xs text-muted-foreground">{quotedMessage.content}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setQuotedMessage(null)}
-              data-testid="quoted-reply-clear"
-              aria-label={t('cancel')}
-              className="shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <X className="h-3.5 w-3.5" aria-hidden />
-            </button>
-          </div>
-        )}
-        {/* 多维提及 chips(V3 第 61 票收口):`@` 与 `#` 两条路的已选提及都在
-            stores/context-mention 那一份状态里,由这一个面渲染;摘 chip 同步删正文。 */}
-        <MentionChips onRemove={mentionWiring.removeSelection} />
-        {/* W27 输入队列(2026-09-14,对标 Codex/Cursor 多条排队):流式期间排队的消息
-            逐条显示,每次流式结束自动出队发送队首;点「取消」把该条文本退回主输入框 */}
-        {pendingMessages.length > 0 && (
-          <div data-testid="input-queue" className="mb-2 space-y-1">
-            {pendingMessages.map((pm, i) => (
-              <div
-                key={i}
-                data-testid={`input-queue-item-${i}`}
-                className="flex items-center gap-2 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm"
-              >
-                <span className="flex-1 truncate text-amber-700 dark:text-amber-300">
-                  {pm.text}
-                </span>
-                <button
-                  type="button"
-                  data-testid={`input-queue-remove-${i}`}
-                  onClick={() => handleQueueRemove(i)}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  {t('cancel') ?? '取消'}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* A 节单状态槽(2026-09-30 深度对标二轮):断连/下行告警/MCP/润色保稿/diff 意见/
+            额度 六源按优先级只展开一条,其余折叠 +N 徽章弹层;全 inactive 整体不渲染。
+            高风险横幅与任务条是行动号召,保持槽外独立。 */}
+        <InputStatusSlot
+          isStreaming={isStreaming}
+          threadId={conversationId}
+          polish={polish}
+          onPolishRetry={handlePolish}
+        />
+        {/* 统一上下文容器(2026-09-30 深度对标二轮):引用卡 / 已选工具卡 / 引用回复条 /
+            提及 chips / 粘贴预览条 / 输入队列收进一个分组,间距由容器统一接管;
+            全空时整体不渲染零占位。状态类通知不进容器(走下方状态区)。 */}
+        <ContextChipsRow
+          references={allReferences}
+          onRemoveReference={handleRemoveReference}
+          tools={selectedToolItems}
+          onRemoveTool={removeSelectedTool}
+          quoted={quotedMessage}
+          onClearQuoted={() => setQuotedMessage(null)}
+          hasMentions={hasMentions}
+          onRemoveMention={mentionWiring.removeSelection}
+          pastePreviews={pastedRefPreviews}
+          onDismissPastePreviews={() => setPastedRefPreviews([])}
+          queueItems={pendingMessages}
+          onQueueRemove={handleQueueRemove}
+        />
         {/* D38(G-42)接管 D28 侧问队列渲染:五动词交互条(重排/撤回/编辑/打断并执行/模式切换)。
             许可判定复用 D69 queueInteractionPerms(与 InputNoticeBanner 同一函数,不另立第二套);
             runtimeSupportsInterjection 暂恒 false —— 全仓尚无该能力协商的生产者(D69 banner 亦未挂载),
@@ -1064,19 +985,42 @@ export function MessageInput({
           onModeChange={(mode: FollowUpMode) => useChatStore.getState().setFollowUpQueueMode(mode)}
           onInterruptAndRun={handleInterruptAndRun}
         />
-        {/* V3 #69:额度实时进度条(warning 琥珀 / critical 红);未收到 budget 帧时整条不渲染不占位 */}
-        <ContextBudgetBar />
-        {/* D155:下行告警条(配置告警/弃用预告/守护告警三档);未收到告警帧时整条不渲染不占位 */}
-        <StreamAlertBar />
-        {/* D131:连接状态位(仅异常态常驻)—— 正常"已连接/连接中"不渲染不占位,
-            只有重连中 / 已断开才在这一行 chrome 里出现;状态推导复用
-            progress-sections/connection-status 的同一份 deriveConnectionState。 */}
-        <ConnectionStatusBar isStreaming={isStreaming} threadId={conversationId} />
-        {/* D68 粘贴引用有效性预览条(可见、可关闭;无可预览引用时不渲染不占位) */}
-        <UnifiedPasteReferencePreview
-          previews={pastedRefPreviews}
-          onDismiss={() => setPastedRefPreviews([])}
-        />
+        {/* D 节(2026-09-30 深度对标二轮):空态 followup 建议行 —— 输入为空且建议数据就绪时,
+            输入卡正上方给一条可关闭的建议 chips(对标 Cursor 空态引导);点击复用面板选中逻辑
+            (填充不发送:skill → /skill 模板,其余 → 反引号引用);零占位情形:未就绪 /
+            已关闭 / 有输入 / 面板开着。 */}
+        {followupItems.length > 0 && (
+          <div
+            data-testid="input-followup-chips"
+            aria-label={tSuggest('followupRowLabel')}
+            className="mb-2 flex flex-wrap items-center gap-1.5"
+          >
+            <span className="shrink-0 text-[11px] text-muted-foreground">
+              {tSuggest('followupRowLabel')}
+            </span>
+            {followupItems.map((item, i) => (
+              <button
+                key={item.id}
+                type="button"
+                data-testid={`input-followup-chip-${i}`}
+                title={item.detail ?? item.label}
+                onClick={() => handleUnifiedSelect(item)}
+                className="max-w-56 truncate rounded-sm border border-border bg-card px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                {item.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              data-testid="input-followup-chips-dismiss"
+              aria-label={tSuggest('followupDismiss')}
+              onClick={() => setFollowupDismissed(true)}
+              className="ml-auto shrink-0 rounded-sm p-1 text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <X className="h-3 w-3" aria-hidden="true" />
+            </button>
+          </div>
+        )}
         <div ref={inputAreaRef} className="relative">
           <FileMentionPopover
             files={mentionFiles}
@@ -1117,13 +1061,17 @@ export function MessageInput({
             onDragLeave={handleDragLeaveWithConversation}
             onDrop={handleDropWithConversation}
             className={cn(
-              'flex flex-col rounded-xl border bg-card transition-colors focus-within:border-foreground/20',
-              // 互斥的边框逻辑:拖拽(文件或会话) > 高风险 > 默认
+              // D 节(2026-09-30 深度对标二轮):聚焦反馈对标 Cursor —— border 提亮 + 1px
+              // ring-ring/30 外圈 + 轻阴影;transition 扩到 box-shadow 让 ring 柔和浮现。
+              'flex flex-col rounded-xl border bg-card transition-[border-color,box-shadow] focus-within:border-foreground/20',
+              // 互斥的边框逻辑:拖拽(文件或会话) > 高风险 > 默认。
+              // ring/shadow 聚焦反馈只加在默认分支 —— 高风险分支的琥珀 glow 与拖拽分支的
+              // ring-2 各有专属视觉,focus-within 不去覆盖它们。
               isDragOver || isConvDragOver
                 ? 'border-brand-accent-deep ring-2 ring-ring/20'
                 : isHighRisk
                   ? 'border-amber-500/50 focus-within:border-amber-500/70 shadow-[0_0_0_1px_rgba(245,158,11,0.08)] animate-pulse-soft'
-                  : 'border-input',
+                  : 'border-input focus-within:ring-1 focus-within:ring-ring/30 focus-within:shadow-sm',
             )}
           >
             {/* 拖拽提示遮罩:仅在 isDragOver 时显示 */}
@@ -1389,6 +1337,7 @@ export function MessageInput({
                         onClick={onStop}
                         className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-sky-500 text-white hover:bg-sky-600"
                         aria-label={stopLabel ?? t('stop')}
+                        data-testid="stop-button"
                       >
                         <Square className="h-4 w-4" fill="currentColor" />
                       </button>
@@ -1409,6 +1358,7 @@ export function MessageInput({
                             : 'cursor-not-allowed bg-muted text-muted-foreground/50',
                         )}
                         aria-label={sendLabel ?? t('send')}
+                        data-testid="send-button"
                       >
                         <ArrowUp className="h-4 w-4" />
                       </button>
