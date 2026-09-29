@@ -84,9 +84,38 @@ test.describe('教育财务 - 缴费登记按报名期次归属', () => {
   })
 
   /**
-   * 侧栏读的是 ADMIN_NAV_GROUPS 那份 items,不是扁平 ADMIN_NAV(后者只喂 path-labels 的标题映射)。
-   * 上一版锁打在扁平清单上 —— 那等于锁在一份不影响渲染的数据里(类型检查与断言都绿,
-   * 侧栏却一条不显)。所以这里单独锁分组段,并在 AdminNav 注释里写明"仍未上屏"。
+   * 教育三页在侧栏三级可达 —— 按用户真实点击路径逐层展开。
+   * 这条断言存在的理由是它守的正是我踩过两次的坑:条目挂进扁平 ADMIN_NAV 时
+   * 类型/lint/源码锁全绿,而侧栏一条不显(那份数据不进渲染路径);
+   * 之后再拿"未挂载组件里的按钮"当探针,又得出一个反向的错误结论。
+   * 层级文案取自已验证的数据源:一级 `nav.admin`=管理后台,二级 `nav.adminGroup.courseExam`=课程考试。
+   * 若这两处 i18n 文案改了,本条会红并点名层级 —— 那是提醒同步改测试,不是页面的错。
+   */
+  test('侧栏按真实路径展开后能看到教育三页入口', async ({ adminPage: page }) => {
+    test.setTimeout(90_000)
+    await page.goto('/admin', { waitUntil: 'domcontentloaded' })
+    await requireLoggedIn(page)
+    await expect
+      .poll(async () => page.getByText('管理后台', { exact: true }).count(), { timeout: 30_000 })
+      .toBeGreaterThan(0)
+    await page.getByText('管理后台', { exact: true }).first().click()
+    const group = page.getByText('课程考试', { exact: true }).first()
+    await expect(group, '二级分组「课程考试」未出现(检查 nav.adminGroup.courseExam)').toBeVisible({
+      timeout: 20_000,
+    })
+    await group.click()
+    const eduLinks = page.locator('a[href^="/admin/edu"]')
+    await expect(eduLinks.filter({ hasText: /./ }).first()).toBeVisible({ timeout: 20_000 })
+    const hrefs = await page
+      .locator('a[href^="/admin/edu"]')
+      .evaluateAll((els) => els.map((e) => e.getAttribute('href') as string))
+    for (const want of ['/admin/edu/class/schedule', '/admin/edu/student', '/admin/edu/finance']) {
+      expect(hrefs, `侧栏三级里应能看到 ${want}`).toContain(want)
+    }
+  })
+  /**
+   * 数据维:上一版锁打在扁平清单上 —— 那等于锁在一份不影响渲染的数据里
+   * (类型检查与断言都绿,侧栏却一条不显)。所以这条锁分组段,上屏维由上面那条负责。
    */
   test('教育三页挂在侧栏实际读取的分组清单里(不是只挂扁平清单)', () => {
     const nav = src.nav()
@@ -98,7 +127,7 @@ test.describe('教育财务 - 缴费登记按报名期次归属', () => {
     }
   })
 
-  test('AdminNav 静态清单已登记三个后台教育页(登记维,非上屏维)', () => {
+  test('扁平 ADMIN_NAV 也带这三条(供 path-labels 的标题映射使用,不负责渲染)', () => {
     const s = src.nav()
     for (const href of ['/admin/edu/class/schedule', '/admin/edu/student', '/admin/edu/finance']) {
       expect(s, `清单里应有 ${href}`).toContain(`href: '${href}'`)
