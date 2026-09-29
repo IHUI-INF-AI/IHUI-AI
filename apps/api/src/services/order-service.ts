@@ -26,6 +26,7 @@ import { logger } from '../utils/logger.js'
 import { writeToOutbox } from '../utils/outbox.js'
 import { rechargeToken, deductToken, refundTokenDeduct } from '../db/commission-queries.js'
 import { db } from '../db/index.js'
+import { recordPayment } from './edu-ledger.js'
 import { eq, and, sql } from 'drizzle-orm'
 import { outboxEvents, pointTransactions, eduEnrollment, eduPaymentRecord } from '@ihui/database'
 import { isNull } from 'drizzle-orm'
@@ -168,20 +169,33 @@ async function applyEduTuitionOrder(order: Order): Promise<void> {
   if (!enrollmentRow || enrollmentRow.studentId !== order.userId) return
   const amountYuan = Math.round(order.amount / 100)
   const today = new Date().toISOString().slice(0, 10)
-  await db.insert(eduPaymentRecord).values({
-    studentId: enrollmentRow.studentId,
-    classId: enrollmentRow.classId,
-    amount: amountYuan,
-    paymentDate: today,
-    paymentMethod: 'wechat',
-    status: 'paid',
-    receiptNo: order.orderNo,
-    remark: `在线支付-学费 ${order.orderNo}`,
-  })
-  await db
-    .update(eduEnrollment)
-    .set({ paidAmount: sql`${eduEnrollment.paidAmount} + ${amountYuan}`, updatedAt: new Date() })
-    .where(and(eq(eduEnrollment.id, enrollmentRow.id), isNull(eduEnrollment.deletedAt)))
+  // 入账走账目唯一出口:写流水 + 重算派生缓存。
+  // 旧写法在此处直接 `paidAmount + amountYuan`,而幂等只靠上面那一次 select ——
+  // 查与写不在同一事务、当时也没有唯一约束,两个并发回调能同时通过查重把同一笔款**累加两次**
+  // (已缴翻倍、欠费变负,而账面一路绿)。现在判重交给数据库的
+  // uq_edu_payment_receipt_no:撞号 = 已入账,直接返回,不再累加。
+  try {
+    await recordPayment({
+      enrollmentId: enrollmentRow.id,
+      studentId: enrollmentRow.studentId,
+      classId: enrollmentRow.classId,
+      amount: amountYuan,
+      paymentDate: today,
+      paymentMethod: 'wechat',
+      status: 'paid',
+      receiptNo: order.orderNo,
+      remark: `在线支付-学费 ${order.orderNo}`,
+    })
+  } catch (err) {
+    if ((err as { code?: unknown })?.code === '23505') {
+      logger.info('学费订单重复回调已被唯一索引拦下,不再入账', {
+        orderNo: order.orderNo,
+        enrollmentId: order.productId,
+      })
+      return
+    }
+    throw err
+  }
   logger.info('学费订单自动入账完成', {
     orderNo: order.orderNo,
     enrollmentId: order.productId,
@@ -198,6 +212,12 @@ async function applyEduTuitionOrder(order: Order): Promise<void> {
  * 任一步失败抛出,由 paymentIdempotency 失败分支释放锁,让回调平台重试。
  */
 async function replayPaidSideEffects(order: Order, tradeNo?: string): Promise<void> {
+  // ⓪ 学费订单入账(幂等:receipt_no 唯一索引 + 账目出口重算)。
+  // 此前这一支**不在重放清单里** —— 而 applyEduTuitionOrder 只在正常回调路径被调,
+  // 于是"回调进来了、进程在入账前被杀"的窗口里,这笔学费永久不入账,
+  // 而订单本身是 paid 状态、再也不会重放 ⇒ 学员明明付了钱,系统继续算他欠费并催缴。
+  await applyEduTuitionOrder(order)
+
   // ① token 充值(幂等:unique 索引)
   await rechargeIfTokenOrder(order)
 
