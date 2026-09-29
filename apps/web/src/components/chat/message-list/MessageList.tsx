@@ -16,17 +16,11 @@ import {
 } from '@/components/ai/progress-sections/message-context-menu'
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useChatStore } from '@/stores/chat'
-import { useAuthStore } from '@/stores/auth'
 
 import { MessageItem } from './MessageItem'
 import { QueryThumbRail } from './query-thumb-rail'
 import { StreamingSkeleton, shouldShowStreamingSkeleton } from './streaming-skeleton'
 import { ScrollJumpButtons } from './scroll-jump-buttons'
-import { DetailModeSwitcher } from './detail-mode-switcher'
-import { applyConversationDetailMode } from './detail-mode-filter'
-import { useConversationDetailModeStore } from '@/stores/conversation-detail-mode'
-import { useFocusArtifactScroll } from '@/components/media/artifact-turn-badge'
-import { AmbientSuggestions } from '@/components/ai/ambient-suggestions'
 import { CanvasOverlay } from '@/components/chat/canvas-overlay'
 import { EmptyState } from './EmptyState'
 import { FallbackBanner } from './FallbackBanner'
@@ -34,15 +28,6 @@ import { useMessageListScroll } from './use-message-list-scroll'
 import { useMessageListDerivations } from './use-message-list-derivations'
 import { useMessageListSearch } from './use-message-list-search'
 import { useMessageListContextMenu } from './use-message-list-context-menu'
-// V3 #62(2026-09-27 立):既有搜索条的「结果预览列表」投影(输入框/快捷键/上一个
-// 下一个仍唯一归 use-message-list-search,本件只补"看得见命中了什么")。
-import { SearchResultList } from './search-result-list'
-import { useChatSearch } from '@/hooks/use-chat-search'
-// V3 #63(2026-09-27 立):form_request 帧的对话流宿主 —— 卡片本体与应答上行
-// 在 @/components/ai/business-form-*,本处只补那条一直没装车的连线。
-import { BusinessFormSection } from '@/components/ai/business-form-section'
-import { useBusinessFormStore } from '@/stores/business-forms'
-import { toast } from '@/components/common'
 import {
   regenerateMessage,
   branchMessage,
@@ -119,21 +104,8 @@ export function MessageList({
 }: MessageListProps) {
   const t = useTranslations('chat')
 
-  // D39 免费额度心智边界:非 VIP 即免费档可用 → 不向该用户渲染付费诱导
-  const user = useAuthStore((s) => s.user)
-  const freeTierAvailable = !user?.isVip
-
-  // D45(2026-09-24 立,G-53):会话详情聚合档位 —— 档位管信息聚合粒度
-  // (过滤哪些类别的活动条目呈现),与 D21 fold-policy(管 section 展开/折叠)语义正交。
-  // 'steps' 直通,零行为变化;'commands'/'narrative' 返回过滤拷贝。
-  const detailMode = useConversationDetailModeStore((s) => s.mode)
-  const visibleMessages = React.useMemo(
-    () => applyConversationDetailMode(messages, detailMode),
-    [messages, detailMode],
-  )
-
   const scroll = useMessageListScroll({
-    messages: visibleMessages,
+    messages,
     isStreaming,
     hasMoreHistory,
     loadingMoreHistory,
@@ -176,46 +148,6 @@ export function MessageList({
     t,
     onRequestSearch: openSearch,
   })
-
-  // ── V3 #62(2026-09-27 立)搜索结果预览列表 ────────────────────────────
-  // 唯一查询源仍是上面那条搜索条;这里把同一份查询喂给 useChatSearch,只为拿到
-  // 「命中消息的摘要 + 时间」列表并可点选定位。匹配规则两侧共用
-  // @ihui/shared 的 searchMessages,不存在第二套判定。
-  const tSearch = useTranslations('chatSearchBar')
-  const preview = useChatSearch({
-    messages,
-    messagesContainerRef: containerRef,
-    notFoundMessage: tSearch('messageNotFound'),
-    showWarning: (msg) => toast.info(msg),
-  })
-  const { setSearchQuery: setPreviewQuery, debouncedSearch: searchPreview, clearSearch } = preview
-  /** 搜索条每次输入:既有逻辑跳首个匹配 + 预览列表按同一查询重建(200ms 防抖) */
-  const onSearchQuery = React.useCallback(
-    (query: string) => {
-      handleSearch(query)
-      setPreviewQuery(query)
-      searchPreview(query)
-    },
-    [handleSearch, setPreviewQuery, searchPreview],
-  )
-  /** 关闭搜索条:两份态一起收(只收一份会留下一个悬着的命中列表) */
-  const onSearchClose = React.useCallback(() => {
-    handleSearchClose()
-    clearSearch()
-  }, [handleSearchClose, clearSearch])
-
-  // ── V3 #63(2026-09-27 立)切会话回收待应答表单 ────────────────────────
-  // 表单请求按 messageId 键控挂在 store 上,不回收就是一份"看不见但永不出队"的
-  // 内存滞留(上一个会话里没填完的批准/拒绝,在新会话里既无处显示也无从应答)。
-  // 挂在这里而不是各跳转点:MessageList 是所有会话视图的唯一宿主,URL 参数换会话
-  // 那条路径(不在本票写面内)同样被这一格覆盖。
-  const conversationId = useChatStore((s) => s.conversationId)
-  const lastConversationIdRef = React.useRef(conversationId)
-  React.useEffect(() => {
-    if (lastConversationIdRef.current === conversationId) return
-    lastConversationIdRef.current = conversationId
-    useBusinessFormStore.getState().clearForms()
-  }, [conversationId])
 
   // ── Phase 19 集成(2026-07-28 立)────────────────────────────────────
   // ProgressJumpStore:PlanStep ↔ Message 双向跳转 + 联动高亮
@@ -274,11 +206,6 @@ export function MessageList({
     window.addEventListener('ihui:scroll-to-message', onScrollTo as EventListener)
     return () => window.removeEventListener('ihui:scroll-to-message', onScrollTo as EventListener)
   }, [flashHighlight, containerRef])
-
-  // D76 反向联动(2026-09-24 立):产物面板/画布导航 → ihui:focus-artifact →
-  // 滚动定位消息流里的产物卡并描边高亮。挂本容器(长期存活节点),
-  // 禁挂会被卸载的深层组件(dead dispatch 教训)。
-  useFocusArtifactScroll(containerRef)
 
   // 2026-08-30 立:重新生成 / 分支事件监听(MessageItem 按钮 + 右键菜单派发)。
   // 2026-09-12 立:编辑重跑事件监听(四竞品对标 P0-1,MessageItem 编辑 Dialog 派发)。
@@ -383,13 +310,13 @@ export function MessageList({
   // - 非虚拟模式(消息数 <= VIRTUAL_THRESHOLD):全量渲染,保留原逻辑
   // - 虚拟模式:用 measureItem ref 测量真实高度,handleScroll 计算可见范围
   const renderItems = enableVirtual
-    ? visibleMessages.slice(visibleRange.start, visibleRange.end + 1)
-    : visibleMessages
+    ? messages.slice(visibleRange.start, visibleRange.end + 1)
+    : messages
 
   const offsets = enableVirtual ? computeCumulative().offsets : []
   const paddingTop = enableVirtual ? (offsets[visibleRange.start] ?? 0) : 0
   const paddingBottom = enableVirtual
-    ? Math.max(0, (offsets[visibleMessages.length] ?? 0) - (offsets[visibleRange.end + 1] ?? 0))
+    ? Math.max(0, (offsets[messages.length] ?? 0) - (offsets[visibleRange.end + 1] ?? 0))
     : 0
 
   // 2026-08-16 移除:DEBUG useEffect 在 early return 之后调用(违反 Rules of Hooks,
@@ -415,7 +342,6 @@ export function MessageList({
             fallbackNotice={fallbackNotice}
             onClearFallbackNotice={onClearFallbackNotice}
             t={t}
-            freeTierAvailable={freeTierAvailable}
           />
         )}
         {/* #8 顶部加载更多历史指示器 */}
@@ -435,7 +361,7 @@ export function MessageList({
                 {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
                 <MessageItem
                   message={m}
-                  isLast={realIdx === visibleMessages.length - 1}
+                  isLast={realIdx === messages.length - 1}
                   isStreaming={isStreaming}
                   assistantLabel={assistantLabel}
                   onApplyDiff={onApplyDiff}
@@ -455,11 +381,6 @@ export function MessageList({
                   }}
                   codeCollapseLines={codeCollapseLines}
                 />
-                {/* V3 #63(2026-09-27 立):该条 assistant 消息上的 form_request 宿主。
-                    BusinessFormSection 内部无请求即整段返回 null(不占位),所以这里
-                    对每条 assistant 消息都挂一次即可 —— 用户批准/拒绝经
-                    postFormResponse 走同一条会话通道回传(与 tool-delegate 同族)。 */}
-                {m.role === 'assistant' ? <BusinessFormSection messageId={m.id} /> : null}
                 {/* Phase 19: 最后一个 assistant 消息下挂载 PlanStepsCard + SubAgentTaskTree
                   2026-08-01 Phase 4d:消息级 inline 后,仅当消息级数据为空时显示全局块(降级兼容旧后端)
                   2026-08-02 隐藏:对话流底部不再渲染 PlanStepsCard/SubAgentTaskTree(冗余可视化,与 主流 IDE 简洁风格不一致)
@@ -477,10 +398,14 @@ export function MessageList({
         )}
         {/* D2(2026-09-18 立):流式骨架屏占位 —— 用户发消息后、AI 首帧到达前显示,首帧到达即卸载 */}
         {showSkeleton && <StreamingSkeleton />}
-        {/* D45(2026-09-24 立,G-54):ambient suggestions 环境建议条。
-            消息列表尾部自有容器、常规文档流,不遮挡正文/不渐变遮罩/无原生 title。
-            派生用原始 messages(建议独立于档位过滤的呈现粒度)。 */}
-        <AmbientSuggestions messages={messages} />
+        {/* 2026-07-31 立,AI 对话可视化深度接入:TimelineTab inline 到对话底部
+          - 显示完整时间线事件流(plan/subagent/tool/thinking/question/reference)
+          - 实时刷新(useTimelineStore 响应式)
+          - 类型筛选 + 搜索 + 状态计数 + Markdown 导出
+          - 仅当有事件时显示(无事件空状态折叠,避免污染空对话)
+          - 用 bg 色对比替代 border-t 分割线(AGENTS.md §4 禁止分割线)
+          2026-08-02 隐藏:对话流底部不再渲染 inline-timeline(冗余可视化,与 主流 IDE 简洁风格不一致)
+          功能保留在右侧 AI 面板的 TimelineTab 独立入口 */}
         <div ref={bottomRef} />
       </div>
     </div>
@@ -490,27 +415,17 @@ export function MessageList({
     <div className="flex h-full flex-col">
       <MessageSearchBar
         visible={searchBarVisible}
-        onClose={onSearchClose}
-        onSearch={onSearchQuery}
+        onClose={handleSearchClose}
+        onSearch={handleSearch}
         resultCount={searchResultIds.length}
         currentIndex={searchCurrentIndex}
         onNavigate={handleSearchNavigate}
       />
-      {/* V3 #62:命中摘要列表 —— 只在搜索条可见且有命中时出现,点选即定位那条消息 */}
-      {searchBarVisible ? (
-        <SearchResultList
-          results={preview.searchResults}
-          selectedId={preview.selectedMessageId}
-          onPick={preview.scrollToMessage}
-        />
-      ) : null}
-      {/* D45 档位切换胶囊(2026-09-24 立):消息流顶部工具区,紧凑三选一,持久化 */}
-      <DetailModeSwitcher />
       {inlinePanelNode}
       {/* W18 对话流缩略导航(2026-09-13 立):右侧 Query 刻度条,点击跳转任一提问。
           2026-09-21 归一:并入 D3 定位器的滚动联动高亮,删除 ConversationLocatorRail,
           右侧只保留这一条 rail(此前两 rail 并挂,用户反馈"怎么有两个 nav") */}
-      <QueryThumbRail messages={visibleMessages} containerRef={containerRef} />
+      <QueryThumbRail messages={messages} containerRef={containerRef} />
       {/* D3(2026-09-18 立):右下角浮动 affordance 列(跳顶 / 跳到最新)。
           2026-09-22 归一:原先此处另有一枚底部居中的「跳到最新」,与列内「跳底」同义重复,
           现合并进 ScrollJumpButtons,行为沿用 scrollToBottom(滚到底 + 复位 userScrolledUp)。 */}
