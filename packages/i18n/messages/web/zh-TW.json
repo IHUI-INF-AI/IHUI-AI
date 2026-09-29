@@ -8650,7 +8650,7 @@
         },
         "speaking_banned": {
           "title": "目前處於禁言狀態",
-          "action": "聯絡管理員瞭解詳情"
+          "action": "聯絡管理員了解詳情"
         },
         "member_capacity_exceeded": {
           "title": "成員數量已達上限",
@@ -10591,6 +10591,15 @@
       "tokens": "已用 {used} / {limit}",
       "resetAt": "{time} 重置"
     },
+    "statusSlot": {
+      "moreNotices": "還有 {count} 條狀態",
+      "connection": "連線狀態",
+      "alerts": "下行告警",
+      "mcp": "MCP 連線",
+      "polish": "潤飾提示",
+      "diff": "程式碼意見",
+      "budget": "今日額度"
+    },
     "streamAlert": {
       "configWarning": {
         "title": "配置提醒"
@@ -10812,6 +10821,7 @@
     },
     "contextUsage": {
       "breakdownTitle": "Token 分類明細",
+      "budgetRow": "今日額度",
       "categoryFiles": "檔案/附件",
       "categoryHistory": "歷史訊息",
       "categorySystem": "系統提示",
@@ -20344,7 +20354,7 @@
       "subtitle": "配置各平臺的登錄憑證(加密存儲)",
       "switchToAppQr": "切換為App掃碼",
       "switchToWechatQr": "切換為微信掃碼",
-      "morePlatforms": "更多平臺",
+      "morePlatforms": "更多平台",
       "taskId": "任務",
       "title": "平臺賬號管理",
       "verify": "測試連接",
@@ -27860,7 +27870,9 @@
     "hintSelect": "選擇",
     "hintConfirm": "確認",
     "hintClose": "關閉",
-    "clearAriaLabel": "清空搜尋"
+    "clearAriaLabel": "清空搜尋",
+    "followupDismiss": "關閉建議",
+    "followupRowLabel": "試試這些"
   },
   "statusPage": {
     "incidentsUnavailable": "最近 30 天的事件資料暫時取不到"
