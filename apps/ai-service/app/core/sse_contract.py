@@ -136,6 +136,24 @@ SSE_COMPAT_EVENTS: frozenset[str] = frozenset(
     }
 )
 
+# ── D174(2026-09-30 立)帧级关联键 traceId ────────────────────────────────────
+# 它**不是某一帧的字段**,而是每一帧都带的顶层键,所以它不进各条目的 payload_fields:
+# 那份清单被 `app/routers/llm.py::_sse()` 的契约诊断当"必填"来查(missing ⇒ 告警),
+# 把"本轮没有有效 trace ⇒ 整字段缺席"这一合法形态列进去,就等于让诊断对合法帧恒告警
+# —— 与 TS 侧的处理同形:那边把它记在 `SSEEventMeta`(每个事件的共享元信息/顶层注入
+# 字段),而不是逐个判别成员里抄一遍。
+#
+# 值规则(小写 32 hex / 全 0 非法 / 无有效 trace 时整字段缺席)住在
+# `app/core/trace_context.py::sse_frame_trace_id`;键名的唯一真相源在这里。
+#
+# ⚠️ **SSE_COMPAT_EVENTS 不带这个键**:上面那段自己写的原话是"wire 形态与 Anthropic
+# 官方一致",往里加我方自定键是单方面改那个协议。所以生产点按"事件名 ∈ 兼容集 ⇒ 不注入"
+# 分流,兼容帧保持逐字节旧形状。
+SSE_TRACE_ID_PAYLOAD_KEY: str = "traceId"
+
+#: 顶层注入的帧级元信息键(与本模块的 payload_fields 分属两层,理由见上方注释)。
+SSE_FRAME_META_FIELDS: frozenset[str] = frozenset({SSE_TRACE_ID_PAYLOAD_KEY})
+
 
 @dataclass(frozen=True)
 class SSEEventContract:
@@ -150,6 +168,11 @@ class SSEEventContract:
     payload_fields: tuple[str, ...] = field(default_factory=tuple)
     # 是否为 agent 绑定流上会注入 agentId 顶层字段的事件
     injects_agent_id: bool = True
+    # D174(2026-09-30):是否为**每一帧**注入顶层 traceId 的事件。
+    # 默认 True —— 本清单里 32 条全是对话流帧,生产点 `llm.py::_sse()` 是唯一注入处;
+    # Anthropic 兼容面(SSE_COMPAT_EVENTS)不在本清单里,因此也不会被这条误认成带 traceId。
+    # 只有"确实不该带"(例如某帧改走兼容协议)才显式写 False,并在那里写明理由。
+    injects_trace_id: bool = True
 
 
 # 事件清单(注释性文档;payload_fields 为待收紧字段提示)
@@ -232,6 +255,18 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     # V3 #58(2026-09-26):主聊天流工具审批帧(与 agent 任务流 tool-approval 同形,
     # 前端同一弹窗消费;approval_id 为流内唯一标识,decision 回传走流级端点)
     #
+    # D159(2026-09-30 立,用户批"三档到底")后三个是**新增可选字段**,不是新帧:
+    # - exec_environment:这次调用**在哪儿跑**的逐请求事实。组装只有一份实现
+    #   (``services/network_approval.py::approval_env_payload`` ←
+    #   ``services/approval_persistence.py::describe_exec_environment``),
+    #   读不到 ⇒ 发 ``{"available": false}``(**不是**省略、**不是**发一个默认值)——
+    #   显示"沙箱内"而实际 plain 等于误导用户放行,比不显示更糟(票第 8 栏爆炸半径)。
+    # - network_target:本次要连的目标 ``{host, port, protocol, display, reason?}``。
+    #   ``display`` 恒为 ``host:port`` 原样(票面:弹窗不显示哈希/归一键)。
+    # - blocked_network_targets:同一次调用里**已被静态策略判死**的目标清单。
+    #   "还没有规则覆盖"不算被拦 —— 那是这条审批本身要问的事,写成被拦就是把一个
+    #   决策偷装成事实陈述。
+    # 三个字段在 ``IHUI_APPROVAL_ENV_REPORT=0`` 时**整块不发**(回退形态 = 本票落地前)。
     # D159(2026-09-30 立)追加的三个字段是**同一帧**的新载荷字段,不新建事件名:
     # 与 TS 侧 packages/shared/src/sse/contract.ts 的 tool-approval 分支逐字同形
     # (两份清单由 scripts/check-agent-event-parity.mjs 对账)。生产侧组装只有一份
