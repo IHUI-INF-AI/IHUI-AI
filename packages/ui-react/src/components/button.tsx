@@ -14,13 +14,14 @@ import {
 import { cn } from '../lib/utils'
 
 // 共享 variant/size 档位唯一源:@ihui/design-tokens 的 button-variants.ts(ui-native 同源)。
-// 耦合范围必须逐档写清 —— 一句"改一处两端都跟"若只对一部分档位成立,它就是假账:
-//   default / destructive —— 在共享基座上追加 web 平台修饰(shadow/hover),改共享值两端同步;
-//   outline / ghost —— web 整档覆盖(RN 无 hover 且底取 bg-transparent,web 底取 bg-background
-//     并带 hover:bg-accent),所以这两档的共享值当前只约束 ui-native;
-//   size sm —— 共享基座 + web 追加 rounded/text-xs;size lg —— web 整档覆盖(h-10 rounded-sm px-8)。
-// 并档(让 outline/ghost/lg 也真同值)属全端观感决策,不在本轮范围:不得为让上面那句话成立去改
-// 任一端取值,也不得把共享值改成某一端的特化值 —— 那等于把一个端的观感推给另一个端。
+// 本端形态 = 共享基座 + web 追加平台修饰(shadow / hover / rounded),**不得整档重写共享键**
+// (那会让共享值只约束没重写的那一端,已由 scripts/tests/shared-button-tier-base.test.mjs 按 HEAD 面钉死)。
+// 逐档如实说明,免得"改一处两端都跟"读过头:
+//   default / destructive —— 基座即两端共同原子,改它两端同步;
+//   outline —— 基座给 border + border-input(两端同持),bg-background 与 hover:bg-accent 是本端追加;
+//   ghost / size lg —— 基座为**空串**:两端在这一档的共同集合为空(RN 必须显式给底与字色,web 靠继承;
+//     lg 今天 RN h-12 / web h-10)。所以受管的只有键名与"不许整档另写",取值并未跨端绑定;
+//     并档属全端观感决策(2026-09-29 已提请,未拍板前不得单方面收敛任何一端的值)。
 // 故不继承 ButtonBaseProps(限制为共同子集会丢失 web 侧类型支持)。
 
 // 图标尺寸档(2026-09-17 用户指令:全项目图标按钮唯一尺寸 32×32,单一来源 @ihui/design-tokens icon-button.ts)
@@ -30,13 +31,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // 共享档位(唯一源)先展开;下面按 web 平台覆盖/追加修饰
+        // 共享档位(唯一源)先展开;下面只在基座之外追加 web 平台修饰
         ...SHARED_BUTTON_VARIANT_CLASSES,
         default: `${SHARED_BUTTON_VARIANT_CLASSES.default} shadow hover:bg-cta/90`,
         destructive: `${SHARED_BUTTON_VARIANT_CLASSES.destructive} shadow-sm hover:bg-destructive/90`,
-        outline:
-          'border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground',
-        ghost: 'hover:bg-accent hover:text-accent-foreground',
+        outline: `${SHARED_BUTTON_VARIANT_CLASSES.outline} bg-background shadow-sm hover:bg-accent hover:text-accent-foreground`,
+        ghost: `${SHARED_BUTTON_VARIANT_CLASSES.ghost} hover:bg-accent hover:text-accent-foreground`,
         // web 独占档位
         secondary: 'bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80',
         link: 'text-primary underline-offset-4 hover:underline',
@@ -58,10 +58,10 @@ const buttonVariants = cva(
           'border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-sm px-3 py-1.5 text-sm',
       },
       size: {
-        // 共享档位(唯一源)先展开;下面按 web 平台覆盖
+        // 共享档位(唯一源)先展开;下面只在基座之外追加
         ...SHARED_BUTTON_SIZE_CLASSES,
         sm: `${SHARED_BUTTON_SIZE_CLASSES.sm} rounded-sm text-xs`,
-        lg: 'h-10 rounded-sm px-8',
+        lg: `${SHARED_BUTTON_SIZE_CLASSES.lg} h-10 rounded-sm px-8`,
         // web 独占档位
         xs: 'h-7 rounded-sm px-3 text-xs',
         default: 'h-9 px-4 py-2',
