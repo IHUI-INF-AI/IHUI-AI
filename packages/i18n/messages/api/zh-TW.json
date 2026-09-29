@@ -8,5 +8,130 @@
       "warning": "您的 AI 用量已接近預算上限,請關注以下資訊:\n• 今日 Token: {dailyUsed} / {dailyLimit} ({dailyPercent}%)\n• 本月成本: ${monthlyUsed} / ${monthlyLimit} ({monthlyPercent}%)\n\n為避免服務被中斷,建議及時調整用量或聯絡管理員提升額度。",
       "critical": "您的 AI 用量已達預算上限,可能影響後續呼叫:\n• 今日 Token: {dailyUsed} / {dailyLimit} ({dailyPercent}%)\n• 本月成本: ${monthlyUsed} / ${monthlyLimit} ({monthlyPercent}%)\n\n請立即調整用量或聯絡管理員提升額度,否則超額部分可能被限制或停用。"
     }
+  },
+  "apiOutbound": {
+    "hardCutMark": "……（接下一段）",
+    "foldNotice": "\n\n【內容過長】剩餘 {count} 段因超出單次上限未發送。",
+    "httpError": "平台回傳 HTTP {status}{detail}",
+    "businessRejected": "平台業務拒絕 code={code}{msg}",
+    "noReceipt": "平台 2xx 且無業務錯誤碼,但未回 message_id(無法核對回執)",
+    "deliveryTimeout": "投遞逾時(未在 deadline 內讀完回應主體)",
+    "deliveryError": "投遞異常: {message}",
+    "noRequestAttempted": "未發出任何請求",
+    "noSegments": "沒有可傳送的內容段",
+    "circuitOpen": "平台鏈路連續失敗已熔斷,{seconds}s 後放行一次探測(本次未發出請求)",
+    "foldReason": "內容超出單次段數上限,剩餘 {count} 段未投遞(已在末段告知)",
+    "redisNotReady": "Redis 未就緒",
+    "redisWriteFailed": "Redis 寫入失敗",
+    "callbackUrlMissing": "callbackUrl 未設定",
+    "needWhatsApp": "WhatsApp 需要 botToken(存取權杖)和 appId(電話號碼 ID)",
+    "needLine": "LINE 需要 botToken(Channel Access Token)",
+    "needKakaoTalk": "KakaoTalk 需要 botToken(使用者存取權杖)",
+    "needMatrix": "Matrix 需要 botToken(存取權杖)和 callbackUrl(homeserver)",
+    "needRocketChat": "Rocket.Chat 需要 botToken(X-Auth-Token)、appId(X-User-Id)、callbackUrl(server)",
+    "needMattermost": "Mattermost 需要 botToken(Bearer)和 callbackUrl(server)",
+    "needZulip": "Zulip 需要 botToken(api_key)、appId(bot_email)、callbackUrl(server)",
+    "invalidPlatform": "無效平台",
+    "signatureFailed": "簽章驗證失敗",
+    "invalidParams": "參數錯誤",
+    "adapterMissing": "未設定 {platform} 配接器",
+    "adapterDisabled": "{platform} 配接器未啟用",
+    "adapterSaveFailed": "儲存配接器設定失敗",
+    "shared": {
+      "callbackUrlLabel": "回呼 URL",
+      "callbackUrlHelp": "出站訊息回呼位址"
+    },
+    "platforms": {
+      "feishu": {
+        "displayName": "飛書",
+        "fields": {
+          "appId": { "help": "飛書應用 App ID" },
+          "appSecret": { "help": "飛書應用 App Secret" },
+          "webhookSecret": { "help": "事件訂閱驗簽欄位" },
+          "useLarkCli": { "label": "使用 Lark CLI 長連線", "help": "啟用後走 lark-cli SDK 替代 webhook" }
+        }
+      },
+      "wecom": {
+        "displayName": "企業微信",
+        "fields": {
+          "appId": { "help": "企業 ID(CorpID)" },
+          "appSecret": { "help": "應用 Secret" },
+          "webhookSecret": { "help": "回呼 Token(驗簽)" }
+        }
+      },
+      "dingtalk": {
+        "displayName": "釘釘",
+        "fields": {
+          "appId": { "help": "釘釘應用 AppKey" },
+          "appSecret": { "help": "釘釘應用 AppSecret" }
+        }
+      },
+      "telegram": {
+        "fields": {
+          "botToken": { "help": "Telegram Bot Token(從 @BotFather 取得)" }
+        }
+      },
+      "wechat": {
+        "displayName": "微信",
+        "fields": {
+          "appId": { "help": "微信公眾號/小程式 AppID" },
+          "appSecret": { "help": "微信公眾號/小程式 AppSecret" }
+        }
+      },
+      "webhook": {
+        "displayName": "通用 Webhook",
+        "fields": {
+          "webhookSecret": { "help": "HMAC-SHA256 驗簽金鑰" }
+        }
+      },
+      "whatsapp": {
+        "fields": {
+          "botToken": { "help": "WhatsApp Business API 存取權杖" },
+          "appId": { "help": "電話號碼 ID" },
+          "webhookSecret": { "help": "Meta App Secret(驗簽)" }
+        }
+      },
+      "line": {
+        "fields": {
+          "webhookSecret": { "help": "LINE Channel Secret(驗簽)" }
+        }
+      },
+      "kakaotalk": {
+        "fields": {
+          "botToken": { "help": "KakaoTalk 使用者存取權杖" },
+          "webhookSecret": { "help": "Kakao Admin Key(驗簽)" }
+        }
+      },
+      "signal": {
+        "fields": {
+          "callbackUrl": { "label": "signal-cli-rest-api 位址", "help": "本機 signal-cli-rest-api 服務位址" }
+        }
+      },
+      "matrix": {
+        "fields": {
+          "botToken": { "help": "Matrix 存取權杖" },
+          "callbackUrl": { "help": "Matrix homeserver 位址" }
+        }
+      },
+      "rocketchat": {
+        "fields": {
+          "botToken": { "help": "Rocket.Chat 存取權杖" },
+          "appId": { "help": "Rocket.Chat 使用者 ID" },
+          "callbackUrl": { "help": "Rocket.Chat 伺服器位址" }
+        }
+      },
+      "mattermost": {
+        "fields": {
+          "botToken": { "help": "Mattermost 個人存取權杖" },
+          "callbackUrl": { "help": "Mattermost 伺服器位址" }
+        }
+      },
+      "zulip": {
+        "fields": {
+          "appId": { "help": "Zulip Bot 信箱" },
+          "callbackUrl": { "help": "Zulip 伺服器位址" }
+        }
+      }
+    }
   }
 }

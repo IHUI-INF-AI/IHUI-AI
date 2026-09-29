@@ -35,7 +35,6 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   rmSync,
   statSync,
@@ -112,84 +111,24 @@ function hashObjectsChunked(g, absPaths, chunkSize = 150) {
 }
 
 /**
- * 降级通道的**前提复核**(只在 restore 已经失败时才跑,正常路径零额外开销):
- * 这批路径此刻仍满足「索引里有该路径 且 索引 blob == HEAD blob」吗?
- * 调用方的判据在**计算时刻**成立,而判据与写盘之间并行会话可能推进索引 —— 若不复核就
- * `checkout-index`,写出去的是别人刚暂存的内容(等于替他落盘),那不是恢复而是越权。
- * 两次调用都只读(ls-files / ls-tree),因此不受 index.lock 影响 —— 这正是本通道存在的前提。
- */
-function stillIndexEqualsHead(g, batch) {
-  const indexBlob = new Map()
-  for (const l of lsStageChunked(g, batch)) {
-    const tab = l.indexOf('\t')
-    if (tab < 0) continue
-    const meta = l.slice(0, tab).split(' ')
-    if (meta.length >= 2) indexBlob.set(l.slice(tab + 1), meta[1])
-  }
-  const headBlob = new Map()
-  for (let i = 0; i < batch.length; i += 150) {
-    const chunk = batch.slice(i, i + 150)
-    for (const l of g(['ls-tree', '-r', 'HEAD', '--format=%(objectname) %(path)', '--', ...chunk])
-      .split('\n')
-      .filter(Boolean)) {
-      const sp = l.indexOf(' ')
-      if (sp <= 0) continue
-      headBlob.set(l.slice(sp + 1), l.slice(0, sp))
-    }
-  }
-  return batch.filter((p) => {
-    const ib = indexBlob.get(p)
-    return !!ib && ib === headBlob.get(p)
-  })
-}
-
-/**
  * 逐批把路径恢复到 HEAD。**一次锁竞争不该让整轮自愈崩掉**:
  * 共享工作区里并行会话的 commit 会瞬时持有 index.lock(实测本会话就撞上一次),
  * 原先三处 restore 循环都是直接 execFileSync —— 抛出即整 tick 失败,而这一层的意义正是
  * "下一轮自己补上"。故失败只记账、延到下一 tick,并把延后数如实返回。
- *
- * **但"延到下一 tick"在锁被长期持有时等于永不恢复**(2026-09-29 实测:一次宿主清理删掉
- * 22 个跟踪文件,而 `D:/IHUI-AI-git-repo/index.lock` 由并发会话反复重建,连跑 6 轮守护
- * 全部 deferred;线上构建因此一次落后 102 个提交)。`restore --worktree` 之所以要锁,
- * 只是因为它顺手刷新索引里的 stat 信息;真正需要的动作(把工作树副本写回来)**不需要写索引**,
- * 而 `git checkout-index --force` 正是该动作的 git 原生形态 —— 它只读索引、只写工作树。
- * 所以 restore 失败后降级走它,并逐批复核前提(见 `stillIndexEqualsHead`);两条都不成立才记延后。
  */
 function restoreToHead(g, paths) {
   const done = []
   const deferred = []
-  const viaIndex = []
   for (let i = 0; i < paths.length; i += 40) {
     const batch = paths.slice(i, i + 40)
     try {
       g(['restore', '--source=HEAD', '--worktree', '--', ...batch])
       done.push(...batch)
-      continue
-    } catch {
-      // 落到降级通道
-    }
-    let ok = []
-    try {
-      ok = stillIndexEqualsHead(g, batch)
-    } catch {
-      ok = []
-    }
-    if (!ok.length) {
-      deferred.push(...batch)
-      continue
-    }
-    try {
-      g(['checkout-index', '--force', '--', ...ok])
-      done.push(...ok)
-      viaIndex.push(...ok)
-      const rest = batch.filter((p) => !ok.includes(p))
-      if (rest.length) deferred.push(...rest)
     } catch {
       deferred.push(...batch)
     }
   }
-  return { done, deferred, viaIndex }
+  return { done, deferred }
 }
 
 /** 工作区缺失但索引与 HEAD 完全一致的已跟踪文件 = 被外部删除 */
@@ -890,7 +829,7 @@ export function heal(repoRoot, { dryRun = false } = {}) {
       dryRun: true,
     }
   const g = makeGit(repoRoot)
-  const { done, deferred, viaIndex } = restoreToHead(g, safe)
+  const { done, deferred } = restoreToHead(g, safe)
   return {
     restored: done.length,
     held: held.length,
@@ -898,18 +837,14 @@ export function heal(repoRoot, { dryRun = false } = {}) {
     paths: done,
     deferred,
     restoreDeferred: deferred.length,
-    // 降级通道恢复了多少条必须单独可见:它说明这一刻索引锁被占着,而"restore 一路成功"的
-    // 常态下这个数是 0。只报总数会让下一次读日志的人以为锁是通的。
-    restoreViaIndex: viaIndex.length,
     orphanIndex: orphanIndex.length,
   }
 }
 
 /** 独立临时仓演练:①外部删除必被识别并恢复 ②他人 `git rm --cached` 的删除绝不碰 */
 function selfTestRun() {
-  const tmp = mkdtempSync(
-    join(dirname(fileURLToPath(import.meta.url)), '..', '.ihui-agent', 'tmp', 'wt-heal-drill-'),
-  )
+  // 落点 = §26 唯一夹具出口(与本文件 t4/t5 同;此前落仓内 .ihui-agent/tmp)
+  const tmp = mkScratch('wt-heal-drill-')
   const g = makeGit(tmp)
   const out = []
   const check = (n, ok) => out.push({ n, ok })
@@ -1085,49 +1020,6 @@ function selfTestRun() {
       '㉑b 延后必须有名册与出口(不得只报数不指路)',
       selfSrc.includes('本轮未恢复') && selfSrc.includes('cat-file blob HEAD:'),
     )
-    /**
-     * ㉘ 真锁竞争下降级通道必须真把文件写回来(2026-09-29 的根因修复)。
-     * 立因:「失败就延到下一 tick」在锁被**长期**持有时等于永不恢复 —— 实测本仓 22 个
-     * 被宿主删掉的跟踪文件连跑 6 轮守护全部 deferred,线上构建因此一次落后 102 个提交,
-     * 而账面只多一行"⚠️ 本轮未恢复"。这里造一份真实 `.git/index.lock`(不是模拟抛错:
-     * 模拟只能证明"不崩",证明不了"仍能恢复"),然后要求 restore 那条路确实失败、
-     * 降级那条路确实把内容写回。用独立小仓,理由同 ⑭⑮:累积的索引状态会让判据互踩。
-     * ㉘b 是同一条判据的反面:索引 blob 已不等于 HEAD(别人刚暂存)时降级通道**不得**动手,
-     * 否则它写出去的是别人的在飞内容,那比不修更糟。
-     */
-    {
-      const t5 = mkScratch('wt-heal-lock-')
-      try {
-        const q = makeGit(t5)
-        q(['init', '-q', '--initial-branch=main'])
-        q(['config', 'user.email', 't@t'])
-        q(['config', 'user.name', 't'])
-        q(['config', 'core.autocrlf', 'false'])
-        writeFileSync(join(t5, 'fall.ts'), 'fall-back\n')
-        writeFileSync(join(t5, 'other.ts'), 'head\n')
-        q(['add', '-A'])
-        q(['commit', '-qm', 'root'])
-        writeFileSync(join(t5, 'other.ts'), 'staged-by-someone-else\n')
-        q(['add', 'other.ts']) // 索引 != HEAD
-        writeFileSync(join(t5, '.git', 'index.lock'), '') // 并发会话持锁
-        rmSync(join(t5, 'fall.ts'), { force: true })
-        rmSync(join(t5, 'other.ts'), { force: true })
-        const r22 = restoreToHead(q, ['fall.ts', 'other.ts'])
-        check(
-          '㉘ 索引锁在位时降级通道仍恢复(index==HEAD 那一条)',
-          existsSync(join(t5, 'fall.ts')) &&
-            readFileSync(join(t5, 'fall.ts'), 'utf8') === 'fall-back\n',
-        )
-        check(
-          '㉘b 索引已偏离 HEAD 的那条不得被降级通道写回(protect 他人在飞)',
-          !existsSync(join(t5, 'other.ts')) && r22.deferred.includes('other.ts'),
-        )
-        check('㉘c 降级数量必须单独如实上报(不得与正常通道混计)', r22.viaIndex.length === 1)
-        rmSync(join(t5, '.git', 'index.lock'), { force: true })
-      } finally {
-        rmScratch(t5)
-      }
-    }
     // ⑧ 暂存后工作区又有新改动(判据③不成立)⇒ 绝不刷新、绝不对齐(protect 现场)
     writeFileSync(join(tmp, 'keep.ts'), 'v1\n')
     g(['add', 'keep.ts']) // index = v1(祖先版本)
@@ -1191,9 +1083,7 @@ function selfTestRun() {
     // ⑭⑮ 旁路提交新增文件的残留形态 —— 用**独立小仓**造现场,不复用上面 17 例累积的索引状态
     //     (第一版复用同一仓库时,祖先树判据被前序用例留下的改动污染,⑭b 恒红 ⇒ 假故障)。
     {
-      const t3 = mkdtempSync(
-        join(dirname(fileURLToPath(import.meta.url)), '..', '.ihui-agent', 'tmp', 'wt-heal-idx-'),
-      )
+      const t3 = mkScratch('wt-heal-idx-')
       const q = makeGit(t3)
       q(['init', '-q', '--initial-branch=main'])
       q(['config', 'user.email', 't@t'])
@@ -1442,10 +1332,8 @@ async function main() {
    */
   if (!res.restored && !res.paths.length && res.deferred?.length) {
     console.log(
-      `⚠️ ${res.deferred.length} 个被外部删除的跟踪文件**本轮未恢复**:` +
-        'restore 因索引写锁失败,降级通道(checkout-index,不需要锁)也没走通 —— ' +
-        '要么这些路径此刻索引 blob 已不等于 HEAD(别人刚暂存过,本层按纪律不碰),' +
-        '要么 git 本身不可用。下一次不带 pathspec 的普通提交就会把它们从版本树里抹掉。',
+      `⚠️ ${res.deferred.length} 个被外部删除的跟踪文件**本轮未恢复**(git 写锁竞争,已延后):` +
+        '下一次不带 pathspec 的普通提交就会把它们从版本树里抹掉。',
     )
     for (const p of res.deferred.slice(0, 10)) console.log('   - 待恢复 ' + p)
     console.log(
@@ -1455,9 +1343,6 @@ async function main() {
   }
   console.log(
     `${dryRun ? '[check] 可恢复' : '已恢复'} ${res.restored || res.paths.length} 个被外部删除的跟踪文件` +
-      (res.restoreViaIndex
-        ? `(其中 ${res.restoreViaIndex} 个经 checkout-index 降级写回 —— 此刻索引锁被占用)`
-        : '') +
       (res.held ? `;另有 ${res.held} 个他人已暂存的删除(不碰)` : '') +
       (res.orphanIndex
         ? `;⚠️ ${res.orphanIndex} 个路径 HEAD 有而索引+磁盘都无(旁路提交孤儿或有意 git rm;恢复走 --align-drift 第四层,四判据可证才修,其余只报数)`
