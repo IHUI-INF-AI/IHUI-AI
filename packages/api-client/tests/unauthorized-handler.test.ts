@@ -250,6 +250,47 @@ describe('setUnauthorizedHandler 触发时机', () => {
     errSpy.mockRestore()
   })
 
+  it('401 终局通知前凭据已被切换 ⇒ 不通知(旧凭据的 401 不得误清新凭据,G-814411)', async () => {
+    const contexts: UnauthorizedContext[] = []
+    let resolveRefresh!: (t: string) => void
+    const refresh = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveRefresh = resolve
+        }),
+    )
+    setTransport(always(401, { code: 40101, message: 'gone' }))
+    setTokenProvider({ getToken: () => 'old', refreshAccessToken: refresh })
+    setUnauthorizedHandler((ctx) => contexts.push(ctx))
+
+    const pending = fetchApi<{ id: string }>('/skills', { method: 'DELETE' })
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(1)) // 刷新已在飞
+
+    // 竞态注入:刷新在飞期间凭据被换人(另一路径已写入新凭据),旧刷新响应迟到
+    setTokenProvider({ getToken: () => 'fresh-new', refreshAccessToken: async () => 'x' })
+    resolveRefresh('stale-new')
+
+    await pending
+    // 续期响应被 CAS 丢弃 ⇒ "没拿到 token";且请求所带 token('old')已不是当前值
+    // ⇒ 这个 401 属于旧凭据,不得通知端内执行登出清理(否则误清新凭据的登录态)
+    expect(contexts).toHaveLength(0)
+  })
+
+  it('正向对照:凭据未漂移时,续期失败的 401 终局仍通知(既有语义不回退,G-814411)', async () => {
+    const contexts: UnauthorizedContext[] = []
+    const refresh = vi.fn(async () => {
+      throw new Error('refresh token expired')
+    })
+    setTransport(always(401, { code: 40101, message: 'gone' }))
+    setTokenProvider({ getToken: () => 'old', refreshAccessToken: refresh })
+    setUnauthorizedHandler((ctx) => contexts.push(ctx))
+
+    const result = await fetchApi<{ id: string }>('/skills', { method: 'DELETE' })
+
+    expect(contexts).toEqual([{ url: '/api/skills', method: 'DELETE' }])
+    expect(result.status).toBe(401)
+  })
+
   it('传 null 可撤销注入(端内卸载/测试隔离)', async () => {
     setUnauthorizedHandler(() => undefined)
     expect(getUnauthorizedHandler()).not.toBeNull()
