@@ -189,7 +189,8 @@ export function LoginPopUp({
     onUpgradeTrader ||
     avatarUrl !== undefined ||
     nickname !== undefined ||
-    role !== undefined ||
+    // role 有默认值 'normal' ⇒ 这一项恒真,不得当存在性判据:它曾把整支授权卡判成不可达
+    // (唯一调用点 ProfileScreen.tsx:639 只传 title/primary/secondary ⇒ 屏上是空白资料表单)。
     phone !== undefined,
   )
 
