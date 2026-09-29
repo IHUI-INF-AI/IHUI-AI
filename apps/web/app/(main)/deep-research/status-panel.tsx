@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Loader2 } from 'lucide-react'
+import { Check, Loader2 } from 'lucide-react'
 
 import type { ResearchReportDto } from '@ihui/api-client'
 
@@ -98,7 +98,13 @@ export function RunStatusPanel({ state, activeId }: RunStatusPanelProps) {
                     : 'text-muted-foreground'
               }`}
             >
-              {active ? <Loader2 className="mr-1 inline h-3 w-3 animate-spin" /> : done ? '✓ ' : ''}
+              {active ? (
+                <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
+              ) : done ? (
+                <Check className="mr-1 inline h-3 w-3" />
+              ) : (
+                ''
+              )}
               {PHASE_LABEL[p]}
             </li>
           )

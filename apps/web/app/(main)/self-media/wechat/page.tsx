@@ -10,6 +10,7 @@ import {
   Loader2,
   FileText,
   CheckCircle2,
+  XCircle,
   Send,
   History,
   Upload,
@@ -386,7 +387,17 @@ export default function WechatPage() {
                     : 'text-sm font-medium text-rose-600'
                 }
               >
-                {result.ok ? '✅ ' + t('runSuccess') : '❌ ' + t('runFailed')}
+                {result.ok ? (
+                  <span className="inline-flex items-center gap-1">
+                    <CheckCircle2 className="h-4 w-4" />
+                    {t('runSuccess')}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    <XCircle className="h-4 w-4" />
+                    {t('runFailed')}
+                  </span>
+                )}
                 {typeof result.returncode === 'number' && ` (rc=${result.returncode})`}
               </div>
               {result.error && (
