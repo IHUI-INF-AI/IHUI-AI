@@ -7438,7 +7438,12 @@
           "denied": {
             "reorder": "Cannot reorder queued messages",
             "undo": "Cannot unsend the queued message",
-            "interject": "The current Runtime does not support interjection; your message will stay queued"
+            "interject": "The current Runtime does not support interjection; your message will stay queued",
+            "cause": {
+              "streaming": "The reply is still generating, so the queue order is locked for now",
+              "emptyQueue": "There are no queued messages left to undo",
+              "runtimeNoInterject": "This runtime has no interjection support; the message stays in the queue"
+            }
           },
           "reorderAria": "Drag to reorder queued messages; use the up and down arrow keys while focused"
         }
