@@ -80,11 +80,12 @@ describe('D38 许可门 interactionAllowed(复用 D69 queueInteractionPerms,正�
       streaming: false,
       hasQueuedMessages: false,
     })
-    expect(interactionAllowed('undo', perms)).toEqual({ allowed: false, deniedKey: 'denied.undo' })
-    expect(interactionAllowed('edit', perms)).toEqual({ allowed: false, deniedKey: 'denied.undo' })
+    expect(interactionAllowed('undo', perms)).toEqual({ allowed: false, deniedKey: 'denied.undo', causeKey: 'denied.cause.emptyQueue' })
+    expect(interactionAllowed('edit', perms)).toEqual({ allowed: false, deniedKey: 'denied.undo', causeKey: 'denied.cause.emptyQueue' })
     expect(interactionAllowed('reorder', perms)).toEqual({
       allowed: false,
       deniedKey: 'denied.reorder',
+      causeKey: 'denied.cause.emptyQueue',
     })
   })
 
@@ -95,7 +96,7 @@ describe('D38 许可门 interactionAllowed(复用 D69 queueInteractionPerms,正�
       hasQueuedMessages: true,
     })
     const verdict = interactionAllowed('interruptAndRun', perms)
-    expect(verdict).toEqual({ allowed: false, deniedKey: 'denied.interject' })
+    expect(verdict).toEqual({ allowed: false, deniedKey: 'denied.interject', causeKey: 'denied.cause.runtimeNoInterject' })
     expect(verdict.deniedKey).toBe(deniedNotice('interject', 'runtimeNoInterject'))
     // 插话能力不影响重排/撤回(D69 判据)
     expect(interactionAllowed('reorder', perms).allowed).toBe(true)
@@ -108,7 +109,7 @@ describe('D38 许可门 interactionAllowed(复用 D69 queueInteractionPerms,正�
       streaming: true,
       hasQueuedMessages: false,
     })
-    expect(interactionAllowed('setMode', perms)).toEqual({ allowed: true, deniedKey: null })
+    expect(interactionAllowed('setMode', perms)).toEqual({ allowed: true, deniedKey: null, causeKey: null })
   })
 
   it('edit 与 undo 同门(同被拒键族):流式不拦,队列空才拦', () => {
