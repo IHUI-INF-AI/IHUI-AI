@@ -431,13 +431,17 @@ export function toGitError(raw: unknown, verb: string, opts: { timeoutMs: number
  * GitOutputTooLargeError（「本次结果已作废」），表现是大仓里状态查询永远失败，而调用方
  * 拿不到任何「我知道你少了什么」的信号。
  *
- * 三条不可漂的写法：
+ * 四条不可漂的写法：
  *  1. **只在 output-too-large 这一类上降级** —— 超时/中断/安全拒绝/普通失败一律原样上抛
  *     （把别的失败也重跑一次，等于给「命令本身有问题」发第二次机会，那是掩盖不是降级）；
  *  2. 折叠档 = git 自带的 --untracked-files=normal（含未跟踪文件的目录整目录成一条 dir/），
  *     它是 git 的正式档，不是自造的「截断前 N 行」——半截输出会被读成「文件不存在」；
  *  3. 降级必须**留痕且可问**：degraded 字段 + 按 cwd 记忆的 lastStatusDegradation(cwd) + 一行 warn。
- *     第二档仍超限就照旧抛 ⇒ 宁可失败，绝不返回一份看起来完整的空结论。
+ *     第二档仍超限就照旧抛 ⇒ 宁可失败，绝不返回一份看起来完整的空结论；
+ *  4. 同 key(cwd)记过降级后，**后续请求直接走折叠档**，不再先用全档撞一次上限
+ *     （撞一次 = 白付一次注定作废的全量派生 + 一次 ENOBUFS，上游把折叠记在 repoRoot 上是同一取向）。
+ *     warn 只在首次降级时喊，之后不重复刷屏：降级事实由每次结论上的 degraded 字段如实留痕，
+ *     消费方必须先看 degraded 再决定能不能把这份清单当完整结论用。
  */
 export interface GitStatusOutcome {
   readonly lines: string[];
@@ -476,22 +480,30 @@ function rememberDegradation(cwd: string, memo: DegradationMemo): void {
 const STATUS_FULL_ARGS = ['status', '--porcelain', '-uall'] as const
 const STATUS_COLLAPSED_ARGS = ['status', '--porcelain', '--untracked-files=normal'] as const
 
+/** 折叠档一档:跑 --untracked-files=normal,把 `dir/` 形条目认成被并拢的未跟踪目录根(结论恒带 degraded=true) */
+function runCollapsedStatus(cwd: string, opts: GitStatusOptions, split: (out: string) => string[]): GitStatusOutcome {
+  const lines = split(execGitCapped([...STATUS_COLLAPSED_ARGS], { ...opts, cwd }))
+  return { lines, degraded: true, collapsedUntrackedRoots: lines.filter((l) => l.endsWith('/')) }
+}
+
 export function execGitStatus(cwd: string, opts: GitStatusOptions = {}): GitStatusOutcome {
   const warn = opts.warn ?? ((m: string): void => { process.stderr.write(m + '\n') })
   const split = (out: string): string[] => out.split('\n').filter((l) => l.length > 0)
+  // 同 key(cwd)已记过降级 ⇒ 直奔折叠档,不再先用全档撞一次上限(撞一次 = 白付一次注定作废的全量派生)。
+  // warn 不重复喊:降级事实由每次结论上的 degraded 字段留痕,刷屏不产生新信息。
+  if (statusDegrations.has(cwd)) return runCollapsedStatus(cwd, opts, split)
   try {
     const out = execGitCapped([...STATUS_FULL_ARGS], { ...opts, cwd })
     return { lines: split(out), degraded: false, collapsedUntrackedRoots: [] }
   } catch (raw) {
     if (!(raw instanceof GitOutputTooLargeError)) throw raw
-    const collapsed = split(execGitCapped([...STATUS_COLLAPSED_ARGS], { ...opts, cwd }))
-    const roots = collapsed.filter((l) => l.endsWith('/'))
-    rememberDegradation(cwd, { at: Date.now(), collapsedRoots: roots.length, maxBufferBytes: raw.maxBufferBytes })
+    const collapsed = runCollapsedStatus(cwd, opts, split)
+    rememberDegradation(cwd, { at: Date.now(), collapsedRoots: collapsed.collapsedUntrackedRoots.length, maxBufferBytes: raw.maxBufferBytes })
     warn(
       '[git-runner] ' + cwd + ' 的 git status 输出超过 ' + raw.maxBufferBytes + 'B ⇒ 已降级为按目录折叠未跟踪项' +
-        '(' + roots.length + ' 个目录根被并成一条)。这份清单**不是完整未跟踪列表**，不得据此判「某文件不存在」。',
+        '(' + collapsed.collapsedUntrackedRoots.length + ' 个目录根被并成一条)。这份清单**不是完整未跟踪列表**，不得据此判「某文件不存在」。',
     )
-    return { lines: collapsed, degraded: true, collapsedUntrackedRoots: roots }
+    return collapsed
   }
 }
 
