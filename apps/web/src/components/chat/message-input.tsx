@@ -171,7 +171,9 @@ export function PromptPolishEntry({
       >
         <Wand2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate">{t('entryLabel')}</span>
-        <span className="shrink-0 text-[10px] text-muted-foreground">{phaseLabel[state.phase]}</span>
+        <span className="shrink-0 text-[10px] text-muted-foreground">
+          {phaseLabel[state.phase]}
+        </span>
       </button>
     )
   }
@@ -536,10 +538,15 @@ export function MessageInput({
       })
       const rejections = addFileReferences([file])
       if (rejections.some((r) => r.code === 'max_files')) {
-        toast.error(t('selectionActions.attachmentLimitReached', { limit: CHAT_ATTACHMENT_MAX_FILES }))
+        toast.error(
+          t('selectionActions.attachmentLimitReached', { limit: CHAT_ATTACHMENT_MAX_FILES }),
+        )
       }
     }
-    window.addEventListener('ihui:add-selection-attachment', onAddSelectionAttachment as EventListener)
+    window.addEventListener(
+      'ihui:add-selection-attachment',
+      onAddSelectionAttachment as EventListener,
+    )
     return () =>
       window.removeEventListener(
         'ihui:add-selection-attachment',
@@ -978,7 +985,6 @@ export function MessageInput({
           onRemoveMention={mentionWiring.removeSelection}
           pastePreviews={pastedRefPreviews}
           onDismissPastePreviews={() => setPastedRefPreviews([])}
-          onSendPastePreview={(text) => void submit(text)}
           queueItems={pendingMessages}
           onQueueRemove={handleQueueRemove}
         />
