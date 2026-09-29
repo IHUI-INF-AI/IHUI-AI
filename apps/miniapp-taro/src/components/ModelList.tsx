@@ -625,7 +625,17 @@ export default function ModelList({
             <View className="flex-1 min-w-0">
               <View className="flex items-center">
                 <Text className="text-sm font-medium text-foreground truncate">{model.name}</Text>
-                {selected && <Text className="ml-2 text-xs text-primary">✓</Text>}
+                {/* 选中态:U+2713 勾字符改矢量;size 走本族勾字号单一源
+                    MODEL_LIST_CHECK_GLYPH_PX(=12px,与原 text-xs 同档)× TARO_RPX_PER_PX,
+                    端内不另立数字;color = 原类名的 text-primary */}
+                {selected && (
+                  <LineIcon
+                    name="check"
+                    size={MODEL_LIST_CHECK_GLYPH_PX * TARO_RPX_PER_PX}
+                    color="var(--color-primary)"
+                    className="ml-2"
+                  />
+                )}
               </View>
               <Text className="text-xs text-muted-foreground truncate">{model.provider}</Text>
             </View>
@@ -687,7 +697,15 @@ export default function ModelList({
                         <Text className="text-sm font-medium text-foreground truncate">
                           {model.name}
                         </Text>
-                        {selected && <Text className="ml-2 text-xs text-primary">✓</Text>}
+                        {/* 选中态:U+2713 勾字符改矢量;取值同上默认列表那一处 */}
+                        {selected && (
+                          <LineIcon
+                            name="check"
+                            size={MODEL_LIST_CHECK_GLYPH_PX * TARO_RPX_PER_PX}
+                            color="var(--color-primary)"
+                            className="ml-2"
+                          />
+                        )}
                       </View>
                       <Text className="text-xs text-muted-foreground truncate">
                         {model.provider}

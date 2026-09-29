@@ -350,7 +350,11 @@ export default function LessonListItem({
           {tt('lesson.preview', '试看')}
         </Text>
       )}
-      {data.watched && <Text className="text-xs text-primary mr-2">✓</Text>}
+      {/* 已学完:原载体是 U+2713 勾字符摆在 text 里当状态图标 —— 改为矢量。
+          size 24rpx = text-xs(12px) 同档,color 沿用原类名的 text-primary 档,mr-2 间距保留。 */}
+      {data.watched && (
+        <LineIcon name="check" size={24} color="var(--color-primary)" className="mr-2" />
+      )}
       {data.locked && (
         <LineIcon name="lock" size="12px" color="var(--color-muted-foreground)" className="mr-2" />
       )}
