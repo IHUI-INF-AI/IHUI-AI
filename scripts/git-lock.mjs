@@ -20,12 +20,6 @@
  *
  * 锁语义:
  *   - 锁 = .git/ihui-git-write.lock 目录(mkdir 原子性)
- *   - **初始化必须"写全再原子可见"(2026-09-29 立,G-814425)**:旧形态是 `mkdirSync(正式路径)`
- *     紧接 `writeMeta`,两步之间那把**空锁目录**已对外可见 ⇒ 竞争者(含本文件的
- *     `tryAcquireSingleInstance` 与 deploy-lock 的 `absent` 态)按"目录在而 meta 不在 + 龄超
- *     staleMs ⇒ 残留回收"就能把**还在初始化中**的锁抢走,原持有者随后把 meta 写进别人的锁目录。
- *     现由唯一实现 `scripts/lib/lock-atomic-init.mjs` 收口:唯一 pending 目录 → 写全 meta →
- *     原子 rename 成正式锁。心跳/身份三元组/抢占判据**一字未动**,只换了创建这一层。
  *   - 锁内 meta 文件记录 { unitId, pid, ts } + **进程身份两元** { host, pidStart }
  *     (2026-09-27 接 lines:裸 pid 不足以回答"这个 pid 还是当初那个进程吗"——
  *      pid 会被系统复用,部署锁 2026-09-25 就被一次复用冻了 11h50m,登记 G-193。
@@ -70,17 +64,6 @@ import { pathToFileURL } from 'node:url'
 import { gitArchiveDir } from './lib/gitdir.mjs'
 // 抢占算法的唯一实现(2026-09-26 合并:本脚本与 deploy-lock.mjs 曾各写一份 claimStaleLock)。
 import { claimStaleLockCore } from './lib/stale-lock-claim.mjs'
-// 锁目录「写全再原子可见」初始化的唯一实现(2026-09-29 立,G-814425)—— 本脚本与
-// deploy-lock.mjs 共用同一份,禁止各写一遍"mkdir 正式路径 + 补写 meta"(那两步之间,
-// 一把还没初始化完的空锁目录就对外可见,竞争者按 absent/残留判死就能把它抢走)。
-import { createLockDirectoryAtomically, acquireLockDirectoryOrThrow } from './lib/lock-atomic-init.mjs'
-// meta.json 的**原子替换**唯一出口(2026-09-29 立,G-653)。裸 `writeFileSync` 覆盖写已存在的文件是
-// "truncate → 再写"两步,而 `check` / `clean` 的判活、计划任务 `git-guardian` 每 2 分钟一轮、
-// 以及**本文件自己的心跳**(每 5s 重写 meta.json)随时可能落在那两步之间 ⇒ 读到半截 JSON。
-// 本文件对"读不到 meta"的既有处置是"无可读 meta 且龄超 staleMs ⇒ 视为残留回收",于是
-// **一个活着的持锁者会被读成"已退出"并抢走锁**(§5b/§12d 记过:判活判错 ⇒ 并发写坏 .git)。
-// ⚠️ 只换"怎么写":meta 的键集、后写覆盖前写的语义、身份三元组、抢占判据一字未动。
-import { atomicWriteFileSync } from './lib/atomic-write.mjs'
 // G-262(2026-09-28):git 原生锁文件的可判检测 —— 枚举/分类只在这一份实现,
 // 本脚本的 clean 与 scan 两个子命令共用,不各写一份扫描(§22c 同纪律)。
 import { scanNativeLocks, countGitProcsFromTasklist } from './lib/git-native-locks.mjs'
@@ -130,9 +113,7 @@ function writeMeta(dir, unitId, opts = {}) {
   // pid 会被系统复用 ⇒ 单看 pid 判活要么恒真、要么恒假;年龄阈值只是在**猜**。
   // 取不到 pidStart 时 identityFields 给 undefined,JSON.stringify 会整键丢掉
   // ⇒ 与改动前的 meta 形态逐字相同(向后兼容,不写假值)。
-  //
-  // 落盘走唯一出口的原子替换(G-653):写出的字节与改动前逐字相同,只是不再让读者看见半截。
-  atomicWriteFileSync(
+  writeFileSync(
     metaFile(dir),
     JSON.stringify({
       unitId: unitId ?? '',
@@ -140,6 +121,7 @@ function writeMeta(dir, unitId, opts = {}) {
       ts: Date.now(),
       ...identityFields(opts.run ? { run: opts.run } : {}),
     }),
+    'utf8',
   )
 }
 
@@ -662,32 +644,13 @@ async function acquire({
 
   const probe = makeIdentityProbe(identityRun ? { run: identityRun } : {}, log)
   const deadline = Date.now() + timeoutMs
-  // 同一次 acquire 里同一个初始化故障码**只喊一遍**:轮询是 300ms 一轮,反复打印会把日志刷满,
-  // 而"喊过一次"与"每轮都喊"给出的判据信息完全相同。
-  let initErrorNoted = null
   for (;;) {
     try {
-      // G-814425:锁目录必须**写全再对外可见**。旧形态是 `mkdirSync(dir)` 紧接 `writeMeta(dir)`,
-      // 这两步之间那把空锁目录已经挂着 `.git` 上 —— 竞争者读到的是"目录在而 meta 不在",
-      // 而它对这一态的既有处置就是"龄超 staleMs ⇒ 视为残留回收"(deploy-lock 的 absent 态同形)。
-      // 于是**还在初始化中的锁**可以被活着的人抢走,原持有者再把 meta 写进别人的锁目录。
-      // 现由 lib 那一份实现收口:唯一 pending 目录 → 写全 meta → 原子 rename 成正式锁。
-      // 未取到 ⇒ 抛哨兵错误,落到下面**既有**的"锁已存在"判读块(那一整块的缩进与结构被
-      // 镜像测试 ⑤ 逐字钉着;搬动它等于改判据形状)。判读一律从 readMeta 现取,不读这个错误。
-      acquireLockDirectoryOrThrow({
-        dir,
-        writePayload: (staged) => writeMeta(staged, unitId, identityRun ? { run: identityRun } : {}),
-      })
+      mkdirSync(dir, { recursive: false })
+      writeMeta(dir, unitId, identityRun ? { run: identityRun } : {})
       recordWait('acquired')
       return true
-    } catch (e) {
-      // 「没做成」与「别人持着」必须长得不一样(把没判写成判过了是本仓最高频的失效型):
-      // contended 是正常竞争,走下面的既有判读;error(建不出 pending / 写不进 meta / rename
-      // 失败而正式路径不在)同样落进既有判读以保持改动前行为,但必须当场喊出一次原因。
-      if (e?.name === 'LockNotAcquiredError' && e?.detail?.kind === 'error' && e.detail.code !== initErrorNoted) {
-        initErrorNoted = e.detail.code
-        log(`[git-lock] 锁初始化未落地(${e.detail.code}:${e.detail.message ?? '无原因'})⇒ 按已有锁对待,继续判读`)
-      }
+    } catch {
       polls++
       // 锁已存在:检查可重入 / stale
       const meta = readMeta(dir)
@@ -818,10 +781,7 @@ async function heartbeat({ unitId, intervalMs = 5_000, parentPid }) {
     if (!meta || (unitId && meta.unitId !== unitId)) return
     if (parentPid && !isPidAlive(parentPid)) return
     try {
-      // G-653:心跳是**每 5s 重写同一个 meta.json**,也就是本文件里被并发读者撞上的概率最高的
-      // 那次裸写(判活的 `check` / 守护每 2 分钟一轮随时落在 truncate 与 write 之间)。
-      // 出口只换"怎么写":键集、只搬不测的身份两元、失败即 return 的处置一字未动。
-      atomicWriteFileSync(
+      writeFileSync(
         metaFile(dir),
         JSON.stringify({
           unitId: meta.unitId,
@@ -830,6 +790,7 @@ async function heartbeat({ unitId, intervalMs = 5_000, parentPid }) {
           host: meta.host,
           pidStart: meta.pidStart,
         }),
+        'utf8',
       )
     } catch {
       return
@@ -888,19 +849,14 @@ export function tryAcquireSingleInstance({
   const seconds = (ms) => Math.round(ms / 1000)
   // mkdir 成功即持锁;EEXIST 才进入下面的判读,其它错误如实上报(不做"猜无锁"继续)。
   const mk = () => {
-    // G-814425:与 `acquire` 用**同一份**原子初始化(lib/lock-atomic-init.mjs),不各写一遍。
-    // 这一支原本也是 `mkdirSync(dir)` → `writeMeta(dir)` 两步,而本原语对"目录在而 meta 不在"
-    // 的处置正是「龄超 staleMs ⇒ 视为残留回收」—— 于是**别人还在写 meta 的那一毫秒**的半成品锁
-    // 会被回收掉(与 deploy-lock 的 absent 态同一条判据、同一个病灶)。改成 pending+rename 之后,
-    // 正式路径出现即等于内容已写全,那条判据只剩"真的崩在两步之外"这一种解释。
-    const made = createLockDirectoryAtomically({
-      dir,
-      writePayload: (staged) => writeMeta(staged, unitId, idOpts),
-    })
-    if (made.ok) return 'ok'
-    // mkdir 成功即持锁;EEXIST 才进入下面的判读,其它错误如实上报(不做"猜无锁"继续)。
-    if (made.kind === 'contended') return 'exists'
-    return `fail:${made.code ?? 'unknown'}`
+    try {
+      mkdirSync(dir, { recursive: false })
+    } catch (e) {
+      if (e && e.code === 'EEXIST') return 'exists'
+      return `fail:${e?.code ?? e?.message ?? e}`
+    }
+    writeMeta(dir, unitId, idOpts)
+    return 'ok'
   }
   const yes = (kind) => ({
     acquired: true,
