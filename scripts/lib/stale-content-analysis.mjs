@@ -105,21 +105,51 @@ export const resurrectKey = (l) =>
  * 任一侧取不到正文 ⇒ vanished/appeared 记 **null**(不是 0):"没量到"与"量到零"是两件事,
  * 后者可放行、前者必须按未判定处理 —— 本仓最高频的失效型就是"把没判写成判过了"。
  */
-export function lineDelta(baseText, newText, { sampleLines = SAMPLE_LINES, sampleCol = SAMPLE_COL } = {}) {
-  if (typeof baseText !== 'string' || typeof newText !== 'string')
-    return { vanished: null, appeared: null, vanishedSample: [], appearedSample: [] }
+export function lineDeltaMaps(baseText, newText) {
+  if (typeof baseText !== 'string' || typeof newText !== 'string') return null
   const base = tallyLines(baseText)
   const next = tallyLines(newText)
   const extras = (from, against) => {
-    const out = []
+    const out = new Map()
     for (const [line, count] of from) {
       const d = count - (against.get(line) ?? 0)
-      for (let i = 0; i < d; i++) out.push(line)
+      if (d > 0) out.set(line, d)
     }
     return out
   }
-  const vanished = extras(base, next)
-  const appeared = extras(next, base)
+  return { removed: extras(base, next), added: extras(next, base) }
+}
+
+/** 行数组 ⇒ 多重集(声明侧的输入形态;与 tallyLines 同量纲:逐字行文本做键)。 */
+export function multisetOfLines(lines) {
+  const m = new Map()
+  for (const l of lines || []) m.set(l, (m.get(l) ?? 0) + 1)
+  return m
+}
+
+/** 两个多重集是否逐项等值(键集与每个键的重数都等)。空集之间也等值 ⇒ 调用方自己判"该不该是空"。 */
+export function multisetsEqual(a, b) {
+  if (!(a instanceof Map) || !(b instanceof Map)) return false
+  if (a.size !== b.size) return false
+  for (const [k, v] of a) if (b.get(k) !== v) return false
+  return true
+}
+
+/**
+ * 把 `lineDeltaMaps` 的那份差集投成**计数 + 截断样本**(报告用形态)。
+ * 计数与样本必须由同一份差集导出 —— 两处各算一遍就会在 CRLF / 文末换行这些细节上漂开,
+ * 而漂开的表现是"数字合理、样本对不上",没人能发现。
+ */
+export function lineDelta(baseText, newText, { sampleLines = SAMPLE_LINES, sampleCol = SAMPLE_COL } = {}) {
+  const maps = lineDeltaMaps(baseText, newText)
+  if (!maps) return { vanished: null, appeared: null, vanishedSample: [], appearedSample: [] }
+  const expand = (m) => {
+    const out = []
+    for (const [line, count] of m) for (let i = 0; i < count; i++) out.push(line)
+    return out
+  }
+  const vanished = expand(maps.removed)
+  const appeared = expand(maps.added)
   const clip = (l) => (l.length > sampleCol ? `${l.slice(0, sampleCol)}…` : l)
   return {
     vanished: vanished.length,
@@ -219,5 +249,14 @@ export function resurrectAnalysis({
   return { status: 'judged', reason: null, count, sample, commits }
 }
 
-export const __test__ = { linesOf, tallyLines, resurrectKey, lineDelta, resurrectAnalysis }
+export const __test__ = {
+  linesOf,
+  tallyLines,
+  resurrectKey,
+  lineDelta,
+  lineDeltaMaps,
+  multisetOfLines,
+  multisetsEqual,
+  resurrectAnalysis,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
