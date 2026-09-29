@@ -6,8 +6,8 @@
 // 用来回答「G-668 那行没存活,是折叠判据造成的,还是本来就少这一行」。
 // 中和只在**探针进程里**做(把 caps 加回期望表),不改磁盘任何文件(那份属于他人在飞)。
 import { execFileSync } from 'node:child_process'
-import { gitBinary } from '../../../../scripts/lib/face-reader.mjs'
-import * as U from '../../../../scripts/union-converge.mjs'
+import { gitBinary } from '../../../scripts/lib/face-reader.mjs'
+import * as U from '../../../scripts/union-converge.mjs'
 
 const GIT = gitBinary()
 const root = 'D:/IHUI-AI'
