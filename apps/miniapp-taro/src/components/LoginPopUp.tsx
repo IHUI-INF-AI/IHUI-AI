@@ -123,9 +123,11 @@ export default function LoginPopUp({
     <View className="fixed inset-0 z-[1500] flex items-center justify-center" onClick={onClose}>
       {/* 遮罩层 */}
       <View className="absolute inset-0 bg-[var(--color-black-50)]" />
-      {/* 弹窗主体 */}
+      {/* 弹窗主体 = 角色档 panel(弹窗 / 底部弹层)→ xl(12)。旧写法在这里挂 `ui-bubble`
+          并按 bubble 档取 rounded-2xl(16) —— 它是登录弹窗,不是会话流里的消息气泡,
+          两端同一元素因此一档之差(守门 150 对 panel 取 2xl 判红,依据见 radius.js RADIUS_ROLES)。 */}
       <View
-        className="relative bg-card ui-bubble rounded-2xl w-[85%]"
+        className="relative bg-card rounded-xl w-[85%]"
         style={{
           paddingTop: toUnit(LOGIN_POPUP_DIALOG_PADDING_TOP_PX),
           paddingLeft: toUnit(LOGIN_POPUP_CARD_PADDING_X_PX),
@@ -221,9 +223,11 @@ export default function LoginPopUp({
           >
             {roleText}
           </Text>
+          {/* 「立即升级」是可点按钮(与 RN styles.upgradeButton 同一元素、同一 spec 盒档)
+              ⇒ 角色 control → sm(4);旧写法 rounded-md 取的是 chip 档,同一元素两端各一档。 */}
           {showUpgrade && (
             <View
-              className="bg-warning rounded-md flex items-center justify-center"
+              className="bg-warning rounded-sm flex items-center justify-center"
               style={{
                 height: toUnit(LOGIN_POPUP_PILL_HEIGHT_PX),
                 paddingLeft: toUnit(LOGIN_POPUP_PILL_PADDING_X_PX),
