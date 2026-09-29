@@ -38,17 +38,6 @@ ihui 现状:
 - requester 为 ``None`` → 拒绝(无审批人即 fail-closed)。
 """
 
-# 合并归位说明(2026-09-29,枚 f57e0c9983 的后续修复):两台机器从同一个 380 行基底**各自**把 D159 那一族
-# 函数重写了一遍(本侧 646 行 / 对侧 716 行),行级三方归并不报冲突,却把两份同名函数都留
-# 在文件里 —— describe_network_target / network_target_from_args / pending_network_targets /
-# grant_network_target / check_network_grant / revoke_network_grant / display_from_cache_key /
-# approval_env_payload 各定义两次,类型名两属(NetworkTargetFact 与 NetworkTargetFacts),
-# 守门 35(mypy)当场报 10 条 no-redef/arg-type。本文件因此**整档取对侧那一族**:调用方
-# (agent_loop_v2.py 与 routers/llm.py)在同一枚合并里已取对侧形态,模块与调用方必须同族;
-# 本侧独有的 _host_is_local / _targets_from_args 经 ast 现读 HEAD 面 34 个引用文件的具名导入
-# 逐条比对,外部零引用,随那一族一起移除不留悬空。取证:该形态跑守门 35 ⇒ 576 源文件 0 错误,
-# 直接依赖本模块的五个测试文件 ⇒ 54 passed。
-
 from __future__ import annotations
 
 import ipaddress

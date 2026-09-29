@@ -28,12 +28,12 @@
  * 只是文案不带"逾期 N 天" —— 没排期就不假装知道到期日。
  */
 
-import { and, asc, eq, gte, isNull, ne } from 'drizzle-orm'
+import { and, asc, eq, gt, gte, isNull, ne } from 'drizzle-orm'
 import { eduEnrollment, eduFeeReminder, eduParentStudentBinding, users } from '@ihui/database'
 import { db } from '../db/index.js'
 import { createNotification } from '../db/notification-queries.js'
 import { logger } from '../utils/logger.js'
-import { DUE_SOON_LEAD_DAYS, hasArrearsCond, loadEnrollmentLedger } from './edu-ledger.js'
+import { DUE_SOON_LEAD_DAYS, loadEnrollmentLedger } from './edu-ledger.js'
 import {
   isSubscribeMessageConfigured,
   getWechatMiniOpenId,
@@ -186,7 +186,11 @@ export async function scanAndRemindArrears(): Promise<ArrearRemindResult> {
     .from(eduEnrollment)
     .innerJoin(users, eq(eduEnrollment.studentId, users.id))
     .where(
-      and(isNull(eduEnrollment.deletedAt), ne(eduEnrollment.status, 'withdrawn'), hasArrearsCond()),
+      and(
+        isNull(eduEnrollment.deletedAt),
+        ne(eduEnrollment.status, 'withdrawn'),
+        gt(eduEnrollment.totalFee, eduEnrollment.paidAmount),
+      ),
     )
     .orderBy(asc(eduEnrollment.nextDueDate))
   result.scanned = arrears.length
