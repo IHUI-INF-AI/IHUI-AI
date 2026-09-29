@@ -11,7 +11,7 @@
     "ModelConfigDialog": 6,
     "ModelList": 6,
     "NavBar": 7,
-    "UserInfoCard": 5,
+    "UserInfoCard": 4,
     "VideoPlayer": 5
   },
   "radiusCounts": {
@@ -19,14 +19,14 @@
     "BottomActionBar": 2,
     "Carousel": 0,
     "CategoryBar": 0,
-    "DrawerComponent": 3,
+    "DrawerComponent": 2,
     "InputArea": 1,
     "IntelligentAssistant": 1,
-    "LoginPopUp": 2,
+    "LoginPopUp": 0,
     "ModelConfigDialog": 0,
-    "ModelList": 3,
+    "ModelList": 1,
     "NavBar": 1,
-    "UserInfoCard": 2,
+    "UserInfoCard": 1,
     "VideoPlayer": 1
   },
   "elementRadiusCounts": {
