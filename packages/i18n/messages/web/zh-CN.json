@@ -10591,6 +10591,15 @@
       "tokens": "已用 {used} / {limit}",
       "resetAt": "{time} 重置"
     },
+    "statusSlot": {
+      "moreNotices": "还有 {count} 条状态",
+      "connection": "连接状态",
+      "alerts": "下行告警",
+      "mcp": "MCP 连接",
+      "polish": "润色提示",
+      "diff": "代码意见",
+      "budget": "今日额度"
+    },
     "streamAlert": {
       "configWarning": {
         "title": "配置提醒"
@@ -10812,6 +10821,7 @@
     },
     "contextUsage": {
       "breakdownTitle": "Token 分类明细",
+      "budgetRow": "今日额度",
       "categoryFiles": "文件/附件",
       "categoryHistory": "历史消息",
       "categorySystem": "系统提示",
@@ -27860,7 +27870,9 @@
     "hintSelect": "选择",
     "hintConfirm": "确认",
     "hintClose": "关闭",
-    "clearAriaLabel": "清空搜索"
+    "clearAriaLabel": "清空搜索",
+    "followupDismiss": "关闭建议",
+    "followupRowLabel": "试试这些"
   },
   "statusPage": {
     "incidentsUnavailable": "最近 30 天的事件数据暂时取不到"
