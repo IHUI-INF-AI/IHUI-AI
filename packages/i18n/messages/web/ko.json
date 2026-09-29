@@ -9042,6 +9042,7 @@
     "openTerminal": "터미널 열기",
     "renameDialog": {
       "cancel": "취소",
+      "description": "짧고 알아보기 쉽게 지어주세요",
       "label": "대화 제목",
       "placeholder": "새 대화 제목을 입력하세요",
       "save": "저장",
@@ -11643,7 +11644,16 @@
     "viewFavorites": "즐겨찾기 보기",
     "attentionWaiting": "처리 대기",
     "attentionUnread": "읽지 않은 업데이트 {count}개",
-    "batchAttentionSummary": "이 중 처리 대기 {waiting}개 · 읽지 않음 {unread}개"
+    "batchAttentionSummary": "이 중 처리 대기 {waiting}개 · 읽지 않음 {unread}개",
+    "loadingMore": "불러오는 중…",
+    "markUnread": "읽지 않음으로 표시",
+    "markUnreadSuccess": "읽지 않음으로 표시됨",
+    "retryLoadMore": "다시 시도",
+    "sorting": {
+      "byTime": "시간순",
+      "label": "정렬 방식",
+      "pinnedFirst": "고정 우선"
+    }
   },
   "chatSettingsPage": {
     "back": "뒤로",

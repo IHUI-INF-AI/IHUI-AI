@@ -30,6 +30,10 @@ import {
   Tags,
   Pin,
   PinOff,
+  // D187:侧栏「标记为未读」菜单图标(信封=未读语义)
+  Mail,
+  // D189:侧栏排序切换器图标
+  ArrowUpDown,
   // V3 #62:侧栏会话搜索开关图标(放大镜=收起态,X=激活态,点击收起并清空)
   Search,
   X,
@@ -58,6 +62,11 @@ import {
 } from '@ihui/shared'
 import { useChatStore } from '@/stores/chat'
 import { useConversationOrgMap, useConversationOrgStore } from '@/stores/conversation-org'
+// D187:侧栏「标记为未读」客户端标记 store(localStorage 按 userId 分桶,打开即清)
+import {
+  useConversationUnreadMarks,
+  useConversationUnreadMarkStore,
+} from '@/stores/conversation-unread-mark'
 import {
   ConversationOrgDialog,
   type ConversationOrgSubmitValue,
@@ -80,6 +89,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { useToast } from '@/hooks/use-toast'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
+// D187:标记未读圆点悬停提示(§4 禁原生提示窗,与 conversation-list 未读徽章同款)
+import { Tooltip } from '@/components/feedback'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -94,6 +105,8 @@ import {
   DialogFooter,
   Input,
   Button,
+  // D191:重命名对话框 helper 描述行(对齐 Dialog a11y 语义,关联 title)
+  DialogDescription,
   // V3 #62:侧栏搜索框复用全项目统一搜索井(/chat/history 页同款)
   SearchInput,
   // V3 #62:批量选择复选框(与 /chat/history 同一控件)
@@ -207,6 +220,8 @@ export function SidebarChatHistory({
 }) {
   const t = useTranslations('chatHistory')
   const tc = useTranslations('aiChat')
+  // D188:运行中徽标文案复用 shared taskStatus.activityRunning(既有词汇,不新建键)
+  const tTask = useTranslations('taskStatus')
   const te = useTranslations('chat.exportMenu')
   // V3 #62:复用 chatSearchBar.searchAriaLabel(旧孤儿件 ChatSearchBar 仍在库内未接线,
   // D149 三分法处置=保留;该文件删除前本键在此与它双消费,此处不是唯一消费者)
@@ -222,6 +237,8 @@ export function SidebarChatHistory({
   const currentConversationId = useChatStore((s) => s.conversationId)
   // D53 联动(store 只读):挂起的提问归属当前会话 → 当前行自动进入等待态
   const pendingQuestion = useChatStore((s) => s.pendingQuestion)
+  // D188:运行中徽标(单流架构,仅当前会话可能处于流式运行态)
+  const isStreaming = useChatStore((s) => s.isStreaming)
   const openPanel = useAiPanelStore((s) => s.openPanel)
 
   const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(null)
@@ -237,8 +254,14 @@ export function SidebarChatHistory({
   const setOrgFolder = useConversationOrgStore((s) => s.setFolder)
   const setOrgTags = useConversationOrgStore((s) => s.setTags)
   const orgFolders = React.useMemo(() => listFolderNames(orgMap), [orgMap])
+  // D187:当前用户的「标记为未读」集合(只读快照;动作经 store 单独取,引用稳定)
+  const unreadMarks = useConversationUnreadMarks(userId)
+  const markUnread = useConversationUnreadMarkStore((s) => s.markUnread)
+  const clearUnreadMark = useConversationUnreadMarkStore((s) => s.clearMark)
   /** 文件夹筛选:undefined=全部,null=未分组,字符串=指定文件夹 */
   const [folderFilter, setFolderFilter] = React.useState<string | null | undefined>(undefined)
+  // D189:排序方式(pinnedFirst=置顶优先=既有默认行为;byTime=后端返回序=按时间)
+  const [sortMode, setSortMode] = React.useState<'pinnedFirst' | 'byTime'>('pinnedFirst')
   const [pendingOrgItem, setPendingOrgItem] = React.useState<ConversationItem | null>(null)
 
   // V3 #62:侧栏会话搜索(收起态=放大镜按钮,展开态=SearchInput;纯本地过滤,无后端接口)
@@ -381,18 +404,16 @@ export function SidebarChatHistory({
     () => data?.pages.flatMap((p) => p.conversations) ?? [],
     [data],
   )
-  // D20(G-11) + V3 #62:管道 = 文件夹筛选 → 关键词过滤(标题/文件夹名/标签名) → 置顶优先(稳定排序)
-  const items = React.useMemo(
-    () =>
-      sortPinnedFirst(
-        filterConversationsByKeyword(
-          filterByFolder(rawItems, orgMap, folderFilter),
-          searchQuery,
-          orgMap,
-        ),
-      ),
-    [rawItems, orgMap, folderFilter, searchQuery],
-  )
+  // D20(G-11) + V3 #62 + D189:管道 = 文件夹筛选 → 关键词过滤(标题/文件夹名/标签名)
+  // → 排序(D189 切换器:置顶优先=既有稳定排序;按时间=保持后端返回序,不再重排)
+  const items = React.useMemo(() => {
+    const filtered = filterConversationsByKeyword(
+      filterByFolder(rawItems, orgMap, folderFilter),
+      searchQuery,
+      orgMap,
+    )
+    return sortMode === 'pinnedFirst' ? sortPinnedFirst(filtered) : filtered
+  }, [rawItems, orgMap, folderFilter, searchQuery, sortMode])
   /** 当前**可见**会话 id:全选/反选的取值面(不得拿未筛的全量 rawItems,否则会勾上用户看不见的项) */
   const visibleIds = React.useMemo(() => items.map((item) => item.id), [items])
   // V3 #62:选中集的唯一持有者。行内复选框与批量动作条都只读这一份,不分叉。
@@ -462,6 +483,8 @@ export function SidebarChatHistory({
   const filteredOut = rawItems.length > 0 && items.length === 0
 
   const handleSelect = (item: ConversationItem) => {
+    // D187:打开会话 = 已读,清掉「标记为未读」标记
+    if (userId) clearUnreadMark(userId, item.id)
     if (currentConversationId === item.id) {
       openPanel()
       return
@@ -539,6 +562,13 @@ export function SidebarChatHistory({
         onSuccess: () => success(item.pinned ? tc('toast.unpinned') : tc('toast.pinned')),
       },
     )
+  }
+
+  // D187:侧栏「标记为未读」入口(成功 toast 文案即竞品 nav.markUnreadSuccess 对标串)
+  const handleMarkUnread = (item: ConversationItem) => {
+    if (!userId) return
+    markUnread(userId, item.id)
+    success(t('markUnreadSuccess'))
   }
 
   // D20 文件夹/标签提交(G-11):写客户端元数据 store(v1),关对话框 + toast
@@ -655,6 +685,10 @@ export function SidebarChatHistory({
       hasPendingQuestion: waiting,
       unreadCount: unread,
     })
+    // D187:手动标记未读(真实未读计数在位时让位给既有计数徽章,避免双占)
+    const markedUnread = !!unreadMarks[item.id] && unread === 0
+    // D188:运行中(单流架构,仅当前打开的会话可能处于流式运行态)
+    const running = item.id === currentConversationId && isStreaming
     return (
       <li key={item.id} className="group relative">
         {/* V3 #62:多选态下行内复选框。aria-label 带会话标题 —— 只写"选择"的无障碍名称
@@ -734,6 +768,31 @@ export function SidebarChatHistory({
                 {dateFmt.format(new Date(item.lastMessageAt))}
               </span>
             )}
+            {/* D187:手动标记未读 —— 圆点标记,悬停出项目 Tooltip(§4 禁原生提示窗) */}
+            {markedUnread && (
+              <Tooltip content={t('markUnreadSuccess')}>
+                <span
+                  data-testid="conversation-marked-unread"
+                  role="status"
+                  aria-label={t('markUnreadSuccess')}
+                  className="inline-flex h-4 w-4 shrink-0 items-center justify-center"
+                >
+                  <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-primary" />
+                </span>
+              </Tooltip>
+            )}
+            {/* D188:运行中徽标(绿点脉冲 + 复用 shared「执行中」词汇) */}
+            {running && (
+              <span
+                data-testid="attention-badge-running"
+                role="status"
+                aria-label={tTask('activityRunning')}
+                className="inline-flex shrink-0 items-center gap-0.5 rounded bg-emerald-500/10 px-1 py-px text-[10px] font-medium leading-4 text-emerald-700 dark:text-emerald-400"
+              >
+                <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                {tTask('activityRunning')}
+              </span>
+            )}
             <ConversationAttentionBadges state={attentionState} unreadCount={unread} />
           </span>
         </button>
@@ -791,6 +850,18 @@ export function SidebarChatHistory({
                   <span>{tc('actions.pin')}</span>
                 </>
               )}
+            </DropdownMenuItem>
+            {/* D187:标记为未读(客户端标记,打开该会话即清除) */}
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleMarkUnread(item)
+              }}
+              disabled={busyId === item.id || !userId}
+              data-testid="conversation-mark-unread-action"
+            >
+              <Mail className="mr-2 h-3.5 w-3.5" />
+              <span>{t('markUnread')}</span>
             </DropdownMenuItem>
             {/* D20(G-11):文件夹/标签编辑(客户端元数据 v1) */}
             <DropdownMenuItem
@@ -1011,6 +1082,36 @@ export function SidebarChatHistory({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+            {/* D189:排序方式切换器(置顶优先=既有默认;按时间=后端返回序) */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t('sorting.label')}
+                  data-testid="conversation-sort-toggle"
+                  className={cn(
+                    'flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-accent',
+                    sortMode !== 'pinnedFirst' && 'bg-primary/10 text-primary',
+                  )}
+                >
+                  <ArrowUpDown className="h-3 w-3" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => setSortMode('pinnedFirst')}
+                  data-testid="conversation-sort-pinned-first"
+                >
+                  <span>{t('sorting.pinnedFirst')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setSortMode('byTime')}
+                  data-testid="conversation-sort-by-time"
+                >
+                  <span>{t('sorting.byTime')}</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </span>
         </div>
 
@@ -1052,7 +1153,9 @@ export function SidebarChatHistory({
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             <span>{t('loading')}</span>
           </div>
-        ) : queryError ? (
+        ) : queryError && rawItems.length === 0 ? (
+          // D190:仅首屏失败(无任何已加载数据)才整块显示加载失败;
+          // 翻页失败时 data 仍在(react-query v5 置 error 但保留 data),列表保持 + 底部重试入口
           <div className="px-2 py-3 text-xs text-muted-foreground">{tCommon('loadFailed')}</div>
         ) : filteredOut ? (
           // D20(G-11)+V3 #62:有会话、但被文件夹筛选或关键词筛到空 —— 必须走"未找到匹配"
@@ -1098,11 +1201,25 @@ export function SidebarChatHistory({
                   </div>
                 ))
               )}
-              {isFetchingNextPage && (
-                <div className="flex justify-center py-1.5">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              {isFetchingNextPage ? (
+                // D190:翻页加载态补文案(此前仅 Loader 图标,对标竞品 sidebarView.loadingMore)
+                <div className="flex items-center justify-center gap-1.5 py-1.5 text-[10px] text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>{t('loadingMore')}</span>
                 </div>
-              )}
+              ) : queryError && hasNextPage ? (
+                // D190:翻页失败重试入口(react-query v5:fetchNextPage 失败置 error 且保留 data)
+                <div className="flex justify-center py-1.5">
+                  <button
+                    type="button"
+                    onClick={() => fetchNextPage()}
+                    data-testid="conversation-load-more-retry"
+                    className="text-[11px] text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+                  >
+                    {t('retryLoadMore')}
+                  </button>
+                </div>
+              ) : null}
             </div>
             <Link
               href="/chat/history"
@@ -1136,6 +1253,8 @@ export function SidebarChatHistory({
         <DialogContent className="min-[640px]:max-w-sm">
           <DialogHeader>
             <DialogTitle>{tc('renameDialog.title')}</DialogTitle>
+            {/* D191:helper 描述行(对标竞品 nav.renameChatDescription"保持简短且易于识别") */}
+            <DialogDescription>{tc('renameDialog.description')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <label className="text-sm font-medium text-muted-foreground">
