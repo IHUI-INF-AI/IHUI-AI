@@ -74,7 +74,7 @@ test('T5 该工具刻意不接提交链 —— 注册表里不得出现它(它�
   )
 })
 
-test('T6 端到端装车证明:CLI 真跑 --self-test 必须 17 条全绿且 rc=0', () => {
+test('T6 端到端装车证明:CLI 真跑 --self-test 必须全绿且 rc=0(例数以末行为准,不钉死防漂移)', () => {
   const out = execFileSync(process.execPath, [TOOL, '--self-test'], {
     encoding: 'utf8',
     cwd: ROOT,
@@ -134,6 +134,9 @@ test('T8 证据件由工具自己清理:自检跑完不得在 tmp 留残留取�
     'evidence-selftest-ok.txt',
     'evidence-selftest-fail.txt',
     'evidence-selftest-killed.txt',
+    'evidence-selftest-cwd.txt',
+    'evidence-selftest-250ms.txt',
+    'evidence-selftest-badtimeout.txt',
   ].filter((f) => existsSync(resolve(ROOT, '.ihui-agent', 'tmp', f)))
   assert.deepEqual(left, [], '自检留下取证件 ⇒ 会被下一个人误当成本轮证据')
 })
@@ -203,6 +206,150 @@ test('T10 .CMD shim 走 cmd.exe 而裸名/绝对可执行原样交给 spawn(§22
   }
 })
 
+// T11–T15 —— G-285:--cwd 透传 + --expect-cwd 一致性校验(正反成对)。
+// 立因:旧实现把被包装命令钉死在仓根,"从别的目录跑同一判据"那一发里子进程收到被改写过的
+// 路径(Cannot find module G:\scripts\…,根本没进被测进程),而 --verify 仍判 complete
+// —— 取证工具自己产出假合格证。这四条就是钉"这类取证原来做不了/做了也不可信"那一格。
+const AI_DIR = resolve(ROOT, 'apps', 'ai-service')
+const CWD_DIR = existsSync(AI_DIR) ? AI_DIR : ROOT
+
+test('T11 --cwd=<绝对路径>:子进程真在该目录跑,且 #EVIDENCE-CWD= 行落盘可读回', () => {
+  const file = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-cwd-ok.txt')
+  try {
+    execFileSync(
+      process.execPath,
+      [TOOL, file, `--cwd=${CWD_DIR}`, '--', process.execPath, '-e', 'console.log(process.cwd())'],
+      { cwd: ROOT, windowsHide: true, timeout: 120_000, stdio: 'ignore' },
+    )
+    const txt = readFileSync(file, 'utf8')
+    assert.ok(
+      txt.includes(`#EVIDENCE-CWD=${CWD_DIR}`),
+      `CWD 行没落盘,证据头部:${txt.slice(0, 200)}`,
+    )
+    assert.ok(
+      txt.includes(CWD_DIR),
+      '子进程 stdout 必须打出该目录(证明 spawn 的 cwd 真的换了,不是只记了一行字)',
+    )
+  } finally {
+    try {
+      rmSync(file, { force: true })
+    } catch {
+      /* 清不掉不影响结论 */
+    }
+  }
+})
+
+test('T12 --verify --expect-cwd=<同值> ⇒ complete / exit 0,且原样报出 CWD 行', () => {
+  const file = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-cwd-same.txt')
+  try {
+    execFileSync(
+      process.execPath,
+      [TOOL, file, `--cwd=${CWD_DIR}`, '--', process.execPath, '-e', 'console.log(process.cwd())'],
+      { cwd: ROOT, windowsHide: true, timeout: 120_000, stdio: 'ignore' },
+    )
+    const out = execFileSync(
+      process.execPath,
+      [TOOL, '--verify', file, `--expect-cwd=${CWD_DIR}`],
+      {
+        cwd: ROOT,
+        windowsHide: true,
+        timeout: 120_000,
+        encoding: 'utf8',
+      },
+    )
+    assert.match(out, /complete/)
+    assert.match(
+      out,
+      new RegExp(CWD_DIR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+      'verify 必须把 CWD 行原样报出',
+    )
+  } finally {
+    try {
+      rmSync(file, { force: true })
+    } catch {
+      /* 清不掉不影响结论 */
+    }
+  }
+})
+
+test('T13 --verify --expect-cwd=<不同值> ⇒ truncated / exit 3(取证面错了 ⇒ 结论无效,不得 complete)', () => {
+  const file = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-cwd-diff.txt')
+  let status = null
+  let out = ''
+  try {
+    execFileSync(
+      process.execPath,
+      [TOOL, file, `--cwd=${CWD_DIR}`, '--', process.execPath, '-e', 'process.exit(0)'],
+      { cwd: ROOT, windowsHide: true, timeout: 120_000, stdio: 'ignore' },
+    )
+    try {
+      execFileSync(
+        process.execPath,
+        [TOOL, '--verify', file, `--expect-cwd=${resolve(ROOT, 'scripts')}`],
+        {
+          cwd: ROOT,
+          windowsHide: true,
+          timeout: 120_000,
+          encoding: 'utf8',
+        },
+      )
+    } catch (e) {
+      status = e.status
+      out = String(e.stdout ?? '')
+    }
+    assert.equal(status, 3, 'cwd 不符必须 exit 3(INCOMPLETE),不得发合格证')
+    assert.match(out, /truncated/, '判据落点必须是 truncated 那一族')
+  } finally {
+    try {
+      rmSync(file, { force: true })
+    } catch {
+      /* 清不掉不影响结论 */
+    }
+  }
+})
+
+test('T14 回归锁:不带 --cwd ⇒ 证据里没有 CWD 行,旧 verify 行为逐字不变', () => {
+  const file = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-cwd-none.txt')
+  try {
+    execFileSync(
+      process.execPath,
+      [TOOL, file, '--', process.execPath, '-e', 'console.log(process.cwd());process.exit(0)'],
+      { cwd: ROOT, windowsHide: true, timeout: 120_000, stdio: 'ignore' },
+    )
+    const txt = readFileSync(file, 'utf8')
+    assert.ok(!txt.includes('#EVIDENCE-CWD='), '默认形态不得多出 CWD 行(既有调用方零感知)')
+    execFileSync(process.execPath, [TOOL, '--verify', file], {
+      cwd: ROOT,
+      windowsHide: true,
+      timeout: 120_000,
+      stdio: 'ignore',
+    })
+  } finally {
+    try {
+      rmSync(file, { force: true })
+    } catch {
+      /* 清不掉不影响结论 */
+    }
+  }
+})
+
+test('T15 expect-cwd 判据从源文件 import(§22c:镜像不得抄第二份),三臂 + 大小写归一', () => {
+  const t = gate.__test__
+  assert.equal(typeof t.CWD_MARK, 'string', '__test__ 缺 CWD_MARK')
+  assert.equal(typeof t.normCwd, 'function', '__test__ 缺 normCwd')
+  const j = t.judgeEvidence
+  const M = t.RC_MARK
+  const C = t.CWD_MARK
+  const ev = `${C}${CWD_DIR}\n${M}0\n`
+  assert.equal(j(ev, CWD_DIR).kind, 'complete', '同值必须放行')
+  assert.equal(j(ev, resolve(ROOT, 'scripts')).kind, 'truncated', '异值必须拦')
+  assert.equal(j(`${M}0`, CWD_DIR).kind, 'truncated', '期望给了而证据未记录 ⇒ 也不得发合格证')
+  if (process.platform === 'win32') {
+    const flip = CWD_DIR.toLowerCase() === CWD_DIR ? CWD_DIR.toUpperCase() : CWD_DIR.toLowerCase()
+    assert.equal(j(ev, flip).kind, 'complete', 'win32 同一目录的大小写两种写法不得误判')
+  }
+})
+
 test('T-新 相对证据路径不得逃逸仓库根(2026-09-27 由一次真实手滑撞出来)', () => {
   const { resolveEvidencePath } = gate
   // 放行:仓库内的相对落点就是本工具的正常用法
@@ -233,4 +380,190 @@ test('T-新 CLI 层:逃逸路径 exit 2 且**一个字节都不写**(拒绝必�
   assert.equal(status, 2, `逃逸路径必须 exit 2,实得 ${status}`)
   assert.equal(existsSync(outside), false, '判死之前先把文件建出来 ⇒ 这道拒绝只是装饰')
 })
+
+test('T16 被包装命令的输出**不以换行收尾** ⇒ 标记仍必须独占一行、--verify 必须判 complete(2026-09-29 实测的假"截断")', () => {
+  // 立因(不是假想):`cat <末尾没有换行的文件>` 这类命令的输出停在半行上,旧写法把
+  // `#EVIDENCE-RC=0` 直接接在那半行后面 ⇒ 读侧按**行首**找标记找不到 ⇒ 一次**完整**的取证
+  // 被读成 truncated 并要求重跑。失效方向是"少发合格证"(安全),但代价是把真证据作废,
+  // 而"重跑那次恰好真被截断"就永远分不清 —— 所以这一格必须锁在提交链之外的 CI 档(§22c)。
+  // 三臂:① 端到端(真派生一个无尾换行的子进程)判 complete 且 RC 行以行首出现;
+  //      ② 反向锁:粘连形态(`out#EVIDENCE-RC=0`)判据**不得**认 —— 不许为了让①绿把判据放宽成
+  //         "整串里含 RC_MARK 即通过",那是把"半截输出恰好带这几个字符"重新发成合格证;
+  //      ③ 正文逐字保留(加固只允许在标记前补一个换行,不得动子进程写出的字节)。
+  const f = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-run-noeol.txt')
+  try {
+    execFileSync(
+      process.execPath,
+      [TOOL, f, '--timeout=30000', '--', process.execPath, '-e', 'process.stdout.write("no-eol")'],
+      { cwd: ROOT, windowsHide: true, timeout: 120_000, stdio: 'ignore' },
+    )
+    const txt = readFileSync(f, 'utf8')
+    const lines = txt.split(/\r?\n/)
+    assert.equal(
+      lines.filter((l) => l.startsWith(gate.__test__.RC_MARK)).length,
+      1,
+      `RC 行必须恰好一条且以行首出现,证据末三行:${JSON.stringify(lines.slice(-3))}`,
+    )
+    assert.equal(
+      gate.__test__.judgeEvidence(txt).kind,
+      'complete',
+      `无尾换行的取证被读成了 ${gate.__test__.judgeEvidence(txt).kind}(= 旧缺陷复现)`,
+    )
+    assert.ok(txt.includes('no-eol'), '③ 子进程正文必须逐字留在证据里')
+    // ② 反向锁走**源文件那一份**判据(§22c:镜像不得抄第二份实现)
+    assert.notEqual(
+      gate.__test__.judgeEvidence(`out${gate.__test__.RC_MARK}0\n`).kind,
+      'complete',
+      '粘连形态被判成 complete ⇒ 判据被放宽成"含标记即通过"',
+    )
+  } finally {
+    try {
+      rmSync(f, { force: true })
+    } catch {
+      /* 清不掉由 T8 那条统一判 */
+    }
+  }
+})
+
+// T17–T19 —— 2026-09-29 的 `--timeout` **单位陷阱**(本机当天实录:主会话传 `--timeout=180/300/560`
+// 当秒用,包装器忠实在 180 **毫秒**后 SIGTERM,于是产出的证据与"命令真挂死"逐字同形,
+// 一次"git 网络卡死"的假 P0 诊断就是这么来的)。判据住在源文件的 parseTimeoutMs,
+// 镜像只从源 import(§22c),不抄第二份。
+
+test('T17 CLI 层:裸 --timeout=300 ⇒ exit 2 + 消息点名毫秒,且证据一个字节都不写(变异自证:摘掉"裸小值拒绝"这一支本条即翻红)', () => {
+  const file = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-bad-timeout.txt')
+  rmSync(file, { force: true })
+  let status = null
+  let out = ''
+  try {
+    execFileSync(
+      process.execPath,
+      [TOOL, file, '--timeout=300', '--', process.execPath, '-e', 'console.log(1)'],
+      {
+        cwd: ROOT,
+        windowsHide: true,
+        encoding: 'utf8',
+        timeout: 120_000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    status = 0
+  } catch (e) {
+    status = e.status
+    out = `${String(e.stderr ?? '')}${String(e.stdout ?? '')}`
+  }
+  const wroteEvidence = existsSync(file)
+  try {
+    rmSync(file, { force: true })
+  } catch {
+    /* 清不掉不影响结论 */
+  }
+  // 摘掉拒绝分支时这一发会在 ~100ms 内正常跑完 ⇒ status=0 ⇒ 本条红(不是恒真断言)。
+  assert.equal(status, 2, `裸 300 必须被判用法错误(exit 2),实得 ${status};输出:${out.slice(-200)}`)
+  assert.match(out, /毫秒/, '拒绝必须把**单位**说清,否则人只会再猜一次')
+  assert.match(out, /--timeout=300000/, '必须给出"乘 1000"那一种正确写法')
+  assert.match(out, /--timeout=300s/, '必须给出"带后缀"那一种正确写法')
+  assert.equal(
+    wroteEvidence,
+    false,
+    '判死之前先把证据建出来 ⇒ 拒绝只是装饰(读侧照样拿到一份 incomplete 证据)',
+  )
+})
+
+test('T18 parseTimeoutMs 换算表与边界(从源 import):后缀小值放行 / 0=不设上限 / 坏形态判死不猜默认值', () => {
+  const p = gate.__test__.parseTimeoutMs
+  assert.equal(typeof p, 'function', '__test__ 缺 parseTimeoutMs(镜像拿不到就只会复读实现)')
+  const okMs = (raw, ms) => {
+    const r = p(raw)
+    assert.ok(!r.error, `${JSON.stringify(raw)} 竟被拒:${r.error ?? ''}`)
+    assert.equal(r.ms, ms, `${JSON.stringify(raw)} 换算不符`)
+  }
+  const rejected = (raw, ...needles) => {
+    const r = p(raw)
+    assert.ok(r.error, `${JSON.stringify(raw)} 竟被放行`)
+    for (const n of needles) assert.ok(r.error.includes(n), `${raw} 的文案缺"${n}"`)
+  }
+  okMs('180s', 180_000)
+  okMs('2m', 120_000)
+  okMs('45000ms', 45_000)
+  okMs('45000MS', 45_000)
+  okMs('30_000', 30_000)
+  okMs('2000', 2000)
+  // 显式后缀的小值 = 明确意图,一律放行(拦它就是把工具用成障碍)
+  okMs('250ms', 250)
+  okMs('1s', 1000)
+  okMs('0', 0)
+  okMs('0ms', 0)
+  rejected('300', '毫秒', '--timeout=300000', '--timeout=300s')
+  rejected('1999', '毫秒')
+  rejected('560', '毫秒')
+  for (const bad of ['abc', '-5', '', '30_', '1e3', 's', '1.5']) rejected(bad, '看不懂')
+})
+
+test('T19 形状锁:证据文件的标记与行序未被本次改动触碰(改格式 = 让既有取证件集体失去 oracle)', () => {
+  const t = gate.__test__
+  // 逐字比常量:形状锁的职责正是"改了字面量就红",所以这里**必须**写字面量而不是引用常量。
+  assert.equal(t.RC_MARK, '#EVIDENCE-RC=')
+  assert.equal(t.KILLED_MARK, '#EVIDENCE-KILLED')
+  assert.equal(t.CWD_MARK, '#EVIDENCE-CWD=')
+  const file = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-shape-lock.txt')
+  try {
+    execFileSync(
+      process.execPath,
+      [
+        TOOL,
+        file,
+        '--timeout=30s',
+        '--label=shape',
+        '--',
+        process.execPath,
+        '-e',
+        'console.log("body-line")',
+      ],
+      { cwd: ROOT, windowsHide: true, timeout: 120_000, stdio: 'ignore' },
+    )
+    const txt = readFileSync(file, 'utf8')
+    const lines = txt.split(/\r?\n/).filter((l) => l !== '')
+    assert.ok(lines[0].startsWith('#EVIDENCE-CMD: '), `首行必须是 CMD 行,实得:${lines[0]}`)
+    assert.ok(
+      lines.some((l) => l.startsWith('#EVIDENCE-START: ')),
+      '缺 START 行 ⇒ 时间戳维度丢了',
+    )
+    // 行序按 HEAD 既有形态钉:… 正文 … #EVIDENCE-RC=<n> 之后跟一条 #EVIDENCE-END(不是 RC 收尾)。
+    const rcIdx = lines.findIndex((l) => l.startsWith('#EVIDENCE-RC='))
+    assert.ok(
+      rcIdx >= 0,
+      `缺 RC 行 ⇒ 读侧会判 incomplete,末三行:${JSON.stringify(lines.slice(-3))}`,
+    )
+    assert.ok(
+      lines[rcIdx + 1]?.startsWith('#EVIDENCE-END: '),
+      'RC 行之后必须仍是那条 END 行(顺序被改 = 旧证据差分作废)',
+    )
+    assert.equal(lines.at(-1), lines[rcIdx + 1], 'END 之后不得再多出行')
+    assert.equal(lines.filter((l) => l.startsWith('#EVIDENCE-RC=')).length, 1, 'RC 行必须恰好一条')
+    assert.ok(txt.includes('body-line'), '被包装命令的正文必须逐字留在证据里')
+    // 不得凭空多出没在案的标记行(新标记要连同读侧判据一起改,不能只写一半)
+    const allowed = [
+      '#EVIDENCE-CMD: ',
+      '#EVIDENCE-LABEL: ',
+      '#EVIDENCE-START: ',
+      '#EVIDENCE-CWD=',
+      '#EVIDENCE-END: ',
+      '#EVIDENCE-RC=',
+      '#EVIDENCE-ERROR: ',
+      '#EVIDENCE-KILLED',
+    ]
+    const strangers = lines
+      .filter((l) => l.startsWith('#EVIDENCE-'))
+      .filter((l) => !allowed.some((a) => l.startsWith(a)))
+    assert.deepEqual(strangers, [], `出现未在案的证据标记:${strangers.join(' | ')}`)
+  } finally {
+    try {
+      rmSync(file, { force: true })
+    } catch {
+      /* 清不掉不影响结论 */
+    }
+  }
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
