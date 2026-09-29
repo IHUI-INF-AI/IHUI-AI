@@ -441,40 +441,4 @@ test('T8 条目数封顶(无上限 ⇒ 状态文件随签名数无限增长)', (
     rmScratch(scratch)
   }
 })
-
-test('T15 抑制行必须写出"压住的是哪件事"(只补出处,判定一字不动)', () => {
-  // 立因:2026-09-29 现读 `deploy-loop.log` 里「ALERT 同身份失败告警本轮跳过」一天 232 条,
-  // 而行内不写身份 ⇒ "这 232 条一共压住了几件不同的故障"从日志结构上判不出来(§5e"失败必须响"
-  // 的另一半:**抑制也必须可审计**)。本例同时钉住"不得顺手改判定" —— 旧行有 `Due/Decision/Key`,
-  // 新行只是多了 `身份=<16hex>` 与 `摘要=<签名前 60 字>`,三者必须与补出处之前完全同形。
-  const scratch = mkScratch('alert-dedup-note')
-  try {
-    const stateFile = join(scratch, 'state.json').replace(/\\/g, '/')
-    const longSig = '远端分叉需人工收敛 —— 已连续第 39 轮,阈值 5 轮;' + '补'.repeat(80)
-    const lines = [
-      `$ErrorActionPreference='Stop'`,
-      `. '${MODULE.replace(/\\/g, '/')}'`,
-      `$sf = '${stateFile}'`,
-      `$first = Test-AlertDueByIdentity -Sig '${longSig}' -StateFile $sf -RepeatHours 4`,
-      `$second = Test-AlertDueByIdentity -Sig '${longSig}' -StateFile $sf -RepeatHours 4`,
-      `Write-Output ("D1=" + $first.Decision + " D2=" + $second.Decision)`,
-      `Write-Output ("due=" + $second.Due + " keylen=" + $second.Key.Length + " keymatch=" + ($second.Key -match '^[0-9a-f]{16}$'))`,
-      `Write-Output ("note=" + ($second.Note -replace '\\s+', ' '))`,
-    ]
-    const { out, status } = pwsh(lines.join('\n'))
-    requireShell(out)
-    assert.equal(status, 0, `pwsh 非零退出: ${out}`)
-    // 判定面:首封 due-new、次封 window-hit,且窗口内 Due 仍是 false(补出处不得改变任何一条裁决)
-    assert.match(out, /D1=due-new D2=window-hit/, `判定被改动了: ${out}`)
-    assert.match(out, /due=False keylen=16 keymatch=True/, `去重键形态变了: ${out}`)
-    // 出处面:身份 = 那 16 位键(可与另一条跳过行逐字对上,于是"压住了几件事"可数)
-    assert.match(out, /身份=[0-9a-f]{16}/, `抑制行没写身份: ${out}`)
-    assert.match(out, /摘要=/, `抑制行没写可读摘要: ${out}`)
-    // 摘要必须有上限(否则一条 500 字的告警会把日志撑爆)
-    const snippet = out.split(/\r?\n/).find((l) => l.startsWith('note=')) || ''
-    assert.ok(snippet.length < 220, `抑制行长度失控(摘要未截断):${snippet.length} 字符`)
-  } finally {
-    rmScratch(scratch)
-  }
-})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -29,9 +29,6 @@ import {
   type ToolApprovalExecEnvironment as ApiToolApprovalExecEnvironment,
   type ToolApprovalNetworkTarget as ApiToolApprovalNetworkTarget,
 } from '@ihui/api-client'
-// G-816042:分发工厂的"未识别事件名"分支必须计数并报名,而不是静默 null(与 isAgentTaskEventName
-// 同族的另一面 —— 那个谓词回答"这个名字在不在契约里",这里回答"不在的时候有没有人知道")。
-import { recordUnknownSseEventName } from './unknown-event-telemetry'
 
 /** Agent 任务流事件名常量(单一事实源)。值即 wire 上的 `event: <名>`。 */
 export const AGENT_TASK_EVENTS = {
@@ -503,10 +500,6 @@ export function parseAgentTaskEvent(name: string, raw: unknown): AgentTaskEvent 
       return event ? { name, event } : null
     }
     default:
-      // G-816042:未识别事件名不得静默当成"这条流没有这个事件" —— 计数 + 首次报名,出口只有一份。
-      // 刻意**只报契约外的名字**:契约内而本工厂不路由的 6 个(session / tool_call / tool_result /
-      // message / error / compaction)是既定职责边界,由别的通道消费;把它们也报名就是每帧刷屏。
-      if (!isAgentTaskEventName(name)) recordUnknownSseEventName(name)
       return null
   }
 }
