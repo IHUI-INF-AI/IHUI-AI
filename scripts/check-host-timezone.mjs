@@ -43,9 +43,10 @@
  * 退出码:0 无漂移(可含未判定)/ 1 判红 / 2 脚本异常或声明表坏(--strict 下有未判定也是 2)。
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 export const REPO = resolve(HERE, '..')
@@ -112,11 +113,29 @@ export function newestStampFromLog(path, nowMs = Date.now()) {
       if (m) return { kind: 'measured', stamp: m[0] }
       const t = /\[(\d{2}:\d{2}:\d{2})/.exec(line)
       if (t) return { kind: 'measured', stamp: '2000-01-01 ' + t[1] }
+      // 第三种形态是**实测踩出来的**:monitor.log 的行首是裸 `HH:MM:SS 全部正常`,既无完整日期也无方括号。
+      // 只认前两种时,反向扫描会一路跳过所有新行、撞上 2.24 小时前那条带完整日期的旧行,
+      // 于是"最新戳"是旧的 ⇒ 判成 stale-cache 并**寄出一封假信**(2026-09-30 04:01:47 实测)。
+      const bare = /^(\d{2}:\d{2}:\d{2})(?![\d:])/.exec(line)
+      if (bare) return { kind: 'measured', stamp: '2000-01-01 ' + bare[1] }
     }
     return { kind: 'undetermined', reason: '尾部 64KB 无可解析时间戳形态' }
   } catch (e) {
     return { kind: 'undetermined', reason: '读失败:' + e.message }
   }
+}
+
+/**
+ * H3 戳形态的**形状锁**判据(自检 35 与镜像 T12 共用这一份,不得两处各写一遍谓词)。
+ * 三种形态各有一条真实日志在用(pino 完整日期 / `[HH:MM:SS]` / monitor.log 的行首裸时刻),
+ * 少任何一种 = 反向扫描会跳过真实最新行、拿旧行当"最新戳" ⇒ 假红 + 假信。
+ */
+export function stampShapeLockHolds(src) {
+  return (
+    /\{4\}-\\d\{2\}-\\d\{2\}\[T \]/.test(src) &&
+    src.includes('\\[(\\d{2}:\\d{2}:\\d{2})') &&
+    src.includes('/^(\\d{2}:\\d{2}:\\d{2})(?![\\d:])/')
+  )
 }
 
 // 中文消息会被 GBK 码页打断(§26),所以格式化留在 PS 侧、载荷只留 ASCII,且时区变更的**前后时刻**
@@ -342,6 +361,24 @@ export function selfTest() {
   t('29 PS 载荷含结构化 Properties 取材(newT),不解析中文', PS_QUERY.includes('FromFileTime') && !/[^\x00-\x7F]/.test(PS_QUERY))
   t('30 所有派生都带 windowsHide(§5b 弹窗事故)', /windowsHide: true/.test(askPowerShell.toString()) && /windowsHide: true/.test(measureNtp.toString()) && /windowsHide: true/.test(runOnce.toString()))
   t('31 所有派生都带 timeout(守门 80)', /timeout: 45000/.test(askPowerShell.toString()) && /timeout: 25000/.test(measureNtp.toString()) && /timeout: 15000/.test(runOnce.toString()))
+  // —— H3 取"最新一行"的三种形态(32–35):假信的阳性对照 + 摘掉新分支也不许把真旧缓存判绿 ——
+  const h3dir = mkScratch('tz-h3-')
+  try {
+    const nowAt = Date.parse('2026-09-29T20:11:50Z') // 主机 +08 ⇒ 本地 2026-09-30 04:11:50
+    const mixed = join(h3dir, 'monitor.log')
+    writeFileSync(mixed, '2026-09-30 00:00:00 旧的一行(带完整日期)\n04:11:47 全部正常\n', 'utf8')
+    const got = newestStampFromLog(mixed, nowAt)
+    t('32 最新行是裸 HH:MM:SS ⇒ 取它,绝不回扫 4 小时前的日期行(04:01 假信的阳性对照)', got.kind === 'measured' && got.stamp === '2000-01-01 04:11:47')
+    t('32b 同一份混合日志判据整体 ok(而非 stale-cache 判红)', judgeH3(h3dir, nowAt, 480).state === 'ok')
+    writeFileSync(mixed, '2026-09-29 20:11:47 进程仍按 UTC 写的戳\n', 'utf8')
+    t('33 真·旧缓存(戳落后 8 小时)仍判红 —— 放宽形态不许把判据改弱', judgeH3(h3dir, nowAt, 480).state === 'stale-cache')
+    writeFileSync(mixed, '23:58:00 昨天最后一条\n', 'utf8')
+    t('34 跨午夜裸时刻走最短弧(不把 23:58 vs 00:05 判成 -23.9 小时)', judgeH3(h3dir, Date.parse('2026-09-29T16:05:00Z'), 480).state === 'ok')
+    const src = readFileSync(join(HERE, 'check-host-timezone.mjs'), 'utf8')
+    t('35 形状锁:三种戳形态各自的正则都必须在位(防"顺手简化"回到只认两种)', stampShapeLockHolds(src))
+  } finally {
+    rmScratch(h3dir)
+  }
   const pass = out.filter((o) => o.pass).length
   console.log(out.map((o) => (o.pass ? 'ok   ' : 'FAIL ') + o.name).join('\n'))
   console.log('SELFTEST ' + pass + '/' + out.length)
@@ -389,5 +426,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { decodeStdout, naiveStampOffset, stampHourGapHours, newestStampFromLog, judgeH1, judgeH2, judgeH3, readConfig, runOnce, selfTest, logDirFromRepo, measureNtp, askPowerShell, PS_QUERY, PS_CANDIDATES, H2_TOLERANCE_SEC, H3_STALE_MS, H3_ZONE_GAP_HOURS, LIVE_LOGS, CONFIG_PATH, REPO }
+export const __test__ = { decodeStdout, naiveStampOffset, stampHourGapHours, newestStampFromLog, stampShapeLockHolds, judgeH1, judgeH2, judgeH3, readConfig, runOnce, selfTest, logDirFromRepo, measureNtp, askPowerShell, PS_QUERY, PS_CANDIDATES, H2_TOLERANCE_SEC, H3_STALE_MS, H3_ZONE_GAP_HOURS, LIVE_LOGS, CONFIG_PATH, REPO }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
