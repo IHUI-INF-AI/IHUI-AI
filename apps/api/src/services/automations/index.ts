@@ -30,7 +30,63 @@ export { createOrchestrator, buildFixGoal, prTitleFor, branchNameFor } from './o
 const TICK_FALLBACK_MS = 300_000
 
 let timer: ReturnType<typeof setInterval> | null = null
-let ticking = false
+let activeFlight: SingleFlightTick | null = null
+
+/**
+ * G-668:忙时收到的 tick **不得丢** —— 上一轮未结束时把请求记账,本轮结束后立即补跑,
+ * 而不是让用户白等一个 interval。抽成工厂是因为 tick 原是调度器闭包,"补跑/停后不补"
+ * 这些行为没法在不动 env 配置的前提下断言。
+ */
+export interface SingleFlightTick {
+  tick(): Promise<void>
+  /** 停止:在飞一轮照常结束,但已记账的补跑与后续 tick 一律作废(优雅关停用)。 */
+  stop(): void
+  /** 诊断/测试:当前是否有一轮在飞(不参与控制流)。 */
+  isBusy(): boolean
+  /** 诊断/测试:忙时是否已有一次补跑被记账待执行。 */
+  hasPendingReplay(): boolean
+}
+
+export function createSingleFlightTick(
+  run: () => Promise<void>,
+  onError?: (err: unknown) => void,
+): SingleFlightTick {
+  let busy = false
+  let replayRequested = false
+  let stopped = false
+  const tick = async (): Promise<void> => {
+    if (stopped) return
+    if (busy) {
+      replayRequested = true
+      return
+    }
+    busy = true
+    try {
+      await run()
+    } catch (err) {
+      onError?.(err)
+    } finally {
+      busy = false
+      if (stopped) {
+        replayRequested = false
+        return
+      }
+      if (replayRequested) {
+        replayRequested = false
+        void tick()
+      }
+    }
+  }
+  return {
+    tick,
+    stop: (): void => {
+      stopped = true
+      replayRequested = false
+    },
+    isBusy: (): boolean => busy,
+    hasPendingReplay: (): boolean => replayRequested,
+  }
+}
 
 /**
  * 启动调度器(env 门控)。返回是否真的启动:
@@ -60,18 +116,16 @@ export function startAutomationsScheduler(): boolean {
       : createStubExecutor()
   const orchestrator = createOrchestrator({ config: raw, github, ledger, executor, audit })
 
-  const tick = async (): Promise<void> => {
-    // 单飞保护:上一轮未结束跳过本轮
-    if (ticking) return
-    ticking = true
-    try {
+  const flight = createSingleFlightTick(
+    async (): Promise<void> => {
       await orchestrator.runOnce()
-    } catch (err) {
+    },
+    (err: unknown): void => {
       audit.error('[automations] tick 异常(下轮重试)', { err: String(err) })
-    } finally {
-      ticking = false
-    }
-  }
+    },
+  )
+  activeFlight = flight
+  const tick = (): Promise<void> => flight.tick()
 
   timer = setInterval(() => {
     void tick()
@@ -95,7 +149,8 @@ export function stopAutomationsScheduler(): void {
     clearInterval(timer)
     timer = null
   }
-  ticking = false
+  activeFlight?.stop()
+  activeFlight = null
 }
 
 /** 是否在运行(测试/诊断用)。 */
