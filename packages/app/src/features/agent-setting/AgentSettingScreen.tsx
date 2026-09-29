@@ -9,7 +9,6 @@ import {
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -18,6 +17,7 @@ import type { AgentSettingScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** Agent 设置共享屏 — props 注入式跨端组件(表单,状态由 wrapper 管理) */
 export type { AgentSettingScreenProps }
@@ -54,14 +54,16 @@ export function AgentSettingScreen({
       </View>
       <View style={styles.body}>
         <Text style={styles.label}>{t('agentSetting.name')}</Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={setting.name}
           onChangeText={(v) => onChange({ name: v })}
           placeholderTextColor={tk.text.tertiary}
         />
         <Text style={styles.label}>{t('agentSetting.model')}</Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={setting.model}
           onChangeText={(v) => onChange({ model: v })}
@@ -70,7 +72,8 @@ export function AgentSettingScreen({
         <Text style={styles.label}>
           {t('agentSetting.temperature')}: {setting.temperature.toFixed(2)}
         </Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           keyboardType="numeric"
           value={String(setting.temperature)}
