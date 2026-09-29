@@ -17,6 +17,7 @@ import {
   X,
   Loader2,
   TriangleAlert,
+  RotateCw,
 } from 'lucide-react'
 
 import { Button } from '@ihui/ui-react'
@@ -27,6 +28,8 @@ import type { ReferenceType, ReferenceItem } from '@/hooks/use-message-reference
 interface ContextReferencePanelProps {
   references: ReferenceItem[]
   onRemove?: (id: string) => void
+  /** b75-5#1:失败附件重试回调 */
+  onRetry?: (id: string) => void
 }
 
 const TYPE_META: Record<
@@ -40,7 +43,11 @@ const TYPE_META: Record<
   video: { icon: Film, cls: 'text-rose-500' },
 }
 
-export function ContextReferencePanel({ references, onRemove }: ContextReferencePanelProps) {
+export function ContextReferencePanel({
+  references,
+  onRemove,
+  onRetry,
+}: ContextReferencePanelProps) {
   const t = useTranslations('chat')
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
 
@@ -115,11 +122,32 @@ export function ContextReferencePanel({ references, onRemove }: ContextReference
                     </Tooltip>
                   )}
                   {ref.uploadState === 'error' && (
-                    <Tooltip content={t('attachUploadFailed')}>
-                      <span className="shrink-0">
+                    <span className="flex shrink-0 items-center gap-1" role="alert">
+                      <Tooltip content={t('attachUploadFailed')}>
                         <TriangleAlert
                           className="h-3.5 w-3.5 text-destructive"
                           aria-label={t('contextUsage.uploadFailed')}
+                        />
+                      </Tooltip>
+                      {onRetry && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 shrink-0 text-destructive hover:text-destructive/80"
+                          onClick={() => onRetry(ref.id)}
+                          aria-label={t('attachRetry', { defaultValue: '重试上传' })}
+                        >
+                          <RotateCw className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </span>
+                  )}
+                  {ref.uploadState === 'terminal' && (
+                    <Tooltip content={t('attachRetryExhausted', { defaultValue: '重试次数已达上限,请删除后重新添加' })}>
+                      <span className="shrink-0">
+                        <TriangleAlert
+                          className="h-3.5 w-3.5 text-destructive/60"
+                          aria-label={t('attachRetryExhausted', { defaultValue: '重试次数已达上限' })}
                         />
                       </span>
                     </Tooltip>

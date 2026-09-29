@@ -110,6 +110,7 @@
     "sandbox": {
       "spawnError": "命令未能啟動({code})—— 子進程從未執行,這不是\"跑完了但沒有輸出\";請檢查命令與當前工作目錄({cwd})是否存在。",
       "outputLimit": "輸出超過 {maxOutputBytes} 位元組上限({code}),進程被終止、輸出被截斷 —— 這是\"輸出過長\"的獨立終態,不是超時;要拿全量請調高 maxOutputBytes 或收窄命令輸出。",
+      "outputSpilled": "輸出超過 {maxOutputBytes} 位元組記憶體視窗,溢出部分已落盤:{path} —— 全量輸出不駐留記憶體;檔案保留供取證,確認後可自行刪除。",
       "statusMissing": "缺失",
       "unattributed": "失敗類型未判定(保留原始資訊:{raw})—— 未歸為超時,也未歸為正常完成,請人工確認後再重試。",
       "fsProbeUnavailable": "命令空輸出且以 {status} 退出,但檔案系統狀態無法查詢({why})—— 未判定:既未定為\"空間/inode 已盡\",也未當作\"什麼都沒發生\"。",

@@ -9115,6 +9115,15 @@
     },
     "envInfoButton": "環境情報",
     "expandConversation": "会話を展開",
+    "headerActions": {
+      "panelGroupButtons": "パネルアクションボタン",
+      "workspaceUnavailable": "タスクを開始するとレビューワークスペースを開けます",
+      "enterWorkspaceFullscreen": "ワークスペースを全画面表示",
+      "exitWorkspaceFullscreen": "ワークスペースの全画面を終了",
+      "createDraftPullRequest": "Draft PR を作成",
+      "createDraftPullRequestOk": "Draft PR を作成しました",
+      "createDraftPullRequestFailed": "Draft PR の作成に失敗しました"
+    },
     "floatMode": "フロートモード",
     "handleHint": "クリックまたは右にドラッグしてAIワークスペースを開く",
     "history": "チャット",
@@ -11247,6 +11256,12 @@
     "errorCardTitle": "リクエストエラー",
     "quoteSelection": "選択を引用",
     "quoteSelectionAdded": "引用に追加しました",
+    "selectionActions": {
+      "ariaLabel": "選択テキストの操作",
+      "addAsAttachment": "添付として追加",
+      "attachmentName": "選択したテキスト",
+      "attachmentLimitReached": "添付が {limit} 個に達しました。先に 1 つ削除してから選択テキストを追加してください。"
+    },
     "quotedReplyAssistant": "AI 回答を引用",
     "quotedReplyUser": "ユーザーメッセージを引用",
     "webSearch": "ウェブ検索",
