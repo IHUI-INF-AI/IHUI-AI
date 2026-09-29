@@ -87,6 +87,7 @@ import { answerSideQuestion } from '@/hooks/use-chat/slash-commands'
 import { QueueInteractionBar } from '@/components/chat/queue-interaction-bar'
 // V3 #69(2026-09-27):输入框上方的会话窗口额度实时进度条(budget 帧驱动,与压缩状态条同族同位)
 import { ContextBudgetBar } from '@/components/chat/context-budget-bar'
+import { ConnectionStatusBar } from '@/components/chat/connection-status-bar'
 import { queueInteractionPerms } from '@ihui/shared/chat/input-notices'
 import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -1019,6 +1020,10 @@ export function MessageInput({
         />
         {/* V3 #69:额度实时进度条(warning 琥珀 / critical 红);未收到 budget 帧时整条不渲染不占位 */}
         <ContextBudgetBar />
+        {/* D131:连接状态位(仅异常态常驻)—— 正常"已连接/连接中"不渲染不占位,
+            只有重连中 / 已断开才在这一行 chrome 里出现;状态推导复用
+            progress-sections/connection-status 的同一份 deriveConnectionState。 */}
+        <ConnectionStatusBar isStreaming={isStreaming} threadId={conversationId} />
         {/* D68 粘贴引用有效性预览条(可见、可关闭;无可预览引用时不渲染不占位) */}
         <UnifiedPasteReferencePreview
           previews={pastedRefPreviews}
