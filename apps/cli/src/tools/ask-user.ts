@@ -44,6 +44,37 @@ function isInteractive(): boolean {
   return process.stdin.isTTY === true && process.stdout.isTTY === true;
 }
 
+// ───────────────── escalation budget (mechanism twin of upstream escalate) ─────────────────
+// 上游机制(escalate: timeout kind:"none" + per-ask 上限 3 次,refused 是普通结果不是 error)
+// 的机制等价落点:
+//  - 等待面:本工具的 execBudget.notInterruptible 已表达"墙钟不代答"——预算框架对它连
+//    定时器都不建(取消除外),等待不设超时这一半由既有结构面承担,不在此重复;
+//  - 预算面:每个 ask(= 一次 dispatch_subagent 子任务,对应上游工作流的一次 ask)内最多
+//    ASK_USER_ESCALATION_BUDGET 次求助;第 4 次返回**普通结果**(非 error):把"预算耗尽"
+//    渲染成错误只会让模型反复撞同一堵墙,而自行判断正是预算要引导的行为。
+//  - 预算窗口只在子代理 ask 域生效(上游只有工作流 actor 才有 escalate;主 loop 的提问
+//    不设预算)。窗口由 dispatch_subagent 开/关,见 subagent.ts 的开窗点。
+export const ASK_USER_ESCALATION_BUDGET = 3;
+
+let budgetWindowActive = false;
+let budgetUsedInWindow = 0;
+
+/**
+ * Open the per-ask budget window (called when a dispatch_subagent ask starts).
+ * Already-active window is left untouched: concurrent sibling dispatches share
+ * the same ask window instead of silently resetting each other's count.
+ */
+export function beginAskUserEscalationBudget(): void {
+  if (budgetWindowActive) return;
+  budgetWindowActive = true;
+  budgetUsedInWindow = 0;
+}
+
+/** Close the window (called when the whole top-level ask has settled). */
+export function endAskUserEscalationBudget(): void {
+  budgetWindowActive = false;
+}
+
 export const ask_user_question: Tool = {
   name: 'ask_user_question',
   description: '向用户提问以获取决策(单选/多选)。参数:question(问题文本),header(简短标签,可选),multiSelect(是否多选,默认 false),options(选项数组,每项含 label + description)。REPL 模式弹 inquirer 选择;headless 模式拒绝并返回错误。适用于:在多路径方案中让用户决定、确认 destructive 操作的细节、获取缺失的配置参数。',
@@ -101,6 +132,20 @@ export const ask_user_question: Tool = {
         error: 'headless 模式不支持 ask_user_question(无交互终端)。请改用默认值或在 REPL 模式运行,或通过 --allow-dangerous 跳过询问。',
         errorType: 'not_interactive',
       };
+    }
+    // Per-ask escalation budget: the 4th ask within an open window is REFUSED as
+    // a plain result (not an error) — same shape as upstream escalate refused.
+    // Headless branch above returned before this, so it never consumes budget.
+    if (budgetWindowActive) {
+      budgetUsedInWindow++;
+      if (budgetUsedInWindow > ASK_USER_ESCALATION_BUDGET) {
+        return {
+          success: true,
+          output:
+            `Escalation budget for this ask is spent (${ASK_USER_ESCALATION_BUDGET}/${ASK_USER_ESCALATION_BUDGET}). ` +
+            'No answer is coming; proceed on your own best judgement and state the assumption you are proceeding on.',
+        };
+      }
     }
     // 动态导入 inquirer(避免 headless 模式启动时也加载)
     const inquirer = (await import('inquirer')).default;
