@@ -291,6 +291,17 @@ function notifyUnauthorized(url: string, method: string | undefined): void {
   }
 }
 
+/**
+ * 401 终局通知前的凭据复核(2026-09-29 立,台账票 G-814411):
+ * 请求发出时所带的 token 若已不是当前值(刷新在飞期间 provider 被切换 / 凭据被另一
+ * 路径更新),这个 401 就属于已被替换的旧凭据 —— 此时通知端内会触发登出清理,误清掉
+ * 新凭据的登录态。故只在「该请求的 token 就是当前 token」时才放行通知。
+ * (「重试仍 401」的出口不复核:那一格的新 token 刚过 CAS 复核,本就是当时的凭据。)
+ */
+function isTokenStillCurrent(requestToken: string | null): boolean {
+  return tokenProvider.getToken() === requestToken
+}
+
 /** 读取当前 token(供需要原生 fetch 的场景使用,如 SSE 流式) */
 export function getToken(): string | null {
   return tokenProvider.getToken()
@@ -309,18 +320,41 @@ export function getToken(): string | null {
  * REFRESH_FAIL_COOLDOWN_MS 窗口内后续调用直接复用同一个失败 promise,不再重复发起
  * /auth/refresh。此前失败后 refreshInFlight 立即清空,并发 401 的业务请求会串行
  * 各触发一次 refresh,形成 6+ 次重复请求风暴(见内存日志 3004/3017/3089/3214/3227/3242ms)。
+ *
+ * 2026-09-29 CAS 复核(台账票 G-814411):刷新响应写回(交回调用方去覆盖凭据)前,
+ * 复核「发起刷新时的 active provider 仍是当前 provider,且旧 accessToken 仍是当前值」,
+ * 任一漂移即丢弃响应(返回 null,不算失败、不进冷却)—— 防止刷新请求在飞期间凭据被
+ * 另一路径更新(换 provider / 再登录 / 另一轮续期)后,过期的刷新结果覆盖新凭据。
  */
 export async function refreshAccessTokenOnce(): Promise<string | null> {
   if (!tokenProvider.refreshAccessToken) return null
   // 失败冷却期内:直接返回共享的失败 promise,不重复发起 refresh
   if (refreshFailCooldown) return refreshFailCooldown
   if (refreshInFlight) return refreshInFlight
+  // 2026-09-29 CAS 复核基线(台账票 G-814411):发起那一刻的 active provider
+  // (tokenProvider 对象身份,即本包唯一的"当前生效凭据上下文",等价于上游的
+  // generation + activeProvider)与旧 accessToken。刷新实现一并就地捕获 ——
+  // 这次 in-flight 归属于发起它的那份凭据,而不是微任务轮到时恰好挂在
+  // tokenProvider 上的那一份。
+  const providerAtStart = tokenProvider
+  const oldTokenAtStart = providerAtStart.getToken()
+  const refreshImpl = providerAtStart.refreshAccessToken!
   refreshInFlight = Promise.resolve()
-    .then(() => tokenProvider.refreshAccessToken!())
+    .then(() => refreshImpl())
     .then((t) => {
+      const newToken = t ?? null
+      // 2026-09-29 CAS 复核(台账票 G-814411):响应返回后、写回前,三者比对 ——
+      // active provider 未切换,且旧 accessToken 仍是当前值(或已被本刷新自己
+      // 持久化成响应值:provider 契约是"内部自行持久化",值相等即同一份凭据,
+      // 放行不算覆盖)。漂移 ⇒ 凭据在刷新飞期间已被换人,本响应是过期账目,
+      // 丢弃:不覆盖新凭据,调用方拿 null 走既有失败路径;本分支不算刷新失败,
+      // 不进冷却窗口(否则会拦住新凭据自己的正常续期)。
+      if (tokenProvider !== providerAtStart) return null
+      const currentToken = tokenProvider.getToken()
+      if (currentToken !== oldTokenAtStart && currentToken !== newToken) return null
       // 刷新成功:清空冷却态(如有),返回新 token
       clearRefreshFailCooldown()
-      return t ?? null
+      return newToken
     })
     .catch(() => {
       // 刷新失败:进入冷却窗口,阻止后续 401 在窗口内重复刷新
@@ -691,7 +725,9 @@ export async function fetchApi<T>(
                 continue
               }
               // 401 且续期没拿到 token(未注入续期实现 / 续期失败)→ 通知端内(2026-09-25)
-              notifyUnauthorized(normalizedUrl, restOptions.method)
+              // 2026-09-29 凭据复核(台账票 G-814411):续期响应被 CAS 丢弃 = 刷新在飞
+              // 期间凭据已被换人,这个 401 属于旧凭据 —— 通知出去会误清新凭据,跳过。
+              if (isTokenStillCurrent(token)) notifyUnauthorized(normalizedUrl, restOptions.method)
             }
           }
           return result as ApiResult<T>
@@ -737,7 +773,9 @@ export async function fetchApi<T>(
           }
         } else {
           // 401 且续期没拿到 token → 通知端内(与上方无熔断分支同一出口,2026-09-25)
-          notifyUnauthorized(normalizedUrl, restOptions.method)
+          // 2026-09-29 凭据复核(台账票 G-814411):同无熔断分支,CAS 丢弃 = 凭据已
+          // 被换人,401 属于旧凭据,通知会误清新凭据的登录态。
+          if (isTokenStillCurrent(token)) notifyUnauthorized(normalizedUrl, restOptions.method)
         }
       }
       return result as ApiResult<T>
