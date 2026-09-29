@@ -38,54 +38,6 @@ export function lengthToPx(text) {
   return n
 }
 
-/** 常量表达式最多再解几层(`A = B`、`B = 44` 两层够;更深一律判"解不到",不猜)。 */
-const CONST_EXPR_MAX_DEPTH = Number(process.env.IHUI_CONST_EXPR_MAX_DEPTH || 6)
-
-/**
- * 一个**常量表达式**(标识符 / 成员档 / 指向另一个常量)折成 px。
- *
- * 为什么必须有这一份,而不是让半径侧与盒形侧各写一遍:两侧量的是同一批常量
- * (`SECONDARY_BTN_SIZE / 2` 与 `width: SECONDARY_BTN_SIZE` 是同一个数)。两处各写必然漂开成
- * "半径认得、盒形不认",而那一型产出的是**自洽的假结论**(半径 8 配上量不到的 16×16 盒 ⇒
- * 把一枚写规范了的圆钮判成"control 该取 sm"),比"读不出来"更坏 —— 它会替未判定发合格证。
- *
- * 认的形态(按出处优先级):
- *  ① 字面量(`44` / `24rpx` / `rpx(40)` / `calc(0.5rem)`)⇒ 交 `lengthToPx`,口径与两侧同形;
- *  ② 标识符(`SECONDARY_BTN_SIZE`、`SPEC_X_PX`)⇒ 直接查常量表;
- *  ③ 成员档(`rnGeometry.tapBox` / `taroGeometry.x` / `GEOMETRY_PX.y`)⇒ 先按整串查,再按
- *     `geometry.<成员>` 查(具名档表 `specTiers` 的键就是这一形,对象名换了不改键名);
- *  ④ 常量指向常量 ⇒ 递归,受 `CONST_EXPR_MAX_DEPTH` 限深。
- *
- * **解不到返回 null**,由调用方按"未判定"报名。防自引用是这条的存在理由之一:`const A = A`
- * 曾把整门打成 RangeError(注释承诺"最多再解一层,防环"而实现没有 depth,正是"名字承诺了、
- * 实现没兑现"那一型,见守门 137)。限深而不是访问集,是因为跨文件具名档表可能同时含环与长链,
- * 而超过这个深度的等式本就没有可信答案。
- *
- * @param {string} text 表达式原文
- * @param {Map<string,string|number>} consts 常量表(同文件 `constantMapOf` ∪ 跨文件具名档 `specTiers`)
- * @param {number} [depth] 递归层数,调用方不传
- * @returns {number|null}
- */
-export function constExprPx(text, consts, depth = 0) {
-  const t = String(text ?? '').trim()
-  if (!t) return null
-  const direct = lengthToPx(t)
-  if (direct !== null) return direct
-  if (!(consts instanceof Map) || consts.size === 0) return null
-  if (depth >= CONST_EXPR_MAX_DEPTH) return null
-  const norm = t.replace(/\s+/g, '')
-  const iden = /^([A-Za-z_$][\w$]*)((?:\.[A-Za-z_$][\w$]*)*)$/.exec(norm)
-  if (!iden) return null
-  const keys = [norm]
-  if (iden[2]) keys.push(`geometry${iden[2]}`)
-  for (const k of keys) {
-    if (!consts.has(k)) continue
-    const v = constExprPx(consts.get(k), consts, depth + 1)
-    if (v !== null) return v
-  }
-  return null
-}
-
 /**
  * 同一份源码里的数字常量表(`const SIZE = 24` / `export const SIZE_PX = 24` / `= rpx(40)`)。
  * 除法形态的尺寸(`SIZE / 2`)与标识符形态的盒边长(`width: SIZE`)都要靠它取值;
@@ -96,11 +48,36 @@ export function constantMapOf(src) {
   for (const raw of (src || '').split('\n')) {
     const t = raw.trim()
     if (/^(\/\/|\/\*|\*|\{\/\*|<!--)/.test(t)) continue
-    const m = /(?:^|[^\w$.])(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*(rpx\(\s*[0-9.]+\s*\)|\d+(?:\.\d+)?(?:rpx|px|rem)?|[A-Za-z_$][\w$]*)\s*(?:[,;)\]}]|$)/.exec(
+    const m = /(?:^|[^\w$.])(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*(rpx\(\s*[0-9.]+\s*\)|\d+(?:\.\d+)?(?:rpx|px|rem)?|[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)\s*(?:[,;)\]}]|$)/.exec(
       raw,
     )
     if (m && !map.has(m[1])) map.set(m[1], m[2])
   }
   return map
+}
+
+/**
+ * 一个**表达式文本** → px(数字字面量、`rpx(N)`、成员档 `rnGeometry.tapBox`、指向这些的标识符)。
+ *
+ * 半径侧与盒形侧都要问这同一句(`X / 2` 的分子、`width: X` 的 X),所以求值只留这一份:
+ * 实测半径认得成员档而盒形不认,结果是一个自洽的假结论 —— 半径算出 18、盒量不到,
+ * "半径=边长一半"永不成立,`BottomActionBar.tsx` 那枚按钮就这么停在未判定里(而它其实是胶囊)。
+ * 解不到一律返回 null 交调用方报名;限深 4 并排除自引用,不允许把"猜的值"当量到的值。
+ */
+export function constExprPx(text, consts, depth = 0) {
+  const t = String(text ?? '')
+    .trim()
+    .replace(/\s+/g, '')
+  if (!t) return null
+  const direct = lengthToPx(t)
+  if (direct !== null) return direct
+  if (depth >= 4 || !(consts instanceof Map)) return null
+  // 成员档按门 128 的表约定挂 `geometry.<键>`(它把 GEOMETRY_PX 的档统一存成这个名字)。
+  const member = /^[A-Za-z_$][\w$]*\.([A-Za-z_$][\w$]*)$/.exec(t)
+  const key = member ? `geometry.${member[1]}` : /^[A-Za-z_$][\w$]*$/.test(t) ? t : null
+  if (!key || !consts.has(key)) return null
+  const next = String(consts.get(key)).trim()
+  if (next === t) return null
+  return constExprPx(next, consts, depth + 1)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

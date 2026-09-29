@@ -22,11 +22,6 @@
  *      ② 别名路径(`@/…`、`@ihui/…`)末段同名且父目录名对得上;
  *      ③ 整仓库相对路径字面量(别的守门清单、tsconfig include 等)。
  *   E2 无替代路径 —— 同名同后缀的文件在索引里不存在于任何其他目录(即没人把它搬到别处)。
- *   歧义放过对**三种形态同一条判据**(2026-09-29 补,此前只做在①上):本仓 ESM 约定里 `./x.js`
- *   指的是 `x.ts`,所以删 `X.js` 而同目录 `X.ts` 仍在审面时,②③ 的引用并未断 —— 缺这一层,本门会
- *   把守门 98 D4 影子维规定的正确修法("删掉那份 .js、别去改说明符")判成红,两道门互咬
- *   (实测于 G-815918 那枚删除;成对取证:自检 ㉔/㉕ + 镜像 T11/T12,只留放过那条等于允许
- *   "任何别名引用都放过")。已知代价与①同:同目录那份同 stem 文件若其实是无关模块,本门放过。
  *   只成立一条 → **不计红,但如实报数**(绝不在报告里静默成"看起来全绿")。
  * 反向理由:一次正当的删除,提交者通常会**同时改掉引用它的地方** —— 引用方自己也一起删,
  * 正是本门放行的形态(自检第②例 + 镜像测试的临时仓端到端各钉了一条正向对照)。
@@ -149,22 +144,6 @@ export function extractStrings(text, file) {
   return out
 }
 /**
- * 同目录、同 stem、另一已知扩展名的那份**还活在审面上**吗?
- * 本仓 ESM 约定:源码里写 `./x.js` 指的其实是 `x.ts`(守门 98 的 D4 影子维就规定"删掉那份 .js、
- * 别去改说明符")。所以删 `X.js` 而 `X.ts` 在位时,任何指向这一模块族的引用**并没有断** ——
- * 别名/路径字面量这两个形态原先缺这一层判据,于是门 99 会把门 98 规定的正确修法拦下来(两道门互咬)。
- * 代价如实登记(与相对形态同一条已知取舍):若同目录那份同 stem 文件其实是**无关模块**,本门会放过。
- */
-export function altSiblingsAlive(p, liveSet) {
-  if (!liveSet) return false
-  const dir = dirOf(p)
-  const stem = stemOf(p)
-  return SRC_EXT.some((e) => {
-    const cand = dir ? `${dir}/${stem}${e}` : `${stem}${e}`
-    return cand !== p && liveSet.has(cand)
-  })
-}
-/**
  * 说明符形态判定(见文件头 E1 三种形态)。`liveSet` 供歧义判据用。
  * 歧义一律放过:相对说明符的候选集里还有**别的**现存文件 ⇒ 它未必指向 P。
  */
@@ -184,9 +163,6 @@ export function classifySpecifier(spec, file, p, liveSet) {
   if (!bare.includes('/')) return null // 裸包名(`react`):太糊,一律不判
   const tail = bare.split('/').filter(Boolean).pop() || ''
   if (stemOf(tail) !== stemOf(p)) return null
-  // 别名与整仓库路径字面量这两个形态也必须走同一条"歧义放过":同 stem 的另一份实现还在审面上
-  // ⇒ 引用没断(门 98 D4 规定的正确修法正是删掉这一份)。缺这一层就会与门 99 互咬。
-  if (altSiblingsAlive(p, liveSet)) return null
   if (bare === p || bare.replace(/^\//, '') === p) return { kind: 'path-literal', spec }
   const segs = bare.split('/').filter(Boolean)
   const parent = dirOf(p).split('/').filter(Boolean).pop()
@@ -793,28 +769,6 @@ function selfTest() {
       del: ['a/gone-real.ts'],
       want: 'red',
     },
-    {
-      // ㉔/㉕ 成对:别名与整仓库路径字面量这两个形态也必须认"同 stem 另一份实现还在"这条歧义 ——
-      // 守门 98 的 D4 影子维规定"删掉那份 .js、别去改说明符",缺这一层时门 99 会把门 98 的正确修法拦死。
-      name: '㉔ 删影子 X.js 而同目录 X.ts 存活 ⇒ 别名/字面量引用未断 ⇒ 放过(D4 修法不被拦)',
-      files: {
-        'pkg/svc/concurrency.js': 'export const v = 1\n',
-        'pkg/svc/concurrency.ts': 'export const v = 1\n',
-        'pkg/tests/concurrency.test.ts': "import { v } from 'pkg/svc/concurrency.ts'\n",
-        'scripts/tests/shape.test.mjs': "const lit = 'pkg/svc/concurrency.js'\n",
-      },
-      del: ['pkg/svc/concurrency.js'],
-      want: 'no-reference',
-    },
-    {
-      name: '㉕ 与㉔成对:同 stem 没有另一份存活时,别名/字面量引用照旧判红(放过不等于取消)',
-      files: {
-        'pkg/svc/concurrency.js': 'export const v = 1\n',
-        'pkg/tests/concurrency.test.ts': "import { v } from 'pkg/svc/concurrency.js'\n",
-      },
-      del: ['pkg/svc/concurrency.js'],
-      want: 'red',
-    },
   ]
   let fail = 0
   for (const c of cases) {
@@ -883,7 +837,6 @@ export const __test__ = {
   dirOf,
   joinRel,
   moduleCandidates,
-  altSiblingsAlive,
   codeLines,
   extractStrings,
   classifySpecifier,
