@@ -101,13 +101,14 @@ export async function probeServerMinimumVersion(
   }
   const verdict = decideGate(currentVersion, facts);
   return {
-    exitCode: verdict.blocked ? EXIT_CODE_BELOW_MINIMUM : 0,
+    // 三态(G-660):拦下 ⇒ 78;真判出来了且没拦 ⇒ 0;**判不了 ⇒ 2**,不得伪装成"服务端没要求"。
+    exitCode: verdict.blocked ? EXIT_CODE_BELOW_MINIMUM : verdict.determined ? 0 : 2,
     report: {
       ...base,
-      determined: true,
+      determined: verdict.determined,
       serverMinimumVersion: facts.minimumVersion,
       requirementSource: facts.source,
-      serverReason: facts.reason,
+      serverReason: verdict.determined ? facts.reason : verdict.reason,
       blocked: verdict.blocked,
     },
   };
