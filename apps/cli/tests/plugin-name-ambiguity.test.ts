@@ -42,7 +42,7 @@ function writeManifest(dirName: string, text: string, file = 'plugin.json'): str
 }
 
 function ambiguousOf(diagnostics: PluginDiagnostic[]): PluginDiagnostic[] {
-  return diagnostics.filter((d) => d.code === 'manifest-name-ambiguous');
+  return diagnostics.filter((d) => d.code === 'plugin_ambiguous_name');
 }
 
 describe('G-684 同名插件不静默裁决:两个都不装载', () => {
@@ -143,7 +143,7 @@ describe('G-684 同名插件不静默裁决:两个都不装载', () => {
 
     const codes = loadPluginsWithDiagnostics({ pluginsDir: root }).diagnostics.map((d) => d.code);
 
-    expect(new Set(codes)).toEqual(new Set(['manifest-name-ambiguous']));
+    expect(new Set(codes)).toEqual(new Set(['plugin_ambiguous_name']));
     expect(codes).not.toContain('plugin-dependency-cycle');
   });
 
