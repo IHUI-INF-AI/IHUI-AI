@@ -7,7 +7,11 @@
 import * as React from 'react'
 
 import { fetchApi } from '@/lib/api'
-import type { ApiResult } from '@ihui/types'
+import {
+  createTaskStatusPoller,
+  type TaskPollOutcome,
+  type TaskStatusPoller,
+} from '@/lib/task-status-polling'
 import type { AgentContentListItem, TaskPollingResult } from './types/ai-talk'
 
 /** 模型清单条目(用于 getModelCode / getModelCodeByName) */
@@ -81,8 +85,8 @@ export function useAiHelpers(options: UseAiHelpersOptions = {}): UseAiHelpersRet
   const progressIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
   const progressIntervalSecondaryRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
   const agentContent1TimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-  const audioPollingRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
-  const videoPollingRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  const audioPollingRef = React.useRef<TaskStatusPoller | null>(null)
+  const videoPollingRef = React.useRef<TaskStatusPoller | null>(null)
 
   const setImgsList = React.useCallback((value: Array<{ imgUrl: string }>) => {
     setImgsListState(value)
@@ -170,49 +174,29 @@ export function useAiHelpers(options: UseAiHelpersOptions = {}): UseAiHelpersRet
       onSucceed: (data: TaskPollingResult['data']) => void,
       onFailed: (err: string) => void,
     ) => {
-      if (audioPollingRef.current) clearInterval(audioPollingRef.current)
-      let attempts = 0
-      const MAX_ATTEMPTS = 60 // 2 分钟超时(2000ms × 60)
-      // POST /api/ai/keling/audio/end 后端已校准(routes/ai-frontend-routes.ts:304,2026-07-25 P2 治理)
-      audioPollingRef.current = setInterval(async () => {
-        attempts++
-        if (attempts >= MAX_ATTEMPTS) {
-          if (audioPollingRef.current) clearInterval(audioPollingRef.current)
-          audioPollingRef.current = null
-          onFailed('轮询超时')
-          return
-        }
-        // 2026-08-06 修复:async 回调内 catch 网络/熔断异常,
-        // 防止 unhandled rejection + 轮询悬挂(CircuitOpenError 等由 fetchApi 抛出)
-        let res: ApiResult<TaskPollingResult>
-        try {
-          res = await fetchApi<TaskPollingResult>('/api/ai/keling/audio/end', {
+      // G-937981:孪生轮询抽出共享引擎 —— settled/fresh 三态 + 有界退避 [1000,2000,4000]ms。
+      // 业务失败(!res.success / status=failed)仍是终态;查询 throw(网络异常/熔断)按瞬态
+      // 退避重试(旧实现一枪打死整个轮询,任务可能还在服务端跑),额度用尽如实 onFailed。
+      audioPollingRef.current?.stop()
+      audioPollingRef.current = createTaskStatusPoller<TaskPollingResult['data']>({
+        query: async (): Promise<TaskPollOutcome<TaskPollingResult['data']>> => {
+          // POST /api/ai/keling/audio/end 后端已校准(routes/ai-frontend-routes.ts:304,2026-07-25 P2 治理)
+          const res = await fetchApi<TaskPollingResult>('/api/ai/keling/audio/end', {
             method: 'POST',
             body: JSON.stringify({ task_id: taskId }),
           })
-        } catch (e) {
-          if (audioPollingRef.current) clearInterval(audioPollingRef.current)
-          audioPollingRef.current = null
-          onFailed(e instanceof Error ? e.message : '音频生成查询失败')
-          return
-        }
-        if (!res.success) {
-          if (audioPollingRef.current) clearInterval(audioPollingRef.current)
-          audioPollingRef.current = null
-          onFailed(res.error)
-          return
-        }
-        const status = res.data.task_status
-        if (status === 'succeed' || status === 'completed') {
-          if (audioPollingRef.current) clearInterval(audioPollingRef.current)
-          audioPollingRef.current = null
-          onSucceed(res.data.data)
-        } else if (status === 'failed') {
-          if (audioPollingRef.current) clearInterval(audioPollingRef.current)
-          audioPollingRef.current = null
-          onFailed('音频生成失败')
-        }
-      }, 2000)
+          if (!res.success) return { kind: 'failed', error: res.error }
+          const status = res.data.task_status
+          if (status === 'succeed' || status === 'completed') {
+            return { kind: 'succeed', data: res.data.data }
+          }
+          if (status === 'failed') return { kind: 'failed', error: '音频生成失败' }
+          return { kind: 'pending' }
+        },
+        onSucceed,
+        onFailed,
+      })
+      audioPollingRef.current.start()
     },
     [],
   )
@@ -223,56 +207,35 @@ export function useAiHelpers(options: UseAiHelpersOptions = {}): UseAiHelpersRet
       onSucceed: (data: TaskPollingResult['data']) => void,
       onFailed: (err: string) => void,
     ) => {
-      if (videoPollingRef.current) clearInterval(videoPollingRef.current)
-      let attempts = 0
-      const MAX_ATTEMPTS = 60 // 2 分钟超时(2000ms × 60)
-      // POST /api/ai/sora/request/end 后端已校准(routes/ai-frontend-routes.ts:319,2026-07-25 P2 治理)
-      videoPollingRef.current = setInterval(async () => {
-        attempts++
-        if (attempts >= MAX_ATTEMPTS) {
-          if (videoPollingRef.current) clearInterval(videoPollingRef.current)
-          videoPollingRef.current = null
-          onFailed('轮询超时')
-          return
-        }
-        // 2026-08-06 修复:async 回调内 catch 网络/熔断异常
-        let res: ApiResult<TaskPollingResult>
-        try {
-          res = await fetchApi<TaskPollingResult>('/api/ai/sora/request/end', {
+      // G-937981:同 getaudio,共享 task-status-polling 引擎(settled/fresh + 有界退避)。
+      videoPollingRef.current?.stop()
+      videoPollingRef.current = createTaskStatusPoller<TaskPollingResult['data']>({
+        query: async (): Promise<TaskPollOutcome<TaskPollingResult['data']>> => {
+          // POST /api/ai/sora/request/end 后端已校准(routes/ai-frontend-routes.ts:319,2026-07-25 P2 治理)
+          const res = await fetchApi<TaskPollingResult>('/api/ai/sora/request/end', {
             method: 'POST',
             body: JSON.stringify({ task_id: taskId }),
           })
-        } catch (e) {
-          if (videoPollingRef.current) clearInterval(videoPollingRef.current)
-          videoPollingRef.current = null
-          onFailed(e instanceof Error ? e.message : '视频生成查询失败')
-          return
-        }
-        if (!res.success) {
-          if (videoPollingRef.current) clearInterval(videoPollingRef.current)
-          videoPollingRef.current = null
-          onFailed(res.error)
-          return
-        }
-        const status = res.data.task_status
-        if (status === 'succeed' || status === 'completed') {
-          if (videoPollingRef.current) clearInterval(videoPollingRef.current)
-          videoPollingRef.current = null
-          onSucceed(res.data.data)
-        } else if (status === 'failed') {
-          if (videoPollingRef.current) clearInterval(videoPollingRef.current)
-          videoPollingRef.current = null
-          onFailed('视频生成失败')
-        }
-      }, 2000)
+          if (!res.success) return { kind: 'failed', error: res.error }
+          const status = res.data.task_status
+          if (status === 'succeed' || status === 'completed') {
+            return { kind: 'succeed', data: res.data.data }
+          }
+          if (status === 'failed') return { kind: 'failed', error: '视频生成失败' }
+          return { kind: 'pending' }
+        },
+        onSucceed,
+        onFailed,
+      })
+      videoPollingRef.current.start()
     },
     [],
   )
 
   React.useEffect(() => {
     return () => {
-      if (audioPollingRef.current) clearInterval(audioPollingRef.current)
-      if (videoPollingRef.current) clearInterval(videoPollingRef.current)
+      if (audioPollingRef.current) audioPollingRef.current.stop()
+      if (videoPollingRef.current) videoPollingRef.current.stop()
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
       if (progressIntervalSecondaryRef.current) clearInterval(progressIntervalSecondaryRef.current)
       if (agentContent1TimerRef.current) clearTimeout(agentContent1TimerRef.current)
