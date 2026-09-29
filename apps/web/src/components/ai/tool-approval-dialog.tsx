@@ -19,7 +19,7 @@
  */
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { AlertTriangle, Check, Loader2, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, Check, Globe, Loader2, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { postToolApprovalResponse, sendToolApprovalResponse } from '@ihui/api-client'
 import type { ToolApprovalRequest, ToolApprovalScope } from '@ihui/types'
 import { AGENT_TASK_EVENTS, parseToolApprovalEvent } from '@ihui/shared'
@@ -29,6 +29,41 @@ import { Modal, confirmDialog } from '@/components/feedback'
 export const TOOL_APPROVAL_EVENT = 'ihui:tool-approval'
 
 /**
+ * D159(2026-09-30 立):审批弹窗上的**逐请求事实**(视图形态,camelCase)。
+ *
+ * 线格式是 snake_case,权威清单在 `packages/shared/src/sse/contract.ts`
+ * 的 `ToolApprovalExecEnvironmentWire` / `ToolApprovalNetworkTargetWire`,与本型的
+ * 键**逐字对应**(只差大小写命名法,与 `approval_id → approvalId` 同一映射规矩)。
+ * 本型住在组件这一层,是因为 `@ihui/types` 与两个解析面都不在本票文件清单内 ——
+ * 见下方 `ChatStreamToolApprovalRequest` 的注释。
+ */
+export interface ToolApprovalExecEnvironment {
+  /**
+   * false = 服务端上报了这件事但**读不到**这次的真值 ⇒ 界面只能写"未上报"。
+   * 与"整字段缺席"(回退开关关档)是两态,合成一态就是拿通用文案冒充事实。
+   */
+  available: boolean
+  inSandbox?: boolean
+  backend?: string
+  /** 只有 local(不隔离)与 docker(隔离)有可读语义;其余 ⇒ undefined,界面不出这行 */
+  networkIsolated?: boolean
+  degraded?: boolean
+  degradeNote?: string
+}
+
+/** 本次要连的网络目标(`display` 恒为 `host:port`,不显示归一键/哈希)。 */
+export interface ToolApprovalNetworkTarget {
+  host: string
+  port: number
+  protocol: string
+  display: string
+  reason?: string
+}
+
+/** 归一后的词表(未知原因 ⇒ 'unknown',界面按"未知"渲染,不把后端原文当文案直出)。 */
+export const NETWORK_DENIAL_REASON_UNKNOWN = 'unknown'
+
+/**
  * V3 #58(2026-09-26 立):主对话流审批请求在通用 ToolApprovalRequest 上附加的路由标记。
  * 两条审批链路的决策回传端点不同,弹窗必须按 channel 分流:
  * - channel='chat-stream' → 主对话流(llm.py _approval_sessions),决策经
@@ -36,10 +71,29 @@ export const TOOL_APPROVAL_EVENT = 'ihui:tool-approval'
  * - 无 channel(agent 任务流)→ agent_loop_v2 审批注册表,走既有
  *   sendToolApprovalResponse(网关 /agent/approval-response 代理)。
  * 两套注册表互不相通,回错端点会让等待方 120s 超时 —— 这是路由标记存在的理由。
+ *
+ * D159(2026-09-30 立)再附加**逐请求的执行环境/网络目标事实**。三个字段都是可选:
+ * - 全部缺席 = 服务端回退开关 `IHUI_APPROVAL_ENV_REPORT=0` ⇒ 环境区块整块不渲染
+ *   (回到本票落地前的形态,不是"渲染成未上报");
+ * - `execEnvironment.available === false` = 开关开着而服务端**读不到** ⇒ 必须显示
+ *   "未上报"。把这一态渲染成"沙箱内/沙箱外"就是误导用户放行,比不显示更糟
+ *   (票第 8 栏爆炸半径;反向对照用例 `tool-approval-environment.test.tsx` 钉住)。
+ * `@ihui/types` 的 `ToolApprovalRequest` 不在本票文件清单内,所以扩展形态住在这里 ——
+ * 载荷字段清单的权威在 `packages/shared/src/sse/contract.ts`(两份同形,由守门对账)。
  */
 export interface ChatStreamToolApprovalRequest extends ToolApprovalRequest {
   channel: 'chat-stream'
+  /** 逐请求执行环境(缺席 = 未上报开关关档) */
+  execEnvironment?: ToolApprovalExecEnvironment
+  /** 本次要连的网络目标(在位才给"允许该目标"三档) */
+  networkTarget?: ToolApprovalNetworkTarget
+  /** 已被静态策略判死的目标清单("还没有规则"不算被拦) */
+  blockedNetworkTargets?: ToolApprovalNetworkTarget[]
 }
+
+/** 弹窗内部使用的合并形态(agent 任务流也带得上环境字段,不受 channel 标记约束)。 */
+export type ApprovalRequestView = ToolApprovalRequest &
+  Partial<Omit<ChatStreamToolApprovalRequest, keyof ToolApprovalRequest>>
 
 /** 派发审批请求到全局弹窗(供 executeAgentStream / send-message 等消费方桥接)。 */
 export function dispatchToolApprovalRequest(
@@ -103,9 +157,9 @@ function isDangerousCommand(argv: readonly string[]): boolean {
 
 interface ApprovalDialogState {
   /** 当前展示中的审批请求(一次一个,其余排队) */
-  current: ToolApprovalRequest | null
+  current: ApprovalRequestView | null
   /** 排队等待的审批请求 */
-  queue: ToolApprovalRequest[]
+  queue: ApprovalRequestView[]
   /** 是否正在提交决策(按钮禁用,防重复提交) */
   sending: boolean
 }
@@ -292,6 +346,26 @@ export function ToolApprovalDialog() {
     { value: 'always', labelKey: 'scopeAlways' },
   ]
 
+  // D159(2026-09-30 立):这一条审批**带网络目标**时,同样三档的措辞要换成"允许该目标"
+  // —— 用户点下的不是"这个工具以后都别问我",而是"这个 host:port 可以"。档位值
+  // (once/session/always)一字不改,改的只有标签:回传端点与授权落点都按
+  // 条目上记着的那个目标走(见 llm.py `_persist_network_grant`),客户端传不了目标。
+  const networkTarget = current?.networkTarget
+  const SCOPE_LABEL_KEYS: ReadonlyArray<string> = networkTarget
+    ? ['envAllowTargetOnce', 'envAllowTargetSession', 'envAllowTargetAlways']
+    : SCOPE_OPTIONS.map((opt) => opt.labelKey)
+
+  // D159:执行环境区块是否渲染。**判据是"服务端有没有上报",不是"档位看起来像什么"**:
+  // 三个字段全缺席 = 回退开关 IHUI_APPROVAL_ENV_REPORT=0 ⇒ 整块不渲染;
+  // 而在位但 available=false ⇒ 必须渲染那一行"未上报",绝不因为"这档通常是沙箱"
+  // 就替它写一个值(票第 8 栏:显示"沙箱内"而实际 plain = 误导用户放行)。
+  const envReportPresent =
+    !!current &&
+    (current.execEnvironment !== undefined ||
+      current.networkTarget !== undefined ||
+      current.blockedNetworkTargets !== undefined)
+  const execEnv: ToolApprovalExecEnvironment | undefined = current?.execEnvironment
+
   // D158:第四档仅在 chat-stream 通道 + run_command 时展示(见上方判据注释);
   // 前缀展示与高危判定都从 argsPreview 尽力还原(argv / command 双形态兜底)。
   const isChatStream = (current as ChatStreamToolApprovalRequest | null)?.channel === 'chat-stream'
@@ -381,6 +455,99 @@ export function ToolApprovalDialog() {
               {current.argsPreview || '{}'}
             </pre>
           </div>
+          {/* D159(2026-09-30 立):执行环境与网络目标 —— 点"允许"之前要能读出
+              "这次在哪儿跑 / 网络通不通 / 哪个目标被拦",读不到就明写"未上报"。
+              整块缺席(三个字段都没有)= 服务端回退开关关档 ⇒ 一行都不渲染。 */}
+          {envReportPresent && (
+            <div className="rounded-md border border-border bg-muted/30 p-2.5" data-testid="tool-approval-environment">
+              <div className="mb-1 text-xs font-medium text-muted-foreground">
+                {t('envLabel')}
+              </div>
+              {!execEnv || execEnv.available === false ? (
+                <p
+                  className="text-xs leading-relaxed text-amber-700 dark:text-amber-400"
+                  data-testid="tool-approval-env-unknown"
+                >
+                  {t('envUnknown')}
+                </p>
+              ) : (
+                <div className="space-y-1 text-xs leading-relaxed">
+                  <div className="flex items-center gap-1.5" data-testid="tool-approval-env-sandbox">
+                    {/* degraded ⇒ **不得**再宣称"在沙箱中运行":降级链意味着隔离实际没生效,
+                        此时喊沙箱就是把用户往"放行"那一侧推(票第 8 栏爆炸半径)。 */}
+                    {execEnv.inSandbox === true && execEnv.degraded !== true ? (
+                      <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-primary" />
+                    ) : (
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                    )}
+                    <span>
+                      {execEnv.inSandbox === true && execEnv.degraded !== true
+                        ? t('envInSandbox')
+                        : t('envOutsideSandbox')}
+                      {execEnv.backend
+                        ? ` · ${t('envBackend', { backend: execEnv.backend })}`
+                        : ''}
+                    </span>
+                  </div>
+                  {execEnv.degraded === true && (
+                    <p
+                      className="text-amber-700 dark:text-amber-400"
+                      data-testid="tool-approval-env-degraded"
+                    >
+                      {execEnv.degradeNote || t('envDegraded')}
+                    </p>
+                  )}
+                  {execEnv.networkIsolated === true && (
+                    <p data-testid="tool-approval-env-network-off">{t('envNetworkOff')}</p>
+                  )}
+                  {execEnv.networkIsolated === false && (
+                    <div
+                      className="flex items-center gap-1.5"
+                      data-testid="tool-approval-env-network-open"
+                    >
+                      <Globe className="h-3.5 w-3.5 shrink-0" />
+                      <span>{t('envNetworkOpen')}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {networkTarget && (
+                <div className="mt-1.5" data-testid="tool-approval-network-target">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    {t('envNetworkSection')}
+                  </div>
+                  <code
+                    className="mt-0.5 block truncate font-mono text-xs"
+                    data-testid="tool-approval-network-target-display"
+                  >
+                    {networkTarget.display}
+                  </code>
+                </div>
+              )}
+              {current?.blockedNetworkTargets && current.blockedNetworkTargets.length > 0 && (
+                <div className="mt-1.5" data-testid="tool-approval-network-blocked">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    {t('envNetworkBlocked')}
+                  </div>
+                  <ul className="mt-0.5 space-y-0.5">
+                    {current.blockedNetworkTargets.map((target) => (
+                      <li
+                        key={`${target.host}:${target.port}:${target.protocol}`}
+                        className="truncate font-mono text-xs text-amber-700 dark:text-amber-400"
+                        data-testid={`tool-approval-network-blocked-${target.host}`}
+                      >
+                        {t('envNetworkBlockedOne', {
+                          host: target.host,
+                          port: target.port,
+                          reason: target.reason || NETWORK_DENIAL_REASON_UNKNOWN,
+                        })}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
           {/* D84:审批作用域(批准时生效;授权按 工具+参数 精确匹配,不放大到全局) */}
           <div>
             <div className="mb-1 text-xs font-medium text-muted-foreground">{t('scopeLabel')}</div>
@@ -390,7 +557,7 @@ export function ToolApprovalDialog() {
               aria-label={t('scopeLabel')}
               data-testid="tool-approval-scope"
             >
-              {SCOPE_OPTIONS.map((opt) => (
+              {SCOPE_OPTIONS.map((opt, index) => (
                 <button
                   key={opt.value}
                   type="button"
@@ -404,7 +571,7 @@ export function ToolApprovalDialog() {
                       : 'border-border bg-background text-muted-foreground hover:bg-accent'
                   }`}
                 >
-                  {t(opt.labelKey)}
+                  {t(SCOPE_LABEL_KEYS[index] ?? opt.labelKey)}
                 </button>
               ))}
             </div>
