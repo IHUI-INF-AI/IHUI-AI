@@ -131,6 +131,21 @@ async def persist_media_task(
         return False  # 无在途/产物信息,不值得落库
     ok = bool(result.get("ok", True))
     status = _normalize_status(ok, task_id, has_url)
+    if not user_uuid.strip():
+        # G-754②(2026-09-29 立,本步只喊不改行为)→ G-754①(同日收口读侧):
+        # 铸出**无属主**的归属型行必须喊出来,而不是继续静默。
+        # 读侧闸门原先把 `user_uuid=''` 的行对任何登录用户放开,注释称这是"历史行为不强制";
+        # 但只要还有不带主体的通道在跑工具(G-753:`/api/workflows` 整族没有主体),
+        # 这类行就在**持续新增**,那个豁免前提从来不是真的。
+        # 现读侧已改为"空属主 = 属主未知 ⇒ 仅 admin 可达"(`routers/media_tasks.py::_owner_allows`),
+        # 所以这里继续只警告:铸行方仍拿不到主体是**通道**的问题(G-753 那张票要带 PG 迁移
+        # + 产品定性),不是这一行日志能顺手改掉的;但这类行从此**不再对任意登录用户可见**。
+        logger.warning(
+            "[media_tasks] 无主体通道铸出无属主媒体任务行:tool=%s task_id=%s "
+            "(这类行现在只有管理员可读,非 admin 按 404,见 G-754)",
+            tool,
+            task_id or "(无 task_id)",
+        )
     provider = str(result.get("provider") or "").strip() or "token6688"
     message = str(result.get("message") or prompt or result.get("prompt") or "").strip()[:1000]
     payload: dict[str, Any] = {

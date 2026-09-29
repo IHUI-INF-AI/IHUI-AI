@@ -90,6 +90,13 @@ export const HOT = [
   'scripts/check-port-registry.mjs',
   'scripts/lib/gitdir.mjs',
   'apps/cli/src/worktree.ts',
+  //  G-815:cli 插件域派生 git 的两条热路径。旧 HOT 只登记 scripts/**、.husky/* 与 worktree.ts,
+  //  于是 cache.ts 的 clone/fetch/checkout **三件套全缺而门一路报绿**(票面"两边都不红"的那一格)。
+  //  git-runner.ts 是新增的唯一封顶出口 —— 它自己也在射程内,否则"出口"这个词又是一句散文。
+  //  ⚠ 只登记路径、不改判据:clone/fetch 是写动词,本门按设计不判(见文件头第 2 条口径);
+  //  登记的意义是"这一族里以后任何只读 git 调用都必须封顶"。
+  'apps/cli/src/plugins/git-runner.ts',
+  'apps/cli/src/plugins/cache.ts',
 ]
 
 /** 只读动词:被 SIGTERM 中断不改变仓库状态,可安全封顶 */

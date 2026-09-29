@@ -21,6 +21,13 @@
 // 走子路径而非包根:packages/types 内部是无扩展名相对导入,node 运行时解析不了包根
 // (实测 import('@ihui/types') → ERR_MODULE_NOT_FOUND './user'),而本文件所在包
 // 需要**运行时值**导入。permission-mode.ts 零依赖,可被 node 直接加载(已实测)。
+// ⚠️ 上面那句"解析不了包根"的前提**在本枚提交里被现测推翻**(2026-09-29 D142):
+// 现读 `packages/types/src/index.ts` 的 barrel 全部带 `.js` 扩展,且
+// `apps/cli/src/tools/index.ts` 长期从包根运行时值导入 `projectToolInputSchema` 而生产可跑。
+// 故下面这条包根运行时值导入(权限轴投影 `humanApprovalMandated`,D142 的唯一判据出口)成立;
+// 它必须由 `node --test`/vitest 之外的**裸 node** 再验一次(已验,见该票交付报告),
+// 不得只凭这段注释否掉。`normalizePermissionMode` 仍走子路径:改它不在本票射程。
+import { humanApprovalMandated, type EffectScopeCarrier } from '@ihui/types'
 import { normalizePermissionMode, type PermissionModeId } from '@ihui/types/permission-mode'
 import { noteLeaseCall, resolveLeaseRelaxationDetail, type PermissionLease } from './permission-lease.js';
 
@@ -99,12 +106,19 @@ export function mapCliModeToBackendMode(mode: PermissionMode): BackendPermission
 /**
  * mode-aware 决策(4 参数 checkPermission 使用)。
  * 优先级链:deny 规则 → allow 规则 → ask 规则 → 白名单兜底 → switch mode。
+ *
+ * 第 5 参 `permissionAxis`(D142,2026-09-29)是**只升不降**的一档:契约声明过
+ * "必须由人批准"(`@ihui/types` 的 `humanApprovalMandated`,判据只那一份,本文件不重写)时,
+ * 把矩阵给出的 `'allow'` 升成 `'ask'`。**永远不动 `'deny'`** —— 静态拒绝优先
+ * (规格 = `tool-contract.ts` 的 `alwaysAsk` 那条"绝不覆盖拒绝分支")。
+ * 缺席 ⇒ 判据完全不参与 ⇒ 与改前逐字节同结论(本票禁止翻缺省语义)。
  */
 function decideWithMode(
   toolName: string,
   rules: PermissionRules | undefined,
   mode: PermissionMode,
   dangerLevel: 'read' | 'write' | 'dangerous',
+  permissionAxis?: EffectScopeCarrier,
 ): PermissionDecision {
   // 1. 规则优先级高于 mode:deny > allow > ask
   if (rules?.deny?.includes(toolName)) return 'deny';
@@ -114,18 +128,26 @@ function decideWithMode(
   if (rules?.allow && rules.allow.length > 0 && !rules.allow.includes(toolName)) return 'deny';
 
   // 2. 无规则匹配,按 mode 矩阵决策
+  let decision: PermissionDecision
   switch (mode) {
     case 'bypassPermissions':
-      return 'allow';
+      decision = 'allow';
+      break;
     case 'default':
-      return dangerLevel === 'read' ? 'allow' : 'ask';
+      decision = dangerLevel === 'read' ? 'allow' : 'ask';
+      break;
     case 'acceptEdits':
-      return dangerLevel === 'dangerous' ? 'ask' : 'allow';
+      decision = dangerLevel === 'dangerous' ? 'ask' : 'allow';
+      break;
     case 'plan':
-      return dangerLevel === 'read' ? 'allow' : 'deny';
+      decision = dangerLevel === 'read' ? 'allow' : 'deny';
+      break;
     case 'manual':
-      return 'ask';
+      decision = 'ask';
+      break;
   }
+  // 3. 契约权限轴:只能把"自动放行"升成"要人批准",不能反向(也不碰 deny)。
+  return decision === 'allow' && humanApprovalMandated(permissionAxis) ? 'ask' : decision;
 }
 
 export function checkPermission(toolName: string, rules?: PermissionRules): PermissionCheckResult;
@@ -134,16 +156,18 @@ export function checkPermission(
   rules: PermissionRules | undefined,
   mode: PermissionMode,
   dangerLevel: 'read' | 'write' | 'dangerous',
+  permissionAxis?: EffectScopeCarrier,
 ): PermissionDecision;
 export function checkPermission(
   toolName: string,
   rules?: PermissionRules,
   mode?: PermissionMode,
   dangerLevel?: 'read' | 'write' | 'dangerous',
+  permissionAxis?: EffectScopeCarrier,
 ): PermissionCheckResult | PermissionDecision {
   // 4 参数重载:mode-aware 决策
   if (mode !== undefined && dangerLevel !== undefined) {
-    return decideWithMode(toolName, rules, mode, dangerLevel);
+    return decideWithMode(toolName, rules, mode, dangerLevel, permissionAxis);
   }
   // 2 参数重载:仅规则匹配(向后兼容)
   const decision = matchRulesOnly(toolName, rules);
@@ -204,14 +228,14 @@ export function checkPermissionWithLease(
   dangerLevel: 'read' | 'write' | 'dangerous',
   lease?: PermissionLease | null,
   invocationContent?: string | null,
+  permissionAxis?: EffectScopeCarrier,
 ): PermissionDecision {
-  return applyLeaseToDecision(
-    decideWithMode(toolName, rules, mode, dangerLevel),
-    toolName,
-    dangerLevel,
-    lease,
-    invocationContent,
-  ).decision;
+  const base = decideWithMode(toolName, rules, mode, dangerLevel, permissionAxis);
+  // 租约与 `--allow-dangerous` 是同一类档:**都是替人预先回答**。契约声明过"必须由人批准"
+  // (D142 的 `humanApprovalMandated`,判据只那一份)⇒ 这一格不交给租约放宽,与 danger-gate
+  // 里 flag 不得放行同形。契约缺席 ⇒ 下面逐字走改前那条路径。
+  if (humanApprovalMandated(permissionAxis)) return base;
+  return applyLeaseToDecision(base, toolName, dangerLevel, lease, invocationContent).decision;
 }
 
 /**

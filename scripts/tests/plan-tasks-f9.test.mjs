@@ -19,7 +19,7 @@
  * §5c 溯源水印:本文件受 `scripts/watermark.mjs` 管理。
  */
 import path from 'node:path'
-import { mkdirSync, cpSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, cpSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -205,6 +205,30 @@ test('真变异:把 registersKeyAtIdPosition 改成恒真(=退回全文匹配口
       filter: (s) => !/[\\/]\tests?[\\/]/.test(s),
     })
     const cli = readFileSync(path.join(ROOT, 'scripts', 'plan-tasks.mjs'), 'utf8')
+    /**
+     * 变异复制件必须带上 CLI **传递闭包**里的每一个非 lib 模块。
+     * 2026-09-29 实测:枚 `8cbc85847b` 给 `plan-tasks.mjs` 加了 `./live-doc-edit.mjs` 这一条依赖,
+     * 本夹具(原来只拷 `scripts/lib` + `check-plan-line-loss.mjs`)当场在**干净 HEAD** 上变红 ——
+     * 而红的形态是 `ERR_MODULE_NOT_FOUND`,不是"判据没牙",极易被误读成别的事(§12f:
+     * 判据失效的表现是安静或变形,不会是"恰好是我关心的那一句")。
+     * 闭包按**被拷文件自己的 import 现取**,不手写第二份名单(手写名单必然腐烂 —— §4 对
+     * `RN_ONLY_BRAND_KEYS` 记过同一条),所以今后再加依赖也不会重破这一条。
+     */
+    const queue = ['plan-tasks.mjs', 'check-plan-line-loss.mjs']
+    const seen = new Set(queue)
+    while (queue.length) {
+      const rel = queue.shift()
+      const abs = path.join(ROOT, 'scripts', rel)
+      if (!existsSync(abs)) continue // 取不到就交给 node 自己报,不在夹具里猜
+      const txt = readFileSync(abs, 'utf8')
+      for (const m of txt.matchAll(/from\s+['"](\.\/[^'"]+)['"]/g)) {
+        const dep = m[1].replace(/^\.\//, '')
+        if (dep.startsWith('lib/') || seen.has(dep)) continue
+        seen.add(dep)
+        queue.push(dep)
+      }
+      cpSync(abs, path.join(dir, 'scripts', rel), { recursive: false })
+    }
     const mutated = cli.replace(
       /export function registersKeyAtIdPosition\(rawLine, key\) \{[\s\S]*?\n\}/,
       'export function registersKeyAtIdPosition(rawLine, key) {\n  return !!key\n}',

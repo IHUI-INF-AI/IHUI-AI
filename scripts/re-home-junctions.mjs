@@ -15,8 +15,13 @@
  * —— 另抄一张表必然漂移,正是这一类改动被打回的成因。
  *
  * 安全性(§26 实测教训逐条内建):
- *  1. 先镜像复制(源不动)→ **逐文件相对路径 + 字节**全量校验 → 源改名 → mklink /J
- *     → 经 junction 回读数量/字节一致 → 才删源。任一步不符即改名回退。
+ *  1. 先镜像复制(源不动)→ **逐文件相对路径 + 字节 + sha256 内容**全量校验 → 源改名 → mklink /J
+ *     → 经 junction 回读**再比一次内容** → 才删源。任一步不符即改名回退。
+ *     "内容级"必须站在**每一道删除闸**上,不只站在复制校验上(G-411):改名后的回读与
+ *     stash 清理的下一步都是 `rmSync` 不可逆删除,而尺寸全等、内容不同的树在两把
+ *     只比 path+size 的尺子下与真镜像**同形**(c239421c9 只修了删源前的第一道闸,
+ *     后两道仍钝 —— 本次收口)。校验只比**字节内容**:mtime/inode 属性不同不计内容差
+ *     (robocopy 复制后两侧属性本就可能不同,拿它判不一致就是把门钝成另一型)。
  *  2. robocopy 返回码 0-7 为成功,**≥8 一律当失败**(非零码会出现"内容已搬走但不建 junction",
  *     路径直接消失 —— §26 记过一次凭据零丢失就是靠这条回读)。
  *  3. 全程不跟随重解析点统计体积(PowerShell 的 -Recurse 会穿透 junction,把 D 盘算成 C 盘的债)。
@@ -157,6 +162,19 @@ export function digestFile(p) {
 }
 
 /**
+ * fpA 与 fpB **同路径同尺寸**的相对路径迭代器 —— 内容级判据的唯一取材入口。
+ * 尺寸已不同的条目不在这里报(那是 sameFingerprint/diffFingerprint 的活),因为
+ * 两处各喊一次会让同一条差异进两份台账(守门 134 的"两把尺子互相顶结论"同型)。
+ * 刻意只走 fpA 的键:两侧都跳过重解析点(fingerprintTree 的定义),所以这里出现的
+ * rel 两侧都是普通文件,digestFile 不会顺着 junction 穿透到别处(§26 头号危险)。
+ */
+function* eachSameSizeFile(fpA, fpB) {
+  for (const [rel, size] of fpA) {
+    if (fpB.has(rel) && fpB.get(rel) === size) yield rel
+  }
+}
+
+/**
  * 内容级对账,只比"两侧同尺寸"的文件。
  *
  * 为什么必须有它:`fingerprintTree` 记的是 `相对路径 → 字节数`,而 §26 承诺的是
@@ -170,14 +188,30 @@ export function digestFile(p) {
  */
 export function contentDiff(rootA, rootB, fpA, fpB) {
   const mismatched = []
-  for (const [rel, size] of fpA) {
-    if (!fpB.has(rel) || fpB.get(rel) !== size) continue
+  for (const rel of eachSameSizeFile(fpA, fpB)) {
     const a = digestFile(join(rootA, rel))
     const b = digestFile(join(rootB, rel))
     if (a === null || b === null || a !== b) mismatched.push(rel)
     if (mismatched.length >= 20) break
   }
   return mismatched
+}
+
+/**
+ * 删源/删 stash 前的**最终**内容闸:全部同尺寸文件 sha256 全等 ⇒ null;
+ * 任一处不同(或读不到)⇒ 立即返回该相对路径,不再把剩下的几百 GB 读完
+ * (可中断性在这里是硬要求:`.cargo` 型 947MB/21760 文件的树,失败要在第一条上喊停)。
+ * 与 contentDiff 共用 eachSameSizeFile/digestFile 两份实现,不另起第三遍扫描。
+ * 只比**字节内容**:mtime / inode 属性 / 属主不同一律不计内容差(robocopy 复制后
+ * 这些字段本就可能两侧不同,拿它们判不一致等于把门钝成另一型 —— 拦不住该拦的,还天天误拦)。
+ */
+export function firstContentMismatch(rootA, rootB, fpA, fpB) {
+  for (const rel of eachSameSizeFile(fpA, fpB)) {
+    const a = digestFile(join(rootA, rel))
+    const b = digestFile(join(rootB, rel))
+    if (a === null || b === null || a !== b) return rel
+  }
+  return null
 }
 
 function run(cmd, args, timeout = STEP_TIMEOUT_MS) {
@@ -384,6 +418,32 @@ export function repairOne(srcPath, dstPath, { dry = false, resetDst = false } = 
       }
     }
   }
+  // 5b) 删 stash(= 改名前的**原始源**)之前的最后一道内容闸(G-411)。
+  //     上面 2b 那次 contentDiff 与这里之间隔着"复制收尾→改名→建链"一整段时间窗:
+  //     源在被持续写入时,完全可能"窗口前同尺寸同内容、窗口后同尺寸不同内容"
+  //     (截断/覆盖写都会先保住旧字节数再变)。这一步的下一步是 rmSync(stash) ——
+  //     仓库里最不可逆的一删,所以判据必须站在这里,而不是只站在删源前的第一道闸上。
+  //     对照面用 stash(改名只是换名,字节原地不动),根因写进 note 交人工判。
+  const readbackMismatch = firstContentMismatch(stash, srcPath, snap, through)
+  if (readbackMismatch !== null) {
+    rmSync(srcPath, { force: true }) // 只断链,不穿透
+    try {
+      renameSync(stash, srcPath)
+      return {
+        src: srcPath,
+        action: 'rolled-back',
+        ok: false,
+        note: `经 junction 回读尺寸全等而内容不同(首个不一致:${readbackMismatch})⇒ 断链并还原源,未删任何数据;多半是校验之后源又被写入`,
+      }
+    } catch {
+      return {
+        src: srcPath,
+        action: 'STUCK',
+        ok: false,
+        note: `内容回读不一致且回退失败!源数据在 ${stash}(不一致样本:${readbackMismatch}),请人工处理`,
+      }
+    }
+  }
   rmSync(stash, { recursive: true, force: true })
   return { src: srcPath, action: 'moved', ok: true, note: `${snap.size} 个文件已改道并校验一致` }
 }
@@ -397,8 +457,8 @@ export function plan(registry = registryOf(), home = homedir(), devEnv = devEnvR
  *  - link 型:改名后下一轮又把内容搬进目标、再建一次链接 ⇒ 留下第二个指同一目标的名字。
  *    它按定义没有独有数据,断链即可(`rmSync` 对重解析点只断链不穿透,§26 已实测)。
  *  - 实体目录型:里面**可能就是还没搬走的原始数据**。只有"当前 junction 回读到的内容逐文件
- *    覆盖了 stash"(允许目标更新、不许 stash 独有)才删;有任何独有/差异条目一律保留并如实报,
- *    交人判断 —— 猜不得。
+ *    覆盖了 stash"(**路径 + 字节数 + sha256 内容**三层全等;允许目标更新、不许 stash 独有)
+ *    才删;有任何独有/尺寸差/内容差条目一律保留并如实报,交人判断 —— 猜不得。
  * @returns {{path:string,kind:string,action:string,ok:boolean,note:string}[]}
  */
 export function pruneStashes(srcPath, dstPath, { apply = false } = {}) {
@@ -489,6 +549,19 @@ export function pruneStashes(srcPath, dstPath, { apply = false } = {}) {
         action: 'kept',
         ok: true,
         note: `stash 有 ${d.onlyA.length} 个独有 / ${d.differ.length} 个字节不同条目 ⇒ 未删,需人工判断`,
+      }
+    // G-411:path+size 全等**不构成**"stash 无独有数据"的证明 —— 同尺寸不同内容的文件
+    //   在这一层与真镜像同形,而下一步是 rmSync(stash, recursive)。删之前逐文件比 sha256,
+    //   任一处不同(或读不到)一律保留并点名;可中断(第一条不一致即返回,不读完几百 GB)。
+    //   dry 档也照此判:报告不得承诺一个 apply 时不敢做的删除("看起来能清"也是一种误导)。
+    const badRel = firstContentMismatch(stash, srcPath, held, inUse)
+    if (badRel !== null)
+      return {
+        path: stash,
+        kind: 'dir',
+        action: 'kept',
+        ok: true,
+        note: `尺寸清单全等而内容不同(首个不一致:${badRel})⇒ 未删,需人工判断(stash 可能就是原始数据)`,
       }
     if (!apply)
       return {
@@ -598,6 +671,37 @@ function selfTest() {
         digestFile(join(root, 'c1', 'same-size.txt')) &&
         digestFile(join(root, 'c1', 'same-size.txt')) !==
           digestFile(join(root, 'c2', 'same-size.txt')),
+    )
+    // G-411:删源/删 stash 前的最终内容闸专用判据(可中断 ⇒ 首条不一致即返回)。
+    push(
+      'firstContentMismatch:同尺寸不同内容⇒点名第一条 / 全等⇒null / 读不到⇒点名(不能证明相同)',
+      (() => {
+        const bad = firstContentMismatch(join(root, 'c1'), join(root, 'c2'), f1, f2)
+        const allSame = firstContentMismatch(join(root, 'c1'), join(root, 'c1'), f1, f1)
+        const ghost = firstContentMismatch(
+          join(root, 'c1'),
+          join(root, 'c1'),
+          new Map([['ghost.txt', 4]]),
+          new Map([['ghost.txt', 4]]),
+        )
+        return bad !== null && allSame === null && ghost === 'ghost.txt'
+      })(),
+    )
+    push(
+      '装车锁:两道"删之前"的内容闸必须真的排在 rmSync(stash 之前(只测函数等于测自己)',
+      (() => {
+        const s2 = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+        const repairBody = s2.slice(
+          s2.indexOf('export function repairOne'),
+          s2.indexOf('export function plan'),
+        )
+        const atGate = repairBody.indexOf('firstContentMismatch(')
+        const atRm = repairBody.indexOf('rmSync(stash, { recursive')
+        const pruneBody = s2.slice(s2.indexOf('export function pruneStashes'), s2.indexOf('function selfTest'))
+        const pGate = pruneBody.indexOf('firstContentMismatch(')
+        const pRm = pruneBody.indexOf('rmSync(stash, { recursive')
+        return atGate > 0 && atRm > atGate && pGate > 0 && pRm > pGate
+      })(),
     )
     // 装车锁:闸门必须真的排在"改名/删源"之前 —— 只测函数等于测自己,所以这里锁调用顺序。
     push(
@@ -721,12 +825,38 @@ function selfTest() {
       rmSync(join(realStash, 'sub', 'unique.bin'), { force: true })
       rmdirSync(join(realStash, 'sub'))
       push(
-        '实体目录型 stash 被在用内容逐文件覆盖(路径+字节全等)⇒ 才允许删',
+        '实体目录型 stash 被在用内容逐文件覆盖(路径+字节+内容全等)⇒ 才允许删',
         (() => {
           const r = pruneStashes(sSrc, sDst, { apply: true })
           return (
             r.some((x) => x.path === realStash && x.action === 'pruned') && !existsSync(realStash)
           )
+        })(),
+      )
+      push(
+        'G-411 阳性对照:目录型 stash 与在用内容同尺寸而不同内容 ⇒ apply 也必须保留,不许删',
+        (() => {
+          const sizeEqDiff = join(sHome, '.demo.pre-junction-eee')
+          mkdirSync(sizeEqDiff, { recursive: true })
+          writeFileSync(join(sizeEqDiff, 'k.txt'), 'abcde', 'utf8') // 与在用 k.txt 同为 5 字节、内容不同
+          const r = pruneStashes(sSrc, sDst, { apply: true })
+          const row = r.find((x) => x.path === sizeEqDiff)
+          const keptIt = Boolean(row && row.action === 'kept' && existsSync(sizeEqDiff))
+          rmSync(sizeEqDiff, { recursive: true, force: true }) // 夹具自清,不留残留
+          return keptIt
+        })(),
+      )
+      push(
+        'dry 档同样受内容闸约束:报告不得承诺一个 apply 时不敢做的删除',
+        (() => {
+          const dryDiff = join(sHome, '.demo.pre-junction-fff')
+          mkdirSync(dryDiff, { recursive: true })
+          writeFileSync(join(dryDiff, 'k.txt'), 'zzzzz', 'utf8') // 同尺寸不同内容
+          const r = pruneStashes(sSrc, sDst, { apply: false })
+          const row = r.find((x) => x.path === dryDiff)
+          const keptIt = Boolean(row && row.action === 'kept' && existsSync(dryDiff))
+          rmSync(dryDiff, { recursive: true, force: true })
+          return keptIt
         })(),
       )
       push(
@@ -881,6 +1011,9 @@ export const __test__ = {
   fingerprintTree,
   sameFingerprint,
   diffFingerprint,
+  digestFile,
+  contentDiff,
+  firstContentMismatch,
   repairOne,
   readCooldown,
   cooldownPath,
