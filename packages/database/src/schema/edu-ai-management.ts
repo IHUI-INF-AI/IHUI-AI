@@ -9,6 +9,7 @@ import {
   text,
   integer,
   boolean,
+  jsonb,
   date,
   timestamp,
   index,
@@ -829,6 +830,13 @@ export const eduFeeReminder = pgTable(
     channel: varchar('channel', { length: 30 }).default('in_app').notNull(),
     status: varchar('status', { length: 20 }).default('sent').notNull(),
     message: text('message'),
+    /**
+     * 逐收件人送达回执:`[{userId, role, channel, bucket, detail?, at}]`,
+     * bucket ∈ sent/failed/not_configured/no_phone/user_refused。
+     * 可空是刻意的 —— 历史行没有这份数据,统计端点必须把它们归入 unknown,
+     * 既不能当作"没送达"(冤枉旧数据)也不能当作"已送达"(虚报触达率)。
+     */
+    delivery: jsonb('delivery'),
     operatorId: uuid('operator_id').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

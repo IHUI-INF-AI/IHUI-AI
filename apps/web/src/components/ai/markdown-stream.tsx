@@ -149,6 +149,50 @@ class CodeBlockErrorBoundary extends React.PureComponent<
 // 这些语言用纯文本渲染,不走 SyntaxHighlighter(避免开销)
 const PLAIN_TEXT_LANGS = new Set(['', 'text', 'plain', 'txt'])
 
+// G-842(2026-09-29):代码块 header —— 文件图标 + 语言名映射出的示例文件名。
+// 形态对标上游 ai-elements/code-block.tsx 的「language → 示例文件名映射 + header」结构
+// (结构对标,条目为本仓自拟,非上游文案);未收录语言兜底 code.<lang>,无语言兜底 code.txt。
+const CODE_FILE_NAME_BY_LANGUAGE: Record<string, string> = {
+  bash: 'script.sh',
+  c: 'main.c',
+  cpp: 'main.cpp',
+  cs: 'Program.cs',
+  csharp: 'Program.cs',
+  css: 'style.css',
+  dart: 'main.dart',
+  go: 'main.go',
+  html: 'index.html',
+  java: 'Main.java',
+  js: 'index.js',
+  json: 'data.json',
+  jsx: 'component.jsx',
+  kotlin: 'Main.kt',
+  md: 'README.md',
+  php: 'index.php',
+  plain: 'code.txt',
+  py: 'main.py',
+  python: 'main.py',
+  ruby: 'main.rb',
+  rust: 'main.rs',
+  sh: 'script.sh',
+  shell: 'script.sh',
+  sql: 'query.sql',
+  swift: 'main.swift',
+  text: 'code.txt',
+  ts: 'index.ts',
+  tsx: 'component.tsx',
+  typescript: 'index.ts',
+  vue: 'App.vue',
+  xml: 'data.xml',
+  yaml: 'config.yaml',
+}
+
+/** G-842:语言名 → header 显示文件名(未收录兜底 code.<lang>,空语言兜底 code.txt) */
+function resolveCodeFileName(language?: string): string {
+  const normalized = (language ?? '').trim().toLowerCase()
+  return CODE_FILE_NAME_BY_LANGUAGE[normalized] ?? `code.${normalized || 'txt'}`
+}
+
 // P0-4(2026-09-13):inline 预览守卫——仅当 content 以 <!DOCTYPE html / <html / <svg 开头
 // 才渲染迷你预览条(WorkBuddy 即时可视化风格),避免流式期间无谓 iframe 抖动
 const INLINE_PREVIEW_RE = /^\s*(<!DOCTYPE\s+html|<html[\s>]|<svg[\s>])/i
@@ -424,11 +468,27 @@ const CodeBlockImpl = function CodeBlock({
   // 2026-08-02:对话文字整体放大,代码块 14px → 15px(text-[15px])
   // 2026-08-17 P3:dark 模式代码块统一用更深 zinc-950(与 markdown-stream.test 期望对齐,
   // 原实现用 zinc-900 + 注释"较浅避免同色",但实际测试断言 zinc-950 已通过,改为一致 token)
+  // G-842:边框/圆角上移到外层 frame(header + <pre> 同框),<pre> 只保留底色与排版
   const preClassName = cn(
-    'relative my-0 overflow-x-auto rounded-lg border border-zinc-200 p-3 text-[15px]',
+    'relative my-0 overflow-x-auto p-3 text-[15px]',
     'bg-zinc-100 text-zinc-900',
-    'dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100',
+    'dark:bg-zinc-950 dark:text-zinc-100',
     isStreaming && 'opacity-60',
+  )
+  // G-842:外层 frame(仿本文件 CodeRunOutput 的「外框 + header 条 + 主体」形态)
+  const codeFrameClass =
+    'overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700'
+  // G-842:代码块 header —— 文件图标 + 语言名映射的示例文件名(纯展示,非交互)
+  const codeHeader = (
+    <div
+      data-testid="code-block-header"
+      className="flex items-center gap-1.5 bg-zinc-200/60 px-3 py-1.5 dark:bg-zinc-900"
+    >
+      <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <span className="truncate font-mono text-xs text-muted-foreground">
+        {resolveCodeFileName(language)}
+      </span>
+    </div>
   )
 
   // 折叠按钮(absolute 定位在 <pre> 右下角)
@@ -451,11 +511,14 @@ const CodeBlockImpl = function CodeBlock({
     return (
       <>
         {inlinePreview}
-        <pre ref={preRef} className={preClassName}>
-          {copyButton}
-          {collapseButton}
-          <code className="font-mono">{displayCode}</code>
-        </pre>
+        <div className={codeFrameClass}>
+          {codeHeader}
+          <pre ref={preRef} className={preClassName}>
+            {copyButton}
+            {collapseButton}
+            <code className="font-mono">{displayCode}</code>
+          </pre>
+        </div>
         {runResult && <CodeRunOutput result={runResult} onClose={clearRunResult} />}
       </>
     )
@@ -463,35 +526,41 @@ const CodeBlockImpl = function CodeBlock({
 
   // 语法高亮失败时的降级渲染
   const fallback = (
-    <pre ref={preRef} className={preClassName}>
-      {copyButton}
-      {collapseButton}
-      <code className={cn('font-mono', language && `language-${language}`)}>{displayCode}</code>
-    </pre>
+    <div className={codeFrameClass}>
+      {codeHeader}
+      <pre ref={preRef} className={preClassName}>
+        {copyButton}
+        {collapseButton}
+        <code className={cn('font-mono', language && `language-${language}`)}>{displayCode}</code>
+      </pre>
+    </div>
   )
 
   return (
     <>
       {inlinePreview}
       <CodeBlockErrorBoundary fallback={fallback}>
-        <pre ref={preRef} className={preClassName}>
-          {copyButton}
-          {collapseButton}
-          <SyntaxHighlighter
-            language={lang}
-            style={syntaxStyle}
-            showLineNumbers={!!lineNumberStyle}
-            lineNumberStyle={lineNumberStyle}
-            customStyle={{
-              margin: 0,
-              padding: 0,
-              background: 'transparent',
-              fontSize: '15px',
-            }}
-          >
-            {displayCode}
-          </SyntaxHighlighter>
-        </pre>
+        <div className={codeFrameClass}>
+          {codeHeader}
+          <pre ref={preRef} className={preClassName}>
+            {copyButton}
+            {collapseButton}
+            <SyntaxHighlighter
+              language={lang}
+              style={syntaxStyle}
+              showLineNumbers={!!lineNumberStyle}
+              lineNumberStyle={lineNumberStyle}
+              customStyle={{
+                margin: 0,
+                padding: 0,
+                background: 'transparent',
+                fontSize: '15px',
+              }}
+            >
+              {displayCode}
+            </SyntaxHighlighter>
+          </pre>
+        </div>
       </CodeBlockErrorBoundary>
       {runResult && <CodeRunOutput result={runResult} onClose={clearRunResult} />}
     </>
