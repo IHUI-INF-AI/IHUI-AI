@@ -27,7 +27,7 @@
  * - onLogout?:登出回调(待接后端:清缓存 + reLaunch)
  * - onUpgrade? / onUpgradeTrader?:升级入口回调(跳会员/操盘手介绍弹窗)
  */
-import { tokens } from '../theme/active-tokens'
+import { currentRnTheme, tokens } from '../theme/active-tokens'
 import { withAlpha, rnRadius } from '@ihui/design-tokens'
 import {
   LOGIN_POPUP_AVATAR_BOX_PX,
@@ -76,12 +76,12 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type ViewStyle,
 } from 'react-native'
 import { useState } from 'react'
 import { CarrierOneClickError, carrierLogin, getRecentPhone } from '../lib/carrier-one-click'
+import { TextField } from '@ihui/rn-app'
 
 export type LoginPopUpRole = 'normal' | 'vip' | 'trader'
 
@@ -392,7 +392,8 @@ function ProfileForm({
         <View style={styles.iconBadge}>
           <User size={LOGIN_POPUP_ICON_GLYPH_FONT_PX} color={tokens.text.secondary} />
         </View>
-        <TextInput
+        <TextField
+          colorScheme={currentRnTheme()}
           style={styles.input}
           value={nickname}
           onChangeText={handleNicknameChange}
@@ -433,7 +434,8 @@ function ProfileForm({
         <View style={styles.iconBadge}>
           <Phone size={LOGIN_POPUP_ICON_GLYPH_FONT_PX} color={tokens.text.secondary} />
         </View>
-        <TextInput
+        <TextField
+          colorScheme={currentRnTheme()}
           style={styles.input}
           value={phone}
           onChangeText={handlePhoneChange}
