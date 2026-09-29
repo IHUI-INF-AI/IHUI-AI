@@ -19,7 +19,7 @@
  * 平台特有:依赖 RN Animated/PanResponder/Modal/SafeAreaContext,不适合共享。
  */
 import { tokens } from '../theme/active-tokens'
-import { rnGeometry, rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadiusFor } from '@ihui/design-tokens'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
@@ -597,8 +597,10 @@ export function Drawer(props: DrawerProps) {
             style={{
               paddingTop: insets.top,
               paddingBottom: insets.bottom,
-              borderTopRightRadius: rnRadius['2xl'],
-              borderBottomRightRadius: rnRadius['2xl'],
+              // 抽屉本体 = 角色档 panel(RADIUS_ROLES 注释明文含"抽屉")→ xl(12);
+              // 两端此前都取 2xl(16),一致但都偏档 —— 门 128 的"仅一侧"维看不见同错,由门 150 的角色档判据指出。
+              borderTopRightRadius: rnRadiusFor.panel,
+              borderBottomRightRadius: rnRadiusFor.panel,
               backgroundColor: tokens.surface.card,
             }}
           >
