@@ -45,7 +45,7 @@ export async function getMessageDetail(id: string): Promise<ApiResult<MessageIte
   return fetchApi<MessageItem>(`/api/messages/${id}`)
 }
 
-/** 发送消�?*/
+/** 发送消息 */
 export async function sendMessage(input: {
   toUserId: string
   content: string
@@ -72,7 +72,7 @@ export async function deleteMessage(id: string): Promise<ApiResult<{ success: bo
   return fetchApi<{ success: boolean }>(`/api/messages/${id}`, { method: 'DELETE' })
 }
 
-// ===================== notification（通知�?=====================
+// ===================== notification（通知） =====================
 
 /** 获取通知列表 */
 export async function getNotifications(
@@ -148,7 +148,7 @@ export async function getCustomerServiceMessages(
   )
 }
 
-/** 发送客服消�?*/
+/** 发送客服消息 */
 export async function sendCustomerServiceMessage(input: {
   sessionId: string
   content: string
