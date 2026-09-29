@@ -315,9 +315,18 @@ function cssBlockIsFocus(lines, i) {
   }
   return false
 }
-/** RN 形态:命中行本身或其紧邻上一行是 `focused ? {` / `isActive ? {` 这类条件对象头。 */
+/** RN 形态:命中行本身或其紧邻上一行是 `focused ? {` / `isFocused ? {` 这类条件对象头;
+ *  **或命中行所属的 style 键名本身就是聚焦档**(`inputFocused: { … }` / `phoneRowFocused: {`)——
+ *  这一族的消费写法是 `focused && styles.inputFocused`,条件在调用点、描边在样式表里,
+ *  只看命中行会漏掉整族(LoginScreen 两处就是这一型,补判据后计债从 2 归 0)。
+ *  键名判据要求 `Focus`/`Focused` 出现在键名里(不认 `active`/`selected`,与用户定档一致)。 */
 function rnLineIsFocusGuard(lines, i) {
-  return R8_RN_FOCUS_GUARD.test(lines[i]) || (i > 0 && R8_RN_FOCUS_GUARD.test(lines[i - 1]))
+  if (R8_RN_FOCUS_GUARD.test(lines[i]) || (i > 0 && R8_RN_FOCUS_GUARD.test(lines[i - 1]))) return true
+  for (let j = i; j >= 0 && i - j <= 6; j--) {
+    const k = lines[j].match(/^\s*([A-Za-z][\w]*)\s*:\s*\{/)
+    if (k) return /(?:^|[^a-z])(?:focus|focused)$/i.test(k[1]) || /Focus/.test(k[1])
+  }
+  return false
 }
 
 /**
@@ -2804,6 +2813,16 @@ function selfTest() {
   assert(
     findR8Violations(['    inputBox: { borderColor: tk.brand.DEFAULT },']).length === 1,
     'R8-M8j3 反向:静态 style 键取墨档描边 ⇒ 不得被例外放过(例外只认书写位,不认键名)',
+  )
+  // 聚焦档的另一种消费写法:描边写在样式表里、条件在调用点(focused && styles.inputFocused)
+  assert(
+    findR8Violations(['    inputFocused: {', '      borderColor: tk.brand.DEFAULT,', '      borderWidth: 2,', '    },'])
+      .length === 0,
+    'R8-M8j4 正向:键名本身是聚焦档(inputFocused)⇒ 属聚焦书写位(LoginScreen 的真实形态)',
+  )
+  assert(
+    findR8Violations(['    itemActive: {', '      borderColor: tk.brand.DEFAULT,', '    },']).length === 1,
+    'R8-M8j5 边界:键名是 Active(选中态)⇒ 不豁免,与 M8k 同一道线',
   )
   // (M8k) 例外的**边界**:用户定档是"只恢复输入框聚焦态",所以 active/选中态必须仍在射程里。
   //  少了这两条,例外就从"聚焦位"悄悄扩成"任何条件态"——那等于替用户选了另一个方案。
