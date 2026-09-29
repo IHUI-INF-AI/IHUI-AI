@@ -5,8 +5,11 @@
 // 平台特有:依赖 DOM API,web 端浏览器预览壳。
 import { CHART_BG_DARK, SHELL_BG_DARK } from '@ihui/design-tokens'
 // 浏览器窗口远宽于手机,直接铺满会导致布局拉伸变形;
-// 注入全局样式把 #root 约束为手机宽度(430px)并居中,
+// 注入全局样式把 #root 约束为手机宽度(430px),
 // 两侧深色留白 + 投影模拟手机视口。native 端不加载此文件。
+// 对齐方式取"贴右边"而不是居中(2026-09-29 用户 H5 实测反馈):浮窗竖条在 App 内本就与
+// 屏幕右缘齐平(量得 gap=0),居中时壳外那道左白右白会让贴边元素看起来"还留了间距",
+// 把壳推到窗口右缘后,所见即真机的贴边关系。
 
 const css = `
 html, body { height: 100%; }
@@ -14,7 +17,7 @@ body {
   margin: 0;
   background: ${SHELL_BG_DARK};
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
 }
 #root {
   width: 100%;
