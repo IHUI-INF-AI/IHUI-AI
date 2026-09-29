@@ -10,8 +10,13 @@ import { useGoalStore } from '@/stores/goal'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { emitAgentHook } from '@/stores/agent-hooks'
 import { runCommand } from '@ihui/api-client'
+// D152(2026-09-29 立):`/goal` 的上行出口(与 runCommand 同包,不端内自拼 fetch —— §3 共享层优先)
+import { postSessionGoal } from '@ihui/api-client'
 import { isFullAccessConfirmSuppressed } from '@/components/ai/full-access-confirm-dialog'
 import { fetchApi } from '@/lib/api'
+// D152:目标上行是 fire-and-forget,失败必须**可查**(静默吞掉 = 界面停在"设好了"的假象上,
+// 而这一票要修的正是"换浏览器/换端看不见目标")。走端内唯一 logger,不裸 console。
+import { logger } from '@/lib/logger'
 import { runBestOfN } from '@/api/best-of-api'
 import { useBestOfStore } from '@/stores/best-of'
 import type { SlashCommandData, SlashCommandResult } from './types'
@@ -319,7 +324,19 @@ export async function tryHandlePermissionSlash(
  * - /goal:查看当前目标(无目标时提示用法)
  * - /goal done:标记当前目标完成;/goal clear:清除目标
  * - 命中即返回 true,不发送给 LLM,清空输入框;GoalCard 在工具面板「目标」tab 推进
- * - t: next-intl 'chat' 翻译函数(与 tryHandleChatModeSlash 一致) */
+ * - t: next-intl 'chat' 翻译函数(与 tryHandleChatModeSlash 一致)
+ *
+ * D152(2026-09-29 立,拍板「服务化,但存会话元数据、不建新表」):本命令从"只改这台浏览器"
+ * 升成 **乐观更新 + 上行写主副本** —— 先落本地缓存(界面立刻有反馈,不等网络),再打
+ * `POST /llm/sessions/{session_id}/goal`。下行 `goal_updated` 帧由 send-message.ts 的
+ * onGoalUpdate 覆盖回来(含别的端在同一会话上写的目标)。
+ * 三条刻意:
+ *  ① 拿不到 conversationId 就**不发**(不猜地址)—— 表现退回纯本地态,与改前逐字同形;
+ *  ② `accepted:false` 不弹错(服务端对"没这条会话"与"不是你的"刻意同形回包,
+ *     弹错等于把存在性差异送给调用方),只留一行日志;
+ *  ③ `done` 档**不上行**:端点只有 set/pause/resume/clear 四个动作,没有把状态写成
+ *     done 的口(服务端那一半本轮不得改),所以 done 今天仍是本机态 —— 已登记为敞口。
+ */
 export function tryHandleGoalSlash(
   text: string,
   t: (key: string, vars?: Record<string, string>) => string,
@@ -352,13 +369,51 @@ export function tryHandleGoalSlash(
   }
   if (rest === 'clear') {
     goalStore.clear()
+    pushGoalToServer('clear')
     toast.success(t('goalCleared'))
     return true
   }
   // 设定 / 更新目标文本
   goalStore.setGoal(rest)
+  pushGoalToServer('set', rest)
   toast.success(t('goalSet'))
   return true
+}
+
+/**
+ * D152:`/goal` 的上行出口(唯一一处)。
+ *
+ * 会话 id 取 chat store 的 `conversationId` —— 它就是端点路径里的 `{session_id}`
+ * (服务端按 `metadata.conversationId` 反查引擎线程行,见 llm.py 的
+ * `resolve_thread_id_for_conversation`)。缺它就不发:猜一个地址发出去,表现是
+ * "点了什么都没发生且不报错"(D151 那一课的同一型)。
+ *
+ * fire-and-forget 是本票的选择,不是疏忽:`/goal` 命中即吞掉这条输入、不进 LLM 流,
+ * 把它 await 成"发送前的一跳"会让一次网络抖动变成目标设不上;而下行帧会把它追平,
+ * 所以写失败的真相面是"日志 + 下一帧没来",不是"界面卡住"。
+ */
+function pushGoalToServer(
+  action: 'set' | 'pause' | 'resume' | 'clear',
+  objective?: string,
+): void {
+  const conversationId = useChatStore.getState().conversationId
+  if (!conversationId) {
+    logger.info(`[goal] 本轮还没有会话 id,目标只落本机缓存,未上行(action=${action})`)
+    return
+  }
+  void postSessionGoal(conversationId, {
+    action,
+    ...(typeof objective === 'string' && objective ? { objective } : {}),
+  })
+    .then((ack) => {
+      // 未 accepted = 服务端没有这个会话的主副本(或不属于本主体)——两种同形,不区分、不弹错
+      if (!ack.accepted) {
+        logger.info(`[goal] 服务端未接收该会话的目标写入(action=${action}, session=${conversationId})`)
+      }
+    })
+    .catch((e: unknown) => {
+      logger.warn(`[goal] 目标上行失败(action=${action}): ${(e as Error)?.message ?? e}`)
+    })
 }
 
 /** /btw 临时侧聊斜杠命令(W24,2026-09-14 立,对标 Claude Code 侧聊不污染主线上下文)
