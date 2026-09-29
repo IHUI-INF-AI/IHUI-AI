@@ -21,6 +21,7 @@ import {
   Square,
   CheckCheck,
   Ban,
+  AlertTriangle,
   Quote,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -30,33 +31,11 @@ import type { InlineDiffInfo } from '@/components/ai/types'
 import { CommunityPublishDialog } from '@/components/chat/community-publish-dialog'
 import CheckpointRewindPanel from '@/components/checkpoint/CheckpointRewindPanel'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
-// D129:用户气泡的正文渲染器(附件拍平形态的止血;详见该文件头注)
-import { UserMessageBody } from './user-message-body'
-// G-825(2026-09-29 立):消息级 markdown 错误边界 —— 一条消息的渲染异常此前会冒泡到路由级 error(整页挂掉)。
-// 复位语义复用既有 ErrorBoundary 的 resetKeys 档,不写第二份边界实现;键的形状住纯函数层。
-import { ErrorBoundary } from '@/components/common/ErrorBoundary'
-import {
-  MARKDOWN_RENDER_FAILURE_EVENT,
-  markdownRenderFailureFacts,
-  markdownRenderModeFor,
-  markdownResetKeys,
-  type MarkdownRenderContext,
-} from '@/components/chat/message-list/markdown-render-guard'
 // D87(2026-09-23 立):AI 回复文本批注双向锚点(圈选回复选区 → 持久锚点 + 失效态 + 再编辑/删除)
 import { ReplyAnnotationLayer } from '@/components/ai/reply-annotation'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
-// D94 尾票(2026-09-25 接线):失败位产出可对外提交的脱敏交接单
-import { HandoffPackageCard } from '@/components/ai/handoff-package-card'
-// O60i(2026-09-25):失败卡两份实现合一 —— 本文件的内联卡已删,唯一出口是这张组件卡
-import { MessageErrorCard } from '@/components/chat/message-list/MessageErrorCard'
 import { StreamGroup } from '@/components/chat/stream/stream-ui'
 import { describeToolCall, humanizeToolText } from '@ihui/shared/chat'
-import {
-  resolveViewFailure,
-  VIEW_FAILURE_NAMESPACE,
-  VIEW_FAILURE_ERROR_CODE_KEY,
-} from '@ihui/shared/utils/view-failure-taxonomy'
-import { FALLBACK_REASON_QUOTA_EQUIVALENT } from '@ihui/api-client'
 import { ArtifactCanvas, type Artifact } from '@/components/chat/artifact-canvas'
 import { ThinkingSection } from '@/components/ai/progress-sections/thinking-section'
 import { ToolCallSummaryCard } from '@/components/ai/progress-sections/tool-call-summary-card'
@@ -64,7 +43,7 @@ import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
 import { TerminalSection } from '@/components/ai/progress-sections/terminal-section'
 import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card'
 import { CitationBar } from '@/components/ai/progress-sections/citation-bar'
-import { ContextAssemblyBar } from '@/components/ai/injection-bar'
+import { InjectionBar } from '@/components/ai/progress-sections/injection-bar'
 import { RetryNotice } from '@/components/ai/progress-sections/retry-notice'
 import { MemoryNoticeBar } from '@/components/ai/progress-sections/memory-notice-bar'
 // Steer(中途引导,2026-09-19 立):消息级「已引导」提示条(store 旁路 steerNoticesByMessageId)
@@ -76,15 +55,10 @@ import { BestOfCompare } from '@/components/ai/best-of-compare'
 import { plainTextForClipboard } from '@/components/ai/progress-sections/message-context-menu'
 import { MessageFileChips } from '@/components/chat/message-list/file-chips'
 import { TurnChangesCard } from '@/components/chat/message-list/turn-changes-card'
-// D64 ⑤(2026-09-26 挂载):反馈问卷卡 —— 2026-09-24 立卡后一直零消费点,本票接线
-import { FeedbackSurveyCard } from '@/components/chat/feedback-survey-card'
-import type { FeedbackSurveyPayload } from '@ihui/shared/chat/element-pack'
 // P3 #39(2026-09-16 立):执行轨迹回放(toolCalls 时序重演)
 import { TraceReplay } from '@/components/ai/trace-replay'
 import { useChatStore } from '@/stores/chat'
 import { useTts } from '@/hooks/use-tts'
-// D60(2026-09-23 渲染位):失败轮草稿保留提示与 toast 同源取词,不另立文案/状态
-import { resolvePersistTexts } from '@/hooks/use-chat/persistence'
 import { fetchApi } from '@/lib/api'
 import { toast } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
@@ -116,14 +90,6 @@ const FILE_MODIFY_TOOLS = new Set([
   'create_file',
   'delete_file',
 ])
-
-// D64 ⑤:点踩触发的问卷是用户显式动作,免打扰三反例(已答/已问过/失败轮次)恒不成立;
-// 失败消息在渲染位另行拦截(m.error 不挂卡),不在此造第二套判定。
-const SURVEY_ASKABLE_CONTEXT = {
-  alreadyAnswered: false,
-  alreadyAskedInSession: false,
-  turnFailed: false,
-} as const
 
 interface MessageItemProps {
   message: ChatMessage
@@ -181,19 +147,6 @@ const MessageItem = React.memo(function MessageItem({
   const tStream = useTranslations('taskStatus')
   // diff 卡取不到路径时的占位(工具卡同一文案源)
   const tTool = useTranslations('ai.toolCall')
-  // D92(2026-09-24):错误卡与 MCP 面板共用同一张失败分类表(单一真相,禁止另起)
-  const tFailure = useTranslations(VIEW_FAILURE_NAMESPACE)
-  const failureResolution = m.error
-    ? resolveViewFailure({ errorCode: m.errorCode, message: m.content })
-    : null
-  // 回落态(unknown)刻意不套表的标题/动作:分类不到就不要把"未判定"说成结论。
-  const errorViewFailure =
-    failureResolution && !failureResolution.isFallback ? failureResolution : null
-  // 单独提出:errorCodeText 类型是 `string | null`,直接塞给 t() 会撞 TS2322(参数不收 null)
-  const errorCodeText = errorViewFailure?.errorCodeText ?? null
-  const errorCardTitle = errorViewFailure
-    ? tFailure(errorViewFailure.entry.titleKey)
-    : t('errorCardTitle')
   const isUser = m.role === 'user'
   // D22(2026-09-19 立):system 角色独立渲染分支 — /chat 请求侧已拒绝 system(防上下文注入),
   // 渲染侧仅服务历史会话回放/恢复场景后端下发的只读 system 条目:居中灰字提示条,无操作栏。
@@ -218,22 +171,6 @@ const MessageItem = React.memo(function MessageItem({
   const steerNotices = useChatStore(
     React.useCallback((s) => s.steerNoticesByMessageId[m.id] ?? null, [m.id]),
   )
-  // D64 ⑤(2026-09-26 接线):右键点踩(use-message-list-context-menu)派发的展开事件。
-  // 票已在点踩瞬间落库(D49① 语义不变),问卷只是点踩的结构化细化,故只监听不重放。
-  const [surveyOpen, setSurveyOpen] = React.useState(false)
-  React.useEffect(() => {
-    const onOpen = (e: Event) => {
-      const detail = (e as CustomEvent<{ messageId: string }>).detail
-      if (detail?.messageId === m.id) setSurveyOpen(true)
-    }
-    window.addEventListener('ihui:feedback-survey-open', onOpen)
-    return () => window.removeEventListener('ihui:feedback-survey-open', onOpen)
-  }, [m.id])
-  // D60(2026-09-23 渲染位):persist 失败保存的草稿(store 层早已落,此前无组件消费)。
-  // 叶子选择器订阅 string|null,值比较天然防无关变更重渲染;仅失败卡消费,
-  // 文案经 resolvePersistTexts 与 toast 同源(TRANSITIONAL 英文口径,零新键)。
-  const failedDraft = useChatStore((s) => s.failedDraft)
-  const failedDraftStatus = useChatStore((s) => s.failedDraftStatus)
   // 2026-09-12 立:Checkpoint 回退弹窗开关
   const [rewindDialogOpen, setRewindDialogOpen] = React.useState(false)
   // #17:折叠中间步骤(工具卡 + plan 步骤)。D21(2026-09-19 立):初始态改由折叠策略驱动 —
@@ -424,14 +361,6 @@ const MessageItem = React.memo(function MessageItem({
     !!m.reasoning &&
     reasoningBaselineRef.current !== null &&
     m.reasoning.length > reasoningBaselineRef.current
-  // D64③ 双态(G-75):无思考却有引用时,引用条**收进思考卡**(标题即计数),
-  // 而不是在卡下方再列一份 —— 引用集合仍只有 `m.citations` 一处真相源。
-  const citationsCount = m.citations?.length ?? 0
-  // 卡片是否该以"引用态"出现(无思考但有引用)
-  const refsThinkingCardEligible = !m.reasoning && citationsCount > 0
-  // 引用条**展开后**才收进思考卡(标题即计数);折叠态留在卡外 ——
-  // 否则不点卡片就完全看不到来源，等于把信息藏进默认收起的容器里。
-  const refsRenderedInsideThinkingCard = refsThinkingCardEligible && reasoningExpanded
 
   const handleCopy = React.useCallback(
     async (e: React.MouseEvent | React.KeyboardEvent) => {
@@ -610,24 +539,6 @@ const MessageItem = React.memo(function MessageItem({
       .map((tc) => tc.image_url)
       .filter((url): url is string => typeof url === 'string' && url.length > 0)
   }, [m.toolCalls])
-  // D64 ②(2026-09-25 补挂):同消息全部图片作为画廊注入 ToolCallCard —— 画廊与
-  // messageImages 是同一份真相(同一遍历的投影),渲染件不自行收集附件(避免第二套聚合)。
-  const imageGallery = React.useMemo(() => messageImages.map((url) => ({ url })), [messageImages])
-  // 每个带图工具调用在画廊内的下标(与 messageImages 同序得出,不二次数)
-  const galleryIndexByCallId = React.useMemo(() => {
-    const map = new Map<string, number>()
-    let next = 0
-    for (const tc of m.toolCalls ?? []) {
-      if (typeof tc.image_url === 'string' && tc.image_url.length > 0) {
-        map.set(tc.id, next)
-        next += 1
-      }
-    }
-    return map
-  }, [m.toolCalls])
-  // 翻页是受控模式:FilePreview 只回报 onGalleryIndexChange,宿主必须自己记账,
-  // 否则点了上一张/下一张画面不动(受控组件没有内部兜底)。
-  const [galleryIndices, setGalleryIndices] = React.useState<Record<string, number>>({})
   const handleDownloadImages = React.useCallback(() => {
     if (messageImages.length === 0) return
     messageImages.forEach((url, idx) => {
@@ -670,12 +581,9 @@ const MessageItem = React.memo(function MessageItem({
   // 通过 window CustomEvent 'ihui:retry-message' 派发,由 message-input 监听后触发重新发送。
   // 不直接调用 chat store(任务约束),保持组件解耦。
   const handleRetry = React.useCallback(
-    // 事件形参改可选:O60i 之后本函数由 `MessageErrorCard` 的重试钮调用(契约是 `() => void`)。
-    // 该钮所在的失败卡子树里没有任何祖先级点击处理器(实测本文件 700-760 段无 onClick),
-    // 所以两枚 `e?.` 在无事件路径下是空操作 —— 保留守卫是为了别处再挂宿主时不丢截断。
-    (e?: React.MouseEvent) => {
-      e?.stopPropagation()
-      e?.preventDefault()
+    (e: React.MouseEvent) => {
+      e.stopPropagation()
+      e.preventDefault()
       window.dispatchEvent(new CustomEvent('ihui:retry-message', { detail: { messageId: m.id } }))
       const retryLabel = t('retry') === 'retry' ? 'Retrying…' : t('retry')
       if (retryLabel === 'retry') {
@@ -684,33 +592,6 @@ const MessageItem = React.memo(function MessageItem({
       toast.info(retryLabel)
     },
     [m.id, t],
-  )
-
-  // D64 ⑤(2026-09-26 接线):问卷提交 → 扩展载荷落库(fetchApi 直连:
-  // api-client 的 rateChatMessage 签名仅两参,packages/api-client 本票不可动)。
-  // 三选答复折算票型:'solved' = 用户实际被解决 ⇒ upsert 改票 like(误点纠正);
-  // 'partial'/'notSolved' 维持点踩原票;comment 非空才携带。端点另收 reason(五类原因),
-  // 问卷卡为「三选」结构不产 reason —— 该字段留给 API 调用方与后续 UI 迭代。
-  const handleSurveySubmit = React.useCallback(
-    async (payload: FeedbackSurveyPayload) => {
-      const rating: 'like' | 'dislike' = payload.answer === 'solved' ? 'like' : 'dislike'
-      try {
-        const res = await fetchApi<{ rated: boolean }>('/api/chat/messages/feedback', {
-          method: 'POST',
-          body: JSON.stringify({
-            messageId: payload.messageId,
-            rating,
-            ...(payload.comment ? { comment: payload.comment } : {}),
-          }),
-        })
-        if (!res.success) throw new Error(res.error || '反馈提交失败')
-      } catch (err) {
-        toast.error(t('toast.feedbackFailed'), {
-          description: err instanceof Error ? err.message : String(err),
-        })
-      }
-    },
-    [t],
   )
 
   // Phase 19(2026-07-28 立):反向联动 — hover 消息时同步高亮 plan step,
@@ -796,14 +677,6 @@ const MessageItem = React.memo(function MessageItem({
       })()
     : null
 
-  // G-825:边界复位键与降级交代事实**共用这一份上下文** —— 两处各算一遍必然漂开
-  // (键按新内容算、warn 按旧内容报,是本仓记过最多次的"两把尺子互相指认"同型)。
-  const markdownGuard: MarkdownRenderContext = {
-    content: m.content,
-    renderStreaming: streamingThis,
-    mode: markdownRenderModeFor(codeCollapseLines),
-  }
-
   return (
     <div
       className={cn(
@@ -846,66 +719,35 @@ const MessageItem = React.memo(function MessageItem({
             />
           </div>
         ) : m.error ? (
-          // D22(2026-09-19 内联立)→ O60i(2026-09-25 合一):同一张失败卡在仓里曾有**两份实现**
-          // (本文件内联 + `MessageErrorCard.tsx`),且**两份都发 `message-error-card-${id}`** ——
-          // 于是"页面上有这个 testid"的探针根本分不出挂的是哪一张,而组件那份带的
-          // D34 三态倒计时 / D39 额度动作族 / D67 归属分型卡**永远进不了屏幕**。
-          // 现在宿主唯一出口是组件;标题由宿主算完再传(回落态判 `isFallback` 的权力留在拿得到
-          // 分类结果的一侧,不在卡里另起一张表)。
-          <MessageErrorCard
-            messageId={m.id}
-            content={m.content}
-            t={(key: string) => t(key)}
-            titleText={errorCardTitle}
-            onRetry={() => handleRetry()}
-            draftPreservedText={
-              failedDraft !== null
-                ? resolvePersistTexts(failedDraftStatus ?? 'failed_retryable').title
-                : null
-            }
+          // D22(2026-09-19 立):error 独立消息类型渲染 — 红色边框错误卡片(替代原纯红文本),
+          // 头部警示图标 + 独立标题,正文纯文本(剥离 shared 层附加的 ⚠ 前缀),
+          // 重试按钮内聚卡片底部(原气泡外置 retry 按钮随本次改造移除)。
+          <div
+            className="w-full overflow-hidden rounded-lg border border-destructive/40 bg-destructive/5"
+            data-testid={`message-error-card-${m.id}`}
           >
-            {errorViewFailure && (
-              <>
-                {/* D92(2026-09-24 接线):有后端业务错误码时按**统一分类表**取错误码行/建议动作
-                    (`@ihui/shared/utils/view-failure-taxonomy`,与 MCP 面板同一张表,不另起)。 */}
-                {errorCodeText && (
-                  <div
-                    className="break-all px-3 pb-1 font-mono text-[11px] text-muted-foreground tabular-nums"
-                    data-testid={`message-error-code-${m.id}`}
-                  >
-                    {tFailure(VIEW_FAILURE_ERROR_CODE_KEY, { errorCode: errorCodeText })}
-                  </div>
-                )}
-                <p
-                  className="px-3 pb-1 text-xs leading-relaxed text-muted-foreground"
-                  data-testid={`message-error-action-${m.id}`}
-                >
-                  {tFailure(errorViewFailure.entry.actionKey)}
-                </p>
-              </>
-            )}
-            {/* D94 尾票(2026-09-25 接线):失败位除"标题 + 错误码 + 建议动作"外,
-                产出一份**可直接对外提交的脱敏交接单**(诊断方法／已试修复／证据／界面位置四段)。
-                ctx 三项全部取自本条消息的真实字段:错误原文、分类表给出的错误码、消息创建时间;
-                缺哪项就留缺 —— 共享层对缺证据写"未提供",不臆造(见 handoff-package.ts:182-201)。 */}
-            <HandoffPackageCard
-              ctx={{
-                errorMessage: m.content.replace(/^⚠\s*/, ''),
-                localSignals: { errorCode: errorCodeText ?? undefined },
-                occurredAt: Number.isFinite(m.createdAt)
-                  ? new Date(m.createdAt).toISOString()
-                  : undefined,
-              }}
-              data-testid={`message-handoff-${m.id}`}
-            />
-          </MessageErrorCard>
+            <div className="flex items-center gap-2 border-b border-destructive/20 bg-destructive/10 px-3 py-2 text-destructive">
+              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="text-xs font-medium">{t('errorCardTitle')}</span>
+            </div>
+            <p className="whitespace-pre-wrap break-words px-3 py-2 text-sm text-destructive/90">
+              {m.content.replace(/^⚠\s*/, '')}
+            </p>
+            <div className="px-3 pb-2 pt-0.5">
+              <button
+                type="button"
+                onClick={handleRetry}
+                data-testid={`message-retry-${m.id}`}
+                className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <RefreshCw className="h-3 w-3" aria-hidden />
+                <span>{t('retry') === 'retry' ? 'Retry' : t('retry')}</span>
+              </button>
+            </div>
+          </div>
         ) : isUser ? (
-          // D129(2026-09-29):此前这一行是 `<p className="whitespace-pre-wrap">{m.content}</p>`,
-          // 不过任何解析 —— 而发送侧把附件拍平成 `![label](url)` / `<video …>` / fenced block /
-          // `> 📎 label` 四种文本形态,于是用户自己上传的东西在他自己的气泡里显示成源码。
-          // 交给 UserMessageBody 拆附件渲染,**正文仍走纯文本 `<p>`**:G-825「消息级 markdown 边界」
-          // 有一条负例锁住"用户正文不进 markdown",所以不能图省事复用助手侧那个渲染器。
-          <UserMessageBody content={m.content} testId={`user-message-body-${m.id}`} />
+          // 2026-08-02:用户消息字号同步调整 14px → 15px(text-[15px]),与 AI 消息对齐
+          <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{m.content}</p>
         ) : (
           <div
             ref={contentAreaRef}
@@ -919,22 +761,15 @@ const MessageItem = React.memo(function MessageItem({
                 (compaction 命名帧 → onCompaction → store setMessageCompaction 写入),
                 置于消息内容区顶部(思考区之前),提示"上方历史已压缩为摘要"。 */}
             {m.compaction && <CompressionDivider compaction={m.compaction} />}
-            {(m.reasoning || refsThinkingCardEligible) && (
+            {m.reasoning && (
               <ThinkingSection
-                content={m.reasoning ?? ''}
+                content={m.reasoning}
                 currentNode={null}
                 // 2026-08-29:isStreaming 收紧为"思考进行中" — 正文开始输出后思考区
                 // 立即进入已完成态(停掉"思考中..."loader / 闪烁光标 / 耗时 tick)
                 isStreaming={streamingThis && !m.content}
                 // 2026-08-29:正文流式期间 reasoning 交错到达 → 增长指示(脉冲光标)
                 isGrowing={reasoningGrowing}
-                // D64③:标题双态判定在共享层(有思考→"思考过程" / 无思考有引用→"使用了 N 个引用")
-                refsCount={citationsCount}
-                refsSlot={
-                  refsRenderedInsideThinkingCard ? (
-                    <CitationBar citations={m.citations ?? []} />
-                  ) : undefined
-                }
                 expanded={reasoningExpanded}
                 onToggle={toggleReasoning}
               />
@@ -1086,11 +921,6 @@ const MessageItem = React.memo(function MessageItem({
                           repeated={tc.repeated}
                           retryCount={tc.retryCount}
                           imageUrl={effectiveImageUrl}
-                          gallery={imageGallery.length > 1 ? imageGallery : undefined}
-                          galleryIndex={galleryIndices[tc.id] ?? galleryIndexByCallId.get(tc.id)}
-                          onGalleryIndexChange={(index) =>
-                            setGalleryIndices((prev) => ({ ...prev, [tc.id]: index }))
-                          }
                           audioUrl={effectiveAudioUrl}
                           videoUrl={effectiveVideoUrl}
                           taskId={effectiveTaskId}
@@ -1115,11 +945,7 @@ const MessageItem = React.memo(function MessageItem({
                         />
                         {/* 内联 content 型 artifact:HTML 走沙箱 iframe 预览,代码型走代码视图 */}
                         {effectiveArtifacts?.map((art, i) => (
-                          <ArtifactCanvas
-                            key={`${tc.id}-${i}`}
-                            artifact={art}
-                            turnMessageId={m.id}
-                          />
+                          <ArtifactCanvas key={`${tc.id}-${i}`} artifact={art} />
                         ))}
                       </React.Fragment>
                     )
@@ -1156,62 +982,16 @@ const MessageItem = React.memo(function MessageItem({
               </StreamGroup>
             )}
             <ReplyAnnotationLayer messageId={m.id} conversationId={conversationId}>
-              {/* G-825:消息级 markdown 边界。降级形态是 pre-wrap 纯文本 ⇒ 内容还在,只是不格式化
-                  (刻意零文案:要写一句"渲染失败"就得新增 i18n 键,而语言包此刻由并行会话持有)。 */}
-              <ErrorBoundary
-                resetKeys={markdownResetKeys(markdownGuard)}
-                fallback={
-                  <pre
-                    data-testid={`message-markdown-fallback-${m.id}`}
-                    className="whitespace-pre-wrap break-words px-3 py-2 text-sm leading-relaxed"
-                  >
-                    {m.content}
-                  </pre>
-                }
-                onError={() => {
-                  // 结构化 warn:只报量,正文一个字符都不进日志(markdownRenderFailureFacts 的契约)
-                  console.warn(
-                    MARKDOWN_RENDER_FAILURE_EVENT,
-                    markdownRenderFailureFacts(markdownGuard),
-                  )
-                }}
-              >
-                <MarkdownStream
-                  content={m.content}
-                  isStreaming={streamingThis}
-                  collapseLines={codeCollapseLines}
-                />
-              </ErrorBoundary>
+              <MarkdownStream
+                content={m.content}
+                isStreaming={streamingThis}
+                collapseLines={codeCollapseLines}
+              />
             </ReplyAnnotationLayer>
-            {/* D33 消息级降级交代行:顶部 FallbackBanner 是瞬态,历史态由水合把 metadata.fallback
-                挂到消息上(见 stores/chat.ts 的 fallback 字段注释),词与横幅同源(chat ns 既有两键)。 */}
-            {!isUser && m.fallback && (
-              <p
-                data-testid={`message-fallback-${m.id}`}
-                className="px-3 pb-1 text-xs text-muted-foreground"
-              >
-                {m.fallback.reason === FALLBACK_REASON_QUOTA_EQUIVALENT
-                  ? t('fallbackNoticeQuota', {
-                      primary: m.fallback.primaryModel,
-                      backup: m.fallback.backupModel,
-                    })
-                  : t('fallbackNotice', {
-                      primary: m.fallback.primaryModel,
-                      backup: m.fallback.backupModel,
-                    })}
-              </p>
-            )}
-            {/* #11 Citations 全链路(2026-09-13 立):引用溯源条 inline 到消息正文下方。
-                D64③ 起:无思考时该条已收进思考卡(同一集合只呈现一次),故此处让位。 */}
-            {!refsRenderedInsideThinkingCard && m.citations && m.citations.length > 0 && (
-              <CitationBar citations={m.citations} />
-            )}
-            {/* D34 上下文注入交代(2026-09-22 立) + D37 聚合装配查看器(2026-09-24 立):
-                聚合条默认收起(计数徽章,与 D21 fold-policy 联动),点击展开逐条 kind
-                本地化交代 + fullText 可展开,收编原 InjectionBar 的散列单条渲染 */}
-            {m.injections && m.injections.length > 0 && (
-              <ContextAssemblyBar injections={m.injections} />
-            )}
+            {/* #11 Citations 全链路(2026-09-13 立):引用溯源条 inline 到消息正文下方 */}
+            {m.citations && m.citations.length > 0 && <CitationBar citations={m.citations} />}
+            {/* D34 上下文注入交代(2026-09-22 立):本轮回答实际带了哪些私有上下文 */}
+            {m.injections && m.injections.length > 0 && <InjectionBar injections={m.injections} />}
             {/* D39/D108 上游重试交代:换 key / 退避重试时给一行"第 N/M 次重试,X 秒后继续" */}
             {m.retryNotice && <RetryNotice notice={m.retryNotice} />}
             {/* P1 #27 记忆更新可视化(2026-09-16 立):本轮新增长期记忆「已记住」提示条。
@@ -1507,18 +1287,6 @@ const MessageItem = React.memo(function MessageItem({
         </div>
       )}
 
-      {/* D64 ⑤(2026-09-26 挂载):反馈问卷卡 —— 点踩后展开,挂在消息反馈位(操作区之下)。
-          仅 assistant 非失败消息;判定层 shouldShowSurvey 兜底,本处不重复实现免打扰。 */}
-      {!isUser && !m.error && surveyOpen && (
-        <FeedbackSurveyCard
-          messageId={m.id}
-          context={SURVEY_ASKABLE_CONTEXT}
-          onSubmit={(p) => void handleSurveySubmit(p)}
-          className="mt-1 w-full"
-          data-testid={`feedback-survey-${m.id}`}
-        />
-      )}
-
       {/* D22(2026-09-19 立):圈选 AI 回复入上下文 — 选中本消息文本后在尾部浮现
             「引用选中」按钮,点击把选中文本投递到输入区引用 chips(useMessageReferences)。
             置于操作按钮区之前,与 hover 操作栏解耦(选区操作时鼠标不在 hover 态也能点到)。 */}
@@ -1527,7 +1295,7 @@ const MessageItem = React.memo(function MessageItem({
           type="button"
           onClick={handleQuoteSelection}
           data-testid={`message-quote-selection-${m.id}`}
-          className="mt-0.5 inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="mt-0.5 inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <Quote className="h-3 w-3" aria-hidden />
           <span>{t('quoteSelection')}</span>
@@ -1583,7 +1351,7 @@ const MessageItem = React.memo(function MessageItem({
               rows={5}
               data-testid={`message-edit-textarea-${m.id}`}
               className={cn(
-                'w-full resize-y rounded-sm border border-border bg-background px-3 py-2 text-sm',
+                'w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm',
                 'text-foreground placeholder:text-muted-foreground',
                 'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
               )}
