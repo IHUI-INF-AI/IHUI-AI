@@ -1735,22 +1735,66 @@ export function radiusCount(f) {
  *  - `onlyMiniapp` / `onlyRn` —— 只有一侧给这个元素起了名字 ⇒ **不是分叉**,是配对射程边界,
  *    只逐条报名("报数不报名"在本仓记过多次:只给计数,拿到数字的人无法判断该不该扩判据)。
  */
+/**
+ * 元素名的**归一身份**(只在 RE 维用):
+ *  - 只切 **BEM 结构分隔符 `__`** —— `category-bar__item` 的元素名就是 `item`,这是命名法本身
+ *    规定的,不是相似度猜测(票面当年拒绝并档的理由是"一旦并档,配对就从证据变成猜测";
+ *    缩写前缀 `mcd-upload-btn` 与 camel `uploadBtn` 至今**不并**,那种才是猜测)。
+ *  - 大小写与 `-`/`_` 折叠:同一份语义在两端常写成 `free-badge` / `freeBadge`,
+ *    去分隔符后同为 `freebadge`,这一步也是机械的,不引入判断。
+ *  - 修饰符 `--mod` 不参与身份(它是同一元素的变体档,若因此配不上对,读数会假报"单侧元素")。
+ */
+export function canonicalElementName(name) {
+  const afterBlock = String(name).split('__').pop()
+  const withoutModifier = afterBlock.split('--')[0]
+  return withoutModifier.toLowerCase().replace(/[-_]/g, '')
+}
+
+/**
+ * 两侧元素名 → 归一身份的映射。**一对多就放弃配对**:
+ * 同一侧若有两个不同原始名折叠到同一身份(例:`card` 与 `card__` 与 `Card_` 同时存在),
+ * 并档会把两个不同元素并成一个"同值"的假绿灯 —— 那比漏配更贵(§"配对键本身也是判据")。
+ * @returns {{map:Map<string,string>, ambiguous:string[]}} map:身份 → 唯一原始名;ambiguous:被剔除的身份
+ */
+function identityIndex(entries) {
+  const byId = new Map()
+  const ambiguous = new Set()
+  for (const raw of Object.keys(entries || {})) {
+    const id = canonicalElementName(raw)
+    if (!id) continue
+    const prev = byId.get(id)
+    if (prev !== undefined && prev !== raw) {
+      ambiguous.add(id)
+      byId.delete(id)
+      continue
+    }
+    if (!byId.has(id)) byId.set(id, raw)
+  }
+  return { map: byId, ambiguous: [...ambiguous].sort() }
+}
+
 export function elementRadiusDiff(a, b) {
   const norm = (x) => [...new Set(x || [])].sort((p, q) => p - q)
-  const names = [...new Set([...Object.keys(a || {}), ...Object.keys(b || {})])].sort()
+  const A = a || {}
+  const B = b || {}
+  const ia = identityIndex(A)
+  const ib = identityIndex(B)
   const mismatched = []
   const onlyMiniapp = []
   const onlyRn = []
-  for (const n of names) {
-    const A = a?.[n]
-    const B = b?.[n]
-    if (A && B) {
-      if (String(norm(A)) !== String(norm(B)))
-        mismatched.push({ name: n, miniapp: norm(A), rn: norm(B) })
-    } else if (A) onlyMiniapp.push(n)
-    else onlyRn.push(n)
+  /** 折叠后撞在一起的名字:不判、不并,只点名(它意味着两端命名法在这一族不自洽)。 */
+  const ambiguous = [...new Set([...ia.ambiguous, ...ib.ambiguous])].sort()
+  const ids = [...new Set([...ia.map.keys(), ...ib.map.keys()])].sort()
+  for (const id of ids) {
+    const ra = ia.map.get(id)
+    const rb = ib.map.get(id)
+    if (ra !== undefined && rb !== undefined) {
+      if (String(norm(A[ra])) !== String(norm(B[rb])))
+        mismatched.push({ name: ra === rb ? ra : `${ra}|${rb}`, miniapp: norm(A[ra]), rn: norm(B[rb]) })
+    } else if (ra !== undefined) onlyMiniapp.push(ra)
+    else onlyRn.push(rb)
   }
-  return { mismatched, onlyMiniapp, onlyRn }
+  return { mismatched, onlyMiniapp, onlyRn, ambiguous }
 }
 
 /** RE 锚点计数 = 该组件里"同名而不同档"的元素数(一个元素算一处,不按档值双计)。 */
@@ -3194,7 +3238,60 @@ function runSelfTest() {
     })(),
   )
   t(
-    '㊻ 装车锁:elementRadiusDiff / radiusEntriesOf 必须真在 audit 体内被调用' +
+    'RE 配对键:BEM 结构分隔符可折(证据),缩写前缀不可折(猜测);折叠撞车时必须**不配对**而不是并档',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const mp = radiusEntriesOf(
+        [
+          '.cb__item { border-radius: 12rpx }',
+          '.cb__free-badge { border-radius: 16rpx }',
+          '.cb__panel--active { border-radius: 8rpx }',
+          '.mcd-upload-btn { border-radius: 8rpx }',
+        ].join('\n'),
+        tbl,
+      ).entries
+      const rn = radiusEntriesOf(
+        [
+          'const s = {',
+          '  item: { borderRadius: rnRadius.xl },',
+          '  freeBadge: { borderRadius: rnRadius.lg },',
+          '  panel: { borderRadius: rnRadius.md },',
+          '  uploadBtn: { borderRadius: rnRadius.lg },',
+          '}',
+        ].join('\n'),
+        tbl,
+      ).entries
+      const d = elementRadiusDiff(mp, rn)
+      // 名可以是字符串(单侧名单)或 {name,…}(分叉记录)—— 判据取名字那一层,
+      // 否则 `/x/.test({...})` 会把对象强转成 "[object Object]",四条子断言全部**永不命中**
+      // 而账面看起来"跑过了"(§22c:恒绿断言与恒红断言同样没用)。
+      const namesOf = (list) => (list || []).map((x) => (typeof x === 'string' ? x : x.name))
+      const has = (list, re) => namesOf(list).some((n) => re.test(n))
+      // ① BEM `__` 是命名法规定的元素分隔符:cb__item ↔ item 必须配上,且真分叉要被抓到
+      const paired = has(d.mismatched, /^cb__item\|item$/) && d.mismatched.length >= 1
+      // ② 大小写 + 连字符折叠:`free-badge` ↔ `freeBadge` 同值 ⇒ 既不进 mismatched 也不进单侧名单
+      const folded =
+        !has(d.mismatched, /freebadge|free-badge/i) &&
+        !has(d.onlyMiniapp, /free-badge/) &&
+        !has(d.onlyRn, /freeBadge/)
+      // ③ 修饰符不参与身份:panel--active ↔ panel 必须配上(md=6 vs lg=8 ⇒ 应报分叉)
+      const modifier = has(d.mismatched, /panel/)
+      // ④ 缩写前缀**不折**(票面明令:那是猜测)⇒ 两边都只能算单侧元素
+      const notGuessed =
+        has(d.onlyMiniapp, /mcd-upload-btn/) && has(d.onlyRn, /uploadBtn/)
+      // ⑤ 反向锁:同一侧两个原始名折叠到同一身份时**不得配对**(并档会造"同值"假绿灯)
+      const collide = elementRadiusDiff(
+        { 'a__card': [8], 'b__card': [12] },
+        { card: [8] },
+      )
+      const guarded =
+        collide.mismatched.length === 0 &&
+        collide.onlyRn.includes('card') &&
+        collide.ambiguous.includes('card')
+      return paired && folded && modifier && notGuessed && guarded
+    })(),
+  )
+  t(
       '(函数在、自检过,而 audit 没调 = 提交链上一路绿灯,本仓最高频失效型)',
     (() => {
       const body = readFileSync(fileURLToPath(import.meta.url), 'utf8')

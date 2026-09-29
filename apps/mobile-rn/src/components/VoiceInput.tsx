@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
   clearBtn: {
     width: 24,
     height: 24,
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.xl, // radius-exempt: 24dp 清除按钮正圆(半径=边长一半),不得方档化
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
