@@ -17,13 +17,13 @@ import contextlib
 import logging
 import os
 from collections.abc import Coroutine
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal, TypedDict
 
 logger = logging.getLogger(__name__)
 
 # 默认时区:东八区(用户主要时区)
-_CN_TZ = timezone(timedelta(hours=8))
+from app.core.cn_time import CN_TZ as _CN_TZ
 
 # 历史记录上限(内存 LRU,超过自动 pop 最旧的一条)
 _HISTORY_LIMIT = 30
