@@ -62,7 +62,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
         <View className="p-3">
           {plan && (
             <View className="mb-3 p-3 rounded-md bg-muted border border-border">
-              <Text className="block mb-1.5 text-xs font-medium text-muted-foreground">
+              <Text className="block mb-[12rpx] text-xs font-medium text-muted-foreground">
                 {t('ai.agentDetail.runtimePlan')}
               </Text>
               <Text className="block text-xs leading-relaxed text-foreground whitespace-pre-wrap">
@@ -73,7 +73,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
 
           {permission && (
             <View className="mb-3 p-3 rounded-md bg-[var(--color-warning-light)] border border-[var(--color-warning-amber-light)]">
-              <Text className="block mb-1.5 text-xs font-medium text-[var(--color-warning-amber-text)]">
+              <Text className="block mb-[12rpx] text-xs font-medium text-[var(--color-warning-amber-text)]">
                 {t('ai.agentDetail.runtimePermission')}:{' '}
                 {permissionDecisionWord(permission.decision, (k) => t(`stepDecision.${k}`))}
               </Text>
@@ -87,7 +87,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
 
           {output && (
             <View className="mb-3">
-              <Text className="block mb-1.5 text-xs font-medium text-muted-foreground">
+              <Text className="block mb-[12rpx] text-xs font-medium text-muted-foreground">
                 {t('ai.agentDetail.runtimeOutput')}
               </Text>
               <Text className="block text-sm leading-relaxed text-foreground whitespace-pre-wrap">

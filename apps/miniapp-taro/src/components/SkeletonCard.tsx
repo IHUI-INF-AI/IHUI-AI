@@ -25,7 +25,7 @@ export default function SkeletonCard({
         {Array.from({ length: lines }).map((_, i) => (
           <View
             key={i}
-            className="h-2.5 rounded bg-muted animate-pulse"
+            className="h-[20rpx] rounded bg-muted animate-pulse"
             style={{ width: `${90 - i * 20}%` }}
           />
         ))}
