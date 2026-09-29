@@ -51,7 +51,6 @@ import {
 const here = dirname(fileURLToPath(import.meta.url))
 const scriptsDir = join(here, '..')
 const GIT = gitBinary()
-const read = (f) => readFileSync(join(scriptsDir, f), 'utf8')
 
 /** 已收敛到共用层的门(91 主题接线 / 94 错误码覆盖 / 101 锁与清单对账 / 93 跨端色值对账)。
  *  条数不写进任何断言文案 —— 它是会过期的数字,用例只按 `GATES.length` 说话。 */
@@ -63,6 +62,42 @@ const GATES = [
   // 清单长度不写进断言文案(会过期),用例一律按 `GATES.length` 说话。
   'check-cross-end-tokens.mjs',
 ]
+
+/**
+ * 形态锁一律判**被审的那一枚提交**,不判这台机此刻的盘 —— 由实测逼出:
+ * 本仓 `scripts/check-theme-prop-wiring.mjs` 的工作树副本停在 09-24 的旧草稿(既没 import 层、
+ * 又自带绑裸 `'git'` 的常量),而 HEAD 早已收口进层。按磁盘读时,「已收口的门必须 0 处裸 git」
+ * 与「4 道门必须真的 import 这一层」两条断言在**任何时刻**都红,而红的不是判据 —— 是别人
+ * 未提交的滞后副本被记成了本仓的债(§12e / 守门 77/83/118 同型:恒红门的唯一结局是逼人
+ * `--no-verify`,一次绕过约等于全部守门作废)。
+ *
+ * 面:默认 **HEAD blob**;`--staged` 判索引 blob;`--worktree` 只是人工逃生舱。
+ * 枚举与内容**同面同轮**(一次 `cat-file --batch` 读满本文件所需全部目标)。
+ * 取不到 ⇒ 抛 `Undetermined` 并点名 —— 不回落另一个面、不拿磁盘凑结论。
+ */
+const FACE = process.argv.includes('--staged') ? 'staged' : process.argv.includes('--worktree') ? 'worktree' : 'head'
+const READ_TARGETS = ['lib/face-reader.mjs', ...GATES]
+const FACE_TEXTS = (() => {
+  if (FACE === 'worktree') {
+    const m = new Map()
+    for (const f of READ_TARGETS) m.set(f, existsSync(join(scriptsDir, f)) ? readFileSync(join(scriptsDir, f), 'utf8') : null)
+    return m
+  }
+  const prefix = FACE === 'staged' ? ':' : 'HEAD:'
+  const specs = READ_TARGETS.map((f) => `${prefix}scripts/${f}`)
+  const got = catBatch(scriptsDir, specs, { maxBuffer: 1 << 26 })
+  const m = new Map()
+  READ_TARGETS.forEach((f, i) => m.set(f, got.get(specs[i]) ?? null))
+  return m
+})()
+console.log(`  [取材面] ${FACE_LABEL[FACE]} —— 形态锁读的是这一面,不是共享工作树(目标 ${READ_TARGETS.length} 个,一轮批量读)`)
+
+function read(f) {
+  if (!FACE_TEXTS.has(f)) throw new Error(`判据想读 ${f},但它不在本文件的取材清单里 ⇒ 面会随调用悄悄变化,拒绝猜测`)
+  const t = FACE_TEXTS.get(f)
+  if (typeof t !== 'string') throw new Undetermined(`无法判定:${FACE_LABEL[FACE]} 面取不到 scripts/${f}(不回落磁盘凑结论)`)
+  return t
+}
 
 test('层自身:绝对路径 git(裸 "git" 会让服务账户/GUI 宿主下的取数静默失败)', () => {
   const bin = gitBinary()
@@ -226,8 +261,14 @@ test('判据本身不恒真:同一把尺子必须能抓住违规样本、而对�
 
 test(`装车证明:${GATES.length} 道门都必须真的 import 这一层`, (t) => {
   for (const f of GATES) {
-    if (!existsSync(join(scriptsDir, f))) {
-      t.skip(`${f} 不在盘上 ⇒ 未判定,不计为通过`)
+    // 判"在不在"也按**被审面**,不按盘 —— 一条被并行会话刚从 HEAD 摘掉的路径不该因为
+    // 盘上还留着就被记成"已装车";反过来盘上没有而面上有,也不该记成缺失。
+    if (FACE_TEXTS.get(f) === undefined) {
+      t.skip(`${f} 不在取材面名单里 ⇒ 未判定,不计为通过`)
+      continue
+    }
+    if (FACE_TEXTS.get(f) === null) {
+      t.skip(`${f} 在 ${FACE_LABEL[FACE]} 面上取不到 ⇒ 未判定,不计为通过`)
       continue
     }
     const src = read(f)
