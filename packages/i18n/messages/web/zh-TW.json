@@ -8650,7 +8650,7 @@
         },
         "speaking_banned": {
           "title": "目前處於禁言狀態",
-          "action": "聯絡管理員了解詳情"
+          "action": "聯絡管理員瞭解詳情"
         },
         "member_capacity_exceeded": {
           "title": "成員數量已達上限",
@@ -20344,7 +20344,7 @@
       "subtitle": "配置各平臺的登錄憑證(加密存儲)",
       "switchToAppQr": "切換為App掃碼",
       "switchToWechatQr": "切換為微信掃碼",
-      "morePlatforms": "更多平台",
+      "morePlatforms": "更多平臺",
       "taskId": "任務",
       "title": "平臺賬號管理",
       "verify": "測試連接",
