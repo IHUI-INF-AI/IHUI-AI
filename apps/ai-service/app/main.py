@@ -16,6 +16,7 @@ import asyncio
 import logging
 import os
 import sys
+import time
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -169,6 +170,51 @@ if settings.azure_api_key:
     os.environ.setdefault("AZURE_API_KEY", settings.azure_api_key)
 if settings.aws_access_key_id:
     os.environ.setdefault("AWS_ACCESS_KEY_ID", settings.aws_access_key_id)
+
+
+# G-896416(2026-09-29):收尾链的共享 deadline 预算与幂等闩。
+# 范式来源:ZCode `bootstrap/src/zcode-protocol/runtime-cleanup.ts:10-48` ——
+# 「共用绝对 deadline;某项失败/挂起不阻止其余资源被尝试,也不逐项续时」。
+# 刻意不照抄它的 1200ms 总预算:我方多个调度器的 stop() 要等在跑任务收尾,
+# 预算经 IHUI_SHUTDOWN_BUDGET_S 可调,缺省放宽到 30s。
+_SHUTDOWN_LOCK_RELEASED = False
+_SHUTDOWN_TOTAL_BUDGET_S = float(os.environ.get("IHUI_SHUTDOWN_BUDGET_S", "30"))
+_SHUTDOWN_STEP_CAP_S = 10.0
+
+
+def _acquire_shutdown_lock() -> bool:
+    """幂等闩:重复进入 lifespan 收尾(测试 / 双 close)只允许执行一次。"""
+    global _SHUTDOWN_LOCK_RELEASED
+    if _SHUTDOWN_LOCK_RELEASED:
+        return False
+    _SHUTDOWN_LOCK_RELEASED = True
+    return True
+
+
+async def _run_shutdown_steps(steps, deadline: float) -> None:
+    """按序执行收尾步骤,每步只拿「min(步级上限, 剩余预算)」。
+
+    三条语义(缺一不成立):
+    ① 单项挂起只消耗自己的时间片,不拖死整链;
+    ② 预算耗尽后其余步骤**仍被逐个尝试**(wait_for(0))并逐名报名 ——
+       「没跑」与「跑完」在日志里必须长得不一样,不得静默;
+    ③ 单步异常与超时同档:报名后继续,不让一个坏步骤吞掉后面的资源释放。
+    """
+    bad: list[str] = []
+    for name, factory in steps:
+        remaining = deadline - time.monotonic()
+        timeout = min(_SHUTDOWN_STEP_CAP_S, remaining) if remaining > 0 else 0.0
+        try:
+            await asyncio.wait_for(factory(), timeout=timeout)
+        except asyncio.TimeoutError:
+            tag = "timeout" if remaining > 0 else "skipped_expired_budget"
+            bad.append(f"{name}={tag}")
+            logger.warning("[shutdown] %s(%s): 未在预算内完成,继续后续步骤", name, tag)
+        except Exception as exc:  # noqa: BLE001
+            bad.append(f"{name}=error")
+            logger.warning("[shutdown] %s 失败(忽略): %s", name, exc)
+    if bad:
+        logger.warning("[shutdown] 非正常完成 %d 项: %s", len(bad), ", ".join(bad))
 
 
 @asynccontextmanager
@@ -541,157 +587,177 @@ async def lifespan(app: FastAPI) -> Any:
     yield
     # P0 修复(2026-08-02):移除 yield 后的 shutdown_telemetry() 重复调用,
     # 保留末尾(所有 cleanup 之后)的 shutdown_telemetry() 作为最后清理,避免重复 shutdown。
+    # G-896416(2026-09-29):收尾链改为"共享绝对 deadline + 幂等闩"(范式照 ZCode
+    # runtime-cleanup.ts:10-48)。三条语义:① 单项挂起只消耗自己的时间片;② 预算耗尽后
+    # 其余步骤仍被逐个尝试并逐名报名;③ 重复进入只执行一次。步级顺序与旧实现逐条等值;
+    # 唯一行为差异:旧实现里"裸 import 失败会在此处中断整链、吞掉后面全部资源释放",
+    # 现在改为该步报名失败后继续 —— 这是修复,不是行为回退。
 
-    # 关闭模型可用性服务(取消定时刷新任务,2026-07-31 立)
-    from app.services.model_availability import model_availability
-    await model_availability.shutdown()
+    if not _acquire_shutdown_lock():
+        logger.warning("[shutdown] 收尾已执行过(幂等闩命中),本次跳过")
+        return
 
-    # 关闭模型自动同步服务(取消定时同步任务,2026-07-31 立)
-    from app.services.model_sync import model_sync_service
-    await model_sync_service.shutdown()
+    deadline = time.monotonic() + _SHUTDOWN_TOTAL_BUDGET_S
 
-    # 关闭 IM 桥接服务(取消消费任务 + 关闭 Redis 连接,2026-07-31 立)
-    await im_bridge_service.shutdown()
+    async def _s_model_availability() -> None:
+        from app.services.model_availability import model_availability
 
-    # 关闭梦境固化调度器(等待进行中的用户固化任务完成)
-    from app.services.dream_scheduler import dream_scheduler
-    await dream_scheduler.stop()
+        await model_availability.shutdown()
 
-    # 关闭 Skill 自进化调度器(等待进行中的 skill 迭代任务完成)
-    from app.services.skill_evolution_scheduler import skill_evolution_scheduler
-    await skill_evolution_scheduler.stop()
+    async def _s_model_sync() -> None:
+        from app.services.model_sync import model_sync_service
 
-    # 关闭元学习调度器(等待进行中的失败聚类任务完成)
-    from app.services.meta_learner_scheduler import meta_learner_scheduler
-    await meta_learner_scheduler.stop()
+        await model_sync_service.shutdown()
 
-    # L5 关闭 A/B 测试调度器(等待进行中的显著性检验任务完成)
-    from app.services.ab_test_scheduler import ab_test_scheduler
-    await ab_test_scheduler.stop()
+    async def _s_dream_scheduler() -> None:
+        from app.services.dream_scheduler import dream_scheduler
 
-    await publish_scheduler.stop()
-    await self_media_scheduler.stop()
-    # 关闭媒体维护循环(2026-09-09)
-    from app.services.media_maintenance import media_maintenance
-    await media_maintenance.stop()
-    # 关闭资讯板块每日自动刷新调度器
-    from app.services.news_scheduler import news_scheduler
-    await news_scheduler.stop()
-    # 关闭数据库同步调度器(不打断已在运行的子进程,等它跑完)
-    from app.services.db_sync_scheduler import db_sync_scheduler
-    await db_sync_scheduler.stop()
-    # 关闭视频生成 worker(取消轮询任务)
-    try:
+        await dream_scheduler.stop()
+
+    async def _s_skill_evolution() -> None:
+        from app.services.skill_evolution_scheduler import skill_evolution_scheduler
+
+        await skill_evolution_scheduler.stop()
+
+    async def _s_meta_learner() -> None:
+        from app.services.meta_learner_scheduler import meta_learner_scheduler
+
+        await meta_learner_scheduler.stop()
+
+    async def _s_ab_test() -> None:
+        from app.services.ab_test_scheduler import ab_test_scheduler
+
+        await ab_test_scheduler.stop()
+
+    async def _s_media_maintenance() -> None:
+        from app.services.media_maintenance import media_maintenance
+
+        await media_maintenance.stop()
+
+    async def _s_news_scheduler() -> None:
+        from app.services.news_scheduler import news_scheduler
+
+        await news_scheduler.stop()
+
+    async def _s_db_sync_scheduler() -> None:
+        from app.services.db_sync_scheduler import db_sync_scheduler
+
+        await db_sync_scheduler.stop()
+
+    async def _s_video_worker() -> None:
         from app.services.video_generation import stop_video_worker
+
         await stop_video_worker()
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("[video] worker 关闭失败(忽略): %s", exc)
-    # 关闭后台任务调度器(等待运行中任务完成)
-    try:
+
+    async def _s_task_scheduler() -> None:
         from app.services.scheduler_service import task_scheduler
+
         await task_scheduler.shutdown()
-    except Exception as e:
-        logger.warning("[scheduler_service] 关闭失败(忽略): %s", e)
-    # 关闭 Playwright 单例(避免 Chromium 进程泄漏)
-    from app.services.screenshot_service import shutdown as screenshot_shutdown
-    await screenshot_shutdown()
 
-    # 关闭 Browser Hub(2026-07-31 立:CDP 完整 Chrome 内置浏览器)
-    # 懒加载,若未启动则 no-op;若已启动则关闭所有 session + Chromium 实例
-    try:
+    async def _s_screenshot() -> None:
+        from app.services.screenshot_service import shutdown as screenshot_shutdown
+
+        await screenshot_shutdown()
+
+    async def _s_browser_hub() -> None:
         from app.services.browser_hub import hub
+
         await hub.stop()
-    except Exception as e:
-        logger.warning("[browser_hub] 关闭失败(忽略): %s", e)
 
-    # 关闭 Computer Use 的按用户浏览器会话表(2026-09-27 立,G-258 后续票)。
-    # 该表按调用方懒启动 Chromium,唯一收缩口本来是"用户自己 POST /close",于是
-    # 进程退出时按活跃用户数整批漏浏览器。close_all_sessions 内部逐只关且异常隔离
-    # (某一只关不掉继续关其余的),所以这里的外层 try 只兜"导入/调用本身炸了"。
-    try:
+    async def _s_computer_use() -> None:
         from app.routers.computer_use import close_all_sessions
+
         await close_all_sessions()
-    except Exception as e:
-        logger.warning("[computer_use] 退出收口失败(忽略): %s", e)
 
-    # P1 修复:关闭所有 LSP 子进程(_instances 全局 dict 持有 LspClient 单例,
-    # 不主动 shutdown 会导致 typescript-language-server 子进程 + reader_task 泄漏)
-    try:
+    async def _s_lsp() -> None:
         from app.api.v1.lsp import LspClient
+
         await LspClient.shutdown_all()
-        logger.info("[lsp] all LSP clients shut down")
-    except Exception as e:
-        logger.warning("[shutdown] LspClient.shutdown_all 失败(忽略): %s", e)
 
-    # 关闭全局共享 httpx.AsyncClient(连接池复用,provider 共享)
-    from app.core.llm_gateway import close_http_client
-    await close_http_client()
+    async def _s_llm_http() -> None:
+        from app.core.llm_gateway import close_http_client
 
-    # 关闭 api-service → api 调用的共享 httpx.AsyncClient(mTLS 客户端)
-    from app.services.api_client import close_api_client
-    await close_api_client()
+        await close_http_client()
 
-    # 关闭外部 MCP Client 连接(2026-08-30 立,断开 stdio 子进程 / SSE 连接)
-    try:
+    async def _s_api_client() -> None:
+        from app.services.api_client import close_api_client
+
+        await close_api_client()
+
+    async def _s_mcp_client() -> None:
         from app.services.mcp_client import get_mcp_client_manager
+
         await get_mcp_client_manager().disconnect_all()
-        logger.info("[mcp_client] 外部 MCP Client 已全部断开")
-    except Exception as e:
-        logger.warning("[mcp_client] shutdown 断开失败(忽略): %s", e)
 
-    # 关闭 stdio MCP Server 子进程(2026-09-01 立,P1-4 配套,杀掉所有 stdio 子进程)
-    try:
+    async def _s_mcp_stdio() -> None:
         from app.services.mcp_stdio_bridge import shutdown_all
+
         await shutdown_all()
-        logger.info("[mcp_stdio] stdio MCP Server 全部关闭")
-    except Exception as e:
-        logger.warning("[mcp_stdio] shutdown 关闭失败(忽略): %s", e)
 
-    # 修复(2026-07-28):统一关闭共享 asyncpg 连接池(app.core.db_pool)。
-    # 原 14 个独立 pool 已全部复用 get_shared_pool(),此处一次 close 即可释放所有连接,
-    # 避免 shutdown 阶段逐个 service 调 close_pool(no-op)的冗余逻辑。
-    from app.core.db_pool import close_shared_pool
-    await close_shared_pool()
+    async def _s_shared_pool() -> None:
+        from app.core.db_pool import close_shared_pool
 
-    # P1 修复(2026-07-31 资源泄露):关闭各 service 持有的独立连接池 / Redis 客户端。
-    # 这些单例有自己的 close() 方法但此前未被 lifespan 调用,导致 uvicorn 重启时
-    # asyncpg / psycopg / Redis 连接累积,PostgreSQL pg_stat_activity 与 Redis CLIENT LIST 持续增长。
-    try:
+        await close_shared_pool()
+
+    async def _s_knowledge_graph() -> None:
         from app.services.knowledge_graph import graph_store
+
         if hasattr(graph_store, "close"):
             await graph_store.close()
-            logger.info("[shutdown] knowledge_graph closed")
-    except Exception as e:
-        logger.warning("[shutdown] knowledge_graph.close 失败(忽略): %s", e)
 
-    try:
+    async def _s_langgraph_checkpoint() -> None:
         from app.services.langgraph_checkpoint import get_langgraph_checkpoint_manager
+
         await get_langgraph_checkpoint_manager().close()
-        logger.info("[shutdown] langgraph_checkpoint closed")
-    except Exception as e:
-        logger.warning("[shutdown] langgraph_checkpoint.close 失败(忽略): %s", e)
 
-    try:
+    async def _s_agent_checkpoint() -> None:
         from app.services.agent_checkpoint import get_agent_checkpoint_manager
+
         await get_agent_checkpoint_manager().close()
-        logger.info("[shutdown] agent_checkpoint closed")
-    except Exception as e:
-        logger.warning("[shutdown] agent_checkpoint.close 失败(忽略): %s", e)
 
-    # 关闭旧版 app.core.db 独立 pool(若已被 db_pool.py 取代则为 no-op)
-    try:
+    async def _s_legacy_db_pool() -> None:
         from app.core.db import close_db_pool
-        await close_db_pool()
-    except Exception as e:
-        logger.warning("[shutdown] close_db_pool 失败(忽略): %s", e)
 
-    # 关闭 Socket.IO AsyncServer(显式 disconnect,确保所有客户端收到 disconnect 事件 +
-    # 释放 EngineIO 资源;uvicorn ASGI lifespan 也会清理,但显式调用更安全)
-    try:
+        await close_db_pool()
+
+    async def _s_socketio() -> None:
         await sio.disconnect()
-        logger.info("[shutdown] socket.io disconnected")
-    except Exception as e:
-        logger.warning("[shutdown] sio.disconnect 失败(忽略): %s", e)
+
+    steps = [
+        ("model_availability", _s_model_availability),
+        ("model_sync", _s_model_sync),
+        # 关闭 IM 桥接服务(取消消费任务 + 关闭 Redis 连接,2026-07-31 立)
+        ("im_bridge_service", lambda: im_bridge_service.shutdown()),
+        ("dream_scheduler", _s_dream_scheduler),
+        ("skill_evolution_scheduler", _s_skill_evolution),
+        ("meta_learner_scheduler", _s_meta_learner),
+        # L5 关闭 A/B 测试调度器(等待进行中的显著性检验任务完成)
+        ("ab_test_scheduler", _s_ab_test),
+        ("publish_scheduler", lambda: publish_scheduler.stop()),
+        ("self_media_scheduler", lambda: self_media_scheduler.stop()),
+        ("media_maintenance", _s_media_maintenance),
+        ("news_scheduler", _s_news_scheduler),
+        ("db_sync_scheduler", _s_db_sync_scheduler),
+        ("video_worker", _s_video_worker),
+        ("task_scheduler", _s_task_scheduler),
+        ("screenshot_service", _s_screenshot),
+        ("browser_hub", _s_browser_hub),
+        ("computer_use_sessions", _s_computer_use),
+        # P1 修复:关闭所有 LSP 子进程(否则 typescript-language-server 子进程泄漏)
+        ("lsp_clients", _s_lsp),
+        ("llm_gateway_http", _s_llm_http),
+        ("api_client_http", _s_api_client),
+        ("mcp_client", _s_mcp_client),
+        ("mcp_stdio_bridge", _s_mcp_stdio),
+        # 修复(2026-07-28):统一关闭共享 asyncpg 连接池(原 14 个独立 pool 已复用 get_shared_pool)
+        ("shared_db_pool", _s_shared_pool),
+        ("knowledge_graph", _s_knowledge_graph),
+        ("langgraph_checkpoint", _s_langgraph_checkpoint),
+        ("agent_checkpoint", _s_agent_checkpoint),
+        ("legacy_db_pool", _s_legacy_db_pool),
+        ("socket_io", _s_socketio),
+    ]
+    await _run_shutdown_steps(steps, deadline)
 
     shutdown_telemetry()
 
