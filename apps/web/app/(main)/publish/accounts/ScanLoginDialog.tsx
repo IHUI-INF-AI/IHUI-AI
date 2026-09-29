@@ -402,7 +402,7 @@ export function ScanLoginDialog({
                           onClick={() => setPlatform(p.platform)}
                           disabled={isBusy}
                           aria-pressed={active}
-                          className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                          className={`flex items-center justify-center gap-2 rounded-sm border px-3 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                             active
                               ? 'border-brand-accent-deep bg-primary/10 text-primary'
                               : 'border-border bg-background text-foreground hover:border-primary/40 hover:bg-muted'
