@@ -28,7 +28,8 @@ import { config } from '../config/index.js'
 import {
   fetchProviderHealth,
   isProviderHardUnavailable,
-  type HealthMap,
+  resolveProviderAvailability,
+  type ProviderHealthSnapshot,
 } from '../lib/llm-provider-health.js'
 import { db, dbRead } from '../db/index.js'
 import {
@@ -323,27 +324,37 @@ async function fetchModels(userId?: string): Promise<{
       // 硬不可用(down/not_configured/受限态 402·401·403·429)剔除。
       // 仅在存在上架平台模型时拉取一次 ai-service 可用性;
       // 缓存命中 / live / 仅 BYOK 路径不打额外上游。
-      let healthMap: HealthMap = new Map()
+      let health: ProviderHealthSnapshot = { providers: new Map(), known: false }
       if (dbModels.length > 0) {
         try {
-          healthMap = await fetchProviderHealth()
+          health = await fetchProviderHealth()
         } catch {
-          // 视为全部可用
+          // fetchProviderHealth 内部已把非 2xx / 网络 / 超时 / 解析失败收成 known:false;
+          // 这里只兜"它将来真的抛出"这一格 —— 落到 known:false,结论仍是"本轮未取到",
+          // 不得再写"视为全部可用"(G-726:那是把"没问到"读成"没问题")。
         }
       }
       const relayList = dbModels
-        .filter((m) => !isProviderHardUnavailable(m.providerCode, healthMap))
-        .map((m) => ({
-          // P0-5 修复(2026-07-30):返回带 LiteLLM 前缀的 model id,
-          // 客户端可直接传给 /v1/chat/completions,api 转发给 ai-service 无需二次映射。
-          // 映射规则:provider_code=stepfun → stepfun/,base_url 含 agnes-ai.com → agnes/,
-          // 其他(如 openai/原生)→ 不加前缀。
-          id: toLiteLLMModelId(m.id, m.providerCode, m.baseUrl),
-          object: 'model' as const,
-          created: Math.floor(now / 1000),
-          owned_by: m.providerCode || m.configName || 'ihui',
-          available: !isProviderHardUnavailable(m.providerCode, healthMap),
-        }))
+        // 剔除只在本轮真取到数据时生效;known:false 时保留全部(与改动前逐字同形,刻意不改严)
+        .filter(
+          (m) => !(health.known && isProviderHardUnavailable(m.providerCode, health.providers)),
+        )
+        .map((m) => {
+          const availability = resolveProviderAvailability(m.providerCode, health)
+          return {
+            // P0-5 修复(2026-07-30):返回带 LiteLLM 前缀的 model id,
+            // 客户端可直接传给 /v1/chat/completions,api 转发给 ai-service 无需二次映射。
+            // 映射规则:provider_code=stepfun → stepfun/,base_url 含 agnes-ai.com → agnes/,
+            // 其他(如 openai/原生)→ 不加前缀。
+            id: toLiteLLMModelId(m.id, m.providerCode, m.baseUrl),
+            object: 'model' as const,
+            created: Math.floor(now / 1000),
+            owned_by: m.providerCode || m.configName || 'ihui',
+            // G-726:'unknown'(本轮未取到)⇒ 省略 available 字段,既不显示健康也不显示不可用;
+            // 另两态照旧给布尔(与改动前同形)。
+            ...(availability === 'unknown' ? {} : { available: availability === 'available' }),
+          }
+        })
       // 官方名归一兜底(2026-09-13 立):同一模型(大小写不敏感)目录只允许出现一条,
       // relaySortOrder 升序在前者优先,防 DB 存量大小写重复导致目录双条目。
       const seenModelIds = new Set<string>()
