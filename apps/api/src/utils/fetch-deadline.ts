@@ -63,6 +63,24 @@ interface SignalWithReason {
 }
 
 /**
+ * 超时 abort 的 reason 上的标记（G-815411，2026-09-29）：调用方拿到的 rejection 必须能
+ * **程序化**地与「解析出空对象」分流，而不是靠 message 字符串比对 —— 两处各写一遍判别必然漂移。
+ * reason 的 message 仍携带 label 与超时位置（人读的那一半不变），标记只加机器读的那一半。
+ */
+export interface DeadlineAbortError extends Error {
+  deadlineLabel: string
+}
+
+/** 该 rejection 是否是本出口的超时 abort（外部 signal 的取消**不**算，它没有标记）。 */
+export function isDeadlineAbort(err: unknown): err is DeadlineAbortError {
+  return (
+    err instanceof Error &&
+    typeof (err as DeadlineAbortError).deadlineLabel === 'string' &&
+    (err as DeadlineAbortError).deadlineLabel.length > 0
+  )
+}
+
+/**
  * 发一次有 deadline 的出站请求，返回**受管** Response：
  * deadline 覆盖到响应体消费结束，headers 到达不解除。
  *
@@ -91,8 +109,13 @@ export async function fetchWithinDeadline(
   }
 
   // 超时点是「headers 之后、body 未读完」——文案把这个位置写出来，便于事后归因。
+  // reason 同时带上机器可读的标记（isDeadlineAbort），让调用方能把 abort 与「空响应」分流。
   const timer = setTimeout(() => {
-    controller.abort(new Error(`${label} 在 ${timeoutMs}ms 内未完成（超时发生在响应头之后的响应体消费阶段）`))
+    const reason = new Error(
+      `${label} 在 ${timeoutMs}ms 内未完成（超时发生在响应头之后的响应体消费阶段）`,
+    ) as DeadlineAbortError
+    reason.deadlineLabel = label
+    controller.abort(reason)
   }, timeoutMs)
   // headers 之后无人读 body 的路径不把挂起句柄留在事件循环上（能力缺失时忽略）。
   ;(timer as { unref?: () => void }).unref?.()
