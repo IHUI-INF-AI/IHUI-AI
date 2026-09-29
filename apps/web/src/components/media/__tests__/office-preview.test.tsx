@@ -118,7 +118,9 @@ function stubFetch(plan: FetchPlan): ReturnType<typeof vi.fn> {
         status: head.ok === false ? 404 : 200,
         headers: {
           get: (name: string) =>
-            name.toLowerCase() === 'content-length' && head.size != null ? String(head.size) : null,
+            name.toLowerCase() === 'content-length' && head.size !== null && head.size !== undefined
+              ? String(head.size)
+              : null,
         },
       } as unknown as Response
     }
@@ -223,6 +225,21 @@ describe('OfficePreview 渲染面', () => {
     await waitFor(() => expect(screen.getByTestId('xlsx-table').textContent).toContain('A3'))
     fireEvent.click(screen.getByText('A3')) // body 第 1 行(工作表第 2 行)第 1 列 → A2
     expect(screen.getByTestId('xlsx-selection').textContent).toBe('WORD_SELECTED(A2)')
+  })
+
+  it('xlsx(G-647):行截断披露只认 shown<total —— 展示不满才念,念的是 shown 数', async () => {
+    stubFetch({ head: { size: 100 }, get: { body: makeXlsx() } })
+    render(<OfficePreview src="https://x/a.xlsx" ext="xlsx" maxRows={1} />)
+    await waitFor(() => expect(screen.getByTestId('xlsx-table').textContent).toContain('A1'))
+    // 表A 共 2 行只展示首行 → shown(1) < total(2),披露在场且念 shown
+    expect(screen.getByTestId('xlsx-truncated').textContent).toBe('WORD_TRUNC(1)')
+  })
+
+  it('xlsx(G-647):shown === total 不念截断(行数一个不少就不许空喊"仅展示")', async () => {
+    stubFetch({ head: { size: 100 }, get: { body: makeXlsx() } })
+    render(<OfficePreview src="https://x/a.xlsx" ext="xlsx" />)
+    await waitFor(() => expect(screen.getByTestId('xlsx-table').textContent).toContain('A1'))
+    expect(screen.queryByTestId('xlsx-truncated')).toBeNull()
   })
 
   it('pptx:jszip 降级解析出逐 slide 文本大纲,slide1 带讲者备注', async () => {

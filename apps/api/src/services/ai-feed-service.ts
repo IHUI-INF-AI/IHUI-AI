@@ -26,6 +26,7 @@ import Parser from 'rss-parser'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
+import { fetchPublicAsset, formatPublicAssetFailure } from '../utils/public-asset-fetch.js'
 import { getSystemAccessToken } from '../utils/system-access-token.js'
 import {
   aiFeedSource,
@@ -1856,29 +1857,28 @@ export async function proxyImage(url: string): Promise<{
     throw new Error('域名不在图片代理白名单中')
   }
   const referer = `${parsed.protocol}//${parsed.host}`
-  const res = await fetchWithTimeout(url, {
+  // G-651:出站公开资产必须走统一出口 fetchPublicAsset(credentials:'omit' +
+  // redirect:'error' + 流式字节上限,替代裸 fetch + 整包 arrayBuffer() 无上限读入)。
+  // 失败归一只回 stage/reason,业务 message 附 (x-request-id:…) 供与后端日志对账;
+  // 调用方(ai-feed 路由)未透传 req id,由出口自动生成,路由 catch 后经
+  // toUserFriendlyMessage 对含中文的 message 原样透传,502 语义不变。
+  const result = await fetchPublicAsset({
+    url,
+    maxBytes: MAX_IMAGE_BYTES,
+    timeoutMs: FETCH_TIMEOUT_MS,
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       Referer: referer,
     },
   })
-  if (!res.ok) throw new Error(`图片获取失败: HTTP ${res.status}`)
+  if (!result.ok) {
+    throw new Error(formatPublicAssetFailure(result, '图片获取失败'))
+  }
   // 5) Content-Type 白名单
-  const contentType = res.headers.get('content-type') ?? ''
-  if (!/^image\//i.test(contentType)) {
+  if (!/^image\//i.test(result.contentType)) {
     throw new Error('响应内容不是图片')
   }
-  // 6) 响应体大小限制(防止 OOM / 慢攻击)
-  const contentLength = res.headers.get('content-length')
-  if (contentLength && Number(contentLength) > MAX_IMAGE_BYTES) {
-    throw new Error(`图片过大(>${MAX_IMAGE_BYTES / 1024 / 1024}MB)`)
-  }
-  const arrayBuffer = await res.arrayBuffer()
-  if (arrayBuffer.byteLength > MAX_IMAGE_BYTES) {
-    throw new Error(`图片过大(>${MAX_IMAGE_BYTES / 1024 / 1024}MB)`)
-  }
-  const buffer = Buffer.from(arrayBuffer)
-  return { buffer, contentType }
+  return { buffer: Buffer.from(result.bytes), contentType: result.contentType }
 }
 
 // =============================================================================

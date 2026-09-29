@@ -15,14 +15,18 @@ import { useRouteAnalytics } from '@/hooks/use-route-analytics'
 import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts'
 import { useGlobalNotification } from '@/hooks/use-global-notification'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
-import { useDesktopEvents, useDesktopDeepLink } from '@/hooks/use-desktop'
+import { useDesktopEvents, useDesktopDeepLink, useTrayStatus } from '@/hooks/use-desktop'
 import { useAgentControl } from '@/hooks/use-agent-control'
 import { useUiControlBridge } from '@/hooks/use-ui-control-bridge'
 import { useNativePushRegister } from '@/hooks/use-native-push'
 import { CommandPalette } from '@/components/layout/CommandPalette'
+import { CloseChoiceDialog } from '@/components/common/CloseChoiceDialog'
 import { toast } from '@/components/common'
 import { useModeStore } from '@/stores/mode'
+import { useChatStore } from '@/stores/chat'
+import { useNotificationStore } from '@/stores/notification'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+import { appVersionGateCheck } from '@/lib/app-version-gate'
 
 /** 设置页路由。桌面端托盘「打开设置」与 Ctrl+Shift+, 快捷键共用同一入口。 */
 const SETTINGS_PATH = '/settings'
@@ -148,12 +152,26 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   useDesktopDeepLink()
   // 桌面端 agent-control 桥:上报 computer 能力 + 消费 agent.action 推送(浏览器端 no-op)
   useAgentControl()
+  // 托盘 tooltip + 任务栏未读徽章(2026-07-29 立的 useTrayStatus **一直没有挂载点**,
+  // 2026-09-28 的「未读提醒」开关也挂在这条链上 —— 不在此处挂,设置项就是能拨但永远不亮)。
+  // 判定来源用 store 现成的那一份:流式 = chat.isStreaming,未读 = notification.unreadCount;
+  // 浏览器端 isTauri()=false ⇒ 整条链 no-op,不发 IPC。
+  const trayStreaming = useChatStore((s) => s.isStreaming)
+  const trayUnread = useNotificationStore((s) => s.unreadCount)
+  useTrayStatus(trayStreaming, trayUnread)
   // Web 端 UI 控制桥:上报 endpoint:'web' 能力 + 消费 agent.action(category:'ui')指令,
   // 让 AI 经 web_ui_* 工具操作本站页面(Tauri 端 no-op,让位 useAgentControl)
   useUiControlBridge()
   // App 端(Capacitor 壳)推送令牌注册:登录后监听 FCM registration 并上报设备注册表
   // (浏览器端 no-op,window.Capacitor 不存在;详见 use-native-push.ts)
   useNativePushRegister()
+  // G-700 接线:app-version 强更策略闸门的启动消费点(声明面此前零消费者)。
+  // 启动即拉 /api/app-version/check-update,按 minimumVersion/forceUpdate 判定强更;
+  // 决策经 window CustomEvent('app-version-gate:decision') 广播给 UI 钩子,
+  // 端点失败 fail-open 不拦启动(详见 lib/app-version-gate.ts 头注)。
+  React.useEffect(() => {
+    void appVersionGateCheck()
+  }, [])
   const { resolvedTheme, setTheme } = useTheme()
   const [showCommandPalette, setShowCommandPalette] = React.useState(false)
 
@@ -284,6 +302,13 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
     <>
       {children}
       <CommandPalette open={showCommandPalette} onOpenChange={setShowCommandPalette} />
+      {/*
+        关闭询问弹窗挂在全局宿主,而不是设置页里那张卡片:用户选了「每次询问」之后,
+        在任意页面点 × 都必须真的被问到 —— 挂在卡片里时只有人在 /settings 才看得到弹框,
+        其余场景会静默走到 Rust 侧 3 秒兜底(表现就是"设了询问却从来不问")。
+        组件自身在非 Tauri 环境直接 no-op,不注册监听、不渲染 DOM。
+      */}
+      <CloseChoiceDialog />
       {showHelpPanel && (
         <div
           role="presentation"
