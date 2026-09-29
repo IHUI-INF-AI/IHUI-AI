@@ -96,7 +96,7 @@ export function ReasoningEffortAxis({
                 className={
                   'rounded-sm px-2 py-0.5 text-xs transition-colors ' +
                   (active
-                    ? 'bg-cta font-medium text-cta-foreground'
+                    ? 'bg-primary font-medium text-primary-foreground'
                     : 'bg-muted text-muted-foreground hover:bg-accent')
                 }
                 onClick={() => onChange?.(active ? undefined : effort)}
