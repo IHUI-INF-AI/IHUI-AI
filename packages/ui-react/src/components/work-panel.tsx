@@ -20,7 +20,6 @@ import {
   Clock,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
-import { isTopOverlay, popOverlay, pushOverlay } from '../lib/overlay-stack'
 import { Input } from './input'
 import { CloseButton } from './close-button'
 import { ResizableHandle } from './resizable'
@@ -112,14 +111,14 @@ export interface WorkPanelProps {
    * - position='before' (默认):从 fromId 移到 toId 位置(原行为)
    * - position='after':从 fromId 移到 toId 之后 */
   onTabReorder?: (fromId: string, toId: string, position?: 'before' | 'after') => void
-  /** i18n 文案(P4-3:不传则回退英文默认值,跨端共享友好;各端应注入本地化 labels) */
+  /** i18n 文案(P4-3:不传则用中文默认值,跨端共享友好) */
   labels?: Partial<WorkPanelLabels>
   /** 内容区(各端注入 WebViewFrame 或自定义实现) */
   children?: React.ReactNode
   className?: string
 }
 
-/** i18n 文案接口(P4-3:统一收口界面文案,供跨端/跨语言注入) */
+/** i18n 文案接口(P4-3:统一收口所有中文硬编码,跨端/跨语言注入) */
 export interface WorkPanelLabels {
   back: string
   forward: string
@@ -145,28 +144,28 @@ export interface WorkPanelLabels {
   closeTab: string
 }
 
-/** i18n 默认值(不传 labels 时回退到英文;界面语言文案一律由调用端 labels 注入) */
+/** i18n 默认值(不传 labels 时回退到简体中文) */
 const DEFAULT_LABELS: WorkPanelLabels = {
-  back: 'Back',
-  forward: 'Forward',
-  reload: 'Reload',
-  stop: 'Stop',
-  addressPlaceholder: 'Enter URL or search...',
-  favorite: 'Add bookmark',
-  unfavorite: 'Remove bookmark',
-  favoritesAndHistory: 'Bookmarks & history',
-  openExternal: 'Open in external browser',
-  closePanel: 'Close panel',
-  newTab: 'New tab',
-  removeFavorite: 'Remove bookmark',
-  tabFavorites: 'Bookmarks',
-  tabHistory: 'History',
-  emptyFavorites: 'No bookmarks yet',
-  emptyHistory: 'No history yet',
-  clearHistory: 'Clear history',
-  dragInsertBefore: 'Insert before this tab',
-  dragInsertAfter: 'Insert after this tab',
-  closeTab: 'Close tab',
+  back: '后退',
+  forward: '前进',
+  reload: '刷新',
+  stop: '停止',
+  addressPlaceholder: '输入网址或搜索...',
+  favorite: '添加收藏',
+  unfavorite: '取消收藏',
+  favoritesAndHistory: '收藏和历史',
+  openExternal: '在外部浏览器打开',
+  closePanel: '关闭面板',
+  newTab: '新建标签页',
+  removeFavorite: '移除收藏',
+  tabFavorites: '收藏',
+  tabHistory: '历史',
+  emptyFavorites: '暂无收藏',
+  emptyHistory: '暂无历史',
+  clearHistory: '清空历史',
+  dragInsertBefore: '在此处之前插入',
+  dragInsertAfter: '在此处之后插入',
+  closeTab: '关闭标签页',
 }
 
 export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
@@ -209,7 +208,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
     },
     ref,
   ) => {
-    // P4-3:合并 labels(传参 > 英文默认),一次解析到处用
+    // P4-3:合并 labels(传参 > 默认中文),一次解析到处用
     const labels = React.useMemo<WorkPanelLabels>(
       () => ({ ...DEFAULT_LABELS, ...labelsProp }),
       [labelsProp],
@@ -219,8 +218,6 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
     const [dropdownTab, setDropdownTab] = React.useState<'favorites' | 'history'>('favorites')
     const dropdownRef = React.useRef<HTMLDivElement>(null)
     const dropdownTriggerRef = React.useRef<HTMLButtonElement>(null)
-    // Esc 层栈(2026-09-26 立):dropdown 的浮层注册 id
-    const escStackId = React.useId()
 
     // P3++:Tab 拖拽状态(记录被拖动的 tab id,用于半透明 + 防止自己 drop 到自己)
     const [draggedTabId, setDraggedTabId] = React.useState<string | null>(null)
@@ -245,21 +242,12 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
     // ESC 关闭 dropdown
     React.useEffect(() => {
       if (!dropdownOpen) return
-      // Esc 层栈(2026-09-26 立):dropdown open 期间注册为浮层,只在栈顶时消费 Esc。
-      pushOverlay(escStackId)
       const handler = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          // 层栈守卫:非栈顶(上面还压着别的浮层)时不消费 Esc
-          if (!isTopOverlay(escStackId)) return
-          setDropdownOpen(false)
-        }
+        if (e.key === 'Escape') setDropdownOpen(false)
       }
       document.addEventListener('keydown', handler)
-      return () => {
-        document.removeEventListener('keydown', handler)
-        popOverlay(escStackId)
-      }
-    }, [dropdownOpen, escStackId])
+      return () => document.removeEventListener('keydown', handler)
+    }, [dropdownOpen])
 
     if (!open) return null
 
@@ -368,7 +356,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
             ref={dropdownRef}
             role="dialog"
             aria-label={labels.favoritesAndHistory}
-            className="absolute right-2 top-11 z-50 flex w-72 flex-col ui-popover rounded-md border border-border bg-popover p-1.5 shadow-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified"
+            className="absolute right-2 top-11 z-50 flex w-72 flex-col rounded-xl border border-border bg-popover p-1.5 shadow-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified"
           >
             {/* tab 切换 */}
             <div className="flex items-center gap-0.5 px-1 pb-1">
@@ -376,7 +364,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                 type="button"
                 onClick={() => setDropdownTab('favorites')}
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors',
+                  'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
                   dropdownTab === 'favorites'
                     ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:text-foreground',
@@ -392,7 +380,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                 type="button"
                 onClick={() => setDropdownTab('history')}
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors',
+                  'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
                   dropdownTab === 'history'
                     ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:text-foreground',
@@ -442,7 +430,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                               e.stopPropagation()
                               onRemoveFavorite(item.url)
                             }}
-                            className="shrink-0 rounded-sm p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100"
+                            className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100"
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -464,7 +452,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                     onClearHistory()
                     setDropdownOpen(false)
                   }}
-                  className="inline-flex items-center gap-1 rounded-sm px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <Trash2 className="h-3 w-3" />
                   <span>{labels.clearHistory}</span>
@@ -579,7 +567,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                             e.stopPropagation()
                             onTabClose(tab.id)
                           }}
-                          className="rounded-sm p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 group-focus-within:opacity-100"
+                          className="rounded p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 group-focus-within:opacity-100"
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -635,7 +623,7 @@ const ToolbarButton = React.forwardRef<HTMLButtonElement, ToolbarButtonProps>(
         {...props}
         aria-label={props['aria-label'] ?? (typeof title === 'string' ? title : undefined)}
         className={cn(
-          'inline-flex shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40',
+          'inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40',
           size === 'sm' ? 'h-6 w-6' : 'h-7 w-7',
           className,
         )}

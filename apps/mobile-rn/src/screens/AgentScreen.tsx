@@ -902,7 +902,7 @@ const styles = StyleSheet.create({
     right: 16,
     width: 34,
     height: 34,
-    borderRadius: rnRadius.sm,
+    borderRadius: 17, // radius-exempt: 34dp 圆形回顶按钮,取边长一半
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',

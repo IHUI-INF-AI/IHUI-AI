@@ -1662,101 +1662,6 @@ export interface ToolApprovalEvent {
   dangerLevel: 'high' | 'medium' | 'low'
   /** 发起审批的流会话 id(回传端点寻址用) */
   sessionId?: string
-  /**
-   * D159(2026-09-30 立):逐请求的执行环境事实。三字段都是**可选新增**,不是新帧。
-   * 权威字段清单在 `packages/shared/src/sse/contract.ts`
-   * (`ToolApprovalExecEnvironmentWire` / `ToolApprovalNetworkTargetWire`),本包不依赖
-   * @ihui/shared,所以这里逐字收窄一份同形结构 —— 与本包既有形态(ToolApprovalEvent 本身、
-   * FormRequestEvent)同一姿势,不是第二份"真相",而是线格式的投影。
-   *
-   * `available === false` 与"整字段缺席"是两件事:前者 = 服务端上报了但读不到(弹窗必须
-   * 喊"未上报"),后者 = 回退开关 `IHUI_APPROVAL_ENV_REPORT=0` 整块不发(弹窗整块不渲染)。
-   * 把两态在本层折叠成一个,就等于把"没判"写成"判过了"。
-   */
-  execEnvironment?: ToolApprovalExecEnvironment
-  /** 本次要连的网络目标(`display` 恒 host:port,不显示归一键/哈希) */
-  networkTarget?: ToolApprovalNetworkTarget
-  /** 已被静态策略判死的目标清单("还没有规则覆盖它"不算被拦) */
-  blockedNetworkTargets?: ToolApprovalNetworkTarget[]
-}
-
-/** D159 执行环境(camelCase 消费形态;内层键与线格式逐字同,故只是投影) */
-export interface ToolApprovalExecEnvironment {
-  available: boolean
-  inSandbox?: boolean
-  backend?: string
-  networkIsolated?: boolean
-  degraded?: boolean
-  degradeNote?: string
-}
-
-/** D159 网络目标(在位才给"允许该目标"三档) */
-export interface ToolApprovalNetworkTarget {
-  host: string
-  port: number
-  protocol: string
-  display: string
-  reason?: string
-}
-
-/**
- * D159:把线格式(snake_case 外层 + camelCase 内层)的三个可选字段投影成消费形态。
- *
- * 判序刻意是"取不到就整块不发",而不是补默认值:
- * - 非对象(畸形/被中间层改成字符串)⇒ undefined ⇒ 弹窗整块不渲染;
- * - `exec_environment` 在位但 `available` 不是布尔 ⇒ 同样不发(宁缺勿造);
- * - `network_target` 缺 host/port ⇒ 不发 ⇒ 三档不落任何规则(不退化成"按工具名放行")。
- * 这份判据只住在一处,两个解析出口(本包 tryParseToolApproval 与
- * @ihui/shared 的 parseToolApprovalEvent)都调它,免得两份各漂一半。
- */
-export function projectToolApprovalEnvFacts(json: {
-  exec_environment?: unknown
-  network_target?: unknown
-  blocked_network_targets?: unknown
-}): Pick<ToolApprovalEvent, 'execEnvironment' | 'networkTarget' | 'blockedNetworkTargets'> {
-  const out: Pick<
-    ToolApprovalEvent,
-    'execEnvironment' | 'networkTarget' | 'blockedNetworkTargets'
-  > = {}
-  const env = json.exec_environment
-  if (env && typeof env === 'object' && typeof (env as Record<string, unknown>).available === 'boolean') {
-    const e = env as Record<string, unknown>
-    out.execEnvironment = {
-      available: e.available as boolean,
-      ...(typeof e.inSandbox === 'boolean' ? { inSandbox: e.inSandbox } : {}),
-      ...(typeof e.backend === 'string' ? { backend: e.backend } : {}),
-      ...(typeof e.networkIsolated === 'boolean'
-        ? { networkIsolated: e.networkIsolated }
-        : {}),
-      ...(typeof e.degraded === 'boolean' ? { degraded: e.degraded } : {}),
-      ...(typeof e.degradeNote === 'string' ? { degradeNote: e.degradeNote } : {}),
-    }
-  }
-  const target = asNetworkTarget(json.network_target)
-  if (target) out.networkTarget = target
-  const blocked = Array.isArray(json.blocked_network_targets)
-    ? (json.blocked_network_targets as unknown[])
-        .map(asNetworkTarget)
-        .filter((t): t is ToolApprovalNetworkTarget => t !== null)
-    : []
-  if (blocked.length > 0) out.blockedNetworkTargets = blocked
-  return out
-}
-
-function asNetworkTarget(value: unknown): ToolApprovalNetworkTarget | null {
-  if (!value || typeof value !== 'object') return null
-  const t = value as Record<string, unknown>
-  if (typeof t.host !== 'string' || t.host === '') return null
-  if (typeof t.port !== 'number') return null
-  return {
-    host: t.host,
-    port: t.port,
-    ...(typeof t.protocol === 'string' ? { protocol: t.protocol } : { protocol: '' }),
-    ...(typeof t.display === 'string' && t.display !== ''
-      ? { display: t.display }
-      : { display: `${t.host}:${t.port}` }),
-    ...(typeof t.reason === 'string' ? { reason: t.reason } : {}),
-  }
 }
 
 /**
@@ -2908,9 +2813,6 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             ...(typeof json.session_id === 'string' && json.session_id !== ''
               ? { sessionId: json.session_id }
               : {}),
-            // D159:执行环境/网络目标事实必须随帧递出 —— 解析层不递 ⇒ 弹窗那一块
-            // 结构上永远是"字段缺席=整块不渲染",组件测得再全也到不了端。
-            ...projectToolApprovalEnvFacts(json),
           })
         } catch {
           /* 非 JSON 或非 tool-approval 事件忽略 */
