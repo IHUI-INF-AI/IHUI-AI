@@ -90,7 +90,6 @@
     "agreeRequired": "まずサービス利用規約とプライバシーポリシーを読み、同意してください"
   },
   "forgot": {
-    "title": "パスワード再設定",
     "step1": "ステップ1: 電話番号認証",
     "step2": "ステップ2: 新しいパスワードを設定",
     "phone": "電話番号",
@@ -107,14 +106,15 @@
     "newPasswordPlaceholder": "新しいパスワードを入力",
     "confirmPassword": "パスワード確認",
     "confirmPasswordPlaceholder": "もう一度新パスワードを入力",
-    "hidePassword": "パスワードを非表示",
-    "showPassword": "パスワードを表示",
     "passwordTooShort": "パスワードは6文字以上で入力してください",
     "passwordMismatch": "2回入力したパスワードが一致しません",
     "resetting": "リセット中…",
     "submit": "リセット確認",
     "resetSuccess": "パスワードをリセットしました",
-    "codeInvalid": "認証コードを入力してください"
+    "codeInvalid": "認証コードを入力してください",
+    "hidePassword": "パスワードを非表示",
+    "showPassword": "パスワードを表示",
+    "title": "パスワード再設定"
   },
   "home": {
     "more": "もっと見る",
@@ -153,7 +153,14 @@
       "courseCount": "{n} 件のコース"
     },
     "ratingTitle": "コースを評価",
-    "ratingLabels": ["", "非常に悪い", "悪い", "普通", "良い", "非常に良い"],
+    "ratingLabels": [
+      "",
+      "非常に悪い",
+      "悪い",
+      "普通",
+      "良い",
+      "非常に良い"
+    ],
     "ratingPlaceholder": "評価してください",
     "ratingDescLabel": "レビューを書く",
     "ratingInputPlaceholder": "コースはどうでしたか?感想を共有してください...",
@@ -371,23 +378,23 @@
   },
   "community": {
     "posts": "投稿",
-    "confirm12": "この会話を削除しますか?",
-    "copy9": "リンクをコピーしました、ブラウザで開いてください",
-    "detail16": "カテゴリ詳細ページが未設定",
-    "failed10": "コピー失敗、再試行してください",
-    "failed6": "価格情報の取得に失敗しました",
-    "like7": "いいね済み",
-    "pay18": "支払いパラメータ異常",
-    "search13": "音声検索はフル版でご利用ください",
-    "search14": "画像検索はフル版でご利用ください",
-    "success17": "支払い成功(mock)",
     "text1": "智匯AIユーザー",
-    "text11": "会話ページ未設定",
-    "text15": "エージェントおすすめ",
     "text2": "智匯AI",
     "text3": "AIアプリストア - 智匯AIコミュニティ",
     "text5": "近日公開、お楽しみに",
+    "failed6": "価格情報の取得に失敗しました",
+    "like7": "いいね済み",
     "text8": "ページ未設定",
+    "copy9": "リンクをコピーしました、ブラウザで開いてください",
+    "failed10": "コピー失敗、再試行してください",
+    "text11": "会話ページ未設定",
+    "confirm12": "この会話を削除しますか?",
+    "search13": "音声検索はフル版でご利用ください",
+    "search14": "画像検索はフル版でご利用ください",
+    "text15": "エージェントおすすめ",
+    "detail16": "カテゴリ詳細ページが未設定",
+    "success17": "支払い成功(mock)",
+    "pay18": "支払いパラメータ異常",
     "m1": "AIアプリストア",
     "m2": "AIアプリストア",
     "m3": "検索するエージェント名を入力",
@@ -473,6 +480,53 @@
     "goSetting": "設定へ",
     "notificationEntry": "通知設定"
   },
+  "bill": {
+    "title": "学費の請求",
+    "wxSubscribe": "WeChat支払いリマインダー",
+    "wxSubscribeDesc": "登録すると未納の督促通知をWeChatに送信します",
+    "subscribe": "登録",
+    "subscribed": "WeChat支払いリマインダーを有効にしました",
+    "subscribeFailed": "サブスクリプションの許可が完了していません",
+    "enableArrearsRemind": "未納リマインダーを有効にする",
+    "feeSummary": "請求 ¥{total} · 支払済 ¥{paid}",
+    "payDesc": "学費-{name}",
+    "payMockOk": "支払い成功(mock、支払い資格情報が未設定)",
+    "payParamsMissing": "支払いパラメータが不足しています。機関にお問い合わせください",
+    "payOk": "支払いが完了しました",
+    "paying": "支払い中…",
+    "payOnline": "オンラインで ¥{amount} を支払う",
+    "ledgerNotReady": "台帳は準備中です",
+    "arrears": "未納 ¥{amount}",
+    "paidOff": "支払い済み",
+    "overdue": "{days}日遅延しています",
+    "dueOn": "{date} が期日",
+    "loading": "読み込み中…",
+    "empty": "請求はまだありません",
+    "paymentHistory": "支払い履歴",
+    "refunded": "(返金済み)",
+    "receiptNo": "伝票番号 {no}",
+    "businessLine": {
+      "after_school_care": "学童保育",
+      "kindergarten": "幼稚園",
+      "academic": "学科講座",
+      "ai_course": "AI講座",
+      "other": "その他"
+    },
+    "enrollStatus": {
+      "enrolled": "在籍中",
+      "graduated": "修了",
+      "withdrawn": "退学",
+      "suspended": "受講停止"
+    },
+    "payMethod": {
+      "cash": "現金",
+      "transfer": "振込",
+      "wechat": "WeChat",
+      "alipay": "Alipay",
+      "credit_card": "カード",
+      "other": "その他"
+    }
+  },
   "error": {
     "network": "ネットワークエラー"
   },
@@ -499,8 +553,6 @@
       "residualLabel": "未分類のオーバーヘッド"
     },
     "title": "AIアシスタント",
-    "welcomeTitle": "こんにちは、IHUI AIアシスタントです",
-    "welcomeDesc": "何かお手伝いしましょうか?",
     "inputPlaceholder": "質問を入力…",
     "suggestions": [
       "詩を書いてください",
@@ -516,141 +568,11 @@
     "modelLoadFailed": "モデルの読み込み失敗",
     "materialLoadFailed": "素材の読み込み失敗",
     "agentLoadFailed": "エージェントの読み込み失敗",
-    "generating": "急速生成中",
-    "thinkingTip": "Tips:まず右上の3点をクリックしてミニプログラムを浮窓し、しばらくしてから戻ってください~",
-    "fileSelected": "{count}個のファイルを選択しました",
-    "screenshotHint": "スクリーンショットを検出しました。+ からアルバム画像を選んで AI に送れます",
-    "common": {
-      "loading": "読み込み中…"
-    },
-    "tishi": {
-      "title": "エージェントガイド",
-      "view": "表示",
-      "close": "閉じる",
-      "needInput": "より正確なサポートのため、以下の情報を入力してください"
-    },
-    "chatMessageItem": {
-      "me": "私",
-      "ai": "AI",
-      "thinkingProcess": "思考プロセス",
-      "noContent": "コピーする内容がありません",
-      "aiGenerated": "AI生成",
-      "tokenCost": "トークン: {n}",
-      "reuse": "再利用",
-      "copy": "コピー",
-      "favorited": "お気に入り済み",
-      "speak": "読み上げ",
-      "stopSpeak": "停止",
-      "share": "共有",
-      "viewDigitalHuman": "デジタルヒューマンを見る",
-      "digitalHuman": "デジタルヒューマン生成 →",
-      "voiceMessage": "音声メッセージ",
-      "downloading": "ダウンロード中",
-      "downloadFailed": "ダウンロード失敗",
-      "needAlbumAuth": "画像を保存するにはアルバム権限が必要です。設定で有効にしてください",
-      "collapse": "折りたたむ",
-      "edit": "編集",
-      "errorCardTitle": "リクエストエラー",
-      "regenerate": "再生成",
-      "retry": "再試行"
-    },
-    "history": {
-      "title": "対話履歴",
-      "empty": "履歴なし",
-      "clearConfirm": "すべての対話履歴を削除しますか?",
-      "cleared": "履歴を削除しました"
-    },
-    "inputArea": {
-      "releaseToSend": "離して送信",
-      "holdToSpeak": "長押しで話す"
-    },
-    "materialPopup": {
-      "title": "素材を選択",
-      "upload": "アップロード",
-      "loadMore": "もっと読み込む",
-      "noMore": "これ以上なし",
-      "empty": "素材なし"
-    },
-    "skillsPopup": {
-      "title": "スキルを選択",
-      "searchPlaceholder": "スキルを検索",
-      "uses": "{n} 回使用",
-      "notFound": "スキルが見つかりません",
-      "empty": "利用可能なスキルなし"
-    },
-    "voice": {
-      "welcome": "こんにちは、下のボタンを長押しして音声会話を開始",
-      "voiceMessage": "[音声メッセージ]",
-      "chatFailed": "会話失敗、再試行してください",
-      "releaseToSend": "離して送信",
-      "holdToSpeak": "長押しで話す",
-      "recordFailed": "録音失敗、再試行してください",
-      "clearChat": "会話をクリア",
-      "speed": "話速",
-      "timbre": "音色",
-      "clearConfirm": "現在のチャットをクリアしますか?",
-      "cleared": "チャットをクリアしました",
-      "title": "AI 音声チャット"
-    },
-    "image": {
-      "examples": ["可愛い猫", "夕日の山風景", "未来都市", "抽象芸術"],
-      "emptyHint": "画像生成の説明を入力",
-      "tryThese": "これらを試す",
-      "placeholder": "生成したい画像を説明",
-      "generating": "生成中…",
-      "generate": "画像を生成",
-      "vertical": "縦 1024×1792",
-      "title": "画像生成",
-      "download": "ダウンロード",
-      "share": "共有",
-      "favorite": "お気に入り",
-      "favorited": "お気に入り済み",
-      "history": "履歴",
-      "empty": "生成記録なし",
-      "styles": ["リアル", "アニメ", "油絵", "水彩", "3D", "ピクセル"],
-      "generateFailed": "生成失敗、再試行してください",
-      "downloadSuccess": "アルバムに保存しました",
-      "downloadFailed": "ダウンロード失敗、再試行してください",
-      "favoriteAdded": "お気に入りに追加しました",
-      "favoriteRemoved": "お気に入りを解除しました"
-    },
-    "video": {
-      "title": "動画生成",
-      "promptPlaceholder": "生成したい動画内容を説明...",
-      "generate": "動画を生成",
-      "generating": "生成中…",
-      "pending": "待機中…",
-      "succeeded": "生成完了",
-      "failed": "生成失敗",
-      "download": "ダウンロード",
-      "share": "共有",
-      "history": "履歴",
-      "emptyHistory": "履歴なし",
-      "generateFailed": "生成失敗、再試行してください",
-      "modelUnavailable": "このモデル API は未対応",
-      "notAvailable": "未対応",
-      "taskSubmitted": "タスクが送信されました、履歴で確認してください",
-      "downloadSuccess": "アルバムに保存しました",
-      "downloadFailed": "ダウンロード失敗、再試行してください",
-      "duration": "所要時間",
-      "resolution": "解像度",
-      "fps": "フレームレート",
-      "vendors": {
-        "sora2": "Sora2",
-        "sora2Desc": "Sora2 で動画を生成",
-        "kling": "Kling",
-        "klingDesc": "高品質な AI 動画を生成",
-        "doubao": "豆包",
-        "doubaoDesc": "Doubao モデルで動画を生成",
-        "dashscope": "DashScope",
-        "dashscopeDesc": "Alibaba Cloud DashScope で動画を生成"
-      }
-    },
     "agent": {
-      "searchPlaceholder": "エージェントを検索",
       "count": "{n} 個",
       "empty": "エージェントなし",
-      "inputPlaceholder": "質問を入力…"
+      "inputPlaceholder": "質問を入力…",
+      "searchPlaceholder": "エージェントを検索"
     },
     "agentDetail": {
       "runtimeTitle": "ランタイム",
@@ -666,36 +588,40 @@
       "runtimeInputPlaceholder": "メッセージを入力…",
       "runtimeStop": "停止",
       "runtimeSend": "送信",
-      "promptLabel": "プロンプト",
-      "tabRuntime": "ランタイム",
-      "vipPermissionDenied": "このエージェントにはVIPが必要",
-      "vipExclusive": "VIP限定",
-      "permissionLoading": "権限読み込み中…",
-      "permissionAllowed": "許可",
-      "permissionDenied": "拒否",
-      "startChat": "チャット開始",
+      "exampleDialog": "サンプル対話",
       "favoriteAgent": "お気に入り",
       "favorited": "お気に入り済み",
+      "permissionAllowed": "許可",
+      "permissionDenied": "拒否",
+      "permissionLoading": "権限読み込み中…",
+      "prologue": "プロローグ",
+      "promptLabel": "プロンプト",
+      "ratingDistribution": "評価分布",
+      "relatedAgents": "関連エージェント",
+      "reviewCount": "{n}件のレビュー",
+      "reviews": "レビュー",
+      "startChat": "チャット開始",
+      "tabRuntime": "ランタイム",
       "unfavorite": "お気に入り解除",
       "useCount": "{n}人が使用",
-      "relatedAgents": "関連エージェント",
-      "prologue": "プロローグ",
-      "exampleDialog": "サンプル対話",
-      "reviews": "レビュー",
-      "reviewCount": "{n}件のレビュー",
-      "ratingDistribution": "評価分布"
+      "vipExclusive": "VIP限定",
+      "vipPermissionDenied": "このエージェントにはVIPが必要"
     },
     "agentList": {
       "categories": {
-        "recommend": "おすすめ",
-        "office": "オフィス",
-        "other": "その他",
-        "writing": "ライティング",
         "coding": "コーディング",
         "education": "教育",
-        "life": "生活"
+        "life": "生活",
+        "office": "オフィス",
+        "other": "その他",
+        "recommend": "おすすめ",
+        "writing": "ライティング"
       },
-      "useCount": "{n}人が使用",
+      "createAgent": "エージェント作成",
+      "emptyFavorites": "お気に入りエージェントなし",
+      "emptyRecent": "最近使用エージェントなし",
+      "hot": "人気",
+      "hotRecommend": "人気おすすめ",
       "noResult": "エージェントが見つかりません",
       "sortBy": "並び替え",
       "sortHot": "人気",
@@ -704,17 +630,84 @@
       "tabAll": "すべて",
       "tabFavorites": "お気に入り",
       "tabRecent": "最近使用",
-      "hot": "人気",
-      "hotRecommend": "人気おすすめ",
-      "createAgent": "エージェント作成",
-      "emptyFavorites": "お気に入りエージェントなし",
-      "emptyRecent": "最近使用エージェントなし"
+      "useCount": "{n}人が使用"
+    },
+    "aiAssistant": {
+      "copyFailed": "コピーに失敗しました",
+      "copySuccess": "コピーしました",
+      "generateFailed": "生成失敗、再試行してください",
+      "goRecharge": "トークンが不足しています。チャージしますか?",
+      "insufficientTokens": "トークンが不足しています",
+      "nothingToCopy": "コピーする内容がありません",
+      "pleaseInputDesc": "説明を入力してください",
+      "pleaseLogin": "先にログインしてください",
+      "pleaseWait": "お待ちください"
+    },
+    "chat": {
+      "replayFailed": "この会話の読み込みに失敗しました。もう一度お試しください",
+      "loadEarlier": "前のメッセージを読み込む",
+      "earlierLoading": "読み込み中…",
+      "earlierLoadFailed": "前のメッセージの読み込みに失敗しました。もう一度お試しください",
+      "agentTipConfirm": "了解しました",
+      "agentTipHistory": "履歴",
+      "agentTipHistoryDesc": "対話履歴を表示",
+      "agentTipImage": "画像生成選択",
+      "agentTipImageDesc": "画像モードに切り替えて画像を生成",
+      "agentTipInput": "質問入力",
+      "agentTipInputDesc": "下部の入力欄に質問を入力して送信",
+      "agentTipSkill": "スキル選択",
+      "agentTipSkillDesc": "左上のスキルボタンをタップして該当エージェントを選択",
+      "agentTipTalk": "対話選択",
+      "agentTipTalkDesc": "対話モードに切り替えてAIと直接交流",
+      "agentTipTitle": "エージェント使用ガイド"
+    },
+    "chatDrawers": {
+      "emptyMaterial": "素材がありません",
+      "materialLibrary": "素材ライブラリ",
+      "promptLabel": "プロンプト",
+      "selectModel": "モデルを選択",
+      "skillDetail": "スキル詳細"
+    },
+    "chatMessageItem": {
+      "ai": "AI",
+      "aiGenerated": "AI生成",
+      "collapse": "折りたたむ",
+      "copy": "コピー",
+      "digitalHuman": "デジタルヒューマン生成 →",
+      "downloadFailed": "ダウンロード失敗",
+      "downloading": "ダウンロード中",
+      "edit": "編集",
+      "errorCardTitle": "リクエストエラー",
+      "favorited": "お気に入り済み",
+      "me": "私",
+      "needAlbumAuth": "画像を保存するにはアルバム権限が必要です。設定で有効にしてください",
+      "noContent": "コピーする内容がありません",
+      "regenerate": "再生成",
+      "retry": "再試行",
+      "reuse": "再利用",
+      "share": "共有",
+      "speak": "読み上げ",
+      "stopSpeak": "停止",
+      "thinkingProcess": "思考プロセス",
+      "tokenCost": "トークン: {n}",
+      "viewDigitalHuman": "デジタルヒューマンを見る",
+      "voiceMessage": "音声メッセージ"
+    },
+    "common": {
+      "loading": "読み込み中…"
+    },
+    "fileSelected": "{count}個のファイルを選択しました",
+    "screenshotHint": "スクリーンショットを検出しました。+ からアルバム画像を選んで AI に送れます",
+    "generating": "急速生成中",
+    "history": {
+      "clearConfirm": "すべての対話履歴を削除しますか?",
+      "cleared": "履歴を削除しました",
+      "empty": "履歴なし",
+      "title": "対話履歴"
     },
     "historyPage": {
       "loadMoreFailed": "読み込みに失敗しました。下に引っ張って更新してください",
       "deleteFailed": "削除に失敗しました。もう一度お試しください",
-      "empty": "対話履歴なし",
-      "deleteOne": "この対話を削除",
       "clearAll": "すべて削除",
       "clearConfirm": "すべての対話履歴を削除しますか?",
       "cleared": "削除済み",
@@ -722,80 +715,57 @@
       "clearServerProgress": "削除中 {done}/{n}…",
       "clearServerDone": "{n} 件の会話を削除しました",
       "clearServerPartial": "成功 {ok} 件 / 失敗 {fail} 件。失敗した会話は残しています",
+      "deleteOne": "この対話を削除",
+      "empty": "対話履歴なし",
       "fallbackNotice": "サーバーから会話を読み込めなかったため、端末内の履歴を表示しています。",
-      "refreshSuccess": "更新成功",
-      "startNew": "新しい会話を開始",
       "msgCount": "{n}件のメッセージ",
       "noMore": "これ以上ありません",
-      "pinned": "固定済み",
-      "unpinFailed": "固定の解除に失敗しました。もう一度お試しください",
-      "pinFailed": "固定に失敗しました。もう一度お試しください",
-      "pin": "固定",
       "noResult": "該当するチャットが見つかりません",
-      "searchPlaceholder": "チャット履歴を検索"
+      "pin": "固定",
+      "pinFailed": "固定に失敗しました。もう一度お試しください",
+      "pinned": "固定済み",
+      "refreshSuccess": "更新成功",
+      "searchPlaceholder": "チャット履歴を検索",
+      "startNew": "新しい会話を開始",
+      "unpinFailed": "固定の解除に失敗しました。もう一度お試しください"
     },
-    "special": {
-      "pageError": "操作失敗",
-      "cat": {
-        "image": "AI画像生成",
-        "video": "AI動画",
-        "voice": "AI音声",
-        "plaza": "モデルプラザ",
-        "agent": "エージェント",
-        "all": "すべて",
-        "chat": "AI チャット"
-      },
-      "historySoon": "履歴は近日公開予定です",
-      "featured": "おすすめ",
-      "useBtn": "今すぐ使用",
-      "bannerDesc": "AIチャット・作画・動画・音声・エージェント・モデル広場をワンストップで集約。厳選したおすすめ機能をすぐに利用できます",
-      "bannerTitle": "AI 特集",
-      "empty": "まだコンテンツがありません",
-      "error": "読み込みに失敗しました",
-      "history": "私の利用履歴",
-      "useCount": "{n} 回使用"
-    },
-    "chat": {
-      "replayFailed": "この会話の読み込みに失敗しました。もう一度お試しください",
-      "loadEarlier": "前のメッセージを読み込む",
-      "earlierLoading": "読み込み中…",
-      "earlierLoadFailed": "前のメッセージの読み込みに失敗しました。もう一度お試しください",
-      "agentTipTitle": "エージェント使用ガイド",
-      "agentTipConfirm": "了解しました",
-      "agentTipSkill": "スキル選択",
-      "agentTipSkillDesc": "左上のスキルボタンをタップして該当エージェントを選択",
-      "agentTipTalk": "対話選択",
-      "agentTipTalkDesc": "対話モードに切り替えてAIと直接交流",
-      "agentTipImage": "画像生成選択",
-      "agentTipImageDesc": "画像モードに切り替えて画像を生成",
-      "agentTipInput": "質問入力",
-      "agentTipInputDesc": "下部の入力欄に質問を入力して送信",
-      "agentTipHistory": "履歴",
-      "agentTipHistoryDesc": "対話履歴を表示"
-    },
-    "uploadMaterialTab": "{tab}素材をアップロード",
-    "messageAction": {
-      "reuse": "再利用",
-      "copy": "コピー",
-      "delete": "削除"
-    },
-    "chatDrawers": {
-      "selectModel": "モデルを選択",
-      "materialLibrary": "素材ライブラリ",
-      "emptyMaterial": "素材がありません",
-      "skillDetail": "スキル詳細",
-      "promptLabel": "プロンプト"
-    },
-    "aiAssistant": {
-      "nothingToCopy": "コピーする内容がありません",
-      "copySuccess": "コピーしました",
-      "pleaseInputDesc": "説明を入力してください",
-      "pleaseWait": "お待ちください",
-      "insufficientTokens": "トークンが不足しています",
-      "goRecharge": "トークンが不足しています。チャージしますか?",
-      "pleaseLogin": "先にログインしてください",
+    "image": {
+      "download": "ダウンロード",
+      "downloadFailed": "ダウンロード失敗、再試行してください",
+      "downloadSuccess": "アルバムに保存しました",
+      "empty": "生成記録なし",
+      "emptyHint": "画像生成の説明を入力",
+      "favorite": "お気に入り",
+      "favoriteAdded": "お気に入りに追加しました",
+      "favoriteRemoved": "お気に入りを解除しました",
+      "favorited": "お気に入り済み",
+      "generate": "画像を生成",
       "generateFailed": "生成失敗、再試行してください",
-      "copyFailed": "コピーに失敗しました"
+      "generating": "生成中…",
+      "history": "履歴",
+      "placeholder": "生成したい画像を説明",
+      "share": "共有",
+      "title": "画像生成",
+      "tryThese": "これらを試す",
+      "vertical": "縦 1024×1792",
+      "examples": [
+        "可愛い猫",
+        "夕日の山風景",
+        "未来都市",
+        "抽象芸術"
+      ],
+      "styles": [
+        "リアル",
+        "アニメ",
+        "油絵",
+        "水彩",
+        "3D",
+        "ピクセル"
+      ]
+    },
+    "inputArea": {
+      "holdToSpeak": "長押しで話す",
+      "releaseToSend": "離して送信"
     },
     "intelligentAssistant": {
       "greeting": "こんにちは、IHUI AIアシスタントです",
@@ -804,8 +774,48 @@
       "subtitle": "いつでもAIサービスを提供します",
       "tokenBalance": "Token 残高:{n}"
     },
+    "materialPopup": {
+      "empty": "素材なし",
+      "loadMore": "もっと読み込む",
+      "noMore": "これ以上なし",
+      "title": "素材を選択",
+      "upload": "アップロード"
+    },
+    "messageAction": {
+      "copy": "コピー",
+      "delete": "削除",
+      "reuse": "再利用"
+    },
     "share": {
       "title": "共有"
+    },
+    "skillsPopup": {
+      "empty": "利用可能なスキルなし",
+      "notFound": "スキルが見つかりません",
+      "searchPlaceholder": "スキルを検索",
+      "title": "スキルを選択",
+      "uses": "{n} 回使用"
+    },
+    "special": {
+      "bannerDesc": "AIチャット・作画・動画・音声・エージェント・モデル広場をワンストップで集約。厳選したおすすめ機能をすぐに利用できます",
+      "bannerTitle": "AI 特集",
+      "cat": {
+        "agent": "エージェント",
+        "all": "すべて",
+        "chat": "AI チャット",
+        "image": "AI画像生成",
+        "plaza": "モデルプラザ",
+        "video": "AI動画",
+        "voice": "AI音声"
+      },
+      "empty": "まだコンテンツがありません",
+      "error": "読み込みに失敗しました",
+      "featured": "おすすめ",
+      "history": "私の利用履歴",
+      "historySoon": "履歴は近日公開予定です",
+      "pageError": "操作失敗",
+      "useBtn": "今すぐ使用",
+      "useCount": "{n} 回使用"
     },
     "specialModel": {
       "confirm": "切り替えを確認",
@@ -826,6 +836,62 @@
     "switchAgent": {
       "confirm": "切り替えを確認"
     },
+    "thinkingTip": "Tips:まず右上の3点をクリックしてミニプログラムを浮窓し、しばらくしてから戻ってください~",
+    "tishi": {
+      "close": "閉じる",
+      "needInput": "より正確なサポートのため、以下の情報を入力してください",
+      "title": "エージェントガイド",
+      "view": "表示"
+    },
+    "uploadMaterialTab": "{tab}素材をアップロード",
+    "video": {
+      "download": "ダウンロード",
+      "downloadFailed": "ダウンロード失敗、再試行してください",
+      "downloadSuccess": "アルバムに保存しました",
+      "emptyHistory": "履歴なし",
+      "failed": "生成失敗",
+      "generate": "動画を生成",
+      "generateFailed": "生成失敗、再試行してください",
+      "generating": "生成中…",
+      "history": "履歴",
+      "modelUnavailable": "このモデル API は未対応",
+      "notAvailable": "未対応",
+      "pending": "待機中…",
+      "promptPlaceholder": "生成したい動画内容を説明...",
+      "share": "共有",
+      "succeeded": "生成完了",
+      "taskSubmitted": "タスクが送信されました、履歴で確認してください",
+      "title": "動画生成",
+      "duration": "所要時間",
+      "resolution": "解像度",
+      "fps": "フレームレート",
+      "vendors": {
+        "sora2": "Sora2",
+        "sora2Desc": "Sora2 で動画を生成",
+        "kling": "Kling",
+        "klingDesc": "高品質な AI 動画を生成",
+        "doubao": "豆包",
+        "doubaoDesc": "Doubao モデルで動画を生成",
+        "dashscope": "DashScope",
+        "dashscopeDesc": "Alibaba Cloud DashScope で動画を生成"
+      }
+    },
+    "voice": {
+      "chatFailed": "会話失敗、再試行してください",
+      "clearChat": "会話をクリア",
+      "clearConfirm": "現在のチャットをクリアしますか?",
+      "cleared": "チャットをクリアしました",
+      "holdToSpeak": "長押しで話す",
+      "recordFailed": "録音失敗、再試行してください",
+      "releaseToSend": "離して送信",
+      "speed": "話速",
+      "timbre": "音色",
+      "title": "AI 音声チャット",
+      "voiceMessage": "[音声メッセージ]",
+      "welcome": "こんにちは、下のボタンを長押しして音声会話を開始"
+    },
+    "welcomeDesc": "何かお手伝いしましょうか?",
+    "welcomeTitle": "こんにちは、IHUI AIアシスタントです",
     "cards": {
       "steer": {
         "title": "{count} 回誘導済み",
@@ -924,11 +990,11 @@
   },
   "aiCircle": {
     "title": "AIサークル",
-    "post": "投稿",
     "empty": "コンテンツなし",
     "loadFailed": "読み込み失敗",
     "anonymous": "匿名",
-    "noMore": "これ以上なし"
+    "noMore": "これ以上なし",
+    "post": "投稿"
   },
   "aiCareer": {
     "title": "AIキャリア",
@@ -1200,7 +1266,10 @@
       "totalScoreValue": "{n} 点"
     },
     "answer": {
-      "judgmentOptions": ["正しい", "間違い"],
+      "judgmentOptions": [
+        "正しい",
+        "間違い"
+      ],
       "loadFailed": "問題の読み込み失敗",
       "answerPlaceholder": "答えを入力",
       "prev": "前の問題",
@@ -1810,7 +1879,13 @@
       "title": "利用規則"
     },
     "appPermission": {
-      "names": ["アルバム権限", "カメラ権限", "マイク権限", "位置権限", "通知権限"],
+      "names": [
+        "アルバム権限",
+        "カメラ権限",
+        "マイク権限",
+        "位置権限",
+        "通知権限"
+      ],
       "descs": [
         "画像をアルバムに保存・アップロード",
         "写真撮影・動画録画",
@@ -2186,8 +2261,18 @@
         "質問求助",
         "経験まとめ"
       ],
-      "levels": ["初級", "中級", "上級", "エキスパート"],
-      "budgets": ["1000元以下", "1000-5000元", "5000-10000元", "10000元以上"],
+      "levels": [
+        "初級",
+        "中級",
+        "上級",
+        "エキスパート"
+      ],
+      "budgets": [
+        "1000元以下",
+        "1000-5000元",
+        "5000-10000元",
+        "10000元以上"
+      ],
       "selectAtLeast": "1つ以上選択",
       "saved": "保存しました",
       "directionTitle": "学習方向",
@@ -2619,7 +2704,11 @@
         "質問求助",
         "経験まとめ"
       ],
-      "visibilityOptions": ["公開", "フレンドのみ", "プライベート"],
+      "visibilityOptions": [
+        "公開",
+        "フレンドのみ",
+        "プライベート"
+      ],
       "enterTitle": "タイトルを入力",
       "enterContent": "内容を入力",
       "published": "公開しました",
@@ -2896,8 +2985,8 @@
     "member": "会員",
     "operator": "オペレーター",
     "confirm3": "会員を退会しますか?退会後は会員特典を失います。",
-    "failed5": "退会失敗、カスタマーサービスにご連絡ください",
     "success4": "退会成功",
+    "failed5": "退会失敗、カスタマーサービスにご連絡ください",
     "text6": "レベル紹介ページ未設定",
     "menu": {
       "subscriptions": "マイ購読"
@@ -2964,7 +3053,14 @@
       "bannerTitle": "VIP会員へアップグレード",
       "bannerDesc": "さらに専用特権を解放",
       "rightsTitle": "会員特典",
-      "rights": ["専用サポート", "優先体験", "高级機能", "広告除去", "専用バッジ", "割引特典"],
+      "rights": [
+        "専用サポート",
+        "優先体験",
+        "高级機能",
+        "広告除去",
+        "専用バッジ",
+        "割引特典"
+      ],
       "loadFailed": "読み込み失敗",
       "operationFailed": "操作失敗",
       "originalPrice": "通常¥{n}",
@@ -3240,11 +3336,11 @@
     "fullscreenHint": "全画面編集モード",
     "recording": "離して送信、上にスライドでキャンセル",
     "voiceHint": "長押しで話す",
-    "document": "ドキュメント",
-    "video": "動画",
-    "addFile": "添付ファイルを追加",
     "releaseToSend": "離して送信",
-    "holdToSpeak": "押して話す"
+    "holdToSpeak": "押して話す",
+    "addFile": "添付ファイルを追加",
+    "document": "ドキュメント",
+    "video": "動画"
   },
   "toolbar": {
     "ai": "AIチャット"
@@ -3334,35 +3430,238 @@
     "user": "マイページ",
     "share": "シェア"
   },
-  "AgentListPanel": {
-    "d1": "無料で使う",
-    "d2": "月額",
-    "d3": "購入済み"
+  "pagesindexindex": {
+    "register1": "🎉 智匯AIコミュニティへようこそ!新規登録で5000智匯値をプレゼント!",
+    "text2": "エージェントアシスタントページ未設定",
+    "save3": "画像を保存しました",
+    "d1": "AI文章作成アシスタント",
+    "d2": "高品質な文章・レポート・コピー作成を支援",
+    "d3": "プログラミングアシスタント",
+    "d4": "コード作成・デバッグ・最適化アドバイス",
+    "d5": "開発",
+    "d6": "データアナリスト",
+    "d7": "データ可視化と分析インサイト",
+    "d8": "分析",
+    "d9": "デザインクリエイター",
+    "d10": "クリエイティブデザインとビジュアルソリューション",
+    "d11": "デザイン",
+    "d12": "翻訳マスター",
+    "d13": "多言語翻訳とローカライゼーション",
+    "d14": "ツール",
+    "d15": "テキスト生成",
+    "d16": "高品質テキストコンテンツ生成",
+    "d17": "画像生成",
+    "d18": "AI絵画と画像創作",
+    "d19": "動画制作",
+    "d20": "AI動画生成と編集",
+    "d21": "音声処理",
+    "d22": "音声合成と音声編集",
+    "d23": "コード生成",
+    "d24": "多言語コード自動生成",
+    "d25": "データ分析",
+    "d26": "データ分析と可視化",
+    "d27": "AI絵画",
+    "d28": "テキスト生成画像と画像生成画像",
+    "d29": "動画編集",
+    "d30": "スマート動画編集とエフェクト",
+    "d31": "AI絵画入門ガイド",
+    "d32": "本記事ではAI絵画の基礎知識とよく使うツールを詳しく紹介...",
+    "d33": "深層学習モデル最適化テクニック",
+    "d34": "深層学習モデルの学習速度と精度を最適化する方法...",
+    "d35": "プロンプトエンジニアリングベストプラクティス",
+    "d36": "プロンプトエンジニアリングの核心テクニックを習得し、AI出力品質を向上...",
+    "d37": "マルチモーダルAI応用シーン",
+    "d38": "医療・教育・金融などにおけるマルチモーダルAI応用を探索...",
+    "d39": "山水風景画",
+    "d40": "都市の夜景",
+    "d41": "抽象芸術作品",
+    "d42": "AI動画生成チュートリアル",
+    "d43": "デジタル人ライブデモ",
+    "d44": "AI音声合成デモ",
+    "d45": "TTS音色比較",
+    "d46": "音声クローン効果",
+    "p1": "画像コンテンツ",
+    "p2": "動画コンテンツ",
+    "p3": "音声コンテンツ",
+    "r1": "アルバムに保存"
+  },
+  "aiassistant": {
+    "text1": "深く思考中...",
+    "failed2": "生成に失敗しました、再試行してください",
+    "text3": "下に質問を入力してください",
+    "text4": "智匯AIが生成",
+    "text5": "回答を表示",
+    "text6": "高速生成中",
+    "p1": "生成画像:",
+    "p2": "智匯AIアシスタント",
+    "p3": "生成中",
+    "y1": "· 智匯値:{p1}",
+    "q1": "猫の画像を生成",
+    "q2": "おすすめの本を3冊",
+    "q3": "量子もつれを説明"
+  },
+  "aiAgent": {
+    "text1": "AIアプリストア",
+    "more2": "より多くのAIアシスタントを見つけて仕事効率を向上",
+    "text3": "開発者参入",
+    "text4": "自分だけのAIエージェントを作成・公開",
+    "text5": "今週の人気エージェントランキング",
+    "d1": "会議",
+    "d2": "メール",
+    "d3": "表計算",
+    "d4": "執筆",
+    "d5": "創作",
+    "d6": "小説",
+    "d7": "文章",
+    "d8": "学ぶ",
+    "d9": "教える",
+    "d10": "授業",
+    "d11": "知識",
+    "d12": "試験",
+    "d13": "問題",
+    "d14": "解説",
+    "d15": "解答",
+    "d16": "健康",
+    "d17": "グルメ",
+    "d18": "旅行",
+    "d19": "運動",
+    "d20": "ショッピング",
+    "d21": "日常",
+    "r1": "コード",
+    "r2": "程序",
+    "r3": "函数",
+    "r4": "前端",
+    "r5": "后端"
   },
   "BottomActionBar": {
+    "text1": "深い思考に自動切り替え済み",
     "d1": "カメラ",
     "d2": "アルバム",
     "d3": "ローカルファイル",
     "d4": "WeChatファイル",
-    "text1": "深い思考に自動切り替え済み",
     "p1": "音声入力中",
     "p2": "音声入力"
   },
-  "CourseHeader": {
-    "text1": "有料項目"
-  },
   "DrawerComponent": {
+    "empty1": "履歴会話なし",
     "d1": "アプリストア",
     "d2": "ニーズ広場",
     "d3": "私のワンストップ会社",
     "d4": "無料資料を取得",
-    "d5": "新しい会話を作成",
-    "empty1": "履歴会話なし"
+    "d5": "新しい会話を作成"
   },
-  "EmptyIllustration": {
-    "d1": "関連コンテンツが見つかりません",
-    "d2": "ネットワーク異常",
-    "d3": "権限がありません"
+  "userUserCard": {
+    "view1": "関連注文を見る",
+    "view2": "社員と業績を見る",
+    "text3": "智匯消費情報",
+    "view4": "残高とチャージを見る"
+  },
+  "communityMyAgents": {
+    "mine1": "マイAIアプリ",
+    "mine2": "マイAI社員"
+  },
+  "shareCenterItem": {
+    "text1": "おすすめカード",
+    "z1": "閲覧"
+  },
+  "CourseHeader": {
+    "text1": "有料項目"
+  },
+  "communityRecentAgents": {
+    "text1": "最近使用"
+  },
+  "shareNewTitle": {
+    "text1": "人気ニュース"
+  },
+  "memberBenefits": {
+    "d31": "専属カスタマーサービス"
+  },
+  "VipBenefitsPopup": {
+    "d1": "<span style=\"font-weight: bold;\">垂直トラック</span>の日次整理情報を無制限に閲覧、他者を大きく上回る",
+    "d2": "創業者優先相談資格、<span style=\"font-weight: bold;\">AI</span>スタートアッププロジェクト参加資格",
+    "d3": "最新開発<span style=\"font-weight: bold;\">Agentic</span>内測利用資格1ヶ月",
+    "d4": "システムアップグレードで算力チャージ/コース開通/サービス割引",
+    "d5": "大規模販売資格、<span style=\"font-weight: bold;\">コミュニティ</span>サービスプロバイダー名簿に参加",
+    "d6": "会員レベル最大、<span style=\"font-weight: bold;\">すべての</span>最高割引などの特典",
+    "d7": "二段階販売特典で<span style=\"font-weight: bold;\">チーム</span>と収益を急速拡大、ワンストップ会社を創業",
+    "d8": "創業者<span style=\"font-weight: bold;\">1対1</span>随時Q&A伴走",
+    "d9": "本社入居とオフライン実践学習の機会",
+    "d10": "<span style=\"font-weight: bold;\">特典1:トップクラスの人脈ネットワークへの接続機会</span>",
+    "d11": "<span style=\"font-weight: bold;\">特典2:優良スタートアッププロジェクトの共有</span>",
+    "d12": "<span style=\"font-weight: bold;\">特典3:資本マッチング特典</span>",
+    "d13": "<span style=\"font-weight: bold;\">特典4:AI技術トップとの交流学習の機会</span>",
+    "d14": "<span style=\"font-weight: bold;\">特典5:AIオープンソース技術の共有</span>",
+    "d15": "GPT-4 などのトップモデルを満喫",
+    "d16": "高画質動画生成",
+    "d17": "4K 画質で透かしなし",
+    "d19": "7×24 時間サービス",
+    "d20": "会員限定コンテンツ",
+    "d21": "有料コースをすべて解放",
+    "rich1": "期間限定<span style=\"font-weight: bold;\">588</span>元、<span style=\"font-weight: bold;\">8月8日</span>に<span style=\"font-weight: bold;\">1288</span>元に戻ります",
+    "rich2": "<span style=\"font-weight: bold;\">800万</span>算力プレゼント、独占<span style=\"font-weight: bold;\">AI</span>モデルを満喫",
+    "rich3": "販売権益を獲得、<span style=\"font-weight: bold;\">AI</span>でコスト削減・効率向上",
+    "rich4": "プライベート<span style=\"font-weight: bold;\">AI</span>カスタマーサービスカスタマイズ権、自分だけの専用<span style=\"font-weight: bold;\">AI</span>アシスタント",
+    "rich5": "多対一Q&A伴走:<span style=\"font-weight: bold;\">AI</span>教学/自媒体アカウント構築/<span style=\"font-weight: bold;\">マネタイズ</span>",
+    "rich6": "無料<span style=\"font-weight: bold;\">AI</span>ナビサイト、<span style=\"font-weight: bold;\">ワンクリック</span>で全AIツールへ",
+    "rich7": "最新開発<span style=\"font-weight: bold;\">agentic</span>内測無料利用資格<span style=\"font-weight: bold;\">1ヶ月</span>",
+    "rich8": "優先カスタム<span style=\"font-weight: bold;\">agent</span>機能、<span style=\"font-weight: bold;\">独占割引</span>付き",
+    "rich9": "<span style=\"font-weight: bold;\">AI</span>深層認知課/<span style=\"font-weight: bold;\">ビジネス</span>課を無料視聴",
+    "rich10": "<span style=\"font-weight: bold;\">AI</span>+垂直アカウント育成優先/コミュニティ<span style=\"font-weight: bold;\">サービスプロバイダー名簿</span>に参加",
+    "rich11": "優先<span style=\"font-weight: bold;\">AI</span>分身/<span style=\"font-weight: bold;\">AI</span>カスタマーサービスカスタマイズ",
+    "rich12": "1.<span style=\"font-weight: bold;color: #FF0000;\">588</span>消費で会員開通、<span style=\"font-weight: bold;color: #FF0000;\">588</span>成長値を獲得、<span style=\"font-weight: bold;color: #FF0000;\">レベル1:アルゴリズム萌芽</span>へ",
+    "rich13": "2.<span style=\"font-weight: bold;color: #FF0000;\">1500</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">レベル2</span>へ",
+    "rich14": "3.<span style=\"font-weight: bold;color: #FF0000;\">3000</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">レベル3</span>へ",
+    "rich15": "4.<span style=\"font-weight: bold;color: #FF0000;\">4500</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">レベル4</span>へ",
+    "rich16": "5.<span style=\"font-weight: bold;color: #FF0000;\">6000</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">レベル5</span>へ",
+    "rich17": "6.<span style=\"font-weight: bold;color: #FF0000;\">7500</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">レベル6</span>へ",
+    "rich18": "7.<span style=\"font-weight: bold;color: #FF0000;\">9000</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">レベル7</span>へ",
+    "rich19": "8.<span style=\"font-weight: bold;color: #FF0000;\">10500</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">レベル8</span>へ",
+    "rich20": "9.<span style=\"font-weight: bold;color: #FF0000;\">12000</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">レベル9</span>へ",
+    "rich21": "10.<span style=\"font-weight: bold;color: #FF0000;\">18888</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">最高レベル</span>へ",
+    "z1": "............約 <span style=\"font-weight: bold;\">20</span> 項目の特典、今後も追加 ↑",
+    "z2": "............約 <span style=\"font-weight: bold;\">20</span> 項目の特典、今後も追加 ↑",
+    "r1": "もう一度相談する",
+    "z3": "0級:智域ビジター。会員アップグレードで全コース/算力/自動化エージェント/ナレッジベース/カスタムサービス等の割引を利用でき、機能も随時追加されます"
+  },
+  "viptrader": {
+    "d1": "AI智匯社 トレーダー",
+    "d2": "シニア市場アナリスト / プラットフォーム認定",
+    "d3": "テクニカル分析",
+    "d4": "ファンダメンタル",
+    "d5": "リスク管理",
+    "d6": "銘柄選定",
+    "d7": "クオンツ",
+    "d8": "センチメント",
+    "d9": "販売資格",
+    "d10": "大規模販売資格、コミュニティサービスプロバイダー名簿に参加",
+    "d11": "AIコース",
+    "d12": "AI深層認知/深層ビジネス/トラフィック全チェーン戦略コースを無料視聴",
+    "d13": "創業者Q&A",
+    "d14": "創業者1対1随時Q&A伴走",
+    "d15": "Agent内測",
+    "d16": "最新開発エージェント内測資格1年",
+    "d17": "トップ割引",
+    "d18": "会員レベル最大、すべての最高割引を享受",
+    "d19": "カスタム優待",
+    "d20": "優先カスタムエージェント機能を20%割引",
+    "d21": "アカウント育成",
+    "d22": "AI+垂直アカウント育成優先伴走の機会",
+    "d23": "算力プレゼント",
+    "d24": "トレーダーに1600W算力をプレゼント",
+    "d25": "年換算収益",
+    "d26": "勝率",
+    "d27": "最大ドローダウン",
+    "d28": "月次伴走",
+    "d29": "30日",
+    "d30": "四半期戦略",
+    "d31": "90日",
+    "d32": "365日",
+    "d33": "李先生",
+    "d34": "トレーダーの解説は的確で、戦略の実践性が高く、実行して成果が出ています。",
+    "d35": "王女士",
+    "d36": "1対1のQ&Aが丁寧で、相場観がタイミング判断に役立ちます。おすすめです。",
+    "q1": "トレーダー価格を取得",
+    "r1": "AI智匯社認定トレーダー、10年のA株実戦経験、テクニカル分析とファンダメンタル分析を得意とし、かつて5億超のポートフォリオを運用。トレンド戦略とリスク管理に注力。"
   },
   "ModelConfigDialog": {
     "d1": "龍小夏",
@@ -3395,23 +3694,121 @@
     "q4": "プロのアナウンサー",
     "q5": "感情を込めた朗読"
   },
+  "vipPrivilege": {
+    "d1": "1日の会話回数",
+    "d2": "ベーシック",
+    "d3": "アドバンスト",
+    "d5": "コース割引(割)",
+    "d6": "エージェント数",
+    "d7": "専属市場データ分析ツール",
+    "d8": "1対1専門指導サービス",
+    "d9": "リアルタイム相場アラート",
+    "d10": "戦略専属コース",
+    "d11": "プラットフォームイベント優先参加",
+    "d12": "1対1専属顧問",
+    "d13": "クローズドサロン参加権",
+    "d14": "業界トップとのプライベート交流",
+    "d15": "高級リソースマッチング",
+    "d16": "カスタマイズソリューション"
+  },
+  "aigcList": {
+    "d1": "サイバー都市の夜景",
+    "d2": "智匯小方",
+    "d3": "オーロラ幻想",
+    "d4": "AI創作家",
+    "d5": "メカ少女コンセプト",
+    "d6": "未来派",
+    "d7": "量子詩篇",
+    "d10": "データ洪水 デジタル時代 詩",
+    "d11": "ネオンパルス",
+    "d12": "サウンドアーティスト",
+    "d13": "未来都市",
+    "d14": "デジタル画家",
+    "d15": "AI覚醒録",
+    "d17": "AI覚醒後の人類の状況を探り、短い哲学的エッセイを生成。",
+    "d18": "AI覚醒 意識 共存",
+    "d19": "深空のこだま",
+    "r1": "データの奔流の中で、コードを筆に、アルゴリズムをインクにして、デジタル時代の詩と遠い地平を描く。すべての文章は思考の延長であり、すべての生成は創造の始まりである。"
+  },
+  "aiAgentdetail": {
+    "q1": "エージェント詳細を取得",
+    "r6": "エージェント権限の取得に失敗"
+  },
+  "deventerCover": {
+    "d1": "どうやって開発者になるか?",
+    "d2": "開発者開通手順・権益・義務を理解し、開発者プログラムに参加。",
+    "d3": "開通手順を見る >",
+    "d4": "開発者収益はどう精算される?",
+    "d5": "エージェント収益分配ルール・出金サイクル・精算方法を理解。",
+    "d6": "収益ルールを見る >",
+    "d7": "エージェント審査ルール",
+    "d8": "エージェント公開の審査基準・よくある却下理由・修正提案。",
+    "d9": "審査ルールを見る >",
+    "d10": "n8nエージェント説明",
+    "d11": "n8nワークフローエージェントの作成・設定・公開手順の説明。",
+    "d12": "n8nエージェントを学ぶ >"
+  },
+  "shareInterestTrackModal": {
+    "d1": "AI 人工知能",
+    "d2": "AIモデル、エージェント、自動化",
+    "d3": "Web3 ブロックチェーン",
+    "d4": "ブロックチェーン、暗号資産、NFT",
+    "d5": "SaaS エンタープライズサービス",
+    "d6": "企業ソフトウェア、効率ツール",
+    "d7": "ECライブ配信",
+    "d8": "ライブコマース、ソーシャルEC",
+    "d9": "教育研修",
+    "d10": "オンライン教育、職業訓練",
+    "d11": "コンテンツ創作",
+    "d12": "自メディア、ショート動画、執筆",
+    "d13": "デザインクリエイティブ",
+    "d14": "UI/UX、グラフィック、3D",
+    "d15": "マーケティング",
+    "d16": "ブランド、グロース、SEO",
+    "text1": "スキップ",
+    "z1": "興味のある分野を選択"
+  },
+  "aiSpecial": {
+    "d1": "Google Gemini 2.5 Flash テキストモデル、高速応答・マルチモーダル入力",
+    "d2": "汎用HTTPモデルプロキシ、カスタムモデル接続対応",
+    "d3": "Google画像編集モデル、自然言語で画像編集",
+    "d4": "Google動画生成モデル、高品質なテキスト動画生成",
+    "d5": "テキスト読み上げ、多言語自然発音対応",
+    "d6": "マルチシナリオエージェント:オフィス/執筆/コーディング/教育/生活",
+    "d7": "さらに多くのAIモデルとベンダー機能を探索",
+    "q1": "エージェント一覧を読み込み",
+    "y1": "{p1}へ移動"
+  },
+  "aigroup": {
+    "q1": "AIチームを読み込み",
+    "r1": "コード",
+    "r2": "程序",
+    "r3": "函数",
+    "r4": "前端",
+    "r5": "后端"
+  },
+  "courseplanet": {
+    "d1": "AI絵画入門:ゼロからマスターへ",
+    "d2": "AI教研グループ",
+    "d3": "ショート動画制作フル実践",
+    "d4": "実践メンター",
+    "d5": "ChatGPT プロンプトエンジニアリング",
+    "d6": "AI教研グループ",
+    "d7": "AIオフィス効率向上ガイド",
+    "d8": "効率エキスパート",
+    "d9": "大規模モデルアプリ開発実践",
+    "d10": "技術エキスパート"
+  },
+  "aiHistory": {
+    "d1": "AI画像",
+    "d2": "AI音声",
+    "d3": "今週",
+    "d4": "それ以前"
+  },
   "ModelList": {
     "d1": "会話",
     "d2": "万能",
     "text1": "エージェントモード"
-  },
-  "PhoneAreaCodePicker": {
-    "d1": "中国"
-  },
-  "SystemNotice": {
-    "d1": "アップグレード"
-  },
-  "TitleSwitchOverlap": {
-    "d1": "トラック1",
-    "d2": "トラック2",
-    "d3": "トラック3",
-    "d4": "トラック4",
-    "d5": "トラック5"
   },
   "TitleSwitchScrollPicker": {
     "d1": "トラック1",
@@ -3422,6 +3819,47 @@
     "d6": "トラック6",
     "d7": "トラック7",
     "d8": "トラック8"
+  },
+  "PhoneAreaCodePicker": {
+    "d1": "中国"
+  },
+  "WithdrawalRecords": {
+    "d1": "却下済み"
+  },
+  "askCreate": {
+    "d1": "技術",
+    "d2": "製品",
+    "d4": "運営"
+  },
+  "liveCalendar": {
+    "d1": "今すぐ視聴",
+    "d2": "リプレイ"
+  },
+  "orderRefund": {
+    "d1": "欲しくなくなった",
+    "d2": "誤注文/重複注文",
+    "d3": "品質問題",
+    "d4": "説明と不一致",
+    "d5": "その他の理由",
+    "y1": "説明:{p1}",
+    "y2": "連絡先:{p1}"
+  },
+  "settingTheme": {
+    "d1": "システム設定に応じてライト/ダークを自動切替",
+    "d2": "明るいライトインターフェース、日中向き",
+    "d3": "ダークインターフェース、目に優しく省電力、夜間向き"
+  },
+  "AgentListPanel": {
+    "d1": "無料で使う",
+    "d2": "月額",
+    "d3": "購入済み"
+  },
+  "TitleSwitchOverlap": {
+    "d1": "トラック1",
+    "d2": "トラック2",
+    "d3": "トラック3",
+    "d4": "トラック4",
+    "d5": "トラック5"
   },
   "TitleSwitchScrollTitle": {
     "d1": "トラック1",
@@ -3435,52 +3873,22 @@
     "text1": "メイントラック:",
     "text2": "サブトラック:"
   },
-  "VipBenefitsPopup": {
-    "d1": "<span style=\"font-weight: bold;\">垂直トラック</span>の日次整理情報を無制限に閲覧、他者を大きく上回る",
-    "d10": "<span style=\"font-weight: bold;\">特典1:トップクラスの人脈ネットワークへの接続機会</span>",
-    "d11": "<span style=\"font-weight: bold;\">特典2:優良スタートアッププロジェクトの共有</span>",
-    "d12": "<span style=\"font-weight: bold;\">特典3:資本マッチング特典</span>",
-    "d13": "<span style=\"font-weight: bold;\">特典4:AI技術トップとの交流学習の機会</span>",
-    "d14": "<span style=\"font-weight: bold;\">特典5:AIオープンソース技術の共有</span>",
-    "d15": "GPT-4 などのトップモデルを満喫",
-    "d16": "高画質動画生成",
-    "d17": "4K 画質で透かしなし",
-    "d19": "7×24 時間サービス",
-    "d2": "創業者優先相談資格、<span style=\"font-weight: bold;\">AI</span>スタートアッププロジェクト参加資格",
-    "d20": "会員限定コンテンツ",
-    "d21": "有料コースをすべて解放",
-    "d3": "最新開発<span style=\"font-weight: bold;\">Agentic</span>内測利用資格1ヶ月",
-    "d4": "システムアップグレードで算力チャージ/コース開通/サービス割引",
-    "d5": "大規模販売資格、<span style=\"font-weight: bold;\">コミュニティ</span>サービスプロバイダー名簿に参加",
-    "d6": "会員レベル最大、<span style=\"font-weight: bold;\">すべての</span>最高割引などの特典",
-    "d7": "二段階販売特典で<span style=\"font-weight: bold;\">チーム</span>と収益を急速拡大、ワンストップ会社を創業",
-    "d8": "創業者<span style=\"font-weight: bold;\">1対1</span>随時Q&A伴走",
-    "d9": "本社入居とオフライン実践学習の機会",
-    "rich1": "期間限定<span style=\"font-weight: bold;\">588</span>元、<span style=\"font-weight: bold;\">8月8日</span>に<span style=\"font-weight: bold;\">1288</span>元に戻ります",
-    "rich2": "<span style=\"font-weight: bold;\">800万</span>算力プレゼント、独占<span style=\"font-weight: bold;\">AI</span>モデルを満喫",
-    "rich3": "販売権益を獲得、<span style=\"font-weight: bold;\">AI</span>でコスト削減・効率向上",
-    "rich4": "プライベート<span style=\"font-weight: bold;\">AI</span>カスタマーサービスカスタマイズ権、自分だけの専用<span style=\"font-weight: bold;\">AI</span>アシスタント",
-    "rich5": "多対一Q&A伴走:<span style=\"font-weight: bold;\">AI</span>教学/自媒体アカウント構築/<span style=\"font-weight: bold;\">マネタイズ</span>",
-    "rich6": "無料<span style=\"font-weight: bold;\">AI</span>ナビサイト、<span style=\"font-weight: bold;\">ワンクリック</span>で全AIツールへ",
-    "rich7": "最新開発<span style=\"font-weight: bold;\">agentic</span>内測無料利用資格<span style=\"font-weight: bold;\">1ヶ月</span>",
-    "rich8": "優先カスタム<span style=\"font-weight: bold;\">agent</span>機能、<span style=\"font-weight: bold;\">独占割引</span>付き",
-    "rich9": "<span style=\"font-weight: bold;\">AI</span>深層認知課/<span style=\"font-weight: bold;\">ビジネス</span>課を無料視聴",
-    "rich10": "<span style=\"font-weight: bold;\">AI</span>+垂直アカウント育成優先/コミュニティ<span style=\"font-weight: bold;\">サービスプロバイダー名簿</span>に参加",
-    "rich11": "優先<span style=\"font-weight: bold;\">AI</span>分身/<span style=\"font-weight: bold;\">AI</span>カスタマーサービスカスタマイズ",
-    "rich12": "1.<span style=\"font-weight: bold;color: #FF0000;\">588</span>消費で会員開通、<span style=\"font-weight: bold;color: #FF0000;\">588</span>成長値を獲得、<span style=\"font-weight: bold;color: #FF0000;\">レベル1:アルゴリズム萌芽</span>へ",
-    "rich13": "2.<span style=\"font-weight: bold;color: #FF0000;\">1500</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">レベル2</span>へ",
-    "rich14": "3.<span style=\"font-weight: bold;color: #FF0000;\">3000</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">レベル3</span>へ",
-    "rich15": "4.<span style=\"font-weight: bold;color: #FF0000;\">4500</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">レベル4</span>へ",
-    "rich16": "5.<span style=\"font-weight: bold;color: #FF0000;\">6000</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">レベル5</span>へ",
-    "rich17": "6.<span style=\"font-weight: bold;color: #FF0000;\">7500</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">レベル6</span>へ",
-    "rich18": "7.<span style=\"font-weight: bold;color: #FF0000;\">9000</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">レベル7</span>へ",
-    "rich19": "8.<span style=\"font-weight: bold;color: #FF0000;\">10500</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">レベル8</span>へ",
-    "rich20": "9.<span style=\"font-weight: bold;color: #FF0000;\">12000</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">レベル9</span>へ",
-    "rich21": "10.<span style=\"font-weight: bold;color: #FF0000;\">18888</span>智匯力で<span style=\"font-weight: bold;color: #FF0000;\">最高レベル</span>へ",
-    "z1": "............約 <span style=\"font-weight: bold;\">20</span> 項目の特典、今後も追加 ↑",
-    "z2": "............約 <span style=\"font-weight: bold;\">20</span> 項目の特典、今後も追加 ↑",
-    "r1": "もう一度相談する",
-    "z3": "0級:智域ビジター。会員アップグレードで全コース/算力/自動化エージェント/ナレッジベース/カスタムサービス等の割引を利用でき、機能も随時追加されます"
+  "deventerN8nmodel": {
+    "d1": "数字",
+    "d2": "ブール",
+    "d3": "選択"
+  },
+  "rankingDetail": {
+    "d1": "テスト中",
+    "d2": "停止済み"
+  },
+  "EmptyIllustration": {
+    "d1": "関連コンテンツが見つかりません",
+    "d2": "ネットワーク異常",
+    "d3": "権限がありません"
+  },
+  "SystemNotice": {
+    "d1": "アップグレード"
   },
   "VipPriceSelector": {
     "d1": "1ヶ月",
@@ -3489,228 +3897,19 @@
     "d4": "12ヶ月",
     "d5": "7.7割引"
   },
-  "WithdrawalRecords": {
-    "d1": "却下済み"
-  },
-  "aiAgent": {
-    "d1": "会議",
-    "d10": "授業",
-    "d11": "知識",
-    "d12": "試験",
-    "d13": "問題",
-    "d14": "解説",
-    "d15": "解答",
-    "d16": "健康",
-    "d17": "グルメ",
-    "d18": "旅行",
-    "d19": "運動",
-    "d2": "メール",
-    "d20": "ショッピング",
-    "d21": "日常",
-    "d3": "表計算",
-    "d4": "執筆",
-    "d5": "創作",
-    "d6": "小説",
-    "d7": "文章",
-    "d8": "学ぶ",
-    "d9": "教える",
-    "more2": "より多くのAIアシスタントを見つけて仕事効率を向上",
-    "text1": "AIアプリストア",
-    "text3": "開発者参入",
-    "text4": "自分だけのAIエージェントを作成・公開",
-    "text5": "今週の人気エージェントランキング",
-    "r1": "コード",
-    "r2": "程序",
-    "r3": "函数",
-    "r4": "前端",
-    "r5": "后端"
-  },
-  "aiAgentdetail": {
-    "q1": "エージェント詳細を取得",
-    "r6": "エージェント権限の取得に失敗"
-  },
-  "aiHistory": {
-    "d1": "AI画像",
-    "d2": "AI音声",
-    "d3": "今週",
-    "d4": "それ以前"
-  },
-  "aiSpecial": {
-    "d1": "Google Gemini 2.5 Flash テキストモデル、高速応答・マルチモーダル入力",
-    "d2": "汎用HTTPモデルプロキシ、カスタムモデル接続対応",
-    "d3": "Google画像編集モデル、自然言語で画像編集",
-    "d4": "Google動画生成モデル、高品質なテキスト動画生成",
-    "d5": "テキスト読み上げ、多言語自然発音対応",
-    "d6": "マルチシナリオエージェント:オフィス/執筆/コーディング/教育/生活",
-    "d7": "さらに多くのAIモデルとベンダー機能を探索",
-    "q1": "エージェント一覧を読み込み",
-    "y1": "{p1}へ移動"
-  },
-  "aiassistant": {
-    "failed2": "生成に失敗しました、再試行してください",
-    "text1": "深く思考中...",
-    "text3": "下に質問を入力してください",
-    "text4": "智匯AIが生成",
-    "text5": "回答を表示",
-    "text6": "高速生成中",
-    "p1": "生成画像:",
-    "p2": "智匯AIアシスタント",
-    "p3": "生成中",
-    "y1": "· 智匯値:{p1}",
-    "q1": "猫の画像を生成",
-    "q2": "おすすめの本を3冊",
-    "q3": "量子もつれを説明"
-  },
-  "aigcList": {
-    "d1": "サイバー都市の夜景",
-    "d10": "データ洪水 デジタル時代 詩",
-    "d11": "ネオンパルス",
-    "d12": "サウンドアーティスト",
-    "d13": "未来都市",
-    "d14": "デジタル画家",
-    "d15": "AI覚醒録",
-    "d17": "AI覚醒後の人類の状況を探り、短い哲学的エッセイを生成。",
-    "d18": "AI覚醒 意識 共存",
-    "d19": "深空のこだま",
-    "d2": "智匯小方",
-    "d3": "オーロラ幻想",
-    "d4": "AI創作家",
-    "d5": "メカ少女コンセプト",
-    "d6": "未来派",
-    "d7": "量子詩篇",
-    "r1": "データの奔流の中で、コードを筆に、アルゴリズムをインクにして、デジタル時代の詩と遠い地平を描く。すべての文章は思考の延長であり、すべての生成は創造の始まりである。"
-  },
-  "aigroup": {
-    "q1": "AIチームを読み込み",
-    "r1": "コード",
-    "r2": "程序",
-    "r3": "函数",
-    "r4": "前端",
-    "r5": "后端"
-  },
-  "askCreate": {
-    "d1": "技術",
-    "d2": "製品",
-    "d4": "運営"
+  "settingLanguage": {
+    "d1": "繁體中文",
+    "d2": "日本語"
   },
   "circleCreate": {
     "d1": "公開",
     "d2": "友達のみ",
     "d3": "非公開"
   },
-  "communityMyAgents": {
-    "mine1": "マイAIアプリ",
-    "mine2": "マイAI社員"
-  },
-  "communityRecentAgents": {
-    "text1": "最近使用"
-  },
-  "courseplanet": {
-    "d1": "AI絵画入門:ゼロからマスターへ",
-    "d10": "技術エキスパート",
-    "d2": "AI教研グループ",
-    "d3": "ショート動画制作フル実践",
-    "d4": "実践メンター",
-    "d5": "ChatGPT プロンプトエンジニアリング",
-    "d6": "AI教研グループ",
-    "d7": "AIオフィス効率向上ガイド",
-    "d8": "効率エキスパート",
-    "d9": "大規模モデルアプリ開発実践"
-  },
-  "deventerCover": {
-    "d1": "どうやって開発者になるか?",
-    "d10": "n8nエージェント説明",
-    "d11": "n8nワークフローエージェントの作成・設定・公開手順の説明。",
-    "d12": "n8nエージェントを学ぶ >",
-    "d2": "開発者開通手順・権益・義務を理解し、開発者プログラムに参加。",
-    "d3": "開通手順を見る >",
-    "d4": "開発者収益はどう精算される?",
-    "d5": "エージェント収益分配ルール・出金サイクル・精算方法を理解。",
-    "d6": "収益ルールを見る >",
-    "d7": "エージェント審査ルール",
-    "d8": "エージェント公開の審査基準・よくある却下理由・修正提案。",
-    "d9": "審査ルールを見る >"
-  },
-  "deventerN8nmodel": {
-    "d1": "数字",
-    "d2": "ブール",
-    "d3": "選択"
-  },
   "learndevelop": {
     "d1": "フロントエンドエンジニア",
     "d2": "AIアプリ開発",
     "d3": "データアナリスト"
-  },
-  "liveCalendar": {
-    "d1": "今すぐ視聴",
-    "d2": "リプレイ"
-  },
-  "memberBenefits": {
-    "d31": "専属カスタマーサービス"
-  },
-  "orderRefund": {
-    "d1": "欲しくなくなった",
-    "d2": "誤注文/重複注文",
-    "d3": "品質問題",
-    "d4": "説明と不一致",
-    "d5": "その他の理由",
-    "y1": "説明:{p1}",
-    "y2": "連絡先:{p1}"
-  },
-  "pagesindexindex": {
-    "d1": "AI文章作成アシスタント",
-    "d10": "クリエイティブデザインとビジュアルソリューション",
-    "d11": "デザイン",
-    "d12": "翻訳マスター",
-    "d13": "多言語翻訳とローカライゼーション",
-    "d14": "ツール",
-    "d15": "テキスト生成",
-    "d16": "高品質テキストコンテンツ生成",
-    "d17": "画像生成",
-    "d18": "AI絵画と画像創作",
-    "d19": "動画制作",
-    "d2": "高品質な文章・レポート・コピー作成を支援",
-    "d20": "AI動画生成と編集",
-    "d21": "音声処理",
-    "d22": "音声合成と音声編集",
-    "d23": "コード生成",
-    "d24": "多言語コード自動生成",
-    "d25": "データ分析",
-    "d26": "データ分析と可視化",
-    "d27": "AI絵画",
-    "d28": "テキスト生成画像と画像生成画像",
-    "d29": "動画編集",
-    "d3": "プログラミングアシスタント",
-    "d30": "スマート動画編集とエフェクト",
-    "d31": "AI絵画入門ガイド",
-    "d32": "本記事ではAI絵画の基礎知識とよく使うツールを詳しく紹介...",
-    "d33": "深層学習モデル最適化テクニック",
-    "d34": "深層学習モデルの学習速度と精度を最適化する方法...",
-    "d35": "プロンプトエンジニアリングベストプラクティス",
-    "d36": "プロンプトエンジニアリングの核心テクニックを習得し、AI出力品質を向上...",
-    "d37": "マルチモーダルAI応用シーン",
-    "d38": "医療・教育・金融などにおけるマルチモーダルAI応用を探索...",
-    "d39": "山水風景画",
-    "d4": "コード作成・デバッグ・最適化アドバイス",
-    "d40": "都市の夜景",
-    "d41": "抽象芸術作品",
-    "d42": "AI動画生成チュートリアル",
-    "d43": "デジタル人ライブデモ",
-    "d44": "AI音声合成デモ",
-    "d45": "TTS音色比較",
-    "d46": "音声クローン効果",
-    "d5": "開発",
-    "d6": "データアナリスト",
-    "d7": "データ可視化と分析インサイト",
-    "d8": "分析",
-    "d9": "デザインクリエイター",
-    "register1": "🎉 智匯AIコミュニティへようこそ!新規登録で5000智匯値をプレゼント!",
-    "save3": "画像を保存しました",
-    "text2": "エージェントアシスタントページ未設定",
-    "p1": "画像コンテンツ",
-    "p2": "動画コンテンツ",
-    "p3": "音声コンテンツ",
-    "r1": "アルバムに保存"
   },
   "plazaCover": {
     "d1": "開発者スペースとは?",
@@ -3719,112 +3918,9 @@
     "d4": "エージェントはどう出品するか?",
     "d5": "n8nエージェント"
   },
-  "rankingDetail": {
-    "d1": "テスト中",
-    "d2": "停止済み"
-  },
-  "settingLanguage": {
-    "d1": "繁體中文",
-    "d2": "日本語"
-  },
-  "settingTheme": {
-    "d1": "システム設定に応じてライト/ダークを自動切替",
-    "d2": "明るいライトインターフェース、日中向き",
-    "d3": "ダークインターフェース、目に優しく省電力、夜間向き"
-  },
-  "shareCenterItem": {
-    "text1": "おすすめカード",
-    "z1": "閲覧"
-  },
-  "shareInterestTrackModal": {
-    "d1": "AI 人工知能",
-    "d10": "オンライン教育、職業訓練",
-    "d11": "コンテンツ創作",
-    "d12": "自メディア、ショート動画、執筆",
-    "d13": "デザインクリエイティブ",
-    "d14": "UI/UX、グラフィック、3D",
-    "d15": "マーケティング",
-    "d16": "ブランド、グロース、SEO",
-    "d2": "AIモデル、エージェント、自動化",
-    "d3": "Web3 ブロックチェーン",
-    "d4": "ブロックチェーン、暗号資産、NFT",
-    "d5": "SaaS エンタープライズサービス",
-    "d6": "企業ソフトウェア、効率ツール",
-    "d7": "ECライブ配信",
-    "d8": "ライブコマース、ソーシャルEC",
-    "d9": "教育研修",
-    "text1": "スキップ",
-    "z1": "興味のある分野を選択"
-  },
-  "shareNewTitle": {
-    "text1": "人気ニュース"
-  },
   "tokenBalance": {
     "d1": "1ヶ月",
     "d2": "直近1年"
-  },
-  "userUserCard": {
-    "text3": "智匯消費情報",
-    "view1": "関連注文を見る",
-    "view2": "社員と業績を見る",
-    "view4": "残高とチャージを見る"
-  },
-  "vipPrivilege": {
-    "d1": "1日の会話回数",
-    "d10": "戦略専属コース",
-    "d11": "プラットフォームイベント優先参加",
-    "d12": "1対1専属顧問",
-    "d13": "クローズドサロン参加権",
-    "d14": "業界トップとのプライベート交流",
-    "d15": "高級リソースマッチング",
-    "d16": "カスタマイズソリューション",
-    "d2": "ベーシック",
-    "d3": "アドバンスト",
-    "d5": "コース割引(割)",
-    "d6": "エージェント数",
-    "d7": "専属市場データ分析ツール",
-    "d8": "1対1専門指導サービス",
-    "d9": "リアルタイム相場アラート"
-  },
-  "viptrader": {
-    "d1": "AI智匯社 トレーダー",
-    "d10": "大規模販売資格、コミュニティサービスプロバイダー名簿に参加",
-    "d11": "AIコース",
-    "d12": "AI深層認知/深層ビジネス/トラフィック全チェーン戦略コースを無料視聴",
-    "d13": "創業者Q&A",
-    "d14": "創業者1対1随時Q&A伴走",
-    "d15": "Agent内測",
-    "d16": "最新開発エージェント内測資格1年",
-    "d17": "トップ割引",
-    "d18": "会員レベル最大、すべての最高割引を享受",
-    "d19": "カスタム優待",
-    "d2": "シニア市場アナリスト / プラットフォーム認定",
-    "d20": "優先カスタムエージェント機能を20%割引",
-    "d21": "アカウント育成",
-    "d22": "AI+垂直アカウント育成優先伴走の機会",
-    "d23": "算力プレゼント",
-    "d24": "トレーダーに1600W算力をプレゼント",
-    "d25": "年換算収益",
-    "d26": "勝率",
-    "d27": "最大ドローダウン",
-    "d28": "月次伴走",
-    "d29": "30日",
-    "d3": "テクニカル分析",
-    "d30": "四半期戦略",
-    "d31": "90日",
-    "d32": "365日",
-    "d33": "李先生",
-    "d34": "トレーダーの解説は的確で、戦略の実践性が高く、実行して成果が出ています。",
-    "d35": "王女士",
-    "d36": "1対1のQ&Aが丁寧で、相場観がタイミング判断に役立ちます。おすすめです。",
-    "d4": "ファンダメンタル",
-    "d5": "リスク管理",
-    "d6": "銘柄選定",
-    "d7": "クオンツ",
-    "d8": "センチメント",
-    "d9": "販売資格",
-    "q1": "トレーダー価格を取得",
-    "r1": "AI智匯社認定トレーダー、10年のA株実戦経験、テクニカル分析とファンダメンタル分析を得意とし、かつて5億超のポートフォリオを運用。トレンド戦略とリスク管理に注力。"
   },
   "LessonListItem": {
     "text1": "VIP限定",
