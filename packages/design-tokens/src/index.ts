@@ -91,7 +91,7 @@ export type {
 } from './chart-templates.js'
 
 // 第三方 OAuth 平台品牌色唯一真相源(mobile-rn 登录页第三方按钮消费,明暗恒定)。
-export { OAUTH_BRAND_COLORS } from './oauth-colors.js'
+export { OAUTH_BRAND_COLORS, OAUTH_BUTTON_FOREGROUND } from './oauth-colors.js'
 
 // 关闭按钮统一样式 token(2026-09-16 立)— 弹窗/抽屉/浮层关闭按钮单一真相源,
 // ui-react CloseButton 组件 + 各端散装 Radix Close 全部引用,禁止手写散装样式。
@@ -146,6 +146,15 @@ export {
   type ButtonBaseSize,
   type ButtonBaseProps,
 } from './component-props.js'
+
+// 跨端 Button cva 共享配置唯一源(ui-react + ui-native 共用):
+// 共享档位(default/destructive/outline/ghost + sm/lg)的 class string 在此定义一次,
+// 各端 cva 构建时 spread + 覆盖平台修饰(hover/shadow/rounded),详见 button-variants.ts 头注。
+export {
+  SHARED_BUTTON_BASE_CLASS,
+  SHARED_BUTTON_VARIANT_CLASSES,
+  SHARED_BUTTON_SIZE_CLASSES,
+} from './button-variants.js'
 
 // 圆角档位唯一真相源(全端共用):Tailwind v3 preset 取 RADIUS_REM,JS 数值场景取 rnRadius。
 // CSS 端(tokens.css / app.css)写 var(--radius-*),其值由 check-radius-single-source.mjs 与本表对账。
