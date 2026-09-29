@@ -554,7 +554,10 @@ test('T24 三份同名:进审候选逐条点名 + 一份族只许一条腿(真�
   for (const e of mc) {
     assert.ok(e.chosen && Array.isArray(e.others) && e.others.length > 0, `多候选腿没点名未选:${e.name}`)
     assert.ok(!e.others.includes(e.chosen), `${e.name} 选中的那份又出现在未选名单里`)
-    assert.ok(['suffix', 'exit', 'order'].includes(e.by), `${e.name} 的依据不在"后缀 > 出口 > 目录序"里`)
+    assert.ok(
+      ['suffix', 'own-end', 'exit', 'order'].includes(e.by),
+      `${e.name} 的依据不在"后缀 > 同端自绘层 > 出口 > 目录序"里`,
+    )
     assert.ok(['rn', 'miniapp'].includes(e.side), `${e.name} 报不出是哪一侧的多候选`)
   }
   const keys = mc.map((e) => `${e.name}@${e.side}`)
@@ -566,8 +569,22 @@ test('T24 三份同名:进审候选逐条点名 + 一份族只许一条腿(真�
     ui,
     '真仓不再有三份同名的 UserInfoCard 腿 ⇒ 换成现役的多候选族继续钉,别把锁删掉',
   )
-  assert.equal(ui.by, 'exit', '三候选的裁决不再是出口指向 ⇒ 出口链或配对源改了形')
-  assert.match(ui.chosen, /packages\/app\/src\/features\/cards\//, '选中的腿不是出口指的那一份')
+  // 票#9(2026-09-29):RN 侧 UserInfoCard 有三份活实现,而 `apps/mobile-rn/src/components/` 那份
+  // 才是 ProfileScreen 直接 import、与小程序端 `apps/miniapp-taro/src/components/` 对位的那一张脸;
+  // 出口指向(features/cards)那份被别的屏用 —— 按出口选会拿两个不同元素互相记账。
+  // 所以这一格的现行期望是"同端自绘层胜";若它改回 'exit',说明新序被摘掉,选腿重新按包出口走。
+  assert.equal(ui.by, 'own-end', '三候选的裁决不再是"同端自绘层" ⇒ 票#9 那一序被摘掉或改了形')
+  assert.match(
+    ui.chosen,
+    /^apps\/mobile-rn\/src\/components\//,
+    '选中的腿不是该端屏幕真渲染的那一份(端内自绘层)',
+  )
+  // 出口链的锁挪到它真正产出的那一面:桶里必须解析到至少一条 re-export 指向,
+  // 否则"第二顺位还在"这件事只是措辞(与 ㉲/㉴ 的构造面成对互补)。
+  assert.ok(
+    Array.isArray(j.exitNotes) && j.exitNotes.length > 0,
+    '出口链在真仓零产出 ⇒ 选腿的第三顺位已无源可查,不得靠单元层用例背书',
+  )
   assert.ok(
     ui.others.includes('packages/app/src/components/UserInfoCard.tsx'),
     '未选名单漏了 components 那一份 ⇒ 点名只点一半',
