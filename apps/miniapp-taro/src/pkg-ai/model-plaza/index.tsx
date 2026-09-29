@@ -9,6 +9,9 @@ import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { fetchModels, type LlmModel } from '@/api'
 import { FALLBACK_MODELS } from '@ihui/shared/constants'
+// 兜底模型的上下文容量按 id 取真实值;广场是用户直接看到"128K/32K"这类字样的地方,
+// 写死一个数 = 对一半以上的模型报错误规格(与首页那处同一型,共用同一个出口)
+import { getModelContextCapacity } from '@ihui/api-client'
 import ThemeRoot from '@/components/ThemeRoot'
 import CategoryBar from '@/components/CategoryBar'
 import './index.css'
@@ -70,7 +73,7 @@ const FALLBACK_MODEL_DISPLAYS: ModelDisplay[] = FALLBACK_MODELS.map((f) => ({
   tags: [],
   payMode: t('common.free'),
   type: 'text',
-  contextLength: 128000,
+  contextLength: getModelContextCapacity(f.value),
 }))
 
 function inferType(model: LlmModel): ModelType {
