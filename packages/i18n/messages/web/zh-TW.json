@@ -532,6 +532,13 @@
     "mermaidSkipSourceTooLarge": "圖表源碼過長，已改為顯示源碼",
     "mermaidSkipLineCountTooLarge": "圖表的行數過多，已改為顯示源碼",
     "mermaidSkipComplexityTooLarge": "圖表節點與連線過多，已改為顯示源碼",
+    "mermaidZoomIn": "放大",
+    "mermaidZoomOut": "縮小",
+    "mermaidZoomReset": "重設縮放",
+    "mermaidZoomLevel": "縮放比例",
+    "mermaidZoomToFit": "適應螢幕",
+    "mermaidCopyImage": "複製為圖片",
+    "mermaidImageCopied": "圖表圖片已複製",
     "pdfLoadFailed": "PDF 載入失敗: {message}",
     "renderFailed": "渲染失敗: {message}",
     "unknownError": "未知錯誤",
@@ -8580,6 +8587,82 @@
         "SNAPSHOT_UNREADABLE": {
           "title": "快照內容不可讀",
           "action": "改用其他版本或放棄回滾"
+        },
+        "FILE_SCAN_PENDING": {
+          "title": "安全檢查進行中",
+          "action": "等待安全檢查完成後重試"
+        },
+        "FILE_SCAN_FAILED": {
+          "title": "安全檢查失敗",
+          "action": "稍後重試"
+        },
+        "FILE_SCAN_TIMEOUT": {
+          "title": "安全檢查逾時",
+          "action": "稍後重試"
+        },
+        "FILE_SCAN_UNSCANNABLE": {
+          "title": "此檔案無法進行安全檢查",
+          "action": "更換檔案格式後重試"
+        },
+        "FILE_SCAN_BLOCKED": {
+          "title": "檔案未通過安全檢查",
+          "action": "更換檔案後重試"
+        },
+        "file_scan_failed": {
+          "title": "安全檢查失敗",
+          "action": "稍後重試"
+        },
+        "file_content_rejected": {
+          "title": "檔案內容未通過安全檢查",
+          "action": "更換檔案後重試"
+        },
+        "FILE_NOT_READY": {
+          "title": "檔案尚未就緒",
+          "action": "稍候片刻再重試"
+        },
+        "file_not_ready": {
+          "title": "檔案尚未就緒",
+          "action": "稍後重試"
+        },
+        "FILE_INTEGRITY_FAILED": {
+          "title": "檔案完整性驗證失敗",
+          "action": "重新下載後重試"
+        },
+        "FILE_DISK_SPACE": {
+          "title": "本機磁碟空間不足",
+          "action": "清理磁碟空間後重試"
+        },
+        "FILE_STORAGE_INVALID": {
+          "title": "本機檔案快取不可用",
+          "action": "檢查本機儲存空間後重試"
+        },
+        "CHAT_SESSION_HISTORY_MISSING": {
+          "title": "會話歷史缺失",
+          "action": "重新開啟會話後重試"
+        },
+        "47902": {
+          "title": "本輪對話次數已達上限",
+          "action": "稍後再試或升級方案"
+        },
+        "121": {
+          "title": "組織資料正在遷移",
+          "action": "遷移完成後重試"
+        },
+        "speaking_banned": {
+          "title": "目前處於禁言狀態",
+          "action": "聯絡管理員了解詳情"
+        },
+        "member_capacity_exceeded": {
+          "title": "成員數量已達上限",
+          "action": "移除部分成員或升級方案"
+        },
+        "context_limit": {
+          "title": "請求內容過大",
+          "action": "精簡內容後重試"
+        },
+        "invalid_arguments": {
+          "title": "提交的資訊有誤",
+          "action": "檢查後重試"
         }
       },
       "worktree": {
@@ -10616,7 +10699,10 @@
     "cmdWechatArticle": "請幫我生成一篇公眾號文章。要求:\n1. 主題:\n2. 摘要:\n3. 重點標記(金句卡 / 提示塊 / 引用 / 代碼塊 / 小標題)\n4. 配圖建議:\n請走 content-engine 流水線(摸魚綠主題 + 22 項自檢 + 草稿箱推送)。",
     "codeBlock": {
       "applyToFile": "應用到檔案",
-      "insertAtCursor": "插入遊標處"
+      "insertAtCursor": "插入遊標處",
+      "wrapOn": "開啟程式碼換行",
+      "wrapOff": "關閉程式碼換行",
+      "copyImage": "複製為圖片"
     },
     "commandArg": {
       "goalBenchmark": {
@@ -20256,6 +20342,8 @@
       "statusExpired": "已過期",
       "statusUnknown": "未知",
       "subtitle": "配置各平臺的登錄憑證(加密存儲)",
+      "switchToAppQr": "切換為App掃碼",
+      "switchToWechatQr": "切換為微信掃碼",
       "taskId": "任務",
       "title": "平臺賬號管理",
       "verify": "測試連接",
