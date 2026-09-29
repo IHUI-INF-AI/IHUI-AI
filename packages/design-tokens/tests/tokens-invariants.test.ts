@@ -95,10 +95,24 @@ describe('圆角档位表:档位取值 + 表内派生算术', () => {
 })
 
 describe('几何档投影:dp 与 rpx 必须由同一张表派生', () => {
-  it('取值冻结:tapBox 36 / glyphMd 20 / controlBox 32 / controlGlyph 14', () => {
+  it('取值冻结:全十档(tapBox 36 / glyphMd 20 / controlBox 32 / controlGlyph 14 / glyphSm 16 / textCaption 11 / textLabel 12 / textBody 14 / textStrong 15 / drawerWidth 250)', () => {
     // 2026-09-27:controlBox/controlGlyph 是几何收敛(a464b7d9c)按"先在本表落一档(带取值依据)"
-    // 规程新增的档,冻结面随之钉全四档;键集派生一致性由下面两枚用例覆盖,不在此重复。
-    expect(GEOMETRY_PX).toEqual({ tapBox: 36, glyphMd: 20, controlBox: 32, controlGlyph: 14 })
+    // 规程新增的档;2026-09-29 再随 O81 票(ca3f2cff31 补 glyphSm、8f24ec85f7 补 textCaption/
+    // textLabel/textBody/textStrong/drawerWidth)钉全**十档** —— 冻结面按"表里有几档就钉几档"走,
+    // 新增一档而不改本行 = 那一档的取值没人看守(键集派生一致性由下面两枚用例覆盖,不在此重复;
+    // 但**取值**只有这里钉,漏钉一档就是给下一次静默改值留口子)。
+    expect(GEOMETRY_PX).toEqual({
+      tapBox: 36,
+      glyphMd: 20,
+      controlBox: 32,
+      controlGlyph: 14,
+      glyphSm: 16,
+      textCaption: 11,
+      textLabel: 12,
+      textBody: 14,
+      textStrong: 15,
+      drawerWidth: 250,
+    })
   })
 
   it('taroGeometry 逐档 === px × TARO_RPX_PER_PX,键集与源表相同', () => {
