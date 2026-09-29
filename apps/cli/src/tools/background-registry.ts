@@ -345,7 +345,12 @@ export function registerTask(
         // 形状反推(旧写法把用户手停/模型停/外部杀按 signal 形状塌成一件事,模型读到
         // `killed+timedOut` 只会去重跑同一条命令)。无发起方的信号终止(OOM/外部 kill)
         // 记 undefined,同样非超时 —— 反向锁见 kill-initiator 测试。
-        task.timedOut = false;
+        // G-896416:但 deadline 持有者在发信号**之前**显式置位的 `timedOut=true`
+        // (killTask 的 opts.timedOut,如"超时自动转后台"后的后台预算杀)不得被这里冲掉
+        // —— close 只读不猜,唯独不覆写持有者已经落盘的事实。
+        if (task.timedOut !== true) {
+          task.timedOut = false;
+        }
       } else {
         task.status = 'exited';
       }
@@ -640,6 +645,15 @@ export async function settleAllInFlight(timeoutMs = 30_000): Promise<SettleAllIn
 export async function killTask(
   id: string,
   initiator?: 'user' | 'model' | null,
+  opts?: {
+    /**
+     * deadline 持有者显式置位(G-896416):本次 kill 的原因是**超时**而不是人。
+     * 必须在发信号之前落盘(与 stopInitiator 同一条"写在 abort 之前"判据),
+     * close 处理器读到 signal 时只保住这个事实,绝不按 signal 形状反推。
+     * 调用点:run_command 超时自动转后台后的后台预算杀(600s,与显式后台同预算)。
+     */
+    timedOut?: boolean;
+  },
 ): Promise<{ killed: boolean; reason?: string; exitConfirmed: boolean }> {
   const t = tasks.get(id);
   if (!t) return { killed: false, exitConfirmed: false, reason: `任务 ${id} 不存在` };
@@ -649,6 +663,10 @@ export async function killTask(
   // G-816026:发起方**必须在发信号之前落盘** —— close 事件是异步的,晚写就会让
   // close 处理器读到 undefined,把主动停误判成"外部终止"(上游同课:
   // background-stop-dynamic-workflow.ts:45-57「写在 abort 之前,否则结算可能抢先一步读到空值」)。
+  // G-896416:超时档同理,而且先于 stopInitiator —— 两件事两条轴,谁都不能吃掉谁。
+  if (opts?.timedOut === true) {
+    t.timedOut = true;
+  }
   t.stopInitiator = initiator ?? null;
 
   try {
