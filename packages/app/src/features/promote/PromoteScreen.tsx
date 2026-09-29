@@ -79,7 +79,12 @@ export function PromoteScreen({
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
+        <BackChevron
+          onPress={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          style={styles.backBtn}
+        />
         <Text style={styles.title}>{t('promote.title')}</Text>
         <Text style={styles.subtitle}>{t('promote.subtitle')}</Text>
       </View>

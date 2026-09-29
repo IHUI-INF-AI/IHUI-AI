@@ -35,15 +35,15 @@
  *   node scripts/check-egress-facts.mjs --self-test
  *   node scripts/check-egress-facts.mjs --json
  */
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 
+import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+
 const SELF_URL = import.meta.url
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_PATH = resolve(ROOT, 'scripts/egress-facts-baseline.json')
-const GIT_BIN = process.env.GIT_BIN || 'git'
 
 /** 被认作"已带出口事实"的两个出口名。*/
 const WRAPPER_NAMES = ['fetchWithTimeout', 'proxiedFetch']
@@ -147,8 +147,10 @@ function hostInDomainSet(host, domains) {
 /**
  * 单文件判据核心:hard(计红) + undetermined(只报数)。
  * @param vendorDomains 厂商域名数组(小写)
+ * 调用方传的 `path` 本函数不参与判定(归集红点时由调用方按文件记账),故不再 destructuring 进来
+ * —— 它此前以未使用形参的形式挂在签名上,是 eslint 的两枚存量红之一。
  */
-function analyzeFile({ path, content, vendorDomains }) {
+function analyzeFile({ content, vendorDomains }) {
   const hard = []
   const undetermined = []
   if (!content || content.trim() === '') return { hard, undetermined }
@@ -211,8 +213,10 @@ function deriveVendorDomains({ sources }) {
  *  - 枚举到 0 个文件(空扫) ⇒ 2
  *  - 三张域名表一条都没推出值(判据失去依据) ⇒ 2
  * 单个来源为空只降级为警告并如实点名(上游改表名不该让本门罢工 —— 那等于把门换成常闭)。
+ * `provenance` 由 main() 直接打印,不参与本纯函数的退出码决策,故不再 destructuring 进来
+ * (此前是 eslint 报的第二枚未使用形参)。
  */
-function decide({ verdicts, undetermined, provenance, enumerated, domainCount }) {
+function decide({ verdicts, undetermined, enumerated, domainCount }) {
   const reasons = []
   if (!enumerated) reasons.push('枚举到 0 个在判范围内的文件 —— 空扫不得记为通过')
   if (domainCount === 0) reasons.push('厂商域名表全部为空 —— 判据没有依据')
@@ -226,14 +230,17 @@ function decide({ verdicts, undetermined, provenance, enumerated, domainCount })
 // git 取材
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * 非正文的 git 派生(枚举 / 预筛 / rev-parse)一律经取材层的 `gitRaw` —— 绝对路径 git、
+ * quotepath、timeout、windowsHide 全在层里一处收口。旧写法是
+ * `const GIT_BIN = process.env.GIT_BIN || 'git'`,即**把常量绑到裸 'git'**:钩子/服务
+ * 身份的 PATH 里没有 git 时它直接失败(AGENTS §5b 记过"服务身份与交互账户环境互不相通"),
+ * 而守门 80 的无界派生、守门 118 的取材面纪律也都由这一次收口顺带满足。
+ * 契约逐字不变:allowFail ⇒ null;否则抛同样文案的 Error(镜像测试与调用方都按文案判)。
+ */
 function git(args, { allowFail = false } = {}) {
   try {
-    return execFileSync(GIT_BIN, ['-C', ROOT, '-c', 'safe.directory=*', ...args], {
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-      timeout: 120_000,
-      windowsHide: true,
-    })
+    return gitRaw(args, ROOT, { timeout: 120_000, maxBuffer: 64 * 1024 * 1024 })
   } catch {
     if (allowFail) return null
     throw new Error(`git ${args.join(' ')} 失败`)
@@ -296,13 +303,30 @@ function enumerate({ staged }) {
   return { files: list, note: '索引(本次暂存改动)' }
 }
 
-function readFace(path, { staged, worktree }) {
+/**
+ * 正文一律经取材层的批量读取入口一次读满,不再逐文件 `git show`:
+ * ① 层的 `gitRaw(['show', …])` 只共用管子、不共用面(§118 的 half-wired 正是这一型),
+ *    所以这里用 `catBatch`(面由调用方一次定死,枚举与内容同轮);
+ * ② 取不到的值留 `undefined`,由调用方按"无法判定"处置 —— 不冒红、不记绿、**不回落另一个面**。
+ * worktree 档走 `readWorktreeFile`(它是层给人工排查留的逃生舱,不是默认档)。
+ */
+function prefetchTexts(paths, { staged, worktree }) {
+  const list = [...new Set(paths)]
+  const texts = new Map()
   if (worktree) {
-    const abs = resolve(ROOT, path)
-    return existsSync(abs) ? readFileSync(abs, 'utf8') : undefined
+    for (const p of list) {
+      const t = readWorktreeFile(ROOT, p)
+      texts.set(p, typeof t === 'string' ? t : undefined)
+    }
+    return texts
   }
-  const out = git(staged ? ['show', `:${path}`] : ['show', `HEAD:${path}`], { allowFail: true })
-  return out === null ? undefined : out
+  const specs = list.map((p) => `${staged ? ':' : 'HEAD:'}${p}`)
+  const got = catBatch(ROOT, specs, { maxBuffer: 64 * 1024 * 1024 })
+  list.forEach((p, i) => {
+    const t = got.get(specs[i])
+    texts.set(p, typeof t === 'string' ? t : undefined)
+  })
+  return texts
 }
 
 function loadBaseline() {
@@ -343,8 +367,9 @@ async function main(argv) {
 
   const face = worktree ? 'worktree' : staged ? 'index' : 'HEAD'
   const readOpts = { staged, worktree }
+  const tableTexts = prefetchTexts(DOMAIN_TABLE_SOURCES.map((s) => s.file), readOpts)
   const { domains, provenance } = deriveVendorDomains({
-    sources: DOMAIN_TABLE_SOURCES.map((s) => ({ ...s, text: readFace(s.file, readOpts) })),
+    sources: DOMAIN_TABLE_SOURCES.map((s) => ({ ...s, text: tableTexts.get(s.file) })),
   })
 
   const enumResult = enumerate({ staged })
@@ -359,8 +384,9 @@ async function main(argv) {
   let undetermined = 0
   const pre = prefilter({ files, domains, staged })
   const toRead = pre.set ? files.filter((p) => pre.set.has(p)) : files
+  const contents = prefetchTexts(toRead, readOpts)
   for (const path of toRead) {
-    const content = readFace(path, readOpts)
+    const content = contents.get(path)
     if (content === undefined) {
       console.error(`❌ 无法判定:取材面 ${face} 上读不到 ${path}`)
       return 2
