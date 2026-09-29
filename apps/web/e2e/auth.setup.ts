@@ -24,6 +24,9 @@ import {
  */
 
 setup('authenticate as user', async ({ request, baseURL }) => {
+  // 2026-09-30 实锤:429 退避一次 = Retry-After+1s(默认 65s) > setup 默认 30s timeout,
+  // 登录撞一次限流 setup 必超时 —— 给两个 setup 用例留足两次退避+请求的预算。
+  setup.setTimeout(150_000)
   await apiLoginAndSaveStorageState(
     request,
     baseURL ?? 'http://localhost:8801',
@@ -35,6 +38,7 @@ setup('authenticate as user', async ({ request, baseURL }) => {
 })
 
 setup('authenticate as admin', async ({ request, baseURL }) => {
+  setup.setTimeout(150_000)
   await apiLoginAndSaveStorageState(
     request,
     baseURL ?? 'http://localhost:8801',
