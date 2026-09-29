@@ -1295,6 +1295,13 @@ export interface StreamChatOptions {
    *  下发 warning(80%~95%)/critical(95%~100%)提醒帧,前端 toast 提示用量进度;
    *  ≥100% 为 HTTP 429 硬中断(errorCode 'BUDGET_EXHAUSTED'),走 onError 路径。 */
   onBudget?: (event: BudgetEvent) => void
+  /** D155 配置告警(2026-09-29 立):生效配置有问题(如 base URL 被覆盖)时下发。
+   *  表外 severity 值在解析层回退 'warning',不丢帧。 */
+  onConfigWarning?: (event: ConfigWarningEvent) => void
+  /** D155 弃用预告(2026-09-29 立):某能力/模型/端点即将弃用时下发。 */
+  onDeprecationNotice?: (event: DeprecationNoticeEvent) => void
+  /** D155 守护告警(2026-09-29 立):自动审查(guardian)发现风险时下发。 */
+  onGuardianWarning?: (event: GuardianWarningEvent) => void
   /** D34 运行环境交代(2026-09-22 立):后端在**真正生效**的上下文注入之后、任何增量之前
    *  下发本帧,前端据此显示"本轮回答带了哪些注入"(自定义指令 / 工作区记忆 / Repo Wiki /
    *  检索上下文)。此前该帧只被"不喷进正文"地丢弃,等于生产了却没人看。 */
@@ -1596,6 +1603,56 @@ export interface BudgetEvent {
   tier?: string
   /** 限额重置时间(ISO,东八区次日 0 点,可选) */
   resetAt?: string
+}
+
+// ---------------------------------------------------------------------------
+// D155(2026-09-29 立):下行告警族另外三档(契约声明见
+// packages/shared/src/sse/contract.ts 的 SSE_ALERT_EVENTS 段;生产判定点在
+// ai-service,现场释放前本包先把解析通道备好 —— 与 budget 同一装车姿势)。
+// 三档共用 severity 域 info|warning|critical;**解析层对表外 severity 回退
+// 'warning' 而不是丢帧**(至少 message/severity 要到消费端,D34/D40 教训)。
+// 契约类型本包不 import @ihui/shared(零依赖包边界),severity 字面量在此自持,
+// 与 shared 的 SSEAlertSeverity 由 shared 契约测试钉住同值。
+// ---------------------------------------------------------------------------
+
+/** 三档告警共用的强度域(与 shared SSE_ALERT_SEVERITIES 同值)。 */
+export type AlertSeverity = 'info' | 'warning' | 'critical'
+
+/** config-warning 帧:生效配置有问题(如 base URL 被覆盖到非预期端点)。 */
+export interface ConfigWarningEvent {
+  severity: AlertSeverity
+  /** 人可读的问题描述(生产端措辞) */
+  message: string
+  /** 出问题的配置项(如 'baseUrl');缺省表示未定位到单项 */
+  field?: string
+  /** 关联的供应商标识;缺省表示全局配置问题 */
+  provider?: string
+  /** 当前生效值;可能敏感时生产端整字段省略 */
+  effectiveValue?: string
+}
+
+/** deprecation-notice 帧:某能力/模型/端点即将弃用(sunsetAt 之前仍可用)。 */
+export interface DeprecationNoticeEvent {
+  severity: AlertSeverity
+  /** 人可读的弃用说明 */
+  message: string
+  /** 即将弃用的能力标识(模型名/端点名/参数名) */
+  capability?: string
+  /** 建议的替代品;缺省表示暂无替代 */
+  alternative?: string
+  /** 彻底停用时间(ISO) */
+  sunsetAt?: string
+}
+
+/** guardian-warning 帧:自动审查(guardian)发现风险。 */
+export interface GuardianWarningEvent {
+  severity: AlertSeverity
+  /** 人可读的风险描述 */
+  message: string
+  /** 风险类别(值域由生产端定义,端上只透传) */
+  category?: string
+  /** 触发本次审查的审查器 id */
+  reviewId?: string
 }
 
 /**
@@ -2502,6 +2559,10 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       const hasSteer = typeof opts.onSteer === 'function'
       // Budget(用量分档提醒,2026-09-19 立):onBudget 存在时启用解析
       const hasBudget = typeof opts.onBudget === 'function'
+      // D155(2026-09-29 立):下行告警三档;未注册回调不解析(与其余 per-field 同口径)
+      const hasConfigWarning = typeof opts.onConfigWarning === 'function'
+      const hasDeprecationNotice = typeof opts.onDeprecationNotice === 'function'
+      const hasGuardianWarning = typeof opts.onGuardianWarning === 'function'
       const hasInjection = typeof opts.onInjectionApplied === 'function'
       const hasRetryScheduled = typeof opts.onRetryScheduled === 'function'
       // D77(2026-09-25 立):业务表单请求帧;帧带 fields/actions 结构化字段,
@@ -3519,6 +3580,106 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
 
       /**
+       * D155(2026-09-29 立)下行告警三档解析(契约见 shared contract.ts 的
+       * SSE_ALERT_EVENTS 段)。与 tryParseBudget 同构,但三档共用一条归一纪律:
+       * `type` 命中 + `message` 非空串 ⇒ 收帧;severity 表外/缺省**回退 'warning'**
+       * 而不是丢帧(D34/D40 教训:至少 message/severity 要到消费端);
+       * 可选串字段只在 `typeof === 'string'` 时透传(非串垃圾当缺省)。
+       */
+      const alertSeverity = (value: unknown): AlertSeverity =>
+        value === 'info' || value === 'warning' || value === 'critical' ? value : 'warning'
+
+      const tryParseConfigWarning = (line: string): void => {
+        if (!hasConfigWarning) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'config-warning') return
+          if (typeof json.message !== 'string' || json.message === '') return
+          opts.onConfigWarning!({
+            severity: alertSeverity(json.severity),
+            message: json.message,
+            field: typeof json.field === 'string' ? json.field : undefined,
+            provider: typeof json.provider === 'string' ? json.provider : undefined,
+            effectiveValue:
+              typeof json.effectiveValue === 'string' ? json.effectiveValue : undefined,
+          })
+        } catch {
+          /* 非 JSON 或非 config-warning 事件忽略 */
+        }
+      }
+
+      const tryParseDeprecationNotice = (line: string): void => {
+        if (!hasDeprecationNotice) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'deprecation-notice') return
+          if (typeof json.message !== 'string' || json.message === '') return
+          opts.onDeprecationNotice!({
+            severity: alertSeverity(json.severity),
+            message: json.message,
+            capability: typeof json.capability === 'string' ? json.capability : undefined,
+            alternative: typeof json.alternative === 'string' ? json.alternative : undefined,
+            sunsetAt: typeof json.sunsetAt === 'string' ? json.sunsetAt : undefined,
+          })
+        } catch {
+          /* 非 JSON 或非 deprecation-notice 事件忽略 */
+        }
+      }
+
+      const tryParseGuardianWarning = (line: string): void => {
+        if (!hasGuardianWarning) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'guardian-warning') return
+          if (typeof json.message !== 'string' || json.message === '') return
+          opts.onGuardianWarning!({
+            severity: alertSeverity(json.severity),
+            message: json.message,
+            category: typeof json.category === 'string' ? json.category : undefined,
+            reviewId: typeof json.reviewId === 'string' ? json.reviewId : undefined,
+          })
+        } catch {
+          /* 非 JSON 或非 guardian-warning 事件忽略 */
+        }
+      }
+
+      /**
        * 优化(问题 4-4):基于 SSE 行的 type 字段快速路由到对应 tryParse,
        * 避免每行最多 6 次 tryParse 全量 JSON.parse 尝试。
        *
@@ -3541,6 +3702,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
        *  - usage:tryParseUsage(OpenAI 协议 usage chunk,基于 json.usage 字段,非 type)
        *  - steer:tryParseSteer(Steer 2026-09-19 立)
        *  - budget:tryParseBudget(Budget 用量分档提醒 2026-09-19 立,网关发)
+       *  - config-warning / deprecation-notice / guardian-warning:
+       *    tryParseConfigWarning / tryParseDeprecationNotice / tryParseGuardianWarning
+       *    (D155 2026-09-29 立,下行告警三档)
        *  - injection_applied / retry_scheduled:tryParseInjection / tryParseRetryScheduled
        *    (D34/D39 2026-09-22 立;两帧都带文本字段,漏分流会喷进正文增量)
        *  - form_request:tryParseFormRequest(D77 2026-09-25 立;对话流业务表单请求帧,
@@ -3747,6 +3911,13 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             // Budget(2026-09-19 立):网关用量分档提醒帧
             case 'budget':
               return 'budget'
+            // D155(2026-09-29 立):下行告警三档(配置告警/弃用预告/守护告警)
+            case 'config-warning':
+              return 'config-warning'
+            case 'deprecation-notice':
+              return 'deprecation-notice'
+            case 'guardian-warning':
+              return 'guardian-warning'
             // D34/D39(2026-09-22 立):运行环境交代与重试交代帧
             case 'injection_applied':
               return 'injection_applied'
@@ -3803,6 +3974,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseSteer(line)
         } else if (route === 'budget') {
           tryParseBudget(line)
+        } else if (route === 'config-warning') {
+          tryParseConfigWarning(line)
+        } else if (route === 'deprecation-notice') {
+          tryParseDeprecationNotice(line)
+        } else if (route === 'guardian-warning') {
+          tryParseGuardianWarning(line)
         } else if (route === 'injection_applied') {
           tryParseInjection(line)
         } else if (route === 'retry_scheduled') {
@@ -3832,6 +4009,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseThinking(line)
           tryParseSteer(line)
           tryParseBudget(line)
+          tryParseConfigWarning(line)
+          tryParseDeprecationNotice(line)
+          tryParseGuardianWarning(line)
           tryParseInjection(line)
           tryParseRetryScheduled(line)
           tryParseFormRequest(line)
