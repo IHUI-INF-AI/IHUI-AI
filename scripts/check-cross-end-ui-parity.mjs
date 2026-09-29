@@ -40,6 +40,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitBinary, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { radiusEntriesOf, radiusLookup, radiusSetOf } from './lib/radius-tokens.mjs'
+import { facePx } from './lib/length-units.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -60,9 +61,6 @@ const SIDES = {
     'apps/mobile-rn/src/components',
   ],
 }
-/** 一个逻辑 px 折成该端单位要乘多少:小程序 750 设计宽 / 375pt ⇒ 2;RN 1:1。反向即除。 */
-const TO_PX = { miniapp: 2, rn: 1 }
-
 const BASELINE_REL = 'scripts/cross-end-ui-parity-baseline.json'
 /** 落在这些键/标识符上下文里的数字才算"看得见的尺寸"。 */
 const GEO_KEY =
@@ -144,13 +142,19 @@ export function stripComments(src) {
 
 const round = (n) => Math.round(n * 100) / 100
 
-/** 原始数字 → px。带 rpx 后缀除 2;小程序端裸数字按该端量纲即 rpx,故同样折算。 */
-export function toPx(raw, unit, side) {
-  const v = Number(raw)
-  if (!Number.isFinite(v) || v <= 0) return null
-  const isRpx = unit === 'rpx' || (unit === undefined && side === 'miniapp')
-  const px = round(isRpx ? v / TO_PX.miniapp : v)
-  return px > MAX_GEO_PX ? null : px
+/**
+ * 原始数字 + 书写单位 → 逻辑 px。折算与单位归属都在 `lib/length-units.mjs` 的 `facePx` 里,只此一份。
+ * `where` 说的是**这一格落在哪一面**:`'css'`(默认)= 经构建进样式表(小程序的 `Npx` 被 pxtransform
+ * 1:1 写成 `Nrpx`,与 rpx 同折);`'runtime'` = 引号里的运行时串(端内 `px(n)` 助手那一型),不换。
+ * 判哪一面的依据是取值的**书写形态** —— 只有引号里的值到不了 postcss,其余带单位的字面量都会落地成 rpx。
+ */
+export function toPx(raw, unit, side, where = 'css') {
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n <= 0) return null
+  const px = facePx(`${raw}${unit || ''}`, side, where)
+  if (px === null) return null
+  const r = round(px)
+  return r > MAX_GEO_PX ? null : r
 }
 
 /**
@@ -210,6 +214,9 @@ export function readGeometry(src, side, tiers = {}) {
    * 后果不是"少读一个数"而是**造出假分叉**:对面写了同一个值,这边读不到 ⇒ 报成"仅 RN 档"。
    * 口径:引号内按空白切 token,逐 token 去掉引号后只认纯 `<数字><rpx|px>`;
    * `calc(50% - 26rpx)` 这类混算式**不计**(它不是档,是机制)。
+   * 引号里的那个数**不过 postcss**(运行时才落到 style 上),所以这一支交 `toPx` 时显式说明
+   * 落地面是 `runtime` —— 否则小程序 `minHeight:'120px'` 会被当成样式表的 120px 折成 60,
+   * 而对面写的 120 是真 120,一次折半就把同档读成分叉(实测 AgentRuntimePanel)。
    */
   for (const m of code.matchAll(
     /([a-z][\w]*(?:-[a-z0-9]+)*)\s*[:=]\s*(['"`])([^'"`\n]*)\2/gi,
@@ -217,7 +224,7 @@ export function readGeometry(src, side, tiers = {}) {
     if (!keyed(m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
     for (const raw of m[3].trim().split(/\s+/)) {
       const one = /^(\d+(?:\.\d+)?)(rpx|px)$/.exec(raw)
-      if (one) push(toPx(one[1], one[2], side))
+      if (one) push(toPx(one[1], one[2], side, 'runtime'))
     }
   }
   /**
@@ -1925,12 +1932,15 @@ export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null
      * 必须**共用**(两处各算一遍必漂移),所以这里不再另派生一份文本。
      */
     const radius = radiusTable
-      ? diffValues(new Set(radiusSetOf(aAll, radiusTable)), new Set(radiusSetOf(bAll, radiusTable)))
+      ? diffValues(
+          new Set(radiusSetOf(aAll, radiusTable, { side: 'miniapp' })),
+          new Set(radiusSetOf(bAll, radiusTable, { side: 'rn' })),
+        )
       : { onlyMiniapp: [], onlyRn: [] }
     const radiusSeen = radiusTable
       ? {
-          miniapp: radiusSetOf(aAll, radiusTable),
-          rn: radiusSetOf(bAll, radiusTable),
+          miniapp: radiusSetOf(aAll, radiusTable, { side: 'miniapp' }),
+          rn: radiusSetOf(bAll, radiusTable, { side: 'rn' }),
         }
       : null
     /**
@@ -4447,6 +4457,153 @@ function runSelfTest() {
         !got.values.has(1) &&
         got.values.has(11) && // height: 22rpx = 11px 必须仍然收(排除不能过宽)
         !got.values.has(0.2)
+      )
+    })(),
+  )
+  t(
+    'KI 单位归属(负例):小程序**写进样式表**的 Npx 与 Nrpx 折出同一个物理量 ⇒ 不得报成跨端分叉',
+    (() => {
+      const vals = (s, side) => [...readGeometry(s, side).values].sort((a, b) => a - b)
+      const mpPx = vals('.row { margin-top: 20px; }', 'miniapp')
+      const mpRpx = vals('.row { margin-top: 20rpx; }', 'miniapp')
+      const arbitrary = vals('<View className="w-[140px]" />', 'miniapp')
+      return (
+        JSON.stringify(mpPx) === JSON.stringify(mpRpx) &&
+        JSON.stringify(mpPx) === JSON.stringify([10]) &&
+        JSON.stringify(arbitrary) === JSON.stringify([70]) &&
+        // 对面写 20 就是真 20:归一之后**同元素真差**仍要看得见
+        JSON.stringify(vals('.row { margin-top: 20px; }', 'rn')) === JSON.stringify([20])
+      )
+    })(),
+  )
+  t(
+    'KJ 单位归属(阳性对照):8rpx ↔ 10px 归一后必须是 4 ↔ 10,一格都不许被抹平',
+    (() => {
+      const mp = readGeometry('.t { font-size: 8rpx; }', 'miniapp').values
+      const rn = readGeometry('.t { font-size: 10px; }', 'rn').values
+      const d = diffValues(mp, rn)
+      return d.onlyMiniapp.join() === '4' && d.onlyRn.join() === '10'
+    })(),
+  )
+  t(
+    'KK 单位归属:引号里的运行时 px 不过 postcss ⇒ 仍按真 px 读(实测 AgentRuntimePanel 的 minHeight)',
+    (() => {
+      const runtime = [...readGeometry("const s = { minHeight: '120px' }", 'miniapp').values]
+      const sheet = [...readGeometry('.s { min-height: 120px; }', 'miniapp').values]
+      return (
+        JSON.stringify(runtime) === JSON.stringify([120]) &&
+        JSON.stringify(sheet) === JSON.stringify([60])
+      )
+    })(),
+  )
+  t(
+    'KL 圆角别名:同文件档位别名必须当档取用并归到元素名;解不到的名字计入读不到;不递别名表时默认口径一位不动',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const aliased = radiusEntriesOf(
+        [
+          // 别名声明刻意放在**非首行**(真实文件里前面总有 import):取声明行的正则若漏 `m` 旗,
+          // `$` 只在整个字符串末尾成立 ⇒ 除首行外每一条声明都解不到,而"解不到"表现为
+          // 静默不折叠 ⇒ 门照报绿而别名整族隐身。本仓把 `/…$/` 少 `m` 旗记过两次,这条是它的行为版。
+          "import { rnRadius } from '@ihui/design-tokens'",
+          "import { View } from '@tarojs/components'",
+          '',
+          'const INPUT_RADIUS = rnRadius["2xl"]',
+          '',
+          'const styles = {',
+          '  fieldShell: {',
+          '    borderRadius: INPUT_RADIUS,',
+          '  },',
+          '}',
+        ].join('\n'),
+        tbl,
+      )
+      const unread = radiusEntriesOf(
+        [
+          'const styles = {',
+          '  fieldShell: {',
+          '    borderRadius: IMPORTED_RADIUS,',
+          '  },',
+          '}',
+        ].join('\n'),
+        tbl,
+      )
+      // 守门 11/77/150 共用的默认口径:别名形态整条读不出(RD 不因此长档)
+      const untouched = radiusSetOf(
+        'const styles = {\n  fieldShell: {\n    borderRadius: INPUT_RADIUS,\n',
+        tbl,
+      )
+      return (
+        JSON.stringify(aliased.entries) === JSON.stringify({ fieldShell: [16] }) &&
+        aliased.unnamed === 0 &&
+        aliased.unresolved === 0 &&
+        unread.unresolved === 1 &&
+        Object.keys(unread.entries).length === 0 &&
+        JSON.stringify(untouched) === JSON.stringify([])
+      )
+    })(),
+  )
+  t(
+    'KM @media 副本:同一条声明逐字再写一遍只算一份;@media 里改了值就是响应式真分叉,照计',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const copy = radiusEntriesOf(
+        [
+          '.panel {',
+          '  border-radius: 8px;',
+          '}',
+          '@media (min-width: 480px) {',
+          '  .panel {',
+          '    border-radius: 8px;',
+          '  }',
+          '}',
+        ].join('\n'),
+        tbl,
+      )
+      const diverging = radiusEntriesOf(
+        [
+          '.panel {',
+          '  border-radius: 8px;',
+          '}',
+          '@media (min-width: 480px) {',
+          '  .panel {',
+          '    border-radius: 16px;',
+          '  }',
+          '}',
+        ].join('\n'),
+        tbl,
+      )
+      const anonCopy = radiusEntriesOf(
+        [
+          'const mk = () => ({',
+          '  borderRadius: rnRadius.lg,',
+          '})',
+          '@media (min-width: 480px) {',
+          '  const mk2 = () => ({',
+          '    borderRadius: rnRadius.lg,',
+          '  })',
+          '}',
+        ].join('\n'),
+        tbl,
+      )
+      return (
+        JSON.stringify(copy.entries) === JSON.stringify({ panel: [8] }) &&
+        copy.unnamed === 0 &&
+        JSON.stringify(diverging.entries) === JSON.stringify({ panel: [8, 16] }) &&
+        diverging.unnamed === 0 &&
+        anonCopy.unnamed === 1
+      )
+    })(),
+  )
+  t(
+    'KN 装车锁(单位只有一份):门内不得再留第二份折算表,折算必须走 lib/length-units',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      return (
+        !/\bTO_PX\b/.test(src) &&
+        /from '\.\/lib\/length-units\.mjs'/.test(src) &&
+        /facePx\(/.test(src) &&
+        !/\/\s*RPX_PER_PX|RPX_PER_PX\s*\*/.test(src)
       )
     })(),
   )
