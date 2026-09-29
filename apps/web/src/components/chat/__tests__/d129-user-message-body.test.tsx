@@ -149,3 +149,25 @@ describe('D129 用户自己上传的图可点开(与助手侧共用一个出口)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+describe('D129 追加:引用回复块不再以 Markdown 源码示人', () => {
+  const QUOTE_FIXTURE = ['我的新问题', '', '> 💬 用户:', '> 上一轮的原话', '> 第二行'].join('\n')
+
+  it('引用块被摘成结构化卡片,正文里不再有 `> 💬` 字面量', () => {
+    cleanup()
+    const { container } = render(<UserMessageBody content={QUOTE_FIXTURE} />)
+    const bq = container.querySelector('[data-testid="user-message-quote"]')
+    expect(bq).not.toBeNull()
+    expect(bq?.textContent).toContain('上一轮的原话')
+    expect(container.textContent).not.toContain('> 💬')
+    expect(container.querySelector('p')?.textContent).toBe('我的新问题')
+  })
+
+  it('引用块与附件行同时存在时各归各位(不互相吞)', () => {
+    cleanup()
+    const { container } = render(<UserMessageBody content={[QUOTE_FIXTURE, '', '> \u{1F4CE} a.md'].join('\n')} />)
+    expect(container.querySelector('[data-testid="user-message-quote"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="user-message-file"]')?.textContent).toBe('a.md')
+    expect(container.textContent).not.toContain('> \u{1F4CE}')
+  })
+})
