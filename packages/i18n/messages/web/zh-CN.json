@@ -532,6 +532,13 @@
     "mermaidSkipSourceTooLarge": "图表源码过长,已改为显示源码",
     "mermaidSkipLineCountTooLarge": "图表行数过多,已改为显示源码",
     "mermaidSkipComplexityTooLarge": "图表节点与连线过多,已改为显示源码",
+    "mermaidZoomIn": "放大",
+    "mermaidZoomOut": "缩小",
+    "mermaidZoomReset": "重置缩放",
+    "mermaidZoomLevel": "缩放比例",
+    "mermaidZoomToFit": "适应屏幕",
+    "mermaidCopyImage": "复制为图片",
+    "mermaidImageCopied": "图表图片已复制",
     "pdfLoadFailed": "PDF 加载失败: {message}",
     "renderFailed": "渲染失败: {message}",
     "unknownError": "未知错误",
@@ -8580,6 +8587,82 @@
         "SNAPSHOT_UNREADABLE": {
           "title": "快照内容不可读",
           "action": "改用其他版本或放弃回滚"
+        },
+        "FILE_SCAN_PENDING": {
+          "title": "安全检查进行中",
+          "action": "等待安全检查完成后重试"
+        },
+        "FILE_SCAN_FAILED": {
+          "title": "安全检查失败",
+          "action": "稍后重试"
+        },
+        "FILE_SCAN_TIMEOUT": {
+          "title": "安全检查超时",
+          "action": "稍后重试"
+        },
+        "FILE_SCAN_UNSCANNABLE": {
+          "title": "该文件无法进行安全检查",
+          "action": "更换文件格式后重试"
+        },
+        "FILE_SCAN_BLOCKED": {
+          "title": "文件未通过安全检查",
+          "action": "更换文件后重试"
+        },
+        "file_scan_failed": {
+          "title": "安全检查失败",
+          "action": "稍后重试"
+        },
+        "file_content_rejected": {
+          "title": "文件内容未通过安全检查",
+          "action": "更换文件后重试"
+        },
+        "FILE_NOT_READY": {
+          "title": "文件尚未就绪",
+          "action": "稍候片刻再重试"
+        },
+        "file_not_ready": {
+          "title": "文件尚未就绪",
+          "action": "稍后重试"
+        },
+        "FILE_INTEGRITY_FAILED": {
+          "title": "文件完整性校验失败",
+          "action": "重新下载后重试"
+        },
+        "FILE_DISK_SPACE": {
+          "title": "本地磁盘空间不足",
+          "action": "清理磁盘空间后重试"
+        },
+        "FILE_STORAGE_INVALID": {
+          "title": "本地文件缓存不可用",
+          "action": "检查本地存储后重试"
+        },
+        "CHAT_SESSION_HISTORY_MISSING": {
+          "title": "会话历史缺失",
+          "action": "重新打开会话后重试"
+        },
+        "47902": {
+          "title": "本轮对话次数已达上限",
+          "action": "稍后再试或升级套餐"
+        },
+        "121": {
+          "title": "组织数据正在迁移",
+          "action": "迁移完成后重试"
+        },
+        "speaking_banned": {
+          "title": "当前处于禁言状态",
+          "action": "联系管理员了解详情"
+        },
+        "member_capacity_exceeded": {
+          "title": "成员数量已达上限",
+          "action": "移除部分成员或升级套餐"
+        },
+        "context_limit": {
+          "title": "请求内容过大",
+          "action": "精简内容后重试"
+        },
+        "invalid_arguments": {
+          "title": "提交的信息有误",
+          "action": "检查后重试"
         }
       },
       "worktree": {
@@ -10616,7 +10699,10 @@
     "cmdWechatArticle": "请帮我生成一篇公众号文章。要求:\n1. 主题:\n2. 摘要:\n3. 重点标记(金句卡 / 提示块 / 引用 / 代码块 / 小标题)\n4. 配图建议:\n请走 content-engine 流水线(摸鱼绿主题 + 22 项自检 + 草稿箱推送)。",
     "codeBlock": {
       "applyToFile": "应用到文件",
-      "insertAtCursor": "插入光标处"
+      "insertAtCursor": "插入光标处",
+      "wrapOn": "开启代码换行",
+      "wrapOff": "关闭代码换行",
+      "copyImage": "复制为图片"
     },
     "commandArg": {
       "goalBenchmark": {
@@ -20256,6 +20342,8 @@
       "statusExpired": "已过期",
       "statusUnknown": "未知",
       "subtitle": "配置各平台的登录凭证(加密存储)",
+      "switchToAppQr": "切换为App扫码",
+      "switchToWechatQr": "切换为微信扫码",
       "taskId": "任务",
       "title": "平台账号管理",
       "verify": "测试连接",
