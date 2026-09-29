@@ -31,7 +31,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin/news", tags=["news-refresh"])
 
 # 默认时区(与 self_media_scheduler 一致)
-_CN_TZ = timezone(timedelta(hours=8))
+from app.core.cn_time import CN_TZ as _CN_TZ
 
 # 12 个分类白名单(必须与 web TAB_CATEGORY_MAP 完全匹配,
 # 否则前端 tab 过滤会找不到数据)

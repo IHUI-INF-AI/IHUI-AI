@@ -14,7 +14,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -39,10 +39,10 @@ from ..core.token_baseline import PromptTokenSample, incremental_prompt_tokens
 DEFAULT_QUOTA_LIMIT = 10_000_000
 
 # 东八区(用户主时区)。与 db_sync_scheduler.py / news_scheduler.py /
-# self_media_scheduler.py 的 `_CN_TZ` 同形(本仓各文件各自声明,无共享模块)。
+# self_media_scheduler.py 的 `_CN_TZ` 同形(2026-09-30 收口:值取自 app/core/cn_time.py 的 CN_TZ 唯一出口)。
 # 每日用量桶必须按此解释:此前用 naive datetime.fromtimestamp() 跟着宿主时区走,
 # 2026-09-04 宿主被静默改成 UTC 后同一份数据悄然换了一套日桶 —— 现显式钉死。
-_CN_TZ = timezone(timedelta(hours=8))
+from app.core.cn_time import CN_TZ as _CN_TZ
 
 
 @dataclass
