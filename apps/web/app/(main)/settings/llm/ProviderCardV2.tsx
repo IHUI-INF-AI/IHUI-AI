@@ -50,7 +50,12 @@ import {
   toggleProviderV2,
 } from './helpers-v2'
 import type { PlatformTemplate, UpstreamModel } from './types'
-import type { UserLlmModel, UserLlmProvider } from './types-v2'
+import {
+  toProviderHealthStatus,
+  type ProviderHealthStatus,
+  type UserLlmModel,
+  type UserLlmProvider,
+} from './types-v2'
 
 interface Props {
   provider: UserLlmProvider
@@ -63,6 +68,39 @@ interface Props {
   /** 深度功能:把 model 配置复制到其他 provider(2026-07-22 立) */
   onCopyModelToProvider: (p: UserLlmProvider, m: UserLlmModel) => void
   onDeleted: (id: number) => void
+}
+
+/**
+ * 健康档位 → 徽章配色(G-716 立,2026-09-29)。
+ *
+ * 改动前是四段三元 if 猜色:漏一档不会红,只会静默落进最后一档 ——
+ * 与"把没判到当可用"是同一型(fail-open 的呈现面版本)。
+ * 现在按封闭联合建 `Record`,新增档位忘了配色 tsc 当场红。
+ * 配色沿用既有档:healthy 绿 / degraded 琥珀 / down 红 / unknown 中性 muted。
+ */
+const HEALTH_BADGE_CLASS: Record<ProviderHealthStatus, string> = {
+  healthy: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400',
+  degraded: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400',
+  down: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400',
+  unknown: 'bg-muted text-muted-foreground',
+}
+
+/**
+ * 健康档位 → 词表键(`llmSettings.v2.health.*`,五语言齐)。
+ *
+ * 写成四个**字面量**而不是用模板串动态拼键名:死 key 扫描与
+ * `check-word-table-resolvable` 都按字面量取词,动态拼会让这四档在账面上"无人引用"
+ * (同仓先例:守门 74 拦的"端内取词缺键回显 toolReadFile"、守门 105 拦的动态路径 G4)。
+ * 值类型是封闭联合 ⇒ 加档位忘了配键,`Record` 与调用点同时红,不会静默回显键名。
+ */
+const HEALTH_LABEL_KEYS: Record<
+  ProviderHealthStatus,
+  'health.healthy' | 'health.degraded' | 'health.down' | 'health.unknown'
+> = {
+  healthy: 'health.healthy',
+  degraded: 'health.degraded',
+  down: 'health.down',
+  unknown: 'health.unknown',
 }
 
 export function ProviderCardV2({
@@ -177,14 +215,13 @@ export function ProviderCardV2({
   const tplName = template?.name ?? provider.providerCode
   const testFailed = provider.lastTestStatus === 'failed'
   const testOk = provider.lastTestStatus === 'success'
-  const healthColor =
-    provider.healthStatus === 'healthy'
-      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
-      : provider.healthStatus === 'degraded'
-        ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
-        : provider.healthStatus === 'down'
-          ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400'
-          : 'bg-muted text-muted-foreground'
+  // G-716(2026-09-29):先按封闭值域收敛,再取配色与文案。
+  // 收敛这一步不能省:`health_status` 在 DB 是 varchar(16) 自由文本,类型上的联合挡不住
+  // 接口送来一个值域外的串;把它落进 'unknown'(schema 缺省档 = "本轮无法判定"),
+  // 而不是原样渲染出去 —— 改动前正是原样渲染,用户看到的是裸英文枚举。
+  const healthStatus = toProviderHealthStatus(provider.healthStatus)
+  const healthColor = HEALTH_BADGE_CLASS[healthStatus]
+  const healthLabel = t(HEALTH_LABEL_KEYS[healthStatus])
 
   return (
     <Card className={!provider.enabled ? 'opacity-60' : undefined}>
@@ -213,7 +250,9 @@ export function ProviderCardV2({
                 className={`shrink-0 whitespace-nowrap text-xs ${healthColor}`}
               >
                 <Activity className="mr-1 inline h-3 w-3 shrink-0" />
-                <span className="whitespace-nowrap">{provider.healthStatus}</span>
+                {/* G-716:文案经 HEALTH_LABEL_KEYS 取词表(与同组件 noKey 徽章同一口径);
+                    改动前这里直出枚举原文,同一组件两种口径 */}
+                <span className="whitespace-nowrap">{healthLabel}</span>
               </Badge>
             </div>
             <p className="mt-0.5 truncate text-xs text-muted-foreground">

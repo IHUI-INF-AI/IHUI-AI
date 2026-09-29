@@ -103,7 +103,9 @@ describe('闸门三态放行：网络失败 / 非 2xx / 格式不认识', () => 
     expect(r.asked).toBe(true);
     // 可见提示：必须有一条，且说清"失败开"而不是静默
     expect(lines).toHaveLength(1);
-    expect(lines[0]).toMatch(/version gate \[pass\]/);
+    // G-660:问不到 ⇒ 标 UNDETERMINED 而不是 pass。旧断言把"降级放行"印成 pass,
+    // 读日志的人会以为版本检查过了 —— 而这条检查根本没发生。
+    expect(lines[0]).toMatch(/version gate \[UNDETERMINED\]/);
     expect(lines[0]).toMatch(/failing open/);
     expect(exits).toEqual([]);
   });
@@ -184,7 +186,10 @@ describe('闸门三态放行：网络失败 / 非 2xx / 格式不认识', () => 
     }
     expect(exits).toEqual([]);
     expect(lines).toHaveLength(3);
-    expect(lines.every((l) => /\[pass\]/.test(l))).toBe(true);
+    // 三条都是"没判出来"(网络失败 / 5xx / 形状不认识)⇒ 一律 UNDETERMINED(G-660),
+    // 不得再印 pass;同时不得是 BLOCK —— 放行是降级选择,这一条仍成立。
+    expect(lines.every((l) => /\[UNDETERMINED\]/.test(l))).toBe(true);
+    expect(lines.some((l) => /\[BLOCK\]/.test(l))).toBe(false);
   });
 
   it('版本自识别失败（读到哨兵 0.0.0）⇒ 放行，绝不拿哨兵去挡住所有人', async () => {
