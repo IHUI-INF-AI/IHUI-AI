@@ -70,10 +70,12 @@ $script:IhuiLockStartToleranceSec    = 5      # 时钟粒度/CIM 采样偏差的
 $script:IhuiLockHeartbeatMinGapSec   = 15     # 心跳节流:轮询 700ms 一次,不必每拍写盘
 
 # ── 时刻归一(全库唯一的"哪个 Kind 算什么"出口)────────────────────────────
-# 为什么必须有它:本机时钟是 UTC(日志戳一律 `+00:00`),所以"把 Local 当 UTC"这类
-# 错误在这台机上**量不出来** —— 偏移恰好是 0。换到 UTC+8 的机器上,同一个错会让
-# 心跳看起来老 8 小时 ⇒ C4 把**正在构建**的锁判陈旧并抢占。那正是本票要防的反向事故,
-# 所以所有时刻都必须经此归一后再比较。
+# 为什么必须有它:"把 Local 当 UTC"这类错误在**主机时区=UTC 的机器上量不出来**(偏移恰好是 0)。
+# 本机 2026-09-04→09-29 正处在那个形态(所以本段最初写的是"本机时钟是 UTC"),2026-09-30 01:17
+# 已改回东八区 ⇒ 现在偏移是 +08:00,**这个错量得出来了**:不归一就会让心跳看起来老 8 小时
+# ⇒ C4 把**正在构建**的锁判陈旧并抢占。那正是本票要防的反向事故,所以所有时刻都必须经此
+# 归一后再比较。**别再按"本机是几点哪算哪"写判断** —— 主机时区是机器状态,现值问
+# `node scripts/check-host-timezone.mjs`,声明表在 `config/host-timezone.json`。
 # 约定:Utc 原样;Local 换算;Unspecified 按 Local 处理(与 CIM LastBootUpTime、
 # Process.StartTime、Win32_Process.CreationDate 的实际返回形态一致)。
 function ConvertTo-IhuiLockUtc {
