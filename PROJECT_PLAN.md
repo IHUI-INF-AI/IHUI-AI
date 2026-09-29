@@ -17797,13 +17797,13 @@ VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— �
   ⇒ **通用规矩:判"是否分叉/冲突"之前,基底和两端 sha 都必须当次现读;任何"需人工合并"的结论要附真基底下 merge-file 的
   rc 与冲突区数,否则就是把工具的空转当成了世界的故障。**(同族旧账:§22c"判据失效的表现永远是安静"——这次的"安静"
   是我自己的报告,不是仓库。)另注:并发会话在此期间已把 `G-601` 那行翻勾并写下它自己的解除记述,我不再改写它,以免活文档双份。
-  ② **未闭口 A:web/小程序凭据收口(票 #27 的剩余两端)代码已完成、被一处他人未入库的依赖卡住,故刻意不落。**
-  实测 `packages/ui-react/src/lib/remember-credentials.ts` 已改为"只存账号、口令丢弃、旧明文就地抹除",
-  判据 `apps/web/src/lib/__tests__/remember-credentials-no-plaintext.test.ts`(9 例,含逐字节复刻旧 base64 传输形态的阳性对照
-  + 写回旧缺陷形态后实测 2 failed 的变异自证)。但它 import 的 `packages/shared/src/auth/remembered-account.ts`
-  **此刻仍不在 HEAD**(`git cat-file -e HEAD:<该文件>` 失败,属并发会话未提交的产出)⇒ 现在落我的部分就是在 HEAD 里
-  造一条悬空导入(与本轮 `6f0c539d85` 刚修的"注册了门体却没入库"同一型,只是这次是 import 侧)。**出口只有一个**:
-  等该共享层文件由其作者入库(或双方同枚落地),再落本批;判据 = `node scripts/check-dangling-local-imports.mjs` 全量 exit 0。
+  ② **已闭口 A:web / 小程序凭据收口(票 #27 的剩余两端)已随 `117b81f3c1a9deadf3002b774ef3712a0224aacf` 入库(2026-09-29;此前被一处未入库依赖卡住,用户当场授权"你可以做 我授权同意"后同枚落地)。**
+  最终形态:三端口令都不落可读明文 —— RN 送系统 Keychain/Keystore(`00c2982e2c`),web 与小程序**不再持久化口令**;`packages/ui-react/src/lib/remember-credentials.ts` 与 `apps/miniapp-taro/src/lib/credential-storage.ts` 改为"只存账号 + 旧明文(明文 JSON 与 base64 两代传输)就地抹除 + 解不出的整档删除",账号回填与历史下拉一分未减(删了才是功能倒退)。
+  自动登录的凭据源换掉了:web 由 `use-auth-bootstrap` 的 httpOnly refresh cookie 静默续期,小程序由 `src/utils/auth.ts` 的 `refreshAccessToken()`(经 `bindTokenStoreToApiClient` 挂在 401 拦截)承担 —— 两条路都早已存在,本票不新造机制,只把"重放账密"这条旧径路关掉:`PasswordLoginForm` 的自动提交 effect 因 `remembered.password` 恒为 '' 自然短路,而 effect 与判据位序**刻意保留**(它是 `canAutoSubmitCredentials` 必填契约的落点,也是"未来任何人重新给这里喂一个口令源"时必然路过的闸口)。
+  判据三份(提交链可达面):`apps/web/src/lib/__tests__/remember-credentials-no-plaintext.test.ts` 9 例、`apps/miniapp-taro/src/lib/credential-storage-no-plaintext.test.ts` 5 例、`apps/mobile-rn/tests/credential-storage-no-plaintext.test.ts` 5 例,各含"复刻旧形态必命中"的阳性对照与"写回旧缺陷形态必红"的变异自证;e2e 侧 `apps/web/e2e/remember-password.spec.ts` 的旧断言"口令框被预填 SavedPass1"钉的正是缺陷本身,已改成新契约(账号预填 / 口令框为空 / 盘上旧形态被抹成只含账号)。
+  卡点解除方式如实登记:阻塞源 `packages/shared/src/auth/remembered-account.ts` 当时是并发会话**未跟踪**的产出,先落我的部分就是在 HEAD 里造悬空导入(与本轮 `6f0c539d85` 的"注册门体却没入库脚本"同型,只是发生在 import 侧)⇒ 本次把它与本批 12 个路径**同枚**落地,悬空窗口不存在;判据 = 同一份私有索引上 `node scripts/check-dangling-local-imports.mjs --staged` 实测 rc=0。
+  同批把三把 storage key 与历史上限收进 `@ihui/shared/constants/storage-keys`(§3「跨端常量不得端内硬编码」),RN 侧改取这一份 —— 走**子路径**而非 barrel,因为本端 vitest 把 `@ihui/shared/constants` 别名指到端内替身(手抄子集 + 清空 FALLBACK_MODELS / SSO_CLIENT_IDS);改指真实 barrel 会动到别人用例的输入,那一格连同另外三格现读遗留单列成一条新登记行(标题「票 #27 落地时现读的四格遗留」),不在本票射程。
+  效果面验证受阻一事如实登记(不是已验证):本机 :8801 的 web 服务此刻对任何路由回 500,成因是**他人未提交改动** —— `apps/web/src/components/layout/GlobalShell.tsx`(工作树 ` M`)import 了 `QuitUpdateOverlay`,而该出口已被 `b83a085cac` 整条撤掉,`apps/web/src/components/common/index.ts` 在 HEAD 与工作树两侧都没有它 ⇒ 断链发生在暂存面之外,守门 98 按 HEAD 判看不见。按 §12「别人在飞只报不动」不代改,所以 web 侧浏览器实测留给那条修复;本票交出的运行时证据是上面三份套件 + e2e 契约改写。
   ③ **未闭口 B:轮播图"渲染侧"已收口并入库(`0b00d5cdd5`,两端各挂 onError、失败项摘除、小程序侧改 sourceIndex),
   但"素材侧"未动,而且票面原 premise 有一半是错的** —— 实拍到的"告警三角"经像素量算证明**不是**图片失败占位,
   而是 `FloatBox` 的 warning toast 压在轮播上(方块顶 y=228px=114dp=状态栏 34dp+80、橙色 `rgb(245,158,11)` 与
