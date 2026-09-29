@@ -174,6 +174,31 @@
  *     本版**刻意只认 drizzle 链**(收窄,登记;该形状出现的那天由镜像正例扩面接维);
  *   ⑥ "该列是否真是终态列"是语义问题,词法只认列名 status/state。
  *
+ * B5(2026-09-30 立,G-815955):按可空/非唯一排序列 ORDER BY 必须带确定性尾键 —— 单键
+ *   `orderBy(asc(t.sortOrder))` 下同值行在两次查询间没有确定座位,分页漂移(上游经验:
+ *   `order by sequence is null, sequence, time_created, rowid` 每级都有确定性尾键)。
+ *   判据一条:遮蔽面上的 `.orderBy(` 实参,顶层**单键**且恰是 `asc(<t>.<col>)` / `desc(<t>.<col>)`
+ *   形态、<col> ∈ {sortOrder, sortOrderInGroup, position, sequence}(票面点名的可空/非唯一排序键族)
+ *   且无后续尾键 ⇒ 违规;首键同族但后面还有键(如 `…, desc(t.createdAt), asc(t.id))`)⇒ 处置
+ *   tail-key 放过。主排序语义不归本门管(第一序是什么是业务问题,本门只问"有没有确定性尾键")。
+ *   **棘轮专用维(与 B4 同档同构)**:head 实测存量 8 处(routes/db 面单键形态;content-queries/
+ *   learn-queries/exam-queries 等已带尾键的那一批只进候选),镜像红形状与存量词法完全同形 ——
+ *   按票面拍板"存量报数不判红,只拦新增":head 面(含 --strict)**只报数、永不判红**
+ *   (decide 签名**刻意不收** b5Violations —— 与 B4 同一条结构锁);staged 面走「该文件 HEAD 自身
+ *   B5 计数」差值棘轮,净新增即红。棘轮粒度 = 文件 × 判据(无键,与 B3/B4 同理)。
+ *   取材:与 findWriteChains 同一遮蔽面、同一套括号配平(closeParen),但 orderBy 是读链,
+ *   findWriteChains(.delete/.update)结构上够不着 ⇒ B5 自带一遍 `.orderBy(` 扫描(判据只此一份,
+ *   走 __test__ 出口);裸 SQL 维:findRawSqlWriteChains 只认写动词锚(DELETE/UPDATE/INSERT/TRUNCATE),
+ *   SELECT…ORDER BY 不进池 ⇒ 判不了,登记不进面。
+ *   判不了格(如实登记):
+ *   ① 键经变量/展开传入(orderBy(sortCol) / orderBy(...keys))⇒ 非 asc/desc 字面形态,不进面;
+ *   ② `sql`…order by…`` 模板 ⇒ 遮蔽面(blankStrings 档)读不到模板内容,不进面(与 B3④/B4④
+ *     同一遮蔽面代价;判不了 ≠ 按无尾键计);
+ *   ③ 裸 SQL 的 SELECT…ORDER BY(上段,不进池);
+ *   ④ "该列是否真的可空/非唯一"与"尾键组合是否真的唯一"是语义问题,词法只认列名族与"有没有
+ *     后续键" —— 尾键本身也落在同族列上时词法不认输(语义复核不归本门);
+ *   ⑤ SCAN_DIRS 之外的落点(services/ai-feed-service.ts 等)不进面 —— 覆盖面与 B1-B4 同一张表。
+ *
  * 两份"惯例存量"计数(可见性,不是判据 —— **永不影响退出码**):上面那两个"刻意放过"的形状此前只有
  * 注释里的一句"全仓 257 处"撑着,而那句是人肉量的,下次谁扩面/收面账面没人知道它变了多少。现由本门
  * 每次现读数并报数:
@@ -1567,6 +1592,70 @@ export function findTerminalStateSites(relPath, code, chains = null) {
   return out
 }
 
+/* --------- B5:可空/非唯一排序列的 ORDER BY 尾键(G-815955,2026-09-30) --------- */
+
+/** 可空/非唯一排序键族(票面点名):单键 ORDER BY 落在这些列上 ⇒ 同值行两次查询间座位不定(分页漂移)。 */
+export const RISKY_ORDER_COL_RE = /\b(?:sortOrder|sortOrderInGroup|position|sequence)\b/
+/** 单键形态:orderBy 实参(顶层)恰是一个 asc()/desc() 包着一个(可带表限定符的)列名。捕获组 = 列名。 */
+export const ORDER_SINGLE_KEY_RE =
+  /^(?:asc|desc)\s*\(\s*(?:[A-Za-z_$][\w$]*\s*\.\s*)?([A-Za-z_$][\w$]*)\s*\)$/
+
+/** 顶层逗号切键:括号/中括号/花括号嵌套里的逗号不算分隔(遮蔽面上没有字符串/注释干扰)。 */
+function splitTopLevelArgs(text) {
+  const out = []
+  let depth = 0
+  let cur = ''
+  for (const c of text) {
+    if (c === '(' || c === '[' || c === '{') depth++
+    else if (c === ')' || c === ']' || c === '}') depth--
+    if (c === ',' && depth === 0) {
+      out.push(cur)
+      cur = ''
+    } else cur += c
+  }
+  if (cur.trim()) out.push(cur)
+  return out.map((s) => s.trim()).filter(Boolean)
+}
+
+/**
+ * B5(G-815955):单键 orderBy 落在可空/非唯一排序键族且无后续尾键。
+ * **棘轮专用维(与 B4 同档同构)**:调用方(head 面,含 --strict)对 violations 只报数、永不判红
+ * —— 票面拍板"存量报数不判红,只拦新增",拦截发生在 analyze 的 staged 差值棘轮(kind='b5');
+ * decide 签名刻意不收 b5Violations,与 B4 同一条结构锁(头注 B5 段)。判不了格见头注,绝不静默算通过。
+ * 取材:与 findWriteChains 同一遮蔽面、同一套 closeParen 配平;orderBy 是读链,写链扫描够不着,
+ * 判据只此一份实现(§22c),裸 SQL 的 SELECT…ORDER BY 不进池(判不了,登记)。
+ */
+export function findOrderByTailKeySites(relPath, code) {
+  const out = { file: relPath, candidates: [], violations: [] }
+  const re = /\.\s*orderBy\s*\(/g
+  let m
+  while ((m = re.exec(code)) !== null) {
+    const open = code.indexOf('(', m.index + m[0].length - 1)
+    const end = open >= 0 ? closeParen(code, open) : -1
+    if (end < 0) continue
+    const keys = splitTopLevelArgs(code.slice(open + 1, end - 1))
+    if (!keys.length) continue
+    const km = ORDER_SINGLE_KEY_RE.exec(keys[0])
+    if (!km || !RISKY_ORDER_COL_RE.test(km[1])) continue
+    const site = {
+      file: relPath,
+      line: lineAt(code, m.index),
+      col: km[1],
+      via: 'drizzle',
+      orderByExcerpt: keys.join(', ').replace(/\s+/g, ' ').trim().slice(0, 60),
+    }
+    if (keys.length === 1) {
+      site.disposition = 'violation'
+      site.orderByWhy = '单键排序无确定性尾键(同值行分页漂移)'
+      out.violations.push(site)
+    } else {
+      site.disposition = 'tail-key'
+    }
+    out.candidates.push(site)
+  }
+  return out
+}
+
 /* ------------------------------- 单文件判据 ------------------------------- */
 
 /** 纯函数:一份文件正文 → 候选与处置。自检与端到面都跑它(判据只此一份实现)。 */
@@ -1620,9 +1709,10 @@ export function scanFileText(relPath, text, opts = {}) {
     // undefined.needs —— 一份"别人写坏的词法"把整道门换成 exit 2,而 exit 2 看起来像"无法判定",
     // 实际是本门自己崩了。
     b2: emptyB2(),
-    // B3/B4(G-815953/G-815956)与 B2 同一条教训:壳必须建在 U2 提前 return 之前。
+    // B3/B4/B5(G-815953/G-815956/G-815955)与 B2 同一条教训:壳必须建在 U2 提前 return 之前。
     b3: { candidates: [], violations: [] },
     b4: { candidates: [], violations: [] },
+    b5: { candidates: [], violations: [] },
   }
   if (res.leaks.length) {
     res.undetermined.push({
@@ -1703,6 +1793,8 @@ export function scanFileText(relPath, text, opts = {}) {
   // 裸 SQL 维复用 rawPool(同一遍 findRawSqlWriteChains,不二次扫描)。
   res.b3 = findBackfillBoundSites(relPath, code, allChains, rawPool.chains)
   res.b4 = findTerminalStateSites(relPath, code, allChains)
+  // B5:orderBy 是读链,allChains(.delete/.update)结构上够不着 ⇒ 用同一遮蔽面自扫一遍(判据只此一份)。
+  res.b5 = findOrderByTailKeySites(relPath, code)
   // 裸 SQL 写链**解析不到**(括号配平失败)那一格:只有当同一函数体里确实有 ack 时,判据的结论
   // 才依赖它 ⇒ 记"未判定"(与 U1/U2 同档,--strict 下拒绝出合格证);体里没有 ack 的解析失败不影响
   // 任何结论,只进 rawSqlUnparsed 可见性桶(报数点名,不冒红也不静默算通过)。
@@ -1881,9 +1973,10 @@ export function analyze(root, face, opts = {}) {
   const b1NoBody = per.reduce((a, r) => a + r.b1.noBodySites.length, 0)
   const b2Violations = per.flatMap((r) => r.b2.violations)
   const b2Undetermined = per.flatMap((r) => r.b2.undetermined)
-  // B3/B4(G-815953/G-815956)自己的聚合 —— 与 b1*/b2* 同形,不并入任何既有数。
+  // B3/B4/B5(G-815953/G-815956/G-815955)自己的聚合 —— 与 b1*/b2* 同形,不并入任何既有数。
   const b3Violations = per.flatMap((r) => r.b3.violations)
   const b4Violations = per.flatMap((r) => r.b4.violations)
+  const b5Violations = per.flatMap((r) => r.b5.violations)
   const exempt = ['returning', 'db', 'outlet', 'marker'].reduce(
     (a, k) => ({ ...a, [k]: per.reduce((x, r) => x + r.exempt[k], 0) }),
     {},
@@ -1927,6 +2020,10 @@ export function analyze(root, face, opts = {}) {
     b4Candidates: per.reduce((a, r) => a + r.b4.candidates.length, 0),
     b4Violations: b4Violations.length,
     b4Files: per.filter((r) => r.b4.violations.length > 0).length,
+    // B5(G-815955)自己的键:追加在 b4* 之后,一字不并入既有数。
+    b5Candidates: per.reduce((a, r) => a + r.b5.candidates.length, 0),
+    b5Violations: b5Violations.length,
+    b5Files: per.filter((r) => r.b5.violations.length > 0).length,
     // 2026-09-27 追加在**最末尾**:布尔 ack 按键分组的现读数(五键恒在位,含 0)。
     // 语义变化必须如实说:`booleanAckSites` / `booleanAckFiles` 自本批改用**键族五键**计数,
     // 所以这两个数的口径比扩面前宽(扩面前只有 `deleted`)—— 它们仍**不参与任何退出码**(X1/R7/R8/M13
@@ -1957,7 +2054,8 @@ export function analyze(root, face, opts = {}) {
       b1Violations.length ||
       b2Violations.length ||
       b3Violations.length ||
-      b4Violations.length)
+      b4Violations.length ||
+      b5Violations.length)
   ) {
     const bucketBy = (list) => {
       const m = new Map()
@@ -1972,6 +2070,7 @@ export function analyze(root, face, opts = {}) {
     const b2ByFile = bucketBy(b2Violations)
     const b3ByFile = bucketBy(b3Violations)
     const b4ByFile = bucketBy(b4Violations)
+    const b5ByFile = bucketBy(b5Violations)
     const files = [
       ...new Set(
         [
@@ -1980,6 +2079,7 @@ export function analyze(root, face, opts = {}) {
           ...b2ByFile.keys(),
           ...b3ByFile.keys(),
           ...b4ByFile.keys(),
+          ...b5ByFile.keys(),
         ].map((k) => k.split('\u0000')[0]),
       ),
     ]
@@ -2003,6 +2103,7 @@ export function analyze(root, face, opts = {}) {
     const headB2By = bucketBy(headPer.flatMap((r) => r.b2.violations))
     const headB3By = bucketBy(headPer.flatMap((r) => r.b3.violations))
     const headB4By = bucketBy(headPer.flatMap((r) => r.b4.violations))
+    const headB5By = bucketBy(headPer.flatMap((r) => r.b5.violations))
     ratcheted = []
     const pushRatchet = (bucket, headBucket, compositeKey, kind) => {
       const [file, key] = compositeKey.split('\u0000')
@@ -2021,6 +2122,7 @@ export function analyze(root, face, opts = {}) {
     for (const k of b2ByFile.keys()) pushRatchet(b2ByFile, headB2By, k, 'b2')
     for (const k of b3ByFile.keys()) pushRatchet(b3ByFile, headB3By, k, 'b3')
     for (const k of b4ByFile.keys()) pushRatchet(b4ByFile, headB4By, k, 'b4')
+    for (const k of b5ByFile.keys()) pushRatchet(b5ByFile, headB5By, k, 'b5')
   }
   const exit = decide({
     face,
@@ -2033,8 +2135,9 @@ export function analyze(root, face, opts = {}) {
     b2Violations,
     b2Undetermined,
     // b3Violations 进 decide(--strict 全量判红,B1/B2 同档);
-    // b4Violations **刻意不传** —— 棘轮专用维,head 面(含 --strict)只报数不判红(头注 B4 段),
-    // "签名即判据"的结构锁:谁想把 B4 接进 --strict,必须先改 decide 签名并推翻票面拍板。
+    // b4Violations / b5Violations **刻意不传** —— 棘轮专用维,head 面(含 --strict)只报数不判红
+    // (头注 B4/B5 段),"签名即判据"的结构锁:谁想把 B4/B5 接进 --strict,必须先改 decide 签名并
+    // 推翻票面拍板。
     b3Violations,
   })
   return {
@@ -2053,6 +2156,7 @@ export function analyze(root, face, opts = {}) {
     b2Undetermined,
     b3Violations,
     b4Violations,
+    b5Violations,
   }
 }
 
@@ -2065,7 +2169,9 @@ export function analyze(root, face, opts = {}) {
  * **B3 的 b3Violations** —— 三条都是判据,进退出码是它们的本职(默认档仍只由 staged 棘轮与 --strict
  * 触发,存量不冒红)。**B4 刻意不在参数里**:它是棘轮专用维(G-815956 票面拍板"现存违规报数不判红,
  * 只拦新增"),拦截发生在 staged 的 ratcheted(kind='b4'),head 面(含 --strict)只报数 —— 把 B4 接进
- * --strict 必须先改本签名,那是一步显式动作而不是顺手一个 `||`。而两份**惯例存量**计数
+ * --strict 必须先改本签名,那是一步显式动作而不是顺手一个 `||`。**B5 同构(G-815955)**:排序无尾键
+ * 同为棘轮专用维,decide 签名同样刻意不收 b5Violations(头注 B5 段),拦截只走 staged 的
+ * ratcheted(kind='b5')。而两份**惯例存量**计数
  * (booleanAck* / readQueryCount*)**依旧刻意不在参数里**,所以"把可见性计数接进退出码"这一改法
  * 在结构上就要求改签名,而那一步由 self-test 的 X1/X1b + 镜像 M13 判红(惯例存量是**决策依据**不是**债**)。
  */
@@ -2090,7 +2196,7 @@ export function decide({
         : violations.length ||
           b1Violations.length ||
           b2Violations.length ||
-          b3Violations.length // B4 刻意缺席(见上):棘轮专用维,head+strict 不判红
+          b3Violations.length // B4/B5 刻意缺席(见上):棘轮专用维,head+strict 不判红
     )
       return 1
     return 0
@@ -2115,18 +2221,20 @@ export function formatReport(out) {
   const b2u = out.b2Undetermined || []
   const b3v = out.b3Violations || []
   const b4v = out.b4Violations || []
+  const b5v = out.b5Violations || []
   if (out.ratcheted && out.ratcheted.length) {
     const nLegacy = out.ratcheted.filter((r) => (r.kind || 'count') === 'count').length
     const nB1 = out.ratcheted.filter((r) => r.kind === 'b1').length
     const nB2 = out.ratcheted.filter((r) => r.kind === 'b2').length
     const nB3 = out.ratcheted.filter((r) => r.kind === 'b3').length
     const nB4 = out.ratcheted.filter((r) => r.kind === 'b4').length
+    const nB5 = out.ratcheted.filter((r) => r.kind === 'b5').length
     L.push(
-      `❌ 判红:${out.ratcheted.length} 条净新增越线(按 文件×判据;计数自算 ${nLegacy} · B1 假 ack ${nB1} · B2 委托假 ack ${nB2} · B3 回填无界 ${nB3} · B4 终态回退 ${nB4};锚点 = 该文件 HEAD 自身同判据计数)`,
+      `❌ 判红:${out.ratcheted.length} 条净新增越线(按 文件×判据;计数自算 ${nLegacy} · B1 假 ack ${nB1} · B2 委托假 ack ${nB2} · B3 回填无界 ${nB3} · B4 终态回退 ${nB4} · B5 排序无尾键 ${nB5};锚点 = 该文件 HEAD 自身同判据计数)`,
     )
     for (const r of out.ratcheted)
       L.push(
-        `   [${{ b1: 'B1假ack', b2: 'B2委托假ack', b3: 'B3回填无界', b4: 'B4终态回退' }[r.kind] || '计数自算'}] ${r.file}${r.key ? `〈ack 键 ${r.key}〉` : ''}:索引 ${r.now} 处 > HEAD ${r.anchor} 处 ⇒ 净新增 ${r.added} 处`,
+        `   [${{ b1: 'B1假ack', b2: 'B2委托假ack', b3: 'B3回填无界', b4: 'B4终态回退', b5: 'B5排序无尾键' }[r.kind] || '计数自算'}] ${r.file}${r.key ? `〈ack 键 ${r.key}〉` : ''}:索引 ${r.now} 处 > HEAD ${r.anchor} 处 ⇒ 净新增 ${r.added} 处`,
       )
     if (nLegacy) {
       L.push(
@@ -2169,9 +2277,17 @@ export function formatReport(out) {
         '   让迟到终态事件只落在还处于活动态的行上 —— 已终态记录不得被改回活动态;这一维按票面拍板只拦新增。',
       )
     }
+    if (nB5) {
+      L.push(
+        '   B5 修法:给 orderBy 补确定性尾键(如 asc(t.sortOrder), desc(t.createdAt), asc(t.id)) ——',
+      )
+      L.push(
+        '   尾键最后一键必须是能唯一定位行的列(主键/唯一列),同值行才不会在两次查询间换座位;这一维按票面拍板只拦新增。',
+      )
+    }
   } else if (out.face === 'staged')
     L.push(
-      '✅ 索引面未见新增"批量写自算计数 / B1 假 ack / B2 委托假 ack / B3 回填无界 / B4 终态回退"(存量按各文件 HEAD 自身计数豁免,不代裁)。',
+      '✅ 索引面未见新增"批量写自算计数 / B1 假 ack / B2 委托假 ack / B3 回填无界 / B4 终态回退 / B5 排序无尾键"(存量按各文件 HEAD 自身计数豁免,不代裁)。',
     )
   if (out.face !== 'staged' && c.violations) {
     L.push(
@@ -2223,6 +2339,18 @@ export function formatReport(out) {
       )
     if (c.b4Violations > 40) L.push(`   …另 ${c.b4Violations - 40} 处(--explain 看全量)`)
   }
+  // B5 是**棘轮专用维**(G-815955,与 B4 同档):head 面含 --strict 一律 ⚠️ 只报数 —— 这一行永远
+  // 不出 ❌,拦截只发生在 staged 差值棘轮(kind='b5')。措辞里必须把这句话喊出来。
+  if (out.face !== 'staged' && c.b5Violations) {
+    L.push(
+      `⚠️ 全量档现读 B5 排序无尾键 ${c.b5Violations} 处 / ${c.b5Files} 文件(单键 orderBy 落在 sortOrder/sortOrderInGroup/position/sequence 这类可空/非唯一排序列而无确定性尾键)—— **只报数不判红(--strict 也不判)**:票面拍板"现存违规报数不判红,只拦新增",提交链走差值棘轮,净新增即红;面内共 ${c.b5Candidates ?? 0} 处、其中已带尾键而放过 ${c.b5Candidates != null ? c.b5Candidates - c.b5Violations : 0} 处`,
+    )
+    for (const v of b5v.slice(0, 40))
+      L.push(
+        `   ${v.file}:${v.line}  (orderBy→${v.orderByExcerpt} ⇒ ${v.orderByWhy})`,
+      )
+    if (c.b5Violations > 40) L.push(`   …另 ${c.b5Violations - 40} 处(--explain 看全量)`)
+  }
   if (c.undetermined) {
     L.push(`⚠️ 未判定 ${c.undetermined} 处 —— **未判定不等于通过**,下列每一处本门都承认自己看不见:`)
     for (const u of out.undetermined.slice(0, 40)) L.push(`   ${u.file}:${u.line}  ${u.why}`)
@@ -2257,9 +2385,12 @@ export function formatReport(out) {
     !c.b2Violations &&
     !c.b2Undetermined &&
     !c.b3Violations &&
-    !c.b4Violations
+    !c.b4Violations &&
+    !c.b5Violations
   )
-    L.push('✅ 通过:覆盖面内无自算计数、无 B1/B2 假 ack、无 B3 回填无界、无 B4 终态回退,且无未判定项。')
+    L.push(
+      '✅ 通过:覆盖面内无自算计数、无 B1/B2 假 ack、无 B3 回填无界、无 B4 终态回退、无 B5 排序无尾键,且无未判定项。',
+    )
   if (
     out.face === 'staged' &&
     !out.ratcheted?.length &&
@@ -2292,6 +2423,9 @@ export function formatReport(out) {
       // B4(G-815956)是棘轮专用维:现读点名 + 把"只拦新增"喊出来 —— 这一句是 B4 行的约束力所在。
       `;B4 终态回退(判据:违规 ${c.b4Violations ?? 0} 处 / ${c.b4Files ?? 0} 文件,` +
       `候选 ${c.b4Candidates ?? 0};只报数不进 --strict,票面拍板只拦新增,提交链差值棘轮)` +
+      // B5(G-815955)与 B4 同构:现读点名 + 把"只拦新增"喊出来。
+      `;B5 排序无尾键(判据:违规 ${c.b5Violations ?? 0} 处 / ${c.b5Files ?? 0} 文件,` +
+      `候选 ${c.b5Candidates ?? 0};只报数不进 --strict,票面拍板只拦新增,提交链差值棘轮)` +
       // 逐键点名(2026-09-27):扩键族后"合计 12 处"这句话什么都没说 —— 新那一族可能一处都没有,
       // 也可能全是新那一族。含 0 也照喊,理由与 B1/B2 段同一句("0 处 ≠ 没扫过")。
       // 表由 BOOL_ACK_KEYS 派生:**报表漏键在这里结构上不可能发生**,自检 K0 再用一份独立写死的
@@ -2321,9 +2455,15 @@ const USAGE = `用法: node scripts/${GATE}.mjs [--staged|--worktree] [--strict]
     判不了格如实登记:值来自变量/简写/spread/as 断言/数字枚举码 ⇒ 不进面;前置写在 sql\`…\` 模板 ⇒ 按无前置计;
     裸 SQL 的 SET status = 'x' 本版刻意不认(存量 0)
     **head 面(含 --strict)只报数不判红**(decide 签名刻意不收 b4Violations);staged 差值棘轮净新增即红
+  判据六(B5 排序无尾键,2026-09-30 G-815955,**棘轮专用维,与 B4 同构**):单键 orderBy(asc|desc(<col>))
+    落在可空/非唯一排序键族(sortOrder/sortOrderInGroup/position/sequence)而无后续确定性尾键 ⇒ 违规
+    放过:首键同族但后面还有键(如 …, desc(t.createdAt), asc(t.id));尾键最后一键须能唯一定位行
+    判不了格如实登记:键经变量/展开传入 ⇒ 不进面;sql\`…\` 模板 ⇒ 遮蔽面读不到,不进面;
+    裸 SQL 的 SELECT…ORDER BY 不进池(findRawSqlWriteChains 只认写动词锚);列唯一性是语义问题,词法只认列名族
+    **head 面(含 --strict)只报数不判红**(decide 签名刻意不收 b5Violations);staged 差值棘轮净新增即红
   只报数不判红(现读惯例存量,写在结论行):布尔 ack(五键按键分组现读,无写链的那一半)与读查询 \`count: X.length\`;--explain 逐条点名
-  五条判据的存量都按「该文件 HEAD 自身同判据计数」差值棘轮:全量档只报数(恒红门=逼人 --no-verify,§12e),
-  提交链档与 --strict 才问责(B4 例外:全量档含 --strict 都只报数,只拦新增)。
+  六条判据的存量都按「该文件 HEAD 自身同判据计数」差值棘轮:全量档只报数(恒红门=逼人 --no-verify,§12e),
+  提交链档与 --strict 才问责(B4/B5 例外:全量档含 --strict 都只报数,只拦新增)。
   紧急跳过(接入提交链后):${SELF_SKIP}=1`
 
 function main(argv) {
@@ -2400,6 +2540,11 @@ function main(argv) {
         console.log(
           `  · B4终态 ${s.file}:${s.line} set→${s.col} ⇒ ${s.disposition}${s.whereWhy ? ` (${s.whereWhy})` : ''}(只拦新增,不进 --strict)`,
         )
+    for (const r of out.per)
+      for (const s of r.b5.candidates)
+        console.log(
+          `  · B5排序 ${s.file}:${s.line} orderBy→${s.orderByExcerpt} ⇒ ${s.disposition}${s.orderByWhy ? ` (${s.orderByWhy})` : ''}(只拦新增,不进 --strict)`,
+        )
   }
   if (argv.includes('--json')) {
     console.log(
@@ -2421,9 +2566,10 @@ function main(argv) {
           b1NoBody: out.b1NoBody,
           b2Violations: out.b2Violations,
           b2Undetermined: out.b2Undetermined,
-          // G-815953/G-815956:继续**追加在末尾**(镜像 M10/M18 同一条契约 —— 只追加不改写)。
+          // G-815953/G-815956/G-815955:继续**追加在末尾**(镜像 M10/M18 同一条契约 —— 只追加不改写)。
           b3Violations: out.b3Violations,
           b4Violations: out.b4Violations,
+          b5Violations: out.b5Violations,
         },
         null,
         2,
@@ -2735,6 +2881,41 @@ const FIX = {
     '  await db.update(orders).set({ status: input.next }).where(eq(orders.id, input.id))',
     '  await db.update(orders).set({ status }).where(eq(orders.id, id))',
     '  await db.update(orders).set({ ...patch }).where(eq(orders.id, id))',
+    '}',
+    '',
+  ].join('\n'),
+  // ---- B5(G-815955)夹具:排序无尾键的正反例(判据六,棘轮专用维与 B4 同构)----
+  /** 红腿(票面镜像形状):单键 asc(sortOrder) 无尾键 —— 同值行两次查询间座位不定(分页漂移)。 */
+  b5SingleNoTail: [
+    'import { asc } from "drizzle-orm"',
+    'export async function listPlans() {',
+    '  await db.select().from(plans).orderBy(asc(plans.sortOrder))',
+    '}',
+    '',
+  ].join('\n'),
+  /** 绿腿:补确定性尾键(票面正例形态);尾键最后一键 id 能唯一定位行。 */
+  b5WithTailKey: [
+    'import { asc, desc } from "drizzle-orm"',
+    'export async function listPlans() {',
+    '  await db.select().from(plans).orderBy(asc(plans.sortOrder), desc(plans.createdAt), asc(plans.id))',
+    '}',
+    '',
+  ].join('\n'),
+  /** 变体:desc + sequence 列同判(键族不限 sortOrder、方向不限 asc)。 */
+  b5DescSequence: [
+    'import { desc } from "drizzle-orm"',
+    'export async function listQueue() {',
+    '  await db.select().from(tasks).orderBy(desc(tasks.sequence))',
+    '}',
+    '',
+  ].join('\n'),
+  /** 判不了格钉子(头注 B5 段):变量键 / sql` 模板 / 首键非本键族 ⇒ 不进面 —— 不判红也不计候选。 */
+  b5Unjudgeable: [
+    'import { asc, sql } from "drizzle-orm"',
+    'export async function listThings(sortCol: any) {',
+    '  await db.select().from(t).orderBy(sortCol)',
+    '  await db.select().from(t).orderBy(sql`sort_order asc`)',
+    '  await db.select().from(t).orderBy(asc(t.name))',
     '}',
     '',
   ].join('\n'),
@@ -3927,6 +4108,88 @@ function selfTest(argv) {
     })(),
     [true, true, true],
   )
+  // ---- B5(G-815955,2026-09-30):排序无尾键。二元组 = [b5候选, b5违规]。
+  //      判据/常量一律取模块导出(§22c),棘轮专用维与 B4 同构。----
+  const b5v = (t) => {
+    const r = v(t)
+    return [r.b5.candidates.length, r.b5.violations.length]
+  }
+  eq('B5 单键可空排序列无尾键 ⇒ 违规 1(票面镜像形状)', b5v(FIX.b5SingleNoTail), [1, 1])
+  eq('B5b 补确定性尾键 ⇒ 放过(候选 1 违规 0,处置 tail-key)', b5v(FIX.b5WithTailKey), [1, 0])
+  eq('B5c desc + sequence 同判(键族/方向都不限 sortOrder·asc)', b5v(FIX.b5DescSequence), [1, 1])
+  eq(
+    'B5d 判不了格钉子:变量键 / sql` 模板 / 首键非本键族 ⇒ 不进面(0 候选 —— 判不了就登记,绝不假装已解决)',
+    b5v(FIX.b5Unjudgeable),
+    [0, 0],
+  )
+  eq(
+    'B5e 红点形态:col/via/orderByWhy 齐备,镜像测试按这几个字段复核',
+    (() => {
+      const r = v(FIX.b5SingleNoTail).b5.violations[0]
+      return [r.col, r.via, /单键排序无确定性尾键/.test(r.orderByWhy || '')]
+    })(),
+    ['sortOrder', 'drizzle', true],
+  )
+  eq(
+    'B5F decide:B5 刻意**不在签名里** —— head+strict 即便有 B5 存量也不判红(与 B4 同构,棘轮专用维);staged 净新增经 ratcheted(kind=b5)照红',
+    [
+      D({ face: 'head', violations: [], undetermined: [], ratcheted: null, strict: true }),
+      D({
+        face: 'staged',
+        violations: [],
+        undetermined: [],
+        ratcheted: [{ file: 'a.ts', kind: 'b5', now: 1, anchor: 0, added: 1 }],
+        strict: false,
+      }),
+    ],
+    [0, 1],
+  )
+  eq(
+    'B5fmt 报告面:B5 行**永远 ⚠️ 只报数**(strict 也不许出 ❌);棘红块 kind 分列点名 B5;结论行 0 也照喊',
+    (() => {
+      const t1 = formatReport({
+        face: 'head',
+        strict: true,
+        ratcheted: null,
+        violations: [],
+        undetermined: [],
+        exempt: { returning: 0, db: 0, outlet: 0, marker: 0 },
+        b1Violations: [],
+        b2Violations: [],
+        b2Undetermined: [],
+        b3Violations: [],
+        b4Violations: [],
+        b5Violations: [
+          {
+            file: 'apps/api/src/db/x.ts',
+            line: 7,
+            col: 'sortOrder',
+            via: 'drizzle',
+            orderByExcerpt: 'asc(plans.sortOrder)',
+            orderByWhy: '单键排序无确定性尾键(同值行分页漂移)',
+          },
+        ],
+        counts: { ...BASE_COUNTS, b5Violations: 1, b5Files: 1, b5Candidates: 1 },
+      }).join('\n')
+      const t2 = formatReport({
+        face: 'staged',
+        strict: false,
+        ratcheted: [{ file: 'c.ts', kind: 'b5', now: 1, anchor: 0, added: 1 }],
+        violations: [],
+        undetermined: [],
+        exempt: { returning: 0, db: 0, outlet: 0, marker: 0 },
+        b1Violations: [],
+        b2Violations: [],
+        counts: BASE_COUNTS,
+      }).join('\n')
+      return [
+        /B5 排序无尾键 1 处/.test(t1) && /只报数不判红/.test(t1) && !/❌/.test(t1),
+        t2.includes('[B5排序无尾键] c.ts') && /B5 排序无尾键 1/.test(t2),
+        /B5 排序无尾键\(判据:违规 0 处 \/ 0 文件,候选 0;只报数不进 --strict/.test(fmtB1()),
+      ]
+    })(),
+    [true, true, true],
+  )
   eq(
     'S1 词法未闭合 ⇒ 整文件未判定(U2)',
     (() => {
@@ -4343,12 +4606,15 @@ export const __test__ = {
   B2_CALLER,
   B2_CALLEE,
   API_SRC_DIR,
-  // B3/B4(G-815953/G-815956)同族:判据函数与三条判词常量都从这里取 —— 测试里再抄一份
-  // 迁移列名单或上界判词,就成了第二真相(§22c)。
+  // B3/B4/B5(G-815953/G-815956/G-815955)同族:判据函数与判词常量都从这里取 —— 测试里再抄一份
+  // 迁移列名单/上界判词/排序键族,就成了第二真相(§22c)。
   findBackfillBoundSites,
   findTerminalStateSites,
+  findOrderByTailKeySites,
   MIGRATION_COL_RE,
   BACKFILL_BOUND_RE,
   STATE_LITERAL_KEY_RE,
+  RISKY_ORDER_COL_RE,
+  ORDER_SINGLE_KEY_RE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
