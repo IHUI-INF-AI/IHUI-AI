@@ -20344,6 +20344,7 @@
       "subtitle": "配置各平台的登录凭证(加密存储)",
       "switchToAppQr": "切换为App扫码",
       "switchToWechatQr": "切换为微信扫码",
+      "morePlatforms": "更多平台",
       "taskId": "任务",
       "title": "平台账号管理",
       "verify": "测试连接",
