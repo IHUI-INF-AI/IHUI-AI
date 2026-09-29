@@ -11,12 +11,13 @@
 // 而不是"已防护"。
 
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as gate } from '../check-declared-policy-has-consumer.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -34,6 +35,11 @@ test('T1 §22c 锚点:__test__ 必须导出核心判据且 skipEnv 命名在位'
     'judge',
     'decide',
     'analyze',
+    'isLexiconPath',
+    'LEX_LANGS',
+    'flattenLexicon',
+    'extractI18nUsages',
+    'judgeI18n',
     'SELF_SKIP',
     'FIXTURES',
   ]) {
@@ -179,6 +185,132 @@ test('T8 --self-test 真跑且**连跑两次**皆 rc=0(只能跑一次的取证�
       `第 ${round} 轮 --self-test rc=${r.status}\n${r.stdout?.slice(-600)}\n${r.stderr?.slice(-400)}`,
     )
     assert.match(String(r.stdout), /全部 \d+ 例通过/, `第 ${round} 轮未见通过汇总行`)
+  }
+})
+
+// ---------------------------------------------------------------- C6 i18n 维(G-816043)
+
+const LEX_KEYS = { chat: { hi: '你好', bye: '再见' }, items: { count: '条数' } }
+const lexMap = () =>
+  new Map(gate.LEX_LANGS.map((L) => [`packages/i18n/messages/web/${L}.json`, JSON.stringify(LEX_KEYS)]))
+
+test('T9 C6 i18n 三验收(G-816043):零发射必报、发射齐必绿、动态只报数不静默;伪调用不可见', () => {
+  // 验收①:五语言都有值、全仓无发射点 ⇒ 报未接线,按面板归 en.json 计数
+  const off = gate.judge(new Map([['apps/web/src/a.tsx', 'export function B(): number { return 1 }\n']]), {
+    lexicon: lexMap(),
+  })
+  assert.equal(off.i18n.byFolder.web.keys, 3)
+  assert.equal(off.i18n.byFolder.web.unwired, 3)
+  assert.equal(off.perFile['packages/i18n/messages/web/en.json'], 3)
+  // 验收②:有发射点 ⇒ 绿(门对自家产出形态的必答题)
+  const emitAll =
+    "const t = useTranslations('chat')\nconst u = useTranslations('items')\nexport function A(): string { return t('hi') + t('bye') + u('count') }\n"
+  const on = gate.judge(new Map([['apps/web/src/a.tsx', emitAll]]), { lexicon: lexMap() })
+  assert.equal(on.i18n.byFolder.web.unwired, 0)
+  // 验收③:动态拼键 ⇒ 计报数,不得静默算通过(全动态 ⇒ dynamic;有静态前缀 ⇒ 前缀覆盖)
+  const fullDyn = gate.judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        "const t = useTranslations('chat')\nexport function K(x: string): string { return t(`${x}`) }\n",
+      ],
+    ]),
+    { lexicon: lexMap() },
+  )
+  assert.equal(fullDyn.i18n.dynamic, 1, '全动态实参必须计报数')
+  assert.equal(fullDyn.i18n.byFolder.web.unwired, 3, '动态调用不得静默盖掉任何键')
+  // 注释与字符串字面量里的伪发射都不可见(数据区/代码区分账)
+  const noise =
+    "// const t = useTranslations('chat')\n// t('hi')\nexport const s = \"t('hi')\";\nconst u = useTranslations('items')\nexport function E(): string { return u('count') }\n"
+  const nz = gate.judge(new Map([['apps/web/src/a.tsx', noise]]), { lexicon: lexMap() })
+  assert.equal(nz.i18n.emitted, 1, '只有 u(count) 是真发射')
+  assert.equal(nz.i18n.byFolder.web.unwired, 2, 'chat.hi 不得被注释/字符串伪发射接线')
+  // C6 第二族:import { t } from i18n 家族 ⇒ 根 ns 全键直发(cli/miniapp 真实形状)
+  const imp = gate.judge(
+    new Map([
+      ['apps/cli/src/run.ts', "import { t } from '../i18n/index.js'\nexport function M(): string { return t('chat.hi') }\n"],
+    ]),
+    { lexicon: lexMap() },
+  )
+  assert.equal(imp.i18n.emitted, 1)
+  assert.equal(imp.i18n.byFolder.web.unwired, 2, 'import 的 t(全键) 必须接线,否则 cli 面板是假 100% 孤儿')
+  // C6 计数并入 perFile ⇒ 与 C1~C5 共用同一 decide 棘轮
+  assert.equal(
+    gate.decide({
+      stagedCounts: { 'packages/i18n/messages/web/en.json': 3 },
+      headCounts: { 'packages/i18n/messages/web/en.json': 3 },
+      mode: 'staged',
+    }).exit,
+    0,
+    '词表计数齐平 ⇒ 绿(存量不追)',
+  )
+  assert.equal(
+    gate.decide({
+      stagedCounts: { 'packages/i18n/messages/web/en.json': 4 },
+      headCounts: { 'packages/i18n/messages/web/en.json': 3 },
+      mode: 'staged',
+    }).exit,
+    1,
+    '词表未接线新增 ⇒ 红(新增即拦)',
+  )
+})
+
+test('T10 端到端(--staged,临时仓):接线减账 ⇒ 绿;码表加无主键 ⇒ 红并点名 en.json(词表改动不得退回全量档)', () => {
+  const dir = mkScratch('g121-i18n-')
+  try {
+    const git = (args) =>
+      spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', windowsHide: true, timeout: 60000 })
+    assert.equal(git(['init', '-q']).status, 0)
+    assert.equal(git(['config', 'user.email', 'gate@example.invalid']).status, 0)
+    assert.equal(git(['config', 'user.name', 'gate']).status, 0)
+    mkdirSync(join(dir, 'apps', 'web', 'src'), { recursive: true })
+    mkdirSync(join(dir, 'packages', 'i18n', 'messages', 'web'), { recursive: true })
+    for (const L of gate.LEX_LANGS)
+      writeFileSync(
+        join(dir, 'packages', 'i18n', 'messages', 'web', `${L}.json`),
+        JSON.stringify({ chat: { hi: 'a', bye: 'b' } }),
+      )
+    writeFileSync(
+      join(dir, 'apps', 'web', 'src', 'page.tsx'),
+      "const t = useTranslations('chat')\nexport function A(): string { return t('hi') }\n",
+    )
+    assert.equal(git(['add', '-A']).status, 0)
+    assert.equal(git(['commit', '-qm', 'base']).status, 0)
+    const runGate = () =>
+      spawnSync(process.execPath, [SCRIPT, '--staged', '--root', dir], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+      })
+    // 情形 A:staged 只接线 bye ⇒ staged 未接线 0 < HEAD 锚点 1 ⇒ 绿
+    writeFileSync(
+      join(dir, 'apps', 'web', 'src', 'page.tsx'),
+      "const t = useTranslations('chat')\nexport function A(): string { return t('hi') + t('bye') }\n",
+    )
+    assert.equal(git(['add', '-A']).status, 0)
+    const green = runGate()
+    assert.equal(
+      green.status,
+      0,
+      `情形 A(接线减账)应绿 rc=${green.status}\n${green.stdout?.slice(-800)}${green.stderr?.slice(-800)}`,
+    )
+    // 情形 B:码表再加两个全语言无主键 ⇒ staged 2 > HEAD 锚点 1 ⇒ 红,点名 en.json 与样例键
+    for (const L of gate.LEX_LANGS)
+      writeFileSync(
+        join(dir, 'packages', 'i18n', 'messages', 'web', `${L}.json`),
+        JSON.stringify({ chat: { hi: 'a', bye: 'b' }, orphan: { a: 'x', b: 'y' } }),
+      )
+    assert.equal(git(['add', '-A']).status, 0)
+    const red = runGate()
+    assert.equal(
+      red.status,
+      1,
+      `情形 B(码表加无主键)应红 rc=${red.status}\n${red.stdout?.slice(-800)}${red.stderr?.slice(-800)}`,
+    )
+    assert.match(String(red.stderr), /packages\/i18n\/messages\/web\/en\.json/, '红点名必须落在 en.json 计数上')
+    assert.match(String(red.stderr), /orphan\.b/, '红点名必须给出样例键')
+  } finally {
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
