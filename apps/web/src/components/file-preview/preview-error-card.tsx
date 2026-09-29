@@ -75,7 +75,7 @@ export function PreviewErrorCard({
   return (
     <div
       className={cn(
-        'my-0 flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2',
+        'my-0 flex items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2',
         className,
       )}
       data-testid="file-preview-error-card"

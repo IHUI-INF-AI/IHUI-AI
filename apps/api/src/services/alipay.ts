@@ -27,6 +27,7 @@ import { createSign, createVerify, createHash, X509Certificate, randomBytes } fr
 import { readFileSync, existsSync } from 'node:fs'
 import { env } from 'node:process'
 import { join } from 'node:path'
+import { formatDateByTemplate } from '@ihui/shared'
 
 const GATEWAY = env.ALIPAY_GATEWAY ?? 'https://openapi.alipay.com/gateway.do'
 // 自适应:pnpm filter 运行时 cwd=apps/api(用 certs/),项目根运行时用 apps/api/certs/
@@ -483,8 +484,18 @@ export async function downloadBillUrl(
   return data.alipay_data_dataservice_bill_downloadurl_query_response.bill_download_url
 }
 
-function formatTimestamp(d: Date): string {
-  const pad = (n: number): string => n.toString().padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+/**
+ * 支付宝 OpenAPI 的 `timestamp` 参数:必须是 GMT+8 的 `yyyy-MM-dd HH:mm:ss`
+ * (超出小容差窗口即被网关拒单)。
+ *
+ * 必须显式按 Asia/Shanghai 计算,不得用宿主本地 getter(getFullYear/getHours 等):
+ * 本机宿主时区曾被静默改成 UTC(2026-09-04 起 25 天无人发现),那一版把每一笔请求签成了
+ * "8 小时之前",即支付网关侧的真实故障。时区写进代码之后,宿主怎么改都与本行输出无关。
+ *
+ * 格式化逻辑复用共享层唯一出口 `formatDateByTemplate`(AGENTS §3 共享层优先),
+ * 不在端内再抄一份 Intl 拼装。
+ */
+export function formatTimestamp(d: Date): string {
+  return formatDateByTemplate(d, 'YYYY-MM-DD HH:mm:ss')
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

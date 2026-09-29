@@ -53,7 +53,7 @@ export function HookSummaryCard({ running = false }: { running?: boolean }) {
       data-testid="hook-summary-card"
       data-state={view.state}
       aria-label={t('hookSummary.ariaLabel')}
-      className="mx-3 mb-2 flex items-center gap-2 rounded-md border border-border/60 bg-background/60 px-2 py-1.5"
+      className="mx-3 mb-2 flex items-center gap-2 rounded-lg border border-border/60 bg-background/60 px-2 py-1.5"
     >
       <Glyph className={cn('h-3.5 w-3.5 shrink-0', glyphCls)} aria-hidden />
       <span className="shrink-0 text-xs font-medium text-foreground">{stateLabel}</span>
