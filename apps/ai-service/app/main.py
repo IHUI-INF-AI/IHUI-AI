@@ -715,7 +715,23 @@ def create_app() -> FastAPI:
         allow_origins=_cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Internal-Secret"],
+        # D147(2026-09-28):`traceparent` 必须在允许清单里。FastAPI 的 CORSMiddleware
+        # 与 @fastify/cors 不同 —— 后者在未设 allowedHeaders 时会回显
+        # Access-Control-Request-Headers,而这里给了**显式清单**,预检就会拒掉
+        # traceparent(400 Disallowed CORS headers),于是浏览器直连 ai-service 的那条道
+        # (packages/api-client/src/client.ts 的 fetchAiServiceJson)在**第一跳**就被剥掉
+        # 端生成的 id,四段链断成两截且不报错(静默失效)。
+        # X-Trace-Id 同批加入:回带用的响应头(见 expose_headers 与 TraceContextMiddleware)。
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-Internal-Secret",
+            "traceparent",
+            "X-Trace-Id",
+        ],
+        # 跨域响应默认只暴露 CORS-safelisted 头;不 expose 的话端上
+        # readTraceIdFromResponse() 永远读不到编号 —— 声明了回带却拿不到。
+        expose_headers=["X-Trace-Id", "traceparent"],
     )
 
     # JWT 认证中间件（与 apps/api 共享 JWT_SECRET，SSO 跨服务认证）
