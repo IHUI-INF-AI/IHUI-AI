@@ -8,11 +8,23 @@
    是可拖拽交互元素,但 jsx-a11y 默认把 separator 视为非交互元素,需 Tab 聚焦做无障碍。 */
 
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Minus, PictureInPicture2, ChevronUp, SquareTerminal, Columns2 } from 'lucide-react'
+import {
+  Maximize2,
+  Minimize2,
+  Minus,
+  PictureInPicture2,
+  ChevronUp,
+  SquareTerminal,
+  Columns2,
+  Loader2,
+  GitPullRequest,
+} from 'lucide-react'
 import { CloseButton, IconButton } from '@ihui/ui-react'
 import { rnRadius } from '@ihui/design-tokens'
+import { toast } from '@/components/common'
 
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
@@ -241,6 +253,62 @@ export function AISidePanel() {
   const envInfoOpen = useEnvironmentInfoStore((s) => s.open)
   const toggleWorkPanel = useAiPanelStore((s) => s.toggleWorkAreaCollapsed)
   const workAreaCollapsed = useAiPanelStore((s) => s.workAreaCollapsed)
+  // D182 工作面全屏(对标竞品 chatSession.headerActions enter/exitWorkspaceFullscreen):
+  // 全屏 = AI 面板让位,work-area 占满;门槛 = 无活动会话(任务未开始)时禁用并提示
+  const workAreaFullscreen = useAiPanelStore((s) => s.workAreaFullscreen)
+  const setWorkAreaFullscreen = useAiPanelStore((s) => s.setWorkAreaFullscreen)
+  // D183(2026-09-29 立,对标竞品 chatSession.headerActions.createDraftPullRequest):
+  // 会话头部一键创建 Draft PR 写动作,与环境信息 popover 的只读 PR 状态展示互补。
+  // 按需拉取 GitHub 仓库/分支状态(activeWorkspace 为准),POST /api/workspace/github/prs
+  // (draft:true 透传 GitHub API);成功 toast 带 PR 链接并刷新环境快照,失败统一降级提示。
+  // hooks 规则:组件下方有早退 return,本块必须留在所有 early return 之前(无条件执行)。
+  const [creatingDraftPR, setCreatingDraftPR] = React.useState(false)
+  const handleCreateDraftPR = React.useCallback(async () => {
+    if (creatingDraftPR) return
+    const wsPath = useAiPanelStore.getState().activeWorkspace?.path
+    if (!wsPath) {
+      toast.error(tc('headerActions.createDraftPullRequestFailed'))
+      return
+    }
+    setCreatingDraftPR(true)
+    try {
+      await useEnvironmentInfoStore.getState().fetchGithubStatus(wsPath)
+      const gh = useEnvironmentInfoStore.getState().githubStatus
+      if (
+        !gh?.isGithubRepo ||
+        !gh.owner ||
+        !gh.repo ||
+        gh.ghConfigured !== true ||
+        !gh.currentBranch ||
+        !gh.defaultBranch
+      ) {
+        toast.error(tc('headerActions.createDraftPullRequestFailed'))
+        return
+      }
+      const res = await fetchApi<{ html_url?: string }>('/api/workspace/github/prs', {
+        method: 'POST',
+        body: JSON.stringify({
+          owner: gh.owner,
+          repo: gh.repo,
+          title: gh.currentBranch,
+          head: gh.currentBranch,
+          base: gh.defaultBranch,
+          draft: true,
+        }),
+      })
+      if (!res.success) throw new Error(res.error ?? 'create draft pull request failed')
+      const prUrl = res.data?.html_url
+      toast.success(tc('headerActions.createDraftPullRequestOk'), {
+        description: prUrl,
+      })
+      // 刷新环境快照:popover/完整详情里的 PR 行随即从"无 PR"变为可点链接
+      void useEnvironmentInfoStore.getState().fetchStatus(wsPath)
+    } catch {
+      toast.error(tc('headerActions.createDraftPullRequestFailed'))
+    } finally {
+      setCreatingDraftPR(false)
+    }
+  }, [creatingDraftPR, tc])
   const toggleTerminalDock = useTerminalDockStore((s) => s.toggle)
   const terminalDockOpen = useTerminalDockStore((s) => s.open)
 
@@ -1241,6 +1309,9 @@ export function AISidePanel() {
     d73SplitPane(ROOT_PANE_ID, 'right', null)
   }
 
+  // D182 门槛态:无活动会话 = 任务未开始,审阅工作面不可用(禁用全屏入口并提示)
+  const workspaceUnavailable = !storeConversationId
+
   return (
     <TooltipProvider>
       <>
@@ -1248,6 +1319,29 @@ export function AISidePanel() {
         {/* P3 #34(2026-09-16 立):流式屏幕阅读器播报区(visually-hidden,aria-live=polite) */}
         <SrStreamAnnouncer />
         <VoiceStreamSpeaker />
+        {/* D182:工作面全屏退出按钮 — 面板让位(display:none)后头部按钮不可达,
+            退出入口经 portal 挂到 work-area 右上角,与 AgentTaskProgressPane 同容器同层级 */}
+        {workAreaFullscreen &&
+          !floatMode &&
+          createPortal(
+            <TooltipProvider>
+              <div
+                className="absolute right-3 top-14 z-sticky"
+                data-testid="work-area-fullscreen-exit"
+              >
+                <Tooltip content={tc('headerActions.exitWorkspaceFullscreen')}>
+                  <IconButton
+                    onClick={() => setWorkAreaFullscreen(false)}
+                    aria-label={tc('headerActions.exitWorkspaceFullscreen')}
+                    className="border border-border bg-popover/90 shadow-sm"
+                  >
+                    <Minimize2 />
+                  </IconButton>
+                </Tooltip>
+              </div>
+            </TooltipProvider>,
+            document.getElementById('work-area-portal-root') ?? document.body,
+          )}
         <div
           // AI 面板容器(最外层,DevTools 可选中)
           // - docked 模式:relative + shrink-0 + py-2,flex 流内布局,mr-1.5 固定 6px 间距
@@ -1288,16 +1382,20 @@ export function AISidePanel() {
                       height: 'min(600px, calc(100vh - 100px))',
                       transition: floatTransition,
                     }
-              : workAreaCollapsed
-                ? {
-                    flex: '1 1 0%',
-                    width: 'auto',
-                    transition: dockedTransition,
-                  }
-                : {
-                    width,
-                    transition: dockedTransition,
-                  }
+              : workAreaFullscreen
+                ? // D182 工作面全屏:面板让位(inline display:none,优先级高于 min-[768px]:block),
+                  // work-area flex-1 占满;退出入口见上方 portal 按钮
+                  { display: 'none' }
+                : workAreaCollapsed
+                  ? {
+                      flex: '1 1 0%',
+                      width: 'auto',
+                      transition: dockedTransition,
+                    }
+                  : {
+                      width,
+                      transition: dockedTransition,
+                    }
           }
         >
           <aside
@@ -1388,6 +1486,14 @@ export function AISidePanel() {
               subagent 现已改为自动派发(主 agent 在对话流中调用 dispatch_subagent 工具时,
               后端发 subagent_spawn/end SSE 事件 → 前端进度面板自动展示生命周期),
               无需用户手动触发,移除手动派发按钮。 */}
+              {/* D182(D182 票,对标竞品 chatSession.headerActions.panelGroupButtons"面板组按钮"):
+              头部操作按钮簇包 role=group + 组名,读屏用户可感知这一组按钮的语义边界 */}
+              <div
+                role="group"
+                aria-label={tc('headerActions.panelGroupButtons')}
+                className="flex items-center gap-2"
+                data-testid="ai-panel-header-actions-group"
+              >
               {/* 浮窗模式切换按钮(2026-07-30):
                 - docked 模式:显示 Pin 图标,点击切换到浮窗折叠态(只显示输入框)
                 - float 模式:显示 PanelRightRounded(停靠) + Minus(最小化)两个按钮 */}
@@ -1456,6 +1562,59 @@ export function AISidePanel() {
                   <PanelRightRounded left={workAreaCollapsed} />
                 </IconButton>
               </Tooltip>
+              {/* D183 一键创建 Draft PR 写动作(仅 docked 显图标钮;与头部其余动作同簇):
+                  与环境信息 popover 的只读 PR 状态互补;创建中转 Loader2,无活动会话时门槛禁用 */}
+              {!floatMode && (
+                <Tooltip
+                  content={
+                    workspaceUnavailable
+                      ? tc('headerActions.workspaceUnavailable')
+                      : tc('headerActions.createDraftPullRequest')
+                  }
+                >
+                  <IconButton
+                    onClick={() => void handleCreateDraftPR()}
+                    disabled={workspaceUnavailable || creatingDraftPR}
+                    aria-label={tc('headerActions.createDraftPullRequest')}
+                    aria-disabled={workspaceUnavailable || undefined}
+                    data-testid="ai-panel-create-draft-pr"
+                  >
+                    {creatingDraftPR ? (
+                      <Loader2 className="animate-spin" />
+                    ) : (
+                      <GitPullRequest />
+                    )}
+                  </IconButton>
+                </Tooltip>
+              )}
+              {/* D182 工作面全屏切换(仅 docked;浮窗本身已是独立小窗,再全屏工作面无意义):
+                  门槛态 = 无活动会话(任务未开始)时 disabled,Tooltip 改示 workspaceUnavailable 文案 */}
+              {!floatMode && (
+                <Tooltip
+                  content={
+                    workspaceUnavailable
+                      ? tc('headerActions.workspaceUnavailable')
+                      : workAreaFullscreen
+                        ? tc('headerActions.exitWorkspaceFullscreen')
+                        : tc('headerActions.enterWorkspaceFullscreen')
+                  }
+                >
+                  <IconButton
+                    onClick={() => setWorkAreaFullscreen(!workAreaFullscreen)}
+                    disabled={workspaceUnavailable}
+                    aria-label={
+                      workAreaFullscreen
+                        ? tc('headerActions.exitWorkspaceFullscreen')
+                        : tc('headerActions.enterWorkspaceFullscreen')
+                    }
+                    aria-disabled={workspaceUnavailable || undefined}
+                    data-testid="ai-panel-workspace-fullscreen"
+                    className={cn(workAreaFullscreen && 'bg-accent text-accent-foreground')}
+                  >
+                    {workAreaFullscreen ? <Minimize2 /> : <Maximize2 />}
+                  </IconButton>
+                </Tooltip>
+              )}
               {!d73Expanded && (
                 <Tooltip content={tp('splitRight')}>
                   <IconButton onClick={d73HandleSplit} aria-label={tp('splitRight')}>
@@ -1466,6 +1625,7 @@ export function AISidePanel() {
               <Tooltip content={tcommon('close')}>
                 <CloseButton aria-label={tcommon('close')} onClick={closePanel} />
               </Tooltip>
+              </div>
             </header>
 
             {/* D73 多任务窗格(G-100):未拆分时主体直挂(与挂载前逐字同构,观感零变化);
