@@ -267,7 +267,41 @@ describe('欠费口径 = 流水 − 已结退费(唯一算法)', () => {
   })
 })
 
+describe('回执聚合:历史行不得被算成任何一侧', () => {
+  const { aggregateDeliveries } = reminder
+  it('无回执(NULL / 空数组)的留痕归 unknownReminders,不计送达也不计失败', () => {
+    const r = reminder.aggregateDeliveries([{ delivery: null }, { delivery: [] }, { delivery: undefined }])
+    expect(r.unknownReminders).toBe(3)
+    expect(r.remindersWithDelivery).toBe(0)
+    expect(Object.keys(r.buckets)).toEqual([])
+  })
+  it('有回执的按 bucket 逐档计数(同一留痕内多收件人累加)', () => {
+    const r = aggregateDeliveries([
+      {
+        delivery: [
+          { userId: 'u1', role: 'student', channel: 'wechat', bucket: 'sent', at: 'x' },
+          { userId: 'u2', role: 'parent', channel: 'wechat', bucket: 'user_refused', at: 'x' },
+          { userId: 'u2', role: 'parent', channel: 'sms', bucket: 'no_phone', at: 'x' },
+        ],
+      },
+      {
+        delivery: [{ userId: 'u1', role: 'student', channel: 'sms', bucket: 'sent', at: 'x' }],
+      },
+    ])
+    expect(r.remindersWithDelivery).toBe(2)
+    expect(r.buckets.sent).toBe(2)
+    expect(r.buckets.user_refused).toBe(1)
+    expect(r.buckets.no_phone).toBe(1)
+    expect(r.unknownReminders).toBe(0)
+  })
+  it('脏数据(非数组)按 unknown 处理,不抛异常把整个报表打挂', () => {
+    const r = aggregateDeliveries([{ delivery: 'oops' }, { delivery: 42 }])
+    expect(r.unknownReminders).toBe(2)
+  })
+})
+
 describe('账期摊派与到期分级', () => {
+
   it('未归属的流水按到期日升序摊派,先填最紧的一期', () => {
     const r = deriveEnrollmentLedger({
       totalFee: 1200,
