@@ -230,6 +230,25 @@
       ]
     },
     {
+      "id": "#D156",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md",
+      "docAnchor": "竞品缺口清单（不得列为我方差距）",
+      "title": "竞品自身也没有的六件事,没有一份「拦掉幻影任务」的清单",
+      "assertions": [
+        {
+          "text": "V4 里那一节真的在版本树(台账勾了而正文没写 = 本尺子专判的一型)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": ["docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md"],
+              "regex": "## 十二、竞品缺口清单",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "#D151",
       "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md",
       "docAnchor": "### D151",
