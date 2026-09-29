@@ -10584,6 +10584,15 @@
       "tokens": "{used} / {limit} を使用",
       "resetAt": "{time} にリセット"
     },
+    "statusSlot": {
+      "moreNotices": "他 {count} 件のステータス",
+      "connection": "接続状態",
+      "alerts": "アラート",
+      "mcp": "MCP 接続",
+      "polish": "リファイン通知",
+      "diff": "コード修正意見",
+      "budget": "本日のクォータ"
+    },
     "streamAlert": {
       "configWarning": {
         "title": "設定の通知"
@@ -10802,6 +10811,7 @@
     },
     "contextUsage": {
       "breakdownTitle": "トークン内訳",
+      "budgetRow": "本日のクォータ",
       "categoryFiles": "ファイル",
       "categoryHistory": "履歴",
       "categorySystem": "システムプロンプト",
@@ -27687,7 +27697,9 @@
     "hintSelect": "選択",
     "hintConfirm": "確定",
     "hintClose": "閉じる",
-    "clearAriaLabel": "検索をクリア"
+    "clearAriaLabel": "検索をクリア",
+    "followupDismiss": "候補を閉じる",
+    "followupRowLabel": "これらを試す"
   },
   "statusPage": {
     "incidentsUnavailable": "直近 30 日間のインシデント情報は一時的に取得できません"
