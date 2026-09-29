@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
 import { __test__ as src } from '../check-cross-end-ui-parity.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { radiusSetOf } from '../lib/radius-tokens.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -22,6 +23,46 @@ const RUNNER = resolve(ROOT, 'scripts/guardian-runner.mjs')
 const SELF = resolve(ROOT, 'scripts/check-cross-end-ui-parity.mjs')
 const LEDGER_REL = 'scripts/cross-end-ui-parity-baseline.json'
 const LEDGER = resolve(ROOT, LEDGER_REL)
+
+/**
+ * 在"出处面"(某枚历史提交的整棵树)上跑同一把尺子 —— 阳性对照钉出处而不是钉 HEAD(AGENTS 已把这条
+ * 立成规矩:账还清那天,"HEAD 上还能量到存量"这句话当场失效,而判据失效的表现永远是安静)。
+ * 返回 {ok, json, why}:ok=false 时 why 必须写清是跑不动还是解不出 ⇒ 调用方不得把"没跑到"读成"没有"。
+ */
+function runAtRef(ref) {
+  const dir = mkScratch('g128-pin-')
+  const idx = resolve(dir, 'side.idx')
+  try {
+    const rt = gitWithEnv(['read-tree', ref], { GIT_INDEX_FILE: idx })
+    if (rt.status !== 0) return { ok: false, why: `read-tree ${ref} 失败:${String(rt.stderr).trim().slice(0, 120)}` }
+    const r = spawnSync(process.execPath, [SELF, '--staged', '--json'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      env: { ...process.env, GIT_INDEX_FILE: idx },
+      timeout: 600000,
+      maxBuffer: 128 * 1024 * 1024,
+    })
+    if (r.status !== 0)
+      return { ok: false, why: `尺子在 ${ref} 面 rc=${r.status}:${String(r.stdout || r.stderr).slice(-160)}` }
+    let json
+    try {
+      json = JSON.parse(r.stdout)
+    } catch (e) {
+      return { ok: false, why: `${ref} 面的 --json 不可解析:${e.message}` }
+    }
+    return { ok: true, json }
+  } finally {
+    rmScratch(dir)
+  }
+}
+
+const gitWithEnv = (args, env) =>
+  spawnSync('C:/Program Files/Git/bin/git.exe', ['-c', 'safe.directory=*', ...args], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+    timeout: 180000,
+  })
 
 const git = (args) =>
   spawnSync('git', ['-c', 'safe.directory=*', ...args], { cwd: ROOT, encoding: 'utf8' })
@@ -579,11 +620,19 @@ test('T24 三份同名:进审候选逐条点名 + 一份族只许一条腿(真�
     /^apps\/mobile-rn\/src\/components\//,
     '选中的腿不是该端屏幕真渲染的那一份(端内自绘层)',
   )
-  // 出口链的锁挪到它真正产出的那一面:桶里必须解析到至少一条 re-export 指向,
-  // 否则"第二顺位还在"这件事只是措辞(与 ㉲/㉴ 的构造面成对互补)。
+  // 出口链判据的阳性对照**改钉出处,不钉 HEAD**(2026-09-30 O92 票④)。
+  // 原判据要求"HEAD 面 exitNotes 必须 >0",而 notes 记的是这条判据**不生效时的报名**
+  // (链上取不到文件 / 解到多份定义 / 解不到定义),不是"成功解到了"。O92 票④ 摘除
+  // packages/app/src/components/SectionHeader.tsx 及其出口行后,真仓最后一个"解不到定义"的点消失
+  // ⇒ HEAD 归零是清账的正当结果,把它读成"出口链被摘线"是错的,而把锁钉在任何一天的 HEAD 上,
+  // 等于让下一个合法清账的人被迫拆锁(本仓为这一刻记过的正解:对照钉出处 ref + 反向锁)。
+  assert.ok(Array.isArray(j.exitNotes), '--json 不暴露 exitNotes ⇒ 判据不生效时无从报名(真恒绿)')
+  const PINNED_EXIT_REF = '4f1f7e84d4^'
+  const pinned = runAtRef(PINNED_EXIT_REF)
+  assert.ok(pinned.ok, `出处面 ${PINNED_EXIT_REF} 跑不出结论(未判定,不等于没有):${pinned.why}`)
   assert.ok(
-    Array.isArray(j.exitNotes) && j.exitNotes.length > 0,
-    '出口链在真仓零产出 ⇒ 选腿的第三顺位已无源可查,不得靠单元层用例背书',
+    Array.isArray(pinned.json.exitNotes) && pinned.json.exitNotes.length > 0,
+    `出处面 ${PINNED_EXIT_REF} 的出口链报名归零 ⇒ "判不出必须报名"这一半真被摘线了(不是账清了)`,
   )
   assert.ok(
     ui.others.includes('packages/app/src/components/UserInfoCard.tsx'),
