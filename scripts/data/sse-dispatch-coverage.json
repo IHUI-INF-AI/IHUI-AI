@@ -31,6 +31,7 @@
   "missing": {
     "web": {},
     "extension": {
+      "onReasoningEffortNotice": "D130 批准的口径是「web 输入区加第三轴」(用户 2026-09-29 预填确认),本端输入区没有推理强度控件 ⇒ 没有可展示的回落通知位。刻意不退化成\"收到就 console 一下\":那会把一个用户看不见的档位变化写成一条只有开发者能发现的痕迹,而票第 8 栏点名的正是\"选了档而什么都没发生\"这一型静默失效。解阻判据:该端补出档位控件(需自带控件 ×5 语言词表)后,删除本项并接 onReasoningEffortNotice 回调。",
       "onGoalUpdate": "D152(2026-09-29 立):本端对话面板没有目标卡位,且 goal 的四个动作(set/pause/resume/clear)全部由 web 的 /goal 斜杠命令与 GoalCard 发起 —— 侧栏只承载正文增量与工具流,接一条「看得见状态却无处改状态」的帧会造出假 affordance(与 mobile-rn 拒绝假 affordance 的同一口径,见本端 onTerminalInteraction 那条)。解阻判据:与 web 同形接 onGoalUpdate(载荷已带 sessionId/status/objective),并先在 sidepanel 补 chat.goal.status.* 的胶囊渲染位;接入后从本 missing 删除并把该端 baseline 由 20 上调。",
       "onAgentDelta": "no-agent-delta-ui",
       "onBudget": "no-budget-ui",
@@ -44,6 +45,7 @@
       "onFormRequest": "D77 业务表单帧:api-client 已暴露 onFormRequest(HEAD 实测),但 ① 生产者侧(Python sse_contract.py / llm.py 发 form_request)未入库,② web 宿主(contract.ts + send-message.ts + stores/business-forms.ts + business-form-section.tsx)在途且与并行会话的脏文件同面,③ 其余四端无表单渲染位。⇒ 五端一律显式登记而非静默丢弃。解阻判据:sse_contract.py 与 llm.py 工作树==HEAD 后,同一票内落地「Python 发帧 + TS 契约 + web 宿主 + 本项从 missing 删除 + baseline 上调」,四端按 H18 端覆盖矩阵补渲染位。"
     },
     "miniapp-taro": {
+      "onReasoningEffortNotice": "D130 批准的口径是「web 输入区加第三轴」(用户 2026-09-29 预填确认),本端输入区没有推理强度控件 ⇒ 没有可展示的回落通知位。刻意不退化成\"收到就 console 一下\":那会把一个用户看不见的档位变化写成一条只有开发者能发现的痕迹,而票第 8 栏点名的正是\"选了档而什么都没发生\"这一型静默失效。解阻判据:该端补出档位控件(需自带控件 ×5 语言词表)后,删除本项并接 onReasoningEffortNotice 回调。",
       "onAgentDelta": "no-agent-delta-ui",
       "onBudget": "装配器与词表已在 @ihui/shared/chat 备好(cli / mobile-rn 已消费),本端缺的是 `src/api/index.ts` 的 dispatch case —— 该文件当前被并行会话的 D49①(rateChatMessage / sendToolApprovalResponse)改动占住,补 case 会把他人未提交工作代收进本票(§12 红线),故显式登记而非静默。解阻判据:该文件工作树与 HEAD 一致后接 `case 'budget'` + chat.tsx 注册 + 6 键 ×5 语言入 `ai.stream.*`。",
       "onDelta": "该端聊天渲染按 tokens 概览驱动,未逐 delta 消费;seed 现状,若后续接入逐字流请删除本项并上调 baseline。",
@@ -53,6 +55,7 @@
       "onToolApproval": "V3 #58(2026-09-26 立)当日只落了两侧:api-client 的解析开关(`onToolApproval 注册才解析`)+ web 宿主(send-message.ts:1004)。本端源码里没有该回调名 ⇒ 帧到本端会被**静默丢弃**,故按 D107 口径显式登记而非不写。解阻判据:该端把工具审批落到已有批准面上(mobile-rn/共享屏层走工具确认弹窗、miniapp-taro 走页内确认卡、extension 走 sidepanel 审批位、cli 走 REPL 内联批准提示),接上后从本 missing 删除并把该端 baseline 上调 —— 四端各自的渲染位是否存在,须在接的那一票里当场证,不得凭此条推断\"该端本就不该有\"。"
     },
     "mobile-rn": {
+      "onReasoningEffortNotice": "D130 批准的口径是「web 输入区加第三轴」(用户 2026-09-29 预填确认),本端输入区没有推理强度控件 ⇒ 没有可展示的回落通知位。刻意不退化成\"收到就 console 一下\":那会把一个用户看不见的档位变化写成一条只有开发者能发现的痕迹,而票第 8 栏点名的正是\"选了档而什么都没发生\"这一型静默失效。解阻判据:该端补出档位控件(需自带控件 ×5 语言词表)后,删除本项并接 onReasoningEffortNotice 回调。",
       "onGoalUpdate": "D152(2026-09-29)立:本端没有目标卡位(GoalCard 只在 web `components/ai/ai-side-panel-tools.tsx:525` 挂载,现读),且 `/goal` 斜杠命令的拦截点在 web 的 slash-commands.ts —— 本端今天连**发起**目标都没有,接一条只读状态帧会造出「看得见不能改」的假 affordance(与本端 onTerminalInteraction 拒绝代答的同一口径)。解阻判据:端内先有 goal 发起入口(另计一票),再同笔接 onGoalUpdate + `chat.goal.status.*` 五语言;接入后删本行并把该端 baseline 由 21 上调。",
       "onAgentDelta": "no-agent-delta-ui",
       "onMemoryUpdates": "no-memory-update-ui",
@@ -66,6 +69,7 @@
       "onToolApproval": "V3 #58(2026-09-26 立)当日只落了两侧:api-client 的解析开关(`onToolApproval 注册才解析`)+ web 宿主(send-message.ts:1004)。本端源码里没有该回调名 ⇒ 帧到本端会被**静默丢弃**,故按 D107 口径显式登记而非不写。解阻判据:该端把工具审批落到已有批准面上(mobile-rn/共享屏层走工具确认弹窗、miniapp-taro 走页内确认卡、extension 走 sidepanel 审批位、cli 走 REPL 内联批准提示),接上后从本 missing 删除并把该端 baseline 上调 —— 四端各自的渲染位是否存在,须在接的那一票里当场证,不得凭此条推断\"该端本就不该有\"。"
     },
     "cli": {
+      "onReasoningEffortNotice": "D130 批准的口径是「web 输入区加第三轴」(用户 2026-09-29 预填确认),本端输入区没有推理强度控件 ⇒ 没有可展示的回落通知位。刻意不退化成\"收到就 console 一下\":那会把一个用户看不见的档位变化写成一条只有开发者能发现的痕迹,而票第 8 栏点名的正是\"选了档而什么都没发生\"这一型静默失效。解阻判据:该端补出档位控件(需自带控件 ×5 语言词表)后,删除本项并接 onReasoningEffortNotice 回调。",
       "onGoalUpdate": "D152(2026-09-29)立:本端的 goal 是**另一套生命周期**(AGENTS §8 的 /goal 模式跑在 STATE.md + 7 步循环上,状态词是 active/paused/achieved/blocked/budget_limited —— snake_case 且含 achieved,与会话内 goal 六档不是同一个域),把它接到会话 goal 帧上会让两套词汇在同一端混用而账面全绿。本端只经 `postSessionGoal` 的 REST 面参与,不消费下行帧。解阻判据:若确要给 CLI 上屏,须先裁决两域映射(另计一票),不得为消红顺手接线。",
       "onAgentDelta": "no-agent-delta-ui",
       "onCompaction": "no-compaction-ui",
