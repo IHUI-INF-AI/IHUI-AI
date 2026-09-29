@@ -143,7 +143,62 @@
         "G-815417",
         "G-815418",
         "G-815919"
-      ]
+      ],
+      "readFiles": [
+        {
+          "p": "packages/services/src/session/tasksDatabase/schema-v1.ts",
+          "lines": 187
+        },
+        {
+          "p": "packages/services/src/session/tasksDatabase/migrations.ts",
+          "lines": 211
+        },
+        {
+          "p": "packages/services/src/session/tasksDatabase/startup.ts",
+          "lines": 124
+        },
+        {
+          "p": "packages/services/src/session/tasksDatabase/prepared.ts",
+          "lines": 18
+        },
+        {
+          "p": "packages/services/src/session/sessionTitle.ts",
+          "lines": 18
+        },
+        {
+          "p": "packages/services/src/session/legacyTaskSessionFile.ts",
+          "lines": 22
+        },
+        {
+          "p": "packages/services/src/session/sessionMailbox.ts",
+          "lines": 16
+        },
+        {
+          "p": "packages/services/src/session/sessionRealtimePort.ts",
+          "lines": 45
+        },
+        {
+          "p": "packages/services/src/session/mcpWorkspaceScope.ts",
+          "lines": 57
+        },
+        {
+          "p": "packages/services/src/session/offPeakTask.ts",
+          "lines": 47
+        },
+        {
+          "p": "packages/services/src/session/automationCronValidation.ts",
+          "lines": 12
+        },
+        {
+          "p": "packages/services/src/session/claude-native/importedClaudeHistoryRepair.ts",
+          "lines": 221
+        },
+        {
+          "p": "packages/services/src/zcode-agent/zcodeSessionEventCoalescer.ts",
+          "lines": 202
+        }
+      ],
+      "readFilesNote": "readFiles 只覆盖 2026-09-29 第六十二批那 13 份(逐条 wc -l 现量相符,合计 1,180 行);其余 269 份是早期自报读数、无清单 ⇒ 守门器 M12 计为\"不可复核\",头条必须分开报两个数,不得把差额当已证。"
     },
     {
       "path": "packages/zcode-cua",
