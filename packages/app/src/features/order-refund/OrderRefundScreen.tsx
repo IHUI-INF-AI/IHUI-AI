@@ -9,7 +9,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -18,6 +17,7 @@ import type { TFunction } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** 退款订单项(平台注入,字段对齐 mobile-rn OrderRefundScreen Order 子集) */
 export interface OrderRefundItem {
@@ -145,7 +145,8 @@ export function OrderRefundScreen({
               {isSelected ? (
                 <View style={styles.refundForm}>
                   <Text style={styles.formLabel}>{t('orderRefund.reasonLabel')}</Text>
-                  <TextInput
+                  <TextField
+                    colorScheme={colorScheme}
                     style={styles.formInput}
                     value={reason}
                     onChangeText={onReasonChange}
