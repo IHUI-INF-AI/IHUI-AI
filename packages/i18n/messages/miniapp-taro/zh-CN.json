@@ -473,6 +473,53 @@
     "goSetting": "去设置",
     "notificationEntry": "消息通知"
   },
+  "bill": {
+    "title": "学费账单",
+    "wxSubscribe": "微信催费提醒",
+    "wxSubscribeDesc": "订阅后欠费催缴将推送到微信",
+    "subscribe": "订阅",
+    "subscribed": "已开启微信催费提醒",
+    "subscribeFailed": "未完成订阅授权",
+    "enableArrearsRemind": "开启欠费提醒",
+    "feeSummary": "应缴 ¥{total} · 已缴 ¥{paid}",
+    "payDesc": "学费-{name}",
+    "payMockOk": "支付成功(mock,支付凭证未配置)",
+    "payParamsMissing": "支付参数缺失,请联系机构",
+    "payOk": "缴费成功",
+    "paying": "支付中…",
+    "payOnline": "在线缴纳 ¥{amount}",
+    "ledgerNotReady": "账目未就绪",
+    "arrears": "欠费 ¥{amount}",
+    "paidOff": "已缴清",
+    "overdue": "已逾期 {days} 天",
+    "dueOn": "{date} 到期",
+    "loading": "加载中…",
+    "empty": "暂无报名账单",
+    "paymentHistory": "缴费记录",
+    "refunded": "(已退费)",
+    "receiptNo": "单号 {no}",
+    "businessLine": {
+      "after_school_care": "托管",
+      "kindergarten": "幼儿园",
+      "academic": "文化课",
+      "ai_course": "AI课",
+      "other": "其他"
+    },
+    "enrollStatus": {
+      "enrolled": "在读",
+      "graduated": "已结业",
+      "withdrawn": "已退学",
+      "suspended": "停课"
+    },
+    "payMethod": {
+      "cash": "现金",
+      "transfer": "转账",
+      "wechat": "微信",
+      "alipay": "支付宝",
+      "credit_card": "刷卡",
+      "other": "其他"
+    }
+  },
   "error": {
     "network": "网络错误"
   },
