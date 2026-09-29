@@ -47,7 +47,7 @@ export function Badge({ cls, children }: { cls: string; children: React.ReactNod
   return (
     <span
       className={cn(
-        'inline-flex justify-center rounded px-1.5 py-0.5 font-mono text-xs font-medium',
+        'inline-flex justify-center rounded-md px-1.5 py-0.5 font-mono text-xs font-medium',
         cls,
       )}
     >
@@ -66,7 +66,7 @@ export function MetricCard({
   value: string
 }) {
   return (
-    <div className="rounded-md border bg-muted/20 p-3">
+    <div className="rounded-lg border bg-muted/20 p-3">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         {label}

@@ -21,9 +21,10 @@
 // 等于绿灯可能建立在死副本上(与票⑩ 配对键、票⑪ 换腿桶同一条洞的第三处)。
 // 落地补记:本票第一次落地曾被并发会话整块回写(工作树副本被 `heal-worktree-tracked` 对齐成
 // 旧版、旁路提交不在 HEAD 链上),同一内容第二次落地 —— 写面一律取 HEAD blob ⊕ 本票改动,
-// 不复用任何工作树副本。runner 128 的 `stagedTriggers` 现值只含 `packages/app/src/components/`
-// 不含 `packages/app/src/features/`(注册表归主会话单写,本票未动)⇒ 只改 features 组件的提交
-// 不触发本门,由全量档与 CI 问责 —— 现读 `git log --oneline -1 -- scripts/guardian-runner.mjs`。
+// 不复用任何工作树副本。runner 128 的 `stagedTriggers` **原写"只含 components/ 不含 features/"**,
+// 该前提已于 2026-09-29 由 O92 票① 作废(现值含 `packages/app/src/features/`)⇒ 只改 features 组件的提交
+// 现在同样唤起本门。两句都只是历史:编号与 triggers 一律现读 `git show HEAD:scripts/guardian-runner.mjs`,
+// 不得按本行任何字面推断"某类提交不会被审"。
 //
 // 判定面与守门 77/83/93/98/103 同形:全量判 HEAD blob、--staged 判索引 blob、两面旗同给判死、
 // 清单与正文**同面同轮**取;任一面取不到 ⇒ exit 2「无法判定」,不回落另一个面(回落就是把"没判"
@@ -417,9 +418,14 @@ const normKey = (file) =>
 const nameOf = (file) => fileName(file).replace(/\.[^.]+$/, '')
 
 /**
- * 配对键:先走 `normKey`,再剥掉**平台解析后缀**。
- * Taro 构建器按后缀解析同名实现(`SectionHeader.taro.tsx` 才是 weapp 上被打包的那一份),
- * 而 `normKey` 把 `.taro` 一起吸进键里 ⇒ `SectionHeader` 与 `SectionHeader.taro` 成不了对。
+ * 配对键:先走 `normKey`,再剥掉**平台后缀**。
+ * 机制要写准(2026-09-30 实测更正 —— 原文说"构建器按后缀解析同名实现,`SectionHeader.taro.tsx` 才是
+ * weapp 上被打包的那一份"是错的):`@tarojs/helper/dist/utils.js` 的 `resolveMainFilePath()` 拼的是
+ * `${p}.${process.env.TARO_ENV}${ext}`,所以真正的后缀竞争只在 `X.weapp.tsx` vs `X.tsx` 这一族;
+ * `.taro.tsx` 是本仓自己的命名约定,它被打包是因为调用方**显式写了**说明符。表里因此既要留 weapp/h5/alipay
+ * 这类 TARO_ENV 词,也要留 taro 这个约定词 —— 但理由不同,不得再混成一句"构建器认后缀"。
+ * 后缀必须剥进同一个键:`normKey` 会把 `.taro` 一起吸进键里 ⇒ `SectionHeader` 与 `SectionHeader.taro`
+ * 成不了对。
  * 本轮实测未配对名单里 `Selecter.taro / SectionHeader.taro / ColorfulLoader.taro` 全是这一型 ——
  * 是键判据太糙,不是"另一端没有这个元素"。只剥这一族明确的平台词,不做模糊匹配:
  * 宁可少配,也不把两个不同元素并成一对(那会造出假"同值",比漏配更坏)。
@@ -438,8 +444,11 @@ const candRank = (f) => (PLATFORM_SUFFIX.test(normKey(f)) ? 0 : 1)
  * 同侧多候选的唯一选腿比较器 —— scan() 与 pruneUnreachableLegs() 的换腿**共用它**
  * (两处各写一份选法必然漂移,与票⑪"换腿桶必须与配对键同键同序"是同一条禁令)。
  * 四序取小者胜(lex):
- *   1) candRank:平台后缀那份先 —— Taro 构建期解析的是 `Foo.taro.tsx`,出口链不懂平台解析,
- *      若出口反指 plain 那份,按出口选反而造出一条不渲染的假腿;
+ *   1) candRank:平台后缀那份先 —— 理由是**本仓约定**:带后缀那份是被 import 显式点名的适配腿,
+ *      同名 plain 那份在本仓历次实测里都是不可达副本(D172/O92 两批皆如此);Taro 并不按 `.taro` 解析
+ *      (它认 `${TARO_ENV}`,见上方配对键注),所以这一支是"约定 + 实测"的优先级,不是构建器行为。
+ *      真判据仍是可达性维(pruneUnreachableLegs)—— 若哪天 plain 那份才是被点名的腿,该由可达性翻案,
+ *      而不是靠这条后缀优先级硬压;
  *   2) 同端自绘层:`ownEndPrefix` 之下那份(该端屏幕上真渲染的那一份)—— 本门比的是"同一元素
  *      在两端的脸",拿共享层卡去对端内卡就是拿两个不同的元素互相记账;
  *   3) 出口指向:`preferFile` 是该族 re-export 链解到的那份(判据,不是猜测);
