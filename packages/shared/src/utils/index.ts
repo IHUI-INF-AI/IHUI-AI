@@ -42,6 +42,7 @@ export * from './object'
 // output_cleaning.py + cli/redact.ts 既有正则的并集,端内不得再建第二套)
 export * from './redact'
 export * from './role'
+export * from './sanitize-url'
 export * from './search-suggestions'
 export * from './select-class'
 export { parseSSEChunk, type SSEEvent as ParsedSSEEvent } from './sse-parse'
