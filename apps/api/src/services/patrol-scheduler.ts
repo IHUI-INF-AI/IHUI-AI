@@ -194,20 +194,31 @@ export async function executePatrol(
         // D35(2026-09-26 第二段):本路径绕过 chat-queries 直插,必须自己补齐 turn_ordinal。
         // 诊断消息是 assistant → 沿用会话当前轮(告警会话尚无轮时归 turn 1),
         // 规则一律取 services/turn-ordinal.js 这个唯一出口,不得在此重写 role 判断。
-        const turnRows = await db
-          .select({ maxTurn: sql<number | null>`max(${chatMessages.turnOrdinal})` })
-          .from(chatMessages)
-          .where(eq(chatMessages.conversationId, conversationId))
-        await db.insert(chatMessages).values({
-          conversationId,
-          role: 'assistant',
-          content,
-          turnOrdinal: turnOrdinalForRole(Number(turnRows[0]?.maxTurn ?? 0), 'assistant'),
+        // 守门 167(2026-09-30 顺手补锁):读 max 与 insert 之间必须持会话行锁 ——
+        // 真库实测无锁并发双插撞号率 100%(apps/api/tests/turn-ordinal-concurrency.test.ts),
+        // 形态照抄 db/chat-queries.ts createMessage:锁会话行 → 读 max → 插 → 更新同一行,锁序一致。
+        const convId = conversationId
+        await db.transaction(async (tx) => {
+          await tx
+            .select({ id: chatConversations.id })
+            .from(chatConversations)
+            .where(eq(chatConversations.id, convId))
+            .for('update')
+          const turnRows = await tx
+            .select({ maxTurn: sql<number | null>`max(${chatMessages.turnOrdinal})` })
+            .from(chatMessages)
+            .where(eq(chatMessages.conversationId, convId))
+          await tx.insert(chatMessages).values({
+            conversationId: convId,
+            role: 'assistant',
+            content,
+            turnOrdinal: turnOrdinalForRole(Number(turnRows[0]?.maxTurn ?? 0), 'assistant'),
+          })
+          await tx
+            .update(chatConversations)
+            .set({ lastMessageAt: new Date() })
+            .where(eq(chatConversations.id, convId))
         })
-        await db
-          .update(chatConversations)
-          .set({ lastMessageAt: new Date() })
-          .where(eq(chatConversations.id, conversationId))
       } catch (err) {
         // 告警注入失败不影响巡检结果落库,记日志下轮可复现
         request?.log.warn({ patrolTaskId: task.id, err: String(err) }, '[patrol] 告警会话注入失败')
@@ -219,7 +230,7 @@ export async function executePatrol(
     let nextRunAt: Date | null = null
     let statusPatch: string | undefined
     if (task.rrule) {
-      nextRunAt = parseNextRun(task.rrule, now)
+      nextRunAt = parseNextRun(task.rrule, now, task.timezone)
     }
     if (!nextRunAt) {
       statusPatch = 'paused'
