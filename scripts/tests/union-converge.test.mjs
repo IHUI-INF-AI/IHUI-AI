@@ -1186,10 +1186,39 @@ test('R-N 少带必须当着落地那一刻打出来,并写进合并提交信息
 
 test('R-O F5 的豁免额度必须窄到"指针行 ∧ 仍 ≥1 份",否则注记整族的消失也会被放过', () => {
   const body = topLevelBody(srcOfTool(), 'export function planStateRegressions(')
+  // 旧版这里锁的是一条字面量判据串。G-814386 把额度改成三档有据机制后那串不再存在,而"仍 ≥1 份"
+  // 这条不变量也跟着**从代码里消失了**(注释还留着) —— 所以这里改判两件事:③ 档必须带下限项,
+  // 并且用构造面直接问结果。形状锁会被同一次改写连带改掉,行为锁不会。
   assert.match(
     body,
-    /n < 1 \|\| !noteRe\.test\(l\) \|\| !DUP_POINTER_RE\.test\(l\)/,
-    '三个条件必须同时成立才计额度:仍有 ≥1 份 ∧ 是注记行 ∧ 是副本指针行',
+    /Math\.max\(0,\s*rest \+ haveOcc - occ\)/,
+    '副本指针行档的额度必须封顶在"结果面仍留一份"(haveOcc - occ 那一项);缺它 = 整族消失可被记成合法额度',
+  )
+  const pad = (s) => s + '　'.repeat(Math.max(0, 46 - [...s].length))
+  const PTR = pad(
+    '- [x] G-900001 带副本指针的注记行〔【归并】重复登记副本,归并到 G-900002;落账:复测 2026-09-29〕',
+  )
+  const PLAIN = pad('- [x] G-900003 不带指针的注记行〔【归并】落账:复测 2026-09-29〕')
+  const threeRows = (row) => `# 甲侧\n${row}\n${row}\n${row}\n`
+  const noNote = '# 乙侧\n这一面没有任何注记行\n'
+  // A) 带指针的注记族在结果面**一份不剩** ⇒ 必须判红(这正是被改宽那一版的漏洞形状)
+  const goneAll = U.planStateRegressions(noNote, [threeRows(PTR), noNote])
+  assert.ok(
+    goneAll.some((x) => x.startsWith('F5')),
+    `A) 指针行整族消失不得被额度解释掉,实测 ${JSON.stringify(goneAll)}`,
+  )
+  // B) 同一族**留下一份**(少带 2 份) ⇒ 不得判红(这才是 G-814386 那条语义的正当形态)
+  const oneLeft = U.planStateRegressions(`# 合并结果\n${PTR}\n`, [threeRows(PTR), noNote])
+  assert.equal(
+    oneLeft.filter((x) => x.startsWith('F5')).length,
+    0,
+    `B) 少带但留一份必须放过(否则每次台账收敛都在落地闸自杀),实测 ${JSON.stringify(oneLeft)}`,
+  )
+  // C) 不带指针的注记行整族消失 ⇒ 同样判红(下限不得只长在指针档上)
+  const plainGone = U.planStateRegressions(noNote, [threeRows(PLAIN), noNote])
+  assert.ok(
+    plainGone.some((x) => x.startsWith('F5')),
+    `C) 无指针注记行消失必须判红,实测 ${JSON.stringify(plainGone)}`,
   )
   assert.match(
     body,
