@@ -7,8 +7,9 @@
 //   也有**取自当次真机现读**的阳性对照 —— 判据必须认得出它立项那一型。
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as G } from '../check-host-timezone.mjs'
 
 const CFG = {
@@ -84,5 +85,48 @@ test('T11 声明表与门体的偏移符号约定必须同形(东八区 = +480,B
   // PS 侧返回的是 Windows ActiveTimeBias(带反号),runOnce 必须取负后再当基准
   const src = readFileSync(resolve(G.REPO, 'scripts', 'check-host-timezone.mjs'), 'utf8')
   assert.match(src, /-\s*Number\(regBias\)|-\s*regBias/, '丢了这次取负,H3 就会把正确当漂移')
+})
+
+test('T12 形状锁有牙:三种戳形态的正则缺任何一种都必须判不过(摘掉哪条红哪条)', () => {
+  const src = readFileSync(resolve(G.REPO, 'scripts', 'check-host-timezone.mjs'), 'utf8')
+  assert.equal(G.stampShapeLockHolds(src), true, '当前门体必须三种形态都在位')
+  // 变异面:按"实现行里含哪个字面量"整行摘除,不碰真文件。三条各摘一次 —— 只摘一条就红,
+  // 才证明这不是"三个判据互相顶账"的恒真式(§22c:镜像只复读实现就是复读机)。
+  const drop = (lit) =>
+    src
+      .split('\n')
+      .filter((l) => !l.includes(lit))
+      .join('\n')
+  const CASES = [
+    ['完整日期形态', '{4}-\\d{2}-\\d{2}[T ]'],
+    ['方括号时刻形态', '\\[(\\d{2}:\\d{2}:\\d{2})'],
+    ['行首裸时刻形态', '/^(\\d{2}:\\d{2}:\\d{2})(?![\\d:])/'],
+  ]
+  for (const [name, lit] of CASES) {
+    const mutated = drop(lit)
+    assert.notEqual(mutated, src, `夹具没摘到「${name}」= 这一条变异没有牙`)
+    assert.equal(G.stampShapeLockHolds(mutated), false, `摘掉「${name}」后形状锁必须判不过`)
+  }
+})
+
+test('T13 端到端:混合戳形态的真日志不被读成 stale-cache(2026-09-30 04:01 那封假信的回归)', () => {
+  const dir = mkScratch('tz-h3-mixed')
+  try {
+    const nowMs = Date.now()
+    // 主机 +08:00 的"当日时刻" —— 戳由现算的 now 推导,不写死日期:写死会让 mtime(真·此刻)
+    // 与传入的 nowMs 相差整 8 小时,于是这一条自己撞上 H3 的"日志空闲"护栏,测的就不是形态了。
+    const hostHHMMSS = new Date(nowMs + 480 * 60000).toISOString().slice(11, 19)
+    // 顺序刻意是"带完整日期的旧行在上、最新那条裸时刻在下":反向扫描若只认前两种形态,
+    // 会一路跳过裸行、抓到上面那条旧日期行 ⇒ 判 stale-cache ⇒ 寄假信。
+    writeFileSync(join(dir, 'monitor.log'), `[2020-01-01 00:00:00] old pino line\n${hostHHMMSS} 全部正常\n`, 'utf8')
+    const m = G.newestStampFromLog(join(dir, 'monitor.log'), nowMs)
+    assert.equal(m.kind, 'measured', JSON.stringify(m))
+    assert.equal(m.stamp.slice(11), hostHHMMSS, '最新行必须是那条裸时刻,不是上面那条带完整日期的旧行')
+    const r = G.judgeH3(dir, nowMs, 480)
+    assert.equal(r.state, 'ok', '同一份混合日志整体必须判 ok 而不是判红:' + JSON.stringify(r.rows))
+  } finally {
+    rmScratch(dir)
+  }
+  assert.equal(existsSync(dir), false, '取证件不得留在 scratch 外(§26 临时物唯一落点)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
