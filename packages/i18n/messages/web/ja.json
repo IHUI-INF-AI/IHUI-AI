@@ -7438,7 +7438,24 @@
           "denied": {
             "reorder": "キューの順序を変更できません",
             "undo": "キュー内のメッセージを取り消せません",
-            "interject": "現在の Runtime は割り込みに対応していないため、メッセージはキューに残ります"
+            "interject": "現在の Runtime は割り込みに対応していないため、メッセージはキューに残ります",
+            "cause": {
+              "streaming": "回答の生成中は待機列の順序を変更できません",
+              "emptyQueue": "取り消しできる待機メッセージはありません",
+              "runtimeNoInterject": "このランタイムは割り込みに対応していないため、待機列のまま順番を待ちます"
+            }
+          },
+          "blocked": {
+            "runtimeNoInterject": "このランタイムは割り込みに対応していないため、実行中の Turn に注入できません",
+            "noRunningTurn": "実行中の Turn がないため、割り込み先がありません",
+            "waitingRequestFirst": "待機中のリクエストを先に処理する必要があるため、後でもう一度お試しください",
+            "controlCommandNoInterject": "コントロールコマンドは実行中の Turn に挿入できません。Turn の終了後に送信してください",
+            "queueChanged": "キューが変更されたため、最新の状態を確認してから操作してください",
+            "sourceMismatch": "ソースが一致しません。この操作は音声委任タスク専用です"
+          },
+          "outcome": {
+            "deferred": "メッセージは送信されず、キューに保持されています",
+            "failed": "メッセージの送信に失敗しました。再試行してください"
           },
           "reorderAria": "ドラッグでキューの順序を変更。フォーカス中は上下方向キーも使用できます"
         }
@@ -8804,7 +8821,10 @@
       "planStepFailed": "失敗",
       "rollbackAdded": "追加されます",
       "rollbackModified": "変更されます",
-      "rollbackDeleted": "削除されます"
+      "rollbackDeleted": "削除されます",
+      "commandSummaryLabel": "実行するコマンド",
+      "deleteSummaryLabel": "削除対象",
+      "deleteRecursiveTag": "再帰削除"
     },
     "tokenUsage": {
       "promptTokens": "プロンプト",

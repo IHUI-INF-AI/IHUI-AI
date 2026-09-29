@@ -7438,7 +7438,24 @@
           "denied": {
             "reorder": "无法调整排队顺序",
             "undo": "无法撤回排队消息",
-            "interject": "当前 Runtime 不支持插话，消息将继续排队"
+            "interject": "当前 Runtime 不支持插话，消息将继续排队",
+            "cause": {
+              "streaming": "本轮回答还在生成，排队顺序暂时锁定",
+              "emptyQueue": "队列里已经没有可以撤回的消息",
+              "runtimeNoInterject": "该 Runtime 未开放插话，消息会留在队列里按顺序处理"
+            }
+          },
+          "blocked": {
+            "runtimeNoInterject": "当前 Runtime 不支持插话，无法注入运行中的 Turn",
+            "noRunningTurn": "当前没有运行中的 Turn，没有可插话的对象",
+            "waitingRequestFirst": "需先处理等待中的请求，请稍后再试",
+            "controlCommandNoInterject": "控制命令不能插入运行中的 Turn，请在本轮结束后发送",
+            "queueChanged": "队列已发生变化，请确认最新状态后再操作",
+            "sourceMismatch": "来源不符：该动作仅适用于语音委派任务"
+          },
+          "outcome": {
+            "deferred": "消息未发送，仍保留在队列中",
+            "failed": "消息发送失败，请重试"
           },
           "reorderAria": "拖动调整排队顺序；聚焦后可使用上下方向键"
         }
@@ -8804,7 +8821,10 @@
       "planStepFailed": "失败",
       "rollbackAdded": "将被添加",
       "rollbackModified": "将修改",
-      "rollbackDeleted": "将删除"
+      "rollbackDeleted": "将删除",
+      "commandSummaryLabel": "将执行的命令",
+      "deleteSummaryLabel": "将删除的目标",
+      "deleteRecursiveTag": "递归删除"
     },
     "tokenUsage": {
       "promptTokens": "提示词",
