@@ -29,6 +29,8 @@ import { cn } from '@/lib/utils'
 import { IconButton } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { useWorkPanelStore } from '@/stores/work-panel'
+// D129:点开图片的唯一出口(外链 window.open / 其余进工作面板);助手侧与用户气泡共用一份判断
+import { openImageSource } from '@/lib/open-image-source'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { applyCodeBlockToFile } from '@/lib/apply-code-block'
 import { useCodeBlockRun, isRunnableLanguage, type RunResult } from '@/components/ai/code-block-run'
@@ -550,17 +552,15 @@ function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
   // 纪律①:状态↔src 配对。state.source !== 当前 src ⇒ 旧状态不可信,视为 loading。
   const effectiveStatus = imageState.source === srcStr ? imageState.status : 'loading'
 
-  const isExternal = /^https?:\/\//i.test(srcStr)
   const isDataUri = srcStr.startsWith('data:')
   const isImage = /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif)(\?|$)/i.test(srcStr) || isDataUri
   if (!isImage) return null
 
   const handleOpen = () => {
-    if (isExternal) {
-      window.open(srcStr, '_blank', 'noopener,noreferrer')
-      return
-    }
-    useWorkPanelStore.getState().openPanel({ url: srcStr, source: 'markdown-image' })
+    // D129:点开图片的行为抽到唯一出口 `openImageSource`(外链 window.open / 其余进工作面板)——
+    // 用户自己上传的图现在要走同一套行为,在组件里再抄一份判断就会漂开
+    // (漂开的表现是"助手发的图能点开、用户传的图点不开",最难归因的那一型)。
+    openImageSource(srcStr, 'markdown-image')
   }
 
   return (

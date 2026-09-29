@@ -9,6 +9,7 @@ import {
   and,
   or,
   desc,
+  asc,
   isNull,
   between,
   gte,
@@ -25,6 +26,7 @@ import { db } from '../db/index.js'
 import {
   EDU_REMINDER_CHANNELS,
   arrearsSqlExpr,
+  buildSchedulePlan,
   hasArrearsCond,
   loadEnrollmentLedger,
   recomputeEnrollment,
@@ -59,6 +61,7 @@ import {
   users,
   roles,
   userRoles,
+  eduFeeSchedule,
 } from '@ihui/database'
 // 2026-08-30 教师角色 RBAC 接入:教务管理端点由 requireAdmin 改为 requirePermission('edu:manage')
 // admin(users.roleId >= 1)在 requirePermission 内自动豁免,行为不变;
@@ -713,6 +716,23 @@ const feeReminderListQuerySchema = z.object({
 })
 
 /** 单发催费:锚定报名记录(欠费口径见 edu-ledger::deriveEnrollmentLedger),快照欠费金额 */
+
+/**
+ * 账期展开入参。**分期规则由调用方给**,系统只做机械摊派(见 edu-ledger::buildSchedulePlan)。
+ * 放在模块顶层而不是路由体内 —— 顶层才能被测试出口 import 到(放在体内时,
+ * 判据在文件末尾的 __test__ 里根本看不见它,TS 直接报 Cannot find name)。
+ */
+const generateFeeScheduleSchema = z.object({
+  enrollmentId: z.string().uuid(),
+  periodCount: z.number().int().min(1).max(36),
+  firstDueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式须为 YYYY-MM-DD'),
+  cycle: z.enum(['once', 'monthly', 'termly']),
+  monthsPerPeriod: z.number().int().min(1).max(24).optional(),
+  graceDays: z.number().int().min(0).max(90).default(0),
+  /** false 时若已有账期直接 409,不静默覆盖 —— 覆盖会连带抹掉已挂上账期的缴费归属 */
+  replace: z.boolean().default(false),
+})
+
 const createFeeReminderSchema = z.object({
   enrollmentId: z.string().uuid(),
   channel: z.enum(EDU_REMINDER_CHANNELS).default('in_app'),
@@ -4941,6 +4961,121 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total, page, pageSize, totalPages }))
   })
 
+  // ===========================================================================
+  // 24b. 账期 / 缴费计划 (edu_fee_schedule) —— "什么时间该缴费"的数据来源
+  //      入参 schema 在模块顶层(与其余 schema 同处一份,体内不留第二份)
+  // ===========================================================================
+
+  server.get('/fee-schedule', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
+    const parsed = z
+      .object({ enrollmentId: z.string().uuid().optional(), studentId: z.string().uuid().optional() })
+      .safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!parsed.data.enrollmentId && !parsed.data.studentId) {
+      return reply.status(400).send(error(400, '请至少提供 enrollmentId 或 studentId'))
+    }
+    const conds: SQL[] = [isNull(eduFeeSchedule.deletedAt)]
+    if (parsed.data.enrollmentId) conds.push(eq(eduFeeSchedule.enrollmentId, parsed.data.enrollmentId))
+    if (parsed.data.studentId) conds.push(eq(eduFeeSchedule.studentId, parsed.data.studentId))
+    const rows = await db
+      .select()
+      .from(eduFeeSchedule)
+      .where(and(...conds))
+      .orderBy(asc(eduFeeSchedule.dueDate))
+    return reply.send(success({ list: rows, total: rows.length }))
+  })
+
+  server.post('/fee-schedule/generate', async (request, reply) => {
+    await requireEduManage(request, reply)
+    if (reply.sent) return
+    const parsed = generateFeeScheduleSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [enrollment] = await db
+      .select()
+      .from(eduEnrollment)
+      .where(
+        and(
+          eq(eduEnrollment.id, parsed.data.enrollmentId),
+          isNull(eduEnrollment.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!enrollment) return reply.status(404).send(error(404, '报名记录不存在'))
+
+    const existing = await db
+      .select({ id: eduFeeSchedule.id })
+      .from(eduFeeSchedule)
+      .where(
+        and(
+          eq(eduFeeSchedule.enrollmentId, enrollment.id),
+          isNull(eduFeeSchedule.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (existing.length > 0 && !parsed.data.replace) {
+      return reply.status(409).send(
+        error(409, '该报名已有账期。确要重建请带 replace:true —— 重建会断开已挂在旧账期上的缴费归属'),
+      )
+    }
+
+    const plan = buildSchedulePlan({
+      periodCount: parsed.data.periodCount,
+      amountTotal: enrollment.totalFee,
+      firstDueDate: parsed.data.firstDueDate,
+      cycle: parsed.data.cycle,
+      monthsPerPeriod: parsed.data.monthsPerPeriod,
+    })
+    if (!plan) {
+      return reply.status(400).send(error(400, '无法展开账期:参数组合非法(期数/日期/周期请一并核对)'))
+    }
+
+    const created = await db.transaction(async (tx) => {
+      if (existing.length > 0) {
+        await tx
+          .update(eduFeeSchedule)
+          .set({ deletedAt: new Date(), updatedAt: new Date() })
+          .where(
+            and(
+              eq(eduFeeSchedule.enrollmentId, enrollment.id),
+              isNull(eduFeeSchedule.deletedAt),
+            ),
+          )
+      }
+      return tx
+        .insert(eduFeeSchedule)
+        .values(
+          plan.map((p) => ({
+            enrollmentId: enrollment.id,
+            studentId: enrollment.studentId,
+            classId: enrollment.classId,
+            termId: enrollment.termId,
+            periodLabel: p.periodLabel,
+            dueDate: p.dueDate,
+            amountDue: p.amountDue,
+            graceDays: parsed.data.graceDays,
+            status: 'pending',
+          })),
+        )
+        .returning({ id: eduFeeSchedule.id })
+    })
+
+    const ledger = await recomputeEnrollment(enrollment.id)
+    return reply.status(201).send(
+      success({
+        createdCount: created.length,
+        replaced: existing.length > 0,
+        ledger,
+        // 摊派自证:逐期相加必须恰好等于应缴额,少 1 元末期就永远"差一点缴清"
+        planTotal: plan.reduce((s, p) => s + p.amountDue, 0),
+        amountTotal: enrollment.totalFee,
+      }),
+    )
+  })
+
   // 单发催费
   server.post('/fee-reminder', async (request, reply) => {
     await requireEduManage(request, reply)
@@ -5222,6 +5357,7 @@ export const __test__ = {
   createPaymentRecordSchema,
   createFeeReminderSchema,
   batchFeeReminderSchema,
+  generateFeeScheduleSchema,
 }
 
 export default eduAiManagementRoutes
