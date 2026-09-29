@@ -58,7 +58,7 @@ export default function ModelTypeButton({
   // ===== compact 模式:兼容旧调用(纵向布局 图标+文字)=====
   return (
     <View
-      className={`flex flex-col items-center justify-center mr-3 px-3 py-2 rounded-lg transition-colors ${
+      className={`flex flex-col items-center justify-center mr-3 px-3 py-2 rounded-sm transition-colors ${
         active ? 'bg-primary/10 border border-primary/30' : 'bg-muted border border-transparent'
       }`}
       onClick={() => onClick?.(type)}
