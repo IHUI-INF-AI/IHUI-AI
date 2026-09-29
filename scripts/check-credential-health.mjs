@@ -46,6 +46,13 @@ import { redactAlertDetail, redactChildOutput } from './lib/secret-shape-redact.
 import { keyFile, resolveKeyDir, firstExisting } from './lib/key-dir.mjs'
 // .env 解析复用现役实现(该脚本有 §22d isDirectRun 守卫,被 import 时不触发 CLI 副作用)
 import { parseEnvText } from './check-env-drift.mjs'
+// 状态/心跳件的**原子替换**唯一出口(2026-09-29 立,台账 G-653)。裸 `writeFileSync` 覆盖写一个
+// 已存在的文件是"truncate → 再写"两步,而下一轮巡检读 `STATE` 判据恰好落得在这两步之间 ——
+// 本文件对"JSON 读不出"的既有处置是 `unreadable ⇒ 本轮按无记录寄一次`,于是**一次写盘竞态会被
+// 读成"上一轮的通报记录不存在"并重复寄到人**(§5e:同一告警在去重窗口内只该寄一封)。
+// `credential-health-last.json` 是 git-guardian 的巡检心跳件,半截 = 把"巡检在跑"读成"没跑"。
+// ⚠️ 只换"怎么写":状态内容、去重窗口、UNDEL 标记的语义一字未动。
+import { atomicWriteFileSync } from './lib/atomic-write.mjs'
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const TASK_NAME = 'IHUI credential-health'
@@ -1158,10 +1165,15 @@ async function maybeAlert(results, dryRun) {
     mkdirSync(join(REPO, '.workbuddy'), { recursive: true })
     const table = normalizeAlertState(st).table
     const next = advanceAlertState({ table, failNames: names, notified: recovered ? [] : d0.due, nowMs: now, recovered })
-    writeFileSync(STATE, JSON.stringify(next), 'utf8')
+    // 原子替换(G-653):写出的字节与改动前逐字相同,只是下一轮再也读不到半截 JSON。
+    atomicWriteFileSync(STATE, JSON.stringify(next))
     rmSync(UNDEL, { force: true })
   } else {
-    writeFileSync(UNDEL, JSON.stringify({ ts: new Date().toISOString(), sig, items: d0.due, attempts: d.attempts }, null, 2), 'utf8')
+    // 未送达标记同样必须完整:它是"这条告警从未寄出去"的唯一证据,半截 = 下轮读不出 ⇒ 判不出。
+    atomicWriteFileSync(
+      UNDEL,
+      JSON.stringify({ ts: new Date().toISOString(), sig, items: d0.due, attempts: d.attempts }, null, 2),
+    )
   }
   return {
     sent: d.sent,
@@ -1231,7 +1243,8 @@ async function main() {
       mkdirSync(join(REPO, '.workbuddy'), { recursive: true })
       const a = await maybeAlert(results, false)
       const line = JSON.stringify({ ts: new Date().toISOString(), fail: bad.length, alert: a, results })
-      writeFileSync(join(REPO, '.workbuddy', 'credential-health-last.json'), line, 'utf8')
+      // 心跳件走同一出口:git-guardian 读它判"巡检到底有没有在跑",半截 JSON 会被读成"没跑"。
+      atomicWriteFileSync(join(REPO, '.workbuddy', 'credential-health-last.json'), line)
       console.log(line)
       if (!a.sent) console.log(`告警判定: sent=false ${a.why}`)
       process.exit(bad.length ? 1 : 0)
