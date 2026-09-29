@@ -33,6 +33,10 @@
  *  LAND_BASE_REF 取证通道:防覆盖对账的基线 ref(缺省 HEAD;只有测试用它造"别人已改过"的现场)
  *  LAND_ALLOW_STALE 显式放行"陈旧落地"(见 staleLandingGuard 的成因),放行时必打一行留痕
  *              (只对工作树模式有意义;blob 模式的对应判据是祖先对账,不放行)
+ *  LAND_JSON_STRUCTURE=1 (G-816037)声明"本次落地面是机器格式化 JSON"⇒ 行级复活那一支可走
+ *              **结构等值**出口:基线键路径与数组元素零丢失即不参与拒绝(标量值变化允许,
+ *              因为 read/计数器的自增正是本次的合法编辑)。整 blob 命中祖先(真回写)照判红;
+ *              非 JSON(三份活文档)直接 applicable:false ⇒ 行为与改前逐字同形。默认关闭。
  * 退出码:0 = 已落地且回读通过(对齐的 skipped/未判定只在 stdout 点名);
  *        1 = 业务拒绝(某目标路径被别人改过 ⇒ 需重新归并 / 声明路径无差异 / 盘上副本等于祖先版本且会抹掉基线里活着的行 /
  *            落地内容里存在"基线已删、祖先版本写过"的复活行,或该维判据未判定 ⇒ 未判定不等于通过 /
@@ -123,6 +127,12 @@ export function parseArgs(env = process.env) {
    */
   const blobs = env.LAND_BLOBS ? JSON.parse(readFileSync(env.LAND_BLOBS, 'utf8')) : null
   const blobOf = blobs ? new Map((blobs.files || []).map((f) => [f.path, f.blob])) : null
+  /**
+   * `LAND_JSON_STRUCTURE=1`(G-816037)= **显式声明**"本次声明路径是机器格式化 JSON,允许走结构等值出口"。
+   * 默认关闭:不开时行为与本票落地前**逐字同形**(判据见 `jsonStructuralSuperset`)。
+   * 它只影响"行级复活"那一支是否参与拒绝;整 blob 命中祖先(真回写)照判红,活文档非 JSON 直接不适用。
+   */
+  const jsonStructure = env.LAND_JSON_STRUCTURE === '1'
   if (paths.length === 0)
     return { error: '缺 LAND_PATHS(以 ; 分隔)⇒ 拒绝执行(空清单会把 undefined 当路径提交,本仓踩过)' }
   if (msg === '') return { error: '缺 LAND_MSG ⇒ 拒绝执行(不允许空消息落地,提交史无法归因)' }
@@ -144,7 +154,7 @@ export function parseArgs(env = process.env) {
     const missing = paths.filter((p) => !existsSync(join(root, p)))
     if (missing.length > 0) return { error: `声明路径不在盘上:\n  ${missing.join('\n  ')}` }
   }
-  return { root, paths, msg, baseRef, blobOf }
+  return { root, paths, msg, baseRef, blobOf, jsonStructure }
 }
 
 /** 防覆盖护栏:基线快照与当下 HEAD 之间,哪些目标路径的内容被别人动过。 */
@@ -175,7 +185,7 @@ export function clobberedPaths(paths, baseMap, headNow, { root }) {
  *    (守门 84 的祖先链以 HEAD 为锚,那条链此刻不是本次落地的基准)/ 二进制正文(行级判据按定义
  *    不适用,而 A 仍照判)。三种都**报名**,不静默。
  */
-export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
+export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonStructure = false }) {
   const headRef = head ?? git(['rev-parse', 'HEAD'], { root })
   const notes = []
   const judged = []
@@ -315,7 +325,45 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head }) {
         why: `行级复活判据未覆盖此路径:${line.reason}`,
       })
     const refuseByBlob = !!wholeHit && (delta.vanished === null || delta.vanished > 0)
-    const refuseByLines = line.status === 'judged' ? line.count > 0 : line.status === 'undetermined'
+    let refuseByLines = line.status === 'judged' ? line.count > 0 : line.status === 'undetermined'
+    // G-816037 结构档:只对"调用方显式声明 + 整 blob 没命中祖先 + 行级判据确实读到了东西"的那一格生效。
+    // 三条都必要 —— 默认开启等于给所有落地开后门;wholeHit 命中祖先是真回写;
+    // 'undetermined' 是"没判",把它换成放行就是本仓最高频那一型(把没判写成判过了)。
+    if (refuseByLines && !wholeHit && jsonStructure) {
+      const st = jsonStructuralSuperset({ baseText, nextText: newText })
+      if (st.applicable && st.pass) {
+        refuseByLines = false
+        notes.push({
+          path: p,
+          kind: 'json-structure-exempt',
+          why:
+            `结构等值成立(基线键路径与数组元素零丢失,标量值变化允许)⇒ 复活 ${line.count} 行` +
+            `是 JSON 逗号换位的假阳,不参与拒绝。三个数照登:消失 ${delta.vanished} 行 / 重现 ${delta.appeared} 行 / ` +
+            `复活 ${line.count} 行(样本:${line.sample.slice(0, 2).join(' | ') || '—'};` +
+            `出自祖先 ${line.commits.slice(0, 3).join(', ') || '未点名'})。` +
+            `本档由 LAND_JSON_STRUCTURE=1 显式声明,且不适用于活文档(非 JSON 即 applicable:false)。`,
+          vanished: delta.vanished,
+          appeared: delta.appeared,
+          resurrected: line.count,
+          resurrectedSample: line.sample,
+          resurrectedBy: line.commits,
+          commit: null,
+          vanishedSample: delta.vanishedSample,
+          appearedSample: delta.appearedSample,
+          lineStatus: line.status,
+        })
+      } else if (!st.applicable && st.reason && !st.reason.includes('走原行级判据')) {
+        notes.push({ path: p, kind: 'undetermined', why: `结构档未能判定:${st.reason}` })
+      } else if (st.applicable && !st.pass) {
+        notes.push({
+          path: p,
+          kind: 'json-structure-rejected',
+          why:
+            `结构档不成立(丢键 ${st.droppedKeys.length} / 数组缩水 ${st.shrunkArrays.length})⇒ 行级复活照判红,` +
+            `这不是格式化假阳而是真回写。点名:${[...st.droppedKeys, ...st.shrunkArrays].slice(0, 3).join(' ; ')}`,
+        })
+      }
+    }
     if (refuseByBlob || refuseByLines) {
       offenders.push(entry)
       continue
@@ -349,6 +397,96 @@ function mkEntry(path, commit, delta, line, fallback) {
 
 function firstLine(e) {
   return String(e?.message ?? e ?? '').split('\n')[0] || '(无输出)'
+}
+
+/**
+ * G-816037:机器格式化 JSON 的**结构等值出口**。
+ *
+ * 为什么需要(2026-09-29 第六十八批入账台账时实测):台账只做"往数组尾部追加条目 + 改 read/notes",
+ * 行级复活判据却报 `消失 11 行 / 重现 202 行 / 复活 1 行`并拒绝落地。成因是它按**行文字**比,而
+ * `JSON.stringify` 会给"原本的最后一个数组元素"补一个逗号 —— 那一行文字就变了,重排出的 `  {` 行
+ * 算"重现",被改写的 `"read": 268,` 恰好与某祖先同形就算"复活"。**这不是仓库缺陷,是判据把自己的
+ * 量纲用错了对象**(AGENTS 已写明零损失判据是结构等值,不是重复行计数)。
+ *
+ * 判据(只在调用方显式声明 `LAND_JSON_STRUCTURE=1` 且两侧都能 `JSON.parse` 时启用):
+ *  ① 基线里每个对象键路径都必须还在(丢键 = 真回写 ⇒ 不放行);
+ *  ② 基线里每个数组容器的元素**多重集**必须是落地内容该容器元素多重集的子集(少元素 = 真回写);
+ *  ③ **标量值变化允许** —— `read: 268 → 290` 正是本轮的合法编辑,禁它等于禁掉所有计数器。
+ * 反例为什么仍拦得住:把整份文件换回某个祖先版本时,基线(=HEAD,更新过)里那些后加的键/数组元素
+ * 在落地内容里不存在 ⇒ ①/② 当场成立 ⇒ 照判红。
+ *
+ * 活文档不在射程:`PROJECT_PLAN.md`/`AGENTS.md`/`README.md` 不是可解析 JSON,① 侧就 applicable:false,
+ * 行级判据一字不动(那是它存在的理由)。
+ */
+export function jsonStructuralSuperset({ baseText, nextText }) {
+  if (typeof baseText !== 'string' || typeof nextText !== 'string')
+    return { applicable: false, pass: false, reason: '有一侧正文取不到 ⇒ 不启用结构档' }
+  let base
+  let next
+  try {
+    base = JSON.parse(baseText)
+  } catch {
+    return { applicable: false, pass: false, reason: '基线内容不是可解析 JSON ⇒ 走原行级判据' }
+  }
+  try {
+    next = JSON.parse(nextText)
+  } catch {
+    return { applicable: false, pass: false, reason: '落地内容不是可解析 JSON ⇒ 走原行级判据' }
+  }
+  const droppedKeys = []
+  const shrunkArrays = []
+  const keyOf = (v) => JSON.stringify(sortDeep(v))
+  function sortDeep(v) {
+    if (Array.isArray(v)) return v.map(sortDeep)
+    if (v && typeof v === 'object') {
+      const o = {}
+      for (const k of Object.keys(v).sort()) o[k] = sortDeep(v[k])
+      return o
+    }
+    return v
+  }
+  function walk(b, n, path) {
+    if (Array.isArray(b)) {
+      if (!Array.isArray(n)) {
+        shrunkArrays.push(`${path}:数组在落地内容里变成了别的东西`)
+        return
+      }
+      const tally = new Map()
+      for (const el of n) tally.set(keyOf(el), (tally.get(keyOf(el)) || 0) + 1)
+      for (const el of b) {
+        const k = keyOf(el)
+        const c = tally.get(k) || 0
+        if (c === 0) {
+          shrunkArrays.push(`${path}:少了元素 ${k.slice(0, 72)}`)
+          continue
+        }
+        tally.set(k, c - 1)
+      }
+      return
+    }
+    if (b && typeof b === 'object') {
+      if (!n || typeof n !== 'object' || Array.isArray(n)) {
+        droppedKeys.push(`${path}:对象在落地内容里变成了别的东西`)
+        return
+      }
+      for (const [k, v] of Object.entries(b)) {
+        if (!(k in n)) {
+          droppedKeys.push(`${path}.${k}`)
+          continue
+        }
+        walk(v, n[k], `${path}.${k}`)
+      }
+      return
+    }
+    // 标量:允许变化(见上 ③),所以这里什么都不判
+  }
+  walk(base, next, '$')
+  return {
+    applicable: true,
+    pass: droppedKeys.length === 0 && shrunkArrays.length === 0,
+    droppedKeys,
+    shrunkArrays,
+  }
 }
 
 /** 拒绝/留痕时要说的话集中在一处:出口必须可复制,原因必须点名到文件与祖先版本。 */
@@ -778,7 +916,7 @@ async function main() {
     console.error(`❌ ${parsed.error}`)
     process.exit(2)
   }
-  const { root, paths, msg, baseRef, blobOf } = parsed
+  const { root, paths, msg, baseRef, blobOf, jsonStructure } = parsed
   const skipWatermark = process.env.IHUI_LAND_SKIP_WATERMARK === '1'
   // 与水印预检同级:默认必查,跳过要出声(IHUI_LAND_SKIP_IMPORT_CHECK=1)。
   const skipImportCheck = process.env.IHUI_LAND_SKIP_IMPORT_CHECK === '1'
@@ -852,12 +990,18 @@ async function main() {
   if (!blobOf) {
     if (allowStale)
       console.log('⚠️ LAND_ALLOW_STALE=1 ⇒ 陈旧落地守卫只做报告、不参与拒绝(该行输出即留痕)')
-    const guard = detectStaleLanding({ root, paths, baseRef, head: head0 })
+    const guard = detectStaleLanding({ root, paths, baseRef, head: head0, jsonStructure })
     const refusing = !guard.ok && !allowStale
     for (const line of staleReport(guard, { allowStale })) {
       if (refusing) console.error(line)
       else console.log(line)
     }
+    if (guard.notes.some((n) => n.kind === 'json-structure-exempt'))
+      console.log(
+        'ℹ️ 结构档生效说明(G-816037):上面标了"结构等值成立"的路径**不是**被放宽,而是行级判据的量纲对不上' +
+          '机器格式化 JSON(数组追加会让前一个末元素多一个逗号 ⇒ 那一行文字变化被读成"消失/复活")。' +
+          '豁免依据是"基线键路径与数组元素零丢失"的结构判据;不带 LAND_JSON_STRUCTURE=1 时本档不启用,行为与改前逐字同形。',
+      )
     if (refusing) process.exit(1)
   }
 
@@ -1052,6 +1196,7 @@ export const __test__ = {
   lineDelta,
   resurrectAnalysis,
   detectStaleLanding,
+  jsonStructuralSuperset,
   staleReport,
   commitFacePresence,
 }
