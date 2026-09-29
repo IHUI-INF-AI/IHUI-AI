@@ -17,11 +17,36 @@
  * 创建结果本身,并且它服务的是**不走 capability 闸**的自有对外面(那层在这类路由上
  * `isEligible` 恒 false,压根不介入)。两层的键前缀也分开命名空间,永不互撞。
  *
- * 三条硬语义(都有用例钉死,见 apps/api/tests/run-idempotency.test.ts):
+ * 五条硬语义(都有用例钉死,见 apps/api/tests/run-idempotency.test.ts):
  * 1. 已完成重放 → 返回**同一个**资源,不是 409、也不是新建;
  * 2. 同 key 不同请求体 → `key-reused`(**绝不**把第一次的结果回给一个不同的请求 ——
  *    那是幂等层最阴的错:客户端以为成功了,实际拿到别人的资源);
- * 3. 创建抛错 → 释放槽位,同 key 可以立刻重试;不留孤儿锁。
+ * 3. 创建抛错 → 释放槽位,同 key 可以立刻重试;不留孤儿锁。释放走**唯一出口**
+ *    `releaseIdempotencySlot`,不在别处再写第二次 `kv.delete(key)`。
+ * 4. **终态必达且互斥**(G-814421):从 `claim()` 返回 `'claimed'` 那一刻起本路径就**持有**
+ *    槽位,它的出路只能是「提交 completed」或「释放」二者之一,恰好一个,异常/取消也不例外。
+ *    这条不靠"记得调用"来保证:`createCommitOrRelease` 的返回类型是 `IdempotencySuccess<T>`
+ *    (刻意不是 `IdempotencyResult<T>`),于是"持了槽却回一个失败"在类型层就不成立,而写
+ *    终态的位置结构上只有一处。
+ * 5. **业务成功之后绝不释放**(G-814421,与第 3 条**方向相反**,所以必须单列):`create()`
+ *    已经返回 ⇒ 资源此刻真实存在。这时若因为收尾环节的异常(端口**同步**抛错、结果无法
+ *    序列化、注入的时钟抛错)去 DEL,等于重新打开「同 key 再建一份资源」—— 那比回 500 严重
+ *    得多。这些形态一律落到「如实报告 `slotProtected:false`」,由调用方打点,不静默。
+ *
+ * 第 4/5 条的判据形状来自上游 ZCode 的三处**同一**纪律(逐字读到体,不是转述):
+ * - `bots/telegramChannelRuntime.ts:220-229` —— `assertBotCallbackSucceeded` 排在
+ *   `writeTelegramOffset` **之前**;offset 是外部队列的消费确认点,业务失败前推进 = 永久丢消息。
+ * - `bots/channelRuntime.ts:27-37` —— callback 用**返回值**表达可恢复的业务失败(不一定
+ *   reject),所以"没抛错"不等于"成功了",外部游标只能在 `ok=true` 之后提交。
+ * - `bots/botsService.ts:2650 / 2682 / 2704-2714` —— `markInboundDelivery` 与
+ *   `releaseInboundDelivery` 成对出现,且**"错误提示发送成功"不算 ACK**:业务失败时必须
+ *   `continue` 并且不提交游标。它的反向同型就是我方第 5 条 —— 业务已经成功时,收尾异常不得
+ *   被读成业务失败。
+ *
+ * 本仓早有同纪律的先例:`plugins/open-idempotency.ts` 用 `hold.recorded` 这张门票做同一个
+ * 二选一(onSend 刻上结果就不删,没刻票 onResponse 一律释放,见该文件 :77-81、:293-296、
+ * :421-426)。那一层缓存的是**HTTP 响应**,本层锁的是**被创建出来的资源**,键空间与判据
+ * 都不同,刻意不合并成一层。
  *
  * 零 I/O:传输靠注入 `IdempotencyKv`(Redis 形状端口),测试注入假实现即可零网络。
  */
@@ -166,18 +191,31 @@ export interface IdempotencySuccess<T> {
 }
 export type IdempotencyResult<T> = IdempotencySuccess<T> | { ok: false; reason: IdempotencyFailure }
 
-export interface IdempotencyRequest<T> {
-  kv: IdempotencyKv
+/**
+ * 定位一张槽位所需的三要素 —— 与 `idempotencySlotKey` 的入参一一对应。
+ *
+ * 抽成独立导出的理由:释放出口必须能被**内核之外**的调用方按同一套坐标调用。若让它自己
+ * 拼键字符串,就出现第二份拼键实现,漂了就把"释放了一张根本不存在的槽"读成"已释放"。
+ */
+export interface IdempotencySlotRef {
   /** 命名空间(如 `agent-run.create`),与 owner 一起构成隔离域。 */
   namespace: string
   /** 归属维度(如 `user:42`)。必须来自已鉴权身份,不得取客户端可控值。 */
   ownerKey: string
   /** 已归一化的客户端键。 */
   clientKey: string
+}
+
+export interface IdempotencyRequest<T> extends IdempotencySlotRef {
+  kv: IdempotencyKv
   /** 请求指纹,见 `requestFingerprint`。 */
   fingerprint: string
   ttlMs: number
-  /** 真正的创建动作。只在抢到槽位后执行一次;抛错会释放槽位。 */
+  /**
+   * 真正的创建动作,只在抢到槽位后执行一次。
+   * 它抛错或被取消(reject)⇒ 本层**释放**槽位后把原错误向上抛;它正常返回 ⇒ 本层**提交**
+   * 结果,此后任何收尾异常都不得再释放(判据 5)。终态由 `createCommitOrRelease` 单点落。
+   */
   create: () => Promise<T>
   /**
    * 传输不可用时的策略。默认 `closed`:本层是这些面**唯一**的重复创建防线,
@@ -214,7 +252,107 @@ async function withinDeadline<T>(task: Promise<T>, deadlineMs: number): Promise<
 }
 
 /**
- * 幂等创建内核。`create` 抛错原样向上抛(路由决定怎么回 5xx),但一定先释放槽位。
+ * `withinDeadline` 的持槽专用变体:区别只在**同步**抛错。
+ *
+ * `withinDeadline(task, ms)` 拿到的是已经求值完的 Promise,所以端口方法如果在被调用的
+ * 那一刻就同步抛错(坏适配器、被 mock 成非 async 的实现),异常会从**参数求值位置**冒出来,
+ * 根本不进它的 try。持槽之后这两种端口调用(提交、释放)一旦被这种冒出来的异常影响,
+ * 后果不是"少一次记录"而是**终态丢失**:槽位永久停在 `processing`,同 key 的重试被锁死,
+ * 而请求方拿到一个 500。所以持槽之后一律走本版 —— 同步抛错与异步失败同判为"传输不可用"。
+ *
+ * 刻意**只**用在持槽之后的两处:`claim()` 与探针 `get()` 仍走 `withinDeadline`,因为那两条
+ * 路径尚未拿到槽位,同步抛错冒到路由层是既有对外行为(本票不改它)。
+ */
+async function callKvWithinDeadline<T>(
+  task: () => Promise<T>,
+  deadlineMs: number,
+): Promise<KvOutcome<T>> {
+  try {
+    return await withinDeadline(task(), deadlineMs)
+  } catch {
+    return { ok: false }
+  }
+}
+
+/** 释放出口的结果三态(处置动作各不相同,所以不能并成一态)。 */
+export type SlotReleaseOutcome =
+  /** DEL 落成:同 key 的下一次请求会从头真跑。 */
+  | 'released'
+  /**
+   * 这张槽已经不属于本次请求了(本次 `create` 跑过了 `ttlMs`,槽位过期后被另一路请求抢走
+   * 并**成功建出资源**),所以刻意不删 —— 删掉就是把别人的完成记录抹了,同 key 会再建一份。
+   */
+  | 'not-ours'
+  /** 传输不可用:槽位留到 TTL 自然回收,期间同 key 重试会得 409(既有语义,本票未改)。 */
+  | 'store-unavailable'
+
+export interface ReleaseSlotOptions {
+  /**
+   * 只在"这张槽仍属于本次请求"时释放:传本次的指纹。判据刻意只跳 **他人的 `completed`**
+   * (那是唯一"删了会造成双跑"的形态);自己的 `processing`、脏数据、他人的 processing
+   * 一律照删 —— 业务已经失败,锁留着只会把重试堵死。
+   *
+   * 如实登记能力边界:端口只有 GET/DEL,读与删之间**不原子**(真 CAS 要 Lua/WATCH,那是
+   * 端口的第 5 条命令,本票不开)。这一层只把竞态窗口从"整个 create 时长"收窄到"一次 GET
+   * 到一次 DEL 之间",不消除它。不带这个选项时行为与改动前逐字相同(无条件 DEL)。
+   */
+  onlyIfOwnedByFingerprint?: string
+}
+
+/**
+ * **业务失败 ⇒ 释放槽位**的唯一出口(G-814421)。
+ *
+ * 为什么要有名字、而不是在 catch 里就地写一行 `kv.delete(key)`:
+ * 1. 一行就地删是"某处恰好记得删",下一个失败路径(收尾异常、取消、路由层决定放弃本次
+ *    创建)不会有第二个人记得 —— 本仓把这一型叫"造好没装车",而"没有强制出口"是它的
+ *    前置形态:全仓当时 `git grep releaseIdempotency|markFailed|slotRelease` = 0。
+ * 2. 释放是有判据的动作,不是 DEL:`not-ours` 那一格(见 `ReleaseSlotOptions`)只能由出口
+ *    统一判,散在各处就会各写各的严格度。
+ * 3. 它**永不抛错**。终态收尾动作把自己抛出去,就会顶掉原始业务错误(调用方随后按错的
+ *    原因处置),那是本仓记过多次的"错误被清理代码吃掉"同型。传输不可用只以返回值表达。
+ */
+export async function releaseIdempotencySlot(
+  kv: IdempotencyKv,
+  slot: IdempotencySlotRef,
+  options?: ReleaseSlotOptions,
+): Promise<SlotReleaseOutcome> {
+  const key = idempotencySlotKey(slot.namespace, slot.ownerKey, slot.clientKey)
+  const guard = options?.onlyIfOwnedByFingerprint
+  if (guard !== undefined) {
+    const read = await callKvWithinDeadline(() => kv.get(key), KV_DEADLINE_MS)
+    // 读不动 / 认不出的脏槽 ⇒ 不据此下"不是我的"结论,照旧往下删(宁可多解一次锁)。
+    if (read.ok && typeof read.value === 'string') {
+      const current = parseSlot(read.value)
+      if (current !== null && current.status === 'completed' && current.fingerprint !== guard) {
+        return 'not-ours'
+      }
+    }
+  }
+  const removed = await callKvWithinDeadline(() => kv.delete(key), KV_DEADLINE_MS)
+  return removed.ok ? 'released' : 'store-unavailable'
+}
+
+/**
+ * 提交载荷的构造。它**不得**让一次序列化/时钟异常冒充业务失败:那会把"资源已存在"错写成
+ * "可以再来一次"。失败即回 null,由调用方按"没保护住"如实报告(判据 5)。
+ */
+function completedSlotPayload(
+  fingerprint: string,
+  value: unknown,
+  now: () => number,
+): string | null {
+  try {
+    const done: CompletedSlot = { status: 'completed', fingerprint, ts: now(), value }
+    return JSON.stringify(done)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 幂等创建内核。`create` 抛错原样向上抛(路由决定怎么回 5xx),但一定先经
+ * `releaseIdempotencySlot` 让出槽位;`create` 成功则只提交、绝不释放(判据 4/5)。
+ * 未抢到槽位的路径**不持锁**,因此也绝不触发释放 —— 那会抹掉别人在途的锁或已成的记录。
  */
 export async function runIdempotently<T>(
   input: IdempotencyRequest<T>,
@@ -237,26 +375,39 @@ export async function runIdempotently<T>(
     return res.value === 'OK' ? 'claimed' : 'taken'
   }
 
-  const createAndCommit = async (): Promise<IdempotencySuccess<T>> => {
+  /**
+   * 持槽之后的**唯一**收尾(判据 4:终态必达且互斥)。
+   *
+   * 返回类型刻意是 `IdempotencySuccess<T>` 而不是 `IdempotencyResult<T>`:"持着槽位回一个
+   * `ok:false`"这个形态(既不提交也不释放,把同 key 的下一次请求永久堵成 409)在类型层就
+   * 不成立,不需要靠人记得。失败一律以抛错出栈(由调用方决定怎么回 5xx),而出栈之前必已
+   * 经走过释放出口。
+   */
+  const createCommitOrRelease = async (): Promise<IdempotencySuccess<T>> => {
     let value: T
     try {
       value = await input.create()
     } catch (error) {
-      // 创建失败:槽位必须让出来,否则同 key 的合法重试会被锁死到 TTL 到期。
-      await withinDeadline(input.kv.delete(key), KV_DEADLINE_MS)
+      // 业务失败或被取消。`await` 把 create 的**同步**抛错也变成 rejection,所以这一 catch
+      // 覆盖"抛错"与"取消"两型;槽位必须让出来,否则同 key 的合法重试会被锁死到 TTL 到期。
+      // 出口自身永不抛错(结论由 `SlotReleaseOutcome` 的三态承载),所以它不可能顶掉这个原始错误。
+      await releaseIdempotencySlot(input.kv, input, {
+        onlyIfOwnedByFingerprint: input.fingerprint,
+      })
       throw error
     }
-    const done: CompletedSlot = {
-      status: 'completed',
-      fingerprint: input.fingerprint,
-      ts: now(),
-      value,
-    }
-    const wrote = await withinDeadline(
-      input.kv.setWithTtl(key, JSON.stringify(done), input.ttlMs),
-      KV_DEADLINE_MS,
-    )
-    // 写结果时传输掉了:资源已经存在,不能回 5xx,只能如实报告"这次没保护住"。
+    // ── 业务成功点。从这里往下**一律不得释放**(判据 5):资源已经真实存在,释放等于邀请
+    //    同 key 再建一份。收尾环节的任何失败只有一种正确处置 —— 如实报告"这次没保护住"。
+    const payload = completedSlotPayload(input.fingerprint, value, now)
+    const wrote =
+      payload === null
+        ? ({ ok: false } as const)
+        : await callKvWithinDeadline(
+            () => input.kv.setWithTtl(key, payload, input.ttlMs),
+            KV_DEADLINE_MS,
+          )
+    // 提交没落成(传输掉了 / 端口同步抛错 / 结果压根序列化不了):不能回 5xx,资源在;
+    // 也不能释放,理由同上。槽位停在 processing ⇒ 同 key 重试期间得 409,由 TTL 自然回收。
     return { ok: true, value, replayed: false, slotProtected: wrote.ok }
   }
 
@@ -266,7 +417,7 @@ export async function runIdempotently<T>(
   }
 
   const first = await claim()
-  if (first === 'claimed') return createAndCommit()
+  if (first === 'claimed') return createCommitOrRelease()
   if (first === 'down') {
     return degrade === 'open' ? unprotectedCreate() : { ok: false, reason: 'store-unavailable' }
   }
@@ -280,7 +431,7 @@ export async function runIdempotently<T>(
   if (probed.value === null) {
     // 键在 claim 与 get 之间蒸发了:此刻真空,赌一次重抢(SET NX 原子,并发里最多一个赢家)。
     const retry = await claim()
-    if (retry === 'claimed') return createAndCommit()
+    if (retry === 'claimed') return createCommitOrRelease()
     if (retry === 'down') {
       return degrade === 'open' ? unprotectedCreate() : { ok: false, reason: 'store-unavailable' }
     }
