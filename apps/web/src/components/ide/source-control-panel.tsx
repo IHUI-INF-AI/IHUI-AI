@@ -11,6 +11,8 @@ import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { cn } from '@/lib/utils'
 // 2026-09-15 治理:浮层定位/portal/关闭逻辑统一收敛到 PortalPanel
 import { PortalPanel } from '@/components/feedback/portal-panel'
+// D178:分支切换未提交改动保护(确认弹层走通用 ConfirmDialog)
+import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { getFileIcon, getFileColor } from './file-icons'
 import {
   GitBranch,
@@ -60,6 +62,9 @@ export function SourceControlPanel() {
   const [pushing, setPushing] = React.useState(false)
   const [pulling, setPulling] = React.useState(false)
   const [switchingBranch, setSwitchingBranch] = React.useState(false)
+  // D178:脏工作区保护 —— 检出前探测未提交改动,弹「保存改动并检出」确认
+  const [pendingCheckout, setPendingCheckout] = React.useState<string | null>(null)
+  const [stashPending, setStashPending] = React.useState(false)
   const branchRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
@@ -211,9 +216,8 @@ export function SourceControlPanel() {
     }
   }
 
-  const handleBranchCheckout = async (target: string) => {
-    setBranchOpen(false)
-    if (!workspacePath || target === branch) return
+  const doCheckout = async (target: string) => {
+    if (!workspacePath) return
     setSwitchingBranch(true)
     try {
       const result = await runCommand({
@@ -232,6 +236,46 @@ export function SourceControlPanel() {
       toast.error(errMsg(e))
     } finally {
       setSwitchingBranch(false)
+    }
+  }
+
+  // D178:分支切换未提交改动保护(对标竞品 environment.preserveChangesAction"保存改动并检出")。
+  // 检出前先探 `git status --porcelain`:非空 → 拦下弹确认;确认后 `git stash push` 把
+  // 未提交改动(含未跟踪)存入 stash 再检出,改动不丢失;探测失败按原直达路径降级。
+  const handleBranchCheckout = async (target: string) => {
+    setBranchOpen(false)
+    if (!workspacePath || target === branch) return
+    try {
+      const status = await runCommand({ command: 'git status --porcelain', workspacePath })
+      if (status.success && status.data.stdout.trim().length > 0) {
+        setPendingCheckout(target)
+        return
+      }
+    } catch {
+      // 探测失败不阻塞切换:git checkout 自身对冲突改动有安全拒绝
+    }
+    await doCheckout(target)
+  }
+
+  const confirmPreserveCheckout = async () => {
+    if (!pendingCheckout || !workspacePath) return
+    setStashPending(true)
+    try {
+      const stash = await runCommand({
+        command: 'git stash push --include-untracked -m "ihui: save changes before branch switch"',
+        workspacePath,
+        mode: 'workspace-write',
+      })
+      if (!stash.success) {
+        toast.error(stash.error)
+        return
+      }
+      await doCheckout(pendingCheckout)
+    } catch (e) {
+      toast.error(errMsg(e))
+    } finally {
+      setStashPending(false)
+      setPendingCheckout(null)
     }
   }
 
@@ -431,6 +475,18 @@ export function SourceControlPanel() {
           ))}
         </div>
       </div>
+
+      {/* D178:脏工作区切换确认 —— 唯一动作是保护性的「保存改动并检出」(stash 后检出) */}
+      <ConfirmDialog
+        open={pendingCheckout !== null}
+        title={t('sourceControl.dirtySwitchTitle')}
+        content={t('sourceControl.dirtySwitchDescription')}
+        confirmText={t('sourceControl.preserveChangesAction')}
+        cancelText={t('sourceControl.cancel')}
+        loading={stashPending}
+        onConfirm={() => void confirmPreserveCheckout()}
+        onCancel={() => setPendingCheckout(null)}
+      />
     </div>
   )
 }
