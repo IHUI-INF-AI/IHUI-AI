@@ -108,6 +108,28 @@ function asCopyUnsafeError(err: unknown): PluginCacheCopyUnsafeError {
   return e;
 }
 
+/**
+ * G-810:本机到底能不能造 junction —— **在模块顶层量一次**。
+ * 为什么不在用例里 try/catch:那种写法在造不出来的时候会 warn + return,汇总照样 "1 passed",
+ * 于是"没判"被写成"判过了"(本仓反复定罪的那一型)。量出来的布尔值喂给 `it.skipIf`,
+ * 跳过状态由 vitest 写进汇总,人和机器都看得见"这一型今天未判定"。
+ */
+const JUNCTION_CAPABLE = (() => {
+  let base = ''
+  let tgt = ''
+  try {
+    base = fs.realpathSync(mkScratch('g810-probe-'))
+    tgt = fs.realpathSync(mkScratch('g810-tgt-'))
+    fs.symlinkSync(tgt, path.join(base, 'j'), 'junction')
+    return fs.lstatSync(path.join(base, 'j')).isSymbolicLink()
+  } catch {
+    return false
+  } finally {
+    if (base) rmScratch(base)
+    if (tgt) rmScratch(tgt)
+  }
+})()
+
 // ==================== ① 指向根外的链接 ⇒ 中止且不落半份 ====================
 
 describe('G-747 cache.copyDirRecursive — 符号链接可达性', () => {
@@ -188,6 +210,43 @@ describe('G-747 cache.copyDirRecursive — 符号链接可达性', () => {
     expect(result.fromCache, '普通刷新失败必须仍可降级').toBe(true);
     expect(result.staleReason, '降级必须把原因带出去,不得静默').toBeTruthy();
     expect(result.staleReason).toContain('刷新失败');
+  });
+
+  it.skipIf(!JUNCTION_CAPABLE)(
+    '⑧G-810 根外 junction ⇒ 同样中止复制、不留半份(阳性对照先证夹具真的是重解析点)',
+    async () => {
+      write(path.join(tmpMockSrc, 'plugin.json'), '{"name":"alpha"}');
+      write(path.join(tmpOutside, 'other-tenant-secret.txt'), 'DO-NOT-COPY');
+      const link = path.join(tmpMockSrc, 'junction-escape');
+      // 模块顶层已经探过一次能不能造 junction;这里再失败就是环境问题,直接抛 ——
+      // **不得"warn + return"**,那会把"没跑到"写成"通过"(本仓最高频失效型)。
+      fs.symlinkSync(tmpOutside, link, 'junction');
+      // 阳性对照:① 它确实被 lstat 报成符号链接形态(Node 没有 isJunction 谓词);
+      // ② 它确实指向根外;③ 夹具不是空支票。
+      expect(fs.lstatSync(link).isSymbolicLink(), 'junction 必须被 lstat 报成符号链接形态').toBe(true);
+      const rel = path.relative(fs.realpathSync(tmpMockSrc), fs.realpathSync(tmpOutside));
+      expect(rel.startsWith('..') || path.isAbsolute(rel)).toBe(true);
+
+      const err = await getOrCloneGitCache(URL_A, { ttlMs: 1000 }).then(
+        () => null,
+        (e: unknown) => e,
+      );
+      expect(err, '根外 junction 必须让整次刷新失败,而不是跟进去把外面那棵树拷进 staging').toBeTruthy();
+      const unsafe = asCopyUnsafeError(err);
+      expect(unsafe.reason).toBe('symlink-escape');
+      expect(unsafe.linkPath).toBe(link);
+      expect(unsafe.targetPath).toBe(fs.realpathSync(tmpOutside));
+      expectNothingLeftBehind(URL_A);
+    },
+  );
+
+  // 判据覆盖面的诚实出口:造不出 junction 的机器上,这一例报 **skipped(未判定)**,
+  // 不报通过;`it.skipIf` 的跳过状态由 vitest 自己写进汇总行,人眼与机器都看得见。
+  it('⑧b G-810 覆盖面必须如实:本机造不出 junction 时该例必须是 skipped 而不是 passed', () => {
+    if (JUNCTION_CAPABLE) return; // 能造 ⇒ 上一例真跑过,本例无事可断
+    throw new Error(
+      '本机判不出 junction 形态。上一例是 skipped(未判定),不得被汇总里的 "1 passed" 冒充成覆盖了这一型。',
+    );
   });
 
   // ==================== ② 正向对照:指向根内的合法链接照常复制 ====================
