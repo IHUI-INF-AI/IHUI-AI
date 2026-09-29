@@ -1595,11 +1595,110 @@ const PUBLIC_PROBE_LAST = join(WORKTREE, '.workbuddy', 'public-path-probe-last.j
 const PUBLIC_PROBE_INTERVAL_MS = Number(process.env.IHUI_PUBLIC_PROBE_INTERVAL_MS || 30 * 60 * 1000)
 /** 尺子最坏墙钟:90 次公网 × 上限 15s 的极端不可能全中,但一次守护不能被网络拖死 ⇒ 硬超时 */
 const PUBLIC_PROBE_TIMEOUT_MS = Number(process.env.IHUI_PUBLIC_PROBE_TIMEOUT_MS || 240_000)
+/**
+ * 元运维巡检节流:尺子要开 PowerShell 问服务/任务/时钟,还要走一遍 Temp(4.8 万条目),
+ * 2 分钟一轮太贵、每天一轮又兜不住"环停了 3 小时"这一型 ⇒ 15 分钟。
+ * 两个执行体(2 分钟计划任务 + 常驻 daemon)**共用这一个戳**,谁先到谁干活。
+ */
+const OPS_PATROL_TICK = join(WORKTREE, '.workbuddy', 'ops-patrol-tick.ts')
+const OPS_PATROL_INTERVAL_MS = Number(process.env.IHUI_OPS_PATROL_INTERVAL_MS || 15 * 60 * 1000)
+const OPS_PATROL_TIMEOUT_MS = Number(process.env.IHUI_OPS_PATROL_TIMEOUT_MS || 180_000)
 
 /** 节流判定(纯函数):距上次派发是否已够一个间隔。取不到 tick 文件 ⇒ 视为**该跑了**。 */
 export function publicProbeDue(nowMs, tickMs, intervalMs = PUBLIC_PROBE_INTERVAL_MS) {
   if (!Number.isFinite(tickMs)) return true
   return nowMs - tickMs >= intervalMs
+}
+
+/**
+ * 元运维巡检的**常驻**派发点(尺子本体 = `scripts/check-ops-patrol.mjs`)。
+ *
+ * 为什么必须挂在这里:这把尺子判的是"某件事**没有发生**"(任务消失、规则没上岗、运行副本漂了、
+ * 时钟 13 小时没同步、备份不产出、异地那条腿的同步客户端根本没开)。这类故障不产生任何一行错误日志,
+ * 而它按设计**不能进提交链** —— 判据落在机器状态上,提交者结构上满足不了,挂 blocking 就是每台每次
+ * 被逼 `--no-verify`、连带链上全部守门对该提交作废(§12e/§12f)。"留作手动问责"的实际含义是
+ * **只有人在跑、没有班次在跑**,而本仓对这一型的名字就叫"造好没装车"。本守护是唯一的调度器。
+ *
+ * 2026-09-29 实录(本条目自身被这一型咬过,故把教训写在装它的函数头上):本派发点曾于
+ * `2dfb456fce` 装好并实测发信成功,一小时内被并发提交 `a3ad07092f`(一枚"扫码死链修复")
+ * **按旧基线整份写回** `git-guardian.mjs` 而抹掉(净删 1552 行)—— 尺子还在、判据还对、
+ * 账面全绿,而它已经无人调度。镜像测试 T1/T2/T4 就是为抓住这一次而存在的。
+ *
+ * 三个执行体细节,漏一个都会变成"看起来在跑":
+ * - 节流戳与 `--apply` **两个执行体共用**:谁先到谁干活,同窗口内另一个直接跳过;
+ * - 红经 `notifyGuardRed` 走邮件,沿用"身份 + 内容指纹 4h 去重",无总量封顶;
+ * - 未判定**只写日志不喊人**(与 auditPublicPathProbe 同规矩),但必须报名。
+ */
+export function auditOpsPatrol(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = OPS_PATROL_INTERVAL_MS,
+    tickFile = OPS_PATROL_TICK,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-ops-patrol.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 元运维巡检:尺子脚本不在位(scripts/check-ops-patrol.mjs)⇒ 本轮跳过,不记为已巡检')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(lastTick) && now - lastTick < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      runner ||
+      (() => {
+        try {
+          const stdout = execFileSync(process.execPath, [script, '--json', '--apply'], {
+            cwd: WORKTREE,
+            windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+            timeout: OPS_PATROL_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+            maxBuffer: 1 << 22,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            encoding: 'utf8',
+          })
+          return { status: 0, stdout: String(stdout || ''), stderr: '' }
+        } catch (e) {
+          return { status: typeof e.status === 'number' ? e.status : 2, stdout: String(e.stdout || ''), stderr: String(e.stderr || e.message || '') }
+        }
+      })
+    const r = call()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(r.stdout || ''))
+    } catch {
+      /* 落到下面的未判定分支 */
+    }
+    if (!parsed || !parsed.counts) {
+      logger(`⚠️ 元运维巡检未拿到可解析结论(rc=${r.status}):${(r.stderr || r.stdout || '(无输出)').split(/\r?\n/).slice(0, 2).join(' | ')}`)
+      return { ran: true, ok: false, why: '结论不可解析' }
+    }
+    const findings = parsed.findings || []
+    const undet = parsed.undetermined || []
+    if (undet.length) logger(`ℹ️ 元运维巡检:${undet.length} 格未判定(只登记不喊人)—— ${undet.map((x) => x.id).join(', ')}`)
+    if (findings.length) {
+      const body = findings.map((x) => `· ${x.id} ${x.detail}`).join('\n')
+      logger(`❌ 元运维巡检判红 ${findings.length} 格:\n${body}`)
+      notify(`元运维巡检红(${findings.length} 格)`, `${body}\n\n手动复现:node scripts/check-ops-patrol.mjs(只读) / --apply(顺手修可修的)`, {
+        severity: 'warning',
+      })
+    } else {
+      logger(`✅ 元运维巡检:${parsed.counts.ok} 格绿,无红(${undet.length} 格未判定)`)
+    }
+    return { ran: true, ok: true, findings: findings.length, undetermined: undet.length }
+  } catch (e) {
+    // 派发点自身异常不得改守护退出码(与 auditPublicPathProbe 同一条禁令):巡检失败不等于 .git 失败。
+    logger(`⚠️ 元运维巡检派发异常(忽略,不影响本轮自愈):${e?.message || e}`)
+    return { ran: true, ok: false, why: String(e?.message || e) }
+  }
 }
 
 export function auditPublicPathProbe(opts = {}) {
@@ -1674,6 +1773,137 @@ export function auditPublicPathProbe(opts = {}) {
     return { ran: true, judged: true, breaches, unjudged }
   } catch (e) {
     logger('⚠️ 公网路径探测派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
+/**
+ * 孤儿删除引用巡检的**常驻**派发点(尺子本体 = `scripts/check-orphan-deletion-refs.mjs`)。
+ *
+ * 为什么必须挂在这里而不是"留作手动问责":这把尺子判的是**此刻索引与 HEAD 的错位**
+ * (HEAD 有该路径、索引与磁盘都没有、而树内仍有源码 import 它)—— 它按设计不能进提交链
+ * (与某次提交内容无关的 blocking 红 = 每台每次被逼 --no-verify,§12e/§12f),而"手动问责入口"
+ * 的实际含义是**只有人在跑、没有班次在跑**:2026-09-29 现读该尺子的五个权威接线点零命中,
+ * 而同一型缺陷(HEAD 有 / 索引与磁盘都无 / 源码仍 import)当晚已两次炸构建。挂本守护是
+ * 唯一不改提交链、又保证每 30 分钟必有一次现读的落点。
+ * 挂点语义与 healWorktreeTracked / auditPublicPathProbe 同一条:**健康轮次的早退之前 + `!CHECK_ONLY`**。
+ *
+ * 三条不可漂的写法(照抄 auditPublicPathProbe):
+ *  ① **节流而非封量**:两次真实巡检之间隔 `ORPHAN_AUDIT_INTERVAL_MS`(默认 30 分钟)是节奏控制,
+ *     不是每日封顶 —— §5e 明令不得自设总量上限把"告警静默"再复制一遍。
+ *  ② 告警一律经 `notifyGuardRed()`:按 alert 身份 + 内容指纹去重,不在本文件自拼 SMTP(守门 81)。
+ *  ③ **判"未判定"不得静默也不得喊人**:尺子 rc=2 / JSON 取不到 ⇒ 只写日志并点名原因 ——
+ *     发一封"我什么都没量到"的信是把噪音冒充成告警;但日志必须报名,不得沉默成"跑过了"。
+ */
+const ORPHAN_AUDIT_TICK = join(WORKTREE, '.workbuddy', 'orphan-audit-tick.ts')
+const ORPHAN_AUDIT_INTERVAL_MS = Number(process.env.IHUI_ORPHAN_AUDIT_INTERVAL_MS || 30 * 60 * 1000)
+/** 尺子是纯只读 git 问答,正常 <1s;给 2 分钟硬上限只为"一次守护绝不被它拖死"(守门 80 同取向) */
+const ORPHAN_AUDIT_TIMEOUT_MS = Number(process.env.IHUI_ORPHAN_AUDIT_TIMEOUT_MS || 120_000)
+
+/** 节流判定(纯函数):距上次巡检是否已够一个间隔。取不到 tick 文件 ⇒ 视为**该跑了**。 */
+export function orphanAuditDue(nowMs, tickMs, intervalMs = ORPHAN_AUDIT_INTERVAL_MS) {
+  if (!Number.isFinite(tickMs)) return true
+  return nowMs - tickMs >= intervalMs
+}
+
+export function auditOrphanDeletionRefs(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = ORPHAN_AUDIT_INTERVAL_MS,
+    tickFile = ORPHAN_AUDIT_TICK,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-orphan-deletion-refs.mjs')
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ 孤儿删除引用巡检:尺子脚本不在位(scripts/check-orphan-deletion-refs.mjs)⇒ 本轮跳过,不记为已巡检',
+    )
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!orphanAuditDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    // 注意判序:`runner || (iife())` 那种写法在传入了假 runner 时会让 `call` **等于函数本身**
+    // (短路掉调用),而不是它的返回值 —— 本仓 auditPublicPathProbe 此刻就是这一型(无调用方所以未爆),
+    // 本函数按"显式注入优先调用"写,镜像测试才能在不派生真进程的前提下取到三态。
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+                timeout: ORPHAN_AUDIT_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'],
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    if (call.status === 2) {
+      logger(
+        `ℹ️ 孤儿删除引用巡检:未判定(尺子 rc=2,用法/环境错 —— ${String(call.stderr || '').slice(0, 120)})`,
+      )
+      return { ran: true, judged: false, why: '尺子 rc=2' }
+    }
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || '').trim())
+    } catch {
+      parsed = null
+    }
+    if (!parsed || !Array.isArray(parsed.hits)) {
+      logger(
+        '⚠️ 孤儿删除引用巡检:输出取不到 JSON ⇒ 未判定,不记为已巡检(不得把"没解析出"写成"没有命中")',
+      )
+      return { ran: true, judged: false, why: 'JSON 取不到' }
+    }
+    const undet = Array.isArray(parsed.undetermined) ? parsed.undetermined : []
+    if (parsed.hits.length) {
+      const list = parsed.hits
+        .slice(0, 12)
+        .map(
+          (h) =>
+            `  · ${h && h.path ? h.path : '(无名)'} ← 仍被引用于 ${h && h.via ? h.via : '(出处未判定)'}`,
+        )
+        .join('\n')
+      const more =
+        parsed.hits.length > 12 ? `\n  …另有 ${parsed.hits.length - 12} 条,回读命令见下行` : ''
+      notify(
+        '孤儿删除引用巡检命中',
+        `HEAD 树里还有这些路径,而索引与磁盘都没有它们,且源码仍 import 它们 ⇒ 任何一次干净检出/CI 构建都会 Module not found。\n${list}${more}\n\n尺子:node scripts/check-orphan-deletion-refs.mjs(只读;修法是把该文件补回索引,或改掉那处引用 —— 二者由该路径的持有人定)`,
+        { severity: 'warning' },
+      )
+      logger(`❌ 孤儿删除引用巡检:命中 ${parsed.hits.length} 条(已派发到邮件通道)`)
+    } else if (undet.length) {
+      logger(
+        `ℹ️ 孤儿删除引用巡检:零命中,但有 ${undet.length} 条未判定 —— ${undet.slice(0, 3).join(' | ')}`,
+      )
+    } else {
+      logger('✅ 孤儿删除引用巡检:已判定且零命中')
+    }
+    return { ran: true, judged: true, hits: parsed.hits.length, undetermined: undet.length }
+  } catch (e) {
+    logger(
+      '⚠️ 孤儿删除引用巡检派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160),
+    )
     return { ran: false, why: '派发异常' }
   }
 }
@@ -2192,9 +2422,15 @@ function main() {
     // 收敛器收尾对齐停摆喊人(票 O74):收敛器一次性进程只写状态,派发点在此(与
     // heal*/watchWatchdog 同一真正会执行的分支;挂进 CHECK_ONLY 早退分支等于永不执行)。
     if (!CHECK_ONLY) checkConvergeAlignStall()
+    // 元运维巡检(尺子 = scripts/check-ops-patrol.mjs):判"没发生"的那一族。它按设计不能进提交链
+    // (判机器状态 ⇒ 恒红 ⇒ 每台每次 --no-verify),而本行就是它唯一的调度器。
+    if (!CHECK_ONLY) auditOpsPatrol()
     // 公网路径与换流窗口的常驻探测(票 G-301):两条序列互不顶账,节流 30 分钟,
     // 判"未判定"只写日志不喊人;它不改本守护退出码 —— 探测失败不等于 .git 失败。
     if (!CHECK_ONLY) auditPublicPathProbe()
+    // 不能进提交链,而"手动问责"等于只有人在跑 —— 本行是它唯一的调度器。挂进 CHECK_ONLY 分支等于永不执行。
+    if (!CHECK_ONLY) auditOrphanDeletionRefs()
+    // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 失效时它**自己不会喊**(故障形态是"安静",正是今天两天冻结的同类)。本守护每 2 分钟
     // 一趟且自身分层自愈,由它盯心跳最省。--check 仍零副作用。
@@ -2264,6 +2500,9 @@ function startDaemon() {
         // 收敛器收尾对齐停摆喊人(票 O74;与 main() 单轮路径同一挂点语义,notify 内部
         // 还有一层 CHECK_ONLY/去重保护,双执行体并存也不会翻倍发信)
         checkConvergeAlignStall()
+        // 元运维巡检:与 main() 单轮路径同一挂点语义,共用 .workbuddy/ops-patrol-tick.ts 节流戳
+        // ⇒ 双执行体并存时只有先到那一个真跑,不会翻倍发信。
+        auditOpsPatrol()
       }
     } catch (e) {
       log('巡检异常(忽略): ' + String(e.message || e))
@@ -2305,6 +2544,8 @@ export const __test__ = {
   envDriftDetail,
   homeHealDue,
   readProbeVerdict,
+  orphanAuditDue,
+  auditOrphanDeletionRefs,
   // 裸档自愈(2026-09-28 立):测试在临时仓库上取证,不碰活仓库
   readBareFlag,
   writeBareFalse,
