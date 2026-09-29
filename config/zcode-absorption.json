@@ -352,8 +352,8 @@
       "path": "packages/ui/src",
       "status": "windowed",
       "files": 1492,
-      "read": 290,
-      "notes": "lib n-z 16、lib a-m 46(W2-5 整文件读完 46/90)、settings 17、v4 10(W2-8)、ToolCallBlocks+app-shell+store+root+mentions 18(W3-9)、components+hooks 6(W3-5);W4 四路新增整文件读到体 115:hooks 28/98、components/ai-elements 32/46、components 其余 +13、ToolCallBlocks+chat-input-toolbar +8、store/workspace +12、v4 +6、顶层散件 6/138、quickpick 5/7、git-graph 3/6、presentation 2/6。⚠️ read=191 是【下界】:W3 旧登记的 24 个(ToolCallBlocks/store/root/mentions 18 + components/hooks 6)按目录判定全部落在 W4 集合内,而 W4 内部 components 与 components/ai-elements 至多重叠 13 —— 交集无法从台账推出,真实区间 [191,228];派单请跑 `node scripts/zcode-absorption-matrix.mjs` 看末行现值,不得照本字段做减法核账。⚠️ 口径更正:旧 notes 写的『ui 根 44』与现量不同口径 —— 顶层散件按 `git ls-files packages/ui/src` 行级过滤现量为 138(`*` 通配会递归,那是另一个口径,第一版据此量出 1492)。这是最大的一块未闭合面。;W6-67(2026-09-29)两路只读取证:core 余量 45 份/8,935 行、ui 行为核心 5 份/2,439 行,去重后入账 5 份(core 42/ui 5),3 份与既有清单同路径已按\"下界\"少报(interaction-auto-resolution / permission-grant-recovery / permission-grant-resume);W6-68(2026-09-29)只读取证 22 份,去重后可入账 22 份,行数逐条 wc 复核、锚点逐条 awk 回读",
+      "read": 353,
+      "notes": "lib n-z 16、lib a-m 46(W2-5 整文件读完 46/90)、settings 17、v4 10(W2-8)、ToolCallBlocks+app-shell+store+root+mentions 18(W3-9)、components+hooks 6(W3-5);W4 四路新增整文件读到体 115:hooks 28/98、components/ai-elements 32/46、components 其余 +13、ToolCallBlocks+chat-input-toolbar +8、store/workspace +12、v4 +6、顶层散件 6/138、quickpick 5/7、git-graph 3/6、presentation 2/6。⚠️ read=191 是【下界】:W3 旧登记的 24 个(ToolCallBlocks/store/root/mentions 18 + components/hooks 6)按目录判定全部落在 W4 集合内,而 W4 内部 components 与 components/ai-elements 至多重叠 13 —— 交集无法从台账推出,真实区间 [191,228];派单请跑 `node scripts/zcode-absorption-matrix.mjs` 看末行现值,不得照本字段做减法核账。⚠️ 口径更正:旧 notes 写的『ui 根 44』与现量不同口径 —— 顶层散件按 `git ls-files packages/ui/src` 行级过滤现量为 138(`*` 通配会递归,那是另一个口径,第一版据此量出 1492)。这是最大的一块未闭合面。;W6-67(2026-09-29)两路只读取证:core 余量 45 份/8,935 行、ui 行为核心 5 份/2,439 行,去重后入账 5 份(core 42/ui 5),3 份与既有清单同路径已按\"下界\"少报(interaction-auto-resolution / permission-grant-recovery / permission-grant-resume);W6-68(2026-09-29)只读取证 22 份,去重后可入账 22 份,行数逐条 wc 复核、锚点逐条 awk 回读;批次73(2026-09-29)四路只读取证入账:D 路一整段(ui/lib 首段),代理报 64 份,逐条对克隆 29628c9 blob 现量核行,去重后入账 +63 份(readFiles 逐条 {p,lines}),排除 1 份已逐条报名,票候选见台账第六十四批",
       "remaining": "message 渲染族与 messageTelemetry 后半 1300 行、workflow-timeline 39、v4 余 197、hooks 余 70、components 余 140、ToolCallBlocks 余 67、store 余 30、顶层散件余 132;quickpick 余 TaskFindDialog.tsx 389、git-graph 余 Pane/Dialog/CommitDetail 620、presentation 余 elementModel/pptxEngine/pdfPrintExport/textSelection 988。DeveloperToolsPane.tsx 与 App.tsx 仅段读,不计 read。 ｜09-29 第十九轮回填:本轮具名整读到体 5 枚,其中 5 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 5 枚,指针 5 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜09-29 第二十一轮回填:供应商设置面与用量面板报告具名 13 枚、新指针 8 枚可兑现 ｜09-29 第三十三批回填:UI 两大块整读到体 message.tsx **1670 行**(1-340/341-680/681-1020/1021-1340/1341-1670)、markdown-table.tsx 1420(1-360/361-720/721-1080/1081-1420)。**行数更正:台账旧文写 1516 是错的**,现按 wc -l 取 1670。**路径更正**:真实前缀是「packages/ui/src/components/ai-elements/」,不是「apps/zcode-cli/packages/ui/src/components/」。残余:prompt-input 753、diagram-preview-dialog 702、image-preview-dialog 564、code-block 550 未整读。 ｜09-29 第三十四批回填:prompt-input.tsx 753(段接 1-400/401-753)、code-block.tsx 550(1-300/301-550)整读到体。残余:文件尾 :744-753 的四个 re-export 兄弟件(prompt-input-buttons/actions/textarea/primitives)与「code-viewer.js」(shiki 渲染本体)未读。 ｜09-29 第三十六批回填:prompt-input.tsx 文件尾 :744-753 四条 export * 指向的兄弟件整读到体 —— buttons 120 / actions 209 / textarea 131 / primitives 180(合计 640 行,真实交互面在这里,此前 A 组结论确曾因此估偏)。残余:本体 :1-743 里的 usePromptInputAttachments / useOptionalPromptInputController(机制\"粘贴转附件\"与\"Backspace 删附件\"的状态所有者)、../ui/input-group.js、@/lib/utils.js 的 cn 未读。 ｜09-29 第三十八批回填:diagram-preview-dialog.tsx 702(1-220/221-460/461-702)、image-preview-dialog.tsx 564(1-180/181-390/391-564)整读到体,7 条新指针逐条 b<=wc -l 兑现。残余(仍零读,不得当已证事实):packages/ui/src/lib/diagramViewport.ts 90 行(抄矢量预览族的前置)、@/hooks/usePlatform.js 的 saveFile 契约实现、@/components/ui/dialog.tsx(Esc 之外的焦点归还,决定弹层升格时行为)、ControlHintTooltip、logger/IntlProvider。 ｜09-29 第六十四批复量回填:主会话 wc -l 逐份现量后具名整读到体 +19(代理报 19 枚候选,跳过 0 枚重叠/取不到);新立票 5 枚(G-815964…G-815968),每票的我方侧命中数由主会话在 HEAD 面重跑。 | W6-67 后本区余量:core 约 155-165 份未读(下一刀 subagent.ts+background-tasks.ts+task-output*/task-stop,再 compact.ts+compact-selection+context-usage+media-budget,后转 mcp/memory/workflow 整域);ui 约 1545 份/324,983 行未读(下一刀 packages/ui/src/v4 下 *.ts 非 .tsx:实测 60 份/约 9,100 行) | W6-68 后 ui 余约 1523 份/322,099 行未读;下一刀 v4 的 windowControllerTaskListRegistry.ts 余 131-尾 + conversationSharePreflightCache 同族长尾,以及 settings/ 215 份/54,122 行(绝大多数是展示件,性价比低)",
       "evidence": [
         "packages/ui/src/store/StoreProvider.tsx:56",
@@ -731,6 +731,258 @@
         {
           "p": "packages/ui/src/v4/staleAuthorityRecovery.ts",
           "lines": 19
+        },
+        {
+          "p": "packages/ui/src/lib/accountProviderAccess.ts",
+          "lines": 63
+        },
+        {
+          "p": "packages/ui/src/lib/appTelemetry.ts",
+          "lines": 68
+        },
+        {
+          "p": "packages/ui/src/lib/archivedTaskDeletion.ts",
+          "lines": 100
+        },
+        {
+          "p": "packages/ui/src/lib/armsCustomEventObservability.ts",
+          "lines": 39
+        },
+        {
+          "p": "packages/ui/src/lib/askUserQuestion.ts",
+          "lines": 349
+        },
+        {
+          "p": "packages/ui/src/lib/assistantCodeComment.ts",
+          "lines": 197
+        },
+        {
+          "p": "packages/ui/src/lib/assistantDirectiveParser.ts",
+          "lines": 368
+        },
+        {
+          "p": "packages/ui/src/lib/assistantFileReferences.ts",
+          "lines": 294
+        },
+        {
+          "p": "packages/ui/src/lib/assistantPathQuotes.ts",
+          "lines": 73
+        },
+        {
+          "p": "packages/ui/src/lib/assistantPreviewCardValidation.ts",
+          "lines": 71
+        },
+        {
+          "p": "packages/ui/src/lib/assistantPreviewCards.ts",
+          "lines": 368
+        },
+        {
+          "p": "packages/ui/src/lib/automationTelemetry.ts",
+          "lines": 161
+        },
+        {
+          "p": "packages/ui/src/lib/browserEnvironment.ts",
+          "lines": 78
+        },
+        {
+          "p": "packages/ui/src/lib/buildGroupedTaskViewFromSessions.ts",
+          "lines": 195
+        },
+        {
+          "p": "packages/ui/src/lib/builtinSkillI18n.ts",
+          "lines": 201
+        },
+        {
+          "p": "packages/ui/src/lib/chatAttachmentErrors.ts",
+          "lines": 59
+        },
+        {
+          "p": "packages/ui/src/lib/chatAttachmentMetadata.ts",
+          "lines": 81
+        },
+        {
+          "p": "packages/ui/src/lib/chatAttachments.ts",
+          "lines": 300
+        },
+        {
+          "p": "packages/ui/src/lib/chatComposerDraftStorage.ts",
+          "lines": 94
+        },
+        {
+          "p": "packages/ui/src/lib/chatErrorAttribution.ts",
+          "lines": 400
+        },
+        {
+          "p": "packages/ui/src/lib/chatErrorBannerTelemetry.ts",
+          "lines": 189
+        },
+        {
+          "p": "packages/ui/src/lib/chatPlaceholder.ts",
+          "lines": 23
+        },
+        {
+          "p": "packages/ui/src/lib/chatPrepareError.ts",
+          "lines": 147
+        },
+        {
+          "p": "packages/ui/src/lib/chatSessionScrollMemory.ts",
+          "lines": 97
+        },
+        {
+          "p": "packages/ui/src/lib/chatStatus.ts",
+          "lines": 8
+        },
+        {
+          "p": "packages/ui/src/lib/closeActiveContext.ts",
+          "lines": 16
+        },
+        {
+          "p": "packages/ui/src/lib/codeCommentContext.ts",
+          "lines": 288
+        },
+        {
+          "p": "packages/ui/src/lib/codePreviewPreferences.ts",
+          "lines": 46
+        },
+        {
+          "p": "packages/ui/src/lib/codePreviewSettings.ts",
+          "lines": 24
+        },
+        {
+          "p": "packages/ui/src/lib/codeViewer.ts",
+          "lines": 602
+        },
+        {
+          "p": "packages/ui/src/lib/codeViewerSource.ts",
+          "lines": 26
+        },
+        {
+          "p": "packages/ui/src/lib/codeViewerWorkspaceScope.ts",
+          "lines": 5
+        },
+        {
+          "p": "packages/ui/src/lib/codingPlanFunnelTelemetry.ts",
+          "lines": 243
+        },
+        {
+          "p": "packages/ui/src/lib/codingPlanOwnedEntryPlans.ts",
+          "lines": 51
+        },
+        {
+          "p": "packages/ui/src/lib/codingPlanProvider.ts",
+          "lines": 33
+        },
+        {
+          "p": "packages/ui/src/lib/codingPlanQuotaPresentation.ts",
+          "lines": 169
+        },
+        {
+          "p": "packages/ui/src/lib/codingPlanQuotaResetConfetti.ts",
+          "lines": 64
+        },
+        {
+          "p": "packages/ui/src/lib/codingPlanQuotaResetCoordinator.ts",
+          "lines": 339
+        },
+        {
+          "p": "packages/ui/src/lib/codingPlanQuotaResetUi.ts",
+          "lines": 393
+        },
+        {
+          "p": "packages/ui/src/lib/codingPlanUsageSources.ts",
+          "lines": 218
+        },
+        {
+          "p": "packages/ui/src/lib/composerRecent.ts",
+          "lines": 169
+        },
+        {
+          "p": "packages/ui/src/lib/configOptionsEquality.ts",
+          "lines": 22
+        },
+        {
+          "p": "packages/ui/src/lib/conversationSelectionGuard.ts",
+          "lines": 48
+        },
+        {
+          "p": "packages/ui/src/lib/conversationSelectionReference.ts",
+          "lines": 269
+        },
+        {
+          "p": "packages/ui/src/lib/conversationShareContext.ts",
+          "lines": 66
+        },
+        {
+          "p": "packages/ui/src/lib/conversationShareError.ts",
+          "lines": 365
+        },
+        {
+          "p": "packages/ui/src/lib/cuaAppIconRequest.ts",
+          "lines": 32
+        },
+        {
+          "p": "packages/ui/src/lib/cuaComposerEntryState.ts",
+          "lines": 155
+        },
+        {
+          "p": "packages/ui/src/lib/cuaPermissionAction.ts",
+          "lines": 133
+        },
+        {
+          "p": "packages/ui/src/lib/cuaPermissionOnboardingOperation.ts",
+          "lines": 11
+        },
+        {
+          "p": "packages/ui/src/lib/cuaPermissionStatusCache.ts",
+          "lines": 145
+        },
+        {
+          "p": "packages/ui/src/lib/cuaPermissionStatusStore.ts",
+          "lines": 327
+        },
+        {
+          "p": "packages/ui/src/lib/cuaPlatform.ts",
+          "lines": 45
+        },
+        {
+          "p": "packages/ui/src/lib/desktopUpdateMenu.ts",
+          "lines": 42
+        },
+        {
+          "p": "packages/ui/src/lib/developerToolsPreference.ts",
+          "lines": 38
+        },
+        {
+          "p": "packages/ui/src/lib/diagramViewport.ts",
+          "lines": 90
+        },
+        {
+          "p": "packages/ui/src/lib/diffsHighlighterEngine.ts",
+          "lines": 37
+        },
+        {
+          "p": "packages/ui/src/lib/e2eStoreBridge.ts",
+          "lines": 14
+        },
+        {
+          "p": "packages/ui/src/lib/e2eStoreBridgeBootstrap.ts",
+          "lines": 27
+        },
+        {
+          "p": "packages/ui/src/lib/editorPreference.ts",
+          "lines": 36
+        },
+        {
+          "p": "packages/ui/src/lib/editorUpdateTags.ts",
+          "lines": 12
+        },
+        {
+          "p": "packages/ui/src/lib/errorFeedbackDraft.ts",
+          "lines": 36
+        },
+        {
+          "p": "packages/ui/src/lib/errorMessage.ts",
+          "lines": 9
         }
       ],
       "readFilesNote": "readFiles 覆盖 20 份(逐条 wc -l 现量相符);其余 224 份属早期自报读数、无清单 ⇒ M12 计为不可复核,头条分开报两个数。"
@@ -813,8 +1065,8 @@
       "path": "apps/zcode-cli/packages/core/src",
       "status": "windowed",
       "files": 500,
-      "read": 386,
-      "notes": "W5 四路按互斥目录读到体:tool 176/72(根17+executor22+handlers33;窗口6:call-runner/permission-flow/result-serialization/read/edit/bash;仅结构1:generated/bash-command-registry.ts 系 1.8MB ISC 数据块)、runtime 164/25(窗口2:events/streaming-tool-coordinator)、workflow+subagent+context+agent+memory 89/85(subagent/runner.ts 与 agent/ 三件仅窗口读,不计 read)、小而密长尾 71/66(hooks19/19、permission6/6、compact6/6、runtime-task5/5、plugin-reference4/4、session-context4/4、mcp3/3、system-reminder3/3、embedded-search2/2、errors·model·telemetry 各1/1、顶层散件4/4、browser-client7/3、repl5/4)。⚠️ read=248 是【下界】不是相加值:W3 旧登记的 44 个按 notes 判定全部落在上述目录内(tool/handlers 4、runtime/methods 14、runtime/helpers+subagent+system-reminder 11、a-m/n-z 15),父子相加会双计;真实区间 [248,292]。⚠️ 刻意不新增子切片条目:M1 只判覆盖不判互斥,而头条按切片求和 ⇒ 父子并存等于给覆盖数发合格证;目录明细只写在本字段。W5-A 报的『审批等待吃掉执行预算』已三面证伪(runToolInner/requestToolApproval 全仓零命中),不得重新提出。 ｜09-29 第五十九批:core 竞窗与权限三簇 +11 枚具名整读到体(runtime-task/registry 296、tool/executor/background-task-registry 289、background-tasks 1198、runtime/methods/background 484、background-notifications 246、runtime-command-queue 476、command-queue 241、permission/service 687、broker 166、permission-responder-race 93、helpers/permission-broker 25)。少报(代理自报只读到区间,不计整读):permission-flow.ts(431,只 100-236)、headless-workflow.ts(379,只 1-60/290-355)、prompt-command.ts(642,只 295-340)。;W6-67(2026-09-29)两路只读取证:core 余量 45 份/8,935 行、ui 行为核心 5 份/2,439 行,去重后入账 42 份(core 42/ui 5),3 份与既有清单同路径已按\"下界\"少报(interaction-auto-resolution / permission-grant-recovery / permission-grant-resume);W6-68(2026-09-29)只读取证 13 份,去重后可入账 13 份,行数逐条 wc 复核、锚点逐条 awk 回读;W6-69(2026-09-29)只读取证并入账 4 份(逐条 wc 复核,誊写不符者已排除并报名)",
+      "read": 500,
+      "notes": "W5 四路按互斥目录读到体:tool 176/72(根17+executor22+handlers33;窗口6:call-runner/permission-flow/result-serialization/read/edit/bash;仅结构1:generated/bash-command-registry.ts 系 1.8MB ISC 数据块)、runtime 164/25(窗口2:events/streaming-tool-coordinator)、workflow+subagent+context+agent+memory 89/85(subagent/runner.ts 与 agent/ 三件仅窗口读,不计 read)、小而密长尾 71/66(hooks19/19、permission6/6、compact6/6、runtime-task5/5、plugin-reference4/4、session-context4/4、mcp3/3、system-reminder3/3、embedded-search2/2、errors·model·telemetry 各1/1、顶层散件4/4、browser-client7/3、repl5/4)。⚠️ read=248 是【下界】不是相加值:W3 旧登记的 44 个按 notes 判定全部落在上述目录内(tool/handlers 4、runtime/methods 14、runtime/helpers+subagent+system-reminder 11、a-m/n-z 15),父子相加会双计;真实区间 [248,292]。⚠️ 刻意不新增子切片条目:M1 只判覆盖不判互斥,而头条按切片求和 ⇒ 父子并存等于给覆盖数发合格证;目录明细只写在本字段。W5-A 报的『审批等待吃掉执行预算』已三面证伪(runToolInner/requestToolApproval 全仓零命中),不得重新提出。 ｜09-29 第五十九批:core 竞窗与权限三簇 +11 枚具名整读到体(runtime-task/registry 296、tool/executor/background-task-registry 289、background-tasks 1198、runtime/methods/background 484、background-notifications 246、runtime-command-queue 476、command-queue 241、permission/service 687、broker 166、permission-responder-race 93、helpers/permission-broker 25)。少报(代理自报只读到区间,不计整读):permission-flow.ts(431,只 100-236)、headless-workflow.ts(379,只 1-60/290-355)、prompt-command.ts(642,只 295-340)。;W6-67(2026-09-29)两路只读取证:core 余量 45 份/8,935 行、ui 行为核心 5 份/2,439 行,去重后入账 42 份(core 42/ui 5),3 份与既有清单同路径已按\"下界\"少报(interaction-auto-resolution / permission-grant-recovery / permission-grant-resume);W6-68(2026-09-29)只读取证 13 份,去重后可入账 13 份,行数逐条 wc 复核、锚点逐条 awk 回读;W6-69(2026-09-29)只读取证并入账 4 份(逐条 wc 复核,誊写不符者已排除并报名);批次73(2026-09-29)四路只读取证入账:A/B/C 三路(bash 族 + handlers 前后半),代理报 136 份,逐条对克隆 29628c9 blob 现量核行,去重后入账 +121 份(readFiles 逐条 {p,lines}),排除 15 份已逐条报名,票候选见台账第六十四批;read 现值压到 500(M8 上限:386+121=507 超切片现量,与 legacy 自报重叠不可枚举,按下界计不冒进;故头条 1622→1799 而非 1806)",
       "remaining": "约 251 未读。tool 余 97:background-tasks.ts 1198、result-display 461、read-session-context 440、edit-matchers/node-repl/create-workflow 411、store/read-pdf/cron/bash-command-permission-policy 38x。runtime 余 137:session-fork 1487、steering 1403、types 924、subagent 915、turn 872、turn-model-step 803、rewind-message 740、compact-active 725、file-rewind 717、agent-runtime 664、turn-tools 527、model 518。窗口读过的 events.ts / streaming-tool-coordinator.ts / subagent/runner.ts / agent 三件需回读补体。 ｜09-29 第六十四批复量回填:主会话 wc -l 逐份现量后具名整读到体 +13(代理报 14 枚候选,跳过 1 枚重叠/取不到);新立票 9 枚(G-815969…G-815977),每票的我方侧命中数由主会话在 HEAD 面重跑。 ｜09-29 第六十五批复量回填:代理报 9 份而逐名去重后计 +5(其余已在历史 notes 点过名,重叠不可计算);新证据 8 条按 b≤wc -l 兑现;新票 3 枚(G-815980…G-815981…G-815982)。 | W6-67 后本区余量:core 约 155-165 份未读(下一刀 subagent.ts+background-tasks.ts+task-output*/task-stop,再 compact.ts+compact-selection+context-usage+media-budget,后转 mcp/memory/workflow 整域);ui 约 1545 份/324,983 行未读(下一刀 packages/ui/src/v4 下 *.ts 非 .tsx:实测 60 份/约 9,100 行) | W6-68 后 core 同族还差 2 份/326 行(workflow-published-artifacts.ts 余 71-234、result-persistence-format.ts 未读);下一刀 tool/executor 的结果出口三件 result-display.ts 461 + result-serialization.ts 395 + permission-flow.ts 431(约 1,287 行),再 call-runner.ts 703 与 handlers/bash.ts 569(为 G-816026 的\"谁发的 SIGTERM\"落点写实)",
       "evidence": [
         "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-egress-guard.ts:77",
@@ -1464,6 +1716,490 @@
         {
           "p": "apps/zcode-cli/packages/core/src/tool/executor/telemetry.ts",
           "lines": 30
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/agent/session-history-hydrator.ts",
+          "lines": 589
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/agent/message-history.ts",
+          "lines": 526
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-command-permission-policy.ts",
+          "lines": 383
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-callbacks.ts",
+          "lines": 354
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-multiword-gh.ts",
+          "lines": 345
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-read-file-sources.ts",
+          "lines": 275
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-flags-text.ts",
+          "lines": 362
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-command-parser.ts",
+          "lines": 276
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-read-file-state.ts",
+          "lines": 200
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-model-content.ts",
+          "lines": 206
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-flags-process.ts",
+          "lines": 323
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-git-runtime-safety.ts",
+          "lines": 211
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/agent/read-file-state-hydrator.ts",
+          "lines": 191
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-flags-git.ts",
+          "lines": 243
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-semantics.ts",
+          "lines": 174
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/agent/file-part-hydration.ts",
+          "lines": 180
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-git-subcommands-history.ts",
+          "lines": 227
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-simple-commands.ts",
+          "lines": 223
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-output.ts",
+          "lines": 172
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-argv-flags.ts",
+          "lines": 182
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-git-subcommands-core.ts",
+          "lines": 202
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-flags-file.ts",
+          "lines": 195
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-argv.ts",
+          "lines": 108
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-cwd-policy.ts",
+          "lines": 120
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-argv-direct.ts",
+          "lines": 146
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-git-callbacks.ts",
+          "lines": 121
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-image-output.ts",
+          "lines": 91
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-argv-git.ts",
+          "lines": 79
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-argv-io.ts",
+          "lines": 99
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/agent/message-history-usage.ts",
+          "lines": 64
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/agent/loaded-skills.ts",
+          "lines": 54
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-command-rule-evaluator.ts",
+          "lines": 50
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-metadata.ts",
+          "lines": 36
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-prompt.ts",
+          "lines": 23
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-commands.ts",
+          "lines": 24
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-multiword-core.ts",
+          "lines": 36
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-gh-rate-limit.ts",
+          "lines": 16
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/agent/tool-part-order.ts",
+          "lines": 14
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/agent/index.ts",
+          "lines": 18
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/agent/runtime-input-presentation.ts",
+          "lines": 12
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-types.ts",
+          "lines": 14
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy-flags.ts",
+          "lines": 4
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/bash-readonly-policy.ts",
+          "lines": 5
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/agent.ts",
+          "lines": 345
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/amend-workflow-resolve.ts",
+          "lines": 238
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/amend-workflow-source.ts",
+          "lines": 266
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/ask-user-question.ts",
+          "lines": 158
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow-graph-bounds.ts",
+          "lines": 276
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow-source.ts",
+          "lines": 347
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/cron.ts",
+          "lines": 383
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/escalate.ts",
+          "lines": 170
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/eval-workflow-snippet.ts",
+          "lines": 323
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run-format.ts",
+          "lines": 266
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run-summary.ts",
+          "lines": 179
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/glob.ts",
+          "lines": 164
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/index.ts",
+          "lines": 312
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/list-saved-workflows.ts",
+          "lines": 169
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/model-reference.ts",
+          "lines": 247
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/node-repl.ts",
+          "lines": 411
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/plan-mode-prompts.ts",
+          "lines": 128
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/read-image.ts",
+          "lines": 160
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/read-session-context.ts",
+          "lines": 440
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/read-video.ts",
+          "lines": 88
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/resolve-workflow-question.ts",
+          "lines": 193
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/resume-workflow-run.ts",
+          "lines": 239
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/save-workflow.ts",
+          "lines": 319
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/saved-workflows/frontmatter.ts",
+          "lines": 125
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/saved-workflows/store.ts",
+          "lines": 405
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/skill.ts",
+          "lines": 150
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/todo.ts",
+          "lines": 198
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-cache.ts",
+          "lines": 58
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-content.ts",
+          "lines": 115
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-errors.ts",
+          "lines": 35
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-processing.ts",
+          "lines": 127
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-types.ts",
+          "lines": 38
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch.ts",
+          "lines": 271
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/websearch-support.ts",
+          "lines": 18
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-analysis-display.ts",
+          "lines": 46
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-drafts.ts",
+          "lines": 147
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-run-introspection.ts",
+          "lines": 152
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-script-notes.ts",
+          "lines": 86
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-skill-gate.ts",
+          "lines": 61
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/amend-workflow-description.ts",
+          "lines": 20
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/amend-workflow-retune.ts",
+          "lines": 248
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/amend-workflow.ts",
+          "lines": 360
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow-description.ts",
+          "lines": 33
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow-graph-fold.ts",
+          "lines": 136
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/create-workflow.ts",
+          "lines": 411
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/edit.ts",
+          "lines": 656
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/eval-workflow-snippet-description.ts",
+          "lines": 12
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run-format-roster.ts",
+          "lines": 284
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run-roster-output.ts",
+          "lines": 127
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/get-workflow-run.ts",
+          "lines": 253
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/grep.ts",
+          "lines": 255
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/list-models.ts",
+          "lines": 189
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/list-workflow-runs.ts",
+          "lines": 194
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/node-repl-model-content.ts",
+          "lines": 41
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/off-peak.ts",
+          "lines": 277
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/plan-mode.ts",
+          "lines": 329
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/read-pdf.ts",
+          "lines": 383
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/read-text.ts",
+          "lines": 252
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/read.ts",
+          "lines": 526
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/respond-to-coordinator.ts",
+          "lines": 139
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/save-workflow-description.ts",
+          "lines": 16
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/saved-workflows/args.ts",
+          "lines": 101
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/saved-workflows/index.ts",
+          "lines": 33
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/send-message.ts",
+          "lines": 164
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/submit-result.ts",
+          "lines": 185
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/tool-perf.ts",
+          "lines": 136
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-constants.ts",
+          "lines": 11
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-egress-guard.ts",
+          "lines": 107
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-network.ts",
+          "lines": 354
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-trace.ts",
+          "lines": 37
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-url.ts",
+          "lines": 152
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/websearch-results.ts",
+          "lines": 186
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/websearch.ts",
+          "lines": 224
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-draft-read-state.ts",
+          "lines": 68
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-path-source.ts",
+          "lines": 113
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-script-analysis.ts",
+          "lines": 23
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/workflow-script-path.ts",
+          "lines": 32
+        },
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/write.ts",
+          "lines": 377
         }
       ],
       "readFilesNote": "readFiles 覆盖 13 份(逐条 wc -l 现量相符);其余 259 份属早期自报读数、无清单 ⇒ M12 计为不可复核,头条分开报两个数。"

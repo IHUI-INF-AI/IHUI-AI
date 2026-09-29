@@ -763,6 +763,21 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         icon: History,
         dynamicLabel: 'Exam Record',
       },
+      // 教育教务三页挂在**分组 items** 上(而不是只挂扁平 ADMIN_NAV —— 那份只被
+      // path-labels.ts 用于"路径→标题"映射)。
+      // 补充(第九批曾据探针写"仍未生效",那是**无效证据**,别再照它排查):我找的
+      // `button[aria-controls="admin-nav-group-courseExam"]` 属于本组件自身,而本组件
+      // 没有任何布局挂载 —— 那个按钮注定不存在,不能用来证明侧栏没有这些项。
+      // 有效事实是:`nav-data.ts` 把 ADMIN_NAV_GROUPS 经 adminGroupToNavItem 转成三级子菜单,
+      // 所以数据已在渲染链上。可见性请按用户真实路径确认:侧栏 → 管理域(adminOnly) → 课程考试。
+      {
+        href: '/admin/edu/class/schedule',
+        labelKey: 'dashboard',
+        icon: GraduationCap,
+        dynamicLabel: 'Class Schedule',
+      },
+      { href: '/admin/edu/student', labelKey: 'dashboard', icon: Users, dynamicLabel: 'Edu Student' },
+      { href: '/admin/edu/finance', labelKey: 'dashboard', icon: Wallet, dynamicLabel: 'Edu Finance' },
     ],
   },
   // 监控 BI
