@@ -154,6 +154,31 @@ const VIDEO_TOOL_NAMES = new Set(['video_generation'])
 /** summarize_artifacts 工具名命中即渲染聚合视图 */
 const SUMMARY_TOOL_NAMES = new Set(['summarize_artifacts'])
 
+/**
+ * D134(2026-09-29)命令族名单 —— 工具名判定依据(HEAD 面取证):
+ *  - run_command:注册面真实工具(apps/ai-service mcp_server MCPTool,input_schema required ["command"]);
+ *  - execute_command:llm.py 别名归一(execute_command → run_command)的历史名,旧流/日志仍可见;
+ *  - run_shell / shell_command:llm.py `_TERMINAL_TOOL_NAMES` 引擎侧终端等价名。
+ * 摘要只认 args.command 字符串(注册面唯一命令形参),取不到则回退 JSON 展示。
+ */
+const COMMAND_TOOL_NAMES: ReadonlySet<string> = new Set([
+  'run_command',
+  'execute_command',
+  'run_shell',
+  'shell_command',
+])
+
+/**
+ * D134(2026-09-29)删除族名单 —— 工具名判定依据(HEAD 面取证):
+ *  - delete_file:ai-service llm.py 高危档 + `_DELEGATE_ONLY_TOOLS` 名单;shared 层
+ *    FILE_WRITE_TOOLS 同收该名;args 形状 {path, recursive}(guardian_review / deliverables 用例一致);
+ *  - rm/mv 等删除动作在 run_command 白名单中禁行,git_operations 属 git 族,均不入删除族。
+ */
+const DELETE_TOOL_NAMES: ReadonlySet<string> = new Set(['delete_file'])
+
+/** 删除族目标路径取材键(多键名兼容,与 shared pickFilePath 同思路) */
+const DELETE_PATH_KEYS = ['path', 'file_path', 'filePath', 'target'] as const
+
 /** 引用溯源标签展示上限(防止 hits 过多时刷屏) */
 const MAX_CITATIONS = 8
 
@@ -485,6 +510,41 @@ function pickStr(args: Record<string, unknown> | undefined, keys: string[]): str
     if (typeof v === 'string') return v
   }
   return ''
+}
+
+/** D134 两族结构化摘要视图模型:kind 区分命令族 / 删除族 */
+export type ToolEffectSummary =
+  | { kind: 'command'; command: string }
+  | { kind: 'delete'; paths: string[]; recursive: boolean }
+
+/**
+ * D134(2026-09-29):按副作用分类的结构化摘要 —— 命令族取将执行的命令文本,
+ * 删除族取目标路径;两族之外(或取材键取不到值)返回 null,调用方照旧走 JSON 裸 dump。
+ * 纯函数,导出供测试对拍。
+ */
+export function extractEffectSummary(
+  toolName: string,
+  args: Record<string, unknown> | undefined,
+): ToolEffectSummary | null {
+  if (!args) return null
+  if (COMMAND_TOOL_NAMES.has(toolName)) {
+    const command = pickStr(args, ['command'])
+    return command.trim() ? { kind: 'command', command } : null
+  }
+  if (DELETE_TOOL_NAMES.has(toolName)) {
+    const paths: string[] = []
+    const seen = new Set<string>()
+    for (const key of DELETE_PATH_KEYS) {
+      const value = args[key]
+      if (typeof value === 'string' && value.trim() && !seen.has(value.trim())) {
+        seen.add(value.trim())
+        paths.push(value.trim())
+      }
+    }
+    if (paths.length === 0) return null
+    return { kind: 'delete', paths, recursive: args.recursive === true }
+  }
+  return null
 }
 
 /** 从 tool args 推导 InlineDiffInfo(edit_file/write_file 专用)
@@ -933,6 +993,39 @@ function SummaryResultBlock({ data }: { data: NonNullable<ToolCallCardProps['sum
   )
 }
 
+/** D134 命令族结构化摘要:将执行的命令文本以等宽块突出(此前混在 JSON 裸 dump 里不可快读) */
+function CommandSummaryBlock({ command }: { command: string }) {
+  const t = useTranslations('ai.toolCall')
+  return (
+    <div data-testid="tool-call-command-summary">
+      <StreamLabel>{t('commandSummaryLabel')}</StreamLabel>
+      <StreamCode text={command} testId="tool-call-command-text" className="text-foreground/90" />
+    </div>
+  )
+}
+
+/** D134 删除族结构化摘要:删除目标路径逐条等宽列出;递归删除补红色警示徽章 */
+function DeleteSummaryBlock({ paths, recursive }: { paths: string[]; recursive: boolean }) {
+  const t = useTranslations('ai.toolCall')
+  return (
+    <div data-testid="tool-call-delete-summary">
+      <StreamLabel>{t('deleteSummaryLabel')}</StreamLabel>
+      <ul className="space-y-0.5">
+        {paths.map((p) => (
+          <li
+            key={p}
+            data-testid="tool-call-delete-path"
+            className="truncate rounded-sm bg-background/60 px-1.5 py-0.5 font-mono text-xs leading-relaxed text-foreground/80"
+          >
+            {p}
+          </li>
+        ))}
+      </ul>
+      {recursive && <StreamTag tone="danger">{t('deleteRecursiveTag')}</StreamTag>}
+    </div>
+  )
+}
+
 export const ToolCallCard = React.memo(function ToolCallCard({
   toolName,
   args,
@@ -1102,6 +1195,12 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   // 图表 Artifact 命中时替代原始 result pre 渲染(与 image/summary 处理方式一致)
   const showChartArtifact = !!chartArtifact && status === 'success'
 
+  // D134(2026-09-29):命令族/删除族按副作用分类的结构化摘要;其余工具为 null 走原 JSON 路径
+  const effectSummary = React.useMemo(
+    () => extractEffectSummary(toolName, args),
+    [toolName, args],
+  )
+
   const handleOpenInWorkPanel = React.useCallback(() => {
     if (!extractedUrl) return
     useWorkPanelStore.getState().openPanel({ url: extractedUrl, source: 'ai-tool' })
@@ -1237,6 +1336,14 @@ export const ToolCallCard = React.memo(function ToolCallCard({
             !showSummary &&
             !showPendingTask && (
               <>
+                {/* D134(2026-09-29):两族结构化摘要置顶 —— 命令族突出将执行的命令文本,
+                    删除族突出目标路径;JSON 裸 dump 保留在其下方作为展开详情,其余工具不渲染 */}
+                {effectSummary?.kind === 'command' && (
+                  <CommandSummaryBlock command={effectSummary.command} />
+                )}
+                {effectSummary?.kind === 'delete' && (
+                  <DeleteSummaryBlock paths={effectSummary.paths} recursive={effectSummary.recursive} />
+                )}
                 {/* 引用溯源:knowledge_lookup 等返回 citations 时渲染标签组 */}
                 {citations.length > 0 && <CitationsBlock citations={citations} />}
                 {/* 图表 Artifact:generate_chart 等返回本地 .html 时渲染产物卡片 */}
