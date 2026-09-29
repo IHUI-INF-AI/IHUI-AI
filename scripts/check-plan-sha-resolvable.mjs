@@ -27,8 +27,10 @@
  * 口径（照抄本仓既有门）：全量判 **HEAD blob**、`--staged` 判**索引 blob**、`--worktree` 仅人工逃生舱、
  * 两面旗同给 exit 2、取不到判"无法判定"**不记绿**、枚举到 0 条判死。正文一律走
  * `scripts/lib/face-reader.mjs` 的 `catBatch` / `readWorktreeFile`（守门 118 把"import 了层却自己
- * git show / 读磁盘"判成半接线红）。对象存在性探测走同层 `gitRaw` transport —— 它**不产生 blob 正文**，
- * 属"枚举"不属"读内容"，与 118 那条精度修正（`cat-file -e` / `ls-tree` 不得算读内容）同形。
+ * git show / 读磁盘"判成半接线红）。对象存在性探测走同层 `catBatchStates` / `catBatchEcho` 出口 —— 它**不产生 blob 正文**，
+ * 属"枚举"不属"读内容"，与 118 那条精度修正（`cat-file -e` / `ls-tree` 不得算读内容）同形；
+ * 但派生与三态头解析同样只许有层那一份 —— face-reader 镜像的型 C 棘轮基线为 0，本门入库时把它顶成过
+ * 1，收口方式是把解析搬进层，而不是抬高基线。
  *
  * 定级 **warn**（默认档恒 exit 0，除脚本异常 / 判死）：台账存量腐烂与"本次改了什么"无关，
  * 当场判红就是一台恒红门，唯一结局是逼人 `--no-verify` 连带废掉全部守门（§12e 同型）。
@@ -43,7 +45,16 @@
 
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { catBatch, gitRaw, readWorktreeFile, selectFace, Undetermined, FACE_LABEL } from './lib/face-reader.mjs'
+import {
+  catBatch,
+  catBatchEcho,
+  catBatchStates,
+  parseBatchCheckStates,
+  readWorktreeFile,
+  selectFace,
+  Undetermined,
+  FACE_LABEL,
+} from './lib/face-reader.mjs'
 
 const SELF = 'check-plan-sha-resolvable.mjs'
 const DEFAULT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -164,36 +175,16 @@ export function extractCandidates(text) {
 }
 
 /**
- * 解析 `git cat-file --batch-check` 的 stdout：**按输入顺序逐行回填**。
- * 行数不等 ⇒ 抛 Undetermined（输出被截断 ≠ 对象不存在；把"没看完"写成"都没有"是一道假绿）。
+ * 三态头解析住在取材层（`lib/face-reader.mjs` 的 `parseBatchCheckStates`），这里只留本门读它时用的名字。
+ *
+ * 为什么不是本门自己写：`--batch-check` 的头解析在本仓已有三份，第四份必然漂开；而"借层的 transport
+ * 却自己重写解析"正是守门 118 定性的半接线（管子共用不等于面共用）。face-reader 镜像的型 C 棘轮
+ * 基线为 0，这条门入库时把它顶成了 1 —— 修法是把解析收进层，不是把基线抬高。
+ * 历史留一句：前缀判序曾写反（把"回显以输入开头"当成失败回显），全仓短 sha 因此静默落未判定，
+ * 账面读起来像"探测不可靠"；那段判据现在住在层里，由两边的构造用例各自钉住。
  * @returns {Map<string,'resolvable'|'unresolvable'|'undetermined'>}
  */
-export function parseProbeOutput(stdout, tokens) {
-  const map = new Map()
-  const lines = String(stdout).split(/\r?\n/).filter((l) => l !== '')
-  if (lines.length !== tokens.length) {
-    throw new Undetermined(
-      `cat-file --batch-check 输出 ${lines.length} 行 ≠ 输入 ${tokens.length} 条 ⇒ 无法判定(不是"都不存在")`,
-    )
-  }
-  for (let i = 0; i < tokens.length; i++) {
-    const tok = tokens[i]
-    const line = lines[i]
-    if (/(?:^|\s)ambiguous(?:\s|$)/.test(line)) {
-      map.set(tok, 'undetermined') // git 明说认不出指哪个对象：既非通过也非腐烂
-    } else if (/(?:^|\s)missing(?:\s|$)/.test(line)) {
-      // 必须**同时**回显输入原样才算"这条规格不存在"；否则是行序错位
-      map.set(tok, line.startsWith(tok) ? 'unresolvable' : 'undetermined')
-    } else {
-      // 解析成功时 git 回显**全量 oid**，它以输入为前缀（缩写被展开）。
-      // 前缀对不上 ⇒ 行序错位 ⇒ 不猜。此处曾是判据自己的假阴：把"回显以输入开头"当成
-      // "失败回显"时，全仓所有短 sha 都落未判定，而账面读起来像"探测不可靠"。
-      const m = /^([0-9a-f]{40})[ \t]/.exec(line)
-      map.set(tok, m && m[1].startsWith(tok) ? 'resolvable' : 'undetermined')
-    }
-  }
-  return map
-}
+export const parseProbeOutput = parseBatchCheckStates
 
 /**
  * 汇总三态。**腐烂与未判定永不合并计数** —— 本仓最高频的失效型就是"把没判写成判过了"。
@@ -291,29 +282,18 @@ export function loadPlan(root, face) {
   return { text, note: labelOf(face) }
 }
 
-/** 存在性探测：一次 batch-check 问完一批 token（只问"在不在"，不取正文，属枚举）。 */
+/**
+ * 存在性探测：一次 batch-check 问完一批 token（只问"在不在"，不取正文，属枚举）。
+ * 派生与三态解析都在层里（`catBatchStates`），本门只定自己的分块与超时 —— 这两个数是本门的运维参数，
+ * 不是判据：分块小了只是多问几次，超时短了只是早喊"取不到"。
+ */
 export function probeTokens(root, tokens) {
-  const list = [...new Set(tokens)]
-  const status = new Map()
-  for (let i = 0; i < list.length; i += PROBE_CHUNK) {
-    const chunk = list.slice(i, i + PROBE_CHUNK)
-    const out = gitRaw(['cat-file', '--batch-check'], root, {
-      input: chunk.join('\n') + '\n',
-      timeout: 60_000,
-    })
-    for (const [k, v] of parseProbeOutput(out, chunk)) status.set(k, v)
-  }
-  return status
+  return catBatchStates(root, tokens, { chunkSize: PROBE_CHUNK, timeout: 60_000 })
 }
 
 /** 单枚复测，只为在报告里给出 git 的**原话**（不改变判据结论）。 */
 function probeEcho(token, root) {
-  try {
-    const out = gitRaw(['cat-file', '--batch-check'], root, { input: token + '\n', timeout: 20_000 })
-    return String(out).split(/\r?\n/)[0] || '(空)'
-  } catch (e) {
-    return `(探测失败:${e?.message ?? e})`
-  }
+  return catBatchEcho(root, token)
 }
 
 function printReport(res, root, face, topN) {

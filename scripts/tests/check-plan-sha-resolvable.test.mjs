@@ -19,7 +19,7 @@ import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { __test__ as R } from '../check-plan-sha-resolvable.mjs'
-import { gitBinary } from '../lib/face-reader.mjs'
+import { gitBinary, parseBatchCheckStates, Undetermined } from '../lib/face-reader.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const SCRIPT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'check-plan-sha-resolvable.mjs')
@@ -245,4 +245,33 @@ test('T10 决定表：同一份三态读数在 warn / strict 下必须给出不�
   assert.equal(d(false), 0, 'warn 档：未判定不拦')
   assert.equal(d(true), 2, 'strict 档：有未判定就拒绝出合格证')
 })
+
+/**
+ * 三态头解析已收进取材层（本仓 `--batch-check` 的第四份实现就是型 C 棘轮在 HEAD 面点名的那一枚）。
+ * 这一条同时是**反向锁**：门里若再写回一份自己的解析，`parseProbeOutput` 就不再是层那个函数对象。
+ */
+test('T11 三态解析住在层里：门内的名字必须就是同一份实现，且三态各有构造用例', () => {
+  assert.equal(R.parseProbeOutput, parseBatchCheckStates, '门里留第二份解析 = 层与门各自漂移的起点')
+  const NL = '\n'
+  const FULL = 'b'.repeat(40)
+  // 三态各一条正例
+  assert.equal(parseBatchCheckStates(`${FULL} commit 1${NL}`, [FULL]).get(FULL), 'resolvable')
+  assert.equal(parseBatchCheckStates(`nope123 missing${NL}`, ['nope123']).get('nope123'), 'unresolvable')
+  assert.equal(
+    parseBatchCheckStates(`033c8a1 ambiguous 2 items${NL}`, ['033c8a1']).get('033c8a1'),
+    'undetermined',
+    'git 明说分不清指哪个对象，既不是通过也不是腐烂',
+  )
+  // 判序那一型的反向锁：回显的 40 hex 不以输入为前缀 ⇒ 行序错位，必须落未判定
+  // （曾把这句写反，全仓短 sha 静默落未判定而账面像"探测不可靠"）
+  const SHORT = 'a'.repeat(11)
+  assert.equal(parseBatchCheckStates(`${FULL} commit 1${NL}`, [SHORT]).get(SHORT), 'undetermined')
+  // 输出被截断 ≠ 对象不存在：行数对不上必须抛，不得把剩下的当成"都没有"
+  assert.throws(
+    () => parseBatchCheckStates('', ['x', 'y']),
+    (e) => e instanceof Undetermined && /无法判定/.test(e.message),
+    '截断未大声失败 = 一道假绿',
+  )
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
