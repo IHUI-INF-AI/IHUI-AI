@@ -16,9 +16,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, URL } from 'node:url'
 
-import { canSilentlyReLogin, SESSION_LOGGED_OUT_STORAGE_KEY } from '@ihui/shared/auth/auto-login-policy'
+import {
+  canSilentlyReLogin,
+  SESSION_LOGGED_OUT_STORAGE_KEY,
+} from '@ihui/shared/auth/auto-login-policy'
 
 const { taroStorage, miniAppLoginMock, wechatLoginMock, isMiniAppEnvironmentMock } = vi.hoisted(
   () => ({
@@ -52,7 +55,9 @@ vi.mock('@/utils/wechat-login', () => ({ wechatLogin: wechatLoginMock }))
 vi.mock('@/api', () => ({ getProfile: vi.fn(async () => null) }))
 // utils/auth.ts 的 refreshAccessToken 走 @ihui/api-client 的 fetchApi;本用例只数"有没有被叫到",
 // 所以替身固定回一个失败结果 —— 判据生效时它根本不会被调用(见 ① 那一条)。
-const { fetchApiMock } = vi.hoisted(() => ({ fetchApiMock: vi.fn(async () => ({ success: false })) }))
+const { fetchApiMock } = vi.hoisted(() => ({
+  fetchApiMock: vi.fn(async () => ({ success: false })),
+}))
 vi.mock('@ihui/api-client', () => ({ fetchApi: fetchApiMock }))
 
 import {
@@ -84,7 +89,10 @@ describe('① 主动登出 ⇒ 冷启动静默登录被拦', () => {
     expect(taroStorage[SESSION_LOGGED_OUT_STORAGE_KEY]).toBeDefined()
     expect(isSessionLoggedOut()).toBe(true)
     expect(
-      canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut, gates: [isMiniAppEnvironmentMock] }),
+      canSilentlyReLogin({
+        sessionLoggedOut: isSessionLoggedOut,
+        gates: [isMiniAppEnvironmentMock],
+      }),
     ).toBe(false)
   })
 
@@ -117,7 +125,10 @@ describe('② 正当路径不被误伤', () => {
   it('没有标记(新用户首启)⇒ 允许静默登录,平台登录真被调用', async () => {
     expect(isSessionLoggedOut()).toBe(false)
     expect(
-      canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut, gates: [isMiniAppEnvironmentMock] }),
+      canSilentlyReLogin({
+        sessionLoggedOut: isSessionLoggedOut,
+        gates: [isMiniAppEnvironmentMock],
+      }),
     ).toBe(true)
 
     const result = await useUserStore.getState().trySilentMiniAppLogin()
@@ -146,7 +157,10 @@ describe('③ 缺任一准入条件 ⇒ 不登回', () => {
 
     expect(isSessionLoggedOut()).toBe(false)
     expect(
-      canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut, gates: [isMiniAppEnvironmentMock] }),
+      canSilentlyReLogin({
+        sessionLoggedOut: isSessionLoggedOut,
+        gates: [isMiniAppEnvironmentMock],
+      }),
     ).toBe(false)
   })
 
