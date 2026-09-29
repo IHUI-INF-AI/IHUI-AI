@@ -13,7 +13,10 @@
  *   L1 verbatim   竞品原文与我方 value 逐字等值（去空白后）
  *   L2 near       字符二元组 Jaccard ≥ 0.5（中文按字切，前缀/分词在中文里会漏——本仓 merge-live-doc 同一条教训）
  *   L3 keyonly    原文不同形、但有同能力证据 ⇒ 只能算"需人工核"，不算命中也不算缺失。两条来源：
- *                 ① 键末段同名 ∧ 该键的值与竞品原文互为词头（`composer…edit`="编辑此消息" vs 我方 `…edit`="编辑"）；
+ *                 ① 键末段同名 ∧ 该键的值与竞品原文互为词头（`composer…edit`="编辑此消息" vs 我方 `…edit`="编辑"）
+ *                    **∧ 宾语落点（G-802）**：末段是通用动作词（open/close/copy/delete/send/select/expand）时，
+ *                    还须我方语料里有"同一宾语的该动作"或"该宾语是我方被管理对象"，否则不算同能力证据 ——
+ *                    通用动词单独出现的词头巧合曾把 7 条真缺失静默洗出 MISS（账面变好而信号变少）；
  *                 ② 子串同形（一方文案整段出现在另一方里）。
  *                 ⚠️ 刻意**不**收"只末段同名"这一条 —— 实测它会一次放过 103/459 条真缺失。
  *   MISS          三面都没抓到 ⇒ 候选缺失，仍须人工判"是真没有"还是"我方另起一名"
@@ -134,6 +137,13 @@ const srcZh = new Set()
   }
 }
 
+// 被审语料的全部归一化文案（语言包叶子 + 源码中文字面量）——"宾语落点"只在这上面判，
+// 与 L1/L2 用的是同一份面（HEAD），不得另按磁盘取一份（本仓"两处算同一件事必漂移"同族）。
+let landingPool = null
+function corpusStrings() {
+  if (!landingPool) landingPool = [...new Set([...ourPairs.map((p) => p[0]), ...srcZh])]
+  return landingPool
+}
 function bigrams(s) {
   const a = []
   for (let i = 0; i < s.length - 1; i++) a.push(s.slice(i, i + 2))
@@ -188,15 +198,87 @@ export function isPureEnumOrStyle(raw) {
  * ① 证据必须落在**同一个键**上（实测"末段同名而不看值"放过 103/459 条，本票禁止这种放宽）；
  * ② 词头长度上界 6 字，更长的形态本就该由 L1/L2 收，不该在这一档混过去。
  */
-export function ourStemForSegment(keyName, t) {
+/**
+ * G-802 的**宾语落点约束**（只收紧、不放宽）：末段是通用动作词时，"同能力证据"必须另有宾语落点。
+ *
+ * 立因：`ourStemForSegment` 原先只验「末段同名 ∧ 该键的值与原文互为词头」，而 `open/close/copy/delete/
+ * send/select/expand` 这族动词在**任何**域都会撞名 —— 实测 7 条"我方根本没有这个宾语能力"的键
+ * （速记板/任务回顾/发送预览/示例能力）就这样被词头巧合从 MISS 里摘走，账面读数变小而真信号变少。
+ *
+ * 两臂判据（任一成立才算宾语落了地）：
+ *  ① 动宾同现 —— 我方有某条文案同时含该动词与该宾语（`关闭` + `标签页` ⇒「关闭标签页」在册）；
+ *  ② 宾语是我方在册的**被管理对象** —— 该宾语与任一"建/销"类动作同串出现（`动态`⇒「删除动态」），
+ *     说明这个宾语在我方是要被增删的对象，而不是碰巧出现在别的动作里的词素。
+ * ②刻意**不**收"与任一动词同串"：`预览` 在语料里与 打开/关闭/复制/选择/编辑 全同现（它是别处的
+ * 受事），收了就等于把 `发送预览` 又洗回 L3 —— 只有"建/销"这一类才证明宾语是一门在册对象。
+ * 剥噪（指示词/数量词前缀、通用尾名词）只用于把 `此消息→消息`、`动态操作→动态` 这类同一宾语救回来，
+ * 不引入新宾语；剥完为空 ⇒ 原文除了动作词没别的内容 ⇒ 算落地（这条不是豁免，是"无宾语可判"）。
+ *
+ * `pool` 是注入参数而不是内部读语料：自检必须能用**构造面**判这条判据（不拿仓库瞬时状态当恒定前提）。
+ */
+const GENERIC_ACTION_SEGS = new Set(['open', 'close', 'copy', 'delete', 'send', 'select', 'expand'])
+const MANAGED_ACTION_WORDS = ['删除', '新增', '添加', '新建', '创建']
+const RESIDUE_NOISE_PREFIX = /^(此|该|这|那|本|一条|一个|一项|当前|所选)/
+const RESIDUE_NOISE_SUFFIX = /(文档|文件|操作|内容|列表|条目|页面)$/
+/** 从竞品原文里剥出宾语：去掉动词词头、占位符，再给"指示词/通用尾名词"各一个剥噪臂。 */
+export function residueForms(text, verbValue) {
+  const raw = String(text || '').split(String(verbValue || '')).join('').replace(/\{\{?[^}]*\}?\}?/g, '')
+  const forms = []
+  for (const x of [raw, raw.replace(RESIDUE_NOISE_PREFIX, ''), raw.replace(RESIDUE_NOISE_SUFFIX, '')]) {
+    if (x.length >= 2 && !forms.includes(x)) forms.push(x)
+  }
+  return { raw, forms }
+}
+const fpCache = new Map() // `${宾语}\u0000${动词}` -> 结论：同一份宾语被上千行复用，不缓存会把这趟跑成分钟级
+export function objectFootprintOk(text, verbValue, pool) {
+  const v = String(verbValue || '')
+  const { raw, forms } = residueForms(text, v)
+  if (!raw) return { ok: true, why: '无宾语(整条文案就是动作词本身)' }
+  if (!forms.length) return { ok: true, why: `宾语剥噪后不足两字(${raw})` }
+  for (const r of forms) {
+    const ck = `${r}\u0000${v}`
+    let hit = fpCache.get(ck)
+    if (!hit) {
+      const same = pool.find((s) => s.includes(v) && s.includes(r))
+      const managed = same ? null : pool.find((s) => s.includes(r) && MANAGED_ACTION_WORDS.some((w) => s.includes(w)))
+      hit = same ? { ok: true, why: `动宾同现「${r}」⇒${same.slice(0, 24)}` }
+        : managed ? { ok: true, why: `宾语系我方被管理对象「${r}」⇒${managed.slice(0, 24)}` }
+          : { ok: false, why: `宾语零落点(${forms.join('/')})` }
+      fpCache.set(ck, hit)
+    }
+    if (hit.ok) return hit
+  }
+  return { ok: false, why: `宾语零落点(${forms.join('/')})` }
+}
+/**
+ * 旧口径（只验末段同名 + 词头同形，**不看宾语**）——只给自检当"这条今天确实会被摘掉"的有牙证明用，
+ * 判定链一律不调它。把它接回 `matchOne` 就是 G-802 复现。
+ */
+export function stemIgnoringFootprint(keyName, t) {
+  if (!t) return null
+  const seg = String(keyName || '').split('.').pop().toLowerCase()
+  const list = ourSegs.get(seg)
+  if (!list) return null
+  for (const [k, v] of list) {
+    if (v === t || v.length > 6) continue
+    if (t.startsWith(v) || v.startsWith(t)) return [k, v]
+  }
+  return null
+}
+export function ourStemForSegment(keyName, t, pool = corpusStrings()) {
   if (!t) return null
   const seg = String(keyName || '').split('.').pop()
   if (!seg) return null
   const list = ourSegs.get(seg.toLowerCase())
   if (!list) return null
+  const generic = GENERIC_ACTION_SEGS.has(seg.toLowerCase())
   for (const [k, v] of list) {
     if (v === t || v.length > 6) continue
-    if (t.startsWith(v) || v.startsWith(t)) return [k, v]
+    if (t.startsWith(v) || v.startsWith(t)) {
+      // G-802：通用动词那一跳必须另有宾语落点；非通用末段（edit/hide/pin…）本身已带语义，口径不变。
+      if (generic && t.startsWith(v) && !objectFootprintOk(t, v, pool).ok) continue
+      return [k, v]
+    }
   }
   return null
 }
@@ -232,7 +314,12 @@ function matchOne(text, keyName) {
   }
   if (best) return { state: 'L2', where: `${best.ok} (J=${best.j.toFixed(2)})` }
   const stem = ourStemForSegment(keyName, t)
-  if (stem) return { state: 'L3', where: `键末段同名+词头同形:我方 ${stem[0]}=「${stem[1]}」` }
+  if (stem) {
+    // 命中理由要能复核：通用动词那一跳到底是靠哪条宾语落点算"同能力"的，直接印在导出件里。
+    const sSeg = String(keyName || '').split('.').pop().toLowerCase()
+    const fp = GENERIC_ACTION_SEGS.has(sSeg) && t.startsWith(stem[1]) ? objectFootprintOk(t, stem[1], corpusStrings()) : null
+    return { state: 'L3', where: `键末段同名+词头同形:我方 ${stem[0]}=「${stem[1]}」${fp ? ` · ${fp.why}` : ''}` }
+  }
   // L2b 实词包含：竞品串常带占位符/限定语而更长，逐字与 Jaccard 都会漏。
   // 只判成「需人工核」而不是命中 —— 形似不等于等同，把子串当命中会造出假"我方已有"。
   if (t.length >= 4) {
@@ -513,6 +600,47 @@ function runSelfTest() {
         && ok.warn === false && !/不得引用/.test(ok.text)
         && empty.warn === null && !/可用于归因/.test(empty.text),
       `有未判定⇒${warn.warn} / 齐备⇒${ok.warn} / 空件⇒${empty.warn}(文案:${empty.text})`)
+  }
+
+  // ST8 宾语落点约束（G-802 验收③：构造面反向对照 —— 修改前这一条必须红，因为今天它会被摘掉）。
+  // 夹具 pool 里**有**通用动词「打开」、**没有**「速记板」这个宾语：旧口径靠"末段同名+词头"就能把
+  // `打开速记板` 救进 L3，而它事实是我方零覆盖的能力 ⇒ 新口径必须让它留在 MISS。
+  // 三条臂各钉一处会漂的写法，"会红的条件"逐条写明：
+  //  ① 摘掉 `ourStemForSegment` 里那句宾语落点约束 ⇒ `e2e` 从 MISS 变回 L3 ⇒ 红（这条就是两臂差）；
+  //  ② 把"被管理对象"臂放宽成"与任一动词同串" ⇒ `发送预览` 那臂（pool 里有「关闭预览」这种
+  //     **他域受事**）会被放回 L3 ⇒ 红 —— 只有建/销类动作才证明宾语是我方在册对象，视图类动词不算；
+  //  ③ 构造面的正臂（`打开文件`：pool 里动宾同串）必须算落地 —— 只判负臂不判正臂，删掉约束也照样绿，
+  //     那就不是判据而是断言；
+  //  ④ 语料前提漂了（我方 `*.open` 不再=「打开」，或"速记"忽然有了落点）⇒ 判红并点名前提，
+  //     绝不静默变绿（与 ST6 的第④臂同一条规矩）。
+  {
+    const pool = ['打开文件', '关闭文件', '删除评论', '新建分组', '关闭预览']
+    const neg = objectFootprintOk('打开速记板', '打开', pool)
+    const pos = objectFootprintOk('打开文件', '打开', pool)
+    const otherDomainObj = objectFootprintOk('发送预览', '发送', pool)
+    const oldFires = Boolean(stemIgnoringFootprint('chatSession.quickNotes.open', normText('打开速记板')))
+    const premiseOpen = (ourSegs.get('open') || []).filter(([, v]) => v === '打开').length
+    const premiseNoObj = !corpusStrings().some((s) => s.includes('速记'))
+    const e2e = matchOne('打开速记板', 'chatSession.quickNotes.open')
+    t('ST8 末段通用动词 + 宾语零落点 ⇒ 不算同能力证据；动宾同现的正臂仍算（构造面 + 真语料端到端）',
+      !neg.ok && pos.ok && !otherDomainObj.ok && oldFires && premiseOpen > 0 && premiseNoObj && e2e.state === 'MISS',
+      `构造面：速记板⇒${neg.ok ? '误判落地' : '零落点✓'} / 打开文件⇒${pos.ok ? '落地✓' : '误判零落点'} / 发送预览(他域受事)⇒${otherDomainObj.ok ? '误判落地' : '零落点✓'} ｜ 旧口径确实会摘走=${oldFires} ｜ 前提 *.open=「打开」${premiseOpen} 条、真语料含「速记」=${!premiseNoObj} ⇒ 端到端 ${e2e.state}`)
+  }
+
+  // ST9 同一宾语的同名动作我方确有 ⇒ 不得被误留成差距（G-802 验收④：收紧不得把假阳放回来）。
+  // 构造面：pool 里有「关闭标签页」⇒ `关闭标签页` 必须算落地；真语料端到端：清单里那一行
+  // `关闭 {{label}} 标签页`（占位符要能剥掉）必须仍判 L3 而不是 MISS。
+  // 会红的条件：① 宾语臂写反（把"落地"当"不落"）⇒ 两臂同时红；② 占位符剥离漂了 ⇒
+  //    `关闭 {{label}} 标签页` 的宾语读成 `{{label}}标签页`，动宾同现查不到 ⇒ 端到端退成 MISS ⇒ 红；
+  // ③ 真语料里「关闭标签页」这条文案被删 ⇒ 前提不成立 ⇒ 红并点名（不是静默换结论）。
+  {
+    const pool = ['关闭标签页', '新建分组']
+    const pos = objectFootprintOk('关闭标签页', '关闭', pool)
+    const premiseTab = corpusStrings().some((s) => s === '关闭标签页')
+    const e2e = matchOne('关闭 {{label}} 标签页', 'chatSession.workspaceTabs.close')
+    t('ST9 同一宾语的同名动作我方确有 ⇒ 仍判 L3(不算差距)；剥占位符后宾语须读成「标签页」',
+      pos.ok && premiseTab && e2e.state === 'L3',
+      `构造面⇒${pos.ok ? '落地✓' : '误判零落点'} ｜ 前提 语料含「关闭标签页」=${premiseTab} ⇒ 端到端 ${e2e.state}/${e2e.where || e2e.why || '-'}`)
   }
 
   for (const [name, ok, got] of out) console.log(`${ok ? '✅' : '❌'} ${name}${ok ? '' : ' —— 实得: ' + got}`)

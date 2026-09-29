@@ -92,7 +92,7 @@
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.typeLabel` | 工作面与文件标签页 | MISS |  |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.instancesLabel` | 当前类型标签页 | MISS |  |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.add` | 添加标签页 | L3 | 键末段同名+词头同形:我方 admin.eduClassMembers.add=「添加」 |
-| 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.close` | 关闭 {{label}} 标签页 | L3 | 键末段同名+词头同形:我方 a11y.close=「关闭」 |
+| 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.close` | 关闭 {{label}} 标签页 | L3 | 键末段同名+词头同形:我方 a11y.close=「关闭」 · 动宾同现「标签页」⇒关闭标签页 |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.closeMenu.close` | 关闭标签页 | L1 | workPanel.closeTab |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.closeMenu.closeOthers` | 关闭其他标签页 | L2 | ide.editorTabBar.closeOthers (J=0.50) |
 | 14 会话管理·分享·导 | chatSession.* | `chatSession.workspaceTabs.closeMenu.closeRight` | 关闭右侧标签页 | MISS |  |
@@ -205,7 +205,7 @@
 | 14 会话管理·分享·导 | feedback.* | `feedback.emailLabel` | 联系邮箱（可选） | L2 | about.contactEmail (J=0.60) |
 | 14 会话管理·分享·导 | feedback.* | `feedback.emailPlaceholder` | 便于我们联系你进一步了解问题 | MISS |  |
 | 14 会话管理·分享·导 | feedback.* | `feedback.emailInvalid` | 请输入有效的邮箱地址。 | L2 | admin.ipReputation.invalidIp (J=0.50) |
-| 14 会话管理·分享·导 | feedback.* | `feedback.send` | 发送反馈 | L3 | 键末段同名+词头同形:我方 a11y.send=「发送」 |
+| 14 会话管理·分享·导 | feedback.* | `feedback.send` | 发送反馈 | L3 | 键末段同名+词头同形:我方 a11y.send=「发送」 · 宾语系我方被管理对象「反馈」⇒新增反馈 |
 | 14 会话管理·分享·导 | feedback.* | `feedback.sending` | 正在发送反馈… | MISS |  |
 | 14 会话管理·分享·导 | feedback.* | `feedback.sent` | 反馈已发送，编号：{{requestId}} | L3 | 子串同形:admin.notificationLogs.sent |
 | 14 会话管理·分享·导 | feedback.* | `feedback.sentAndCopied` | 反馈已发送，编号：{{requestId}}，已自动复制到剪切板。 | L3 | 子串同形:admin.notificationLogs.sent |
@@ -432,7 +432,7 @@
 | 14 会话管理·分享·导 | sidebarView.* | `sidebarView.group.older` | 更早 | MISS |  |
 | 14 会话管理·分享·导 | sidebarView.* | `sidebarView.group.all` | 全部任务 | L1 | agent.kanban.allTeams |
 | 14 会话管理·分享·导 | updates.* | `updates.title` | 动态 | L1 | bookmark.type.post |
-| 14 会话管理·分享·导 | updates.* | `updates.open` | 打开动态 | L3 | 键末段同名+词头同形:我方 ide.fileTreeNode.open=「打开」 |
+| 14 会话管理·分享·导 | updates.* | `updates.open` | 打开动态 | L3 | 键末段同名+词头同形:我方 ide.fileTreeNode.open=「打开」 · 宾语系我方被管理对象「动态」⇒确定要删除该动态吗此操作不可撤销 |
 | 14 会话管理·分享·导 | updates.* | `updates.important` | 需要了解 | MISS |  |
 | 14 会话管理·分享·导 | updates.* | `updates.recent` | 最近更新 | L1 | settings.modelRecordUpdatedAt |
 | 14 会话管理·分享·导 | updates.* | `updates.viewAll` | 查看全部动态 | L2 | aiNews.live.viewMore (J=0.60) |
@@ -456,7 +456,7 @@
 | 14 会话管理·分享·导 | updates.* | `updates.emptyArchivedDescription` | 你隐藏的动态会保留在这里，随时可以恢复。 | MISS |  |
 | 14 会话管理·分享·导 | updates.* | `updates.unavailable` | 无法读取动态 | MISS |  |
 | 14 会话管理·分享·导 | updates.* | `updates.unavailableDescription` | 本地协作数据暂时不可用，请稍后重试。 | L3 | 子串同形:ai.pane.errorCatalog.API_BRIDGE_ERROR.action |
-| 14 会话管理·分享·导 | updates.* | `updates.select` | 选择一条动态 | L3 | 键末段同名+词头同形:我方 chatHistory.select=「选择」 |
+| 14 会话管理·分享·导 | updates.* | `updates.select` | 选择一条动态 | L3 | 键末段同名+词头同形:我方 chatHistory.select=「选择」 · 宾语系我方被管理对象「动态」⇒确定要删除该动态吗此操作不可撤销 |
 | 14 会话管理·分享·导 | updates.* | `updates.selectDescription` | 选择左侧动态后，可在原 Issue 上下文中查看变化。 | L3 | 子串同形:ai.pane.overview.context |
 | 14 会话管理·分享·导 | windowControls.* | `windowControls.minimize` | 最小化 | L1 | a11y.minimize |
 | 14 会话管理·分享·导 | windowControls.* | `windowControls.maximize` | 最大化 | L1 | nav.maximize |

@@ -324,11 +324,22 @@ test('装车证明:收敛器冲突分支真的会调它,守护真的会调 --all
   // 判"结构"而不是判"某行文字长什么样":spawn 与接错被提成 attemptUnionConverge() 后,
   // 原先钉的 `uni = String(ue.stdout …)` 只是换了个变量名,不变量没变 ——
   // **子进程非零退出必须先接住再看输出**(否则 throw 甩成未捕获异常,人工出路根本打不出来)。
-  assert.match(
-    conv,
-    /function attemptUnionConverge\([\s\S]{0,700}?catch \(ue\) \{\s*return String\(ue\.stdout \|\| ue\.message/,
-    '归并出口必须自己接住子进程非零退出',
-  )
+  // ⚠️ 判据载体从"函数名后 700 字符的窗口"换成**函数体本身**(2026-09-29 G-815406 顺带修):
+  // 窗口量在 HEAD 上是 1347 字符(函数头注越长窗口越够不着)⇒ 这条锁**自那次加注释起就恒红**,
+  // 只是长期被"本测试文件 import 不到 union-converge"的装载崩溃挡在门外,没人看见它红。
+  // 换成函数体切片后:catch 仍是第一条语句才过,把 return 挪走或删掉 stderr 拼接都会翻红。
+  {
+    const start = conv.indexOf('function attemptUnionConverge(')
+    assert.ok(start > 0, '找不到归并出口的定义 ⇒ 本锁对着空气判绿')
+    const rest = conv.slice(start)
+    const body = rest.slice(0, rest.indexOf('\n}\n') + 3)
+    assert.match(
+      body,
+      /catch \(ue\) \{\s*return String\(ue\.stdout \|\| ue\.message/,
+      '归并出口必须自己接住子进程非零退出,且优先回吐 stdout(裁决文本)',
+    )
+    assert.ok(body.includes('stderrTail(ue)'), 'catch 必须把子进程 stderr 接上(import 期崩溃时 stdout 是空的)')
+  }
   assert.match(
     conv,
     /attemptUnionConverge\(/g,
@@ -1050,14 +1061,31 @@ test('R-K 调用方分流顺序:git-sync-converge 必须先认 UNDETERMINED 再�
   const conv = maskComments(
     readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'git-sync-converge.mjs'), 'utf8'),
   )
+  // 判据载体随 G-815406 收进一份实现:两处调用点原先各写一遍 `includes('UNDETERMINED')`,
+  // 同轮又要加"依赖崩"这一态 ⇒ 三支字符串判据各写两遍必然漂移(本仓"两处算同一件事"那条禁令)。
+  // 现在的不变量是:① 标记判据仍只有一份(在 classifyUnionAttempt 里);② 两处归并出口都调它;
+  // ③ 每个调用窗口里,分流都排在"亦判需人工"之前。
   const undIdx = conv.indexOf("includes('UNDETERMINED')")
-  assert.ok(undIdx > 0, '调用方必须按标记分流,否则一次网络失败会被写成内容裁决')
+  assert.ok(undIdx > 0, '分流判据必须还在(按标记分流,否则一次网络失败会被写成内容裁决)')
+  assert.equal(
+    (conv.match(/includes\('UNDETERMINED'\)/g) || []).length,
+    1,
+    '标记判据只许一处实现 —— 两处各写一遍就会在加分支时漂开(G-815406 收口成一前的形态)',
+  )
   const humanIdx = conv.indexOf('亦判需人工')
   assert.ok(humanIdx > 0, '真需人工那条路必须还在(不得静默)')
-  // 顺序判据:两支同在一个 catch/分支里时,"没资格判"必须先判 —— 反序即归因错
-  assert.ok(undIdx < humanIdx, '分流顺序颠倒 ⇒ 未判定永远读不到,归因恒错')
-  const branches = (conv.match(/includes\('UNDETERMINED'\)/g) || []).length
-  assert.equal(branches, 2, `两处归并出口都要分流(实测 ${branches}):冲突分支与状态放大分支同型`)
+  const calls = [...conv.matchAll(/classifyUnionAttempt\((uni|uniOut)\)/g)]
+  assert.equal(calls.length, 2, `两处归并出口都要分流(实测 ${calls.length}):冲突分支与状态放大分支同型`)
+  for (const c of calls) {
+    // 窗口从分流那一刻起算 ⇒ "亦判需人工"只能出现在它后面(命中位置 > 0)。
+    // 一旦有人把那句提到分流之前,这里就取不到或取到窗口外 ⇒ 本锁翻红。
+    const win = conv.slice(c.index, c.index + 1500)
+    const h = win.indexOf('亦判需人工')
+    assert.ok(
+      h > 0,
+      `调用点 #${c.index} 的窗口里找不到"亦判需人工"(位置 ${h})⇒ 要么那句被提到分流之前,要么真需人工那条路被删了`,
+    )
+  }
 })
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -1188,6 +1216,73 @@ test('R-P 行为锁(真临时仓):指针行只带回一份且必须点名,不带
     assert.ok(
       (p.caps || []).every((c) => c.capped?.every((e) => e.dropped > 0)),
       '每条 cap 必须带真实差额,dropped=0 的条目是噪声(会让报告行数虚高)',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * R-Q 显式 `--theirs` 的短路判据(G-814402,2026-09-29 主会话亲历:一次已验证交付差点被
+ * "本地纯落后 ⇒ 无需合并" + exit 0 整吞)。
+ *
+ * 判据只放在 `resolveTargets` 这一层(它是缺陷所在地),CLI 那一支刻意不在这里真跑:
+ * 本器的 `ROOT` 由**脚本自身位置**推导(守门 70 的同一课),在临时仓里 spawn 真脚本会去操作真仓,
+ * 所以"落地动作"的端到端由 union-converge 自带的 `--self-test` 覆盖,这里只钉分流。
+ */
+test('R-Q 显式 --theirs 时"本地纯落后"不得当成无需合并;只有"目标已被包含"才准短路', () => {
+  const dir = mkScratch('union-explicit-')
+  try {
+    const run = (...a) =>
+      execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+        cwd: dir,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+      }).trim()
+    run('init', '-q', '-b', 'main')
+    run('config', 'user.email', 't@t')
+    run('config', 'user.name', 't')
+    run('config', 'core.autocrlf', 'false')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), '# 台账\n- [ ] 底座\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'base')
+    const base = run('rev-parse', 'HEAD')
+    // 对侧:本地之后的一枚提交,带着本地没有的文件(模拟"别人的交付等着被合进来")
+    writeFileSync(join(dir, 'only-theirs.ts'), '要合进来的交付\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'theirs-ahead')
+    const ahead = run('rev-parse', 'HEAD')
+    run('reset', '-q', '--hard', base) // 本地退回,造成"本地纯落后于 ahead"这一格
+
+    assert.equal(U.hasCommit(ahead, dir), true, '夹具自证:两枚对象都必须在本机')
+    const g = U.resolveTargets(ahead, dir)
+    assert.equal(
+      g.skip,
+      null,
+      `显式点了 --theirs 而本地落后 ⇒ 绝不能给出 skip(旧行为是 skip="本地纯落后…" + exit 0"无需合并"):${JSON.stringify(g)}`,
+    )
+    assert.ok(!g.undetermined, '对象都在本机 ⇒ 这不是"没资格判",不得混进未判定那一支')
+
+    // 反向对照:目标已被本地包含时,短路照旧合法(否则每次都白合一遍)。
+    // 注意要**再往前加一枚提交**再验:纯 ff 之后 head 与 theirs 会是同一个 sha,那走的是
+    // 更早那一格 `skip:'已同步'`(也合法,但就把"已被包含"这一格验不到了 —— 夹具必须自己
+    // 证明两种形态确有差异,否则这条断言恒真)。
+    run('merge', '-q', '--no-edit', ahead)
+    writeFileSync(join(dir, 'post-merge.ts'), '合并之后本地又走了一步\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'post')
+    const nowHead = run('rev-parse', 'HEAD')
+    assert.notEqual(nowHead, ahead, '夹具自证:本地必须真的走在 ahead 前面,否则本例退化成"已同步"那一格')
+    const g2 = U.resolveTargets(ahead, dir)
+    assert.equal(g2.skip, '目标已被本地包含', `已被包含才准短路:${JSON.stringify(g2)}`)
+
+    // 形状锁:那句"本地纯落后"只保留给**自动解析远端真值**那一支(不显式点目标时它是对的建议)
+    const src = readFileSync(new URL('../union-converge.mjs', import.meta.url), 'utf8')
+    assert.match(
+      maskComments(src),
+      /if \(!explicit && isAncestor\(head, theirs, cwd\)\)\s*return \{ head, theirs, skip: '本地纯落后/,
+      '"本地纯落后"短路必须被 !explicit 夹住 —— 摘掉这个条件就是回到 G-814402 那一吞',
     )
   } finally {
     rmScratch(dir)
