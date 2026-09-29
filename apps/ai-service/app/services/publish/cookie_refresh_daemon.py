@@ -267,14 +267,40 @@ class CookieRefreshDaemon:
                     )
 
         if alive:
+            msg = f"Cookie 保活成功,访问 {login_url}"
+            await self._stamp_verified(account_id, msg)
             return RefreshResult(
                 account_id=account_id, platform=platform, success=True,
-                message=f"Cookie 保活成功,访问 {login_url}", duration_ms=duration,
+                message=msg, duration_ms=duration,
             )
         return RefreshResult(
             account_id=account_id, platform=platform, success=False,
             message="Cookie 保活后未检测到目标 cookie,可能已过期", duration_ms=duration,
         )
+
+    async def _stamp_verified(self, account_id: int, message: str) -> None:
+        """保活成功即"凭证确认有效",戳新 last_verified_at(2026-09-29)。
+
+        此前只有 cookie 轮换回写路径(apply_credentials_update)才顺带戳;访问成功但
+        平台没轮换 cookie 时(常态),健康度永远停留在旧时间 —— 自动保活做了也
+        "看不见",用户仍需操心。失败只告警不影响保活结论。手动端点
+        (account_groups.refresh_cookie)的同名戳保留,幂等无害。
+        """
+        try:
+            conn = await get_db_conn()
+            try:
+                await conn.execute(
+                    "UPDATE publish_accounts SET last_verified_at=NOW(),"
+                    " last_verify_msg=$1 WHERE id=$2",
+                    message, account_id,
+                )
+            finally:
+                await conn.close()
+        except Exception as e:
+            logger.warning(
+                "[cookie_daemon] account=%s last_verified_at 戳新失败(不影响保活): %s",
+                account_id, e,
+            )
 
     @staticmethod
     def _visit_and_check(platform: str, login_url: str, credentials: dict[str, Any]) -> tuple[bool, dict[str, str]]:

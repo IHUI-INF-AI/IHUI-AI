@@ -17,6 +17,7 @@ import logging
 import os
 import sys
 import time
+from collections.abc import Awaitable, Callable, Iterable
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -191,7 +192,9 @@ def _acquire_shutdown_lock() -> bool:
     return True
 
 
-async def _run_shutdown_steps(steps, deadline: float) -> None:
+async def _run_shutdown_steps(
+    steps: Iterable[tuple[str, Callable[[], Awaitable[Any]]]], deadline: float
+) -> None:
     """按序执行收尾步骤,每步只拿「min(步级上限, 剩余预算)」。
 
     三条语义(缺一不成立):
@@ -206,7 +209,7 @@ async def _run_shutdown_steps(steps, deadline: float) -> None:
         timeout = min(_SHUTDOWN_STEP_CAP_S, remaining) if remaining > 0 else 0.0
         try:
             await asyncio.wait_for(factory(), timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:  # 2026-09-29:Python ≥3.11 asyncio.TimeoutError 即内置 TimeoutError(ruff UP041)
             tag = "timeout" if remaining > 0 else "skipped_expired_budget"
             bad.append(f"{name}={tag}")
             logger.warning("[shutdown] %s(%s): 未在预算内完成,继续后续步骤", name, tag)
@@ -265,6 +268,13 @@ async def lifespan(app: FastAPI) -> Any:
     # 由 DB_SYNC_ENABLED 控制开关(默认 false);生产机缺 db-sync.local.json 时静默待机。
     from app.services.db_sync_scheduler import db_sync_scheduler
     db_sync_scheduler.start()
+
+    # Cookie 自动保活守护(2026-08-01 建;2026-09-29 接线:此前只有懒启动 ——
+    # 没人调 /publish/cookie-refresh 端点就永远不跑,"自动保活"等于没开)。
+    # 随 lifespan 挂载,由 COOKIE_REFRESH_ENABLED 控制(默认 false,显式开启才跑),
+    # 间隔 COOKIE_REFRESH_INTERVAL_HOURS 小时(默认 6)。未开启时本调用是 no-op。
+    from app.services.publish.cookie_refresh_daemon import cookie_daemon
+    cookie_daemon.ensure_started()
 
     # 模型可用性服务(2026-07-31 立,用户规则:只显示可完美接通调用的模型)
     # 启动时后台跑首次 ping(不阻塞 FastAPI 启动)+ 每 5 分钟定时刷新 provider 健康状态。
