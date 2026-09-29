@@ -57,10 +57,9 @@ from ..core.provider_caps import (
     get_provider_cap,
 )
 from ..core.question_parser import QuestionStreamParser
-# D174(2026-09-30 立):帧级 traceId 的键名与兼容面清单取自契约层,取值经
-# core/trace_context.py 那份投影 —— 本路由不解析 traceparent、不自建 trace 上下文
-# (载体只有一份,在 middleware/trace_context.py;两处算同一件事必漂移)。
-from ..core.sse_contract import SSE_COMPAT_EVENTS, SSE_TRACE_ID_PAYLOAD_KEY
+# D174:帧级 traceId 注入点只有一份实现,住在 `core/sse_frames.py`(取值经 core/trace_context
+# 的那份投影,载体仍是 middleware 那一个 ContextVar);本路由不解析 traceparent、不自建 trace 上下文。
+from ..core.sse_frames import with_frame_trace_id
 from ..core.trace_context import sse_frame_trace_id
 from ..services.agent_events import (
     SSE_CHUNK,
@@ -824,43 +823,10 @@ def _sse_contract_enabled() -> bool:
     )
 
 
-def _with_frame_trace_id(evt: str, payload: Any) -> Any:
-    """D174(2026-09-30 立):帧级 traceId 的**唯一**注入点。
-
-    本路由有 70+ 个 `yield _sse(...)` 站点,这一个函数是它们共同的出口 —— 票面硬约束
-    就是"不得在 20 个 yield 站点各写一遍"(两处算同一件事必漂移,而漂开的表现是"有的帧
-    带、有的帧不带",排查时最难归因的那一型)。
-
-    四条判序,缺一不可:
-
-    1. **兼容面不注入**:`SSE_COMPAT_EVENTS`(Anthropic Messages API 兼容事件)两份契约
-       文件对它的原话都是"wire 形态与 Anthropic 官方一致",往里加我方自定键 = 单方面
-       改那个协议。要补的是对话流帧(`SSE_EVENTS`)那一格。
-    2. **取值只经一个出口**:`sse_frame_trace_id()`(它读的是 middleware 那一份 ContextVar,
-       并在那里做 W3C 有效性判)。本函数不碰 `request`、不解析 traceparent。
-    3. **没有有效 trace ⇒ 整字段缺席**:不写空串、不写 null。"空串"与"没有"必须可分,
-       消费侧按 `typeof === 'string'` 判;写空串就是把"没接上"写成"接上了"。
-    4. **不改入参**:`payload` 常在 yield 之后被调用方继续用(同一 dict 进落库记录 /
-       被复用,例:`_evt` 与 `_build_terminal_task` 同源),就地写键会把 trace 带进持久化
-       面 —— 本票没做那件事,也不该被顺手做掉。
-    """
-    if evt in SSE_COMPAT_EVENTS:
-        return payload
-    trace_id = sse_frame_trace_id()
-    if not isinstance(payload, dict):
-        return payload
-    if trace_id is None:
-        # 无有效 trace ⇒ 帧上**不该有**这个键。但调用方递进来的 dict 可能已经带着一个
-        # `traceId`(模型/上游把字段名猜对了、或有人在 payload 里自写)。此时留着的不是一个
-        # "看起来合理"的值,而是一个**没有出处**的值 —— 它的线格式与工厂写出来的完全一样,
-        # 于是"帧上的 traceId 只能出自这一处"这条不变量就被绕过了。剥掉它,让缺席就是缺席。
-        # 不判红、不告警:本票只做线格式,trace 是关联键不是凭据,自写它没有授权收益。
-        if SSE_TRACE_ID_PAYLOAD_KEY in payload:
-            stripped = dict(payload)
-            stripped.pop(SSE_TRACE_ID_PAYLOAD_KEY)
-            return stripped
-        return payload
-    return {**payload, SSE_TRACE_ID_PAYLOAD_KEY: trace_id}
+# 帧级 traceId 注入点已提升到 `app/core/sse_frames.py`(单一实现):其余拼帧路径(agents 流、
+# 官方 MCP 流)也要走同一份,不能在各自路由里再抄一遍判序 —— 抄开的症状是"主对话流的帧带 trace、
+# 任务流的帧不带"。这里保留原函数名作为别名,既有调用点与用例一字未改。
+_with_frame_trace_id = with_frame_trace_id
 
 
 def _sse(evt: str, payload: Any) -> str:
