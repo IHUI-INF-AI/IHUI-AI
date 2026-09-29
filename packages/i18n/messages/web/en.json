@@ -13401,7 +13401,7 @@
   },
   "aiApprovedRules": {
     "title": "Approved command rules",
-    "description": "Prefix allow rules created via approval. They expire after 90 days and can be revoked anytime.",
+    "description": "Prefix and network-target allow rules created during approval; they expire automatically and can be revoked anytime.",
     "empty": "No approved rules yet",
     "prefixHeader": "Command prefix",
     "createdAtHeader": "Created",
@@ -13414,7 +13414,10 @@
     "loadFailed": "Failed to load approved rules",
     "refresh": "Refresh",
     "scopeAlways": "Long-term",
-    "scopeSession": "This session"
+    "scopeSession": "This session",
+    "sectionCommands": "Command prefix",
+    "sectionNetwork": "Network targets",
+    "revokeConfirmContentNetwork": "After revoking, access to target \"{target}\" will require approval again."
   },
   "editor": {
     "toolApproval": {
@@ -13428,7 +13431,21 @@
       "description": "AI requests to run the following high-risk operation. Please confirm whether to allow it.",
       "pendingCount": "{count} more pending",
       "reject": "Reject",
-      "title": "Tool Approval"
+      "title": "Tool Approval",
+      "envLabel": "Execution environment",
+      "envInSandbox": "Runs inside a sandbox",
+      "envOutsideSandbox": "Runs outside a sandbox",
+      "envBackend": "Isolation: {backend}",
+      "envDegraded": "Sandbox capability unavailable; fell back to restricted direct execution",
+      "envNetworkSection": "Network",
+      "envNetworkBlocked": "Blocked network targets",
+      "envNetworkBlockedOne": "{host}:{port} ({reason})",
+      "envNetworkOpen": "Outbound network is available for this request",
+      "envNetworkOff": "Outbound network is not available for this request",
+      "envUnknown": "Not reported (do not infer from the permission tier; reject and ask for a retry)",
+      "envAllowTargetOnce": "Allow this target once",
+      "envAllowTargetSession": "Allow this target for this conversation",
+      "envAllowTargetAlways": "Always allow this target (expires in 90 days)"
     },
     "toolbar": {
       "addColumn": "Add Column",
