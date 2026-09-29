@@ -1226,6 +1226,11 @@ export interface StreamChatOptions {
    *  用途:前端收到 response 即清除"完全冷启动"超时(timeout15s),
    *  避免"response 已到达但首个 token 未到达"时误 abort。 */
   onResponse?: () => void
+  /** D174(2026-09-29 立):帧级 trace 关联键(小写 32 hex)首次出现时回调一次。
+   *  服务端每条帧都带 `traceId`(响应头只有整条响应的一个值,帧内这一份才是"这一轮"的锚),
+   *  端上没有出口可取 ⇒ 用户报问题时无法把界面现象与 `llm_call_logs` 里的对账键连起来。
+   *  只回调一次(后续帧同值,重复回调只会让消费侧自己去做去重);值非法(非 32 hex / 全 0)不回调。 */
+  onTraceId?: (traceId: string) => void
   /** 2026-09-13 立,#11 Citations 全链路:knowledge_lookup 工具执行后,
    *  后端在 done 前下发 `event: citations` SSE 事件,前端据此写入 message.citations,
    *  MessageItem 渲染 CitationBar(来源标签 + 可点击 URL)。 */
@@ -2272,6 +2277,43 @@ function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
     }, ms)
     signal?.addEventListener('abort', onAbort, { once: true })
   })
+}
+
+/** 帧载荷里那个关联键的键名(与 ai-service / @ihui/shared 两侧契约同名,由判例表对账)。 */
+const FRAME_TRACE_ID_KEY = 'traceId'
+
+/**
+ * 从一行 SSE 文本里取帧级 trace 关联键(D174 的到端那一半)。
+ *
+ * 为什么本包要有一份:本包**不依赖 @ihui/shared**(package.json 只声明 @ihui/types),
+ * 直接 import 那份出口就是加一条未声明的幽灵依赖(§12e 那类"本地能跑、装完就崩")。
+ * 值规则(小写 32 hex、全 0 非法)因此在本包**重实现了一次** —— 这是明知有第二份的写法,
+ * 所以配套了一把尺子:`config/sse-trace-id-cases.json` 是两侧共用的判例表,
+ * 本包与 @ihui/shared 各自跑同一张表(`packages/api-client/tests/stream-trace-id-parity.test.ts`
+ * 与 `packages/shared/src/sse/__tests__/sse-frame-trace-id.test.ts`),漂开即红。
+ * 放宽判据、把表改成迁就某一侧,都是本票禁止的出路。
+ */
+export function readStreamTraceId(line: string): string | null {
+  const raw = typeof line === 'string' ? line.trim() : ''
+  if (raw.length === 0 || raw.startsWith(':') || raw.startsWith('event:') || raw.startsWith('id:')) return null
+  let payload = raw
+  if (raw.startsWith('data:')) payload = raw.slice(5).trim()
+  if (payload.length === 0 || payload === '[DONE]') return null
+  // 小程序自写传输层的 `<数字>:<载荷>` 协议前缀:与本包正常形态不同,判不出即返回 null(不猜)
+  if (/^\d+:/u.test(payload)) return null
+  let json: unknown
+  try {
+    json = JSON.parse(payload)
+  } catch {
+    return null
+  }
+  const value = (json as Record<string, unknown> | null)?.[FRAME_TRACE_ID_KEY]
+  if (typeof value !== 'string') return null
+  const normalized = value.trim().toLowerCase()
+  if (!/^[0-9a-f]{32}$/.test(normalized)) return null
+  // 全 0 是 W3C 规定的非法 trace id,不配当关联键(与生产侧同源)
+  if (/^0+$/.test(normalized)) return null
+  return normalized
 }
 
 export async function streamChat(opts: StreamChatOptions): Promise<void> {
@@ -3786,6 +3828,17 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           })()
         : null
 
+      // D174:帧级 trace 关联键首次出现即回调一次;不注册则完全不求值(与本包其余 per-field 回调同形)
+      let seenTraceId: string | null = null
+      const noteFrameTraceId = (raw: string): void => {
+        if (!opts.onTraceId || seenTraceId !== null) return
+        const id = readStreamTraceId(raw)
+        if (id !== null) {
+          seenTraceId = id
+          opts.onTraceId(id)
+        }
+      }
+
       for (;;) {
         const { done, value } = await readWithTimeout()
         if (done) break
@@ -3796,6 +3849,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           buffer = buffer.slice(nl + 1)
           // D116:原始帧采集(关闭时零开销)
           recordStreamFrame(line)
+          noteFrameTraceId(line)
           // 捕获 SSE id: 行(用于 Last-Event-ID 断点续传)
           if (line.startsWith('id:')) lastEventIdRef.current = line.slice(3).trim()
           await dispatchTryParse(line)
@@ -3827,6 +3881,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         if (buffer.startsWith('id:')) lastEventIdRef.current = buffer.slice(3).trim()
         // 阶段 2:尾部 buffer 残留,与主循环对称
         recordStreamFrame(buffer)
+        noteFrameTraceId(buffer)
         await dispatchTryParse(buffer)
         // P4-2: 优先检查 fallback 事件(尾部 buffer 残留);parseStreamLine 对 fallback 事件返回 null,无需跳过
         if (hasFallback) {
