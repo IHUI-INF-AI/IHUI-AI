@@ -38,6 +38,7 @@ import {
   type McpExternalServersResponse,
   type McpScoreDetail,
 } from '@ihui/api-client/endpoints/mcp'
+import { useAuthStore } from '@/stores/auth'
 import { BackButton } from '@/components/common'
 import { Badge } from '@/components/data'
 import { McpQualityDashboard } from '@/components/mcp/mcp-quality-dashboard'
@@ -79,8 +80,15 @@ const KEY_ICON: Record<string, LucideIcon> = {
 export default function McpStorePageClient() {
   const t = useTranslations('mcpStore')
   const queryClient = useQueryClient()
+  /**
+   * 当前登录主体 id(未取到主体时为 null)。只订阅 `user?.id` 这一个标量,
+   * 与 `use-ecosystem-overview.ts:57` / `providers/query-provider.tsx:52` 同一读法。
+   */
+  const principalId = useAuthStore((s) => s.user?.id ?? null)
 
   // 商店合并列表(目录 + 安装状态,唯一数据源)
+  // 键**不含主体**是有意为之:`GET /api/mcp/store` 的 handler 根本不收 user_id
+  // (mcp.py:577 全站目录 + 全局安装记录),所以它不是按人取数的面。
   const {
     data: store,
     isLoading,
@@ -94,9 +102,25 @@ export default function McpStorePageClient() {
     },
   })
 
-  // 已注册外部 Server 列表(手动注册通道,含连接状态)
+  /**
+   * 已注册外部 Server 列表(手动注册通道,含连接状态)
+   *
+   * queryKey 必须含登录主体(2026-09-29 立):后端
+   * `GET /api/mcp/external/servers` 已由 `require_request_user_id` +
+   * `MCPClientManager.list_registered(user_id)`(唯一判据 `is_visible`,
+   * mcp.py:354 / mcp_client.py:998)收窄成"自己注册的 + 部署级",条目含
+   * name / transport / 连接状态 ⇒ 属个人配置数据。缓存是模块级单例
+   * (lib/query-client.ts,staleTime 5min),键里不带主体时同一浏览器换账号会在
+   * refetch 完成前把上一个账号的 Server 渲染给新账号。
+   *
+   * 与 `useConnectors()` 同一条口径:刻意**不用** `enabled: principal !== null`
+   * 把请求关掉 —— 那会把本页永久停在 loading 态(D17 在
+   * `src/components/ecosystem/__tests__/ecosystem-hub.test.tsx` 里钉的就是这一型)。
+   * 无主体时请求照发,结果落 'anonymous' 这一格;跨账号的另一半由
+   * `providers/query-provider.tsx:52-59` 的"主体由有到无 ⇒ 清空缓存"补上。
+   */
   const { data: registered } = useQuery({
-    queryKey: ['mcp-store', 'registered'],
+    queryKey: ['mcp-store', 'registered', principalId ?? 'anonymous'],
     queryFn: async (): Promise<McpExternalServersResponse> => {
       const r = await listExternalServers()
       if (!r.success || !r.data) throw new Error(r.error ?? 'load failed')
@@ -122,10 +146,16 @@ export default function McpStorePageClient() {
     setEnvValues(Object.fromEntries(entry.env_required.map((k) => [k, ''])))
   }
 
-  /** 刷新商店列表 + 外部 Server 列表 */
+  /**
+   * 刷新商店列表 + 外部 Server 列表。
+   * 外部 Server 那一行必须打在**含主体**的三段键上(与上面的 queryKey 同形):
+   * 失效裸两段键在新键形态下什么都匹配不到,安装/卸载后界面会停在旧列表。
+   */
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['mcp-store', 'store'] })
-    void queryClient.invalidateQueries({ queryKey: ['mcp-store', 'registered'] })
+    void queryClient.invalidateQueries({
+      queryKey: ['mcp-store', 'registered', principalId ?? 'anonymous'],
+    })
   }
 
   /**
