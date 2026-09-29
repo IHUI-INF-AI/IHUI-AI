@@ -14,10 +14,19 @@ import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { cleanup, fireEvent, render } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { UserMessageBody } from '../message-list/user-message-body'
+
+const openPanel = vi.fn()
+/** 本文件所在目录:源码级锁要按它算相对路径(不靠 cwd —— 守门 70 的镜像测试就死在靠 cwd 上)。 */
+const here = dirname(fileURLToPath(import.meta.url))
+// 只桩 store 的 getState:点开行为本身(外链 vs 面板)由被测出口决定,桩到 store 这一层
+// 才能既验证"传了哪一档 source",又让 window.open 分支保持真逻辑。
+vi.mock('@/stores/work-panel', () => ({
+  useWorkPanelStore: { getState: () => ({ openPanel }) },
+}))
 
 const IMAGE_LINE = (alt: string, url: string): string => `![${alt}](${url})`
 const VIDEO_LINE = (url: string): string => `<video src="${url}" controls></video>`
@@ -102,6 +111,41 @@ describe('D129 边界锁:用户气泡不得走 markdown 渲染器', () => {
     // 附件拆分只有一份实现:组件必须走共享出口,不在端内再解一遍正则
     expect(src).toMatch(/splitUserMessageParts/)
     expect(src).not.toMatch(/!\[\\\[|<video src=/)
+  })
+})
+
+describe('D129 用户自己上传的图可点开(与助手侧共用一个出口)', () => {
+  afterEach(() => {
+    cleanup()
+    openPanel.mockClear()
+    vi.restoreAllMocks()
+  })
+
+  it('同源路径的图片:点击交给工作面板,并带上自己的来源档(不冒充 markdown-image)', () => {
+    const { container } = render(<UserMessageBody content={IMAGE_LINE('photo.png', '/uploads/photo.png')} />)
+    const btn = container.querySelector('[data-testid="user-message-image-button"]')
+    expect(btn).not.toBeNull()
+    fireEvent.click(btn as HTMLElement)
+    expect(openPanel).toHaveBeenCalledWith({ url: '/uploads/photo.png', source: 'user-attachment-image' })
+  })
+
+  it('外链图片:开新窗口并带 noopener,不进面板(跨站内容嵌进同域面板会带来鉴权与 CSP 问题)', () => {
+    const spy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const { container } = render(<UserMessageBody content={IMAGE_LINE('a.png', 'https://cdn.example.com/a.png')} />)
+    fireEvent.click(container.querySelector('[data-testid="user-message-image-button"]') as HTMLElement)
+    expect(spy).toHaveBeenCalledTimes(1)
+    const firstCall = spy.mock.calls[0]
+    expect(firstCall, 'window.open 应至少有一次调用记录').toBeDefined()
+    expect(firstCall?.[0]).toBe('https://cdn.example.com/a.png')
+    expect(String(firstCall?.[2])).toContain('noopener')
+    expect(openPanel).not.toHaveBeenCalled()
+  })
+
+  it('助手侧也走同一个出口:该文件必须 import openImageSource,不再内联判断外链', () => {
+    const src = readFileSync(join(here, '..', '..', 'ai', 'markdown-stream.tsx'), 'utf8')
+    expect(src).toMatch(/openImageSource\(/)
+    // MarkdownImage 那一段不得再留 `window.open(srcStr` 的内联判断(留着的下一份就会与这里漂开)
+    expect(src).not.toMatch(/window\.open\(srcStr/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
