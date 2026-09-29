@@ -1,4 +1,14 @@
 {
+  "llmSettings": {
+    "v2": {
+      "health": {
+        "healthy": "正常",
+        "degraded": "性能低下",
+        "down": "利用不可",
+        "unknown": "不明"
+      }
+    }
+  },
   "taskStatus": {
     "toolGenericActivity": "{state, select, running {{name}を実行中} completed {{name}を実行しました} other {{name}を実行}}",
     "toolReadFileActivity": "{state, select, running {ファイル内容を読み取り中} completed {ファイル内容を読み取りました} other {ファイル内容を読み取る}}",
@@ -508,6 +518,16 @@
       "flowState": "{state, select, running {{count, plural, =0 {ストリーム実行中、待機ツールなし} other {ストリーム実行中、{count} 個のツールをスケジュール}}} paused {ストリーム一時停止} failed {実行失敗：<b>{reason}</b>}}"
     },
     "send": "送信",
+    "goal": {
+      "status": {
+        "active": "進行中",
+        "paused": "一時停止",
+        "blocked": "ブロック中",
+        "done": "完了",
+        "usageLimited": "利用枠に到達",
+        "budgetLimited": "予算上限に到達"
+      }
+    },
     "terminal": {
       "waitingInput": "入力をお待ちしています",
       "promptLabel": "コマンドのプロンプト：{{prompt}}",
