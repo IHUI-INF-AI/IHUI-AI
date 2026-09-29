@@ -24,7 +24,7 @@
  */
 
 import * as React from 'react'
-import { Loader2, QrCode, CheckCircle2, XCircle, ExternalLink, RefreshCw, Check } from 'lucide-react'
+import { Loader2, QrCode, CheckCircle2, XCircle, ExternalLink, RefreshCw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
   cancelScanLogin,
@@ -53,6 +53,7 @@ import {
   SelectItem,
 } from '@ihui/ui-react'
 import { CountdownTimer } from '@/components/publish/CountdownTimer'
+import { PlatformIcon } from '@/components/publish/platform-icon'
 import { apiFailureToError } from '@ihui/shared/utils'
 
 export interface ScanLoginDialogProps {
@@ -401,13 +402,18 @@ export function ScanLoginDialog({
                           onClick={() => setPlatform(p.platform)}
                           disabled={isBusy}
                           aria-pressed={active}
-                          className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                          className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                             active
                               ? 'border-primary bg-primary/10 text-primary'
                               : 'border-border bg-background text-foreground hover:border-primary/40 hover:bg-muted'
                           }`}
                         >
-                          {active && <Check className="h-4 w-4 shrink-0" />}
+                          <PlatformIcon
+                            platform={p.platform}
+                            platformName={p.name}
+                            size={20}
+                            className="bg-transparent"
+                          />
                           <span className="truncate">{platformDisplayName(p.name)}</span>
                         </button>
                       )
@@ -426,7 +432,15 @@ export function ScanLoginDialog({
                     <SelectContent className="max-h-72">
                       {restPlatforms.map((p) => (
                         <SelectItem key={p.platform} value={p.platform}>
-                          {platformDisplayName(p.name)}
+                          <span className="flex items-center gap-2">
+                            <PlatformIcon
+                              platform={p.platform}
+                              platformName={p.name}
+                              size={16}
+                              className="bg-transparent"
+                            />
+                            <span>{platformDisplayName(p.name)}</span>
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
