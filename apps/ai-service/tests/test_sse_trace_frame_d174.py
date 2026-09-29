@@ -319,11 +319,103 @@ def test_foreign_trace_id_does_not_change_ownership() -> None:
 def test_frames_from_a_foreign_trace_do_not_reach_the_authorized_principal() -> None:
     """同型的第二格:帧里的 traceId 由**当轮 contextvar**决定,不受 payload 内容影响 ——
     所以"带别人 trace 的帧"永远不会把这条流绑到那个人身上。"""
-    payload = {"type": "steer", "phase": "injected", "text": "引导", SSE_TRACE_ID_PAYLOAD_KEY: FOREIGN_TRACE_ID}
+    payload = {
+        "type": "steer",
+        "phase": "injected",
+        "text": "引导",
+        SSE_TRACE_ID_PAYLOAD_KEY: FOREIGN_TRACE_ID,
+    }
     with use_trace_id(TRACE_ID):
         data = _frame_data(llm._sse("steer", payload))
     assert data[SSE_TRACE_ID_PAYLOAD_KEY] == TRACE_ID
     assert data[SSE_TRACE_ID_PAYLOAD_KEY] != FOREIGN_TRACE_ID
     # 且这条流的归属判定仍然只看 principal
     assert owner_scoped_allows(TRACE_ID, FOREIGN_TRACE_ID) is False
+
+
+# ---------------------------------------------------------------------------
+# 承重墙:trace 必须**活得过流式响应体的消费时刻**,不只是活过 dispatch
+# ---------------------------------------------------------------------------
+
+
+def test_trace_id_survives_into_the_streaming_body() -> None:
+    """端到端(ASGI in-process,零 DB / 零网络):中间件解到 traceparent ⇒ **正文每一帧**
+    都带同一个 traceId。
+
+    为什么这条不能拿上面那些单元级用例顶掉:`TraceContextMiddleware.dispatch` 在
+    `call_next` **返回**时就把 contextvar 的 token reset 了,而 `StreamingResponse` 的正文
+    是在另一个任务里被逐块消费的(异步生成器 + anyio 线程池投递)。那个任务持有的是创建
+    时刻的 context **快照** —— 于是"值活不过 dispatch、却活得过响应体"这一差别只能靠真发
+    一次流式请求量出来。而它正是本票全部功能的承重墙:墙塌了账面照样全绿(`_sse` 的单元
+    用例一条都测不到这一格,`git status`、typecheck 更不会)。这一型在本仓的名字叫
+    "判据必须在真跑它的那一刻才成立,否则等于没有"。
+    """
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from starlette.responses import StreamingResponse
+
+    from app.middleware.trace_context import TraceContextMiddleware
+
+    app_ = FastAPI()
+    app_.add_middleware(TraceContextMiddleware)
+
+    @app_.get("/sse")
+    async def _sse_endpoint() -> StreamingResponse:  # 不接 Request:值只从 contextvar 取
+        async def _gen():
+            yield llm._sse("chunk", {"type": "chunk", "content": "a"})
+            yield llm._sse("chunk", {"type": "chunk", "content": "b"})
+            yield llm._sse("done", {"type": "done"})
+
+        return StreamingResponse(_gen(), media_type="text/event-stream")
+
+    client = TestClient(app_)
+    with client.stream(
+        "GET", "/sse", headers={"traceparent": f"00-{TRACE_ID}-b7ad6b7169203331-01"}
+    ) as resp:
+        assert resp.status_code == 200
+        # D147 那一格仍在(响应头),本票加的是帧内那一格
+        assert resp.headers.get("X-Trace-Id") == TRACE_ID
+        body = "".join(resp.iter_text())
+
+    frames = [line for line in body.split("\n") if line.startswith("data: ")]
+    assert len(frames) == 3, f"应当正好三帧,实得 {len(frames)}"
+    for line in frames:
+        data = json.loads(line[len("data: ") :])
+        assert data.get(SSE_TRACE_ID_PAYLOAD_KEY) == TRACE_ID, (
+            f"正文帧没带 trace —— 承重墙塌了:{data!r}"
+        )
+
+
+def test_stream_body_without_traceparent_has_the_key_absent_end_to_end() -> None:
+    """反向对照走同一条端到端路:没带 traceparent ⇒ 正文里**整字段缺席**(而不是空串/null)。
+    只测正向那一支会放过"恒写一个空串"这种实现 —— 它同样能让上面的用例绿?不会,但
+    "缺席"这件事必须在**流式路径**上被看过,而不是只在单元路径上。"""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from starlette.responses import StreamingResponse
+
+    from app.middleware.trace_context import TraceContextMiddleware
+
+    app_ = FastAPI()
+    app_.add_middleware(TraceContextMiddleware)
+
+    @app_.get("/sse")
+    async def _sse_endpoint() -> StreamingResponse:
+        async def _gen():
+            yield llm._sse("chunk", {"type": "chunk", "content": "x"})
+
+        return StreamingResponse(_gen(), media_type="text/event-stream")
+
+    client = TestClient(app_)
+    with client.stream("GET", "/sse") as resp:
+        # 没 traceparent ⇒ D147 那条响应头也不发(不造一个"看起来像"的 id)
+        assert resp.headers.get("X-Trace-Id") is None
+        text = "".join(resp.iter_text())
+
+    data = json.loads(
+        next(line for line in text.split("\n") if line.startswith("data: "))[len("data: ") :]
+    )
+    assert SSE_TRACE_ID_PAYLOAD_KEY not in data
+    assert '""' not in text, "不得写出空串占位"
+    assert "null" not in text, "不得写出 null 占位"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
