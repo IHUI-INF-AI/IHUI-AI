@@ -4124,6 +4124,23 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 维护性写归属对账(1 项,blocking)---
+  {
+    id: '163',
+    label:
+      '维护性写归属/CAS/回报计数三态对账(G-815920)',
+    script: 'check-write-owner-predicate.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_WRITE_OWNER_PREDICATE',
+    stagedTriggers: ['apps/api/src/db/', 'apps/api/src/routes/'],
+    onFailHint: [
+      '',
+      '读三态请跑 pnpm check:write-owner(它走 --strict,有未判定即 exit 2,那是拒绝出合格证不是仓库故障);默认档与提交链只拦"该文件 HEAD 自身 missing 存量"之上的新增',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
