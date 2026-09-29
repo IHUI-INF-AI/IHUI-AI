@@ -87,7 +87,7 @@ export default function CartePage() {
         </View>
 
         {/* 名片主卡(RN card:白底 / 圆角16 / 描边 border-light / padding14) */}
-        <View className="mx-4 p-3.5 ui-card rounded-lg bg-card border border-border">
+        <View className="mx-4 p-[28rpx] ui-card rounded-lg bg-card border border-border">
           <View className="flex items-center">
             {info.avatar ? (
               <Image
@@ -119,7 +119,7 @@ export default function CartePage() {
 
           {/* 联系方式(RN contactsBox:muted 底 / 圆角12 / padding14) */}
           {info.phone || info.email ? (
-            <View className="mt-3 p-3.5 rounded-xl bg-muted">
+            <View className="mt-3 p-[28rpx] rounded-xl bg-muted">
               {info.phone ? (
                 <View
                   className="flex items-center justify-between py-1"
@@ -157,7 +157,7 @@ export default function CartePage() {
         </View>
 
         {/* 操作按钮(对齐 RN actionRow:高44 / 圆角12 / 描边) */}
-        <View className="px-2.5 py-4 flex gap-2">
+        <View className="px-[20rpx] py-4 flex gap-2">
           <View
             className="flex-1 h-11 rounded-xl border border-border flex items-center justify-center"
             onClick={handleShare}
@@ -178,7 +178,7 @@ export default function CartePage() {
           </View>
         </View>
 
-        <View className="px-2.5 pb-6">
+        <View className="px-[20rpx] pb-6">
           <Text className="block text-[11px] text-[color:var(--color-text-tertiary)] text-center break-all">
             {shareInfo.path}
           </Text>

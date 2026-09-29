@@ -88,8 +88,8 @@
     {
       "path": "packages/services/src",
       "status": "windowed",
-      "read": 218,
-      "notes": "第 1 波 E1-E7 覆盖 session/zcode-agent/bots/git/storage/process/runtime-tools/terminal/file/cua-permission-broker/subagents/setting/feedback/plugins/skill-sync/conversation-share;W3-10 补 fs/memory/settings-sync/fileWatcher/faultInjection。",
+      "read": 264,
+      "notes": "第 1 波 E1-E7 覆盖 session/zcode-agent/bots/git/storage/process/runtime-tools/terminal/file/cua-permission-broker/subagents/setting/feedback/plugins/skill-sync/conversation-share;W3-10 补 fs/memory/settings-sync/fileWatcher/faultInjection。 ｜09-29 第五十九批:bots/git/storage 三簇具名整读 46 枚(storage 全 13、git 全 15、bots 21/27 —— 其余 5 份 providers/*Provider 与两路 ChannelRuntime 共 3691 行未读;botsService.ts 6363 行只读约 410 行 ⇒ **不得当该文件已审**)。",
       "remaining": "commandsService.ts,conversationShareArtifactDiscovery.ts,conversationShareSource.ts,conversationShareHttpClient.ts,pluginSyncArchive.ts,settingsSyncService.ts,clientConfigScenes 实现 2 个 ｜09-29 第十九轮回填:本轮具名整读到体 1 枚,其中 1 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 6 枚,指针 6 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正)",
       "evidence": [
         "packages/services/src/conversation-share/conversationShareIntegrity.ts:1-40",
@@ -104,11 +104,28 @@
         "packages/services/src/conversation-share/conversationShareService.ts:209-211",
         "packages/services/src/oauth/oauthService.ts:896-898",
         "packages/services/src/oauth/oauthService.ts:997-1007",
-        "packages/services/src/oauth/oauthUnauthorizedRequest.ts:63-64"
+        "packages/services/src/oauth/oauthUnauthorizedRequest.ts:63-64",
+        "packages/services/src/bots/providers/providerRequest.ts:15-58",
+        "packages/services/src/bots/telegramChannelRuntime.ts:220-229",
+        "packages/services/src/bots/botsService.ts:2025-2049",
+        "packages/services/src/git/repo/gitCliRepo.ts:88-99",
+        "packages/services/src/git/repo/gitCliRepo.ts:556-571",
+        "packages/services/src/git/repo/gitCheckpointRepo.ts:133-237",
+        "packages/services/src/git/repo/gitCheckpointStore.ts:44-70",
+        "packages/services/src/bots/channelRuntime.ts:153-238",
+        "packages/services/src/storage/domain/usageAggregate.ts:89-105",
+        "packages/services/src/storage/adapters/fsWalker.ts:70-107",
+        "packages/services/src/git/config.ts:34-72"
       ],
       "tickets": [
         "G-814410",
-        "G-814411"
+        "G-814411",
+        "G-814420",
+        "G-814421",
+        "G-814422",
+        "G-814423",
+        "G-814425",
+        "G-814426"
       ]
     },
     {
@@ -315,8 +332,8 @@
       "path": "apps/zcode-cli/packages/core/src",
       "status": "windowed",
       "files": 500,
-      "read": 248,
-      "notes": "W5 四路按互斥目录读到体:tool 176/72(根17+executor22+handlers33;窗口6:call-runner/permission-flow/result-serialization/read/edit/bash;仅结构1:generated/bash-command-registry.ts 系 1.8MB ISC 数据块)、runtime 164/25(窗口2:events/streaming-tool-coordinator)、workflow+subagent+context+agent+memory 89/85(subagent/runner.ts 与 agent/ 三件仅窗口读,不计 read)、小而密长尾 71/66(hooks19/19、permission6/6、compact6/6、runtime-task5/5、plugin-reference4/4、session-context4/4、mcp3/3、system-reminder3/3、embedded-search2/2、errors·model·telemetry 各1/1、顶层散件4/4、browser-client7/3、repl5/4)。⚠️ read=248 是【下界】不是相加值:W3 旧登记的 44 个按 notes 判定全部落在上述目录内(tool/handlers 4、runtime/methods 14、runtime/helpers+subagent+system-reminder 11、a-m/n-z 15),父子相加会双计;真实区间 [248,292]。⚠️ 刻意不新增子切片条目:M1 只判覆盖不判互斥,而头条按切片求和 ⇒ 父子并存等于给覆盖数发合格证;目录明细只写在本字段。W5-A 报的『审批等待吃掉执行预算』已三面证伪(runToolInner/requestToolApproval 全仓零命中),不得重新提出。",
+      "read": 259,
+      "notes": "W5 四路按互斥目录读到体:tool 176/72(根17+executor22+handlers33;窗口6:call-runner/permission-flow/result-serialization/read/edit/bash;仅结构1:generated/bash-command-registry.ts 系 1.8MB ISC 数据块)、runtime 164/25(窗口2:events/streaming-tool-coordinator)、workflow+subagent+context+agent+memory 89/85(subagent/runner.ts 与 agent/ 三件仅窗口读,不计 read)、小而密长尾 71/66(hooks19/19、permission6/6、compact6/6、runtime-task5/5、plugin-reference4/4、session-context4/4、mcp3/3、system-reminder3/3、embedded-search2/2、errors·model·telemetry 各1/1、顶层散件4/4、browser-client7/3、repl5/4)。⚠️ read=248 是【下界】不是相加值:W3 旧登记的 44 个按 notes 判定全部落在上述目录内(tool/handlers 4、runtime/methods 14、runtime/helpers+subagent+system-reminder 11、a-m/n-z 15),父子相加会双计;真实区间 [248,292]。⚠️ 刻意不新增子切片条目:M1 只判覆盖不判互斥,而头条按切片求和 ⇒ 父子并存等于给覆盖数发合格证;目录明细只写在本字段。W5-A 报的『审批等待吃掉执行预算』已三面证伪(runToolInner/requestToolApproval 全仓零命中),不得重新提出。 ｜09-29 第五十九批:core 竞窗与权限三簇 +11 枚具名整读到体(runtime-task/registry 296、tool/executor/background-task-registry 289、background-tasks 1198、runtime/methods/background 484、background-notifications 246、runtime-command-queue 476、command-queue 241、permission/service 687、broker 166、permission-responder-race 93、helpers/permission-broker 25)。少报(代理自报只读到区间,不计整读):permission-flow.ts(431,只 100-236)、headless-workflow.ts(379,只 1-60/290-355)、prompt-command.ts(642,只 295-340)。",
       "remaining": "约 251 未读。tool 余 97:background-tasks.ts 1198、result-display 461、read-session-context 440、edit-matchers/node-repl/create-workflow 411、store/read-pdf/cron/bash-command-permission-policy 38x。runtime 余 137:session-fork 1487、steering 1403、types 924、subagent 915、turn 872、turn-model-step 803、rewind-message 740、compact-active 725、file-rewind 717、agent-runtime 664、turn-tools 527、model 518。窗口读过的 events.ts / streaming-tool-coordinator.ts / subagent/runner.ts / agent 三件需回读补体。",
       "evidence": [
         "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-egress-guard.ts:77",
@@ -326,7 +343,17 @@
         "apps/zcode-cli/packages/core/src/system-reminder/incoming-message.ts:6",
         "apps/zcode-cli/packages/core/src/mcp/name.ts:3",
         "apps/zcode-cli/packages/core/src/subagent/profile-frontmatter.ts:76",
-        "apps/zcode-cli/packages/core/src/context/sections/workflow-actor.ts:24"
+        "apps/zcode-cli/packages/core/src/context/sections/workflow-actor.ts:24",
+        "apps/zcode-cli/packages/core/src/tool/executor/background-task-registry.ts:127-147",
+        "apps/zcode-cli/packages/core/src/tool/executor/background-task-registry.ts:168-192",
+        "apps/zcode-cli/packages/core/src/runtime-task/registry.ts:197-230",
+        "apps/zcode-cli/packages/core/src/runtime/methods/runtime-command-queue.ts:100-109",
+        "apps/zcode-cli/packages/core/src/runtime/methods/runtime-command-queue.ts:23-40",
+        "apps/zcode-cli/packages/core/src/runtime/methods/background-notifications.ts:20-43",
+        "apps/zcode-cli/packages/core/src/permission/broker.ts:24-32",
+        "apps/zcode-cli/packages/core/src/tool/executor/permission-responder-race.ts:59-86",
+        "apps/zcode-cli/packages/core/src/tool/executor/background-tasks.ts:99-108",
+        "apps/zcode-cli/packages/core/src/tool/executor/background-tasks.ts:288-289"
       ],
       "tickets": [
         "G-373",
@@ -337,7 +364,10 @@
         "G-425",
         "G-426",
         "G-427",
-        "G-428"
+        "G-428",
+        "G-814418",
+        "G-814419",
+        "G-814424"
       ]
     },
     {
@@ -532,7 +562,8 @@
         "G-814407",
         "G-814408",
         "G-814409",
-        "G-814413"
+        "G-814413",
+        "G-814414"
       ]
     },
     {
@@ -610,7 +641,8 @@
     {
       "path": "packages",
       "status": "unread",
-      "notes": "兜底:未被上面具体切片吃掉的 packages 内文件(配置壳等)。"
+      "notes": "兜底:未被上面具体切片吃掉的 packages 内文件(配置壳等)。",
+      "read": 0
     },
     {
       "path": "apps",
@@ -658,6 +690,16 @@
     "G-814413": "自定义命令展开链 $ARGUMENTS/$1..$n + 保留名 gate(等用户拍板,属新增能力)(可落地;G-814413 需拍板)",
     "G-814410": "公开投影改 allow-list 逐 kind 重建 + 穷尽 switch 无 default + 引用闭包校验(可落地;G-814413 需拍板)",
     "G-814411": "令牌刷新写回前加\"旧 token 仍是当前值\"的三匹配 CAS 复核(可落地;G-814413 需拍板)",
-    "G-814412": "技能未知 frontmatter 键 ⇒ safeToAutoLoad 保守档 + description 长度闸(getAllowedTools 生产零调用)(可落地;G-814413 需拍板)"
+    "G-814412": "技能未知 frontmatter 键 ⇒ safeToAutoLoad 保守档 + description 长度闸(getAllowedTools 生产零调用)(可落地;G-814413 需拍板)",
+    "G-814414": "行级复活/陈旧落地守卫对结构化 JSON 与常见短行成片产假阳,应改按键路径/结构对账(可落地)",
+    "G-814418": "后台任务登记与投递解耦(claim/release 令牌)+ 终态单向门,迟到快照不得改写已终态条目(可落地;与 G-814419 同文件必须同笔或同一人串行)",
+    "G-814419": "集合级\"等在飞\"出口必须给可分辨结论 settled/unknown/gone,不得沿用上游那种返回 Promise void 的等待(可落地;前置:先实测一次性进程是否真能提前退出)",
+    "G-814420": "fetch 超时预算必须罩住响应体消费,收到 headers 不等于完成(可落地;两处 finally 先 clearTimeout 的站点已点名)",
+    "G-814421": "外部队列游标只在业务成功后 ACK,业务失败必须释放幂等槽;错误提示发送成功不算 ACK(可落地)",
+    "G-814422": "入站消息按 actor 串行结算,防并发读同一 pending 态重复 respond(可落地;验收断言副作用而非状态码)",
+    "G-814423": "diff 内容的\"读不到\"与\"空文件\"必须全或无降级,禁止单侧补空串(先人工核我方装配点,核完才动代码)",
+    "G-814424": "超输出上限时按 key 记住降级模式并喊出来,不得直接作废结果(可落地)",
+    "G-814425": "锁的初始化必须写全再原子可见:pending 目录 + rename,未初始化锁不得被竞态判成 stale(可落地;两把锁共用一份实现)",
+    "G-814426": "扫描类快照条目必须分类有界 + 折叠余项点名(可落地)"
   }
 }

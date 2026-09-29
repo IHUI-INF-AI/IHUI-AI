@@ -28,6 +28,7 @@ import {
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/date-utils'
+import { fingerprintVerdict } from '@/lib/fingerprint-verdict'
 import { BackButton } from '@/components/common'
 
 interface BlacklistItem {
@@ -39,6 +40,12 @@ interface BlacklistItem {
   status: 'active' | 'removed'
   expiresAt: string | null
   createdAt: string
+  // 设备指纹区分度闸的结论(admin-auth-edu-routes.ts 的 enriched 段逐项外发)。
+  // 可选而非必填:同一类型也可能被不含该闸的列表复用,缺席时按"没收到结论"处理(见 fingerprint-verdict)。
+  discriminating?: boolean
+  matchedUserCount?: number
+  withheldUserCount?: number
+  nonDiscriminationNote?: string | null
 }
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
@@ -145,7 +152,21 @@ export default function AdminMemberBlacklistPage() {
                       {TYPE_LABEL[b.type]}
                     </span>
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{b.identifier}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {b.identifier}
+                    {fingerprintVerdict(b).label ? (
+                      <div className="mt-1 max-w-[260px] font-sans">
+                        <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                          {fingerprintVerdict(b).label}
+                        </span>
+                        {fingerprintVerdict(b).note ? (
+                          <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
+                            {fingerprintVerdict(b).note}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{b.user || '-'}</TableCell>
                   <TableCell className="max-w-[200px] break-words text-xs text-muted-foreground">
                     {b.reason}

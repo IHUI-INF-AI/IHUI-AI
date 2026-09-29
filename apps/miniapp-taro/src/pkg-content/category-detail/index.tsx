@@ -95,7 +95,7 @@ export default function CategoryDetailPage() {
                 <View className="w-[96rpx] h-[96rpx] rounded-md bg-muted" />
                 <View className="flex-1 space-y-2">
                   <View className="h-3 w-1/3 rounded bg-muted" />
-                  <View className="h-2.5 w-2/3 rounded bg-muted" />
+                  <View className="h-[20rpx] w-2/3 rounded bg-muted" />
                 </View>
               </View>
             ))}
