@@ -5,32 +5,37 @@
 'use client'
 
 /**
- * 扫码登录弹窗(2026-07-31 CDP 模式):用 BrowserHub CDP 在 WorkPanel 内置浏览器打开真实登录页,
- * 用户在 CDP 画面里直接扫码/操作,后端轮询检测 cookies 自动保存。超时 5 分钟(CountdownTimer + 轮询双保险)。
- * 弹窗关闭后轮询继续,用户重新打开可查看进度/取消。
+ * 扫码登录弹窗(2026-09-29 换回"后端截二维码 + 前端轮询任务"这条 HTTP 通道)。
  *
- * 2026-09-02:新增"外部 Chrome 自动闭环"——系统 Chrome 带 CDP 调试端口打开登录页,
- * 同样走 detect-from-cdp 轮询,登录成功自动保存账号并关闭外部 Chrome(见 startPolling 复用)。
+ * 为什么换:此前走内置浏览器 CDP(`POST /api/browser/sessions` + `WS /api/browser/ws/*`),
+ * 而生产 nginx 把 `/api/` 整段交给 Fastify(8802),那两层路由**都不存在**;Next.js rewrites
+ * 只在 dev 生效。实测(同一枚合法 token,2026-09-29):`POST /api/browser/sessions` → 404
+ * `Route ... not found`,`GET https://aizhs.top/api/browser/ws/zz` → 404 同信封。
+ * 即"所有平台一起不好使"不是平台适配问题,是入口选了一条到端的 404 通道。
+ * 同一台机上 `POST /api/publish/scan-login/start` → 200,约 9s 后 `/qr` 出 604KB PNG ——
+ * HTTP 那条腿整条是通的(api 代理四条路由齐备),只是此前没有调用方。
  *
- * 2026-09-16:"默认浏览器 + 手动导入"模式——Chrome 136+ 禁止在默认 profile 上开 CDP 调试端口,
- * 外部 Chrome 只能用独立临时 profile,拿不到用户日常浏览器里已登录的账号。
- * 改为用 openExternalUrl 调系统默认浏览器(用户日常 profile,本来就已登录)打开登录页,
- * 用户登录后从 DevTools 复制 Cookie 粘贴进来,后端 import-cookies 解析校验入库。
+ * 弹窗保持打开并直接显示二维码:关闭弹窗=取消任务(A5),不再"缩到侧栏"——
+ * 侧栏那块画面正是依赖上面那条 404 的 WS 才有内容。
+ *
+ * 2026-09-16:"默认浏览器 + 手动导入"模式保留 —— Chrome 136+ 禁止在默认 profile 上开 CDP
+ * 调试端口,外部浏览器拿不到用户日常登录态,故用 openExternalUrl 调系统默认浏览器打开登录页,
+ * 用户登录后粘贴 Cookie,后端 import-cookies 解析校验入库。
  */
 
 import * as React from 'react'
 import { Loader2, QrCode, CheckCircle2, XCircle, ExternalLink } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
-  createBrowserSession,
-  closeBrowserSession,
-  detectLoginFromCdp,
+  cancelScanLogin,
+  fetchScanLoginQr,
+  getScanLoginStatus,
   importCookiesManually,
   listScanLoginPlatforms,
+  startScanLogin,
   type ScanLoginPlatform,
 } from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
-import { useWorkPanelStore } from '@/stores/work-panel'
 import { openExternalUrl } from '@/lib/tauri-bridge'
 import { Textarea } from '@/components/form/Textarea'
 import {
@@ -63,6 +68,9 @@ const TIMEOUT_SECONDS = 300
 
 type Phase = 'idle' | 'starting' | 'polling' | 'manual-import' | 'success' | 'failed'
 
+/** 连续多少次"根本没拿到应答"(网络层失败)才判失败。有状态码的应答一律当场点名,不拖到超时。 */
+const MAX_NETWORK_RETRIES = 3
+
 export function ScanLoginDialog({
   open,
   onOpenChange,
@@ -72,11 +80,10 @@ export function ScanLoginDialog({
   const t = useTranslations('publish')
   const tCommon = useTranslations('common')
   const toast = useToast()
-  const openCdpSession = useWorkPanelStore((s) => s.openCdpSession)
   const [platforms, setPlatforms] = React.useState<ScanLoginPlatform[]>([])
   const [platform, setPlatform] = React.useState<string>(defaultPlatform ?? '')
   const [phase, setPhase] = React.useState<Phase>('idle')
-  const [sessionId, setSessionId] = React.useState<string>('')
+  const [qrUrl, setQrUrl] = React.useState<string>('')
   const [errorMsg, setErrorMsg] = React.useState<string>('')
   const [countdownSeconds, setCountdownSeconds] = React.useState<number>(TIMEOUT_SECONDS)
   const [cookiesInput, setCookiesInput] = React.useState<string>('')
@@ -84,6 +91,13 @@ export function ScanLoginDialog({
   const [importing, setImporting] = React.useState<boolean>(false)
   const startTimeRef = React.useRef<number>(0)
   const pollTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  /** 当前后端任务 id。轮询闭包里读 state 会拿到旧值,取消/卸载路径必须读这一份。 */
+  const taskIdRef = React.useRef<string>('')
+  /** 已渲染的二维码批次(qr_updated_at),用它避免每 3s 重复拉同一张图 */
+  const qrStampRef = React.useRef<number>(0)
+  /** 二维码 blob 的 objectURL,卸载/重取时必须释放,否则每次刷新都漏一个 Blob */
+  const qrUrlRef = React.useRef<string>('')
+  const networkFailRef = React.useRef<number>(0)
 
   React.useEffect(() => {
     if (defaultPlatform) setPlatform(defaultPlatform)
@@ -114,9 +128,10 @@ export function ScanLoginDialog({
   React.useEffect(() => {
     return () => {
       stopPolling()
-      if (sessionId) void closeBrowserSession(sessionId)
+      releaseQr()
+      // 卸载即取消:后端任务不取消会占着一个 Chromium 直到 5 分钟超时
+      if (taskIdRef.current) void cancelScanLogin(taskIdRef.current).catch(() => undefined)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   React.useEffect(() => {
@@ -133,11 +148,34 @@ export function ScanLoginDialog({
     }
   }
 
-  function failSession(msg: string) {
+  /** 释放二维码 blob。换图/失败/卸载三条路径都必须走这里,否则每 2 秒漏一个 Blob。 */
+  function releaseQr() {
+    if (qrUrlRef.current) {
+      URL.revokeObjectURL(qrUrlRef.current)
+      qrUrlRef.current = ''
+    }
+    qrStampRef.current = 0
+    setQrUrl('')
+  }
+
+  /** 拉当前这一帧二维码。用 blob 而不是 <img src=URL>:该口要带 Authorization,裸 URL 拿不到。 */
+  async function showQr(id: string, stamp: number) {
+    const blob = await fetchScanLoginQr(id)
+    const next = URL.createObjectURL(blob)
+    if (qrUrlRef.current) URL.revokeObjectURL(qrUrlRef.current)
+    qrUrlRef.current = next
+    qrStampRef.current = stamp
+    setQrUrl(next)
+  }
+
+  function failTask(msg: string) {
     stopPolling()
-    if (sessionId) {
-      void closeBrowserSession(sessionId)
-      setSessionId('')
+    releaseQr()
+    // 后端任务可能还在跑(它自己也要等到 5 分钟才收),这里必须显式取消,
+    // 否则每次失败都留一个 Chromium 挂在服务器上。
+    if (taskIdRef.current) {
+      void cancelScanLogin(taskIdRef.current).catch(() => undefined)
+      taskIdRef.current = ''
     }
     setPhase('failed')
     setErrorMsg(msg)
@@ -145,7 +183,7 @@ export function ScanLoginDialog({
   }
 
   function handleCountdownExpire() {
-    failSession(t('accounts.scanLoginTimeout'))
+    failTask(t('accounts.scanLoginTimeout'))
   }
 
   async function handleStart() {
@@ -154,58 +192,85 @@ export function ScanLoginDialog({
     if (!plat) return
     setPhase('starting')
     setErrorMsg('')
+    networkFailRef.current = 0
     try {
-      const r = await createBrowserSession({
-        url: plat.login_url,
-        viewport_width: 1024,
-        viewport_height: 720,
-      })
-      if (!r.success) throw apiFailureToError(r, '创建浏览器会话失败')
-      if (!r.data?.session_id) throw new Error('创建浏览器会话失败')
-      const sid = r.data.session_id
-      setSessionId(sid)
+      const r = await startScanLogin(platform)
+      if (!r.success) throw apiFailureToError(r, t('accounts.scanLoginFailed'))
+      const id = r.data?.task_id
+      if (!id) throw new Error(t('accounts.scanLoginFailed'))
+      taskIdRef.current = id
       startTimeRef.current = Date.now()
-      openCdpSession(plat.login_url, sid, plat.name)
+      setCountdownSeconds(TIMEOUT_SECONDS)
       setPhase('polling')
-      onOpenChange(false)
-      toast.success(`已在右侧内置浏览器打开 ${plat.name} 登录页,请扫码登录`)
-      startPolling(sid, platform)
+      startPolling(id)
     } catch (e) {
-      setErrorMsg((e as Error).message)
+      const msg = (e as Error).message
+      stopPolling()
       setPhase('failed')
+      setErrorMsg(msg)
+      toast.error(msg)
     }
   }
 
-  function startPolling(sid: string, plat: string) {
+  /** 终态集合:后端 expired 不在 ScanLoginTask 的类型并集里,所以按字符串集合判,不做字面量比较。 */
+  const TERMINAL_STATUSES = new Set(['success', 'failed', 'timeout', 'cancelled', 'expired'])
+
+  function startPolling(id: string) {
     stopPolling()
     pollTimerRef.current = setInterval(async () => {
       if (Date.now() - startTimeRef.current > TIMEOUT_MS) {
-        failSession(t('accounts.scanLoginTimeout'))
+        failTask(t('accounts.scanLoginTimeout'))
         return
       }
       try {
-        const r = await detectLoginFromCdp(sid, plat)
-        if (r.success && r.data?.detected) {
+        const r = await getScanLoginStatus(id)
+        if (!r.success) {
+          // 拿到状态码 = 服务答过了。这一类问题多轮几次不会自己好,当场点名 ——
+          // 旧实现把每一次 404 都表现成"等待扫码",即"不好使"最难归因的那一层。
+          failTask(apiFailureToError(r, t('accounts.scanLoginFailed')).message)
+          return
+        }
+        networkFailRef.current = 0
+        const d = r.data
+        if (!d) return
+        if (d.status === 'success') {
           stopPolling()
-          setSessionId('')
-          void closeBrowserSession(sid)
+          releaseQr()
+          taskIdRef.current = ''
           setPhase('success')
-          toast.success(`${t('accounts.scanLoginSuccess')} (${r.data.cookies_count} cookies)`)
+          toast.success(
+            `${t('accounts.scanLoginSuccess')}${d.cookies_count ? ` (${d.cookies_count})` : ''}`,
+          )
           onSuccess?.()
-        } else if (r.success && r.data?.error) {
-          failSession(r.data.error)
+          return
+        }
+        if (TERMINAL_STATUSES.has(d.status)) {
+          failTask(d.message || t('accounts.scanLoginFailed'))
+          return
+        }
+        if (d.has_qr && d.qr_updated_at !== qrStampRef.current) {
+          try {
+            await showQr(id, d.qr_updated_at)
+          } catch {
+            /* 这一帧图没取到:下一轮还会再取,不能因此把整个任务判失败 */
+          }
         }
       } catch {
-        /* 网络错误静默,继续轮询 */
+        // 只有"根本没拿到应答"(网络层异常)才计入重试预算;连续 3 次判失败。
+        networkFailRef.current += 1
+        if (networkFailRef.current >= MAX_NETWORK_RETRIES) {
+          failTask(t('accounts.scanLoginFailed'))
+        }
       }
     }, POLL_INTERVAL_MS)
   }
 
   function handleCancel() {
     stopPolling()
-    if (sessionId) {
-      void closeBrowserSession(sessionId)
-      setSessionId('')
+    releaseQr()
+    if (taskIdRef.current) {
+      void cancelScanLogin(taskIdRef.current).catch(() => undefined)
+      taskIdRef.current = ''
     }
     setPhase('idle')
   }
@@ -307,25 +372,38 @@ export function ScanLoginDialog({
           {phase === 'starting' && (
             <div className="flex flex-col items-center gap-2 py-4">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">正在打开 {platformName} 登录页...</p>
+              <p className="text-sm text-muted-foreground">{t('accounts.scanLoginHint')}</p>
             </div>
           )}
 
           {phase === 'polling' && (
             <div className="flex flex-col items-center gap-3 rounded-lg border bg-muted/30 p-3">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              {qrUrl ? (
+                // 二维码由后端截取登录页后逐帧更新(qr_updated_at 变一次取一帧);
+                // 用 blob 而不是裸 URL,是因为 /qr 那一口要带 Authorization。
+                <img
+                  src={qrUrl}
+                  alt={t('accounts.scanLoginQrAlt')}
+                  width={240}
+                  height={240}
+                  className="h-60 w-60 bg-white object-contain"
+                  data-testid="qr-image"
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-2 py-6">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">{t('accounts.scanLoginHint')}</p>
+                </div>
+              )}
               <div className="space-y-1 text-center">
-                <p className="text-sm font-medium">正在等待扫码登录</p>
-                <p className="text-xs text-muted-foreground">
-                  在浏览器窗口中完成扫码/登录即可,无需点击;检测到登录后自动保存账号
-                </p>
+                <p className="text-sm font-medium">{t('accounts.scanLogin')}</p>
+                <p className="text-xs text-muted-foreground">{t('accounts.scanWithPhoneHint')}</p>
               </div>
               <CountdownTimer
                 totalSeconds={countdownSeconds}
                 onExpire={handleCountdownExpire}
                 variant="danger"
               />
-              <p className="text-xs text-muted-foreground">检测到登录后会自动保存账号</p>
             </div>
           )}
 
@@ -396,7 +474,7 @@ export function ScanLoginDialog({
               onClick={() => {
                 setPhase('idle')
                 setErrorMsg('')
-                setSessionId('')
+                taskIdRef.current = ''
                 onOpenChange(false)
               }}
             >

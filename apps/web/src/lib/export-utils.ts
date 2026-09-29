@@ -10,6 +10,17 @@ export interface ExportColumn {
   formatter?: (value: unknown, row: Record<string, unknown>) => string
 }
 
+// G-823:单元格可携带不可信的 assistant 生成文本,以 = + - @ 开头(含前导空白/制表符)的值
+// 会被 Excel 当公式执行(公式注入)。前缀 ' 令其按文本解析;' 本身不是触发字符 ⇒ 天然幂等。
+// 数字原始值是机器生成的正当用法,不得因 -5 以 - 开头被中和。
+const FORMULA_INJECTION_RE = /^(?:[\t\r\n]|\s*[=+\-@])/
+
+export function neutralizeFormulaCell(value: unknown): string {
+  if (typeof value === 'number') return String(value)
+  const text = typeof value === 'string' ? value : String(value ?? '')
+  return FORMULA_INJECTION_RE.test(text) ? `'${text}` : text
+}
+
 export function exportToExcel(
   filename: string,
   columns: ExportColumn[],
@@ -23,7 +34,9 @@ export function exportToExcel(
         const val = row[c.key]
         const formatted = c.formatter ? c.formatter(val, row) : String(val ?? '')
         const translated = t && formatted ? t(formatted) : formatted
-        return translated.replace(/\t/g, ' ').replace(/\n/g, ' ')
+        // 收口点:先中和再走既有的分隔符清洗(顺序不得反,否则前缀被后续处理吞掉)
+        const safe = typeof val === 'number' ? translated : neutralizeFormulaCell(translated)
+        return safe.replace(/\t/g, ' ').replace(/\n/g, ' ')
       })
       .join('\t'),
   )
