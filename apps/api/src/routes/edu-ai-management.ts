@@ -31,11 +31,12 @@ import {
   loadEnrollmentLedger,
   recomputeEnrollment,
   recordPayment,
+  recordRefund,
   settleRefund,
-  shouldAdoptUnattributed,
   voidPaymentRecord,
 } from '../services/edu-ledger.js'
 import { dispatchArrearChannels } from '../services/edu-arrear-remind-service.js'
+import { findScheduleConflicts } from '../services/edu-schedule-conflict.js'
 import {
   eduTerm,
   eduClass,
@@ -4312,48 +4313,22 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const parsed = createRefundRecordSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    // 退费登记必须落到一条报名上,否则它冲不进"该报名已缴多少"。
-    // 归属按两级取:① 所关联流水的 enrollment_id(确定信息);② 没有 paymentId 时,**仅当**
-    // 该 student×class 只有一条有效报名才认领(与缴费侧同一条规则、同一个纯函数)。
-    // 旧写法只做 ①,于是"不带 paymentId 的退费"既不写归属也不触发重算 —— 钱退了、
-    // 已缴额不减、欠费照旧,属账目口径静默失真(与"无归属缴费"同族,那是我自己埋的)。
-    // 两级都不成立时留 NULL 并如实回传 unattributed,由账目出口点名,绝不猜一期。
-    const [pay] = parsed.data.paymentId
-      ? await db
-          .select({ enrollmentId: eduPaymentRecord.enrollmentId })
-          .from(eduPaymentRecord)
-          .where(
-            and(eq(eduPaymentRecord.id, parsed.data.paymentId), isNull(eduPaymentRecord.deletedAt)),
-          )
-          .limit(1)
-      : []
-    let ownerEnrollmentId: string | null = pay?.enrollmentId ?? null
-    if (!ownerEnrollmentId) {
-      const siblings = await db
-        .select({ id: eduEnrollment.id })
-        .from(eduEnrollment)
-        .where(
-          and(
-            eq(eduEnrollment.studentId, parsed.data.studentId),
-            eq(eduEnrollment.classId, parsed.data.classId),
-            isNull(eduEnrollment.deletedAt),
-          ),
-        )
-        .limit(2)
-      if (shouldAdoptUnattributed(siblings.length)) ownerEnrollmentId = siblings[0]?.id ?? null
-    }
-    const [row] = await db
-      .insert(eduRefundRecord)
-      .values({
-        ...parsed.data,
-        enrollmentId: ownerEnrollmentId,
-        operatorId: parsed.data.operatorId || request.userId,
-      })
-      .returning()
-    if (ownerEnrollmentId) await recomputeEnrollment(ownerEnrollmentId)
+    // 归属解析与重算全在账目出口里做一次(见 edu-ledger::recordRefund)。
+    // 此前这两个别名端点各写一遍 insert + 各自判归属,于是"两处必须同改"成了缺陷温床 ——
+    // 真实事故就是其中一半没做:不带 paymentId 的退费退了钱却不减已缴额。
+    const r = await recordRefund({
+      ...parsed.data,
+      operatorId: parsed.data.operatorId || request.userId,
+    })
     return reply
       .status(201)
-      .send(success({ refundRecord: row, unattributed: !ownerEnrollmentId }))
+      .send(
+        success({
+          refundRecord: r.refund,
+          enrollmentId: r.enrollmentId,
+          unattributed: !r.enrollmentId,
+        }),
+      )
   })
 
   // 审批通过
@@ -4604,48 +4579,22 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const parsed = createRefundRecordSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    // 退费登记必须落到一条报名上,否则它冲不进"该报名已缴多少"。
-    // 归属按两级取:① 所关联流水的 enrollment_id(确定信息);② 没有 paymentId 时,**仅当**
-    // 该 student×class 只有一条有效报名才认领(与缴费侧同一条规则、同一个纯函数)。
-    // 旧写法只做 ①,于是"不带 paymentId 的退费"既不写归属也不触发重算 —— 钱退了、
-    // 已缴额不减、欠费照旧,属账目口径静默失真(与"无归属缴费"同族,那是我自己埋的)。
-    // 两级都不成立时留 NULL 并如实回传 unattributed,由账目出口点名,绝不猜一期。
-    const [pay] = parsed.data.paymentId
-      ? await db
-          .select({ enrollmentId: eduPaymentRecord.enrollmentId })
-          .from(eduPaymentRecord)
-          .where(
-            and(eq(eduPaymentRecord.id, parsed.data.paymentId), isNull(eduPaymentRecord.deletedAt)),
-          )
-          .limit(1)
-      : []
-    let ownerEnrollmentId: string | null = pay?.enrollmentId ?? null
-    if (!ownerEnrollmentId) {
-      const siblings = await db
-        .select({ id: eduEnrollment.id })
-        .from(eduEnrollment)
-        .where(
-          and(
-            eq(eduEnrollment.studentId, parsed.data.studentId),
-            eq(eduEnrollment.classId, parsed.data.classId),
-            isNull(eduEnrollment.deletedAt),
-          ),
-        )
-        .limit(2)
-      if (shouldAdoptUnattributed(siblings.length)) ownerEnrollmentId = siblings[0]?.id ?? null
-    }
-    const [row] = await db
-      .insert(eduRefundRecord)
-      .values({
-        ...parsed.data,
-        enrollmentId: ownerEnrollmentId,
-        operatorId: parsed.data.operatorId || request.userId,
-      })
-      .returning()
-    if (ownerEnrollmentId) await recomputeEnrollment(ownerEnrollmentId)
+    // 归属解析与重算全在账目出口里做一次(见 edu-ledger::recordRefund)。
+    // 此前这两个别名端点各写一遍 insert + 各自判归属,于是"两处必须同改"成了缺陷温床 ——
+    // 真实事故就是其中一半没做:不带 paymentId 的退费退了钱却不减已缴额。
+    const r = await recordRefund({
+      ...parsed.data,
+      operatorId: parsed.data.operatorId || request.userId,
+    })
     return reply
       .status(201)
-      .send(success({ refundRecord: row, unattributed: !ownerEnrollmentId }))
+      .send(
+        success({
+          refundRecord: r.refund,
+          enrollmentId: r.enrollmentId,
+          unattributed: !r.enrollmentId,
+        }),
+      )
   })
 
   server.put('/refund/:id/approve', async (request, reply) => {
@@ -4703,28 +4652,20 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
             isNull(eduCourseSchedule.deletedAt),
           ),
         )
-      const WD = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']
-      const conflicts: string[] = []
-      for (let x = 0; x < rows.length; x++) {
-        for (let y = x + 1; y < rows.length; y++) {
-          const a = rows[x]!
-          const b = rows[y]!
-          if (a.weekday !== b.weekday) continue
-          if (!(a.startTime < b.endTime && b.startTime < a.endTime)) continue
-          const when = `${WD[a.weekday] ?? a.weekday} ${a.startTime}-${a.endTime}`
-          if (a.teacher && a.teacher === b.teacher) {
-            conflicts.push(
-              `教师时间冲突:${when}「${a.courseName}」与「${b.courseName}」(教师 ${a.teacher})`,
-            )
-          }
-          if (a.classroom && a.classroom === b.classroom) {
-            conflicts.push(
-              `教室占用冲突:${when}「${a.courseName}」与「${b.courseName}」(教室 ${a.classroom})`,
-            )
-          }
-        }
-      }
-      return reply.send(success({ conflicts }))
+      // 判定与规范化在 edu-schedule-conflict.ts(纯函数,有测试)。
+      // 旧实现在这里直接比字符串 `a.startTime < b.endTime`:非补零的 '9:00' 会被判成
+      // 不与 '10:00-11:00' 冲突 —— 页面一路绿,老师却被排进同一时刻两节课。
+      const { conflicts, malformedTimes } = findScheduleConflicts(
+        rows.map((r) => ({
+          weekday: r.weekday,
+          startTime: r.startTime,
+          endTime: r.endTime,
+          teacher: r.teacher,
+          classroom: r.classroom,
+          courseName: r.courseName,
+        })),
+      )
+      return reply.send(success({ conflicts, malformedTimes }))
     } catch (_err) {
       return reply.status(500).send(error(500, '冲突检测失败'))
     }
