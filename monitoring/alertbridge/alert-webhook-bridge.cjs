@@ -67,6 +67,9 @@ const http = require('http')
 const fs = require('fs')
 const path = require('path')
 const { spawn } = require('child_process')
+// 日志来源锚点(唯一实现住在这个模块里:标签名与分区取值一律现读 promtail 的产出,
+// 本文件不得再写一份名单 —— 两处算同一件事必漂移)。
+const logAnchor = require('./log-source-anchor.js')
 
 // ── 配置 ──────────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.BRIDGE_PORT || '9096', 10)
@@ -99,6 +102,40 @@ const MAIL_TIMEOUT_MS = parseInt(process.env.BRIDGE_MAIL_TIMEOUT_MS || '90000', 
 /** 空串 ⇒ 不传 --to,由派发器按 process.env → apps/api/.env 的 ALERT_EMAIL_TO 解析(不复制第二份收件人真相) */
 const MAIL_TO = String(process.env.BRIDGE_MAIL_TO || '').trim()
 const MAIL_SOURCE = 'ihui-alertbridge'
+
+// ── 日志来源分流(G-472 告警侧)─────────────────────────────────────────────────
+// 采集器与监控自身造成的日志(pg-exporter 每 15 秒的 collector failed、Loki 把自己收到的
+// 查询语句原样打进 querier INFO 行……)不得与真实业务错误共用同一条到人告警:前者只记账
+// (日志 + 指标),后者照旧进邮件。**不新增任何发信通道** —— 到人仍只有品牌派发器那一条。
+// 分区标签名与取值一律现读 promtail 的产出并与 alerts.yml 的同行标记对账(见
+// log-source-anchor.js);对不上时 fail-open:一条都不压,全部照旧到人,并把"分流失明"
+// 落成 ihui_alertbridge_log_anchor_ok=0 让 LogSourceSplitBlind 去响。
+// TTL 缓存:改回同值后不必重启就恢复分流;重启也不是必要条件。
+const LOG_ANCHOR_TTL_MS = parseInt(process.env.BRIDGE_LOG_ANCHOR_TTL_MS || '300000', 10)
+const logAnchorCache = { untilMs: 0, value: null, announced: false }
+
+function currentLogAnchor(nowMs = Date.now()) {
+  if (logAnchorCache.value && nowMs < logAnchorCache.untilMs) return logAnchorCache.value
+  let resolved
+  try {
+    resolved = logAnchor.resolveAnchor(REPO_ROOT)
+  } catch (e) {
+    resolved = { ok: false, problems: [`锚点解析异常: ${e && e.message ? e.message : e}`] }
+  }
+  logAnchorCache.value = resolved
+  logAnchorCache.untilMs = nowMs + LOG_ANCHOR_TTL_MS
+  logAnchorOk = !!resolved.ok
+  // 失明必须大声且**只喊一次**一条(它是每 5 分钟重评一次的判据,不是每次 webhook 的新故障);
+  // 恢复也要喊,否则"什么时候不再响"没人知道。
+  if (!resolved.ok && !logAnchorCache.announced) {
+    logAnchorCache.announced = true
+    writeLog(`[anchor][WARN] 日志来源分流失明(本轮全部照旧到人,未压任何一条): ${(resolved.problems || []).join('; ')}`)
+  } else if (resolved.ok && logAnchorCache.announced) {
+    logAnchorCache.announced = false
+    writeLog(`[anchor] 日志来源分流已恢复: ${resolved.label} ∈ [${resolved.self}] 只报不炸 / [${resolved.page}] 照旧到人`)
+  }
+  return resolved
+}
 
 function writeLog(msg) {
   const line = `${new Date().toISOString()} ${msg}\n`
@@ -203,7 +240,10 @@ const counters = {
   plainFallbacks: 0,         // 品牌模板失败但纯文本救回:版式退化了,投递没丢 —— 必须可见
   statePersistFailures: 0,   // 去重态落盘失败 ⇒ 重启后去重重置(本文件注释里那个"重寄"洞的前置信号)
   undeliveredMarks: 0,       // 写下 UNDELIVERED 标记的次数
+  selfScopeReported: 0,      // 按来源锚点判为"采集器/监控自身造成"、只记账不炸到人的条数
 }
+/** 日志来源锚点的活性(1=两侧名字对得上、分流在跑;0=失明 ⇒ 本桥已 fail-open 全照旧到人)。 */
+let logAnchorOk = false
 /** 最近一次投递尝试/成功的墙上时刻(秒)。up==1 而它长期不推进 = 链路活着但从未投递过任何东西。 */
 let lastMailAttemptTs = 0
 let lastMailSuccessTs = 0
@@ -219,6 +259,7 @@ function metricsSnapshot(nowMs = Date.now()) {
     mailUndelivered: fs.existsSync(UNDEL_FILE),
     dedupKeys: dedup.size,
     dedupWindowSeconds: Math.floor(MAX_DEDUP_AGE_MS / 1000),
+    logAnchorOk,
     lastMailAttemptTs,
     lastMailSuccessTs,
     counters: { ...counters },
@@ -242,6 +283,8 @@ const METRIC_SPECS = [
   ['ihui_alertbridge_webhooks_received_total', 'counter', 'Alertmanager webhook requests handled (including empty batches).', (s) => s.counters.webhooksReceived],
   ['ihui_alertbridge_alerts_received_total', 'counter', 'Alerts received before dedup.', (s) => s.counters.alertsReceived],
   ['ihui_alertbridge_alerts_dedup_suppressed_total', 'counter', 'Alerts suppressed by identity (alertname+instance) inside the dedup window.', (s) => s.counters.dedupSuppressed],
+  ['ihui_alertbridge_alerts_selfscope_reported_total', 'counter', 'Alerts whose log-source anchor says "collector / monitoring self noise": recorded here (log + this counter) instead of waking a human. Zero when the split is blind.', (s) => s.counters.selfScopeReported],
+  ['ihui_alertbridge_log_anchor_ok', 'gauge', '1 = the log-source anchor label agrees between promtail and the alert rules, so the collector/business split is live; 0 = blind (bridge fails open and pages everything) — alerts.yml rule LogSourceSplitBlind reads this.', (s) => (s.logAnchorOk ? 1 : 0)],
   ['ihui_alertbridge_mail_batches_delivered_total', 'counter', 'Mail batches delivered on either the branded or the plain-text path.', (s) => s.counters.batchesDelivered],
   ['ihui_alertbridge_mail_batches_failed_total', 'counter', 'Mail batches where BOTH the branded and the plain-text path failed (alerts never reached a human).', (s) => s.counters.batchesFailed],
   ['ihui_alertbridge_mail_batches_skipped_total', 'counter', 'Mail batches skipped by the gate (empty batch / BRIDGE_MAIL_ENABLED=0). Skipped is not failed.', (s) => s.counters.batchesSkipped],
@@ -561,6 +604,15 @@ function sendMailLeg(toPush, { dispatch = dispatchBrandMail, log = writeLog, und
   return deliverMail(toPush, { dispatch, log, undelFile })
 }
 
+/** 一批告警 → 投递计划(纯函数:先按来源分流、再对"要炸到人"的那一支做身份去重)。
+ *  handleAlert 与 --self-test 都走这一条铰链 —— 分流判据若只在生产路径里内联一份,
+ *  自检就是在测另一件事(本仓"判据必须在真跑它的那一刻才成立"同族)。 */
+function planDelivery(alerts, anchor, store, nowMs, windowMs) {
+  const { page, selfReportOnly } = logAnchor.splitAlertsByLogSource(alerts, anchor)
+  const { toPush, dedupedCount } = partitionAlerts(page, store, nowMs, windowMs)
+  return { toPush, dedupedCount, selfReportOnly, page }
+}
+
 // ── webhook 处理 ───────────────────────────────────────────────────────────────
 async function handleAlert(reqBody) {
   counters.webhooksReceived += 1 // 纯观测:以下判定链路一字未改
@@ -571,16 +623,31 @@ async function handleAlert(reqBody) {
   }
 
   const now = Date.now()
-  // 去重: 只保留"该去重窗口内未推过"的告警。
-  const { toPush, dedupedCount } = partitionAlerts(alerts, dedup, now, MAX_DEDUP_AGE_MS)
+  // ① 按日志来源分流:采集器/监控自身造成的 → 只记账;其余 → 照旧走身份去重 + 邮件。
+  //    锚点对不上时 splitAlertsByLogSource 把所有告警放进"照旧到人"那一支(fail-open),
+  //    所以这一层在失明态下与分流接入前的行为逐字一致(不会顺手压掉任何一条)。
+  const anchor = currentLogAnchor(now)
+  const { toPush, dedupedCount, selfReportOnly, page } = planDelivery(alerts, anchor, dedup, now, MAX_DEDUP_AGE_MS)
   counters.alertsReceived += alerts.length
   counters.dedupSuppressed += dedupedCount
+  if (selfReportOnly.length) {
+    counters.selfScopeReported += selfReportOnly.length
+    // "只报不炸"不等于"没记":逐条留一行(外部文本一律过 formatAlert 的脱敏+形状归一),
+    // 并计入 /metrics 的那个 counter ⇒ 静默变短在这里结构上不可能发生。
+    for (const a of selfReportOnly) {
+      writeLog(`[alert][selfscope] 只报不炸(来源分区 ${anchor.ok ? `${anchor.label}=${(a.labels || {})[anchor.label]}` : '未判定'}): ${formatAlert(a).replace(/\n/g, ' / ')}`)
+    }
+  }
   // 回响应前同步落盘(含 decideDedup 刚刷新过的时间戳)⇒ 跨重启延续,杜绝重启后重寄。
   if (!persistState(STATE_FILE, dedup, now, writeLog)) counters.statePersistFailures += 1
 
   if (!toPush.length) {
-    writeLog(`[alert] 全部命中去重窗口(${alerts.length}条/${alerts.length}条),跳过投递`)
-    return { skipped: dedupedCount }
+    if (!page.length && selfReportOnly.length) {
+      writeLog(`[alert] 本批 ${alerts.length} 条全部按来源判为只报不炸,未寄邮件(去重命中 ${dedupedCount} 条)`)
+      return { skipped: dedupedCount, reported: selfReportOnly.length }
+    }
+    writeLog(`[alert] 到人那一支全部命中去重窗口(${page.length}条/${dedupedCount}条),跳过投递`)
+    return { skipped: dedupedCount, reported: selfReportOnly.length }
   }
 
   // 每批待投递告警直接寄一封(不同身份一律照寄,无任何计数闸/队列丢弃)
@@ -599,7 +666,7 @@ async function handleAlert(reqBody) {
       // deliverMail 内部已把投递异常收敛成结论;走到这里只能是结论链路自身异常 —— 同样必须响。
       writeLog(`[mail][ERROR] 投递腿未收敛异常: ${redact(e && e.message ? e.message : e)}`)
     })
-  return { queued: toPush.length }
+  return { queued: toPush.length, reported: selfReportOnly.length }
 }
 
 function parseBody(req) {
@@ -882,6 +949,69 @@ async function runSelfTest() {
   eq('直接成功 ⇒ 两个退化计数都不动(成功不得被记成退化)', [counters.plainFallbacks - cAfterPlain.plainFallbacks, counters.undeliveredMarks - cAfterPlain.undeliveredMarks], [0, 0])
   eq('自检不得改动线上 UNDELIVERED 标记(它是真故障的凭据,自检无权清除)', fs.existsSync(UNDEL_FILE), undelBeforeSelfTest)
 
+  // ⑥ 日志来源分流(G-472 告警侧)。三条断言必须成对,且判据一律走纯函数 + 构造面:
+  //    a) 采集器/监控自身来源 ⇒ 只报不炸(阳性对照)
+  //    b) 真实业务错误 ⇒ 照旧进到人告警(反向对照)
+  //    c) 采集侧与规则侧的标签名/取值必须同值,任一侧改名或摘线都读得出来(反向锁)
+  //    锚点判不出时的方向也钉死:fail-open(一条都不压),绝不允许"判不出"退化成"都不炸"。
+  const readRepoFile = (rel) => fs.readFileSync(path.join(REPO_ROOT, ...rel.split('/')), 'utf8')
+  const anchorNow = currentLogAnchor(Date.now())
+  // 构造面兜底:现读判不出时后面几条不能崩(崩了会把"自检异常"冒充"判据红",exit 2 那种);
+  // 而这一条本身已经红了,不需要再靠崩溃来表达。
+  const ANCHOR_FIXTURE = { ok: true, label: 'job', page: ['api', 'ai-service', 'applogs'], self: ['monitorlogs'] }
+  eq('⑥a 现读两侧真文件 ⇒ 锚点对得上(分流真的在跑,不是"以为在跑")', anchorNow.ok, true)
+  const A = anchorNow.ok ? anchorNow : ANCHOR_FIXTURE
+  const collectorAlert = { labels: { alertname: 'PgCollectorWalFailed', instance: 'pg-exporter:9187', severity: 'critical', [A.label]: A.self[0] }, annotations: { description: 'source=collector.go msg="collector failed" name=wal' } }
+  const businessAlert = { labels: { alertname: 'ApiHighErrorRate', instance: 'api:8802', severity: 'critical', [A.label]: A.page[0] } }
+  const untaggedAlert = { labels: { alertname: 'WindowsDiskSpaceLow', instance: 'windows:9182', severity: 'warning' } }
+  const split1 = logAnchor.splitAlertsByLogSource([collectorAlert, businessAlert, untaggedAlert], A)
+  eq('⑥b 采集器来源那一条被分到"只报不炸"(阳性对照)', split1.selfReportOnly.map((x) => x.labels.alertname), ['PgCollectorWalFailed'])
+  eq('⑥c 业务错误 + 没有该标签的指标型告警都照旧到人(反向对照;不猜、不顺手压)', split1.page.map((x) => x.labels.alertname), ['ApiHighErrorRate', 'WindowsDiskSpaceLow'])
+  const splitBlind = logAnchor.splitAlertsByLogSource([collectorAlert, businessAlert], { ok: false, problems: ['构造:两侧名字对不上'] })
+  eq('⑥d 锚点判不出 ⇒ 全部照旧到人(fail-open;失效方向必须是"少压一条"而不是"多压一条")', [splitBlind.page.length, splitBlind.selfReportOnly.length], [2, 0])
+  const planStore = new Map()
+  const plan1 = planDelivery([collectorAlert, businessAlert, untaggedAlert], A, planStore, 1000, HOUR)
+  eq('⑥e 端到端投递计划:到人那一支只含业务/未打标告警', plan1.toPush.map((x) => x.labels.alertname), ['ApiHighErrorRate', 'WindowsDiskSpaceLow'])
+  const plan2 = planDelivery([collectorAlert, businessAlert, untaggedAlert], A, planStore, 1500, HOUR)
+  eq('⑥f 第二轮:业务那两条命中身份去重,而只报不炸那一支仍逐条记账(它不进人名额、也不被人名额压掉)', [plan2.toPush.length, plan2.dedupedCount, plan2.selfReportOnly.length], [0, 2, 1])
+  // ⑥g 反向锁:两侧标签名/取值同值,任一侧改名或摘线都必须判"失明"
+  if (anchorNow.ok) {
+    const promtailText = readRepoFile(logAnchor.PROMTAIL_REL)
+    const rulesText = readRepoFile(logAnchor.RULES_REL)
+    const renamedProducer = promtailText.replace(`job: ${A.self[0]}`, `job: ${A.self[0]}z`)
+    const renamedConsumer = rulesText.replace(`page={${A.label}=~"${A.page.join('|')}"} report-only={${A.label}="${A.self[0]}"}`, `page={svc=~"${A.page.join('|')}"} report-only={svc="${A.self[0]}"}`)
+    const droppedConsumer = rulesText.replace(/LOG_SOURCE_ANCHOR:\s*page=\{[^\n]*\}/, '（标记行被摘掉了）')
+    eq('⑥g-1 采集侧把分区改了名(规则侧没跟)⇒ 判失明,不静默分错', logAnchor.resolveAnchorFromTexts(renamedProducer, rulesText).ok, false)
+    eq('⑥g-2 规则侧把标签名换了(svc≠job)⇒ 判失明', logAnchor.resolveAnchorFromTexts(promtailText, renamedConsumer).ok, false)
+    eq('⑥g-3 规则侧标记整行被摘 ⇒ 判失明(口径没了就是没了,不许当作"这一族无告警")', logAnchor.resolveAnchorFromTexts(promtailText, droppedConsumer).ok, false)
+    eq('⑥g-4 两侧原样 ⇒ 判得上(⑥g-1..3 的红不是因为函数恒假)', logAnchor.resolveAnchorFromTexts(promtailText, rulesText).ok, true)
+    eq('⑥g-5 两侧标记行的标签名逐字同值', [logAnchor.parseMarker(promtailText).label, logAnchor.parseMarker(rulesText).label], [A.label, A.label])
+    // ⑥h 规则的"装车证明":gauge 暴露了还不够,规则里必须真有人读它(否则=没有这条判据)
+    eq('⑥h alerts.yml 真有读该 gauge 的规则(造好没装车那一型不得复发)', rulesText.includes('ihui_alertbridge_log_anchor_ok == 0'), true)
+    eq('⑥i 分流判据必须挂在生产路径上(handleAlert 真调 planDelivery,不是只写了个函数)', /const \{ toPush, dedupedCount, selfReportOnly, page \} = planDelivery\(/.test(fs.readFileSync(__filename, 'utf8')), true)
+  } else {
+    eq('⑥g 锚点失明时后面的构造面断言无法成立(本条与 ⑥a 同时红,原因见 problems)', anchorNow.problems.length > 0, true)
+  }
+  // ⑥j 只报不炸必须"看得见":两个指标都得真在名单里(名单里有名字而渲染不出来 = 死表)
+  eq('⑥j-1 失明 gauge 在名单里且两个方向都判(1/0)', [
+    /^ihui_alertbridge_log_anchor_ok 1$/m.test(renderMetrics({ ...sample, logAnchorOk: true })),
+    /^ihui_alertbridge_log_anchor_ok 0$/m.test(renderMetrics({ ...sample, logAnchorOk: false })),
+  ], [true, true])
+  const cSelf = {}
+  for (const key of Object.keys(counters)) cSelf[key] = 0
+  cSelf.selfScopeReported = 8
+  eq('⑥j-2 只报不炸的计数真出现在样本行上(它不在 METRIC_SPECS 里就是静默丢弃)', /^ihui_alertbridge_alerts_selfscope_reported_total 8$/m.test(renderMetrics({ ...sample, counters: cSelf })), true)
+
+  // ⑥k 改后的规则文件必须"解析得动"(本机无 js-yaml、不借 promtool 二进制 ⇒ 自写结构校验,
+  //    与本仓 unattended-intake 测试同一先例)。正反成对:现读必须干净,而三类形状错必须红。
+  const rulesNow = readRepoFile(logAnchor.RULES_REL)
+  const shapeNow = logAnchor.validateAlertRules(rulesNow)
+  eq('⑥k-0 现读 alerts.yml 结构自洽(规则数 > 0 且每条齐 alert/expr/for/severity/summary/description)', [shapeNow.ok, shapeNow.ruleCount > 0], [true, true])
+  const oneRule = rulesNow.replace('      - alert: LogSourceSplitBlind\n        expr: ihui_alertbridge_log_anchor_ok == 0\n        for: 10m\n', '      - alert: LogSourceSplitBlind\n        expr: ihui_alertbridge_log_anchor_ok == 0\n')
+  eq('⑥k-1 抽掉一条规则的 for ⇒ 必红(漏写不是"少一行"而是整份被 promtool 拒收)', logAnchor.validateAlertRules(oneRule).ok, false)
+  eq('⑥k-2 标量收尾的引号丢了 ⇒ 必红(YAML 会把后半行连同下一行吃进标量)', logAnchor.validateAlertRules(rulesNow.replace("description: 'grafana(127.0.0.1:8816)无指标超过 10 分钟;只影响人工查看,告警链不经它,故窗口放宽'", "description: 'grafana 无指标超过 10 分钟;窗口放宽")).ok, false)
+  eq('⑥k-3 把失明 gauge 多写一遍 ⇒ 必红(两份真相 = 改一处漏一处)', logAnchor.validateAlertRules(rulesNow + '\n      - alert: LogSourceSplitBlind\n        expr: ihui_alertbridge_log_anchor_ok == 0\n        for: 10m\n        labels:\n          severity: critical\n        annotations:\n          summary: s\n          description: d\n').ok, false)
+
   let bad = 0
   for (const [label, pass, why] of cases) {
     if (!pass) bad++
@@ -893,12 +1023,15 @@ async function runSelfTest() {
 }
 
 function startServer() {
+  // 起服务就先问一次锚点:否则第一条抓取会在 TTL 之前读到 0,而 LogSourceSplitBlind 的
+  // `for: 10m` 会把一次正常重启读成"分流失明"。
+  const anchor = currentLogAnchor()
   server.listen(PORT, '127.0.0.1', () => {
     const n = loadDedupState(STATE_FILE, dedup) // 去重态跨重启延续(修前只在 3s 防抖窗口内存活)
     if (fs.existsSync(UNDEL_FILE)) {
       writeLog(`[mail][WARN] 存在未送达标记 ${UNDEL_FILE} —— 此前有告警未能到人,处置后由下一次成功投递自动清除`)
     }
-    writeLog(`alert-webhook-bridge 启动, 监听 127.0.0.1:${PORT}, 邮件通道 ${MAIL_ENABLED ? '开' : '关(BRIDGE_MAIL_ENABLED)'}, 去重窗口 ${DEDUP_WINDOW_MIN} 分钟(只按身份去重,无总量封顶), 载入去重条目 ${n === null ? 0 : n}${n === null ? '(状态文件缺失/损坏,按空态起算)' : ''}`)
+    writeLog(`alert-webhook-bridge 启动, 监听 127.0.0.1:${PORT}, 邮件通道 ${MAIL_ENABLED ? '开' : '关(BRIDGE_MAIL_ENABLED)'}, 去重窗口 ${DEDUP_WINDOW_MIN} 分钟(只按身份去重,无总量封顶), 载入去重条目 ${n === null ? 0 : n}${n === null ? '(状态文件缺失/损坏,按空态起算)' : ''}, 日志来源分流 ${anchor.ok ? `在跑(${anchor.label}=${anchor.self.join('|')} 只报不炸)` : '未判定(一条都不压,全部照旧到人 —— 见 LogSourceSplitBlind)'}`)
   })
 }
 
