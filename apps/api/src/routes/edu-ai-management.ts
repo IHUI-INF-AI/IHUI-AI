@@ -35,7 +35,15 @@ import {
   settleRefund,
   voidPaymentRecord,
 } from '../services/edu-ledger.js'
-import { dispatchArrearChannels } from '../services/edu-arrear-remind-service.js'
+import {
+  aggregateDeliveries,
+  attachReminderDelivery,
+  dispatchArrearChannels,
+  resolveReminderRecipients,
+  sendArrearSmsToRecipient,
+  sendWxToRecipient,
+  type DeliveryEntry,
+} from '../services/edu-arrear-remind-service.js'
 import { findScheduleConflicts } from '../services/edu-schedule-conflict.js'
 import {
   eduTerm,
@@ -5136,6 +5144,32 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     })
     const wxSent = dispatch.wx?.sent ?? false
     const wxFailReason = dispatch.wx?.reason
+    // 回执持久化:微信那支此前只有整体结论,所以按整体落一条(reason 命中已知档时原样保留,
+    // 否则归 failed —— 不确定的一律不冒充某个具体档);短信是逐收件人明细,直接落。
+    // 批量手动催费仍不写(它只有聚合计数),故统计里的 unknown 含"历史行 + 批量手动"两类。
+    const deliveryEntries: DeliveryEntry[] = []
+    if (parsed.data.channel === 'wechat') {
+      const known = ['not_configured', 'no_openid', 'user_refused']
+      const r = dispatch.wx?.reason ?? ''
+      deliveryEntries.push({
+        userId: enrollment.studentId,
+        role: 'student',
+        channel: 'wechat',
+        bucket: dispatch.wx?.sent ? 'sent' : ((known.includes(r) ? r : 'failed') as DeliveryEntry['bucket']),
+        at: new Date().toISOString(),
+      })
+    }
+    for (const s of dispatch.sms) {
+      deliveryEntries.push({
+        userId: s.userId,
+        role: s.role,
+        channel: 'sms',
+        bucket: s.bucket,
+        ...(s.detail ? { detail: s.detail } : {}),
+        at: new Date().toISOString(),
+      })
+    }
+    if (deliveryEntries.length) await attachReminderDelivery(row.id, deliveryEntries)
 
     // 站内信必达:sms/wechat 亦同步发一条站内通知兜底
     try {
@@ -5250,27 +5284,45 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     // 逐条累计四档,不在循环里静默累加一个总数 —— 批量最怕的就是"发出去了 0 条但没原因"
     const smsTally = { sent: 0, failed: 0, not_configured: 0, no_phone: 0 }
     for (const row of rows) {
-      if (row.channel === 'wechat') {
-        const wx = await trySendWechatReminder(
-          row.studentId,
-          nameMap.get(row.studentId) ?? '同学',
-          row.dueAmount,
-        )
-        if (wx.sent) wxSentCount += 1
+      // 逐收件人发送 + 落回执。此前批量只有聚合计数,于是统计的 unknown 里混着"今天的批量手动催费",
+      // 读报表的人分不出"没数据"与"没记录"两种 unknown —— 那是同一格被两种原因污染。
+      const entries: DeliveryEntry[] = []
+      let rowWxOk = false
+      if (row.channel === 'wechat' || row.channel === 'sms') {
+        const recipients = await resolveReminderRecipients(row.studentId)
+        const studentName = nameMap.get(row.studentId) ?? '同学'
+        for (const recipient of recipients) {
+          if (row.channel === 'wechat') {
+            const wx = await sendWxToRecipient(recipient, studentName, row.dueAmount)
+            if (wx.bucket === 'sent') rowWxOk = true
+            entries.push({
+              userId: recipient.userId,
+              role: recipient.role,
+              channel: 'wechat',
+              bucket: wx.bucket,
+              ...(wx.detail ? { detail: wx.detail } : {}),
+              at: new Date().toISOString(),
+            })
+          } else {
+            const sms = await sendArrearSmsToRecipient(recipient, row.message ?? '')
+            if (sms.bucket === 'sent') smsTally.sent += 1
+            else if (sms.bucket === 'no_phone') smsTally.no_phone += 1
+            else if (sms.bucket === 'not_configured') smsTally.not_configured += 1
+            else smsTally.failed += 1
+            entries.push({
+              userId: recipient.userId,
+              role: recipient.role,
+              channel: 'sms',
+              bucket: sms.bucket,
+              ...(sms.detail ? { detail: sms.detail } : {}),
+              at: new Date().toISOString(),
+            })
+          }
+        }
       }
-      if (row.channel === 'sms') {
-        const d = await dispatchArrearChannels({
-          studentId: row.studentId,
-          message: row.message ?? '',
-          studentName: nameMap.get(row.studentId) ?? '同学',
-          dueAmount: row.dueAmount,
-          channel: 'sms',
-        })
-        smsTally.sent += d.smsSent
-        smsTally.failed += d.smsFailed
-        smsTally.not_configured += d.smsNotConfigured
-        smsTally.no_phone += d.smsNoPhone
-      }
+      // 计数口径保持"条"不变(与改造前逐字一致),不因换成逐人发送而悄悄把 wxSent 变成人数
+      if (rowWxOk) wxSentCount += 1
+      if (entries.length) await attachReminderDelivery(row.id, entries)
       try {
         await createNotification({
           userId: row.studentId,
@@ -5306,7 +5358,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
    *
    * **caveat 是本端点的一部分,不是脚注**:这里统计的是**留痕**(登记了催缴、走哪条通道、
    * 留痕状态),**不等于送达**。通道级四档回执(`sent`/`failed`/`not_configured`/`no_phone`,
-   * 微信另有 `user_refused`)目前只回给调用方并写进日志,没有落到本表 ——
+   * 通道级回执(sent/failed/not_configured/no_phone,微信另有 user_refused)已随三条写路径(每日自动、手动单发、手动批量)落到本表 delivery 列;
    * 所以"sent=N"读作"N 条催缴被登记",读不出"N 条家长真收到"。
    * 把这句话放进响应而不是只写在注释里,是因为数字一旦被搬进报表,注释不会跟着走。
    */
@@ -5321,7 +5373,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const windowCond = gte(eduFeeReminder.createdAt, since)
     const dayExpr = sql<string>`to_char(${eduFeeReminder.createdAt}, 'YYYY-MM-DD')`
 
-    const [totalRow, byChannel, byDay] = await Promise.all([
+    const [totalRow, byChannel, byDay, deliveryRows] = await Promise.all([
       db.select({ n: count() }).from(eduFeeReminder).where(windowCond),
       db
         .select({ channel: eduFeeReminder.channel, status: eduFeeReminder.status, n: count() })
@@ -5334,7 +5386,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         .where(windowCond)
         .groupBy(dayExpr)
         .orderBy(dayExpr),
+      db.select({ delivery: eduFeeReminder.delivery }).from(eduFeeReminder).where(windowCond),
     ])
+    const delivery = aggregateDeliveries(deliveryRows)
 
     return reply.send(
       success({
@@ -5343,8 +5397,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         total: totalRow[0]?.n ?? 0,
         byChannel,
         byDay,
+        // 真实触达计数(仅覆盖已落回执的留痕;更早的行计入 unknown,不猜任何一侧)
+        delivery,
         caveat:
-          '本统计为催缴**留痕**计数,不等于送达:通道级回执(sent/failed/not_configured/no_phone,以及微信 user_refused)未落库,只回给调用方并写日志。要算真实触达率需先把逐收件人回执持久化。',
+          'byChannel/byDay 是催缴**留痕**计数(登记了几条、走哪条通道、留痕状态),不等于送达。' +
+          '真实触达看 delivery.buckets:自动催缴、手动单发、手动批量三条路径都写逐收件人回执;' +
+          `unknownReminders=${delivery.unknownReminders} 是该列上线前登记的历史行 —— 不计入送达也不计入失败,读作"触达情况未知"。`,
       }),
     )
   })

@@ -8,5 +8,130 @@
       "warning": "Your AI usage is approaching the budget limit. Please review:\n• Today Tokens: {dailyUsed} / {dailyLimit} ({dailyPercent}%)\n• This Month Cost: ${monthlyUsed} / ${monthlyLimit} ({monthlyPercent}%)\n\nTo avoid service interruption, please adjust your usage or contact the administrator to raise the quota.",
       "critical": "Your AI usage has reached the budget limit and may impact subsequent calls:\n• Today Tokens: {dailyUsed} / {dailyLimit} ({dailyPercent}%)\n• This Month Cost: ${monthlyUsed} / ${monthlyLimit} ({monthlyPercent}%)\n\nPlease adjust your usage or contact the administrator immediately to raise the quota, otherwise over-limit usage may be restricted or suspended."
     }
+  },
+  "apiOutbound": {
+    "hardCutMark": "… (continued in the next message)",
+    "foldNotice": "\n\n[Message too long] The remaining {count} segment(s) were not sent because the per-message limit was exceeded.",
+    "httpError": "Platform returned HTTP {status}{detail}",
+    "businessRejected": "Platform business rejection code={code}{msg}",
+    "noReceipt": "Platform returned 2xx with no business error code, but no message_id (receipt cannot be verified)",
+    "deliveryTimeout": "Delivery timed out (response body not fully read within the deadline)",
+    "deliveryError": "Delivery error: {message}",
+    "noRequestAttempted": "No request was sent",
+    "noSegments": "No content segments to send",
+    "circuitOpen": "Platform circuit breaker opened after consecutive failures; one probe will be allowed in {seconds}s (no request sent this time)",
+    "foldReason": "Content exceeded the per-send segment limit; {count} segment(s) not delivered (noted at the end of the last segment)",
+    "redisNotReady": "Redis is not ready",
+    "redisWriteFailed": "Redis write failed",
+    "callbackUrlMissing": "callbackUrl is not configured",
+    "needWhatsApp": "WhatsApp requires botToken (access token) and appId (phone number ID)",
+    "needLine": "LINE requires botToken (Channel Access Token)",
+    "needKakaoTalk": "KakaoTalk requires botToken (user access token)",
+    "needMatrix": "Matrix requires botToken (access token) and callbackUrl (homeserver)",
+    "needRocketChat": "Rocket.Chat requires botToken (X-Auth-Token), appId (X-User-Id) and callbackUrl (server)",
+    "needMattermost": "Mattermost requires botToken (Bearer) and callbackUrl (server)",
+    "needZulip": "Zulip requires botToken (api_key), appId (bot_email) and callbackUrl (server)",
+    "invalidPlatform": "Invalid platform",
+    "signatureFailed": "Signature verification failed",
+    "invalidParams": "Invalid parameters",
+    "adapterMissing": "{platform} adapter is not configured",
+    "adapterDisabled": "{platform} adapter is not enabled",
+    "adapterSaveFailed": "Failed to save adapter configuration",
+    "shared": {
+      "callbackUrlLabel": "Callback URL",
+      "callbackUrlHelp": "Callback URL for outbound messages"
+    },
+    "platforms": {
+      "feishu": {
+        "displayName": "Feishu",
+        "fields": {
+          "appId": { "help": "Feishu app App ID" },
+          "appSecret": { "help": "Feishu app App Secret" },
+          "webhookSecret": { "help": "Event subscription verification field" },
+          "useLarkCli": { "label": "Use Lark CLI long connection", "help": "Use the lark-cli SDK instead of webhook when enabled" }
+        }
+      },
+      "wecom": {
+        "displayName": "WeCom",
+        "fields": {
+          "appId": { "help": "Enterprise ID (CorpID)" },
+          "appSecret": { "help": "App Secret" },
+          "webhookSecret": { "help": "Callback token (signature verification)" }
+        }
+      },
+      "dingtalk": {
+        "displayName": "DingTalk",
+        "fields": {
+          "appId": { "help": "DingTalk app AppKey" },
+          "appSecret": { "help": "DingTalk app AppSecret" }
+        }
+      },
+      "telegram": {
+        "fields": {
+          "botToken": { "help": "Telegram Bot Token (get it from @BotFather)" }
+        }
+      },
+      "wechat": {
+        "displayName": "WeChat",
+        "fields": {
+          "appId": { "help": "WeChat Official Account / Mini Program AppID" },
+          "appSecret": { "help": "WeChat Official Account / Mini Program AppSecret" }
+        }
+      },
+      "webhook": {
+        "displayName": "Generic Webhook",
+        "fields": {
+          "webhookSecret": { "help": "HMAC-SHA256 verification secret" }
+        }
+      },
+      "whatsapp": {
+        "fields": {
+          "botToken": { "help": "WhatsApp Business API access token" },
+          "appId": { "help": "Phone number ID" },
+          "webhookSecret": { "help": "Meta App Secret (signature verification)" }
+        }
+      },
+      "line": {
+        "fields": {
+          "webhookSecret": { "help": "LINE Channel Secret (signature verification)" }
+        }
+      },
+      "kakaotalk": {
+        "fields": {
+          "botToken": { "help": "KakaoTalk user access token" },
+          "webhookSecret": { "help": "Kakao Admin Key (signature verification)" }
+        }
+      },
+      "signal": {
+        "fields": {
+          "callbackUrl": { "label": "signal-cli-rest-api address", "help": "Local signal-cli-rest-api service address" }
+        }
+      },
+      "matrix": {
+        "fields": {
+          "botToken": { "help": "Matrix access token" },
+          "callbackUrl": { "help": "Matrix homeserver address" }
+        }
+      },
+      "rocketchat": {
+        "fields": {
+          "botToken": { "help": "Rocket.Chat access token" },
+          "appId": { "help": "Rocket.Chat user ID" },
+          "callbackUrl": { "help": "Rocket.Chat server address" }
+        }
+      },
+      "mattermost": {
+        "fields": {
+          "botToken": { "help": "Mattermost personal access token" },
+          "callbackUrl": { "help": "Mattermost server address" }
+        }
+      },
+      "zulip": {
+        "fields": {
+          "appId": { "help": "Zulip Bot email" },
+          "callbackUrl": { "help": "Zulip server address" }
+        }
+      }
+    }
   }
 }

@@ -9052,6 +9052,7 @@
     "openTerminal": "開啟終端",
     "renameDialog": {
       "cancel": "取消",
+      "description": "保持簡短且易於識別",
       "label": "任務名稱",
       "placeholder": "請輸入新的任務名稱",
       "save": "保存",
@@ -10507,6 +10508,23 @@
       "tokens": "已用 {used} / {limit}",
       "resetAt": "{time} 重置"
     },
+    "streamAlert": {
+      "configWarning": {
+        "title": "配置提醒"
+      },
+      "deprecationNotice": {
+        "title": "能力棄用預告"
+      },
+      "guardianWarning": {
+        "title": "安全審查提醒"
+      },
+      "severity": {
+        "info": "提示",
+        "warning": "警告",
+        "critical": "嚴重"
+      },
+      "dismiss": "知道了"
+    },
     "voiceNote": {
       "title": "語音筆記",
       "phase": {
@@ -11636,7 +11654,16 @@
     "viewFavorites": "查看收藏",
     "attentionWaiting": "等待你處理",
     "attentionUnread": "有 {count} 條未讀更新",
-    "batchAttentionSummary": "其中等待處理 {waiting} · 未讀 {unread}"
+    "batchAttentionSummary": "其中等待處理 {waiting} · 未讀 {unread}",
+    "loadingMore": "正在載入…",
+    "markUnread": "標記為未讀",
+    "markUnreadSuccess": "已標記為未讀",
+    "retryLoadMore": "重試載入",
+    "sorting": {
+      "byTime": "按時間",
+      "label": "排序方式",
+      "pinnedFirst": "置頂優先"
+    }
   },
   "chatSettingsPage": {
     "back": "返回",
@@ -13600,7 +13627,24 @@
       "envUnknown": "未上報(不依檔位推斷,請拒絕並要求重試)",
       "envAllowTargetOnce": "僅本次允許該目標",
       "envAllowTargetSession": "本次對話允許該目標",
-      "envAllowTargetAlways": "永遠允許該目標(90 天後失效)"
+      "envAllowTargetAlways": "永遠允許該目標(90 天後失效)",
+      "decisionLabel": "決策資訊",
+      "decisionAdmission": "只列引擎側可推導的事實,讀不到的資訊不會出現在這裡。",
+      "decisionEmptyTitle": "暫無可讀的決策資訊",
+      "decisionEmptyDescription": "引擎側沒有可推導的決策依據,你可以直接批准或拒絕本次請求。",
+      "decisionWhyNow": "為什麼現在",
+      "decisionWhyNowValue": "{toolName} 在執行前被審批門攔下(危險檔 {dangerLevel}),你決策前不會執行",
+      "decisionWhyYou": "為什麼找我",
+      "decisionWhyYouValue": "該呼叫發生在你的會話 {sessionId} 中,審批請求送達你這裡",
+      "decisionReversibility": "可逆性",
+      "decisionReversible": "可回退:該會話已有 {count} 個檢查點,決策後可回退恢復",
+      "decisionIrreversible": "不可回退:該會話沒有可回退的檢查點,決策後無法用回復撤銷",
+      "decisionAfterDecision": "決定後",
+      "decisionAfterDecisionValue": "批准後 {toolName} 立即執行;拒絕則不執行,結果以錯誤回填給模型",
+      "stateBlocking": "阻塞中",
+      "stateRequested": "等待處理",
+      "stateWaitingForMe": "等我判斷",
+      "stateOverdue": "已過期"
     },
     "toolbar": {
       "addColumn": "添加列",

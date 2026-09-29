@@ -8,5 +8,130 @@
       "warning": "お客様の AI 使用量が予算上限に近づいています。以下をご確認ください:\n• 本日 Token: {dailyUsed} / {dailyLimit} ({dailyPercent}%)\n• 今月コスト: ${monthlyUsed} / ${monthlyLimit} ({monthlyPercent}%)\n\nサービス中断を避けるため、使用量を調整するか、管理者にご連絡の上上限引き上げをご依頼ください。",
       "critical": "お客様の AI 使用量が予算上限に達しており、今後の呼び出しに影響する可能性があります:\n• 本日 Token: {dailyUsed} / {dailyLimit} ({dailyPercent}%)\n• 今月コスト: ${monthlyUsed} / ${monthlyLimit} ({monthlyPercent}%)\n\n直ちに使用量を調整するか、管理者にご連絡の上上限引き上げをご依頼ください。超過分は制限または停止される場合があります。"
     }
+  },
+  "apiOutbound": {
+    "hardCutMark": "……（次のメッセージに続く）",
+    "foldNotice": "\n\n【内容が長すぎます】1回の上限を超えたため、残り {count} 件のセグメントは送信されませんでした。",
+    "httpError": "プラットフォームが HTTP {status}{detail} を返しました",
+    "businessRejected": "プラットフォームのビジネス拒否 code={code}{msg}",
+    "noReceipt": "プラットフォームは 2xx かつビジネスエラーコードなしで応答しましたが、message_id が返されませんでした(受領確認を照合できません)",
+    "deliveryTimeout": "配信タイムアウト(deadline 内にレスポンス本文を読み終えられませんでした)",
+    "deliveryError": "配信エラー: {message}",
+    "noRequestAttempted": "リクエストは一切送信されませんでした",
+    "noSegments": "送信できるコンテンツセグメントがありません",
+    "circuitOpen": "プラットフォームへの連続失敗によりサーキットブレーカーが作動しました。{seconds}秒後にプローブを1回だけ許可(今回はリクエスト未送信)",
+    "foldReason": "内容が1回のセグメント数上限を超えたため、残り {count} 件は未配信です(末尾セグメントで告知済み)",
+    "redisNotReady": "Redis が準備できていません",
+    "redisWriteFailed": "Redis への書き込みに失敗しました",
+    "callbackUrlMissing": "callbackUrl が設定されていません",
+    "needWhatsApp": "WhatsApp には botToken(アクセストークン)と appId(電話番号 ID)が必要です",
+    "needLine": "LINE には botToken(Channel Access Token)が必要です",
+    "needKakaoTalk": "KakaoTalk には botToken(ユーザーアクセストークン)が必要です",
+    "needMatrix": "Matrix には botToken(アクセストークン)と callbackUrl(homeserver)が必要です",
+    "needRocketChat": "Rocket.Chat には botToken(X-Auth-Token)、appId(X-User-Id)、callbackUrl(server)が必要です",
+    "needMattermost": "Mattermost には botToken(Bearer)と callbackUrl(server)が必要です",
+    "needZulip": "Zulip には botToken(api_key)、appId(bot_email)、callbackUrl(server)が必要です",
+    "invalidPlatform": "無効なプラットフォームです",
+    "signatureFailed": "署名検証に失敗しました",
+    "invalidParams": "パラメータエラー",
+    "adapterMissing": "{platform} アダプターが設定されていません",
+    "adapterDisabled": "{platform} アダプターが無効です",
+    "adapterSaveFailed": "アダプター設定の保存に失敗しました",
+    "shared": {
+      "callbackUrlLabel": "コールバック URL",
+      "callbackUrlHelp": "送信メッセージのコールバックアドレス"
+    },
+    "platforms": {
+      "feishu": {
+        "displayName": "Feishu",
+        "fields": {
+          "appId": { "help": "Feishu アプリの App ID" },
+          "appSecret": { "help": "Feishu アプリの App Secret" },
+          "webhookSecret": { "help": "イベント購読の検証フィールド" },
+          "useLarkCli": { "label": "Lark CLI ロングコネクションを使用", "help": "有効にすると webhook の代わりに lark-cli SDK を使用します" }
+        }
+      },
+      "wecom": {
+        "displayName": "WeCom",
+        "fields": {
+          "appId": { "help": "企業 ID(CorpID)" },
+          "appSecret": { "help": "アプリの Secret" },
+          "webhookSecret": { "help": "コールバック Token(署名検証)" }
+        }
+      },
+      "dingtalk": {
+        "displayName": "DingTalk",
+        "fields": {
+          "appId": { "help": "DingTalk アプリの AppKey" },
+          "appSecret": { "help": "DingTalk アプリの AppSecret" }
+        }
+      },
+      "telegram": {
+        "fields": {
+          "botToken": { "help": "Telegram Bot Token(@BotFather から取得)" }
+        }
+      },
+      "wechat": {
+        "displayName": "WeChat",
+        "fields": {
+          "appId": { "help": "WeChat 公式アカウント/ミニプログラムの AppID" },
+          "appSecret": { "help": "WeChat 公式アカウント/ミニプログラムの AppSecret" }
+        }
+      },
+      "webhook": {
+        "displayName": "汎用 Webhook",
+        "fields": {
+          "webhookSecret": { "help": "HMAC-SHA256 検証シークレット" }
+        }
+      },
+      "whatsapp": {
+        "fields": {
+          "botToken": { "help": "WhatsApp Business API アクセストークン" },
+          "appId": { "help": "電話番号 ID" },
+          "webhookSecret": { "help": "Meta App Secret(署名検証)" }
+        }
+      },
+      "line": {
+        "fields": {
+          "webhookSecret": { "help": "LINE Channel Secret(署名検証)" }
+        }
+      },
+      "kakaotalk": {
+        "fields": {
+          "botToken": { "help": "KakaoTalk ユーザーアクセストークン" },
+          "webhookSecret": { "help": "Kakao Admin Key(署名検証)" }
+        }
+      },
+      "signal": {
+        "fields": {
+          "callbackUrl": { "label": "signal-cli-rest-api アドレス", "help": "ローカル signal-cli-rest-api サービスのアドレス" }
+        }
+      },
+      "matrix": {
+        "fields": {
+          "botToken": { "help": "Matrix アクセストークン" },
+          "callbackUrl": { "help": "Matrix homeserver アドレス" }
+        }
+      },
+      "rocketchat": {
+        "fields": {
+          "botToken": { "help": "Rocket.Chat アクセストークン" },
+          "appId": { "help": "Rocket.Chat ユーザー ID" },
+          "callbackUrl": { "help": "Rocket.Chat サーバーアドレス" }
+        }
+      },
+      "mattermost": {
+        "fields": {
+          "botToken": { "help": "Mattermost 個人アクセストークン" },
+          "callbackUrl": { "help": "Mattermost サーバーアドレス" }
+        }
+      },
+      "zulip": {
+        "fields": {
+          "appId": { "help": "Zulip Bot メールアドレス" },
+          "callbackUrl": { "help": "Zulip サーバーアドレス" }
+        }
+      }
+    }
   }
 }
