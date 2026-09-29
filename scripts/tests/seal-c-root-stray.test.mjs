@@ -12,11 +12,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, parse, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { __test__, ORPHAN_FILES, SEALED_DIRS, run } from '../seal-c-root-stray.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { maskComments } from '../lib/code-mask.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPTS = join(HERE, '..')
@@ -178,3 +179,45 @@ test('__test__ 出口齐备(§22c:缺出口即红,防"测试悄悄测镜像实�
   assert.ok(Array.isArray(__test__.SEALED_DIRS) && Array.isArray(__test__.ORPHAN_FILES))
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * G-345 第④格(2026-09-29):`devEnvRoot()` 原先"仓根向上数两级",只在"工作树恰好挂在
+ * 盘根下一层"时凑巧正确。本仓有次级 worktree 与 mkScratch 夹具两种**两层深**形态,那时它把
+ * `DevEnv` 推进别人正在写的父目录 —— 而守门 92、PG 备份审计、恢复演练全吃这一个出口。
+ * 三条锁互相不重复:跨深度不变性(行为)、夹具内必须喊(失效方向)、源码不得再数层(反向锁)。
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+test('G-345④ 跨深度不变性:深层与浅层工作树必须推出同一个盘根 DevEnv', () => {
+  const ROOT = parse(process.cwd()).root
+  const shallow = join(ROOT, 'IHUI-AI')
+  const deep = join(ROOT, 'a', 'b', 'IHUI-AI')
+  const a = __test__.devEnvRoot(shallow)
+  const b = __test__.devEnvRoot(deep)
+  assert.equal(b, a, `数两级推导会随深度漂移(浅=${a} 深=${b})⇒ 深层工作树会把 DevEnv 建进别人目录`)
+  assert.ok(!resolve(deep).startsWith(resolve(a) + sep), 'DevEnv 不得落在被推导的工作树内部')
+})
+
+test('G-345④ 仓根本身在夹具里 ⇒ 必须抛错点名,不得安静返回一个落在夹具内的"外置根"', () => {
+  const dir = mkScratch('seal-root-')
+  try {
+    assert.throws(() => __test__.devEnvRoot(dir), /scratch|夹具/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('G-345④ 反向锁(源码级)：不得再出现"向上数两级"的推导写法', () => {
+  // 判**代码面**:本票那条注释里原样引用了旧写法(说明性文字也带执行性字符,守门 O81/D3 同一条教训),
+  // 不剥注释就会把"解释缺陷的散文"判成缺陷本身 —— 遮罩只有 lib/code-mask.mjs 一份实现,不得自写。
+  const src = maskComments(readFileSync(join(SCRIPTS, 'seal-c-root-stray.mjs'), 'utf8'))
+  assert.doesNotMatch(
+    src,
+    /resolve\(\s*REPO\s*,\s*'\.\.'\s*,\s*'\.\.'\s*\)/,
+    '盘根必须问 path.parse 要,数层数在深层工作树下必歪(本票立因)',
+  )
+  assert.match(
+    src,
+    /import\s*\{\s*countScratchSegments\s*\}\s*from\s*'\.\/lib\/scratch-dir\.mjs'/,
+    '夹具判定必须复用 scratch-dir 那一份出口,不得再写第二个"什么算夹具段"',
+  )
+})
