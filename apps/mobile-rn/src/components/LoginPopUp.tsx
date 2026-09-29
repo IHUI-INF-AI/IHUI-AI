@@ -504,6 +504,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     backgroundColor: tokens.surface.card,
+    // 弹层体 = 角色档 panel → xl(12);此前取 2xl(16),守门 150 判"panel 取 2xl 应为 xl"
     borderTopLeftRadius: rnRadius.xl,
     borderTopRightRadius: rnRadius.xl,
     paddingTop: LOGIN_POPUP_SHEET_PADDING_TOP_PX,
@@ -514,7 +515,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: LOGIN_POPUP_DRAG_BAR_WIDTH_PX,
     height: LOGIN_POPUP_DRAG_BAR_HEIGHT_PX,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: LOGIN_POPUP_DRAG_BAR_HEIGHT_PX / 2,
     backgroundColor: tokens.border.light,
     marginBottom: LOGIN_POPUP_DRAG_BAR_MARGIN_BOTTOM_PX,
   },
@@ -524,7 +525,7 @@ const styles = StyleSheet.create({
     right: LOGIN_POPUP_CLOSE_INSET_PX,
     width: LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX,
     height: LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -638,7 +639,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: LOGIN_POPUP_AVATAR_BOX_PX,
     height: LOGIN_POPUP_AVATAR_BOX_PX,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: LOGIN_POPUP_AVATAR_BOX_PX / 2,
     borderWidth: AVATAR_BORDER_WIDTH,
     borderColor: tokens.border.medium,
     backgroundColor: tokens.surface.card,
@@ -680,7 +681,7 @@ const styles = StyleSheet.create({
   iconBadge: {
     width: LOGIN_POPUP_ICON_BADGE_SIZE_PX,
     height: LOGIN_POPUP_ICON_BADGE_SIZE_PX,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: LOGIN_POPUP_ICON_BADGE_SIZE_PX / 2,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.medium,
