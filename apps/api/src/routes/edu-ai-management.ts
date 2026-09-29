@@ -5352,8 +5352,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         delivery,
         caveat:
           'byChannel/byDay 是催缴**留痕**计数(登记了几条、走哪条通道、留痕状态),不等于送达。' +
-          '真实触达看 delivery.buckets:仅统计已落逐收件人回执的留痕,' +
-          `其余 ${delivery.unknownReminders} 条(该列落地前的历史行)归入 unknownReminders,不计入任何一侧。`,
+          '真实触达看 delivery.buckets:目前**只有每日 09:00 自动催缴**写逐收件人回执;' +
+          `手动单发/批量催费与该列落地前的历史行都没有回执,共 ${delivery.unknownReminders} 条归入 unknownReminders —— ` +
+          '既不计入送达也不计入失败,读作"这一部分触达情况未知"。',
       }),
     )
   })
