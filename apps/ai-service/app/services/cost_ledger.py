@@ -21,10 +21,7 @@
 
 设计:
 - 主存储:进程内 dict[record_id -> LedgerEntry](读写快、跨请求可见)
-- 幂等:append 以 record_id 为键;同 record_id 再投递不新增行,而是**逐列定向合并**(G-822,2026-09-29)
-  —— `at` = min(旧,新) 首见时刻;身份列与已入账测量列 = coalesce(旧,新) 先到先定(哨兵值不覆盖已知值);
-  `duration_ms` / `ended_at` = coalesce(新,旧) 后到补齐(倒退的投递不得把已量到的值改小)。
-  方向表只有一份,住 `app/core/ledger_merge.py`(`append` 与 `sync_from_recorder` 共用同一条合并路径)。
+- 幂等:append 以 record_id 去重,同 record_id 不重复入账
 - 持久化:每次变更把全量条目写回 data/cost_ledger.json(ai-service 数据目录),进程重启可恢复;
   文件缺失/损坏时静默降级为空账本。并发用 threading.Lock 保护原子性。
 - 全部确定性:cost/金额一律 round 6 位,与 recorder/tool_cost_accounting 口径一致。
@@ -46,7 +43,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ..core.ledger_merge import LedgerRow, merge_entry, parse_timestamp
 from ..core.model_pricing import (
     cache_multipliers,
     cost_micro_usd_from_per_1k,
@@ -122,12 +118,16 @@ def _infer_provider(model: str, provider: str | None = None) -> str:
 
 
 def _parse_at(value: Any) -> datetime | None:
-    """把 ISO 时间戳解析为 aware datetime;失败返回 None。
-
-    解析只许有一份实现(G-822):合并面的 earliest/latest 判据与读面的窗口/分桶
-    必须对同一个字符串给同一个答案,否则"窗口取最早时刻"与"合并取最早时刻"会分叉。
-    """
-    return parse_timestamp(value)
+    """把 ISO 时间戳解析为 aware datetime;失败返回 None。"""
+    if not value:
+        return None
+    text = str(value)
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(text)
+    except (ValueError, TypeError):
+        return None
 
 
 @dataclass
@@ -151,9 +151,7 @@ class LedgerEntry:
     cost_usd: float = 0.0       # USD,round 6 位(与 recorder/tool_cost_accounting 口径一致)
     duration_ms: float = 0.0
     status: str = "ok"          # ok / error
-    at: str = ""                # UTC ISO8601(首次见到该记录的时刻;G-822 取最早)
-    # G-822(2026-09-29):迟到的"一次性完成事件"带回的结束时刻(空=尚未完成)
-    ended_at: str = ""
+    at: str = ""                # UTC ISO8601
     estimated: bool = False     # cost 是否来自估算(未知模型用默认价)
 
     def to_dict(self) -> dict[str, Any]:
@@ -178,7 +176,7 @@ class CostLedger:
 
     用法:
         ledger = CostLedger(file_path=...)        # 测试用 tmp_path
-        ledger.append(entry)                       # 幂等(record_id:新行入账 / 重投逐列合并)
+        ledger.append(entry)                       # 幂等(record_id 去重)
         ledger.sync_from_recorder("run-1", rec)    # 把 recorder 的 run 合并入账
         ledger.aggregate({"user_id": "u1"})        # 任意维度过滤聚合
         ledger.top_tools(5)                        # 成本 Top 工具
@@ -290,7 +288,6 @@ class CostLedger:
             "duration_ms": round(_to_num(e.get("duration_ms")), 2),
             "status": status,
             "at": str(e.get("at") or _now_iso()),
-            "ended_at": str(e.get("ended_at") or ""),
             "estimated": estimated,
         }
 
@@ -326,41 +323,17 @@ class CostLedger:
     # ---------------- 写入 ----------------
 
     def append(self, entry: Any) -> dict[str, Any]:
-        """追加一条账目(幂等:同 record_id 不新增行,而是**逐列定向合并**)。
-
-        返回 {"appended", "outcome", "changed_columns", "entry"}:
-        - outcome="appended"  新增了一行(appended=True);
-        - outcome="merged"    已有行被补齐了若干列(appended=False,changed_columns 点名是哪些列);
-        - outcome="identical" 逐列合并后行一字未变 = 真的重投(方向表拒掉的迟到值不算变化,
-          因为行内容没动 —— 报成 merged 会把"账没变"写成"账变了")。
-        `appended` 既有含义不变(是否新增一行),本次只加键、不改键义。
-        """
+        """追加一条账目(幂等:同 record_id 不重复)。返回 {"appended", "entry"}。"""
         with self._lock:
             self._load()
             norm = self._normalize(entry)
             if not norm["record_id"]:
                 raise ValueError("record_id 不能为空")
-            existing: LedgerRow | None = self._data.get(norm["record_id"])
-            if existing is None:
-                self._data[norm["record_id"]] = norm
-                self._persist()
-                return {
-                    "appended": True,
-                    "outcome": "appended",
-                    "changed_columns": [],
-                    "entry": dict(norm),
-                }
-            merged = merge_entry(existing, norm)
-            changed = list(merged.changed_columns)
-            if changed:
-                self._data[norm["record_id"]] = merged.row
-                self._persist()
-            return {
-                "appended": False,
-                "outcome": "merged" if changed else "identical",
-                "changed_columns": changed,
-                "entry": dict(self._data[norm["record_id"]]),
-            }
+            if norm["record_id"] in self._data:
+                return {"appended": False, "entry": dict(self._data[norm["record_id"]])}
+            self._data[norm["record_id"]] = norm
+            self._persist()
+            return {"appended": True, "entry": dict(norm)}
 
     def sync_from_recorder(
         self,
@@ -373,8 +346,7 @@ class CostLedger:
         """把 recorder 某 run 的全部步骤合并成本账本条目。
 
         复用 recorder 的 cost(已 round 6 位),保证与 recorder 口径一致、可审计;
-        入账一律走 `self.append`(G-822:同 record_id 由同一张方向表逐列合并,
-        本函数不写第二份合并逻辑),返回 {"run_id", "synced", "skipped"(幂等去重跳过)}。
+        返回 {"run_id", "synced", "skipped"(幂等去重跳过)}。
         """
         if recorder is None:
             recorder = agent_step_recorder
