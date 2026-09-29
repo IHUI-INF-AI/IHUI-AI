@@ -802,3 +802,116 @@ test('T-BANNER-TEETH blob 模式把基线横幅抹掉仍必须拒绝(放宽只�
 
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ─────────────────────────────────────────────────────────────────────────────
+// G-815985 悬空相对引用预检(2026-09-29 立,由本会话一次真实自伤换来)
+// 存在理由:旁路提交不跑 pre-commit,所以上一轮把 import 交进 HEAD 而把被 import 的文件
+// 留在未跟踪面 —— 本机全绿(文件就在盘上),干净检出上 `git archive HEAD` 那份一加载就
+// ERR_MODULE_NOT_FOUND。这组用例的**方向**必须是:被拒时什么都没发生(HEAD 未动、
+// 且不产生 unreachable commit,否则给守门 30a 埋雷)。
+// 水印预检在这组里统一用 IHUI_LAND_SKIP_WATERMARK=1 跳过 —— 夹具文件没有横幅,
+// 不跳就会先红在水母闸上,测不到本闸。跳过是有意的、且在断言里写明。
+// ─────────────────────────────────────────────────────────────────────────────
+function runLandRaw(dir, paths, msg, extraEnv = {}) {
+  const env = {
+    ...process.env,
+    LAND_ROOT: dir,
+    LAND_PATHS: paths,
+    LAND_MSG: msg,
+    IHUI_LAND_SKIP_WATERMARK: '1',
+    ...extraEnv,
+  }
+  for (const k of ['LAND_BLOBS', 'LAND_BLOB_PROOF', 'LAND_BASE_REF', 'LAND_ALLOW_STALE']) {
+    if (!(k in extraEnv)) delete env[k]
+  }
+  return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
+}
+
+const unreachableCommits = (dir) =>
+  runGit(dir, ['fsck', '--connectivity-only', '--unreachable', '--no-reflogs'])
+    .split('\n')
+    .filter((l) => /^unreachable commit/.test(l)).length
+
+test('T-IMP-1 反例臂(端到端):声明面引用了未随本次落地的相对模块 ⇒ 必须拒绝,且不留任何 unreachable commit', (t) => {
+  const dir = makeRepo(t)
+  mkdirSync(join(dir, 'src', 'lib'), { recursive: true })
+  writeFileSync(join(dir, 'src', 'a.mjs'), "import { x } from './lib/missing.mjs'\nexport const y = x\n")
+  const before = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const r = runLandRaw(dir, 'src/a.mjs', 'test: 只交引用方')
+  assert.notEqual(r.status, 0, '缺实体时不得落地成功')
+  assert.match(r.stderr + r.stdout, /悬空相对引用预检不通过/, '拒绝原因必须点名本闸,不能是一句泛化失败')
+  assert.match(r.stderr + r.stdout, /lib\/missing\.mjs/, '必须点名缺失的说明符')
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), before, 'HEAD 必须未动')
+  assert.equal(unreachableCommits(dir), 0, '被拒的落地不得留下 unreachable commit(守门 30a 只数 commit 行)')
+})
+
+test('T-IMP-2 正例臂(端到端):引用与实体同枚声明 ⇒ 必须放行(否则本闸就是新的恒红拦路虎)', (t) => {
+  const dir = makeRepo(t)
+  mkdirSync(join(dir, 'src', 'lib'), { recursive: true })
+  writeFileSync(join(dir, 'src', 'a.mjs'), "import { x } from './lib/present.mjs'\nexport const y = x\n")
+  writeFileSync(join(dir, 'src', 'lib', 'present.mjs'), 'export const x = 1\n')
+  const r = runLandRaw(dir, 'src/a.mjs;src/lib/present.mjs', 'test: 引用与实体同枚')
+  assert.equal(r.status, 0, `同枚带实体必须成功,实际输出:\n${r.stdout}\n${r.stderr}`)
+  assert.match(r.stdout, /悬空相对引用预检:声明面源文件 2 个 \/ 缺失 0/, '放行也要报数,不得静默')
+})
+
+test('T-IMP-3 TS 约定:import ./c.js 而树里只有 c.ts ⇒ 不得判缺失(候选集必须覆盖 ESM .js→.ts 映射)', (t) => {
+  const dir = makeRepo(t)
+  mkdirSync(join(dir, 'src'), { recursive: true })
+  writeFileSync(join(dir, 'src', 'b.ts'), "import { c } from './c.js'\nexport const d = c\n")
+  writeFileSync(join(dir, 'src', 'c.ts'), 'export const c = 2\n')
+  const r = runLandRaw(dir, 'src/b.ts;src/c.ts', 'test: .js 说明符指向 .ts')
+  assert.equal(r.status, 0, `.js→.ts 是合法写法,判红即假阳:\n${r.stdout}\n${r.stderr}`)
+})
+
+test('T-IMP-4 未建模扩展名只报不拦:import ./x.css 不在树 ⇒ exit 0 且必须报名"判不出"', (t) => {
+  const dir = makeRepo(t)
+  mkdirSync(join(dir, 'src'), { recursive: true })
+  writeFileSync(join(dir, 'src', 'w.ts'), "import './x.css'\nexport const w = 1\n")
+  const r = runLandRaw(dir, 'src/w.ts', 'test: css 不在候选表')
+  assert.equal(r.status, 0, '判不出的一律不拦(误拦一次,后人就学会整闸跳掉了)')
+  assert.match(r.stdout, /判不出 1/, '但必须报数并点名,不得静默成"看起来全绿"')
+  assert.match(r.stdout, /x\.css/, '未判定必须报名')
+})
+
+test('T-IMP-5 注释里的相对路径不算调用点(maskComments 装车的反向锁)', (t) => {
+  const dir = makeRepo(t)
+  mkdirSync(join(dir, 'src'), { recursive: true })
+  writeFileSync(join(dir, 'src', 'n.mjs'), "// 曾经写 import './gone.mjs' 后来删了\nexport const n = 1\n")
+  const r = runLandRaw(dir, 'src/n.mjs', 'test: 注释提了一句')
+  assert.equal(r.status, 0, `注释不是调用点:\n${r.stdout}\n${r.stderr}`)
+})
+
+test('T-IMP-6 形状锁:onTree 必须真传进 commitTreeWithIndex,且两个开关各有其位', (t) => {
+  const src = readFileSync(TOOL, 'utf8')
+  assert.match(src, /onTree:/, '摘掉 onTree 就等于本闸不存在 —— 判据在而无人调度是本仓最高频失效型')
+  assert.match(src, /IHUI_LAND_SKIP_IMPORT_CHECK === '1'/, '应急跳过通道必须真实存在(文档不得写跑不通的出路)')
+  assert.match(src, /拒绝落地\(未创建任何 commit/, '拒绝路径必须明说"什么都没创建"')
+  const bg = readFileSync(join(dirname(TOOL), 'lib', 'bypass-git.mjs'), 'utf8')
+  assert.match(bg, /if \(typeof onTree === 'function'\)/, 'plumbing 侧的钩子必须在位')
+  assert.match(bg, /rejected\b/, '被拒时必须回报 rejected 而不是静默返回空 commit')
+})
+
+test('T-IMP-7 纯文档声明面不触发本闸(不得给每次活文档落地加时间)', (t) => {
+  const dir = makeRepo(t)
+  writeFileSync(join(dir, 'notes.md'), '# 引用 ./ghost.mjs 只是叙述\n')
+  const r = runLandRaw(dir, 'notes.md', 'test: 只动文档')
+  assert.equal(r.status, 0, `文档面必须照常落地:\n${r.stdout}\n${r.stderr}`)
+  assert.match(r.stdout, /声明面源文件 0 个|跳过/, '并如实说明本次没有源文件在声明面')
+})
+
+test('T-IMP-8 回归(本闸第一版被自己的落地枚打回的那一型):字符串**内容里**的 import 文本不是调用点', (t) => {
+  // 第一版用正则在"只抹注释"的原文上扫说明符,于是这份夹具文件本身被判出 4 条不存在的缺失,
+  // **本闸拒绝了自己的落地枚次**。这不是误报一次的问题:误拦会让人学会整闸跳掉(§12e 同型),
+  // 所以这条是"判据必须只认字符串字面量 token"的永久锁,不是装饰。
+  const dir = makeRepo(t)
+  mkdirSync(join(dir, 'src'), { recursive: true })
+  writeFileSync(
+    join(dir, 'src', 'fixture.mjs'),
+    "const tpl = \"import { x } from './lib/ghost.mjs'\\n\"\nexport const tpl2 = tpl\n",
+  )
+  const r = runLandRaw(dir, 'src/fixture.mjs', 'test: 夹具里写着别人的 import')
+  assert.equal(r.status, 0, `字符串内容里的 import 不是调用点:\n${r.stdout}\n${r.stderr}`)
+  assert.match(r.stdout, /缺失 0 /, '且必须如实报"缺失 0",不得静默跳过判定')
+})
+
