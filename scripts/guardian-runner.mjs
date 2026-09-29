@@ -669,19 +669,33 @@ const checks = [
   //   是"协作单元"——单 agent 单任务无需分支,直接 main 提交即可。
   // 本守门检测 git branch -a 中除 main / origin/main / upstream/main 外的分支;
   // goal/ 前缀 + .ihui-agent/goal-runtime/STATE.md 标注 active 的 goal 模式临时分支豁免。
-  // 失败含义:检测到非法分支,需删除或标注豁免后重新 commit。
+  // 失败含义:检测到滞留超过在飞窗口且不在豁免内(in-flight/backup/goal/worktree 四类豁免见门体)的旁支,
+  // 处置以 onFailHint 与门体现读输出为准,禁止按旧口径直接删分支。
   {
     id: '41',
     label: '🌿 单分支开发守门(blocking,AGENTS.md §9b)',
     script: 'check-single-branch.mjs',
     args: [],
     mode: 'blocking',
+    // onFailHint 与门体同形(G-331):门体自 aea810c81 起判"旁支长期滞留"而非"存在旁支",
+    // 且对 in-flight / backup 两类豁免;旧 hint 教人 `git branch -D` / `git push origin --delete`,
+    // 按它执行的人正是在删别的会话的在飞分支与 §5b 明令禁删的备份引用。条数一律由门现读报出,
+    // 这里不写死任何数字。
     onFailHint: [
       '',
-      '  💡 AGENTS.md §9b:除 main 外禁止创建任何分支,所有改动统一往 main 合并。',
-      '     修复:git branch -d <已合并分支> / git branch -D <未合并分支>(先 tag 备份)',
-      '     或 git push origin --delete <远程分支>',
-      '     goal/ 临时分支需在 .ihui-agent/goal-runtime/STATE.md 标注 active 才豁免',
+      '  💡 本门判的是"旁支长期滞留",不是"存在旁支"。红 = 某分支滞留超过在飞窗口且不在任何豁免内。',
+      '     两类豁免(名单与条数以门的现读输出为准,此处不写死):',
+      '     ① in-flight —— 分支尖端提交距今 ≤ GRACE_HOURS(默认 48;IHUI_SINGLE_BRANCH_GRACE_HOURS 可调,',
+      '        取不到尖端提交时刻 ⇒ 不豁免,宁误拦不静默);',
+      '     ② backup —— backup/ 与 ihui-backup/ 前缀(含其 origin/ 镜像);AGENTS §5b 明令禁止删除备份引用,',
+      '        本门永远不会教你去删它们。',
+      '     其余合法形态:goal/* 且 .ihui-agent/goal-runtime/STATE.md 标注 active;linked worktree 已 checkout',
+      '     的分支(AGENTS §12d sanctioned 并行隔离)。',
+      '     处置:红名单上的分支若工作已并入 main,`git branch -d <分支>`(只删已合并)是正常收口;',
+      '     尚未并入 ⇒ 先把改动合回 main,或等它在飞窗口内自然豁免。禁止 -D / origin --delete(门体不判的',
+      '     豁免分支更不许删)。',
+      '     阳性对照:IHUI_SINGLE_BRANCH_GRACE_HOURS=0 node scripts/check-single-branch.mjs(窗口调 0,',
+      '     豁免名单全部现读报出);复验:node --test scripts/tests/check-single-branch.test.mjs',
       '',
     ].join('\n'),
   },
