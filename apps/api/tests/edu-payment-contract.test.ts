@@ -30,7 +30,7 @@ vi.mock('../src/services/wechat-subscribe-message.js', () => ({
 import { __test__ } from '../src/routes/edu-ai-management.js'
 import { EDU_REMINDER_CHANNELS } from '../src/services/edu-ledger.js'
 
-const { createPaymentRecordSchema, createFeeReminderSchema } = __test__
+const { createPaymentRecordSchema, createFeeReminderSchema, feeReminderStatsSchema } = __test__
 
 const UUID_A = '2f7a6e64-3b21-4a11-9a2f-6d1c0d9e4b21'
 const UUID_B = '9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f'
@@ -83,6 +83,21 @@ describe('POST /payment-record 的归属契约 = enrollmentId 必填', () => {
       classId: UUID_A,
     })
     expect(r.success).toBe(true)
+  })
+})
+
+describe('催费留痕统计的窗口入参', () => {
+  const { feeReminderStatsSchema } = __test__
+  it('缺省 30 天;查询串里的字符串数字要能 coerce', () => {
+    expect(feeReminderStatsSchema.parse({}).days).toBe(30)
+    expect(feeReminderStatsSchema.parse({ days: '7' }).days).toBe(7)
+  })
+  it('0 天、负数、非整数、超上限一律拒 —— 不放一条全表扫描式报表请求进去拖库', () => {
+    expect(feeReminderStatsSchema.safeParse({ days: 0 }).success).toBe(false)
+    expect(feeReminderStatsSchema.safeParse({ days: -1 }).success).toBe(false)
+    expect(feeReminderStatsSchema.safeParse({ days: 2.5 }).success).toBe(false)
+    expect(feeReminderStatsSchema.safeParse({ days: 366 }).success).toBe(false)
+    expect(feeReminderStatsSchema.safeParse({ days: 365 }).success).toBe(true)
   })
 })
 
