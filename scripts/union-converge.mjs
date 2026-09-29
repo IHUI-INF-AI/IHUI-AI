@@ -288,7 +288,7 @@ function mergeThreeBlobs(baseOid, oursOid, theirsOid, cwd) {
  *    已有一侧就撞的组**刻意不判红**:让同组多挂一行只能靠人工让号(F9 的差值档在提交链上拦),
  *    而落地闸若为此拒绝归并,唯一出路是删掉某一侧的行 —— 那违反本工具的零丢失承诺,更贵。
  */
-export function planStateRegressions(mergedText, sideTexts, accepted = null) {
+export function planStateRegressions(mergedText, sideTexts, accepted = null, noteCredits = null) {
   const KEYS = [
     ['forks', 'F1 同主键两态并存(组)'],
     ['voidRows', 'F2 带作废声明未落账(行)'],
@@ -378,19 +378,71 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null) {
      * 逐行判必须用**非全局副本** —— 带 `g` 的 `.test()` 会推进 lastIndex,第二次调用就漏判。
      */
     const noteRe = new RegExp(MERGE_NOTE_RE.source)
+    const occOf = (l) => {
+      const r = new RegExp(MERGE_NOTE_RE.source, 'g')
+      let n = 0
+      while (r.exec(l) !== null) n++
+      return n
+    }
     const mm = counter(mergedText)
     const sideCounters = sides.map((t) => counter(t))
+    /**
+     * 遍历域必须是**所有面的并**(2026-09-29 修,原先遍历结果面 `mm`):一条注记行如果在归并结果里
+     * 一份都没剩下(`have=0`),它就不在 `mm` 里 ⇒ 结构上永远进不了额度 ⇒ 无论机制如何解释都恒红。
+     * 而"结果里一份都没有"恰恰是最需要被解释的那一型 —— 旧写法把"最坏的情形"写成了"不可申诉的情形"。
+     */
+    const universe = new Set()
+    for (const c of [...sideCounters, mm])
+      for (const [l, n] of c) if (n > 0 && noteRe.test(l)) universe.add(l)
+    const suppress = noteCredits && noteCredits.suppress ? noteCredits.suppress : null
+    const baseC = noteCredits && noteCredits.baseText ? counter(noteCredits.baseText) : null
+    const oursC = noteCredits && noteCredits.oursText ? counter(noteCredits.oursText) : null
     let allowed = 0
-    for (const [l, n] of mm) {
-      if (n < 1 || !noteRe.test(l) || !DUP_POINTER_RE.test(l)) continue
-      const sideMax = Math.max(...sideCounters.map((c) => c.get(l) || 0))
-      if (sideMax > n) allowed += sideMax - n
+    let byPlaceholder = 0
+    let byOwnShrink = 0
+    let byDupPointer = 0
+    const unexplained = []
+    for (const l of universe) {
+      const occ = occOf(l)
+      if (!occ) continue
+      const haveOcc = (mm.get(l) || 0) * occ
+      const wantOcc = Math.max(...sideCounters.map((c) => (c.get(l) || 0) * occ))
+      if (wantOcc <= haveOcc) continue
+      let rest = wantOcc - haveOcc
+      // ① 搬运感知:这些份数由基准面上的 `已归档` 占位代表(表按行给**份数**,× 每行条数换到同一量纲)。
+      if (suppress && rest > 0) {
+        const cov = Math.min((suppress.get(l) || 0) * occ, rest)
+        byPlaceholder += cov
+        rest -= cov
+      }
+      // ② 本侧相对**共同基底**自己缩了量 ⇒ `liveDocExpectedCounts` 的约定"基底有而本侧清了 ⇒ 处置权
+      //    仍在本侧",这一部分本就不该从对侧补回。刻意要求 `o < b`:只有对侧加过的行永不进这一档。
+      if (rest > 0 && oursC && baseC) {
+        const o = (oursC.get(l) || 0) * occ
+        const b = (baseC.get(l) || 0) * occ
+        if (o < b) {
+          const cov = Math.min(rest, b - o)
+          byOwnShrink += cov
+          rest -= cov
+        }
+      }
+      // ③ 副本指针行只许"从无到有带一份"(G-814386 原额度,语义原样保留)。
+      if (rest > 0 && DUP_POINTER_RE.test(l)) {
+        byDupPointer += rest
+        rest = 0
+      }
+      if (rest > 0) unexplained.push(`缺 ${rest} 份 :: ${l.slice(0, 70)}`)
+      allowed += wantOcc - haveOcc - rest
     }
-    if (m.mergeNotes < noteMax - allowed)
+    if (m.mergeNotes < noteMax - allowed) {
+      const named = unexplained.length
+        ? `;未被任何机制解释的 ${unexplained.length} 条(列前 5):${unexplained.slice(0, 5).join(' | ')}`
+        : ''
       out.push(
-        `F5 归并落账注记 各侧最多 ${noteMax} 条,归并结果只剩 ${m.mergeNotes} 条(被未落账形态顶掉)` +
-          `(已扣除"副本指针行有意少带"的合法额度 ${allowed} 条,扣完仍差 ${noteMax - allowed - m.mergeNotes} 条)`,
+        `F5 归并落账注记 各侧最多 ${noteMax} 条,归并结果只剩 ${m.mergeNotes} 条` +
+          `(已按行扣除三类**有据**额度共 ${allowed} 条:归档占位代表 ${byPlaceholder} / 本侧相对基底自缩 ${byOwnShrink} / 副本指针有意少带 ${byDupPointer};扣完仍差 ${noteMax - allowed - m.mergeNotes} 条)${named}`,
       )
+    }
   }
   return out
 }
@@ -671,7 +723,11 @@ export function buildUnion(
        */
       if (p.endsWith('PROJECT_PLAN.md')) {
         const sides = [bt, a, b].filter((t) => typeof t === 'string' && t !== '')
-        const __rg = planStateRegressions(mergedText, sides, accepted)
+        const __rg = planStateRegressions(mergedText, sides, accepted, {
+          suppress: ma.suppress,
+          baseText: bt,
+          oursText: a,
+        })
         for (const msg of __rg) violations.push(`${p} 归并放大任务状态分叉:${msg}`)
         for (const msg of __rg.accepted || []) acceptedGrowth.push(msg)
         console.log(`   ${f3ExitCaliber(mergedText, sides)}`)
@@ -848,7 +904,12 @@ export function buildUnion(
         .map((oid) => blobText(oid, cwd))
       const __cal = f3ExitCaliber(blobText(mergedOid, cwd), sideTexts)
       if (__cal) console.log(`   ${__cal}`)
-      const __rg2 = planStateRegressions(blobText(mergedOid, cwd), sideTexts, accepted)
+      const __sideBlobs = [base, ours, theirs].map((rev) => blobOf(rev, p, cwd)).map((oid) => (oid ? blobText(oid, cwd) : null))
+      const __rg2 = planStateRegressions(blobText(mergedOid, cwd), sideTexts, accepted, {
+        suppress: null,
+        baseText: __sideBlobs[0],
+        oursText: __sideBlobs[1],
+      })
       for (const msg of __rg2) violations.push(`${p} 归并放大任务状态分叉:${msg}`)
       for (const msg of __rg2.accepted || []) acceptedGrowth.push(msg)
     }
@@ -1436,9 +1497,23 @@ function selfTest() {
         (() => {
           const src = readFileSync(new URL(import.meta.url), 'utf8')
           return (
-            src.includes('planStateRegressions(mergedText, sides, accepted)') &&
-            src.includes('planStateRegressions(blobText(mergedOid, cwd), sideTexts, accepted)') &&
+            src.includes('planStateRegressions(mergedText, sides, accepted, {') &&
+            src.includes('planStateRegressions(blobText(mergedOid, cwd), sideTexts, accepted, {') &&
             src.includes('moveAwareCache, takeTheirs, accepted,')
+          )
+        })(),
+      )
+      ok(
+        'F5 额度:三类有据额度必须由**调用点**喂进内容(搬运感知表 / 基底面 / 本侧面)—— ' +
+          '只在判据函数里读形参而没人传,等价于这一维从未生效过(守门 70/76/81/105/115 同族)',
+        (() => {
+          const src = readFileSync(new URL(import.meta.url), 'utf8')
+          return (
+            src.includes('suppress: ma.suppress') &&
+            src.includes('baseText: bt') &&
+            src.includes('oursText: a') &&
+            src.includes('baseText: __sideBlobs[0]') &&
+            src.includes('oursText: __sideBlobs[1]')
           )
         })(),
       )
@@ -1656,6 +1731,58 @@ function selfTest() {
       'F5:注记与较好一侧持平或更多 ⇒ 不得报(否则清完账反而恒红)',
       planStateRegressions(PS_N1, [PS_N1, PS_N0]).length === 0 &&
         planStateRegressions(PS_N1 + PS_N1, [PS_N1]).length === 0,
+    )
+    // ── F5 的三类"有据额度"(2026-09-29)──
+    // 立因:落地闸报「各侧最多 537,归并只剩 501」却不给逐份出处,而按行量下来 64 份缺口
+    // **全部**能落到两类合法机制上(38 份由基准面的 `已归档` 占位代表、26 份是本侧相对基底自缩)。
+    // 旧写法只认"副本指针行"一档,且**遍历结果面** ⇒ "一份都没剩下"那种行结构上不可申诉。
+    // 这三条成对用例钉的是:有据的两档必须认下来(否则每次台账合并自杀),而无据那一档**照旧判红**
+    // (放宽的是形状,不是方向 —— 把判据改成"永远放过"就等于没有这道门)。
+    const AR =
+      '<!-- 已归档(2026-09-26:某条目收口,随块带走的归并落账注记: 〔【归并】D9 落账:复测 2026-09-26〕 〔【归并】D10 落账:复测 2026-09-26〕 -->'
+    const ARn = (k) => (k > 0 ? `${AR}\n`.repeat(k) : '')
+    ok(
+      'F5 额度①:搬运感知表按行点名的"占位代表"份数 ⇒ 不得判红(结果里一份都没有也必须能申诉)',
+      planStateRegressions('x\n', ['x\n', 'x\n', ARn(2)], null, {
+        suppress: new Map([[AR, 2]]),
+        baseText: 'x\n',
+        oursText: 'x\n',
+      }).length === 0,
+    )
+    ok(
+      'F5 额度②:本侧相对共同基底自己缩了量 ⇒ 依"处置权在本侧"不判红(与 liveDocExpectedCounts 同形)',
+      planStateRegressions(ARn(1), [ARn(3), ARn(1), ARn(3)], null, {
+        suppress: null,
+        baseText: ARn(3),
+        oursText: ARn(1),
+      }).length === 0,
+    )
+    ok(
+      'F5 有牙:对侧相对基底**加**了注记、归并却没带(既非占位代表也非自缩)⇒ 照常判红并点名未解释条数',
+      (() => {
+        const r = planStateRegressions(ARn(1), [ARn(1), ARn(1), ARn(3)], null, {
+          suppress: null,
+          baseText: ARn(1),
+          oursText: ARn(1),
+        }).join('')
+        return r.includes('F5') && r.includes('未被任何机制解释')
+      })(),
+    )
+    ok(
+      'F5 量纲:搬运感知表给的是**份数**,一行挂两条注记时必须换算成 2 个 occurrence —— ' +
+        '把行数当份数(本仓反复复发的那一单位错)会让这一档少扣一半,把正常合并钉成恒红',
+      planStateRegressions('x\n', ['x\n', 'x\n', ARn(1)], null, {
+        suppress: new Map([[AR, 1]]),
+        baseText: 'x\n',
+        oursText: 'x\n',
+      }).length === 0 &&
+        // 反向对照:同一张表什么都不给 ⇒ 必须红(有牙,不是"能解释就算过")
+        planStateRegressions('x\n', ['x\n', 'x\n', ARn(1)], null, {
+          suppress: new Map(),
+          baseText: 'x\n',
+          oursText: 'x\n',
+        }).join('')
+          .includes('F5') === true,
     )
     // ── F9b 畸形号 / F9 撞号两维进落地闸(2026-09-28 G-606)──
     // 成对:① 归并自己造的必须点名;② 两侧本来就带着的存量不得钉红归并(否则每次收敛都红)。
