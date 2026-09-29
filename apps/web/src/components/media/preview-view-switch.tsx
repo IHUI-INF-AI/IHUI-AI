@@ -23,8 +23,9 @@ import { cn } from '@/lib/utils'
  *  2. **切视图 = 零取数**:本组件只负责 mode 与可用性,源码文本一律由调用方从**已在手里的**
  *     内容派生(见 office-preview 的 extractOfficeSourceText / CSV 的 raw),这里不出现 fetch。
  *  3. **缺词不喷键名**:取词走"有键取键、无键回落内联文案"(与 preview-degradation-copy 同一条
- *     规矩)—— 票面禁止本会话改 `packages/i18n/messages/**`,新键在主会话入词表之前界面必须
- *     仍是可读文案,而不是 `previewViewSource` 这种内部标识。
+ *     规矩)。11 个键已于 2026-09-26 由提交 `3650a460e` 按 §19 流水线入 `chat` 段五语言词表,
+ *     正常路径读的是词表;下面那份内联表因此只是**缺词降落伞**,不是第二个文案源 ——
+ *     键名清单见受版本控制的 `scripts/data/i18n-d41-preview-keys.json`。
  */
 
 export const PREVIEW_VIEW_NAMESPACE = 'chat' as const
@@ -63,15 +64,31 @@ export type PreviewSourceAvailability =
 export interface PreviewSourceText {
   readonly text: string
   readonly truncated: boolean
+  /** G-647:派生源全文总长(截断前)—— 披露判据 shown<total 的 total 半边。 */
+  readonly totalChars: number
 }
 
 /** 源码视图默认字符上限(超出即截断并如实说明,不静默变短)。 */
 export const PREVIEW_SOURCE_MAX_CHARS = 200_000
 
 /**
- * 内联兜底文案:与 `.ihui-agent/tmp/i18n-d41.json` 里建议入表的键值逐字一致。
- * 主会话入词表后本表退化为缺词兜底,取词点不改(每行标注 next-intl 是为了让守门 70
- * 把这批译文表按 i18n 数据放过 —— 删掉就等于把兜底也删了)。
+ * G-647(2026-09-29 立):截断披露判据唯一真相源 —— **只有 shown<total 才念**。
+ * 布尔 truncated 与真实维度会漂移(标志为真 ≠ 此刻真的有内容被藏住),所以渲染 gating
+ * 一律走本判据,布尔标志不得单独作渲染条件。xlsx 行截断(office-preview 的卡片表格)
+ * 与源码档字符截断(下方 PreviewSourceText 详情档)共用这一份,不许出现第二套判据。
+ */
+export function truncationDisclosed(shown: number, total: number): boolean {
+  return shown < total
+}
+
+/**
+ * 内联兜底文案:**只在缺词时**生效的降落伞(取词点永远先走 `t()`,见 `previewViewCopyText`)。
+ * 键名清单与唯一真值位置见受版本控制的 `scripts/data/i18n-d41-preview-keys.json` 与
+ * `packages/i18n/messages/web/*.json` 的 `chat` 段 —— 本表不新增文案、不定义文案,要改句子请改
+ * 词表并按 AGENTS §19 流水线走。本表的 en 档必须与 `web/en.json` 逐字一致(2026-09-28 实测
+ * `previewSourceUnavailableTooLarge` 曾分叉成 `...so no raw text.`,已对齐),否则"缺词时读到的"
+ * 与"正常时读到的"是两句话。
+ * 每行标注 next-intl 是为了让守门 70 把这批译文表按 i18n 数据放过 —— 删掉就等于把兜底也删了。
  */
 const PREVIEW_VIEW_COPY: Record<PreviewViewCopyKey, { readonly zh: string; readonly en: string }> =
   {
@@ -93,7 +110,7 @@ const PREVIEW_VIEW_COPY: Record<PreviewViewCopyKey, { readonly zh: string; reado
     },
     previewSourceUnavailableTooLarge: {
       zh: '文件过大，内容未取回，原始文本不可用。', // next-intl 缺词兜底
-      en: 'File too large — content was not fetched, so no raw text.',
+      en: 'File too large — content was not fetched, so there is no raw text.',
     },
     previewSourceUnavailableExpired: {
       zh: '链接已失效，原始文本不可用。', // next-intl 缺词兜底
@@ -236,7 +253,11 @@ export function PreviewViewSwitch({
 export interface PreviewSourceTextProps {
   readonly status: 'extracting' | 'failed' | 'ready'
   readonly text: string
-  readonly truncated: boolean
+  /** @deprecated G-647(2026-09-29 立):布尔不再作披露判据(标志与真实维度会漂移),
+   *  组件不再读取;仅为尚未迁移的调用方(delimited/message-file-preview)保留入参位。 */
+  readonly truncated?: boolean
+  /** 派生源全文总长(截断前)。缺省 = 总长未知 → 不念(宁可少说,不可谎报)。 */
+  readonly totalChars?: number
   /** 截断阈值,写进如实说明的文案里。 */
   readonly maxChars?: number
   readonly className?: string
@@ -249,7 +270,7 @@ export interface PreviewSourceTextProps {
 export function PreviewSourceText({
   status,
   text,
-  truncated,
+  totalChars,
   maxChars = PREVIEW_SOURCE_MAX_CHARS,
   className,
   testId = 'preview-source-text',
@@ -280,7 +301,8 @@ export function PreviewSourceText({
   }
   return (
     <div data-testid={testId} data-source-state="ready" className="overflow-hidden">
-      {truncated && (
+      {/* G-647:披露只认 shown<total(共用判据见 truncationDisclosed),布尔 truncated 不作 gating。 */}
+      {truncationDisclosed(text.length, totalChars ?? text.length) && (
         <p className="px-3 pt-1 text-[10px] leading-tight text-muted-foreground">
           {copy('previewSourceTruncated', { chars: maxChars })}
         </p>

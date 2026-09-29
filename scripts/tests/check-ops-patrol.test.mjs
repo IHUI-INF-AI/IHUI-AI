@@ -11,6 +11,10 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
+// P7 用例需要:独立算一次摘要做"证据真伪"对照,以及把夹具 mtime 摆到指定时刻。
+// 单独起 import 语句而不是改上面既有那行 —— 既有用例的字节面不许被我动了。
+import { createHash } from 'node:crypto'
+import { utimesSync } from 'node:fs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -19,6 +23,8 @@ const mod = await import(pathToFileURL(join(REPO, 'scripts', 'check-ops-patrol.m
 const { scratchRoot } = await import(pathToFileURL(join(REPO, 'scripts', 'lib', 'scratch-dir.mjs')).href)
 const { measureDir, ageVerdict, parseLastSync, patrol } = mod.__test__
 const { parseAlertRules, metricRefsFromExpr, checkInertAlertRules } = mod.__test__
+// P7(2026-09-29 补,机主裁决"副本没出机就喊")—— 一律 import 源文件的尺子,不在此重抄判定(§22c)。
+const { checkBackupReplicaPresence, sha256File, P7_BOUNDARY_NOTE, LIMITS } = mod.__test__
 
 const REAL_W32TM_LINE = '上次成功同步时间: 2026/9/28 19:52:42'
 
@@ -184,7 +190,9 @@ test('T12 台账取不到 ⇒ 站点按零条目判红(fail-closed)且必须再�
 
 test('T13 P6 必须真被 patrol 接上(判据写出来而没装车 = 本仓最高频失效型)', async () => {
   const r = await patrol({})
-  const all = [...r.findings, ...r.undetermined, ...r.ok]
+  // 四桶并起来才是"本轮量过的全部行" —— 2026-09-29 加 `adjudicated` 这一档时必须同批改这里,
+  // 否则被裁决降级的那一格会从 `all` 里消失,这条反向锁就把"已裁"读成"那行被搬走了"。
+  const all = [...r.findings, ...r.undetermined, ...r.adjudicated, ...r.ok]
   assert.ok(all.some((x) => x.id === 'P6'), 'patrol 没产出 P6 汇总行 ⇒ 判据没接进巡检')
   const sum = all.find((x) => x.id === 'P6')
   assert.match(sum.detail, /^规则 \d+ 条:在采/, `汇总行没报数:${sum.detail}`)
@@ -195,5 +203,281 @@ test('T14 P6 的遮噪必须引唯一实现(第二份注释/字符串状态机�
   assert.match(s, /from '\.\/lib\/code-mask\.mjs'/, '没有引用 scripts/lib/code-mask.mjs')
   assert.doesNotMatch(s, /function maskComments[A-Za-z]*\s*\(/, '本文件里出现了第二份遮蔽实现')
   assert.doesNotMatch(s, /const maskCommentsAndStrings\s*=/, '本文件里重新定义了遮蔽函数')
+})
+
+/**
+ * ── 以下为 P7(2026-09-29 补,机主裁决:"副本没出机就喊")新增用例,只增不改上面 14 条 ──
+ * 分工:尺子自己的 --self-test 用**注入桩**判三态与免泄漏;这里补桩测不到的两类:
+ * ① 走**真实 sha256File**(不注入)的成对夹具,并用 node:crypto 独立算一遍摘要对照"证据里的哈希是真的";
+ * ② 真实机器面:P7 是否真被 patrol 接上、阈值是否沿用同一个数、有没有越界去判"出机"或重复计 P5 的进程债。
+ * 夹具一律落在 §26 规定的 scratch 根;断言**只锁形状与三态方向,不锁此刻的颜色**(机器态会变,
+ * 锁颜色就造出恒红门 —— 与 T3 同一条理由)。
+ */
+const P7_NOW = Date.parse('2026-09-29T00:00:00Z')
+const P7_HOUR = 3600000
+const P7_DAY = 86400000
+const p7mk = (base, dir, name, content, ageMs) => {
+  const d = join(base, dir)
+  mkdirSync(d, { recursive: true })
+  const p = join(d, name)
+  writeFileSync(p, content, 'utf8')
+  const t = (P7_NOW - ageMs) / 1000
+  utimesSync(p, t, t)
+}
+const p7tmp = () => {
+  const root = scratchRoot()
+  mkdirSync(root, { recursive: true })
+  return mkdtempSync(join(root, 'p7mir-'))
+}
+const sha16 = (s) => createHash('sha256').update(s, 'utf8').digest('hex').slice(0, 16)
+const p7row = (rows, id) => rows.find((r) => r.id === id) || {}
+const p7reds = (rows) => rows.filter((r) => r.state === 'finding').length
+
+test('T15 P7 必须真被 patrol 接上,且只接三条 + P5 的进程行还在原处(同债不双计)', async () => {
+  const r = await patrol({})
+  // 四桶并起来才是"本轮量过的全部行" —— 2026-09-29 加 `adjudicated` 这一档时必须同批改这里,
+  // 否则被裁决降级的那一格会从 `all` 里消失,这条反向锁就把"已裁"读成"那行被搬走了"。
+  const all = [...r.findings, ...r.undetermined, ...r.adjudicated, ...r.ok]
+  const p7 = all.filter((x) => String(x.id).startsWith('P7·'))
+  assert.deepEqual(
+    p7.map((x) => x.id).sort(),
+    ['P7·同哈希', 'P7·新鲜度对账', 'P7·覆盖对账'].sort(),
+    `P7 应恰好三条,实测:${p7.map((x) => x.id).join(',') || '(一条都没有 ⇒ 判据没接进巡检)'}`,
+  )
+  for (const x of p7) {
+    assert.ok(['ok', 'finding', 'undetermined'].includes(x.state), `${x.id} 状态 ${x.state} 不在三态内 ⇒ 并桶了`)
+    assert.ok(String(x.detail).includes('能力边界'), `${x.id} 的 detail 没写能力边界(机主明令:边界要写进 detail)`)
+    if (x.state === 'undetermined') assert.match(x.detail, /未判定/, `${x.id} 落未判定却没带原因`)
+  }
+  assert.equal(all.filter((x) => x.id === 'P5·网盘同步客户端').length, 1, 'P5「网盘同步客户端」行必须还在 —— 机主明令不搬、不在两处各计一次')
+})
+
+test('T16 P7 成对夹具①:副本齐且同哈希 ⇒ 三行全绿;保留期外那份未复制不算缺项', async () => {
+  const base = p7tmp()
+  try {
+    p7mk(base, 'src', 'a.dump', 'AAA-1', 2 * P7_HOUR)
+    p7mk(base, 'src', 'b.dump', 'BBB-2', 3 * P7_HOUR)
+    p7mk(base, 'src', 'old.dump', 'OLD-OLD', 8 * P7_DAY) // 超出 7 天保留期:副本没有它不该算缺项
+    p7mk(base, 'rep', 'a.dump', 'AAA-1', 2 * P7_HOUR)
+    p7mk(base, 'rep', 'b.dump', 'BBB-2', 3 * P7_HOUR)
+    const rows = await checkBackupReplicaPresence({ now: P7_NOW, sourceDir: join(base, 'src'), replicaDir: join(base, 'rep') })
+    assert.equal(rows.length, 3, `条数应为 3,实测 ${rows.length}`)
+    assert.equal(p7reds(rows), 0, '副本齐且同哈希还判红 ⇒ 尺子在造恒红门')
+    assert.ok(rows.every((x) => x.state === 'ok'), rows.map((x) => `${x.id}=${x.state}`).join(' '))
+    // 配对取"同名且都在"里源侧 mtime 最新的一对(a.dump 比 b.dump 新)
+    assert.ok(p7row(rows, 'P7·同哈希').detail.includes('对 a.dump'), p7row(rows, 'P7·同哈希').detail)
+    assert.ok(
+      p7row(rows, 'P7·同哈希').detail.includes(sha16('AAA-1')),
+      'detail 里的哈希前缀必须与独立算出的真摘要一致 —— 否则"同哈希"是自说自话',
+    )
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+test('T17 P7 成对夹具②(牙):副本少一份 ⇒ 必红且逐名点名,不牵连在位那份', async () => {
+  const base = p7tmp()
+  try {
+    p7mk(base, 'src', 'a.dump', 'AAA-1', 2 * P7_HOUR)
+    p7mk(base, 'src', 'b.dump', 'BBB-2', 3 * P7_HOUR)
+    p7mk(base, 'rep', 'a.dump', 'AAA-1', 2 * P7_HOUR)
+    const rows = await checkBackupReplicaPresence({ now: P7_NOW, sourceDir: join(base, 'src'), replicaDir: join(base, 'rep') })
+    assert.equal(p7reds(rows), 1, `缺一份必须回一条红,实测 ${p7reds(rows)}`)
+    const cov = p7row(rows, 'P7·覆盖对账')
+    assert.equal(cov.state, 'finding')
+    assert.ok(cov.detail.includes('b.dump') && !cov.detail.includes('a.dump'), `缺项要逐名点名且不牵连在位那份:${cov.detail}`)
+    assert.equal(p7row(rows, 'P7·新鲜度对账').state, 'ok', '缺份那一红不该顺手把另两维染红(各维独立三态)')
+    assert.equal(p7row(rows, 'P7·同哈希').state, 'ok', '同上')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+test('T18 P7 成对夹具③:两侧目录读不到 / 副本根解析不到 ⇒ 三行全未判定、零红("没读到"两头都不许写)', async () => {
+  const base = p7tmp()
+  try {
+    const absent = await checkBackupReplicaPresence({ now: P7_NOW, sourceDir: join(base, 'nope-src'), replicaDir: join(base, 'nope-rep') })
+    assert.equal(absent.length, 3)
+    assert.equal(p7reds(absent), 0, '读不到却产红 ⇒ 把"没读到"写成了"出事"')
+    assert.ok(absent.every((x) => x.state === 'undetermined'), absent.map((x) => `${x.id}=${x.state}`).join(' '))
+    p7mk(base, 'src', 'a.dump', 'AAA-1', 2 * P7_HOUR)
+    const noReplicaRoot = await checkBackupReplicaPresence({ now: P7_NOW, sourceDir: join(base, 'src'), replicaDir: null })
+    assert.equal(p7reds(noReplicaRoot), 0)
+    assert.ok(noReplicaRoot.every((x) => x.state === 'undetermined'))
+    assert.match(p7row(noReplicaRoot, 'P7·覆盖对账').detail, /IHUI_OFFSITE_BACKUP_DIR/, '未判定必须给出路(怎么让它判得动)')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+test('T19 P7 成对夹具④:同名而内容不同 ⇒ 同哈希必红,且任何一行都不含文件内容', async () => {
+  const base = p7tmp()
+  try {
+    p7mk(base, 'src', 'a.dump', 'TOPSECRET-SRC-DO-NOT-PRINT', 1 * P7_HOUR)
+    p7mk(base, 'rep', 'a.dump', 'TOPSECRET-REP-DO-NOT-PRINT', 1 * P7_HOUR)
+    const rows = await checkBackupReplicaPresence({ now: P7_NOW, sourceDir: join(base, 'src'), replicaDir: join(base, 'rep') })
+    assert.equal(p7reds(rows), 1, `内容不同必须回一条红,实测 ${p7reds(rows)}`)
+    const h = p7row(rows, 'P7·同哈希')
+    assert.equal(h.state, 'finding')
+    assert.ok(h.detail.includes(sha16('TOPSECRET-SRC-DO-NOT-PRINT')) && h.detail.includes(sha16('TOPSECRET-REP-DO-NOT-PRINT')), `两侧摘要都要报:${h.detail}`)
+    const joined = rows.map((x) => x.detail).join('\n')
+    assert.ok(!joined.includes('DO-NOT-PRINT'), 'detail 里出现了文件内容 ⇒ 越界(只许哈希与字节数)')
+    assert.match(joined, / B vs .*sha256:|B vs/, '字节数必须在场')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+test('T20 P7 新鲜度沿用同一个 LIMITS.pgDumpMaxAgeHours(成对喂:差一点未超阈绿 / 超阈红)', async () => {
+  const H = LIMITS.pgDumpMaxAgeHours
+  const base = p7tmp()
+  try {
+    p7mk(base, 'fresh-ok', 'f.dump', 'FRESH', (H - 1) * P7_HOUR)
+    p7mk(base, 'fresh-src', 'f.dump', 'FRESH', (H - 1) * P7_HOUR)
+    const ok = await checkBackupReplicaPresence({ now: P7_NOW, sourceDir: join(base, 'fresh-src'), replicaDir: join(base, 'fresh-ok') })
+    assert.equal(p7row(ok, 'P7·新鲜度对账').state, 'ok')
+    assert.ok(p7row(ok, 'P7·新鲜度对账').detail.includes(`阈 ${H}h`), `阈值必须显式报出并等于 pgDumpMaxAgeHours=${H}`)
+    p7mk(base, 'stale-rep', 'f.dump', 'STALE', (H + 1) * P7_HOUR)
+    p7mk(base, 'stale-src', 'f.dump', 'STALE', (H + 1) * P7_HOUR)
+    const stale = await checkBackupReplicaPresence({ now: P7_NOW, sourceDir: join(base, 'stale-src'), replicaDir: join(base, 'stale-rep') })
+    assert.equal(p7reds(stale), 1, '超阈必须回红')
+    assert.equal(p7row(stale, 'P7·新鲜度对账').state, 'finding')
+    assert.match(p7row(stale, 'P7·新鲜度对账').detail, new RegExp(`阈 ${H}h`), '红行也要报同一个阈值,不许另造第二个数')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+test('T21 sha256File 的死亡机制:必须流式(禁整读 114MB)、字节如实、读不到必 reject', async () => {
+  const body = sha256File.toString()
+  assert.match(body, /createReadStream/, '不是流式读 ⇒ 会把整份 dump 读进内存')
+  assert.doesNotMatch(body, /readFileSync/, '流式函数里出现 readFileSync')
+  const base = p7tmp()
+  try {
+    const buf = Buffer.alloc(70000, 7)
+    writeFileSync(join(base, 'x.dump'), buf)
+    const got = await sha256File(join(base, 'x.dump'))
+    assert.equal(got.hash, createHash('sha256').update(buf).digest('hex'), '摘要与 node:crypto 独立算的不一致')
+    assert.equal(got.bytes, buf.length, '字节数如实')
+    await assert.rejects(() => sha256File(join(base, '__no_such__.dump')), '读不到必须 reject(返回 null 会被调用方误判成"比对通过")')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+test('T22 P7 不越界:不接管进程维、不假装能验"出机";机主那句边界同时写在注释与 detail', () => {
+  const s = src('scripts/check-ops-patrol.mjs')
+  assert.doesNotMatch(
+    checkBackupReplicaPresence.toString(),
+    /tasklist|BaiduNetbox|baiduSyncRunning/,
+    'P7 里出现进程探测 ⇒ 同一条债在两个判据各计一次(机主明令禁止)',
+  )
+  assert.doesNotMatch(checkBackupReplicaPresence.toString(), /spawn|execSync/, 'P7 不得启动/重启任何同步客户端')
+  const occ = [...s.matchAll(/不证明它已离开这台机器/g)].length
+  assert.ok(occ >= 2, `能力边界原话只出现 ${occ} 次 ⇒ 头注与 detail(常量)必须各有一处`)
+  assert.match(s, /真正的出机依赖第三方同步客户端在跑/)
+  assert.ok(P7_BOUNDARY_NOTE.includes('两者同在 D: 卷') && P7_BOUNDARY_NOTE.includes('P7 不重复计账'))
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P0 裁决台账(2026-09-29 立)。机主对「异地那条腿」的裁决是**只加尺子、不替他启动第三方
+// 同步客户端**,所以那一格的红是"已知、已裁、只有他能解除"的状态 —— 让它每 4h 寄一封到人邮件
+// 本身就是缺陷(「一直在报警」);而把它永久静音又违反另一条铁律「抑制必须有终态」。
+// 下面每一例都成对:既证它会降级,也证它**会把降级收回去**。只留前一臂 = 一条静音键。
+// ─────────────────────────────────────────────────────────────────────────────
+const { loadAdjudications, applyAdjudications } = mod.__test__
+const LEDGER = join(REPO, 'scripts/data/ops-patrol-adjudications.json')
+const ADJ_ANCHOR = 'P5·网盘同步客户端'
+const entryWith = (over = {}) => ({ anchor: ADJ_ANCHOR, reason: '机主裁决:不代为启动第三方客户端', owner: '机主', reviewBy: '2099-01-01', ...over })
+const findingRows = () => [{ id: ADJ_ANCHOR, state: 'finding', detail: '进程不在 ⇒ 出机这一腿此刻不成立' }]
+
+test('T23 成对①:未到期 ⇒ 不进取红计数、行仍打印且带到期日;缺字段/到期 ⇒ 站点照旧红', () => {
+  const now = Date.UTC(2026, 8, 29)
+  const live = applyAdjudications({ rows: findingRows(), entries: [entryWith({ reviewBy: '2026-10-29' })], now })
+  assert.equal(live.rows[0].state, 'adjudicated', '未到期且四件套齐 ⇒ 必须降级')
+  assert.match(live.rows[0].detail, /到期 2026-10-29/, '理由里必须看得见**哪一天**收回去(不可见的终态等于没有终态)')
+  assert.match(live.rows[0].detail, /进程不在/, '降级不得删掉原判据文本 —— 只改计数方向,不改判据')
+  const expired = applyAdjudications({ rows: findingRows(), entries: [entryWith({ reviewBy: '2026-09-01' })], now })
+  assert.equal(expired.rows[0].state, 'finding', '到期即回红(不需要任何人记得改代码)')
+  assert.match(expired.rows[0].detail, /已到期/)
+  for (const key of ['reason', 'owner', 'reviewBy']) {
+    const bad = applyAdjudications({ rows: findingRows(), entries: [entryWith({ [key]: '' })], now })
+    assert.equal(bad.rows[0].state, 'finding', `缺 ${key} 就生效 ⇒ 登记坏掉变成了免检`)
+    assert.match(bad.rows[0].detail, /不完整/, `缺 ${key} 时必须报名而不是静默忽略`)
+  }
+})
+
+test('T24 成对②:台账坏 JSON 一律照旧红 + 一条未判定;文件不在位是"没有裁决"而不是故障', () => {
+  const root = scratchRoot()
+  mkdirSync(root, { recursive: true })
+  const base = mkdtempSync(join(root, 'ops-ledger-'))
+  const now = Date.UTC(2026, 8, 29)
+  try {
+    const broken = join(base, 'broken.json')
+    writeFileSync(broken, '{ "entries": [ {', 'utf8')
+    const l = loadAdjudications(broken)
+    assert.ok(l.readError, '坏 JSON 必须落 readError(静默当空台账 = 把"没读到"写成"没有待裁项")')
+    const a = applyAdjudications({ rows: findingRows(), entries: l.entries, readError: l.readError, now })
+    assert.equal(a.rows[0].state, 'finding', '台账坏掉时站点照旧红')
+    assert.equal(a.ledgerFindings[0].state, 'undetermined', '台账自身读不出 ⇒ 是"未判定",不是"已判过"')
+    const absent = loadAdjudications(join(base, 'nope.json'))
+    assert.equal(absent.entries.length, 0)
+    assert.equal(absent.readError, null, '文件不在位 ≠ 故障:那是"零条裁决",站点照常红')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+test('T25 台账腐烂只报名不判红:登记的 anchor 在本轮根本没有这一行', () => {
+  const now = Date.UTC(2026, 8, 29)
+  const r = applyAdjudications({ rows: [{ id: 'P3·时钟', state: 'ok', detail: '绿' }], entries: [entryWith()], now })
+  assert.equal(r.rotten.length, 1, 'anchor 找不到 ⇒ 必须点名"台账腐烂"')
+  assert.match(r.rotten[0].why, /腐烂/)
+  assert.equal(r.ledgerFindings.length, 0, '腐烂**不判红** —— 一台与任何现场都无关的恒红,唯一出路是各会话绕门(§12e)')
+  assert.equal(r.rows[0].state, 'ok', '不得把别的档位顺手改掉')
+})
+
+test('T26 装车锁:降级真接在 patrol 里,且摘掉台账后那一格必须回到红档(承重证明)', async () => {
+  const src = readFileSync(join(REPO, 'scripts/check-ops-patrol.mjs'), 'utf8')
+  const body = src.slice(src.indexOf('export async function patrol'), src.indexOf('export function loadAdjudications'))
+  assert.match(body, /applyAdjudications\(/, 'patrol 没调降级 ⇒ 台账成了没人读的装饰')
+  assert.match(body, /loadAdjudications\(/, 'patrol 没读台账 ⇒ 同上')
+  /**
+   * 断言锚在**那一格的身份**上,不是"红读数变多"—— 这台机上两轮巡检之间部署环/备份心跳本来就会漂,
+   * 用计数差当证据会在别人正常收尾时误红(把夹具的抖动读成判据失效)。
+   */
+  const withLedger = await patrol({})
+  const without = await patrol({ ledgerFile: join(dirname(LEDGER), '__definitely-absent__.json') })
+  if (withLedger.adjudicated.some((x) => x.id === ADJ_ANCHOR)) {
+    assert.ok(without.findings.some((x) => x.id === ADJ_ANCHOR), '台账在位时被裁走、换成零条目台账必须回到红档 —— 回不来就说明降级没接到这条判据上')
+    assert.ok(!withLedger.findings.some((x) => x.id === ADJ_ANCHOR), '同一格不得同时在红档与已裁档(双计)')
+  } else {
+    const raw = without.findings.some((x) => x.id === ADJ_ANCHOR)
+    assert.ok(raw === withLedger.findings.some((x) => x.id === ADJ_ANCHOR), '本轮这格没被裁,两臂结论就必须一致(不一致 ⇒ 降级通道在别处动了读数)')
+  }
+  assert.equal(without.counts.rotten, 0, '零条目台账不该产出腐烂报名(腐烂 = 登记了却找不到行)')
+})
+
+test('T27 真仓端到端:四桶互斥不并档,计数与数组闭合', async () => {
+  const r = await patrol({})
+  const ids = (arr) => new Set(arr.map((x) => x.id))
+  const inFindings = ids(r.findings).has(ADJ_ANCHOR)
+  const inAdjudicated = ids(r.adjudicated).has(ADJ_ANCHOR)
+  assert.ok(!inFindings || !inAdjudicated, '同一格同时进红档与已裁档 ⇒ 一条债被计了两次(计数与发信方向都会错)')
+  if (inAdjudicated) {
+    const row = r.adjudicated.find((x) => x.id === ADJ_ANCHOR)
+    assert.match(row.detail, /原判据:/, '已裁行必须把原判据文本带着走,否则读报告的人不知道被压的是什么')
+    assert.match(row.detail, /到期 \d{4}-\d{2}-\d{2}/)
+  }
+  assert.equal(
+    r.counts.findings + r.counts.adjudicated + r.counts.ok + r.counts.undetermined,
+    r.findings.length + r.adjudicated.length + r.ok.length + r.undetermined.length,
+    '计数与数组长度不闭合 ⇒ 有行落进了第五个看不见的桶',
+  )
+  assert.equal(
+    [...r.findings, ...r.adjudicated, ...r.ok, ...r.undetermined].length,
+    r.findings.length + r.adjudicated.length + r.ok.length + r.undetermined.length,
+    '四桶之间有行重复 ⇒ 分桶不是划分',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

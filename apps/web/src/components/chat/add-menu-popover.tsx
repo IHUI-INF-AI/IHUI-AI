@@ -71,6 +71,10 @@ export function AddMenuPopover(props: {
   compacting?: boolean
   /** 无会话 ID 时禁用压缩入口 */
   compactDisabled?: boolean
+  /** 追加菜单项(2026-09-30 底栏单行化):宿主(message-input)以 ReactNode 传入
+   *  多源建议 / 一键润色等从底栏降级下来的入口,渲染在"深度研究"之后、"压缩上下文"之前。
+   *  由宿主传入而非本组件内部 import,避免 message-input ↔ add-menu-popover 循环依赖。 */
+  extraMenuItems?: React.ReactNode
 }): React.JSX.Element {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
@@ -95,6 +99,7 @@ export function AddMenuPopover(props: {
     onCompactContext,
     compacting = false,
     compactDisabled = false,
+    extraMenuItems,
   } = props
 
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
@@ -230,7 +235,9 @@ export function AddMenuPopover(props: {
           )}
         >
           <Plus className="h-3.5 w-3.5 shrink-0" />
-          <span className="min-w-0 truncate">{t('addMenuLabel')}</span>
+          {/* add-menu-text:窄容器由 globals.css @container 降级隐藏(2026-09-30 立,
+              panel MIN 400 时仍显示,更窄的浮窗折叠态隐藏为纯 + 图标) */}
+          <span className="add-menu-text min-w-0 truncate">{t('addMenuLabel')}</span>
         </button>
       </Tooltip>
       {open &&
@@ -398,6 +405,9 @@ export function AddMenuPopover(props: {
                   <Telescope className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate">{t('deepResearchEntry')}</span>
                 </button>
+                {/* 底栏降级入口(2026-09-30 底栏单行化):多源建议 / 一键润色等
+                    从输入框底栏收纳进本菜单,由宿主以 extraMenuItems 传入 */}
+                {extraMenuItems}
                 {/* 压缩上下文(2026-09-06 整合):原工具栏独立剪刀按钮收纳进本菜单,
                     请求中显示 Loader2 且禁用;无会话(conversationId 为空)时禁用 */}
                 {onCompactContext && (
