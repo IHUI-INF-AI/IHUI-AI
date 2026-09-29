@@ -465,6 +465,26 @@ export function dimsFromText(win, consts) {
     if (m[1] === 'width') w = Math.max(w, v)
     else h = Math.max(h, v)
   }
+  /**
+   * **被单参长度包裹器写住的边长**(`width: toUnit(MODEL_LIST_CHECK_BOX_PX)`)。
+   *
+   * 上面那条标识符分支只能吃到 `toUnit` 这个名字(它要求右值以 `\b` 收尾且不带括号),所以
+   * 整族包裹写法在尺子上等于"量不到":盒是 w=h=0、形状靠 `sameExpr` 判成 square,而短边算不出
+   * 数值 ⇒ C6/C7 的 `Number.isFinite` 一判就退出,最后落"未判定/不在档"。HEAD 现读那一格是
+   * `apps/miniapp-taro/src/components/ModelList.tsx:271`(20×20 的勾选框配 `X / 2` 半径,
+   * 按 §4 属**几何真圆装饰件**,却报成 `off-scale 10px`)。
+   * 求值仍交回 `constExprPx` **那一份**:倍率、限深、"解不到就 null"都住在那里,本函数不抄
+   * 第二份单位折算(`rpx()` / 数字字面量这些既有形态早就由它认,这里只是把"带括号的调用"多喂一行)。
+   * 解不到 ⇒ 与改动前逐字同结论(量不到),所以这一支只可能**增加**判定,不会把已有结论改坏。
+   */
+  for (const m of win.matchAll(
+    /\b(width|height)\s*[:=]\s*([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?\([^()]*\))/g,
+  )) {
+    const v = constExprPx(m[2], consts)
+    if (v === null || v <= 0) continue
+    if (m[1] === 'width') w = Math.max(w, v)
+    else h = Math.max(h, v)
+  }
   const dims = [...win.matchAll(/\b(width|height)\s*[:=]\s*([^,}\n]+)/g)].map((m) => ({
     axis: m[1] === 'width' ? 'w' : 'h',
     v: m[2].trim().replace(/\s+/g, ''),
