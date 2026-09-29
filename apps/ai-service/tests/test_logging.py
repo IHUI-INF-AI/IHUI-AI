@@ -25,12 +25,59 @@ from __future__ import annotations
 
 import logging as stdlib_logging
 
+import pytest
+
 from app.core import logging as logging_module
 from app.core.logging import get_logger
 
 # =============================================================================
 # get_logger — 返回值 + name 处理
 # =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def restore_structlog_global_config():
+    """本文件调用 `_configure_structlog()`,而它是**整局替换** —— 收尾必须按对象还原。
+
+    `structlog.configure(processors=[...])` 实测是
+    `_CONFIG.default_processors = processors`(不复制,直接指派**新的列表对象**)。
+    配合 `cache_logger_on_first_use=True`,链条是这样断掉的:
+
+    1. 某个更早的用例让某个模块级懒代理**第一次**被调用 ⇒ 它把"当时的 processors 列表
+       对象"缓存进那个 logger(此后该 logger 再也不看全局配置);
+    2. 本文件再 configure 一次 ⇒ 全局 processors 换成了**另一个列表对象**;
+    3. `structlog.testing.capture_logs()` 的工作原理是**就地改写** `get_config()
+       ["processors"]` 那一个列表(它刻意保持列表实例不变,正是为了不让已绑定的 logger
+       失联)⇒ 它改的是新对象,而缓存的 logger 写的是旧对象 ⇒ 收 0 条,告警照常进 stderr。
+
+    实测复现链(串行、同一进程内):
+      tests/test_device_linkage_owner_scoping.py(先触发一次 legacy 兜底告警)
+      → tests/test_logging.py(本文件,reconfigure)
+      → tests/test_publish_identity_key_stability.py::
+        test_legacy_fallback_is_used_and_loudly_warned 翻红 `events == []`。
+    单独两两配对都不红,所以只有"三步链"才是证据 —— 缺第 1 步则 logger 尚未缓存,
+    缺第 2 步则全局列表身份未变,capture_logs 都还能拦到。
+
+    收尾把**同一批对象**(尤其 processors 的列表身份)放回,本文件测的行为照旧测得到,
+    而全局配置不再外泄给同进程后续文件。
+    """
+    structlog_mod = logging_module.structlog
+    if not logging_module._HAS_STRUCTLOG:  # pragma: no cover - 测试环境恒有 structlog
+        yield
+        return
+    saved = structlog_mod.get_config()
+    saved_processors = saved["processors"]
+    saved_processor_values = list(saved_processors)
+    yield
+    # 先就地还内容(万一有人原地改写过),再还全局身份。
+    saved_processors[:] = saved_processor_values
+    structlog_mod.configure(
+        processors=saved_processors,
+        wrapper_class=saved["wrapper_class"],
+        context_class=saved["context_class"],
+        logger_factory=saved["logger_factory"],
+        cache_logger_on_first_use=saved["cache_logger_on_first_use"],
+    )
 
 
 def test_get_logger_returns_object():

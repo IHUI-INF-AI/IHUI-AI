@@ -88,6 +88,9 @@ const FAMILY_LIFETIME_DAYS = {
   'glyph-arrow-exempt': 30,
   'alpha-plugin-exempt': 30,
   'r5-cta-exempt': 60,
+  // 入站契约豁免族(G-674 的出口):30 天 —— 它是**待偿的契约债**(出路只有补 .strict()/z.strictObject,
+  // 或删掉这条静默接受未知字段的入站面),不是结构性定性;到期只判红点名、绝不自动摘除。
+  'inbound-strict-exempt': 30,
   'r3-cta-exempt': 60,
   'r7-nest-exempt': 60,
   /**
@@ -127,6 +130,17 @@ const FAMILY_LIFETIME_DAYS = {
    * 判据侧要求带原因、只本行与紧邻上一纯注释行生效。
    */
   'double-header-exempt': 30,
+  /**
+   * 桌面端事件链路接线守门(`check-desktop-event-wiring.mjs` 规则 **G9**)的行内出口:
+   * 「这一处整页导航确实不需要先触发存草稿」(典型:冷启动首屏尚未渲染、离线兜底页本身没有
+   * 输入框)。取 **30 天**,与 `interop-style-exempt` / `api-error-exempt` /
+   * `double-header-exempt` 同档 —— 它是**待偿债**:正当出路是在发起点前补
+   * `.emit("desktop-before-close", …)` 或调同一个草稿落盘出口,而不是把这条导航永久登记成惯例。
+   * 刻意**不取** `back-label-exempt` 的 365 天:那一族是"这个位置的「返回」是按钮文案"式的
+   * 结构性定性(位置性质不随时间改变),而"这条导航要不要存草稿"会随功能变化(输入框一
+   * 进到那个页面,豁免就该到期重判)。判据侧要求带原因、只本行与紧邻上一行生效。
+   */
+  'page-nav-exempt': 30,
   /**
    * 守门 156(自检登记函数求值对账 `check-selftest-registrant-evaluates`)的行内出口。取 **30 天** ——
    * 它是**待偿债**:该出口只救"这一处登记函数确实不求值"的情况,出路是把登记侧改成求值或直接传

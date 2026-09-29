@@ -25,6 +25,12 @@
  *             —— 只有"对侧相对基底新增"的行才被强制补回;对侧没动、被本侧改写/删除的行
  *               处置权在本侧。旧写法 `max(ours,theirs)` 会把本侧就地改写**之前**的旧行复活
  *               (2026-09-25 实测:刚翻勾的待办被并回未勾,`check-task-claims` 当场重新报成可派)。
+ *             2026-09-29 再收一维(G-814386):**带「重复登记副本」指针的行只许"从无到有带一份"**,
+ *               不参与份数累加。这一族已被 `plan-tasks` 的派单口径算作同一条活账的副本,而份数累加
+ *               等于**把已判过死刑的副本按份数复原** —— 实测 22:16 把该档清到 0 组/0 行,一枚收敛后
+ *               未勾选从 1189 顶回 1819、F1 从 0 顶回 37 组,清理那一侧永远追不上重放这一侧。
+ *               指针判据取自 `lib/plan-task-index.DUP_POINTER_RE`(与尺子同源,不得另写一个针);
+ *               少带的份数在落地当场逐条点名并写进合并提交信息,**不静默折进"0 丢失"**。
  *             2026-09-28 再加一维**搬运感知**(唯一新增判据,实现在 `lib/ledger-move-aware.mjs`):
  *               某一行若在**基准面(本侧)**已被一条 `<!-- 已归档(…) -->` 占位注释代表,
  *               就不得再从对侧取回。立因是"完成即归档"与本工具**结构性互咬**:并行会话持有的
@@ -76,7 +82,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { auditOne } from './check-merge-addition-loss.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { resolveRemoteHead, catBatch } from './lib/face-reader.mjs'
-import { auditPlan, malformedLine, f9GroupLine } from './lib/plan-task-index.mjs'
+import { auditPlan, malformedLine, f9GroupLine, DUP_POINTER_RE, MERGE_NOTE_RE } from './lib/plan-task-index.mjs'
 // 搬运感知判据(2026-09-28):占位注释的解析与"哪些行属于那个被搬走的条目"的块归属,
 // 一律复用归档器那一份实现(`lib/plan-task-headings.mjs` 的 parseCompletedTaskBlocks),
 // **不得在本归并器里再抄一条"什么算一个已完成条目"的正则** —— 两处各写一遍必漂移。
@@ -162,6 +168,23 @@ function blobText(oid, cwd) {
   } catch {
     return ''
   }
+}
+
+/**
+ * 生成物自证标记(G-814415)。判据只认**文件自己声明"我是生成物"**的两种原文标记:
+ * `GENERATED FILE — DO NOT EDIT`(生成器头注)与 `IHUI-GEN-PIN-BEGIN`(输入内容哈希钉块,
+ * 由 scripts/lib/generated-input-pin.mjs 写)。不靠路径猜、不维护第二份清单 ——
+ * 手工清单必然腐烂(§4 对 RN_ONLY_BRAND_KEYS 的教训),而这两个标记是生成器自己落的,
+ * 没有生成器就没有标记 ⇒ 判据只对该走"重生成"通道的那一类成立。
+ */
+export const GENERATED_ARTIFACT_MARKERS = ['GENERATED FILE — DO NOT EDIT', 'IHUI-GEN-PIN-BEGIN']
+
+export function generatedArtifactMarker(texts) {
+  for (const t of texts) {
+    if (typeof t !== 'string' || t === '') continue
+    for (const m of GENERATED_ARTIFACT_MARKERS) if (t.includes(m)) return m
+  }
+  return null
 }
 
 /** 树里该路径的 mode(100644/100755/120000/160000);取不到返回 ''(交人工,不猜)。 */
@@ -345,8 +368,30 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null) {
    * 合并提交不跑 pre-commit,所以只能在落地闸这里拦。
    */
   const noteMax = Math.max(...sides.map((t) => auditPlan(t).counts.mergeNotes))
-  if (m.mergeNotes < noteMax)
-    out.push(`F5 归并落账注记 各侧最多 ${noteMax} 条,归并结果只剩 ${m.mergeNotes} 条(被未落账形态顶掉)`)
+  if (m.mergeNotes < noteMax) {
+    /**
+     * F5 判的是"注记**份数**不得降",而 G-814386 这一票要做的恰恰是"让带副本指针的行少带几份"
+     * —— 直接照份数比,本票会让每一枚台账收敛在落地闸上自杀(恒红 ⇒ 唯一出路是各会话绕过收敛,
+     * 比原病更响)。所以这里改成**先算合法上限、再判余下差额**:只有"带副本指针且合并结果里仍
+     * ≥1 份"的行可以贡献豁免额度,其它任何一条注记行变少都照常判红。
+     * 注记针取自 `plan-task-index.MERGE_NOTE_RE`(与 F5 的读数同源;两处各写一遍必漂移),
+     * 逐行判必须用**非全局副本** —— 带 `g` 的 `.test()` 会推进 lastIndex,第二次调用就漏判。
+     */
+    const noteRe = new RegExp(MERGE_NOTE_RE.source)
+    const mm = counter(mergedText)
+    const sideCounters = sides.map((t) => counter(t))
+    let allowed = 0
+    for (const [l, n] of mm) {
+      if (n < 1 || !noteRe.test(l) || !DUP_POINTER_RE.test(l)) continue
+      const sideMax = Math.max(...sideCounters.map((c) => c.get(l) || 0))
+      if (sideMax > n) allowed += sideMax - n
+    }
+    if (m.mergeNotes < noteMax - allowed)
+      out.push(
+        `F5 归并落账注记 各侧最多 ${noteMax} 条,归并结果只剩 ${m.mergeNotes} 条(被未落账形态顶掉)` +
+          `(已扣除"副本指针行有意少带"的合法额度 ${allowed} 条,扣完仍差 ${noteMax - allowed - m.mergeNotes} 条)`,
+      )
+  }
   return out
 }
 
@@ -373,12 +418,46 @@ export function lostAddedLines(baseText, sideText, otherText, mergedText) {
   const co = counter(otherText)
   const cm = counter(mergedText)
   const out = []
+  // 有意少带的副本份数**单独一桶并必须被调用方点名** —— 例外若静默生效,下一次就没人能
+  // 分清"这条被 cap 了"和"这条真的丢了"(把没判写成判过了,是本仓最高频失效型)。
+  const capped = []
   for (const [l, n] of cs) {
     const added = n - (cb.get(l) || 0)
     if (added <= 0) continue
     const removedByOther = Math.max(0, (cb.get(l) || 0) - (co.get(l) || 0))
-    if ((cm.get(l) || 0) < Math.max(0, added - removedByOther)) out.push(l)
+    const need = Math.max(0, added - removedByOther)
+    const have = cm.get(l) || 0
+    if (have >= need) continue
+    // 只有一种下降算合法:该行带「重复登记副本」指针(判据取自 plan-task-index,不另写一个针),
+    // 且合并结果里它仍 ≥1 份 —— 信息在,少的是份数。份数为 0 一律照常判丢。
+    if (DUP_POINTER_RE.test(l) && have >= 1) {
+      capped.push({ line: l, dropped: need - have })
+      continue
+    }
+    out.push(l)
   }
+  // 刻意挂成**不可枚举**:这个返回值同时被 `join()` / `for..of` / `deepStrictEqual` 消费,
+  // 而既有判据(镜像"重数下降必须点名"那一条)就是拿 deepStrictEqual 比空数组 —— 挂可枚举属性
+  // 会让一个元数据把不相干的断言顶红,那等于用工具自己的形状去制造假红(镜像 R-L2 钉死这条)。
+  Object.defineProperty(out, 'pointerCapped', { value: capped, enumerable: false })
+  return out
+}
+/** 把"因副本指针有意少带份数"这一桶排成人读行。入参固定为 **`{line, dropped}` 数组**
+ *  (即 `lost.pointerCapped` 或 `liveDocPointerCaps()` 的返回值)—— 不接"带该属性的行数组",
+ *  否则调用方会顺手把整个 `lost` 传进来,而那个数组的元素是字符串,两种形状混在一个入口必漂移。 */
+export function formatPointerCapReport(capped, { maxEntries = 5 } = {}) {
+  const list = capped ?? []
+  const out = []
+  if (!list.length) return []
+  const dropped = list.reduce((s, e) => s + e.dropped, 0)
+  const shown = Math.min(list.length, maxEntries)
+  out.push(
+    `      · 因副本指针有意少带 ${dropped} 份(涉及 ${list.length} 条逐字行,每条仍保留 ≥1 份 ⇒ 判"信息未丢")`,
+  )
+  for (const e of list.slice(0, shown))
+    out.push(`        │ 少带 ${e.dropped} 份 ← ${String(e.line).slice(0, 90)}`)
+  if (list.length > shown)
+    out.push(`        …其余 ${list.length - shown} 条未逐条打印(份数已计入上一行)`)
   return out
 }
 
@@ -411,7 +490,15 @@ export function liveDocExpectedCounts(oursText, theirsText, baseText = null, sup
   for (const [l, n] of ct) {
     if (l === '') continue // 空行不参与补回:与 unionLines 的补回循环同形(理由见本函数头注)
     const own = co.get(l) || 0
-    const addedByTheirs = Math.max(0, n - Math.max(cb.get(l) || 0, own))
+    // 副本指针行只许"从无到有带一份",绝不参与份数累加(2026-09-29 G-814386)。
+    // 立因:这类行已被尺子的派单口径算作同一条活账的副本,而 max/累加会把**已判过死刑的副本**
+    // 按份数复原 —— 实测 21:33 清到 1144 行、22:16 清到 0 组,一枚收敛就把未勾选从 1189 顶回 1819、
+    // F1 从 0 顶回 37 组。少带的是**重复份数**,不是信息:本侧有则保持本侧,本侧没有而基底也没有
+    // 才带 1 份;基底有而本侧清了 ⇒ 处置权仍在本侧(与不加这一维时同形)。
+    const addedByTheirs =
+      baseText !== null && DUP_POINTER_RE.test(l)
+        ? Math.max(0, Math.min(1, n) - Math.max(cb.get(l) || 0, own))
+        : Math.max(0, n - Math.max(cb.get(l) || 0, own))
     if (addedByTheirs > 0) want.set(l, own + addedByTheirs)
   }
   return want
@@ -597,9 +684,11 @@ export function buildUnion(
     const mergedClean = []
     const skippedDeletes = []
     const needHuman = []
+    const generatedDeferred = [] // 生成物冲突:不判人工、不选边,登记"待重生成"(见 G-814415)
     const keptOurs = []
     const keptTheirs = []
     const humanResolved = []
+    const caps = [] // 因副本指针有意少带的份数:不拦落地,但必须逐条点名(见 recordSideLosses)
     const touchedOurs = new Set(diffNames(base, ours, cwd))
     for (const p of diffNames(base, theirs, cwd)) {
       if (LIVE_DOCS.includes(p)) continue
@@ -664,6 +753,24 @@ export function buildUnion(
         // 喂进去的内容照样过"两侧独有行不得减少"的断言,少了哪一侧就当场 violations。
         const viaFile = resolutions.get(p)
         if (!viaFile) {
+          /**
+           * 生成物路径(G-814415):两侧各自从各自词源重生成 ⇒ 独有行是**互斥的同形替代**,
+           * 任何合法内容都不可能同时含两侧 ⇒ "两侧独有行不得减少"这条锁在这一型路径上永无解,
+           * 后果不是这一项判不了,而是**整枚合并卡住**(其余 12 个可合路径一起躺在后面)。
+           * 生成物的权威在"重生成"而不是"合并",所以这里的正确处置是:按本侧内容留下、
+           * **点名登记为待重生成**、让其余路径照常落地 —— 并在提交信息里带上这份清单,
+           * 免得"落地了"被读成"内容已对齐"。非生成物路径一律照旧走 needHuman(反向锁由自检钉住:
+           * 这条分支绝不能变成新的选边后门)。
+           */
+          const marker = generatedArtifactMarker([
+            blobText(oursBlob, cwd),
+            blobText(theirsBlob, cwd),
+          ])
+          if (marker) {
+            generatedDeferred.push({ path: p, marker, detail: m.detail })
+            mergedClean.push(p)
+            continue
+          }
           needHuman.push({ path: p, kind: m.kind, detail: m.detail })
           continue
         }
@@ -689,10 +796,18 @@ export function buildUnion(
           blobText(oursBlob, cwd),
           blobText(theirsBlob, cwd),
         ]
-        for (const l of lostAddedLines(baseText, oursText, theirsText, text))
-          violations.push(`${p} 人工归并结果丢本侧独有行:${l.slice(0, 60)}`)
-        for (const l of lostAddedLines(baseText, theirsText, oursText, text))
-          violations.push(`${p} 人工归并结果丢对侧独有行:${l.slice(0, 60)}`)
+        recordSideLosses(
+          lostAddedLines(baseText, oursText, theirsText, text),
+          `${p} 人工归并结果丢本侧独有行`,
+          violations,
+          caps,
+        )
+        recordSideLosses(
+          lostAddedLines(baseText, theirsText, oursText, text),
+          `${p} 人工归并结果丢对侧独有行`,
+          violations,
+          caps,
+        )
         continue
       }
       const oid = writeBlob(m.buf, p, cwd)
@@ -705,10 +820,18 @@ export function buildUnion(
         blobText(theirsBlob, cwd),
         m.buf.toString('utf8'),
       ]
-      for (const l of lostAddedLines(baseText, oursText, theirsText, mergedText))
-        violations.push(`${p} 两侧同改后本侧独有行丢失:${l.slice(0, 60)}`)
-      for (const l of lostAddedLines(baseText, theirsText, oursText, mergedText))
-        violations.push(`${p} 两侧同改后对侧独有行丢失:${l.slice(0, 60)}`)
+      recordSideLosses(
+        lostAddedLines(baseText, oursText, theirsText, mergedText),
+        `${p} 两侧同改后本侧独有行丢失`,
+        violations,
+        caps,
+      )
+      recordSideLosses(
+        lostAddedLines(baseText, theirsText, oursText, mergedText),
+        `${p} 两侧同改后对侧独有行丢失`,
+        violations,
+        caps,
+      )
     }
     const tree = run(['write-tree'])
     // ── 任务状态分叉不得被归并放大(2026-09-26 立,守门 130 的同一条判据长在这里)──────────
@@ -736,10 +859,12 @@ export function buildUnion(
       mergedClean,
       skippedDeletes,
       needHuman,
+      generatedDeferred,
       keptOurs,
       keptTheirs,
       humanResolved,
       violations,
+      caps,
       liveDocs,
     }
   } finally {
@@ -786,6 +911,7 @@ export function verifyUnion(
   const M = new Set(listPaths(tree, cwd))
   const bad = []
   const moved = []
+  const pointerCaps = []
   const moveAware = []
   for (const p of listPaths(ours, cwd)) if (!M.has(p)) bad.push(`合并树丢了本侧路径 ${p}`)
   const theirsLost = listPaths(theirs, cwd).filter((p) => !M.has(p))
@@ -824,7 +950,11 @@ export function verifyUnion(
     const ma = moveAwareCached(moveAwareCache, p, a, b, ours, cwd)
     moveAware.push(ma)
     const want = liveDocExpectedCounts(a, b, bt, ma.suppress)
-    const m = counter(show(tree, p, cwd))
+    const mTree = show(tree, p, cwd)
+    const m = counter(mTree)
+    // 少带的份数在这一条路径上同样必须点名(本票防的就是"台账被静默少带")
+    const docCaps = bt === null ? [] : liveDocPointerCaps(bt, [a, b], mTree)
+    if (docCaps.length) pointerCaps.push({ doc: p, capped: docCaps })
     for (const [l, n] of want)
       if ((m.get(l) || 0) < n) bad.push(`${p} 未存活行:${l.slice(0, 50)}`)
     // 反向对照:本侧改写/删除过的行,合并树里的**重数**不得高于期望表 ——
@@ -843,8 +973,39 @@ export function verifyUnion(
     }
   }
   bad.moved = moved
+  bad.pointerCaps = pointerCaps
   bad.moveAware = moveAware
   return bad
+}
+
+/** 活文档路径的"因指针有意少带"计数(与 `lostAddedLines` 同一个形状,但那里按两侧抵扣;
+ *  活文档走 `verifyUnion` 的 LIVE_DOCS 环,不经过那两个分支 —— 少带必须在**这条路径**上也被点名,
+ *  否则本票最要紧的那一族(台账)反而无人报(2026-09-29 端到端 cap 第三条当场抓到)。
+ *  一份都不剩的行**不进这里** —— 那是真丢失,由"未存活行"那条判据拦。 */
+export function liveDocPointerCaps(baseText, sideTexts, mergedText) {
+  const cm = counter(mergedText)
+  const cb = counter(baseText)
+  const caps = []
+  for (const sideText of sideTexts ?? []) {
+    const cs = counter(sideText)
+    for (const [l, n] of cs) {
+      if (l === '' || !DUP_POINTER_RE.test(l)) continue
+      const added = n - (cb.get(l) || 0)
+      if (added <= 0) continue
+      const have = cm.get(l) || 0
+      if (have < 1) continue
+      if (have < added) caps.push({ line: l, dropped: added - have })
+    }
+  }
+  return caps
+}
+
+/** 把一次"两侧独有行不得减少"断言的产物分流:真丢行进 `violations`(拦落地);
+ *  因副本指针有意少带进 `caps`(不拦,但必须逐条点名)。四个调用点必须同形 ⇒ 只许有这一个出口。 */
+function recordSideLosses(lost, label, violations, caps) {
+  for (const l of lost) violations.push(`${label}:${String(l).slice(0, 60)}`)
+  const capped = lost.pointerCapped ?? []
+  if (capped.length) caps.push({ label, capped })
 }
 
 /**
@@ -999,6 +1160,12 @@ export function plan(
     base,
     ...built,
     bad: [...built.violations, ...blocked, ...vu],
+    // 两条路径的"少带份数"合流:两侧同改的丢行分流(built.caps)+ 活文档行 union(vu.pointerCaps)。
+    // 只接其中一条 = 台账这一族恰好无人点名,而那正是本票要防的形状。
+    caps: [
+      ...(built.caps || []),
+      ...vu.pointerCaps.map((c) => ({ label: `${c.doc} 活文档行 union`, capped: c.capped })),
+    ],
     // 按移动放行的那些路径(内容级判据,见 verifyUnion 头注)—— 报告必须逐条点名
     movedPaths: vu.moved,
     // 「因搬运感知而未取回」这一维:逐条目块的行数 + 出处归档件 + 判不出/照旧取回的原因。
@@ -1151,6 +1318,7 @@ function selfTest() {
 
       writeFileSync(join(d2, 'clean.ts'), 'L1\nl2\nl3\nl4\nl5\n', 'utf8')
       writeFileSync(join(d2, 'clash.ts'), 'x1\nOURS\nx3\n', 'utf8')
+      writeFileSync(join(d2, 'gen.art'), 'GENERATED FILE — DO NOT EDIT\nOURS\n', 'utf8')
       writeFileSync(join(d2, 'both.bin'), Buffer.from('A\u0000b\u0000c\n'))
       writeFileSync(join(d2, 'PROJECT_PLAN.md'), 'a\nb\nours-line\n', 'utf8')
       r2('add', '-A')
@@ -1160,6 +1328,7 @@ function selfTest() {
       r2('checkout', '-q', 'HEAD~1')
       writeFileSync(join(d2, 'clean.ts'), 'l1\nl2\nl3\nTHEIRS\nl5\n', 'utf8')
       writeFileSync(join(d2, 'clash.ts'), 'x1\nTHEIRS\nx3\n', 'utf8')
+      writeFileSync(join(d2, 'gen.art'), 'GENERATED FILE — DO NOT EDIT\nTHEIRS\n', 'utf8')
       writeFileSync(join(d2, 'only-theirs.ts'), 'ot-theirs\n', 'utf8')
       writeFileSync(join(d2, 'both.bin'), Buffer.from('a\u0000B\u0000c\n'))
       writeFileSync(join(d2, 'PROJECT_PLAN.md'), 'a\nb\ntheirs-line\n', 'utf8')
@@ -1195,6 +1364,24 @@ function selfTest() {
         '冲突文件的树内容仍是本侧版本(未被悄悄换成对侧)',
         show(q.tree, 'clash.ts', d2) === 'x1\nOURS\nx3',
         show(q.tree, 'clash.ts', d2),
+      )
+      // —— 生成物通道(G-814415):冲突不得把整枚合并卡死,但要登记"待重生成" ——
+      ok(
+        '生成物两侧各自重生成 ⇒ 不进 needHuman、登记 generatedDeferred 并点名自证标记',
+        !q.needHuman.some((h) => h.path === 'gen.art') &&
+          q.generatedDeferred.some((d) => d.path === 'gen.art' && d.marker === 'GENERATED FILE — DO NOT EDIT'),
+        JSON.stringify([q.needHuman.map((h) => h.path), q.generatedDeferred]),
+      )
+      ok(
+        '生成物 Deferred 不得进落地闸 bad(否则还是卡死),且树内容按本侧留下',
+        !q.bad.some((b) => b.includes('gen.art')) &&
+          show(q.tree, 'gen.art', d2) === 'GENERATED FILE — DO NOT EDIT\nOURS',
+        `${q.bad.slice(0, 2).join(' / ')} | ${show(q.tree, 'gen.art', d2).replace(/\n/g, '|')}`,
+      )
+      ok(
+        '反向锁:同一枚合并里非生成物冲突必须照旧交人工(生成物通道不得变成选边后门)',
+        q.needHuman.some((h) => h.path === 'clash.ts' && h.kind === 'conflict'),
+        JSON.stringify(q.needHuman.map((h) => [h.path, h.kind])),
       )
       ok(
         '二进制两侧同改 ⇒ 无法文本三方,交人工',
@@ -1333,6 +1520,78 @@ function selfTest() {
     ok(
       '丢行判据:重数下降也算丢失',
       lostAddedLines('a\n', 'a\nn\nn\n', 'a\n', 'a\nn\n').join() === 'n',
+    )
+    // ── 副本指针 cap(G-814386):少带份数合法,少带信息非法 ──────────────────────────
+    // 三对正反例都必须"同一对输入、只差指针字样",否则例外一旦写宽,普通行的丢失也会被一起放过。
+    const PTR = '〔【归并】重复登记副本(2026-09-26):同主键另一条,派单以那条为准。〕'
+    ok(
+      '指针 cap:对侧新增 3 份带指针的行 ⇒ 只判"少带 2 份",不进丢失桶',
+      (() => {
+        const l = `- [ ] G-9 事甲 ${PTR}`
+        const r = lostAddedLines('base\n', `base\n${l}\n${l}\n${l}\n`, 'base\n', `base\n${l}\n`)
+        return (
+          r.join() === '' &&
+          r.pointerCapped.length === 1 &&
+          r.pointerCapped[0].dropped === 2 &&
+          formatPointerCapReport(r.pointerCapped).length > 0
+        )
+      })(),
+    )
+    ok(
+      '指针 cap 的反面:同一形态但不带指针 ⇒ 必须照常判丢失(例外不得吞普通行)',
+      (() => {
+        const l = '- [ ] G-9 事甲 〔普通注记〕'
+        const r = lostAddedLines('base\n', `base\n${l}\n${l}\n${l}\n`, 'base\n', `base\n${l}\n`)
+        return r.join() === l && (r.pointerCapped?.length ?? 0) === 0
+      })(),
+    )
+    ok(
+      '指针 cap 的反面:指针行在合并结果里一份都不剩 ⇒ 仍判丢失("少带"不等于"带没带")',
+      (() => {
+        const l = `- [ ] G-9 事甲 ${PTR}`
+        const r = lostAddedLines('base\n', `base\n${l}\n${l}\n`, 'base\n', 'base\n')
+        return r.join() === l
+      })(),
+    )
+    ok(
+      '期望表:指针行只许"从无到有带 1 份";本侧已有 2 份而对侧 5 份 ⇒ 期望仍是 2(不增长)',
+      (() => {
+        const l = `- [ ] G-9 事甲 ${PTR}`
+        return (
+          liveDocExpectedCounts('', `${l}\n${l}\n${l}\n`, '').get(l) === 1 &&
+          liveDocExpectedCounts(`${l}\n${l}\n`, `${l}\n`.repeat(5), '').get(l) === 2
+        )
+      })(),
+    )
+    ok(
+      '期望表:基底有 2 份、本侧清成 0、对侧未动 ⇒ 期望 0(处置权仍在本侧,与改动前同形)',
+      liveDocExpectedCounts('', `- [ ] G-9 事甲 ${PTR}\n`.repeat(2), `- [ ] G-9 事甲 ${PTR}\n`.repeat(2)).get(
+        `- [ ] G-9 事甲 ${PTR}`,
+      ) ===
+        undefined,
+    )
+    ok(
+      '期望表:不带指针的行完全不受本维影响',
+      liveDocExpectedCounts('x\n', 'x\nx\nx\n', 'x\nx\n').get('x') === 2,
+    )
+    ok(
+      '期望表:**没有基底**时指针行也照旧全带(判不出谁加的 ⇒ 不许少带,失效方向只能是多带)',
+      liveDocExpectedCounts('', `- [ ] G-9 事甲 ${PTR}\n`.repeat(3)).get(`- [ ] G-9 事甲 ${PTR}`) === 3,
+    )
+    ok(
+      'F5:指针注记行被 cap 后不得判红(否则每一枚台账收敛都在落地闸自杀)',
+      (() => {
+        const l = `- [ ] G-9 事甲 ${PTR}〔【归并】落账:复测 2026-09-26〕\n`
+        const sides = [l.repeat(3), 'other\n']
+        return planStateRegressions(l + 'other\n', sides).length === 0
+      })(),
+    )
+    ok(
+      'F5 的反面:不带指针的注记行少了 ⇒ 必须照常判红(放宽的是形状,不是方向)',
+      planStateRegressions(
+        '- [ ] G-9 事甲 〔【归并】落账:复测 2026-09-26〕\n',
+        ['- [ ] G-9 事甲 〔【归并】落账:复测 2026-09-26〕\n'.repeat(3), 'z\n'],
+      ).join('').includes('F5'),
     )
     // 任务状态分叉不得被并集放大(纯函数;这正是"两份真相"的产地)
     const PS_A = '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。\n'
@@ -1665,6 +1924,60 @@ function selfTest() {
       } finally {
         rmScratch(d4)
       }
+      // ── 端到端:副本指针 cap(G-814386)——纯函数过了不代表 plan() 在真仓里也认这条例外 ──
+      {
+        const d5 = mkScratch('ihui-union-cap-')
+        try {
+          const g5 = (...a) => git(a, d5)
+          const PTR5 = '〔【归并】重复登记副本(2026-09-26):同主键另一条,派单以那条为准。〕'
+          const ROW5 = `- [ ] G-9 同一件事 ${PTR5}`
+          g5('init', '-q', '-b', 'main')
+          g5('config', 'user.email', 't@t')
+          g5('config', 'user.name', 't')
+          g5('config', 'core.autocrlf', 'false')
+          writeFileSync(join(d5, 'PROJECT_PLAN.md'), `# 台账\n- [ ] 公共行\n`, 'utf8')
+          g5('add', '-A')
+          g5('commit', '-qm', 'base')
+          const base5 = g5('rev-parse', 'HEAD').trim()
+          // 对侧 = 一份"滞后的台账副本":同一行指针行被并集追加了三遍
+          g5('checkout', '-q', '-b', 'theirs', base5)
+          writeFileSync(
+            join(d5, 'PROJECT_PLAN.md'),
+            `# 台账\n- [ ] 公共行\n${ROW5}\n${ROW5}\n${ROW5}\n- [ ] 别人新写的行\n`,
+            'utf8',
+          )
+          g5('add', '-A')
+          g5('commit', '-qm', 'theirs(滞后副本把指针行追加了三遍)')
+          const theirs5 = g5('rev-parse', 'HEAD').trim()
+          g5('checkout', '-q', '-B', 'ours', base5)
+          writeFileSync(join(d5, 'PROJECT_PLAN.md'), '# 台账\n- [ ] 公共行\n- [ ] ours 独有\n', 'utf8')
+          g5('add', '-A')
+          g5('commit', '-qm', 'ours')
+          const p5 = plan(g5('rev-parse', 'HEAD').trim(), theirs5, d5)
+          const doc5 = show(p5.tree, 'PROJECT_PLAN.md', d5)
+          const copies = doc5.split('\n').filter((l) => l === ROW5).length
+          ok(
+            '端到端 cap:对侧带指针的同一行有三份 ⇒ 合并树只取回一份(重放被当场拦住)',
+            copies === 1 && p5.bad.length === 0,
+            JSON.stringify([copies, p5.bad]),
+          )
+          ok(
+            '端到端 cap:同一枚合并必须保住对侧**不带指针**的独有行(不复活 ≠ 丢内容)',
+            /^- \[ \] 别人新写的行$/m.test(doc5) && /^- \[ \] ours 独有$/m.test(doc5),
+            doc5.replace(/\n/g, '|'),
+          )
+          ok(
+            '端到端 cap:少带的份数必须进 caps 并被点名,不得静默(否则读者只看到"0 丢失")',
+            (p5.caps ?? []).length > 0 &&
+              /因副本指针有意少带 2 份/.test(
+                (p5.caps ?? []).flatMap((c) => formatPointerCapReport(c.capped)).join('\n'),
+              ),
+            JSON.stringify(p5.caps),
+          )
+        } finally {
+          rmScratch(d5)
+        }
+      }
     }
   } finally {
     rmScratch(dir)
@@ -1765,6 +2078,12 @@ async function main() {
       `  ❌ ${h.path} —— ${h.kind}:${h.detail}(本工具不猜、不选边,请人工判这一个文件;` +
         `判好后用 --resolve '${h.path}=<整份内容文件>' 回灌,它会替你的判断做两侧丢行断言)`,
     )
+  for (const d of p.generatedDeferred || [])
+    console.log(
+      `  🧾 ${d.path} —— 生成物冲突(自证标记 "${d.marker}")⇒ 不按人工判、也不选边:` +
+        `内容权威在"重生成"而不是"合并"。本枚按本侧内容留下,**落地后必须立刻跑该文件的生成器**` +
+        `(否则 HEAD 里留着的是一份旧产物,而守门 105 一类的钉判据会咬到陈旧)。`,
+    )
   for (const r of p.humanResolved || [])
     console.log(
       `  · 人工归并已回灌:${r}(内容取自 --resolve;两侧独有行丢行断言已在这份内容上跑过,未过即 bad)`,
@@ -1775,6 +2094,14 @@ async function main() {
     console.log(
       `  · 取对侧(已声明):${r} —— 本侧在该路径的独有行被取代(同一行两种写法,--resolve 无解);声明者须附"哪一份是被消费的"取证`,
     )
+  // 副本指针 cap 必须**当着落地那一刻**打出来 —— 它不是违规,但把它静默折进"0 丢失"就等于
+  // 用一条从未被点名的例外,替下一次的人做出"什么都没少"的判断(§"把没判写成判过了"同一条禁令)。
+  const capRows = (p.caps || []).flatMap((c) => [
+    `  ℹ ${c.label}:本族带「重复登记副本」指针,有意只带一份(每条仍保留 ≥1 份 ⇒ 少的是份数,不是信息)`,
+    ...formatPointerCapReport(c.capped),
+  ])
+  for (const line of capRows) console.log(line)
+  const capDropped = (p.caps || []).reduce((s, c) => s + (c.capped?.reduce((a, e) => a + e.dropped, 0) ?? 0), 0)
   if (p.bad.length) {
     console.log(`❌ 落地闸不过 ${p.bad.length} 处:`)
     for (const b of p.bad.slice(0, 15)) console.log(`   ${b}`)
@@ -1794,8 +2121,13 @@ async function main() {
     (p.acceptedGrowth?.length
       ? `;已声明放行的量纲放大(带理由,非静默): ${p.acceptedGrowth.join(' | ')}`
       : '') +
-    (p.keptTheirs?.length
-      ? `;取对侧(已声明,本侧该行被取代——同一行两种写法时 --resolve 结构上无解): ${p.keptTheirs.join(' ')}`
+    // 生成物"待重生成"必须进提交信息:后来人只读 git log 也要知道这一项不是已对齐
+    (p.generatedDeferred?.length
+      ? `;生成物按本侧留下、落地后需重生成: ${p.generatedDeferred.map((d) => d.path).join(' ')}`
+      : '') +
+    // 例外必须进提交信息:后来人只读 `git log` 也要知道"份数少带"是本票的判据,不是一次丢行
+    (capDropped
+      ? `;副本指针行有意少带 ${capDropped} 份(每条仍保留 ≥1 份;判据见台账 G-814386)`
       : '')
   const sha = git(['commit-tree', p.tree, '-p', t.head, '-p', t.theirs, '-m', msg])
   const cas = spawnSync(
@@ -1857,6 +2189,7 @@ export const __test__ = {
   liveDocExpectedCounts,
   moveAwareForDoc,
   formatMoveAwareReport,
+  formatPointerCapReport,
   LIVE_DOCS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

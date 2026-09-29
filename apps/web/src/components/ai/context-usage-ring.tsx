@@ -23,6 +23,8 @@ import { Tooltip } from '@/components/feedback'
 import { createPortal } from 'react-dom'
 import { useChatStore } from '@/stores/chat'
 import { compressConversation } from '@ihui/api-client'
+// G-404(2026-09-29):/compress 成功是结构化重置信号 ⇒ 向 budget 写点登记一次性例外阶段。
+import { noteBudgetTrustedZeroPhase } from '@/hooks/use-chat/budget-state'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
 import {
   LABEL_SENTINELS,
@@ -400,6 +402,10 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
       try {
         const res = await compressConversation(conversationId, targetChars)
         if (res.success && res.data) {
+          // G-404:/compress 真压缩成功是**结构化**重置信号 —— 紧随其后的那一枚
+          // used=0 budget 采样是真话(上下文确实被压掉了),不得被"瞬时 0"判据 held。
+          // 阶段名来自本成功分支;失败分支(setCompressError/toast.error)不登记。
+          noteBudgetTrustedZeroPhase('compress')
           setCompressResult({
             originalChars: res.data.originalChars,
             compressedChars: res.data.compressedChars,

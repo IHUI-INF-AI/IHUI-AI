@@ -7,6 +7,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { gzipSync } from 'node:zlib'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -267,5 +268,106 @@ test('T12 --self-test 连跑两次必须同形且都 0(不得被别的调用顶�
   assert.equal(b.code, 0, `第二次 --self-test 期望 0(说明自检留有状态,第二次结果不可信),实际 ${b.code}:${b.err}`)
   assert.match(b.out, /自检:\d+ 例,失败 0/, `第二次的输出形态不对(exit ${b.code}):${b.err || b.out}`)
   assert.equal(b.out, a.out, `两次输出必须逐字同形,实际差异:\n${firstDiff(a.out, b.out)}`)
+})
+
+/* ───────────── G-680 生成物自述钉(三例:装车锁 / 单一实现 / 端到端三态) ───────────── */
+
+const PIN = gate.pinKit
+const GEN_REL = 'apps/miniapp-taro/scripts/gen-i18n-compressed.mjs'
+
+/** 造一份"钉按 pristine 输入算"的离线包夹具(钉永远代表旧的那次生成,磁盘可以是新的) */
+function pinBundleText({ inputs }) {
+  const merged = {}
+  for (const l of gate.REMOTE_LOCALES) merged[l] = { greeting: `hello-${l}` }
+  const b64For = (obj) => Buffer.from(gzipSync(Buffer.from(JSON.stringify(obj), 'utf8'))).toString('base64')
+  const data = gate.REMOTE_LOCALES.map((l) => `  ${l}: '${b64For(merged[l])}',`).join('\n')
+  const pin = PIN.renderPin({
+    generator: GEN_REL,
+    sourceCommit: 'cafebabe',
+    inputs,
+    generatedAt: '2026-01-01T00:00:00.000Z',
+  }).join('\n')
+  return { pin: `${pin}\n`, data }
+}
+
+function pinFixture(dir, { breakInputRel, withPin = true } = {}) {
+  const inputs = gate.REMOTE_LOCALES.flatMap((l) => [
+    { rel: `${gate.MESSAGE_ROOT}/shared/${l}.json`, text: JSON.stringify({ greeting: `hello-${l}` }) },
+    { rel: `${gate.MESSAGE_ROOT}/miniapp-taro/${l}.json`, text: '{}' },
+  ])
+  for (const i of inputs) {
+    put(dir, i.rel, i.rel === breakInputRel ? JSON.stringify({ greeting: 'LATER-EDIT' }) : i.text)
+  }
+  const { pin, data } = pinBundleText({ inputs, breakInputRel })
+  put(dir, gate.I18N_BUNDLE, `// GENERATED\n${withPin ? pin : ''}export const REMOTE_LOCALE_B64 = {\n${data}\n}\n`)
+}
+
+test('T13 装车锁:G5 判据必须真的挂在 runCheck 上(函数在而无人调 = 提交链上一路绿灯)', () => {
+  const src = readFileSync(GUARD, 'utf8')
+  assert.match(src, /function checkBundlePin\(/, '判据函数必须在位')
+  const called = src.match(/checkBundlePin\(\{[^}]*bundleText[^}]*\}\)/g) || []
+  assert.ok(called.length >= 1, 'checkBundlePin 必须在 runCheck 里被调用,否则本票等于没做')
+  // 反向锁:红点必须进 blocking 聚合(只打印不改退出码的门等于没有)
+  assert.match(src, /push\(\s*'G5'/, "G5 必须走 push(带 blocking),不得只 console.log")
+})
+
+test('T14 单一实现:哈希与归一只能有一份,门与生成器都引它(两处各算必漂)', () => {
+  const gateSrc = readFileSync(GUARD, 'utf8')
+  const genSrc = readFileSync(join(ROOT, GEN_REL), 'utf8')
+  for (const [name, src] of [['门', gateSrc], ['生成器', genSrc]]) {
+    assert.match(src, /lib\/generated-input-pin\.mjs/, `${name}必须引那份唯一实现`)
+    // 门与生成器都不得自己 createHash —— 那正是"两处算同一个 key"的开端
+    assert.doesNotMatch(src, /from 'node:crypto'/, `${name}不得自带第二份 crypto 实现`)
+  }
+  const libSrc = readFileSync(join(ROOT, 'scripts/lib/generated-input-pin.mjs'), 'utf8')
+  assert.match(libSrc, /export function digestInputs/, '聚合哈希出口必须在 lib 里')
+  // 归一必须真在 lib 里做(否则 Windows CRLF 检出的磁盘 vs git blob 恒红)
+  assert.match(libSrc, /\\r\\n/, 'lib 必须做 CRLF 归一')
+})
+
+test('T15 端到端三态:matched 绿 / stale 红并点名 / absent 未判定但不得判红', (t) => {
+  // ① matched ⇒ exit 0
+  const ok = mkScratch('cmg-pin-ok')
+  try {
+    pinFixture(ok, {})
+    const r = runGuard(['--root', ok, '--worktree', '--group', 'i18n'])
+    assert.equal(r.code, 0, `钉与输入一致时期望 0,实际 ${r.code}:${r.out || r.err}`)
+    assert.match(r.out, /自述钉\(G-680\):matched/, `matched 态必须点名:${r.out}`)
+  } finally {
+    rmScratch(ok)
+  }
+  // ② 输入变了而钉没重算 ⇒ exit 1 且红点点名变了哪份输入
+  const stale = mkScratch('cmg-pin-stale')
+  try {
+    const broken = `${gate.MESSAGE_ROOT}/shared/ja.json`
+    pinFixture(stale, { breakInputRel: broken })
+    const r = runGuard(['--root', stale, '--worktree', '--group', 'i18n'])
+    assert.equal(r.code, 1, `陈旧产物期望 1,实际 ${r.code}:${r.out}`)
+    assert.match(r.out, /\[G5\]/, `必须点名 G5:${r.out}`)
+    assert.ok(r.out.includes(broken), `红点必须点名变了的那份输入,实际:${r.out}`)
+  } finally {
+    rmScratch(stale)
+  }
+  // ③ 没有钉 ⇒ 未判定:不得判红(HEAD 面上现存产物正是这态,判红即恒红门),但必须喊出来
+  const absent = mkScratch('cmg-pin-absent')
+  try {
+    pinFixture(absent, { withPin: false })
+    const r = runGuard(['--root', absent, '--worktree', '--group', 'i18n'])
+    assert.equal(r.code, 0, `absent 是未判定不是红,期望 0,实际 ${r.code}:${r.out}`)
+    assert.match(r.out, /自述钉\(G-680\):absent/, `absent 必须报名:${r.out}`)
+    assert.match(r.out, /未判定 ≠ 通过/, '必须明写"未判定不等于通过",不得让读者当成已通过')
+  } finally {
+    rmScratch(absent)
+  }
+})
+
+test('T16 幂等:同一批输入两次 renderPin,屏蔽时刻行后逐字节全等(本票生命线)', () => {
+  const inputs = [{ rel: 'a.json', text: '{"k":1}' }]
+  const mk = (iso) => PIN.renderPin({ generator: 'g', sourceCommit: 'x', inputs, generatedAt: iso }).join('\n')
+  const a = mk('2026-01-01T00:00:00.000Z')
+  const b = mk('2026-12-31T23:59:59.999Z')
+  assert.notEqual(a, b, '时刻行本来就该让原始字节不同(否则这条断言是空的)')
+  assert.equal(PIN.maskGeneratedAt(a), PIN.maskGeneratedAt(b), '屏蔽时刻后必须全等')
+  assert.match(a, /inputsSha256: [0-9a-f]{64}/, '聚合哈希必须是 64 位十六进制')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

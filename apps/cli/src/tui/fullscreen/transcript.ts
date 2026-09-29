@@ -19,6 +19,7 @@
 
 import type { AgentEvent } from '../../server/agent-core.js'
 import type { FrameLine, Segment, Tone } from './geometry.js'
+import { clipToWidth } from '../../util/text-width.js'
 
 /** 工具调用在转录里的三种终态。 */
 export type ToolState = 'running' | 'ok' | 'fail'
@@ -57,8 +58,11 @@ const ARGS_KEEP = 160
 const PREVIEW_KEEP = 4_000
 
 function clip(text: string, max: number): string {
-  const t = text.replace(/\s+/g, ' ').trim()
-  return t.length > max ? `${t.slice(0, max)}…` : t
+  const t = text.replace(/\s+/gu, ' ').trim()
+  // 按**可视宽度**截断,不按 String.length 的 UTF-16 码元数 —— 后者把 '模型状态：已完成'
+  // 数成 8(实际占 16 列)、把 😀 数成 2(实际 1 个字形/2 列),中文与代理对在转录面上
+  // 按错列宽截断,界面错位;切码元还可能把代理对劈成孤立代理(G-676)。
+  return clipToWidth(t, max)
 }
 
 function firstLine(text: string): string {

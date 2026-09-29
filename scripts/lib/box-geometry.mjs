@@ -355,6 +355,26 @@ export function objectDims(lines, idx, consts) {
 }
 
 /**
+ * **只认归属明确的那个盒**:先看这一行自己(单行 JSX 元素的 `className="w-10 h-10"`、
+ * 单行 CSS 声明),量不全再退到本对象作用域(StyleSheet 对象 / CSS 规则块里 `width`/`height`
+ * 常写在邻行)。量不到 ⇒ `null`,由调用方计"未判定"。
+ *
+ * 为什么另开一口而不是复用 `boxDims`:后者的窗口向后 6 行、向前 2 行是**刻意放宽**给
+ * 门 11 主判据的(头像的 `style={{width,height}}` 常在后面几行,那条判据宁宽不漏)。
+ * 但"半径超过上限"是一条判红判据,拿邻居的盒判在自己身上就是假阳 —— 实测同一枚
+ * `w-2.5 h-2.5`(10×10,等效半径 5px)的红点,被窗口里邻行的 `w-[88rpx]` 头像顶成 44×44
+ * ⇒ 等效 22px 而被判红。假阳的代价不是"多一条红",是逼人把一颗本来正确的圆改方。
+ * 两个判半径上限的门(守门 11 的 C7 / 守门 77 的 B9)共用这一口,不得各写一遍。
+ */
+export function ownShortSidePx(lines, idx, consts) {
+  const c = constsForLines(lines, consts)
+  let d = dimsFromText(String(lines[idx] ?? ''), c)
+  if (!(d.w > 0 && d.h > 0)) d = objectDims(lines, idx, c)
+  if (!(d.w > 0 && d.h > 0)) return null
+  return Math.min(d.w, d.h)
+}
+
+/**
  * 长度折算与半径侧**共用同一份实现**(`lengthToPx`):半径读的是 px、盒形读的也是 px,两处各写
  * 一遍单位换算必然漂开。本轮"除法半径读成被除数 / `width: 96rpx` 不折半"就是同一笔债的两半,
  * 而只修一半会产出自洽的假阳(半径 8 配上量不到的 16×16 盒 ⇒ 把圆钮判成"该取 sm")。
