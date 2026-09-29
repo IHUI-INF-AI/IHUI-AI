@@ -74,7 +74,7 @@ export function ConnectorAuthCard({
   return (
     <div
       role="group"
-      className={cn('flex flex-col gap-1.5 rounded-md bg-muted/30 p-3', className)}
+      className={cn('flex flex-col gap-1.5 rounded-lg bg-muted/30 p-3', className)}
       data-testid={testId}
       data-connector-auth-state={state}
       data-connector-name={connectorName}
