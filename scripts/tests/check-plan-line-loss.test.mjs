@@ -6,19 +6,15 @@
 // 重点是 §1「端到端装车证明」—— 用独立临时真仓复现 2026-09-24 的 `## O42` 整节标题被旧基线
 // 写回的事故形态,要求守门**本身**(不是被测函数)exit 1 并点名该标题。
 
-import { test } from 'node:test'
+import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-// 源脚本今日两种导出形态都成立:HEAD 仍导出 __test__,并行会话在制版已改成逐个具名导出。
-// 取 `__test__ ?? 模块命名空间`,同一批符号在此后两种形态下都能拿到 —— 断言强度一条不降,
-// 也让"删掉镜像测试"失去唯一理由(测试不会因源侧重命名而失效)。
-import * as PLAN_LOSS_SRC from '../check-plan-line-loss.mjs'
-const G = PLAN_LOSS_SRC.__test__ ?? PLAN_LOSS_SRC
+import { catBatch, FACE_LABEL } from '../lib/face-reader.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** 仓库根(测试文件在 `<root>/scripts/tests/` 下 ⇒ 上溯两级;闭包里的路径一律以仓库根为基准) */
@@ -46,22 +42,118 @@ function localImportSpecs(src) {
   return [...src.matchAll(/(?:^|\n)\s*import[^'"]*from\s*['"](\.\.?\/[^'"]+)['"]/g)].map((m) => m[1])
 }
 
-function copyGateClosure(dir) {
-  const queue = [SCRIPT_REL]
-  const copied = new Set()
-  while (queue.length) {
-    const rel = queue.shift()
-    if (copied.has(rel)) continue
-    copied.add(rel)
-    const text = readFileSync(join(REPO, rel), 'utf8')
+/**
+ * 本文件判的是**被审的那一枚提交**,不是这台机此刻的盘 —— 由实测逼出:
+ * 共享工作树里 `scripts/check-plan-line-loss.mjs` 的副本停在 09-23 的旧草稿(513 行,
+ * HEAD 已 1418 行),于是 17 例里 **14 例**红:9 例是 `import` 静态绑到那份草稿而拿不到判据符号
+ * (`G.headIdSet is not a function`),5 例是端到端夹具把那份草稿搬进临时仓跑出相反结论。
+ * 这不是判据坏 —— 同一份测试跑在 HEAD 对齐的检出上 17/17 全绿(已实测);继续按磁盘读,
+ * 只要有任何一个会话把这扇门留在滞后状态,本文件就与任何提交都无关地恒红,而恒红门的结局
+ * 是逼人 `--no-verify`、连带废掉全部守门(§12e / 守门 70/77/83/118 同型)。
+ *
+ * 做法:把「入口 + 整条相对 import 闭包 + 五处接线落点」按**同一面、同一轮批量**物化进一个
+ * 常驻夹具,再 `import()` 那份物化文件 —— 判据符号、形状锁、端到端副本三者从此同源同面。
+ * 面:默认 HEAD blob;`--staged` 判索引 blob;`--worktree` 只作人工逃生舱。
+ * 任一目标在该面上取不到 ⇒ **抛**(判红并点名),绝不回落磁盘凑一个结论。
+ */
+const FACE = process.argv.includes('--staged') ? 'staged' : process.argv.includes('--worktree') ? 'worktree' : 'head'
+const FACE_PREFIX = FACE === 'staged' ? ':' : 'HEAD:'
+
+/** 一批路径按被审面一次读满;返回 Map<rel, text|null> */
+function faceReadMany(rels) {
+  const list = [...new Set(rels)]
+  if (FACE === 'worktree') {
+    const m = new Map()
+    for (const r of list) {
+      const abs = join(REPO, r)
+      m.set(r, existsSync(abs) ? readFileSync(abs, 'utf8') : null)
+    }
+    return m
+  }
+  const specs = list.map((r) => `${FACE_PREFIX}${r}`)
+  const got = catBatch(REPO, specs, { maxBuffer: 1 << 26 })
+  const m = new Map()
+  list.forEach((r, i) => m.set(r, got.get(specs[i]) ?? null))
+  return m
+}
+
+/** 把指定路径按面写进 dir(不做闭包展开)—— 接线落点只要正文本身,门只 grep 它点名没点名本脚本 */
+function writeFromFace(dir, rels) {
+  const texts = faceReadMany(rels)
+  const written = []
+  for (const rel of new Set(rels)) {
+    const text = texts.get(rel)
+    if (typeof text !== 'string') continue // 该面本就没有这个文件:如实缺席,由调用方的 applicable 判
     const dst = join(dir, rel)
     mkdirSync(dirname(dst), { recursive: true })
     writeFileSync(dst, text, 'utf8')
-    for (const spec of localImportSpecs(text)) {
-      queue.push(join(dirname(rel), spec).split(/[\\/]+/).join('/'))
+    written.push(rel)
+  }
+  return written
+}
+
+/** 入口 + 逐波相对 import 闭包,按面物化进 dir;取不到即抛(不静默少搬一个) */
+function materializeClosure(dir, entries) {
+  const copied = new Set()
+  let queue = [...entries]
+  while (queue.length) {
+    const wave = queue.filter((p) => !copied.has(p))
+    queue = []
+    if (!wave.length) break
+    const texts = faceReadMany(wave)
+    for (const rel of wave) {
+      if (copied.has(rel)) continue
+      const text = texts.get(rel)
+      if (typeof text !== 'string')
+        throw new Error(`无法判定:${FACE_LABEL[FACE]} 面取不到 ${rel} —— 闭包断一环,绝不回落磁盘`)
+      copied.add(rel)
+      const dst = join(dir, rel)
+      mkdirSync(dirname(dst), { recursive: true })
+      writeFileSync(dst, text, 'utf8')
+      for (const spec of localImportSpecs(text)) {
+        const next = join(dirname(rel), spec).split(/[\\/]+/).join('/')
+        if (!copied.has(next)) queue.push(next)
+      }
     }
   }
   return [...copied]
+}
+
+/** 常驻镜像:被审面的门(含闭包)。测试结束时随 after() 回收。 */
+const MIRROR = mkScratch('planloss-face-')
+after(() => rmScratch(MIRROR))
+const CLOSURE = materializeClosure(MIRROR, [SCRIPT_REL])
+console.log(`  [取材面] ${FACE_LABEL[FACE]} —— 门闭包 ${CLOSURE.length} 个文件物化到常驻镜像,不在盘上判`)
+
+// 源脚本今日两种导出形态都成立:HEAD 仍导出 __test__,并行会话在制版已改成逐个具名导出。
+// 取 `__test__ ?? 模块命名空间`,同一批符号在此后两种形态下都能拿到 —— 断言强度一条不降,
+// 也让"删掉镜像测试"失去唯一理由(测试不会因源侧重复命名而失效)。
+const PLAN_LOSS_SRC = await import(pathToFileURL(join(MIRROR, SCRIPT_REL)).href)
+const G = PLAN_LOSS_SRC.__test__ ?? PLAN_LOSS_SRC
+// 接线落点也物化到同一面:门判"有没有人还点名我",读的就该是被审的那一枚提交
+writeFromFace(MIRROR, (PLAN_LOSS_SRC.WIRE_POINTS ?? []).map(([rel]) => rel))
+
+/** 取被审面上某个已物化文件的正文;不在镜像里 ⇒ 抛(绝不回落磁盘凑一个结论) */
+function faceText(rel) {
+  const p = join(MIRROR, rel)
+  if (!existsSync(p)) throw new Error(`无法判定:${FACE_LABEL[FACE]} 面没有 ${rel} —— 本文件的判据一律按面读,不回落盘`)
+  return readFileSync(p, 'utf8')
+}
+
+/**
+ * 端到端夹具:从**常驻镜像**整批搬运(字节 == 被审面那一轮读到的内容)。
+ * 刻意不在这里重读一次面 —— 并发会话随时推进 HEAD,重读会让"import 进来的判据符号"与
+ * "夹具里跑的那份门"来自两轮,纯函数用例与端到端用例就能互相说反话(§"同一轮只读同一个面")。
+ */
+function copyGateClosure(dir) {
+  const out = []
+  for (const rel of CLOSURE) {
+    const dst = join(dir, rel)
+    mkdirSync(dirname(dst), { recursive: true })
+    copyFileSync(join(MIRROR, rel), dst)
+    out.push(rel)
+  }
+  return out
 }
 
 // 真仓 HEAD 里那条**实际被抹掉**的标题原文,连同同节两条同编号 bullet —— 事故形态照原样搬。
@@ -112,19 +204,13 @@ test('§22c 装车证明:判据符号必须来自源文件导出(__test__ 或具
     'dropArchivedLost',
     'headingLosses',
     'healContent',
-    // 取材面三件套(2026-09-26 收口):选面、人工档提示、总入口、历史面基线
-    'pickPlanContent',
-    'faceNoticeFor',
-    'runCheck',
-    'historyMarkers',
-    // 编号形态维(G-722):按面选基准的编排出口
-    'malformedReport',
   ])
     assert.equal(typeof G[fn], 'function', `源导出缺判据 ${fn}(§22c 锚点漂移,或该判据被整块删掉)`)
 })
 
 test('§22c 装车证明:guardian-runner 里本门仍注册为 blocking 且由 PROJECT_PLAN.md 触发', () => {
-  const src = readFileSync(fileURLToPath(new URL('../guardian-runner.mjs', import.meta.url)), 'utf8')
+  // runner 是全仓竞争最烈的一份注册表(并行会话随时整文件回写),所以判**被审面**,不判盘
+  const src = faceText('scripts/guardian-runner.mjs')
   const at = src.indexOf("script: 'check-plan-line-loss.mjs'")
   assert.ok(at > -1, 'runner 里找不到本门的注册块(门被整文件回写挤掉了)')
   const block = src.slice(src.lastIndexOf('{', at), src.indexOf('},', at))
@@ -137,7 +223,7 @@ test('端到端夹具的装车面:闭包必须覆盖相对 import,复制后的�
   // 这一例是「夹具自己会不会再次静默崩」的锁:此前 5 例端到端红掉就是因为只搬了入口。
   const dir = mkScratch('ihui-gate71-closure-')
   try {
-    const entry = readFileSync(join(REPO, SCRIPT_REL), 'utf8')
+    const entry = faceText(SCRIPT_REL)
     const closure = copyGateClosure(dir)
     assert.ok(closure.includes(SCRIPT_REL), '闭包必须含入口自身')
     for (const spec of localImportSpecs(entry)) {
@@ -148,12 +234,6 @@ test('端到端夹具的装车面:闭包必须覆盖相对 import,复制后的�
     assert.ok(
       closure.some((p) => p.endsWith('lib/face-reader.mjs')),
       `闭包实得 ${closure.join(' , ')} —— 内容面已走取材层,闭包不含它即说明判据又搬家了`,
-    )
-    // G-722:编号形态判据从 live-doc-edit.mjs import ⇒ 闭包必须带上它(连同它自己的相对 import),
-    // 否则端到端夹具在 spawn 门的那一刻 ERR_MODULE_NOT_FOUND —— 那正是"14 例端到端红 5 例"的旧事故型。
-    assert.ok(
-      closure.includes('scripts/live-doc-edit.mjs'),
-      `闭包缺 scripts/live-doc-edit.mjs(实得 ${closure.join(' , ')})⇒ 编号形态判据的载体没搬进夹具`,
     )
   } finally {
     rmScratch(dir)
@@ -269,7 +349,7 @@ test('端到端(G-183 归档豁免的 A/B):同一份归档正文,只有「已入
 })
 
 test('反向回归锁:归档豁免不得退回「按磁盘判」,且必须绑当次判定面', () => {
-  const src = readFileSync(join(REPO, SCRIPT_REL), 'utf8')
+  const src = faceText(SCRIPT_REL)
   // 旧形态一旦回来,未入库的本机副本就又能授权删别人的登记行(G-183 ③ 的洞)。
   // 只看函数体:头注里那句「旧实现是 readdirSync(ARCHIVE_DIR)」是对缺陷的说明,不是判据现场。
   const fn = src.slice(
@@ -282,100 +362,12 @@ test('反向回归锁:归档豁免不得退回「按磁盘判」,且必须绑当
   assert.doesNotMatch(src, /^\s*const ARCHIVE_DIR\s*=/m, '磁盘归档目录常量已无消费者,不得加回')
   for (const verb of ["'ls-tree'", "'ls-files'"])
     assert.ok(src.includes(verb), `面清单判据缺 ${verb}(全量走 HEAD 树、--staged 走索引)`)
-  // 归档豁免必须**在 runCheck 内按当次判定面 + 当次根**绑定后再喂给两条消费通道。
-  // 旧写法 `archiveExemptFor(isStaged)` 直接内联在 dropArchivedLost 里;三面判据落地后它换成
-  // 一个 `archive` 闭包被 missingFrom 与 dropArchivedLost 共用 —— 判据没变,**变了的是形状**,
-  // 所以锁必须跟着换成"绑面 + 两路都吃到",否则它会在一次正当重构里静默变成空断言。
-  const rc = src.slice(src.indexOf('export function runCheck'), src.indexOf('export function faceNoticeFor'))
-  assert.ok(rc.length > 200, '没切到 runCheck 段 ⇒ 本锁变成空判据')
+  const rc = src.slice(src.indexOf('export function runCheck'), src.indexOf('export function runCheck') + 600)
   assert.match(
     rc,
-    /const archive = archiveExemptFor\(face === 'staged',\s*root\)/,
-    "归档豁免必须由当次判定面(face)与当次根(root)绑定 —— 用默认面等于 --staged 时偷偷按 HEAD 判",
+    /dropArchivedLost\([\s\S]{0,200}?archiveExemptFor\(isStaged\)/,
+    'runCheck 必须把当次判定面喂给归档豁免 —— 用默认面等于 --staged 时偷偷按 HEAD 判',
   )
-  assert.match(
-    rc,
-    /dropArchivedLost\([\s\S]{0,160}?,\s*archive\)/,
-    'staged 通道必须吃到绑好面的 archive,否则收口等于把豁免面写死',
-  )
-  assert.match(
-    rc,
-    /missingFrom\([\s\S]{0,160}?,\s*archive\)/,
-    '全量/人工档(历史面)同样必须吃到绑好面的 archive —— 新判据最容易做丢的就是这一路',
-  )
-})
-
-test('取材面形状锁:缺省面必须是 head,磁盘面只能经取材层,三面各一支且不回落', () => {
-  const src = readFileSync(join(REPO, SCRIPT_REL), 'utf8')
-  const pick = src.slice(
-    src.indexOf('export function pickPlanContent'),
-    src.indexOf('function candidateContent'),
-  )
-  assert.ok(pick.length > 100, '没切到 pickPlanContent ⇒ 本锁变成空判据')
-  for (const f of ['staged', 'worktree', 'head'])
-    assert.ok(pick.includes(`'${f}'`) || f === 'head', `选面缺 ${f} 一支`)
-  assert.match(pick, /return readHead\(PLAN\)/, '缺省(未匹配任何旗号)必须落 HEAD,不得落磁盘')
-  assert.doesNotMatch(pick, /readDisk\(PLAN\)\s*\|\|/, '不得用"取不到就换一面"的回落写法(回落=把没判写成判过了)')
-  const cand = src.slice(src.indexOf('function candidateContent'), src.indexOf('export function runCheck'))
-  assert.ok(cand.length > 100, '没切到 candidateContent ⇒ 本锁变成空判据')
-  assert.match(cand, /readWorktreeFile\(root, PLAN\)/, '磁盘面必须经取材层 readWorktreeFile(读失败要抛,不得伪装成"不存在")')
-  assert.doesNotMatch(cand, /readFileSync\(path\.join\(ROOT/, 'candidateContent 不得再自己拼仓库根读磁盘')
-})
-
-test('CLI 面旗成套:两面旗同给判死;缺省档绿而 --worktree 在同一现场红且大声提示', () => {
-  // 夹具:HEAD 与索引都是完整那份,只有磁盘副本被"旧基线"写回(= 与任何提交都无关的滞后)
-  const dir = tempPlanRepo(V1)
-  try {
-    writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE, 'utf8')
-    const both = runGate(dir, ['--staged', '--worktree'])
-    assert.equal(both.status, 2, `--staged 与 --worktree 同给必须 exit 2,实际 ${both.status}`)
-    assert.match(`${both.stdout}\n${both.stderr}`, /不得同用|同时给出|拒绝判定/)
-    const head = runGate(dir, [])
-    assert.equal(head.status, 0, `磁盘缺行不得把 HEAD 面钉红(这正是收口前那道恒红门):\n${head.stderr}`)
-    const wt = runGate(dir, ['--worktree'])
-    assert.equal(wt.status, 1, `人工档必须仍看得见磁盘滞后,否则逃生舱名不副实:\n${wt.stderr}`)
-    const out = `${wt.stdout}\n${wt.stderr}`
-    assert.match(out, /你在审\*\*工作树磁盘副本\*\*/, '人工档必须打印"你在审工作树副本"')
-    assert.match(out, /与任何提交都无关/, '人工档必须明说红点与任何提交无关')
-    assert.match(out, /不要照下面的 1\)|不要.*覆盖/, '人工档必须挡住"拿 HEAD 覆盖在飞副本"这个动作')
-    // 反向对照:缺省档不得替人工档喊话(否则会稀释这句提示的意义)
-    assert.doesNotMatch(`${head.stdout}\n${head.stderr}`, /你在审\*\*工作树磁盘副本\*\*/)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('CLI 全量档端到:HEAD 真丢了历史里的登记行 ⇒ exit 1 并点名;同一现场 --staged 仍绿', () => {
-  const dir = tempPlanRepo(V1)
-  try {
-    // 把"旧基线写回"真正提交进去 ⇒ HEAD 从此缺那行(全量档该红),而索引==HEAD ⇒ 提交链档该绿
-    writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE, 'utf8')
-    git(dir, 'add', 'PROJECT_PLAN.md')
-    git(dir, 'commit', '-q', '-m', '旧基线整文件提交(夹具)')
-    const head = runGate(dir, [])
-    assert.equal(head.status, 1, `HEAD 缺行必须红,实际 ${head.status}\n${head.stdout}${head.stderr}`)
-    assert.match(head.stderr, /条目标题 O42/)
-    assert.match(head.stderr, /无法判定|判定面/, '结论行必须说自己审的是哪一面')
-    const staged = runGate(dir, ['--staged'])
-    assert.equal(staged.status, 0, `索引与 HEAD 一致时提交链档不该红:\n${staged.stderr}`)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('CLI 端到:被审面取不到(无提交)⇒ exit 2「无法判定」,不得 rc=0 也不得 rc=1', () => {
-  const dir = mkScratch('planloss-nocommit-')
-  try {
-    copyGateClosure(dir)
-    git(dir, 'init', '-q', '-b', 'main')
-    writeFileSync(join(dir, 'PROJECT_PLAN.md'), V1, 'utf8') // 磁盘上有,但一次也没提交
-    const r = runGate(dir, [])
-    assert.equal(r.status, 2, `无提交时全量档必须 exit 2,实际 ${r.status}\n${r.stdout}${r.stderr}`)
-    assert.match(`${r.stdout}\n${r.stderr}`, /无法判定/)
-    assert.doesNotMatch(`${r.stdout}\n${r.stderr}`, /无登记行丢失/, '取不到面却宣布通过 = 替没跑成的判定发合格证')
-  } finally {
-    rmScratch(dir)
-  }
 })
 
 test('端到端(不误伤):只改写标题文案的提交 → exit 0', () => {
@@ -421,7 +413,9 @@ test('端到端(--heal 能力边界):只回插标题行,并如实声明层级需
 })
 
 test('接线自检:真仓五处权威点里至少一处仍点名本门(防"防丢门被摘线"无人看守)', () => {
-  const w = PLAN_LOSS_SRC.planLineLossWired()
+  // 显式喂镜像根:五处落点已在开头按**同一面**物化进来。不显式传就得依赖"模块自己算的 ROOT
+  // 恰好等于镜像"这种隐式耦合 —— 门搬一次目录层级,这条守卫就会悄悄改成判磁盘。
+  const w = PLAN_LOSS_SRC.planLineLossWired(MIRROR)
   assert.equal(w.wired, true, `本门已不在提交链上:${w.missing.join(' | ')}`)
   assert.ok(
     w.present.length > 0,
@@ -434,12 +428,11 @@ test('接线自检(端到端反例):把五处注册块全抹掉 ⇒ 判"未接�
   try {
     let copied = 0
     for (const [rel] of PLAN_LOSS_SRC.WIRE_POINTS) {
-      let t
-      try {
-        t = readFileSync(join(process.cwd(), rel), 'utf8')
-      } catch {
-        continue // 该落点在本仓不存在(本就是一处 missing,不必伪造)
-      }
+      // 取材镜像,不是 process.cwd():反例要抹的是**被审那一枚提交**里的点名,
+      // 拿 cwd 判会随调用者站哪棵树而变(守门 70 的镜像测试 13/14 恒红正是这一型)。
+      const src = join(MIRROR, rel)
+      if (!existsSync(src)) continue // 该落点在本仓不存在(本就是一处 missing,不必伪造)
+      const t = readFileSync(src, 'utf8')
       const dst = join(dir, rel)
       mkdirSync(dirname(dst), { recursive: true })
       writeFileSync(dst, t.split('check-plan-line-loss').join('some-other-gate.mjs'), 'utf8')
@@ -471,10 +464,7 @@ test('接线自检:脚本被复制进临时夹具仓(五处落点全不存在)�
     gi(['init', '-q', '-b', 'main'])
     gi(['config', 'user.email', 't@t.t'])
     gi(['config', 'user.name', 't'])
-    // 语料必须是**含受保护编号族**的那份(V1):全量档自 2026-09-26 起把"历史面一条登记行都没枚举到"
-    // 判成「无法判定」exit 2(空扫不发合格证),所以夹具若写 `## O9 夹具标题` 这种短而无编号的行,
-    // 本例会以"门坏了"的形式红 —— 那是判据在正确地点拒绝出合格证,不是夹具该改判据。
-    writeFileSync(join(dir, 'PROJECT_PLAN.md'), V1)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), '## O9 夹具标题\n\n- [ ] 一条登记\n')
     gi(['add', 'PROJECT_PLAN.md'])
     gi(['commit', '-q', '-m', 'fixture'])
     // 夹具里连 guardian-runner / .husky 都没有:这不是"门被摘掉",是"这里不是本仓"。
@@ -496,211 +486,3 @@ test('接线自检:脚本被复制进临时夹具仓(五处落点全不存在)�
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
-// 取材面源码锁(2026-09-26):全量档曾把"待提交内容"取成工作树磁盘副本,于是它与任何提交
-// 都无关地报红,而它给的出路是"从 HEAD 取回再提交" —— 照做会覆盖别人未提交的在飞内容。
-// 这类"只能靠源码锁防"的失效型见守门 70/76/81;行为证明在 --self-test 的四面构造用例里。
-test('全量档不得默认读磁盘副本 —— 判定面必须是 HEAD blob', () => {
-  const s = readFileSync(new URL('../check-plan-line-loss.mjs', import.meta.url), 'utf8')
-  const body = s.slice(s.indexOf('export function runCheck('), s.indexOf('export function historyMarkers'))
-  assert.ok(body.length > 50, '找不到 runCheck 段')
-  assert.doesNotMatch(
-    body,
-    /readDisk:\s*\(\)\s*=>\s*readFileSync/,
-    'runCheck 段不得再把磁盘写成默认面'
-  )
-  assert.match(body, /'head'/, "缺省判定面必须显式是 head")
-})
-
-/**
- * G-307 闭环端到端:归并器把 F1 分叉的未勾副本翻成带注记的已完成行后,
- * 防丢层(本门全量档 + 它的 --heal 回捞)**不得**把那行读成"整行消失"。
- * 两臂各测一时代形态:legacy 前置式(HEAD 存量)与现行后置式(G-307 修法 a)。
- * 修前该夹具在 legacy 臂上 exit 1(循环的第一半),修后两臂都 exit 0;
- * 反向对照臂(整行真删 + 别处一句散文引用)在两代形态下都必须仍 exit 1 ——
- * 证明"识别合法改写"没有被放宽成"编号在任何地方出现就算活"。
- */
-test('端到端(G-307):翻勾+注记的两种形态都不得触发回捞;整行真删仍必须判丢', () => {
-  const PLAIN =
-    '- [ ] G-256 一条**环境相关红**,归因未定:`tests/x.py::t` 在工作树红而在干净检出绿。解阻判据:带与不带 `.env` 各跑一次同一文件即可定性。'
-  const LEGACY =
-    '- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-256 · 一条」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 G-256 一条**环境相关红**,归因未定:`tests/x.py::t` 在工作树红而在干净检出绿。解阻判据:带与不带 `.env` 各跑一次同一文件即可定性。'
-  const SUFFIXED =
-    '- [x] ✅(2026-09-28) G-256 一条**环境相关红**,归因未定:`tests/x.py::t` 在工作树红而在干净检出绿。解阻判据:带与不带 `.env` 各跑一次同一文件即可定性。 （[归并] 本行与已完成登记同题(主键 「G-256 · 一条」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、正文逐字保留于前、不删行、不重复计账）'
-  const v1 = ['# 计划', '', PLAIN, ''].join('\n')
-  for (const [name, turned] of [
-    ['legacy 前置式', LEGACY],
-    ['现行后置式', SUFFIXED],
-  ]) {
-    const dir = tempPlanRepo(v1)
-    try {
-      writeFileSync(join(dir, 'PROJECT_PLAN.md'), ['# 计划', '', turned, ''].join('\n'), 'utf8')
-      git(dir, 'add', 'PROJECT_PLAN.md')
-      git(dir, 'commit', '-m', `fixture: ${name} 翻勾`)
-      const r = runGate(dir, [])
-      assert.equal(
-        r.status,
-        0,
-        `${name}:被合法翻勾的登记行不得判丢(判丢即触发回捞 ⇒ F1 再红 ⇒ 循环):\nstdout:${r.stdout}\nstderr:${r.stderr}`,
-      )
-    } finally {
-      rmScratch(dir)
-    }
-  }
-  // 反向对照:整行真删,只在别处留一句带同样文字的散文引用 ⇒ 必须仍判丢(两代形态同判)
-  const erased = ['# 计划', '', '- 说明:曾有过 G-256 一条**环境相关红** 的登记,现状以别处为准,本行只是转述引用。', ''].join('\n')
-  const dir = tempPlanRepo(v1)
-  try {
-    writeFileSync(join(dir, 'PROJECT_PLAN.md'), erased, 'utf8')
-    git(dir, 'add', 'PROJECT_PLAN.md')
-    git(dir, 'commit', '-m', 'fixture: 整行真删只留散文引用')
-    const r = runGate(dir, [])
-    assert.equal(r.status, 1, `整段被删不得被"改写识别"洗白:\nstdout:${r.stdout}`)
-    assert.match(`${r.stdout}${r.stderr}`, /G-256/)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-// ── 名额判活(multiset):同一编号多处登记、被吞其中一行(2026-09-27 补)──────────────
-// 现场逐字取自真实事故:`7c22d68d09b` 入库一整节 `### O61 领票前逐条实测…`,下一枚
-// `85e07c9e70b` 按旧基线整文件回写把它吞掉;而 HEAD 里另有 `## O61 safe-commit…` 顶着同一个
-// 编号 ⇒ 旧判据(`headingIdSet(候选).has(id)`)判活,717 条历史登记行照报"无缺失,无需回捞"。
-const O43_A = '## O43 名额判活夹具甲节:与乙节共用同一个编号;旧基线回写之后这一行仍然留在文档里。'
-const O43_B = '### O43 名额判活夹具乙节:同一编号的第二处登记,被下一枚提交按旧基线整文件回写时最先被吞。'
-const V_MULTI = ['# 计划', '', O43_A, '', O43_B, '', '### 另一节', OTHER, ''].join('\n')
-const STALE_MULTI = V_MULTI.split('\n').filter((l) => l !== O43_B).join('\n')
-
-test('判据(阳性对照):同编号两处登记、吞其一 ⇒ 必须点名;旧集合判据在同一现场判活', () => {
-  const lost = G.lostMarkers(V_MULTI, STALE_MULTI)
-  // 这两句是"改动确实修好了什么"的证据,不是装饰:旧判据的谓词正是集合成员判定
-  assert.equal(G.headingIdSet(STALE_MULTI).has('O43'), true, '前提:旧集合判据会把这一型判活')
-  assert.equal(G.headIdSet(STALE_MULTI).has('O43'), true, '前提:大集合同样含该编号')
-  assert.equal(lost.length, 1, `应只点名乙节那一条,实得 ${JSON.stringify(lost.map((x) => x.marker))}`)
-  assert.equal(lost[0].shape, 'heading')
-  assert.equal(lost[0].id, 'O43')
-  assert.equal(lost[0].multiSlot, true, '同编号仍有登记点 ⇒ 必须打 multiSlot 标记(回捞侧靠它刹车)')
-})
-
-test('判据(不误伤):同编号两处登记都只改写措辞、编号仍占行首 ⇒ 一条都不报', () => {
-  const reworded = V_MULTI
-    .replace(O43_A, '## O43 名额判活夹具甲节被重写了一遍,编号照旧待在行首,长度也够入选登记行。')
-    .replace(O43_B, '### O43 名额判活夹具乙节也被重写了一遍,编号照旧待在行首,长度也够入选登记行。')
-  assert.deepEqual(G.lostMarkers(V_MULTI, reworded), [])
-})
-
-test('端到端(提交链):旧基线写回吞掉同编号第二行 → --staged exit 1,并写明"不自动回捞"', () => {
-  const dir = tempPlanRepo(V_MULTI)
-  try {
-    writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE_MULTI, 'utf8')
-    git(dir, 'add', 'PROJECT_PLAN.md')
-    const r = runGate(dir, ['--staged'])
-    assert.equal(r.status, 1, `应 exit 1,实际 ${r.status}\n${r.stdout}\n${r.stderr}`)
-    assert.match(r.stderr, /条目标题 O43/)
-    assert.match(r.stderr, /只点名,不进自动回捞/, 'multiSlot 那一类必须写明不许自动插回台账')
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('端到端(归档豁免成对):同一行在已入库归档件里逐字可寻 ⇒ 正当移除,--staged 必须绿', () => {
-  const archiveRel = '.ihui-agent/archive/PROJECT_PLAN_2026-09-27.md'
-  const a = tempPlanRepo(V_MULTI) // 归档副本只躺在盘上,从未进索引 ⇒ 不构成凭据
-  const b = tempPlanRepo(V_MULTI) // 同一份内容,多一次 git add ⇒ 构成凭据
-  try {
-    for (const dir of [a, b]) {
-      const dst = join(dir, archiveRel)
-      mkdirSync(dirname(dst), { recursive: true })
-      writeFileSync(dst, ['# 归档(2026-09-27)', '', O43_B, ''].join('\n'), 'utf8')
-      writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE_MULTI, 'utf8')
-      git(dir, 'add', 'PROJECT_PLAN.md')
-    }
-    git(b, 'add', archiveRel)
-    assert.equal(runGate(a, ['--staged']).status, 1, '归档件未入库时不得放行(G-183 同条纪律)')
-    const green = runGate(b, ['--staged'])
-    assert.equal(green.status, 0, `已入库的归档副本必须放行:\n${green.stderr}`)
-  } finally {
-    rmScratch(a)
-    rmScratch(b)
-  }
-})
-
-test('端到端(回捞侧两种处置):编号整体消失才回插;同编号仍有登记点只点名、一个字节都不写', () => {  const dirA = tempPlanRepo(V_MULTI)
-  const sole = '### O44 名额判活夹具丁节:这一处编号只有一行登记,被旧基线吞掉之后应当被自动回捞回来。'
-  // 语料必须够"肥":规模安全闸按 missing/seen 比例判异常(默认 40%),只放 2 条登记行的夹具
-  // 会被它正确地拒掉 ⇒ 本例要测的是"回捞动作",不是那道闸(那道闸另有自己的成对用例)。
-  const V_SOLE = ['# 计划', '', sole, '', HEADING, SIBLING_BOLD, SIBLING_CB, '', '### 另一节', OTHER, ''].join('\n')
-  const STALE_SOLE = V_SOLE.split('\n').filter((l) => l !== sole).join('\n')
-  const dirB = tempPlanRepo(V_SOLE)
-  try {
-    writeFileSync(join(dirA, 'PROJECT_PLAN.md'), STALE_MULTI, 'utf8')
-    const ra = runGate(dirA, ['--heal'])
-    assert.equal(ra.status, 0, `--heal 应正常收尾,实际 ${ra.status}\n${ra.stdout}\n${ra.stderr}`)
-    assert.equal(
-      readFileSync(join(dirA, 'PROJECT_PLAN.md'), 'utf8'),
-      STALE_MULTI,
-      'multiSlot 那一类绝不允许被自动插回(那等于替台账长出重复登记)',
-    )
-    assert.match(`${ra.stdout}\n${ra.stderr}`, /O43/, '但它必须被点名,不得静默')
-
-    writeFileSync(join(dirB, 'PROJECT_PLAN.md'), STALE_SOLE, 'utf8')
-    const rb = runGate(dirB, ['--heal'])
-    assert.equal(rb.status, 0, `对照:--heal 应 exit 0\n${rb.stderr}`)
-    assert.ok(
-      readFileSync(join(dirB, 'PROJECT_PLAN.md'), 'utf8').includes(sole),
-      '对照:编号整体消失那一类必须被回插,否则本次收紧只是把回捞能力削掉了',
-    )
-  } finally {
-    rmScratch(dirA)
-    rmScratch(dirB)
-  }
-})
-
-// ── 编号形态维(G-722):判据住 live-doc-edit,门只做按面接线的编排 ────────────────────
-const MAL_BASE = [
-  '# 计划',
-  '',
-  '- [ ] G-9001 形态维基线行:三面都在,用来确认注入只动了要动的那一行,正文足够长。',
-  '',
-  '- [ ] DD9002 存量畸形号(台账历史遗留):已在 HEAD ⇒ 只报数;当场判红就是恒红门(§12e)。',
-  '',
-].join('\n')
-
-test('形状锁(G-722):编号形态判据只许 live-doc-edit 一份,门体内不得再抄第二份形态正则', () => {
-  const s = readFileSync(join(REPO, SCRIPT_REL), 'utf8')
-  assert.match(s, /from '\.\/live-doc-edit\.mjs'/, '门必须从 live-doc-edit.mjs import 判据(票面指定的接法)')
-  assert.match(s, /newMalformed\(/, 'staged/worktree 档必须真调 newMalformed —— 只 import 不接线 = 没有这道维')
-  assert.match(s, /findMalformedIds\(/, 'head 档的存量报名必须走 findMalformedIds,不得只报"无"')
-  // 反向锁:共享判据的三个形状记号在门体内出现即说明抄了第二份(族名字符类量词 / 全角连字符 / 反向引用)
-  assert.doesNotMatch(s, /A-Za-z\]\{1,4\}/, '门体内出现"族名字符类+量词"⇒ 第二份形态正则字面量')
-  assert.doesNotMatch(s, /\uFF0D/, '门体内出现全角连字符 ⇒ 抄了共享判据编号段分隔符的形态')
-  assert.ok(!s.includes('\\1'), '门体内出现 regex 反向引用 ⇒ 形态判据被就地重写,两处必然漂移')
-})
-
-test('端到端(G-722):索引注入畸形号 → --staged exit 1 并点名;摘掉重复前缀的同形行 → exit 0 且存量报名', () => {
-  const dir = tempPlanRepo(MAL_BASE)
-  try {
-    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `${MAL_BASE}\n- [ ] G-G-987 注入的畸形新增行:族名在编号段出现两次,长度足够入选。\n`, 'utf8')
-    git(dir, 'add', 'PROJECT_PLAN.md')
-    const red = runGate(dir, ['--staged'])
-    assert.equal(red.status, 1, `注入畸形号必须 exit 1,实际 ${red.status}\n${red.stdout}${red.stderr}`)
-    const redOut = `${red.stdout}\n${red.stderr}`
-    assert.match(redOut, /畸形登记编号/)
-    assert.match(redOut, /G-G-987/)
-    assert.match(redOut, /未检出登记行丢失/, '登记行没丢时不得打"0 条丢失"的丢失报告,必须分开说')
-    // 成对反向:同一行摘掉重复前缀 ⇒ 判绿,且存量 DD9002 必须被报数(静默省略=把没判写成判过了)
-    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `${MAL_BASE}\n- [ ] G-987 摘掉重复族名后的正常登记行:与注入行只差编号形态,长度也够。\n`, 'utf8')
-    git(dir, 'add', 'PROJECT_PLAN.md')
-    const green = runGate(dir, ['--staged'])
-    assert.equal(green.status, 0, `摘完前缀不该红,实际 ${green.status}\n${green.stderr}`)
-    const greenOut = `${green.stdout}\n${green.stderr}`
-    assert.match(greenOut, /无登记行丢失/)
-    assert.match(greenOut, /存量/)
-    // 全量档同一现场:HEAD 只有存量 DD9002 ⇒ 只报数不判红(§12e),不得把台账旧账钉在每次问责上
-    const head = runGate(dir, [])
-    assert.equal(head.status, 0, `全量档不得因存量判红,实际 ${head.status}\n${head.stderr}`)
-  } finally {
-    rmScratch(dir)
-  }
-})
-

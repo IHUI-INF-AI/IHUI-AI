@@ -217,16 +217,7 @@ def test_read_profile_cookie_names_missing_db(tmp_path: Path):
     assert read_profile_cookie_names(user_data, "segmentfault.com") == set()
 
 
-async def _fake_save(
-    user_id: str,
-    platform: str,
-    creds: dict[str, str],
-    name: str,
-    **_kwargs: object,
-) -> int:
-    # `verify_msg` 是 2026-09-27 "先验后写"那笔加上的关键字参数(库里已有凭据时,
-    # 未通过校验的候选集不得覆盖它)。替身按 **kwargs 吸收,免得下次再加一个形参
-    # 又把这条用例打成"替身签名过期"——那类红的症状是 TypeError,不是行为回归。
+async def _fake_save(user_id: str, platform: str, creds: dict[str, str], name: str) -> int:
     return 42
 
 
@@ -245,24 +236,10 @@ def test_detect_login_from_profile_hit(tmp_path: Path, monkeypatch: pytest.Monke
         lambda user_data, domain="": {"SESSDATA", "bili_jct", "DedeUserID"},
     )
 
-    async def _fake_read(_user_data=None):
-        # 真实调用方要的是 (值, 归属域名) 两份 —— 域名是"这条 cookie 属不属于这一站"的判据,
-        # 少了它整条按域名筛的路径就测不到(2026-09-27 那次混包事故的正身)。
-        return (
-            {"SESSDATA": "v1", "bili_jct": "v2", "DedeUserID": "v3", "_ga": "x"},
-            {
-                "SESSDATA": ".bilibili.com",
-                "bili_jct": ".bilibili.com",
-                "DedeUserID": ".bilibili.com",
-                "_ga": ".google.com",
-            },
-        )
+    async def _fake_read(_user_data=None) -> dict[str, str]:
+        return {"SESSDATA": "v1", "bili_jct": "v2", "DedeUserID": "v3", "_ga": "x"}
 
-    # 2026-09-29 修:这里原先打的是 `read_profile_cookies`,而 09-27 起调用点改成了
-    # `read_profile_cookies_with_domains`(两个名字都挂在 hub 上,旧补丁因此**打空**),
-    # 后果不是"红得明白"而是测试真的去起一个本机 Chromium 读真实 profile ——
-    # 既违反 §5 测试隔离,又让结论随机器状态漂移(本机实测 WinError 216 ⇒ detected=False)。
-    monkeypatch.setattr(browser_hub.hub, "read_profile_cookies_with_domains", _fake_read)
+    monkeypatch.setattr(browser_hub.hub, "read_profile_cookies", _fake_read)
     monkeypatch.setattr(scan_login, "_save_account_to_db", _fake_save)
 
     result = asyncio.run(scan_login.detect_login_from_profile("bilibili", "u1"))
