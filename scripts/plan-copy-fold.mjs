@@ -20,11 +20,17 @@
  */
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
+import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { keyOfRow, parseTaskRows } from './lib/plan-task-index.mjs'
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+/**
+ * `--root` 是**测试通道**(镜像测试用临时 git 仓喂夹具)。生产不带 ⇒ 语义不变。
+ * 为什么必须有它:本器按 `HEAD:PROJECT_PLAN.md` 取台账,没有换根通道就只能对真仓现刻做断言,
+ * 而那种断言正是守门 70 那 13/14 恒红的同一型失效(测试靠 cwd 定位夹具,生产按定义忽略 cwd)。
+ */
+const TEST_ROOT = process.argv.find((a2) => a2.startsWith('--root='))?.slice(7) ?? ''
+const ROOT = TEST_ROOT ? resolve(TEST_ROOT) : resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const TICK = String.fromCodePoint(0x2705)
 const SELF_DECL = /〔[^〕]*(重复登记副本|派单以那条为准|本行不再单独派单)[^〕]*〕/
 const CLAIM = /（进行中/
@@ -130,7 +136,7 @@ if (APPLY) {
   })
     .toString()
     .trim()
-  const manifest = '.ihui-agent/tmp/plan-copy-fold.blob.json'
+  const manifest = join(ROOT, '.ihui-agent/tmp/plan-copy-fold.blob.json')
   writeFileSync(resolve(ROOT, manifest), JSON.stringify({ files: [{ path: 'PROJECT_PLAN.md', blob }] }), 'utf8')
   console.log('blob=' + blob + '  清单=' + manifest)
   console.log(
