@@ -4158,7 +4158,7 @@ const checks = [
     id: '165',
     label:
       '🧾 教育欠费口径单一出口对账(blocking,AR1 出口外重写算式/AR2 裸写派生列)',
-    script: 'scripts/check-edu-arrears-single-source.mjs',
+    script: 'check-edu-arrears-single-source.mjs',
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_EDU_ARREARS_SINGLE_SOURCE',
