@@ -37,7 +37,7 @@ export function TokenUsagePanel({
   // 迁至 ai.tokenUsage 子树,译文沿用原 user.profile 现值,原死键已删除
   const t = useTranslations('ai.tokenUsage')
   return (
-    <div className="rounded-lg border bg-card p-3 text-card-foreground">
+    <div className="rounded-xl border bg-card p-3 text-card-foreground">
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
         <StatItem label={t('promptTokens')} value={promptTokens} />
         <StatItem label={t('completionTokens')} value={completionTokens} />
