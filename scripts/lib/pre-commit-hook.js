@@ -21,6 +21,27 @@ const {
   auditStagingFiles,
 } = require('./staging-snapshot.js')
 
+/**
+ * ⛔ 被 require()/import() 时必须**立即返回**,不得执行下面任何一步(§22d 的 CJS 对应形态:
+ *    判定用 `require.main === module`,本文件是 CommonJS,没有 `import.meta`)。
+ *
+ * 为什么这一档不是"洁癖"而是事故(2026-09-29 实测,由本仓一次真实自伤换来):
+ * 另一会话为了读下面那张 `TOKEN_SYNC_TARGETS` 表而 `import` 了本模块,于是**整条 pre-commit 链
+ * 被真实执行了一遍** —— 第 0 步 `git-lock.mjs clean` 会去清它判定为 stale 的 `index.lock`;
+ * 第 1 步 lint-staged 在**共享索引**上对别人正暂存的 28 个文件跑了 `prettier --write`/`eslint --fix`,
+ * 并在"恢复未暂存改动"这一步失败,把 7 个文件的未暂存内容留在 `lint-staged_unstaged.patch`。
+ * 而 `git status`、退出码与其余守门**全都看不出来**这件事发生过。
+ *
+ * 所以:想知道这张表里有什么,请**按文本读**(`fs.readFileSync` + 解析,或 grep),
+ * 不要指望 import 本文件做内省 —— 那条路今天的代价是替全队改工作区。
+ * 直接执行(`node scripts/lib/pre-commit-hook.js`,由 `.husky/pre-commit` 经
+ * `scripts/hook-run-hidden.vbs` 拉起)的行为**逐字不变**。
+ */
+if (require.main !== module) {
+  module.exports = {}
+  return
+}
+
 // 0. stale 锁清理(2026-09-19 立,根治 index.lock 卡死多 agent)
 // 在任何 git 操作前清理可能残留的 index.lock(崩溃 git 进程)+ ihui-git-write.lock(死 PID)。
 // 活进程持有的锁不会被误删(clean 内判据:index.lock>60s 或无 git 进程;ihui 锁需 PID 死亡)。
