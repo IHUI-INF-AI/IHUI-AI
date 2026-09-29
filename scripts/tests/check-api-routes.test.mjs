@@ -998,6 +998,250 @@ test('形状锁:通道等价三维必须挂在主流程,且不得自带第二份
   }
 })
 
+// ═══════════════════════════════════════════════════════════
+// FG(票面 :85 三条现场)—— 2026-09-29 补的阳性对照
+// 门头注自 2026-09-26 起就声称"这三条我都看得见",而 `git grep -E
+// 'user/token-balance|statistics/user-center|agent-category-dict' HEAD -- scripts`
+// 实测只命中那一句注释、测试面 0 条 ⇒ "声称看得见"从未被喂过一次真输入。
+// 三条各自的判据地位(逐条从实现里读出来,不是照票面猜):
+//   FG-1 `endpoints/token.ts` 的 `fetchApi<TokenBalance>('/api/user/token-balance')` ⇒ 可判(进调用集)
+//   FG-2 `endpoints/user.ts` 的 `fetchApi<UserStatistics>('/api/statistics/user-center')` ⇒ 可判,
+//        且必须**逐条**判(同文件另有一条跨行 options 的已注册 POST,不得被连带判死)
+//   FG-3 `endpoints/agent.ts` 的 `fetchApi<AgentCategories>('/cozeZhsApi/cache/…')` ⇒ **不可判**:
+//        `pathRe` 要求引号紧邻 `/api/`,而这种字面量要等 transport 的 normalizeUrl 才补出 `/api/`,
+//        归一档只被 CE① 读、主对账从不应用 ⇒ 一条都不进调用集,既不判死也不落任何既有未判定桶
+//        ⇒ 按票第 3 条:登记成「未判定(改写前缀字面量)」并逐条报名,不判红、不写假用例凑数
+// 输入形态逐字取自 HEAD 面真实文件(§22c:镜像夹具复刻的必须是真形态,不是实现的形状)。
+// ═══════════════════════════════════════════════════════════
+
+/** 三条阳性对照的"确实各跑过一次"登记表(由 FG-LOCK 判读,不是自增计数器) */
+const FG_HITS = new Map()
+function fgHit(key) {
+  FG_HITS.set(key, (FG_HITS.get(key) || 0) + 1)
+}
+
+/** transport 夹具:逐字照 HEAD 面 packages/api-client/src/client.ts:404-416 的 normalizeUrl 形态 */
+const FG_TRANSPORT = [
+  'export async function fetchApi<T>(url: string, init?: RequestInit): Promise<T> {',
+  '  const normalizedUrl = normalizeUrl(url)',
+  '  return request(normalizedUrl, init) as unknown as T',
+  '}',
+  'function normalizeUrl(url: string, useStreamBase = false): string {',
+  '  if (/^https?:\\/\\//i.test(url)) return url',
+  '  const normalized = (() => {',
+  "    if (url.startsWith('/api/') || url.startsWith('/uploads/') || url.startsWith('/ws/')) return url",
+  "    if (url.startsWith('/cozeZhsApi')) {",
+  "      return url.replace(/^\\/cozeZhsApi/, '/api')",
+  '    }',
+  "    if (url.startsWith('/')) return `/api${url}`",
+  '    return `/api/${url}`',
+  '  })()',
+  '  return normalized',
+  '}',
+  '',
+].join('\n')
+
+/** 公共底:一条 2 段在册路由(供 transport 自己的 `/api/${url}` 模板有处可落)+ 空棘轮基线 */
+function fgRoot(files) {
+  const dir = createTempRoot()
+  writeFile(dir, 'apps/api/src/routes/x.ts', "server.get('/api/nothing', async () => ({}))\n")
+  writeFile(dir, 'packages/api-client/src/client.ts', FG_TRANSPORT)
+  writeFile(dir, 'scripts/api-routes-baseline.json', baselineWith({}))
+  for (const [rel, content] of Object.entries(files || {})) writeFile(dir, rel, content)
+  return dir
+}
+
+// ─── FG-1a 阳性对照:api-client 面未注册的 3 段字面量必须**点名到文件与行** ───
+test("FG-1 阳性对照:fetchApi<TokenBalance>('/api/user/token-balance') 未注册 ⇒ 逐条点名(票面 :85 第一条)", () => {
+  const dir = fgRoot({
+    'packages/api-client/src/endpoints/token.ts':
+      "export async function getTokenBalance(): Promise<ApiResult<TokenBalance>> {\n  return fetchApi<TokenBalance>('/api/user/token-balance')\n}\n",
+  })
+  try {
+    const r = runScript(dir)
+    fgHit('FG-1')
+    assert.equal(r.status, 1, `该面这一族必须判红,实得 exit=${r.status}\n${r.out}`)
+    assert.match(r.out, /GET \/api\/user\/token-balance/, '路径必须逐字点名')
+    assert.match(r.out, /endpoints\/token\.ts/, '必须点名到真实住处的文件')
+    // 泛型形态漏抽 = 票面假设①;它一旦回来,这条调用不进调用集 ⇒ 上面两条同时不成立
+    assert.match(
+      r.out,
+      /api-client:文件 \d+ \/ 调用 [1-9]\d*/,
+      'api-client 面必须量到调用,不得空扫',
+    )
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── FG-1b 反向对照:同一条字面量真在册 ⇒ 不得红(合法写法不得被钉死) ───
+test('FG-1 反向对照:同形状换成后端真注册的 GET /api/user/token-balance ⇒ exit 0', () => {
+  const dir = fgRoot({
+    'apps/api/src/routes/user.ts': "server.get('/api/user/token-balance', async () => ({}))\n",
+    'packages/api-client/src/endpoints/token.ts':
+      "export async function getTokenBalance(): Promise<ApiResult<TokenBalance>> {\n  return fetchApi<TokenBalance>('/api/user/token-balance')\n}\n",
+  })
+  try {
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `已注册的字面量不得判红\n${r.out}`)
+    assert.doesNotMatch(r.out, /缺失|❌/, '报告里不得出现这一族的死调用')
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── FG-2a 阳性对照:同文件"一条已注册(跨行 options 的 POST)+ 一条未注册(泛型 GET)" ⇒ 只许点后者 ───
+test("FG-2 阳性对照:fetchApi<UserStatistics>('/api/statistics/user-center') 未注册 ⇒ 点名它且不牵连同文件已注册那条", () => {
+  const dir = fgRoot({
+    'apps/api/src/routes/users.ts': "server.post('/api/users/change-phone', async () => ({}))\n",
+    'packages/api-client/src/endpoints/user.ts': [
+      'export async function changePhone(input: ChangePhoneInput): Promise<ApiResult<{ success: boolean }>> {',
+      '  return fetchApi<{ success: boolean; user: { id: string } }>(',
+      "    '/api/users/change-phone',",
+      '    {',
+      "      method: 'POST',",
+      '      body: JSON.stringify(input),',
+      '    },',
+      '  )',
+      '}',
+      '',
+      'export async function getUserStatistics(): Promise<ApiResult<UserStatistics>> {',
+      "  return fetchApi<UserStatistics>('/api/statistics/user-center')",
+      '}',
+      '',
+    ].join('\n'),
+  })
+  try {
+    const r = runScript(dir)
+    fgHit('FG-2')
+    assert.equal(r.status, 1, `未注册那条必须判红,实得 exit=${r.status}\n${r.out}`)
+    assert.match(r.out, /GET \/api\/statistics\/user-center/, 'user-center 必须被点名')
+    assert.match(r.out, /endpoints\/user\.ts/, '必须点名到 user.ts')
+    assert.doesNotMatch(
+      r.out,
+      /POST \/api\/users\/change-phone/,
+      '已注册的跨行 POST 不得被连带判死(逐条判,不是逐文件判)',
+    )
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── FG-2b 反向对照:两条都真在册 ⇒ 同形状不得红 ───
+test('FG-2 反向对照:两条拼写都后端在册 ⇒ exit 0(该面不得因合法调用变红)', () => {
+  const dir = fgRoot({
+    'apps/api/src/routes/users.ts':
+      "server.post('/api/users/change-phone', async () => ({}))\nserver.get('/api/statistics/user-center', async () => ({}))\n",
+    'packages/api-client/src/endpoints/user.ts': [
+      'export async function getUserStatistics(): Promise<ApiResult<UserStatistics>> {',
+      "  return fetchApi<UserStatistics>('/api/statistics/user-center')",
+      '}',
+      '',
+    ].join('\n'),
+  })
+  try {
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `实得 exit=${r.status}\n${r.out}`)
+    assert.doesNotMatch(r.out, /statistics\/user-center.*缺失/)
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── FG-3a 阳性对照:改写前缀字面量今天**静态对账看不见** ⇒ 必须落「未判定」并逐条报名 ───
+// 这条测的不是"判红",而是"不许静默":实测该形态在补本档之前,api-client 死调用 0 处 +
+// 未判定 0 处 + exit 0 —— 三个数一起把"从没看过这一族"伪装成"已对账且干净"。
+test('FG-3 阳性对照:/cozeZhsApi/cache/… 字面量必须被登记成未判定并点名(不得静默算通过)', () => {
+  const dir = fgRoot({
+    'packages/api-client/src/endpoints/agent.ts':
+      "export async function getAgentCategories(): Promise<ApiResult<AgentCategories>> {\n  return fetchApi<AgentCategories>('/cozeZhsApi/cache/agent-category-dict/categories')\n}\n",
+  })
+  try {
+    const r = runScript(dir)
+    fgHit('FG-3')
+    assert.equal(r.status, 0, `存量这一族当场判红就是恒红门(§12e),本轮只报名不判红\n${r.out}`)
+    assert.match(
+      r.out,
+      /未判定\(改写前缀字面量,静态对账整条看不见\)1 处/,
+      '不可见性必须无条件打印且计数为 1(把没判写成判过了是本仓最高频失效型)',
+    )
+    assert.match(
+      r.out,
+      /endpoints\/agent\.ts:2 .*\/cozeZhsApi\/cache\/agent-category-dict\/categories.*→归一后 \/api\/cache/,
+      '必须点名到站点并给出归一后的拼写',
+    )
+    assert.doesNotMatch(
+      r.out,
+      /❌.*cozeZhsApi/,
+      '本档只报名不判红:该字面量不得被写成死调用(那是把别人存量钉成恒红)',
+    )
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── FG-3b 反向对照:同一形状换成合法 `/api/` 拼写且已注册 ⇒ 不得落进该盲区清单 ───
+test('FG-3 反向对照:合法 /api/cache/… 已注册 ⇒ 盲区清单为 0 处且不得点名该文件', () => {
+  const dir = fgRoot({
+    'apps/api/src/routes/cache.ts':
+      "server.get('/api/cache/agent-category-dict/categories', async () => ({}))\n",
+    'packages/api-client/src/endpoints/agent.ts':
+      "export async function getAgentCategories(): Promise<ApiResult<AgentCategories>> {\n  return fetchApi<AgentCategories>('/api/cache/agent-category-dict/categories')\n}\n",
+  })
+  try {
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `实得 exit=${r.status}\n${r.out}`)
+    assert.match(
+      r.out,
+      /未判定\(改写前缀字面量,静态对账整条看不见\)0 处/,
+      '0 处也必须出声,并说清是"这一族射程是空的"而不是"已对账干净"',
+    )
+    assert.doesNotMatch(r.out, /endpoints\/agent\.ts/, '合法 `/api/` 拼写不得被误登进盲区清单')
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── FG-LOCK 反向锁:三条阳性对照确实各命中一次 + 盲区档必须装车 ───
+// 为什么必须有它:删掉一条用例时,`node --test` 的账面照样"全绿"(只是少一例),
+// 于是"门声称看得见"重新回到无人喂input 的状态 —— 正是本票立项那一型的再生产。
+test('FG-LOCK 反向锁:三条阳性对照各跑恰好一次,且盲区档挂在主流程、识别式只有一份', () => {
+  for (const key of ['FG-1', 'FG-2', 'FG-3']) {
+    assert.equal(
+      FG_HITS.get(key) || 0,
+      1,
+      `${key} 的阳性对照必须恰好执行一次(实得 ${FG_HITS.get(key) || 0}) —— 缺失=用例被删,>1=夹具漂成两份`,
+    )
+  }
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.match(src, /function\s+collectAliasLiteralBlindSites\s*\(/, "③' 的采集器必须在位")
+  assert.match(
+    src,
+    /collectAliasLiteralBlindSites\(\{ frontendFiles, alias \}\)/,
+    "③' 必须真挂在 CE 执行段上(定义了没人调 = 提交链上一路绿灯,守门 70/76/81 同型)",
+  )
+  assert.match(src, /aliasLiteralBlind\.length > 0/, "③' 的输出必须无条件判读,不得嵌进别的分支")
+  // 识别式只有一份:三处消费者共用 aliasLiteralRe,门内不得再抄第二张前缀匹配式
+  assert.equal(
+    (src.match(/rule\.from\.replace\([/]/g) || []).length,
+    1,
+    '字面量识别式只许写在 aliasLiteralRe 一处(两处各写一遍必然漂移)',
+  )
+  assert.ok(
+    (src.match(/aliasLiteralRe\(rule\)/g) || []).length >= 3,
+    "③/③ 的未判定档/③' 必须共用同一份识别式",
+  )
+  // 事实源仍只有 transport 那一份:判定层不得写死第二张改写表(照 T-CE-7 的同一把尺子)
+  const judgeLayerStart = src.indexOf('function runSelfTest')
+  assert.ok(judgeLayerStart > 1000, '判定层区段必须切得出来')
+  const judgeCode = maskComments(src.slice(0, judgeLayerStart))
+  assert.doesNotMatch(
+    judgeCode,
+    /['"]\/cozeZhsApi['"]/,
+    '判定层不得写死改写前缀名(事实源只能是 transport)',
+  )
+})
+
 // 只判源码形状(§22c:行为由 32/33 与既有 5/6 证,测试不复抄判据)。
 // ─── 34. 形状锁:--dump-* 取值必须走唯一出口,不得退回裸 argv[indexOf(...)+1] ──
 // 只判源码形状(§22c:行为由 32/33 与既有 5/6 证,测试不复抄判据)。

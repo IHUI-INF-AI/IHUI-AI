@@ -84,8 +84,23 @@ const FRONTEND_ENDS = [
     // **住处**就是这里 —— 只扫四个端等于把最该对账的一面留白。实测三条从写下起就没通过的
     // 调用(/api/user/token-balance、/api/statistics/user-center、/cozeZhsApi/cache/…)
     // 全部住在这个包里,而"扩面到三端"那次改动碰不到它们。
-    // 与端内不同:这里的 fetchApi 基址由**宿主注入**,`/cozeZhsApi` 是改写前缀 —— 两者都
-    // 按字面路径参与对账,拼不出来的退到「未判定」计数,绝不静默算通过。
+    // 与端内不同:这里的 fetchApi 基址由**宿主注入**,`/cozeZhsApi` 是改写前缀。
+    //
+    // ⚠️ 2026-09-29 就地更正(旧句"两者都按字面路径参与对账,拼不出来的退到未判定计数"**做不到的那一半**):
+    // 逐条量过这三条现场字面量,今天各自落在哪一格,与镜像测试的阳性对照一一对应 ——
+    //  ① `endpoints/token.ts` 的 `fetchApi<TokenBalance>('/api/user/token-balance')` ⇒ **看得见**:
+    //     引号紧邻 `/api/` ⇒ 进调用集;未注册即点名(镜像 FG-1 钉住,反证:摘掉 api-client 面它必红)。
+    //  ② `endpoints/user.ts` 的 `fetchApi<UserStatistics>('/api/statistics/user-center')` ⇒ **看得见**:
+    //     同一文件里既有一条跨行 options 的已注册 POST、又有一条未注册 GET ⇒ 必须**逐条**判,
+    //     不许"整文件一条红就完事"也不许把已注册那条连带判死(镜像 FG-2)。
+    //  ③ `endpoints/agent.ts` 的 `fetchApi<AgentCategories>('/cozeZhsApi/cache/…')` ⇒ **看不见**:
+    //     `pathRe` 要求引号紧邻 `/api/`,而这种字面量的前缀是 transport 的 `normalizeUrl` 才会补成
+    //     `/api/` —— 归一档只被 CE① 读、主对账从不应用,所以它**一条都不进调用集**,既不判死也不落
+    //     任何既有未判定桶(实测三个数一起报 0 = 静默绿)。这一格**结构上无法由静态门判**:
+    //     真路径取决于运行期宿主注入的 base URL 与是否命中 rewrite,静态读不到(与票面"任一后端在册
+    //     即算活"那条否证同源),把它判红就是存量恒红门(§12e),臆造路径就是造第二份真相。
+    //     ⇒ 现由 `collectAliasLiteralBlindSites` 登记成「未判定(改写前缀字面量)」并**逐条报名**,
+    //       输出无条件打印;读到这一面的人先看见"这几处没判",不得读成"已对账"。
   },
   {
     name: 'cli',
@@ -489,6 +504,16 @@ function readChannelGuards(entries) {
 }
 
 /**
+ * 别名前缀字面量的**唯一**识别式(2026-09-29 票面 :85 补)。
+ * 三处消费者(③ 的站点判据、③ 的"看得见但判不了"档、③' 的整条不可见档)必须共用这一份 ——
+ * 本仓反复实录"同一条判据在两处各抄一遍必然漂移"(守门 131/135 的 code-mask 同一条规矩),
+ * 而这里漂移的后果是三处对"什么算一处改写前缀调用"给出不同答案,账面却都自称判过。
+ */
+function aliasLiteralRe(rule) {
+  return new RegExp(`['"\`]${rule.from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:/[^'"\`]*)?['"\`]`)
+}
+
+/**
  * ③ 面上是否存在一处真实调用点,**两种拼写各自都在册**(等价是活的,不是纸面的)。
  * 逐前端文件在**遮注释面**上找紧邻引号的 `${from}` 字面量(注释里的示例调用不得算站点 ——
  * 守门 70/131 同型:判据失效的表现永远是安静,而门给自己发合格证是最坏的一种),
@@ -508,9 +533,7 @@ function findLiveAliasSites({ frontendFiles, alias, guards, hasRoute }) {
     const maskedLines = maskComments(src).split('\n')
     const rawLines = src.split('\n')
     for (const rule of alias.rules) {
-      const litRe = new RegExp(
-        `['"\`]${rule.from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:/[^'"\`]*)?['"\`]`,
-      )
+      const litRe = aliasLiteralRe(rule)
       maskedLines.forEach((line, idx) => {
         if (!litRe.test(line)) return
         const raw = (line.match(litRe)?.[0] || '').slice(1, -1) || rule.from
@@ -558,9 +581,7 @@ function collectAliasSiteUndetermined({ frontendFiles, alias, hasRoute }) {
     const maskedLines = maskComments(src).split('\n')
     const rawLines = src.split('\n')
     for (const rule of alias.rules) {
-      const litRe = new RegExp(
-        `['"\`]${rule.from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:/[^'"\`]*)?['"\`]`,
-      )
+      const litRe = aliasLiteralRe(rule)
       maskedLines.forEach((line, idx) => {
         if (!litRe.test(line)) return
         const raw = (line.match(litRe)?.[0] || '').slice(1, -1) || rule.from
@@ -582,6 +603,45 @@ function collectAliasSiteUndetermined({ frontendFiles, alias, hasRoute }) {
             reason: `只有单侧在册(${rawLive ? '改写前' : '改写后'}),等价不成立;另一侧由既有死调用判据管`,
           })
         }
+      })
+    }
+  }
+  return out
+}
+
+/**
+ * ③' 改写前缀字面量的**整条不可见**档(2026-09-29,票面 :85 三条现场里的第三条,登记为已知盲区)。
+ * 主对账的抽取器 `pathRe` 要求**引号紧邻 `/api/`**,所以 `'/cozeZhsApi/cache/…'` 这类
+ * "transport 会把它改写成 `/api/…`、字面量自己却没有 `/api/` 前缀"的调用点
+ * **一条都不进调用集** —— 既不判死、也不落任何既有未判定桶,账面表现成"这一族已经对过账"的
+ * 静默绿(实测:临时根里放 `fetchApi<AgentCategories>('/cozeZhsApi/cache/agent-category-dict/categories')`
+ * 且两种拼写都不在册 ⇒ exit 0、api-client 死调用 0 处、未判定 0 处,三个数一起撒谎)。
+ * 本档**不判红**:真仓 HEAD 面这类站点是存量,当场 blocking 就是一台与任何提交都无关的恒红门,
+ * 唯一结局是逼人 `--no-verify`、连带废掉全部守门(§12e 同型)。它只做一件事 —— **报名**,
+ * 让读到这一面的人先看见"这几处静态对账看不见",再谈裁决(不得把"没判"写成"判过了")。
+ * 前缀事实源仍是 transport 现读的改写档(门内不得有第二张前缀表:T-CE-7 的同一条禁令);
+ * 识别式与 ③ 共用 `aliasLiteralRe`,判在**遮注释面**(注释里逐字引用 JSX/字面量的说明不算站点)。
+ */
+function collectAliasLiteralBlindSites({ frontendFiles, alias }) {
+  const out = []
+  if (!alias || !alias.parsed || alias.rules.length === 0) return out
+  for (const { file, src } of frontendFiles) {
+    if (src === null || src === undefined) continue
+    // transport 自己不是调用方:它体内的 `startsWith('/cozeZhsApi')` 是**改写规则定义**,
+    // 把它当站点会让门把事实源读成消费者(与 findLiveAliasSites 同一条自指型假阳防护)
+    if (file === CLIENT_TRANSPORT_FILE) continue
+    const maskedLines = maskComments(src).split('\n')
+    for (const rule of alias.rules) {
+      const litRe = aliasLiteralRe(rule)
+      maskedLines.forEach((line, idx) => {
+        if (!litRe.test(line)) return
+        const raw = (line.match(litRe)?.[0] || '').slice(1, -1) || rule.from
+        out.push({
+          file,
+          line: idx + 1,
+          raw,
+          rewritten: rule.to + raw.slice(rule.from.length),
+        })
       })
     }
   }
@@ -3195,6 +3255,13 @@ let channelVerdict = null
   const { guards, partial, scanned } = readChannelGuards(guardEntries)
   const frontendFiles = frontendRels.map((rel) => ({ file: rel, src: readSource(rel) }))
   /**
+   * ③' 整条不可见档**无条件采集**(与三条件齐不齐无关):这类字面量不进调用集,
+   * 所以它既不受通道守卫在不在册的影响,也不受首锚台账的影响 —— 把它挂在 `missingConditions.length===0`
+   * 分支里,等于"守卫没装 ⇒ 这一族的不可见性也不报名",而报名恰恰是它唯一的价值。
+   * 同面同轮:复用上面已经 prefetch 满的 `frontendFiles` 与 `alias`,不另开一次取材。
+   */
+  const aliasLiteralBlind = collectAliasLiteralBlindSites({ frontendFiles, alias })
+  /**
    * 首锚台账:缺档 ⇒ 该维**未判定**(不判红也不记绿,同本门 `BASELINE_FILE_REL` 缺档的手法)。
    * 键集与判据同面:`declared[]` 里每条必须带 file + path + reason,坏 JSON 不冒充空清单。
    */
@@ -3265,6 +3332,7 @@ let channelVerdict = null
     sites,
     siteUndetermined,
     declaredHits,
+    aliasLiteralBlind,
     missingConditions,
     undetermined: missingConditions.length > 0,
   }
@@ -3526,6 +3594,30 @@ if (DUMP_MISSING) {
   } else {
     console.log(
       `${C.green}[API 路由比对] ✅ 通道等价(CE)已判过:改写档与通道守卫都在册,而等价拼写上一处未交代的调用点都没有${v.declaredHits.length > 0 ? `(另有 ${v.declaredHits.length} 处已在台账里逐条写明理由,是"已交代"不是"没判")` : ''}${C.reset}`,
+    )
+  }
+  /**
+   * ③' 改写前缀字面量的不可见性 —— **无条件打印**(三态不并桶)。
+   * 挂在"有站点才喊"的分支里就等于没有:这一族的错恰恰是"一处都不进调用集",
+   * 于是所有既有分支都走成安静(守门 70/76/81 同型)。0 也要说清是哪一种 0 ——
+   * 「面上确实没有这类字面量」与「改写档本身读不出所以扫不了」是两件事。
+   */
+  if (v.aliasLiteralBlind.length > 0) {
+    console.log(
+      `${C.yellow}[API 路由比对] ⚠️ 未判定(改写前缀字面量,静态对账整条看不见)${v.aliasLiteralBlind.length} 处 —— pathRe 只认引号紧邻 \`/api/\` 的字面量,这些调用点**一条都不进调用集**,既不判死也不落任何既有未判定桶;本轮不判红(存量当场判红就是恒红门,§12e),但这一格**没有判据**,不得读成"已对账":${C.reset}`,
+    )
+    for (const b of v.aliasLiteralBlind.slice(0, 25)) {
+      console.log(
+        `${C.dim}    ${b.file}:${b.line} ${b.raw} →归一后 ${b.rewritten}(两种拼写都未经本门对账)${C.reset}`,
+      )
+    }
+    if (v.aliasLiteralBlind.length > 25)
+      console.log(`${C.dim}    ... 还有 ${v.aliasLiteralBlind.length - 25} 处${C.reset}`)
+  } else {
+    console.log(
+      v.alias.parsed && v.alias.rules.length > 0
+        ? `${C.dim}[API 路由比对] 未判定(改写前缀字面量,静态对账整条看不见)0 处 —— 面上没有以现读改写档前缀开头的字面量(这一族的射程是空的,不是"已对账干净")${C.reset}`
+        : `${C.dim}[API 路由比对] 未判定(改写前缀字面量,静态对账整条看不见)未判定 —— 改写档本身读不出或 0 条,前缀集合无从推导(空清单与判不出不得混计)${C.reset}`,
     )
   }
 }
