@@ -247,9 +247,9 @@ describe('G-683 坏清单装载诊断:被跳过必须报名', () => {
     // 两条独立结论:① 集合里确有环依赖码;② 它与歧义码是**不同的两个**码,
     // 所以两条诊断的 code / 文案不可能互相顶替(排查方向被指错正是复用的代价)。
     expect(PLUGIN_DIAGNOSTIC_CODES).toContain('plugin-dependency-cycle');
-    expect(PLUGIN_DIAGNOSTIC_CODES).toContain('manifest-name-ambiguous');
+    expect(PLUGIN_DIAGNOSTIC_CODES).toContain('plugin_ambiguous_name');
     expect(PLUGIN_DIAGNOSTIC_CODES.indexOf('plugin-dependency-cycle')).not.toBe(
-      PLUGIN_DIAGNOSTIC_CODES.indexOf('manifest-name-ambiguous'),
+      PLUGIN_DIAGNOSTIC_CODES.indexOf('plugin_ambiguous_name'),
     );
   });
 });
