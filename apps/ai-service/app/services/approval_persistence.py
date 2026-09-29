@@ -221,6 +221,92 @@ def key_is_owned_by(key: str, owner: str | None) -> bool:
         return False
     bound, _bare = split_scoped_key(key)
     return bound == o
+# ==================== 审批载荷事实与上报开关(D159,单一出口) ====================
+#
+# 为什么住在这一层:审批载荷的两位生产者(主对话流 `routers/llm.py` 与 agent 任务流
+# `services/agent_loop_v2.py`)都必须**已经** import 本模块,而"这次命令到底在哪儿跑"
+# 这句话若在两处各写一遍,就会有两份真值 —— 本仓最高频的失效型正是"两处算同一件事
+# 必漂移"(AGENTS §5 认证不等于授权、§4 描边判据同一条)。开关同理:两处各读一次
+# `os.environ`,关档时就会有一侧还在报。
+#
+# 判据铁律(票第 8 栏爆炸半径):**显示"沙箱内"而实际是 plain = 误导用户放行,比不显示
+# 更糟**。所以这里只转录**分派用的那一个字段**,并且读不到就返回 None(整字段缺省,
+# 前端渲染"未上报"),绝不把"没读到"写成"没隔离"或"已隔离"。
+
+#: D159 回退开关:0/false/off/no ⇒ 服务端不填新字段、前端整块不渲染(回到现读形态)。
+ENV_REPORT_FLAG = "IHUI_APPROVAL_ENV_REPORT"
+
+#: 会被本出口当作"执行环境"来读的工具(命令执行族)。
+#: 值域与 `services/mcp_server.py::_tool_run_command` 的分派入参同一族 —— 该函数读
+#: `arguments.get("sandbox_backend", "local")` 决定走本地还是沙箱后端,而本出口读的是
+#: **同一个字段**,所以"弹窗说的"与"实际跑的"结构上不可能分叉。
+ENV_REPORT_TOOLS: frozenset[str] = frozenset({"run_command", "execute_command"})
+
+#: 这些后端的网络隔离语义(mcp_server 2634-2656 + sandbox.py 的 backend 分派现读):
+#: - local:无容器边界 ⇒ 网络**不**隔离(sandbox.py「Local backend 无法隔离网络」)
+#: - docker:`docker run --network=none` ⇒ 网络隔离
+#: - 其余(ssh/modal/daytona/singularity):我方没有可读的隔离判据 ⇒ None(不猜)
+_BACKEND_ISOLATES_NETWORK: dict[str, bool] = {"local": False, "docker": True}
+
+#: 已知后端名(mcp_server._tool_run_command 的 sandbox_backend 枚举 + local)。
+#: 不在表内 ⇒ 读不到(不认的写法一律不冒充事实)。
+KNOWN_SANDBOX_BACKENDS: frozenset[str] = frozenset(
+    {"local", "docker", "ssh", "modal", "daytona", "singularity"}
+)
+
+
+def env_report_enabled(env: Mapping[str, str] | None = None) -> bool:
+    """审批载荷是否上报执行环境/网络事实(D159 回退开关,默认开)。
+
+    只认显式关档写法(``0``/``false``/``off``/``no``,大小写不敏感);其它取值(含未设、
+    空串、乱写)一律按"开"。理由:关档是**人的显式决定**,拼错一个值不该把信息静默关掉。
+    """
+    source = env if env is not None else os.environ
+    raw = str(source.get(ENV_REPORT_FLAG, "") or "").strip().lower()
+    return raw not in ("0", "false", "off", "no")
+
+
+def describe_exec_environment(
+    tool_name: str,
+    args: Mapping[str, object] | None,
+    *,
+    env: Mapping[str, str] | None = None,
+) -> dict[str, object] | None:
+    """把"这次调用会在哪儿跑"读成载荷字段;读不到 ⇒ **None**(不是空 dict、不是 false)。
+
+    返回形态(内层键 **camelCase**,与票面 §11.3 第 1 栏声明的
+    `{ inSandbox, backend, degraded?, degradeNote? }` 逐字同形;外层键 `exec_environment`
+    仍是 snake,与 tool-approval 帧其余键同族 —— 两层的命名法不同是刻意的,别"顺手统一"):
+      ``{inSandbox: bool, backend: str, networkIsolated: bool, degraded: False}``
+    - ``inSandbox`` 只在后端名**认得**时给;``networkIsolated`` 只在 local/docker 给,
+      其余后端 ⇒ 字段缺席(不猜);
+    - ``degraded`` 恒 False —— 我方 ai-service 侧没有可读的降级链(那条在 CLI 的
+      `detect.ts`,不在本进程,读它就得跨进程问,本票不做)。既然读不到就不写"已降级",
+      也不写"未降级"以外的任何推断 ⇒ 索性把该字段留给真有降级事实的那一路。
+
+    None 的情形:开关关档 / 不是命令执行族 / 后端名不认识。调用方据此**整字段不发**,
+    前端渲染"未上报"(见 web 侧 tool-approval-dialog 的 envUnknown 判据)。
+    """
+    if not env_report_enabled(env):
+        return None
+    if tool_name not in ENV_REPORT_TOOLS:
+        return None
+    if not isinstance(args, Mapping):
+        return None
+    raw = args.get("sandbox_backend", "local")
+    backend = str(raw or "local").strip().lower()
+    if backend not in KNOWN_SANDBOX_BACKENDS:
+        return None
+    payload: dict[str, object] = {
+        "inSandbox": backend != "local",
+        "backend": backend,
+        "degraded": False,
+    }
+    if backend in _BACKEND_ISOLATES_NETWORK:
+        payload["networkIsolated"] = _BACKEND_ISOLATES_NETWORK[backend]
+    return payload
+
+
 
 
 # ==================== 核心 API ====================
