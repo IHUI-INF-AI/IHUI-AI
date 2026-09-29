@@ -13,6 +13,8 @@
 - top_tools:成本排序 / 数量上限 / 过滤
 - timeseries:按天 / 按小时 / 非法粒度报错
 - sync_from_recorder:与 recorder 口径一致(成本 round6) / 幂等
+- G-822 同 record_id 二次投递:逐列定向合并(首见时刻取最早 / 耗时与结束时刻取较大 /
+  身份与已入账测量先到先定 / 哨兵不覆盖已知 / error 不被盲投洗掉 / 重投 identical)
 - estimate_cost_usd:已知 / 未知(estimated)模型 / set_pricing 覆盖定价
 - reset / 持久化写盘读回 / round 稳定性
 - G-821 按来源增量基线:多轮累加 / 压缩下移基线 / 三条来源链独立基线 /
@@ -21,10 +23,12 @@
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 import pytest
 
+from app.core.ledger_merge import COLUMN_DIRECTIONS, merge_entry
 from app.services.agent_step_recorder import AgentStepRecorder
 from app.services.cost_ledger import CostLedger, LedgerEntry
 
@@ -559,4 +563,182 @@ def test_g821_usage_service_shares_the_same_baseline():
     assert stats["total_calls"] == 3
     assert stats["model_breakdown"]["openai/gpt-4o"]["input_tokens"] == 2100
     assert stats["provider_breakdown"]["openai"]["input_tokens"] == 2100
+
+
+# =============================================================================
+# 同 record_id 二次投递的逐列定向合并(G-822,2026-09-29)
+# 旧行为:同 id ⇒ return {"appended": False} 整条丢弃 ⇒ 迟到的完成事件永远进不了账。
+# =============================================================================
+
+
+def test_g822_direction_table_matches_the_row_shape(tmp_path: Path):
+    """行形状三处必须同集合:LedgerEntry 字段 / 方向表 / append 归一化产出。
+
+    加一列而方向表没配 = 那一列静默走默认(正是本票要拦的"一句兜掉")。
+    """
+    entry_fields = {f.name for f in dataclasses.fields(LedgerEntry)}
+    normalized_shape = set(_ledger(tmp_path).append(_mk("shape-1"))["entry"])
+    assert normalized_shape == entry_fields == set(COLUMN_DIRECTIONS)
+
+
+def test_g822_late_completion_fills_duration_and_ended_at(tmp_path: Path):
+    """票面核心一条:running → completed 后 duration_ms/ended_at 非空,at 取第一次的值。"""
+    ld = _ledger(tmp_path)
+    # 注:`status="running"` 被 _normalize 归到 "ok"(既有 _VALID_STATUS 口径,本票不动);
+    # "行卡在未完成"的实际形态就是 duration 0 + ended_at 空,由方向表补齐。
+    started = ld.append(
+        _mk("lc-1", status="running", duration_ms=0, at="2026-09-03T00:00:00Z")
+    )
+    assert started["appended"] is True
+    assert started["outcome"] == "appended"
+    assert started["entry"]["duration_ms"] == 0
+    assert started["entry"]["ended_at"] == ""
+
+    done = ld.append(
+        _mk(
+            "lc-1",
+            status="running",
+            duration_ms=321.5,
+            at="2026-09-03T00:00:05Z",
+            ended_at="2026-09-03T00:00:05Z",
+        )
+    )
+    assert done["appended"] is False          # 既有含义不变:没有新增行
+    assert done["outcome"] == "merged"        # 但行被补齐了
+    assert done["changed_columns"] == ["duration_ms", "ended_at"]
+    assert done["entry"]["duration_ms"] == 321.5
+    assert done["entry"]["ended_at"] == "2026-09-03T00:00:05Z"
+    # started_at 语义:首见时刻取最早,盲投把行推到 now 会挪错时间桶
+    assert done["entry"]["at"] == "2026-09-03T00:00:00Z"
+    # 读面/落盘都看得到补齐后的值
+    assert ld.aggregate()["total_duration_ms"] == 321.5
+    reloaded = CostLedger(file_path=tmp_path / "ledger.json")
+    assert reloaded._filtered({"run_id": "r1"})[0]["duration_ms"] == 321.5
+
+
+def test_g822_identical_redelivery_is_reported_identical_not_half_merged(tmp_path: Path):
+    """逐列合并后行一字未变 ⇒ 回报 identical,内容不得半新半旧。"""
+    ld = _ledger(tmp_path)
+    first = ld.append(_mk("same-1", tokens_in=123, duration_ms=7.5))
+    again = ld.append(_mk("same-1", tokens_in=123, duration_ms=7.5))
+    assert again["appended"] is False
+    assert again["outcome"] == "identical"
+    assert again["changed_columns"] == []
+    assert again["entry"] == first["entry"]
+    assert ld.count() == 1
+
+
+def test_g822_first_seen_measurements_are_not_overwritten(tmp_path: Path):
+    """先到先定:第二次投更早/更晚的测量值都不得覆盖已有的非空值(两个方向各测一次)。"""
+    ld = _ledger(tmp_path)
+    ld.append(_mk("fx-1", tokens_in=1000, tokens_out=200))
+    bigger = ld.append(_mk("fx-1", tokens_in=1500, tokens_out=300))
+    assert bigger["outcome"] == "identical"
+    assert bigger["entry"]["tokens_in"] == 1000
+    smaller = ld.append(_mk("fx-1", tokens_in=500, tokens_out=50))
+    assert smaller["entry"]["tokens_in"] == 1000
+    assert smaller["entry"]["total_tokens"] == 1200
+    # 已入账金额同样先到先定(账本不是缓存,迟到值不得改写已记的钱)
+    priced = ld.append(_mk("fx-1", cost_usd=0.9))
+    assert priced["entry"]["cost_usd"] == 0.02
+    assert priced["outcome"] == "identical"
+
+
+def test_g822_absent_first_values_are_filled_by_the_late_delivery(tmp_path: Path):
+    """成对另一半:旧值为空(0/"")时迟到值必须补得进来,否则合并等于没合并。"""
+    ld = _ledger(tmp_path)
+    ld.append(_mk("fx-2", tool_name="", model="", tokens_in=0, tokens_out=0))
+    filled = ld.append(_mk("fx-2", tool_name="read_file", model="gpt-4o", tokens_in=900, tokens_out=90))
+    assert filled["outcome"] == "merged"
+    assert set(filled["changed_columns"]) == {
+        "tool_name", "model", "provider", "tokens_in", "tokens_out", "total_tokens",
+    }
+    row = filled["entry"]
+    assert row["tool_name"] == "read_file"
+    assert row["tokens_in"] == 900
+    assert row["total_tokens"] == 990
+
+
+def test_g822_sentinel_value_never_overwrites_known_identity(tmp_path: Path):
+    """哨兵保护:已知 tool_name 不被 'unknown' 覆盖(盲投整行不变 ⇒ identical)。"""
+    ld = _ledger(tmp_path)
+    ld.append(_mk("sen-1", tool_name="read_file"))
+    blinded = ld.append(_mk("sen-1", tool_name="unknown"))
+    assert blinded["outcome"] == "identical"
+    assert blinded["entry"]["tool_name"] == "read_file"
+    # 反向成对:旧值本身就是哨兵时,已知值必须能替换它
+    ld.append(_mk("sen-2", tool_name="unknown"))
+    replaced = ld.append(_mk("sen-2", tool_name="read_file"))
+    assert replaced["changed_columns"] == ["tool_name"]
+    assert replaced["entry"]["tool_name"] == "read_file"
+
+
+def test_g822_monotone_columns_reject_regressions(tmp_path: Path):
+    """耗时/结束时刻取较大者:倒退的投递与"这次没测到"(0/"")都不得把已知值改小。"""
+    ld = _ledger(tmp_path)
+    ld.append(_mk("mono-1", duration_ms=500, ended_at="2026-09-03T00:00:09Z"))
+    regressed = ld.append(_mk("mono-1", duration_ms=50, ended_at="2026-09-03T00:00:02Z"))
+    assert regressed["outcome"] == "identical"
+    assert regressed["entry"]["duration_ms"] == 500
+    assert regressed["entry"]["ended_at"] == "2026-09-03T00:00:09Z"
+    blind = ld.append(_mk("mono-1", duration_ms=0, ended_at=""))
+    assert blind["outcome"] == "identical"
+    assert blind["entry"]["duration_ms"] == 500
+    assert blind["entry"]["ended_at"] == "2026-09-03T00:00:09Z"
+    # 真正更晚的完成事件仍然推进(单调不等于拒绝前进)
+    ahead = ld.append(_mk("mono-1", duration_ms=800, ended_at="2026-09-03T00:00:20Z"))
+    assert ahead["changed_columns"] == ["duration_ms", "ended_at"]
+    assert ahead["entry"]["duration_ms"] == 800
+
+
+def test_g822_error_status_survives_a_blind_redelivery(tmp_path: Path):
+    """status 的 error 是既成事实:只允许 ok→error 补齐,不允许 error→ok 被盲投洗掉。"""
+    ld = _ledger(tmp_path)
+    ld.append(_mk("st-err", status="error"))
+    washed = ld.append(_mk("st-err", status="ok"))
+    assert washed["entry"]["status"] == "error"
+    assert washed["outcome"] == "identical"
+    ld.append(_mk("st-ok", status="ok"))
+    upgraded = ld.append(_mk("st-ok", status="error"))
+    assert upgraded["changed_columns"] == ["status"]
+    assert upgraded["entry"]["status"] == "error"
+    assert ld.aggregate({"status": "error"})["steps"] == 2
+
+
+def test_g822_sync_from_recorder_shares_the_merge_path(tmp_path: Path):
+    """sync 复用 append ⇒ 全仓只有一份合并逻辑;第二次 sync 补齐耗时而不是丢弃。"""
+    rec_running = AgentStepRecorder(file_path=tmp_path / "rec-a.json")
+    rec_running.append_step(
+        "r9", dict(_step("read", 0.1, tin=10, tout=5), duration_ms=0, at="2026-09-03T00:00:01Z")
+    )
+    ld = _ledger(tmp_path)
+    assert ld.sync_from_recorder("r9", rec_running) == {"run_id": "r9", "synced": 1, "skipped": 0}
+    assert ld._filtered({"run_id": "r9"})[0]["duration_ms"] == 0.0
+
+    # 同一 run 的同一 step_index(=同一 record_id)带着完成量再投一次
+    rec_done = AgentStepRecorder(file_path=tmp_path / "rec-b.json")
+    rec_done.append_step(
+        "r9", dict(_step("read", 0.1, tin=10, tout=5), duration_ms=64.0, at="2026-09-03T00:00:02Z")
+    )
+    second = ld.sync_from_recorder("r9", rec_done)
+    assert second == {"run_id": "r9", "synced": 0, "skipped": 1}  # 返回键集未扩(既有等值断言)
+    assert ld.count() == 1
+    row = ld._filtered({"run_id": "r9"})[0]
+    assert row["duration_ms"] == 64.0            # 由同一张方向表补齐
+    assert row["at"] == "2026-09-03T00:00:01Z"   # 首见时刻不被推后
+    assert row["tokens_in"] == 10               # 已入账测量先到先定
+
+
+def test_g822_merge_entry_does_not_mutate_its_inputs():
+    """纯合并模块不得改写两个入参(调用方持有的是账本里的行,污染等于静默改账)。"""
+    existing = {"record_id": "m1", "at": "2026-09-03T00:00:00Z", "duration_ms": 0.0}
+    incoming = {"record_id": "m1", "at": "2026-09-03T00:00:03Z", "duration_ms": 12.0}
+    snapshot_old, snapshot_new = dict(existing), dict(incoming)
+    result = merge_entry(existing, incoming)
+    assert existing == snapshot_old
+    assert incoming == snapshot_new
+    assert result.row["duration_ms"] == 12.0
+    assert result.row["at"] == "2026-09-03T00:00:00Z"
+    assert result.changed_columns == ("duration_ms",)
+
 
