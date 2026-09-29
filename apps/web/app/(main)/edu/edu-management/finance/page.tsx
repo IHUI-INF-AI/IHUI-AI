@@ -1186,12 +1186,14 @@ export default function FinancePage() {
   /**
    * 缴费登记与退费都要能"选到哪一期"。名册端点已按报名递 studentId/classId/dueAmount
    * (欠费额由账目出口统一算),所以这里不再自己拼名字去猜归属。
+   * pageSize 必须落在该端点 schema 允许的上限内 —— 写 200 会拿到 400,
+   * 表现为"下拉是空的",而 400 被 useQuery 吞掉时界面上看不出任何异常。
    */
   const payableRosterQuery = useQuery({
     queryKey: ['edu-ai-management', 'student-roster', 'payable'],
     queryFn: () =>
       api<{ list: RosterItem[]; total: number }>(
-        '/api/edu-ai-management/student-roster?page=1&pageSize=200',
+        '/api/edu-ai-management/student-roster?page=1&pageSize=100',
       ),
   })
   const payableEnrollments = payableRosterQuery.data?.list ?? []
