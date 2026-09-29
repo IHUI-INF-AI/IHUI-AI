@@ -20,6 +20,9 @@ Node 网关层(apps/api src/routes/ai-chat-stream.ts)透传 ai-service 事件,
 
 from __future__ import annotations
 
+import asyncio
+from typing import Any
+
 # ---------------------------------------------------------------------------
 # LLM 主线事件(/llm/complete/stream;前端 apps/web use-chat/MessageItem 消费)
 # ---------------------------------------------------------------------------
@@ -83,6 +86,80 @@ SSE_SUBAGENT_END = "subagent_end"          # 子agent 结束(含 status/ok)
 
 SSE_PLAN_UPDATED = "plan_updated"  # 计划更新(_format_plan_updated_event)
 SSE_CITATIONS = "citations"        # 知识库引用(_collect_citations)
+
+# ---------------------------------------------------------------------------
+# D152(2026-09-29 立,用户拍板「服务化但存会话元数据、不建新表」):
+# 会话目标(goal)状态的下行帧 + 「REST 写入口 → 正在跑的流」的推送口
+# ---------------------------------------------------------------------------
+#
+# 单帧形态:`goal_updated` 带 `status`,清除目标走 `status:'cleared'`(不建第二帧
+# `goal_cleared` —— 拍板口径,少一名就少一处会腐烂的清单)。载荷**必须自带
+# sessionId**:上行出口的路径里带 {session_id},帧不给会话 id 前端只能猜,而猜错的
+# 表现是"点了什么都没发生且不报错"(D151 的 terminal_interaction 同一课)。
+SSE_GOAL_UPDATED = "goal_updated"
+
+# 目标状态六档的服务端镜像(权威定义在 session_store.GOAL_STATUSES;这里只保证
+# 「推送口」与「校验口」用的是同一份收窄,不在本文件重写第三份)。
+
+# 正在跑的流按 conversationId 挂监听:`POST /llm/sessions/{session_id}/goal` 落在
+# 服务端主副本之后,把这一帧推进**同会话当前活跃的流**(每条流一个 Queue)。
+# 为什么需要一个注册表而不是"下次流首带出来":票面验收①是"A 端 set 后 B 端
+# **不刷新**即见目标" —— 只带在流首就必然要刷新,那条验收会假绿在"我这边看了对"
+# 而红在别人的真机。注册表随流生命周期注册/注销(llm.py 三处,与 _steer_sessions
+# 同一组锚点),不消费、不清空别的流的队列。
+_goal_listeners: dict[str, list["asyncio.Queue[dict[str, Any]]"]] = {}
+
+
+def register_goal_listener(conversation_id: str) -> "asyncio.Queue[dict[str, Any]]":
+    """为一条活跃流挂上 goal 监听(空列表即"该会话有流在跑")。"""
+    queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=8)
+    if conversation_id:
+        _goal_listeners.setdefault(conversation_id, []).append(queue)
+    return queue
+
+
+def unregister_goal_listener(
+    conversation_id: str, queue: "asyncio.Queue[dict[str, Any]]"
+) -> None:
+    """流收尾时摘掉自己的监听 —— 桶不删,后续同名会话会拿到一个没人 await 的队列。"""
+    if not conversation_id:
+        return
+    listeners = _goal_listeners.get(conversation_id)
+    if listeners is None:
+        return
+    try:
+        listeners.remove(queue)
+    except ValueError:
+        return
+    if not listeners:
+        _goal_listeners.pop(conversation_id, None)
+
+
+def publish_goal_update(conversation_id: str, payload: dict[str, Any]) -> int:
+    """把一帧 goal_updated 推进该会话当前所有活跃流,返回实际投递的队列数。
+
+    满队列(上一条还没被 yield 出去)**丢弃并计入返回值**:一个已经断流/卡住的消费方
+    不该让写入口报错 —— 服务端主副本已经落库,刷新即见,而静默阻塞 REST 会让用户
+    看到"设置目标失败"这种比"另一端暂时没更新"更假的结论。
+    """
+    delivered = 0
+    for queue in list(_goal_listeners.get(conversation_id, ())):
+        try:
+            queue.put_nowait(payload)
+            delivered += 1
+        except asyncio.QueueFull:
+            continue
+    return delivered
+
+
+def drain_goal_updates(queue: "asyncio.Queue[dict[str, Any]]") -> list[dict[str, Any]]:
+    """非阻塞取干该流的 goal 帧(流循环每轮调用一次,与 steer 的 drain 同位)。"""
+    drained: list[dict[str, Any]] = []
+    while True:
+        try:
+            drained.append(queue.get_nowait())
+        except asyncio.QueueEmpty:
+            return drained
 
 # ---------------------------------------------------------------------------
 # Anthropic Messages API 兼容事件(/llm/messages/stream)

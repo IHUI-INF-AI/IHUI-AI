@@ -76,6 +76,20 @@ SSE_EVENTS: frozenset[str] = frozenset(
         # /llm/complete/stream/{session_id}/form-response),不是 SSE 事件,故**不进**本集合;
         # 该判据原文与理由见 contract.ts 的 FORM_FRAME_EVENTS 注释第③条。
         "form_request",
+        # D152(2026-09-29 立,用户拍板「服务化但存会话元数据、不建新表」):会话目标
+        # 状态的下行帧。**单帧带 status:'cleared'**(不建 goal_cleared 第二帧 —— 拍板
+        # 口径:少一名就少一处会腐烂的清单)。载荷
+        # {type, sessionId, status, objective?, elapsedMs?, tokenUsage?, updatedAt?};
+        # sessionId 必需(上行出口路径带 {session_id},不带前端只能猜,而猜错的表现是
+        # "点了什么都没发生且不报错" —— D151 同一课)。
+        # 状态六档 active|paused|blocked|done|usageLimited|budgetLimited 是**第三个域**,
+        # 与 AGENT_TASK_STATUSES(Kanban)/WORKSPACE_AGENT_TASK_STATUSES 不得并集,
+        # 同名值 blocked/done 属同词不同义;判据见
+        # scripts/check-agent-status-vocabulary-parity.mjs 与 AGENTS §30。
+        # 上行出口 POST /llm/sessions/{session_id}/goal(action=set|pause|resume|clear)
+        # 是 REST 不是 SSE 事件,**不进**本集合。
+        # 必须与 packages/shared/src/sse/contract.ts 同步(两份集合由 parity 断言看护)。
+        "goal_updated",
         "done",
         "error",
         "fallback",
@@ -231,6 +245,16 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     SSEEventContract(
         "form_request",
         ("type", "requestId", "sessionId", "kind", "fields", "actions", "messageId"),
+    ),
+    # D152(2026-09-29 立):会话目标状态单帧(cleared 由 status 承载,不建第二帧)。
+    # 生产点 app/routers/llm.py 的 POST /llm/sessions/{session_id}/goal —— 写入
+    # 服务端主副本(session_store.set_thread_goal_state,唯一合法写口)后经
+    # agent_events.publish_goal_update 推进该会话当前所有活跃流;同一份状态也在
+    # **流首**带出(新接入的端不必等下一次 set 就看到当前目标)。
+    # sessionId 恒在且必须是字符串:上行出口的路径里带 {session_id}。
+    SSEEventContract(
+        "goal_updated",
+        ("type", "sessionId", "status", "objective", "elapsedMs", "tokenUsage", "updatedAt"),
     ),
     # 预算档位提醒(2026-09-19 立,网关发):流首按当日用量分档软提醒
     # (80%~95% warning / 95%~100% critical);>=100% 走 HTTP 429

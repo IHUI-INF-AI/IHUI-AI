@@ -95,12 +95,28 @@ interface MarkdownStreamProps {
 // 复制到剪贴板 hook
 function useCopy() {
   const [copied, setCopied] = React.useState(false)
+  // G-834:「已复制」回退 timer 收进 ref,卸载时 clearTimeout ——
+  // 此前裸调 setTimeout 不留句柄:组件先卸载时 timer 仍会触发 setState,连续复制还会叠 timer。
+  // 写法与本文件既有 applyTimerRef(:255-260)同型,先例:progress-sections/plan-steps-card.tsx:347-368。
+  const copyTimerRef = React.useRef<number | null>(null)
+  React.useEffect(() => {
+    return () => {
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current)
+        copyTimerRef.current = null
+      }
+    }
+  }, [])
   const copy = React.useCallback((text: string) => {
     navigator.clipboard
       ?.writeText(text)
       .then(() => {
         setCopied(true)
-        setTimeout(() => setCopied(false), 1500)
+        // 再次复制先清旧句柄,保证任一时刻至多一个回退 timer
+        if (copyTimerRef.current !== null) {
+          window.clearTimeout(copyTimerRef.current)
+        }
+        copyTimerRef.current = window.setTimeout(() => setCopied(false), 1500)
       })
       .catch(() => {})
   }, [])
