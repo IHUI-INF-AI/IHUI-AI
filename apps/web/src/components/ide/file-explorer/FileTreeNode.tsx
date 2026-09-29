@@ -212,6 +212,16 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
         tabIndex={0}
         onClick={handleClick}
         onKeyDown={(e) => {
+          // G-815940(票原占 G-815930,已让号):行级 Enter/Space 只消费「直接落在这个可聚焦
+          // 行本身」的按键。行内改名 input 的 onKeyDown 只处理 Enter/Escape、没截断冒泡
+          // (兄弟站 terminal-tab-bar/TerminalTab.tsx 的 input 首句就是 e.stopPropagation(),
+          // 所以那一站不漏;这一站只截断了 onClick),于是旧写法无条件 preventDefault()
+          // 会把改名框里的空格吞掉。损伤范围如实登记(由变异对照量到,不照抄票面措辞):
+          // 行确实被叫到了 handleClick,但 handleClick 首行的 if (renaming || deleting) return
+          // 挡住了动作 ⇒ 节点并未被顺手切换,所以"选中节点"这一半在修复前后同形、不构成
+          // 症状。判等要护的是「行替子元素决定默认动作」这一型:它覆盖行内任意后代元素,
+          // 而在 input 里补 stopPropagation 只救当下这一个子节点。
+          if (e.target !== e.currentTarget) return
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             handleClick()
