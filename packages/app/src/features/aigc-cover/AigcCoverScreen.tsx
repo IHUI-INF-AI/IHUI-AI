@@ -202,7 +202,7 @@ function createStyles(tk: AppThemeTokens) {
       right: 6,
       width: 24,
       height: 24,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.xl, // radius-exempt: 24×24 选中圆点,半径=边长一半为真圆(取 xs 会把它方档化)
       backgroundColor: primary,
       alignItems: 'center',
       justifyContent: 'center',
