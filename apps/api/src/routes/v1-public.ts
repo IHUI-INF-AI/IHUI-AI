@@ -1447,7 +1447,6 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
     // 仅 relay 模式预扣;BYOK 只抽成不预扣;无限额度 Key preDeductQuota 返回 null。
     // 用户级并发限制(H,2026-09-16 立):同一用户挂起请求数超上限直接 429
     // (进程内计数,单实例正确;多实例需迁 Redis——见 user-concurrency-service)。
-    // 释放挂在 reply.raw 'close'(正常完成与客户端断开都触发),防漏释放。
     // G-727(2026-09-28 修):旧写法占用后隔约 10 行才把释放挂到 reply.raw 'close',
     // 中间任何一句抛错都不会再来 close ⇒ 槽位永久泄漏,该用户计数只增不减;
     // 一旦顶格,本进程余生对他全部 429(服务里"防止异常路径漏释放导致永久顶格"即此后果)。
