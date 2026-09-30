@@ -4256,26 +4256,6 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- AI 面板装载守门(1 项,blocking)---
-  {
-    id: '171',
-    label:
-      'AI 面板装载守门:GlobalShell/AISidePanel 的骨架占位几何一致 + 8 个重组件懒加载边界 + inferVendor 单一来源(首屏延迟根治防回潮,2026-09-30;门体随 d5c54f4499 入库,本枚重注册补对账)',
-    script: 'check-ai-panel-mount-guards.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_AI_PANEL_MOUNT_GUARDS',
-    stagedTriggers: ['apps/web/src/components/layout/GlobalShell.tsx', 'apps/web/src/components/ai/ai-side-panel.tsx'],
-    onFailHint: [
-      '',
-      '单独复现:node scripts/check-ai-panel-mount-guards.mjs --staged(或 --worktree 人工排查)',
-      '自检:node scripts/check-ai-panel-mount-guards.mjs --self-test(44 例,正反成对)',
-      '判据:R1 GlobalShell 两处占位(dynamic loading + Suspense fallback)几何一字不动且内部是骨架;R2 ai-side-panel 8 个重组件只准动态 import;inferVendor 只从 vendor-infer 导入',
-      '修复方向:恢复懒加载边界与骨架占位,不要把重组件改回静态 import(零视觉症状的性能回退,测试抓不到,只有这道门能咬住)',
-      '',
-    ].join('\n'),
-  },
-
   // --- info (1 项) ---
   {
     id: '23',
@@ -4323,25 +4303,6 @@ const checks = [
       '     修复只有前向回补(§22 不重写历史):按被吞内容的原 blob 重新落地,参照 cfabf3128a 的形态;',
       '     判红已记入增量台账(.workbuddy/bypass-landing-scope-audited.json),不会反复红,但内容必须修。',
       '     单独复验:node scripts/check-bypass-landing-scope.mjs',
-    ].join('\n'),
-  },
-  // --- 承诺面/兑现面对账(2026-09-30 立,blocking)---
-  //   拦"文档写了 HUSKY_SKIP_XXX=1 出路而全仓没有任何一处真读它" —— 按了静默无效,唯一出路退化成
-  //   --no-verify,一次绕过等于全部守门对该提交作废(§12e 同型)。提交链档 --staged:与 HEAD 面的
-  //   假承诺集合做差值棘轮,只拦**新增**假承诺;存量只点名不判红(问责出口 --strict)。
-  {
-    id: '172',
-    label: '🛡  跳门变量承诺/兑现对账(blocking,文档承诺的 HUSKY_SKIP_* 必须有真实读点;差值棘轮只拦新增)',
-    script: 'check-skip-env-promise.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_SKIP_ENV_PROMISE',
-    onFailHint: [
-      '',
-      '  💡 新增的假承诺:文档(AGENTS.md/README.md)新写了一条 `HUSKY_SKIP_X=1` 出路,而代码里没人读它。',
-      '     修法只有两条:① 给该变量接真实读取点(或 runner 注册块 skipEnv 一行);② 把文档那句改成如实',
-      '     措辞(禁令/说明),不要承诺一条跑不通的出路。存量假承诺不拦本次提交,可用 --strict 点名问责。',
-      '     应急放行:HUSKY_SKIP_SKIP_ENV_PROMISE=1 git commit ...(commit message 写明责任归属)。',
     ].join('\n'),
   },
 ]

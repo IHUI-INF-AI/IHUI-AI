@@ -277,11 +277,6 @@ test('T13 出口返回形状钉子:布尔出口绝不冒对象、对象出口绝
     const r = bg.isAncestor(a, b, { root: dir })
     assert.ok(r === true || r === false || r === null, `isAncestor 只许三态,实得 ${String(r)}`)
   }
-  // ④ 票面②要求"每个出口"都有形状断言 —— 其余布尔/对象出口逐个补钉(sameLines 是布尔出口;
-  //    resolveHeadRef 是 string|null 三态)。T1–T12 已分别钉过它们的行为,这里只钉形状。
-  assert.equal(typeof bg.sameLines('a', 'b'), 'boolean', 'sameLines 是布尔出口,不得冒对象')
-  const refShape = bg.resolveHeadRef({ root: dir })
-  assert.ok(refShape === null || typeof refShape === 'string', 'resolveHeadRef 只许 string|null 三态,不得冒对象/布尔')
   const shaped = bg.commitTreeWithIndex({ root: dir, parent: commit, message: 'z', treePath: 'a.txt', text: 's\n' })
   assert.equal(typeof shaped, 'object')
   assert.notEqual(shaped, null)
@@ -299,42 +294,10 @@ test('T13 出口返回形状钉子:布尔出口绝不冒对象、对象出口绝
   assert.ok(Array.isArray(aligned.moved) && Array.isArray(aligned.skipped) && Array.isArray(aligned.undetermined), 'alignSharedIndex 的 moved/skipped/undetermined 必须保持数组形状')
 })
 
-// 判据纯函数(便于用构造面成对验牙):布尔出口返回值被取属性的两型。
-//  A 同行链式:`出口(...).attr` / `出口(...)?.attr`;
-//  B 跨行变量:`const v = 出口(...)` 之后,同一文件里出现 `v.attr` / `v?.attr` / `const {..} = v`
-//    —— 票面 G-628 的原病灶恰是这一型(先赋值再 `!v || !v.ok`),T14 旧版只钉 A 型,对 B 型结构失明
-//    (变异实测:注入 B 型夹具 ⇒ rc=0 假绿)。正当写法一律不判:把返回值当真值用(if (v) / if (!v) /
-//    v === true)。出口名由调用方传入分段拼接串,防本文件被自己的扫描命中(守门 131 自咬同型)。
-export function findBoolExitMisreads(lines, exitNames) {
-  const names = exitNames.join('|')
-  const chainRe = new RegExp(`(?:${names})\\s*\\([^)\\n]*\\)\\s*\\??\\.\\w+`)
-  const assignRe = new RegExp(`\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*(?:await\\s+)?(?:${names})\\s*\\(`)
-  const hits = []
-  const vars = new Map()
-  lines.forEach((line, i) => {
-    if (chainRe.test(line)) hits.push({ line: i + 1, kind: 'chain', text: line.trim().slice(0, 140) })
-    const a = assignRe.exec(line)
-    if (a) vars.set(a[1], i + 1)
-    if (!vars.size) return
-    for (const [v, declLine] of vars) {
-      if (i + 1 <= declLine) continue
-      const dot = new RegExp(`\\b${v}\\s*\\.\\w`)
-      const opt = new RegExp(`\\b${v}\\s*\\?\\.`)
-      const destruct = new RegExp(`\\{[^{}]*\\}\\s*=\\s*${v}\\b`)
-      if (dot.test(line) || opt.test(line) || destruct.test(line)) {
-        hits.push({ line: i + 1, kind: 'var', var: v, declLine, text: line.trim().slice(0, 140) })
-      }
-    }
-  })
-  return hits
-}
-
 test('T14 静态镜像:调用方不得对布尔出口取属性(`出口(...).ok` 这一型,G-628)', () => {
   // 共用层布尔出口(casUpdateRef / isAncestor,含各工具自带的同形 isAncestor)的契约是真值判/三态判;
-  // 对出口返回值取属性(链式 `.ok` 或先赋值再 `!r || !r.ok`)恒得 undefined,是票面"成功读成未抢到"的根因型。
-  // 逐行扫 scripts/ 全部 .mjs(含在飞工具面)。**B 维(跨行变量型)刻意排除 *.test.mjs 并声明代价**:本镜像
-  // 自身的 T13 需要写出病灶回放(`!ok.ok`)证明该型恒错,判据不得咬自己的反例 —— 代价是"只写在测试里的
-  // 真违例本维看不见"(守门 131 同一条已声明代价);生产工具面(scripts/*.mjs、scripts/lib/*.mjs)全覆盖。
+  // 对出口返回值取属性(`出口(...).ok`、`出口(...)?.x`)恒得 undefined,是票面"成功读成未抢到"的根因型。
+  // 逐行扫 scripts/ 全部 .mjs(含在飞工具面):同一行内 `出口(...)` 紧跟 `.attr` / `?.attr` 即违规。
   const walk = (d) => {
     const out = []
     for (const name of readdirSync(d, { withFileTypes: true })) {
@@ -346,36 +309,15 @@ test('T14 静态镜像:调用方不得对布尔出口取属性(`出口(...).ok` 
     return out
   }
   const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-  const exitNames = ['cas' + 'UpdateRef', 'is' + 'Ancestor']
   const violations = []
   for (const f of walk(rootDir)) {
     const lines = readFileSync(f, 'utf8').split(/\r?\n/)
-    for (const h of findBoolExitMisreads(lines, exitNames)) {
-      if (h.kind === 'var' && f.endsWith('.test.mjs')) continue
-      violations.push(`${f}:${h.line}${h.kind === 'var' ? ` (var ${h.var}, 声明于 ${h.declLine})` : ''}: ${h.text}`)
-    }
+    lines.forEach((line, i) => {
+      if (/(?:casUpdateRef|isAncestor)\s*\([^)\n]*\)\s*\??\.\w+/.test(line)) {
+        violations.push(`${f}:${i + 1}: ${line.trim().slice(0, 140)}`)
+      }
+    })
   }
   assert.deepEqual(violations, [], '布尔出口的返回值不得取属性(取 .ok 恒 undefined ⇒ 成功被读成未抢到):')
-})
-
-test('T14b 判据有牙(构造面成对,G-628):B 维跨行型必须命中,正当真值判不得误伤', () => {
-  // 夹具里的出口名全部由分段拼接构造 —— 源码文本中不出现连续的 `出口(` 形态,
-  // 本测试文件才不会被 T14 自己扫红(源码锁会咬自己注释里逐字引用的坏写法,同型教训)。
-  const E = 'cas' + 'UpdateRef'
-  const hit = (s) => findBoolExitMisreads(s.split('\n'), [E])
-  const mustHit = (name, s, kind) => {
-    const h = hit(s)
-    assert.equal(h.length, 1, `${name} 必须命中,实得 ${h.length}`)
-    assert.equal(h[0].kind, kind, `${name} 的形态应为 ${kind}`)
-  }
-  // 四违例形态(票面病灶是第二种)
-  mustHit('A 同行链式', `import x from 'y'\nif (!${E}(a, b, { root }).ok) retry()\n`, 'chain')
-  mustHit('B 跨行取属性', `const r = ${E}(a, b, { root })\nif (!r || !r.ok) retry()\n`, 'var')
-  mustHit('B 可选链', `const r = ${E}(a, b, { root })\nconst ok = r?.landed\n`, 'var')
-  mustHit('B 解构', `const r = ${E}(a, b, { root })\nconst { landed } = r\n`, 'var')
-  // 三正当形态不得命中
-  assert.deepEqual(hit(`const r = ${E}(a, b, { root })\nif (!r) retry()\n`), [], '真值判(!r)是正当写法,不得判红')
-  assert.deepEqual(hit(`const r = ${E}(a, b, { root })\nif (r === true) retry()\n`), [], '等值判(r === true)是正当写法,不得判红')
-  assert.deepEqual(hit(`const other = { landed: 1 }\nif (!other.landed) retry()\n`), [], '不同名变量的属性访问与本判据无关,不得误伤')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

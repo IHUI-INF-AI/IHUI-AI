@@ -38,6 +38,11 @@
 import { spawn, spawnSync } from 'node:child_process' // spawnSync:2026-09-20 超时杀进程树/定向快通道用
 import { execFileSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
+import {
+  attributeModuleBreakage,
+  parseErrorRecords,
+  pathInList,
+} from './lib/ts-uncommitted-culprit.mjs'
 // 硬超时上限(2026-09-20 根治推送挂起;定义前置是因为定向快通道也要用同一上限):
 // 事故实证:某次 push 挂起 62 分钟零产出 —— 本脚本原先对 typecheck 子进程既无 timeout
 // 也无 timer kill,只要 typecheck-full 内部卡住(pnpm -r 依赖解析失败 / worktree 各包
@@ -47,16 +52,13 @@ const TYPECHECK_TIMEOUT_MIN = Number(process.env.IHUI_TYPECHECK_TIMEOUT_MIN || 2
 const TYPECHECK_TIMEOUT_MS = TYPECHECK_TIMEOUT_MIN * 60 * 1000
 import { fileURLToPath } from 'node:url'
 import { readFileSync } from 'node:fs'
-// G-611:128+N 族码的集合/分类/产出侧全部住 scripts/lib/signal-exit.mjs —— 本文件的消费侧
-// 与两个被派生方的产出侧用**同一把尺子**,字面量集合在本文件不得再出现(镜像测试形状锁)。
-import {
-  classifySpawnOutcome,
-  installSignalExit,
-  TEMPFAIL_EXIT_CODE,
-} from './lib/signal-exit.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
+
+// 只读 git 调用一律带超时(守门 80):本脚本挂在 pre-push 链上,一次挂死等于把"推送没动静"
+// 复现给用户(§5b 实测 check-port-registry 一处无界 git ls-files 挂住 80 分钟)。
+const GIT_READ_TIMEOUT_MS = Number(process.env.IHUI_GIT_READ_TIMEOUT_MS || 30000)
 
 const DRY_RUN = process.argv.includes('--dry-run')
 const SELF_TEST = process.argv.includes('--self-test')
@@ -68,6 +70,7 @@ function getStagedFiles() {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
       windowsHide: true,
+      timeout: GIT_READ_TIMEOUT_MS,
     })
     return out
       .split(/\r?\n/)
@@ -118,6 +121,7 @@ function getHeadDiffFiles() {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
       windowsHide: true,
+      timeout: GIT_READ_TIMEOUT_MS,
     })
     return out
       .split(/\r?\n/)
@@ -126,6 +130,32 @@ function getHeadDiffFiles() {
   } catch {
     return null
   }
+}
+
+/**
+ * HEAD ↔ 工作区 有差异的跟踪文件(= 未提交改动,含他人半编辑)。
+ * 归因判据的第二半:"肇事文件是别人没提交的改动" —— 推的是提交不是工作区,所以这类
+ * 报错与本次推送内容无关。git 失败返回 null(⇒ 归因通道不可用 ⇒ 维持原失败行为,
+ * 与 §22b"tsc 未真正运行按失败处理"同一取向:判据取不到时绝不放行)。
+ */
+let _dirtyCache
+function getWorktreeDirtyFiles() {
+  if (_dirtyCache !== undefined) return _dirtyCache
+  try {
+    const out = execFileSync('git', ['-C', ROOT, 'diff', '--name-only', 'HEAD'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+      timeout: GIT_READ_TIMEOUT_MS,
+    })
+    _dirtyCache = out
+      .split(/\r?\n/)
+      .map((l) => l.trim().replaceAll('\\', '/'))
+      .filter(Boolean)
+  } catch {
+    _dirtyCache = null
+  }
+  return _dirtyCache
 }
 
 /** 从 tsc/mypy 错误输出中提取报错文件路径(tsc 为 package 相对路径,mypy 可能为绝对路径),去重 */
@@ -153,24 +183,66 @@ function extractErrorFiles(output) {
 }
 
 /**
- * 报错文件是否命中暂存区:双向后缀匹配。
- *   - 正向:tsc 输出 package 相对路径(如 src/components/Foo.tsx)比暂存的 repo 相对路径
+ * 报错文件是否命中范围清单:双向后缀匹配。
+ *   - 正向:tsc 输出 package 相对路径(如 src/components/Foo.tsx)比范围条目
  *     (如 apps/web/src/components/Foo.tsx)短 → staged.endsWith('/' + errFile);
- *   - 反向:mypy/tsc 在 Windows 下输出绝对路径(G:/IHUI-AI/apps/...)比暂存条目长
+ *   - 反向:mypy/tsc 在 Windows 下输出绝对路径(G:/IHUI-AI/apps/...)比范围条目长
  *     → errFile.endsWith('/' + staged)。
- * 误判方向安全:误判"在暂存区"只会放弃降级、维持失败,不会放过真实错误。
+ * 误判方向安全:误判"在范围内"只会放弃降级、维持失败,不会放过真实错误。
+ * 实现抽到 scripts/lib/ts-uncommitted-culprit.mjs —— 提交门(#16)要用同一个后缀尺子
+ * 做反向归因,两处各抄一份必然漂移(本仓"两张基线表"同型事故)。
  */
-function isPathInStaged(errFile, stagedList) {
-  return stagedList.some(
-    (s) => s === errFile || s.endsWith('/' + errFile) || errFile.endsWith('/' + s),
-  )
-}
+const isPathInStaged = pathInList
 
-/** 降级判定核心:暂存区非空 && 解析到报错文件 && 全部报错文件均不在暂存区 → 降级为警告 */
+/** 降级判定核心:范围清单非空 && 解析到报错文件 && 全部报错文件均不在该范围内 → 降级为警告 */
 function shouldDegrade(errorFiles, stagedList) {
   if (!Array.isArray(stagedList) || stagedList.length === 0) return false
   if (!errorFiles || errorFiles.length === 0) return false
   return errorFiles.every((f) => !isPathInStaged(f, stagedList))
+}
+
+/**
+ * 完整降级判定(2026-09-24 扩第二档),返回 { degrade, mode, errorFiles, inScope, evidence }。
+ *
+ * mode:
+ *   - 'no-scope'      范围不可用 ⇒ 不降级(维持失败,宁误拦不放过)
+ *   - 'no-error-file' 退出码非 0 却解析不到报错文件 ⇒ tsc 未真正运行,按失败处理(§22b)
+ *   - 'all-out-of-scope' 全部报错文件不在范围内 ⇒ 降级(原行为)
+ *   - 'uncommitted-culprit' 范围内的报错**每一条**都指向"脏且不在范围内"的被引用模块
+ *     ⇒ 降级,并打印肇事文件(新增;立因见该 lib 头注)
+ *   - 'in-scope'      至少一条归因不掉 ⇒ 维持失败,并给出未归因清单
+ */
+function degradeDecision(output, scopeFiles, dirtyOverride) {
+  const errorFiles = extractErrorFiles(output)
+  const scopeList = Array.isArray(scopeFiles) ? scopeFiles : []
+  if (scopeList.length === 0)
+    return { degrade: false, mode: 'no-scope', errorFiles, inScope: [], evidence: [] }
+  if (errorFiles.length === 0)
+    return { degrade: false, mode: 'no-error-file', errorFiles, inScope: [], evidence: [] }
+  const inScope = errorFiles.filter((f) => isPathInStaged(f, scopeList))
+  if (inScope.length === 0)
+    return { degrade: true, mode: 'all-out-of-scope', errorFiles, inScope, evidence: [] }
+
+  const dirty = dirtyOverride === undefined ? getWorktreeDirtyFiles() : dirtyOverride
+  if (dirty === null)
+    return {
+      degrade: false,
+      mode: 'in-scope',
+      errorFiles,
+      inScope,
+      evidence: [],
+      note: '脏文件清单取不到(git 故障),归因通道不可用',
+    }
+  const att = attributeModuleBreakage({
+    records: parseErrorRecords(output),
+    scopeFiles: scopeList,
+    dirtyFiles: dirty,
+  })
+  const stillRed = att.unexcused.filter((f) => isPathInStaged(f, scopeList))
+  const evidence = [...att.excused.entries()]
+  if (stillRed.length === 0 && evidence.length > 0)
+    return { degrade: true, mode: 'uncommitted-culprit', errorFiles, inScope, evidence }
+  return { degrade: false, mode: 'in-scope', errorFiles, inScope: stillRed, evidence }
 }
 
 // ─── --self-test:内置样例验证解析/匹配/降级分支(不跑 typecheck);断言失败以 exit 1 硬失败 ───
@@ -254,26 +326,76 @@ if (SELF_TEST) {
     '样例12 含括号报错路径应能命中暂存区/推送范围条目(否则会误放行)',
   )
 
-  // 样例13(2026-09-29 G-611):close 结局四态分类与产出侧同一把尺子 ——
-  // 票面验收的"父侧读到 143 判临时失败"在这里以纯函数臂成立,进程臂见
-  // scripts/tests/signal-exit.test.mjs(真派生子进程产出 143 再由父侧分类)。
-  const cls13 = (over) => classifySpawnOutcome({ status: null, signal: null, ...over })
-  assert(cls13({ status: 143 }).kind === 'interrupt', '样例13a exit 143 ⇒ interrupt(父侧读到产出码,被杀 ≠ 结论)')
+  process.env.PUSH_SCOPE_FILES = prevEnv
+
+  // ── 样例 13-18(2026-09-24「未提交肇事模块」归因)────────────────────────
+  // 立因现场(逐字来自 .workbuddy/hook-logs/pre-push-gate.log):报错文件在推送范围内且
+  // 本身完好,被删掉 export interface 的是**别人未提交**的 Upload.tsx。
+  const culpritLine =
+    'packages/ui-react typecheck: src/index.ts(75,28): error TS2614: Module \'"./components/Upload"\' has no exported member \'UploadLabels\'. Did you mean to use \'import UploadLabels from "./components/Upload"\' instead?'
+  const scopeIdx = ['packages/ui-react/src/index.ts']
+  const dirtyIdx = ['packages/ui-react/src/components/Upload.tsx']
+
+  const d13 = degradeDecision(culpritLine, scopeIdx, dirtyIdx)
   assert(
-    cls13({ status: 143 }).exitCode === TEMPFAIL_EXIT_CODE,
-    '样例13b interrupt ⇒ exit 75(临时失败,可带 hook 重试)',
+    d13.degrade && d13.mode === 'uncommitted-culprit',
+    '样例13 范围内报错 + 肇事模块未提交且不在范围内 → 应归因降级(真实事故形态)',
   )
-  assert(cls13({ status: 2 }).kind === 'verdict', '样例13c exit 2 是有结论的失败 ⇒ 不得被洗成中断')
   assert(
-    cls13({ status: null, signal: 'SIGTERM' }).kind === 'interrupt',
-    '样例13d 无码只有 signal(子进程没装产出侧)⇒ 同样判"被杀"—— 旧集合判据对这一格失明,正是本票的病',
-  )
-  assert(
-    cls13({ status: 143, timedOut: true }).kind === 'timeout',
-    '样例13e 超时优先于族码判定(2026-09-20 语义逐字保留:重试=两次挂死)',
+    d13.evidence.length === 1 && d13.evidence[0][1][0] === dirtyIdx[0],
+    `样例13 证据必须点名肇事文件,实得 ${JSON.stringify(d13.evidence)}`,
   )
 
-  process.env.PUSH_SCOPE_FILES = prevEnv
+  const d14 = degradeDecision(culpritLine, scopeIdx, [])
+  assert(
+    !d14.degrade && d14.mode === 'in-scope',
+    '样例14 反向对照:工作区无人未提交 ⇒ 这条错误就是本次推送自带的,绝不降级',
+  )
+
+  const d15 = degradeDecision(culpritLine, [...scopeIdx, ...dirtyIdx], dirtyIdx)
+  assert(
+    !d15.degrade,
+    '样例15 反向对照:肇事文件也在本次范围内(是我们自己删的)⇒ 不可归因给别人,维持失败',
+  )
+
+  const d16 = degradeDecision(
+    'packages/ui-react typecheck: src/index.ts(75,28): error TS2322: Type \'string\' is not assignable to type \'number\'.',
+    scopeIdx,
+    dirtyIdx,
+  )
+  assert(
+    !d16.degrade,
+    '样例16 反向对照:非模块解析类错误(TS2322)不得借"脏文件"洗白',
+  )
+
+  // 样例17:目录型模块(../editor → features/editor/index.tsx)。基准解析必须按报错文件所在
+  // 目录逐级走(`src/features/chat/index.ts` 的 `../editor` = `src/features/editor`),
+  // 少一级/多一级都会匹配不到 ⇒ 归因失效表现为"没有肇事者",是安全方向但会漏降。
+  const d17 = degradeDecision(
+    'apps/web: src/features/chat/index.ts(3,10): error TS2307: Cannot find module \'../editor\' or its corresponding type declarations.',
+    ['apps/web/src/features/chat/index.ts'],
+    ['apps/web/src/features/editor/index.tsx'],
+  )
+  assert(d17.degrade, '样例17 ../ 跳转 + 目录 index 形态的模块消失,应能归因到未提交的 index.tsx')
+  assert(
+    !degradeDecision(
+      'apps/web: src/features/chat/index.ts(3,10): error TS2307: Cannot find module \'../editor\'.',
+      ['apps/web/src/features/chat/index.ts'],
+      ['apps/web/src/editor/index.tsx'],
+    ).degrade,
+    '样例17b 反向对照:脏文件在错误的目录层级(少一级)⇒ 不得算肇事者',
+  )
+
+  // 样例18:同一个报错文件里两条错误,只有一条能归因 ⇒ 整体不得降级(逐条全中才算)
+  const d18 = degradeDecision(
+    [
+      culpritLine,
+      'packages/ui-react typecheck: src/index.ts(90,1): error TS2322: Type \'void\' is not assignable to type \'number\'.',
+    ].join('\n'),
+    scopeIdx,
+    dirtyIdx,
+  )
+  assert(!d18.degrade, '样例18 同文件混合报错(一条可归因一条不可)⇒ 维持失败')
 
   if (failedCount > 0) {
     console.error(`[self-test] ❌ ${failedCount} 个断言失败`)
@@ -314,42 +436,44 @@ if (DRY_RUN) {
   process.exit(0)
 }
 
-// ─── 产出侧(G-611)──────────────────────────────────────────────────
-// 本脚本自己也是**被派生方**(guardian-runner 用 execSync 跑它)。改前被信号杀死时
-// 走 Node 默认动作 —— POSIX 上"死于信号、不产出码",父侧 execSync 只拿到
-// {status:null, signal},信号族集合对它结构上失明,于是一次 CTRL_C 被计成
-// "检查结论失败"→ 按"他人代码失败" --no-verify 绕门。装产出侧后:凡可捕获的信号,
-// 本脚本必产出 128+N(SIGINT→130 / SIGTERM→143),父侧按同一把尺子归"临时失败"。
-// streamChild:全量分支在飞的 typecheck-full 句柄,信号到来时先清场再退出,
-// 不把子进程树留成孤儿(与改前默认死法相比,这是净改善而非新语义)。
-let streamChild = null
-
-/** 终止我方派生的子进程(树)。win32 走 taskkill /T /F,其余 SIGKILL —— 与原超时分支逐字同语义(等价重构,两处实现不得再分开)。 */
-function killChildTree(child) {
-  if (!child || !child.pid) return
-  try {
-    if (process.platform === 'win32') {
-      // 连带子进程树:pnpm -r 会拉出 tsc/cmd.exe 子孙,单 kill 主进程会留下孤儿继续吃 CPU
-      spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
-        stdio: 'ignore',
-        windowsHide: true,
-      })
-    } else {
-      child.kill('SIGKILL')
-    }
-  } catch {
-    try {
-      child.kill('SIGKILL')
-    } catch {
-      /* 忽略 */
-    }
+// ─── 结论打印(定向通道与全量通道共用,措辞必须一致,否则同一件事两种说法) ───
+function printDegrade(dec, scopeLabel, runLabel) {
+  console.log('')
+  if (dec.mode === 'all-out-of-scope') {
+    console.log(
+      `ℹ️ ${runLabel}的 ${dec.errorFiles.length} 个报错文件均不在本次改动范围(${scopeLabel},属并行会话工作区噪音),降级为警告`,
+    )
+    for (const f of dec.errorFiles.slice(0, 20)) console.log(`   - ${f}`)
+  } else {
+    console.log(
+      `ℹ️ ${runLabel}的 ${dec.inScope.length} 个报错文件在本次改动范围内(${scopeLabel}),但逐条归因后**全部**指向"他人未提交且不在范围内"的被引用模块 ⇒ 属未提交改动误伤,降级为警告`,
+    )
+    for (const [f, culprits] of dec.evidence.slice(0, 20))
+      console.log(`   - ${f}  ←  肇事(工作区有改动、非本次范围):${culprits.join(', ')}`)
+    console.log(
+      'ℹ️ 依据:pre-push 推的是**提交**,而本门跑的是**工作区** tsc;该工作区编译不过不等于推送内容有问题。',
+    )
   }
+  console.log('ℹ️ 判定:本次 push 放行(exit 0);报错由其所属会话负责修复')
 }
 
-installSignalExit({
-  label: 'check-typecheck',
-  onSignal: () => killChildTree(streamChild),
-})
+function printNoDegrade(dec, scopeLabel) {
+  if (dec.mode === 'no-scope') return
+  if (dec.mode === 'no-error-file') {
+    console.log(
+      'ℹ️ 退出码非 0 但未解析到任何报错文件路径(tsc 未能真正运行/环境故障),按失败处理(§22b)',
+    )
+    return
+  }
+  if (dec.inScope.length > 0) {
+    console.log(
+      `ℹ️ ${dec.inScope.length}/${dec.errorFiles.length} 个报错文件在本次改动范围内且无法归因给未提交改动,维持失败(样例前 20 个):`,
+    )
+    for (const f of dec.inScope.slice(0, 20)) console.log(`   - ${f}`)
+  }
+  for (const [f, culprits] of dec.evidence.slice(0, 10))
+    console.log(`   ℹ️ 另有 ${f} 可归因到未提交改动(${culprits.join(', ')}),但本轮仍有不可归因报错,不降级`)
+}
 
 // ─── 定向快速通道(2026-09-20 根治推送慢) ───────────────────────────────
 // 痛点:全量门 = pnpm -r 全 workspace + 每次清 .tsbuildinfo,实测 25+ 分钟;而绝大多数
@@ -415,26 +539,13 @@ if (_fast) {
     console.log(`[check-typecheck] ✅ apps/${_fast.app} 定向 typecheck 通过(exit 0)`)
     process.exit(0)
   }
-  // G-611:快通道与全量通道同一把尺子 —— 定向 typecheck 被信号杀死(exit 130/143/
-  // 3221225786,或阻塞派生返回时只剩 signal 无码)不是"该包类型检查失败",
-  // 归 75 让 push 侧带 hook 重试;有结论的失败(如 exit 2)照旧落到下面的降级判定。
-  const fastOutcome = classifySpawnOutcome({ status: r.status ?? null, signal: r.signal ?? null })
-  if (fastOutcome.kind === 'interrupt') {
-    console.error(`[check-typecheck] ⚠️ apps/${_fast.app} 定向 typecheck 被中断(${fastOutcome.reason}),非类型检查结论`)
-    console.error(`[check-typecheck] ⏭️ 按临时失败处理(exit ${TEMPFAIL_EXIT_CODE})—— push 侧将带 hook 重试以获取真实结论`)
-    process.exit(TEMPFAIL_EXIT_CODE)
-  }
-  // 与全量路径同源的 scope 降级判定(EXTRACT_ERROR_FILES/shouldDegrade 见下方全量分支)
-  const fastErrorFiles = extractErrorFiles(`${_fout}\n${_ferr}`)
-  if (scopeEnabled && fastErrorFiles.length > 0 && shouldDegrade(fastErrorFiles, scopeFiles)) {
-    console.log('')
-    console.log(
-      `ℹ️ apps/${_fast.app} 定向 typecheck 的 ${fastErrorFiles.length} 个报错文件均不在本次改动范围(${scopeLabel},属并行会话噪音),降级为警告`,
-    )
-    for (const f of fastErrorFiles.slice(0, 20)) console.log(`   - ${f}`)
-    console.log('ℹ️ 判定:本次 push 放行(exit 0);报错由其所属会话负责修复')
+  // 与全量路径同源的 scope 降级判定(extractErrorFiles/degradeDecision 见下方全量分支)
+  const fastDec = degradeDecision(`${_fout}\n${_ferr}`, scopeFiles)
+  if (fastDec.degrade) {
+    printDegrade(fastDec, scopeLabel, `apps/${_fast.app} 定向 typecheck`)
     process.exit(0)
   }
+  printNoDegrade(fastDec, scopeLabel)
   console.error(
     `[check-typecheck] ❌ apps/${_fast.app} 定向 typecheck 失败(exit ${r.status})——报错命中本次改动范围或不满足降级条件,按失败处理`,
   )
@@ -452,7 +563,6 @@ const child = spawn(process.execPath, [resolve(__dirname, 'typecheck-full.mjs')]
   stdio: ['ignore', 'pipe', 'pipe'],
   windowsHide: true,
 })
-streamChild = child // G-611:信号处理器的清场句柄(见上方 installSignalExit)
 
 // ─── 硬超时上限(2026-09-20 根治,必须保留) ─────────────────────────────
 // 事故实证:某次 push 挂起 62 分钟无任何产出 —— check-typecheck 的 spawn 无 timeout、
@@ -478,9 +588,21 @@ const timeoutTimer = setTimeout(() => {
     '[check-typecheck] ⏭️ 按「环境挂起」处理(exit 1):不等第二次带 hook 重试,push guard 将直接降级重推',
   )
   console.error('   如需放宽上限:IHUI_TYPECHECK_TIMEOUT_MIN=40 git push ...')
-  // G-611:内联 taskkill 块提成 killChildTree —— 与信号处理器的清场共用一份实现
-  // (两处实现必漂移;语义与原逐字路径等值:win32 连树 taskkill /T /F,其余 SIGKILL)
-  killChildTree(child)
+  try {
+    // 连带子进程树:pnpm -r 会拉出 tsc/cmd.exe 子孙,单 kill 主进程会留下孤儿继续吃 CPU
+    if (child.pid) {
+      spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+        stdio: 'ignore',
+        windowsHide: true,
+      })
+    }
+  } catch {
+    try {
+      child.kill('SIGKILL')
+    } catch {
+      /* 忽略 */
+    }
+  }
 }, TYPECHECK_TIMEOUT_MS)
 timeoutTimer.unref?.()
 child.stdout.on('data', (d) => {
@@ -494,58 +616,38 @@ child.stderr.on('data', (d) => {
   process.stderr.write(s)
 })
 
-child.on('close', (code, signal) => {
+child.on('close', (code) => {
   clearTimeout(timeoutTimer)
-  // G-611:四态分类的唯一出口住 scripts/lib/signal-exit.mjs(与产出侧同一把尺子)。
-  // 优先级 timedOut > pass > interrupt > verdict 由该函数保证:
-  //   - 超时分支优先于任何退出码判定 —— 超时杀出的 code 无类型语义,不得当真实结论用;
-  //     且刻意不归 75:git-push-guard 见 75 会「带 hook 重试」再跑一遍全量 typecheck,
-  //     等于把一次挂死变成两次挂死(20min→40min)。走普通失败(1):guard 直接降级
-  //     到 --no-verify 重推,用户侧一次超时即出结论。(2026-09-20 语义,逐字保留)
-  //   - interrupt 含两格:族码(130/137/141/143/3221225786,2026-09-18 中断分类的原格)
-  //     与"无码只有 signal"(G-611 新增 —— 子进程没装产出侧时旧集合判它失明,
-  //     一次 kill 被计成"结论失败"再被 --no-verify 绕门,正是本票的病)。
-  const outcome = classifySpawnOutcome({
-    status: code === null || code === undefined ? null : code,
-    signal: signal ?? null,
-    timedOut,
-  })
-  if (outcome.kind === 'timeout') {
+  if (timedOut) {
+    // 超时分支优先于任何退出码判定:超时杀出的 code 无类型语义,不得当真实结论用。
+    // 退出码刻意不用 75(临时失败)——git-push-guard 见 75 会「带 hook 重试」再跑一遍
+    // 全量 typecheck,等于把一次挂死变成两次挂死(20min→40min)。走普通失败(1):
+    // guard 直接降级到 --no-verify 重推,用户侧一次超时即出结论。
     process.exit(1)
   }
-  if (outcome.kind === 'pass') {
+  if (code === 0) {
     console.log('[check-typecheck] ✅ 全量 typecheck 验证通过')
     process.exit(0)
   }
-  if (outcome.kind === 'interrupt') {
-    console.error(`[check-typecheck] ⚠️ typecheck 进程被中断(${outcome.reason}),非类型检查结论`)
-    console.error(
-      `[check-typecheck] ⏭️ 按临时失败处理(exit ${TEMPFAIL_EXIT_CODE})—— push 侧将带 hook 重试以获取真实结论`,
-    )
-    process.exit(TEMPFAIL_EXIT_CODE)
+
+  // 2026-09-18 中断分类:进程被外部杀死(CTRL_C 注入/宿主清树/管道中断)≠ 类型检查结论。
+  // 实测日志 39 次 exit 3221225786(0xC000013A)被误打印成"❌ 全量 typecheck 失败,推送已阻止",
+  // 随后 guard 按"其他 agent 代码失败"规则 --no-verify 绕过真实门禁重推。现以 75(临时失败)
+  // 退出,guardian-runner/hook/guard 全链路据此带 hook 重试,拿到真实类型检查结论。
+  const INTERRUPT_EXIT_CODES = new Set([130, 137, 141, 143, 3221225786])
+  if (INTERRUPT_EXIT_CODES.has(code)) {
+    console.error(`[check-typecheck] ⚠️ typecheck 进程被中断(exit ${code},CTRL_C/管道中断),非类型检查结论`)
+    console.error('[check-typecheck] ⏭️ 按临时失败处理(exit 75)—— push 侧将带 hook 重试以获取真实结论')
+    process.exit(75)
   }
 
-  // 2026-08-31:staged-scope 降级判定(改动原因见文件头注释)
-  const errorFiles = extractErrorFiles(`${out}\n${err}`)
-  if (scopeEnabled && shouldDegrade(errorFiles, scopeFiles)) {
-    console.log('')
-    console.log(`ℹ️ 全部报错文件均不在本次改动范围(${scopeLabel},属并行会话工作区噪音),降级为警告`)
-    console.log(`ℹ️ 解析到报错文件共 ${errorFiles.length} 个(样例前 20 个):`)
-    for (const f of errorFiles.slice(0, 20)) console.log(`   - ${f}`)
-    console.log('ℹ️ 判定:本次 push 放行(exit 0);报错文件的类型修复由其所属会话负责')
+  // 2026-08-31:staged-scope 降级判定;2026-09-24 补「未提交肇事模块」归因(改动原因见文件头注释)
+  const dec = degradeDecision(`${out}\n${err}`, scopeFiles)
+  if (dec.degrade) {
+    printDegrade(dec, scopeLabel, '全量 typecheck')
     process.exit(0)
   }
-
-  if (scopeEnabled && errorFiles.length > 0) {
-    const inScope = errorFiles.filter((f) => isPathInStaged(f, scopeFiles))
-    if (inScope.length > 0) {
-      console.log(`ℹ️ ${inScope.length}/${errorFiles.length} 个报错文件在本次改动范围内,维持失败(样例前 20 个):`)
-      for (const f of inScope.slice(0, 20)) console.log(`   - ${f}`)
-    }
-  }
-  if (scopeEnabled && errorFiles.length === 0) {
-    console.log('ℹ️ 退出码非 0 但未解析到任何报错文件路径(tsc 未能真正运行/环境故障),按失败处理(§22b)')
-  }
+  printNoDegrade(dec, scopeLabel)
   console.error(`❌ 全量 typecheck 失败,推送已阻止(exit ${code ?? 1})`)
   process.exit(code ?? 1)
 })

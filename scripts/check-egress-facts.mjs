@@ -25,9 +25,6 @@
  *
  * 取材口径(本仓通行):全量判 **HEAD blob**、`--staged` 判**索引 blob**、`--worktree` 仅人工逃生舱;
  * 清单与内容同面同轮;取不到 ⇒ **exit 2「无法判定」**(既不冒红也不记绿);枚举到 0 个文件判死。
- * 实现一律经 `scripts/lib/face-reader.mjs`(2026-09-27 由"常量绑裸 git + 自派生 git show"迁移过来):
- * 正文走 `catBatch` / `readWorktreeFile`,枚举走 `gitRaw`,仓库根比对走 `assertRepoRoot` ——
- * **判什么一个字没改**,只把"从哪张面、用什么管子取"交给那一份共用实现(守门 118 的半接线那一型)。
  * 棘轮:每文件额度 = **该文件在本次取材面自身的违规数**(`--update-baseline` 收紧),
  * 只拦"这次改动把绕档加回来了",不拦仓库既有债 —— 与改动无关的恒红只会逼人 `--no-verify`。
  *
@@ -41,15 +38,12 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
-import { assertRepoRoot, catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+
+import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 
 const SELF_URL = import.meta.url
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_PATH = resolve(ROOT, 'scripts/egress-facts-baseline.json')
-/** 与迁移前自己那次派生的 timeout 同值(层默认 60s;全量档一次批量读满一批要给足余量)。 */
-const GIT_TIMEOUT = 120_000
-/** 交给 `catBatch` 的缓冲区上限;层内部还按字节装箱,所以这不是"一次读完整棵树"的内存赌注。 */
-const CAT_MAX_BUFFER = 1 << 29
 
 /** 被认作"已带出口事实"的两个出口名。*/
 const WRAPPER_NAMES = ['fetchWithTimeout', 'proxiedFetch']
@@ -152,10 +146,9 @@ function hostInDomainSet(host, domains) {
 
 /**
  * 单文件判据核心:hard(计红) + undetermined(只报数)。
- * 入参仍由调用方带 `path`(测试与 main 都传),但本函数从不读它 —— 2026-09-27 随本票从签名里去掉,
- * 因为 eslint 的 no-unused-vars 把它算成 error,而本文件一旦进暂存区就会被 lint-staged 的
- * `eslint --fix` 挡下 ⇒ 守门批根本不跑(§12 归因那一条记过同型)。判据一字未动。
  * @param vendorDomains 厂商域名数组(小写)
+ * 调用方传的 `path` 本函数不参与判定(归集红点时由调用方按文件记账),故不再 destructuring 进来
+ * —— 它此前以未使用形参的形式挂在签名上,是 eslint 的两枚存量红之一。
  */
 function analyzeFile({ content, vendorDomains }) {
   const hard = []
@@ -220,8 +213,8 @@ function deriveVendorDomains({ sources }) {
  *  - 枚举到 0 个文件(空扫) ⇒ 2
  *  - 三张域名表一条都没推出值(判据失去依据) ⇒ 2
  * 单个来源为空只降级为警告并如实点名(上游改表名不该让本门罢工 —— 那等于把门换成常闭)。
- * 出处清单由 main 打印,本函数从不读它 —— 同 analyzeFile,2026-09-27 随本票从解构签名去掉以清掉
- * HEAD 就带着的 eslint error;调用方照旧传 `provenance`,判据与退出码一字未动。
+ * `provenance` 由 main() 直接打印,不参与本纯函数的退出码决策,故不再 destructuring 进来
+ * (此前是 eslint 报的第二枚未使用形参)。
  */
 function decide({ verdicts, undetermined, enumerated, domainCount }) {
   const reasons = []
@@ -234,29 +227,31 @@ function decide({ verdicts, undetermined, enumerated, domainCount }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 取材(一律经 scripts/lib/face-reader.mjs;本文件不再自己派生任何进程)
+// git 取材
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * 枚举类调用:只问"哪些路径在这张面上",**不取 blob 正文**(正文一律走 readContentMap)。
- * 失败一律折成 null,与迁移前那次带 allowFail 的派生**逐字同语义** —— 包括 grep 无命中回 rc=1
- * 这一支(迁移前它同样落到 catch ⇒ 调用方"退回全量读取")。层抛的 Undetermined 不在这里被读成
- * "没有命中":那会把取数故障写成业务结论(本仓"把没判写成判过了"那一型)。
+ * 非正文的 git 派生(枚举 / 预筛 / rev-parse)一律经取材层的 `gitRaw` —— 绝对路径 git、
+ * quotepath、timeout、windowsHide 全在层里一处收口。旧写法是
+ * `const GIT_BIN = process.env.GIT_BIN || 'git'`,即**把常量绑到裸 'git'**:钩子/服务
+ * 身份的 PATH 里没有 git 时它直接失败(AGENTS §5b 记过"服务身份与交互账户环境互不相通"),
+ * 而守门 80 的无界派生、守门 118 的取材面纪律也都由这一次收口顺带满足。
+ * 契约逐字不变:allowFail ⇒ null;否则抛同样文案的 Error(镜像测试与调用方都按文案判)。
  */
-function gitList(args) {
+function git(args, { allowFail = false } = {}) {
   try {
-    return gitRaw(args, ROOT, { timeout: GIT_TIMEOUT })
+    return gitRaw(args, ROOT, { timeout: 120_000, maxBuffer: 64 * 1024 * 1024 })
   } catch {
-    return null
+    if (allowFail) return null
+    throw new Error(`git ${args.join(' ')} 失败`)
   }
 }
 
 /**
  * 预筛:只把"含任一厂商域名字面量"的文件送去逐文件读取。
  *
- * 为什么必须预筛:本仓 HEAD 在判定面内有近 1000 个文件,全部取正文再逐文件解析会让一道门跑到
- * 分钟级(即使经层只派生一次,1000 次判据扫描仍在)—— 慢门的唯一结局和恒红门一样,是逼人
- * `--no-verify`(§12e 同型)。
+ * 为什么必须预筛:本仓 HEAD 在判定面内有近 1000 个文件,逐个 `git show` 会让一道门跑到分钟级 ——
+ * 慢门的唯一结局和恒红门一样,是逼人 `--no-verify`(§12e 同型)。
  * 安全性:判据要求"窗口内出现的 host 等于表内 d 或以 `.d` 结尾",这种 host 必然**含** d 作为子串,
  * 所以 `--fixed-strings -e d` 的命中集是判据所需内容的**严格超集**(筛不掉任何真违规)。
  * 预筛失败(不可用/报错)⇒ 退回全量读取并**如实说明**,不静默变成"什么都没扫"。
@@ -274,7 +269,7 @@ function prefilterArgs({ domains, staged }) {
 
 function prefilter({ files, domains, staged }) {
   if (!domains.length) return { set: null, note: '域名表为空,跳过预筛' }
-  const out = gitList(prefilterArgs({ domains, staged }))
+  const out = git(prefilterArgs({ domains, staged }), { allowFail: true })
   if (out === null) return { set: null, note: 'git grep 预筛不可用 → 退回全量读取' }
   const hits = new Set(
     out
@@ -292,19 +287,13 @@ function isSource(p) {
 /** 全量 = HEAD 树;staged = 索引相对 HEAD 有差异的跟踪文件(空则退全量,防"空暂存恒绿")。*/
 function enumerate({ staged }) {
   if (!staged) {
-    const out = gitList(['ls-tree', '-r', '--name-only', 'HEAD', '--', ...SCAN_PREFIXES])
+    const out = git(['ls-tree', '-r', '--name-only', 'HEAD', '--', ...SCAN_PREFIXES], { allowFail: true })
     if (out === null) return { files: null, note: 'HEAD 树读取失败' }
     return { files: out.split('\n').filter(isSource).map((p) => p), note: 'HEAD 全量清单' }
   }
-  const out = gitList([
-    'diff',
-    '--cached',
-    '--name-only',
-    '--diff-filter=ACMRT',
-    'HEAD',
-    '--',
-    ...SCAN_PREFIXES,
-  ])
+  const out = git(['diff', '--cached', '--name-only', '--diff-filter=ACMRT', 'HEAD', '--', ...SCAN_PREFIXES], {
+    allowFail: true,
+  })
   if (out === null) return { files: null, note: '索引 diff 读取失败' }
   const list = out.split('\n').filter(isSource)
   if (list.length === 0) {
@@ -315,36 +304,29 @@ function enumerate({ staged }) {
 }
 
 /**
- * 一次把一批路径的**正文**从当前取材面读满(层的 `catBatch` / `readWorktreeFile`,二者都是
- * 守门 118 认的"读取出口")。返回 `Map<path, text|undefined>`,`undefined` = 这一面取不到 ——
- * 与迁移前 `readFace` 的返回形状逐字一致,所以下游 `content === undefined ⇒ exit 2`
- * 和域名表"取不到只降级为 unavailable"这两条判据一个字都不用改。
- *
- * 两处如实登记的形状差(都由"把散写换成层"带来,不是判据改动):
- *  - 工作树档此前对**含 NUL 的文件**也照样 readFileSync 出一段乱码送去判据,层的
- *    `readWorktreeFile` 把它归"取不到" ⇒ 本门改判 exit 2 并点名。判定面只有 .ts/.tsx/.mts,
- *    真出现 NUL 属于文件坏了,判"无法判定"比拿乱码当源码判更对。
- *  - 整面派生失败(仓库问不到)此前表现为"每个文件都取不到"、第一条就折成 exit 2,
- *    现在由层直接抛 Undetermined,`main` 外面那层 catch 同样 exit 2 —— 退出码同形,消息更具体。
+ * 正文一律经取材层的批量读取入口一次读满,不再逐文件 `git show`:
+ * ① 层的 `gitRaw(['show', …])` 只共用管子、不共用面(§118 的 half-wired 正是这一型),
+ *    所以这里用 `catBatch`(面由调用方一次定死,枚举与内容同轮);
+ * ② 取不到的值留 `undefined`,由调用方按"无法判定"处置 —— 不冒红、不记绿、**不回落另一个面**。
+ * worktree 档走 `readWorktreeFile`(它是层给人工排查留的逃生舱,不是默认档)。
  */
-function readContentMap(paths, { staged, worktree }) {
-  const uniq = [...new Set(paths)]
-  const map = new Map()
+function prefetchTexts(paths, { staged, worktree }) {
+  const list = [...new Set(paths)]
+  const texts = new Map()
   if (worktree) {
-    for (const p of uniq) {
+    for (const p of list) {
       const t = readWorktreeFile(ROOT, p)
-      map.set(p, t === null ? undefined : t)
+      texts.set(p, typeof t === 'string' ? t : undefined)
     }
-    return map
+    return texts
   }
-  const rev = staged ? '' : 'HEAD'
-  const specs = uniq.map((p) => `${rev}:${p}`)
-  const got = catBatch(ROOT, specs, { maxBuffer: CAT_MAX_BUFFER, timeout: GIT_TIMEOUT })
-  for (let i = 0; i < uniq.length; i++) {
+  const specs = list.map((p) => `${staged ? ':' : 'HEAD:'}${p}`)
+  const got = catBatch(ROOT, specs, { maxBuffer: 64 * 1024 * 1024 })
+  list.forEach((p, i) => {
     const t = got.get(specs[i])
-    map.set(uniq[i], t === undefined || t === null ? undefined : t)
-  }
-  return map
+    texts.set(p, typeof t === 'string' ? t : undefined)
+  })
+  return texts
 }
 
 function loadBaseline() {
@@ -370,9 +352,8 @@ async function main(argv) {
     console.error('❌ --staged 与 --worktree 同时给出:两个取材面不得并存。')
     return 2
   }
-  const rootErr = checkRepoRoot()
-  if (rootErr !== null) {
-    console.error(`❌ 无法判定:仓库根与脚本位置不一致${rootErr ? `(${rootErr})` : ''}。`)
+  if (topLevelMismatch()) {
+    console.error('❌ 无法判定:仓库根与脚本位置不一致。')
     return 2
   }
   if (worktree) console.warn('⚠️ --worktree 判的是可能滞后的共享工作树,不是提交内容 —— 仅人工排查用。')
@@ -386,14 +367,9 @@ async function main(argv) {
 
   const face = worktree ? 'worktree' : staged ? 'index' : 'HEAD'
   const readOpts = { staged, worktree }
-  // 域名表先读(预筛要用推出来的域名),正文再读一批 —— 两次都在同一张面上(面由 readOpts 一次定死),
-  // 且**每条路径本次只取一遍**:迁移前 _shared.ts / proxy-dispatcher.ts 会被"域名表"与"正文循环"各取一次。
-  const domainTexts = readContentMap(
-    DOMAIN_TABLE_SOURCES.map((s) => s.file),
-    readOpts,
-  )
+  const tableTexts = prefetchTexts(DOMAIN_TABLE_SOURCES.map((s) => s.file), readOpts)
   const { domains, provenance } = deriveVendorDomains({
-    sources: DOMAIN_TABLE_SOURCES.map((s) => ({ ...s, text: domainTexts.get(s.file) })),
+    sources: DOMAIN_TABLE_SOURCES.map((s) => ({ ...s, text: tableTexts.get(s.file) })),
   })
 
   const enumResult = enumerate({ staged })
@@ -408,13 +384,9 @@ async function main(argv) {
   let undetermined = 0
   const pre = prefilter({ files, domains, staged })
   const toRead = pre.set ? files.filter((p) => pre.set.has(p)) : files
-  const bodyTexts = readContentMap(
-    toRead.filter((p) => !domainTexts.has(p)),
-    readOpts,
-  )
-  const textOf = (p) => (domainTexts.has(p) ? domainTexts.get(p) : bodyTexts.get(p))
+  const contents = prefetchTexts(toRead, readOpts)
   for (const path of toRead) {
-    const content = textOf(path)
+    const content = contents.get(path)
     if (content === undefined) {
       console.error(`❌ 无法判定:取材面 ${face} 上读不到 ${path}`)
       return 2
@@ -480,18 +452,10 @@ async function main(argv) {
   return result.exit
 }
 
-/**
- * 仓库根一致性判据交给层(`assertRepoRoot`:rev-parse --show-toplevel + 穿 junction 的 realpath 比对)。
- * 返回 null = 一致;返回字符串 = 不一致/问不到的原因,由调用方折成 exit 2「无法判定」。
- * 与迁移前逐字同结论:问不到(旧写法返 null、旧判据当"不一致")与根不匹配,两条都走 exit 2。
- */
-function checkRepoRoot() {
-  try {
-    assertRepoRoot(ROOT, '本门')
-    return null
-  } catch (e) {
-    return String(e?.message ?? e)
-  }
+function topLevelMismatch() {
+  const out = git(['rev-parse', '--show-toplevel'], { allowFail: true })
+  if (out === null) return true
+  return out.trim().replace(/\\/g, '/').toLowerCase() !== ROOT.replace(/\\/g, '/').toLowerCase()
 }
 
 export const __test__ = {
