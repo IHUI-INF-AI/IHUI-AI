@@ -37,6 +37,27 @@ export function isLedgerFailureCode(value: unknown): value is LedgerFailureCode 
 }
 
 /**
+ * b76-12g-3-40(G-998167):重试轴三档封闭集 —— 把「答不了」编进返回值。
+ *
+ * `LEDGER_FAILURE_CODES` 回答「这次请求为什么没成」,本集合回答「上层该不该再试」,
+ * 两轴正交、互不折叠(所以是**另一份**封闭集,而不是往失败码里塞三档):
+ *  - `unsupported`:对端结构上没这能力,重试永远不可能成功 —— 调用方据此**停止不可能成功的轮询**;
+ *  - `unavailable`:此刻没有实例/未就绪,稍后也许可以 —— 允许退避重试;
+ *  - `duplicate`:被 single-flight/去重拒绝 —— **不得当成新任务已入队**,不得向用户展示「已触发」。
+ *
+ * 与失败码同一纪律:封闭集、语义互不重叠;新增一档必须同时改这里的判据
+ * (`isLedgerRetryCode`)与分类出口,不允许用 message 文本区分成因。
+ */
+export const LEDGER_RETRY_CODES = ['unsupported', 'unavailable', 'duplicate'] as const
+
+export type LedgerRetryCode = (typeof LEDGER_RETRY_CODES)[number]
+
+/** 判断一个值是否合法重试档位(给分类出口用,不靠 as 断言)。 */
+export function isLedgerRetryCode(value: unknown): value is LedgerRetryCode {
+  return typeof value === 'string' && (LEDGER_RETRY_CODES as readonly string[]).includes(value)
+}
+
+/**
  * 台账里流转的失败。`code` 是封闭集原因码,`cause` 保留原始错误
  * (包装错误时丢原因 = 丢诊断能力)。
  */
