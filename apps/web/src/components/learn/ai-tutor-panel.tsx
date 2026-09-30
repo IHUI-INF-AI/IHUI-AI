@@ -12,22 +12,12 @@ import {
   explainConcept,
   getHint,
   generateQuiz,
-  getAiTutorHistory,
   type ExplainResult,
   type HintResult,
   type QuizResult,
-  type TutorContext,
-  type TutorHistoryItem,
 } from '@/api/edu-api'
 
 type Mode = 'explain' | 'hint' | 'quiz'
-
-export interface AiTutorPanelProps {
-  /** 所在课程/章节标题 — 作为 context.chapter 注入学科 persona prompt(2026-09-30,G-978072) */
-  chapterTitle?: string
-  /** 章节知识点 — 作为 context.knowledge_points 注入 */
-  knowledgePoints?: string[]
-}
 
 // 学科 value 是发给 /api/ai-tutor 系列接口的协议字面值(非界面文案,不得翻译),
 // 以 \u 转义书写避免界面硬编码中文进入语言包之外的通道;展示文案改由 labelKey 在渲染处 t() 取词。
@@ -55,7 +45,7 @@ const MODES: {
 const SUBJECT_CHIP =
   'rounded-md border border-border px-2.5 py-1 text-xs leading-none transition-colors hover:bg-accent'
 
-export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProps) {
+export function AiTutorPanel() {
   const t = useTranslations('learn.tutor')
   const [subject, setSubject] = React.useState<string>(SUBJECTS[0].value)
   const [mode, setMode] = React.useState<Mode>('explain')
@@ -65,30 +55,6 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
   const [explain, setExplain] = React.useState<ExplainResult | null>(null)
   const [hint, setHint] = React.useState<HintResult | null>(null)
   const [quiz, setQuiz] = React.useState<QuizResult | null>(null)
-  const [history, setHistory] = React.useState<TutorHistoryItem[]>([])
-
-  const loadHistory = React.useCallback(async () => {
-    try {
-      const d = await getAiTutorHistory(5)
-      setHistory(d.list ?? [])
-    } catch {
-      // 历史加载失败不打断主流程
-    }
-  }, [])
-
-  React.useEffect(() => {
-    void loadHistory()
-  }, [loadHistory])
-
-  const context: TutorContext = React.useMemo(
-    () => ({
-      ...(chapterTitle ? { chapter: chapterTitle } : {}),
-      ...(knowledgePoints && knowledgePoints.length > 0
-        ? { knowledge_points: knowledgePoints }
-        : {}),
-    }),
-    [chapterTitle, knowledgePoints],
-  )
 
   function resetResults() {
     setExplain(null)
@@ -103,13 +69,12 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
     resetResults()
     try {
       if (mode === 'explain') {
-        setExplain(await explainConcept(subject, question.trim(), context))
+        setExplain(await explainConcept(subject, question.trim()))
       } else if (mode === 'hint') {
-        setHint(await getHint(subject, question.trim(), context))
+        setHint(await getHint(subject, question.trim()))
       } else {
-        setQuiz(await generateQuiz(subject, context, 3))
+        setQuiz(await generateQuiz(subject, question.trim(), 3))
       }
-      void loadHistory()
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -301,20 +266,6 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
           {!error && !explain && !hint && !quiz && !loading && (
             <div className="flex h-full items-center justify-center text-center text-xs text-muted-foreground">
               {t('emptyHint')}
-            </div>
-          )}
-
-          {history.length > 0 && (
-            <div className="space-y-1.5 border-t pt-3">
-              <div className="text-xs text-muted-foreground">{t('history')}</div>
-              <ul className="space-y-1">
-                {history.map((h) => (
-                  <li key={h.id} className="rounded-md bg-muted/30 px-2 py-1.5 text-xs">
-                    <span className="mr-1.5 font-medium text-primary">{h.subject || h.mode}</span>
-                    <span className="line-clamp-1 inline">{h.question}</span>
-                  </li>
-                ))}
-              </ul>
             </div>
           )}
         </div>
