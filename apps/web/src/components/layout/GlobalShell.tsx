@@ -113,7 +113,7 @@ const AiPanelPlaceholder = () => (
   <div
     aria-hidden
     className="relative hidden h-full shrink-0 mr-1.5 py-2 min-[768px]:block"
-    style={{ width: 'var(--ai-panel-width, 380px)' }}
+    style={{ width: 'var(--ai-panel-width, 480px)' }}
   >
     {/* 骨架同构(2026-09-30):header 条 + 消息流 + 输入区,版式对齐真实面板。
         只做视觉示意、不承担几何 —— 外层几何 class/宽度一字不能动(见上方 CLS 注释),
