@@ -46,6 +46,12 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/engine", tags=["agent-engine"])
 
+# b76-08b 票3(2026-09-30 立):客户端已放弃 ⇒ 服务端不得再启动该任务。
+# JSON-RPC 服务端自定义错误档(-32000~-32099 保留区间):请求在执行入口前判得
+# 连接已断开时返回,语义是"拒收、未执行" —— 既不是失败也不是超时,客户端拿着它
+# 不应重试同一请求(重试要走新请求)。
+ABANDONED_REQUEST = -32001
+
 # 需要流式回传的通知方法集合(其余方法单发即返)
 STREAMING_METHODS: frozenset[str] = frozenset({"thread.prompt", "thread.resume", "agent.exec"})
 # SSE 空闲轮询间隔(秒):空闲时发注释帧心跳,防中间代理按空闲断流
@@ -222,8 +228,13 @@ def _sse_frame(payload: dict[str, Any]) -> str:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
-async def _sse_stream(payload: dict[str, Any]) -> Any:
+async def _sse_stream(payload: dict[str, Any], request: Request) -> Any:
     """把一次流式方法调用转成 SSE 帧序列(通知在前,方法响应收尾)。"""
+    # b76-08b 票3:写 transport 之前**再判一次** pending 是否还在 —— 连接已断则
+    # 不启动引擎任务、一帧不发。不判的后果(照上游 zcodeProtocolClient 同款):
+    # 服务端会执行一个客户端已经放弃、也无法接收响应的模型任务。
+    if await request.is_disconnected():
+        return
     queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
 
     async def _emit(message: dict[str, Any]) -> None:
@@ -247,10 +258,24 @@ async def _sse_stream(payload: dict[str, Any]) -> Any:
             yield _sse_frame(response)
         yield "event: done\ndata: [DONE]\n\n"
     finally:
+        # 先查 pending(任务)还在不在再动手取消 —— 竞态下不得双重清理
+        # (与上游 zcodeProtocolClient 的 abortHandler/expire 同一纪律)。
         if not task.done():
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
+
+
+# b76-08a(2026-09-30 立):连接级能力位名单 —— 与 packages/types/src/agent-runtime.ts
+# 的 CONNECTION_CAPABILITY_FIELDS 逐字同形(跨语言两份是必然,漂移由
+# scripts/check-capability-field-not-client-supplied.mjs 的双面扫描对账)。
+_CONNECTION_CAPABILITY_FIELDS = (
+    "connectionId",
+    "clientMode",
+    "deliveryProfile",
+    "subscriberScope",
+    "workflowRunDeltas",
+)
 
 
 def _bind_principal(message: Any, principal: str | None, role: int = 0) -> Any:
@@ -266,12 +291,23 @@ def _bind_principal(message: Any, principal: str | None, role: int = 0) -> Any:
     userId 在未鉴权通道上保留客户端自述值(上面那句历史语义不变),而 **roleId 一律
     被覆盖**,取不到验证角色就是 0。理由是角色属**授权输入** —— 放过自述值等于给任何
     通道留一条"自称 admin"的旁路,那正是本票要堵的那一格的镜像。
+
+    b76-08a 第三格(2026-09-30):同一注入点还要**摘除**连接级能力位
+    (`_CONNECTION_CAPABILITY_FIELDS` 五键)——"认不认得键级增量""订阅可见性档位"
+    "投递档"是**连接**的事实(来自 clientHello),订阅入参自选一律被清;command 入口
+    同样注入(本函数在 HTTP 单发/批量/SSE/WS 四入口共用,过去只校验身份,档位类
+    字段可被顶层伪造)。宿主暂无等值生产点的档,摘除即终局:自报值消失且没有
+    第二来源补回;宿主将来建了等值字段,在 `pop` 之后覆写真值即可(先删后写,
+    与上游 zcodeAgentConnectionScope 同序)。
     """
     if not isinstance(message, dict):
         return message
     params = message.get("params")
     if not isinstance(params, dict):
         return message
+    # b76-08a:连接级能力位客户端自报一律先摘(delete 在前,宿主真值在后)
+    for _cap_field in _CONNECTION_CAPABILITY_FIELDS:
+        params.pop(_cap_field, None)
     params["roleId"] = _coerce_role_id(role)
     if principal:
         params["userId"] = principal
@@ -338,6 +374,23 @@ async def engine_rpc(request: Request) -> Any:
     else:
         body = _bind_principal(body, principal, role_id)
 
+    # b76-08b 票3:请求体在**执行入口之前**再判一次 pending 是否还在 ——
+    # 同步 aborted / ASGI disconnect 已把它摘掉,此时直接返回被拒应答,
+    # 不再启动引擎任务。不判的后果:服务端会执行一个客户端已经放弃、
+    # 也无法接收响应的模型任务(turn 计数、权限待决表、事件缓冲都会留下
+    # 无人认领的副作用)。判点与执行点之间无 await,判完即派发,不留新窗口。
+    if await request.is_disconnected():
+        return JSONResponse(
+            {
+                "jsonrpc": "2.0",
+                "id": body.get("id") if isinstance(body, dict) else None,
+                "error": {
+                    "code": ABANDONED_REQUEST,
+                    "message": "客户端已放弃该请求,服务端拒绝执行(未产生任何副作用)",
+                },
+            }
+        )
+
     if isinstance(body, list):
         results: list[Any] = []
         for message in body:
@@ -380,7 +433,7 @@ async def engine_rpc(request: Request) -> Any:
     method = body.get("method")
     if method in STREAMING_METHODS:
         return StreamingResponse(
-            _sse_stream(body),
+            _sse_stream(body, request),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
