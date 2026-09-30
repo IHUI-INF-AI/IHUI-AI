@@ -16,9 +16,16 @@
  *  - 判定(judgeKillIdentity)与执行(本文件 spawn 终止命令)只在这一处 ——
  *    "两处算同一件事必漂移"是本仓记过最多次的失败型,调用方不得自行比对后再杀。
  *
- * 可注入:deps.inspect / deps.runKill,测试成对钉死判据时不派生任何真实进程。
+ * 可注入:deps.inspect / deps.runKill / deps.isAlive,测试成对钉死判据时不派生任何真实进程。
  * Windows 上没有 ps:经 `Get-CimInstance Win32_Process -Filter "ProcessId=<pid>"` 取身份;
  * 派生一律 windowsHide + timeout(AGENTS §5b / 守门 52、80)。
+ *
+ * G-998132(2026-09-30 立项):杀完的终态按 OS 事实判 —— 命令派发成功 ≠ killed:true。
+ * 上游判据(processTreeTerminator.ts:165-176):终止命令报错**且**存活复核确认在场才算真失败;
+ * 命令非零但进程确实没了 = 不误报失败;进程还在但命令成功 = 也不装成功。
+ * 终止命令的派生出口返回 { ok, output }(ok=命令是否派发成功),不再把 err 折进输出字符串
+ * (调用方拿不到"命令失败"这一维是本票点名的病灶);旧形注入(裸字符串)按未报失败处理,
+ * 终局一律以 OS 存活复核结算。存活复核口异常 ⇒ 保守按"仍在"处理,不装成功。
  */
 import { execFile } from 'node:child_process'
 import { readFileSync, readlinkSync } from 'node:fs'
@@ -40,19 +47,52 @@ export interface KillIdentityExpectation {
 }
 
 /** 派生终止命令的出口由本文件选定(bin/argv 不由调用方注入,防"注入命令"的第二真相)。 */
-export type KillExecutor = (bin: string, argv: string[]) => Promise<string>
+export interface KillCommandResult {
+  /** 命令是否派发成功(非零退出/异常 = false);真终态另由 OS 存活复核结算。 */
+  ok: boolean
+  /** 可诊断输出。 */
+  output: string
+}
+
+/** 旧形注入返回裸字符串 ⇒ 按"未报失败"处理;终局以 OS 存活复核结算(G-998132)。 */
+export type KillExecutor = (bin: string, argv: string[]) => Promise<string | KillCommandResult>
+
+/** 存活复核口:该 pid 现测是否仍在场(信号 0 探测,不杀伤)。 */
+export type PidLivenessProbe = (pid: number) => Promise<boolean>
+
+/**
+ * 默认存活复核:`process.kill(pid, 0)` 只探存在性不发信号;EPERM = 在场但无权发信号
+ * ⇒ 按在场处理(保守:无权确认消失 ≠ 消失)。其余错误(ESRCH 等)⇒ 不在场。
+ */
+export const defaultPidLivenessProbe: PidLivenessProbe = async (pid) => {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
 
 export interface KillVerifiedDeps {
   inspect?: ProcIdentityInspector
   runKill?: KillExecutor
+  /** 杀后 OS 事实复核口(缺省 defaultPidLivenessProbe);终态结算以此为准,不信命令回执。 */
+  isAlive?: PidLivenessProbe
 }
 
 export type KillVerifiedOutcome =
-  | { killed: true; pid: number; command: string; output: string }
+  | {
+      killed: true
+      pid: number
+      command: string
+      output: string
+      /** G-998132:命令回执与 OS 事实冲突时的可诊断说明(命令报失败但 OS 复核确认已不在)。 */
+      observation?: string
+    }
   | {
       killed: false
       pid: number
-      reason: 'invalid-pid' | 'identity-mismatch' | 'undetermined'
+      reason: 'invalid-pid' | 'identity-mismatch' | 'undetermined' | 'kill-verify-failed'
       /** 可诊断记录:点名 pid、期望特征、实得特征。 */
       record: string
     }
@@ -169,11 +209,13 @@ const defaultKillExecutor: KillExecutor = (bin, argv) =>
       argv,
       { timeout: 15_000, shell: false, windowsHide: true },
       (err, out, errOut) => {
-        resolvePromise(
+        const text = (
           err
-            ? `${String(err.message)}\n${String(out)}\n${String(errOut)}`.trim().slice(-1000)
-            : String(out || errOut || 'done').slice(-1000),
-        )
+            ? `${String(err.message)}\n${String(out)}\n${String(errOut)}`
+            : String(out || errOut || 'done')
+        ).trim().slice(-1000)
+        // G-998132:err 不再折进输出字符串 —— ok 维必须显式交给结算层
+        resolvePromise({ ok: !err, output: text })
       },
     )
   })
@@ -224,12 +266,44 @@ export async function killProcessVerified(
   const bin = isWin ? 'taskkill' : 'kill'
   const argv = isWin ? ['/PID', String(pid), '/F'] : ['-9', String(pid)]
   const runKill = deps.runKill ?? defaultKillExecutor
-  const output = await runKill(bin, argv)
+  const isAlive = deps.isAlive ?? defaultPidLivenessProbe
+  const dispatched = await runKill(bin, argv)
+  // G-998132:命令回执只算"派发维度",终态一律按 OS 存活复核结算 ——
+  // 命令非零但进程确实没了 = 不误报失败;进程还在但命令成功 = 也不装成功。
+  const commandOk =
+    typeof dispatched === 'object' && dispatched !== null && typeof dispatched.ok === 'boolean'
+      ? dispatched.ok
+      : true // 旧形(裸字符串)未报失败维度 ⇒ 按"未报失败"处理,终局仍看 OS 复核
+  const output = typeof dispatched === 'string' ? dispatched : dispatched.output
+  let alive: boolean
+  let probeNote = ''
+  try {
+    alive = await isAlive(pid)
+  } catch (e) {
+    // 复核口自身异常 ⇒ 未判定 ⇒ 保守按"仍在"处理,不装成功
+    alive = true
+    probeNote = `;存活复核口异常(${e instanceof Error ? e.message : String(e)})⇒ 按仍在处理`
+  }
+  if (!alive) {
+    return {
+      killed: true,
+      pid,
+      command: isWin ? `taskkill /PID ${pid} /F` : `kill -9 ${pid}`,
+      output,
+      ...(commandOk
+        ? {}
+        : {
+            observation: `pid ${pid} 终止命令报失败(${output})但 OS 存活复核确认已不在 ⇒ 结算为已不在,不误报失败`,
+          }),
+    }
+  }
   return {
-    killed: true,
+    killed: false,
     pid,
-    command: isWin ? `taskkill /PID ${pid} /F` : `kill -9 ${pid}`,
-    output,
+    reason: 'kill-verify-failed',
+    record:
+      `pid ${pid} 终止命令已派发(命令${commandOk ? '报成功' : '报失败'})但 OS 存活复核仍确认在场${probeNote} ⇒ 不装成功。` +
+      `命令输出:${output}`,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
