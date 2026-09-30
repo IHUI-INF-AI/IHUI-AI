@@ -81,6 +81,8 @@ import { resolveSecretsRoot } from './lib/key-dir.mjs'
 // 遮噪只许引这一份(AGENTS §3 / 守门 131·135·150 同一条禁令):本文件**不得**再自带
 // 一遍注释/字符串状态机 —— 两处实现必漂移,而漂移的表现是安静。
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
+// HEAD 行文本 / 工作树脏态的唯一实现层(P5b 构建失败归因用;守门 118 的取材面口径)。
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(SELF_DIR, '..')
@@ -479,7 +481,12 @@ export function checkGrowth({ devEnv }) {
  * 这里读日志尾部最近一次轮询的收尾退出码(实测版式 `———— 部署轮询结束(exit=1) ————`),
  * 并带出最近一条 FAIL 原文当证据。读不到收尾行 ⇒ 未判定(可能正在构建中),不读成"没问题"。
  */
-export function checkDeployLoopOutcome({ logFile = join(REPO, 'deploy/win/deploy-loop.log'), tailBytes = 260000 } = {}) {
+export function checkDeployLoopOutcome({
+  logFile = join(REPO, 'deploy/win/deploy-loop.log'),
+  tailBytes = 260000,
+  readHeadLine = null,
+  isDirty = null,
+} = {}) {
   let text
   try {
     const st = statSync(logFile)
@@ -498,7 +505,104 @@ export function checkDeployLoopOutcome({ logFile = join(REPO, 'deploy/win/deploy
     return { id: 'P5b', state: 'ok', detail: `最近一轮收尾 exit=0${fails.length ? `(同段有 ${fails.length} 条 FAIL 历史行,只报数)` : ''}` }
   }
   const why = fails.length ? fails[fails.length - 1][1].trim().slice(0, 160) : '(尾部该段没抓到 FAIL 原文)'
-  return { id: 'P5b', state: 'finding', detail: `最近一轮 exit=1,未切流。最后一条 FAIL:${why}` }
+  const base = `最近一轮 exit=1,未切流。最后一条 FAIL:${why}`
+  const attribution = attribBuildFailures(after, { readHeadLine, isDirty })
+  return { id: 'P5b', state: 'finding', detail: `${base}${attribution}` }
+}
+
+/** 生产装配:HEAD 行文本与工作树脏态都走 face-reader 那一份实现(守门 118 的口径),测试注入替身。 */
+export function makeBuildAttributionDeps({ root = REPO } = {}) {
+  let headFiles = null
+  const headOf = () => {
+    if (headFiles !== null) return headFiles
+    try {
+      headFiles = catBatch(root, ['HEAD']).get('HEAD') ?? new Map()
+    } catch {
+      headFiles = new Map()
+    }
+    return headFiles
+  }
+  return {
+    readHeadLine(repoPath, n) {
+      const t = headOf().get(repoPath)
+      if (typeof t !== 'string') return null
+      const lines = t.split(/\r?\n/)
+      return n >= 1 && n <= lines.length ? lines[n - 1] : null
+    },
+    isDirty(repoPath) {
+      try {
+        return gitRaw(['status', '--porcelain', '--', repoPath], root).trim() !== ''
+      } catch {
+        return false
+      }
+    },
+  }
+}
+
+/**
+ * 构建失败的**归因定性**(2026-09-30 立)。立因不是假想:本机凌晨部署环连续 4 次构建失败、线上冻结约
+ * 5 小时,运维最需要回答的一句是"**等别人提交会不会自愈**" —— 而这句话当天被人答反过一次:
+ * 先按"红在别人的未提交半截文件"说(当时构建取共享工作树,确实如此),部署脚本切到净面后
+ * 同一句归因**当场失效而账面没有任何东西会响**;后来是把报错的"文件(行,列)"拿去和
+ * `git show HEAD:<file>` 逐字比对,才定死成"红在已入库代码上"。人肉比对的教训 ⇒ 变成判据。
+ *
+ * 三态绝不并桶,失效方向刻意是"宁可报不出"(`undetermined` 点名原因):
+ *   landed      —— 报错文件与 HEAD 无差(工作树不脏)。构建取材=净面=HEAD ⇒ 该文件的红**必然**
+ *                  是已入库的红,等别人提交不会自愈;若文件同时带在飞改动,则再要求 HEAD 同行
+ *                  能找到报错标识符 ⇒ 说明在飞副本也没修掉它,仍是已入库的红。
+ *   in-flight   —— 文件脏且 HEAD 同行**找不到**报错标识符 ⇒ 红很可能来自别人的在飞改动
+ *                  (处置=等他的修法入库,禁止代改;AGENTS §12/§16)。
+ *   undetermined —— 解析不出文件定位 / 路径映射不到仓内 / 行号越界 / git 取不到 ⇒ **不得冒充前两态**。
+ *                  (刻意不再按错误码细分:TS18047 这类 null 检查形态,单看 HEAD 一行分不清
+ *                  "已入库"与"在飞",而上面的干净/脏判据不依赖错误码,对哪种 TS 错都成立。)
+ *
+ * 判据面(两条不许漂):
+ *  ① `src/…` → `apps/web/src/…` 的前缀映射不是猜的:构建根是净面 worktree 下的 `apps\web`
+ *     (`deploy/win/ihui-deploy.ps1` 的 `$webBin = Join-Path $CleanBuildWt 'apps\web\node_modules\…'`
+ *     与 `Push-Location $CleanBuildWt` 即证据),所以日志里的相对路径要补这段前缀才进仓;
+ *     映射后 HEAD 里取不到该文件 ⇒ undetermined,不"大概就是它"。
+ *  ② 本函数是**纯函数**(注入 `readHeadLine` / `isDirty`),生产装配在 patrol 主流程里做,
+ *     测试用注入 —— 与守门 103 T12 同一条纪律:证明取材面行为只能靠纯函数+构造面。
+ */
+export function attribBuildFailures(segment, { readHeadLine = null, isDirty = null } = {}) {
+  const errs = [...String(segment ?? '').matchAll(/([A-Za-z0-9_./\\-]+\.(?:tsx|ts|jsx|js|mjs|cjs))\((\d+),(\d+)\):\s*(error|warning)\s*(TS\d+):\s*(.+)/g)].map(
+    (m) => ({ rel: m[1].replace(/\\/g, '/'), line: Number(m[2]), code: m[5], msg: m[6] }),
+  )
+  if (!errs.length) {
+    return ';失败定性:无法确认(该段解析不出"文件(行,列): error TS…"形态的编译报错 —— 没看清 ≠ 已入库,需人工翻日志)'
+  }
+  const buckets = { landed: [], 'in-flight': [], undetermined: [] }
+  for (const e of errs) {
+    const repoPath = e.rel.startsWith('src/') ? `apps/web/${e.rel}` : e.rel
+    const dirty = isDirty ? isDirty(repoPath) : false
+    const sym = e.msg.match(/'([^']{1,120})'/)?.[1] ?? null
+    const head = readHeadLine ? readHeadLine(repoPath, e.line) : null
+    const headHit =
+      head !== null && head !== undefined && sym
+        ? new RegExp(`(?:^|[^A-Za-z0-9_$])${sym.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z0-9_$])`).test(head)
+        : false
+    if (head === null || head === undefined) {
+      // 先于"干净/脏"判:文件不在 HEAD(新文件/路径映射错)时,"不脏"只是"git 没东西可比",
+      // 把它读成"对已入库的红"就是假证 —— 净面构建根本编译不到一个 HEAD 里没有的文件。
+      buckets.undetermined.push(`${repoPath}:${e.line} ${e.code} —— HEAD 里取不到 ${repoPath}(路径映射失败不许"大概就是它")`)
+      continue
+    }
+    if (!dirty) {
+      buckets.landed.push(`${repoPath}:${e.line} ${e.code}(该文件与 HEAD 无差 ⇒ 这就是对已入库代码的红)`)
+      continue
+    }
+    if (headHit) {
+      buckets.landed.push(`${repoPath}:${e.line} ${e.code}(文件带在飞改动,但 HEAD 同行同样找得到「${sym}」⇒ 在飞副本没修掉它,仍是已入库的红)`)
+      continue
+    }
+    buckets['in-flight'].push(`${repoPath}:${e.line} ${e.code}(HEAD 同行找不到「${sym ?? '该报错'}」且该文件工作树有未提交改动 ⇒ 红很可能来自在飞副本)`)
+  }
+  const parts = []
+  if (buckets.landed.length) parts.push(`已入库 ${buckets.landed.length}(等别人提交**不会自愈**,需人工修或找出处提交持有人;${buckets.landed[0]})`)
+  if (buckets['in-flight'].length) parts.push(`疑似在飞 ${buckets['in-flight'].length}(先等在飞修法入库,禁止代改;${buckets['in-flight'][0]})`)
+  if (buckets.undetermined.length) parts.push(`无法确认 ${buckets.undetermined.length}(以第 1 条为例:${buckets.undetermined[0]};要定论需在净面跑一次 typecheck)`)
+  if (!parts.length) return ';失败定性:无法确认(全部报错都没归进任何一态 —— 判据有洞,请把这段日志带给门持有人)'
+  return `;失败定性(${errs.length} 条报错,三态不并桶):${parts.join(' | ')}`
 }
 
 /**
@@ -1034,7 +1138,7 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
   add(checkClock({ now }))
   checkGrowth({ devEnv }).forEach(add)
   heartbeatRows({ now, devEnv }).forEach((r) => add({ id: `P5·${r.label}`, state: r.state, detail: `${r.detail}${r.note ? ` | ${r.note}` : ''}` }))
-  add(checkDeployLoopOutcome())
+  add(checkDeployLoopOutcome(makeBuildAttributionDeps()))
   const baidu = baiduSyncRunning()
   add({
     id: 'P5·网盘同步客户端',
@@ -1550,6 +1654,36 @@ export async function selfTest() {
     const src = readFileSync(join(SELF_DIR, 'check-ops-patrol.mjs'), 'utf8')
     const body = src.slice(src.indexOf('export async function patrol'), src.indexOf('export function loadAdjudications'))
     return /applyAdjudications\(/.test(body) && /adjudicated/.test(body)
+  })())
+
+  // ── P5b 构建失败归因:三态不并桶,undetermined 不得冒充 landed(2026-09-30 立)──
+  t('归因:文件与 HEAD 无差 ⇒ landed(净面取材=HEAD,这就是对已入库代码的红)', (() => {
+    const seg = "src/components/chat/x.tsx(26,8): error TS6133: 'StreamAlertKind' is declared but its value is never read."
+    const r = attribBuildFailures(seg, { readHeadLine: (p, n) => (n === 26 ? '  type StreamAlertKind,' : ''), isDirty: () => false })
+    return r.includes('已入库') && r.includes('不会自愈') && r.includes('26')
+  })())
+  t('归因:文件在飞且 HEAD 同行找不到报错标识符 ⇒ in-flight,不得顺带判成 landed', (() => {
+    const seg = "src/components/chat/y.tsx(59,26): error TS18047: 'alert' is possibly 'null'."
+    const r = attribBuildFailures(seg, { readHeadLine: () => 'return null', isDirty: (p) => p.endsWith('y.tsx') })
+    return r.includes('疑似在飞') && !r.includes('不会自愈')
+  })())
+  t('归因:文件在飞但 HEAD 同行同样有该标识符 ⇒ 仍是 landed(在飞副本没修掉)', (() => {
+    const seg = "src/components/chat/z.tsx(12,3): error TS6133: 'foo' is declared but its value is never read."
+    const r = attribBuildFailures(seg, { readHeadLine: () => "  const foo = makeFoo()", isDirty: () => true })
+    return r.includes('已入库') && r.includes('没修掉')
+  })())
+  t('归因:解析不出文件定位 ⇒ 只能 undetermined(0 条报错 ≠ 红已入库 —— 反假绿锁)', (() => {
+    const r = attribBuildFailures('Failed to type check.(没有文件定位)')
+    return r.includes('无法确认') && r.includes('解析不出') && !r.includes('不会自愈') && !r.includes('疑似在飞')
+  })())
+  t('归因:HEAD 取不到该文件 ⇒ undetermined(路径映射失败不许"大概就是它")', (() => {
+    const seg = "src/nope/ghost.ts(3,1): error TS2304: 'Ghost' is not defined."
+    const r = attribBuildFailures(seg, { readHeadLine: () => null, isDirty: () => false })
+    return r.includes('无法确认') && r.includes('取不到')
+  })())
+  t('装车锁:生产装配必须真把 makeBuildAttributionDeps 喂给 checkDeployLoopOutcome', (() => {
+    const src = readFileSync(join(SELF_DIR, 'check-ops-patrol.mjs'), 'utf8')
+    return src.includes('checkDeployLoopOutcome(makeBuildAttributionDeps())') && src.includes("from './lib/face-reader.mjs'")
   })())
   let pass = 0
   for (const c of cases) {
