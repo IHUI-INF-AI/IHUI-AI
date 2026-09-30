@@ -2,10 +2,14 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:
 
-"""9 个微信码平台全链路出码冒烟测试(2026-09-30)。
+"""全平台出码冒烟测试(2026-09-30 扩全量)。
 
 与运行时同一码路径:create_task → 后台线程真浏览器出码 → 轮询 waiting_scan+has_qr
 → get_qr_image 取 PNG 验证(字节头 + 尺寸阈值) → cancel 清理浏览器。
+
+范围:PLATFORM_SCAN_CONFIG 全量(微信码 9 平台 + App 码 ~29 平台)。
+注意:持久化 profile 有残留登录态的平台会直接 success 并创建测试账号
+(user_id=TEST_USER),跑完统一按 user_id 清理。
 
 用法:cd apps/ai-service && .venv/Scripts/python.exe scripts/smoke_wechat_qr_all.py
 """
@@ -20,6 +24,7 @@ from concurrent.futures import ThreadPoolExecutor
 sys.path.insert(0, r"G:\IHUI-AI\apps\ai-service")
 
 from app.services.scan_login import (  # noqa: E402
+    PLATFORM_SCAN_CONFIG,
     cancel_scan_task,
     get_qr_image,
     get_task,
@@ -27,17 +32,8 @@ from app.services.scan_login import (  # noqa: E402
 )
 
 TEST_USER = "qr-smoke-test"
-PLATFORMS = (
-    "toutiao",
-    "bilibili",
-    "csdn",
-    "weibo",
-    "xiaohongshu",
-    "douban",
-    "baidu_zhidao",
-    "baidu_tieba",
-    "sina",
-)
+# 命令行参数可过滤平台:python smoke_wechat_qr_all.py oschina people
+PLATFORMS = tuple(sys.argv[1:]) or tuple(PLATFORM_SCAN_CONFIG.keys())
 WAIT_QR_SECONDS = 80
 
 
