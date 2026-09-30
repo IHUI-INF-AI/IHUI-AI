@@ -24,11 +24,7 @@ describe('readSteerAppliedFromMetadata(D106 收尾:历史读回映射)', () => {
       { text: '语气再正式一点' },
     ])
     expect(out).toEqual([
-      {
-        phase: 'injected',
-        text: '回答时优先引用项目内文档',
-        timestamp: '2026-09-24T08:00:00.000Z',
-      },
+      { phase: 'injected', text: '回答时优先引用项目内文档', timestamp: '2026-09-24T08:00:00.000Z' },
       { phase: 'injected', text: '语气再正式一点' },
     ])
   })

@@ -207,19 +207,8 @@
   }
 }
 
-/* 全站默认描边色(Tailwind v4 preflight 只给 `border: 0 solid`,不给颜色;删掉这条
-   等于把未显式取色的边框推给 currentColor = 文字色,比现状更糟)。
-   ★ 2026-09-30 移进 @layer base:这条原本是 **未分层**的,而未分层声明恒胜 `@layer utilities`
-   里的任何声明(与 specificity 无关)⇒ 全站 `border-input` / `border-brand-accent-deep` /
-   `focus:border-*` 等**边框颜色工具类一条都不渲染**,屏幕上只有这一档灰。
-   实证:编译产物里 `* => var(--color-border)` 落在 unlayered 顶层,而 `.border-input` 等在
-   @layer utilities;真机普查各页 93–100% 的有边框元素同挤 rgb(229,229,229)。
-   放进 base 后:未显式取色时仍是 --color-border(语义不变),显式取色的工具类恢复生效。
-   取证与判据:apps/web/e2e/input-border-states.spec.ts(量计算值,不量类名)。 */
-@layer base {
-  * {
-    border-color: var(--color-border);
-  }
+* {
+  border-color: var(--color-border);
 }
 
 /* AI 对话 markdown 渲染样式 */
@@ -1015,38 +1004,6 @@ iframe::-webkit-scrollbar {
 [data-window-controls][data-window-inactive='true'] > button:not(:hover):not(:focus-visible) {
   color: var(--color-muted-foreground);
   background-color: color-mix(in oklab, var(--color-card) 50%, transparent);
-}
-
-/* ============================================================
- * AI 输入卡描边四态(2026-09-30)
- * ============================================================
- * 为什么必须是原生 CSS 而不是 Tailwind 的 `border-input` / `border-amber-500/50` /
- * `border-brand-accent-deep`:本文件上方那条 `* { border-color: var(--color-border) }` 是
- * **未分层**规则,而 Tailwind v4 的工具类在 `@layer utilities` 内 —— 按 CSS 级联规范,
- * 未分层声明恒胜过任何分层声明(与 specificity 无关)。实测编译产物里
- * `* => var(--color-border)` 在 unlayered 顶层,`.border-input` / `.focus-within:border-*`
- * 全在 @layer utilities ⇒ 这四态描边写上去一条都不渲染,输入卡长期只有 `*` 的灰色。
- * 同一条结论本文件 Checkbox 一处(2026-08-13)已落地过,处置姿势也照它:用语义类 + 未分层规则,
- * 不写 !important(项目禁令)。
- *
- * 聚焦态取墨档 = AGENTS §4「描边不得取墨档」的**唯一例外位**(2026-09-30 用户定档):
- * 「当前正在输入哪个框」要一眼可见,而守门 83 的 R8 按"选择器带 :focus* 伪类"认这一位合法。
- * 分支互斥仍由 JSX 决定(dragging > high-risk > idle),所以各态取用不同修饰类,不做状态叠加假设。
- */
-.ai-input-shell {
-  border-color: var(--color-input);
-}
-.ai-input-shell--idle:focus-within {
-  border-color: var(--color-primary);
-}
-.ai-input-shell--high-risk {
-  border-color: color-mix(in srgb, var(--color-amber-500) 50%, transparent);
-}
-.ai-input-shell--high-risk:focus-within {
-  border-color: color-mix(in srgb, var(--color-amber-500) 70%, transparent);
-}
-.ai-input-shell--dragging {
-  border-color: var(--color-brand-accent-deep);
 }
 
 /* ============================================================
