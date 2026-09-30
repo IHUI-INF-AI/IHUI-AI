@@ -15,7 +15,8 @@ import { Newspaper, Loader2, Trash2, ChevronLeft, ChevronRight, Eye, Edit } from
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface MyArticle {
   id: string
@@ -56,9 +57,13 @@ export default function MyArticlesPage() {
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['student', 'my-articles', page],
     queryFn: () => api<ArticlesData>(`/api/article/my?page=${page}&pageSize=${PAGE_SIZE}`),
+    enabled: allow,
   })
 
   const delMut = useMutation({
@@ -97,7 +102,9 @@ export default function MyArticlesPage() {
         </Button>
       </header>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看我的文章" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
