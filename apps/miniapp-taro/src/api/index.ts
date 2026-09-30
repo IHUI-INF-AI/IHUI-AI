@@ -13,6 +13,7 @@ import type { SSEEvent } from '../utils/sse-parse'
 import { STREAM_READ_TIMEOUT_MS } from '@ihui/shared/constants'
 // W5:chatStream 传输层收敛到 src/lib/sse.ts(enableChunked + H5 fetch + 断点续传 + 指数退避 + 读超时 + AbortSignal)
 import { streamSSE } from '@/lib/sse'
+import { parseToolApprovalLine } from '@/lib/tool-approval-frame'
 import { resolveAgentTools } from '@/lib/ui-control-tools'
 import type {
   FetchModelsResult,
@@ -86,6 +87,17 @@ import {
 // HTTP 方法助手(get/post/put/patch/del)与 unwrapApi 统一来自 api-bridge,
 // 替代原 utils/request.ts,内部走 @ihui/api-client fetchApi + Taro transport。
 import { unwrapApi, get, post, put, patch, del } from '../utils/api-bridge'
+// D136(2026-10-01 立):审批决策回传的**唯一出口**复用 @ihui/api-client(§3 共享层优先)——
+// 端内不得再写第二条 Taro.request 通道去打 approval-response。两条腿对应的注册表不同:
+//  · postToolApprovalResponse → ai-service 流级 `_approval_sessions`(主对话流 tool-approval 帧,
+//    即本端 `onToolApproval` 收到的那一族),按 sessionId 寻址;
+//  · sendToolApprovalResponse → 网关 /ai/agent/approval-response → agent_loop_v2 注册表(agent 任务流)。
+// 回错端点不会报错,只会让等待方 120s 超时按拒绝兜底(V3 #58 的教训),所以两条都在 api 层 re-export、
+// 由调用点显式选一条,不在端内藏默认值。
+export {
+  postToolApprovalResponse,
+  sendToolApprovalResponse,
+} from '@ihui/api-client'
 export type { UserInfo }
 // HTTP 方法 re-export:保持外部 `import { get, post, ... } from '@/api'` 引用不变
 export { get, post, put, patch, del }
@@ -365,6 +377,14 @@ export interface StreamEventCallbacks {
    * 给一个"看得见状态却改不了状态"的控件是假 affordance(与 D151 本端不接输入口同一口径)。
    */
   onGoalUpdate?: (evt: GoalUpdateEvent) => void
+  /**
+   * D136(2026-10-01 立,小程序半边):主对话流高危工具的审批请求帧 `tool-approval`。
+   * 载荷复用 @ihui/api-client 的 ToolApprovalEvent(camelCase 视图),本端不另立字段口径 ——
+   * 认领层见 `src/lib/tool-approval-frame.ts`(共享解析面未认领这一族帧,不接就等于静默丢帧,
+   * 台账 `scripts/data/sse-dispatch-coverage.json` 的 missing['miniapp-taro'].onToolApproval
+   * 登记的就是这一格)。渲染位 = 页内确认卡 `src/pkg-ai/ai/tool-approval-card.tsx`。
+   */
+  onToolApproval?: (evt: ToolApprovalEvent) => void
 }
 
 /** SSE 错误对象携带的元信息(字段名与 @ihui/api-client client.ts attachErrorMeta 一致) */
@@ -583,6 +603,15 @@ export const chatStream = async (
     body: buildBody(),
     signal,
     onEvent: dispatch,
+    // D136(2026-10-01 立):共享解析面(@ihui/shared/utils/sse-parse)没有认领 tool-approval
+    // 这一族帧 ⇒ 它进不了上面的 dispatch(现读该文件 grep 'tool-approval' = 0)。没这一行,
+    // 本端的 onToolApproval 结构上不可能被调用,审批帧到设备即静默丢弃(台账 V3 #58 登记的那格)。
+    // 认领只走 src/lib/tool-approval-frame.ts 一份口径,字段映射由常驻测试对着 api-client 钉。
+    onRawLine: (line) => {
+      if (!callbacks?.onToolApproval) return
+      const evt = parseToolApprovalLine(line)
+      if (evt) callbacks.onToolApproval(evt)
+    },
     onReconnect: (attempt, delayMs) => {
       // 断点续传去重:重连后服务端可能从断点重发,跳过已渲染前缀
       dedupeActive = receivedContent.length > 0
