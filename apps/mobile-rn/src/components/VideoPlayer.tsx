@@ -34,7 +34,6 @@ import {
 import Video, { type VideoRef, type OnProgressData, type OnLoadData } from 'react-native-video'
 import { useI18n } from '../i18n'
 import type { VideoPlayerMinimalProps } from '@ihui/types'
-import { rnRadius } from '@ihui/design-tokens'
 import {
   VP_CONTROL_BUTTON_HIT_SLOP_PX,
   VP_CONTROL_GAP_PX,
@@ -185,7 +184,7 @@ export function VideoPlayer({
   return (
     <View
       className="w-full"
-      style={{ backgroundColor: tokens.gray[900], aspectRatio: VP_STAGE_ASPECT, borderRadius: rnRadius.lg, overflow: 'hidden' }}
+      style={{ backgroundColor: tokens.gray[900], aspectRatio: VP_STAGE_ASPECT }}
       onLayout={onContainerLayout}
       testID="video-player"
     >
