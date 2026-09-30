@@ -14,6 +14,8 @@ import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Sidebar } from '@/components/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TooltipProvider } from '@/components/feedback'
+// 2026-09-30 用户强制要求(0ms 在场):AISidePanel 回归静态 import(见下方大段注释的 2026-09-30 修订)
+import { AISidePanel as AISidePanelImpl } from '@/components/ai/ai-side-panel'
 
 /** 层栈 id(见 @/lib/overlay-stack):移动端菜单的 Esc 只在栈顶时被消费 */
 const MOBILE_MENU_OVERLAY_ID = 'global-shell-mobile-menu'
@@ -56,6 +58,18 @@ import { startAutoRefresh } from '@/lib/tokenUtils'
  *   · WebWorkPanel 内部 `if (!mounted || !open) return null`(web-work-panel.tsx:230),
  *     SSR 下 mounted=false 本就渲染 null → ssr:false 行为完全一致
  * - 两个模块均为**具名导出**,故需 .then(m => m.Xxx) 取具名成员
+ *
+ * 2026-09-30 修订(用户强制要求「面板 0ms 在场,不允许任何空白/骨架过渡」):
+ * - AISidePanel 回归**静态 import**:App Router 下客户端组件自动 SSR,
+ *   面板真实 HTML 随文档到达 = 首帧即面板,hydration 后立即可交互。
+ *   接受的代价:① 每路由编译图重新含面板链(dev 冷编译回升,暖缓存后无感);
+ *   ② 初始 JS 变大 —— 但面板此前每页 dynamic 加载也必然拉取该分包,总量不变;
+ *   ③ 服务端每请求渲染面板空态(轻,空态无消息流)。
+ *   width/activeWorkspace 持久化值与 SSR 默认值(480/null)的差异由客户端 hydration
+ *   就地纠正(面板全程可见,仅宽度/标题一帧内校正);open 由 store merge 恒 true,两端一致。
+ * - WebWorkPanel 维持 ssr:false(内部 mounted 门渲染 null,SSR 与之等价,无用户可见差异)。
+ * - AiPanelPlaceholder 保留:作外层 React.Suspense 的 fallback(静态 import 不再触发,
+ *   纯语义兜底)。
  *
  * 2026-09-13 性能重构:外层包 React.memo。两者都**不接收任何 props**,其自身的
  * 开关/宽度/浮窗状态全部由内部 zustand 订阅获得 —— memo 后 GlobalShell 因导航
@@ -136,12 +150,7 @@ const AiPanelPlaceholder = () => (
   </div>
 )
 
-const AISidePanel = React.memo(
-  dynamic(() => import('@/components/ai/ai-side-panel').then((m) => m.AISidePanel), {
-    ssr: false,
-    loading: AiPanelPlaceholder,
-  }),
-)
+const AISidePanel = React.memo(AISidePanelImpl)
 const WebWorkPanel = React.memo(
   dynamic(() => import('@/components/work-panel/web-work-panel').then((m) => m.WebWorkPanel), {
     ssr: false,
