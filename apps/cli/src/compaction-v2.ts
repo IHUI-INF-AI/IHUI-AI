@@ -39,6 +39,13 @@ import {
   type CompactionDecisionReason,
   type ReclaimResult,
 } from '@ihui/context-compaction';
+// G-710:失败码判定的唯一出口(文本档只是被计数的兜底)。这里**不**引 tools/index.ts,
+// 因为那是端内工具注册表;判定出口住在 failure-classification.ts 这一层,谁都能单向引它。
+import {
+  isTransientFailureCode,
+  resolveFailureCode,
+  type FailureCode,
+} from './tools/failure-classification.js';
 
 // ==================== 类型定义 ====================
 
@@ -179,32 +186,22 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** 错误分类:瞬态(可重试)vs 确定性(不重试) */
-function classifyError(err: Error): { transient: boolean; label: string } {
-  const msg = err.message.toLowerCase();
-  if (msg.includes('timeout') || msg.includes('timed out')) {
-    return { transient: true, label: 'timeout' };
-  }
-  if (
-    msg.includes('network') ||
-    msg.includes('econnreset') ||
-    msg.includes('econnrefused') ||
-    msg.includes('fetch failed') ||
-    msg.includes('socket hang up')
-  ) {
-    return { transient: true, label: 'network' };
-  }
-  if (/\b5\d{2}\b/.test(msg) || msg.includes('server error') || msg.includes('bad gateway') || msg.includes('service unavailable')) {
-    return { transient: true, label: '5xx' };
-  }
-  if (/\b4\d{2}\b/.test(msg) || msg.includes('bad request') || msg.includes('unauthorized') || msg.includes('forbidden') || msg.includes('not found')) {
-    return { transient: false, label: '4xx' };
-  }
-  if (msg.includes('parse') || msg.includes('json') || msg.includes('invalid response')) {
-    return { transient: false, label: 'parse' };
-  }
-  // 默认瞬态(保守重试)
-  return { transient: true, label: 'unknown' };
+/**
+ * 错误分类:**判定读码,文本档只是被计数的兜底**(G-710)。
+ *
+ * 这里原先是一座私有的文本分类器(`msg.includes('timeout')` / `/\b4\d{2}\b/`),与
+ * `tools/index.ts` 的 `classifyError` 同型 —— 同一个缺陷在两个地方各写一遍,正是本仓
+ * "两处算同一件事必漂移"反复记过的那一型。现两处都并入唯一出口
+ * `resolveFailureCode(source, site)`(实现见 `tools/failure-classification.ts`):
+ * 先看错误对象携带的码(`ToolError.code` / `errorCode` / HTTP `status`),拿不到才走文本档,
+ * 而文本档**每次使用都计数报名**(`getFailureFallbackStats()`)。
+ *
+ * `label` 是历史归档标签(`5xx` / `4xx` / `parse` …),**只用于错误文案**、不参与判定:
+ * 既有单测在断言 `[4xx] …` 这段字符串,判定改读码不该顺手把文案也换掉(要换属另一票)。
+ */
+function classifySamplingFailure(err: Error): { transient: boolean; code: FailureCode; label: string } {
+  const resolved = resolveFailureCode(err, 'compaction-sampling');
+  return { transient: isTransientFailureCode(resolved.code), code: resolved.code, label: resolved.label };
 }
 
 // ==================== 核心函数 ====================
@@ -356,7 +353,7 @@ export async function sampleWithRetry(
       return { response: result.response, attempts: attempt, statusLabel: 'ok' };
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
-      const classification = classifyError(lastError);
+      const classification = classifySamplingFailure(lastError);
       lastLabel = classification.label;
       if (!classification.transient) {
         throw new Error(`[${classification.label}] ${lastError.message}`);
