@@ -22,7 +22,6 @@ import assert from 'node:assert/strict'
 import { spawnSync, execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 // 夹具唯一落点(AGENTS §26 / §15b):新增用例一律落 DevEnv 临时根,不再往 os.tmpdir() 写。
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -40,7 +39,7 @@ function stripAnsi(s) {
 
 // ─── 辅助:创建临时项目根目录(含 packages/i18n/messages/<target>/ + .ihui-agent/tmp/) ───
 function createTempProject(target = 'web') {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-i18n-diff-'))
+  const root = mkScratch('ihui-i18n-diff-')
   fs.mkdirSync(path.join(root, 'packages', 'i18n', 'messages', target), { recursive: true })
   fs.mkdirSync(path.join(root, '.ihui-agent', 'tmp'), { recursive: true })
   return root
@@ -101,7 +100,7 @@ const FULL_TRANSLATED = {
 
 describe('CLI 基础行为 — 输入校验 + 退出码', () => {
   test('messages 目录不存在 → exit 0 + stdout 含"不存在或不完整"', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-i18n-diff-'))
+    const root = mkScratch('ihui-i18n-diff-')
     try {
       const r = runScript([], { cwd: root })
       assert.equal(r.status, 0, `messages 不存在应 exit 0,实际 ${r.status}`)
@@ -529,7 +528,7 @@ describe('--target 未知值一律判死(不再静默按 web 处理)', () => {
   }
 
   test('已注册但目录不存在的端 → exit 2(不把"没有目录"当成"没有差异")', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-i18n-diff-'))
+    const root = mkScratch('ihui-i18n-diff-')
     fs.mkdirSync(path.join(root, '.ihui-agent', 'tmp'), { recursive: true })
     try {
       const r = runScript(['--target=mobile-rn'], { cwd: root })
