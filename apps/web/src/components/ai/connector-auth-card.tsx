@@ -83,17 +83,11 @@ export function ConnectorAuthCard({
       {/* 标题:未连/重连两态展示「连接到 {connectorName}」;已连/已拒绝走各自标签 */}
       <div className="flex flex-wrap items-center gap-2">
         {state === 'connected' ? (
-          <span
-            className="text-xs font-medium text-emerald-600 dark:text-emerald-500"
-            data-connector-auth-label="connected"
-          >
+          <span className="text-xs font-medium text-emerald-600 dark:text-emerald-500" data-connector-auth-label="connected">
             {t('connected')}
           </span>
         ) : state === 'declined' ? (
-          <span
-            className="text-xs font-medium text-muted-foreground"
-            data-connector-auth-label="declined"
-          >
+          <span className="text-xs font-medium text-muted-foreground" data-connector-auth-label="declined">
             {t('declined', { connectorName })}
           </span>
         ) : (
@@ -102,10 +96,7 @@ export function ConnectorAuthCard({
           </span>
         )}
         {state === 'connecting' ? (
-          <span
-            className="text-[11px] text-muted-foreground"
-            data-connector-auth-label="connecting"
-          >
+          <span className="text-[11px] text-muted-foreground" data-connector-auth-label="connecting">
             {t('connecting')}
           </span>
         ) : null}
