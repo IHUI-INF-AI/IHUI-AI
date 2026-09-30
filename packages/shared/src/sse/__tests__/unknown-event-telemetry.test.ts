@@ -12,10 +12,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AGENT_TASK_EVENTS, AGENT_TASK_EVENT_NAMES, parseAgentTaskEvent } from '../agent-events'
 import {
+  UNKNOWN_SSE_EVENT_RECENT_LIMIT,
   recordUnknownSseEventName,
   resetUnknownSseEventTelemetry,
   setUnknownSseEventReporter,
   unknownSseEventCounts,
+  unknownSseEventRecentNames,
   unknownSseEventTotal,
   type UnknownSseEventNotice,
 } from '../unknown-event-telemetry'
@@ -112,6 +114,45 @@ describe('未识别 SSE 事件名的计数与一次性报名', () => {
     snapshot['copy-guard'] = 9999
     delete snapshot['copy-guard']
     expect(unknownSseEventCounts()['copy-guard']).toBe(1)
+  })
+
+  // ---- D133(承 V4 #91):有界点名清单 ------------------------------------
+
+  it('D133 验收:先喂一个假事件名 ⇒ 计数 +1 且点名清单含该名(只判当前为 0 不成立)', () => {
+    // 断言顺序就是验收语义:先喂假名(动作),再断言计数 > 0 且名单点名 ——
+    // 不先喂就断言,红绿都不说明任何事("看起来全绿"正是本票要禁的形态)。
+    expect(unknownSseEventTotal()).toBe(0)
+    recordUnknownSseEventName('d133-fake-event')
+    expect(unknownSseEventCounts()['d133-fake-event']).toBe(1)
+    expect(unknownSseEventTotal()).toBeGreaterThan(0)
+    expect(unknownSseEventRecentNames()).toContain('d133-fake-event')
+  })
+
+  it('D133 同名多次出现,点名清单每次都记(计数与清单口径不同:清单是出现序,不是每名一次)', () => {
+    recordUnknownSseEventName('d133-repeat')
+    recordUnknownSseEventName('d133-repeat')
+    expect(unknownSseEventCounts()['d133-repeat']).toBe(2)
+    expect(unknownSseEventRecentNames()).toEqual(['d133-repeat', 'd133-repeat'])
+  })
+
+  it(`D133 有界:超过 ${UNKNOWN_SSE_EVENT_RECENT_LIMIT} 条后挤掉最旧、最新在尾(不设界就是内存泄漏)`, () => {
+    for (let i = 0; i < UNKNOWN_SSE_EVENT_RECENT_LIMIT + 5; i++) {
+      recordUnknownSseEventName(`d133-flood-${i}`)
+    }
+    const recent = unknownSseEventRecentNames()
+    expect(recent.length).toBe(UNKNOWN_SSE_EVENT_RECENT_LIMIT)
+    expect(recent[0]).toBe('d133-flood-5') // 最旧的 0~4 已被挤出
+    expect(recent[recent.length - 1]).toBe(`d133-flood-${UNKNOWN_SSE_EVENT_RECENT_LIMIT + 4}`)
+    // 计数不受清单有界影响:全部 55 个名字各自都在册
+    expect(unknownSseEventCounts()['d133-flood-0']).toBe(1)
+    expect(unknownSseEventTotal()).toBe(UNKNOWN_SSE_EVENT_RECENT_LIMIT + 5)
+  })
+
+  it('D133 点名清单快照是拷贝:调用方改它不得污染内部状态', () => {
+    recordUnknownSseEventName('d133-copy-guard')
+    const recent = unknownSseEventRecentNames() as string[]
+    recent.length = 0
+    expect(unknownSseEventRecentNames()).toEqual(['d133-copy-guard'])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

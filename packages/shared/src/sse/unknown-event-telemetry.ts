@@ -14,6 +14,15 @@
 // 出口只有一份:agent-events.ts 的分发工厂是唯一的调用方,消费端不得再各自 `console.warn`
 // 一份(两处算同一件事必漂移,本仓记过多次)。宿主可用 setUnknownSseEventReporter 换成自己的
 // 遥测通道;传 null 恢复默认的控制台报名。
+//
+// D133(2026-09-30 立,承 V4 #91)补有界**点名清单**:计数快照(unknownSseEventCounts)
+// 只回答"每个名字各掉了几次",不保留出现顺序;排障时更想要的是"最近掉的是哪些名字"
+// (上游一上来就连掉三种未知事件 vs 长尾偶发,是两种完全不同的病)。所以除了按名计数,
+// 再维护一个有界(UNKNOWN_SSE_EVENT_RECENT_LIMIT = 50)的 FIFO 点名清单,最新在后,
+// 满了挤掉最旧的 —— **有界**是硬要求:不设界的话,一个狂刷未知事件的坏上游能把清单
+// 撑成内存泄漏。快照经 unknownSseEventRecentNames() 只读拷贝取出,与计数快照配套,
+// "喂一个假事件名 ⇒ 计数 +1 且点名清单含该名"由
+// __tests__/unknown-event-telemetry.test.ts 钉住(先喂假名再断言,防"只判当前为 0")。
 
 /** 一次报名携带的事实:事件名与它是第几次出现。 */
 export interface UnknownSseEventNotice {
@@ -25,6 +34,12 @@ export interface UnknownSseEventNotice {
 export type UnknownSseEventReporter = (notice: UnknownSseEventNotice) => void
 
 const counts = new Map<string, number>()
+
+/** 点名清单容量上限(有界:坏了的上游狂刷未知事件也不得撑爆内存)。 */
+export const UNKNOWN_SSE_EVENT_RECENT_LIMIT = 50
+
+/** 最近出现的未知事件名(有界 FIFO,最新在后);与 counts 同步登记。 */
+const recentNames: string[] = []
 
 function defaultReporter(notice: UnknownSseEventNotice): void {
   // 英文运行时串:packages/shared/src 在守门 70(硬编码中文)射程内,中文只能留在注释里。
@@ -49,6 +64,9 @@ export function recordUnknownSseEventName(name: unknown): number {
   const key = nameKey(name)
   const next = (counts.get(key) ?? 0) + 1
   counts.set(key, next)
+  // D133:有界点名清单同步登记 —— 每次出现都记(不是每名一次),FIFO 挤掉最旧的。
+  recentNames.push(key)
+  if (recentNames.length > UNKNOWN_SSE_EVENT_RECENT_LIMIT) recentNames.shift()
   if (next === 1) reporter({ name: key, count: next })
   return next
 }
@@ -67,6 +85,14 @@ export function unknownSseEventTotal(): number {
   return total
 }
 
+/**
+ * 最近出现的未知事件名快照(D133,只读拷贝,最新在后,至多 UNKNOWN_SSE_EVENT_RECENT_LIMIT 条)。
+ * 与 unknownSseEventCounts() 配套:计数回答"各掉几次",点名清单回答"最近掉的是哪些"。
+ */
+export function unknownSseEventRecentNames(): readonly string[] {
+  return [...recentNames]
+}
+
 /** 换报名出口;传 null 恢复默认控制台报名。 */
 export function setUnknownSseEventReporter(next: UnknownSseEventReporter | null): void {
   reporter = next ?? defaultReporter
@@ -75,6 +101,7 @@ export function setUnknownSseEventReporter(next: UnknownSseEventReporter | null)
 /** 清空计数与报名状态(测试隔离用;宿主一般不需要)。 */
 export function resetUnknownSseEventTelemetry(): void {
   counts.clear()
+  recentNames.length = 0
   reporter = defaultReporter
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
