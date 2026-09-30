@@ -102,6 +102,15 @@ interface QueueItem {
 }
 
 const POLL_INTERVAL_MS = 3000
+/**
+ * 2026-09-30 提速(与单平台弹窗同一条口径):内置档出码前 400ms 一轮。
+ *
+ * 后端起浏览器 + 出码实测 3.5~8s,固定 3s 一轮意味着**出码那一刻常常落在两轮之间**,
+ * 用户白等最多一整个间隔;批量档这条更明显 —— 每个平台都各白等一次。
+ * 只在"这一档还没见过二维码"时走快节奏,见过即回落到 POLL_INTERVAL_MS。
+ */
+const FAST_POLL_INTERVAL_MS = 400
+const FAST_POLL_WINDOW_MS = 20_000
 /** 取消标记轮询粒度:停止/关闭弹窗后最多 100ms 内让轮询退出 */
 const CANCEL_POLL_MS = 100
 /** 单平台超时:2 分钟(连续扫码场景下单个平台通常 30s 内完成) */
@@ -136,6 +145,12 @@ async function sleepCancelable(ms: number, isCancelled: () => boolean): Promise<
     await sleep(step)
     left -= step
   }
+}
+
+/** 出码前的等待间隔:越早发现第一帧越好,但 20s 之后回落到常规节奏(见常量注释)。 */
+function nextScanPollInterval(firstQrSeen: boolean, startedAt: number): number {
+  if (!firstQrSeen && Date.now() - startedAt <= FAST_POLL_WINDOW_MS) return FAST_POLL_INTERVAL_MS
+  return POLL_INTERVAL_MS
 }
 
 /** 登录检测响应(CDP 与"用户真实 profile"两种检测共用字段) */
@@ -348,6 +363,8 @@ export function BatchScanLoginDialog({
   async function pollScanTask(taskId: string): Promise<ScanPollResult> {
     const start = Date.now()
     let networkFails = 0
+    /** 这一档是否已经出过码:出码前快跑(400ms),出码后慢走(3s) */
+    let firstQrSeen = false
     while (true) {
       if (cancelRef.current) return { outcome: 'cancelled' }
       if (skipRef.current) {
@@ -377,6 +394,7 @@ export function BatchScanLoginDialog({
         if (d?.has_qr && d.qr_updated_at !== qrStampRef.current) {
           try {
             await showQr(taskId, d.qr_updated_at)
+            firstQrSeen = true
           } catch {
             /* 这一帧图没取到:下一轮还会再取,不能因此把整个任务判失败 */
           }
@@ -388,7 +406,7 @@ export function BatchScanLoginDialog({
         }
         if (cancelRef.current) return { outcome: 'cancelled' }
       }
-      await sleepCancelable(POLL_INTERVAL_MS, () => cancelRef.current)
+      await sleepCancelable(nextScanPollInterval(firstQrSeen, start), () => cancelRef.current)
     }
   }
 
