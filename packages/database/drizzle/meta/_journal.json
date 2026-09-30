@@ -2108,13 +2108,6 @@
       "when": 1790708400000,
       "tag": "20260929190000_edu_reminder_delivery",
       "breakpoints": true
-    },
-    {
-      "idx": 302,
-      "version": "7",
-      "when": 1790769600000,
-      "tag": "20260930120000_edu_study_loops",
-      "breakpoints": true
     }
   ]
 }
