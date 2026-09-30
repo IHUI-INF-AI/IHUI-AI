@@ -10,6 +10,8 @@
 //    draftInput + draftAutoSend 注入(MessageInput 消费后成为新会话首条用户消息),
 //    正文必须含摘要与下一步(可选交接目的);⑤ 创建失败时不注入(误发进旧会话比不发更糟)。
 import { describe, it, expect, vi, afterEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import React from 'react'
 import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react'
 
@@ -49,7 +51,11 @@ function openHandoff() {
 
 describe('D176 交接生成流(出口翻真后)', () => {
   it('生成相位 generating → done,摘要与 next_action 上屏;提交挂真回调', async () => {
-    generateRecapHandoff.mockResolvedValue({ summary: '已完成 A 与 B', nextAction: '跑验证' })
+    // 组件收窄 ApiResult(成功分支 = { success: true, data }),mock 返回值须同形
+    generateRecapHandoff.mockResolvedValue({
+      success: true,
+      data: { summary: '已完成 A 与 B', nextAction: '跑验证' },
+    })
     openHandoff()
     expect((screen.getByTestId('recap-purpose-input') as HTMLInputElement).disabled).toBe(false)
     expect(screen.queryByTestId('recap-generation-unavailable')).toBeNull()
@@ -74,8 +80,14 @@ describe('D176 交接生成流(出口翻真后)', () => {
   })
 
   it('创建会话成功后,交接正文经 draftInput+draftAutoSend 待发通道注入(含摘要/下一步/交接目的)', async () => {
-    generateRecapHandoff.mockResolvedValue({ summary: '已完成 A 与 B', nextAction: '跑验证' })
-    createConversation.mockResolvedValue({ conversation: { id: 'conv-new' } })
+    generateRecapHandoff.mockResolvedValue({
+      success: true,
+      data: { summary: '已完成 A 与 B', nextAction: '跑验证' },
+    })
+    createConversation.mockResolvedValue({
+      success: true,
+      data: { conversation: { id: 'conv-new' } },
+    })
     openHandoff()
     fireEvent.change(screen.getByTestId('recap-purpose-input'), {
       target: { value: '带上下文继续' },
@@ -85,7 +97,8 @@ describe('D176 交接生成流(出口翻真后)', () => {
     fireEvent.click(screen.getByTestId('recap-create-session'))
     await waitFor(() => expect(setConversationId).toHaveBeenCalledWith('conv-new'))
     expect(chatStoreSetState).toHaveBeenCalledTimes(1)
-    const payload = chatStoreSetState.mock.calls[0][0] as {
+    // noUncheckedIndexedAccess:calls[0] 为 T|undefined,上一行已断言调用次数为 1,非空断言安全
+    const payload = chatStoreSetState.mock.calls[0]![0] as {
       draftInput: string
       draftAutoSend: boolean
     }
@@ -97,7 +110,10 @@ describe('D176 交接生成流(出口翻真后)', () => {
   })
 
   it('创建会话失败时不注入草稿(误把交接正文发进旧会话比不发更糟)', async () => {
-    generateRecapHandoff.mockResolvedValue({ summary: '已完成 A 与 B', nextAction: '跑验证' })
+    generateRecapHandoff.mockResolvedValue({
+      success: true,
+      data: { summary: '已完成 A 与 B', nextAction: '跑验证' },
+    })
     createConversation.mockRejectedValue(new Error('创建会话失败: 500'))
     openHandoff()
     fireEvent.click(screen.getByTestId('recap-generate-submit'))
@@ -110,6 +126,16 @@ describe('D176 交接生成流(出口翻真后)', () => {
     await waitFor(() => expect(screen.getByTestId('recap-create-failed')).toBeTruthy())
     expect(setConversationId).not.toHaveBeenCalled()
     expect(chatStoreSetState).not.toHaveBeenCalled()
+  })
+
+  it('装车层:入口确实挂在 AI 面板头部按钮组(dynamic import,不进主 chunk)', () => {
+    // 与 D175 装车断言同一模式:读宿主源码验挂载,不重复渲染整个面板
+    const host = readFileSync(
+      join(__dirname, '..', 'ai-side-panel.tsx'),
+      'utf8',
+    )
+    expect(host).toContain("import('@/components/ai/d176-task-recap').then((m) => m.TaskRecapEntry)")
+    expect(host).toContain('<TaskRecapEntry />')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
