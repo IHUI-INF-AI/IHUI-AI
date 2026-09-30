@@ -9,7 +9,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Coins } from 'lucide-react'
 
-import { AnimatedNumber, BackButton } from '@/components/common'
+import { AnimatedNumber, AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { getTokenBalance, getTokenFlows, type TokenFlowItem } from '@ihui/api-client'
 
 import { TokenValueCards } from './TokenValueCards'
@@ -26,6 +27,9 @@ export default function TokenValuePage() {
   const [customFrom, setCustomFrom] = React.useState('')
   const [customTo, setCustomTo] = React.useState('')
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const balanceQ = useQuery({
     queryKey: ['token-value', 'balance'],
     queryFn: async () => {
@@ -33,6 +37,7 @@ export default function TokenValuePage() {
       if (!r.success) throw new Error(r.error)
       return r.data
     },
+    enabled: allow,
   })
   const flowsQ = useQuery({
     queryKey: ['token-value', 'flows', range, page, customFrom, customTo],
@@ -47,6 +52,7 @@ export default function TokenValuePage() {
       if (!r.success) throw new Error(r.error)
       return r.data
     },
+    enabled: allow,
   })
 
   const total = flowsQ.data?.total ?? 0
@@ -109,33 +115,39 @@ export default function TokenValuePage() {
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      <TokenValueCards cards={cards} isLoading={balanceQ.isLoading} />
+      {allow ? (
+        <>
+          <TokenValueCards cards={cards} isLoading={balanceQ.isLoading} />
 
-      <div className="space-y-3">
-        <TokenValueFilters
-          range={range}
-          customFrom={customFrom}
-          customTo={customTo}
-          t={t}
-          onRange={onRange}
-          onCustomFrom={onCustomFrom}
-          onCustomTo={onCustomTo}
-        />
+          <div className="space-y-3">
+            <TokenValueFilters
+              range={range}
+              customFrom={customFrom}
+              customTo={customTo}
+              t={t}
+              onRange={onRange}
+              onCustomFrom={onCustomFrom}
+              onCustomTo={onCustomTo}
+            />
 
-        <TokenValueTable
-          items={items}
-          isLoading={flowsQ.isLoading}
-          error={flowsQ.error as Error | null}
-          page={page}
-          totalPages={totalPages}
-          total={total}
-          pageSize={PAGE_SIZE}
-          t={t}
-          tc={tc}
-          fmtDate={fmtDate}
-          onPageChange={setPage}
-        />
-      </div>
+            <TokenValueTable
+              items={items}
+              isLoading={flowsQ.isLoading}
+              error={flowsQ.error as Error | null}
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              pageSize={PAGE_SIZE}
+              t={t}
+              tc={tc}
+              fmtDate={fmtDate}
+              onPageChange={setPage}
+            />
+          </div>
+        </>
+      ) : (
+        <AuthGatePrompt message="请先登录后查看算力余额与流水" />
+      )}
     </div>
   )
 }
