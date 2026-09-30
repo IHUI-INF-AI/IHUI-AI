@@ -14,7 +14,9 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+// §26:临时夹具唯一落点(不落 os.tmpdir、不落仓库树内)
+import { mkScratch } from '../lib/scratch-dir.mjs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
@@ -23,8 +25,6 @@ import { execFileSync } from 'node:child_process'
 import { __test__ as src } from '../check-no-conflict-markers.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
-/** 临时仓落点:仓内 .ihui-agent/tmp(AGENTS §15),用前须确保父目录存在。 */
-const TMP_ROOT = join(ROOT, '.ihui-agent', 'tmp')
 const OPEN = '<<<<<<< HEAD'
 const SEP = '======='
 const END = '>>>>>>> feature/x'
@@ -202,10 +202,8 @@ test('8 render:违规清单含 路径:行号 + 片段 + 修复指引,跳过项�
 })
 
 test('9 audit(--staged) 判索引内容:索引脏即红,仅工作区脏不影响本次提交', () => {
-  // 落点仍是仓内 .ihui-agent/tmp(AGENTS §15);干净 checkout / CI 上该目录不存在,
-  // 不先建则 mkdtempSync 直接 ENOENT。recursive mkdir 幂等,已存在不报错。
-  mkdirSync(TMP_ROOT, { recursive: true })
-  const root = mkdtempSync(join(TMP_ROOT, 'cm-test-'))
+  // 落点 = §26 唯一夹具出口(此前落仓内 .ihui-agent/tmp:仓树内夹具不受 gitdir 的 scratch 嵌套闸保护)
+  const root = mkScratch('cm-test-')
   const repo = join(root, 'repo')
   mkdirSync(repo, { recursive: true })
   const g = (args) =>
@@ -246,8 +244,7 @@ test('9 audit(--staged) 判索引内容:索引脏即红,仅工作区脏不影响
 })
 
 test('10 auditRev 判提交树,且与后续提交隔离', () => {
-  mkdirSync(TMP_ROOT, { recursive: true })
-  const root = mkdtempSync(join(TMP_ROOT, 'cm-test-rev-'))
+  const root = mkScratch('cm-test-rev-')
   const repo = join(root, 'repo')
   mkdirSync(repo, { recursive: true })
   const g = (args) =>
