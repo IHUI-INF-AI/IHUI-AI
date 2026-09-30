@@ -14168,6 +14168,7 @@
       "verifyCode": "6자리 코드 입력"
     },
     "shop": {
+      "payNow": "결제하기",
       "buy": "구매",
       "buying": "주문 중...",
       "cancel": "취소",
@@ -14478,8 +14479,7 @@
     "loading": "로딩 중...",
     "myPoints": "나 포인트",
     "subtitle": "포괄적인의개발문서및API참조",
-    "title": "AI인마음페이스테스트",
-    "totalChannels": "채널 총수"
+    "title": "AI인마음페이스테스트"
   },
   "eduProgressPage": {
     "categoryProgress": "카테고리별 진도",
@@ -14882,6 +14882,7 @@
     "title": "평가 관리"
   },
   "exam": {
+    "pageInfo": "{page} / {total} 페이지",
     "back": "뒤로",
     "duration": "{minutes}분",
     "empty": "시험이 없습니다",
@@ -14911,6 +14912,7 @@
     "title": "온라인 시험",
     "totalScore": "총점 {score}",
     "wrongQuestions": {
+      "aiExplain": "AI 해설",
       "colActions": "작업",
       "colQuestion": "문제 내용",
       "colSource": "출처 시험",
@@ -16255,6 +16257,8 @@
     "metaOgDescription": "문서 분할 + 벡터화 + 하이브리드 검색 + 인용 추적"
   },
   "learn": {
+    "startLearning": "학습 시작",
+    "buyNow": "지금 구매",
     "allCategories": "All categories",
     "category": "카테고리",
     "chapters": "챕터 수",
@@ -16298,6 +16302,7 @@
     "paymentConfirm": "결제 확인",
     "review": "editorial content attribute",
     "tutor": {
+      "history": "최근 질문",
       "title": "AI 조교",
       "subject": "교과",
       "mode": "모드",
@@ -19059,7 +19064,7 @@
     "repoWiki": "Repo Wiki",
     "resources": "리소스",
     "restore": "복원",
-    "schedule": "일정",
+    "schedule": "작업 스케줄러",
     "search": "검색",
     "selfMediaAutomation": "자동화",
     "selfMediaKoubo": "쿠보 영상",
@@ -22037,6 +22042,7 @@
     "warning": "경고"
   },
   "student": {
+    "aiExplain": "AI 해설",
     "avgProgress": "평균 진행률",
     "avgScore": "평균 점수",
     "certNo": "인증서 번호",
