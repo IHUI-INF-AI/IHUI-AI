@@ -22,7 +22,8 @@ import {
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface DashboardData {
   studyHours: number
@@ -53,9 +54,12 @@ export default function EduDashboardPage() {
   const t = useTranslations('eduDashboardPage')
   const tc = useTranslations('common')
   const locale = useLocale()
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'dashboard'],
     queryFn: () => api<DashboardData>('/api/edu/dashboard'),
+    enabled: allow,
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -85,7 +89,9 @@ export default function EduDashboardPage() {
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看学习面板" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
