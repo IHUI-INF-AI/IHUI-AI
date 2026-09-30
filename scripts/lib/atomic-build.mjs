@@ -24,7 +24,7 @@
 //      最后删 dist.__old__。dist 缺失窗口只有两次 rename 之间（毫秒级）。
 //   5. 任一步失败：删暂存目录；若 dist 已被挪走则回滚恢复，退出码 1，旧 dist 完好。
 
-import { existsSync, cpSync, readdirSync, renameSync, rmSync } from 'node:fs'
+import { existsSync, cpSync, readdirSync, renameSync, rmSync, writeFileSync, readFileSync, openSync, closeSync, unlinkSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
@@ -37,6 +37,18 @@ function main(argv) {
   const TMP = join(pkgRoot, `dist.__building__.${process.pid}`)
   const OLD = join(pkgRoot, 'dist.__old__')
   const DIST = join(pkgRoot, 'dist')
+  const LOCK = join(pkgRoot, 'dist.__lock')
+
+  // 并发互斥(2026-09-30 第三轮):TMP 私有化后,DIST/OLD 两个换入目标仍是共享名 ——
+  // 实测两个并发构建在 rename 序列中互相把对方的 DIST 挪走(ENOENT)。唯一正确解:
+  // 同包构建串行化。pid 锁 + 探活偷锁(持有者死亡才可抢占),全程持有,退出时释放。
+  if (!acquireBuildLock(LOCK)) {
+    console.error('[atomic-build] 等锁超时(150s):另一构建仍在进行,放弃本次(旧 dist 未动)')
+    process.exit(1)
+  }
+  process.on('exit', () => {
+    try { unlinkSync(LOCK) } catch { /* 已被偷走或不存在 */ }
+  })
 
   const sep = argv.indexOf('--copy-assets')
   const tscArgs = sep === -1 ? argv : argv.slice(0, sep)
@@ -123,11 +135,26 @@ function cleanupTmp(tmp) {
   if (existsSync(tmp)) removeDirSys(tmp)
 }
 
-// 列出历史遗留的孤儿暂存目录(本脚本 2026-09-30 前的 dist.__building__ 无 pid 后缀 + 旧 pid 残留)
+// 列出可安全清扫的孤儿暂存目录:
+// - 无后缀旧名(dist.__building__,2026-09-30 前形态)直接算孤儿;
+// - 带 pid 后缀的,仅当属主进程已死才算孤儿 —— 活进程的暂存目录正在被使用,
+//   上一版一刀切清扫会把并发构建的暂存目录删掉,令其 rename 换入时 ENOENT(实测翻车)。
 function listStaleTmp(pkgRoot) {
   try {
     return readdirSync(pkgRoot)
-      .filter((name) => name === 'dist.__building__' || /^dist\.__building__\.\d+$/.test(name))
+      .filter((name) => {
+        if (name === 'dist.__building__') return true
+        const m = /^dist\.__building__\.(\d+)$/.exec(name)
+        if (!m) return false
+        const pid = Number(m[1])
+        if (pid === process.pid) return true
+        try {
+          process.kill(pid, 0) // 探活:不发信号,仅查存在性
+          return false // 进程活着 ⇒ 它的构建在跑,不碰
+        } catch (err) {
+          return err?.code === 'ESRCH' // ESRCH=进程不存在 ⇒ 真孤儿;EPERM 等视为存活
+        }
+      })
       .map((name) => join(pkgRoot, name))
   } catch {
     return []
@@ -144,6 +171,45 @@ function removeDirSys(dir) {
   if ((r.status ?? 1) !== 0 && existsSync(dir)) {
     // 系统删除也失败(句柄锁),退回 fs 层尽力而为
     rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+// —— 构建互斥锁(2026-09-30 第三轮)——
+// 独占创建(wx)成功 = 拿到锁;已存在则探活持有者:死了偷走重试,活着等。
+// 等待上限 150s(覆盖一次完整 tsc 增量编译),超时放弃而非硬闯 —— 宁可本次构建失败,
+// 也不能两个构建同时进入换入段(那才是 dist 损坏的根源)。
+function acquireBuildLock(lockPath, waitMs = 150_000) {
+  const deadline = Date.now() + waitMs
+  const delay = () => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400)
+  for (;;) {
+    if (Date.now() > deadline) return false
+    try {
+      const fd = openSync(lockPath, 'wx')
+      writeFileSync(fd, String(process.pid))
+      closeSync(fd)
+      return true
+    } catch (err) {
+      if (err?.code !== 'EEXIST') throw err
+      let holderAlive = true
+      try {
+        const holder = Number(readFileSync(lockPath, 'utf8').trim())
+        if (!Number.isInteger(holder) || holder <= 0) holderAlive = false
+        else {
+          try {
+            process.kill(holder, 0)
+            holderAlive = true
+          } catch (killErr) {
+            holderAlive = killErr?.code !== 'ESRCH'
+          }
+        }
+      } catch {
+        holderAlive = false // 锁文件读不到/损坏 ⇒ 视为死锁残留
+      }
+      if (!holderAlive) {
+        try { unlinkSync(lockPath) } catch { /* 被别人偷了,重试 */ }
+      }
+      delay()
+    }
   }
 }
 
