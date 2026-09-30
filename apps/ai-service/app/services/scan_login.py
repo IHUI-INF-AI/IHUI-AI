@@ -643,7 +643,27 @@ class ScanTask:
 # sync Playwright 非线程安全:API 协程只入队,真正摸 page 的动作在任务线程的
 # 等待循环里由 _drain_interactions 执行,结果按关联 id 回填。
 # ---------------------------------------------------------------------------
-_INTERACT_ACTIONS = ("screenshot", "fill", "click", "text")
+_INTERACT_ACTIONS = ("screenshot", "fill", "click", "text", "drag", "eval")
+
+
+def _resolve_locator(page: Any, selector: str) -> Any:
+    """主框架找不到时自动穿透所有 iframe(验证码类组件普遍 iframe 化)。"""
+    loc = page.locator(selector).first
+    try:
+        loc.wait_for(state="attached", timeout=1200)
+        return loc
+    except Exception:  # noqa: BLE001
+        pass
+    for fr in page.frames:
+        if fr is page.main_frame:
+            continue
+        try:
+            cand = fr.locator(selector).first
+            cand.wait_for(state="attached", timeout=800)
+            return cand
+        except Exception:  # noqa: BLE001
+            continue
+    raise RuntimeError(f"元素未找到(已穿透全部 iframe): {selector}")
 
 
 def _drain_interactions(task: ScanTask, page: Any) -> None:
@@ -664,13 +684,50 @@ def _drain_interactions(task: ScanTask, page: Any) -> None:
                 result["screenshot_b64"] = base64.b64encode(shot).decode("ascii")
                 result["ok"] = True
             elif action == "fill":
-                page.fill(selector, value or "", timeout=5000)
+                _resolve_locator(page, selector or "").fill(value or "", timeout=5000)
                 result["ok"] = True
             elif action == "click":
-                page.click(selector, timeout=5000)
+                _resolve_locator(page, selector or "").click(timeout=5000)
                 result["ok"] = True
             elif action == "text":
-                result["text"] = page.inner_text(selector, timeout=5000) if selector else page.title()
+                if selector:
+                    result["text"] = _resolve_locator(page, selector).inner_text(timeout=5000)
+                else:
+                    result["text"] = page.title()
+                result["ok"] = True
+            elif action == "drag":
+                # 滑块验证码:value="dx[,dy]"(像素,相对起点中心);selector 为拖动起点(滑块手柄)。
+                # 变速 + 轻微纵向抖动模拟人手轨迹(行为检测),结束在目标点短暂停顿再松开。
+                raw = (value or "0").replace(" ", "")
+                parts = [float(x) for x in raw.split(",") if x != ""]
+                dx = parts[0] if parts else 0.0
+                dy = parts[1] if len(parts) > 1 else 0.0
+                box = _resolve_locator(page, selector or "").bounding_box()
+                if not box:
+                    raise RuntimeError(f"拖动起点 bounding_box 为空: {selector}")
+                sx = box["x"] + box["width"] / 2
+                sy = box["y"] + box["height"] / 2
+                page.mouse.move(sx, sy)
+                page.mouse.down()
+                steps = max(14, min(70, int(abs(dx) / 5) or 14))
+                for i in range(1, steps + 1):
+                    wobble = ((i % 5) - 2) * 0.9
+                    page.mouse.move(sx + dx * i / steps, sy + dy * i / steps + wobble)
+                    time.sleep(0.006 + (i % 3) * 0.012)
+                time.sleep(0.15)
+                page.mouse.up()
+                result["ok"] = True
+                result["drag"] = {"dx": dx, "dy": dy}
+            elif action == "eval":
+                # 页面内执行 JS(返回须可 JSON 序列化)。selector 可选:指定 frame url/name 子串定位目标 iframe。
+                js = value or ""
+                target_frame = page.main_frame
+                if selector:
+                    for fr in page.frames:
+                        if selector in (fr.url or "") or selector in (fr.name or ""):
+                            target_frame = fr
+                            break
+                result["eval"] = target_frame.evaluate(js)
                 result["ok"] = True
             else:
                 result["error"] = f"未知 action: {action}(合法集 {_INTERACT_ACTIONS})"
@@ -1444,6 +1501,8 @@ def _run_scan_task(task: ScanTask) -> None:
             #    搜狐号 点"登录"弹层 → 点"其他方式"微信圆标)。通用文案清单作兜底。
             #    点击跨页兜底:sohu 登录层极少数情况开新窗,主页找不到就到上下文
             #    其它页(新→旧)找同选择器点掉。
+            # 2026-09-30 提速:计划的第一项就是"登录入口"选择器,先等它渲染出来再点,
+            # 点完立刻等码渲染 —— 省掉原本雷打不动的 3s(点击前)+ 1.5s(点击后)。
             scan_plans: list[Any] = [
                 *config.get("scan_tab_selectors", ()),
                 'text=扫码登录',
@@ -1458,20 +1517,47 @@ def _run_scan_task(task: ScanTask) -> None:
                 '[class*="scan"]',
                 '[class*="qrcode-tab"]',
             ]
+            _first_plan = scan_plans[0] if scan_plans else None
+            _is_configured_entry = bool(config.get("scan_tab_selectors"))
+            _entry_sels = (
+                tuple(str(s) for s in _first_plan)
+                if isinstance(_first_plan, (list, tuple))
+                else ((str(_first_plan),) if _first_plan else ())
+            )
+            if _is_configured_entry and _entry_sels:
+                _entry_ready = _wait_for_page_ready(
+                    page, _entry_sels, timeout_s=4.0, probe=_entry_probe
+                )
+                if _entry_ready:
+                    logger.info(f"[scan_login] 扫码入口已就绪(快路径): {_entry_sels}")
+                else:
+                    # 入口没在 4s 内出现:可能本来就是默认停在扫码 tab 的页面,或多步计划
+                    # 的第一步不是独立可见元素 —— 保留一小段等待兜底。旧值是固定 3s,
+                    # 这里更短,是因为上面那条"能快就快"的路已经走完了。
+                    page.wait_for_timeout(1200)
+            else:
+                # 该平台没配点名入口:只能按通用文案清单去点,保留一小段等待兜底。
+                page.wait_for_timeout(1200)
+            _qr_wait_sels = _qr_ready_selectors(config)
             for plan in scan_plans:
                 steps = list(plan) if isinstance(plan, (list, tuple)) else [plan]
                 clicked_any = False
                 for sel in steps:
                     if _click_selector_anywhere(context, sel):
                         clicked_any = True
-                        page.wait_for_timeout(1500)
+                        # 2026-09-30 提速:点完不再固定等 1.5s,直接等"码渲染出来";
+                        # 等不到就等满这段上限继续走(与旧行为一致,不会把页面判死)。
+                        if _wait_for_page_ready(page, _qr_wait_sels, timeout_s=1.5):
+                            break
                 if clicked_any:
                     logger.info(f"[scan_login] 切换扫码: {steps}")
                     break
 
-            page.wait_for_timeout(2000)
-
             # 3. 截图初始登录页(含二维码)
+            # 2026-09-30 提速:再确认一次码已渲染(默认 tab 就有码的平台,前面那条已命中;
+            # 多步计划/慢页面才走到这里),上限 2s 是旧固定值,命中即走。
+            if not _wait_for_page_ready(page, _qr_wait_sels, timeout_s=0.6):
+                _wait_for_page_ready(page, _qr_wait_sels, timeout_s=1.4)
             _update_qr_screenshot(task, page)
 
             task.message = f"请用 {config['name']} App 扫描二维码"
@@ -1742,6 +1828,128 @@ def _find_qr_clip(pg: Any, vp_w: int, vp_h: int) -> dict[str, float] | None:
             except Exception:  # noqa: BLE001 — 单源读不到就试下一个
                 continue
     return None
+
+
+# ---------------------------------------------------------------------------
+# 页面就绪就往下走(2026-09-30 提速):把"固定等 N 秒"换成"条件一到立刻走"。
+#
+# 起因(本机实测,platform=toutiao_app,同一台机器):
+#   sync_playwright + launch + new_context + goto 合计 ≈ 1.25s,
+#   而固定等待 goto 后 3s + 切 tab 后 1.5s + 截图前 2s = 6.5s ⇒ 首个二维码 7.8s 才可用。
+#   即用户等的那 7.8 秒里**八成是空等** —— 页面早就渲染好了,代码还在 sleep。
+#
+# 判据与固定等待**不等价但更严**(固定等待失败时照样往下走,这里也不会把任务判失败):
+#   选择器全部落空 ⇒ 等满 fallback 秒数后返回,后面照样截图,与旧行为逐字一致;
+#   任一落空选择器命中有尺寸元素 ⇒ 立刻返回,省掉的是纯等待。
+# 为什么不用 page.wait_for_selector:它只认一个选择器、抛异常,而这里要"多个候选里任一"
+# 且失败必须静默降级;批量 evaluate 一次往返就把全部候选问完(逐个 is_visible 是 N 次往返,
+# 反而把省下的时间又还回去)。
+# ---------------------------------------------------------------------------
+_QR_READY_PROBE_JS = """(arg) => {
+  const min = arg.min;
+  for (const sel of arg.sels) {
+    let els;
+    try { els = document.querySelectorAll(sel); } catch (e) { continue; }
+    for (const el of els) {
+      const r = el.getBoundingClientRect();
+      const w = r.width || el.width || 0;
+      const h = r.height || el.height || 0;
+      if (w >= min && h >= min) return true;
+    }
+  }
+  for (const c of document.querySelectorAll('canvas')) {
+    const ow = c.width || 0;
+    const oh = c.height || 0;
+    if (Math.min(ow, oh) < min) continue;
+    const r = c.getBoundingClientRect();
+    if (r.width >= min && r.height >= min) return true;
+  }
+  return false;
+}"""
+
+# Playwright 专有语法(text=xxx / :has-text())在 document.querySelectorAll 里是 SyntaxError。
+# 这一族出现在**通用兜底清单**里,直接丢给浏览器只会白跑往返(每个候选都要 reject 一次),
+# 所以送进浏览器前先滤掉;它们仍由 _click_selector_anywhere 按 Playwright 语义去点。
+_PW_ONLY_SELECTOR_RE = re.compile(r"text=|:has-text\(")
+
+
+def _browser_safe_selectors(selectors: Sequence[str]) -> list[str]:
+    return [s for s in selectors if s and not _PW_ONLY_SELECTOR_RE.search(str(s))]
+
+
+# 默认候选:码语义容器 / 通用位图载体 / 码 iframe。刻意不写裸 "img"(登录页 logo 也是 img,
+# 等一个必然出现的元素等于没等)。平台配置的 qr_image_selectors 与 qr_element_screenshot
+# 由调用方前置拼进来 —— 那是已经过探针实锤的选择器,比这里的通用猜测更早命中。
+_DEFAULT_QR_READY_SELECTORS: tuple[str, ...] = (
+    '[class*="qrcode"] img',
+    '[id*="qrcode"] img',
+    '[class*="qr-code"] img',
+    '[class*="qrcode"] canvas',
+    '[class*="qrCode"] canvas',
+    '[class*="qrcode"]',
+    '[id*="qrcode"]',
+    'img[src^="data:image"]',
+    'iframe[src*="qrconnect"]',
+)
+
+
+def _ready_probe(page: Any, selectors: Sequence[str], min_side: int = 120) -> bool:
+    """一次往返问完所有候选:页面里是否已有"够大的码载体"。任何异常都当未就绪。"""
+    sels = _browser_safe_selectors(selectors)
+    if not sels:
+        return False
+    try:
+        return bool(page.evaluate(_QR_READY_PROBE_JS, {"sels": sels, "min": min_side}))
+    except Exception:  # noqa: BLE001 — 探测失败绝不能影响主流程
+        return False
+
+
+def _entry_probe(page: Any, selectors: Sequence[str]) -> bool:
+    """入口元素就绪(可点位置已量到)。判据是 bounding_box 而非 is_visible,理由同码容器截图。"""
+    for sel in selectors:
+        try:
+            box = page.locator(sel).first.bounding_box()
+            if box and box.get("width", 0) >= 4 and box.get("height", 0) >= 4:
+                return True
+        except Exception:  # noqa: BLE001 — 单个候选失败换下一个
+            continue
+    return False
+
+
+def _wait_for_page_ready(
+    page: Any,
+    selectors: Sequence[str],
+    *,
+    timeout_s: float,
+    poll_ms: int = 120,
+    probe: Any = None,
+) -> bool:
+    """轮询到"至少一个候选就绪"或超时。返回是否命中就绪(仅用于日志)。
+
+    注意不要写 time.sleep:探针/测试要能把等待压缩掉,统一走 page.wait_for_timeout。
+    """
+    check = probe or _ready_probe
+    deadline = time.monotonic() + max(0.0, timeout_s)
+    while True:
+        if check(page, selectors):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        page.wait_for_timeout(poll_ms)
+
+
+def _qr_ready_selectors(config: Mapping[str, Any]) -> tuple[str, ...]:
+    """等"码渲染出来"的候选集:平台点名的选择器在前(更准),通用默认兜底。"""
+    out: list[str] = []
+    for key in ("qr_image_selectors", "qr_element_screenshot"):
+        v = config.get(key)
+        if isinstance(v, str):
+            out.append(v)
+        elif isinstance(v, (list, tuple)):
+            out.extend(str(x) for x in v)
+    out.extend(_DEFAULT_QR_READY_SELECTORS)
+    # 去重保序(同一选择器重复问一遍只是白跑一次浏览器往返)
+    return tuple(dict.fromkeys(out))
 
 
 def _extract_qr_image(page: Any, selectors: Sequence[str]) -> str | None:
