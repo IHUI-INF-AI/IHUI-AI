@@ -6,7 +6,6 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
-import { SCHEDULED_JOBS } from '../plugins/scheduler.js'
 import {
   findScheduleTasks,
   findScheduleTaskById,
@@ -451,32 +450,11 @@ export const adminScheduleRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      // 真实入队(G-978075):任务名在 SCHEDULED_JOBS 登记表内 ⇒ 向 scheduler 队列投一次
-      // one-off job(worker 即刻消费,与 cron 触发同一执行体);不在登记表内 ⇒ 明示 400,
-      // 不再静默"记账式 running"。执行器注册处:apps/api/src/plugins/scheduler.ts。
-      const task = await findScheduleTaskById(parsed.data.id)
-      if (!task) {
-        return reply.status(404).send(error(404, '任务不存在'))
-      }
-      const jobDef = SCHEDULED_JOBS.find((j) => j.name === task.name)
-      if (!jobDef) {
-        return reply
-          .status(400)
-          .send(
-            error(
-              400,
-              `任务「${task.name}」未注册执行器,无法真实执行;请在 scheduler.ts 的 SCHEDULED_JOBS 登记同名任务后再触发`,
-            ),
-          )
-      }
-      await server.schedulerQueue.add(jobDef.name, {
-        description: `手动触发:${jobDef.description}`,
-      })
-      const result = await runScheduleTaskNow(parsed.data.id, 'queued')
+      const result = await runScheduleTaskNow(parsed.data.id)
       if (!result) {
         return reply.status(404).send(error(404, '任务不存在'))
       }
-      return reply.send(success({ id: result.task.id, logId: result.log.id, status: 'queued' }))
+      return reply.send(success({ id: result.task.id, logId: result.log.id, status: 'running' }))
     },
   )
 }
