@@ -55,7 +55,7 @@
     "NOTICE"
   ],
   "scripts": {
-    "build": "rimraf dist && tsc -p tsconfig.build.json",
+    "build": "node ../../scripts/lib/atomic-build.mjs -p tsconfig.build.json",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
