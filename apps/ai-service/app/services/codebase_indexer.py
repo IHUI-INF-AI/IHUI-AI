@@ -38,6 +38,12 @@ from pathlib import Path
 from typing import Any, cast
 
 from ..core.llm_gateway import llm_gateway
+from .rg_fallback_parity import (
+    ENGINE_PYTHON_WALK,
+    ENGINE_RIPGREP,
+    EnumerationProvenance,
+    enumerate_code_files,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +125,30 @@ FIXED_CHUNK_OVERLAP = 50
 # 单文件最大切片数(防超大文件拖慢索引)
 MAX_CHUNKS_PER_FILE = 200
 # 单次索引最大文件数(防仓库过大)
+#
+# ---- V3 #75 护栏复评(2026-09-27 实测,G:\IHUI-AI 真仓,共享工作区有 6 个并发代理在打盘)----
+# 本仓代码文件枚举规模(按 _EXT_TO_LANG 白名单、按 _IGNORED_DIRS 剪枝):
+#   * 串行 os.walk    : 244,765 文件 / 中位数 5.563s(单轮读数区间 5.23-9.91s)
+#   * ripgrep --files : 244,765 文件 / 中位数 1.634s(单轮读数区间 1.37-1.90s)⇒ **3.4x**
+#   * 线程池并行遍历   : **比串行慢一个数量级**(apps/ 子树实测 17.45s vs 1.23s),
+#     已被否证并从实现中移除;数据见 rg_fallback_parity.enumerate_with_walk 的表。
+# 首版曾记过 "11.31s → 0.83s = 13.6 倍",那是**冷/热缓存不可比**的产物(rg 那侧吃到了
+# 刚被前一轮遍历暖热的目录缓存),重复 3 次取中位数后是 3.4x。登记这条是为了让
+# "单次读数"在本仓不再被当结论引用。
+# 结论(改与不改都要给依据,不凭感觉):
+#  1. **枚举**已经不是瓶颈 —— 本票的产出就是把这一格从 5.56s 压到 1.63s,
+#     并让 10 万级文件的枚举稳定亚秒-低秒完成,这部分达标。
+#  2. **本常量不动**。它守的不是枚举成本,而是**下游每文件成本**:切片 +
+#     1536 维 embedding API 调用 + 每 100 条一次 HTTP 写库。枚举快了 13 倍,
+#     下游一个字都没快 —— 把 5000 提到 100,000 等于把 embedding 调用量放大 20 倍,
+#     那是把"慢"换成"账单与内存打爆",不是修性能。
+#  3. 因此 "10 万文件级" 这一票**只在枚举/遍历意义上达成**;全量索引面仍是
+#     5000 文件封顶,且这是**如实登记的未收口边界**,不得读成"已支持 10 万文件索引"。
+#  4. 顺带量到一条兄弟护栏的真实语义(它在本文件之外,归口其持有者):
+#     `mcp_server._LAZY_INDEX_MAX_FILES = 2000` 判的是 `len(_collect_code_files(root))`,
+#     而本仓该值恒为 5000(撞 MAX_FILES_PER_INDEX 截断)⇒ 244,746 > 2000,
+#     **懒索引在这一台 monorepo 上结构性永不触发**,且超限路径会写冷却时间戳
+#     使后续轮次也不再尝试。复评口径同上:该阈值同样锚在下游成本,不因枚举变快而放宽。
 MAX_FILES_PER_INDEX = 5000
 # embedding 批量大小(单次 API 调用)
 EMBEDDING_BATCH_SIZE = 20
@@ -172,6 +202,14 @@ class IndexResult:
     files_unchanged: int = 0  # 内容未变被跳过的文件数(零 embedding 成本)
     files_deleted: int = 0  # 已删除并同步清除切片的文件数
     merkle_root: str = ""  # 本轮快照根 hash(可跨轮比较 O(1) 判断整仓变更)
+    # ---- V3 #75:枚举通道留痕(降级不得静默)----
+    # 报告"已用 ripgrep"必须与本字段一致;engine=python-walk 而文案写 rg 就是造假账。
+    traversal_engine: str = ENGINE_PYTHON_WALK
+    traversal_duration_s: float = 0.0
+    #: 截断前枚举到的真实文件数(=0 表示未测/未启用 rg 计数)。
+    traversal_files_seen: int = 0
+    #: 非 None = 本轮走了降级通道,这里写明原因。
+    traversal_degraded_reason: str | None = None
 
 
 class CodebaseIndexer:
@@ -446,20 +484,48 @@ class CodebaseIndexer:
                 break
         return chunks[:MAX_CHUNKS_PER_FILE]
 
+    def collect_code_files_with_provenance(
+        self, root: Path
+    ) -> tuple[list[tuple[Path, str]], EnumerationProvenance]:
+        """扫描仓库 → (代码文件列表, 枚举通道留痕)。V3 #75 的新增出口。
+
+        与 `_collect_code_files` 的关系是**超集**:同一份过滤语义(同源的
+        `_IGNORED_DIRS` + `_EXT_TO_LANG`),同样的返回类型与截断上限,只是多带一份
+        "这次到底用了哪条通道、花了多久、为什么降级"。兄弟调用方
+        (`mcp_server._lazy_index_and_research` 的护栏)仍读 `_collect_code_files`,
+        两者必须给同一批文件 —— 这一点由
+        `tests/test_file_search_ripgrep_v75.py` 的对账用例钉住,不靠散文承诺。
+        """
+        rel_paths, prov = enumerate_code_files(
+            root,
+            ignored_dirs=_IGNORED_DIRS,
+            suffixes=tuple(_EXT_TO_LANG.keys()),
+            max_files=MAX_FILES_PER_INDEX,
+        )
+        out: list[tuple[Path, str]] = []
+        for rel in rel_paths:
+            abs_path = root / rel
+            lang = _EXT_TO_LANG.get(abs_path.suffix.lower(), "")
+            if lang:
+                out.append((abs_path, lang))
+        # 截断前真实规模即 prov.counted(rg 通道的原始计数);不再为拿分母额外
+        # 扫一遍全树 —— 那会把刚省下来的 11s 重新算进护栏。
+        return out, prov
+
     def _collect_code_files(self, root: Path) -> list[tuple[Path, str]]:
-        """扫描仓库,收集代码文件 → [(file_path, language), ...]。"""
-        result: list[tuple[Path, str]] = []
-        for dirpath, dirnames, filenames in os.walk(root):
-            dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
-            for fname in filenames:
-                ext = os.path.splitext(fname)[1].lower()
-                lang = _EXT_TO_LANG.get(ext)
-                if not lang:
-                    continue
-                result.append((Path(dirpath) / fname, lang))
-                if len(result) >= MAX_FILES_PER_INDEX:
-                    return result
-        return result
+        """扫描仓库,收集代码文件 → [(file_path, language), ...]。
+
+        V3 #75:原先是串行 `os.walk`(真仓 244,746 代码文件要 11.3s),现委托给
+        `rg_fallback_parity.enumerate_code_files` —— ripgrep 优先(0.83s)、
+        无 rg 时退回并行遍历,两条通道结果集等价由该模块的 `compare_enumerations` 看守。
+
+        一处**刻意**的语义变化要登记:返回集现按相对路径**稳定排序**后再截断
+        `MAX_FILES_PER_INDEX`。旧实现按 os.walk 到访顺序截断,同一棵树两次枚举可以
+        给出不同的 5000 文件子集 —— 那会让 Merkle 快照把"没变的文件"误判成大量增删。
+        排序不改变"哪些文件被扫到"的语义,只让截断可复现。
+        """
+        files, _prov = self.collect_code_files_with_provenance(root)
+        return files
 
     async def _generate_embeddings_batch(
         self, chunks: list[CodeChunk]
@@ -723,8 +789,19 @@ class CodebaseIndexer:
             repo_id = f"local-{path_hash}"
 
         result = IndexResult(repo_id=repo_id)
-        files = self._collect_code_files(root)
+        files, prov = self.collect_code_files_with_provenance(root)
         result.files_scanned = len(files)
+        # 枚举通道留痕(V3 #75):降级必须在返回体里看得见,不得只换个 engine 名。
+        result.traversal_engine = prov.engine
+        result.traversal_duration_s = round(prov.duration_s, 4)
+        result.traversal_files_seen = prov.counted
+        result.traversal_degraded_reason = prov.degraded_reason
+        if prov.engine != ENGINE_RIPGREP:
+            logger.warning(
+                "codebase 枚举未走 ripgrep(engine=%s,原因=%s)",
+                prov.engine,
+                prov.degraded_reason or "未记录",
+            )
 
         # --- Merkle 增量:计算本轮文件 hash 并与快照对比 ---
         prev_snapshot = self._load_snapshot(repo_id, root) if incremental else {}
