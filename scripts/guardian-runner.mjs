@@ -4366,6 +4366,24 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 列表截断诚实(1 项,blocking)---
+  {
+    id: '178',
+    label:
+      '列表截断诚实守门(b76-13票7配套):UI 列表截断必须如实交代截断帽(不得假装展示全量),三处 UI 命中已清偿;1 处字符串尾截(terminal-section.tsx)属票面不判面(未判定不判红)',
+    script: 'check-list-cap-honesty.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_LIST_CAP_HONESTY',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-list-cap-honesty.mjs',
+      '自检:node scripts/check-list-cap-honesty.mjs --self-test',
+      '应急放行:HUSKY_SKIP_LIST_CAP_HONESTY=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
