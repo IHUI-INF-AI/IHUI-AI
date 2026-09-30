@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
-import { View, Text, Button, Picker } from '@tarojs/components'
+import { View, Text, Input, Textarea, Button, Picker } from '@tarojs/components'
 import { logger } from '@/utils/logger'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -11,7 +11,6 @@ import { useUiField } from '@/lib/ui-field-registry'
 import { post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
-import { FocusInput, FocusTextarea } from '@/components/FocusField'
 
 export default function StudyPublish() {
   const { t, tList } = useI18n()
@@ -79,7 +78,7 @@ export default function StudyPublish() {
       {/* 对齐 RN StudyPublishScreen(共享屏):字段直接铺在 surface.bg 上(无白卡包裹),表单 content p14dp→28rpx / gap14dp→28rpx;
           input 语言:border light / radius 12dp→24rpx / h 50dp→100rpx / px 12dp→24rpx / bg surface.muted / 字号 16dp→32rpx;提交按钮 h 50dp→100rpx / radius 15dp→30rpx */}
       <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[180rpx] flex flex-col gap-[28rpx]">
-        <FocusInput
+        <Input
           className="h-[100rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-sm text-[length:32rpx] text-foreground"
           placeholder={t('study.publish.titlePlaceholder')}
           maxlength={50}
@@ -88,7 +87,7 @@ export default function StudyPublish() {
         />
 
         <View className="flex flex-col gap-[12rpx]">
-          <FocusTextarea
+          <Textarea
             className="w-full min-h-[160rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-sm text-[length:32rpx] text-foreground"
             placeholder={t('study.publish.contentPlaceholder')}
             maxlength={2000}
@@ -134,7 +133,7 @@ export default function StudyPublish() {
               <LineIcon name="chevron-right" size={32} className="ml-[16rpx]" />
             </View>
           </Picker>
-          <FocusInput
+          <Input
             className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-sm text-[length:28rpx] text-foreground"
             placeholder={t('study.publish.tagsPlaceholder')}
             value={tags}

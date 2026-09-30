@@ -4,7 +4,7 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Button, Image } from '@tarojs/components'
+import { View, Text, Textarea, Button, Image } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -12,7 +12,6 @@ import { generateImage } from '@/api'
 import EmptyState from '@/components/EmptyState'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
-import { FocusTextarea } from '@/components/FocusField'
 
 interface HistoryItem {
   id: string
@@ -215,7 +214,7 @@ export default function ImagePage() {
         </View>
       ) : null}
       <View className="py-[24rpx] px-[32rpx]">
-        <FocusTextarea
+        <Textarea
           className="w-full min-h-[192rpx] p-[24rpx] bg-transparent border border-border rounded-sm text-[length:24rpx] box-border"
           value={prompt}
           placeholder={t('ai.image.placeholder')}
