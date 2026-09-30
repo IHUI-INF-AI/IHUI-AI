@@ -127,10 +127,13 @@ describe('D131 ②:反向对照 —— 正常态屏幕上必须搜不到该件',
 describe('D131 ③:装车证明(生产 importer,排除测试面)', () => {
   const repoRead = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8')
 
-  it('输入区 chrome 必须 import ConnectionStatusBar', () => {
-    const src = repoRead('../../chat/message-input.tsx')
-    expect(src).toContain("from '@/components/chat/connection-status-bar'")
-    expect(src).toContain('<ConnectionStatusBar')
+  it('输入区 chrome 必须 import ConnectionStatusBar(2026-09-30 起挂载点迁入 InputStatusSlot 单状态槽)', () => {
+    const slot = repoRead('../../chat/input-status-slot.tsx')
+    expect(slot).toContain("from './connection-status-bar'")
+    expect(slot).toContain('<ConnectionStatusBar')
+    // 宿主必须真实挂槽(槽不在树上时连接位无从谈起)
+    const host = repoRead('../../chat/message-input.tsx')
+    expect(host).toContain('<InputStatusSlot')
   })
 
   it('connection-status 四态件的生产 importer ≥1(命中不得只在测试面)', () => {
