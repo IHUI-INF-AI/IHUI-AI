@@ -633,6 +633,7 @@
     "scanLoginTimeout": "Scan timed out. Please try again.",
     "scanLoginTitle": "Scan Login",
     "scanWithPhoneHint": "Please scan the QR code with your phone to log in.",
+    "selectPlatform": "Please select a platform",
     "startScanLogin": "Start Scanning",
     "subtitle": "Manage multiple social platform accounts",
     "title": "Account Management",
@@ -8999,7 +9000,6 @@
     "title": "AI Career Guidance"
   },
   "aiChat": {
-    "bindIssue": "Bind issue",
     "actions": {
       "archive": "Archive",
       "compressTo1m": "Compress to 1M chars",
@@ -9029,6 +9029,26 @@
       "confirmText": "Rollback",
       "restoreSuccess": "Rolled back to the checkpoint",
       "restoreFailed": "Rollback failed"
+    },
+    "recap": {
+      "title": "Task recap",
+      "handoff": {
+        "menuItem": "Hand off to a new task",
+        "title": "Hand off to a new task"
+      },
+      "previewDescription": "Review the handoff content, view it at the file location, or create a new task to continue working.",
+      "purposeLabel": "Handoff purpose",
+      "purposePlaceholder": "Handoff purpose",
+      "waitingPreview": "Preparing preview…",
+      "phase": {
+        "generating": "The model is generating the handoff content…",
+        "finalizing": "Wrapping up…",
+        "done": "The handoff document is ready."
+      },
+      "revealFile": "Show file",
+      "createSession": "Create new task",
+      "creating": "Creating new task…",
+      "createFailed": "Failed to create the new task. Please try again."
     },
     "addWorkspace": "Add Workspace",
     "assistant": "Assistant",
@@ -9145,25 +9165,6 @@
     "noHistory": "No history chat",
     "noRecentWorkspaces": "No recent workspaces",
     "openTerminal": "Open Terminal",
-    "recap": {
-      "title": "Task recap",
-      "handoff": {
-        "menuItem": "Hand off to a new task",
-        "title": "Hand off to a new task"
-      },
-      "previewDescription": "Review the handoff content, view it at the file location, or create a new task to continue working.",
-      "purposeLabel": "Handoff purpose",
-      "purposePlaceholder": "Handoff purpose",
-      "revealFile": "Show file",
-      "createSession": "Create new task",
-      "phase": {
-        "generating": "The model is generating the handoff content…",
-        "done": "The handoff document is ready."
-      },
-      "creating": "Creating new task…",
-      "createFailed": "Failed to create the new task. Please try again.",
-      "handoffUnavailable": "The handoff document generator this flow depends on is not available yet, so handoff content cannot be generated."
-    },
     "renameDialog": {
       "cancel": "Cancel",
       "description": "Keep it short and easy to recognize",
@@ -10602,30 +10603,6 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
-    "bindIssue": "Bind issue",
-    "unbindIssue": "Make standalone task",
-    "issueBinding": "Linked issue",
-    "searchIssues": "Search issues by ID, title, or project",
-    "noIssues": "No issues to bind yet",
-    "noMatchingIssues": "No matching issues",
-    "issueNotConfigured": "This source isn't connected yet. Connect GitHub or Linear in settings first.",
-    "issueBindSuccess": "Issue bound",
-    "issueBindFailed": "Failed to bind issue",
-    "issueUnbindSuccess": "Unbound. This conversation is now a standalone task",
-    "issueUnbindFailed": "Failed to unbind issue",
-    "selectionAnnotations": {
-      "hoverHint": "Hover to view annotations",
-      "selectedText": "{{index}}. Selected text",
-      "noComment": "No comment yet",
-      "commentPlaceholder": "Add an optional comment…",
-      "commentAriaLabel": "Selection annotation comment",
-      "addComment": "Add comment",
-      "removeOne": "Remove annotation {{index}}",
-      "removeAll": "Remove all selection annotations",
-      "add": "Annotate"
-    },
-    "attachRetry": "Retry upload",
-    "attachRetryExhausted": "Retry limit reached. Remove it and add the file again.",
     "attachRejectType": "Unsupported file type; skipped {count} file(s): {names}",
     "attachRejectSize": "File exceeds the size limit ({max}MB); skipped {count} file(s): {names}",
     "attachRejectCount": "Up to {max} attachments are allowed; {count} were rejected this time",
@@ -12263,7 +12240,6 @@
     "unpin": "Unpin",
     "unsaved": "Unsaved",
     "update": {
-      "revoked": "This version is no longer available.",
       "autoRestartIn": "Auto-restarting in {countdown}s...",
       "autoRetrying": "Update failed, auto-retrying...",
       "available": "New Version Available",
@@ -12416,9 +12392,6 @@
     "title": "Lessonsmid"
   },
   "cronEditor": {
-    "customFallback": "Custom expression",
-    "customHint": "This expression can't be represented losslessly in the visual editor. The original text is kept below:",
-    "switchToVisual": "Switch to visual editing",
     "everyField": "Every {field}",
     "recentRuns": "Recent 5 runs",
     "specificPlaceholder": "{min}-{max}, comma separated",
@@ -15074,8 +15047,6 @@
     "title": "Feature Center"
   },
   "feedback": {
-    "unsupportedImage": "Only PNG, JPG, GIF and WebP images are supported.",
-    "requestIdSuffix": "Feedback ID: {requestId}.",
     "backToList": "Back to feedback",
     "contactPlaceholder": "Optional, so we can reach you",
     "contentPlaceholder": "Describe your issue or suggestion...",
@@ -15907,8 +15878,6 @@
       "unsynced": "Unsynced"
     },
     "terminalPanel": {
-      "switchToDark": "Switch to dark terminal",
-      "switchToLight": "Switch to light terminal",
       "aiDiagnoseTitle": "AI error diagnosis",
       "aiServiceUnavailable": "AI service is temporarily unavailable, please try again later",
       "aiSuggestTitle": "AI command suggestions",
@@ -19033,11 +19002,6 @@
     "memory": "Memory",
     "messages": "Messages",
     "messagesComment": "Comments",
-    "myPendingDecisions": "Pending my decisions",
-    "pendingDecisionsEmpty": "No pending decisions",
-    "decisionTypeToolApproval": "Tool approval",
-    "decisionTypePermissions": "Permission request",
-    "decisionTypeElicitation": "Answer needed",
     "messagesFans": "New Followers",
     "messagesFavorite": "Favorites",
     "messagesLike": "Likes",
@@ -22718,6 +22682,21 @@
       "hoursAgo": "{hr} hr ago",
       "justNow": "just now",
       "markAllRead": "Mark all read",
+      "important": "For your awareness",
+      "viewActive": "Back to activity",
+      "markAllReadFailed": "Couldn't mark activity as read. Please try again.",
+      "hiding": "Hiding…",
+      "hideFailed": "This activity wasn't hidden. Please try again.",
+      "restoring": "Restoring…",
+      "restoreFailed": "This activity wasn't restored. Please try again.",
+      "emptyDescription": "Comments, mentions, and subscription updates will appear here.",
+      "emptyArchivedDescription": "Activity you hide will be kept here and can be restored anytime.",
+      "unavailable": "Activity is temporarily unavailable. Please try again later.",
+      "tabActive": "Activity",
+      "tabArchived": "Archived",
+      "hide": "Hide",
+      "restore": "Restore",
+      "retry": "Retry",
       "minutesAgo": "{min} min ago",
       "tab": {
         "all": "All",
@@ -26608,7 +26587,6 @@
     "noUrlField": "No usable URL field found in response",
     "networkError": "Network error",
     "uploadCancelled": "Upload cancelled",
-    "imageAltText": "Feedback screenshot {index}",
     "imagePlaceholder": "Click or drag images here to upload"
   },
   "eduScheduling": {
@@ -27642,18 +27620,6 @@
     "restore": "Show suggestions"
   },
   "taskMonitor": {
-    "group": {
-      "artifact": "Artifacts",
-      "browser": "Web pages",
-      "source": "Sources"
-    },
-    "emptyGroup": {
-      "artifact": "No artifact data yet :)",
-      "browser": "No web page data yet :)",
-      "source": "No source data yet :)"
-    },
-    "empty": "Nothing valuable yet",
-    "emptyDescription": "Files, pages and sources produced across the whole task keep gathering here so you can track progress.",
     "displayMode": "Display",
     "modeSections": "Sections",
     "modeTabs": "Tabs",
@@ -27803,6 +27769,15 @@
     "pasteValid": "Valid",
     "pasteUnknown": "Unrecognized",
     "pastePreviewDismiss": "Dismiss pasted reference preview",
+    "referencePreview": {
+      "available": "Available references",
+      "clear": "Clear",
+      "editor": "Reference preview editor",
+      "placeholder": "Edit the referenced content and send it directly…",
+      "select": "Select reference",
+      "send": "Send",
+      "source": "Source"
+    },
     "authorizationNotice": "Reference tags do not grant additional execution permission.",
     "hintSelect": "select",
     "hintConfirm": "confirm",
