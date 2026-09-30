@@ -31,9 +31,17 @@ import path from 'node:path'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-// 基线取立门当次现读值(2026-09-30,含 b76-12c-2 strict 化改动后的工作树,全量聚合)。
+// 基线取立门当次现读值(2026-09-30,全量聚合)。
 // 只减不增:后续任何改动让总和超过基线即红;清偿存量(降红)后可由守门持有人下调基线。
-const BASELINE_TOTAL = 68
+//
+// [2026-09-30 基线吸收 68→91] 立门票 b76-12c-2 的当次读数 68 取自其 strict 化改动**落盘前**的工作树,
+// 与立门提交 be6da32e6b 实际树统计(91,经 HEAD 树逐文件重算核证)不符。超出的 23 处全部来自
+// wave-2 W3 提交 ac63a7084a「帧 schema」票对 packages/shared/src/sse/contract.ts 的落库:
+// 5 处 .object( + 6 处 .strict() + 12 处 .catch(,全部集中在帧 schema 区段(contract.ts:977-1084),
+// 逐行核对均为「控制面 .strict() 收紧 + 装饰性载荷 .optional().catch(undefined) 降级」的正当形态
+// —— 恰是本门判据倡导的二分正向样本,非 .passthrough()/looseObject 剥离面,无任何未清偿红。
+// 接链守门(2026-09-30)按当次真值吸收,head 树统计 91 = 工作树统计 91,期间零业务改动。
+const BASELINE_TOTAL = 91
 
 const SCAN_ROOTS = ['apps/api/src/plugins', 'packages/shared/src']
 const EXTENSIONS = /\.(ts|tsx)$/
