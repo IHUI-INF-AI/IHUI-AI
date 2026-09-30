@@ -292,13 +292,29 @@ export function dialectOf(rel) {
 }
 
 /**
+ * 内容嗅探后的生效方言(2026-09-30 v2 立,普查实证的漏认形态②)。
+ * `.husky/` 根目录的无扩展名钩子按路径默认 sh —— 但本仓的钩子自 2026-09-23 起是
+ * `#!/usr/bin/env node` 的 **Node 钩子**(`.husky/post-commit` 头注自证),里面是
+ * `process.env.HUSKY_SKIP_X` 的 **JS 读法**;按 sh 判 = 守门对四个真通道(HYGIENE /
+ * LEDGER_STRIP / PLAN_HEAL / TAG_SYNC)集体漏认、给假承诺发红。嗅探规则:文本有
+ * node shebang 或 `process.env.` ⇒ js;否则维持路径方言。**只可能把"漏认"扳成
+ * "认到",不新增任何承诺维度**;sh 钩子(真 shell 语法)不受影响(无 node 痕迹)。
+ */
+export function sniffDialect(rel, text) {
+  const base = dialectOf(rel)
+  const t = String(text ?? '')
+  if (base === 'sh' && (/^\s*#!.*\bnode\b/m.test(t) || /process\.env\./.test(t))) return 'js'
+  return base
+}
+
+/**
  * 遮一个面。**只有这一处**按语言选遮罩器(镜像按调用点计数钉死,防第二份剥注释实现)。
  * `maskComments` 遮注释**保留字符串**(runner 的 `skipEnv: 'NAME'` 本身就是字符串);
  * 脚本方言走同层的 `maskScriptComments`,它认行尾注释,比"整行以 # 开头"更准。
  * 未知方言原样返回:兑现面只收三种方言,别的文件根本进不来(见 isConsumerFile)。
+ * `d` 可由调用方传入嗅探后的生效方言(见 sniffDialect);缺省按路径判。
  */
-export function maskFace(rel, text) {
-  const d = dialectOf(rel)
+export function maskFace(rel, text, d = dialectOf(rel)) {
   if (d === 'js') return maskComments(text)
   if (d === 'sh') return maskScriptComments(text, 'sh')
   if (d === 'ps') return maskScriptComments(text, 'ps')
@@ -319,10 +335,17 @@ export function findReads(name, faces) {
   for (const f of faces || []) {
     // 范围在**这里**再过一遍(不在这里判 = 只要调用方漏筛,夹具面的读点就会被算成兑现):
     // 夹具面 / 归档面对本门不可见,是刻意的"宁漏不误报",见头注。
-    const d = dialectOf(f.rel)
-    if (!d || !isConsumerFile(f.rel)) continue
-    const code = maskFace(f.rel, f.text) // ← 遮罩唯一调用点
+    const d = sniffDialect(f.rel, f.text)
+    if (!d || !dialectOf(f.rel) || !isConsumerFile(f.rel)) continue
+    const code = maskFace(f.rel, f.text, d) // ← 遮罩唯一调用点
     const taken = []
+    /** 每条语法命中去重后登记(via 标注最具体的那条,不虚增计数)。 */
+    const record = (via, from, to) => {
+      const line = code.slice(0, from).split('\n').length
+      if (taken.some((t) => t.line === line && from < t.to && to > t.from)) return
+      taken.push({ line, from, to })
+      hits.push({ rel: f.rel, line, via })
+    }
     for (const g of READ_GRAMMARS) {
       if (g.d !== d) continue
       const re = grammarRe(g, n)
@@ -334,10 +357,41 @@ export function findReads(name, faces) {
           re.lastIndex++
           continue
         }
-        const line = code.slice(0, from).split('\n').length
-        if (taken.some((t) => t.line === line && from < t.to && to > t.from)) continue
-        taken.push({ line, from, to })
-        hits.push({ rel: f.rel, line, via: g.via })
+        record(g.via, from, to)
+      }
+    }
+    // 间接常量读(2026-09-30 v2,普查实证的漏认形态①):`const SKIP_ENV = 'HUSKY_SKIP_X'`
+    // 之后 `process.env[SKIP_ENV]` 是 HUSKY_SKIP_X 的**真读取点** —— 名字在字面量赋值行、
+    // 读取在别的行,直读语法表对不上 ⇒ 三个真通道被误判 fake。同文件内"绑定 + 下标读"
+    // 两者齐备才算(缺一不可:只有绑定没有读,仍是 fake);仅 js 方言(sh 无此形态)。
+    if (d === 'js') {
+      const bindings = []
+      const bindRe = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(['"])HUSKY_SKIP_[A-Z0-9_]+\2/g
+      let bm
+      while ((bm = bindRe.exec(code)) !== null) {
+        const lit = /(['"])(HUSKY_SKIP_[A-Z0-9_]+)\2/.exec(bm[0])
+        if (lit && lit[2] === n) bindings.push(bm[1])
+      }
+      const seenIdents = new Set()
+      // 常量下标读的专用语法(无引号组 —— `process.env[SKIP_ENV]` 与字面量形态的区别所在)
+      const indirectGrammars = [
+        { via: 'process.env[CONST]', src: 'process\\.env\\s*\\[\\s*%IDENT%\\s*\\]' },
+        { via: 'env[CONST]', src: '\\benv\\s*\\[\\s*%IDENT%\\s*\\]' },
+      ]
+      for (const ident of bindings) {
+        if (seenIdents.has(ident)) continue
+        seenIdents.add(ident)
+        for (const g of indirectGrammars) {
+          const re = new RegExp(g.src.replace('%IDENT%', escapeRe(ident)), 'g')
+          let m
+          while ((m = re.exec(code)) !== null) {
+            if (m[0].length === 0) {
+              re.lastIndex++
+              continue
+            }
+            record(`${g.via}(间接:${ident})`, m.index, m.index + m[0].length)
+          }
+        }
       }
     }
   }
@@ -398,6 +452,15 @@ export function evaluate(o) {
       continue
     }
     if (cls.role === 'undetermined') {
+      // 角色判不出 ≠ 无出路可核(2026-09-30 v2,普查实证的漏认形态③):文档措辞两可时,
+      // 兑现面若有**真读点**,该名有没有出路已经 moot —— 它真实可跳,按 wired 论;
+      // 零读点才落 undetermined(此时"是不是出路"确实没判出来,不冒 fake 也不冒 wired)。
+      const reads = findReads(name, faces)
+      if (reads.length > 0) {
+        promiseNames++
+        wired.push({ name, reads })
+        continue
+      }
       undetermined.push({ name, why: '该名字在句中的角色判不出来', where })
       continue
     }
@@ -612,6 +675,15 @@ function selfTest() {
   ok('R12 脚本方言的行尾注释不是读点(.sh)', findReads('HUSKY_SKIP_X', [{ rel: 'deploy/a.sh', text: 'echo hi # 例如 $HUSKY_SKIP_X 可以跳过' }]).length === 0)
   ok('R13 注释里写 $env: 同样不算(.ps1)', findReads('HUSKY_SKIP_X', [{ rel: 'deploy/a.ps1', text: '# 用 $env:HUSKY_SKIP_X=1 跳过\nWrite-Host 1' }]).length === 0)
   ok('R14 行号按原文对齐(遮罩等长,行号不漂)', findReads('HUSKY_SKIP_X', [js('scripts/a.mjs', '/* 说明\n   多行\n */\nprocess.env.HUSKY_SKIP_X')])[0].line === 4)
+  // ── v2 漏认形态三钉(2026-09-30 全仓普查实证,见落地枚正文)──────────────
+  ok('R15 间接常量读:const SKIP_ENV=NAME + process.env[SKIP_ENV] ⇒ wired', findReads('HUSKY_SKIP_X', [js('scripts/a.mjs', "const SKIP_ENV = 'HUSKY_SKIP_X'\nif (process.env[SKIP_ENV] === '1') x()")]).length === 1)
+  ok('R15b 只有常量绑定、没有下标读 ⇒ 仍算零读点(两者缺一不可)', findReads('HUSKY_SKIP_X', [js('scripts/a.mjs', "const SKIP_ENV = 'HUSKY_SKIP_X'")]).length === 0)
+  ok('R16 Node 钩子(#!node + process.env 读法)按内容嗅探判 js ⇒ wired', findReads('HUSKY_SKIP_X', [{ rel: '.husky/post-commit', text: '#!/usr/bin/env node\nif (process.env.HUSKY_SKIP_X !== "1") x()' }]).length === 1)
+  ok('R16b 真 sh 钩子($NAME 读法)不受嗅探影响', findReads('HUSKY_SKIP_X', [{ rel: '.husky/pre-commit', text: '#!/bin/sh\ntest -n "$HUSKY_SKIP_X"' }]).length === 1)
+  ok('E5d undetermined + 兑现面有真读点 ⇒ wired(出路问题 moot,不再落未判定)', (() => {
+    const r = runCase({ doc: '- `HUSKY_SKIP_U=1` 关的是整块', faces: [js('scripts/u.mjs', 'process.env.HUSKY_SKIP_U')] })
+    return r.counts.wired === 1 && r.counts.undetermined === 0 && r.exit === 0
+  })())
 
   // ── 预筛超集 + 消费者范围 ───────────────────────────────────
   ok('F-PRE 每条读点语法都要求名字逐字出现 ⇒ HUSKY_ 预筛是超集(少扫一个文件在结构上不可能)', READ_GRAMMARS.every((g) => g.src.includes('%NAME%')) && READ_GRAMMARS.every((g) => grammarRe(g, 'HUSKY_SKIP_X').source.includes('HUSKY_SKIP_X')))
