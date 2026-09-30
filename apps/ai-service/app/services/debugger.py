@@ -32,6 +32,15 @@ DAP_REQUEST_TIMEOUT = 10.0  # 单请求 10s 超时
 DAP_INIT_TIMEOUT = 15.0  # initialize 握手 15s
 
 
+class DapFrameDesyncError(RuntimeError):
+    """DAP 帧解析失败(header 无合法 Content-Length / body 非法 JSON)。
+
+    流一旦 desync,后续每一帧的字节边界都不再可信,"跳过该消息"继续读会让
+    上层拿到语义错位的消息(b76-08b 票1)⇒ 必须判整条连接关闭
+    (对齐上游 zcodeStdioTransport 的 protocol_parse_error ⇒ fireClose 语义)。
+    """
+
+
 # ==================== DAP 协议编解码 ====================
 
 
@@ -75,9 +84,11 @@ class DapProtocolReader:
                 with contextlib.suppress(ValueError):
                     content_length = int(line.split(":", 1)[1].strip())
         if content_length is None:
-            # 无效 header,跳过这一段
-            self._buffer = self._buffer[header_end + 4 :]
-            return None
+            # b76-08b 票1:header 段完整(已见 \r\n\r\n)却无合法 Content-Length
+            # ⇒ 帧边界已不可信,判整条连接关闭,而不是"跳过这一段"继续读。
+            raise DapFrameDesyncError(
+                f"DAP header 无合法 Content-Length: {header!r}"
+            )
         body_start = header_end + 4
         if len(self._buffer) - body_start < content_length:
             return None  # body 尚不完整
@@ -86,8 +97,8 @@ class DapProtocolReader:
         try:
             return cast(dict[str, Any], json.loads(body.decode("utf-8")))
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
-            logger.warning("DAP 消息 JSON 解析失败: %s", e)
-            return None
+            # b76-08b 票1:body 非法 JSON ⇒ 流已 desync,判整条连接关闭
+            raise DapFrameDesyncError(f"DAP 消息 JSON 解析失败: {e}") from e
 
 
 # ==================== DapClient — 单 adapter 协议客户端 ====================
@@ -133,6 +144,11 @@ class DapClient:
                 self._handle_message(msg)
         except asyncio.CancelledError:
             pass
+        except DapFrameDesyncError as e:
+            # b76-08b 票1:帧解析失败 ⇒ 判整条连接关闭。finally 统一收尾:
+            # 在途请求全部立刻判失败(不再干等超时)+ _terminated 置位,
+            # 此后 send_request 直接抛"debug adapter 已关闭"。
+            logger.warning("DAP 帧解析失败,判整条连接关闭: %s", e)
         except Exception as e:
             logger.error("DAP read loop 异常: %s", e)
         finally:
