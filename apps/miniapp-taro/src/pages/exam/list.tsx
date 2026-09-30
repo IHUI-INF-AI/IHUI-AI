@@ -54,6 +54,8 @@ export default function ExamList() {
 
   const goDetail = (id: string) => Taro.navigateTo({ url: `/pages/exam/detail?id=${id}` })
   const goResult = (id: string) => Taro.navigateTo({ url: `/pages/exam/result?id=${id}` })
+  const goWrongList = () => Taro.navigateTo({ url: '/pages/exam/wrong-list/index' })
+  const goAiTutor = () => Taro.navigateTo({ url: '/pages/study/ai-tutor/index' })
 
   // 卡片对齐 RN ExamScreen card:p28rpx 圆角24rpx 2rpx描边(border);标题 36rpx/700 最多2行
   const renderPaper = (e: Exam) => (
@@ -164,6 +166,22 @@ export default function ExamList() {
 
         {/* tab 胶囊对齐 RN 共享屏 tab 样式(圆角24rpx / bg-card,激活 bg-primary 白字) */}
         <View className="flex flex-row px-[20rpx] py-[16rpx] gap-[12rpx]">
+          <View
+            className="px-[24rpx] py-[12rpx] rounded-lg bg-card border border-solid border-border"
+            hoverClass="opacity-60"
+            onClick={goWrongList}
+          >
+            <Text className="text-[length:28rpx] text-muted-foreground">错题本</Text>
+          </View>
+          <View
+            className="px-[24rpx] py-[12rpx] rounded-lg bg-card border border-solid border-border"
+            hoverClass="opacity-60"
+            onClick={goAiTutor}
+          >
+            <Text className="text-[length:28rpx] text-muted-foreground">AI 助教</Text>
+          </View>
+        </View>
+        <View className="flex flex-row px-[20rpx] gap-[12rpx]">
           {TAB_KEYS.map((item) => (
             <View
               key={item.key}
