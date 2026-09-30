@@ -14,21 +14,104 @@ import { execFileSync } from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { test } from 'node:test'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { __test__ as gate } from '../check-workspace-dep-links.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { catBatch, FACE_LABEL } from '../lib/face-reader.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
+
+const GATE_REL = 'scripts/check-workspace-dep-links.mjs'
+
+/**
+ * 本文件判的是**被审的那一枚提交**,不是这台机此刻的盘 —— 由实测逼出:
+ * 共享工作树里 `scripts/check-workspace-dep-links.mjs` 的副本停在 09-24 的草稿(967 行,
+ * HEAD 已 1429 行,第五维与 `deep` 开关都还没长上去),于是 13 例里 **5 例**红:
+ * 3 例是 `__test__`/形状锁对着旧草稿判("必须存在 findGuttedLinks(rootDir, pkgDirs, {deep=false}={})"
+ * 这类锚点在旧草稿上结构不存在),2 例是把旧草稿的导出当被审实现调。同一份测试跑在 HEAD 对齐的
+ * 检出上全绿(已实测)。按盘读的恒红门只会逼人 `--no-verify`,连带废掉全部守门(§12e / 77/83/118 同型)。
+ *
+ * 做法:门 + 它的相对 import 闭包 + 三处注册表(package.json / pnpm-workspace.yaml /
+ * scripts/guardian-runner.mjs)按**同一面、一轮批量**物化进常驻镜像;`import()` 那份门,
+ * 形状锁与 `--self-test` 派生也指向那份 —— 判据符号、源码结构、被 spawn 的实现三者同源。
+ * 面:默认 HEAD blob;`--staged` 判索引 blob;`--worktree` 只作人工逃生舱。
+ * 取不到 ⇒ 抛(判红并点名),不回落磁盘凑结论。
+ */
+const FACE = process.argv.includes('--staged') ? 'staged' : process.argv.includes('--worktree') ? 'worktree' : 'head'
+const FACE_PREFIX = FACE === 'staged' ? ':' : 'HEAD:'
+
+function faceTextMany(rels) {
+  const list = [...new Set(rels)]
+  if (FACE === 'worktree') {
+    const m = new Map()
+    for (const r of list) {
+      const abs = join(REPO, r)
+      m.set(r, existsSync(abs) ? readFileSync(abs, 'utf8') : null)
+    }
+    return m
+  }
+  const specs = list.map((r) => `${FACE_PREFIX}${r}`)
+  const got = catBatch(REPO, specs, { maxBuffer: 1 << 26 })
+  const m = new Map()
+  list.forEach((r, i) => m.set(r, got.get(specs[i]) ?? null))
+  return m
+}
+
+const localSpecs = (src) =>
+  [...src.matchAll(/(?:^|\n)\s*import[^'"]*from\s*['"](\.\.?\/[^'"]+)['"]/g)].map((m) => m[1])
+
+const MIRROR = mkScratch('dep-links-face-')
+after(() => rmScratch(MIRROR))
+
+function materialize(entries) {
+  const copied = new Set()
+  let queue = [...entries]
+  while (queue.length) {
+    const wave = queue.filter((p) => !copied.has(p))
+    queue = []
+    if (!wave.length) break
+    const texts = faceTextMany(wave)
+    for (const rel of wave) {
+      if (copied.has(rel)) continue
+      const text = texts.get(rel)
+      if (typeof text !== 'string')
+        throw new Error(`无法判定:${FACE_LABEL[FACE]} 面取不到 ${rel} —— 闭包断一环不静默少搬`)
+      copied.add(rel)
+      const dst = join(MIRROR, rel)
+      mkdirSync(dirname(dst), { recursive: true })
+      writeFileSync(dst, text, 'utf8')
+      for (const spec of localSpecs(text)) {
+        const next = join(dirname(rel), spec).split(/[\\/]+/).join('/')
+        if (!copied.has(next)) queue.push(next)
+      }
+    }
+  }
+  return [...copied]
+}
+
+materialize([GATE_REL, 'package.json', 'pnpm-workspace.yaml', 'scripts/guardian-runner.mjs'])
+const GATE_FILE = join(MIRROR, GATE_REL)
+const gate = (await import(pathToFileURL(GATE_FILE).href)).__test__
+
+/** 形状锁/注册表的唯一读取入口:一律取镜像(== 被审面那一轮),不再各自读盘 */
+function faceText(rel) {
+  const p = join(MIRROR, rel)
+  if (!existsSync(p)) throw new Error(`无法判定:${FACE_LABEL[FACE]} 面没有 ${rel}(不回落磁盘凑结论)`)
+  return readFileSync(p, 'utf8')
+}
+
+console.log(`  [取材面] ${FACE_LABEL[FACE]} —— 门与注册表按这一面判,不读共享工作树`)
 
 test('__test__ 出口齐备(§22c 锚点)', () => {
   for (const fn of [
@@ -96,7 +179,7 @@ test('第五型(shim 在而入口文件没了)**双向**:删入口必判红、�
 test('真仓反向对照:eslint / prettier 的 shim 第五维必须判绿(这条一红就是恒红门)', () => {
   // 判据在夹具里绿不代表在**真实 pnpm 生成物**上绿 —— 模板形态有成千上万种,
   // 而本门在提交链上是 blocking:真仓红 = 每次提交被逼 --no-verify = 全部守门作废。
-  const cmds = gate.lintStagedCommands(JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8')))
+  const cmds = gate.lintStagedCommands(JSON.parse(faceText('package.json')))
   assert.ok(cmds.length >= 1, '根 lint-staged 没提出任何命令 ⇒ 本用例是空转')
   for (const cmd of cmds) {
     const r = gate.resolveShimEntry(REPO, cmd)
@@ -112,7 +195,7 @@ test('第四型(2026-09-24 全机停摆的直接指纹)**双向**:包体在而 s
   // 这台尺子必须在"故障现场"报红:`node_modules/eslint` 内容完好、能直接 node 跑出 v10.8.1,
   // 但 `node_modules/.bin/eslint(.CMD)` 没了 ⇒ lint-staged 按 PATH 找 eslint 报
   // 「不是内部或外部命令」。若把"`node_modules/<cmd>` 目录存在"当作通过,这条红就永远测不出来。
-  const root = mkScratch('ihui-hookcmd-test-')
+  const root = mkdtempSync(join(tmpdir(), 'ihui-hookcmd-test-'))
   try {
     mkdirSync(join(root, 'node_modules', 'eslint', 'node_modules'), { recursive: true })
     writeFileSync(
@@ -143,14 +226,14 @@ test('第四型(2026-09-24 全机停摆的直接指纹)**双向**:包体在而 s
       `命令名提取不对: ${cmds.join(',')}`,
     )
   } finally {
-    rmScratch(root)
+    rmSync(root, { recursive: true, force: true, maxRetries: 5 })
   }
 })
 
 test('链接完整性判据(掏空/悬空)夹具**双向**:空目标必红、完好目标必绿', () => {
   // 2026-09-24 全机门禁停摆的第二型:链接在、目标被掏空。existsSync 对这一型返回 true,
   // 所以旧判据(findMissingLinks)恒绿 —— 本用例钉住"新判据真的在看内容"。
-  const root = mkScratch('ihui-gutted-test-')
+  const root = mkdtempSync(join(tmpdir(), 'ihui-gutted-test-'))
   try {
     mkdirSync(join(root, 'store', 'good', 'node_modules', 'good'), { recursive: true })
     writeFileSync(
@@ -187,12 +270,12 @@ test('链接完整性判据(掏空/悬空)夹具**双向**:空目标必红、完
     rmSync(join(root, 'node_modules', '@sc', 'hollow'), { force: true })
     assert.deepEqual(gate.findGuttedLinks(root, []).gutted, [], '补齐后仍报红 = 判据不成立')
   } finally {
-    rmScratch(root)
+    rmSync(root, { recursive: true, force: true, maxRetries: 5 })
   }
 })
 
 test('真仓:workspace patterns 与包目录展开均非空', () => {
-  const pats = gate.parseWorkspacePatterns(readFileSync(join(REPO, 'pnpm-workspace.yaml'), 'utf8'))
+  const pats = gate.parseWorkspacePatterns(faceText('pnpm-workspace.yaml'))
   assert.ok(pats.length >= 2, `patterns 只有 ${pats.length} 条,解析疑似失效`)
   assert.ok(
     pats.every((p) => !p.startsWith('!')),
@@ -205,7 +288,7 @@ test('真仓:workspace patterns 与包目录展开均非空', () => {
 test('真仓不变量:所有 workspace:* 声明均已链接', () => {
   const dirs = gate.expandPatterns(
     REPO,
-    gate.parseWorkspacePatterns(readFileSync(join(REPO, 'pnpm-workspace.yaml'), 'utf8')),
+    gate.parseWorkspacePatterns(faceText('pnpm-workspace.yaml')),
   )
   const missing = gate.findMissingLinks(REPO, dirs)
   assert.notEqual(
@@ -217,7 +300,7 @@ test('真仓不变量:所有 workspace:* 声明均已链接', () => {
 })
 
 test('夹具反向对照:声明未链接必红,补上链接必绿', () => {
-  const root = mkScratch('ihui-deplink-test-')
+  const root = mkdtempSync(join(tmpdir(), 'ihui-deplink-test-'))
   try {
     mkdirSync(join(root, 'packages', 'aa'), { recursive: true })
     mkdirSync(join(root, 'apps', 'bb'), { recursive: true })
@@ -242,23 +325,23 @@ test('夹具反向对照:声明未链接必红,补上链接必绿', () => {
     mkdirSync(join(root, 'apps', 'bb', 'node_modules', '@ihui', 'aa'), { recursive: true })
     assert.deepEqual(gate.findMissingLinks(root, dirs), [], '补上链接后应归零')
   } finally {
-    rmScratch(root)
+    rmSync(root, { recursive: true, force: true })
   }
 })
 
 test('夹具:根 node_modules 缺失时返回 null(未安装 ≠ 装歪,不得混作绿灯结论)', () => {
-  const root = mkScratch('ihui-deplink-none-')
+  const root = mkdtempSync(join(tmpdir(), 'ihui-deplink-none-'))
   try {
     mkdirSync(join(root, 'apps', 'bb'), { recursive: true })
     writeFileSync(join(root, 'apps', 'bb', 'package.json'), JSON.stringify({ name: '@ihui/bb' }))
     assert.equal(gate.findMissingLinks(root, gate.expandPatterns(root, ['apps/*'])), null)
   } finally {
-    rmScratch(root)
+    rmSync(root, { recursive: true, force: true })
   }
 })
 
 test('装车证明:guardian-runner 已注册守门 78 且为 blocking', () => {
-  const runner = readFileSync(join(REPO, 'scripts', 'guardian-runner.mjs'), 'utf8')
+  const runner = faceText('scripts/guardian-runner.mjs')
   // 注册块含 onFailHint 多行提示,窗口要给够(曾因 400 太窄把在位的闸判成"没装车")
   const block = runner.match(/id:\s*'78',[\s\S]{0,2500}?\n {2}\},/)
   assert.ok(block, '未找到守门 78 注册块 —— 脚本存在但没接上守门链等于没有闸')
@@ -271,28 +354,29 @@ test('落点证明:shim 完整性的严格判红必须挂在**提交链之外**�
   // 2026-09-24 取证:完整 install 后实测 missingBins=0(25 包 / 717 链接)⇒ 该维度在稳态下确实成立;
   // 但并发 install 期间它会闪出上百条(实测 0↔113)。所以判红只能落在 check:all / CI,
   // 提交链只报数 —— 本用例钉住"严格入口真在链上",防止将来只剩一个没人跑的 flag。
-  const pkg = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8'))
+  const pkg = JSON.parse(faceText('package.json'))
   assert.match(pkg.scripts['check:dep-links:strict'], /check-workspace-dep-links\.mjs\s+--strict/)
   assert.ok(
     pkg.scripts['check:all'].includes('check:dep-links:strict'),
     'check:all 必须串上严格版,否则"判红"这一档永远没人执行',
   )
-  const gate = readFileSync(join(REPO, 'scripts', 'check-workspace-dep-links.mjs'), 'utf8')
+  // 局部名不再叫 gate —— 它会把模块级那份"被审面的导出判据"遮掉,而这条用例两种都要用
+  const gateSrc = faceText(GATE_REL)
   assert.ok(
-    /const strict = argv\.includes\('--strict'\)/.test(gate),
+    /const strict = argv\.includes\('--strict'\)/.test(gateSrc),
     '脚本没接 --strict ⇒ package.json 那个 flag 是空开关',
   )
   assert.ok(
-    /const redBins = strict \? missingBins\.length : 0/.test(gate),
+    /const redBins = strict \? missingBins\.length : 0/.test(gateSrc),
     'strict 未真正参与退出码判定',
   )
   // 第五维(入口文件在不在)必须**进退出码**,不能只是打印一行 —— 只报数的维度防不住事故。
   assert.ok(
-    /shimBad\.length === 0/.test(gate),
+    /shimBad\.length === 0/.test(gateSrc),
     'resolveShimEntry 判出的 missing-entry 未参与绿/红判定 ⇒ 第五维是装饰',
   )
   assert.ok(
-    gate.includes("state === 'missing-entry'"),
+    gateSrc.includes("state === 'missing-entry'"),
     'audit 未按 state 归集红点 ⇒ 第五维没有接线',
   )
 })
@@ -302,7 +386,7 @@ test('落点证明(深扫,2026-09-24):deep 开关默认 false、只由 strict �
   // 提交链(并发 install 半复制态会一次闪出成百上千条红 ⇒ 恒红门 = 全队 --no-verify =
   // 其余守门作废),又必须真被 --strict 驱动(否则就是"写了一个没人调的函数",§22c 教训)。
   // 运行期方向证明在 --self-test(run() 默认档绿 / strict 档红);本用例钉源码结构。
-  const src = readFileSync(join(REPO, 'scripts', 'check-workspace-dep-links.mjs'), 'utf8')
+  const src = faceText(GATE_REL)
   assert.match(
     src,
     /export function findGuttedLinks\(rootDir, pkgDirs, \{ deep = false \} = \{\}\)/,
@@ -323,7 +407,7 @@ test('落点证明(深扫,2026-09-24):deep 开关默认 false、只由 strict �
   // **判据必须钉在 args 这一个结构位上**:注册块的 onFailHint 里写着「加 --strict 连 ②深扫 ③
   // 一并判红」是给人看的复现指引,拿整块文本搜会把合规的注册块判红(2026-09-24 全量镜像测试
   // 实测红的就是这个 —— 同族病灶见守门 80 的"夹具里的 git 字符串")。
-  const runner = readFileSync(join(REPO, 'scripts', 'guardian-runner.mjs'), 'utf8')
+  const runner = faceText('scripts/guardian-runner.mjs')
   const block = runner.match(/id:\s*'78',[\s\S]{0,2500}?\n {2}\},/)
   assert.ok(block, '守门 78 注册块消失')
   const argsField = block[0].match(/^\s*args:\s*\[([\s\S]*?)\]/m)
@@ -338,13 +422,18 @@ test('落点证明(深扫,2026-09-24):deep 开关默认 false、只由 strict �
 })
 
 test('自检入口可用(--self-test 退出码 0)', () => {
-  const out = execFileSync(
-    process.execPath,
-    [join(REPO, 'scripts', 'check-workspace-dep-links.mjs'), '--self-test'],
-    { encoding: 'utf8', windowsHide: true, timeout: 120_000 },
-  )
+  // 跑**镜像里那份**(== 被审面),不是工作区那份草稿 —— 否则这条"自检全绿"证明的是
+  // 别人磁盘上的旧实现,而形状锁几条判的却是 HEAD,同一文件内两套基准各说各话。
+  const out = execFileSync(process.execPath, [GATE_FILE, '--self-test'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 120_000,
+    // 子进程的夹具落点跟我同源(镜像就是建在规范 scratch 根下的),否则它会按自己的
+    // "仓库根"推导出 D:\DevEnv\Temp\DevEnv\Temp\… 这种嵌套残骸
+    env: { ...process.env, IHUI_SCRATCH_DIR: dirname(MIRROR) },
+  })
   assert.match(out, /--self-test \d+\/\d+ 通过/)
   assert.doesNotMatch(out, /❌ .*— /, '自检存在失败用例')
-  assert.ok(existsSync(join(REPO, 'scripts', 'check-workspace-dep-links.mjs')))
+  assert.ok(existsSync(GATE_FILE), '镜像里没有门本体 ⇒ 本用例什么都没判')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
