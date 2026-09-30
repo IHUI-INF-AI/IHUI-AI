@@ -1,0 +1,493 @@
+{
+  "upstream": {
+    "repo": "https://github.com/zai-org/ZCode",
+    "revision": "29628c9acdb81b703bbd4080c207a0e7ce5e276e",
+    "revisionNote": "v3.14.3。2026-09-28 主会话现测 git ls-remote 的 HEAD/main/v3.14.3^{} 三者同此 sha ⇒ 上游自 09-23 未移动。登记数字漂移或 sha 变更时必须重新现量,不得照抄本表。"
+  },
+  "clonePathNote": "本地只读克隆在 .ihui-agent/tmp/zcode-study/zcode(gitignore 的本机文件)。因此配套的 scripts/zcode-absorption-matrix.mjs 刻意不接提交链 —— 在非部署机上判'克隆不存在'就是恒红门(与守门 prod-bundle 影子对账 S2 同取向)。",
+  "headlineNote": "唯一口径是 '整文件读到体 read 之和 / 全库源文件数'。status=windowed 只代表'这个目录我们碰过',不代表读完了;把 windowed 当'已吃透'正是本表要防的那一型。",
+  "statusLegend": {
+    "deep": "整片读完(read 必须等于该切片现量,否则 M11 判红)",
+    "windowed": "部分读到体(窗口读也算)",
+    "unread": "登记过存在但从未读过(闭合覆盖面,但不算看过)",
+    "rejected": "判为不抄,必须带 why + 可兑现出处",
+    "na": "不适用(空壳/纯资产/无源码)"
+  },
+  "verifiedLegend": {
+    "self": "该出处由主会话本人当轮读过并复验",
+    "(缺省)": "出处来自取证代理的读数 ⇒ M7 会警告,不得直接当已证事实派单"
+  },
+  "slices": [
+    {
+      "path": "packages/provider/src",
+      "status": "windowed",
+      "files": 23,
+      "read": 0,
+      "verified": "self",
+      "evidence": ["packages/provider/src/registry-service.ts:205"],
+      "notes": "跨层'同面同轮'发布闸:下层已变而上层仍基于旧事实时不发混合快照,继续服务上一份完整 Registry。",
+<<<<<<< ours
+      "tickets": ["G-378"],
+      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 23 枚,其中 3 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针)"
+=======
+      "tickets": ["G-378"]
+>>>>>>> theirs
+    },
+    {
+      "path": "packages/provider-node/src",
+      "status": "windowed",
+      "files": 17,
+      "read": 0,
+      "verified": "self",
+      "evidence": ["packages/provider-node/src/zcode-builtin-remote-synchronizer.ts:85"],
+      "notes": "租约认 token 不认 pid(leaseId=randomUUID;#finishLease 仅同 leaseId 才改)。对照我方 proc-identity.mjs 的事后三元组对账。",
+<<<<<<< ours
+      "tickets": ["G-378"],
+      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 17 枚,其中 2 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针)"
+=======
+      "tickets": ["G-378"]
+>>>>>>> theirs
+    },
+    {
+      "path": "packages/services/src/usage-stats",
+      "status": "windowed",
+      "files": 8,
+      "read": 0,
+      "verified": "self",
+      "evidence": ["packages/services/src/usage-stats/providers/bigmodelUsageQuotaProvider.ts:259"],
+      "notes": "'未知不发布为成功空快照'。对照我方首页 ?? 0。",
+<<<<<<< ours
+      "tickets": ["G-376"],
+      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 8 枚,其中 2 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针)"
+=======
+      "tickets": ["G-376"]
+>>>>>>> theirs
+    },
+    {
+      "path": "packages/services/src/credential",
+      "status": "windowed",
+      "files": 3,
+      "read": 3,
+      "evidence": ["packages/services/src/credential/providers/credentialCipherProvider.ts:24"],
+      "notes": "机派生兜底密钥(platform:homedir:username 拼串 sha256)。历轮判'我方 getKey 无 key 即抛更强';本条出处未经主会话复验。"
+    },
+    {
+      "path": "packages/services/src",
+      "status": "windowed",
+      "read": 184,
+      "notes": "第 1 波 E1-E7 覆盖 session/zcode-agent/bots/git/storage/process/runtime-tools/terminal/file/cua-permission-broker/subagents/setting/feedback/plugins/skill-sync/conversation-share;W3-10 补 fs/memory/settings-sync/fileWatcher/faultInjection。",
+<<<<<<< ours
+      "remaining": "commandsService.ts,conversationShareArtifactDiscovery.ts,conversationShareSource.ts,conversationShareHttpClient.ts,pluginSyncArchive.ts,settingsSyncService.ts,clientConfigScenes 实现 2 个 ｜09-29 第十九轮回填:本轮具名整读到体 1 枚,其中 1 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 6 枚,指针 6 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正)",
+      "evidence": [
+        "packages/services/src/conversation-share/conversationShareIntegrity.ts:1-40",
+        "packages/services/src/plugin-sync/pluginSyncArchive.ts:72-144",
+        "packages/services/src/plugin-sync/pluginSyncService.ts:1010-1031",
+        "packages/services/src/conversation-share/conversationShareHttpClient.ts:120-183",
+        "packages/services/src/conversation-share/conversationShareService.ts:1437-1447",
+        "packages/services/src/conversation-share/conversationShareArtifactSource.ts:33-35",
+        "packages/services/src/conversation-share/conversationShareArtifactDiscovery.ts:120-137",
+        "packages/services/src/cua-permission-broker/windowsCuaDevHelperHost.ts:34",
+        "packages/services/src/conversation-share/conversationSharePublicProjection.ts:258-262",
+        "packages/services/src/conversation-share/conversationShareService.ts:209-211",
+        "packages/services/src/oauth/oauthService.ts:896-898",
+        "packages/services/src/oauth/oauthService.ts:997-1007",
+        "packages/services/src/oauth/oauthUnauthorizedRequest.ts:63-64"
+      ],
+      "tickets": ["G-814410", "G-814411"]
+=======
+      "remaining": [
+        "commandsService.ts",
+        "conversationShareArtifactDiscovery.ts",
+        "conversationShareSource.ts",
+        "conversationShareHttpClient.ts",
+        "pluginSyncArchive.ts",
+        "settingsSyncService.ts",
+        "clientConfigScenes 实现 2 个"
+      ]
+>>>>>>> theirs
+    },
+    {
+      "path": "packages/zcode-cua",
+      "status": "rejected",
+      "files": 24,
+      "read": 0,
+      "verified": "self",
+      "evidence": ["packages/zcode-cua/broker.js:40"],
+      "why": "审批决策层不在本检出:broker.js 的 callBrokerMethod 与 CuaHelperError 三处无条件抛 'not available in this build'(:40/83/87,主会话当轮读过),broker-ports 谓词恒 false ⇒ 无法按'上游有没有属主校验'定论,不得据此派单。"
+    },
+    {
+      "path": "packages/model-option-map/src",
+      "status": "na",
+      "files": 8,
+      "read": 0,
+      "why": "历轮(第五十一波·续八)已否证'模型档位族继承'不接;本轮未复核,保留 na 而非 rejected,不替旧结论背书。"
+    },
+    {
+      "path": "packages/formal-proof",
+      "status": "na",
+      "files": 3,
+      "read": 0,
+      "why": "W2-9 定性为'是规格载体不是证明器/测试'(0 测试文件、evaluate() 无 .ts import、assertion 仅作 textContent 渲染)。主会话未逐条复验 ⇒ 记 na 待复核。"
+    },
+    {
+      "path": "third-party",
+      "status": "na",
+      "files": 0,
+      "read": 0,
+      "why": "历轮实测 native-search 等 115 个跟踪文件源码行数为 0(纯许可原文/资产)。"
+    },
+    {
+      "path": "packages/desktop/src",
+      "status": "windowed",
+      "files": 265,
+      "read": 71,
+      "notes": "host 11/47、main a-m 19/104、main n-z+browserView 27/84、index.ts+遥测族 14/14(W3-4 全读完该切片)。剩余 processResource*/resourceManager* ≈25、cua*/windows* ≈20、chromeCookie*/browserData* ≈8、desktopMainIpc* 3、autoUpdater/forceUpdate* ≈5。",
+<<<<<<< ours
+      "tickets": ["G-379"],
+      "evidence": [
+        "packages/desktop/src/scheduler/index.ts:88-118",
+        "packages/desktop/src/scheduler/offPeakDispatchSettlement.ts:52-71",
+        "packages/desktop/src/main/windowsInstallResourceLocks.ts:46-51",
+        "packages/desktop/src/main/browserView/browserTabRecoveryStore.ts:173-196",
+        "packages/desktop/src/host/cronRunLifecycle.ts:116-127",
+        "packages/desktop/src/main/autoUpdater.ts:249-318",
+        "packages/desktop/src/main/processResourceSampleSources.ts:1-119",
+        "packages/desktop/src/main/desktopCuaPermissionIpc.ts:300-404",
+        "packages/desktop/src/host/index.ts:166-232"
+      ],
+      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 15 枚,其中 5 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 2 枚,指针 4 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正)"
+=======
+      "tickets": ["G-379"]
+>>>>>>> theirs
+    },
+    {
+      "path": "packages/shared/src",
+      "status": "windowed",
+      "files": 226,
+      "read": 91,
+      "notes": "协议 v4 28/69、散件 a-m 48/48、散件 m-z 15/108。未读大头:validation(1305 行)、zcode-task-types-core(1187)、platform(982)、test-ids(732)、task-realtime-core(523)、usage-stats(462)、mcp(374)、permission-request-preview(366)、remote*/workspace-hook* 族。"
+    },
+    {
+      "path": "packages/ui/src",
+      "status": "windowed",
+      "files": 1492,
+      "read": 191,
+      "notes": "lib n-z 16、lib a-m 46(W2-5 整文件读完 46/90)、settings 17、v4 10(W2-8)、ToolCallBlocks+app-shell+store+root+mentions 18(W3-9)、components+hooks 6(W3-5);W4 四路新增整文件读到体 115:hooks 28/98、components/ai-elements 32/46、components 其余 +13、ToolCallBlocks+chat-input-toolbar +8、store/workspace +12、v4 +6、顶层散件 6/138、quickpick 5/7、git-graph 3/6、presentation 2/6。⚠️ read=191 是【下界】:W3 旧登记的 24 个(ToolCallBlocks/store/root/mentions 18 + components/hooks 6)按目录判定全部落在 W4 集合内,而 W4 内部 components 与 components/ai-elements 至多重叠 13 —— 交集无法从台账推出,真实区间 [191,228];派单请跑 `node scripts/zcode-absorption-matrix.mjs` 看末行现值,不得照本字段做减法核账。⚠️ 口径更正:旧 notes 写的『ui 根 44』与现量不同口径 —— 顶层散件按 `git ls-files packages/ui/src` 行级过滤现量为 138(`*` 通配会递归,那是另一个口径,第一版据此量出 1492)。这是最大的一块未闭合面。",
+      "remaining": "message 渲染族与 messageTelemetry 后半 1300 行、workflow-timeline 39、v4 余 197、hooks 余 70、components 余 140、ToolCallBlocks 余 67、store 余 30、顶层散件余 132;quickpick 余 TaskFindDialog.tsx 389、git-graph 余 Pane/Dialog/CommitDetail 620、presentation 余 elementModel/pptxEngine/pdfPrintExport/textSelection 988。DeveloperToolsPane.tsx 与 App.tsx 仅段读,不计 read。",
+      "evidence": [
+        "packages/ui/src/store/StoreProvider.tsx:56",
+        "packages/ui/src/useTheme.ts:37",
+        "packages/ui/src/git-graph/layoutAlgorithm.ts:22",
+        "packages/ui/src/quickpick/taskFindNavigationState.ts:32",
+        "packages/ui/src/presentation/types.ts:8"
+      ],
+      "tickets": ["G-384", "G-387"]
+    },
+    {
+      "path": "packages/server/src",
+      "status": "windowed",
+      "files": 48,
+      "read": 26,
+      "notes": "W2-12 覆盖 26/48;remote 族 13 个未读(zcodeAgent*/-detect/wslProxy/sshUploadProgress/runtimeToolDeploy/remoteAsset*)。"
+    },
+    {
+      "path": "packages/rpc",
+      "status": "windowed",
+      "files": 20,
+      "read": 20,
+      "notes": "src+examples 全部读到体;但 Layer4/6 全仓零生产调用 ⇒ '有 ACK/重放'只是库素材,不是能力。"
+    },
+    {
+      "path": "packages/zcode-server-cli/src",
+      "status": "windowed",
+      "files": 42,
+      "read": 8,
+      "notes": "ipc/framing、runtime/{shutdownWait,lock,statusSnapshot}、supervisor/crashBudget、server-core/parentDisconnect、packaging/{tarCommand,nodeDistMirror}。剩余 runtime 16 / server-core 6 / ipc 3 / stageCli。"
+    },
+    {
+      "path": "packages/client/src",
+      "status": "windowed",
+      "files": 6,
+      "read": 5,
+      "notes": "全表面 SDK、无 per-role 能力面(需拍板项)。"
+    },
+    {
+      "path": "packages/web",
+      "status": "windowed",
+      "files": 17,
+<<<<<<< ours
+      "read": 2,
+      "notes": "只读到 auth/oauthStateCodec.ts(它反倒暴露我方 /sso/mobile-auth 的 redirect 未过守卫)。剩余 16。",
+      "evidence": ["packages/web/src/auth/webAuthService.ts:1-40"],
+      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 1 枚,其中 1 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针)"
+=======
+      "read": 1,
+      "notes": "只读到 auth/oauthStateCodec.ts(它反倒暴露我方 /sso/mobile-auth 的 redirect 未过守卫)。剩余 16。"
+>>>>>>> theirs
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src",
+      "status": "windowed",
+      "files": 500,
+      "read": 248,
+      "notes": "W5 四路按互斥目录读到体:tool 176/72(根17+executor22+handlers33;窗口6:call-runner/permission-flow/result-serialization/read/edit/bash;仅结构1:generated/bash-command-registry.ts 系 1.8MB ISC 数据块)、runtime 164/25(窗口2:events/streaming-tool-coordinator)、workflow+subagent+context+agent+memory 89/85(subagent/runner.ts 与 agent/ 三件仅窗口读,不计 read)、小而密长尾 71/66(hooks19/19、permission6/6、compact6/6、runtime-task5/5、plugin-reference4/4、session-context4/4、mcp3/3、system-reminder3/3、embedded-search2/2、errors·model·telemetry 各1/1、顶层散件4/4、browser-client7/3、repl5/4)。⚠️ read=248 是【下界】不是相加值:W3 旧登记的 44 个按 notes 判定全部落在上述目录内(tool/handlers 4、runtime/methods 14、runtime/helpers+subagent+system-reminder 11、a-m/n-z 15),父子相加会双计;真实区间 [248,292]。⚠️ 刻意不新增子切片条目:M1 只判覆盖不判互斥,而头条按切片求和 ⇒ 父子并存等于给覆盖数发合格证;目录明细只写在本字段。W5-A 报的『审批等待吃掉执行预算』已三面证伪(runToolInner/requestToolApproval 全仓零命中),不得重新提出。",
+      "remaining": "约 251 未读。tool 余 97:background-tasks.ts 1198、result-display 461、read-session-context 440、edit-matchers/node-repl/create-workflow 411、store/read-pdf/cron/bash-command-permission-policy 38x。runtime 余 137:session-fork 1487、steering 1403、types 924、subagent 915、turn 872、turn-model-step 803、rewind-message 740、compact-active 725、file-rewind 717、agent-runtime 664、turn-tools 527、model 518。窗口读过的 events.ts / streaming-tool-coordinator.ts / subagent/runner.ts / agent 三件需回读补体。",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/webfetch-egress-guard.ts:77",
+        "apps/zcode-cli/packages/core/src/runtime/methods/turn-output-token-continuation.ts:15",
+        "apps/zcode-cli/packages/core/src/runtime/methods/streaming-tool-coordinator.ts:38",
+        "apps/zcode-cli/packages/core/src/hooks/display-metadata.ts:35",
+        "apps/zcode-cli/packages/core/src/system-reminder/incoming-message.ts:6",
+        "apps/zcode-cli/packages/core/src/mcp/name.ts:3",
+        "apps/zcode-cli/packages/core/src/subagent/profile-frontmatter.ts:76",
+        "apps/zcode-cli/packages/core/src/context/sections/workflow-actor.ts:24"
+      ],
+      "tickets": ["G-373", "G-375", "G-422", "G-423", "G-424", "G-425", "G-426", "G-427", "G-428"]
+    },
+    {
+      "path": "apps/zcode-cli/packages/bootstrap",
+      "status": "windowed",
+      "files": 232,
+      "read": 13,
+      "remaining": "W6-A 本轮整文件读到体 13 枚,但上轮那 13 枚未留文件名 ⇒ 两批重叠不可计算 ⇒ read 取 max(13) 不取和(真实区间 [13,26])。本轮 13 枚点名:auth-login-polling / auth-login-abort / telemetry-bootstrap / startup-logging / tool-call-product-visibility / zcode-protocol-entrypoint / app-config-options / runtime-config / embedded-search-backend / script-workflow-child-runtime / startup-resource / runtime-cleanup / process-child-processes。未读 219,最大块:product-projection 5477、server-operations 4057、v4-gateway 3454、transcript-hydration 1953、session-mapper 1530、plugins 1457、create-app 1290、conversation-topic-publisher 1131。",
+      "evidence": [
+        "apps/zcode-cli/packages/bootstrap/src/zcode-protocol/runtime-cleanup.ts:25",
+        "apps/zcode-cli/packages/bootstrap/src/zcode-protocol/startup-resource.ts:24",
+        "apps/zcode-cli/packages/bootstrap/src/telemetry-bootstrap.ts:16",
+        "apps/zcode-cli/packages/bootstrap/src/app/runtime-config.ts:93"
+      ],
+      "notes": "可抄:auth-login-polling 双向夹紧、env capture-then-scrub、开关落点清单。否证:serverSources 台账零读取方、untrustedProjectMcpServers 恒空穿四层、CuaBrokerToken 解析恒 undefined。",
+      "tickets": ["G-377", "G-465"]
+    },
+    {
+      "path": "apps/zcode-cli/packages/adapters",
+      "status": "windowed",
+      "files": 202,
+      "read": 10,
+      "remaining": "193 未整读(6 个仅窗口碰过)。本轮 W6-B 整读到体 9 枚:model/retry-budget、stream-retry-boundary、retry-policy、offpeak-retry、failure-tls、errors、proxy-fetch、public-egress-policy、empty-completion-retry ⇒ read 取 max(10) 不取和(与上轮 10 枚的重叠不可计算,真实区间 [10,19])。最大未读块:model/runner-stream 1655、model-execution 1080、runner-debug 905、plugins/marketplace 2724、mcp/index 1950、fs/index 余下 1118、storage/sqlite-session-store 1022、migrations 930、repositories/usage 745。",
+      "evidence": [
+        "apps/zcode-cli/packages/adapters/src/model/retry-budget.ts:8",
+        "apps/zcode-cli/packages/adapters/src/model/offpeak-retry.ts:6",
+        "apps/zcode-cli/packages/adapters/src/model/failure-inspection.ts:292",
+        "apps/zcode-cli/packages/adapters/src/http/public-egress-policy.ts:108",
+<<<<<<< ours
+        "apps/zcode-cli/packages/adapters/src/network/proxy-fetch.ts:29",
+        "apps/zcode-cli/packages/adapters/src/exec/node-execution-adapter-results.ts:187",
+        "apps/zcode-cli/packages/adapters/src/exec/bash-file-output.ts:185",
+        "apps/zcode-cli/packages/adapters/src/mcp/oauth-refresh.ts:62",
+        "apps/zcode-cli/packages/adapters/src/storage/workspace-hook-trust-store.ts:476",
+        "apps/zcode-cli/packages/adapters/src/plugins/atomic-directory.ts:252",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/migration-runner.ts:300",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/migration-runner.ts:300-315",
+        "apps/zcode-cli/packages/adapters/src/plugins/version-compare.ts:5-24",
+        "apps/zcode-cli/packages/adapters/src/mcp/timeout.ts:1-79",
+        "apps/zcode-cli/packages/adapters/src/model/stream-idle-timeout.ts:1-92",
+        "apps/zcode-cli/packages/adapters/src/model/runner-stream.ts:861-908",
+        "apps/zcode-cli/packages/adapters/src/mcp/index.ts:1581-1607",
+        "apps/zcode-cli/packages/adapters/src/model/retry-budget.ts:8-38",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/sqlite-session-store.ts:334-381",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/dwf-journal.ts:390-411",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/usage.ts:300-329",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/dwf-journal-artifacts.ts:72-86",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/messages.ts:35-38",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/dwf-journal-codecs.ts:205-209",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/migration-runner.ts:159-203",
+        "apps/zcode-cli/packages/adapters/src/plugins/zip-source.ts:455-470",
+        "apps/zcode-cli/packages/adapters/src/plugins/marketplace.ts:2670-2695",
+        "apps/zcode-cli/packages/adapters/src/plugins/marketplace.ts:1690-1712",
+        "apps/zcode-cli/packages/adapters/src/plugins/marketplace.ts:1174-1185",
+        "apps/zcode-cli/packages/adapters/src/plugins/marketplace.ts:1662-1688",
+        "apps/zcode-cli/packages/adapters/src/plugins/marketplace.ts:1416-1423",
+        "apps/zcode-cli/packages/adapters/src/plugins/marketplace.ts:1924-1953",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/migrations.ts:906",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/migrations.ts:596-681",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/migration-runner.ts:161-163",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/migrations/0022-backfilled-session-reasoning.ts:71-78",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/sessions.ts:131",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/sessions.ts:339-343",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/usage.ts:590-674",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/usage.ts:202-226",
+        "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/dwf-journal-codecs.ts:317-321",
+        "apps/zcode-cli/packages/adapters/src/skills/index.ts:194-215",
+        "apps/zcode-cli/packages/adapters/src/skills/index.ts:231",
+        "apps/zcode-cli/packages/adapters/src/skills/index.ts:113-128"
+      ],
+      "rejectedEvidence": ["apps/zcode-cli/packages/adapters/src/fs/index.ts:740"],
+      "rejectedNote": "fs/index.ts:735-753 是**反例**:rename 外套裸 catch 后用 O_CREAT|O_TRUNC 原地重写真身 ⇒ ENOSPC/EACCES 时先删临时文件再截断用户原文件;Windows 目标被占用时 rename 回 EPERM(守门 122 头注已记为实测事实)⇒ 最常见机型上每次并发保存都走非原子原地写且调用方无信号。我方 atomic-write.ts 全文件 O_TRUNC 零命中并由守门 122 R2/R3 判接线 ⇒ 该格我方严格优于上游,登记为 122 判据合理性的外部证据,不得抄。",
+      "notes": "失败分类/重试预算/出站策略。反例:上游把 rename 失败静默降级成 O_TRUNC 原地写 ⇒ 我方守门 122 反向不得引入 fallback-to-truncate。剩余 exec 24/mcp 19/plugins 15/storage 仓储面 ≈30/config 7/model 40。",
+      "tickets": ["G-814412"]
+=======
+        "apps/zcode-cli/packages/adapters/src/network/proxy-fetch.ts:29"
+      ],
+      "rejectedEvidence": ["apps/zcode-cli/packages/adapters/src/fs/index.ts:740"],
+      "rejectedNote": "fs/index.ts:735-753 是**反例**:rename 外套裸 catch 后用 O_CREAT|O_TRUNC 原地重写真身 ⇒ ENOSPC/EACCES 时先删临时文件再截断用户原文件;Windows 目标被占用时 rename 回 EPERM(守门 122 头注已记为实测事实)⇒ 最常见机型上每次并发保存都走非原子原地写且调用方无信号。我方 atomic-write.ts 全文件 O_TRUNC 零命中并由守门 122 R2/R3 判接线 ⇒ 该格我方严格优于上游,登记为 122 判据合理性的外部证据,不得抄。",
+      "notes": "失败分类/重试预算/出站策略。反例:上游把 rename 失败静默降级成 O_TRUNC 原地写 ⇒ 我方守门 122 反向不得引入 fallback-to-truncate。剩余 exec 24/mcp 19/plugins 15/storage 仓储面 ≈30/config 7/model 40。"
+>>>>>>> theirs
+    },
+    {
+      "path": "apps/zcode-cli/packages/contracts",
+      "status": "windowed",
+      "files": 113,
+      "read": 18,
+      "remaining": "95 未读:interfaces 22(dynamic-workflow-run.port.ts 1037、session.events.ts 1238 仅窗口读)、tools 38、events 5、model 6、hooks/workspace-hook-trust.ts 324 余下。read 只算净新增:W6-C 整读到体 13 枚,其中 contract.ts 与 capabilities/index.ts 与旧 read=7 重叠 ⇒ 净 +11,不重复计。",
+      "evidence": [
+        "apps/zcode-cli/packages/contracts/src/tools/contract.ts:174",
+        "apps/zcode-cli/packages/contracts/src/tools/json-schema.ts:35",
+<<<<<<< ours
+        "apps/zcode-cli/packages/contracts/src/hooks/workspace-hook-trust.ts:123",
+        "apps/zcode-cli/packages/contracts/src/interfaces/session-store.port.ts:843-867",
+        "apps/zcode-cli/packages/contracts/src/plugins/index.ts:225-230",
+        "apps/zcode-cli/packages/contracts/src/errors/index.ts:85",
+        "apps/zcode-cli/packages/contracts/src/tools/contract.ts:137-166",
+        "apps/zcode-cli/packages/contracts/src/tools/tool-result-metadata.ts:18-44",
+        "apps/zcode-cli/packages/contracts/src/interfaces/execution.port.ts:173-180",
+        "apps/zcode-cli/packages/contracts/src/interfaces/permission.port.ts:24-31",
+        "apps/zcode-cli/packages/contracts/src/events/session.events.ts:680-694",
+        "apps/zcode-cli/packages/contracts/src/tools/node-repl.ts:4-43",
+        "apps/zcode-cli/packages/contracts/src/model/invocation-context.ts:1-40"
+=======
+        "apps/zcode-cli/packages/contracts/src/hooks/workspace-hook-trust.ts:123"
+>>>>>>> theirs
+      ],
+      "tickets": ["G-464"],
+      "notes": "W3-8:工具结果元数据/契约/能力表/工作区钩子信任存储/工件端口读到体。剩余 interfaces 22、tools 38、events 5、model 6。反例:capabilities 整体是 export {} 却仍发布 ./capabilities 子路径且零 importer = 空心公开入口。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/dynamic-workflow",
+      "status": "windowed",
+      "files": 94,
+      "read": 19,
+      "remaining": "75 未读:analysis 52 整目录(单独一票)、engine 21(engine/types.ts 944、concurrency.ts 265 仅窗口读)、schema 7、facade 5。⚠️ 分母由 97 改为现量 94(ts/tsx 口径;全文件口径是 102)——登记原值 97 与两个现量口径都不等,按 97 派单会去找 3 枚不存在的文件;97 的出处待表主人确认后再回改。read 由 4→19:旧 4 枚(hash / scheduler-submit / run-terminal / engine-settlement)全部落在本轮新集内 ⇒ 不重复计。",
+      "evidence": [
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/errors.ts:14",
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/engine-launch.ts:26",
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler-submit.ts:82",
+<<<<<<< ours
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/imported-cache-types.ts:19",
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/concurrency.ts:105-248",
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/errors.ts:9-77",
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler.ts:329-342",
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler-submit.ts:23-92",
+        "apps/zcode-cli/packages/dynamic-workflow/src/schema/synthesize.ts:137-157",
+        "apps/zcode-cli/packages/dynamic-workflow/src/schema/validate.ts:1-26",
+        "apps/zcode-cli/packages/dynamic-workflow/src/facade/registry.ts:1-57",
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/replay-order.ts:1-40"
+=======
+        "apps/zcode-cli/packages/dynamic-workflow/src/engine/imported-cache-types.ts:19"
+>>>>>>> theirs
+      ],
+      "tickets": ["G-462", "G-463"],
+      "notes": "W3-8:engine 的 hash/scheduler-submit/run-terminal/engine-settlement 读到体。剩余 analysis 52 整目录未读(单独一票)、engine 21、schema 7、facade 5。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/tui",
+      "status": "windowed",
+      "files": 92,
+      "read": 8,
+      "notes": "终端截断/测量是纯函数且按 cell 计量(CJK 算 2 列)、键位归属走封闭意图枚举且默认显式 pass、主题色经 Proxy 每次现读活跃档(无硬编码 ANSI)。⚠️ 分母按尺子 SOURCE_EXT 现量才是 92(只 grep ts/tsx 会得 91,漏 .mjs)。",
+      "remaining": "84 未整读;app-input.ts(327)、app-keyboard.ts(423) 仅窗口读。",
+      "evidence": [
+        "apps/zcode-cli/packages/tui/src/app-terminal-width.ts:59",
+        "apps/zcode-cli/packages/tui/src/app-sidebar-shortcut.ts:28",
+        "apps/zcode-cli/packages/tui/src/theme/legacy-palette.ts:34"
+      ]
+    },
+    {
+      "path": "apps/zcode-cli/packages/cli",
+      "status": "windowed",
+      "files": 97,
+      "read": 1,
+      "notes": "parseArgs strict:true + 失败即 stderr/help/exit 1,且注释显式先摘掉自 re-exec 的末位入口路径(否则严格解析误报未知参数)。我方 commander 侧已有 modeUnknown + exit(1)(不构成缺陷,登记意识)。",
+      "remaining": "96 未整读;run.ts(587)仅窗口读。",
+      "evidence": ["apps/zcode-cli/packages/cli/src/arguments.ts:108"]
+    },
+    {
+      "path": "apps/zcode-cli/scripts",
+      "status": "windowed",
+      "files": 4,
+      "read": 2,
+      "notes": "生成器自带 --check(与已入库件逐字节比)、第三方包版本≠登记即 throw、源全量 sha256 烘进产物头、超字节预算拒生成。我方已由 check-token-sync-registry + provenance-ledger P3 覆盖大半,增量只剩「源内容 hash 烘进生成件头」。",
+      "remaining": "shadow-replay.mjs、count-ts-lines.mjs 仅窗口读。",
+      "evidence": ["apps/zcode-cli/scripts/generate-bash-command-registry.mjs:41"]
+    },
+    {
+      "path": "apps/zcode-cli/tools",
+      "status": "windowed",
+      "files": 11,
+      "read": 4,
+      "notes": "prompt-trajectory 族的连续性/账本/投影四件读到体;cache_control 忽略逻辑属 Anthropic 提示缓存漂移字段,我方 provider 侧无此形状 ⇒ 不抄。",
+      "remaining": "7 未整读。",
+      "evidence": ["apps/zcode-cli/tools/prompt-trajectory/src/message-ledger.ts:21"]
+    },
+    {
+      "path": ".agents",
+      "status": "windowed",
+      "files": 84,
+      "read": 2,
+      "notes": "技能披露模型/frontmatter 权限/27 源注入登记表/文档即判据四问已答。未逐篇读:react-best-practices rules 70、ai-elements references 50、agent-browser 11。",
+<<<<<<< ours
+      "tickets": ["G-380", "G-381"],
+      "evidence": [
+        ".agents/skills/react-best-practices/rules/js-tosorted-immutable.md:14-21",
+        ".agents/skills/react-best-practices/rules/rendering-conditional-render.md:16",
+        ".agents/skills/react-best-practices/rules/async-parallel.md:15-17",
+        ".agents/skills/agent-browser/SKILL.md:436-447"
+      ]
+=======
+      "tickets": ["G-380", "G-381"]
+>>>>>>> theirs
+    },
+    {
+      "path": "scripts",
+      "status": "windowed",
+      "files": 46,
+      "read": 19,
+      "notes": "架构治理 4 件 + freshness + knip + dep-refs 段读。可抄:指纹掺量值、--changed 走反向依赖闭包、发布路径哈希链(只挂发布不挂提交链)。",
+<<<<<<< ours
+      "tickets": ["G-378", "G-379"],
+      "evidence": ["scripts/deterministic-tar-archive.mjs:130-138"],
+      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 2 枚,其中 1 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针)"
+    },
+    {
+      "path": ".vscode",
+      "status": "windowed",
+      "files": 3,
+      "read": 2,
+      "evidence": [".vscode/vite-dev.mjs:6-9"],
+      "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 2 枚,其中 1 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针)"
+    },
+    {
+      "path": ".release-it.mjs",
+      "status": "unread",
+      "files": 1,
+      "read": 0
+=======
+      "tickets": ["G-378", "G-379"]
+>>>>>>> theirs
+    },
+    { "path": ".vscode", "status": "unread", "files": 3, "read": 0 },
+    { "path": ".release-it.mjs", "status": "unread", "files": 1, "read": 0 },
+    {
+      "path": "packages",
+      "status": "unread",
+      "notes": "兜底:未被上面具体切片吃掉的 packages 内文件(配置壳等)。"
+    },
+    {
+      "path": "apps",
+      "status": "unread",
+      "notes": "兜底:apps 下未被 core/bootstrap/adapters/contracts/dynamic-workflow/tui/cli/scripts/tools 吃掉的散文件。"
+    }
+  ],
+  "ticketIndex": {
+    "G-373": "MCP 工具标 read ⇒ 免批准 + 失败自动重跑(需拍板;主会话四跳已复验,W3-1 独立佐证上游 mcp/index.ts:123 是无条件 needsApproval)",
+    "G-374": "设置项'显式清空'与'从未设置'无差,读侧四键默认真/三键默认假(需拍板;主会话已复验)",
+    "G-375": "cache token 过了服务端没上客户端,三处消费端硬编码 null(可落地;主会话已复验)",
+    "G-376": "上下文占用把'短暂 0'当真值,缺可判例外表(可落地;主会话已复验)",
+    "G-377": "影子副本门缺目录枚举(可落地)",
+    "G-378": "棘轮锚点掺量值 + --changed 不走反向依赖闭包(可落地)",
+    "G-379": "桌面:整页导航绕过存草稿闸 + 日志无保留期(可落地)",
+    "G-380": "技能/项目层配置键白名单缺失,防线目前只是一行 gitignore(可落地)",
+    "G-381": "文档表 ↔ 判据名双向对账缺口(端口三副本 / UI_GUIDELINES §3.1 ↔ RADIUS_ROLES)",
+    "G-382": "第 3 波待办名单与两格结构空白(app/src/features 不在 128 配对源;module.css/CSS-in-JS 未测量)"
+  }
+}
