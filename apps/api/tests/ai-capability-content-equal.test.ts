@@ -2,34 +2,55 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * 错误码枚举（HTTP-aligned + 业务标识符）。
- * errorCode 是稳定的业务错误标识符，前端可基于此做 i18n key 映射和细粒度 UI 处理。
- * code 字段保持与 HTTP status 对齐（0=成功，4xx/5xx=错误）。
- */
-export const ErrorCode = {
-  VALIDATION_FAILED: { status: 400, code: 'VALIDATION_FAILED' },
-  UNAUTHORIZED: { status: 401, code: 'UNAUTHORIZED' },
-  FORBIDDEN: { status: 403, code: 'FORBIDDEN' },
-  NOT_FOUND: { status: 404, code: 'NOT_FOUND' },
-  CONFLICT: { status: 409, code: 'CONFLICT' },
-  RATE_LIMITED: { status: 429, code: 'RATE_LIMITED' },
-  LOCKED: { status: 423, code: 'LOCKED' },
-  INTERNAL_ERROR: { status: 500, code: 'INTERNAL_ERROR' },
-  UPSTREAM_FAILURE: { status: 502, code: 'UPSTREAM_FAILURE' },
-  SERVICE_UNAVAILABLE: { status: 503, code: 'SERVICE_UNAVAILABLE' },
-  MEMBER_EXISTS: { status: 409, code: 'MEMBER_EXISTS' },
-  OPTIMISTIC_LOCK: { status: 409, code: 'OPTIMISTIC_LOCK' },
-  INVALID_MONEY: { status: 400, code: 'INVALID_MONEY' },
-  INVALID_TIMEZONE: { status: 400, code: 'INVALID_TIMEZONE' },
-  // b76-12g-3-40(G-998167):把「答不了」编进稳定 errorCode,三档各管一层:
-  //  - CAPABILITY_UNSUPPORTED(501):能力结构上不存在,重试永远不可能成功 ⇒ UI 停止无效轮询;
-  //  - CAPABILITY_UNAVAILABLE(503):此刻没有实例/未就绪,稍后也许可以 ⇒ 允许退避重试;
-  //  - DUPLICATE_REQUEST(409):被去重拒绝 ⇒ 不得当成新任务已入队、不得展示「已触发」。
-  CAPABILITY_UNSUPPORTED: { status: 501, code: 'CAPABILITY_UNSUPPORTED' },
-  CAPABILITY_UNAVAILABLE: { status: 503, code: 'CAPABILITY_UNAVAILABLE' },
-  DUPLICATE_REQUEST: { status: 409, code: 'DUPLICATE_REQUEST' },
-} as const
+import { afterEach, describe, expect, it } from 'vitest'
 
-export type ErrorCodeKey = keyof typeof ErrorCode
+import {
+  registerExecutor,
+  runTestCase,
+  setGlobalExecutor,
+  type TestCase,
+} from '../src/services/ai/ai-capability-testing.js'
+
+const CAPABILITY_ID = 'b76-12d-ticket1-content-equal'
+
+describe('AI 能力测试通过判据(b76-12d 票1:键序不参与判定)', () => {
+  afterEach(() => {
+    setGlobalExecutor(null)
+  })
+
+  it('expected 键序不同但内容等价时,判定结果与键序一致的那条同为 passed', async () => {
+    const output = { status: 'ok', data: { items: [1, 2], total: 2 } }
+    registerExecutor(CAPABILITY_ID, async () => output)
+
+    const sameOrder: TestCase = {
+      id: 'same-order',
+      name: '键序一致',
+      input: {},
+      expected: { status: 'ok', data: { items: [1, 2], total: 2 } },
+    }
+    const diffOrder: TestCase = {
+      id: 'diff-order',
+      name: '键序不同',
+      input: {},
+      expected: { data: { total: 2, items: [1, 2] }, status: 'ok' },
+    }
+
+    const r1 = await runTestCase(CAPABILITY_ID, sameOrder)
+    const r2 = await runTestCase(CAPABILITY_ID, diffOrder)
+
+    expect(r1.passed).toBe(true)
+    expect(r2.passed).toBe(true)
+  })
+
+  it('内容真不同时仍判 failed(判据没被放开)', async () => {
+    registerExecutor(CAPABILITY_ID, async () => ({ status: 'ok', total: 3 }))
+    const result = await runTestCase(CAPABILITY_ID, {
+      id: 'real-diff',
+      name: '内容不同',
+      input: {},
+      expected: { status: 'ok', total: 2 },
+    })
+    expect(result.passed).toBe(false)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
