@@ -27,6 +27,7 @@ import type {
   ImportPreviewRow,
   PickedImportFile,
 } from '@ihui/rn-app'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -166,7 +167,10 @@ export function ConversationImportScreen() {
         '/api/user/conversation-import/parse',
         { method: 'POST', body: formData, timeoutMs: PARSE_TIMEOUT_MS },
       )
-      if (!res.success) return { ok: false, error: res.error }
+      // 走唯一出口按 errorCode → status → 文案 定身份:共享渲染器把 parsed.error **原样**显示
+      // (packages/app ConversationImportScreen `setError(parsed.error)`),直取 res.error 会让
+      // 401 以「Invalid or expired token / 操作失败,请稍后重试」裸串落在页面上,登录身份丢失。
+      if (!res.success) return { ok: false, error: apiFailureToText(res) }
 
       const rows: ImportPreviewRow[] = []
       const parsed = new Map<number, ParsedImportConversation>()
@@ -241,7 +245,11 @@ export function ConversationImportScreen() {
 
   const onLoadHistory = useCallback(async (): Promise<ConversationImportHistoryRow[]> => {
     const res = await getConversationImportHistory()
-    if (!res.success) throw new Error(res.error)
+    // 刻意用 apiFailureToText 而不是 apiFailureToError:消费侧(共享渲染器)的 catch 只取
+    // `e.message`(packages/app ConversationImportScreen 的 toMessage),Error 上挂的
+    // status/errorCode 结构上到不了屏幕 —— 换 apiFailureToError 会产出"看起来改了、实际没好"。
+    // 故在抛出前就把 errorCode → status → 文案 判序走完,消息本身即最终文案。
+    if (!res.success) throw new Error(apiFailureToText(res))
     return res.data.list.map((item) => {
       const status = toHistoryStatus(item.status)
       const statusKey =
