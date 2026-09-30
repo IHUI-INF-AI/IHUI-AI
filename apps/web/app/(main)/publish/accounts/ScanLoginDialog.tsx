@@ -63,7 +63,20 @@ export interface ScanLoginDialogProps {
   defaultPlatform?: string
 }
 
-const POLL_INTERVAL_MS = 3000
+/**
+ * 2026-09-30 提速:"快跑慢走"轮询节奏。
+ *
+ * 旧实现固定 3s 一轮 —— 后端起浏览器 + 出码实测 3.5~8s,点完按钮后第一轮轮询要等到 3s,
+ * 而**出码那一刻常常正好落在两轮之间**,用户白等最多一整个间隔。现在:
+ *   出码前 400ms 一轮(这段时间用户正盯着空白框,越快发现第一帧越好)
+ *   出码后 2500ms 一轮(码已在屏上,轮询只为发现"扫了",不必再密)
+ * 20s 之后整体降到 2500ms:等待窗口是 10 分钟,一直 400ms 打状态口没有必要。
+ */
+const FAST_POLL_INTERVAL_MS = 400
+const RELAXED_POLL_INTERVAL_MS = 2500
+const FAST_POLL_WINDOW_MS = 20_000
+/** 同一帧二维码最多重试几次;失败后按放宽节奏再试,不把它当任务失败 */
+const MAX_RETRY_PER_FRAME = 3
 const TIMEOUT_MS = 5 * 60 * 1000
 const TIMEOUT_SECONDS = 300
 
@@ -126,12 +139,26 @@ export function ScanLoginDialog({
   const [cookiesInput, setCookiesInput] = React.useState<string>('')
   const [importError, setImportError] = React.useState<string>('')
   const [importing, setImporting] = React.useState<boolean>(false)
+  /** 后端真实进度文案(「正在打开 X 登录页…」)。干等最伤体验,这里如实转述后端进度 */
+  const [taskMessage, setTaskMessage] = React.useState<string>('')
   const startTimeRef = React.useRef<number>(0)
-  const pollTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   /** 当前后端任务 id。轮询闭包里读 state 会拿到旧值,取消/卸载路径必须读这一份。 */
   const taskIdRef = React.useRef<string>('')
-  /** 已渲染的二维码批次(qr_updated_at),用它避免每 3s 重复拉同一张图 */
+  /**
+   * 预热任务:弹窗一开就给默认平台点火(见下方 useEffect)。
+   * 它把用户"点按钮 → 后端才起浏览器"的那段延迟提前到用户还在看界面的时候。
+   * jobId 为空 = 无预热;一旦被点击路径接管或被取消即清空。
+   */
+  const prewarmRef = React.useRef<{ platform: string; jobId: string; cancelled: boolean } | null>(
+    null,
+  )
+  /** 已渲染的二维码批次(qr_updated_at),用它避免重复拉同一张图 */
   const qrStampRef = React.useRef<number>(0)
+  /** 同一帧二维码已失败几次(见 poll 里"取不到图不换帧"那段) */
+  const qrFailRef = React.useRef<number>(0)
+  /** 上一次 attempt 请求的帧号,用来判断这一轮拿到的是不是同一帧 */
+  const qrAttemptStampRef = React.useRef<number>(0)
   /** 二维码 blob 的 objectURL,卸载/重取时必须释放,否则每次刷新都漏一个 Blob */
   const qrUrlRef = React.useRef<string>('')
   const networkFailRef = React.useRef<number>(0)
@@ -170,14 +197,112 @@ export function ScanLoginDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultPlatform])
 
+  /**
+   * 预热(2026-09-30 提速,只对"用户已经选定平台"的入口生效):
+   * 弹窗一打开就用该平台发起扫码任务 —— 用户点「开始扫码登录」之前,后端的浏览器启动
+   * 与登录页导航已经跑掉了;等用户点下去时二维码往往已经就绪,判断到"整点"。
+   *
+   * 只认 defaultPlatform(账号页「添加账号」带平台进来),不认下拉里"用户自己选的":
+   * 后者只是浏览平台列表,开一枚 Chromium 纯属浪费。用户改选平台时下面的定时器会
+   * 取消这枚预热任务,不留给后端 5 分钟空转。
+   */
+  React.useEffect(() => {
+    if (!open || phase !== 'idle' || !platform) return
+    const chosen = platform
+    // 带默认平台的入口(账号页「添加账号」)立刻点火;用户自己挑平台的入口推迟 0.8s ——
+    // 判据是"他已经停下选择动作",不是"他一定会扫":计时器被下一次改选清掉,这枚预热
+    // 就再也不会发生,不留空转的浏览器。
+    const delay = defaultPlatform ? 0 : 800
+    const timer = setTimeout(() => {
+      const warmed = { platform: chosen, jobId: '', cancelled: false }
+      prewarmRef.current = warmed
+      void (async () => {
+        try {
+          const r = await startScanLogin(chosen)
+          if (warmed.cancelled) {
+            if (r.success && r.data?.task_id) {
+              void cancelScanLogin(r.data.task_id).catch(() => undefined)
+            }
+            return
+          }
+          warmed.jobId = r.success && r.data?.task_id ? r.data.task_id : ''
+        } catch {
+          /* 预热失败不算错误:用户点按钮时 handleStart 会照常发起一次新任务 */
+          if (prewarmRef.current === warmed) warmed.jobId = ''
+        }
+      })()
+    }, delay)
+    return () => {
+      clearTimeout(timer)
+      cancelPrewarm()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, phase, platform, defaultPlatform])
+
+  // 弹窗关闭(而不是卸载):把还在预热的任务退掉,否则那枚 Chromium 会挂到后端超时。
+  React.useEffect(() => {
+    if (open) return
+    cancelPrewarm()
+    setTaskMessage('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  /** 用户改选平台:`handleStart` 之外的一切入口都不该留着一枚为别的平台预热的任务。 */
+  function cancelPrewarm(): string {
+    const pre = prewarmRef.current
+    if (!pre) return ''
+    pre.cancelled = true
+    prewarmRef.current = null
+    if (pre.jobId && taskIdRef.current !== pre.jobId) {
+      void cancelScanLogin(pre.jobId).catch(() => undefined)
+    }
+    return pre.platform
+  }
+
   React.useEffect(() => {
     return () => {
       stopPolling()
       releaseQr()
-      // 卸载即取消:后端任务不取消会占着一个 Chromium 直到 5 分钟超时
+      // 卸载即取消:后端任务不取消会占着一个 Chromium 直到 10 分钟超时
       if (taskIdRef.current) void cancelScanLogin(taskIdRef.current).catch(() => undefined)
+      cancelPrewarm()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  /**
+   * 没有 defaultPlatform 的入口(用户自己在下拉里挑平台):预热点火推迟到"挑完 0.8s"。
+   * 判据是"用户已经停下选择动作",而不是"他一定会扫" —— 所以计时器一旦被下一次改选
+   * 清掉,这枚预热就再也不会发生,不留空转的浏览器。
+   */
+  React.useEffect(() => {
+    if (!open || defaultPlatform || !platform || phase !== 'idle') return
+    const timer = setTimeout(() => {
+      const chosen = platform
+      const warmed = { platform: chosen, jobId: '', cancelled: false }
+      prewarmRef.current = warmed
+      void (async () => {
+        try {
+          const r = await startScanLogin(chosen)
+          if (warmed.cancelled) {
+            if (r.success && r.data?.task_id) {
+              void cancelScanLogin(r.data.task_id).catch(() => undefined)
+            }
+            return
+          }
+          if (r.success && r.data?.task_id) warmed.jobId = r.data.task_id
+          else warmed.jobId = ''
+        } catch {
+          if (prewarmRef.current === warmed) warmed.jobId = ''
+        }
+      })()
+    }, 800)
+    return () => {
+      clearTimeout(timer)
+      cancelPrewarm()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, defaultPlatform, platform, phase])
 
   React.useEffect(() => {
     if (open && phase === 'polling' && startTimeRef.current > 0) {
@@ -188,18 +313,31 @@ export function ScanLoginDialog({
 
   function stopPolling() {
     if (pollTimerRef.current) {
-      clearInterval(pollTimerRef.current)
+      clearTimeout(pollTimerRef.current)
       pollTimerRef.current = null
     }
   }
 
-  /** 释放二维码 blob。换图/失败/卸载三条路径都必须走这里,否则每 2 秒漏一个 Blob。 */
+  /**
+   * 轮询节奏(2026-09-30):出码前 400ms、出码后 2500ms、20s 后一律 2500ms。
+   * 为什么不是一路 400ms:后端等待窗口是 10 分钟,密轮询只在"用户正盯着空白框"那段
+   * 有意义;码上了屏,用户去拿手机、扫码、确认,这段时间密轮询纯属空转。
+   */
+  function nextPollDelay(hasQr: boolean): number {
+    if (hasQr) return RELAXED_POLL_INTERVAL_MS
+    if (Date.now() - startTimeRef.current > FAST_POLL_WINDOW_MS) return RELAXED_POLL_INTERVAL_MS
+    return FAST_POLL_INTERVAL_MS
+  }
+
+  /** 释放二维码 blob。换图/失败/卸载三条路径都必须走这里,否则每次刷新都漏一个 Blob。 */
   function releaseQr() {
     if (qrUrlRef.current) {
       URL.revokeObjectURL(qrUrlRef.current)
       qrUrlRef.current = ''
     }
     qrStampRef.current = 0
+    qrFailRef.current = 0
+    qrAttemptStampRef.current = 0
     setQrUrl('')
   }
 
@@ -210,18 +348,21 @@ export function ScanLoginDialog({
     if (qrUrlRef.current) URL.revokeObjectURL(qrUrlRef.current)
     qrUrlRef.current = next
     qrStampRef.current = stamp
+    qrFailRef.current = 0
     setQrUrl(next)
   }
 
   function failTask(msg: string) {
     stopPolling()
     releaseQr()
-    // 后端任务可能还在跑(它自己也要等到 5 分钟才收),这里必须显式取消,
+    // 后端任务可能还在跑(它自己也要等到 10 分钟才收),这里必须显式取消,
     // 否则每次失败都留一个 Chromium 挂在服务器上。
     if (taskIdRef.current) {
       void cancelScanLogin(taskIdRef.current).catch(() => undefined)
       taskIdRef.current = ''
     }
+    cancelPrewarm()
+    setTaskMessage('')
     setPhase('failed')
     setErrorMsg(msg)
     toast.error(msg)
@@ -231,25 +372,44 @@ export function ScanLoginDialog({
     failTask(t('accounts.scanLoginTimeout'))
   }
 
+  /** 接管一枚已经在跑的任务(预热任务):跳过"再起一遍浏览器",直接开始轮询。 */
+  function adoptTask(id: string) {
+    taskIdRef.current = id
+    startTimeRef.current = Date.now()
+    setCountdownSeconds(TIMEOUT_SECONDS)
+    setTaskMessage('')
+    setPhase('polling')
+    startPolling(id)
+  }
+
   async function handleStart(platOverride?: string) {
     // platOverride:姊妹通道切换时同步调用,setState 是异步的,读 state 会拿到旧值
     const plat = platOverride ?? platform
     if (!plat) return
     const platInfo = platforms.find((p) => p.platform === plat)
     if (!platInfo) return
+
+    // 预热命中:该平台的任务已经在跑(大概率二维码都快出来了),直接接管,不再发起新任务。
+    // 判据同时看"平台一致"与"还没有别的任务在跑",避免把用户当前正在等的任务顶掉。
+    const pre = prewarmRef.current
+    if (!platOverride && pre && pre.platform === plat && pre.jobId && !taskIdRef.current) {
+      prewarmRef.current = null
+      adoptTask(pre.jobId)
+      return
+    }
+    // 预热平台与本次选择不同(或用户改选过):取消它,别让后端空转一枚 Chromium
+    cancelPrewarm()
+
     setPhase('starting')
     setErrorMsg('')
+    setTaskMessage('')
     networkFailRef.current = 0
     try {
       const r = await startScanLogin(plat)
       if (!r.success) throw apiFailureToError(r, t('accounts.scanLoginFailed'))
       const id = r.data?.task_id
       if (!id) throw new Error(t('accounts.scanLoginFailed'))
-      taskIdRef.current = id
-      startTimeRef.current = Date.now()
-      setCountdownSeconds(TIMEOUT_SECONDS)
-      setPhase('polling')
-      startPolling(id)
+      adoptTask(id)
     } catch (e) {
       const msg = (e as Error).message
       stopPolling()
@@ -262,9 +422,22 @@ export function ScanLoginDialog({
   /** 终态集合:后端 expired 不在 ScanLoginTask 的类型并集里,所以按字符串集合判,不做字面量比较。 */
   const TERMINAL_STATUSES = new Set(['success', 'failed', 'timeout', 'cancelled', 'expired'])
 
+  /**
+   * 自重排轮询(2026-09-30 替换 setInterval)。
+   *
+   * setInterval 的两个毛病在这一档都要命:① 上一轮没回来就发下一轮(网络慢时叠请求);
+   * ② 节奏固定,出码前后只能取同一个值。改成"每轮结束再按当前状态决定下一次等多久",
+   * 出码前 400ms、出码后 2500ms,顺带天然互斥。
+   */
   function startPolling(id: string) {
     stopPolling()
-    pollTimerRef.current = setInterval(async () => {
+    const tick = async () => {
+      pollTimerRef.current = null
+      if (taskIdRef.current !== id) return
+      const schedule = (hasQr: boolean) => {
+        if (taskIdRef.current !== id) return
+        pollTimerRef.current = setTimeout(() => void tick(), nextPollDelay(hasQr))
+      }
       if (Date.now() - startTimeRef.current > TIMEOUT_MS) {
         failTask(t('accounts.scanLoginTimeout'))
         return
@@ -279,11 +452,17 @@ export function ScanLoginDialog({
         }
         networkFailRef.current = 0
         const d = r.data
-        if (!d) return
+        if (!d) {
+          schedule(false)
+          return
+        }
+        // 后端进度如实转述(「正在打开 X 登录页…」),用户不用对着一个转圈猜
+        if (d.message) setTaskMessage((prev) => (prev === d.message ? prev : d.message))
         if (d.status === 'success') {
           stopPolling()
           releaseQr()
           taskIdRef.current = ''
+          setTaskMessage('')
           setPhase('success')
           toast.success(
             `${t('accounts.scanLoginSuccess')}${d.cookies_count ? ` (${d.cookies_count})` : ''}`,
@@ -295,21 +474,36 @@ export function ScanLoginDialog({
           failTask(d.message || t('accounts.scanLoginFailed'))
           return
         }
+        let gotQr = Boolean(qrUrlRef.current)
         if (d.has_qr && d.qr_updated_at !== qrStampRef.current) {
-          try {
-            await showQr(id, d.qr_updated_at)
-          } catch {
-            /* 这一帧图没取到:下一轮还会再取,不能因此把整个任务判失败 */
+          // 同一帧最多重试 MAX_RETRY_PER_FRAME 次;超过就把它记成"已尝试",按放宽节奏
+          // 再试。否则这一帧取不到时每一轮都会立刻重取,等于自己给自己打满流量。
+          if (qrAttemptStampRef.current !== d.qr_updated_at) {
+            qrAttemptStampRef.current = d.qr_updated_at
+            qrFailRef.current = 0
+          }
+          if (qrFailRef.current < MAX_RETRY_PER_FRAME) {
+            qrFailRef.current += 1
+            try {
+              await showQr(id, d.qr_updated_at)
+              gotQr = true
+            } catch {
+              /* 这一帧图没取到:下一轮还会再取,不能因此把整个任务判失败 */
+            }
           }
         }
+        schedule(gotQr)
       } catch {
         // 只有"根本没拿到应答"(网络层异常)才计入重试预算;连续 3 次判失败。
         networkFailRef.current += 1
         if (networkFailRef.current >= MAX_NETWORK_RETRIES) {
           failTask(t('accounts.scanLoginFailed'))
+          return
         }
+        schedule(Boolean(qrUrlRef.current))
       }
-    }, POLL_INTERVAL_MS)
+    }
+    pollTimerRef.current = setTimeout(() => void tick(), 0)
   }
 
   function handleCancel() {
@@ -319,6 +513,8 @@ export function ScanLoginDialog({
       void cancelScanLogin(taskIdRef.current).catch(() => undefined)
       taskIdRef.current = ''
     }
+    cancelPrewarm()
+    setTaskMessage('')
     setPhase('idle')
   }
 
@@ -454,7 +650,7 @@ export function ScanLoginDialog({
               >
                 {isBusy && <Loader2 className="h-4 w-4 animate-spin" />}
                 <QrCode className="h-4 w-4" />
-                {t('accounts.startScanLogin')}
+                {isBusy ? t('accounts.preparingQr') : t('accounts.startScanLogin')}
               </Button>
               <p className="text-center text-xs text-muted-foreground">
                 {t('accounts.scanWithPhoneHint')}
@@ -493,7 +689,9 @@ export function ScanLoginDialog({
           {phase === 'starting' && (
             <div className="flex flex-col items-center gap-2 py-4">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">{t('accounts.scanLoginHint')}</p>
+              <p className="text-sm text-muted-foreground">
+                {taskMessage || t('accounts.preparingQr')}
+              </p>
             </div>
           )}
 
@@ -513,7 +711,11 @@ export function ScanLoginDialog({
               ) : (
                 <div className="flex flex-col items-center gap-2 py-6">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <p className="text-sm text-muted-foreground">{t('accounts.scanLoginHint')}</p>
+                  {/* 干等时显示**后端真实进度**(「正在打开 X 登录页…」),不是一句静止的
+                      「正在加载」—— 用户能看出系统在动、卡在哪一步。拿不到文案才退回通用键。 */}
+                  <p className="text-sm text-muted-foreground">
+                    {taskMessage || t('accounts.preparingQr')}
+                  </p>
                 </div>
               )}
               <div className="space-y-1 text-center">
