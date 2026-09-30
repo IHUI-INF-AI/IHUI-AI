@@ -20242,6 +20242,8 @@
       "passwordHint": "일반 사용자는 QR 로그인을 사용하세요. 이 필드는 개발자 전용입니다.",
       "platform": "플랫폼",
       "saveCookies": "계정 저장",
+      "preparingQr": "QR 코드 생성 중…",
+      "regenerateQr": "QR 코드 다시 만들기",
       "scan": "스캔",
       "scanLogin": "QR 로그인",
       "scanLoginDescription": "플랫폼 선택 시 백엔드가 로그인 페이지를 열고 QR 코드를 캡처합니다. 앱으로 스캔하면 쿠키가 자동 저장됩니다.",
