@@ -10,7 +10,6 @@ import type { DiffFileStatus, DiffFile } from '@ihui/types'
 import { getFileIcon, getFileColor } from './file-icons'
 import type { DiffFilterType } from './diff-stats-bar'
 import { cn } from '@/lib/utils'
-import { useDiffViewModeStore } from '@/lib/diff-view-mode'
 import { Tooltip } from '@/components/feedback'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useToast } from '@/hooks/use-toast'
@@ -41,11 +40,15 @@ const STATUS_COLOR: Record<DiffFileStatus, string> = {
   renamed: 'text-blue-600 dark:text-blue-400',
 }
 
+/**
+ * 分组头即 git 文件状态,复用 `aiChat.envInfo.*` 这套已五语言齐备的状态词表
+ * (§3 共享层优先:不在端内为同一批状态词造第二份真相)。
+ */
 const STATUS_GROUP: { key: DiffFileStatus; labelKey: string }[] = [
-  { key: 'modified', labelKey: 'diffFileList.groupModified' },
-  { key: 'added', labelKey: 'diffFileList.groupAdded' },
-  { key: 'deleted', labelKey: 'diffFileList.groupDeleted' },
-  { key: 'renamed', labelKey: 'diffFileList.groupRenamed' },
+  { key: 'modified', labelKey: 'modified' },
+  { key: 'added', labelKey: 'added' },
+  { key: 'deleted', labelKey: 'deleted' },
+  { key: 'renamed', labelKey: 'renamed' },
 ]
 
 // ============================================================================
@@ -157,6 +160,8 @@ export function DiffFileList({
 }: DiffFileListProps) {
   const { diffFiles, activeDiffFileId, setActiveDiffFile } = useIDEWorkspace()
   const t = useTranslations('ide')
+  /** 分组头复用 `aiChat.envInfo.*` 的 git 状态词表(见 STATUS_GROUP 注释) */
+  const tStatus = useTranslations('aiChat.envInfo')
   const showReview = onToggleReviewed !== undefined
   const reviewed: ReadonlySet<string> = reviewedIds ?? EMPTY_REVIEWED
 
@@ -232,7 +237,7 @@ export function DiffFileList({
         return (
           <div key={key} className="flex flex-col gap-0.5">
             <div className="flex items-center gap-1 px-2 py-0.5 text-muted-foreground">
-              <span className="font-medium">{t(labelKey)}</span>
+              <span className="font-medium">{tStatus(labelKey)}</span>
               <span className="rounded bg-muted px-2 py-0.5 text-[10px]">{files.length}</span>
             </div>
             {files.map((file) => (
@@ -298,8 +303,7 @@ function FileRow({
   const t = useTranslations('ide')
   const clipboard = useClipboard()
   const { success } = useToast()
-  // V3 #66:右键「打开方式」写唯一真相源(@/lib/diff-view-mode),与 chat 内联 diff 同一份
-  const setDiffViewMode = useDiffViewModeStore((s) => s.setMode)
+  const setDiffViewMode = useIDEWorkspace((s) => s.setDiffViewMode)
   const setActiveTopTab = useIDEWorkspace((s) => s.setActiveTopTab)
   const openFile = useIDEWorkspace((s) => s.openFile)
   const fetchDiffFiles = useIDEWorkspace((s) => s.fetchDiffFiles)
