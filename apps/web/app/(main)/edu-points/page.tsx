@@ -8,7 +8,7 @@ import * as React from 'react'
 import Image from 'next/image'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Award, Gift, Loader2, TrendingUp, Coins } from 'lucide-react'
+import { Award, Gift, Loader2, Star, TrendingUp, Coins } from '''lucide-react'''
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
@@ -106,9 +106,17 @@ export default function EduPointsPage() {
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      {/* 概览卡片 — /edu-points/channels 只返回启用渠道,「渠道总数」卡与启用数同值冒充
-          (G-978077):删掉重复卡,保留 启用渠道 + 我的积分 两项真实读数 */}
-      <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
+      {/* 概览卡片 */}
+      <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{t('totalChannels')}</CardTitle>
+            <Star className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{list.length}</div>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('activeChannels')}</CardTitle>
