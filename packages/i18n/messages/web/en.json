@@ -9144,19 +9144,6 @@
     "noHistory": "No history chat",
     "noRecentWorkspaces": "No recent workspaces",
     "openTerminal": "Open Terminal",
-    "recap": {
-      "title": "Task recap",
-      "handoff": {
-        "menuItem": "Hand off to a new task",
-        "title": "Hand off to a new task"
-      },
-      "previewDescription": "Review the handoff content, view it at the file location, or create a new task to continue working.",
-      "purposeLabel": "Handoff purpose",
-      "purposePlaceholder": "Handoff purpose",
-      "revealFile": "Show file",
-      "createSession": "Create new task",
-      "handoffUnavailable": "The handoff document generator this flow depends on is not available yet, so handoff content cannot be generated."
-    },
     "renameDialog": {
       "cancel": "Cancel",
       "description": "Keep it short and easy to recognize",
@@ -26585,7 +26572,6 @@
     "noUrlField": "No usable URL field found in response",
     "networkError": "Network error",
     "uploadCancelled": "Upload cancelled",
-    "imageAltText": "Feedback screenshot {index}",
     "imagePlaceholder": "Click or drag images here to upload"
   },
   "eduScheduling": {

@@ -10,11 +10,13 @@ import React from 'react'
 import { render, cleanup, screen } from '@testing-library/react'
 
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string, params?: { totalTime?: string; [k: string]: unknown }) => {
-    if (key === 'achievedInTime') return `已在 ${params?.totalTime} 内达成目标`
-    if (key === 'statusDone') return '已完成'
-    return key
-  },
+  useTranslations:
+    () =>
+    (key: string, params?: { totalTime?: string; [k: string]: unknown }) => {
+      if (key === 'achievedInTime') return `已在 ${params?.totalTime} 内达成目标`
+      if (key === 'statusDone') return '已完成'
+      return key
+    },
 }))
 
 vi.mock('@/components/common', () => ({
