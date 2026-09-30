@@ -4234,6 +4234,28 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '168',
+    label:
+      '🔀 合并复活已删文件对账(blocking,DR1 基底判定 + DR2 删除出处;默认只判未入 origin/main 的合并,每枚判一次)',
+    script: 'check-merge-deletion-resurrection.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MERGE_DELETION_RESURRECTION',
+    onFailHint: [
+      '',
+      '  💡 守门 100 的另一半:100 拦「合并吞掉对侧独有新增」,本门拦「本侧显式删除的路径被合并整批写回」。',
+      '     DR1:P ∈ tree(共同基底) ∧ P ∈ 对侧父 ∧ P ∉ 本侧父 ∧ P ∈ 结果 ⇒ 判红;',
+      '     DR2:第一轮复活后分叉点已推进到已删一侧 ⇒ 基底里已没有它,DR1 结构性失明;改判「本侧可达范围内',
+      '     存在一笔非合并提交删掉了它」—— 对侧独有新增拿不出删除出处 ⇒ 不判(那是守门 100 的地盘)。',
+      '     同一路径两条取证只计一条(两份基线互相顶掉,真值就读不出)。正当豁免:删除提交信息含',
+      '     intentional-delete:,或 scripts/data/deletion-survival-allowlist.json 带 path+reason+reviewBy 且未过期。',
+      '     增量台账 .workbuddy/merge-deletion-resurrection-audited.json 让每枚合并只判一次(判红不许反复红)。',
+      '     自检:node scripts/check-merge-deletion-resurrection.mjs --self-test(43 例);',
+      '     镜像:node --test scripts/tests/check-merge-deletion-resurrection.test.mjs(11 例,含 T1 方向锁)。',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
