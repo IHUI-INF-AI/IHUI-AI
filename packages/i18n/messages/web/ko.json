@@ -15866,6 +15866,8 @@
       "unsynced": "동기화 안 됨"
     },
     "terminalPanel": {
+      "switchToDark": "다크 터미널로 전환",
+      "switchToLight": "라이트 터미널로 전환",
       "aiDiagnoseTitle": "AI 오류 진단",
       "aiServiceUnavailable": "AI 서비스를 일시적으로 사용할 수 없습니다. 나중에 다시 시도해 주세요",
       "aiSuggestTitle": "AI 명령어 제안",
