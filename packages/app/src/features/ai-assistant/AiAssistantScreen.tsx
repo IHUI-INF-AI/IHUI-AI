@@ -9,7 +9,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -18,6 +17,7 @@ import type { AiAssistantScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** AI 助手共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AiAssistantScreenProps }
@@ -54,7 +54,8 @@ export function AiAssistantScreen({
       </View>
 
       <View style={styles.searchRow}>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.searchInput}
           value={keyword}
           onChangeText={onKeywordChange}

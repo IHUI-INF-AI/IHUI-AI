@@ -22,7 +22,6 @@ import {
   Share,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   type TextStyle,
@@ -34,6 +33,7 @@ import { createComment, fetchApi, getComments, type CommentItem } from '@ihui/ap
 import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import {
+  TextField,
   ArticleDetailScreen as SharedArticleDetailScreen,
   type ArticleDetailItem,
 } from '@ihui/rn-app'
@@ -245,7 +245,8 @@ export function ArticleDetailScreen() {
               />
             )}
             <View style={styles.commentInputRow}>
-              <TextInput
+              <TextField
+                colorScheme={resolvedTheme}
                 value={commentText}
                 onChangeText={setCommentText}
                 placeholder="写下你的评论..."
