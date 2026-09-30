@@ -165,9 +165,7 @@ export function EditResendRollbackConfirm({
               </div>
             ))}
             {prepared?.truncated && (
-              <p className="text-xs text-muted-foreground">
-                {t('previewFilesMore', { count: prepared.remaining })}
-              </p>
+              <p className="text-xs text-muted-foreground">{t('previewFilesMore', { count: prepared.remaining })}</p>
             )}
             <Button
               variant="ghost"
@@ -193,13 +191,7 @@ export function EditResendRollbackConfirm({
         </div>
 
         <div className="flex items-center justify-end gap-2 pt-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onCancel}
-            disabled={phase === 'executing'}
-            data-action="cancel"
-          >
+          <Button variant="outline" size="sm" onClick={onCancel} disabled={phase === 'executing'} data-action="cancel">
             {t('cancel')}
           </Button>
           <Button
@@ -208,9 +200,7 @@ export function EditResendRollbackConfirm({
             disabled={phase !== 'previewing' || !impact}
             data-action="confirm"
           >
-            {phase === 'executing' ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            ) : null}
+            {phase === 'executing' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             <span>{t('confirm')}</span>
           </Button>
         </div>
