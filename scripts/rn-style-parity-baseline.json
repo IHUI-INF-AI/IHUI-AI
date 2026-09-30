@@ -1,13 +1,34 @@
 {
-  "components/GlobalFloatBox.tsx": ["#ff0000"],
-  "components/IntroducePopup.tsx": ["#bfbeff"],
-  "components/ModelList.tsx": ["#f5b301"],
-  "hooks/use-push.ts": ["#ff231f7c"],
-  "screens/CarteScreen.tsx": ["#9395e4"],
-  "screens/ChatScreen.tsx": ["#9cdcfe"],
-  "screens/DevEnterScreen.tsx": ["#b0aefa", "#cfceff"],
-  "screens/LoginScreen.tsx": ["#000000", "#ffffff"],
-  "screens/MoreCourseScreen.tsx": ["#93d2e2"],
-  "screens/RecruitmentScreen.tsx": ["#9395e4"],
-  "components/PersonalInformationCard.tsx": ["#ffffff"]
+  "components/IntroducePopup.tsx": [
+    "#bfbeff"
+  ],
+  "components/ModelList.tsx": [
+    "#f5b301"
+  ],
+  "components/PersonalInformationCard.tsx": [
+    "#ffffff"
+  ],
+  "hooks/use-push.ts": [
+    "#ff231f7c"
+  ],
+  "screens/CarteScreen.tsx": [
+    "#9395e4"
+  ],
+  "screens/ChatScreen.tsx": [
+    "#9cdcfe"
+  ],
+  "screens/DevEnterScreen.tsx": [
+    "#b0aefa",
+    "#cfceff"
+  ],
+  "screens/LoginScreen.tsx": [
+    "#000000",
+    "#ffffff"
+  ],
+  "screens/MoreCourseScreen.tsx": [
+    "#93d2e2"
+  ],
+  "screens/RecruitmentScreen.tsx": [
+    "#9395e4"
+  ]
 }
