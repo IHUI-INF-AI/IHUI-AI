@@ -5,13 +5,14 @@
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { BASE_URL } from '@/utils/api-config'
-import { View, Text, Image, Video, ScrollView, Input } from '@tarojs/components'
+import { View, Text, Image, Video, ScrollView } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useReady } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import * as api from '@/api'
 import { AGENT_DIALOGUE_DATA_KEY } from '@/constants/storage'
 import ThemeRoot from '@/components/ThemeRoot'
+import { FocusInput } from '@/components/FocusField'
 
 type MsgType = 'user' | 'seller' | 'system'
 type MediaType = 'image' | 'audio' | 'video' | 'file' | null
@@ -650,7 +651,7 @@ export default function AgentDialogue() {
         </View>
       </ScrollView>
       <View className="fixed bottom-0 left-0 right-0 flex items-center gap-[16rpx] pt-[16rpx] px-[20rpx] pb-[calc(env(safe-area-inset-bottom)+16rpx)] bg-card z-[100]">
-        <Input
+        <FocusInput
           className="flex-1 h-[100rpx] px-[24rpx] text-[length:32rpx] text-foreground bg-[var(--color-muted)] border border-[var(--color-border)] rounded-sm"
           placeholderStyle="color: var(--color-text-tertiary)"
           value={inputContent}
