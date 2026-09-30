@@ -80,6 +80,12 @@ export async function writeToOutbox(event: OutboxEventInput, tx: DbOrTx = db): P
 /**
  * 轮询处理 outbox 中 pending 的事件。
  *
+ * 驱动方式（b76-12e G-998160）：poll 周期捎带补报 + host 启动扫描（不新增 setInterval
+ * 计时器）——周期侧由 plugins/scheduler.ts 任务表的 `outbox-drain-every-30s`
+ * （BullMQ repeatable，挂既有 scheduler-worker 轮询）驱动；启动侧由 scheduler 插件的
+ * onReady 启动扫描补一轮（见 runOutboxStartupScan）。两侧都调本函数，幂等可重入：
+ * 已 processed 的事件不会被再次取出。**禁止**为本函数新增任何 setInterval 计时器。
+ *
  * 应由定时任务/独立 worker 周期调用。
  *
  * @param dispatcher 事件发送器
