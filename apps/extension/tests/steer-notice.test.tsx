@@ -52,7 +52,9 @@ describe('MessageContent 的 steer 交代条(D106)', () => {
 
   it('无 / 空 steerNotices → 不渲染交代条(不造空态)', () => {
     const none = renderToStaticMarkup(<MessageContent message={base} />)
-    const empty = renderToStaticMarkup(<MessageContent message={{ ...base, steerNotices: [] }} />)
+    const empty = renderToStaticMarkup(
+      <MessageContent message={{ ...base, steerNotices: [] }} />,
+    )
     expect(none).not.toContain('data-testid="steer-notice"')
     expect(empty).not.toContain('data-testid="steer-notice"')
   })
