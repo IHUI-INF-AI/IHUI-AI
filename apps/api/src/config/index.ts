@@ -110,6 +110,28 @@ const envSchema = z.object({
   // AI 回调共享密钥(可选,为空则不校验;配置后 ai-service 回调需带 X-Internal-Secret 头)
   AI_CALLBACK_SECRET: z.string().default(''),
 
+  /**
+   * 内部服务鉴权模式(2026-09-27 立,一次性短期票)。三档:
+   *  · `dual`   —— 同时接受新票与旧常驻密钥。**默认档,取值理由是"不破坏现网"**:
+   *               现网 ai-service 只发旧头,这一档下它一字不改也照常工作;
+   *               而发票方一旦开始发新票,这里立刻能验 —— 双侧不需要约定上线顺序。
+   *  · `legacy` —— 只认旧常驻密钥(等于本次改动未生效;Redis 故障要保通道时的显式退路)。
+   *  · `ticket` —— 只认新票,旧常驻密钥不再被接受。**翻这一档的判据见
+   *               internal-service-token.ts 末段注释,必须现读量出来,不得凭感觉翻。**
+   * 刻意不做成布尔:布尔表达不出"过渡中"这一档,而过渡正是这次改动的本体。
+   */
+  INTERNAL_SERVICE_AUTH_MODE: z.enum(['legacy', 'dual', 'ticket']).default('dual'),
+  /**
+   * 内部票 TTL 上限(秒)。验票侧封顶 —— 发票方误签长效票时"短期"这个前提仍成立。
+   * 上限 300:内部服务是同步 HTTP 调用,秒级足够;再长就不是票而是缓存。
+   */
+  INTERNAL_SERVICE_TICKET_MAX_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(10)
+    .max(300)
+    .default(60),
+
   // TBox webhook 签名密钥(可选,为空则不校验;配置后设备事件通知需带 X-Signature 头)
   TBOX_WEBHOOK_SECRET: z.string().default(''),
 
