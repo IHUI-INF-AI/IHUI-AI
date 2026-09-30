@@ -1243,27 +1243,38 @@ export const WORKSPACE_AGENT_TASK_STATUSES = ['running', 'completed', 'failed', 
 export type WorkspaceAgentTaskStatus = (typeof WORKSPACE_AGENT_TASK_STATUSES)[number]
 
 /**
- * 第二域(工作空间进程内任务态)的 i18n 键表 —— **键集由上面那张登记表推导**,不再抄一份成员清单:
- * 抄一份就等于多出第二处要同步的地方(守门 151 SV3 判的正是"端内再抄第二份成员清单"那一型)。
- * 词条五语言必须同批齐(AGENTS §30);漏一条的端上表现是徽章把 `agentTasks.statusFailed`
- * 原样回显给用户,看护在 `packages/types/tests/agent-status-vocabulary-labels.test.ts`
- * (它同时钉了"漏一条 ⇒ 判红"的构造面反例,所以这张表不是自证的)。
+ * 第二域(工作空间进程内任务态)的**词条键表** —— 值域逐字等于上面那张登记表,
+ * 不多一档也不少一档(判据:`packages/types/tests/agent-status-vocabulary-labels.test.ts`)。
+ *
+ * 为什么表里放**键名**而不是文案:语言包是五个文件 × 逐语言的形态,把中文抄进类型层
+ * 就是第二个真相(§3 共享层优先 / §19 翻译策略)。
+ *
+ * `canceled` 单 l 是数据库与 REST 契约的拼写,不得"顺手修正"成 cancelled ——
+ * 同文件 `BgAgentStatus` 的双 l 拼写属第三个域,两域不得并置(见 :1238 的注释)。
  */
-export const WORKSPACE_AGENT_TASK_STATUS_LABEL_KEYS = Object.fromEntries(
-  WORKSPACE_AGENT_TASK_STATUSES.map(
-    (s) => [s, `agentTasks.status${s.charAt(0).toUpperCase()}${s.slice(1)}`] as const,
-  ),
-) as Record<WorkspaceAgentTaskStatus, string>
+export const WORKSPACE_AGENT_TASK_STATUS_LABEL_KEYS: Readonly<
+  Record<WorkspaceAgentTaskStatus, string>
+> = {
+  running: 'agentTasks.statusRunning',
+  completed: 'agentTasks.statusCompleted',
+  failed: 'agentTasks.statusFailed',
+  canceled: 'agentTasks.statusCanceled',
+}
 
 /**
- * 取第二域某一档的 i18n 键;登记表之外的值一律 null,不替未知值猜一档。
- * 刻意不让 `cancelled`(双 l)通过:那是第三域的拼写,认领它等于把两域在端内并成一张表
- * (拼写分叉的登记见本文件上方 `WORKSPACE_AGENT_TASK_STATUSES` 的注释)。
+ * 状态值 → 词条键;登记表之外的值一律 `null`。
+ *
+ * 刻意的失败方向:**不替未知值猜一档**。猜出来的那一档会让屏幕上显示一句"翻译过的错话",
+ * 而调用方拿到 null 时才必须走"原样显示 + 标未判定"那条分支(AGENTS §30"没有终态就写已完成"
+ * 是同一条禁令的反面)。六档(`in_progress`/`done`)与双 l 的 `cancelled` 都必须落 null,
+ * 否则两域在端内又被并成一张表。
  */
-export function workspaceAgentTaskStatusLabelKey(status: string): string | null {
-  return Object.prototype.hasOwnProperty.call(WORKSPACE_AGENT_TASK_STATUS_LABEL_KEYS, status)
-    ? WORKSPACE_AGENT_TASK_STATUS_LABEL_KEYS[status as WorkspaceAgentTaskStatus]
-    : null
+export function workspaceAgentTaskStatusLabelKey(
+  status: string,
+): string | null {
+  return (
+    (WORKSPACE_AGENT_TASK_STATUS_LABEL_KEYS as Readonly<Record<string, string>>)[status] ?? null
+  )
 }
 
 /**
