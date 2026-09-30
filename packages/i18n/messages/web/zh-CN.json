@@ -9144,6 +9144,19 @@
     "noHistory": "暂无任务",
     "noRecentWorkspaces": "暂无最近工作区",
     "openTerminal": "打开终端",
+    "recap": {
+      "title": "任务回顾",
+      "handoff": {
+        "menuItem": "移交到新任务",
+        "title": "移交到新任务"
+      },
+      "previewDescription": "检查交接内容后,可以在文件位置查看,或直接创建一个新任务继续工作。",
+      "purposeLabel": "交接目的",
+      "purposePlaceholder": "交接目的",
+      "revealFile": "显示文件",
+      "createSession": "创建新任务",
+      "handoffUnavailable": "依赖的交接文档生成出口尚未提供,无法生成交接内容。"
+    },
     "renameDialog": {
       "cancel": "取消",
       "description": "保持简短且易于识别",
@@ -10582,6 +10595,17 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "selectionAnnotations": {
+      "hoverHint": "悬停查看批注",
+      "selectedText": "{{index}}. 选中文字",
+      "noComment": "未添加评论",
+      "commentPlaceholder": "添加可选评论…",
+      "commentAriaLabel": "划词批注评论",
+      "addComment": "添加评论",
+      "removeOne": "移除批注 {{index}}",
+      "removeAll": "移除全部划词批注",
+      "add": "添加批注"
+    },
     "attachRetry": "重试上传",
     "attachRetryExhausted": "重试次数已达上限,请删除后重新添加",
     "mentionEngine": {
@@ -12347,6 +12371,7 @@
     "unpin": "取消固定",
     "unsaved": "未保存",
     "update": {
+      "revoked": "这个版本已不再提供。",
       "autoRestartIn": "即将自动重启...({countdown} 秒后)",
       "autoRetrying": "更新失败，自动重试中...",
       "available": "发现新版本",
@@ -15181,6 +15206,8 @@
     "title": "开放平台 Feature Center"
   },
   "feedback": {
+    "unsupportedImage": "仅支持 PNG、JPG、GIF 和 WebP 图片。",
+    "requestIdSuffix": "反馈编号：{requestId}。",
     "backToList": "返回反馈",
     "contactPlaceholder": "选填，方便我们联系您",
     "contentPlaceholder": "请描述您遇到的问题或建议...",
@@ -16012,6 +16039,8 @@
       "unsynced": "未同步"
     },
     "terminalPanel": {
+      "switchToDark": "切换为暗色终端",
+      "switchToLight": "切换为亮色终端",
       "aiDiagnoseTitle": "AI 错误诊断",
       "aiServiceUnavailable": "AI 服务暂不可用,请稍后重试",
       "aiSuggestTitle": "AI 命令建议",
@@ -26714,6 +26743,7 @@
     "noUrlField": "响应中未找到可用的 URL 字段",
     "networkError": "网络错误",
     "uploadCancelled": "上传已取消",
+    "imageAltText": "反馈截图 {index}",
     "imagePlaceholder": "点击或拖拽上传图片"
   },
   "eduScheduling": {

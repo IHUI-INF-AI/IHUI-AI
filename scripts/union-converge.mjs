@@ -127,6 +127,10 @@ function git(args, cwd = ROOT, input) {
     cwd,
     input,
     encoding: 'utf8',
+    // 根治(2026-09-30):本机交互会话下 Node 给子进程建 stdin 管道会 EBUSY(与父进程自身
+    // stdin 形态无关,managed/system 两个 node 都中;stdout/stderr 管道正常)。git 绝大多数
+    // 调用不消费 stdin ⇒ 无 input 时 stdin 设 ignore;带 input(--stdin 类)必须保住管道。
+    stdio: input ? ['pipe', 'pipe', 'pipe'] : ['ignore', 'pipe', 'pipe'],
     windowsHide: true, // §5b:漏此参数在守护/钩子派生下必弹控制台窗
     timeout: GIT_TIMEOUT,
     maxBuffer: 512 * 1048576,
@@ -169,6 +173,8 @@ function gitBuf(args, cwd = ROOT) {
   return execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...args], {
     cwd,
     encoding: 'buffer',
+    // 根治:同 git() —— 无 input,stdin 设 ignore 避开本会话子进程 stdin 管道 EBUSY。
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
     timeout: GIT_TIMEOUT,
     maxBuffer: 512 * 1048576,
@@ -210,18 +216,29 @@ function modeOf(rev, p, cwd) {
 }
 
 function writeBlob(content, p, cwd) {
-  return execFileSync(
-    GIT,
-    ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'hash-object', '-w', '--path', p, '--stdin'],
-    {
-      cwd,
-      input: content,
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: GIT_TIMEOUT,
-      maxBuffer: 512 * 1048576,
-    },
-  ).trim()
+  // 根治(2026-09-30):--stdin 通道要求子进程 stdin 真管道,而本会话 Node 建 stdin 管道
+  // 会 EBUSY ⇒ 改走临时文件。`--path p` 保留:属性/换行过滤仍按业务路径判定,与
+  // `--stdin --path p` 产出同一 blob SHA(2026-09-30 以 CRLF 样本实证等价);scratch 用后即焚。
+  const scratch = mkScratch('union-blob-')
+  const tmp = join(scratch, 'blob')
+  writeFileSync(tmp, content)
+  try {
+    return execFileSync(
+      GIT,
+      ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'hash-object', '-w', '--path', p, tmp],
+      {
+        cwd,
+        encoding: 'utf8',
+        // 无 input ⇒ stdin 设 ignore(同 git()/gitBuf() 各自注释)。
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        timeout: GIT_TIMEOUT,
+        maxBuffer: 512 * 1048576,
+      },
+    ).trim()
+  } finally {
+    rmScratch(scratch)
+  }
 }
 
 /**
@@ -838,6 +855,8 @@ export function buildUnion(
         cwd,
         env,
         windowsHide: true,
+        // 根治:同 git() —— 无 input,stdin 设 ignore 避开本会话子进程 stdin 管道 EBUSY。
+        stdio: ['ignore', 'pipe', 'pipe'],
         timeout: GIT_TIMEOUT,
         encoding: 'utf8',
         maxBuffer: 512 * 1048576,
@@ -1324,6 +1343,8 @@ export function hasCommit(sha, cwd = ROOT) {
     spawnSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'cat-file', '-e', `${sha}^{commit}`], {
       cwd,
       windowsHide: true,
+      // 根治:同 git-sync-converge.mjs —— 本会话 Node 建子进程 stdin 管道会 EBUSY,git 不吃 stdin。
+      stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 60000,
       encoding: 'utf8',
     }).status === 0
@@ -1457,6 +1478,8 @@ function isAncestor(a, b, cwd) {
     spawnSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'merge-base', '--is-ancestor', a, b], {
       cwd,
       windowsHide: true,
+      // 根治:本会话 Node 建子进程 stdin 管道会 EBUSY,git 不吃 stdin。
+      stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 120000,
       encoding: 'utf8',
     }).status === 0
@@ -2743,6 +2766,8 @@ async function main() {
     {
       cwd: ROOT,
       windowsHide: true,
+      // 根治:本会话 Node 建子进程 stdin 管道会 EBUSY,git 不吃 stdin。
+      stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 120000,
       encoding: 'utf8',
     },

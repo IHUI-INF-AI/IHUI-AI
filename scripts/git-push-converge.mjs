@@ -74,7 +74,8 @@ const TIMEOUT_MS = Number(getArg('timeout', '180000'))
 // ─── git 执行(带超时,失败返回 null) ───
 function git(argsArr, { timeout = TIMEOUT_MS } = {}) {
   try {
-    return execFileSync('git', argsArr, { encoding: 'utf8', timeout, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }).trim()
+    return execFileSync('git', argsArr, { encoding: 'utf8', timeout, // 根治:stdin 设 ignore 避开本会话 Node 建子进程 stdin 管道 EBUSY(git 不吃 stdin)
+      stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true }).trim()
   } catch {
     return null
   }
@@ -92,7 +93,8 @@ function gitWithOutput(argsArr, cmd = 'git', { timeout = TIMEOUT_MS, env } = {})
     const r = execFileSync(cmd, argsArr, {
       encoding: 'utf8',
       timeout,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 根治:本会话 Node 建子进程 stdin 管道会 EBUSY;本助手不传 input,stdin 设 ignore 安全。
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       maxBuffer: 32 * 1024 * 1024,
       ...(env ? { env } : {}),
