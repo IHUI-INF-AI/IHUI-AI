@@ -21,6 +21,27 @@ const {
   auditStagingFiles,
 } = require('./staging-snapshot.js')
 
+/**
+ * ⛔ 被 require()/import() 时必须**立即返回**,不得执行下面任何一步(§22d 的 CJS 对应形态:
+ *    判定用 `require.main === module`,本文件是 CommonJS,没有 `import.meta`)。
+ *
+ * 为什么这一档不是"洁癖"而是事故(2026-09-29 实测,由本仓一次真实自伤换来):
+ * 另一会话为了读下面那张 `TOKEN_SYNC_TARGETS` 表而 `import` 了本模块,于是**整条 pre-commit 链
+ * 被真实执行了一遍** —— 第 0 步 `git-lock.mjs clean` 会去清它判定为 stale 的 `index.lock`;
+ * 第 1 步 lint-staged 在**共享索引**上对别人正暂存的 28 个文件跑了 `prettier --write`/`eslint --fix`,
+ * 并在"恢复未暂存改动"这一步失败,把 7 个文件的未暂存内容留在 `lint-staged_unstaged.patch`。
+ * 而 `git status`、退出码与其余守门**全都看不出来**这件事发生过。
+ *
+ * 所以:想知道这张表里有什么,请**按文本读**(`fs.readFileSync` + 解析,或 grep),
+ * 不要指望 import 本文件做内省 —— 那条路今天的代价是替全队改工作区。
+ * 直接执行(`node scripts/lib/pre-commit-hook.js`,由 `.husky/pre-commit` 经
+ * `scripts/hook-run-hidden.vbs` 拉起)的行为**逐字不变**。
+ */
+if (require.main !== module) {
+  module.exports = {}
+  return
+}
+
 // 0. stale 锁清理(2026-09-19 立,根治 index.lock 卡死多 agent)
 // 在任何 git 操作前清理可能残留的 index.lock(崩溃 git 进程)+ ihui-git-write.lock(死 PID)。
 // 活进程持有的锁不会被误删(clean 内判据:index.lock>60s 或无 git 进程;ihui 锁需 PID 死亡)。
@@ -60,6 +81,46 @@ function run(label, cmd) {
     return false
   }
 }
+
+// ─── 轮次正证(round witness,2026-09-30 立)───────────────────────────
+// 要补的那一格:`scripts/plan-bypass-ledger-report.mjs` 想回答"这枚提交到底有没有被守门看过",
+// 但它过去的唯一正证是**去钩子日志里找一段与提交文件集逐字等值的回显** —— 那条件太脆:
+// lint-staged 改写过文件、并发会话同一窗口 stage 了别的东西,都会让一次正常提交找不到匹配轮,
+// 于是 2026-09-30 现读 1466 枚里 normal 只认得出 5 枚。脆判据的失效方向是"多报 unknown",
+// 看着诚实,实际是把"检查全废的提交量"这个问题永久留在答不准。
+// 所以由钩子**自己**落一条机器可读记录(不靠解析彩色日志、不靠字符串对齐),统计器用
+// `gatesRan ∧ gatesPassed ∧ headBefore == 该提交的父 ∧ 提交文件集 ⊆ 本轮所见的暂存集` 作正证。
+// 三条不许漂:
+//  ① **一方记录只能证明"门看过这些文件且没红"**,不能证明提交的正是那些文件(那需要 sha,
+//     而 pre-commit 阶段还不存在)⇒ 它仍是**下界型**证据,只是比"逐字等值"结实;
+//  ② 门根本没跑就退出(lint-staged 失败等)时 `gatesRan` 必为 false ⇒ 永远不得被用来发合格证;
+//  ③ 写失败绝不影响提交:整个记录裹在 try 里,连 exit 回调也不允许抛。
+const ROUND_FILE_REL = '.workbuddy/hook-logs/pre-commit-rounds.jsonl'
+const ROUND = {
+  ts: new Date().toISOString(),
+  headBefore: '',
+  stagedFiles: [],
+  gatesRan: false,
+  gatesPassed: null,
+}
+let roundWritten = false
+function writeRoundRecord(exitCode) {
+  if (roundWritten) return
+  roundWritten = true
+  try {
+    const { appendFileSync, mkdirSync } = require('fs')
+    const path = require('path')
+    const file = path.join(process.cwd(), ROUND_FILE_REL)
+    mkdirSync(path.dirname(file), { recursive: true })
+    appendFileSync(file, JSON.stringify({ ...ROUND, exitCode: exitCode ?? null }) + '\n', 'utf8')
+  } catch {
+    /* 记录写不出去 ≠ 提交该失败;但统计器会因此把这一轮读成"没跑过",方向是少发合格证 */
+  }
+}
+// 本文件里有几十处 process.exit(1)(每个失败点一个),所以只挂**一个** exit 回调统一落记录;
+// SIGINT/SIGTERM 走不到 'exit' 时由 staging-snapshot 那套信号处理负责还原暂存区,
+// 记录缺失只意味着那一轮拿不到正证 —— 与"把没判写成判过了"相比,这是可接受的失效方向。
+process.on('exit', writeRoundRecord)
 
 // ─── staging area 入口快照(2026-07-26 立) ──────────────────
 // 背景:多 agent 并行时曾出现非本任务文件被 commit 的事故(IDE 自动 stage / 未察觉的
@@ -263,7 +324,23 @@ if (process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
 // 守门项数与分级见 `node scripts/guardian-runner.mjs --help` 输出
 // (项数随 guardian-runner.mjs 注册表自动变化,勿在此写死数字——写死必然过期)
 // 各项 id 清单见 `node scripts/guardian-runner.mjs --help` 输出
-if (!run('🛡️ 运行守门脚本批量检查...', 'node scripts/guardian-runner.mjs --staged')) {
+// 正证要在**批门实际看到的那一份索引**上取值,所以这一刻才测:lint-staged 刚刚跑过,
+// 索引可能已被它改写过(取早了会把"门其实没看过的文件"也算进合格证)。
+try {
+  const gitOut = (args) =>
+    execSync(args, { cwd: process.cwd(), windowsHide: true, encoding: 'utf8', timeout: 30_000 }).trim()
+  ROUND.headBefore = gitOut('git rev-parse HEAD')
+  ROUND.stagedFiles = gitOut('git diff --cached --name-only')
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+} catch {
+  /* 取不到就留空 ⇒ 这条记录对统计器等于"无从证",不会被误用 */
+}
+const gatesOk = run('🛡️ 运行守门脚本批量检查...', 'node scripts/guardian-runner.mjs --staged')
+ROUND.gatesRan = true
+ROUND.gatesPassed = gatesOk
+if (!gatesOk) {
   process.exit(1)
 }
 
