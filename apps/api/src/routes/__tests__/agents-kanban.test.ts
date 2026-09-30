@@ -260,7 +260,17 @@ import {
   STATUS_VARIANTS,
   terminationOf,
   TERMINATION_LABEL_KEYS,
+  COLLAPSED_TERMINATIONS,
+  countUnrecognizedTasks,
+  statusOrUnrecognized,
 } from '../../services/agent-task-status.js'
+// 未识别档的常量与判据住在 @ihui/types(api 侧只转出本路由真消费的那两条出口)
+import {
+  AGENT_TASK_STATUSES,
+  UNRECOGNIZED_STATUS,
+  UNRECOGNIZED_STATUS_LABEL_KEY,
+  isUnrecognizedKanbanTask,
+} from '@ihui/types'
 
 // ─────────────────────────────────────────────────────────────
 // 测试数据
@@ -683,6 +693,113 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
       expect(res.json().data.allowed).toBe(true)
       const set = store.updateSets[0] as Record<string, unknown>
       expect(set.errorMessage).toBeNull() // 从 blocked 恢复清除错误信息
+    })
+  })
+
+  // ───────────────────────────────────────────────────────────
+  // 7b. "未识别"档(2026-09-28 立):库里被写进六档之外的状态值
+  //     口径 = 一律落未识别档 + 只报数;不得静默当成某个已知档,也不得据此判定成功或失败
+  //     (AGENTS §30「钩子无终态不得渲染成"完成"」)。
+  // ───────────────────────────────────────────────────────────
+  describe('未识别状态档', () => {
+    const UNKNOWN_RAW = 'zombie_state'
+
+    it('statusOrUnrecognized:六档内返回该档;legacy 别名归一后算已知档', () => {
+      expect(statusOrUnrecognized('ready')).toEqual({ bucket: 'ready', unrecognized: false })
+      expect(statusOrUnrecognized('running')).toEqual({
+        bucket: 'in_progress',
+        unrecognized: false,
+      })
+      expect(statusOrUnrecognized('cancelled')).toEqual({ bucket: 'blocked', unrecognized: false })
+      expect(statusOrUnrecognized('completed')).toEqual({ bucket: 'done', unrecognized: false })
+    })
+
+    it('statusOrUnrecognized:六档外 ⇒ 未识别档 + 原值(绝不返回某个已知档顶替)', () => {
+      expect(statusOrUnrecognized(UNKNOWN_RAW)).toEqual({
+        bucket: UNRECOGNIZED_STATUS,
+        unrecognized: true,
+        rawStatus: UNKNOWN_RAW,
+      })
+      // 判不出同样不猜:空串与非字符串一律走未识别,但不带"原值"(没有可报的数)
+      expect(statusOrUnrecognized('')).toEqual({
+        bucket: UNRECOGNIZED_STATUS,
+        unrecognized: true,
+      })
+      expect(statusOrUnrecognized(null).unrecognized).toBe(true)
+      expect(statusOrUnrecognized(undefined).bucket).toBe(UNRECOGNIZED_STATUS)
+    })
+
+    it('未识别档不进六档集合、不进终态集合(不得被读成终态/完成/失败)', () => {
+      expect(AGENT_TASK_STATUSES as readonly string[]).not.toContain(UNRECOGNIZED_STATUS)
+      expect(COLLAPSED_TERMINATIONS as readonly string[]).not.toContain(UNRECOGNIZED_STATUS)
+      // 未知值即便长得像终态也不点名成终态:那是把猜测当事实
+      expect(terminationOf(UNKNOWN_RAW)).toBeNull()
+      expect(isUnrecognizedKanbanTask({})).toBe(false)
+      expect(isUnrecognizedKanbanTask({ rawStatus: UNKNOWN_RAW })).toBe(true)
+      expect(countUnrecognizedTasks([{ rawStatus: UNKNOWN_RAW }, { rawStatus: 'x' }, {}])).toBe(2)
+      expect(countUnrecognizedTasks([])).toBe(0)
+    })
+
+    it('GET /:id 未知状态行 → 200 + status 原样透传 + rawStatus 只报数(既有字段一字未改)', async () => {
+      store.pushSelect([makeRow({ status: UNKNOWN_RAW })])
+      const res = await app.inject({ method: 'GET', url: `/api/agents/kanban/tasks/${ID_A}` })
+      expect(res.statusCode).toBe(200)
+      const data = res.json().data as Record<string, unknown>
+      // 不猜一个已知档:status 维持改动前的透传行为,由 rawStatus 这一可选字段承担"未识别"
+      expect(data.status).toBe(UNKNOWN_RAW)
+      expect(data.rawStatus).toBe(UNKNOWN_RAW)
+      expect(data.termination).toBeUndefined()
+    })
+
+    it('已知状态行不带 rawStatus(该可选字段只属于未识别档)', async () => {
+      store.pushSelect([makeRow({ status: 'cancelled' })])
+      const res = await app.inject({ method: 'GET', url: `/api/agents/kanban/tasks/${ID_A}` })
+      expect(res.statusCode).toBe(200)
+      const data = res.json().data as Record<string, unknown>
+      expect(data.rawStatus).toBeUndefined()
+      expect('rawStatus' in data).toBe(false)
+      expect(data.status).toBe('blocked')
+      expect(data.termination).toBe('cancelled')
+    })
+
+    it('GET /agents/kanban 含未知状态行 ⇒ 仍是 6 列契约,且未知项不进任何一列(只报数)', async () => {
+      authState.roleId = 1
+      const unknownId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+      store.pushSelect([
+        makeRow({ status: 'todo' }),
+        makeRow({ id: unknownId, status: UNKNOWN_RAW }),
+      ])
+      const res = await app.inject({ method: 'GET', url: '/api/agents/kanban' })
+      expect(res.statusCode).toBe(200)
+      const columns = res.json().data as Array<{
+        status: string
+        tasks: Array<{ id: string; rawStatus?: string }>
+      }>
+      // 第七列会改坏响应契约(且 KanbanColumn 按已知档取样式),所以未识别项绝不进列
+      expect(columns).toHaveLength(6)
+      const ids = columns.flatMap((c) => c.tasks.map((t) => t.id))
+      expect(ids).toContain(ID_A)
+      expect(ids).not.toContain(unknownId)
+      const carried = columns.flatMap((c) => c.tasks).filter((t) => typeof t.rawStatus === 'string')
+      expect(carried).toHaveLength(0)
+    })
+
+    it('未识别档文案键在五语言都可解析(取不到就是显示键名,而不是报错)', () => {
+      expect(UNRECOGNIZED_STATUS_LABEL_KEY.startsWith('agents.kanban.')).toBe(true)
+      const messagesRoot = fileURLToPath(
+        new URL('../../../../../packages/i18n/messages/web', import.meta.url),
+      )
+      const leaf = UNRECOGNIZED_STATUS_LABEL_KEY.slice(
+        UNRECOGNIZED_STATUS_LABEL_KEY.lastIndexOf('.') + 1,
+      )
+      for (const locale of ['zh-CN', 'zh-TW', 'en', 'ja', 'ko']) {
+        const messages = JSON.parse(
+          readFileSync(join(messagesRoot, `${locale}.json`), 'utf8'),
+        ) as Record<string, Record<string, Record<string, string>>>
+        const value = messages?.agents?.kanban?.[leaf]
+        expect(value, `${locale} 缺键 ${UNRECOGNIZED_STATUS_LABEL_KEY}`).toBeTruthy()
+        expect(value, `${locale} 的键 ${leaf} 不得等于键名本身`).not.toBe(leaf)
+      }
     })
   })
 
