@@ -68,7 +68,10 @@ export const POLICY_NUMBERS = [
   'FAILURE_STREAK_STRATEGY_THRESHOLD',
   'ERROR_SIGNATURE_MAX_LEN',
 ]
-export const POLICY_STRINGS = ['DOOM_LOOP_HASH_ALGORITHM']
+// b76-14(2026-09-30):两侧注释互相声称同值的字符串常量必须进本清单 ——
+// SERIALIZE_FALLBACK(doom_loop.py:60 注释原文「与 TS SERIALIZE_FALLBACK 同值」)
+// 此前只有散文担保(private whitelist 形态),现在进表,由 P1 两侧逐项等值判据看守。
+export const POLICY_STRINGS = ['DOOM_LOOP_HASH_ALGORITHM', 'SERIALIZE_FALLBACK']
 /** 必须逐项等值(含长度 = "状态数/动作数")的清单。 */
 export const POLICY_LISTS = ['DOOM_LOOP_STATES', 'DOOM_LOOP_STRATEGY_ACTIONS']
 
@@ -203,7 +206,8 @@ export function parseTsPolicy(maskedSrc) {
     if (m) out[name] = Number(m[1])
   }
   for (const name of POLICY_STRINGS) {
-    const m = new RegExp(`^export const ${name} = '([^']*)'\\s*;?\\s*$`, 'm').exec(maskedSrc)
+    // b76-14:`export` 可省(TS 侧 SERIALIZE_FALLBACK 真形是模块内 const,不导出)。
+    const m = new RegExp(`^(?:export\\s+)?const\\s+${name}\\s*=\\s*'([^']*)'\\s*;?\\s*$`, 'm').exec(maskedSrc)
     if (m) out[name] = m[1]
   }
   for (const name of POLICY_LISTS) {
@@ -224,7 +228,8 @@ export function parsePyPolicy(maskedSrc) {
     if (m) out[name] = Number(m[1])
   }
   for (const name of POLICY_STRINGS) {
-    const m = new RegExp(`^${name} = '([^']*)'\\s*$`, 'm').exec(maskedSrc)
+    // b76-14:py 侧模块私有名允许下划线前缀(SERIALIZE_FALLBACK 的真形是 _SERIALIZE_FALLBACK)。
+    const m = new RegExp(`^_?${name}\\s*=\\s*'([^']*)'\\s*$`, 'm').exec(maskedSrc)
     if (m) out[name] = m[1]
   }
   for (const name of POLICY_LISTS) {
@@ -593,6 +598,7 @@ function fixtureContents(overrides = {}) {
     `export const FAILURE_STREAK_STRATEGY_THRESHOLD = 3;`,
     `export const ERROR_SIGNATURE_MAX_LEN = 120;`,
     `export const DOOM_LOOP_HASH_ALGORITHM = 'sha256';`,
+    `const SERIALIZE_FALLBACK = '{"__doom_loop_unserializable__":true}';`,
     `export const DOOM_LOOP_STATES = ['observing', 'reflecting', 'terminating'] as const;`,
     `export const DOOM_LOOP_STRATEGY_ACTIONS = ['inject_reflection', 'skip_tool_execution', 'terminate_loop'] as const;`,
     `export function createDoomLoopWindow() { return null }`,
@@ -620,6 +626,7 @@ function fixtureContents(overrides = {}) {
     `FAILURE_STREAK_STRATEGY_THRESHOLD = 3`,
     `ERROR_SIGNATURE_MAX_LEN = 120`,
     `DOOM_LOOP_HASH_ALGORITHM = 'sha256'`,
+    `_SERIALIZE_FALLBACK = '{"__doom_loop_unserializable__":true}'`,
     `DOOM_LOOP_STATES = ['observing', 'reflecting', 'terminating']`,
     `DOOM_LOOP_STRATEGY_ACTIONS = ['inject_reflection', 'skip_tool_execution', 'terminate_loop']`,
     `AGENT_MAX_ITERATIONS = 10`,
@@ -677,6 +684,14 @@ export function selfTest() {
   // 1 基线夹具 ⇒ 零问题(阳性:判据对成套夹具不闪红)
   let r = decide(fixtureContents())
   ok('01 成套夹具 ⇒ problems=0(实测:' + r.problems[0] + ')', r.problems.length === 0)
+  // 1b b76-14:SERIALIZE_FALLBACK 两侧同值 ⇒ 不红(键真的进了 P1 表并在读)
+  ok(
+    '01b SERIALIZE_FALLBACK 两侧同值 ⇒ P1 无点名且两侧已解析(b76-14 键已入表)',
+    r.problems.every((p) => !p.includes('SERIALIZE_FALLBACK')) &&
+      Array.isArray(r.policy.SERIALIZE_FALLBACK) &&
+      r.policy.SERIALIZE_FALLBACK[0] === r.policy.SERIALIZE_FALLBACK[1] &&
+      r.policy.SERIALIZE_FALLBACK[0] === '{"__doom_loop_unserializable__":true}',
+  )
   // 2 单侧阈值漂移 ⇒ P1 点名该键(阳性对照:改掉一侧阈值必红)
   const driftPy = fixtureContents()
   driftPy[FILES.pyModule] = driftPy[FILES.pyModule].replace(
@@ -711,6 +726,23 @@ export function selfTest() {
   r = decide(driftActions)
   ok('05 动作数漂移 ⇒ P1 点名 DOOM_LOOP_STRATEGY_ACTIONS',
     r.problems.some((p) => p.startsWith('P1') && p.includes('DOOM_LOOP_STRATEGY_ACTIONS')))
+  // 5b/5c b76-14:SERIALIZE_FALLBACK 的正反成对 —— 单侧漂移/单侧缺失都必须点名
+  const driftSerializeTs = fixtureContents()
+  driftSerializeTs[FILES.tsShared] = driftSerializeTs[FILES.tsShared].replace(
+    `const SERIALIZE_FALLBACK = '{"__doom_loop_unserializable__":true}';`,
+    `const SERIALIZE_FALLBACK = '{"__doom_loop_unserializable__":  true}';`, // 只差空白:等值判据必须认得出
+  )
+  r = decide(driftSerializeTs)
+  ok('05b TS 侧 SERIALIZE_FALLBACK 值漂移 ⇒ P1 点名(b76-14)',
+    r.problems.some((p) => p.startsWith('P1') && p.includes('SERIALIZE_FALLBACK')))
+  const dropSerializePy = fixtureContents()
+  dropSerializePy[FILES.pyModule] = dropSerializePy[FILES.pyModule].replace(
+    `_SERIALIZE_FALLBACK = '{"__doom_loop_unserializable__":true}'`,
+    `# 序列化兜底占位串被删了`,
+  )
+  r = decide(dropSerializePy)
+  ok('05c Python 侧 SERIALIZE_FALLBACK 缺失 ⇒ P1 点名"缺失/形态漂移"(b76-14)',
+    r.problems.some((p) => p.startsWith('P1') && p.includes('SERIALIZE_FALLBACK')))
   // 6 CLI 二次抄数字 ⇒ 红(回归锁:本地阈值声明不得回来)
   const copyCli = fixtureContents()
   copyCli[FILES.cliLoop] += '\nconst SAMPLER_DOOM_LOOP_THRESHOLD = 3;'
