@@ -2779,5 +2779,36 @@
   },
   "notification": {
     "pushBannerTitle": "新消息"
+  },
+  "toolApproval": {
+    "title": "工具审批",
+    "description": "AI 请求执行以下高危操作,请确认是否允许",
+    "approve": "批准",
+    "reject": "拒绝",
+    "pendingCount": "还有 {count} 个待审批",
+    "argsPreview": "参数预览",
+    "dangerLevel": "危险档:{level}",
+    "scopeLabel": "允许范围",
+    "scopeOnce": "仅本次",
+    "scopeSession": "本次对话",
+    "scopeAlways": "始终允许(90 天后失效)",
+    "envLabel": "执行环境",
+    "envUnknown": "未上报(不据档位推断,请拒绝并要求重试)",
+    "envInSandbox": "在沙箱中运行",
+    "envOutsideSandbox": "在沙箱外运行",
+    "envBackend": "隔离方式:{backend}",
+    "envDegraded": "沙箱能力不可用,已降级为受限直跑",
+    "envNetworkOpen": "本次可访问外网",
+    "envNetworkOff": "本次不开放网络",
+    "envNetworkBlocked": "被拦截的网络目标",
+    "envNetworkBlockedOne": "{host}:{port}({reason})",
+    "sendFailed": "决策未能送达服务端,该请求仍在等待,可重试或由后端按超时处理",
+    "noSession": "缺少会话标识,本次决策无法回传",
+    "empty": "暂无待审批请求",
+    "trayTitle": "已处理记录",
+    "clearHistory": "清除已处理记录",
+    "openPanel": "{count} 个待审批 · 打开审批",
+    "rejectedBadge": "已拒绝",
+    "rejectedNextNote": "同类操作下次仍会询问你"
   }
 }
