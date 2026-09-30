@@ -1114,8 +1114,12 @@ def remove_task(task_id: str) -> None:
 # ---------------------------------------------------------------------------
 # Chromium 可执行文件查找(2026-07-30 立,解决 PLAYWRIGHT_BROWSERS_PATH 指向 D 盘但浏览器在 C 盘的问题)
 # ---------------------------------------------------------------------------
+_chromium_path_cache: str | None | None = None  # 第二层 None=未缓存;str|None=缓存结果
+
+
 def _find_chromium_executable() -> str | None:
-    """查找可用的 Chromium 可执行文件路径。
+    """查找可用的 Chromium 可执行文件路径(结果按进程缓存:每任务起一枚浏览器,
+    磁盘探测不必每次重跑 —— 慢机冷 FS 缓存下这一串 stat 可达几十 ms)。
 
     优先级:
     1. PLAYWRIGHT_BROWSERS_PATH 环境变量指向的路径(D 盘)
@@ -1124,12 +1128,17 @@ def _find_chromium_executable() -> str | None:
     """
     from pathlib import Path
 
+    global _chromium_path_cache
+    if _chromium_path_cache is not None:
+        return _chromium_path_cache or None
+
     # 1. 检查环境变量指定的路径
     env_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
     if env_path:
         # chromium (完整版,支持 headless + headed)
         candidate = Path(env_path) / "chromium-1228" / "chrome-win64" / "chrome.exe"
         if candidate.exists():
+            _chromium_path_cache = str(candidate)
             return str(candidate)
         # headless shell
         candidate = (
@@ -1139,15 +1148,18 @@ def _find_chromium_executable() -> str | None:
             / "chrome-headless-shell.exe"
         )
         if candidate.exists():
+            _chromium_path_cache = str(candidate)
             return str(candidate)
 
     # 2. 检查 Windows 默认路径
     home = Path.home()
     candidate = home / "AppData" / "Local" / "ms-playwright" / "chromium-1228" / "chrome-win64" / "chrome.exe"
     if candidate.exists():
+        _chromium_path_cache = str(candidate)
         return str(candidate)
 
-    # 3. 让 Playwright 自己找
+    # 3. 让 Playwright 自己找(缓存"无"这个结论,同样是每任务重跑不得的)
+    _chromium_path_cache = ""
     return None
 
 
