@@ -9155,6 +9155,12 @@
       "purposePlaceholder": "Handoff purpose",
       "revealFile": "Show file",
       "createSession": "Create new task",
+      "phase": {
+        "generating": "The model is generating the handoff content…",
+        "done": "The handoff document is ready."
+      },
+      "creating": "Creating new task…",
+      "createFailed": "Failed to create the new task. Please try again.",
       "handoffUnavailable": "The handoff document generator this flow depends on is not available yet, so handoff content cannot be generated."
     },
     "renameDialog": {
