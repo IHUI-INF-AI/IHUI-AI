@@ -1,7 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 import { useState } from 'react'
 import { Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
@@ -10,12 +9,11 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import * as FileSystem from 'expo-file-system'
 import * as MediaLibrary from 'expo-media-library'
 import { fetchApi, resolveFileUrl } from '@ihui/api-client'
-import { getRnTokens } from '@ihui/design-tokens'
+import { getRnTokens, rnRadius } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { BackChevron } from '@ihui/rn-app'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -105,7 +103,12 @@ export function ImageGenCreateScreen() {
   return (
     <View className={`flex-1 ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
       <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-        <BackChevron onPress={() => navigation.goBack()} label={t('common.back')} colorScheme={resolvedTheme} />
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text className="text-sm text-gray-500">{t('common.back')}</Text>
+        </TouchableOpacity>
         <Text className="text-base font-medium">{t('imageGen.createTitle')}</Text>
         <View className="w-8" />
       </View>
@@ -119,7 +122,7 @@ export function ImageGenCreateScreen() {
           multiline
           numberOfLines={4}
           textAlignVertical="top"
-          className="min-h-[96px] rounded-sm border border-gray-200 p-3 text-sm dark:border-neutral-700 dark:text-neutral-100"
+          className="min-h-[96px] rounded-md border border-gray-200 p-3 text-sm dark:border-neutral-700 dark:text-neutral-100"
         />
 
         {/* 尺寸 chips */}
