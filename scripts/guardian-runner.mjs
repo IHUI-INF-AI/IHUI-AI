@@ -4438,6 +4438,25 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 控制面strict棘轮(1 项,blocking)---
+  {
+    id: '182',
+    label:
+      '控制面 strict 棘轮门(b76-12c票2配套):扫描面(apps/api/src/plugins + packages/shared/src)的 z.object+.strict+.catch 总和只减不增(基线 91);禁 passthrough 降红/禁装饰字段塞控制面',
+    script: 'check-wire-strictness.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_WIRE_STRICTNESS',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-wire-strictness.mjs',
+      '自检:node scripts/check-wire-strictness.mjs --self-test(8 例)',
+      '基线吸收记录:立门读数 68 取自 strict 化落盘前工作树,与立门提交 be6da32e6b 树统计(91)不符;超出的 23 处经逐行核对全部来自 wave-2 W3 提交 ac63a7084a 帧 schema 票对 contract.ts 的落库(5 .object + 6 .strict + 12 .catch,控制面收紧+装饰载荷 .optional().catch 降级的正当形态),2026-09-30 接链时按当次真值吸收至 91,无未清偿红',
+      '应急放行:HUSKY_SKIP_WIRE_STRICTNESS=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
