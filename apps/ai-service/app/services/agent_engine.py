@@ -2695,6 +2695,15 @@ class AgentEngine:
                     get_queue_ledger().record_fail(
                         thread.thread_id, str(nxt.get("id") or "")
                     )
+            else:
+                # G-659 补线(2026-09-30):成功 ⇒ confirm → promoted(终态)。
+                # 缺这一步,成功项永远滞留 promoted_pending,重启 recover() 会把
+                # 它们错判成 discarded 假账(promoted_pending 无确认即孤儿)。
+                # confirm 与 turn 成功同刻落账;账本失败不阻断主流程(与 ACK 同约定)。
+                with contextlib.suppress(Exception):
+                    get_queue_ledger().record_confirmed(
+                        thread.thread_id, str(nxt.get("id") or "")
+                    )
         return result
 
     async def _run_prompt_turn(
