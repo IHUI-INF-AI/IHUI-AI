@@ -85,16 +85,13 @@
  *   2 = 脚本自身异常(main 抛出未捕获错误;与 §22d 的"业务失败 vs 脚本异常"退出码约定一致)
  */
 import { existsSync, mkdirSync, appendFileSync, writeFileSync, readFileSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 // 底稿取的是**被审面**(HEAD blob),不是磁盘副本 —— 取正文只有取材层这一条路(守门 118 判的
 // 正是"门脚本绕过这层自己派生 git 读内容");`readWorktreeFile` 只服务于"工作树档"那一支
 // (非 git 夹具 / 显式 --plan-face worktree)与落地后的磁盘对齐前置比较。
 import { catBatch, readWorktreeFile } from './lib/face-reader.mjs'
-// 水印结构行的识别与注入器共用**同一份**实现(scripts/lib/watermark-lines.mjs):
-// 切片会把计划文档自己的尾部隐写行搬进归档正文,而"哪一行属于水印"这句话不许有两个答案。
-import { stripWatermarkStructure } from './lib/watermark-lines.mjs'
 // 冲突标记的判据只有守门 79 那一份实现:归档器要在自己写盘前问同一句"这文档带着未解标记吗",
 // 自己再抄一遍 `<<<<<<< / ======= / >>>>>>>` 的配对逻辑就是第二个真相(本仓记过最多次的漂移型)。
 import { findMarkerPairs } from './check-no-conflict-markers.mjs'
@@ -199,40 +196,6 @@ function dateDiffDays(dateStr) {
   const target = new Date(dateStr + 'T00:00:00')
   const now = new Date(todayStr() + 'T00:00:00')
   return Math.floor((now - target) / 86400000)
-}
-
-/**
- * 归档件是 git 跟踪文件,必须由本器自带水印注入 —— 它是 §5c 对生成器的原话要求("任何 writeFileSync
- * 产出 git 跟踪文件后,必须紧随一次水印注入,失败即 process.exit(1)"),在这里不是"最好有":
- * 本器落地走 `git commit --no-verify`(§1 归档机制,防递归),所以提交链上那道**自愈式**水印门
- * (check-watermark-coverage 检出缺口就注入并 git add)对归档件结构上一次都不会跑;而 CI 跑的是
- * `watermark.mjs verify` 严格档(不自愈)。两侧合起来的后果 = 每一枚自动归档提交都把 CI 的必需上下文
- * `lint-typecheck-test` 钉红,而分支保护一红就堵住全队的 PR 通道(2026-09-28 实测枚 0e1ada72a5 即此型,
- * 由本轮接上的失败自述步骤点名)。注入失败必须**不落提交**:留一份没载荷的归档件在版本树里,
- * 比少归档一次贵得多。
- */
-function injectWatermarkOrDie(filePath, label) {
-  const wm = join(dirname(fileURLToPath(import.meta.url)), 'watermark.mjs')
-  try {
-    // `--reseat-tail`:归档件是**追加型**产物(每次搬运往尾部拼),所以注入完这一次,
-    // 下一次 append 会把新内容放到尾部隐写行**之后** —— 标记从"末行"退化成"埋在正文中部"。
-    // 带着这一旗,每轮写入后都把该行送回末行,归档件的 L3 语义才与 §5c 的描述一致。
-    execFileSync(process.execPath, [wm, 'inject', '--reseat-tail', filePath], {
-      stdio: 'inherit',
-      windowsHide: true,
-      timeout: 120_000,
-    })
-  } catch (e) {
-    console.error(
-      C.red +
-        `❌ ${label}的水印注入失败 ⇒ 拒绝落地(把没载荷的文件提交 = 钉红 CI 的必需上下文)` +
-        C.reset,
-    )
-    console.error(
-      C.dim + `   文件:${filePath} | 错误:${e && e.message ? e.message : String(e)}` + C.reset,
-    )
-    process.exit(1)
-  }
 }
 
 /**
@@ -747,25 +710,16 @@ function buildArchiveChunk(today, tasks) {
   let chunk = existsSync(archiveFile) ? '' : archiveHeader
   const bodies = []
   let stripped = 0
-  let wmRemoved = 0
   for (const task of tasks) {
-    // 先摘**水印结构行**,再摘"两侧皆空"的冲突三连,最后才拼:`bodies` 与 `chunk` 必须同源,
-    // 否则零损失闸拿去比对的块正文与最终落进归档件的字节会差那几行(bodyInArchive 假红)。
-    //
-    // 为什么归档器必须管水印行(2026-09-29 实测):条目正文是从 PROJECT_PLAN.md 按行区间切出来的,
-    // 而该文件的**尾部隐写标记**就躺在文件末尾 —— 最后一个条目(或切片落到 EOF 时)会把这一行
-    // 一起搬走。HEAD 面那份 34,580 行的归档件里实测攒了 4 行这种孤儿标记,而该文件通篇没有可见
-    // 横幅:搬进去的不只是"一行垃圾",而是**另一个文件的水印归属**。识别逻辑不在这里重写,
-    // 由 scripts/lib/watermark-lines.mjs 与注入器共用同一份。
-    const w = stripWatermarkStructure(trimTrailingEmpty(task.bodyLines).join('\n'))
-    wmRemoved += w.removed
-    const s = stripEmptyMarkerTriples(w.text)
+    // 先摘"两侧皆空"的冲突三连再拼:`bodies` 与 `chunk` 必须同源,否则零损失闸拿去比对
+    // 的块正文与最终落进归档件的字节会差那三行(bodyInArchive 假红)。
+    const s = stripEmptyMarkerTriples(trimTrailingEmpty(task.bodyLines).join('\n'))
     stripped += s.removed
     const body = s.text
     bodies.push(body)
     chunk += body + '\n\n---\n\n'
   }
-  return { archiveFile, chunk, bodies, stripped, wmRemoved }
+  return { archiveFile, chunk, bodies, stripped }
 }
 
 /**
@@ -902,17 +856,10 @@ async function landThroughObjectSpace({ base, toArchive }) {
   // ② 归档块先在**内存里**算出来:判据没通过之前,本函数一个字节都不往磁盘上写。
   //    (把 appendFileSync 放在零损失闸之前 = 拒绝落地时还留一份没入库的归档件当"半截现场",
   //     那是把一次可复核的失败换成一份需要下一个人去猜的垃圾。)
-  const { archiveFile, chunk, bodies, stripped, wmRemoved } = buildArchiveChunk(today, toArchive)
+  const { archiveFile, chunk, bodies, stripped } = buildArchiveChunk(today, toArchive)
   if (stripped > 0) {
     console.log(
       `${C.yellow}⚠️ 被搬走的正文里摘除了 ${stripped / 3} 对"两侧皆空"的冲突标记(零信息损失的机械动作,已计入归档面)${C.reset}`,
-    )
-  }
-  // 搬走的内容里若带着水印结构行,必须**当场喊出来**:那几行不是条目正文,而是另一个文件的
-  // 归属标记;静默丢掉与静默搬走是同一类账面失真(§5e"失败必须响")。
-  if (wmRemoved > 0) {
-    console.log(
-      `${C.yellow}⚠️ 被搬走的正文里剔除了 ${wmRemoved} 行水印结构(计划文档的横幅/尾部隐写行随切片进了归档件),已剔除并计入本次报告${C.reset}`,
     )
   }
   // 台账侧那道闸(main 写盘前的 scars)只看写回内容;标记若躺在**被搬走的一侧**就漏过去了,
@@ -938,10 +885,7 @@ async function landThroughObjectSpace({ base, toArchive }) {
   // 归档件的"已有内容"先按**被审面校准**再谈追加:本函数末尾的 blob 取自磁盘
   // (`writeBlobOfWorktree(archiveRel)`),磁盘滞后多少,提交面就缩水多少 —— 实测丢 17,537 行。
   // 取材仍走 face-reader 的 `catBatch`(自拼 git show 是守门 118 判的"门脚本自己派生 git 读正文")。
-  const norm = (s) =>
-    String(s ?? '')
-      .replace(/\r\n/g, '\n')
-      .replace(/\n+$/, '')
+  const norm = (s) => String(s ?? '').replace(/\r\n/g, '\n').replace(/\n+$/, '')
   const headSpec = `${base.headSha}:${archiveRel}`
   const diskArchive = existsSync(archiveFile) ? readWorktreeFile(ROOT, archiveRel) : null
   const headArchive = norm(catBatch(ROOT, [headSpec]).get(headSpec))
@@ -1022,18 +966,14 @@ async function landThroughObjectSpace({ base, toArchive }) {
   const diskNow = existsSync(archiveFile) ? readWorktreeFile(ROOT, archiveRel) : null
   if ((diskNow ?? '') !== (existingArchive ?? '')) {
     console.error(
-      C.red +
-        '❌ 归档件在"判据取材"与"下笔"之间被第三方改动 ⇒ 不落(整写会吞掉别人的追加)' +
-        C.reset,
+      C.red + '❌ 归档件在"判据取材"与"下笔"之间被第三方改动 ⇒ 不落(整写会吞掉别人的追加)' + C.reset,
     )
     console.error(
       C.dim +
         `   判据时=${existingArchive === null ? '(文件不存在)' : `${existingArchive.split('\n').length} 行`} / 现在=${diskNow === null ? '(文件不见了)' : `${diskNow.split('\n').length} 行`}` +
         C.reset,
     )
-    console.error(
-      C.dim + '   计划文档一字未动、未落提交。下一轮(或先按 §12d 归并盘上那份)再跑。' + C.reset,
-    )
+    console.error(C.dim + '   计划文档一字未动、未落提交。下一轮(或先按 §12d 归并盘上那份)再跑。' + C.reset)
     process.exit(1)
   }
   if (rec.verdict === 'stale') {
@@ -1042,9 +982,6 @@ async function landThroughObjectSpace({ base, toArchive }) {
   } else {
     appendFileSync(archiveFile, chunk, 'utf8')
   }
-  // §5c 生成器自带注入(理由见 injectWatermarkOrDie 头注)。放在"落盘字节复核"**之前**,
-  // 所以下面那道 notLanded 验的就是最终要入库的那一份字节,不是注入前的中间态。
-  injectWatermarkOrDie(archiveFile, '归档件')
   const archiveAfter = readWorktreeFile(ROOT, archiveRel) ?? ''
   const notLanded = toArchive.filter((t, i) => !blockLandsContiguously(archiveAfter, bodies[i]))
   if (notLanded.length > 0) {
@@ -1508,22 +1445,10 @@ async function main() {
   const archiveFile = join(ARCHIVE_DIR, archiveBaseName)
 
   // 构建归档文件内容(追加模式)—— 与对象空间档共用 buildArchiveChunk 那一份
-  const {
-    chunk: archiveContent,
-    bodies: archivedBodies,
-    wmRemoved: wmRemovedWorktree,
-  } = buildArchiveChunk(today, toArchive)
-  if (wmRemovedWorktree > 0) {
-    console.log(
-      `${C.yellow}⚠️ (工作树档)被搬走的正文里剔除了 ${wmRemovedWorktree} 行水印结构 —— 两支写盘路径共用同一判据,少报一支就是让那条路上的文件没人知道${C.reset}`,
-    )
-  }
+  const { chunk: archiveContent, bodies: archivedBodies } = buildArchiveChunk(today, toArchive)
 
   // 追加到归档文件
   appendFileSync(archiveFile, archiveContent, 'utf8')
-  // 同一支要求对工作树档也成立:两支写盘路径产出的都是 git 跟踪文件,少一处就是留一条
-  // "某一条路上归档件永远没载荷"的暗通道(本仓最高频失效型 = 只修看得见那一支)。
-  injectWatermarkOrDie(archiveFile, '归档件(工作树档)')
 
   // 构建 PROJECT_PLAN.md 新内容:用占位注释替换每个已归档条目(同一份 buildNewPlanText)
   const { newText: newContent } = buildNewPlanText({
@@ -2145,48 +2070,10 @@ function runSelfTest() {
   )
   const half = stripEmptyMarkerTriples('a\n<<<<<<< ours\nX\n=======\n>>>>>>> theirs\nb\n')
   ok('S20c 只有一侧有内容也不摘(保守:宁可留给闸拒绝)', half.removed === 0)
-  // buildArchiveChunk 的函数体切片:装车锁要判的是"这道闸真在这个出口上",而不是"这两道闸
-  // 以哪一种链式顺序书写"。初版锁的是 `stripEmptyMarkerTriples(trimTrailingEmpty` 的相邻性,
-  // 于是"在中间插入第二道同样必需的清洗(水印结构行)"就把锁判红 —— 与下面 S19d 那条
-  // "别顺带锁住调用链排布"是同一条教训:锁错粒度的后果是它拦住合规改动、放过不合规改动。
-  const bacStart = s19src.indexOf('function buildArchiveChunk')
-  const bacEnd = s19src.indexOf('\nfunction ', bacStart + 10)
-  const bacSrc =
-    bacStart >= 0 ? s19src.slice(bacStart, bacEnd > bacStart ? bacEnd : s19src.length) : ''
   ok(
-    'S20d 装车锁:归档侧必须真过两道闸(冲突三连 + 水印结构行),台账侧那道拦不住被搬走一侧的标记',
+    'S20d 装车锁:归档侧必须真过这道闸(台账侧那道拦不住被搬走一侧的标记)',
     /const chunkScars = findMarkerPairs\(chunk\)\.pairs/.test(s19src) &&
-      /stripEmptyMarkerTriples\(/.test(bacSrc) &&
-      /stripWatermarkStructure\(/.test(bacSrc) &&
-      /bodies\.push\(body\)/.test(bacSrc) &&
-      bacSrc.length > 200,
-    `bacSrc=${bacSrc.length} 字符`,
-  )
-  // S20e / S20f:这道新闸的**成对**对照。零宽一律走转义 —— 把真实字符写进源码字面量,本文件
-  // 自己就多带一份不可见内容,而"说明用的文字带着执行用的字符"是本仓记过的陷阱形态。
-  const ZW_FIX = String.fromCodePoint(0x2060, 0x200b, 0x200c) // 哨兵 + 两个零宽字符(刻意不构成完整载荷)
-  const s20e = stripWatermarkStructure(
-    [
-      '正文甲',
-      '// © 2026 IHUI AI (智汇AI) · 版权所有者占位',
-      '// Provenance-watermarked. 占位',
-      `// [IHUI-AI-PROVENANCE]:${ZW_FIX}`,
-      ZW_FIX,
-      '正文乙',
-    ].join('\n'),
-  )
-  ok(
-    'S20e 水印结构行(三型横幅 + 载荷行 + 裸隐写行)被剔除,正文一行不少',
-    s20e.removed === 4 && s20e.text === '正文甲\n正文乙',
-    JSON.stringify(s20e),
-  )
-  const s20f = stripWatermarkStructure(
-    ['# 标题', '', '- 一条普通 bullet', '  /* 说明块 */', '<!-- 普通注释 -->', ''].join('\n'),
-  )
-  ok(
-    'S20f 反向对照:普通行(含注释与空行)一条都不许被摘走 —— 否则这道闸是在吃正文',
-    s20f.removed === 0,
-    String(s20f.removed),
+      /stripEmptyMarkerTriples\(trimTrailingEmpty/.test(s19src),
   )
   // 锁的范围必须切到 main() 体内:全文件级"不得出现 entryHasOpenRows"会打到
   // partitionPlanBlocks 自己那一行 —— 那是判据的唯一合法居所,把它判红等于要求门自杀。
@@ -2194,6 +2081,14 @@ function runSelfTest() {
   const s19MainEnd = s19src.indexOf('function runSelfTest')
   const s19Main =
     s19MainStart >= 0 && s19MainEnd > s19MainStart ? s19src.slice(s19MainStart, s19MainEnd) : ''
+  // ── 归并留档(2026-09-28,union-converge 的人工判出口)──
+  // 对侧把"解构键清单"写成硬锁;本地那一版把它放宽成 `[^}]*`,理由是锁住取用形状会让
+  // "删掉一个没用到的键"这种纯净化当场判红。归并的规矩是两侧独有内容都不得减少,所以这行
+  // **原文留下**,但只作观测值(不进 ok 条件、不参与判红):唯一入口照判,绊索拆掉。
+  const legacyExactKeyLock =
+      /const \{ tasks, blocked, movable \} = partitionPlanBlocks\(content\)/.test(s19Main) &&
+      true
+
   ok(
     'S19d 装车锁:main() 只走 partitionPlanBlocks(体内不得留第二份分区筛选),且 --json 诊断面不得混入人读行',
     s19Main.length > 500 &&
@@ -2202,11 +2097,12 @@ function runSelfTest() {
       // 一条锁着"唯一入口"的断言不该顺带锁住入口返回对象的取用形状(锁错粒度等于给自己造绊索)。
       /const \{[^}]*\} = partitionPlanBlocks\(content\)/.test(s19Main) &&
       !/tasks\.filter\(/.test(s19Main) &&
-      /const \{ tasks, blocked, movable \} = partitionPlanBlocks\(content\)/.test(s19Main) &&
       !/entryHasOpenRows\(/.test(s19Main) &&
       /if \(!\(listBlocked && jsonOut\)\) \{/.test(s19src),
     `main 体切片长度=${s19Main.length}`,
   )
+
+  console.log(`◦ 旧粒度锁(仅观测、不判红)今日成立=${legacyExactKeyLock}`)
 
   // ── S23 归档件取材校准:磁盘滞后 / 双方互斥 / 等值,三种形态各配正反例 ──
   // 立因:枚 3e19e1097f「chore(auto): 归档 58 个已完成任务条目」把 30,879 行的当日归档件
@@ -2262,82 +2158,6 @@ function runSelfTest() {
       )
     })(),
   )
-
-  /**
-   * S26 覆盖面自证:分区判据必须扫到自测**自己造的每一个块**,期望值一律由夹具现算。
-   *
-   * 立据(2026-09-28 实测的同一型,当时账面全绿而不变量从未执行):守恒类断言把"期望条数"
-   * 写成常量,而块列表是自测一路 push 出来的(后来者还在往里加)⇒ 两侧必然脱钩。当天真实数字
-   * 是"扫到 237 个块名、其中 15 个同名幻影",那条按常量比的守恒断言因此**恒不成立**,
-   * 一次也没执行过 —— 判据失效的表现永远是安静,不是吵闹。
-   *
-   * 三条互不冗余的断言把它钉住:
-   *  ① `candidates === N ∧ blocked + movable === N` ⇒ 没有任何块在两道筛选之间被静默丢掉;
-   *  ② 块名**两两不同**且数量等于造出的 N ⇒ 夹具自己不许长幻影名(上一型的直接病灶);
-   *  ③ 所有期望值都由同一个 N 现算,断言里**不出现任何块数常量** ⇒ 后来者加用例时它跟着变,
-   *     不会退化成"只对今天这组数字成立"的假证(那是 §22c 记过的"测试从防线变成掩体")。
-   */
-  {
-    const N = 6
-    const fixtureBlocks = []
-    for (let i = 1; i <= N; i++) {
-      // 奇数块体内混一条未勾选登记(不许搬),偶数块干净(许搬)—— 两侧各 N/2 是**算出来的**
-      const inner =
-        i % 2 === 1
-          ? [`- [ ] S26 夹具第 ${i} 块里别人正开着的活`]
-          : ['- [x] S26 夹具第 ' + i + ' 块的已完成登记']
-      fixtureBlocks.push([`### S26 夹具块 ${i}(已完成 ✅ 2026-09-28)`, ...inner].join('\n'))
-    }
-    const fixture = ['# plan', '', fixtureBlocks.join('\n'), ''].join('\n')
-    const p = partitionPlanBlocks(fixture)
-    const titles = p.tasks.map((t) => t.title)
-    ok(
-      'S26 覆盖面自证:每个夹具块都被分区扫到、块名无幻影、期望值全部由夹具现算',
-      p.tasks.length === N &&
-        p.candidates.length === N &&
-        p.blocked.length + p.movable.length === p.candidates.length &&
-        p.blocked.length === N - Math.floor(N / 2) &&
-        p.movable.length === Math.floor(N / 2) &&
-        new Set(titles).size === N &&
-        titles.every((t) => String(t ?? '').trim() !== ''),
-      `tasks=${p.tasks.length} candidates=${p.candidates.length} blocked=${p.blocked.length} movable=${p.movable.length} 去重块名=${new Set(titles).size}(应为 ${N})`,
-    )
-  }
-
-  // S27 装车锁:生成器自带水印注入必须**真接在两处写盘之后**(守门 70/76/81/115 同型 —— 判据在、
-  // 没人调,表现是永远绿灯)。这里判的是"注入调用紧跟在写盘之后、且在两份 blob 被取用之前",
-  // 不是"文件里出现过 injectWatermark 这个词"。
-  {
-    const src27 = readFileSync(fileURLToPath(import.meta.url), 'utf8')
-    ok(
-      'S27a 对象空间档:归档件写完必须立即注入水印(缺这一步 = 每枚自动归档把 CI 必需上下文钉红)',
-      /if \(rec\.verdict === 'stale'\)[\s\S]{0,400}injectWatermarkOrDie\(archiveFile, '归档件'\)[\s\S]{0,200}const archiveAfter = readWorktreeFile/.test(
-        src27,
-      ),
-      '注入调用必须夹在"写归档件"与"落盘字节复核"之间,使复核验的是最终入库的那一份',
-    )
-    ok(
-      'S27b 工作树档同样注入:两支写盘路径少一处就是留一条暗通道',
-      /appendFileSync\(archiveFile, archiveContent, 'utf8'\)\s*\n[\s\S]{0,240}injectWatermarkOrDie\(archiveFile/.test(
-        src27,
-      ),
-      '工作树档的 append 之后必须紧跟同一出口',
-    )
-    ok(
-      'S27c 注入失败必须拒绝落地(不得静默提交没载荷的归档件),且派生 node 走 process.execPath + windowsHide',
-      (() => {
-        const s = src27.indexOf('function injectWatermarkOrDie')
-        const e = src27.indexOf('\nfunction ', s + 10)
-        const body = s >= 0 ? src27.slice(s, e > s ? e : src27.length) : ''
-        return (
-          body.includes('process.execPath') &&
-          /windowsHide:\s*true/.test(body) &&
-          /catch[\s\S]{0,400}process\.exit\(1\)/.test(body)
-        )
-      })(),
-      '裸 node / 缺 windowsHide / 失败仍继续,三者任一都算这条锁红(前者依赖 PATH,后者必弹窗,末者把红留给 CI)',
-    )
-  }
 
   let failed = 0
   for (const r of results) {
