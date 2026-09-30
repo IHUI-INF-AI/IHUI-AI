@@ -2779,5 +2779,36 @@
   },
   "notification": {
     "pushBannerTitle": "New message"
+  },
+  "toolApproval": {
+    "title": "Tool Approval",
+    "description": "AI requests to run the following high-risk operation. Please confirm whether to allow it.",
+    "approve": "Approve",
+    "reject": "Reject",
+    "pendingCount": "{count} more pending",
+    "argsPreview": "Arguments",
+    "dangerLevel": "Danger level: {level}",
+    "scopeLabel": "Allow for",
+    "scopeOnce": "Just this once",
+    "scopeSession": "This conversation",
+    "scopeAlways": "Always allow (expires in 90 days)",
+    "envLabel": "Execution environment",
+    "envUnknown": "Not reported (do not infer from the tier; reject and ask for a retry)",
+    "envInSandbox": "Runs inside a sandbox",
+    "envOutsideSandbox": "Runs outside a sandbox",
+    "envBackend": "Isolation: {backend}",
+    "envDegraded": "Sandbox capability unavailable; fell back to restricted direct execution",
+    "envNetworkOpen": "Outbound network is available for this request",
+    "envNetworkOff": "Outbound network is not available for this request",
+    "envNetworkBlocked": "Blocked network targets",
+    "envNetworkBlockedOne": "{host}:{port} ({reason})",
+    "sendFailed": "Your decision did not reach the server. The request is still pending; retry, or the server resolves it on timeout.",
+    "noSession": "Missing session id, so this decision cannot be sent back",
+    "empty": "No pending approval requests",
+    "trayTitle": "Handled requests",
+    "clearHistory": "Clear handled records",
+    "openPanel": "{count} pending · Open approval",
+    "rejectedBadge": "Rejected",
+    "rejectedNextNote": "A similar operation will still ask you next time"
   }
 }
