@@ -24,7 +24,8 @@
  *   - 新实现:超时后必 reap(同步 wait 最多 2s),再 reject
  */
 
-import { spawn, type ChildProcess, type StdioOptions } from 'node:child_process'
+import { execFile, spawn, type ChildProcess, type StdioOptions } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import * as os from 'node:os'
 
 /** 子进程执行失败原因 */
@@ -117,6 +118,10 @@ function makeError(
  * 调用端配合条件:`detached: true` 只在 Unix 侧有意义(Windows 无进程组,靠 /T)。
  */
 export function killProcessTree(child: ChildProcess): void {
+  // G-998130(上游 processTreeOwnership.ts:66-96 判据):child 已被观察到退出
+  // (exitCode/signalCode 非 null)⇒ 目标集为空,本轮回收永久 fail closed ——
+  // 原 PID 此刻可能已被无关进程复用,沿裸 PID 派生 taskkill /T 会把那棵树认领成本端 runtime。
+  if (child.exitCode !== null || child.signalCode !== null) return
   if (!child.pid) return
   if (os.platform() === 'win32') {
     try {
@@ -164,6 +169,251 @@ export function isPosixProcessGroupAlive(
     return true
   } catch (e) {
     return (e as NodeJS.ErrnoException).code !== 'ESRCH'
+  }
+}
+
+// =============================================================================
+// G-998130(票1):force 只打"已验证目标集",身份核不上时禁止沿裸 PID 杀进程树。
+// 上游判据(processTreeOwnership.ts:66-96,122-129 / processTreeTerminator.ts:51,
+// 59-61,190-197,260-301,439-460):
+//   - child 已被观察到退出(exitCode/signalCode 非 null)或 force 轮 ⇒ 凡没有
+//     生前固定的 root 身份就返回空目标集,本轮回收永久 fail closed;
+//   - Windows force 前在预留 750ms 预算内逐 PID 定向 CIM 复核 CreationDate,
+//     本次仍匹配者才进 /F,查询失败者交 waiter 报残留但绝不做 /F 目标;
+//   - 身份查询整体失败 ⇒ unverifiedRootOnly:只观察原 ChildProcess,
+//     禁止向裸 PID 发 taskkill;
+//   - POSIX 终判同口径:只有最终复核仍含 root 才能向 root 发信号,禁止信任过期布尔。
+// 创建标识取值:win32 用 CIM CreationDate(DMTF 串,微秒档);linux 用
+// /proc/<pid>/stat 第 22 字段 starttime(boot tick,同秒复用可分辨);
+// 其余平台量不到 ⇒ null(⇒ 一律 fail closed 只观察)。
+// 注:apps 侧按架构契约不得向上摸 scripts/lib/proc-identity.mjs,故此处复刻其
+// 三态纪律而非其实现(与 apps/api/src/utils/kill-verified.ts 头注同一口径)。
+// =============================================================================
+
+/** 现测某 pid 在进程表中的创建标识;进程不在/查询失败 ⇒ null(⇒ 未判定)。 */
+export type CreationIdentityProbe = (pid: number) => Promise<string | null>
+
+const CREATION_IDENTITY_NONE = 'IHUI-CI-NONE'
+const CREATION_IDENTITY_PFX = 'IHUI-CI='
+/** win32 身份复核预算(对齐上游 force 轮的 750ms 预留)。 */
+const CREATION_IDENTITY_RECHECK_BUDGET_MS = 750
+
+/**
+ * root 生前(尚在本端所有权内、未发任何信号前)固定的创建标识登记表。
+ * spawnIsolated 在 spawn 成功后采集(fire-and-forget);killProcessTreeVerified
+ * 在 deps 未显式给 preMortemCreationIdentity 时从这里取。
+ */
+const preMortemCreationIdentityRegistry = new WeakMap<ChildProcess, string>()
+
+export function recordRootCreationIdentity(child: ChildProcess, identity: string): void {
+  preMortemCreationIdentityRegistry.set(child, identity)
+}
+
+/**
+ * 生前快照采集:spawn 成功后尽快调一次。失败静默返回 null —— 回收时按
+ * "无生前身份" fail closed 处理,绝不因快照缺位而放宽成裸 PID 击杀。
+ */
+export async function captureRootCreationIdentity(
+  child: ChildProcess,
+  probe: CreationIdentityProbe = defaultCreationIdentityProbe,
+): Promise<string | null> {
+  if (!child.pid) return null
+  const identity = await probe(child.pid)
+  if (identity !== null) recordRootCreationIdentity(child, identity)
+  return identity
+}
+
+/**
+ * 默认创建标识探针。win32:PowerShell CIM CreationDate(DMTF 串,含微秒档);
+ * linux:/proc/<pid>/stat 第 22 字段 starttime;其余平台 ⇒ null(未判定)。
+ * 探针自身永不 reject(失败折成 null),stdio 按 EBUSY 纪律 stdin 用 'ignore'。
+ */
+export const defaultCreationIdentityProbe: CreationIdentityProbe = async (pid) => {
+  const osPlatform = os.platform()
+  if (osPlatform === 'win32') {
+    const script =
+      `$ErrorActionPreference='Stop';` +
+      `$p=Get-CimInstance Win32_Process -Filter "ProcessId=${pid}";` +
+      `if($null -eq $p){'${CREATION_IDENTITY_NONE}'}else{` +
+      `'${CREATION_IDENTITY_PFX}'+[System.Management.ManagementDateTimeConverter]::ToDmtfDateTime($p.CreationDate)}`
+    return await new Promise<string | null>((resolve) => {
+      execFile(
+        'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+        ['-NoProfile', '-NonInteractive', '-Command', script],
+        { timeout: 5_000, shell: false, windowsHide: true, maxBuffer: 1 << 20 },
+        (err, out) => {
+          if (err) return resolve(null)
+          for (const line of String(out).split(/\r?\n/)) {
+            const l = line.trim()
+            if (l === CREATION_IDENTITY_NONE) return resolve(null)
+            if (l.startsWith(CREATION_IDENTITY_PFX)) {
+              const v = l.slice(CREATION_IDENTITY_PFX.length).trim()
+              return resolve(v === '' ? null : v)
+            }
+          }
+          return resolve(null)
+        },
+      )
+    })
+  }
+  if (osPlatform === 'linux') {
+    try {
+      // stat:pid (comm) state ppid ... starttime(第 22 字段);comm 可含空格,从最后一个 ')' 后取
+      const stat = readFileSync(`/proc/${pid}/stat`, 'latin1')
+      const tail = stat.slice(stat.lastIndexOf(')') + 1).trim().split(' ')
+      // ')' 后首字段是 state(第 3 字段),starttime(第 22 字段)偏移 22-3=19
+      const starttime = tail[19]
+      return starttime ? `linux-starttick:${starttime}` : null
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
+/** 给复核口套 750ms 预算:超时按"查询失败"同侧处理(不拖死 force 轮)。 */
+function withRecheckBudget(p: Promise<string | null>, ms: number): Promise<string | null> {
+  return new Promise<string | null>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`creation-identity 复核预算耗尽(${ms}ms)`)), ms)
+    p.then(
+      (v) => { clearTimeout(timer); resolve(v) },
+      (e) => { clearTimeout(timer); reject(e) },
+    )
+  })
+}
+
+export interface ProcessTreeKillDeps {
+  /** 生前固定的 root 创建标识;缺省从登记表取(spawnIsolated 已在 spawn 时采集)。 */
+  preMortemCreationIdentity?: string | null
+  /** 身份复核口(缺省 defaultCreationIdentityProbe,按当次平台取数)。 */
+  queryCreationIdentity?: CreationIdentityProbe
+  /** force 派生口(缺省:win32 taskkill /T /F,POSIX kill(-pid, SIGKILL));注入 spy 断言派生与否。 */
+  deriveForceKill?: (pid: number) => void
+  /** 平台判定注入(缺省 os.platform());单测在不换真机的前提下驱动 win32/posix 分支。 */
+  platform?: () => string
+  /** win32/posix 复核预算毫秒(缺省 750,对齐上游 force 轮预算)。 */
+  recheckBudgetMs?: number
+}
+
+export type ProcessTreeKillOutcome =
+  | { childStillOwned: false; action: 'skipped-already-exited'; pid: number | null; detail: string }
+  | { childStillOwned: false; action: 'identity-mismatch-target-set-empty'; pid: number; detail: string }
+  | { childStillOwned: true; action: 'unverified-root-only'; pid: number; detail: string }
+  | { childStillOwned: true; action: 'force-kill-derived'; pid: number; detail: string }
+
+function defaultDeriveForceKill(pid: number, isWin: boolean): void {
+  if (isWin) {
+    // 仅对该已验证目标集派生 /F;stdio 'ignore'(EBUSY 纪律),失败静默交 waiter 报残留
+    const tk = spawn('taskkill', ['/pid', String(pid), '/T', '/F'], {
+      windowsHide: true,
+      stdio: 'ignore',
+    })
+    tk.on('error', () => {})
+    return
+  }
+  // POSIX 终判已确认 root 仍在复核集合内才走到这:组信号为主,组已消亡(ESRCH)不补刀单进程
+  try {
+    process.kill(-pid, 'SIGKILL')
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'ESRCH') {
+      try { process.kill(pid, 'SIGKILL') } catch { /* 已死:忽略 */ }
+    }
+  }
+}
+
+/**
+ * 受管进程树回收的"已验证目标集"形态(票1 的回收层;接线归 G-690 域):
+ * 观察退出态 → 取生前身份 → 750ms 预算内现测创建标识 → 仍匹配才派生 force;
+ * 任何一环核不上 ⇒ 不派生任何 taskkill/kill,只观察原 ChildProcess(waiter 报残留)。
+ */
+export async function killProcessTreeVerified(
+  child: ChildProcess,
+  deps: ProcessTreeKillDeps = {},
+): Promise<ProcessTreeKillOutcome> {
+  const isWin = (deps.platform ?? (() => os.platform()))() === 'win32'
+  const pid = typeof child.pid === 'number' ? child.pid : null
+  // ① 已观察到退出 ⇒ 空目标集(永久 fail closed,不信任任何过期布尔)
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return {
+      childStillOwned: false,
+      action: 'skipped-already-exited',
+      pid,
+      detail:
+        `root 已被观察到退出(exitCode=${String(child.exitCode)},signalCode=${String(child.signalCode)})` +
+        `⇒ 目标集为空:本轮回收永久 fail closed,不沿裸 PID 派生任何 taskkill/kill`,
+    }
+  }
+  if (pid === null) {
+    return {
+      childStillOwned: false,
+      action: 'skipped-already-exited',
+      pid: null,
+      detail: 'child 无 pid(未成功 spawn)⇒ 无目标集,不派生任何信号',
+    }
+  }
+  // ② 生前身份:deps 显式给,或登记表里 spawn 时采集的快照;都没有 ⇒ 凡无身份不进 /F
+  const expected =
+    'preMortemCreationIdentity' in deps
+      ? deps.preMortemCreationIdentity
+      : preMortemCreationIdentityRegistry.get(child)
+  if (expected === undefined || expected === null) {
+    return {
+      childStillOwned: true,
+      action: 'unverified-root-only',
+      pid,
+      detail:
+        `pid ${pid} 无生前固定的 root 创建标识(deps 与生前登记表均缺位)⇒ 目标集为空:` +
+        `只观察原 ChildProcess,禁止向裸 PID 发 taskkill/kill(waiter 报残留)`,
+    }
+  }
+  // ③ 现测创建标识(预算内);整体失败 ⇒ unverifiedRootOnly
+  const query = deps.queryCreationIdentity ?? defaultCreationIdentityProbe
+  let current: string | null
+  try {
+    current = await withRecheckBudget(
+      Promise.resolve(query(pid)),
+      deps.recheckBudgetMs ?? CREATION_IDENTITY_RECHECK_BUDGET_MS,
+    )
+  } catch (e) {
+    return {
+      childStillOwned: true,
+      action: 'unverified-root-only',
+      pid,
+      detail:
+        `pid ${pid} 身份查询整体失败(${e instanceof Error ? e.message : String(e)})⇒ unverifiedRootOnly:` +
+        `只观察原 ChildProcess,禁止向裸 PID 发 taskkill(waiter 报残留)`,
+    }
+  }
+  if (current === null) {
+    return {
+      childStillOwned: true,
+      action: 'unverified-root-only',
+      pid,
+      detail:
+        `pid ${pid} 现测创建标识取不到(进程不在或探针失败)⇒ 未判定:不进 /F,交 waiter 报残留`,
+    }
+  }
+  // ④ 现测 ≠ 生前 ⇒ 原 PID 已复用,目标集为空(票面夹具 (a) 的判尸据)
+  if (current !== expected) {
+    return {
+      childStillOwned: false,
+      action: 'identity-mismatch-target-set-empty',
+      pid,
+      detail:
+        `pid ${pid} 现测创建标识(${current})≠ 生前记录(${expected})⇒ 原 PID 已被复用,目标集为空:` +
+        `不派生任何 taskkill/kill`,
+    }
+  }
+  // ⑤ 复核仍匹配 ⇒ 只对该已验证目标集派生 force
+  const derive = deps.deriveForceKill ?? ((p: number) => defaultDeriveForceKill(p, isWin))
+  derive(pid)
+  return {
+    childStillOwned: true,
+    action: 'force-kill-derived',
+    pid,
+    detail:
+      `pid ${pid} 创建标识复核仍匹配(${current})⇒ 仅对该已验证目标集派生 force` +
+      `(${isWin ? 'taskkill /T /F' : 'kill(-pid, SIGKILL)'})`,
   }
 }
 
