@@ -480,4 +480,22 @@ test('T27 真仓端到端:四桶互斥不并档,计数与数组闭合', async ()
     '四桶之间有行重复 ⇒ 分桶不是划分',
   )
 })
+
+test('P5b 构建失败归因:三态不并桶,undetermined 不得冒充 landed/in-flight(镜像 import 源实现)', () => {
+  const { attribBuildFailures } = mod
+  const seg = "src/components/chat/x.tsx(26,8): error TS6133: 'StreamAlertKind' is declared but its value is never read."
+  const landed = attribBuildFailures(seg, { readHeadLine: (p, n) => (n === 26 ? '  type StreamAlertKind,' : ''), isDirty: () => false })
+  assert.match(landed, /已入库/)
+  assert.match(landed, /不会自愈/)
+  // 同一输入只把"脏"翻过来 ⇒ 红来自在飞副本;两臂只差一个注入 ⇒ 这就是归因有牙的证明
+  const inFlight = attribBuildFailures(seg, { readHeadLine: () => 'return null', isDirty: () => true })
+  assert.match(inFlight, /疑似在飞/)
+  assert.doesNotMatch(inFlight, /不会自愈/)
+  // 反假绿:解析不出文件定位时,结论必须是"无法确认",绝不能落进前两态
+  const none = attribBuildFailures('Failed to type check.(没有文件定位)')
+  assert.match(none, /无法确认/)
+  assert.match(none, /解析不出/)
+  assert.doesNotMatch(none, /不会自愈/)
+  assert.doesNotMatch(none, /疑似在飞/)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
