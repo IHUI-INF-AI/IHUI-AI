@@ -36,6 +36,17 @@ const flattenStyle = (style: unknown): unknown => {
   return style
 }
 
+/**
+ * RN 的 Pressable 还支持 **children 渲染函数**(`{({pressed}) => …}`)。替身此前把它原样
+ * 交给 React ⇒ "Functions are not valid as a React child",标签根本不渲染
+ * (MoreLink 把按压态从 style 移到 children 后,my-agents 两条用例当场即红)。
+ * 与 flattenStyle 同一条规矩:共享替身必须覆盖真身的 API 面,不得退回各套件各自 vi.mock。
+ */
+const resolveChildren = (children: ReactNode): ReactNode =>
+  typeof children === 'function'
+    ? (children as unknown as (s: { pressed: boolean }) => ReactNode)({ pressed: false })
+    : children
+
 type Measurable = HTMLElement & {
   measureInWindow: (cb: (x: number, y: number, w: number, h: number) => void) => void
 }
@@ -59,20 +70,10 @@ const mk = (tag: string) =>
       if (typeof ref === 'function') ref(node)
       else if (ref && typeof ref === 'object') (ref as { current: unknown }).current = node
     }
-    /**
-     * RN 的 Pressable/TouchableOpacity 支持 children 渲染函数形态
-     * (`{({pressed}) => <View/>}`)。真身 de7f150ba 起分类组件 3 处按压反馈改走该形态,
-     * 桩若不识别函数 children,React 直接丢弃("Functions are not valid as a React
-     * child")⇒ chip 内容整体不渲染,样式断言拿到空数组。按真实 API 求值(静态 pressed=false)。
-     */
-    const children =
-      typeof props.children === 'function'
-        ? (props.children as (s: { pressed: boolean }) => ReactNode)({ pressed: false })
-        : props.children
     return createElement(
       tag,
       { ...rest, ref: setRef, onClick: onPress, style: flattenStyle(style) },
-      children,
+      resolveChildren(props.children),
     )
   }
 
