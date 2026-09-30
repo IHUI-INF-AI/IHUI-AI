@@ -2,78 +2,71 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// xterm 主题定义(满足 AGENTS.md §4:dark #1e1e1e/#d4d4d4, light #ffffff/#1e1e1e)
-export const DARK_THEME = {
-  background: '#1e1e1e',
-  foreground: '#d4d4d4',
-  cursor: '#d4d4d4',
-  cursorAccent: '#1e1e1e',
-  selectionBackground: '#264f78',
-  black: '#000000',
-  red: '#cd3131',
-  green: '#0dbc79',
-  yellow: '#e5e510',
-  blue: '#2472c8',
-  magenta: '#bc3fbc',
-  cyan: '#11a8cd',
-  white: '#e5e5e5',
-  brightBlack: '#666666',
-  brightRed: '#f14c4c',
-  brightGreen: '#23d18b',
-  brightYellow: '#f5f543',
-  brightBlue: '#3b8eea',
-  brightMagenta: '#d670d6',
-  brightCyan: '#29b8db',
-  brightWhite: '#ffffff',
+// @vitest-environment jsdom
+// D199(2026-09-30 立,对标竞品 misc terminalPanel.switchToDark|switchToLight):终端面板深浅色切换装车证明。
+// 判据:① 解析纯函数「显式档优先,未显式跟随应用主题」;② 工具条切换钮在位,档位标签描述
+//   「点击后将切到的目标档」(亮色时=switchToDark,暗色时=switchToLight,与竞品串口径一致),
+//   点击真实回调 onToggleTheme(TerminalViewport 里驱动 xterm theme,此处只证接线)。
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import React from 'react'
+import { render, cleanup, fireEvent, screen } from '@testing-library/react'
+
+import { resolveTerminalTheme } from '../terminal-panel/constants'
+import { TerminalPaneToolbar } from '../terminal-panel/TerminalPaneToolbar'
+
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string) => key,
+}))
+
+vi.mock('@/components/feedback', () => ({
+  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}))
+
+function renderToolbar(terminalDark: boolean, onToggleTheme: () => void) {
+  return render(
+    <TerminalPaneToolbar
+      isActive={false}
+      aiSuggestOpen={false}
+      onOpenSuggest={() => {}}
+      onSplitRequest={() => {}}
+      onClosePane={() => {}}
+      canClosePane={false}
+      terminalDark={terminalDark}
+      onToggleTheme={onToggleTheme}
+    />,
+  )
 }
 
-export const LIGHT_THEME = {
-  background: '#ffffff',
-  foreground: '#1e1e1e',
-  cursor: '#1e1e1e',
-  cursorAccent: '#ffffff',
-  selectionBackground: '#add6ff',
-  black: '#000000',
-  red: '#cd3131',
-  green: '#0dbc79',
-  yellow: '#e5e510',
-  blue: '#2472c8',
-  magenta: '#bc3fbc',
-  cyan: '#11a8cd',
-  white: '#e5e5e5',
-  brightBlack: '#666666',
-  brightRed: '#f14c4c',
-  brightGreen: '#23d18b',
-  brightYellow: '#f5f543',
-  brightBlue: '#3b8eea',
-  brightMagenta: '#d670d6',
-  brightCyan: '#29b8db',
-  brightWhite: '#ffffff',
-}
+describe('D199 resolveTerminalTheme(显式档优先,未显式跟随应用主题)', () => {
+  it('显式档优先于应用主题;null 跟随应用主题,非 dark 一律按 light', () => {
+    expect(resolveTerminalTheme('light', 'dark')).toBe('light')
+    expect(resolveTerminalTheme('dark', 'light')).toBe('dark')
+    expect(resolveTerminalTheme(null, 'dark')).toBe('dark')
+    expect(resolveTerminalTheme(null, 'light')).toBe('light')
+    expect(resolveTerminalTheme(null, undefined)).toBe('light')
+  })
+})
 
-export const FONT_FAMILY =
-  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+describe('D199 终端工具条深浅色切换钮', () => {
+  beforeEach(() => {})
+  afterEach(() => cleanup())
 
-/** 字号范围(任务约束:默认 12,范围 8-32) */
-export const FONT_SIZE_DEFAULT = 12
-export const FONT_SIZE_MIN = 8
-export const FONT_SIZE_MAX = 32
+  it('亮色面板:钮在位,aria=switchToDark(将切到的目标档),点击回调 onToggleTheme', () => {
+    const onToggle = vi.fn()
+    renderToolbar(false, onToggle)
+    const btn = screen.getByTestId('terminal-toggle-theme')
+    expect(btn.getAttribute('aria-label')).toBe('terminalPanel.switchToDark')
+    fireEvent.click(btn)
+    expect(onToggle).toHaveBeenCalledTimes(1)
+  })
 
-/** 搜索匹配高亮上限(避免大量匹配导致 registerDecoration 性能问题) */
-export const MATCH_HIGHLIGHT_LIMIT = 200
-
-/** D199(2026-09-30 立,对标竞品 misc terminalPanel switchToDark/switchToLight):终端面板深浅色档 */
-export type TerminalThemeMode = 'dark' | 'light'
-
-/**
- * 终端主题解析:用户显式选择(面板切换钮)优先;未显式时跟随应用主题(ThemeProvider 的
- * resolvedTheme,非 dark 一律按 light,与切换前既有行为逐字一致)。纯函数,渲染与测试共用。
- */
-export function resolveTerminalTheme(
-  explicit: TerminalThemeMode | null,
-  appTheme?: string,
-): TerminalThemeMode {
-  if (explicit) return explicit
-  return appTheme === 'dark' ? 'dark' : 'light'
-}
+  it('暗色面板:aria=switchToLight,点击同样回调(档位标签随态翻转)', () => {
+    const onToggle = vi.fn()
+    renderToolbar(true, onToggle)
+    const btn = screen.getByTestId('terminal-toggle-theme')
+    expect(btn.getAttribute('aria-label')).toBe('terminalPanel.switchToLight')
+    fireEvent.click(btn)
+    expect(onToggle).toHaveBeenCalledTimes(1)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
