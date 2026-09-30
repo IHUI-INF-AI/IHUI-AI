@@ -29,7 +29,8 @@ import { cn } from '@/lib/utils'
 import { NotificationItem } from '@/components/business'
 import { Timeline } from '@/components/data/Timeline'
 import { formatDateOnly } from '@/lib/date-utils'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 type NotificationType = 'system' | 'order' | 'project' | 'comment' | 'mention' | 'follow'
 
@@ -98,6 +99,9 @@ export default function NotificationsPage() {
   const [tab, setTab] = React.useState<'all' | NotificationType>('all')
   const [view, setView] = React.useState<'list' | 'timeline'>('list')
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['notifications', tab],
     queryFn: () => {
@@ -105,11 +109,13 @@ export default function NotificationsPage() {
       if (tab !== 'all') query.type = tab
       return unwrap(getNotifications(query))
     },
+    enabled: allow,
   })
 
   const { data: unreadData } = useQuery({
     queryKey: ['notifications', 'unread-count'],
     queryFn: () => unwrap(getUnreadCount()),
+    enabled: allow,
   })
 
   const readMut = useMutation({
@@ -193,7 +199,9 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看消息通知" />
+      ) : isLoading ? (
         <div className="whitespace-nowrap py-10 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
           {t('loading')}
