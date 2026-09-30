@@ -215,6 +215,7 @@ describe('HunkTracker', () => {
         agentHunks: 0,
         externalHunks: 0,
         conflictFiles: 0,
+        droppedHunks: 0, // G-641:溢出丢弃累计数(空 tracker 从未丢)
       });
     });
 

@@ -7,6 +7,7 @@ import { persist } from 'zustand/middleware'
 
 import type { AgentHookEvent } from '@/stores/agent-hooks'
 import { createPersistConfig } from '@/stores/persist-helpers'
+import { boundedAppend } from '@/lib/bounded-append'
 
 /**
  * 多入口集成(W30,2026-09-14 立,对标 Codex GitHub/Slack/iOS 多端入口):
@@ -36,6 +37,9 @@ export interface IntegrationChannelConfig {
 
 const DEFAULT_CHANNEL: IntegrationChannelConfig = { enabled: false, events: [] }
 
+/** 转发日志保留上限(最近 50 条,供面板调试) */
+const MAX_LOG = 50
+
 interface IntegrationsState {
   channels: Record<IntegrationChannel, IntegrationChannelConfig>
   /** 转发日志(最近 50 条,供面板调试) */
@@ -46,6 +50,8 @@ interface IntegrationsState {
     summary: string
     at: number
   }[]
+  /** G-641:转发日志因上限溢出被丢弃的累计条数(0 = 从未丢;静默变短 = 伪造完整性) */
+  droppedLog: number
   updateChannel: (channel: IntegrationChannel, patch: Partial<IntegrationChannelConfig>) => void
   toggleChannelEvent: (channel: IntegrationChannel, event: AgentHookEvent) => void
   recordLog: (channel: IntegrationChannel, event: AgentHookEvent, summary: string) => void
@@ -65,6 +71,7 @@ export const useIntegrationsStore = create<IntegrationsState>()(
         push: { ...DEFAULT_CHANNEL },
       },
       log: [],
+      droppedLog: 0,
       updateChannel: (channel, patch) =>
         set((s) => ({
           channels: { ...s.channels, [channel]: { ...s.channels[channel], ...patch } },
@@ -78,10 +85,16 @@ export const useIntegrationsStore = create<IntegrationsState>()(
           return { channels: { ...s.channels, [channel]: { ...cur, events } } }
         }),
       recordLog: (channel, event, summary) =>
-        set((s) => ({
-          log: [...s.log, { id: genLogId(), channel, event, summary, at: Date.now() }].slice(-50),
-        })),
-      clearLog: () => set({ log: [] }),
+        set((s) => {
+          // G-641:溢出丢最旧但丢弃条数必须入账,面板据 droppedLog 渲染计数行
+          const { items, dropped } = boundedAppend(
+            s.log,
+            { id: genLogId(), channel, event, summary, at: Date.now() },
+            MAX_LOG,
+          )
+          return { log: items, droppedLog: s.droppedLog + dropped }
+        }),
+      clearLog: () => set({ log: [], droppedLog: 0 }),
     }),
     createPersistConfig<IntegrationsState>('ihui-integrations', (s) => ({ channels: s.channels })),
   ),

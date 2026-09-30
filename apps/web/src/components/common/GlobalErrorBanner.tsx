@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl'
 import { X, AlertCircle } from 'lucide-react'
 
 import { useErrorBannerStore } from '@/stores/error-banner'
+import { droppedNotice } from '@/lib/bounded-append'
 
 /**
  * GlobalErrorBanner — 全局错误通知条(2026-08-01 立)。
@@ -26,6 +27,7 @@ import { useErrorBannerStore } from '@/stores/error-banner'
 export function GlobalErrorBanner() {
   const t = useTranslations('errors')
   const errors = useErrorBannerStore((s) => s.errors)
+  const dropped = useErrorBannerStore((s) => s.dropped)
   const clearError = useErrorBannerStore((s) => s.clearError)
   const clearAll = useErrorBannerStore((s) => s.clearAll)
 
@@ -51,6 +53,12 @@ export function GlobalErrorBanner() {
           </button>
         </div>
       ))}
+      {dropped > 0 ? (
+        // G-641:溢出丢弃必须可见 —— 残缺的错误列表不得伪装成完整,计数行随列表同现
+        <div data-testid="error-banner-dropped" className="text-xs text-muted-foreground" role="status">
+          {droppedNotice(dropped)}
+        </div>
+      ) : null}
       {errors.length > 1 ? (
         <button
           type="button"
