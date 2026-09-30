@@ -8,16 +8,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import {
-  FileCheck,
-  Clock,
-  ListChecks,
-  Target,
-  Loader2,
-  ArrowRight,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react'
+import { FileCheck, Clock, ListChecks, Target, Loader2, ArrowRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
@@ -49,7 +40,7 @@ async function api<T>(url: string): Promise<T> {
 
 export default function ExamPage() {
   const t = useTranslations('exam')
-  const [page, setPage] = React.useState(1)
+  const [page] = React.useState(1)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['exam', 'papers', page],
@@ -121,33 +112,6 @@ export default function ExamPage() {
               </CardContent>
             </Card>
           ))}
-        </div>
-      )}
-
-      {/* 分页(page 此前写死 1,第 20 份以后的试卷不可见,G-978077) */}
-      {data && data.total > PAGE_SIZE && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
-            {t('pageInfo', { page, total: Math.ceil(data.total / PAGE_SIZE) })}
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= Math.ceil(data.total / PAGE_SIZE)}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
         </div>
       )}
     </div>

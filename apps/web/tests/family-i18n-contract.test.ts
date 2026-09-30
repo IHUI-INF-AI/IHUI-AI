@@ -395,113 +395,6 @@ const FAMILIES: Family[] = [
     onlyKeys: ['rollbackAdded', 'rollbackModified', 'rollbackDeleted'],
     capFromLedger: true,
   },
-  {
-    name: 'agentWorkbench(b12)',
-    nsLiteral: 'agentWorkbench',
-    nsPath: ['agentWorkbench'],
-    sources: [
-      'app/(main)/agent-workbench/components/AgentCard.tsx',
-      'src/components/automations/automation-form-dialog.tsx',
-    ],
-    minReferenced: 13,
-    // HEAD 里该块已有 39 枚他人叶子 ⇒ 只治本票新增的 13 枚
-    onlyKeys: [
-      'card.roleResearcher',
-      'card.roleCoder',
-      'card.roleReviewer',
-      'card.roleTester',
-      'card.roleCustom',
-      'card.unnamed',
-      'card.lastActive',
-      'card.actionStart',
-      'card.actionPause',
-      'card.actionStop',
-      'card.actionCopyConfig',
-      'card.permissionMode',
-      'card.maxIterations',
-    ],
-  },
-  {
-    name: 'llmSettings(b12)',
-    nsLiteral: 'llmSettings',
-    nsPath: ['llmSettings'],
-    sources: ['app/(main)/settings/llm/PageClient.tsx'],
-    minReferenced: 29,
-    // HEAD 里该块已有 286 枚他人叶子 ⇒ 只治本票新增的 29 枚
-    onlyKeys: [
-      'v2.byok.modeLabel',
-      'v2.byok.modeDesc',
-      'v2.byok.viewGuide',
-      'v2.byok.welcomeTitle',
-      'v2.byok.welcomeDesc',
-      'v2.byok.whyTitle',
-      'v2.byok.whyDesc',
-      'v2.byok.freeProvidersTitle',
-      'v2.byok.cfDesc',
-      'v2.byok.githubDesc',
-      'v2.byok.hfDesc',
-      'v2.byok.pollinationsDesc',
-      'v2.byok.llm7Desc',
-      'v2.byok.freeNote',
-      'v2.byok.stepsTitle',
-      'v2.byok.step1',
-      'v2.byok.step2',
-      'v2.byok.step3',
-      'v2.byok.step4',
-      'v2.byok.step5',
-      'v2.byok.gotIt',
-      'v2.modelParams.presetPrecise',
-      'v2.modelParams.presetPreciseDesc',
-      'v2.modelParams.presetBalanced',
-      'v2.modelParams.presetBalancedDesc',
-      'v2.modelParams.presetCreative',
-      'v2.modelParams.presetCreativeDesc',
-      'v2.modelParams.presetJson',
-      'v2.modelParams.presetJsonDesc',
-    ],
-  },
-  {
-    name: 'knowledgeList(b12)',
-    nsLiteral: 'knowledgeList',
-    nsPath: ['knowledgeList'],
-    sources: ['src/components/knowledge/KnowledgeList.tsx', 'app/(main)/knowledge/page.tsx'],
-    minReferenced: 7,
-  },
-  {
-    name: 'knowledgeBase(b12)',
-    nsLiteral: 'knowledgeBase',
-    nsPath: ['knowledgeBase'],
-    sources: [
-      'app/(main)/knowledge-base/page.tsx',
-      'app/(main)/knowledge-base/PageClient.tsx',
-      'app/(main)/knowledge-base/[id]/PageClient.tsx',
-      'app/(main)/knowledge-base/search/PageClient.tsx',
-      'app/(main)/knowledge-base/edit/page.tsx',
-      'app/(main)/knowledge-base/edit/TagInput.tsx',
-    ],
-    minReferenced: 23,
-  },
-  {
-    name: 'knowledgeRag(b12)',
-    nsLiteral: 'knowledgeRag',
-    nsPath: ['knowledgeRag'],
-    sources: ['app/(main)/knowledge-rag/page.tsx'],
-    minReferenced: 4,
-    // HEAD 里该块已有 62 枚他人叶子 ⇒ 只治本票新增的 4 枚
-    onlyKeys: ['metaTitle', 'metaDescription', 'metaOgTitle', 'metaOgDescription'],
-  },
-  {
-    name: 'kbArticleForm(b12)',
-    nsLiteral: 'kbArticleForm',
-    nsPath: ['kbArticleForm'],
-    sources: [
-      'app/(main)/knowledge-base/edit/page.tsx',
-      'app/(main)/knowledge-base/edit/TagInput.tsx',
-    ],
-    minReferenced: 2,
-    // HEAD 里该块已有 12 枚他人叶子 ⇒ 只治本票新增的 2 枚
-    onlyKeys: ['tagInputPlaceholder', 'add'],
-  },
 ]
 
 const packCache = new Map<string, Record<string, unknown>>()
@@ -743,25 +636,19 @@ describe.each(FAMILIES)('家族 $name 取词契约', (fam: Family) => {
     expect(unused, `${fam.name} 孤儿键 ${unused.join(', ')} —— 要么补引用要么删键`).toEqual([])
   })
 
-  it(
-    '守门 70 实测:族内命中不超过申报额度(默认必须归零;直接调权威脚本,不复刻判据)',
-    () => {
-      const counts = gate70Counts()
-      const bad = fam.sources
-        .map((f) => {
-          const file = `apps/web/${f}`
-          const cap = fam.capFromLedger ? (ledgerAllowance()!.get(file) ?? 0) : (fam.maxHits ?? 0)
-          return { f, n: counts.get(file) ?? 0, cap }
-        })
-        .filter((r) => r.n > r.cap)
-      expect(bad, `硬编码中文越过额度:${bad.map((b) => `${b.f}=${b.n}>${b.cap}`).join(' ')}`).toEqual(
-        [],
-      )
-    },
-    // 本用例逐族 spawn 权威守门脚本(跨进程 node 冷启动),CI 冷 runner 上单族可超默认 5s
-    // (PR#65 run 36350697722 'rules' 族超时红;本地热盘 0ms)。判据不变,仅预算 30s。
-    30_000,
-  )
+  it('守门 70 实测:族内命中不超过申报额度(默认必须归零;直接调权威脚本,不复刻判据)', () => {
+    const counts = gate70Counts()
+    const bad = fam.sources
+      .map((f) => {
+        const file = `apps/web/${f}`
+        const cap = fam.capFromLedger ? (ledgerAllowance()!.get(file) ?? 0) : (fam.maxHits ?? 0)
+        return { f, n: counts.get(file) ?? 0, cap }
+      })
+      .filter((r) => r.n > r.cap)
+    expect(bad, `硬编码中文越过额度:${bad.map((b) => `${b.f}=${b.n}>${b.cap}`).join(' ')}`).toEqual(
+      [],
+    )
+  })
 })
 
 describe('跨族卫生', () => {

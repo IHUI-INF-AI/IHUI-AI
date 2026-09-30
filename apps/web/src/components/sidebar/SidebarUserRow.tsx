@@ -27,11 +27,8 @@ import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useMounted } from '@/hooks/use-mounted'
 import { useLanguageStore, type Language } from '@/stores/language'
 import { useNotificationStore } from '@/stores/notification'
-import { useChatStore } from '@/stores/chat'
-import { useAiPanelStore } from '@/stores/ai-panel'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { useDownloadTrack } from '@ihui/shared/hooks'
-import { listPendingDecisions, type PendingDecisionItem } from '@ihui/api-client'
 import { DOWNLOADS, isDownloadAvailable, isExternalDownloadHref } from '@/lib/downloads'
 import { Avatar } from '@/components/data/Avatar'
 import { Dropdown, Modal, type DropdownItem } from '@/components/feedback'
@@ -70,38 +67,6 @@ export function SidebarUserRow({
   // 挂载后再切真实态(与原 SidebarActions 同策略)。
   const isDark = mounted && resolvedTheme === 'dark'
   const [msgOpen, setMsgOpen] = React.useState(false)
-  const openAiPanel = useAiPanelStore((s) => s.openPanel)
-  // D193:决策收件箱数据(null = 未取过,通知中心隐藏该区;[] = 已取、暂无待决策)
-  const [pendingDecisions, setPendingDecisions] = React.useState<PendingDecisionItem[] | null>(null)
-
-  // 站内消息弹窗打开时取一次「我的待决策」(失败静默落空态;只读查询,失败不提示打扰)
-  React.useEffect(() => {
-    if (!msgOpen || !showAuthed) return
-    let cancelled = false
-    listPendingDecisions()
-      .then((res) => {
-        if (cancelled) return
-        const items = res.success ? res.data.items : []
-        setPendingDecisions(Array.isArray(items) ? items : [])
-      })
-      .catch(() => {
-        if (!cancelled) setPendingDecisions([])
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [msgOpen, showAuthed])
-
-  // 点击待决策条目 → 切到对应会话并打开 AI 面板(与侧栏会话点击同一机制:
-  // setConversationId + openPanel,见 sidebar-chat-history.handleSelect)。
-  const handleDecisionClick = (item: PendingDecisionItem) => {
-    if (item.threadId) {
-      useChatStore.getState().setConversationId(item.threadId)
-    }
-    openAiPanel()
-    setMsgOpen(false)
-    onCloseMobile()
-  }
 
   const handleLogout = () => {
     logout()
@@ -402,12 +367,7 @@ export function SidebarUserRow({
           NotificationCenter 为"裸内容"组件,自带"通知中心"头部 + 全部已读 + max-h-60vh 滚动,
           Modal 提供卡片外观与右上角关闭按钮。 */}
       <Modal open={msgOpen} onClose={() => setMsgOpen(false)} size="sm">
-        <NotificationCenter
-          items={noticeItems}
-          onMarkAllRead={() => markAllAsRead()}
-          pendingDecisions={showAuthed ? (pendingDecisions ?? undefined) : undefined}
-          onDecisionItemClick={handleDecisionClick}
-        />
+        <NotificationCenter items={noticeItems} onMarkAllRead={() => markAllAsRead()} />
       </Modal>
     </div>
   )
