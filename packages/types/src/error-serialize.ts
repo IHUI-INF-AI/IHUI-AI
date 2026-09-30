@@ -20,6 +20,9 @@
  *    (属性 getter、toString)都在 try 内,失败落兜底形状。
  */
 
+import { z } from 'zod'
+import { ContractValidationError } from './api-contracts.js'
+
 /** cause 链(含根节点)最多展开的节点数。5 层足够定位事故,再深是噪音。 */
 export const ERROR_SERIALIZE_MAX_DEPTH = 5
 
@@ -88,5 +91,129 @@ export function serializeError(err: unknown): SerializedError {
   } catch {
     return { name: NON_THROWN_NAME, message: '<unserializable error>' }
   }
+}
+
+// ===================== 契约定义与运行时校验同源(b76-01 票2) =====================
+// SerializedError 是跨进程/落库的错误载荷面:类型与校验从同一份 zod schema 派生,
+// 两侧不可能各自演化。strict 白面 —— 序列化出口本来就是闭集(纪律 1),读回来
+// 多一个字段即判失败;新字段一律 optional,与 serializeError 的输出同步扩展。
+
+/** SerializedError strict schema:与上方 hand-written interface 逐字段对齐(双向 satisfies)。 */
+export const SerializedErrorSchema: z.ZodType<SerializedError> = z.strictObject({
+  name: z.string(),
+  message: z.string(),
+  stack: z.string().optional(),
+  cause: z.lazy(() => SerializedErrorSchema).optional(),
+  truncated: z.literal(true).optional(),
+})
+
+export type SerializedErrorWire = z.infer<typeof SerializedErrorSchema>
+
+export type SerializedErrorParseResult =
+  | { success: true; data: SerializedErrorWire }
+  | { success: false; issues: readonly string[] }
+
+/** 读前校验(不抛):把逐条判据交回调用方裁决。 */
+export function safeParseSerializedError(input: unknown): SerializedErrorParseResult {
+  const result = SerializedErrorSchema.safeParse(input)
+  if (result.success) return { success: true, data: result.data }
+  return {
+    success: false,
+    issues: result.error.issues.map(
+      (issue) => `${issue.path.map(String).join('.')}: ${issue.message}`,
+    ),
+  }
+}
+
+/** 读回唯一入口:失败抛 ContractValidationError。 */
+export function parseSerializedError(input: unknown): SerializedErrorWire {
+  const result = safeParseSerializedError(input)
+  if (!result.success) throw new ContractValidationError(result.issues)
+  return result.data
+}
+
+// ===================== 判别式 outcome + 禁文本判流程(b76-01 票3) =====================
+// 可预期业务分支的唯一失败形态:判别式 outcome + 封闭 errorCategory/failureStage 联合
+// + 稳定 errorCode。判定一律走判别式与 code 字段 —— **禁止降级为 message 字符串判断**
+// (message 只是给人看的文案,措辞随时会改;"429"/"quota"这类词不构成判定依据)。
+// 跨进程拿不到同一实例时,按稳定 errorCode 字段比对;投影/持久化保留
+// type/code/detail/attribution 归因,不折叠成一格文本。
+
+/** 失败发生在哪条边界上(封闭联合)。 */
+export type FailureStage = 'client_validation' | 'upstream_request' | 'local_persist'
+
+export const FAILURE_STAGES = [
+  'client_validation',
+  'upstream_request',
+  'local_persist',
+] as const satisfies readonly FailureStage[]
+
+/**
+ * 错误类别(封闭联合,跨进程可判)。"限流"这类判定只能由 errorCategory 得出:
+ * 类别缺失时判定器必须返回 false,绝不回退到 message 文本匹配。
+ */
+export type ErrorCategory =
+  | 'rate_limited'
+  | 'quota_exhausted'
+  | 'auth'
+  | 'forbidden'
+  | 'not_found'
+  | 'conflict'
+  | 'validation'
+  | 'upstream'
+  | 'internal'
+
+export const ERROR_CATEGORIES = [
+  'rate_limited',
+  'quota_exhausted',
+  'auth',
+  'forbidden',
+  'not_found',
+  'conflict',
+  'validation',
+  'upstream',
+  'internal',
+] as const satisfies readonly ErrorCategory[]
+
+/** 判别式失败 outcome strict schema:未知字段判失败,新字段一律 optional。 */
+export const FailureOutcomeSchema = z.strictObject({
+  ok: z.literal(false),
+  failureStage: z.enum(FAILURE_STAGES),
+  errorCategory: z.enum(ERROR_CATEGORIES),
+  /** 稳定业务错误码(跨进程按此比对);缺席时按 errorCategory 判。 */
+  errorCode: z.string().optional(),
+  /** 仅展示用。判定器不得读它。 */
+  message: z.string().optional(),
+  detail: z.unknown().optional(),
+  /** 归因:错误发生在哪个通道/端口(如 'carrier:sms')。 */
+  attribution: z.string().optional(),
+})
+
+export type FailureOutcome = z.infer<typeof FailureOutcomeSchema>
+
+/**
+ * 判定器:值是不是一个判别式失败 outcome。
+ * 负例契约:伪造 `{ message: 'quota exceeded' }` 但 errorCategory 缺失 ⇒ 必须 false
+ * (按文本判的实现会 true,测试即红 —— 见 tests/failure-outcome.test.ts)。
+ */
+export function isFailureOutcome(value: unknown): value is FailureOutcome {
+  return FailureOutcomeSchema.safeParse(value).success
+}
+
+/** 按封闭类别判定。**禁止**传 message 进来比对 —— 本函数只读 errorCategory。 */
+export function isFailureCategory(value: unknown, category: ErrorCategory): boolean {
+  return isFailureOutcome(value) && value.errorCategory === category
+}
+
+/** 便捷构造:ok:false 形态的失败 outcome(跨边界返回值的唯一失败形状)。 */
+export function createFailureOutcome(input: {
+  failureStage: FailureStage
+  errorCategory: ErrorCategory
+  errorCode?: string
+  message?: string
+  detail?: unknown
+  attribution?: string
+}): FailureOutcome {
+  return { ok: false, ...input }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
