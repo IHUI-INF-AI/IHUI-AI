@@ -109,7 +109,9 @@ function run(cmd, opts = {}) {
     // 长门操作由调用方显式传更大值。
     return execSync(cmd, {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 根治(2026-09-30):本会话 Node 建子进程 stdin 管道会 EBUSY;本助手无 input 调用,
+      // stdin 设 ignore 即可(git 不吃 stdin)。
+      stdio: ['ignore', 'pipe', 'pipe'],
       timeout: opts.timeout ?? 120_000,
       windowsHide: true, // worker 无控制台,git 为控制台程序 → 不带此参数必分配可见黑窗
       ...opts,
@@ -140,7 +142,8 @@ const skipPush = process.env.HUSKY_SKIP_PUSH === '1'
 //   本调用只是尽力清理,其输出对 push 结论无意义,故收进 pipe 并忽略。
 try {
   execFileSync(process.execPath, [resolve(import.meta.dirname, 'git-lock.mjs'), 'clean'], {
-    stdio: 'pipe',
+    // 根治:同 run() —— 输出本就被忽略,'ignore' 顺带避开本会话子进程 stdin 管道 EBUSY。
+    stdio: 'ignore',
     cwd: process.cwd(),
     windowsHide: true,
   })
@@ -244,7 +247,8 @@ const checkDanglingRefs = () => {
     const r = spawnSync(
       'git',
       ['-c', 'safe.directory=*', 'for-each-ref', '--format=%(refname)%09%(objectname)'],
-      { encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024, timeout: 120_000 },
+      // 根治:同 run() —— 无 input,stdin 设 ignore 避开本会话子进程 stdin 管道 EBUSY。
+      { encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024, timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] },
     )
     listed = { stdout: String(r.stdout || ''), stderr: String(r.stderr || '') }
   } catch {
