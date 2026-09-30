@@ -23,7 +23,7 @@ import type {
 } from '../../types'
 import { MoreLink, useFontMultiplier } from '../../components/MoreLink'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 
 export type { HomeRecommendItem, HomeLiveItem, HomeProgressItem, HomeMenuItem, HomeScreenProps }
 
@@ -295,7 +295,7 @@ function createStyles(tk: AppThemeTokens) {
       minWidth: 16,
       height: 16,
       paddingHorizontal: 4,
-      borderRadius: rnRadiusFor.chip,
+      borderRadius: rnRadius.lg, // radius-role-exempt: 16x16 未读红点，radius=高度一半=真圆 until 2026-11-26
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
