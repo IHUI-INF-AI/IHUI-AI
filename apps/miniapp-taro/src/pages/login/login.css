@@ -97,12 +97,13 @@
   color: var(--color-danger);
 }
 
-/* ===== 3 tab 分段控件(对齐 RN tabBar:padding 4 + 圆角 + muted 底) ===== */
+/* ===== 3 tab 分段控件(对齐 RN tabBar:padding 4px + 圆角 + muted 底) ===== */
 .login-tabbar {
   display: flex;
   flex-direction: row;
   margin-bottom: 28rpx;
-  padding: 6rpx;
+  /* 8rpx = 4px,与 RN `padding: 4` / web `p-1` 同档;原 6rpx(3px)少 1px */
+  padding: 8rpx;
   border-radius: var(--radius-lg);
   background-color: var(--color-muted);
   border: 1rpx solid var(--color-border);
