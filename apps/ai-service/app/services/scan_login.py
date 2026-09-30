@@ -643,7 +643,27 @@ class ScanTask:
 # sync Playwright 非线程安全:API 协程只入队,真正摸 page 的动作在任务线程的
 # 等待循环里由 _drain_interactions 执行,结果按关联 id 回填。
 # ---------------------------------------------------------------------------
-_INTERACT_ACTIONS = ("screenshot", "fill", "click", "text")
+_INTERACT_ACTIONS = ("screenshot", "fill", "click", "text", "drag", "eval")
+
+
+def _resolve_locator(page: Any, selector: str) -> Any:
+    """主框架找不到时自动穿透所有 iframe(验证码类组件普遍 iframe 化)。"""
+    loc = page.locator(selector).first
+    try:
+        loc.wait_for(state="attached", timeout=1200)
+        return loc
+    except Exception:  # noqa: BLE001
+        pass
+    for fr in page.frames:
+        if fr is page.main_frame:
+            continue
+        try:
+            cand = fr.locator(selector).first
+            cand.wait_for(state="attached", timeout=800)
+            return cand
+        except Exception:  # noqa: BLE001
+            continue
+    raise RuntimeError(f"元素未找到(已穿透全部 iframe): {selector}")
 
 
 def _drain_interactions(task: ScanTask, page: Any) -> None:
@@ -672,6 +692,27 @@ def _drain_interactions(task: ScanTask, page: Any) -> None:
             elif action == "text":
                 result["text"] = page.inner_text(selector, timeout=5000) if selector else page.title()
                 result["ok"] = True
+            elif action == "drag":
+                # 滑块验证码:value="dx[,dy]"(像素,相对起点中心);selector 为拖动起点(滑块手柄)。
+                # 分步移动 + 起点先移出手柄边缘,模拟人手轨迹;结束在目标点短暂停顿再松开。
+                raw = (value or "0").replace(" ", "")
+                parts = [float(x) for x in raw.split(",") if x != ""]
+                dx = parts[0] if parts else 0.0
+                dy = parts[1] if len(parts) > 1 else 0.0
+                box = page.locator(selector).first.bounding_box()
+                if not box:
+                    raise RuntimeError(f"拖动起点 bounding_box 为空: {selector}")
+                sx = box["x"] + box["width"] / 2
+                sy = box["y"] + box["height"] / 2
+                page.mouse.move(sx, sy)
+                page.mouse.down()
+                steps = max(12, min(60, int(abs(dx) / 6) or 12))
+                for i in range(1, steps + 1):
+                    page.mouse.move(sx + dx * i / steps, sy + dy * i / steps)
+                time.sleep(0.2)
+                page.mouse.up()
+                result["ok"] = True
+                result["drag"] = {"dx": dx, "dy": dy}
             else:
                 result["error"] = f"未知 action: {action}(合法集 {_INTERACT_ACTIONS})"
         except Exception as e:  # noqa: BLE001 —— 交互失败原样回传调用方,不打断扫码线程
