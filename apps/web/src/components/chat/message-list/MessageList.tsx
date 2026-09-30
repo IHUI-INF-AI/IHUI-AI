@@ -41,6 +41,7 @@ import { useChatSearch } from '@/hooks/use-chat-search'
 // V3 #63(2026-09-27 立):form_request 帧的对话流宿主 —— 卡片本体与应答上行
 // 在 @/components/ai/business-form-*,本处只补那条一直没装车的连线。
 import { BusinessFormSection } from '@/components/ai/business-form-section'
+import { TurnStatusLine } from './turn-status-line'
 import { useBusinessFormStore } from '@/stores/business-forms'
 import { toast } from '@/components/common'
 import {
@@ -481,6 +482,10 @@ export function MessageList({
             消息列表尾部自有容器、常规文档流,不遮挡正文/不渐变遮罩/无原生 title。
             派生用原始 messages(建议独立于档位过滤的呈现粒度)。 */}
         <AmbientSuggestions messages={messages} />
+        {/* V3 #71(2026-09-28 装载):轮次状态徽章。D71 的渲染件与五语言词包都在 HEAD,
+            此前**零渲染点** ⇒ 它的"等待确认 / 后台执行中"两格依旧无处可见。状态一律由
+            store 既有事实投影,空闲时整段不出现。 */}
+        <TurnStatusLine />
         <div ref={bottomRef} />
       </div>
     </div>
