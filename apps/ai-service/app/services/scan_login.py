@@ -27,7 +27,6 @@ import base64
 import contextlib
 import json
 import os
-import queue
 import re
 import threading
 import time
@@ -154,25 +153,9 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
     },
     "oschina": {
         "name": "开源中国",
-        # 2026-09-30 实测:旧 /action/user/hash_login 已废弃(curl 直连 403/带 referer 404),
-        # 且 WAF 会把无指纹的 Playwright 请求挂到 30s 超时 —— 这就是该平台"打不开登录页"的真因。
-        # 首页「登录/注册」按钮现指向 /home/login,直达它。
-        "login_url": "https://www.oschina.net/home/login",
+        "login_url": "https://www.oschina.net/action/user/hash_login",
         "success_cookies": ["_user_token", "osc"],
         "success_url_pattern": r"oschina\.net/u/\d+|my\.oschina\.net",
-        # 2026-09-30 探针实锤:该页有微信登录(第三方图标行 #icon-wx),但**必须先勾协议**,
-        # 否则前端直接吞掉微信图标的点击(0 请求 0 跳转)。顺序点击计划两步:
-        #   ① 勾协议 —— 只能点视觉盒 `label.login-agreement span.ant-checkbox`:
-        #      点 `input.ant-checkbox-input` 被 antd 覆盖层挡住(Playwright 命中检测失败),
-        #      点整条 label 会落在中心的《服务条例》链接上(弹出新页而不翻勾,实测 clicked=True
-        #      而 checked 不变)—— 点击"成功"不等于勾上了,判据要验状态。
-        #   ② 点微信图标 —— 主页随即整页跳到 open.weixin.qq.com/connect/qrconnect,
-        #      码就在主页 DOM 的 img 里(与头条纯 HTTP 通道同一形态)。
-        "scan_tab_selectors": (
-            ("label.login-agreement span.ant-checkbox", "svg:has(use[*|href*='icon-wx'])"),
-        ),
-        # 微信官方码原图(服务端拉取,和头条同款"直接获取"),不再给登录页截图。
-        "qr_image_selectors": ('img[src*="connect/qrcode"]',),
     },
     "jianshu": {
         "name": "简书",
@@ -612,10 +595,6 @@ class ScanTask:
     # 码数据(token/link/base64)存在这里,与页面同会话 —— 知乎等页面自己轮询 token
     # 的平台必须复用页面 token 生成码,否则用户扫的是"服务端另取的码",页面轮询不知情
     _net_captured: dict[str, str] = field(default_factory=dict, repr=False)
-    # 2026-09-30 任务交互通道:扫码后的多步验证(短信验证码等)由 API 端点投递动作,
-    # 任务线程在等待循环里消费执行 —— sync Playwright 非线程安全,只许任务线程摸 page
-    _interact_q: queue.Queue | None = field(default=None, repr=False)
-    _interact_results: dict[str, dict[str, Any]] = field(default_factory=dict, repr=False)
 
     def is_terminal(self) -> bool:
         # P2 修复(2026-08-06): 新增 expired 终态
@@ -636,100 +615,6 @@ class ScanTask:
             "created_at": self.created_at,
             "completed_at": self.completed_at,
         }
-
-
-# ---------------------------------------------------------------------------
-# 任务交互(2026-09-30):扫码后多步验证(手机号/短信码)的通用出口。
-# sync Playwright 非线程安全:API 协程只入队,真正摸 page 的动作在任务线程的
-# 等待循环里由 _drain_interactions 执行,结果按关联 id 回填。
-# ---------------------------------------------------------------------------
-_INTERACT_ACTIONS = ("screenshot", "fill", "click", "text")
-
-
-def _drain_interactions(task: ScanTask, page: Any) -> None:
-    """消费交互队列。必须由任务线程调用(创建 page 的同一线程)。"""
-    q = task._interact_q
-    if q is None:
-        return
-    while True:
-        try:
-            rid, action, selector, value = q.get_nowait()
-        except queue.Empty:
-            break
-        result: dict[str, Any] = {"id": rid, "ok": False, "url": ""}
-        try:
-            result["url"] = page.url
-            if action == "screenshot":
-                shot = page.screenshot(type="png")
-                result["screenshot_b64"] = base64.b64encode(shot).decode("ascii")
-                result["ok"] = True
-            elif action == "fill":
-                page.fill(selector, value or "", timeout=5000)
-                result["ok"] = True
-            elif action == "click":
-                page.click(selector, timeout=5000)
-                result["ok"] = True
-            elif action == "text":
-                result["text"] = page.inner_text(selector, timeout=5000) if selector else page.title()
-                result["ok"] = True
-            else:
-                result["error"] = f"未知 action: {action}(合法集 {_INTERACT_ACTIONS})"
-        except Exception as e:  # noqa: BLE001 —— 交互失败原样回传调用方,不打断扫码线程
-            result["error"] = f"{type(e).__name__}: {str(e)[:260]}"
-        with task._lock:
-            task._interact_results[rid] = result
-
-
-def list_live_scan_tasks() -> list[dict[str, Any]]:
-    """列本实例的进行中任务(供操作端定位 task_id;不含页面句柄)。"""
-    items: list[dict[str, Any]] = []
-    for tid, t in list(_TASK_STORE._local.items()):
-        if not t.is_terminal():
-            items.append(
-                {
-                    "task_id": tid,
-                    "platform": t.platform,
-                    "status": t.status,
-                    "message": t.message,
-                    "created_at": t.created_at,
-                }
-            )
-    return items
-
-
-def request_interaction(
-    task_id: str,
-    action: str,
-    selector: str | None = None,
-    value: str | None = None,
-    wait_seconds: float = 12.0,
-) -> dict[str, Any]:
-    """向本实例的活任务投递一次页面交互并等结果。
-
-    页面句柄不可序列化也不可跨实例,故只认本地 dict 里的任务;Redis 快照里的
-    远端实例任务在此直接报"不在本实例"。
-    """
-    task = _TASK_STORE._local.get(task_id)
-    if task is None:
-        return {"ok": False, "error": "任务不在本实例(页面句柄仅实例内可用)"}
-    if task.is_terminal():
-        return {"ok": False, "error": f"任务已终态: {task.status}"}
-    if task._page is None:
-        return {"ok": False, "error": "页面句柄未就绪(任务尚未打开页面)"}
-    if action not in _INTERACT_ACTIONS:
-        return {"ok": False, "error": f"未知 action: {action}(合法集 {_INTERACT_ACTIONS})"}
-    if task._interact_q is None:
-        task._interact_q = queue.Queue()
-    rid = uuid.uuid4().hex[:12]
-    task._interact_q.put((rid, action, selector, value))
-    deadline = time.time() + wait_seconds
-    while time.time() < deadline:
-        with task._lock:
-            result = task._interact_results.get(rid)
-        if result is not None:
-            return result
-        time.sleep(0.2)
-    return {"ok": False, "error": "交互超时:任务线程未在窗口内处理(任务可能已退出等待循环)"}
 
 
 # ---------------------------------------------------------------------------
@@ -1320,32 +1205,6 @@ def _run_toutiao_wechat_flow(task: ScanTask) -> None:
             _persist_task(task)
 
 
-# 连接类故障指纹(2026-09-30):站点宕机 / DNS 失败 / 地址不可达 / 断网 / 超时。
-_NET_UNREACHABLE_RE = re.compile(
-    r"ERR_CONNECTION|ERR_NAME_NOT_RESOLVED|ERR_ADDRESS_UNREACHABLE"
-    r"|ERR_INTERNET_DISCONNECTED|ERR_TIMED_OUT|TimeoutError"
-)
-
-
-def _login_page_open_failure_message(exc: BaseException) -> str:
-    """把"打不开登录页"的异常转成用户可读文案。
-
-    立因(2026-09-30 用户要求):人民网登录域对本机网络完全不可达(站点级故障),
-    而界面把 `Page.goto: net::ERR_CONNECTION_CLOSED ...` 原样抛给用户 —— 用户
-    无从分辨"平台坏了"和"我们坏了",只能来报"程序不好使"。这一类必须明说
-    平台侧问题。oschina 旧登录路径废弃 + WAF 挂起到超时同属这一族。
-    非连接类(选择器/脚本/渲染异常)保留类型名与原文 —— 那才是我们该修的,
-    把它也糊成"平台故障"就是替自己的缺陷遮责。
-    """
-    raw = f"{type(exc).__name__}: {str(exc)[:200]}"
-    if _NET_UNREACHABLE_RE.search(raw):
-        return (
-            "该平台登录页当前无法访问(平台侧故障或网络受限),非本系统问题,"
-            "请稍后重试;若持续不可用请到该平台官网确认登录入口是否变更。"
-        )
-    return f"打开登录页失败:{raw}"
-
-
 # ---------------------------------------------------------------------------
 # 后台扫码登录任务
 # ---------------------------------------------------------------------------
@@ -1431,7 +1290,7 @@ def _run_scan_task(task: ScanTask) -> None:
                 page.goto(config["login_url"], wait_until="domcontentloaded", timeout=30000)
             except Exception as e:
                 task.status = "failed"
-                task.message = _login_page_open_failure_message(e)
+                task.message = f"打开登录页失败:{type(e).__name__}: {str(e)[:200]}"
                 task.completed_at = time.time()
                 _persist_task(task)  # P2 修复(2026-08-06): 终态同步到 Redis
                 return
@@ -1479,16 +1338,11 @@ def _run_scan_task(task: ScanTask) -> None:
             _persist_task(task)  # P2 修复(2026-08-06): 状态变更同步到 Redis
 
             # 4. 轮询检测登录成功
-            # 2026-09-30:5→10 分钟。多步验证(扫码后短信码往来)需要余量,5 分钟
-            # 实测不够人在环上往返;二维码自身 2 分钟过期与此窗口独立。
-            timeout_seconds = 10 * 60
+            timeout_seconds = 5 * 60  # 5 分钟超时
             start_time = time.time()
             last_screenshot_time = 0.0
 
             while not task._stop_event.is_set():
-                # 2026-09-30 任务交互:短信验证码等多步验证由 API 端点投递,此处消费。
-                # 必须在任务线程内执行 —— sync Playwright 非线程安全。
-                _drain_interactions(task, page)
                 # P2 修复(2026-08-06): 检测其它实例的状态变更(取消/过期),
                 # 避免本线程在跨实例取消后继续运行并覆盖终态
                 _redis = _TASK_STORE._get_redis()
@@ -1780,11 +1634,7 @@ def _extract_qr_image(page: Any, selectors: Sequence[str]) -> str | None:
                     import httpx
 
                     r = httpx.get(data_url, timeout=10.0, follow_redirects=True)
-                    # 2026-09-30:微信官方码(connect/qrcode)下发的是 **JPEG**,
-                    # 只认 PNG 魔数会把 oschina 这类"能直取原图"的平台白退回截图。
-                    if r.status_code == 200 and (
-                        r.content[:8].startswith(b"\x89PNG") or r.content[:3] == b"\xff\xd8\xff"
-                    ):
+                    if r.status_code == 200 and r.content[:8].startswith(b"\x89PNG"):
                         return base64.b64encode(r.content).decode("ascii")
         except Exception as e:  # noqa: BLE001 — 单个候选失败继续下一个
             logger.debug(f"[scan_login] 码图提取候选失败 {sel}:{e}")
