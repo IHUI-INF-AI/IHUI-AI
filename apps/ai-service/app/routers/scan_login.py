@@ -52,6 +52,10 @@ router = APIRouter(prefix="/publish/scan-login", tags=["publish-scan-login"])
 # =============================================================================
 class StartScanRequest(BaseModel):
     platform: str = Field(..., description="平台 ID,如 zhihu / bilibili / xiaohongshu")
+    reuse_session: bool = Field(
+        True,
+        description="会话复用:True=该平台已有有效登录态时直接复用(免扫码);False=强制全新扫码(清登录态出码)",
+    )
 
 
 # =============================================================================
@@ -76,7 +80,7 @@ async def start_scan(body: StartScanRequest, request: Request) -> dict[str, Any]
     """启动扫码登录任务。返回 task_id,前端轮询 status + qr。"""
     user_id = await get_current_user_id(request)
     try:
-        task = start_scan_task(user_id=user_id, platform=body.platform)
+        task = start_scan_task(user_id=user_id, platform=body.platform, reuse_session=body.reuse_session)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

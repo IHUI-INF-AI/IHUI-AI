@@ -34,6 +34,7 @@ import time
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -159,7 +160,20 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         # 首页「登录/注册」按钮现指向 /home/login,直达它。
         "login_url": "https://www.oschina.net/home/login",
         "success_cookies": ["_user_token", "osc"],
-        "success_url_pattern": r"oschina\.net/u/\d+|my\.oschina\.net",
+        # 2026-09-30 补首页特征:wx 扫码确认后回调落地页是 www.oschina.net/ 首页,
+        # 旧特征(oschina.net/u/N | my.oschina.net)永远匹配不到它。
+        "success_url_pattern": (
+            r"oschina\.net/u/\d+|my\.oschina\.net|^https?://(www\.)?oschina\.net/?($|#|\?)"
+        ),
+        # 2026-09-30 自适应登录检测(名单过时自愈)。实证:页面已登录(oschina 首页+
+        # 头像)而 _user_token/osc 双双不命中,publish_accounts 里 oschina 账号历史 0 ——
+        # 检测循环活着(截图持续更新)却永不翻 success,唯一存活解释是名单过时。
+        # 判据:整页跳过授权页 → 回本域非登录页 → cookie 罐出现基线之外的新名字。
+        # 落库走 _collect_platform_relevant 的域名归属表,不依赖 success_cookies 名单。
+        "adaptive_oauth": {
+            "oauth_url_pattern": r"^https?://open\.weixin\.qq\.com/",
+            "site_url_pattern": r"^https?://([^/?#]+\.)?oschina\.net(:\d+)?(/|$|\?)",
+        },
         # 2026-09-30 探针实锤:该页有微信登录(第三方图标行 #icon-wx),但**必须先勾协议**,
         # 否则前端直接吞掉微信图标的点击(0 请求 0 跳转)。顺序点击计划两步:
         #   ① 勾协议 —— 只能点视觉盒 `label.login-agreement span.ant-checkbox`:
@@ -600,6 +614,9 @@ class ScanTask:
     # booting 启动浏览器 → opening 打开登录页 → switching 切到扫码 → rendering 等码渲染
     # → ready 码已就绪。前端按值映射文案,后端只给机器可读的值。
     stage: str = "booting"
+    # 2026-09-30 会话复用:True=优先复用上一次登录态(命中则免扫码直接成功);
+    # False=强制全新扫码(clear_cookies,出码语义)。默认 True 由前端开关下发。
+    reuse_session: bool = True
     qr_image_b64: str = ""  # base64 PNG 截图
     qr_image_updated_at: float = 0.0
     cookies: dict[str, str] = field(default_factory=dict)
@@ -1084,7 +1101,7 @@ def list_tasks(user_id: str | None = None) -> list[ScanTask]:
     return tasks
 
 
-def create_task(user_id: str, platform: str) -> ScanTask:
+def create_task(user_id: str, platform: str, reuse_session: bool = True) -> ScanTask:
     """创建任务:写入本地工作副本 + Redis(带 TTL)。"""
     if platform not in PLATFORM_SCAN_CONFIG:
         raise ValueError(f"不支持的平台: {platform},可用: {list(PLATFORM_SCAN_CONFIG.keys())}")
@@ -1092,6 +1109,7 @@ def create_task(user_id: str, platform: str) -> ScanTask:
         task_id=str(uuid.uuid4()),
         user_id=user_id,
         platform=platform,
+        reuse_session=bool(reuse_session),
     )
     _TASK_STORE.put_local(task)
     _persist_task(task)
@@ -1514,6 +1532,79 @@ def _login_page_open_failure_message(exc: BaseException) -> str:
 # ---------------------------------------------------------------------------
 # 后台扫码登录任务
 # ---------------------------------------------------------------------------
+def _platform_profile_dir(platform: str) -> Path:
+    """常驻登录档的 user_data_dir(2026-09-30 会话复用票):每平台一份,放在 ai-service
+    的 data/ 下(已被 .gitignore 覆盖)。承载上一次扫码的登录态 —— 复用档靠它在
+    goto 一回来就能探到 success cookies,整个扫码环节直接跳过;强制新扫码档同样用
+    它(拿到 HTTP 缓存),只是登录态被 clear_cookies 抹掉。env SCAN_LOGIN_PROFILE_DIR
+    可整体改存放位置。平台名做文件名净化。
+    """
+    base = os.environ.get("SCAN_LOGIN_PROFILE_DIR")
+    root = Path(base) if base else Path(__file__).resolve().parents[2] / "data" / "scan-profiles"
+    safe = re.sub(r"[^A-Za-z0-9_-]", "_", platform)[:64] or "default"
+    return root / safe
+
+
+class _BrowserLease:
+    """常规档与常驻档的统一清理口:常驻档没有独立 browser 对象(context.close() 即关)。"""
+
+    def __init__(self, context: Any, browser: Any = None) -> None:
+        self.context = context
+        self._browser = browser
+
+    def close(self) -> None:
+        with contextlib.suppress(Exception):
+            self.context.close()
+        if self._browser is not None:
+            with contextlib.suppress(Exception):
+                self._browser.close()
+
+
+_LAUNCH_ARGS = [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--disable-blink-features=AutomationControlled",  # 反检测
+]
+
+_CTX_KWARGS: dict[str, Any] = {
+    "viewport": {"width": 1280, "height": 800},
+    "locale": "zh-CN",
+    "timezone_id": "Asia/Shanghai",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+}
+
+
+def _open_browser_and_lease(p: Any, platform: str, chromium_path: str | None) -> _BrowserLease:
+    """开浏览器+上下文。优先常驻登录档(每平台一份 user_data_dir:登录态跨任务存活
+    的载体,顺带复用 HTTP 缓存);目录被同平台并发任务占用等场景启动失败时,静默退回
+    临时档 —— 提速/复用档绝不能变成故障档。**这里不清 cookie**:登录态去留由调用方
+    按 reuse_session 决定。
+    """
+    if os.environ.get("SCAN_LOGIN_PERSISTENT_PROFILE", "1") not in ("0", "false", "False"):
+        profile_dir = _platform_profile_dir(platform)
+        try:
+            profile_dir.mkdir(parents=True, exist_ok=True)
+            context = p.chromium.launch_persistent_context(
+                str(profile_dir),
+                executable_path=chromium_path,
+                headless=True,
+                args=_LAUNCH_ARGS,
+                **_CTX_KWARGS,
+            )
+            logger.info(f"[scan_login] 常驻登录档启用: {profile_dir}")
+            return _BrowserLease(context)
+        except Exception as e:  # noqa: BLE001 — 占用/损坏等一律退回临时档
+            logger.info(f"[scan_login] 常驻登录档不可用,退回临时档: {e}")
+    browser = p.chromium.launch(
+        executable_path=chromium_path,
+        headless=True,
+        args=_LAUNCH_ARGS,
+    )
+    return _BrowserLease(browser.new_context(**_CTX_KWARGS), browser)
+
+
 def _run_scan_task(task: ScanTask) -> None:
     """在后台线程中执行扫码登录流程。"""
     config = PLATFORM_SCAN_CONFIG[task.platform]
@@ -1538,23 +1629,14 @@ def _run_scan_task(task: ScanTask) -> None:
             # 启动浏览器(2026-07-30:指定 executable_path 解决 PLAYWRIGHT_BROWSERS_PATH 指向 D 盘但浏览器在 C 盘的问题)
             chromium_path = _find_chromium_executable()
             logger.info(f"[scan_login] Chromium 路径: {chromium_path or '(Playwright 默认)'}")
-            browser = p.chromium.launch(
-                executable_path=chromium_path,  # None 时 Playwright 用默认解析
-                headless=True,  # 后端 headless,前端通过截图看
-                args=[
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--disable-blink-features=AutomationControlled",  # 反检测
-                ],
-            )
-            context = browser.new_context(
-                viewport={"width": 1280, "height": 800},
-                locale="zh-CN",
-                timezone_id="Asia/Shanghai",
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            )
+            # 2026-09-30 会话复用票:常驻登录档承载上一次扫码的登录态;复用档不清
+            # cookie(靠它秒连),强制新扫码档清 cookie(出新码)。临时档(并发退回)
+            # 天然无历史,清不清都一样,统一走清 cookie 分支保持语义单一。
+            lease = _open_browser_and_lease(p, task.platform, chromium_path)
+            context = lease.context
+            if not task.reuse_session:
+                with contextlib.suppress(Exception):
+                    context.clear_cookies()
 
             # 2026-09-30 四次提速(资源减负):登录页外链的视频/音频/字体/第三方埋点
             # 对"出码"零贡献,却和码接口抢同一台机器的带宽与 CPU(实测本机 CPU 饱和时
@@ -1631,6 +1713,42 @@ def _run_scan_task(task: ScanTask) -> None:
                 task.completed_at = time.time()
                 _persist_task(task)  # P2 修复(2026-08-06): 终态同步到 Redis
                 return
+
+            # 2026-09-30 会话复用(用户拍板):goto 一回来就探测已有登录态 —— 常驻档里
+            # 上一次扫码种下的 success cookies 若仍有效,此刻就在 context.cookies() 里,
+            # 一次读取(~10ms)即可判定,命中则走与扫码成功**完全相同**的保存链路
+            # (collect → schedule_account_save → persist),整个扫码环节直接跳过。
+            # 未命中(首次登录/已过期/强制新扫码)连一次额外等待都没有,原 QR 流程照走。
+            # require_url_match 平台(people 等用通用会话 cookie 的)沿用循环里同一条
+            # 复合判据:cookie 命中还须 URL 匹配,防登录页即存在的会话 cookie 误报。
+            if task.reuse_session:
+                try:
+                    _reuse_cookies = context.cookies()
+                    _reuse_dict = {c["name"]: c["value"] for c in _reuse_cookies if c.get("value")}
+                    _reuse_matched = [
+                        t
+                        for t in _cookie_hits(config, _reuse_dict)
+                        if _url_matches_success(config, page.url) or not config.get("require_url_match")
+                    ]
+                except Exception:  # noqa: BLE001 — 探测失败绝不影响主流程
+                    _reuse_matched = []
+                if _reuse_matched:
+                    logger.info(
+                        f"[scan_login] 任务 {task.task_id} 检测到已有登录状态,直接复用(免扫码): {_reuse_matched[0]}"
+                    )
+                    task.cookies = {k: v for k, v in _reuse_dict.items() if k in _reuse_matched}
+                    task.all_relevant_cookies = _collect_platform_relevant(
+                        _account_platform_of(task.platform), _reuse_dict, _reuse_cookies, config
+                    )
+                    task.status = "success"
+                    task.message = "检测到该平台已有登录状态,已直接复用(未出码)"
+                    task.completed_at = time.time()
+                    with contextlib.suppress(Exception):
+                        _update_qr_screenshot(task, page)
+                    _schedule_account_save(task)
+                    _persist_task(task)
+                    lease.close()
+                    return
 
             _qr_wait_sels = _qr_ready_selectors(config)
             # 2026-09-30 三次提速:goto 之后的 `wait_for_timeout(3000)` 是第三块大固定等待。
@@ -1768,6 +1886,27 @@ def _run_scan_task(task: ScanTask) -> None:
             task.message = f"请用 {config['name']} App 扫描二维码"
             logger.info(f"[scan_login] 任务 {task.task_id} 进入等待扫码状态")
             _persist_task(task)  # P2 修复(2026-08-06): 状态变更同步到 Redis
+
+            # 自适应检测状态初始化(2026-09-30):oschina 这类点微信图标后**整页跳**
+            # open.weixin.qq.com 的平台,授权页跳转发生在进入主循环之前 ——
+            # 这里按当前 URL 补一次授权页判定,并记下扫码前的 cookie 名基线。
+            _adaptive_cfg = config.get("adaptive_oauth")
+            _saw_oauth = bool(
+                _adaptive_cfg and re.search(_adaptive_cfg["oauth_url_pattern"], page.url)
+            )
+            _cookie_baseline: set[str] = set()
+            if _adaptive_cfg:
+                try:
+                    _cookie_baseline = {
+                        c["name"] for c in context.cookies() if c.get("value")
+                    }
+                except Exception:
+                    _cookie_baseline = set()
+            if _saw_oauth:
+                logger.info(
+                    f"[scan_login] 任务 {task.task_id} 自适应检测:进入主循环时已在授权页, "
+                    f"cookie 基线 {len(_cookie_baseline)} 个名字"
+                )
 
             # 4. 轮询检测登录成功
             # 2026-09-30:5→10 分钟。多步验证(扫码后短信码往来)需要余量,5 分钟
@@ -1915,13 +2054,89 @@ def _run_scan_task(task: ScanTask) -> None:
                         _persist_task(task)  # P2 修复(2026-08-06): 成功终态同步到 Redis
                         break
 
+                # 自适应登录检测(2026-09-30,adaptive_oauth 配置门控):
+                # success_cookies 名单过时的平台自愈通道。实证(oschina):页面已登录而
+                # _user_token/osc 双双不命中、URL 也不在旧特征里 —— 上面两条主检测永远哑火。
+                # 判据:页面去过授权页 → 现在回到本域且不在登录页 → cookie 罐出现基线之外
+                # 的新名字。落库走 _collect_platform_relevant 的域名归属表,不依赖名单名。
+                if _adaptive_cfg and task.status in ("waiting_scan", "scanned"):
+                    _now_url = page.url
+                    if re.search(_adaptive_cfg["oauth_url_pattern"], _now_url):
+                        # 还停在授权页:基线持续取"扫码前最后时刻"的名字集
+                        _saw_oauth = True
+                        _cookie_baseline = set(cookies_dict)
+                    elif _saw_oauth and re.search(
+                        _adaptive_cfg["site_url_pattern"], _now_url
+                    ) and not _url_is_login_page(_now_url):
+                        # 页面离开授权页回到本站 = 用户已扫码确认(通用 Playwright 流
+                        # 原本从不设 scanned,弹窗防误杀与免倒计时都认这个状态)。
+                        if task.status == "waiting_scan":
+                            task.status = "scanned"
+                            task.message = "已扫码,授权回调中…"
+                            _persist_task(task)
+                        _new_names = {k for k in cookies_dict if k not in _cookie_baseline}
+                        if _new_names:
+                            _dbg_dom = {c["name"]: c.get("domain", "") for c in cookies}
+                            logger.info(
+                                f"[scan_login] 任务 {task.task_id} 自适应命中(授权回调回站): "
+                                f"url={_now_url[:120]}, 新cookie={sorted(_new_names)}, "
+                                f"domains={_dbg_dom}"
+                            )
+                            task.cookies = {
+                                k: v for k, v in cookies_dict.items() if k in _new_names
+                            }
+                            task.all_relevant_cookies = _collect_platform_relevant(
+                                _account_platform_of(task.platform),
+                                cookies_dict, cookies, config,
+                            )
+                            task.status = "success"
+                            task.message = (
+                                f"登录成功(自适应检测),获取到 {len(task.all_relevant_cookies)} 个 cookies"
+                            )
+                            task.completed_at = time.time()
+                            _update_qr_screenshot(task, page)
+                            _schedule_account_save(task)
+                            _persist_task(task)
+                            break
+                        elif task.message != "已回到站点,等待登录 cookie 落地…":
+                            task.message = "已回到站点,等待登录 cookie 落地…"
+                            _persist_task(task)
+
+                # 诊断转储(2026-09-30,SCAN_LOGIN_DEBUG_DIR 门控;取证用,取值只记长度)
+                _debug_dir = os.environ.get("SCAN_LOGIN_DEBUG_DIR")
+                if _debug_dir and task.status in ("waiting_scan", "scanned"):
+                    try:
+                        os.makedirs(_debug_dir, exist_ok=True)
+                        with open(
+                            os.path.join(_debug_dir, f"{task.task_id}.json"),
+                            "w", encoding="utf-8",
+                        ) as _df:
+                            json.dump(
+                                {
+                                    "ts": time.time(),
+                                    "url": page.url,
+                                    "status": task.status,
+                                    "saw_oauth": _saw_oauth,
+                                    "baseline_n": len(_cookie_baseline),
+                                    "cookies": [
+                                        {
+                                            "name": c["name"],
+                                            "domain": c.get("domain", ""),
+                                            "len": len(c.get("value") or ""),
+                                        }
+                                        for c in cookies
+                                        if c.get("value")
+                                    ],
+                                },
+                                _df, ensure_ascii=False, indent=1,
+                            )
+                    except Exception:
+                        pass
+
                 page.wait_for_timeout(1500)
 
-            # 清理
-            with contextlib.suppress(Exception):
-                context.close()
-            with contextlib.suppress(Exception):
-                browser.close()
+            # 清理(2026-09-30 会话复用票:常驻档 context.close() 即关浏览器,统一走 lease)
+            lease.close()
 
     except Exception as e:
         logger.exception(f"[scan_login] 任务 {task.task_id} 异常")
@@ -2840,10 +3055,10 @@ async def detect_login_from_cdp_session(
 # ---------------------------------------------------------------------------
 # 公共 API
 # ---------------------------------------------------------------------------
-def start_scan_task(user_id: str, platform: str) -> ScanTask:
+def start_scan_task(user_id: str, platform: str, reuse_session: bool = True) -> ScanTask:
     """启动后台扫码登录任务(立即返回 task_id)。"""
     _cleanup_expired_tasks()
-    task = create_task(user_id, platform)
+    task = create_task(user_id, platform, reuse_session=reuse_session)
     thread = threading.Thread(
         target=_run_scan_task,
         args=(task,),
