@@ -4256,26 +4256,6 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- AI 面板装载守门(1 项,blocking)---
-  {
-    id: '169',
-    label:
-      'AI 面板装载守门:GlobalShell/AISidePanel 的骨架占位几何一致 + 8 个重组件懒加载边界 + inferVendor 单一来源(首屏延迟根治防回潮,2026-09-30)',
-    script: 'check-ai-panel-mount-guards.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_AI_PANEL_MOUNT_GUARDS',
-    stagedTriggers: ['apps/web/src/components/layout/GlobalShell.tsx', 'apps/web/src/components/ai/ai-side-panel.tsx'],
-    onFailHint: [
-      '',
-      '单独复现:node scripts/check-ai-panel-mount-guards.mjs --staged(或 --worktree 人工排查)',
-      '自检:node scripts/check-ai-panel-mount-guards.mjs --self-test(44 例,正反成对)',
-      '判据:R1 GlobalShell 两处占位(dynamic loading + Suspense fallback)几何一字不动且内部是骨架;R2 ai-side-panel 8 个重组件只准动态 import;inferVendor 只从 vendor-infer 导入',
-      '修复方向:恢复懒加载边界与骨架占位,不要把重组件改回静态 import(零视觉症状的性能回退,测试抓不到,只有这道门能咬住)',
-      '',
-    ].join('\n'),
-  },
-
   // --- info (1 项) ---
   {
     id: '23',
@@ -4304,6 +4284,25 @@ const checks = [
       '  自验:node scripts/check-radius-role-conformance.mjs --files <你改的文件>;',
       '  存量还剩多少:同命令加 --json(数字一律现读,勿照文档抄)。',
       '  紧急跳过:HUSKY_SKIP_RADIUS_ROLE_CONFORMANCE=1(仅限红确属他人文件时)。',
+    ].join('\n'),
+  },
+  // --- 旁路落地声明面对账(写回旧态那一型;G-978069 复裁判据落地)(1 项,blocking)---
+  {
+    id: '170',
+    label:
+      '🛰 旁路落地声明面对账(blocking,留痕声明面 ⊉ 实际面 ∧ 射程外路径写回旧 blob ⇒ 红并点名;增量台账每枚判一次)',
+    script: 'check-bypass-landing-scope.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_BYPASS_LANDING_SCOPE',
+    onFailHint: [
+      '',
+      '  💡 G-978069 那一型:旁路入库(object-space-land / live-doc-edit / commit-tree+CAS)的提交把',
+      '     **声明路径之外**的路径按旧副本整文件写回,吞掉别人已入库的内容 —— 提交链三道门(84 R1 /',
+      '     100 / 30c)都跑在钩子里,拦不到结构上不跑钩子的旁路通道;本门按留痕日志事后逐枚复量。',
+      '     修复只有前向回补(§22 不重写历史):按被吞内容的原 blob 重新落地,参照 cfabf3128a 的形态;',
+      '     判红已记入增量台账(.workbuddy/bypass-landing-scope-audited.json),不会反复红,但内容必须修。',
+      '     单独复验:node scripts/check-bypass-landing-scope.mjs',
     ].join('\n'),
   },
 ]
