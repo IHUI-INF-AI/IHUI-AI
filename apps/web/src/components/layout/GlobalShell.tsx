@@ -14,6 +14,8 @@ import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Sidebar } from '@/components/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TooltipProvider } from '@/components/feedback'
+// 2026-09-30 用户强制要求(0ms 在场):AISidePanel 回归静态 import(见下方大段注释的 2026-09-30 修订)
+import { AISidePanel as AISidePanelImpl } from '@/components/ai/ai-side-panel'
 
 /** 层栈 id(见 @/lib/overlay-stack):移动端菜单的 Esc 只在栈顶时被消费 */
 const MOBILE_MENU_OVERLAY_ID = 'global-shell-mobile-menu'
@@ -136,12 +138,7 @@ const AiPanelPlaceholder = () => (
   </div>
 )
 
-const AISidePanel = React.memo(
-  dynamic(() => import('@/components/ai/ai-side-panel').then((m) => m.AISidePanel), {
-    ssr: false,
-    loading: AiPanelPlaceholder,
-  }),
-)
+const AISidePanel = React.memo(AISidePanelImpl)
 const WebWorkPanel = React.memo(
   dynamic(() => import('@/components/work-panel/web-work-panel').then((m) => m.WebWorkPanel), {
     ssr: false,
