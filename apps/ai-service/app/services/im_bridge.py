@@ -284,11 +284,19 @@ class ImBridgeService:
         }
         headers: dict[str, str] = {"Content-Type": "application/json"}
         # 内部服务鉴权:对齐 apps/api internal-service-token 契约
-        # x-internal-service-token = AI_CALLBACK_SECRET(与 config.AI_CALLBACK_SECRET 共用)
+        # 2026-09-27:改由 app.core.internal_ticket 统一构造 —— 兼容窗口内**同时**带
+        # 短期票头(x-internal-service-ticket)。外层条件保持原样:目前是"没有常驻密钥
+        # 就不发鉴权头",所以这里也只在有常驻密钥时才发。翻到 ticket 档后这个守卫就是
+        # 下一票要动的地方(见 apps/api internal-service-token.ts 末尾的翻档判据)。
         # x-user-id = 消息归属用户(适配器所有者,UUID 格式)
         if settings.ai_callback_secret:
-            headers["x-internal-service-token"] = settings.ai_callback_secret
-            headers["x-user-id"] = str(user_id)
+            from ..core.internal_ticket import internal_service_headers
+
+            headers.update(
+                internal_service_headers(
+                    user_id, "im-bridge", legacy_token=settings.ai_callback_secret
+                )
+            )
 
         try:
             from .api_client import get_api_client
