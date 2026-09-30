@@ -4,11 +4,12 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ApiSettingsConfig, ApiSettingsScreenProps, ApiSettingsTestState } from '../../types'
 import { Eye, EyeOff, Check, X } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** API 设置共享屏 — props 注入式跨端组件 */
 export type { ApiSettingsConfig, ApiSettingsScreenProps, ApiSettingsTestState }
@@ -55,7 +56,8 @@ export function ApiSettingsScreen({
 
         <Text style={styles.label}>{t('apiSettings.apiToken')}</Text>
         <View style={styles.inputRow}>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={[styles.input, styles.inputFlex]}
             value={config.token}
             secureTextEntry={!showToken}
@@ -79,7 +81,8 @@ export function ApiSettingsScreen({
         </View>
 
         <Text style={styles.label}>{t('apiSettings.baseUrl')}</Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={config.baseUrl}
           placeholder={defaultBaseUrl}
@@ -91,7 +94,8 @@ export function ApiSettingsScreen({
         />
 
         <Text style={styles.label}>{t('apiSettings.botId')}</Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={config.botId}
           placeholder={t('apiSettings.botIdPlaceholder')}
@@ -102,7 +106,8 @@ export function ApiSettingsScreen({
         />
 
         <Text style={styles.label}>{t('apiSettings.timeout')}</Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={String(config.timeout)}
           placeholder={String(defaultTimeout)}
