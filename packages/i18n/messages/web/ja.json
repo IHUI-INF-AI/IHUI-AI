@@ -27574,6 +27574,18 @@
     "restore": "候補を表示"
   },
   "taskMonitor": {
+    "group": {
+      "artifact": "成果物",
+      "browser": "ウェブページ",
+      "source": "出典"
+    },
+    "emptyGroup": {
+      "artifact": "まだ成果物データはありません :)",
+      "browser": "まだウェブページのデータはありません :)",
+      "source": "まだ出典データはありません :)"
+    },
+    "empty": "まだ価値のある内容はありません",
+    "emptyDescription": "タスク全体で生成されたファイル、ウェブページ、出典がここに継続して集約され、進捗の追跡を支援します。",
     "displayMode": "表示モード",
     "modeSections": "パーティション",
     "modeTabs": "フラット",
