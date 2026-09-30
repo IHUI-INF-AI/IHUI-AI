@@ -16,8 +16,6 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
-  X,
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -119,23 +117,6 @@ export default function WrongQuestionsPage() {
     onSuccess: () => {
       toast.success(t('markSuccess'))
       qc.invalidateQueries({ queryKey: ['exam', 'wrong-questions'] })
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  // AI 讲解:POST /exam/wrong-questions/:questionId/explain(首调生成并落库,此后回放缓存,G-978072)
-  const [explanation, setExplanation] = React.useState<{ title: string; text: string } | null>(null)
-  const explainMut = useMutation({
-    mutationFn: (wq: WrongQuestion) =>
-      api<{ explanation: string; cached: boolean }>(
-        `/api/exam/wrong-questions/${wq.questionId}/explain`,
-        { method: 'POST' },
-      ),
-    onSuccess: (d, wq) => {
-      setExplanation({
-        title: wq.questionTitle || wq.paperTitle || wq.questionId,
-        text: d.explanation,
-      })
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -267,20 +248,6 @@ export default function WrongQuestionsPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={explainMut.isPending}
-                      onClick={() => explainMut.mutate(wq)}
-                    >
-                      {explainMut.isPending &&
-                      explainMut.variables?.questionId === wq.questionId ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-4 w-4" />
-                      )}
-                      {t('aiExplain')}
-                    </Button>
                     {!wq.isMastered && (
                       <Button
                         size="sm"
@@ -299,33 +266,6 @@ export default function WrongQuestionsPage() {
           </TableBody>
         </Table>
       </div>
-
-      {/* AI 讲解结果卡(生成后持久化在错题行,再次点击直接回放缓存) */}
-      {explanation && (
-        <Card>
-          <CardContent className="space-y-2 p-4">
-            <div className="flex items-center justify-between gap-2">
-              <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-                <Sparkles className="h-4 w-4 shrink-0 text-primary" />
-                <span className="truncate">
-                  {t('aiExplain')} · {explanation.title}
-                </span>
-              </p>
-              <Button
-                size="sm"
-                variant="ghost"
-                aria-label="close"
-                onClick={() => setExplanation(null)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-              {explanation.text}
-            </p>
-          </CardContent>
-        </Card>
-      )}
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
