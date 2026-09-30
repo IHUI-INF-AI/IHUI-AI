@@ -90,6 +90,10 @@ import {
   buildToolLedgerAuditIngest,
   type LedgerSnapshot,
 } from '../stream-tool-ledger.js';
+// G-633 回合起点预留号:并发回合不得复用同一 turnId(先 reserve 再落盘)
+import { reserveTurnNumber } from '../turn-reservation.js';
+// G-634 被取消的流也必须持久化:取消路径与正常完成同走结算出口
+import { buildCancelledStreamSettlement } from '../cancelled-stream-settlement.js';
 import {
   primeCompactionSummary,
   getCachedCompactionSummary,
@@ -1385,6 +1389,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let assistantText = '';
   let hadError = false;
   let iterations = 0;
+  // G-633(2026-09-29):回合起点预留号。每轮循环开始时向进程级分配器原子预留,
+  // 账本 turn/streamId 前缀都用它 —— 并发回合(多会话/多 agent)绝不复用同一 turnId。
+  // 0 = 尚无预留(0 号永不发出,循环未启动时预建账本不会带号落盘)。
+  let reservedTurnNumber = 0;
+  // G-634(2026-09-29):取消结算观测口 —— 当前流已收到的内容(onDelta 实时同步;
+  // 整轮文本落盘后即清零,保证结算出口只兜"未落盘的残段",绝不重复入账)。
+  let inFlightStreamText = '';
   let totalPromptTokens = 0;
   let totalCompletionTokens = 0;
   let totalCostUsd = 0;
@@ -1506,9 +1517,11 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       executeToolCall({ name, arguments: args }, opts.ctx);
   const newLedger = (): StreamToolLedger =>
     new StreamToolLedger({
-      turn: iterations,
-      // streamId 带轮次前缀:跨流日志/对账一眼能定位是哪一轮发的流(uuid 仍保证唯一)
-      streamId: `t${iterations}-${randomUUID()}`,
+      // G-633:turn 用回合起点 reserve 出的进程级唯一号,不再用会话内迭代计数 ——
+      // 并发回合各自从 1 数起会复用同一 turnId,落盘的快照/审计事实就无法归轮。
+      turn: reservedTurnNumber,
+      // streamId 带预留号前缀:跨流日志/对账一眼能定位是哪个回合发的流(uuid 仍保证唯一)
+      streamId: `t${reservedTurnNumber}-${randomUUID()}`,
       mayRunEarly: mayDispatchEarly,
     });
   let ledger = newLedger();
@@ -1565,6 +1578,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   try {
     for (let i = 0; i < opts.maxIterations; i++) {
       iterations = i + 1;
+      // G-633 回合起点预留号:先 reserve 再落盘 —— 本轮的账本登记/快照/审计上报
+      // 都归属这个进程级唯一号;换流(supersede/超限重读)沿用同一号(粒度是回合)。
+      reservedTurnNumber = reserveTurnNumber();
       await opts.onIteration?.(iterations, opts.maxIterations);
 
       // P2-4 agent-lifecycle:turnStart hook(每轮开始触发,粒度细于 sessionStart)
@@ -1632,6 +1648,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             },
             onDelta: (delta) => {
               iterationText += delta;
+              inFlightStreamText = iterationText; // G-634 取消结算观测口实时同步
               void opts.onDelta?.(delta);
             },
             // 推理过程增量透传:未传 onReasoning 时零开销(opts.onReasoning 为 undefined 则不开 onReasoning)
@@ -1693,6 +1710,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           signal: opts.signal,
           onDelta: (delta) => {
             iterationText += delta;
+            inFlightStreamText = iterationText; // G-634 取消结算观测口实时同步
             void opts.onDelta?.(delta);
           },
         });
@@ -1844,11 +1862,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         budgetLimited = true;
         opts.messages.push({ role: 'assistant', content: iterationText });
         assistantText += iterationText;
+        inFlightStreamText = ''; // G-634:已落盘的内容移交完毕,结算口清零防重
         break;
       }
 
       opts.messages.push({ role: 'assistant', content: iterationText });
       assistantText += iterationText;
+      inFlightStreamText = ''; // G-634:已落盘的内容移交完毕,结算口清零防重
 
       // 账本收尾不在这里 —— markEndOfStream 必须发生在**本轮派发/裁决之后**:
       // 在派发前收尾会把"待主路径执行"的条目谎报成 stranded,快照也会谎报没跑过。
@@ -2260,6 +2280,18 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   // 对账的时刻 —— 账本没交出去,恢复端就无从判断哪些调用已经真发出去了。
   // (本轮尾已收尾的账本会被幂等标志直接放过,这里只兜"没收尾就退出"的路径。)
   finalizeLedger();
+
+  // G-634(2026-09-29)取消结算出口:取消打断的是"正在流的这一轮",流中已收到
+  // 的部分回答此前随 abort 一起整段蒸发(既不进 messages 也不进 assistantText)。
+  // 取消路径与正常完成同走结算:已有内容先落进 messages/assistantText,下游
+  // --resume / 会话持久化自然带出;终态由 stopReason='cancelled' 承载。内容为空
+  // (一个 delta 都没收到)时不落空消息;已整轮落盘的内容在入账处已清零,绝不重记。
+  if (opts.signal?.aborted && inFlightStreamText) {
+    const settlement = buildCancelledStreamSettlement(inFlightStreamText);
+    opts.messages.push({ role: 'assistant', content: settlement.content });
+    assistantText += settlement.content;
+    inFlightStreamText = '';
+  }
 
   let stopReason: AgentStopReason;
   if (opts.signal?.aborted) {
