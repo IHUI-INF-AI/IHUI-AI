@@ -66,16 +66,21 @@ export default function EduPointsPage() {
   } = useQuery({
     queryKey: ['edu-points', 'redeem'],
     queryFn: () =>
-      api<{ list: RedeemItem[]; balance?: number }>(`/api/points/redeem`).then((d) => d.list ?? []),
+      api<{ list: RedeemItem[]; balance?: number }>(`/api/points/mall/redeem`).then(
+        (d) => d.list ?? [],
+      ),
   })
 
   const [redeemMsg, setRedeemMsg] = React.useState<string | null>(null)
   const [redeemErr, setRedeemErr] = React.useState<string | null>(null)
   const redeemM = useMutation({
     mutationFn: (id: string) =>
-      api<{ points: number; redeemed: number }>(`/api/points/redeem/${encodeURIComponent(id)}`, {
-        method: 'POST',
-      }),
+      api<{ points: number; redeemed: number }>(
+        `/api/points/mall/redeem/${encodeURIComponent(id)}`,
+        {
+          method: 'POST',
+        },
+      ),
     onSuccess: (d) => {
       setRedeemErr(null)
       setRedeemMsg(`${t('myPoints')}: ${d.points}`)
@@ -160,7 +165,7 @@ export default function EduPointsPage() {
         )}
       </div>
 
-      {/* 积分兑换(调用方:GET/POST /api/points/redeem,余额与库存以后端为准) */}
+      {/* 积分兑换(调用方:GET/POST /api/points/mall/redeem,余额与库存以后端为准) */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">{t('channelsTitle')}</h2>
         {redeemMsg && (
