@@ -58,6 +58,8 @@ import {
   newsArticles,
   orders,
   aiGcContent,
+  studyPlans,
+  studyPosts,
 } from '@ihui/database'
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
 import { ensureSafeFetchUrl } from '../utils/ssrf-guard.js'
@@ -223,6 +225,20 @@ const studyProgressSchema = z.object({
 const studyShareSchema = z.object({
   lessonId: z.uuid({ error: '无效的课程 ID' }),
   platform: z.enum(['wechat', 'moments', 'link']).default('link'),
+})
+
+// /study/plan POST + /study/publish POST(2026-09-30 真实化,study_plans / study_posts 表)
+const studyPlanCreateSchema = z.strictObject({
+  title: z.string().min(1, '标题不能为空').max(100),
+  target: z.coerce.number().int().min(1, '目标至少 1 分钟').max(1440).default(30),
+})
+
+const studyPublishSchema = z.strictObject({
+  title: z.string().min(1, '标题不能为空').max(200),
+  content: z.string().min(1, '内容不能为空').max(2000),
+  category: z.string().max(50).optional(),
+  visibility: z.string().max(20).optional(),
+  tags: z.string().max(200).optional(),
 })
 
 const studyCalendarQuerySchema = z.object({
@@ -452,6 +468,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /learn/video/comments — 视频评论列表(comments 表 resourceType='lesson_video')
+  // 联 users 取昵称/头像(小程序 Comment 组件按 nickname 渲染,2026-09-30 补齐)
   server.get('/learn/video/comments', async (request, reply) => {
     const parsed = videoCommentsQuerySchema.safeParse(request.query)
     if (!parsed.success) {
@@ -461,8 +478,17 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     const where = and(eq(comments.resourceType, 'lesson_video'), eq(comments.resourceId, videoId))
     const [list, totalRows] = await Promise.all([
       db
-        .select()
+        .select({
+          id: comments.id,
+          userId: comments.userId,
+          content: comments.content,
+          parentId: comments.parentId,
+          createdAt: comments.createdAt,
+          nickname: users.nickname,
+          avatar: users.avatar,
+        })
         .from(comments)
+        .leftJoin(users, eq(comments.userId, users.id))
         .where(where)
         .orderBy(desc(comments.createdAt))
         .limit(pageSize)
@@ -692,6 +718,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /study/ranking — 学习排行榜(按 lessonRecords 聚合用户:完成数+观看时长)
+  // minutes = 观看秒数折分钟(小程序排行榜页按 minutes 渲染,2026-09-30 补齐)
   server.get('/study/ranking', async (request, reply) => {
     const parsed = rankingQuerySchema.safeParse(request.query)
     if (!parsed.success) {
@@ -703,6 +730,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
         u.nickname,
         u.avatar,
         COALESCE(SUM(lr.watch_duration), 0)::int AS watch_duration,
+        COALESCE(ROUND(SUM(lr.watch_duration) / 60.0), 0)::int AS minutes,
         COUNT(*) FILTER (WHERE lr.status = 2)::int AS completed_count,
         COALESCE(AVG(lr.progress)::int, 0) AS progress
       FROM lesson_records lr
@@ -2352,33 +2380,98 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
-  // 单复数别名(2 组,前端用单数,后端用复数)
-  // /study/plan → 后端无 studyPlans 表,用 lessonSignUps(我的报名)代理
-  // /study/rank → /study/ranking 别名(同聚合查询)
+  // /study/plan(学习计划,2026-09-30 起接真表 study_plans)与 /study/rank 别名
   // ==========================================================================
 
-  // GET /study/plan — 我的学习计划(=我报名的课程列表)
+  // GET /study/plan — 我的学习计划(study_plans 表)
+  // progress 不落库:当日已学分钟由 lesson_records 实时聚合,
+  // 完成度 = min(100, round(当日分钟 / target × 100)) —— 看视频上报进度即自动涨。
   server.get('/study/plan', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
-    const rows = await db
+    const [todayAgg] = await db
       .select({
-        id: lessonSignUps.id,
-        lessonId: lessons.id,
-        title: lessons.title,
-        cover: lessons.coverImage,
-        progress: lessonSignUps.progress,
-        status: lessonSignUps.status,
-        createdAt: lessonSignUps.createdAt,
+        todayMinutes: sql<number>`COALESCE(ROUND(SUM(${lessonRecords.watchDuration}) / 60.0), 0)::int`,
       })
-      .from(lessonSignUps)
-      .innerJoin(lessons, eq(lessonSignUps.lessonId, lessons.id))
-      .where(eq(lessonSignUps.userId, userId))
-      .orderBy(desc(lessonSignUps.createdAt))
+      .from(lessonRecords)
+      .where(
+        and(eq(lessonRecords.userId, userId), sql`${lessonRecords.createdAt}::date = current_date`),
+      )
+    const todayMinutes = todayAgg?.todayMinutes ?? 0
+    const plans = await db
+      .select()
+      .from(studyPlans)
+      .where(eq(studyPlans.userId, userId))
+      .orderBy(desc(studyPlans.createdAt))
+    const list = plans.map((p) => ({
+      id: p.id,
+      title: p.title,
+      target: p.target,
+      minutes: todayMinutes,
+      progress: p.target > 0 ? Math.min(100, Math.round((todayMinutes / p.target) * 100)) : 0,
+      createdAt: p.createdAt,
+    }))
+    return reply.send(success({ list: list as Record<string, unknown>[], todayMinutes }))
+  })
+
+  // POST /study/plan — 新建学习计划(study_plans 表;此前 404,小程序建计划必失败)
+  server.post('/study/plan', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const parsed = studyPlanCreateSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    const [inserted] = await db
+      .insert(studyPlans)
+      .values({ userId, title: parsed.data.title, target: parsed.data.target })
+      .returning({ id: studyPlans.id })
+    return reply.status(201).send(success({ id: inserted!.id }))
+  })
+
+  // GET /study/posts — 我的/公开学习动态(学习主页"最近动态"区)
+  server.get('/study/posts', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+    const rows = await db
+      .select()
+      .from(studyPosts)
+      .where(or(eq(studyPosts.userId, userId), eq(studyPosts.visibility, 'public')))
+      .orderBy(desc(studyPosts.createdAt))
+      .limit(20)
     return reply.send(success({ list: rows as Record<string, unknown>[] }))
   })
 
-  // GET /study/rank — 学习排行榜别名(同 /study/ranking)
+  // POST /study/publish — 发布学习动态(study_posts 表;此前 404 且前端吞错,发布无任何反馈)
+  server.post('/study/publish', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const parsed = studyPublishSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    const { title, content, category, visibility, tags } = parsed.data
+    const [inserted] = await db
+      .insert(studyPosts)
+      .values({
+        userId,
+        title,
+        content,
+        category: category ?? null,
+        visibility: visibility === '公开' ? 'public' : 'private',
+        tags: tags
+          ? tags
+              .split(/[,，\s]+/)
+              .map((t) => t.trim())
+              .filter(Boolean)
+              .slice(0, 10)
+          : [],
+      })
+      .returning({ id: studyPosts.id })
+    return reply.status(201).send(success({ id: inserted!.id }))
+  })
+
+  // GET /study/rank — 学习排行榜别名(同 /study/ranking;补 minutes = watch_duration/60)
   server.get('/study/rank', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = rankingQuerySchema.safeParse(request.query)
@@ -2391,6 +2484,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
         u.nickname,
         u.avatar,
         COALESCE(SUM(lr.watch_duration), 0)::int AS watch_duration,
+        COALESCE(ROUND(SUM(lr.watch_duration) / 60.0), 0)::int AS minutes,
         COUNT(*) FILTER (WHERE lr.status = 2)::int AS completed_count,
         COALESCE(AVG(lr.progress)::int, 0) AS progress
       FROM lesson_records lr
