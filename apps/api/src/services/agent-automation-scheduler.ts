@@ -28,7 +28,6 @@
 import type { FastifyRequest } from 'fastify'
 import { and, eq, isNull, lte, or } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { createSingleFlightTick } from './automations/index.js'
 import { userAutomations, type UserAutomation } from '@ihui/database'
 import { aiServiceFetchStream } from '../utils/ai-service-fetch.js'
 
@@ -465,10 +464,14 @@ export async function executeAutomation(
 const TICK_INTERVAL_MS = 60_000
 const BATCH_LIMIT = 10
 
+let running = false
 let timer: ReturnType<typeof setInterval> | null = null
 
-/** 单轮扫描体:查询到期项并逐条执行(异常上抛给 flight 层记日志,不让轮次静默死亡)。 */
-async function runTickScan(): Promise<void> {
+async function tick(): Promise<void> {
+  // 并发保护:上一轮未结束直接跳过本轮
+  if (running) return
+  running = true
+  try {
     const now = new Date()
     const due = await db
       .select()
@@ -492,19 +495,18 @@ async function runTickScan(): Promise<void> {
       // 单条失败 catch 继续 next(executeAutomation 内部已兜底,这里再兜一层)
       await executeAutomation(automation, null)
     }
+  } catch (err) {
+    console.warn('[agent-automation] 调度 tick 异常', err)
+  } finally {
+    running = false
+  }
 }
-
-// G-668:忙时收到的 tick 不得丢 —— 上一轮未结束时到达的 tick 记账,本轮一结束立即补跑,
-// 不再让用户白等一个轮询周期。工厂与验收用例同源(services/automations/index.ts)。
-const tickFlight = createSingleFlightTick(runTickScan, (err) => {
-  console.warn('[agent-automation] 调度 tick 异常', err)
-})
 
 /** 启动调度器(60s tick);进程内单例,重复调用幂等。 */
 export function startAgentAutomationScheduler(): void {
   if (timer) return
   timer = setInterval(() => {
-    void tickFlight.tick()
+    void tick()
   }, TICK_INTERVAL_MS)
   // 定时器不阻塞进程退出
   if (typeof timer.unref === 'function') timer.unref()
@@ -516,7 +518,6 @@ export function stopAgentAutomationScheduler(): void {
     clearInterval(timer)
     timer = null
   }
-  // 在飞一轮照常结束,已记账的补跑与后续 tick 一律作废(优雅关停语义)
-  tickFlight.stop()
+  running = false
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
