@@ -376,16 +376,6 @@ export function subtractSuppressed(theirsCounter, suppress) {
   return out
 }
 
-/** 被抑制掉的行的**逐条清单**(报告用;调用方决定打印多少)。按块给出,读的人能核对到具体条目。 */
-export function suppressionRoster(result) {
-  return (result?.suppressedBlocks || []).map((b) => ({
-    title: b.title,
-    archivePath: b.archivePath,
-    count: b.suppressed,
-    lines: b.lines,
-  }))
-}
-
 export const __test__ = {
   PLACEHOLDER_TITLE_TRUNC,
   MIN_RUN_LINES,
@@ -400,7 +390,6 @@ export const __test__ = {
   collectReferencedArchives,
   archivedLineSuppressions,
   subtractSuppressed,
-  suppressionRoster,
   trimTrailingEmpty,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
