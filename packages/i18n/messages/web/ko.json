@@ -27568,6 +27568,18 @@
     "restore": "제안 표시"
   },
   "taskMonitor": {
+    "group": {
+      "artifact": "산출물",
+      "browser": "웹 페이지",
+      "source": "출처"
+    },
+    "emptyGroup": {
+      "artifact": "아직 산출물 데이터가 없습니다 :)",
+      "browser": "아직 웹 페이지 데이터가 없습니다 :)",
+      "source": "아직 출처 데이터가 없습니다 :)"
+    },
+    "empty": "아직 가치 있는 내용이 없습니다",
+    "emptyDescription": "작업 전체에서 생성된 파일, 웹 페이지, 출처가 여기에 계속 집계되어 작업 진행 추적을 돕습니다.",
     "displayMode": "표시 방식",
     "modeSections": "섹션",
     "modeTabs": "플랫",
