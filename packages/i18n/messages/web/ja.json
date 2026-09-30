@@ -11221,6 +11221,7 @@
     "permissionUnknownError": "不明なエラー",
     "placeholder": "要件を詳細に入力、/ でスキル・プラグイン・MCP を呼び出し（例 /goal /loop /plan）",
     "placeholderPlan": "計画モード：要件を入力、AIは計画のみ立案しツールを実行しません（/act で戻る、Alt+P で切替）",
+    "aiDisclaimer": "内容はAI生成です。重要な情報はご確認ください。",
     "plan": {
       "ariaLabel": "実行プランステップ",
       "collapseReasoning": "推論を折りたたむ",
