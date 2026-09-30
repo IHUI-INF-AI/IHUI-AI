@@ -220,30 +220,15 @@ export default function CourseDetailPage() {
                 <ProgressBar value={progress} showLabel label={t('progress')} size="md" />
               )}
 
-              {/* 付费课 → 购买确认页(buyconfirm 此前全站无入口,付费课买不了,G-978073);
-                  已报名 → 开始学习(视频播放+AI 助教学习页,/learn 与 /edu/courses 同一 lessons 表);免费课 → 报名 */}
-              {lesson.price > 0 && !lesson.signedUp ? (
-                <Button className="w-full" size="lg" asChild>
-                  <Link href={`/learn/buyconfirm?courseId=${lesson.id}`}>{t('buyNow')}</Link>
-                </Button>
-              ) : lesson.signedUp ? (
-                <>
-                  <Button className="w-full" size="lg" asChild>
-                    <Link href={`/edu/courses/${lesson.id}/learn`}>{t('startLearning')}</Link>
-                  </Button>
-                  <p className="text-center text-xs text-muted-foreground">{t('signedUp')}</p>
-                </>
-              ) : (
-                <Button
-                  className="w-full"
-                  size="lg"
-                  disabled={signUpMut.isPending}
-                  onClick={() => signUpMut.mutate()}
-                >
-                  {signUpMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {t('signUp')}
-                </Button>
-              )}
+              <Button
+                className="w-full"
+                size="lg"
+                disabled={lesson.signedUp || signUpMut.isPending}
+                onClick={() => signUpMut.mutate()}
+              >
+                {signUpMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                {lesson.signedUp ? t('signedUp') : t('signUp')}
+              </Button>
               {signUpMut.isError && (
                 <p className="text-xs text-destructive">{(signUpMut.error as Error)?.message}</p>
               )}

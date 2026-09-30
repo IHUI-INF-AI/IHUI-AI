@@ -11,7 +11,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-import { withFolderMeta, withTagsMeta, type ConversationOrgMap } from '@ihui/shared'
+import {
+  withFolderMeta,
+  withTagsMeta,
+  type ConversationOrgMap,
+} from '@ihui/shared'
 
 import { createPersistConfig } from './persist-helpers'
 
@@ -52,8 +56,6 @@ const EMPTY_ORG_MAP: ConversationOrgMap = {}
 
 /** 当前用户的组织元数据只读 selector(未登录/未就绪时恒空 map) */
 export function useConversationOrgMap(userId: string | null | undefined): ConversationOrgMap {
-  return useConversationOrgStore((s) =>
-    userId ? (s.byUser[userId] ?? EMPTY_ORG_MAP) : EMPTY_ORG_MAP,
-  )
+  return useConversationOrgStore((s) => (userId ? (s.byUser[userId] ?? EMPTY_ORG_MAP) : EMPTY_ORG_MAP))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

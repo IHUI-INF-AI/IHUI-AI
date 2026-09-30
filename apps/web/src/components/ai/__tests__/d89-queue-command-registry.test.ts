@@ -89,9 +89,10 @@ describe('D89 ② 排队语义命令注册', () => {
       const chat = requireNs(msgs, 'chat')
       expect(typeof chat.queueUndoRestored, `${lang}.chat.queueUndoRestored`).toBe('string')
       expect((chat.queueUndoRestored as string).length).toBeGreaterThan(0)
-      expect(typeof chat.queueUndoRestoredQueued, `${lang}.chat.queueUndoRestoredQueued`).toBe(
-        'string',
-      )
+      expect(
+        typeof chat.queueUndoRestoredQueued,
+        `${lang}.chat.queueUndoRestoredQueued`,
+      ).toBe('string')
       expect((chat.queueUndoRestoredQueued as string).length).toBeGreaterThan(0)
     }
   })

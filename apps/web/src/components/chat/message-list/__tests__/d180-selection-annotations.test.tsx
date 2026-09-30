@@ -133,8 +133,8 @@ describe('D180 批注条(独立渲染)', () => {
     const list = () =>
       useSelectionAnnotationsStore.getState().annotationsByMessage[
         selectionAnnotationKey('c1', 'm1')
-      ]
-    expect(list()[0].comment).toBe('新加的评论')
+      ]!
+    expect(list()[0]!.comment).toBe('新加的评论')
     // 评论入 store 后立刻回显在行内(store→渲染单向)
     expect(
       container.querySelector('[data-testid="selection-annotation-item-m1-1"]')?.textContent,
@@ -146,7 +146,7 @@ describe('D180 批注条(独立渲染)', () => {
       )
     })
     expect(list()).toHaveLength(1)
-    expect(list()[0].id).toBe('a')
+    expect(list()[0]!.id).toBe('a')
 
     act(() => {
       fireEvent.click(
@@ -217,9 +217,9 @@ describe('D180 MessageItem 接线(选区动作组第三出口)', () => {
     })
     const stored = useSelectionAnnotationsStore.getState().annotationsByMessage[
       selectionAnnotationKey('c1', 's1')
-    ]
+    ]!
     expect(stored).toHaveLength(1)
-    expect(stored[0].text).toBe(SELECTED)
+    expect(stored[0]!.text).toBe(SELECTED)
     expect(sel.removeAllRanges).toHaveBeenCalledTimes(1)
     // 批注条常驻浮现(不依赖当前选区)
     expect(container.querySelector('[data-testid="selection-annotation-bar-s1"]')).not.toBeNull()

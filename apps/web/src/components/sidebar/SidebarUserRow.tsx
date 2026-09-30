@@ -27,16 +27,20 @@ import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useMounted } from '@/hooks/use-mounted'
 import { useLanguageStore, type Language } from '@/stores/language'
 import { useNotificationStore } from '@/stores/notification'
-import { useChatStore } from '@/stores/chat'
-import { useAiPanelStore } from '@/stores/ai-panel'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { useDownloadTrack } from '@ihui/shared/hooks'
-import { listPendingDecisions, type PendingDecisionItem } from '@ihui/api-client'
 import { DOWNLOADS, isDownloadAvailable, isExternalDownloadHref } from '@/lib/downloads'
 import { Avatar } from '@/components/data/Avatar'
 import { Dropdown, Modal, type DropdownItem } from '@/components/feedback'
-import { NotificationCenter, type NoticeItem } from '@/components/feature-center'
+import {
+  NotificationCenter,
+  type NoticeItem,
+  type PendingDecisionView,
+} from '@/components/feature-center'
 import { LANGUAGES } from './nav-data'
+import { useChatStore } from '@/stores/chat'
+import { useAiPanelStore } from '@/stores/ai-panel'
+import { listPendingDecisions } from '@ihui/api-client'
 
 /** 侧边栏底部用户区:头像 + 用户名 + 下拉菜单。
  *  2026-09-21 用户要求(Qoder 风格):原 SidebarActions 底部 5 按钮
@@ -70,35 +74,35 @@ export function SidebarUserRow({
   // 挂载后再切真实态(与原 SidebarActions 同策略)。
   const isDark = mounted && resolvedTheme === 'dark'
   const [msgOpen, setMsgOpen] = React.useState(false)
-  const openAiPanel = useAiPanelStore((s) => s.openPanel)
-  // D193:决策收件箱数据(null = 未取过,通知中心隐藏该区;[] = 已取、暂无待决策)
-  const [pendingDecisions, setPendingDecisions] = React.useState<PendingDecisionItem[] | null>(null)
 
-  // 站内消息弹窗打开时取一次「我的待决策」(失败静默落空态;只读查询,失败不提示打扰)
+  // D193 决策收件箱装车链(2026-09-30):打开站内消息弹窗 → 只读取数 → 渲染"待我决策"区。
+  // null = 未取数/取数中(整区隐藏);[] = 取数失败或确实为空(渲染空态,只读查询不打扰)。
+  const [pendingDecisions, setPendingDecisions] = React.useState<PendingDecisionView[] | null>(
+    null,
+  )
   React.useEffect(() => {
-    if (!msgOpen || !showAuthed) return
+    if (!msgOpen) return
     let cancelled = false
     listPendingDecisions()
       .then((res) => {
-        if (cancelled) return
-        const items = res.success ? res.data.items : []
-        setPendingDecisions(Array.isArray(items) ? items : [])
+        if (!cancelled) setPendingDecisions(res.data?.items ?? [])
       })
       .catch(() => {
+        // 静默落空态:收件箱是只读增强,失败不弹任何打扰
         if (!cancelled) setPendingDecisions([])
       })
     return () => {
       cancelled = true
     }
-  }, [msgOpen, showAuthed])
+  }, [msgOpen])
 
-  // 点击待决策条目 → 切到对应会话并打开 AI 面板(与侧栏会话点击同一机制:
-  // setConversationId + openPanel,见 sidebar-chat-history.handleSelect)。
-  const handleDecisionClick = (item: PendingDecisionItem) => {
-    if (item.threadId) {
-      useChatStore.getState().setConversationId(item.threadId)
-    }
-    openAiPanel()
+  // 点击待决策条目:有 threadId → 切会话(与 sidebar-chat-history handleSelect 同机制);
+  // 无 threadId → 只开面板。随后开 AI 面板 + 关弹窗 + 收起移动端侧栏。
+  const setConversationId = useChatStore((s) => s.setConversationId)
+  const openPanel = useAiPanelStore((s) => s.openPanel)
+  const handleDecisionItemClick = (item: PendingDecisionView) => {
+    if (item.threadId) setConversationId(item.threadId)
+    openPanel()
     setMsgOpen(false)
     onCloseMobile()
   }
@@ -405,8 +409,8 @@ export function SidebarUserRow({
         <NotificationCenter
           items={noticeItems}
           onMarkAllRead={() => markAllAsRead()}
-          pendingDecisions={showAuthed ? (pendingDecisions ?? undefined) : undefined}
-          onDecisionItemClick={handleDecisionClick}
+          pendingDecisions={pendingDecisions ?? undefined}
+          onDecisionItemClick={handleDecisionItemClick}
         />
       </Modal>
     </div>

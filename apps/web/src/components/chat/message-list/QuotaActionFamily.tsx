@@ -76,7 +76,9 @@ export function QuotaActionFamily({
       {onRetry && (
         <Button size="xs" variant="outline" data-testid={retryTestId} onClick={onRetry}>
           <RotateCcw className="h-3 w-3" aria-hidden="true" />
-          {t('quotaAction.retry')}
+          {/* 复用 `chat.retry`(本命名空间已有的「重试」按钮文案,五语言齐备)——
+              不另立 `quotaAction.retry`,避免同一个词在 chat 下出现第二份真相 */}
+          {t('retry')}
         </Button>
       )}
 
