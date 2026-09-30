@@ -2779,5 +2779,36 @@
   },
   "notification": {
     "pushBannerTitle": "新着メッセージ"
+  },
+  "toolApproval": {
+    "title": "ツール承認",
+    "description": "AI が以下の高リスク操作の実行を要求しています。許可するかどうか確認してください",
+    "approve": "承認",
+    "reject": "拒否",
+    "pendingCount": "他に {count} 件の未承認",
+    "argsPreview": "引数プレビュー",
+    "dangerLevel": "危険度:{level}",
+    "scopeLabel": "許可範囲",
+    "scopeOnce": "今回のみ",
+    "scopeSession": "この会話中",
+    "scopeAlways": "常に許可(90 日後に失効)",
+    "envLabel": "実行環境",
+    "envUnknown": "報告なし(段階から推測せず、拒否して再試行を要求してください)",
+    "envInSandbox": "サンドボックス内で実行",
+    "envOutsideSandbox": "サンドボックス外で実行",
+    "envBackend": "分離方式:{backend}",
+    "envDegraded": "サンドボックス機能を利用できないため、制限付きの直接実行に退避しました",
+    "envNetworkOpen": "今回は外部ネットワークにアクセス可能です",
+    "envNetworkOff": "今回はネットワークを開放しません",
+    "envNetworkBlocked": "ブロックされた接続先",
+    "envNetworkBlockedOne": "{host}:{port}({reason})",
+    "sendFailed": "判断がサーバーに届きませんでした。この要求はまだ保留中です。再試行するか、サーバー側の時間切れ処理に任せてください",
+    "noSession": "セッション ID がありません。今回の判断を返送できません",
+    "empty": "未承認の要求はありません",
+    "trayTitle": "処理済み記録",
+    "clearHistory": "処理済み記録を消去",
+    "openPanel": "{count} 件未承認 · 承認パネルを開く",
+    "rejectedBadge": "拒否済み",
+    "rejectedNextNote": "同種の操作は次回も確認します"
   }
 }
