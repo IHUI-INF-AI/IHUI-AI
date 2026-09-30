@@ -10,6 +10,8 @@
  *  - GET /api/chat/favorites?page=&pageSize=               → { favorites, page, pageSize, total }
  *  - GET /api/chat/templates                                → { list, categories? }
  *  - GET /api/chat/settings                                 → { model, temperature, maxTokens, systemPrompt }
+ *  - GET /api/chat/conversations/:id/history (D35 turn 分片) → { turns, limit, hasMore, nextCursor, projectionState, cursorState }
+ *    (consumed via @ihui/api-client getConversationHistory — never a raw fetch here, AGENTS §3 / 守门 73)
  *
  * 类型契约:Conversation / Template / ChatSettings 本地定义,与 Web 端
  * conversation-list.tsx / templates page / settings page 接口对齐。
@@ -19,6 +21,7 @@
  *   ihui chat history [--page <n>] [--json]
  *   ihui chat favorites [--json]
  *   ihui chat templates [--json]
+ *   ihui chat messages <conversationId> [--turns n] [--pages n] [--replay] [--json]
  *   ihui chat settings [--json]
  */
 
@@ -26,6 +29,15 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 
 import { createApiRequest, extractData, handleError, printJson, resolveApiKeyAsync, resolveBaseUrl } from './http-utils.js';
+import { isServerUuid } from './branch-ops.js';
+import {
+  formatHistoryPageLine,
+  formatHistoryReplayCheckLine,
+  formatHistorySummaryLine,
+  formatHistoryTallyLine,
+  readConversationHistory,
+  resumeConversationHistory,
+} from './history-read-ops.js';
 import { missingTokenHint } from './token-manager.js';
 
 const API_PREFIX = '/api/chat';
@@ -373,6 +385,90 @@ async function showSettings(
   );
 }
 
+// ==================== messages (D35 turn-sharded cursor read) ====================
+
+/** 正整数解析;缺省/非法都回 null(交给共享层的 clamp + 服务端 schema,不在端内自立第二套夹取)。 */
+function parseOptionalPositiveInt(v: string | undefined): number | null {
+  if (v === undefined) return null;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 1 ? n : null;
+}
+
+/**
+ * D35 消费方:按 turn 分片读一个会话的历史,可选再做一次"从断点续读"的回放对账。
+ * 全部投影判据在 `./history-read-ops.ts`(它只用 `@ihui/shared/chat` 的那一份实现);
+ * 这里只做参数解析与打印,一行分页算术都不重写。
+ */
+async function runMessagesProjection(
+  conversationId: string,
+  opts: { turns?: string; pages?: string; replay?: boolean },
+  asJson: boolean,
+): Promise<void> {
+  if (!isServerUuid(conversationId)) {
+    console.error(chalk.red('conversationId must be a server UUID'));
+    process.exitCode = 1;
+    return;
+  }
+  const turns = parseOptionalPositiveInt(opts.turns);
+  const pages = parseOptionalPositiveInt(opts.pages);
+  const initial = await readConversationHistory({
+    conversationId,
+    ...(turns !== null ? { turnsPerPage: turns } : {}),
+    ...(pages !== null ? { maxPages: pages } : {}),
+  });
+
+  if (asJson) {
+    printJson({
+      conversationId,
+      ok: initial.ok,
+      stop: initial.stop,
+      error: initial.error,
+      status: initial.status,
+      tally: initial.tally,
+      perPage: initial.perPage,
+      projectionState: initial.projectionState,
+      cursorState: initial.cursorState,
+      turns: initial.projection.turns.map((t) => ({
+        turnOrdinal: t.turnOrdinal,
+        messages: t.messages,
+      })),
+    });
+  } else {
+    for (const [i, p] of initial.perPage.entries()) console.info(formatHistoryPageLine(i, p));
+    console.info(formatHistoryTallyLine('initial', initial.tally));
+    console.info(formatHistorySummaryLine(initial));
+  }
+
+  if (!initial.ok) {
+    process.exitCode = 1;
+    return;
+  }
+  if (!opts.replay) return;
+
+  const resumed = await resumeConversationHistory({ conversationId, previous: initial });
+  const check = formatHistoryReplayCheckLine(resumed.tally, initial.tally);
+  if (asJson) {
+    printJson({
+      resume: {
+        ok: resumed.ok,
+        stop: resumed.stop,
+        error: resumed.error,
+        tally: resumed.tally,
+        perPage: resumed.perPage,
+        incrementalBytes: resumed.tally.receivedBytes,
+        fullRefetchBytes: initial.tally.receivedBytes,
+        savedRatio: check.savedRatio,
+      },
+    });
+  } else {
+    for (const [i, p] of resumed.perPage.entries()) console.info(formatHistoryPageLine(i, p));
+    console.info(formatHistoryTallyLine('resume', resumed.tally));
+    console.info(check.line);
+    console.info(formatHistorySummaryLine(resumed));
+  }
+  if (!resumed.ok) process.exitCode = 1;
+}
+
 // ==================== 命令注册 ====================
 
 /**
@@ -461,5 +557,36 @@ export function attachChatSubcommands(chatCmd: Command): void {
         handleError('chat settings', err);
       }
     });
+
+  // D35 turn-sharded history reader. ASCII output on purpose — see the header of
+  // ./history-read-ops.ts (adds no Chinese literals to this file, and no new
+  // five-locale word table for a diagnostic surface).
+  chatCmd
+    .command('messages <conversationId>')
+    .description('Turn-sharded conversation history (D35 cursor incremental read)')
+    .option('--turns <n>', 'turns per page (1-100, server clamped)')
+    .option('--pages <n>', 'max pages to walk backwards')
+    .option('--replay', 'after loading, resume from the rollout breakpoint')
+    .option('--json', 'print the projected result as JSON')
+    .action(
+      async (
+        conversationId: string,
+        opts: { turns?: string; pages?: string; replay?: boolean; json?: boolean },
+      ) => {
+        try {
+          const { apiUrl: cliApiUrl, apiKey: cliApiKey } = getRootOpts(chatCmd);
+          const baseUrl = resolveBaseUrl(cliApiUrl);
+          const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
+          if (!apiKey) {
+            console.error(chalk.red(missingTokenHint(baseUrl)));
+            process.exitCode = 1;
+            return;
+          }
+          await runMessagesProjection(conversationId, opts, Boolean(opts.json));
+        } catch (err) {
+          handleError('chat messages', err);
+        }
+      },
+    );
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
