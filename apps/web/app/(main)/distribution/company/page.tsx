@@ -31,6 +31,8 @@ import {
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Avatar } from '@/components/data'
 import { useAuthStore } from '@/stores/auth'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
 
 const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
@@ -66,17 +68,22 @@ export default function DistributionCompanyPage() {
   const tc = useTranslations('common')
   const user = useAuthStore((s) => s.user)
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
   const overviewQ = useQuery({
     queryKey: ['distribution', 'company', 'overview'],
     queryFn: apiOverview,
+    enabled: allow,
   })
   const inviteQ = useQuery({
     queryKey: ['distribution', 'company', 'invite-info'],
     queryFn: apiInviteInfo,
+    enabled: allow,
   })
   const dayMonthQ = useQuery({
     queryKey: ['distribution', 'company', 'day-month'],
     queryFn: apiDayMonth,
+    enabled: allow,
   })
 
   const loading = overviewQ.isLoading || inviteQ.isLoading
@@ -137,6 +144,11 @@ export default function DistributionCompanyPage() {
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
+      {/* 2026-09-30 登录态门 */}
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看分销数据" />
+      ) : (
+      <>
       <Card>
         <CardContent className="min-[640px]:p-3 flex flex-wrap items-center justify-between gap-4 p-3">
           <div className="flex items-center gap-3">
@@ -217,6 +229,8 @@ export default function DistributionCompanyPage() {
           </div>
         </CardContent>
       </Card>
+      </>
+      )}
     </div>
   )
 }

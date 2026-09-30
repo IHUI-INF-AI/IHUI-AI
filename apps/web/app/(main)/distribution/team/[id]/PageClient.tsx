@@ -13,6 +13,8 @@ import { Loader2, ArrowLeft, Users, Crown, Calendar, ChevronRight } from 'lucide
 import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -60,6 +62,8 @@ export default function DistributionTeamDetailPage() {
   const params = useParams<{ id: string }>()
   const locale = useLocale()
   const t = useTranslations('distributionTeamDetailPage')
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
 
   const {
     data: usersData,
@@ -68,12 +72,30 @@ export default function DistributionTeamDetailPage() {
   } = useQuery({
     queryKey: ['distribution', 'invited-users'],
     queryFn: () => api<InvitedUsersData>('/api/distribution/invited-users'),
+    enabled: allow,
   })
 
   const { data: treeData } = useQuery({
     queryKey: ['distribution', 'tree'],
     queryFn: () => api<TreeData>('/api/distribution/tree'),
+    enabled: allow,
   })
+
+  // 2026-09-30 登录态门
+  if (!allow) {
+    return (
+      <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
+        <Link
+          href="/distribution/team"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t('back')}
+        </Link>
+        <AuthGatePrompt message="请先登录后查看团队成员" />
+      </div>
+    )
+  }
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
