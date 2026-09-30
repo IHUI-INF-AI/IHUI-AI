@@ -1,13 +1,13 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CustomerServiceInfo, CustomerServiceScreenProps } from '../../types'
-import { BackChevron } from '../../components/BackChevron'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 /** 客服共享屏 — props 注入式跨端组件 */
 export type { CustomerServiceInfo, CustomerServiceScreenProps }
@@ -44,7 +44,9 @@ export function CustomerServiceScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text style={styles.backText}>{t('common.back')}</Text>
+        </TouchableOpacity>
         <Text style={styles.title}>{t('customerService.title')}</Text>
       </View>
 
@@ -102,6 +104,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
       gap: 12,
     },
+    backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     body: { padding: 14 },
     card: {
@@ -114,7 +117,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     label: { fontSize: 14, color: tk.text.secondary },
-    dot: { width: 8, height: 8, borderRadius: rnRadius.sm }, 
+    dot: { width: 8, height: 8, borderRadius: rnRadius.sm }, // radius-role-exempt: 8x8 状态装饰点，radius=高度一半=真圆，不得方档化 until 2026-11-26
     dotOnline: { backgroundColor: tk.success.DEFAULT },
     dotOffline: { backgroundColor: tk.text.tertiary },
     statusText: { fontSize: 14, fontWeight: '600' },
