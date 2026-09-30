@@ -35,6 +35,38 @@ const git = (args, cwd) =>
     ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', ...args],
     { cwd, encoding: 'utf8', windowsHide: true, timeout: 60000 },
   )
+/**
+ * 受控索引(GIT_INDEX_FILE)那一档 —— 回退判定的端到端**只能**拿它验:共享索引此刻有没有 .tsx
+ * 由并发会话决定(拿它做断言 = 把仓库瞬时状态当尺子,门 103 的 T12 同课),而真提交链用的正是
+ * `GIT_INDEX_FILE=<tmp> git read-tree …` 那条隔离通道(G-978044 现场即此型:非 UI 提交的私有
+ * 索引里结构上没有射程内文件)。全程只写夹具仓自己的副本索引,共享 `.git/index` 与工作树不碰。
+ */
+const gitIdx = (args, cwd, idx) =>
+  execFileSync('git', ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', ...args], {
+    cwd,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60000,
+    env: { ...process.env, GIT_INDEX_FILE: idx },
+  })
+/** 把 HEAD 上**已存在**的 blob 登记进受控索引:`--cacheinfo` 只写索引条目,不写对象库、不写工作树。 */
+const putInIndex = (cwd, idx, rel) =>
+  gitIdx(
+    ['update-index', '--add', '--cacheinfo', `100644,${git(['rev-parse', `HEAD:${rel}`], cwd).trim()},${rel}`],
+    cwd,
+    idx,
+  )
+/** 在受控索引面上跑一次门(main 内部走 execFileSync ⇒ 继承 process.env,换面只在这段里生效)。 */
+async function captureOnIndex(argv, root, idx) {
+  const prev = process.env.GIT_INDEX_FILE
+  process.env.GIT_INDEX_FILE = idx
+  try {
+    return await capture(argv, root)
+  } finally {
+    if (prev === undefined) delete process.env.GIT_INDEX_FILE
+    else process.env.GIT_INDEX_FILE = prev
+  }
+}
 /** 真仓阳性对照按**出处**取 —— 账还完那天 HEAD 上就不再有这条违规,钉 HEAD 的对照会在清偿当天集体失效(票㉗ T18 同一条)。 */
 const PROBE_REF = process.env.IHUI_RADIUS_PROBE_REF || 'acf1927e96'
 const probeBlob = (rel) =>
@@ -734,5 +766,148 @@ test('T32 单份实现反向锁:折算算术只住 length-units,建表出口只�
     !/TARO_RPX_PER_PX\s*=\s*2/.test(gate),
     '门里写死系数值 = 改了源头它还在按旧值判(空支票)',
   )
+})
+
+/**
+ * T33 回退判定端到端(G-978044)。
+ *
+ * 修前实测:本门 `--staged` 在"索引面上枚举到 0 个在射程文件"时判 `无法判定 ⇒ exit 2`,而只改
+ * 文档/语言包/后端的提交**结构上**不带 .tsx/.css ⇒ 每一枚无关提交都被它挡(取证件
+ * `A2-pre-doc-only-staged.txt`,complete/RC=2)。恒挡的唯一出路是各会话走 `--no-verify`,连带
+ * 废掉链上约 197 道对账(§12e)—— 所以这一格必须**照判**,而不是"跳过",也不是"无法判定"。
+ *
+ * 这一例走的是夹具仓 + 私有索引(受控面),不是共享索引:共享索引此刻 stage 了什么由并发会话决定。
+ */
+test('T33 暂存档无射程内文件 ⇒ 回退 HEAD 全量并喊出来(照判:超锚点仍红,HEAD 合规仍绿)', async () => {
+  const dir = mkScratch('radius-role-retreat')
+  try {
+    const put = (rel, text) => {
+      const abs = join(dir, rel)
+      mkdirSync(dirname(abs), { recursive: true })
+      writeFileSync(abs, text)
+    }
+    const tableSrc = headBlob('packages/design-tokens/src/radius.js')
+    git(['init', '-q', '-b', 'main'], dir)
+    put('packages/design-tokens/src/radius.js', tableSrc)
+    put('apps/web/src/a.tsx', 'const s = { card: { borderRadius: rnRadius.xl } }\nexport { s }\n')
+    put('scripts/radius-role-conformance-baseline.json', JSON.stringify({ anchors: {} }))
+    put('docs/notes.md', '一次只改文档的提交\n')
+    git(['add', '-A'], dir)
+    git(['commit', '-q', '-m', 'seed'], dir)
+
+    const idx = join(dir, 'priv-retreat.idx')
+    gitIdx(['read-tree', '--empty'], dir, idx)
+    putInIndex(dir, idx, 'docs/notes.md')
+    assert.deepEqual(
+      gitIdx(['ls-files'], dir, idx).trim().split('\n'),
+      ['docs/notes.md'],
+      '受控索引里必须只有文档 —— 这正是非 UI 提交的结构形态',
+    )
+
+    const red = await captureOnIndex(['--staged'], dir, idx)
+    assert.equal(red.code, 1, '回退=照判:HEAD 全量面自己超锚点就得报红,不得被读成"跳过"')
+    assert.match(red.out, /本次无射程内文件，已回退 HEAD 全量/, '换面必须大声喊出来(静默换面与"没判"同形,§12f)')
+    assert.match(red.out, /判定面 HEAD blob:扫 1 个在射程文件/, '喊完还得给出真的判定面与判定量,否则"回退"只是措辞')
+    assert.doesNotMatch(red.out, /无法判定/, '无射程内文件不是"取不到",不得判成未判定挡掉无关提交')
+    const j = JSON.parse((await captureOnIndex(['--staged', '--json'], dir, idx)).out)
+    assert.equal(j.requestedFace, 'staged', '请求的面要留痕,否则没人看得出换了面')
+    assert.equal(j.face, 'head')
+    assert.ok(j.retreatReason, '机器读面上同样必须看得见这次回退')
+
+    // 配对臂:台账套住 HEAD 自身存量后,回退判完就是 0 —— 回退不是"换面必红",判据一字未宽。
+    put('scripts/radius-role-conformance-baseline.json', JSON.stringify({ anchors: { 'apps/web/src/a.tsx|card': 1 } }))
+    git(['add', '-A'], dir)
+    git(['commit', '-q', '-m', 'anchor'], dir)
+    const clean = await captureOnIndex(['--staged'], dir, idx)
+    assert.equal(clean.code, 0, 'HEAD 全量自身合规 ⇒ 回退判完给 0(锚点仍取该文件 HEAD 自身,没放宽判据)')
+    assert.match(clean.out, /本次无射程内文件，已回退 HEAD 全量/, '绿的那一趟同样必须喊出来')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * T34 「回退判定」与「空扫判死」是两件事,各由各自的用例命中 —— 把它们并成一格,要么每次无关
+ * 提交被挡(修前),要么判据失明伪装成通过(把空扫改成静默绿)。
+ */
+test('T34 两维各归各:有射程内文件而内容取不到 ⇒ 仍 exit 2 且不换面;回退后仍枚举到 0 ⇒ 仍判死', async () => {
+  // —— 臂 A:索引面上**有**射程内文件,但它的内容读不到 ⇒ 未判定(这一格是"失明不得当通过"那把闸)
+  const dir = mkScratch('radius-role-unreadable')
+  try {
+    const put = (rel, text) => {
+      const abs = join(dir, rel)
+      mkdirSync(dirname(abs), { recursive: true })
+      writeFileSync(abs, text)
+    }
+    git(['init', '-q', '-b', 'main'], dir)
+    put('packages/design-tokens/src/radius.js', headBlob('packages/design-tokens/src/radius.js'))
+    put('apps/web/src/a.tsx', 'const s = { card: { borderRadius: rnRadius.xl } }\n')
+    put('scripts/radius-role-conformance-baseline.json', JSON.stringify({ anchors: {} }))
+    git(['add', '-A'], dir)
+    git(['commit', '-q', '-m', 'seed'], dir)
+    const idx = join(dir, 'priv-ghost.idx')
+    gitIdx(['read-tree', '--empty'], dir, idx)
+    putInIndex(dir, idx, 'packages/design-tokens/src/radius.js')
+    putInIndex(dir, idx, 'scripts/radius-role-conformance-baseline.json')
+    // 一个在射程内、内容取不到的条目(索引登记了 40 位 OID,而对象库里没有那个对象)
+    gitIdx(
+      ['update-index', '--add', '--cacheinfo', '100644,0000000000000000000000000000000000000001,apps/web/src/ghost.tsx'],
+      dir,
+      idx,
+    )
+    const a = await captureOnIndex(['--staged'], dir, idx)
+    assert.equal(a.code, 2, '有射程内文件而内容取不到 ⇒ 仍必须是"无法判定"(exit 2),既不冒红也不记绿')
+    assert.match(a.out, /无法判定/)
+    assert.match(a.out, /ghost\.tsx/, '取不到哪一个必须点名')
+    assert.doesNotMatch(a.out, /已回退 HEAD 全量/, '有射程内文件时回退 = 把本次改动放过去')
+  } finally {
+    rmScratch(dir)
+  }
+
+  // —— 臂 B:回退之后**仍然**枚举到 0 个在射程文件 ⇒ 判死。回退不得吃掉这一维。
+  const dir2 = mkScratch('radius-role-retreat-empty')
+  try {
+    const put = (rel, text) => {
+      const abs = join(dir2, rel)
+      mkdirSync(dirname(abs), { recursive: true })
+      writeFileSync(abs, text)
+    }
+    git(['init', '-q', '-b', 'main'], dir2)
+    put('packages/design-tokens/src/radius.js', headBlob('packages/design-tokens/src/radius.js'))
+    put('docs/notes.md', 'HEAD 上就没有 UI 源码的仓\n')
+    git(['add', '-A'], dir2)
+    git(['commit', '-q', '-m', 'seed'], dir2)
+    const idx2 = join(dir2, 'priv-empty.idx')
+    gitIdx(['read-tree', '--empty'], dir2, idx2)
+    putInIndex(dir2, idx2, 'docs/notes.md')
+    const b = await captureOnIndex(['--staged'], dir2, idx2)
+    assert.equal(b.code, 2, '回退后仍空扫 ⇒ 判死("什么都没扫到"永远不得写成"通过")')
+    assert.match(b.out, /无法判定/, '这一格报的是未判定,不是 ✅')
+    assert.doesNotMatch(b.out, /未发现|✅/, '空扫不得被回退通道洗成合格证')
+  } finally {
+    rmScratch(dir2)
+  }
+})
+
+/**
+ * T35 回退判读只有一份(G-978044 的修法约束):必须 import 门 135 那份导出的纯函数,
+ * 本门里不得出现第二个 `shouldRetreatToHead` —— "两处算同一件事必漂移"是本仓记过最多次的失败型,
+ * 而这里的漂移症状是**某一扇门悄悄不再回退**,每一次非 UI 提交又被挡回去。
+ */
+test('T35 回退判据必须是门 135 那一份 import,不得复制第二份;135 的出口被摘线时本门等于没有判据', async () => {
+  const src = readFileSync(SRC, 'utf8')
+  assert.match(
+    src,
+    /import \{ shouldRetreatToHead \} from '\.\/check-api-failure-throw\.mjs'/,
+    '回退判定没引共用出口 —— 本门就是第二份真相',
+  )
+  assert.doesNotMatch(src, /function shouldRetreatToHead/, '本门里又写了一份 shouldRetreatToHead(两处必漂移)')
+  assert.match(src, /retreatReason/, '回退必须留可读证据行,不得静默换面')
+  const g135 = await import(pathToFileURL(join(REPO, 'scripts', 'check-api-failure-throw.mjs')).href)
+  assert.equal(typeof g135.shouldRetreatToHead, 'function', '没 export 的出口等于不存在(门 135 T6 同课)')
+  assert.equal(g135.shouldRetreatToHead({ face: 'staged', hasOnlyFiles: false, stagedInScopeCount: 0 }), true)
+  assert.equal(g135.shouldRetreatToHead({ face: 'staged', hasOnlyFiles: false, stagedInScopeCount: 1 }), false)
+  assert.equal(T.retreatFacePlan({ face: 'head', hasOnlyFiles: false, inScopeCount: 0 }).effFace, 'head')
+  assert.equal(T.retreatFacePlan({ face: 'head', hasOnlyFiles: false, inScopeCount: 0 }).retreatReason, null)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
