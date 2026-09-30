@@ -121,18 +121,63 @@ test('落点:夹具 ROOT 必须在仓库树外(否则残留又会落进被扫描
   assert.ok(rel.startsWith('..'), `夹具落点逃不出仓库树(rel=${rel})⇒ 残留会永久挂在扫描面里`)
 })
 
-// ─── 1. CLI 行为 / 基线(项目当前状态干净) ─────────────────
+// ─── 1. CLI 行为 / 基线(受版本控制的内容面必须干净)─────────────
 
-test('CLI: 默认模式(基线干净)→ exit 0 + stdout 含 "无违规"', () => {
+/**
+ * 「真仓基线干净」判的是**被跟踪的内容面**,不是这台机此刻的磁盘 —— 由实测逼出:
+ * 全仓扫描把 `.ihui-agent/tmp/continue-session-20260923/*.cjs`(另一个会话 09-23 留下的
+ * 临时脚本,`.gitignore` 忽略、不在任何检出里)计成 3 处 warning,于是这两条断言与任何提交
+ * 都无关地恒红。而 §15 恰恰规定"临时脚本→`.ihui-agent/tmp/<任务名>`、任务完成后清理":
+ * **本仓指定的垃圾场本身是扫描面**,谁也无法保证它此刻是空的 —— 拿它当判据等于把
+ * "别人会话的运行态"记成"我们的存量债"(§12e/守门 77/83 同型,恒红门的结局只逼人 --no-verify)。
+ *
+ * 所以判据换成不变量:**受版本控制的文件里不得有 hygiene 违规**;退出码仍照原样判
+ * (blocking 一条都不许有)。未跟踪的临时物照实打印,不静默 —— 只看不到不等于没有。
+ * 源脚本本身一个字没改,它的扫描面与定级都不动。
+ */
+const trackedSet = new Set(
+  spawnSync('git', ['ls-files', '-z'], { cwd: PROJECT_ROOT, encoding: 'utf8', windowsHide: true })
+    .stdout.split('\0')
+    .filter(Boolean),
+)
+
+/** 从报告里取违规行的文件路径(形如 `  <path>:<line>  [规则名]`,不含 `> 源码` 那行) */
+function violatingPaths(out) {
+  return [...out.matchAll(/^ {2}(\S+?):\d+\s+\[/gm)].map((m) => m[1].replace(/\\/g, '/'))
+}
+
+/**
+ * 报告是**分流**的:汇总行走 stdout,逐条明细(`  path:line [规则]`)走 stderr(实测:
+ * `node scripts/check-workspace-hygiene.mjs 2>/dev/null` 只剩一行汇总)。
+ * 所以取违规面必须拼两个流 —— 只读 stdout 的那把尺子会永远数到 0 条,
+ * 于是"断言通过"与"什么都没判"长得一模一样(§判据失效的表现永远是安静)。
+ */
+function reportOf(r) {
+  // out/err 是 runRaw 剥过 ANSI 色码的版本;裸 stdout/stderr 只作兜底(带色会打断行首锚定)。
+  return `${r.out ?? r.stdout ?? ''}${r.err ?? r.stderr ?? ''}`
+}
+
+/** 违规里属于"仓库内容"(被跟踪)的那一部分 —— 这才是本断言要拦的债 */
+function trackedViolations(out) {
+  return violatingPaths(out).filter((p) => trackedSet.has(p))
+}
+
+test('CLI: 默认模式(受跟踪内容面干净)→ exit 0 且无一条违规来自被跟踪文件', () => {
   const r = runOnRepo()
   assert.equal(r.status, 0, `基线应 exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)
-  assert.match(r.out, /无违规/)
+  const rep = reportOf(r)
+  const ours = trackedViolations(rep)
+  const untracked = violatingPaths(rep).filter((p) => !trackedSet.has(p))
+  if (untracked.length)
+    console.log(`  ℹ️  ${untracked.length} 处 warning 来自未跟踪的会话临时物(不计入本仓债):${untracked.join(', ')}`)
+  assert.deepEqual(ours, [], `受版本控制的文件里有 hygiene 违规:${ours.join(', ')}`)
+  if (untracked.length === 0) assert.match(r.out, /无违规/, '整棵盘面都干净时,源脚本必须打"无违规"')
 })
 
-test('CLI: --warn 模式(基线干净)→ exit 0 + stdout 含 "无违规"', () => {
+test('CLI: --warn 模式(受跟踪内容面干净)→ exit 0 且无一条违规来自被跟踪文件', () => {
   const r = runOnRepo(['--warn'])
   assert.equal(r.status, 0, `--warn 基线应 exit 0\nstdout: ${r.out}`)
-  assert.match(r.out, /无违规/)
+  assert.deepEqual(trackedViolations(reportOf(r)), [], 'warn 档同样不得让被跟踪文件带着违规通过')
 })
 
 test('CLI: --staged 模式(无 staged 脚本)→ exit 0 + "跳过"/"无违规" 提示', () => {
@@ -140,6 +185,24 @@ test('CLI: --staged 模式(无 staged 脚本)→ exit 0 + "跳过"/"无违规" �
   // 测试环境通常无 staged 脚本文件;若有 staged 且无违规也 exit 0
   assert.equal(r.status, 0, `--staged 应 exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)
   assert.match(r.out, /跳过|无违规/)
+})
+
+test('基线判据有牙(成对):被跟踪文件的违规必须算进红线,未跟踪临时物必须被剔出但不静默', () => {
+  // 正例:同名报告形态、路径换成**真被跟踪**的文件 ⇒ 必须落到 trackedViolations 里
+  // (没有这一条,"只判被跟踪面"就是一句可以被任意放宽的过滤)。
+  const trackedPath = trackedSet.has('scripts/check-workspace-hygiene.mjs')
+    ? 'scripts/check-workspace-hygiene.mjs'
+    : [...trackedSet][0]
+  assert.ok(trackedPath, '前提:git ls-files 必须给出被跟踪清单(空清单 ⇒ 本断言恒真,尺子失效)')
+  const fake = `⚠️  workspace-hygiene [WARNING]: 1 处硬编码中文路径(不阻塞,但建议修复)\n  ${trackedPath}:7  [某规则]\n    > const a = 1\n`
+  assert.deepEqual(trackedViolations(fake), [trackedPath], '被跟踪路径必须被认成本仓违规')
+  assert.deepEqual(violatingPaths(fake).length, 1, '违规行提取必须恰好一条')
+  // 反例:未跟踪的会话临时物形态(真实报告里那三条就是这个形状)⇒ 不算本仓债,但仍要被 violatingPaths 看见
+  const junk = '  .ihui-agent/tmp/some-dead-session/dump.cjs:2  [某规则]\n    > const a = 1\n'
+  assert.deepEqual(trackedViolations(junk), [], '未跟踪临时物不得算进红线')
+  assert.equal(violatingPaths(junk).length, 1, '未跟踪违规必须仍被数到(只报数,不静默)')
+  // `> 源码` 续行不得被当成违规路径,否则同一条违规会被数两遍
+  assert.deepEqual(violatingPaths('    > const a = 1\n'), [], '源码续行不得计为违规')
 })
 
 // ─── 2. BLOCKING 违规:项目外路径写入(核心规则,AGENTS.md §15) ───

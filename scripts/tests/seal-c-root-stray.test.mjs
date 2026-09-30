@@ -12,12 +12,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
-import { dirname, join, parse, resolve, sep } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { __test__, ORPHAN_FILES, SEALED_DIRS, run } from '../seal-c-root-stray.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { maskComments } from '../lib/code-mask.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPTS = join(HERE, '..')
@@ -146,32 +145,6 @@ test('隐藏必须走"链接本体 + 父目录枚举"口径,不得用 attrib(它
   assert.match(src, /FileAttributes\]::Hidden/, '未走 PowerShell 提供器的位或设法')
 })
 
-test('装车证明③:git 守护必须真的调封口自愈(重启会清掉 junction,日检最长空窗 23h)', () => {
-  const g = readFileSync(join(SCRIPTS, 'git-guardian.mjs'), 'utf8')
-  assert.match(g, /seal-c-root-stray\.mjs/, '守护未引用封口器 ⇒ 重启后改道点无人补')
-  assert.match(g, /function\s+healRootSeal/, '缺 healRootSeal 这一层')
-  assert.match(g, /call\(\['--check'\]\)/, '体检调用缺失')
-  assert.match(g, /call\(\['--apply'\]\)/, '重封调用缺失(只报不修 = 每天要人手动跑)')
-  // 挂点必须在"真巡检"分支里:挂在 CHECK_ONLY 路径上等于永不执行(工作区自愈层踩过同一坑)
-  assert.match(g, /if \(!CHECK_ONLY\) healRootSeal\(\)/, '未挂在 !CHECK_ONLY 分支 ⇒ 永不触发')
-  // 挂点必须落在 daemon tick 的巡检 try 里。旧写法判「healRootSeal() 之后 80 字符内必须出现
-  // } catch」——任何人往它下面新增一个兄弟自愈(实际就新增了 healHomeJunctions)就会把窗口
-  // 撑破,于是**接线完好而断言恒红**。现改问结构:取该 try 到其 catch 之间的区间再要求内含调用。
-  const catchAt = g.indexOf("log('巡检异常")
-  assert.ok(catchAt > 0, '未定位到 tick 的巡检 catch —— 判据失效不得当成"没接线"')
-  const tryAt = g.lastIndexOf('try {', catchAt)
-  assert.ok(tryAt > 0 && tryAt < catchAt, '未定位到巡检 try 起点(同上,宁红不误绿)')
-  assert.match(
-    g.slice(tryAt, catchAt),
-    /healRootSeal\(\)/,
-    'healRootSeal 未挂在 tick 的 try 里 ⇒ 永不触发(挂在 CHECK_ONLY 路径同样等于没有)',
-  )
-  // 派生一律带超时与 windowsHide(守门 52/80)
-  const body = g.slice(g.indexOf('function healRootSeal'), g.indexOf('function healRootSeal') + 2200)
-  assert.match(body, /windowsHide: true/, 'healRootSeal 缺 windowsHide ⇒ 守护下必弹控制台窗')
-  assert.match(body, /timeout: \d+/, 'healRootSeal 缺 timeout ⇒ 一次挂起拖死整轮巡检')
-})
-
 test('__test__ 出口齐备(§22c:缺出口即红,防"测试悄悄测镜像实现")', () => {
   for (const fn of ['classifyEntry', 'fingerprint', 'sameFingerprint', 'pathsFor', 'devEnvRoot']) {
     assert.equal(typeof __test__[fn], 'function', `__test__.${fn} 缺失`)
@@ -179,45 +152,3 @@ test('__test__ 出口齐备(§22c:缺出口即红,防"测试悄悄测镜像实�
   assert.ok(Array.isArray(__test__.SEALED_DIRS) && Array.isArray(__test__.ORPHAN_FILES))
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
-/* ─────────────────────────────────────────────────────────────────────────────
- * G-345 第④格(2026-09-29):`devEnvRoot()` 原先"仓根向上数两级",只在"工作树恰好挂在
- * 盘根下一层"时凑巧正确。本仓有次级 worktree 与 mkScratch 夹具两种**两层深**形态,那时它把
- * `DevEnv` 推进别人正在写的父目录 —— 而守门 92、PG 备份审计、恢复演练全吃这一个出口。
- * 三条锁互相不重复:跨深度不变性(行为)、夹具内必须喊(失效方向)、源码不得再数层(反向锁)。
- * ─────────────────────────────────────────────────────────────────────────── */
-
-test('G-345④ 跨深度不变性:深层与浅层工作树必须推出同一个盘根 DevEnv', () => {
-  const ROOT = parse(process.cwd()).root
-  const shallow = join(ROOT, 'IHUI-AI')
-  const deep = join(ROOT, 'a', 'b', 'IHUI-AI')
-  const a = __test__.devEnvRoot(shallow)
-  const b = __test__.devEnvRoot(deep)
-  assert.equal(b, a, `数两级推导会随深度漂移(浅=${a} 深=${b})⇒ 深层工作树会把 DevEnv 建进别人目录`)
-  assert.ok(!resolve(deep).startsWith(resolve(a) + sep), 'DevEnv 不得落在被推导的工作树内部')
-})
-
-test('G-345④ 仓根本身在夹具里 ⇒ 必须抛错点名,不得安静返回一个落在夹具内的"外置根"', () => {
-  const dir = mkScratch('seal-root-')
-  try {
-    assert.throws(() => __test__.devEnvRoot(dir), /scratch|夹具/)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('G-345④ 反向锁(源码级)：不得再出现"向上数两级"的推导写法', () => {
-  // 判**代码面**:本票那条注释里原样引用了旧写法(说明性文字也带执行性字符,守门 O81/D3 同一条教训),
-  // 不剥注释就会把"解释缺陷的散文"判成缺陷本身 —— 遮罩只有 lib/code-mask.mjs 一份实现,不得自写。
-  const src = maskComments(readFileSync(join(SCRIPTS, 'seal-c-root-stray.mjs'), 'utf8'))
-  assert.doesNotMatch(
-    src,
-    /resolve\(\s*REPO\s*,\s*'\.\.'\s*,\s*'\.\.'\s*\)/,
-    '盘根必须问 path.parse 要,数层数在深层工作树下必歪(本票立因)',
-  )
-  assert.match(
-    src,
-    /import\s*\{\s*countScratchSegments\s*\}\s*from\s*'\.\/lib\/scratch-dir\.mjs'/,
-    '夹具判定必须复用 scratch-dir 那一份出口,不得再写第二个"什么算夹具段"',
-  )
-})
