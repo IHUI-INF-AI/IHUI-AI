@@ -11,6 +11,11 @@ import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import dynamic from 'next/dynamic'
+// BrandIcon 的**类型**走 type-only 导入(编译期擦除,不会把 95+ 个 @lobehub/icons 拖回主 chunk)
+import type { BrandIconProps } from '@/components/ai/brand-icon'
+// inferVendor 是纯函数,必须与 BrandIcon 分家:同模块导入会把整个图标集拖回面板 chunk
+import { inferVendor } from '@/components/ai/vendor-infer'
 import {
   Maximize2,
   Minimize2,
@@ -38,17 +43,9 @@ import {
 } from '@/hooks/use-websocket'
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
-import { CompactionStatusBar } from '@/components/chat/compaction-status-bar'
-import { AgentTaskProgressPane } from '@/components/ai/agent-task-progress-pane'
-import { EnvironmentInfoPopover } from '@/components/ai/environment-info-popover'
-import { AiTerminalDock } from '@/components/ai/ai-terminal-dock'
-import { QuestionDialog } from '@/components/chat/question-dialog'
 import { SessionUsageBadge } from '@/components/chat/session-usage-badge'
-import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
-import { AiSidePanelTools } from '@/components/ai/ai-side-panel-tools'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
-import { WorkspacePermissionDialog } from '@/components/workspace/workspace-permission-dialog'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useEnvironmentInfoStore } from '@/stores/environment-info'
@@ -82,6 +79,101 @@ import {
   type ForkFailureReason,
   collectPaneLeaves,
 } from '@ihui/shared/chat/multi-pane'
+
+/* ──────────────────────────────────────────────────────────────────────────────
+ * 懒加载边界(2026-09-30 立 · AI 面板首屏延迟根治)
+ *
+ * 背景:AISidePanel 自身已被 GlobalShell 用 next/dynamic({ ssr:false }) 懒加载,
+ * 但本文件**此前零 lazy**,整条重依赖链被打成同一个 chunk ——
+ * message-list(≈8k 行)/ message-input(1.5k 行)/ terminal-dock(≈2.3k 行)/
+ * agent-task-progress-pane(2k + 7.9k 行)/ brand-icon(95+ 个 @lobehub/icons)…
+ * 结果:必须整包下载并解析完,面板才出现 —— 用户体感"过一会才显示"。
+ *
+ * 方案:把"首屏不需要"的重组件下沉为独立 chunk。主 chunk 只留面板容器 +
+ * header + MessageList + MessageInput,体积与解析成本大幅下降 → 面板可见提前。
+ * 这些块默认不渲染(内部各自 `if (!open) return null`),故视觉上零闪烁;
+ * 打开时才拉对应子 chunk(几十 ms 级,且是并行下载)。
+ *
+ * 刻意**不** lazy 的(改了会更糟):
+ * - MessageList / MessageInput:面板主体。lazy = "面板出现后再空一会"的二次闪烁
+ * - WorkspaceSelector:header 常驻入口,体积小、lazy 反而闪
+ * - SrStreamAnnouncer:aria-live 播报区,延迟挂载会丢掉流式输出首段播报
+ * - CostEstimateBar / PaneSplitContainer:体积收益≈0 或为布局容器(lazy 会塌陷)
+ * - VoiceStreamSpeaker:其 readHandsFree 被 message-input 静态导入,摘不干净,收益为负
+ *
+ * 防回潮:scripts/check-ai-panel-mount-guards.mjs 的 R2 断言下列模块不得改回静态 import,
+ * 且 inferVendor 不得改回从 brand-icon 导入(否则图标集被拖回主 chunk,且零视觉症状)。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 任务进度面板(2k + 7.9k 行):默认关闭,内部 if (!open) return null */
+const AgentTaskProgressPane = dynamic(
+  () => import('@/components/ai/agent-task-progress-pane').then((m) => m.AgentTaskProgressPane),
+  { ssr: false },
+)
+/** 环境信息浮层(817 + 946 行):点击才展开 */
+const EnvironmentInfoPopover = dynamic(
+  () => import('@/components/ai/environment-info-popover').then((m) => m.EnvironmentInfoPopover),
+  { ssr: false },
+)
+/** 工具面板(818 行 + 15 个下游面板):默认折叠 */
+const AiSidePanelTools = dynamic(
+  () => import('@/components/ai/ai-side-panel-tools').then((m) => m.AiSidePanelTools),
+  { ssr: false },
+)
+/** 底部终端 dock(≈2.3k 行):open=false 时渲染 null(@xterm 本体在其内部已二次 lazy) */
+const AiTerminalDock = dynamic(
+  () => import('@/components/ai/ai-terminal-dock').then((m) => m.AiTerminalDock),
+  { ssr: false },
+)
+/** 工作区权限弹窗(459 行 + react-query):仅在绑定无权限工作区时挂载 */
+const WorkspacePermissionDialog = dynamic(
+  () =>
+    import('@/components/workspace/workspace-permission-dialog').then(
+      (m) => m.WorkspacePermissionDialog,
+    ),
+  { ssr: false },
+)
+/** AI 主动提问弹窗(173 行):仅 pendingQuestion 非空时可见 */
+const QuestionDialog = dynamic(
+  () => import('@/components/chat/question-dialog').then((m) => m.QuestionDialog),
+  { ssr: false },
+)
+/** 压缩状态栏(338 行):仅压缩进行中可见 */
+const CompactionStatusBar = dynamic(
+  () => import('@/components/chat/compaction-status-bar').then((m) => m.CompactionStatusBar),
+  { ssr: false },
+)
+
+/**
+ * 品牌图标(95+ 个 @lobehub/icons 深路径组件)—— 面板主 chunk 里最大的单点。
+ * 用 React.lazy 而非 next/dynamic:dynamic 的 loading 插槽**拿不到 props**,
+ * 无法按 size 渲染等尺寸占位(会闪一下)。这里用 Suspense + fallback 显式按 size 占位。
+ */
+const BrandIconLazy = React.lazy(() =>
+  import('@/components/ai/brand-icon').then((m) => ({ default: m.BrandIcon })),
+)
+
+/** 品牌图标的延迟渲染包装:占位与真实图标同尺寸,加载完成时不跳动 */
+function BrandIconDeferred({ size = 16, className, vendor, fallbackIcon }: BrandIconProps) {
+  return (
+    <React.Suspense
+      fallback={
+        <span
+          aria-hidden
+          className={cn('inline-block shrink-0 rounded bg-muted', className)}
+          style={{ width: size, height: size }}
+        />
+      }
+    >
+      <BrandIconLazy
+        size={size}
+        className={className}
+        vendor={vendor}
+        fallbackIcon={fallbackIcon}
+      />
+    </React.Suspense>
+  )
+}
 
 /** 全局 AI docked 侧边面板(对齐旧架构 .ai-side-panel 设计)。
  * - 默认 display:none,由 useAiPanelStore.open 控制
@@ -1005,7 +1097,7 @@ export function AISidePanel() {
                 : { left: `${floatPosition.x}px`, top: `${floatPosition.y}px` }
           }
         >
-          <BrandIcon
+          <BrandIconDeferred
             vendor={inferVendor(currentModel)}
             size={isMobileSmall ? 26 : 22}
             className="text-primary"
@@ -1439,7 +1531,7 @@ export function AISidePanel() {
               用户规则:这个图标应该显示对应项目图标或者模型图标
               容器去掉背景色,只显示内部图标本体(2026-07-19 用户反馈) */}
               <div className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/80">
-                <BrandIcon
+                <BrandIconDeferred
                   vendor={inferVendor(currentModel)}
                   size={18}
                   className="text-foreground/80"
