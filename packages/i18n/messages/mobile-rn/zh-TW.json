@@ -2779,5 +2779,36 @@
   },
   "notification": {
     "pushBannerTitle": "新訊息"
+  },
+  "toolApproval": {
+    "title": "工具審批",
+    "description": "AI 請求執行以下高危操作,請確認是否允許",
+    "approve": "批准",
+    "reject": "拒絕",
+    "pendingCount": "還有 {count} 個待審批",
+    "argsPreview": "參數預覽",
+    "dangerLevel": "危險檔:{level}",
+    "scopeLabel": "允許範圍",
+    "scopeOnce": "僅本次",
+    "scopeSession": "本次對話",
+    "scopeAlways": "始終允許(90 天後失效)",
+    "envLabel": "執行環境",
+    "envUnknown": "未上報(不據檔位推斷,請拒絕並要求重試)",
+    "envInSandbox": "在沙箱中執行",
+    "envOutsideSandbox": "在沙箱外執行",
+    "envBackend": "隔離方式:{backend}",
+    "envDegraded": "沙箱能力不可用,已降級為受限直跑",
+    "envNetworkOpen": "本次可存取外網",
+    "envNetworkOff": "本次不開放網路",
+    "envNetworkBlocked": "被封鎖的網路目標",
+    "envNetworkBlockedOne": "{host}:{port}({reason})",
+    "sendFailed": "決策未能送達服務端,該請求仍在等待,可重試或由服務端按逾時處理",
+    "noSession": "缺少工作區識號,本次決策無法回傳",
+    "empty": "暫無待審批請求",
+    "trayTitle": "已處理記錄",
+    "clearHistory": "清除已處理記錄",
+    "openPanel": "{count} 個待審批 · 開啟審批",
+    "rejectedBadge": "已拒絕",
+    "rejectedNextNote": "同類操作下次仍會詢問你"
   }
 }
