@@ -1095,23 +1095,27 @@ export function MessageInput({
               2026-07-31 升级:默认边框从 border-border 改为 border-input,
               对齐 tokens.css --color-input 设计意图(亮色 91% L 更柔和,暗色 26% L 与卡片 10% L 区分更明显)。
               之前 border-border(89.8% L / 22% L)在亮色下与白底卡片几乎无可见边界,
-              暗色下 22% vs 卡片 10% 仅 12% 差距,输入框边界感丢失。*/}
+              暗色下 22% vs 卡片 10% 仅 12% 差距,输入框边界感丢失。
+              2026-09-30 补:上面这段"设计意图"在此前**从未真的渲染过** —— Tailwind 的 border-* 颜色
+              类名被 globals.css 那条未分层的 `*{border-color}` 整族压制,四态描边一直落在同一个灰。
+              现描边色由 .ai-input-shell* 语义类在 globals.css 里给(见该处注释),此处只留结构类。*/}
           <div
             onDragOver={handleDragOverWithConversation}
             onDragLeave={handleDragLeaveWithConversation}
             onDrop={handleDropWithConversation}
             className={cn(
-              // D 节(2026-09-30 深度对标二轮):聚焦反馈对标 Cursor —— border 提亮 + 1px
-              // ring-ring/30 外圈 + 轻阴影;transition 扩到 box-shadow 让 ring 柔和浮现。
-              'flex flex-col rounded-xl border bg-card transition-[border-color,box-shadow] focus-within:border-foreground/20',
+              // 聚焦反馈对标 Cursor:墨档描边(AGENTS §4「描边不得取墨档」的唯一例外位)
+              // + 1px ring-ring/30 外圈 + 轻阴影;transition 扩到 box-shadow 让 ring 柔和浮现。
+              // ring/shadow 属 box-shadow 轴,不受 `*{border-color}` 影响,故保留工具类写法。
+              'ai-input-shell flex flex-col rounded-xl border bg-card transition-[border-color,box-shadow]',
               // 互斥的边框逻辑:拖拽(文件或会话) > 高风险 > 默认。
               // ring/shadow 聚焦反馈只加在默认分支 —— 高风险分支的琥珀 glow 与拖拽分支的
               // ring-2 各有专属视觉,focus-within 不去覆盖它们。
               isDragOver || isConvDragOver
-                ? 'border-brand-accent-deep ring-2 ring-ring/20'
+                ? 'ai-input-shell--dragging ring-2 ring-ring/20'
                 : isHighRisk
-                  ? 'border-amber-500/50 focus-within:border-amber-500/70 shadow-[0_0_0_1px_rgba(245,158,11,0.08)] animate-pulse-soft'
-                  : 'border-input focus-within:ring-1 focus-within:ring-ring/30 focus-within:shadow-sm',
+                  ? 'ai-input-shell--high-risk shadow-[0_0_0_1px_rgba(245,158,11,0.08)] animate-pulse-soft'
+                  : 'ai-input-shell--idle focus-within:ring-1 focus-within:ring-ring/30 focus-within:shadow-sm',
             )}
           >
             {/* 拖拽提示遮罩:仅在 isDragOver 时显示 */}
