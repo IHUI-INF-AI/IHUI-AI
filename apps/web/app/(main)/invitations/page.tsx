@@ -13,7 +13,8 @@ import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data/Avatar'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 const INVITATION_STATUS_KEYS: Record<'unused' | 'used' | 'expired', string> = {
   unused: 'status.unused',
@@ -57,14 +58,18 @@ export default function InvitationsPage() {
   const t = useTranslations('invitations')
   const locale = useLocale()
   const qc = useQueryClient()
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
 
   const codesQ = useQuery({
     queryKey: ['invitations'],
     queryFn: () => api<{ list: Invitation[] }>('/api/invitations').then((d) => d.list ?? []),
+    enabled: allow,
   })
   const inviteesQ = useQuery({
     queryKey: ['invitations', 'invitees'],
     queryFn: () => api<{ list: Invitee[] }>('/api/invitations/invitees').then((d) => d.list ?? []),
+    enabled: allow,
   })
 
   const genMut = useMutation({
@@ -76,6 +81,16 @@ export default function InvitationsPage() {
   })
 
   const [copiedId, setCopiedId] = React.useState<string | null>(null)
+
+  if (!allow) {
+    return (
+      <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
+        <BackButton />
+        <AuthGatePrompt message="请先登录后查看邀请奖励" />
+      </div>
+    )
+  }
+
   const handleCopy = async (code: string, id: string) => {
     try {
       await navigator.clipboard.writeText(code)
