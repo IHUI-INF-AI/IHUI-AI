@@ -953,7 +953,7 @@ export function MessageInput({
 
   return (
     <div>
-      <div className="mx-auto max-w-3xl px-4 py-3">
+      <div className="mx-auto max-w-3xl px-4 pt-3 pb-px">
         {/* 高风险模式持久化视觉警告(2026-07-25 深化,深度对标 Codex 高风险提示)
             - 提取到 HighRiskWarningBanner 子组件(2026-07-30),行为零变更
             - 内部消费 useAiPanelStore 计算 isHighRisk + useTranslations('chat')
@@ -1414,8 +1414,9 @@ export function MessageInput({
           </div>
         </div>
         {/* AI 免责提示行放输入卡片外(2026-09-30 用户指定:对标 ChatGPT "can make mistakes" 在框外,
-            不进圆角描边卡内;字号沿用项目最小档 text-[10px] + muted) */}
-        <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
+            不进圆角描边卡内;字号 text-[9px] + muted;上下间距对称各 1px:上方 mt-px(卡→字),
+            下方由 wrapper pb-px 承担(字→底),2026-09-30 用户指定 6px→1px) */}
+        <p className="mt-px text-center text-[9px] text-muted-foreground">
           {t('aiDisclaimer')}
         </p>
         {/* 2026-07-28 用户规则调整:删除外层 hint 行,字符数已迁移至输入框内右下角,
