@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, useI18n, t } from '@/i18n'
-import { View, Text, Input } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { register, sendSmsCode } from '@/api'
@@ -20,6 +20,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import BackChevron from '@/components/BackChevron'
 import LineIcon from '@/components/LineIcon'
 import './index.css'
+import { FocusInput } from '@/components/FocusField'
 
 /** 把共享 hook 返回的通用错误 key(auth.*)映射到本页 register.* 文案(仅本页面用) */
 function mapRegisterErrorKey(e: string, phone: string): { key: string; fb: string } | null {
@@ -125,7 +126,7 @@ export default function RegisterIndex() {
           <Text className="reg-label">{tt('register.phone', '手机号')}</Text>
           <View className="reg-input-box">
             <PhoneAreaCodePicker value={phoneHead} onChange={setPhoneHead} />
-            <Input
+            <FocusInput
               className="reg-input"
               type="number"
               maxlength={11}
@@ -140,7 +141,7 @@ export default function RegisterIndex() {
           <Text className="reg-label">{tt('register.code', '验证码')}</Text>
           <View className="reg-coderow">
             <View className="reg-input-box reg-input-box-flex">
-              <Input
+              <FocusInput
                 className="reg-input"
                 type="number"
                 maxlength={6}
@@ -162,7 +163,7 @@ export default function RegisterIndex() {
           {/* 密码输入框 + 可见性切换 */}
           <Text className="reg-label">{tt('register.password', '密码')}</Text>
           <View className="reg-input-box">
-            <Input
+            <FocusInput
               className="reg-input"
               password={!showPwd}
               maxlength={20}

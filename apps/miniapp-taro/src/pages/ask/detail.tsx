@@ -4,11 +4,12 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Image, Input, Button } from '@tarojs/components'
+import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { getAskDetail, type Ask } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import { FocusInput } from '@/components/FocusField'
 
 interface AnswerItem {
   author: string
@@ -129,7 +130,7 @@ export default function AskDetailPage() {
           className="fixed bottom-0 left-0 right-0 flex items-center py-[16rpx] px-[20rpx] bg-card"
           style={{ paddingBottom: 'calc(16rpx + env(safe-area-inset-bottom))' }}
         >
-          <Input
+          <FocusInput
             className="flex-1 h-[72rpx] px-[24rpx] bg-muted border-[length:2rpx] border-border rounded-sm text-[length:28rpx] text-foreground"
             value={answer}
             placeholder={t('ask.detail.placeholder')}
