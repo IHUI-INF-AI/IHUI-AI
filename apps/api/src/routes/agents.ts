@@ -296,6 +296,13 @@ const AGENTS_PROTECTED_STATIC_SEGMENTS = new Set([
   'manage',
 ])
 
+// G-536:进 uuid 列的路径参数先验形状(否则 Postgres 22P02 ⇒ 500;非法形状走全局 ZodError→400)。
+// 具名导出供用例直接断言;调用点行为逐字不变。覆盖:recordId→agent_examines.id、
+// id→agent_settlements.id/agents.agentId、buyRecordId→buy_record_id/zhs_agent_buy.id。
+export const recordIdParam = z.object({ recordId: z.string().uuid() })
+export const idParam = z.object({ id: z.string().uuid() })
+export const buyRecordIdParam = z.object({ buyRecordId: z.string().uuid() })
+
 export const agentsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     // 2026-07-21 安全审计加固:/callback/* 走 HMAC 签名校验,不走 JWT 鉴权
@@ -337,9 +344,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   const agentIdParam = z.object({ agentId: z.string() })
   const categoryIdParam = z.object({ categoryId: z.string() })
-  const recordIdParam = z.object({ recordId: z.string() })
   const clientIdParam = z.object({ clientId: z.string() })
-  const idParam = z.object({ id: z.string() })
   const needTaskIdParam = z.object({ id: z.coerce.number() })
   // D27:会话级交付清单(deliverables)代理端点的路径参数
   const sessionIdParam = z.object({ sessionId: z.string().min(1) })
@@ -948,8 +953,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   server.post('/settlement/create', async (request, reply) => {
     const body = z
       .object({
-        agentId: z.string().nullable().optional(),
-        buyRecordId: z.string().nullable().optional(),
+        agentId: z.string().uuid().nullable().optional(),
+        buyRecordId: z.string().uuid().nullable().optional(),
         orderNo: z.string().nullable().optional(),
         amount: z.number().optional(),
         commissionRate: z.number().optional(),
@@ -998,7 +1003,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /settlement/sync-single/:buyRecordId - 同步单条购买记录到结算表
   server.post('/settlement/sync-single/:buyRecordId', async (request, reply) => {
-    const { buyRecordId } = z.object({ buyRecordId: z.string() }).parse(request.params)
+    const { buyRecordId } = buyRecordIdParam.parse(request.params)
 
     const already = await dbRead
       .select({ id: agentSettlements.id })
