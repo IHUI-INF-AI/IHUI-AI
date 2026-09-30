@@ -10,11 +10,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { TextField } from '../../components/TextField'
 import { Camera, SquarePen } from 'lucide-react-native'
 import type { Gender, ProfileEditScreenProps } from '../../types'
 
@@ -113,7 +113,8 @@ export function ProfileEditScreen({
 
       <View style={styles.fieldCard}>
         <Text style={styles.fieldLabel}>{t('profileEdit.nickname')}</Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.fieldInput}
           value={nickname}
           onChangeText={onNicknameChange}
@@ -142,7 +143,8 @@ export function ProfileEditScreen({
 
       <View style={styles.fieldCard}>
         <Text style={styles.fieldLabel}>{t('profileEdit.bio')}</Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={[styles.fieldInput, styles.bioInput]}
           value={bio}
           onChangeText={onBioChange}
@@ -183,7 +185,8 @@ export function ProfileEditScreen({
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t('profileEdit.avatarModalTitle')}</Text>
             <Text style={styles.modalLabel}>{t('profileEdit.avatarUrlLabel')}</Text>
-            <TextInput
+            <TextField
+              colorScheme={colorScheme}
               style={styles.modalInput}
               value={avatarInput}
               onChangeText={onAvatarInputChange}
