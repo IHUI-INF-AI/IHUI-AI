@@ -8989,7 +8989,6 @@
     "title": "AI キャリア指導"
   },
   "aiChat": {
-    "bindIssue": "Issueを紐付け",
     "actions": {
       "archive": "アーカイブ",
       "compressTo1m": "100万文字に圧縮",
@@ -9146,12 +9145,6 @@
       "purposePlaceholder": "引き継ぎ目的",
       "revealFile": "ファイルを表示",
       "createSession": "新しいタスクを作成",
-      "phase": {
-        "generating": "モデルが引き継ぎ内容を生成しています…",
-        "done": "引き継ぎドキュメントが生成されました。"
-      },
-      "creating": "新しいタスクを作成しています…",
-      "createFailed": "新しいタスクの作成に失敗しました。もう一度お試しください。",
       "handoffUnavailable": "依存する引き継ぎ文書の生成出口がまだ提供されていないため、引き継ぎ内容を生成できません。"
     },
     "renameDialog": {
@@ -10592,17 +10585,6 @@
     "expiryDate": "有効期限"
   },
   "chat": {
-    "bindIssue": "Issueを紐付け",
-    "unbindIssue": "独立タスクにする",
-    "issueBinding": "関連Issue",
-    "searchIssues": "IssueのID・タイトル・プロジェクトを検索",
-    "noIssues": "紐付けできるIssueはまだありません",
-    "noMatchingIssues": "一致するIssueがありません",
-    "issueNotConfigured": "このソースは未接続です。先に設定でGitHubまたはLinearを連携してください",
-    "issueBindSuccess": "Issueを紐付けました",
-    "issueBindFailed": "Issueの紐付けに失敗しました",
-    "issueUnbindSuccess": "紐付けを解除し、独立タスクにしました",
-    "issueUnbindFailed": "紐付け解除に失敗しました",
     "selectionAnnotations": {
       "hoverHint": "ホバーで注釈を表示",
       "selectedText": "{{index}}. 選択したテキスト",
@@ -14180,7 +14162,6 @@
       "verifyCode": "6桁の認証コードを入力"
     },
     "shop": {
-      "payNow": "支払う",
       "buy": "購入",
       "buying": "注文中...",
       "cancel": "取消",
@@ -14491,7 +14472,8 @@
     "loading": "読み込み中...",
     "myPoints": "のポイント",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "title": "APIテスト"
+    "title": "APIテスト",
+    "totalChannels": "チャネル"
   },
   "eduProgressPage": {
     "categoryProgress": "カテゴリー別進捗",
@@ -14894,7 +14876,6 @@
     "title": "評価管理"
   },
   "exam": {
-    "pageInfo": "{page} / {total} ページ",
     "back": "戻る",
     "duration": "{minutes} 分",
     "empty": "がありません",
@@ -14924,7 +14905,6 @@
     "title": "オンライン",
     "totalScore": "総分 {score}",
     "wrongQuestions": {
-      "aiExplain": "AI解説",
       "colActions": "操作",
       "colQuestion": "問題内容",
       "colSource": "出典試験",
@@ -16269,8 +16249,6 @@
     "metaOgDescription": "ドキュメント分割 + ベクトル化 + ハイブリッド検索 + 引用追跡"
   },
   "learn": {
-    "startLearning": "学習を始める",
-    "buyNow": "今すぐ購入",
     "allCategories": "All categories",
     "category": "カテゴリ",
     "chapters": "コース",
@@ -16314,7 +16292,6 @@
     "paymentConfirm": "支払い確認",
     "review": "評価",
     "tutor": {
-      "history": "最近の質問",
       "title": "AI 講師",
       "subject": "教科",
       "mode": "モード",
@@ -19023,11 +19000,6 @@
     "memory": "メモリ",
     "messages": "メッセージ",
     "messagesComment": "コメント",
-    "myPendingDecisions": "自分の承認待ち",
-    "pendingDecisionsEmpty": "承認待ちの項目はありません",
-    "decisionTypeToolApproval": "ツール承認",
-    "decisionTypePermissions": "権限リクエスト",
-    "decisionTypeElicitation": "回答待ち",
     "messagesFans": "新しいフォロワー",
     "messagesFavorite": "お気に入り",
     "messagesLike": "いいね",
@@ -19076,7 +19048,7 @@
     "repoWiki": "Repo Wiki",
     "resources": "リソース",
     "restore": "元に戻す",
-    "schedule": "タスクスケジューラ",
+    "schedule": "スケジュール",
     "search": "検索",
     "selfMediaAutomation": "自動化",
     "selfMediaKoubo": "口播動画",
@@ -22060,7 +22032,6 @@
     "warning": "警告"
   },
   "student": {
-    "aiExplain": "AI解説",
     "avgProgress": "平均進捗",
     "avgScore": "平均分",
     "certNo": "証明書番号",

@@ -8999,7 +8999,6 @@
     "title": "AI Career Guidance"
   },
   "aiChat": {
-    "bindIssue": "Bind issue",
     "actions": {
       "archive": "Archive",
       "compressTo1m": "Compress to 1M chars",
@@ -9156,12 +9155,6 @@
       "purposePlaceholder": "Handoff purpose",
       "revealFile": "Show file",
       "createSession": "Create new task",
-      "phase": {
-        "generating": "The model is generating the handoff content…",
-        "done": "The handoff document is ready."
-      },
-      "creating": "Creating new task…",
-      "createFailed": "Failed to create the new task. Please try again.",
       "handoffUnavailable": "The handoff document generator this flow depends on is not available yet, so handoff content cannot be generated."
     },
     "renameDialog": {
@@ -10602,17 +10595,6 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
-    "bindIssue": "Bind issue",
-    "unbindIssue": "Make standalone task",
-    "issueBinding": "Linked issue",
-    "searchIssues": "Search issues by ID, title, or project",
-    "noIssues": "No issues to bind yet",
-    "noMatchingIssues": "No matching issues",
-    "issueNotConfigured": "This source isn't connected yet. Connect GitHub or Linear in settings first.",
-    "issueBindSuccess": "Issue bound",
-    "issueBindFailed": "Failed to bind issue",
-    "issueUnbindSuccess": "Unbound. This conversation is now a standalone task",
-    "issueUnbindFailed": "Failed to unbind issue",
     "selectionAnnotations": {
       "hoverHint": "Hover to view annotations",
       "selectedText": "{{index}}. Selected text",
@@ -14190,7 +14172,6 @@
       "verifyCode": "Enter 6-digit code"
     },
     "shop": {
-      "payNow": "Pay Now",
       "buy": "Buy",
       "buying": "Placing order...",
       "cancel": "Cancel",
@@ -14501,7 +14482,8 @@
     "loading": "Loading...",
     "myPoints": "My Points",
     "subtitle": "Learning points reward system",
-    "title": "Education Points"
+    "title": "Education Points",
+    "totalChannels": "Total Channels"
   },
   "eduProgressPage": {
     "categoryProgress": "Progress by category",
@@ -14904,7 +14886,6 @@
     "title": "Evaluation Management"
   },
   "exam": {
-    "pageInfo": "Page {page} of {total}",
     "back": "Back to exams",
     "duration": "{minutes} min",
     "empty": "No papers",
@@ -14934,7 +14915,6 @@
     "title": "Online Exam",
     "totalScore": "Total {score}",
     "wrongQuestions": {
-      "aiExplain": "AI Explanation",
       "colActions": "Actions",
       "colQuestion": "Question",
       "colSource": "Source Paper",
@@ -16279,8 +16259,6 @@
     "metaOgDescription": "Document chunking + vectorization + hybrid retrieval + citation tracing"
   },
   "learn": {
-    "startLearning": "Start Learning",
-    "buyNow": "Buy Now",
     "allCategories": "All Categories",
     "category": "Category",
     "chapters": "Chapters",
@@ -16324,7 +16302,6 @@
     "paymentConfirm": "Payment Confirm",
     "review": "Review",
     "tutor": {
-      "history": "Recent Q&A",
       "title": "AI Tutor",
       "subject": "Subject",
       "mode": "Mode",
@@ -19038,11 +19015,6 @@
     "memory": "Memory",
     "messages": "Messages",
     "messagesComment": "Comments",
-    "myPendingDecisions": "Pending my decisions",
-    "pendingDecisionsEmpty": "No pending decisions",
-    "decisionTypeToolApproval": "Tool approval",
-    "decisionTypePermissions": "Permission request",
-    "decisionTypeElicitation": "Answer needed",
     "messagesFans": "New Followers",
     "messagesFavorite": "Favorites",
     "messagesLike": "Likes",
@@ -19091,7 +19063,7 @@
     "repoWiki": "Repo Wiki",
     "resources": "Resources",
     "restore": "Restore",
-    "schedule": "Task Scheduler",
+    "schedule": "Schedule",
     "search": "Search",
     "selfMediaAutomation": "Automation",
     "selfMediaKoubo": "Koubo Video",
@@ -22075,7 +22047,6 @@
     "warning": "Warning"
   },
   "student": {
-    "aiExplain": "AI Explanation",
     "avgProgress": "Avg Progress",
     "avgScore": "Avg Score",
     "certNo": "Certificate No.",
