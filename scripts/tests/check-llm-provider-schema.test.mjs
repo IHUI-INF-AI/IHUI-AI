@@ -5,9 +5,10 @@
 import { test, before, after, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import { resolve, join } from 'node:path'
-import { tmpdir } from 'node:os'
+// §26:临时夹具唯一落点(活进程 os.tmpdir() 可能仍钉在 C 盘,禁用)
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // =============================================================================
 // check-llm-provider-schema.mjs 端到端集成测试
@@ -26,7 +27,7 @@ import { tmpdir } from 'node:os'
 // =============================================================================
 
 const SCRIPT = resolve('scripts/check-llm-provider-schema.mjs')
-const TMP_DIR = join(tmpdir(), `llm-schema-test-${Date.now()}-${process.pid}`)
+const TMP_DIR = mkScratch('llm-schema-test-')
 const ENV_FILE = join(TMP_DIR, '.env')
 
 /**
@@ -52,11 +53,11 @@ function writeEnv(content) {
 }
 
 before(() => {
-  mkdirSync(TMP_DIR, { recursive: true })
+  // 目录由 mkScratch 建好,这里无需再 mkdir
 })
 
 after(() => {
-  rmSync(TMP_DIR, { recursive: true, force: true })
+  rmScratch(TMP_DIR)
 })
 
 // =============================================================================
