@@ -58,6 +58,7 @@ from ..services.completion_verification import (
     verify_goal_completion,
 )
 from ..services.goal_round_state import (
+    GoalRoundRead,
     GoalRoundState,
     WriteReceipt,
     advance_round_state,
@@ -81,6 +82,38 @@ _STATUS_NOT_ACHIEVED = "not_achieved"
 _STATUS_UNDETERMINED = "undetermined"
 #: 账本已收口时本层给出的档:不是校验结果,是"不再受理下一轮"
 _STATUS_BLOCKED = "blocked"
+
+
+# —— 不可信读取的三态分离(b76-03 票2,吸收 ZCode runtime/statusSnapshot 四支判别)——
+#: 四支判别:valid / missing / invalid / unreadable。理由写死:
+#: **文件缺失表示离线,JSON/schema 损坏表示观测不可信,两者不能再折叠成同一个
+#: null,否则会把"无法确认已停止"误判成"已经停止"** —— "等它变绿/等它停"的轮询
+#: 若把损坏当成"还没发生",只会等满超时,而永远等不来那个不会出现的结论。
+LEDGER_READ_VALID = "valid"
+LEDGER_READ_MISSING = "missing"
+LEDGER_READ_INVALID = "invalid"
+LEDGER_READ_UNREADABLE = "unreadable"
+
+
+def classify_ledger_read(read: GoalRoundRead) -> str:
+    """把账本读取结果判成四支,missing / invalid / unreadable 绝不互折叠。
+
+    底层语义(单一真相 = `goal_round_state.GoalRoundRead` 的取值组合):
+    - found=True  且 unreadable=False ⇒ valid(读到合法账);
+    - found=False 且 unreadable=False ⇒ missing(权威层确实没有这条账 —— 表示离线);
+    - found=False 且 unreadable=True 且 reason 以"读取失败"起头 ⇒ unreadable
+      (账在,但读不出来:权限/IO —— 观测通道故障);
+    - 其余 unreadable ⇒ invalid(账在,但载荷/形状损坏 —— 观测不可信)。
+    unreadable 与 invalid 的分界取自底层 reason 的命名约定
+    ("读取失败: {type(exc).__name__}",见 goal_round_state.CheckpointGoalRoundStore.read)。
+    """
+    if read.found and not read.unreadable:
+        return LEDGER_READ_VALID
+    if not read.unreadable:
+        return LEDGER_READ_MISSING
+    if read.reason is not None and read.reason.startswith("读取失败"):
+        return LEDGER_READ_UNREADABLE
+    return LEDGER_READ_INVALID
 
 
 class CriterionIn(BaseModel):
@@ -182,15 +215,26 @@ class VerifyOut(BaseModel):
     #: true = 上一轮的账读不出形状(存储故障/载荷漂移)。此时 consecutive_failures
     #: 是**低估值**,调用方不得据此宣布"这才第一轮,还早"
     ledger_unreadable: bool = False
+    #: 四支判别(b76-03 票2):valid / missing / invalid / unreadable。
+    #: 无状态调用没读过账 ⇒ None。invalid/unreadable 是"观测不可信",
+    #: 与 missing("确实没有")语义不同,调用方不得同判
+    ledger_read_state: str | None = None
     tokens_spent: int | None = None
     token_budget: int | None = None
 
 
 class GoalStateOut(BaseModel):
-    """`GET /api/agent/goal-state` 的响应:账本原文 + 暂停结论(不含任何判定重算)。"""
+    """`GET /api/agent/goal-state` 的响应:账本原文 + 暂停结论(不含任何判定重算)。
+
+    invalid / unreadable 不走本模型:**等待侧读到这两档直接抛错上抛**
+    (502 点名 session 与原因),绝不回一个"看起来正常"的未命中 —— 否则轮询方
+    会把"观测不可信"当成"还没发生"而等满超时。
+    """
 
     found: bool
     unreadable: bool
+    #: 四支判别的对外读数(本响应只可能是 valid / missing 两档)
+    read_state: str
     reason: str | None = None
     state: dict[str, Any] | None = None
     should_pause: bool = False
@@ -324,6 +368,8 @@ async def verify_goal(payload: VerifyIn, request: Request) -> VerifyOut:
     previous: GoalRoundState | None = None
     ledger_unreadable = False
     ledger_reason: str | None = None
+    #: 四支判别(b76-03 票2):无状态调用没读过账 ⇒ None
+    ledger_read_state: str | None = None
     storage = get_store().describe()
     if payload.session_id is not None:
         principal = _resolve_principal(request, payload.owner_user_id)
@@ -332,6 +378,7 @@ async def verify_goal(payload: VerifyIn, request: Request) -> VerifyOut:
         previous = read.state
         ledger_unreadable = read.unreadable
         ledger_reason = read.reason
+        ledger_read_state = classify_ledger_read(read)
 
     # —— 收口短路:账本已 blocked 就不再受理下一轮(省一次推理,也不给任何"通过"答复)
     if previous is not None and previous.blocked:
@@ -350,6 +397,7 @@ async def verify_goal(payload: VerifyIn, request: Request) -> VerifyOut:
             escalate=True,
             pause_reason=pause.reason,
             ledger_unreadable=ledger_unreadable,
+            ledger_read_state=ledger_read_state,
             **_ledger_fields(previous, storage),
         )
 
@@ -441,6 +489,7 @@ async def verify_goal(payload: VerifyIn, request: Request) -> VerifyOut:
         escalate=pause.escalate,
         pause_reason=pause.reason,
         ledger_unreadable=ledger_unreadable,
+        ledger_read_state=ledger_read_state,
         **fields,
     )
 
@@ -451,7 +500,12 @@ async def read_goal_state(
     session_id: str = Query(min_length=1, max_length=MAX_SESSION_ID_CHARS),
     owner_user_id: str | None = Query(default=None, max_length=200),
 ) -> GoalStateOut:
-    """读一个会话的评估账本(第 2 项要的"上报"面;零重算,只回账本原文)。"""
+    """读一个会话的评估账本(第 2 项要的"上报"面;零重算,只回账本原文)。
+
+    等待侧语义(b76-03 票2):invalid / unreadable **直接抛错上抛,不继续轮询** ——
+    "账存在但损坏/读不出"与"确实没账"是两件事;把前者回成正常未命中,
+    调用方的"等它变绿/等它停"循环就会把损坏当成还没发生而等满超时。
+    """
     key = session_id.strip()
     if not key:
         raise HTTPException(status_code=422, detail="session_id 不得为空白")
@@ -460,10 +514,21 @@ async def read_goal_state(
     receipt = store.describe()
     read = await store.read(key)
     _assert_state_ownership(read.state, principal)
+    read_state = classify_ledger_read(read)
+    if read_state in (LEDGER_READ_INVALID, LEDGER_READ_UNREADABLE):
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"账本读取不可信(read_state={read_state}):session={key}, "
+                f"storage={receipt.storage}, reason={read.reason!r} —— "
+                "不得把它当成'没有账'继续轮询,需人工核查存储"
+            ),
+        )
     pause = decide_pause(read.state, ledger_unreadable=read.unreadable)
     return GoalStateOut(
         found=read.found,
         unreadable=read.unreadable,
+        read_state=read_state,
         reason=read.reason,
         state=None if read.state is None else read.state.as_view(),
         should_pause=pause.pausing,

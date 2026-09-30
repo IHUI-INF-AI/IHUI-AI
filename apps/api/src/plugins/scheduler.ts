@@ -6,6 +6,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import fp from 'fastify-plugin'
 import { Queue, type ConnectionOptions } from 'bullmq'
 import { config } from '../config/index.js'
+import { processOutbox } from '../utils/outbox.js'
 
 /**
  * 定时任务调度器插件。
@@ -45,6 +46,7 @@ export type ScheduledJobName =
   | 'edu-arrear-remind-daily'
   | 'llm-call-log-purge-daily'
   | 'upload-session-reap-hourly'
+  | 'outbox-drain-every-30s'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
@@ -180,10 +182,80 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     pattern: '45 * * * *',
     description: '过期分片上传会话回收（每小时45分）',
   },
+  // b76-12e(G-998160)outbox 排空:pending 事件的"补报"通道。挂既有 BullMQ
+  // repeatable 轮询(scheduler-worker 按 name 分发到 runOutboxDrain),**不新增
+  // setInterval**;启动时另有 onReady 启动扫描(runOutboxStartupScan)先补一轮。
+  // processOutbox 幂等可重入:已 processed 的事件不会被再次取出,多实例/双跑无害。
+  {
+    name: 'outbox-drain-every-30s',
+    every: 30_000,
+    description: 'Outbox pending 事件排空补报（每30秒,挂既有轮询,不新增计时器）',
+  },
 ]
 
 interface SchedulerJobData {
   description: string
+}
+
+// ============================================================================
+// Outbox 排空(b76-12e G-998160):scheduler 侧唯一入口
+// ============================================================================
+// outbox 的写侧(order-service 同事务 writeToOutbox)早已接通,缺的是"由谁在
+// 什么时候把它排空"。本文件提供两个入口,都汇到 utils/outbox.ts 的 processOutbox:
+//  - 周期侧:任务表 `outbox-drain-every-30s`(上面 SCHEDULED_JOBS),由
+//    scheduler-worker 的同名 case 调 runOutboxDrain —— 挂既有 BullMQ 轮询;
+//  - 启动侧:runOutboxStartupScan,由下方插件的 onReady 钩子调,不等首个 30s
+//    周期。两处都不新增 setInterval 计时器(判据见票面验收③)。
+
+/** runOutboxDrain / 启动扫描所需的最小日志面(与 pino 结构兼容)。 */
+export interface OutboxDrainLog {
+  info(obj: unknown, msg: string): void
+  error(obj: unknown, msg: string): void
+}
+
+/**
+ * 生产 dispatcher:当前 outbox 事件(order.paid 等)的下游副作用(token 充值/
+ * 积分发放/WS 推送)都在写侧同步完成,事件本体是"可观测的补报记录" —— 排空
+ * 即结构化日志送达(observability 通道),成功/失败与重试语义全部由
+ * processOutbox 的状态机承载(attempts 递增、超阈 failed)。
+ */
+export function createOutboxLogDispatcher(log: OutboxDrainLog): {
+  dispatch(event: { id: string; type: string }): Promise<void>
+} {
+  return {
+    async dispatch(event) {
+      log.info(
+        { outboxEventId: event.id, outboxEventType: event.type },
+        'outbox event dispatched (log sink)',
+      )
+    },
+  }
+}
+
+/**
+ * 排空一轮 pending 事件。周期任务(scheduler-worker case)与启动扫描共用;
+ * 抛错原样上抛,由调用方决定上报方式(worker 记 failed / onReady 只记 error)。
+ */
+export async function runOutboxDrain(server: { log: OutboxDrainLog }) {
+  const result = await processOutbox(createOutboxLogDispatcher(server.log))
+  server.log.info(
+    { processed: result.processed, failed: result.failed },
+    'outbox drain done',
+  )
+  return result
+}
+
+/**
+ * 启动扫描:进程起来先补排一轮,不等首个 30s 周期。失败只记 error,
+ * **不阻断启动**(与 file-cleanup 等清扫型任务同纪律)。
+ */
+export async function runOutboxStartupScan(server: { log: OutboxDrainLog }) {
+  try {
+    return await runOutboxDrain(server)
+  } catch (err) {
+    server.log.error({ err }, 'outbox startup drain failed (non-fatal)')
+    return { processed: 0, failed: 0 }
+  }
 }
 
 declare module 'fastify' {
@@ -220,6 +292,12 @@ const schedulerPlugin: FastifyPluginAsync = async (server) => {
   }
 
   server.decorate('schedulerQueue', schedulerQueue)
+
+  // 启动扫描(b76-12e G-998160):onReady 时补排一轮 pending outbox 事件。
+  // 幂等:worker 进程与 API 进程各跑一次也无害,processed 的事件不会被重复取出。
+  server.addHook('onReady', async () => {
+    await runOutboxStartupScan(server)
+  })
 
   server.addHook('onClose', async () => {
     try {

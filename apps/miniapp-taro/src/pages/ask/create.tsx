@@ -4,7 +4,7 @@
 
 import { useTt, t } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Input, Textarea, Button, Image, Switch, ScrollView } from '@tarojs/components'
+import { View, Text, Button, Image, Switch, ScrollView } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -12,6 +12,7 @@ import { createAsk } from '@/api'
 import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
 import './create.css'
+import { FocusInput, FocusTextarea } from '@/components/FocusField'
 
 interface FormState {
   title: string
@@ -180,7 +181,7 @@ export default function AskCreatePage() {
                 {tt('ask.create.titleCount', '{n}/50', { n: form.title.length })}
               </Text>
             </View>
-            <Input
+            <FocusInput
               className="ask-create-input"
               value={form.title}
               placeholder={tt('ask.create.titlePlaceholder', '一句话描述你的问题')}
@@ -197,7 +198,7 @@ export default function AskCreatePage() {
                 {tt('ask.create.contentCount', '{n}/500', { n: form.content.length })}
               </Text>
             </View>
-            <Textarea
+            <FocusTextarea
               className="ask-create-textarea"
               value={form.content}
               placeholder={tt(
