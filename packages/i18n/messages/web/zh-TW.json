@@ -8999,6 +8999,7 @@
     "title": "AI 生涯指導"
   },
   "aiChat": {
+    "bindIssue": "綁定 Issue",
     "actions": {
       "archive": "歸檔",
       "compressTo1m": "壓縮到 100 萬字符",
@@ -10601,6 +10602,17 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "bindIssue": "綁定 Issue",
+    "unbindIssue": "改為獨立任務",
+    "issueBinding": "關聯 Issue",
+    "searchIssues": "搜尋 Issue 標識、標題或專案",
+    "noIssues": "還沒有可以綁定的 Issue",
+    "noMatchingIssues": "沒有符合的 Issue",
+    "issueNotConfigured": "該來源尚未連接,請先在設定中連接 GitHub 或 Linear",
+    "issueBindSuccess": "Issue 已綁定",
+    "issueBindFailed": "Issue 綁定失敗",
+    "issueUnbindSuccess": "已解綁,該會話已改為獨立任務",
+    "issueUnbindFailed": "解綁失敗",
     "selectionAnnotations": {
       "hoverHint": "懸停查看批註",
       "selectedText": "{{index}}. 選中文字",
