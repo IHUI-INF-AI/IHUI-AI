@@ -155,6 +155,12 @@ export interface ScanLoginTask {
   platform: string
   status: 'pending' | 'waiting_scan' | 'scanned' | 'success' | 'failed' | 'timeout' | 'cancelled'
   message: string
+  /**
+   * 进度阶梯(2026-09-30 新增,后端只给机器可读的值,文案由前端映射 i18n):
+   * booting 启动浏览器 → opening 打开登录页 → switching 切到扫码 → rendering 等码渲染
+   * → ready 码已就绪。前端用它显示"走到哪一步",避免用户对着一个不动的转圈以为卡死。
+   */
+  stage?: 'booting' | 'opening' | 'switching' | 'rendering' | 'ready'
   has_qr: boolean
   qr_updated_at: number
   cookies_count: number
