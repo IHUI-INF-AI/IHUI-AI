@@ -13,6 +13,8 @@ import { ArrowLeft, Loader2, ClipboardList, Clock, Upload } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface HomeworkItem {
   id: string
@@ -47,9 +49,13 @@ export default function CourseHomeworkPage() {
   const router = useRouter()
   const qc = useQueryClient()
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['learn', 'homework', id],
     queryFn: () => api<HomeworkListData>(`/api/learn/${id}/homework`),
+    enabled: allow,
   })
 
   const submitMut = useMutation({
@@ -85,6 +91,20 @@ export default function CourseHomeworkPage() {
   }
 
   const list = data?.list ?? []
+
+  if (!allow)
+    return (
+      <div className="mx-auto w-full max-w-4xl space-y-4">
+        <Link
+          href={`/learn/${id}`}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t('backToCourse')}
+        </Link>
+        <AuthGatePrompt message="请先登录后查看作业" />
+      </div>
+    )
 
   if (isLoading)
     return (
