@@ -24,7 +24,8 @@
  *   - 新实现:超时后必 reap(同步 wait 最多 2s),再 reject
  */
 
-import { spawn, type ChildProcess, type StdioOptions } from 'node:child_process'
+import { execFile, spawn, type ChildProcess, type StdioOptions } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import * as os from 'node:os'
 
 /** 子进程执行失败原因 */
@@ -117,6 +118,10 @@ function makeError(
  * 调用端配合条件:`detached: true` 只在 Unix 侧有意义(Windows 无进程组,靠 /T)。
  */
 export function killProcessTree(child: ChildProcess): void {
+  // G-998130(上游 processTreeOwnership.ts:66-96 判据):child 已被观察到退出
+  // (exitCode/signalCode 非 null)⇒ 目标集为空,本轮回收永久 fail closed ——
+  // 原 PID 此刻可能已被无关进程复用,沿裸 PID 派生 taskkill /T 会把那棵树认领成本端 runtime。
+  if (child.exitCode !== null || child.signalCode !== null) return
   if (!child.pid) return
   if (os.platform() === 'win32') {
     try {
