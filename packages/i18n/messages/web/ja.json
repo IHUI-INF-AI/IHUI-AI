@@ -15866,6 +15866,8 @@
       "unsynced": "未同期"
     },
     "terminalPanel": {
+      "switchToDark": "ダークターミナルに切替",
+      "switchToLight": "ライトターミナルに切替",
       "aiDiagnoseTitle": "AI エラー診断",
       "aiServiceUnavailable": "AIサービスは一時的に利用できません。後でもう一度お試しください",
       "aiSuggestTitle": "AI コマンド提案",

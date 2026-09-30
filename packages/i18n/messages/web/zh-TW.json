@@ -16026,6 +16026,8 @@
       "unsynced": "未同步"
     },
     "terminalPanel": {
+      "switchToDark": "切換為暗色終端",
+      "switchToLight": "切換為亮色終端",
       "aiDiagnoseTitle": "AI 錯誤診斷",
       "aiServiceUnavailable": "AI 服務暫不可用,請稍後重試",
       "aiSuggestTitle": "AI 命令建議",
