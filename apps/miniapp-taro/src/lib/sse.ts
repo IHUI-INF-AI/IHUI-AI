@@ -78,12 +78,30 @@ function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
 export class SSEStreamParser {
   private buffer = ''
   private lastEventId?: string
+  /** D136:整行旁路(可选)。共享解析面不认领的帧族(如 tool-approval)从这里拿原始行自认领。 */
+  private onLine?: (line: string) => void
+
+  constructor(onLine?: (line: string) => void) {
+    this.onLine = onLine
+  }
+
+  /** 把本次已成完整事件的原始文本按行递给旁路(空行不递;半包残余留在下一轮)。 */
+  private emitCompleteLines(raw: string, remainder: string): void {
+    if (!this.onLine) return
+    const complete =
+      remainder && raw.endsWith(remainder) ? raw.slice(0, raw.length - remainder.length) : raw
+    for (const line of complete.split('\n')) {
+      const trimmed = line.endsWith('\r') ? line.slice(0, -1) : line
+      if (trimmed) this.onLine(trimmed)
+    }
+  }
 
   /** 喂入一个原始 chunk(可能不完整),返回本次解析出的完整事件。空输入直接返回 []。 */
   push(raw: string): SSEEvent[] {
     if (!raw) return []
     this.buffer += raw
     const { events, remainder, lastId } = parseSSEChunk(this.buffer)
+    this.emitCompleteLines(this.buffer, remainder)
     this.buffer = remainder
     if (lastId) this.lastEventId = lastId
     return events
@@ -95,7 +113,9 @@ export class SSEStreamParser {
    */
   flush(): SSEEvent[] {
     if (!this.buffer.trim()) return []
-    const { events } = parseSSEChunk(this.buffer + '\n')
+    const raw = this.buffer + '\n'
+    const { events } = parseSSEChunk(raw)
+    this.emitCompleteLines(raw, '')
     this.buffer = ''
     return events
   }
@@ -124,6 +144,13 @@ export interface StreamSSEOptions {
   signal?: AbortSignal
   /** 每个解析出的 SSE 事件回调;回调抛出 Error 视为致命错误(终止当前 attempt,不再重试)。 */
   onEvent: (evt: SSEEvent) => void
+  /**
+   * D136(2026-10-01 立):每个已成完整事件的原始行旁路(空行不递)。
+   * 共享解析面(@ihui/shared parseSSEChunk)不认领的帧族 —— 如 `tool-approval` ——
+   * 由消费方在这里拿原始行自行认领(见 src/lib/tool-approval-frame.ts)。
+   * 旁路回调**不得抛错**中断流:认领层内部已全 catch,这里保持直通。
+   */
+  onRawLine?: (line: string) => void
   /** 重连前通知(指数退避,attempt 从 1 起) */
   onReconnect?: (attempt: number, delayMs: number) => void
   /** 初始断点续传游标(上一次 Last-Event-ID),缺省不携带 */
@@ -149,10 +176,23 @@ export async function streamSSE(options: StreamSSEOptions): Promise<void> {
     headers: extraHeaders,
     signal,
     onEvent,
+    onRawLine,
     onReconnect,
     lastEventId: initialLastEventId,
     readTimeoutMs = STREAM_READ_TIMEOUT_MS,
   } = options
+
+  // D136:H5 路径的整行旁路(与 SSEStreamParser.emitCompleteLines 同一算法:残余是原始文本
+  // 的后缀 ⇒ 消去即得完整段,按行递出,空行不递)。
+  const emitRawLines = (raw: string, remainder: string): void => {
+    if (!onRawLine) return
+    const complete =
+      remainder && raw.endsWith(remainder) ? raw.slice(0, raw.length - remainder.length) : raw
+    for (const line of complete.split('\n')) {
+      const trimmed = line.endsWith('\r') ? line.slice(0, -1) : line
+      if (trimmed) onRawLine(trimmed)
+    }
+  }
 
   const lastEventId = initialLastEventId
   let errored = false
@@ -172,7 +212,7 @@ export async function streamSSE(options: StreamSSEOptions): Promise<void> {
   const runWeappAttempt = (): Promise<void> =>
     new Promise<void>((resolve, reject) => {
       const decoder = new TextDecoder('utf-8')
-      const parser = new SSEStreamParser()
+      const parser = new SSEStreamParser(onRawLine)
       if (lastEventId) parser.reset() // lastEventId 已在 header 携带,避免重复
       let settled = false
       let idleTimer: ReturnType<typeof setTimeout> | undefined
@@ -309,6 +349,7 @@ export async function streamSSE(options: StreamSSEOptions): Promise<void> {
       if (done) {
         buffer += decoder.decode()
         const { events } = parseSSEChunk(buffer)
+        emitRawLines(buffer, '')
         buffer = ''
         for (const evt of events) {
           try {
@@ -322,6 +363,7 @@ export async function streamSSE(options: StreamSSEOptions): Promise<void> {
       }
       buffer += decoder.decode(value, { stream: true })
       const { events, remainder } = parseSSEChunk(buffer)
+      emitRawLines(buffer, remainder)
       buffer = remainder
       for (const evt of events) {
         try {
