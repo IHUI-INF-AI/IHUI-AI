@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { randomUUID, randomBytes, createHmac, timingSafeEqual } from 'crypto'
 import { eq, and, desc, sql, inArray, gte } from 'drizzle-orm'
 import { authenticate, checkAuth } from '../plugins/auth.js'
+import { config } from '../config/index.js'
 import { requireAdmin, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { sanitizeCsvCell } from '../utils/csv-utils.js'
@@ -2026,7 +2027,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // 1. 移除弱默认 'your_webhook_secret_here' — 攻击者可枚举 → 必须强制配置
   // 2. POST 端点要求 admin 权限 — 防止普通用户篡改运行时密钥绕过 webhook 验签
   let runtimeWebhookSecret = process.env.COZE_WEBHOOK_SECRET ?? ''
-  if (!runtimeWebhookSecret && process.env.NODE_ENV === 'production') {
+  // G-998138:生产守卫档位经 config 唯一出口(fail-safe:部署链漏设 NODE_ENV 时旧写法把
+  // 这道"未配密钥拒绝启动"静默跳过;旧测试 mock 的 config 缺 isProductionGuard ⇒ 旧判据回退)
+  if (!runtimeWebhookSecret && (config.isProductionGuard ?? config.NODE_ENV === 'production')) {
     throw new Error(
       'CRITICAL: COZE_WEBHOOK_SECRET 未配置,生产环境禁止使用默认值,系统拒绝启动以防 webhook 伪造',
     )
