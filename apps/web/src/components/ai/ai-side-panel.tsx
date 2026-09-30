@@ -45,6 +45,7 @@ import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
 import { SessionUsageBadge } from '@/components/chat/session-usage-badge'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
+import { TaskRecapEntry } from '@/components/ai/d176-task-recap'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -96,7 +97,7 @@ import {
  *
  * 刻意**不** lazy 的(改了会更糟):
  * - MessageList / MessageInput:面板主体。lazy = "面板出现后再空一会"的二次闪烁
- * - WorkspaceSelector:header 常驻入口,体积小、lazy 反而闪
+ * - WorkspaceSelector / TaskRecapEntry:header 常驻入口,体积小、lazy 反而闪
  * - SrStreamAnnouncer:aria-live 播报区,延迟挂载会丢掉流式输出首段播报
  * - CostEstimateBar / PaneSplitContainer:体积收益≈0 或为布局容器(lazy 会塌陷)
  * - VoiceStreamSpeaker:其 readHandsFree 被 message-input 静态导入,摘不干净,收益为负
@@ -1679,6 +1680,11 @@ export function AISidePanel() {
                   </IconButton>
                 </Tooltip>
               )}
+              {/* D176 任务回顾 →「移交到新任务」(对标竞品 chatSession.highlights.recap.*):
+                  回顾入口 + 交接表单在位;交接文档的生成出口现不存在(ai-service 无端点 /
+                  api 无转发 / api-client 无出口),组件内已把下游动作一律禁用并如实报禁因,
+                  取证出处见 d176-task-recap.tsx 文件头 */}
+              <TaskRecapEntry />
               {/* D182 工作面全屏切换(仅 docked;浮窗本身已是独立小窗,再全屏工作面无意义):
                   门槛态 = 无活动会话(任务未开始)时 disabled,Tooltip 改示 workspaceUnavailable 文案 */}
               {!floatMode && (
