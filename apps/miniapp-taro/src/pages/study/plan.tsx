@@ -14,7 +14,10 @@ interface PlanItem {
   id: string
   title: string
   target: number
+  /** 进度百分比(0-100,当日已学分钟 / target,后端实时聚合) */
   progress: number
+  /** 今日已学分钟数(全部计划共享当日聚合值) */
+  minutes?: number
 }
 
 export default function StudyPlan() {
@@ -116,17 +119,18 @@ export default function StudyPlan() {
                 </View>
                 <View className="flex justify-between items-center mt-[16rpx]">
                   <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
-                    {t('study.planPage.completed', { n: p.progress })}
+                    {t('study.planPage.completed', { n: p.minutes ?? 0 })}
                   </Text>
-                  {/* 状态徽章对齐 RN statusBadge(10dp→20rpx/600/px6→12rpx/py4→8rpx/radius 4dp→8rpx):完成=success.lighter+deepText,进行中=success.light+success.DEFAULT */}
+                  {/* 状态徽章对齐 RN statusBadge(10dp→20rpx/600/px6→12rpx/py4→8rpx/radius 4dp→8rpx):完成=success.lighter+deepText,进行中=success.light+success.DEFAULT
+                      进度是百分比(当日已学分钟/目标),达标即 100% */}
                   <Text
                     className={`text-[length:20rpx] font-semibold px-[12rpx] py-[8rpx] rounded-sm ${
-                      p.progress >= p.target
+                      p.progress >= 100
                         ? 'bg-[var(--color-success-lighter)] text-[var(--color-success-deep-text)]'
                         : 'bg-[var(--color-success-light)] text-success'
                     }`}
                   >
-                    {p.progress >= p.target
+                    {p.progress >= 100
                       ? t('study.planPage.statusDone')
                       : t('study.planPage.statusInProgress')}
                   </Text>
