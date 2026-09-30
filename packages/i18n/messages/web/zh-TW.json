@@ -11221,6 +11221,7 @@
     "permissionUnknownError": "未知錯誤",
     "placeholder": "詳細描述需求，輸入 / 調用技能、插件、MCP（如 /goal /loop /plan）",
     "placeholderPlan": "規劃模式：輸入需求，AI 只制定計劃不執行工具（/act 切回執行，Alt+P 切換）",
+    "aiDisclaimer": "內容由AI生成，請核實重要信息",
     "plan": {
       "ariaLabel": "執行計劃步驟",
       "collapseReasoning": "折疊推理過程",

@@ -304,17 +304,6 @@ const R8_EXEMPT = /border-ink-exempt:/
 const R8_FOCUS_VARIANT =
   /(?:^|[\s'"`{,(])(?:group-|peer-)?focus(?:-[a-z]+)*:$/
 const R8_CSS_FOCUS_SELECTOR = /:(?:focus|focus-visible|focus-within)\b/
-/**
- * CSS 分支的第二种聚焦书写形态(2026-09-30,承 G-978046 选项①):
- * Taro/小程序拿不到 `:focus` 伪类=wxss 不支持,聚焦态只能是**运行时切一个 `-focused` 类名**
- * (`.login-phone-row-focused { border-color: var(--color-primary) }`)。原 CSS 分支只认伪类,
- * 于是"按端能力唯一可行的写法"落不进例外,实现票只能借行内豁免登记它 —— 那是把判据的洞
- * 转成台账的洞。现按类名认这一族。
- * **刻意只放 `-focused`,不放 `-active`/`-selected`**:用户 2026-09-30 定档写明"选中胶囊与
- * 当前 tab 的墨档描边仍在禁止之列",与本文件 RN 分支的 M8j5(`itemActive` 不豁免)同一道线。
- * 前瞻 `(?![\w-])` 是必要的:`.focused-tab` 是"被聚焦的那个 tab"的静态档名,不算状态类。
- */
-const R8_CSS_FOCUS_CLASS = /\.[\w-]*focused(?![\w-])/
 const R8_RN_FOCUS_GUARD = /(?:^|[^\w])(?:isFocused|focused|hasFocus)\s*\?\s*/
 /** R8 注释行不判(与 R5_COMMENT_LINE 同一条理由:零容忍门不得被叙述行钉红) */
 const R8_COMMENT_LINE = /^\s*(?:\/\/|\/\*|\*)/
@@ -330,7 +319,7 @@ function classTokenAtFocus(line, matchText, matchIndex) {
  *  窗口 12 行:声明块的选择器与声明通常相邻,超过窗口就当判不出 ⇒ 不放过(宁可点名交人工)。 */
 function cssBlockIsFocus(lines, i) {
   for (let j = i; j >= 0 && i - j <= 12; j--) {
-    if (lines[j].includes('{')) return R8_CSS_FOCUS_SELECTOR.test(lines[j]) || R8_CSS_FOCUS_CLASS.test(lines[j])
+    if (lines[j].includes('{')) return R8_CSS_FOCUS_SELECTOR.test(lines[j])
   }
   return false
 }
@@ -604,7 +593,6 @@ function listR8WebFiles() {
     ...new Set(
       execFileSync('git', ['ls-files', ...R8_DIRS], {
         cwd: ROOT,
-        stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf8',
         windowsHide: true,
         timeout: 30000,
@@ -2825,20 +2813,6 @@ function selfTest() {
   assert(
     findR8ClassHits(['input {', '  border-color: var(--color-primary);', '}']).length === 1,
     'R8-M8i2 反向:同一声明在选择器不带 :focus 的块里 ⇒ 静态墨档照旧判红',
-  )
-  // M8i3–M8i5:CSS 分支的第二种聚焦书写(Taro/小程序运行时切 `-focused` 类名,G-978046 选项①)。
-  //  必须成对:接受类名那一支**不得把选中态一起放过** —— 那正是用户 2026-09-30 划的边界。
-  assert(
-    findR8ClassHits(['.login-phone-row-focused {', '  border-color: var(--color-primary);', '}']).length === 0,
-    'R8-M8i3 正向:选择器带 -focused 运行时状态类 ⇒ 小程序端唯一可行写法,不得判红',
-  )
-  assert(
-    findR8ClassHits(['.tab-active {', '  border-color: var(--color-primary);', '}']).length === 1,
-    'R8-M8i4 边界:-active(选中态)不豁免,与 RN 侧 M8j5 同一道线(放它=替用户选另一个方案)',
-  )
-  assert(
-    findR8ClassHits(['.focused-tab-item {', '  border-color: var(--color-primary);', '}']).length === 1,
-    'R8-M8i5 反向:.focused-tab 是"以 focused 开头的静态档名"而非状态类 ⇒ 前瞻必须挡住误豁免',
   )
   assert(
     findR8Violations(['      focused ? { borderColor: tokens.brand.DEFAULT } : null,']).length === 0,
