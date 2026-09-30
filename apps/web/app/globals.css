@@ -1007,38 +1007,6 @@ iframe::-webkit-scrollbar {
 }
 
 /* ============================================================
- * AI 输入卡描边四态(2026-09-30)
- * ============================================================
- * 为什么必须是原生 CSS 而不是 Tailwind 的 `border-input` / `border-amber-500/50` /
- * `border-brand-accent-deep`:本文件上方那条 `* { border-color: var(--color-border) }` 是
- * **未分层**规则,而 Tailwind v4 的工具类在 `@layer utilities` 内 —— 按 CSS 级联规范,
- * 未分层声明恒胜过任何分层声明(与 specificity 无关)。实测编译产物里
- * `* => var(--color-border)` 在 unlayered 顶层,`.border-input` / `.focus-within:border-*`
- * 全在 @layer utilities ⇒ 这四态描边写上去一条都不渲染,输入卡长期只有 `*` 的灰色。
- * 同一条结论本文件 Checkbox 一处(2026-08-13)已落地过,处置姿势也照它:用语义类 + 未分层规则,
- * 不写 !important(项目禁令)。
- *
- * 聚焦态取墨档 = AGENTS §4「描边不得取墨档」的**唯一例外位**(2026-09-30 用户定档):
- * 「当前正在输入哪个框」要一眼可见,而守门 83 的 R8 按"选择器带 :focus* 伪类"认这一位合法。
- * 分支互斥仍由 JSX 决定(dragging > high-risk > idle),所以各态取用不同修饰类,不做状态叠加假设。
- */
-.ai-input-shell {
-  border-color: var(--color-input);
-}
-.ai-input-shell--idle:focus-within {
-  border-color: var(--color-primary);
-}
-.ai-input-shell--high-risk {
-  border-color: color-mix(in srgb, var(--color-amber-500) 50%, transparent);
-}
-.ai-input-shell--high-risk:focus-within {
-  border-color: color-mix(in srgb, var(--color-amber-500) 70%, transparent);
-}
-.ai-input-shell--dragging {
-  border-color: var(--color-brand-accent-deep);
-}
-
-/* ============================================================
  * AI 输入框底部工具栏 container query(2026-07-20 立,2026-09-30 单行化重构)
  * ============================================================
  * 背景:输入卡恒 2 行(textarea 行 + 唯一底栏,对标 Trae/Qoder/Codex),
