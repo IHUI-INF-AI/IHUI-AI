@@ -59,6 +59,10 @@ import type { TerminalInteractionEvent } from '@ihui/api-client'
 // D152(2026-09-29 立):goal_updated(会话目标的服务端主副本变了)同一纪律 —— 载荷类型复用
 // @ihui/api-client 的 GoalUpdateEvent,本端不得抄第二份字段(§3 共享层优先)。
 import type { GoalUpdateEvent } from '@ihui/api-client'
+// D136(2026-10-01 立,承 V4 #94/D84):高危工具审批(tool-approval)载荷类型同纪律。
+import type { ToolApprovalEvent } from '@ihui/api-client'
+// D136:tool-approval 帧的端内认领层(共享解析面不认领该帧族,见该文件头注)。
+import { parseToolApprovalLine } from '@/lib/tool-approval-frame'
 import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
 import type {
   PlanUpdateEvent,
@@ -89,6 +93,10 @@ import { unwrapApi, get, post, put, patch, del } from '../utils/api-bridge'
 export type { UserInfo }
 // HTTP 方法 re-export:保持外部 `import { get, post, ... } from '@/api'` 引用不变
 export { get, post, put, patch, del }
+// D136(2026-10-01 立,承 V4 #94/D84):主对话流(chat-stream 通道)审批决议回传的唯一出口。
+// 与 agent 任务流的 sendToolApprovalResponse 分属两套注册表、回传端点不同(V3 #58 路由纪律);
+// 端内一律经 @ihui/api-client,不另起传输层(§3 共享层优先)。
+export { postToolApprovalResponse } from '@ihui/api-client'
 // 类型单一来源:LlmModel / FetchModelsResult / AgentPermission / AgentPermissionType / WalletBalance / VipLevel / SignContractResponse / ExamQuestion 复用 @ihui/api-client,本地 re-export 保持外部引用不变
 export type {
   LlmModel,
@@ -365,6 +373,14 @@ export interface StreamEventCallbacks {
    * 给一个"看得见状态却改不了状态"的控件是假 affordance(与 D151 本端不接输入口同一口径)。
    */
   onGoalUpdate?: (evt: GoalUpdateEvent) => void
+  /**
+   * D136(2026-10-01 立,承 V4 #94/D84):高危工具审批请求帧(tool-approval)。
+   * 载荷由本文件 streamSSE 的 onRawLine 旁路经 parseToolApprovalLine 认领解析,
+   * 字段口径与 @ihui/api-client 的 chat-stream 解析腿逐字同(镜像锁见
+   * pkg-ai/ai/__tests__/tool-approval-wiring.test.ts);不注册回调 ⇒ 帧照旧静默丢弃。
+   * 决议回传走 re-export 的 postToolApprovalResponse(端内不另起传输层)。
+   */
+  onToolApproval?: (evt: ToolApprovalEvent) => void
 }
 
 /** SSE 错误对象携带的元信息(字段名与 @ihui/api-client client.ts attachErrorMeta 一致) */
@@ -583,6 +599,13 @@ export const chatStream = async (
     body: buildBody(),
     signal,
     onEvent: dispatch,
+    // D136(2026-10-01 立,承 V4 #94/D84):tool-approval 帧认领。共享解析面不认领该帧族
+    // ⇒ 不走旁路它就一路静默丢弃(D113 tool-delta 同型缺陷);认领层对非本族行零成本直返。
+    onRawLine: (line) => {
+      const evt = parseToolApprovalLine(line)
+      if (!evt || !callbacks || typeof callbacks.onToolApproval !== 'function') return
+      callbacks.onToolApproval(evt)
+    },
     onReconnect: (attempt, delayMs) => {
       // 断点续传去重:重连后服务端可能从断点重发,跳过已渲染前缀
       dedupeActive = receivedContent.length > 0
