@@ -12,6 +12,8 @@ import { Loader2, History, ArrowLeft, Eye, Calendar } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface AiWorldItem {
   id: string
@@ -37,9 +39,13 @@ async function api<T>(url: string): Promise<T> {
 export default function AiWorldHistoryPage() {
   const locale = useLocale()
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['ai-world', 'history'],
     queryFn: () => api<ListData>('/api/ai-world/history'),
+    enabled: allow,
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -74,7 +80,9 @@ export default function AiWorldHistoryPage() {
         <p className="mt-1 text-sm text-muted-foreground">查看所有历史版本记录</p>
       </div>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看历史版本" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...

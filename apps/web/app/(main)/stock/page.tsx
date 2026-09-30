@@ -25,7 +25,8 @@ import {
   DialogDescription,
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
-import { BackButton, Empty } from '@/components/common'
+import { BackButton, Empty, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
 
 /** 单次分析结果（与后端 StockAnalysisResult 对应；createdAt 经 JSON 序列化为 ISO 字符串） */
@@ -101,14 +102,19 @@ export default function StockAnalysePage() {
   const [detail, setDetail] = React.useState<StockAnalysisResult | null>(null)
   const [detailOpen, setDetailOpen] = React.useState(false)
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求(余额/历史均为个性化数据)
+  const { allow } = useAuthGate()
+
   const balanceQuery = useQuery({
     queryKey: ['stock', 'balance'],
     queryFn: fetchBalance,
+    enabled: allow,
   })
 
   const historyQuery = useQuery({
     queryKey: ['stock', 'history'],
     queryFn: fetchHistory,
+    enabled: allow,
   })
 
   const balance = balanceQuery.data
@@ -173,7 +179,9 @@ export default function StockAnalysePage() {
           <CardTitle className="text-base">{t('tokenBalance')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {balanceQuery.isError ? (
+          {!allow ? (
+            <AuthGatePrompt message="请先登录后查看代币余额" />
+          ) : balanceQuery.isError ? (
             <Alert variant="danger" description={(balanceQuery.error as Error).message} />
           ) : (
             <>
@@ -314,7 +322,9 @@ export default function StockAnalysePage() {
           <CardTitle className="text-base">{t('history')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {historyQuery.isLoading ? (
+          {!allow ? (
+            <AuthGatePrompt message="请先登录后查看分析历史" />
+          ) : historyQuery.isLoading ? (
             <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
               {tc('loading')}

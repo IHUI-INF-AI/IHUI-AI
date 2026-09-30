@@ -13,7 +13,8 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { BarChart } from '@/components/charts/BarChart'
 import { formatNumber } from '@/lib/date-utils'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface BiStats {
   totalUsers: number
@@ -31,6 +32,10 @@ const DEFAULT_STATS: BiStats = {
 
 export default function BiDashboardPage() {
   const t = useTranslations('biDashboard')
+
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data: stats = DEFAULT_STATS, isLoading } = useQuery({
     queryKey: ['bi-dashboard'],
     queryFn: async () => {
@@ -38,6 +43,7 @@ export default function BiDashboardPage() {
       if (r.success && r.data) return r.data
       return DEFAULT_STATS
     },
+    enabled: allow,
   })
 
   const cards: {
@@ -63,6 +69,11 @@ export default function BiDashboardPage() {
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
+      {/* 2026-09-30 登录态门:未登录时用登录引导替换个性化数据区 */}
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看 BI 运营数据" />
+      ) : (
+        <>
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -100,6 +111,8 @@ export default function BiDashboardPage() {
           />
         </CardContent>
       </Card>
+        </>
+      )}
     </div>
   )
 }

@@ -22,6 +22,8 @@ import {
   DialogDescription,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { ManageRow } from './ManageRow'
 
 interface DocSummary {
@@ -71,9 +73,13 @@ export default function KnowledgeRagManagePage() {
     null,
   )
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['knowledgeRag', 'docs'],
     queryFn: () => api<DocSummary[]>('/api/knowledge/docs'),
+    enabled: allow,
   })
 
   React.useEffect(() => {
@@ -156,62 +162,68 @@ export default function KnowledgeRagManagePage() {
           <span>{feedback.msg}</span>
         </div>
       )}
-      <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
-        <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
-          <Checkbox
-            checked={allSelected}
-            onCheckedChange={toggleAll}
-            disabled={docs.length === 0}
-            aria-label={t('selectAll')}
-          />
-          <span>
-            {t('selectAll')} ({selected.size}/{docs.length})
-          </span>
-        </label>
-        <Button
-          variant="destructive"
-          size="sm"
-          disabled={selected.size === 0 || batchDeleteMut.isPending}
-          onClick={() => setConfirmOpen(true)}
-        >
-          {batchDeleteMut.isPending ? (
-            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-          ) : (
-            <Trash2 className="mr-1.5 h-4 w-4" />
-          )}
-          {t('batchDelete')}
-        </Button>
-      </div>
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loading')}
-        </div>
-      ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-          {(error as Error).message}
-        </div>
-      ) : docs.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
-          {t('empty')}
-        </div>
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看我的知识文档" />
       ) : (
-        <div className="space-y-2">
-          {docs.map((d) => (
-            <ManageRow
-              key={d.id}
-              doc={d}
-              checked={selected.has(d.id)}
-              srcLabel={srcLabel(d.sourceType)}
-              fmtDate={fmtDate(d.createdAt)}
-              chunkLabel={t('chunkCount', { count: d.chunkCount })}
-              deleteLabel={t('singleDelete')}
-              disabled={singleDeleteMut.isPending}
-              onToggle={() => toggleOne(d.id)}
-              onDelete={() => singleDeleteMut.mutate(d.id)}
-            />
-          ))}
-        </div>
+        <>
+          <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={toggleAll}
+                disabled={docs.length === 0}
+                aria-label={t('selectAll')}
+              />
+              <span>
+                {t('selectAll')} ({selected.size}/{docs.length})
+              </span>
+            </label>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={selected.size === 0 || batchDeleteMut.isPending}
+              onClick={() => setConfirmOpen(true)}
+            >
+              {batchDeleteMut.isPending ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-1.5 h-4 w-4" />
+              )}
+              {t('batchDelete')}
+            </Button>
+          </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              {t('loading')}
+            </div>
+          ) : error ? (
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              {(error as Error).message}
+            </div>
+          ) : docs.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
+              {t('empty')}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {docs.map((d) => (
+                <ManageRow
+                  key={d.id}
+                  doc={d}
+                  checked={selected.has(d.id)}
+                  srcLabel={srcLabel(d.sourceType)}
+                  fmtDate={fmtDate(d.createdAt)}
+                  chunkLabel={t('chunkCount', { count: d.chunkCount })}
+                  deleteLabel={t('singleDelete')}
+                  disabled={singleDeleteMut.isPending}
+                  onToggle={() => toggleOne(d.id)}
+                  onDelete={() => singleDeleteMut.mutate(d.id)}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
