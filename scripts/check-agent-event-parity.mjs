@@ -618,6 +618,8 @@ const END_CAPABILITY_DIRS = {
   'apps/cli/src': 'CLI',
 };
 const PROFILE_PATH = 'config/agent-event-end-capability.json';
+// 字段级台账(b76-05 票1):豁免键 → 理由;与端能力档案同一目录的既有台账文件
+const FIELD_COVERAGE_PATH = 'scripts/data/sse-dispatch-coverage.json';
 
 function escapeRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
@@ -729,6 +731,42 @@ if (SELF_TEST) {
     Object.keys(END_CAPABILITY_DIRS).every((d) => ownSrc.includes(d)) && ownSrc.includes('catBatch(') && ownSrc.includes(PROFILE_PATH),
     '退回只扫 web 时本条红 —— 这是 T1 镜像测试的牙',
   ]);
+  // 字段段自检(b76-05 票1):变异自证 —— 判据有牙才配叫门。
+  try {
+    const fr = extractFrontendReadKeys();
+    const bw = extractBackendWriteKeys();
+    const planRead = fr.get('plan-step');
+    const planWrite = bw.get('plan-step');
+    st.push([
+      'ST4 字段抽键器两侧都吃到信号(plan-step 生产侧与解析面键集非空)',
+      !!planRead && planRead.size >= 4 && !!planWrite && planWrite.size >= 1,
+      `生产侧 ${planWrite?.size ?? 0} 键 / 解析面 ${planRead?.size ?? 0} 键`,
+    ]);
+    if (planRead && planWrite) {
+      // 变异自证(照 D159 推广票的口径):给生产点加一个新键而不改解析面 ⇒ 必红。
+      const mutatedWrite = new Map(planWrite);
+      mutatedWrite.set('brand_new_field', 'mutation: ST5 synthetic key');
+      const mutatedCmp = compareFieldSets(mutatedWrite, planRead, {});
+      st.push([
+        'ST5 字段闸变异自证:生产点加新键而解析面不读 ⇒ 必点名缺口(防恒绿)',
+        mutatedCmp.gaps.includes('brand_new_field'),
+        `缺口 ${JSON.stringify(mutatedCmp.gaps)}`,
+      ]);
+    }
+    const fb = loadFieldBaseline();
+    st.push([
+      'ST6 字段级台账可解析(fieldBaseline 为对象,取不到不得记绿)',
+      fb !== null,
+      fb === null ? '解析失败' : 'ok',
+    ]);
+    st.push([
+      'ST7 字段段形状锁:取材面(sse-dispatch-coverage/client.ts 投影/api 广播)都在源码里',
+      ownSrc.includes(FIELD_COVERAGE_PATH) && ownSrc.includes('projectToolApprovalEnvFacts(p)') && ownSrc.includes('broadcastSSEEvent'),
+      '退回只比事件名集合时本条红',
+    ]);
+  } catch (e) {
+    st.push(['ST4-7 字段段自检异常', false, String(e?.message ?? e).split('\n')[0]]);
+  }
   for (const [name, ok, got] of st) console.log(`${ok ? '✅' : '❌'} ${name}${ok ? '' : ' —— 实得: ' + got}`);
   const bad = st.filter((x) => !x[1]).length;
   console.log(`# 自检 ${st.length - bad}/${st.length} 通过`);
@@ -959,6 +997,270 @@ for (const w of WHITELIST) {
 for (const w of FRONTEND_LEGACY_EVENTS) {
   if (!frontendEvents.has(w.name)) {
     warnings.push(`FRONTEND_LEGACY_EVENTS 条目 "${w.name}" 已无前端监听点(分支已被清理), 条目过期请移除`);
+  }
+}
+
+// ============================================================================
+// [5/5] 字段级 parity(b76-05 票1,2026-09-30 立):后端写、前端不读 = 静默吞字段
+// ============================================================================
+//
+// 名称面(对账 0~3)只保证"事件名两端都在";本段把判据下钻到 **payload 字段级**:
+//   生产点写出的键集合 ⊆ 解析面(agent-events.ts parse*Event 实际读取的 wire 键)
+// 否则后端新增/已写的字段会被前端静默吞掉 —— 与"流断了"在消费端同形,而
+// typecheck/lint/其余守门全都不响(本仓最高频失效形态)。
+//
+// 取材面(全部现读,不写死键清单 —— 写死必与代码脱节):
+//   生产侧 = apps/ai-service/app/core/sse_contract.py 的 SSE_EVENT_CONTRACTS 声明
+//            + apps/ai-service/app/routers/agents.py 直接写出点 {"type": SSE_X, ...}
+//            + apps/ai-service/app/core/stream_events.py(票面点名;纯函数切片,命中预期低)
+//            + apps/api/src/services/*.ts 的 broadcastSSEEvent({...}) 字面量
+//   解析侧 = packages/shared/src/sse/agent-events.ts 各 parseXxxEvent 函数体的
+//            p.*/data.* 读取点;tool-approval 并入 client.ts projectToolApprovalEnvFacts
+//            的读取点(D159:那份判据只有一份,两条通道都调它)。
+//
+// 判定口径:
+//   生产点键 − 解析面键 − fieldBaseline 台账 ⇒ **错误阻断**(并列名到键)。
+//   解析面读而生产侧未声明 ⇒ 警告(前端容忍缺席是合法姿态,但声明缺失要点名)。
+//   只有单侧有键集 ⇒ 未判定警告(取不到必须显式说,不得记绿)。
+//   台账 = scripts/data/sse-dispatch-coverage.json 的 fieldBaseline(豁免键 → 理由)。
+
+/** 解析侧:agent-events.ts 各 parse*Event 函数体实际读取的 wire 键集合。 */
+function extractFrontendReadKeys() {
+  const out = new Map(); // wire 事件名 → Set(wire 键)
+  const srcFile = path.join(ROOT, 'packages/shared/src/sse/agent-events.ts');
+  if (!existsSync(srcFile)) return out;
+  const src = readFileSync(srcFile, 'utf-8');
+  // 常量键(SCREAMING_SNAKE)→ 解析函数名段(PlanStep):parseXxxEvent 与常量一一对应
+  const parseSegment = (constKey) =>
+    constKey.split('_').map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join('');
+  for (const [constKey, wire] of agentTaskEventConstants) {
+    const seg = parseSegment(constKey);
+    const start = src.indexOf(`export function parse${seg}Event(`);
+    if (start === -1) continue;
+    const next = src.indexOf('\nexport ', start + 1);
+    const body = next === -1 ? src.slice(start) : src.slice(start, next);
+    const keys = new Set();
+    for (const m of body.matchAll(/\bp\?\.([a-z_][a-z_0-9]*)/g)) keys.add(m[1]);
+    for (const m of body.matchAll(/\bp\.([a-z_][a-z_0-9]*)/g)) keys.add(m[1]);
+    // b76-05 票1 重构后的读取形态:路由闸(gate.data.X)取的是字段表里的 wire 键
+    for (const m of body.matchAll(/\bgate\.data\.([a-z_][a-z_0-9]*)/g)) keys.add(m[1]);
+    for (const m of body.matchAll(/\bdata\??\.(type|session_id|payload)\b/g)) keys.add(m[1]);
+    // D159:tool-approval 的三个环境事实键经 projectToolApprovalEnvFacts(p) 读取,
+    // 判据只有 client.ts 那一份 —— 键集从那边的函数体现读并入,不在这里重列。
+    if (body.includes('projectToolApprovalEnvFacts(p)')) {
+      const clientSrc = readFileSync(path.join(ROOT, 'packages/api-client/src/client.ts'), 'utf-8');
+      const pjStart = clientSrc.indexOf('export function projectToolApprovalEnvFacts');
+      if (pjStart !== -1) {
+        const pjEnd = clientSrc.indexOf('\nfunction ', pjStart);
+        const pjBody = pjEnd === -1 ? clientSrc.slice(pjStart) : clientSrc.slice(pjStart, pjEnd);
+        for (const m of pjBody.matchAll(/\bjson\??\.([a-z_][a-z_0-9]*)/g)) keys.add(m[1]);
+      }
+    }
+    out.set(wire, keys);
+  }
+  return out;
+}
+
+/** 生产侧扫描(供合并版与两端口径版共用):port='ai'(ai-service 三源) | 'api'(services 广播)。 */
+function scanBackendWriteKeys(record) {
+  // (a) sse_contract.py SSE_EVENT_CONTRACTS 的 payload_fields 声明(剥注释防吸附)
+  {
+    const f = path.join(ROOT, 'apps/ai-service/app/core/sse_contract.py');
+    if (existsSync(f)) {
+      const text = stripPyLineComments(readFileSync(f, 'utf-8'));
+      for (const m of text.matchAll(/SSEEventContract\(\s*"([a-z_-]+)"\s*,\s*\(([^)]*)\)/gs)) {
+        for (const km of m[2].matchAll(/"([a-z_A-Za-z0-9]+)"/g)) {
+          record('ai', m[1], km[1], `${rel(f)} (SSE_EVENT_CONTRACTS 声明)`);
+        }
+      }
+    }
+  }
+  // (b) agents.py 直接写出点 {"type": SSE_XXX, key: ...}(常量值经 1l 的映射解析)
+  {
+    const f = path.join(ROOT, 'apps/ai-service/app/routers/agents.py');
+    if (existsSync(f)) {
+      const text = readFileSync(f, 'utf-8');
+      for (const m of text.matchAll(/\{\s*"type":\s*(SSE_[A-Z_0-9]+)\s*,\s*([^{}]*)\}/g)) {
+        const wire = pyAgentEventConstants.get(m[1].slice(4));
+        if (!wire) continue;
+        for (const km of m[2].matchAll(/(?:^|[,{]\s*)([a-z_][a-z_0-9]*)\s*:/g)) {
+          if (km[1] === 'type') continue;
+          record('ai', wire, km[1], `${rel(f)} (直接写出点)`);
+        }
+      }
+    }
+  }
+  // (c) stream_events.py(票面点名的生产者源码;纯函数切片,若未来产出 SSE 载荷键即被登记)
+  {
+    const f = path.join(ROOT, 'apps/ai-service/app/core/stream_events.py');
+    if (existsSync(f)) {
+      const text = readFileSync(f, 'utf-8');
+      for (const m of text.matchAll(/\{\s*"type":\s*(SSE_[A-Z_0-9]+)\s*,\s*([^{}]*)\}/g)) {
+        const wire = pyAgentEventConstants.get(m[1].slice(4));
+        if (!wire) continue;
+        for (const km of m[2].matchAll(/(?:^|[,{]\s*)([a-z_][a-z_0-9]*)\s*:/g)) {
+          if (km[1] === 'type') continue;
+          record('ai', wire, km[1], `${rel(f)} (直接写出点)`);
+        }
+      }
+    }
+  }
+  // (d) apps/api/src/services/*.ts 的 broadcastSSEEvent({...}) 字面量(顶层键)
+  {
+    const dir = path.join(ROOT, 'apps/api/src/services');
+    for (const f of walk(dir, ['.ts'])) {
+      const text = stripTsComments(readFileSync(f, 'utf-8'));
+      const re = /broadcastSSEEvent\(\s*\{/g;
+      let m;
+      while ((m = re.exec(text)) !== null) {
+        let depth = 1;
+        let i = re.lastIndex;
+        while (i < text.length && depth > 0) {
+          const ch = text[i];
+          if (ch === '{') depth++;
+          else if (ch === '}') depth--;
+          i++;
+        }
+        const body = text.slice(re.lastIndex, i - 1);
+        const tm = body.match(/\btype:\s*'([a-z_-]+)'/);
+        if (!tm) continue;
+        // 摘掉嵌套 {}/[]/() 后再认顶层键,防嵌套字面量的键被误并入
+        const flat = body.replace(/\{[^{}]*\}/g, ' ').replace(/\[[^[\]]*\]/g, ' ').replace(/\([^()]*\)/g, ' ');
+        for (const km of flat.matchAll(/(?:^|[,{(\s])([a-zA-Z_][\w]*)\s*:/g)) {
+          if (km[1] === 'type') continue;
+          record('api', tm[1], km[1], `${rel(f)} (broadcastSSEEvent)`);
+        }
+      }
+    }
+  }
+}
+
+function addToWriteMap(out, ev, key, source) {
+  if (!out.has(ev)) out.set(ev, new Map());
+  if (!out.get(ev).has(key)) out.get(ev).set(key, source);
+}
+
+/** 生产侧:各 SSE 写出点按事件名归并的键集合(键 → 来源)。 */
+function extractBackendWriteKeys() {
+  const out = new Map(); // wire 事件名 → Map(键 → 来源)
+  scanBackendWriteKeys((_, ev, key, source) => addToWriteMap(out, ev, key, source));
+  return out;
+}
+
+/** 生产侧两端口径:ai-service 三源 与 apps/api services 广播各自归并。 */
+function extractBackendWriteKeysByPort() {
+  const ai = new Map();
+  const api = new Map();
+  scanBackendWriteKeys((port, ev, key, source) => addToWriteMap(port === 'ai' ? ai : api, ev, key, source));
+  return { ai, api };
+}
+
+/** 字段级豁免台账(fieldBaseline):事件 → 键 → 理由。 */
+function loadFieldBaseline() {
+  try {
+    const t = readFileSync(path.join(ROOT, FIELD_COVERAGE_PATH), 'utf-8');
+    const parsed = JSON.parse(t);
+    return parsed.fieldBaseline && typeof parsed.fieldBaseline === 'object' ? parsed.fieldBaseline : {};
+  } catch {
+    return null;
+  }
+}
+
+/** 纯比较器(self-test 变异臂复用):gaps=后端写前端不读;extras=解析面读未声明。 */
+function compareFieldSets(writeKeys, readSet, baseline) {
+  const base = baseline ?? {};
+  const gaps = [...writeKeys.keys()].filter((k) => !readSet.has(k) && !(base[k] ?? base[String(k)]));
+  const extras = [...readSet].filter((k) => !writeKeys.has(k));
+  return { gaps, extras };
+}
+
+console.log(`\n${C.cyan}对账: 字段级 parity(后端写、前端不读 = 静默吞字段)${C.reset}`);
+const fieldBaseline = loadFieldBaseline();
+if (!fieldBaseline) {
+  errors.push(
+    `字段级台账 ${FIELD_COVERAGE_PATH} 解析失败或 fieldBaseline 缺失 —— 台账取不到必须显式红,` +
+      `不得静默当"无豁免"放行`,
+  );
+}
+const frontendReadKeys = extractFrontendReadKeys();
+const backendWriteKeys = extractBackendWriteKeys();
+let comparableEvents = 0;
+let fieldFactTotal = 0;
+let fieldGapTotal = 0;
+{
+  const allEvents = [...new Set([...backendWriteKeys.keys(), ...frontendReadKeys.keys()])].sort();
+  for (const ev of allEvents) {
+    const write = backendWriteKeys.get(ev);
+    const read = frontendReadKeys.get(ev);
+    if (!read) {
+      warnings.push(`字段面: 事件 "${ev}" 生产侧声明了键集但解析面(agent-events.ts/client.ts)无读取点 — 未判定,不是通过`);
+      continue;
+    }
+    if (!write) {
+      warnings.push(`字段面: 事件 "${ev}" 解析面有读取点但生产侧无键集声明(hook 透传帧声明缺失)— 未判定,不是通过`);
+      continue;
+    }
+    comparableEvents++;
+    fieldFactTotal += write.size;
+    const { gaps, extras } = compareFieldSets(write, read, fieldBaseline);
+    const baseCount = Object.keys(fieldBaseline?.[ev] ?? {}).length;
+    console.log(
+      `  ${gaps.length === 0 ? C.green + '✓' + C.reset : C.red + '✗' + C.reset} ${ev}: 生产侧键 ${write.size} ⊆ 解析面键 ${read.size}` +
+        (baseCount ? `(台账豁免 ${baseCount})` : '') +
+        (gaps.length ? ` — 缺口: ${gaps.join(', ')}` : '') +
+        (extras.length ? ` | 解析面多读: ${extras.join(', ')}(警告不阻断)` : ''),
+    );
+    for (const k of gaps) {
+      fieldGapTotal++;
+      errors.push(
+        `字段面断裂: 事件 "${ev}" 生产点写出键 "${k}"(${write.get(k)})但前端解析面不读 — ` +
+          `补解析面读取或在 ${FIELD_COVERAGE_PATH} 的 fieldBaseline 登记理由`,
+      );
+    }
+    for (const k of extras) {
+      warnings.push(`字段面对账: 事件 "${ev}" 解析面读 "${k}" 但生产侧声明未列(透传键或声明缺失,不阻断)`);
+    }
+  }
+  console.log(`  可比事件 ${comparableEvents},生产侧键事实 ${fieldFactTotal},缺口合计 ${fieldGapTotal}`);
+}
+if (frontendReadKeys.size < 9) {
+  errors.push(`字段抽键器疑似失效: agent-events.ts 解析函数只识别 ${frontendReadKeys.size}/9 个事件`);
+}
+if (backendWriteKeys.size < 5) {
+  errors.push(`字段抽键器疑似失效: 生产侧键集只覆盖 ${backendWriteKeys.size} 个事件(sse_contract.py / agents.py / services 抽取需同步)`);
+}
+if (comparableEvents === 0 || fieldFactTotal < 10) {
+  errors.push('字段抽键器没抽到: 生产↔解析可比事件为 0 或键事实 <10,属门失效');
+}
+// 两端口径(③):同名事件被 ai-service 与 apps/api 两端都写出时,键集必须一致 ——
+// 协议层外部契约变更必须两端同判,不接受只看某一端渲染。
+{
+  const { ai, api } = extractBackendWriteKeysByPort();
+  let portPairs = 0;
+  for (const ev of [...new Set([...ai.keys(), ...api.keys()])].sort()) {
+    const aiKeys = ai.get(ev);
+    const apiKeys = api.get(ev);
+    if (!aiKeys || !apiKeys) continue;
+    portPairs++;
+    const onlyAi = [...aiKeys.keys()].filter((k) => !apiKeys.has(k));
+    const onlyApi = [...apiKeys.keys()].filter((k) => !aiKeys.has(k));
+    if (onlyAi.length === 0 && onlyApi.length === 0) {
+      console.log(`  ${C.green}✓${C.reset} 两端口径 ${ev}: 两端键集一致(${aiKeys.size} 键)`);
+    } else {
+      console.log(
+        `  ${C.red}✗${C.reset} 两端口径 ${ev}: 仅 ai-service 有 ${onlyAi.join(', ') || '(无)'} | 仅 apps/api 有 ${onlyApi.join(', ') || '(无)'}`,
+      );
+      errors.push(
+        `字段面两端口径断裂: 事件 "${ev}" 在 ai-service 与 apps/api 两端写出的键集不一致 ` +
+          `(仅 ai-service: [${onlyAi.join(', ')}];仅 apps/api: [${onlyApi.join(', ')}]) — 两端同批改齐`,
+      );
+    }
+  }
+  if (portPairs === 0) {
+    console.log('  两端口径: 当前两端无同名写出事件,两端同判未激活 — 未判定,不是通过');
+    warnings.push('字段面两端口径:当前无同名事件被两端同时写出,③两端同判未激活 — 未判定,不是通过');
+  } else {
+    console.log(`  两端口径: 同名事件两端都写出的可比对 ${portPairs} 个`);
   }
 }
 
