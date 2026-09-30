@@ -36,9 +36,7 @@ function buildCanvasStub(ctx: ReturnType<typeof buildCtxStub>) {
     width: 0,
     height: 0,
     getContext: vi.fn(() => ctx),
-    toBlob: vi.fn((cb: (b: Blob | null) => void) =>
-      cb(new Blob(['png-bytes'], { type: 'image/png' })),
-    ),
+    toBlob: vi.fn((cb: (b: Blob | null) => void) => cb(new Blob(['png-bytes'], { type: 'image/png' }))),
   }
 }
 
