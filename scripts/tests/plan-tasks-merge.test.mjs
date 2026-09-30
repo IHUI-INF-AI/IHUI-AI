@@ -25,7 +25,6 @@ import {
   auditPlan,
   compositeKeyOf,
   keyOfRow,
-  matchBalancedGroupAt,
   titleOf,
 } from '../lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -49,11 +48,18 @@ import {
   buildRestoreTerminals,
   verifyRestoreTerminals,
   pointerVisibilityRegression,
+  BYPASS_LANDING_SITES,
+  landingAttestationStructure,
+  landingSiteTableProblems,
   __test__,
 } from '../plan-tasks-merge.mjs'
 import { forkPreserved } from '../lib/plan-merge-annotation.mjs'
 // 反向锁与"两维互咬"的判据一律引守门 71 自己那一份实现(§22c:镜像测试不抄第二份判据)
 import { headIdOf, headIdSet, lostMarkers, markerOf } from '../check-plan-line-loss.mjs'
+// G-800:留痕的读侧与统计侧一律引**那一份**实现(§22c 同规:在测试里再拼一次台账路径/再解一次
+// JSON,测试就会跟着生产侧一起漂绿)。
+import { BYPASS_KIND, readLedgerRecords } from '../lib/commit-attestation.mjs'
+import * as bypassReport from '../plan-bypass-ledger-report.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const gitQ = (cwd, args) =>
@@ -224,57 +230,6 @@ test('T7 块级收口:开关必须真在 CLI 上,且真调落地函数', () => {
   // 与 --heal 的区别必须是**刻意的**:删行不进自动档
   const seg = src.slice(src.indexOf("has('--dedupe-blocks')"))
   if (!/if \(!has\('--commit'\)\)/.test(seg)) throw new Error('块级收口未加 --commit 时必须只出报告,不得自动删行')
-})
-
-/**
- * T7b 未勾单行副本收口(`--dedupe-open-rows`)的装车锁。
- *
- * 为什么单独一条:T7 把源码读的是**磁盘**,而磁盘那份在共享工作区里常年是别人的滞后副本
- * (2026-09-29 05:5x 实测 `scripts/plan-tasks-merge.mjs` 工作树 2656 行 vs HEAD 3546 行,且
- * 暂存 index blob `c355678296` 按 `git log --all --find-object` **匹配不到任何祖先** ⇒ 自愈层
- * 与守门 84 对这一型全部静默)。按磁盘判的后果有两头:副本被回写时它**跟着一起绿**,而它绿恰恰
- * 是"这一格已被看过"的假承诺。所以本条只判**被审面(HEAD blob)**,并用构造面证明判据有牙。
- * 四项缺一即"函数在而入口不在"(守门 70/76/81/115 同族);第四项最隐蔽:落地函数与 CLI 都在,
- * 唯独没进 `KNOWN_FLAGS` ⇒ `inspectArgs` 把它当未知参数直接拒掉,这个出口对用户就是不存在。
- */
-test('T7b 未勾单行副本收口:开关/落地函数/旗标白名单必须在 HEAD 面成套', () => {
-  const flagsBodyOf = (src) => {
-    const at = src.indexOf('export const KNOWN_FLAGS')
-    if (at < 0) return ''
-    const open = src.indexOf('[', at)
-    if (open < 0) return ''
-    const end = matchBalancedGroupAt(src, open, { '[': ']' })
-    return end < 0 ? '' : src.slice(open, end)
-  }
-  const gaps = (src) => {
-    const miss = []
-    if (!/has\('--dedupe-open-rows'\)/.test(src)) miss.push("CLI 未解析 --dedupe-open-rows")
-    if (!/return openRowsDedupeAndLand\(/.test(src)) miss.push('开关未真的调用 openRowsDedupeAndLand()')
-    if (!/export function openRowsDedupeAndLand/.test(src)) miss.push('落地函数未导出(在位但无人可调)')
-    if (!flagsBodyOf(src).includes("'--dedupe-open-rows'")) miss.push('旗标不在 KNOWN_FLAGS ⇒ inspectArgs 会拒掉它')
-    return miss
-  }
-  // 被审面取 HEAD:git 问不到会直接抛 ⇒ 本条判"红",不静默通过
-  const head = gitQ(ROOT, ['show', 'HEAD:scripts/plan-tasks-merge.mjs'])
-  if (!head || head.length < 1000) throw new Error(`HEAD 面取到的源码异常短(${head.length}),判据无法成立`)
-  const real = gaps(head)
-  if (real.length) throw new Error(`HEAD 面缺装车成套性:${real.join(' | ')}`)
-  // 有牙证明(构造面,不依赖仓库瞬时状态):四道各拆一次,必须各红在对应判据上
-  // 第四道的变异必须**在 KNOWN_FLAGS 数组体内**删这一项:文件里 `'--dedupe-open-rows',` 这个
-  // 字面量还出现在自检的 inspectArgs 夹具里,整串 replace 会先命中那里而白名单原样在位 —— 那样
-  // 这条变异测的是"replace 打没打到",不是"白名单缺失喊不喊"。
-  const fb = flagsBodyOf(head)
-  const flagsGap = head.replace(fb, fb.replace("'--dedupe-open-rows',", ''))
-  if (flagsGap === head) throw new Error('第四道变异没有改动文本 ⇒ KNOWN_FLAGS 体内找不到该字面量,先修夹具再谈判据')
-  const mustHit = [
-    ["CLI 未解析 --dedupe-open-rows", head.replace(/has\('--dedupe-open-rows'\)/, "has('--no-such-flag')")],
-    ['开关未真的调用 openRowsDedupeAndLand()', head.replace(/return openRowsDedupeAndLand\(/, 'return notTheLandingFn(')],
-    ['落地函数未导出', head.replace(/export function openRowsDedupeAndLand/, 'function openRowsDedupeAndLand')],
-    ['旗标不在 KNOWN_FLAGS', flagsGap],
-  ]
-  for (const [phrase, text] of mustHit) {
-    if (!gaps(text).some((m) => m.includes(phrase))) throw new Error(`变异未点名「${phrase}」⇒ 该项判据无牙`)
-  }
 })
 
 test('T8 块级收口行为:逐字相同的第 2..N 份删得对,唯一份与漂移副本一份都不许动', () => {
@@ -1055,4 +1010,238 @@ test('T25 stripMergeNotes:嵌套同种括号配平、尾随作者正文逐字保
   )
   if (verifyRestoreTerminals(bad.text, bad.text.replace('G-903. 活。', 'G-903. 活了'), bad.edits).problems.length === 0)
     throw new Error('零损失对账必须拒绝"顺手改正文"')
+})
+
+// ══ G-800 旁路落地留痕(本器是这条线的第三站)═══════════════════════════
+/**
+ * 票面要补的那一格:`--heal --commit` / `--fold-twins` / `--dedupe-*` / `--restore-terminals` 走的都是
+ * commit-tree + CAS,**钩子结构性不跑** ⇒ 不往 `.workbuddy/safe-commit-attestation.jsonl` 写一行,
+ * 总量统计就把这些枚数进 unknown 而不是 bypass(失效的表现永远是安静)。
+ *
+ * 五条臂各钉一件事:
+ *  T26 结构判据:真源码六站成套(绿)+ 三种"改法就会红"的变异(插到复验之前 / 摘线 / 新档未接)
+ *      + 表自身成套性 + 空输入不得记绿 —— 只有源码级判据钉得住"插错位置"这一型(端到端只会绿着错);
+ *  T27 端到端成功臂:自动档真落一枚 ⇒ 恰 1 行,landedSha == HEAD,统计器数出 bypass 而不是 unknown;
+ *  T28 端到端回退臂:复验被强制判失败 ⇒ 回退 ⇒ **一行都不许写**(票面①禁止的那种插法的反证);
+ *  T29 两档各落一枚 ⇒ 两行(每枚一行,而不是每次唤起一行 —— 自动档每次提交都被唤起);
+ *  T30 台账写不出去 ⇒ 落地照旧成功、退出码不变、只喊一行 WARN(lib 硬要求②在本站的落地)。
+ */
+const MERGE_SRC = () => readFileSync(new URL('../plan-tasks-merge.mjs', import.meta.url), 'utf8')
+/**
+ * 取某枚提交的完整 SHA。**必须 trim**:本文件的 `gitQ` 不 trim(见上面 `countCommits` 那条注释),
+ * 带尾换行的 sha 与台账里写的那一个永远不相等 —— 那会把"留痕确实绑对了提交"判成"绑错了"。
+ * (本票第一版就红在这一条上,而生产侧的 landedSha 一直是对的。)
+ */
+const shaAt = (dir, ref = 'HEAD') => gitQ(dir, ['rev-parse', ref]).trim()
+/** 折叠档的夹具(T20 用的同一副,逐字取自 HEAD 面真台账)。 */
+const TWIN_PLAN = () => ['# 计划', '', ...TWIN_REAL.split('\n'), ''].join('\n')
+/** 折叠档 + 翻勾档各有一件活,用来证"每枚落地写一行"(两档各落一枚 ⇒ 两行)。 */
+const TWIN_PLAN_FORK = () =>
+  [
+    '# 计划',
+    '',
+    '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。',
+    '- [ ] **D9 同一件事**:另一侧还挂着未勾。',
+    '- [ ] **D8 真待办**:还没人做。',
+    '- [ ] **G-41. 孪生登记**:第一份登记,持有行。',
+    '- [ ] **G-42. 孪生登记**:同一件事,并发取号取了另一个号。',
+    '',
+  ].join('\n')
+
+/**
+ * 把某站点的留痕语句**整段搬走**(不是复制:复制会红在"同一枚写两行"上,而本条要证的是"位置")。
+ * 起点从该函数的函数名之后找 —— 判据表里也逐字写着同一个 source 名,从文件头搜会先撞上表。
+ */
+function cutAttestStatement(src, fnName, sourceName) {
+  const head = src.indexOf(`function ${fnName}(`)
+  if (head < 0) throw new Error(`变异夹具找不到 ${fnName} ⇒ 这条变异根本没有牙`)
+  const k = src.indexOf(`source: '${sourceName}'`, head)
+  if (k < 0) throw new Error(`${fnName} 里没有 ${sourceName} 的留痕调用 ⇒ 变异夹具与实态脱节`)
+  const start = src.lastIndexOf('attestLanding({', k)
+  const end = src.indexOf('\n    })', start) + '\n    })'.length + 1
+  if (start < 0 || end <= start) throw new Error('留痕语句切不出完整一段 ⇒ 本变异臂无牙')
+  return { rest: src.slice(0, start) + src.slice(end), stmt: src.slice(start, end) }
+}
+
+test('T26 留痕次序判据:真源码六站成套,而"提前插 / 摘线 / 新档未接"三种变异各自必须红', () => {
+  const ownSrc = MERGE_SRC()
+  const real = landingAttestationStructure(ownSrc)
+  if (real.bad.length) throw new Error(`真源码必须六站成套:${JSON.stringify(real.bad)}`)
+  if (real.unwired.length) throw new Error(`不得有未接留痕的落地站点:${JSON.stringify(real.unwired)}`)
+  if (real.counts.sites !== 6) throw new Error(`站点表应当是六档,实得 ${real.counts.sites}`)
+  if (real.counts.markers < 6)
+    throw new Error(`扫到的正向落地形态少于站点数(${real.counts.markers})⇒ "新档漏接"那一维是盲的`)
+  if (new Set(BYPASS_LANDING_SITES.map((s) => s.source)).size !== BYPASS_LANDING_SITES.length)
+    throw new Error('六个站点的 source 有重名 ⇒ 台账分不出是哪一档绕的门')
+  if (new Set(BYPASS_LANDING_SITES.map((s) => s.fn)).size !== BYPASS_LANDING_SITES.length)
+    throw new Error('六个站点的 fn 有重名 ⇒ 两站共用一份锚点判据 = 其中一站永远不被判')
+  if (landingSiteTableProblems().length)
+    throw new Error(`判据表自身不成套:${JSON.stringify(landingSiteTableProblems())}`)
+
+  // 变异 A(票面①禁止的那种插法):把折叠档的留痕**搬到**它复验守卫之前 ⇒ 必须红,且红在这一站
+  const folded = cutAttestStatement(ownSrc, 'twinFoldAndLand', 'plan-tasks-merge:fold-twins')
+  const guardA = '    const recheck = verifyTwinFold(src, landedText, f.edits, f.refused)\n'
+  const gi = folded.rest.indexOf(guardA)
+  if (gi < 0) throw new Error('变异夹具取不到折叠档的复验守卫 ⇒ 本条断言对着空气判绿')
+  const rA = landingAttestationStructure(folded.rest.slice(0, gi) + folded.stmt + folded.rest.slice(gi))
+  if (!rA.bad.some((x) => x.includes('twinFoldAndLand') && /复验守卫之前|回退动作之前/.test(x)))
+    throw new Error(`"插到复验之前"必须被点名,实得 ${JSON.stringify(rA.bad)}`)
+
+  // 变异 B(摘线):删掉自动档那一处调用 ⇒ 站点循环与"未接"那一维都必须喊
+  const rB = landingAttestationStructure(cutAttestStatement(ownSrc, 'healAndLand', 'plan-tasks-merge:heal').rest)
+  if (!rB.bad.some((x) => x.includes('healAndLand')))
+    throw new Error(`摘掉自动档留痕必须判红(判据在而调用没了 = 没有),实得 ${JSON.stringify(rB.bad)}`)
+
+  // 变异 C(新档未接):新增一处走同一套 lib plumbing 的落地函数而没接留痕 ⇒ unwired 必须报名
+  const mutC =
+    ownSrc +
+    [
+      '',
+      'export function brandNewLander() {',
+      '  const landed = commitTreeWithIndex({ root: ROOT })',
+      '  if (!casUpdateRef(landed.commit, parent, { root: ROOT })) return 1',
+      '  const align = alignSharedIndex({ root: ROOT, paths: [PLAN_REL] })',
+      '  return align',
+      '}',
+      '',
+    ].join('\n')
+  const rC = landingAttestationStructure(mutC)
+  if (!rC.unwired.some((x) => x.includes('brandNewLander')))
+    throw new Error(`新落地档没接留痕必须被点名(否则下一档就是这么静默漏掉的),实得 ${JSON.stringify(rC.unwired)}`)
+
+  // 空输入不得被读成"全绿"(本仓最高频失效型:把没判写成判过了)
+  const rE = landingAttestationStructure('')
+  if (!rE.bad.length || !rE.unwired.length) throw new Error('空输入必须判"无从判定",不得记为通过')
+
+  // 表自身成套性的牙:构造面三种坏法必须同时认出(真表那条上面已判绿)
+  const dupTable = landingSiteTableProblems([
+    { fn: 'a', source: 's', cas: 'x', guard: 'y', before: 'z' },
+    { fn: 'a', source: 's', cas: 'x', guard: 'y', before: '' },
+  ])
+  if (
+    !(
+      dupTable.some((p) => p.includes('函数名重复')) &&
+      dupTable.some((p) => p.includes('source 名重复')) &&
+      dupTable.some((p) => p.includes('缺 before'))
+    )
+  )
+    throw new Error(`表的成套性判据必须同时认出三种坏法,实得 ${JSON.stringify(dupTable)}`)
+})
+
+test('T27 端到端(自动档成功臂):落一枚 ⇒ 台账恰 1 行且 landedSha==HEAD,统计器数出 bypass 而不是 unknown', () => {
+  const env = fixtureRepo()
+  try {
+    if (readLedgerRecords(env.dir).state !== 'missing')
+      throw new Error('夹具仓本来就该没有台账,否则"写了 1 行"这一维读不出来')
+    const parent = shaAt(env.dir)
+    const r = runHeal(env)
+    if (r.code !== 0) throw new Error(`自愈应 exit 0,实得 ${r.code}:\n${r.out}`)
+    if (!/自愈落地/.test(r.out)) throw new Error(`这一臂要求真落一枚:${r.out}`)
+    if (!/跳门留痕 1 行已写入/.test(r.out))
+      throw new Error(`输出必须自己点名写了留痕(静默加一行 = 没人知道这枚绕过过提交链):\n${r.out}`)
+    const landed = shaAt(env.dir)
+    const led = readLedgerRecords(env.dir)
+    if (!led.ok) throw new Error(`台账应可读:${led.why}`)
+    if (led.badLines.length !== 0)
+      throw new Error(`自己写的行自己解不出(写面与读面漂开):${JSON.stringify(led.badLines)}`)
+    if (led.records.length !== 1) throw new Error(`一枚落地只许写一行,实得 ${led.records.length}`)
+    const rec = led.records[0]
+    if (rec.kind !== BYPASS_KIND) throw new Error(`kind 必须是 ${BYPASS_KIND},实得 ${rec.kind}`)
+    if (rec.gatesRun !== false) throw new Error('旁路一律 gatesRun:false(这一维就是本票要量的)')
+    if (rec.landedSha !== landed) throw new Error(`landedSha 必须等于最终 HEAD,实得 ${rec.landedSha}`)
+    if (rec.headBefore !== parent) throw new Error(`headBefore 必须是落地前那枚 HEAD,实得 ${rec.headBefore}`)
+    if (rec.declaredFiles.join(',') !== 'PROJECT_PLAN.md')
+      throw new Error(`declaredFiles 必须就是本器唯一写出的路径,实得 ${JSON.stringify(rec.declaredFiles)}`)
+    if (rec.source !== 'plan-tasks-merge:heal') throw new Error(`source 必须点名档位,实得 ${rec.source}`)
+    // 统计器读同一棵仓:这枚 = bypass,夹具那枚没有任何正证 = unknown(不得被顺手算成 normal)
+    const got = bypassReport.collectCommits({ root: env.dir })
+    if (!got.ok) throw new Error(`提交面取不到 ⇒ 本臂无从判定:${got.why}`)
+    const cls = bypassReport.classifyAll({
+      commits: got.commits,
+      index: bypassReport.indexLedger(led.records),
+      rounds: [],
+      ledgerReadable: true,
+    })
+    const row = cls.rows[0]
+    if (row.bypassLanding !== 1 || row.unknown !== 1 || row.normal !== 0 || row.skipped !== 0)
+      throw new Error(`四态应为 bypass=1 / unknown=1 / normal=0 / skipped=0,实得 ${JSON.stringify(row)}`)
+  } finally {
+    rmScratch(env.dir)
+  }
+})
+
+test('T28 端到端(回退臂:强制复验失败并回退)⇒ 台账一行都不许写', () => {
+  const env = fixtureRepo(TWIN_PLAN(), 'fixture: 同题不同编号孪生一对(留痕回退臂)')
+  try {
+    const src = readFileSync(env.entry, 'utf8')
+    const MUT_FROM = 'const recheck = verifyTwinFold(src, landedText, f.edits, f.refused)'
+    if (!src.includes(MUT_FROM)) throw new Error('变异锚点未命中(生产代码改名了)⇒ 本臂需同步,不得删断言')
+    writeFileSync(
+      env.entry,
+      src.replace(
+        MUT_FROM,
+        "const recheck = { problems: ['变异注入:复验必失败(G-800 留痕次序反证臂)'], before: {}, after: {} }",
+      ),
+      'utf8',
+    )
+    const before = shaAt(env.dir)
+    const r = runCli(env, ['--fold-twins', '--commit'])
+    // 命中回退分支本身就是"这一轮确有活可干且真抢到了 CAS"的证据(否则早退,断言会空转)
+    if (!/落地后复验不过/.test(r.out))
+      throw new Error(`这一臂应走到"复验不过 ⇒ 回退"那一支:${r.code} ${r.out.slice(0, 240)}`)
+    if (/跳门留痕/.test(r.out)) throw new Error(`已回退的落地不许写留痕(票面①):\n${r.out}`)
+    const led = readLedgerRecords(env.dir)
+    if (led.state !== 'missing' || led.records.length !== 0)
+      throw new Error(`回退臂把 ${led.records.length} 行写进了台账 ⇒ 统计器会把不在 HEAD 上的提交数成旁路`)
+    if (shaAt(env.dir) !== before)
+      throw new Error('回退没把 HEAD 交回父提交 ⇒ 本臂的"不写行"就失去意义')
+    if (countCommits(env.dir) !== 1) throw new Error('回退后提交总数应仍是 1(只有夹具那枚)')
+  } finally {
+    rmScratch(env.dir)
+  }
+})
+
+test('T29 两档各落一枚 ⇒ 两行(每枚一行,不是每次唤起一行;早退那一支写 0 行)', () => {
+  const env = fixtureRepo(TWIN_PLAN_FORK(), 'fixture: 一条 F1 分叉 + 一对同题不同编号的孪生待办')
+  try {
+    const one = runCli(env, ['--fold-twins', '--commit'])
+    if (one.code !== 0 || !/折叠档落地/.test(one.out)) throw new Error(`折叠档没落地:${one.out.slice(0, 200)}`)
+    if (readLedgerRecords(env.dir).records.length !== 1) throw new Error('第一枚落地应恰写 1 行')
+    const two = runHeal(env)
+    if (two.code !== 0 || !/自愈落地/.test(two.out)) throw new Error(`自愈档没落地:${two.out.slice(0, 200)}`)
+    const led = readLedgerRecords(env.dir)
+    if (led.records.length !== 2) throw new Error(`两枚落地应写两行,实得 ${led.records.length}`)
+    const srcs = led.records.map((x) => x.source).sort().join(',')
+    if (srcs !== 'plan-tasks-merge:fold-twins,plan-tasks-merge:heal')
+      throw new Error(`两行的 source 必须分档点名,实得 ${srcs}`)
+    const shas = new Set(led.records.map((x) => x.landedSha))
+    if (shas.size !== 2) throw new Error('两行绑到同一枚提交 ⇒ landedSha 没跟着这次落地走')
+    if (!shas.has(shaAt(env.dir)))
+      throw new Error('最后一枚 HEAD 必须在台账里有自己一行,否则它落进 unknown')
+    const idle = runHeal(env)
+    if (!/无状态分叉/.test(idle.out)) throw new Error(`第三次唤起应早退:${idle.out.slice(0, 160)}`)
+    if (readLedgerRecords(env.dir).records.length !== 2)
+      throw new Error('早退那一支也写行 = 台账被自我复制淹没(post-commit 噪声的唯一上界)')
+  } finally {
+    rmScratch(env.dir)
+  }
+})
+
+test('T30 台账写不出去 ⇒ 落地照旧成功、退出码不变,只喊一行 WARN(不得把记账改成门禁)', () => {
+  const env = fixtureRepo()
+  try {
+    // 用同名**目录**占住台账该在的位置:appendFileSync 必失败(EISDIR / EPERM)
+    mkdirSync(path.join(env.dir, '.workbuddy'), { recursive: true })
+    mkdirSync(path.join(env.dir, '.workbuddy', 'safe-commit-attestation.jsonl'))
+    const before = shaAt(env.dir)
+    const r = runHeal(env)
+    if (r.code !== 0)
+      throw new Error(`记账写不了不得把一次成功落地判红,实得 exit ${r.code}:\n${r.out}`)
+    if (!/⚠️ 跳门留痕未写入/.test(r.out)) throw new Error(`写失败必须喊一行(不得静默):\n${r.out}`)
+    if (!/自愈落地/.test(r.out)) throw new Error(`落地本身不得受影响:\n${r.out}`)
+    if (shaAt(env.dir) === before)
+      throw new Error('本臂要求自愈真的推进过 HEAD,否则"不改成败"是空断言')
+  } finally {
+    rmScratch(env.dir)
+  }
 })
