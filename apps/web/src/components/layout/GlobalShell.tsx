@@ -10,16 +10,13 @@ import { useTranslations } from 'next-intl'
 import { usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
-import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Sidebar } from '@/components/sidebar'
 import { TooltipProvider } from '@/components/feedback'
-
-/** 层栈 id(见 @/lib/overlay-stack):移动端菜单的 Esc 只在栈顶时被消费 */
-const MOBILE_MENU_OVERLAY_ID = 'global-shell-mobile-menu'
 import {
   PWAInstallPrompt,
   PWAUpdatePrompt,
   UpdatePrompt,
+  QuitUpdateOverlay,
   NavigationProgress,
   VisitTracker,
   AnalyticsCapture,
@@ -236,20 +233,11 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (!mobileOpen) return
-    // 层栈注册:mobileOpen → 入栈(成为栈顶);close/unmount → 出栈。
-    pushOverlay(MOBILE_MENU_OVERLAY_ID)
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
-        if (!isTopOverlay(MOBILE_MENU_OVERLAY_ID)) return
-        setMobileOpen(false)
-      }
+      if (e.key === 'Escape') setMobileOpen(false)
     }
     document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      popOverlay(MOBILE_MENU_OVERLAY_ID)
-    }
+    return () => document.removeEventListener('keydown', onKey)
   }, [mobileOpen])
 
   // 移动端菜单按钮节点(2026-09-13 从 <GlobalTopBar mobileMenu={...}> 内联 JSX 提取):
@@ -440,6 +428,9 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
         {/* 桌面端应用更新下拉提示(平台独占:仅 Tauri 环境渲染,浏览器端 no-op)。
           内部调用 useUpdater hook,启动静默检查 + 监听托盘菜单 desktop-check-update 事件。 */}
         <UpdatePrompt />
+        {/* 桌面端退出时自动更新遮罩(平台独占:仅 Tauri 环境渲染,浏览器端 no-op)。
+          拦截退出流程(Ctrl+Q / 托盘退出),自动检查+下载+安装+重启,显示全屏进度遮罩。 */}
+        <QuitUpdateOverlay />
         {/* 页面访问埋点(2026-08-10 立):全局挂载,pathname 变化自动上报 visit_logs */}
         <VisitTracker />
         {/* 全局行为埋点(2026-08-10 立):自动采集点击/搜索/下载/表单提交 → analytics_events */}
