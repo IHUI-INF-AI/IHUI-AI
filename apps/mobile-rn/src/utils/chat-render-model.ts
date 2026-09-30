@@ -201,6 +201,59 @@ export function applyPlanUpdate(event: PlanUpdateEvent): PlanReduceResult {
   }
 }
 
+/**
+ * D135 接线(2026-10-01):「单条 assistant 消息的执行可视化」按消息 id 累加的折叠档。
+ *
+ * 为什么需要这一层,而不是把折叠结果直接写进 `ChatMessage.toolCalls`:
+ * 共享契约里那个字段的元素是 `@ihui/types` 的 **ToolCall**(键名 `toolName`、`args` 必填),
+ * 而本端渲染件(含 `components/ai/TaskStatusBar`)吃的是本文件的 **ToolCallItem**(键名 `name`,
+ * 另带 startedAtMs / durationMs / partialDiff / 媒体产物等端内派生字段)。两者不同形 ——
+ * 硬塞要么靠 `as` 骗过类型检查,要么逼每个消费端再抄一份映射,而"两处算同一件事必漂移"是
+ * 本仓记过最多次的失效型(AGENTS §12/守门 77·83 同族)。
+ *
+ * 所以这一层**只做组合,不新增判据**:三个 reducer(`applyToolCallEvent` / `applyToolDelta` /
+ * `applyPlanUpdate`)仍是唯一实现,本函数把它们收成一个可按帧判别式穷尽的折叠入口,
+ * 让端内可以用一张「消息 id → 折叠档」的旁表接帧。W6 抽出的
+ * `@ihui/shared/chat/render-model`(消息 → RenderBlock[])落地后,这张旁表应整体换成那份投影。
+ */
+export interface AssistantExecutionViz {
+  /** 工具调用折叠列表(applyToolCallEvent 的输出,含 D113 流中 diff 预览) */
+  toolCalls?: ToolCallItem[]
+  /** 计划步骤快照(applyPlanUpdate 的输出;plan_updated 是权威快照 ⇒ 整体替换) */
+  planSteps?: PlanStepItem[]
+  /** 计划整体解释(PlanUpdateEvent.explanation;缺省即后端没给,不编造) */
+  planExplanation?: string
+}
+
+/** 可折进 AssistantExecutionViz 的 SSE 帧(kind 为判别式;事件形状逐字沿用 @ihui/api-client 契约) */
+export type AssistantExecutionFrame =
+  | { readonly kind: 'tool-call'; readonly event: ToolCallEvent }
+  | { readonly kind: 'tool-delta'; readonly event: ToolDeltaEvent }
+  | { readonly kind: 'plan-update'; readonly event: PlanUpdateEvent }
+
+/**
+ * 纯函数:把一帧折进"某条 assistant 消息的执行可视化档",返回新对象(不改入参)。
+ * `nowMs` 与 applyToolCallEvent 同口径由调用方显式喂,缺省 Date.now() 只为本屏不必到处传时间。
+ * 判别式穷尽 ⇒ 新增帧族必须在这里加一支,漏加会当场 typecheck 红,而不是静默丢帧。
+ */
+export function applyAssistantExecutionFrame(
+  viz: AssistantExecutionViz | undefined,
+  frame: AssistantExecutionFrame,
+  nowMs: number = Date.now(),
+): AssistantExecutionViz {
+  const carried: AssistantExecutionViz = { ...(viz ?? {}) }
+  switch (frame.kind) {
+    case 'tool-call':
+      return { ...carried, toolCalls: applyToolCallEvent(viz?.toolCalls, frame.event, nowMs) }
+    case 'tool-delta':
+      return { ...carried, toolCalls: applyToolDelta(viz?.toolCalls, frame.event) }
+    case 'plan-update': {
+      const reduced = applyPlanUpdate(frame.event)
+      return { ...carried, planSteps: reduced.steps, planExplanation: reduced.explanation }
+    }
+  }
+}
+
 /** 折叠终端任务开始事件(纯函数):按 terminalId 新增或原地重置为 running */
 export function applyTerminalStart(
   list: readonly TerminalTaskItem[] | undefined,
