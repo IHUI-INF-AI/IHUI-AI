@@ -24,6 +24,7 @@ import { NodePalette, CANVAS_DND_MIME } from './components/node-palette'
 import { InspectorPanel } from './components/inspector-panel'
 import { TopToolbar } from './components/top-toolbar'
 import { runCanvasDag } from './canvas-api'
+import { boundedAppend } from '@/lib/bounded-append'
 import {
   makeNodeId,
   toDag,
@@ -116,14 +117,16 @@ export function AgentCanvasClient() {
   const appendLog = React.useCallback(
     (nodeId: string, level: CanvasLogEntry['level'], message: string) => {
       setNodes((nds) =>
-        nds.map((n) =>
-          n.id === nodeId
-            ? {
-                ...n,
-                data: { ...n.data, logs: [...n.data.logs, makeLog(level, message)].slice(-100) },
-              }
-            : n,
-        ),
+        nds.map((n) => {
+          if (n.id !== nodeId) return n
+          // G-641:日志缓冲上限 100 条,溢出丢最旧但丢弃条数必须入账
+          // (静默变短 = 伪造完整性),由 InspectorPanel 据 dropped 渲染计数行。
+          const { items, dropped } = boundedAppend(n.data.logs, makeLog(level, message), 100)
+          return {
+            ...n,
+            data: { ...n.data, logs: items, dropped: n.data.dropped + dropped },
+          }
+        }),
       )
     },
     [setNodes],
@@ -276,6 +279,7 @@ export function AgentCanvasClient() {
           params: createDefaultParams(type, t('defaultReviewPrompt')),
           status: 'idle',
           logs: [],
+          dropped: 0,
         },
       }
       setNodes((nds) => [...nds, newNode])
@@ -341,7 +345,10 @@ export function AgentCanvasClient() {
       const dag = toDag(nodes, edges)
       // 重置所有节点状态与日志,避免残留上一次运行结果
       setNodes((nds) =>
-        nds.map((n) => ({ ...n, data: { ...n.data, status: 'idle' as const, logs: [] } })),
+        nds.map((n) => ({
+          ...n,
+          data: { ...n.data, status: 'idle' as const, logs: [], dropped: 0 },
+        })),
       )
       const id = await runCanvasDag(dag)
       setRunId(id)
