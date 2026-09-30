@@ -1,7 +1,0 @@
-{
-  "$comment": "README 表格完整性守门(check-readme-table-integrity.mjs)的 TI1 T-A 行数基线。锚点 = 该文件 HEAD 自身的 T-A 行数,只减不增;--update-baseline 会收紧它,但绝不上调、绝不代登记新键、非计数键原样带走(守门 83 的审计台账教训)。",
-  "generatedFrom": "立门当日冻结:README.md 在 HEAD 的 T-A 存量(现值一律跑 node scripts/check-readme-table-integrity.mjs --json 看 perFile[0].taRows,勿引用本文件创建时的印象)",
-  "taCounts": {
-    "README.md": 0
-  }
-}
