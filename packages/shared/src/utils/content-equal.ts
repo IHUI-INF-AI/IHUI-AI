@@ -3,33 +3,51 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 错误码枚举（HTTP-aligned + 业务标识符）。
- * errorCode 是稳定的业务错误标识符，前端可基于此做 i18n key 映射和细粒度 UI 处理。
- * code 字段保持与 HTTP status 对齐（0=成功，4xx/5xx=错误）。
+ * b76-12d 票1:内容级相等判据的唯一实现(键序不参与判定)。
+ *
+ * 语义(与票面验收①逐字对齐):
+ *  - 对象键序不参与判定:`{a:1,b:2}` 与 `{b:2,a:1}` 等价;
+ *  - `undefined` 值的键 ≡ 缺席:`{a:undefined}` 与 `{}` 等价(每层递归都生效);
+ *  - 数组保序逐元素比:`[1,2]` 与 `[2,1]` 不等价;
+ *  - 原始类型走 `Object.is`(NaN 与 NaN 等价);
+ *  - 非纯对象(Date/Map/Set/类实例/函数)只按引用比,引用不同即不等。
+ *
+ * 为什么不用 stringify 比:每条事件序列化整张表;且会把「键序不同、内容相同」
+ * 误判成变化。此前的 JSON.stringify(a) === JSON.stringify(b) 分散判据
+ * (ai-capability-testing 的通过判据、exam 判题两层)一律改引本函数,
+ * 两处判据不会再各说各话。
  */
-export const ErrorCode = {
-  VALIDATION_FAILED: { status: 400, code: 'VALIDATION_FAILED' },
-  UNAUTHORIZED: { status: 401, code: 'UNAUTHORIZED' },
-  FORBIDDEN: { status: 403, code: 'FORBIDDEN' },
-  NOT_FOUND: { status: 404, code: 'NOT_FOUND' },
-  CONFLICT: { status: 409, code: 'CONFLICT' },
-  RATE_LIMITED: { status: 429, code: 'RATE_LIMITED' },
-  LOCKED: { status: 423, code: 'LOCKED' },
-  INTERNAL_ERROR: { status: 500, code: 'INTERNAL_ERROR' },
-  UPSTREAM_FAILURE: { status: 502, code: 'UPSTREAM_FAILURE' },
-  SERVICE_UNAVAILABLE: { status: 503, code: 'SERVICE_UNAVAILABLE' },
-  MEMBER_EXISTS: { status: 409, code: 'MEMBER_EXISTS' },
-  OPTIMISTIC_LOCK: { status: 409, code: 'OPTIMISTIC_LOCK' },
-  INVALID_MONEY: { status: 400, code: 'INVALID_MONEY' },
-  INVALID_TIMEZONE: { status: 400, code: 'INVALID_TIMEZONE' },
-  // b76-12g-3-40(G-998167):把「答不了」编进稳定 errorCode,三档各管一层:
-  //  - CAPABILITY_UNSUPPORTED(501):能力结构上不存在,重试永远不可能成功 ⇒ UI 停止无效轮询;
-  //  - CAPABILITY_UNAVAILABLE(503):此刻没有实例/未就绪,稍后也许可以 ⇒ 允许退避重试;
-  //  - DUPLICATE_REQUEST(409):被去重拒绝 ⇒ 不得当成新任务已入队、不得展示「已触发」。
-  CAPABILITY_UNSUPPORTED: { status: 501, code: 'CAPABILITY_UNSUPPORTED' },
-  CAPABILITY_UNAVAILABLE: { status: 503, code: 'CAPABILITY_UNAVAILABLE' },
-  DUPLICATE_REQUEST: { status: 409, code: 'DUPLICATE_REQUEST' },
-} as const
 
-export type ErrorCodeKey = keyof typeof ErrorCode
+/** 是否为可按键对账的纯对象(排除数组、Date、Map/Set、类实例、null)。 */
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const proto: unknown = Object.getPrototypeOf(value)
+  return proto === null || proto === Object.prototype
+}
+
+function equalValues(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true
+
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false
+    return a.every((item, i) => equalValues(item, b[i]))
+  }
+  // 一侧是数组而另一侧不是 ⇒ 形状不同(不猜"数组当对象比")
+  if (Array.isArray(a) || Array.isArray(b)) return false
+
+  if (isPlainRecord(a) && isPlainRecord(b)) {
+    const keysA = Object.keys(a).filter((key) => a[key] !== undefined)
+    const keysB = Object.keys(b).filter((key) => b[key] !== undefined)
+    if (keysA.length !== keysB.length) return false
+    return keysA.every((key) => key in b && equalValues(a[key], b[key]))
+  }
+  return false
+}
+
+/**
+ * 两个 JSON 值的内容是否相等(键序无关;undefined 值的键 ≡ 缺席;数组保序)。
+ */
+export function contentEqual(a: unknown, b: unknown): boolean {
+  return equalValues(a, b)
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
