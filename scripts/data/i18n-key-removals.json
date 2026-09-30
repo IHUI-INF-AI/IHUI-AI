@@ -63,128 +63,357 @@
     },
     {
       "file": "packages/i18n/messages/web/zh-TW.json",
-      "keys": ["courseFilter.category", "courseFilter.level", "courseFilter.level_label"],
+      "keys": [
+        "courseFilter.category",
+        "courseFilter.level",
+        "courseFilter.level_label"
+      ],
       "reason": "这三条是 2026-09-27 批量补键提交 9e9612e148 只落进 zh-TW 一份的孤儿:五语言里只有 zh-TW 有(基准 zh-CN 与 en/ja/ko 均无,实测逐档量 courseFilter 键集:zh-TW 12 键 vs 其余四档各 9 键),因此守门 2n-web 的 parity 判红 —— 而 parity 是 zh-CN 为基准的横向判据,给 zh-CN/en/ja/ko 补写文案等于为无人渲染的键凭空发明四种语言的界面文字。引用面实测:apps/ 与 packages/ 内没有任何一处引用 web 侧 courseFilter 命名空间(`git grep courseFilter` 的非语言包命中全在 mobile-rn 与 packages/app,读的是 mobile-rn 自己那份,且那边也不含这三个键),所以删掉不丢任何会被渲染的文字。回潮判据:若繁体端真要做课程筛选的分类/难度下拉,应连同其余四语言一起按当次文案重新登记,而不是只补 zh-TW 一份。",
       "until": "2027-09-27"
     },
     {
       "file": "packages/i18n/messages/web/zh-CN.json",
-      "keys": ["studyPublish.title"],
+      "keys": [
+        "studyPublish.title"
+      ],
       "reason": "web 与 mobile-rn 两面的 studyPublish 命名空间只剩一个 title 键,而全仓对 studyPublish 的引用为 0(git grep 全量,除 packages/i18n/messages/ 自身外零命中,含 packages/、deploy/ 与测试面)。最后一个消费者由 3acac2bdcb(2026-09-28,GA7 后续① 双层页头收敛)移除 —— 那枚提交删掉了画这个页头的分支,文案留在原地,于是守门 2i(dead-key)在**干净 HEAD** 上判红并挡住每一次提交,而它的批外位置让全部 183 道门都要陪着被跳(§12e/§12f 同型)。回潮判据:若重新引入「发布课程」这一屏,须连同页头与文案一起恢复并按当次措辞重写,不得只补词。",
       "until": "2027-09-27"
     },
     {
       "file": "packages/i18n/messages/web/zh-TW.json",
-      "keys": ["studyPublish.title"],
+      "keys": [
+        "studyPublish.title"
+      ],
       "reason": "web 与 mobile-rn 两面的 studyPublish 命名空间只剩一个 title 键,而全仓对 studyPublish 的引用为 0(git grep 全量,除 packages/i18n/messages/ 自身外零命中,含 packages/、deploy/ 与测试面)。最后一个消费者由 3acac2bdcb(2026-09-28,GA7 后续① 双层页头收敛)移除 —— 那枚提交删掉了画这个页头的分支,文案留在原地,于是守门 2i(dead-key)在**干净 HEAD** 上判红并挡住每一次提交,而它的批外位置让全部 183 道门都要陪着被跳(§12e/§12f 同型)。回潮判据:若重新引入「发布课程」这一屏,须连同页头与文案一起恢复并按当次措辞重写,不得只补词。",
       "until": "2027-09-27"
     },
     {
       "file": "packages/i18n/messages/web/en.json",
-      "keys": ["studyPublish.title"],
+      "keys": [
+        "studyPublish.title"
+      ],
       "reason": "web 与 mobile-rn 两面的 studyPublish 命名空间只剩一个 title 键,而全仓对 studyPublish 的引用为 0(git grep 全量,除 packages/i18n/messages/ 自身外零命中,含 packages/、deploy/ 与测试面)。最后一个消费者由 3acac2bdcb(2026-09-28,GA7 后续① 双层页头收敛)移除 —— 那枚提交删掉了画这个页头的分支,文案留在原地,于是守门 2i(dead-key)在**干净 HEAD** 上判红并挡住每一次提交,而它的批外位置让全部 183 道门都要陪着被跳(§12e/§12f 同型)。回潮判据:若重新引入「发布课程」这一屏,须连同页头与文案一起恢复并按当次措辞重写,不得只补词。",
       "until": "2027-09-27"
     },
     {
       "file": "packages/i18n/messages/web/ja.json",
-      "keys": ["studyPublish.title"],
+      "keys": [
+        "studyPublish.title"
+      ],
       "reason": "web 与 mobile-rn 两面的 studyPublish 命名空间只剩一个 title 键,而全仓对 studyPublish 的引用为 0(git grep 全量,除 packages/i18n/messages/ 自身外零命中,含 packages/、deploy/ 与测试面)。最后一个消费者由 3acac2bdcb(2026-09-28,GA7 后续① 双层页头收敛)移除 —— 那枚提交删掉了画这个页头的分支,文案留在原地,于是守门 2i(dead-key)在**干净 HEAD** 上判红并挡住每一次提交,而它的批外位置让全部 183 道门都要陪着被跳(§12e/§12f 同型)。回潮判据:若重新引入「发布课程」这一屏,须连同页头与文案一起恢复并按当次措辞重写,不得只补词。",
       "until": "2027-09-27"
     },
     {
       "file": "packages/i18n/messages/web/ko.json",
-      "keys": ["studyPublish.title"],
+      "keys": [
+        "studyPublish.title"
+      ],
       "reason": "web 与 mobile-rn 两面的 studyPublish 命名空间只剩一个 title 键,而全仓对 studyPublish 的引用为 0(git grep 全量,除 packages/i18n/messages/ 自身外零命中,含 packages/、deploy/ 与测试面)。最后一个消费者由 3acac2bdcb(2026-09-28,GA7 后续① 双层页头收敛)移除 —— 那枚提交删掉了画这个页头的分支,文案留在原地,于是守门 2i(dead-key)在**干净 HEAD** 上判红并挡住每一次提交,而它的批外位置让全部 183 道门都要陪着被跳(§12e/§12f 同型)。回潮判据:若重新引入「发布课程」这一屏,须连同页头与文案一起恢复并按当次措辞重写,不得只补词。",
       "until": "2027-09-27"
     },
     {
       "file": "packages/i18n/messages/mobile-rn/zh-CN.json",
-      "keys": ["studyPublish.title"],
+      "keys": [
+        "studyPublish.title"
+      ],
       "reason": "web 与 mobile-rn 两面的 studyPublish 命名空间只剩一个 title 键,而全仓对 studyPublish 的引用为 0(git grep 全量,除 packages/i18n/messages/ 自身外零命中,含 packages/、deploy/ 与测试面)。最后一个消费者由 3acac2bdcb(2026-09-28,GA7 后续① 双层页头收敛)移除 —— 那枚提交删掉了画这个页头的分支,文案留在原地,于是守门 2i(dead-key)在**干净 HEAD** 上判红并挡住每一次提交,而它的批外位置让全部 183 道门都要陪着被跳(§12e/§12f 同型)。回潮判据:若重新引入「发布课程」这一屏,须连同页头与文案一起恢复并按当次措辞重写,不得只补词。",
       "until": "2027-09-27"
     },
     {
       "file": "packages/i18n/messages/mobile-rn/zh-TW.json",
-      "keys": ["studyPublish.title"],
+      "keys": [
+        "studyPublish.title"
+      ],
       "reason": "web 与 mobile-rn 两面的 studyPublish 命名空间只剩一个 title 键,而全仓对 studyPublish 的引用为 0(git grep 全量,除 packages/i18n/messages/ 自身外零命中,含 packages/、deploy/ 与测试面)。最后一个消费者由 3acac2bdcb(2026-09-28,GA7 后续① 双层页头收敛)移除 —— 那枚提交删掉了画这个页头的分支,文案留在原地,于是守门 2i(dead-key)在**干净 HEAD** 上判红并挡住每一次提交,而它的批外位置让全部 183 道门都要陪着被跳(§12e/§12f 同型)。回潮判据:若重新引入「发布课程」这一屏,须连同页头与文案一起恢复并按当次措辞重写,不得只补词。",
       "until": "2027-09-27"
     },
     {
       "file": "packages/i18n/messages/mobile-rn/en.json",
-      "keys": ["studyPublish.title"],
+      "keys": [
+        "studyPublish.title"
+      ],
       "reason": "web 与 mobile-rn 两面的 studyPublish 命名空间只剩一个 title 键,而全仓对 studyPublish 的引用为 0(git grep 全量,除 packages/i18n/messages/ 自身外零命中,含 packages/、deploy/ 与测试面)。最后一个消费者由 3acac2bdcb(2026-09-28,GA7 后续① 双层页头收敛)移除 —— 那枚提交删掉了画这个页头的分支,文案留在原地,于是守门 2i(dead-key)在**干净 HEAD** 上判红并挡住每一次提交,而它的批外位置让全部 183 道门都要陪着被跳(§12e/§12f 同型)。回潮判据:若重新引入「发布课程」这一屏,须连同页头与文案一起恢复并按当次措辞重写,不得只补词。",
       "until": "2027-09-27"
     },
     {
       "file": "packages/i18n/messages/mobile-rn/ja.json",
-      "keys": ["studyPublish.title"],
+      "keys": [
+        "studyPublish.title"
+      ],
       "reason": "web 与 mobile-rn 两面的 studyPublish 命名空间只剩一个 title 键,而全仓对 studyPublish 的引用为 0(git grep 全量,除 packages/i18n/messages/ 自身外零命中,含 packages/、deploy/ 与测试面)。最后一个消费者由 3acac2bdcb(2026-09-28,GA7 后续① 双层页头收敛)移除 —— 那枚提交删掉了画这个页头的分支,文案留在原地,于是守门 2i(dead-key)在**干净 HEAD** 上判红并挡住每一次提交,而它的批外位置让全部 183 道门都要陪着被跳(§12e/§12f 同型)。回潮判据:若重新引入「发布课程」这一屏,须连同页头与文案一起恢复并按当次措辞重写,不得只补词。",
       "until": "2027-09-27"
     },
     {
       "file": "packages/i18n/messages/mobile-rn/ko.json",
-      "keys": ["studyPublish.title"],
+      "keys": [
+        "studyPublish.title"
+      ],
       "reason": "web 与 mobile-rn 两面的 studyPublish 命名空间只剩一个 title 键,而全仓对 studyPublish 的引用为 0(git grep 全量,除 packages/i18n/messages/ 自身外零命中,含 packages/、deploy/ 与测试面)。最后一个消费者由 3acac2bdcb(2026-09-28,GA7 后续① 双层页头收敛)移除 —— 那枚提交删掉了画这个页头的分支,文案留在原地,于是守门 2i(dead-key)在**干净 HEAD** 上判红并挡住每一次提交,而它的批外位置让全部 183 道门都要陪着被跳(§12e/§12f 同型)。回潮判据:若重新引入「发布课程」这一屏,须连同页头与文案一起恢复并按当次措辞重写,不得只补词。",
       "until": "2027-09-27"
     },
     {
       "file": "packages/i18n/messages/web/en.json",
-      "keys": ["accounts.selectPlatform"],
+      "keys": [
+        "accounts.selectPlatform"
+      ],
       "reason": "枚 19af1cce6c 把扫码弹窗的平台选择改成 pill 网格,删掉了唯一引用 t('accounts.selectPlatform')(该枚 ScanLoginDialog.tsx 的差分里就是那一行 -),键留在五个 web 语言包 ⇒ pre-commit 批外步骤「i18n 死 key 扫描」判红并挡住每一次提交(§12f:红在干净 HEAD 上须先修,否则各会话合法 --no-verify、该枚提交上全部守门作废)。引用面复验口径:该键在 HEAD 的代码面零命中(除语言包自身),且无 t(`accounts.${…}`) / useTranslations('accounts') 动态拼接;同叶名的 publish.accounts.selectPlatform 与 publish.preview.selectPlatform 两档仍在位(有人用),只摘顶层 accounts 这一条。",
       "until": "2027-09-30"
     },
     {
       "file": "packages/i18n/messages/web/ja.json",
-      "keys": ["accounts.selectPlatform"],
+      "keys": [
+        "accounts.selectPlatform"
+      ],
       "reason": "枚 19af1cce6c 把扫码弹窗的平台选择改成 pill 网格,删掉了唯一引用 t('accounts.selectPlatform')(该枚 ScanLoginDialog.tsx 的差分里就是那一行 -),键留在五个 web 语言包 ⇒ pre-commit 批外步骤「i18n 死 key 扫描」判红并挡住每一次提交(§12f:红在干净 HEAD 上须先修,否则各会话合法 --no-verify、该枚提交上全部守门作废)。引用面复验口径:该键在 HEAD 的代码面零命中(除语言包自身),且无 t(`accounts.${…}`) / useTranslations('accounts') 动态拼接;同叶名的 publish.accounts.selectPlatform 与 publish.preview.selectPlatform 两档仍在位(有人用),只摘顶层 accounts 这一条。",
       "until": "2027-09-30"
     },
     {
       "file": "packages/i18n/messages/web/ko.json",
-      "keys": ["accounts.selectPlatform"],
+      "keys": [
+        "accounts.selectPlatform"
+      ],
       "reason": "枚 19af1cce6c 把扫码弹窗的平台选择改成 pill 网格,删掉了唯一引用 t('accounts.selectPlatform')(该枚 ScanLoginDialog.tsx 的差分里就是那一行 -),键留在五个 web 语言包 ⇒ pre-commit 批外步骤「i18n 死 key 扫描」判红并挡住每一次提交(§12f:红在干净 HEAD 上须先修,否则各会话合法 --no-verify、该枚提交上全部守门作废)。引用面复验口径:该键在 HEAD 的代码面零命中(除语言包自身),且无 t(`accounts.${…}`) / useTranslations('accounts') 动态拼接;同叶名的 publish.accounts.selectPlatform 与 publish.preview.selectPlatform 两档仍在位(有人用),只摘顶层 accounts 这一条。",
       "until": "2027-09-30"
     },
     {
       "file": "packages/i18n/messages/web/zh-CN.json",
-      "keys": ["accounts.selectPlatform"],
+      "keys": [
+        "accounts.selectPlatform"
+      ],
       "reason": "枚 19af1cce6c 把扫码弹窗的平台选择改成 pill 网格,删掉了唯一引用 t('accounts.selectPlatform')(该枚 ScanLoginDialog.tsx 的差分里就是那一行 -),键留在五个 web 语言包 ⇒ pre-commit 批外步骤「i18n 死 key 扫描」判红并挡住每一次提交(§12f:红在干净 HEAD 上须先修,否则各会话合法 --no-verify、该枚提交上全部守门作废)。引用面复验口径:该键在 HEAD 的代码面零命中(除语言包自身),且无 t(`accounts.${…}`) / useTranslations('accounts') 动态拼接;同叶名的 publish.accounts.selectPlatform 与 publish.preview.selectPlatform 两档仍在位(有人用),只摘顶层 accounts 这一条。",
       "until": "2027-09-30"
     },
     {
       "file": "packages/i18n/messages/web/zh-TW.json",
-      "keys": ["accounts.selectPlatform"],
+      "keys": [
+        "accounts.selectPlatform"
+      ],
       "reason": "枚 19af1cce6c 把扫码弹窗的平台选择改成 pill 网格,删掉了唯一引用 t('accounts.selectPlatform')(该枚 ScanLoginDialog.tsx 的差分里就是那一行 -),键留在五个 web 语言包 ⇒ pre-commit 批外步骤「i18n 死 key 扫描」判红并挡住每一次提交(§12f:红在干净 HEAD 上须先修,否则各会话合法 --no-verify、该枚提交上全部守门作废)。引用面复验口径:该键在 HEAD 的代码面零命中(除语言包自身),且无 t(`accounts.${…}`) / useTranslations('accounts') 动态拼接;同叶名的 publish.accounts.selectPlatform 与 publish.preview.selectPlatform 两档仍在位(有人用),只摘顶层 accounts 这一条。",
       "until": "2027-09-30"
     },
     {
       "file": "packages/i18n/messages/web/zh-CN.json",
-      "keys": ["eduPoints.totalChannels"],
-      "reason": "eduPoints 总览卡「渠道总数」与「启用渠道」同值冒充(G-978077):/api/edu-points/channels 只返回启用渠道,两卡读数恒等是假数据,已删重复卡 — 该键零消费者,按门 121 出口②删键。回潮判据:若引入真实的全量渠道数据源,须连卡片一起恢复。",
+      "keys": [
+        "aiChat.bindIssue",
+        "aiChat.recap.createFailed",
+        "aiChat.recap.createSession",
+        "aiChat.recap.creating",
+        "aiChat.recap.handoff.menuItem",
+        "aiChat.recap.handoff.title",
+        "aiChat.recap.handoffUnavailable",
+        "aiChat.recap.phase.done",
+        "aiChat.recap.phase.generating",
+        "aiChat.recap.previewDescription",
+        "aiChat.recap.purposeLabel",
+        "aiChat.recap.purposePlaceholder",
+        "aiChat.recap.revealFile",
+        "aiChat.recap.title",
+        "chat.bindIssue",
+        "chat.issueBindFailed",
+        "chat.issueBindSuccess",
+        "chat.issueBinding",
+        "chat.issueNotConfigured",
+        "chat.issueUnbindFailed",
+        "chat.issueUnbindSuccess",
+        "chat.noIssues",
+        "chat.noMatchingIssues",
+        "chat.searchIssues",
+        "chat.unbindIssue",
+        "eduAi.shop.payNow",
+        "exam.pageInfo",
+        "exam.wrongQuestions.aiExplain",
+        "learn.buyNow",
+        "learn.startLearning",
+        "learn.tutor.history",
+        "nav.decisionTypeElicitation",
+        "nav.decisionTypePermissions",
+        "nav.decisionTypeToolApproval",
+        "nav.myPendingDecisions",
+        "nav.pendingDecisionsEmpty",
+        "student.aiExplain",
+        "upload.imageAltText"
+      ],
+      "reason": "D176 任务交代条与 Issue 绑定对话两条链的组件(apps/web/src/components/ai/d176-task-recap.tsx 与 apps/web/src/components/chat/issue-bind-dialog.tsx)在 apps/web 全量 import 面上零挂载点(grep 全仓,除组件自身与各自测试外零命中),其余键(eduAi.shop.payNow / exam.pageInfo / learn.* / nav.decisionType* / student.aiExplain / upload.imageAltText)在代码面零引用;这些键留在五个 web 语言包即五份无人渲染的死文案(dead-key 判据同型)。admin 各分页的 t(pageInfo) 读的是各自 admin 命名空间,与本顶层 exam.pageInfo 无关,已逐一核对。回潮判据:若重新挂载这两条链或任一界面,须连同对应语言键一起按当次文案恢复,不得只补词。",
       "until": "2027-09-30"
     },
     {
       "file": "packages/i18n/messages/web/zh-TW.json",
-      "keys": ["eduPoints.totalChannels"],
-      "reason": "eduPoints 总览卡「渠道总数」与「启用渠道」同值冒充(G-978077):/api/edu-points/channels 只返回启用渠道,两卡读数恒等是假数据,已删重复卡 — 该键零消费者,按门 121 出口②删键。回潮判据:若引入真实的全量渠道数据源,须连卡片一起恢复。",
+      "keys": [
+        "aiChat.bindIssue",
+        "aiChat.recap.createFailed",
+        "aiChat.recap.createSession",
+        "aiChat.recap.creating",
+        "aiChat.recap.handoff.menuItem",
+        "aiChat.recap.handoff.title",
+        "aiChat.recap.handoffUnavailable",
+        "aiChat.recap.phase.done",
+        "aiChat.recap.phase.generating",
+        "aiChat.recap.previewDescription",
+        "aiChat.recap.purposeLabel",
+        "aiChat.recap.purposePlaceholder",
+        "aiChat.recap.revealFile",
+        "aiChat.recap.title",
+        "chat.bindIssue",
+        "chat.issueBindFailed",
+        "chat.issueBindSuccess",
+        "chat.issueBinding",
+        "chat.issueNotConfigured",
+        "chat.issueUnbindFailed",
+        "chat.issueUnbindSuccess",
+        "chat.noIssues",
+        "chat.noMatchingIssues",
+        "chat.searchIssues",
+        "chat.unbindIssue",
+        "eduAi.shop.payNow",
+        "exam.pageInfo",
+        "exam.wrongQuestions.aiExplain",
+        "learn.buyNow",
+        "learn.startLearning",
+        "learn.tutor.history",
+        "nav.decisionTypeElicitation",
+        "nav.decisionTypePermissions",
+        "nav.decisionTypeToolApproval",
+        "nav.myPendingDecisions",
+        "nav.pendingDecisionsEmpty",
+        "student.aiExplain",
+        "upload.imageAltText"
+      ],
+      "reason": "D176 任务交代条与 Issue 绑定对话两条链的组件(apps/web/src/components/ai/d176-task-recap.tsx 与 apps/web/src/components/chat/issue-bind-dialog.tsx)在 apps/web 全量 import 面上零挂载点(grep 全仓,除组件自身与各自测试外零命中),其余键(eduAi.shop.payNow / exam.pageInfo / learn.* / nav.decisionType* / student.aiExplain / upload.imageAltText)在代码面零引用;这些键留在五个 web 语言包即五份无人渲染的死文案(dead-key 判据同型)。admin 各分页的 t(pageInfo) 读的是各自 admin 命名空间,与本顶层 exam.pageInfo 无关,已逐一核对。回潮判据:若重新挂载这两条链或任一界面,须连同对应语言键一起按当次文案恢复,不得只补词。",
       "until": "2027-09-30"
     },
     {
       "file": "packages/i18n/messages/web/en.json",
-      "keys": ["eduPoints.totalChannels"],
-      "reason": "eduPoints 总览卡「渠道总数」与「启用渠道」同值冒充(G-978077):/api/edu-points/channels 只返回启用渠道,两卡读数恒等是假数据,已删重复卡 — 该键零消费者,按门 121 出口②删键。回潮判据:若引入真实的全量渠道数据源,须连卡片一起恢复。",
+      "keys": [
+        "aiChat.bindIssue",
+        "aiChat.recap.createFailed",
+        "aiChat.recap.createSession",
+        "aiChat.recap.creating",
+        "aiChat.recap.handoff.menuItem",
+        "aiChat.recap.handoff.title",
+        "aiChat.recap.handoffUnavailable",
+        "aiChat.recap.phase.done",
+        "aiChat.recap.phase.generating",
+        "aiChat.recap.previewDescription",
+        "aiChat.recap.purposeLabel",
+        "aiChat.recap.purposePlaceholder",
+        "aiChat.recap.revealFile",
+        "aiChat.recap.title",
+        "chat.bindIssue",
+        "chat.issueBindFailed",
+        "chat.issueBindSuccess",
+        "chat.issueBinding",
+        "chat.issueNotConfigured",
+        "chat.issueUnbindFailed",
+        "chat.issueUnbindSuccess",
+        "chat.noIssues",
+        "chat.noMatchingIssues",
+        "chat.searchIssues",
+        "chat.unbindIssue",
+        "eduAi.shop.payNow",
+        "exam.pageInfo",
+        "exam.wrongQuestions.aiExplain",
+        "learn.buyNow",
+        "learn.startLearning",
+        "learn.tutor.history",
+        "nav.decisionTypeElicitation",
+        "nav.decisionTypePermissions",
+        "nav.decisionTypeToolApproval",
+        "nav.myPendingDecisions",
+        "nav.pendingDecisionsEmpty",
+        "student.aiExplain",
+        "upload.imageAltText"
+      ],
+      "reason": "D176 任务交代条与 Issue 绑定对话两条链的组件(apps/web/src/components/ai/d176-task-recap.tsx 与 apps/web/src/components/chat/issue-bind-dialog.tsx)在 apps/web 全量 import 面上零挂载点(grep 全仓,除组件自身与各自测试外零命中),其余键(eduAi.shop.payNow / exam.pageInfo / learn.* / nav.decisionType* / student.aiExplain / upload.imageAltText)在代码面零引用;这些键留在五个 web 语言包即五份无人渲染的死文案(dead-key 判据同型)。admin 各分页的 t(pageInfo) 读的是各自 admin 命名空间,与本顶层 exam.pageInfo 无关,已逐一核对。回潮判据:若重新挂载这两条链或任一界面,须连同对应语言键一起按当次文案恢复,不得只补词。",
       "until": "2027-09-30"
     },
     {
       "file": "packages/i18n/messages/web/ja.json",
-      "keys": ["eduPoints.totalChannels"],
-      "reason": "eduPoints 总览卡「渠道总数」与「启用渠道」同值冒充(G-978077):/api/edu-points/channels 只返回启用渠道,两卡读数恒等是假数据,已删重复卡 — 该键零消费者,按门 121 出口②删键。回潮判据:若引入真实的全量渠道数据源,须连卡片一起恢复。",
+      "keys": [
+        "aiChat.bindIssue",
+        "aiChat.recap.createFailed",
+        "aiChat.recap.createSession",
+        "aiChat.recap.creating",
+        "aiChat.recap.handoff.menuItem",
+        "aiChat.recap.handoff.title",
+        "aiChat.recap.handoffUnavailable",
+        "aiChat.recap.phase.done",
+        "aiChat.recap.phase.generating",
+        "aiChat.recap.previewDescription",
+        "aiChat.recap.purposeLabel",
+        "aiChat.recap.purposePlaceholder",
+        "aiChat.recap.revealFile",
+        "aiChat.recap.title",
+        "chat.bindIssue",
+        "chat.issueBindFailed",
+        "chat.issueBindSuccess",
+        "chat.issueBinding",
+        "chat.issueNotConfigured",
+        "chat.issueUnbindFailed",
+        "chat.issueUnbindSuccess",
+        "chat.noIssues",
+        "chat.noMatchingIssues",
+        "chat.searchIssues",
+        "chat.unbindIssue",
+        "eduAi.shop.payNow",
+        "exam.pageInfo",
+        "exam.wrongQuestions.aiExplain",
+        "learn.buyNow",
+        "learn.startLearning",
+        "learn.tutor.history",
+        "nav.decisionTypeElicitation",
+        "nav.decisionTypePermissions",
+        "nav.decisionTypeToolApproval",
+        "nav.myPendingDecisions",
+        "nav.pendingDecisionsEmpty",
+        "student.aiExplain",
+        "upload.imageAltText"
+      ],
+      "reason": "D176 任务交代条与 Issue 绑定对话两条链的组件(apps/web/src/components/ai/d176-task-recap.tsx 与 apps/web/src/components/chat/issue-bind-dialog.tsx)在 apps/web 全量 import 面上零挂载点(grep 全仓,除组件自身与各自测试外零命中),其余键(eduAi.shop.payNow / exam.pageInfo / learn.* / nav.decisionType* / student.aiExplain / upload.imageAltText)在代码面零引用;这些键留在五个 web 语言包即五份无人渲染的死文案(dead-key 判据同型)。admin 各分页的 t(pageInfo) 读的是各自 admin 命名空间,与本顶层 exam.pageInfo 无关,已逐一核对。回潮判据:若重新挂载这两条链或任一界面,须连同对应语言键一起按当次文案恢复,不得只补词。",
       "until": "2027-09-30"
     },
     {
       "file": "packages/i18n/messages/web/ko.json",
-      "keys": ["eduPoints.totalChannels"],
-      "reason": "eduPoints 总览卡「渠道总数」与「启用渠道」同值冒充(G-978077):/api/edu-points/channels 只返回启用渠道,两卡读数恒等是假数据,已删重复卡 — 该键零消费者,按门 121 出口②删键。回潮判据:若引入真实的全量渠道数据源,须连卡片一起恢复。",
+      "keys": [
+        "aiChat.bindIssue",
+        "aiChat.recap.createFailed",
+        "aiChat.recap.createSession",
+        "aiChat.recap.creating",
+        "aiChat.recap.handoff.menuItem",
+        "aiChat.recap.handoff.title",
+        "aiChat.recap.handoffUnavailable",
+        "aiChat.recap.phase.done",
+        "aiChat.recap.phase.generating",
+        "aiChat.recap.previewDescription",
+        "aiChat.recap.purposeLabel",
+        "aiChat.recap.purposePlaceholder",
+        "aiChat.recap.revealFile",
+        "aiChat.recap.title",
+        "chat.bindIssue",
+        "chat.issueBindFailed",
+        "chat.issueBindSuccess",
+        "chat.issueBinding",
+        "chat.issueNotConfigured",
+        "chat.issueUnbindFailed",
+        "chat.issueUnbindSuccess",
+        "chat.noIssues",
+        "chat.noMatchingIssues",
+        "chat.searchIssues",
+        "chat.unbindIssue",
+        "eduAi.shop.payNow",
+        "exam.pageInfo",
+        "exam.wrongQuestions.aiExplain",
+        "learn.buyNow",
+        "learn.startLearning",
+        "learn.tutor.history",
+        "nav.decisionTypeElicitation",
+        "nav.decisionTypePermissions",
+        "nav.decisionTypeToolApproval",
+        "nav.myPendingDecisions",
+        "nav.pendingDecisionsEmpty",
+        "student.aiExplain",
+        "upload.imageAltText"
+      ],
+      "reason": "D176 任务交代条与 Issue 绑定对话两条链的组件(apps/web/src/components/ai/d176-task-recap.tsx 与 apps/web/src/components/chat/issue-bind-dialog.tsx)在 apps/web 全量 import 面上零挂载点(grep 全仓,除组件自身与各自测试外零命中),其余键(eduAi.shop.payNow / exam.pageInfo / learn.* / nav.decisionType* / student.aiExplain / upload.imageAltText)在代码面零引用;这些键留在五个 web 语言包即五份无人渲染的死文案(dead-key 判据同型)。admin 各分页的 t(pageInfo) 读的是各自 admin 命名空间,与本顶层 exam.pageInfo 无关,已逐一核对。回潮判据:若重新挂载这两条链或任一界面,须连同对应语言键一起按当次文案恢复,不得只补词。",
       "until": "2027-09-30"
     }
   ]
