@@ -21,7 +21,7 @@ import {
   type ImageSourcePropType,
 } from 'react-native'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 // 分享图兜底资源(require 写法对齐项目惯例,如 BusinessLicenseScreen)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const SHARE_FALLBACK_IMAGE: ImageSourcePropType = require('../../assets/images/common/default/vip_message.jpg')
@@ -1525,9 +1525,13 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
               accessibilityLabel={status.playing ? '暂停' : '播放'}
             >
               {status.playing ? (
-                <Pause size={16} color={tokens.brand.foreground} style={{ marginLeft: rpx(4) }} />
+                <Pause
+                  size={16}
+                  color={tokens.brand.ctaForeground}
+                  style={{ marginLeft: rpx(4) }}
+                />
               ) : (
-                <Play size={16} color={tokens.brand.foreground} style={{ marginLeft: rpx(4) }} />
+                <Play size={16} color={tokens.brand.ctaForeground} style={{ marginLeft: rpx(4) }} />
               )}
             </TouchableOpacity>
             {/* 进度条(对齐 Uniapp 行 166-175 原生 <slider> 可拖动)。
@@ -1861,7 +1865,7 @@ const styles = StyleSheet.create({
     bottom: 76, // TabBar 上方
     width: 34,
     height: 34,
-    borderRadius: rnRadius.sm,
+    borderRadius: 17, // radius-exempt: 返回顶部按钮 34×34 正圆(直径一半)
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2010,7 +2014,7 @@ const styles = StyleSheet.create({
     marginLeft: rpx(-60),
     width: 60,
     height: 60,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: 30, // radius-exempt: 视频播放按钮 60×60 正圆(直径一半,对齐 Uniapp 50%)
     backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2029,13 +2033,13 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: rnRadius.sm,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
   },
   audioPlayIcon: {
     fontSize: 16,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     marginLeft: rpx(4),
   },
   audioProgressTrack: {
@@ -2049,7 +2053,7 @@ const styles = StyleSheet.create({
   audioProgressFill: {
     height: 6,
     borderRadius: rnRadius.md,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
   },
   audioTime: {
     fontSize: 12,
@@ -2167,7 +2171,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 320,
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadiusFor.panel,
+    borderRadius: rnRadius.xl,
     padding: rpx(40),
     alignItems: 'center',
   },
@@ -2258,12 +2262,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(40),
     paddingVertical: rpx(16),
     borderRadius: rnRadius.sm,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
   },
   tabRetryText: {
     fontSize: 14,
     fontWeight: '500',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
   },
   // ── 等级介绍按钮(对齐 Uniapp level-intro 入口,UserInfoCard 下方独立按钮) ──
   levelIntroBtn: {
@@ -2286,8 +2290,8 @@ const styles = StyleSheet.create({
   },
   editProfileCard: {
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: rnRadiusFor.panel,
-    borderTopRightRadius: rnRadiusFor.panel,
+    borderTopLeftRadius: rnRadius.xl,
+    borderTopRightRadius: rnRadius.xl,
     padding: rpx(40),
     paddingBottom: rpx(64),
   },
@@ -2308,7 +2312,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: 72,
     height: 72,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.xl, // radius-exempt: 72dp 头像底,12 为有意圆角方(头像族不得方档化成 4)
     overflow: 'hidden',
   },
   editProfileAvatar: {
@@ -2324,13 +2328,13 @@ const styles = StyleSheet.create({
     height: 22,
     borderBottomRightRadius: rnRadius.md,
     borderTopLeftRadius: rnRadius.md,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
   },
   editProfileAvatarBadgeText: {
     fontSize: 14,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontWeight: '700',
     lineHeight: 14,
   },
@@ -2383,7 +2387,7 @@ const styles = StyleSheet.create({
   },
   editProfileSaveBtn: {
     flex: 1,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     borderRadius: rnRadius.sm,
     paddingVertical: rpx(24),
     alignItems: 'center',
@@ -2392,7 +2396,7 @@ const styles = StyleSheet.create({
   editProfileSaveBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
   },
   editProfileSaveBtnDisabled: {
     opacity: 0.6,
@@ -2410,8 +2414,8 @@ const styles = StyleSheet.create({
   },
   levelIntroCard: {
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: rnRadiusFor.panel,
-    borderTopRightRadius: rnRadiusFor.panel,
+    borderTopLeftRadius: rnRadius.xl,
+    borderTopRightRadius: rnRadius.xl,
     padding: rpx(40),
     paddingBottom: rpx(64),
     maxHeight: '80%',
@@ -2456,7 +2460,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   levelIntroCloseBtn: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     borderRadius: rnRadius.sm,
     paddingVertical: rpx(24),
     alignItems: 'center',
@@ -2465,7 +2469,7 @@ const styles = StyleSheet.create({
   levelIntroCloseBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
   },
   // ── 退订确认 Modal(对齐 Uniapp 退订确认弹层,替代 Alert.alert) ──
   unsubscribeOverlay: {
@@ -2478,7 +2482,7 @@ const styles = StyleSheet.create({
   unsubscribeCard: {
     width: '100%',
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadiusFor.panel,
+    borderRadius: rnRadius.xl,
     padding: rpx(40),
     alignItems: 'center',
   },
