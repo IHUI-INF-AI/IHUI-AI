@@ -85,6 +85,8 @@ const STATUS_STYLE: Record<string, string> = {
   active: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   disabled: 'bg-muted text-muted-foreground',
   expired: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+  // 凭证已清除待重扫:琥珀色提示,与"人工禁用"的灰底区分开
+  cleared: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
 }
 const ACCOUNTS_STATUS_KEY: Record<PublishAccount['status'], string> = {
   active: 'accounts.statusActive',
@@ -369,14 +371,37 @@ export default function AccountsPage() {
                             />
                           </div>
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <span
-                              className={cn(
-                                'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
-                                STATUS_STYLE[a.status] ?? STATUS_STYLE.disabled,
-                              )}
-                            >
-                              {t(ACCOUNTS_STATUS_KEY[a.status] ?? 'accounts.statusUnknown')}
-                            </span>
+                            {(() => {
+                              // status='disabled' 且凭证已清空 ⇒ "凭证已清除待重扫",
+                              // 不是平台禁用,避免用户误解(2026-09-27 混包凭证处置的用户反馈)
+                              const cleared =
+                                a.status === 'disabled' && a.hasCredentials === false
+                              const statusStyle = cleared
+                                ? STATUS_STYLE.cleared
+                                : (STATUS_STYLE[a.status] ?? STATUS_STYLE.disabled)
+                              const statusLabel = cleared
+                                ? t('accounts.statusCleared')
+                                : t(ACCOUNTS_STATUS_KEY[a.status] ?? 'accounts.statusUnknown')
+                              return (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span
+                                      className={cn(
+                                        'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
+                                        statusStyle,
+                                      )}
+                                    >
+                                      {statusLabel}
+                                    </span>
+                                  </TooltipTrigger>
+                                  {cleared ? (
+                                    <TooltipContent className="max-w-56">
+                                      {t('accounts.statusClearedTip')}
+                                    </TooltipContent>
+                                  ) : null}
+                                </Tooltip>
+                              )
+                            })()}
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span className="inline-flex shrink-0 cursor-default items-center gap-1 rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-600 dark:text-sky-400">
