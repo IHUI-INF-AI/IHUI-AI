@@ -1558,18 +1558,24 @@ def _save_session_cookies(platform: str, context: Any) -> None:
     (定时批量 commit,提前关进程就丢),本机最小复现:种 1 枚 cookie → close → 重开
     = 0 枚。storage_state() 读的是内存 jar,显式写文件 + 下次任务 add_cookies 原样
     回种,才是确定性的。tmp+replace 保证半截文件不会被读到。
+
+    落盘内容经 credentials_crypto.encrypt 加密(AES-256-GCM,与账号凭据同一把密钥):
+    cookie 是能直接冒用身份的凭据,明文落盘不符合本仓凭据卫生口径。
     """
     try:
         state = context.storage_state()
         cookies = state.get("cookies") or []
         if not cookies:
             return
+        from .publish.credentials_crypto import encrypt
+
+        enc = encrypt({"cookies": cookies})
         path = _session_store_path(platform)
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(cookies, ensure_ascii=False), encoding="utf-8")
+        tmp.write_text(enc, encoding="utf-8")
         tmp.replace(path)
-        logger.info(f"[scan_login] 登录态快照已保存: {path.name}({len(cookies)} 枚 cookie)")
+        logger.info(f"[scan_login] 登录态快照已保存(密文): {path.name}({len(cookies)} 枚 cookie)")
     except Exception as e:  # noqa: BLE001 — 快照失败绝不影响任务本身
         logger.info(f"[scan_login] 会话快照保存失败(不影响任务): {e}")
 
@@ -1580,13 +1586,16 @@ def _restore_session_cookies(platform: str, context: Any) -> int:
         path = _session_store_path(platform)
         if not path.exists():
             return 0
-        cookies = json.loads(path.read_text(encoding="utf-8"))
+        from .publish.credentials_crypto import decrypt
+
+        data = decrypt(path.read_text(encoding="utf-8").strip())
+        cookies = data.get("cookies") if isinstance(data, dict) else None
         if not isinstance(cookies, list) or not cookies:
             return 0
         context.add_cookies(cookies)
         logger.info(f"[scan_login] 已回种上次登录态: {len(cookies)} 枚 cookie")
         return len(cookies)
-    except Exception as e:  # noqa: BLE001 — 恢复失败只影响"复用",不影响扫码流程
+    except Exception as e:  # noqa: BLE001 — 解不开(明文旧格式/密钥轮换/损坏)一律按无登录态继续
         logger.info(f"[scan_login] 会话快照恢复失败(按无登录态继续): {e}")
         return 0
 

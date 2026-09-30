@@ -1114,6 +1114,9 @@ def test_session_snapshot_roundtrip_and_empty_guard(monkeypatch, tmp_path):
     assert not (tmp_path / "weibo" / "session-cookies.json.tmp").exists()
     n = scan_login_mod._restore_session_cookies("weibo", ctx)
     assert n == 1 and ctx.restored[0]["name"] == "SUB"
+    # 落盘是密文:文件内容不得含 cookie 名明文(凭据卫生口径)
+    raw = (tmp_path / "weibo" / "session-cookies.json").read_text(encoding="utf-8")
+    assert "SUB" not in raw
 
     class EmptyCtx:
         def storage_state(self):
