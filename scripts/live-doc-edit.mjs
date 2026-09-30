@@ -139,15 +139,20 @@ const ID_TOKEN_RE = /\{\{NEXT_ID:([A-Za-z]+)\}\}/g
  * 三条不许漂的写法:
  *  ① 远端 tip 只经 `git ls-remote <remote> <ref>` 问(远端真值唯一来源);判据仍只有一份 ——
  *     远端那份底稿的该族 max 也走 `usedIdsOfPrefix`,不另写"什么算一个号"。
- *  ② 该 tip 的对象**本地没有 ⇒ 不 fetch、不写任何 ref**,直接降级到本地基准并**点名原因**。
- *     AGENTS §5b 实测:本仓嵌套 remote-tracking ref(`refs/remotes/**`)会被宿主清理层删掉,而
- *     `git update-ref` 对嵌套 ref **返回 0 却不落盘** —— 为一个号段基准去动 refs 是拿仓库存续性换便利。
- *  ③ 任何一步问不到都**只降级、不失败**(取号必须仍然落得了地),但降级必须喊出来:把"没判"写成
- *     "判过了"是本仓最高频失效型,静默降级就等于伪装成"已与远端对齐"。
+ *  ② 该 tip 的对象**本地没有 ⇒ 先做一次有界自补救 fetch**(`transport.hydrate`:`git fetch
+ *     --no-tags <remote> <ref>`,数字 timeout,只取对象与 FETCH_HEAD —— tip 按 SHA 读,不依赖
+ *     嵌套 remote-tracking ref,宿主清理层删掉它也不影响本次判定)。旧版"绝不 fetch、不写任何
+ *     ref"的补救是把一条 fetch 命令留给调用方,而 §5b 禁手工 fetch/merge/push 循环 ⇒ 拦住不自助
+ *     只会把每个调用方逼向应急旗,那才是"警告照样能提交"的活体(2026-09-30 契约升级:自助一次,
+ *     补不齐才拦)。transport 没给 hydrate(测试夹具)⇒ 保持旧行为,直接进未补齐档。
+ *  ③ 仍问不到的每一步都必须**点名**,但分两档处置、不得并桶(见 idBasisGate):远端完全问不到
+ *     (离线/凭据缺失)⇒ 警告着按本地基准落号;tip 问得到而对象补 fetch 后仍不在本地 ⇒ 闸门
+ *     **拒绝发号**。把"没判"写成"判过了"是本仓最高频失效型,静默降级就等于伪装成"已与远端对齐"。
  *  远端只用来**抬高**基准,永不用来压低 ⇒ 远端与本地同 max 时取号与改动前逐字同形(镜像 N2/N3 钉住)。
  */
 const LS_REMOTE_TIMEOUT_MS = 20_000
 const REMOTE_READ_TIMEOUT_MS = 30_000
+const REMOTE_FETCH_TIMEOUT_MS = 120_000
 
 /** 远端与 ref 可换(`LIVE_ID_REMOTE` / `LIVE_ID_REMOTE_REF`),缺省 origin/main —— 现读,不在模块期烘死。 */
 function remoteTarget() {
@@ -176,9 +181,14 @@ export const REMOTE_ID_TRANSPORT = {
     if (!sha) return { ok: false, reason: `${remote} 上没有 ${ref}` }
     return { ok: true, sha, remote, ref }
   },
-  /** 该 commit 对象本机是否已有;没有就抛(**绝不为取号去 fetch、绝不写任何 ref**)。 */
+  /** 该 commit 对象本机是否已有;没有就抛(由 readRemoteIdBasis 决定是否自补救)。 */
   hasCommit({ root, sha }) {
     git(['cat-file', '-e', `${sha}^{commit}`], { root, timeout: REMOTE_READ_TIMEOUT_MS })
+    return true
+  },
+  /** 一次有界自补救 fetch(2026-09-30 契约升级):把远端 tip 对象带进本机对象库。失败抛,由调用方记因。 */
+  hydrate({ root, remote = remoteTarget().remote, ref = remoteTarget().ref } = {}) {
+    git(['fetch', '--no-tags', remote, ref], { root, timeout: REMOTE_FETCH_TIMEOUT_MS })
     return true
   },
   docContent({ root, sha, doc }) {
@@ -187,13 +197,14 @@ export const REMOTE_ID_TRANSPORT = {
 }
 
 /**
- * 现读远端那一份底稿的号段基准。返回 `{ max:{族:远端该族 max}, notes:[降级原因], tipSha, remote, ref }`。
+ * 现读远端那一份底稿的号段基准。返回 `{ max:{族:远端该族 max}, notes:[降级原因], info:[过程注记], tipSha, remote, ref }`。
  * 每条 notes 都对应"远端这一维没判到",调用方必须逐条打印 —— 只印 max 不印 notes,就是把"没判"
- * 写成"判过了"的那一型。测试经 `transport` 注入构造值,不真发网络(生产缺省走真 ls-remote)。
+ * 写成"判过了"的那一型。info 是**过程注记**(如自补救 fetch 成功),不得混进 notes:把"已读齐"
+ * 打成"未对齐"是反向的假话。测试经 `transport` 注入构造值,不真发网络(生产缺省走真 ls-remote)。
  */
 export function readRemoteIdBasis({ root, doc, families, transport = REMOTE_ID_TRANSPORT } = {}) {
   const { remote, ref } = remoteTarget()
-  const out = { max: {}, notes: [], tipSha: '', remote, ref, remoteAheadUnfetched: false }
+  const out = { max: {}, notes: [], info: [], tipSha: '', remote, ref, remoteAheadUnfetched: false }
   if (!Array.isArray(families) || families.length === 0) return out
   let tip
   try {
@@ -207,14 +218,35 @@ export function readRemoteIdBasis({ root, doc, families, transport = REMOTE_ID_T
     return out
   }
   out.tipSha = tip.sha
+  let missingReason = ''
   try {
     transport.hasCommit({ root, sha: tip.sha })
   } catch (e) {
-    out.notes.push(`对象不在本地,原因:${oneLine(e)}`)
+    missingReason = oneLine(e)
     // 这一档与"远端完全问不到"必须分开:tip 已经问到,说明对面确实在推进,只是那些对象
-    // 还没进本地库 —— 补救是一条本地 fetch,而不是猜它没占号(2026-09-29 D168 一手事故)。
-    out.remoteAheadUnfetched = true
-    return out
+    // 还没进本地库 —— 自补救是一条有界 fetch,而不是猜它没占号(2026-09-29 D168 一手事故)。
+    // 旧版把 fetch 留给调用方,而 §5b 禁手工 fetch/merge/push 循环 ⇒ 拦住不自助等于逼人挂应急旗
+    // (2026-09-30 契约升级)。transport 没给 hydrate(测试夹具)⇒ 保持旧行为,直接进未补齐档。
+    if (typeof transport.hydrate !== 'function') {
+      out.notes.push(`对象不在本地,原因:${missingReason}`)
+      out.remoteAheadUnfetched = true
+      return out
+    }
+    try {
+      transport.hydrate({ root, remote, ref })
+    } catch (e2) {
+      out.notes.push(`对象不在本地,自补救 fetch 失败,原因:${oneLine(e2)}(首次缺失:${missingReason})`)
+      out.remoteAheadUnfetched = true
+      return out
+    }
+    try {
+      transport.hasCommit({ root, sha: tip.sha })
+    } catch (e3) {
+      out.notes.push(`对象不在本地,自补救 fetch 后仍读不到,原因:${oneLine(e3)}`)
+      out.remoteAheadUnfetched = true
+      return out
+    }
+    out.info.push(`对象原本不在本地(原因:${missingReason}),已自补救一次 fetch 后读齐远端面`)
   }
   let content
   try {
@@ -271,8 +303,9 @@ export function describeIdBasis(b, remote) {
  * **两种降级必须分档，不得并桶**：
  *  ① 远端完全问不到(离线 / CI / 凭据缺失)⇒ 照旧"警告着落号"。这一档没有便宜的补救动作，拒了
  *     等于把工具变成"断网就不能用"，而失效方向是逼人改用 pathspec 硬交(§12e 同一条禁令)。
- *  ② tip 已问到、只是对象还没进本地库 ⇒ 补救动作是一条 `git fetch`(由调用方做)，本器**自己绝不
- *     fetch、绝不写 ref**(N6 形状锁)，所以只能拒绝并把出路写成一步命令。
+ *  ② tip 已问到、只是对象还没进本地库 ⇒ 本器**自补救一次有界 fetch**(transport.hydrate,
+ *     2026-09-30 契约升级 —— 旧版把 fetch 留给调用方，而 §5b 禁手工 fetch/merge/push 循环，拦住
+ *     不自助只会把每个调用方逼向应急旗)；补后仍不在本地 ⇒ 拒绝并把出路写明白。
  * 只在"本次真的在发号"时判 —— 正文里没有取号令牌的纯改写落地不受影响(第三条分支返回 block:false)。
  */
 export function idBasisGate({ families = [], remote = null, allowUnaligned = false } = {}) {
@@ -697,6 +730,8 @@ async function main() {
       process.exit(2)
     }
     // 降级必须逐条喊出来(远端这一维没判到 ≠ 已与远端对齐);顺序在基准行之前,便于"见上一行"指代。
+    // info 是过程注记(自补救 fetch 成功等),不得混进降级行 —— 把"已读齐"打成"未对齐"是反向假话。
+    for (const n of remote?.info ?? []) console.log(`ℹ 号段基准:${n}`)
     for (const n of remote?.notes ?? [])
       console.log(`⚠️ 号段基准未含远端(${n})⇒ 仍按本地 HEAD 底稿落号,**未与远端对齐**`)
     for (const b of tok.basis ?? []) console.log(describeIdBasis(b, remote))
@@ -709,11 +744,11 @@ async function main() {
       if (gate.note) console.log(`⚠️ ${gate.note}`)
       if (gate.block) {
         console.error(
-          `❌ 本次要取号,但${gate.reason} ⇒ 拒绝落地(对面明明在推进,而本器绝不 fetch、绝不写 ref,` +
+          `❌ 本次要取号,但${gate.reason} ⇒ 拒绝落地(自补救 fetch 已跑过一次,那些对象仍不在本地,` +
             `拿不到对面那一份底稿时发号就是猜对面没占过)。\n` +
             '   一手成因(2026-09-29):同一种降级上一版只警告不拒,当天发出的两枚号与远端 09-28 的登记同号' +
             '(其一已完成),并集收敛后当场撞出 2 组 F9,须再让一次号才收得住。\n' +
-            '   出路:先 `git fetch --no-tags origin main`(只取对象与 FETCH_HEAD,不碰工作区),再重跑本次落地;' +
+            '   出路:查网络/凭据后重跑(每次重读都会再自助 fetch 一次);' +
             '确属离线/必须先行则 `IHUI_PLAN_ID_ALLOW_UNALIGNED=1` 重跑,报告会明写"未与远端对齐"。',
         )
         process.exit(1)
