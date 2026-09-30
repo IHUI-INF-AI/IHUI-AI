@@ -74,7 +74,7 @@ vi.mock('@ihui/ui-react', () => ({
 vi.mock('@ihui/api-client', () => ({
   detectLoginFromProfile: (platform: string) => detectLoginFromProfile(platform),
   listScanLoginPlatforms: () => listScanLoginPlatforms(),
-  startScanLogin: (platform: string) => startScanLogin(platform),
+  startScanLogin: (...args: unknown[]) => startScanLogin(...args),
   getScanLoginStatus: (taskId: string) => getScanLoginStatus(taskId),
   fetchScanLoginQr: (taskId: string) => fetchScanLoginQr(taskId),
   cancelScanLogin: (taskId: string) => cancelScanLogin(taskId),
@@ -129,7 +129,7 @@ async function startInternalQueue() {
   await waitFor(() => expect(screen.getByText('accounts.batchScanStart')).toBeTruthy())
   fireEvent.click(screen.getByText('accounts.batchScanModeInternal'))
   fireEvent.click(screen.getByText('accounts.batchScanStart'))
-  await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('zhihu'))
+  await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('zhihu', { reuseSession: true }))
 }
 
 beforeEach(() => {
@@ -270,7 +270,7 @@ describe('BatchScanLoginDialog 内置档走扫码任务通道(2026-09-29)', () =
     )
     await startInternalQueue()
 
-    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('bilibili'))
+    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('bilibili', { reuseSession: true }))
     // 恰好 2 次:zhihu 现起 + bilibili 预热;轮到 bilibili 必须接管,不许第 3 次起任务
     expect(startScanLogin).toHaveBeenCalledTimes(2)
     expect(getScanLoginStatus).toHaveBeenCalledWith('task-zhihu')
@@ -325,7 +325,7 @@ describe('BatchScanLoginDialog 内置档走扫码任务通道(2026-09-29)', () =
     )
     await startInternalQueue()
 
-    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('bilibili'))
+    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('bilibili', { reuseSession: true }))
     expect(onSuccess).toHaveBeenCalled()
   })
 
@@ -349,8 +349,8 @@ describe('BatchScanLoginDialog 内置档走扫码任务通道(2026-09-29)', () =
     await startInternalQueue()
 
     await waitFor(() => expect(startScanLogin).toHaveBeenCalledTimes(3))
-    expect(startScanLogin).toHaveBeenCalledWith('zhihu')
-    expect(startScanLogin).toHaveBeenCalledWith('bilibili')
+    expect(startScanLogin).toHaveBeenCalledWith('zhihu', { reuseSession: true })
+    expect(startScanLogin).toHaveBeenCalledWith('bilibili', { reuseSession: true })
     // 尸体必须被显式取消,不许挂到后端超时
     await waitFor(() => expect(cancelScanLogin).toHaveBeenCalledWith('task-bilibili'))
     // 新任务照常轮询并成功推进
@@ -363,7 +363,7 @@ describe('BatchScanLoginDialog 内置档走扫码任务通道(2026-09-29)', () =
     render(renderDialog(true))
     await startInternalQueue()
 
-    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('bilibili'))
+    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('bilibili', { reuseSession: true }))
     fireEvent.click(screen.getByText('accounts.batchScanStop'))
     await waitFor(() => expect(cancelScanLogin).toHaveBeenCalledWith('task-zhihu'))
     await waitFor(() => expect(cancelScanLogin).toHaveBeenCalledWith('task-bilibili'))
