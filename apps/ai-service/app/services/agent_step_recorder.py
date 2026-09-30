@@ -44,8 +44,20 @@ from app.core.tunables import MAX_STEPS_PER_RUN
 logger = logging.getLogger(__name__)
 
 # 单 run 保留步数上限(唯一真源见 app/core/tunables.py)
-# 输入/结果摘要单条长度上限(防单条超大撑爆文件)
-SUMMARY_LIMIT = 1000
+# b76-04 票3:step 记录审计载荷 caps 常量表(数字即契约,必须住在有名字的表里;
+# 每条 cap 标注 enforcement 侧 —— 本表全部是记录侧执行:审计输入必须有界,
+# 但快路径原样、超限逐项收紧并置 truncated 位,"宁可诚实地说被截了",
+# 不许静默夹半截进审计文件)。
+STEP_RECORD_CAPS: dict[str, dict[str, Any]] = {
+    # 审计输入整体字节上限(对齐上游 world-read-input 的 WORLD_READ_INPUT_MAX_BYTES = 4096)
+    "auditInputMaxBytes": {"cap": 4096, "enforcement": "记录侧执行"},
+    # 单项文本字符上限(SUMMARY_LIMIT 是它的别名,旧调用点继续可用)
+    "itemMaxChars": {"cap": 1000, "enforcement": "记录侧执行"},
+    # 证据数组(diff/test/rollback)项数上限
+    "evidenceArrayMaxItems": {"cap": 8, "enforcement": "记录侧执行"},
+}
+# 输入/结果摘要单条长度上限(历史名,= itemMaxChars.cap,防单条超大撑爆文件)
+SUMMARY_LIMIT = STEP_RECORD_CAPS["itemMaxChars"]["cap"]
 # 分页 page_size 上限
 PAGE_SIZE_MAX = 200
 
@@ -73,6 +85,70 @@ def _clip_text(value: Any, limit: int) -> str:
     return text
 
 
+def _clip_text_flagged(value: Any, limit: int) -> tuple[str, bool]:
+    """_clip_text 的带位版:第二返回值 = 是否发生了截断(供 truncated 位归集)。"""
+    try:
+        text = json.dumps(value, ensure_ascii=False, default=str)
+    except Exception:
+        text = str(value)
+    if len(text) > limit:
+        # 截断事实进 truncated 位(不往文本里塞标记,保持"每项 ≤ 上限"的干净后件)
+        return text[:limit], True
+    return text, False
+
+
+def _bound_evidence(value: Any, max_items: int, max_chars: int) -> tuple[Any, bool]:
+    """证据位(diff/test/rollback)有界化:数组 ≤ max_items、每项字符串 ≤ max_chars。"""
+    changed = False
+    if isinstance(value, list):
+        if len(value) > max_items:
+            value = value[:max_items]
+            changed = True
+        bounded: list[Any] = []
+        for item in value:
+            if isinstance(item, str) and len(item) > max_chars:
+                bounded.append(item[:max_chars])
+                changed = True
+            else:
+                bounded.append(item)
+        return bounded, changed
+    if isinstance(value, str) and len(value) > max_chars:
+        return value[:max_chars], True
+    return value, changed
+
+
+def _bound_audit_payload(step: dict[str, Any], truncated: bool) -> dict[str, Any]:
+    """审计输入必须有界(b76-04 票3,上游 world-read-input 的另一半语义)。
+
+    超过 auditInputMaxBytes ⇒ 逐字段收紧(最长文本字段折半,下限 64)并置 truncated 位;
+    收紧到底仍超 ⇒ 丢弃 input 原始体(最大自由文本位)。终态保证:
+    每项文本 ≤ itemMaxChars、证据数组 ≤ evidenceArrayMaxItems、truncated 位如实可读。
+    """
+    item_chars = STEP_RECORD_CAPS["itemMaxChars"]["cap"]
+    text_fields = ("input_summary", "result_summary", "decision", "reason", "http_summary")
+    guard = 0
+    while guard < 64:
+        guard += 1
+        try:
+            size = len(json.dumps(step, ensure_ascii=False, default=str).encode("utf-8"))
+        except Exception:
+            size = 0
+        if size <= STEP_RECORD_CAPS["auditInputMaxBytes"]["cap"]:
+            break
+        longest = max(text_fields, key=lambda k: len(str(step.get(k) or "")))
+        cur = str(step.get(longest) or "")
+        if len(cur) <= 64:
+            if step.get("input") is not None:
+                step["input"] = None  # 最大自由文本位让位,诚实置位
+                truncated = True
+                continue
+            break
+        step[longest] = cur[: max(64, len(cur) // 2)]
+        truncated = True
+    step["truncated"] = truncated
+    return step
+
+
 def _to_num(value: Any, default: float = 0.0) -> float:
     """安全转 float,失败回退默认值。"""
     if value is None:
@@ -90,12 +166,27 @@ def _normalize_step(step: dict[str, Any], idx: int) -> dict[str, Any]:
         stype = "tool"
     raw_status = str(step.get("status", "ok")).strip().lower()
     status = raw_status if raw_status in _VALID_STATUS else "ok"
+    truncated = False
+    input_summary, clipped = _clip_text_flagged(step.get("input_summary", ""), SUMMARY_LIMIT)
+    truncated = truncated or clipped
+    result_summary, clipped = _clip_text_flagged(step.get("result_summary", ""), SUMMARY_LIMIT)
+    truncated = truncated or clipped
+    evidence_max = STEP_RECORD_CAPS["evidenceArrayMaxItems"]["cap"]
+    item_chars = STEP_RECORD_CAPS["itemMaxChars"]["cap"]
+    bounded_input, clipped = _bound_evidence(step.get("input"), evidence_max, item_chars)
+    truncated = truncated or clipped
+    bounded_diff, clipped = _bound_evidence(step.get("diff"), evidence_max, item_chars)
+    truncated = truncated or clipped
+    bounded_test, clipped = _bound_evidence(step.get("test"), evidence_max, item_chars)
+    truncated = truncated or clipped
+    bounded_rollback, clipped = _bound_evidence(step.get("rollback"), evidence_max, item_chars)
+    truncated = truncated or clipped
     return {
         "step_index": int(_to_num(step.get("step_index"), idx)),
         "type": stype,
         "tool_name": str(step.get("tool_name") or ""),
-        "input_summary": _clip_text(step.get("input_summary", ""), SUMMARY_LIMIT),
-        "result_summary": _clip_text(step.get("result_summary", ""), SUMMARY_LIMIT),
+        "input_summary": input_summary,
+        "result_summary": result_summary,
         "status": status,
         "tokens": int(_to_num(step.get("tokens"), 0)),
         "tokens_in": int(_to_num(step.get("tokens_in"), 0)),
@@ -113,13 +204,15 @@ def _normalize_step(step: dict[str, Any], idx: int) -> dict[str, Any]:
         "cost": round(_to_num(step.get("cost")), 6),
         "http_summary": str(step.get("http_summary") or ""),
         "at": str(step.get("at") or _now_iso()),
-        # 1-5 可解释性证据(2026-09-08 立):缺省回填,原样保留供回放审计
-        "input": step.get("input"),
+        # 1-5 可解释性证据(2026-09-08 立):缺省回填;b76-04 票3 起超限有界化(诚实置位)
+        "input": bounded_input,
         "decision": str(step.get("decision") or ""),
         "reason": str(step.get("reason") or ""),
-        "diff": step.get("diff"),
-        "test": step.get("test"),
-        "rollback": step.get("rollback"),
+        "diff": bounded_diff,
+        "test": bounded_test,
+        "rollback": bounded_rollback,
+        # 内部位:append_step 处 pop 后归集进整体 truncated(b76-04 票3)
+        "_truncated": truncated,
     }
 
 
@@ -202,6 +295,8 @@ class AgentStepRecorder:
             idx = len(record["steps"])
             normalized = _normalize_step(dict(step), idx)
             normalized["step_index"] = idx
+            # b76-04 票3:审计载荷整体有界(超字节上限 ⇒ 收紧 + truncated 位,不静默)
+            normalized = _bound_audit_payload(normalized, normalized.pop("_truncated", False))
             record["steps"].append(normalized)
             record["updated_at"] = _now_iso()
             self._trim(record)
