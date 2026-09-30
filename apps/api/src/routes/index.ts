@@ -19,6 +19,8 @@ import { searchRoutes } from './search.js'
 import { auditRoutes } from './audit.js'
 import { chatRoutes } from './chat.js'
 import { chatModelRoutes } from './chat-models.js'
+// D179(2026-09-30 用户拍板立项):会话 Issue 绑定/解绑 + Issue 搜索转发
+import { chatIssueBindingRoutes } from './chat-issue-binding.js'
 import { chatSkillsRoutes } from './chat-skills.js'
 import { teamRoutes } from './teams.js'
 import { rbacRoutes } from './rbac.js'
@@ -529,6 +531,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(auditRoutes, { prefix: '/api/admin' })
   server.register(teamRoutes, { prefix: '/api/teams' })
   server.register(chatRoutes, { prefix: '/api/chat' })
+  // D179(2026-09-30 用户拍板立项):POST/DELETE /api/chat/conversations/:id/issue + POST /api/chat/issues/search
+  server.register(chatIssueBindingRoutes, { prefix: '/api/chat' })
   // Chat 多模型直连:deepseek/deepseek_ws/kling/multi/qwen/qwen_omni/zhipu/history/coze
   server.register(chatModelRoutes, { prefix: '/api/chat' })
   // 用户自定义 AI 对话框技能(2026-07-21 新增,Skill 库统一面板支撑):GET/POST/PATCH/DELETE /api/chat/skills
