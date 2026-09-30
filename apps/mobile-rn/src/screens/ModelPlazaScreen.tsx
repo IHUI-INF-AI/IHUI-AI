@@ -1,8 +1,8 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
+import { useTheme } from '../context/ThemeContext'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
@@ -18,10 +18,11 @@ import {
 import { tokens } from '../theme/active-tokens'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import { useI18n } from '../i18n'
-import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { Bot, Film, Palette, type LucideIcon } from 'lucide-react-native'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -101,8 +102,8 @@ function buildModelGroups(models: ModelPlazaItem[]): ModelListGroup[] {
 }
 
 export default function ModelPlazaScreen() {
-  const { t } = useI18n()
   const { resolvedTheme } = useTheme()
+  const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
   const [viewMode, setViewMode] = useState<ViewMode>('shared')
   const [models, setModels] = useState<ModelPlazaItem[]>([])
@@ -176,7 +177,6 @@ export default function ModelPlazaScreen() {
         {viewMode === 'shared' ? (
           <SharedModelPlazaScreen
             t={t}
-            colorScheme={resolvedTheme}
             items={models}
             providers={providers}
             providerId={providerId}
@@ -193,6 +193,7 @@ export default function ModelPlazaScreen() {
             onPressCompare={handleCompare}
             onPressItem={handleDetail}
             onBack={() => navigation.goBack()}
+            colorScheme={resolvedTheme}
           />
         ) : (
           <ModelList
@@ -227,7 +228,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   },
   tabActive: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
   },
   tabText: {
     fontSize: 13,
@@ -235,7 +236,7 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     fontSize: 13,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontWeight: '600',
   },
   viewport: {
