@@ -633,6 +633,7 @@
     "scanLoginTimeout": "掃碼超時,請重試",
     "scanLoginTitle": "掃碼登入",
     "scanWithPhoneHint": "請使用手機掃描二維碼登入",
+    "selectPlatform": "請選擇平臺",
     "startScanLogin": "開始掃碼",
     "subtitle": "管理多個社群平臺帳號",
     "title": "帳號管理",
@@ -8649,7 +8650,7 @@
         },
         "speaking_banned": {
           "title": "目前處於禁言狀態",
-          "action": "聯絡管理員瞭解詳情"
+          "action": "聯絡管理員了解詳情"
         },
         "member_capacity_exceeded": {
           "title": "成員數量已達上限",
@@ -8999,7 +9000,6 @@
     "title": "AI 生涯指導"
   },
   "aiChat": {
-    "bindIssue": "綁定 Issue",
     "actions": {
       "archive": "歸檔",
       "compressTo1m": "壓縮到 100 萬字符",
@@ -9029,6 +9029,26 @@
       "confirmText": "回退",
       "restoreSuccess": "已回退到該檢查點",
       "restoreFailed": "回退失敗"
+    },
+    "recap": {
+      "title": "任務回顧",
+      "handoff": {
+        "menuItem": "移交到新任務",
+        "title": "移交到新任務"
+      },
+      "previewDescription": "檢查交接內容後,可以在檔案位置查看,或直接建立一個新任務繼續工作。",
+      "purposeLabel": "交接目的",
+      "purposePlaceholder": "交接目的",
+      "waitingPreview": "正在準備預覽…",
+      "phase": {
+        "generating": "模型正在產生交接內容…",
+        "finalizing": "正在完成收尾…",
+        "done": "交接文件已產生。"
+      },
+      "revealFile": "顯示檔案",
+      "createSession": "建立新任務",
+      "creating": "正在建立新任務…",
+      "createFailed": "建立新任務失敗,請重試。"
     },
     "addWorkspace": "添加工作區",
     "assistant": "助手",
@@ -9145,25 +9165,6 @@
     "noHistory": "暫無任務",
     "noRecentWorkspaces": "暫無最近工作區",
     "openTerminal": "開啟終端",
-    "recap": {
-      "title": "任務回顧",
-      "handoff": {
-        "menuItem": "移交到新任務",
-        "title": "移交到新任務"
-      },
-      "previewDescription": "檢查交接內容後,可以在檔案位置查看,或直接建立一個新任務繼續工作。",
-      "purposeLabel": "交接目的",
-      "purposePlaceholder": "交接目的",
-      "revealFile": "顯示檔案",
-      "createSession": "建立新任務",
-      "phase": {
-        "generating": "模型正在產生交接內容…",
-        "done": "交接文件已產生。"
-      },
-      "creating": "正在建立新任務…",
-      "createFailed": "建立新任務失敗,請重試。",
-      "handoffUnavailable": "依賴的交接文件產生出口尚未提供,無法產生交接內容。"
-    },
     "renameDialog": {
       "cancel": "取消",
       "description": "保持簡短且易於識別",
@@ -10602,30 +10603,6 @@
     "expiryDate": "到期日期"
   },
   "chat": {
-    "bindIssue": "綁定 Issue",
-    "unbindIssue": "改為獨立任務",
-    "issueBinding": "關聯 Issue",
-    "searchIssues": "搜尋 Issue 標識、標題或專案",
-    "noIssues": "還沒有可以綁定的 Issue",
-    "noMatchingIssues": "沒有符合的 Issue",
-    "issueNotConfigured": "該來源尚未連接,請先在設定中連接 GitHub 或 Linear",
-    "issueBindSuccess": "Issue 已綁定",
-    "issueBindFailed": "Issue 綁定失敗",
-    "issueUnbindSuccess": "已解綁,該會話已改為獨立任務",
-    "issueUnbindFailed": "解綁失敗",
-    "selectionAnnotations": {
-      "hoverHint": "懸停查看批註",
-      "selectedText": "{{index}}. 選中文字",
-      "noComment": "未新增評論",
-      "commentPlaceholder": "新增可選評論…",
-      "commentAriaLabel": "劃詞批註評論",
-      "addComment": "新增評論",
-      "removeOne": "移除批註 {{index}}",
-      "removeAll": "移除全部劃詞批註",
-      "add": "新增批註"
-    },
-    "attachRetry": "重試上傳",
-    "attachRetryExhausted": "重試次數已達上限,請刪除後重新新增",
     "mentionEngine": {
       "tabFile": "檔案",
       "tabFolder": "資料夾",
@@ -12389,7 +12366,6 @@
     "unpin": "取消固定",
     "unsaved": "未保存",
     "update": {
-      "revoked": "這個版本已不再提供。",
       "autoRestartIn": "即將自動重啟...({countdown} 秒後)",
       "autoRetrying": "更新失敗，自動重試中...",
       "available": "發現新版本",
@@ -12542,9 +12518,6 @@
     "title": "課程中心"
   },
   "cronEditor": {
-    "customFallback": "自訂表達式",
-    "customHint": "該表達式無法由視覺化編輯器無損表達,以下原文逐字保留:",
-    "switchToVisual": "切換至視覺化編輯",
     "everyField": "每{field}",
     "recentRuns": "最近 5 次執行",
     "specificPlaceholder": "{min}-{max}, 逗號分隔",
@@ -15224,8 +15197,6 @@
     "title": "開放平臺 Feature Center"
   },
   "feedback": {
-    "unsupportedImage": "僅支援 PNG、JPG、GIF 與 WebP 圖片。",
-    "requestIdSuffix": "回饋編號：{requestId}。",
     "backToList": "返回反饋",
     "contactPlaceholder": "選填，方便我們聯系您",
     "contentPlaceholder": "請描述您遇到的問題或建議...",
@@ -16057,8 +16028,6 @@
       "unsynced": "未同步"
     },
     "terminalPanel": {
-      "switchToDark": "切換為暗色終端",
-      "switchToLight": "切換為亮色終端",
       "aiDiagnoseTitle": "AI 錯誤診斷",
       "aiServiceUnavailable": "AI 服務暫不可用,請稍後重試",
       "aiSuggestTitle": "AI 命令建議",
@@ -19190,11 +19159,6 @@
     "members": "會員列表",
     "memory": "記憶系統",
     "messages": "站內消息",
-    "myPendingDecisions": "待我決策",
-    "pendingDecisionsEmpty": "暫無待決策",
-    "decisionTypeToolApproval": "工具審批",
-    "decisionTypePermissions": "權限提升請求",
-    "decisionTypeElicitation": "等你回答",
     "messagesComment": "評論",
     "messagesFans": "新粉絲",
     "messagesFavorite": "收藏消息",
@@ -20436,7 +20400,7 @@
       "subtitle": "配置各平臺的登錄憑證(加密存儲)",
       "switchToAppQr": "切換為App掃碼",
       "switchToWechatQr": "切換為微信掃碼",
-      "morePlatforms": "更多平臺",
+      "morePlatforms": "更多平台",
       "taskId": "任務",
       "title": "平臺賬號管理",
       "verify": "測試連接",
@@ -22876,6 +22840,21 @@
       "hoursAgo": "{hr} 小時前",
       "justNow": "剛剛",
       "markAllRead": "全部標記已讀",
+      "important": "需要了解",
+      "viewActive": "返回動態",
+      "markAllReadFailed": "未能把動態標為已讀,請重試。",
+      "hiding": "正在隱藏…",
+      "hideFailed": "這條動態未隱藏,請重試。",
+      "restoring": "正在恢復…",
+      "restoreFailed": "這條動態未恢復,請重試。",
+      "emptyDescription": "評論、提及和訂閱的變化會出現在這裡。",
+      "emptyArchivedDescription": "你隱藏的動態會保留在這裡,隨時可以恢復。",
+      "unavailable": "動態暫時無法載入,請稍後重試。",
+      "tabActive": "動態",
+      "tabArchived": "已歸檔",
+      "hide": "隱藏",
+      "restore": "恢復",
+      "retry": "重試",
       "minutesAgo": "{min} 分鐘前",
       "tab": {
         "all": "全部",
@@ -26766,7 +26745,6 @@
     "noUrlField": "回應中未找到可用的 URL 欄位",
     "networkError": "網路錯誤",
     "uploadCancelled": "上傳已取消",
-    "imageAltText": "回饋截圖 {index}",
     "imagePlaceholder": "點選或拖拽上傳圖片"
   },
   "eduScheduling": {
@@ -27800,18 +27778,6 @@
     "restore": "顯示建議"
   },
   "taskMonitor": {
-    "group": {
-      "artifact": "產出",
-      "browser": "網頁查閱",
-      "source": "來源"
-    },
-    "emptyGroup": {
-      "artifact": "暫無產出資料 :)",
-      "browser": "暫無網頁查閱資料 :)",
-      "source": "暫無來源資料 :)"
-    },
-    "empty": "還沒有有價值的內容",
-    "emptyDescription": "整個任務中產生的檔案、網頁與來源會持續彙總在這裡,協助追蹤任務進展。",
     "displayMode": "展示方式",
     "modeSections": "分區",
     "modeTabs": "平鋪",
@@ -27961,6 +27927,15 @@
     "pasteValid": "有效",
     "pasteUnknown": "未辨識",
     "pastePreviewDismiss": "關閉貼上引用預覽",
+    "referencePreview": {
+      "available": "可用引用",
+      "clear": "清空",
+      "editor": "引用預覽編輯器",
+      "placeholder": "編輯引用內容,可直接傳送…",
+      "select": "選擇引用",
+      "send": "傳送",
+      "source": "來源"
+    },
     "authorizationNotice": "引用標籤不新增執行授權",
     "hintSelect": "選擇",
     "hintConfirm": "確認",
