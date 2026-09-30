@@ -430,4 +430,86 @@ test('T8 覆盖面自证:窗口没走全时不得把枚数当全量(三态)', ()
     rmScratch(dir)
   }
 })
+
+test('T9 引用事务见证的取材三态:读到 / 坏行不吞 / 文件不在位不得读成"全部无见证"', () => {
+  const dir = mkScratch('witness-read')
+  try {
+    const wdir = join(dir, '.workbuddy')
+    mkdirSync(wdir, { recursive: true })
+    const good = 'a'.repeat(40)
+    const good2 = 'b'.repeat(40)
+    writeFileSync(
+      join(wdir, 'commit-witness.log'),
+      `${good}\trefs/heads/main\n${good2}\t refs/heads/other \n不是sha\trefs/heads/x\n\n`,
+      'utf8',
+    )
+    const w = report.readWitness(dir)
+    assert.equal(w.ok, true)
+    assert.equal(w.state, 'read')
+    assert.equal(w.shas.has(good), true, '制表符分隔的第一列必须认成 sha')
+    assert.equal(w.shas.has(good2), true, '空格分隔与首尾空白不得影响判定')
+    assert.equal(w.badLines, 1, '解不出的行必须点名计数,不得静默跳(静默跳 = 漏记一次见证)')
+    assert.equal(w.records, 2)
+    // 文件不在位 ⇒ ok=false + state=missing;分类必须落 unsplittable,不得落 unwitnessed
+    const miss = report.readWitness(join(dir, 'nope'))
+    assert.equal(miss.ok, false)
+    assert.equal(miss.state, 'missing')
+    const commits = [
+      { sha: good, parent: 'p', iso: '2026-09-30T00:00:00.000Z', ms: T0, day: '2026-09-30', files: ['x.ts'] },
+    ]
+    const split = report.classifyAll({
+      commits,
+      index: report.indexLedger([]),
+      rounds: [],
+      ledgerReadable: true,
+      witness: miss,
+    })
+    assert.equal(split.rows[0].unknownUnsplittable, 1, '取不到 = 无从分')
+    assert.equal(split.rows[0].unknownUnwitnessed, 0, '不得把"这台机没记"写成"这台机没发生过"')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T10 一方轮次记录:读到 / 坏行计数 / 文件不在位退回回显正证,不得静默', () => {
+  const dir = mkScratch('first-party-rounds')
+  try {
+    const hdir = join(dir, '.workbuddy', 'hook-logs')
+    mkdirSync(hdir, { recursive: true })
+    const parent = 'f'.repeat(40)
+    writeFileSync(
+      join(hdir, 'pre-commit-rounds.jsonl'),
+      [
+        JSON.stringify({ ts: 't1', headBefore: parent, stagedFiles: ['a.ts', ' 中文.ts '], gatesRan: true, gatesPassed: true, exitCode: 0 }),
+        '{不是 JSON',
+        JSON.stringify({ headBefore: parent, stagedFiles: '应为数组', gatesRan: true, gatesPassed: true, exitCode: 0 }),
+        '',
+      ].join('\n'),
+      'utf8',
+    )
+    const fp = report.readFirstPartyRounds(dir)
+    assert.equal(fp.ok, true)
+    assert.equal(fp.state, 'read')
+    assert.equal(fp.rounds.length, 1, '坏行与畸形行都要点名,不得静默吞(吞一条 = 丢一次正证)')
+    assert.equal(fp.badLines, 2)
+    assert.equal(fp.records, 1)
+    assert.equal(fp.rounds[0].files.has('中文.ts'), true, '文件名两侧空白必须归一,否则"⊆ 本轮所见"永远失配')
+    const commit = {
+      sha: 'e'.repeat(40),
+      parent,
+      iso: '2026-09-30T00:00:00.000Z',
+      ms: T0,
+      day: '2026-09-30',
+      files: ['a.ts', '中文.ts'],
+    }
+    assert.equal(report.matchFirstPartyRound(commit, fp.rounds) !== null, true)
+    // 文件不在位 ⇒ missing;分类照旧走回显,而报告必须把"一方记录取不到"喊出来(由 run() 打印,这里钉数据层)
+    const miss = report.readFirstPartyRounds(join(dir, 'nope'))
+    assert.equal(miss.ok, false)
+    assert.equal(miss.state, 'missing')
+    assert.equal(miss.rounds.length, 0)
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
