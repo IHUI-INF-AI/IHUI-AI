@@ -78,19 +78,7 @@ export interface UndeterminedTool {
   tool: string;
   family: string;
   reason: string;
-  /**
-   * 未判定的**成因分类**(V3 #83 的已登记残余):让报告能自证"为什么没判"，
-   * 而不是留一个只有总数的黑洞。封闭集，取值见 `UNDETERMINED_CAUSES`。
-   */
-  cause: UndeterminedCause;
 }
-
-export type UndeterminedCause = 'cross_function' | 'destructured' | 'other';
-
-/** 报告里按成因分档的未判定计数(三档恒在，缺档记 0 ⇒ 分类不会因"没命中"而隐身)。 */
-export type UndeterminedByCause = Record<UndeterminedCause, number>;
-
-export const UNDETERMINED_CAUSES: readonly UndeterminedCause[] = ['cross_function', 'destructured', 'other'];
 
 export interface SpecDriftReport {
   /** 参与判定的工具数 */
@@ -98,8 +86,6 @@ export interface SpecDriftReport {
   families: string[];
   findings: DriftFinding[];
   undetermined: UndeterminedTool[];
-  /** 未判定按成因分档(只报数不判红；三档恒在，故"某一档空"是量出来的而不是没看) */
-  undeterminedByCause: UndeterminedByCause;
   /** 每个 kind 的命中数(报告与测试都读它,不读列表长度) */
   countsByKind: Record<string, number>;
   /** 声明为 mutating 的工具数(诊断:说明 C2 一侧有多少输入) */
@@ -118,18 +104,21 @@ function maskSpan(src: string, from: number, to: number): string {
 /**
  * 取 handler 的第一个形参名(通常 `args`)。**识别不了返回 null**,不再兜底成 `'args'`。
  *
- * 现行判据住在 `handlerSignature`(四态)，本函数是它对"命名形参"那一档的降格投影，
- * 保留是为了不砸既有调用面与回归用例。**零形参(`execute()`)与解构形态同样返回 null** ——
- * 但调用方不得再把这两种混成一句"看不见"：前者结构上读不到任何字段(可判)，
- * 后者只有在模式能确定拆出键集时才可判，二者都由 `handlerSignature` 的 kind 区分。
- *
  * `toString()` 在不同构建下有三种前缀形态:`async execute(args, ctx) {` / `(args, ctx) => {` /
- * `function(args, ctx)`。旧实现兜底 `'args'` 的后果是反的:量不到任何键 ⇒ 该工具**每一个**
- * 声明参数都被判成 `dead-parameter`(误红),而不是"看不见"(诚实)。宁可不判,不可猜。
+ * `function(args, ctx)`。首参是**解构模式**(`execute({ path, query }, ctx)`)时键级取用藏在
+ * 签名里,这里返回 null ⇒ 调用方必须把该工具记作**未判定**。
+ *
+ * 旧实现兜底 `'args'` 的后果是反的:量不到任何键 ⇒ 该工具**每一个**声明参数都被判成
+ * `dead-parameter`(误红),而不是"看不见"(诚实)。宁可不判,不可猜。
  */
 export function handlerArgsParamName(src: string): string | null {
-  const sig = handlerSignature(src);
-  return sig.kind === 'named' ? sig.name : null;
+  const named = src.match(/^\s*(?:async\s+)?(?:function\s+)?[A-Za-z_$][\w$]*\s*\(\s*([A-Za-z_$][\w$]*)/);
+  if (named) return named[1] ?? null;
+  const arrow = src.match(/^\s*(?:async\s*)?\(\s*([A-Za-z_$][\w$]*)/);
+  if (arrow) return arrow[1] ?? null;
+  // 无括号箭头单参:`async args => { ... }`
+  const bare = src.match(/^\s*(?:async\s+)?([A-Za-z_$][\w$]*)\s*=>/);
+  return bare?.[1] ?? null;
 }
 
 /**
@@ -172,133 +161,31 @@ export function handlerBodyStart(src: string): number {
   return -1;
 }
 
-// ==================== 首参形态(命名 / 解构 / 无参 / 判不出) ====================
 
 /**
- * 从 `text[from]` 的那个开括号走到它的闭括号，返回闭括号下标；不配平返回 -1。
- * 只认 `()[]{}` 四类，签名/模式里出现的引号与正则不参与(真仓 handler 签名无此形态)。
- */
-function matchBracket(text: string, from: number): number {
-  const opener = text[from];
-  if (opener !== '(' && opener !== '[' && opener !== '{') return -1;
-  let depth = 0;
-  for (let i = from; i < text.length; i++) {
-    const c = text[i];
-    if (c === '(' || c === '[' || c === '{') depth++;
-    else if (c === ')' || c === ']' || c === '}') {
-      depth--;
-      if (depth === 0) return i;
-    }
-  }
-  return -1;
-}
-
-/** 按深度 0 的逗号切分(嵌套括号内的逗号不切)。 */
-function splitTopLevelCommas(text: string): string[] {
-  const out: string[] = [];
-  let depth = 0;
-  let cur = '';
-  for (const c of text) {
-    if (c === '(' || c === '[' || c === '{') depth++;
-    else if (c === ')' || c === ']' || c === '}') depth--;
-    if (c === ',' && depth === 0) {
-      out.push(cur);
-      cur = '';
-      continue;
-    }
-    cur += c;
-  }
-  out.push(cur);
-  return out.map((s) => s.trim());
-}
-
-/**
- * 解构模式 `{ ... }` 内部文本 ⇒ 被读的**属性名**集合；判不出返回 null。
+ * 一次扫完代码侧的两个问题:读了哪些键、`args` 有没有被整体传走。
  *
- * 只认三种元素:`k` / `k = 默认值` / `k: 别名(= 默认值)`。三者都**确定**在读 `args.k`，
- * 所以把它当"使用的字段"不是猜。任何其它形态一律返回 null 交回未判定:
- *  `...rest`(整份摊开)、`{ a: { b } }`(嵌套 ⇒ b 不是 args 的顶层字段)、`[a, b]`(位置而非键)、
- *  `'x-y': v`(计算/字符串键)—— 把它们折进"键集"就是在给报告造合格证。
+ * 识别的用法:`a.k` / `a?.k` / `a['k']` / `const {k, k2: x} = a` / `helper(a, 'k')`。
+ * 剩下任何一处裸 `a` ⇒ `opaque = true`(该工具的键级使用判不了,只能进未判定)。
  */
-function destructureKeys(inner: string): string[] | null {
-  const keys = new Set<string>();
-  for (const raw of splitTopLevelCommas(inner)) {
-    const el = raw.trim();
-    if (el === '') continue;
-    if (el.startsWith('...')) return null;
-    const shorthand = el.match(/^([A-Za-z_$][\w$]*)\s*(?:=[\s\S]*)?$/);
-    if (shorthand?.[1]) {
-      keys.add(shorthand[1]);
-      continue;
-    }
-    const renamed = el.match(/^([A-Za-z_$][\w$]*)\s*:\s*([A-Za-z_$][\w$]*)\s*(?:=[\s\S]*)?$/);
-    if (renamed?.[1]) {
-      keys.add(renamed[1]);
-      continue;
-    }
-    return null;
-  }
-  return keys.size > 0 ? [...keys].sort() : null;
-}
-
-export type HandlerParamKind = 'named' | 'destructured' | 'none' | 'unknown';
-
-export interface HandlerSignature {
-  kind: HandlerParamKind;
-  /** kind==='named' 时的首参形参名，其余为 null */
-  name: string | null;
-  /** kind==='destructured' 时确定读到的键集；判不出为 null */
-  keys: string[] | null;
-}
-
-/**
- * 首参形态四态。**把"零形参"与"形态不认识"分开**是 V3 #83 残余的第一条收口：
- * 二者旧写法都返回 null 落未判定，而 `execute()` 结构上**不可能**读到 args 的任何字段 ——
- * 那是可判的(键集 = 空 ⇒ 声明了的参数全是 dead-parameter)，不是看不见。
- * 反过来 `...args` / `[a,b]` / 嵌套解构确实判不出，一律留 unknown/destructured+null。
- */
-export function handlerSignature(src: string): HandlerSignature {
-  const bodyStart = handlerBodyStart(src);
-  const sig = bodyStart > 0 ? src.slice(0, bodyStart) : src;
-  const open = sig.indexOf('(');
-  if (open < 0) {
-    // 无括号箭头单参:`async args => { ... }`。**在整段上探而不是 sig** —— bodyStart 落在 `=>`
-    // 的 `=` 上，sig 里没有那两个字符，按 sig 探会把它误判成"形态不认识"(实测回归)。
-    const bare = src.match(/^\s*(?:async\s+)?([A-Za-z_$][\w$]*)\s*=>/);
-    if (bare?.[1]) return { kind: 'named', name: bare[1], keys: null };
-    return { kind: 'unknown', name: null, keys: null };
-  }
-  const close = matchBracket(sig, open);
-  if (close < 0) return { kind: 'unknown', name: null, keys: null };
-  const list = sig.slice(open + 1, close).trim();
-  if (list === '') return { kind: 'none', name: null, keys: [] };
-  const first = splitTopLevelCommas(list)[0] ?? '';
-  if (first === '') return { kind: 'unknown', name: null, keys: null };
-  if (first.startsWith('{')) {
-    const end = matchBracket(first, 0);
-    return { kind: 'destructured', name: null, keys: end < 0 ? null : destructureKeys(first.slice(1, end)) };
-  }
-  if (first.startsWith('[')) return { kind: 'destructured', name: null, keys: null };
-  if (first.startsWith('...')) return { kind: 'unknown', name: null, keys: null };
-  const named = first.match(/^([A-Za-z_$][\w$]*)/);
-  if (named?.[1]) return { kind: 'named', name: named[1], keys: null };
-  return { kind: 'unknown', name: null, keys: null };
-}
-
-
 interface UsagePattern {
   re: RegExp;
   /** direct: 捕获组 1 就是键名;destructure: 捕获组 1 是 `{ a, b: c }` 内部文本 */
   shape: 'direct' | 'destructure';
 }
 
-function escapeIdent(name: string): string {
-  return name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+export function extractArgUsage(src: string, paramName: string): { keys: string[]; opaque: boolean } {
+  const name = paramName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let masked = src;
+  const keys = new Set<string>();
+  let opaque = false;
 
-/** 四类"键名看得见"的用法模式(对任意一个别名同形复用一份)。 */
-function usagePatterns(name: string): UsagePattern[] {
-  return [
+  // 先遮**签名区**:那里的 `args` 是声明不是使用(见 handlerBodyStart 的说明)。
+  // 只遮 `masked`,不遮 `src` —— 用法模式仍在原文上找键名,偏移量因此与 maskSpan 对齐。
+  const bodyStart = handlerBodyStart(src);
+  if (bodyStart > 0) masked = maskSpan(masked, 0, bodyStart);
+
+  const patterns: UsagePattern[] = [
     // a.k / a?.k —— 整段(含 a)遮掉,使这处 a 不被算成"整体传走"
     { shape: 'direct', re: new RegExp(`\\b${name}\\s*(?:\\?\\.|\\.)\\s*([A-Za-z_$][\\w$]*)`, 'g') },
     // a['k'] / a["k"]
@@ -308,229 +195,31 @@ function usagePatterns(name: string): UsagePattern[] {
     // const { k, k2: x } = a
     { shape: 'destructure', re: new RegExp(`\\{([^{}]*)\\}\\s*=\\s*${name}\\b`, 'g') },
   ];
-}
 
-/**
- * masked 里**剩下**的裸 `NAME` 出现处，逐处给出成因标签。空数组 ⇒ 键级完全判得清。
- *
- * 三条"不算读取 args 本身"的排除，都是本仓实测到的**假阳**而不是审美:
- *  · `cfg.args` / `cfg?.args` —— 读的是别人的属性，`args` 只是属性名(负向后视点号)。
- *    但 `...args` 是三个点，属**整份摊开**，必须算(所以先判 spread 再落 other)。
- *  · `{ program, args: progArgs }` —— 对象字面量的**键**位，同样是名字撞车。真仓实例
- *    `debug_launch`(`apps/cli/src/tools/debug.ts` 的 `launchArgs={program,args:progArgs??[],…}`)
- *    就是被这一处判成整枚未判定的 —— 判据把"键名叫 args"读成"把 args 传走了"。
- *  剩下的形态里 `(args` / `,args)` 是**当实参交出去**(⇒ cross_function)，其余(展开、枚举、
- *  赋值给成员)算 other。分档只服务于"报告自证为什么没判"，不改变判与不判。
- */
-function residualSites(masked: string, from: number, to: number, name: string): UndeterminedCause[] {
-  const out: UndeterminedCause[] = [];
-  const region = masked.slice(from, to);
-  const re = new RegExp(`\\b${name}\\b`, 'g');
-  for (const m of region.matchAll(re)) {
-    const i = m.index ?? 0;
-    const prevChar = i > 0 ? region[i - 1] : '';
-    if (prevChar === '.') {
-      const isSpread = i >= 3 && region[i - 2] === '.' && region[i - 3] === '.';
-      if (!isSpread) continue; // 别人的属性访问：不是读 args 本身
-      out.push('other');
-      continue;
-    }
-    const before = region.slice(0, i).match(/(\S)\s*$/)?.[1] ?? '';
-    const after = region.slice(i + name.length).match(/^\s*(\S)/)?.[1] ?? '';
-    if (after === ':' && (before === '{' || before === ',' || before === '[')) continue; // 对象字面量的键位
-    out.push((before === '(' || before === ',') && (after === ')' || after === ',') ? 'cross_function' : 'other');
-  }
-  return out;
-}
-
-/** `const opts = args` / `let o: T = args as unknown as U` —— 同函数内的**直接**别名(一跳)。 */
-function aliasDeclarations(name: string): RegExp {
-  return new RegExp(`\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*(?::[^=;]+)?=\\s*${name}\\s*(?:as\\s+[^=;]+?)?(?=[;,)}]|$)`, 'g');
-}
-
-/** `NAME(args` / `NAME(args,` —— args 落在**首位实参**的调用(一跳委托的形状)。 */
-function firstArgCalls(name: string): RegExp {
-  return new RegExp(`\\b([A-Za-z_$][\\w$]*)\\s*\\(\\s*${name}\\s*[,)]`, 'g');
-}
-
-/**
- * 在**同一份源码文本里**找被调函数的定义体起点。只认三种写法:
- * `function f(a){` / `const f = (a) => …` / `const f = function (a) {`。
- * 找不到返回 null —— 真仓剩下的三处(`ctx.confirmDangerous` 宿主回调、`runPreToolCall` 跨模块、
- * `budgetOf` 模块级函数)全部落在这里，因为 `execute.toString()` **不含**模块级函数体。
- * 这是有意的边界：把"去磁盘读模块源码"接进来就等于让同一枚判据的两个输入源来自两个面
- * (运行时对象读内存、被调体读工作树)，而 `ihui spec drift` 既可能跑 tsx(src)也可能跑 dist(编译后)
- * —— 自洽却错位的尺子比不判更贵。跨模块那一跳**留给下一票**，此处如实落未判定。
- */
-function calleeDefinition(src: string, callee: string): { start: number; bodyFrom: number } | null {
-  const pats = [
-    new RegExp(`\\bfunction\\s+${callee}\\s*\\(`),
-    new RegExp(`\\b(?:const|let|var)\\s+${callee}\\s*(?::[^=;]+)?=\\s*(?:async\\s*)?(?:function\\s*)?\\(`),
-    new RegExp(`\\b(?:const|let|var)\\s+${callee}\\s*(?::[^=;]+)?=\\s*(?:async\\s*)?[A-Za-z_$][\\w$]*\\s*=>`),
-  ];
-  for (const p of pats) {
-    const m = p.exec(src);
-    if (m) return { start: m.index, bodyFrom: m.index + m[0].length };
-  }
-  return null;
-}
-
-/** 被调体范围：`{` 体走配平；箭头表达式体取到第一个深度 0 的 `;`。 */
-function calleeBody(src: string, bodyFrom: number): { text: string; offset: number } | null {
-  const bs = handlerBodyStart(src.slice(bodyFrom));
-  if (bs < 0) return null;
-  const at = bodyFrom + bs;
-  if (src[at] === '{') {
-    const end = matchBracket(src, at);
-    if (end < 0) return null;
-    return { text: src.slice(at + 1, end), offset: at + 1 };
-  }
-  // `=>` 表达式体：扫到深度 0 的分号
-  let depth = 0;
-  for (let i = at + 2; i < src.length; i++) {
-    const c = src[i];
-    if (c === '(' || c === '[' || c === '{') depth++;
-    else if (c === ')' || c === ']' || c === '}') {
-      if (depth === 0) return { text: src.slice(at + 2, i), offset: at + 2 };
-      depth--;
-    } else if (c === ';' && depth === 0) return { text: src.slice(at + 2, i), offset: at + 2 };
-  }
-  return { text: src.slice(at + 2), offset: at + 2 };
-}
-
-export interface ArgUsage {
-  keys: string[];
-  opaque: boolean;
-  /** opaque 的成因(可多枚并存)；opaque=false 时恒为空数组 */
-  causes: UndeterminedCause[];
-}
-
-/**
- * 一次扫完代码侧的两个问题:读了哪些键、`args` 有没有被整体传走。
- *
- * 识别的用法:`a.k` / `a?.k` / `a['k']` / `const {k, k2: x} = a` / `helper(a, 'k')`。
- * 之外还有两条**有界**的别名通道(V3 #83 残余里"可判的那部分"):
- *  ① 同函数内的直接别名 `const opts = args`(一跳，仅 `= NAME` 这一种右值形态)；
- *  ② **同一份源码文本里**找得到的函数、且 NAME 落在它的首位实参 —— 进入其体内继续量键。
- * 两跳、跨文件、宿主回调(`ctx.confirmDangerous(tool, args)`)一律**仍然未判定**，
- * 并且现在会带着成因名字喊出来 —— 放宽判据从来不是选项。
- *
- * 剩下任何一处裸 `a`(且不属于上面两条被排除的"键位/他人属性名"两种假阳)⇒ `opaque = true`。
- */
-export function extractArgUsage(src: string, paramName: string): ArgUsage {
-  const name = escapeIdent(paramName);
-  let masked = src;
-  const keys = new Set<string>();
-  const causes = new Set<UndeterminedCause>();
-  let opaque = false;
-
-  // 先遮**签名区**:那里的 `args` 是声明不是使用(见 handlerBodyStart 的说明)。
-  const bodyStart = handlerBodyStart(src);
-  if (bodyStart > 0) masked = maskSpan(masked, 0, bodyStart);
-
-  /** 在 (text, offset) 这一段里跑四类用法模式；mask 落在与 src 同偏移的 masked 上。 */
-  const runPatterns = (text: string, offset: number, ident: string): boolean => {
-    let restSpread = false;
-    for (const { re, shape } of usagePatterns(ident)) {
-      for (const m of text.matchAll(re)) {
-        const start = offset + (m.index ?? 0);
-        masked = maskSpan(masked, start, start + m[0].length);
-        if (shape === 'direct') {
-          const k = m[1];
-          if (k) keys.add(k);
+  for (const { re, shape } of patterns) {
+    for (const m of src.matchAll(re)) {
+      const start = m.index ?? 0;
+      masked = maskSpan(masked, start, start + m[0].length);
+      if (shape === 'direct') {
+        const k = m[1];
+        if (k) keys.add(k);
+        continue;
+      }
+      for (const part of (m[1] ?? '').split(',')) {
+        const head = part.split(':')[0]!.trim();
+        if (head.startsWith('...')) {
+          // { ...rest } = args ⇒ 整份被摊开用,键级判不了
+          opaque = true;
           continue;
         }
-        for (const part of (m[1] ?? '').split(',')) {
-          const head = part.split(':')[0]!.trim();
-          if (head.startsWith('...')) {
-            // { ...rest } = args ⇒ 整份被摊开用,键级判不了
-            restSpread = true;
-            continue;
-          }
-          if (/^[A-Za-z_$][\w$]*$/.test(head)) keys.add(head);
-        }
+        if (/^[A-Za-z_$][\w$]*$/.test(head)) keys.add(head);
       }
-    }
-    return restSpread;
-  };
-
-  // 工作队列：handler 自身 + 已解析出的别名(同文本) + 一跳被调体(子文本)。
-  // **handler 级作用域从函数体起算**(签名区已在 masked 里遮掉)：否则 `execute(args, ctx)`
-  // 里那个作为**声明**的 `args` 会被 firstArgCalls 读成"把 args 交给了名叫 execute 的函数"，
-  // 于是每一枚工具都落未判定 —— 声明位与使用位必须同一条规矩对待(见 handlerBodyStart 注释)。
-  const scopeFrom = bodyStart > 0 ? bodyStart : 0;
-  const jobs: Array<{ text: string; offset: number; ident: string; nested: boolean }> = [
-    { text: src.slice(scopeFrom), offset: scopeFrom, ident: name, nested: false },
-  ];
-  const seenIdents = new Set<string>();
-  let guard = 0;
-
-  while (jobs.length > 0 && guard++ < 16) {
-    const job = jobs.shift()!;
-    if (!job.nested) {
-      if (seenIdents.has(job.ident)) continue;
-      seenIdents.add(job.ident);
-    }
-    if (runPatterns(job.text, job.offset, job.ident)) {
-      opaque = true;
-      causes.add('other');
-    }
-    if (job.nested) {
-      // 一跳之内不再递归：被调体里还有裸用 ⇒ 就是两跳，按未判定处理
-      const inner = residualSites(masked, job.offset, job.offset + job.text.length, job.ident);
-      if (inner.length > 0) {
-        opaque = true;
-        causes.add('cross_function');
-      }
-      continue;
-    }
-    // ① 同函数直接别名  ② 一跳委托
-    // **只在遮后视图上找**，不在原文上找：`requireString(args, 'url')` 已被"键名看得见"的
-    // 模式消费掉并遮平，若再按原文匹配 firstArgCalls 就会把这条既有正解读成"委托给了
-    // requireString"，把 5 枚 browser_* 工具从已判定打成未判定(实测回归)。
-    const view = masked.slice(job.offset, job.offset + job.text.length);
-    for (const m of view.matchAll(aliasDeclarations(job.ident))) {
-      const alias = m[1];
-      if (!alias || alias === paramName) continue;
-      const at = job.offset + (m.index ?? 0);
-      masked = maskSpan(masked, at, at + m[0].length);
-      jobs.push({ text: src.slice(scopeFrom), offset: scopeFrom, ident: escapeIdent(alias), nested: false });
-    }
-    for (const m of view.matchAll(firstArgCalls(job.ident))) {
-      const callee = m[1];
-      if (!callee) continue;
-      const def = calleeDefinition(src, escapeIdent(callee));
-      if (!def) {
-        opaque = true;
-        causes.add('cross_function');
-        continue;
-      }
-      const sig = handlerSignature(src.slice(def.start));
-      if (sig.kind !== 'named' || !sig.name) {
-        opaque = true;
-        causes.add('cross_function');
-        continue;
-      }
-      const body = calleeBody(src, def.start);
-      if (!body) {
-        opaque = true;
-        causes.add('cross_function');
-        continue;
-      }
-      // 委托已解析：调用点整段遮掉，不再算"裸用"
-      const at = job.offset + (m.index ?? 0);
-      masked = maskSpan(masked, at, at + m[0].length);
-      jobs.push({ text: body.text, offset: body.offset, ident: escapeIdent(sig.name), nested: true });
     }
   }
 
-  // 还剩任何一处裸用(如 runInner(args) / { ...args } / Object.keys(args))⇒ 键级使用看不见。
-  // 别名与形参同权检查：`const opts = args` 之后又 `other(opts)`，照样是整份交出去。
-  const residual = [...seenIdents].flatMap((ident) => residualSites(masked, 0, masked.length, ident));
-  for (const c of residual) causes.add(c);
-  if (residual.length > 0) opaque = true;
-
-  return { keys: [...keys].sort(), opaque, causes: [...causes] };
+  // 还剩任何一处裸 a(如 runInner(args) / { ...args } / Object.keys(args))⇒ 键级使用看不见
+  if (!opaque) opaque = new RegExp(`\\b${name}\\b`).test(masked);
+  return { keys: [...keys].sort(), opaque };
 }
 
 /** 会改写外部世界的调用形态。**只认调用位**且刻意不认 `exec(` / `rm(` 这类同名歧义形状。 */
@@ -593,7 +282,6 @@ export function analyzeToolSurface(entries: ToolSurfaceEntry[]): SpecDriftReport
   const findings: DriftFinding[] = [];
   const undetermined: UndeterminedTool[] = [];
   const countsByKind: Record<string, number> = {};
-  const undeterminedByCause: UndeterminedByCause = { cross_function: 0, destructured: 0, other: 0 };
   const families = new Set<string>();
   let mutatingDeclared = 0;
 
@@ -601,57 +289,28 @@ export function analyzeToolSurface(entries: ToolSurfaceEntry[]): SpecDriftReport
     findings.push(f);
     countsByKind[f.kind] = (countsByKind[f.kind] ?? 0) + 1;
   };
-  const pushUndetermined = (tool: string, family: string, cause: UndeterminedCause, reason: string): void => {
-    undetermined.push({ tool, family, cause, reason });
-    undeterminedByCause[cause] += 1;
-  };
 
   for (const { tool, family } of entries) {
     families.add(family);
     if (typeof tool.execute !== 'function') {
-      pushUndetermined(tool.name, family, 'other', 'execute 不是函数,代码侧无从量起');
+      undetermined.push({ tool: tool.name, family, reason: 'execute 不是函数,代码侧无从量起' });
       continue;
     }
     const src = (tool.execute as () => unknown).toString();
-    const sig = handlerSignature(src);
-    const declared = Object.keys(tool.parameters ?? {});
-    const declaredSet = new Set(declared);
-    let keys: string[];
-    let opaque: boolean;
-    let usageCauses: UndeterminedCause[] = [];
-
-    if (sig.kind === 'none') {
-      // 零形参 handler **结构上读不到** args 的任何字段 ⇒ 这不是"看不见"，而是"确实一个都没读"。
-      // 于是声明侧的每一个参数都是货真价实的 dead-parameter；把它记成未判定就是替缺陷背书。
-      keys = [];
-      opaque = false;
-    } else if (sig.kind === 'destructured') {
-      if (!sig.keys) {
-        // 嵌套 / 计算键 / 位置解构：键集折不出来，两侧均不判(判"无落差"与判 dead-parameter 都禁止)
-        pushUndetermined(
-          tool.name,
-          family,
-          'destructured',
-          'handler 首参是解构模式但键集无法确定(嵌套模式/计算键/位置解构/空模式)⇒ 键级取用量不到,两侧均不判',
-        );
-        continue;
-      }
-      keys = sig.keys;
-      opaque = false;
-    } else if (sig.kind === 'named' && sig.name) {
-      const usage = extractArgUsage(src, sig.name);
-      keys = usage.keys;
-      opaque = usage.opaque;
-      usageCauses = usage.causes;
-    } else {
-      pushUndetermined(
-        tool.name,
+    const paramName = handlerArgsParamName(src);
+    if (paramName === null) {
+      // 首参识别不了(解构模式 / 未知形态):键级两侧都不判。
+      // 判"无落差"是把看不见写成通过,判 dead-parameter 是拿猜出来的键名误红 —— 两者都禁止。
+      undetermined.push({
+        tool: tool.name,
         family,
-        'other',
-        'handler 首参形态不认识(未知签名)⇒ 键级取用量不到,两侧均不判',
-      );
+        reason: 'handler 首参不是可识别的标识符(解构签名或未知形态)⇒ 键级取用量不到,两侧均不判',
+      });
       continue;
     }
+    const { keys, opaque } = extractArgUsage(src, paramName);
+    const declared = Object.keys(tool.parameters ?? {});
+    const declaredSet = new Set(declared);
 
     // —— Code → Spec ①:读了没声明的键
     for (const k of keys) {
@@ -696,13 +355,11 @@ export function analyzeToolSurface(entries: ToolSurfaceEntry[]): SpecDriftReport
         }
       }
     } else {
-      const cause: UndeterminedCause = usageCauses.includes('cross_function') ? 'cross_function' : 'other';
-      pushUndetermined(
-        tool.name,
+      undetermined.push({
+        tool: tool.name,
         family,
-        cause,
-        `handler 把入参整体交给了别处(${cause === 'cross_function' ? '一跳之外/跨文件的被调方，源码不在 toString 里' : '整份摊开或枚举'})⇒ 键级取用量不到;dead-parameter 对该工具不判`,
-      );
+        reason: `handler 把 ${paramName} 整体传给了别处 ⇒ 键级取用量不到;dead-parameter 对该工具不判`,
+      });
     }
 
     // —— Spec → Code ②:required 点名了一个不存在于 parameters 的键(两侧都是纯数据,恒可判)
@@ -724,7 +381,6 @@ export function analyzeToolSurface(entries: ToolSurfaceEntry[]): SpecDriftReport
     families: [...families].sort(),
     findings,
     undetermined,
-    undeterminedByCause,
     countsByKind,
     mutatingDeclared,
   };
@@ -812,9 +468,8 @@ export function formatDriftReport(report: SpecDriftReport): string {
   }
   if (report.undetermined.length > 0) {
     lines.push('');
-    const byCause = UNDETERMINED_CAUSES.map((c) => `${c} ${report.undeterminedByCause[c] ?? 0}`).join(' / ');
-    lines.push(`未判定(逐条点名 + 分成因;把"看不见"写成"无落差"是禁止的)· ${byCause}`);
-    for (const u of report.undetermined) lines.push(`  - ${u.tool} [${u.family}] (${u.cause}) ${u.reason}`);
+    lines.push(`未判定(逐条点名;把"看不见"写成"无落差"是禁止的)`);
+    for (const u of report.undetermined) lines.push(`  - ${u.tool} [${u.family}] ${u.reason}`);
   }
   return lines.join('\n');
 }
