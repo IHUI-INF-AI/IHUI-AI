@@ -14,6 +14,8 @@ import { ArrowLeft, Award, Loader2, Download, Printer } from 'lucide-react'
 import { fetchApi, fetchRaw } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
 
 interface CertificateDetail {
@@ -40,12 +42,16 @@ export default function EduCertificateDetailPage() {
   const t = useTranslations('eduCertificatesPage')
   const [downloading, setDownloading] = React.useState(false)
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'certificate', id],
     queryFn: () =>
       api<{ certificate: CertificateDetail }>(`/api/edu/certificates/${id}`).then(
         (d) => d.certificate,
       ),
+    enabled: allow,
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -79,6 +85,21 @@ export default function EduCertificateDetailPage() {
       setDownloading(false)
     }
   }
+
+  if (!allow)
+    return (
+      <div className="space-y-4">
+        <button
+          type="button"
+          onClick={() => router.push('/edu/certificates')}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t('backToList')}
+        </button>
+        <AuthGatePrompt message="请先登录后查看证书" />
+      </div>
+    )
 
   if (isLoading)
     return (
