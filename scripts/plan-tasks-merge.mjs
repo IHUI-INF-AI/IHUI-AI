@@ -2350,6 +2350,8 @@ function gitIn(idx, args) {
     cwd: ROOT,
     encoding: 'utf8',
     env: idx ? { ...process.env, GIT_INDEX_FILE: idx } : process.env,
+    // 根治(2026-09-30): 无 input,stdin 设 ignore,避开本会话 Node 建子进程 stdin 管道 EBUSY。
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
     timeout: 60000,
     maxBuffer: 1 << 28,
