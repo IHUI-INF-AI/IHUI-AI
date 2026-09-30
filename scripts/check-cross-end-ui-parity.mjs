@@ -2017,7 +2017,19 @@ export function unresolvedClassNames(src, ownCssText, globalDefined = null) {
   const defined = new Set()
   for (const m of String(ownCssText ?? '').matchAll(/\.([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\s*\{/gi))
     defined.add(m[1])
-  return [...used].filter((c) => !defined.has(c)).sort()
+  const miss = [...used].filter((c) => !defined.has(c))
+  /**
+   * **交集域**(2026-09-30 补):`globalDefined` 一直由 collect 算好并传进来(全端样式表里真定义过
+   * 的类名),而本函数此前**从未读它** —— 收集侧那份 70 份表的扫描是纯浪费,披露因此把
+   * "全仓根本没有这个类名"也报成盲区。实测三类误报:`max-w-md` / `min-w-0` / `line-clamp-1`
+   * 这类 **Tailwind 刻度档**(由 `readGeometry` 直接读,不在任何样式表里)、以及
+   * `ui-card` / `ui-panel` / `carousel-fallback` 这类**全仓零定义**(连 tailwind preset 也没有)——
+   * 头注里"盒档落在 app.css / 某页 css"那句话对它们是**假的**,而会喊错的披露没人信。
+   * 交集域取不到(null)时保留原口径:**宁可多报也不静默放过**(见头注"归因过宽比漏读更贵"的反面:
+   * 这里多报的是"读不到",漏报才是把没读到当已核对过)。
+   */
+  if (!globalDefined) return miss.sort()
+  return miss.filter((c) => globalDefined.has(c)).sort()
 }
 
 export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null, styles = {}) {
@@ -4779,6 +4791,29 @@ function runSelfTest() {
       return (
         unresolvedClassNames(src, own).join() === 'other-box' &&
         unresolvedClassNames(src, own + '.other-box{padding:0}').length === 0
+      )
+    })(),
+  )
+  /**
+   * 交集域必须有牙。**只断言"传了 globalDefined 结果不变"等于没断言** —— 那正是本条判据
+   * 被架空的样子(collect 算了 70 份表、传进来,函数体从不读,长期零红)。
+   * 判据分两半:① 落在全局表里的**留下**;② 全仓零定义的(Tailwind 刻度档 / 死类名)**剔掉**;
+   * ③ 把 ② 那一步摘掉后本条必须翻红。
+   */
+  t(
+    '㊾ 盲区披露的交集域必须真的生效:全仓零定义的类名不得报成"盒档落在 app.css"' +
+      '(成对:同一份输入,带/不带交集域两种读数必须不同)',
+    (() => {
+      const src =
+        'const X = () => <View className="ui-panel imgs-list max-w-md" />'
+      const own = ''
+      const g = new Set(['imgs-list']) // 只有 imgs-list 真在全局表里定义过
+      const withSet = unresolvedClassNames(src, own, g)
+      const noSet = unresolvedClassNames(src, own, null)
+      return (
+        withSet.join() === 'imgs-list' &&
+        noSet.join() === 'imgs-list,max-w-md,ui-panel' &&
+        noSet.length > withSet.length
       )
     })(),
   )
