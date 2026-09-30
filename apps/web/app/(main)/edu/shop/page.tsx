@@ -15,7 +15,8 @@ import { Button, Card, CardContent, Tabs, TabsList, TabsTrigger, TabsContent } f
 import { Alert } from '@/components/feedback'
 import { ConfirmDialog } from '@/components/feedback'
 import { toast } from '@/components/common'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
 
 interface Course {
@@ -93,6 +94,9 @@ export default function EduShopPage() {
   const [ordersPage, setOrdersPage] = React.useState(1)
   const [cancelId, setCancelId] = React.useState<string | null>(null)
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求(课程列表为公开查询,不门)
+  const { allow } = useAuthGate()
+
   const coursesQuery = useQuery({
     queryKey: ['edu-shop', 'courses', coursesPage],
     queryFn: () => {
@@ -113,6 +117,7 @@ export default function EduShopPage() {
       })
       return api<OrderListData>(`/api/edu/orders/my?${qs.toString()}`)
     },
+    enabled: allow,
   })
 
   const buyMutation = useMutation({
@@ -266,7 +271,9 @@ export default function EduShopPage() {
 
         {/* ===== 我的订单 ===== */}
         <TabsContent value="orders" className="space-y-4">
-          {ordersQuery.isLoading ? (
+          {!allow ? (
+            <AuthGatePrompt message="请先登录后查看我的订单" />
+          ) : ordersQuery.isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               {t('loading')}

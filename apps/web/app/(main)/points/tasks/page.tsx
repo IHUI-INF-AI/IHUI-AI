@@ -10,9 +10,10 @@ import { useTranslations } from 'next-intl'
 import { Check, Gift, Loader2, RotateCw } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
 
 type TaskType = 'daily' | 'weekly' | 'newbie'
 
@@ -41,10 +42,13 @@ export default function PointsTasksPage() {
   const t = useTranslations('points.tasks')
   const qc = useQueryClient()
   const [tab, setTab] = React.useState<TaskType>('daily')
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
 
   const tasksQ = useQuery({
     queryKey: ['points', 'tasks', tab],
     queryFn: () => api<{ list: TaskItem[] }>(`/points/tasks?type=${tab}`).then((d) => d.list ?? []),
+    enabled: allow,
   })
 
   const claimQ = useMutation({
@@ -65,6 +69,9 @@ export default function PointsTasksPage() {
       </div>
       <p className="mb-4 text-sm text-muted-foreground">{t('subtitle')}</p>
 
+      {/* 2026-09-30 登录态门 */}
+      {allow ? (
+        <>
       <div className="mb-4 flex gap-2">
         {TABS.map((key) => (
           <button
@@ -163,6 +170,10 @@ export default function PointsTasksPage() {
             )
           })}
         </div>
+      )}
+        </>
+      ) : (
+        <AuthGatePrompt message="请先登录后查看积分任务" />
       )}
     </div>
   )
