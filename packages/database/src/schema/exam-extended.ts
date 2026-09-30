@@ -113,8 +113,6 @@ export const examWrongQuestion = pgTable(
     repetition: integer('repetition').default(0).notNull(),
     dueDate: timestamp('due_date', { withTimezone: true }),
     lastReviewAt: timestamp('last_review_at', { withTimezone: true }),
-    // AI 讲解(错题一键生成,POST /exam/wrong-questions/:id/explain 产物)
-    aiExplanation: text('ai_explanation'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
