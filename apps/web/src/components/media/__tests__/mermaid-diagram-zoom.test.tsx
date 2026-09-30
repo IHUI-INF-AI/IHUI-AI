@@ -82,9 +82,7 @@ describe('MermaidDiagram — D196 缩放控件', () => {
     expect(view.getByTestId('mermaid-zoom-toolbar')).toBeTruthy()
     expect(view.getByTestId('mermaid-scroll')).toBeTruthy()
     expect(levelText(view)).toBe('100%')
-    const zoomed = view.container.querySelector(
-      '[data-testid="mermaid-scroll"] > div',
-    ) as HTMLElement
+    const zoomed = view.container.querySelector('[data-testid="mermaid-scroll"] > div') as HTMLElement
     expect(zoomed.getAttribute('style')).toBeNull()
   })
 
@@ -92,9 +90,7 @@ describe('MermaidDiagram — D196 缩放控件', () => {
     const view = await renderSvg()
     fireEvent.click(view.getByTestId('mermaid-zoom-in'))
     expect(levelText(view)).toBe('120%')
-    const zoomed = view.container.querySelector(
-      '[data-testid="mermaid-scroll"] > div',
-    ) as HTMLElement
+    const zoomed = view.container.querySelector('[data-testid="mermaid-scroll"] > div') as HTMLElement
     expect(zoomed.getAttribute('style')).toContain('scale(1.2)')
     expect(zoomed.getAttribute('style')).toContain('transform-origin')
 
@@ -117,9 +113,7 @@ describe('MermaidDiagram — D196 缩放控件', () => {
     fireEvent.click(view.getByTestId('mermaid-zoom-in'))
     fireEvent.click(view.getByTestId('mermaid-zoom-reset'))
     expect(levelText(view)).toBe('100%')
-    const zoomed = view.container.querySelector(
-      '[data-testid="mermaid-scroll"] > div',
-    ) as HTMLElement
+    const zoomed = view.container.querySelector('[data-testid="mermaid-scroll"] > div') as HTMLElement
     expect(zoomed.getAttribute('style') ?? '').not.toContain('scale')
   })
 
@@ -135,13 +129,9 @@ describe('MermaidDiagram — D196 缩放控件', () => {
     const view = await renderSvg()
     expect(view.getByTestId('mermaid-zoom-in').getAttribute('aria-label')).toBe('mermaidZoomIn')
     expect(view.getByTestId('mermaid-zoom-out').getAttribute('aria-label')).toBe('mermaidZoomOut')
-    expect(view.getByTestId('mermaid-zoom-reset').getAttribute('aria-label')).toBe(
-      'mermaidZoomReset',
-    )
+    expect(view.getByTestId('mermaid-zoom-reset').getAttribute('aria-label')).toBe('mermaidZoomReset')
     expect(view.getByTestId('mermaid-zoom-fit').getAttribute('aria-label')).toBe('mermaidZoomToFit')
-    expect(view.getByTestId('mermaid-zoom-level').getAttribute('aria-label')).toBe(
-      'mermaidZoomLevel',
-    )
+    expect(view.getByTestId('mermaid-zoom-level').getAttribute('aria-label')).toBe('mermaidZoomLevel')
   })
 })
 
