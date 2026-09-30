@@ -10572,6 +10572,8 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
+    "attachRetry": "업로드 재시도",
+    "attachRetryExhausted": "재시도 횟수 제한에 도달했습니다. 삭제 후 다시 추가해 주세요.",
     "attachRejectType": "형식이 지원되지 않아 파일 {count}개를 건너뛰었습니다: {names}",
     "attachRejectSize": "파일이 크기 한도({max}MB)를 초과하여 파일 {count}개를 건너뛰었습니다: {names}",
     "attachRejectCount": "첨부 파일은 최대 {max}개까지 가능하며, 이번 요청에서 {count}개가 거부되었습니다",
@@ -12361,6 +12363,9 @@
     "title": "코스관리중"
   },
   "cronEditor": {
+    "customFallback": "사용자 지정 식",
+    "customHint": "이 식은 시각 편집기로 손실 없이 표현할 수 없습니다. 원문은 아래에 그대로 유지됩니다:",
+    "switchToVisual": "시각 편집으로 전환",
     "everyField": "매 {field}",
     "recentRuns": "최근 5회 실행",
     "specificPlaceholder": "{min}-{max}, 쉼표로 구분",
