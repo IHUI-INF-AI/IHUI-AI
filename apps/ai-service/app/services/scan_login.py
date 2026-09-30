@@ -27,6 +27,7 @@ import base64
 import contextlib
 import json
 import os
+import queue
 import re
 import threading
 import time
@@ -611,6 +612,10 @@ class ScanTask:
     # 码数据(token/link/base64)存在这里,与页面同会话 —— 知乎等页面自己轮询 token
     # 的平台必须复用页面 token 生成码,否则用户扫的是"服务端另取的码",页面轮询不知情
     _net_captured: dict[str, str] = field(default_factory=dict, repr=False)
+    # 2026-09-30 任务交互通道:扫码后的多步验证(短信验证码等)由 API 端点投递动作,
+    # 任务线程在等待循环里消费执行 —— sync Playwright 非线程安全,只许任务线程摸 page
+    _interact_q: queue.Queue | None = field(default=None, repr=False)
+    _interact_results: dict[str, dict[str, Any]] = field(default_factory=dict, repr=False)
 
     def is_terminal(self) -> bool:
         # P2 修复(2026-08-06): 新增 expired 终态
@@ -631,6 +636,100 @@ class ScanTask:
             "created_at": self.created_at,
             "completed_at": self.completed_at,
         }
+
+
+# ---------------------------------------------------------------------------
+# 任务交互(2026-09-30):扫码后多步验证(手机号/短信码)的通用出口。
+# sync Playwright 非线程安全:API 协程只入队,真正摸 page 的动作在任务线程的
+# 等待循环里由 _drain_interactions 执行,结果按关联 id 回填。
+# ---------------------------------------------------------------------------
+_INTERACT_ACTIONS = ("screenshot", "fill", "click", "text")
+
+
+def _drain_interactions(task: ScanTask, page: Any) -> None:
+    """消费交互队列。必须由任务线程调用(创建 page 的同一线程)。"""
+    q = task._interact_q
+    if q is None:
+        return
+    while True:
+        try:
+            rid, action, selector, value = q.get_nowait()
+        except queue.Empty:
+            break
+        result: dict[str, Any] = {"id": rid, "ok": False, "url": ""}
+        try:
+            result["url"] = page.url
+            if action == "screenshot":
+                shot = page.screenshot(type="png")
+                result["screenshot_b64"] = base64.b64encode(shot).decode("ascii")
+                result["ok"] = True
+            elif action == "fill":
+                page.fill(selector, value or "", timeout=5000)
+                result["ok"] = True
+            elif action == "click":
+                page.click(selector, timeout=5000)
+                result["ok"] = True
+            elif action == "text":
+                result["text"] = page.inner_text(selector, timeout=5000) if selector else page.title()
+                result["ok"] = True
+            else:
+                result["error"] = f"未知 action: {action}(合法集 {_INTERACT_ACTIONS})"
+        except Exception as e:  # noqa: BLE001 —— 交互失败原样回传调用方,不打断扫码线程
+            result["error"] = f"{type(e).__name__}: {str(e)[:260]}"
+        with task._lock:
+            task._interact_results[rid] = result
+
+
+def list_live_scan_tasks() -> list[dict[str, Any]]:
+    """列本实例的进行中任务(供操作端定位 task_id;不含页面句柄)。"""
+    items: list[dict[str, Any]] = []
+    for tid, t in list(_TASK_STORE._local.items()):
+        if not t.is_terminal():
+            items.append(
+                {
+                    "task_id": tid,
+                    "platform": t.platform,
+                    "status": t.status,
+                    "message": t.message,
+                    "created_at": t.created_at,
+                }
+            )
+    return items
+
+
+def request_interaction(
+    task_id: str,
+    action: str,
+    selector: str | None = None,
+    value: str | None = None,
+    wait_seconds: float = 12.0,
+) -> dict[str, Any]:
+    """向本实例的活任务投递一次页面交互并等结果。
+
+    页面句柄不可序列化也不可跨实例,故只认本地 dict 里的任务;Redis 快照里的
+    远端实例任务在此直接报"不在本实例"。
+    """
+    task = _TASK_STORE._local.get(task_id)
+    if task is None:
+        return {"ok": False, "error": "任务不在本实例(页面句柄仅实例内可用)"}
+    if task.is_terminal():
+        return {"ok": False, "error": f"任务已终态: {task.status}"}
+    if task._page is None:
+        return {"ok": False, "error": "页面句柄未就绪(任务尚未打开页面)"}
+    if action not in _INTERACT_ACTIONS:
+        return {"ok": False, "error": f"未知 action: {action}(合法集 {_INTERACT_ACTIONS})"}
+    if task._interact_q is None:
+        task._interact_q = queue.Queue()
+    rid = uuid.uuid4().hex[:12]
+    task._interact_q.put((rid, action, selector, value))
+    deadline = time.time() + wait_seconds
+    while time.time() < deadline:
+        with task._lock:
+            result = task._interact_results.get(rid)
+        if result is not None:
+            return result
+        time.sleep(0.2)
+    return {"ok": False, "error": "交互超时:任务线程未在窗口内处理(任务可能已退出等待循环)"}
 
 
 # ---------------------------------------------------------------------------
@@ -1380,11 +1479,16 @@ def _run_scan_task(task: ScanTask) -> None:
             _persist_task(task)  # P2 修复(2026-08-06): 状态变更同步到 Redis
 
             # 4. 轮询检测登录成功
-            timeout_seconds = 5 * 60  # 5 分钟超时
+            # 2026-09-30:5→10 分钟。多步验证(扫码后短信码往来)需要余量,5 分钟
+            # 实测不够人在环上往返;二维码自身 2 分钟过期与此窗口独立。
+            timeout_seconds = 10 * 60
             start_time = time.time()
             last_screenshot_time = 0.0
 
             while not task._stop_event.is_set():
+                # 2026-09-30 任务交互:短信验证码等多步验证由 API 端点投递,此处消费。
+                # 必须在任务线程内执行 —— sync Playwright 非线程安全。
+                _drain_interactions(task, page)
                 # P2 修复(2026-08-06): 检测其它实例的状态变更(取消/过期),
                 # 避免本线程在跨实例取消后继续运行并覆盖终态
                 _redis = _TASK_STORE._get_redis()

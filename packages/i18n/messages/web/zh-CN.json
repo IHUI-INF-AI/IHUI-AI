@@ -8989,6 +8989,7 @@
     "title": "AI 生涯指导"
   },
   "aiChat": {
+    "bindIssue": "绑定 Issue",
     "actions": {
       "archive": "归档",
       "compressTo1m": "压缩到 100 万字符",
@@ -10591,6 +10592,17 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "bindIssue": "绑定 Issue",
+    "unbindIssue": "改为独立任务",
+    "issueBinding": "关联 Issue",
+    "searchIssues": "搜索 Issue 标识、标题或项目",
+    "noIssues": "还没有可以绑定的 Issue",
+    "noMatchingIssues": "没有匹配的 Issue",
+    "issueNotConfigured": "该来源尚未连接,请先在设置中连接 GitHub 或 Linear",
+    "issueBindSuccess": "Issue 已绑定",
+    "issueBindFailed": "Issue 绑定失败",
+    "issueUnbindSuccess": "已解绑,该会话已改为独立任务",
+    "issueUnbindFailed": "解绑失败",
     "selectionAnnotations": {
       "hoverHint": "悬停查看批注",
       "selectedText": "{{index}}. 选中文字",
