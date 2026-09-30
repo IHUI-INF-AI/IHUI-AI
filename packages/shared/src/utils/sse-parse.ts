@@ -171,6 +171,73 @@ function applyErrorMeta(evt: SSEEvent, json: Record<string, unknown>): void {
   if (typeof json.retryAfter === 'number') evt.retryAfter = json.retryAfter
 }
 
+// ============================================================================
+// G-640(2026-09-29 立):SSE 重放单调性守卫
+//
+// 病灶:重连按 Last-Event-ID 起播时,服务端重放窗口与客户端已消费区间可能重叠
+// (agents 流 sse_buffer.replay_outcome 在未带游标时重放全部现存缓冲;chat 流
+// 重连服务端不支持续传时从头重发)。重放的事件 id 与已消费的相同,客户端此前
+// 没有任何拦截 ⇒ 同一事件二次进状态机(计数翻倍、正文重复)。
+//
+// 落点选在本解析器(共享消费出口)而非各端回调层:miniapp-taro 的每一条事件
+// 都从 parseSSEChunk 出去,在这里拦 = 出口只有一份;各端自建守卫必然漂移。
+// 守卫**可注入**(SSEReplayGuard 接口,测试与端侧自有实现都从这注入),
+// **缺省不注入时本函数行为与既有语义逐字一致**(不传 options 即旧函数)。
+// ============================================================================
+
+/** 重放单调性守卫协议(可注入)。 */
+export interface SSEReplayGuard {
+  /**
+   * 询问该事件 id 是否可以消费。
+   * 返回 true = 首次消费,事件放行;false = 已消费过(重放),出口即丢弃。
+   * 实现方持有游标状态;流/task 维度各建一个实例(序号跨 task 不可比)。
+   */
+  admit(eventId: string): boolean
+}
+
+/** 非 `{prefix}-{seq}` 形态 id 的精确去重缓存上限(防长流内存无界)。 */
+const REPLAY_SEEN_NON_SEQ_CAP = 1024
+
+/**
+ * 单调性守卫(默认实现)。
+ *
+ * id 形态 `{prefix}-{seq}`(与 ai-service sse_buffer._parse_seq 同判据:prefix 可含
+ * `-`,尾段必须纯数字):维护已见最大 seq,seq ≤ maxSeq 的事件判为重放丢弃 ——
+ * 单调游标只需 O(1) 内存,不为长流保留历史。
+ * 不带数字尾段的 id(UUID 等)无法判单调,退化为精确去重(有界缓存)。
+ */
+export class SseMonotonicReplayGuard implements SSEReplayGuard {
+  private maxSeq = -1
+  private readonly seenNonSeq = new Set<string>()
+
+  admit(eventId: string): boolean {
+    const seq = sseEventSeqOf(eventId)
+    if (seq === null) {
+      if (this.seenNonSeq.has(eventId)) return false
+      if (this.seenNonSeq.size >= REPLAY_SEEN_NON_SEQ_CAP) this.seenNonSeq.clear()
+      this.seenNonSeq.add(eventId)
+      return true
+    }
+    if (seq <= this.maxSeq) return false
+    this.maxSeq = seq
+    return true
+  }
+}
+
+/** 从 `{prefix}-{seq}` 形态的事件 id 取序号;形态不符返回 null(与后端同判据)。 */
+function sseEventSeqOf(eventId: string): number | null {
+  const idx = eventId.lastIndexOf('-')
+  if (idx <= 0 || idx === eventId.length - 1) return null
+  const suffix = eventId.slice(idx + 1)
+  return /^\d+$/.test(suffix) ? Number(suffix) : null
+}
+
+/** parseSSEChunk 可选参数(G-640)。 */
+export interface ParseSSEChunkOptions {
+  /** 重放单调性守卫;提供时已消费 id 的事件在出口被丢弃,缺省行为与既有语义逐字一致。 */
+  replayGuard?: SSEReplayGuard
+}
+
 /**
  * W5:提取工具来源三元组(兼容后端 snake_case / camelCase 两种序列化策略)。
  * 逻辑与 @ihui/api-client client.ts 的 tryParseToolCall 完全一致,避免字段漂移。
@@ -197,27 +264,57 @@ function pickServerMeta(json: Record<string, unknown>): {
   return { serverSource, serverId, serverName }
 }
 
-export function parseSSEChunk(buffer: string): {
+export function parseSSEChunk(
+  buffer: string,
+  options?: ParseSSEChunkOptions,
+): {
   events: SSEEvent[]
   remainder: string
   /** 本批次内最后一条 SSE `id:` 行(供 Last-Event-ID 断点续传使用),无则为 undefined */
   lastId?: string
+  /**
+   * G-640:本批次因重放重叠被守卫丢弃的事件数。仅当提供 replayGuard 且确有丢弃时才带键
+   * —— 缺省(无守卫/无丢弃)不带键,既有解构方零感知。
+   */
+  replayedDropped?: number
 } {
+  const guard = options?.replayGuard
   const events: SSEEvent[] = []
   let rest = buffer
   let lastId: string | undefined
+  // G-640:当前事件块携带的 id: 游标。SSE 里 id 行属于其后的同一事件块,
+  // 下一条 id 行出现前解析出的事件都关联它;流不带 id 行(如对话流)时保持 undefined,
+  // 守卫完全不介入(无 id 的事件无法与历史区分,放行 = 既有语义)。
+  let currentEventId: string | undefined
+  let replayedDropped: number | undefined
 
   let nl: number
   while ((nl = rest.indexOf('\n')) !== -1) {
     const line = rest.slice(0, nl).replace(/\r$/, '')
     rest = rest.slice(nl + 1)
     // 捕获 SSE id: 行(W5:断点续传游标,parseLine 会将其丢弃,故在此单独提取)
-    if (line.startsWith('id:')) lastId = line.slice(3).trim()
+    if (line.startsWith('id:')) {
+      currentEventId = line.slice(3).trim()
+      // 无守卫:保持既有语义 —— 任何 id: 行当场推进 lastId(即便事件未随行解析出)。
+      // 有守卫时游标只随已消费事件推进,见下方 admit 分支。
+      if (!guard && currentEventId) lastId = currentEventId
+    }
     const evt = parseLine(line)
-    if (evt) events.push(evt)
+    if (!evt) continue
+    if (guard && currentEventId) {
+      // 重放守卫:已消费 id 的事件在出口即丢弃,不进状态机。游标 lastId 只随
+      // **已消费**事件推进 —— 全重放批被拦时 lastId 保持 undefined,消费方既有游标
+      // 不被重放帧回退(回退会让服务端下次再重放一段,虽然守卫仍能拦,但没必要)。
+      if (!guard.admit(currentEventId)) {
+        replayedDropped = (replayedDropped ?? 0) + 1
+        continue
+      }
+      lastId = currentEventId
+    }
+    events.push(evt)
   }
 
-  return { events, remainder: rest, lastId }
+  return { events, remainder: rest, lastId, replayedDropped }
 }
 
 /**
