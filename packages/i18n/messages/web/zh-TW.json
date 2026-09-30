@@ -9144,6 +9144,19 @@
     "noHistory": "暫無任務",
     "noRecentWorkspaces": "暫無最近工作區",
     "openTerminal": "開啟終端",
+    "recap": {
+      "title": "任務回顧",
+      "handoff": {
+        "menuItem": "移交到新任務",
+        "title": "移交到新任務"
+      },
+      "previewDescription": "檢查交接內容後,可以在檔案位置查看,或直接建立一個新任務繼續工作。",
+      "purposeLabel": "交接目的",
+      "purposePlaceholder": "交接目的",
+      "revealFile": "顯示檔案",
+      "createSession": "建立新任務",
+      "handoffUnavailable": "依賴的交接文件產生出口尚未提供,無法產生交接內容。"
+    },
     "renameDialog": {
       "cancel": "取消",
       "description": "保持簡短且易於識別",
