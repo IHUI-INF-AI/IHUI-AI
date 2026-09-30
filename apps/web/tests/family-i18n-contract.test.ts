@@ -210,11 +210,21 @@ const FAMILIES: Family[] = [
     ],
     minReferenced: 80,
   },
+  // certificate.detail(canonical): /edu/certificates list+detail redirect to /certificate
+  // (/certificate/[id] preserves the id). The edu pages no longer reference any i18n keys,
+  // so this entry governs the canonical detail ns instead: CertificateDetailClient +
+  // CertificateTemplate (its only two consumers) reference all 24 detail leaves.
+  // Key migration: eduCertificates.* (7 leaves) / eduCertificatesPage.* (12 leaves) locale keys
+  // are retained untouched (zero deletion); new UI text comes from certificate.detail.*.
+  // minReferenced stays 6 (referenced is 24); the entry is repointed, never deleted.
   {
-    name: 'eduCertificates',
-    nsLiteral: 'eduCertificates',
-    nsPath: ['eduCertificates'],
-    sources: ['app/(main)/edu/certificates/page.tsx'],
+    name: 'certificate.detail(canonical)',
+    nsLiteral: 'certificate.detail',
+    nsPath: ['certificate', 'detail'],
+    sources: [
+      'app/(main)/certificate/[id]/CertificateDetailClient.tsx',
+      'src/components/certificate/CertificateTemplate.tsx',
+    ],
     minReferenced: 6,
   },
   {
@@ -743,25 +753,21 @@ describe.each(FAMILIES)('家族 $name 取词契约', (fam: Family) => {
     expect(unused, `${fam.name} 孤儿键 ${unused.join(', ')} —— 要么补引用要么删键`).toEqual([])
   })
 
-  it(
-    '守门 70 实测:族内命中不超过申报额度(默认必须归零;直接调权威脚本,不复刻判据)',
-    () => {
-      const counts = gate70Counts()
-      const bad = fam.sources
-        .map((f) => {
-          const file = `apps/web/${f}`
-          const cap = fam.capFromLedger ? (ledgerAllowance()!.get(file) ?? 0) : (fam.maxHits ?? 0)
-          return { f, n: counts.get(file) ?? 0, cap }
-        })
-        .filter((r) => r.n > r.cap)
-      expect(bad, `硬编码中文越过额度:${bad.map((b) => `${b.f}=${b.n}>${b.cap}`).join(' ')}`).toEqual(
-        [],
-      )
-    },
-    // 本用例逐族 spawn 权威守门脚本(跨进程 node 冷启动),CI 冷 runner 上单族可超默认 5s
-    // (PR#65 run 36350697722 'rules' 族超时红;本地热盘 0ms)。判据不变,仅预算 30s。
-    30_000,
-  )
+  it('守门 70 实测:族内命中不超过申报额度(默认必须归零;直接调权威脚本,不复刻判据)', () => {
+    const counts = gate70Counts()
+    const bad = fam.sources
+      .map((f) => {
+        const file = `apps/web/${f}`
+        const cap = fam.capFromLedger ? (ledgerAllowance()!.get(file) ?? 0) : (fam.maxHits ?? 0)
+        return { f, n: counts.get(file) ?? 0, cap }
+      })
+      .filter((r) => r.n > r.cap)
+    expect(bad, `硬编码中文越过额度:${bad.map((b) => `${b.f}=${b.n}>${b.cap}`).join(' ')}`).toEqual(
+      [],
+    )
+  }, // 本用例逐族 spawn 权威守门脚本(跨进程 node 冷启动),CI 冷 runner 上单族可超默认 5s
+  // (PR#65 run 36350697722 'rules' 族超时红;本地热盘 0ms)。判据不变,仅预算 30s。
+  30_000)
 })
 
 describe('跨族卫生', () => {
