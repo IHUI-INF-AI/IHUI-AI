@@ -8989,6 +8989,7 @@
     "title": "AI キャリア指導"
   },
   "aiChat": {
+    "bindIssue": "Issueを紐付け",
     "actions": {
       "archive": "アーカイブ",
       "compressTo1m": "100万文字に圧縮",
@@ -10591,6 +10592,17 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "bindIssue": "Issueを紐付け",
+    "unbindIssue": "独立タスクにする",
+    "issueBinding": "関連Issue",
+    "searchIssues": "IssueのID・タイトル・プロジェクトを検索",
+    "noIssues": "紐付けできるIssueはまだありません",
+    "noMatchingIssues": "一致するIssueがありません",
+    "issueNotConfigured": "このソースは未接続です。先に設定でGitHubまたはLinearを連携してください",
+    "issueBindSuccess": "Issueを紐付けました",
+    "issueBindFailed": "Issueの紐付けに失敗しました",
+    "issueUnbindSuccess": "紐付けを解除し、独立タスクにしました",
+    "issueUnbindFailed": "紐付け解除に失敗しました",
     "selectionAnnotations": {
       "hoverHint": "ホバーで注釈を表示",
       "selectedText": "{{index}}. 選択したテキスト",
