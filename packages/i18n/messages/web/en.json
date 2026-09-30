@@ -11231,6 +11231,7 @@
     "permissionUnknownError": "Unknown error",
     "placeholder": "Describe your request; type / for skills, plugins, MCP (e.g. /goal /loop /plan)",
     "placeholderPlan": "Plan mode: type your request, AI only makes plans without executing tools (/act to switch back, Alt+P to toggle)",
+    "aiDisclaimer": "Content is AI-generated. Please verify important information.",
     "plan": {
       "ariaLabel": "Execution plan steps",
       "collapseReasoning": "Collapse reasoning",
@@ -14190,7 +14191,6 @@
       "verifyCode": "Enter 6-digit code"
     },
     "shop": {
-      "payNow": "Pay Now",
       "buy": "Buy",
       "buying": "Placing order...",
       "cancel": "Cancel",
@@ -14501,7 +14501,8 @@
     "loading": "Loading...",
     "myPoints": "My Points",
     "subtitle": "Learning points reward system",
-    "title": "Education Points"
+    "title": "Education Points",
+    "totalChannels": "Total Channels"
   },
   "eduProgressPage": {
     "categoryProgress": "Progress by category",
@@ -14904,7 +14905,6 @@
     "title": "Evaluation Management"
   },
   "exam": {
-    "pageInfo": "Page {page} of {total}",
     "back": "Back to exams",
     "duration": "{minutes} min",
     "empty": "No papers",
@@ -14934,7 +14934,6 @@
     "title": "Online Exam",
     "totalScore": "Total {score}",
     "wrongQuestions": {
-      "aiExplain": "AI Explanation",
       "colActions": "Actions",
       "colQuestion": "Question",
       "colSource": "Source Paper",
@@ -16279,8 +16278,6 @@
     "metaOgDescription": "Document chunking + vectorization + hybrid retrieval + citation tracing"
   },
   "learn": {
-    "startLearning": "Start Learning",
-    "buyNow": "Buy Now",
     "allCategories": "All Categories",
     "category": "Category",
     "chapters": "Chapters",
@@ -16324,7 +16321,6 @@
     "paymentConfirm": "Payment Confirm",
     "review": "Review",
     "tutor": {
-      "history": "Recent Q&A",
       "title": "AI Tutor",
       "subject": "Subject",
       "mode": "Mode",
@@ -19091,7 +19087,7 @@
     "repoWiki": "Repo Wiki",
     "resources": "Resources",
     "restore": "Restore",
-    "schedule": "Task Scheduler",
+    "schedule": "Schedule",
     "search": "Search",
     "selfMediaAutomation": "Automation",
     "selfMediaKoubo": "Koubo Video",
@@ -22075,7 +22071,6 @@
     "warning": "Warning"
   },
   "student": {
-    "aiExplain": "AI Explanation",
     "avgProgress": "Avg Progress",
     "avgScore": "Avg Score",
     "certNo": "Certificate No.",
