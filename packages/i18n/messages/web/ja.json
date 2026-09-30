@@ -633,6 +633,7 @@
     "scanLoginTimeout": "スキャンタイムアウトです。もう一度お試しください。",
     "scanLoginTitle": "スキャンログイン",
     "scanWithPhoneHint": "スマートフォンでQRコードをスキャンしてください。",
+    "selectPlatform": "プラットフォームを選択",
     "startScanLogin": "スキャンを開始",
     "subtitle": "複数のソーシャルプラットフォームのアカウントを管理",
     "title": "アカウント管理",
@@ -9020,6 +9021,26 @@
       "restoreSuccess": "チェックポイントに復元しました",
       "restoreFailed": "復元に失敗しました"
     },
+    "recap": {
+      "title": "タスク振り返り",
+      "handoff": {
+        "menuItem": "新しいタスクへ引き継ぐ",
+        "title": "新しいタスクへ引き継ぐ"
+      },
+      "previewDescription": "引き継ぎ内容を確認した後、ファイルの場所で表示するか、新しいタスクを作成して作業を続けられます。",
+      "purposeLabel": "引き継ぎ目的",
+      "purposePlaceholder": "引き継ぎ目的",
+      "waitingPreview": "プレビューを準備しています…",
+      "phase": {
+        "generating": "モデルが引き継ぎ内容を生成しています…",
+        "finalizing": "仕上げを実行しています…",
+        "done": "引き継ぎドキュメントが生成されました。"
+      },
+      "revealFile": "ファイルを表示",
+      "createSession": "新しいタスクを作成",
+      "creating": "新しいタスクを作成しています…",
+      "createFailed": "新しいタスクの作成に失敗しました。もう一度お試しください。"
+    },
     "addWorkspace": "ワークスペースを追加",
     "assistant": "アシスタント",
     "back": "戻る",
@@ -9135,25 +9156,6 @@
     "noHistory": "なしチャット",
     "noRecentWorkspaces": "最近のワークスペースがありません",
     "openTerminal": "ターミナルを開く",
-    "recap": {
-      "title": "タスク振り返り",
-      "handoff": {
-        "menuItem": "新しいタスクへ引き継ぐ",
-        "title": "新しいタスクへ引き継ぐ"
-      },
-      "previewDescription": "引き継ぎ内容を確認した後、ファイルの場所で表示するか、新しいタスクを作成して作業を続けられます。",
-      "purposeLabel": "引き継ぎ目的",
-      "purposePlaceholder": "引き継ぎ目的",
-      "revealFile": "ファイルを表示",
-      "createSession": "新しいタスクを作成",
-      "phase": {
-        "generating": "モデルが引き継ぎ内容を生成しています…",
-        "done": "引き継ぎドキュメントが生成されました。"
-      },
-      "creating": "新しいタスクを作成しています…",
-      "createFailed": "新しいタスクの作成に失敗しました。もう一度お試しください。",
-      "handoffUnavailable": "依存する引き継ぎ文書の生成出口がまだ提供されていないため、引き継ぎ内容を生成できません。"
-    },
     "renameDialog": {
       "cancel": "キャンセル",
       "description": "短く識別しやすい名前にします",
@@ -10603,19 +10605,6 @@
     "issueBindFailed": "Issueの紐付けに失敗しました",
     "issueUnbindSuccess": "紐付けを解除し、独立タスクにしました",
     "issueUnbindFailed": "紐付け解除に失敗しました",
-    "selectionAnnotations": {
-      "hoverHint": "ホバーで注釈を表示",
-      "selectedText": "{{index}}. 選択したテキスト",
-      "noComment": "コメントはまだありません",
-      "commentPlaceholder": "任意のコメントを追加…",
-      "commentAriaLabel": "選択範囲注釈のコメント",
-      "addComment": "コメントを追加",
-      "removeOne": "注釈 {{index}} を削除",
-      "removeAll": "選択範囲の注釈をすべて削除",
-      "add": "注釈を追加"
-    },
-    "attachRetry": "アップロードを再試行",
-    "attachRetryExhausted": "再試行回数の上限に達しました。削除してから再度追加してください。",
     "attachRejectType": "形式がサポートされていないため、{count} 個のファイルをスキップしました：{names}",
     "attachRejectSize": "ファイルがサイズ上限（{max}MB）を超えているため、{count} 個のファイルをスキップしました：{names}",
     "attachRejectCount": "添付ファイルは最大 {max} 個までです。今回 {count} 個が拒否されました",
@@ -12253,7 +12242,6 @@
     "unpin": "ピン留め解除",
     "unsaved": "未保存",
     "update": {
-      "revoked": "このバージョンは現在提供されていません。",
       "autoRestartIn": "{countdown} 秒後に自動再起動...",
       "autoRetrying": "アップデート失敗、自動リトライ中...",
       "available": "新バージョンがあります",
@@ -12406,9 +12394,6 @@
     "title": "コース"
   },
   "cronEditor": {
-    "customFallback": "カスタム式",
-    "customHint": "この式はビジュアルエディターで可逆的に表現できません。以下に原文をそのまま保持します:",
-    "switchToVisual": "ビジュアル編集に切り替え",
     "everyField": "{field}ごと",
     "recentRuns": "直近 5 件の実行",
     "specificPlaceholder": "{min}-{max}, カンマ区切り",
@@ -15064,8 +15049,6 @@
     "title": "オープンプラットフォーム Feature Center"
   },
   "feedback": {
-    "unsupportedImage": "PNG、JPG、GIF、WebP 画像のみ対応しています。",
-    "requestIdSuffix": "フィードバック番号：{requestId}。",
     "backToList": "フィードバックセンターへ戻る",
     "contactPlaceholder": "任意、ご連絡のため",
     "contentPlaceholder": "をに（10-2000）",
@@ -15897,8 +15880,6 @@
       "unsynced": "未同期"
     },
     "terminalPanel": {
-      "switchToDark": "ダークターミナルに切替",
-      "switchToLight": "ライトターミナルに切替",
       "aiDiagnoseTitle": "AI エラー診断",
       "aiServiceUnavailable": "AIサービスは一時的に利用できません。後でもう一度お試しください",
       "aiSuggestTitle": "AI コマンド提案",
@@ -19018,11 +18999,6 @@
     "memory": "メモリ",
     "messages": "メッセージ",
     "messagesComment": "コメント",
-    "myPendingDecisions": "自分の承認待ち",
-    "pendingDecisionsEmpty": "承認待ちの項目はありません",
-    "decisionTypeToolApproval": "ツール承認",
-    "decisionTypePermissions": "権限リクエスト",
-    "decisionTypeElicitation": "回答待ち",
     "messagesFans": "新しいフォロワー",
     "messagesFavorite": "お気に入り",
     "messagesLike": "いいね",
@@ -22703,6 +22679,21 @@
       "hoursAgo": "{hr}",
       "justNow": "たった",
       "markAllRead": "すべてにする",
+      "important": "要確認",
+      "viewActive": "アクティビティに戻る",
+      "markAllReadFailed": "アクティビティを既読にできませんでした。もう一度お試しください。",
+      "hiding": "非表示にしています…",
+      "hideFailed": "このアクティビティは非表示にできませんでした。もう一度お試しください。",
+      "restoring": "復元しています…",
+      "restoreFailed": "このアクティビティは復元できませんでした。もう一度お試しください。",
+      "emptyDescription": "コメント・メンション・購読の更新がここに表示されます。",
+      "emptyArchivedDescription": "非表示にしたアクティビティはここに保持され、いつでも復元できます。",
+      "unavailable": "アクティビティを一時的に読み込めません。後でもう一度お試しください。",
+      "tabActive": "アクティビティ",
+      "tabArchived": "アーカイブ済み",
+      "hide": "非表示",
+      "restore": "復元",
+      "retry": "再試行",
       "minutesAgo": "{min}",
       "tab": {
         "all": "すべて",
@@ -26593,7 +26584,6 @@
     "noUrlField": "応答に利用可能な URL フィールドが見つかりません",
     "networkError": "ネットワークエラー",
     "uploadCancelled": "アップロードがキャンセルされました",
-    "imageAltText": "フィードバック添付画像 {index}",
     "imagePlaceholder": "クリックまたはここに画像をドラッグしてアップロード"
   },
   "eduScheduling": {
@@ -27627,18 +27617,6 @@
     "restore": "候補を表示"
   },
   "taskMonitor": {
-    "group": {
-      "artifact": "成果物",
-      "browser": "ウェブページ",
-      "source": "出典"
-    },
-    "emptyGroup": {
-      "artifact": "まだ成果物データはありません :)",
-      "browser": "まだウェブページのデータはありません :)",
-      "source": "まだ出典データはありません :)"
-    },
-    "empty": "まだ価値のある内容はありません",
-    "emptyDescription": "タスク全体で生成されたファイル、ウェブページ、出典がここに継続して集約され、進捗の追跡を支援します。",
     "displayMode": "表示モード",
     "modeSections": "パーティション",
     "modeTabs": "フラット",
@@ -27788,6 +27766,15 @@
     "pasteValid": "有効",
     "pasteUnknown": "未認識",
     "pastePreviewDismiss": "貼り付け参照プレビューを閉じる",
+    "referencePreview": {
+      "available": "利用可能な参照",
+      "clear": "クリア",
+      "editor": "参照プレビューエディター",
+      "placeholder": "参照内容を編集してそのまま送信…",
+      "select": "参照を選択",
+      "send": "送信",
+      "source": "ソース"
+    },
     "authorizationNotice": "参照タグは実行権限を追加しません。",
     "hintSelect": "選択",
     "hintConfirm": "確定",
