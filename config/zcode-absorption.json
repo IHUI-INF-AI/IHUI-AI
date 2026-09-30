@@ -88,9 +88,9 @@
   {
    "path": "packages/services/src",
    "status": "windowed",
-   "read": 315,
+   "read": 282,
    "notes": "第 1 波 E1-E7 覆盖 session/zcode-agent/bots/git/storage/process/runtime-tools/terminal/file/cua-permission-broker/subagents/setting/feedback/plugins/skill-sync/conversation-share;W3-10 补 fs/memory/settings-sync/fileWatcher/faultInjection。 ｜09-29 第五十九批:bots/git/storage 三簇具名整读 46 枚(storage 全 13、git 全 15、bots 21/27 —— 其余 5 份 providers/*Provider 与两路 ChannelRuntime 共 3691 行未读;botsService.ts 6363 行只读约 410 行 ⇒ **不得当该文件已审**)。 ｜09-29 第六十一批:bots 残余 5 份整读到体(feishuProvider 1902、weixinProvider 674、replyFormatter 421、feishuChannelRuntime 351、weixinChannelRuntime 343),该簇 27/27 已全覆盖;支撑件 providerRequest.ts 80 与 channelRuntime.ts 290 亦读到体(早先已计,不重复)。botsService.ts 6363 行**仍只按区段读**(本批新增 1995-2084/2500-2840/3800-3869/5235-5275),凡引用它的结论都只覆盖已读区段。 第六十二批(2026-09-29):session 簇按代理报告**下界**回填 read+13(原文\"13 份 / 1,180 行,勿按 19 计\");core 三槽位簇本轮报告未随附可复核文件清单,故其 5 份**不回填**,由下一轮现量后再计(取不到证据宁可少报)。",
-   "remaining": "commandsService.ts,conversationShareArtifactDiscovery.ts,conversationShareSource.ts,conversationShareHttpClient.ts,pluginSyncArchive.ts,settingsSyncService.ts,clientConfigScenes 实现 2 个 ｜09-29 第十九轮回填:本轮具名整读到体 1 枚,其中 1 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 6 枚,指针 6 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜b76(2026-09-30)新增清单 103 份,计入 read 33 份(其余 70 份与早期无清单自报重叠、不可枚举 ⇒ 按下界计)",
+   "remaining": "commandsService.ts,conversationShareArtifactDiscovery.ts,conversationShareSource.ts,conversationShareHttpClient.ts,pluginSyncArchive.ts,settingsSyncService.ts,clientConfigScenes 实现 2 个 ｜09-29 第十九轮回填:本轮具名整读到体 1 枚,其中 1 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 6 枚,指针 6 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正)",
    "evidence": [
     "packages/services/src/conversation-share/conversationShareIntegrity.ts:1-40",
     "packages/services/src/plugin-sync/pluginSyncArchive.ts:72-144",
@@ -146,472 +146,59 @@
    ],
    "readFiles": [
     {
-     "p": "packages/services/src/git/commitMessageFileScope.ts",
-     "lines": 97
-    },
-    {
-     "p": "packages/services/src/git/config.ts",
-     "lines": 132
-    },
-    {
-     "p": "packages/services/src/git/git.ts",
-     "lines": 55
-    },
-    {
-     "p": "packages/services/src/git/gitCheckpoint.ts",
-     "lines": 22
-    },
-    {
-     "p": "packages/services/src/git/gitCheckpointService.ts",
-     "lines": 111
-    },
-    {
-     "p": "packages/services/src/git/gitCommitMessageGenerator.ts",
-     "lines": 356
-    },
-    {
-     "p": "packages/services/src/git/gitService.ts",
-     "lines": 357
-    },
-    {
-     "p": "packages/services/src/git/providers/gitCommandProvider.ts",
-     "lines": 238
-    },
-    {
-     "p": "packages/services/src/git/providers/gitEnvironmentProvider.ts",
-     "lines": 65
-    },
-    {
-     "p": "packages/services/src/git/repo/gitCheckpointHelpers.ts",
-     "lines": 207
-    },
-    {
-     "p": "packages/services/src/git/repo/gitCheckpointRepo.ts",
-     "lines": 493
-    },
-    {
-     "p": "packages/services/src/git/repo/gitCheckpointStore.ts",
-     "lines": 98
-    },
-    {
-     "p": "packages/services/src/git/repo/gitCliHelpers.ts",
-     "lines": 717
-    },
-    {
-     "p": "packages/services/src/git/repo/gitCliRepo.ts",
-     "lines": 1711
-    },
-    {
-     "p": "packages/services/src/git/repo/gitCliTypes.ts",
-     "lines": 119
-    },
-    {
-     "p": "packages/services/src/oauth/callbackAttribution.ts",
-     "lines": 22
-    },
-    {
-     "p": "packages/services/src/oauth/oauth.ts",
-     "lines": 75
-    },
-    {
-     "p": "packages/services/src/oauth/oauthProfileSchema.ts",
-     "lines": 148
-    },
-    {
-     "p": "packages/services/src/oauth/oauthProviderLogout.ts",
-     "lines": 49
-    },
-    {
-     "p": "packages/services/src/oauth/oauthService.ts",
-     "lines": 1193
-    },
-    {
-     "p": "packages/services/src/oauth/oauthUnauthorizedRequest.ts",
-     "lines": 65
-    },
-    {
-     "p": "packages/services/src/oauth/providers/bigmodelProviderAdapter.ts",
-     "lines": 309
-    },
-    {
-     "p": "packages/services/src/oauth/providers/bigmodelProviderConfig.ts",
-     "lines": 51
-    },
-    {
-     "p": "packages/services/src/oauth/providers/configUtils.ts",
-     "lines": 40
-    },
-    {
-     "p": "packages/services/src/oauth/providers/index.ts",
-     "lines": 37
-    },
-    {
-     "p": "packages/services/src/oauth/providers/providerAdapter.ts",
-     "lines": 39
-    },
-    {
-     "p": "packages/services/src/oauth/providers/zaiProviderAdapter.ts",
-     "lines": 437
-    },
-    {
-     "p": "packages/services/src/oauth/providers/zaiProviderConfig.ts",
-     "lines": 54
-    },
-    {
-     "p": "packages/services/src/oauth/repo/oauthCredentialRepo.ts",
-     "lines": 452
-    },
-    {
-     "p": "packages/services/src/oauth/runtimeConfig.ts",
-     "lines": 34
-    },
-    {
-     "p": "packages/services/src/process/processResourceSampler.ts",
-     "lines": 467
-    },
-    {
-     "p": "packages/services/src/process/processTreeOwnership.ts",
-     "lines": 183
-    },
-    {
-     "p": "packages/services/src/process/processTreeSnapshot.ts",
-     "lines": 344
-    },
-    {
-     "p": "packages/services/src/process/processTreeSnapshotAsync.ts",
-     "lines": 159
-    },
-    {
-     "p": "packages/services/src/process/processTreeTerminator.ts",
-     "lines": 470
-    },
-    {
-     "p": "packages/services/src/process/processTreeTypes.ts",
-     "lines": 72
-    },
-    {
-     "p": "packages/services/src/process/processTreeWaiter.ts",
-     "lines": 248
-    },
-    {
-     "p": "packages/services/src/process/runtimeProcessLifecycle.ts",
-     "lines": 88
-    },
-    {
-     "p": "packages/services/src/process/windowsProcessListAsync.ts",
-     "lines": 207
-    },
-    {
-     "p": "packages/services/src/process/windowsTaskkillRunner.ts",
-     "lines": 16
-    },
-    {
-     "p": "packages/services/src/runtime-tools/agentProxyEnv.ts",
-     "lines": 141
-    },
-    {
-     "p": "packages/services/src/runtime-tools/appCaCert.ts",
-     "lines": 79
-    },
-    {
-     "p": "packages/services/src/runtime-tools/clientPlatform.ts",
-     "lines": 33
-    },
-    {
-     "p": "packages/services/src/runtime-tools/node-forge.d.ts",
-     "lines": 51
-    },
-    {
-     "p": "packages/services/src/runtime-tools/nodeEnv.ts",
-     "lines": 19
-    },
-    {
-     "p": "packages/services/src/runtime-tools/providerRuntimeResolver.ts",
-     "lines": 97
-    },
-    {
-     "p": "packages/services/src/runtime-tools/runtimeCommandEnv.ts",
-     "lines": 267
-    },
-    {
-     "p": "packages/services/src/runtime-tools/runtimeLoginShellEnvCapture.ts",
-     "lines": 246
-    },
-    {
-     "p": "packages/services/src/runtime-tools/runtimeToolResolver.ts",
-     "lines": 167
-    },
-    {
-     "p": "packages/services/src/session/automationCron.ts",
-     "lines": 350
-    },
-    {
-     "p": "packages/services/src/session/automationCronValidation.ts",
-     "lines": 12
-    },
-    {
-     "p": "packages/services/src/session/automationIntervalCarrier.ts",
-     "lines": 72
-    },
-    {
-     "p": "packages/services/src/session/automationRepo.ts",
-     "lines": 1469
-    },
-    {
-     "p": "packages/services/src/session/automationService.ts",
-     "lines": 472
-    },
-    {
-     "p": "packages/services/src/session/claude-native/buildImportedClaudeTaskFile.ts",
-     "lines": 72
-    },
-    {
-     "p": "packages/services/src/session/claude-native/claudeNativeImportedSessionTypes.ts",
-     "lines": 18
-    },
-    {
-     "p": "packages/services/src/session/claude-native/claudeNativeSessionHeadParser.ts",
-     "lines": 224
-    },
-    {
-     "p": "packages/services/src/session/claude-native/claudeNativeSessionImportParser.ts",
-     "lines": 369
-    },
-    {
-     "p": "packages/services/src/session/claude-native/claudeNativeSessionImportRepo.ts",
-     "lines": 298
-    },
-    {
-     "p": "packages/services/src/session/claude-native/claudeNativeSessionImportService.ts",
-     "lines": 184
-    },
-    {
-     "p": "packages/services/src/session/claude-native/importedClaudeHistoryRepair.ts",
-     "lines": 221
-    },
-    {
-     "p": "packages/services/src/session/claude-native/importedClaudeTaskFileFilter.ts",
-     "lines": 56
-    },
-    {
-     "p": "packages/services/src/session/claude-native/jsonLineRecord.ts",
-     "lines": 14
-    },
-    {
-     "p": "packages/services/src/session/claude-native/persistImportedClaudeTask.ts",
-     "lines": 87
-    },
-    {
-     "p": "packages/services/src/session/claude-native/sessionHistoryJsonl.ts",
-     "lines": 53
-    },
-    {
-     "p": "packages/services/src/session/legacyTaskSessionFile.ts",
-     "lines": 22
-    },
-    {
-     "p": "packages/services/src/session/mcpWorkspaceScope.ts",
-     "lines": 57
-    },
-    {
-     "p": "packages/services/src/session/offPeakMockGateway.ts",
-     "lines": 830
-    },
-    {
-     "p": "packages/services/src/session/offPeakRuntimeModel.ts",
-     "lines": 353
-    },
-    {
-     "p": "packages/services/src/session/offPeakServerClient.ts",
-     "lines": 282
-    },
-    {
-     "p": "packages/services/src/session/offPeakTask.ts",
-     "lines": 47
-    },
-    {
-     "p": "packages/services/src/session/offPeakTaskRepo.ts",
-     "lines": 819
-    },
-    {
-     "p": "packages/services/src/session/offPeakTaskService.ts",
-     "lines": 675
-    },
-    {
-     "p": "packages/services/src/session/sessionMailbox.ts",
-     "lines": 16
-    },
-    {
-     "p": "packages/services/src/session/sessionModeOptions.ts",
-     "lines": 84
-    },
-    {
-     "p": "packages/services/src/session/sessionRealtimePort.ts",
-     "lines": 45
-    },
-    {
-     "p": "packages/services/src/session/sessionTitle.ts",
-     "lines": 18
-    },
-    {
-     "p": "packages/services/src/session/taskChangeSummary.ts",
-     "lines": 138
-    },
-    {
-     "p": "packages/services/src/session/taskIndexRepo.ts",
-     "lines": 2567
+     "p": "packages/services/src/session/tasksDatabase/schema-v1.ts",
+     "lines": 187
     },
     {
      "p": "packages/services/src/session/tasksDatabase/migrations.ts",
      "lines": 211
     },
     {
-     "p": "packages/services/src/session/tasksDatabase/official-glm-selection-v3.ts",
-     "lines": 35
+     "p": "packages/services/src/session/tasksDatabase/startup.ts",
+     "lines": 124
     },
     {
      "p": "packages/services/src/session/tasksDatabase/prepared.ts",
      "lines": 18
     },
     {
-     "p": "packages/services/src/session/tasksDatabase/provider-selection-v2.ts",
-     "lines": 99
+     "p": "packages/services/src/session/sessionTitle.ts",
+     "lines": 18
     },
     {
-     "p": "packages/services/src/session/tasksDatabase/schema-v1.ts",
-     "lines": 187
+     "p": "packages/services/src/session/legacyTaskSessionFile.ts",
+     "lines": 22
     },
     {
-     "p": "packages/services/src/session/tasksDatabase/startup.ts",
-     "lines": 124
+     "p": "packages/services/src/session/sessionMailbox.ts",
+     "lines": 16
     },
     {
-     "p": "packages/services/src/session/zcodeTaskListTypes.ts",
-     "lines": 123
+     "p": "packages/services/src/session/sessionRealtimePort.ts",
+     "lines": 45
     },
     {
-     "p": "packages/services/src/session/zcodeTaskService.ts",
-     "lines": 746
-    },
-    {
-     "p": "packages/services/src/zcode-agent/agentStderrCollector.ts",
-     "lines": 46
-    },
-    {
-     "p": "packages/services/src/zcode-agent/agentTelemetryEnv.ts",
-     "lines": 36
-    },
-    {
-     "p": "packages/services/src/zcode-agent/automationToolPolicy.ts",
-     "lines": 24
-    },
-    {
-     "p": "packages/services/src/zcode-agent/cuaOperationTurnTracker.ts",
-     "lines": 338
-    },
-    {
-     "p": "packages/services/src/zcode-agent/independentPlanSupport.ts",
-     "lines": 23
-    },
-    {
-     "p": "packages/services/src/zcode-agent/modelTrajectory.ts",
-     "lines": 457
-    },
-    {
-     "p": "packages/services/src/zcode-agent/modelTrajectoryFileTail.ts",
+     "p": "packages/services/src/session/mcpWorkspaceScope.ts",
      "lines": 57
     },
     {
-     "p": "packages/services/src/zcode-agent/pluginReferenceCatalogRequest.ts",
-     "lines": 28
-    },
-    {
-     "p": "packages/services/src/zcode-agent/repairSubagentTaskIndex.ts",
+     "p": "packages/services/src/session/offPeakTask.ts",
      "lines": 47
     },
     {
-     "p": "packages/services/src/zcode-agent/zcodeAgent.ts",
-     "lines": 866
+     "p": "packages/services/src/session/automationCronValidation.ts",
+     "lines": 12
     },
     {
-     "p": "packages/services/src/zcode-agent/zcodeAgentBrowserAmbientContext.ts",
-     "lines": 134
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeAgentConnectionScope.ts",
-     "lines": 1069
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeAgentErrors.ts",
-     "lines": 20
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeAgentPluginParams.ts",
-     "lines": 157
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeAgentPresentationSurface.ts",
-     "lines": 24
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeAgentProcessManager.ts",
-     "lines": 1469
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeAgentService.ts",
-     "lines": 5664
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeAgentSpawnCwd.ts",
-     "lines": 25
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeAgentWorkflowParams.ts",
-     "lines": 44
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeConfigOptions.ts",
-     "lines": 64
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeProtocolClient.ts",
-     "lines": 397
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeProtocolTransport.ts",
-     "lines": 18
+     "p": "packages/services/src/session/claude-native/importedClaudeHistoryRepair.ts",
+     "lines": 221
     },
     {
      "p": "packages/services/src/zcode-agent/zcodeSessionEventCoalescer.ts",
      "lines": 202
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeStdioTapDevConfig.ts",
-     "lines": 69
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeStdioTransport.ts",
-     "lines": 389
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeStorageStartupGate.ts",
-     "lines": 116
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeTaskIndexSyncer.ts",
-     "lines": 1956
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeTaskServiceAdapter.ts",
-     "lines": 5775
-    },
-    {
-     "p": "packages/services/src/zcode-agent/zcodeV4HostCommand.ts",
-     "lines": 158
     }
    ],
-   "readFilesNote": "readFiles 只覆盖 2026-09-29 第六十二批那 13 份(逐条 wc -l 现量相符,合计 1,180 行);其余 269 份是早期自报读数、无清单 ⇒ 守门器 M12 计为\"不可复核\",头条必须分开报两个数,不得把差额当已证。",
-   "files": 315
+   "readFilesNote": "readFiles 只覆盖 2026-09-29 第六十二批那 13 份(逐条 wc -l 现量相符,合计 1,180 行);其余 269 份是早期自报读数、无清单 ⇒ 守门器 M12 计为\"不可复核\",头条必须分开报两个数,不得把差额当已证。"
   },
   {
    "path": "packages/zcode-cua",
@@ -707,7 +294,7 @@
    "path": "packages/shared/src",
    "status": "windowed",
    "files": 226,
-   "read": 172,
+   "read": 104,
    "notes": "协议 v4 28/69、散件 a-m 48/48、散件 m-z 15/108。未读大头:validation(1305 行)、zcode-task-types-core(1187)、platform(982)、test-ids(732)、task-realtime-core(523)、usage-stats(462)、mcp(374)、permission-request-preview(366)、remote*/workspace-hook* 族。",
    "evidence": [
     "packages/shared/src/permission-request-preview.ts:19-37",
@@ -717,48 +304,8 @@
     "packages/shared/src/settings-errors.ts:8-11",
     "packages/shared/src/zcode-protocol-v4/workflow-row-meta.ts:16-74"
    ],
-   "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 3 枚,其中 3 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第六十六批具名回填:本区 +9 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。 ｜b76(2026-09-30)新增清单 68 份,计入 read 68 份",
+   "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 3 枚,其中 3 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第六十六批具名回填:本区 +9 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。",
    "readFiles": [
-    {
-     "p": "packages/shared/src/background-task-control-merge.ts",
-     "lines": 12
-    },
-    {
-     "p": "packages/shared/src/browser-use/backend.ts",
-     "lines": 80
-    },
-    {
-     "p": "packages/shared/src/browser-use/command-metadata.ts",
-     "lines": 170
-    },
-    {
-     "p": "packages/shared/src/browser-use/commands.ts",
-     "lines": 588
-    },
-    {
-     "p": "packages/shared/src/browser-use/index.ts",
-     "lines": 6
-    },
-    {
-     "p": "packages/shared/src/browser-use/nodeReplBroker.ts",
-     "lines": 55
-    },
-    {
-     "p": "packages/shared/src/browser-use/result.ts",
-     "lines": 130
-    },
-    {
-     "p": "packages/shared/src/browser-use/snapshot.ts",
-     "lines": 77
-    },
-    {
-     "p": "packages/shared/src/config-schema.ts",
-     "lines": 8
-    },
-    {
-     "p": "packages/shared/src/endpointHostname.ts",
-     "lines": 12
-    },
     {
      "p": "packages/shared/src/errors.ts",
      "lines": 92
@@ -772,264 +319,32 @@
      "lines": 13
     },
     {
-     "p": "packages/shared/src/node/atomicFileLock.ts",
-     "lines": 275
-    },
-    {
-     "p": "packages/shared/src/node/lockInstanceObserver.ts",
-     "lines": 20
-    },
-    {
-     "p": "packages/shared/src/node/nodeSelfResourceTelemetry.ts",
-     "lines": 93
-    },
-    {
-     "p": "packages/shared/src/node/officialPluginCache.ts",
-     "lines": 54
-    },
-    {
-     "p": "packages/shared/src/node/privateFilePersistence.ts",
-     "lines": 121
-    },
-    {
-     "p": "packages/shared/src/node/subagentMarkdownMigration.ts",
-     "lines": 97
+     "p": "packages/shared/src/endpointHostname.ts",
+     "lines": 12
     },
     {
      "p": "packages/shared/src/settings-errors.ts",
      "lines": 12
     },
     {
-     "p": "packages/shared/src/settings-source.ts",
-     "lines": 10
+     "p": "packages/shared/src/background-task-control-merge.ts",
+     "lines": 12
     },
     {
      "p": "packages/shared/src/zcode-media-policy.ts",
      "lines": 10
     },
     {
-     "p": "packages/shared/src/zcode-protocol-v4/apply.ts",
-     "lines": 218
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/attachment-faults.ts",
-     "lines": 81
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/attachment-ref.ts",
-     "lines": 14
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/coalesce.ts",
-     "lines": 173
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/command.ts",
-     "lines": 482
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/controller.ts",
-     "lines": 316
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/core.ts",
-     "lines": 100
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/create-workflow-display.ts",
-     "lines": 156
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/cuaPermission.ts",
-     "lines": 41
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/delta.ts",
-     "lines": 147
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/fork.ts",
-     "lines": 28
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/index.ts",
-     "lines": 63
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/input-intent.ts",
-     "lines": 69
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/profiles.ts",
-     "lines": 35
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/rows.ts",
-     "lines": 432
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/session-config.ts",
-     "lines": 43
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/sessions-index-workflow-activity.ts",
-     "lines": 195
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/sessions-index.ts",
-     "lines": 85
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/shared-context-import.ts",
-     "lines": 38
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/shared-context-ref.ts",
+     "p": "packages/shared/src/settings-source.ts",
      "lines": 10
     },
     {
-     "p": "packages/shared/src/zcode-protocol-v4/snapshot.ts",
-     "lines": 509
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/submission.ts",
-     "lines": 5
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/telemetry.ts",
-     "lines": 323
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/toolDisplay.ts",
-     "lines": 264
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/transport.ts",
-     "lines": 1152
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/wire-assembler.ts",
-     "lines": 574
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/wire-binary.ts",
-     "lines": 65
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/wire-codec.ts",
-     "lines": 240
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/wire-fault.ts",
-     "lines": 39
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/wire-reassembly.ts",
-     "lines": 208
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/wire.ts",
-     "lines": 159
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-artifact.ts",
-     "lines": 30
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-artifacts.ts",
-     "lines": 291
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-observation-display.ts",
-     "lines": 281
+     "p": "packages/shared/src/config-schema.ts",
+     "lines": 8
     },
     {
      "p": "packages/shared/src/zcode-protocol-v4/workflow-row-meta.ts",
      "lines": 163
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-run-settings-command.ts",
-     "lines": 62
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-runs-actor-status.ts",
-     "lines": 71
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-runs-artifacts.ts",
-     "lines": 133
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-runs-caps.ts",
-     "lines": 125
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-runs-concurrency.ts",
-     "lines": 174
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-runs-delta.ts",
-     "lines": 517
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-runs-entries.ts",
-     "lines": 50
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-runs-eviction.ts",
-     "lines": 542
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-runs-legacy.ts",
-     "lines": 73
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-runs-lineage.ts",
-     "lines": 19
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-runs-node-progress.ts",
-     "lines": 131
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-runs-phases.ts",
-     "lines": 107
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-runs-reducer.ts",
-     "lines": 626
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-runs-started.ts",
-     "lines": 87
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-runs-tables.ts",
-     "lines": 66
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-runs-unlisted.ts",
-     "lines": 112
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-runs.ts",
-     "lines": 512
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workflow-workspace.ts",
-     "lines": 141
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workspace-config.ts",
-     "lines": 81
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol-v4/workspace-hook-review.ts",
-     "lines": 210
-    },
-    {
-     "p": "packages/shared/src/zcode-protocol/index.ts",
-     "lines": 3720
     }
    ]
   },
@@ -1674,9 +989,9 @@
   },
   {
    "path": "packages/server/src",
-   "status": "deep",
+   "status": "windowed",
    "files": 48,
-   "read": 48,
+   "read": 41,
    "notes": "W2-12 覆盖 26/48;remote 族 13 个未读(zcodeAgent*/-detect/wslProxy/sshUploadProgress/runtimeToolDeploy/remoteAsset*)。",
    "evidence": [
     "packages/server/src/remote/remoteConnectionProgressContext.ts:29-46",
@@ -1686,201 +1001,7 @@
     "packages/server/src/remote/deploy.ts:437-469",
     "packages/server/src/remote/ssh-backend.ts:257-275"
    ],
-   "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 1 枚,其中 1 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 14 枚,指针 5 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜b76(2026-09-30)新增清单 48 份,计入 read 7 份(其余 41 份与早期无清单自报重叠、不可枚举 ⇒ 按下界计) b76:清单覆盖面上全部文件 ⇒ 升 deep(可即时问责)",
-   "readFiles": [
-    {
-     "p": "packages/server/src/bundledZCodeBuiltinProviderConfig.ts",
-     "lines": 26
-    },
-    {
-     "p": "packages/server/src/entry-http.ts",
-     "lines": 32
-    },
-    {
-     "p": "packages/server/src/entry-stdio.ts",
-     "lines": 133
-    },
-    {
-     "p": "packages/server/src/hostCapability.ts",
-     "lines": 53
-    },
-    {
-     "p": "packages/server/src/http.ts",
-     "lines": 476
-    },
-    {
-     "p": "packages/server/src/index.ts",
-     "lines": 1
-    },
-    {
-     "p": "packages/server/src/remote/backend.ts",
-     "lines": 49
-    },
-    {
-     "p": "packages/server/src/remote/closeEvent.ts",
-     "lines": 38
-    },
-    {
-     "p": "packages/server/src/remote/connect.ts",
-     "lines": 392
-    },
-    {
-     "p": "packages/server/src/remote/create-backend.ts",
-     "lines": 35
-    },
-    {
-     "p": "packages/server/src/remote/deploy.ts",
-     "lines": 760
-    },
-    {
-     "p": "packages/server/src/remote/deployShared.ts",
-     "lines": 119
-    },
-    {
-     "p": "packages/server/src/remote/detectEnv.ts",
-     "lines": 54
-    },
-    {
-     "p": "packages/server/src/remote/docker-backend.ts",
-     "lines": 352
-    },
-    {
-     "p": "packages/server/src/remote/docker-detect.ts",
-     "lines": 188
-    },
-    {
-     "p": "packages/server/src/remote/handshake.ts",
-     "lines": 159
-    },
-    {
-     "p": "packages/server/src/remote/index.ts",
-     "lines": 35
-    },
-    {
-     "p": "packages/server/src/remote/localTarGz.ts",
-     "lines": 430
-    },
-    {
-     "p": "packages/server/src/remote/posixShell.ts",
-     "lines": 35
-    },
-    {
-     "p": "packages/server/src/remote/remoteAssetCache.ts",
-     "lines": 1928
-    },
-    {
-     "p": "packages/server/src/remote/remoteAssetCdn.ts",
-     "lines": 195
-    },
-    {
-     "p": "packages/server/src/remote/remoteAssetDeployDecision.ts",
-     "lines": 316
-    },
-    {
-     "p": "packages/server/src/remote/remoteAssetInstaller.ts",
-     "lines": 1087
-    },
-    {
-     "p": "packages/server/src/remote/remoteAssetLiveIdentity.ts",
-     "lines": 260
-    },
-    {
-     "p": "packages/server/src/remote/remoteAssetNetwork.ts",
-     "lines": 11
-    },
-    {
-     "p": "packages/server/src/remote/remoteAssetPreflight.ts",
-     "lines": 129
-    },
-    {
-     "p": "packages/server/src/remote/remoteConnectionProgressContext.ts",
-     "lines": 48
-    },
-    {
-     "p": "packages/server/src/remote/remoteDeployLock.ts",
-     "lines": 243
-    },
-    {
-     "p": "packages/server/src/remote/remotePlatformSupport.ts",
-     "lines": 11
-    },
-    {
-     "p": "packages/server/src/remote/runtimeToolDeploy.ts",
-     "lines": 81
-    },
-    {
-     "p": "packages/server/src/remote/serverBundleDeployCheck.ts",
-     "lines": 65
-    },
-    {
-     "p": "packages/server/src/remote/ssh-backend.ts",
-     "lines": 613
-    },
-    {
-     "p": "packages/server/src/remote/sshAuth.ts",
-     "lines": 110
-    },
-    {
-     "p": "packages/server/src/remote/sshUploadProgress.ts",
-     "lines": 119
-    },
-    {
-     "p": "packages/server/src/remote/stdio-socket.ts",
-     "lines": 56
-    },
-    {
-     "p": "packages/server/src/remote/wsl-backend.ts",
-     "lines": 664
-    },
-    {
-     "p": "packages/server/src/remote/wsl-detect.ts",
-     "lines": 174
-    },
-    {
-     "p": "packages/server/src/remote/wslProxy.ts",
-     "lines": 138
-    },
-    {
-     "p": "packages/server/src/remote/zcodeAgentBundleWrapper.ts",
-     "lines": 26
-    },
-    {
-     "p": "packages/server/src/remote/zcodeAgentDeploy.ts",
-     "lines": 291
-    },
-    {
-     "p": "packages/server/src/remote/zcodeAgentDevDeploy.ts",
-     "lines": 438
-    },
-    {
-     "p": "packages/server/src/remote/zcodeAgentOfficialPluginAssets.ts",
-     "lines": 71
-    },
-    {
-     "p": "packages/server/src/remote/zcodeAgentOfficialPluginPermissionRepair.ts",
-     "lines": 36
-    },
-    {
-     "p": "packages/server/src/remote/zcodeAgentWrapperDeploy.ts",
-     "lines": 46
-    },
-    {
-     "p": "packages/server/src/stdio-lifecycle.ts",
-     "lines": 119
-    },
-    {
-     "p": "packages/server/src/stdio.ts",
-     "lines": 96
-    },
-    {
-     "p": "packages/server/src/stdioDeviceMid.ts",
-     "lines": 34
-    },
-    {
-     "p": "packages/server/src/stdioServices.ts",
-     "lines": 49
-    }
-   ]
+   "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 1 枚,其中 1 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 14 枚,指针 5 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正)"
   },
   {
    "path": "packages/rpc",
@@ -1905,186 +1026,16 @@
   },
   {
    "path": "packages/zcode-server-cli/src",
-   "status": "deep",
+   "status": "windowed",
    "files": 42,
-   "read": 42,
+   "read": 15,
    "notes": "ipc/framing、runtime/{shutdownWait,lock,statusSnapshot}、supervisor/crashBudget、server-core/parentDisconnect、packaging/{tarCommand,nodeDistMirror}。剩余 runtime 16 / server-core 6 / ipc 3 / stageCli。",
    "evidence": [
     "packages/zcode-server-cli/src/runtime/installationOwnership.ts:52",
     "packages/zcode-server-cli/src/server-core/taskActivityTracker.ts:37",
     "packages/zcode-server-cli/src/server-core/hostCapability.ts:48-56"
    ],
-   "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 7 枚,其中 3 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜b76(2026-09-30)新增清单 42 份,计入 read 27 份(其余 15 份与早期无清单自报重叠、不可枚举 ⇒ 按下界计) b76:清单覆盖面上全部文件 ⇒ 升 deep(可即时问责)",
-   "readFiles": [
-    {
-     "p": "packages/zcode-server-cli/src/cli.ts",
-     "lines": 517
-    },
-    {
-     "p": "packages/zcode-server-cli/src/contracts.ts",
-     "lines": 217
-    },
-    {
-     "p": "packages/zcode-server-cli/src/index.ts",
-     "lines": 13
-    },
-    {
-     "p": "packages/zcode-server-cli/src/ipc/controlClient.ts",
-     "lines": 55
-    },
-    {
-     "p": "packages/zcode-server-cli/src/ipc/controlError.ts",
-     "lines": 10
-    },
-    {
-     "p": "packages/zcode-server-cli/src/ipc/controlServer.ts",
-     "lines": 151
-    },
-    {
-     "p": "packages/zcode-server-cli/src/ipc/framing.ts",
-     "lines": 45
-    },
-    {
-     "p": "packages/zcode-server-cli/src/main.ts",
-     "lines": 28
-    },
-    {
-     "p": "packages/zcode-server-cli/src/packaging/nodeDistMirror.ts",
-     "lines": 23
-    },
-    {
-     "p": "packages/zcode-server-cli/src/packaging/stage.ts",
-     "lines": 652
-    },
-    {
-     "p": "packages/zcode-server-cli/src/packaging/stageCli.ts",
-     "lines": 275
-    },
-    {
-     "p": "packages/zcode-server-cli/src/packaging/tarCommand.ts",
-     "lines": 21
-    },
-    {
-     "p": "packages/zcode-server-cli/src/platform/serviceManager.ts",
-     "lines": 233
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/agentWiring.ts",
-     "lines": 48
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/componentCache.ts",
-     "lines": 360
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/immutableRelease.ts",
-     "lines": 126
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/installationOwnership.ts",
-     "lines": 89
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/lock.ts",
-     "lines": 210
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/manifest.ts",
-     "lines": 88
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/paths.ts",
-     "lines": 137
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/releaseDownload.ts",
-     "lines": 163
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/releaseInstaller.ts",
-     "lines": 112
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/releaseManager.ts",
-     "lines": 181
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/serviceInstallation.ts",
-     "lines": 205
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/shutdownWait.ts",
-     "lines": 36
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/stableLauncher.ts",
-     "lines": 73
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/startupRecovery.ts",
-     "lines": 23
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/statusSnapshot.ts",
-     "lines": 58
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/uninstallGuard.ts",
-     "lines": 32
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/updateCommand.ts",
-     "lines": 90
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/updateErrors.ts",
-     "lines": 12
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/updatePreparation.ts",
-     "lines": 276
-    },
-    {
-     "p": "packages/zcode-server-cli/src/runtime/updateReadiness.ts",
-     "lines": 17
-    },
-    {
-     "p": "packages/zcode-server-cli/src/server-core/core.ts",
-     "lines": 125
-    },
-    {
-     "p": "packages/zcode-server-cli/src/server-core/entry.ts",
-     "lines": 23
-    },
-    {
-     "p": "packages/zcode-server-cli/src/server-core/hostCapability.ts",
-     "lines": 56
-    },
-    {
-     "p": "packages/zcode-server-cli/src/server-core/http.ts",
-     "lines": 195
-    },
-    {
-     "p": "packages/zcode-server-cli/src/server-core/parentDisconnect.ts",
-     "lines": 21
-    },
-    {
-     "p": "packages/zcode-server-cli/src/server-core/serverIdentity.ts",
-     "lines": 14
-    },
-    {
-     "p": "packages/zcode-server-cli/src/server-core/taskActivityTracker.ts",
-     "lines": 102
-    },
-    {
-     "p": "packages/zcode-server-cli/src/supervisor/crashBudget.ts",
-     "lines": 41
-    },
-    {
-     "p": "packages/zcode-server-cli/src/supervisor/supervisor.ts",
-     "lines": 565
-    }
-   ]
+   "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 7 枚,其中 3 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针)"
   },
   {
    "path": "packages/client/src",
@@ -2101,84 +1052,14 @@
   },
   {
    "path": "packages/web",
-   "status": "deep",
+   "status": "windowed",
    "files": 17,
-   "read": 17,
+   "read": 2,
    "notes": "只读到 auth/oauthStateCodec.ts(它反倒暴露我方 /sso/mobile-auth 的 redirect 未过守卫)。剩余 16。",
    "evidence": [
     "packages/web/src/auth/webAuthService.ts:1-40"
    ],
-   "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 1 枚,其中 1 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜b76(2026-09-30)新增清单 17 份,计入 read 15 份(其余 2 份与早期无清单自报重叠、不可枚举 ⇒ 按下界计) b76:清单覆盖面上全部文件 ⇒ 升 deep(可即时问责)",
-   "readFiles": [
-    {
-     "p": "packages/web/src/auth/browserOAuthCredentialRepo.ts",
-     "lines": 210
-    },
-    {
-     "p": "packages/web/src/auth/oauthStateCodec.ts",
-     "lines": 128
-    },
-    {
-     "p": "packages/web/src/auth/webAuthLocale.ts",
-     "lines": 66
-    },
-    {
-     "p": "packages/web/src/auth/webAuthService.ts",
-     "lines": 190
-    },
-    {
-     "p": "packages/web/src/auth/WebCallbackPage.tsx",
-     "lines": 70
-    },
-    {
-     "p": "packages/web/src/auth/webZaiOAuthConfig.ts",
-     "lines": 76
-    },
-    {
-     "p": "packages/web/src/auth/zaiWebOAuthProvider.ts",
-     "lines": 240
-    },
-    {
-     "p": "packages/web/src/communityUrl.ts",
-     "lines": 48
-    },
-    {
-     "p": "packages/web/src/env.d.ts",
-     "lines": 22
-    },
-    {
-     "p": "packages/web/src/main.tsx",
-     "lines": 478
-    },
-    {
-     "p": "packages/web/src/share/ConversationShareLandingPage.tsx",
-     "lines": 773
-    },
-    {
-     "p": "packages/web/src/share/conversationSharePreviewClient.ts",
-     "lines": 263
-    },
-    {
-     "p": "packages/web/src/share/conversationShareRoute.ts",
-     "lines": 18
-    },
-    {
-     "p": "packages/web/src/share/mockConversationSharePreviewClient.ts",
-     "lines": 123
-    },
-    {
-     "p": "packages/web/src/share/shareHeaderLayout.ts",
-     "lines": 138
-    },
-    {
-     "p": "packages/web/src/webThemeSeed.ts",
-     "lines": 33
-    },
-    {
-     "p": "packages/web/vite.config.ts",
-     "lines": 101
-    }
-   ]
+   "remaining": "｜09-29 第十九轮回填:本轮具名整读到体 1 枚,其中 1 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针)"
   },
   {
    "path": "apps/zcode-cli/packages/core/src",
@@ -3668,10 +2549,10 @@
   },
   {
    "path": "apps/zcode-cli/packages/contracts",
-   "status": "deep",
+   "status": "windowed",
    "files": 113,
-   "read": 113,
-   "remaining": "95 未读:interfaces 22(dynamic-workflow-run.port.ts 1037、session.events.ts 1238 仅窗口读)、tools 38、events 5、model 6、hooks/workspace-hook-trust.ts 324 余下。read 只算净新增:W6-C 整读到体 13 枚,其中 contract.ts 与 capabilities/index.ts 与旧 read=7 重叠 ⇒ 净 +11,不重复计。 ｜09-29 第十九轮回填:本轮具名整读到体 4 枚,其中 3 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十一轮回填:契约层报告(tools/events/model/interfaces)具名 7 枚、新指针 7 枚可兑现 ｜09-29 第六十六批具名回填:本区 +6 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。 ｜b76(2026-09-30)新增清单 88 份,计入 read 58 份(其余 30 份与早期无清单自报重叠、不可枚举 ⇒ 按下界计) b76 现量:清单里有 1 条路径不在本片前缀内(apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4/command-inbox.ts)—— 尺子 M12 只核\"在不在面上\",不核\"在不在片内\"，所以这条只报名不代裁 b76:清单覆盖面上全部文件 ⇒ 升 deep(可即时问责)",
+   "read": 55,
+   "remaining": "95 未读:interfaces 22(dynamic-workflow-run.port.ts 1037、session.events.ts 1238 仅窗口读)、tools 38、events 5、model 6、hooks/workspace-hook-trust.ts 324 余下。read 只算净新增:W6-C 整读到体 13 枚,其中 contract.ts 与 capabilities/index.ts 与旧 read=7 重叠 ⇒ 净 +11,不重复计。 ｜09-29 第十九轮回填:本轮具名整读到体 4 枚,其中 3 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十一轮回填:契约层报告(tools/events/model/interfaces)具名 7 枚、新指针 7 枚可兑现 ｜09-29 第六十六批具名回填:本区 +6 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。",
    "evidence": [
     "apps/zcode-cli/packages/contracts/src/tools/contract.ts:174",
     "apps/zcode-cli/packages/contracts/src/tools/json-schema.ts:35",
@@ -3712,452 +2593,92 @@
    "notes": "W3-8:工具结果元数据/契约/能力表/工作区钩子信任存储/工件端口读到体。剩余 interfaces 22、tools 38、events 5、model 6。反例:capabilities 整体是 export {} 却仍发布 ./capabilities 子路径且零 importer = 空心公开入口。;W6-69(2026-09-29)只读取证并入账 12 份(逐条 wc 复核,誊写不符者已排除并报名)",
    "readFiles": [
     {
-     "p": "apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4/command-inbox.ts",
-     "lines": 505
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/capabilities/index.ts",
-     "lines": 2
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/commands/index.ts",
-     "lines": 239
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/compact/index.ts",
-     "lines": 353
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/config/index.ts",
-     "lines": 410
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/errors/index.ts",
-     "lines": 150
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/events/event-reducer-helpers.ts",
-     "lines": 232
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/events/event-reducer.ts",
-     "lines": 586
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/events/in-memory-session-event-store.ts",
-     "lines": 149
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/events/index.ts",
-     "lines": 6
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/events/session-event-retention.ts",
-     "lines": 102
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/events/session.events.ts",
-     "lines": 1238
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/events/stream-recovery.events.ts",
-     "lines": 142
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/hooks/index.ts",
-     "lines": 433
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/hooks/workspace-hook-trust-store.ts",
-     "lines": 46
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/hooks/workspace-hook-trust.ts",
-     "lines": 324
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/index.ts",
-     "lines": 106
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/automation.port.ts",
-     "lines": 48
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/browser-control.port.ts",
-     "lines": 545
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/context-source.port.ts",
-     "lines": 97
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/coordinator-response.port.ts",
-     "lines": 22
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/dynamic-workflow-run-retune.port.ts",
-     "lines": 45
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/dynamic-workflow-run-roster.port.ts",
-     "lines": 184
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/dynamic-workflow-run-workspace.port.ts",
-     "lines": 72
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/dynamic-workflow-run.port.ts",
-     "lines": 1037
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/dynamic-workflow-snippet.port.ts",
-     "lines": 55
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/execution.port.ts",
-     "lines": 289
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/file-system.port.ts",
-     "lines": 321
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/http-client.port.ts",
-     "lines": 94
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/image-processor.port.ts",
-     "lines": 87
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/index.ts",
-     "lines": 27
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/input-history.port.ts",
-     "lines": 44
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/mcp.port.ts",
-     "lines": 311
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/model-catalog.port.ts",
-     "lines": 39
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/off-peak.port.ts",
-     "lines": 50
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/pdf-document.port.ts",
-     "lines": 50
-    },
-    {
      "p": "apps/zcode-cli/packages/contracts/src/interfaces/permission-full-access.ts",
      "lines": 42
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/permission.port.ts",
-     "lines": 100
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/runtime-input-presentation.ts",
-     "lines": 20
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/session-mailbox.port.ts",
-     "lines": 17
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/session-store.port.ts",
-     "lines": 1261
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/session.port.ts",
-     "lines": 366
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/shared.ts",
-     "lines": 77
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/subagent.port.ts",
-     "lines": 134
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/tool-artifact-store.port.ts",
-     "lines": 141
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/workflow-escalate.port.ts",
-     "lines": 59
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/workflow-submit.port.ts",
-     "lines": 56
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/interfaces/workflow.port.ts",
-     "lines": 43
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/logging/logger.ts",
-     "lines": 102
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/model/content-protection.ts",
-     "lines": 12
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/model/image-media.ts",
-     "lines": 78
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/model/index.ts",
-     "lines": 1061
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/model/invocation-context.ts",
-     "lines": 111
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/model/media-policy.ts",
-     "lines": 58
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/model/model.ts",
-     "lines": 61
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/network/public-egress-ip.ts",
-     "lines": 77
     },
     {
      "p": "apps/zcode-cli/packages/contracts/src/path/git-bash.ts",
      "lines": 29
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/path/index.ts",
-     "lines": 1
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/plugins/index.ts",
-     "lines": 282
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/rewind/index.ts",
-     "lines": 339
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/skills/index.ts",
-     "lines": 121
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/telemetry/agent-execution.ts",
-     "lines": 285
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/telemetry/index.ts",
-     "lines": 377
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/time/local-date.ts",
-     "lines": 6
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/agent.ts",
-     "lines": 138
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/amend-workflow.ts",
-     "lines": 155
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/apply-patch.ts",
-     "lines": 80
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/ask-user-question.ts",
-     "lines": 250
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/automation.ts",
-     "lines": 324
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/bash.ts",
-     "lines": 340
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/contract.ts",
-     "lines": 187
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/create-workflow.ts",
-     "lines": 510
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/edit.ts",
-     "lines": 209
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/escalate.ts",
-     "lines": 58
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/eval-workflow-snippet.ts",
-     "lines": 71
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/get-workflow-run-roster.ts",
-     "lines": 151
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/get-workflow-run.ts",
-     "lines": 239
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/glob.ts",
-     "lines": 86
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/grep.ts",
-     "lines": 182
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/index.ts",
-     "lines": 59
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/json-schema.ts",
-     "lines": 133
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/list-models.ts",
-     "lines": 62
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/list-saved-workflows.ts",
-     "lines": 35
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/list-workflow-runs.ts",
-     "lines": 121
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/node-repl.ts",
-     "lines": 66
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/off-peak.ts",
-     "lines": 85
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/performance.ts",
-     "lines": 104
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/plan-mode.ts",
-     "lines": 111
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/read-pdf.ts",
-     "lines": 92
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/read-session-context.ts",
-     "lines": 77
+     "p": "apps/zcode-cli/packages/contracts/src/interfaces/session-mailbox.port.ts",
+     "lines": 17
     },
     {
      "p": "apps/zcode-cli/packages/contracts/src/tools/read-state.ts",
      "lines": 13
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/read.ts",
-     "lines": 395
+     "p": "apps/zcode-cli/packages/contracts/src/model/content-protection.ts",
+     "lines": 12
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/resolve-workflow-question.ts",
-     "lines": 51
+     "p": "apps/zcode-cli/packages/contracts/src/time/local-date.ts",
+     "lines": 6
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/respond-to-coordinator.ts",
-     "lines": 33
+     "p": "apps/zcode-cli/packages/contracts/src/errors/index.ts",
+     "lines": 150
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/resume-workflow-run.ts",
-     "lines": 60
+     "p": "apps/zcode-cli/packages/contracts/src/index.ts",
+     "lines": 106
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/save-workflow.ts",
-     "lines": 103
+     "p": "apps/zcode-cli/packages/contracts/src/interfaces/shared.ts",
+     "lines": 77
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/saved-workflow.ts",
-     "lines": 146
+     "p": "apps/zcode-cli/packages/contracts/src/capabilities/index.ts",
+     "lines": 2
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/send-message.ts",
-     "lines": 46
+     "p": "apps/zcode-cli/packages/contracts/src/tools/contract.ts",
+     "lines": 187
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/skill.ts",
-     "lines": 68
+     "p": "apps/zcode-cli/packages/contracts/src/tools/json-schema.ts",
+     "lines": 133
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/submit-result.ts",
-     "lines": 59
+     "p": "apps/zcode-cli/packages/contracts/src/interfaces/permission.port.ts",
+     "lines": 100
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/target.ts",
-     "lines": 437
+     "p": "apps/zcode-cli/packages/contracts/src/events/session-event-retention.ts",
+     "lines": 102
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/task-output.ts",
-     "lines": 78
+     "p": "apps/zcode-cli/packages/contracts/src/model/media-policy.ts",
+     "lines": 58
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/task-stop.ts",
-     "lines": 31
+     "p": "apps/zcode-cli/packages/contracts/src/tools/plan-mode.ts",
+     "lines": 111
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/todo.ts",
-     "lines": 166
+     "p": "apps/zcode-cli/packages/contracts/src/hooks/workspace-hook-trust.ts",
+     "lines": 324
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/tool-result-metadata.ts",
-     "lines": 390
+     "p": "apps/zcode-cli/packages/contracts/src/skills/index.ts",
+     "lines": 121
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/webfetch.ts",
-     "lines": 112
+     "p": "apps/zcode-cli/packages/contracts/src/interfaces/session-store.port.ts",
+     "lines": 1261
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/websearch.ts",
-     "lines": 163
+     "p": "apps/zcode-cli/packages/contracts/src/events/session.events.ts",
+     "lines": 1238
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/workflow-observation-display.ts",
-     "lines": 282
+     "p": "apps/zcode-cli/packages/contracts/src/model/index.ts",
+     "lines": 1061
     },
     {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/workflow.ts",
-     "lines": 94
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tools/write.ts",
-     "lines": 158
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tracing/local-turn-preparation.ts",
-     "lines": 59
-    },
-    {
-     "p": "apps/zcode-cli/packages/contracts/src/tracing/tracer.ts",
-     "lines": 246
+     "p": "apps/zcode-cli/packages/contracts/src/interfaces/dynamic-workflow-run.port.ts",
+     "lines": 1037
     },
     {
      "p": "apps/zcode-cli/packages/contracts/src/workflow/index.ts",
@@ -4166,15 +2687,23 @@
     {
      "p": "apps/zcode-cli/packages/contracts/src/workflow/script.ts",
      "lines": 345
+    },
+    {
+     "p": "apps/zcode-cli/packages/contracts/src/interfaces/workflow.port.ts",
+     "lines": 43
+    },
+    {
+     "p": "apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4/command-inbox.ts",
+     "lines": 505
     }
    ]
   },
   {
    "path": "apps/zcode-cli/packages/dynamic-workflow",
-   "status": "deep",
+   "status": "windowed",
    "files": 97,
-   "read": 97,
-   "remaining": "78 未读:analysis 52 整目录(单独一票)、engine 21(engine/types.ts 944、concurrency.ts 265 仅窗口读)、schema 7、facade 5。2026-09-29 主会话现量把分母定回**尺子自己的口径**(`scripts/zcode-absorption-matrix.mjs` 的 `SOURCE_EXT` = ts|tsx|js|jsx|mjs|cjs|py|rs|swift|java|kt|go ⇒ 97),并写下三种口径的现量以免再漂:尺子口径 97 / 纯 ts|tsx 口径 94 / 全文件口径 102。此前登记的 94 是按 ts|tsx 窄口径算的,而尺子按 97 判漂 ⇒ **分母必须与尺子同口径**,否则每次跑矩阵都点名一个「已改对」的数字。read 由 4→19:旧 4 枚(hash / scheduler-submit / run-terminal / engine-settlement)全部落在本轮新集内 ⇒ 不重复计。 ｜09-29 第二十一轮回填:编排引擎报告(engine/schema/facade)具名 8 枚、新指针 8 枚可兑现 ｜b76(2026-09-30)新增清单 97 份,计入 read 67 份(其余 30 份与早期无清单自报重叠、不可枚举 ⇒ 按下界计) b76:清单覆盖面上全部文件 ⇒ 升 deep(可即时问责)",
+   "read": 30,
+   "remaining": "78 未读:analysis 52 整目录(单独一票)、engine 21(engine/types.ts 944、concurrency.ts 265 仅窗口读)、schema 7、facade 5。2026-09-29 主会话现量把分母定回**尺子自己的口径**(`scripts/zcode-absorption-matrix.mjs` 的 `SOURCE_EXT` = ts|tsx|js|jsx|mjs|cjs|py|rs|swift|java|kt|go ⇒ 97),并写下三种口径的现量以免再漂:尺子口径 97 / 纯 ts|tsx 口径 94 / 全文件口径 102。此前登记的 94 是按 ts|tsx 窄口径算的,而尺子按 97 判漂 ⇒ **分母必须与尺子同口径**,否则每次跑矩阵都点名一个「已改对」的数字。read 由 4→19:旧 4 枚(hash / scheduler-submit / run-terminal / engine-settlement)全部落在本轮新集内 ⇒ 不重复计。 ｜09-29 第二十一轮回填:编排引擎报告(engine/schema/facade)具名 8 枚、新指针 8 枚可兑现",
    "evidence": [
     "apps/zcode-cli/packages/dynamic-workflow/src/engine/errors.ts:14",
     "apps/zcode-cli/packages/dynamic-workflow/src/engine/engine-launch.ts:26",
@@ -4193,397 +2722,7 @@
     "G-462",
     "G-463"
    ],
-   "notes": "W3-8:engine 的 hash/scheduler-submit/run-terminal/engine-settlement 读到体。剩余 analysis 52 整目录未读(单独一票)、engine 21、schema 7、facade 5。",
-   "readFiles": [
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/scratch/run.mjs",
-     "lines": 25
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/scripts/generate-libs.mjs",
-     "lines": 78
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/scripts/generate-mermaid.mjs",
-     "lines": 96
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/actor-graph.ts",
-     "lines": 143
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/actor-names.ts",
-     "lines": 158
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/analyze.ts",
-     "lines": 117
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/array-methods.ts",
-     "lines": 150
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/artifact-types.ts",
-     "lines": 148
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/artifacts.ts",
-     "lines": 320
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/assign.ts",
-     "lines": 288
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/callbacks.ts",
-     "lines": 182
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/calls.ts",
-     "lines": 546
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/causality-graph-lanes.ts",
-     "lines": 161
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/causality-graph-types.ts",
-     "lines": 163
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/causality-graph.ts",
-     "lines": 558
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/causality-order-calls.ts",
-     "lines": 254
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/causality-order-functions.ts",
-     "lines": 133
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/causality-order-loops.ts",
-     "lines": 169
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/causality-order-settle.ts",
-     "lines": 290
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/causality-order-state.ts",
-     "lines": 289
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/causality-order-strands.ts",
-     "lines": 212
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/causality-order-types.ts",
-     "lines": 177
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/causality-order-walk.ts",
-     "lines": 313
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/causality-order.ts",
-     "lines": 135
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/causality-reduce.ts",
-     "lines": 206
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/classes.ts",
-     "lines": 260
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/constants.ts",
-     "lines": 51
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/control-flow.ts",
-     "lines": 128
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/core-json.ts",
-     "lines": 92
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/core.ts",
-     "lines": 315
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/domain.ts",
-     "lines": 634
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/facade-misuse.ts",
-     "lines": 363
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/fanout-cardinality.ts",
-     "lines": 110
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/flow-graph.ts",
-     "lines": 531
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/flow-phase.ts",
-     "lines": 78
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/flow-strands.ts",
-     "lines": 78
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/flow-tree.ts",
-     "lines": 64
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/graph.ts",
-     "lines": 205
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/handoff-graph.ts",
-     "lines": 252
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/heap-ops.ts",
-     "lines": 73
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/interpret.ts",
-     "lines": 209
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/literals.ts",
-     "lines": 130
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/mermaid.ts",
-     "lines": 473
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/patterns.ts",
-     "lines": 114
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/phase-graph.ts",
-     "lines": 376
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/phases.ts",
-     "lines": 69
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/promise-ops.ts",
-     "lines": 144
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/relays.ts",
-     "lines": 87
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/serialize.ts",
-     "lines": 323
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/sites-labels.ts",
-     "lines": 191
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/sites.ts",
-     "lines": 478
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/state.ts",
-     "lines": 608
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/taint.ts",
-     "lines": 655
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/types.ts",
-     "lines": 105
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/analysis/world-run.ts",
-     "lines": 59
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/compiler/compile.ts",
-     "lines": 212
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/artifact-spec.ts",
-     "lines": 169
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/ask-observation-types.ts",
-     "lines": 59
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/concurrency.ts",
-     "lines": 265
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/engine-artifacts-primary.ts",
-     "lines": 41
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/engine-artifacts.ts",
-     "lines": 513
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/engine-launch.ts",
-     "lines": 44
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/engine-phase-stamp.ts",
-     "lines": 73
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/engine-report.ts",
-     "lines": 178
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/engine-settlement.ts",
-     "lines": 91
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/engine-state.ts",
-     "lines": 98
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/engine-world.ts",
-     "lines": 218
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/engine.ts",
-     "lines": 726
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/errors.ts",
-     "lines": 150
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/hash.ts",
-     "lines": 50
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/imported-cache-types.ts",
-     "lines": 106
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/imported-cache.ts",
-     "lines": 254
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/index.ts",
-     "lines": 75
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/journal-memory.ts",
-     "lines": 166
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/replay-order.ts",
-     "lines": 209
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/run-terminal.ts",
-     "lines": 42
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler-submit.ts",
-     "lines": 116
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler-types.ts",
-     "lines": 185
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler.ts",
-     "lines": 539
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/types.ts",
-     "lines": 944
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/engine/world-read-input.ts",
-     "lines": 56
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/facade/artifact-caps.ts",
-     "lines": 49
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/facade/dts.ts",
-     "lines": 449
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/facade/registry.ts",
-     "lines": 284
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/facade/report-caps.ts",
-     "lines": 20
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/facade/world-read-caps.ts",
-     "lines": 37
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/index.ts",
-     "lines": 244
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/lowering/index.ts",
-     "lines": 7
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/lowering/lower.ts",
-     "lines": 376
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/projections.ts",
-     "lines": 107
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/schema/actor-submit-profiles.ts",
-     "lines": 98
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/schema/emit.ts",
-     "lines": 319
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/schema/jsdoc.ts",
-     "lines": 88
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/schema/serialize.ts",
-     "lines": 23
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/schema/synthesize.ts",
-     "lines": 169
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/schema/types.ts",
-     "lines": 90
-    },
-    {
-     "p": "apps/zcode-cli/packages/dynamic-workflow/src/schema/validate.ts",
-     "lines": 224
-    }
-   ]
+   "notes": "W3-8:engine 的 hash/scheduler-submit/run-terminal/engine-settlement 读到体。剩余 analysis 52 整目录未读(单独一票)、engine 21、schema 7、facade 5。"
   },
   {
    "path": "apps/zcode-cli/packages/tui",
@@ -4690,59 +2829,13 @@
   },
   {
    "path": "apps/zcode-cli/tools",
-   "status": "deep",
+   "status": "windowed",
    "files": 11,
-   "read": 11,
+   "read": 4,
    "notes": "prompt-trajectory 族的连续性/账本/投影四件读到体;cache_control 忽略逻辑属 Anthropic 提示缓存漂移字段,我方 provider 侧无此形状 ⇒ 不抄。",
-   "remaining": "7 未整读。 ｜b76(2026-09-30)新增清单 11 份,计入 read 7 份(其余 4 份与早期无清单自报重叠、不可枚举 ⇒ 按下界计) b76:清单覆盖面上全部文件 ⇒ 升 deep(可即时问责)",
+   "remaining": "7 未整读。",
    "evidence": [
     "apps/zcode-cli/tools/prompt-trajectory/src/message-ledger.ts:21"
-   ],
-   "readFiles": [
-    {
-     "p": "apps/zcode-cli/tools/prompt-trajectory/src/cli.ts",
-     "lines": 158
-    },
-    {
-     "p": "apps/zcode-cli/tools/prompt-trajectory/src/derive.ts",
-     "lines": 390
-    },
-    {
-     "p": "apps/zcode-cli/tools/prompt-trajectory/src/fixture.ts",
-     "lines": 156
-    },
-    {
-     "p": "apps/zcode-cli/tools/prompt-trajectory/src/message-continuity.ts",
-     "lines": 42
-    },
-    {
-     "p": "apps/zcode-cli/tools/prompt-trajectory/src/message-ledger.ts",
-     "lines": 116
-    },
-    {
-     "p": "apps/zcode-cli/tools/prompt-trajectory/src/model-io.ts",
-     "lines": 392
-    },
-    {
-     "p": "apps/zcode-cli/tools/prompt-trajectory/src/openai-provider-proxy.ts",
-     "lines": 430
-    },
-    {
-     "p": "apps/zcode-cli/tools/prompt-trajectory/src/openai-response-assembler.ts",
-     "lines": 212
-    },
-    {
-     "p": "apps/zcode-cli/tools/prompt-trajectory/src/prompt.ts",
-     "lines": 89
-    },
-    {
-     "p": "apps/zcode-cli/tools/prompt-trajectory/src/record.ts",
-     "lines": 373
-    },
-    {
-     "p": "apps/zcode-cli/tools/prompt-trajectory/src/types.ts",
-     "lines": 43
-    }
    ]
   },
   {
