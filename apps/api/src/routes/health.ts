@@ -103,7 +103,9 @@ export const healthRoutes: FastifyPluginAsync = async (server) => {
             ? 'partial'
             : 'missing',
     }
-    if (config.NODE_ENV === 'production') {
+    // G-998138:生产守卫档位经 config 唯一出口(缺省 fail-safe 当生产;
+    // 旧测试 mock 的 config 缺 isProductionGuard ⇒ 旧判据回退)
+    if (config.isProductionGuard ?? config.NODE_ENV === 'production') {
       if (!wxPrivateKey) {
         request.log.warn('⚠️ 生产环境未配置微信支付私钥,所有支付走 mock')
       }
