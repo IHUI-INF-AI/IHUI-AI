@@ -41,6 +41,10 @@
  *              留着就是"看着有守卫其实空转")。
  *  LAND_ROOT   测试/换仓通道:被落地的仓库根(缺省 = 本脚本所在仓根)
  *  LAND_BASE_REF 取证通道:防覆盖对账的基线 ref(缺省 HEAD;只有测试用它造"别人已改过"的现场)
+ *  LAND_DANGLING_GATE 测试通道:涉事判据门体的可执行路径(缺省 = 与本器同目录的
+ *              check-dangling-local-imports.mjs;生产恒走缺省,测试指桩脚本。门体按仓库根
+ *              自推导,不跟 LAND_ROOT 走 —— 桩只仿"退出码 0/1/2"的传输,不仿判据本身)
+ *  IHUI_LAND_SKIP_DANGLING_GATE=1 应急跳过涉事判据(默认必跑;跳过打一行留痕,仅应急)
  *  LAND_ALLOW_STALE 显式放行"陈旧落地"(见 staleLandingGuard 的成因),放行时必打一行留痕
  *              (只对工作树模式有意义;blob 模式的对应判据是祖先对账,不放行)
  *  LAND_JSON_STRUCTURE=1 (G-816037)声明"本次落地面是机器格式化 JSON"⇒ 行级复活那一支可走
@@ -1305,6 +1309,40 @@ function relativeImportGaps({ root, files, listTree, readBlob }) {
   return { scanned, missing, undetermined }
 }
 
+// G-815985 涉事判据:声明路径含源码时,在 commit-tree 之前对 onTree 那棵树跑守门 98。
+// 为什么是子进程而不是 import 门体:门体 import 期崩溃会连带杀死本器(本仓 G-815410 实测:
+// 他人未提交的半成品被 import 解析到 ⇒ 整条收敛通道停摆);子进程崩了只是一次"取不到结论",
+// 按 fail-closed 拒绝落盘。为什么是 `--rev <tree>` 而不是先 commit-tree 再审:拒落时已创建的
+// commit 对象会变成 unreachable,给守门 30a 留地雷(正是 onTree 存在的原因),故门体必须会审树。
+// 触发面复用本文件既有的 SOURCE_LIKE_RE(不另立第二份扩展名表;与门体 SRC_RE 的同形由镜像形状锁钉死)。
+function runDanglingGate({ tree, anchor }) {
+  const gate =
+    String(process.env.LAND_DANGLING_GATE ?? '').trim() ||
+    join(dirname(fileURLToPath(import.meta.url)), 'check-dangling-local-imports.mjs')
+  try {
+    const out = execFileSync(process.execPath, [gate, '--rev', tree, '--anchor', anchor], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120000,
+      maxBuffer: 64 << 20,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return { pass: true, out: String(out) }
+  } catch (e) {
+    const rc = e.status ?? 9
+    const out = String((e.stdout ?? '') + (e.stderr ?? ''))
+    if (/已跳过/.test(out))
+      return {
+        pass: false,
+        undetermined: true,
+        why: `涉事判据未判定(门自称跳过,跳过等于没审):${gate}`,
+        out,
+      }
+    if (rc === 1) return { pass: false, why: '涉事判据判红(悬空具名导入/影子 .js),拒绝落盘', out }
+    return { pass: false, undetermined: true, why: `涉事判据未判定(rc=${rc}),拒绝落盘`, out }
+  }
+}
+
 async function main() {
   const parsed = parseArgs()
   if (parsed.error) {
@@ -1315,7 +1353,9 @@ async function main() {
   const skipWatermark = process.env.IHUI_LAND_SKIP_WATERMARK === '1'
   // 与水印预检同级:默认必查,跳过要出声(IHUI_LAND_SKIP_IMPORT_CHECK=1)。
   const skipImportCheck = process.env.IHUI_LAND_SKIP_IMPORT_CHECK === '1'
+  const skipDanglingGate = process.env.IHUI_LAND_SKIP_DANGLING_GATE === '1'
   let importGaps = { scanned: 0, missing: [], undetermined: [] }
+  let danglingGate = null
 
   const head0 = git(['rev-parse', 'HEAD'], { root })
   const base = new Map(paths.map((p) => [p, headBlobOf(baseRef, p, { root })]))
@@ -1476,20 +1516,38 @@ async function main() {
       baseRef: head,
       // 校验放在 write-tree 之后、commit-tree 之前:被拒时不产生任何 commit 对象,
       // 因此不会给守门 30a 留"unreachable commit"地雷(它只数 commit 行)。
-      onTree: skipImportCheck
-        ? undefined
-        : (tree) => {
-            const g = relativeImportGaps({
-              root,
-              files: entries,
-              listTree: git(['ls-tree', '-r', '--name-only', '-z', tree], { root }),
-              readBlob: (f) => git(['cat-file', 'blob', f.blob], { root }),
-            })
-            importGaps = g
-            return g.missing.length > 0 ? `悬空相对引用 ${g.missing.length} 处` : ''
-          },
+      onTree: (tree) => {
+        if (!skipImportCheck) {
+          const g = relativeImportGaps({
+            root,
+            files: entries,
+            listTree: git(['ls-tree', '-r', '--name-only', '-z', tree], { root }),
+            readBlob: (f) => git(['cat-file', 'blob', f.blob], { root }),
+          })
+          importGaps = g
+          if (g.missing.length > 0) return `悬空相对引用 ${g.missing.length} 处`
+        }
+        // G-815985:源码落盘前跑涉事判据(门 98 `--rev <tree>`,锚点=本轮 CAS 基线 head)。
+        // 与相对引用预检同处 commit-tree 之前,拒落时同样不产生 commit 对象。
+        if (!skipDanglingGate && entries.some((e) => SOURCE_LIKE_RE.test(e.path))) {
+          const r = runDanglingGate({ tree, anchor: head })
+          danglingGate = r
+          if (!r.pass) return r.why
+        }
+        return ''
+      },
     })
     if (made.rejected) {
+      if (danglingGate && !danglingGate.pass) {
+        console.error(`❌ ${danglingGate.why}(未创建任何 commit、HEAD 与主索引均未动):`)
+        for (const line of String(danglingGate.out ?? '').split('\n').slice(-12))
+          if (line.trim()) console.error(`   ${line.slice(0, 220)}`)
+        console.error(
+          '   出路:把悬空导入修掉后重落。' +
+            '应急跳过 IHUI_LAND_SKIP_DANGLING_GATE=1(会把跳过那行打进输出留痕)',
+        )
+        process.exit(danglingGate.undetermined ? 2 : 1)
+      }
       console.error(`❌ 悬空相对引用预检不通过,拒绝落地(未创建任何 commit、HEAD 与主索引均未动):`)
       for (const m of importGaps.missing) {
         console.error(
@@ -1512,6 +1570,13 @@ async function main() {
       )
     } else {
       console.log('⚠️ IHUI_LAND_SKIP_IMPORT_CHECK=1 ⇒ 本次跳过悬空相对引用预检(该行输出即留痕)')
+    }
+    if (skipDanglingGate) {
+      console.log('⚠️ IHUI_LAND_SKIP_DANGLING_GATE=1 ⇒ 本次跳过涉事判据(门 98 --rev)(该行输出即留痕)')
+    } else if (danglingGate) {
+      console.log(`✅ 涉事判据(门 98 --rev <tree>):通过,落盘树无新增悬空`)
+    } else {
+      console.log('ℹ️ 涉事判据未触发:声明面无源码路径(门 98 只审源码)')
     }
     const commit = made.commit
     if (casUpdateRef(commit, head, { root })) {
