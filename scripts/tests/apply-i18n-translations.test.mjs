@@ -23,7 +23,8 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import os from 'node:os'
+// §26:临时夹具唯一落点(活进程 os.tmpdir() 可能仍钉在 C 盘,禁用)
+import { mkScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -33,7 +34,7 @@ const LANGS = ['ja', 'ko', 'zh-CN', 'zh-TW']
 
 // ─── 辅助:创建临时项目根目录(含 apps/web/messages/ + .ihui-agent/goal-runtime/) ───
 function createTempProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-apply-i18n-'))
+  const root = mkScratch('ihui-apply-i18n-')
   fs.mkdirSync(path.join(root, 'apps', 'web', 'messages'), { recursive: true })
   fs.mkdirSync(path.join(root, '.ihui-agent', 'goal-runtime'), { recursive: true })
   return root
