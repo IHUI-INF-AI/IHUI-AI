@@ -37,14 +37,15 @@ import {
   normalizeTier,
 } from '@ihui/shared'
 import type { ModelTier, ModelUsageCategory } from '@ihui/types'
-import { tokens } from '../theme/active-tokens'
+import { tokens , currentRnTheme} from '../theme/active-tokens'
 import { ChevronDown, ChevronUp, History, Search } from 'lucide-react-native'
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import ModelList, { type ModelListItem, type ModelListGroup } from './ModelList'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 
 import { rnRadiusFor } from '@ihui/design-tokens'
+import { TextField } from '@ihui/rn-app'
 
 // 调用方需要用它自己组装条目(category / modelTier 是 ModelListItem 的字段),此处转出
 export type { ModelListItem }
@@ -190,7 +191,8 @@ export default function ModelPickerList({
             <View style={styles.archiveWrap}>
               <View style={styles.searchRow}>
                 <Search size={16} color={tokens.text.tertiary} />
-                <TextInput
+                <TextField
+                  colorScheme={currentRnTheme()}
                   style={styles.searchInput}
                   value={keyword}
                   onChangeText={setKeyword}

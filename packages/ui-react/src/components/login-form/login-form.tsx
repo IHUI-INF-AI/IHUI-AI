@@ -18,15 +18,20 @@ import { ThirdPartyLoginButtons } from './third-party-login-buttons'
 import type { LoginFormProps, LoginTab } from './types'
 
 /**
- * 登录方式 Tab 选中态背景(2026-07-30 立,用户要求)
- * 亮色模式纯白 / 暗色模式纯黑,覆盖 TabsTrigger 默认的 bg-background(浅灰/深灰)。
+ * 登录方式 Tab 选中态背景(2026-07-30 立,用户要求;2026-09-30 收口到具名档)
+ * 亮色纯白 / 暗色纯黑 —— 取值改走 tokens.css 的 --color-selection(与同主题
+ * --color-foreground 成对的 --color-selection-foreground 作前景),端里不得再写死
+ * bg-white / dark:bg-black:三端(App 走 rnTokens.selection、小程序走同一对 CSS 变量)
+ * 此前各取一档,暗色档案下 App=纯黑而小程序=--color-card(#1A1A1A),真机实拍分叉。
+ * 新旧取值逐位同值(亮 hsl(0 0% 100%)=#FFFFFF、暗 hsl(0 0% 0%)=#000000)⇒ web 观感零变化。
  * 仅作用于登录场景的 TabsTrigger,不影响其他 Tabs。
  */
 const loginTabActiveClassName =
   // 2026-09-21 立:h-8 TabsList(32px) - p-1(8px) = 24px 内容区,trigger 基类 py-1+行高20px=28px
   // 会溢出 4px 且 grid 隐式行从顶部排,溢出全堆底部 → 选中胶囊上 4px/下 0px 不对称。
   // h-6 py-0 让 trigger 正好填满 24px,四周均匀 4px 灰边(twMerge 覆盖基类 py-1)。
-  'h-6 py-0 data-[state=active]:bg-white dark:data-[state=active]:bg-black'
+  // 前景与实底成对写(§4「品牌实底 + 其上文字必须成对」),值与基类 text-foreground 同档。
+  'h-6 py-0 data-[state=active]:bg-selection data-[state=active]:text-selection-foreground'
 
 /**
  * 共享 LoginForm 组件(2026-07-26 立)

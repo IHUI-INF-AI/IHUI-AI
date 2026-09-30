@@ -126,6 +126,36 @@
       "keys": ["studyPublish.title"],
       "reason": "web 与 mobile-rn 两面的 studyPublish 命名空间只剩一个 title 键,而全仓对 studyPublish 的引用为 0(git grep 全量,除 packages/i18n/messages/ 自身外零命中,含 packages/、deploy/ 与测试面)。最后一个消费者由 3acac2bdcb(2026-09-28,GA7 后续① 双层页头收敛)移除 —— 那枚提交删掉了画这个页头的分支,文案留在原地,于是守门 2i(dead-key)在**干净 HEAD** 上判红并挡住每一次提交,而它的批外位置让全部 183 道门都要陪着被跳(§12e/§12f 同型)。回潮判据:若重新引入「发布课程」这一屏,须连同页头与文案一起恢复并按当次措辞重写,不得只补词。",
       "until": "2027-09-27"
+    },
+    {
+      "file": "packages/i18n/messages/web/en.json",
+      "keys": ["accounts.selectPlatform"],
+      "reason": "枚 19af1cce6c 把扫码弹窗的平台选择改成 pill 网格,删掉了唯一引用 t('accounts.selectPlatform')(该枚 ScanLoginDialog.tsx 的差分里就是那一行 -),键留在五个 web 语言包 ⇒ pre-commit 批外步骤「i18n 死 key 扫描」判红并挡住每一次提交(§12f:红在干净 HEAD 上须先修,否则各会话合法 --no-verify、该枚提交上全部守门作废)。引用面复验口径:该键在 HEAD 的代码面零命中(除语言包自身),且无 t(`accounts.${…}`) / useTranslations('accounts') 动态拼接;同叶名的 publish.accounts.selectPlatform 与 publish.preview.selectPlatform 两档仍在位(有人用),只摘顶层 accounts 这一条。",
+      "until": "2027-09-30"
+    },
+    {
+      "file": "packages/i18n/messages/web/ja.json",
+      "keys": ["accounts.selectPlatform"],
+      "reason": "枚 19af1cce6c 把扫码弹窗的平台选择改成 pill 网格,删掉了唯一引用 t('accounts.selectPlatform')(该枚 ScanLoginDialog.tsx 的差分里就是那一行 -),键留在五个 web 语言包 ⇒ pre-commit 批外步骤「i18n 死 key 扫描」判红并挡住每一次提交(§12f:红在干净 HEAD 上须先修,否则各会话合法 --no-verify、该枚提交上全部守门作废)。引用面复验口径:该键在 HEAD 的代码面零命中(除语言包自身),且无 t(`accounts.${…}`) / useTranslations('accounts') 动态拼接;同叶名的 publish.accounts.selectPlatform 与 publish.preview.selectPlatform 两档仍在位(有人用),只摘顶层 accounts 这一条。",
+      "until": "2027-09-30"
+    },
+    {
+      "file": "packages/i18n/messages/web/ko.json",
+      "keys": ["accounts.selectPlatform"],
+      "reason": "枚 19af1cce6c 把扫码弹窗的平台选择改成 pill 网格,删掉了唯一引用 t('accounts.selectPlatform')(该枚 ScanLoginDialog.tsx 的差分里就是那一行 -),键留在五个 web 语言包 ⇒ pre-commit 批外步骤「i18n 死 key 扫描」判红并挡住每一次提交(§12f:红在干净 HEAD 上须先修,否则各会话合法 --no-verify、该枚提交上全部守门作废)。引用面复验口径:该键在 HEAD 的代码面零命中(除语言包自身),且无 t(`accounts.${…}`) / useTranslations('accounts') 动态拼接;同叶名的 publish.accounts.selectPlatform 与 publish.preview.selectPlatform 两档仍在位(有人用),只摘顶层 accounts 这一条。",
+      "until": "2027-09-30"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-CN.json",
+      "keys": ["accounts.selectPlatform"],
+      "reason": "枚 19af1cce6c 把扫码弹窗的平台选择改成 pill 网格,删掉了唯一引用 t('accounts.selectPlatform')(该枚 ScanLoginDialog.tsx 的差分里就是那一行 -),键留在五个 web 语言包 ⇒ pre-commit 批外步骤「i18n 死 key 扫描」判红并挡住每一次提交(§12f:红在干净 HEAD 上须先修,否则各会话合法 --no-verify、该枚提交上全部守门作废)。引用面复验口径:该键在 HEAD 的代码面零命中(除语言包自身),且无 t(`accounts.${…}`) / useTranslations('accounts') 动态拼接;同叶名的 publish.accounts.selectPlatform 与 publish.preview.selectPlatform 两档仍在位(有人用),只摘顶层 accounts 这一条。",
+      "until": "2027-09-30"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-TW.json",
+      "keys": ["accounts.selectPlatform"],
+      "reason": "枚 19af1cce6c 把扫码弹窗的平台选择改成 pill 网格,删掉了唯一引用 t('accounts.selectPlatform')(该枚 ScanLoginDialog.tsx 的差分里就是那一行 -),键留在五个 web 语言包 ⇒ pre-commit 批外步骤「i18n 死 key 扫描」判红并挡住每一次提交(§12f:红在干净 HEAD 上须先修,否则各会话合法 --no-verify、该枚提交上全部守门作废)。引用面复验口径:该键在 HEAD 的代码面零命中(除语言包自身),且无 t(`accounts.${…}`) / useTranslations('accounts') 动态拼接;同叶名的 publish.accounts.selectPlatform 与 publish.preview.selectPlatform 两档仍在位(有人用),只摘顶层 accounts 这一条。",
+      "until": "2027-09-30"
     }
   ]
 }
