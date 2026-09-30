@@ -42,7 +42,7 @@
     "directory": "packages/i18n"
   },
   "scripts": {
-    "build": "rimraf dist && tsc -p tsconfig.json",
+    "build": "node ../../scripts/lib/atomic-build.mjs -p tsconfig.json",
     "lint": "eslint src/",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
