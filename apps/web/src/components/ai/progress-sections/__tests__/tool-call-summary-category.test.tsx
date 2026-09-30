@@ -65,17 +65,12 @@ describe('D58 卡片 · 同类连续聚合成卡(被中断断卡)', () => {
   it('连续同类合并:read,read,read → 仅 1 张 file_read 卡', () => {
     const { container } = render(
       <ToolCallSummaryCard
-        toolCalls={[
-          { toolName: 'read_file' },
-          { toolName: 'read_file' },
-          { toolName: 'read_file' },
-        ]}
+        toolCalls={[{ toolName: 'read_file' }, { toolName: 'read_file' }, { toolName: 'read_file' }]}
       />,
     )
     const cards = container.querySelectorAll('[data-testid^="tool-call-category-"]')
     expect(cards).toHaveLength(1)
-    // ?. :缺元素时 getAttribute 得 undefined,对具体期望照样判失败
-    expect(cards[0]?.getAttribute('data-testid')).toBe('tool-call-category-file_read')
+    expect(cards[0]!.getAttribute('data-testid')).toBe('tool-call-category-file_read')
   })
 })
 
@@ -97,7 +92,7 @@ describe('D58 卡片 · 折叠点击埋点', () => {
     fireEvent.click(header)
 
     expect(track).toHaveBeenCalledTimes(1)
-    const event = track.mock.calls[0]?.[0]
+    const event = track.mock.calls[0]![0]
     expect(event.name).toBe('tool_category_toggle')
     expect(event.category).toBe('ai')
     expect(event.props).toMatchObject({
@@ -109,13 +104,15 @@ describe('D58 卡片 · 折叠点击埋点', () => {
 
   it('不同类目卡各自上报对应 group_key', () => {
     const { container } = render(
-      <ToolCallSummaryCard toolCalls={[{ toolName: 'run_command' }, { toolName: 'web_search' }]} />,
+      <ToolCallSummaryCard
+        toolCalls={[{ toolName: 'run_command' }, { toolName: 'web_search' }]}
+      />,
     )
     const cmdCard = container.querySelector('[data-testid="tool-call-category-command"]')!
     fireEvent.click(cmdCard.querySelector<HTMLElement>('button[data-section-header="true"]')!)
 
     expect(track).toHaveBeenCalledTimes(1)
-    expect(track.mock.calls[0]?.[0].props).toMatchObject({
+    expect(track.mock.calls[0]![0].props).toMatchObject({
       cardType: 'tool_category',
       group_key: 'command',
       children_count: 1,
@@ -135,9 +132,7 @@ describe('D58 卡片 · ShowMoreList "更多"容器', () => {
       'web_search',
       'use_skill',
     ]
-    const { container } = render(
-      <ToolCallSummaryCard toolCalls={tools.map((t) => ({ toolName: t }))} />,
-    )
+    const { container } = render(<ToolCallSummaryCard toolCalls={tools.map((t) => ({ toolName: t }))} />)
     const more = container.querySelector('[data-testid="tool-call-summary-category-list-more"]')
     expect(more).not.toBeNull()
     // 按钮文案含隐藏数量
