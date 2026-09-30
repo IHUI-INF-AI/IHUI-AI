@@ -1007,3 +1007,87 @@ def test_resource_trim_blocks_known_trackers_only():
 
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+
+# --- 会话复用(2026-09-30):常驻登录档 + 复用/强制新扫码两档语义 ---
+
+
+def test_scan_task_reuse_session_default_and_propagation():
+    """复用档默认开(前端不下发时行为=尝试复用);create_task 必须把开关带进任务。"""
+    t = scan_login_mod.ScanTask(task_id="t", user_id="u", platform="zhihu")
+    assert t.reuse_session is True
+    task_off = scan_login_mod.create_task("u-test-reuse", "zhihu", reuse_session=False)
+    assert task_off.reuse_session is False
+    task_on = scan_login_mod.create_task("u-test-reuse", "zhihu")
+    assert task_on.reuse_session is True
+
+
+def test_platform_profile_dir_env_override_and_sanitize(monkeypatch, tmp_path):
+    """profile 目录:env 可整体改位;平台名做文件名净化(不许把 / 等带进路径)。"""
+    monkeypatch.setenv("SCAN_LOGIN_PROFILE_DIR", str(tmp_path))
+    d = scan_login_mod._platform_profile_dir("zhihu")
+    assert d == tmp_path / "zhihu"
+    monkeypatch.delenv("SCAN_LOGIN_PROFILE_DIR", raising=False)
+    d2 = scan_login_mod._platform_profile_dir("toutiao_app")
+    assert "scan-profiles" in str(d2) and d2.name == "toutiao_app"
+    d3 = scan_login_mod._platform_profile_dir("a/b c")
+    assert d3.name == "a_b_c"
+
+
+class _FakeLeaseContext:
+    def __init__(self, tag: str) -> None:
+        self.tag = tag
+
+    def close(self) -> None:
+        pass
+
+
+class _FakeLeaseBrowser:
+    def new_context(self, **kw: object) -> _FakeLeaseContext:
+        return _FakeLeaseContext("ephemeral")
+
+    def close(self) -> None:
+        pass
+
+
+class _FakePlaywright:
+    def __init__(self, persistent_raises: bool) -> None:
+        self.persistent_raises = persistent_raises
+
+    @property
+    def chromium(self) -> "_FakePlaywright":
+        return self
+
+    def launch_persistent_context(self, user_data_dir: str, **kw: object) -> _FakeLeaseContext:
+        if self.persistent_raises:
+            raise RuntimeError("profile in use")
+        return _FakeLeaseContext("persistent")
+
+    def launch(self, **kw: object) -> _FakeLeaseBrowser:
+        return _FakeLeaseBrowser()
+
+
+def test_open_browser_and_lease_persistent_fallback_and_kill_switch(monkeypatch, tmp_path):
+    """常驻档成功→无独立 browser;启动失败(如同平台并发占用)→静默退回临时档;
+    SCAN_LOGIN_PERSISTENT_PROFILE=0 → 直接临时档。复用/缓存档绝不能变成故障档。"""
+    monkeypatch.setenv("SCAN_LOGIN_PROFILE_DIR", str(tmp_path))
+    lease = scan_login_mod._open_browser_and_lease(_FakePlaywright(False), "zhihu", None)
+    assert lease._browser is None and lease.context.tag == "persistent"
+    assert (tmp_path / "zhihu").is_dir()
+
+    lease2 = scan_login_mod._open_browser_and_lease(_FakePlaywright(True), "zhihu", None)
+    assert lease2._browser is not None and lease2.context.tag == "ephemeral"
+
+    monkeypatch.setenv("SCAN_LOGIN_PERSISTENT_PROFILE", "0")
+    lease3 = scan_login_mod._open_browser_and_lease(_FakePlaywright(False), "zhihu", None)
+    assert lease3._browser is not None and lease3.context.tag == "ephemeral"
+
+
+def test_start_scan_request_reuse_session_field():
+    """API 契约:reuse_session 默认 True(老客户端零改动即得复用语义),可显式关。"""
+    from app.routers.scan_login import StartScanRequest
+
+    req = StartScanRequest(platform="zhihu")
+    assert req.reuse_session is True
+    req2 = StartScanRequest(platform="zhihu", reuse_session=False)
+    assert req2.reuse_session is False
