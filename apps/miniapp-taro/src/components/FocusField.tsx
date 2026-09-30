@@ -2,20 +2,76 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * 团队知识引擎(D29)跨端契约类型(b76-09b 票1 立)。
- *
- * 背景:PUT /api/knowledge-team/items/:itemId 的乐观并发冲突(409 REVISION_CONFLICT),
- * 服务端在裁决那一刻已经知道 `item.revision` 的真值,旧实现只把它写进 message 文案,
- * 客户端要么 parse 文案、要么重新 GET 再撞一遍。本类型把"裁决时事实"定为结构化契约:
- * 调用方**读字段**收敛重试,不读文案。
- */
+import { Input, Textarea } from '@tarojs/components'
+import type { InputProps, TextareaProps } from '@tarojs/components'
+import type { CSSProperties } from 'react'
+import { useFieldFocus } from '@/hooks/use-field-focus'
 
-/** 409 REVISION_CONFLICT 响应体 `data` 字段的结构化载荷 */
-export interface RevisionConflictPayload {
-  /** 服务端裁决那一刻条目的真值 revision —— 调用方直接把它当下一次 expectedRevision 重试 */
-  currentRevision: number
-  /** 调用方本次请求所基于的版本号(原样回显,便于诊断收敛过程) */
-  expectedRevision: number
+export { useFieldFocus } from '@/hooks/use-field-focus'
+
+/**
+ * 带聚焦描边的输入框/多行输入 —— 小程序端的唯一实现(对位 RN 侧
+ * packages/app/src/components/TextField.tsx 与 web 侧的 `focus:*` 工具类)。
+ *
+ * 立因(2026-09-30):端内 31 处"有描边的输入框对聚焦无反应"(wxss 不支持 `:focus`
+ * 伪类,此前唯一接了聚焦态的只有登录页一行)。描边取色只有一个出处 ——
+ * hooks/use-field-focus.ts 的 `var(--color-primary)` 墨档(亮纯黑/暗纯白,聚焦只换色
+ * 不换宽 ⇒ 零布局跳动),本组件不做第二份取色。
+ *
+ * 用法:直接替换 `<Input` ⇒ `<FocusInput`、`<Textarea` ⇒ `<FocusTextarea`,
+ * 其余 props 原样透传;调用方自带的 onFocus/onBlur 会被链式调用而不是覆盖。
+ * 描边画在外层容器上的形态(WRAP)不用本组件:在容器组件顶部取
+ * `const ff = useFieldFocus()`,Input 上铺 `{...ff.spread}`、容器上铺 `style={ff.focusStyle}`。
+ */
+type FocusProps<B> = Omit<B, 'style' | 'onFocus' | 'onBlur'> & {
+  style?: string | CSSProperties
+  onFocus?: B extends { onFocus?: infer F } ? F : never
+  onBlur?: B extends { onBlur?: infer F } ? F : never
+}
+
+/** 聚焦描边叠加在调用方 style 之上(调用方的其它样式字段优先,聚焦色最后落) */
+function mergeStyle(
+  style: string | CSSProperties | undefined,
+  focusStyle: CSSProperties | undefined,
+): string | CSSProperties | undefined {
+  if (!focusStyle) return style
+  if (typeof style === 'string') return `${style};border-color:var(--color-primary)`
+  return { ...style, ...focusStyle }
+}
+
+export function FocusInput({ style, onFocus, onBlur, ...rest }: FocusProps<InputProps>) {
+  const ff = useFieldFocus()
+  return (
+    <Input
+      {...rest}
+      style={mergeStyle(style, ff.focusStyle)}
+      onFocus={(e) => {
+        ff.onFocus()
+        onFocus?.(e)
+      }}
+      onBlur={(e) => {
+        ff.onBlur()
+        onBlur?.(e)
+      }}
+    />
+  )
+}
+
+export function FocusTextarea({ style, onFocus, onBlur, ...rest }: FocusProps<TextareaProps>) {
+  const ff = useFieldFocus()
+  return (
+    <Textarea
+      {...rest}
+      style={mergeStyle(style, ff.focusStyle)}
+      onFocus={(e) => {
+        ff.onFocus()
+        onFocus?.(e)
+      }}
+      onBlur={(e) => {
+        ff.onBlur()
+        onBlur?.(e)
+      }}
+    />
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
