@@ -11,19 +11,40 @@
 - 2026-09-16 补:_parse_raw_cookies 手动导入 Cookie 三格式解析(JSON/cookies.txt/请求头)
 - 2026-09-29 补:扫码 tab 顺序点击计划 + qq/sohu/zhihu_daily 死链实证修复 +
   ptlogin2 二维码(#qrlogin_img/ptqrshow)选择器次序
+- 2026-09-30 补(出码提速守门):_entry_plan 的预算/短路/回调三态、_sel_clickable_now
+  的可点判据与 bounding_box 反向锁、_browser_safe 过滤面、_click_selector_any_page
+  的跨页与"新→旧"次序,以及"热路径不得再有固定等待"的源码级反向锁。
 """
 
 from __future__ import annotations
 
+import inspect
+import io
+import re
+import time
+import tokenize
+
+from app.services import scan_login as scan_login_mod
 from app.services.scan_login import (
+    _DEFAULT_QR_READY_SELECTORS,
     _QR_ELEMENT_SELECTORS,
     PLATFORM_SCAN_CONFIG,
     ScanTask,
+    _browser_safe,
+    _browser_safe_selectors,
+    _click_selector_any_page,
     _cookie_hits,
+    _entry_plan,
     _extract_qr_image,
     _login_page_open_failure_message,
     _parse_raw_cookies,
+    _qr_ready_selectors,
+    _ready_probe,
+    _sel_clickable_now,
+    _task_from_dict,
+    _task_to_dict,
     _url_is_login_page,
+    _wait_for_page_ready,
 )
 
 
@@ -50,14 +71,46 @@ def test_is_terminal_non_terminal_statuses():
 
 
 def test_snapshot_fields():
-    """snapshot 返回完整可序列化字段。"""
-    snap = _task("pending").snapshot()
-    assert snap["task_id"] == "t1"
-    assert snap["user_id"] == "u1"
-    assert snap["platform"] == "wechat"
-    assert snap["status"] == "pending"
-    assert snap["has_qr"] is False
-    assert snap["cookies_count"] == 0
+    """snapshot 必须带全前端契约字段(2026-09-30 增 stage:出码进度阶梯)。"""
+    snap = _task("waiting_scan").snapshot()
+    for field in (
+        "task_id",
+        "user_id",
+        "platform",
+        "status",
+        "message",
+        "stage",
+        "has_qr",
+        "qr_updated_at",
+        "cookies_count",
+        "account_id",
+        "created_at",
+        "completed_at",
+    ):
+        assert field in snap, f"snapshot 缺字段 {field}: {sorted(snap)}"
+    # 原有用例的取值断言一并保留(字段名对了但值取错同样会坏前端契约)
+    loose = _task("pending").snapshot()
+    assert loose["task_id"] == "t1"
+    assert loose["user_id"] == "u1"
+    assert loose["platform"] == "wechat"
+    assert loose["status"] == "pending"
+    assert loose["has_qr"] is False
+    assert loose["cookies_count"] == 0
+
+
+def test_snapshot_stage_defaults_to_booting_and_round_trips_through_redis():
+    """进度阶梯的默认档与 Redis 往返:默认 booting(浏览器还没起来),
+    写进 Redis 再读回来必须逐字一致 —— 多实例轮询读的是 Redis 那份,丢了就等于
+    前端永远停在第一档(用户看到的还是"没变化")。"""
+    task = _task("pending")
+    assert task.snapshot()["stage"] == "booting"
+    task.stage = "rendering"
+    restored = _task_from_dict(_task_to_dict(task))
+    assert restored.stage == "rendering"
+    # 老版本写下的 Redis 快照没有 stage 字段:读回来必须退到 booting,而不是空串
+    legacy = _task_to_dict(task)
+    legacy.pop("stage")
+    assert _task_from_dict(legacy).stage == "booting"
 
 
 def test_snapshot_has_qr_and_cookies():
@@ -411,5 +464,546 @@ def test_login_page_open_failure_message_keeps_our_own_errors():
 
     msg = _login_page_open_failure_message(SelectorErr('waiting for locator "#nope"'))
     assert "打开登录页失败" in msg and "SelectorErr" in msg and "#nope" in msg, msg
+
+
+# ---------------------------------------------------------------------------
+# 2026-09-30 出码提速:把"固定等 N 秒"换成"就绪即走"的那套判据。
+#
+# 立因(本机实测,platform=toutiao_app):sync_playwright+launch+context+goto ≈ 1.25s,
+# 而 goto 后固定 3s + 切 tab 后固定 1.5s + 截图前固定 2s = 6.5s ⇒ 首个二维码 7.8s 才可用。
+# 下面几条钉住替换后的三个不变量:① 候选全落空时**行为与旧版等价**(等满就走,不抛异常、
+# 不把任务判死);② Playwright 专有语法不得被送进 querySelectorAll(白跑往返);
+# ③ 就绪即走的短路必须真的短路(不是"看完所有候选才返回")。
+# ---------------------------------------------------------------------------
+class _ReadyFakePage:
+    """只实现被探测用到的两个方法:evaluate(批量选择器)与 wait_for_timeout(等待步进)。"""
+
+    def __init__(self, answers: list[bool] | None = None) -> None:
+        self.answers = list(answers or [])
+        self.evaluate_calls: list[dict] = []
+        self.waits: list[int] = []
+
+    def evaluate(self, _expr: str, arg: dict) -> bool:
+        self.evaluate_calls.append(arg)
+        if self.answers:
+            return self.answers.pop(0)
+        return False
+
+    def wait_for_timeout(self, ms: int) -> None:
+        self.waits.append(ms)
+
+
+def test_wait_for_page_ready_returns_false_without_raising_when_nothing_matches():
+    """全落空 ⇒ 等满上限后返回 False。旧实现是"固定等满照样往下走",这条保证替换后
+    不会把"没等到"变成异常/任务失败(那才是比慢更糟的回归)。"""
+    page = _ReadyFakePage()
+    ok = _wait_for_page_ready(page, ('[class*="qrcode"] img',), timeout_s=0.3)
+    assert ok is False
+    assert page.waits, "必须真的等过(轮询步进),不是立刻放弃"
+    assert all(ms == 120 for ms in page.waits), page.waits
+    assert len(page.evaluate_calls) >= 2, "应当是轮询多次探测,而不是只探一次"
+
+
+def test_wait_for_page_ready_short_circuits_on_first_hit():
+    """就绪即走:第一探没中、第二探命中 ⇒ 立刻返回 True,后续轮询一次都不多余。"""
+    page = _ReadyFakePage([False, True])
+    ok = _wait_for_page_ready(page, ('[class*="qrcode"] img',), timeout_s=5.0)
+    assert ok is True
+    assert len(page.evaluate_calls) == 2, page.evaluate_calls
+    assert len(page.waits) == 1, f"命中后不该再等: {page.waits}"
+
+
+def test_ready_probe_filters_playwright_only_selectors():
+    """Playwright 专有语法(text= / :has-text())在 document.querySelectorAll 里是
+    SyntaxError。送进去只是白跑一次往返(evaluate 必 reject),所以要在 Python 侧滤掉;
+    同时保证合法的 CSS 候选一个都不能被误滤。"""
+    page = _ReadyFakePage([True])
+    _ready_probe(page, ('text=扫码登录', 'div:has-text("扫码")', '[class*="qrcode"] img'))
+    assert page.evaluate_calls, "滤完之后仍有合法候选,必须真的探测"
+    sels = page.evaluate_calls[0]["sels"]
+    assert '[class*="qrcode"] img' in sels
+    assert not [s for s in sels if "text=" in s or ":has-text(" in s], sels
+
+
+def test_ready_probe_skips_evaluate_when_all_candidates_are_playwright_only():
+    """反向对照:全是 Playwright 语法时不该发那次注定失败的 evaluate(省下的是往返)。"""
+    page = _ReadyFakePage([True])
+    assert _ready_probe(page, ('text=扫码登录',)) is False
+    assert page.evaluate_calls == []
+
+
+def test_qr_ready_selectors_put_platform_selectors_first_and_dedupe():
+    """平台点名的选择器必须排在通用默认之前(它更准,先命中就少等),且同值不重复问。"""
+    cfg = {
+        "qr_image_selectors": ('img.qrcode-img',),
+        "qr_element_screenshot": "#animate_qrcode_container",
+    }
+    sels = _qr_ready_selectors(cfg)
+    assert sels[0] == "img.qrcode-img" and sels[1] == "#animate_qrcode_container"
+    assert '[class*="qrcode"] img' in sels, "通用默认必须仍在(平台没配时的兜底)"
+    assert len(sels) == len(set(sels)), "去重保序:同一选择器重复问只是白跑往返"
+
+
+def test_qr_ready_selectors_accept_string_and_sequence_config_shapes():
+    """配置两种写法(字符串 / 序列)都要吃得住 —— 平台表里两种形态都真实存在。"""
+    assert _qr_ready_selectors({"qr_element_screenshot": "#x"})[:1] == ("#x",)
+    assert _qr_ready_selectors({"qr_image_selectors": ("a", "b")})[:2] == ("a", "b")
+    assert _qr_ready_selectors({}) == _DEFAULT_QR_READY_SELECTORS
+
+
+# ---------------------------------------------------------------------------
+# 2026-09-30 出码提速(第二轮)守门:入口轮询 / 可点判据 / 浏览器安全选择器 / 热路径反向锁。
+#
+# 立因(本机实测,platform=toutiao_app 等):出码慢的那几秒**八成不是页面慢,是代码在
+# 固定 sleep** —— 点入口前无条件等(配了点名入口 4s / 没配 1.2s)、点完再固定 1.5s、
+# goto 后固定 3s、截图前固定 2s,合计把每个平台钉在 3.5~8s,而实测入口最早 1.5s 就可点。
+# 替换成"分段各有上限、命中即走"(`_entry_plan` / `_wait_for_page_ready`)之后,正确性
+# 有两个方向都会坏,所以下面每条都按**正例 + 反例**成对写:
+#   慢的一侧:轮询没真的短路 ⇒ 白等(用例钉"命中即走、不再等任何一步");
+#   乱的一侧:① 点到过却返回 False ⇒ 调用方补点一次,页面被点成另一种形态(码层被点掉);
+#             ② 可点判据改用 `bounding_box()` ⇒ 每次判定自带 30s 隐式等待,预算被白等光。
+#
+# 三次变异取证(每条断言都用"故意改坏实现"验过会翻红,实现随后逐字还原;三次都只改
+# scan_login.py 的临时副本,仓库文件一字未动):
+#   变异 1 `_sel_clickable_now` 的 `is_visible()` 换成 `bounding_box()` 量尺寸
+#          ⇒ test_sel_clickable_now_hit_miss_and_exceptions +
+#            test_sel_clickable_now_must_not_use_bounding_box 双红;
+#   变异 2 `_entry_plan` 预算尽头的 `return clicked_once` 改成 `return False`
+#          ⇒ test_entry_plan_returns_true_when_clicked_but_qr_never_appears 红;
+#   变异 3 在热路径 `_pre_wait_sels` 之前插一行 `page.wait_for_timeout(3000)`
+#          ⇒ test_hot_path_has_no_unconditional_fixed_wait_around_entry_click 红。
+# ---------------------------------------------------------------------------
+
+
+class _ScanFakeLocator:
+    """`_sel_clickable_now` 与 `_click_selector_any_page` 用到的 locator 语义子集。
+
+    只实现被测函数真正会调的三件事:count() / first.is_visible() / first.click()。
+    `bounding_box()` 刻意**抛错**:热路径调用它本身就是缺陷(自带 30s 隐式等待),
+    让它既报错又记账,改坏实现时两条断言会一起红。
+    """
+
+    def __init__(self, page: _ScanFakePage, selector: str, first: bool = False) -> None:
+        self._page = page
+        self._selector = selector
+        self._first = first
+
+    @property
+    def first(self) -> _ScanFakeLocator:
+        return _ScanFakeLocator(self._page, self._selector, True)
+
+    def count(self) -> int:
+        if self._page.count_exc is not None:
+            raise self._page.count_exc
+        return self._page.counts.get(self._selector, 0)
+
+    def is_visible(self) -> bool:
+        exc = self._page.visible_exc.get(self._selector)
+        if exc is not None:
+            raise exc
+        return self._selector in self._page.visible
+
+    def bounding_box(self) -> dict[str, float]:
+        self._page.box_calls += 1
+        raise AssertionError("热路径不得调用 bounding_box(自带 30s 隐式等待)")
+
+    def click(self, timeout: float | None = None, force: bool = False) -> None:
+        if self._page.click_exc is not None:
+            raise self._page.click_exc
+        self._page.clicks.append(self._selector)
+
+
+class _ScanFakePage:
+    """一个"最小 Playwright 页面":只实现被测函数真正用到的语义。
+
+    - `locator(sel).count()` / `.first.is_visible()`:由 counts / visible 两张表决定 ——
+      count 只管"存不存在",visible 只管"看不看得见"(与 Playwright 的语义分工一致);
+    - `.first.click()`:记录到 clicks;click_exc 非空则抛(模拟被遮罩拦住,实测头条
+      ttp-modal-mask 就这一型);
+    - `evaluate(...)`:码是否就绪(`_ready_probe` 的出口);只记次数与最近一次入参,
+      不累积 —— 轮询失败路径上它会在一两秒里被调用几十万次;
+    - `wait_for_timeout(...)`:只记账不真等(等待由真实时钟在 `_entry_plan` /
+      `_wait_for_page_ready` 的 deadline 上推进),同样只留计数与去重值。
+    """
+
+    def __init__(
+        self,
+        *,
+        counts: dict[str, int] | None = None,
+        visible: set[str] | None = None,
+        ready: bool = False,
+        ready_after_click: bool = False,
+        count_exc: Exception | None = None,
+        visible_exc: dict[str, Exception] | None = None,
+        click_exc: Exception | None = None,
+    ) -> None:
+        self.counts = dict(counts or {})
+        self.visible = set(visible or ())
+        self.ready = ready
+        self.ready_after_click = ready_after_click
+        self.count_exc = count_exc
+        self.visible_exc = dict(visible_exc or {})
+        self.click_exc = click_exc
+        self.clicks: list[str] = []
+        self.wait_count = 0
+        self.waited_ms: set[int] = set()
+        self.ready_probes = 0
+        self.last_probe: dict = {}
+        self.box_calls = 0
+
+    def mark_clickable(self, *selectors: str) -> None:
+        """把这些选择器标成"现在可点"(count≥1 且 is_visible=True)。"""
+        for sel in selectors:
+            self.counts[sel] = 1
+            self.visible.add(sel)
+
+    def locator(self, selector: str) -> _ScanFakeLocator:
+        return _ScanFakeLocator(self, selector)
+
+    def evaluate(self, _expr: str, arg: dict | None = None) -> bool:
+        self.ready_probes += 1
+        self.last_probe = arg or {}
+        return self.ready or bool(self.ready_after_click and self.clicks)
+
+    def wait_for_timeout(self, ms: int) -> None:
+        self.wait_count += 1
+        self.waited_ms.add(ms)
+
+
+class _ScanFakeContext:
+    """只有 pages 属性的上下文:顺序 = Playwright 的创建序(主页在首位,最新页在末尾)。"""
+
+    def __init__(self, pages: list[_ScanFakePage]) -> None:
+        self.pages = pages
+
+
+# --- _sel_clickable_now(可点判据 + bounding_box 反向锁) ---
+
+
+def test_sel_clickable_now_hit_miss_and_exceptions():
+    """正反例一次钉全:有可见元素 → True;`count()==0` → False;
+    `is_visible()` 抛异常 → False(异常绝不能漏出热路径 —— 漏出去就是任务被判 failed);
+    选择器语法非法(count() 抛 Playwright 的 Error)→ False。
+
+    立因:入口轮询每一轮都要问一次"现在可点吗",这条判据一旦把异常抛出来,首轮探测
+    就会把整个扫码任务打成"扫码登录异常",而它本该只是"还没渲染好,下一轮再问"。
+    """
+    page = _ScanFakePage()
+    page.mark_clickable("a.login-button")
+    assert _sel_clickable_now(page, "a.login-button") is True
+
+    # 反例一:页面上根本没有这个元素(SSR 还没渲染出来)
+    assert _sel_clickable_now(_ScanFakePage(), "a.login-button") is False
+
+    # 反例二:元素在,但可见性判定抛异常(页面已导航 / execution context destroyed)
+    broken = _ScanFakePage(
+        counts={"a.login-button": 1},
+        visible_exc={"a.login-button": RuntimeError("Execution context was destroyed")},
+    )
+    assert _sel_clickable_now(broken, "a.login-button") is False
+
+    # 反例三:选择器语法非法 —— Playwright 在 count() 阶段就抛,必须吞掉当"未就绪"
+    bad_syntax = _ScanFakePage(count_exc=ValueError("Unexpected token while parsing selector"))
+    assert _sel_clickable_now(bad_syntax, "span:has-text(未闭合") is False
+
+
+def test_sel_clickable_now_must_not_use_bounding_box():
+    """判据锁:**可点判定不得改用 `bounding_box()`**(本轮实测踩过的坑)。
+
+    立因:`bounding_box()` 自带 **30s 隐式等待** —— 入口还没渲染出来时它干等满 30s,
+    抖音/头条实测因此把整个"点入口 + 等码"的预算(2~2.5s)白等光,任务看起来像卡死。
+    本函数要的是**不等待**的即时判定,Playwright 侧就是 `is_visible()`。
+    变异取证:把实现换回 bounding_box 量尺寸 ⇒ fake 的 bounding_box 既记账又抛错,
+    返回 False 与 `box_calls==0` 两条断言同时翻红。
+    """
+    page = _ScanFakePage()
+    page.mark_clickable("a.login-button")
+    assert _sel_clickable_now(page, "a.login-button") is True
+    assert page.box_calls == 0, "热路径可点判据碰了 bounding_box(自带 30s 隐式等待)"
+
+
+# --- _browser_safe(送进 querySelectorAll 前的过滤面) ---
+
+
+def test_browser_safe_filters_playwright_only_and_keeps_all_css():
+    """`text=` / `:has-text(` 必须被滤掉,合法 CSS **一个都不能误滤**。
+
+    立因:这批候选最终由 `document.querySelectorAll` 执行,Playwright 专有语法在那里是
+    SyntaxError —— 送进去只是把"一次批量探测"变成"一次必然失败的往返"(每个候选一次)。
+    反向同样致命:多滤掉一个合法 CSS 就等于少等一个真实码载体,直接拖慢出码。
+    两处入口(`_browser_safe` 与旧名 `_browser_safe_selectors`)必须同形:热路径的
+    `_ready_probe` 走的正是旧名那个别名,只改一处的话过滤只在半边生效。
+
+    已知边界(不在此断言,已在审计里登记):`span:text("…")` 这种 `:text(` 形式不在
+    当前正则里;它现在只出现在 scan_tab_selectors(喂 Playwright locator),不进本函数的
+    输入面,所以今天不触发。
+    """
+    legit = [
+        '[class*="qrcode"] img',
+        '[id*="qrcode"]',
+        'img[src^="data:image"]',
+        'iframe[src*="qrconnect"]',
+        "span.btn.wechat",
+        ".tip-text.wechat",
+        "label.login-agreement span.ant-checkbox",
+        "svg:has(use[*|href*='icon-wx'])",  # :has( 不是 :has-text(,必须保留
+        "#animate_qrcode_container",
+    ]
+    pw_only = ['text=立即登录', 'span:has-text("微信登录")', 'a:has-text("扫码")']
+    assert _browser_safe([*legit, *pw_only]) == legit
+    assert _browser_safe_selectors([*legit, *pw_only]) == legit, "旧名别名过滤面漂了"
+    # 空串是"没写选择器",同样不该送进浏览器
+    assert _browser_safe(["", *legit]) == legit
+    # 全是 Playwright 语法 ⇒ 一个都不剩(调用方据此跳过那次注定失败的探测)
+    assert _browser_safe(list(pw_only)) == []
+
+
+# --- _click_selector_any_page(跨页点掉入口) ---
+
+
+def test_click_selector_any_page_falls_back_to_other_page():
+    """主页不可点 / 点不中 → 必须落到其它页面点掉(sohu 登录层 window.open 新窗形态);
+    全部不可点 → False(调用方按计划继续,不抛异常)。
+
+    反例形态:主页上元素**可见但点不中**(被遮罩拦住 → click 抛异常)—— 与"找不到元素"
+    必须走同一条兜底,否则新窗里的弹层永远没人点。
+    """
+    main = _ScanFakePage()
+    second = _ScanFakePage()
+    second.mark_clickable(".third .wx")
+    assert _click_selector_any_page(_ScanFakeContext([main, second]), ".third .wx") is True
+    assert second.clicks == [".third .wx"]
+    assert main.clicks == [], "主页不可点就不该留下点击记录"
+
+    blocked = _ScanFakePage(click_exc=RuntimeError("element intercepted by mask"))
+    blocked.mark_clickable(".third .wx")
+    fallback = _ScanFakePage()
+    fallback.mark_clickable(".third .wx")
+    assert _click_selector_any_page(_ScanFakeContext([blocked, fallback]), ".third .wx") is True
+    assert fallback.clicks == [".third .wx"], "主页点不中必须换下一页,而不是放弃"
+
+    assert _click_selector_any_page(_ScanFakeContext([_ScanFakePage()]), ".third .wx") is False
+    assert _click_selector_any_page(_ScanFakeContext([]), ".third .wx") is False
+
+
+def test_click_selector_any_page_prefers_newest_page():
+    """主页之后按"新→旧"试(`context.pages` 是创建序,旧在前):新窗通常才是弹层所在那页。
+
+    正反例都在一条里:两页都可点时只看最新的那页、旧页一次都不碰;若实现退回"创建序",
+    点中的就会是旧页,本断言翻红。
+    """
+    main = _ScanFakePage()
+    older = _ScanFakePage()
+    older.mark_clickable(".third .wx")
+    newest = _ScanFakePage()
+    newest.mark_clickable(".third .wx")
+    assert _click_selector_any_page(_ScanFakeContext([main, older, newest]), ".third .wx") is True
+    assert newest.clicks == [".third .wx"]
+    assert older.clicks == [], "主页之后应当先试最新的页(context.pages 末尾)"
+
+
+# --- _entry_plan(预算 / 短路 / 顺序计划 / 回调) ---
+
+
+def test_entry_plan_returns_true_on_first_hit_without_touching_other_candidates():
+    """① 正例:第一轮第一项就可点、点完码立刻就绪 ⇒ 返回 True,且后面的候选**一次都不碰**。
+
+    立因:多点一次入口不只是白花时间 —— 抖音/头条实测会把页面自己弹好的码层点掉,
+    所以"命中即返回"是行为要求,不是性能优化。同时断言 `wait_count==0`:
+    命中之后不该再等任何一步(这就是省下来的那 3.5~8s 的来源)。
+    """
+    page = _ScanFakePage(ready_after_click=True)
+    page.mark_clickable("a.login-button")
+    seen: list[list[str]] = []
+    ok = _entry_plan(
+        page,
+        _ScanFakeContext([page]),
+        ["a.login-button", "#never-touched"],
+        wait_s=5.0,
+        qr_sels=('[class*="qrcode"] img',),
+        on_click=seen.append,
+    )
+    assert ok is True
+    assert page.clicks == ["a.login-button"], f"不得再点别的候选: {page.clicks}"
+    assert seen == [["a.login-button"]]
+    assert page.wait_count == 0, "命中即返回,不该再等任何一步"
+
+
+def test_entry_plan_spends_full_budget_and_returns_false_when_nothing_clickable():
+    """② 反例(与旧版等价的那一半):候选一直不可点 ⇒ 等满 `wait_s` 返回 False,
+    不抛异常、不误报成功。返回 False 的语义是"调用方按原兜底继续",不是任务失败。
+
+    正反例对照:同一份 plans,只要其中一个可点,后面那条用例就返回 True —— 两条一起
+    才能证明 False 不是"永远返回 False"。
+    """
+    page = _ScanFakePage()
+    started = time.monotonic()
+    ok = _entry_plan(
+        page,
+        _ScanFakeContext([page]),
+        ["a.login-button", ("s1", "s2")],
+        wait_s=0.05,
+        qr_sels=("img.qr",),
+    )
+    elapsed = time.monotonic() - started
+    assert ok is False
+    assert page.clicks == []
+    assert page.wait_count > 0, "必须真的轮询等待过,而不是立刻放弃"
+    assert page.waited_ms == {120}, f"轮询步进应为 120ms: {page.waited_ms}"
+    assert elapsed >= 0.05, "必须等满预算(预算耗尽才是调用方兜底的时机)"
+
+
+def test_entry_plan_sequential_plan_clicks_only_the_ready_step():
+    """③ 顺序点击计划(元组):第一步可点、第二步暂不可点 ⇒ 只点第一步,第二步一次不点。
+
+    立因:这类计划是"点 tab → 点协议层同意"(抖手/搜狐/企鹅号)的通用形态,第二步在第一步
+    生效前**根本不存在**;若被点中就是点了别的元素(实测 oschina 点整条 label 会命中《服务条例》
+    链接)。码始终不出也必须收敛 —— 预算耗尽就返回,不得死循环。
+    """
+    page = _ScanFakePage()
+    page.mark_clickable("span.tab-text")
+    calls: list[list[str]] = []
+    started = time.monotonic()
+    ok = _entry_plan(
+        page,
+        _ScanFakeContext([page]),
+        [("span.tab-text", "a.layui-layer-btn0")],
+        wait_s=0.05,
+        qr_sels=("img.qr",),
+        on_click=calls.append,
+    )
+    elapsed = time.monotonic() - started
+    assert ok is True, "点到过就必须返回 True(返回 False 会诱导调用方补点)"
+    assert page.clicks, "前置条件:第一步确实被点到过"
+    assert set(page.clicks) == {"span.tab-text"}, f"第二步暂不可点,一次都不该被点: {page.clicks}"
+    assert all(c == ["span.tab-text"] for c in calls), calls
+    assert elapsed < 5.0, "预算耗尽必须收敛,不得死循环"
+
+
+def test_entry_plan_on_click_receives_actually_clicked_selectors_in_order():
+    """④ `on_click` 必须收到**实际点到**的选择器清单,顺序 = 计划内的点击顺序,
+    不含"不存在/不可点/没点中"的项 —— 它是排查"到底点了哪个入口"的唯一证据。"""
+    page = _ScanFakePage(ready_after_click=True)
+    page.mark_clickable("first-step", "second-step")
+    calls: list[list[str]] = []
+    ok = _entry_plan(
+        page,
+        _ScanFakeContext([page]),
+        [("first-step", "missing-step", "second-step")],
+        wait_s=5.0,
+        qr_sels=("img.qr",),
+        on_click=calls.append,
+    )
+    assert ok is True, calls
+    assert calls == [["first-step", "second-step"]], f"回调清单必须只含实际点到且保序: {calls}"
+    assert page.clicks == ["first-step", "second-step"]
+
+
+def test_entry_plan_returns_true_when_clicked_but_qr_never_appears():
+    """⑤ 关键反例(比慢更糟的那一半):点到了入口、但码始终没出现 ⇒ 预算尽头必须返回
+    **True**,绝不是 False。
+
+    立因:False 的语义是"我没点到",调用方会据此再补点一次 —— 页面形态被点乱
+    (实测抖音/头条会把已经弹好的码层点掉),用户看到的是永远出不来的码。
+    "点到过"与"码出来了"是两件事:前者是**已经发生的副作用**,返回 False 等于把它抹掉。
+    变异取证:把预算尽头的 `return clicked_once` 改成 `return False` ⇒ 本用例翻红。
+    """
+    page = _ScanFakePage()
+    page.mark_clickable("a.login-button")  # 可点,但 ready 恒 False(码一直不出来)
+    ok = _entry_plan(
+        page,
+        _ScanFakeContext([page]),
+        ["a.login-button"],
+        wait_s=0.05,
+        qr_sels=("img.qr",),
+    )
+    assert page.clicks, "前置条件:确实点到过(否则这条测的就不是这个分支)"
+    assert ok is True, "点到过就必须返回 True —— 返回 False 会让调用方补点、打乱页面"
+
+
+# --- 反向锁:热路径不得再有固定等待(源码级) ---
+
+
+def _entry_path_source() -> str:
+    """取 `_run_scan_task` 里"打开登录页 → 出码就绪"这一段(不含后面的扫码轮询循环)。
+
+    边界锚点是进度阶梯的 `task.stage = "rendering"`;它之后才进轮询循环,而循环里那个
+    `wait_for_timeout(1500)` 是**检测节奏**(每 1.5s 查一次登录态),不是"点入口前后的
+    无条件等",刻意不在本锁范围内 —— 把检测节奏也锁掉会变成一条逼人绕过钩子的恒红门。
+    """
+    src = inspect.getsource(scan_login_mod._run_scan_task)
+    marker = 'task.stage = "rendering"'
+    assert marker in src, f"出码路径的进度锚点不见了({marker}),无法定位热路径"
+    return src.split(marker)[0]
+
+
+def _entry_path_code() -> str:
+    """把上段源码里的**注释 token** 去掉,只留代码。
+
+    必须这么做:这段解释性注释**本身就会引用被禁的写法**来说明它是怎么被拿掉的
+    ("goto 之后的 `wait_for_timeout(3000)` 是第三块大固定等待")。按原文正则扫会把
+    "说明"判成"违规",那是一条与真实改动无关的恒红门 —— 唯一结局是逼人删解释或绕过钩子。
+    """
+    src = _entry_path_source()
+    return " ".join(
+        tok.string
+        for tok in tokenize.generate_tokens(io.StringIO(src).readline)
+        if tok.type != tokenize.COMMENT
+    )
+
+
+def test_hot_path_has_no_unconditional_fixed_wait_around_entry_click():
+    """反向锁(源码级):出码热路径里不得再出现固定 `wait_for_timeout(3000)` /
+    `wait_for_timeout(1500)` 这类"点入口前后无条件等"。
+
+    **为什么锁它**:这正是各平台被钉在 3.5~8s 的**根因** —— 旧写法在点入口前无条件
+    sleep(配了点名入口 4s / 没配 1.2s)、点完再固定 1.5s;goto 之后那句固定 3s 同理
+    (实测页面渲染完的时刻头条 3.8s、掘金 1.5s,固定值对谁都既不够也不快)。
+    替换后的形态是"分段各有上限、命中即走",所以本锁锁的是**回归形态**:有人把固定等待加回来。
+
+    正向对照同时钉住"装车":快路径的两个函数必须在热路径里真的被调用,而不是"写好了没人用"。
+    边界:`wait_for_timeout(1000)` / `(800)` 仍允许(预算内的兜底步进,不是无条件等满);
+    轮询循环里的 `(1500)` 不在范围内(见 `_entry_path_source`);**注释不算代码**
+    (见 `_entry_path_code`:这段的注释会引用被禁写法本身)。
+    变异取证:在 `_pre_wait_sels` 之前插一行 `page.wait_for_timeout(3000)` ⇒ 本用例翻红。
+    """
+    code = _entry_path_code()
+    banned = re.findall(r"wait_for_timeout\s*\(\s*(?:3000|1500)\s*\)", code)
+    assert banned == [], f"出码热路径又出现固定等待 {banned}:这是各平台 3.5~8s 的根因"
+    for fast_path in ("_entry_plan", "_wait_for_page_ready"):
+        assert re.search(rf"{fast_path}\s*\(", code), (
+            f"热路径必须真的调用 {fast_path}(命中即走 / 就绪即走),不能只是写好了没人用"
+        )
+
+
+# --- 资源减负判据(2026-09-30):拦媒体/字体/第三方埋点,图片与接口类绝不能拦 ---
+
+
+def test_resource_trim_never_blocks_images_or_api_calls():
+    """码本身就是图,码接口就是 xhr —— 判据若把这两类拦了,所有平台直接不出码。
+
+    变异取证:把 `_should_trim_request` 的白名单逻辑改成"除 document 外全拦" ⇒
+    本用例翻红(image/xhr/fetch 各有一条断言咬住)。
+    """
+    f = scan_login_mod._should_trim_request
+    # 必须放行:图片(码)、接口(码接口/登录态轮询)、页面本身、脚本、websocket
+    for rt in ("image", "xhr", "fetch", "document", "script", "websocket", "stylesheet"):
+        assert f(rt, "https://qr.example.com/api/code?token=1") is False, rt
+        assert f(rt, "https://hm.example.com/passport/login") is False, rt
+    # 必须拦:媒体/字体(对出码零贡献,却和码接口抢慢机带宽)
+    for rt in ("media", "font"):
+        assert f(rt, "https://www.example.com/assets/a.mp4") is True, rt
+
+
+def test_resource_trim_blocks_known_trackers_only():
+    """埋点域名指纹必须是窄名单:命中业界公认统计域拦,宽泛子串(如含 stat/ad)不拦,
+    防止误杀正常静态资源路径。"""
+    f = scan_login_mod._should_trim_request
+    for needle in ("hm.baidu.com", "google-analytics.com", "googletagmanager.com", "cnzz.com"):
+        assert f("xhr", f"https://{needle}/collect") is True, needle
+    # 宽泛子串不拦:路径里恰好带 stat/ad 字样的正常资源不受牵连
+    assert f("script", "https://www.example.com/static/ads.js") is False
+    assert f("image", "https://www.example.com/statistics.png") is False
+
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
