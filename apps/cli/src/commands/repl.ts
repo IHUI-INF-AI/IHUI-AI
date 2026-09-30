@@ -171,6 +171,14 @@ import {
   usageLine,
 } from './branch-ops.js';
 
+// G-632 分支代际计数器:/fork、/branch、/sessions resume 任一装配成功 ⇒ 代数 +1;
+// 异步解算(runToolLoop)结果落地前比对,代数不等 ⇒ 本轮结果作废(可观测),绝不写进新分支。
+import {
+  bumpBranchGeneration,
+  isBranchGenerationCurrent,
+  recordSupersededBranchResult,
+} from './branch-generation.js';
+
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared';
 import {
   MODEL_CATEGORY_META,
@@ -1039,6 +1047,8 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
           state.session.history = state.history;
           saveSession(state.session);
         }
+        // G-632:会话装配出口(switch 到另一分支)⇒ 代数 +1,使在飞旧轮结果到期作废
+        bumpBranchGeneration('sessions-resume');
         console.info(chalk.green(`✓ 已恢复 session ${id}(${loaded.messages.length} 条消息)`));
       } else {
         const list = listSessionStates();
@@ -1549,6 +1559,8 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       const newSession = createSession(state.opts.workspacePath, state.opts.modelId);
       newSession.history = result.forkedHistory;
       saveSession(newSession);
+      // G-632:分支装配出口(fork 出新分支)⇒ 代数 +1,使在飞旧轮结果到期作废
+      bumpBranchGeneration('fork');
       console.info(chalk.green(
         `已 fork 新 session: ${newSession.id},从消息 #${forkIndex} 分叉,包含 ${result.forkedHistory.length} 条消息`,
       ));
@@ -1565,6 +1577,8 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       }
       const branchOutcome = await runBranch(parsedBranch.args);
       if (branchOutcome.ok) {
+        // G-632:分支装配出口(远端分叉成功)⇒ 代数 +1,使在飞旧轮结果到期作废
+        bumpBranchGeneration('branch');
         // 用了"最近活跃远端会话"兜底时必须点名动的是谁 —— 终端里没有可见的会话选择器
         if (branchOutcome.usedFallbackConversation) {
           console.info(chalk.dim(formatResolvedSource(branchOutcome)));
@@ -3025,12 +3039,23 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
 
     state.agentRunning = false;
 
-    if (result.assistantText) {
-      state.history.push({ id: randomUUID(), role: 'assistant', content: result.assistantText });
-    }
-    if (state.session) {
-      state.session.history = state.history;
-      saveSession(state.session);
+    // G-632:结果落地前的代际比对。解算在飞期间 /fork、/branch、/sessions resume
+    // 任一装配成功都会使代数 +1;此处代数不等 ⇒ 本轮结果作废 —— 不 push 进
+    // state.history、不 saveSession,绝不把旧分支的答复写进新分支的会话/账本。
+    // 作废必须可观测:计数(recordSupersededBranchResult 内)+ 下面这行日志,不许静默丢。
+    if (!isBranchGenerationCurrent(result.branchGeneration)) {
+      const supersedeNote = recordSupersededBranchResult(result.branchGeneration, {
+        sessionId: state.session?.id ?? state.opts.sessionId,
+      });
+      console.info(chalk.yellow(supersedeNote));
+    } else {
+      if (result.assistantText) {
+        state.history.push({ id: randomUUID(), role: 'assistant', content: result.assistantText });
+      }
+      if (state.session) {
+        state.session.history = state.history;
+        saveSession(state.session);
+      }
     }
     const u = result.usage;
     const cost = u.estimatedCostUsd > 0 ? `$${u.estimatedCostUsd.toFixed(4)}` : 'plan 套餐';
