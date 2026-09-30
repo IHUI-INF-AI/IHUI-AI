@@ -487,6 +487,7 @@ export async function quitApp(): Promise<void> {
   await invoke('quit_app')
 }
 
+// ================== 原生通知 ==================
 
 /**
  * 发送系统原生通知(标题 + 正文)。
@@ -1090,5 +1091,89 @@ export async function clipboardGet(format?: 'text' | 'image'): Promise<Clipboard
 export async function clipboardSet(content: string, format?: 'text' | 'image'): Promise<OkResult> {
   requireTauri()
   return await invoke<OkResult>('clipboard_set', { content, format: format ?? null })
+}
+
+// ================== V3 #72 桌面宿主 git 通道 ==================
+//
+// 消费 apps/desktop/src-tauri/src/git_channel_ipc.rs 的三个 command。宿主侧刻意把结论
+// 分成三格(`facts` / `command_failed` / `undetermined`),**前端必须三格各自一条出路**:
+// 把 `undetermined` 渲染成"没有改动"等于把宿主那条判据废掉(它就是为了这两型不混而分家的)。
+// 这里只做"通道 + 线格式",不折叠状态、不做兜底默认值。
+
+/** 变更种类(与 Rust `ChangeKind::as_str()` 封闭集同形;新增档须两侧同改)。 */
+export type GitWorkspaceChangeKind =
+  | 'added'
+  | 'modified'
+  | 'deleted'
+  | 'renamed'
+  | 'copied'
+  | 'untracked'
+  | 'ignored'
+  | 'conflicted'
+  | 'type_change'
+
+/** 一条工作区变更(线格式 = EntryWire)。 */
+export interface GitWorkspaceEntry {
+  kind: string
+  index_status: string
+  worktree_status: string
+  path: string
+  old_path: string | null
+}
+
+/**
+ * 三态回复(线格式 = StatusReply)。
+ *
+ * `state` 只有三个取值;`entries` 只在 `facts` 时有意义 —— `undetermined` 时它是空数组
+ * 但 `state !== 'facts'`,所以"空数组"**不能**被读成"干净"。
+ */
+export interface GitWorkspaceStatusReply {
+  state: 'facts' | 'command_failed' | 'undetermined'
+  /** facts 时为 clean|dirty;undetermined 时为 Blindness 名;command_failed 时为 exit=<code|none> */
+  verdict: string
+  reason: string
+  root: string
+  git_binary: string
+  scope: string | null
+  total: number
+  by_kind: Array<[string, number]>
+  entries: GitWorkspaceEntry[]
+}
+
+/** 通道自述(= git_channel_info 的 json)。`gitBinary` 为 null = 宿主找不到 git。 */
+export interface GitChannelInfoReply {
+  authorizedRoot: string | null
+  gitBinary: string | null
+  candidates: string[]
+  bases: string[]
+  timeoutMs: number
+  boundary: string
+}
+
+/**
+ * 授权一个 workspace 根目录(宿主会验它落在 permitted bases 内,越界直接 Err)。
+ *
+ * root **只能**由这条写入 —— 状态查询永远不接受前端自报路径(§5「身份/归属不得由
+ * 调用方声明」同一取向),所以本函数的错误必须原样抛出,不得吞成"未授权"。
+ */
+export async function gitAuthorizeWorkspace(root: string): Promise<GitWorkspaceStatusReply> {
+  requireTauri()
+  return await invoke<GitWorkspaceStatusReply>('git_authorize_workspace', { root })
+}
+
+/** 查询已授权工作区的本地变更清单(scope 缺省 = 全工作区)。 */
+export async function gitWorkspaceStatus(
+  scope?: string,
+): Promise<GitWorkspaceStatusReply> {
+  requireTauri()
+  return await invoke<GitWorkspaceStatusReply>('git_workspace_status', {
+    scope: scope ?? null,
+  })
+}
+
+/** 通道自述:用的哪个 git 二进制、允许哪些 base、超时多少 —— 界面据此说清"判不了"的原因。 */
+export async function gitChannelInfo(): Promise<GitChannelInfoReply> {
+  requireTauri()
+  return await invoke<GitChannelInfoReply>('git_channel_info')
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
