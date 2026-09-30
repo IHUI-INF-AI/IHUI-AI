@@ -4,7 +4,7 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Button } from '@tarojs/components'
+import { View, Text, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
@@ -12,7 +12,6 @@ import { BASE_URL } from '@/utils/api-config'
 import { get, post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
-import { FocusInput } from '@/components/FocusField'
 
 interface ApiConfig {
   version: string
@@ -185,7 +184,7 @@ export default function ApiSettings() {
             {tt('about.apiSettings.apiToken', 'API 令牌(Token)')}
           </Text>
           <View className="flex items-center gap-[16rpx]">
-            <FocusInput
+            <Input
               className="flex-1 h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-[length:28rpx] text-foreground"
               type="text"
               password={!showToken}
@@ -208,7 +207,7 @@ export default function ApiSettings() {
           <Text className="block text-[length:28rpx] text-muted-foreground mt-[16rpx] mb-[16rpx]">
             {tt('about.apiSettings.workflowId', '工作流 ID(Workflow ID)')}
           </Text>
-          <FocusInput
+          <Input
             className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-[length:28rpx] text-foreground"
             type="text"
             value={workflowId}

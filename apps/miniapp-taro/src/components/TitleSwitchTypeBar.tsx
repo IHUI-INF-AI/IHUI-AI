@@ -3,13 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, t } from '@/i18n'
-import { View, Text, ScrollView, Image } from '@tarojs/components'
+import { View, Text, ScrollView, Input, Image } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import { icon } from '@/constants/remote-icons'
 import { useState, useEffect, useCallback } from 'react'
 import type { TitleSwitchTypeBarItem, TitleSwitchTypeBarProps } from '@ihui/types'
 import './TitleSwitchTypeBar.css'
-import { FocusInput } from '@/components/FocusField'
 
 // 共享类型 TitleSwitchTypeBarItem / TitleSwitchTypeBarProps 已下沉到 packages/types,两端复用。
 // 重新导出以维持本模块公开 API(原文件 export 这些类型)。
@@ -244,7 +243,7 @@ export default function TitleSwitchTypeBar({
           <Text className="title-switch-type-bar__modal-title">
             {tt('TitleSwitchTypeBar.settings2', '请设置自定义种类')}
           </Text>
-          <FocusInput
+          <Input
             className="title-switch-type-bar__modal-input"
             type="text"
             maxlength={4}
