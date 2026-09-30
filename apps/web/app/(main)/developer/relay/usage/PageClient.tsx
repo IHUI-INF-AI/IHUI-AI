@@ -10,7 +10,6 @@ import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Activity, Download, Gauge, Loader2, TrendingUp, Zap } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
-import { neutralizeFormulaCell } from '@/lib/export-utils'
 import {
   Button,
   Input,
@@ -68,7 +67,6 @@ async function api<T>(url: string): Promise<T> {
  * 列顺序与下方 rows 的值顺序一一对应,改动需同步。
  */
 function exportCsv(rows: UsageRow[], groupBy: 'model' | 'day', head: readonly string[]) {
-  // G-815997:逐格过唯一出口中和(数字原样直通;groupKey 为模型名,挡不可信文本混入)
   const lines = rows.map((r) =>
     [
       r.groupKey,
@@ -83,11 +81,9 @@ function exportCsv(rows: UsageRow[], groupBy: 'model' | 'day', head: readonly st
       r.relayCallCount,
       r.byokCallCount > 0 ? (r.upstreamCostCents / 100).toFixed(4) : '',
       r.byokCallCount > 0 ? (r.platformFeeCents / 100).toFixed(4) : '',
-    ]
-      .map(neutralizeFormulaCell)
-      .join(','),
+    ].join(','),
   )
-  const csv = '﻿' + [head.map(neutralizeFormulaCell).join(','), ...lines].join('\n')
+  const csv = '﻿' + [head.join(','), ...lines].join('\n')
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
   const a = document.createElement('a')
   a.href = url
