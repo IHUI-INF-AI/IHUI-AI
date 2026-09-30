@@ -9155,6 +9155,12 @@
       "purposePlaceholder": "交接目的",
       "revealFile": "显示文件",
       "createSession": "创建新任务",
+      "phase": {
+        "generating": "模型正在生成交接内容…",
+        "done": "交接文档已生成。"
+      },
+      "creating": "正在创建新任务…",
+      "createFailed": "创建新任务失败,请重试。",
       "handoffUnavailable": "依赖的交接文档生成出口尚未提供,无法生成交接内容。"
     },
     "renameDialog": {
