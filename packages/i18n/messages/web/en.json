@@ -11231,6 +11231,7 @@
     "permissionUnknownError": "Unknown error",
     "placeholder": "Describe your request; type / for skills, plugins, MCP (e.g. /goal /loop /plan)",
     "placeholderPlan": "Plan mode: type your request, AI only makes plans without executing tools (/act to switch back, Alt+P to toggle)",
+    "aiDisclaimer": "Content is AI-generated. Please verify important information.",
     "plan": {
       "ariaLabel": "Execution plan steps",
       "collapseReasoning": "Collapse reasoning",
