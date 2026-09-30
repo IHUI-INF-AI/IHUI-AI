@@ -5,22 +5,36 @@
 // @vitest-environment jsdom
 // D176 交接生成流装车证明(2026-09-30 拍板立项,后端三段同枚落地后的 UI 侧判据):
 // ① 生成相位 generating → done(摘要上屏,提交挂真回调);② 生成失败落 error 位(服务端原文);
-// ③ revealFile 因桌面壳出口缺失仍渲染但禁用(禁而不藏)。
+// ③ revealFile 因桌面壳出口缺失仍渲染但禁用(禁而不藏);
+// ④ 残余②收口(2026-09-30):创建会话成功后,交接正文经 chat store 待发草稿队列
+//    draftInput + draftAutoSend 注入(MessageInput 消费后成为新会话首条用户消息),
+//    正文必须含摘要与下一步(可选交接目的);⑤ 创建失败时不注入(误发进旧会话比不发更糟)。
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import React from 'react'
 import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react'
 
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }))
 
-const { generateRecapHandoff, createConversation, setConversationId } = vi.hoisted(() => ({
+const {
+  generateRecapHandoff,
+  createConversation,
+  setConversationId,
+  chatStoreSetState,
+} = vi.hoisted(() => ({
   generateRecapHandoff: vi.fn(),
   createConversation: vi.fn(),
   setConversationId: vi.fn(),
+  chatStoreSetState: vi.fn(),
 }))
 vi.mock('@ihui/api-client', () => ({ generateRecapHandoff, createConversation }))
 vi.mock('@/stores/chat', () => ({
-  useChatStore: (selector: (s: Record<string, unknown>) => unknown) =>
-    selector({ conversationId: 'conv-1', setConversationId }),
+  // zustand store 既是 hook 又带静态 setState(草稿待发通道经 useChatStore.setState 写入,
+  // 同 goal-card / next-steps-card 的既有生产者写法)—— 用 Object.assign 补静态面。
+  useChatStore: Object.assign(
+    (selector: (s: Record<string, unknown>) => unknown) =>
+      selector({ conversationId: 'conv-1', setConversationId }),
+    { setState: chatStoreSetState },
+  ),
 }))
 
 import { TaskRecapEntry } from '../d176-task-recap'
@@ -57,6 +71,45 @@ describe('D176 交接生成流(出口翻真后)', () => {
   it('revealFile 无桌面壳出口:渲染但禁用(禁而不藏)', () => {
     openHandoff()
     expect((screen.getByTestId('recap-reveal-file') as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('创建会话成功后,交接正文经 draftInput+draftAutoSend 待发通道注入(含摘要/下一步/交接目的)', async () => {
+    generateRecapHandoff.mockResolvedValue({ summary: '已完成 A 与 B', nextAction: '跑验证' })
+    createConversation.mockResolvedValue({ conversation: { id: 'conv-new' } })
+    openHandoff()
+    fireEvent.change(screen.getByTestId('recap-purpose-input'), {
+      target: { value: '带上下文继续' },
+    })
+    fireEvent.click(screen.getByTestId('recap-generate-submit'))
+    await waitFor(() => expect(screen.getByTestId('recap-preview')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('recap-create-session'))
+    await waitFor(() => expect(setConversationId).toHaveBeenCalledWith('conv-new'))
+    expect(chatStoreSetState).toHaveBeenCalledTimes(1)
+    const payload = chatStoreSetState.mock.calls[0][0] as {
+      draftInput: string
+      draftAutoSend: boolean
+    }
+    // MessageInput 消费该草稿后直接 submit —— 这三个内容段缺一不可,否则新会话首条丢了交接关键信息
+    expect(payload.draftAutoSend).toBe(true)
+    expect(payload.draftInput).toContain('【任务交接】已完成 A 与 B')
+    expect(payload.draftInput).toContain('下一步:跑验证')
+    expect(payload.draftInput).toContain('交接目的:带上下文继续')
+  })
+
+  it('创建会话失败时不注入草稿(误把交接正文发进旧会话比不发更糟)', async () => {
+    generateRecapHandoff.mockResolvedValue({ summary: '已完成 A 与 B', nextAction: '跑验证' })
+    createConversation.mockRejectedValue(new Error('创建会话失败: 500'))
+    openHandoff()
+    fireEvent.click(screen.getByTestId('recap-generate-submit'))
+    await waitFor(() => expect(screen.getByTestId('recap-preview')).toBeTruthy())
+    // hoisted mock 跨用例共享调用账:先清掉前一用例的 setConversationId 记录,
+    // 否则负断言会把上例的 'conv-new' 调用记到本例头上
+    setConversationId.mockClear()
+    chatStoreSetState.mockClear()
+    fireEvent.click(screen.getByTestId('recap-create-session'))
+    await waitFor(() => expect(screen.getByTestId('recap-create-failed')).toBeTruthy())
+    expect(setConversationId).not.toHaveBeenCalled()
+    expect(chatStoreSetState).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
