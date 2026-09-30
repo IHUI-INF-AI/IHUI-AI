@@ -196,13 +196,13 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 48,
       height: 48,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: 48 / 2, // radius-exempt: 48dp 见方头像,半径=边长一半为真圆(头像豁免)
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.muted,
       overflow: 'hidden',
     },
-    avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius['2xl']}, // 跟随见方容器:相对式即几何真圆(门 77 量得出等值宽高,不需要标记)保持圆形
+    avatarImg: { width: '100%', height: '100%', borderRadius: 48 / 2 }, // radius-exempt: 头像图片跟随 48dp 见方容器,半径=边长一半保持圆形
     avatarInitial: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
     cardInfo: { flex: 1, marginLeft: 12 },
     cardName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
