@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   logo: {
     width: 64,
     height: 64,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: 32, // radius-exempt: 64x64 头像 logo 真圆,半径=边长一半
   } as ImageStyle,
   userName: {
     fontSize: 17,
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
   iconBody: {
     width: 48,
     height: 48,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: 24, // radius-exempt: 48x48 圆形图标底,半径=边长一半
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
