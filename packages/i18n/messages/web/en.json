@@ -10582,6 +10582,17 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "selectionAnnotations": {
+      "hoverHint": "Hover to view annotations",
+      "selectedText": "{{index}}. Selected text",
+      "noComment": "No comment yet",
+      "commentPlaceholder": "Add an optional comment…",
+      "commentAriaLabel": "Selection annotation comment",
+      "addComment": "Add comment",
+      "removeOne": "Remove annotation {{index}}",
+      "removeAll": "Remove all selection annotations",
+      "add": "Annotate"
+    },
     "attachRetry": "Retry upload",
     "attachRetryExhausted": "Retry limit reached. Remove it and add the file again.",
     "attachRejectType": "Unsupported file type; skipped {count} file(s): {names}",
