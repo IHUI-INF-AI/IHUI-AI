@@ -215,6 +215,8 @@ export * from './endpoints/banner.js'
 export * from './endpoints/business.js'
 export * from './endpoints/category.js'
 export * from './endpoints/chat.js'
+// D179:会话 Issue 绑定流出口(searchIssues / bindIssue / unbindIssue)
+export * from './endpoints/issue-binding.js'
 export * from './endpoints/community.js'
 // 中文连接器端点(2026-09-02 立,P2-2 语雀/飞书/企微/钉钉文档接入)
 export * from './endpoints/connectors.js'
