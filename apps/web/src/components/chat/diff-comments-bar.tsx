@@ -25,8 +25,9 @@ export function DiffCommentsBar() {
   const clearDiffComments = useChatStore((s) => s.clearDiffComments)
   if (comments.length === 0) return null
 
+  // 间距由唯一挂载点 InputStatusSlot 统一接管(2026-09-30 深度对标二轮),不再自带 mx-4 mb-2
   return (
-    <div className="mx-4 mb-2" data-testid="diff-comments-bar">
+    <div data-testid="diff-comments-bar">
       <div className="flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
         <MessageSquareText className="h-3.5 w-3.5 shrink-0" />
         <span className="min-w-0 flex-1 truncate">
