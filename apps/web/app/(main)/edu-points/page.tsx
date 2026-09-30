@@ -11,8 +11,9 @@ import { useTranslations } from 'next-intl'
 import { Award, Gift, Loader2, TrendingUp, Coins } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
 
 interface Channel {
   id: string
@@ -42,6 +43,8 @@ export default function EduPointsPage() {
   const t = useTranslations('eduPoints')
   const tc = useTranslations('common')
   const qc = useQueryClient()
+  // 2026-09-30 登录态门:channels 为公开配置不门,仅门个性化查询(my-points/redeem)
+  const { allow } = useAuthGate()
 
   const {
     data: channels,
@@ -55,6 +58,7 @@ export default function EduPointsPage() {
   const { data: myPoints } = useQuery({
     queryKey: ['edu-points', 'my-points'],
     queryFn: () => api<{ points: number }>(`/api/edu-points/my-points`).then((d) => d.points ?? 0),
+    enabled: allow,
   })
 
   const list = channels ?? []
@@ -69,6 +73,7 @@ export default function EduPointsPage() {
       api<{ list: RedeemItem[]; balance?: number }>(`/api/points/mall/redeem`).then(
         (d) => d.list ?? [],
       ),
+    enabled: allow,
   })
 
   const [redeemMsg, setRedeemMsg] = React.useState<string | null>(null)
@@ -118,6 +123,7 @@ export default function EduPointsPage() {
             <div className="text-2xl font-bold">{list.length}</div>
           </CardContent>
         </Card>
+        {allow && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('myPoints')}</CardTitle>
@@ -127,6 +133,7 @@ export default function EduPointsPage() {
             <div className="text-2xl font-bold">{myPoints ?? 0}</div>
           </CardContent>
         </Card>
+        )}
       </div>
 
       {/* 渠道列表 */}
@@ -168,6 +175,9 @@ export default function EduPointsPage() {
       {/* 积分兑换(调用方:GET/POST /api/points/mall/redeem,余额与库存以后端为准) */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">{t('channelsTitle')}</h2>
+        {/* 2026-09-30 登录态门 */}
+        {allow ? (
+          <>
         {redeemMsg && (
           <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-600">
             {redeemMsg}
@@ -236,6 +246,10 @@ export default function EduPointsPage() {
               )
             })}
           </div>
+        )}
+          </>
+        ) : (
+          <AuthGatePrompt message="请先登录后查看我的积分与兑换" />
         )}
       </div>
     </div>

@@ -11,6 +11,8 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Wallet, Loader2, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import {
   Button,
   Card,
@@ -69,10 +71,13 @@ export default function TokenWalletPage() {
   const locale = useLocale()
   const [page, setPage] = React.useState(1)
   const [opType, setOpType] = React.useState<string>('all')
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
 
   const balanceQ = useQuery({
     queryKey: ['distribution', 'token-balance'],
     queryFn: () => api<BalanceData>('/api/finance/margin/balance'),
+    enabled: allow,
   })
   const flowsQ = useQuery({
     queryKey: ['distribution', 'token-flows', page, opType],
@@ -80,6 +85,7 @@ export default function TokenWalletPage() {
       api<ListData>(
         `/api/finance/margin/flows?page=${page}&limit=${PAGE_SIZE}${opType !== 'all' ? `&opType=${opType}` : ''}`,
       ),
+    enabled: allow,
   })
 
   const total = flowsQ.data?.total ?? 0
@@ -120,6 +126,9 @@ export default function TokenWalletPage() {
         </h1>
       </header>
 
+      {/* 2026-09-30 登录态门 */}
+      {allow ? (
+        <>
       <Card>
         <CardContent className="min-[640px]:p-3 space-y-1 p-3">
           <div className="text-sm text-muted-foreground">{t('tokenBalance')}</div>
@@ -246,7 +255,11 @@ export default function TokenWalletPage() {
             </div>
           </div>
         )}
-      </div>
+          </div>
+        </>
+      ) : (
+        <AuthGatePrompt message="请先登录后查看代币钱包" />
+      )}
     </div>
   )
 }
