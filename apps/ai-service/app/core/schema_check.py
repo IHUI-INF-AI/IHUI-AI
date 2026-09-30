@@ -14,6 +14,7 @@
    - 对比 DB 实际字段与 TS schema 期望字段
    - 检查表在 TS schema 中是否有定义(未定义 = 数据孤岛风险)
 3. 关键字段缺失时 ERROR,普通字段缺失 WARNING,多余字段 INFO
+4. 枚举到 0 张表时判"无法判定"exit 2,不记绿(扫描器失效的静默绿是假阴性)
 
 校验时机:
 1. 应用启动时(lifespan 注入,字段缺失仅 warning,不阻塞启动)
@@ -602,7 +603,9 @@ def log_report(result: dict[str, Any]) -> None:
     logger.info("[schema_check] 扫描到 %d 张表,schema 源: %s", total, schema_dir)
 
     if not tables:
-        logger.warning("[schema_check] 未扫描到任何 SQL 表引用")
+        # 枚举到 0 张表 ⇒ "无法判定"而非记绿(与守门 117/157 的"枚举到 0 判死"口径同形):
+        # 扫描器失效(目录缺失/正则全不命中)时的静默绿是假阴性,等价于没查
+        logger.error("[schema_check] 枚举到 0 张表,无法判定 — 扫描器失效,按失败处理")
         return
 
     for table, info in tables.items():
@@ -649,11 +652,25 @@ def log_report(result: dict[str, Any]) -> None:
             logger.warning("[schema_check] %s: 表未在 TS schema 中管理(数据孤岛风险)", table)
 
 
+def decide_exit_code(result: dict[str, Any]) -> int:
+    """由校验结果决定 CLI 退出码(纯函数,供测试锁定口径)。
+
+    Returns:
+        0 = 有表且关键字段齐全(记绿)
+        2 = 枚举到 0 张表 ⇒ "无法判定"(不记绿:扫描器失效时的静默绿是假阴性)
+        1 = 有表不存在或关键字段缺失
+    """
+    if result.get("total_tables", 0) == 0:
+        return 2
+    return 0 if result["ok"] else 1
+
+
 async def main() -> int:
     """CLI 入口:`python -m app.core.schema_check`。
 
     Returns:
         0 = 所有表存在且关键字段齐全
+        2 = 枚举到 0 张表(无法判定,不记绿)
         1 = 有表不存在或关键字段缺失
     """
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -663,6 +680,8 @@ async def main() -> int:
     print("=== schema_check report ===")
     print(f"  ok: {result['ok']}")
     print(f"  total_tables: {result['total_tables']}")
+    if result.get("total_tables", 0) == 0:
+        print("  inconclusive: true (枚举到 0 张表,无法判定)")
     print(f"  schema_dir: {result['schema_dir']}")
     print(f"  critical_missing: {result['critical_missing']}")
     print("  tables:")
@@ -678,7 +697,7 @@ async def main() -> int:
             f"    [{status}] {table}: exists={exists} in_ts_schema={in_ts} "
             f"source={source} missing={missing} extra={extra} critical={crit}"
         )
-    return 0 if result["ok"] else 1
+    return decide_exit_code(result)
 
 
 if __name__ == "__main__":
