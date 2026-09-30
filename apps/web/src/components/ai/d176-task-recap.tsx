@@ -16,7 +16,9 @@
 // `waitingPreview` / `phase.finalizing` 两枚键刻意不消费——非流式生成没有对应真实相位,
 // 不拿兜底文案冒充能力在线;`phase.finalizing` 等流式/落盘升级后再接。
 // `createSession` 现接 createConversation(标题取交接摘要截断);**新任务自动携带交接正文**
-// (经 send-message 注入首条消息)是下一批,届时把 conversationId 切换后的消息装载一并验。
+// 已随残余②收口(2026-09-30):创建成功后经 chat store 待发草稿队列
+// draftInput + draftAutoSend 注入,MessageInput 消费后作为新会话首条用户消息发出
+// (通道与理由见 handleCreateSession 内注)。
 
 'use client'
 
@@ -100,13 +102,27 @@ export function TaskRecapEntry() {
     try {
       const res = await createConversation({ title: summary.slice(0, 120) })
       setConversationId(res.conversation.id)
+      // D176 残余②(2026-09-30 收口):交接正文作为新会话首条用户消息自动发出。
+      // 通道:chat store 的待发草稿队列 draftInput + draftAutoSend —— MessageInput
+      // 挂载态 effect 消费(draftInput 填入输入框,draftAutoSend 置位时直接 submit)。
+      // 选既有通道的理由:程序化 sendMessage 出口(send-message.ts 的
+      // sendMessageInstance 模块单例)不导出,且本票改动只准落本文件;goal-card /
+      // next-steps-card / TypewriterHero 三个既有生产者走同一通道,是惯例而非新路径。
+      // 顺序:先 setConversationId 再写草稿 —— MessageInput 的 effect 在下一帧才消费,
+      // submit 内部 getState() 读到的已是新会话 id,交接正文必然落进新会话首条。
+      // 创建失败时不写草稿:把交接正文误发进旧会话比不发更糟。
+      const handoffParts = [`【任务交接】${summary}`]
+      if (nextAction) handoffParts.push(`下一步:${nextAction}`)
+      const trimmedPurpose = purpose.trim()
+      if (trimmedPurpose) handoffParts.push(`交接目的:${trimmedPurpose}`)
+      useChatStore.setState({ draftInput: handoffParts.join('\n'), draftAutoSend: true })
       close()
     } catch {
       setCreateFailed(true)
     } finally {
       setCreating(false)
     }
-  }, [summary, setConversationId, close])
+  }, [summary, nextAction, purpose, setConversationId, close])
 
   const unavailable = !RECAP_HANDOFF_GENERATION_AVAILABLE
   const generating = phase === 'generating'
