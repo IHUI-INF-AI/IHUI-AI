@@ -55,6 +55,9 @@ export const memberRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ updated: results.length }))
   })
 
+  // DEPRECATED(2026-09-30):旧积分兑换列表(读 point_redeem_items,无库存/限购/订单)。
+  // 新端点 GET /api/points/mall/redeem(routes/points-mall-user.ts,读 points_mall_products),
+  // 本端点仅为兼容保留,逻辑一字不动。
   // GET /points/redeem — 积分兑换商品列表(登录时附带 balance,兼容 web/mobile 两端字段)
   server.get('/points/redeem', async (request, reply) => {
     const rows = await dbRead
@@ -92,6 +95,9 @@ export const memberRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
+  // DEPRECATED(2026-09-30):旧积分兑换动作(无库存/限购/订单持久化)。
+  // 新端点 POST /api/points/mall/redeem/:id(routes/points-mall-user.ts,落单+扣积分+stock-1/sold+1),
+  // 本端点仅为兼容保留,逻辑一字不动。
   // POST /points/redeem/:id — 积分兑换商品(扣积分,幂等:同一商品重复兑换 409)
   server.post<{ Params: { id: string } }>('/points/redeem/:id', async (request, reply) => {
     try {
