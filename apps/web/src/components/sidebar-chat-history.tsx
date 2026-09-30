@@ -428,7 +428,9 @@ export function SidebarChatHistory({
   const selection = useConversationSelection(visibleIds)
   const [batchBusy, setBatchBusy] = React.useState(false)
   // D186:批量在飞动作(批量归档在途时动作条按钮文案切「正在归档任务...」)
-  const [lastBatchAction, setLastBatchAction] = React.useState<BatchConversationAction | null>(null)
+  const [lastBatchAction, setLastBatchAction] = React.useState<BatchConversationAction | null>(
+    null,
+  )
   // D186:归档二次确认(打开中的待归档会话 + 确认钮在途态 + 不再提示勾选)
   const [pendingArchive, setPendingArchive] = React.useState<ConversationItem | null>(null)
   const [archiveConfirmPending, setArchiveConfirmPending] = React.useState(false)
@@ -835,10 +837,7 @@ export function SidebarChatHistory({
                 aria-label={tTask('activityRunning')}
                 className="inline-flex shrink-0 items-center gap-0.5 rounded bg-emerald-500/10 px-1 py-px text-[10px] font-medium leading-4 text-emerald-700 dark:text-emerald-400"
               >
-                <span
-                  aria-hidden
-                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"
-                />
+                <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
                 {tTask('activityRunning')}
               </span>
             )}
@@ -855,7 +854,7 @@ export function SidebarChatHistory({
               data-testid="conversation-more-menu"
               className={cn(
                 'absolute right-0.5 top-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm transition-all',
-                'text-muted-foreground opacity-0 group-hover:opacity-100 touch-reveal',
+                'text-muted-foreground opacity-0 group-hover:opacity-100',
                 'hover:bg-accent hover:text-accent-foreground',
                 'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                 'data-[state=open]:opacity-100 data-[state=open]:bg-accent',
