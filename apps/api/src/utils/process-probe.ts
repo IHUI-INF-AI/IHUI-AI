@@ -8,7 +8,7 @@
  *
  * 本模块是「红线协议」的可测落点,不是真探针:exec 与 /proc 读取全部可注入,
  * 单测不真跑系统进程。红线(与上游逐字同判据):
- * - 外部进程白名单只有 `ps` 与 `tasklist`,每次采样最多一次调用;
+ * - 外部进程白名单只有 `ps`、`tasklist` 与 `powershell`(win32 CIM 全表取径),每次采样最多一次调用;
  * - Linux 一律读 `/proc`,不启动任何进程;
  * - 每次采样 1 秒硬超时,超时或失败一律视为「本次无样本」,不重试、不排队;
  * - 连续 3 次失败后本实例停用,直到调用方显式 reset()(上报窗口切换时调用);
@@ -26,8 +26,11 @@ export const PROCESS_PROBE_MAX_CONSECUTIVE_FAILURES = 3
 /** /proc 分批读取的批大小(性能红线)。 */
 export const PROC_READ_BATCH_SIZE = 64
 
-/** 外部进程白名单(性能红线:白名单外命令一律拒绝,不 spawn)。 */
-export const PROBE_EXTERNAL_COMMANDS: readonly string[] = ['ps', 'tasklist']
+/**
+ * 外部进程白名单(性能红线:白名单外命令一律拒绝,不 spawn)。
+ * powershell 供 win32 的 CIM 全表取径——白名单与取径同笔扩(b76-09a 票2),两处口径不得分叉。
+ */
+export const PROBE_EXTERNAL_COMMANDS: readonly string[] = ['ps', 'tasklist', 'powershell']
 
 export function isProbeCommandAllowed(command: string): boolean {
   return PROBE_EXTERNAL_COMMANDS.includes(command)
@@ -37,7 +40,17 @@ export function isProbeCommandAllowed(command: string): boolean {
 export type ProbeExecFile = (file: string, args: readonly string[]) => Promise<string>
 
 const defaultProbeExecFile: ProbeExecFile = async (file, args) => {
-  const { stdout } = await promisify(cpExecFile)(file, args as string[])
+  const { stdout } = await promisify(cpExecFile)(file, args as string[], {
+    // AGENTS §5b:派生子进程一律 windowsHide;shell:false。maxBuffer 抬到 16MB(Win32_Process
+    // 全表可超默认 1MB);这里的兜底超时只防僵尸泄漏,红线级 1s 弃样本由调用方 raceProbeTimeout 收口。
+    // stdin 一律 ignore(本仓 EBUSY 实证根治范式:不消费 stdin 的派生不给 stdin 管道;
+    // ps/tasklist/powershell -NonInteractive 均不读 stdin)。
+    timeout: 15_000,
+    shell: false,
+    windowsHide: true,
+    maxBuffer: 16 << 20,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   return stdout
 }
 
@@ -66,8 +79,12 @@ export interface ProcessProbeSample {
   pid: number
   comm: string
   parentPid: number
-  processGroupId: number
-  cpuTimeMs: number
+  /** POSIX 独有(/proc stat);win32 CIM 样本无此语义,故可选。 */
+  processGroupId?: number
+  /** POSIX 独有;win32 CIM 样本不带。 */
+  cpuTimeMs?: number
+  /** 创建时间(UTC epoch 毫秒);win32 CIM 样本携带,Linux /proc stat 无该字段。 */
+  createdAtMs?: number
 }
 
 export interface ProcessProbe {
@@ -78,13 +95,13 @@ export interface ProcessProbe {
   sampleProcessTrees(
     rootPids: readonly number[],
   ): Promise<ReadonlyMap<number, readonly ProcessProbeSample[]> | undefined>
-  /** 白名单外部命令采样(仅 ps/tasklist);白名单外命令拒绝并计一次失败。 */
+  /** 白名单外部命令采样(ps/tasklist/powershell);白名单外命令拒绝并计一次失败。 */
   sampleExternalCommand(command: string, args: readonly string[]): Promise<string | undefined>
   /** 上报窗口切换时清零连续失败计数,让被停用的探针重新可用。 */
   reset(): void
   /** 是否已因连续失败停用。 */
   isDisabled(): boolean
-  /** 本平台采样口径(win32 的 tasklist 无 ppid,只能 direct_process)。 */
+  /** 本平台采样口径(linux 与 win32 均可建整棵树;win32 走 CIM 全表,见 sampleProcessTrees)。 */
   readonly treeScope: 'direct_process' | 'process_tree'
 }
 
@@ -155,10 +172,10 @@ function raceProbeTimeout<T>(
   })
 }
 
-function buildProcessTrees(
-  samples: readonly ProcessProbeSample[],
+function buildProcessTrees<T extends { pid: number; parentPid: number }>(
+  samples: readonly T[],
   roots: readonly number[],
-): Map<number, readonly ProcessProbeSample[]> {
+): Map<number, readonly T[]> {
   const byPid = new Map(samples.map((s) => [s.pid, s]))
   const childrenOf = new Map<number, number[]>()
   for (const s of samples) {
@@ -166,10 +183,10 @@ function buildProcessTrees(
     if (list) list.push(s.pid)
     else childrenOf.set(s.parentPid, [s.pid])
   }
-  const result = new Map<number, readonly ProcessProbeSample[]>()
+  const result = new Map<number, readonly T[]>()
   for (const root of roots) {
     if (!byPid.has(root)) continue // 采样时已不存在的根不出现在结果里
-    const tree: ProcessProbeSample[] = []
+    const tree: T[] = []
     const seen = new Set<number>([root])
     const queue = [root]
     while (queue.length > 0) {
@@ -186,6 +203,60 @@ function buildProcessTrees(
     result.set(root, tree)
   }
   return result
+}
+
+/** win32 CIM 外部命令(白名单内,与 PROBE_EXTERNAL_COMMANDS 同笔扩)。 */
+const WIN_CIM_EXTERNAL_COMMAND = 'powershell'
+
+/** .NET DateTime ticks(100ns)→ Unix epoch 的差值:0001-01-01T00:00:00Z = 621355968000000000 ticks。 */
+const CIM_EPOCH_TICKS = BigInt('621355968000000000')
+
+/**
+ * win32 CIM 全表取径成文(b76-09a 票2,上游出处 windowsProcessListAsync.ts:109-110):
+ * "Windows 11 24H2 及部分 Win10 镜像不再提供 WMIC;Windows 10+ 统一使用 PowerShell/CIM"。
+ * 一次 `Get-CimInstance Win32_Process` 取全表 ProcessId/ParentProcessId/CreationDate ticks,
+ * 输出 `pid\t pPid\t Ticks\t Name` 四列(Name 居尾,允许空格;列分隔用 [char]9,反引号转义跨 PS 版本不可靠)。
+ * PowerShell 5.1 兼容:不用 `?.`/`??`;CreationDate 为空的系统进程(Idle/System)记 0。
+ */
+const WIN_CIM_PROCESS_LIST_SCRIPT =
+  "$ErrorActionPreference='SilentlyContinue';" +
+  'Get-CimInstance Win32_Process|ForEach-Object{' +
+  '$c=$_.CreationDate;$t=0;if($null -ne $c){$t=$c.ToUniversalTime().Ticks};' +
+  '($_.ProcessId,$_.ParentProcessId,$t,$_.Name) -join [char]9}'
+
+/** .NET DateTime ticks → UTC epoch 毫秒;非法输入返回 undefined。 */
+export function cimTicksToEpochMs(ticks: string): number | undefined {
+  if (!/^\d+$/.test(ticks)) return undefined
+  if (ticks === '0') return 0 // CreationDate 为空的系统进程:时间未知,记 0
+  return Number((BigInt(ticks) - CIM_EPOCH_TICKS) / 10000n)
+}
+
+/** 解析 CIM 全表单行:`pid\tpPid\tTicks\tName`(Name 居尾可含空格;以前三个 Tab 定界)。 */
+export function parseCimProcessRow(line: string): ProcessProbeSample | undefined {
+  const t1 = line.indexOf('\t')
+  const t2 = t1 === -1 ? -1 : line.indexOf('\t', t1 + 1)
+  const t3 = t2 === -1 ? -1 : line.indexOf('\t', t2 + 1)
+  if (t1 === -1 || t2 === -1 || t3 === -1) return undefined
+  const pid = Number(line.slice(0, t1))
+  const parentPid = Number(line.slice(t1 + 1, t2))
+  const createdAtMs = cimTicksToEpochMs(line.slice(t2 + 1, t3))
+  const comm = line.slice(t3 + 1)
+  if (!Number.isInteger(pid) || pid <= 0) return undefined
+  if (!Number.isInteger(parentPid) || parentPid < 0) return undefined
+  if (createdAtMs === undefined) return undefined
+  if (comm.length === 0) return undefined
+  return { pid, comm, parentPid, createdAtMs }
+}
+
+/** 解析 CIM 全表 stdout(按行;空行跳过,坏行丢弃——与 /proc 扫描同口径:不重试)。 */
+export function parseCimProcessList(stdout: string): readonly ProcessProbeSample[] {
+  const samples: ProcessProbeSample[] = []
+  for (const line of stdout.split(/\r?\n/)) {
+    if (line.length === 0) continue
+    const sample = parseCimProcessRow(line)
+    if (sample) samples.push(sample)
+  }
+  return samples
 }
 
 export function createProcessProbe(options: ProcessProbeOptions = {}): ProcessProbe {
@@ -233,15 +304,27 @@ export function createProcessProbe(options: ProcessProbeOptions = {}): ProcessPr
   }
 
   return {
-    treeScope: platform === 'win32' ? 'direct_process' : 'process_tree',
+    treeScope: platform === 'linux' || platform === 'win32' ? 'process_tree' : 'direct_process',
     async sampleProcessTrees(rootPids) {
       const roots = [...new Set(rootPids.filter((p) => Number.isInteger(p) && p > 0))]
       if (roots.length === 0) return new Map()
+      if (platform === 'win32') {
+        // Windows 11 24H2 及部分 Win10 镜像不再提供 WMIC;Windows 10+ 统一使用 PowerShell/CIM。
+        // 红线同承:每次采样最多一次外部派生(powershell 全表),超时即弃样本,失败预算由
+        // sampleExternalCommand 内的 sampleWithinBudget 统一收口。
+        const stdout = await this.sampleExternalCommand(WIN_CIM_EXTERNAL_COMMAND, [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          WIN_CIM_PROCESS_LIST_SCRIPT,
+        ])
+        if (stdout === undefined) return undefined
+        return buildProcessTrees(parseCimProcessList(stdout), roots)
+      }
       if (platform !== 'linux') {
-        // 非 Linux:白名单外部命令一次调用(ps/tasklist);输出的结构化解析由消费方注入,
+        // 其余 POSIX(darwin 等):白名单外部命令一次调用;输出的结构化解析由消费方注入,
         // 本模块只成文红线(白名单/1s 超时/失败预算)。
-        const command = platform === 'win32' ? 'tasklist' : 'ps'
-        const stdout = await this.sampleExternalCommand(command, [])
+        const stdout = await this.sampleExternalCommand('ps', [])
         if (stdout === undefined) return undefined
         return new Map()
       }

@@ -31,6 +31,14 @@ import { webhookSubscriptions, webhookDeliveryLogs, type RelayWebhookEvent } fro
 /** 最大尝试次数(含首次,3 = 首次 + 2 次重试) */
 const MAX_ATTEMPTS = 3
 
+/**
+ * 认领超时阈值(毫秒):认领即写认领时间戳,超过该阈值仍是 processing 视为持有者已崩溃,
+ * 由下一轮认领事务按时间阈复位收回(出处 b76-12e G-998158,吸收 upstream offPeakTaskRepo
+ * 的 OFF_PEAK_CLAIM_STALE_MS 语义)。该常量与 automation 侧 CLAIM_STALE_MS 语义相同但
+ * 独立一份,勿互相引用。
+ */
+export const WEBHOOK_CLAIM_STALE_MS = 10 * 60 * 1000
+
 /** 单次投递超时(毫秒) */
 const DELIVERY_TIMEOUT_MS = 10_000
 
@@ -203,19 +211,42 @@ function toRows(raw: unknown): Record<string, unknown>[] {
  * P1 修复:用乐观锁抢占(原子 UPDATE status='processing' RETURNING),防止定时任务
  * 无分布式锁导致上一次未完成就触发下一次,产生重复投递。
  *
+ * G-998158(认领的时间阈复位 + 只回收自己的僵尸):
+ * - 认领时间戳:webhook_delivery_logs 无独立 claimed_at/updated_at 列,复用
+ *   next_retry_at 作认领时间戳 —— status='processing' 期间该列语义 = 认领时刻
+ *   (结算路径按投递结果重写该列,不影响 retrying/success/failed 语义)。
+ * - 每轮认领前先按时间阈复位陈旧认领(超 WEBHOOK_CLAIM_STALE_MS 未结算 = 持有者
+ *   已崩溃,同 upstream 在认领事务内先复位再取 due 行);谓词含 next_retry_at
+ *   IS NOT NULL,对齐 upstream 的 claimed_at IS NOT NULL 守卫。
+ * - finally 兜底只回收"本轮自己认领的行"(按认领时间戳精确匹配),绝不碰其他
+ *   实例阈值内的在飞认领 —— 全表无阈值退回会抢走并发在飞者的 processing 行。
+ *   (认领时间戳兼作本轮所有权标记,毫秒精度;同毫秒碰撞窗口极小,且 webhook
+ *   投递本身是 at-least-once 语义,退化后果只是多一次重投,可接受。)
+ *
  * 逻辑:
- * 1. 原子 UPDATE:retrying → processing(LIMIT 100 + FOR UPDATE SKIP LOCKED 分批)
- * 2. 批量查关联 subscription → 逐条重试(并行)
- * 3. 成功 → status='success';失败且未耗尽 → status='retrying';耗尽 → status='failed'
- * 4. finally 兜底:把仍为 processing 的记录改回 retrying(防中途崩溃/异常)
+ * 1. 时间阈复位:processing 且认领时间超阈值的行 → retrying(立即可被重认领)
+ * 2. 原子 UPDATE:retrying → processing 并写认领时间戳(LIMIT 100 + SKIP LOCKED 分批)
+ * 3. 批量查关联 subscription → 逐条重试;成功 → 'success';失败未耗尽 → 'retrying';耗尽 → 'failed'
+ * 4. finally 兜底:只把"仍为本轮认领时间戳且仍 processing"的记录改回 retrying(防本轮中途崩溃)
  *
  * 返回处理的日志数。
  */
 export async function retryPendingWebhooks(): Promise<number> {
-  // P1 修复:用乐观锁抢占,防止定时任务重复投递
+  // 1. 时间阈复位:先收回陈旧认领,再取 due 行(同一谓词即每轮/启动回收复用的判据)
+  const staleCutoff = new Date(Date.now() - WEBHOOK_CLAIM_STALE_MS)
+  await db.execute(sql`
+    UPDATE webhook_delivery_logs
+    SET status = 'retrying', next_retry_at = now()
+    WHERE status = 'processing'
+      AND next_retry_at IS NOT NULL
+      AND next_retry_at <= ${staleCutoff}
+  `)
+
+  // 2. 乐观锁抢占 + 写认领时间戳(next_retry_at 复用为认领时刻,见函数头注释)
+  const claimStamp = new Date()
   const lockedLogsRaw = await db.execute(sql`
     UPDATE webhook_delivery_logs
-    SET status = 'processing'
+    SET status = 'processing', next_retry_at = ${claimStamp}
     WHERE ctid IN (
       SELECT ctid FROM webhook_delivery_logs
       WHERE status = 'retrying' AND next_retry_at <= now()
@@ -284,11 +315,18 @@ export async function retryPendingWebhooks(): Promise<number> {
       }),
     )
   } finally {
-    // 4. 兜底:把仍为 processing 的记录改回 retrying(防中途崩溃/异常)
+    // 4. 兜底:只回收"本轮自己认领"的行(认领时间戳 = 本轮 claimStamp 且仍 processing);
+    //    不做全表无阈值退回 —— 其他实例阈值内的在飞 processing 行不被本轮抢走。
+    //    被回收的行 next_retry_at 仍为本轮认领时刻(<= now),立即可被下一轮重认领。
     await db
       .update(webhookDeliveryLogs)
       .set({ status: 'retrying' })
-      .where(eq(webhookDeliveryLogs.status, 'processing'))
+      .where(
+        and(
+          eq(webhookDeliveryLogs.status, 'processing'),
+          eq(webhookDeliveryLogs.nextRetryAt, claimStamp),
+        ),
+      )
   }
 
   return lockedLogs.length
