@@ -82,6 +82,46 @@ function run(label, cmd) {
   }
 }
 
+// ─── 轮次正证(round witness,2026-09-30 立)───────────────────────────
+// 要补的那一格:`scripts/plan-bypass-ledger-report.mjs` 想回答"这枚提交到底有没有被守门看过",
+// 但它过去的唯一正证是**去钩子日志里找一段与提交文件集逐字等值的回显** —— 那条件太脆:
+// lint-staged 改写过文件、并发会话同一窗口 stage 了别的东西,都会让一次正常提交找不到匹配轮,
+// 于是 2026-09-30 现读 1466 枚里 normal 只认得出 5 枚。脆判据的失效方向是"多报 unknown",
+// 看着诚实,实际是把"检查全废的提交量"这个问题永久留在答不准。
+// 所以由钩子**自己**落一条机器可读记录(不靠解析彩色日志、不靠字符串对齐),统计器用
+// `gatesRan ∧ gatesPassed ∧ headBefore == 该提交的父 ∧ 提交文件集 ⊆ 本轮所见的暂存集` 作正证。
+// 三条不许漂:
+//  ① **一方记录只能证明"门看过这些文件且没红"**,不能证明提交的正是那些文件(那需要 sha,
+//     而 pre-commit 阶段还不存在)⇒ 它仍是**下界型**证据,只是比"逐字等值"结实;
+//  ② 门根本没跑就退出(lint-staged 失败等)时 `gatesRan` 必为 false ⇒ 永远不得被用来发合格证;
+//  ③ 写失败绝不影响提交:整个记录裹在 try 里,连 exit 回调也不允许抛。
+const ROUND_FILE_REL = '.workbuddy/hook-logs/pre-commit-rounds.jsonl'
+const ROUND = {
+  ts: new Date().toISOString(),
+  headBefore: '',
+  stagedFiles: [],
+  gatesRan: false,
+  gatesPassed: null,
+}
+let roundWritten = false
+function writeRoundRecord(exitCode) {
+  if (roundWritten) return
+  roundWritten = true
+  try {
+    const { appendFileSync, mkdirSync } = require('fs')
+    const path = require('path')
+    const file = path.join(process.cwd(), ROUND_FILE_REL)
+    mkdirSync(path.dirname(file), { recursive: true })
+    appendFileSync(file, JSON.stringify({ ...ROUND, exitCode: exitCode ?? null }) + '\n', 'utf8')
+  } catch {
+    /* 记录写不出去 ≠ 提交该失败;但统计器会因此把这一轮读成"没跑过",方向是少发合格证 */
+  }
+}
+// 本文件里有几十处 process.exit(1)(每个失败点一个),所以只挂**一个** exit 回调统一落记录;
+// SIGINT/SIGTERM 走不到 'exit' 时由 staging-snapshot 那套信号处理负责还原暂存区,
+// 记录缺失只意味着那一轮拿不到正证 —— 与"把没判写成判过了"相比,这是可接受的失效方向。
+process.on('exit', writeRoundRecord)
+
 // ─── staging area 入口快照(2026-07-26 立) ──────────────────
 // 背景:多 agent 并行时曾出现非本任务文件被 commit 的事故(IDE 自动 stage / 未察觉的
 //       git add / lint-staged 副作用)。本机制在 pre-commit 入口快照 staging area,
@@ -284,7 +324,23 @@ if (process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
 // 守门项数与分级见 `node scripts/guardian-runner.mjs --help` 输出
 // (项数随 guardian-runner.mjs 注册表自动变化,勿在此写死数字——写死必然过期)
 // 各项 id 清单见 `node scripts/guardian-runner.mjs --help` 输出
-if (!run('🛡️ 运行守门脚本批量检查...', 'node scripts/guardian-runner.mjs --staged')) {
+// 正证要在**批门实际看到的那一份索引**上取值,所以这一刻才测:lint-staged 刚刚跑过,
+// 索引可能已被它改写过(取早了会把"门其实没看过的文件"也算进合格证)。
+try {
+  const gitOut = (args) =>
+    execSync(args, { cwd: process.cwd(), windowsHide: true, encoding: 'utf8', timeout: 30_000 }).trim()
+  ROUND.headBefore = gitOut('git rev-parse HEAD')
+  ROUND.stagedFiles = gitOut('git diff --cached --name-only')
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+} catch {
+  /* 取不到就留空 ⇒ 这条记录对统计器等于"无从证",不会被误用 */
+}
+const gatesOk = run('🛡️ 运行守门脚本批量检查...', 'node scripts/guardian-runner.mjs --staged')
+ROUND.gatesRan = true
+ROUND.gatesPassed = gatesOk
+if (!gatesOk) {
   process.exit(1)
 }
 

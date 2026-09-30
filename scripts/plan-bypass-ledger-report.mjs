@@ -35,7 +35,7 @@
  * 退出码:0 = 报告已产出(有未判定也是 0 —— 它是量算仪,不阻断任何东西);1 = --self-test 有失败例;
  *         2 = 脚本自身异常(取数层抛出,不是业务结论)。
  */
-import { closeSync, fstatSync, openSync, readSync } from 'node:fs'
+import { closeSync, fstatSync, openSync, readFileSync, readSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { StringDecoder } from 'node:string_decoder'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -174,6 +174,7 @@ export function classifyAll({
   ledgerState = 'read',
   roundsAvailable = true,
   witness = null,
+  firstParty = null,
 } = {}) {
   const detail = []
   const byDay = new Map()
@@ -181,6 +182,7 @@ export function classifyAll({
     let state
     let why = ''
     let sub = ''
+    let proof = ''
     if (index.bypass.has(c.sha)) {
       state = 'bypass-landing'
     } else {
@@ -193,8 +195,14 @@ export function classifyAll({
         cand.sort((a, b) => Math.abs(a.ms - c.ms) - Math.abs(b.ms - c.ms))
         state = 'skipped'
         why = `同父 ${index.skip.get(c.parent).length} 条留痕,按时刻取最近一条`
-      } else if (matchNormalRound(c, rounds)) state = 'normal'
-      else {
+      } else if (matchFirstPartyRound(c, firstParty?.rounds ?? [])) {
+        // 一方记录(钩子自报)排在回显之前:它是钩子当场写下的,而回显要过"逐字等值"这道脆条件。
+        state = 'normal'
+        proof = 'round-record'
+      } else if (matchNormalRound(c, rounds)) {
+        state = 'normal'
+        proof = 'hook-echo'
+      } else {
         state = 'unknown'
         why = !ledgerReadable
           ? `台账取不到(${ledgerState})`
@@ -229,12 +237,17 @@ export function classifyAll({
         unknownWitnessed: 0,
         unknownUnwitnessed: 0,
         unknownUnsplittable: 0,
+        normalByRecord: 0,
+        normalByEcho: 0,
         total: 0,
       })
     const row = byDay.get(day)
     row.total++
-    if (state === 'normal') row.normal++
-    else if (state === 'skipped') row.skipped++
+    if (state === 'normal') {
+      row.normal++
+      if (proof === 'round-record') row.normalByRecord++
+      else row.normalByEcho++
+    } else if (state === 'skipped') row.skipped++
     else if (state === 'bypass-landing') row.bypassLanding++
     else {
       row.unknown++
@@ -242,7 +255,7 @@ export function classifyAll({
       else if (sub === 'unwitnessed') row.unknownUnwitnessed++
       else if (sub === 'unsplittable') row.unknownUnsplittable++
     }
-    detail.push({ sha: c.sha.slice(0, 11), day, state, sub, why })
+    detail.push({ sha: c.sha.slice(0, 11), day, state, sub, proof, why })
   }
   return { rows: [...byDay.values()].sort((a, b) => (a.day < b.day ? 1 : -1)), detail }
 }
@@ -363,6 +376,78 @@ export function readWitness(root) {
   } finally {
     closeSync(fd)
   }
+}
+
+/**
+ * 钩子自己落的一方记录 `.workbuddy/hook-logs/pre-commit-rounds.jsonl`
+ * (2026-09-30 由 `scripts/lib/pre-commit-hook.js` 的 round witness 写入)。
+ *
+ * 为什么需要它:此前 normal 的**唯一**正证是"钩子日志里有一段与提交文件集逐字等值的回显",
+ * 而 lint-staged 改写过文件、并发会话同窗口 stage 别的东西,都会让一次正常提交找不到匹配轮
+ * —— 脆判据的失效方向是"多报 unknown",看着保守,实际把"检查全废的提交量"这个问题永久留在答不准。
+ * 一方记录改问一件结得实的事:**门跑过、没红、且提交的文件都在这轮它看过的暂存集里**。
+ * 三条不并桶:文件集按"提交 ⊆ 本轮所见"判(不是等值);`gatesRan=false` 或 `gatesPassed!==true`
+ * 的记录一律不发合格证;取不到文件 ⇒ `missing`(退回日志回显那一维,并在报告里说明两种正证各多少)。
+ */
+export function readFirstPartyRounds(root) {
+  const path = resolve(root, '.workbuddy', 'hook-logs', 'pre-commit-rounds.jsonl')
+  let raw
+  try {
+    raw = readFileSync(path, 'utf8')
+  } catch (e) {
+    return {
+      ok: false,
+      state: e?.code === 'ENOENT' ? 'missing' : 'unreadable',
+      why: String(e?.message ?? e).slice(0, 140),
+      rounds: [],
+      badLines: 0,
+    }
+  }
+  const rounds = []
+  let badLines = 0
+  for (const line of raw.split(/\r?\n/)) {
+    const t = line.trim()
+    if (t === '') continue
+    let r
+    try {
+      r = JSON.parse(t)
+    } catch {
+      badLines++
+      continue
+    }
+    if (!r || typeof r.headBefore !== 'string' || !Array.isArray(r.stagedFiles)) {
+      badLines++
+      continue
+    }
+    rounds.push({
+      headBefore: r.headBefore,
+      files: new Set(r.stagedFiles.map((f) => String(f).trim()).filter(Boolean)),
+      gatesRan: r.gatesRan === true,
+      gatesPassed: r.gatesPassed === true,
+      exitCode: Number.isFinite(r.exitCode) ? r.exitCode : null,
+      ts: r.ts ?? null,
+      consumed: false,
+    })
+  }
+  return { ok: true, state: 'read', rounds, badLines, records: rounds.length }
+}
+
+/**
+ * 一方记录正证:本轮 `headBefore` 等于该提交的父、门跑过且没红、且提交的文件**都在**这轮
+ * 门看过的暂存集里。一条记录只给一枚提交作保(consumed),同父多枚时各配各的轮。
+ * 三条都必须成立,缺任何一条 ⇒ 不判 normal(不猜)。
+ */
+export function matchFirstPartyRound(commit, rounds = []) {
+  if (!rounds.length) return null
+  for (const r of rounds) {
+    if (r.consumed || !r.gatesRan || !r.gatesPassed || r.exitCode !== 0) continue
+    if (r.headBefore !== commit.parent) continue
+    if (commit.files.length === 0) continue
+    if (!commit.files.every((f) => r.files.has(f))) continue
+    r.consumed = true
+    return r
+  }
+  return null
 }
 
 /** 一次 git log 拿到「提交 + 父 + 作者时刻 + 改名清单」(-z 不用,按 @ 头行分段)。 */
@@ -492,6 +577,7 @@ async function run({ argv }) {
   const hook = readHookRounds(hookPath)
   const rounds = hook.rounds
   const witness = readWitness(root)
+  const firstParty = readFirstPartyRounds(root)
 
   const got = collectCommits({ root, limit, sinceDay: win.sinceDay, untilDay: win.untilDay })
   const merges = countMerges({ root, limit, sinceDay: win.sinceDay, untilDay: win.untilDay })
@@ -510,6 +596,7 @@ async function run({ argv }) {
     ledgerState: ledger.state,
     roundsAvailable: hook.ok,
     witness,
+    firstParty,
   })
   const total = rows.reduce((a, r) => a + r.total, 0)
   const sums = {
@@ -520,6 +607,8 @@ async function run({ argv }) {
     unknownWitnessed: rows.reduce((a, r) => a + r.unknownWitnessed, 0),
     unknownUnwitnessed: rows.reduce((a, r) => a + r.unknownUnwitnessed, 0),
     unknownUnsplittable: rows.reduce((a, r) => a + r.unknownUnsplittable, 0),
+    normalByRecord: rows.reduce((a, r) => a + r.normalByRecord, 0),
+    normalByEcho: rows.reduce((a, r) => a + r.normalByEcho, 0),
   }
 
   if (asJson) {
@@ -564,6 +653,13 @@ async function run({ argv }) {
             truncated: witness.truncated === true,
             why: witness.why ?? null,
           },
+          firstParty: {
+            ok: firstParty.ok,
+            state: firstParty.state,
+            records: firstParty.records ?? null,
+            badLines: firstParty.badLines ?? null,
+            why: firstParty.why ?? null,
+          },
           merges: { counted: merges.count, ok: merges.ok, why: merges.why ?? null },
           ledgerUnbound: {
             bypassNoSha: index.bypassNoSha,
@@ -607,6 +703,14 @@ async function run({ argv }) {
     )
     if (hook.ok && hook.capped)
       console.log(`⚠️ 钩子日志 ${hook.size} B 超过 ${HOOK_READ_CAP_BYTES} B 上限,只读了尾部 ${hook.bytesParsed} B(开头 ${hook.skippedBytes} B 没看见)⇒ normal 是**下界**,不是全量`)
+    console.log(
+      `  normal 正证来源:一方记录 ${sums.normalByRecord} / 日志回显 ${sums.normalByEcho}` +
+        (firstParty.ok
+          ? `(一方记录 ${firstParty.records} 条${firstParty.badLines ? `,坏行 ${firstParty.badLines}` : ''})`
+          : ` ⇒ 一方记录取不到(${firstParty.state}:${firstParty.why}),normal 只剩"逐字等值回显"这一条脆正证 —— ` +
+            `从本仓把轮次正证接进 pre-commit(` +
+            `scripts/lib/pre-commit-hook.js)之后,这条缺口对新提交不再存在;历史提交仍只有回显可考`),
+    )
     if (index.bypassNoSha > 0)
       console.log(`  ⚠️ 旁路留痕里 ${index.bypassNoSha} 条没有 landedSha ⇒ 绑不到提交,只报数不判绿`)
     if (index.skipNoParent > 0)
@@ -789,6 +893,29 @@ function selfTest() {
     const r3 = classifyAll({ commits, index: indexLedger([]), rounds: [], ledgerReadable: true })
     ok('不传 witness ⇒ 四态与旧口径逐字同(向后兼容,拆格是加法不是换判据)', r3.rows[0].unknown === 2 && r3.rows[0].unknownWitnessed === 0 && r3.rows[0].unknownUnwitnessed === 0 && !r3.detail[0].sub)
   }
+  // 一方记录正证。四条反例各钉一个漏洞:门没跑 / 门红了 / 文件集不含 / 父不对 ——
+  // 以及"一条记录只保一枚"(consumed),否则同父的两枚提交会共享同一张合格证。
+  {
+    const P = 'f'.repeat(40)
+    const mk = (over) => ({ headBefore: P, files: new Set(['a.ts', 'b.ts']), gatesRan: true, gatesPassed: true, exitCode: 0, ts: null, consumed: false, ...over })
+    const c = C('m'.repeat(40), P, T, ['a.ts'])
+    ok('一方记录:门跑过+没红+文件在内 ⇒ normal', matchFirstPartyRound(c, [mk({})]) !== null)
+    ok('gatesRan=false 不得发合格证', matchFirstPartyRound(c, [mk({ gatesRan: false })]) === null)
+    ok('gatesPassed=false(门红了)不得发合格证', matchFirstPartyRound(c, [mk({ gatesPassed: false })]) === null)
+    ok('exitCode=1 不得发合格证', matchFirstPartyRound(c, [mk({ exitCode: 1 })]) === null)
+    ok('提交里有一个文件不在本轮所见面 ⇒ 不得发合格证', matchFirstPartyRound(C('n'.repeat(40), P, T, ['a.ts', 'ghost.ts']), [mk({})]) === null)
+    ok('headBefore ≠ 提交的父 ⇒ 不得发合格证', matchFirstPartyRound(c, [mk({ headBefore: 'x'.repeat(40) })]) === null)
+    const rounds = [mk({})]
+    ok('一条记录只保一枚(消费后不得复用)', matchFirstPartyRound(c, rounds) !== null && matchFirstPartyRound(C('o'.repeat(40), P, T, ['b.ts']), rounds) === null)
+    const r = classifyAll({
+      commits: [c],
+      index: indexLedger([]),
+      rounds: [],
+      ledgerReadable: true,
+      firstParty: { ok: true, state: 'read', rounds: [mk({})] },
+    })
+    ok('只有一方记录、没有回显 ⇒ 仍是 normal 且来源=round-record(脆判据的洞由它补上)', r.rows[0].normal === 1 && r.rows[0].normalByRecord === 1 && r.detail[0].proof === 'round-record', JSON.stringify(r.rows[0]))
+  }
   console.log(`\n自检:${fails.length === 0 ? '全部通过' : `${fails.length} 条失败`}(组数按当次实跑,不钉数字)`)
   return fails.length === 0 ? 0 : 1
 }
@@ -815,5 +942,5 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { indexLedger, parseHookRounds, classifyAll, matchNormalRound, collectCommits, countMerges, dayKey, readHookRounds, roundCollector, readWitness }
+export const __test__ = { indexLedger, parseHookRounds, classifyAll, matchNormalRound, collectCommits, countMerges, dayKey, readHookRounds, roundCollector, readWitness, readFirstPartyRounds, matchFirstPartyRound }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

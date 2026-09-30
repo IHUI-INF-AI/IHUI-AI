@@ -470,4 +470,46 @@ test('T9 引用事务见证的取材三态:读到 / 坏行不吞 / 文件不在�
     rmScratch(dir)
   }
 })
+
+test('T10 一方轮次记录:读到 / 坏行计数 / 文件不在位退回回显正证,不得静默', () => {
+  const dir = mkScratch('first-party-rounds')
+  try {
+    const hdir = join(dir, '.workbuddy', 'hook-logs')
+    mkdirSync(hdir, { recursive: true })
+    const parent = 'f'.repeat(40)
+    writeFileSync(
+      join(hdir, 'pre-commit-rounds.jsonl'),
+      [
+        JSON.stringify({ ts: 't1', headBefore: parent, stagedFiles: ['a.ts', ' 中文.ts '], gatesRan: true, gatesPassed: true, exitCode: 0 }),
+        '{不是 JSON',
+        JSON.stringify({ headBefore: parent, stagedFiles: '应为数组', gatesRan: true, gatesPassed: true, exitCode: 0 }),
+        '',
+      ].join('\n'),
+      'utf8',
+    )
+    const fp = report.readFirstPartyRounds(dir)
+    assert.equal(fp.ok, true)
+    assert.equal(fp.state, 'read')
+    assert.equal(fp.rounds.length, 1, '坏行与畸形行都要点名,不得静默吞(吞一条 = 丢一次正证)')
+    assert.equal(fp.badLines, 2)
+    assert.equal(fp.records, 1)
+    assert.equal(fp.rounds[0].files.has('中文.ts'), true, '文件名两侧空白必须归一,否则"⊆ 本轮所见"永远失配')
+    const commit = {
+      sha: 'e'.repeat(40),
+      parent,
+      iso: '2026-09-30T00:00:00.000Z',
+      ms: T0,
+      day: '2026-09-30',
+      files: ['a.ts', '中文.ts'],
+    }
+    assert.equal(report.matchFirstPartyRound(commit, fp.rounds) !== null, true)
+    // 文件不在位 ⇒ missing;分类照旧走回显,而报告必须把"一方记录取不到"喊出来(由 run() 打印,这里钉数据层)
+    const miss = report.readFirstPartyRounds(join(dir, 'nope'))
+    assert.equal(miss.ok, false)
+    assert.equal(miss.state, 'missing')
+    assert.equal(miss.rounds.length, 0)
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
