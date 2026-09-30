@@ -64,39 +64,34 @@ test('F3-b 两边都没有主键 ⇒ null===null 不算同主键:不可自动收
     throw new Error(`应按"无出口交人工"定性,实测 ${r[0].reason}`)
 })
 
-test('F3-c 无主键但确有逐字孪生 ⇒ 可自动收口(出口那句"与本行正文逐字相同"此时是真话)', () => {
+test('F3-c 无主键**但有逐字孪生**:仍不进自动档(相对 HEAD 只减不增),但必须留在总数里被点名', () => {
   const r = findRotatedPointers(TWIN)
-  if (r.length !== 2) throw new Error(`两行孪生各带一处指针,实测 ${r.length}`)
-  if (!r.every((x) => x.autoFixable === true))
-    throw new Error('有逐字孪生时那句锚点可核验,判不可修等于把自动档关掉')
+  if (r.length !== 2) throw new Error(`两行孪生各带一处指针,实测 ${r.length} —— 总数不得因收紧而缩水`)
+  if (!r.every((x) => x.autoFixable === false))
+    throw new Error(
+      '给这一型开自动出口实测一次把 21 行拉进判红面 ⇒ 那是扩大判红面而不是修缺陷(§12f),出路归该行持有人',
+    )
 })
 
-test('F3-d 真仓 HEAD 面上每一条 auto 都能独立复核其依据(性质判据,不靠数量 ⇒ 不会因并发提交闪红)', () => {
+test('F3-d 真仓 HEAD 面上每一条 auto 都独立复核其依据(性质判据,不靠数量 ⇒ 不会因并发提交闪红)', () => {
   const txt = gitRaw(['show', 'HEAD:PROJECT_PLAN.md'], process.cwd())
   if (!txt || txt.length < 100000) throw new Error('取不到 HEAD 版计划文档 ⇒ 无从复核,不算通过')
   const a = auditPlan(txt)
   if (a.rotated.length === 0)
-    throw new Error('真仓面上一条腐烂指针都没数到 ⇒ 尺子对这一型失明(实测应仍有 180+ 处无出口)')
+    throw new Error('真仓面上一条腐烂指针都没数到 ⇒ 尺子对这一型失明(实测应仍有 200 上下无出口)')
   const lines = txt.split('\n')
-  const verbatim = new Map()
-  for (const l of lines) if (/^\s*[-*]\s\[( |x|X)\]/.test(l)) verbatim.set(l, (verbatim.get(l) ?? 0) + 1)
   for (const p of a.rotated.filter((x) => x.autoFixable)) {
     const self = lines[p.line - 1]
     const targ = lines[p.target - 1]
     const selfKey = compositeKeyOf(self)
-    const ok =
-      selfKey !== null
-        ? selfKey === compositeKeyOf(targ)
-        : (verbatim.get(self) ?? 0) >= 2
-    if (!ok)
+    if (selfKey === null || selfKey !== compositeKeyOf(targ))
       throw new Error(
-        `L${p.line} 被判定可自动修,但按"出口将写的那句话"复核不成立(键=${String(selfKey)} 孪生=${String(verbatim.get(self))})`,
+        `L${p.line} 被判定可自动修,但"两侧都有主键且逐字等值"复核不成立(本行键=${String(selfKey)})`,
       )
   }
-  const noExit = a.counts.rotatedNoExit
-  if (noExit < 100)
+  if (a.counts.rotatedNoExit < 100)
     throw new Error(
-      `无出口读数 ${noExit} 低于本仓已知量级 ⇒ 判据大概被谁削窄了(2026-09-28 现读为 182 处这一档)`,
+      `无出口读数 ${a.counts.rotatedNoExit} 低于本仓已知量级 ⇒ 判据大概被谁削窄了(2026-09-28 这一档为 200 上下)`,
     )
 })
 
@@ -105,9 +100,9 @@ test('F3-e 源码反向锁:那句 vacuous 等值不得回到 autoFixable 的条�
   const at = lib.indexOf('autoFixable:')
   if (at < 0) throw new Error('lib 里找不到 autoFixable 这一格 ⇒ 本锁的锚点已漂')
   const clause = lib.slice(at, at + 1200)
-  if (/compositeKeyOf\(t\)\s*===\s*compositeKeyOf\(r\.raw\)\s*,/.test(clause))
+  if (/compositeKeyOf\(t\)\s*===\s*compositeKeyOf\(r\.raw\)\s*[,)]/.test(clause))
     throw new Error('旧条件(无主键两侧也判相等)回来了 ⇒ 假锚点与自长红两型同时复活')
-  if (!clause.includes('!== null') || !clause.includes('verbatimCount'))
-    throw new Error('autoFixable 必须同时具备"主键非空"与"逐字孪生计数"两个出口,缺一个就是另一型失效')
+  if (!clause.includes('compositeKeyOf(r.raw) !== null'))
+    throw new Error('autoFixable 必须显式要求"主键存在",否则 null===null 那一型随时复活')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
