@@ -67,7 +67,13 @@
 import { readdirSync, readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { catBatch, gitRaw } from './lib/face-reader.mjs';
+import {
+  END_CAPABILITY_DIRS,
+  PROFILE_REL,
+  judgeEndCoverage,
+  loadEndProfile,
+  scanEndConsumption,
+} from './lib/agent-event-coverage.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -600,137 +606,200 @@ console.log(
 );
 console.log(`  api-client SSE 分发器 case 分支 ${feStats.apiClientCases} 处`);
 
-// —— 2c. 端能力对账(D139,2026-09-28 立):六端消费面 + 档案表放行 ——
-// 口径三条,先说清楚再判:
-//   ① 取材面 = HEAD(face-reader 的 catBatch),不是磁盘 —— 共享工作树常年滞后,按磁盘判
-//      会让同一份代码在"恒红/假绿"之间跳(守门 118 全仓记过的那一型);
-//   ② 消费判定 = "提及口径":注释剥除后的源码字符串里出现该事件名。它**宽于**真监听 ——
-//      所以本维第一轮只点名(warning),不判红;收口成硬判据前须逐端核成"监听口径"。
-//      宁可宽着点名,也不能把"提及"当"没做"——那会把六端一整片打成假缺口。
-//   ③ 已声明未做 ≠ 失败:档案表(config/agent-event-end-capability.json)声明过的帧报名放行,
-//      没写档案的端**零豁免**逐条点名 —— 留空档案等于默认放行,那正是本维要防的静默。
-const END_CAPABILITY_DIRS = {
-  'apps/miniapp-taro/src': '小程序',
-  'apps/mobile-rn/src': 'App(RN)',
-  'packages/app/src': '共享屏层',
-  'apps/extension': '浏览器扩展',
-  'apps/desktop': '桌面端',
-  'apps/cli/src': 'CLI',
-};
-const PROFILE_PATH = 'config/agent-event-end-capability.json';
+// —— 2c. 端能力对账(D139 步 2/3,2026-09-30 收口为硬判据):七端消费面 + 档案表放行 ——
+// 取材/档案/判据全住 scripts/lib/agent-event-coverage.mjs(门与档案分离)。口径:
+//   ① 取材面 = 默认 HEAD blob,--worktree 是人工逃生舱(FACE_NOTE.worktree 同口径;
+//      验收"摘掉一个回调必须红"只能在磁盘面演示,摘工作区对 HEAD 面不可见);
+//   ② 消费判定 = 提及口径(剥注释后字符串中出现 + AGENT_TASK_EVENTS 常量解析回 wire 名),
+//      宽于真监听 —— 宽着登记只会让 knownGaps 偏小、牙更尖,不会造出假缺口;
+//   ③ 判据(棘轮,绝不造恒红门):后端生产 e、端未消费 ——
+//        e ∈ knownGaps(档案登记的已知缺口,基线 = 各端 HEAD 自身存量)⇒ 放行;
+//        e ∈ events(档案声明已接)⇒ 红(摘掉监听必红,这就是扩面真生效的牙);
+//        都不在 ⇒ 红(档案外缺口必须报名,不得静默);端无档案 ⇒ 红;
+//        until 过期 ⇒ 红;取材失败 ⇒ 未判定(警告),不冒红也绝不记绿。
+const SELF_TEST = process.argv.includes('--self-test');
+const COVERAGE_FACE = process.argv.includes('--worktree') ? 'worktree' : 'head';
+const TODAY = new Date().toISOString().slice(0, 10);
+console.log(
+  `\n${C.cyan}端能力对账(D139 七端;${COVERAGE_FACE === 'worktree' ? '工作树面(人工逃生舱)' : 'HEAD 面'};` +
+    `提及口径 = 剥注释后字符串中出现 + AGENT_TASK_EVENTS 常量解析)${C.reset}`,
+);
 // 字段级台账(b76-05 票1):豁免键 → 理由;与端能力档案同一目录的既有台账文件
 const FIELD_COVERAGE_PATH = 'scripts/data/sse-dispatch-coverage.json';
-
-function escapeRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-
-function scanEndConsumption() {
-  // backendEvents 是 Map(名→出处),取键集;错拿整个 entry 展开会让交替正则里混进 "[object Object]"
-  const nameAlt = [...backendEvents.keys()].sort().map(escapeRe).join('|');
-  const mentionRe = new RegExp(`["'\`](${nameAlt})["'\`]`, 'g');
-  const out = new Map();
-  for (const [dir, label] of Object.entries(END_CAPABILITY_DIRS)) {
-    let files = [];
-    try {
-      files = gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', dir], ROOT)
-        .split('\n').map((s) => s.trim()).filter((f) => f && /\.(ts|tsx|js|jsx|mjs)$/.test(f));
-    } catch (e) {
-      out.set(dir, { label, files: 0, consumed: new Set(), error: String(e?.message ?? e).split('\n')[0] });
-      continue;
-    }
-    const consumed = new Set();
-    try {
-      const revs = files.map((f) => `HEAD:${f}`);
-      const texts = catBatch(ROOT, revs, { maxBuffer: 512e6 });
-      for (const t of texts.values()) {
-        const s = stripTsComments(t);
-        for (const m of s.matchAll(mentionRe)) consumed.add(m[1]);
-      }
-    } catch (e) {
-      out.set(dir, { label, files: files.length, consumed: new Set(), error: String(e?.message ?? e).split('\n')[0] });
-      continue;
-    }
-    out.set(dir, { label, files: files.length, consumed });
-  }
-  return out;
-}
-
-function loadEndProfile() {
-  try {
-    const t = catBatch(ROOT, [`HEAD:${PROFILE_PATH}`]).get(`HEAD:${PROFILE_PATH}`);
-    if (typeof t !== 'string') return null;
-    return JSON.parse(t);
-  } catch {
-    return null;
-  }
-}
-
-const SELF_TEST = process.argv.includes('--self-test');
-const TODAY = new Date().toISOString().slice(0, 10);
-console.log(`\n${C.cyan}端能力对账(D139 六端;HEAD 面;提及口径=剥注释后字符串中出现)${C.reset}`);
-const endConsumption = scanEndConsumption();
-const endProfile = loadEndProfile();
+const profileLoad = loadEndProfile(ROOT);
+const endProfile = profileLoad.profile;
 if (!endProfile) {
   errors.push(
-    `端能力档案表 ${PROFILE_PATH} 在 HEAD 面取不到或解析失败 —— 取不到必须显式红,` +
+    `端能力档案表 ${PROFILE_REL} 工作树与 HEAD 双面都取不到或解析失败 —— 取不到必须显式红,` +
       `不得静默当"无档案"放行(表在 config/ 下,登记不等于生效的反面是丢了也不许装看不见)`,
   );
+} else if (profileLoad.note) {
+  warnings.push(`端能力档案:${profileLoad.note}`);
 }
+const backendNameSet = new Set(backendEvents.keys());
+const endConsumption = scanEndConsumption(ROOT, { backendNames: backendNameSet, face: COVERAGE_FACE });
+const endJudge = judgeEndCoverage({ backendNames: backendNameSet, consumption: endConsumption, profile: endProfile, today: TODAY });
 let endGapTotal = 0;
-for (const [dir, info] of endConsumption) {
-  const declared = endProfile?.profiles?.find((p) => p.app === dir || dir.startsWith(p.app + '/')) ?? null;
-  if (declared) {
-    if (!declared.reason || !declared.until) errors.push(`档案 ${dir} 缺 reason/until —— 半个声明比没有更危险`);
-    if (typeof declared.until === 'string' && declared.until < TODAY)
-      warnings.push(`档案 ${dir} 已过期(${declared.until})—— 到期要续或删,不得静默续命`);
-    for (const n of declared.events ?? []) {
-      if (!backendEvents.has(n)) errors.push(`档案 ${dir} 声明了契约不存在的事件 "${n}" —— 台账腐烂`);
-    }
-  }
-  const gaps = [];
-  let declaredSkip = 0;
-  for (const n of backendEvents.keys()) {
-    if (info.consumed.has(n)) continue;
-    if (declared?.events?.includes(n)) declaredSkip += 1;
-    else gaps.push(n);
-  }
-  endGapTotal += gaps.length;
-  const tag = declared ? `档案声明未做 ${declaredSkip}` : '无档案 ⇒ 零豁免';
+for (const row of endJudge.perEnd) {
+  const mark = row.status === 'green' ? '·' : row.status === 'undetermined' ? '❓' : '✗';
   console.log(
-    `  ${info.error ? '❓' : '·'} ${dir}(${info.label}): 文件 ${info.files}, 提及 ${info.consumed.size}/${backendEvents.size}, ${tag}, 点名未做 ${gaps.length}` +
-      (gaps.length ? ` — ${gaps.slice(0, 8).join(', ')}${gaps.length > 8 ? ' …' : ''}` : ''),
+    `  ${mark} ${row.dir}(${row.label}): 文件 ${row.files}, 消费 ${row.consumedCount}/${backendEvents.size}` +
+      `, 档案${row.hasProfile ? '有' : '无'}, 登记缺口 ${row.registered}, 档案外 ${row.unregistered.length}` +
+      (row.declaredMissing.length
+        ? `, 声明未接 ${row.declaredMissing.length} — ${row.declaredMissing.slice(0, 6).join(', ')}`
+        : '') +
+      (row.unregistered.length
+        ? ` — ${row.unregistered.slice(0, 8).join(', ')}${row.unregistered.length > 8 ? ' …' : ''}`
+        : ''),
   );
-  if (info.error) warnings.push(`端 ${dir} 取材失败:${info.error}(未判定,不是通过)`);
+  if (row.status === 'undetermined') {
+    warnings.push(`端 ${row.dir} 取材失败:${row.error}(未判定,不是通过)`);
+    continue;
+  }
+  if (!row.hasProfile) {
+    errors.push(
+      `端 ${row.dir}(${row.label})无档案条目:后端 ${backendEvents.size} 个事件中 ${row.consumedCount} 个有消费迹象,` +
+        `其余 ${row.registered + row.unregistered.length} 个缺口零豁免 —— 逐端声明是硬要求,先补 ${PROFILE_REL}`,
+    );
+    continue;
+  }
+  for (const v of row.violations) errors.push(`档案 ${row.dir}:${v}`);
+  for (const e of row.unregistered) {
+    errors.push(
+      `端能力缺口: ${row.dir} 未消费后端事件 "${e}" 且档案未登记 —— 补该端消费,` +
+        `或在 ${PROFILE_REL} 该端 knownGaps 登记 reason+until,不得静默`,
+    );
+  }
+  for (const e of row.declaredMissing) {
+    errors.push(
+      `端能力棘轮: ${row.dir} 档案声明已接 "${e}" 但实测无消费迹象 —— 监听被摘/改名必须显式过门` +
+        `(补消费或改档案登记),不得静默`,
+    );
+  }
+  for (const e of row.staleGaps) {
+    warnings.push(`档案 ${row.dir} knownGaps 里的 "${e}" 已实测有消费 —— 缺口已收口,请从 knownGaps 移除`);
+  }
+  endGapTotal += row.unregistered.length + row.declaredMissing.length;
 }
 console.log(
-  `  六端点名合计 ${endGapTotal} 处 —— 本轮按已批口径只点名不判红(第一轮存量),` +
-    `收口成硬判据须逐端把"提及"核成"监听"并按该文件 HEAD 自身存量走棘轮`,
+  `  七端棘轮合计:登记缺口 ${endJudge.totals.registered}(档案放行),档案外缺口 ${endJudge.totals.unregistered}` +
+    `,声明未接 ${endJudge.totals.declaredMissing},已收口待清账 ${endJudge.totals.stale}` +
+    ` —— 棘轮基线 = 各端 HEAD 自身存量,只拦新增漏接与静默摘除`,
 );
 feStats.endGapTotal = endGapTotal;
+feStats.endFacesHealthy = [...endConsumption.values()].filter((v) => !v.error && v.files > 0).length;
 
 if (SELF_TEST) {
   const st = [];
   const totalConsumed = [...endConsumption.values()].reduce((a, v) => a + v.consumed.size, 0);
   const mini = endConsumption.get('apps/miniapp-taro/src');
   st.push([
-    'ST1 六端 HEAD 清单非空且判据真吃得到信号(阳性对照,防正则空转)',
+    'ST1 七端 HEAD 清单非空且判据真吃得到信号(阳性对照,防正则空转)',
     [...endConsumption.values()].every((v) => v.files > 0) && totalConsumed >= 5 && (mini?.consumed.size ?? 0) >= 3,
     `文件数 ${[...endConsumption.values()].map((v) => v.files).join('/')}, 提及合计 ${totalConsumed}, 小程序 ${mini?.consumed.size ?? '?'}`,
   ]);
   st.push([
-    'ST2 档案表可解析、事件名全在契约上、reason/until 齐备未过期',
+    'ST2 档案表可解析、七端全登记、事件名全在生产面、reason/until 齐备未过期',
     !!endProfile &&
       Array.isArray(endProfile.profiles) &&
+      Object.keys(END_CAPABILITY_DIRS).every((d) => endProfile.profiles.some((p) => p.app === d)) &&
       endProfile.profiles.every(
-        (p) => p.reason && typeof p.until === 'string' && p.until >= TODAY && (p.events ?? []).every((n) => backendEvents.has(n)),
+        (p) =>
+          p.reason &&
+          typeof p.until === 'string' &&
+          p.until >= TODAY &&
+          p.knownGaps &&
+          typeof p.knownGaps.reason === 'string' &&
+          typeof p.knownGaps.until === 'string' &&
+          p.knownGaps.until >= TODAY &&
+          (p.events ?? []).every((n) => backendEvents.has(n)) &&
+          (p.knownGaps.events ?? []).every((n) => backendEvents.has(n)),
       ),
-    endProfile ? `条目 ${endProfile.profiles?.length ?? 0}` : '解析失败',
+    endProfile ? `条目 ${endProfile.profiles?.length ?? 0}/7` : '解析失败',
   ]);
   const ownSrc = readFileSync(new URL(import.meta.url), 'utf8');
+  let libSrc = '';
+  try {
+    libSrc = readFileSync(new URL('./lib/agent-event-coverage.mjs', import.meta.url), 'utf8');
+  } catch {}
   st.push([
-    'ST3 形状锁:端目录表与 catBatch 取材面都在源码里(被退回只扫 web 必红)',
-    Object.keys(END_CAPABILITY_DIRS).every((d) => ownSrc.includes(d)) && ownSrc.includes('catBatch(') && ownSrc.includes(PROFILE_PATH),
-    '退回只扫 web 时本条红 —— 这是 T1 镜像测试的牙',
+    'ST3 形状锁:端目录表/取材面/档案路径都住在 lib(门真 import 它;被退回只扫 web 必红)',
+    ownSrc.includes("from './lib/agent-event-coverage.mjs'") &&
+      ['apps/web/src', 'apps/mobile-rn/src', 'apps/miniapp-taro/src', 'packages/app/src', 'apps/extension', 'apps/cli/src'].every((d) => libSrc.includes(`'${d}'`)) &&
+      libSrc.includes('catBatch') &&
+      libSrc.includes(PROFILE_REL) &&
+      ownSrc.includes("'--worktree'"),
+    '退回只扫 web / 内联判据 / 只认 HEAD 面时本条红 —— 这是 T1 镜像测试的牙',
   ]);
+  // —— D139 判据自检:构造正反例(纯函数,零仓库依赖)+ 活体变异(真实取材数据)——
+  try {
+    const BE = ['chunk', 'done', 'error'];
+    const mkConsumption = (dir, arr) => new Map([[dir, { label: 'X', files: 3, consumed: new Set(arr) }]]);
+    const mkProfile = (dir, events, gaps, until = '2999-12-31') => ({
+      profiles: [{ app: dir, reason: 'r', until, events, knownGaps: { reason: 'g', until, events: gaps } }],
+    });
+    let j = judgeEndCoverage({ backendNames: BE, consumption: mkConsumption('x', ['chunk']), profile: mkProfile('x', ['chunk'], ['done']), today: '2026-09-30' });
+    st.push([
+      'ST8 构造反例:后端发、端未接、档案未登记 ⇒ 必红(防静默)',
+      j.perEnd[0].status === 'red' && j.perEnd[0].unregistered.includes('error'),
+      `status=${j.perEnd[0].status}, unregistered=${JSON.stringify(j.perEnd[0].unregistered)}`,
+    ]);
+    j = judgeEndCoverage({ backendNames: BE, consumption: mkConsumption('x', ['chunk']), profile: mkProfile('x', ['chunk'], ['done', 'error']), today: '2026-09-30' });
+    st.push([
+      'ST9 构造正例:knownGaps 登记过的缺口 ⇒ 放行(存量棘轮,绝不造恒红门)',
+      j.perEnd[0].status === 'green' && j.totals.registered === 2,
+      `status=${j.perEnd[0].status}, registered=${j.totals.registered}`,
+    ]);
+    j = judgeEndCoverage({ backendNames: BE, consumption: mkConsumption('x', ['done']), profile: mkProfile('x', ['chunk', 'done'], []), today: '2026-09-30' });
+    st.push([
+      'ST10 构造反例:摘掉已声明回调(chunk)⇒ 必红(阳性对照的牙,证明扩面真生效)',
+      j.perEnd[0].status === 'red' && j.perEnd[0].declaredMissing.includes('chunk'),
+      `status=${j.perEnd[0].status}, declaredMissing=${JSON.stringify(j.perEnd[0].declaredMissing)}`,
+    ]);
+    j = judgeEndCoverage({
+      backendNames: BE,
+      consumption: mkConsumption('x', ['chunk', 'done', 'error']),
+      profile: { profiles: [{ app: 'x', reason: 'r', until: '2000-01-01', events: ['chunk', 'done', 'error'], knownGaps: { reason: 'g', until: '2000-01-01', events: [] } }] },
+      today: '2026-09-30',
+    });
+    st.push([
+      'ST11 构造反例:until 过期 ⇒ 红(未过期 until 是档案的生效条件)',
+      j.perEnd[0].status === 'red' && j.perEnd[0].violations.some((v) => v.includes('已过期')),
+      `status=${j.perEnd[0].status}, violations=${j.perEnd[0].violations.length}`,
+    ]);
+    j = judgeEndCoverage({ backendNames: BE, consumption: mkConsumption('x', ['chunk']), profile: { profiles: [] }, today: '2026-09-30' });
+    st.push([
+      'ST12 构造反例:端无档案 ⇒ 红(留空档案=默认放行正是本票要防的静默)',
+      j.perEnd[0].status === 'red' && !j.perEnd[0].hasProfile,
+      `status=${j.perEnd[0].status}, hasProfile=${j.perEnd[0].hasProfile}`,
+    ]);
+    // 活体变异:真实七端取材 + 真档案,把 RN / web 的消费集各摘一个 ⇒ 必红;不摘 ⇒ 绿。
+    // 这两条在 --self-test 里就地证明"门吃到的是真信号",不依赖人工改文件。
+    for (const [dir, tag] of [['apps/mobile-rn/src', 'RN'], ['apps/web/src', 'web']]) {
+      const info = endConsumption.get(dir);
+      if (!info || info.error || info.consumed.size === 0) {
+        st.push([`ST13 活体(${tag}):取材失败不得记绿`, false, info?.error ?? '消费集为空']);
+        continue;
+      }
+      const one = [...info.consumed].sort()[0];
+      const mutated = new Map(endConsumption);
+      mutated.set(dir, { ...info, consumed: new Set([...info.consumed].filter((e) => e !== one)) });
+      const g = judgeEndCoverage({ backendNames: backendNameSet, consumption: endConsumption, profile: endProfile, today: TODAY }).perEnd.find((r) => r.dir === dir);
+      const r2 = judgeEndCoverage({ backendNames: backendNameSet, consumption: mutated, profile: endProfile, today: TODAY }).perEnd.find((r) => r.dir === dir);
+      st.push([
+        `ST13 活体(${tag}):现势全量判绿 ∧ 摘掉 "${one}" 判红`,
+        g?.status === 'green' && r2?.status === 'red',
+        `全量=${g?.status}, 变异=${r2?.status}`,
+      ]);
+    }
+    st.push([
+      'ST14 形状锁补充:判据同时认得 knownGaps 放行与档案外必红两态(取材失败不冒红也不记绿)',
+      typeof judgeEndCoverage === 'function' && ownSrc.includes('未判定,不是通过'),
+      '判据出口缺失时本条红',
+    ]);
+  } catch (e) {
+    st.push(['ST8-14 判据自检异常', false, String(e?.message ?? e).split('\n')[0]]);
+  }
   // 字段段自检(b76-05 票1):变异自证 —— 判据有牙才配叫门。
   try {
     const fr = extractFrontendReadKeys();
@@ -796,6 +865,7 @@ const SANITY_MIN = [
   { key: 'eventSourceFiles', min: 2, label: '前端 EventSource 文件(use-agent-runtime/useAgentSSE/tool-approval-dialog)' },
   { key: 'namedListeners', min: 2, label: '前端命名监听(字符串 + AGENT_TASK_EVENTS 常量形态, self-heal/tool-approval)' },
   { key: 'apiClientCases', min: 8, label: 'api-client 分发 case 分支' },
+  { key: 'endFacesHealthy', min: 7, label: '端能力扫描七端健康(文件>0 且取材未失败,D139 扩面)' },
 ];
 for (const { key, min, label } of SANITY_MIN) {
   const actual = scanStats[key] ?? feStats[key] ?? 0;
