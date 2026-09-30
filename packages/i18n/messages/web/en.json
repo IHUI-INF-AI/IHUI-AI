@@ -9144,6 +9144,19 @@
     "noHistory": "No history chat",
     "noRecentWorkspaces": "No recent workspaces",
     "openTerminal": "Open Terminal",
+    "recap": {
+      "title": "Task recap",
+      "handoff": {
+        "menuItem": "Hand off to a new task",
+        "title": "Hand off to a new task"
+      },
+      "previewDescription": "Review the handoff content, view it at the file location, or create a new task to continue working.",
+      "purposeLabel": "Handoff purpose",
+      "purposePlaceholder": "Handoff purpose",
+      "revealFile": "Show file",
+      "createSession": "Create new task",
+      "handoffUnavailable": "The handoff document generator this flow depends on is not available yet, so handoff content cannot be generated."
+    },
     "renameDialog": {
       "cancel": "Cancel",
       "description": "Keep it short and easy to recognize",
@@ -10582,6 +10595,17 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "selectionAnnotations": {
+      "hoverHint": "Hover to view annotations",
+      "selectedText": "{{index}}. Selected text",
+      "noComment": "No comment yet",
+      "commentPlaceholder": "Add an optional comment…",
+      "commentAriaLabel": "Selection annotation comment",
+      "addComment": "Add comment",
+      "removeOne": "Remove annotation {{index}}",
+      "removeAll": "Remove all selection annotations",
+      "add": "Annotate"
+    },
     "attachRetry": "Retry upload",
     "attachRetryExhausted": "Retry limit reached. Remove it and add the file again.",
     "attachRejectType": "Unsupported file type; skipped {count} file(s): {names}",
@@ -12221,6 +12245,7 @@
     "unpin": "Unpin",
     "unsaved": "Unsaved",
     "update": {
+      "revoked": "This version is no longer available.",
       "autoRestartIn": "Auto-restarting in {countdown}s...",
       "autoRetrying": "Update failed, auto-retrying...",
       "available": "New Version Available",
@@ -15031,6 +15056,8 @@
     "title": "Feature Center"
   },
   "feedback": {
+    "unsupportedImage": "Only PNG, JPG, GIF and WebP images are supported.",
+    "requestIdSuffix": "Feedback ID: {requestId}.",
     "backToList": "Back to feedback",
     "contactPlaceholder": "Optional, so we can reach you",
     "contentPlaceholder": "Describe your issue or suggestion...",
@@ -15862,6 +15889,8 @@
       "unsynced": "Unsynced"
     },
     "terminalPanel": {
+      "switchToDark": "Switch to dark terminal",
+      "switchToLight": "Switch to light terminal",
       "aiDiagnoseTitle": "AI error diagnosis",
       "aiServiceUnavailable": "AI service is temporarily unavailable, please try again later",
       "aiSuggestTitle": "AI command suggestions",
@@ -26556,6 +26585,7 @@
     "noUrlField": "No usable URL field found in response",
     "networkError": "Network error",
     "uploadCancelled": "Upload cancelled",
+    "imageAltText": "Feedback screenshot {index}",
     "imagePlaceholder": "Click or drag images here to upload"
   },
   "eduScheduling": {

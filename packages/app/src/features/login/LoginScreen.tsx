@@ -1626,17 +1626,19 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     // web TabsList:h-9 rounded-lg bg-muted p-1;TabsTrigger rounded-md px-3 py-1 text-sm,
     // 激活态取成对具名档 bg-selection / text-selection-foreground
     // (2026-09-30 起 web 不再写死 bg-white / dark:bg-black,三端同取 tokens.css 的选中态成对档)
+    // 容器底两档统一取 tk.surface.muted(暗=#262626 / 亮=#EBEBEB)= web 与小程序的 --color-muted 同档。
+    // 原暗档自立 `tk.gray[700]`(#404040)是端内另取一档,与另两端差 26 个明度级(真机 Redmi 实拍
+    // rgb(64,64,64) 对上),2026-09-30 收口。描边同理并到 tk.border.light
+    // (#E5E5E5 / #383838 = --color-border 两档逐位同值),不得再取 surface.light/gray.black 自拼 alpha。
     tabBar: {
       flexDirection: 'row',
       gap: 0,
       marginBottom: 16,
       padding: 4,
       borderRadius: rnRadius.lg,
-      backgroundColor: colorScheme === 'dark' ? tk.gray[700] : tk.surface.muted,
-      // 低对比描边:暗色微亮/浅色微暗,若隐若现即可
+      backgroundColor: tk.surface.muted,
       borderWidth: 1,
-      borderColor:
-        colorScheme === 'dark' ? withAlpha(tk.surface.light, 0.08) : withAlpha(tk.gray.black, 0.06),
+      borderColor: tk.border.light,
     },
     tabItem: {
       flex: 1,
