@@ -14,6 +14,8 @@ import { ArrowLeft, Check, X, Loader2, Award, RotateCcw } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
 
 interface QuestionResult {
@@ -47,12 +49,16 @@ export default function EduExamResultPage() {
   const recordId = searchParams.get('recordId')
   const locale = useLocale()
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'exam', id, 'result', recordId],
     queryFn: () =>
       api<{ result: ExamResult }>(
         `/api/edu/exam/${id}/result${recordId && recordId.length > 0 ? `?recordId=${recordId}` : ''}`,
       ).then((d) => d.result),
+    enabled: allow,
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -66,6 +72,21 @@ export default function EduExamResultPage() {
     const d = new Date(v)
     return Number.isNaN(d.getTime()) ? '-' : dateFmt.format(d)
   }
+
+  if (!allow)
+    return (
+      <div className="space-y-4">
+        <button
+          type="button"
+          onClick={() => router.push('/edu/exam')}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t('backToList')}
+        </button>
+        <AuthGatePrompt message="请先登录后查看考试成绩" />
+      </div>
+    )
 
   if (isLoading)
     return (

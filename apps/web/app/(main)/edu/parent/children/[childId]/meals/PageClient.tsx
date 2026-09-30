@@ -13,7 +13,8 @@ import { UtensilsCrossed, Loader2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface MealItem {
   id: string
@@ -54,10 +55,14 @@ export default function ChildMealsPage() {
   const params = useParams()
   const childId = params.childId as string
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'meals'],
     queryFn: () =>
       api<{ list: MealItem[] }>(`/api/edu-ai-management/parent/children/${childId}/meals`),
+    enabled: allow,
   })
 
   const meals = data?.list ?? []
@@ -76,7 +81,9 @@ export default function ChildMealsPage() {
         <p className="text-xs text-muted-foreground">{t('child.mealsHint')}</p>
       </header>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看用餐记录" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {tc('loading')}
