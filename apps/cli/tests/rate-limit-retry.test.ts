@@ -17,6 +17,13 @@ import {
   type Tool,
   type ToolContext,
 } from '../src/tools/index.js'
+import {
+  ToolError,
+  resolveFailureCode,
+  getFailureFallbackStats,
+  resetFailureFallbackStats,
+} from '../src/tools/failure-classification.js'
+import type { FailureCode } from '@ihui/types'
 
 const ctx: ToolContext = { workspacePath: '.' }
 
@@ -84,7 +91,11 @@ describe('checkRateLimit 滑动窗口', () => {
 })
 
 describe('executeWithRetry 错误恢复', () => {
-  it('read 工具可重试错误(timeout)失败后重试 1 次,成功', async () => {
+  beforeEach(() => {
+    resetFailureFallbackStats()
+  })
+
+  it('read 工具携带 timeout 码的失败重试 1 次后成功(判定读码,不读文本)', async () => {
     let calls = 0
     const tool: Tool = {
       name: 'read_test',
@@ -94,7 +105,10 @@ describe('executeWithRetry 错误恢复', () => {
       dangerLevel: 'read',
       execute: async () => {
         calls++
-        if (calls === 1) return { success: false, output: '', error: 'timeout: 瞬时超时' }
+        if (calls === 1) {
+          // 文本里**没有**任何 timeout 字样:判定若仍在读文本,这一发就不会重试(阳性对照)
+          return { success: false, output: '', error: '上游没有按时回来', errorType: 'timeout' }
+        }
         return { success: true, output: 'ok' }
       },
     }
@@ -102,6 +116,8 @@ describe('executeWithRetry 错误恢复', () => {
     expect(result.success).toBe(true)
     expect(result.output).toBe('ok')
     expect(calls).toBe(2)
+    // 带码 ⇒ 一次兜底都不许走(计数为 0 是本票的核心断言)
+    expect(getFailureFallbackStats().total).toBe(0)
   })
 
   it('read 工具两次可重试错误都失败,返回最后一次错误', async () => {
@@ -114,14 +130,20 @@ describe('executeWithRetry 错误恢复', () => {
       dangerLevel: 'read',
       execute: async () => {
         calls++
-        return { success: false, output: '', error: `network error 失败-${calls}` }
+        return {
+          success: false,
+          output: '',
+          error: `连接抖动-${calls}`,
+          errorType: 'network',
+        }
       },
     }
     const result = await executeWithRetry(tool, {}, ctx)
     expect(result.success).toBe(false)
-    expect(result.error).toBe('network error 失败-2')
+    expect(result.error).toBe('连接抖动-2')
     expect(result.errorType).toBe('network')
     expect(calls).toBe(2)
+    expect(getFailureFallbackStats().total).toBe(0)
   })
 
   it('write 工具失败不重试', async () => {
@@ -160,7 +182,7 @@ describe('executeWithRetry 错误恢复', () => {
     expect(calls).toBe(1)
   })
 
-  it('read 工具抛可重试异常(timeout)后重试', async () => {
+  it('read 工具抛 ToolError(timeout)后重试:码从抛出方一路带到判定', async () => {
     let calls = 0
     const tool: Tool = {
       name: 'read_throw',
@@ -170,7 +192,8 @@ describe('executeWithRetry 错误恢复', () => {
       dangerLevel: 'read',
       execute: async () => {
         calls++
-        if (calls === 1) throw new Error('timeout: 瞬时异常')
+        // 抛出方给码:消息文本刻意不含 timeout/timed out 任何字样
+        if (calls === 1) throw new ToolError('timeout', '墙钟到点(文本已无关)')
         return { success: true, output: 'recovered' }
       },
     }
@@ -178,6 +201,7 @@ describe('executeWithRetry 错误恢复', () => {
     expect(result.success).toBe(true)
     expect(result.output).toBe('recovered')
     expect(calls).toBe(2)
+    expect(getFailureFallbackStats().total).toBe(0)
   })
 
   it('read 工具首次成功不重试', async () => {
@@ -208,7 +232,9 @@ describe('executeWithRetry 错误恢复', () => {
       dangerLevel: 'read',
       execute: async () => {
         calls++
-        if (calls === 1) return { success: false, output: '', error: 'rate_limited: 触发限流' }
+        if (calls === 1) {
+          return { success: false, output: '', error: '配额窗口已满', errorType: 'rate_limited' }
+        }
         return { success: true, output: 'ok' }
       },
     }
@@ -216,46 +242,100 @@ describe('executeWithRetry 错误恢复', () => {
     await executeWithRetry(tool, {}, ctx)
     const elapsed = Date.now() - start
     expect(elapsed).toBeGreaterThanOrEqual(90) // 100ms 退避,允许 10ms 误差
+    expect(getFailureFallbackStats().total).toBe(0)
   })
 })
 
-describe('P1-4 ErrorType 分级', () => {
-  it('classifyError 识别 rate_limited', () => {
+describe('P1-4 失败码判定(G-710:判定读码,文本档只是被计数的兜底)', () => {
+  beforeEach(() => {
+    resetFailureFallbackStats()
+  })
+
+  it('带码即结论:文本说什么都不影响判定(逐码成对)', () => {
+    const cases: ReadonlyArray<{ code: FailureCode; text: string }> = [
+      { code: 'rate_limited', text: 'Too Many Requests' },
+      { code: 'timeout', text: 'operation timed out' },
+      { code: 'permission', text: 'permission denied' },
+      { code: 'not_found', text: 'file not found' },
+      { code: 'network', text: 'fetch failed' },
+      { code: 'cancelled', text: '用户按了停止' },
+      { code: 'provider_unavailable', text: 'bad gateway' },
+      { code: 'context_limit', text: '上下文太长' },
+    ]
+    for (const { code, text } of cases) {
+      const r = resolveFailureCode(new ToolError(code, text), 'direct-call')
+      expect(r.code, `ToolError(${code}) 必须原样给出码`).toBe(code)
+      expect(r.via).toBe('structured')
+      expect(r.fallbackUsed).toBe(false)
+    }
+    // 反向对照:上一条一次兜底都没走。摘掉抛码(见 ToolError 用例)⇒ 本断言必红
+    expect(getFailureFallbackStats().total).toBe(0)
+  })
+
+  it('文本与码矛盾时**以码为准**(旧实现这里会被文本带走)', () => {
+    // 旧 classifyError 读到 'rate limit' 就判 rate_limited(可重试);
+    // 现在同一段文本挂上 cancelled 码 ⇒ 结论必须是 cancelled。
+    const r = resolveFailureCode(new ToolError('cancelled', 'rate limit exceeded'), 'direct-call')
+    expect(r.code).toBe('cancelled')
+    expect(isRetryableErrorType(r.code)).toBe(false)
+    expect(getFailureFallbackStats().total).toBe(0)
+  })
+
+  it('既有发射名 permission_denied 归一成 permission(两处判定第一次对得上)', () => {
+    const r = resolveFailureCode({ errorType: 'permission_denied' }, 'direct-call')
+    expect(r.code).toBe('permission')
+    expect(r.via).toBe('structured')
+    expect(isFatalErrorType(r.code)).toBe(true)
+  })
+
+  it('后端稳定 errorCode 与 HTTP status 两档结构化字段都算"有码"', () => {
+    expect(resolveFailureCode({ errorCode: 'RATE_LIMITED' }, 'direct-call').code).toBe('rate_limited')
+    expect(resolveFailureCode({ status: 429 }, 'direct-call').code).toBe('rate_limited')
+    expect(resolveFailureCode({ status: 503 }, 'direct-call').code).toBe('provider_unavailable')
+    expect(resolveFailureCode({ status: 413 }, 'direct-call').code).toBe('context_limit')
+    expect(getFailureFallbackStats().total).toBe(0)
+  })
+
+  it('无码时兜底仍工作,**且每次使用都被计数**(能力没被删,只是不再静默)', () => {
+    expect(getFailureFallbackStats().total).toBe(0)
     expect(classifyError('rate limit exceeded')).toBe('rate_limited')
     expect(classifyError('工具触发限流')).toBe('rate_limited')
     expect(classifyError('Too Many Requests')).toBe('rate_limited')
-  })
-
-  it('classifyError 识别 timeout', () => {
     expect(classifyError('request timeout')).toBe('timeout')
     expect(classifyError('operation timed out')).toBe('timeout')
     expect(classifyError('请求超时')).toBe('timeout')
-  })
-
-  it('classifyError 识别 permission', () => {
     expect(classifyError('permission denied')).toBe('permission')
     expect(classifyError('access forbidden')).toBe('permission')
     expect(classifyError('权限不足')).toBe('permission')
     expect(classifyError('操作被拒绝')).toBe('permission')
-  })
-
-  it('classifyError 识别 not_found', () => {
     expect(classifyError('file not found')).toBe('not_found')
     expect(classifyError('ENOENT: no such file')).toBe('not_found')
     expect(classifyError('文件不存在')).toBe('not_found')
-  })
-
-  it('classifyError 识别 network', () => {
     expect(classifyError('network error')).toBe('network')
     expect(classifyError('ECONNRESET')).toBe('network')
     expect(classifyError('fetch failed')).toBe('network')
     expect(classifyError('连接被拒绝')).toBe('network')
-  })
-
-  it('classifyError 兜底 unknown', () => {
     expect(classifyError('something weird')).toBe('unknown')
     expect(classifyError(undefined)).toBe('unknown')
     expect(classifyError('')).toBe('unknown')
+
+    const stats = getFailureFallbackStats()
+    // 20 次调用 ⇒ 计数必须与调用数同阶(不是 0,也不是把结构化那几发算进来)
+    expect(stats.total).toBe(20)
+    expect(stats.bySite['direct-call']).toBe(20)
+    expect(stats.bySiteAndCode['direct-call|rate_limited']).toBe(3)
+    expect(stats.bySiteAndCode['direct-call|unknown']).toBe(3)
+  })
+
+  it('兜底计数按站点分档:工具重试与压缩各记各的,合起来才是总账', () => {
+    resetFailureFallbackStats()
+    resolveFailureCode('网络抖动', 'tool-retry')
+    resolveFailureCode('网络抖动', 'compaction-sampling')
+    resolveFailureCode('网络抖动', 'compaction-sampling')
+    const stats = getFailureFallbackStats()
+    expect(stats.total).toBe(3)
+    expect(stats.bySite['tool-retry']).toBe(1)
+    expect(stats.bySite['compaction-sampling']).toBe(2)
   })
 
   it('isRetryableErrorType: network/timeout/rate_limited 可重试,其余不可', () => {
@@ -265,6 +345,9 @@ describe('P1-4 ErrorType 分级', () => {
     expect(isRetryableErrorType('permission')).toBe(false)
     expect(isRetryableErrorType('not_found')).toBe(false)
     expect(isRetryableErrorType('unknown')).toBe(false)
+    // 新增两档同样不可重试:取消与墙钟不是"再来一次"能解决的(见 failure-classification 注记)
+    expect(isRetryableErrorType('cancelled')).toBe(false)
+    expect(isRetryableErrorType('context_limit')).toBe(false)
     expect(isRetryableErrorType(undefined)).toBe(false)
   })
 
@@ -288,16 +371,17 @@ describe('P1-4 ErrorType 分级', () => {
       dangerLevel: 'read',
       execute: async () => {
         calls++
-        return { success: false, output: '', error: 'permission denied: 禁止访问' }
+        return { success: false, output: '', error: '禁止访问', errorType: 'permission' }
       },
     }
     const result = await executeWithRetry(tool, {}, ctx)
     expect(result.success).toBe(false)
     expect(result.errorType).toBe('permission')
     expect(calls).toBe(1) // 不可重试 → 不重试
+    expect(getFailureFallbackStats().total).toBe(0)
   })
 
-  it('read 工具未知错误(unknown)不重试', async () => {
+  it('read 工具未知错误(无码 ⇒ 走被计数的兜底)不重试', async () => {
     let calls = 0
     const tool: Tool = {
       name: 'read_unknown',
@@ -314,9 +398,11 @@ describe('P1-4 ErrorType 分级', () => {
     expect(result.success).toBe(false)
     expect(result.errorType).toBe('unknown')
     expect(calls).toBe(1) // unknown 不可重试
+    // 兜底不是静默的:这一发的两次判定(重试窗 + 收尾打标)都必须进计数
+    expect(getFailureFallbackStats().total).toBeGreaterThan(0)
   })
 
-  it('工具主动标记 errorType 覆盖启发式分类', async () => {
+  it('工具主动标记 errorType 覆盖文本判定', async () => {
     let calls = 0
     const tool: Tool = {
       name: 'read_override',
@@ -327,7 +413,7 @@ describe('P1-4 ErrorType 分级', () => {
       execute: async () => {
         calls++
         if (calls === 1) {
-          // 主动标记为 network,即使 error 文本像 unknown,也按 network 处理(可重试)
+          // 主动标记 network,文本刻意写成别的样子也照样按 network 处置(可重试)
           return { success: false, output: '', error: 'whatever', errorType: 'network' as const }
         }
         return { success: true, output: 'ok' }
@@ -336,6 +422,30 @@ describe('P1-4 ErrorType 分级', () => {
     const result = await executeWithRetry(tool, {}, ctx)
     expect(result.success).toBe(true)
     expect(calls).toBe(2)
+    expect(getFailureFallbackStats().total).toBe(0)
+  })
+
+  it('外层取消(ctx.signal 在 handler 内被 abort)按 cancelled 处置,不读错误文本', async () => {
+    const controller = new AbortController()
+    let calls = 0
+    const tool: Tool = {
+      name: 'read_cancelled',
+      description: 'test',
+      parameters: {},
+      required: [],
+      dangerLevel: 'read',
+      execute: async () => {
+        calls++
+        // 取消发生在 handler 内:抛出的是一段 AbortError 文本(旧实现只能靠文本猜,判成 unknown)
+        controller.abort()
+        throw new Error('operation was aborted')
+      },
+    }
+    const result = await executeWithRetry(tool, {}, { ...ctx, signal: controller.signal })
+    expect(result.success).toBe(false)
+    expect(result.errorType).toBe('cancelled')
+    expect(calls).toBe(1) // 取消不是瞬态 → 不重试
+    expect(getFailureFallbackStats().total).toBe(0)
   })
 })
 
