@@ -247,5 +247,38 @@ describe('单平台扫码登录弹窗 —— 必须走纯 HTTP 那条通的腿',
     await waitFor(() => expect(cancelScanLogin).toHaveBeenCalledWith('task-1'))
     expect(onOpenChange).toBeDefined()
   })
+
+  /**
+   * 2026-09-30 提速档:A6/A7 钉住"用户点按钮之前二维码就已经在路上"。
+   *
+   * 立因(本机实测,platform=toutiao_app):固定等待(goto 后 3s + 切 tab 后 1.5s +
+   * 截图前 2s)曾占满 7.8s 里的大头,现在后端已改成"条件一到就走";前端这一侧剩下的
+   * 就是"点按钮才点火"本身 —— 后端起浏览器 + 打开登录页要 1.2s,纯属可提前的等待。
+   * 所以弹窗一打开(带 defaultPlatform 的入口)就点火,点击时直接**接管**那枚任务:
+   * 不再发第二次 startScanLogin(否则等于把刚跑掉的那 1.2s 又白等一遍)。
+   */
+  it('A6 带默认平台的入口一打开就预热(startScanLogin 在点击前已发出)', async () => {
+    render(<ScanLoginDialog open onOpenChange={vi.fn()} defaultPlatform="zhihu" />)
+    await screen.findByText('accounts.startScanLogin')
+    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('zhihu'))
+    // 预热只发一次:此时用户还没点任何东西
+    expect(startScanLogin).toHaveBeenCalledTimes(1)
+  })
+
+  it('A7 点击时接管预热任务,不再重复发起(冷启动 1.2s 被提前掉)', async () => {
+    await openAndStart()
+    await waitFor(() => expect(getScanLoginStatus).toHaveBeenCalledWith('task-1'))
+    // 关键判据:整场只有 A6 那一次预热调用,点击没有又发一遍
+    expect(startScanLogin).toHaveBeenCalledTimes(1)
+    expect(fetchScanLoginQr).toHaveBeenCalledWith('task-1')
+  })
+
+  it('A8 关闭弹窗必须取消预热任务,不给后端留空转的浏览器', async () => {
+    render(<ScanLoginDialog open onOpenChange={vi.fn()} defaultPlatform="zhihu" />)
+    await screen.findByText('accounts.startScanLogin')
+    await waitFor(() => expect(startScanLogin).toHaveBeenCalledTimes(1))
+    cleanup()
+    await waitFor(() => expect(cancelScanLogin).toHaveBeenCalledWith('task-1'))
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

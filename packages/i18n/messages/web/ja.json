@@ -20248,6 +20248,8 @@
       "passwordHint": "一般ユーザーはQRログインを使ってください。この項目は開発者向けです。",
       "platform": "プラットフォーム",
       "saveCookies": "アカウントを保存",
+      "preparingQr": "QRコードを生成中…",
+      "regenerateQr": "QRコードを再生成",
       "scan": "スキャン",
       "scanLogin": "QRコードログイン",
       "scanLoginDescription": "プラットフォームを選択すると、バックエンドがログイン画面を開きQRコードをキャプチャします。アプリでスキャンしてcookieを自動保存。",
