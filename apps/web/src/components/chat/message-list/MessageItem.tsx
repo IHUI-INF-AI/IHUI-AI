@@ -23,6 +23,7 @@ import {
   Ban,
   Quote,
   Paperclip,
+  PenLine,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
@@ -107,6 +108,11 @@ import {
   FOLD_POLICY_EVENT,
   type FoldPolicyMode,
 } from './fold-policy'
+// D180(2026-09-30 立,对标竞品 chatSession.selectionAnnotations.*):会话划词批注 ——
+// 选段生成带序号批注清单(可选评论/悬停查看/单条/全部移除),状态 persist 于
+// stores/d180-selection-annotations(conversationId+messageId 归属,刷新可重放)。
+import { SelectionAnnotationBar } from './d180-selection-annotations'
+import { useSelectionAnnotationsStore } from '@/stores/d180-selection-annotations'
 
 // W16(2026-09-13):文件修改类工具集合(与 tool-call-summary-card 口径一致,前后端并集)。
 // 用于编辑重跑 Dialog 判断"该消息之后是否产生了文件改动",决定是否展示文件回滚勾选项。
@@ -766,6 +772,18 @@ const MessageItem = React.memo(function MessageItem({
     window.getSelection()?.removeAllRanges()
     setSelectionText(null)
   }, [selectionText])
+
+  // D180(2026-09-30 立,对标竞品 chatSession.selectionAnnotations.*):选段生成划词批注 ——
+  // 第三出口,直写 d180 store(conversationId+messageId 归属进数据结构,持久化后可刷新重放);
+  // 与 D22 引用 chips / D184 附件通道并存互补,投递后清除原生选区(同 D184 收口方式)。
+  const handleAnnotateSelection = React.useCallback(() => {
+    if (!selectionText) return
+    useSelectionAnnotationsStore
+      .getState()
+      .addAnnotation(conversationId ?? '', m.id, selectionText)
+    window.getSelection()?.removeAllRanges()
+    setSelectionText(null)
+  }, [selectionText, conversationId, m.id])
 
   // 时间戳移到按钮区内部，这里不再常驻计算
 
@@ -1537,7 +1555,9 @@ const MessageItem = React.memo(function MessageItem({
             置于操作按钮区之前,与 hover 操作栏解耦(选区操作时鼠标不在 hover 态也能点到)。
             D184(2026-09-29 立,对标竞品 chatSession.selectionActions):补第二出口「作为附件添加」
             —— 选中文本包装为 .txt 附件经 ihui:add-selection-attachment 事件走附件 chip 通道
-            (三档校验/上传复用 G-833 链路),两按钮共组 role=group + 选中文本操作组名。 */}
+            (三档校验/上传复用 G-833 链路),两按钮共组 role=group + 选中文本操作组名。
+            D180(2026-09-30 立,对标竞品 chatSession.selectionAnnotations):补第三出口「添加批注」
+            —— 选段直写 d180 批注 store,下方批注条浮现(带序号清单/悬停查看/评论/单删/全删)。 */}
       {!isUser && !m.error && selectionText && (
         <div
           role="group"
@@ -1563,7 +1583,22 @@ const MessageItem = React.memo(function MessageItem({
             <Paperclip className="h-3 w-3" aria-hidden />
             <span>{t('selectionActions.addAsAttachment')}</span>
           </button>
+          <button
+            type="button"
+            onClick={handleAnnotateSelection}
+            data-testid={`message-selection-annotate-${m.id}`}
+            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <PenLine className="h-3 w-3" aria-hidden />
+            <span>{t('selectionAnnotations.add')}</span>
+          </button>
         </div>
+      )}
+
+      {/* D180(2026-09-30 立):划词批注条 — 本消息已有批注时挂在选区动作组之后(常驻,
+          不依赖当前选区);批注归属 = conversationId + messageId,持久化刷新后仍可重放。 */}
+      {!isUser && !m.error && (
+        <SelectionAnnotationBar conversationId={conversationId ?? ''} messageId={m.id} />
       )}
 
       {/* 2026-08-02:社区发布对话框(Megaphone 按钮触发)— 原项目 publishToCommunity */}
