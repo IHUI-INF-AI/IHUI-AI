@@ -4,11 +4,15 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 //
-// AI 面板挂载防回潮守门(2026-09-30 立)。
-// 依据:GlobalShell 的 dynamic loading 占位与 Suspense fallback 必须保持同形,否则首帧会复发
-// CLS 0.21；ai-side-panel 的重组件必须留在 lazy 边界外,否则主 chunk 会无视觉症状地膨胀。
-// 规则:R1 校验两处占位的 aria/宽度/响应式与几何 token,并按几何 token 分组排序后比对；
-//      R2 禁止指定重模块静态导入,brand-icon 仅放行 import type；inferVendor 只能来自 vendor-infer。
+// AI 面板挂载防回潮守门(2026-09-30 立;同日架构反转随 496d7b2c31 修订)。
+// 依据(2026-09-30 修订):AISidePanel 已回归静态 import(用户强制「面板 0ms 在场」,
+// 推翻 09-12 的 dynamic ssr:false —— 那会让首帧永远无面板)。守门相应反转:
+// 静态 import 必须在、dynamic 引入必须无;AiPanelPlaceholder(Suspense fallback)的
+// 几何/aria-token 断言保留;R2 继续禁止 ai-side-panel 内部静态导入重模块(面板本体例外),
+// brand-icon 仅放行 import type；inferVendor 只能来自 vendor-infer。
+// 规则:R1 = 静态 import 在场 ∧ 无 dynamic(ai-side-panel) ∧ 占位几何/aria token 完整
+//       (fallback 复用组件本体时由组件保证;内联形态则两处几何逐 token 比对);
+//      R2 = ai-side-panel 内重模块禁静态导入。
 // 用法:node scripts/check-ai-panel-mount-guards.mjs             # 全量扫描(默认 HEAD blob)
 //      node scripts/check-ai-panel-mount-guards.mjs --staged    # 仅审目标文件的 git 索引 blob
 //      node scripts/check-ai-panel-mount-guards.mjs --worktree  # 审工作树(人工排查)
@@ -334,16 +338,32 @@ function collectPlaceholderViolations(source, rel = GLOBAL_SHELL) {
   }
 
   const violations = []
-  const slot0 = analyzePlaceholder(source, component, 'AiPanelPlaceholder(dynamic loading)')
+  const slot0 = analyzePlaceholder(source, component, 'AiPanelPlaceholder(Suspense fallback)')
   for (const message of slot0.violations) {
     violations.push({ rule: 'R1', file: rel, line: slot0.line, message: `${slot0.label}: ${message}` })
   }
-  if (!/\bloading\s*:\s*AiPanelPlaceholder\b/.test(masked)) {
+
+  // 2026-09-30 架构修订(用户强制「面板 0ms 在场」):AISidePanel 回归静态 import,
+  // dynamic({ssr:false}) 让首帧永远无面板,已被推翻。守门相应反转:
+  // ① 静态 import 必须在(0ms 不变量);② dynamic 引入必须无(防回潮)。
+  if (
+    !/\bimport\s*\{[^}]*\bAISidePanel\s+as\s+AISidePanelImpl\b[^}]*\}\s*from\s*['"]@\/components\/ai\/ai-side-panel['"]/.test(masked)
+  ) {
     violations.push({
       rule: 'R1',
       file: rel,
-      line: componentAt >= 0 ? lineOf(source, componentAt) : 1,
-      message: 'AiPanelPlaceholder 未接到 AISidePanel dynamic 的 loading 插槽',
+      line: panelAt >= 0 ? lineOf(source, panelAt) : 1,
+      message:
+        "AISidePanel 必须静态 import(0ms 在场不变量):import { AISidePanel as AISidePanelImpl } from '@/components/ai/ai-side-panel'",
+    })
+  }
+  if (/dynamic\s*\(\s*\(\s*\)\s*=>\s*import\(\s*['"]@\/components\/ai\/ai-side-panel['"]/.test(masked)) {
+    violations.push({
+      rule: 'R1',
+      file: rel,
+      line: panelAt >= 0 ? lineOf(source, panelAt) : 1,
+      message:
+        'AISidePanel 禁止 next/dynamic 懒加载(dynamic ssr:false 让首帧无面板,2026-09-30 用户强制 0ms 在场,见 496d7b2c31)',
     })
   }
 
@@ -480,9 +500,11 @@ function report(violations, candidates, face) {
     log.error(`  ${item.rule} ${item.file}:${item.line}  ${item.message}`)
   }
   log.error('\n修复方法:')
-  log.error('  1. GlobalShell 两处占位同时保留 aria-hidden、--ai-panel-width 与完整几何 class token。')
-  log.error('  2. 两处占位只调整格式或 class 顺序；几何 token 集必须逐字一致。')
-  log.error('  3. 重组件改回 dynamic(() => import(...)) / React.lazy(() => import(...))。')
+  log.error('  1. AISidePanel 必须静态 import(0ms 在场不变量,2026-09-30 立):')
+  log.error("     import { AISidePanel as AISidePanelImpl } from '@/components/ai/ai-side-panel'")
+  log.error('     禁止 next/dynamic 懒加载 —— ssr:false 会让首帧永远无面板。')
+  log.error('  2. AiPanelPlaceholder 保持 aria-hidden、--ai-panel-width 与完整几何 class token。')
+  log.error('  3. ai-side-panel.tsx 内部的重模块仍须 dynamic/React.lazy 懒加载(仅面板本体例外)。')
   log.error(`  4. inferVendor 只从 ${VENDOR_INFER_MODULE} 导入；brand-icon 仅允许 import type。`)
   log.error(`  5. 仅紧急情况可设 ${SKIP_ENV_NAME}=1，并在提交说明中记录原因。`)
   return 1
@@ -495,29 +517,21 @@ function runCheck({ root, face }) {
 
 const PLACEHOLDER_CLASSES =
   'relative hidden h-full shrink-0 mr-1.5 py-2 min-[768px]:block'
+// 2026-09-30 架构修订:GOOD 夹具镜像真实 GlobalShell —— AISidePanel 静态 import
+// (0ms 在场不变量)+ Suspense fallback 复用 AiPanelPlaceholder 组件本体。
 const GOOD_GLOBAL_SHELL = `
 const AiPanelPlaceholder = () => (
   <div
     aria-hidden
     className="${PLACEHOLDER_CLASSES}"
-    style={{ width: 'var(--ai-panel-width, 380px)' }}
+    style={{ width: 'var(--ai-panel-width, 480px)' }}
   />
 )
-const AISidePanel = dynamic(() => import('@/components/ai/ai-side-panel'), {
-  ssr: false,
-  loading: AiPanelPlaceholder,
-})
+import { AISidePanel as AISidePanelImpl } from '@/components/ai/ai-side-panel'
+const AISidePanel = React.memo(AISidePanelImpl)
 export function GlobalShell() {
   return (
-    <React.Suspense
-      fallback={
-        <div
-          aria-hidden
-          className="${PLACEHOLDER_CLASSES}"
-          style={{ width: 'var(--ai-panel-width, 380px)' }}
-        />
-      }
-    >
+    <React.Suspense fallback={<AiPanelPlaceholder />}>
       <AISidePanel />
     </React.Suspense>
   )
@@ -612,21 +626,38 @@ function runSelfTest() {
 
   const r1Cases = [
     [
-      'dynamic loading 插槽接线',
-      (src) => replaceOnce(src, 'loading: AiPanelPlaceholder', 'loading: () => null'),
+      // 0ms 不变量①:把 memo 换回 dynamic 懒加载 ⇒ 必红(dynamic 检测命中)
+      '回归 dynamic 懒加载(0ms 反保证)',
+      (src) =>
+        replaceOnce(
+          src,
+          'const AISidePanel = React.memo(AISidePanelImpl)',
+          "const AISidePanel = dynamic(() => import('@/components/ai/ai-side-panel'), {\n  ssr: false,\n})",
+        ),
+    ],
+    [
+      // 0ms 不变量②:静态 import 整体丢失 ⇒ 必红
+      '静态 import 被移除',
+      (src) =>
+        replaceOnce(
+          src,
+          "import { AISidePanel as AISidePanelImpl } from '@/components/ai/ai-side-panel'",
+          '',
+        ),
+    ],
+    [
+      // fallback 拆成内联占位且几何漂移(多 token)⇒ 内联路径几何比对必红
+      'fallback 内联化且几何漂移',
+      (src) =>
+        replaceOnce(
+          src,
+          'fallback={<AiPanelPlaceholder />}',
+          `fallback={<div aria-hidden className="${PLACEHOLDER_CLASSES} left-0" style={{ width: 'var(--ai-panel-width, 480px)' }} />}`,
+        ),
     ],
     ['aria-hidden', (src) => replaceOnce(src, '    aria-hidden\n', '    data-placeholder\n')],
     ['--ai-panel-width', (src) => replaceOnce(src, '--ai-panel-width', '--wrong-panel-width')],
     ...REQUIRED_PLACEHOLDER_CLASSES.map((token) => [token, (src) => mutateFirstClassToken(src, token)]),
-    [
-      '两处几何 token 不一致',
-      (src) =>
-        replaceOnce(
-          src,
-          `className="${PLACEHOLDER_CLASSES}"`,
-          `className="${PLACEHOLDER_CLASSES} left-0"`,
-        ),
-    ],
   ]
   const relativeSources = [
     './brand-icon',
