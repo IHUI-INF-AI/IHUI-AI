@@ -14,7 +14,8 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 const BILL_STATUS_KEYS: Record<'paid' | 'pending' | 'failed', string> = {
   paid: 'status.paid',
@@ -73,12 +74,16 @@ export default function BillingPage() {
   })
   const currencyFmt = new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY' })
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['developer', 'billing'],
     queryFn: () =>
       api<BillingData>('/api/developer/billing').catch(
         () => ({ bills: [], paymentMethods: [] }) as BillingData,
       ),
+    enabled: allow,
   })
 
   const bills = data?.bills ?? []
@@ -105,98 +110,104 @@ export default function BillingPage() {
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
-      <Card>
-        <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-          <div className="flex items-center justify-between">
-            <p className="flex items-center gap-2 text-sm font-semibold">
-              <CreditCard className="h-4 w-4" />
-              {t('paymentMethods')}
-            </p>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => toast.info(t('toastContactSupport'))}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {t('add')}
-            </Button>
-          </div>
-          {paymentMethods.length === 0 ? (
-            <p className="py-3 text-center text-xs text-muted-foreground">
-              {t('noPaymentMethods')}
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {paymentMethods.map((p) => (
-                <div
-                  key={p.id}
-                  className={cn(
-                    'flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs',
-                    p.isDefault && 'border-brand-accent-deep bg-primary/5',
-                  )}
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看账单与支付方式" />
+      ) : (
+        <>
+          <Card>
+            <CardContent className="min-[640px]:p-3 space-y-3 p-3">
+              <div className="flex items-center justify-between">
+                <p className="flex items-center gap-2 text-sm font-semibold">
+                  <CreditCard className="h-4 w-4" />
+                  {t('paymentMethods')}
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => toast.info(t('toastContactSupport'))}
                 >
-                  <span className="font-medium">
-                    {t(PAY_TYPE_KEY[p.type] ?? `payType.${p.type}`)}
-                  </span>
-                  {p.last4 && <span className="text-muted-foreground">**** {p.last4}</span>}
-                  {p.isDefault && (
-                    <span className="rounded bg-primary/10 px-1 py-0.5 text-xs text-primary">
-                      {t('default')}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="p-0">
-          <div className="px-4 py-2.5 text-sm font-semibold">{t('billRecords')}</div>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8 text-muted-foreground">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {t('loading')}
-            </div>
-          ) : bills.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t('noBills')}</p>
-          ) : (
-            <div className="space-y-2">
-              {bills.map((b) => {
-                const cls = STATUS_CLASS[b.status]
-                return (
-                  <div key={b.id} className="flex items-center gap-3 px-4 py-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-medium">{b.invoiceNo}</p>
-                        <span className={cn('rounded px-1.5 py-0.5 text-xs font-medium', cls)}>
-                          {t(BILL_STATUS_KEYS[b.status]!)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {b.period} · {dateFmt.format(new Date(b.createdAt))}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-sm font-medium">
-                      {currencyFmt.format(b.amount)}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => downloadInvoice(b)}
-                      disabled={b.status !== 'paid'}
+                  <Plus className="h-3.5 w-3.5" />
+                  {t('add')}
+                </Button>
+              </div>
+              {paymentMethods.length === 0 ? (
+                <p className="py-3 text-center text-xs text-muted-foreground">
+                  {t('noPaymentMethods')}
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {paymentMethods.map((p) => (
+                    <div
+                      key={p.id}
+                      className={cn(
+                        'flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs',
+                        p.isDefault && 'border-brand-accent-deep bg-primary/5',
+                      )}
                     >
-                      <Download className="h-3.5 w-3.5" />
-                      {t('invoice')}
-                    </Button>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                      <span className="font-medium">
+                        {t(PAY_TYPE_KEY[p.type] ?? `payType.${p.type}`)}
+                      </span>
+                      {p.last4 && <span className="text-muted-foreground">**** {p.last4}</span>}
+                      {p.isDefault && (
+                        <span className="rounded bg-primary/10 px-1 py-0.5 text-xs text-primary">
+                          {t('default')}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-0">
+              <div className="px-4 py-2.5 text-sm font-semibold">{t('billRecords')}</div>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8 text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t('loading')}
+                </div>
+              ) : bills.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">{t('noBills')}</p>
+              ) : (
+                <div className="space-y-2">
+                  {bills.map((b) => {
+                    const cls = STATUS_CLASS[b.status]
+                    return (
+                      <div key={b.id} className="flex items-center gap-3 px-4 py-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm font-medium">{b.invoiceNo}</p>
+                            <span className={cn('rounded px-1.5 py-0.5 text-xs font-medium', cls)}>
+                              {t(BILL_STATUS_KEYS[b.status]!)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {b.period} · {dateFmt.format(new Date(b.createdAt))}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-sm font-medium">
+                          {currencyFmt.format(b.amount)}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => downloadInvoice(b)}
+                          disabled={b.status !== 'paid'}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          {t('invoice')}
+                        </Button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   )
 }

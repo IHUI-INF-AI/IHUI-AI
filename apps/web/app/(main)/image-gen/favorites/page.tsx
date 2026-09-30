@@ -12,6 +12,8 @@ import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface FavItem {
   id: string
@@ -33,9 +35,13 @@ async function api<T>(url: string): Promise<T> {
 export default function ImageGenFavoritesPage() {
   const locale = useLocale()
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['image-gen', 'favorites'],
     queryFn: () => api<ListData>('/api/image-gen/favorites'),
+    enabled: allow,
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -68,7 +74,9 @@ export default function ImageGenFavoritesPage() {
         <p className="mt-1 text-sm text-muted-foreground">你收藏的生成图片</p>
       </div>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看收藏的图片" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...
