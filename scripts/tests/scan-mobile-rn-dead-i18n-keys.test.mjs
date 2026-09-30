@@ -8,7 +8,7 @@
  *   (messagesPath=packages/i18n/messages/mobile-rn + scanTargets=apps/mobile-rn/src)
  *   的完整扫描流程:加载 zh-CN.json + 4 语言 → 扫描代码 → 死 key 判定 → 报告写入。
  *
- *   测试用临时 fixture 文件(在 os.tmpdir() 下创建 + chdir 模拟项目根),
+ *   测试用临时 fixture 文件(在 §26 唯一落点 scratch-dir 下创建 + chdir 模拟项目根),
  *   不依赖项目真实 i18n 文件,符合 AGENTS.md §23(目录用 tests/)。
  *
  *   ⚠️ 关键实现:_i18n-scan-helpers.mjs 顶层 const ROOT = process.cwd() 在模块加载时锁定,
@@ -28,7 +28,8 @@ import { test, describe, before, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
-import os from 'node:os'
+// §26:临时夹具唯一落点(活进程 os.tmpdir() 可能仍钉在 C 盘,禁用)
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const ORIGINAL_CWD = process.cwd()
 
@@ -47,7 +48,7 @@ let tmpDir
 let runScan
 
 before(async () => {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-mobile-rn-scan-'))
+  tmpDir = mkScratch('i18n-mobile-rn-scan-')
   process.chdir(tmpDir)
   // 关键:chdir 后再 dynamic import,使模块顶层 const ROOT = process.cwd() 锁定为 tmpDir
   const mod = await import('../_i18n-scan-helpers.mjs')
@@ -56,7 +57,7 @@ before(async () => {
 
 after(() => {
   process.chdir(ORIGINAL_CWD)
-  try { fs.rmSync(tmpDir, { recursive: true, force: true }) } catch { /* 清理失败不影响结果 */ }
+  try { rmScratch(tmpDir) } catch { /* 清理失败不影响结果 */ }
 })
 
 // 每个测试前清空临时目录内容(保留目录本身),保证隔离
