@@ -2017,7 +2017,19 @@ export function unresolvedClassNames(src, ownCssText, globalDefined = null) {
   const defined = new Set()
   for (const m of String(ownCssText ?? '').matchAll(/\.([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\s*\{/gi))
     defined.add(m[1])
-  return [...used].filter((c) => !defined.has(c)).sort()
+  const miss = [...used].filter((c) => !defined.has(c))
+  /**
+   * **交集域**(2026-09-30 补):`globalDefined` 一直由 collect 算好并传进来(全端样式表里真定义过
+   * 的类名),而本函数此前**从未读它** —— 收集侧那份 70 份表的扫描是纯浪费,披露因此把
+   * "全仓根本没有这个类名"也报成盲区。实测三类误报:`max-w-md` / `min-w-0` / `line-clamp-1`
+   * 这类 **Tailwind 刻度档**(由 `readGeometry` 直接读,不在任何样式表里)、以及
+   * `ui-card` / `ui-panel` / `carousel-fallback` 这类**全仓零定义**(连 tailwind preset 也没有)——
+   * 头注里"盒档落在 app.css / 某页 css"那句话对它们是**假的**,而会喊错的披露没人信。
+   * 交集域取不到(null)时保留原口径:**宁可多报也不静默放过**(见头注"归因过宽比漏读更贵"的反面:
+   * 这里多报的是"读不到",漏报才是把没读到当已核对过)。
+   */
+  if (!globalDefined) return miss.sort()
+  return miss.filter((c) => globalDefined.has(c)).sort()
 }
 
 export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null, styles = {}) {
@@ -2445,7 +2457,7 @@ export function main(argv, repoRoot = ROOT) {
     collected = collect(repoRoot, face, { pairAll, rejected: rejNames, rejectMap: rej, aliases })
   } catch (e) {
     if (e instanceof Undetermined) {
-      console.log(`⚠️ 无法判定:${e.message}`)
+      console.info(`⚠️ 无法判定:${e.message}`)
       return 2
     }
     throw e
@@ -2490,7 +2502,7 @@ export function main(argv, repoRoot = ROOT) {
       for (const r of regress) console.error(`  - ${r}`)
       return 1
     }
-    console.log(JSON.stringify(next, null, 2))
+    console.info(JSON.stringify(next, null, 2))
     /**
      * 说明行一律走 stderr:这条模板的既定用法就是 `--emit-baseline > <台账文件>`,
      * 把它打进 stdout 等于把一句散文追加进 JSON 文件 —— 实测砸出来的
@@ -2502,7 +2514,7 @@ export function main(argv, repoRoot = ROOT) {
     return 0
   }
   if (argv.includes('--json')) {
-    console.log(
+    console.info(
       JSON.stringify({
         face,
         pairAll,
@@ -2563,7 +2575,7 @@ export function main(argv, repoRoot = ROOT) {
   } else {
     const off = collected.unreachableLegs ?? []
     const undet = collected.undeterminedEdges ?? []
-    console.log(
+    console.info(
       `判定面 ${FACE_TXT[face]}:同名配对组件 ${res.pairCount} 对(重复实现 = 改一端另一端不跟随)` +
         (pairAll
           ? '【--pair-all 人工档:只要同名就配对,未做端入口可达性剔除】'
@@ -2578,26 +2590,26 @@ export function main(argv, repoRoot = ROOT) {
     const blind = collected.blindClasses ?? []
     if (blind.length) {
       const total = blind.reduce((n, b) => n + b.classes.length, 0)
-      console.log(
+      console.info(
         `  ⓘ 读数不完整:${blind.length} 条配对腿用到 ${total} 个类名,其定义不在本组件样式表里` +
           `(盒档落在 app.css / 某页 css)⇒ 这些元素的几何本门读不到。` +
           `没读到不得当成该侧无档,也不得拿去当已核对过的凭据`,
       )
       for (const b of blind.slice(0, 6))
-        console.log(
+        console.info(
           `     · ${b.name}[${b.side}] ${b.classes.slice(0, 8).join(' ')}` +
             (b.classes.length > 8 ? ` …另 ${b.classes.length - 8} 个` : ''),
         )
-      if (blind.length > 6) console.log(`     · 其余 ${blind.length - 6} 条同上(不静默省略计数)`)
+      if (blind.length > 6) console.info(`     · 其余 ${blind.length - 6} 条同上(不静默省略计数)`)
     }
-    for (const o of off) console.log(`  ⊘ ${o.name} —— ${o.reason}`)
-    if (collected.coverageNote) console.log(`  ⚠ ${collected.coverageNote}`)
+    for (const o of off) console.info(`  ⊘ ${o.name} —— ${o.reason}`)
+    if (collected.coverageNote) console.info(`  ⚠ ${collected.coverageNote}`)
     /**
      * 读数口径必须自己报出来:合并了伴生样式表的那一侧,与只读组件源文本的那一侧,
      * 拿到的档数不在同一口径上。不写这一行,"小程序 0 档 / RN 11 档"就会被读成"小程序没做",
      * 而它可能只是尺子没跟到 `.css`(2026-09-27 实测:6 个小程序组件把盒档写在同名 CSS 里)。
      */
-    console.log(
+    console.info(
       `  ⓘ 读数口径:几何与圆角(RD / RE)= 组件源文本 + 该文件自己 import 的本地样式表(本轮并入 ` +
         `${Object.keys(collected.styles ?? {}).length} 份);图标载体 / 单侧档仍只看组件源文本。` +
         `RE 与 RD 的分别不在取材面而在**配对单位**:RD 比文件内出现过的档值集合,` +
@@ -2617,18 +2629,18 @@ export function main(argv, repoRoot = ROOT) {
         exit: '出口指向(@ihui/rn-app / 组件桶的 re-export 链)',
         order: '目录序(本族没有出口证据)',
       }
-      console.log(
+      console.info(
         `  ⓘ 同侧多候选 ${mc.length} 条腿 —— 选腿三序:平台后缀 > 出口指向 > 目录序;` +
           `候选逐条点名(不得静默选一份):`,
       )
       for (const c of mc)
-        console.log(
+        console.info(
           `     · ${c.name}[${c.side}] 选 ${c.chosen}(依据:${why[c.by] ?? c.by})` +
             ` | 未选 ${c.others.join(' / ')}`,
         )
     }
     for (const n of collected.exitNotes ?? [])
-      console.log(`  ⓘ 出口链:${n} —— "判不出"不冒充"没有出口",也不冒充证据`)
+      console.info(`  ⓘ 出口链:${n} —— "判不出"不冒充"没有出口",也不冒充证据`)
     /**
      * **配对射程必须自己报数**。本门只比"同名成文件"的元素:一端把某个控件写成组件文件、
      * 另一端把它内联在别的组件里(RN 的发送钮就是 `BottomActionBar.tsx` 里的内联 `<Send/>`,
@@ -2640,7 +2652,7 @@ export function main(argv, repoRoot = ROOT) {
       const om = collected.pairs?.onlyMiniapp ?? 0
       const or = collected.pairs?.onlyRn ?? 0
       if (om || or)
-        console.log(
+        console.info(
           `  ⓘ 配对射程:仅小程序成文件 ${om} 个 / 仅 RN 成文件 ${or} 个 —— ` +
             `两端不同名的元素不成对,本门对它们零判据(报数,不判红)`,
         )
@@ -2656,12 +2668,12 @@ export function main(argv, repoRoot = ROOT) {
         ['仅 RN', 'onlyRnNames'],
       ]) {
         const names = (collected.pairs?.[key] ?? []).map((p) => nameOf(String(p)))
-        if (names.length) console.log(`     ${label}(${names.length}):${names.join(' ')}`)
+        if (names.length) console.info(`     ${label}(${names.length}):${names.join(' ')}`)
       }
     }
     for (const u of undet.slice(0, 12))
-      console.log(`  ? 未判定:${u.from ?? '(清单)'} → ${u.spec}:${u.reason}`)
-    if (undet.length > 12) console.log(`  ? 其余 ${undet.length - 12} 处未判定同上(不静默省略计数)`)
+      console.info(`  ? 未判定:${u.from ?? '(清单)'} → ${u.spec}:${u.reason}`)
+    if (undet.length > 12) console.info(`  ? 其余 ${undet.length - 12} 处未判定同上(不静默省略计数)`)
     for (const f of res.findings) {
       const bits = []
       if (f.named.length) bits.push(`同名常量不同值 ${f.named.join(', ')}`)
@@ -2686,7 +2698,7 @@ export function main(argv, repoRoot = ROOT) {
       for (const m of f.elementRadius?.mismatched ?? [])
         bits.push(`RE 同名元素 ${m.name} 小程序 ${m.miniapp.join('/')} vs RN ${m.rn.join('/')}`)
       const mark = f.waived ? '○' : res.red.some((r) => r.name === f.name) ? '×' : '·'
-      console.log(`  ${mark} ${f.name} [${f.lang.miniapp}|${f.lang.rn}] ${bits.join(' | ')}`)
+      console.info(`  ${mark} ${f.name} [${f.lang.miniapp}|${f.lang.rn}] ${bits.join(' | ')}`)
     }
     /**
      * **WD = web ↔ 小程序**的圆角档对账。前缀与 RD/RE 分开,是因为三者的处置动作不同:
@@ -2702,7 +2714,7 @@ export function main(argv, repoRoot = ROOT) {
         const mark = webVerdict.red.some((r) => r.name === f.name) ? '×' : '·'
         wlines.push(`  ${mark} WD ${f.name} ${bits.join(' | ')}`)
       }
-      console.log(
+      console.info(
         `web 腿(RD 量纲,配对 ${web.findings.length} 对;几何 / 元素名 / 图标载体**未判**,不是"已确认相同")` +
           `→ 判红 ${webVerdict.red.length} / 台账外新增 0 时才算收口 / 带理由豁免 ${webVerdict.waived.length} / 未判定 ${web.undetermined.length}`,
       )
@@ -2710,20 +2722,20 @@ export function main(argv, repoRoot = ROOT) {
       // 只写"已豁免 N"会替下一个人做出"这一族已被想过"的判断,而理由能不能复核全靠这一行。
       for (const wv of webVerdict.waived) {
         const rej = (baseline[WEB_LEDGER.waivers] ?? {})[wv.name]
-        console.log(`  ⊘ WD ${wv.name} 带理由豁免 —— ${rej?.reason ?? ''}`)
+        console.info(`  ⊘ WD ${wv.name} 带理由豁免 —— ${rej?.reason ?? ''}`)
       }
       if (collected.webBlocked)
-        console.log(
+        console.info(
           `  ? WD 整腿未判定:${collected.webBlocked} —— 这一维今天**没在看**,不得读成"web 与小程序已一致"`,
         )
-      for (const l of wlines.slice(0, 20)) console.log(l)
-      if (wlines.length > 20) console.log(`     · 其余 ${wlines.length - 20} 对同上(不静默省略计数)`)
+      for (const l of wlines.slice(0, 20)) console.info(l)
+      if (wlines.length > 20) console.info(`     · 其余 ${wlines.length - 20} 对同上(不静默省略计数)`)
       for (const u of web.undetermined.slice(0, 8))
-        console.log(`  ? WD ${u.name}:${u.why}`)
+        console.info(`  ? WD ${u.name}:${u.why}`)
       if (web.undetermined.length > 8)
-        console.log(`  ? 其余 ${web.undetermined.length - 8} 处 WD 未判定同上`)
+        console.info(`  ? 其余 ${web.undetermined.length - 8} 处 WD 未判定同上`)
       for (const r of webVerdict.red)
-        console.log(
+        console.info(
           `  × WD ${r.name}:圆角 ${r.radiusCount} > 该族自己在台账的锚点 ${r.radiusAnchor} —— ` +
             `收口姿势与 RD 同:两端各自引用档位表不是目的,同一元素取同一档才是`,
         )
@@ -2741,13 +2753,13 @@ export function main(argv, repoRoot = ROOT) {
       if (u.onlyMiniapp.length) bits.push(`仅小程序具名 ${u.onlyMiniapp.join('/')}`)
       if (u.onlyRn.length) bits.push(`仅 RN 具名 ${u.onlyRn.join('/')}`)
       bits.push(`无元素名可归的取用 mp=${u.unnamed.miniapp}/rn=${u.unnamed.rn}`)
-      console.log(`  ⊘ RE ${u.name} —— 两侧无一同名元素 ⇒ 本维零判据:${bits.join(' | ')}`)
+      console.info(`  ⊘ RE ${u.name} —— 两侧无一同名元素 ⇒ 本维零判据:${bits.join(' | ')}`)
     }
     const rdFindings = res.findings.filter(
       (f) => (f.radius?.onlyMiniapp.length ?? 0) + (f.radius?.onlyRn.length ?? 0) > 0,
     )
     const reFindings = res.findings.filter((f) => elementRadiusCount(f) > 0)
-    console.log(
+    console.info(
       `可见几何差异 ${res.findings.length} 处 → 超锚点判红 ${res.red.length} / 带理由豁免 ${res.waived.length}` +
         (res.shrunk.length ? ` / 已变好可下调台账 ${res.shrunk.length}` : '') +
         `;其中圆角跨端不同档 ${rdFindings.length} 对(RD 维,锚点单立见 radiusCounts)` +
@@ -2755,17 +2767,17 @@ export function main(argv, repoRoot = ROOT) {
         `;RE 对 ${res.radiusUnpaired?.length ?? 0} 族零判据(两侧未同名,报名见上)`,
     )
     if (res.shrunk.length)
-      console.log(
+      console.info(
         `  下调:${res.shrunk.map((s) => `${s.name} ${s.anchor}→${s.diffCount}`).join(', ')}`,
       )
     if (res.rot.length)
-      console.log(
+      console.info(
         `  × 台账腐烂:${res.rot.join('/')} —— 台账钉着这些名字而本轮实测**无该族记录**:` +
           '它们是一个永远不可能被问责的免费额度,下一次这一族重新被配对(回落/拆对被撤/组件复活)时自带存量,' +
           '新分叉会被静默吞掉。处置 = 删掉这些键,或让它重新有读数;不得"先放着"。',
       )
     if (res.red.length)
-      console.log(
+      console.info(
         '  收口姿势 = 一份与平台无关的组件源 + 两端各自注入 primitive adapter;**不得给单端补数字凑平**' +
           '(那只是把第二份真相挪了个位置)。确属平台导致的差异写进台账 waivers 并带 reason。',
       )
@@ -2802,17 +2814,17 @@ export function main(argv, repoRoot = ROOT) {
         if (x.exempted) bits.push(`带理由豁免 ${x.exempted} 处`)
         if (x.onlyRn.length) bits.push(`仅 RN 矢量化 ${x.onlyRn.join('/')}`)
         if (x.onlyMiniapp.length) bits.push(`仅小程序矢量化 ${x.onlyMiniapp.join('/')}`)
-        console.log(
+        console.info(
           `  ${icRed.some((r) => r.name === x.name) ? '×' : '·'} IC ${x.name} ${bits.join(' | ')}`,
         )
       }
-      console.log(
+      console.info(
         `图标载体对账 ${ic.length} 族 → 新增位图当图标判红 ${icRed.length} / 只报数 ${ic.length - icRed.length}`,
       )
     }
   }
   if (icRed.length && !argv.includes('--json'))
-    console.log(
+    console.info(
       '  IC 收口姿势 = 该槽位换成与 RN 同一个 lucide 字形(小程序走 LineIcon,名字照抄 RN 侧),' +
         '确属多色插画才保留位图并写 icon-bitmap-exempt: <原因>',
     )
@@ -2842,11 +2854,11 @@ export function main(argv, repoRoot = ROOT) {
         const bits = []
         if (x.onlyMiniapp.length) bits.push(`仅小程序引用 ${x.onlyMiniapp.join('/')}`)
         if (x.onlyRn.length) bits.push(`仅 RN 引用 ${x.onlyRn.join('/')}`)
-        console.log(
+        console.info(
           `  ${slRed.some((r) => r.name === x.name) ? '×' : '·'} SL ${x.name}(${n}) ${bits.join(' | ')}`,
         )
       }
-      console.log(
+      console.info(
         `单侧具名档 ${sl.length} 族 → 新增判红 ${slRed.length} / 只报数 ${sl.length - slRed.length}` +
           '(一档只被一条腿引用 = 另一条腿还没走单一源;不得靠给单端补数字消账)',
       )
@@ -2885,19 +2897,19 @@ export function main(argv, repoRoot = ROOT) {
   const rejInvalid = rejProblems.map((x) => `${x.name}:${x.why}`)
   if (!argv.includes('--json')) {
     for (const x of collected.rejected ?? [])
-      console.log(`  ⊘ PAIR ${x.name} —— 同名不同物,已按声明拆对:${rejAll[x.name].reason}`)
+      console.info(`  ⊘ PAIR ${x.name} —— 同名不同物,已按声明拆对:${rejAll[x.name].reason}`)
     for (const x of collected.webRejected ?? [])
-      console.log(
+      console.info(
         `  ⊘ WD-PAIR ${x.name} —— 只拆 web 腿:${rejAll[x.name].reason}` +
           '(主腿那一维照旧在册,不得被这条声明连带摘线)',
       )
-    for (const m of rejInvalid) console.log(`  × PAIR 拆对声明无效:${m}`)
+    for (const m of rejInvalid) console.info(`  × PAIR 拆对声明无效:${m}`)
     for (const n of rejStillAnchored)
-      console.log(
+      console.info(
         `  × PAIR ${n} 已声明拆对,台账仍挂它**所作用那条腿**的锚点/豁免 ⇒ 双记账,删那条键`,
       )
     for (const n of rejGhosted)
-      console.log(
+      console.info(
         `  × PAIR ${n} 声明拆对,而它声称作用的每条腿上都找不到这一对 ⇒ 文件已搬走或只剩一端,该了结这条声明`,
       )
   }
@@ -2914,13 +2926,13 @@ export function main(argv, repoRoot = ROOT) {
   const aliasPairs = (collected.pairs?.pairs ?? []).filter((p) => p.aliased)
   if (!argv.includes('--json')) {
     for (const p of aliasPairs)
-      console.log(
+      console.info(
         `  ✓ ALIAS ${p.name} —— 跨名配对:${(aliases[p.name] ?? {}).miniapp} ↔ ${(aliases[p.name] ?? {}).rn}` +
           `(同名判据看不见这一对,现按登记的别名进审)`,
       )
-    for (const x of aliasProblems) console.log(`  × ALIAS ${x.name}:${x.problem}`)
+    for (const x of aliasProblems) console.info(`  × ALIAS ${x.name}:${x.problem}`)
     if (Object.keys(aliases).length)
-      console.log(
+      console.info(
         `别名配对 ${aliasPairs.length} 族 / 声明 ${Object.keys(aliases).length} 条 → 判红 ${aliasProblems.length}` +
           '(别名是配对输入,不是豁免:文件搬走、路径写歪、或已能同名配对,都要当场点名)',
       )
@@ -2935,13 +2947,13 @@ export function main(argv, repoRoot = ROOT) {
   let geoRed = false
   if (!argv.includes('--json')) {
     const g = collected.geoDecl ?? {}
-    if (g.skipped) console.log('  ⊘ G 几何表不在本面(夹具/该面无该文件)⇒ 本维未参与判定')
-    else if (g.undetermined) console.log(`  ? G 未判定:${g.problem}`)
+    if (g.skipped) console.info('  ⊘ G 几何表不在本面(夹具/该面无该文件)⇒ 本维未参与判定')
+    else if (g.undetermined) console.info(`  ? G 未判定:${g.problem}`)
     else if (g.problem) {
       geoRed = true
-      console.log(`  × G 几何表与 geometry.d.ts 不同名:${g.problem}`)
+      console.info(`  × G 几何表与 geometry.d.ts 不同名:${g.problem}`)
     } else
-      console.log(
+      console.info(
         `  · G 几何表 ${g.steps.length} 档与 GeometryStep ${g.declared.length} 档同名(表↔类型一致)`,
       )
   }
@@ -2954,7 +2966,7 @@ export function main(argv, repoRoot = ROOT) {
    */
   const webGhostRed = webPriorKeys.length && !web.findings.length ? 1 : 0
   if (webGhostRed && !argv.includes('--json'))
-    console.log(
+    console.info(
       `  × WD 台账钉着 ${webPriorKeys.length} 族而本轮 web 腿零记录${collected.webBlocked ? `(整腿未判定:${collected.webBlocked})` : ''} ⇒ 消失不是销账`,
     )
   // 别名红单独先判(见上方 ALIAS 块)。刻意**不并入**下面那条求和行:它的文本被自检 ㊹/㊽/㊩
@@ -2964,7 +2976,7 @@ export function main(argv, repoRoot = ROOT) {
   // 而"只打印不拦提交"正是这些锁存在的理由。WD3 显式要求这一支在,挪掉即红。
   if (webVerdict.red.length || webGhostRed) {
     if (!argv.includes('--json'))
-      console.log(
+      console.info(
         `  × WD 折进退出码:web 腿新增分叉 ${webVerdict.red.length} 族 / 台账钉过而本轮零记录 ${webGhostRed ? '是' : '否'}`,
       )
     return 1
@@ -3044,7 +3056,7 @@ function runSelfTest() {
   const t = (name, cond, note) => {
     if (cond === true) pass++
     else fail++
-    console.log(
+    console.info(
       `  ${cond === true ? 'ok  ' : 'FAIL'} ${name}${cond === true ? '' : ` —— 实得:${String(cond)}${note ? ` (${note})` : ''}`}`,
     )
   }
@@ -4782,6 +4794,29 @@ function runSelfTest() {
       )
     })(),
   )
+  /**
+   * 交集域必须有牙。**只断言"传了 globalDefined 结果不变"等于没断言** —— 那正是本条判据
+   * 被架空的样子(collect 算了 70 份表、传进来,函数体从不读,长期零红)。
+   * 判据分两半:① 落在全局表里的**留下**;② 全仓零定义的(Tailwind 刻度档 / 死类名)**剔掉**;
+   * ③ 把 ② 那一步摘掉后本条必须翻红。
+   */
+  t(
+    '㊾ 盲区披露的交集域必须真的生效:全仓零定义的类名不得报成"盒档落在 app.css"' +
+      '(成对:同一份输入,带/不带交集域两种读数必须不同)',
+    (() => {
+      const src =
+        'const X = () => <View className="ui-panel imgs-list max-w-md" />'
+      const own = ''
+      const g = new Set(['imgs-list']) // 只有 imgs-list 真在全局表里定义过
+      const withSet = unresolvedClassNames(src, own, g)
+      const noSet = unresolvedClassNames(src, own, null)
+      return (
+        withSet.join() === 'imgs-list' &&
+        noSet.join() === 'imgs-list,max-w-md,ui-panel' &&
+        noSet.length > withSet.length
+      )
+    })(),
+  )
   t(
     '㉗ 装车锁:披露必须由 collect 产出、由 main 打印,且不得在空数组时假装"没有盲区"',
     (() => {
@@ -5124,7 +5159,7 @@ function runSelfTest() {
       )
     })(),
   )
-  console.log(`--self-test:${pass} 通过 / ${fail} 失败`)
+  console.info(`--self-test:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
 }
 
