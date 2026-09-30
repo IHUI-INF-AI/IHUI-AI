@@ -19,11 +19,15 @@ from app.services.scan_login import (
     _QR_ELEMENT_SELECTORS,
     PLATFORM_SCAN_CONFIG,
     ScanTask,
+    _DEFAULT_QR_READY_SELECTORS,
     _cookie_hits,
     _extract_qr_image,
     _login_page_open_failure_message,
     _parse_raw_cookies,
+    _qr_ready_selectors,
+    _ready_probe,
     _url_is_login_page,
+    _wait_for_page_ready,
 )
 
 
@@ -411,5 +415,90 @@ def test_login_page_open_failure_message_keeps_our_own_errors():
 
     msg = _login_page_open_failure_message(SelectorErr('waiting for locator "#nope"'))
     assert "打开登录页失败" in msg and "SelectorErr" in msg and "#nope" in msg, msg
+
+
+# ---------------------------------------------------------------------------
+# 2026-09-30 出码提速:把"固定等 N 秒"换成"就绪即走"的那套判据。
+#
+# 立因(本机实测,platform=toutiao_app):sync_playwright+launch+context+goto ≈ 1.25s,
+# 而 goto 后固定 3s + 切 tab 后固定 1.5s + 截图前固定 2s = 6.5s ⇒ 首个二维码 7.8s 才可用。
+# 下面几条钉住替换后的三个不变量:① 候选全落空时**行为与旧版等价**(等满就走,不抛异常、
+# 不把任务判死);② Playwright 专有语法不得被送进 querySelectorAll(白跑往返);
+# ③ 就绪即走的短路必须真的短路(不是"看完所有候选才返回")。
+# ---------------------------------------------------------------------------
+class _ReadyFakePage:
+    """只实现被探测用到的两个方法:evaluate(批量选择器)与 wait_for_timeout(等待步进)。"""
+
+    def __init__(self, answers: list[bool] | None = None) -> None:
+        self.answers = list(answers or [])
+        self.evaluate_calls: list[dict] = []
+        self.waits: list[int] = []
+
+    def evaluate(self, _expr: str, arg: dict) -> bool:
+        self.evaluate_calls.append(arg)
+        if self.answers:
+            return self.answers.pop(0)
+        return False
+
+    def wait_for_timeout(self, ms: int) -> None:
+        self.waits.append(ms)
+
+
+def test_wait_for_page_ready_returns_false_without_raising_when_nothing_matches():
+    """全落空 ⇒ 等满上限后返回 False。旧实现是"固定等满照样往下走",这条保证替换后
+    不会把"没等到"变成异常/任务失败(那才是比慢更糟的回归)。"""
+    page = _ReadyFakePage()
+    ok = _wait_for_page_ready(page, ('[class*="qrcode"] img',), timeout_s=0.3)
+    assert ok is False
+    assert page.waits, "必须真的等过(轮询步进),不是立刻放弃"
+    assert all(ms == 120 for ms in page.waits), page.waits
+    assert len(page.evaluate_calls) >= 2, "应当是轮询多次探测,而不是只探一次"
+
+
+def test_wait_for_page_ready_short_circuits_on_first_hit():
+    """就绪即走:第一探没中、第二探命中 ⇒ 立刻返回 True,后续轮询一次都不多余。"""
+    page = _ReadyFakePage([False, True])
+    ok = _wait_for_page_ready(page, ('[class*="qrcode"] img',), timeout_s=5.0)
+    assert ok is True
+    assert len(page.evaluate_calls) == 2, page.evaluate_calls
+    assert len(page.waits) == 1, f"命中后不该再等: {page.waits}"
+
+
+def test_ready_probe_filters_playwright_only_selectors():
+    """Playwright 专有语法(text= / :has-text())在 document.querySelectorAll 里是
+    SyntaxError。送进去只是白跑一次往返(evaluate 必 reject),所以要在 Python 侧滤掉;
+    同时保证合法的 CSS 候选一个都不能被误滤。"""
+    page = _ReadyFakePage([True])
+    _ready_probe(page, ('text=扫码登录', 'div:has-text("扫码")', '[class*="qrcode"] img'))
+    assert page.evaluate_calls, "滤完之后仍有合法候选,必须真的探测"
+    sels = page.evaluate_calls[0]["sels"]
+    assert '[class*="qrcode"] img' in sels
+    assert not [s for s in sels if "text=" in s or ":has-text(" in s], sels
+
+
+def test_ready_probe_skips_evaluate_when_all_candidates_are_playwright_only():
+    """反向对照:全是 Playwright 语法时不该发那次注定失败的 evaluate(省下的是往返)。"""
+    page = _ReadyFakePage([True])
+    assert _ready_probe(page, ('text=扫码登录',)) is False
+    assert page.evaluate_calls == []
+
+
+def test_qr_ready_selectors_put_platform_selectors_first_and_dedupe():
+    """平台点名的选择器必须排在通用默认之前(它更准,先命中就少等),且同值不重复问。"""
+    cfg = {
+        "qr_image_selectors": ('img.qrcode-img',),
+        "qr_element_screenshot": "#animate_qrcode_container",
+    }
+    sels = _qr_ready_selectors(cfg)
+    assert sels[0] == "img.qrcode-img" and sels[1] == "#animate_qrcode_container"
+    assert '[class*="qrcode"] img' in sels, "通用默认必须仍在(平台没配时的兜底)"
+    assert len(sels) == len(set(sels)), "去重保序:同一选择器重复问只是白跑往返"
+
+
+def test_qr_ready_selectors_accept_string_and_sequence_config_shapes():
+    """配置两种写法(字符串 / 序列)都要吃得住 —— 平台表里两种形态都真实存在。"""
+    assert _qr_ready_selectors({"qr_element_screenshot": "#x"})[:1] == ("#x",)
+    assert _qr_ready_selectors({"qr_image_selectors": ("a", "b")})[:2] == ("a", "b")
+    assert _qr_ready_selectors({}) == _DEFAULT_QR_READY_SELECTORS
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
