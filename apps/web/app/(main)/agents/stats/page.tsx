@@ -11,6 +11,8 @@ import { Loader2, ArrowLeft, BarChart3, Users, Star, Phone } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface Stats {
   totalAgents?: number
@@ -42,9 +44,14 @@ const STAT_KEY: Record<StatKey, string> = {
 export default function AgentStatsPage() {
   const locale = useLocale()
   const t = useTranslations('agentsStatsPage')
+
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['agents', 'stats'],
     queryFn: () => api<Stats>('/api/agents/stats'),
+    enabled: allow,
   })
 
   const numFmt = new Intl.NumberFormat(locale)
@@ -112,7 +119,9 @@ export default function AgentStatsPage() {
         <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
       </div>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看智能体统计" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
