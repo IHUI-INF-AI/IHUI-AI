@@ -43,9 +43,11 @@ import {
   listSpaceMembers,
   listSpaces,
   reviseItem,
+  RevisionConflictError,
   setItemStatus,
   setSpaceMember,
 } from '../services/knowledge-team-service.js'
+import type { RevisionConflictPayload } from '@ihui/types/knowledge-team'
 
 // =============================================================================
 // Zod schemas
@@ -238,7 +240,23 @@ export const knowledgeTeamRoutes: FastifyPluginAsync = async (app) => {
     if (!actor) return reply.status(401).send(UNAUTHORIZED)
     const params = parseOrThrow(itemIdParamSchema, request.params)
     const body = parseOrThrow(reviseItemSchema, request.body)
-    return reply.send(success(await reviseItem(actor, { itemId: params.itemId, ...body })))
+    try {
+      return reply.send(success(await reviseItem(actor, { itemId: params.itemId, ...body })))
+    } catch (e) {
+      if (!(e instanceof RevisionConflictError)) throw e
+      // 冲突响应把"裁决时事实"作为结构化字段回报(b76-09b 票1):
+      // 调用方读 data.currentRevision 当下一次 expectedRevision 收敛重试,不解析 message 文案。
+      const data: RevisionConflictPayload = {
+        currentRevision: e.currentRevision,
+        expectedRevision: e.expectedRevision,
+      }
+      return reply.status(e.statusCode).send({
+        code: e.statusCode,
+        message: e.message,
+        errorCode: e.errorCode,
+        data,
+      })
+    }
   })
 
   app.post('/items/:itemId/status', { preHandler: requireLogin }, async (request, reply) => {
