@@ -63,9 +63,29 @@ import {
 // ───────────────────────────── 常量 ─────────────────────────────
 
 const HEARTBEAT_INTERVAL_MS = 5_000;
-const SHUTDOWN_GRACE_MS = 5_000;
 const DEFAULT_TASK_TIMEOUT_SECONDS = 300;
 const DEFAULT_MAX_QUEUE_SIZE = 100;
+
+/**
+ * b76-04 票3:worker 结果回灌 caps 常量表(数字即契约,必须住在有名字的表里;
+ * 照抄上游"执行侧不同就分表"的纪律 —— 下游判定侧与审计侧各立一名)。
+ */
+export const WORKER_RESULT_CAPS = {
+  /**
+   * 下游判定侧:回灌给调用方判定的结果 output 字节上限。
+   * 超限 ⇒ 结构化拒绝并点名恢复动作,断然不交半截结果
+   * ("截断把一份悄悄残缺的世界视图交给脚本,而脚本接下来会拿它去扇出")。
+   */
+  resultOutputMaxBytes: { cap: 8_192, enforcement: 'service 执行' },
+  /** 审计侧:error/stderr 尾巴字符上限;超 ⇒ 有界化 + truncated 标记,诚实说被截了。 */
+  errorTailMaxChars: { cap: 500, enforcement: 'service 执行' },
+} as const;
+/**
+ * G-998112(T3):kill 后等待 exit 事件的有界预算。
+ * 发起信号 ≠ 进程已退 —— kill 抛错(EPERM/ESRCH)或 exit 事件超预算未到 ⇒
+ * 记 `residualPid` 结构化残留记录,账面终态写 failed,不得静默当成功。
+ */
+const KILL_EXIT_BUDGET_MS = 5_000;
 // P0-3 修复:buffer 上限,防长跑多 subagent OOM 主进程
 const MAX_STDOUT_BUF_BYTES = 1_048_576; // 1MB
 const MAX_STDERR_BUF_BYTES = 1_048_576; // 1MB
@@ -103,6 +123,74 @@ export function resolveSubagentIdleTimeoutMs(raw?: string): number {
 
 // ───────────────────────────── 类型 ─────────────────────────────
 
+/**
+ * G-998112(T3):一次未确认回收的结构化残留记录。
+ * 存在即回答"这个 pid 是否真的没了" ⇒ **没有确认它没了**(信号派发失败或 exit 超预算)。
+ * 出口:`getResidualKills()` / `getResidualPid(subagentId)`;同时以
+ * `residualPid=<pid>` 形态进 spawn/awaitResult 响应的 error 字段。
+ */
+export interface ResidualKillRecord {
+  subagentId: string
+  /** 信号派发失败或 exit 超预算时仍未确认退出的 pid */
+  pid: number
+  signal: NodeJS.Signals
+  /** 归因:heartbeat-watchdog / task-timeout / pool-shutdown / pool-shutdown-escalation */
+  reason: string
+  /** 结构化原因细节(报错原文或超预算描述) */
+  detail: string
+  at: string
+}
+
+/** 测试注入口:fork 派生出口与 kill 后 exit 预算(缺省走真 fork + KILL_EXIT_BUDGET_MS)。 */
+export interface WorkerPoolDeps {
+  forkImpl?: (entryPath: string, args: string[], options: ForkOptions) => ChildProcess
+  /** kill 后等待 exit 的预算 ms(测试用小值;生产缺省 KILL_EXIT_BUDGET_MS)。 */
+  killExitBudgetMs?: number
+}
+
+/** G-998115(b76-08a):子进程退出归因三态 —— 判据不接受"非零 code 即异常"。 */
+export type TerminationKind = 'expected' | 'watchdog_recycle' | 'unexpected'
+
+/** G-998115:诊断尾巴上限(先脱敏再限长;上限与上游 zcodeAgentProcessManager 同值)。 */
+export const DIAGNOSTIC_TAIL_MAX_LINES = 20
+export const DIAGNOSTIC_TAIL_MAX_LINE_CHARS = 1000
+
+/**
+ * 诊断文本脱敏唯一出口:三类凭据形状替换为 [REDACTED]。
+ * 调用方纪律:**先脱敏再限长**(脱敏占位符可能比原文长,限长必须在脱敏之后)。
+ */
+export function redactDiagnosticText(text: string): string {
+  let out = String(text ?? '')
+  // 顺序即判据:Bearer/Basic 形状必须先于赋值式 —— 否则 'Authorization: Bearer x'
+  // 的值会被赋值式吃成 'Bearer',真凭据反而裸奔。
+  out = out.replace(/\b(bearer|basic)\s+(\S+)/gi, (_m, scheme: string) => `${scheme} [REDACTED]`)
+  out = out.replace(
+    /\b(api[-_]?key|authorization|cookie|credential|password|secret|token)\b["']?(\s*[=:]\s*)(\S+)/gi,
+    (_m, key: string, sep: string) => `${key}${sep}[REDACTED]`,
+  )
+  out = out.replace(/\bsk-[A-Za-z0-9_-]{8,}/g, '[REDACTED]')
+  return out
+}
+
+/**
+ * 诊断尾巴唯一采集口:先脱敏、再取末 20 行、单行限 1000 字符,并带原始行数。
+ * 子代理 stderr/stdout 尾巴进 result.output / error 前必须走这里(禁平行采集)。
+ */
+export function boundedRedactedTail(
+  stderr: string,
+): { lines: string[]; lineCount: number } {
+  const redacted = redactDiagnosticText(String(stderr ?? ''))
+  const allLines = redacted.split(/\r?\n/)
+  const tail = allLines
+    .slice(-DIAGNOSTIC_TAIL_MAX_LINES)
+    .map((l) =>
+      l.length > DIAGNOSTIC_TAIL_MAX_LINE_CHARS
+        ? `${l.slice(0, DIAGNOSTIC_TAIL_MAX_LINE_CHARS)}…[truncated:true]`
+        : l,
+    )
+  return { lines: tail, lineCount: allLines.length }
+}
+
 /** 子进程 → 父进程 IPC 消息 */
 type WorkerIPCMessage =
   | { type: 'heartbeat'; rss?: number; heapUsed?: number }
@@ -122,224 +210,6 @@ interface StartIPCMessage {
   networkEgressPolicy?: NetworkEgressPolicy;
   /** 资源限制(P1-3,memoryMb 供子进程自 OOM 检查,cpuCores/cpuSeconds 供轮询) */
   resourceLimits?: WorkerResourceLimits;
-}
-
-// ── kill/退出证据(G-998112):kill 发出否、进程真退否、exit code/signal ──
-// 背景:四处 kill 曾被静默吞错 ⇒ 账面记 dead/failed 却没有"进程到底退没退"的
-// OS 级证据。本节只加证据、不改调度/重试语义:
-//   - kill 一律经 attemptKillSignal 记录发出结果(发出否 + 抛错信息 + pid),不再静默;
-//   - 进程级记账(state.status 为 dead / failedCount++)只在有 OS 证据时落定
-//     (exit 事件的 code/signal,或存活探针确认已不在);无证据时保持原状态
-//     并报名(undetermined),不把"没判"写成"已判"。
-//   - exit 事件仍是唯一收口点;排队/超时双保险 resolve 幂等/重试/worktree 清理一字不动。
-
-/** kill 信号发出证据(G-998112):回答"kill 发出否"。 */
-export interface WorkerKillEvidence {
-  signal: NodeJS.Signals;
-  pid: number;
-  /** kill() 是否成功发出(返回 true 且未抛错)。 */
-  sent: boolean;
-  /** 发出失败时的错误信息(含返回 false 与抛错两型)。 */
-  error?: string;
-}
-
-/** 进程退出证据(G-998112):回答"进程真退否 + exit code/signal"。 */
-export interface WorkerExitEvidence {
-  pid: number;
-  /** OS 是否确认进程已退(exit 事件 code/signal 非空,或存活探针确认已不在)。 */
-  exited: boolean;
-  exitCode: number | null;
-  signal: NodeJS.Signals | null;
-  /** 存活探针结果(true=仍在,false=已不在,null=未探/未知)。 */
-  alive: boolean | null;
-  /** 发出过的 kill 证据(按序)。 */
-  kills: WorkerKillEvidence[];
-}
-
-/** 退出归因(G-998112):有 OS 证据才定终态,无证据记未判定并报名。 */
-export type WorkerExitAttribution =
-  | { kind: 'decided'; terminal: 'failed' | 'completed'; evidence: WorkerExitEvidence; reason: string }
-  | { kind: 'undetermined'; reason: string; evidence: WorkerExitEvidence };
-
-/** attemptKillSignal / probeWorkerLiveness 的最小 proc 面(ChildProcess 满足;单测用假对象)。 */
-export interface KillableProcLike {
-  pid?: number;
-  exitCode?: number | null;
-  signalCode?: NodeJS.Signals | null;
-  kill(signal: NodeJS.Signals | 0): boolean;
-}
-
-/**
- * 发出 kill 信号并记录证据(G-998112)。
- * 永不抛错、永不静默:发出否 + 抛错信息都在返回值里,调用方必须用
- * formatKillEvidenceReport 报名。调用点不得再静默吞错。
- * (exit 收口见各调用点下方的 once exit 等待;残留进程的退出证据由 exit 事件收口。)
- */
-export function attemptKillSignal(
-  proc: KillableProcLike,
-  signal: NodeJS.Signals,
-  pidFallback = 0,
-): WorkerKillEvidence {
-  const pid = proc.pid ?? pidFallback;
-  try {
-    // exit 证据由调用点收口(residual 残留进程见 exit 事件);此处只记 kill 发出结果。
-    const sent = proc.kill(signal);
-    if (sent) return { signal, pid, sent: true };
-    return { signal, pid, sent: false, error: 'kill returned false (signal not delivered)' };
-  } catch (err) {
-    return { signal, pid, sent: false, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-/**
- * 存活探针(G-998112):回答"进程还活着否",供退出归因当 OS 证据。
- * 顺序:先读 exitCode / signalCode 快照(有值 ⇒ 已退,不发信号);
- * 否则发 0 信号探针(ESRCH ⇒ 已不在;EPERM/EACCES ⇒ 仍在;其他/未知 ⇒ null 未判定)。
- * 永不抛错;探针信号 0 无副作用。
- * (残留判断见调用方的 exit 事件收口,本探针只回答当下是否仍在。)
- */
-export function probeWorkerLiveness(proc: KillableProcLike): boolean | null {
-  try {
-    if (proc.exitCode !== null && proc.exitCode !== undefined) return false;
-    if (proc.signalCode !== null && proc.signalCode !== undefined) return false;
-    try {
-      const reachable = proc.kill(0);
-      return reachable ? true : false;
-    } catch (err) {
-      const code = (err as NodeJS.ErrnoException | null)?.code;
-      if (code === 'ESRCH') return false;
-      if (code === 'EPERM' || code === 'EACCES') return true;
-      return null;
-    }
-  } catch {
-    return null;
-  }
-}
-
-/** shouldMarkDeadAfterKill 的输入(OS 证据快照)。 */
-export interface DeadGateInput {
-  exitCode?: number | null;
-  signalCode?: NodeJS.Signals | null;
-  /** 存活探针结果(true=仍在,false=已不在,null=未探/未知)。 */
-  alive: boolean | null;
-}
-
-/**
- * 记账门(G-998112,纯函数):有 OS 证据才记 dead,仍存活/未知时记未判定。
- * - exit code/signal 非空 ⇒ 已退 ⇒ 可记 dead;
- * - 探针确认已不在 ⇒ 可记 dead;
- * - 探针确认仍在 ⇒ 不记 dead(未判定并报名,调用方必须报);
- * - 未探/未知 ⇒ 不记 dead(宁可报名,不把"没判"写成"已判")。
- * 调度语义不在这里,checkHeartbeat 用它做门;exit 事件收口不受此门影响。
- */
-export function shouldMarkDeadAfterKill(input: DeadGateInput): { markDead: boolean; reason: string } {
-  const { exitCode = null, signalCode = null, alive } = input;
-  if (exitCode !== null || signalCode !== null) {
-    return { markDead: true, reason: `exit evidence: exitCode=${exitCode} signal=${signalCode}` };
-  }
-  if (alive === false) {
-    return { markDead: true, reason: 'liveness probe confirms process gone (exit snapshot / kill ESRCH)' };
-  }
-  if (alive === true) {
-    return { markDead: false, reason: 'undetermined: process still alive, no exit code/signal' };
-  }
-  return { markDead: false, reason: 'undetermined: no exit code/signal and liveness unknown' };
-}
-
-/** attributeWorkerExit 的输入(纯数据,单测直接喂)。 */
-export interface AttributeWorkerExitInput {
-  pid: number;
-  code: number | null;
-  signal: NodeJS.Signals | null;
-  timedOut: boolean;
-  kills: WorkerKillEvidence[];
-  /** 存活探针结果(true=仍在,false=已不在,null=未探/未知)。 */
-  alive: boolean | null;
-}
-
-/**
- * 退出归因(G-998112,纯函数):有 OS 证据才定终态。
- * - exit code/signal 非空 ⇒ OS 证据成立 ⇒ 按既有终态语义定 failed/completed
- *   (timeout/OOM=3/CPU=4/signal ⇒ failed;其余非 0 ⇒ failed;0 ⇒ completed);
- * - 无 code/signal 但探针确认已不在 ⇒ 视为已退,终态 failed(无 0 码不得记 completed);
- * - 无 code/signal 且仍在 ⇒ 未判定(不记 dead/failed,调用方必须报名);
- * - 无 code/signal 且未知 ⇒ 超时任务维持原终态 failed(超时本身是任务失败理由,
- *   但如实记"无退出证据",不断言新证据);非超时 ⇒ 未判定。
- * (残留进程的最终收口仍是 exit 事件,本函数只做归因判定。)
- */
-export function attributeWorkerExit(input: AttributeWorkerExitInput): WorkerExitAttribution {
-  const { pid, code, signal, timedOut, kills, alive } = input;
-  const isOOM = code === 3;
-  const isCpuLimit = code === 4;
-  if (code !== null || signal !== null) {
-    const evidence: WorkerExitEvidence = { pid, exited: true, exitCode: code, signal, alive, kills };
-    const isError = code !== 0 && code !== null && !isOOM && !isCpuLimit;
-    const failed = timedOut || isError || isOOM || isCpuLimit || signal !== null;
-    const reason = `exit evidence: code=${code} signal=${signal} timedOut=${timedOut} kills=${kills.length}`;
-    return { kind: 'decided', terminal: failed ? 'failed' : 'completed', evidence, reason };
-  }
-  if (alive === true) {
-    const evidence: WorkerExitEvidence = { pid, exited: false, exitCode: code, signal, alive, kills };
-    return {
-      kind: 'undetermined',
-      reason: `undetermined: pid ${pid} still alive, no exit code/signal (kills=${kills.length})`,
-      evidence,
-    };
-  }
-  if (alive === false) {
-    const evidence: WorkerExitEvidence = { pid, exited: true, exitCode: code, signal, alive, kills };
-    return {
-      kind: 'decided',
-      terminal: 'failed',
-      evidence,
-      reason: `liveness confirms gone: pid ${pid} no exit code/signal timedOut=${timedOut} kills=${kills.length}`,
-    };
-  }
-  const evidence: WorkerExitEvidence = { pid, exited: false, exitCode: code, signal, alive, kills };
-  if (timedOut) {
-    return {
-      kind: 'decided',
-      terminal: 'failed',
-      evidence,
-      reason: `timeout without OS exit evidence: pid ${pid} kills=${kills.length} (task failed by timeout, no exit claim)`,
-    };
-  }
-  return {
-    kind: 'undetermined',
-    reason: `undetermined: pid ${pid} no exit code/signal, liveness unknown, not timed out (kills=${kills.length})`,
-    evidence,
-  };
-}
-
-/** kill 发出报名行(G-998112,纯函数;调用方负责写 stderr,不得静默)。 */
-export function formatKillEvidenceReport(subagentId: string, evidence: WorkerKillEvidence): string {
-  const outcome = evidence.sent ? 'sent' : `NOT sent${evidence.error ? `: ${evidence.error}` : ''}`;
-  return `[subagent ${subagentId}] kill ${evidence.signal} pid=${evidence.pid} ${outcome}\n`;
-}
-
-/** 未判定报名行(G-998112,纯函数;调用方负责写 stderr,不得静默)。 */
-export function formatUndeterminedReport(
-  subagentId: string,
-  detail: {
-    pid: number;
-    exitCode: number | null;
-    signal: NodeJS.Signals | null;
-    alive: boolean | null;
-    kills: WorkerKillEvidence[];
-  },
-): string {
-  const aliveText = detail.alive === true ? 'still alive' : detail.alive === false ? 'gone' : 'unknown liveness';
-  return (
-    `[subagent ${subagentId}] exit undetermined: pid=${detail.pid} ${aliveText} ` +
-    `exitCode=${detail.exitCode} signal=${detail.signal} kills=${detail.kills.length} ` +
-    `(no OS exit evidence, not marking dead)\n`
-  );
-}
-
-/** 退出证据摘要(G-998112,纯函数;拼进 failed 响应的 error,不改终态词汇)。 */
-export function formatExitEvidenceSuffix(evidence: WorkerExitEvidence): string {
-  const kills = evidence.kills.map((k) => `${k.signal}:${k.sent ? 'sent' : 'NOT sent'}`).join(',');
-  return `killEvidence=[${kills}] exitCode=${evidence.exitCode} signal=${evidence.signal} exited=${evidence.exited}`;
 }
 
 /** 内部 worker 跟踪条目 */
@@ -366,11 +236,6 @@ interface WorkerEntry {
   resolver?: (resp: SubagentSpawnResponse) => void;
   timeoutTimer?: NodeJS.Timeout;
   heartbeatTimer?: NodeJS.Timeout;
-  /**
-   * G-998112:kill 发出证据(按序,回答"kill 发出否")。
-   * 退出归因(exit code/signal/存活探针)与本数组共同构成 OS 级证据。
-   */
-  killEvidence: WorkerKillEvidence[];
   stdoutBuf: string;
   stderrBuf: string;
   timedOut: boolean;
@@ -379,6 +244,10 @@ interface WorkerEntry {
   stderrTruncated: boolean;
   stderrLastFlushAt: number;
   stderrLinesSinceFlush: number;
+  /** G-998115:退出归因(host 主动回收时写;exit 时按 terminationKind ?? unexpected 判)。 */
+  terminationKind?: TerminationKind;
+  /** G-998115:首因锁定 —— 首次 cleanup 写入归因后,后续幂等回收不得改写。 */
+  terminationKindLocked: boolean;
 }
 
 // ───────────────────────────── SubagentWorkerPool ─────────────────────────────
@@ -417,14 +286,136 @@ export class SubagentWorkerPool {
    * "本池任一生平管理过的 subagent"口径一致。值只有枚举字符串,上界 = 池生命周期内任务数。
    */
   private readonly finishedLifecycles = new Map<string, SubagentLifecycleStatus>();
+  /**
+   * G-998112:未确认回收的残留记录(subagentId → 证据)。有终态(exit 事件)那一半
+   * 仍是唯一收口点;这里只补"发信号了但 OS 退没退没有证据"的那一半。
+   */
+  private readonly residualKills = new Map<string, ResidualKillRecord>();
+  private readonly forkImpl: (entryPath: string, args: string[], options: ForkOptions) => ChildProcess;
+  private readonly killExitBudgetMs: number;
 
-  constructor(config: WorkerPoolConfig) {
+  constructor(config: WorkerPoolConfig, deps: WorkerPoolDeps = {}) {
     this.config = config;
     this.entryPath = resolveWorkerEntryPath();
+    this.forkImpl = deps.forkImpl ?? fork;
+    this.killExitBudgetMs = deps.killExitBudgetMs ?? KILL_EXIT_BUDGET_MS;
     this.heartbeatTimeoutMs = (config.heartbeatTimeoutSeconds ?? 60) * 1000;
     this.idleTimeoutMs = resolveSubagentIdleTimeoutMs(process.env[SUBAGENT_IDLE_TIMEOUT_ENV]);
     // 可观测:并发总量 = 各池 maxWorkers 之和,池数是那个"2×maxWorkers"放大倍数的来源
     notePoolCreated();
+  }
+
+  /**
+   * G-998112 残留证据出口:返回所有"信号已发但 OS 退出未确认"的记录。
+   * 空数组 = 本池每次回收都拿到了 exit 证据。
+   */
+  getResidualKills(): ResidualKillRecord[] {
+    return [...this.residualKills.values()];
+  }
+
+  /** 某个子代理是否存在未确认回收(有 ⇒ 返回残留 pid;无 ⇒ undefined)。 */
+  getResidualPid(subagentId: string): number | undefined {
+    return this.residualKills.get(subagentId)?.pid;
+  }
+
+  /**
+   * G-998112 kill 唯一出口:发起信号 + 有界等待 exit 事件。
+   * 两条失败路径都记 residualPid 并把该子代理终态写成 failed + 结构化原因:
+   *  1. 信号派发本身抛错(EPERM/ESRCH)⇒ pid 状态未知,不得当成功;
+   *  2. exit 事件超过预算未到 ⇒ 不装"已回收"。
+   * 返回值 = 是否在预算内观察到 exit 事件。
+   */
+  private signalWorker(w: WorkerEntry, signal: NodeJS.Signals, reason: string, budgetMs?: number): Promise<boolean> {
+    try {
+      w.proc.kill(signal);
+    } catch (e) {
+      this.recordResidualKill(w, signal, reason, `信号派发失败:${e instanceof Error ? e.message : String(e)}`);
+      return Promise.resolve(false);
+    }
+    if (w.proc.exitCode !== null || w.proc.signalCode !== null) return Promise.resolve(true);
+    return new Promise<boolean>((resolve) => {
+      const budget = budgetMs ?? this.killExitBudgetMs;
+      const timer = setTimeout(() => {
+        w.proc.removeListener('exit', onExit);
+        this.recordResidualKill(w, signal, reason, `exit 事件超过 ${budget}ms 未到`);
+        resolve(false);
+      }, budget);
+      const onExit = () => {
+        clearTimeout(timer);
+        resolve(true);
+      };
+      w.proc.once('exit', onExit);
+    });
+  }
+
+  /** 残留记录唯一写入点:结构化记录 + 终态写 failed(经既有收口面,exit 后到时以真终态为准)。 */
+  private recordResidualKill(w: WorkerEntry, signal: NodeJS.Signals, reason: string, detail: string): void {
+    const pid = w.proc.pid ?? 0;
+    this.residualKills.set(w.subagentId, {
+      subagentId: w.subagentId,
+      pid,
+      signal,
+      reason,
+      detail,
+      at: new Date().toISOString(),
+    });
+    const resp: SubagentSpawnResponse = {
+      subagentId: w.subagentId,
+      pid,
+      status: 'failed',
+      error: `residualPid=${pid} signal=${signal} (${reason}): ${detail}`,
+      durationMs: Date.now() - w.startedAt,
+    };
+    entryStateFailed(w);
+    if (w.idleDetached) {
+      this.detachedFinalResults.set(w.subagentId, resp);
+    }
+    if (w.resolver) {
+      w.resolver(resp);
+      w.resolver = undefined;
+    }
+    for (const resolveFinal of w.finalResolvers.splice(0)) {
+      resolveFinal(resp);
+    }
+    process.stderr.write(
+      `[subagent ${w.subagentId}] residualPid=${pid} signal=${signal} reason=${reason} detail=${detail}\n`,
+    );
+  }
+
+  /**
+   * G-998115 waitForStderrDrain 等价:exit 事件早于 stdio flush,归因 error 日志必须等
+   * stderr 流尽(end/close)或 200ms 预算到再发,保证尾巴采集完整;once 守卫保证恰 1 条。
+   */
+  private emitUnexpectedExitLog(
+    subagentId: string,
+    code: number | null,
+    signal: NodeJS.Signals | null,
+    entry: WorkerEntry,
+  ): void {
+    let done = false;
+    const emit = (): void => {
+      if (done) return;
+      done = true;
+      const tail = boundedRedactedTail(entry.stderrBuf);
+      process.stderr.write(
+        `[subagent ${subagentId}] [error] exit attribution=unexpected exitCode=${String(code)} signal=${String(signal)}; ` +
+          `stderr tail 已脱敏(取末 ${tail.lines.length}/${tail.lineCount} 行):\n${tail.lines.join('\n')}\n`,
+      );
+    };
+    const s = entry.proc.stderr;
+    if (!s || s.readableEnded) {
+      emit();
+      return;
+    }
+    const budget = setTimeout(emit, 200);
+    s.once('end', () => {
+      clearTimeout(budget);
+      emit();
+    });
+    s.once('close', () => {
+      clearTimeout(budget);
+      emit();
+    });
   }
 
   /**
@@ -553,33 +544,22 @@ export class SubagentWorkerPool {
     for (const w of entries) {
       if (w.timeoutTimer) clearTimeout(w.timeoutTimer);
       if (w.heartbeatTimer) clearInterval(w.heartbeatTimer);
-      // G-998112:kill 发出证据 + exit 收口(下方 Promise.all once exit 等待);不再静默吞错。
-      const sigtermEvidence = attemptKillSignal(w.proc, 'SIGTERM');
-      w.killEvidence.push(sigtermEvidence);
-      process.stderr.write(formatKillEvidenceReport(w.subagentId, sigtermEvidence));
     }
-
-    if (entries.length > 0) {
-      await new Promise<void>((resolve) => {
-        const killTimer = setTimeout(() => {
-          for (const w of entries) {
-            // G-998112:kill 发出证据;残留进程的退出证据由 exit 事件收口,不再静默吞错。
-            const sigkillEvidence = attemptKillSignal(w.proc, 'SIGKILL');
-            w.killEvidence.push(sigkillEvidence);
-            process.stderr.write(formatKillEvidenceReport(w.subagentId, sigkillEvidence));
-          }
-          resolve();
-        }, SHUTDOWN_GRACE_MS);
-        Promise.all(
-          entries.map((w) =>
-            new Promise<void>((r) => w.proc.once('exit', () => r())),
-          ),
-        ).then(() => {
-          clearTimeout(killTimer);
-          resolve();
-        });
-      });
-    }
+    // G-998112:SIGTERM 一轮(有界等待 exit;超预算/派发失败 ⇒ 记 residualPid + 终态 failed),
+    // 未退者升级 SIGKILL 再等一轮 —— 两轮都拿到证据才静默,任何残留都留在 getResidualKills()。
+    // 预算缺省与 SHUTDOWN_GRACE_MS 同值(5s);deps.killExitBudgetMs 可注入缩小(测试)。
+    // G-998115:shutdown 属宿主主动回收 ⇒ 先写归因 expected(首因锁定)。
+    for (const w of entries) this.setTerminationKind(w, 'expected');
+    const ungraceful = new Set<WorkerEntry>();
+    await Promise.all(
+      entries.map(async (w) => {
+        const exited = await this.signalWorker(w, 'SIGTERM', 'pool-shutdown');
+        if (!exited) ungraceful.add(w);
+      }),
+    );
+    await Promise.all(
+      [...ungraceful].map((w) => this.signalWorker(w, 'SIGKILL', 'pool-shutdown-escalation')),
+    );
 
     // 清理 worktree
     for (const w of entries) {
@@ -657,7 +637,7 @@ export class SubagentWorkerPool {
         maxYoungGenerationSizeMb: this.config.resourceLimits.maxYoungGenerationSizeMb,
       };
     }
-    const proc = fork(this.entryPath, [], forkOptions);
+    const proc = this.forkImpl(this.entryPath, [], forkOptions);
 
     const entry: WorkerEntry = {
       subagentId,
@@ -668,7 +648,6 @@ export class SubagentWorkerPool {
       lifecycle: 'running',
       idleDetached: false,
       finalResolvers: [],
-      killEvidence: [],
       state: {
         workerId,
         type: 'cli-subprocess',
@@ -688,6 +667,7 @@ export class SubagentWorkerPool {
       stderrTruncated: false,
       stderrLastFlushAt: startedAt,
       stderrLinesSinceFlush: 0,
+      terminationKindLocked: false,
     };
     this.workers.set(subagentId, entry);
 
@@ -836,6 +816,17 @@ export class SubagentWorkerPool {
   }
 
   /**
+   * G-998115 归因唯一写入点:首因锁定 —— 首次 cleanup 的原因不可被后续幂等回收改写。
+   * (上游 zcodeAgentProcessManager:672-687 同判据:重复 cleanup 不得把
+   * watchdog_recycle 洗成 expected。)
+   */
+  private setTerminationKind(w: WorkerEntry, kind: TerminationKind): void {
+    if (w.terminationKindLocked) return;
+    w.terminationKind = kind;
+    w.terminationKindLocked = true;
+  }
+
+  /**
    * 无活动超时 ⇒ 自动转后台(状态迁移,非杀死)。
    * 触发条件全部成立才迁移:阈值已设(>0)、未转过后台、未进终态、距最后一次真实
    * 任务事件超过 idleTimeoutMs。迁移动作:
@@ -873,66 +864,32 @@ export class SubagentWorkerPool {
     }
   }
 
-  /**
-   * 心跳检查:超过 heartbeatTimeoutMs 无心跳 → SIGKILL。
-   * G-998112:进程级记账(dead)必须有 OS 证据(exit code/signal 或存活探针确认已不在)
-   * 才落定;探针确认仍在/未知时记未判定并报名,不记 dead(不把"没判"写成"已判")。
-   * exit 事件仍是唯一收口点,此处只做记账门,不改调度。
-   */
+  /** 心跳检查:超过 heartbeatTimeoutMs 无心跳 → 标记 dead,SIGKILL */
   private checkHeartbeat(entry: WorkerEntry): void {
+    if (entry.state.status === 'dead') return; // G-998112:残留确认只做一轮,不做每 5s 重复派发
     if (Date.now() - entry.lastHeartbeatAt > this.heartbeatTimeoutMs) {
-      // G-998112:kill 发出证据;exit 证据见快照 + 存活探针,不再静默吞错。
-      const killEvidence = attemptKillSignal(entry.proc, 'SIGKILL');
-      entry.killEvidence.push(killEvidence);
-      process.stderr.write(formatKillEvidenceReport(entry.subagentId, killEvidence));
-      const alive = probeWorkerLiveness(entry.proc);
-      const gate = shouldMarkDeadAfterKill({
-        exitCode: entry.proc.exitCode ?? null,
-        signalCode: entry.proc.signalCode ?? null,
-        alive,
-      });
-      if (!gate.markDead) {
-        // 未判定并报名:保持原状态,不记 dead。
-        process.stderr.write(
-          formatUndeterminedReport(entry.subagentId, {
-            pid: entry.proc.pid ?? 0,
-            exitCode: entry.proc.exitCode ?? null,
-            signal: entry.proc.signalCode ?? null,
-            alive,
-            kills: entry.killEvidence,
-          }),
-        );
-        return;
-      }
       entry.state.status = 'dead';
+      // G-998115:watchdog 回收 ⇒ 先写归因(首因锁定),再发信号
+      this.setTerminationKind(entry, 'watchdog_recycle');
+      // G-998112:发信号后必须有界等待 exit;pid 没真的退 ⇒ 记 residualPid(账面不得只写 dead)
+      void this.signalWorker(entry, 'SIGKILL', 'heartbeat-watchdog');
     }
   }
 
-  /**
-   * 超时处理:SIGTERM 子进程,resolve failed(防 exit 不触发的双保险,幂等,调度语义不变)。
-   * G-998112:kill 发出证据进 error,不再静默吞错;残留进程的退出证据由 exit 事件收口。
-   */
+  /** 超时处理:SIGTERM 子进程,resolve failed */
   private handleTimeout(subagentId: string, entry: WorkerEntry, timeoutSec: number): void {
     entry.timedOut = true;
-    // G-998112:kill 发出证据;残留进程的退出证据由 exit 事件收口,不再静默吞错。
-    const killEvidence = attemptKillSignal(entry.proc, 'SIGTERM');
-    entry.killEvidence.push(killEvidence);
-    process.stderr.write(formatKillEvidenceReport(subagentId, killEvidence));
+    // G-998115:超时属宿主 watchdog 回收 ⇒ 先写归因(首因锁定),再发信号
+    this.setTerminationKind(entry, 'watchdog_recycle');
+    // G-998112:有界等待 exit;超预算 ⇒ 记 residualPid + 终态 failed + 结构化原因
+    void this.signalWorker(entry, 'SIGTERM', 'task-timeout');
     // exit handler 会 resolve;但以防 exit 不触发,这里也 resolve 一次(幂等)
     if (entry.resolver) {
-      const timeoutEvidence: WorkerExitEvidence = {
-        pid: entry.proc.pid ?? 0,
-        exited: false,
-        exitCode: entry.proc.exitCode ?? null,
-        signal: entry.proc.signalCode ?? null,
-        alive: null,
-        kills: entry.killEvidence,
-      };
       const resp: SubagentSpawnResponse = {
         subagentId,
         pid: entry.proc.pid ?? 0,
         status: 'failed',
-        error: `timeout after ${timeoutSec}s (${formatExitEvidenceSuffix(timeoutEvidence)})`,
+        error: `timeout after ${timeoutSec}s`,
         durationMs: Date.now() - entry.startedAt,
       };
       entry.resolver(resp);
@@ -940,12 +897,7 @@ export class SubagentWorkerPool {
     }
   }
 
-  /**
-   * 子进程退出处理:解析 stdout NDJSON,resolve 响应,清理 worktree。
-   * G-998112:退出归因必须有 OS 证据(exit 事件的 code/signal 即证据);无 code/signal
-   * 时以后备探针定未判定并报名,不把"没判"写成"已判"。终态词汇/计数/清理语义不变,
-   * failed 响应的 error 携带 kill/退出证据摘要。
-   */
+  /** 子进程退出处理:解析 stdout NDJSON,resolve 响应,清理 worktree */
   private handleWorkerExit(
     subagentId: string,
     code: number | null,
@@ -956,34 +908,15 @@ export class SubagentWorkerPool {
     if (entry.heartbeatTimer) clearInterval(entry.heartbeatTimer);
 
     const durationMs = Date.now() - entry.startedAt;
+    // G-998115(b76-08a):退出归因 —— host 主动回收写过 terminationKind;没有 ⇒ unexpected
+    // (判据不接受"非零 code 即异常":signal crash 与 agent 自行 exit 0 都是非预期)。
+    const terminationKind: TerminationKind = entry.terminationKind ?? 'unexpected';
     const isTimeout = entry.timedOut || code === 2;
     // P2 修复:区分 exit 3(OOM)/ exit 4(CPU limit)语义,资源超限非代码 bug 可重试
     const isOOM = code === 3;
     const isCpuLimit = code === 4;
     const isError = code !== 0 && code !== null && !isOOM && !isCpuLimit;
     const isFailed = isTimeout || isError || isOOM || isCpuLimit || signal !== null;
-
-    // G-998112:退出归因(OS 证据:exit 事件 code/signal;无则后备探针,未判定并报名)。
-    const exitAttribution = attributeWorkerExit({
-      pid: entry.proc.pid ?? 0,
-      code,
-      signal,
-      timedOut: isTimeout,
-      kills: entry.killEvidence,
-      alive: code === null && signal === null ? probeWorkerLiveness(entry.proc) : null,
-    });
-    const evidenceSuffix = formatExitEvidenceSuffix(exitAttribution.evidence);
-    if (exitAttribution.kind === 'undetermined') {
-      process.stderr.write(
-        formatUndeterminedReport(subagentId, {
-          pid: entry.proc.pid ?? 0,
-          exitCode: code,
-          signal,
-          alive: exitAttribution.evidence.alive,
-          kills: entry.killEvidence,
-        }),
-      );
-    }
 
     // 更新 state
     if (entry.state.status !== 'dead') {
@@ -992,28 +925,40 @@ export class SubagentWorkerPool {
       else entry.state.completedCount++;
     }
 
+    // G-998115:归因 unexpected ⇒ stderr tail 升为 error 级日志(先脱敏再限长,
+    // waitForStderrDrain 等价:等 stderr 流尽再采);expected/watchdog_recycle 不升。
+    if (terminationKind === 'unexpected') {
+      this.emitUnexpectedExitLog(subagentId, code, signal, entry);
+    }
+
     // 解析 stdout NDJSON 提取结果
     const parsed = parseWorkerStdout(entry.stdoutBuf);
-    const output = parsed.assistantText || (entry.stderrBuf.trim().slice(-2000) || undefined);
+    // b76-04 票3(下游判定侧):回灌 output 超 cap ⇒ 结构化拒绝点名恢复动作,不交半截结果
+    const outputBytes = Buffer.byteLength(parsed.assistantText, 'utf8');
+    const outputOverCap = outputBytes > WORKER_RESULT_CAPS.resultOutputMaxBytes.cap;
+    // b76-04 票3(审计侧):error/stderr 尾巴有界化 + truncated 标记(不许静默夹半截)
+    const output = outputOverCap ? undefined : parsed.assistantText || boundedTail(entry.stderrBuf, WORKER_RESULT_CAPS.errorTailMaxChars.cap) || undefined;
 
     // 生命周期终态落档:'running' / 'detached_idle' 都只在此处收口为 completed/failed。
     // 已转后台的条目 spawn Promise 早以 'running' resolve 过,真终态只走
     // detachedFinalResults + finalResolvers(= awaitResult 的出口),不冒充、不丢失。
-    entry.lifecycle = isFailed ? 'failed' : 'completed';
+    entry.lifecycle = outputOverCap || isFailed ? 'failed' : 'completed';
     const resp: SubagentSpawnResponse = {
       subagentId,
       pid: entry.proc.pid ?? 0,
-      status: isFailed ? 'failed' : 'completed',
+      status: outputOverCap || isFailed ? 'failed' : 'completed',
       output,
-      error: isFailed
+      error: outputOverCap
+        ? `结果超上限(${outputBytes} 字节 > cap ${WORKER_RESULT_CAPS.resultOutputMaxBytes.cap});` +
+          `恢复动作:缩小任务范围或拆分子任务后重跑,不要要求本池静默截断结果`
+        : isFailed
         ? (isTimeout
-            ? `timeout (exit code ${code}) (${evidenceSuffix})`
+            ? `timeout (exit code ${code})`
             : isOOM
-              ? `[OOM] worker self-OOM exit, stdout: ${entry.stdoutBuf.slice(-500)} (${evidenceSuffix})`
+              ? `[OOM] worker self-OOM exit, stdout tail: ${boundedTail(entry.stdoutBuf, WORKER_RESULT_CAPS.errorTailMaxChars.cap)}`
               : isCpuLimit
-                ? `[CPU_LIMIT] worker CPU limit exit, stdout: ${entry.stdoutBuf.slice(-500)} (${evidenceSuffix})`
-                : ((entry.stderrBuf.trim().slice(-500) || `exit code ${code} signal ${signal}`) +
-                  ` (${evidenceSuffix})`))
+                ? `[CPU_LIMIT] worker CPU limit exit, stdout tail: ${boundedTail(entry.stdoutBuf, WORKER_RESULT_CAPS.errorTailMaxChars.cap)}`
+                : (boundedTail(entry.stderrBuf, WORKER_RESULT_CAPS.errorTailMaxChars.cap) || `exit code ${code} signal ${signal}`))
         : undefined,
       durationMs,
     };
@@ -1064,6 +1009,25 @@ export class SubagentWorkerPool {
 /** 生成子 agent ID */
 function generateSubagentId(): string {
   return `sa_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * G-998112:残留路径的账面落点 —— 状态写 dead、生命周期落 failed(若未终态)。
+ * failedCount 不在此处增:exit 事件仍是唯一计数收口点(见 handleWorkerExit :691 守卫)。
+ */
+function entryStateFailed(w: WorkerEntry): void {
+  w.state.status = 'dead';
+  if (!isSubagentTerminalStatus(w.lifecycle)) w.lifecycle = 'failed';
+}
+
+/**
+ * b76-04 票3(审计侧):有界尾巴 —— 先脱敏、再限长 + truncated 标记,"宁可诚实地说被截了"。
+ * 只用于事后审计的诊断尾巴;喂给下游判定的数据不走这里(走 WORKER_RESULT_CAPS 拒绝)。
+ */
+function boundedTail(text: string, cap: number): string {
+  const trimmed = redactDiagnosticText(text).trim();
+  if (trimmed.length <= cap) return trimmed;
+  return `${trimmed.slice(-cap)}…[truncated:true 原长 ${trimmed.length}]`;
 }
 
 /**

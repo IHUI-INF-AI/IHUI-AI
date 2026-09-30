@@ -25,6 +25,73 @@ import path from 'node:path';
 import os from 'node:os';
 import { createHash } from 'node:crypto';
 
+/**
+ * b76-12a 票1:图语法发射/解析侧的「任意文本不可破坏语法」契约。
+ *
+ * 这些文本来自 agent 名、glob 模式等**任意用户派生内容** —— so arbitrary script
+ * text cannot break the diagram syntax(机制对标上游 dynamic-workflow/analysis/mermaid.ts):
+ *   - 节点 id 一律净化(只留词字符,`ask#1` → `ask_1`;`gate-89#R9` → `gate_89_R9`);
+ *   - **原始 id 保留在人读标签里**(净化只影响语法位,不销毁信息);
+ *   - 标签文本统一双引号包裹,`"` 改写成 `#quot;` 实体,并剥掉反引号与换行;
+ *   - 含引号/反引号/换行/`#`/`-` 的内容不得让图语法本身被破坏,也不得让
+ *     extractMermaidBlocks 静默吞掉整块 fence 或后续围栏。
+ */
+
+/** 节点 id 净化:只留词字符(上游 :19-43 同判据)。 */
+const NODE_ID_UNSAFE_RE = /[^A-Za-z0-9_]/g
+
+export function safeNodeId(id: string): string {
+  const s = String(id ?? '').replace(NODE_ID_UNSAFE_RE, '_');
+  return s === '' ? 'n' : s;
+}
+
+/**
+ * 标签文本转义:`"` → `#quot;` 实体、剥反引号、换行折成空格。
+ * 输出必须能被安全地放进双引号标签内而不破坏语法。
+ */
+export function escapeLabel(text: string): string {
+  return String(text ?? '')
+    .replace(/"/g, '#quot;')
+    .replace(/`/g, '')
+    .replace(/\r\n/g, ' ')
+    .replace(/[\r\n]/g, ' ');
+}
+
+export interface MermaidNodeInput {
+  /** 原始 id(任意用户派生文本;发射时净化,原文保留在标签) */
+  id: string;
+  /** 人读标签(缺省用原始 id) */
+  label?: string;
+}
+
+export interface MermaidEdgeInput {
+  from: string;
+  to: string;
+  label?: string;
+}
+
+/**
+ * 从结构化节点/边发射 mermaid 源码(发射侧契约的唯一出口):
+ * id 净化、标签双引号包裹 + 转义。任意文本进 ⇒ 可渲染的 flowchart 文本出。
+ */
+export function emitMermaidGraph(
+  nodes: MermaidNodeInput[],
+  edges: MermaidEdgeInput[] = [],
+): string {
+  const lines: string[] = ['flowchart TD'];
+  for (const n of nodes) {
+    const label = n.label ?? n.id;
+    lines.push(`  ${safeNodeId(n.id)}["${escapeLabel(label)}"]`);
+  }
+  for (const e of edges) {
+    const from = safeNodeId(e.from);
+    const to = safeNodeId(e.to);
+    const label = escapeLabel(e.label ?? '');
+    lines.push(`  ${from} -->|"${label}"| ${to}`);
+  }
+  return lines.join('\n');
+}
+
 /** 渲染引擎接口 */
 export interface MermaidEngine {
   /** 引擎名称(用于日志) */
@@ -61,8 +128,8 @@ export interface MermaidRenderResult {
  *
  * 线程安全:
  *   - Node 单线程,Map 操作原子,无需锁
- *   - 异步并发渲染同一 source 时可能重复 spawn(无 lock),但结果一致,
- *     不影响正确性,只浪费一次 spawn(下一轮可加 in-flight promise 优化)
+ *   - 异步并发渲染同一 source ⇒ 由模块级在飞收敛表(b76-12f 票3)按 source 指纹
+ *     收敛成**一次** spawn:并发调用共享同一个渲染 Promise,不再重复 spawn
  */
 export class MermaidRenderCache {
   private cache = new Map<string, {
@@ -127,6 +194,19 @@ export class MermaidRenderCache {
 
 /** 全局默认缓存实例(模块级单例) */
 const defaultCache = new MermaidRenderCache();
+
+/**
+ * 在飞渲染收敛表(b76-12f 票3,上游 zcodeAgentProcessManager:859-887 同机制):
+ * key = sha256(source) 指纹,value = 在飞渲染 Promise。
+ * 并发同 source 渲染只允许一次底层 spawn/fetch;finally 按 promise identity 清表项
+ * (表里仍指向本 promise 才删 —— 防止后到的同 key promise 被先到的 finally 误删)。
+ */
+const inFlightRenders = new Map<string, Promise<MermaidRenderResult>>();
+
+/** source 的在飞表 key(与 MermaidRenderCache.makeKey 同形:sha256 hex 前 16 字符)。 */
+function inFlightKey(source: string): string {
+  return createHash('sha256').update(source, 'utf-8').digest('hex').slice(0, 16);
+}
 
 /** 获取默认缓存实例(测试 + 重置用) */
 export function getDefaultCache(): MermaidRenderCache {
@@ -300,22 +380,34 @@ export async function renderMermaid(
     }
   }
 
-  const engineList = engines ?? [new MmdcCliEngine(), new MermaidApiEngine()];
-  const errors: string[] = [];
-  for (const engine of engineList) {
-    try {
-      const buffer = await engine.render(source);
-      // 推断 MIME 类型:mermaid.ink 返回 SVG,mmdc 默认返回 PNG
-      const mimeType = engine.name === 'mermaid-ink' ? 'image/svg+xml' : 'image/png';
-      // 写入缓存
-      cacheInstance?.set(source, buffer, mimeType, engine.name);
-      return { buffer, mimeType, engine: engine.name, cached: false };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      errors.push(`[${engine.name}] ${msg}`);
+  // 0.5 在飞收敛(b76-12f 票3):同 source 的并发渲染共享同一次底层 spawn
+  const key = inFlightKey(source);
+  const existing = inFlightRenders.get(key);
+  if (existing) return existing;
+
+  const promise = (async (): Promise<MermaidRenderResult> => {
+    const engineList = engines ?? [new MmdcCliEngine(), new MermaidApiEngine()];
+    const errors: string[] = [];
+    for (const engine of engineList) {
+      try {
+        const buffer = await engine.render(source);
+        // 推断 MIME 类型:mermaid.ink 返回 SVG,mmdc 默认返回 PNG
+        const mimeType = engine.name === 'mermaid-ink' ? 'image/svg+xml' : 'image/png';
+        // 写入缓存
+        cacheInstance?.set(source, buffer, mimeType, engine.name);
+        return { buffer, mimeType, engine: engine.name, cached: false };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push(`[${engine.name}] ${msg}`);
+      }
     }
-  }
-  throw new Error(`所有 mermaid 引擎渲染失败:\n${errors.join('\n')}`);
+    throw new Error(`所有 mermaid 引擎渲染失败:\n${errors.join('\n')}`);
+  })().finally(() => {
+    // finally 按 promise identity 清表项(防换代误删)
+    if (inFlightRenders.get(key) === promise) inFlightRenders.delete(key);
+  });
+  inFlightRenders.set(key, promise);
+  return promise;
 }
 
 /**
