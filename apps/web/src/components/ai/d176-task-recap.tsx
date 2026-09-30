@@ -4,31 +4,19 @@
 
 // D176 任务回顾与「移交到新任务」(2026-09-30 立,对标竞品 chatSession.highlights.recap.*)。
 //
-// **可达性取证结论(先取证再写 UI,出处逐字落在下面那个常量上)**:
-// 竞品这条链的第一步是"模型生成一份临时交接文档",我方现有链路里**没有这一步的出口**:
-//  ① `apps/ai-service` 无回顾/交接生成端点 —— 只有内部提示词组装
-//     `app/core/context_fragments.py:83 build_recap_prompt()` / `:101 parse_recap_response()`,
-//     唯一消费者是 `app/services/agent_loop_v2.py:5686 _inject_context_fragments()`:它把 recap
-//     当作 `role="developer"` 片段塞进本轮 messages 给模型自己补课,产物**不返回给调用方**,
-//     且整条通道默认关(`agent_loop_v2.py:1460 _context_fragments_enabled_from_env()` 读
-//     `AGENT_CONTEXT_FRAGMENTS_ENABLED`,默认 "false");`app/routers/` 全族无 recap/handoff 路由。
-//  ② `apps/api` 无转发路由 —— `grep -rni "recap" apps/api/src` 仅命中 RECAPTCHA 配置项;
-//     `routes/workspace.ts` 只有项目文件 CRUD(`GET/POST /projects/:id/files`),
-//     没有"生成交接文档并落盘"这个动作。
-//  ③ `packages/api-client` 无出口 —— `grep -rni "recap|handoff" packages/api-client/src` 零命中。
-//     既有 `endpoints/chat.ts:134 createConversation()` 只解决"创建一个新任务",
-//     它需要的**交接内容**仍然没有来源,所以"从交接文档创建新任务"这半条链同样不可达。
-//  ④ 附加:`revealFile`(显示文件)需要桌面壳"在文件位置显示"出口,web 端
-//     `grep -rn "showItemInFolder|revealPath|openPath" apps/web/src` 零命中。
+// **可达性演变**:本组件首版落地时生成出口不可达(取证见台账 d2e70d0af3 批注),UI 停在
+// 如实禁用态;2026-09-30 用户拍板立项后,后端三段与本批同枚落地:
+//  ① ai-service `POST /api/agent/recap/handoff`(app/routers/recap.py)——复用
+//     context_fragments.build_recap_prompt/parse_recap_response,线程历史取 session_store.resume;
+//  ② apps/api 转发 `POST /api/ai/chat/recap/handoff`(routes/user/ai-modules-routes.ts,aiServiceFetch);
+//  ③ api-client `generateRecapHandoff()`(endpoints/chat.ts,index.ts 经 export * 自动导出)。
+// `RECAP_HANDOFF_GENERATION_AVAILABLE` 据此翻真。
 //
-// 因此本组件**不造任何"生成"动作**:回顾入口、交接表单(标题/说明/交接目的)在位,
-// 生成结果位如实报"依赖的生成出口不存在",三个下游动作(显示文件/创建新任务)一律 disabled
-// 并给出禁因 —— 禁而不藏,读屏与视觉拿到的是同一条理由,而不是一个点了没反应的按钮。
-// 后端补上生成出口(建议:`apps/ai-service` 一个 `POST /api/agent/recap/handoff`
-// 入 conversation_id + purpose,出交接文档正文与落盘路径 → `apps/api` 转发 →
-// `@ihui/api-client` 同名出口)后,把下面那个常量翻真并接上提交回调即可,届时
-// `recap.waitingPreview` / `recap.phase.*` / `recap.creating` / `recap.createFailed`
-// 才有真实触发点(现在不渲染它们 = 不拿兜底文案冒充能力在线)。
+// 仍如实保留的禁用位:`revealFile` 需要桌面壳"在文件位置显示"出口(web 端没有),渲染但禁用;
+// `waitingPreview` / `phase.finalizing` 两枚键刻意不消费——非流式生成没有对应真实相位,
+// 不拿兜底文案冒充能力在线;`phase.finalizing` 等流式/落盘升级后再接。
+// `createSession` 现接 createConversation(标题取交接摘要截断);**新任务自动携带交接正文**
+// (经 send-message 注入首条消息)是下一批,届时把 conversationId 切换后的消息装载一并验。
 
 'use client'
 
@@ -46,28 +34,82 @@ import {
   Input,
 } from '@ihui/ui-react'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
+import { createConversation, generateRecapHandoff } from '@ihui/api-client'
+import { useChatStore } from '@/stores/chat'
 
 /**
- * 交接内容生成出口是否可达(2026-09-30 取证:不可达,依据见文件头 ①②③④)。
- * 这是**状态登记**而不是待接的开关:翻真必须与后端端点/转发/客户端出口同批落地,
- * 并由 `d176-task-recap.test.tsx` 把"禁态报禁因"这条判据钉住。
+ * 交接内容生成出口可达(2026-09-30 拍板立项,后端三段与本批同枚落地,依据见文件头)。
+ * 若未来出口再被摘除(端点/转发/客户端任一缺失),这里必须翻回 false 并恢复禁因态。
  */
-const RECAP_HANDOFF_GENERATION_AVAILABLE = false
+const RECAP_HANDOFF_GENERATION_AVAILABLE = true
 
 /** 两级视图:回顾入口清单 → 交接表单(竞品同一入口的两位:recap.title → handoff.title) */
 type RecapView = 'recap' | 'handoff'
+
+type GeneratePhase = 'idle' | 'generating' | 'done' | 'error'
 
 export function TaskRecapEntry() {
   const tc = useTranslations('aiChat')
   const [open, setOpen] = React.useState(false)
   const [view, setView] = React.useState<RecapView>('recap')
+  const [purpose, setPurpose] = React.useState('')
+  const [phase, setPhase] = React.useState<GeneratePhase>('idle')
+  const [summary, setSummary] = React.useState<string | null>(null)
+  const [nextAction, setNextAction] = React.useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null)
+  const [creating, setCreating] = React.useState(false)
+  const [createFailed, setCreateFailed] = React.useState(false)
+  const conversationId = useChatStore((s) => s.conversationId)
+  const setConversationId = useChatStore((s) => s.setConversationId)
 
   const close = React.useCallback(() => {
     setOpen(false)
     setView('recap')
   }, [])
 
+  const resetResult = React.useCallback(() => {
+    setPhase('idle')
+    setSummary(null)
+    setNextAction(null)
+    setErrorMsg(null)
+    setCreateFailed(false)
+  }, [])
+
+  const handleGenerate = React.useCallback(async () => {
+    if (!conversationId) return
+    setPhase('generating')
+    setErrorMsg(null)
+    try {
+      const res = await generateRecapHandoff({
+        threadId: conversationId,
+        purpose: purpose.trim() || undefined,
+      })
+      setSummary(res.summary)
+      setNextAction(res.nextAction)
+      setPhase('done')
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : String(e))
+      setPhase('error')
+    }
+  }, [conversationId, purpose])
+
+  const handleCreateSession = React.useCallback(async () => {
+    if (!summary) return
+    setCreating(true)
+    setCreateFailed(false)
+    try {
+      const res = await createConversation({ title: summary.slice(0, 120) })
+      setConversationId(res.conversation.id)
+      close()
+    } catch {
+      setCreateFailed(true)
+    } finally {
+      setCreating(false)
+    }
+  }, [summary, setConversationId, close])
+
   const unavailable = !RECAP_HANDOFF_GENERATION_AVAILABLE
+  const generating = phase === 'generating'
 
   return (
     <>
@@ -118,8 +160,10 @@ export function TaskRecapEntry() {
                   id="recap-purpose-input"
                   data-testid="recap-purpose-input"
                   placeholder={tc('recap.purposePlaceholder')}
-                  disabled={unavailable}
-                  aria-disabled={unavailable || undefined}
+                  value={purpose}
+                  onChange={(e) => setPurpose(e.target.value)}
+                  disabled={unavailable || generating}
+                  aria-disabled={(unavailable || generating) || undefined}
                 />
               </div>
 
@@ -132,32 +176,100 @@ export function TaskRecapEntry() {
                 </p>
               )}
 
-              <div className="flex items-center gap-2 pt-3">
+              {generating && (
+                <p
+                  className="rounded-md border bg-muted/40 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground"
+                  data-testid="recap-phase-generating"
+                  role="status"
+                >
+                  {tc('recap.phase.generating')}
+                </p>
+              )}
+
+              {phase === 'done' && summary && (
+                <div
+                  className="flex flex-col gap-1.5 rounded-md border bg-muted/30 px-2.5 py-2"
+                  data-testid="recap-preview"
+                >
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    {tc('recap.phase.done')}
+                  </p>
+                  <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground">
+                    {summary}
+                  </p>
+                  {nextAction && (
+                    <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/80">
+                      {nextAction}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {phase === 'error' && (
+                <p
+                  className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-2 text-[11px] leading-relaxed text-destructive"
+                  data-testid="recap-generation-error"
+                  role="alert"
+                >
+                  {errorMsg}
+                </p>
+              )}
+
+              {createFailed && (
+                <p
+                  className="text-[11px] leading-relaxed text-destructive"
+                  data-testid="recap-create-failed"
+                  role="alert"
+                >
+                  {tc('recap.createFailed')}
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2 pt-3">
+                {phase !== 'done' && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    data-testid="recap-generate-submit"
+                    disabled={unavailable || generating || !conversationId}
+                    aria-disabled={(unavailable || generating || !conversationId) || undefined}
+                    onClick={() => void handleGenerate()}
+                  >
+                    {tc('recap.handoff.title')}
+                  </Button>
+                )}
+                {phase === 'done' && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    data-testid="recap-create-session"
+                    disabled={creating}
+                    aria-disabled={creating || undefined}
+                    onClick={() => void handleCreateSession()}
+                  >
+                    {creating ? tc('recap.creating') : tc('recap.createSession')}
+                  </Button>
+                )}
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
                   data-testid="recap-reveal-file"
-                  disabled={unavailable}
-                  aria-disabled={unavailable || undefined}
+                  disabled
+                  aria-disabled
+                  title={unavailable ? tc('recap.handoffUnavailable') : undefined}
                 >
                   {tc('recap.revealFile')}
                 </Button>
                 <Button
                   type="button"
                   size="sm"
-                  data-testid="recap-create-session"
-                  disabled={unavailable}
-                  aria-disabled={unavailable || undefined}
-                >
-                  {tc('recap.createSession')}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
                   variant="ghost"
                   data-testid="recap-back-to-list"
-                  onClick={() => setView('recap')}
+                  onClick={() => {
+                    resetResult()
+                    setView('recap')
+                  }}
                 >
                   {tc('recap.title')}
                 </Button>

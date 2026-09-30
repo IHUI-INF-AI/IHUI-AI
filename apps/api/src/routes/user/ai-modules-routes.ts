@@ -27,6 +27,7 @@ import { db } from '../../db/index.js'
 import { aiModelConfig } from '@ihui/database'
 import { config } from '../../config/index.js'
 import { authenticate } from '../../plugins/auth.js'
+import { aiServiceFetch } from '../../utils/ai-service-fetch.js'
 import {
   findAiIndexBanners,
   findAiTeamMembers,
@@ -119,6 +120,48 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
       modelId: body.data.modelId,
     })
     return reply.status(201).send(success({ conversationId: conversation.id, conversation }))
+  })
+
+  // D176(2026-09-30 用户拍板立项):任务回顾→移交新任务 —— 交接文档生成转发。
+  // 身份经 aiServiceFetch 自动透传调用者 JWT,ai-service 侧 get_current_user_id 鉴权。
+  server.post('/ai/chat/recap/handoff', async (request, reply) => {
+    await authenticate(request)
+    const body = z
+      .object({
+        threadId: z.string().min(1).max(200),
+        purpose: z.string().max(2000).optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      const resp = await aiServiceFetch(request, '/api/agent/recap/handoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          thread_id: body.data.threadId,
+          purpose: body.data.purpose ?? '',
+        }),
+      })
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '')
+        const status = resp.status === 404 ? 404 : resp.status === 504 ? 504 : 502
+        return reply
+          .status(status)
+          .send(error(status, `交接内容生成失败: ${resp.status} ${text.slice(0, 200)}`))
+      }
+      const payload = (await resp.json()) as {
+        code: number
+        message?: string
+        data?: { summary: string | null; next_action: string | null }
+      }
+      if (payload.code !== 0 || !payload.data) {
+        return reply.status(502).send(error(502, payload.message ?? 'ai-service 响应缺少交接内容'))
+      }
+      return reply.send(success({ summary: payload.data.summary, nextAction: payload.data.next_action }))
+    } catch (e) {
+      request.log.error({ err: e }, 'recap handoff forward failed')
+      return reply.status(502).send(error(502, '交接内容生成失败,请稍后重试'))
+    }
   })
 
   server.get('/ai/chat/conversations', async (request, reply) => {

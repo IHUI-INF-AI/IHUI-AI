@@ -138,6 +138,20 @@ export function createConversation(input: { title?: string; model?: string } = {
   })
 }
 
+/** D176:交接文档生成结果 */
+export interface RecapHandoffResult {
+  summary: string | null
+  nextAction: string | null
+}
+
+/** D176(2026-09-30 用户拍板立项):生成交接文档(任务回顾→移交新任务) */
+export function generateRecapHandoff(input: { threadId: string; purpose?: string }) {
+  return fetchApi<RecapHandoffResult>('/api/ai/chat/recap/handoff', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
 /** 对话列表查询参数 */
 export interface ListConversationsParams {
   page?: number
