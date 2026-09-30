@@ -20251,6 +20251,8 @@
       "selectPlatform": "選擇平臺",
       "startScanLogin": "開始掃碼登錄",
       "statusActive": "正常",
+      "statusCleared": "待重新掃碼登入",
+      "statusClearedTip": "該帳號的登入憑證已被清除(安全處置),重新掃碼登入即可恢復,並非平台停用",
       "statusDisabled": "已禁用",
       "statusExpired": "已過期",
       "statusUnknown": "未知",

@@ -20263,6 +20263,8 @@
       "selectPlatform": "プラットフォーム選択",
       "startScanLogin": "QRコードログイン開始",
       "statusActive": "有効",
+      "statusCleared": "再ログインが必要",
+      "statusClearedTip": "このアカウントのログイン情報は(安全処置により)削除されました。QRコードで再ログインすれば復元できます。プラットフォームによる無効化ではありません。",
       "statusDisabled": "無効",
       "statusExpired": "期限切れ",
       "statusUnknown": "不明",
