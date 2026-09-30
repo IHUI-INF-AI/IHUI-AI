@@ -16,6 +16,10 @@
 > 2026-07-20 publish-task 批次归档:16 个已完成大块(自媒体工作台整合 / 侧边栏分组整合 / SiteFooter i18n / M-71 / M-72 / M-65 v2 / 首页 6 UI / 侧边栏折叠 / CLI 配置导入 / 工作区权限运行时拦截 / M-70 / BrandMarquee / 架构迁移整合 / SiteFooter v6 / i18n P1 2_5 / 全站 hover 提示)移至 `.ihui-agent/archive/PROJECT_PLAN_2026-07-20_publish-task-archive.md`,本文件从 63.3 KB 缩减至 ~20 KB。
 
 ---
+
+- [ ] G-998185 **Web 个性化页登录态门整类 campaign(P2 机械化批量,复用出口已入库)**(2026-09-30 续会话补登记:首批提交 227a5d65e4 原拟的台账行因 PROJECT_PLAN.md 他人暂存窗口被剔出提交而丢失,本行为唯一有效登记;原拟号 G-998184 被并行会话先用而让号,非两件事;等什么:无 —— 可立即派单,每页修复=两行改动)—— 疾病模式:个性化端点的 react-query 无 enabled 登录态门,匿名/会话过期发注定 401 的请求 → 重试空转约 8s → 误报「操作失败,请稍后重试」;隐性形态:queryFn 吞 401 返回 [] 显示「暂无浏览记录」假象而非登录引导。复用出口(HEAD 已入库,common barrel 导出):apps/web/src/hooks/use-auth-gate.ts(useAuthGate → {ready,allow})与 apps/web/src/components/common/auth-gate-prompt.tsx(AuthGatePrompt(message, returnTo?));扫描命令与判定标准自包含在 use-auth-gate.ts 头注释,派单从那里取,不在本行复制第二份(单一真源)。判定:调个性化端点(需登录)的页面加门;admin/* 全部免疫(服务端 307 守卫);纯公开页(文章/活动)不适用。执行纪律:逐页改前 git status 领地核查,他人 M 在制文件不代改;小批多枚提交,每批在行内补「进展@日期:已修 N 页(路径清单)」;全部完成翻勾并附对账(扫描命中 vs 已修 vs 排除)。
+
+
 <!-- 已归档(2026-09-28:✅(2026-09-25)**`safe-commit.mjs` 在首次 commit 失败后打印「按用户规则"hook,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
 - **改法（判据落在新文件 `scripts/lib/commit-gate-attribution.mjs`，safe-commit 只做接线）**：
   解析 runner 汇总块里的 `· [id] label` + `单独复现:node scripts/<script>` 清单 → **逐道复跑**该门 →
