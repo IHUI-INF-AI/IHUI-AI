@@ -129,11 +129,20 @@ import {
 import { NavBar } from '../components/NavBar'
 // G-166:交代区(RN 端共享组件)—— 引用来源 + 本轮上下文注入,与 N8n 屏同一实现
 import { CitationList, InjectionDisclosure, SteerNoticeList } from '../components/ChatDisclosure'
+// D135(2026-10-01):任务进度状态条 —— 与 N8n 屏同一个组件(components/ai/TaskStatusBar),
+// 本屏不重写第二份;视图推导仍只走 @ihui/shared 的 deriveTaskStatusBar 那一份实现。
+import { TaskStatusBar } from '../components/ai/TaskStatusBar'
+// D136(2026-10-01):工具审批面板 —— tool-approval 帧在本屏此前"没人接" ⇒ 手机上高危调用
+// 到端即静默丢弃(与 G-166 citations / D135 execution 三帧完全同因)。
+import { useToolApprovalQueue } from '../components/ai/ToolApprovalSheet'
 import {
   appendCitationFrames,
   applyInjectionFrame,
   appendSteerFrames,
   readSteerAppliedFromMetadata,
+  applyAssistantExecutionFrame,
+  type AssistantExecutionFrame,
+  type AssistantExecutionViz,
   type MessageCitation,
   type MessageInjection,
   type SteerNotice,
@@ -166,6 +175,9 @@ import { uiControlToolsFor } from '../lib/ui-control-tools'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { useI18n } from '../i18n'
 import { rpx } from '../utils/rpx'
+// D135(2026-10-01):budget 分档告警措辞装配 —— 规则在 @ihui/shared/chat 的 formatBudgetNote,
+// 键表在 ../utils/budget-note(该文件头注点名的两个消费面就是本屏与 N8n 屏,此前本屏没接)。
+import { budgetNoteText } from '../utils/budget-note'
 // 消息富内容解析(代码块/图片/文本分段,对齐 ai_index2 agent_content_list;独立模块供单测共用)
 import { parseMessageContent } from '../utils/message-parse'
 
@@ -383,6 +395,8 @@ const FILE_TYPE_BADGES: readonly string[] = ['PDF', 'Word', 'Excel', 'TXT'] as c
 export function ChatScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
+  // D136:审批队列(解析与回传都在唯一实现里,本屏只接帧 + 挂载面板)。
+  const toolApproval = useToolApprovalQueue()
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>()
   const rootNav = navigation.getParent<RootNav>()
@@ -501,6 +515,21 @@ export function ChatScreen() {
   } | null>(null)
   // 手动压缩上下文请求进行中(✂ 按钮 loading + 防重复点击)
   const [compacting, setCompacting] = useState(false)
+  /**
+   * D135 端可达性(2026-10-01 接):本屏此前只把 30 条帧回调里的 7 条传给了 streamChat,
+   * tool-call / tool-delta / plan_updated 三类帧到端即**静默丢弃** —— 后端发了,而端内
+   * 回调表不认这个 type 就什么都看不到(与 G-166 那轮 citations/injection 同一因)。
+   *
+   * 这张旁表按 **assistant 消息 id** 存折叠档,键入由 send() 里那条 aiMsg 决定,值由
+   * `applyAssistantExecutionFrame`(chat-render-model 那份,不复制判据)算出。
+   * 刻意不塞进 ChatMessage.toolCalls:那份是 @ihui/types 的 ToolCall(键名 toolName),
+   * 与本屏渲染件吃的 ToolCallItem 不同形 —— 理由写在该纯函数头注。
+   * 历史回放(metadata.toolCalls 读回)不在本票范围:那份映射目前是 N8n 屏私有实现,
+   * 在主屏复刻等于新立第二份,登记为残余。
+   */
+  const [executionVizById, setExecutionVizById] = useState<
+    Record<string, AssistantExecutionViz>
+  >({})
 
   const abortRef = useRef<AbortController | null>(null)
   const idCounter = useRef(0)
@@ -685,6 +714,16 @@ export function ChatScreen() {
     const history = [...(baseHistory ?? messages), userMsg]
     setMessages([...history, aiMsg])
     setIsStreaming(true)
+    // D135(2026-10-01):帧折叠只写进"本轮那条 assistant 消息"的旁表槽。键在发送瞬间锁死,
+    // 不在回调里现算"最后一条消息" —— 回调到达顺序与 setMessages 的排队无关,
+    // 现算会把上一轮的工具流盖到本轮,或把工具流折到用户气泡上。
+    const turnAssistantId = aiMsg.id
+    const foldExecutionFrame = (frame: AssistantExecutionFrame): void => {
+      setExecutionVizById((prev) => ({
+        ...prev,
+        [turnAssistantId]: applyAssistantExecutionFrame(prev[turnAssistantId], frame),
+      }))
+    }
     const controller = new AbortController()
     abortRef.current = controller
     // 失败轮不进下一轮上下文(与 web send-message.ts 同规则):
@@ -724,6 +763,58 @@ export function ChatScreen() {
             next[next.length - 1] = { ...last, reasoning: (last.reasoning ?? '') + delta }
           }
           return next
+        })
+      },
+      // ── D135(2026-10-01 接):执行可视化三帧 + 三条运行交代帧 ──
+      // 本屏此前这些帧在 streamChat 的回调表里"没人接" ⇒ 帧到端即静默丢弃
+      // (与 G-166 那轮 citations / injection_applied 完全同因)。折叠一律走
+      // chat-render-model 那份 reducer,本屏只接帧、不重写第二份判据。
+      //
+      // tool-call-start / tool-result:running→success|error,耗时、媒体产物、args/result 同帧带出
+      onToolCall: (event) => {
+        foldExecutionFrame({ kind: 'tool-call', event })
+      },
+      // D113 tool-delta:文件写类工具的流中 diff 预览(载荷是累积文本 ⇒ 覆盖写;
+      // tool-result 到达由 applyToolCallEvent 清掉,最终 diff 以 result 为准)
+      onToolDelta: (event) => {
+        foldExecutionFrame({ kind: 'tool-delta', event })
+      },
+      // D136 tool-approval:高危工具执行前的审批帧。不接它 ⇒ 后端在等一个永远不会来的
+      // 回答,而屏幕上什么都没有(信任型缺陷)。决策回传/三档语义都在组件里,此处只接帧。
+      onToolApproval: (event) => {
+        toolApproval.onToolApproval(event)
+      },
+      // plan_updated 是**权威快照** ⇒ 整体替换步骤列表,绝不与既有步骤增量合并(applyPlanUpdate 口径)
+      onPlanUpdate: (event) => {
+        foldExecutionFrame({ kind: 'plan-update', event })
+      },
+      // D39 重试交代:网关换 key / 退避重试时下发。不接它,用户在流上看到的只是"卡住"。
+      // 措辞用本端既有键 aiAssistantN8n.gatewayRetry(ICU 位 attempt/max/seconds 与载荷逐字对上);
+      // 按 ../utils/budget-note 头注立的纪律,两屏共用的键本该挂 common.* —— 本票禁改语言包,
+      // 跨屏借用既有键只是先把帧接活,迁键已登记为残余(不在端内新造第二句中文)。
+      onRetryScheduled: (event) => {
+        showToast(
+          'info',
+          t('aiAssistantN8n.gatewayRetry', {
+            attempt: event.attempt,
+            max: event.maxRetries,
+            seconds: Math.max(1, Math.round(event.retryInMs / 1000)),
+          }),
+        )
+      },
+      // 额度分档告警(网关流首 warning 80~95% / critical 95~100%)。装配规则与 N8n 屏共用
+      // 那一份(../utils/budget-note → @ihui/shared/chat 的 formatBudgetNote),本屏不重写规则。
+      onBudget: (event) => {
+        showToast(event.level === 'critical' ? 'warning' : 'info', budgetNoteText(event, t))
+      },
+      // 上下文自动压缩:达阈值后端折进摘要并下发 compaction 帧。
+      // 本屏的渲染位早就在 renderListHeader(compactionInfo 非空才出条),此前**没有生产者**
+      // ⇒ 那条 banner 恒空,也就是"压缩发生了而用户永远看不见"。这里接上既有那条。
+      onCompaction: (info) => {
+        setCompactionInfo({
+          before: info.tokensBefore,
+          after: info.tokensAfter,
+          removed: info.removedCount,
         })
       },
       onError: (err, info) => {
@@ -1133,6 +1224,8 @@ export function ChatScreen() {
         style: 'destructive',
         onPress: () => {
           setMessages([])
+          // D135:消息集整批清空 ⇒ 折叠旁表一起清,不留读不到的孤儿档
+          setExecutionVizById({})
           setMaterialCards([])
           setPrompt('')
           abortRef.current?.abort()
@@ -1932,6 +2025,11 @@ export function ChatScreen() {
   }
   const handleDrawerCreateNewChat = (): void => {
     setMessages([])
+    // D135:消息集整批换掉 ⇒ 折叠旁表跟着清,不留"没有消息对应的孤儿档"。
+    // 说清代价:历史消息 id 是 `${服务端id}-${下标}`、本屏 live 消息是 `msg-N`,
+    // 两个命名空间不会相撞,所以不清**不会串到别的会话**,只是每次都攒下一份无人读的档;
+    // 这里清是因为"读侧按 messages 倒序找",表与消息集不同批增长迟早会看不懂谁是活的。
+    setExecutionVizById({})
     setPrompt('')
     setMaterialCards([])
     setCompactionInfo(null)
@@ -1996,6 +2094,11 @@ export function ChatScreen() {
           }
         })
         setMessages(loaded)
+        // D135:切进历史会话 = 消息集整批换掉 ⇒ 清折叠旁表。
+        // 如实登记缺口:历史消息 metadata 里的 toolCalls/planSteps **本屏不读回**
+        // (那份映射现在是 N8n 屏私有实现,复刻过来就是第二份真相)——
+        // 所以历史会话的状态条是空的,只有本次在屏上真跑过一轮才会有条。已登记为残余。
+        setExecutionVizById({})
         setPrompt('')
         setMaterialCards([])
         // 记录当前对话 DB id(供收藏 batchOperateConversations 使用)
@@ -2192,6 +2295,22 @@ export function ChatScreen() {
   // BottomActionBar 已切换到 prompt 模式(模型条 + 开关 + 输入 + 发送 + 辅助行 + 图标组)
   // bottomActions 旧 API 已移除,所有交互通过 prompt 模式 props 传入
 
+  /**
+   * D135 任务进度状态条的数据源 —— 取数口径**逐字对齐** N8n 屏与 web 屏那一条既有规则:
+   * 倒序扫"最后一条带 planSteps 的 assistant 消息"(plan_updated 是权威快照,写在该条消息上),
+   * 本屏不新立第二条选取规则(选了别的口径,三端同一次会话会呈现出不同的条)。
+   * toolCalls 只从同一条消息取,与 web `computeFileChanges(planMessage?.toolCalls)` 同形。
+   */
+  const planViz = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index]
+      if (message?.role !== 'assistant') continue
+      const viz = executionVizById[message.id]
+      if ((viz?.planSteps?.length ?? 0) > 0) return viz
+    }
+    return undefined
+  }, [messages, executionVizById])
+
   // ── 共享组件数据准备 ──
   const sharedModels: ChatScreenModel[] = models.map(toChatScreenModel)
   const sharedMessages: ChatScreenMessageWithReasoning[] = messages
@@ -2281,6 +2400,18 @@ export function ChatScreen() {
           onInputVoiceStart={() => {}}
           onInputVoiceEnd={() => {}}
           colorScheme={resolvedTheme}
+        />
+        {/*
+          D135(2026-10-01 接):任务进度状态条(在做什么 / 第几步 / 改了多少文件)。
+          组件与取数口径都不是本屏新立的第二份 —— 用的是 N8n 屏同一个
+          `components/ai/TaskStatusBar`,视图推导仍只走共享层那一份 `deriveTaskStatusBar`;
+          位置与 N8n 屏、web 屏一致(输入条上方)。空闲(无步骤、无变更、非流式)时
+          组件自己返回 null,零占位,所以常态下这行不改变界面。
+        */}
+        <TaskStatusBar
+          planSteps={planViz?.planSteps ?? []}
+          toolCalls={planViz?.toolCalls}
+          isStreaming={isStreaming}
         />
         {/*
           D154(2026-10-01 收口渲染面):MCP 连接状态行,位置与小程序端一致(输入条上方)。
@@ -2864,6 +2995,9 @@ export function ChatScreen() {
           </Pressable>
         </View>
       </Modal>
+
+      {/* D136:工具审批面板 + 收起后的常驻"打开审批"入口(关闭从不等于拒绝)。 */}
+      {toolApproval.host}
     </View>
   )
 }
