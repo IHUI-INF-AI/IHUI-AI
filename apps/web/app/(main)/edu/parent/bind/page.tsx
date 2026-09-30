@@ -12,7 +12,8 @@ import { Loader2, CheckCircle2, XCircle, UserPlus, Link as LinkIcon, Trash2 } fr
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui-react'
 import { Alert, ConfirmDialog, Tooltip } from '@/components/feedback'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Input } from '@/components/form'
 import { Badge } from '@/components/data'
 
@@ -65,9 +66,13 @@ export default function ParentBindPage() {
   const [relationship, setRelationship] = React.useState('father')
   const [showDeleteId, setShowDeleteId] = React.useState<string | null>(null)
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data, isLoading } = useQuery({
     queryKey: ['parent', 'bindings'],
     queryFn: () => api<BindingListResponse>('/api/edu-ai-management/parent-binding'),
+    enabled: allow,
   })
 
   const bindings = data?.list ?? []
@@ -189,7 +194,9 @@ export default function ParentBindPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {!allow ? (
+            <AuthGatePrompt message="请先登录后查看绑定列表" />
+          ) : isLoading ? (
             <div className="flex items-center justify-center py-4 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>

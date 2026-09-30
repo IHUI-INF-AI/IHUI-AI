@@ -14,7 +14,8 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { CHART_BLUE } from '@ihui/design-tokens'
 import { Alert } from '@/components/feedback'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface CourseItem {
   id: string
@@ -51,10 +52,14 @@ export default function ChildCoursesPage() {
   const params = useParams()
   const childId = params.childId as string
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'courses'],
     queryFn: () =>
       api<{ list: CourseItem[] }>(`/api/edu-ai-management/parent/children/${childId}/courses`),
+    enabled: allow,
   })
 
   const courses = data?.list ?? []
@@ -71,7 +76,9 @@ export default function ChildCoursesPage() {
         <p className="text-xs text-muted-foreground">{t('child.coursesHint')}</p>
       </header>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看课程表" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {tc('loading')}
