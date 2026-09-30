@@ -2,93 +2,52 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { useState } from 'react'
+import type { CSSProperties } from 'react'
+
 /**
- * CookieAutoRefreshChip 测试(2026-09-29)。
- * 钉住:开启态渲染状态行;关闭态/请求失败/请求中整行不渲染(不得假装开启);
- * last_run_at 为空时回落"首轮保活进行中"。组件只读 stats,不发任何写操作。
+ * 平台特有:小程序 wxss 不支持 `:focus` 伪类(Taro 的聚焦书写只能是运行时状态),
+ * 因此聚焦态描边走「运行时切换 + 行内样式」,与 web 的 `focus:*` 工具类、RN 的
+ * `TextField`(packages/app/src/components/TextField.tsx)三端各按平台能力同取一档。
+ *
+ * 为什么行内样式而不是共享 class:端内输入框的描边分散在三处(JSX 工具类 / 页面 CSS /
+ * 外层容器),class 级联要跟 weapp-tailwindcss 工具类与页面 CSS 比先后,行内样式
+ * 稳赢一切类规则、三形态通用,且聚焦只换颜色不改宽度 ⇒ 零布局跳动(与 RN 的
+ * RESTING_BORDER 同一语义)。
+ *
+ * 唯一取色出处就是下面这一行:聚焦态描边取墨档(亮纯黑/暗纯白,`--color-primary`
+ * 随主题反转)。这是 AGENTS §4「描边不得取墨档」的唯一例外位(2026-09-30 定档);
+ * 门 83 的 R8 按 `focused ? {` 条件形态放行 —— 所以这里必须写成三元,不得改成
+ * `focused && {…}` 短路(判据只认条件取值)。
+ *
+ * 用法(三形态):
+ *   // ① 描边在 Input/Textarea 自己身上(JSX 工具类或页面 CSS):
+ *   const ff = useFieldFocus()
+ *   <Input className="border border-border" {...ff.spread} style={ff.focusStyle} />
+ *   // ② 描边在外层容器:handlers 仍在 Input 上,style 铺到容器
+ *   <View style={ff.focusStyle}>
+ *     <Input {...ff.spread} />
+ *   </View>
+ *   // 元素已有 style 时合并:style={{ ...原有, ...ff.focusStyle }}
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import React from 'react'
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
-import { CookieAutoRefreshChip } from '@/components/publish/CookieAutoRefreshChip'
-import type { CookieRefreshStats } from '@ihui/api-client'
-
-const { getCookieRefreshStatsMock } = vi.hoisted(() => ({
-  getCookieRefreshStatsMock: vi.fn(),
-}))
-
-vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
-}))
-
-vi.mock('lucide-react', () => {
-  const Icon = () => <span data-testid="icon" />
-  return { RefreshCw: Icon }
-})
-
-vi.mock('@ihui/api-client', () => ({
-  getCookieRefreshStats: () => getCookieRefreshStatsMock(),
-}))
-
-function stats(overrides: Partial<CookieRefreshStats> = {}): CookieRefreshStats {
-  return {
-    total: 19,
-    success: 18,
-    failed: 1,
-    skipped: 0,
-    last_run_at: '2026-09-29T10:00:00+00:00',
-    running: false,
-    interval_hours: 6,
-    auto_enabled: true,
-    ...overrides,
-  }
+export interface FieldFocus {
+  focused: boolean
+  onFocus: () => void
+  onBlur: () => void
+  /** 聚焦描边样式;未聚焦为 undefined ⇒ 完全不介入宿主元素的常态样式 */
+  focusStyle?: CSSProperties
+  /** 便捷展开:{ onFocus, onBlur } —— 铺到 Input/Textarea 上 */
+  spread: { onFocus: () => void; onBlur: () => void }
 }
 
-describe('CookieAutoRefreshChip', () => {
-  beforeEach(() => {
-    getCookieRefreshStatsMock.mockReset()
-  })
-  afterEach(() => cleanup())
-
-  it('auto_enabled=true 时渲染状态行(on + lastRun)', async () => {
-    getCookieRefreshStatsMock.mockResolvedValue({ success: true, data: stats() })
-    const { container } = render(<CookieAutoRefreshChip />)
-    await waitFor(() => {
-      expect(screen.getByTestId('cookie-auto-refresh-chip')).toBeTruthy()
-    })
-    expect(screen.getByText('on')).toBeTruthy()
-    expect(screen.getByText('lastRun')).toBeTruthy()
-    expect(container.textContent).not.toContain('pending')
-  })
-
-  it('auto_enabled=false 时整行不渲染', async () => {
-    getCookieRefreshStatsMock.mockResolvedValue({
-      success: true,
-      data: stats({ auto_enabled: false }),
-    })
-    const { container } = render(<CookieAutoRefreshChip />)
-    await waitFor(() => expect(getCookieRefreshStatsMock).toHaveBeenCalled())
-    expect(screen.queryByTestId('cookie-auto-refresh-chip')).toBeNull()
-    expect(container.textContent).toBe('')
-  })
-
-  it('last_run_at 为空回落 pending(首轮保活进行中)', async () => {
-    getCookieRefreshStatsMock.mockResolvedValue({
-      success: true,
-      data: stats({ last_run_at: null }),
-    })
-    render(<CookieAutoRefreshChip />)
-    await waitFor(() => {
-      expect(screen.getByText('pending')).toBeTruthy()
-    })
-    expect(screen.queryByText('lastRun')).toBeNull()
-  })
-
-  it('stats 请求失败时静默不渲染(不得白屏/抛错)', async () => {
-    getCookieRefreshStatsMock.mockRejectedValue(new Error('network down'))
-    const { container } = render(<CookieAutoRefreshChip />)
-    await waitFor(() => expect(getCookieRefreshStatsMock).toHaveBeenCalled())
-    expect(container.textContent).toBe('')
-  })
-})
+export function useFieldFocus(): FieldFocus {
+  const [focused, setFocused] = useState(false)
+  return {
+    focused,
+    onFocus: () => setFocused(true),
+    onBlur: () => setFocused(false),
+    focusStyle: focused ? { borderColor: 'var(--color-primary)' } : undefined,
+    spread: { onFocus: () => setFocused(true), onBlur: () => setFocused(false) },
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
