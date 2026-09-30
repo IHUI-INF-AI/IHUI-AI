@@ -39,7 +39,8 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { Badge } from '@/components/data/Badge'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface WrongQuestion {
   id: string
@@ -78,6 +79,9 @@ export default function WrongQuestionsPage() {
   const locale = useLocale()
   const qc = useQueryClient()
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const [examId, setExamId] = React.useState('')
   const [filter, setFilter] = React.useState<'all' | 'unresolved' | 'resolved'>('all')
   const [page, setPage] = React.useState(1)
@@ -105,12 +109,14 @@ export default function WrongQuestionsPage() {
   const { data: statsEnvelope } = useQuery({
     queryKey: ['exam', 'wrong-questions', 'stats'],
     queryFn: () => api<{ stats: WrongQuestionStats }>('/api/exam/wrong-questions/stats'),
+    enabled: allow,
   })
   const stats = statsEnvelope?.stats
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['exam', 'wrong-questions', 'list', examId, filter, page],
     queryFn: () => api<WrongQuestionListData>(`/api/exam/wrong-questions?${qs}`),
+    enabled: allow,
   })
 
   const resolveMut = useMutation({
@@ -139,6 +145,23 @@ export default function WrongQuestionsPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   })
+
+  // 2026-09-30 登录态门:未登录时保留页面外壳,只以登录引导替换数据区
+  if (!allow) {
+    return (
+      <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
+        <BackButton />
+        <header className="space-y-1">
+          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            <FileText className="h-7 w-7 text-primary" />
+            {t('title')}
+          </h1>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        </header>
+        <AuthGatePrompt message="请先登录后查看错题本" />
+      </div>
+    )
+  }
 
   const list = data?.list ?? []
   const total = data?.total ?? 0

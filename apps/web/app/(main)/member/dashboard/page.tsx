@@ -12,7 +12,8 @@ import { Crown, Coins, Ticket, ShoppingBag, Loader2, ArrowRight } from 'lucide-r
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
@@ -50,14 +51,27 @@ const STAT_KEY: Record<string, string> = {
 export default function MemberDashboardPage() {
   const t = useTranslations('memberDashboardPage')
   const locale = useLocale()
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
   const summaryQ = useQuery({
     queryKey: ['member', 'summary'],
     queryFn: () => api<MemberSummary>('/api/members/me').catch(() => ({}) as MemberSummary),
+    enabled: allow,
   })
   const ordersQ = useQuery({
     queryKey: ['member', 'recent-orders'],
     queryFn: () => api<{ list: OrderRow[] }>('/api/orders/me?pageSize=5').then((d) => d.list ?? []),
+    enabled: allow,
   })
+
+  if (!allow) {
+    return (
+      <div className="px-4 space-y-4">
+        <BackButton />
+        <AuthGatePrompt message="请先登录后查看会员中心" />
+      </div>
+    )
+  }
 
   const summary = summaryQ.data ?? {}
   const orders = ordersQ.data ?? []
