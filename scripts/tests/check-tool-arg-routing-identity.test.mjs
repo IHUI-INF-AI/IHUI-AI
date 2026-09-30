@@ -35,6 +35,22 @@ const runGit = (dir, args) => execFileSync(GIT, ['-c', 'safe.directory=*', '-C',
 const runGuard = (dir, extra = []) =>
   spawnSync(process.execPath, [GUARD, '--root', dir, ...extra], { encoding: 'utf8', windowsHide: true, timeout: 240000, maxBuffer: 64 << 20 })
 
+/**
+ * 夹具自带的提交身份 —— **不得省**。
+ *
+ * 缘由(实测):夹具原先只 `init` 就 `commit`,于是它隐含依赖**宿主机**的全局 git 身份。
+ * 本机 `git config --global user.email` 未设,而自动兜底又要拿主机名拼 `user@host`
+ * —— 主机名含中文,git 在 GBK 代码页下拼出 `Administrator@ǰ̨.(none)` 并**拒绝**:
+ * `fatal: unable to auto-detect email address` ⇒ 夹具第一步就炸,两条端到端用例
+ * ("新增越权键必须判红""空扫描面必须 exit 2")在**任何**干净检出上都恒红,而红的不是判据。
+ * 仓里其余 20+ 个建仓夹具(`check-commit-loss-guard` / `check-file-write-safety` /
+ * `check-error-code-coverage` …)一律自带身份,本文件是唯一漏掉的两处。
+ */
+function setCommitIdentity(dir) {
+  runGit(dir, ['config', 'user.email', 'gate-fixture@invalid'])
+  runGit(dir, ['config', 'user.name', 'gate-fixture'])
+}
+
 /** 只在测试内做的注册表解析(不是判据实现的副本,是"装车"检查) */
 function registrationOf(text, scriptName) {
   const lines = text.split('\n')
@@ -58,6 +74,7 @@ function makeRepo(t) {
   const dir = mkScratch('tool-arg-routing-')
   t.after(() => rmScratch(dir))
   runGit(dir, ['init', '-q'])
+  setCommitIdentity(dir)
   mkdirSync(join(dir, 'apps/cli/src/tools'), { recursive: true })
   mkdirSync(join(dir, 'packages/types/src'), { recursive: true })
   writeFileSync(join(dir, 'packages/types/src/tool-contract.ts'), CONTRACT_SRC)
@@ -146,6 +163,7 @@ test('5 反向对照:判据失效不得表现为"扫 0 记绿"(夹具里没有�
   const dir = mkScratch('tool-arg-routing-empty-')
   t.after(() => rmScratch(dir))
   runGit(dir, ['init', '-q'])
+  setCommitIdentity(dir)
   mkdirSync(join(dir, 'packages/types/src'), { recursive: true })
   writeFileSync(join(dir, 'packages/types/src/tool-contract.ts'), CONTRACT_SRC)
   writeFileSync(join(dir, 'packages/types/src/schema-projection.ts'), PROJECTION_SRC)
