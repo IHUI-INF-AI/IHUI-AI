@@ -34,7 +34,11 @@ function main(argv) {
   const pkgRoot = process.cwd()
   // 2026-09-30:暂存目录带 pid 后缀 —— 并发构建(多会话/pre-push 门重建与人工构建)
   // 共享同一 dist.__building__ 会互相踩(一方 rename 时另一方还在写,留下 461 文件的孤儿)。
-  const TMP = join(pkgRoot, `dist.__building__.${process.pid}`)
+  // TMP_REL 是传给 tsc --outDir 的**相对名**(cwd=pkgRoot):a5bf0e940e 曾只改 TMP 忘改
+  // outDir ⇒ tsc 输出到无后缀旧名、rename 换入的是带 pid 但从不存在的目录 ⇒ 必然 ENOENT,
+  // 生产部署循环因此整类失败进 30 分钟冷却(2026-09-30 实证,i18n 首当其冲)。
+  const tmpRel = `dist.__building__.${process.pid}`
+  const TMP = join(pkgRoot, tmpRel)
   const OLD = join(pkgRoot, 'dist.__old__')
   const DIST = join(pkgRoot, 'dist')
   const LOCK = join(pkgRoot, 'dist.__lock')
@@ -69,8 +73,8 @@ function main(argv) {
   const tsbuildinfo = join(pkgRoot, 'tsconfig.tsbuildinfo')
   if (existsSync(tsbuildinfo)) rmSync(tsbuildinfo, { force: true })
 
-  // 2. 编译到暂存目录
-  const r = spawnSync('pnpm', ['exec', 'tsc', ...tscArgs, '--outDir', 'dist.__building__'], {
+  // 2. 编译到暂存目录(outDir 必须与 TMP 同名 —— 见 tmpRel 上的缺陷注记)
+  const r = spawnSync('pnpm', ['exec', 'tsc', ...tscArgs, '--outDir', tmpRel], {
     cwd: pkgRoot,
     stdio: 'inherit',
     shell: process.platform === 'win32',
