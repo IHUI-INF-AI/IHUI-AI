@@ -1163,8 +1163,13 @@ test('M20 粗尺与不变量:两参调用方(converge)照旧判 F9,而非 F9 各
   const body = src.slice(src.indexOf('export function gate('), src.indexOf('// ── 自检'))
   if (!body.includes('f9Ratchet(base, a)'))
     throw new Error('gate 没调 f9Ratchet ⇒ 键集判据在提交链上生效次数为 0(自检恒绿那一型)')
-  if (!body.includes('ratchetViolations(base, items, a)'))
+  if (!/ratchetViolations\(\s*base,\s*items,/.test(body))
     throw new Error('gate 没把判定面喂给 ratchetViolations ⇒ 基线档还在比数量')
+  // G-681(2026-09-30 落):差值档喂给键集档的是**按归属过滤后的面**(存量键被滤出 ⇒ 不记在
+  // 本次提交头上),全量档 fallback 仍是原面(存量照旧红)。行为由 f9 镜像 ⑪ 的构造面锁住,
+  // 这里钉的是"过滤面真被传进去了"这一格 —— 摘线 = G-681 的归属过滤静默失效。
+  if (!body.includes('f9AttributedSet.has(g.key)'))
+    throw new Error('gate 的差值档没有把按归属过滤后的面喂给键集档(G-681 落点②被摘线)')
   if (!/unmigrated[\s\S]{0,400}return 2/.test(body))
     throw new Error('"形状未迁移"没有落成非零退出 ⇒ 静默放行,等于把这一维关掉')
   if (!body.includes('f9GroupLine(')) throw new Error('gate 没走逐组点名的唯一文案出口(两处各写一遍必漂移)')
