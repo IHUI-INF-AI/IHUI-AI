@@ -61,19 +61,4 @@ export const FONT_SIZE_MAX = 32
 
 /** 搜索匹配高亮上限(避免大量匹配导致 registerDecoration 性能问题) */
 export const MATCH_HIGHLIGHT_LIMIT = 200
-
-/** D199(2026-09-30 立,对标竞品 misc terminalPanel switchToDark/switchToLight):终端面板深浅色档 */
-export type TerminalThemeMode = 'dark' | 'light'
-
-/**
- * 终端主题解析:用户显式选择(面板切换钮)优先;未显式时跟随应用主题(ThemeProvider 的
- * resolvedTheme,非 dark 一律按 light,与切换前既有行为逐字一致)。纯函数,渲染与测试共用。
- */
-export function resolveTerminalTheme(
-  explicit: TerminalThemeMode | null,
-  appTheme?: string,
-): TerminalThemeMode {
-  if (explicit) return explicit
-  return appTheme === 'dark' ? 'dark' : 'light'
-}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
