@@ -488,7 +488,7 @@ test('N1 §22c 新增导出面:远端基准的四个出口必须在 __test__ 里
   for (const k of ['readRemoteIdBasis', 'idTokenFamilies', 'describeIdBasis', 'remoteTarget'])
     assert.equal(typeof __test__[k], 'function', `__test__.${k} 缺失`)
   assert.equal(typeof __test__.REMOTE_ID_TRANSPORT, 'object')
-  for (const k of ['tipSha', 'hasCommit', 'docContent'])
+  for (const k of ['tipSha', 'hasCommit', 'docContent', 'hydrate'])
     assert.equal(typeof __test__.REMOTE_ID_TRANSPORT[k], 'function', `transport.${k} 缺失`)
   assert.deepEqual(
     __test__.idTokenFamilies([LDE_LINE, '{{NEXT_ID:O}} 乙', '{{NEXT_ID:G}} 丙', '无令牌']),
@@ -670,9 +670,76 @@ test('N3 readRemoteIdBasis:远端问不到一律只降级不失败,且每条原�
   assert.deepEqual([none.max, none.notes], [{}, []])
 })
 
-test('N4 端到端·真实 ls-remote(夹具 origin,file:// 零网络):降级支与抬号支各跑一次', (t) => {
+test('N3b 自补救 fetch(2026-09-30 契约升级):补成功 ⇒ 远端面读齐且不打"未对齐";补失败 ⇒ 进未补齐档并点名', () => {
+  const base = { root: '/r', doc: 'DOC.md', families: ['G'] }
+  // (a) 阳性:对象缺失 → hydrate 成功 → hasCommit 复查通过 → 远端面读齐;notes 必须为空、过程进 info
+  let hasCommitCalls = 0
+  const ok = __test__.readRemoteIdBasis({
+    ...base,
+    transport: fakeTransport({
+      hasCommit: () => {
+        hasCommitCalls += 1
+        if (hasCommitCalls === 1) throw new Error("fatal: Not a valid object name ffffffff")
+        return true
+      },
+      hydrate: () => true,
+    }),
+  })
+  assert.deepEqual(ok.max, { G: 9 }, `补 fetch 后必须读到远端面,实得 ${JSON.stringify(ok.max)}`)
+  assert.deepEqual(ok.notes, [], '补齐成功不得留任何"未判到"注记(notes 会被打成未对齐 ⇒ 反向假话)')
+  assert.equal(ok.remoteAheadUnfetched, false)
+  assert.match(ok.info.join('\n'), /已自补救一次 fetch/, '过程注记必须在 info 里')
+
+  // (b) 阴性:hydrate 自身失败 ⇒ 进未补齐档,首次缺失与 fetch 失败两条原因都点名
+  const failed = __test__.readRemoteIdBasis({
+    ...base,
+    transport: fakeTransport({
+      hasCommit: () => {
+        throw new Error('fatal: Not a valid object name')
+      },
+      hydrate: () => {
+        throw new Error('fatal: could not read from remote repository')
+      },
+    }),
+  })
+  assert.equal(failed.remoteAheadUnfetched, true)
+  assert.match(failed.notes[0], /自补救 fetch 失败/)
+  assert.match(failed.notes[0], /could not read from remote repository/)
+
+  // (c) 阴性:fetch 跑了但对象仍不在 ⇒ 同样进未补齐档
+  const still = __test__.readRemoteIdBasis({
+    ...base,
+    transport: fakeTransport({
+      hasCommit: () => {
+        throw new Error('fatal: Not a valid object name')
+      },
+      hydrate: () => true,
+    }),
+  })
+  assert.equal(still.remoteAheadUnfetched, true)
+  assert.match(still.notes[0], /自补救 fetch 后仍读不到/)
+
+  // (d) 兼容:transport 没给 hydrate(旧夹具形态)⇒ 保持旧行为,直接进未补齐档,不得谎称补过
+  const legacy = __test__.readRemoteIdBasis({
+    ...base,
+    transport: fakeTransport({
+      hasCommit: () => {
+        throw new Error('fatal: Not a valid object name')
+      },
+    }),
+  })
+  assert.equal(legacy.remoteAheadUnfetched, true)
+  assert.match(legacy.notes[0], /对象不在本地,原因:/)
+  assert.doesNotMatch(legacy.notes[0], /fetch/)
+})
+
+test('N4 端到端·真实 ls-remote(夹具 origin,file:// 零网络):自补救 fetch 抬号支与离线降级支各跑一次', (t) => {
   // A = "远端"夹具(与 B 无共同历史),B = 被测仓(origin → A)。
-  // fetch 只写**夹具**的 refs;真仓 refs 与网络一个字都没被碰(见 N6 的形状锁)。
+  // 2026-09-30 契约升级:对象不在本地不再"拒绝 + 留一条 fetch 命令给调用方"(§5b 禁手工 fetch/
+  // merge/push 循环,拦住不自助只会把每个调用方逼向应急旗),而是本器自补救一次有界 fetch 后
+  // 读齐远端面;仍读不到才拒绝 —— 拒绝支的真仓复现需要"ls-remote 通而 fetch 败",file:// 夹具
+  // 造不出来 ⇒ 该支由 N3b 阴性例与 idBasisGate 单测(下方 G-321 区块)覆盖,这里只端到端跑到
+  // 两支可达的:自补救成功(抬号)与远端完全不可问(离线降级)。
   const a = mkScratch('lde-origin-')
   t.after(() => rmScratch(a))
   runGit(a, ['init', '-q', '-b', 'main'])
@@ -685,58 +752,43 @@ test('N4 端到端·真实 ls-remote(夹具 origin,file:// 零网络):降级支�
   const blockFile = join(inputs, 'block.txt')
   writeFileSync(blockFile, `${LDE_LINE}\n`, 'utf8')
 
-  // ── 阶段一:B 从未见过 A 那枚 commit ⇒ 不许 fetch;而"对面在推进"已经问到,所以取号必须被拒 ──
-  // 2026-09-29 由"只警告着落号"改判为拒绝:同一种降级当天真发出两枚与远端同号的登记(立因见 I14)。
+  // ── 阶段一:B 从未见过 A 那枚 commit ⇒ 自补救 fetch 后读齐远端面 ⇒ 号必须跳过远端那段 ──
   const r1 = runLive(dir, { blockFile })
-  assert.equal(r1.status, 1, `远端 tip 已知而对象不在本地 ⇒ 取号必须被拒,实得 ${r1.status}\n${r1.stdout}\n${r1.stderr}`)
+  assert.equal(r1.status, 0, `自补救 fetch 后必须落得了地,实得 ${r1.status}\n${r1.stdout}\n${r1.stderr}`)
+  assert.ok(r1.stdout.includes('已自补救一次 fetch'), `过程注记必须在场:\n${r1.stdout}`)
   assert.ok(
-    r1.stdout.includes('号段基准未含远端(对象不在本地,原因:'),
-    `必须点名"未含远端",不得伪装成已对齐:\n${r1.stdout}`,
+    !r1.stdout.includes('未与远端对齐'),
+    `远端面已读齐 ⇒ 不得再喊"未与远端对齐"(info 混进降级行就是反向假话):\n${r1.stdout}`,
   )
   assert.ok(
-    r1.stdout.includes('号段基准:G=3(本地 HEAD 该族 max=3 / 远端未参与'),
+    r1.stdout.includes(
+      '号段基准:G=9(本地 HEAD 该族 max=3 / 远端 refs/heads/main max=9 ⇒ 取较大,新号跳过远端那段)',
+    ),
     `实得:\n${r1.stdout}`,
   )
-  assert.match(r1.stderr, /拒绝落地[\s\S]*git fetch --no-tags origin main/, `拒绝时必须给出一步 fetch 出路,不得只喊"不行":\n${r1.stderr}`)
-  assert.match(norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })), /\*\*G-3 旧条目\*\*/, '被拒那一支之后 HEAD 必须还是原样')
-  assert.doesNotMatch(norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })), /G-4/, '拒绝落地而号却进了库 ⇒ 就是把"没落地"谎报成"已落地"(G-321 那一型)')
-  // 应急档必须真的可用:确属离线/必须先行时按 env 放行,并且把"未对齐"喊在报告里
-  const r1b = runLive(dir, { blockFile, extraEnv: { IHUI_PLAN_ID_ALLOW_UNALIGNED: '1' } })
-  assert.equal(r1b.status, 0, `应急放行那一支必须落得了地,实得 ${r1b.status}\n${r1b.stdout}\n${r1b.stderr}`)
-  assert.ok(
-    r1b.stdout.includes('已按 IHUI_PLAN_ID_ALLOW_UNALIGNED 应急放行') &&
-      r1b.stdout.includes('未与远端对齐'),
-    `放行那一支必须明写未对齐,不得静默:\n${r1b.stdout}`,
-  )
-  assert.match(r1b.stdout, /令牌取号\(由该次 HEAD 底稿现算\)=G-4/)
-  assert.match(norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })), /\*\*G-4 新条目\*\*/)
-  assert.ok(
-    !git(['for-each-ref', '--format=%(refname)'], { root: dir }).includes('refs/remotes/origin'),
-    '降级那一支不得留下任何 remote-tracking ref(§5b:嵌套 ref 会被宿主清理层删、update-ref 假成功)',
-  )
-
-  // ── 阶段二:把远端那枚 commit 的对象弄进夹具仓 ⇒ 同一把尺子必须改判 ──
-  runGit(dir, ['fetch', '-q', 'origin', 'main'])
-  const r2 = runLive(dir, { blockFile })
-  assert.equal(r2.status, 0, `${r2.stdout}\n${r2.stderr}`)
-  assert.ok(
-    !r2.stdout.includes('号段基准未含远端'),
-    `对象已在本地却仍报降级 ⇒ 远端那一维压根没读到:\n${r2.stdout}`,
-  )
-  assert.ok(
-    r2.stdout.includes(
-      '号段基准:G=9(本地 HEAD 该族 max=4 / 远端 refs/heads/main max=9 ⇒ 取较大,新号跳过远端那段)',
-    ),
-    `实得:\n${r2.stdout}`,
-  )
-  assert.match(r2.stdout, /令牌取号\(由该次 HEAD 底稿现算\)=G-10/)
+  assert.match(r1.stdout, /令牌取号\(由该次 HEAD 底稿现算\)=G-10/)
   const docNow = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true }))
   assert.match(docNow, /\*\*G-10 新条目\*\*/, `HEAD 里必须是跳过远端段后的号:\n${docNow}`)
   assert.doesNotMatch(
     docNow,
-    /\*\*G-5 新条目\*\*/,
-    '只看本地 HEAD 会产出 G-5 —— 那正是 G-313 要堵的那一型(对面已把 4..9 占掉)',
+    /\*\*G-4 新条目\*\*/,
+    '只看本地 HEAD 会发 G-4 —— 那正是 G-313 要堵的那一型(对面已把 4..9 占掉)',
   )
+  assert.ok(
+    git(['for-each-ref', '--format=%(refname)'], { root: dir }).includes('refs/remotes/origin'),
+    '自补救 fetch 的正面证据(opportunistic remote-tracking ref 已在;它随后被宿主清理层删掉也不影响判定 —— tip 按 SHA 读)',
+  )
+
+  // ── 阶段二:远端整个不可问(origin 指到不存在的路径)⇒ 分档①警告着按本地基准落号 ──
+  runGit(dir, ['remote', 'set-url', 'origin', pathToFileURL(join(a, 'gone')).href])
+  writeFileSync(blockFile, '- [ ] **{{NEXT_ID:G}} 第二条**:y\n', 'utf8')
+  const r2 = runLive(dir, { blockFile })
+  assert.equal(r2.status, 0, `离线档必须落得了地,实得 ${r2.status}\n${r2.stdout}\n${r2.stderr}`)
+  assert.ok(
+    r2.stdout.includes('号段基准未含远端(远端不可问') && r2.stdout.includes('未与远端对齐'),
+    `离线那一支必须明写未对齐,不得静默:\n${r2.stdout}`,
+  )
+  assert.match(r2.stdout, /令牌取号\(由该次 HEAD 底稿现算\)=G-11/)
 })
 
 test('N5 反向锁:号段基准(含远端那一份)必须在 CAS 循环体内重算 —— 提到循环外本条必须翻红', () => {
@@ -772,23 +824,28 @@ test('N5 反向锁:号段基准(含远端那一份)必须在 CAS 循环体内重
   )
 })
 
-test('N6 形状锁:远端三次派生各自带数字 timeout、绝不为取号 fetch/写 ref、不抄第二份派生层', () => {
+test('N6 形状锁:远端四次派生各自带数字 timeout、fetch 只许住在 hydrate 且带 --no-tags、不抄第二份派生层', () => {
   const tStart = TOOL_SRC.indexOf('export const REMOTE_ID_TRANSPORT = {')
   const tEnd = TOOL_SRC.indexOf('export function readRemoteIdBasis')
   assert.ok(tStart > 0 && tEnd > tStart, '传输面与读取面必须相邻(切片找不到就是结构漂了)')
   const transportSrc = TOOL_SRC.slice(tStart, tEnd)
   const gitCalls = (transportSrc.match(/\bgit\(\[/g) || []).length
   const timeouts = (transportSrc.match(/timeout:/g) || []).length
-  assert.equal(gitCalls, 3, `远端读取恰好三次派生(ls-remote / cat-file -e / show),实得 ${gitCalls}`)
+  assert.equal(gitCalls, 4, `远端派生恰好四次(ls-remote / cat-file -e / fetch / show),实得 ${gitCalls}`)
   assert.equal(
     timeouts,
     gitCalls,
     '每一次远端派生都必须带 timeout(守门 80 口径;本仓实测过无超时挂 80 分钟)',
   )
+  assert.match(
+    transportSrc,
+    /'fetch',\s*'--no-tags'/,
+    '自补救 fetch 必须带 --no-tags(2026-09-30 契约升级:只为取号补对象,tag 面不得被顺带改写)',
+  )
   assert.doesNotMatch(
     transportSrc,
-    /'(fetch|update-ref|push|symbolic-ref)'/,
-    '为号段基准去 fetch / 写 ref 会撞上 §5b:嵌套 remote-tracking ref 被宿主清理层删、update-ref 返 0 却不落盘',
+    /'(update-ref|push|symbolic-ref)'/,
+    '为号段基准去写 ref 依旧禁止(§5b:嵌套 remote-tracking ref 被宿主清理层删、update-ref 返 0 却不落盘;fetch 的 opportunistic 更新不在此列 —— tip 按 SHA 读,不依赖它)',
   )
   assert.doesNotMatch(
     TOOL_SRC,
