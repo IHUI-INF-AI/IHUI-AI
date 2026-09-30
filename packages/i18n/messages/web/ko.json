@@ -11221,6 +11221,7 @@
     "permissionUnknownError": "알 수 없는 오류",
     "placeholder": "요청을 상세히 입력, / 로 스킬·플러그인·MCP 호출 (예 /goal /loop /plan)",
     "placeholderPlan": "계획 모드: 요청 입력, AI가 계획만 수립하고 도구를 실행하지 않습니다 (/act 로 복귀, Alt+P 전환)",
+    "aiDisclaimer": "AI가 생성한 콘텐츠입니다. 중요 정보는 직접 확인해 주세요.",
     "plan": {
       "ariaLabel": "실행 계획 단계",
       "collapseReasoning": "추론 접기",
@@ -20242,7 +20243,18 @@
       "passwordHint": "일반 사용자는 QR 로그인을 사용하세요. 이 필드는 개발자 전용입니다.",
       "platform": "플랫폼",
       "saveCookies": "계정 저장",
+      "preparingQr": "QR 코드 생성 중…",
+      "regenerateQr": "QR 코드 다시 만들기",
       "scan": "스캔",
+      "elapsedSeconds": "대기 {seconds}초",
+      "loadingSlowHint": "첫 QR 코드는 브라우저 실행과 로그인 페이지 로딩이 필요해 보통 3~8초 걸립니다. 준비되는 즉시 표시됩니다.",
+      "loadingStage": {
+        "booting": "브라우저 실행 중",
+        "opening": "로그인 페이지 여는 중",
+        "rendering": "QR 코드 생성 중",
+        "ready": "QR 코드 준비됨",
+        "switching": "스캔으로 전환 중"
+      },
       "scanLogin": "QR 로그인",
       "scanLoginDescription": "플랫폼 선택 시 백엔드가 로그인 페이지를 열고 QR 코드를 캡처합니다. 앱으로 스캔하면 쿠키가 자동 저장됩니다.",
       "scanLoginFailed": "QR 로그인 실패",
