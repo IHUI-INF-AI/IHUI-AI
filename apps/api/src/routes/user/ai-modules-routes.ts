@@ -164,6 +164,48 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // D193(2026-09-30 用户拍板,小切口):「我的待决策」聚合查询转发。
+  // 身份经 aiServiceFetch 自动透传调用者 JWT,ai-service 侧 get_current_user_id 鉴权 +
+  // owner_scoped_allows 属主过滤;本端点只读,不提供任何结算动作。
+  server.get('/ai/chat/decisions/pending', async (request, reply) => {
+    await authenticate(request)
+    try {
+      const resp = await aiServiceFetch(request, '/api/agent/decisions/pending', {
+        method: 'GET',
+      })
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '')
+        const status = resp.status === 401 ? 401 : 502
+        return reply
+          .status(status)
+          .send(error(status, `待决策查询失败: ${resp.status} ${text.slice(0, 200)}`))
+      }
+      const payload = (await resp.json()) as {
+        code: number
+        message?: string
+        data?: {
+          items?: Array<{
+            id: string
+            threadId: string | null
+            type: string
+            summary: string
+            createdAt: string | null
+          }>
+          total?: number
+        }
+      }
+      if (payload.code !== 0 || !payload.data) {
+        return reply.status(502).send(error(502, payload.message ?? 'ai-service 响应缺少待决策数据'))
+      }
+      return reply.send(
+        success({ items: payload.data.items ?? [], total: payload.data.total ?? 0 }),
+      )
+    } catch (e) {
+      request.log.error({ err: e }, 'decisions pending forward failed')
+      return reply.status(502).send(error(502, '待决策查询失败,请稍后重试'))
+    }
+  })
+
   server.get('/ai/chat/conversations', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
