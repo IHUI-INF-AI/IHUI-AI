@@ -246,9 +246,19 @@ describe('BatchScanLoginDialog 关闭/停止行为', () => {
 
 describe('BatchScanLoginDialog 内置档走扫码任务通道(2026-09-29)', () => {
   it('B1 内置模式走扫码任务通道:逐平台调 startScanLogin 并推进队列', async () => {
-    getScanLoginStatus.mockImplementation((taskId: string) =>
-      ok(scanSnapshot({ task_id: taskId, status: 'success', cookies_count: 2 })),
-    )
+    // 2026-09-30 预热语义:zhihu 起任务时 bilibili 的预热任务同时点火(startScanLogin
+    // 共 2 次);轮到 bilibili 时接管预热任务(活体检查读到 waiting_scan ⇒ 活着),
+    // 不再第三次起任务。任务状态按"该 taskId 第几次被读"分化:预热活体检查读第 1 次
+    // (waiting_scan=活),接管后的轮询读后续(success=扫码完成、推进队列)。
+    let bilibiliStatusReads = 0
+    getScanLoginStatus.mockImplementation((taskId: string) => {
+      if (taskId === 'task-bilibili') {
+        bilibiliStatusReads += 1
+        if (bilibiliStatusReads === 1)
+          return ok(scanSnapshot({ task_id: taskId, status: 'waiting_scan' }))
+      }
+      return ok(scanSnapshot({ task_id: taskId, status: 'success', cookies_count: 2 }))
+    })
     const onSuccess = vi.fn()
     render(
       <BatchScanLoginDialog
@@ -261,6 +271,7 @@ describe('BatchScanLoginDialog 内置档走扫码任务通道(2026-09-29)', () =
     await startInternalQueue()
 
     await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('bilibili'))
+    // 恰好 2 次:zhihu 现起 + bilibili 预热;轮到 bilibili 必须接管,不许第 3 次起任务
     expect(startScanLogin).toHaveBeenCalledTimes(2)
     expect(getScanLoginStatus).toHaveBeenCalledWith('task-zhihu')
     expect(getScanLoginStatus).toHaveBeenCalledWith('task-bilibili')
@@ -324,6 +335,38 @@ describe('BatchScanLoginDialog 内置档走扫码任务通道(2026-09-29)', () =
 
     fireEvent.click(screen.getByText('accounts.batchScanStop'))
     await waitFor(() => expect(cancelScanLogin).toHaveBeenCalledWith('task-zhihu'))
+  })
+
+  it('B7 预热任务已死(终态)时现起新任务,不许接管一具尸体', async () => {
+    // zhihu 一读就 success(推进队列);bilibili 的活体检查读到 failed ⇒ 预热已死,
+    // 取消尸体 + 现起新任务。startScanLogin 共 3 次:zhihu + bilibili 预热 + bilibili 现起。
+    getScanLoginStatus.mockImplementation((taskId: string) => {
+      if (taskId === 'task-bilibili')
+        return ok(scanSnapshot({ task_id: taskId, status: 'failed', message: '预热过期' }))
+      return ok(scanSnapshot({ task_id: taskId, status: 'success', cookies_count: 2 }))
+    })
+    render(renderDialog(true))
+    await startInternalQueue()
+
+    await waitFor(() => expect(startScanLogin).toHaveBeenCalledTimes(3))
+    expect(startScanLogin).toHaveBeenCalledWith('zhihu')
+    expect(startScanLogin).toHaveBeenCalledWith('bilibili')
+    // 尸体必须被显式取消,不许挂到后端超时
+    await waitFor(() => expect(cancelScanLogin).toHaveBeenCalledWith('task-bilibili'))
+    // 新任务照常轮询并成功推进
+    await waitFor(() => expect(getScanLoginStatus).toHaveBeenCalledWith('task-bilibili'))
+  })
+
+  it('B8 停止队列时,尚未轮到的预热任务也必须一并取消', async () => {
+    // 默认 mock:所有任务恒 waiting_scan(队列停在 zhihu 等扫码)。预热已为 bilibili
+    // 点火 ⇒ 停止时要同时取消两枚 Chromium,不许任何一枚挂到后端超时。
+    render(renderDialog(true))
+    await startInternalQueue()
+
+    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('bilibili'))
+    fireEvent.click(screen.getByText('accounts.batchScanStop'))
+    await waitFor(() => expect(cancelScanLogin).toHaveBeenCalledWith('task-zhihu'))
+    await waitFor(() => expect(cancelScanLogin).toHaveBeenCalledWith('task-bilibili'))
   })
 })
 

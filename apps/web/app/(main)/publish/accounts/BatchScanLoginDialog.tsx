@@ -102,6 +102,15 @@ interface QueueItem {
 }
 
 const POLL_INTERVAL_MS = 3000
+/**
+ * 2026-09-30 提速(与单平台弹窗同一条口径):内置档出码前 400ms 一轮。
+ *
+ * 后端起浏览器 + 出码实测 3.5~8s,固定 3s 一轮意味着**出码那一刻常常落在两轮之间**,
+ * 用户白等最多一整个间隔;批量档这条更明显 —— 每个平台都各白等一次。
+ * 只在"这一档还没见过二维码"时走快节奏,见过即回落到 POLL_INTERVAL_MS。
+ */
+const FAST_POLL_INTERVAL_MS = 400
+const FAST_POLL_WINDOW_MS = 20_000
 /** 取消标记轮询粒度:停止/关闭弹窗后最多 100ms 内让轮询退出 */
 const CANCEL_POLL_MS = 100
 /** 单平台超时:2 分钟(连续扫码场景下单个平台通常 30s 内完成) */
@@ -136,6 +145,12 @@ async function sleepCancelable(ms: number, isCancelled: () => boolean): Promise<
     await sleep(step)
     left -= step
   }
+}
+
+/** 出码前的等待间隔:越早发现第一帧越好,但 20s 之后回落到常规节奏(见常量注释)。 */
+function nextScanPollInterval(firstQrSeen: boolean, startedAt: number): number {
+  if (!firstQrSeen && Date.now() - startedAt <= FAST_POLL_WINDOW_MS) return FAST_POLL_INTERVAL_MS
+  return POLL_INTERVAL_MS
 }
 
 /** 登录检测响应(CDP 与"用户真实 profile"两种检测共用字段) */
@@ -209,6 +224,30 @@ export function BatchScanLoginDialog({
     setQrUrl('')
   }, [])
 
+  /**
+   * 下一平台预热任务(2026-09-30 提速):用户扫当前平台码的那段时间(人力,通常 10s+),
+   * 下一个平台的「启动浏览器 → 打开登录页 → 出码」(实测 2~5s,慢机更久)整段白等。
+   * 现在队列推进到第 i 个平台(内置档)时就提前点火第 i+1 个;轮到它时接管。
+   * 只预热深 1(最多同时两枚 Chromium);失败静默 —— 到那个平台时按原路径现起。
+   * 存 promise 句柄而不是等 .then 回填:接管时 await 它,天然免"预热还没落账、
+   * 队列已推进到下一平台"的竞态;取消路径对同一句柄拿结果再 cancel。
+   */
+  const nextPrewarmRef = React.useRef<{
+    platform: string
+    promise: Promise<{ success: boolean; data?: { task_id?: string } } | undefined>
+  } | null>(null)
+  const cancelPrewarm = React.useCallback(() => {
+    const pre = nextPrewarmRef.current
+    nextPrewarmRef.current = null
+    if (!pre) return
+    void pre.promise
+      .then((pr) => {
+        const tid = pr && pr.success ? pr.data?.task_id : undefined
+        if (tid) void cancelScanLogin(tid).catch(() => undefined)
+      })
+      .catch(() => undefined)
+  }, [])
+
   /** 拉当前这一帧二维码(与单平台弹窗同款:该口要带 Authorization,裸 URL 拿不到)。 */
   async function showQr(taskId: string, stamp: number) {
     const blob = await fetchScanLoginQr(taskId)
@@ -229,12 +268,13 @@ export function BatchScanLoginDialog({
     skipRef.current = false
     setStopping(true)
     releaseQr()
+    cancelPrewarm()
     const tid = taskIdRef.current
     if (tid) {
       taskIdRef.current = ''
       void cancelScanLogin(tid).catch(() => undefined)
     }
-  }, [releaseQr])
+  }, [releaseQr, cancelPrewarm])
 
   const updateItem = React.useCallback((idx: number, patch: Partial<QueueItem>) => {
     setItems((prev) => {
@@ -294,10 +334,11 @@ export function BatchScanLoginDialog({
   React.useEffect(() => {
     return () => {
       releaseQr()
+      cancelPrewarm()
       const tid = taskIdRef.current
       if (tid) void cancelScanLogin(tid).catch(() => undefined)
     }
-  }, [releaseQr])
+  }, [releaseQr, cancelPrewarm])
 
   function pollPlatform(detect: DetectFn): Promise<PollOutcome> {
     return (async () => {
@@ -348,6 +389,8 @@ export function BatchScanLoginDialog({
   async function pollScanTask(taskId: string): Promise<ScanPollResult> {
     const start = Date.now()
     let networkFails = 0
+    /** 这一档是否已经出过码:出码前快跑(400ms),出码后慢走(3s) */
+    let firstQrSeen = false
     while (true) {
       if (cancelRef.current) return { outcome: 'cancelled' }
       if (skipRef.current) {
@@ -377,6 +420,7 @@ export function BatchScanLoginDialog({
         if (d?.has_qr && d.qr_updated_at !== qrStampRef.current) {
           try {
             await showQr(taskId, d.qr_updated_at)
+            firstQrSeen = true
           } catch {
             /* 这一帧图没取到:下一轮还会再取,不能因此把整个任务判失败 */
           }
@@ -388,7 +432,7 @@ export function BatchScanLoginDialog({
         }
         if (cancelRef.current) return { outcome: 'cancelled' }
       }
-      await sleepCancelable(POLL_INTERVAL_MS, () => cancelRef.current)
+      await sleepCancelable(nextScanPollInterval(firstQrSeen, start), () => cancelRef.current)
     }
   }
 
@@ -401,6 +445,7 @@ export function BatchScanLoginDialog({
     setRunning(true)
     setStopping(false)
     setPopupBlocked(false)
+    cancelPrewarm()
     const useExternal = modeRef.current === 'external'
     let successCount = 0
 
@@ -443,18 +488,52 @@ export function BatchScanLoginDialog({
         } else {
           // 内置模式(2026-09-29 换到扫码任务 HTTP 通道):后端起浏览器截二维码,
           // 前端轮询任务状态并把二维码直接显示在本弹窗内。
-          const r = await startScanLogin(item.platform)
-          if (cancelRef.current) {
-            if (r.success && r.data?.task_id) {
-              void cancelScanLogin(r.data.task_id).catch(() => undefined)
+          // 2026-09-30 预热接管:上个平台扫码期间第 i 个平台的任务多半已提前点火,
+          // await 它的起任务结果,活体核一眼(扫码可能耗掉几分钟,后端任务可能已终态),
+          // 活着直接用,不再从零起浏览器。死了(没预热/已终态/失败)就走原路径现起。
+          const pre = nextPrewarmRef.current
+          nextPrewarmRef.current = null
+          tid = ''
+          if (pre && pre.platform === item.platform) {
+            const pr = await pre.promise.catch(() => undefined)
+            const preTid = pr && pr.success ? pr.data?.task_id : undefined
+            if (preTid) {
+              try {
+                const st = await getScanLoginStatus(preTid)
+                const alive = st.success && st.data && !TERMINAL_STATUSES.has(st.data.status)
+                if (alive) {
+                  tid = preTid
+                } else {
+                  void cancelScanLogin(preTid).catch(() => undefined)
+                }
+              } catch {
+                void cancelScanLogin(preTid).catch(() => undefined)
+              }
             }
-            markStoppedFrom(i)
-            break
           }
-          if (!r.success) throw apiFailureToError(r, t('accounts.batchScanDetectError'))
-          tid = r.data?.task_id ?? ''
-          if (!tid) throw new Error(t('accounts.batchScanDetectError'))
+          if (!tid) {
+            const r = await startScanLogin(item.platform)
+            if (cancelRef.current) {
+              if (r.success && r.data?.task_id) {
+                void cancelScanLogin(r.data.task_id).catch(() => undefined)
+              }
+              markStoppedFrom(i)
+              break
+            }
+            if (!r.success) throw apiFailureToError(r, t('accounts.batchScanDetectError'))
+            tid = r.data?.task_id ?? ''
+            if (!tid) throw new Error(t('accounts.batchScanDetectError'))
+          }
           taskIdRef.current = tid
+          // 点火下一个平台的预热:把「启动浏览器 → 打开登录页 → 出码」整段藏进
+          // 用户扫当前码的时间里。失败静默 —— 到那个平台时按原路径现起。
+          const nxt = list[i + 1]
+          if (nxt && platMapRef.current.get(nxt.platform)?.login_url) {
+            nextPrewarmRef.current = {
+              platform: nxt.platform,
+              promise: startScanLogin(nxt.platform).catch(() => undefined),
+            }
+          }
         }
         let outcome: PollOutcome
         let outcomeMsg: string | undefined
@@ -492,18 +571,21 @@ export function BatchScanLoginDialog({
         }
         if (outcome === 'cancelled') {
           markStoppedFrom(i)
+          cancelPrewarm()
           break
         }
         if (outcome === 'closed') {
           // 用户把浏览器窗口关掉了 = 结束队列(否则会一路把剩余平台逐个弹出来)
           cancelRef.current = true
           markStoppedFrom(i)
+          cancelPrewarm()
           toast.info(t('accounts.batchScanWindowClosedToast'))
           break
         }
         updateItem(i, { status: 'error', msg: outcomeMsg ?? t('accounts.batchScanDetectError') })
       } catch (e) {
         releaseQr()
+        cancelPrewarm()
         const pendingTid = taskIdRef.current
         if (pendingTid) {
           taskIdRef.current = ''
@@ -520,6 +602,7 @@ export function BatchScanLoginDialog({
     runningRef.current = false
     setRunning(false)
     setStopping(false)
+    cancelPrewarm()
     if (successCount > 0) {
       toast.success(
         `${t('accounts.batchScanDone')} · ${t('accounts.batchScanSuccessCount', { count: successCount })}`,
