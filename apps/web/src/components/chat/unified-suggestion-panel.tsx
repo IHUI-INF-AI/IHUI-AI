@@ -370,19 +370,108 @@ export function UnifiedSuggestionPanel({
 export interface UnifiedPasteReferencePreviewProps {
   previews: readonly PastedReferencePreview[]
   onDismiss: () => void
+  /**
+   * D185(2026-09-30 立,对标竞品 composer.referencePreview.*):一键发送回调。
+   * 传入后预览条升级为**可编辑的模拟预览编辑器**——发送前可对 @/引用对象改写
+   * 模拟预览文本,「发送」走 composer 既有 submit 通道、「清空」走既有预览清理;
+   * 未传时保持 D68 被动有效性预览条形态(既有用例契约零变更)。
+   */
+  onSend?: (text: string) => void
 }
 
 /**
  * 粘贴引用有效性预览条(台账 D68「粘贴引用有效性预览」):粘贴内容里出现的
  * @token / `path` 与当前已知引用集逐一比对,有效/未识别两种状态**可见**呈现。
  * 空集不渲染(不占位、不闪现)。
+ * D185 升级:onSend 传入时可编辑模拟预览——可用引用(保留有效性展示)与
+ * 原始输入正文分区,预览编辑器独立成区,一键发送/清空。
  */
 export function UnifiedPasteReferencePreview({
   previews,
   onDismiss,
+  onSend,
 }: UnifiedPasteReferencePreviewProps) {
   const t = useTranslations('unifiedSuggestion')
+  // D185:可编辑模拟预览草稿 —— 随预览集重播种(识别/未识别项的原文 sigil 拼接)
+  const [draft, setDraft] = React.useState('')
+  React.useEffect(() => {
+    if (onSend) setDraft(previews.map((p) => p.raw).join(' '))
+  }, [onSend, previews])
   if (previews.length === 0) return null
+  if (onSend) {
+    return (
+      <div
+        data-testid="unified-paste-reference-preview"
+        data-editable="true"
+        className="rounded-md bg-muted/40 px-3 py-2"
+      >
+        <p className="text-[10px] font-medium text-muted-foreground">
+          {t('referencePreview.available')}
+        </p>
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          {previews.map((p) => (
+            <span
+              key={p.raw}
+              data-testid={`unified-paste-ref-${p.recognized ? 'valid' : 'unknown'}`}
+              className={cn(
+                'inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] leading-none',
+                p.recognized ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground',
+              )}
+            >
+              <span className="truncate">{p.raw}</span>
+              <span className="font-sans">{p.recognized ? t('pasteValid') : t('pasteUnknown')}</span>
+              <button
+                type="button"
+                data-testid="unified-paste-ref-select"
+                aria-label={t('referencePreview.select')}
+                onClick={() => setDraft((prev) => (prev ? `${prev} ${p.raw}` : p.raw))}
+                className="rounded-sm px-0.5 font-sans text-[10px] text-muted-foreground hover:text-foreground"
+              >
+                {t('referencePreview.select')}
+              </button>
+            </span>
+          ))}
+        </div>
+        <textarea
+          data-testid="unified-paste-reference-editor"
+          aria-label={t('referencePreview.editor')}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={t('referencePreview.placeholder')}
+          rows={2}
+          className="mt-2 w-full resize-y rounded-sm border border-input bg-background px-2 py-1 font-mono text-xs text-foreground placeholder:text-muted-foreground/60"
+        />
+        {/* 来源分区:预览编辑器可改写,原始引用来源在此原文回显(与原始输入正文分区) */}
+        <p className="mt-1 truncate text-[10px] text-muted-foreground">
+          {`${t('referencePreview.source')}: ${previews.map((p) => p.raw).join(' ')}`}
+        </p>
+        <div className="mt-1.5 flex items-center justify-end gap-1.5">
+          <button
+            type="button"
+            data-testid="unified-paste-reference-clear"
+            onClick={() => {
+              setDraft('')
+              onDismiss()
+            }}
+            className="rounded-sm px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {t('referencePreview.clear')}
+          </button>
+          <button
+            type="button"
+            data-testid="unified-paste-reference-send"
+            disabled={draft.trim().length === 0}
+            onClick={() => {
+              if (draft.trim()) onSend(draft)
+            }}
+            className="rounded-sm bg-primary px-2 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {t('referencePreview.send')}
+          </button>
+        </div>
+      </div>
+    )
+  }
   return (
     <div
       data-testid="unified-paste-reference-preview"
