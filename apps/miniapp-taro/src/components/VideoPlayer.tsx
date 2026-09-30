@@ -44,7 +44,7 @@ export default function VideoPlayer({
   if (loading) {
     return (
       <View
-        className="flex items-center justify-center w-full bg-[var(--color-black)]"
+        className="flex items-center justify-center w-full overflow-hidden rounded-lg bg-[var(--color-black)]"
         style={STAGE_STYLE}
       >
         <Text className="text-sm text-muted-foreground">
@@ -57,7 +57,7 @@ export default function VideoPlayer({
   if (!src) {
     return (
       <View
-        className="flex items-center justify-center w-full bg-[var(--color-black)]"
+        className="flex items-center justify-center w-full overflow-hidden rounded-lg bg-[var(--color-black)]"
         style={STAGE_STYLE}
       >
         <Text className="text-sm text-muted-foreground">{tt('video.noVideo', '暂无视频')}</Text>
@@ -66,9 +66,9 @@ export default function VideoPlayer({
   }
 
   return (
-    <View className="w-full bg-[var(--color-black)]" style={STAGE_STYLE}>
+    <View className="w-full overflow-hidden rounded-lg bg-[var(--color-black)]" style={STAGE_STYLE}>
       <Video
-        className="w-full"
+        className="w-full rounded-lg"
         style={STAGE_STYLE}
         src={src}
         poster={poster}
