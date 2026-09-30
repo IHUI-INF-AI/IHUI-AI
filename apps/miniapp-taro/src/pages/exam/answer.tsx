@@ -4,7 +4,7 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Input, Textarea } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
@@ -16,6 +16,7 @@ import {
   startExamRecord,
   type QuestionType,
 } from '@/api'
+import { FocusInput, FocusTextarea } from '@/components/FocusField'
 
 interface Question {
   id: string
@@ -151,7 +152,7 @@ export default function ExamAnswer() {
     if (current.type === 'fill_blank') {
       return (
         <ThemeRoot>
-          <Input
+          <FocusInput
             className="w-full py-[16rpx] px-[28rpx] border-[length:2rpx] border-[var(--color-border)] rounded-sm text-[length:32rpx] text-foreground"
             type="text"
             placeholder={t('exam.answer.answerPlaceholder')}
@@ -164,7 +165,7 @@ export default function ExamAnswer() {
     if (current.type === 'subjective') {
       return (
         <ThemeRoot>
-          <Textarea
+          <FocusTextarea
             className="w-full py-[16rpx] px-[28rpx] border-[length:2rpx] border-[var(--color-border)] rounded-sm text-[length:32rpx] text-foreground min-h-[320rpx]"
             placeholder={t('exam.answer.answerPlaceholder')}
             value={typeof ans === 'string' ? ans : ''}
