@@ -1125,3 +1125,254 @@ def test_session_snapshot_roundtrip_and_empty_guard(monkeypatch, tmp_path):
     scan_login_mod._save_session_cookies("empty", EmptyCtx())
     assert not (tmp_path / "empty" / "session-cookies.json").exists()
     assert scan_login_mod._restore_session_cookies("never-scanned", FakeCtx()) == 0
+
+
+# --- 2026-09-30 补:任务交互通道(_drain_interactions / request_interaction) ---
+
+
+class _IxTaskLocator:
+    def __init__(self, page: "_IxTaskPage", selector: str) -> None:
+        self._page = page
+        self._selector = selector
+
+    @property
+    def first(self) -> "_IxTaskLocator":
+        return self
+
+    def wait_for(self, state: str | None = None, timeout: int | None = None) -> bool:
+        return True
+
+    def fill(self, value: str, timeout: int | None = None) -> None:
+        self._page.fills.append((self._selector, value))
+
+    def click(self, timeout: int | None = None) -> None:
+        self._page.clicks.append(self._selector)
+
+    def inner_text(self, timeout: int | None = None) -> str:
+        return "inner-text-ok"
+
+    def bounding_box(self) -> dict[str, float]:
+        return {"x": 10.0, "y": 20.0, "width": 40.0, "height": 20.0}
+
+
+class _IxTaskMouse:
+    def __init__(self, page: "_IxTaskPage") -> None:
+        self._page = page
+
+    def move(self, x: float, y: float) -> None:
+        self._page.moves.append((round(x, 1), round(y, 1)))
+
+    def down(self) -> None:
+        self._page.buttons.append("down")
+
+    def up(self) -> None:
+        self._page.buttons.append("up")
+
+
+class _IxTaskFrame:
+    def __init__(self, url: str = "") -> None:
+        self.url = url
+        self.name = ""
+        self.evaluated: list[str] = []
+
+    def locator(self, selector: str) -> _IxTaskLocator:
+        return _IxTaskLocator(None, selector)  # type: ignore[arg-type]
+
+    def evaluate(self, js: str) -> dict[str, str]:
+        self.evaluated.append(js)
+        return {"js": js}
+
+
+class _IxTaskPage:
+    def __init__(self) -> None:
+        self.url = "https://www.oschina.net/home/login"
+        self.fills: list[tuple[str, str]] = []
+        self.clicks: list[str] = []
+        self.moves: list[tuple[float, float]] = []
+        self.buttons: list[str] = []
+        self.main_frame = _IxTaskFrame("about:blank")
+        self.frames: list[_IxTaskFrame] = [self.main_frame]
+
+    def locator(self, selector: str) -> _IxTaskLocator:
+        return _IxTaskLocator(self, selector)
+
+    def screenshot(self, type: str = "png") -> bytes:  # noqa: A002
+        return b"\x89PNG-fake-shot"
+
+    def title(self) -> str:
+        return "page-title-ok"
+
+    @property
+    def mouse(self) -> _IxTaskMouse:
+        return _IxTaskMouse(self)
+
+
+def _interact_task(status: str = "waiting_scan") -> ScanTask:
+    t = ScanTask(task_id="it1", user_id="u1", platform="oschina", status=status)
+    t._page = _IxTaskPage()
+    t._interact_q = __import__("queue").Queue()
+    return t
+
+
+def _queue_action(t: ScanTask, action: str, selector: str | None = None, value: str | None = None) -> str:
+    rid = f"rid-{action}-{len(t._interact_q.queue)}"
+    t._interact_q.put((rid, action, selector, value))
+    return rid
+
+
+def test_drain_interactions_basic_actions_backfill_results():
+    t = _interact_task()
+    page = t._page
+    rid_shot = _queue_action(t, "screenshot")
+    rid_fill = _queue_action(t, "fill", "input#phone", "18643389808")
+    rid_click = _queue_action(t, "click", "button.send")
+    rid_text = _queue_action(t, "text", ".status")
+    rid_title = _queue_action(t, "text")
+    rid_eval = _queue_action(t, "eval", None, "1+1")
+
+    scan_login_mod._drain_interactions(t, page)
+
+    res = t._interact_results
+    assert res[rid_shot]["ok"] is True
+    import base64 as _b64
+
+    assert _b64.b64decode(res[rid_shot]["screenshot_b64"]) == b"\x89PNG-fake-shot"
+    assert res[rid_fill]["ok"] is True and page.fills == [("input#phone", "18643389808")]
+    assert res[rid_click]["ok"] is True and page.clicks == ["button.send"]
+    assert res[rid_text]["ok"] is True and res[rid_text]["text"] == "inner-text-ok"
+    assert res[rid_title]["ok"] is True and res[rid_title]["text"] == "page-title-ok"
+    assert res[rid_eval]["ok"] is True and res[rid_eval]["eval"] == {"js": "1+1"}
+    for rid in (rid_shot, rid_fill, rid_click, rid_text, rid_title, rid_eval):
+        assert res[rid]["url"] == page.url
+
+
+def test_drain_interactions_unknown_action_captures_error_and_continues():
+    t = _interact_task()
+    rid_bad = _queue_action(t, "hover")
+    rid_good = _queue_action(t, "screenshot")
+
+    scan_login_mod._drain_interactions(t, t._page)
+
+    res = t._interact_results
+    assert res[rid_bad]["ok"] is False
+    assert "未知 action" in res[rid_bad]["error"] and "hover" in res[rid_bad]["error"]
+    # 失败不打断队列:后一个动作照常执行
+    assert res[rid_good]["ok"] is True
+
+
+def test_drain_interactions_action_failure_does_not_break_loop():
+    t = _interact_task()
+    page = t._page
+    rid_fill = _queue_action(t, "fill", "input#phone", "123")
+    rid_click = _queue_action(t, "click", "button.send")
+    # 让第一个动作的目标抛错:fill 走 _resolve_locator.wait_for —— 用"抛错定位器"页
+    class _BoomPage(_IxTaskPage):
+        def locator(self, selector: str) -> _IxTaskLocator:
+            if selector == "input#phone":
+                raise RuntimeError("元素未找到(已穿透全部 iframe): input#phone")
+            return _IxTaskLocator(self, selector)
+
+    boom = _BoomPage()
+    scan_login_mod._drain_interactions(t, boom)
+    assert t._interact_results[rid_fill]["ok"] is False
+    assert "元素未找到" in t._interact_results[rid_fill]["error"]
+    assert t._interact_results[rid_click]["ok"] is True and boom.clicks == ["button.send"]
+    assert page.fills == []  # 真 FakePage 未被触碰
+
+
+def test_drag_hold_move_drop_session_lifecycle():
+    t = _interact_task()
+    t.task_id = "drag-life"
+    rid_hold = _queue_action(t, "drag_hold", "#handle", "80")
+    scan_login_mod._drain_interactions(t, t._page)
+    res = t._interact_results[rid_hold]
+    assert res["ok"] is True
+    # 起点(10+20, 20+10) + dx=80 → (110, 30);会话登记且未松开
+    assert res["held"] == {"x": 110.0, "y": 30.0}
+    assert scan_login_mod._DRAG_SESSIONS["drag-life"] == {"x": 110.0, "y": 30.0}
+    assert t._page.buttons == ["down"]
+
+    rid_move = _queue_action(t, "drag_move", None, "10,-5")
+    scan_login_mod._drain_interactions(t, t._page)
+    assert t._interact_results[rid_move]["ok"] is True
+    assert t._interact_results[rid_move]["held"] == {"x": 120.0, "y": 25.0}
+    assert scan_login_mod._DRAG_SESSIONS["drag-life"] == {"x": 120.0, "y": 25.0}
+    assert "up" not in t._page.buttons
+
+    rid_drop = _queue_action(t, "drop")
+    scan_login_mod._drain_interactions(t, t._page)
+    assert t._interact_results[rid_drop]["ok"] is True
+    assert t._page.buttons[-1] == "up"
+    assert "drag-life" not in scan_login_mod._DRAG_SESSIONS
+    assert "held" not in t._interact_results[rid_drop]
+
+
+def test_drag_move_without_session_reports_error():
+    t = _interact_task()
+    t.task_id = "no-session"
+    scan_login_mod._DRAG_SESSIONS.pop("no-session", None)
+    rid = _queue_action(t, "drag_move", None, "10")
+    scan_login_mod._drain_interactions(t, t._page)
+    assert t._interact_results[rid]["ok"] is False
+    assert "无按住中的拖拽会话" in t._interact_results[rid]["error"]
+
+
+def test_request_interaction_rejects_without_queueing():
+    import threading as _th
+
+    store = scan_login_mod._TASK_STORE
+    # ① 任务不在本实例
+    assert scan_login_mod.request_interaction("nope", "screenshot")["ok"] is False
+    # ② 终态任务
+    dead = _interact_task(status="success")
+    store._local["dead"] = dead
+    try:
+        r = scan_login_mod.request_interaction("dead", "screenshot")
+        assert r["ok"] is False and "终态" in r["error"]
+    finally:
+        store._local.pop("dead", None)
+    # ③ 页面句柄未就绪
+    nopage = _interact_task()
+    nopage._page = None
+    store._local["nopage"] = nopage
+    try:
+        r = scan_login_mod.request_interaction("nopage", "screenshot")
+        assert r["ok"] is False and "页面句柄未就绪" in r["error"]
+    finally:
+        store._local.pop("nopage", None)
+    # ④ 未知 action:入队前就拒
+    live = _interact_task()
+    store._local["live"] = live
+    try:
+        r = scan_login_mod.request_interaction("live", "bogus", wait_seconds=0.3)
+        assert r["ok"] is False and "未知 action" in r["error"]
+        assert live._interact_q.qsize() == 0
+    finally:
+        store._local.pop("live", None)
+    assert _th.active_count() >= 0
+
+
+def test_request_interaction_round_trip_via_drain():
+    import threading as _th
+
+    t = _interact_task()
+    store = scan_login_mod._TASK_STORE
+    store._local["rt1"] = t
+    try:
+        def _drain_later() -> None:
+            time.sleep(0.3)
+            scan_login_mod._drain_interactions(t, t._page)
+
+        _th.Thread(target=_drain_later, daemon=True).start()
+        r = scan_login_mod.request_interaction("rt1", "screenshot", wait_seconds=6)
+        assert r["ok"] is True and "screenshot_b64" in r
+    finally:
+        store._local.pop("rt1", None)
+
+
+def test_drag_parse_shapes():
+    assert scan_login_mod._drag_parse(None) == (0.0, 0.0)
+    assert scan_login_mod._drag_parse("") == (0.0, 0.0)
+    assert scan_login_mod._drag_parse("80") == (80.0, 0.0)
+    assert scan_login_mod._drag_parse("10,-5") == (10.0, -5.0)
+    assert scan_login_mod._drag_parse(" 3 , 4 ") == (3.0, 4.0)
