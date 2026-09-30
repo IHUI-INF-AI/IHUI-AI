@@ -82,6 +82,8 @@ export interface UploadLabels {
   noUrlField: string
   networkError: string
   uploadCancelled: string
+  /** D192(2026-09-30 立):已上传图片的逐图 alt 模板,{index} 从 1 起;缺省中文兜底由消费端注入本地化 */
+  imageAltText: string
 }
 
 /** i18n 默认值(不传 labels 时回退到简体中文) */
@@ -100,6 +102,7 @@ const DEFAULT_UPLOAD_LABELS: UploadLabels = {
   noUrlField: '响应中未找到可用的 URL 字段',
   networkError: '网络错误',
   uploadCancelled: '上传已取消',
+  imageAltText: '反馈截图 {index}',
 }
 
 /** 轻量 {var} 占位插值(不引 i18n 框架):消费端 t() 返回的模板在此填值(与 data-table.tsx 同形态) */
@@ -370,7 +373,12 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
                 className="group relative h-20 w-20 overflow-hidden rounded-md border bg-muted"
               >
                 {isImg ? (
-                  <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  <img
+                    src={url}
+                    alt={fillTemplate(labels.imageAltText, { index: idx + 1 })}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                     <FileIcon className="h-7 w-7" />
