@@ -424,6 +424,15 @@ def enumerate_code_files(
     返回**稳定排序**是契约的一部分:调用方(`_collect_code_files`)按序截断
     `max_files`,无序集合会让同一棵树两次枚举给出不同文件子集 —— 那会让
     Merkle 快照与懒索引护栏在轮次之间无谓抖动。
+
+    一条**已实测的边界**(2026-09-27 复评护栏时撞上,归口本模块):排序发生在
+    **截断之后**,所以撞 `max_files` 时两条通道各自留下的是"自己到访顺序里的前 N 个",
+    子集可以完全不同(6 文件 / limit 3 实测交集为空)。也就是说:
+    - 只比较**数量 / 是否饱和** ⇒ 跨通道可比(护栏与 `SizeProbe` 用的就是这一维);
+    - 想要**跨通道稳定的文件子集** ⇒ 只能不设 `max_files`,自己排序后再截断。
+    `codebase_indexer` 目前属于第一种用法之外的历史形态(它截断后拿去建 Merkle 快照),
+    换通道时会把整批文件读成"增 + 删"。该影响面登记在 V3 #75 交付报告的残余里,
+    改它要连着改快照语义,不在本模块单方面"顺手修"。
     """
     rg: RgBinary | None = None
     if prefer_rg and not rg_is_disabled_by_env():
@@ -451,26 +460,48 @@ def enumerate_code_files(
     return sorted(paths), prov
 
 
+# ---------------------------------------------------------------------------
+# 对账:判据 3 的唯一实现(测试与运行时共用)
+# ---------------------------------------------------------------------------
+
+
 @dataclass(frozen=True)
 class SizeProbe:
-    """一次**有界**规模探测的结论 —— 精确值与下界在类型上分开,不得混成一个整数。
+    """一次**有界**规模探测:要么给出精确文件数,要么如实给出"至少这么多"。
 
-    `is_lower_bound=True` 的含义是"数到 `limit` 就收手了,真实规模未知且不小于此"。
-    护栏据此把"仓库大到索引不完"与"这次不该顺手做"分成两条不同的轴:把下界当精确值
-    用,就会把 874 文件的小仓报成"巨仓"(第一版即此错,已由测试钉住)。
+    为什么需要它(V3 #75 后半,2026-09-27 复评量算逼出来的):消费方(懒索引护栏)
+    原先读 `len(_collect_code_files(root))`,而那个出口按 `MAX_FILES_PER_INDEX`
+    **先截断再计数** —— 实测真仓该值恒为 5000(真实代码文件 31,672,另检出 244,765),
+    于是"1,500 文件的小仓"与"24 万文件的 monorepo"在护栏眼里长得一模一样。
+    一个会饱和的分母既不能定阈值也不能解释超限,所以这里把"精确 / 下界"两态
+    做成**类型上分开的字段**(`is_lower_bound`),而不是让调用方再猜一次。
+
+    成本上限由 `limit` 决定:两条通道都在收满 `limit` 个时立即返回
+    (`enumerate_with_rg` 走 break、`enumerate_with_walk` 直接 return),
+    所以"问一句这仓多大"不会变成"为量尺寸把 24 万个文件走一遍"。
     """
 
+    #: 收满 limit 个时 = **下界**;未满时 = 精确值。
     count: int
+    #: True = `count` 只是下界(真实值 ≥ count),不得当精确值用。
     is_lower_bound: bool
     limit: int
     duration_s: float
     engine: str
-    degraded_reason: str | None = None
+    #: 非 None = 本次探测走了降级通道,原因写在这里(降级不得静默)。
+    degraded_reason: str | None
+
+    #: 一条**必须知道的边界**:有界枚举里只有 `count` / `is_lower_bound` 是跨通道可比的。
+    #: 撞上限时两条通道各自保留的是"自己到访顺序里的前 limit 个",**子集可以不同**
+    #: (实测 6 文件 / limit 3:walk 留 g0/f0,g0/f1,g1/f2 而 rg 留 g1/f3,g2/f5,...)。
+    #: 所以本类型**不暴露路径集** —— 需要文件清单的调用方一律走 `enumerate_code_files`
+    #: 并自己承担"截断子集依赖枚举顺序"这件事(见下方同名注记)。
 
     def describe(self) -> str:
-        """给人和模型看的一句话规模 —— 下界必须带"至少",否则读不出可信度。"""
-        n = f"至少 {self.count}" if self.is_lower_bound else str(self.count)
-        return f"{n} 个代码文件"
+        """人读的一句规模描述,带通道与耗时 —— 超限原因里要引它。"""
+        head = f"至少 {self.count}" if self.is_lower_bound else f"{self.count}"
+        note = f"(探测上限 {self.limit},未扫完全树)" if self.is_lower_bound else ""
+        return f"{head} 个代码文件{note};通道={self.engine},耗时 {self.duration_s:.3f}s"
 
 
 def probe_code_file_count(
@@ -480,35 +511,28 @@ def probe_code_file_count(
     suffixes: tuple[str, ...] | list[str] | frozenset[str] | None,
     limit: int,
 ) -> SizeProbe:
-    """数"这棵树有多大",但**最多数到 `limit` 就停**,并如实报是精确值还是下界。
+    """数到 `limit` 个就停,并报告"这是精确值还是下界"。
 
-    走的是 `enumerate_code_files` 这同一条枚举出口(先 rg、降级留痕),所以探测读到
-    的规模与实际索引读到的**必然同形** —— 另写一份遍历就是第二个真相,两条通道对
-    "有多少文件"答不同值时护栏结论会随通道跳变。
-
-    探测本身有界(`max_files` 一到即返回),所以"问一句多大"不会变成走一遍全树。
+    两条通道的语义**必须**一致(rg 与 python-walk 对同一棵树给出同一 `count` 与
+    同一 `is_lower_bound`)—— 这不靠两份实现碰巧相同,靠的是只有一条实现:
+    本函数是 `enumerate_code_files` 的一层投影,过滤语义与截断行为全部由它给出。
     """
     if limit < 1:
-        raise ValueError(
-            f"limit 必须 ≥ 1,收到 {limit}:limit=0 会让任何目录都被判成下界 ⇒ 护栏恒判超限"
-        )
+        # limit=0 会让 is_lower_bound 恒真(count 恒 0 ⇒ 0>=0),那是个"永远超限"的
+        # 假判据;直接拒绝,不把无意义的档留给调用方去踩。
+        raise ValueError(f"limit 必须 ≥ 1,实得 {limit}")
     paths, prov = enumerate_code_files(
         root, ignored_dirs=ignored_dirs, suffixes=suffixes, max_files=limit
     )
-    counted = len(paths)
+    count = len(paths)
     return SizeProbe(
-        count=counted,
-        is_lower_bound=counted >= limit,
+        count=count,
+        is_lower_bound=count >= limit,
         limit=limit,
         duration_s=prov.duration_s,
         engine=prov.engine,
         degraded_reason=prov.degraded_reason,
     )
-
-
-# ---------------------------------------------------------------------------
-# 对账:判据 3 的唯一实现(测试与运行时共用)
-# ---------------------------------------------------------------------------
 
 
 def compare_enumerations(
