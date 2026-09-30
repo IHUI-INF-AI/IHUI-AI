@@ -63,43 +63,13 @@ export interface CategoryDef {
 /** 18 个具名类目(逐字对齐 D58 原文;order 单调) */
 export const CATEGORY_TABLE: readonly CategoryDef[] = [
   { key: 'file_read', labelKey: 'catFileRead', order: 1, countable: true, expandStrategy: 'auto' },
-  {
-    key: 'file_write',
-    labelKey: 'catFileWrite',
-    order: 2,
-    countable: true,
-    expandStrategy: 'auto',
-  },
-  {
-    key: 'file_modify',
-    labelKey: 'catFileModify',
-    order: 3,
-    countable: true,
-    expandStrategy: 'auto',
-  },
-  {
-    key: 'file_delete',
-    labelKey: 'catFileDelete',
-    order: 4,
-    countable: true,
-    expandStrategy: 'auto',
-  },
-  {
-    key: 'file_search',
-    labelKey: 'catFileSearch',
-    order: 5,
-    countable: true,
-    expandStrategy: 'auto',
-  },
+  { key: 'file_write', labelKey: 'catFileWrite', order: 2, countable: true, expandStrategy: 'auto' },
+  { key: 'file_modify', labelKey: 'catFileModify', order: 3, countable: true, expandStrategy: 'auto' },
+  { key: 'file_delete', labelKey: 'catFileDelete', order: 4, countable: true, expandStrategy: 'auto' },
+  { key: 'file_search', labelKey: 'catFileSearch', order: 5, countable: true, expandStrategy: 'auto' },
   { key: 'command', labelKey: 'catCommand', order: 6, countable: true, expandStrategy: 'auto' },
   { key: 'preview', labelKey: 'catPreview', order: 7, countable: true, expandStrategy: 'auto' },
-  {
-    key: 'web_search',
-    labelKey: 'catWebSearch',
-    order: 8,
-    countable: true,
-    expandStrategy: 'auto',
-  },
+  { key: 'web_search', labelKey: 'catWebSearch', order: 8, countable: true, expandStrategy: 'auto' },
   { key: 'mcp', labelKey: 'catMcp', order: 9, countable: true, expandStrategy: 'auto' },
   { key: 'skill', labelKey: 'catSkill', order: 10, countable: true, expandStrategy: 'auto' },
   {
@@ -131,9 +101,8 @@ export const CATEGORY_TABLE: readonly CategoryDef[] = [
 ] as const
 
 /** 类目键 → 定义 的 O(1) 查询表 */
-export const CATEGORY_TABLE_BY_KEY: Readonly<Record<CategoryKey, CategoryDef>> = Object.fromEntries(
-  CATEGORY_TABLE.map((d) => [d.key, d]),
-) as Record<CategoryKey, CategoryDef>
+export const CATEGORY_TABLE_BY_KEY: Readonly<Record<CategoryKey, CategoryDef>> =
+  Object.fromEntries(CATEGORY_TABLE.map((d) => [d.key, d])) as Record<CategoryKey, CategoryDef>
 
 // ─── 工具名 → 类目映射 ─────────────────────────────────────────────
 // 已知工具名精确命中;MCP 类按命名约定识别;其余(插件/MCP 动态名)一律 other。
@@ -248,9 +217,6 @@ export interface ToolNameCount {
 /** 聚合后的一个类目 run(一张卡) */
 export interface CategoryRun {
   categoryKey: CategoryKey
-  /** b75-5#3:流式稳定分组 key —— 锚定组内首行工具名,
-   *  同类目被其他类目打断后再次出现时 key 不冲突(原用 categoryKey 会撞 key)。 */
-  groupKey: string
   labelKey: string
   order: number
   countable: boolean
@@ -261,26 +227,17 @@ export interface CategoryRun {
   tools: ToolNameCount[]
 }
 
-function makeRun(categoryKey: CategoryKey, tools: ToolNameCount[]): CategoryRun {
+function makeRun(categoryKey: CategoryKey, first: ToolNameCount): CategoryRun {
   const def = CATEGORY_TABLE_BY_KEY[categoryKey]
-  // groupKey 锚定首行工具名:同类目多段时各段首工具通常不同,避免 React key 冲突
-  const anchor = tools[0]?.toolName ?? ''
   return {
     categoryKey,
-    groupKey: `${categoryKey}::${anchor}`,
     labelKey: def.labelKey,
     order: def.order,
     countable: def.countable,
     expandStrategy: def.expandStrategy,
-    totalCount: tools.reduce((s, t) => s + t.count, 0),
-    tools,
+    totalCount: first.count,
+    tools: [first],
   }
-}
-
-/** 给 run 列表的 groupKey 追加段序号,确保同类目多段(含同首工具)的 key 全局唯一。
- *  流式末尾追加时,已有段的序号不变 → groupKey 稳定 → 展开态不丢。 */
-function withSegmentIndex(runs: CategoryRun[]): CategoryRun[] {
-  return runs.map((r, i) => ({ ...r, groupKey: `${r.groupKey}::${i}` }))
 }
 
 /** run 列表按类目 order 稳定排序,便于渲染顺序与断言 */
@@ -309,10 +266,10 @@ export function aggregateCategoryRuns(ordered: ToolNameCount[]): CategoryRun[] {
       last.tools.push(item)
       last.totalCount += item.count
     } else {
-      runs.push(makeRun(cat, [item]))
+      runs.push(makeRun(cat, item))
     }
   }
-  return withSegmentIndex(runs)
+  return runs
 }
 
 /**
@@ -320,7 +277,9 @@ export function aggregateCategoryRuns(ordered: ToolNameCount[]): CategoryRun[] {
  * 无顺序信息 → 每个类目合并为单一 run(不臆造连续关系)。
  * 纯函数,可单测。
  */
-export function summarizeCategoriesByTool(toolsByCategory: Record<string, number>): CategoryRun[] {
+export function summarizeCategoriesByTool(
+  toolsByCategory: Record<string, number>,
+): CategoryRun[] {
   const byCat = new Map<CategoryKey, ToolNameCount[]>()
   for (const [toolName, count] of Object.entries(toolsByCategory)) {
     const cat = resolveToolCategory(toolName)
@@ -330,11 +289,12 @@ export function summarizeCategoriesByTool(toolsByCategory: Record<string, number
   }
   const runs: CategoryRun[] = []
   for (const [cat, tools] of byCat) {
-    // byCat 的每个键都是在推入至少一个元素后紧接着 set 的(见上方循环),
-    // 故 tools 恒非空;totalCount / tools 直接由 makeRun 从数组派生,
-    // 不再经数组下标取值(noUncheckedIndexedAccess 下 `tools[0]` 类型为可空)。
-    runs.push(makeRun(cat, tools))
+    const total = tools.reduce((s, t) => s + t.count, 0)
+    const run = makeRun(cat, tools[0])
+    run.totalCount = total
+    run.tools = tools
+    runs.push(run)
   }
-  return withSegmentIndex(sortRuns(runs))
+  return sortRuns(runs)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
