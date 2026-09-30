@@ -43,10 +43,14 @@
  *   node scripts/check-dangling-local-imports.mjs --staged        # pre-commit(判索引,锚 HEAD)
  *   node scripts/check-dangling-local-imports.mjs --files a b     # 按文件自验(判工作区)
  *   node scripts/check-dangling-local-imports.mjs --all          # 额外逐条列出 D4 的"只报数"同名对
+ *   node scripts/check-dangling-local-imports.mjs --rev <提交/树> [--anchor <提交>]
+ *     # 审任意面(对象空间落地的涉事判据出口,G-815985):锚点缺省=被审提交的首个父提交;
+ *     # 树对象没有父提交,不给 --anchor 即无法判定(exit 2)。`SELF_SKIP` 在这一档不吃。
  *   node scripts/check-dangling-local-imports.mjs --self-test     # 逻辑自检(正反成对)
  * 紧急跳过:HUSKY_SKIP_DANGLING_IMPORTS=1 git commit ...
  */
 import { existsSync, readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // git 派生与 `cat-file --batch` 取材一律走共用层 scripts/lib/face-reader.mjs(绝对路径 git、
@@ -60,7 +64,7 @@ import { catBatch, gitRaw } from './lib/face-reader.mjs'
 import { maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const SELF_SKIP = 'HUSKY_SKIP_DANGLING_IMPORTS'
+export const SELF_SKIP = 'HUSKY_SKIP_DANGLING_IMPORTS'
 const EXT = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']
 /** 带 `?raw` / `?url` 后缀的导入(Vite/测试里读源码文本):查询串在 resolveSpec 里剥掉,
  *  剩下的路径仍须存在 —— 首版把 6 处 `?raw` 全误判成 D2。 */
@@ -128,6 +132,84 @@ function treePaths(rev) {
     : gitRaw(['ls-tree', '-r', '--name-only', rev, '-z'], ROOT, { timeout: GIT_TIMEOUT })
         .split('\0')
         .filter(Boolean)
+}
+
+// ── 任意提交/树的取材(G-815985 `--rev`):对象空间落地在 commit-tree 之前 ─────────────
+// 对 onTree 那棵树跑涉事判据。树没有引用,不能"造一枚提交去审" —— 造了再拒会给守门 30a
+// 留 unreachable 地雷(判据注释见 object-space-land.mjs 的 onTree),故这里按 blob 取正文:
+// `ls-tree -r -l` 一次拿 <path → blob,size>,再按 blob oid 批量取(`<tree>:<path>` 不解析)。
+function revKindOf(rev) {
+  try {
+    const t = gitRaw(['cat-file', '-t', rev], ROOT, { timeout: GIT_TIMEOUT }).trim()
+    return t === 'commit' || t === 'tree' ? t : null
+  } catch {
+    return null
+  }
+}
+
+/** 某提交/树的 <path → {blob,size}>(一次 `ls-tree -r -l`)。commit 与 tree 通吃。 */
+export function treeBlobTable(rev) {
+  const table = new Map()
+  for (const row of gitRaw(['ls-tree', '-r', '-l', '--full-name', '-z', rev], ROOT, {
+    timeout: GIT_TIMEOUT,
+  }).split('\0')) {
+    if (!row) continue
+    const tab = row.indexOf('\t')
+    if (tab < 0) continue
+    const meta = row.slice(0, tab).split(/\s+/)
+    const size = Number(meta[3])
+    table.set(row.slice(tab + 1), {
+      blob: meta[2] ?? '',
+      size: Number.isFinite(size) ? size : 0,
+    })
+  }
+  return table
+}
+
+/** 单一面的完整审计(被审面 + 棘轮锚点面共用):rev 提交/树 → {files, byFile, aliasUnparsed, shadow}。
+ *  存在性面只取被审树自身(不看磁盘:磁盘是另一个面,主流程那条"索引 vs HEAD"教训见 treePaths 头注)。
+ *  别名表按同面取(tsconfig 不在源文件枚举里,须另开一批 —— 主流程同位置有同一条注释,两处同形)。 */
+export function auditOneFace(rev) {
+  const table = treeBlobTable(rev)
+  const files = [...table.keys()].filter(
+    (p) => SRC_RE.test(p) && !SKIP_DIR.test(p) && !FIXTURE_ROOT.test(p),
+  )
+  const tsPaths = [...table.keys()].filter((p) => TSCONFIG_RE.test(p) && !SKIP_DIR.test(p))
+  let read
+  if (revKindOf(rev) === 'tree') {
+    const oids = [...table.values()].map((v) => v.blob).filter(Boolean)
+    const got = oids.length ? catBatch(ROOT, oids) : new Map()
+    const cache = new Map()
+    read = (p) => {
+      if (cache.has(p)) return cache.get(p)
+      const cell = table.get(p)
+      const v = cell ? (got.get(cell.blob) ?? null) : null
+      cache.set(p, v)
+      return v
+    }
+  } else {
+    const want = [...new Set([...files, ...tsPaths])]
+    const sizes = new Map([...table.entries()].map(([p, v]) => [`${rev}:${p}`, v.size]))
+    const map = catBatchBudgeted(
+      want.map((p) => `${rev}:${p}`),
+      sizes,
+    )
+    const cache = new Map()
+    read = (p) => {
+      if (cache.has(p)) return cache.get(p)
+      const v = map.get(`${rev}:${p}`)
+      cache.set(p, v === undefined ? null : v)
+      return cache.get(p)
+    }
+  }
+  const tracked = new Set(table.keys())
+  const hasPath = (p) => tracked.has(p)
+  const alias = buildAliasIndex((p) => read(p) ?? null, tsPaths)
+  const jsSites = []
+  const byFile = auditTree(read, files, hasPath, alias.index, jsSites)
+  const shadow = auditShadowJs(read, jsSites, new Set(files))
+  mergeShadow(byFile, shadow)
+  return { files, byFile, aliasUnparsed: alias.unparsed, aliasSeen: alias.seen, shadow }
 }
 
 const NON_CODE_EXT =
@@ -761,14 +843,97 @@ export function splitFresh(byFile, tolOf) {
   return { fresh, tolerated }
 }
 
+// `--rev <提交/树> [--anchor <提交>]`:审任意面(对象空间落地的涉事判据出口,G-815985)。
+// 棘轮锚点 = 锚点提交自身的每文件违规数(与 --staged 同构,不是 0 —— 否则存量整片报红,
+// 即恒红门,§12e);树没有父提交,不给 --anchor 即无法判定。`--rev` 与 `--staged`/`--files`
+// 同给 ⇒ 用法错 exit 2。`SELF_SKIP` 在这一档不吃:调用方点名要结论,跳过等于没审
+// (与 check:all bulk 里的默认跳过是两回事,静默跳过会把"没审"写成"审过")。
+async function revMain(rev, anchorOpt, conflicts) {
+  if (!rev || rev.startsWith('--')) {
+    console.log(
+      '❌ 无法判定:缺 --rev 取值(node scripts/check-dangling-local-imports.mjs --rev <提交/树> [--anchor <提交>])',
+    )
+    process.exit(2)
+  }
+  if (conflicts.isStaged || conflicts.filesMode) {
+    console.log('❌ 用法错:--rev 不与 --staged/--files 同用(面只能有一个)')
+    process.exit(2)
+  }
+  const kind = revKindOf(rev)
+  if (!kind) {
+    console.log(`❌ 无法判定:rev 解析不到 ${rev}(对象库里没有,先 fetch 再审)`)
+    process.exit(2)
+  }
+  let anchor = anchorOpt && !anchorOpt.startsWith('--') ? anchorOpt : null
+  if (!anchor) {
+    if (kind !== 'commit') {
+      console.log('❌ 无法判定:树对象没有父提交可当锚点,请显式 --anchor <提交>')
+      process.exit(2)
+    }
+    try {
+      anchor = gitRaw(['rev-parse', `${rev}^`], ROOT, { timeout: GIT_TIMEOUT }).trim()
+    } catch {
+      anchor = null // 根提交:锚点空 ⇒ 新增即报
+    }
+  } else if (revKindOf(anchor) !== 'commit') {
+    console.log(`❌ 无法判定:anchor 须是提交 ${anchor}`)
+    process.exit(2)
+  }
+  let face
+  const anchorCounts = new Map()
+  try {
+    face = auditOneFace(rev)
+    if (anchor) {
+      const a = auditOneFace(anchor)
+      for (const [f, list] of a.byFile) anchorCounts.set(f, list.length)
+    }
+  } catch (e) {
+    console.log(`❌ 无法判定:取材失败(${e && e.message ? e.message : e})`)
+    process.exit(2)
+  }
+  if (!face.files.length) {
+    console.log(`❌ 无法判定:${rev} 面上枚举到 0 个源文件 —— 尺子失效不记绿`)
+    process.exit(2)
+  }
+  const { fresh, tolerated } = splitFresh(face.byFile, (f) => anchorCounts.get(f) ?? 0)
+  const total = [...face.byFile.values()].reduce((s, v) => s + v.length, 0)
+  // D3 台账与主流程共用同一份 KNOWN_ALIAS_LEDGER(不另立第二份,两处实现必漂移)。
+  const isLedgered = (file, v) => v.rule === 'D3' && KNOWN_ALIAS_LEDGER.includes(`${file}|${v.raw}`)
+  const freshNonLedger = fresh
+    .map(({ file, list, tol }) => ({ file, list: list.filter((v) => !isLedgered(file, v)), tol }))
+    .filter((x) => x.list.length)
+  console.log(`[dangling-imports] 内容口径:--rev ${rev}(${kind}面,锚点=${anchor ?? '空(根提交)'})`)
+  console.log(
+    `[dangling-imports] 别名表:同面 tsconfig 现读 / 解析失败 ${face.aliasUnparsed} 份(那一格的别名判据未生效)`,
+  )
+  console.log(
+    `[dangling-imports] 扫描 ${face.files.length} 文件 | 悬空 ${total} 处(锚点容忍 ${tolerated} / 新增 ${freshNonLedger.length} 文件)`,
+  )
+  for (const { file, list, tol } of fresh) {
+    console.log(`   ${file}(锚点 ${tol} 处 → 本次 ${list.length} 处)`)
+    for (const v of list) console.log(`      :${v.line} [${v.rule}] ${v.raw}  → ${v.hint}`)
+  }
+  if (!freshNonLedger.length) {
+    console.log('✅ 无新增(相对锚点;台账 D3 只报数不计红)')
+    return
+  }
+  console.log(`❌ 新增 ${freshNonLedger.length} 个文件有悬空(相对锚点 ${anchor ?? '空'}),拒绝`)
+  process.exit(1)
+}
+
 // ── CLI ───────────────────────────────────────────────────────────────────────────────
 async function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return selfTest()
+  const ri = argv.indexOf('--rev')
+  const REV = ri >= 0 ? argv[ri + 1] : null
+  const an = argv.indexOf('--anchor')
+  const ANCHOR_OPT = an >= 0 ? argv[an + 1] : null
   const isStaged = argv.includes('--staged')
   const SHOW_ALL = argv.includes('--all')
   const fi = argv.indexOf('--files')
   const FILES_MODE = fi >= 0 ? argv.slice(fi + 1).filter((a) => !a.startsWith('--')) : null
+  if (REV) return revMain(REV, ANCHOR_OPT, { isStaged, filesMode: FILES_MODE })
   if (process.env[SELF_SKIP] === '1') {
     console.log(`⏭️  已跳过(${SELF_SKIP}=1):悬空具名导入对账未执行`)
     return
@@ -1324,6 +1489,74 @@ function selfTest() {
     if (!ok) fail++
     console.log(
       `${ok ? '✅' : '❌'} ${c.name} (悬空 ${n} 处/期望 ${c.red};影子 ${d4} 处/期望 ${c.d4 ?? 0};只报数 ${dead}/期望 ${c.dead ?? 0};未判定 ${undet}/期望 ${c.undet ?? 0})`,
+    )
+  }
+  {
+    // G-815985 `--rev` 面的 kind 判定三态(commit/tree/解析不到)。
+    const treeSha = gitRaw(['rev-parse', 'HEAD^{tree}'], ROOT, { timeout: GIT_TIMEOUT }).trim()
+    const ok =
+      revKindOf('HEAD') === 'commit' &&
+      revKindOf(treeSha) === 'tree' &&
+      revKindOf('deadbeefdeadbeefdeadbeefdeadbeefdeadbeef') === null
+    if (!ok) fail++
+    console.log(`${ok ? '✅' : '❌'} --rev 面判定:HEAD=commit / HEAD树=tree / 假sha=null`)
+  }
+  {
+    // G-815985 `--rev` 阳性对照(真历史,不是夹具):f3857e05cd 修掉 input-status-slot 引用的
+    // 两个从未写下的导出 ⇒ 以修后为锚审修前,必须恰好点名那 1 文件 2 处 D1。
+    // 变异对照:锚点取反(审修后以修后为锚)⇒ 新增 0 —— 锚点方向错了,尺子必须安静,而不是反咬。
+    const broken = auditOneFace('f3857e05cd^')
+    const fixed = auditOneFace('f3857e05cd')
+    const cnt = (by) => {
+      const m = new Map()
+      for (const [f, l] of by) m.set(f, l.length)
+      return m
+    }
+    const fixedCnt = cnt(fixed.byFile)
+    const { fresh } = splitFresh(broken.byFile, (f) => fixedCnt.get(f) ?? 0)
+    const hit = fresh.find((x) => x.file.endsWith('input-status-slot.tsx'))
+    const { fresh: freshRev } = splitFresh(fixed.byFile, (f) => fixedCnt.get(f) ?? 0)
+    const ok =
+      fresh.length === 1 &&
+      !!hit &&
+      hit.list.length === 2 &&
+      hit.list.every((v) => v.rule === 'D1') &&
+      freshRev.length === 0
+    if (!ok) fail++
+    console.log(
+      `${ok ? '✅' : '❌'} --rev 阳性对照:修前 vs 修后锚点恰好新增 input-status-slot.tsx 2 处 D1;修后 vs 修后锚点新增 0`,
+    )
+  }
+  {
+    // G-815985 `--rev` 的 CLI 形状(派生自身):假 rev 与面冲突必须 exit 2(无法判定,不是"没违规");
+    // SELF_SKIP 在 --rev 档不吃(调用方点名要结论,跳过等于没审)。
+    const gate = fileURLToPath(import.meta.url)
+    const run = (args, env) => {
+      try {
+        const out = execFileSync(process.execPath, [gate, ...args], {
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 180000,
+          env: env ?? process.env,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        return { rc: 0, out: String(out) }
+      } catch (e) {
+        return { rc: e.status ?? 9, out: String((e.stdout ?? '') + (e.stderr ?? '')) }
+      }
+    }
+    const bad = run(['--rev', 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'])
+    const conflict = run(['--rev', 'HEAD', '--staged'])
+    const skipped = run(['--rev', 'HEAD'], { ...process.env, [SELF_SKIP]: '1' })
+    const ok =
+      bad.rc === 2 &&
+      conflict.rc === 2 &&
+      skipped.rc === 0 &&
+      skipped.out.includes('内容口径:--rev') &&
+      !skipped.out.includes('已跳过')
+    if (!ok) fail++
+    console.log(
+      `${ok ? '✅' : '❌'} --rev CLI 形状:假rev exit 2 / 面冲突 exit 2 / SELF_SKIP 下仍审计且 exit 0`,
     )
   }
   {
