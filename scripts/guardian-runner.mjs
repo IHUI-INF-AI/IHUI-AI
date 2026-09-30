@@ -4420,6 +4420,24 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 错误文案有界化(1 项,blocking)---
+  {
+    id: '181',
+    label:
+      '错误文案有界化守门(b76-12b票1配套):错误文案出边界(PERSISTENT sink)的 JSON.stringify 内插必须有界或带 ref= 基线;测试面/CLI 面/stdout-only 豁免,基线棘轮只减不增',
+    script: 'check-error-message-bounded.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_ERROR_MESSAGE_BOUNDED',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-error-message-bounded.mjs',
+      '自检:node scripts/check-error-message-bounded.mjs --self-test(12 例)',
+      '应急放行:HUSKY_SKIP_ERROR_MESSAGE_BOUNDED=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
