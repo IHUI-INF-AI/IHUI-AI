@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc, asc, sql, ilike, inArray } from 'drizzle-orm'
+import { eq, and, ne, desc, asc, sql, ilike, inArray } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
 import {
   agents,
@@ -387,12 +387,19 @@ export async function createSettlement(
   return rows[0]
 }
 
-/** 将指定结算记录置为已结算。 */
+/**
+ * 将指定结算记录置为已结算。
+ *
+ * 终态不可逆出:where 带 `status != 'settled'` 守卫 —— 已 settled 的行拒绝二次迁移,
+ * DB 级拦截重复核写(否则并发/迟到调用会覆盖 settledAt)。返回 undefined 表示
+ * "这次迁移没发生"(行不存在或已是终态),调用方据此丢弃迟到结果。
+ * 同型纪律见 order-queries.ts cancelPayment 的条件 UPDATE(status 守卫防 TOCTOU)。
+ */
 export async function settleSettlement(id: string): Promise<AgentSettlement | undefined> {
   const rows = await db
     .update(agentSettlements)
     .set({ status: 'settled', settledAt: new Date(), updatedAt: new Date() })
-    .where(eq(agentSettlements.id, id))
+    .where(and(eq(agentSettlements.id, id), ne(agentSettlements.status, 'settled')))
     .returning()
   return rows[0]
 }
