@@ -98,7 +98,7 @@ vi.mock('@/components/publish/CountdownTimer', () => ({
 
 vi.mock('@ihui/api-client', () => ({
   listScanLoginPlatforms: () => listScanLoginPlatforms(),
-  startScanLogin: (platform: string) => startScanLogin(platform),
+  startScanLogin: (...args: unknown[]) => startScanLogin(...args),
   getScanLoginStatus: (taskId: string) => getScanLoginStatus(taskId),
   fetchScanLoginQr: (taskId: string) => fetchScanLoginQr(taskId),
   cancelScanLogin: (taskId: string) => cancelScanLogin(taskId),
@@ -165,6 +165,7 @@ describe('单平台扫码登录弹窗 —— 必须走纯 HTTP 那条通的腿',
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.setSystemTime(new Date('2026-09-29T00:00:00Z'))
+    window.localStorage.clear() // 会话复用偏好跨用例必须复位,否则开关用例会污染相邻用例
     globalThis.URL.createObjectURL = vi.fn(() => 'blob:mock-qr')
     globalThis.URL.revokeObjectURL = vi.fn()
     for (const m of [
@@ -196,7 +197,7 @@ describe('单平台扫码登录弹窗 —— 必须走纯 HTTP 那条通的腿',
 
   it('A1 发起走 startScanLogin,绝不走线上 404 的 createBrowserSession', async () => {
     await openAndStart()
-    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('zhihu'))
+    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('zhihu', { reuseSession: true }))
     expect(createBrowserSession).not.toHaveBeenCalled()
     expect(detectLoginFromCdp).not.toHaveBeenCalled()
   })
@@ -260,7 +261,7 @@ describe('单平台扫码登录弹窗 —— 必须走纯 HTTP 那条通的腿',
   it('A6 带默认平台的入口一打开就预热(startScanLogin 在点击前已发出)', async () => {
     render(<ScanLoginDialog open onOpenChange={vi.fn()} defaultPlatform="zhihu" />)
     await screen.findByText('accounts.startScanLogin')
-    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('zhihu'))
+    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('zhihu', { reuseSession: true }))
     // 预热只发一次:此时用户还没点任何东西
     expect(startScanLogin).toHaveBeenCalledTimes(1)
   })
@@ -268,7 +269,7 @@ describe('单平台扫码登录弹窗 —— 必须走纯 HTTP 那条通的腿',
   it('A6b 预热不等于自动开扫:二维码不进入轮询,用户仍看到「开始扫码登录」', async () => {
     render(<ScanLoginDialog open onOpenChange={vi.fn()} defaultPlatform="zhihu" />)
     await screen.findByText('accounts.startScanLogin')
-    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('zhihu'))
+    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('zhihu', { reuseSession: true }))
     // 预热只是把后端任务点起来:界面停在 idle,没有轮询、没有二维码
     expect(getScanLoginStatus).not.toHaveBeenCalled()
     expect(fetchScanLoginQr).not.toHaveBeenCalled()
@@ -331,5 +332,17 @@ describe('单平台扫码登录弹窗 —— 必须走纯 HTTP 那条通的腿',
     await new Promise((r) => setTimeout(r, 350))
     expect(screen.getByTestId('qr-placeholder')).toBeTruthy()
   })
+  it('A12 会话复用开关:关掉后发起带 reuseSession:false,并持久化到 localStorage', async () => {
+    listScanLoginPlatforms.mockResolvedValue(ok({ platforms }))
+    render(<ScanLoginDialog open onOpenChange={vi.fn()} defaultPlatform="zhihu" />)
+    await screen.findByText('accounts.startScanLogin')
+    fireEvent.click(screen.getByText('accounts.scanLoginReuseLabel'))
+    fireEvent.click(screen.getByText('accounts.startScanLogin'))
+    await waitFor(() =>
+      expect(startScanLogin).toHaveBeenCalledWith('zhihu', { reuseSession: false }),
+    )
+    expect(window.localStorage.getItem('ihui:scan-login:reuse-session')).toBe('0')
+  })
+
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
