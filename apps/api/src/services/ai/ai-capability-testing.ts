@@ -18,6 +18,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { aiCapabilities } from '@ihui/database'
 import { callRealLlm, type LlmMessage } from '../crew-llm-adapter.js'
+import { contentEqual } from '@ihui/shared'
 
 export interface TestCase {
   id: string
@@ -120,9 +121,9 @@ export async function runTestCase(capabilityId: string, testCase: TestCase): Pro
     output = result
     assertionResults.push({ description: '执行未抛出异常', passed: true })
 
-    // 期望值对比
+    // 期望值对比(b76-12d 票1:内容级判据唯一实现,键序不参与判定)
     if (testCase.expected !== undefined) {
-      const matches = JSON.stringify(output) === JSON.stringify(testCase.expected)
+      const matches = contentEqual(output, testCase.expected)
       assertionResults.push({
         description: '输出与期望一致',
         passed: matches,

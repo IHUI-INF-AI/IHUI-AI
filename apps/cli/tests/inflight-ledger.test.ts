@@ -14,6 +14,8 @@ import {
   LedgerFailure,
   LEDGER_FAILURE_CODES,
   isLedgerFailureCode,
+  LEDGER_RETRY_CODES,
+  isLedgerRetryCode,
   toLedgerFailure,
   DEFAULT_LEDGER_FAILURE_MEMO_MS,
 } from '../src/util/inflight-ledger.js';
@@ -231,3 +233,28 @@ describe('InflightLedger — 失败固化台账', () => {
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+describe('LEDGER_RETRY_CODES — b76-12g-3-40(G-998167) 重试轴三档', () => {
+  it('封闭集成员恰为 unsupported/unavailable/duplicate,与失败码正交不重叠', () => {
+    expect([...LEDGER_RETRY_CODES]).toEqual(['unsupported', 'unavailable', 'duplicate']);
+    const failureSet = new Set<string>(LEDGER_FAILURE_CODES);
+    for (const code of LEDGER_RETRY_CODES) {
+      expect(failureSet.has(code)).toBe(false);
+    }
+  });
+
+  it('isLedgerRetryCode:三档各命中一次,非档位值一律拒绝(不猜成因)', () => {
+    const seen: string[] = [];
+    for (const code of LEDGER_RETRY_CODES) {
+      expect(isLedgerRetryCode(code)).toBe(true);
+      seen.push(code);
+    }
+    expect(new Set(seen).size).toBe(3);
+    expect(isLedgerRetryCode('network')).toBe(false);
+    expect(isLedgerRetryCode('timeout')).toBe(false);
+    expect(isLedgerRetryCode('')).toBe(false);
+    expect(isLedgerRetryCode(42)).toBe(false);
+    expect(isLedgerRetryCode(null)).toBe(false);
+    expect(isLedgerRetryCode(undefined)).toBe(false);
+  });
+});
