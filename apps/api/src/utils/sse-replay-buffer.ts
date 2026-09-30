@@ -33,6 +33,12 @@ interface ReplayStream {
    * 事后无法从 events 反推,所以只有它必须落状态。
    */
   droppedCount: number
+  /**
+   * G-998166:流已进入释放保留窗口(流结束/异常后的 disposed-stale 态)。
+ * disposed 表项对「复用型」取句柄路径不可见(命中即删),但 60s 重放窗口内的
+   * 只读重放(getEventsAfter / getReplayWindowStatus)仍然有效。
+   */
+  disposed: boolean
 }
 
 const MAX_STREAMS = 200
@@ -70,6 +76,7 @@ export function registerStream(replayKey: string): void {
     createdAt: Date.now(),
     releaseTimer: null,
     droppedCount: 0,
+    disposed: false,
   })
 }
 
@@ -154,18 +161,38 @@ export function hasReplayHole(replayKey: string, seq: number): boolean {
   return !getReplayWindowStatus(replayKey, seq).complete
 }
 
-/** 流是否仍在缓冲窗口内(未释放/未过期)。 */
+/** 流是否仍在缓冲窗口内(未释放/未过期;含已结束但处于 60s 重放保留窗口的流)。 */
 export function isStreamActive(replayKey: string): boolean {
   return streams.has(replayKey)
+}
+
+/**
+ * G-998166:复用型取句柄唯一入口 —— 按 key 取到的表项必须先过「是否已 disposed」复核。
+ * 命中 disposed-stale 表项 ⇒ 清定时器 + 删表项 + warn 后返回 null(不得复用);
+ * 表项不在或已 disposed ⇒ null。写路径(挂监听/继续写)一律走这里,不得直读 Map。
+ */
+export function acquireLiveStream(replayKey: string): boolean {
+  const s = streams.get(replayKey)
+  if (!s) return false
+  if (s.disposed) {
+    if (s.releaseTimer) clearTimeout(s.releaseTimer)
+    streams.delete(replayKey)
+    console.warn(`[sse-replay-buffer] disposed-stale 表项命中并清理: ${replayKey}`)
+    return false
+  }
+  return true
 }
 
 /** 调度释放:流结束/异常后保留 RELEASE_DELAY_MS 再删除(定时器)。 */
 export function releaseStream(replayKey: string): void {
   const s = streams.get(replayKey)
   if (!s || s.releaseTimer) return
+  s.disposed = true
   s.releaseTimer = setTimeout(() => {
     const cur = streams.get(replayKey)
-    if (cur?.releaseTimer) {
+    // G-998166:迟到清理带对象身份复核 —— 只有当前表项仍是**调度时那一条**才删;
+    // 同 key 已被新 generation 重注册(registerStream 会换掉整条)时绝不误删新表项。
+    if (cur === s) {
       streams.delete(replayKey)
     }
   }, RELEASE_DELAY_MS)
