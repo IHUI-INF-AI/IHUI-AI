@@ -50,6 +50,8 @@ const STATUS_STYLE: Record<string, string> = {
 export default function EduCoursesPage() {
   const router = useRouter()
   const t = useTranslations('eduCoursesPage')
+  const tLearn = useTranslations('learn')
+  const tc = useTranslations('common')
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [page, setPage] = React.useState(1)
@@ -88,6 +90,17 @@ export default function EduCoursesPage() {
         </h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
+
+      <Alert
+        variant="info"
+        title={tLearn('title')}
+        description={tLearn('subtitle')}
+        action={
+          <Button variant="outline" size="sm" onClick={() => router.push('/learn')}>
+            {tc('viewMore')}
+          </Button>
+        }
+      />
 
       <SearchInput
         value={search}
