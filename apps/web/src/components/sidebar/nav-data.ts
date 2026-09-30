@@ -203,7 +203,7 @@ const USER_CHILDREN: NavItem[] = [
 const EDU_ITEMS: NavItem[] = [
   // 学习模块
   { href: '/edu/dashboard', labelKey: 'eduDashboard', icon: LayoutDashboard },
-  { href: '/edu/courses', labelKey: 'eduCourses', icon: BookOpen },
+  { href: '/learn', labelKey: 'eduCourses', icon: BookOpen },
   { href: '/edu/exam', labelKey: 'eduExam', icon: FileCheck },
   { href: '/edu/certificates', labelKey: 'eduCertificates', icon: Award },
   // 课程表
