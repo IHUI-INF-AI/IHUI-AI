@@ -48,7 +48,7 @@ export const vueToNextRedirects = [
   { source: '/admin/sms/template', destination: '/admin/sms', permanent: true },
   { source: '/edu/learn', destination: '/edu/courses', permanent: true },
   { source: '/edu/learn/detail/:courseId', destination: '/edu/courses/:courseId', permanent: true },
-  { source: '/edu/learn/certificate', destination: '/edu/certificates', permanent: true },
+  { source: '/edu/learn/certificate', destination: '/certificate', permanent: true },
   { source: '/edu/member', destination: '/student', permanent: true },
   { source: '/ai-world/detail/:id', destination: '/ai-world/:id', permanent: true },
   // /ai-news 页面已恢复开发(大模型排行榜 + AI 资讯聚合),不再重定向到 /ai-world
