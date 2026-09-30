@@ -13,19 +13,6 @@
 // 旧的"被自己以外引用一次"太弱 —— 桶文件顺手再导出就算引用,于是门会对一份根本不在 RN 屏幕上
 // 渲染的 DOM 副本判"一致性"。人工核对想退回"同名即配对"用 `--pair-all`(默认档必做可达性剔除)。
 //
-// 同侧多候选的选腿(2026-09-27 O81 票⑭,配对源纳入 packages/app/src/features/** 后立):
-// 一个族名可能同时躺在 components/ 与 features/** —— 三份活实现里 `packages/app/src/index.ts`
-// 的 re-export 指向的那一份才是包公开出口的那张脸(UserInfoCard 即此型:components 那份零深导入,
-// 出口在 features/cards)。选腿序 = **平台后缀 > 出口指向(re-export 链按名解到的那份,判据不是
-// 猜测)> 目录序**;任何一支多候选都在人读面与 --json 逐条点名 chosen/others/by —— "静默选一份"
-// 等于绿灯可能建立在死副本上(与票⑩ 配对键、票⑪ 换腿桶同一条洞的第三处)。
-// 落地补记:本票第一次落地曾被并发会话整块回写(工作树副本被 `heal-worktree-tracked` 对齐成
-// 旧版、旁路提交不在 HEAD 链上),同一内容第二次落地 —— 写面一律取 HEAD blob ⊕ 本票改动,
-// 不复用任何工作树副本。runner 128 的 `stagedTriggers` **原写"只含 components/ 不含 features/"**,
-// 该前提已于 2026-09-29 由 O92 票① 作废(现值含 `packages/app/src/features/`)⇒ 只改 features 组件的提交
-// 现在同样唤起本门。两句都只是历史:编号与 triggers 一律现读 `git show HEAD:scripts/guardian-runner.mjs`,
-// 不得按本行任何字面推断"某类提交不会被审"。
-//
 // 判定面与守门 77/83/93/98/103 同形:全量判 HEAD blob、--staged 判索引 blob、两面旗同给判死、
 // 清单与正文**同面同轮**取;任一面取不到 ⇒ exit 2「无法判定」,不回落另一个面(回落就是把"没判"
 // 写成"判过了")。刻意不开 --worktree 档:共享工作树常年滞后 HEAD,按磁盘判会在恒红与假绿之间来回跳,
@@ -41,62 +28,21 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitBinary, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { radiusEntriesOf, radiusLookup, radiusSetOf } from './lib/radius-tokens.mjs'
-import { facePx } from './lib/length-units.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 /**
- * 两端的组件面。RN 侧**三层都扫**(2026-09-27 票⑭ 起):`packages/app/src/components`(共享组件层)
- * + `packages/app/src/features/**`(共享屏层 —— @ihui/rn-app 的桶从 2026-09 起从这里再导出
- * UserInfoCard 等三份同名实现的出口份,不在配对源里就等于给"改了它任何读数都不动"发绿灯)
- * + `apps/mobile-rn/src/components`(端内自绘层)。只扫一层会漏判 —— 小程序组件若只与端内层同名,
- * 只扫共享层就把它算成"仅小程序",而那正应当被收进"两端同源"的目标形态。
- * 同名多命中**不再静默取先者**:选腿走 pickCandidate(平台后缀 > **同端自绘层** > 出口指向 > 目录序),
- * 候选逐条点名(见 scan 的 multiCandidates)。
- * 「同端自绘层」这一序(G- 2026-09-29 票#9)是给本门的**问题本身**定的:它问的是"同一个界面元素
- * 在小程序与 App 上长成同一张脸吗",而两端各自屏幕上渲染的那一份才是被问的那个元素。
- * 实测形态:`UserInfoCard` 在 RN 侧有三份活实现(`apps/mobile-rn/src/components/` = ProfileScreen
- * 直接 import 的那份、`packages/app/src/features/cards/` = `@ihui/rn-app` 桶出口那份、
- * `packages/app/src/components/` = 第二份桶出口),按"出口指向"选会拿**共享层卡**去对**小程序端内卡**
- * —— 一层不同形的比较,读数再大也不回答用户看的那两张脸。
+ * 两端的组件面。RN 侧**两层都扫**:`packages/app`(共享屏层)+ `apps/mobile-rn/src/components`
+ * (端内自绘层)。只扫一层会漏判 —— 小程序组件若只与端内层同名,只扫共享层就把它算成"仅小程序",
+ * 而那正应当被收进"两端同源"的目标形态。同名多命中时取排序靠前的层(共享层优先)。
  */
 const SIDES = {
   miniapp: ['apps/miniapp-taro/src/components'],
-  rn: [
-    'packages/app/src/components',
-    'packages/app/src/features',
-    'apps/mobile-rn/src/components',
-  ],
+  rn: ['packages/app/src/components', 'apps/mobile-rn/src/components'],
 }
-/**
- * 每端"自己屏幕上那份"的目录前缀。可达性层(pruneUnreachableLegs)按端各跑一遍图,
- * 走到这个前缀下的候选就是该端**自己**渲染的那一份 —— 所以这一序只在"两份都可达"时生效,
- * 端内那份是死副本时它根本进不了候选(不会把绿灯换成红灯)。
- */
-const OWN_END_PREFIX = { miniapp: 'apps/miniapp-taro/', rn: 'apps/mobile-rn/' }
-/**
- * **web 腿**(2026-09-30 立,补 AGENTS §4「web 与 miniapp-taro 视觉必须完全一致」在这一维的零判据)。
- *
- * 为什么过去没有:本门的 `SIDES` 只有 miniapp 与 rn,所以"web 改了小程序没改"这一型**结构上
- * 不可能被任何现有判据读到**(登记在册的那条:"128 的 rc 0 不得当成覆盖了三端")。
- * 为什么刻意**不塞进 SIDES**:塞进去会让几何 / SL / IC 每一维都平白多两组对,而 web 侧的尺寸
- * 住在 Tailwind utility 与 CSS 变量里,与 RN 的 StyleSheet 键**不在同一量纲**上 —— 那产出的
- * 不是"更多覆盖",而是把不比较的东西摆成在比较。
- * 所以这一腿今天只回答一个问题,而且只回答到文件级:**同一个组件名在 web 与小程序取的圆角档
- * 一不一样**。几何维刻意不判,并在人读面与 `--json` 面**明写"未判"**(不是"已确认相同")。
- *
- * 已知覆盖边界(逐条报出,不当通过):
- *  - 未做端入口可达性剔除(rn 腿那套图是从 RN 入口走的,web 需要另一张图)⇒ 一份死副本
- *    可能进配对;这一条写在报告里,不在代码里偷偷抹。
- *  - 只比**档值集合**(RD 量纲),不比元素名(RE 量纲):web 侧没有 StyleSheet 键可归属。
- */
-const WEB_DIRS = ['apps/web/src/components', 'packages/ui-react/src/components']
-const WEB_LEDGER = {
-  counts: 'webCounts',
-  radius: 'webRadiusCounts',
-  element: 'webElementRadiusCounts',
-  waivers: 'webWaivers',
-}
+/** 一个逻辑 px 折成该端单位要乘多少:小程序 750 设计宽 / 375pt ⇒ 2;RN 1:1。反向即除。 */
+const TO_PX = { miniapp: 2, rn: 1 }
+
 const BASELINE_REL = 'scripts/cross-end-ui-parity-baseline.json'
 /** 落在这些键/标识符上下文里的数字才算"看得见的尺寸"。 */
 const GEO_KEY =
@@ -107,13 +53,9 @@ const GEO_KEY =
  * `letter` 是 2026-09-26 补的:`spacing` 一支会命中 `letterSpacing`(字距 0.2 被当尺寸读数),
  * RN 端 BottomActionBar 的头注当时已把这一处如实写成"读数噪音"—— 噪音登记进注释不配当判据,
  * 尺子自己把它喂进集合就是判据错(RN 侧 `LABEL_LETTER_SPACING = 0.2` 即实例)。
- * `line-height` / `lineHeight` 是 2026-09-27 补的同一格:GEO_KEY 的 `line` 与 `height` 双双命中它,
- * 而小程序 CSS 里的无单位倍数 `line-height: 1` 会被 `toPx` 当作 rpx 折半成 **0.5**
- * (实测 `IntelligentAssistant` 的"仅小程序档 0.5"就是这么来的 —— 两端源码里都没有 0.5 这个数)。
- * 行高是排版量、不是盒档,按属性名排除,不做值域猜测(猜"1 太小"会把真实的 1px 边框一起放过)。
  */
 const NON_GEO_KEY =
-  /(weight|letter|line-height|lineheight|opacity|zindex|z-index|duration|delay|easing|alpha|percent|ratio|count|index|version|iteration|order|priority|limit|timeout|timestamp|revision|level|depth|page)/i
+  /(weight|letter|opacity|zindex|z-index|duration|delay|easing|alpha|percent|ratio|count|index|version|iteration|order|priority|limit|timeout|timestamp|revision|level|depth|page)/i
 const TW_SPACING_PX = (n) => n * 4
 const TW_FONT_PX = { xs: 12, sm: 14, base: 16, lg: 18, xl: 20, '2xl': 24, '3xl': 30 }
 /** 超过此值的"尺寸"不是组件几何(屏宽 / 动画毫秒 / 密度),不判。 */
@@ -178,19 +120,13 @@ export function stripComments(src) {
 
 const round = (n) => Math.round(n * 100) / 100
 
-/**
- * 原始数字 + 书写单位 → 逻辑 px。折算与单位归属都在 `lib/length-units.mjs` 的 `facePx` 里,只此一份。
- * `where` 说的是**这一格落在哪一面**:`'css'`(默认)= 经构建进样式表(小程序的 `Npx` 被 pxtransform
- * 1:1 写成 `Nrpx`,与 rpx 同折);`'runtime'` = 引号里的运行时串(端内 `px(n)` 助手那一型),不换。
- * 判哪一面的依据是取值的**书写形态** —— 只有引号里的值到不了 postcss,其余带单位的字面量都会落地成 rpx。
- */
-export function toPx(raw, unit, side, where = 'css') {
-  const n = Number(raw)
-  if (!Number.isFinite(n) || n <= 0) return null
-  const px = facePx(`${raw}${unit || ''}`, side, where)
-  if (px === null) return null
-  const r = round(px)
-  return r > MAX_GEO_PX ? null : r
+/** 原始数字 → px。带 rpx 后缀除 2;小程序端裸数字按该端量纲即 rpx,故同样折算。 */
+export function toPx(raw, unit, side) {
+  const v = Number(raw)
+  if (!Number.isFinite(v) || v <= 0) return null
+  const isRpx = unit === 'rpx' || (unit === undefined && side === 'miniapp')
+  const px = round(isRpx ? v / TO_PX.miniapp : v)
+  return px > MAX_GEO_PX ? null : px
 }
 
 /**
@@ -226,18 +162,10 @@ export function readGeometry(src, side, tiers = {}) {
     named[m[1]] = px
     push(px)
   }
-  /**
-   * 属性名必须**整体**取,不能靠 `\b` 从连字符串里捞后半截:CSS 的 `line-height: 1` 曾被读成键
-   * `height`、`letter-spacing: 0.2` 被读成 `spacing`,前者把无单位行高折半成 **0.5 幽灵档**
-   * (实测 IntelligentAssistant 即此例)。第一版修法是把"前面是连字符"的一律跳过 —— 那是**过头**:
-   * `max-width: 320rpx` 也是连字符属性,而且是合法长度档,跳掉它就凭空造出"仅 RN 档 160"
-   * (实测 CategoryBar 从 1 档涨到 4 档,复量新旧两口径才定位到这一支)。
-   * 现口径:键名允许带连字符,整体取出后驼峰归一(`max-width`→`maxWidth`),非长度属性由 NON_GEO_KEY 拦。
-   */
   for (const m of code.matchAll(
-    /([a-z][\w]*(?:-[a-z0-9]+)*)\s*[:=]\s*(\d+(?:\.\d+)?)(rpx|px)?(?![\w.%])/gi,
+    /\b([A-Za-z_$][\w$]*)\s*[:=]\s*(\d+(?:\.\d+)?)(rpx|px)?(?![\w.%])/g,
   )) {
-    if (!keyed(m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
+    if (!keyed(m[1])) continue
     push(toPx(m[2], m[3], side))
   }
   for (const m of code.matchAll(/\brpx\(\s*(\d+(?:\.\d+)?)\s*\)/g)) push(toPx(m[1], 'rpx', side))
@@ -250,17 +178,12 @@ export function readGeometry(src, side, tiers = {}) {
    * 后果不是"少读一个数"而是**造出假分叉**:对面写了同一个值,这边读不到 ⇒ 报成"仅 RN 档"。
    * 口径:引号内按空白切 token,逐 token 去掉引号后只认纯 `<数字><rpx|px>`;
    * `calc(50% - 26rpx)` 这类混算式**不计**(它不是档,是机制)。
-   * 引号里的那个数**不过 postcss**(运行时才落到 style 上),所以这一支交 `toPx` 时显式说明
-   * 落地面是 `runtime` —— 否则小程序 `minHeight:'120px'` 会被当成样式表的 120px 折成 60,
-   * 而对面写的 120 是真 120,一次折半就把同档读成分叉(实测 AgentRuntimePanel)。
    */
-  for (const m of code.matchAll(
-    /([a-z][\w]*(?:-[a-z0-9]+)*)\s*[:=]\s*(['"`])([^'"`\n]*)\2/gi,
-  )) {
-    if (!keyed(m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
+  for (const m of code.matchAll(/\b([A-Za-z_$][\w$]*)\s*[:=]\s*(['"`])([^'"`\n]*)\2/g)) {
+    if (!keyed(m[1])) continue
     for (const raw of m[3].trim().split(/\s+/)) {
       const one = /^(\d+(?:\.\d+)?)(rpx|px)$/.exec(raw)
-      if (one) push(toPx(one[1], one[2], side, 'runtime'))
+      if (one) push(toPx(one[1], one[2], side))
     }
   }
   /**
@@ -441,14 +364,9 @@ const normKey = (file) =>
 const nameOf = (file) => fileName(file).replace(/\.[^.]+$/, '')
 
 /**
- * 配对键:先走 `normKey`,再剥掉**平台后缀**。
- * 机制要写准(2026-09-30 实测更正 —— 原文说"构建器按后缀解析同名实现,`SectionHeader.taro.tsx` 才是
- * weapp 上被打包的那一份"是错的):`@tarojs/helper/dist/utils.js` 的 `resolveMainFilePath()` 拼的是
- * `${p}.${process.env.TARO_ENV}${ext}`,所以真正的后缀竞争只在 `X.weapp.tsx` vs `X.tsx` 这一族;
- * `.taro.tsx` 是本仓自己的命名约定,它被打包是因为调用方**显式写了**说明符。表里因此既要留 weapp/h5/alipay
- * 这类 TARO_ENV 词,也要留 taro 这个约定词 —— 但理由不同,不得再混成一句"构建器认后缀"。
- * 后缀必须剥进同一个键:`normKey` 会把 `.taro` 一起吸进键里 ⇒ `SectionHeader` 与 `SectionHeader.taro`
- * 成不了对。
+ * 配对键:先走 `normKey`,再剥掉**平台解析后缀**。
+ * Taro 构建器按后缀解析同名实现(`SectionHeader.taro.tsx` 才是 weapp 上被打包的那一份),
+ * 而 `normKey` 把 `.taro` 一起吸进键里 ⇒ `SectionHeader` 与 `SectionHeader.taro` 成不了对。
  * 本轮实测未配对名单里 `Selecter.taro / SectionHeader.taro / ColorfulLoader.taro` 全是这一型 ——
  * 是键判据太糙,不是"另一端没有这个元素"。只剥这一族明确的平台词,不做模糊匹配:
  * 宁可少配,也不把两个不同元素并成一对(那会造出假"同值",比漏配更坏)。
@@ -463,111 +381,31 @@ const baseName = (f) => {
 /** 同键多候选时,带平台后缀那份优先(它是该端构建期真被解析进去的那份)。 */
 const candRank = (f) => (PLATFORM_SUFFIX.test(normKey(f)) ? 0 : 1)
 
-/**
- * 同侧多候选的唯一选腿比较器 —— scan() 与 pruneUnreachableLegs() 的换腿**共用它**
- * (两处各写一份选法必然漂移,与票⑪"换腿桶必须与配对键同键同序"是同一条禁令)。
- * 四序取小者胜(lex):
- *   1) candRank:平台后缀那份先 —— 理由是**本仓约定**:带后缀那份是被 import 显式点名的适配腿,
- *      同名 plain 那份在本仓历次实测里都是不可达副本(D172/O92 两批皆如此);Taro 并不按 `.taro` 解析
- *      (它认 `${TARO_ENV}`,见上方配对键注),所以这一支是"约定 + 实测"的优先级,不是构建器行为。
- *      真判据仍是可达性维(pruneUnreachableLegs)—— 若哪天 plain 那份才是被点名的腿,该由可达性翻案,
- *      而不是靠这条后缀优先级硬压;
- *   2) 同端自绘层:`ownEndPrefix` 之下那份(该端屏幕上真渲染的那一份)—— 本门比的是"同一元素
- *      在两端的脸",拿共享层卡去对端内卡就是拿两个不同的元素互相记账;
- *   3) 出口指向:`preferFile` 是该族 re-export 链解到的那份(判据,不是猜测);
- *   4) 先入桶序:即 SIDES 目录优先级不变(共享层在前)—— 没有以上证据时的兜底。
- * 返回 {chosen, others, by};by = 击败次名的那一序('suffix'|'own-end'|'exit'|'order'),供报告点名
- * "为什么选这份" —— 只报 chosen 不报依据,与静默选一份只差一层措辞。
- * `ownEndPrefix` 不传 ⇒ 第二序对所有候选同值 ⇒ 行为与票#9 之前**逐字一致**(既有调用与镜像用例不受影响)。
- */
-export function pickCandidate(cands, preferFile = null, ownEndPrefix = null) {
-  const score = (f, i) => [
-    candRank(f),
-    ownEndPrefix && f.startsWith(ownEndPrefix) ? 0 : 1,
-    f === preferFile ? 0 : 1,
-    i,
-  ]
-  const cmp = (a, b) => {
-    for (let j = 0; j < 4; j++) if (a[j] !== b[j]) return a[j] - b[j]
-    return 0
+/** 两端清单 → 同名配对 + 计数。纯函数,构造面即可证明后缀与优先级两条判据。 */
+export function scan(listMini, listRn, aliases = {}) {
+  const rnMap = new Map()
+  for (const f of listRn) {
+    if (!/\.(tsx|jsx)$/i.test(fileName(f))) continue
+    const k = pairKey(f)
+    if (!rnMap.has(k) || candRank(f) < candRank(rnMap.get(k))) rnMap.set(k, f) // 共享层在前
   }
-  const order = cands.map((_, i) => i).sort((x, y) => cmp(score(cands[x], x), score(cands[y], y)))
-  const w = order[0]
-  let by = 'order'
-  if (order.length > 1) {
-    const a = score(cands[w], w)
-    const b = score(cands[order[1]], order[1])
-    for (let j = 0; j < 4; j++)
-      if (a[j] !== b[j]) {
-        by = ['suffix', 'own-end', 'exit', 'order'][j]
-        break
-      }
+  const miniMap = new Map()
+  for (const f of listMini) {
+    if (!/\.(tsx|jsx)$/i.test(fileName(f))) continue
+    const k = pairKey(f)
+    if (!miniMap.has(k) || candRank(f) < candRank(miniMap.get(k))) miniMap.set(k, f)
   }
-  return { chosen: cands[w], others: cands.filter((_, i) => i !== w), by }
-}
-
-/** 两端清单 → 同名配对 + 计数。纯函数,构造面即可证明后缀、出口指向、目录优先级三条选腿判据。
- *  `preferMaps` = { miniapp?: Map<pairKey, 出口指向文件>, rn?: ... } —— 只作 pickCandidate 的第二序;
- *  不传时行为与票⑭ 之前逐字一致(后缀 > 目录序),既有两侧的直接调用与镜像用例不受影响。 */
-export function scan(listMini, listRn, aliases = {}, preferMaps = {}) {
-  const bucketize = (list) => {
-    const m = new Map()
-    for (const f of list) {
-      if (!/\.(tsx|jsx)$/i.test(fileName(f))) continue
-      const k = pairKey(f)
-      if (!m.has(k)) m.set(k, [])
-      if (!m.get(k).includes(f)) m.get(k).push(f)
-    }
-    return m
-  }
-  const resolveSide = (list, prefer, ownEnd) => {
-    const winner = new Map()
-    const multi = new Map()
-    for (const [k, cands] of bucketize(list)) {
-      const pick = pickCandidate(cands, prefer?.get(k) ?? null, ownEnd)
-      winner.set(k, pick.chosen)
-      if (cands.length > 1) multi.set(k, pick)
-    }
-    return { winner, multi }
-  }
-  const rnSide = resolveSide(listRn, preferMaps.rn, OWN_END_PREFIX.rn)
-  const miniSide = resolveSide(listMini, preferMaps.miniapp, OWN_END_PREFIX.miniapp)
-  const rnMap = rnSide.winner
-  const miniMap = miniSide.winner
   const pairs = []
   for (const [k, f] of miniMap)
     if (rnMap.has(k))
       pairs.push({
-        // 被审的**文件**是选腿判据挑出的那一份(平台后缀 > 出口指向 > 目录序),但**族名**必须剥掉后缀:
+        // 被审的**文件**是带平台后缀那份(该端构建期真被解析的那一份),但**族名**必须剥掉后缀:
         // 名字若随当选候选变化,同一族在台账里就会有 `Foo` / `Foo.taro` 两个键,存量锚点互相顶掉
         // —— 与守门 134「锚点粒度不够细 ⇒ 换个写法就净零逃逸」是同一型。
         name: baseName(f),
         miniapp: f,
         rn: rnMap.get(k),
       })
-  /**
-   * 同侧多候选**逐条点名**(进 --json 与人读面)。这是"不得把两份实现读成两份真相"的最后一格:
-   * 族在 components/ 与 features/** 同时存在时,静默选一份 = 改另一份任何读数都不动,而读者
-   * 以为那一族在被审。只点名不判红 —— 多候选本身是结构事实,不是违规;违规的是**无声**。
-   */
-  const multiCandidates = []
-  for (const p of pairs) {
-    for (const [side, multi] of [
-      ['miniapp', miniSide.multi],
-      ['rn', rnSide.multi],
-    ]) {
-      const hit = multi.get(pairKey(p[side]))
-      if (hit)
-        multiCandidates.push({
-          name: p.name,
-          key: pairKey(p[side]),
-          side,
-          chosen: hit.chosen,
-          others: hit.others,
-          by: hit.by,
-        })
-    }
-  }
   /**
    * **别名对**:两端把同一个界面元素起了不同名字(`CategoryBar` vs `CategoryInlineBar`、
    * `DrawerComponent` vs `Drawer`)时,任何按文件名的判据都看不见它们 —— 这一格过去只以
@@ -613,7 +451,6 @@ export function scan(listMini, listRn, aliases = {}, preferMaps = {}) {
   const out = {
     pairs: pairs.sort((a, b) => a.name.localeCompare(b.name)),
     aliasProblems,
-    multiCandidates,
     onlyMiniapp: onlyMiniKeys.length,
     onlyRn: onlyRnKeys.length,
     // 名单本身必须报出来:只有计数的话,下一个人无从判断这 75 个名字里哪些是真不同名、
@@ -850,25 +687,7 @@ export function rejectProblem(r) {
   const until = Date.parse(`${r.until}T23:59:59Z`)
   if (Number.isNaN(until)) return `until 不是可解析的日期:${r.until}`
   if (until < Date.now()) return `拆对声明已到期(${r.until})⇒ 必须重新判这对到底是不是同一个元素`
-  /**
-   * `legs` 是**分腿维度**(2026-09-30 立,web 腿装上之后才出现的需要):
-   * 一条拆对声明若不分腿,就会连带把**另一条腿的在册配对**一起摘线 —— 实测 LoginPopUp / UserInfoCard
-   * 在主腿(miniapp↔RN)是有账的配对,而它们要拆的只是 web 腿那份同名件(不同物或零消费者)。
-   * 旧写法只有一张全局名单,拆 web 就等于替主腿卸闸(= 别人那一维静默归零而账面什么都看不见)。
-   * 缺省 = 两腿都拆,是为了让既有的 `FloatBox` 声明逐字不改行为。
-   */
-  if (r.legs !== undefined) {
-    if (!Array.isArray(r.legs) || r.legs.length === 0) return 'legs 必须是非空数组(main / web)'
-    const bad = r.legs.filter((l) => l !== 'main' && l !== 'web')
-    if (bad.length) return `legs 含未知腿名:${bad.join(',')} ⇒ 一条不认识的腿名会让该腿静默不拆`
-  }
   return null
-}
-
-/** 一条拆对声明作用在哪些腿上(缺省 = 两腿都拆;与 rejectProblem 的 `legs` 校验同处判定)。 */
-export function rejectLegs(r) {
-  const legs = Array.isArray(r?.legs) && r.legs.length ? r.legs : ['main', 'web']
-  return { main: legs.includes('main'), web: legs.includes('web') }
 }
 
 /* ───────────────── 端入口可达性:什么才算"一条腿" ───────────────── */
@@ -1075,126 +894,6 @@ function resolveSpecifier(spec, fromFile, ctx) {
   return { file: hit }
 }
 
-/** 各端"组件出口":rn 侧走包清单入口(@ihui/rn-app 的 main/exports),miniapp 侧只有这一份显式 barrel。 */
-const EXIT_BARRELS = { miniapp: 'apps/miniapp-taro/src/components/index.ts', rn: '@ihui/rn-app' }
-
-/**
- * 从一枚 package.json 文本取 @ihui 包的目录与入口。可达性层(pruneUnreachableLegs)
- * 与出口指向层(exitPreferMaps)**共用这一份读法** —— 两处各解析一遍 exports/main 必漂移,
- * 而漂移的产物是一条腿被判"可达"、另一处判"出口不指它"的自洽假账。
- * 坏 JSON 静默跳过:该包的 import 随后会落进"未判定",不在这一步猜。
- */
-function readManifestInto(rel, raw, pkgDir, pkgEntry) {
-  let j
-  try {
-    j = JSON.parse(raw)
-  } catch {
-    return
-  }
-  if (typeof j.name !== 'string' || !j.name.startsWith('@ihui/')) return
-  const dir = rel.split('/').slice(0, -1).join('/')
-  pkgDir.set(j.name, dir)
-  const x = j.exports
-  const dot = typeof x === 'string' ? x : x && typeof x === 'object' ? x['.'] : null
-  let e = null
-  if (typeof dot === 'string') e = dot
-  else if (dot && typeof dot === 'object')
-    e = dot.import || dot.default || Object.values(dot).find((v) => typeof v === 'string') || null
-  if (!e && typeof j.main === 'string') e = j.main
-  if (e) pkgEntry.set(j.name, relJoin(dir, e))
-}
-
-/**
- * 沿 **re-export 边**(带名)求 `name` 的定义文件集合:'re' 按 exported→original 往下传,
- * 'star' 原样传名,'use' 边**不跟** —— 有人 import 过不等于包对外出口指向它。
- * 本地定义(`export const` / 无 from 的 `export {}`)算定义处。断环靠 seen;
- * 取不到某跳文件 ⇒ notes 点名且该链不产出 —— "判不出"与"没有出口"是两件事,不得互写。
- */
-function exitDefsOf(name, file, ctx, readText, notes, seen) {
-  const out = new Set()
-  const key = `${file}#${name}`
-  if (seen.has(key)) return out
-  seen.add(key)
-  const src = readText(file)
-  if (src === null) {
-    notes.push(`出口链取不到 ${file} ⇒ 沿途名字不判优先(不当"没有出口")`)
-    return out
-  }
-  const { edges, localExports } = parseModuleEdges(src)
-  if (localExports.has(name)) out.add(file)
-  for (const e of edges) {
-    if (e.kind === 're' && e.map && e.map.has(name)) {
-      const r = resolveSpecifier(e.spec, file, ctx)
-      if (r.file)
-        for (const f of exitDefsOf(e.map.get(name), r.file, ctx, readText, notes, seen)) out.add(f)
-      else if (r.unresolved) notes.push(`出口链解析不到:${file} → ${e.spec}(不猜目标)`)
-    } else if (e.kind === 'star') {
-      const r = resolveSpecifier(e.spec, file, ctx)
-      if (r.file) for (const f of exitDefsOf(name, r.file, ctx, readText, notes, seen)) out.add(f)
-    }
-  }
-  return out
-}
-
-/**
- * 同侧多候选族的"出口指向"prefer 表:Map<pairKey, 文件>,只在链条**唯一**解到一份时收录;
- * 多解 / 零解 / 断链 ⇒ 不判优先并逐条 notes 点名(判不出不冒充成"没有出口",也不冒充成证据)。
- * 输入来自 scan() 的 multiCandidates —— 没有多候选就一次 git 派生都不做(真实仓今天只有
- * UserInfoCard 一族,读链 hop 个位数,不是全 corpus 扫描)。
- */
-export function exitPreferMaps(repoRoot, face, multiCandidates) {
-  const maps = { miniapp: new Map(), rn: new Map() }
-  const notes = []
-  if (!multiCandidates.length) return { maps, notes }
-  const all = listAllFace(repoRoot, face)
-  if (!all || !all.length) {
-    notes.push('整面清单取不到 ⇒ 出口指向判据本轮不生效(选腿退回 后缀>目录序,候选仍逐条点名)')
-    return { maps, notes }
-  }
-  const files = new Set(all)
-  const pre = face === 'staged' ? ':' : 'HEAD:'
-  const manifests = all.filter((p) => /^(?:apps|packages)\/[^/]+\/package\.json$/.test(p))
-  const gotM = catBatch(repoRoot, manifests.map((r) => pre + r), { maxBuffer: 1 << 26 })
-  const pkgDir = new Map()
-  const pkgEntry = new Map()
-  for (const rel of manifests) {
-    const raw = gotM.get(pre + rel)
-    if (raw !== undefined && raw !== null) readManifestInto(rel, raw, pkgDir, pkgEntry)
-  }
-  const ctx = { face, files, pkgDir, pkgEntry }
-  const entries = {
-    rn: pkgEntry.get(EXIT_BARRELS.rn) ?? null,
-    miniapp: files.has(EXIT_BARRELS.miniapp) ? EXIT_BARRELS.miniapp : null,
-  }
-  const textCache = new Map()
-  const readText = (f) => {
-    if (!textCache.has(f)) {
-      const g = catBatch(repoRoot, [pre + f], { maxBuffer: 1 << 24 })
-      const t = g.get(pre + f)
-      textCache.set(f, t === undefined || t === null ? null : t)
-    }
-    return textCache.get(f)
-  }
-  const namesBySide = { miniapp: new Map(), rn: new Map() } // pairKey → 族名
-  for (const c of multiCandidates) namesBySide[c.side].set(c.key, c.name)
-  for (const side of ['miniapp', 'rn']) {
-    if (!namesBySide[side].size) continue
-    const entry = entries[side]
-    if (!entry) {
-      notes.push(`${side} 侧出口入口取不到 ⇒ 该侧无出口优先(不猜)`)
-      continue
-    }
-    for (const [k, name] of namesBySide[side]) {
-      const defs = [...exitDefsOf(name, entry, ctx, readText, notes, new Set())]
-      if (defs.length === 1) maps[side].set(k, defs[0])
-      else if (defs.length > 1)
-        notes.push(`出口链对「${name}」解到 ${defs.length} 份定义 ⇒ 不判优先(${defs.join(' / ')})`)
-      else notes.push(`出口链没解到「${name}」的定义文件 ⇒ 不判优先(不当"没有出口")`)
-    }
-  }
-  return { maps, notes }
-}
-
 /**
  * Taro 路由表:`app.config.ts` 的 `pages` / `subPackages[].pages`(数据,不是 import)。
  * `root` 与紧随其后的 `pages` 配对;顶层 `pages` 出现在任何 root 之前,故初值为 ''。
@@ -1345,7 +1044,7 @@ function listAllFace(repoRoot, face) {
  * 三态都不静默:剔除逐条点名并带"从端入口不可达";解析不到的边计"未判定"并给总数;
  * 种子 / 路由表 / 清单取不到 ⇒ 整判据"无法判定";全部配对都被剔除 ⇒ 判据失明,同样不记通过。
  */
-export function pruneUnreachableLegs(repoRoot, face, scanned, opts = {}) {
+export function pruneUnreachableLegs(repoRoot, face, scanned) {
   const all = listAllFace(repoRoot, face)
   if (!all || !all.length)
     return {
@@ -1372,10 +1071,26 @@ export function pruneUnreachableLegs(repoRoot, face, scanned, opts = {}) {
   }
   const pkgDir = new Map()
   const pkgEntry = new Map()
-  // 包清单读法与出口指向层共用 readManifestInto —— 见该函数头注"两处各解析一遍必漂移"。
   for (const rel of manifests) {
     const raw = texts.get(rel)
-    if (raw !== undefined) readManifestInto(rel, raw, pkgDir, pkgEntry)
+    if (raw === undefined) continue
+    let j
+    try {
+      j = JSON.parse(raw)
+    } catch {
+      continue // 坏清单:该包按"解析不到"处理(它的 import 会落进未判定),不猜
+    }
+    if (typeof j.name !== 'string' || !j.name.startsWith('@ihui/')) continue
+    const dir = rel.split('/').slice(0, -1).join('/')
+    pkgDir.set(j.name, dir)
+    const x = j.exports
+    const dot = typeof x === 'string' ? x : x && typeof x === 'object' ? x['.'] : null
+    let e = null
+    if (typeof dot === 'string') e = dot
+    else if (dot && typeof dot === 'object')
+      e = dot.import || dot.default || Object.values(dot).find((v) => typeof v === 'string') || null
+    if (!e && typeof j.main === 'string') e = j.main
+    if (e) pkgEntry.set(j.name, relJoin(dir, e))
   }
   const extraUndet = []
   /**
@@ -1481,13 +1196,10 @@ export function pruneUnreachableLegs(repoRoot, face, scanned, opts = {}) {
   const kept = []
   const fallbacks = []
   /**
-   * 换腿规则(2026-09-27 票⑭ 起统一):可达候选里用**同一个** pickCandidate 重选,与 scan() 同判据
-   * (后缀 > 同端自绘层 > 出口指向 > 目录序)。两种触发各有实测出处:
-   *   ① 首选层是死副本(2026-09-26:UserInfoCard / NavBar / Carousel 的 `packages/app` 那份零可达
-   *      消费者,而 `apps/mobile-rn` 的同名件真在屏幕上)—— 旧行为"锁定首选层 → 不可达 → 剔对"
-   *      会让这三对覆盖率为 0 而账面不喊;
-   *   ② 首选层可达,但出口指向是另一份(票⑭:配对源纳入 features/** 后,components 与 features
-   *      两份可能都活着,静默按目录序 = 绿灯建立在"未必是包出口那张脸"的份上)。
+   * 首选层是**死副本**时退回下一层,而不是把整对丢掉(2026-09-26 实测:UserInfoCard / NavBar /
+   * Carousel 的 `packages/app` 那份零可达消费者,而 `apps/mobile-rn` 的同名件真在屏幕上)。
+   * 旧行为"锁定首选层 → 不可达 → 剔对" ⇒ 这三对**覆盖率为 0 而账面不喊**,读报告的人会以为已同值。
+   * 候选顺序仍按 SIDES 目录优先级不变,只是把"不可达"从"剔对"降级为"换腿";
    * 换到的是哪条腿必须留痕(静默换腿等于把判据的输入挪走而没人知道)。
    */
   const altsBySide = {}
@@ -1503,27 +1215,22 @@ export function pruneUnreachableLegs(repoRoot, face, scanned, opts = {}) {
     }
     altsBySide[side] = m
   }
-  const preferMaps = opts.preferMaps ?? {}
   for (const p of scanned.pairs) {
     const cur = { miniapp: p.miniapp, rn: p.rn }
     const moved = []
     for (const side of ['miniapp', 'rn']) {
       const reach = usedBySide[side]
-      // 取不到内容的当前腿不换(旧护栏:可能只是二进制/坏 blob,不当"不可达"也不动它)。
-      if (missing.has(cur[side])) continue
-      const bucket = altsBySide[side].get(pairKey(cur[side])) ?? []
-      const usable = bucket.filter((f) => !missing.has(f) && reach.has(f))
-      if (!usable.length) continue // 整桶都不可达 ⇒ 维持原位,交给下面的 bad 判定剔对(旧行为)
-      // pairKey 剥掉平台后缀之后,同一个桶里会同时躺着 `Foo.taro.tsx` 与 `Foo.tsx` —— 选腿与 scan()
-      // 共用 pickCandidate,四序同判据;并列时保留先入桶者,即 SIDES 目录优先级不变。
-      const pick = pickCandidate(
-        usable,
-        preferMaps[side]?.get(pairKey(cur[side])) ?? null,
-        OWN_END_PREFIX[side] ?? null,
+      if (reach.has(cur[side]) || missing.has(cur[side])) continue
+      const cands = (altsBySide[side].get(pairKey(cur[side])) ?? []).filter(
+        (f) => f !== cur[side] && !missing.has(f) && reach.has(f),
       )
-      if (pick.chosen !== cur[side]) {
-        moved.push(`${cur[side]} → ${pick.chosen}`)
-        cur[side] = pick.chosen
+      // pairKey 剥掉平台后缀之后,同一个桶里会同时躺着 `Foo.taro.tsx` 与 `Foo.tsx`。
+      // 换腿必须与 scan() 同序 —— 带平台后缀的那份才是该端构建期真被解析进去的那一份;
+      // 并列时保留先入桶者,即 SIDES 目录优先级不变。
+      const alt = cands.length ? cands.reduce((a, b) => (candRank(b) < candRank(a) ? b : a)) : null
+      if (alt) {
+        moved.push(`${cur[side]} → ${alt}`)
+        cur[side] = alt
       }
     }
     // 取不到内容的文件不参与判定(可能是二进制)—— 宁可不剔,也不把"没判"当"不可达"。
@@ -1545,7 +1252,7 @@ export function pruneUnreachableLegs(repoRoot, face, scanned, opts = {}) {
     scanned.pairs.length && !kept.length
       ? `全部 ${scanned.pairs.length} 对的两端都不可达:本门这一轮对空气判定,请核种子`
       : fallbacks.length
-        ? `${kept.length} 对中有 ${fallbacks.length} 对换了腿(首选层从端入口不可达,或可达候选里出口指向另一份):${fallbacks
+        ? `${kept.length} 对中有 ${fallbacks.length} 对换了腿(首选层是不可达的死副本,已退回下一层):${fallbacks
             .map((f) => f.name)
             .join(', ')} —— 覆盖面因此比账面大,不是"存量已同值"`
         : null
@@ -1582,20 +1289,8 @@ function listFace(repoRoot, face, dir) {
  * 面 → 两端清单 + 同名配对正文。一次 cat-file --batch 同面同轮读完;任一份取不到即 Undetermined。
  * `pairAll` 是人工核对的逃生舱:退回"只要同名就配对",不做可达性剔除(默认档必做)。
  */
-export function collect(
-  repoRoot,
-  face,
-  { pairAll = false, rejected = [], rejectMap = {}, aliases = {} } = {},
-) {
-  /**
-   * 拆对名单**按腿求**(`rejectLegs` 是那一份判据的唯一出口,这里不再判断形状)。
-   * 两腿共用一张全局名单会在"只想拆 web 那份同名件"时把主腿的在册配对一起摘掉 —— 表现不是报错,
-   * 而是主腿那一维静默归零(实测 LoginPopUp / UserInfoCard 在主腿有账)。
-   */
-  const rejFor = (leg) =>
-    new Set(rejected.filter((n) => (n in rejectMap ? rejectLegs(rejectMap[n]) : { main: true, web: true })[leg]))
-  const rejSet = rejFor('main')
-  const rejWebSet = rejFor('web')
+export function collect(repoRoot, face, { pairAll = false, rejected = [], aliases = {} } = {}) {
+  const rejSet = new Set(rejected)
   const lists = {}
   for (const [side, dirs] of Object.entries(SIDES)) {
     const acc = []
@@ -1606,49 +1301,7 @@ export function collect(
     }
     lists[side] = acc
   }
-  /**
-   * web 腿的同名配对。**复用同一个 `scan`**(pairKey、平台后缀剥离、同侧多候选的选腿四序都在
-   * 它里面)—— 另写一份配对键就会与主腿漂开,而漂开的表现是"两腿各自报 0 分叉而配的不是
-   * 同一件事"。`scan` 的第二参数字段名叫 `rn`,这一腿里装的是 web 文件;不改字段名是为了
-   * 不牵动主腿的十几处硬编码,代价是下面读数时必须逐条点名"这是 web 腿"。
-   */
-  let webPairs = []
-  let webRejected = []
-  let webBlocked = null
-  {
-    const webList = []
-    for (const dir of WEB_DIRS) {
-      const out = listFace(repoRoot, face, dir)
-      if (out === null) {
-        webBlocked = `${FACE_TXT[face]}取不到 web 腿目录清单 ${dir}`
-        break
-      }
-      webList.push(...out)
-    }
-    if (!webBlocked) {
-      const webScan = scan(lists.miniapp, webList, {}, {})
-      // 空面 ⇒ scan 判"枚举为空"。这一腿**不**因此把整道门打死:主腿(miniapp↔rn)是这门的存在理由,
-      // 一个次腿量不到就 exit 2,等于让夹具仓与任何只动主腿的提交被无关的一腿挡住(恒红那一型)。
-      // 代价必须用另一条补:台账里挂着 web 键而本轮整腿没产出 ⇒ 下面按"整族消失"判红,
-      // 所以"删掉 web 目录让这一维安静"走不通。
-      if (webScan.undetermined) webBlocked = `web 腿配对判据失明:${webScan.reason}`
-      else {
-        const webAll = webScan.pairs ?? []
-        webPairs = webAll.filter((p) => !rejWebSet.has(p.name))
-        // 被 web 腿拆掉的族必须**留名**:静默删族与"这一腿本来就配不到"在账面上长得一样,
-        // 而前者是判据输入被改动 —— 与主腿的 rejected 同一条要求。
-        webRejected = webAll.filter((p) => rejWebSet.has(p.name))
-      }
-    }
-  }
-  /**
-   * 两遍 scan:第一遍无出口信息,只为拿到"同侧多候选"名单 —— 出口链只需为这些族按名走
-   * re-export(无多候选 ⇒ 零额外 git 派生);第二遍带 prefer 重配对,选腿判据 =
-   * 平台后缀 > 出口指向 > 目录序。两遍都是纯函数,构造面可证(镜像 T16 钉两处必须共用)。
-   */
-  const probe = scan(lists.miniapp, lists.rn, aliases)
-  const exit = exitPreferMaps(repoRoot, face, probe.multiCandidates ?? [])
-  let pairs = scan(lists.miniapp, lists.rn, aliases, exit.maps)
+  let pairs = scan(lists.miniapp, lists.rn, aliases)
   if (pairs.undetermined) throw new Undetermined(`${pairs.reason} ⇒ 判据失明,不得记为通过`)
   /**
    * 拆对声明在**可达性剔除之前**生效:同名不同物的两个组件不该再产生任何一维读数
@@ -1663,7 +1316,7 @@ export function collect(
   let fallbacks = []
   if (pairAll) pairs = { ...pairs, pairAll: true }
   else {
-    const pruned = pruneUnreachableLegs(repoRoot, face, pairs, { preferMaps: exit.maps })
+    const pruned = pruneUnreachableLegs(repoRoot, face, pairs)
     if (pruned.reason) throw new Undetermined(`端入口可达性判据无法成立:${pruned.reason}`)
     pairs = pruned.pairs
     unreachable = pruned.unreachable
@@ -1671,7 +1324,7 @@ export function collect(
     coverageNote = pruned.note ?? null
     fallbacks = pruned.fallbacks ?? []
   }
-  const need = [...new Set([...pairs.pairs.flatMap((p) => [p.miniapp, p.rn]), ...webPairs.flatMap((p) => [p.miniapp, p.rn])])]
+  const need = [...new Set(pairs.pairs.flatMap((p) => [p.miniapp, p.rn]))]
   const text = {}
   const specs = need.map((rel) => (face === 'staged' ? ':' : 'HEAD:') + rel)
   const got = catBatch(repoRoot, specs, { maxBuffer: 1 << 28 })
@@ -1820,9 +1473,6 @@ export function collect(
     : { skipped: true }
   return {
     pairs,
-    webPairs,
-    webRejected,
-    webBlocked,
     text,
     styles,
     blindClasses,
@@ -1834,7 +1484,6 @@ export function collect(
     undeterminedEdges,
     coverageNote,
     fallbacks,
-    exitNotes: exit.notes,
   }
 }
 
@@ -1866,66 +1515,22 @@ export function radiusCount(f) {
  *  - `onlyMiniapp` / `onlyRn` —— 只有一侧给这个元素起了名字 ⇒ **不是分叉**,是配对射程边界,
  *    只逐条报名("报数不报名"在本仓记过多次:只给计数,拿到数字的人无法判断该不该扩判据)。
  */
-/**
- * 元素名的**归一身份**(只在 RE 维用):
- *  - 只切 **BEM 结构分隔符 `__`** —— `category-bar__item` 的元素名就是 `item`,这是命名法本身
- *    规定的,不是相似度猜测(票面当年拒绝并档的理由是"一旦并档,配对就从证据变成猜测";
- *    缩写前缀 `mcd-upload-btn` 与 camel `uploadBtn` 至今**不并**,那种才是猜测)。
- *  - 大小写与 `-`/`_` 折叠:同一份语义在两端常写成 `free-badge` / `freeBadge`,
- *    去分隔符后同为 `freebadge`,这一步也是机械的,不引入判断。
- *  - 修饰符 `--mod` 不参与身份(它是同一元素的变体档,若因此配不上对,读数会假报"单侧元素")。
- */
-export function canonicalElementName(name) {
-  const afterBlock = String(name).split('__').pop()
-  const withoutModifier = afterBlock.split('--')[0]
-  return withoutModifier.toLowerCase().replace(/[-_]/g, '')
-}
-
-/**
- * 两侧元素名 → 归一身份的映射。**一对多就放弃配对**:
- * 同一侧若有两个不同原始名折叠到同一身份(例:`card` 与 `card__` 与 `Card_` 同时存在),
- * 并档会把两个不同元素并成一个"同值"的假绿灯 —— 那比漏配更贵(§"配对键本身也是判据")。
- * @returns {{map:Map<string,string>, ambiguous:string[]}} map:身份 → 唯一原始名;ambiguous:被剔除的身份
- */
-function identityIndex(entries) {
-  const byId = new Map()
-  const ambiguous = new Set()
-  for (const raw of Object.keys(entries || {})) {
-    const id = canonicalElementName(raw)
-    if (!id) continue
-    const prev = byId.get(id)
-    if (prev !== undefined && prev !== raw) {
-      ambiguous.add(id)
-      byId.delete(id)
-      continue
-    }
-    if (!byId.has(id)) byId.set(id, raw)
-  }
-  return { map: byId, ambiguous: [...ambiguous].sort() }
-}
-
 export function elementRadiusDiff(a, b) {
   const norm = (x) => [...new Set(x || [])].sort((p, q) => p - q)
-  const A = a || {}
-  const B = b || {}
-  const ia = identityIndex(A)
-  const ib = identityIndex(B)
+  const names = [...new Set([...Object.keys(a || {}), ...Object.keys(b || {})])].sort()
   const mismatched = []
   const onlyMiniapp = []
   const onlyRn = []
-  /** 折叠后撞在一起的名字:不判、不并,只点名(它意味着两端命名法在这一族不自洽)。 */
-  const ambiguous = [...new Set([...ia.ambiguous, ...ib.ambiguous])].sort()
-  const ids = [...new Set([...ia.map.keys(), ...ib.map.keys()])].sort()
-  for (const id of ids) {
-    const ra = ia.map.get(id)
-    const rb = ib.map.get(id)
-    if (ra !== undefined && rb !== undefined) {
-      if (String(norm(A[ra])) !== String(norm(B[rb])))
-        mismatched.push({ name: ra === rb ? ra : `${ra}|${rb}`, miniapp: norm(A[ra]), rn: norm(B[rb]) })
-    } else if (ra !== undefined) onlyMiniapp.push(ra)
-    else onlyRn.push(rb)
+  for (const n of names) {
+    const A = a?.[n]
+    const B = b?.[n]
+    if (A && B) {
+      if (String(norm(A)) !== String(norm(B)))
+        mismatched.push({ name: n, miniapp: norm(A), rn: norm(B) })
+    } else if (A) onlyMiniapp.push(n)
+    else onlyRn.push(n)
   }
-  return { mismatched, onlyMiniapp, onlyRn, ambiguous }
+  return { mismatched, onlyMiniapp, onlyRn }
 }
 
 /** RE 锚点计数 = 该组件里"同名而不同档"的元素数(一个元素算一处,不按档值双计)。 */
@@ -2017,19 +1622,7 @@ export function unresolvedClassNames(src, ownCssText, globalDefined = null) {
   const defined = new Set()
   for (const m of String(ownCssText ?? '').matchAll(/\.([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\s*\{/gi))
     defined.add(m[1])
-  const miss = [...used].filter((c) => !defined.has(c))
-  /**
-   * **交集域**(2026-09-30 补):`globalDefined` 一直由 collect 算好并传进来(全端样式表里真定义过
-   * 的类名),而本函数此前**从未读它** —— 收集侧那份 70 份表的扫描是纯浪费,披露因此把
-   * "全仓根本没有这个类名"也报成盲区。实测三类误报:`max-w-md` / `min-w-0` / `line-clamp-1`
-   * 这类 **Tailwind 刻度档**(由 `readGeometry` 直接读,不在任何样式表里)、以及
-   * `ui-card` / `ui-panel` / `carousel-fallback` 这类**全仓零定义**(连 tailwind preset 也没有)——
-   * 头注里"盒档落在 app.css / 某页 css"那句话对它们是**假的**,而会喊错的披露没人信。
-   * 交集域取不到(null)时保留原口径:**宁可多报也不静默放过**(见头注"归因过宽比漏读更贵"的反面:
-   * 这里多报的是"读不到",漏报才是把没读到当已核对过)。
-   */
-  if (!globalDefined) return miss.sort()
-  return miss.filter((c) => globalDefined.has(c)).sort()
+  return [...used].filter((c) => !defined.has(c)).sort()
 }
 
 export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null, styles = {}) {
@@ -2068,15 +1661,12 @@ export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null
      * 必须**共用**(两处各算一遍必漂移),所以这里不再另派生一份文本。
      */
     const radius = radiusTable
-      ? diffValues(
-          new Set(radiusSetOf(aAll, radiusTable, { side: 'miniapp' })),
-          new Set(radiusSetOf(bAll, radiusTable, { side: 'rn' })),
-        )
+      ? diffValues(new Set(radiusSetOf(aAll, radiusTable)), new Set(radiusSetOf(bAll, radiusTable)))
       : { onlyMiniapp: [], onlyRn: [] }
     const radiusSeen = radiusTable
       ? {
-          miniapp: radiusSetOf(aAll, radiusTable, { side: 'miniapp' }),
-          rn: radiusSetOf(bAll, radiusTable, { side: 'rn' }),
+          miniapp: radiusSetOf(aAll, radiusTable),
+          rn: radiusSetOf(bAll, radiusTable),
         }
       : null
     /**
@@ -2134,64 +1724,11 @@ export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null
  * 棘轮:锚点 = 台账钉住的读数(立项按 HEAD 生成)。只拦"把差异加大";台账没有这个名字 ⇒ 锚点 0,
  * 新增配对直接问责(它没有存量可躲)。变好只提示"可下调",**不自动改账**。
  */
-/**
- * **web 腿读数**(纯函数,构造面可证)。形状刻意与主腿的 finding 同构(`named` / `geometry` /
- * `radius` / `elementRadius` 四件齐),这样 `diffCount` / `radiusCount` / `elementRadiusCount`
- * 与 `verdictOf` 的判序**不必为 web 腿重写第二份**。
- *
- * 三条边界必须如实:
- *  - `geometry` / `named` 恒空 ⇒ web 腿**不判几何**(量纲不同,见 WEB_DIRS 头注)。空不等于"已确认相同",
- *    所以报告与 `--json` 都要打印"web 腿只量圆角档"。
- *  - 两侧都读不出任何档 ⇒ 记**未判定**而不是"同档"(没量到与量到零是两件事)。
- *  - 档位表解析不出来(`radiusTable` 为空)⇒ 整腿未判定,不得当成"web 腿零分叉"。
- */
-export function webRadiusAudit(webPairs, text, radiusTable, styles = {}) {
-  const findings = []
-  const undetermined = []
-  for (const p of webPairs ?? []) {
-    const a = text[p.miniapp]
-    const b = text[p.rn]
-    if (a === undefined || b === undefined) {
-      undetermined.push({ name: p.name, why: '正文取不到 ⇒ 这一对没判' })
-      continue
-    }
-    if (!radiusTable) {
-      undetermined.push({ name: p.name, why: '圆角档位表解析不出 ⇒ web 腿失明,不得记为同档' })
-      continue
-    }
-    const aAll = a + (styles[p.miniapp] ?? '')
-    const bAll = b + (styles[p.rn] ?? '')
-    const mini = new Set(radiusSetOf(aAll, radiusTable, { side: 'miniapp' }))
-    const web = new Set(radiusSetOf(bAll, radiusTable))
-    if (!mini.size && !web.size) {
-      undetermined.push({ name: p.name, why: '两侧都读不出圆角档 ⇒ 零判据(不是"两端同值")' })
-      continue
-    }
-    findings.push({
-      name: p.name,
-      web: p.rn,
-      miniapp: p.miniapp,
-      named: [],
-      geometry: { onlyMiniapp: [], onlyRn: [] },
-      radius: {
-        onlyMiniapp: [...mini].filter((v) => !web.has(v)),
-        onlyRn: [...web].filter((v) => !mini.has(v)),
-      },
-      elementRadius: { mismatched: [], onlyMiniapp: [], onlyRn: [] },
-      webSeen: { miniapp: [...mini], web: [...web] },
-    })
-  }
-  return { findings, undetermined }
-}
-
-export function verdictOf(findings, baseline, keys = { counts: 'counts', radius: 'radiusCounts', element: 'elementRadiusCounts', waivers: 'waivers' }) {
-  // 台账子账按 `keys` 选,而不是给 web 腿再写一份比较逻辑:锚点只拦上升、下降要报名、
-  // 台账腐烂要当场红 —— 这三条判序两腿必须逐字同形。两处各写一遍必然漂开,而漂开的表现
-  // 是"主腿收紧了、web 腿还在放过"(或反过来把不该红的 web 腿按主腿额度判红)。
-  const counts = baseline[keys.counts] ?? {}
-  const radiusCounts = baseline[keys.radius] ?? {}
-  const elementRadiusCounts = baseline[keys.element] ?? {}
-  const waivers = baseline[keys.waivers] ?? {}
+export function verdictOf(findings, baseline) {
+  const counts = baseline.counts ?? {}
+  const radiusCounts = baseline.radiusCounts ?? {}
+  const elementRadiusCounts = baseline.elementRadiusCounts ?? {}
+  const waivers = baseline.waivers ?? {}
   const red = []
   const shrunk = []
   const waived = []
@@ -2273,34 +1810,14 @@ export function verdictOf(findings, baseline, keys = { counts: 'counts', radius:
  * 从此那笔债没人再问责,而账面读起来像"已按实测重锚"。上升与消失都指向同一件事:
  * 这轮产出的不是更紧的锚点,是一次无人察觉的放松。
  *
- * **带有效豁免的族不参与本核对(与 `verdictOf` 同一条豁免短路)**:
- * `verdictOf` 对豁免过的族 `continue` ⇒ 它的三维锚点在提交链上从不被比较,是一笔**惰性记账**。
- * 对惰性记账判"上升=放松存量"是一台空转的尺子:它拦不住任何真实债务(债务只在未豁免族上生效),
- * 却会把一次合法的重锚整体拒之门外 —— 连带让同族**下降**的几何锚(实测 DrawerComponent 19→17)
- * 也写不进去,T8 因此长期红。所以这里的豁免短路**缩小的是假阳,不是保护**:
- * 未豁免族的上升/消失**照旧逐条拒绝**(由自检㊗钉死),豁免坏(空理由)时短路不生效(㊜)。
- * 关键:是否豁免取的是**待覆盖台账(prior)自己**登记的豁免,与 `verdictOf` 用的是同一份判定
- * (`waiverProblem`),绝不另写一套豁免规则 —— 两处算同一件事必漂移,本仓记过最多次。
- *
  * @returns {string[]} 空数组 = 可以落盘;否则每条是一个必须人工解释的破口。
  */
 export function anchorRegression(prior, next) {
   const out = []
-  const waivedSet = (map) =>
-    new Set(Object.keys(map ?? {}).filter((n) => map[n] && !waiverProblem(map[n])))
-  // 只豁免"prior 里带了有效理由"的族 —— 与 verdictOf 的 `w && !waiverProblem(w)` 逐字同形。
-  // **两腿各用自己的豁免表**:拿主腿的名单去免 web 键的消失,等于"给这条腿写了理由就能让
-  // 那条腿的锚点凭空蒸发" —— 而锚点消失正是本函数要拦的那件事(下一次分叉自带免费额度)。
-  const waivedMain = waivedSet(prior?.waivers)
-  const waivedWeb = waivedSet(prior?.[WEB_LEDGER.waivers])
-  // web 腿的子账**必须一起核**:漏掉就是"主腿只允许下降、web 腿随便涨",而涨的那一份
-  // 没人会去查(台账里明明写着"锚点只拦新增"—— 那是一句只对一半的账)。
-  for (const key of ['counts', 'radiusCounts', 'elementRadiusCounts', WEB_LEDGER.counts, WEB_LEDGER.radius, WEB_LEDGER.element]) {
-    const waivedNames = key.startsWith('web') ? waivedWeb : waivedMain
+  for (const key of ['counts', 'radiusCounts', 'elementRadiusCounts']) {
     const before = prior?.[key] ?? {}
     const after = next?.[key] ?? {}
     for (const [name, v] of Object.entries(before)) {
-      if (waivedNames.has(name)) continue
       if (!(name in after)) {
         out.push(`${key}.${name} 整键消失(锚点消失 = 该族下一次分叉自带免费额度)`)
         continue
@@ -2311,7 +1828,7 @@ export function anchorRegression(prior, next) {
   return out
 }
 
-export function emitBaseline(findings, prior = {}, webFindings = []) {
+export function emitBaseline(findings, prior = {}) {
   const counts = {}
   const radiusCounts = {}
   const elementRadiusCounts = {}
@@ -2332,69 +1849,7 @@ export function emitBaseline(findings, prior = {}, webFindings = []) {
    * 立刻回到"被当配对算差异"的状态,台账凭空多出 N 处"差异"(守门 83 的 `--update-baseline`
    * 冲掉他人审计台账,是同一型事故)。
    */
-  const out = { counts, radiusCounts, elementRadiusCounts }
-  /**
-   * web 腿子账:**恒写,且与主腿分键**。同一组件名在两腿各自有差异时,共用一个锚点会让
-   * "修掉 web 那一侧"顶掉主腿名额(净零逃逸)。几何维这一腿不判 ⇒ `webCounts` 恒 0,
-   * 但键必须留在台账里 —— 缺键与 0 在 verdictOf 里同为锚点 0,而"这一维扫过了、确实 0"
-   * 与"这一维没跑"只有靠键在不在才分得开(与 radiusCounts / elementRadiusCounts 同一条理由)。
-   */
-  const webCounts = {}
-  const webRadiusCounts = {}
-  const webElementRadiusCounts = {}
-  for (const f of webFindings) {
-    webCounts[f.name] = diffCount(f)
-    webRadiusCounts[f.name] = radiusCount(f)
-    webElementRadiusCounts[f.name] = elementRadiusCount(f)
-  }
-  out[WEB_LEDGER.counts] = webCounts
-  out[WEB_LEDGER.radius] = webRadiusCounts
-  out[WEB_LEDGER.element] = webElementRadiusCounts
-  /**
-   * `waivers` 也必须**按族带过去**,不得整图清零:它是"这一族为什么允许不同形"的判断记录
-   * (AGENTS O81:台账 `waivers` 恒空本身就是违规 —— 101 档一处理由都没写过就是上一轮的状态)。
-   * 旧写法在这里写死 `waivers: {}`,一次重锚就把 13 条带现读命令的理由全冲掉,而账面只看得到
-   * "counts 变小了"—— 与上面 pairingRejects 那段是同一型事故,只是这次是自家门自己犯。
-   * 只保留**本轮仍有差异**的族;差异归零的族把理由撤下并**在 stderr 点名**(理由不再需要,
-   * 但"哪一族的账清了"必须看得见,不得静默)。
-   */
-  const priorWaivers = prior && prior.waivers ? prior.waivers : {}
-  const waivers = {}
-  const retired = []
-  for (const [name, w] of Object.entries(priorWaivers)) {
-    if ((counts[name] ?? 0) > 0) waivers[name] = w
-    else retired.push(name)
-  }
-  out.waivers = waivers
-  /**
-   * web 腿的豁免表同理必须**按族带过去**,而且它的"仍有差异"判据**不能沿用主腿那一把尺**:
-   * web 腿这一腿几何维恒不判(`webCounts` 恒 0),按主腿的 `counts>0` 筛会让每条 web 豁免
-   * 在第一次重锚时被静默撤下 —— 撤下的表现不是红,而是那一族回到"锚点还在、理由没了"的状态,
-   * 下一个人无从知道它为什么允许不同形。所以本腿按**它自己真在量的那一维**(RD / RE)筛。
-   */
-  const priorWebWaivers = prior && prior[WEB_LEDGER.waivers] ? prior[WEB_LEDGER.waivers] : {}
-  const webWaivers = {}
-  const webRetired = []
-  for (const [name, w] of Object.entries(priorWebWaivers)) {
-    if (
-      (webRadiusCounts[name] ?? 0) > 0 ||
-      (webElementRadiusCounts[name] ?? 0) > 0 ||
-      (webCounts[name] ?? 0) > 0
-    )
-      webWaivers[name] = w
-    else webRetired.push(name)
-  }
-  out[WEB_LEDGER.waivers] = webWaivers
-  if (webRetired.length)
-    console.error(
-      `  ⓘ web 腿本轮差异归零、理由随之撤下的族:${webRetired.join(', ')}(同样须回查是否只是覆盖面变窄)`,
-    )
-  if (retired.length)
-    console.error(
-      `  ⓘ 本轮差异归零、理由随之撤下的族:${retired.join(', ')}(若它们并非真被修好,而是判据覆盖面变窄,须回查)`,
-    )
-  // 台账里非判据、但必须留存的元数据(版本号一丢,读台账的人就不知道它是哪一版格式)
-  if (prior && prior.ledgerVersion !== undefined) out.ledgerVersion = prior.ledgerVersion
+  const out = { counts, radiusCounts, elementRadiusCounts, waivers: {} }
   if (prior && prior.pairingRejects) out.pairingRejects = prior.pairingRejects
   // 别名表与拆对表同理:它是**配对判据的输入**,不是存量数字。重写台账把别人登记的别名冲掉,
   // 那一族立刻回到"射程外零判据"的状态 —— 而账面看什么都正常(这条族从没在 counts 里出现过)。
@@ -2451,13 +1906,10 @@ export function main(argv, repoRoot = ROOT) {
       .map((n) => ({ name: n, why: rejectProblem(rej[n]) }))
       .filter((x) => x.why)
     aliases = baseline.aliases ?? {}
-    // `rej` 一起喂进去:拆对从"一条全局名单"变成"按腿的声明",而**形状判定只住在 rejectProblem /
-    // rejectLegs 那一处**。调用方不得再判断形状(两处各写一遍必漂,而漂开的表现是"该拆的腿没拆、
-    // 不该拆的那条腿被静默摘线")。
-    collected = collect(repoRoot, face, { pairAll, rejected: rejNames, rejectMap: rej, aliases })
+    collected = collect(repoRoot, face, { pairAll, rejected: rejNames, aliases })
   } catch (e) {
     if (e instanceof Undetermined) {
-      console.info(`⚠️ 无法判定:${e.message}`)
+      console.log(`⚠️ 无法判定:${e.message}`)
       return 2
     }
     throw e
@@ -2470,22 +1922,8 @@ export function main(argv, repoRoot = ROOT) {
     collected.radius,
     collected.styles ?? {},
   )
-  /**
-   * web 腿(与主腿**分开记账**):同一组件名在主腿与 web 腿各自有一份差异时,共用一个锚点会让
-   * "修掉了 web 那一侧"顶掉主腿的名额(净零逃逸,守门 134 扩布尔档键同一课)。所以子账独立、
-   * 判序复用 `verdictOf`(只换 keys),两腿的红各自进退出码。
-   */
-  const web = webRadiusAudit(collected.webPairs, collected.text, collected.radius, collected.styles ?? {})
-  const webVerdict = verdictOf(web.findings, baseline, WEB_LEDGER)
-  /**
-   * 台账里"被 web 腿钉过"的族名单。**在 JSON 分支之前算**:`--json` 那一支也在同一块作用域里,
-   * 放到函数末尾会让它读到 TDZ 中的 const(症状是崩溃,不是"少一个字段")。
-   */
-  const webPriorKeys = Object.keys(baseline[WEB_LEDGER.radius] ?? {}).filter(
-    (n) => (baseline[WEB_LEDGER.radius]?.[n] ?? 0) > 0 || (baseline[WEB_LEDGER.counts]?.[n] ?? 0) > 0,
-  )
   if (argv.includes('--emit-baseline')) {
-    const next = emitBaseline(res.findings, baseline, web.findings)
+    const next = emitBaseline(res.findings, baseline)
     /**
      * 重出台账前必须先过**单调性核对**:既有锚点上升或整键消失一律拒绝落盘。
      * 这条闸的存在理由不是"有人手滑",而是覆盖面被扩宽的那一枚提交必然抬高读数
@@ -2502,7 +1940,7 @@ export function main(argv, repoRoot = ROOT) {
       for (const r of regress) console.error(`  - ${r}`)
       return 1
     }
-    console.info(JSON.stringify(next, null, 2))
+    console.log(JSON.stringify(next, null, 2))
     /**
      * 说明行一律走 stderr:这条模板的既定用法就是 `--emit-baseline > <台账文件>`,
      * 把它打进 stdout 等于把一句散文追加进 JSON 文件 —— 实测砸出来的
@@ -2514,7 +1952,7 @@ export function main(argv, repoRoot = ROOT) {
     return 0
   }
   if (argv.includes('--json')) {
-    console.info(
+    console.log(
       JSON.stringify({
         face,
         pairAll,
@@ -2540,42 +1978,14 @@ export function main(argv, repoRoot = ROOT) {
           .filter((p) => p.aliased)
           .map((p) => ({ name: p.name, miniapp: p.miniapp, rn: p.rn })),
         aliasProblems: collected.pairs?.aliasProblems ?? [],
-        // 同侧多候选与出口链的判定材料也要能被机器读 —— 只印人读面,下一票就得抄终端输出当数据源。
-        multiCandidates: collected.pairs?.multiCandidates ?? [],
-        exitNotes: collected.exitNotes ?? [],
         red: res.red,
         waived: res.waived.length,
-        // web 腿也要能被机器读:只有人读面的话,下一票(把 web 的几何也纳进来)就得抄终端输出当数据源。
-        web: {
-          pairCount: web.findings.length,
-          /** 只量圆角档是**这一腿的设计边界**,不是"几何已确认相同" —— 把它写进读数旁边,
-           *  否则 `webRed: 0` 会被读成"web 与小程序已一致"。 */
-          dimension: 'radius-only(文件级档值集合;几何/元素名/图标载体未判)',
-          findings: web.findings.map((f) => ({
-            name: f.name,
-            miniapp: f.miniapp,
-            web: f.web,
-            radius: f.radius,
-          })),
-          red: webVerdict.red,
-          shrunk: webVerdict.shrunk,
-          undetermined: web.undetermined,
-          blocked: collected.webBlocked ?? null,
-          // 被拆掉的 web 腿配对也要能被机器读:只印人读面的话,"这一族为什么不在账上"就只能靠
-          // 抄终端输出当取证(与 aliasPairs / multiCandidates 那两处同一条理由)。
-          rejected: (collected.webRejected ?? []).map((x) => ({
-            name: x.name,
-            miniapp: x.miniapp,
-            web: x.rn,
-          })),
-          ghostRed: webPriorKeys.length && !web.findings.length ? webPriorKeys : [],
-        },
       }),
     )
   } else {
     const off = collected.unreachableLegs ?? []
     const undet = collected.undeterminedEdges ?? []
-    console.info(
+    console.log(
       `判定面 ${FACE_TXT[face]}:同名配对组件 ${res.pairCount} 对(重复实现 = 改一端另一端不跟随)` +
         (pairAll
           ? '【--pair-all 人工档:只要同名就配对,未做端入口可达性剔除】'
@@ -2590,57 +2000,32 @@ export function main(argv, repoRoot = ROOT) {
     const blind = collected.blindClasses ?? []
     if (blind.length) {
       const total = blind.reduce((n, b) => n + b.classes.length, 0)
-      console.info(
+      console.log(
         `  ⓘ 读数不完整:${blind.length} 条配对腿用到 ${total} 个类名,其定义不在本组件样式表里` +
           `(盒档落在 app.css / 某页 css)⇒ 这些元素的几何本门读不到。` +
           `没读到不得当成该侧无档,也不得拿去当已核对过的凭据`,
       )
       for (const b of blind.slice(0, 6))
-        console.info(
+        console.log(
           `     · ${b.name}[${b.side}] ${b.classes.slice(0, 8).join(' ')}` +
             (b.classes.length > 8 ? ` …另 ${b.classes.length - 8} 个` : ''),
         )
-      if (blind.length > 6) console.info(`     · 其余 ${blind.length - 6} 条同上(不静默省略计数)`)
+      if (blind.length > 6) console.log(`     · 其余 ${blind.length - 6} 条同上(不静默省略计数)`)
     }
-    for (const o of off) console.info(`  ⊘ ${o.name} —— ${o.reason}`)
-    if (collected.coverageNote) console.info(`  ⚠ ${collected.coverageNote}`)
+    for (const o of off) console.log(`  ⊘ ${o.name} —— ${o.reason}`)
+    if (collected.coverageNote) console.log(`  ⚠ ${collected.coverageNote}`)
     /**
      * 读数口径必须自己报出来:合并了伴生样式表的那一侧,与只读组件源文本的那一侧,
      * 拿到的档数不在同一口径上。不写这一行,"小程序 0 档 / RN 11 档"就会被读成"小程序没做",
      * 而它可能只是尺子没跟到 `.css`(2026-09-27 实测:6 个小程序组件把盒档写在同名 CSS 里)。
      */
-    console.info(
+    console.log(
       `  ⓘ 读数口径:几何与圆角(RD / RE)= 组件源文本 + 该文件自己 import 的本地样式表(本轮并入 ` +
         `${Object.keys(collected.styles ?? {}).length} 份);图标载体 / 单侧档仍只看组件源文本。` +
         `RE 与 RD 的分别不在取材面而在**配对单位**:RD 比文件内出现过的档值集合,` +
         `RE 比两侧**同名元素**各取了哪一档 —— 前者的一条"分叉"可以同时意味着"对面这个文件压根没写圆角"。` +
         `取不到的样式文件计未判定,不当"该侧无档"`,
     )
-    /**
-     * **同侧多候选逐条点名**(票⑭)。这是"不得把两份实现读成两份真相"的落点:一份族在
-     * components/ 与 features/** 同时活着时,被审的究竟是哪一份、依据哪一序选出来,必须写出来 ——
-     * 静默选一份时,改另一份任何读数都不动,而账面读起来像"这一族在被看守"。不判红:多候选是
-     * 结构事实不是违规(可达性、出口、后缀三序都真在选),无声才是。
-     */
-    const mc = collected.pairs?.multiCandidates ?? []
-    if (mc.length) {
-      const why = {
-        suffix: '平台后缀(该端构建期真解析的那份)',
-        exit: '出口指向(@ihui/rn-app / 组件桶的 re-export 链)',
-        order: '目录序(本族没有出口证据)',
-      }
-      console.info(
-        `  ⓘ 同侧多候选 ${mc.length} 条腿 —— 选腿三序:平台后缀 > 出口指向 > 目录序;` +
-          `候选逐条点名(不得静默选一份):`,
-      )
-      for (const c of mc)
-        console.info(
-          `     · ${c.name}[${c.side}] 选 ${c.chosen}(依据:${why[c.by] ?? c.by})` +
-            ` | 未选 ${c.others.join(' / ')}`,
-        )
-    }
-    for (const n of collected.exitNotes ?? [])
-      console.info(`  ⓘ 出口链:${n} —— "判不出"不冒充"没有出口",也不冒充证据`)
     /**
      * **配对射程必须自己报数**。本门只比"同名成文件"的元素:一端把某个控件写成组件文件、
      * 另一端把它内联在别的组件里(RN 的发送钮就是 `BottomActionBar.tsx` 里的内联 `<Send/>`,
@@ -2652,7 +2037,7 @@ export function main(argv, repoRoot = ROOT) {
       const om = collected.pairs?.onlyMiniapp ?? 0
       const or = collected.pairs?.onlyRn ?? 0
       if (om || or)
-        console.info(
+        console.log(
           `  ⓘ 配对射程:仅小程序成文件 ${om} 个 / 仅 RN 成文件 ${or} 个 —— ` +
             `两端不同名的元素不成对,本门对它们零判据(报数,不判红)`,
         )
@@ -2668,12 +2053,12 @@ export function main(argv, repoRoot = ROOT) {
         ['仅 RN', 'onlyRnNames'],
       ]) {
         const names = (collected.pairs?.[key] ?? []).map((p) => nameOf(String(p)))
-        if (names.length) console.info(`     ${label}(${names.length}):${names.join(' ')}`)
+        if (names.length) console.log(`     ${label}(${names.length}):${names.join(' ')}`)
       }
     }
     for (const u of undet.slice(0, 12))
-      console.info(`  ? 未判定:${u.from ?? '(清单)'} → ${u.spec}:${u.reason}`)
-    if (undet.length > 12) console.info(`  ? 其余 ${undet.length - 12} 处未判定同上(不静默省略计数)`)
+      console.log(`  ? 未判定:${u.from ?? '(清单)'} → ${u.spec}:${u.reason}`)
+    if (undet.length > 12) console.log(`  ? 其余 ${undet.length - 12} 处未判定同上(不静默省略计数)`)
     for (const f of res.findings) {
       const bits = []
       if (f.named.length) bits.push(`同名常量不同值 ${f.named.join(', ')}`)
@@ -2698,47 +2083,7 @@ export function main(argv, repoRoot = ROOT) {
       for (const m of f.elementRadius?.mismatched ?? [])
         bits.push(`RE 同名元素 ${m.name} 小程序 ${m.miniapp.join('/')} vs RN ${m.rn.join('/')}`)
       const mark = f.waived ? '○' : res.red.some((r) => r.name === f.name) ? '×' : '·'
-      console.info(`  ${mark} ${f.name} [${f.lang.miniapp}|${f.lang.rn}] ${bits.join(' | ')}`)
-    }
-    /**
-     * **WD = web ↔ 小程序**的圆角档对账。前缀与 RD/RE 分开,是因为三者的处置动作不同:
-     * RD/RE 说"小程序与 App 两端",WD 说"web 与小程序"(AGENTS §4 的跨端铁律那一半)。
-     * 这一腿**只量圆角档**必须自己说出来 —— 不说,`判红 0` 就会被读成"web 与小程序已一致"。
-     */
-    {
-      const wlines = []
-      for (const f of web.findings) {
-        const bits = []
-        if (f.radius.onlyMiniapp.length) bits.push(`仅小程序档 ${f.radius.onlyMiniapp.join('/')}`)
-        if (f.radius.onlyRn.length) bits.push(`仅 web 档 ${f.radius.onlyRn.join('/')}`)
-        const mark = webVerdict.red.some((r) => r.name === f.name) ? '×' : '·'
-        wlines.push(`  ${mark} WD ${f.name} ${bits.join(' | ')}`)
-      }
-      console.info(
-        `web 腿(RD 量纲,配对 ${web.findings.length} 对;几何 / 元素名 / 图标载体**未判**,不是"已确认相同")` +
-          `→ 判红 ${webVerdict.red.length} / 台账外新增 0 时才算收口 / 带理由豁免 ${webVerdict.waived.length} / 未判定 ${web.undetermined.length}`,
-      )
-      // 豁免不得静默:每条都要把理由与它的两个读数打在报告上(与主腿 PAIR/ALIAS 同一取向) ——
-      // 只写"已豁免 N"会替下一个人做出"这一族已被想过"的判断,而理由能不能复核全靠这一行。
-      for (const wv of webVerdict.waived) {
-        const rej = (baseline[WEB_LEDGER.waivers] ?? {})[wv.name]
-        console.info(`  ⊘ WD ${wv.name} 带理由豁免 —— ${rej?.reason ?? ''}`)
-      }
-      if (collected.webBlocked)
-        console.info(
-          `  ? WD 整腿未判定:${collected.webBlocked} —— 这一维今天**没在看**,不得读成"web 与小程序已一致"`,
-        )
-      for (const l of wlines.slice(0, 20)) console.info(l)
-      if (wlines.length > 20) console.info(`     · 其余 ${wlines.length - 20} 对同上(不静默省略计数)`)
-      for (const u of web.undetermined.slice(0, 8))
-        console.info(`  ? WD ${u.name}:${u.why}`)
-      if (web.undetermined.length > 8)
-        console.info(`  ? 其余 ${web.undetermined.length - 8} 处 WD 未判定同上`)
-      for (const r of webVerdict.red)
-        console.info(
-          `  × WD ${r.name}:圆角 ${r.radiusCount} > 该族自己在台账的锚点 ${r.radiusAnchor} —— ` +
-            `收口姿势与 RD 同:两端各自引用档位表不是目的,同一元素取同一档才是`,
-        )
+      console.log(`  ${mark} ${f.name} [${f.lang.miniapp}|${f.lang.rn}] ${bits.join(' | ')}`)
     }
     /**
      * RE 的**射程边界逐条报名**,不只报数。这一格是这一维存在的全部理由:RD 那些
@@ -2753,13 +2098,13 @@ export function main(argv, repoRoot = ROOT) {
       if (u.onlyMiniapp.length) bits.push(`仅小程序具名 ${u.onlyMiniapp.join('/')}`)
       if (u.onlyRn.length) bits.push(`仅 RN 具名 ${u.onlyRn.join('/')}`)
       bits.push(`无元素名可归的取用 mp=${u.unnamed.miniapp}/rn=${u.unnamed.rn}`)
-      console.info(`  ⊘ RE ${u.name} —— 两侧无一同名元素 ⇒ 本维零判据:${bits.join(' | ')}`)
+      console.log(`  ⊘ RE ${u.name} —— 两侧无一同名元素 ⇒ 本维零判据:${bits.join(' | ')}`)
     }
     const rdFindings = res.findings.filter(
       (f) => (f.radius?.onlyMiniapp.length ?? 0) + (f.radius?.onlyRn.length ?? 0) > 0,
     )
     const reFindings = res.findings.filter((f) => elementRadiusCount(f) > 0)
-    console.info(
+    console.log(
       `可见几何差异 ${res.findings.length} 处 → 超锚点判红 ${res.red.length} / 带理由豁免 ${res.waived.length}` +
         (res.shrunk.length ? ` / 已变好可下调台账 ${res.shrunk.length}` : '') +
         `;其中圆角跨端不同档 ${rdFindings.length} 对(RD 维,锚点单立见 radiusCounts)` +
@@ -2767,17 +2112,17 @@ export function main(argv, repoRoot = ROOT) {
         `;RE 对 ${res.radiusUnpaired?.length ?? 0} 族零判据(两侧未同名,报名见上)`,
     )
     if (res.shrunk.length)
-      console.info(
+      console.log(
         `  下调:${res.shrunk.map((s) => `${s.name} ${s.anchor}→${s.diffCount}`).join(', ')}`,
       )
     if (res.rot.length)
-      console.info(
+      console.log(
         `  × 台账腐烂:${res.rot.join('/')} —— 台账钉着这些名字而本轮实测**无该族记录**:` +
           '它们是一个永远不可能被问责的免费额度,下一次这一族重新被配对(回落/拆对被撤/组件复活)时自带存量,' +
           '新分叉会被静默吞掉。处置 = 删掉这些键,或让它重新有读数;不得"先放着"。',
       )
     if (res.red.length)
-      console.info(
+      console.log(
         '  收口姿势 = 一份与平台无关的组件源 + 两端各自注入 primitive adapter;**不得给单端补数字凑平**' +
           '(那只是把第二份真相挪了个位置)。确属平台导致的差异写进台账 waivers 并带 reason。',
       )
@@ -2814,17 +2159,17 @@ export function main(argv, repoRoot = ROOT) {
         if (x.exempted) bits.push(`带理由豁免 ${x.exempted} 处`)
         if (x.onlyRn.length) bits.push(`仅 RN 矢量化 ${x.onlyRn.join('/')}`)
         if (x.onlyMiniapp.length) bits.push(`仅小程序矢量化 ${x.onlyMiniapp.join('/')}`)
-        console.info(
+        console.log(
           `  ${icRed.some((r) => r.name === x.name) ? '×' : '·'} IC ${x.name} ${bits.join(' | ')}`,
         )
       }
-      console.info(
+      console.log(
         `图标载体对账 ${ic.length} 族 → 新增位图当图标判红 ${icRed.length} / 只报数 ${ic.length - icRed.length}`,
       )
     }
   }
   if (icRed.length && !argv.includes('--json'))
-    console.info(
+    console.log(
       '  IC 收口姿势 = 该槽位换成与 RN 同一个 lucide 字形(小程序走 LineIcon,名字照抄 RN 侧),' +
         '确属多色插画才保留位图并写 icon-bitmap-exempt: <原因>',
     )
@@ -2854,11 +2199,11 @@ export function main(argv, repoRoot = ROOT) {
         const bits = []
         if (x.onlyMiniapp.length) bits.push(`仅小程序引用 ${x.onlyMiniapp.join('/')}`)
         if (x.onlyRn.length) bits.push(`仅 RN 引用 ${x.onlyRn.join('/')}`)
-        console.info(
+        console.log(
           `  ${slRed.some((r) => r.name === x.name) ? '×' : '·'} SL ${x.name}(${n}) ${bits.join(' | ')}`,
         )
       }
-      console.info(
+      console.log(
         `单侧具名档 ${sl.length} 族 → 新增判红 ${slRed.length} / 只报数 ${sl.length - slRed.length}` +
           '(一档只被一条腿引用 = 另一条腿还没走单一源;不得靠给单端补数字消账)',
       )
@@ -2866,51 +2211,30 @@ export function main(argv, repoRoot = ROOT) {
   }
   /*
    * ── PAIR 拆对声明对账 ───────────────────────────────────────────
-   * 三条红:① 声明本身坏(无理由 / 过期 / 形态不对 / legs 里有不认识的腿名);
-   * ② 拆掉的族仍挂**它所作用的那条腿**的锚点或豁免(同一族既被声明"不是同一个元素"又被记账
-   *    "两端差 N 档"= 双记账,必有一份是假的);
-   * ③ 台账声明拆了某族,而**每一条它声称作用的腿**上都找不到这一对 —— 要么文件改名/删了(声明该
-   *    跟着了结),要么它已回到"只有一端有"的状态,两种都不该继续挂着。
-   * ②与③都必须按腿分别核(2026-09-30 加 `legs` 那一维时同批改):用主腿的名单去查 web 腿的账,
-   * 会同时产出两种错 —— 一条只拆 web 的声明被误判成"仍挂主腿锚点"(假红,逼人删合法声明),
-   * 以及一条只拆主腿的声明在 web 腿整族找不到而被放过(真烂不掉)。
+   * 三条红:① 声明本身坏(无理由 / 过期 / 形态不对);② 拆掉的族仍挂 `counts` 或 `waivers`
+   * (同一族既被声明"不是同一个元素"又被记账"两端差 N 档"= 双记账,必有一份是假的);
+   * ③ 台账声明拆了某族,而配对面上**根本没这个名字** —— 要么文件改名/删了(声明该跟着了结),
+   * 要么它已回到"只有一端有"的状态,两种都不该继续挂着。
    * 刻意不因"未判定"放过:拆对是本门输入的改变,比调台账数字更需要证据。
    */
   const rejAll = baseline.pairingRejects ?? {}
-  const rejStillAnchored = Object.keys(rejAll).filter((n) => {
-    const legs = rejectLegs(rejAll[n])
-    return (
-      (legs.main &&
-        ((baseline.counts ?? {})[n] !== undefined || (baseline.waivers ?? {})[n] !== undefined)) ||
-      (legs.web &&
-        ((baseline[WEB_LEDGER.counts] ?? {})[n] !== undefined ||
-          (baseline[WEB_LEDGER.radius] ?? {})[n] !== undefined ||
-          (baseline[WEB_LEDGER.element] ?? {})[n] !== undefined ||
-          (baseline[WEB_LEDGER.waivers] ?? {})[n] !== undefined))
-    )
-  })
-  const pairedNames = new Set([
-    ...(collected.rejected ?? []).map((x) => x.name),
-    ...(collected.webRejected ?? []).map((x) => x.name),
-  ])
+  const rejStillAnchored = Object.keys(rejAll).filter(
+    (n) => (baseline.counts ?? {})[n] !== undefined || (baseline.waivers ?? {})[n] !== undefined,
+  )
+  const pairedNames = new Set((collected.rejected ?? []).map((x) => x.name))
   const rejGhosted = Object.keys(rejAll).filter((n) => !pairedNames.has(n))
   const rejInvalid = rejProblems.map((x) => `${x.name}:${x.why}`)
   if (!argv.includes('--json')) {
     for (const x of collected.rejected ?? [])
-      console.info(`  ⊘ PAIR ${x.name} —— 同名不同物,已按声明拆对:${rejAll[x.name].reason}`)
-    for (const x of collected.webRejected ?? [])
-      console.info(
-        `  ⊘ WD-PAIR ${x.name} —— 只拆 web 腿:${rejAll[x.name].reason}` +
-          '(主腿那一维照旧在册,不得被这条声明连带摘线)',
-      )
-    for (const m of rejInvalid) console.info(`  × PAIR 拆对声明无效:${m}`)
+      console.log(`  ⊘ PAIR ${x.name} —— 同名不同物,已按声明拆对:${rejAll[x.name].reason}`)
+    for (const m of rejInvalid) console.log(`  × PAIR 拆对声明无效:${m}`)
     for (const n of rejStillAnchored)
-      console.info(
-        `  × PAIR ${n} 已声明拆对,台账仍挂它**所作用那条腿**的锚点/豁免 ⇒ 双记账,删那条键`,
+      console.log(
+        `  × PAIR ${n} 已声明拆对,台账仍挂它的锚点/豁免 ⇒ 双记账,删 ` + 'counts' + ' 那条',
       )
     for (const n of rejGhosted)
-      console.info(
-        `  × PAIR ${n} 声明拆对,而它声称作用的每条腿上都找不到这一对 ⇒ 文件已搬走或只剩一端,该了结这条声明`,
+      console.log(
+        `  × PAIR ${n} 声明拆对,而配对面上找不到这一对 ⇒ 文件已搬走或只剩一端,该了结这条声明`,
       )
   }
   const rejRed = rejInvalid.length + rejStillAnchored.length + rejGhosted.length
@@ -2926,13 +2250,13 @@ export function main(argv, repoRoot = ROOT) {
   const aliasPairs = (collected.pairs?.pairs ?? []).filter((p) => p.aliased)
   if (!argv.includes('--json')) {
     for (const p of aliasPairs)
-      console.info(
+      console.log(
         `  ✓ ALIAS ${p.name} —— 跨名配对:${(aliases[p.name] ?? {}).miniapp} ↔ ${(aliases[p.name] ?? {}).rn}` +
           `(同名判据看不见这一对,现按登记的别名进审)`,
       )
-    for (const x of aliasProblems) console.info(`  × ALIAS ${x.name}:${x.problem}`)
+    for (const x of aliasProblems) console.log(`  × ALIAS ${x.name}:${x.problem}`)
     if (Object.keys(aliases).length)
-      console.info(
+      console.log(
         `别名配对 ${aliasPairs.length} 族 / 声明 ${Object.keys(aliases).length} 条 → 判红 ${aliasProblems.length}` +
           '(别名是配对输入,不是豁免:文件搬走、路径写歪、或已能同名配对,都要当场点名)',
       )
@@ -2947,40 +2271,19 @@ export function main(argv, repoRoot = ROOT) {
   let geoRed = false
   if (!argv.includes('--json')) {
     const g = collected.geoDecl ?? {}
-    if (g.skipped) console.info('  ⊘ G 几何表不在本面(夹具/该面无该文件)⇒ 本维未参与判定')
-    else if (g.undetermined) console.info(`  ? G 未判定:${g.problem}`)
+    if (g.skipped) console.log('  ⊘ G 几何表不在本面(夹具/该面无该文件)⇒ 本维未参与判定')
+    else if (g.undetermined) console.log(`  ? G 未判定:${g.problem}`)
     else if (g.problem) {
       geoRed = true
-      console.info(`  × G 几何表与 geometry.d.ts 不同名:${g.problem}`)
+      console.log(`  × G 几何表与 geometry.d.ts 不同名:${g.problem}`)
     } else
-      console.info(
+      console.log(
         `  · G 几何表 ${g.steps.length} 档与 GeometryStep ${g.declared.length} 档同名(表↔类型一致)`,
       )
   }
   const rotRed = res.rot.length ? 1 : 0
-  /**
-   * **web 腿的死亡机制**:台账里挂着 web 锚点、而本轮这一族一条记录都没产出 ⇒ 红。
-   * 没有这一条,"把 `apps/web/src/components` 改名或清空"就能让 WD 维安静下来 —— 而它安静下来的
-   * 账面表现是"少了几行读数",不是"报错"。与主账的 `rot`(台账钉着某族而本轮无记录)是同一条判序,
-   * 也同样是"报数不报名不算看守"的那条底线:被点名过的位置不能靠消失来销账。
-   */
-  const webGhostRed = webPriorKeys.length && !web.findings.length ? 1 : 0
-  if (webGhostRed && !argv.includes('--json'))
-    console.info(
-      `  × WD 台账钉着 ${webPriorKeys.length} 族而本轮 web 腿零记录${collected.webBlocked ? `(整腿未判定:${collected.webBlocked})` : ''} ⇒ 消失不是销账`,
-    )
   // 别名红单独先判(见上方 ALIAS 块)。刻意**不并入**下面那条求和行:它的文本被自检 ㊹/㊽/㊩
   // 三条装车锁钉着(那三条防的正是"红了却没折进退出码"),挪一次写法 = 三门同时翻红。
-  // web 腿走**同一条先判支**:求和行的前后都被那三条锁按相邻子串钉死
-  // (`return rotRed + res.red.length …` 与 `+ (geoRed ? 1 : 0) ? 1 : 0`),插进去必然同时打红三条,
-  // 而"只打印不拦提交"正是这些锁存在的理由。WD3 显式要求这一支在,挪掉即红。
-  if (webVerdict.red.length || webGhostRed) {
-    if (!argv.includes('--json'))
-      console.info(
-        `  × WD 折进退出码:web 腿新增分叉 ${webVerdict.red.length} 族 / 台账钉过而本轮零记录 ${webGhostRed ? '是' : '否'}`,
-      )
-    return 1
-  }
   if (aliasRed) return 1
   return rotRed + res.red.length + icRed.length + slRed.length + rejRed + (geoRed ? 1 : 0) ? 1 : 0
 }
@@ -3056,7 +2359,7 @@ function runSelfTest() {
   const t = (name, cond, note) => {
     if (cond === true) pass++
     else fail++
-    console.info(
+    console.log(
       `  ${cond === true ? 'ok  ' : 'FAIL'} ${name}${cond === true ? '' : ` —— 实得:${String(cond)}${note ? ` (${note})` : ''}`}`,
     )
   }
@@ -3201,19 +2504,12 @@ function runSelfTest() {
       )
     })(),
   )
-  /**
-   * S19 的规格在 2026-09-29 被 O81 票㊵ 整个反过来:那一族标记的**放行**语义已废除(项目定档
-   * 「不允许任何豁免」,判红住在守门 77、报名住在守门 150),本门因此必须**不认这个标记**。
-   * 照抄旧断言"带标记不得造出分叉",等于把一条已废除的出口重新装回判据。
-   * 有牙证明仍成对给:带标记与不带标记必须**同判**(标记不改变任何结论),而这一对必须真计上
-   * 档差 —— 否则"不放行"与"判据失明"在账面上长得一模一样。
-   */
   t(
-    'S19 RD 维:radius-exempt 不构成放行(该族放行语义已由 O81 票㊵ 整体废除)⇒ 带标记与不带标记必须同判、且都判红',
+    'S19 RD 维:带 radius-exempt 的真圆/胶囊不得造出分叉(豁免语义与守门 77 同形)',
     (() => {
       const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
       const p = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
-      const withMark = audit(
+      const bothExempt = audit(
         p,
         {
           'a/Foo.tsx': 'borderRadius: 8, // radius-exempt: 选中圆点\n',
@@ -3234,13 +2530,7 @@ function runSelfTest() {
         {},
         tbl,
       )
-      const shape = (r) => JSON.stringify((r.findings ?? []).map((f) => [f.name, f.radius]))
-      return (
-        shape(withMark) === shape(noMark) &&
-        withMark.findings.length === 1 &&
-        withMark.red.length === 1 &&
-        noMark.red.length === 1
-      )
+      return bothExempt.findings.length === 0 && noMark.red.length === 1
     })(),
   )
   t(
@@ -3455,108 +2745,6 @@ function runSelfTest() {
       )
     })(),
   )
-  /**
-   * S22 是票"排除几何档"的**成对正反例**(Step 5 要求的"匹配对"):同一份夹具,只在第二腿多一处取用 ——
-   *  - NEG:那一处是 `width: 20, height: 20, borderRadius: 10`(边长的一半 = 真圆,§4 规定的写法)
-   *        ⇒ RD 维**不得**把它当成端上多出来的一档;否则门 77 认定为"规范真圆"的每一处都会在这一维
-   *          凭空记一笔,而另一端根本没有对应元素 ⇒ 假分叉(实测 UserInfoCard 头像 24、ModelList check 10)。
-   *  - POS:把它换成 `rnRadius.xl`(12, 同值档位但**是档位取用**)⇒ 必须**仍判红**,
-   *        且红在 RD 这一维(over 含"圆角")。
-   * 两条一红一绿才算"排除的是形状、没顺手把维度改瞎"。只留 NEG 就是替"判据失明"发合格证。
-   */
-  t(
-    'S22 RD 成对:co-located size/2 真圆不得计入档集(NEG 圆角 0 档、无圆角红),换成同位 rnRadius.xl 档必须仍红(POS)',
-    (() => {
-      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
-      const p = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
-      // 两腿都有 card=lg(8);差异只在第二腿那"一处"的写法(同 20×20 盒)。
-      const aBase = 'card: { borderRadius: rnRadius.lg },\n'
-      const neg = audit(
-        p,
-        {
-          'a/Foo.tsx': aBase,
-          'b/Foo.tsx': aBase + 'dot: { width: 20, height: 20, borderRadius: 10 },\n',
-        },
-        {},
-        {},
-        tbl,
-      )
-      const pos = audit(
-        p,
-        {
-          'a/Foo.tsx': aBase,
-          'b/Foo.tsx': aBase + 'chip: { width: 20, height: 20, borderRadius: rnRadius.xl },\n',
-        },
-        {},
-        {},
-        tbl,
-      )
-      const overMentions = (v, kw) => v.red.some((r) => (r.over || []).join('').includes(kw))
-      return (
-        // NEG:圆角被排除 ⇒ 圆角一维 0 档、无"圆角"红(几何那处 20×20 仍成 finding 是另一维,不冲突)
-        radiusCount(neg.findings[0]) === 0 &&
-        !overMentions(neg, '圆角') &&
-        // POS:同位真档 ⇒ 圆角计 1 处差且红在圆角维
-        radiusCount(pos.findings[0]) === 1 &&
-        overMentions(pos, '圆角')
-      )
-    })(),
-  )
-  /**
-   * S23 是 anchorRegression 豁免短路的**成套正反例**(缩小假阳,不动真保护):
-   *  - 未豁免族上升 ⇒ 必拒(与改动前逐字同形;这条是本核对存在的全部理由,绝不能被豁免短路连带放宽)。
-   *  - 带**有效**豁免(prior.waivers 里理由足 6 字)的族上升 ⇒ 放行(它在 verdictOf 里本就 continue,
-   *    锚点是惰性记账)。
-   *  - 理由不足(waiverProblem 非空)的"豁免" ⇒ 不短路 ⇒ 仍拒 —— 否则填个空理由就能给放松开门。
-   *  - 同族的**下降**在未豁免时也照旧放行(单调性只拦上升/消失)。
-   */
-  t(
-    'S23 anchorRegression 豁免短路只缩假阳:未豁免上升必拒、有效豁免上升放行、空理由豁免仍拒、下降恒放行',
-    (() => {
-      const priorW = {
-        counts: { A: 1 },
-        radiusCounts: { A: 1 },
-        elementRadiusCounts: { A: 0 },
-        waivers: { A: { reason: '两端不是同一套子元素', until: '2027-01-01' } },
-      }
-      // A 已带有效豁免 ⇒ counts/radiusCounts 两维上升都应放行(elementRadius 持平本就不拦)
-      const rose2 = { counts: { A: 5 }, radiusCounts: { A: 4 }, elementRadiusCounts: { A: 0 } }
-      const waivedRose = anchorRegression(priorW, rose2)
-      // 把豁免理由改成不足 6 字 ⇒ 短路失效 ⇒ 两条上升全部回来(与未豁免同形)
-      const badWaiver = {
-        ...priorW,
-        waivers: { A: { reason: '短', until: '2027-01-01' } },
-      }
-      const badRose = anchorRegression(badWaiver, rose2)
-      // 完全没有 waivers 字段(未豁免)⇒ 与旧行为逐字一致,两条上升都拒
-      const noWaiver = {
-        counts: { A: 1 },
-        radiusCounts: { A: 1 },
-        elementRadiusCounts: { A: 0 },
-      }
-      const rose = anchorRegression(noWaiver, rose2)
-      // 有效豁免族的**下降**也放行(单调性只拦上升/消失,这里本就是下降)
-      const fell = anchorRegression(priorW, {
-        counts: { A: 0 },
-        radiusCounts: { A: 0 },
-        elementRadiusCounts: { A: 0 },
-      })
-      // 未豁免族的**下降**恒放行(保护不变:下降不是放松)
-      const fellUnwaived = anchorRegression(noWaiver, {
-        counts: { A: 0 },
-        radiusCounts: { A: 0 },
-        elementRadiusCounts: { A: 0 },
-      })
-      return (
-        waivedRose.length === 0 &&
-        badRose.length === 2 &&
-        badRose.every((x) => x.includes('上升')) &&
-        rose.length === 2 &&
-        fell.length === 0 &&
-        fellUnwaived.length === 0
-      )
-    })(),
-  )
   t(
     '㊼ 方向与角形态必须与整格形态同判 —— 漏读一侧不表现为"少几个数",表现为凭空造出跨端分叉',
     (() => {
@@ -3581,85 +2769,7 @@ function runSelfTest() {
     })(),
   )
   t(
-    'RD 遮噪必须与 RE 同一条口径 —— 注释散文里的档位不得算进档集(真仓 LoginPopUp 的假分叉就是这么造出来的)',
-    (() => {
-      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
-      // ① 行尾注释:同一行代码取 sm(4),注释里提 rounded-md(6) 不得被记上
-      const trailing = radiusSetOf(
-        '  pill: { borderRadius: rnRadius.sm, // 旧写法 rounded-md,现取 control 档\n}',
-        tbl,
-      )
-      // ② 跨行块注释的**续行**:旧实现只跳"以 /* 或 * 开头的整行",续行里的档会漏进来
-      const block = radiusSetOf(
-        '<View\n  {/* 弹窗主体 = panel 档\n      旧写法在这里挂 rounded-md 并按 bubble 档取 rounded-2xl */}\n  className="rounded-xl" />',
-        tbl,
-      )
-      // ③ 阳性对照:同一个 6 写在真代码里必须被记上(遮罩关掉的是误报,不是判据)
-      const real = radiusSetOf('<View className="rounded-md" />', tbl)
-      return (
-        trailing.join(',') === '4' &&
-        block.join(',') === '12' &&
-        real.join(',') === '6' &&
-        // 反向锁:把注释里的 6 算进去就是这一型的病灶,读数必须与"真取 6"不同形
-        trailing.join(',') !== real.join(',')
-      )
-    })(),
-  )
-  t(
-    'RE 配对键:BEM 结构分隔符可折(证据),缩写前缀不可折(猜测);折叠撞车时必须**不配对**而不是并档',
-    (() => {
-      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
-      const mp = radiusEntriesOf(
-        [
-          '.cb__item { border-radius: 12rpx }',
-          '.cb__free-badge { border-radius: 16rpx }',
-          '.cb__panel--active { border-radius: 8rpx }',
-          '.mcd-upload-btn { border-radius: 8rpx }',
-        ].join('\n'),
-        tbl,
-      ).entries
-      const rn = radiusEntriesOf(
-        [
-          'const s = {',
-          '  item: { borderRadius: rnRadius.xl },',
-          '  freeBadge: { borderRadius: rnRadius.lg },',
-          '  panel: { borderRadius: rnRadius.md },',
-          '  uploadBtn: { borderRadius: rnRadius.lg },',
-          '}',
-        ].join('\n'),
-        tbl,
-      ).entries
-      const d = elementRadiusDiff(mp, rn)
-      // 名可以是字符串(单侧名单)或 {name,…}(分叉记录)—— 判据取名字那一层,
-      // 否则 `/x/.test({...})` 会把对象强转成 "[object Object]",四条子断言全部**永不命中**
-      // 而账面看起来"跑过了"(§22c:恒绿断言与恒红断言同样没用)。
-      const namesOf = (list) => (list || []).map((x) => (typeof x === 'string' ? x : x.name))
-      const has = (list, re) => namesOf(list).some((n) => re.test(n))
-      // ① BEM `__` 是命名法规定的元素分隔符:cb__item ↔ item 必须配上,且真分叉要被抓到
-      const paired = has(d.mismatched, /^cb__item\|item$/) && d.mismatched.length >= 1
-      // ② 大小写 + 连字符折叠:`free-badge` ↔ `freeBadge` 同值 ⇒ 既不进 mismatched 也不进单侧名单
-      const folded =
-        !has(d.mismatched, /freebadge|free-badge/i) &&
-        !has(d.onlyMiniapp, /free-badge/) &&
-        !has(d.onlyRn, /freeBadge/)
-      // ③ 修饰符不参与身份:panel--active ↔ panel 必须配上(md=6 vs lg=8 ⇒ 应报分叉)
-      const modifier = has(d.mismatched, /panel/)
-      // ④ 缩写前缀**不折**(票面明令:那是猜测)⇒ 两边都只能算单侧元素
-      const notGuessed =
-        has(d.onlyMiniapp, /mcd-upload-btn/) && has(d.onlyRn, /uploadBtn/)
-      // ⑤ 反向锁:同一侧两个原始名折叠到同一身份时**不得配对**(并档会造"同值"假绿灯)
-      const collide = elementRadiusDiff(
-        { 'a__card': [8], 'b__card': [12] },
-        { card: [8] },
-      )
-      const guarded =
-        collide.mismatched.length === 0 &&
-        collide.onlyRn.includes('card') &&
-        collide.ambiguous.includes('card')
-      return paired && folded && modifier && notGuessed && guarded
-    })(),
-  )
-  t(
+    '㊻ 装车锁:elementRadiusDiff / radiusEntriesOf 必须真在 audit 体内被调用' +
       '(函数在、自检过,而 audit 没调 = 提交链上一路绿灯,本仓最高频失效型)',
     (() => {
       const body = readFileSync(fileURLToPath(import.meta.url), 'utf8')
@@ -4318,158 +3428,6 @@ function runSelfTest() {
     })(),
   )
   t(
-    'WD1 web 腿读数:两侧都读到档而不同 ⇒ 出差异;一侧一个档都读不出 ⇒ 未判定,不得记"两端同值"',
-    (() => {
-      // 与 S18 同一形态:档位表就是一张普通对象(radiusLookup 解析的是 radius.js 的**具体写法**,
-      // 自检测的是判据不是解析器,所以既有 RD 用例都直接喂表)
-      const table = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
-      const pairs = [
-        { name: 'Card', miniapp: 'm/Card.tsx', rn: 'w/Card.tsx' },
-        { name: 'Quiet', miniapp: 'm/Quiet.tsx', rn: 'w/Quiet.tsx' },
-      ]
-      const text = {
-        'm/Card.tsx': 'export const Card = () => <div className="rounded-lg" />',
-        'w/Card.tsx': 'export const Card = () => <div className="rounded-md" />',
-        'm/Quiet.tsx': 'export const Quiet = () => <div />',
-        'w/Quiet.tsx': 'export const Quiet = () => <div />',
-      }
-      const r = webRadiusAudit(pairs, text, table)
-      const card = r.findings.find((f) => f.name === 'Card')
-      return (
-        !!card &&
-        card.radius.onlyRn.length === 1 &&
-        card.radius.onlyMiniapp.length === 1 &&
-        r.findings.length === 1 &&
-        r.undetermined.length === 1 &&
-        r.undetermined[0].name === 'Quiet'
-      )
-    })(),
-  )
-  t(
-    'WD2 web 腿锚点独立:同一族在主腿与 web 腿各有一份差异时,一边下降不得替另一边顶掉名额;' +
-      '而台账没钉过的族出现差异 ⇒ 直接红',
-    (() => {
-      const f = {
-        name: 'Card',
-        named: [],
-        geometry: { onlyMiniapp: [], onlyRn: [] },
-        radius: { onlyMiniapp: [6], onlyRn: [8] },
-        elementRadius: { mismatched: [], onlyMiniapp: [], onlyRn: [] },
-      }
-      // 主腿台账给 Card 一份额度,web 台账没给 ⇒ web 腿必须红,主腿必须绿
-      const mainLedger = { counts: { Card: 0 }, radiusCounts: { Card: 2 } }
-      const webLedger = { webCounts: {}, webRadiusCounts: {} }
-      const main = verdictOf([f], mainLedger)
-      const web = verdictOf([f], webLedger, WEB_LEDGER)
-      const webAfter = verdictOf([f], { webCounts: {}, webRadiusCounts: { Card: 2 } }, WEB_LEDGER)
-      return (
-        main.red.length === 0 && web.red.length === 1 && webAfter.red.length === 0 && web.red[0].radiusCount === 2
-      )
-    })(),
-  )
-  t(
-    'WD3 装车锁:web 腿必须既被 main 打印、又折进退出码,且"台账钉过而本轮零记录"要红' +
-      '(只打印 = 下一次没人看;没有死亡机制 = 删目录就能让这一维安静)',
-    (() => {
-      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
-      return (
-        /webRadiusAudit\(collected\.webPairs/.test(src) &&
-        /if \(webVerdict\.red\.length \|\| webGhostRed\)/.test(src) &&
-        /const webGhostRed = webPriorKeys\.length && !web\.findings\.length/.test(src) &&
-        /web 腿整族消失|台账钉着 \$\{webPriorKeys\.length\} 族/.test(src)
-      )
-    })(),
-  )
-  t(
-    'WD4 web 腿豁免自成一本账:重锚必须带过去(键按 webWaivers,不与主腿 waivers 互串),' +
-      '差异归零的理由要撤下并报名,而生效中的豁免必须逐条把理由打进报告(豁免不得静默)',
-    (() => {
-      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
-      const f = {
-        name: 'Card',
-        named: [],
-        geometry: { onlyMiniapp: [], onlyRn: [] },
-        radius: { onlyMiniapp: [6], onlyRn: [8] },
-        elementRadius: { mismatched: [], onlyMiniapp: [], onlyRn: [] },
-      }
-      const prior = {
-        // 主腿对同名族也挂了一份豁免:两腿的豁免表必须互不顶账(web 腿的差异不等于主腿的差异)
-        waivers: { Card: { reason: '主腿那一维的理由' } },
-        webWaivers: {
-          Card: { reason: 'web 侧多嵌一段联想面板,两端输入井同档' },
-          Gone: { reason: '本轮已经找不到差异,该撤下' },
-        },
-      }
-      const out = emitBaseline([], prior, [f])
-      const carried = !!out[WEB_LEDGER.waivers]?.Card
-      const ghostRetired = out[WEB_LEDGER.waivers]?.Gone === undefined
-      const notCrossed = out.waivers.Card === undefined // 主腿本轮无该族差异 ⇒ 主腿理由必须撤下,而不是被 web 腿带着
-      const waivedNotRed = (() => {
-        const ledger = { webCounts: {}, webRadiusCounts: { Card: 2 }, webWaivers: prior.webWaivers }
-        const v = verdictOf([f], ledger, WEB_LEDGER)
-        return v.red.length === 0 && v.waived.length === 1 && v.waived[0].name === 'Card'
-      })()
-      const printed =
-        /带理由豁免 \$\{webVerdict\.waived\.length\}/.test(src) &&
-        /webVerdict\.waived[\s\S]{0,240}⊘ WD \$\{wv\.name\} 带理由豁免/.test(src)
-      return carried && ghostRetired && notCrossed && waivedNotRed && printed
-    })(),
-  )
-  t(
-    'WD5 拆对必须能只作用于一条腿:legs=["web"] 时主腿在册配对不得被连带摘线,而 web 腿必须留名;' +
-      '缺省(不写 legs)= 两腿都拆(既有 FloatBox 声明逐字不改行为)',
-    (() => {
-      const future = new Date(Date.now() + 86400 * 300).toISOString().slice(0, 10)
-      const badLegName = rejectProblem({ reason: '两端不是同一个东西,证据见头注', until: future, legs: ['nope'] })
-      const emptyLegs = rejectProblem({ reason: '两端不是同一个东西,证据见头注', until: future, legs: [] })
-      const shape =
-        badLegName === null ? false : /腿名/.test(badLegName)
-      const both = rejectLegs({ reason: 'x', until: future })
-      const onlyWeb = rejectLegs({ reason: 'x', until: future, legs: ['web'] })
-      if (!(both.main && both.web && !onlyWeb.main && onlyWeb.web)) return false
-      if (!shape || !emptyLegs) return false
-      const files = {
-        ...FIXTURE_BASE({
-          rn: "import { Bar, Foo } from '@ihui/rn-app'\nexport function RootNavigator() { return null }\n",
-        }),
-        // web 腿目录里再放一份同名件:同一族现在同时存在于两条腿上。
-        // 刻意**不写圆角类**:FIXTURE_BASE 里没有 radius.js 那份档表,写了会让 collect 按
-        // "圆角维判据失明"判死 —— 那这条用例红的原因是夹具缺件,不是 legs 判据(与上面㊻同一条纪律)。
-        'apps/web/src/components/Foo.tsx':
-          'export function Foo() { return <div className="flex" /> }\n',
-      }
-      const dir = makeFixtureRepo(files)
-      try {
-        const decl = { reason: 'web 那份同名件是另一端口的死副本,与小程序/RN 不是同一个元素', until: future, legs: ['web'] }
-        const w = collect(dir, 'head', { rejected: ['Foo'], rejectMap: { Foo: decl } })
-        const m = collect(dir, 'head', {
-          rejected: ['Foo'],
-          rejectMap: { Foo: { ...decl, legs: ['main'] } },
-        })
-        const plain = collect(dir, 'head', {})
-        const mainKept = w.pairs.pairs.some((p) => p.name === 'Foo')
-        const webSplit = w.webRejected.length === 1 && w.webPairs.every((p) => p.name !== 'Foo')
-        const mainSplit = !m.pairs.pairs.some((p) => p.name === 'Foo') && m.webRejected.length === 0
-        // 不写 legs ⇒ 与旧行为逐字一致(两腿都拆),这条防的是"新维度顺手改了缺省语义"
-        const legacy = collect(dir, 'head', {
-          rejected: ['Foo'],
-          rejectMap: { Foo: { reason: decl.reason, until: future } },
-        })
-        const legacyBoth =
-          !legacy.pairs.pairs.some((p) => p.name === 'Foo') && legacy.webRejected.length === 1
-        return (
-          plain.webRejected.length === 0 &&
-          mainKept &&
-          webSplit &&
-          mainSplit &&
-          legacyBoth
-        )
-      } finally {
-        rmScratch(dir)
-      }
-    })(),
-  )
-  t(
     '㊪ 平台后缀必须能配对:`SectionHeader` 与 `SectionHeader.taro` 是同一元素;' +
       '带后缀那份优先当选;而真不同名的两个文件不得被并成一对(宁可少配)',
     (() => {
@@ -4639,7 +3597,7 @@ function runSelfTest() {
     (() => {
       const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
       return (
-        /collect\(repoRoot, face, \{ pairAll, rejected: rejNames, rejectMap: rej, aliases \}\)/.test(src) &&
+        /collect\(repoRoot, face, \{ pairAll, rejected: rejNames, aliases \}\)/.test(src) &&
         (src.match(/collect\(repoRoot, 'head', \{ pairAll, aliases \}\)/g) ?? []).length === 2 &&
         /if \(aliasRed\) return 1/.test(src) &&
         /aliasPairs: \(collected\.pairs\?\.pairs \?\? \[\]\)/.test(src)
@@ -4794,29 +3752,6 @@ function runSelfTest() {
       )
     })(),
   )
-  /**
-   * 交集域必须有牙。**只断言"传了 globalDefined 结果不变"等于没断言** —— 那正是本条判据
-   * 被架空的样子(collect 算了 70 份表、传进来,函数体从不读,长期零红)。
-   * 判据分两半:① 落在全局表里的**留下**;② 全仓零定义的(Tailwind 刻度档 / 死类名)**剔掉**;
-   * ③ 把 ② 那一步摘掉后本条必须翻红。
-   */
-  t(
-    '㊾ 盲区披露的交集域必须真的生效:全仓零定义的类名不得报成"盒档落在 app.css"' +
-      '(成对:同一份输入,带/不带交集域两种读数必须不同)',
-    (() => {
-      const src =
-        'const X = () => <View className="ui-panel imgs-list max-w-md" />'
-      const own = ''
-      const g = new Set(['imgs-list']) // 只有 imgs-list 真在全局表里定义过
-      const withSet = unresolvedClassNames(src, own, g)
-      const noSet = unresolvedClassNames(src, own, null)
-      return (
-        withSet.join() === 'imgs-list' &&
-        noSet.join() === 'imgs-list,max-w-md,ui-panel' &&
-        noSet.length > withSet.length
-      )
-    })(),
-  )
   t(
     '㉗ 装车锁:披露必须由 collect 产出、由 main 打印,且不得在空数组时假装"没有盲区"',
     (() => {
@@ -4834,332 +3769,7 @@ function runSelfTest() {
       )
     })(),
   )
-  t(
-    '㉲ 选腿三序之二:出口指向必须压过目录序,而出口没指到任何一份时不得冒充依据(成对)',
-    (() => {
-      const a = 'packages/app/src/components/Foo.tsx'
-      const b = 'packages/app/src/features/cards/Foo.tsx'
-      const fwd = pickCandidate([a, b], b)
-      const rev = pickCandidate([b, a], b)
-      const none = pickCandidate([a, b], null)
-      return (
-        fwd.chosen === b &&
-        fwd.by === 'exit' &&
-        fwd.others.join() === a &&
-        rev.chosen === b &&
-        rev.by === 'exit' &&
-        none.chosen === a &&
-        none.by === 'order'
-      )
-    })(),
-  )
-  t(
-    '㉳ 选腿三序之首:平台后缀必须压过出口指向(票⑩ 那一条"构建期真解析 .taro"不得被新加的这支掀翻)',
-    (() => {
-      const plain = 'apps/miniapp-taro/src/components/Foo.tsx'
-      const suffixed = 'apps/miniapp-taro/src/components/Foo.taro.tsx'
-      const a = pickCandidate([plain, suffixed], plain)
-      const b = pickCandidate([suffixed, plain], plain)
-      return a.chosen === suffixed && a.by === 'suffix' && b.chosen === suffixed && b.by === 'suffix'
-    })(),
-  )
-  t(
-    '㉴ 三份同名:扩面前后进审的候选逐条点名,且两份实现不得被并成一条假同值腿;' +
-      '而"端内自绘层"必须压过出口指向(票#9 —— 本门比的是两端各自屏幕上的那张脸)',
-    (() => {
-      const mini = ['apps/miniapp-taro/src/components/UserInfoCard.tsx']
-      const ownEnd = 'apps/mobile-rn/src/components/UserInfoCard.tsx'
-      const sharedComponents = 'packages/app/src/components/UserInfoCard.tsx'
-      const feat = 'packages/app/src/features/cards/UserInfoCard.tsx'
-      // 扩面前:共享层 + 端内两份都在,没有出口证据 ⇒ 端内胜(它就是该端屏幕渲染的那份),两份都点名
-      const b = scan(mini, [sharedComponents, ownEnd], {})
-      const bb = b.multiCandidates.find((e) => e.name === 'UserInfoCard' && e.side === 'rn')
-      // 扩面后:三份都在,出口指向 features ⇒ 端内那份仍胜(票#9:出口指向不得把不同层的副本顶上来)
-      const a = scan(
-        mini,
-        [sharedComponents, ownEnd, feat],
-        {},
-        { rn: new Map([['userinfocard', feat]]) },
-      )
-      const aa = a.multiCandidates.find((e) => e.name === 'UserInfoCard' && e.side === 'rn')
-      // 成对反向 1:该端**没有**自绘层副本时,出口指向照旧生效(新序不得把旧判据整支吞掉)
-      const c = scan(mini, [sharedComponents, feat], {}, { rn: new Map([['userinfocard', feat]]) })
-      const cc = c.multiCandidates.find((e) => e.name === 'UserInfoCard' && e.side === 'rn')
-      // 成对反向 2:同层两份且无出口证据 ⇒ 仍按先入桶序(兜底那一支还活着;顺序即 SIDES 枚举序,共享层在前)
-      const d = scan(mini, [sharedComponents, feat], {})
-      const dd = d.multiCandidates.find((e) => e.name === 'UserInfoCard' && e.side === 'rn')
-      return (
-        b.pairs.length === 1 &&
-        a.pairs.length === 1 &&
-        !!bb &&
-        bb.chosen === ownEnd &&
-        bb.others.join() === sharedComponents &&
-        bb.by === 'own-end' &&
-        !!aa &&
-        aa.chosen === ownEnd &&
-        aa.by === 'own-end' &&
-        aa.others.slice().sort().join() === [sharedComponents, feat].sort().join() &&
-        a.pairs[0].rn === ownEnd &&
-        a.pairs[0].name === 'UserInfoCard' &&
-        !!cc &&
-        cc.chosen === feat &&
-        cc.by === 'exit' &&
-        c.pairs[0].rn === feat &&
-        !!dd &&
-        dd.chosen === sharedComponents &&
-        dd.by === 'order'
-      )
-    })(),
-  )
-  t(
-    '㊾ 端到端(真临时 git 仓):包入口再导出指向 features 那一份 ⇒ 腿必须是那一份,' +
-      '另两份点名在未选里,且不得被记成"换腿"(出口指向不是可达性)',
-    (() => {
-      const fx = FIXTURE_BASE({
-        rn:
-          "import { Bar, Foo } from '@ihui/rn-app'\n" +
-          "import '../../../../packages/app/src/components/Foo'\n" +
-          'export function RootNavigator() { return null }\n',
-      })
-      fx['packages/app/src/index.ts'] =
-        "export { Bar } from './components'\nexport { Foo } from './features/cards'\n"
-      fx['packages/app/src/features/cards/index.ts'] = "export { Foo } from './Foo'\n"
-      fx['packages/app/src/features/cards/Foo.tsx'] =
-        'export function Foo() { return <div style={{ width: 40 }} /> }\n'
-      const dir = makeFixtureRepo(fx)
-      try {
-        const r = collect(dir, 'head')
-        const p = r.pairs.pairs.find((x) => x.name === 'Foo')
-        const mc = (r.pairs.multiCandidates ?? []).find((e) => e.name === 'Foo' && e.side === 'rn')
-        return (
-          !!p &&
-          p.rn === 'packages/app/src/features/cards/Foo.tsx' &&
-          !!mc &&
-          mc.by === 'exit' &&
-          mc.others.includes('packages/app/src/components/Foo.tsx') &&
-          (r.fallbacks ?? []).every((f) => f.name !== 'Foo')
-        )
-      } catch (e) {
-        return `抛错:${e?.message ?? e}`
-      } finally {
-        rmScratch(dir)
-      }
-    })(),
-    '出口链在真 git 仓面上没跑通 ⇒ 单元层的 pickCandidate 过不等于装车过',
-  )
-  t(
-    '㊿ 反向对照:同一份夹具把出口改指 components 那一份 ⇒ 腿跟着换回去(features 不得因"新加的目录"永远优先)',
-    (() => {
-      const fx = FIXTURE_BASE({
-        rn:
-          "import { Bar, Foo } from '@ihui/rn-app'\n" +
-          "import '../../../../packages/app/src/features/cards/Foo'\n" +
-          'export function RootNavigator() { return null }\n',
-      })
-      fx['packages/app/src/index.ts'] =
-        "export { Bar } from './components'\nexport { Foo } from './components'\n"
-      fx['packages/app/src/features/cards/Foo.tsx'] =
-        'export function Foo() { return <div style={{ width: 40 }} /> }\n'
-      const dir = makeFixtureRepo(fx)
-      try {
-        const r = collect(dir, 'head')
-        const p = r.pairs.pairs.find((x) => x.name === 'Foo')
-        const mc = (r.pairs.multiCandidates ?? []).find((e) => e.name === 'Foo' && e.side === 'rn')
-        return (
-          !!p &&
-          p.rn === 'packages/app/src/components/Foo.tsx' &&
-          !!mc &&
-          mc.chosen === 'packages/app/src/components/Foo.tsx' &&
-          mc.by === 'exit' &&
-          mc.others.includes('packages/app/src/features/cards/Foo.tsx')
-        )
-      } catch (e) {
-        return `抛错:${e?.message ?? e}`
-      } finally {
-        rmScratch(dir)
-      }
-    })(),
-  )
-  t(
-    '㊀ 装车锁(归一化文本):配对源、出口喂入、双面上报缺任何一个都红 —— 面扩了判据没扩 = 白扩',
-    (() => {
-      const flat = readFileSync(fileURLToPath(import.meta.url), 'utf8').replace(/\s+/g, ' ')
-      return (
-        /'packages\/app\/src\/components', 'packages\/app\/src\/features', 'apps\/mobile-rn\/src\/components'/.test(
-          flat,
-        ) &&
-        /exitPreferMaps\(repoRoot, face, probe\.multiCandidates \?\? \[\]\)/.test(flat) &&
-        /scan\(lists\.miniapp, lists\.rn, aliases, exit\.maps\)/.test(flat) &&
-        /\{ preferMaps: exit\.maps \}/.test(flat) &&
-        /multiCandidates: collected\.pairs\?\.multiCandidates \?\? \[\]/.test(flat) &&
-        /exitNotes: collected\.exitNotes \?\? \[\]/.test(flat) &&
-        /同侧多候选/.test(flat) &&
-        /出口链/.test(flat)
-      )
-    })(),
-  )
-  t(
-    'KH line-height 无单位倍数不得进盒档(实测 0.5 幽灵档的成因),但 height/line-height 邻居仍要收',
-    (() => {
-      // 负例:小程序 CSS 的 `line-height: 1` 会被 toPx 当 rpx 折半成 0.5 —— 两端都没有这个数
-      const css = '.ia-row { line-height: 1; height: 22rpx; letter-spacing: 0.2; }\n'
-      const got = readGeometry(css, 'miniapp')
-      return (
-        !got.values.has(0.5) &&
-        !got.values.has(1) &&
-        got.values.has(11) && // height: 22rpx = 11px 必须仍然收(排除不能过宽)
-        !got.values.has(0.2)
-      )
-    })(),
-  )
-  t(
-    'KI 单位归属(负例):小程序**写进样式表**的 Npx 与 Nrpx 折出同一个物理量 ⇒ 不得报成跨端分叉',
-    (() => {
-      const vals = (s, side) => [...readGeometry(s, side).values].sort((a, b) => a - b)
-      const mpPx = vals('.row { margin-top: 20px; }', 'miniapp')
-      const mpRpx = vals('.row { margin-top: 20rpx; }', 'miniapp')
-      const arbitrary = vals('<View className="w-[140px]" />', 'miniapp')
-      return (
-        JSON.stringify(mpPx) === JSON.stringify(mpRpx) &&
-        JSON.stringify(mpPx) === JSON.stringify([10]) &&
-        JSON.stringify(arbitrary) === JSON.stringify([70]) &&
-        // 对面写 20 就是真 20:归一之后**同元素真差**仍要看得见
-        JSON.stringify(vals('.row { margin-top: 20px; }', 'rn')) === JSON.stringify([20])
-      )
-    })(),
-  )
-  t(
-    'KJ 单位归属(阳性对照):8rpx ↔ 10px 归一后必须是 4 ↔ 10,一格都不许被抹平',
-    (() => {
-      const mp = readGeometry('.t { font-size: 8rpx; }', 'miniapp').values
-      const rn = readGeometry('.t { font-size: 10px; }', 'rn').values
-      const d = diffValues(mp, rn)
-      return d.onlyMiniapp.join() === '4' && d.onlyRn.join() === '10'
-    })(),
-  )
-  t(
-    'KK 单位归属:引号里的运行时 px 不过 postcss ⇒ 仍按真 px 读(实测 AgentRuntimePanel 的 minHeight)',
-    (() => {
-      const runtime = [...readGeometry("const s = { minHeight: '120px' }", 'miniapp').values]
-      const sheet = [...readGeometry('.s { min-height: 120px; }', 'miniapp').values]
-      return (
-        JSON.stringify(runtime) === JSON.stringify([120]) &&
-        JSON.stringify(sheet) === JSON.stringify([60])
-      )
-    })(),
-  )
-  t(
-    'KL 圆角别名:同文件档位别名必须当档取用并归到元素名;解不到的名字计入读不到;不递别名表时默认口径一位不动',
-    (() => {
-      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
-      const aliased = radiusEntriesOf(
-        [
-          // 别名声明刻意放在**非首行**(真实文件里前面总有 import):取声明行的正则若漏 `m` 旗,
-          // `$` 只在整个字符串末尾成立 ⇒ 除首行外每一条声明都解不到,而"解不到"表现为
-          // 静默不折叠 ⇒ 门照报绿而别名整族隐身。本仓把 `/…$/` 少 `m` 旗记过两次,这条是它的行为版。
-          "import { rnRadius } from '@ihui/design-tokens'",
-          "import { View } from '@tarojs/components'",
-          '',
-          'const INPUT_RADIUS = rnRadius["2xl"]',
-          '',
-          'const styles = {',
-          '  fieldShell: {',
-          '    borderRadius: INPUT_RADIUS,',
-          '  },',
-          '}',
-        ].join('\n'),
-        tbl,
-      )
-      const unread = radiusEntriesOf(
-        [
-          'const styles = {',
-          '  fieldShell: {',
-          '    borderRadius: IMPORTED_RADIUS,',
-          '  },',
-          '}',
-        ].join('\n'),
-        tbl,
-      )
-      // 守门 11/77/150 共用的默认口径:别名形态整条读不出(RD 不因此长档)
-      const untouched = radiusSetOf(
-        'const styles = {\n  fieldShell: {\n    borderRadius: INPUT_RADIUS,\n',
-        tbl,
-      )
-      return (
-        JSON.stringify(aliased.entries) === JSON.stringify({ fieldShell: [16] }) &&
-        aliased.unnamed === 0 &&
-        aliased.unresolved === 0 &&
-        unread.unresolved === 1 &&
-        Object.keys(unread.entries).length === 0 &&
-        JSON.stringify(untouched) === JSON.stringify([])
-      )
-    })(),
-  )
-  t(
-    'KM @media 副本:同一条声明逐字再写一遍只算一份;@media 里改了值就是响应式真分叉,照计',
-    (() => {
-      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
-      const copy = radiusEntriesOf(
-        [
-          '.panel {',
-          '  border-radius: 8px;',
-          '}',
-          '@media (min-width: 480px) {',
-          '  .panel {',
-          '    border-radius: 8px;',
-          '  }',
-          '}',
-        ].join('\n'),
-        tbl,
-      )
-      const diverging = radiusEntriesOf(
-        [
-          '.panel {',
-          '  border-radius: 8px;',
-          '}',
-          '@media (min-width: 480px) {',
-          '  .panel {',
-          '    border-radius: 16px;',
-          '  }',
-          '}',
-        ].join('\n'),
-        tbl,
-      )
-      const anonCopy = radiusEntriesOf(
-        [
-          'const mk = () => ({',
-          '  borderRadius: rnRadius.lg,',
-          '})',
-          '@media (min-width: 480px) {',
-          '  const mk2 = () => ({',
-          '    borderRadius: rnRadius.lg,',
-          '  })',
-          '}',
-        ].join('\n'),
-        tbl,
-      )
-      return (
-        JSON.stringify(copy.entries) === JSON.stringify({ panel: [8] }) &&
-        copy.unnamed === 0 &&
-        JSON.stringify(diverging.entries) === JSON.stringify({ panel: [8, 16] }) &&
-        diverging.unnamed === 0 &&
-        anonCopy.unnamed === 1
-      )
-    })(),
-  )
-  t(
-    'KN 装车锁(单位只有一份):门内不得再留第二份折算表,折算必须走 lib/length-units',
-    (() => {
-      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
-      return (
-        !/\bTO_PX\b/.test(src) &&
-        /from '\.\/lib\/length-units\.mjs'/.test(src) &&
-        /facePx\(/.test(src) &&
-        !/\/\s*RPX_PER_PX|RPX_PER_PX\s*\*/.test(src)
-      )
-    })(),
-  )
-  console.info(`--self-test:${pass} 通过 / ${fail} 失败`)
+  console.log(`--self-test:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
 }
 
@@ -5189,8 +3799,6 @@ export const __test__ = {
   diffValues,
   diffCount,
   scan,
-  pickCandidate,
-  exitPreferMaps,
   styleLanguage,
   iconCarriers,
   clauseDemand,
