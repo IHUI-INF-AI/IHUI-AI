@@ -4,13 +4,14 @@
 
 import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Image, Button, ScrollView, Input } from '@tarojs/components'
+import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { getCircleDetail, get, post, type Circle } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import './detail.css'
+import { FocusInput } from '@/components/FocusField'
 
 interface Comment {
   id: string
@@ -360,7 +361,7 @@ export default function CircleDetailPage() {
         </ScrollView>
 
         <View className="cd-input-bar">
-          <Input
+          <FocusInput
             className="cd-input"
             value={commentText}
             placeholder={tt('circle.detail.commentPlaceholder', '说点什么…')}
