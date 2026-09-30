@@ -25,6 +25,8 @@
  */
 
 import type { GoalStatus } from '@ihui/types'
+// b76-13 票2:帧级字段 schema 用(本文件下方 SSE_FRAME_SCHEMAS;shared 的既有依赖)
+import { z as zod } from 'zod'
 
 /** SSE 事件名常量(单一事实源)。值即实际 wire 上的事件判别名。 */
 export const SSE_EVENTS = {
@@ -845,5 +847,284 @@ export type SSEAlertEventPayload =
       /** 触发本次审查的审查器 id(便于对账 guardian-runner 日志) */
       reviewId?: string
     }>
+
+// ===========================================================================
+// b76-02(2026-09-30 立):失败 kind 决定「可重试」还是「必须换一条路」
+// ===========================================================================
+//
+// 机制(照上游 zcode ssh-backend 的 uploadFailureKind 尺子改写到我方词汇):
+// 上游把"这类失败下一步做什么"写成**字段级结论**而非文案猜测。我方现状里
+// 判据来源只有 HTTP 码区间与 retry-after 头(client.ts 抽查 :527/:555-578/:627-634/
+// :1485-1519),没有"哪类失败必须换通道/换端点"的字段级结论;UI 侧的重试按钮
+// 也就只能按"有没有错误文案"猜。本段把这把尺子落成共享层唯一出口:
+//
+//  - `retry-same-path`:重发同一请求**可能得到不同结果**(限流窗口滑过、瞬时抖动恢复)
+//    ⇒ 产出重试计划;UI 的重试按钮只在 canRetry===true(本档)时存在。
+//  - `switch-path`:重发同路**必然同败**(凭据被拒、端点不可用)⇒ 换一条路
+//    (换通道/换端点/重新登录),且**不得**自动重发同路。
+//  - `terminal`:确定失败(契约不匹配/schema 过旧、调用方主动放弃)⇒ 重发与换路
+//    都不会改变结果,UI **不渲染**重试入口(同上游"登录必需/已过期/schema 过旧
+//    一律不给重试"的尺子)。
+//
+// 与既有两帧的关系:RETRY_SCHEDULED(:70)承载"立即重试"的**计划帧**、
+// FALLBACK(:59)承载"换模型"的**降级帧** —— 它们是本判据在 wire 上的两个出口,
+// 本段是它们共同的判据源,不是第三条平行通道。
+
+/** 失败 kind 有限枚举(封闭集合;表外值不得自造,新增档位必须连处置一起改)。 */
+export const SSE_FAILURE_KINDS = [
+  /** 限流(通常带 retry-after):窗口滑过后重发可能成功 */
+  'rate_limited',
+  /** 瞬时故障(超时/网关 5xx/连接抖动):重发可能成功 */
+  'transient',
+  /** 凭据被拒(401/403):同路重发必然同败,必须换路(重新登录/换凭据) */
+  'credentials_rejected',
+  /** 端点/通道不可用(404/502/503/504):必须换一条路径,不是等一等能好的 */
+  'endpoint_unavailable',
+  /** 契约不匹配(schema 过旧/载荷形状对不上):确定失败,重发与换路都无效 */
+  'contract_mismatch',
+  /** 调用方主动放弃:不是失败,处置恒 terminal 且不得再动作 */
+  'aborted',
+] as const
+
+export type SseFailureKind = (typeof SSE_FAILURE_KINDS)[number]
+
+/** 失败处置的有限枚举(字段级结论,消费方据此分流,不再读文案猜)。 */
+export const SSE_FAILURE_DISPOSITIONS = ['retry-same-path', 'switch-path', 'terminal'] as const
+
+export type SseFailureDisposition = (typeof SSE_FAILURE_DISPOSITIONS)[number]
+
+/** 失败判据的产出形状(消费方拿到的就是这份字段级结论)。 */
+export interface SseFailureDispositionResult {
+  failureKind: SseFailureKind
+  disposition: SseFailureDisposition
+  /**
+   * 「重发同一请求可能得到不同结果」⇒ true。
+   * UI 侧的重试按钮**只**在该值为 true 时渲染;false 时重试入口一律不给
+   * (登录必需/已过期/schema 过旧等 switch-path/terminal 档均为 false)。
+   */
+  canRetry: boolean
+  /** 仅 disposition==='retry-same-path' 时出现(与 retry_scheduled 帧字段同族) */
+  retryPlan?: { attempt: number; maxRetries: number; retryInMs: number }
+}
+
+/** retry-same-path 档的最大重试次数(与 retry_scheduled 帧的 maxRetries 同口径)。 */
+export const SSE_FAILURE_RETRY_MAX_ATTEMPTS = 3
+/** retry-same-path 档无 retry-after 提示时的退避基数(ms)。 */
+export const SSE_FAILURE_RETRY_BASE_MS = 1000
+
+/**
+ * 把一个失败 kind 解析成字段级处置结论(纯函数,唯一出口)。
+ *
+ * - rate_limited:retryAfterSeconds 有值按它定 retryInMs,无值按基数退避;
+ * - switch-path / terminal 档**不产出 retryPlan**(写了就是允许自动重发同路);
+ * - attempt 传入表示"已经重试到第几次",超出 maxRetries 后连可重试档也转 terminal
+ *   (重试预算耗尽不是"再试一次"的理由,与 client.ts 既有 maxRetries 闸同口径)。
+ */
+export function resolveSseFailureDisposition(
+  failureKind: SseFailureKind,
+  options?: { retryAfterSeconds?: number; attempt?: number },
+): SseFailureDispositionResult {
+  const attempt = options?.attempt ?? 0
+  if (failureKind === 'rate_limited' || failureKind === 'transient') {
+    if (attempt >= SSE_FAILURE_RETRY_MAX_ATTEMPTS) {
+      return { failureKind, disposition: 'terminal', canRetry: false }
+    }
+    const retryInMs =
+      failureKind === 'rate_limited' && typeof options?.retryAfterSeconds === 'number'
+        ? Math.max(0, options.retryAfterSeconds) * 1000
+        : SSE_FAILURE_RETRY_BASE_MS * 2 ** attempt
+    return {
+      failureKind,
+      disposition: 'retry-same-path',
+      canRetry: true,
+      retryPlan: { attempt, maxRetries: SSE_FAILURE_RETRY_MAX_ATTEMPTS, retryInMs },
+    }
+  }
+  if (failureKind === 'credentials_rejected' || failureKind === 'endpoint_unavailable') {
+    return { failureKind, disposition: 'switch-path', canRetry: false }
+  }
+  return { failureKind, disposition: 'terminal', canRetry: false }
+}
+
+/**
+ * 把 HTTP 失败(HTTP status + 可选 errorCode)归到失败 kind(纯函数,唯一出口)。
+ *
+ * api-client 把 HttpError 转.ApiResult 时调用本函数取得 kind,再交
+ * resolveSseFailureDisposition 得处置 —— 两步拆开是为了让"哪个码算哪类失败"
+ * 与"这类失败下一步做什么"各自只有一个真相源。
+ */
+export function classifyHttpFailureKind(
+  status: number,
+  errorCode?: string,
+): SseFailureKind {
+  if (errorCode === 'SCHEMA_MISMATCH' || errorCode === 'CONTRACT_MISMATCH') {
+    return 'contract_mismatch'
+  }
+  if (status === 401 || status === 403) return 'credentials_rejected'
+  if (status === 429) return 'rate_limited'
+  if (status === 404 || status === 502 || status === 503 || status === 504) {
+    return 'endpoint_unavailable'
+  }
+  if (status >= 500) return 'transient'
+  return 'contract_mismatch'
+}
+
+// ===========================================================================
+// b76-13 票2(2026-09-30 立):帧的字段级 schema + 装饰载荷的降级隔离
+// ===========================================================================
+//
+// 机制(照上游 zcode wire-assembler/transport 的尺子改写到我方词汇):
+//   · 进/出帧过**字段级 schema**:`.strict()`(枚举闭合、未知字段不静默收)+
+//     `superRefine`(**跨字段结构不变量**:必填对、跨字段等值);校验失败 ⇒
+//     typed fault(SCHEMA_MISMATCH),不是丢弃或放行 —— 丢是静默的,放行是把
+//     畸形当事实;
+//   · **装饰性**载荷显式标成一档(`.optional().catch(undefined)`):展示数据坏了
+//     只让那张卡退化成纯文本,**不决定 row/帧/订阅的生死**。
+//
+// 为什么需要:我方 SSE 消费面此前没有字段级 schema(agent-events 的 parseXxx
+// 是"显式挑字段"收窄,畸形即整格丢),出站侧 tool-approval 载荷形状甚至只住在
+// 注释里;而既有守门(check-agent-event-parity / check-sse-dispatch-parity)判的
+// 全是**事件名集合**,字段级对错无人看守。
+//
+// 本段只登记**有跨字段不变量或枚举闭合可判**的帧(子集,逐票扩);表外事件名
+// 在 parseSseFrameSchema 里判"不在射程",交由既有解析层,不冒充判过。
+// 生产侧同表实现:apps/ai-service/app/core/sse_contract.py::sse_frame_schema_fault
+// (两份清单由本段注释与两侧测试钉住,先例:D174 traceId 判例表)。
+
+/** 装饰性字段登记(**点号路径** `frame.field`):坏了只降级展示,不杀帧。 */
+export const SSE_DECORATIVE_FIELDS: readonly string[] = [
+  'terminal_end.output',
+  'terminal_end.totalChars',
+  'injection_applied.collapsed',
+  'injection_applied.fullText',
+  'tool-approval.args_preview',
+]
+
+/** form_response 的成对判据(与 FormResponseWireBody 注释逐字同族):approve 带 values 无理由, reject 带理由无 values。 */
+const formResponseSchema = zod
+  .object({
+    request_id: zod.string().min(1),
+    kind: zod.string().min(1),
+    action: zod.enum(['approve', 'reject']),
+    values: zod.record(zod.string(), zod.unknown()).optional().catch(undefined),
+    reject_reason: zod.string().optional().catch(undefined),
+    message_id: zod.string().optional().catch(undefined),
+  })
+  .strict()
+  .superRefine((v, ctx) => {
+    if (v.action === 'approve') {
+      if (v.values === undefined) {
+        ctx.addIssue({ code: 'custom', message: 'action=approve 必须带 values(拒绝零副作用不适用)' })
+      }
+      if (v.reject_reason !== undefined) {
+        ctx.addIssue({ code: 'custom', message: 'action=approve 不得带 reject_reason' })
+      }
+    } else {
+      if (v.reject_reason === undefined) {
+        ctx.addIssue({ code: 'custom', message: 'action=reject 必须带 reject_reason(空理由则整字段省略是生产侧纪律)' })
+      }
+      if (v.values !== undefined) {
+        ctx.addIssue({ code: 'custom', message: 'action=reject 不得带 values(拒绝零副作用)' })
+      }
+    }
+  })
+
+/** terminal_end:status 枚举闭合;truncated=true 而 totalChars 缺席 ⇒ "截断却不知道截掉多少"的假话帧。 */
+const terminalEndSchema = zod
+  .object({
+    terminalId: zod.string().min(1),
+    status: zod.enum(['completed', 'failed']),
+    // 装饰档:output 坏了 ⇒ 整字段按缺省处理(卡片退化成纯文本),不杀帧
+    output: zod.string().optional().catch(undefined),
+    totalChars: zod.number().int().nonnegative().optional().catch(undefined),
+    truncated: zod.boolean().optional(),
+    exitCode: zod.number().int().optional().catch(undefined),
+    durationMs: zod.number().nonnegative().optional(),
+    endedAt: zod.string().optional(),
+    interactionCount: zod.number().int().nonnegative().optional().catch(undefined),
+    messageId: zod.string().optional().catch(undefined),
+  })
+  .strict()
+  .superRefine((v, ctx) => {
+    if (v.truncated === true && v.totalChars === undefined) {
+      ctx.addIssue({ code: 'custom', message: 'truncated=true 必须携带 totalChars(截断前的原始字符数)' })
+    }
+  })
+
+/** retry_scheduled:三计数字段闭合(负 attempt/退避 ⇒ 假话帧)。 */
+const retryScheduledSchema = zod
+  .object({
+    attempt: zod.number().int().nonnegative(),
+    maxRetries: zod.number().int().nonnegative(),
+    retryInMs: zod.number().nonnegative(),
+    httpStatus: zod.number().int().optional().catch(undefined),
+  })
+  .strict()
+
+/** tool-delta:toolCallId 必需;truncated 缺席表示未截断(结构不变量:不能 truncated 而无 seq)。 */
+const toolDeltaSchema = zod
+  .object({
+    toolCallId: zod.string().min(1),
+    seq: zod.number().int().nonnegative(),
+    partialText: zod.string(),
+    truncated: zod.boolean().optional(),
+  })
+  .strict()
+
+/** form_request:动作必须成对(恒含 approve 与 reject),字段集非空。 */
+const formRequestSchema = zod
+  .object({
+    requestId: zod.string().min(1),
+    sessionId: zod.string().optional().catch(undefined),
+    kind: zod.string().min(1),
+    fields: zod.array(zod.object({ key: zod.string(), type: zod.string(), required: zod.boolean() })).min(1),
+    actions: zod.array(zod.string()),
+    messageId: zod.string().optional().catch(undefined),
+  })
+  .strict()
+  .superRefine((v, ctx) => {
+    if (!(v.actions.includes('approve') && v.actions.includes('reject'))) {
+      ctx.addIssue({ code: 'custom', message: 'actions 必须成对(恒含 approve 与 reject),缺一条整帧不可用' })
+    }
+  })
+
+/** 帧名 → 字段级 schema(**唯一登记处**;新帧带跨字段不变量时同票在此登记)。 */
+export const SSE_FRAME_SCHEMAS: Record<string, zod.ZodTypeAny> = {
+  form_response: formResponseSchema,
+  terminal_end: terminalEndSchema,
+  retry_scheduled: retryScheduledSchema,
+  'tool-delta': toolDeltaSchema,
+  form_request: formRequestSchema,
+}
+
+/** 字段级校验失败的 typed fault(不是静默丢弃,也不是放行)。 */
+export interface SseFrameSchemaFault {
+  code: 'SCHEMA_MISMATCH'
+  event: string
+  issues: readonly string[]
+}
+
+export type SseFrameSchemaResult =
+  | { ok: true; data: unknown }
+  | { ok: false; fault: SseFrameSchemaFault }
+
+/**
+ * 帧级字段校验唯一出口:登记表内的帧过 schema(strict + superRefine);
+ * 表外事件名 ⇒ ok(不在本尺子射程,交由既有解析层,不冒充判过)。
+ */
+export function parseSseFrameSchema(event: string, payload: unknown): SseFrameSchemaResult {
+  const schema = SSE_FRAME_SCHEMAS[event]
+  if (!schema) return { ok: true, data: payload }
+  const parsed = schema.safeParse(payload)
+  if (parsed.success) return { ok: true, data: parsed.data }
+  return {
+    ok: false,
+    fault: {
+      code: 'SCHEMA_MISMATCH',
+      event,
+      issues: parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`),
+    },
+  }
+}
 // ⁠​‌​​
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
