@@ -12,6 +12,8 @@ import { Loader2, Star, ArrowLeft, Eye } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface AiWorldItem {
   id: string
@@ -34,9 +36,13 @@ async function api<T>(url: string): Promise<T> {
 export default function AiWorldFavoritesPage() {
   const locale = useLocale()
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['ai-world', 'favorites'],
     queryFn: () => api<ListData>('/api/ai-world/favorites'),
+    enabled: allow,
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -69,7 +75,9 @@ export default function AiWorldFavoritesPage() {
         <p className="mt-1 text-sm text-muted-foreground">你收藏的 AI 世界项目</p>
       </div>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看收藏的项目" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...
