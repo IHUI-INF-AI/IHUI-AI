@@ -27,7 +27,7 @@
     "ModelList": 1,
     "NavBar": 1,
     "UserInfoCard": 1,
-    "VideoPlayer": 1
+    "VideoPlayer": 0
   },
   "elementRadiusCounts": {
     "AgentRuntimePanel": 0,
@@ -65,8 +65,8 @@
     "EmptyState": 1,
     "ProgressBar": 0,
     "SearchBar": 2,
-    "Tooltip": 1,
-    "VideoPlayer": 2
+    "Tooltip": 0,
+    "VideoPlayer": 1
   },
   "webElementRadiusCounts": {
     "AgentRuntimePanel": 0,
@@ -134,6 +134,32 @@
       "until": "2027-03-27"
     }
   },
+  "webWaivers": {
+    "AgentRuntimePanel": {
+      "reason": "web 面板本体刻意无壳:卡片圆角由消费页外包,现读 `git grep -n \"rounded-lg\" HEAD:\"apps/web/app/(main)/agents/[id]/PageClient.tsx\"` 命中 :375(=8,与小程序根容器 :28 ui-card rounded-lg 同档),而组件文件自身 rounded 计数 小程序 1 / web 0 ⇒ 差的是档值住在哪个文件,不是取值分叉。禁止为凑集合给 web 组件根补圆角(会和消费页壳叠两层)。",
+      "until": "2027-03-30"
+    },
+    "Avatar": {
+      "reason": "8 只来自小程序独有的 square 分支(现读 HEAD:apps/miniapp-taro/src/components/Avatar.tsx:31 `shape === \"circle\" ? rounded-md : rounded-lg`);web 侧按其头注刻意无此分支(统一 rounded-md),circle 分支两端同为 md(6)。改任何一端都是替对方删形态。",
+      "until": "2027-03-30"
+    },
+    "ConfirmDialog": {
+      "reason": "读数来自尺子没跟到的那一层:web 侧两档住在被 import 的包文件里 —— 现读 `git grep -n \"rounded-xl\" HEAD:packages/ui-react/src/components/dialog.tsx` 命中 :89(=12)、`git grep -n \"rounded-sm\" HEAD:packages/ui-react/src/components/button.tsx` 命中 :30(=4),与小程序 :35 rnRadiusFor.panel(=12)/:49,:57 rounded-sm(=4) 逐值同 ⇒ 真实差集为空。正解是 web 腿跟一跳包 import(扩取材后本族读数应自己归零),不得为凑集合给 web 组件文件补数字。",
+      "until": "2027-03-30"
+    },
+    "CountdownTimer": {
+      "reason": "小程序渲染 chip 容器(现读 HEAD:.../CountdownTimer.tsx:50 rounded-md,与 RADIUS_ROLES chip→md 同档),web 端同组件渲染裸文本(HEAD:apps/web/src/components/publish/CountdownTimer.tsx 代码面 rounded 计数 0,无 bg/无内边距)⇒ 差的是\"有没有这层元素\",不是同元素取不同档;要不要给 web 补 chip 壳属全端观感决策,不归本门。",
+      "until": "2027-03-30"
+    },
+    "EmptyState": {
+      "reason": "web 空态是聊天流专属三层件(logo + 标题 + 模板 chips;现读 HEAD:apps/web/src/components/chat/message-list/EmptyState.tsx:47 56px logo rounded-xl,唯一消费点 MessageList.tsx:31),小程序同名件是通用一行文字空态、结构上没有 logo 层 ⇒ 单侧多元素,非档位分叉。",
+      "until": "2027-03-30"
+    },
+    "SearchBar": {
+      "reason": "两档都不是\"同元素取了不同档\":仅小程序 4 = web 输入井同值住在包 import 里(现读 git grep -n \"rounded-sm\" HEAD:packages/ui-react/src/components/search-input.tsx 命中 :26 searchInputWellClassName,本腿不跟 .tsx 包 import ⇒ 扩一跳即抵掉);仅 web 12 = 该组件多嵌一段联想面板(:187 rounded-xl bg-popover),小程序端不渲染任何下拉节点,补数字等于画一个不存在的面板。",
+      "until": "2027-03-30"
+    }
+  },
   "ledgerVersion": "2026-09-27 票⑭:配对源纳入 packages/app/src/features/**,同侧多候选按\"平台后缀 > 出口指向 > 目录序\"选腿(判据 = 包入口/端组件桶的 re-export 链按名解到的那一份,不是猜),进审候选在 --json 与人读报告双面点名",
   "pairingRejects": {
     "FloatBox": {
@@ -181,32 +207,6 @@
       "rn": "apps/mobile-rn/src/components/Drawer.tsx",
       "reason": "两侧头注各自点名同一份历史源文件:小程序端「对齐原项目 DrawerComponentall.vue」、RN 端「1:1 复刻历史 Uniapp DrawerComponentall.vue(顶部用户区 / 5 主菜单 / 历史对话分组 / 底部操作区)」—— 同一个侧滑抽屉,不同命名",
       "until": "2027-03-27"
-    }
-  },
-  "webWaivers": {
-    "AgentRuntimePanel": {
-      "reason": "web 面板本体刻意无壳:卡片圆角由消费页外包,现读 `git grep -n \"rounded-lg\" HEAD:\"apps/web/app/(main)/agents/[id]/PageClient.tsx\"` 命中 :375(=8,与小程序根容器 :28 ui-card rounded-lg 同档),而组件文件自身 rounded 计数 小程序 1 / web 0 ⇒ 差的是档值住在哪个文件,不是取值分叉。禁止为凑集合给 web 组件根补圆角(会和消费页壳叠两层)。",
-      "until": "2027-03-30"
-    },
-    "Avatar": {
-      "reason": "8 只来自小程序独有的 square 分支(现读 HEAD:apps/miniapp-taro/src/components/Avatar.tsx:31 `shape === \"circle\" ? rounded-md : rounded-lg`);web 侧按其头注刻意无此分支(统一 rounded-md),circle 分支两端同为 md(6)。改任何一端都是替对方删形态。",
-      "until": "2027-03-30"
-    },
-    "ConfirmDialog": {
-      "reason": "读数来自尺子没跟到的那一层:web 侧两档住在被 import 的包文件里 —— 现读 `git grep -n \"rounded-xl\" HEAD:packages/ui-react/src/components/dialog.tsx` 命中 :89(=12)、`git grep -n \"rounded-sm\" HEAD:packages/ui-react/src/components/button.tsx` 命中 :30(=4),与小程序 :35 rnRadiusFor.panel(=12)/:49,:57 rounded-sm(=4) 逐值同 ⇒ 真实差集为空。正解是 web 腿跟一跳包 import(扩取材后本族读数应自己归零),不得为凑集合给 web 组件文件补数字。",
-      "until": "2027-03-30"
-    },
-    "CountdownTimer": {
-      "reason": "小程序渲染 chip 容器(现读 HEAD:.../CountdownTimer.tsx:50 rounded-md,与 RADIUS_ROLES chip→md 同档),web 端同组件渲染裸文本(HEAD:apps/web/src/components/publish/CountdownTimer.tsx 代码面 rounded 计数 0,无 bg/无内边距)⇒ 差的是\"有没有这层元素\",不是同元素取不同档;要不要给 web 补 chip 壳属全端观感决策,不归本门。",
-      "until": "2027-03-30"
-    },
-    "EmptyState": {
-      "reason": "web 空态是聊天流专属三层件(logo + 标题 + 模板 chips;现读 HEAD:apps/web/src/components/chat/message-list/EmptyState.tsx:47 56px logo rounded-xl,唯一消费点 MessageList.tsx:31),小程序同名件是通用一行文字空态、结构上没有 logo 层 ⇒ 单侧多元素,非档位分叉。",
-      "until": "2027-03-30"
-    },
-    "SearchBar": {
-      "reason": "两档都不是\"同元素取了不同档\":仅小程序 4 = web 输入井同值住在包 import 里(现读 git grep -n \"rounded-sm\" HEAD:packages/ui-react/src/components/search-input.tsx 命中 :26 searchInputWellClassName,本腿不跟 .tsx 包 import ⇒ 扩一跳即抵掉);仅 web 12 = 该组件多嵌一段联想面板(:187 rounded-xl bg-popover),小程序端不渲染任何下拉节点,补数字等于画一个不存在的面板。",
-      "until": "2027-03-30"
     }
   }
 }
