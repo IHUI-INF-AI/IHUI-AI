@@ -141,8 +141,7 @@
     "orUseAccount": "Or use account login",
     "ssoCancelled": "SSO sign-in cancelled",
     "ssoLoading": "SSO authorizing...",
-    "ssoLogin": "SSO one-click sign-in",
-    "ssoFailed": "SSO login failed"
+    "ssoLogin": "SSO one-click sign-in"
   },
   "popup": {
     "copyFailed": "Copy failed",
@@ -166,13 +165,14 @@
     "emptyHint": "Wordbook is empty, look up a word and save it"
   },
   "chat": {
+    "retryMessage": "Retry",
+    "citationTitle": "Sources",
+    "retryScheduled": "Upstream unavailable — retry {attempt} of {max}, continuing in {seconds}s",
+    "retryScheduledNow": "Switching upstream channel — retry {attempt} of {max}, continuing now",
     "history": "History",
     "title": "AI Chat",
     "exit": "Exit",
     "selectModel": "Select model",
-    "selectWorkspace": "Choose a workspace folder",
-    "workspaceNotWritable": "No write permission for this folder, so the AI cannot edit files",
-    "approveForSession": "Allow for this session",
     "emptyHint": "Type a message to start",
     "inputPlaceholder": "Say something...",
     "compactionNotice": "Context auto-compacted: {before} → {after} (removed {removed} messages)",
@@ -189,25 +189,10 @@
     "toolStatusError": "Failed",
     "toolDetail": "Call details",
     "terminal": "Terminal",
+    "terminalIsolation": "Commands run in an isolated sandbox; network access is off by default",
     "terminalStatusRunning": "Running",
     "terminalStatusCompleted": "Completed",
     "terminalStatusFailed": "Failed",
-    "planStatusPending": "Pending",
-    "planStatusInProgress": "In progress",
-    "planStatusCompleted": "Completed",
-    "subagentTools": "Sub-agent tools ×{count}",
-    "usage": "Usage",
-    "retryMessage": "Retry",
-    "branchFromHere": "Branch from here",
-    "branchDone": "Branched into a new conversation",
-    "branchFailed": "Branch failed: {reason} (service status {status})",
-    "conversationCreateFailed": "Failed to create conversation: {reason} (service status {status})",
-    "messageSaveFailed": "Failed to save message to conversation: {reason} (service status {status})",
-    "citationTitle": "Sources",
-    "steerNoticeTitle": "Steered {count} times",
-    "retryScheduled": "Upstream unavailable — retry {attempt} of {max}, continuing in {seconds}s",
-    "retryScheduledNow": "Switching upstream channel — retry {attempt} of {max}, continuing now",
-    "terminalIsolation": "Commands run in an isolated sandbox; network access is off by default",
     "terminalTruncated": "…(truncated, {total} characters in total)",
     "injectionTitle": "{count, plural, one {# context source in this turn} other {# context sources in this turn}}",
     "injectionExpand": "Show {count, plural, one {# more} other {# more}}",
@@ -216,6 +201,11 @@
     "injectionKindWorkspace": "Workspace memory / AGENTS.md injected",
     "injectionKindRepoWiki": "Repo Wiki project knowledge injected",
     "injectionKindAutoContext": "{count, plural, one {Injected {count} auto-retrieved code context block} other {Injected {count} auto-retrieved code context blocks}}",
+    "planStatusPending": "Pending",
+    "planStatusInProgress": "In progress",
+    "planStatusCompleted": "Completed",
+    "subagentTools": "Sub-agent tools ×{count}",
+    "usage": "Usage",
     "subagentRoleValidator": "Validator",
     "subagentRoleReviewer": "Reviewer",
     "subagentRoleExplorer": "Explorer",
@@ -225,19 +215,7 @@
     "subagentRoleResearcher": "Researcher",
     "subagentRoleOptimizer": "Optimizer",
     "subagentRoleDebugger": "Debugger",
-    "subagentRoleRefactorer": "Refactorer",
-    "modelCategoryChat": "Chat",
-    "modelCategoryVision": "Vision",
-    "modelCategoryEmbedding": "Embedding",
-    "modelCategoryRerank": "Rerank",
-    "modelCategoryTts": "Text to speech",
-    "modelCategoryAsr": "Speech to text",
-    "modelCategoryImage": "Image generation",
-    "modelCategoryVideo": "Video generation",
-    "modelCategoryGuard": "Safety guard",
-    "modelCategoryOcr": "OCR",
-    "modelCategoryOther": "Other",
-    "modelHistoryToggle": "Legacy models"
+    "subagentRoleRefactorer": "Refactorer"
   },
   "settings": {
     "language": "Interface language",
@@ -291,6 +269,9 @@
     "approvalSent": "Submitted",
     "approvalFailed": "Submit failed",
     "approvalUnavailable": "Online approval is not supported on this channel",
+    "decisionAllow": "Allowed",
+    "decisionAsk": "Approval needed",
+    "decisionDeny": "Blocked",
     "levelRead": "Read-only",
     "levelWrite": "Write",
     "levelDangerous": "Dangerous",
@@ -456,10 +437,6 @@
       "benefitsTitle": "Included benefits",
       "note": "Pricing and benefits are subject to the web version.",
       "open": "Go to Web to Activate"
-    },
-    "topics": {
-      "discussions": "{count} discussions",
-      "followers": "{count} followers"
     }
   },
   "permissionTier": {
@@ -604,17 +581,5 @@
       }
     },
     "vividTail": ", almost there"
-  },
-  "ai": {
-    "pane": {
-      "inputNotices": {
-        "queue": {
-          "denied": {
-            "reorder": "Cannot reorder queued messages",
-            "undo": "Cannot unsend the queued message"
-          }
-        }
-      }
-    }
   }
 }
