@@ -38,6 +38,8 @@ import {
   buildToolDenial,
   denialErrorSuffix,
   type ToolCallDenial,
+  type ToolDenialDecider,
+  type ToolDenialGate,
 } from '../utils/tool-denial.js';
 import { injectHostSection } from '../utils/prompt-injection-registry.js';
 import { BROWSER_TOOLS } from './browser.js';
@@ -51,9 +53,24 @@ import {
 } from './hub/index.js';
 import {
   projectToolInputSchema,
+  type FailureCode,
   type ToolContractMount,
   type ToolResultBudgetContract,
 } from '@ihui/types';
+// G-710:失败码判定的唯一出口。文本档(`classifyFailureText`)只在这里被兜底调用,
+// 任何调用点都不得自己写 `includes` 来决定分支 —— 那是本票立门要拦的那一型。
+import {
+  classifyFailureText,
+  failureCodeFromTag,
+  isFatalFailureCode,
+  isRetryableFailureCode,
+  resolveFailureCode,
+  type ToolTerminalState,
+} from './failure-classification.js';
+
+// 抛出方给码用的具名错误类住在 failure-classification.ts 那一份;这里只是**再导出**,
+// 让 handler 与本模块共享同一个类(`instanceof` 认的是同一个构造函数,复制一份就两型同体)。
+export { ToolError, type FailureFallbackSite } from './failure-classification.js';
 
 export interface ToolParameter {
   type: 'string' | 'number' | 'boolean' | 'array' | 'object';
@@ -98,13 +115,17 @@ export interface ToolResult {
    */
   abortedByExecBudget?: 'budget' | 'cancelled';
   /**
-   * 沙箱一层自己说得出的终态(投影见 `failure-classification.ts::mapTerminalState`)。
-   * 与 `abortedByExecBudget` **不是同一格**:那一枚是"执行链边界代结算",这一枚是
-   * "沙箱结果自己带着 timedOut"。缺席 = 该结果没有可证的中止,不得由渲染侧猜。
+   * 吸收 G-937951(前台终态映射):执行在完成前被打断时的终态归档。
+   * `timed_out` = 墙钟到点强杀(预算档 / 沙箱超时),`cancelled` = 外层取消。
+   * 消费方(回灌模型 / 重试决策 / 台账)读这里,**不得**从 `[超时]` 一类输出文案反推。
    */
-  terminalState?: 'timed_out';
-  /** 副作用不确定的盖章:与 `terminalState` 成对出现,单独一枚不产出(`mapTerminalState` 是唯一种它的出口)。 */
-  interrupted?: true;
+  terminalState?: ToolTerminalState;
+  /**
+   * 吸收 G-937951(interrupted 语义):true = 本次执行**没有干净终态**,副作用不确定,
+   * 不得被下游当成"跑完了"消费。与 `abortedByExecBudget` 的分工:那是执行链边界
+   * 代结算的归因位,这是"别假装完成"的语义位;同源(`execBudgetResult` / bash 结算)同值。
+   */
+  interrupted?: boolean;
 }
 
 /**
@@ -266,6 +287,10 @@ function execBudgetResult(
         `running in background. Verify on-disk / remote state before retrying.`,
       errorType: 'timeout',
       abortedByExecBudget: 'budget',
+      // G-937951:墙钟到点强杀就是被打断的终态(上游 timed_out 档),必须带 interrupted 语义位,
+      // 让下游读到"没有干净终态"而不是从错误散文里猜。
+      terminalState: 'timed_out',
+      interrupted: true,
     };
   }
   return {
@@ -276,6 +301,9 @@ function execBudgetResult(
       `Side effects are indeterminate - do NOT assume nothing happened.`,
     errorType: 'cancelled',
     abortedByExecBudget: 'cancelled',
+    // G-937951:外层取消即上游 cancelled 档,同上带终态归档。
+    terminalState: 'cancelled',
+    interrupted: true,
   };
 }
 
@@ -767,6 +795,109 @@ export function requiresUserConfirmation(tool: Tool, leaseContentDrifted = false
   return false;
 }
 
+// ==================== 拒绝出口:「不放行」的判定与文案唯一来源(票 A,2026-09-29)====================
+//
+// 立票理由(上游对照 `zcode/apps/zcode-cli/packages/cli/src/headless-workflow.ts:31-51`):
+// 那份实现的形态是 —— 只有两个具名工作流工具自动 allow,**其余全部委托同一个
+// `createDenyPermissionBroker()`**,于是"拒绝"的语义与文案在结构上只有一份;审批面缺席时
+// (`tui-prompt-handler.ts:78-91`)也是走同一个出口并带上 toolName 归因。
+// 我方**机制在、委托结构不在**:`requiresUserConfirmation` 的四条判据齐备(判定顺序不改),
+// 但同一文件里三条拒绝路径各自拼头语文案(权限规则拒 / 危险闸无审批面 / 租约摘要漂移),
+// 而"有没有审批面"这一判据在 `executeToolCall` 里被写了两次(调用那一支 + decider 那一支)。
+// 本出口把**判定与文案**收成一份:分支只表达"这一步不放行"的具体路由,不再自己组织句子。
+//
+// 三条不许漂的写法:
+//  ① **只改"怎么说",不改"是否放"** —— 本出口产出的 `ToolResult` 与改前逐字同形
+//     (头部文案、`errorType`、结构化 `denial`、`denialErrorSuffix` 后缀、`auditToolDenial` 记账),
+//     既有回归(`tool-denial-diagnosable` 以 toContain('危险操作被拒绝(需用户确认): …')、
+//     `lease-drift-executor-wiring` 以 toContain('摘要漂移')、`always-ask-wired` 以 decider 档)
+//     因此全部照旧绿;它们红了就说明改的是语义而不是措辞。
+//  ② 句面常量**只在本文件这一处出现**(新测试按"源码面上每句出现 1 次"钉死,不得有第二份)。
+//  ③ 端内**清单外**的同类站点(`tools/builtins.ts`、`tools/terminal.ts`、`commands/agent.ts`
+//     的 plan fail-fast)仍在自拼同一句危险拒绝文案 —— 已如实登记,不得在本票顺手改它们的文件。
+
+/**
+ * 审批面是否**真的在位**(唯一判据)。
+ *
+ * 判的是"这个宿主有没有给出一条能让真人应答的通道",不是"回调返回了什么" ——
+ * 回调在位却答"不"是 `user-declined`(人就在场),回调缺席才是 `no-confirmation-channel`
+ * (非交互/无头)。此前这一条在 `executeToolCall` 里以 `ctx.confirmDangerous ?` 出现两次,
+ * 两处各自成立就是两处会漂的地方。
+ */
+export function hasApprovalSurface(ctx: Pick<ToolContext, 'confirmDangerous'>): boolean {
+  return Boolean(ctx.confirmDangerous);
+}
+
+/**
+ * 一次拒绝**从哪道闸来**(唯一路由档)。`gate` / `decider` / 头语文案全部由本档推导,
+ * 调用方不得再自己填 —— 那正是"各处自己拼拒绝文案"的形态。
+ */
+export type ToolDenialRoute =
+  /** 静态权限规则拒(黑名单命中,或不在非空白名单里);`ruleReason` 存在时逐字优先。 */
+  | { readonly kind: 'permission-rule'; readonly ruleReason?: string }
+  /**
+   * 批准闸拒:`requiresUserConfirmation` 判"必须问人"而没有拿到"人同意"。
+   *  `approvalSurface=false`(非交互/无头)与"有面而人当面拒绝"是两种归因,由本档一次推导。
+   */
+  | {
+      readonly kind: 'approval-gate';
+      readonly leaseContentDrifted: boolean;
+      readonly approvalSurface: boolean;
+    };
+
+/** 头语文案的唯一映射(按路由推导;三句各只在本函数内出现一次)。 */
+function denialHeadlineFor(route: ToolDenialRoute, toolName: string): string {
+  if (route.kind === 'permission-rule') {
+    return route.ruleReason ?? `工具 ${toolName} 被权限规则拒绝`;
+  }
+  return route.leaseContentDrifted
+    ? `工具 ${toolName} 的本次参数与租约批准过的内容不符(摘要漂移)，旧批准失效，需重新确认`
+    : `危险操作被拒绝(需用户确认): ${toolName}`;
+}
+
+/** 是哪道闸(判据 ①)。漂移是"批准过、内容变了"的单列待再审态,不得被读成"从未批准"。 */
+function denialGateOf(route: ToolDenialRoute): ToolDenialGate {
+  if (route.kind === 'permission-rule') return 'permission-rule';
+  return route.leaseContentDrifted ? 'lease-digest-drift' : 'dangerous-gate';
+}
+
+/**
+ * 是谁说的"不"(判据 ①)。
+ * 层面边界(如实登记):工具层只看"有没有回调";danger-gate 内部"回调在但无 prompt"
+ * 在这一层呈现为 user-declined,归因属调用方另计。
+ */
+function denialDeciderOf(route: ToolDenialRoute): ToolDenialDecider {
+  if (route.kind === 'permission-rule') return 'rule-deny';
+  return route.approvalSurface ? 'user-declined' : 'no-confirmation-channel';
+}
+
+/**
+ * **唯一**的"这次调用不放行"出口:判定归因 + 结构化三问 + 审计流水 + 人读文案,一处产出。
+ *
+ * 产出恒为 `success: false`(不存在"调了本出口还放行"的路径),`errorType` 恒为
+ * `permission_denied`;参数面只落指纹与键名(值绝不进明文面)。
+ */
+export function denyToolCall(input: {
+  readonly toolName: string;
+  readonly args: Record<string, unknown> | undefined;
+  readonly route: ToolDenialRoute;
+}): ToolResult {
+  const denial: ToolCallDenial = buildToolDenial({
+    gate: denialGateOf(input.route),
+    decider: denialDeciderOf(input.route),
+    tool: input.toolName,
+    args: input.args,
+  });
+  auditToolDenial(denial);
+  return {
+    success: false,
+    output: '',
+    error: `${denialHeadlineFor(input.route, input.toolName)}\n${denialErrorSuffix(denial)}`,
+    errorType: 'permission_denied',
+    denial,
+  };
+}
+
 export async function executeToolCall(
   call: ParsedToolCall,
   ctx: ToolContext,
@@ -856,21 +987,13 @@ export async function executeToolCall(
     if (!perm.allowed) {
       // 可诊断化收口:原错误串逐字保留(既有回归以 `toContain` 断言它),其后追加 ASCII 出路行;
       // 三问(哪道闸/出路/参数摘要)以结构化字段在返回体可断言。判定本身一个字节都没动。
-      const denial = buildToolDenial({
-        gate: 'permission-rule',
-        decider: 'rule-deny',
-        tool: call.name,
+      // 票 A(2026-09-29):句子不再在这里拼 —— 委托唯一拒绝出口,`perm.reason` 作为逐字优先的
+      // 规则原因传入(缺席时由出口给出默认头部文案),gate/decider/审计/后缀同处产出。
+      return denyToolCall({
+        toolName: call.name,
         args: call.arguments,
+        route: { kind: 'permission-rule', ruleReason: perm.reason },
       });
-      auditToolDenial(denial);
-      const ruleMsg = perm.reason ?? `工具 ${call.name} 被权限规则拒绝`;
-      return {
-        success: false,
-        output: '',
-        error: `${ruleMsg}\n${denialErrorSuffix(denial)}`,
-        errorType: 'permission_denied',
-        denial,
-      };
     }
     // 执行点必须把内容喂进判定,并且**必须消费漂移结论**:
     // `checkRulesWithLease` 在摘要不符时返回 `allowed:true + requiresApproval:true`,
@@ -886,7 +1009,11 @@ export async function executeToolCall(
   // 走到这一行时权限规则**已经放行**(上面 deny 已 return),所以 alwaysAsk 结构上
   // 不可能把一次静态拒绝变成"问一次再放行" —— 那条规格写在 tool-contract.ts:200。
   if (requiresUserConfirmation(tool, leaseContentDrifted)) {
-    const allowed = ctx.confirmDangerous ? await ctx.confirmDangerous(tool, call.arguments) : false;
+    // 票 A(2026-09-29):"问不问得到人"只在此处判一次,并**同时**驱动调用与归因 ——
+    // 此前 `ctx.confirmDangerous ?` 在调那一步和 decider 那一步各写一遍,两处各成立就是两处会漂。
+    const approvalSurface = hasApprovalSurface(ctx);
+    const channel = ctx.confirmDangerous;
+    const allowed = approvalSurface && channel ? await channel(tool, call.arguments) : false;
     // 披露面(L7905 收口):只记账不改判定 —— 放行路径(会话级 flag / 回调自批)可追溯
     if (allowed) {
       noteDangerousApproval(ctx.allowDangerous === true, tool.name);
@@ -902,29 +1029,14 @@ export async function executeToolCall(
       });
     }
     if (!allowed) {
-      const denial = buildToolDenial({
-        // 两道闸同时命中时报更特异的一态:漂移是"批准过、内容变了"的单列待再审态,
-        // 不得被读成"从未批准"(文案与 `gate` 字段同形,回归各钉一条)。
-        gate: leaseContentDrifted ? 'lease-digest-drift' : 'dangerous-gate',
-        // 层面边界(如实登记):工具层只看"有没有回调";danger-gate 内部"回调在但无
-        // prompt"(no-prompt 成因)在这一层呈现为 user-declined,归因属调用方另计。
-        decider: ctx.confirmDangerous ? 'user-declined' : 'no-confirmation-channel',
-        tool: call.name,
+      // 票 A(2026-09-29):句子不在这里拼 —— 委托唯一拒绝出口。归因(哪道闸 / 谁说的不)、
+      // 结构化三问、审计流水、ASCII 出路后缀全部由 `denyToolCall` 按 `route` 一份产出;
+      // 无确认出口时**仍然必须拒** —— 本票只改怎么说,不改是否放(fail-closed 不变)。
+      return denyToolCall({
+        toolName: call.name,
         args: call.arguments,
+        route: { kind: 'approval-gate', leaseContentDrifted, approvalSurface },
       });
-      auditToolDenial(denial);
-      // 原中文错误串逐字保留(`lease-drift-executor-wiring` 以 toContain('摘要漂移') 断言),
-      // 其后追加 ASCII 出路行;无确认出口时**仍然必须拒** —— 本票只改怎么说,不改是否放。
-      return {
-        success: false,
-        output: '',
-        error:
-          (leaseContentDrifted
-            ? `工具 ${call.name} 的本次参数与租约批准过的内容不符(摘要漂移)，旧批准失效，需重新确认`
-            : `危险操作被拒绝(需用户确认): ${call.name}`) + `\n${denialErrorSuffix(denial)}`,
-        errorType: 'permission_denied',
-        denial,
-      };
     }
   }
   // P1-5 Error recovery:read 工具失败自动重试 1 次 + 100ms 退避;write/dangerous 不重试(避免副作用)
@@ -994,6 +1106,10 @@ const READ_TOOL_MAX_RETRIES = 1;
  *   - read 工具:失败后等待 100ms 重试 1 次(应对瞬时网络/文件系统抖动)
  *   - write/dangerous 工具:不重试(避免重复写入/删除等副作用)
  *   - 抛异常和返回 success=false 都视为失败
+ *
+ * 判据来源(G-710):重试与否读**失败码**,不读错误文本。顺序是
+ * `结果自带的 errorType` → `抛出方携带的 code` → `外层取消信号` → 三档全空才落到
+ * `classifyFailureText`(被计数的兜底,见 `failure-classification.ts` 的模块头注)。
  */
 export async function executeWithRetry(
   tool: Tool,
@@ -1013,90 +1129,80 @@ export async function executeWithRetry(
       // 可重试档,照旧走一遍等于把一次挂死延长成两倍预算 —— 那正是本票要收口的形态。
       if (result.abortedByExecBudget) break;
     } catch (err) {
+      // 抛出方的身份必须带下来,而不是只留一句 message 让下游去猜:
+      //   ① ToolError(或任何携带 code 的错误)⇒ 直接用它的码,一次文本都不读;
+      //   ② 外层信号已 aborted ⇒ 这是**取消**,不是瞬态故障。把它交给文本档等于让一次 Ctrl-C
+      //      变成"按措辞猜",而 AbortError 的措辞由运行时决定(Node 与浏览器就不一样)。
+      //   ③ 两者都没有 ⇒ 读一次被计数的文本兜底 —— 那是一条可清的账,不是一个判据。
+      const code: FailureCode = ctx.signal?.aborted ? 'cancelled' : resolveFailureCode(err, 'tool-retry').code;
       lastResult = {
         success: false,
         output: '',
         error: err instanceof Error ? err.message : String(err),
+        errorType: code,
       };
     }
-    // P1-4 仅对可重试错误类型进行重试,避免对 permission/unknown 等无效重试
+    // P1-4 仅对可重试码进行重试,避免对 permission/unknown 等无效重试
     if (attempt < maxRetries) {
-      const errorType = lastResult.errorType ?? classifyError(lastResult.error);
-      if (!isRetryableErrorType(errorType)) break;
+      if (!isRetryableErrorType(lastResult.errorType)) break;
       await new Promise((resolve) => setTimeout(resolve, READ_TOOL_RETRY_DELAY_MS));
     }
   }
-  // P1-4 错误分级:优先保留工具显式标记,其次启发式分类
+  // P1-4 失败码归档:发射方给了码就原样留着;没给才走**被计数**的文本兜底补一档
   if (lastResult.errorType === undefined) {
-    lastResult = { ...lastResult, errorType: classifyError(lastResult.error) };
+    lastResult = {
+      ...lastResult,
+      errorType: resolveFailureCode(lastResult, 'tool-result-tagging').code,
+    };
   }
   return lastResult;
 }
 
 // ==================== P1-4 Error classification ====================
 
-export type ErrorType =
-  | 'rate_limited'
-  | 'timeout'
-  | 'permission'
-  | 'not_found'
-  | 'network'
-  | 'unknown';
+/**
+ * 失败码(G-710 起就是 `@ihui/types` 的那条闭集 `FailureCode`)。
+ *
+ * 旧版这里是本地一条字符串联合,与 `ToolResult.errorType: string` 之间没有任何约束 ——
+ * 也就是"发射方写什么下游都得收"。换成闭集之后,判定侧(`isRetryableErrorType` 等)与
+ * 发射侧(`ToolError` / `execBudgetResult` / 两处拒绝闸)第一次共享同一个值域。
+ */
+export type ErrorType = FailureCode;
 
-/** 根据错误文本启发式分类错误类型(大小写不敏感)。 */
+/**
+ * **兜底档**(G-710 降级):只在拿不到任何结构化码时才读文本,且每次使用都按站点计数并报名。
+ *
+ * 为什么不干脆删掉它:今天仍有大量发射点没给码(hub/MCP 的外部错误、第三方 handler、
+ * `String(err)` 转出来的散文),删掉它等于把"判得不准"换成"什么都不判"。所以它是**降级**
+ * 而不是维持原状 —— 每次使用都是一条可清的账,计数归零就是可以摘掉它的时刻(那也是把
+ * "文本决定分支"升成零容忍的前置条件)。
+ *
+ * 判定请优先走 `resolveFailureCode(source, site)`:它先看码,这一函数只在没有码时被它调用。
+ * 大小写不敏感;表内顺序即优先级(与改前的两张表逐字同序)。
+ */
 export function classifyError(error?: string | null): ErrorType {
-  const e = (error ?? '').toLowerCase();
-  if (
-    e.includes('rate limit') ||
-    e.includes('限流') ||
-    e.includes('too many requests') ||
-    e.includes('429')
-  )
-    return 'rate_limited';
-  if (
-    e.includes('timeout') ||
-    e.includes('timed out') ||
-    e.includes('超时') ||
-    e.includes('etimedout')
-  )
-    return 'timeout';
-  if (
-    e.includes('permission denied') ||
-    e.includes('access forbidden') ||
-    e.includes('权限不足') ||
-    e.includes('操作被拒绝') ||
-    e.includes('eacces') ||
-    e.includes('eperm')
-  )
-    return 'permission';
-  if (
-    e.includes('not found') ||
-    e.includes('enoent') ||
-    e.includes('不存在') ||
-    e.includes('no such file')
-  )
-    return 'not_found';
-  if (
-    e.includes('network error') ||
-    e.includes('econnreset') ||
-    e.includes('econnrefused') ||
-    e.includes('fetch failed') ||
-    e.includes('连接被拒绝') ||
-    e.includes('enotfound') ||
-    e.includes('epipe')
-  )
-    return 'network';
-  return 'unknown';
+  return classifyFailureText(error ?? '', 'direct-call').code;
 }
 
-/** 判断错误类型是否可重试(network/timeout/rate_limited)。 */
+/** 判断失败码是否可重试(network/timeout/rate_limited)。与改前的字面集合**逐字同形**。 */
 export function isRetryableErrorType(errorType: string | undefined): boolean {
-  return errorType === 'network' || errorType === 'timeout' || errorType === 'rate_limited';
+  if (errorType === undefined) return false;
+  const code = failureCodeFromTag(errorType);
+  return code !== undefined && isRetryableFailureCode(code);
 }
 
-/** 判断错误类型是否为致命错误(仅 permission)。 */
+/**
+ * 判断失败码是否为致命错误(仅 permission)。
+ *
+ * 与改前的一处语义差(如实登记,不是静默变化):改前发射侧写 `permission_denied` 而这里只认
+ * `permission`,于是"权限拒绝"从来没被认成致命过 —— 别名归一(`@ihui/types/failure-code.ts`)
+ * 之后两处第一次对得上。现读全仓 `isFatalErrorType` **无生产调用方**(只有单测),所以这一格
+ * 没有运行时行为被改动;要接消费者必须先逐点复核。
+ */
 export function isFatalErrorType(errorType: string | undefined): boolean {
-  return errorType === 'permission';
+  if (errorType === undefined) return false;
+  const code = failureCodeFromTag(errorType);
+  return code !== undefined && isFatalFailureCode(code);
 }
 
 /**
