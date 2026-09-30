@@ -100,11 +100,86 @@ export interface ToolShapeDescriptor {
   maximum?: number
   minLength?: number
   maxLength?: number
+  /**
+   * **上游原样匹配模式**(G-661,2026-09-30 立):只准放服务器/声明方明确下发的 pattern。
+   * 本地推断值(由模板名/启发式推出的形状)一律写 `inferredPattern`,绝不写本字段冒充原样 ——
+   * 空字符串与占位符(如 `__PATTERN__`)也算伪造:没有就是没有,读取出口
+   * `declaredPattern` 会如实回 `undefined`,不回空串、不回推断值。
+   * 与守门 135"失败分支身份不得丢、不得被文案冒充"同族:结构化身份字段只在结构化通道保真传递。
+   */
   pattern?: string
+  /**
+   * **本地推断的匹配模式**(与 `pattern` 分键,G-661):由模板名/启发式推出的形状住这里,
+   * 只准经显式推断出口 `inferPatternFromTemplateName` 产出、经 `inferredPatternOf` 显式读;
+   * 渲染面读原样只走 `declaredPattern`,绝不读本键冒充原样。provider 可见面**永不投影**本键
+   * (推断值不得下发冒充原样;发射白名单见 schema-projection.ts)。
+   */
+  inferredPattern?: string
 }
 
 /** 投影后交给 provider 的 JSON Schema 节点(开放键位,provider 侧扩展字段原样透传)。 */
 export type ProviderJsonSchema = Readonly<Record<string, unknown>>
+
+// ==================== 一·补:原样/推断分键的读取出口(G-661,2026-09-30)====================
+
+/**
+ * 占位形态判据(窄集合):这些值"写了等于没写",塞进 `pattern` 就是伪造原样,
+ * 读取出口一律按缺席处置(回 `undefined`,不回空串)。集合刻意窄 —— 把真 pattern
+ * 误判成占位会**丢真形状**,方向比照守门 137"宁漏不误报"。
+ */
+function isPlaceholderShapeValue(raw: string): boolean {
+  const trimmed = raw.trim()
+  if (trimmed.length === 0) return true
+  const lowered = trimmed.toLowerCase()
+  if (lowered === '...' || lowered === 'todo' || lowered === 'tbd' || lowered === 'placeholder') {
+    return true
+  }
+  return /^__[^_]*__$/.test(trimmed) || /^<[^<>]*>$/.test(trimmed)
+}
+
+/** 非空、非占位的字符串才认;其余一律 `undefined`(取不到形状就是取不到,不造一个假的)。 */
+function nonPlaceholderPattern(raw: unknown): string | undefined {
+  return typeof raw === 'string' && !isPlaceholderShapeValue(raw) ? raw : undefined
+}
+
+/**
+ * 渲染面读**原样** pattern 的唯一出口(G-661)。
+ *
+ * 只认上游原样 `pattern` 键;描述符缺席 / 键缺席 / 空串 / 占位 ⇒ `undefined`。
+ * **绝不回退 `inferredPattern`**:渲染面拿推断值冒充原样,正是本票要消灭的形态。
+ */
+export function declaredPattern(
+  descriptor: ToolShapeDescriptor | null | undefined,
+): string | undefined {
+  return nonPlaceholderPattern(descriptor?.pattern)
+}
+
+/**
+ * 读本地推断分键的**显式出口**(G-661):消费方必须自知在拿推断值。
+ * 返回值只准用于展示/提示,或写回 `inferredPattern` 键;**写进 `pattern` 即伪造原样**。
+ */
+export function inferredPatternOf(
+  descriptor: ToolShapeDescriptor | null | undefined,
+): string | undefined {
+  return nonPlaceholderPattern(descriptor?.inferredPattern)
+}
+
+/**
+ * 模板名 → 推断 pattern 的唯一启发式出口(G-661):**表为判据唯一来源**,认不出 ⇒ `undefined`,
+ * 绝不现场猜一个正则。返回值只准写进描述符的 `inferredPattern` 键(经 `inferredPatternOf` 读),
+ * 不得写进 `pattern` 冒充上游原样;provider 投影(`schema-projection.ts`)也不发射该键。
+ */
+export const TEMPLATE_NAME_INFERRED_PATTERNS: Readonly<Record<string, string>> = {
+  'date-iso': '^\\d{4}-\\d{2}-\\d{2}$',
+  'time-iso': '^\\d{2}:\\d{2}(:\\d{2})?$',
+  uuid: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+  semver: '^\\d+\\.\\d+\\.\\d+$',
+}
+
+export function inferPatternFromTemplateName(templateName: string): string | undefined {
+  if (typeof templateName !== 'string') return undefined
+  return TEMPLATE_NAME_INFERRED_PATTERNS[templateName.trim().toLowerCase()]
+}
 
 /**
  * **路由身份键清单(唯一一份;守门与类型层共用,禁止在别处抄第二份)**。
