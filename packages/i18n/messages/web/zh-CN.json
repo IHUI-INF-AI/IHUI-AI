@@ -633,6 +633,7 @@
     "scanLoginTimeout": "扫码超时,请重试",
     "scanLoginTitle": "扫码登录",
     "scanWithPhoneHint": "请使用手机扫描二维码登录",
+    "selectPlatform": "请选择平台",
     "startScanLogin": "开始扫码",
     "subtitle": "管理多个社交平台账号",
     "title": "账号管理",
@@ -10582,8 +10583,6 @@
     "expiryDate": "到期日期"
   },
   "chat": {
-    "attachRetry": "重试上传",
-    "attachRetryExhausted": "重试次数已达上限,请删除后重新添加",
     "mentionEngine": {
       "tabFile": "文件",
       "tabFolder": "文件夹",
@@ -12499,9 +12498,6 @@
     "title": "课程中心"
   },
   "cronEditor": {
-    "customFallback": "自定义表达式",
-    "customHint": "该表达式无法由可视化编辑器无损表达,以下原文逐字保留:",
-    "switchToVisual": "切换到可视化编辑",
     "everyField": "每{field}",
     "recentRuns": "最近 5 次执行",
     "specificPlaceholder": "{min}-{max}, 逗号分隔",
