@@ -20257,6 +20257,8 @@
       "selectPlatform": "플랫폼 선택",
       "startScanLogin": "QR 로그인 시작",
       "statusActive": "정상",
+      "statusCleared": "재로그인 필요",
+      "statusClearedTip": "이 계정의 로그인 자격 증명이 (보안 조치로) 삭제되었습니다. QR 코드로 다시 로그인하면 복구됩니다. 플랫폼이 비활성화한 것이 아닙니다.",
       "statusDisabled": "비활성화됨",
       "statusExpired": "만료됨",
       "statusUnknown": "알 수 없음",
