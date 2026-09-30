@@ -20,15 +20,16 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+// §26:临时夹具唯一落点(不落 os.tmpdir、不落仓库树内)
+import { mkScratch } from '../lib/scratch-dir.mjs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ as W } from '../check-watermark-syntax.mjs'
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const SCRIPT = join(REPO, 'scripts', 'check-watermark-syntax.mjs')
-/** 夹具落点:项目内 .ihui-agent/tmp(AGENTS §15,已被 .gitignore 忽略)。 */
-const TMP_ROOT = join(REPO, '.ihui-agent', 'tmp', 'wm-syntax')
+/** 夹具落点 = §26 唯一出口 mkScratch(此前落仓内 .ihui-agent/tmp/wm-syntax)。 */
 
 const ZW_CHARS = W.INVISIBLE_CODEPOINTS.map((c) => String.fromCharCode(c))
 /** 一条与 watermark.mjs 同形态的零宽载荷(哨兵 + 载荷 + 哨兵)。 */
@@ -39,8 +40,7 @@ const PROVENANCE_LINE = `// [IHUI-AI-PROVENANCE]:${ZW}`
 
 /** 临时 git 仓:自带 HEAD 提交,与真仓完全隔离。 */
 function mkRepo() {
-  mkdirSync(TMP_ROOT, { recursive: true })
-  const dir = mkdtempSync(join(TMP_ROOT, 'repo-'))
+  const dir = mkScratch('wm-syntax-repo-')
   git(dir, ['init', '-q', '-b', 'main'])
   git(dir, ['config', 'user.email', 't@example.invalid'])
   git(dir, ['config', 'user.name', 'fixture'])
@@ -280,8 +280,7 @@ test('17 端到端 · 无 HEAD / 非 git 目录一律 exit 2,绝不静默报绿'
   const noHead = run(['--root', dir], dir)
   assert.equal(noHead.code, 2, `未提交仓库必须异常退出:${noHead.out}`)
   assert.doesNotMatch(noHead.out, /全部通过/)
-  mkdirSync(TMP_ROOT, { recursive: true })
-  const plain = mkdtempSync(join(TMP_ROOT, 'plain-'))
+  const plain = mkScratch('wm-syntax-plain-')
   writeFileSync(join(plain, 'a.ts'), `const a = 1 ${ZW}\n`, 'utf8')
   assert.equal(run(['--root', plain], plain).code, 2, '非 git 目录同样不得报绿')
 })
