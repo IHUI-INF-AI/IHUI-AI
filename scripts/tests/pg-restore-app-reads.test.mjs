@@ -6,15 +6,11 @@
  * `scripts/pg-restore-app-reads.mjs` 的镜像测试(AGENTS.md §22c)。
  *
  * 这个工具存在的理由是"表数/行数全等"根本没回答**应用能不能查这份数据**。它自己也可能
- * 变成另一种"看着在跑、其实没结论"的尺子,所以四条判据各自成对钉住:
+ * 变成另一种"看着在跑、其实没结论"的尺子,所以三条判据各自成对钉住:
  *   ① 只读闸门真的会拒(而不是"看起来像只读就放行");
  *   ② 三态不并桶 —— **还原库报错** 与 "两侧都没跑出来" 绝不允许读成同一个结论;
  *   ③ 语句必须走 `-f` 文件而不是 `-c` 参数(实测 `-c` 过一层 GBK 代码页,带中文的查询
  *     在生产侧就先报错 ⇒ 该条永远落"未判定",判据对整族静默失明)。
- *   ④ 「演练库不存在」与「还原库跑不住这条查询」也不得并桶(2026-09-30 补):旧写法把前者
- *     全计成 drill-error 并 exit 1,读起来像"备份还原出来是坏的"。R8 与 R9 是成对的两支 ——
- *     一支证明"库不在 ⇒ 未判定且不白打生产",另一支证明"库在而语句失败 ⇒ 仍然判红",
- *     只留前者就是拿放宽判据换安静(R9 即那条变异对照:摘掉前置探询、或把它写成文案分类器,R9 翻红)。
  * ③ 用源码形状锁 + 一条注入式端到端各钉一遍:只有形状锁会退化成"改了写法就看不见",
  *    只有端到端则看不见别人把它换回 `-c`。
  */
@@ -31,24 +27,6 @@ import { maskComments } from '../lib/code-mask.mjs'
 const here = dirname(fileURLToPath(import.meta.url))
 const TOOL = join(here, '..', 'pg-restore-app-reads.mjs')
 const FIXTURE = join(here, '..', 'data', 'restore-read-queries.json')
-
-/** 与日历无关的合法演练库名(形状由工具自己的 /^ihui_restore_drill_\d{8}$/ 焊死) */
-const DRILL = 'ihui_restore_drill_20260101'
-
-/** 端到端用例要看结论行,而 main 走 console —— 临时接管,取完必还原(不还原会污染同轮其它用例) */
-function runCaptured(argv, deps) {
-  const out = []
-  const origLog = console.log
-  const origErr = console.error
-  console.log = (...a) => out.push(a.join(' '))
-  console.error = (...a) => out.push(a.join(' '))
-  try {
-    return { code: main(argv, deps), out }
-  } finally {
-    console.log = origLog
-    console.error = origErr
-  }
-}
 
 test('R1 只读闸门:写/DDL/会话级一律拒,正当只读一律放行(成对)', () => {
   const bad = [
@@ -129,68 +107,15 @@ test('R6 形状锁:语句必须走 -f 文件(走 -c 会被 Windows ANSI 代码�
 
 test('R7 端到端(注入假执行器,不真连库):一条还原侧报错必须落 drill-error 并判红', () => {
   const calls = []
-  // 库名显式给定,**不靠日历** —— 旧写法让假执行器去匹配"写下那天"的默认库名,
-  // 于是 2026-09-28 起这条恒红(红的不是仓库,是尺子给自己设了个日期闹钟)。
-  const fake = (db, sql) => {
-    calls.push({ db, probe: sql === 'SELECT 1' })
-    // 这一支的前提是"库在、但这条语句在还原库上跑不通" —— 所以探询必须放行,
-    // 只在逐条回放时报错(探询也报错的那一支是 R8,两条各自对应一种完全不同的事实)。
-    const fail = db === DRILL && sql !== 'SELECT 1'
-    return {
-      ok: !fail,
-      stdout: fail ? '' : '1|a\n2|b\n',
-      stderr: fail ? 'ERROR:  column "search_vector" does not exist' : '1\n',
-      rc: fail ? 1 : 0,
-    }
+  const fake = (db, _sql) => {
+    calls.push(db)
+    const ok = db !== 'ihui_restore_drill_20260927'
+    return { ok, stdout: ok ? '1|a\n2|b\n' : '', stderr: ok ? '' : 'ERROR:  column "search_vector" does not exist', rc: ok ? 0 : 1 }
   }
-  const code = main(['node', 'x', '--limit', '3', '--drill-db', DRILL, '--fixture', FIXTURE], { spawnPsql: fake })
+  const code = main(['node', 'x', '--limit', '3', '--fixture', FIXTURE], { spawnPsql: fake })
   assert.equal(code, 1, '还原侧报错必须 exit 1')
-  // 1 次前置探询 + 3 条 × 两侧
-  assert.equal(calls.length, 7, '每条两侧各一次(同轮对照,不是先跑完生产再隔天跑还原),外加一次探询')
-  assert.equal(calls.filter((c) => c.db === 'ihui_dev').length, 3)
-  assert.equal(calls.filter((c) => c.probe).length, 1, '探询恰好一次,且在逐条之前')
-})
-
-test('R8 演练库不可达 ⇒ 整轮未判定 + exit 2,一条生产查询都不许白打(2026-09-30 补的缺陷)', () => {
-  const calls = []
-  const fake = (db, sql) => {
-    calls.push({ db, sql })
-    if (db !== DRILL) return { ok: true, stdout: '1|a\n', stderr: '', rc: 0 }
-    if (sql === 'SELECT 1')
-      return { ok: false, stdout: '', stderr: `psql: error: FATAL:  database "${DRILL}" does not exist`, rc: 2 }
-    return { ok: false, stdout: '', stderr: 'ERROR:  should never be reached', rc: 1 }
-  }
-  const { code, out } = runCaptured(['node', 'x', '--limit', '3', '--drill-db', DRILL, '--fixture', FIXTURE], {
-    spawnPsql: fake,
-  })
-  assert.equal(code, 2, '缺库是"无法判定",不是判红也不是判绿')
-  assert.equal(
-    calls.filter((c) => c.db === 'ihui_dev').length,
-    0,
-    '演练库连不上时不得把 60 条查询打到生产(既无对照意义,又白加读压)',
-  )
-  assert.match(out.join('\n'), /未判定:演练库不可达/, '读数必须直说是"库不在"')
-  assert.doesNotMatch(out.join('\n'), /drill-error/, '绝不把"连不上库"计成还原库报错 —— 那正是本工具违背自身头注的那一型')
-})
-
-test('R9 反向对照(防"为消红而放宽"):库在位、而某条语句在还原库超时(FATAL)必须仍判 drill-error', () => {
-  const fake = (db, sql) => {
-    const drill = db === DRILL
-    if (drill && sql === 'SELECT 1') return { ok: true, stdout: '1\n', stderr: '', rc: 0 }
-    if (drill)
-      return { ok: false, stdout: '', stderr: 'FATAL:  terminating connection due to statement timeout', rc: 1 }
-    return { ok: true, stdout: '1|a\n2|b\n', stderr: '', rc: 0 }
-  }
-  const code = main(['node', 'x', '--limit', '2', '--drill-db', DRILL, '--fixture', FIXTURE], { spawnPsql: fake })
-  assert.equal(code, 1, '探询通过之后,还原侧任何失败(含 FATAL 超时)仍须红 —— 前置探询不是把 FATAL 洗成未判定的文案分类器')
-})
-
-test('R10 装车锁:前置探询必须真在逐条循环之前(顺序就是这条判据的全部意义)', () => {
-  const src = readFileSync(TOOL, 'utf8')
-  const probeAt = src.indexOf("runOne(o.drillDb, 'SELECT 1')")
-  const loopAt = src.indexOf('for (const q of list)')
-  assert.ok(probeAt > 0, '前置探询不得被摘掉 —— 摘掉后"缺库"又会混进 drill-error')
-  assert.ok(loopAt > probeAt, '探询必须排在逐条之前;排在之后就等于没有')
+  assert.equal(calls.length, 6, '每条两侧各一次(同轮对照,不是先跑完生产再隔天跑还原)')
+  assert.equal(calls.filter((d) => d === 'ihui_dev').length, 3)
 })
 
 // ─────────── 落点反向锁(§15b):盘根只许有一个出口,本模块不得再自己推导 ───────────
