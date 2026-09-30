@@ -30,6 +30,8 @@ import {
   SelectItem,
   SelectValue,
 } from '@ihui/ui-react'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface AvailableData {
   available: number
@@ -55,9 +57,12 @@ export default function WithdrawPage() {
   const [submitting, setSubmitting] = React.useState(false)
   const [serverError, setServerError] = React.useState<string | null>(null)
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
   const availableQ = useQuery({
     queryKey: ['wallet', 'withdrawal', 'available'],
     queryFn: () => api<AvailableData>('/api/finance/withdrawal/available'),
+    enabled: allow,
   })
 
   const {
@@ -111,6 +116,10 @@ export default function WithdrawPage() {
 
       <h1 className="text-2xl font-bold tracking-tight">{t('withdrawTitle')}</h1>
 
+      {/* 2026-09-30 登录态门 */}
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后申请提现" />
+      ) : (
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{t('withdrawTitle')}</CardTitle>
@@ -185,6 +194,7 @@ export default function WithdrawPage() {
           </form>
         </CardContent>
       </Card>
+      )}
     </div>
   )
 }

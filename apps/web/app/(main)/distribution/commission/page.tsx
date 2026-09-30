@@ -22,6 +22,8 @@ import {
   TableRow,
   TableCell,
 } from '@ihui/ui-react'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface CommissionSummaryData {
   totalAmount: number
@@ -78,21 +80,27 @@ export default function MyCommissionPage() {
   const locale = useLocale()
   const [page, setPage] = React.useState(1)
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
   const summaryQ = useQuery({
     queryKey: ['distribution', 'commission-summary'],
     queryFn: () => api<CommissionSummaryData>('/api/finance/commission/summary'),
+    enabled: allow,
   })
   const availableQ = useQuery({
     queryKey: ['distribution', 'withdrawal-available'],
     queryFn: () => api<AvailableData>('/api/finance/withdrawal/available'),
+    enabled: allow,
   })
   const withdrawnQ = useQuery({
     queryKey: ['distribution', 'withdrawal-summary'],
     queryFn: () => api<WithdrawalSummaryData>('/api/finance/withdrawal/summary'),
+    enabled: allow,
   })
   const listQ = useQuery({
     queryKey: ['distribution', 'commission-list', page],
     queryFn: () => api<ListData>(`/api/finance/commission/list?page=${page}&limit=${PAGE_SIZE}`),
+    enabled: allow,
   })
 
   const total = listQ.data?.total ?? 0
@@ -134,6 +142,11 @@ export default function MyCommissionPage() {
         </h1>
       </header>
 
+      {/* 2026-09-30 登录态门 */}
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看佣金" />
+      ) : (
+        <>
       <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
         {stats.map((s) => (
           <Card key={s.label}>
@@ -243,6 +256,8 @@ export default function MyCommissionPage() {
           </div>
         )}
       </div>
+        </>
+      )}
     </div>
   )
 }

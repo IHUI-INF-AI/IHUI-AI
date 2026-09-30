@@ -13,6 +13,8 @@ import { ArrowDownToLine, ArrowLeft, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 interface AvailableData {
@@ -42,14 +44,18 @@ export default function WithdrawPage() {
   const tc = useTranslations('common')
   const router = useRouter()
   const [amount, setAmount] = React.useState('')
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
 
   const availableQ = useQuery({
     queryKey: ['distribution', 'withdrawal-available'],
     queryFn: () => api<AvailableData>('/api/finance/withdrawal/available'),
+    enabled: allow,
   })
   const summaryQ = useQuery({
     queryKey: ['distribution', 'withdrawal-summary'],
     queryFn: () => api<WithdrawalSummaryData>('/api/finance/withdrawal/summary'),
+    enabled: allow,
   })
 
   const applyMutation = useMutation({
@@ -111,6 +117,9 @@ export default function WithdrawPage() {
         {t('withdrawTitle')}
       </h1>
 
+      {/* 2026-09-30 登录态门 */}
+      {allow ? (
+        <>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{t('availableTip')}</CardTitle>
@@ -168,6 +177,10 @@ export default function WithdrawPage() {
           ))}
         </div>
       </div>
+        </>
+      ) : (
+        <AuthGatePrompt message="请先登录后查看提现" />
+      )}
     </div>
   )
 }
