@@ -15,7 +15,8 @@ import { Building2, Loader2 } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
 import { apiFailureToError } from '@ihui/shared/utils'
 
@@ -102,6 +103,9 @@ export default function DeveloperEnterprisePage() {
   })
   const [voucher, setVoucher] = React.useState({ orderNo: '', payerCompany: '', voucherUrl: '' })
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const profileQ = useQuery({
     queryKey: ['developer', 'enterprise', 'profile'],
     queryFn: async () => {
@@ -109,6 +113,7 @@ export default function DeveloperEnterprisePage() {
       if (!r.success) throw apiFailureToError(r)
       return r.data.profile
     },
+    enabled: allow,
   })
   const paidQ = useQuery({
     queryKey: ['developer', 'enterprise', 'paid-orders'],
@@ -119,6 +124,7 @@ export default function DeveloperEnterprisePage() {
       if (!r.success) throw apiFailureToError(r)
       return r.data.list
     },
+    enabled: allow,
   })
   const pendingQ = useQuery({
     queryKey: ['developer', 'enterprise', 'pending-orders'],
@@ -127,6 +133,7 @@ export default function DeveloperEnterprisePage() {
       if (!r.success) throw apiFailureToError(r)
       return r.data.list
     },
+    enabled: allow,
   })
   const listsQ = useQuery({
     queryKey: ['developer', 'enterprise', 'lists'],
@@ -139,6 +146,7 @@ export default function DeveloperEnterprisePage() {
       if (!inv.success || !ct.success || !cp.success) throw new Error('加载失败')
       return { invoices: inv.data.list, contracts: ct.data.list, vouchers: cp.data.list }
     },
+    enabled: allow,
   })
 
   const post = async (path: string, body: unknown) => {
@@ -172,6 +180,23 @@ export default function DeveloperEnterprisePage() {
     } finally {
       setBusy(false)
     }
+  }
+
+  // 2026-09-30 登录态门:未登录时用登录引导替换数据区
+  if (!allow) {
+    return (
+      <div className="px-4 py-4 space-y-4">
+        <BackButton />
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <Building2 className="h-5 w-5" aria-hidden />
+          企业服务
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          企业认证、发票申请、对公结算与合同签署;认证通过后可签署企业合同。
+        </p>
+        <AuthGatePrompt message="请先登录后使用企业服务" />
+      </div>
+    )
   }
 
   const p = profileQ.data
