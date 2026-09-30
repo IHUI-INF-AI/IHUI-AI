@@ -9145,6 +9145,12 @@
       "purposePlaceholder": "引き継ぎ目的",
       "revealFile": "ファイルを表示",
       "createSession": "新しいタスクを作成",
+      "phase": {
+        "generating": "モデルが引き継ぎ内容を生成しています…",
+        "done": "引き継ぎドキュメントが生成されました。"
+      },
+      "creating": "新しいタスクを作成しています…",
+      "createFailed": "新しいタスクの作成に失敗しました。もう一度お試しください。",
       "handoffUnavailable": "依存する引き継ぎ文書の生成出口がまだ提供されていないため、引き継ぎ内容を生成できません。"
     },
     "renameDialog": {
