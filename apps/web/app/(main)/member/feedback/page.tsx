@@ -11,7 +11,8 @@ import { MessageSquare, Loader2, Send } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button, Input, Label } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
@@ -61,12 +62,16 @@ export default function MemberFeedbackPage() {
     closed: t('statusClosed'),
   }
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'feedback'],
     queryFn: () =>
       api<{ list: FeedbackItem[] }>('/api/feedbacks')
         .then((d) => d.list ?? [])
         .catch(() => [] as FeedbackItem[]),
+    enabled: allow,
   })
 
   const createMut = useMutation({
@@ -135,7 +140,9 @@ export default function MemberFeedbackPage() {
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
-      {tab === 'list' ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看我的反馈" />
+      ) : tab === 'list' ? (
         isLoading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
