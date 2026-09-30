@@ -10572,6 +10572,17 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
+    "selectionAnnotations": {
+      "hoverHint": "마우스를 올리면 주석 표시",
+      "selectedText": "{{index}}. 선택한 텍스트",
+      "noComment": "아직 댓글이 없습니다",
+      "commentPlaceholder": "선택적 댓글 추가…",
+      "commentAriaLabel": "선택 영역 주석 댓글",
+      "addComment": "댓글 추가",
+      "removeOne": "주석 {{index}} 제거",
+      "removeAll": "선택 주석 모두 제거",
+      "add": "주석 추가"
+    },
     "attachRetry": "업로드 재시도",
     "attachRetryExhausted": "재시도 횟수 제한에 도달했습니다. 삭제 후 다시 추가해 주세요.",
     "attachRejectType": "형식이 지원되지 않아 파일 {count}개를 건너뛰었습니다: {names}",
