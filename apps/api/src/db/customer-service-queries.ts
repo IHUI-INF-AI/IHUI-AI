@@ -342,6 +342,7 @@ export async function updateAgentStatus(
   const rows = await db
     .update(customerServiceAgents)
     .set({ status, updatedAt: new Date() })
+  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(customerServiceAgents.id, id))
     .returning()
   return rows[0]
@@ -476,6 +477,7 @@ export async function closeSession(sessionId: string): Promise<CustomerServiceSe
   const rows = await db
     .update(customerServiceSessions)
     .set({ status: 'closed', endedAt: new Date(), updatedAt: new Date() })
+  // status-guard-exempt: 入向终态(closeSession 置 closed),非终态出向;重复关闭的负载回调由调用方 existing 判定控制
     .where(eq(customerServiceSessions.sessionId, sessionId))
     .returning()
   if (existing?.agentId) await adjustAgentLoad(existing.agentId, -1)

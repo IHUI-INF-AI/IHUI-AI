@@ -353,6 +353,7 @@ export async function acceptInvitation(
   const updated = await db
     .update(teamInvitations)
     .set({ status: 'accepted' })
+  // status-guard-exempt: 入向终态(邀请接受→accepted),非出向
     .where(eq(teamInvitations.id, invitation.id))
     .returning()
   return { invitation: updated[0] ?? invitation, member }
@@ -367,6 +368,7 @@ export async function rejectInvitation(
   const rows = await db
     .update(teamInvitations)
     .set({ status: 'rejected' })
+  // status-guard-exempt: 入向终态(邀请拒绝→rejected),非出向
     .where(eq(teamInvitations.id, invitation.id))
     .returning()
   return rows[0]

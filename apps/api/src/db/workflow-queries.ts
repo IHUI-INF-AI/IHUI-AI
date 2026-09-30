@@ -186,6 +186,7 @@ export async function cancelInstance(id: string): Promise<WorkflowInstance | und
   const rows = await db
     .update(workflowInstances)
     .set({ status: 'cancelled', completedAt: new Date() })
+  // status-guard-exempt: 入向终态(取消实例→cancelled),非出向
     .where(eq(workflowInstances.id, id))
     .returning()
   return rows[0]
