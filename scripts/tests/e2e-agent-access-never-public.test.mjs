@@ -19,7 +19,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { readFileSync, rmSync, writeFileSync } from 'node:fs'
+// §26:临时夹具唯一落点(不落 os.tmpdir、不落仓库树内)
+import { mkScratch } from '../lib/scratch-dir.mjs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -136,7 +138,7 @@ test('detectPrivilegedPublicEntries:逐条归因到 router 根,且签名里不�
 })
 
 test('CLI(真机历史 .env 原文):必须 FAIL 并点名 /api/agents/ 与死条目,退出码 1', (t) => {
-  const tmp = mkdtempSync(join(ROOT, '.ihui-agent', 'tmp', 'e2e-never-public-'))
+  const tmp = mkScratch('e2e-never-public-')
   try {
     const envPath = join(tmp, 'env-with-agents.fixture.env')
     writeFileSync(envPath, REAL_MACHINE_ENV)
@@ -164,7 +166,7 @@ test('CLI(真机历史 .env 原文):必须 FAIL 并点名 /api/agents/ 与死条
 })
 
 test('CLI(与默认值一致的干净 .env):同一门禁必须 PASS,退出码 0(证明不是恒红)', () => {
-  const tmp = mkdtempSync(join(ROOT, '.ihui-agent', 'tmp', 'e2e-never-public-'))
+  const tmp = mkScratch('e2e-never-public-')
   try {
     const envPath = join(tmp, 'env-clean.fixture.env')
     writeFileSync(envPath, CLEAN_ENV)
