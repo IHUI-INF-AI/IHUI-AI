@@ -4384,6 +4384,24 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 工具schema投影(1 项,blocking)---
+  {
+    id: '179',
+    label:
+      '工具 schema 投影完整性守门(b76-05票2配套):工具描述符 JSON schema 投影必须键序 canonical/拒绝通道在位/A-B 两面一致/缓存中性,99 个可判工具全过才绿,自检 --self-test 4 例',
+    script: 'check-tool-schema-projection.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TOOL_SCHEMA_PROJECTION',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-tool-schema-projection.mjs',
+      '自检:node scripts/check-tool-schema-projection.mjs --self-test(4 例)',
+      '应急放行:HUSKY_SKIP_TOOL_SCHEMA_PROJECTION=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
