@@ -27,11 +27,6 @@ session / always 两级 scope。
 - 仅同步 API(无 async),符合本仓 mcp_server 既有同步风格。
 """
 
-# 合并归位说明(2026-09-29,枚 f57e0c9983 的后续修复):describe_exec_environment 在同一次归并后
-# 出现两份定义(第 270 行与第 539 行),来源与 network_approval.py 那一族完全相同 ——
-# 两侧各写一遍同一功能,行级合并不报冲突却把两半都留下,mypy 报 no-redef。整档取对侧那一族,
-# 与调用方同族;引用面用 ast 逐条核过,对侧版不缺任何被具名导入的名字。
-
 from __future__ import annotations
 
 import os
@@ -210,14 +205,8 @@ def split_scoped_key(key: str) -> tuple[str | None, str]:
     return None, key
 
 
-def key_is_owned_by(key: str, owner: str | None) -> bool:
+def key_is_owned_by(key: str, owner: str) -> bool:
     """该 cache_key 是否绑定在指定主体上(管理出口列表过滤 / 撤销归属闸用)。
-
-    `owner` 允许是 None:调用方那侧的主体是从 `request.state.user_id` 派生的
-    (`_resolve_owner_uuid` 的签名就是 `-> str | None`),而本函数第一行已经把
-    "空/None 主体"归一成 `""` 并返回 False —— **判据本来就吃 None**,把它写成
-    `str` 只是让 mypy 在两个调用点上红,而红着的门会让每次提交被逼跳门。
-    失效方向因此是 fail-closed(列不出、撤不掉),不是放行。
 
     无主体键(存量行)对任何主体都返回 False —— 它不再属于任何人,
     面板不可见、不可撤,只能由 DB 级 purge 处置(不在此判据射程)。
@@ -227,6 +216,8 @@ def key_is_owned_by(key: str, owner: str | None) -> bool:
         return False
     bound, _bare = split_scoped_key(key)
     return bound == o
+
+
 # ==================== 审批载荷事实与上报开关(D159,单一出口) ====================
 #
 # 为什么住在这一层:审批载荷的两位生产者(主对话流 `routers/llm.py` 与 agent 任务流
@@ -311,8 +302,6 @@ def describe_exec_environment(
     if backend in _BACKEND_ISOLATES_NETWORK:
         payload["networkIsolated"] = _BACKEND_ISOLATES_NETWORK[backend]
     return payload
-
-
 
 
 # ==================== 核心 API ====================
