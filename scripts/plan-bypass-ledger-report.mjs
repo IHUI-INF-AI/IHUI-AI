@@ -18,6 +18,10 @@
  *   bypass-landing —— 台账里 kind=bypass-landing 且 `landedSha` 等于该提交(commit-tree + CAS 旁路落地,
  *                     由 `scripts/lib/commit-attestation.mjs` 写)。
  *   unknown        —— 三条正证一条都拿不到。**不得**并进 normal,也不得并进 skipped。
+ *                     2026-09-30 起再按**引用事务见证**(`.husky/reference-transaction` 在 committed
+ *                     阶段落的 sha —— `--no-verify` 跳不掉它)拆三格:本机可疑 / 别机或更早 / 无从分。
+ *                     见证**不能单独证明跳门**(跑了门但回显不逐字等值时同样无匹配轮),
+ *                     所以这里只产出"该逐枚去读哪几枚"的名单,不产出指控。
  *
  * 三条不可动摇的口径:
  *   1. **取不到就说"未判定"并点名原因,绝不用 0 冒充结论**:台账文件不存在(missing)≠ 今天没人绕门;
@@ -47,6 +51,8 @@ const REPO_ROOT = resolve(HERE, '..')
  * 64 MB 之内**整档流式读**(不整档进内存);只有超上限才退回读尾部,并把被跳过的字节数报出来。
  */
 const HOOK_READ_CAP_BYTES = 64 * 1024 * 1024
+/** 见证文件一行约 50 B,64 MB 已够几百万枚;超上限只读前一段并如实报名。 */
+const WITNESS_CAP_BYTES = 64 * 1024 * 1024
 const DAY_MS = 86_400_000
 /**
  * 取数深度。旧缺省 3000 在本仓**两天窗口**就不够(09-29/30 两天非合并提交 1459 枚,加上合并
@@ -167,12 +173,14 @@ export function classifyAll({
   ledgerReadable = true,
   ledgerState = 'read',
   roundsAvailable = true,
+  witness = null,
 } = {}) {
   const detail = []
   const byDay = new Map()
   for (const c of commits) {
     let state
     let why = ''
+    let sub = ''
     if (index.bypass.has(c.sha)) {
       state = 'bypass-landing'
     } else {
@@ -193,18 +201,48 @@ export function classifyAll({
           : !roundsAvailable
             ? '钩子轮次取不到 ⇒ normal 无从正证'
             : '无旁路留痕、无跳门留痕、无逐字等值的零失败钩子轮'
+        // 把 unknown 拆成可行动的两格(第一次)。**措辞刻意不指控**:有见证只说明"这台机发生过一次
+        // refs/heads 变更",而"跑了门但文件回显不逐字等值"(并发会话同窗口 staged、lint-staged 改写过
+        // 文件)与"根本没跑"在两行文本上同形 ⇒ 只说「可疑」,定它得去读那一枚的钩子日志。
+        if (witness && witness.ok) {
+          sub = witness.shas.has(c.sha) ? 'witnessed' : 'unwitnessed'
+          why +=
+            sub === 'witnessed'
+              ? ';本机有引用事务见证 ⇒ 可疑(跑了门而回显不等值 / 或根本没跑,需人工读那一轮)'
+              : ';本机无见证 ⇒ 别机或更早产生,无从判断'
+        } else if (witness) {
+          sub = 'unsplittable'
+          why += `;见证文件取不到(${witness.state})⇒ 本机/别机这一维**无从分**,不得读成"全部无见证"`
+        }
       }
     }
     const day = c.day
     if (!byDay.has(day))
-      byDay.set(day, { day, normal: 0, skipped: 0, bypassLanding: 0, unknown: 0, total: 0 })
+      byDay.set(day, {
+        day,
+        normal: 0,
+        skipped: 0,
+        bypassLanding: 0,
+        unknown: 0,
+        // unknown 的三个子格(只在 unknown 里加,不动四态本身 —— 四态口径是 AGENTS §12f 定的,
+        // 换它等于改判据;这一层只是把"无从下手"变成"可以逐枚去读"。）
+        unknownWitnessed: 0,
+        unknownUnwitnessed: 0,
+        unknownUnsplittable: 0,
+        total: 0,
+      })
     const row = byDay.get(day)
     row.total++
     if (state === 'normal') row.normal++
     else if (state === 'skipped') row.skipped++
     else if (state === 'bypass-landing') row.bypassLanding++
-    else row.unknown++
-    detail.push({ sha: c.sha.slice(0, 11), day, state, why })
+    else {
+      row.unknown++
+      if (sub === 'witnessed') row.unknownWitnessed++
+      else if (sub === 'unwitnessed') row.unknownUnwitnessed++
+      else if (sub === 'unsplittable') row.unknownUnsplittable++
+    }
+    detail.push({ sha: c.sha.slice(0, 11), day, state, sub, why })
   }
   return { rows: [...byDay.values()].sort((a, b) => (a.day < b.day ? 1 : -1)), detail }
 }
@@ -264,6 +302,63 @@ export function readHookRounds(path, { capBytes = HOOK_READ_CAP_BYTES, chunkByte
       bytesParsed: fedBytes,
       skippedBytes,
       capped: skippedBytes > 0,
+    }
+  } finally {
+    closeSync(fd)
+  }
+}
+
+/**
+ * 引用事务见证文件(`.husky/reference-transaction` 在 `committed` 阶段落的一行一枚 sha)。
+ *
+ * 它是**唯一一条与 `--no-verify` 无关的正证** —— 跳门只跳过校验型钩子,引用事务钩子照跑
+ * (同一条机制上 stash-guard 拦得住 `git stash push`,连 `--no-verify` 都绕不过它)。
+ * 于是"三样正证都没有"那一堆第一次能被拆成两格:本机见证过(可疑)/ 本机无见证(别机或更早)。
+ *
+ * 三态不得并桶,而且**缺文件绝不等于"今天没人提交"**:
+ *   read      —— 读到 N 行(坏行单独计数,不当 0 处理)
+ *   missing   —— 见证机制还没入库/机器上没跑过 ⇒ 无从分,**不得**把每枚都判成"无见证"
+ *   unreadable—— 取了个空/权限问题 ⇒ 同上,只能说无从分
+ */
+export function readWitness(root) {
+  const path = resolve(root, '.workbuddy', 'commit-witness.log')
+  let fd
+  try {
+    fd = openSync(path, 'r')
+  } catch (e) {
+    return {
+      ok: false,
+      state: e?.code === 'ENOENT' ? 'missing' : 'unreadable',
+      why: String(e?.message ?? e).slice(0, 120),
+      shas: new Set(),
+      records: 0,
+      badLines: 0,
+    }
+  }
+  const shas = new Set()
+  let badLines = 0
+  try {
+    const size = fstatSync(fd).size
+    const cap = Math.min(size, WITNESS_CAP_BYTES)
+    const buf = Buffer.alloc(cap)
+    const got = readSync(fd, buf, 0, cap, 0)
+    const lines = buf.toString('utf8', 0, got).split(/\r?\n/)
+    for (const l of lines) {
+      const t = l.trim()
+      if (t === '') continue
+      const [sha] = t.split(/[\t ]+/)
+      if (/^[0-9a-f]{40}$/.test(sha)) shas.add(sha)
+      else badLines++
+    }
+    return {
+      ok: true,
+      state: 'read',
+      shas,
+      records: shas.size,
+      badLines,
+      truncated: size > cap,
+      size,
+      why: size > cap ? `见证文件 ${size} B 超 ${WITNESS_CAP_BYTES} B 上限,只读了前面这一段` : null,
     }
   } finally {
     closeSync(fd)
@@ -396,6 +491,7 @@ async function run({ argv }) {
   const hookPath = resolve(root, '.workbuddy', 'hook-logs', 'pre-commit.log')
   const hook = readHookRounds(hookPath)
   const rounds = hook.rounds
+  const witness = readWitness(root)
 
   const got = collectCommits({ root, limit, sinceDay: win.sinceDay, untilDay: win.untilDay })
   const merges = countMerges({ root, limit, sinceDay: win.sinceDay, untilDay: win.untilDay })
@@ -413,6 +509,7 @@ async function run({ argv }) {
     ledgerReadable: ledger.ok,
     ledgerState: ledger.state,
     roundsAvailable: hook.ok,
+    witness,
   })
   const total = rows.reduce((a, r) => a + r.total, 0)
   const sums = {
@@ -420,6 +517,9 @@ async function run({ argv }) {
     skipped: rows.reduce((a, r) => a + r.skipped, 0),
     bypassLanding: rows.reduce((a, r) => a + r.bypassLanding, 0),
     unknown: rows.reduce((a, r) => a + r.unknown, 0),
+    unknownWitnessed: rows.reduce((a, r) => a + r.unknownWitnessed, 0),
+    unknownUnwitnessed: rows.reduce((a, r) => a + r.unknownUnwitnessed, 0),
+    unknownUnsplittable: rows.reduce((a, r) => a + r.unknownUnsplittable, 0),
   }
 
   if (asJson) {
@@ -455,6 +555,14 @@ async function run({ argv }) {
             limit: got.truncated ? limit : null,
             reachedBackTo: got.reachedBackTo ?? null,
             coverage: got.coverage ?? null,
+          },
+          witness: {
+            ok: witness.ok,
+            state: witness.state,
+            records: witness.records,
+            badLines: witness.badLines,
+            truncated: witness.truncated === true,
+            why: witness.why ?? null,
           },
           merges: { counted: merges.count, ok: merges.ok, why: merges.why ?? null },
           ledgerUnbound: {
@@ -509,6 +617,17 @@ async function run({ argv }) {
       for (const d of detail.filter((x) => x.state === 'unknown').slice(0, 12))
         console.log(`     · ${d.sha} ${d.day} —— ${d.why}`)
       if (detail.filter((x) => x.state === 'unknown').length > 12) console.log('     …(其余逐条见 --json 的 detail)')
+    }
+    if (sums.unknown > 0) {
+      console.log(
+        `  unknown 拆分(按引用事务见证):本机可疑 ${sums.unknownWitnessed} / 别机或更早 ${sums.unknownUnwitnessed} / 无从分 ${sums.unknownUnsplittable}` +
+          (witness.ok
+            ? `(见证记录 ${witness.records} 枚${witness.truncated ? ' ⇒ 文件超上限只读了一段' : ''})`
+            : ` ⇒ 见证文件取不到(${witness.state}:${witness.why})，这一维**无从分**`),
+      )
+      console.log(
+        `     「本机可疑」≠「跳了门」:有见证只说明这台机发生过一次分支 ref 变更,而"跑了门但文件回显不逐字等值"与"根本没跑"同形 ⇒ 定它得读那一枚的钩子日志。`,
+      )
     }
     if (ledger.badLines.length > 0)
       console.log(`  ❌ 台账有 ${ledger.badLines.length} 行解不出(行号 ${ledger.badLines.slice(0, 5).map((b) => b.n).join(',')}),这些行**没有**被算成"没发生"`)
@@ -652,6 +771,24 @@ function selfTest() {
     const bad = parseHookRounds('staged 文件清单(1 个):\n  - a.ts\n(没有汇总就结束)')
     ok('钩子轮没等到汇总 ⇒ 不产出该轮(不猜失败数)', bad.length === 0)
   }
+  // unknown 按见证拆三格。最关键的一条是**反方向**:见证文件取不到时不得把每枚算成"无见证"
+  // —— 那是把"没记"写成"没发生",正是本器要消灭的那一型。
+  {
+    const sha = 'z'.repeat(40)
+    const other = 'y'.repeat(40)
+    const commits = [C(sha, 'p1', T, ['x.ts']), C(other, 'p2', T, ['w.ts'])]
+    const wOk = { ok: true, state: 'read', shas: new Set([sha]), records: 1, badLines: 0 }
+    const r = classifyAll({ commits, index: indexLedger([]), rounds: [], ledgerReadable: true, witness: wOk })
+    ok('见证命中 ⇒ unknownWitnessed=1 且带「可疑」不指控', r.rows[0].unknownWitnessed === 1 && r.detail[0].why.includes('可疑'), JSON.stringify(r.detail[0]))
+    ok('见证未命中 ⇒ unknownUnwitnessed=1(别机/更早,不判成可疑)', r.rows[0].unknownUnwitnessed === 1 && r.detail[1].why.includes('无从判断'), JSON.stringify(r.detail[1]))
+    ok('拆格总和必须等于 unknown(不得漏计/重计)', r.rows[0].unknownWitnessed + r.rows[0].unknownUnwitnessed === r.rows[0].unknown && r.rows[0].unknown === 2, JSON.stringify(r.rows[0]))
+    const wBad = { ok: false, state: 'missing', shas: new Set(), records: 0, why: 'ENOENT' }
+    const r2 = classifyAll({ commits, index: indexLedger([]), rounds: [], ledgerReadable: true, witness: wBad })
+    ok('见证取不到 ⇒ 全部落 unsplittable，**一格都不许算成"无见证"**', r2.rows[0].unknownUnsplittable === 2 && r2.rows[0].unknownUnwitnessed === 0 && r2.rows[0].unknownWitnessed === 0, JSON.stringify(r2.rows[0]))
+    ok('取不到那一格的措辞必须点出「无从分」', r2.detail[0].why.includes('无从分'), r2.detail[0].why)
+    const r3 = classifyAll({ commits, index: indexLedger([]), rounds: [], ledgerReadable: true })
+    ok('不传 witness ⇒ 四态与旧口径逐字同(向后兼容,拆格是加法不是换判据)', r3.rows[0].unknown === 2 && r3.rows[0].unknownWitnessed === 0 && r3.rows[0].unknownUnwitnessed === 0 && !r3.detail[0].sub)
+  }
   console.log(`\n自检:${fails.length === 0 ? '全部通过' : `${fails.length} 条失败`}(组数按当次实跑,不钉数字)`)
   return fails.length === 0 ? 0 : 1
 }
@@ -678,5 +815,5 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { indexLedger, parseHookRounds, classifyAll, matchNormalRound, collectCommits, countMerges, dayKey, readHookRounds, roundCollector }
+export const __test__ = { indexLedger, parseHookRounds, classifyAll, matchNormalRound, collectCommits, countMerges, dayKey, readHookRounds, roundCollector, readWitness }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
