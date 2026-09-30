@@ -42,7 +42,6 @@ import {
 } from '@ihui/database'
 import { requirePermission, requireAnyPermission } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
-import { sanitizeCsvCell } from '../utils/csv-utils.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { exportToExcel } from '../services/excel-export-service.js'
 
@@ -1079,8 +1078,7 @@ const eduCanteenRoutes: FastifyPluginAsync = async (server) => {
 
       // ---- CSV(UTF-8 BOM,Excel 友好) ----
       const csvEscape = (v: unknown): string => {
-        // G-815997:先过公式注入中和出口,再做 CSV 引号转义(顺序不得反)
-        const s = sanitizeCsvCell(v === null || v === undefined ? '' : String(v))
+        const s = v === null || v === undefined ? '' : String(v)
         return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
       }
       const header = [

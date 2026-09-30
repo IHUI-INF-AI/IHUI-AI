@@ -100,8 +100,6 @@ import {
   type ConversationDetail,
   type LlmModel,
   type TerminalDeltaEvent,
-  // D151:terminal_interaction 载荷类型复用 @ihui/api-client(§3 共享层优先,禁止端内再声明同名接口)
-  type TerminalInteractionEvent,
 } from '@ihui/api-client'
 import {
   FALLBACK_MODELS,
@@ -110,7 +108,7 @@ import {
   type ToolCallView,
 } from '@ihui/shared'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
-import { rnLightTokens as tokens, rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnLightTokens as tokens, rnRadius } from '@ihui/design-tokens'
 import {
   CitationList,
   InjectionDisclosure,
@@ -157,7 +155,6 @@ import {
   applyToolDelta,
   formatDurationMs,
   formatStructured,
-  mcpToolActivityTitle,
   type MessageInjection,
   type MessageCitation,
   type SteerNotice,
@@ -359,11 +356,7 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
           result: item.result,
           status: item.status,
         })
-        // D83 接线:MCP 调用先走共享层 server×tool 定制措辞(四形态各有其词),
-        // 无定制命中即 null ⇒ 沿用下面的既有功能名口径,不吐码名也不吐键名。
-        const displayName =
-          mcpToolActivityTitle(item, t) ??
-          (view.nameKey ? t(`taskStatus.${view.nameKey}`) : item.name)
+        const displayName = view.nameKey ? t(`taskStatus.${view.nameKey}`) : item.name
         const metricLine = formatToolMetricLine(view, t)
         const showSubject = view.subject !== ''
         const statusLabel =
@@ -533,51 +526,13 @@ export function terminalDisplayOutput(
   return live && live.length > (task.output?.length ?? 0) ? live : task.output
 }
 
-/**
- * D151(2026-09-29):terminal_interaction 在 RN 端的**降级形态**。
- *
- * 键 = terminalId,值恒 true —— 与上面的 terminalLive(live 缓冲)**并列**,不复用
- * `task.status`:running 说的是"在跑",waiting 说的是"停住等键盘输入",两者同时成立时
- * 界面唯一要交代的是后者(不交代就是空转,用户看到的仍是"卡住了")。
- *
- * 刻意**不做输入口**:键盘送不进 ai-service 那条进程在手机上没有可靠路径,给一个输入框
- * 属于假 affordance(web 端的上行通道 postTerminalInput 不复制到本端)。
- */
-export type TerminalWaitingMap = Record<string, true>
-
-/** 收到某 terminalId 的等待帧(空 terminalId 整帧丢弃、不触碰状态;重复帧幂等返回同一引用)。 */
-export function applyTerminalInteraction(
-  prev: TerminalWaitingMap,
-  event: Pick<TerminalInteractionEvent, 'terminalId'>,
-): TerminalWaitingMap {
-  if (!event.terminalId || prev[event.terminalId] === true) return prev
-  return { ...prev, [event.terminalId]: true }
-}
-
-/**
- * terminal_end 清掉该 terminalId 的等待态。
- * 没有这一步,"在等人"会永久挂在一条已经结束的卡上(与 terminalLive 的清理同理由)。
- */
-export function clearTerminalWaitingFor(
-  prev: TerminalWaitingMap,
-  terminalId: string,
-): TerminalWaitingMap {
-  if (!(terminalId in prev)) return prev
-  const next = { ...prev }
-  delete next[terminalId]
-  return next
-}
-
-/** 终端任务列表(W7 + D19 live 增量 + D151 等待输入降级态):命令 + 状态徽标 + 耗时;点击折叠查看等宽输出 + 退出码 */
-export function TerminalTaskList({
+/** 终端任务列表(W7 + D19 live 增量):命令 + 状态徽标 + 耗时;点击折叠查看等宽输出 + 退出码 */
+function TerminalTaskList({
   tasks,
   live,
-  waiting,
 }: {
   tasks: readonly TerminalTaskItem[]
   live?: Record<string, string>
-  /** D151:terminalId → 该命令正等键盘输入;缺失即不渲染等待行(与改造前形态一致) */
-  waiting?: TerminalWaitingMap
 }): React.JSX.Element {
   const { t } = useI18n()
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({})
@@ -621,15 +576,6 @@ export function TerminalTaskList({
               <StatusBadge kind={toneKind} label={statusLabel} />
               {duration ? <Text style={bubbleStyles.cardMeta}>{duration}</Text> : null}
             </Pressable>
-            {/* D151:命令停住等键盘输入时明写降级态(徽标一行 + 说明一行)。
-                刻意放在折叠判定之外 —— "在等人"必须不展开也看得见,否则仍是空转。
-                本端不渲染输入框(见 applyTerminalInteraction 头注),所以这里只有文案没有控件。 */}
-            {waiting?.[task.id] === true ? (
-              <View style={bubbleStyles.cardBody} testID="terminal-waiting-input">
-                <StatusBadge kind="active" label={t('chat.terminal.waitingInput')} />
-                <Text style={bubbleStyles.blockHint}>{t('chat.terminal.mobileUnsupported')}</Text>
-              </View>
-            ) : null}
             {open ? (
               <View style={bubbleStyles.cardBody}>
                 {task.exitCode !== undefined ? (
@@ -674,8 +620,6 @@ interface MessageBubbleProps {
   onBranch?: () => void
   /** D19 terminal_delta 的 live 缓冲(键 = terminalId);缺失即面板退化为改造前形态 */
   terminalLive?: Record<string, string>
-  /** D151 等待键盘输入的 terminalId 集合(键 = terminalId);缺失即不渲染等待行 */
-  terminalWaiting?: TerminalWaitingMap
 }
 
 function MessageBubble({
@@ -685,7 +629,6 @@ function MessageBubble({
   onRetry,
   onBranch,
   terminalLive,
-  terminalWaiting,
 }: MessageBubbleProps): React.JSX.Element {
   const { t } = useI18n()
   const isUser = message.role === 'user'
@@ -811,11 +754,7 @@ function MessageBubble({
           ) : null}
           {/* 终端任务可视化(W7 + D19:命令 + 等宽输出 + 退出码;运行中 live 增量与整帧取更长者) */}
           {answerVisible && message.terminalTasks && message.terminalTasks.length > 0 ? (
-            <TerminalTaskList
-              tasks={message.terminalTasks}
-              live={terminalLive}
-              waiting={terminalWaiting}
-            />
+            <TerminalTaskList tasks={message.terminalTasks} live={terminalLive} />
           ) : null}
           {/* D34 本轮上下文注入交代(第 45 轮补齐该端,此前该帧在本端 0 命中) */}
           {answerVisible && message.injections && message.injections.length > 0 ? (
@@ -949,9 +888,6 @@ export default function AiAssistantN8nScreen() {
   // 只由 onTerminalDelta 写入、终端面板按"与整帧 output 取更长者"读取 ——
   // 与消息正文(onDelta 通道)完全分离,不落 content。
   const [terminalLive, setTerminalLive] = useState<Record<string, string>>({})
-  // D151:terminal_interaction 的等待态(键 = terminalId)。与 terminalLive 并列,同为"终端卡的
-  // 另一维",不另立第二套终端状态源;onTerminalEnd 逐键清、新一轮发送/切会话整体清。
-  const [terminalWaiting, setTerminalWaiting] = useState<TerminalWaitingMap>({})
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
 
@@ -1375,8 +1311,6 @@ export default function AiAssistantN8nScreen() {
           }
         })
       setMessages(loaded)
-      // D151:切会话/回放历史同样要清等待态(历史里没有"正在等输入"的进程)
-      setTerminalWaiting({})
       requestAnimationFrame(() => {
         listRef.current?.scrollToEnd({ animated: true })
       })
@@ -1437,9 +1371,6 @@ export default function AiAssistantN8nScreen() {
     const userMsg: N8nMessage = { id: nextId(), role: 'user', content: text }
     const aiMsg: N8nMessage = { id: nextId(), role: 'assistant', content: '' }
     setMessages((prev) => [...prev, userMsg, aiMsg])
-    // D151:新一轮流开始 ⇒ 上一轮的"在等人"整体清空(它属于上一轮那条进程,
-    // 留在这一轮会让等待行挂到与它无关的卡上)。
-    setTerminalWaiting({})
     setSending(true)
     scrollToEnd()
 
@@ -1594,16 +1525,8 @@ export default function AiAssistantN8nScreen() {
         onTerminalDelta: (event) => {
           setTerminalLive((prev) => applyTerminalDeltaToLive(prev, event))
         },
-        // D151 终端"等待键盘输入"(2026-09-29):后端在命令停在 tty 提示时下发 terminal_interaction。
-        // 本端**只渲染降级态**(在等人 + 说明这里不能代答),刻意不接 postTerminalInput ——
-        // 手机上进不去那条进程,给它输入框是假 affordance;不接则界面继续空转(本票立因)。
-        onTerminalInteraction: (event) => {
-          setTerminalWaiting((prev) => applyTerminalInteraction(prev, event))
-        },
         // 终端任务可视化(W7):terminal_end 更新终态/输出/退出码/耗时
         onTerminalEnd: (event) => {
-          // D151:命令已收尾 ⇒ "还在等输入"这一维必须跟着清,否则等待行永久挂在结束的卡上
-          setTerminalWaiting((prev) => clearTerminalWaitingFor(prev, event.terminalId))
           setMessages((prev) => {
             const next = [...prev]
             const last = next[next.length - 1]
@@ -1801,8 +1724,6 @@ export default function AiAssistantN8nScreen() {
   }
   const handleDrawerCreateNewChat = (): void => {
     setMessages([])
-    // D151:新建会话 = 会话切换的一种,等待态必须一起清(见 loadConversationMessages 同注释)
-    setTerminalWaiting({})
     setInput('')
     switchConversationTo(undefined)
   }
@@ -1885,7 +1806,6 @@ export default function AiAssistantN8nScreen() {
           : undefined
       }
       terminalLive={terminalLive}
-      terminalWaiting={terminalWaiting}
     />
   )
 
@@ -2215,7 +2135,7 @@ const bubbleStyles = StyleSheet.create({
     maxWidth: '78%',
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(16),
-    borderRadius: rnRadiusFor.bubble,
+    borderRadius: rnRadius.lg,
   },
   bubbleUser: { backgroundColor: tokens.brand.DEFAULT },
   bubbleAi: { backgroundColor: tokens.surface.card },
