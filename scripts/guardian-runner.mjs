@@ -4306,6 +4306,25 @@ const checks = [
       '  紧急跳过:HUSKY_SKIP_RADIUS_ROLE_CONFORMANCE=1(仅限红确属他人文件时)。',
     ].join('\n'),
   },
+  // --- 旁路落地声明面对账(写回旧态那一型;G-978069 复裁判据落地)(1 项,blocking)---
+  {
+    id: '170',
+    label:
+      '🛰 旁路落地声明面对账(blocking,留痕声明面 ⊉ 实际面 ∧ 射程外路径写回旧 blob ⇒ 红并点名;增量台账每枚判一次)',
+    script: 'check-bypass-landing-scope.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_BYPASS_LANDING_SCOPE',
+    onFailHint: [
+      '',
+      '  💡 G-978069 那一型:旁路入库(object-space-land / live-doc-edit / commit-tree+CAS)的提交把',
+      '     **声明路径之外**的路径按旧副本整文件写回,吞掉别人已入库的内容 —— 提交链三道门(84 R1 /',
+      '     100 / 30c)都跑在钩子里,拦不到结构上不跑钩子的旁路通道;本门按留痕日志事后逐枚复量。',
+      '     修复只有前向回补(§22 不重写历史):按被吞内容的原 blob 重新落地,参照 cfabf3128a 的形态;',
+      '     判红已记入增量台账(.workbuddy/bypass-landing-scope-audited.json),不会反复红,但内容必须修。',
+      '     单独复验:node scripts/check-bypass-landing-scope.mjs',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
