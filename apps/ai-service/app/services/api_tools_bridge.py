@@ -88,14 +88,15 @@ def api_base_url() -> str:
 
 
 def internal_headers(user_id: str) -> dict[str, str]:
-    """内部服务鉴权头(x-internal-service-token + x-user-id,小写与兄弟模块一致)。"""
-    headers: dict[str, str] = {}
-    token = _secret()
-    if token:
-        headers["x-internal-service-token"] = token
-    if user_id:
-        headers["x-user-id"] = str(user_id)
-    return headers
+    """内部服务鉴权头(x-internal-service-token + x-internal-service-ticket + x-user-id)。
+
+    2026-09-27:常驻密钥头改由 `app.core.internal_ticket` 统一构造 —— 兼容窗口内
+    **同时**带短期票头。用途固定为 `api-tools`,这样一枚本桥接的票不能拿去
+    打别的内部端点(验票侧按 scope 拒跨用途)。
+    """
+    from ..core.internal_ticket import internal_service_headers
+
+    return internal_service_headers(user_id, "api-tools", legacy_token=_secret())
 
 
 # ---------------------------------------------------------------------------
