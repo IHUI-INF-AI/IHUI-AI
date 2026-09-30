@@ -2779,5 +2779,36 @@
   },
   "notification": {
     "pushBannerTitle": "새 메시지"
+  },
+  "toolApproval": {
+    "title": "도구 승인",
+    "description": "AI가 다음 고위험 작업을 실행하려고 합니다. 허용할지 확인해 주세요",
+    "approve": "승인",
+    "reject": "거부",
+    "pendingCount": "승인 대기 {count}건",
+    "argsPreview": "인수 미리보기",
+    "dangerLevel": "위험 단계: {level}",
+    "scopeLabel": "허용 범위",
+    "scopeOnce": "이번에만",
+    "scopeSession": "이 대화 동안",
+    "scopeAlways": "항상 허용(90일 후 만료)",
+    "envLabel": "실행 환경",
+    "envUnknown": "보고되지 않음(단계로 추정하지 말고 거부 후 재시도를 요청하세요)",
+    "envInSandbox": "샌드박스 내에서 실행",
+    "envOutsideSandbox": "샌드박스 외부에서 실행",
+    "envBackend": "격리 방식: {backend}",
+    "envDegraded": "샌드박스 기능을 쓸 수 없어 제한된 직접 실행으로 대체되었습니다",
+    "envNetworkOpen": "이번 요청은 외부 네트워크에 접근할 수 있습니다",
+    "envNetworkOff": "이번 요청은 네트워크를 개방하지 않습니다",
+    "envNetworkBlocked": "차단된 네트워크 대상",
+    "envNetworkBlockedOne": "{host}:{port}({reason})",
+    "sendFailed": "의사가 서버에 전달되지 않았습니다. 이 요청은 아직 대기 중이며 재시도하거나 서버의 시간초과 처리에 맡기세요",
+    "noSession": "세션 식별자가 없어 이번 의사를 되돌려 보낼 수 없습니다",
+    "empty": "승인 대기 요청이 없습니다",
+    "trayTitle": "처리된 기록",
+    "clearHistory": "처리된 기록 지우기",
+    "openPanel": "승인 대기 {count}건 · 승인 패널 열기",
+    "rejectedBadge": "거부됨",
+    "rejectedNextNote": "동일 유형의 작업은 다음에도 확인을 요청합니다"
   }
 }
