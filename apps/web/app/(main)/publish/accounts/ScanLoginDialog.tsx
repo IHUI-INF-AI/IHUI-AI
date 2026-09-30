@@ -156,6 +156,8 @@ export function ScanLoginDialog({
   const pollTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   /** 当前后端任务 id。轮询闭包里读 state 会拿到旧值,取消/卸载路径必须读这一份。 */
   const taskIdRef = React.useRef<string>('')
+  /** 最近一次轮询看到的任务状态(2026-09-30):扫码后的绑定阶段不该被 UI 关闭连带取消,取消前必须看这一份 */
+  const lastStatusRef = React.useRef<string>('')
   /**
    * 预热任务:弹窗一开就给默认平台点火(见下方 useEffect)。
    * 它把用户"点按钮 → 后端才起浏览器"的那段延迟提前到用户还在看界面的时候。
@@ -221,15 +223,17 @@ export function ScanLoginDialog({
    * 两档点火时机:
    *   - 带 defaultPlatform 的入口(账号页「添加账号」带平台进来)= 立刻。用户已经用
    *     "我要加这个平台的账号"表达过意图,不是浏览。
-   *   - 用户自己在下拉/pill 里挑的 = 停手 0.8s 后。改选会清掉计时器,这枚预热就再也不
-   *     会发生 —— 不留空转的浏览器。
+   *   - 用户自己在下拉/pill 里挑的 = 停手 350ms 后。改选会清掉计时器,这枚预热就再也
+   *     不会发生 —— 不留空转的浏览器。350ms 的取舍:实测浏览器整段 1s 上下,用户
+   *     "挑完立刻点"的间隔常在 0.5~1s,800ms 会让这一档白白错过预热窗口;
+     350ms 仍大于连点两次的真实停顿,churn 由改选即退兜住。
    * 任一时刻只保留一枚:平台变了、phase 离开 idle(点击已接管 / 已成功 / 已失败)、
    * 弹窗关掉,都会把旧的退掉(见 cancelPrewarm 与下方 close 效应)。
    */
   React.useEffect(() => {
     if (!open || phase !== 'idle' || !platform) return
     const chosen = platform
-    const delay = defaultPlatform ? 0 : 800
+    const delay = defaultPlatform ? 0 : 350
     const timer = setTimeout(() => {
       const warmed = { platform: chosen, jobId: '', startedAt: Date.now(), cancelled: false }
       prewarmRef.current = warmed
@@ -277,12 +281,28 @@ export function ScanLoginDialog({
     return { platform: pre.platform, startedAt: pre.startedAt }
   }
 
+  /**
+   * 只取消「还没扫上码」的任务(2026-09-30)。
+   * 用户扫码确认后,后端进入绑定/短信阶段 —— 那是一个正在进行的登录会话,
+   * 弹窗被关闭/组件卸载/倒计时到点都不该把它连带杀掉(实测杀死过 4 次绑定到最后一刻的会话)。
+   * 只有 pending/waiting_scan(以及状态未知 = 还没轮询到)才随 UI 退出而取消。
+   */
+  function cancelTaskIfNotScanned() {
+    const id = taskIdRef.current
+    if (!id) return
+    if (!lastStatusRef.current || lastStatusRef.current === 'pending' || lastStatusRef.current === 'waiting_scan') {
+      void cancelScanLogin(id).catch(() => undefined)
+    }
+    taskIdRef.current = ''
+  }
+
   React.useEffect(() => {
     return () => {
       stopPolling()
       releaseQr()
-      // 卸载即取消:后端任务不取消会占着一个 Chromium 直到 10 分钟超时
-      if (taskIdRef.current) void cancelScanLogin(taskIdRef.current).catch(() => undefined)
+      // 卸载即取消:后端任务不取消会占着一个 Chromium 直到 10 分钟超时。
+      // 但仅限还没扫上码的任务 —— 扫码后的绑定会话必须活到它自己终态(见 cancelTaskIfNotScanned)。
+      cancelTaskIfNotScanned()
       cancelPrewarm()
     }
   }, [])
@@ -360,10 +380,8 @@ export function ScanLoginDialog({
     releaseQr()
     // 后端任务可能还在跑(它自己也要等到 10 分钟才收),这里必须显式取消,
     // 否则每次失败都留一个 Chromium 挂在服务器上。
-    if (taskIdRef.current) {
-      void cancelScanLogin(taskIdRef.current).catch(() => undefined)
-      taskIdRef.current = ''
-    }
+    // 2026-09-30:已扫码的绑定会话除外 —— 同 cancelTaskIfNotScanned 的口径。
+    cancelTaskIfNotScanned()
     cancelPrewarm()
     setTaskMessage('')
     setPhase('failed')
@@ -446,7 +464,9 @@ export function ScanLoginDialog({
         if (taskIdRef.current !== id) return
         pollTimerRef.current = setTimeout(() => void tick(), nextPollDelay(hasQr))
       }
-      if (Date.now() - startTimeRef.current > TIMEOUT_MS) {
+      if (Date.now() - startTimeRef.current > TIMEOUT_MS && lastStatusRef.current !== 'scanned') {
+        // 2026-09-30:已扫码(进入绑定/短信阶段)的任务不受弹窗倒计时约束,
+        // 短信往返+人工输码需要的时间远超扫码倒计时;此时只继续轮询,等后端终态。
         failTask(t('accounts.scanLoginTimeout'))
         return
       }
@@ -464,6 +484,8 @@ export function ScanLoginDialog({
           schedule(false)
           return
         }
+        // 记录最近状态:取消/倒计时路径要用它区分"还没扫上"与"绑定进行中"
+        lastStatusRef.current = d.status
         // 后端进度如实转述(「正在打开 X 登录页…」),用户不用对着一个转圈猜
         if (d.message) setTaskMessage((prev) => (prev === d.message ? prev : d.message))
         // 进度阶梯:亮到哪一级完全由后端说了算(前端不编动画进度)
