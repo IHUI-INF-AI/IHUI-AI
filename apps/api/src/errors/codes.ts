@@ -22,6 +22,13 @@ export const ErrorCode = {
   OPTIMISTIC_LOCK: { status: 409, code: 'OPTIMISTIC_LOCK' },
   INVALID_MONEY: { status: 400, code: 'INVALID_MONEY' },
   INVALID_TIMEZONE: { status: 400, code: 'INVALID_TIMEZONE' },
+  // b76-12g-3-40(G-998167):把「答不了」编进稳定 errorCode,三档各管一层:
+  //  - CAPABILITY_UNSUPPORTED(501):能力结构上不存在,重试永远不可能成功 ⇒ UI 停止无效轮询;
+  //  - CAPABILITY_UNAVAILABLE(503):此刻没有实例/未就绪,稍后也许可以 ⇒ 允许退避重试;
+  //  - DUPLICATE_REQUEST(409):被去重拒绝 ⇒ 不得当成新任务已入队、不得展示「已触发」。
+  CAPABILITY_UNSUPPORTED: { status: 501, code: 'CAPABILITY_UNSUPPORTED' },
+  CAPABILITY_UNAVAILABLE: { status: 503, code: 'CAPABILITY_UNAVAILABLE' },
+  DUPLICATE_REQUEST: { status: 409, code: 'DUPLICATE_REQUEST' },
 } as const
 
 export type ErrorCodeKey = keyof typeof ErrorCode
