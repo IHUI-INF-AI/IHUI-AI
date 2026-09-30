@@ -27589,6 +27589,18 @@
     "restore": "Show suggestions"
   },
   "taskMonitor": {
+    "group": {
+      "artifact": "Artifacts",
+      "browser": "Web pages",
+      "source": "Sources"
+    },
+    "emptyGroup": {
+      "artifact": "No artifact data yet :)",
+      "browser": "No web page data yet :)",
+      "source": "No source data yet :)"
+    },
+    "empty": "Nothing valuable yet",
+    "emptyDescription": "Files, pages and sources produced across the whole task keep gathering here so you can track progress.",
     "displayMode": "Display",
     "modeSections": "Sections",
     "modeTabs": "Tabs",

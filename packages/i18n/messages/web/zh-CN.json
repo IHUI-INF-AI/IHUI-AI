@@ -27747,6 +27747,18 @@
     "restore": "显示建议"
   },
   "taskMonitor": {
+    "group": {
+      "artifact": "产出",
+      "browser": "网页查阅",
+      "source": "来源"
+    },
+    "emptyGroup": {
+      "artifact": "暂无产出数据 :)",
+      "browser": "暂无网页查阅数据 :)",
+      "source": "暂无来源数据 :)"
+    },
+    "empty": "还没有有价值的内容",
+    "emptyDescription": "整个任务中产生的文件、网页和来源会持续汇总在这里,帮助跟踪任务进展。",
     "displayMode": "展示方式",
     "modeSections": "分区",
     "modeTabs": "平铺",
