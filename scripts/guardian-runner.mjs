@@ -4294,6 +4294,24 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 诊断面脱敏(1 项,blocking)---
+  {
+    id: '174',
+    label:
+      '诊断面脱敏守门(b76-08a票1配套):诊断/错误上报面不得携带未脱敏的密钥/令牌/邮箱/路径等敏感串,自检 --self-test 内嵌红绿对照',
+    script: 'check-diagnostic-redaction.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DIAGNOSTIC_REDACTION',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-diagnostic-redaction.mjs',
+      '自检:node scripts/check-diagnostic-redaction.mjs --self-test',
+      '应急放行:HUSKY_SKIP_DIAGNOSTIC_REDACTION=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
