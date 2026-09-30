@@ -171,9 +171,7 @@ export function PromptPolishEntry({
       >
         <Wand2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate">{t('entryLabel')}</span>
-        <span className="shrink-0 text-[10px] text-muted-foreground">
-          {phaseLabel[state.phase]}
-        </span>
+        <span className="shrink-0 text-[10px] text-muted-foreground">{phaseLabel[state.phase]}</span>
       </button>
     )
   }
@@ -538,15 +536,10 @@ export function MessageInput({
       })
       const rejections = addFileReferences([file])
       if (rejections.some((r) => r.code === 'max_files')) {
-        toast.error(
-          t('selectionActions.attachmentLimitReached', { limit: CHAT_ATTACHMENT_MAX_FILES }),
-        )
+        toast.error(t('selectionActions.attachmentLimitReached', { limit: CHAT_ATTACHMENT_MAX_FILES }))
       }
     }
-    window.addEventListener(
-      'ihui:add-selection-attachment',
-      onAddSelectionAttachment as EventListener,
-    )
+    window.addEventListener('ihui:add-selection-attachment', onAddSelectionAttachment as EventListener)
     return () =>
       window.removeEventListener(
         'ihui:add-selection-attachment',
@@ -985,6 +978,7 @@ export function MessageInput({
           onRemoveMention={mentionWiring.removeSelection}
           pastePreviews={pastedRefPreviews}
           onDismissPastePreviews={() => setPastedRefPreviews([])}
+          onSendPastePreview={(text) => void submit(text)}
           queueItems={pendingMessages}
           onQueueRemove={handleQueueRemove}
         />
@@ -1097,7 +1091,7 @@ export function MessageInput({
               之前 border-border(89.8% L / 22% L)在亮色下与白底卡片几乎无可见边界,
               暗色下 22% vs 卡片 10% 仅 12% 差距,输入框边界感丢失。
               2026-09-30 补:上面这段"设计意图"在此前**从未真的渲染过** —— Tailwind 的 border-* 颜色
-              类名被 globals.css 那条未分层的 `*{border-color}` 整族压制,四态描边一直落在同一个灰。
+              类名被 globals.css 那条未分层的 `*{border-color}` 整族压制,四态描边一直落在同一档灰。
               现描边色由 .ai-input-shell* 语义类在 globals.css 里给(见该处注释),此处只留结构类。*/}
           <div
             onDragOver={handleDragOverWithConversation}
