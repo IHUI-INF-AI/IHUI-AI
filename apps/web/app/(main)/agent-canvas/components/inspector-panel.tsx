@@ -8,6 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Badge, Input, Label } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { droppedNotice } from '@/lib/bounded-append'
 import { NODE_TYPE_META, type CanvasLogEntry, type CanvasNodeData } from '../types'
 
 interface InspectorPanelProps {
@@ -29,7 +30,7 @@ function logMessage(log: CanvasLogEntry): string {
   return log.message
 }
 
-function LogList({ logs }: { logs: CanvasLogEntry[] }) {
+function LogList({ logs, dropped }: { logs: CanvasLogEntry[]; dropped: number }) {
   const t = useTranslations('agentCanvas')
   const scrollRef = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {
@@ -43,6 +44,12 @@ function LogList({ logs }: { logs: CanvasLogEntry[] }) {
         <p className="py-6 text-center text-xs text-muted-foreground">{t('noLogs')}</p>
       ) : (
         <ul className="space-y-1 font-mono text-[11px] leading-relaxed">
+          {dropped > 0 ? (
+            // G-641:溢出丢弃必须可见 —— 残缺的节点日志不得伪装成完整
+            <li data-testid="canvas-log-dropped" className="text-muted-foreground">
+              {droppedNotice(dropped)}
+            </li>
+          ) : null}
           {logs.map((log) => (
             <li key={log.id} className="flex gap-2">
               <span className="shrink-0 text-muted-foreground/60">
@@ -164,7 +171,7 @@ export function InspectorPanel({ node, nodeId, onUpdateParams, onRename }: Inspe
           {t('logsTitle')}
         </span>
         <div className="min-h-0 flex-1">
-          <LogList logs={node.logs} />
+          <LogList logs={node.logs} dropped={node.dropped} />
         </div>
       </div>
     </div>

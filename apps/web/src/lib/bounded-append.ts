@@ -2,67 +2,30 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { addEdge, type Connection, type Edge, type Node } from '@xyflow/react'
-import type {
-  CanvasDag,
-  CanvasEdgeDef,
-  CanvasNodeData,
-  CanvasNodeDef,
-  CanvasNodeType,
-} from './types'
-import { createDefaultParams } from './types'
+/**
+ * 有界追加助手(G-641,2026-09-30 立)。
+ *
+ * 本仓铁律(§5e):静默变短等于伪造完整性 —— 有界缓冲区溢出丢最旧时,丢弃条数必须
+ * 累计并暴露给消费面。本文件给出统一的"追加 + 溢出丢弃计数"纯函数与计数行格式,
+ * 供 error-banner / agent-hooks / integrations / agent-canvas 各有界缓冲共用:
+ * 每个落点各自累计自己的 dropped,消费面在 dropped>0 时渲染 droppedNotice 计数行。
+ */
 
-export type CanvasNode = Node<CanvasNodeData>
-export type CanvasEdge = Edge
-
-/** 调色板拖入/点击添加节点时生成唯一 id */
-export function makeNodeId(type: CanvasNodeType): string {
-  return `${type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
+/** 一次有界追加的结果:截断后的列表 + 本次溢出丢弃条数(0 = 未丢) */
+export interface BoundedAppendResult<T> {
+  items: T[]
+  dropped: number
 }
 
-/** React Flow nodes/edges → 可持久化 DAG(剥离运行态 status/logs) */
-export function toDag(nodes: CanvasNode[], edges: CanvasEdge[]): CanvasDag {
-  const nodeDefs: CanvasNodeDef[] = nodes.map((n) => ({
-    id: n.id,
-    type: n.data.nodeType,
-    name: n.data.label,
-    params: n.data.params,
-    position: { x: Math.round(n.position.x), y: Math.round(n.position.y) },
-  }))
-  const edgeDefs: CanvasEdgeDef[] = edges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-  }))
-  return { version: 1, nodes: nodeDefs, edges: edgeDefs }
+/** 追加一条并按 max 截断最旧端,返回新列表与本次丢弃条数 */
+export function boundedAppend<T>(items: readonly T[], item: T, max: number): BoundedAppendResult<T> {
+  const merged = [...items, item]
+  const overflow = Math.max(0, merged.length - max)
+  return { items: overflow > 0 ? merged.slice(overflow) : merged, dropped: overflow }
 }
 
-/** 持久化 DAG → React Flow nodes/edges(运行态重置为 idle/空日志) */
-export function fromDag(dag: CanvasDag): { nodes: CanvasNode[]; edges: CanvasEdge[] } {
-  const nodes: CanvasNode[] = dag.nodes.map((n) => ({
-    id: n.id,
-    type: 'canvasNode',
-    position: n.position,
-    data: {
-      label: n.name,
-      nodeType: n.type,
-      params: { ...createDefaultParams(n.type), ...n.params },
-      status: 'idle',
-      logs: [],
-      dropped: 0,
-    },
-  }))
-  const edges: CanvasEdge[] = dag.edges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    type: 'default',
-  }))
-  return { nodes, edges }
-}
-
-/** 新增连线(smoothstep 贝塞尔曲线) */
-export function connectEdges(connection: Connection, edges: CanvasEdge[]): CanvasEdge[] {
-  return addEdge({ ...connection, type: 'smoothstep', animated: true }, edges)
+/** 消费面计数行的统一形态(dropped>0 时渲染):…(dropped N) */
+export function droppedNotice(dropped: number): string {
+  return `…(dropped ${dropped})`
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
