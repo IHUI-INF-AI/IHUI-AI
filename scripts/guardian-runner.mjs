@@ -4348,6 +4348,24 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- SSE 帧水印(1 项,blocking)---
+  {
+    id: '177',
+    label:
+      'SSE 帧水印守门(b76-13票1配套):SSE 流消费环必须带 fromSeq≥1 帧水印接线(唯一出口 + 读环接线 + 阳性对照),摘线即红,自检 --self-test 红绿对照',
+    script: 'check-sse-frame-watermark.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_SSE_FRAME_WATERMARK',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-sse-frame-watermark.mjs',
+      '自检:node scripts/check-sse-frame-watermark.mjs --self-test',
+      '应急放行:HUSKY_SKIP_SSE_FRAME_WATERMARK=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
