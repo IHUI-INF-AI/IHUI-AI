@@ -534,7 +534,8 @@ const CodeBlockImpl = function CodeBlock({
     isStreaming && 'opacity-60',
   )
   // G-842:外层 frame(仿本文件 CodeRunOutput 的「外框 + header 条 + 主体」形态)
-  const codeFrameClass = 'overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700'
+  const codeFrameClass =
+    'overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700'
   // G-842:代码块 header —— 文件图标 + 语言名映射的示例文件名(纯展示,非交互)
   const codeHeader = (
     <div
@@ -650,14 +651,7 @@ function ThemedCodeBlock(props: {
       ? { color: '#a1a1aa', opacity: 0.7, userSelect: 'none' }
       : { color: '#71717a', opacity: 0.7, userSelect: 'none' }
   // D198:主题同时供给「复制为图片」的底色/前景色选择
-  return (
-    <CodeBlock
-      {...props}
-      syntaxStyle={syntaxStyle}
-      lineNumberStyle={lineNumberStyle}
-      dark={resolvedTheme === 'dark'}
-    />
-  )
+  return <CodeBlock {...props} syntaxStyle={syntaxStyle} lineNumberStyle={lineNumberStyle} dark={resolvedTheme === 'dark'} />
 }
 
 // 图片放大容器:点击图片在 WorkPanel 打开(同源);外链在新标签页打开
@@ -800,12 +794,7 @@ function MarkdownLink({
     // (pdf = pdf.js 真渲染 + 页码/翻页/缩放;csv|tsv = 表头固定 + 列宽自适应 + 行数如实提示)
     if (
       !isStreaming &&
-      (ext === 'pdf' ||
-        ext === 'csv' ||
-        ext === 'tsv' ||
-        ext === 'docx' ||
-        ext === 'xlsx' ||
-        ext === 'pptx')
+      (ext === 'pdf' || ext === 'csv' || ext === 'tsv' || ext === 'docx' || ext === 'xlsx' || ext === 'pptx')
     ) {
       return <RichFilePreview href={hrefStr} ext={ext} />
     }
