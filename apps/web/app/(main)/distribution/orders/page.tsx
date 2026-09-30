@@ -28,6 +28,8 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface Order {
   id: string
@@ -79,12 +81,15 @@ export default function CommissionOrdersPage() {
   const [page, setPage] = React.useState(1)
   const [status, setStatus] = React.useState<string>('all')
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
   const listQ = useQuery({
     queryKey: ['distribution', 'commission-orders', page, status],
     queryFn: () =>
       api<ListData>(
         `/api/finance/commission/orders?page=${page}&limit=${PAGE_SIZE}${status !== 'all' ? `&status=${status}` : ''}`,
       ),
+    enabled: allow,
   })
 
   const total = listQ.data?.total ?? 0
@@ -126,6 +131,11 @@ export default function CommissionOrdersPage() {
         </h1>
       </header>
 
+      {/* 2026-09-30 登录态门 */}
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看佣金订单" />
+      ) : (
+        <>
       <Card>
         <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
           <span className="text-sm text-muted-foreground">{t('colStatus')}</span>
@@ -232,6 +242,8 @@ export default function CommissionOrdersPage() {
             </Button>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   )

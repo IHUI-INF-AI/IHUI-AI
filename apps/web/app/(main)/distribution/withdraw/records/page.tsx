@@ -11,6 +11,8 @@ import { useTranslations, useLocale } from 'next-intl'
 import { ArrowDownToLine, Loader2, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import {
   Button,
   Card,
@@ -75,10 +77,13 @@ export default function WithdrawRecordsPage() {
   const tc = useTranslations('common')
   const locale = useLocale()
   const [page, setPage] = React.useState(1)
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
 
   const listQ = useQuery({
     queryKey: ['distribution', 'withdrawal-list', page],
     queryFn: () => api<ListData>(`/api/finance/withdrawal/list?page=${page}&limit=${PAGE_SIZE}`),
+    enabled: allow,
   })
 
   const total = listQ.data?.total ?? 0
@@ -117,6 +122,9 @@ export default function WithdrawRecordsPage() {
         </h1>
       </header>
 
+      {/* 2026-09-30 登录态门 */}
+      {allow ? (
+        <>
       <div className="overflow-hidden rounded-lg border">
         <Table>
           <TableHeader>
@@ -214,6 +222,10 @@ export default function WithdrawRecordsPage() {
             </Button>
           </div>
         </div>
+      )}
+        </>
+      ) : (
+        <AuthGatePrompt message="请先登录后查看提现记录" />
       )}
 
       <Card>
