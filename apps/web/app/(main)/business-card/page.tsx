@@ -12,7 +12,8 @@ import { useLocale, useTranslations } from 'next-intl'
 import { CreditCard, Plus, Star, Share2, Loader2, Pencil, Trash2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { getInitials } from '@/components/data/Avatar'
@@ -84,6 +85,9 @@ export default function BusinessCardPage() {
   const t = useTranslations('businessCardPage')
   const qc = useQueryClient()
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const {
     data: mine,
     isLoading: mineLoading,
@@ -91,6 +95,7 @@ export default function BusinessCardPage() {
   } = useQuery({
     queryKey: ['business-card', 'mine'],
     queryFn: () => api<CardListData>(`/api/business-card`).then((d) => d.list ?? []),
+    enabled: allow, // 2026-09-30 登录态门
   })
 
   const {
@@ -100,6 +105,7 @@ export default function BusinessCardPage() {
   } = useQuery({
     queryKey: ['business-card', 'favorites'],
     queryFn: () => api<FavCardListData>(`/api/business-card/favorites`).then((d) => d.list ?? []),
+    enabled: allow, // 2026-09-30 登录态门
   })
 
   const removeMut = useMutation({
@@ -139,7 +145,10 @@ export default function BusinessCardPage() {
           {t('myCards')}
           <span className="text-sm font-normal text-muted-foreground">{(mine ?? []).length}</span>
         </h2>
-        {mineLoading ? (
+        {!allow ? (
+          // 2026-09-30 登录态门
+          <AuthGatePrompt message="请先登录后查看我的名片" />
+        ) : mineLoading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {t('loading')}
@@ -210,7 +219,10 @@ export default function BusinessCardPage() {
             {t('viewAll')}
           </Link>
         </div>
-        {favLoading ? (
+        {!allow ? (
+          // 2026-09-30 登录态门
+          <AuthGatePrompt message="请先登录后查看收藏的名片" />
+        ) : favLoading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {t('loading')}
