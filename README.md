@@ -107,8 +107,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 589 | `dbTables` |
-| schema 文件 | 224 | `dbSchemaFiles` |
+| 数据库表 | 590 | `dbTables` |
+| schema 文件 | 225 | `dbSchemaFiles` |
 | API 路由 | 4386 | `apiRoutes` |
 | 路由文件 | 583 | `apiRouteFiles` |
 | AI 服务路由 | 557 | `aiServiceRoutes` |
@@ -128,7 +128,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 203 | `guardianGates` |
 | — blocking | 184 | `guardianBlocking` |
 | — warn | 19 | `guardianWarn` |
-| 跟踪文件 | 14180 | `trackedFiles` |
+| 跟踪文件 | 14191 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-09-30。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
