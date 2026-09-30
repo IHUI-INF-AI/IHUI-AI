@@ -179,7 +179,7 @@ export default defineAppConfig({
     },
     {
       root: 'pages/exam',
-      pages: ['list', 'detail', 'answer', 'result'],
+      pages: ['list', 'detail', 'answer', 'result', 'wrong-list/index'],
     },
     {
       root: 'pages/study',
@@ -191,6 +191,7 @@ export default defineAppConfig({
         'my-study/index',
         'publish/index',
         'video-detail/index',
+        'ai-tutor/index',
       ],
     },
     {
