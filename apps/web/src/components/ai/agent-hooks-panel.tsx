@@ -105,7 +105,7 @@ export function AgentHooksPanel() {
             type="button"
             data-testid="agent-hooks-add"
             onClick={handleAdd}
-            className="flex flex-1 items-center justify-center gap-1 rounded-sm bg-cta px-2 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+            className="flex flex-1 items-center justify-center gap-1 rounded-md bg-cta px-2 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
           >
             <Plus className="h-3 w-3" />
             {t('add')}
@@ -114,7 +114,7 @@ export function AgentHooksPanel() {
             type="button"
             data-testid="agent-hooks-test"
             onClick={handleTest}
-            className="rounded-sm border border-border px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-accent/50"
+            className="rounded-md border border-border px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-accent/50"
           >
             {t('test')}
           </button>
@@ -139,7 +139,7 @@ export function AgentHooksPanel() {
                 onClick={() => toggleHook(h.id)}
                 // @allow-rounded-full 自制 Switch 开关轨道(16x28 胶囊,豁免 2 Switch 语义)
                 className={cn(
-                  'h-4 w-7 shrink-0 rounded-sm transition-colors',
+                  'h-4 w-7 shrink-0 rounded-md transition-colors',
                   h.enabled ? 'bg-primary' : 'bg-muted-foreground/40',
                 )}
               >

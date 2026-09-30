@@ -23,23 +23,8 @@ import { redactSecrets } from '../redact.js';
 import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
 import { checkPermission, checkRulesWithLease, type PermissionRules } from './permissions.js';
 import { activePermissionLease } from './permission-lease.js';
-import {
-  enforceValidateToolArguments,
-  noteEnforceRepairRejection,
-  resolveToolArgValidationMode,
-  shadowValidateToolArguments,
-} from './argument-validation-telemetry.js';
-import { formatValidationErrorsLine } from './argument-validator.js';
+import { shadowValidateToolArguments } from './argument-validation-telemetry.js';
 import { noteDangerousApproval } from './danger-gate.js';
-import { recordApprovedInvocation } from './permission-lease.js';
-import { leaseWorkspaceIdOf } from '../utils/permission-lease-flag.js';
-import {
-  auditToolDenial,
-  buildToolDenial,
-  denialErrorSuffix,
-  type ToolCallDenial,
-} from '../utils/tool-denial.js';
-import { injectHostSection } from '../utils/prompt-injection-registry.js';
 import { BROWSER_TOOLS } from './browser.js';
 import { BROWSER_PAGE_TOOLS } from './browser-page.js';
 import {
@@ -89,13 +74,6 @@ export interface ToolResult {
   /** P1-4 错误类型分级,供调用方/LLM 判断是否需要重试 */
   errorType?: string;
   /**
-   * 「为什么被拒」的结构化答复(可诊断化收口票):**只在拒绝路径携带**。
-   * 三条闸(权限规则 / 危险工具无确认出口 / 租约摘要漂移)在这里可被测试与上层直接断言
-   * (`denial.gate` × `denial.decider`),不依赖任何人读中文短句。参数只落指纹+键名。
-   * 本字段不改变任何判定 —— fail-closed 语义与引入前逐字相同。
-   */
-  denial?: ToolCallDenial;
-  /**
    * 该结果不是 handler 自己产出的,而是**执行链边界**在"墙钟到点"或"外层取消"时代为结算的。
    *
    * 两个用途,缺一不可:
@@ -105,14 +83,6 @@ export interface ToolResult {
    *    不合作的 handler 仍在后台继续跑完(强杀子进程树属另一票 A8E-1 的范围,不在本票)。
    */
   abortedByExecBudget?: 'budget' | 'cancelled';
-  /**
-   * 沙箱一层自己说得出的终态(投影见 `failure-classification.ts::mapTerminalState`)。
-   * 与 `abortedByExecBudget` **不是同一格**:那一枚是"执行链边界代结算",这一枚是
-   * "沙箱结果自己带着 timedOut"。缺席 = 该结果没有可证的中止,不得由渲染侧猜。
-   */
-  terminalState?: 'timed_out';
-  /** 副作用不确定的盖章:与 `terminalState` 成对出现,单独一枚不产出(`mapTerminalState` 是唯一种它的出口)。 */
-  interrupted?: true;
 }
 
 /**
@@ -144,13 +114,6 @@ export interface Tool extends ToolContractMount {
    * (那条通道属守门 108 的"到期豁免账",蹭它就是给一道没有寿命的豁免开后门)。
    */
   execBudget?: ToolExecBudget;
-  /**
-   * 注册归属(2026-09-28 拍板,治"MCP 同名互相静默顶掉"):
-   * 内建省略即视为 `'builtin'`,MCP 工具写成 `mcp:<serverName>`。
-   * 注册表按它判冲突 —— 跨归属同名一律拒绝后到者并报名,同归属重连刷新允许覆盖
-   * (否则 MCP 重连会留下一条指向已死连接的旧工具,那比原来的静默顶掉更糟)。
-   */
-  registrationOwner?: string;
   execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult>;
 }
 
@@ -445,35 +408,8 @@ export function isToolHubEnabled(): boolean {
   return hubEnabled;
 }
 
-/**
- * 跨归属的同名注册被拒的清单(每条形如 "工具名冲突 …")。
- * 状态面/自检可取用;不做"只 warn 完事"—— 静默覆盖的表现不是报错,而是**结果悄悄来自另一台服务器**。
- */
-const registrationConflicts: string[] = [];
-
-function ownerOf(tool: Tool): string {
-  return tool.registrationOwner ?? 'builtin';
-}
-
 function registerTool(tool: Tool): void {
-  const existing = registry.get(tool.name);
-  const owner = ownerOf(tool);
-  if (existing && ownerOf(existing) !== owner) {
-    const line =
-      `工具名冲突:'${tool.name}' 已由 ${ownerOf(existing)} 注册 ⇒ 拒收 ${owner} 的同名工具` +
-      `(保留先到者。**不做静默覆盖** —— 覆盖会让调用悄悄跑到另一台服务器,` +
-      `而 --disallowed-tools 也没法按服务器表达)。请给其中一台的工具改名,或移除重复配置。`;
-    registrationConflicts.push(line);
-    console.error(`[tools] ${line}`);
-    return;
-  }
-  // 同归属 = 同一台服务器重连后刷新:必须允许覆盖,否则旧对象会一直挂在表上
   registry.set(tool.name, tool);
-}
-
-/** 已登记的注册冲突(只读副本)。 */
-export function getToolRegistrationConflicts(): string[] {
-  return [...registrationConflicts];
 }
 
 export function registerTools(tools: Tool[]): void {
@@ -506,22 +442,6 @@ export function clearTools(): void {
   registry.clear();
 }
 
-/**
- * 强制规划段的正文(宿主指令原文)。单独成常量,是为了让下面的 `injectHostSection` 调用
- * 与 id **落在同一行** —— 守门 128 的 R1 按行配对判"这一行真走了出口"。
- */
-const PLAN_FIRST_DIRECTIVE = `## 任务规划(必须先规划后执行)
-
-在执行任何工具调用前,你必须先输出一个任务规划块:
-
-\`\`\`plan
-1. <步骤1描述>
-2. <步骤2描述>
-3. <步骤N描述>
-\`\`\`
-
-规划完成后再逐步执行工具调用。每完成一步,简要说明进度并继续下一步。若规划需调整,先输出新的 plan 块再继续。`;
-
 export function buildSystemPrompt(tools: Tool[], extraContext?: string, planFirst?: boolean): string {
   const toolDescriptions = tools
     .map((t) => {
@@ -540,16 +460,19 @@ export function buildSystemPrompt(tools: Tool[], extraContext?: string, planFirs
     ? `\n\n## 项目上下文\n\n${extraContext}\n`
     : '';
 
-  // 强制规划段是**宿主自己下的指令**(区别于同函数里被转述的 extraContext),
-  // 但它同样进模型消息 ⇒ 必须走登记出口(host_directive 档 = 过 neutralizeBoundaries)。
-  // planFirst 未开启时**一律不记账**:那是"本轮没到档位"而不是"降级",
-  // 记成 skipped 会让可见行每轮多一行假噪声(上一票刚回退过同一型)。
-  // 出口调用与 id 必须**同一行**:守门 128 的 R1 按行配对判"这一行真走了出口",
-  // 把出口写在上一行、id 孤零零占一行 = 登记了没人生产(字符串内的 `${}` 调用同样不算)。
-  const planFirstDirective = planFirst
-    ? injectHostSection('directive_plan_first', PLAN_FIRST_DIRECTIVE, { kind: 'host_directive' })
+  const planSection = planFirst
+    ? `\n\n## 任务规划(必须先规划后执行)
+
+在执行任何工具调用前,你必须先输出一个任务规划块:
+
+\`\`\`plan
+1. <步骤1描述>
+2. <步骤2描述>
+3. <步骤N描述>
+\`\`\`
+
+规划完成后再逐步执行工具调用。每完成一步,简要说明进度并继续下一步。若规划需调整,先输出新的 plan 块再继续。`
     : '';
-  const planSection = planFirstDirective ? `\n\n${planFirstDirective}` : '';
 
   return `你是一个强大的编码助手。你可以使用以下工具来完成任务。
 ${contextSection}${planSection}
@@ -718,63 +641,6 @@ export function withToolResultBudget(tool: Tool, result: ToolResult): ToolResult
   return budget ? applyToolResultBudget(result, budget) : result;
 }
 
-// ==================== 批准闸:要不要问人(唯一实现)====================
-//
-// 立票理由(2026-09-28,实测):
-//  ① `packages/types/src/tool-contract.ts:202` 声明了 `alwaysAsk?: boolean`,但 apps/ 与
-//     packages/ 的 src 面**零消费者**(只有 dist 产物里有它)—— 那张"无论多宽松都必须问"的
-//     支票一直是空的,而账面读起来像已实现(§22c"造好没装车"同族)。
-//  ② 第三方 MCP 工具的批准判定是**单轴**:`mcpToolToTool` 从不写 dangerLevel,
-//     而本文件的确认分支只认 `dangerLevel === 'dangerous'`(HEAD 面那行原文:
-//     `if (tool.dangerLevel === 'dangerous' || leaseContentDrifted)`,见本票 diff 的删除列)
-//     ⇒ 每一个 MCP 工具都走"免批"。
-
-/** 契约上是否**显式**标了 `alwaysAsk: true`(只认字面量 true;缺席/false 一律不算)。 */
-function isAlwaysAskDeclared(tool: Tool): boolean {
-  return tool.contract?.permission.alwaysAsk === true;
-}
-
-/**
- * 免批两轴是否**同时成立**(轴 A 只读 ∧ 轴 B 不碰外部世界)。
- *
- * 两轴各自为假就是不同的事:前者"只读但出网"、后者"不出网但会写",任一成立都必须问。
- * 整对缺席 ⇒ 本判据不适用(返回 false 表示"没有免批资格可谈"),内建工具行为逐字不变。
- */
-function hasApprovalExemption(tool: Tool): boolean {
-  const axes = tool.approvalExemption;
-  if (!axes) return false;
-  return axes.readonlyAxis === true && axes.closedWorldAxis === true;
-}
-
-/** 该工具是否**声明过**免批两轴(声明过却没同时成立 = 要问;没声明 = 本条不参与判定)。 */
-function declaresApprovalExemption(tool: Tool): boolean {
-  return tool.approvalExemption !== undefined;
-}
-
-/**
- * 批准闸"必须问人"的**唯一实现**(2026-09-28 起,四条判据,任一成立即问):
- *
- *  ① `dangerLevel === 'dangerous'` —— 既有档,语义一字未动;
- *  ② 租约槽位摘要漂移(`leaseContentDrifted`)—— 既有档,语义一字未动;
- *  ③ 契约上**显式** `alwaysAsk: true`(此前零消费者 ⇒ 本票把它接上)。
- *     **只对显式标记生效**:未标记的工具不会因本条新增"要批准",任何缺省语义
- *     (`dangerLevel ?? 'write'`、"契约缺席按只读"等)都未被触碰;
- *  ④ 第三方工具声明了免批两轴(`approvalExemption`)而两轴没同时成立。
- *     两轴是契约上的**两个独立字段**(`ApprovalExemptionAxes`),不是一个布尔、
- *     也不是 `dangerLevel === 'read'` 一档冒充两件事。
- *
- * 静态拒绝优先(规格 = `tool-contract.ts:200` 那句"绝不覆盖拒绝分支"):本函数**只**在
- * `executeToolCall` 里权限规则已经放行之后才被调用,规则 deny 那条路径在此之前就 return,
- * 所以"被 deny 的调用因 alwaysAsk 变成问一次再放行"在结构上不可能发生(由测试②钉住)。
- */
-export function requiresUserConfirmation(tool: Tool, leaseContentDrifted = false): boolean {
-  if (tool.dangerLevel === 'dangerous') return true;
-  if (leaseContentDrifted) return true;
-  if (isAlwaysAskDeclared(tool)) return true;
-  if (declaresApprovalExemption(tool) && !hasApprovalExemption(tool)) return true;
-  return false;
-}
-
 export async function executeToolCall(
   call: ParsedToolCall,
   ctx: ToolContext,
@@ -805,133 +671,47 @@ export async function executeToolCall(
   if (!tool) {
     return { success: false, output: '', error: `未知工具: ${call.name}`, errorType: 'not_found' };
   }
-  // A31 第①步「影子校验」/ A36 第③步「enforce」。默认 off ⇒ 整个分支等价于不存在
-  // (行为与改前逐字相同,由 argument-validation-shadow 单测①钉住"默认零副作用")。
-  //   shadow:跑校验、只进遥测计数器,不改 call.arguments、不改返回值、不拦调用;
-  //   enforce:先过 schema-aware 容错解析(原值即过则一次都不 re-parse),违规即拒 ——
-  //     错误里带**单行**违规清单供模型修复;拒绝发生在权限/批准弹窗与限流**之前**
-  //     (一条参数就不合法的调用没有可批准的事,也不该消耗限流配额);
-  //     容错解析通过时**只有**这一档会替换 call.arguments(归一树,原键全保留)。
-  // 与 doom-loop 检测共存:repair 不是执行器内的第二次自动重试 —— 拒绝直接 return
-  // (不经 executeWithRetry;`isRetryableErrorType` 也不认 invalid_arguments*),
-  // 模型是否再投由下一轮决定;而按工具名计的**连续**拒绝窗把回喂封顶在
-  // TOOL_ARG_REPAIR_MAX_ATTEMPTS 次,超限硬失败并保留最后一次违规清单 ⇒ 换写法也顶得出。
-  // 已知覆盖面缺口:hubEnabled 分支在 getTool 之前就 return 了,那里拿不到 Tool 对象,
-  // 影子与 enforce 都不生效,本票不扩面。
-  // 拒绝文案用 ASCII(守门 70 的硬编码中文基线棘轮同样约束本文件,见上方预算标注注记)。
-  const toolArgMode = resolveToolArgValidationMode();
-  if (toolArgMode === 'enforce') {
-    const decision = enforceValidateToolArguments(tool, call.arguments);
-    if (decision.status === 'reject') {
-      const repair = noteEnforceRepairRejection(tool.name);
-      const violations = formatValidationErrorsLine(decision.errors);
-      return {
-        success: false,
-        output: '',
-        error: repair.exhausted
-          ? `arg_validation_exhausted: rejection #${repair.attempt} exceeds the ${repair.max}-attempt repair window; do not re-issue this call without new information. last violations -> ${violations}`
-          : `arg_validation_failed (${repair.attempt}/${repair.max}): fix these fields and retry. violations -> ${violations}`,
-        errorType: repair.exhausted ? 'invalid_arguments_exhausted' : 'invalid_arguments',
-      };
-    }
-    if (decision.status === 'pass-normalized') {
-      call.arguments = decision.args;
-    }
-    // pass / undetermined(校验器抛异常,fail-open 已记 validatorThrew)→ 原路径继续。
-  } else {
-    // 刻意放在**批准弹窗之前** —— 弹窗与"批准 = 执行"的同一引用传递链路(上一票实测出的
-    // 语义)在此完全不受影响。
-    shadowValidateToolArguments(tool, call.arguments);
-  }
+  // A31 第①步「影子校验」(默认 off ⇒ 这一行等价于不存在):跑校验、只进遥测计数器,
+  // 不改 call.arguments、不改返回值、不拦调用。刻意放在**批准弹窗之前** —— 弹窗与
+  // "批准 = 执行"的同一引用传递链路(上一票实测出的语义)在此完全不受影响。
+  // 已知覆盖面缺口:hubEnabled 分支在 getTool 之前就 return 了,那里拿不到 Tool 对象,本票不扩面。
+  shadowValidateToolArguments(tool, call.arguments);
   // P0-7 Permission rules:白名单/黑名单拦截(在 rate limit 之前,避免被限流工具仍消耗配额)
   // 权限租约(默认关闭):`activePermissionLease()` 为 null 时走的仍是改造前那一份
   // `checkPermission` 调用,行为逐字不变;有租约时也**只**可能把 rules 里的 'ask'
   // 放宽成放行 —— 'deny'(黑名单/不在白名单)与下方 `dangerous` 确认闸都不受影响。
-  let leaseContentDrifted = false;
   if (ctx.permissions) {
     const lease = activePermissionLease();
-    // `dangerLevel ?? 'write'`:该参数只被用来拒绝"把 dangerous 放宽",undefined 在本函数的
-    // 既有语义里等同非危险(下方确认闸判的是 `=== 'dangerous'`),取 write 档是保守写法。
-    const perm = lease
-      ? checkRulesWithLease(
-          call.name,
-          ctx.permissions,
-          tool.dangerLevel ?? 'write',
-          lease,
-          JSON.stringify(call.arguments ?? null),
-        )
-      : checkPermission(call.name, ctx.permissions);
+    // 没有 dangerLevel 声明的工具(守门 111 的 flip-audit 存量)不走租约路径 ——
+    // 替它补一个默认档就是在替"批准边界"做默认决策(凭空放宽或凭空新增批准),
+    // 而租约票自己的承诺是"默认关闭不改变现有判定"。缺声明 ⇒ 回到租约之前的 checkPermission。
+    const perm =
+      lease && tool.dangerLevel
+        ? checkRulesWithLease(call.name, ctx.permissions, tool.dangerLevel, lease)
+        : checkPermission(call.name, ctx.permissions);
     if (!perm.allowed) {
-      // 可诊断化收口:原错误串逐字保留(既有回归以 `toContain` 断言它),其后追加 ASCII 出路行;
-      // 三问(哪道闸/出路/参数摘要)以结构化字段在返回体可断言。判定本身一个字节都没动。
-      const denial = buildToolDenial({
-        gate: 'permission-rule',
-        decider: 'rule-deny',
-        tool: call.name,
-        args: call.arguments,
-      });
-      auditToolDenial(denial);
-      const ruleMsg = perm.reason ?? `工具 ${call.name} 被权限规则拒绝`;
       return {
         success: false,
         output: '',
-        error: `${ruleMsg}\n${denialErrorSuffix(denial)}`,
+        error: perm.reason ?? `工具 ${call.name} 被权限规则拒绝`,
         errorType: 'permission_denied',
-        denial,
       };
     }
-    // 执行点必须把内容喂进判定,并且**必须消费漂移结论**:
-    // `checkRulesWithLease` 在摘要不符时返回 `allowed:true + requiresApproval:true`,
-    // 而本函数原先只看 `!perm.allowed` ⇒ 整套槽位指纹在运行时是死代码(造好没装车)。
-    leaseContentDrifted = 'approvalState' in perm && perm.approvalState === 'content-drifted';
   }
   // P1-4 Rate limiting:同一工具 10 秒内最多 5 次,超限返回 error
   const rateLimit = checkRateLimit(call.name);
   if (!rateLimit.allowed) {
     return { success: false, output: '', error: rateLimit.reason, errorType: 'rate_limited' };
   }
-  // 批准闸:四条"必须问"的判据集中在 `requiresUserConfirmation()` 一处(唯一实现,不在这里再抄一遍)。
-  // 走到这一行时权限规则**已经放行**(上面 deny 已 return),所以 alwaysAsk 结构上
-  // 不可能把一次静态拒绝变成"问一次再放行" —— 那条规格写在 tool-contract.ts:200。
-  if (requiresUserConfirmation(tool, leaseContentDrifted)) {
+  if (tool.dangerLevel === 'dangerous') {
     const allowed = ctx.confirmDangerous ? await ctx.confirmDangerous(tool, call.arguments) : false;
     // 披露面(L7905 收口):只记账不改判定 —— 放行路径(会话级 flag / 回调自批)可追溯
-    if (allowed) {
-      noteDangerousApproval(ctx.allowDangerous === true, tool.name);
-      // 批准这一刻的内容就是"人被问过并同意的那件事" —— 把它登记进租约的槽位指纹,
-      // 之后同工具换内容旧批准自动失效(`content-drifted`)。档位未开 / 无生效租约 ⇒
-      // 该出口内部自行拒收并给原因,**不抛、不改判定**,所以既有 `--permission-lease`
-      // 使用者行为零变化(绑定要在授予时显式开 `digestTrackOnApproval`)。
-      recordApprovedInvocation({
-        toolName: tool.name,
-        invocationContent: JSON.stringify(call.arguments ?? null),
-        dangerLevel: tool.dangerLevel ?? 'write',
-        workspaceId: leaseWorkspaceIdOf(ctx.workspacePath),
-      });
-    }
+    if (allowed) noteDangerousApproval(ctx.allowDangerous === true, tool.name);
     if (!allowed) {
-      const denial = buildToolDenial({
-        // 两道闸同时命中时报更特异的一态:漂移是"批准过、内容变了"的单列待再审态,
-        // 不得被读成"从未批准"(文案与 `gate` 字段同形,回归各钉一条)。
-        gate: leaseContentDrifted ? 'lease-digest-drift' : 'dangerous-gate',
-        // 层面边界(如实登记):工具层只看"有没有回调";danger-gate 内部"回调在但无
-        // prompt"(no-prompt 成因)在这一层呈现为 user-declined,归因属调用方另计。
-        decider: ctx.confirmDangerous ? 'user-declined' : 'no-confirmation-channel',
-        tool: call.name,
-        args: call.arguments,
-      });
-      auditToolDenial(denial);
-      // 原中文错误串逐字保留(`lease-drift-executor-wiring` 以 toContain('摘要漂移') 断言),
-      // 其后追加 ASCII 出路行;无确认出口时**仍然必须拒** —— 本票只改怎么说,不改是否放。
       return {
         success: false,
         output: '',
-        error:
-          (leaseContentDrifted
-            ? `工具 ${call.name} 的本次参数与租约批准过的内容不符(摘要漂移)，旧批准失效，需重新确认`
-            : `危险操作被拒绝(需用户确认): ${call.name}`) + `\n${denialErrorSuffix(denial)}`,
-        errorType: 'permission_denied',
-        denial,
+        error: `危险操作被拒绝(需用户确认): ${call.name}`,
       };
     }
   }
