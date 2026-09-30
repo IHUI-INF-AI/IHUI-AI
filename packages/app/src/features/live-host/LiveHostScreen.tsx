@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -22,6 +21,7 @@ import type {
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** 主播端共享屏 — props 注入式跨端组件(纯 UI,推流/SRS API 由 wrapper 注入) */
 export type { LiveHostProduct, LiveHostStatus, LiveHostStreamData, LiveHostScreenProps }
@@ -107,7 +107,8 @@ export function LiveHostScreen({
 
       <View style={styles.sectionBox}>
         <Text style={styles.sectionLabel}>{t('liveHost.streamTitle')}</Text>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={streamTitle}
           onChangeText={onStreamTitleChange}
