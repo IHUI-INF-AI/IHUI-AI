@@ -40,6 +40,7 @@ import type {
 import { DistributedLock } from '../utils/distributed-lock.js'
 import type { AuditLogger, FixExecutor, FixResult, FixTask, ScanItem } from './automations/types.js'
 import { loadAutomationsConfig, validateConfig, defaultAudit } from './automations/config.js'
+import { createSingleFlightTick } from './automations/index.js'
 import { redactSecrets, makeAuditLogger } from './automations/redact.js'
 import { createGitHubClient, type GitHubClient } from './automations/github-client.js'
 import { createStubExecutor, createAgentExecutor } from './automations/executor.js'
@@ -690,7 +691,6 @@ export async function buildRepairService(
 }
 
 let repairTimer: NodeJS.Timeout | null = null
-let repairCycleRunning = false
 
 /**
  * D30 定时认领环:与 `startAutomationsScheduler` 同一 env 门控、同一单飞形态。
@@ -713,15 +713,13 @@ export function startRepairCycleScheduler(
     .then((service) => {
       if (!service) return
       if (repairTimer) return
+      // G-668:忙时收到的 tick 不得丢 —— 旧形态 `if (repairCycleRunning) return` 会让
+      // 用户白等一个轮询周期;改走单飞工厂,忙时记账、本轮结束立即补跑。
+      const repairFlight = createSingleFlightTick(() => service.runCycle(), (err: unknown) =>
+        defaultAudit().warn(`[automation-repair] 轮次失败:${String(err)}`),
+      )
       repairTimer = setInterval(() => {
-        if (repairCycleRunning) return
-        repairCycleRunning = true
-        service
-          .runCycle()
-          .catch((err: unknown) => defaultAudit().warn(`[automation-repair] 轮次失败:${String(err)}`))
-          .finally(() => {
-            repairCycleRunning = false
-          })
+        void repairFlight.tick()
       }, cfg.intervalMs)
       repairTimer.unref()
     })
