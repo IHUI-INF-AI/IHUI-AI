@@ -31,7 +31,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { ChevronRight, Settings } from 'lucide-react-native'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 
 /** N8n 消息项 */
 export interface N8nMessage {
@@ -268,7 +268,7 @@ function createStyles(tk: AppThemeTokens) {
       maxWidth: '78%',
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderRadius: rnRadiusFor.bubble,
+      borderRadius: rnRadius.xl,
     } as ViewStyle,
     messageBubbleUser: {
       backgroundColor: tk.brand.cta,
