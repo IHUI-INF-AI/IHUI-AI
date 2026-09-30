@@ -27747,6 +27747,18 @@
     "restore": "顯示建議"
   },
   "taskMonitor": {
+    "group": {
+      "artifact": "產出",
+      "browser": "網頁查閱",
+      "source": "來源"
+    },
+    "emptyGroup": {
+      "artifact": "暫無產出資料 :)",
+      "browser": "暫無網頁查閱資料 :)",
+      "source": "暫無來源資料 :)"
+    },
+    "empty": "還沒有有價值的內容",
+    "emptyDescription": "整個任務中產生的檔案、網頁與來源會持續彙總在這裡,協助追蹤任務進展。",
     "displayMode": "展示方式",
     "modeSections": "分區",
     "modeTabs": "平鋪",

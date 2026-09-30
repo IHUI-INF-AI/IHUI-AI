@@ -207,8 +207,19 @@
   }
 }
 
-* {
-  border-color: var(--color-border);
+/* 全站默认描边色(Tailwind v4 preflight 只给 `border: 0 solid`,不给颜色;删掉这条
+   等于把未显式取色的边框推给 currentColor = 文字色,比现状更糟)。
+   ★ 2026-09-30 移进 @layer base:这条原本是 **未分层**的,而未分层声明恒胜 `@layer utilities`
+   里的任何声明(与 specificity 无关)⇒ 全站 `border-input` / `border-brand-accent-deep` /
+   `focus:border-*` 等**边框颜色工具类一条都不渲染**,屏幕上只有这一档灰。
+   实证:编译产物里 `* => var(--color-border)` 落在 unlayered 顶层,而 `.border-input` 等在
+   @layer utilities;真机普查各页 93–100% 的有边框元素同挤 rgb(229,229,229)。
+   放进 base 后:未显式取色时仍是 --color-border(语义不变),显式取色的工具类恢复生效。
+   取证与判据:apps/web/e2e/input-border-states.spec.ts(量计算值,不量类名)。 */
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
 }
 
 /* AI 对话 markdown 渲染样式 */
