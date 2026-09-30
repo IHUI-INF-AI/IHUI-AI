@@ -20,6 +20,8 @@ from app.services.scan_login import (
     PLATFORM_SCAN_CONFIG,
     ScanTask,
     _cookie_hits,
+    _extract_qr_image,
+    _login_page_open_failure_message,
     _parse_raw_cookies,
     _url_is_login_page,
 )
@@ -288,4 +290,126 @@ def test_parse_raw_cookies_empty_and_invalid():
     assert _parse_raw_cookies("") == {}
     assert _parse_raw_cookies("   ") == {}
     assert _parse_raw_cookies("这不是 cookie 文本") == {}
+
+
+# --- 2026-09-30 oschina 微信码接入 + 官方码 JPEG 直取 + 站点故障可读化 ---
+
+
+def test_oschina_login_url_live_and_wechat_plan():
+    """开源中国:旧 /action/user/hash_login 已废弃(curl 直连 403,带 referer 404),
+    首页「登录/注册」现指向 /home/login;该页有微信登录,但**必须先勾协议**,
+    否则前端直接吞掉微信图标点击(实测 0 请求 0 跳转)。"""
+    osc = PLATFORM_SCAN_CONFIG["oschina"]
+    assert osc["login_url"] == "https://www.oschina.net/home/login", "login_url 仍是废弃的 hash_login"
+    plans = osc.get("scan_tab_selectors")
+    assert plans and isinstance(plans[0], (tuple, list)), f"oschina 缺顺序点击计划: {plans!r}"
+    steps = list(plans[0])
+    assert len(steps) == 2, f"oschina 计划须两步(勾协议→点微信),实得 {steps!r}"
+    agree, wechat = steps
+    # 协议步必须是"视觉盒"那一档:点 input 被 antd 覆盖层挡住(Playwright 命中检测失败),
+    # 点整条 label 会落在中心的《服务条例》链接上(clicked=True 而 checked 不变)。
+    assert "login-agreement" in agree and "ant-checkbox" in agree, f"协议步选择器不对: {agree!r}"
+    assert not agree.startswith("input."), f"协议步不得点裸 input(实测点不中): {agree!r}"
+    assert agree.strip() != "label.login-agreement", "协议步不得点整条 label(会命中条款链接)"
+    assert "icon-wx" in wechat, f"第二步必须点微信图标 #icon-wx: {wechat!r}"
+    # 码图直取:微信码是 img[src*=connect/qrcode],拿到的是官方原图而非登录页截图
+    assert any("connect/qrcode" in s for s in osc.get("qr_image_selectors", ())), (
+        f"oschina 缺微信官方码 img 选择器: {osc.get('qr_image_selectors')!r}"
+    )
+
+
+class _FakeLoc:
+    def __init__(self, src: str, idxs: list[int]) -> None:
+        self._src = src
+        self._idxs = idxs
+
+    def evaluate_all(self, _expr: str) -> list[int]:
+        return self._idxs
+
+    def nth(self, _i: int) -> _FakeLoc:
+        return self
+
+    def evaluate(self, _expr: str) -> str:
+        return self._src
+
+
+class _FakePage:
+    def __init__(self, src: str) -> None:
+        self._src = src
+
+    def locator(self, _sel: str) -> _FakeLoc:
+        return _FakeLoc(self._src, [0])
+
+
+def test_extract_qr_image_accepts_jpeg_official_qr(monkeypatch):
+    """微信官方码(connect/qrcode)下发的是 **JPEG**。只认 PNG 魔数会把 oschina 这类
+    "能直取官方原图"的平台白退回截图 —— 与用户要的"所有码都直接获取"正相反。"""
+    import httpx
+
+    jpeg = b"\xff\xd8\xff\xe0fakejpegbytes"
+    calls: list[str] = []
+
+    def fake_get(url: str, **_kw):
+        calls.append(url)
+
+        class R:
+            status_code = 200
+            content = jpeg
+
+            headers = {"content-type": "image/jpeg"}
+
+        return R()
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    src = "https://open.weixin.qq.com/connect/qrcode/001IICD01oGwll2t"
+    got = _extract_qr_image(_FakePage(src), ('img[src*="connect/qrcode"]',))
+    assert calls == [src], "必须真的去服务端拉官方码,而不是退回截图"
+    assert got, "JPEG 官方码必须被接受"
+    import base64
+
+    assert base64.b64decode(got) == jpeg
+
+
+def test_extract_qr_image_still_rejects_non_image(monkeypatch):
+    """反向对照:上面那条放宽 JPEG 不得把"根本不是图"的响应也放过来 ——
+    否则 WAF 拦截页/错误 JSON 会被当二维码投给用户(比截图更糟的静默失败)。"""
+    import httpx
+
+    def fake_get(_url: str, **_kw):
+        class R:
+            status_code = 200
+            content = b"<html>blocked by waf</html>"
+
+        return R()
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    assert _extract_qr_image(_FakePage("https://example.test/qr"), ("img",)) is None
+
+
+def test_login_page_open_failure_message_marks_site_fault():
+    """站点级故障(ERR_CONNECTION_CLOSED / DNS / 超时)要说"平台侧问题,非本系统"。
+    实测载体:人民网 login.peopleweb.com.cn 对本机网络完全不可达。"""
+
+    class PageErr(Exception):
+        pass
+
+    msg = _login_page_open_failure_message(
+        PageErr("Page.goto: net::ERR_CONNECTION_CLOSED at https://login.peopleweb.com.cn/")
+    )
+    assert "非本系统问题" in msg, msg
+    assert "ERR_CONNECTION_CLOSED" not in msg, "站点故障不该把原始错误码丢给用户"
+    # TimeoutError 同族(oschina 旧路径被 WAF 挂到 30s 超时即此型)
+    assert "非本系统问题" in _login_page_open_failure_message(TimeoutError("Timeout 30000ms exceeded"))
+
+
+def test_login_page_open_failure_message_keeps_our_own_errors():
+    """反向对照:非连接类异常必须保留类型名与原文 —— 那是我们该修的,
+    糊成"平台故障"等于替自己的缺陷遮责。"""
+
+    class SelectorErr(Exception):
+        pass
+
+    msg = _login_page_open_failure_message(SelectorErr('waiting for locator "#nope"'))
+    assert "打开登录页失败" in msg and "SelectorErr" in msg and "#nope" in msg, msg
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
