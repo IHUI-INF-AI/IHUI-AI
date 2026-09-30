@@ -34,6 +34,13 @@ import { platform } from 'node:os'
 export interface ProcIdentitySnapshot {
   executablePath: string | null
   commandLine: string | null
+  /**
+   * G-998126:进程创建时刻的微秒串(`windows-utc-us:<µs>`,由 Win32 CreationDate.Ticks
+   * 归一)。机制对标上游 processTreeSnapshot.ts:146-184 —— 秒级 StartTime 在
+   * "同一秒内被复用"这一档结构性失明,tick/微秒量纲才可分辨。取不到 ⇒ null(可选:
+   * 旧快照构造方与 linux 探针不带该维)。
+   */
+  creationUtcUs?: string | null
 }
 
 /** 现测某 pid 的身份;进程不存在或取不到 ⇒ null(⇒ 未判定)。 */
@@ -44,6 +51,11 @@ export interface KillIdentityExpectation {
   executablePathIncludes?: string
   /** commandLine 须命中至少一个(不区分大小写);空/不给 ⇒ 不判这一维。 */
   commandLineAnyOf?: string[]
+  /**
+   * G-998126:创建时刻微秒串须**全等**(字符串比对,ticks 量级超出 JS 安全整数故不进数值域)。
+   * 不给 ⇒ 不判这一维;给了而实得缺位 ⇒ 不成立(同 exe+cmdline 的同秒复用进程照样拒杀)。
+   */
+  creationUtcUs?: string
 }
 
 /** 派生终止命令的出口由本文件选定(bin/argv 不由调用方注入,防"注入命令"的第二真相)。 */
@@ -103,6 +115,7 @@ function describeExpectation(e: KillIdentityExpectation): string {
   if (e.commandLineAnyOf && e.commandLineAnyOf.length > 0) {
     parts.push(`commandLine 须命中 ${JSON.stringify(e.commandLineAnyOf)} 之一`)
   }
+  if (e.creationUtcUs !== undefined) parts.push(`creationUtcUs 须全等 "${e.creationUtcUs}"`)
   return parts.length > 0 ? parts.join(' ∧ ') : '(未设特征 ⇒ 仅要求进程在场)'
 }
 
@@ -130,6 +143,15 @@ export function judgeKillIdentity(
       )
     }
   }
+  if (expectation.creationUtcUs !== undefined) {
+    // G-998126:同 exe + 同 cmdline 的"同秒复用"进程,只有这一维能分辨。
+    // 字符串全等比对;实得缺位(null)= 量纲取不到 ⇒ 不成立,不得放行。
+    if (snapshot.creationUtcUs !== expectation.creationUtcUs) {
+      misses.push(
+        `creationUtcUs 实得 ${JSON.stringify(snapshot.creationUtcUs)} 须全等 ${JSON.stringify(expectation.creationUtcUs)}`,
+      )
+    }
+  }
   return misses.length > 0 ? { ok: false, why: misses.join(';') } : { ok: true }
 }
 
@@ -139,6 +161,7 @@ const WIN_PROBE_NONE = 'IHUI-PROC-NONE'
 export function parseProcProbeOutput(raw: string): ProcIdentitySnapshot | null {
   let executablePath: string | null = null
   let commandLine: string | null = null
+  let creationUtcUs: string | null = null
   let seen = false
   for (const line of String(raw ?? '').split(/\r?\n/)) {
     const l = line.trim()
@@ -151,17 +174,29 @@ export function parseProcProbeOutput(raw: string): ProcIdentitySnapshot | null {
       seen = true
       const v = l.slice('IHUI-CL='.length).trim()
       commandLine = v === '' ? null : v
+    } else if (l.startsWith('IHUI-CU=')) {
+      // G-998126:CreationDate.Ticks 归一的微秒串(格式 windows-utc-us:<µs>);缺位/噪音 ⇒ null
+      seen = true
+      const v = l.slice('IHUI-CU='.length).trim()
+      creationUtcUs = /^windows-utc-us:\d+$/.test(v) ? v : null
     }
   }
-  return seen ? { executablePath, commandLine } : null
+  return seen ? { executablePath, commandLine, creationUtcUs } : null
 }
 
 function runPowerShellProbe(pid: number): Promise<string> {
+  // G-998126:补一发 CreationDate.Ticks 归一的微秒串 —— 秒级 StartTime 分辨不了
+  // "同一秒内被复用"的进程,tick/微秒量纲才可分辨(机制对标上游 processTreeSnapshot.ts)。
+  // .NET Ticks(100ns,自 0001-01-01)减去纪元差后整串留在 PowerShell 侧算,
+  // 6.4e17 量级不进 JS 数值域。
+  const NET_TICKS_TO_UNIX = '621355968000000000'
   const script =
     `$ErrorActionPreference='Stop';` +
     `$p=Get-CimInstance Win32_Process -Filter "ProcessId=${pid}";` +
     `if($null -eq $p){'${WIN_PROBE_NONE}'}else{` +
-    `'IHUI-EP='+[string]$p.ExecutablePath;'IHUI-CL='+[string]$p.CommandLine}`
+    `'IHUI-EP='+[string]$p.ExecutablePath;` +
+    `'IHUI-CL='+[string]$p.CommandLine;` +
+    `if($null -ne $p.CreationDate){'IHUI-CU=windows-utc-us:'+([long](([long]$p.CreationDate.Ticks - ${NET_TICKS_TO_UNIX})/10))}}`
   return new Promise((resolvePromise, rejectPromise) => {
     execFile(
       'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
@@ -194,7 +229,12 @@ export const defaultProcInspector: ProcIdentityInspector = async (pid) => {
         .replace(/\0+$/, '')
         .split('\0')
         .join(' ')
-      return { executablePath, commandLine: commandLine === '' ? null : commandLine }
+      return {
+        executablePath,
+        commandLine: commandLine === '' ? null : commandLine,
+        // linux 侧 /proc/<pid>/stat field 22(boot-tick)量纲不同,不在本探针归一 ⇒ null
+        creationUtcUs: null,
+      }
     } catch {
       return null
     }
@@ -258,7 +298,7 @@ export async function killProcessVerified(
       record:
         `pid ${pid} 身份复核不成立 ⇒ 拒杀(未派生任何终止命令)。` +
         `期望:${describeExpectation(expectation)};` +
-        `实得:executablePath=${JSON.stringify(snapshot.executablePath)} commandLine=${JSON.stringify(snapshot.commandLine)};` +
+        `实得:executablePath=${JSON.stringify(snapshot.executablePath)} commandLine=${JSON.stringify(snapshot.commandLine)} creationUtcUs=${JSON.stringify(snapshot.creationUtcUs)};` +
         verdict.why,
     }
   }
