@@ -112,6 +112,8 @@ import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook } from '..
 import { loadSettings, type SamplerSettings, type Settings } from './settings.js';
 import type { Session } from './session.js';
 import { saveSession } from './session.js';
+// G-632:异步解算启动时捕获分支代数 —— 解算期间分支被切换则本轮结果在落地口作废
+import { captureBranchGeneration } from './branch-generation.js';
 import { PluginRegistry, loadPlugins, type PluginHookContext } from '../plugins/index.js';
 import type { PlanMachine } from '../plan/index.js';
 import {
@@ -1005,6 +1007,8 @@ export interface RunToolLoopResult {
   usage: TokenUsage;
   /** goal 模式的独立校验结论;非 goal 模式为 null(行为与接线前逐零差异) */
   verification?: GoalVerification | null;
+  /** G-632:解算启动时捕获的分支代数 —— 落地前与当前代数比对,不等 ⇒ 结果作废 */
+  branchGeneration: number;
 }
 
 export interface TokenUsage {
@@ -1386,6 +1390,9 @@ function extractSummaryBody(messages: CompressionResult['messages']): string {
 
 /** 执行多轮工具循环,直到 end_turn 或 maxIterations。messages 数组会被原地修改(追加 assistant + tool_result 消息) */
 export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoopResult> {
+  // G-632:异步解算启动即捕获当下分支代数 —— 解算期间 /fork、/branch、/sessions resume
+  // 任何一次分支装配都会使代数 +1,落地口比对不等即作废本轮结果。
+  const branchGeneration = captureBranchGeneration();
   let assistantText = '';
   let hadError = false;
   let iterations = 0;
@@ -2391,7 +2398,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     stopReason,
   });
 
-  return { stopReason, assistantText, iterations, usage, verification };
+  return { stopReason, assistantText, iterations, usage, verification, branchGeneration };
 }
 
 // ==================== Agent 模式(非交互式) ====================
