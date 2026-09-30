@@ -1,15 +1,14 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 /** 订单详情共享屏 — props 注入式跨端组件 */
 import { useMemo } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { OrderDetailScreenProps } from '../../types'
-import { BackChevron } from '../../components/BackChevron'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * 订单详情共享屏 — 平台无关渲染层。
@@ -48,9 +47,8 @@ export function OrderDetailScreen({
           style={styles.backBtn}
           onPress={onBack}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityLabel={t('common.back')}
         >
-          <ChevronLeft size={16} color={tk.text.medium} />
+          <Text style={styles.back}>{t('common.back')}</Text>
         </TouchableOpacity>
       </View>
     )
@@ -59,7 +57,9 @@ export function OrderDetailScreen({
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text style={styles.back}>{t('common.back')}</Text>
+        </TouchableOpacity>
         <Text style={styles.title}>{t('orderDetail.title')}</Text>
       </View>
       <View style={styles.body}>
@@ -97,6 +97,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 12,
     },
     body: { padding: 10 },
+    back: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     card: {
       padding: 12,
