@@ -1545,6 +1545,52 @@ def _platform_profile_dir(platform: str) -> Path:
     return root / safe
 
 
+def _session_store_path(platform: str) -> Path:
+    """登录态快照的盘边 JSON(与 profile 同目录,gitignored)。"""
+    return _platform_profile_dir(platform) / "session-cookies.json"
+
+
+def _save_session_cookies(platform: str, context: Any) -> None:
+    """把当前登录态(cookie 全集)显式写到盘边 JSON(2026-09-30 会话复用票)。
+
+    为什么不指望 Chromium 自己落盘:**实测** add_cookies/浏览期 cookie 在
+    context.close() 后并不保证刷进 user_data_dir —— Chromium 的 cookie 提交是惰性的
+    (定时批量 commit,提前关进程就丢),本机最小复现:种 1 枚 cookie → close → 重开
+    = 0 枚。storage_state() 读的是内存 jar,显式写文件 + 下次任务 add_cookies 原样
+    回种,才是确定性的。tmp+replace 保证半截文件不会被读到。
+    """
+    try:
+        state = context.storage_state()
+        cookies = state.get("cookies") or []
+        if not cookies:
+            return
+        path = _session_store_path(platform)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(cookies, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(path)
+        logger.info(f"[scan_login] 登录态快照已保存: {path.name}({len(cookies)} 枚 cookie)")
+    except Exception as e:  # noqa: BLE001 — 快照失败绝不影响任务本身
+        logger.info(f"[scan_login] 会话快照保存失败(不影响任务): {e}")
+
+
+def _restore_session_cookies(platform: str, context: Any) -> int:
+    """把上一次成功登录的 cookie 快照回种进当前 context。返回回种枚数(仅日志用)。"""
+    try:
+        path = _session_store_path(platform)
+        if not path.exists():
+            return 0
+        cookies = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(cookies, list) or not cookies:
+            return 0
+        context.add_cookies(cookies)
+        logger.info(f"[scan_login] 已回种上次登录态: {len(cookies)} 枚 cookie")
+        return len(cookies)
+    except Exception as e:  # noqa: BLE001 — 恢复失败只影响"复用",不影响扫码流程
+        logger.info(f"[scan_login] 会话快照恢复失败(按无登录态继续): {e}")
+        return 0
+
+
 class _BrowserLease:
     """常规档与常驻档的统一清理口:常驻档没有独立 browser 对象(context.close() 即关)。"""
 
@@ -1629,14 +1675,16 @@ def _run_scan_task(task: ScanTask) -> None:
             # 启动浏览器(2026-07-30:指定 executable_path 解决 PLAYWRIGHT_BROWSERS_PATH 指向 D 盘但浏览器在 C 盘的问题)
             chromium_path = _find_chromium_executable()
             logger.info(f"[scan_login] Chromium 路径: {chromium_path or '(Playwright 默认)'}")
-            # 2026-09-30 会话复用票:常驻登录档承载上一次扫码的登录态;复用档不清
-            # cookie(靠它秒连),强制新扫码档清 cookie(出新码)。临时档(并发退回)
-            # 天然无历史,清不清都一样,统一走清 cookie 分支保持语义单一。
+            # 2026-09-30 会话复用票:登录态唯一可信来源是盘边 JSON 快照(见
+            # _save_session_cookies 的注释 —— Chromium 自身落盘惰性,不可依赖)。
+            # 两档统一先清空 context cookie,再按档回种:复用档回种上次登录态;
+            # 强制新扫码档不回种(等价 clear_cookies),保证出全新二维码。
             lease = _open_browser_and_lease(p, task.platform, chromium_path)
             context = lease.context
-            if not task.reuse_session:
-                with contextlib.suppress(Exception):
-                    context.clear_cookies()
+            with contextlib.suppress(Exception):
+                context.clear_cookies()
+            if task.reuse_session:
+                _restore_session_cookies(task.platform, context)
 
             # 2026-09-30 四次提速(资源减负):登录页外链的视频/音频/字体/第三方埋点
             # 对"出码"零贡献,却和码接口抢同一台机器的带宽与 CPU(实测本机 CPU 饱和时
@@ -1745,6 +1793,8 @@ def _run_scan_task(task: ScanTask) -> None:
                     task.completed_at = time.time()
                     with contextlib.suppress(Exception):
                         _update_qr_screenshot(task, page)
+                    # 站点在 goto 期间可能已刷新 cookie:按最新 jar 重写快照
+                    _save_session_cookies(task.platform, context)
                     _schedule_account_save(task)
                     _persist_task(task)
                     lease.close()
@@ -2027,6 +2077,9 @@ def _run_scan_task(task: ScanTask) -> None:
                     # 截图最终状态
                     _update_qr_screenshot(task, page)
 
+                    # 登录态快照:给下一次"会话复用"用(Chromium 自身落盘不可依赖,见快照函数注释)
+                    _save_session_cookies(task.platform, context)
+
                     # 异步保存到后端账号
                     _schedule_account_save(task)
                     _persist_task(task)  # P2 修复(2026-08-06): 成功终态同步到 Redis
@@ -2050,6 +2103,8 @@ def _run_scan_task(task: ScanTask) -> None:
                         task.message = f"登录成功(URL 跳转),获取到 {len(task.all_relevant_cookies)} 个 cookies"
                         task.completed_at = time.time()
                         _update_qr_screenshot(task, page)
+                        # 登录态快照:给下一次"会话复用"用
+                        _save_session_cookies(task.platform, context)
                         _schedule_account_save(task)
                         _persist_task(task)  # P2 修复(2026-08-06): 成功终态同步到 Redis
                         break
