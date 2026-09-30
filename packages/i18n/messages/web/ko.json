@@ -633,6 +633,7 @@
     "scanLoginTimeout": "스캔 시간 초과. 다시 시도하세요.",
     "scanLoginTitle": "QR 로그인",
     "scanWithPhoneHint": "휴대폰으로 QR 코드를 스캔하여 로그인하세요.",
+    "selectPlatform": "플랫폼 선택",
     "startScanLogin": "스캔 시작",
     "subtitle": "여러 소셜 플랫폼 계정 관리",
     "title": "계정 관리",
@@ -8989,7 +8990,6 @@
     "title": "AI 진로 지도"
   },
   "aiChat": {
-    "bindIssue": "이슈 연결",
     "actions": {
       "archive": "보관",
       "compressTo1m": "100만 자로 압축",
@@ -9019,6 +9019,26 @@
       "confirmText": "되돌리기",
       "restoreSuccess": "체크포인트로 되돌렸습니다",
       "restoreFailed": "되돌리기에 실패했습니다"
+    },
+    "recap": {
+      "title": "작업 리캡",
+      "handoff": {
+        "menuItem": "새 작업으로 인계",
+        "title": "새 작업으로 인계"
+      },
+      "previewDescription": "인계 내용을 확인한 후 파일 위치에서 보거나, 새 작업을 만들어 계속 작업할 수 있습니다.",
+      "purposeLabel": "인계 목적",
+      "purposePlaceholder": "인계 목적",
+      "waitingPreview": "미리보기를 준비하는 중…",
+      "phase": {
+        "generating": "모델이 인계 내용을 생성하는 중…",
+        "finalizing": "마무리하는 중…",
+        "done": "인계 문서가 생성되었습니다."
+      },
+      "revealFile": "파일 표시",
+      "createSession": "새 작업 만들기",
+      "creating": "새 작업을 만드는 중…",
+      "createFailed": "새 작업을 만들지 못했습니다. 다시 시도해 주세요."
     },
     "addWorkspace": "워크스페이스 추가",
     "assistant": "어시스턴트",
@@ -9135,25 +9155,6 @@
     "noHistory": "없음채팅",
     "noRecentWorkspaces": "최근 워크스페이스 없음",
     "openTerminal": "터미널 열기",
-    "recap": {
-      "title": "작업 리캡",
-      "handoff": {
-        "menuItem": "새 작업으로 인계",
-        "title": "새 작업으로 인계"
-      },
-      "previewDescription": "인계 내용을 확인한 후 파일 위치에서 보거나, 새 작업을 만들어 계속 작업할 수 있습니다.",
-      "purposeLabel": "인계 목적",
-      "purposePlaceholder": "인계 목적",
-      "revealFile": "파일 표시",
-      "createSession": "새 작업 만들기",
-      "phase": {
-        "generating": "모델이 인계 내용을 생성하는 중…",
-        "done": "인계 문서가 생성되었습니다."
-      },
-      "creating": "새 작업을 만드는 중…",
-      "createFailed": "새 작업을 만들지 못했습니다. 다시 시도해 주세요.",
-      "handoffUnavailable": "의존하는 인계 문서 생성 출구가 아직 제공되지 않아 인계 내용을 생성할 수 없습니다."
-    },
     "renameDialog": {
       "cancel": "취소",
       "description": "짧고 알아보기 쉽게 지어주세요",
@@ -10592,30 +10593,6 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
-    "bindIssue": "이슈 연결",
-    "unbindIssue": "독립 작업으로 전환",
-    "issueBinding": "연결된 이슈",
-    "searchIssues": "이슈 ID, 제목 또는 프로젝트 검색",
-    "noIssues": "연결할 수 있는 이슈가 아직 없습니다",
-    "noMatchingIssues": "일치하는 이슈가 없습니다",
-    "issueNotConfigured": "이 소스는 아직 연결되지 않았습니다. 설정에서 GitHub 또는 Linear를 먼저 연결하세요",
-    "issueBindSuccess": "이슈가 연결되었습니다",
-    "issueBindFailed": "이슈 연결에 실패했습니다",
-    "issueUnbindSuccess": "연결이 해제되어 독립 작업으로 전환되었습니다",
-    "issueUnbindFailed": "연결 해제에 실패했습니다",
-    "selectionAnnotations": {
-      "hoverHint": "마우스를 올리면 주석 표시",
-      "selectedText": "{{index}}. 선택한 텍스트",
-      "noComment": "아직 댓글이 없습니다",
-      "commentPlaceholder": "선택적 댓글 추가…",
-      "commentAriaLabel": "선택 영역 주석 댓글",
-      "addComment": "댓글 추가",
-      "removeOne": "주석 {{index}} 제거",
-      "removeAll": "선택 주석 모두 제거",
-      "add": "주석 추가"
-    },
-    "attachRetry": "업로드 재시도",
-    "attachRetryExhausted": "재시도 횟수 제한에 도달했습니다. 삭제 후 다시 추가해 주세요.",
     "attachRejectType": "형식이 지원되지 않아 파일 {count}개를 건너뛰었습니다: {names}",
     "attachRejectSize": "파일이 크기 한도({max}MB)를 초과하여 파일 {count}개를 건너뛰었습니다: {names}",
     "attachRejectCount": "첨부 파일은 최대 {max}개까지 가능하며, 이번 요청에서 {count}개가 거부되었습니다",
@@ -12253,7 +12230,6 @@
     "unpin": "고정 해제",
     "unsaved": "저장되지 않음",
     "update": {
-      "revoked": "이 버전은 더 이상 제공되지 않습니다.",
       "autoRestartIn": "{countdown}초 후 자동 재시작...",
       "autoRetrying": "업데이트 실패, 자동 재시도 중...",
       "available": "새 버전이 있습니다",
@@ -12406,9 +12382,6 @@
     "title": "코스관리중"
   },
   "cronEditor": {
-    "customFallback": "사용자 지정 식",
-    "customHint": "이 식은 시각 편집기로 손실 없이 표현할 수 없습니다. 원문은 아래에 그대로 유지됩니다:",
-    "switchToVisual": "시각 편집으로 전환",
     "everyField": "매 {field}",
     "recentRuns": "최근 5회 실행",
     "specificPlaceholder": "{min}-{max}, 쉼표로 구분",
@@ -15064,8 +15037,6 @@
     "title": "오픈 플랫폼 Feature Center"
   },
   "feedback": {
-    "unsupportedImage": "PNG, JPG, GIF, WebP 이미지만 지원합니다.",
-    "requestIdSuffix": "피드백 번호: {requestId}.",
     "backToList": "목록으로 돌아가기",
     "contactPlaceholder": "선택, 연락처",
     "contentPlaceholder": "질문 내용을 상세히 작성하세요 (10-2000자)",
@@ -15897,8 +15868,6 @@
       "unsynced": "동기화 안 됨"
     },
     "terminalPanel": {
-      "switchToDark": "다크 터미널로 전환",
-      "switchToLight": "라이트 터미널로 전환",
       "aiDiagnoseTitle": "AI 오류 진단",
       "aiServiceUnavailable": "AI 서비스를 일시적으로 사용할 수 없습니다. 나중에 다시 시도해 주세요",
       "aiSuggestTitle": "AI 명령어 제안",
@@ -19018,11 +18987,6 @@
     "memory": "메모리",
     "messages": "메시지",
     "messagesComment": "댓글",
-    "myPendingDecisions": "내 결정 대기",
-    "pendingDecisionsEmpty": "대기 중인 결정이 없습니다",
-    "decisionTypeToolApproval": "도구 승인",
-    "decisionTypePermissions": "권한 요청",
-    "decisionTypeElicitation": "답변 대기",
     "messagesFans": "새 팔로워",
     "messagesFavorite": "즐겨찾기",
     "messagesLike": "좋아요",
@@ -22697,6 +22661,21 @@
       "hoursAgo": "{hr}시간 전",
       "justNow": "방금",
       "markAllRead": "모두 읽음으로 표시",
+      "important": "참고 사항",
+      "viewActive": "활동으로 돌아가기",
+      "markAllReadFailed": "활동을 읽음으로 표시하지 못했습니다. 다시 시도해 주세요.",
+      "hiding": "숨기는 중…",
+      "hideFailed": "이 활동을 숨기지 못했습니다. 다시 시도해 주세요.",
+      "restoring": "복원하는 중…",
+      "restoreFailed": "이 활동을 복원하지 못했습니다. 다시 시도해 주세요.",
+      "emptyDescription": "댓글, 멘션, 구독 변화가 여기에 표시됩니다.",
+      "emptyArchivedDescription": "숨긴 활동은 여기에 보관되며 언제든지 복원할 수 있습니다.",
+      "unavailable": "활동을 일시적으로 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
+      "tabActive": "활동",
+      "tabArchived": "보관됨",
+      "hide": "숨기기",
+      "restore": "복원",
+      "retry": "다시 시도",
       "minutesAgo": "{min}분 전",
       "tab": {
         "all": "전체",
@@ -26587,7 +26566,6 @@
     "noUrlField": "응답에서 사용할 수 있는 URL 필드를 찾을 수 없습니다",
     "networkError": "네트워크 오류",
     "uploadCancelled": "업로드가 취소되었습니다",
-    "imageAltText": "피드백 스크린샷 {index}",
     "imagePlaceholder": "클릭하거나 이미지를 여기에 끌어다 놓아 업로드하세요"
   },
   "eduScheduling": {
@@ -27621,18 +27599,6 @@
     "restore": "제안 표시"
   },
   "taskMonitor": {
-    "group": {
-      "artifact": "산출물",
-      "browser": "웹 페이지",
-      "source": "출처"
-    },
-    "emptyGroup": {
-      "artifact": "아직 산출물 데이터가 없습니다 :)",
-      "browser": "아직 웹 페이지 데이터가 없습니다 :)",
-      "source": "아직 출처 데이터가 없습니다 :)"
-    },
-    "empty": "아직 가치 있는 내용이 없습니다",
-    "emptyDescription": "작업 전체에서 생성된 파일, 웹 페이지, 출처가 여기에 계속 집계되어 작업 진행 추적을 돕습니다.",
     "displayMode": "표시 방식",
     "modeSections": "섹션",
     "modeTabs": "플랫",
@@ -27782,6 +27748,15 @@
     "pasteValid": "유효",
     "pasteUnknown": "인식 불가",
     "pastePreviewDismiss": "붙여넣은 참조 미리보기 닫기",
+    "referencePreview": {
+      "available": "사용 가능한 참조",
+      "clear": "지우기",
+      "editor": "참조 미리보기 편집기",
+      "placeholder": "참조 내용을 편집하여 바로 보내세요…",
+      "select": "참조 선택",
+      "send": "보내기",
+      "source": "출처"
+    },
     "authorizationNotice": "참조 태그는 실행 권한을 추가하지 않습니다.",
     "hintSelect": "선택",
     "hintConfirm": "확인",
