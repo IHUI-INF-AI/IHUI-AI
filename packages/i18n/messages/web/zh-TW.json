@@ -8649,7 +8649,7 @@
         },
         "speaking_banned": {
           "title": "目前處於禁言狀態",
-          "action": "聯絡管理員瞭解詳情"
+          "action": "聯絡管理員了解詳情"
         },
         "member_capacity_exceeded": {
           "title": "成員數量已達上限",
@@ -9155,6 +9155,12 @@
       "purposePlaceholder": "交接目的",
       "revealFile": "顯示檔案",
       "createSession": "建立新任務",
+      "phase": {
+        "generating": "模型正在產生交接內容…",
+        "done": "交接文件已產生。"
+      },
+      "creating": "正在建立新任務…",
+      "createFailed": "建立新任務失敗,請重試。",
       "handoffUnavailable": "依賴的交接文件產生出口尚未提供,無法產生交接內容。"
     },
     "renameDialog": {
@@ -20413,7 +20419,7 @@
       "subtitle": "配置各平臺的登錄憑證(加密存儲)",
       "switchToAppQr": "切換為App掃碼",
       "switchToWechatQr": "切換為微信掃碼",
-      "morePlatforms": "更多平臺",
+      "morePlatforms": "更多平台",
       "taskId": "任務",
       "title": "平臺賬號管理",
       "verify": "測試連接",
