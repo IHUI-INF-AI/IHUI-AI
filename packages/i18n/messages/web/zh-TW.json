@@ -12347,6 +12347,7 @@
     "unpin": "取消固定",
     "unsaved": "未保存",
     "update": {
+      "revoked": "這個版本已不再提供。",
       "autoRestartIn": "即將自動重啟...({countdown} 秒後)",
       "autoRetrying": "更新失敗，自動重試中...",
       "available": "發現新版本",
@@ -15181,6 +15182,8 @@
     "title": "開放平臺 Feature Center"
   },
   "feedback": {
+    "unsupportedImage": "僅支援 PNG、JPG、GIF 與 WebP 圖片。",
+    "requestIdSuffix": "回饋編號：{requestId}。",
     "backToList": "返回反饋",
     "contactPlaceholder": "選填，方便我們聯系您",
     "contentPlaceholder": "請描述您遇到的問題或建議...",
