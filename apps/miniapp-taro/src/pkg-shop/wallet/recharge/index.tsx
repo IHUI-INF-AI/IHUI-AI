@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, useI18n } from '@/i18n'
-import { View, Text, Button, Input, Image } from '@tarojs/components'
+import { View, Text, Button, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import {
@@ -17,6 +17,7 @@ import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import './index.css'
+import { FocusInput } from '@/components/FocusField'
 
 const PRESET_AMOUNTS = [10, 50, 100, 500, 1000]
 const TOKEN_RATE = 10
@@ -205,7 +206,7 @@ export default function RechargePage() {
             <Text className="rc-custom-label">
               {tt('wallet.recharge.customAmount', '自定义金额')}
             </Text>
-            <Input
+            <FocusInput
               className={`rc-input ${useCustom ? 'rc-input--active' : ''}`}
               type="digit"
               placeholder={tt('wallet.recharge.customPlaceholder', '请输入金额')}
@@ -231,7 +232,7 @@ export default function RechargePage() {
               <Text className="rc-activity-rate">
                 {t('wallet.recharge.tokenRate', { n: activity.computing ?? TOKEN_RATE })}
               </Text>
-              <Input
+              <FocusInput
                 className="rc-input rc-activity-input"
                 type="digit"
                 placeholder={tt('wallet.recharge.activityPlaceholder', '请输入活动充值金额')}
