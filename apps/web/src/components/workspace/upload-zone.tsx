@@ -68,6 +68,10 @@ export function UploadZone({
 
   const onDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
+    // G-815968:指针只是在子元素间移动(dragleave 的 relatedTarget 仍是容器后代)不算离开,
+    // 否则遮罩在子元素间移动时闪掉;真离开(relatedTarget 在容器外或为 null)才收起。
+    const next = e.relatedTarget
+    if (next instanceof Node && e.currentTarget.contains(next)) return
     setDragging(false)
   }
 
