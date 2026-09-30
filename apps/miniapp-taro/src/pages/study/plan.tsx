@@ -3,13 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
-import { View, Text, Button } from '@tarojs/components'
+import { View, Text, Button, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { getStudyPlan, post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import { FocusInput } from '@/components/FocusField'
 
 interface PlanItem {
   id: string
@@ -168,14 +167,14 @@ export default function StudyPlan() {
                 {t('study.planPage.add')}
               </Text>
               {/* 输入框对齐 RN fieldStyles.input:border light / radius 12dp→24rpx / h 50dp→100rpx / px 12dp→24rpx / bg surface.muted */}
-              <FocusInput
+              <Input
                 className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-sm text-[length:32rpx] text-foreground mb-[24rpx]"
                 placeholder={t('study.publish.titlePlaceholder')}
                 value={newTitle}
                 onInput={(e) => setNewTitle(e.detail.value)}
               />
               <View className="flex items-center mb-[24rpx]">
-                <FocusInput
+                <Input
                   className="flex-1 h-[100rpx] px-[24rpx] bg-muted border border-border rounded-sm text-[length:32rpx] text-foreground"
                   type="number"
                   placeholder={t('study.planPage.target', { n: 30 })}
