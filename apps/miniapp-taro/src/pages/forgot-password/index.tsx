@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, useI18n } from '@/i18n'
-import { View, Text } from '@tarojs/components'
+import { View, Text, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { sendSmsCode, post } from '@/api'
@@ -13,7 +13,6 @@ import AuthButton from '@/components/AuthButton'
 import ThemeRoot from '@/components/ThemeRoot'
 import BackChevron from '@/components/BackChevron'
 import './index.css'
-import { FocusInput } from '@/components/FocusField'
 
 /**
  * 找回密码页 — 视觉对齐 RN SharedChangePwdScreen(2026-09-08 样式迁移)
@@ -140,7 +139,7 @@ export default function ForgotPassword() {
                 <Text className="fp-label">{t('forgot.phone')}</Text>
                 <View className="fp-input-box">
                   <PhoneAreaCodePicker value={phoneHead} onChange={setPhoneHead} />
-                  <FocusInput
+                  <Input
                     className="fp-input"
                     type="number"
                     maxlength={11}
@@ -157,7 +156,7 @@ export default function ForgotPassword() {
                 <Text className="fp-label">{t('forgot.code')}</Text>
                 <View className="fp-coderow">
                   <View className="fp-input-box fp-input-box-flex">
-                    <FocusInput
+                    <Input
                       className="fp-input"
                       type="number"
                       maxlength={6}
@@ -183,7 +182,7 @@ export default function ForgotPassword() {
               <View className="fp-field">
                 <Text className="fp-label">{t('forgot.newPassword')}</Text>
                 <View className="fp-input-box">
-                  <FocusInput
+                  <Input
                     className="fp-input"
                     password={!showNew}
                     maxlength={20}
@@ -208,7 +207,7 @@ export default function ForgotPassword() {
               <View className="fp-field">
                 <Text className="fp-label">{t('forgot.confirmPassword')}</Text>
                 <View className="fp-input-box">
-                  <FocusInput
+                  <Input
                     className="fp-input"
                     password={!showConfirm}
                     maxlength={20}

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt } from '@/i18n'
-import { View, Text, Image, Button } from '@tarojs/components'
+import { View, Text, Image, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
@@ -15,7 +15,6 @@ import DistributionStats, { type ColumnItem } from '@/components/DistributionSta
 import CustomerServiceFloat from '@/components/CustomerServiceFloat'
 import './index.css'
 import ThemeRoot from '@/components/ThemeRoot'
-import { FocusInput } from '@/components/FocusField'
 
 interface OperatorStats {
   dayEarnings?: number
@@ -386,13 +385,13 @@ export default function DistributionIndex() {
                 </View>
               )}
             </View>
-            <FocusInput
+            <Input
               className="dist-verify-input"
               placeholder={tt('distribution.index.idPlaceholder', '请输入身份证号码')}
               value={idNum}
               onInput={(e) => setIdNum(e.detail.value)}
             />
-            <FocusInput
+            <Input
               className="dist-verify-input"
               placeholder={tt('distribution.index.namePlaceholder', '请输入姓名')}
               value={idName}

@@ -3,13 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, type TtFn, t } from '@/i18n'
-import { View, Text, Button, RadioGroup, Radio } from '@tarojs/components'
+import { View, Text, Textarea, Input, Button, RadioGroup, Radio } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { refund, getOrderDetail, type Order } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import { FocusInput, FocusTextarea } from '@/components/FocusField'
 
 const REASONS = (tt: TtFn): Array<{ key: string; fb: string }> => [
   { key: 'orderRefund.d1', fb: tt('orderRefund.d1', '不想要了') },
@@ -181,7 +180,7 @@ export default function OrderRefund() {
           <Text className="block text-[length:28rpx] font-medium text-foreground mb-[20rpx]">
             {tt('order.refund.descLabel', '退款说明')}
           </Text>
-          <FocusTextarea
+          <Textarea
             className="w-full min-h-[160rpx] py-[16rpx] px-[28rpx] bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-border text-[length:32rpx] text-foreground box-border"
             value={desc}
             onInput={(e) => setDesc(e.detail.value)}
@@ -194,7 +193,7 @@ export default function OrderRefund() {
           <Text className="block text-[length:28rpx] font-medium text-foreground mb-[20rpx]">
             {tt('order.refund.contactLabel', '联系方式')}
           </Text>
-          <FocusInput
+          <Input
             className="w-full h-[88rpx] py-[16rpx] px-[28rpx] bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-border text-[length:32rpx] text-foreground box-border"
             value={contact}
             onInput={(e) => setContact(e.detail.value)}
