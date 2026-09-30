@@ -18,7 +18,7 @@
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -252,6 +252,21 @@ test('T5 三态与 CLI 契约:枚举失败必须喊出来,--json 不得吐正文
   assert.equal(r3.status, 2)
 })
 
+/**
+ * 给夹具仓配一把**够得着**的 file:// origin(推的是同一枚 commit)。
+ * 2026-09-30 机主拍板:取号器对"远端问不到"由「降级照发号」改成 **fail-closed 拒发号** ⇒ 凡走默认
+ * 路径落地的端到端夹具都必须有一条可达远端,否则 T7/T8 测的就不再是"宽面 vs 窄面",而是远端那一维。
+ * 对面那一枚就是本地 HEAD ⇒ 对面面上的 max 与本地面逐字相等 ⇒ 各条断言的落号一字未改。
+ */
+function plantReachableOrigin(t, dir) {
+  const origin = mkScratch('pidface-origin-')
+  t.after(() => rmScratch(origin))
+  git(['init', '-q', '--bare', '-b', 'main'], { root: origin })
+  git(['push', '-q', origin, 'HEAD:refs/heads/main'], { root: dir })
+  git(['remote', 'add', 'origin', pathToFileURL(origin).href], { root: dir })
+  return origin
+}
+
 /** 造一把带(或不带)归档件的台账仓,并跑一次真 `live-doc-edit.mjs`,返回 {status, stdout, headText}。 */
 function runLiveDocEdit(t, { withArchive }) {
   const dir = mkScratch('pidface-lde-')
@@ -282,6 +297,7 @@ function runLiveDocEdit(t, { withArchive }) {
   put(join(inputs, 'anchor.txt'), '@@ANCHOR@@')
   git(['add', '-A'], { root: dir })
   git(['commit', '-q', '-m', 'init'], { root: dir })
+  plantReachableOrigin(t, dir)
   const r = spawnSync(process.execPath, [join(REPO, 'scripts', 'live-doc-edit.mjs')], {
     env: {
       ...process.env,
@@ -351,6 +367,7 @@ function runLiveDocEditArchivedOnlyFamily(t, { withArchive }) {
   put(join(inputs, 'anchor.txt'), '@@ANCHOR@@')
   git(['add', '-A'], { root: dir })
   git(['commit', '-q', '-m', 'init'], { root: dir })
+  plantReachableOrigin(t, dir)
   const r = spawnSync(process.execPath, [join(REPO, 'scripts', 'live-doc-edit.mjs')], {
     env: {
       ...process.env,

@@ -33,6 +33,8 @@ import type {
   RetryScheduledEvent,
   SteerEvent,
   BudgetEvent,
+  /** D151:命令「等待键盘输入」帧(载荷口径以 api-client 为唯一真值) */
+  TerminalInteractionEvent,
 } from '@ihui/api-client';
 import type { PlanStep, PlanUpdateEvent } from '@ihui/types/ai';
 import type { ToolCall } from '@ihui/types/chat';
@@ -46,7 +48,6 @@ import {
   type ToolCallView,
 } from '@ihui/shared/chat';
 import { t } from '../i18n/index.js';
-import { clipToWidth } from '../util/text-width.js';
 
 /**
  * `PlanUpdateEvent['plan']` 的步骤 id 是可选的(后端 v2 起必发,旧事件可能缺),
@@ -111,8 +112,10 @@ export interface TaskStatusLine {
 
 const BAR_WIDTH = 10;
 const SEPARATOR = ' · ';
-// 宽度与截断一律走共享出口 ../util/text-width.js(本文件曾自带一份不含 U+FE10-U+FE19
-// 的私有 WIDE 表,与那份分叉 → 同一句话在状态行与表格按不同列宽截断。G-676 收口)
+/** chalk 的 SGR 序列:计算可视宽度前剔除,不占列 */
+const ANSI_SEQUENCE_RE = /\u001b\[[0-9;]*m/g;
+/** 宽字符(CJK / 全角 / 假名 / Hangul):终端按 2 列渲染 */
+const WIDE_CHAR_RE = /[\u1100-\u115F\u2E80-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE6F\uFF00-\uFF60\uFFE0-\uFFE6]/;
 
 /** 视图模型 → 一行文本(纯函数,不依赖实例状态,便于单测) */
 export function formatTaskStatusLine(vm: TaskStatusBarViewModel): string {
@@ -259,8 +262,44 @@ function kindLabel(kind: TaskStatusKind): string {
   }
 }
 
-// 截断走共享出口 clipToWidth —— 本文件此前自带的 truncate 按 UTF-16 码元逐位走
-// (text[i] + i += char.length),把代理对切成两半产出孤立代理;共享出口按字素簇走,不会切开。
+/** 单个码位占几列(宽字符 2 列,其余 1 列) */
+function charWidth(char: string): number {
+  return WIDE_CHAR_RE.test(char) ? 2 : 1;
+}
+
+/** 去掉 ANSI 序列后的可视宽度(CJK 记 2 列,用于截断防换行) */
+function visibleWidth(text: string): number {
+  const plain = text.replace(ANSI_SEQUENCE_RE, '');
+  let width = 0;
+  for (const char of plain) {
+    width += charWidth(char);
+  }
+  return width;
+}
+
+/** 按可视宽度截断,并保证 ANSI 转义序列不被从中间切断 */
+function truncate(text: string, maxWidth: number): string {
+  if (visibleWidth(text) <= maxWidth) return text;
+  let out = '';
+  let width = 0;
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === '\u001b') {
+      const end = text.indexOf('m', i);
+      if (end === -1) break;
+      out += text.slice(i, end + 1);
+      i = end + 1;
+      continue;
+    }
+    const char = text[i] ?? '';
+    const w = charWidth(char);
+    if (width + w > maxWidth - 1) break;
+    out += char;
+    width += w;
+    i += char.length;
+  }
+  return `${out}…`;
+}
 
 export function createTaskStatusLine(opts: TaskStatusLineOptions = {}): TaskStatusLine {
   const write = opts.write ?? ((text: string) => process.stdout.write(text));
@@ -337,7 +376,7 @@ export function createTaskStatusLine(opts: TaskStatusLineOptions = {}): TaskStat
     },
     noteLine(text) {
       if (!isOn()) return;
-      const one = clipToWidth(text.replace(/\s+/gu, ' ').trim(), Math.max(20, columnsOf() - 1));
+      const one = truncate(text.replace(/\s+/gu, ' ').trim(), Math.max(20, columnsOf() - 1));
       if (!one) return;
       write(`${one}\n`);
     },
@@ -348,7 +387,7 @@ export function createTaskStatusLine(opts: TaskStatusLineOptions = {}): TaskStat
       if (!vm) return;
       // 流式刚开始、既无步骤也无文件变更又不知在做什么 —— 没话可说,继续静默
       if (!vm.hasDetail && !vm.headline.trim()) return;
-      const text = clipToWidth(formatTaskStatusLine(vm), Math.max(20, columnsOf() - 1));
+      const text = truncate(formatTaskStatusLine(vm), Math.max(20, columnsOf() - 1));
       if (text === lastText) return;
       lastText = text;
       write(`${text}\n`);
@@ -449,6 +488,40 @@ export function steerNoteText(event: SteerEvent): string {
   const trimmed = text.trim();
   if (!trimmed) return '';
   return t('cli.steerApplied', { text: trimmed });
+}
+
+/**
+ * D151(2026-09-29 立):terminal_interaction —— 「命令停住了、在等你敲一行」。
+ *
+ * 两行,顺序固定:先说「在等什么」,再给「命令自己打出的那句提示」(`Password:` / `(y/n)` 这类)。
+ * 措辞出自共享词包 `chat.terminal.*`(五语言已在,cli 的 i18n 以 shared 为 base);
+ * `promptTail` 是**内容**不是界面 chrome,故原样内插、不做本地化。
+ *
+ * 刻意**不带**"用哪个键回答"这类操作说明:CLI 的答复入口是紧随其后的那一行输入提示,
+ * 写在措辞里就会与 web/小程序的口径分叉成第三套话术。
+ */
+export function terminalInteractionNoteLines(
+  event: Pick<TerminalInteractionEvent, 'promptTail'>,
+): string[] {
+  const lines = [t('chat.terminal.waitingInput')];
+  const tail = event.promptTail?.trim();
+  if (tail) lines.push(t('chat.terminal.promptLabel', { prompt: tail }));
+  return lines;
+}
+
+/** 那一行没送出去时的一行交代。**任何情况下都不回显用户键入的内容** —— 它就是那句口令本身。 */
+export function terminalInputFailedNote(): string {
+  return t('feedback.failed');
+}
+
+/** askLine 展示给用户的那句提示(与上面两行同一词源,不另立措辞)。 */
+export function terminalInputPromptText(
+  event: Pick<TerminalInteractionEvent, 'promptTail'>,
+): string {
+  const tail = event.promptTail?.trim();
+  return tail
+    ? `${t('chat.terminal.waitingInput')} · ${t('chat.terminal.promptLabel', { prompt: tail })}`
+    : t('chat.terminal.waitingInput');
 }
 
 export function retryNoteText(event: RetryScheduledEvent): string {

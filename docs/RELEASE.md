@@ -207,7 +207,7 @@ git push origin cli-v1.0.1  # 触发 release-cli.yml
 | `weekly-security-audit.yml` | 每周 | npm audit 安全扫描 |
 | `weekly-cleanup.yml` | 每周 | 临时分支 / 旧 artifact 清理 |
 | `ws-loadtest.yml` | 手动 | WebSocket 压测 |
-| `observability-drills.yml` | 定期 | 可观测性演练 |
+| `observability-drills.yml` | 定期 + `monitoring/**` 变更 + 手动 | 监控配置静态校验（promtool / job 引用 / Alertmanager 单一出口） |
 
 ---
 

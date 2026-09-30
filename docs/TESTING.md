@@ -438,7 +438,7 @@ npx @lhci/cli autorun
 | i18n | `i18n-check.yml` | i18n key parity + 翻译纯度 |
 | 安全 | `weekly-security-audit.yml` | 每周安全审计 |
 | 发布 | `release-cli.yml` / `blue-green-deploy.yml` | CLI 发布 / 蓝绿部署 |
-| 运维 | `loop-daily-triage.yml` / `weekly-cleanup.yml` / `observability-drills.yml` | 每日分诊 / 每周清理 / 可观测性演练 |
+| 运维 | `loop-daily-triage.yml` / `weekly-cleanup.yml` / `observability-drills.yml` | 每日分诊 / 每周清理 / 监控配置静态校验 |
 | 监控 | `s3-lifecycle-drift.yml` / `openapi-check.yml` / `miniapp-preview.yml` | S3 生命周期 / OpenAPI 校验 / 小程序预览 |
 | 其他 | `ci-monorepo.yml` / `mirror-to-cn.yml` / `style-spec.yml` / `smoke-new-modules.yml` | Monorepo CI / 中国镜像 / 样式规范 / 新模块冒烟 |
 
