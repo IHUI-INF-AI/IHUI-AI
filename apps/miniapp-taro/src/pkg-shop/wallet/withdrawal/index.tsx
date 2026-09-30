@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import { getDistributionInfo, withdraw } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import { useFieldFocus } from '@/hooks/use-field-focus'
 
 const priceFmt = new Intl.NumberFormat('zh-CN', {
   minimumFractionDigits: 2,
@@ -21,6 +22,8 @@ export default function WithdrawalPage() {
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState('wechat')
   const [submitting, setSubmitting] = useState(false)
+  // 聚焦态描边:描边画在外层输入行容器上(端内唯一可行形态,取色唯一出处见 hook)
+  const amountFocus = useFieldFocus()
   const availableRef = useRef(0)
 
   const methods = [
@@ -99,13 +102,18 @@ export default function WithdrawalPage() {
           <Text className="block text-[length:28rpx] text-muted-foreground">
             {tt('wallet.withdrawal.amountLabel', '提现金额')}
           </Text>
-          <View className="flex items-center mt-[16rpx] h-[100rpx] px-[28rpx] rounded-xl border-[length:2rpx] border-border bg-[var(--color-muted)]">
+          <View
+            className="flex items-center mt-[16rpx] h-[100rpx] px-[28rpx] rounded-xl border-[length:2rpx] border-border bg-[var(--color-muted)]"
+            style={amountFocus.focusStyle}
+          >
             <Text className="text-[length:32rpx] font-semibold text-foreground">¥</Text>
             <Input
               className="flex-1 text-[length:32rpx] text-foreground ml-[12rpx]"
               type="digit"
               value={amount}
               onInput={(e) => setAmount(e.detail.value)}
+              onFocus={amountFocus.onFocus}
+              onBlur={amountFocus.onBlur}
               placeholder={tt('distribution.withdraw.amountPlaceholder', '请输入提现金额')}
             />
             <Text
