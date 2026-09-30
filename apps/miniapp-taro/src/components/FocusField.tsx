@@ -2,93 +2,76 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { Input, Textarea } from '@tarojs/components'
+import type { InputProps, TextareaProps } from '@tarojs/components'
+import type { CSSProperties } from 'react'
+import { useFieldFocus } from '@/hooks/use-field-focus'
+
+export { useFieldFocus } from '@/hooks/use-field-focus'
+
 /**
- * CookieAutoRefreshChip 测试(2026-09-29)。
- * 钉住:开启态渲染状态行;关闭态/请求失败/请求中整行不渲染(不得假装开启);
- * last_run_at 为空时回落"首轮保活进行中"。组件只读 stats,不发任何写操作。
+ * 带聚焦描边的输入框/多行输入 —— 小程序端的唯一实现(对位 RN 侧
+ * packages/app/src/components/TextField.tsx 与 web 侧的 `focus:*` 工具类)。
+ *
+ * 立因(2026-09-30):端内 31 处"有描边的输入框对聚焦无反应"(wxss 不支持 `:focus`
+ * 伪类,此前唯一接了聚焦态的只有登录页一行)。描边取色只有一个出处 ——
+ * hooks/use-field-focus.ts 的 `var(--color-primary)` 墨档(亮纯黑/暗纯白,聚焦只换色
+ * 不换宽 ⇒ 零布局跳动),本组件不做第二份取色。
+ *
+ * 用法:直接替换 `<Input` ⇒ `<FocusInput`、`<Textarea` ⇒ `<FocusTextarea`,
+ * 其余 props 原样透传;调用方自带的 onFocus/onBlur 会被链式调用而不是覆盖。
+ * 描边画在外层容器上的形态(WRAP)不用本组件:在容器组件顶部取
+ * `const ff = useFieldFocus()`,Input 上铺 `{...ff.spread}`、容器上铺 `style={ff.focusStyle}`。
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import React from 'react'
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
-import { CookieAutoRefreshChip } from '@/components/publish/CookieAutoRefreshChip'
-import type { CookieRefreshStats } from '@ihui/api-client'
-
-const { getCookieRefreshStatsMock } = vi.hoisted(() => ({
-  getCookieRefreshStatsMock: vi.fn(),
-}))
-
-vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
-}))
-
-vi.mock('lucide-react', () => {
-  const Icon = () => <span data-testid="icon" />
-  return { RefreshCw: Icon }
-})
-
-vi.mock('@ihui/api-client', () => ({
-  getCookieRefreshStats: () => getCookieRefreshStatsMock(),
-}))
-
-function stats(overrides: Partial<CookieRefreshStats> = {}): CookieRefreshStats {
-  return {
-    total: 19,
-    success: 18,
-    failed: 1,
-    skipped: 0,
-    last_run_at: '2026-09-29T10:00:00+00:00',
-    running: false,
-    interval_hours: 6,
-    auto_enabled: true,
-    ...overrides,
-  }
+type FocusProps<B> = Omit<B, 'style' | 'onFocus' | 'onBlur'> & {
+  style?: string | CSSProperties
+  onFocus?: B extends { onFocus?: infer F } ? F : never
+  onBlur?: B extends { onBlur?: infer F } ? F : never
 }
 
-describe('CookieAutoRefreshChip', () => {
-  beforeEach(() => {
-    getCookieRefreshStatsMock.mockReset()
-  })
-  afterEach(() => cleanup())
+/** 聚焦描边叠加在调用方 style 之上(调用方的其它样式字段优先,聚焦色最后落) */
+function mergeStyle(
+  style: string | CSSProperties | undefined,
+  focusStyle: CSSProperties | undefined,
+): string | CSSProperties | undefined {
+  if (!focusStyle) return style
+  if (typeof style === 'string') return `${style};border-color:var(--color-primary)`
+  return { ...style, ...focusStyle }
+}
 
-  it('auto_enabled=true 时渲染状态行(on + lastRun)', async () => {
-    getCookieRefreshStatsMock.mockResolvedValue({ success: true, data: stats() })
-    const { container } = render(<CookieAutoRefreshChip />)
-    await waitFor(() => {
-      expect(screen.getByTestId('cookie-auto-refresh-chip')).toBeTruthy()
-    })
-    expect(screen.getByText('on')).toBeTruthy()
-    expect(screen.getByText('lastRun')).toBeTruthy()
-    expect(container.textContent).not.toContain('pending')
-  })
+export function FocusInput({ style, onFocus, onBlur, ...rest }: FocusProps<InputProps>) {
+  const ff = useFieldFocus()
+  return (
+    <Input
+      {...rest}
+      style={mergeStyle(style, ff.focusStyle)}
+      onFocus={(e) => {
+        ff.onFocus()
+        onFocus?.(e)
+      }}
+      onBlur={(e) => {
+        ff.onBlur()
+        onBlur?.(e)
+      }}
+    />
+  )
+}
 
-  it('auto_enabled=false 时整行不渲染', async () => {
-    getCookieRefreshStatsMock.mockResolvedValue({
-      success: true,
-      data: stats({ auto_enabled: false }),
-    })
-    const { container } = render(<CookieAutoRefreshChip />)
-    await waitFor(() => expect(getCookieRefreshStatsMock).toHaveBeenCalled())
-    expect(screen.queryByTestId('cookie-auto-refresh-chip')).toBeNull()
-    expect(container.textContent).toBe('')
-  })
-
-  it('last_run_at 为空回落 pending(首轮保活进行中)', async () => {
-    getCookieRefreshStatsMock.mockResolvedValue({
-      success: true,
-      data: stats({ last_run_at: null }),
-    })
-    render(<CookieAutoRefreshChip />)
-    await waitFor(() => {
-      expect(screen.getByText('pending')).toBeTruthy()
-    })
-    expect(screen.queryByText('lastRun')).toBeNull()
-  })
-
-  it('stats 请求失败时静默不渲染(不得白屏/抛错)', async () => {
-    getCookieRefreshStatsMock.mockRejectedValue(new Error('network down'))
-    const { container } = render(<CookieAutoRefreshChip />)
-    await waitFor(() => expect(getCookieRefreshStatsMock).toHaveBeenCalled())
-    expect(container.textContent).toBe('')
-  })
-})
+export function FocusTextarea({ style, onFocus, onBlur, ...rest }: FocusProps<TextareaProps>) {
+  const ff = useFieldFocus()
+  return (
+    <Textarea
+      {...rest}
+      style={mergeStyle(style, ff.focusStyle)}
+      onFocus={(e) => {
+        ff.onFocus()
+        onFocus?.(e)
+      }}
+      onBlur={(e) => {
+        ff.onBlur()
+        onBlur?.(e)
+      }}
+    />
+  )
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
