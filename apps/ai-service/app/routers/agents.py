@@ -947,6 +947,14 @@ class AgentResumeRequest(BaseModel):
     model: str | None = Field(None, description="指定模型,为空使用默认")
     max_iterations: int | None = Field(None, description="最大迭代次数(续跑上限)")
     tools: list[str] | None = Field(None, description="允许调用的工具名列表")
+    # b76-11(2026-09-30):断点续跑重建 runtime 时必须沿用 create 的权限面 —— 此前
+    # 本模型没有这个字段,请求里的档位被 Pydantic 静默丢弃(G-161 同型),resume 链
+    # 永远走 env 默认档。省略 = 沿用 env 默认(与既有行为逐字同值,不动存量调用方)。
+    permission_mode: str | None = Field(
+        None,
+        description="权限模式:default / acceptEdits / bypassPermissions / plan / manual"
+        "(历史别名自动归一;省略沿用 env 默认)",
+    )
 
 
 class MemorySearchRequest(BaseModel):
@@ -1523,6 +1531,7 @@ async def _resume_run_from_checkpoint(
     tools: list[str] | None,
     request: Request,
     current_user: str,
+    permission_mode: str | None = None,
 ) -> "AgentLoopResult":
     """构造与 execute/stream 同参的 AgentLoopV2 并从 checkpoint 续跑(**全仓唯一实现**)。
 
@@ -1539,12 +1548,10 @@ async def _resume_run_from_checkpoint(
     # 执行按 B 角色判定"的分叉。
     resumed_role = resolve_request_role_id(request)
 
-    # D144③(2026-09-29):本处的内联构造与 execute/stream 那份已经漂开 —— 它**没有**
-    # 传 permission_mode,于是 G-161 修掉的"选了档却永远走 default"在断点续跑链上原地
-    # 复发。现在三处(非流式 execute / execute_stream / resume)都走 `_new_v2_loop`,
-    # 参数表只有一份;本票口径是"只归一出口、不改其余语义",所以 resume 继续传
-    # permission_mode=None(= 沿用 env 默认,与旧内联构造逐字同值)。把请求里的档位
-    # 贯通到 resume 是**另一票**(要同时改 AgentResumeRequest 的字段与用例)。
+    # b76-11(2026-09-30):resume 站现在真的带上权限档 —— 由两条 resume 出口
+    # (/agents/execute/resume、/agents/{session_id}/resume)各自从请求解析后传入,
+    # 冷恢复重建 runtime 时沿用 create 的权限面,不再永远回落 env 默认。
+    # None = 请求没带 = 沿用 env 默认(与归一前行为逐字同值)。
     loop = await _new_v2_loop(
         model=model,
         tools=tools,
@@ -1552,6 +1559,7 @@ async def _resume_run_from_checkpoint(
         session_id=None,
         current_user=current_user,
         user_role=resumed_role,
+        permission_mode=permission_mode,
     )
     return await loop.resume_from_checkpoint(checkpoint_id)
 
@@ -1585,11 +1593,17 @@ async def resume_agent_execute(
     (_make_loop_v2_llm / _build_loop_v2_tools / enable_checkpoint=True),
     重建循环后调用 resume_from_checkpoint 从 checkpoint.iteration+1 继续执行。
 
-    body: {checkpoint_id, model?, max_iterations?, tools?}
+    body: {checkpoint_id, model?, max_iterations?, tools?, permission_mode?}
     返回:{code:0, message:"ok", data:{success, final_response, stop_reason,
           checkpoint_id, error, total_iterations, total_duration_ms}}
 
     checkpoint 不存在 / 已过期 → code=404(与 v2 的 ValueError 语义对齐)。
+
+    b76-11(2026-09-30):body 新增 permission_mode?—— 冷恢复重建 runtime 时沿用
+    create 的权限面(此前请求档位被静默丢弃,永远回落 env 默认档)。注意本链仍是
+    非流式:没有审批投递通道,default/acceptEdits 下若撞到需审批工具,按 V2 自带
+    超时判**不执行**(失效方向是拒绝,不是放行);bypassPermissions 显式跳过审批,
+    与创建时的选择同义。
 
     O19(2026-09-21):必须登录;principal 贯通到重建的循环(续跑期新产生的高危
     审批据此登记属主)。属主判定按可信度两级:
@@ -1600,6 +1614,10 @@ async def resume_agent_execute(
          进程内登记比对;两者都判不出时只剩"必须登录"这一层地板(如实标注,不假装)。
     """
     from ..services.agent_checkpoint import get_agent_checkpoint_manager
+
+    # b76-11(2026-09-30):档位在入口解析一次(认不出的值 400,绝不静默回落 default
+    # —— G-161 立规),再贯通到 `_resume_run_from_checkpoint` → `_new_v2_loop`。
+    resolved_mode = _resolved_permission_mode(req.permission_mode)
 
     # (V3 #65)AgentLoopV2 的构造已随续跑逻辑移入 `_resume_run_from_checkpoint`,
     # 本函数不再直接引它 —— 留着就是一句 F401,而它会让人误以为这里还有一份参数表。
@@ -1634,6 +1652,7 @@ async def resume_agent_execute(
             tools=req.tools,
             request=request,
             current_user=current_user,
+            permission_mode=resolved_mode,
         )
     except ValueError as e:
         return {
@@ -1678,6 +1697,14 @@ class AgentSessionResumeRequest(BaseModel):
         None, ge=1, le=200, description="续跑轮次上限(越界拒 422,不做静默钳位)"
     )
     tools: list[str] | None = Field(None, description="允许调用的工具名列表")
+    # b76-11(2026-09-30):与 AgentResumeRequest 同格 —— 冷恢复沿用 create 的权限面;
+    # 两条 resume 出口共用 `_resume_run_from_checkpoint`,字段面也必须同形,否则
+    # "按 checkpoint 续跑能带档、按会话续跑不能"就是第两份漂开的参数表。
+    permission_mode: str | None = Field(
+        None,
+        description="权限模式:default / acceptEdits / bypassPermissions / plan / manual"
+        "(历史别名自动归一;省略沿用 env 默认)",
+    )
 
 
 _PAUSE_STATUS_BY_OUTCOME: dict[PauseOutcome, int] = {
@@ -1799,6 +1826,11 @@ async def resume_agent_session(
       503 AGENT_RESUME_RESUME_FAILED    存储/循环不可用(含"查不了"不等于"查不到")
     """
 
+    # b76-11(2026-09-30):与 /agents/execute/resume 同一口径 —— 档位在入口解析
+    # (认不出的值 400),解析失败发生在动任何存储之前;不放进 _runner,那里把
+    # 异常一律映射成 404/503,会把"请求写错了"伪装成"资源没了"。
+    resolved_mode = _resolved_permission_mode(req.permission_mode)
+
     async def _runner(
         checkpoint: AgentLoopCheckpoint, requester: str
     ) -> dict[str, object]:
@@ -1810,6 +1842,7 @@ async def resume_agent_session(
                 tools=req.tools,
                 request=request,
                 current_user=requester,
+                permission_mode=resolved_mode,
             )
         except ValueError as exc:
             # resume_from_checkpoint 的"这个 checkpoint 没了"在这里是**取用前的竞态失效**
