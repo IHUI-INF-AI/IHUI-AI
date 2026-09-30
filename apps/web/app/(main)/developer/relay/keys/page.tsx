@@ -22,7 +22,8 @@ import {
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { useConfirm } from '@/hooks/use-confirm'
 // 一键接入配置生成器(2026-09-16,对标 Sub2API useKeyModal)
 import { KeyUseDialog } from '@/components/developer/KeyUseDialog'
@@ -131,10 +132,14 @@ export default function RelayKeysPage() {
     exhausted: t('exhausted'),
   }
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['developer', 'relay', 'keys'],
     queryFn: () =>
       api<KeysData>('/api/developer/relay/keys').catch(() => ({ list: [] }) as KeysData),
+    enabled: allow,
   })
   const list = data?.list ?? []
 
@@ -219,6 +224,23 @@ export default function RelayKeysPage() {
   }
   function toggleScope(s: string) {
     setScopes((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s]))
+  }
+
+  // 2026-09-30 登录态门:未登录时用登录引导替换数据区
+  if (!allow) {
+    return (
+      <div className="px-4 py-4 space-y-4">
+        <BackButton />
+        <div>
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            <Key className="h-6 w-6 text-primary" />
+            {t('title')}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        </div>
+        <AuthGatePrompt message="请先登录后管理 API Key" />
+      </div>
+    )
   }
 
   return (

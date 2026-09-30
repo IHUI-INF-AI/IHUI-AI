@@ -14,7 +14,8 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface PlanInfo {
   id: string
@@ -54,10 +55,14 @@ export default function SubscriptionPage() {
   })
   const currencyFmt = new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY' })
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['developer', 'subscription'],
     queryFn: () =>
       api<SubscriptionData>('/api/developer/subscription').catch(() => ({}) as SubscriptionData),
+    enabled: allow,
   })
 
   const renewMut = useMutation({
@@ -101,7 +106,10 @@ export default function SubscriptionPage() {
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
-      {isLoading ? (
+      {/* 2026-09-30 登录态门:未登录时用登录引导替换数据区 */}
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看开发者订阅" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           {t('loading')}

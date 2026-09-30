@@ -14,7 +14,8 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface LimitItem {
   key: string
@@ -49,10 +50,14 @@ export default function LimitsPage() {
   const locale = useLocale()
   const numFmt = new Intl.NumberFormat(locale)
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['developer', 'limits'],
     queryFn: () =>
       api<LimitsData>('/api/developer/limits').catch(() => ({ items: [] }) as LimitsData),
+    enabled: allow,
   })
 
   const items = data?.items ?? []
@@ -78,6 +83,9 @@ export default function LimitsPage() {
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
+      {/* 2026-09-30 登录态门:未登录时用登录引导替换数据区 */}
+      {allow ? (
+        <>
       {data?.planName && (
         <Card>
           <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3">
@@ -131,6 +139,10 @@ export default function LimitsPage() {
             )
           })}
         </div>
+      )}
+        </>
+      ) : (
+        <AuthGatePrompt message="请先登录后查看限额与配额用量" />
       )}
     </div>
   )
