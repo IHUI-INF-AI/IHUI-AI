@@ -314,6 +314,10 @@ function runSelfTest() {
       writeFileSync(join(dir, rel), content)
     }
     gitRaw(['init', '-q'], dir)
+    // 夹具自带提交身份:临时仓在共享仓之外,读不到本仓的 local 身份,而 global 未设时 git 会
+    // 拿 `user@host` 兜底 —— 主机名含中文的机器上这一步直接 fatal,自检因此与判据无关地红。
+    gitRaw(['config', 'user.email', 'gate-fixture@invalid'], dir)
+    gitRaw(['config', 'user.name', 'gate-fixture'], dir)
     gitRaw(['add', '-A'], dir)
     gitRaw(['commit', '-q', '-m', 'fixture'], dir)
     return dir
