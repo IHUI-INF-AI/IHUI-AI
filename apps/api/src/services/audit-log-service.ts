@@ -108,8 +108,9 @@ function resolveAuditSecret(): string {
   const secret = config.AUDIT_LOG_HMAC_SECRET
   if (secret && secret.length >= 32) return secret
 
-  // 生产环境强制要求配置,缺失时拒绝启动
-  if (config.NODE_ENV === 'production') {
+  // G-998138:生产守卫档位经 config 唯一出口(缺省 fail-safe 当生产 ⇒ 缺 secret 拒启动;
+  // 旧测试 mock 的 config 缺 isProductionGuard ⇒ 旧判据回退)
+  if (config.isProductionGuard ?? config.NODE_ENV === 'production') {
     throw new Error(
       '[audit-log-service] AUDIT_LOG_HMAC_SECRET must be configured in production (>= 32 chars). ' +
         'Without a stable secret, the audit log chain cannot be verified after restart or across instances.',
