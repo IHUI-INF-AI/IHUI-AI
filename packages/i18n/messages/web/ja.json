@@ -26570,6 +26570,7 @@
     "noUrlField": "応答に利用可能な URL フィールドが見つかりません",
     "networkError": "ネットワークエラー",
     "uploadCancelled": "アップロードがキャンセルされました",
+    "imageAltText": "フィードバック添付画像 {index}",
     "imagePlaceholder": "クリックまたはここに画像をドラッグしてアップロード"
   },
   "eduScheduling": {
