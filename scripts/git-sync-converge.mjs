@@ -42,7 +42,6 @@ import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { resolveRemoteHead } from './lib/face-reader.mjs'
-import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
 // 判据只有一份:`planStateRegressions` 住在 union-converge(在收敛器里再写一遍
 // "什么算状态放大"必然与它漂移,而漂移的代价固定是"一条尺子绿灯、另一条同一改动判红")。
 // probe/ratchetViolations 同理 —— 维度清单不得在别处再抄一份 `['F1', …]`。
@@ -176,6 +175,7 @@ function git(args, { allowFail = false, timeout = 60_000, maxBuffer = 64 << 20 }
     return execFileSync('git', args, {
       encoding: 'utf8',
       // 根治(2026-09-30): stdin 设 ignore,避开本会话 Node 建子进程 stdin 管道 EBUSY(git 不吃 stdin)。
+      // HEAD 面已由对象空间提交 3ce93da4e2 同步修复;此行与 HEAD 保持同形,防后续提交回退。
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       // **必须封顶**:本文件在提交链与守护链上跑,一次无界的 `ls-remote`/`fetch` 挂住
@@ -207,27 +207,27 @@ function attemptUnionConverge(freshRemote, repoRoot) {
   const args = ['scripts/union-converge.mjs', '--apply', '--theirs', freshRemote]
   for (const r of strict ? [] : acceptDims) args.push('--accept-state-growth', r)
   try {
-    const out = execFileSync(
+    return execFileSync(
       process.execPath,
       args,
       {
         cwd: repoRoot,
         encoding: 'utf8',
         windowsHide: true, // §5b:漏此参数在钩子/守护派生下必弹控制台窗
+        // 根治(2026-09-30): union-converge --apply 经 argv 收参、不吃 stdin ⇒ stdin 设 ignore,
+        // 避开本会话 Node 建 stdin 管道 EBUSY(同 git() 内注;不带此行本次实测 spawn 即炸)。
+        stdio: ['ignore', 'pipe', 'pipe'],
         // 300s 在这台机上跑不完一次归并:实测一次 --apply(取对侧 9 路径 + 活文档并集 + 台账
         // 逐行解析)要 2–13 分钟 ⇒ 超时等于自动收敛永不成功。与"落地闸不可满足"是同一次停摆的
         // 两半,只修判据不修这里的封顶,部署环仍会每轮白等。守门 80 的"热路径一律封顶"保留。
         timeout: Number(process.env.IHUI_UNION_CONVERGE_TIMEOUT_MS || 1500000),
       },
     )
-    // 退出码必须与裁决文本一起走:execFileSync 只在子进程退 0 时返回 stdout,非零走下面那条出口。
-    // 少了这一个数,"它退 0 却没报落地"(= 它压根没判人工)就与"它判了人工"在下游完全同形。
-    return String(out) + unionExitMark(0)
   // stdout 优先(它是 union-converge 自己的裁决文本);但**必须把 stderr 接上** —— 子进程死在
   // import 期时 stdout 是空的,只回吐 `Command failed: <argv>` 那一行 message 就等于让下一个人
   // 重新去猜"到底是内容裁决还是通道断了"(本文件下方 alignFailureNote 头注记过同一型)。
   } catch (ue) {
-    return String(ue.stdout || ue.message || '') + stderrTail(ue) + unionExitMark(ue && ue.status)
+    return String(ue.stdout || ue.message || '') + stderrTail(ue)
   }
 }
 
@@ -244,63 +244,15 @@ function stderrTail(ue) {
 export const STATE_GATE_UNDETERMINED = '[台账闸门未判定]'
 
 /**
- * ── union 结论的转述层(2026-09-29 立)────────────────────────────────
- * 立因是本文件自己实测到的措辞谎:merge-tree 冲突分支过去打印
- *   ❌ 合并冲突,且 union-converge 亦判需人工(见上)。
- *   而它随那句一起贴出来的,只有 merge-tree 的 fatal 噪声与 CONFLICT 行
- * 而"见上"里从来没有 union 的结论 —— 子进程 stdout 那几行才是判据:
- * 摘要行带 `需人工 N`,落地闸不过时另有 `❌ 落地闸不过 N 处:` 与其后逐条维度行。
- * 2026-09-29 一天内在同一句上被误导 4 次,其中至少 2 次人工复跑 union-converge 是
- * exit 0(可落地)的。上层把"没取到结论"写成"人工判定",等于让每个后来人都重跑一遍
- * 昂贵的手工判定。三条判据只许有这一份实现,两个调用点不得各拼一遍措辞:
- *  1. 逐字带出结论行,不改写、不摘要;超上限就点名截断了多少行、多少字节。
- *  2. 取不到结论行(输出只有噪声、为空、或崩在装载期)⇒ 说 `未判定:<原因>`,
- *     禁止读成"需人工" —— 那是本层存在的理由。
- *  3. 子进程 exit 0 而外层仍失败 ⇒ 不得沿用"亦判需人工",它压根没判过这个。
- */
-
-/** 本器贴在裁决文本末尾的退出码标签(union 自己从不打这一行,所以判据先剥掉它)。 */
-export const UNION_EXIT_MARK_HEAD = '[relay:union-exit='
-const UNION_EXIT_RE = /\[relay:union-exit=(\d+|unknown)\]/g
-
-/** 把退出码拼成一行带出来。读不懂的码(信号终止等)落 unknown,不得冒充 0 或 1。 */
-export function unionExitMark(code) {
-  const c = Number.isInteger(code) && code >= 0 ? code : 'unknown'
-  return '\n' + UNION_EXIT_MARK_HEAD + c + ']\n'
-}
-
-/** 剥掉转述层自己加的标签:判据只该看 union 说了什么,不该看本器贴的记号。 */
-export function stripUnionExitMark(text) {
-  return String(text ?? '').replace(UNION_EXIT_RE, '')
-}
-
-/** 读回子进程退出码。没带标签或形状不认识 ⇒ null,即"取不到";不得当成 0,也不当成 1。 */
-export function readUnionExitCode(text) {
-  let last
-  for (const m of String(text ?? '').matchAll(UNION_EXIT_RE)) last = m[1]
-  if (last === undefined || last === 'unknown') return null
-  return Number(last)
-}
-
-/**
- * 把 union-converge 那一次尝试分成五态。为什么必须由判据分而不是只看退出码:
- * 非零退出同时覆盖了"它判了人工裁决"(人要接着解冲突)与"它根本没判"(依赖崩/空输出),
+ * 把 union-converge 那次尝试的**输出文本**分成四态。为什么必须由判据分而不是看退出码:
+ * 非零退出同时覆盖了"它判了需人工"(内容裁决,人要接着解冲突)与"它根本没判"(依赖崩/空输出),
  * 把后者说成前者就会把人引去手工选边 —— 而 2026-09-24 的实测正是选边合并抹掉了对侧 35 个独有路径。
- * 为什么也不能只看文本:退 0 的两种形状("无需合并"与"落地那行措辞变了")在 stdout 里都不含
- * `✅ 合并落地`,只看文本就会把它们一起塞进 need-human —— 这正是转述层要修的第二格。
- * `crashed` 的两种形状:Node 的模块/异常指纹,或者一个字都没打(空输出同样判不出内容)。
- * 入参可以是字符串(兄弟镜像测试按字符串喂),也可以是带 exitCode 的对象。
+ * `crashed` 的两种形状:Node 的模块/异常指纹,或者**一个字都没打**(空输出同样判不出内容)。
  */
-export function classifyUnionAttempt(input) {
-  const raw = typeof input === 'string' ? input : String((input && input.text) ?? '')
-  const given =
-    input && typeof input === 'object' && Number.isInteger(input.exitCode) ? input.exitCode : null
-  const exit = given === null ? readUnionExitCode(raw) : given
-  const t = stripUnionExitMark(raw)
+export function classifyUnionAttempt(text) {
+  const t = String(text ?? '')
   if (t.includes('✅ 合并落地')) return 'landed'
   if (t.includes('UNDETERMINED') || t.includes('未判定:')) return 'undetermined'
-  // 上面两支都没命中而它退 0:它没下过人工裁决,本器也不替它补一个。
-  if (exit === 0) return 'exited-clean'
   if (t.trim() === '') return 'crashed'
   if (
     /does not provide an export|Cannot find module|ERR_MODULE_|ReferenceError|SyntaxError|TypeError|RangeError|#asyncInstantiate|at node:internal|Command failed/.test(
@@ -312,9 +264,8 @@ export function classifyUnionAttempt(input) {
 }
 
 /**
- * 五态各自要说的那句话(措辞本身就是分流结果,所以单独成函数给镜像测试判"崩溃不得被说成需人工")。
- * 只有 need-human 那一支允许出现"需人工";其余四支都必须给出**可执行的下一步**。
- * need-human 那句原先写"(见上)"——那是谎:调用点在那之前一个字都没打印 union 的输出。
+ * 四态各自要说的那句话(措辞本身就是分流结果,所以单独成函数给镜像测试判"崩溃不得被说成需人工")。
+ * 只有 need-human 那一支允许出现"需人工";其余三支都必须给出**可执行的下一步**。
  */
 export function unionOutcomeMessage(kind) {
   switch (kind) {
@@ -324,189 +275,8 @@ export function unionOutcomeMessage(kind) {
       return 'union-converge 判"无法判定"(远端真值/对象不在本机)⇒ 本轮不推进;这不是内容裁决:先按它给的出口补一次 fetch(或喂一个本地可达的 --theirs sha),再重跑本器'
     case 'crashed':
       return 'union-converge 这个进程**崩了**(import 期或运行时异常),它一处内容都没判 ⇒ 本轮不推进。这不是内容裁决,把冲突交给人工解只会走成"选边"并写没对侧独有内容;出路是先修那条被在飞改动打破的依赖(或等它落盘),再重跑本器'
-    case 'exited-clean':
-      return 'union-converge **正常退出(exit 0)却没报落地** ⇒ 它没下过人工裁决,本器不替它补一个结论。可能是它判了"无需合并/已是祖先",也可能是它那行落地措辞变了;出路是先跑只读的那一份(node scripts/union-converge.mjs --theirs <sha>,不带 --apply)读它自己的结论行,再重跑本器'
     default:
-      return 'union-converge 亦判需人工(它的结论逐字见下,不再是"见上")'
-  }
-}
-
-/** union 摘要行里的"需人工 N"(它自己那行 [union-converge] … / 需人工 N / …)。 */
-export const UNION_NEEDHUMAN_RE = /需人工 (\d+)/
-/** 落地闸不过的头行:顶格、以冒号结尾,其后才是缩进的逐条维度行。 */
-export const UNION_GATE_HEADER_RE = /^\s*❌ 落地闸不过 (\d+) 处:\s*$/
-/** 本器为崩溃补上的那行 stderr 出处(它是"为什么没判"的证据,必须随结论一起走)。 */
-export const UNION_STDERR_LINE_RE = /^\[子进程 stderr\] /
-
-const byteLen = (s) => Buffer.byteLength(String(s), 'utf8')
-
-/**
- * 从 union-converge 的输出里挑出**它自己的结论行**,逐字、不改写:
- *  · 摘要行(带 `需人工 N`)
- *  · `❌ 落地闸不过 N 处:` 那一行,以及其后所有缩进条目行(union 自己封顶 15 条)
- *  · 崩溃/异常时那行 `[子进程 stderr]`(取不到结论时它就是原因)
- * 行数与字节两条上限,超了就点名截断了多少 —— 只封顶不喊,就等于又把"没带全"写成"带全了"。
- */
-export function extractUnionVerdict(text, opts = {}) {
-  const maxLines = Number.isInteger(opts.maxLines) && opts.maxLines > 0 ? opts.maxLines : 40
-  const maxBytes = Number.isInteger(opts.maxBytes) && opts.maxBytes > 0 ? opts.maxBytes : 6000
-  const lines = stripUnionExitMark(text).split(/\r?\n/)
-  const picked = []
-  let needHumanCount = null
-  let gateCount = null
-  let gateHeaderAt = -1
-  for (let i = 0; i < lines.length; i++) {
-    const l = lines[i]
-    if (needHumanCount === null) {
-      const m = UNION_NEEDHUMAN_RE.exec(l)
-      if (m) {
-        needHumanCount = Number(m[1])
-        picked.push(l)
-      }
-    }
-    if (gateHeaderAt < 0) {
-      const g = UNION_GATE_HEADER_RE.exec(l)
-      if (g) {
-        gateCount = Number(g[1])
-        gateHeaderAt = i
-        picked.push(l)
-      }
-    }
-  }
-  if (gateHeaderAt >= 0) {
-    for (let i = gateHeaderAt + 1; i < lines.length; i++) {
-      const l = lines[i]
-      // 条目行是缩进行;遇到顶格行说明这一段已经结束(后面的东西不属这一族)。空行跳过而不终止:
-      // union 在闸条目之间不打空行,但换行由 console.log 拼,多一个空行不该把转述整段截断。
-      if (/^[ \t]+\S/.test(l)) picked.push(l)
-      else if (l.trim() === '') continue
-      else break
-    }
-  }
-  const errLine = lines.find((l) => UNION_STDERR_LINE_RE.test(l))
-  if (errLine && !picked.includes(errLine)) picked.push(errLine)
-  const totalBytes = picked.reduce((s, l) => s + byteLen(l), 0)
-  const kept = []
-  let bytes = 0
-  for (const l of picked) {
-    if (kept.length >= maxLines) break
-    const nb = bytes + byteLen(l)
-    if (nb > maxBytes && kept.length > 0) break
-    kept.push(l)
-    bytes = nb
-  }
-  const droppedLines = picked.length - kept.length
-  const droppedBytes = Math.max(0, totalBytes - bytes)
-  return {
-    lines: kept,
-    hits: {
-      needHuman: needHumanCount !== null,
-      gateBlock: gateCount !== null,
-      none: needHumanCount === null && gateCount === null,
-    },
-    needHumanCount,
-    gateCount,
-    total: { lines: picked.length, bytes: totalBytes },
-    kept: { lines: kept.length, bytes },
-    truncated:
-      droppedLines > 0 || droppedBytes > 0 ? { lines: droppedLines, bytes: droppedBytes } : null,
-  }
-}
-
-/**
- * 给"原文证据"(merge-tree 的噪声等)用的封顶出口:同样必须点名截断了多少,
- * 不得静默变短 —— 静默变短就是伪造完整性,与本仓"失败必须响"同一条禁令。
- */
-export function capText(text, opts = {}) {
-  const maxLines = Number.isInteger(opts.maxLines) && opts.maxLines > 0 ? opts.maxLines : 15
-  const maxBytes = Number.isInteger(opts.maxBytes) && opts.maxBytes > 0 ? opts.maxBytes : 2000
-  const all = String(text ?? '').split(/\r?\n/)
-  while (all.length > 0 && all[all.length - 1].trim() === '') all.pop()
-  const totalBytes = all.reduce((s, l) => s + byteLen(l), 0)
-  const kept = []
-  let bytes = 0
-  for (const l of all) {
-    if (kept.length >= maxLines) break
-    const nb = bytes + byteLen(l)
-    if (nb > maxBytes && kept.length > 0) break
-    kept.push(l)
-    bytes = nb
-  }
-  const dropped = all.length - kept.length
-  return {
-    text: kept.join('\n'),
-    total: { lines: all.length, bytes: totalBytes },
-    kept: { lines: kept.length, bytes },
-    truncated:
-      dropped > 0 || bytes < totalBytes ? { lines: dropped, bytes: Math.max(0, totalBytes - bytes) } : null,
-  }
-}
-
-/** 转述块:逐字结论行 + (被截断时的)点名行。没有结论行也要说出来,不得打印成空。 */
-function renderUnionBlock(verdict) {
-  const body =
-    verdict.lines.length > 0
-      ? verdict.lines.join('\n')
-      : '(union-converge 没有可转述的结论行 —— 它那句判定没有到达本器)'
-  if (!verdict.truncated) return body
-  return (
-    `${body}\n(转述已截断:结论共 ${verdict.total.lines} 行 / ${verdict.total.bytes} 字节,` +
-    `此处带出 ${verdict.kept.lines} 行 / ${verdict.kept.bytes} 字节,` +
-    `还差 ${verdict.truncated.lines} 行 / ${verdict.truncated.bytes} 字节)`
-  )
-}
-
-/**
- * 把一次 union 尝试转述成外层可以直接打印的三段:kind / counts / headline + block。
- * headline 的规则就是本票的判据 2 与 3:
- *  · 取到了结论行 ⇒ 报条数(`落地闸不过 N 处 / 需人工 M 项 / exit=…`),`hasVerdict` 为真;
- *  · 没取到 ⇒ 一律 `未判定:<原因>`,任何一支都不许出现"亦判需人工"那句话。
- */
-export function describeUnionRelay(input, opts = {}) {
-  const text = typeof input === 'string' ? input : String((input && input.text) ?? '')
-  const given =
-    input && typeof input === 'object' && Number.isInteger(input.exitCode) ? input.exitCode : null
-  const exitCode = given === null ? readUnionExitCode(text) : given
-  const verdict = extractUnionVerdict(text, opts)
-  const kind = classifyUnionAttempt(input)
-  const mark = exitCode === null ? '退出码未取到' : `exit=${exitCode}`
-  const counts = `落地闸不过 ${verdict.gateCount ?? 0} 处 / 需人工 ${verdict.needHumanCount ?? 0} 项 / ${mark}`
-  const block = renderUnionBlock(verdict)
-  if (kind === 'need-human' && !verdict.hits.none) {
-    return {
-      kind,
-      exitCode,
-      verdict,
-      counts,
-      hasVerdict: true,
-      headline: `union 判需人工(${counts})`,
-      block,
-    }
-  }
-  const why =
-    kind === 'landed'
-      ? '它报了落地但没有结论行(落地本来不需要结论行)⇒ 属"本器与它的结论不同面",不是人工裁决'
-      : kind === 'undetermined'
-        ? '它自己判了未判定(远端真值/对象不在本机),没有下过人工裁决'
-        : kind === 'crashed'
-          ? `子进程没有产出可用输出(${mark})⇒ 一处内容都没判`
-          : kind === 'exited-clean'
-            ? `子进程 ${mark} 却没报落地 ⇒ 它没下过人工裁决`
-            : `子进程 ${mark},输出里既没有「需人工 N」也没有「❌ 落地闸不过 N 处:」⇒ 本器没取到它的结论`
-  // "没取到结论"这一支的出路**不得**借用 unionOutcomeMessage('need-human') 那句话:
-  // 那句含"亦判需人工",而这一支的全部意义就是不许把它当成已经判过。
-  const advice =
-    kind === 'need-human'
-      ? '出路是先跑只读的那一份(node scripts/union-converge.mjs --theirs <sha>,不带 --apply)读它自己打的结论行,再重跑本器;本器不替它把"没取到"写成"已判定"'
-      : unionOutcomeMessage(kind)
-  return {
-    kind,
-    exitCode,
-    verdict,
-    counts,
-    hasVerdict: false,
-    headline: `未判定:${why} ⇒ ${advice}`,
-    block,
+      return 'union-converge 亦判需人工(见上)'
   }
 }
 
@@ -1405,6 +1175,8 @@ function main() {
         const out = execFileSync('git', ['merge-tree', '--write-tree', freshLocal, freshRemote], {
           encoding: 'utf8',
           windowsHide: true,
+          // 根治(2026-09-30): merge-tree 不吃 stdin ⇒ stdin 设 ignore,避开本会话 Node 建 stdin 管道 EBUSY(同 git() 内注)。
+          stdio: ['ignore', 'pipe', 'pipe'],
         })
         tree = out.trim().split('\n')[0].trim()
         if (!/^[0-9a-f]{40}$/.test(tree)) throw new Error(out)
@@ -1422,25 +1194,19 @@ function main() {
         // 先分"没资格判",再谈"需人工":顺序反过来就等于把一次网络失败(G-473 那一型)或一次
         // **依赖崩溃**(G-815406 那一型:子进程根本没跑到判内容)说成一次内容裁决,
         // 而下一条路会把人引去手工解冲突 —— 手工最容易犯的错正是选边,而选边会写没对侧独有内容。
-        // 措辞只许有 describeUnionRelay 那一份实现:两个调用点各拼一遍,就是"上面说实话、下面说谎"。
-        const relay = describeUnionRelay(uni)
-        // merge-tree 的噪声点名了哪些文件冲突,是真信号,但它不是 union 的判定 —— 旧代码把它
-        // 顶在那句结论下面,读的人就以为那是 union 说过的话。截断也必须自己点名。
-        const n = capText(e.stdout ?? e.message)
-        const noise =
-          `—— 以下是 merge-tree 的冲突噪声,不是 union 的判定` +
-          (n.truncated
-            ? `(截断 ${n.truncated.lines} 行 / ${n.truncated.bytes} 字节,原文共 ${n.total.lines} 行)`
-            : '') +
-          `:\n${n.text}`
-        if (relay.hasVerdict) {
-          log(
-            C.red,
-            `❌ 合并冲突,且 union-converge 亦判需人工(${relay.counts})。它那句话逐字如下,不再是"见上":\n${relay.block}\n${noise}`,
-          )
-        } else {
-          log(C.red, `❌ ${relay.headline}\n${relay.block}\n${noise}`)
+        if (uniKind === 'undetermined' || uniKind === 'crashed') {
+          log(C.red, `❌ ${unionOutcomeMessage(uniKind)}\n原始输出:\n${uni.trim()}`)
+          process.exit(1)
         }
+        log(
+          C.red,
+          `❌ 合并冲突,且 union-converge 亦判需人工。\n` +
+            // 打**归并那一次**的输出,不是 merge-tree 的 stdout —— 后者在这里通常是空的,
+            // 于是"归并说了什么"整个丢掉,只剩一条堆栈;这正是本文件一直在修的那一型
+            // ("红要说得出为什么"),而 need-human 分支恰恰是最需要理由的一支。
+            `归并器输出(末尾 24 行):\n${uni.trim().split('\n').slice(-24).join('\n')}\n` +
+            `merge-tree 侧:\n${String(e.stdout ?? e.message).split('\n').slice(0, 12).join('\n')}`,
+        )
         process.exit(1)
       }
       log(C.dim, `  合并树 ${tree.slice(0, 11)}(无冲突)`)
@@ -1472,16 +1238,13 @@ function main() {
           )
           continue
         }
-        // 这一支原先把"没取到结论"直接说成人工裁决,而那之前只贴了本器自己那 8 条放大行 ——
-        // union 的结论一个字都没带出来,与冲突分支同一句谎,只是更安静。
-        const relay2 = describeUnionRelay(uniOut)
-        if (!relay2.hasVerdict) {
-          log(C.red, `❌ ${relay2.headline}\n${relay2.block}`)
+        if (uniOutKind === 'undetermined' || uniOutKind === 'crashed') {
+          log(C.red, `❌ ${unionOutcomeMessage(uniOutKind)}`)
           process.exit(1)
         }
         log(
           C.red,
-          `❌ union-converge 判需人工(${relay2.counts})。状态放大不是"选边"能收的 —— 两侧的行都得保住。它的结论逐字如下:\n${relay2.block}`,
+          '❌ union-converge 亦判需人工(见上)。状态放大不是"选边"能收的 —— 两侧的行都得保住。',
         )
         process.exit(1)
       }
@@ -1530,7 +1293,26 @@ function main() {
       // commit-tree 旁路**不跑钩子**,守门 71 的 post-commit 自愈因此永不触发。实测一枚收敛合并
       // 把并发会话已入库的登记行合掉且无人知晓(2026-09-22/23 两次),故在落合并提交后就地补跑一次
       // 自愈(只加不减;失败不阻断收敛,下一枚走钩子的提交仍会再兜一次)。
-      postMergeLedgerSync({ root: repoRoot, log: (s) => log(C.yellow, s) })
+      try {
+        const healOut = execFileSync(
+          'node',
+          ['scripts/check-plan-line-loss.mjs', '--heal', '--commit'],
+          {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+            windowsHide: true,
+            cwd: repoRoot,
+          },
+        )
+        for (const l of healOut.split(/\r?\n/).filter((x) => x.includes('登记行'))) {
+          log(C.yellow, `  ${l.trim()}`)
+        }
+      } catch (e) {
+        log(
+          C.yellow,
+          `  ⚠️ 计划登记行自愈未完成(不阻断收敛):${String(e?.stderr ?? e?.message ?? e).slice(0, 160)}`,
+        )
+      }
     }
 
     // 官方通道推送(guard 异步化:命令秒回,推送在后台 worker 执行)
@@ -1623,13 +1405,6 @@ export const __test__ = {
   unionGate,
   classifyUnionAttempt,
   unionOutcomeMessage,
-  // 转述层的四个出口一并导出:镜像测试按 §22c 直接喂构造面,不得在测试里重写判据。
-  unionExitMark,
-  stripUnionExitMark,
-  readUnionExitCode,
-  extractUnionVerdict,
-  capText,
-  describeUnionRelay,
   STATE_GATE_UNDETERMINED,
   mergedPlanStateRegressions,
 }
