@@ -22,7 +22,8 @@ import {
   TableRow,
   TableCell,
 } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface AuditEvent {
   id: string
@@ -49,8 +50,13 @@ const TYPE_KEY: Record<string, string> = {
 
 export default function SecurityAuditPage() {
   const t = useTranslations('securityAuditPage')
+
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data: list = [], isLoading } = useQuery({
     queryKey: ['security-audit'],
+    enabled: allow,
     queryFn: async () => {
       const r = await fetchApi<AuditEvent[]>('/api/security-audit')
       if (r.success && r.data) return r.data
@@ -76,7 +82,9 @@ export default function SecurityAuditPage() {
 
       <Card>
         <CardContent className="p-0">
-          {isLoading ? (
+          {!allow ? (
+            <AuthGatePrompt message="请先登录后查看安全审计" />
+          ) : isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               {t('loading')}
