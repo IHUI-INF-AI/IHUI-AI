@@ -20278,6 +20278,8 @@
       "selectPlatform": "Select platform",
       "startScanLogin": "Start Scan Login",
       "statusActive": "Active",
+      "statusCleared": "Re-login required",
+      "statusClearedTip": "This account's saved credentials were cleared (security cleanup). Scan to log in again to restore it — it is not disabled by the platform.",
       "statusDisabled": "Disabled",
       "statusExpired": "Expired",
       "statusUnknown": "Unknown",
