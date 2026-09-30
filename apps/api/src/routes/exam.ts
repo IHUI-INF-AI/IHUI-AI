@@ -14,7 +14,7 @@ import {
   examWrongQuestion,
   examRecords,
 } from '@ihui/database'
-import { eq, sql, and, desc } from 'drizzle-orm'
+import { eq, sql, and, desc, inArray } from 'drizzle-orm'
 import {
   findPublishedExamCategories,
   findAllExamCategories,
@@ -72,6 +72,7 @@ import {
   getExamRecordStatus,
 } from '../db/exam-extended-queries.js'
 import { success, error } from '../utils/response.js'
+import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { isAppError } from '../errors/AppError.js'
 
 const QUESTION_TYPES = [
@@ -114,6 +115,16 @@ function toApiQuestionType(t: string): 'single' | 'multiple' | 'judge' | 'fill' 
   )
 }
 
+// 答案投影为可读文本:数组顿号连接、布尔对/错、对象 JSON(供小程序题目回顾逐字展示)
+function formatAnswerText(v: unknown): string | undefined {
+  if (v === null || v === undefined) return undefined
+  if (typeof v === 'boolean') return v ? '对' : '错'
+  if (Array.isArray(v)) return v.map((x) => String(x)).join('、')
+  if (typeof v === 'object') return JSON.stringify(v)
+  const s = String(v)
+  return s === '' ? undefined : s
+}
+
 function fromApiQuestionType(
   t: 'single' | 'multiple' | 'judge' | 'fill' | 'essay',
 ): (typeof QUESTION_TYPES)[number] {
@@ -140,7 +151,7 @@ const paperTypeSchema = z.enum(['normal', 'random', 'mock', 'exam'])
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
+const idParamSchema = z.strictObject({ id: z.uuid({ error: '无效的 ID' }) })
 
 const papersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -346,7 +357,7 @@ const wrongQuestionsQuerySchema = z.object({
     .optional(),
 })
 
-const resolveQuestionParamSchema = z.object({
+const resolveQuestionParamSchema = z.strictObject({
   questionId: z.uuid({ error: '无效的题目 ID' }),
 })
 
@@ -732,6 +743,95 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(result))
   })
 
+  // GET /exam/:id/result - 答题结果(小程序 exam/list 已完成记录 → result 页调用)
+  // :id = examRecords.id。与 GET /exam/records/:id 同源,按小程序 ExamResultInfo 扁平形状投影;
+  // 名次/总人数按同卷已提交记录实时聚合(score 高者在前,当前记录得分参与排名)。
+  server.get('/exam/:id/result', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    const record = await findExamRecordById(parsed.data.id)
+    if (!record || record.userId !== userId) {
+      return reply.status(404).send(error(404, '答题记录不存在'))
+    }
+    const paper = await findPaperById(record.paperId)
+    const questions = await findQuestionsByPaperId(record.paperId)
+    const storedAnswers =
+      (record.answers as Array<{
+        questionId: string
+        answer: unknown
+        isCorrect?: boolean
+      }> | null) ?? []
+    const submittedStatuses = ['submitted', 'graded', 'completed'] as const
+    const [peers] = await db
+      .select({
+        total: sql<number>`count(*)::int`,
+        better: sql<number>`(count(*) filter (where ${examRecords.score} > ${Number(record.score ?? 0)}))::int`,
+      })
+      .from(examRecords)
+      .where(
+        and(
+          eq(examRecords.paperId, record.paperId),
+          inArray(examRecords.status, [...submittedStatuses]),
+        ),
+      )
+    return reply.send(
+      success({
+        score: Number(record.score ?? 0),
+        pass: !!record.isPassed,
+        rank: peers ? (peers.better ?? 0) + 1 : undefined,
+        total: peers?.total ?? undefined,
+        duration: record.duration ?? 0,
+        correct: storedAnswers.filter((a) => a.isCorrect).length,
+        wrong: storedAnswers.filter((a) => a.isCorrect === false).length,
+        unanswered: Math.max(0, questions.length - storedAnswers.length),
+        passScore: paper ? Number(paper.passScore) : undefined,
+        totalScore: paper ? Number(paper.totalScore) : undefined,
+      }),
+    )
+  })
+
+  // GET /exam/:id/review - 答题记录逐题回顾(小程序 result 页"题目回顾"区)
+  // :id = examRecords.id;myAnswer/correctAnswer 投影为可读文本(数组顿号连接、布尔对/错)。
+  server.get('/exam/:id/review', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    const record = await findExamRecordById(parsed.data.id)
+    if (!record || record.userId !== userId) {
+      return reply.status(404).send(error(404, '答题记录不存在'))
+    }
+    const questions = await findQuestionsByPaperId(record.paperId)
+    const qMap = new Map(questions.map((q) => [q.id, q]))
+    const storedAnswers =
+      (record.answers as Array<{
+        questionId: string
+        answer: unknown
+        isCorrect?: boolean
+        score?: unknown
+      }> | null) ?? []
+    const list = storedAnswers.map((a) => {
+      const q = qMap.get(a.questionId)
+      return {
+        id: a.questionId,
+        title: q?.title ?? '',
+        type: q ? toApiQuestionType(q.type) : undefined,
+        myAnswer: formatAnswerText(a.answer),
+        correctAnswer: formatAnswerText(q?.answer),
+        analysis: q?.analysis ?? undefined,
+        isCorrect: !!a.isCorrect,
+        score: Number(a.score ?? 0),
+      }
+    })
+    return reply.send(success({ list }))
+  })
+
   // POST /exam/random-questions - 随机抽题(按题型/难度/知识点池筛选 + seed 可重现)
   server.post('/exam/random-questions', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
@@ -980,6 +1080,85 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '错题记录不存在'))
     }
     return reply.send(success({ wrong: updated }))
+  })
+
+  // POST /exam/wrong-questions/:questionId/explain - AI 讲解错题(G-978072)
+  // 首次调用经 ai-service /api/llm/complete 生成讲解并持久化(ai_explanation),此后直接回放缓存。
+  server.post('/exam/wrong-questions/:questionId/explain', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const parsed = resolveQuestionParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    const [row] = await db
+      .select()
+      .from(examWrongQuestion)
+      .where(
+        and(
+          eq(examWrongQuestion.userId, userId),
+          eq(examWrongQuestion.questionId, parsed.data.questionId),
+        ),
+      )
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '错题记录不存在'))
+    if (row.aiExplanation) {
+      return reply.send(success({ explanation: row.aiExplanation, cached: true }))
+    }
+    const question = await findQuestionById(row.questionId)
+    if (!question) return reply.status(404).send(error(404, '题目不存在或已删除'))
+    const systemPrompt =
+      '你是一位耐心、严谨的学科老师。学生做错了题,请给出讲解:先指出他错在哪里(对照他的答案),再一步步推导出正确答案,最后给出一条可迁移的思路总结。用中文,300 字以内,面向该题所处学段的学生。'
+    const userContent = [
+      `题目:${question.title}`,
+      question.options ? `选项:${JSON.stringify(question.options)}` : '',
+      `正确答案:${JSON.stringify(question.answer)}`,
+      question.analysis ? `参考解析:${question.analysis}` : '',
+      `学生的答案:${row.userAnswer ?? '(未作答)'}`,
+    ]
+      .filter(Boolean)
+      .join('\n')
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 30_000)
+    let explanation: string
+    try {
+      const res = await aiServiceFetch(request, '/api/llm/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userContent },
+          ],
+          temperature: 0.3,
+        }),
+        signal: controller.signal,
+      })
+      if (!res.ok) {
+        return reply.status(502).send(error(502, `AI 服务返回 ${res.status}`))
+      }
+      const json = (await res.json()) as {
+        content?: string
+        error?: boolean
+        error_message?: string
+        stub?: boolean
+      }
+      if (json.error || json.stub || !json.content) {
+        return reply.status(502).send(error(502, json.error_message ?? 'AI 讲解生成失败'))
+      }
+      explanation = json.content
+    } catch (e) {
+      request.log.error(e)
+      const msg = e instanceof Error && e.name === 'AbortError' ? 'AI 讲解超时' : 'AI 讲解生成失败'
+      return reply.status(502).send(error(502, msg))
+    } finally {
+      clearTimeout(timer)
+    }
+    await db
+      .update(examWrongQuestion)
+      .set({ aiExplanation: explanation, updatedAt: new Date() })
+      .where(eq(examWrongQuestion.id, row.id))
+    return reply.send(success({ explanation, cached: false }))
   })
 
   // ===========================================================================
@@ -1329,7 +1508,9 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       )
     }
     if (memberId === undefined) {
-      return reply.status(400).send(error(400, '缺少 memberId:管理员按遗留会员编号查询必须显式给参'))
+      return reply
+        .status(400)
+        .send(error(400, '缺少 memberId:管理员按遗留会员编号查询必须显式给参'))
     }
     const where = eq(examSignUp.memberId, memberId)
     const list = await db
