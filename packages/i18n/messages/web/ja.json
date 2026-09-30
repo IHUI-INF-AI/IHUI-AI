@@ -12211,6 +12211,7 @@
     "unpin": "ピン留め解除",
     "unsaved": "未保存",
     "update": {
+      "revoked": "このバージョンは現在提供されていません。",
       "autoRestartIn": "{countdown} 秒後に自動再起動...",
       "autoRetrying": "アップデート失敗、自動リトライ中...",
       "available": "新バージョンがあります",
@@ -15021,6 +15022,8 @@
     "title": "オープンプラットフォーム Feature Center"
   },
   "feedback": {
+    "unsupportedImage": "PNG、JPG、GIF、WebP 画像のみ対応しています。",
+    "requestIdSuffix": "フィードバック番号：{requestId}。",
     "backToList": "フィードバックセンターへ戻る",
     "contactPlaceholder": "任意、ご連絡のため",
     "contentPlaceholder": "をに（10-2000）",
