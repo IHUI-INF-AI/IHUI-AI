@@ -9,8 +9,8 @@ import assert from 'node:assert/strict'
 import { writeFileSync, readdirSync, rmSync, existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
-import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// §26:不存在目录的探针也锚在 scratch 根下(活进程 os.tmpdir() 可能仍钉在 C 盘,禁用)
+import { mkScratch, rmScratch, scratchRoot } from '../lib/scratch-dir.mjs'
 
 import { planArtifactInvariant } from '../lib/desktop-artifact-invariant.mjs'
 
@@ -124,7 +124,7 @@ test('钩子反例:目录里没有"本次应产的包"时**一个文件都不许
 })
 
 test('钩子反例:目录压根不存在 → 静默退出 0,不报错也不建目录', () => {
-  const missing = join(tmpdir(), `ihui-artifact-none-${Date.now()}`)
+  const missing = join(scratchRoot(), `ihui-artifact-none-${Date.now()}`)
   const out = execFileSync(process.execPath, [HOOK, '--dir', missing], {
     encoding: 'utf8',
     windowsHide: true,
