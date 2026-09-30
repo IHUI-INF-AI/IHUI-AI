@@ -328,6 +328,9 @@ export function projectShapeDescriptor(
         ? descriptor.additionalProperties
         : projectShapeDescriptor(descriptor.additionalProperties, account)
   }
+  // 发射白名单(G-661,2026-09-30):`inferredPattern` 刻意**不在**清单 —— 本地推断值
+  // 绝不进 provider 可见面,描述符上即便写了也只能留在本地(渲染面经 `inferredPatternOf`
+  // 显式读),不得冒充上游原样下发。原样 `pattern` 才发射。
   for (const key of ['minimum', 'maximum', 'minLength', 'maxLength', 'pattern'] as const) {
     const value = descriptor[key]
     if (value !== undefined) out[key] = value
