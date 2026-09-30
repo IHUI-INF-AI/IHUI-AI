@@ -11221,6 +11221,7 @@
     "permissionUnknownError": "未知錯誤",
     "placeholder": "詳細描述需求，輸入 / 調用技能、插件、MCP（如 /goal /loop /plan）",
     "placeholderPlan": "規劃模式：輸入需求，AI 只制定計劃不執行工具（/act 切回執行，Alt+P 切換）",
+    "aiDisclaimer": "內容由AI生成，請核實重要信息",
     "plan": {
       "ariaLabel": "執行計劃步驟",
       "collapseReasoning": "折疊推理過程",
@@ -20236,6 +20237,8 @@
       "passwordHint": "普通用戶建議使用掃碼登錄,此處僅開發者備用。",
       "platform": "平臺",
       "saveCookies": "儲存帳號",
+      "preparingQr": "正在生成二維碼…",
+      "regenerateQr": "重新出碼",
       "scan": "掃碼",
       "scanLogin": "掃碼登錄",
       "scanLoginDescription": "選擇平臺後,後端會打開該平臺登錄頁並截取二維碼;用對應 App 掃碼即可自動保存 cookies。",
