@@ -6,25 +6,11 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 import { ssrStorage } from './persist-helpers'
-import { createChatPersistStorage } from '@/lib/chat-persist-crypto'
 import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
-// D130(2026-09-30 立):推理强度档位回落通知的呈现形状。类型只从**消费者那一份**取
-// (reasoning-effort-axis 是本通知在 web 的唯一读者);不引 @ihui/api-client 的那个同名接口 ——
-// 本包入口是显式命名清单,ReasoningEffortNotice 尚未递出(两侧结构逐字同形,赋值安全),
-// 引一个入口里没有的名字就是守门 149 记过的那一型运行时 undefined。
-import type { ReasoningEffortFallbackNotice as ReasoningEffortNotice } from '@/components/chat/reasoning-effort-axis'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
-import type {
-  SubagentSpawnEvent,
-  SubagentEndEvent,
-  SubagentProgressEvent,
-  FallbackEvent,
-} from '@ihui/api-client'
+import type { SubagentSpawnEvent, SubagentEndEvent, SubagentProgressEvent } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
 import { markStreamError } from '@ihui/shared/chat'
-// G-704(2026-09-29 立):值等价比较器只能有共享层那一份实现(端内不得再抄一份近似品)
-import { areRecordValuesEqual } from '@ihui/shared/utils/deep-equal-records'
-import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
 import type { ToolCallSummary, PlanStep, TerminalTask, CitationEntry } from '@ihui/types/ai'
 
 export type { ChatRole } from '@ihui/shared'
@@ -76,9 +62,6 @@ export interface ToolCall extends BaseToolCall {
     artifacts?: Array<{ type: string; path: string; created_at?: string }>
     tool_calls_summary?: { total: number; by_tool: Record<string, number> }
   }
-  /** D113(2026-09-27):文件写类工具流中 diff 预览文本(tool-delta 帧累积写入,
-   * 覆盖式幂等;tool-result 到达即清 undefined)。仅 running 态渲染。 */
-  partialDiff?: string
   /** L5-8 工具瞬时失败自动重试次数(>0 时 ToolCallCard 渲染"重试N次"徽章)。
    * 数据源:后端 tool-call-start/result 事件携带则透传;暂未下发时恒 undefined,徽章不显示。 */
   retryCount?: number
@@ -201,17 +184,6 @@ export interface ChatMessage extends Omit<BaseChatMessage, 'createdAt' | 'toolCa
    *  compaction 命名帧 → onCompaction 回调写入;MessageItem 在消息内容区顶部
    *  渲染 CompressionDivider,提示"本消息之前的上下文已压缩为摘要"。 */
   compaction?: MessageCompaction
-  /** D33(2026-09-23 立):该回答实际**换过模型**的交代(主模型失败→备用模型)。
-   *  live:顶部 FallbackBanner(瞬态);历史:metadata.fallback(snake)经水合换算挂到消息,
-   *  MessageItem 按既有 chat.fallbackNotice / fallbackNoticeQuota 词渲染消息级交代行。
-   *  缺失 = 本轮未降级或老消息 —— 不渲染。 */
-  fallback?: FallbackEvent
-  /** D33(G-39,2026-09-26 立):该回答生成时刻**仍排队中**的侧问快照(队首窗口,≤8 条)。
-   *  live:sideQueueByConversation 本地桶;历史:metadata.queueItems 经水合挂到消息。
-   *  复用 SideQueueItem 形状(id/text/createdAt 毫秒)——与 Python 侧 QueueItemPayload
-   *  逐字段同形同单位。缺失/空 = 本轮无排队或老消息,不造空态。
-   *  会话级桶灌回(消费 api 侧"空数组=确实没有"语义)属后续挂载格,本字段只做消息级回放。 */
-  queueItems?: SideQueueItem[]
 }
 
 /** 自动压缩上下文状态(2026-08-16 立)
@@ -227,35 +199,9 @@ export type CompactionStatus =
       tokensBefore: number
       tokensAfter: number
       removedCount: number
-      /** A10B-8(2026-09-26):本轮被内容级截断的消息条数,与 removedCount 不同维
-       *  (后者 = 被折进摘要移出上下文的整条消息数)。undefined = 生产者未告知(旧帧),
-       *  与 0(告知过、确实没有截断)是两态,判据不得合并。 */
-      truncatedCount?: number
       trigger?: string
     }
   | null
-
-/** D151(2026-09-29 立):一条终端命令"正在等键盘输入"的渲染态。
- *  字段取自 SSE `terminal_interaction` 帧(@ihui/api-client 的 TerminalInteractionEvent),
- *  再加两个纯前端态(submitting / failed)与一个寻址凭据(sessionId)。
- *  刻意不存 inputMode —— 目前服务端恒 'line',多一维就多一处要同步的真相;
- *  也刻意不镜像 promptTail 之外的原文:等待态越薄,能被误持久化的东西越少。 */
-export interface TerminalInteractionState {
-  /** 提示原文(命令输出的尾行;服务端按凭据形态脱敏,但**不保证**干净 ⇒ 不得持久化/打日志) */
-  promptTail: string
-  /** 从判定"在等人"到发帧的毫秒数(帧原值) */
-  waitingSinceMs: number
-  /** 单次键入长度封顶(与服务端一致,输入框据此限制) */
-  maxInputChars: number
-  /** 关联助手消息 ID(帧可选携带) */
-  messageId?: string
-  /** 上行送回所需的 ai-service 流会话 ID;undefined = 本轮尚未观察到 ⇒ 提交如实报失败 */
-  sessionId?: string
-  /** 提交在途(防重复提交;一帧只许送一次) */
-  submitting: boolean
-  /** 上一次提交失败(界面据此显示"发送失败",并把该行留在框里) */
-  failed: boolean
-}
 
 interface ChatState {
   messages: ChatMessage[]
@@ -295,12 +241,6 @@ interface ChatState {
    *  键 messageId 对应 assistant 消息,items 为该消息触发的新增长期记忆条目摘要。
    *  done 事件携带 memoryUpdates 时由 appendMemoryNotice 写入;MessageItem 按 message.id 查找渲染。 */
   memoryUpdateNotices: { messageId: string; items: string[] }[]
-  /** D130(2026-09-30 立):后端把用户选定的推理强度档位**钉回**时的回落通知。
-   *  载体 = done 帧新增的可选字段(见 @ihui/api-client 的 ReasoningEffortNotice),
-   *  由 send-message.ts 的 onReasoningEffortNotice 回调写入,输入区第三轴读出并**上屏**。
-   *  null = 本轮没有回落(或用户根本没选档)⇒ 轴上不显示任何东西。
-   *  刻意不持久化:它是"这一轮发生了什么"的运行态,刷新后重放一条旧回落反而是假信息。 */
-  reasoningEffortNotice: ReasoningEffortNotice | null
   /** P3 #30 diff 评论驱动返工(2026-09-16 立):用户在 diff 卡片上留下的待发送评审意见队列。
    *  下一轮 sendMessage 时格式化为 `<diff_review>` 块定向注入 agent 上下文,注入后清空。
    *  持久化:评论可能跨刷新保留(用户评论后切走再回来仍可发送),故纳入 partialize。 */
@@ -312,19 +252,6 @@ interface ChatState {
    *  终态渲染取更长者;内存以「单键 2 万字符 + 最多 20 个终端键(插入序淘汰最旧)」双重封顶,
    *  新建对话时随 clearMessages 清空。不持久化(执行期瞬时态,刷新即失效)。 */
   terminalOutputs: Record<string, string>
-
-  /** D151(2026-09-29 立)终端"等待键盘输入"态(键 = terminalId,与 terminalOutputs 并列切片):
-   *  数据源 = SSE `terminal_interaction` 帧,唯一写入点是 send-message.ts 的 onTerminalInteraction,
-   *  唯一消费点是 terminal-section.tsx 在同一张终端卡里渲染的输入行。
-   *  刻意**不进 partialize**(上面那份是白名单):promptTail 取自命令输出,服务端按凭据形态脱敏
-   *  但不保证干净,而用户键入更是密码候选 —— 任何一个落进 localStorage 都不行(AGENTS §5 认证面同族)。
-   *  terminal_end 与新流开始(clearMessages)都会清除,否则上一轮的"等待"会挂在下一轮卡上。 */
-  terminalInteractions: Record<string, TerminalInteractionState>
-  /** D151:本轮 ai-service 流会话 ID —— 上行 `postTerminalInput(sessionId, …)` 的唯一寻址凭据。
-   *  `terminal_interaction` 帧本身**不带** sessionId(见 TerminalInteractionEvent 定义),
-   *  而同一轮 tool_delegate / tool-approval / form_request 帧携带的正是 llm.py 里同一个
-   *  `session_id` 变量,故由那些帧观察所得;观察不到时输入行如实报失败,不猜一个地址发出去。 */
-  aiStreamSessionId: string | null
 
   /** D1 消息级计量(2026-09-19 立):按 messageId 索引的 Token 用量/计时/成本。
    * 由 onUsage 回调写入,驱动消息底部徽章行(1.2k tok · 3.4s · 首 0.8s · model · ¥0.01)。
@@ -382,17 +309,9 @@ interface ChatState {
   ) => string
   appendToMessage: (id: string, delta: string) => void
   appendReasoningToMessage: (id: string, delta: string) => void
-  setMessageError: (id: string, error: string, errorCode?: string) => void
+  setMessageError: (id: string, error: string) => void
   clearMessages: () => void
   setStreaming: (v: boolean) => void
-  /** G-703(2026-09-29 立):运行域寻址凭据的**唯一**回收出口。
-   *  `isStreaming` / `streamingAssistantId` / `aiStreamSessionId` 三键在同一事务里清掉 ——
-   *  回合进入终态后,上一轮的上行寻址凭据必须一起失效(留着的表现是假"还在跑" + 把新输入
-   *  送到一条已经死掉的流上,而界面看不出来)。`setStreaming(false)` 与 `clearMessages` 都走它,
-   *  调用点不得再各自补一句 `setStreamingAssistantId(null)`(那正是"靠调用点自觉"的旧形态)。
-   *  清单见 RUN_SCOPED_RESET 注释;非运行域的键(terminalOutputs / interruptedMessageId 等)
-   *  刻意**不**在这里回收。 */
-  clearRunScopedState: () => void
   setError: (e: string | null) => void
   setConversationId: (id: string | null) => void
   /** 设置用户是否向上滚动(由 MessageList scroll handler 调用) */
@@ -487,10 +406,6 @@ interface ChatState {
    *  由 send-message.ts onMemoryUpdates 回调调用,把本轮新增的长期记忆条目摘要挂到对应助手消息。
    *  存储为 store 级数组(键 messageId),MessageItem 按 message.id 过滤渲染「已记住」提示条。 */
   appendMemoryNotice: (messageId: string, items: string[]) => void
-  /** D130(2026-09-30 立):写入/清空推理强度档位的回落通知。
-   *  写入点 = send-message.ts 的 onReasoningEffortNotice(done 帧带回落才发);
-   *  清空点 = 每一轮发起前(sendMessage 体),否则上一轮的钉档会挂在下一轮的轴上读成"本轮被回落"。 */
-  setReasoningEffortNotice: (notice: ReasoningEffortNotice | null) => void
   /** P3 #30 diff 评论驱动返工(2026-09-16 立):新增一条 diff 评审意见(入待发送队列)。
    *  同 filePath+line+comment 完全重复时忽略(防重复提交)。 */
   addDiffComment: (comment: Omit<DiffComment, 'id' | 'createdAt'>) => void
@@ -506,24 +421,6 @@ interface ChatState {
   removeSideQuestion: (conversationId: string, id: string) => void
   /** D28 快速侧问:出队指定会话桶的队首一条(流结束自动补答时调用);桶空返回 null */
   shiftSideQuestion: (conversationId: string) => SideQueueItem | null
-  /** D38 队列语义完整交互(2026-09-24 立,对标 Codex followUpQueueMode)四动作。
-   *  **W27 纪律**:只作用于尚未消费的队列项(重排/移除/编辑),队首选择逻辑
-   *  (shiftSideQuestion + message-input.tsx 流结束 effect + use-message-send.ts 短路)一行不动。 */
-  /** D38:重排指定会话桶的队列项(fromIndex → toIndex,先摘后插);越界/同位为 no-op */
-  requeue: (conversationId: string, fromIndex: number, toIndex: number) => void
-  /** D38:按 id 移除队列项(队列条「撤回」入口;语义同 removeSideQuestion,供交互条独立调用) */
-  removeQueued: (conversationId: string, id: string) => void
-  /** D38:编辑队列项文本(只改 text,createdAt 元数据不动);找不到/trim 空为 no-op */
-  editQueued: (conversationId: string, id: string, text: string) => void
-  /** D38:「打断并执行」预备:读取并移除队首项后返回,**不负责停流** ——
-   *  调用方先经 W2 abort 通道停止当前流,再以返回项发起发送;桶空返回 null(队列不动) */
-  interruptAndRun: (conversationId: string) => SideQueueItem | null
-  /** D38:队列模式偏好(对标 Codex followUpQueueMode),默认 'queue'(排队优先)。
-   *  steer 请求在 Runtime 不支持插话时由渲染层 `effectiveMode` 降级为 queue 执行,
-   *  偏好本身保留用户选择;判定唯一入口 @ihui/shared/chat/queue-interactions。 */
-  followUpQueueMode: FollowUpMode
-  /** D38:setMode 动词落点(恒可切,无许可门;同值 no-op 不产生新状态) */
-  setFollowUpQueueMode: (mode: FollowUpMode) => void
   /** D60 发送可靠性草稿保全(2026-09-23 立):写入失败保留草稿 + 状态;draft 为 null 时清空 */
   setFailedDraft: (draft: string | null, status?: SendReliabilityStatus | null) => void
   /** D60:清空失败保留草稿(输入框消费恢复后调用) */
@@ -533,15 +430,6 @@ interface ChatState {
   appendTerminalOutput: (terminalId: string, text: string) => void
   /** 清理指定终端任务的实时输出缓冲(terminal_end 到达时调用,终态交给 terminal.output) */
   clearTerminalOutput: (terminalId: string) => void
-  /** D151(2026-09-29 立):写入/合并某条终端命令的"等待输入"态(patch 逐字段覆盖;
-   *  新键自动补 submitting:false / failed:false)。唯一生产点 = send-message.ts onTerminalInteraction,
-   *  以及 terminal-section 提交前后的 submitting/failed 两维(不改帧带来的原文)。 */
-  setTerminalInteraction: (terminalId: string, patch: Partial<TerminalInteractionState>) => void
-  /** D151:清除某条终端命令的等待态(terminal_end / 提交成功后调用;不留可寻址的空把手) */
-  clearTerminalInteraction: (terminalId: string) => void
-  /** D151:登记本轮 ai-service 流会话 ID(与 tool_delegate/tool-approval/form_request 帧同源观察);
-   *  null = 显式清空。后到者覆盖(同一轮内只有一个活动会话 ID)。 */
-  noteStreamSessionId: (sessionId: string | null) => void
   /** D1 消息级计量(2026-09-19 立):写入某条助手消息的 usage 数据(onUsage 回调触发)。
    * messageId 为空时调用方已回退到当前流式消息 id。同名 id 直接覆盖(流末只到达一次)。 */
   setMessageUsage: (messageId: string, usage: MessageUsage) => void
@@ -592,31 +480,6 @@ interface ChatState {
 // 500 条足够覆盖大部分长对话场景,且内存占用可控。
 const MAX_MESSAGES = 500
 
-/** G-703(2026-09-29 立)运行域状态的一次性回收清单 —— 本文件里这三键的复位值**只有这一份**。
- *
- *  为什么是这三键:它们同属"本轮在跑"这一件事的凭据 ——
- *   - `isStreaming`:运行标志(输入区禁用、按钮态、续接判定都读它);
- *   - `streamingAssistantId`:steer 端点的定位键(conversationId + messageId 找 upstream 会话);
- *   - `aiStreamSessionId`:见 :310-314 的原注释 —— `postTerminalInput` 的**唯一**上行寻址凭据。
- *  旧形态是 `setStreaming` 裸写一个键、流收尾时调用点再各补一句 `setStreamingAssistantId(null)`,
- *  而 `aiStreamSessionId` 除初值与 clearMessages 外**没有任何清除点**(现读
- *  `git grep -n 'aiStreamSessionId' HEAD -- apps/web/src | grep -v __tests__` 可复核):
- *  于是回合进终态后,上一轮的 sessionId 仍被下一轮的消费点拿去用。
- *
- *  刻意不在清单里的键(不得"顺手一起清",它们的归属另有语义):
- *   - `terminalOutputs` / `terminalInteractions`:终态渲染要取更完整的 live 缓冲(见 :295-308),
- *     清除点是 terminal_end 与 clearMessages,不是"流结束";
- *   - `interruptedMessageId`:#21「中断后追加指令继续」正是要在流结束之后仍可用;
- *   - `messages` / `conversationId` / 草稿队列:会话域,不是运行域。 */
-const RUN_SCOPED_RESET: Pick<
-  ChatState,
-  'isStreaming' | 'streamingAssistantId' | 'aiStreamSessionId'
-> = {
-  isStreaming: false,
-  streamingAssistantId: null,
-  aiStreamSessionId: null,
-}
-
 function genId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
@@ -653,14 +516,9 @@ export const useChatStore = create<ChatState>()(
       compactionStatus: null,
       // P1 #27 记忆更新可视化(2026-09-16 立)
       memoryUpdateNotices: [],
-      // D130(2026-09-30 立):本轮没有钉档回落 = null(运行态,不持久化)
-      reasoningEffortNotice: null,
       pendingDiffComments: [],
       // 2026-09-18 终端实时输出缓冲(执行期瞬时态,不持久化)
       terminalOutputs: {},
-      // D151 终端"等待输入"态 + 本轮上行寻址凭据(执行期瞬时态,不持久化)
-      terminalInteractions: {},
-      aiStreamSessionId: null,
       // D1 消息级计量(执行期瞬时态,不持久化)
       usageByMessageId: {},
       // Steer(中途引导)注入确认 + 当前流式 assistant 消息 ID(执行期瞬时态,不持久化)
@@ -678,9 +536,6 @@ export const useChatStore = create<ChatState>()(
       inputHistory: [],
       // D28 快速侧问(2026-09-20 立):按会话分桶的侧问 FIFO 队列(持久化,见 partialize)
       sideQueueByConversation: {},
-      // D38 队列交互模式偏好(2026-09-24 立):默认排队优先;steer 在 Runtime 不支持插话时
-      // 由渲染层 effectiveMode 降级为 queue 执行,偏好保留(持久化,见 partialize)
-      followUpQueueMode: 'queue',
       // D60 发送可靠性草稿保全(2026-09-23 立):失败保留草稿(执行期 + 持久化,见 partialize)
       failedDraft: null,
       failedDraftStatus: null,
@@ -754,15 +609,14 @@ export const useChatStore = create<ChatState>()(
           return { messages: next }
         }),
 
-      setMessageError: (id, error, errorCode) =>
+      setMessageError: (id, error) =>
         set((s) => {
           const idx = s.messages.findIndex((m) => m.id === id)
           if (idx === -1) return { error }
           const target = s.messages[idx]
           if (!target) return { error }
           const next = s.messages.slice()
-          // D92:把后端 errorCode 一并落到消息上,渲染侧才能走统一分类表取词
-          next[idx] = markStreamError(target, error, errorCode)
+          next[idx] = markStreamError(target, error)
           return { messages: next, error }
         }),
 
@@ -804,26 +658,18 @@ export const useChatStore = create<ChatState>()(
 
       clearMessages: () =>
         set({
-          // G-703(2026-09-29 立):运行域三键(isStreaming / streamingAssistantId /
-          // aiStreamSessionId)走**同一份**清单复位,不在这里各抄一行 —— 抄第二份就是第二个真相。
-          ...RUN_SCOPED_RESET,
           messages: [],
           error: null,
           memoryUpdateNotices: [],
-          // D130:上一轮的钉档回落属那一轮的运行态,新建对话必须一起清 ——
-          // 留着的表现是"新会话第一件事就告诉用户档位被改了",而本轮根本没选过档。
-          reasoningEffortNotice: null,
           // P3 #30:新建对话时 diff 卡片随消息消失,待发送评论一并清空避免悬空
           pendingDiffComments: [],
           // 2026-09-18:终端实时输出属消息级瞬时态,新建对话一并清空
           terminalOutputs: {},
-          // D151:同理必须**并列**清空 —— 上一轮残留的"等待输入"挂到下一轮的卡上,
-          // 用户会把一行字送进一个已经结束的命令(而界面看不出来)。
-          terminalInteractions: {},
           // D1 消息级计量:新建对话一并清空
           usageByMessageId: {},
-          // Steer(中途引导):提示条一并清空;流式目标消息 ID 已随上面 RUN_SCOPED_RESET 失效
+          // Steer(中途引导):新建对话一并清空,流式目标消息同步失效
           steerNoticesByMessageId: {},
+          streamingAssistantId: null,
         }),
       /** 替换整个消息列表(用于自动压缩后同步后端压缩结果) */
       setMessages: (messages: ChatMessage[]) => set({ messages }),
@@ -859,28 +705,7 @@ export const useChatStore = create<ChatState>()(
           return { messages: s.messages.slice(0, idx + 1) }
         }),
       setCompactionStatus: (status) => set({ compactionStatus: status }),
-      /** D130(2026-09-30 立):推理强度回落通知的唯一写入口。
-       *  值等价即不写(与 G-704 同一取向):done 帧重放/续接时同一份回落会被再送一次,
-       *  无条件重建会让订阅侧收到"变了"并白刷一轮轴。 */
-      setReasoningEffortNotice: (notice) =>
-        set((s) => {
-          const same =
-            (s.reasoningEffortNotice === null && notice === null) ||
-            (s.reasoningEffortNotice !== null &&
-              notice !== null &&
-              s.reasoningEffortNotice.fallback === notice.fallback &&
-              s.reasoningEffortNotice.requested === notice.requested &&
-              s.reasoningEffortNotice.effective === notice.effective &&
-              s.reasoningEffortNotice.reason === notice.reason)
-          if (same) return s
-          return { reasoningEffortNotice: notice }
-        }),
-      /** G-703:false 侧不再裸写单键 —— "本轮不再在跑"这一件事必然同时意味着"上一轮的寻址凭据
-       *  作废",所以它只能是一次 RUN_SCOPED_RESET 写入。true 侧保持只置运行标志,
-       *  不得顺手清凭据(本轮的 sessionId 是在 setStreaming(true) **之后**由同源帧观察登记的)。 */
-      setStreaming: (v) => set(v ? { isStreaming: true } : RUN_SCOPED_RESET),
-      /** G-703:运行域凭据的唯一回收出口(清单与"为什么是这三键"见 RUN_SCOPED_RESET 注释)。 */
-      clearRunScopedState: () => set(RUN_SCOPED_RESET),
+      setStreaming: (v) => set({ isStreaming: v }),
 
       setError: (e) => set({ error: e }),
 
@@ -1292,15 +1117,11 @@ export const useChatStore = create<ChatState>()(
             notices.push({ messageId, items: items.slice() })
           } else {
             const existing = notices[existingIdx]!
-            const mergedItems = Array.from(new Set([...existing.items, ...items])).filter(
-              (v) => v.length > 0,
-            )
-            const merged = { messageId, items: mergedItems }
-            // G-704(2026-09-29 立)值等价即不写:done 事件重放 / 历史加载与 done 先后到齐时,
-            // 同一批 items 会被再送一次。原先无条件重建 notices[existingIdx] 与整个数组引用
-            // ⇒ 订阅侧收到"变了"。等价时**原样返回 s**(一个对象都不重建)。
-            if (areRecordValuesEqual(existing, merged)) return s
-            notices[existingIdx] = merged
+            const merged = [...existing.items, ...items]
+            notices[existingIdx] = {
+              messageId,
+              items: Array.from(new Set(merged)).filter((v) => v.length > 0),
+            }
           }
           return { memoryUpdateNotices: notices }
         }),
@@ -1377,78 +1198,6 @@ export const useChatStore = create<ChatState>()(
         return head
       },
 
-      // D38 队列语义完整交互(2026-09-24 立):重排/移除/编辑/打断预备四动作。
-      // 许可判定复用 @ihui/shared/chat/queue-interactions 的 interactionAllowed(渲染层调用);
-      // 这里只做幂等状态变更 —— 越界/同位/找不到/空文本一律 no-op 返回原状态。
-      // **禁改区声明**:上方 enqueue/remove/shift 三 action 与下方消费点均未触碰。
-      requeue: (conversationId, fromIndex, toIndex) =>
-        set((s) => {
-          const bucket = s.sideQueueByConversation[conversationId]
-          if (!bucket || fromIndex === toIndex) return s
-          if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)) return s
-          if (
-            fromIndex < 0 ||
-            fromIndex >= bucket.length ||
-            toIndex < 0 ||
-            toIndex >= bucket.length
-          )
-            return s
-          const next = bucket.slice()
-          const [moved] = next.splice(fromIndex, 1)
-          if (!moved) return s
-          next.splice(toIndex, 0, moved)
-          return {
-            sideQueueByConversation: { ...s.sideQueueByConversation, [conversationId]: next },
-          }
-        }),
-
-      removeQueued: (conversationId, id) =>
-        set((s) => {
-          const bucket = s.sideQueueByConversation[conversationId]
-          if (!bucket?.some((q) => q.id === id)) return s
-          const next = bucket.filter((q) => q.id !== id)
-          const nextMap = { ...s.sideQueueByConversation }
-          if (next.length > 0) nextMap[conversationId] = next
-          else delete nextMap[conversationId]
-          return { sideQueueByConversation: nextMap }
-        }),
-
-      editQueued: (conversationId, id, text) =>
-        set((s) => {
-          const trimmed = text.trim()
-          if (!trimmed) return s
-          const bucket = s.sideQueueByConversation[conversationId]
-          if (!bucket) return s
-          const idx = bucket.findIndex((q) => q.id === id)
-          if (idx === -1) return s
-          const target = bucket[idx]
-          if (!target) return s
-          const next = bucket.slice()
-          next[idx] = { ...target, text: trimmed }
-          return {
-            sideQueueByConversation: { ...s.sideQueueByConversation, [conversationId]: next },
-          }
-        }),
-
-      interruptAndRun: (conversationId) => {
-        const head = get().sideQueueByConversation[conversationId]?.[0]
-        if (!head) return null
-        set((s) => {
-          const next = (s.sideQueueByConversation[conversationId] ?? []).slice(1)
-          const nextMap = { ...s.sideQueueByConversation }
-          if (next.length > 0) nextMap[conversationId] = next
-          else delete nextMap[conversationId]
-          return { sideQueueByConversation: nextMap }
-        })
-        return head
-      },
-
-      // D38 setMode 落点:模式偏好恒可切(许可门只管 interject 能力,不管用户想不想 steer);
-      // steer 能否真正生效由渲染层 effectiveMode 判定(Runtime 不支持则降级 queue 并显式提示)。
-      // 同值 no-op(不产生新状态引用,渲染层可跳过重渲染)。
-      setFollowUpQueueMode: (mode) =>
-        set((s) => (s.followUpQueueMode === mode ? s : { followUpQueueMode: mode })),
-
       // D60 发送可靠性草稿保全(2026-09-23 立):失败时保留正文 + 状态,供输入框回填/重发。
       // 空正文(trim 后为空)不保留(避免把空串当草稿覆盖有效内容);draft null = 显式清空。
       setFailedDraft: (draft, status) =>
@@ -1488,47 +1237,6 @@ export const useChatStore = create<ChatState>()(
           delete next[terminalId]
           return { terminalOutputs: next }
         }),
-
-      // D151(2026-09-29 立)终端"等待输入"态。与 terminalOutputs 并列而不复用那份:
-      // 后者是"它在输出",本切片是"它停住了、在等你敲一行",两态可以同时为真。
-      // patch 语义 = 逐字段覆盖合并(提交前后只动 submitting/failed,不必回带原文)。
-      setTerminalInteraction: (terminalId, patch) =>
-        set((s) => {
-          if (!terminalId) return s
-          const prev = s.terminalInteractions[terminalId]
-          const merged: TerminalInteractionState = {
-            promptTail: '',
-            waitingSinceMs: 0,
-            maxInputChars: 0,
-            submitting: false,
-            failed: false,
-            ...prev,
-            ...patch,
-          }
-          const next: Record<string, TerminalInteractionState> = {
-            ...s.terminalInteractions,
-            [terminalId]: merged,
-          }
-          // 键数封顶复用 terminalOutputs 那一档(同一轮终端数同一量级):
-          // 对象字符串键保持插入序,超出淘汰最旧,长会话不累积空把手。
-          const keys = Object.keys(next)
-          if (keys.length > TERMINAL_OUTPUT_MAX_KEYS) {
-            for (const stale of keys.slice(0, keys.length - TERMINAL_OUTPUT_MAX_KEYS)) {
-              delete next[stale]
-            }
-          }
-          return { terminalInteractions: next }
-        }),
-
-      clearTerminalInteraction: (terminalId) =>
-        set((s) => {
-          if (!(terminalId in s.terminalInteractions)) return s
-          const next = { ...s.terminalInteractions }
-          delete next[terminalId]
-          return { terminalInteractions: next }
-        }),
-
-      noteStreamSessionId: (sessionId) => set({ aiStreamSessionId: sessionId }),
 
       // D1 消息级计量(2026-09-19 立):onUsage 回调写入,按 messageId 索引(同名覆盖)。
       setMessageUsage: (messageId, usage) =>
@@ -1590,22 +1298,15 @@ export const useChatStore = create<ChatState>()(
           return { messages: next }
         }),
 
-      // P1 token 用量写入消息级 meta(2026-08-15 立):后端 SSE onUsage 回调写入 meta.usage
+      // P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE onUsage 回调写入 meta.usage
       updateMessageMeta: (messageId, meta) =>
         set((s) => {
           const idx = s.messages.findIndex((m) => m.id === messageId)
           if (idx === -1) return s
           const target = s.messages[idx]
           if (!target) return s
-          const mergedMeta: Record<string, unknown> = { ...(target.meta ?? {}), ...meta }
-          // G-704(2026-09-29 立)值等价即不写:高频 SSE 写入位(send-message 每 800ms 的
-          // meta.usage 估算)每帧都新造一个对象,而值常常一个字节都没变。原先无条件
-          // 重建消息对象 + 整个 messages 数组 ⇒ 订阅方每次拿到新引用 ⇒ store→effect→set 自环
-          // 与整列表重渲染。比较必须**等深**(usage 是嵌在 meta 下的对象,只比顶层键等于没比)。
-          // 等价时原样返回 s:连对象都不重建,这样引用相等断言才判得出"确实没写"。
-          if (areRecordValuesEqual(target.meta ?? {}, mergedMeta)) return s
           const next = s.messages.slice()
-          next[idx] = { ...target, meta: mergedMeta }
+          next[idx] = { ...target, meta: { ...(target.meta ?? {}), ...meta } }
           return { messages: next }
         }),
 
@@ -1621,9 +1322,7 @@ export const useChatStore = create<ChatState>()(
     }),
     {
       name: 'ihui-chat',
-      // D48(G-56)A 层加密:桌面端(Tauri WebView)把整条 blob 走 AES-256-GCM 信封,
-      // 浏览器路径原样返回 ssrStorage(对象同一、行为同一)。详见 lib/chat-persist-crypto.ts
-      storage: createChatPersistStorage(ssrStorage),
+      storage: ssrStorage,
       partialize: (s: ChatState) => ({
         currentModel: s.currentModel,
         conversationId: s.conversationId,
@@ -1643,8 +1342,6 @@ export const useChatStore = create<ChatState>()(
         failedDraftStatus: s.failedDraftStatus,
         // D22(2026-09-19):网页搜索开关用户偏好持久化(初始 state 已有 localStorage 双保险)
         webSearchEnabled: s.webSearchEnabled,
-        // D38(2026-09-24):队列模式偏好(steer/queue)用户设置持久化
-        followUpQueueMode: s.followUpQueueMode,
         // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已从持久化中删除
         // ChatMode 由 useModeStore 独立管理,持久化不重复存储
         // #12 store messages 持久化(2026-07-25 立):
