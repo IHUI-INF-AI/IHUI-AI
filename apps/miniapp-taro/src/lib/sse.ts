@@ -69,7 +69,26 @@ function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 /**
- * 纯函数式 SSE 帧解析器。
+ * D136(2026-10-01 立):把"本轮被消费掉的整行"逐行递给旁路观察点(`onRawLine`)。
+ *
+ * 为什么需要这一层:@ihui/shared/utils/sse-parse 的认领面是一张**静默白名单** ——
+ * 不在清单上的帧(现读 `grep -c "'tool-approval'" packages/shared/src/utils/sse-parse.ts` = 0)
+ * 会被 `parseSSEChunk` 直接丢掉,onEvent 根本收不到。本端要接审批帧,又不能替跨端裁决去改
+ * 共享认领面(那是 packages/shared 的口径,另有对账门),所以在这份唯一真源的**外侧**递原文:
+ * 观察者只读不改帧流,18 类既有事件的分发路径一字未动。
+ *
+ * 次序纪律:必须在 `buffer = remainder` **之前**算出"已消费"的那一段(= 整行,可安全逐行切);
+ * 半包留在 remainder 里下一轮再递 ⇒ 同一帧永不递两次,也不会把半截 JSON 当帧。
+ */
+function feedRawLines(consumed: string, sink?: (line: string) => void): void {
+  if (!sink || !consumed) return
+  for (const line of consumed.split('\n')) {
+    const trimmed = line.replace(/\r$/, '')
+    if (trimmed) sink(trimmed)
+  }
+}
+
+/** 纯函数式 SSE 帧解析器。
  *
  * 用法:每条传输层收到的原始 chunk 调用 push(),返回本次解析出的完整 SSE 事件数组;
  * 跨 chunk 的半包(如一行被网络切在中间)由内部 buffer 自动续接,粘包(多个事件挤在一个
@@ -78,12 +97,25 @@ function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
 export class SSEStreamParser {
   private buffer = ''
   private lastEventId?: string
+  /** D136:整行原文的旁路观察点(共享解析面没认领的那一族帧靠它到达端内,见 feedRawLines) */
+  private readonly rawLineSink?: (line: string) => void
+
+  constructor(rawLineSink?: (line: string) => void) {
+    this.rawLineSink = rawLineSink
+  }
 
   /** 喂入一个原始 chunk(可能不完整),返回本次解析出的完整事件。空输入直接返回 []。 */
   push(raw: string): SSEEvent[] {
     if (!raw) return []
     this.buffer += raw
     const { events, remainder, lastId } = parseSSEChunk(this.buffer)
+    // D136(2026-10-01 立):先把**本轮被消费掉的整行**递给旁路观察点,再截断缓冲。
+    // 半包留在 remainder 里,下一次 push 才递(不重复、不吞),所以审批帧不会因为
+    // 网络把一行切成两片就丢 —— 端内认领层要求整行是完整 JSON,残片自然解不出。
+    feedRawLines(
+      this.buffer.slice(0, Math.max(0, this.buffer.length - remainder.length)),
+      this.rawLineSink,
+    )
     this.buffer = remainder
     if (lastId) this.lastEventId = lastId
     return events
@@ -95,8 +127,11 @@ export class SSEStreamParser {
    */
   flush(): SSEEvent[] {
     if (!this.buffer.trim()) return []
+    const pending = this.buffer
     const { events } = parseSSEChunk(this.buffer + '\n')
     this.buffer = ''
+    // D136:收尾残余同样要过旁路观察点(最后一帧常被流关闭截在这里,漏递就等于丢审批)
+    feedRawLines(pending, this.rawLineSink)
     return events
   }
 
@@ -124,6 +159,13 @@ export interface StreamSSEOptions {
   signal?: AbortSignal
   /** 每个解析出的 SSE 事件回调;回调抛出 Error 视为致命错误(终止当前 attempt,不再重试)。 */
   onEvent: (evt: SSEEvent) => void
+  /**
+   * D136(2026-10-01 立):整行原文的旁路观察点 —— 共享解析面(@ihui/shared/utils/sse-parse)
+   * **没认领**的那一族帧(本端今天是 `tool-approval`)不会进 `onEvent`,没有这一层就永远
+   * 到不了端内(见文件内 feedRawLines 的注释:为什么认领住在端内而不是改共享解析面)。
+   * 只递已完整的行;观察者不改帧流,所以对本端既有 18 类事件分发零影响。
+   */
+  onRawLine?: (line: string) => void
   /** 重连前通知(指数退避,attempt 从 1 起) */
   onReconnect?: (attempt: number, delayMs: number) => void
   /** 初始断点续传游标(上一次 Last-Event-ID),缺省不携带 */
@@ -149,6 +191,7 @@ export async function streamSSE(options: StreamSSEOptions): Promise<void> {
     headers: extraHeaders,
     signal,
     onEvent,
+    onRawLine,
     onReconnect,
     lastEventId: initialLastEventId,
     readTimeoutMs = STREAM_READ_TIMEOUT_MS,
@@ -172,7 +215,7 @@ export async function streamSSE(options: StreamSSEOptions): Promise<void> {
   const runWeappAttempt = (): Promise<void> =>
     new Promise<void>((resolve, reject) => {
       const decoder = new TextDecoder('utf-8')
-      const parser = new SSEStreamParser()
+      const parser = new SSEStreamParser(onRawLine)
       if (lastEventId) parser.reset() // lastEventId 已在 header 携带,避免重复
       let settled = false
       let idleTimer: ReturnType<typeof setTimeout> | undefined
@@ -309,6 +352,8 @@ export async function streamSSE(options: StreamSSEOptions): Promise<void> {
       if (done) {
         buffer += decoder.decode()
         const { events } = parseSSEChunk(buffer)
+        // D136:与 SSEStreamParser.flush() 同一纪律 —— 收尾残余整段递给旁路观察点
+        feedRawLines(buffer, onRawLine)
         buffer = ''
         for (const evt of events) {
           try {
@@ -322,6 +367,11 @@ export async function streamSSE(options: StreamSSEOptions): Promise<void> {
       }
       buffer += decoder.decode(value, { stream: true })
       const { events, remainder } = parseSSEChunk(buffer)
+      // D136:只递本轮被消费掉的整行(半包留在 remainder,下一轮再递)
+      feedRawLines(
+        buffer.slice(0, Math.max(0, buffer.length - remainder.length)),
+        onRawLine,
+      )
       buffer = remainder
       for (const evt of events) {
         try {
