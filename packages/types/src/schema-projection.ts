@@ -32,6 +32,87 @@ const REFERENCE_BOOKKEEPING_KEYS = [
 /** 引用类关键字中需要解析才能保留语义的那一个:剥它必须有 resolver,否则只能如实报数。 */
 const REFERENCE_POINTER_KEY = '$ref'
 
+/**
+ * 发射子集 == 校验子集 的单一词汇表(b76-05 票2,2026-09-30 立)。
+ *
+ * 上游教训原文:"另建一个平行的检查器,等于开始维护第二份真相——而两份真相分歧的
+ * 那天,只会在某个 run 的 Results 面板上显示成一个 `{}`"。本表因此是**唯一一份**:
+ * 描述符侧(发射器输入)允许出现的键与投影输出侧(校验器/provider 消费)允许出现的键
+ * 都以它为准 —— 分成两张表的那天,就会出现"校验器读不懂而模型被告知了"的键。
+ *
+ * 刻意**不含** `anyOf`/`oneOf`/`$ref`/`$defs` 等:它们只允许出现在
+ * `normalizeProviderSchema` 的**任意来源**入口(那里有折叠/解析/记账语义),
+ * 不得出现在手写描述符与投影输出上 —— 严格投影(`projectToolInputSchemaStrict`)
+ * 遇到词汇表外的键一律抛 `ToolSchemaProjectionError`(带 `$.properties.x` 路径),
+ * **拒绝 + 定位**,不做静默归一化。
+ */
+export const SCHEMA_PROJECTION_VOCABULARY = [
+  'type',
+  'description',
+  'enum',
+  'items',
+  'properties',
+  'required',
+  'additionalProperties',
+  'minimum',
+  'maximum',
+  'minLength',
+  'maxLength',
+  'pattern',
+] as const
+
+export type SchemaProjectionVocabularyKey = (typeof SCHEMA_PROJECTION_VOCABULARY)[number]
+
+const VOCABULARY_SET: ReadonlySet<string> = new Set<string>(SCHEMA_PROJECTION_VOCABULARY)
+
+/** 字段级 typed fault 的稳定码:判定侧只认这个字符串,不认 message 文本。 */
+export const TOOL_SCHEMA_PROJECTION_FAULT_CODE = 'fault.toolSchema.projectionRejected' as const
+
+/** 一次投影拒绝:JSON 路径(`$.properties.x` 形式)+ 稳定码 + 一行原因。 */
+export interface SchemaRejection {
+  readonly path: string
+  readonly code: typeof TOOL_SCHEMA_PROJECTION_FAULT_CODE
+  readonly reason: string
+}
+
+/**
+ * 严格投影的拒绝通道(b76-05 票2):描述符携带投影器无法解释的构造时,
+ * **定位到路径**抛出,而不是静默归一化 —— "尽力归一化"遇到的每个不认识的构造,
+ * 都是一次"两份真相开始分叉"的现场。
+ */
+export class ToolSchemaProjectionError extends Error {
+  readonly path: string
+  readonly code: typeof TOOL_SCHEMA_PROJECTION_FAULT_CODE
+  readonly reason: string
+
+  constructor(rejection: SchemaRejection) {
+    super(`[tool-schema-projection] ${rejection.path}: ${rejection.reason}`)
+    this.name = 'ToolSchemaProjectionError'
+    this.path = rejection.path
+    this.code = rejection.code
+    this.reason = rejection.reason
+  }
+}
+
+/**
+ * 确定性序列化(b76-05 票2 (c)):键序按字典序递归排序,同一结构永远逐字节同串。
+ *
+ * 为什么住在投影器同一文件:工具块是 prompt-cache 前缀的第一段
+ * (ai-service anthropic_provider.py 的 cache_control 挂在 last_tool 上),
+ * 前缀稳定性要求"同一个工具描述符永远产出同一段字节",而 `Object.keys` 的
+ * 插入顺序或宿主差异都可能让前缀漂移。全仓另有 run-idempotency.ts /
+ * knowledge-team-service.ts 两处**私有**同型实现,消费场景不同暂不合并;
+ * 工具 schema 域内只认这一份,不得在别处再抄第三个。
+ */
+export function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null'
+  if (Array.isArray(value)) return `[${value.map((v) => canonicalJson(v)).join(',')}]`
+  const keys = Object.keys(value).sort()
+  return `{${keys
+    .map((k) => `${JSON.stringify(k)}:${canonicalJson((value as Record<string, unknown>)[k])}`)
+    .join(',')}}`
+}
+
 /** 按约束反推 type 的依据:出现这些关键字 ⇒ 该节点必然是这一族。 */
 const OBJECT_ONLY_KEYS = [
   'properties',
@@ -271,5 +352,115 @@ export function projectToolInputSchema(
     properties[name] = projectShapeDescriptor(descriptor, account)
   }
   return { type: 'object', properties, required: [...required] }
+}
+
+// ============================================================================
+// 严格投影(拒绝 + 定位通道)与 canonical 形态(b76-05 票2)
+// ============================================================================
+
+/** 词汇表审计:描述符(或其任意子节点)出现词汇表外的键 ⇒ 带 JSON 路径抛出。 */
+function assertVocabulary(descriptor: ToolShapeDescriptor, path: string): void {
+  for (const key of Object.keys(descriptor)) {
+    if (!VOCABULARY_SET.has(key)) {
+      throw new ToolSchemaProjectionError({
+        path,
+        code: TOOL_SCHEMA_PROJECTION_FAULT_CODE,
+        reason:
+          `unrecognized keyword '${key}' — 投影器无法解释该构造,宁拒不做静默归一化` +
+          (`$ref` === key ? '(依赖 $ref 而无 resolver 的描述符必须先内联展开或补 resolver)' : ''),
+      })
+    }
+  }
+  if (descriptor.items) assertVocabulary(descriptor.items, `${path}.items`)
+  if (descriptor.properties) {
+    for (const [name, child] of Object.entries(descriptor.properties)) {
+      assertVocabulary(child, `${path}.properties.${name}`)
+    }
+  }
+  const ap = descriptor.additionalProperties
+  if (ap !== undefined && typeof ap === 'object') {
+    assertVocabulary(ap, `${path}.additionalProperties`)
+  }
+}
+
+/** 投影输出反查:输出侧不得出现词汇表之外的键(发射子集 == 校验子集的运行时证明)。
+ * 注意 `properties` / `patternProperties` 是"属性名 → 子 schema"的映射:映射的键是
+ * **属性名**而不是 schema 关键字,不得对它做词汇表检查,只递归进它的值。 */
+function assertOutputVocabulary(node: unknown, path: string): void {
+  if (Array.isArray(node)) {
+    node.forEach((item, i) => assertOutputVocabulary(item, `${path}[${i}]`))
+    return
+  }
+  if (!isRecord(node)) return
+  for (const [key, value] of Object.entries(node)) {
+    if (key === 'properties' || key === 'patternProperties') {
+      if (isRecord(value)) {
+        for (const [name, child] of Object.entries(value)) {
+          assertOutputVocabulary(child, `${path}.${key}.${name}`)
+        }
+        continue
+      }
+    }
+    if (!VOCABULARY_SET.has(key)) {
+      throw new ToolSchemaProjectionError({
+        path: `${path}.${key}`,
+        code: TOOL_SCHEMA_PROJECTION_FAULT_CODE,
+        reason: `projected output carries key '${key}' outside the emit/validate vocabulary`,
+      })
+    }
+    assertOutputVocabulary(value, `${path}.${key}`)
+  }
+}
+
+/**
+ * 严格投影单个描述符:先词汇表审计(拒绝 + 定位),再走**同一个**发射器
+ * `projectShapeDescriptor`(刻意不另建第二份发射器 —— 那等于开始维护第二份真相),
+ * 最后对输出做词汇表反查。任何一环无法解释 ⇒ `ToolSchemaProjectionError`。
+ */
+export function projectShapeDescriptorStrict(
+  descriptor: ToolShapeDescriptor,
+  account: ProjectionAccount = createProjectionAccount(),
+): ProviderJsonSchema {
+  assertVocabulary(descriptor, '$')
+  const projected = projectShapeDescriptor(descriptor, account)
+  assertOutputVocabulary(projected, '$')
+  return projected
+}
+
+/**
+ * 严格投影一份工具入参描述(与 `projectToolInputSchema` 同源,多两道闸):
+ * 输入侧逐节点词汇表审计(`$.properties.x` 路径直达违规键)+ 输出侧反查。
+ * `$ref` 依赖 resolver 的描述符在这里**如实报数**(抛错并列路径),无处可查的旧状不再存在。
+ */
+export function projectToolInputSchemaStrict(
+  parameters: Record<string, ToolShapeDescriptor>,
+  required: readonly string[],
+  account: ProjectionAccount = createProjectionAccount(),
+): { type: 'object'; properties: Record<string, ProviderJsonSchema>; required: string[] } {
+  for (const [name, descriptor] of Object.entries(parameters)) {
+    assertVocabulary(descriptor, `$.properties.${name}`)
+  }
+  const projected = projectToolInputSchema(parameters, required, account)
+  for (const [name, node] of Object.entries(projected.properties)) {
+    assertOutputVocabulary(node, `$.properties.${name}`)
+  }
+  return projected
+}
+
+/**
+ * canonical 形态:严格投影后把键序**递归排成字典序**。
+ *
+ * 与 `projectToolInputSchema`(生产出口)刻意分开:生产出口的键序与今日 provider
+ * 已接受形态逐字节兼容(a13 等价性测试钉着线字节),canonical 形态服务
+ * prompt-cache 前缀稳定性 —— 两者键集合相等,只有键序不同;接缓存前缀的那一票
+ * 切换出口时只需换调本函数,判据已在守门里跑通。
+ */
+export function projectToolInputSchemaCanonical(
+  parameters: Record<string, ToolShapeDescriptor>,
+  required: readonly string[],
+  account: ProjectionAccount = createProjectionAccount(),
+): { type: 'object'; properties: Record<string, ProviderJsonSchema>; required: string[] } {
+  const projected = projectToolInputSchemaStrict(parameters, required, account)
+  return JSON.parse(canonicalJson(projected)) as typeof projected
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
