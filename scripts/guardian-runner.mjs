@@ -4325,6 +4325,25 @@ const checks = [
       '     单独复验:node scripts/check-bypass-landing-scope.mjs',
     ].join('\n'),
   },
+  // --- 承诺面/兑现面对账(2026-09-30 立,blocking)---
+  //   拦"文档写了 HUSKY_SKIP_XXX=1 出路而全仓没有任何一处真读它" —— 按了静默无效,唯一出路退化成
+  //   --no-verify,一次绕过等于全部守门对该提交作废(§12e 同型)。提交链档 --staged:与 HEAD 面的
+  //   假承诺集合做差值棘轮,只拦**新增**假承诺;存量只点名不判红(问责出口 --strict)。
+  {
+    id: '172',
+    label: '🛡  跳门变量承诺/兑现对账(blocking,文档承诺的 HUSKY_SKIP_* 必须有真实读点;差值棘轮只拦新增)',
+    script: 'check-skip-env-promise.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_SKIP_ENV_PROMISE',
+    onFailHint: [
+      '',
+      '  💡 新增的假承诺:文档(AGENTS.md/README.md)新写了一条 `HUSKY_SKIP_X=1` 出路,而代码里没人读它。',
+      '     修法只有两条:① 给该变量接真实读取点(或 runner 注册块 skipEnv 一行);② 把文档那句改成如实',
+      '     措辞(禁令/说明),不要承诺一条跑不通的出路。存量假承诺不拦本次提交,可用 --strict 点名问责。',
+      '     应急放行:HUSKY_SKIP_SKIP_ENV_PROMISE=1 git commit ...(commit message 写明责任归属)。',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
