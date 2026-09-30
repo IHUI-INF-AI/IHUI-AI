@@ -9,6 +9,7 @@ import { createWorker } from '../plugins/queue.js'
 import {
   SCHEDULER_QUEUE_NAME,
   SCHEDULED_JOBS,
+  runOutboxDrain,
   type ScheduledJobName,
 } from '../plugins/scheduler.js'
 import {
@@ -886,6 +887,17 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               },
               'expired upload sessions reaped',
             )
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
+          }
+          case 'outbox-drain-every-30s': {
+            // b76-12e 票3(G-998160):outbox 排空接进既有 BullMQ 轮询,不新增计时器。
+            // runOutboxDrain 内部已降级(DB 异常不抛出),这里不需要额外 try。
+            const result = await runOutboxDrain(server)
             try {
               server.recordJobExecution(name, 'success')
             } catch {
