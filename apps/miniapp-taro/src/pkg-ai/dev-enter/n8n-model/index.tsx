@@ -4,7 +4,7 @@
 
 import { useTt, useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Input, Textarea, ScrollView, Image } from '@tarojs/components'
+import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
@@ -12,6 +12,7 @@ import { get, post } from '@/api'
 import { chooseImages, uploadImage } from '@/utils/upload-image'
 import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
+import { FocusInput, FocusTextarea } from '@/components/FocusField'
 
 type ParamType = 'string' | 'number' | 'boolean' | 'file' | 'select' | 'json'
 
@@ -325,7 +326,7 @@ export default function N8nModel() {
     if (p.type === 'json') {
       return (
         <ThemeRoot>
-          <Textarea
+          <FocusTextarea
             className="nm-field-textarea"
             placeholderClass="text-[var(--color-text-tertiary)]"
             value={p.defaultValue}
@@ -337,7 +338,7 @@ export default function N8nModel() {
     }
     return (
       <ThemeRoot>
-        <Input
+        <FocusInput
           className="nm-field-input"
           placeholderClass="text-[var(--color-text-tertiary)]"
           type={p.type === 'number' ? 'digit' : 'text'}
@@ -368,7 +369,7 @@ export default function N8nModel() {
               <Text className="nm-field-label">
                 {tt('devEnter.n8nModel.paramNameLabel', '参数名称')}
               </Text>
-              <Input
+              <FocusInput
                 className="nm-field-input"
                 placeholderClass="text-[var(--color-text-tertiary)]"
                 value={p.name}
@@ -380,7 +381,7 @@ export default function N8nModel() {
               <Text className="nm-field-label">
                 {tt('devEnter.n8nModel.paramDescLabel', '参数描述')}
               </Text>
-              <Textarea
+              <FocusTextarea
                 className="nm-field-textarea"
                 placeholderClass="text-[var(--color-text-tertiary)]"
                 value={p.description}
@@ -493,7 +494,7 @@ export default function N8nModel() {
 
           {/* 名称 */}
           <Text className="nm-label">{tt('devEnter.n8nModel.nameLabel', '智能体名称')}</Text>
-          <Input
+          <FocusInput
             className="nm-input"
             placeholderClass="text-[var(--color-text-tertiary)]"
             maxlength={30}
@@ -504,7 +505,7 @@ export default function N8nModel() {
 
           {/* 描述 */}
           <Text className="nm-label">{tt('devEnter.n8nModel.descLabel', '智能体描述')}</Text>
-          <Textarea
+          <FocusTextarea
             className="nm-textarea"
             placeholderClass="text-[var(--color-text-tertiary)]"
             value={description}
@@ -531,7 +532,7 @@ export default function N8nModel() {
 
           {/* n8n 地址 */}
           <Text className="nm-label">{tt('devEnter.n8nModel.n8nUrlLabel', 'n8n 地址')}</Text>
-          <Input
+          <FocusInput
             className="nm-input"
             placeholderClass="text-[var(--color-text-tertiary)]"
             maxlength={200}
