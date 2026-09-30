@@ -13,6 +13,9 @@ export * from './ai.js'
 // CLI 配置导入(cc-switch / codex++ / 各 CLI 工具)共享类型
 export * from './cli-config.js'
 export * from './notification.js'
+// D153(2026-09-29 立):per-user 常连广播事件的封闭判别联合 —— 三个消费面(web/app/miniapp)
+// 与 apps/api 生产侧共用这一份描述,不得在端内另抄事件名或字段清单
+export * from './user-broadcast.js'
 export * from './notification-channels.js'
 export * from './message-repair.js'
 export * from './agent-runtime.js'
@@ -176,7 +179,9 @@ export * from './error-serialize.js'
 // 所以校验与载荷契约都住在这一侧,端内不得再抄第二份字段清单。
 // 只经主入口导出(同上,不新增子路径)。
 export * from './desktop-prefs.js'
-// D153(2026-09-29 立):per-user 常连广播事件的封闭判别联合 —— 三个消费面(web/app/miniapp)
-// 与 apps/api 生产侧共用这一份描述,不得在端内另抄事件名或字段清单
-export * from './user-broadcast.js'
+// 封闭失败码联合(G-710,2026-09-30 立):重试/放弃这类**流程判断**必须读码,不得读错误文本。
+// 本文件刻意不含任何文本匹配 —— "有码/无码"的分界只有 structuredFailureCodeOf 一处出口,
+// 文案兜底档只在 CLI 的 failure-classification.ts 一处(每次使用都计数报名)。
+// 只经主入口导出(不新增子路径,同 tool-contract / egress-facts / error-serialize 的口径)。
+export * from './failure-code.js'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
