@@ -211,21 +211,29 @@ export async function sendSmsMessage(
     if (env.ALI_SMS_ACCESS_KEY_ID && env.ALI_SMS_ACCESS_KEY_SECRET) {
       const signName = env.ALI_SMS_SIGN_NAME
       // 2026-09-30:通用通知与验证码的模板占位符不同(验证码 {code} / 通知 {content}),共用
-      // 一个 ALI_SMS_TEMPLATE_CODE 必被阿里云拒发。且阿里云变量属性上限 35 字符,"整段正文
-      // 塞单变量"此路不通(结构化模板见 sendArrearSms)。本函数的回落档发送会因占位符不匹配
-      // 失败,失败会如实进留痕(failed 档),不会冒充成功;新调用方请走结构化模板。
-      const templateCode = env.ALI_SMS_NOTIFY_TEMPLATE_CODE || env.ALI_SMS_TEMPLATE_CODE
-      if (!signName || !templateCode) {
-        logger.warn('阿里云短信缺少 ALI_SMS_SIGN_NAME 或模板 CODE,降级为 console', {
-          phone,
-        })
-        return { success: true }
+      // 一个 ALI_SMS_TEMPLATE_CODE 必被阿里云拒发;而阿里云变量属性上限 35 字符,"整段正文
+      // 塞单变量"此路不通(结构化模板见 sendArrearSms)。**因此不再回落到验证码模板**:拿一个
+      // 注定被拒发的模板去发,留痕里只剩一行云侧报错,运营看不出真正的原因是这台机没配通知模板。
+      const notifyTemplateCode = env.ALI_SMS_NOTIFY_TEMPLATE_CODE
+      if (!notifyTemplateCode) {
+        logger.warn('通知短信未配置 ALI_SMS_NOTIFY_TEMPLATE_CODE ⇒ 判为未配置,不记为已发送', { phone })
+        return {
+          success: false,
+          error:
+            'not_configured: 未配置 ALI_SMS_NOTIFY_TEMPLATE_CODE(通知类需独立结构化模板;验证码模板占位符为 {code},共用必被阿里云拒发)',
+        }
+      }
+      if (!signName) {
+        logger.warn('通知短信缺少 ALI_SMS_SIGN_NAME ⇒ 判为未配置,不记为已发送', { phone })
+        return { success: false, error: 'not_configured: 缺少 ALI_SMS_SIGN_NAME' }
       }
       const sdk = await loadAliyunSdk()
       if (!sdk) {
-        logger.warn('阿里云短信 SDK 不可用,降级为 console', { phone })
-        return { success: true }
+        // 走到这里说明凭据与模板都在位、本应真发,却加载不了 SDK ⇒ 这是失败,不是"降级即成功"
+        logger.warn('阿里云短信 SDK 不可用(有凭据却发不出去) ⇒ 如实报失败', { phone })
+        return { success: false, error: 'aliyun_sdk_unavailable' }
       }
+      const templateCode = notifyTemplateCode
       const config = new sdk.Config({
         accessKeyId: env.ALI_SMS_ACCESS_KEY_ID,
         accessKeySecret: env.ALI_SMS_ACCESS_KEY_SECRET,
