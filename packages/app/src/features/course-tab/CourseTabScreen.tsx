@@ -21,7 +21,7 @@ import { SearchInput } from '../../components/SearchInput'
 import { MoreLink } from '../../components/MoreLink'
 import type { TFunction } from '../../types'
 import type { AppIcon } from '@ihui/types'
-import { ChevronLeft, BarChart3, BookOpen, PenLine, Smartphone, Users } from 'lucide-react-native'
+import { BarChart3, BookOpen, PenLine, Smartphone, Users } from 'lucide-react-native'
 
 /** 课程分类(对齐 Uniapp learn.vue) */
 export interface CourseCategory {
@@ -324,17 +324,15 @@ export function CourseTabScreen({
               ))}
               {totalPages > 1 ? (
                 <View style={styles.pagination}>
+                  {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
                   <Pressable
                     onPress={() => onPageChange(Math.max(1, page - 1))}
                     disabled={page <= 1}
                     hitSlop={8}
-                    accessibilityLabel={t('common.back')}
                   >
-                    <ChevronLeft
-                      size={16}
-                      color={tk.text.primary}
-                      style={page <= 1 ? styles.pageBtnDisabled : null}
-                    />
+                    <Text style={[styles.pageBtn, page <= 1 ? styles.pageBtnDisabled : null]}>
+                      {t('common.back')}
+                    </Text>
                   </Pressable>
                   <Text style={styles.pageIndicator}>
                     {page} / {totalPages}

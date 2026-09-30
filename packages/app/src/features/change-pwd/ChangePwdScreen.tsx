@@ -107,7 +107,7 @@ interface PwdInputProps {
   tokens: AppThemeTokens
   styles: ReturnType<typeof createStyles>
   t: TFunction
-  colorScheme: 'light' | 'dark'
+  colorScheme: "light" | "dark"
 }
 
 function PwdInput({ label, value, onChange, show, onToggle, tokens, styles, t, colorScheme }: PwdInputProps) {

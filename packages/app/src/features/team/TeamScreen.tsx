@@ -103,7 +103,12 @@ export function TeamScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
+        <BackChevron
+          onPress={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          style={styles.backBtn}
+        />
         <Text style={styles.title}>{t('team.title')}</Text>
         <Text style={styles.subtitle}>{t('team.subtitle')}</Text>
       </View>
@@ -284,12 +289,13 @@ function createStyles(tk: AppThemeTokens) {
     avatarBox: {
       width: 44,
       height: 44,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: 22, // radius-exempt: 成员头像 44×44 正圆(直径一半)
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius['2xl']}, // 跟随见方父容器:相对式即几何真圆(不需要标记)
+    // radius-exempt: 头像图片随父盒 44×44 正圆(直径一半)
+    avatarImg: { width: '100%', height: '100%', borderRadius: 22 },
     avatarInitial: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
     memberInfo: { flex: 1, marginLeft: 10, marginRight: 8 },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },

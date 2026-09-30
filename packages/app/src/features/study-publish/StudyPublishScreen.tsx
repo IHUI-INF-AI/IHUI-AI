@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native'
 import { getTokens, tokens as baseTokens, type AppThemeTokens } from '../../theme/tokens'
@@ -93,13 +94,13 @@ function LabeledInput({
   colorScheme: 'light' | 'dark'
 }) {
   const tk = getTokens(colorScheme)
-  const fieldStyles = useMemo(() => createFieldStyles(tk), [tk])
+  const styles = useMemo(() => createFieldStyles(tk), [tk])
   return (
-    <View style={fieldStyles.wrap}>
-      <Text style={fieldStyles.label}>{label}</Text>
+    <View style={styles.wrap}>
+      <Text style={styles.label}>{label}</Text>
       <TextField
         colorScheme={colorScheme}
-        style={fieldStyles.input}
+        style={styles.input}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -123,13 +124,13 @@ function LabeledTextarea({
   colorScheme: 'light' | 'dark'
 }) {
   const tk = getTokens(colorScheme)
-  const fieldStyles = useMemo(() => createFieldStyles(tk), [tk])
+  const styles = useMemo(() => createFieldStyles(tk), [tk])
   return (
-    <View style={fieldStyles.wrap}>
-      <Text style={fieldStyles.label}>{label}</Text>
+    <View style={styles.wrap}>
+      <Text style={styles.label}>{label}</Text>
       <TextField
         colorScheme={colorScheme}
-        style={[fieldStyles.input, fieldStyles.textarea]}
+        style={[styles.input, styles.textarea]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -155,28 +156,21 @@ function CoverPicker({
   colorScheme: 'light' | 'dark'
 }) {
   const tk = getTokens(colorScheme)
-  const fieldStyles = useMemo(() => createFieldStyles(tk), [tk])
-  const coverStyles = useMemo(() => createCoverStyles(tk), [tk])
+  const field = useMemo(() => createFieldStyles(tk), [tk])
+  const cover = useMemo(() => createCoverStyles(tk), [tk])
   if (uri) {
     return (
-      <View style={fieldStyles.wrap}>
-        <Text style={fieldStyles.label}>{label}</Text>
-        <View style={coverStyles.previewWrap}>
-          <Image source={{ uri }} style={coverStyles.preview} resizeMode="cover" />
-          {/* 封面删除钮是绝对定位的定尺寸小圆盒,且盒上有底色/圆角 —— 属"整盒下移"那一档:
-              外层只承接定位与尺寸这几条纯布局档(命中区与位置一分不动),底色/圆角/居中连盒
-              一起下移到子 View 的数组形态上,并按外层定尺寸撑满,画出来的圆与改前逐像素同位。 */}
+      <View style={field.wrap}>
+        <Text style={field.label}>{label}</Text>
+        <View style={cover.previewWrap}>
+          <Image source={{ uri }} style={cover.preview} resizeMode="cover" />
           <Pressable
-            style={coverStyles.clearHit}
+            style={({ pressed }) => [cover.clearBtn, pressed ? cover.pressed : null]}
             onPress={onClear}
             accessibilityRole="button"
             accessibilityLabel={`删除${label}`}
           >
-            {({ pressed }) => (
-              <View style={[coverStyles.clearBtn, pressed ? coverStyles.pressed : null]}>
-                <Text style={coverStyles.clearText}>×</Text>
-              </View>
-            )}
+            <Text style={cover.clearText}>×</Text>
           </Pressable>
         </View>
       </View>
@@ -184,20 +178,16 @@ function CoverPicker({
   }
 
   return (
-    <View style={fieldStyles.wrap}>
-      <Text style={fieldStyles.label}>{label}</Text>
-      {/* 上传占位盒带虚线描边与底色 —— 属"整盒下移"那一档:函数形态的 style 落在 Pressable 上会被
-          cssInterop 整份丢掉,盒子留外层又会把描边挤到 padding 内圈,所以外层只承接点击与无障碍语义,
-          盒子(含按压态)下移到子 View 的数组形态上,并用撑满档把父级 stretch 给的整行宽还给盒子。 */}
-      <Pressable onPress={onPick} accessibilityRole="button" accessibilityLabel={label}>
-        {({ pressed }) => (
-          <View
-            style={[coverStyles.boxFace, coverStyles.box, pressed ? coverStyles.pressed : null]}
-          >
-            <Text style={coverStyles.icon}>+</Text>
-            <Text style={coverStyles.hint}>点击上传</Text>
-          </View>
-        )}
+    <View style={field.wrap}>
+      <Text style={field.label}>{label}</Text>
+      <Pressable
+        style={({ pressed }) => [cover.box, pressed ? cover.pressed : null]}
+        onPress={onPick}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+      >
+        <Text style={cover.icon}>+</Text>
+        <Text style={cover.hint}>点击上传</Text>
       </Pressable>
     </View>
   )
@@ -215,26 +205,21 @@ function VideoPicker({
   colorScheme: 'light' | 'dark'
 }) {
   const tk = getTokens(colorScheme)
-  const fieldStyles = useMemo(() => createFieldStyles(tk), [tk])
-  const coverStyles = useMemo(() => createCoverStyles(tk), [tk])
+  const field = useMemo(() => createFieldStyles(tk), [tk])
+  const cover = useMemo(() => createCoverStyles(tk), [tk])
   if (uri) {
     return (
-      <View style={fieldStyles.wrap}>
-        <Text style={fieldStyles.label}>视频预览</Text>
-        <View style={coverStyles.previewWrap}>
-          <View style={coverStyles.preview} />
-          {/* 同上(封面那处关闭钮):定尺寸圆盒整盒下移,外层只留定位与尺寸。 */}
+      <View style={field.wrap}>
+        <Text style={field.label}>视频预览</Text>
+        <View style={cover.previewWrap}>
+          <View style={cover.preview} />
           <Pressable
-            style={coverStyles.clearHit}
+            style={({ pressed }) => [cover.clearBtn, pressed ? cover.pressed : null]}
             onPress={onClear}
             accessibilityRole="button"
             accessibilityLabel="删除视频"
           >
-            {({ pressed }) => (
-              <View style={[coverStyles.clearBtn, pressed ? coverStyles.pressed : null]}>
-                <Text style={coverStyles.clearText}>×</Text>
-              </View>
-            )}
+            <Text style={cover.clearText}>×</Text>
           </Pressable>
         </View>
       </View>
@@ -242,18 +227,16 @@ function VideoPicker({
   }
 
   return (
-    <View style={fieldStyles.wrap}>
-      <Text style={fieldStyles.label}>视频</Text>
-      {/* 与封面上传那一处同型:整盒下移 + 撑满档保持整行宽(见封面处的说明)。 */}
-      <Pressable onPress={onPick} accessibilityRole="button" accessibilityLabel="选择视频">
-        {({ pressed }) => (
-          <View
-            style={[coverStyles.boxFace, coverStyles.box, pressed ? coverStyles.pressed : null]}
-          >
-            <Text style={coverStyles.icon}>+</Text>
-            <Text style={coverStyles.hint}>点击上传视频</Text>
-          </View>
-        )}
+    <View style={field.wrap}>
+      <Text style={field.label}>视频</Text>
+      <Pressable
+        style={({ pressed }) => [cover.box, pressed ? cover.pressed : null]}
+        onPress={onPick}
+        accessibilityRole="button"
+        accessibilityLabel="选择视频"
+      >
+        <Text style={cover.icon}>+</Text>
+        <Text style={cover.hint}>点击上传视频</Text>
       </Pressable>
     </View>
   )
@@ -275,15 +258,15 @@ function CategoryPicker({
   colorScheme: 'light' | 'dark'
 }) {
   const tk = getTokens(colorScheme)
-  const fieldStyles = useMemo(() => createFieldStyles(tk), [tk])
-  const chipStyles = useMemo(() => createChipStyles(tk), [tk])
+  const field = useMemo(() => createFieldStyles(tk), [tk])
+  const chip = useMemo(() => createChipStyles(tk), [tk])
   return (
-    <View style={fieldStyles.wrap}>
-      <Text style={fieldStyles.label}>{title}</Text>
+    <View style={field.wrap}>
+      <Text style={field.label}>{title}</Text>
       {loading ? (
-        <ActivityIndicator color={tk.brand.DEFAULT} style={chipStyles.loading} />
+        <ActivityIndicator color={tk.brand.DEFAULT} style={chip.loading} />
       ) : options.length === 0 ? (
-        <Text style={chipStyles.empty}>暂无赛道</Text>
+        <Text style={chip.empty}>暂无赛道</Text>
       ) : (
         <CategoryDropdown
           items={options.map((o) => ({ id: o.id, label: o.name }))}
@@ -306,10 +289,10 @@ function StagePicker({
   colorScheme: 'light' | 'dark'
 }) {
   const tk = getTokens(colorScheme)
-  const fieldStyles = useMemo(() => createFieldStyles(tk), [tk])
+  const styles = useMemo(() => createFieldStyles(tk), [tk])
   return (
-    <View style={fieldStyles.wrap}>
-      <Text style={fieldStyles.label}>课程阶段</Text>
+    <View style={styles.wrap}>
+      <Text style={styles.label}>课程阶段</Text>
       <CategoryDropdown
         items={STAGES.map((s) => ({ id: String(s.id), label: s.name }))}
         selectedId={String(selected)}
@@ -332,31 +315,19 @@ function SubmitButton({
   colorScheme: 'light' | 'dark'
 }) {
   const tk = getTokens(colorScheme)
-  const submitStyles = useMemo(() => createSubmitStyles(tk), [tk])
+  const styles = useMemo(() => createSubmitStyles(tk), [tk])
   return (
-    // 发布按钮是品牌实底盒(底色 + 圆角)—— 属"整盒下移"那一档:函数形态的 style 落在 Pressable 上
-    // 会被 cssInterop 整份丢掉,所以外层只承接点击/禁用与无障碍语义,盒子连按压态一起下移到子 View
-    // 的数组形态上,并用撑满档把父级 stretch 给出的整行宽还给盒子;上边距留在盒内,可见位置不变。
     <Pressable
+      style={({ pressed }) => [styles.btn, pressed ? styles.pressed : null]}
       onPress={onPress}
       disabled={loading}
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      {({ pressed }) => (
-        <View
-          style={[
-            submitStyles.submitFace,
-            submitStyles.submitBtn,
-            pressed ? submitStyles.pressed : null,
-          ]}
-        >
-          {loading ? (
-            <ActivityIndicator color={tk.brand.foreground} />
-          ) : (
-            <Text style={submitStyles.submitText}>{label}</Text>
-          )}
-        </View>
+      {loading ? (
+        <ActivityIndicator color={tk.brand.ctaForeground} />
+      ) : (
+        <Text style={styles.text}>{label}</Text>
       )}
     </Pressable>
   )
@@ -370,7 +341,6 @@ function GroupForm({
   coverUri,
   categories,
   loadingCategories,
-  colorScheme,
   submitting,
   onTitleChange,
   onContentChange,
@@ -379,6 +349,7 @@ function GroupForm({
   onCoverPick,
   onCoverClear,
   onSubmit,
+  colorScheme,
 }: {
   title: string
   content: string
@@ -387,7 +358,6 @@ function GroupForm({
   coverUri: string
   categories: readonly StudyCategory[]
   loadingCategories: boolean
-  colorScheme: 'light' | 'dark'
   submitting: boolean
   onTitleChange: (v: string) => void
   onContentChange: (v: string) => void
@@ -396,6 +366,7 @@ function GroupForm({
   onCoverPick: () => void
   onCoverClear: () => void
   onSubmit: () => void
+  colorScheme: 'light' | 'dark'
 }) {
   return (
     <ScrollView style={formStyles.scroll} contentContainerStyle={formStyles.content}>
@@ -446,7 +417,6 @@ function VideoForm({
   remark,
   coverUri,
   videoUri,
-  colorScheme,
   submitting,
   onTitleChange,
   onContentChange,
@@ -457,6 +427,7 @@ function VideoForm({
   onVideoPick,
   onVideoClear,
   onSubmit,
+  colorScheme,
 }: {
   title: string
   content: string
@@ -464,7 +435,6 @@ function VideoForm({
   remark: string
   coverUri: string
   videoUri: string
-  colorScheme: 'light' | 'dark'
   submitting: boolean
   onTitleChange: (v: string) => void
   onContentChange: (v: string) => void
@@ -475,6 +445,7 @@ function VideoForm({
   onVideoPick: () => void
   onVideoClear: () => void
   onSubmit: () => void
+  colorScheme: 'light' | 'dark'
 }) {
   return (
     <ScrollView style={formStyles.scroll} contentContainerStyle={formStyles.content}>
@@ -529,19 +500,12 @@ function VideoForm({
   )
 }
 
-/**
- * 课程发布共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API)。
- *
- * 页头归属(2026-09-27,双层页头收敛,同 SettingsScreen 先例):本组件**不渲染内置页头/返回键**,
- * 页头(标题 + 返回)由宿主 NavBar 提供 —— RN 端生产页(apps/mobile-rn/src/screens/StudyPublishScreen.tsx)
- * 渲染 NavBar(标题按 mode 取「发布课程合集/发布视频」,比组件内写死一档更准)。此前组件自带
- * BackChevron + 标题,与宿主 NavBar 同屏两条返回键两个标题(守门 145 DH2 判定型)。
- * onBack 仍留在 props 契约中(可选成员),运行时不再消费。
- */
 export function StudyPublishScreen({
+  t,
   colorScheme = 'light',
   mode,
   onModeChange,
+  onBack,
   groupTitle,
   groupContent,
   groupCategory,
@@ -578,6 +542,14 @@ export function StudyPublishScreen({
 
   return (
     <View style={styles.root}>
+      <View style={styles.header}>
+        {onBack ? (
+          <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.backText}>{t('common.back')}</Text>
+          </TouchableOpacity>
+        ) : null}
+        <Text style={styles.title}>{t('studyPublish.title') || '发布课程'}</Text>
+      </View>
       <View style={styles.tabRow}>
         {(['group', 'video'] as const).map((m) => {
           const active = mode === m
@@ -604,7 +576,6 @@ export function StudyPublishScreen({
           coverUri={groupCoverUri}
           categories={groupCategories}
           loadingCategories={groupLoadingCategories}
-          colorScheme={colorScheme}
           submitting={submitting}
           onTitleChange={onGroupTitleChange}
           onContentChange={onGroupContentChange}
@@ -613,6 +584,7 @@ export function StudyPublishScreen({
           onCoverPick={onGroupCoverPick}
           onCoverClear={onGroupCoverClear}
           onSubmit={onGroupSubmit}
+          colorScheme={colorScheme}
         />
       ) : (
         <VideoForm
@@ -622,7 +594,6 @@ export function StudyPublishScreen({
           remark={videoRemark}
           coverUri={videoCoverUri}
           videoUri={videoUri}
-          colorScheme={colorScheme}
           submitting={submitting}
           onTitleChange={onVideoTitleChange}
           onContentChange={onVideoContentChange}
@@ -633,6 +604,7 @@ export function StudyPublishScreen({
           onVideoPick={onVideoPick}
           onVideoClear={onVideoClear}
           onSubmit={onVideoSubmit}
+          colorScheme={colorScheme}
         />
       )}
     </View>
@@ -642,6 +614,15 @@ export function StudyPublishScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: tk.surface.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 10,
+      paddingVertical: 12,
+      gap: 12,
+    },
+    backText: { fontSize: 16, color: tk.text.medium },
+    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     tabRow: {
       flexDirection: 'row',
       paddingHorizontal: 10,
@@ -656,9 +637,9 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.surface.card,
     },
-    tabItemActive: { backgroundColor: tk.brand.DEFAULT },
+    tabItemActive: { backgroundColor: tk.brand.cta },
     tabText: { fontSize: 16, color: tk.text.secondary },
-    tabTextActive: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
+    tabTextActive: { fontSize: 16, fontWeight: '600', color: tk.brand.ctaForeground },
   })
 }
 
@@ -667,7 +648,6 @@ const formStyles = StyleSheet.create({
   content: { padding: 14, gap: 14, paddingBottom: 32 },
 })
 
-// 以下四个 StyleSheet 均含主题色,不能模块级锁浅色:按当前 colorScheme 的 tokens 动态创建(组件内 useMemo)。
 function createFieldStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     wrap: { gap: 6 },
@@ -691,8 +671,6 @@ function createFieldStyles(tk: AppThemeTokens) {
 
 function createCoverStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    // 上传占位盒下移到子 View 后用这一档取回原来由父级 stretch 给出的整行宽;不是新的尺寸档。
-    boxFace: { width: '100%' },
     box: {
       height: 120,
       borderRadius: rnRadius.xl,
@@ -702,7 +680,7 @@ function createCoverStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       gap: 6,
-      backgroundColor: tk.surface.card,
+      backgroundColor: tk.surface.light,
     },
     previewWrap: {
       position: 'relative',
@@ -714,19 +692,20 @@ function createCoverStyles(tk: AppThemeTokens) {
       height: 120,
       borderRadius: rnRadius.xl,
     },
-    // 关闭钮拆两层:外层 clearHit 只有定位与定尺寸(纯布局档,命中区与位置与改前一字不差),
-    clearHit: { position: 'absolute', top: 4, right: 4, width: 24, height: 24 },
-    // 盒子的圆角/底色/居中连按压态一起下移到内层,并按父盒(定尺寸 24×24)撑满 —— 画出来的圆同位同径。
     clearBtn: {
-      width: '100%',
-      height: '100%',
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.overlay.modal,
+      position: 'absolute',
+      top: 4,
+      right: 4,
+      width: 24,
+      height: 24,
+      borderRadius: rnRadius.xl, // radius-role-exempt: 24x24 缩略图清除钮，radius=宽高一半=正圆 until 2026-11-26
+      backgroundColor: baseTokens.overlay.modal,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    // 蒙层恒为深色半透明,其上的关闭符两主题都用白色(base=不随主题翻转的浅色档,同 SearchInput 先例)
-    clearText: { fontSize: 18, color: baseTokens.surface.light, lineHeight: 18 },
+    // 底是 overlay.modal(恒 rgba(0,0,0,0.6),不随主题翻),故其上符号须恒白:
+    // 用 surface.light 的话,深色档案该值 = #262626 深灰,× 在黑遮罩上直接隐形。
+    clearText: { fontSize: 18, color: '#FFFFFF', lineHeight: 18 },
     icon: { fontSize: 28, color: tk.text.tertiary },
     hint: { fontSize: 14, color: tk.text.tertiary },
     pressed: { opacity: 0.85 },
@@ -742,18 +721,15 @@ function createChipStyles(tk: AppThemeTokens) {
 
 function createSubmitStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    // 下移到子 View 的发布盒用这一档取回原来由父级 stretch 给出的整行宽;不是新的尺寸档。
-    submitFace: { width: '100%' },
-    submitBtn: {
+    btn: {
       height: 50,
       borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
       marginTop: 8,
     },
-    // 品牌实底之上的前景必须用配对档 brand.foreground(深色下 brand.DEFAULT 翻白,surface.light 会变成深灰)
-    submitText: { fontSize: 16, fontWeight: '600', color: tk.brand.foreground },
+    text: { fontSize: 16, fontWeight: '600', color: tk.brand.ctaForeground },
     pressed: { opacity: 0.85 },
   })
 }

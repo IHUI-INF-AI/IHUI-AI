@@ -4,7 +4,6 @@
 
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../theme/tokens'
-import { rnRadius } from '@ihui/design-tokens'
 
 /** 消息/通知卡片统一形状(MessageCenterItem 与 NotificationListItem 的公共字段)。 */
 export interface CardItemLike {
@@ -36,6 +35,8 @@ export function NotificationCard({ item, typeLabel, onPress, styles }: Notificat
           {typeLabel(item.type)}
         </Text>
         {!item.read ? <View style={styles.dot} /> : null}
+        {/* 时间格式化缺口(2026-09-23 记):本包(@ihui/rn-app)未声明 @ihui/shared 依赖,直接 import 会 TS2307;
+            接线本组件时须先给包加依赖(见 SquareScreen 本地 formatRelativeTime 先行方案),勿在本文件内手搓格式化 */}
         <Text style={styles.meta}>{item.createdAt}</Text>
       </View>
       <Text style={styles.cardTitle} numberOfLines={1}>
@@ -64,7 +65,7 @@ export function createCardStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     card: {
       padding: 16,
-      borderRadius: rnRadius.lg,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -85,7 +86,7 @@ export function createCardStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: rnRadius.sm,
+      borderRadius: 4,
       overflow: 'hidden',
     },
     typeSystem: {
@@ -95,7 +96,7 @@ export function createCardStyles(tk: AppThemeTokens) {
     dot: {
       width: 6,
       height: 6,
-      borderRadius: rnRadius.xs,
+      borderRadius: 3,
       backgroundColor: tk.danger.DEFAULT,
     },
     meta: {
