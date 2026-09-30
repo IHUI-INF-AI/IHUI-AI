@@ -10572,6 +10572,8 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "attachRetry": "アップロードを再試行",
+    "attachRetryExhausted": "再試行回数の上限に達しました。削除してから再度追加してください。",
     "attachRejectType": "形式がサポートされていないため、{count} 個のファイルをスキップしました：{names}",
     "attachRejectSize": "ファイルがサイズ上限（{max}MB）を超えているため、{count} 個のファイルをスキップしました：{names}",
     "attachRejectCount": "添付ファイルは最大 {max} 個までです。今回 {count} 個が拒否されました",
@@ -12361,6 +12363,9 @@
     "title": "コース"
   },
   "cronEditor": {
+    "customFallback": "カスタム式",
+    "customHint": "この式はビジュアルエディターで可逆的に表現できません。以下に原文をそのまま保持します:",
+    "switchToVisual": "ビジュアル編集に切り替え",
     "everyField": "{field}ごと",
     "recentRuns": "直近 5 件の実行",
     "specificPlaceholder": "{min}-{max}, カンマ区切り",
