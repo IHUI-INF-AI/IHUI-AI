@@ -271,10 +271,8 @@ function shadowTwinOf(p, shadowOid, rev, cwd) {
 }
 
 function emptyBlob(cwd) {
-  // 根治(2026-09-30):带 input 的调用 stdio[0] 必须真管道,而本会话建 stdin 管道会 EBUSY。
-  // 这里喂的本就是空串 ⇒ 摘掉 input,git 读到立即 EOF,产出同一枚空 blob SHA(e69de29)。
   try {
-    return git(['hash-object', '-w', '--stdin'], cwd)
+    return git(['hash-object', '-w', '--stdin'], cwd, '')
   } catch {
     return null
   }
@@ -886,9 +884,7 @@ export function buildUnion(
       const ma = moveAwareCached(moveAwareCache, p, a, b, ours, cwd)
       liveDocs.push(ma)
       const mergedText = unionLines(a, b, bt, ma.suppress)
-      // 根治(2026-09-30):--stdin 通道要求真 stdin 管道(本会话建管道必 EBUSY)⇒ 改走
-      // writeBlob 临时文件通道,同 --path 语义、同 blob SHA(该函数头注有 CRLF 等价实证)。
-      const oid = writeBlob(mergedText, p, cwd)
+      const oid = git(['hash-object', '-w', '--path', p, '--stdin'], cwd, mergedText)
       run(['update-index', '--add', '--cacheinfo', `100644,${oid},${p}`])
       /**
        * 状态分叉判据**必须挂在这条路上**,而不是挂在下面 2) 的 `mergedClean` 循环里 ——
