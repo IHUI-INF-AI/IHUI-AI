@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -17,6 +16,7 @@ import type { CircleCreateScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** 圈子创建共享屏 — props 注入式跨端组件(状态由 wrapper 管理) */
 export type { CircleCreateScreenProps }
@@ -51,7 +51,8 @@ export function CircleCreateScreen({
       <Text style={styles.title}>{t('circleCreate.title')}</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Text style={styles.label}>{t('circleCreate.name')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={styles.input}
         value={name}
         onChangeText={onNameChange}
@@ -59,7 +60,8 @@ export function CircleCreateScreen({
         placeholderTextColor={tk.text.tertiary}
       />
       <Text style={styles.label}>{t('circleCreate.description')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={[styles.input, styles.textarea]}
         value={description}
         onChangeText={onDescriptionChange}

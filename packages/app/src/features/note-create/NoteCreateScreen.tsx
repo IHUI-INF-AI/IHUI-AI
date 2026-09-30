@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -17,6 +16,7 @@ import type { NoteCreateScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** 笔记创建共享屏 — props 注入式跨端组件(状态由 wrapper 管理,isPublic 用模拟 Switch) */
 export type { NoteCreateScreenProps }
@@ -55,7 +55,8 @@ export function NoteCreateScreen({
       <Text style={styles.title}>{t('noteCreate.title')}</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Text style={styles.label}>{t('noteCreate.titleLabel')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={styles.input}
         value={title}
         onChangeText={onTitleChange}
@@ -63,7 +64,8 @@ export function NoteCreateScreen({
         placeholderTextColor={tk.text.tertiary}
       />
       <Text style={styles.label}>{t('noteCreate.contentLabel')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={[styles.input, styles.textarea]}
         value={content}
         onChangeText={onContentChange}
@@ -73,7 +75,8 @@ export function NoteCreateScreen({
         textAlignVertical="top"
       />
       <Text style={styles.label}>{t('noteCreate.tagsLabel')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={styles.input}
         value={tags}
         onChangeText={onTagsChange}
