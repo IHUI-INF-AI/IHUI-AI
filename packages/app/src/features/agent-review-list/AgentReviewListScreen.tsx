@@ -1,13 +1,13 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { FlatList, RefreshControl, Text, View, StyleSheet } from 'react-native'
+import { FlatList, RefreshControl, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentReviewListScreenProps } from '../../types'
-import { BackChevron } from '../../components/BackChevron'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 /** Agent 评价列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AgentReviewListScreenProps }
@@ -28,7 +28,9 @@ export function AgentReviewListScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <TouchableOpacity onPress={onBack}>
+          <Text style={styles.back}>{t('common.back')}</Text>
+        </TouchableOpacity>
         <Text style={styles.title}>{t('agentReviewList.title')}</Text>
       </View>
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -82,6 +84,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingVertical: 12,
     },
+    back: { fontSize: 16, color: tk.text.primary },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },

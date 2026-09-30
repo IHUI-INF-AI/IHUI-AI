@@ -8,7 +8,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -22,6 +21,7 @@ import type {
 } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { TextField } from '../../components/TextField'
 
 /** 助手管理共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AssistantItem, AssistantScreenProps, AssistantStatus, AssistantSubTab, AssistantTab }
@@ -210,7 +210,8 @@ export function AssistantScreen({
       )}
 
       <View style={styles.searchRow}>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.searchInput}
           value={keyword}
           onChangeText={onKeywordChange}
