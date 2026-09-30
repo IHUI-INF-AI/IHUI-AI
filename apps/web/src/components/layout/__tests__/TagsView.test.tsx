@@ -255,6 +255,15 @@ describe('TagsView 视觉守门', () => {
     expect(closeBtn!.className, 'X 按钮焦点环使用 ring token').toContain('focus-visible:ring-ring')
   })
 
+  it('关闭按钮 X 在触屏上常驻(touch-reveal:G-815933)', () => {
+    const outerDiv = renderWithTags()
+    const closeBtn = outerDiv.querySelector('[aria-label="关闭"]')
+    expect(closeBtn, '应有 X 关闭按钮').not.toBeNull()
+    // hover 揭示 intact(桌面观感不变) + touch 标记在位(hover:none 下常驻)
+    expect(closeBtn!.className, 'X 按钮 hover 时显示').toContain('group-hover:opacity-100')
+    expect(closeBtn!.className, 'X 按钮触屏须常驻可见').toContain('touch-reveal')
+  })
+
   it('标签 Link 左右 padding 对称(文字视觉居中, X 紧贴右侧)', () => {
     const outerDiv = renderWithTags()
     const link = outerDiv.querySelector('a')
