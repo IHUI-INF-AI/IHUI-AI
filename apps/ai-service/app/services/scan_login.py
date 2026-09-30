@@ -643,7 +643,27 @@ class ScanTask:
 # sync Playwright 非线程安全:API 协程只入队,真正摸 page 的动作在任务线程的
 # 等待循环里由 _drain_interactions 执行,结果按关联 id 回填。
 # ---------------------------------------------------------------------------
-_INTERACT_ACTIONS = ("screenshot", "fill", "click", "text")
+_INTERACT_ACTIONS = ("screenshot", "fill", "click", "text", "drag", "eval")
+
+
+def _resolve_locator(page: Any, selector: str) -> Any:
+    """主框架找不到时自动穿透所有 iframe(验证码类组件普遍 iframe 化)。"""
+    loc = page.locator(selector).first
+    try:
+        loc.wait_for(state="attached", timeout=1200)
+        return loc
+    except Exception:  # noqa: BLE001
+        pass
+    for fr in page.frames:
+        if fr is page.main_frame:
+            continue
+        try:
+            cand = fr.locator(selector).first
+            cand.wait_for(state="attached", timeout=800)
+            return cand
+        except Exception:  # noqa: BLE001
+            continue
+    raise RuntimeError(f"元素未找到(已穿透全部 iframe): {selector}")
 
 
 def _drain_interactions(task: ScanTask, page: Any) -> None:
@@ -664,13 +684,50 @@ def _drain_interactions(task: ScanTask, page: Any) -> None:
                 result["screenshot_b64"] = base64.b64encode(shot).decode("ascii")
                 result["ok"] = True
             elif action == "fill":
-                page.fill(selector, value or "", timeout=5000)
+                _resolve_locator(page, selector or "").fill(value or "", timeout=5000)
                 result["ok"] = True
             elif action == "click":
-                page.click(selector, timeout=5000)
+                _resolve_locator(page, selector or "").click(timeout=5000)
                 result["ok"] = True
             elif action == "text":
-                result["text"] = page.inner_text(selector, timeout=5000) if selector else page.title()
+                if selector:
+                    result["text"] = _resolve_locator(page, selector).inner_text(timeout=5000)
+                else:
+                    result["text"] = page.title()
+                result["ok"] = True
+            elif action == "drag":
+                # 滑块验证码:value="dx[,dy]"(像素,相对起点中心);selector 为拖动起点(滑块手柄)。
+                # 变速 + 轻微纵向抖动模拟人手轨迹(行为检测),结束在目标点短暂停顿再松开。
+                raw = (value or "0").replace(" ", "")
+                parts = [float(x) for x in raw.split(",") if x != ""]
+                dx = parts[0] if parts else 0.0
+                dy = parts[1] if len(parts) > 1 else 0.0
+                box = _resolve_locator(page, selector or "").bounding_box()
+                if not box:
+                    raise RuntimeError(f"拖动起点 bounding_box 为空: {selector}")
+                sx = box["x"] + box["width"] / 2
+                sy = box["y"] + box["height"] / 2
+                page.mouse.move(sx, sy)
+                page.mouse.down()
+                steps = max(14, min(70, int(abs(dx) / 5) or 14))
+                for i in range(1, steps + 1):
+                    wobble = ((i % 5) - 2) * 0.9
+                    page.mouse.move(sx + dx * i / steps, sy + dy * i / steps + wobble)
+                    time.sleep(0.006 + (i % 3) * 0.012)
+                time.sleep(0.15)
+                page.mouse.up()
+                result["ok"] = True
+                result["drag"] = {"dx": dx, "dy": dy}
+            elif action == "eval":
+                # 页面内执行 JS(返回须可 JSON 序列化)。selector 可选:指定 frame url/name 子串定位目标 iframe。
+                js = value or ""
+                target_frame = page.main_frame
+                if selector:
+                    for fr in page.frames:
+                        if selector in (fr.url or "") or selector in (fr.name or ""):
+                            target_frame = fr
+                            break
+                result["eval"] = target_frame.evaluate(js)
                 result["ok"] = True
             else:
                 result["error"] = f"未知 action: {action}(合法集 {_INTERACT_ACTIONS})"
