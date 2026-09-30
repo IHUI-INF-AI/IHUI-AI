@@ -633,6 +633,7 @@
     "scanLoginTimeout": "扫码超时,请重试",
     "scanLoginTitle": "扫码登录",
     "scanWithPhoneHint": "请使用手机扫描二维码登录",
+    "selectPlatform": "请选择平台",
     "startScanLogin": "开始扫码",
     "subtitle": "管理多个社交平台账号",
     "title": "账号管理",
@@ -9030,6 +9031,26 @@
       "restoreSuccess": "已回退到该检查点",
       "restoreFailed": "回退失败"
     },
+    "recap": {
+      "title": "任务回顾",
+      "handoff": {
+        "menuItem": "移交到新任务",
+        "title": "移交到新任务"
+      },
+      "previewDescription": "检查交接内容后,可以在文件位置查看,或直接创建一个新任务继续工作。",
+      "purposeLabel": "交接目的",
+      "purposePlaceholder": "交接目的",
+      "waitingPreview": "正在准备预览…",
+      "phase": {
+        "generating": "模型正在生成交接内容…",
+        "finalizing": "正在完成收尾…",
+        "done": "交接文档已生成。"
+      },
+      "revealFile": "显示文件",
+      "createSession": "创建新任务",
+      "creating": "正在创建新任务…",
+      "createFailed": "创建新任务失败,请重试。"
+    },
     "addWorkspace": "添加工作区",
     "assistant": "助手",
     "back": "返回",
@@ -9145,25 +9166,6 @@
     "noHistory": "暂无任务",
     "noRecentWorkspaces": "暂无最近工作区",
     "openTerminal": "打开终端",
-    "recap": {
-      "title": "任务回顾",
-      "handoff": {
-        "menuItem": "移交到新任务",
-        "title": "移交到新任务"
-      },
-      "previewDescription": "检查交接内容后,可以在文件位置查看,或直接创建一个新任务继续工作。",
-      "purposeLabel": "交接目的",
-      "purposePlaceholder": "交接目的",
-      "revealFile": "显示文件",
-      "createSession": "创建新任务",
-      "phase": {
-        "generating": "模型正在生成交接内容…",
-        "done": "交接文档已生成。"
-      },
-      "creating": "正在创建新任务…",
-      "createFailed": "创建新任务失败,请重试。",
-      "handoffUnavailable": "依赖的交接文档生成出口尚未提供,无法生成交接内容。"
-    },
     "renameDialog": {
       "cancel": "取消",
       "description": "保持简短且易于识别",
@@ -10613,19 +10615,6 @@
     "issueBindFailed": "Issue 绑定失败",
     "issueUnbindSuccess": "已解绑,该会话已改为独立任务",
     "issueUnbindFailed": "解绑失败",
-    "selectionAnnotations": {
-      "hoverHint": "悬停查看批注",
-      "selectedText": "{{index}}. 选中文字",
-      "noComment": "未添加评论",
-      "commentPlaceholder": "添加可选评论…",
-      "commentAriaLabel": "划词批注评论",
-      "addComment": "添加评论",
-      "removeOne": "移除批注 {{index}}",
-      "removeAll": "移除全部划词批注",
-      "add": "添加批注"
-    },
-    "attachRetry": "重试上传",
-    "attachRetryExhausted": "重试次数已达上限,请删除后重新添加",
     "mentionEngine": {
       "tabFile": "文件",
       "tabFolder": "文件夹",
@@ -12389,7 +12378,6 @@
     "unpin": "取消固定",
     "unsaved": "未保存",
     "update": {
-      "revoked": "这个版本已不再提供。",
       "autoRestartIn": "即将自动重启...({countdown} 秒后)",
       "autoRetrying": "更新失败，自动重试中...",
       "available": "发现新版本",
@@ -12542,9 +12530,6 @@
     "title": "课程中心"
   },
   "cronEditor": {
-    "customFallback": "自定义表达式",
-    "customHint": "该表达式无法由可视化编辑器无损表达,以下原文逐字保留:",
-    "switchToVisual": "切换到可视化编辑",
     "everyField": "每{field}",
     "recentRuns": "最近 5 次执行",
     "specificPlaceholder": "{min}-{max}, 逗号分隔",
@@ -15224,8 +15209,6 @@
     "title": "开放平台 Feature Center"
   },
   "feedback": {
-    "unsupportedImage": "仅支持 PNG、JPG、GIF 和 WebP 图片。",
-    "requestIdSuffix": "反馈编号：{requestId}。",
     "backToList": "返回反馈",
     "contactPlaceholder": "选填，方便我们联系您",
     "contentPlaceholder": "请描述您遇到的问题或建议...",
@@ -16057,8 +16040,6 @@
       "unsynced": "未同步"
     },
     "terminalPanel": {
-      "switchToDark": "切换为暗色终端",
-      "switchToLight": "切换为亮色终端",
       "aiDiagnoseTitle": "AI 错误诊断",
       "aiServiceUnavailable": "AI 服务暂不可用,请稍后重试",
       "aiSuggestTitle": "AI 命令建议",
@@ -19190,11 +19171,6 @@
     "members": "会员列表",
     "memory": "记忆系统",
     "messages": "站内消息",
-    "myPendingDecisions": "待我决策",
-    "pendingDecisionsEmpty": "暂无待决策",
-    "decisionTypeToolApproval": "工具审批",
-    "decisionTypePermissions": "权限提升请求",
-    "decisionTypeElicitation": "等你回答",
     "messagesComment": "评论",
     "messagesFans": "新粉丝",
     "messagesFavorite": "收藏消息",
@@ -22876,6 +22852,21 @@
       "hoursAgo": "{hr} 小时前",
       "justNow": "刚刚",
       "markAllRead": "全部标记已读",
+      "important": "需要了解",
+      "viewActive": "返回动态",
+      "markAllReadFailed": "未能把动态标为已读,请重试。",
+      "hiding": "正在隐藏…",
+      "hideFailed": "这条动态未隐藏,请重试。",
+      "restoring": "正在恢复…",
+      "restoreFailed": "这条动态未恢复,请重试。",
+      "emptyDescription": "评论、提及和订阅的变化会出现在这里。",
+      "emptyArchivedDescription": "你隐藏的动态会保留在这里,随时可以恢复。",
+      "unavailable": "动态暂时无法加载,请稍后重试。",
+      "tabActive": "动态",
+      "tabArchived": "已归档",
+      "hide": "隐藏",
+      "restore": "恢复",
+      "retry": "重试",
       "minutesAgo": "{min} 分钟前",
       "tab": {
         "all": "全部",
@@ -26766,7 +26757,6 @@
     "noUrlField": "响应中未找到可用的 URL 字段",
     "networkError": "网络错误",
     "uploadCancelled": "上传已取消",
-    "imageAltText": "反馈截图 {index}",
     "imagePlaceholder": "点击或拖拽上传图片"
   },
   "eduScheduling": {
@@ -27800,18 +27790,6 @@
     "restore": "显示建议"
   },
   "taskMonitor": {
-    "group": {
-      "artifact": "产出",
-      "browser": "网页查阅",
-      "source": "来源"
-    },
-    "emptyGroup": {
-      "artifact": "暂无产出数据 :)",
-      "browser": "暂无网页查阅数据 :)",
-      "source": "暂无来源数据 :)"
-    },
-    "empty": "还没有有价值的内容",
-    "emptyDescription": "整个任务中产生的文件、网页和来源会持续汇总在这里,帮助跟踪任务进展。",
     "displayMode": "展示方式",
     "modeSections": "分区",
     "modeTabs": "平铺",
@@ -27961,6 +27939,15 @@
     "pasteValid": "有效",
     "pasteUnknown": "未识别",
     "pastePreviewDismiss": "关闭粘贴引用预览",
+    "referencePreview": {
+      "available": "可用引用",
+      "clear": "清空",
+      "editor": "引用预览编辑器",
+      "placeholder": "编辑引用内容,可直接发送…",
+      "select": "选择引用",
+      "send": "发送",
+      "source": "来源"
+    },
     "authorizationNotice": "引用标签不新增执行授权",
     "hintSelect": "选择",
     "hintConfirm": "确认",
