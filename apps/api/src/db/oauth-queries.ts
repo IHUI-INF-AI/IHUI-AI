@@ -320,6 +320,7 @@ export async function updateUserSk(id: string, userId: string, status: number) {
   await db
     .update(userSk)
     .set({ status, updatedAt: new Date() })
+  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(and(eq(userSk.id, id), eq(userSk.userId, userId)))
 }
 

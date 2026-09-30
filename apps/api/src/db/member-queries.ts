@@ -246,6 +246,7 @@ export async function updateMember(
 /** 更新会员状态（封禁/解封/审核通过/拒绝复用）。 */
 export async function setMemberStatus(id: string, status: number): Promise<EduMember | undefined> {
   const rows = await db.update(eduMembers).set({ status }).where(eq(eduMembers.id, id)).returning()
+  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
   return rows[0]
 }
 
