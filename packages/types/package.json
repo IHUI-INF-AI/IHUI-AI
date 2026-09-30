@@ -47,10 +47,6 @@
       "types": "./dist/permission-mode.d.ts",
       "import": "./dist/permission-mode.js"
     },
-    "./knowledge-team": {
-      "types": "./dist/knowledge-team.d.ts",
-      "import": "./dist/knowledge-team.js"
-    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -59,7 +55,7 @@
     "NOTICE"
   ],
   "scripts": {
-    "build": "rimraf dist && tsc -p tsconfig.build.json",
+    "build": "node ../../scripts/lib/atomic-build.mjs -p tsconfig.build.json",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
