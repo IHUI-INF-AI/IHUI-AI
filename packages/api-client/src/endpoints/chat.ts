@@ -138,37 +138,6 @@ export function createConversation(input: { title?: string; model?: string } = {
   })
 }
 
-/** D176:交接文档生成结果 */
-export interface RecapHandoffResult {
-  summary: string | null
-  nextAction: string | null
-}
-
-/** D176(2026-09-30 用户拍板立项):生成交接文档(任务回顾→移交新任务) */
-export function generateRecapHandoff(input: { threadId: string; purpose?: string }) {
-  return fetchApi<RecapHandoffResult>('/api/ai/chat/recap/handoff', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-}
-
-/** D193:待决策条目(工具审批 / 权限提升请求 / 提问挂起) */
-export interface PendingDecisionItem {
-  id: string
-  threadId: string | null
-  type: 'tool_approval' | 'permissions' | 'elicitation' | string
-  summary: string
-  createdAt: string | null
-}
-
-/** D193(2026-09-30 用户拍板,小切口):「我的待决策」聚合查询(只读) */
-export function listPendingDecisions() {
-  return fetchApi<{ items: PendingDecisionItem[]; total: number }>(
-    '/api/ai/chat/decisions/pending',
-    { method: 'GET' },
-  )
-}
-
 /** 对话列表查询参数 */
 export interface ListConversationsParams {
   page?: number

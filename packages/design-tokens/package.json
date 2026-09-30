@@ -32,7 +32,7 @@
     "directory": "packages/design-tokens"
   },
   "scripts": {
-    "build": "node ../../scripts/lib/atomic-build.mjs -p tsconfig.json --copy-assets scripts/copy-assets.mjs",
+    "build": "rimraf dist && tsc -p tsconfig.json && node scripts/copy-assets.mjs",
     "lint": "eslint src/",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
