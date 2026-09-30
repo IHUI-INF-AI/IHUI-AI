@@ -22,7 +22,6 @@ import {
   CheckCheck,
   Ban,
   Quote,
-  Paperclip,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
@@ -754,18 +753,6 @@ const MessageItem = React.memo(function MessageItem({
     setSelectionText(null)
     toast.success(t('quoteSelectionAdded'))
   }, [selectionText, t])
-
-  // D184(2026-09-29 立,对标竞品 chatSession.selectionActions):选中文本作为附件 ——
-  // 经 ihui:add-selection-attachment 事件投递到 MessageInput(监听方包装 .txt 附件走
-  // addFileReferences 三档校验通道),与 D22 引用 chips 通道并存互补;投递后清除原生选区。
-  const handleAddSelectionAttachment = React.useCallback(() => {
-    if (!selectionText) return
-    window.dispatchEvent(
-      new CustomEvent('ihui:add-selection-attachment', { detail: { text: selectionText } }),
-    )
-    window.getSelection()?.removeAllRanges()
-    setSelectionText(null)
-  }, [selectionText])
 
   // 时间戳移到按钮区内部，这里不再常驻计算
 
@@ -1534,36 +1521,17 @@ const MessageItem = React.memo(function MessageItem({
 
       {/* D22(2026-09-19 立):圈选 AI 回复入上下文 — 选中本消息文本后在尾部浮现
             「引用选中」按钮,点击把选中文本投递到输入区引用 chips(useMessageReferences)。
-            置于操作按钮区之前,与 hover 操作栏解耦(选区操作时鼠标不在 hover 态也能点到)。
-            D184(2026-09-29 立,对标竞品 chatSession.selectionActions):补第二出口「作为附件添加」
-            —— 选中文本包装为 .txt 附件经 ihui:add-selection-attachment 事件走附件 chip 通道
-            (三档校验/上传复用 G-833 链路),两按钮共组 role=group + 选中文本操作组名。 */}
+            置于操作按钮区之前,与 hover 操作栏解耦(选区操作时鼠标不在 hover 态也能点到)。 */}
       {!isUser && !m.error && selectionText && (
-        <div
-          role="group"
-          aria-label={t('selectionActions.ariaLabel')}
-          className="mt-0.5 flex items-center gap-1"
-          data-testid={`message-selection-actions-${m.id}`}
+        <button
+          type="button"
+          onClick={handleQuoteSelection}
+          data-testid={`message-quote-selection-${m.id}`}
+          className="mt-0.5 inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
-          <button
-            type="button"
-            onClick={handleQuoteSelection}
-            data-testid={`message-quote-selection-${m.id}`}
-            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <Quote className="h-3 w-3" aria-hidden />
-            <span>{t('quoteSelection')}</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleAddSelectionAttachment}
-            data-testid={`message-selection-attachment-${m.id}`}
-            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <Paperclip className="h-3 w-3" aria-hidden />
-            <span>{t('selectionActions.addAsAttachment')}</span>
-          </button>
-        </div>
+          <Quote className="h-3 w-3" aria-hidden />
+          <span>{t('quoteSelection')}</span>
+        </button>
       )}
 
       {/* 2026-08-02:社区发布对话框(Megaphone 按钮触发)— 原项目 publishToCommunity */}
