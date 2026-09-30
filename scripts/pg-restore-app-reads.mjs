@@ -22,6 +22,15 @@
  *   drift       跑通但行数不等 ⇒ 只报数并给差值(生产有在跑流量,这是常态不是事故)
  *   undetermined 任一侧没跑出结论(缺凭据/缺库/超时/解析不出) ⇒ 绝不记为通过
  *
+ * 「缺库」这一格 2026-09-30 起由**前置探询**判,不再混进 drill-error:演练库当天不存在时,
+ * 还原侧每条都以 `FATAL: database ... does not exist` 失败,旧写法把它们全计成
+ * `drill-error` 并 exit 1 —— 而 `drill-error` 在这个工具里的语义是「还原出来的库跑不住
+ * 应用的查询」。两种完全不同的事实在报告上长得一模一样,谁按这份读数寄 `db-restore-not-app-usable`
+ * 就是往机主手机上寄一封假 P0。判法不靠猜错误文案:先用**同一条只读通道**打一次 `SELECT 1`,
+ * 探不通 ⇒ 整轮落未判定并 exit 2(且不浪费 60 次生产查询);探得通而某条语句报错,那才是
+ * drill-error —— 连"库在、但这条语句在还原库上超时(FATAL)"这一型也照旧判红,前置探询
+ * 不是把 FATAL 一律洗成未判定的文字分类器。
+ *
  * CLI:
  *   node scripts/pg-restore-app-reads.mjs [--drill-db <名字>] [--prod-db ihui_dev]
  *                                         [--fixture <path>] [--strict] [--json] [--limit N]
@@ -39,7 +48,7 @@
  *     就是每台每次被逼 --no-verify 的恒红门,§12e 同型)。问责入口见 README 与月度演练清单。
  *
  * 退出码:0=无 drill-error 且无未判定;1=有 drill-error(--strict 下也包含 drift);
- *        2=无法判定(缺凭据/缺夹具/库名不合法/一个都没跑成)。
+ *        2=无法判定(缺凭据/缺夹具/库名不合法/演练库不可达/一个都没跑成)。
  */
 /* eslint-disable no-console -- 本工具是 CLI 回放器,诊断结论必须走 console(与 pg-restore-drill.mjs 同形) */
 import { existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
@@ -183,6 +192,50 @@ export function main(argv = process.argv, deps = {}) {
   const rows = []
   const states = { pass: 0, drift: 0, 'shape-drift': 0, 'drill-error': 0, refused: 0, undetermined: 0 }
   const list = o.limit > 0 ? qs.slice(0, o.limit) : qs
+
+  /**
+   * 前置探询:演练库到底在不在。这一问必须在循环**之前** —— 库里没有这座库时,逐条问
+   * 到的都只是"连不上",而它们会被计成 drill-error(见头注那一格)。用同一条只读通道、
+   * 同一个 runOne 打 `SELECT 1`,不解析错误文案来分类:连通性本身就是判据。
+   */
+  const probe = runOne(o.drillDb, 'SELECT 1')
+  if (!probe.ok) {
+    const firstErr = String(probe.stderr || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .find((l) => l !== '')
+    const why = `演练库不可达(本工具只在当天真跑过在线还原演练之后有结论)${firstErr ? ' —— ' + firstErr.slice(0, 200) : ''}`
+    for (const q of list) rows.push({ id: q.id, state: 'undetermined', why })
+    states.undetermined = list.length
+    rmScratch(tmpDir)
+    if (o.json) {
+      console.log(
+        JSON.stringify({
+          fixture: o.fixture,
+          count: list.length,
+          fixtureTotal: qs.length,
+          prodDb: o.prodDb,
+          drillDb: o.drillDb,
+          drillProbe: { ok: false, why: firstErr || '无错误输出' },
+          verdict: 'undetermined',
+          states,
+          rows,
+        }),
+      )
+    } else {
+      console.log(`\n还原库应用语义回放:夹具 ${qs.length} 条 / 本轮 ${list.length} 条 / 生产=${o.prodDb} / 还原库=${o.drillDb}`)
+      console.log(`(口令来源 ${cred.source};本轮一条都没有下发 —— 两侧各 0 次查询)\n`)
+      console.log(`❌ 未判定:${why}`)
+      console.log('   这份读数**不是**"还原出来的库跑不住应用的查询":那条结论只能来自真还原过的库。')
+      console.log(`   出路(按序):node scripts/pg-restore-drill.mjs --check 判 rc=0;`)
+      console.log(
+        `   再由持超管口令者按机主授权建当日演练库 ihui_restore_drill_${todayYmd()} 并还原,然后复跑本工具。`,
+      )
+      console.log('   非演练日拿到 exit 2 是**预期结果**,不得据此寄 db-restore-not-app-usable。')
+    }
+    return 2
+  }
+
   for (const q of list) {
     const guard = assertReadOnlySql(q.sql)
     if (!guard.ok) {
@@ -222,7 +275,8 @@ export function main(argv = process.argv, deps = {}) {
     console.log(JSON.stringify({ fixture: o.fixture, count: list.length, prodDb: o.prodDb, drillDb: o.drillDb, states, rows }))
   } else {
     console.log(`\n还原库应用语义回放:夹具 ${list.length} 条 / 生产=${o.prodDb} / 还原库=${o.drillDb}`)
-    console.log(`(两侧均带 default_transaction_read_only=on 与 statement_timeout=15s;口令来源 ${cred.source})\n`)
+    console.log(`(两侧均带 default_transaction_read_only=on 与 statement_timeout=15s;口令来源 ${cred.source})`)
+    console.log(`(演练库可达性前置探询通过 ⇒ 下面的 drill-error 是真"还原库跑不住这条查询",不是连不上库)\n`)
     for (const r of rows) {
       if (r.state === 'pass') continue
       const extra = r.drillErr || r.prodErr || r.why || ''
