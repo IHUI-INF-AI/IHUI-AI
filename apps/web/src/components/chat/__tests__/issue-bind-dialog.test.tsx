@@ -129,6 +129,8 @@ describe('IssueBindDialog — 空态三态与竞品文案', () => {
       data: { provider: 'github', serverName: null, configured: false, error: null, items: [] },
     })
     renderDialog()
+    // handleSearch 对空 query 直接 return:必须先填搜索词再点搜索(下两例同因)
+    fireEvent.change(screen.getByTestId('issue-search-input'), { target: { value: 'login' } })
     fireEvent.click(screen.getByTestId('issue-search-submit'))
     await waitFor(() => expect(screen.getByText(packKey('issueNotConfigured'))).toBeTruthy())
   })
@@ -139,6 +141,7 @@ describe('IssueBindDialog — 空态三态与竞品文案', () => {
       data: { provider: 'github', serverName: 'mcp:github', configured: true, error: null, items: [] },
     })
     renderDialog()
+    fireEvent.change(screen.getByTestId('issue-search-input'), { target: { value: 'login' } })
     fireEvent.click(screen.getByTestId('issue-search-submit'))
     await waitFor(() => expect(screen.getByText(packKey('noMatchingIssues'))).toBeTruthy())
   })
@@ -156,6 +159,7 @@ describe('IssueBindDialog — 空态三态与竞品文案', () => {
     })
     mockBindIssue.mockResolvedValue({ success: true, data: { issueBinding: BINDING } })
     renderDialog()
+    fireEvent.change(screen.getByTestId('issue-search-input'), { target: { value: '登录' } })
     fireEvent.click(screen.getByTestId('issue-search-submit'))
     await waitFor(() => expect(screen.getByTestId('issue-search-item-42')).toBeTruthy())
     fireEvent.click(screen.getByTestId('issue-search-item-42'))
@@ -208,11 +212,14 @@ describe('LinkedIssueBadge / LinkedIssueStrip — 关联 Issue 展示(竞品 hig
   })
 
   it('监控条:未绑定(metadata 无 issueBinding)整条不渲染', async () => {
+    // stripQueryClient 是模块级单例:上一例同 queryKey 的绑定已在缓存,必须换会话 ID
+    // 才是真·未取数,否则测的是缓存污染(实测上一例数据泄漏进本例致假红)。
+    const otherConvId = 'dddddddd-4444-4444-8444-444444444444'
     mockGetConversation.mockResolvedValue({
       success: true,
-      data: { conversation: { id: CONV_ID, metadata: { workspacePath: '/repo' } } },
+      data: { conversation: { id: otherConvId, metadata: { workspacePath: '/repo' } } },
     })
-    renderUi(<LinkedIssueStrip conversationId={CONV_ID} />)
+    renderUi(<LinkedIssueStrip conversationId={otherConvId} />)
     await waitFor(() => expect(mockGetConversation).toHaveBeenCalledTimes(1))
     expect(screen.queryByTestId('task-monitor-linked-issue')).toBeNull()
   })
