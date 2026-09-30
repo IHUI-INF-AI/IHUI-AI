@@ -1,0 +1,4 @@
+{
+  "$schemaNote": "check-merge-deletion-resurrection 的唯一豁免台账(第二条例出口;第一条是删除提交信息里的 `intentional-delete:` 短语,那个不住在这里)。每条必须有 path + reason + reviewBy 三字段,缺任一即判『字段不齐』,不得当空表用。path 是**仓库相对路径逐字**(不做归一化:归一化会把两个不同元素并成一对,那比漏配更糟)。reason 必须成句并写明『为什么这一枚合并把它带回来是可接受的』——加条目的前提是逐条读过那枚合并两侧的内容,不得为消红而填。reviewBy 是 ISO 日期,过期一律判红(到期处置只有两条:续期并补证据,或删除条目并同时修好实现)。字段与判据的唯一定义在 scripts/lib/deletion-intent.mjs(ALLOWLIST_FIELDS / entryDefect / rotEntries),本文件不另立规则。另:『路径已不在复活面』这一型(清单腐烂)只在 --strict 档判红,默认档只报名字与条数 —— 理由写在 deletion-intent.mjs 的 rotEntries 注释里(豁免条目对应的合并被推走之后会永久退出提交链窗口,当场判红就是一台与任何提交都无关的恒红门,AGENTS §12e 同型)。",
+  "entries": []
+}
