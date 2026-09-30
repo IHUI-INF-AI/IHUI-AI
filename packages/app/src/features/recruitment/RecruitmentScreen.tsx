@@ -17,7 +17,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { RecruitmentCategory, RecruitmentJob, RecruitmentScreenProps } from '../../types'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 
 export type { RecruitmentCategory, RecruitmentJob, RecruitmentScreenProps }
@@ -80,7 +80,12 @@ export function RecruitmentScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
+        <BackChevron
+          onPress={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          style={styles.backBtn}
+        />
         <Text style={styles.title}>{t('recruitment.title')}</Text>
         <Text style={styles.subtitle}>{t('recruitment.count', { count: filtered.length })}</Text>
       </View>
@@ -241,8 +246,8 @@ function createStyles(tk: AppThemeTokens) {
     modalMask: { flex: 1, backgroundColor: tk.overlay.modal, justifyContent: 'flex-end' },
     modalCard: {
       backgroundColor: tk.surface.light,
-      borderTopLeftRadius: rnRadiusFor.panel,
-      borderTopRightRadius: rnRadiusFor.panel,
+      borderTopLeftRadius: rnRadius['2xl'],
+      borderTopRightRadius: rnRadius['2xl'],
       padding: 14,
       paddingBottom: 32,
       maxHeight: '85%',
