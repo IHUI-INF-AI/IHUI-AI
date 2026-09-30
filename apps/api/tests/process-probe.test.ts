@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, expect, it } from 'vitest'
+import type { ProcessProbeSample } from '../src/utils/process-probe.js'
 
 import {
   PROC_READ_BATCH_SIZE,
@@ -11,7 +12,10 @@ import {
   PROBE_EXTERNAL_COMMANDS,
   ProcessProbeFailure,
   createProcessProbe,
+  cimTicksToEpochMs,
   isProbeCommandAllowed,
+  parseCimProcessList,
+  parseCimProcessRow,
   parseLinuxStat,
   readProcInBatches,
 } from '../src/utils/process-probe.js'
@@ -21,11 +25,11 @@ describe('b75-4#3 进程探针性能红线成文', () => {
     expect(PROCESS_PROBE_SAMPLE_TIMEOUT_MS).toBe(1000)
     expect(PROCESS_PROBE_MAX_CONSECUTIVE_FAILURES).toBe(3)
     expect(PROC_READ_BATCH_SIZE).toBe(64)
-    expect(PROBE_EXTERNAL_COMMANDS).toEqual(['ps', 'tasklist'])
+    expect(PROBE_EXTERNAL_COMMANDS).toEqual(['ps', 'tasklist', 'powershell'])
     expect(isProbeCommandAllowed('ps')).toBe(true)
     expect(isProbeCommandAllowed('tasklist')).toBe(true)
+    expect(isProbeCommandAllowed('powershell')).toBe(true)
     expect(isProbeCommandAllowed('curl')).toBe(false)
-    expect(isProbeCommandAllowed('powershell')).toBe(false)
   })
 })
 
@@ -233,10 +237,11 @@ describe('createProcessProbe:外部进程白名单红线', () => {
     expect(await probe.sampleExternalCommand('tasklist', ['/FO', 'CSV', '/NH'])).toBe(
       'tasklist-output',
     )
-    expect(probe.treeScope).toBe('direct_process')
+    // b76-09a 票2:win32 走 CIM 全表建树,direct_process 死角已解
+    expect(probe.treeScope).toBe('process_tree')
   })
 
-  it('win32 sampleProcessTrees 走外部命令红线:超时弃样本,成功返回空映射(结构化解析由消费方注入)', async () => {
+  it('win32 sampleProcessTrees 走 CIM 全表红线:超时弃样本;成功按 pid/ppid/创建时间建整棵树', async () => {
     const probe = createProcessProbe({
       platform: 'win32',
       sampleTimeoutMs: 10,
@@ -247,14 +252,123 @@ describe('createProcessProbe:外部进程白名单红线', () => {
     })
     expect(await probe.sampleProcessTrees([1])).toBeUndefined()
 
+    // ticks 基数取 2026 年附近的真实量级(> CIM epoch),子代比父代晚 100ms(= 1,000,000 ticks)
+    const TICK_ROOT = '638800000000000000'
+    const TICK_CHILD = '638800000001000000'
+    const TICK_GRAND = '638800000002000000'
     const okProbe = createProcessProbe({
       platform: 'win32',
-      sampleTimeoutMs: 500,
-      execFile: async () => 'csv-lines',
+      sampleTimeoutMs: 5000,
+      execFile: async (file, args) => {
+        expect(file).toBe('powershell')
+        expect(args.some((a) => a.includes('Get-CimInstance Win32_Process'))).toBe(true)
+        expect(args).toEqual(['-NoProfile', '-NonInteractive', '-Command', expect.any(String)])
+        return [
+          `100\t0\t${TICK_ROOT}\troot.exe`,
+          `101\t100\t${TICK_CHILD}\tchild.exe`,
+          `102\t101\t${TICK_GRAND}\tgrand child.exe`, // Name 允许空格
+          'junk-line-no-tabs',
+          '',
+        ].join('\r\n')
+      },
     })
-    const result = await okProbe.sampleProcessTrees([1, 2])
+    const result = await okProbe.sampleProcessTrees([100])
     expect(result).toBeDefined()
-    expect(result!.size).toBe(0)
+    const tree = result!.get(100)!
+    expect(tree.map((s) => s.pid)).toEqual([100, 101, 102])
+    expect(tree[0]!.parentPid).toBe(0)
+    expect(tree[1]!.parentPid).toBe(100)
+    expect(tree[2]!.parentPid).toBe(101)
+    expect(tree[1]!.comm).toBe('child.exe')
+    expect(tree[2]!.comm).toBe('grand child.exe')
+    // 创建时间三元组:ticks 换算为 UTC epoch 毫秒且单调不减
+    const rootMs = tree[0]!.createdAtMs!
+    expect(tree[1]!.createdAtMs! - rootMs).toBe(100)
+    expect(tree[2]!.createdAtMs! - rootMs).toBe(200)
+    // 已消失的根不出现在结果里
+    const missing = await okProbe.sampleProcessTrees([777])
+    expect(missing).toBeDefined()
+    expect(missing!.has(777)).toBe(false)
   })
+
+  it('parseCimProcessRow:cimTicksToEpochMs 换算与畸形行拒绝', () => {
+    // 621355968000000000 ticks = Unix epoch(1970-01-01T00:00:00Z)→ 0 毫秒
+    expect(cimTicksToEpochMs('621355968000000000')).toBe(0)
+    // epoch + 1 秒(1000 万 ticks)
+    expect(cimTicksToEpochMs('621355968010000000')).toBe(1000)
+    // CreationDate 为空的系统进程记 0
+    expect(cimTicksToEpochMs('0')).toBe(0)
+    expect(cimTicksToEpochMs('abc')).toBeUndefined()
+    expect(cimTicksToEpochMs('-5')).toBeUndefined()
+    // 正常行:Name 居尾含空格不破坏解析
+    const row = parseCimProcessRow('4242\t100\t621355968010000000\tWindows Service (x64)')
+    expect(row).toEqual({ pid: 4242, comm: 'Windows Service (x64)', parentPid: 100, createdAtMs: 1000 })
+    // 畸形行:缺列 / pid 非法 / ticks 非法 / 空名
+    expect(parseCimProcessRow('4242\t100\t621355968100000000')).toBeUndefined()
+    expect(parseCimProcessRow('0\t100\t621355968100000000\tx')).toBeUndefined()
+    expect(parseCimProcessRow('4242\t100\tbad\tx')).toBeUndefined()
+    expect(parseCimProcessRow('4242\t100\t621355968100000000\t')).toBeUndefined()
+  })
+
+  it('parseCimProcessList:空行跳过、坏行丢弃(与 /proc 扫描同口径,不重试)', () => {
+    const samples = parseCimProcessList('\r\n10\t0\t621355968000000000\ta.exe\r\nbad\r\n11\t10\t621355968000000000\tb.exe\r\n')
+    expect(samples.map((s) => s.pid)).toEqual([10, 11])
+  })
+})
+
+describe('b76-09a 票2(G-998131) 验收:本机 Windows 真跑 CIM 建树', () => {
+  it(
+    'spawn 活口子进程(其下再一层孙),sampleProcessTrees([root pid]) 含 root+child+grandchild 的 pid/parentPid/创建时间三元组',
+    { timeout: 60_000 },
+    async () => {
+      const { spawn } = await import('node:child_process')
+      // root = 本测试进程;child = cmd(其内再拉起 ping 作孙),windowsHide 纪律(AGENTS §5b)。
+      const child = spawn('cmd.exe', ['/c', 'ping -n 30 127.0.0.1 > NUL'], {
+        windowsHide: true,
+        stdio: 'ignore',
+      })
+      try {
+        // 给 cmd 拉起孙进程留出窗口;探针超时给足(CIM 全表 + PowerShell 冷启动可超红线 1s,
+        // 红线默认值本身已被上方注入测试覆盖,此处只验建树正确性)。
+        const probe = createProcessProbe({ platform: 'win32', sampleTimeoutMs: 30_000 })
+        const rootPid = process.pid
+        let tree: ReadonlyMap<number, readonly ProcessProbeSample[]> | undefined
+        let samples: readonly ProcessProbeSample[] = []
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          tree = await probe.sampleProcessTrees([rootPid])
+          samples = tree?.get(rootPid) ?? []
+          if (samples.some((s) => s.parentPid === child.pid)) break
+          await new Promise((resolve) => setTimeout(resolve, 500))
+        }
+        expect(tree).toBeDefined()
+        const byPid = new Map(samples.map((s) => [s.pid, s]))
+        // root:本进程自身在树内,带创建时间且不晚于当下
+        const root = byPid.get(rootPid)!
+        expect(root.createdAtMs).toBeTypeOf('number')
+        expect(root.createdAtMs!).toBeLessThanOrEqual(Date.now())
+        // child:ppid === root pid,创建时间晚于 root
+        const childSample = byPid.get(child.pid)!
+        expect(childSample.parentPid).toBe(rootPid)
+        expect(childSample.createdAtMs!).toBeGreaterThan(root.createdAtMs!)
+        // grandchild:存在 ppid === child.pid 的孙,创建时间不早于 child
+        const grandchildren = samples.filter((s) => s.parentPid === child.pid)
+        expect(grandchildren.length).toBeGreaterThan(0)
+        for (const g of grandchildren) {
+          expect(g.createdAtMs).toBeTypeOf('number')
+          expect(g.createdAtMs!).toBeGreaterThanOrEqual(childSample.createdAtMs!)
+        }
+      } finally {
+        // 终清:整树杀(cmd 与 ping),不留活口
+        await new Promise<void>((resolve) => {
+          const killer = spawn('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
+            windowsHide: true,
+            stdio: 'ignore',
+          })
+          killer.on('exit', () => resolve())
+          killer.on('error', () => resolve())
+        })
+      }
+    },
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
