@@ -9,7 +9,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   type TextStyle,
@@ -20,6 +19,7 @@ import type { TFunction } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** AI 世界 Tab key(工具/应用/资讯/榜单) */
 export type AiWorldTab = 'tools' | 'apps' | 'news' | 'rankings'
@@ -284,7 +284,8 @@ export function AiWorldScreen({
           {/* 搜索 + 分类 chips(仅条目 Tab) */}
           <View style={styles.filterSection}>
             <View style={styles.searchRow}>
-              <TextInput
+              <TextField
+                colorScheme={colorScheme}
                 style={styles.searchInput}
                 value={search}
                 onChangeText={onSearchChange}

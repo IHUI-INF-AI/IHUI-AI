@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -17,6 +16,7 @@ import type { ReferrerInfo, ReferrerScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 export type { ReferrerInfo, ReferrerScreenProps }
 
@@ -70,7 +70,8 @@ export function ReferrerScreen({
         {info?.referrerCode ? null : (
           <View style={styles.card}>
             <Text style={styles.label}>{t('referrer.codeLabel')}</Text>
-            <TextInput
+            <TextField
+              colorScheme={colorScheme}
               style={styles.input}
               value={code}
               onChangeText={onCodeChange}
