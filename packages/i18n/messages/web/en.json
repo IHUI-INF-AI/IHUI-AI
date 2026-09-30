@@ -8999,6 +8999,7 @@
     "title": "AI Career Guidance"
   },
   "aiChat": {
+    "bindIssue": "Bind issue",
     "actions": {
       "archive": "Archive",
       "compressTo1m": "Compress to 1M chars",
@@ -10601,6 +10602,17 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "bindIssue": "Bind issue",
+    "unbindIssue": "Make standalone task",
+    "issueBinding": "Linked issue",
+    "searchIssues": "Search issues by ID, title, or project",
+    "noIssues": "No issues to bind yet",
+    "noMatchingIssues": "No matching issues",
+    "issueNotConfigured": "This source isn't connected yet. Connect GitHub or Linear in settings first.",
+    "issueBindSuccess": "Issue bound",
+    "issueBindFailed": "Failed to bind issue",
+    "issueUnbindSuccess": "Unbound. This conversation is now a standalone task",
+    "issueUnbindFailed": "Failed to unbind issue",
     "selectionAnnotations": {
       "hoverHint": "Hover to view annotations",
       "selectedText": "{{index}}. Selected text",
