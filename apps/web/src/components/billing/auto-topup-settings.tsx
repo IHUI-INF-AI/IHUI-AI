@@ -268,9 +268,7 @@ export function AutoTopupSettings({
           <span className="text-[11px] font-medium text-destructive">
             {t('immediateTopUpFailure.title')}
           </span>
-          <span className="text-[11px] text-destructive">
-            {renderFailureMessage(t, failureInfo)}
-          </span>
+          <span className="text-[11px] text-destructive">{renderFailureMessage(t, failureInfo)}</span>
           <div className="flex flex-wrap items-center gap-1">
             {failureInfo.actions.map((action) => (
               <button
