@@ -88,7 +88,12 @@ const quickEntries = [
   { icon: gonggaoIcon, key: 'user.menu.subscriptions', path: '/pkg-user/subscriptions/index' },
 ]
 
-const menus = [
+// 功能列表项:fallback 可选 — i18n key 尚未入库时用中文兜底(key 后补即自动切换,
+// 与 membershipBenefits 同一模式)。学习中心/考试中心此前无任何入口(G-978071)。
+const menus: ReadonlyArray<{ icon: string; key: string; path: string; fallback?: string }> = [
+  // 学习中心(pages/study,含学习计划/排行/考试入口)与考试列表此前只能手敲 URL 到达
+  { icon: 'book-open', key: 'study.centerTitle', fallback: '学习中心', path: '/pages/study/index' },
+  { icon: 'file-text', key: 'exam.title', path: '/pages/exam/list' },
   { icon: courseIconLocal, key: 'nav.courses', path: '/pkg-learn/course/list' },
   { icon: aiIconLocal, key: 'toolbar.ai', path: '/pkg-ai/ai/chat' },
   { icon: shezhiIcon, key: 'settings.title', path: '/pkg-user/user/settings' },
@@ -1306,7 +1311,7 @@ export default function UserIndex() {
             >
               {renderIcon(item.icon, 'text-[length:40rpx]', 'w-[40rpx] h-[40rpx]')}
               <Text className="flex-1 ml-[20rpx] text-[length:30rpx] text-foreground">
-                {t(item.key)}
+                {item.fallback ? tt(item.key, item.fallback) : t(item.key)}
               </Text>
               <Text className="text-[length:26rpx] text-[var(--color-brand-accent-deep)]">
                 {'>'}
