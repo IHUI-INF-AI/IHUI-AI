@@ -18,7 +18,8 @@ import { pushError } from '@/stores/error-banner'
 import { formatDate } from '@/lib/date-utils'
 import { useSubscriptionStatus, useSignContract } from '@/hooks/use-subscription'
 import { ContractManager } from '@/components/billing/ContractManager'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   Button,
   Label,
@@ -79,9 +80,13 @@ export default function SubscriptionPage() {
     [t],
   )
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data: status, isLoading } = useQuery({
     queryKey: ['payments', 'subscription', 'status'],
     queryFn: () => api<SubscriptionStatus>('/api/payments/subscription/status'),
+    enabled: allow,
   })
 
   const sub = useSubscriptionStatus()
@@ -143,7 +148,9 @@ export default function SubscriptionPage() {
         <p className="mt-0.5 text-xs text-muted-foreground">{t('subscription.subtitle')}</p>
       </div>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看订阅状态" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('subscription.loading')}
