@@ -212,6 +212,45 @@ const MAPPINGS = [
     basis:
       'tokens.css .dark --color-cta-foreground: hsl(0 0% 0%)(纯白底上纯黑字);rn-tokens.ts rnDarkTokens brand.ctaForeground = #000000',
   },
+  // 2026-09-30 新增「选中态」成对档(用户裁决,登录页「邮箱/验证码/密码」分段控件三端收口)。
+  // 立因是实测分叉:同一枚选中胶囊 web 写死 `bg-white dark:bg-black`、RN 走
+  // `colorScheme === 'dark' ? tk.gray.black : tk.surface.light` 三元、小程序取 `--color-card`
+  // (暗档 hsl(0 0% 10%)=#1A1A1A)⇒ 真机(Redmi 720x1640)暗色档案下 App=rgb(0,0,0) 而
+  // 小程序=#1A1A1A。裁决 = 统一到纯黑,并把"选中态"升成一对具名档作唯一源头,
+  // 端里不得再写死 #000/#fff、也不得再自行判明暗(主题感知归 token 表)。
+  // 为什么登记显式配对而不只靠 R4 同名推导:R4 已能推(selection.DEFAULT → --color-selection、
+  // selection.foreground → --color-selection-foreground),但本表这一族是「跨端语义配对」,
+  // 依据必须写在门里 —— 与上面 cta 两档同一处置(AGENTS §4「先在 tokens.css 落 CSS 变量,
+  // 再到同源对账门的映射表登记依据」规定的顺序)。
+  // 亮档取值与 --color-card 亮档逐位同值、暗档前景与同主题 --color-foreground 同值 ⇒ web 观感零变化。
+  {
+    label: 'selection.DEFAULT (light) ↔ --color-selection (:root/@theme)',
+    rn: { light: ['rnLightTokens', 'selection', 'DEFAULT'] },
+    css: { light: '--color-selection' },
+    basis:
+      'tokens.css @theme L58 --color-selection: hsl(0 0% 100%)(HSL→HEX 归一后 #ffffff,用户定稿"选中胶囊亮档=纯白");rn-tokens.ts rnLightTokens selection.DEFAULT = #FFFFFF,消费点 packages/app/src/features/login/LoginScreen.tsx 的 tabItemActive',
+  },
+  {
+    label: 'selection.DEFAULT (dark) ↔ --color-selection (.dark)',
+    rn: { dark: ['rnDarkTokens', 'selection', 'DEFAULT'] },
+    css: { dark: '--color-selection' },
+    basis:
+      'tokens.css .dark L517 --color-selection: hsl(0 0% 0%)(2026-09-30 用户裁决统一到纯黑,显式覆盖、不靠 cascade 回退);rn-tokens.ts rnDarkTokens selection.DEFAULT = #000000 —— 这一档就是"小程序 #1A1A1A vs App 纯黑"分叉的收口点',
+  },
+  {
+    label: 'selection.foreground (light) ↔ --color-selection-foreground (:root/@theme)',
+    rn: { light: ['rnLightTokens', 'selection', 'foreground'] },
+    css: { light: '--color-selection-foreground' },
+    basis:
+      'tokens.css @theme L59 --color-selection-foreground: hsl(0 0% 3.9%)(= 同主题 --color-foreground,#0a0a0a);成对登记是 §4「品牌实底 + 其上文字必须成对」那条判据能机械认出配对的前提;rn-tokens.ts rnLightTokens selection.foreground = #0A0A0A,消费点 LoginScreen.tsx 的 tabTextActive',
+  },
+  {
+    label: 'selection.foreground (dark) ↔ --color-selection-foreground (.dark)',
+    rn: { dark: ['rnDarkTokens', 'selection', 'foreground'] },
+    css: { dark: '--color-selection-foreground' },
+    basis:
+      'tokens.css .dark L518 --color-selection-foreground: hsl(0 0% 98%)(= 同主题 --color-foreground 暗档 #fafafa);rn-tokens.ts rnDarkTokens selection.foreground = #FAFAFA(纯黑底上近白字,对比度 19.1:1)',
+  },
   // 2026-09-06:danger/错误红对齐。RN danger.DEFAULT + error.text 与 web --color-danger
   // 统一为同一语义口(亮 #dc2626 / 暗 #ef4444),并纳入守门防漂移。
   {

@@ -197,6 +197,14 @@ export type RnThemeTokens = {
     cta: string
     ctaForeground: string
   }
+  /* 选中态档(2026-09-30 用户定稿,登录页分段控件三端收口):DEFAULT=被选中胶囊的底色,
+   * foreground=其上的文字。亮=纯白底/近黑字,暗=纯黑底/近白字 —— 对应 tokens.css
+   * @theme/.dark 的 --color-selection / --color-selection-foreground(值由
+   * scripts/sync-rn-tokens.mjs 派生,勿手改)。
+   * 必须是「命名空间 + DEFAULT/foreground」而不是两个顶层标量:mobile-rn 的
+   * theme/active-tokens.ts 用 clonePalette 逐命名空间浅拷(`{ ...src[ns] }`),
+   * 顶层字符串会被摊成字符对象 ⇒ 运行时是不合法颜色(与 agentName 同一条理由)。 */
+  selection: { DEFAULT: string; foreground: string }
   surface: { bg: string; light: string; muted: string; card: string; dark: string; inputBg: string }
   text: { primary: string; secondary: string; tertiary: string; medium: string }
   border: { light: string; medium: string }
@@ -254,6 +262,8 @@ export const rnLightTokens: RnThemeTokens = {
     cta: '#000000',
     ctaForeground: '#FFFFFF',
   },
+  /* 选中态档(亮):纯白底 + 近黑字。值派生自 tokens.css @theme --color-selection(-foreground)。 */
+  selection: { DEFAULT: '#FFFFFF', foreground: '#0A0A0A' },
   surface: {
     bg: '#F5F5F5',
     light: '#FFFFFF',
@@ -341,6 +351,9 @@ export const rnDarkTokens: RnThemeTokens = {
     cta: '#ffffff',
     ctaForeground: '#000000',
   },
+  /* 选中态档(暗):纯黑底 + 近白字(2026-09-30 用户定稿,登录页分段控件三端收口)。
+     值派生自 tokens.css .dark --color-selection(-foreground),不得在此另取一档。 */
+  selection: { DEFAULT: '#000000', foreground: '#FAFAFA' },
   surface: {
     bg: '#242424',
     light: '#262626',
