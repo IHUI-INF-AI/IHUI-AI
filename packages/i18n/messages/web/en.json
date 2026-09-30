@@ -26585,6 +26585,7 @@
     "noUrlField": "No usable URL field found in response",
     "networkError": "Network error",
     "uploadCancelled": "Upload cancelled",
+    "imageAltText": "Feedback screenshot {index}",
     "imagePlaceholder": "Click or drag images here to upload"
   },
   "eduScheduling": {
