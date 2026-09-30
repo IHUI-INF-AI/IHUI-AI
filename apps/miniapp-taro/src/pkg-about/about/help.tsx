@@ -4,14 +4,13 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Button } from '@tarojs/components'
+import { View, Text, Input, Textarea, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { getHelp, submitFeedback } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
-import { FocusInput, FocusTextarea } from '@/components/FocusField'
 
 interface HelpItem {
   id: string
@@ -184,7 +183,7 @@ export default function HelpPage() {
               <Text className="text-destructive mr-[4rpx]">*</Text>
               {tt('about.help.username', '姓名')}
             </Text>
-            <FocusInput
+            <Input
               className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-[length:28rpx] text-foreground"
               value={form.username}
               placeholder={tt('about.help.usernamePlaceholder', '请输入姓名')}
@@ -196,7 +195,7 @@ export default function HelpPage() {
               <Text className="text-destructive mr-[4rpx]">*</Text>
               {tt('about.help.phone', '联系方式')}
             </Text>
-            <FocusInput
+            <Input
               className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-[length:28rpx] text-foreground"
               value={form.phone}
               placeholder={tt('about.help.phonePlaceholder', '请输入联系方式')}
@@ -208,7 +207,7 @@ export default function HelpPage() {
               <Text className="text-destructive mr-[4rpx]">*</Text>
               {tt('about.help.context', '问题描述')}
             </Text>
-            <FocusTextarea
+            <Textarea
               className="w-full min-h-[180rpx] px-[24rpx] py-[16rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-[length:28rpx] text-foreground"
               value={form.context}
               placeholder={tt('about.help.contextPlaceholder', '请输入反馈详情')}

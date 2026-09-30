@@ -4,7 +4,7 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Button, Image } from '@tarojs/components'
+import { View, Text, Input, Button, Image } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -12,7 +12,6 @@ import { getProfile, post } from '@/api'
 import { uploadImage } from '@/utils/upload-image'
 import ThemeRoot from '@/components/ThemeRoot'
 import './realname.css'
-import { FocusInput } from '@/components/FocusField'
 
 const ID_CARD_REGEX = /^\d{17}[\dXx]$/
 
@@ -198,7 +197,7 @@ export default function Realname() {
         <View className="rn-card">
           <View className="rn-field">
             <Text className="rn-label">{t('user.realname.realName')}</Text>
-            <FocusInput
+            <Input
               className="rn-input"
               type="text"
               placeholder={t('user.realname.realNamePlaceholder')}
@@ -208,7 +207,7 @@ export default function Realname() {
           </View>
           <View className="rn-field">
             <Text className="rn-label">{t('user.realname.idCard')}</Text>
-            <FocusInput
+            <Input
               className="rn-input"
               type="idcard"
               maxlength={18}

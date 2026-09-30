@@ -3,13 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
-import { View, Text, Button, Image, ScrollView } from '@tarojs/components'
+import { View, Text, Input, Textarea, Button, Image, ScrollView } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { publishAigc, uploadByBase64 } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import { FocusInput, FocusTextarea } from '@/components/FocusField'
 
 interface UpFile {
   url: string
@@ -210,7 +209,7 @@ export default function AigcPublish() {
         <Text className="block mt-[28rpx] mb-[12rpx] text-[length:28rpx] text-muted-foreground">
           {t('aigc.publish.titleLabel')}
         </Text>
-        <FocusInput
+        <Input
           className="w-full h-[84rpx] bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-[var(--color-border)] px-[24rpx] text-[length:32rpx] text-foreground box-border"
           maxlength={50}
           placeholder={t('aigc.publish.titlePlaceholder')}
@@ -222,7 +221,7 @@ export default function AigcPublish() {
         <Text className="block mt-[28rpx] mb-[12rpx] text-[length:28rpx] text-muted-foreground">
           {t('aigc.publish.descLabel')}
         </Text>
-        <FocusTextarea
+        <Textarea
           className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[length:32rpx] text-foreground box-border"
           placeholder={t('aigc.publish.descPlaceholder')}
           value={desc}
@@ -233,7 +232,7 @@ export default function AigcPublish() {
         <Text className="block mt-[28rpx] mb-[12rpx] text-[length:28rpx] text-muted-foreground">
           {t('aigc.publish.promptLabel')}
         </Text>
-        <FocusTextarea
+        <Textarea
           className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[length:32rpx] text-foreground box-border"
           placeholder={t('aigc.publish.promptPlaceholder')}
           value={prompt}
