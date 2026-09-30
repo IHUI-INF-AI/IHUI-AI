@@ -31,7 +31,7 @@ import {
   type ConnectionState,
 } from '@/components/ai/progress-sections/connection-status'
 
-export interface ConnectionSignal {
+interface ConnectionSignal {
   state: ConnectionState
   attempt: number
   totalAttempts: number
@@ -86,11 +86,7 @@ function getSnapshot(): ConnectionSignal {
   return signal
 }
 
-/**
- * 读当前连接信号的唯一出口。`ConnectionStatusBar` 与 `input-status-slot` 的占位判定
- * 都经它 —— 两处各自 `useSyncExternalStore(subscribe, getSnapshot)` 就是第二份真相,
- * 漂移后的表现不是报错,是"槽位以为要显示、组件却空了"(或反过来)。
- */
+/** 模块级连接信号的标准读法:组件渲染与 InputStatusSlot 激活判定共用同一份订阅。 */
 export function useStreamConnectionSignal(): ConnectionSignal {
   return React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
@@ -138,7 +134,7 @@ export function ConnectionStatusBar({
   const shown = deriveConnectionState(
     isStreaming,
     current.attempt,
-    current.state === 'disconnected' || (current.error ?? null) !== null,
+    current.state === 'disconnected' || current.error != null,
     threadId,
   )
   if (!isAbnormalConnectionState(shown)) return null
