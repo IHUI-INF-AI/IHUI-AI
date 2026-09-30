@@ -23,6 +23,7 @@
 import { env } from 'node:process'
 import { eq, and, desc, asc, ilike, sql, isNull, gte } from 'drizzle-orm'
 import Parser from 'rss-parser'
+import { z } from 'zod'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
@@ -89,13 +90,42 @@ export interface SourceStatsItem {
   snapshotCount: number
 }
 
-export interface CollectResult {
-  fetchedSources: number
-  totalItems: number
-  details: Array<{ sourceCode: string; status: string; count: number; error?: string }>
-  /** 本轮因「跨源同名(规范化标题)」被拦截跳过的 repost 条数(2026-09-06 起) */
-  repostBlocked?: number
-}
+/**
+ * b76-12d 票2:CollectResult 的协议入口 schema(.strict() + .superRefine)。
+ *
+ * 计数是条目的派生值:totalItems 必须等于 details[].count 之和,不符就在协议入口拒收,
+ * 而不在 service 里"算的时候顺便对一下"——两处各自维护必然漂移。
+ */
+export const collectResultSchema = z
+  .object({
+    fetchedSources: z.number().int().nonnegative(),
+    totalItems: z.number().int().nonnegative(),
+    details: z.array(
+      z
+        .object({
+          sourceCode: z.string(),
+          status: z.string(),
+          count: z.number().int().nonnegative(),
+          error: z.string().optional(),
+        })
+        .strict(),
+    ),
+    // 本轮因「跨源同名(规范化标题)」被拦截跳过的 repost 条数(2026-09-06 起)
+    repostBlocked: z.number().int().nonnegative().optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const sum = value.details.reduce((s, d) => s + d.count, 0)
+    if (value.totalItems !== sum) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['totalItems'],
+        message: `totalItems(${value.totalItems}) must match the sum of details[].count(${sum})`,
+      })
+    }
+  })
+
+export type CollectResult = z.infer<typeof collectResultSchema>
 
 export interface LlmBatchResult {
   processedItems: number
@@ -1064,12 +1094,27 @@ export async function collectAllSources(): Promise<CollectResult> {
       .where(eq(aiFeedSource.id, src.id))
   }
 
-  return {
+  return validateCollectResult({
     fetchedSources: sources.length,
     totalItems,
     details,
     repostBlocked: repostBlockedTotal,
+  } satisfies CollectResult)
+}
+
+/**
+ * collectAllSources 的出口对返回值过一遍 collectResultSchema(b76-12d 票2):
+ * totalItems 与 details[].count 不自洽就在协议入口拒收,不把漂移载荷发给调用方。
+ */
+export function validateCollectResult(result: CollectResult): CollectResult {
+  const parsed = collectResultSchema.safeParse(result)
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0]
+    throw new Error(
+      `CollectResult 自洽校验失败:${issue?.path.join('.') ?? '<root>'} ${issue?.message ?? 'unknown'}`,
+    )
   }
+  return parsed.data
 }
 
 // =============================================================================
