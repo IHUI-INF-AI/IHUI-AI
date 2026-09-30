@@ -8989,7 +8989,6 @@
     "title": "AI 진로 지도"
   },
   "aiChat": {
-    "bindIssue": "이슈 연결",
     "actions": {
       "archive": "보관",
       "compressTo1m": "100만 자로 압축",
@@ -9135,25 +9134,6 @@
     "noHistory": "없음채팅",
     "noRecentWorkspaces": "최근 워크스페이스 없음",
     "openTerminal": "터미널 열기",
-    "recap": {
-      "title": "작업 리캡",
-      "handoff": {
-        "menuItem": "새 작업으로 인계",
-        "title": "새 작업으로 인계"
-      },
-      "previewDescription": "인계 내용을 확인한 후 파일 위치에서 보거나, 새 작업을 만들어 계속 작업할 수 있습니다.",
-      "purposeLabel": "인계 목적",
-      "purposePlaceholder": "인계 목적",
-      "revealFile": "파일 표시",
-      "createSession": "새 작업 만들기",
-      "phase": {
-        "generating": "모델이 인계 내용을 생성하는 중…",
-        "done": "인계 문서가 생성되었습니다."
-      },
-      "creating": "새 작업을 만드는 중…",
-      "createFailed": "새 작업을 만들지 못했습니다. 다시 시도해 주세요.",
-      "handoffUnavailable": "의존하는 인계 문서 생성 출구가 아직 제공되지 않아 인계 내용을 생성할 수 없습니다."
-    },
     "renameDialog": {
       "cancel": "취소",
       "description": "짧고 알아보기 쉽게 지어주세요",
@@ -10592,17 +10572,6 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
-    "bindIssue": "이슈 연결",
-    "unbindIssue": "독립 작업으로 전환",
-    "issueBinding": "연결된 이슈",
-    "searchIssues": "이슈 ID, 제목 또는 프로젝트 검색",
-    "noIssues": "연결할 수 있는 이슈가 아직 없습니다",
-    "noMatchingIssues": "일치하는 이슈가 없습니다",
-    "issueNotConfigured": "이 소스는 아직 연결되지 않았습니다. 설정에서 GitHub 또는 Linear를 먼저 연결하세요",
-    "issueBindSuccess": "이슈가 연결되었습니다",
-    "issueBindFailed": "이슈 연결에 실패했습니다",
-    "issueUnbindSuccess": "연결이 해제되어 독립 작업으로 전환되었습니다",
-    "issueUnbindFailed": "연결 해제에 실패했습니다",
     "selectionAnnotations": {
       "hoverHint": "마우스를 올리면 주석 표시",
       "selectedText": "{{index}}. 선택한 텍스트",
@@ -14180,7 +14149,6 @@
       "verifyCode": "6자리 코드 입력"
     },
     "shop": {
-      "payNow": "결제하기",
       "buy": "구매",
       "buying": "주문 중...",
       "cancel": "취소",
@@ -14491,7 +14459,8 @@
     "loading": "로딩 중...",
     "myPoints": "나 포인트",
     "subtitle": "포괄적인의개발문서및API참조",
-    "title": "AI인마음페이스테스트"
+    "title": "AI인마음페이스테스트",
+    "totalChannels": "채널 총수"
   },
   "eduProgressPage": {
     "categoryProgress": "카테고리별 진도",
@@ -14894,7 +14863,6 @@
     "title": "평가 관리"
   },
   "exam": {
-    "pageInfo": "{page} / {total} 페이지",
     "back": "뒤로",
     "duration": "{minutes}분",
     "empty": "시험이 없습니다",
@@ -14924,7 +14892,6 @@
     "title": "온라인 시험",
     "totalScore": "총점 {score}",
     "wrongQuestions": {
-      "aiExplain": "AI 해설",
       "colActions": "작업",
       "colQuestion": "문제 내용",
       "colSource": "출처 시험",
@@ -16269,8 +16236,6 @@
     "metaOgDescription": "문서 분할 + 벡터화 + 하이브리드 검색 + 인용 추적"
   },
   "learn": {
-    "startLearning": "학습 시작",
-    "buyNow": "지금 구매",
     "allCategories": "All categories",
     "category": "카테고리",
     "chapters": "챕터 수",
@@ -16314,7 +16279,6 @@
     "paymentConfirm": "결제 확인",
     "review": "editorial content attribute",
     "tutor": {
-      "history": "최근 질문",
       "title": "AI 조교",
       "subject": "교과",
       "mode": "모드",
@@ -19023,11 +18987,6 @@
     "memory": "메모리",
     "messages": "메시지",
     "messagesComment": "댓글",
-    "myPendingDecisions": "내 결정 대기",
-    "pendingDecisionsEmpty": "대기 중인 결정이 없습니다",
-    "decisionTypeToolApproval": "도구 승인",
-    "decisionTypePermissions": "권한 요청",
-    "decisionTypeElicitation": "답변 대기",
     "messagesFans": "새 팔로워",
     "messagesFavorite": "즐겨찾기",
     "messagesLike": "좋아요",
@@ -19076,7 +19035,7 @@
     "repoWiki": "Repo Wiki",
     "resources": "리소스",
     "restore": "복원",
-    "schedule": "작업 스케줄러",
+    "schedule": "일정",
     "search": "검색",
     "selfMediaAutomation": "자동화",
     "selfMediaKoubo": "쿠보 영상",
@@ -22054,7 +22013,6 @@
     "warning": "경고"
   },
   "student": {
-    "aiExplain": "AI 해설",
     "avgProgress": "평균 진행률",
     "avgScore": "평균 점수",
     "certNo": "인증서 번호",
@@ -26593,7 +26551,6 @@
     "noUrlField": "응답에서 사용할 수 있는 URL 필드를 찾을 수 없습니다",
     "networkError": "네트워크 오류",
     "uploadCancelled": "업로드가 취소되었습니다",
-    "imageAltText": "피드백 스크린샷 {index}",
     "imagePlaceholder": "클릭하거나 이미지를 여기에 끌어다 놓아 업로드하세요"
   },
   "eduScheduling": {
