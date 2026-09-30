@@ -14,16 +14,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import {
-  Bot,
-  Cable,
-  FileText,
-  ListTodo,
-  Loader2,
-  Puzzle,
-  Sparkles,
-  X,
-} from 'lucide-react'
+import { Bot, Cable, FileText, ListTodo, Loader2, Puzzle, Sparkles, X } from 'lucide-react'
 
 import { SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -117,17 +108,12 @@ export function UnifiedSuggestionPanel({
   const inputRef = React.useRef<HTMLInputElement>(null)
   const listRef = React.useRef<HTMLDivElement>(null)
 
-  const sections = React.useMemo(
-    () => aggregateUnifiedSuggestions(states, query),
-    [states, query],
-  )
+  const sections = React.useMemo(() => aggregateUnifiedSuggestions(states, query), [states, query])
   // 只渲染"有内容可说"的分节:ready+有条目 / loading / failed;
   // 六源聚合的完整性由 aggregateUnifiedSuggestions + 用例守住,不靠渲染层凑数。
   const visibleSections = React.useMemo(
     () =>
-      sections.filter(
-        (s) => s.status === 'loading' || s.status === 'failed' || s.items.length > 0,
-      ),
+      sections.filter((s) => s.status === 'loading' || s.status === 'failed' || s.items.length > 0),
     [sections],
   )
   const flatItems = React.useMemo(
@@ -370,19 +356,149 @@ export function UnifiedSuggestionPanel({
 export interface UnifiedPasteReferencePreviewProps {
   previews: readonly PastedReferencePreview[]
   onDismiss: () => void
+  /**
+   * D185(2026-09-30 立,对标竞品 composer.referencePreview.*):传入后粘贴引用
+   * 预览条升级为**可编辑模拟预览编辑器** —— 草稿预填原始输入正文、可选示例能力、
+   * 一键发送/新建输入;不传则保持 D68 被动有效性预览条(零回归)。
+   */
+  onSend?: (text: string) => void
 }
+
+/** D185 select 出口的示例能力 token:语法形态样例(同 @user 类示例),非真实能力名 */
+const SAMPLE_CAPABILITY_TOKEN = '@capability'
 
 /**
  * 粘贴引用有效性预览条(台账 D68「粘贴引用有效性预览」):粘贴内容里出现的
  * @token / `path` 与当前已知引用集逐一比对,有效/未识别两种状态**可见**呈现。
  * 空集不渲染(不占位、不闪现)。
+ * D185:传入 onSend 时升级为可编辑模拟预览编辑器(见 props 注释)。
  */
 export function UnifiedPasteReferencePreview({
   previews,
   onDismiss,
+  onSend,
 }: UnifiedPasteReferencePreviewProps) {
   const t = useTranslations('unifiedSuggestion')
+  // D185:编辑器文案走 chat.referencePreview.*(词包经 wave 片段通道合并,见
+  // .ihui-agent/tmp/zcode-wave/i18n-frag-w9d.json);授权声明复用 D68 既有键。
+  const tc = useTranslations('chat')
+  const [draft, setDraft] = React.useState('')
+  // 每次新粘贴(数组引用变化)→ 草稿重置为本次粘贴的原始输入正文
+  React.useEffect(() => {
+    setDraft(previews.map((p) => p.raw).join('\n'))
+  }, [previews])
   if (previews.length === 0) return null
+  if (onSend) {
+    const canSend = draft.trim().length > 0
+    return (
+      <div
+        data-testid="unified-paste-reference-editor"
+        className="rounded-md border border-border bg-muted/40 px-3 py-2"
+      >
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-medium text-muted-foreground">
+            {t('pastePreviewTitle')}
+          </span>
+          <span
+            data-testid="unified-paste-editor-mock-badge"
+            className="rounded bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground"
+          >
+            {tc('referencePreview.available')}
+          </span>
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label={t('pastePreviewDismiss')}
+            className="ml-auto rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+        {/* 引用标签预览:与被动预览条同一形态(有效/未识别两态 chips) */}
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          {previews.map((p) => (
+            <span
+              key={p.raw}
+              data-testid={`unified-paste-ref-${p.recognized ? 'valid' : 'unknown'}`}
+              className={cn(
+                'inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] leading-none',
+                p.recognized ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground',
+              )}
+            >
+              <span className="truncate">{p.raw}</span>
+              <span className="font-sans">
+                {p.recognized ? t('pasteValid') : t('pasteUnknown')}
+              </span>
+            </span>
+          ))}
+        </div>
+        <textarea
+          data-testid="unified-paste-editor-input"
+          aria-label={tc('referencePreview.editor')}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={tc('referencePreview.placeholder')}
+          rows={2}
+          className="mt-1.5 w-full resize-y rounded-sm border border-border bg-background px-2 py-1.5 text-xs focus:outline-none"
+        />
+        {/* 「原始输入正文」分区:固定回显未编辑的粘贴原文,与草稿编辑态对照 */}
+        <div className="mt-1 flex min-w-0 items-center gap-2">
+          <span className="shrink-0 text-[10px] text-muted-foreground">
+            {tc('referencePreview.source')}
+          </span>
+          <span
+            data-testid="unified-paste-editor-source"
+            className="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground/70"
+          >
+            {previews.map((p) => p.raw).join('\n')}
+          </span>
+        </div>
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <button
+            type="button"
+            data-testid="unified-paste-editor-select"
+            onClick={() =>
+              setDraft((prev) =>
+                prev ? `${prev} ${SAMPLE_CAPABILITY_TOKEN}` : SAMPLE_CAPABILITY_TOKEN,
+              )
+            }
+            className="rounded-sm border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            {tc('referencePreview.select')}
+          </button>
+          <button
+            type="button"
+            data-testid="unified-paste-editor-clear"
+            onClick={() => setDraft('')}
+            className="rounded-sm border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            {tc('referencePreview.clear')}
+          </button>
+          <button
+            type="button"
+            data-testid="unified-paste-editor-send"
+            disabled={!canSend}
+            onClick={() => {
+              if (!canSend) return
+              onSend(draft.trim())
+              onDismiss()
+            }}
+            className="ml-auto rounded-sm bg-primary px-2 py-0.5 text-[10px] text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {tc('referencePreview.send')}
+          </button>
+        </div>
+        {/* D185 例外行(authorization 判 FALSE):预览不请求模型/不新增执行授权的
+            声明复用 D68 既有 authorizationNotice 键,可见文本渲染,不另立第二套键。 */}
+        <p
+          data-testid="unified-paste-editor-authorization"
+          className="mt-1 text-[10px] leading-snug text-muted-foreground/70"
+        >
+          {t('authorizationNotice')}
+        </p>
+      </div>
+    )
+  }
   return (
     <div
       data-testid="unified-paste-reference-preview"
