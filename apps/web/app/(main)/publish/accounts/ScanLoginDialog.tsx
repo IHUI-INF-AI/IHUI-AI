@@ -139,6 +139,29 @@ export function ScanLoginDialog({
   const toast = useToast()
   const [platforms, setPlatforms] = React.useState<ScanLoginPlatform[]>([])
   const [platform, setPlatform] = React.useState<string>(defaultPlatform ?? '')
+  /**
+   * 会话复用(2026-09-30,用户拍板):该平台已有有效登录态时直接复用、免扫码;
+   * 关掉 = 每次重新扫码(后端清登录态出码)。选择持久化到 localStorage,两档并存。
+   */
+  const [reuseSession, setReuseSession] = React.useState<boolean>(() => {
+    if (typeof window === 'undefined') return true
+    try {
+      return window.localStorage.getItem('ihui:scan-login:reuse-session') !== '0'
+    } catch {
+      return true
+    }
+  })
+  function toggleReuseSession() {
+    setReuseSession((prev) => {
+      const next = !prev
+      try {
+        window.localStorage.setItem('ihui:scan-login:reuse-session', next ? '1' : '0')
+      } catch {
+        /* 隐私模式等 localStorage 不可用场景:仅本次会话内生效 */
+      }
+      return next
+    })
+  }
   const [phase, setPhase] = React.useState<Phase>('idle')
   const [qrUrl, setQrUrl] = React.useState<string>('')
   const [errorMsg, setErrorMsg] = React.useState<string>('')
@@ -239,7 +262,7 @@ export function ScanLoginDialog({
       prewarmRef.current = warmed
       void (async () => {
         try {
-          const r = await startScanLogin(chosen)
+          const r = await startScanLogin(chosen, { reuseSession })
           if (warmed.cancelled) {
             if (r.success && r.data?.task_id) {
               void cancelScanLogin(r.data.task_id).catch(() => undefined)
@@ -257,7 +280,7 @@ export function ScanLoginDialog({
       clearTimeout(timer)
       cancelPrewarm()
     }
-  }, [open, phase, platform, defaultPlatform])
+  }, [open, phase, platform, defaultPlatform, reuseSession])
 
   // 弹窗关闭(而不是卸载):把还在预热的任务退掉,否则那枚 Chromium 会挂到后端超时。
   React.useEffect(() => {
@@ -431,7 +454,7 @@ export function ScanLoginDialog({
     setTaskMessage('')
     networkFailRef.current = 0
     try {
-      const r = await startScanLogin(plat)
+      const r = await startScanLogin(plat, { reuseSession })
       if (!r.success) throw apiFailureToError(r, t('accounts.scanLoginFailed'))
       const id = r.data?.task_id
       if (!id) throw new Error(t('accounts.scanLoginFailed'))
@@ -677,6 +700,17 @@ export function ScanLoginDialog({
                   </Select>
                 )}
               </div>
+              <button
+                type="button"
+                onClick={toggleReuseSession}
+                disabled={isBusy}
+                className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent/40"
+              >
+                <span>{t('accounts.scanLoginReuseLabel')}</span>
+                <span className={reuseSession ? 'font-medium text-foreground' : ''}>
+                  {reuseSession ? t('accounts.scanLoginReuseOn') : t('accounts.scanLoginReuseOff')}
+                </span>
+              </button>
               <Button
                 onClick={() => void handleStart()}
                 disabled={!platform || isBusy}
