@@ -26743,6 +26743,7 @@
     "noUrlField": "响应中未找到可用的 URL 字段",
     "networkError": "网络错误",
     "uploadCancelled": "上传已取消",
+    "imageAltText": "反馈截图 {index}",
     "imagePlaceholder": "点击或拖拽上传图片"
   },
   "eduScheduling": {
