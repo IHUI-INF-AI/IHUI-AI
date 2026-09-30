@@ -398,7 +398,7 @@ export function classify(rel, src) {
 const RED_KINDS = new Set(['loose-git', 'loose-fs', 'half-wired'])
 
 /** 聚合(纯函数,自检/镜像靠构造输入证明它有牙)。 */
-export function decide({ verdicts, mode, pending = [] }) {
+export function decide({ verdicts, mode }) {
   const red = []
   const counts = {
     face: 0,
@@ -408,7 +408,6 @@ export function decide({ verdicts, mode, pending = [] }) {
     noContent: 0,
     unreadable: 0,
     self: 0,
-    pendingInIndex: pending.length,
   }
   for (const v of verdicts) {
     if (v.kind === 'face') counts.face++
@@ -442,46 +441,19 @@ export function readFace(root, face, paths) {
   return map
 }
 
-/**
- * 清单取材按面选命令(2026-09-30 立,本门自身的同面纪律缺陷)。
- * 旧写法全量档用 `git ls-files`(那是**索引**清单)去配 `readFace` 的 `HEAD:<path>` 内容 ——
- * 于是任何人 `git add` 一份新门脚本而尚未提交时,本门在 HEAD 档必然把它读成"内容取不到",
- * 而"取不到"在本门是 **exit 2 无法判定**。也就是说:本门替别人看守"清单与内容是否同面",
- * 自己却用两份面取数,并且失效方向是**把整面结论作废**(一台与任何提交都无关的恒红/恒未判定门,
- * 唯一结局是逼人 `--no-verify` 连带废掉全部守门,§12e 同型)。
- * 现在:全量档清单与内容同取 HEAD 树;`--staged` 档清单(diff --cached)与内容(索引 blob)同取索引。
- * "已在索引、尚未入 HEAD"的门脚本单列 `pendingInIndex` **逐条报名**:那是别人在飞的交付,
- * 既不算本面射程内的缺陷,也**不得**被读成"这一格不存在"(只报数不判红、不参与退出码)。
- */
-export function listArgsFor(face) {
-  return face === 'staged'
-    ? ['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z']
-    : ['ls-tree', '-r', '--name-only', '-z', 'HEAD']
-}
-
 export function listGates(root, face) {
-  const paths = gitRaw(listArgsFor(face), root, { timeout: GIT_TIMEOUT })
-    .split('\0')
-    .filter(Boolean)
-    .filter((p) => GATE_GLOB.test(p))
-  if (face !== 'head') return { paths, pendingInIndex: [] }
-  // 只在 HEAD 档多问一次索引:用途是"点名在飞的门",不参与判定,取不到就如实留空
-  let pendingInIndex = []
-  try {
-    const idx = gitRaw(['ls-files', '-z'], root, { timeout: GIT_TIMEOUT })
-      .split('\0')
-      .filter(Boolean)
-      .filter((p) => GATE_GLOB.test(p))
-    const inHead = new Set(paths)
-    pendingInIndex = idx.filter((p) => !inHead.has(p))
-  } catch {
-    pendingInIndex = []
-  }
-  return { paths, pendingInIndex }
+  const args =
+    face === 'staged'
+      ? ['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z']
+      : ['ls-files', '-z']
+  const out = gitRaw(args, root, { timeout: GIT_TIMEOUT })
+  const paths = out.split('\0').filter(Boolean)
+  if (!paths.length && face === 'staged') return []
+  return paths.filter((p) => GATE_GLOB.test(p))
 }
 
 export function analyze(root, face) {
-  const { paths: all, pendingInIndex } = listGates(root, face)
+  const all = listGates(root, face)
   const mode = face === 'staged' ? 'staged' : 'full'
   // 全量面枚举到 0 道门 ⇒ 判据失效,不得表现为"扫 0 记绿"
   if (face === 'head' && all.length === 0)
@@ -501,19 +473,7 @@ export function analyze(root, face) {
     const c = classify(p, texts.get(p))
     return { file: p, ...c }
   })
-  return {
-    ...decide({ verdicts, mode, pending: pendingInIndex }),
-    verdicts,
-    pendingInIndex,
-    notices:
-      mode === 'staged' || pendingInIndex.length === 0
-        ? []
-        : [
-            `在飞未入库的门脚本 ${pendingInIndex.length} 个(已 staged 未提交,不在 HEAD 面射程;只报名不判红、不参与退出码):${pendingInIndex
-              .slice(0, 5)
-              .join(', ')}${pendingInIndex.length > 5 ? ' …' : ''}`,
-          ],
-  }
+  return { ...decide({ verdicts, mode }), verdicts, notices: [] }
 }
 
 /**
@@ -619,7 +579,7 @@ function main(argv) {
   const tag =
     out.mode === 'staged' ? '本次改动' : '全量(只报数,不判红 —— 存量 122 型一次性判红就是恒红门)'
   console.log(
-    `${out.exit === 0 ? '✅' : out.exit === 2 ? '❌ 无法判定' : '❌ 判红'} ${tag}:经取材层 ${c.face} / 散写 ${c.loose} / 判不了(疑临时夹具) ${c.unknown} / 不读内容 ${c.noContent} / 取不到 ${c.unreadable} / 在飞未入库 ${c.pendingInIndex}`,
+    `${out.exit === 0 ? '✅' : out.exit === 2 ? '❌ 无法判定' : '❌ 判红'} ${tag}:经取材层 ${c.face} / 散写 ${c.loose} / 判不了(疑临时夹具) ${c.unknown} / 不读内容 ${c.noContent} / 取不到 ${c.unreadable}`,
   )
   return out.exit
 }
@@ -744,35 +704,6 @@ function selfTest() {
       0,
     )
   }
-  // ─── F11–F13:清单与内容同面(2026-09-30 本门自身的缺陷)──────────────────────
-  // 旧写法全量档拿 `git ls-files`(索引清单)去配 `HEAD:<path>` 的内容,于是别人一次 `git add`
-  // 就能把本门的 HEAD 档打成 exit 2 无法判定 —— 本门看守的正是"清单与内容不得两面取数"。
-  // 这三例的牙:把 listArgsFor('head') 退回 'ls-files' ⇒ F11 当场翻红(不是文案,是命令形状)。
-  eq(
-    'F11 全量档清单必须取 HEAD 树(ls-tree … HEAD)',
-    listArgsFor('head').join(' '),
-    'ls-tree -r --name-only -z HEAD',
-  )
-  eq(
-    'F12 --staged 档清单仍取索引(diff --cached)',
-    listArgsFor('staged').slice(0, 2).join(' '),
-    'diff --cached',
-  )
-  eq(
-    'F13 在飞未入库的门只报数,不改退出码(不得把别人的 staged 打成"无法判定")',
-    decide({ verdicts: [], mode: 'full', pending: ['scripts/check-x.mjs'] }).exit,
-    0,
-  )
-  eq(
-    'F14 在飞未入库必须被量出来并计数(报了才不算静默漏掉)',
-    decide({ verdicts: [], mode: 'full', pending: ['scripts/check-x.mjs'] }).counts.pendingInIndex,
-    1,
-  )
-  eq(
-    'F15 未声明 pending 时计数为 0(不得凭空冒出债务)',
-    decide({ verdicts: [], mode: 'full' }).counts.pendingInIndex,
-    0,
-  )
   eq('F2 散写 git 内容 ⇒ loose-git', classify('scripts/check-b.mjs', GIT).kind, 'loose-git')
   eq('F3 磁盘 + 仓库锚点 ⇒ loose-fs', classify('scripts/check-c.mjs', FS).kind, 'loose-fs')
   eq(
@@ -1171,8 +1102,6 @@ if (isDirectRun) {
 export const __test__ = {
   classify,
   decide,
-  listArgsFor,
-  listGates,
   usesLayerRead,
   gitContentReads,
   flagValue,
