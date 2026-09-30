@@ -3,11 +3,10 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
-import { View, Text, Button, ScrollView } from '@tarojs/components'
+import { View, Text, Textarea, Button, ScrollView } from '@tarojs/components'
 import { permissionDecisionWord, useAgentRuntime } from '@ihui/shared'
 import type { AgentRuntimePanelProps } from '@ihui/types'
 import LineIcon from '@/components/LineIcon'
-import { FocusTextarea } from '@/components/FocusField'
 
 export default function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimePanelProps) {
   const { t } = useI18n()
@@ -118,7 +117,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
 
       <View className="p-3 mt-2">
         <View className="flex items-end">
-          <FocusTextarea
+          <Textarea
             value={input}
             onInput={(e) => setInput(e.detail.value)}
             placeholder={t('ai.agentDetail.runtimeInputPlaceholder')}
