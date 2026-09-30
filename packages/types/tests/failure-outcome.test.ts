@@ -2,87 +2,73 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-export type ApiFailureStage = 'client_validation' | 'upstream_request' | 'local_persist'
-
-export const API_FAILURE_STAGES: readonly ApiFailureStage[] = [
-  'client_validation',
-  'upstream_request',
-  'local_persist',
-]
-
 /**
- * 错误类别(封闭联合,跨进程可判;b76-01 票3)。
- * 权威定义在 @ihui/types/error-serialize 的 ErrorCategory —— 本包按 error-serialize
- * 收口先例(见 client.ts 文件头 2026-09-26 注)包内自持同名判据,权威漂移由 types
- * 侧测试把守。"限流"这类判定只能由 errorCategory 得出,类别缺失即 false,
- * 绝不回退到 message 文本匹配。
+ * b76-01 票3:判别式 outcome 契约(types 权威面)。
+ * FailureOutcomeSchema / isFailureOutcome / isFailureCategory / createFailureOutcome。
+ * 判据:失败形态必须同时携带封闭 failureStage 与 errorCategory;
+ * 只给 message 的伪造值必须判 false;未知字段判失败(strict 白面)。
  */
-export type ApiErrorCategory =
-  | 'rate_limited'
-  | 'quota_exhausted'
-  | 'auth'
-  | 'forbidden'
-  | 'not_found'
-  | 'conflict'
-  | 'validation'
-  | 'upstream'
-  | 'internal'
+import { describe, it, expect } from 'vitest'
+import {
+  FAILURE_STAGES,
+  createFailureOutcome,
+  isFailureOutcome,
+  isFailureCategory,
+} from '../src/error-serialize.js'
 
-export const API_ERROR_CATEGORIES: readonly ApiErrorCategory[] = [
-  'rate_limited',
-  'quota_exhausted',
-  'auth',
-  'forbidden',
-  'not_found',
-  'conflict',
-  'validation',
-  'upstream',
-  'internal',
-]
+describe('票3 · FailureOutcome(判别式 outcome)', () => {
+  it('createFailureOutcome:同时携带 failureStage 与 errorCategory,归因保留', () => {
+    const outcome = createFailureOutcome({
+      failureStage: 'upstream_request',
+      errorCategory: 'rate_limited',
+      errorCode: 'RATE_LIMITED',
+      message: '短信通道返回限流文案',
+      attribution: 'carrier:sms',
+    })
+    expect(outcome.ok).toBe(false)
+    expect(FAILURE_STAGES).toContain(outcome.failureStage)
+    expect(outcome.errorCategory).toBe('rate_limited')
+    expect(outcome.attribution).toBe('carrier:sms')
+    // "限流"只能由 errorCategory 得出;message 不得携带状态数字
+    expect(outcome.message).not.toMatch(/429/)
+  })
 
-export class ApiError extends Error {
-  status?: number
-  errorCode?: string
-  /** 判别式分类:判定一律走 errorCategory/errorCode,禁止按 message 文本分支。 */
-  errorCategory?: ApiErrorCategory
-  /** 失败发生在哪条边界上(client_validation / upstream_request / local_persist)。 */
-  failureStage?: ApiFailureStage
-  constructor(message: string, status?: number, errorCode?: string) {
-    super(message)
-    this.name = 'ApiError'
-    this.status = status
-    this.errorCode = errorCode
-  }
-}
+  it('isFailureOutcome:三档 failureStage 全部可判', () => {
+    for (const stage of FAILURE_STAGES) {
+      const outcome = createFailureOutcome({ failureStage: stage, errorCategory: 'internal' })
+      expect(isFailureOutcome(outcome)).toBe(true)
+    }
+  })
 
-/** createXxxError 形态的便捷工厂:错误类别与边界阶段必填,code/status 选填。 */
-export function createApiError(input: {
-  message: string
-  errorCategory: ApiErrorCategory
-  failureStage: ApiFailureStage
-  status?: number
-  errorCode?: string
-}): ApiError {
-  const err = new ApiError(input.message, input.status, input.errorCode)
-  err.errorCategory = input.errorCategory
-  err.failureStage = input.failureStage
-  return err
-}
+  it('负例:伪造 {message:"quota exceeded"} 但 errorCategory 缺失 → 必须 false', () => {
+    expect(isFailureOutcome({ message: 'quota exceeded' })).toBe(false)
+    expect(isFailureCategory({ message: 'quota exceeded' }, 'quota_exhausted')).toBe(false)
+  })
 
-export function isApiError(err: unknown): err is ApiError {
-  return err instanceof ApiError
-}
+  it('封闭联合:failureStage / errorCategory 越界值判 false', () => {
+    expect(
+      isFailureOutcome({ ok: false, failureStage: 'somewhere_else', errorCategory: 'internal' }),
+    ).toBe(false)
+    expect(
+      isFailureOutcome({ ok: false, failureStage: 'local_persist', errorCategory: 'kind_of_bad' }),
+    ).toBe(false)
+  })
 
-/** isXxxError 判定器(按封闭类别)。**禁止**把 err.message 拿来做文本比对。 */
-export function isApiErrorCategory(err: unknown, category: ApiErrorCategory): boolean {
-  return isApiError(err) && err.errorCategory === category
-}
+  it('strict 白面:未知字段判失败;ok:true 不冒充失败', () => {
+    expect(
+      isFailureOutcome({ ok: false, failureStage: 'local_persist', errorCategory: 'auth', junk: 1 }),
+    ).toBe(false)
+    expect(isFailureOutcome({ ok: true, failureStage: 'local_persist', errorCategory: 'auth' })).toBe(
+      false,
+    )
+  })
 
-export function isNotFound(err: unknown): boolean {
-  return err instanceof ApiError && err.status === 404
-}
-
-export function isErrorCode(err: unknown, code: string): boolean {
-  return err instanceof ApiError && err.errorCode === code
-}
+  it('isFailureCategory:类别相等才 true,类别缺失即 false(不回退文本判)', () => {
+    const outcome = createFailureOutcome({ failureStage: 'client_validation', errorCategory: 'validation' })
+    expect(isFailureCategory(outcome, 'validation')).toBe(true)
+    expect(isFailureCategory(outcome, 'rate_limited')).toBe(false)
+    expect(isFailureCategory(undefined, 'validation')).toBe(false)
+    expect(isFailureCategory('rate_limited', 'rate_limited')).toBe(false)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
