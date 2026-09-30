@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { devEnvRoot } from '../seal-c-root-stray.mjs'
 // 遮罩只留那一份实现(§"任一门不得留本地副本"):判据面 = 注释与字符串都抹平的等长文本。
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 
@@ -23,10 +24,10 @@ import { gitArchiveRootFor, ensureGitArchiveDir } from '../lib/gitdir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
-test('gitArchiveDir:要么为 null,要么落在 <盘>/DevEnv/backups/git', () => {
+test('gitArchiveDir:要么为 null,要么落在 <DevEnv根>/backups/git(仓内 .DevEnv 或盘根 DevEnv,G-814433 双形态)', () => {
   const dir = gitArchiveDir()
   if (dir === null) return // 只读/换机环境允许退化,但不得抛异常
-  assert.match(dir.replace(/\\/g, '/'), /\/DevEnv\/backups\/git$/)
+  assert.match(dir.replace(/\\/g, '/'), /DevEnv\/backups\/git$/)
   assert.ok(existsSync(dir), '返回的归档根必须真实存在')
 })
 
@@ -78,20 +79,28 @@ test('两个调用点必须真的使用 gitdirArchivePath(防"造好没装车")'
 // 所以 ① 必须与 ③ 的夹具闸配对出现,下面 D1/D2 成对钉这条耦合。
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** 真仓锚定值**由被审工作树现推**,不得写死盘符(§15b 盘符禁死)。 */
+/** 真仓锚定值**由被审工作树现推**,不得写死盘符(§15b 盘符禁死)。
+ *  G-814433(2026-09-30)起语义 = devEnvRoot() 双形态(仓内 .DevEnv 优先,回落 <盘>/DevEnv);
+ *  期望值显式调 devEnvRoot 而非复制其公式 —— 钉的是 gitdir **确实接上了** devEnvRoot,
+ *  谁把推导改回私有盘根拼写这里立刻红(反向锁,AGENTS「禁止私有推导」)。 */
 function expectedRootFor(worktree) {
-  return `${parse(worktree).root.replace(/[\\/]+$/, '')}/DevEnv/backups/git`.replace(/\\/g, '/')
+  return devEnvRoot(worktree).replace(/\\/g, '/').replace(/\/+$/, '') + '/backups/git'
 }
 
-test('D1 深度无关:同盘上 1..6 层深的合成工作树,归档根全部等于同一个盘根值', () => {
+test('D1 深度无关:同盘上 1..6 层深的合成工作树,归档根全部一致(G-814433 后 = devEnvRoot 回落形态)', () => {
   const wt = resolveWorktree()
-  const want = expectedRootFor(wt)
+  let first = null
   for (let depth = 1; depth <= 6; depth++) {
     const segs = []
     for (let i = 0; i < depth; i++) segs.push(`lv${i}`)
     const synth = `${parse(wt).root.replace(/[\\/]+$/, '')}/ihui-depth-absent/${segs.join('/')}/IHUI-AI`
     const got = gitArchiveRootFor(synth)
-    assert.equal(got, want, `depth=${depth} 解析漂了:${got} ≠ ${want}(旧写法这里会长出 ${depth} 种答案)`)
+    if (first === null) {
+      first = got
+      assert.match(first.replace(/\\/g, '/'), /DevEnv\/backups\/git$/, `depth=${depth} 合成树归档根形态非法:${first}`)
+    } else {
+      assert.equal(got, first, `depth=${depth} 解析漂了:${got} ≠ ${first}(旧写法这里会长出 ${depth} 种答案)`)
+    }
   }
 })
 
@@ -119,17 +128,20 @@ test('D2 夹具闸:落在 §26 scratch 里的工作树一律解析为 null(不�
   }
 })
 
-test('D3 逐字不变:真仓解析结果 == 盘根/DevEnv/backups/git,且不因夹具闸而改变', () => {
+test('D3 真仓解析 == devEnvRoot 派生值,且树内只允许显式 .DevEnv 一个落点', () => {
   const wt = resolveWorktree()
   const got = gitArchiveDir()
   if (got === null) return // 只读/换机环境允许退化(与既有第一条同源约定),但不得抛
   assert.equal(got, expectedRootFor(wt), `真仓归档根漂了:${got}`)
-  assert.match(got, /\/DevEnv\/backups\/git$/)
-  // §15b 的实质不变量:归档必须在**工作树之外**。旧写法靠"仓恰在盘根下一级"才碰巧成立,
-  // 深度一变就落回树内(实测 depth=2/3 时落在 <夹具>/L*/DevEnv/backups/git),所以这里
-  // 钉的是判据真正在乎的那件事,而不是那套耦合。
-  const inTree = got.startsWith(`${wt.replace(/\\/g, '/')}/`) || got === wt.replace(/\\/g, '/')
-  assert.equal(inTree, false, `归档根落进工作树里了:${got} ⊂ ${wt}`)
+  assert.match(got, /DevEnv\/backups\/git$/)
+  // §15b 的实质不变量(G-814433 修订):归档不得落在工作树的**任意**位置;树内唯一
+  // 合法落点是显式批准的 `<wt>/.DevEnv/`(gitignored 机器态,2026-09-30 搬迁拍板)。
+  // 树内其他任何位置(深度漂移旧病)一律红。
+  const gotN = got.replace(/\\/g, '/')
+  const wtN = wt.replace(/\\/g, '/').replace(/\/+$/, '')
+  const inTree = gotN.startsWith(`${wtN}/`)
+  const inExplicitDevEnv = inTree && gotN.startsWith(`${wtN}/.DevEnv/`)
+  assert.equal(inTree && !inExplicitDevEnv, false, `归档根落进工作树非 .DevEnv 位置:${got} ⊂ ${wt}`)
 })
 
 test('D4 建目录只在写归档的出口:ensureGitArchiveDir 缺目录时建得出、生产根不因其被绕过', () => {
