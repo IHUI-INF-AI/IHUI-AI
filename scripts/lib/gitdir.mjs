@@ -120,7 +120,10 @@ export function resolveGitBin() {
     try {
       const v = execFileSync(c, ['--version'], {
         encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
+        // stdin 置 ignore:本环境下 pipe-stdin spawn git 确定性 EBUSY(2026-09-30 实测,
+        // 同 git-push-guard / git-sync-converge aac3382bdb·058bcbff91 的根治;本层 spawn
+        // 全部不经 stdin 传 input,ignore 无副作用。pipe+input 的调用点不受此影响者另议)。
+        stdio: ['ignore', 'pipe', 'pipe'],
         timeout: 15000,
         windowsHide: true,
       }).trim()
@@ -156,7 +159,7 @@ export function resolveWorktree() {
     try {
       const top = execFileSync(bin, ['-c', 'safe.directory=*', 'rev-parse', '--show-toplevel'], {
         encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
+        stdio: ['ignore', 'pipe', 'pipe'], // stdin 置 ignore(同上,pipe-stdin spawn git 本环境 EBUSY;此处不经 stdin 传 input)
         timeout: 15000,
         windowsHide: true,
       }).trim()
@@ -192,7 +195,7 @@ export function resolveGitdir(worktree) {
     try {
       const gd = execFileSync(bin, ['-c', 'safe.directory=*', '-C', wt, 'rev-parse', '--git-dir'], {
         encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
+        stdio: ['ignore', 'pipe', 'pipe'], // stdin 置 ignore(同上,pipe-stdin spawn git 本环境 EBUSY;此处不经 stdin 传 input)
         timeout: 15000,
         windowsHide: true,
       }).trim()
