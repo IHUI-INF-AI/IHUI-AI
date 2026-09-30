@@ -24,6 +24,7 @@ from app.services.agent_engine import (
     AgentEngine,
 )
 from app.services.session_store import (
+    ENGINE_OWNED_METADATA_KEYS,
     AgentMessageItem,
     SessionStore,
     UserMessageItem,
@@ -310,7 +311,16 @@ async def test_engine_thread_metadata_merge_and_persist(tmp_path):
     )
     assert r2["metadata"] == {"env": {"os": "win", "arch": "x64"}}
     assert r2["persisted"] is True
-    assert store.get_thread(tid).metadata == {"env": {"os": "win", "arch": "x64"}}
+    # 2026-09-27 G-255 翻转此断言:merge=True 走的也是 `update_thread_metadata(
+    # merge=False)` 落库出口,旧断言等于把"一次普通 metadata 写入会抹掉库里整个引擎
+    # 配置段"当契约钉住 —— 那正是本票要修的缺陷(重启后按缺省还原)。
+    # 身份/业务段判据一字未动:剥掉引擎段之后必须**逐字**等于原来的形状;
+    # 客户端可见的 r1/r2["metadata"] 形状也一字未动(上面两行)。
+    row_after_merge = {
+        k: v for k, v in store.get_thread(tid).metadata.items() if k not in ENGINE_OWNED_METADATA_KEYS
+    }
+    assert row_after_merge == {"env": {"os": "win", "arch": "x64"}}
+    assert set(store.get_thread(tid).metadata) >= set(ENGINE_OWNED_METADATA_KEYS)
     updated = [p for e, p in collector.events if e == "thread.metadata.updated"]
     assert len(updated) == 2
 
@@ -325,8 +335,15 @@ async def test_engine_thread_metadata_replace_mode(tmp_path):
         "thread.metadata",
         {"threadId": tid, "patch": {"only": True}, "merge": False},
     )
-    assert r["metadata"] == {"only": True}
-    assert store.get_thread(tid).metadata == {"only": True}
+    # 2026-09-27 G-255 翻转此断言(与上面 merge=True 那一处同一型):merge=False 的
+    # 结果必须**仍然包含引擎配置段全部键**,值 = 线程当前生效值;被整体替换的是业务段。
+    # 旧断言 == 缺陷本身(整写把配置段抹成 {"only"} ⇒ 重启后 model/maxIterations 等
+    # 全部回落到恢复侧缺省)。判据只是从"整块等于业务段"收窄成"剥掉引擎段后等于业务段",
+    # 业务段的整体替换语义一字未放宽。
+    engine_segment = set(ENGINE_OWNED_METADATA_KEYS)
+    assert set(r["metadata"]) >= engine_segment
+    assert store.get_thread(tid).metadata == r["metadata"]
+    assert {k: v for k, v in r["metadata"].items() if k not in engine_segment} == {"only": True}
     response = await engine.handle_message(
         {"jsonrpc": "2.0", "id": 9, "method": "thread.metadata", "params": {"threadId": tid}}
     )
