@@ -609,7 +609,7 @@ export function TagsView() {
                   className={cn(
                     'inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/70 transition-all duration-200 will-change-transform ml-0.5',
                     'hover:bg-destructive/20 hover:text-destructive hover:rotate-90 active:scale-90',
-                    'opacity-0 group-hover:opacity-100 motion-reduce:opacity-60 motion-reduce:hover:rotate-0 motion-reduce:active:scale-100',
+                    'opacity-0 group-hover:opacity-100 touch-reveal motion-reduce:opacity-60 motion-reduce:hover:rotate-0 motion-reduce:active:scale-100',
                     'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                   )}
                   aria-label={tCommon('close')}
