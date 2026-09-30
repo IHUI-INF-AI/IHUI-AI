@@ -23,6 +23,15 @@
  * 面判不出(台账取不到 / 归档件清单枚举失败 / 有归档件取不到)⇒ **拒绝发号**并 exit 1:
  * 按窄面发一个可能撞车的号,比停在这里不发货危害大(撞车正是本缺陷的症状,而它事后不可判)。
  *
+ * 第三条旧账(2026-09-30 补,对齐 G-313 硬前置):本器与 live-doc-edit.mjs 是**两个发号出口**,
+ * 但此前只有后者看了远端 —— 本器按本地宽面给号,对面"已推未并"的那批登记在结构上永远看不见,
+ * 两批各按旧基准取号正是 G-978062 那组撞号的成因。现在发号路径(--next-only / 完整报告)与第一出口
+ * **共用同一把尺**(import `readRemoteIdBasis` + `idBasisGate`,不抄第二份):远端 tip 问得到而
+ * 对象经一次有界自补救 fetch 仍不在本地 ⇒ **拒绝发号**(exit 1,出路写明);远端完全问不到
+ * (离线)⇒ 警告着按本地宽面发号(与 live-doc-edit 同一条分档,不得并桶);远端可读 ⇒ 只抬高、
+ * 不压低。`--source` 已显式指到别的面 ⇒ 不重复问远端;`--check` 不发号 ⇒ 不问远端,其 stdout
+ * 与退出码契约逐字不变。
+ *
  * 用法:
  *   node scripts/next-plan-id.mjs                # 打印下一个可用号 + 现有号分布
  *   node scripts/next-plan-id.mjs --next-only     # 只打印一个号(供脚本串用)
@@ -38,6 +47,9 @@ import { resolve } from 'node:path'
 
 import { usedIdsOfPrefix } from './lib/plan-task-index.mjs'
 import { collectIdFace } from './lib/plan-id-face.mjs'
+// 远端那一维与 live-doc-edit.mjs(第一发号出口)**同一把尺**:transport(含有界自补救 fetch)、
+// 基准读取与硬闸门都只住在那一份实现里 —— 这里只做出口接线,不抄任何判据。
+import { readRemoteIdBasis, idBasisGate } from './live-doc-edit.mjs'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const PLAN_PATH = 'PROJECT_PLAN.md'
@@ -57,6 +69,8 @@ if (flags.has('--help') || flags.has('-h')) {
       '用法: node scripts/next-plan-id.mjs [--next-only] [--check] [--source <rev>]',
       '  默认从 `git show HEAD:PROJECT_PLAN.md` 取权威条目号(不看工作树副本 —— 理由见文件头)。',
       '  占用面 = 台账 ⊕ .ihui-agent/archive/PROJECT_PLAN*.md(归档器搬走的那一侧也算已占用)。',
+      '  发号路径另含远端那一维(与 live-doc-edit 同一把尺):远端 tip 对象经一次有界自补救 fetch',
+      '  仍读不到 ⇒ 拒绝发号;离线 ⇒ 警告着按本地宽面发号;--source 显式指面 / --check 不发号 ⇒ 不问远端。',
     ].join('\n'),
   )
   process.exit(0)
@@ -110,7 +124,33 @@ const headingMaxWide = Math.max(...[...wideText.matchAll(HEADING)].map((m) => Nu
 const rowUsedWide = usedIdsOfPrefix(wideText, FAMILY)
 const maxLedger = Math.max(...nums)
 const maxWide = Math.max(headingMaxWide, rowUsedWide === null ? Number.NEGATIVE_INFINITY : rowUsedWide.max)
-const next = maxWide + 1
+
+// ── 远端那一维(G-313 出路②;2026-09-30 起硬前置,与 live-doc-edit 同一把尺)─────────────
+let remote = null
+if (!flags.has('--check') && SOURCE === 'HEAD') {
+  remote = readRemoteIdBasis({ root: ROOT, doc: PLAN_PATH, families: [FAMILY] })
+  // info 是过程注记(自补救 fetch 成功等),不得混进降级行 —— 把"已读齐"打成"未对齐"是反向假话。
+  for (const n of remote.info) console.error(`ℹ 号段基准:${n}`)
+  // 降级必须逐条喊出来(远端这一维没判到 ≠ 已与远端对齐);信息走 stderr,--next-only 的 stdout 恒一行号。
+  for (const n of remote.notes)
+    console.error(`⚠️ 号段基准未含远端(${n})⇒ 仍按本地宽面落号,**未与远端对齐**`)
+  const gate = idBasisGate({
+    families: [FAMILY],
+    remote,
+    allowUnaligned: process.env.IHUI_PLAN_ID_ALLOW_UNALIGNED === '1',
+  })
+  if (gate.note) console.error(`⚠️ ${gate.note}`)
+  if (gate.block) {
+    console.error(
+      `❌ 本次要发号,但${gate.reason} ⇒ 拒绝发号(自补救 fetch 已跑过一次仍拿不到对面那份底稿,` +
+        `发号就是猜对面没占过)。出路:查网络/凭据后重跑;确属离线/必须先行则 ` +
+        '`IHUI_PLAN_ID_ALLOW_UNALIGNED=1` 重跑,报告会明写"未与远端对齐"。',
+    )
+    process.exit(1)
+  }
+}
+const remoteWide = Number.isFinite(remote?.max?.[FAMILY]) ? remote.max[FAMILY] : null
+const next = Math.max(maxWide, remoteWide ?? Number.NEGATIVE_INFINITY) + 1
 const used = new Set(nums)
 const gaps = []
 for (let k = 1; k < next; k += 1) if (!used.has(k)) gaps.push(`O${k}`)
@@ -139,6 +179,15 @@ console.log(
 console.log(
   `  两面对账:仅台账 max=${fmt(maxLedger)} / 台账⊕归档件 max=${fmt(maxWide)} ⇒ 差 ${Number.isFinite(maxWide) && Number.isFinite(maxLedger) ? maxWide - maxLedger : '?'} 档(只看台账会少让这么多)`,
 )
+if (remote) {
+  const rel =
+    remoteWide === null
+      ? '远端未参与(原因见上方 stderr)⇒ 未与远端对齐'
+      : remoteWide > maxWide
+        ? `⇒ 取较大,新号跳过远端那段(远端只抬高、不压低)`
+        : '⇒ 与本地宽面同值'
+  console.log(`  号段基准(含远端):${remote.remote} ${remote.ref} 该族 max=${remoteWide === null ? '未判到' : fmt(remoteWide)} ${rel}`)
+}
 if (gaps.length) console.log(`(空洞 ${gaps.length} 个,不回收,只如实报:${gaps.slice(0, 12).join(', ')}${gaps.length > 12 ? ' …' : ''})`)
 const addenda = dups.filter(([id]) => text.includes(`${id} 追加`))
 const real = dups.filter(([id]) => !text.includes(`${id} 追加`))

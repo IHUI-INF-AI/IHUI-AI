@@ -175,7 +175,8 @@ function git(args, { allowFail = false, timeout = 60_000, maxBuffer = 64 << 20 }
   try {
     return execFileSync('git', args, {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 根治(2026-09-30): stdin 设 ignore,避开本会话 Node 建子进程 stdin 管道 EBUSY(git 不吃 stdin)。
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       // **必须封顶**:本文件在提交链与守护链上跑,一次无界的 `ls-remote`/`fetch` 挂住
       // 就等于"提交像死掉了"(守门 80 存在的原因;同一族实测挂过 80 分钟)。

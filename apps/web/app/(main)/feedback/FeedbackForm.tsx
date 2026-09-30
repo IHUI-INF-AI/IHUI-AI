@@ -25,6 +25,18 @@ import { TYPES, selectClass } from './helpers'
 import { TYPE_KEY } from '@/lib/feedback'
 import type { FeedbackType } from './types'
 
+/**
+ * D192:截图类型白名单 —— 逐一对齐服务端图片档。
+ *
+ * 唯一真相源是 `apps/api/src/utils/file-type-validator.ts` 的 `EXT_MIME_MAP`,
+ * 其中图片档只有 jpg / jpeg / png / gif / webp(bmp、tiff、svg、avif 均无键 ⇒
+ * 服务端回 400「不支持的文件类型: .<ext>」)。此前反馈表单走 ImageUpload 的默认
+ * `accept='image/*'`:选择器放行全部 image/*,用户挑到 bmp 只会看到一行
+ * 「上传失败:HTTP 400」——静默过滤 + 无提示文案就是本格的缺口。
+ * 收窄 accept 到真实白名单,并把白名单说成人话(`t('unsupportedImage')`)。
+ */
+const ACCEPTED_IMAGE_TYPES = 'image/png,image/jpeg,image/gif,image/webp'
+
 interface Props {
   type: FeedbackType
   setType: (v: FeedbackType) => void
@@ -123,8 +135,10 @@ export function FeedbackForm({
               onChange={(v) => setImages(Array.isArray(v) ? v : [v])}
               multiple
               maxCount={5}
+              accept={ACCEPTED_IMAGE_TYPES}
               placeholder={t('imagesPlaceholder')}
             />
+            <p className="text-xs text-muted-foreground">{t('unsupportedImage')}</p>
           </div>
 
           {formError && (
