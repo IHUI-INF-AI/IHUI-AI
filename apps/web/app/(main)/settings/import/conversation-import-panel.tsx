@@ -28,6 +28,8 @@ import {
 } from '@ihui/api-client'
 
 import { Alert } from '@/components/feedback'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { formatSize } from './helpers'
 
 /** 会话导入来源卡片配置(accept 供文件选择器按来源过滤,hint 为典型导出文件路径) */
@@ -84,6 +86,9 @@ export function ConversationImportPanel() {
   const [selected, setSelected] = React.useState<Set<number>>(new Set())
   const [progress, setProgress] = React.useState({ done: 0, total: 0 })
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   // 导入历史
   const { data: historyData, isLoading: historyLoading } = useQuery({
     queryKey: ['conversation-import-history'],
@@ -92,6 +97,7 @@ export function ConversationImportPanel() {
       if (!r.success) throw new Error(r.error)
       return r.data
     },
+    enabled: allow,
   })
   const history = historyData?.list ?? []
 
@@ -199,6 +205,15 @@ export function ConversationImportPanel() {
 
   const activeSource = IMPORT_SOURCES.find((s) => s.value === source)
   const hasConversations = (preview?.conversations.length ?? 0) > 0
+
+  // 2026-09-30 登录态门:未登录时以登录引导替换整个导入面板
+  if (!allow) {
+    return (
+      <div className="space-y-4">
+        <AuthGatePrompt message="请先登录后使用会话导入" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
