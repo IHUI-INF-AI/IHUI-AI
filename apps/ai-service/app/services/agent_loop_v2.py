@@ -466,6 +466,15 @@ class _ApprovalEntry:
     # 默认 False = 维持原请求(合法出口);True 只有在复核结论存在 applicable 的
     # 替代参数时才会真的替换 tc.args,否则被忽略(不猜、不放大)。
     accept_alternative: bool = False
+    # D193(2026-09-30):决策收件箱只读快照的展示字段 —— 登记时刻可得的语境
+    # (哪条线程、什么工具、参数预览、何时发起)。它们**不是**判定面:结算与属主
+    # 判定只认上面那些字段,缺了这些字段(历史二元组升级出的条目)不影响任何行为。
+    # compare=False / repr=False 与 _settlement_claimed 同一条纪律:展示元数据
+    # 不参与相等性比较,两个"同决策"的条目不因预览文字不同而不等。
+    thread_id: str | None = field(default=None, repr=False, compare=False)
+    tool_name: str | None = field(default=None, repr=False, compare=False)
+    args_preview: str | None = field(default=None, repr=False, compare=False)
+    created_at: str | None = field(default=None, repr=False, compare=False)
     # G-637:结算名额(唯一,不可复制)。不参与相等性比较/不进 repr —— 它是并发原语,
     # 不是业务字段;把它算进 __eq__ 会让"两个同决策的条目"因结算先后而不等。
     _settlement_claimed: bool = field(default=False, repr=False, compare=False)
@@ -700,6 +709,41 @@ def resolve_approval_response(
         resolve_approval_for_requester(approval_id, decision, requester_user_id)
         is ApprovalOutcome.APPLIED
     )
+
+
+def list_pending_approvals() -> list[dict[str, Any]]:
+    """D193 决策收件箱:待决工具审批的**只读快照**(不改登记表、不取结算名额)。
+
+    只返回 `_ApprovalEntry` 形态且**尚未结算**的条目(decision 未写入 ∧ 唤醒事件
+    未置)。历史二元组形态(`(event, decision)`,无属主无展示字段)不参与 —— 它们
+    本来就只能被无身份通道结算,决策收件箱按属主过滤后同样不可见,跳过与属主过滤
+    同向,不产生新的可见面。
+
+    **身份过滤不在这里做**:属主判定只走 `session_store.owner_scoped_allows` 那
+    **一份**只读判据,由承载层路由拿着令牌主体过滤 —— 本函数只给事实,不给授权
+    结论(与 §5"身份只能从承载层显式入参进来"同一条纪律)。
+
+    读取在 `_approval_settle_lock` 临界区内:与结算路径同一把 RLock,读到的每个
+    条目要么整体是待决态、要么整体已结算,不存在读到半写状态的窗口。
+    """
+    snapshots: list[dict[str, Any]] = []
+    with _approval_settle_lock:
+        for approval_id, record in _approval_registry.items():
+            if not isinstance(record, _ApprovalEntry):
+                continue
+            if record.decision is not None or record.event.is_set():
+                continue
+            snapshots.append(
+                {
+                    "id": approval_id,
+                    "owner_user_id": record.owner_user_id,
+                    "thread_id": record.thread_id,
+                    "tool_name": record.tool_name,
+                    "args_preview": record.args_preview,
+                    "created_at": record.created_at,
+                }
+            )
+    return snapshots
 
 
 # 批 52(2026-09-20):工具审批持久键 + 撤销口(对标 codex-rs PERSIST_SESSION /
@@ -4437,20 +4481,30 @@ class AgentLoopV2:
 
         approval_id = f"appr_{uuid.uuid4().hex[:12]}"
         ev = asyncio.Event()
+        # 参数预览:截断 200 字符(完整 args 不回传 SSE,避免敏感信息全量下发)。
+        # D193:提前到登记之前 —— 登记条目此刻就带上决策收件箱的快照字段,
+        # 登记 即完整,不存在"先登记后补填"的窗口(补填窗口是不必要的竞态面)。
+        try:
+            args_preview = json.dumps(tc.args, ensure_ascii=False)[:200]
+        except Exception:
+            args_preview = str(tc.args)[:200]
         # O19:登记属主。self._user_id 由构造参数注入(路由层/引擎线程显式传入),
         # 为 None 时该审批只能被同样无可证明身份的通道(引擎无 userId 线程)结算,
         # HTTP 审批端点会返回 403 —— 这是 fail-closed,不是漏判。
+        # D193:thread_id 取 self._session_id(与 tool.approval 事件帧的 threadId
+        # 同一来源,见本文件 _emit_tool_approval 附近);created_at 用 UTC ISO 定宽串。
         _approval_registry[approval_id] = _ApprovalEntry(
-            event=ev, decision=None, owner_user_id=self._user_id
+            event=ev,
+            decision=None,
+            owner_user_id=self._user_id,
+            thread_id=self._session_id or None,
+            tool_name=tc.name,
+            args_preview=args_preview,
+            created_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         )
         # 批 53:登记 persist 旁路键(供引擎侧 approval.respond 携带 persist 时取回落盘)
         _approval_persist_keys[approval_id] = key
         try:
-            # 参数预览:截断 200 字符(完整 args 不回传 SSE,避免敏感信息全量下发)
-            try:
-                args_preview = json.dumps(tc.args, ensure_ascii=False)[:200]
-            except Exception:
-                args_preview = str(tc.args)[:200]
             # V3 #80:弹窗前先跑独立 guardian 复核(另起一次请求,零本链上下文)。
             # 复核不可用/未开启时返回显式 not_reviewed(+原因),绝不折叠成"无风险";
             # 结论随 tool.approval 事件下发,用户在点 approve 前即可看见"有更安全
