@@ -21,11 +21,10 @@ import {
   readdirSync,
   writeFileSync,
   mkdirSync,
-  mkdtempSync,
-  rmSync,
 } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { tmpdir } from 'node:os'
+// §26:临时夹具唯一落点(活进程 os.tmpdir() 可能仍钉在 C 盘,禁用)
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
@@ -557,7 +556,7 @@ export function headDerivationScan(root) {
 }
 
 test('取材面必须是 HEAD:未跟踪文件不得进分母(工作树面会把别人的在飞改动算成我的债)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ratchet-face-'))
+  const dir = mkScratch('ratchet-face-')
   try {
     const g = (...a) =>
       spawnSync(GIT, ['-c', 'safe.directory=*', ...a], {
@@ -602,7 +601,7 @@ test('取材面必须是 HEAD:未跟踪文件不得进分母(工作树面会把�
       '磁盘面应数到 2 枚(含未跟踪那枚);数不到说明本例的两枚写法不同形,对照失效',
     )
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
