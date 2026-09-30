@@ -18,16 +18,24 @@ interface DiffStatsBarProps {
   onCommit?: () => void
 }
 
-const FILTER_OPTIONS: { value: DiffFilterType; labelKey: string }[] = [
-  { value: 'all', labelKey: 'diffStats.filterAll' },
-  { value: 'modified', labelKey: 'diffStats.filterModified' },
-  { value: 'added', labelKey: 'diffStats.filterAdded' },
-  { value: 'deleted', labelKey: 'diffStats.filterDeleted' },
+/**
+ * 筛选标签一律复用既有 canonical,不在端内另造第二份译文(§3 共享层优先):
+ *  - 「全部」→ shared 层 `common.all`
+ *  - 三个 git 文件状态 → `aiChat.envInfo.*`(同一套状态词已五语言齐备,与
+ *    `diff-file-list.tsx` 的分组头共用一份真相)
+ */
+const FILTER_OPTIONS: { value: DiffFilterType; ns: 'common' | 'fileStatus'; key: string }[] = [
+  { value: 'all', ns: 'common', key: 'all' },
+  { value: 'modified', ns: 'fileStatus', key: 'modified' },
+  { value: 'added', ns: 'fileStatus', key: 'added' },
+  { value: 'deleted', ns: 'fileStatus', key: 'deleted' },
 ]
 
 export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffStatsBarProps) {
   const { diffFiles, diffViewMode, setDiffViewMode } = useIDEWorkspace()
   const t = useTranslations('ide')
+  const tc = useTranslations('common')
+  const tStatus = useTranslations('aiChat.envInfo')
   const totalAdd = diffFiles.reduce((s, f) => s + f.additions, 0)
   const totalDel = diffFiles.reduce((s, f) => s + f.deletions, 0)
   const total = totalAdd + totalDel
@@ -39,7 +47,7 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
         <button
           onClick={() => setDiffViewMode('split')}
           className={cn(
-            'flex items-center gap-1 rounded-sm px-1.5 py-0.5 transition-colors',
+            'flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors',
             diffViewMode === 'split'
               ? 'bg-muted text-foreground'
               : 'text-muted-foreground hover:text-foreground',
@@ -51,7 +59,7 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
         <button
           onClick={() => setDiffViewMode('unified')}
           className={cn(
-            'flex items-center gap-1 rounded-sm px-1.5 py-0.5 transition-colors',
+            'flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors',
             diffViewMode === 'unified'
               ? 'bg-muted text-foreground'
               : 'text-muted-foreground hover:text-foreground',
@@ -85,13 +93,13 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
               key={opt.value}
               onClick={() => onFilterChange(opt.value)}
               className={cn(
-                'rounded-sm px-1.5 py-0.5 transition-colors',
+                'rounded px-1.5 py-0.5 transition-colors',
                 filter === opt.value
                   ? 'bg-muted text-foreground'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              <span>{t(opt.labelKey)}</span>
+              <span>{opt.ns === 'common' ? tc(opt.key) : tStatus(opt.key)}</span>
             </button>
           ))}
         </div>
@@ -99,7 +107,7 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
       {onCommit && (
         <button
           onClick={onCommit}
-          className="ml-auto flex items-center gap-1 rounded-sm bg-foreground px-2 py-0.5 text-background transition-colors hover:bg-foreground/90"
+          className="ml-auto flex items-center gap-1 rounded bg-foreground px-2 py-0.5 text-background transition-colors hover:bg-foreground/90"
         >
           <GitCommit className="h-3 w-3" />
           <span>{t('diffStats.commit')}</span>
