@@ -43,6 +43,8 @@ import {
   type RewindPoint,
 } from '../commands/session.js';
 import { setupAgentTools, runToolLoop, type ToolContext } from '../commands/agent.js';
+// G-639:取消出口逐未完成的 tool_call 合成各自的 cancelled 帧(不悬空、不整体一帧了事)
+import { synthesizeCancelledToolFrames } from '../stream-cancel-frames.js';
 import { createAuditedDangerGate } from '../tools/danger-gate-audit.js';
 import { PlanMachine } from '../plan/machine.js';
 import { CheckpointManager } from '../checkpoints/index.js';
@@ -146,6 +148,45 @@ export async function emitApprovalTerminalUpdate(
     });
   } catch {
     // IDE 渲染失败不中断 agent
+  }
+}
+
+/**
+ * G-639(2026-09-29)取消出口的逐卡终态:对每个未完成(已建卡未出结果)的
+ * tool_call 合成各自的 cancelled 帧,不得悬空、也不得一帧整体 cancelled 了事。
+ * 合成在 stream-cancel-frames.ts(协议无关,两帧判据在那里钉);这里的映射口径:
+ * ACP ToolCallStatus 无 'cancelled' 档 → status:'failed' + rawOutput.cancelled=true
+ * + 文本注明(与审批卡 cancelled → failed 的既有映射同形,"回合被取消"是真实
+ * 事实,不是伪造终态)。通知失败吞掉:与本文件其余 session/update 发射点同一约定。
+ */
+async function emitCancelledToolCallFrames(
+  cx: acp.AgentContext,
+  sessionId: string,
+  openToolCallIds: readonly string[],
+): Promise<void> {
+  const frames = synthesizeCancelledToolFrames(
+    openToolCallIds.map((toolCallId) => ({ toolCallId })),
+  );
+  for (const frame of frames) {
+    try {
+      await cx.notify(acp.methods.client.session.update, {
+        sessionId,
+        update: {
+          sessionUpdate: 'tool_call_update',
+          toolCallId: frame.toolCallId,
+          status: 'failed' as const,
+          content: [
+            {
+              type: 'content' as const,
+              content: { type: 'text' as const, text: 'cancelled before tool result arrived' },
+            },
+          ],
+          rawOutput: { cancelled: true },
+        },
+      });
+    } catch {
+      // IDE 渲染失败不中断 agent
+    }
   }
 }
 
@@ -827,6 +868,13 @@ export class IhuiAcpAgent {
         },
       });
 
+      // G-639:取消回合不得只交一帧整体 cancelled —— 已建卡未出结果的 tool_call
+      // 逐卡合成各自的 cancelled 终态帧,IDE 面板上的卡不悬空。
+      if (result.stopReason === 'cancelled' && toolCallIdQueue.length > 0) {
+        await emitCancelledToolCallFrames(cx, params.sessionId, toolCallIdQueue);
+        toolCallIdQueue.length = 0;
+      }
+
       if (result.assistantText) {
         state.session.history.push({ id: randomUUID(), role: 'assistant', content: result.assistantText });
       }
@@ -848,10 +896,12 @@ export class IhuiAcpAgent {
       saveSession(state.session);
       return { stopReason: toAcpStopReason(result.stopReason) };
     } catch (err) {
-      // D113:流中断/报错 ⇒ 本端预览账全部作废。**刻意不发 tool_call_update**:
-      // 这些卡此刻的真实状态未知(可能已执行、可能根本没跑),写 completed/failed 都是
-      // 伪造终态(与本文件"审批终态必须与真实决定一致"同一条禁令)。清的是本端账 ——
-      // 迟到/重放的帧不得再把预览刷回一张已经没人负责收尾的卡上。
+      // D113:流中断/报错 ⇒ 本端预览账全部作废。completed/failed 这类**结果性**
+      // 终态依然不写(调用结果此刻确实未知,写 completed/failed 是伪造);但
+      // G-639(2026-09-29)起,回合取消这一事实本身要逐卡落终态:未完成的
+      // tool_call 各自合成 cancelled 帧(status: failed + rawOutput.cancelled=true,
+      // "没跑完"是已知的真话),不再悬空。迟到/重放的帧不得再把预览刷回一张
+      // 已经没人负责收尾的卡上(下面先清本端账再发帧)。
       previewStore.clearAll();
       lastAcpCard = { id: '', name: lastAcpCard.name };
       if (abort.signal.aborted) {
@@ -863,6 +913,11 @@ export class IhuiAcpAgent {
             content: lastAssistant.content,
           });
           saveSession(state.session);
+        }
+        // G-639:与正常取消返回路径同口径 —— 逐未完成 tool_call 合成 cancelled 帧
+        if (toolCallIdQueue.length > 0) {
+          await emitCancelledToolCallFrames(cx, params.sessionId, toolCallIdQueue);
+          toolCallIdQueue.length = 0;
         }
         return { stopReason: 'cancelled' };
       }
