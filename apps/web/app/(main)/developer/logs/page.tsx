@@ -13,7 +13,8 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Input, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Tooltip } from '@/components/feedback'
 
 interface LogItem {
@@ -72,12 +73,16 @@ export default function LogsPage() {
     second: '2-digit',
   })
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['developer', 'logs', statusFilter, keyword],
     queryFn: () =>
       api<LogsData>(
         `/api/developer/logs?status=${statusFilter}&keyword=${encodeURIComponent(keyword)}`,
       ).catch(() => ({ list: [], total: 0 }) as LogsData),
+    enabled: allow,
   })
 
   const list = data?.list ?? []
@@ -122,7 +127,9 @@ export default function LogsPage() {
         </div>
       </div>
 
-      <Card>
+      {/* 2026-09-30 登录态门:未登录时用登录引导替换数据区 */}
+      {allow ? (
+        <Card>
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
@@ -205,7 +212,10 @@ export default function LogsPage() {
             </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      ) : (
+        <AuthGatePrompt message="请先登录后查看开发者日志" />
+      )}
     </div>
   )
 }
