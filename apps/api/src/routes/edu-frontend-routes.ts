@@ -145,6 +145,7 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
   // 证书 (/edu/certificates)
   // ===========================================================================
 
+  // DEPRECATED: use /api/certificates/my instead (canonical; same table & query fn, frontend redirected into /certificate). Logic frozen, kept for old clients.
   // GET /edu/certificates - 我的证书列表
   server.get('/edu/certificates', async (request, reply) => {
     const parsed = paginationSchema.safeParse(request.query)
@@ -159,6 +160,7 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(result))
   })
 
+  // DEPRECATED: use /api/certificates/:id instead (canonical; same table & query fn, frontend redirected into /certificate). Logic frozen, kept for old clients.
   // GET /edu/certificates/:id - 证书详情
   server.get('/edu/certificates/:id', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
@@ -170,6 +172,7 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ certificate: cert }))
   })
 
+  // DEPRECATED: use POST /api/certificates/:id/download instead (canonical; same table & query fn, frontend redirected into /certificate). Logic frozen, kept for old clients.
   // POST /edu/certificates/:id/download - 下载证书 PDF
   server.post('/edu/certificates/:id/download', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
