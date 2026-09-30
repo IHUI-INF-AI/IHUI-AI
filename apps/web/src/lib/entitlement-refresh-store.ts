@@ -61,6 +61,12 @@ export interface RefreshStore<TSnapshot, TOptions> {
 
 export interface CreateRefreshStoreOptions<TSnapshot, TOptions> {
   fetcher(options: TOptions): Promise<TSnapshot>
+  /**
+   * 写入判定(G-650 三态保留):成功回包写快照前先过 merge —— unknown 沿用
+   * 上一轮、显式空本轮权威、身份变更作废旧值;判定实现见 entitlement-tri-state.ts。
+   * 缺席 = 直写(保持旧行为)。
+   */
+  merge?(previous: TSnapshot | null, incoming: TSnapshot): TSnapshot
   /** 时钟可注入(测试用假钟);默认 Date.now */
   now?(): number
 }
@@ -197,14 +203,18 @@ export function createRefreshStore<TSnapshot, TOptions>(
           inFlight.delete(requestKey)
           // 迟到的旧代回包不写不广播:generation 已被 invalidate 递增
           if (isCurrent()) {
+            // G-650 三态保留:写入走 merge 判定(unknown 沿用/显式空权威/身份变更作废)
+            const previous = records.get(key)?.snapshot ?? null
+            const merged = options.merge ? options.merge(previous, snapshot) : snapshot
             records.set(key, {
-              snapshot,
+              snapshot: merged,
               updatedAt: now(),
               failureCount: 0,
               nextAllowedAt: 0,
             })
             failures.delete(key)
-            broadcast(key, snapshot)
+            broadcast(key, merged)
+            return merged
           }
           return snapshot
         },
