@@ -13,7 +13,8 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert, Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface ProgressData {
   totalStudyHours: number
@@ -34,9 +35,12 @@ async function api<T>(url: string): Promise<T> {
 export default function EduProgressPage() {
   const locale = useLocale()
   const t = useTranslations('eduProgressPage')
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'progress'],
     queryFn: () => api<ProgressData>('/api/edu/progress'),
+    enabled: allow,
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, { month: '2-digit', day: '2-digit' })
@@ -65,7 +69,9 @@ export default function EduProgressPage() {
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看学习进度" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
