@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { eq, and, desc, asc, sql, inArray, arrayOverlaps } from 'drizzle-orm'
+import { contentEqual } from '@ihui/shared'
 import { randomBytes } from 'node:crypto'
 import { db } from './index.js'
 import {
@@ -511,11 +512,11 @@ export async function submitExamRecord(
     if (!q) return { questionId: a.questionId, answer: a.answer, isCorrect: false, score: 0 }
     let isCorrect = false
     if (q.type === 'single_choice' || q.type === 'judgment') {
-      isCorrect = JSON.stringify(a.answer) === JSON.stringify(q.answer)
+      isCorrect = contentEqual(a.answer, q.answer)
     } else if (q.type === 'multi_choice') {
       const ans = Array.isArray(a.answer) ? [...a.answer].sort() : []
       const correct = Array.isArray(q.answer) ? [...q.answer].sort() : []
-      isCorrect = JSON.stringify(ans) === JSON.stringify(correct)
+      isCorrect = contentEqual(ans, correct)
     } else if (q.type === 'fill_blank') {
       const ans = Array.isArray(a.answer) ? a.answer : [a.answer]
       const correct = Array.isArray(q.answer) ? q.answer : [q.answer]
