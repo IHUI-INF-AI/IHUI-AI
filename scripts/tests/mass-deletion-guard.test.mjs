@@ -8,9 +8,23 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { tmpdir } from 'node:os'
+// §26:临时夹具唯一落点(活进程 os.tmpdir() 可能仍钉在 C 盘,禁用)
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
+
+// 本次运行创建过的夹具目录 —— 供"测试不留残余"那一条逐一点名核验。
+const createdScratch = []
+function makeScratchDir(prefix) {
+  const d = mkScratch(prefix)
+  createdScratch.push(d)
+  return d
+}
+function dropScratchDir(d) {
+  rmScratch(d)
+  const i = createdScratch.indexOf(d)
+  if (i >= 0) createdScratch.splice(i, 1)
+}
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GIT = 'C:\\Program Files\\Git\\cmd\\git.exe'
@@ -66,8 +80,8 @@ test('runner 执行循环真的会跑到它(注册了不等于会执行)', () =>
 })
 
 test('注入实测:把索引换成空树(= 整树删除形态)→ 守门必须 exit 1', () => {
-  const idx = join(tmpdir(), `ihui-massdel-inject-${process.pid}.idx`)
-  rmSync(idx, { force: true })
+  const idxDir = makeScratchDir('ihui-massdel-inject-')
+  const idx = join(idxDir, 'inject.idx')
   try {
     git(['read-tree', EMPTY_TREE], { GIT_INDEX_FILE: idx })
     const r = runGuard({ GIT_INDEX_FILE: idx })
@@ -75,18 +89,20 @@ test('注入实测:把索引换成空树(= 整树删除形态)→ 守门必须 e
     if (!/整树删除|缺失/.test(r.out)) throw new Error('拦截了但输出不含判据说明:' + r.out)
   } finally {
     rmSync(idx, { force: true })
+    dropScratchDir(idxDir)
   }
 })
 
 test('注入实测:应急开关能放行同一形态(证明开关接的是真判据)', () => {
-  const idx = join(tmpdir(), `ihui-massdel-allow-${process.pid}.idx`)
-  rmSync(idx, { force: true })
+  const idxDir = makeScratchDir('ihui-massdel-allow-')
+  const idx = join(idxDir, 'allow.idx')
   try {
     git(['read-tree', EMPTY_TREE], { GIT_INDEX_FILE: idx })
     const r = runGuard({ GIT_INDEX_FILE: idx, IHUI_ALLOW_MASS_DELETION: '1' })
     if (r.code !== 0) throw new Error(`应急开关未放行,exit=${r.code}\n${r.out}`)
   } finally {
     rmSync(idx, { force: true })
+    dropScratchDir(idxDir)
   }
 })
 
@@ -104,7 +120,8 @@ test('判据自测 9 例全绿(阈值边界 + 空仓不判定)', () => {
   if (!out.includes('self-test 全部通过')) throw new Error(out)
 })
 
-test('测试不留残余:私有索引文件都已清掉', () => {
-  if (existsSync(join(tmpdir(), 'ihui-massdel-inject-0.idx'))) throw new Error('临时索引未清理')
+test('测试不留残余:本次创建的 scratch 夹具目录都已删净', () => {
+  const left = createdScratch.filter((d) => existsSync(d))
+  if (left.length > 0) throw new Error(`临时夹具未清理:${left.join(', ')}`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
