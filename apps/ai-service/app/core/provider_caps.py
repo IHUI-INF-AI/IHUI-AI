@@ -299,3 +299,21 @@ def apply_provider_headers(
     merged = dict(headers)
     merged.update(call_kwargs.get("extra_headers") or {})
     call_kwargs["extra_headers"] = merged
+
+
+# ---------------------------------------------------------------------------
+# G-648(2026-09-30):快照装配出口 —— 已发布能力/entitlement 快照消费口
+# ---------------------------------------------------------------------------
+
+
+def get_published_capability_snapshot() -> dict[str, Any] | None:
+    """返回最近一次通过栅栏发布的供应商能力/entitlement 快照(未发布过为 None)。
+
+    llm_gateway 等消费方在需要「整份一致」的能力视图时改读这里:发布出口
+    (provider_capability_snapshot.ProviderCapabilitySnapshotBoard.publish_round)
+    在写入前复读上游版本,解算期间上游变了或仍有 pending 的更新 ⇒ 本轮
+    整份丢弃(superseded)、快照保持旧值,绝不"先发布再修正"。
+    """
+    from app.core.provider_capability_snapshot import get_snapshot_board
+
+    return get_snapshot_board().snapshot
