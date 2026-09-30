@@ -216,20 +216,29 @@ function modeOf(rev, p, cwd) {
 }
 
 function writeBlob(content, p, cwd) {
-  return execFileSync(
-    GIT,
-    ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'hash-object', '-w', '--path', p, '--stdin'],
-    {
-      cwd,
-      input: content,
-      encoding: 'utf8',
-      // ⚠️ 此处经 --stdin 传内容,stdin 必须是管道,不能学 git()/gitBuf() 设 ignore;
-      // 本会话 Node 建子进程 stdin 管道 EBUSY 时此函数会挂 —— 真遇上了再改临时文件通道。
-      windowsHide: true,
-      timeout: GIT_TIMEOUT,
-      maxBuffer: 512 * 1048576,
-    },
-  ).trim()
+  // 根治(2026-09-30):--stdin 通道要求子进程 stdin 真管道,而本会话 Node 建 stdin 管道
+  // 会 EBUSY ⇒ 改走临时文件。`--path p` 保留:属性/换行过滤仍按业务路径判定,与
+  // `--stdin --path p` 产出同一 blob SHA(2026-09-30 以 CRLF 样本实证等价);scratch 用后即焚。
+  const scratch = mkScratch('union-blob-')
+  const tmp = join(scratch, 'blob')
+  writeFileSync(tmp, content)
+  try {
+    return execFileSync(
+      GIT,
+      ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'hash-object', '-w', '--path', p, tmp],
+      {
+        cwd,
+        encoding: 'utf8',
+        // 无 input ⇒ stdin 设 ignore(同 git()/gitBuf() 各自注释)。
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        timeout: GIT_TIMEOUT,
+        maxBuffer: 512 * 1048576,
+      },
+    ).trim()
+  } finally {
+    rmScratch(scratch)
+  }
 }
 
 /**
