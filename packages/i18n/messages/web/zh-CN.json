@@ -11221,6 +11221,7 @@
     "permissionUnknownError": "未知错误",
     "placeholder": "详细描述需求，输入 / 调用技能、插件、MCP（如 /goal /loop /plan）",
     "placeholderPlan": "规划模式：输入需求，AI 只制定计划不执行工具（/act 切回执行，Alt+P 切换）",
+    "aiDisclaimer": "内容由AI生成，请核实重要信息",
     "plan": {
       "ariaLabel": "执行计划步骤",
       "collapseReasoning": "折叠推理过程",
@@ -20236,7 +20237,18 @@
       "passwordHint": "普通用户建议使用扫码登录,此处仅开发者备用。",
       "platform": "平台",
       "saveCookies": "保存账号",
+      "preparingQr": "正在生成二维码…",
+      "regenerateQr": "重新出码",
       "scan": "扫码",
+      "elapsedSeconds": "已等待 {seconds} 秒",
+      "loadingSlowHint": "首次出码要现起浏览器并打开平台登录页,通常 3~8 秒;二维码一就绪会立即显示",
+      "loadingStage": {
+        "booting": "启动浏览器",
+        "opening": "打开登录页",
+        "rendering": "生成二维码",
+        "ready": "二维码就绪",
+        "switching": "切换到扫码"
+      },
       "scanLogin": "扫码登录",
       "scanLoginDescription": "选择平台后,后端会打开该平台登录页并截取二维码;用对应 App 扫码即可自动保存 cookies。",
       "scanLoginFailed": "扫码登录失败",
