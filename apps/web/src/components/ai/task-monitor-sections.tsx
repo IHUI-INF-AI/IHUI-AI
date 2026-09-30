@@ -8,6 +8,8 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
+import { useChatStore } from '@/stores/chat'
+import { TaskContentGroupsView } from './d175-task-content-groups'
 import type { ToolTabKey } from './ai-side-panel-tools'
 
 /** 任务监控四区标识(G-63 对标 Qoder「任务监控」分区原文) */
@@ -24,7 +26,10 @@ export type TaskZone = 'progress' | 'activity' | 'results' | 'auxiliary'
  *    orchestration(编排中心)/trace(执行轨迹)/checkpoints(检查点)/runtime(运行时)/
  *    agenttasks(agent 运行任务)/hooks(钩子事件)
  *  - results 结果与来源:产出物、对照与出处 —— bestof(择优对比)/worlds(世界线对比)/
- *    atomicrollback(整栈回滚)/tokens(token 用量)/spec(规格)/wiki(知识库来源)
+ *    atomicrollback(整栈回滚)/tokens(token 用量)/spec(规格)/wiki(知识库来源)。
+ *    区首另挂 D175「任务内容聚合」三分组(产出/网页查阅/来源,`TaskContentGroupsView`):
+ *    取本区的依据就是区义"产出物与出处";它刻意不做成 ToolTabKey —— 挂成 Tab 要改
+ *    ai-side-panel-tools.tsx 的 Tab 联合与 renderTab 分支(不在本票射程),故走区内分区这条加法通道
  *  - auxiliary 辅助入口:配置与外围能力 —— routines(例行调度)/integrations(集成)/
  *    workspace(工作区文件夹选择)
  */
@@ -70,6 +75,8 @@ export function TaskMonitorZonesView({
   const tZone = useTranslations('taskMonitor')
   const tTab = useTranslations('aiToolsPanel')
   const [collapsed, setCollapsed] = React.useState<ReadonlySet<TaskZone>>(() => new Set())
+  // D175:任务内容聚合的取数面 = chat store 既有 messages(不新建采集链)
+  const messages = useChatStore((s) => s.messages)
 
   const toggleZone = React.useCallback((zone: TaskZone) => {
     setCollapsed((prev) => {
@@ -109,6 +116,9 @@ export function TaskMonitorZonesView({
             </button>
             {expanded && (
               <>
+                {/* D175 任务内容聚合:挂在 results「结果与来源」区首,区内 Tab 子导航之前。
+                    三组清单(产出/网页查阅/来源)+ 各组空态 + 全空时的汇总描述,随任务持续更新 */}
+                {zone === 'results' && <TaskContentGroupsView messages={messages} />}
                 <div
                   role="tablist"
                   aria-label={zoneLabel}
