@@ -1411,6 +1411,8 @@ function main() {
         const out = execFileSync('git', ['merge-tree', '--write-tree', freshLocal, freshRemote], {
           encoding: 'utf8',
           windowsHide: true,
+          // EBUSY 免疫(ihui-spawn-ebusy-fix):本调用不吃 stdin,绕开坏管道路径
+          stdio: ['ignore', 'pipe', 'pipe'],
         })
         tree = out.trim().split('\n')[0].trim()
         if (!/^[0-9a-f]{40}$/.test(tree)) throw new Error(out)
