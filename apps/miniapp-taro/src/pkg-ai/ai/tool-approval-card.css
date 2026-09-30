@@ -1,0 +1,240 @@
+/* © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top */
+/* Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。 */
+
+/*
+ * D136 页内确认卡样式(2026-10-01 立)。
+ * 纪律:半径只取 var(--radius-*) 单一真源(sm/md/lg,≤2xl,不写死 px、不用胶囊档);
+ * 静态描边一律取 --color-border / --color-border-medium,**不取墨档**
+ * (AGENTS §4:唯一例外位是输入框聚焦态,本卡没有输入控件);
+ * 主操作实底与前景成对(--color-cta / --color-cta-foreground),选中档用底色反转表达,
+ * 不靠"描边变黑"暗示选中(选中态取墨档在禁止之列)。
+ */
+
+.tac-card {
+  margin: 12rpx 20rpx 0;
+  padding: 20rpx;
+  border: 1rpx solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  background: var(--color-card);
+}
+
+.tac-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.tac-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.tac-pending {
+  margin-left: auto;
+  font-size: 20rpx;
+  color: var(--color-muted-foreground);
+}
+
+.tac-desc {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  line-height: 34rpx;
+  color: var(--color-muted-foreground);
+}
+
+.tac-tool {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  margin-top: 14rpx;
+  padding: 10rpx 16rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
+}
+
+.tac-tool-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+
+.tac-danger {
+  flex-shrink: 0;
+  padding: 2rpx 12rpx;
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-tint);
+  font-size: 20rpx;
+  color: var(--color-danger);
+}
+
+.tac-args-block,
+.tac-scope-block {
+  margin-top: 14rpx;
+}
+
+.tac-args-label {
+  display: block;
+  margin-bottom: 6rpx;
+  font-size: 20rpx;
+  color: var(--color-text-tertiary);
+}
+
+.tac-args {
+  display: block;
+  max-height: 160rpx;
+  padding: 12rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
+  font-size: 20rpx;
+  line-height: 32rpx;
+  word-break: break-all;
+  color: var(--color-foreground);
+}
+
+.tac-scope-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.tac-scope-btn {
+  flex: 1;
+  padding: 10rpx 8rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  text-align: center;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+
+.tac-scope-btn.is-active {
+  border-color: var(--color-border-medium);
+  background: var(--color-brand-accent-tint);
+  color: var(--color-brand-accent);
+  font-weight: 500;
+}
+
+.tac-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.tac-reject,
+.tac-approve {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 14rpx 0;
+  border-radius: var(--radius-md);
+  font-size: 24rpx;
+}
+
+.tac-reject {
+  border: 1rpx solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-danger);
+}
+
+.tac-approve {
+  background: var(--color-cta);
+  color: var(--color-cta-foreground);
+}
+
+.tac-hover {
+  opacity: 0.72;
+}
+
+/* 已处理记录:住在卡外(页级 state 驱动),卡片不挂载时仍在 */
+.tac-records {
+  margin: 12rpx 20rpx 0;
+  padding: 14rpx 16rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
+}
+
+.tac-records-title {
+  display: block;
+  margin-bottom: 8rpx;
+  font-size: 20rpx;
+  color: var(--color-text-tertiary);
+}
+
+.tac-record {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  padding: 8rpx 0;
+}
+
+.tac-record-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.tac-record-tool {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-foreground);
+}
+
+.tac-record-text {
+  display: block;
+  font-size: 20rpx;
+  line-height: 30rpx;
+}
+
+.tac-record-text.is-ok {
+  color: var(--color-success);
+}
+
+.tac-record-text.is-warn {
+  color: var(--color-warning-amber, var(--color-danger));
+}
+
+.tac-record-text.is-danger {
+  color: var(--color-danger);
+}
+
+.tac-override {
+  flex-shrink: 0;
+  max-width: 260rpx;
+  padding: 10rpx 14rpx;
+  border: 1rpx solid var(--color-border-medium);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+}
+
+.tac-override-label {
+  display: block;
+  font-size: 22rpx;
+  font-weight: 500;
+  color: var(--color-brand-accent);
+}
+
+.tac-override-desc {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 18rpx;
+  line-height: 26rpx;
+  color: var(--color-muted-foreground);
+}
