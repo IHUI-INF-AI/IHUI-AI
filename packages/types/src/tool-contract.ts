@@ -79,6 +79,12 @@ export function normalizeToolEffectScope(raw: unknown): ToolEffectScope | null {
  * —— 字段名逐字对齐(`type` / `description` / `enum` / `items` / `properties` / `required`),
  * 使既有声明**无需改写即满足本类型**。模型可见的 JSON Schema 由 `schema-projection.ts`
  * 从这一份单向投影得到,因此"怎么校验"与"模型被告知怎么填"不可能分叉。
+ *
+ * 发射子集 == 校验子集(b76-05 票2):本接口的键集与
+ * `schema-projection.ts` 的 `SCHEMA_PROJECTION_VOCABULARY` 是**同一份词汇表**——
+ *那边是唯一权威(发射器与校验器同表),本接口是它的类型投影;两边若分叉,
+ * 严格投影(`projectToolInputSchemaStrict`)会当场抛 `ToolSchemaProjectionError` 并给出
+ * `$.properties.x` 形式的路径,不再允许"尽力归一化"把不认识的构造静默吞掉。
  */
 export interface ToolShapeDescriptor {
   /** `unknown` 是本仓 `zod` 未接入工具面前"不做类型断言"的那一档(投影时不得写出 type 键) */
