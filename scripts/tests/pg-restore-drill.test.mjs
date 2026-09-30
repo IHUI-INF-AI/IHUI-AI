@@ -20,6 +20,9 @@ import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs'
 import { dirname, join, parse, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// 共用落点出口:2026-09-30 起本用例直接问它(不再只读它的源码形状)——
+// 行为对照才证得了"夹具洞已关",形状锁只能证"签名长这样"。
+import { devEnvRoot } from '../seal-c-root-stray.mjs'
 import { __test__ as D } from '../pg-restore-drill.mjs'
 
 const YMD = '20260927'
@@ -387,13 +390,19 @@ test('P-落点3 反向对照与边界:落点与 process.cwd() 无关;私有数�
     process.chdir(cwd0)
     rmScratch(dir)
   }
-  // 如实登记**未被本票关闭的一格**:`devEnvRoot()` 不接收工作树参数(它锚在自己的模块位置),
-  // 所以"把工作树喂成两层深夹具 ⇒ 落点跟着夹具走"这一维不能由本票修复,也不得假装修好了。
-  // 要关它只有两条路,都不在本票改区:① 在 seal-c-root-stray 侧改盘根锚定 + 夹具闸(照 `971690247`
-  // 那一枚对 gitdir 做的事);② 改用 gitdir.mjs 的 gitArchiveRootFor —— 但它表达的是
-  // `<盘>/DevEnv/backups/git`,与"DevEnv 根本身"语义不符。这条边界下面用签名锁钉住:
-  // 出口一旦开始接收工作树参数,就说明这一格已被别人关闭,本注释与断言必须同步改写(而不是静默腐烂)。
+  // 如实登记这一格**已被谁关闭、以及现在锁的是什么**(2026-09-30 改写)。
+  // 本用例 2026-09-28 写下时,`devEnvRoot()` 不接收工作树参数(它锚在自己的模块位置),所以
+  // "把工作树喂成两层深夹具 ⇒ 落点跟着夹具走"这一维**不能**由当时那票修复,于是用签名锁当绊线
+  // 钉住"未关闭"这件事。09-29 枚 `924184043f`/G-345 第④格把它关上了:出口现在按
+  // `path.parse(...).root` 取盘根,并对"仓库根本身位于 scratch 夹具内"直接抛错。
+  // 签名当时一变本断言就红 —— 那不是缺陷复现,是绊线按设计报警;红线要求的是**改写它**,
+  // 而改写只能往"更硬"的方向走:从此锁的是"洞确实关了"的行为,而不是一个函数形状。
   const sealSrc = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'seal-c-root-stray.mjs'), 'utf8')
-  assert.match(sealSrc, /export function devEnvRoot\(\)/, '共用出口签名已变(开始接收参数?)⇒ 本用例那段"夹具洞未由本票关闭"的登记需重新判定')
+  assert.match(sealSrc, /export function devEnvRoot\(\s*repoRoot\s*=\s*REPO\s*\)/, '共用出口现在必须接收工作树根(有默认值⇒既有零参调用方逐字不变)')
+  assert.match(sealSrc, /countScratchSegments\(repoRoot\)\s*>\s*0/, '夹具闸必须在(没有它,"盘根 + DevEnv"会落进夹具里)')
+  // 行为对照,不接受"注释说关了":把一条真夹具路径喂给出口 ⇒ 必须抛错点名,而不是安静返回。
+  assert.throws(() => devEnvRoot(deep), /scratch 夹具/, '把工作树喂成夹具内路径时必须拒绝推导 —— 这条就是当年那格未被关闭的判据')
+  // 反向对照:真仓根仍要推得出盘根档位(否则上面的"拒绝"就成了把正常路径一起打死)
+  assert.equal(devEnvRoot(resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')), join(parse(resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')).root, 'DevEnv'), '真仓根必须照常推出 <盘>:\\DevEnv')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
