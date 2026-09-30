@@ -4256,6 +4256,26 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- AI 面板装载守门(1 项,blocking)---
+  {
+    id: '169',
+    label:
+      'AI 面板装载守门:GlobalShell/AISidePanel 的骨架占位几何一致 + 8 个重组件懒加载边界 + inferVendor 单一来源(首屏延迟根治防回潮,2026-09-30)',
+    script: 'check-ai-panel-mount-guards.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_AI_PANEL_MOUNT_GUARDS',
+    stagedTriggers: ['apps/web/src/components/layout/GlobalShell.tsx', 'apps/web/src/components/ai/ai-side-panel.tsx'],
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-ai-panel-mount-guards.mjs --staged(或 --worktree 人工排查)',
+      '自检:node scripts/check-ai-panel-mount-guards.mjs --self-test(44 例,正反成对)',
+      '判据:R1 GlobalShell 两处占位(dynamic loading + Suspense fallback)几何一字不动且内部是骨架;R2 ai-side-panel 8 个重组件只准动态 import;inferVendor 只从 vendor-infer 导入',
+      '修复方向:恢复懒加载边界与骨架占位,不要把重组件改回静态 import(零视觉症状的性能回退,测试抓不到,只有这道门能咬住)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
