@@ -4,7 +4,6 @@
 
 import type {
   ApiResult,
-  ApiResponse,
   PlanUpdateEvent,
   TerminalStartEvent,
   TerminalEndEvent,
@@ -28,10 +27,15 @@ import {
 } from './transport.js'
 // D116 原始 SSE 全帧采集(默认关闭,零开销;展示端 stream-inspector 挂工具托盘)
 import { recordStreamFrame } from './stream-frame-log.js'
+// b76-13 票1:帧水位与纪元读环判据(唯一语义出口在 @ihui/shared 的 agent-events,
+// 本包零依赖不得反向 import,此为逐字同形移植,漂移由 frame-watermark-parity 测试钉住)
+import { isFrameGap, readFrameWatermark, type FrameWatermarkCursor } from './frame-watermark.js'
 import type { DeviceFingerprintCollector } from '@ihui/types'
 // D152(2026-09-29):goal 状态的合法值集是**运行时判据**(解析帧时要验 status),
 // 故按值导入而非 type-only —— 单一来源仍是 @ihui/types 的 GOAL_WIRE_STATUSES。
 import { GOAL_WIRE_STATUSES } from '@ihui/types'
+// b76-08a(2026-09-30 立):连接级能力位由宿主注入 —— 本包是 TS 侧唯一转发注入口的调用方。
+import { stripClientCapabilityFields } from '@ihui/types'
 // error 序列化唯一出口(2026-09-26 立)。上行 tool-result 帧的 error 字段若被调用方在
 // catch 里把 Error 本体(as 强转即可过 tsc)塞进来,JSON.stringify 会得 "{}" ——
 // ai-service 的 tool loop 唤醒时收到的是空对象事故现场。详见 postToolResult 上方 toWireError。
@@ -520,6 +524,102 @@ export function deriveFailureFromBody(
   return { message, errorCode }
 }
 
+// ===================== 响应体入站 strict 校验 + 读前 scrub(b76-01 票1) =====================
+// 权威 schema 面在 @ihui/types/api-contracts(ApiResponseEnvelopeSchema / scrubRevokedKeys /
+// ContractValidationError),本包按 error-serialize 收口先例(见文件头 2026-09-26 注)逐字移植
+// 运行时判据:@ihui/types 的 exports 指向 dist,运行时值导入会把本包重新钉回 workspace-only,
+// 故类型面沿用 ApiResponse 锚定(import type),判据在包内自持。三处语义对齐票面:
+//   ① strict:包络只认已声明字段,未知字段判失败 —— 新增字段一律先声明成 optional,
+//     让升级后打开的历史载荷不至于整块退化成纯文本失败;
+//   ② kind 定向读前 scrub:只删在场的键,不给缺席键补 undefined;
+//   ③ 未列出的兄弟 kind 原样通过 scrub,交由 strict 面统一裁决。
+// 已撤销字段不得在 strict 下"整块被拒",所以先 scrub 再 strict,两步成对,缺一即红。
+
+const INBOUND_ENVELOPE_REVOKED_KEYS: Readonly<Record<string, readonly string[]>> = {
+  // kind='envelope':历史载荷曾以布尔 `ok` 表达成功位,该字段已撤销 —— 读前剥掉,
+  // 历史载荷不至于在 strict 下整块退化为失败。
+  envelope: ['ok'],
+}
+
+const INBOUND_ENVELOPE_ALLOWED_KEYS: ReadonlySet<string> = new Set([
+  'kind',
+  'code',
+  'message',
+  'data',
+  'errorCode',
+])
+
+/** 包络入站契约校验失败(与 @ihui/types/api-contracts 的同名错误同形)。 */
+export class ContractValidationError extends Error {
+  readonly issues: readonly string[]
+  constructor(issues: readonly string[]) {
+    super(`响应契约校验失败(${issues.length} 条): ${issues.join(' | ')}`)
+    this.name = 'ContractValidationError'
+    this.issues = issues
+  }
+}
+
+/** 入站响应包络(strict 白面)。与 @ihui/types 的 ApiResponse 逐字段对齐。 */
+export interface InboundEnvelope {
+  code: number
+  message: string
+  data: unknown
+  errorCode?: string
+}
+
+export type EnvelopeInboundResult =
+  | { matched: true; envelope: InboundEnvelope }
+  | { matched: false }
+
+/**
+ * 响应体入站校验的唯一入口(fetchOnce 2xx 分支调用)。
+ *
+ * matched=false:不是包络 —— 非 JSON 对象,或无 `code` 包装的裸 JSON(ai-service 直返体)。
+ * 后者维持既有语义:整个响应视作 data 返回。
+ * matched=true:包络载荷 —— 先做 kind 定向读前 scrub,再做 strict 白名单裁决,
+ * 未知字段/类型不符抛 ContractValidationError(未知字段整包判失败,不静默剥掉重放)。
+ */
+export function validateEnvelopeInbound(raw: unknown): EnvelopeInboundResult {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return { matched: false }
+  const candidate = raw as Record<string, unknown>
+  if (candidate.code === undefined) return { matched: false }
+
+  // kind 定向读前 scrub:只删在场的键,不给缺席键补 undefined(undefined 也是值,
+  // 补进去等于把"字段缺席"篡改成"字段存在但不知道",strict 与下游都会误判)。
+  const kind = typeof candidate.kind === 'string' ? candidate.kind : undefined
+  if (kind !== undefined) {
+    const revoked = INBOUND_ENVELOPE_REVOKED_KEYS[kind]
+    if (revoked) {
+      for (const key of revoked) {
+        if (key in candidate) delete candidate[key]
+      }
+    }
+  }
+
+  const issues: string[] = []
+  const unknownKeys = Object.keys(candidate).filter((k) => !INBOUND_ENVELOPE_ALLOWED_KEYS.has(k))
+  if (unknownKeys.length > 0) issues.push(`未知字段: ${unknownKeys.join(', ')}`)
+  const codeValue: unknown = candidate.code
+  const messageValue: unknown = candidate.message
+  const errorCodeValue: unknown = candidate.errorCode
+  if (typeof codeValue !== 'number') issues.push('code 必须是 number')
+  if (typeof messageValue !== 'string') issues.push('message 必须是 string')
+  if (errorCodeValue !== undefined && typeof errorCodeValue !== 'string') {
+    issues.push('errorCode 必须是 string')
+  }
+  if (issues.length > 0) throw new ContractValidationError(issues)
+  // 上面 typeof 判据已把形态钉死,这里的 as 是把"已验证"翻给类型面看(非 any,无宽化)。
+  return {
+    matched: true,
+    envelope: {
+      code: codeValue as number,
+      message: messageValue as string,
+      data: candidate.data,
+      errorCode: typeof errorCodeValue === 'string' ? errorCodeValue : undefined,
+    },
+  }
+}
+
 /**
  * 内部:执行一次 fetch 并解析为 ApiResult。
  *
@@ -579,25 +679,26 @@ async function fetchOnce<T>(
     }
   }
 
-  const json = (await response.json()) as ApiResponse<T>
-
-  // 2026-08-12 修复:ai-service 端点(如 /api/admin/news/status)返回裸 JSON 对象,
-  // 没有 {code, message, data} 包装。code===undefined 时视整个响应为 data 返回。
-  if (json.code === undefined) {
+  // b76-01 票1:入站 strict 校验 + 读前 scrub(判据见 validateEnvelopeInbound 上方注)。
+  // 裸 JSON(ai-service 直返体,无 {code,message,data} 包装)不归包络管,维持原语义:
+  // 整个响应视作 data 返回;包络载荷则严格按白面裁决,未知字段整包判失败。
+  const rawJson: unknown = await response.json()
+  const inbound = validateEnvelopeInbound(rawJson)
+  if (!inbound.matched) {
     // 2026-09-09 0-5 迁移:成功分支携带 HTTP status(upsert 场景需区分 200/201)
-    return { success: true, data: json as unknown as T, status: response.status }
+    return { success: true, data: rawJson as T, status: response.status }
   }
 
-  if (json.code !== 0) {
+  if (inbound.envelope.code !== 0) {
     return {
       success: false,
-      error: json.message?.trim() || '请求失败',
+      error: inbound.envelope.message.trim() || '请求失败',
       status: response.status,
-      errorCode: json.errorCode,
+      errorCode: inbound.envelope.errorCode,
     }
   }
 
-  return { success: true, data: json.data, status: response.status }
+  return { success: true, data: inbound.envelope.data as T, status: response.status }
 }
 
 /** ApiResult 失败分支类型(用于错误归一化) */
@@ -645,7 +746,11 @@ export async function fetchApi<T>(
   options: FetchApiOptions = {},
 ): Promise<ApiResult<T>> {
   const token = tokenProvider.getToken()
-  const { params, ...restOptions } = options
+  const { params: rawParams, ...restOptions } = options
+  // b76-08a:转发前摘除连接级能力位(connectionId/clientMode/deliveryProfile/
+  // subscriberScope/workflowRunDeltas)—— 这些是连接事实,客户端自报一律不得出网;
+  // 宿主真值由服务端注入口(engine.py::_bind_principal)写。唯一出口见 @ihui/types。
+  const params = rawParams ? stripClientCapabilityFields(rawParams) : rawParams
   let normalizedUrl = normalizeUrl(url)
   if (params) {
     const qs = new URLSearchParams()
@@ -884,7 +989,9 @@ export async function fetchAiServiceJson<T>(
   options: FetchApiOptions = {},
 ): Promise<ApiResult<T>> {
   const token = tokenProvider.getToken()
-  const { params, ...restOptions } = options
+  const { params: rawParams, ...restOptions } = options
+  // b76-08a:同 fetchApi —— 转发前摘除连接级能力位,客户端自报不出网(唯一出口见 @ihui/types)。
+  const params = rawParams ? stripClientCapabilityFields(rawParams) : rawParams
   let normalizedUrl = normalizeUrl(url)
   if (params) {
     const qs = new URLSearchParams()
@@ -2337,6 +2444,53 @@ function detectSafetyViolation(message: string, errorCode?: string): string | nu
   return null
 }
 
+// ===========================================================================
+// b76-13 票3(2026-09-30 立):消费者绝不施加界 —— 有界表归生产者,
+// 且淘汰必须"说出来 + 继续可数"
+// ===========================================================================
+//
+// 上游禁令:客户端**绝不**自设 maxNodes/maxActors 一类界,只有生产者能淘汰,
+// 且淘汰必须随载荷声明(removed/truncated 位)。我方的失效型恰是票面点名那条:
+// UI 层悄悄取最后 10 条并把 10 当事实展示(changes/terminal/tool-calls 三个
+// progress-section 的 slice(-10)),既没有"少列了多少"的计数,也没有 truncated 位
+// —— 数字偏小且自洽,typecheck 全绿,现有守门(几何/字节预算/数据库写计数)全盲。
+//
+// 判据三条(照抄上游,落我方词汇):
+//   (a) 渲染裁尾必须**同时**产出被裁掉的条数(omittedCount),并渲染成「N more」;
+//   (b) 界与"为什么是这个数"只住在本处常量,注释区分**展示预算** vs **生产契约**;
+//   (c) 生产端要截尾必须在载荷里带 truncated 位;消费端不得自行加界 ——
+//       集合裁尾一律走 tailWithOmittedCount 本出口(对字符串/路径的 slice(-N) 不判)。
+// 常驻尺子:scripts/check-list-cap-honesty.mjs(--self-test;不接提交链,由主会话定)。
+
+/**
+ * **展示预算**(非生产契约):为什么是 10 —— 单屏可读密度,超过部分以
+ * 「N more」形态露出而不是消失。这个数不是引擎/协议约束,改它不需要同步后端;
+ * 生产契约类的界(如 fan-out 上限)不归本常量管,必须由载荷的 truncated 位声明。
+ */
+export const SSE_LIST_DISPLAY_BUDGET = 10
+
+export interface TailedResult<T> {
+  /** 保留的尾部条目(渲染直接用) */
+  items: T[]
+  /** 被裁掉的条目数 —— 消费方**必须**把它渲染出来(「N more」),不许吞掉 */
+  omittedCount: number
+}
+
+/**
+ * 消费侧集合裁尾的**唯一出口**:裁尾与"少列了多少"原子产出,
+ * 结构上杜绝"悄悄取最后 N 条并把 N 当事实"的那一型。
+ * 纯函数:不改入参;cap 非正整数 ⇒ 原样全量返回(omittedCount=0)。
+ */
+export function tailWithOmittedCount<T>(
+  items: readonly T[],
+  cap: number = SSE_LIST_DISPLAY_BUDGET,
+): TailedResult<T> {
+  if (!Number.isSafeInteger(cap) || cap <= 0 || items.length <= cap) {
+    return { items: [...items], omittedCount: 0 }
+  }
+  return { items: [...items.slice(items.length - cap)], omittedCount: items.length - cap }
+}
+
 const STREAM_MAX_RETRIES = 3
 const STREAM_INITIAL_RETRY_DELAY = 1000
 const STREAM_MAX_RETRY_DELAY = 30_000
@@ -2417,6 +2571,51 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   const lastEventIdRef = { current: '' }
   const receivedContentRef = { current: '' }
   const receivedAgentRef = { current: new Map<string, string>() }
+  // b76-13 票1:帧水位游标。Last-Event-ID 只答"服务端接着哪儿发",本游标答
+  // "手上状态属于哪个代际/纪元/位点" —— 没有它,会话重建/fork/rewind 后
+  // id 仍能对上而内容属于另一个纪元,消费端会静默拼接两个纪元的状态。
+  const frameWatermarkRef = { current: null as FrameWatermarkCursor | null }
+  let frameGapDropped = 0
+  // b76-13 票2:字段级结构不变量的 typed fault 计数(读环侧;shared 侧同表
+  // 判据见 SSE_FRAME_SCHEMAS —— 丢帧必须留痕,不冒充解析成功)
+  let sseFrameSchemaFaults = 0
+  // 水位闸:帧带**完整**水位字段时才判(读不出 ⇒ undetermined 原样放行,生产端
+  // 未下发水位的旧帧零行为变化);gap/死帧 ⇒ 丢弃且计数 —— 不进渲染、不推进游标,
+  // 重连后从服务端快照重建,绝不把残帧算成"已应用"。
+  const shouldDropByWatermark = (line: string): boolean => {
+    if (!line.startsWith('data:')) return false
+    const raw = line.slice(5).trim()
+    if (!raw || raw === '[DONE]') return false
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      return false
+    }
+    const read = readFrameWatermark(parsed)
+    if (read.verdict === 'undetermined') return false
+    if (read.verdict === 'invalid') {
+      frameGapDropped++
+      return true
+    }
+    const cursor = frameWatermarkRef.current
+    if (cursor === null) {
+      // 首个带水位的帧:手上没有可比状态,以服务端帧为基线(owned snapshot 语义)
+      frameWatermarkRef.current = {
+        subscriptionId: read.watermark.subscriptionId,
+        logEpoch: read.watermark.logEpoch,
+        seq: read.watermark.toSeq,
+      }
+      return false
+    }
+    const gap = isFrameGap(cursor, read.watermark)
+    if (gap !== null) {
+      frameGapDropped++
+      return true
+    }
+    frameWatermarkRef.current = { ...cursor, seq: read.watermark.toSeq }
+    return false
+  }
   let attempt = 0
 
   const token = tokenProvider.getToken()
@@ -3156,9 +3355,18 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           if (json?.type === 'terminal_end') {
             if (typeof json.terminalId !== 'string') return
             if (json.status !== 'completed' && json.status !== 'failed') return
+            // b76-13 票2:结构不变量(必要字段对)—— truncated=true 而 totalChars
+            // 缺席/坏型是"截断了却不知道截掉多少"的假话帧 ⇒ typed fault 丢弃且计数
+            // (不冒充解析成功,也不放行);对照:装饰字段(output,见下)坏了只降级。
+            if (json.truncated === true && typeof json.totalChars !== 'number') {
+              sseFrameSchemaFaults++
+              return
+            }
             const evt: TerminalEndEvent = {
               terminalId: json.terminalId,
               status: json.status,
+              // 装饰档(output):坏型 ⇒ 整字段按缺省处理,那张卡退化成纯文本,
+              // 不决定本帧生死(与 @ihui/shared SSE_DECORATIVE_FIELDS 同档登记)
               ...(typeof json.output === 'string' ? { output: json.output } : {}),
               ...(typeof json.exitCode === 'number' ? { exitCode: json.exitCode } : {}),
               ...(typeof json.endedAt === 'string' ? { endedAt: json.endedAt } : {}),
@@ -4070,6 +4278,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           noteFrameTraceId(line)
           // 捕获 SSE id: 行(用于 Last-Event-ID 断点续传)
           if (line.startsWith('id:')) lastEventIdRef.current = line.slice(3).trim()
+          // b76-13 票1:水位闸 —— gap/死帧丢弃且计数,不进下游解析与渲染
+          if (shouldDropByWatermark(line)) continue
           await dispatchTryParse(line)
           // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
           if (hasFallback) {
@@ -4098,23 +4308,26 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       if (buffer.trim()) {
         if (buffer.startsWith('id:')) lastEventIdRef.current = buffer.slice(3).trim()
         // 阶段 2:尾部 buffer 残留,与主循环对称
-        recordStreamFrame(buffer)
-        noteFrameTraceId(buffer)
-        await dispatchTryParse(buffer)
-        // P4-2: 优先检查 fallback 事件(尾部 buffer 残留);parseStreamLine 对 fallback 事件返回 null,无需跳过
-        if (hasFallback) {
-          const fbEvt = parseFallbackEvent(buffer)
-          if (fbEvt) opts.onFallback!(fbEvt)
-        }
-        const delta = parseStreamLine(buffer)
-        if (delta) {
-          const agentId = hasAgentDelta ? extractAgentId(buffer) : undefined
-          if (agentId) emitAgentDelta(agentId, delta)
-          else emitDelta(delta)
-        }
-        if (hasReasoning) {
-          const r = parseStreamLineReasoning(buffer)
-          if (r) opts.onReasoning!(r)
+        // b76-13 票1:尾部残留帧同样过水位闸(gap ⇒ 整块丢弃且计数,不进渲染)
+        if (!shouldDropByWatermark(buffer)) {
+          recordStreamFrame(buffer)
+          noteFrameTraceId(buffer)
+          await dispatchTryParse(buffer)
+          // P4-2: 优先检查 fallback 事件(尾部 buffer 残留);parseStreamLine 对 fallback 事件返回 null,无需跳过
+          if (hasFallback) {
+            const fbEvt = parseFallbackEvent(buffer)
+            if (fbEvt) opts.onFallback!(fbEvt)
+          }
+          const delta = parseStreamLine(buffer)
+          if (delta) {
+            const agentId = hasAgentDelta ? extractAgentId(buffer) : undefined
+            if (agentId) emitAgentDelta(agentId, delta)
+            else emitDelta(delta)
+          }
+          if (hasReasoning) {
+            const r = parseStreamLineReasoning(buffer)
+            if (r) opts.onReasoning!(r)
+          }
         }
       }
       opts.onDone?.()
