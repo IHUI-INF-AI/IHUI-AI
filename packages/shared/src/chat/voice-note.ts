@@ -95,9 +95,7 @@ export function isVoiceNoteTranscriptPending(phase: VoiceNotePhase): boolean {
  * 12 相状态机唯一收敛点:非法迁移一律 no-op(绝不抛错、绝不跳相)。
  * 迁移表只登记合法 (phase, event) → next;终态仅对 retry 放行(可恢复失败相回 ready)。
  */
-const TRANSITIONS: Readonly<
-  Record<VoiceNotePhase, Partial<Record<VoiceNoteEvent, VoiceNotePhase>>>
-> = {
+const TRANSITIONS: Readonly<Record<VoiceNotePhase, Partial<Record<VoiceNoteEvent, VoiceNotePhase>>>> = {
   ready: { start: 'requestingPermission' },
   requestingPermission: {
     permissionGranted: 'preparingMedia',
@@ -138,10 +136,7 @@ const TRANSITIONS: Readonly<
 }
 
 /** 唯一状态收敛入口:非法组合原样返回当前相(调用方 setState 无感) */
-export function transitionVoiceNotePhase(
-  phase: VoiceNotePhase,
-  event: VoiceNoteEvent,
-): VoiceNotePhase {
+export function transitionVoiceNotePhase(phase: VoiceNotePhase, event: VoiceNoteEvent): VoiceNotePhase {
   return TRANSITIONS[phase]?.[event] ?? phase
 }
 
@@ -157,8 +152,7 @@ export function parseVoiceNotes(raw: string | null): VoiceNoteRecord[] {
       const candidate = item as Partial<VoiceNoteRecord>
       if (typeof candidate.id !== 'string' || candidate.id.length === 0) continue
       if (typeof candidate.createdAt !== 'string') continue
-      if (typeof candidate.durationMs !== 'number' || !Number.isFinite(candidate.durationMs))
-        continue
+      if (typeof candidate.durationMs !== 'number' || !Number.isFinite(candidate.durationMs)) continue
       if (
         typeof candidate.phase !== 'string' ||
         !ALL_PHASES.includes(candidate.phase as VoiceNotePhase)
@@ -167,8 +161,7 @@ export function parseVoiceNotes(raw: string | null): VoiceNoteRecord[] {
       }
       notes.push({
         id: candidate.id,
-        conversationId:
-          typeof candidate.conversationId === 'string' ? candidate.conversationId : null,
+        conversationId: typeof candidate.conversationId === 'string' ? candidate.conversationId : null,
         createdAt: candidate.createdAt,
         durationMs: candidate.durationMs,
         transcript: typeof candidate.transcript === 'string' ? candidate.transcript : null,
@@ -182,13 +175,12 @@ export function parseVoiceNotes(raw: string | null): VoiceNoteRecord[] {
 }
 
 /** 归档 upsert:同 id 原位替换;新记录追加在尾部(展示层自行倒序取最新);超限淘汰最旧 */
-export function upsertVoiceNote(
-  notes: VoiceNoteRecord[],
-  record: VoiceNoteRecord,
-): VoiceNoteRecord[] {
+export function upsertVoiceNote(notes: VoiceNoteRecord[], record: VoiceNoteRecord): VoiceNoteRecord[] {
   const index = notes.findIndex((note) => note.id === record.id)
   const next =
-    index >= 0 ? notes.map((note) => (note.id === record.id ? record : note)) : [...notes, record]
+    index >= 0
+      ? notes.map((note) => (note.id === record.id ? record : note))
+      : [...notes, record]
   return next.slice(Math.max(0, next.length - VOICE_NOTE_ARCHIVE_LIMIT))
 }
 
