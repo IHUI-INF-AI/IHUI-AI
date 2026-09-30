@@ -3155,7 +3155,7 @@ const styles = StyleSheet.create({
     right: 20,
     width: 36,
     height: 36,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: 18, // radius-exempt: 36dp 圆形图片预览关闭按钮,取边长一半
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
