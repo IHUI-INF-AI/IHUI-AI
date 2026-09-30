@@ -44,10 +44,15 @@ import {
   getTool,
   enableToolHub,
   setHubRemoteRegistry,
+  ToolError,
   type Tool,
   type ToolContext,
 } from '../tools/index.js';
 import { BUILTIN_TOOLS } from '../tools/builtins.js';
+// 票A(2026-09-29):无头运行退出前对**在飞后台任务**排水。刻意只取注册表已有的两个出口
+// (`listTasks` 枚举事实 + `waitForTask` 等待机制),不在本文件另建一套"轮询进程在不在"的
+// 判据 —— 等待机制有第二份,漂移的就是"到底谁说了算"。
+import { listTasks as listBackgroundTasks, waitForTask as waitForBackgroundTask, type WaitForTaskResult } from '../tools/background-registry.js';
 import { createFileEditTools } from '../tools/file-edit.js';
 import {
   buildFileEditPreviewEvents,
@@ -246,8 +251,170 @@ export interface AgentResult {
 // 简化策略(做减法):不引入外部 yaml 库,自实现 30 行极简序列化器(只覆盖常见类型),流式输出不缓冲。
 export type { OutputFormat, HeadlessEvent } from '../headless-format.js'
 export { parseOutputFormat, formatHeadlessEvent } from '../headless-format.js'
-import { formatHeadlessEvent } from '../headless-format.js'
+// 票B:单一写者的出口也一并 re-export,与序列化本体同一个门面(消费方不必知道实现在哪个文件)。
+export { createHeadlessEventSink, perTurnSinkArgs } from '../headless-format.js'
+export type {
+  HeadlessEventSink,
+  HeadlessEventSinkOptions,
+  HeadlessEventWriterSource,
+  HeadlessEventDropInfo,
+  HeadlessEventDropReason,
+} from '../headless-format.js'
+// 序列化本体(`formatHeadlessEvent`)不再被本文件直接调用 —— 所有落笔都走下面的 sink,
+// 所以这里只把它的**出口**留着(上一行的 re-export 仍供测试与外部消费方使用)。
+import { createHeadlessEventSink, perTurnSinkArgs } from '../headless-format.js'
+import type { HeadlessEventSink } from '../headless-format.js'
+
+/**
+ * 票B 里"per-turn 那一侧"能往执行面装的回调集合 —— 六条,一条不多。
+ *
+ * 用 `Pick<RunToolLoopOptions, …>` 而不是自己写一遍签名:自己写就是第二份真相,
+ * 而回调签名漂移的下游症状是"事件不再出现",不是编译错误。
+ */
+type HeadlessPerTurnSinkArgs = Pick<
+  RunToolLoopOptions,
+  'onDelta' | 'onToolCall' | 'onToolDeltaFrames' | 'onToolResult' | 'onIteration' | 'onError'
+>;
 import type { OutputFormat, HeadlessEvent } from '../headless-format.js'
+
+// ==================== 票A:无头运行退出前对**在飞后台任务**排水(2026-09-29 立)====================
+
+/**
+ * 一条腿的时长。**这不是总上限**,而是"最迟多久回头看一眼取消信号"。
+ *
+ * 为什么每条腿都必须 > 0:`waitForTask(id, timeoutMs <= 0)` 走的是**非阻塞探询**档
+ * (见 tools/background-registry.ts 的 `still-running` 分支),它立刻就返回,于是下面的
+ * 循环就成了热自旋 —— 一个还在跑的任务能把整个 CLI 的 CPU 吃满,而账面什么都没多说。
+ * 为什么不是"一次性 `waitForTask(id, Infinity)`":那样取消信号只能等任务自己结束才看得见,
+ * 而 Ctrl-C 的含义是"别等了",不是"再等一轮"。
+ *
+ * 每条腿都是**事件驱动**的:任务一落终态,注册表的 `notifySettled` 当场把这条腿叫醒,
+ * 所以这个数只决定取消响应度,不给"任务结束"这件事增加任何延迟。
+ */
+export const HEADLESS_DRAIN_LEG_MS = 250;
+
+/** 腿长下界:任何调用方(含测试注入的 `legMs`)都不会把下面那个循环变成热自旋。 */
+export const HEADLESS_DRAIN_MIN_LEG_MS = 10;
+
+/**
+ * 排水只需要的两个事实 —— 窄接口而不是整个注册表(与上游
+ * `HeadlessWorkflowRuntimeFacts` 只暴露两个 busy 布尔同一条取向)。
+ */
+export interface HeadlessDrainFacts {
+  /** 此刻的任务清单(注册表事实;只读 `id`/`status` 两格)。 */
+  listTasks(): readonly { id: string; status: string }[];
+  /** 既有等待出口,原样透传(刻意不包一层"更顺手的"签名)。 */
+  waitForTask(id: string, timeoutMs: number): Promise<Pick<WaitForTaskResult, 'state'>>;
+}
+
+/**
+ * 排水结论。两档必须**互相可分辨** —— "等完了"与"没等完就被取消"如果折成一档,
+ * 调用方就只能猜,而猜错的代价是把一次中断报成完成(AGENTS §30)。
+ */
+export type HeadlessDrainOutcome =
+  | { kind: 'drained'; settledCount: number; legCount: number }
+  | {
+      kind: 'interrupted';
+      settledCount: number;
+      legCount: number;
+      /** 被丢下的任务(报名,不静默;`runAgent` 把它写进 stderr 交代)。 */
+      unsettledTaskIds: string[];
+      /** 信号在**第一条腿之前**就已 abort —— 与"等了一阵才被取消"可分辨。 */
+      abortedBeforeFirstWait: boolean;
+    };
+
+/** 此刻仍在运行的任务 id。 */
+function runningTaskIds(facts: HeadlessDrainFacts): string[] {
+  return facts.listTasks().filter((t) => t.status === 'running').map((t) => t.id);
+}
+
+/**
+ * 等在飞的后台任务结算,或等到取消。
+ *
+ * 要解决的那一格:一次性运行(`ihui "任务"`、子代理 worker)在 agent 循环返回后立刻退出,
+ * 而 `tools/background-registry.ts` 的任务表是**进程内内存 Map** —— 还在 running 的任务
+ * 既没人等它、也没人给它落终态,只剩台账里一条 `detached-unknown`
+ * (background-ledger 的口径:只报不恢复)。用户读到的是"任务消失了",
+ * 不是"任务被我孤儿化了"。
+ *
+ * 两条判据(形态照上游 headless-workflow 的"窄触发 + 宽排水"):
+ *  ① **触发是窄的**:清单里没有 running 任务 ⇒ 一次 `listTasks()` 就返回,对没有后台
+ *     任务的运行零差异(不新增 await、不新增计时器)。
+ *  ② **等待是宽的**:并存的后台 bash / subagent 任务一律等,不挑种类 —— 它们的收尾
+ *     交织在同一张表上,分开等没有意义。
+ *
+ * 为什么轮询"还在不在 running"没有竞窗(这是本机制成立的关键论证):注册表在
+ * `close`/`error` 处理器里**同一个同步块**内改写 status → 落台账终态 → 通知等待者
+ * (见 `ledgerSettle` 与 `notifySettled` 的注释顺序要求),所以"已不 running"与
+ * "终态已通知"之间没有任何 await,轮询者不可能落进中间。
+ *
+ * **不设总超时、不设 env 逃生口**(上游同一条决定):控制手段是取消信号。加了总上限
+ * 就等于把"还没结束"悄悄写成"结束得晚了",而后者读起来像结论。信号一到立刻返回并
+ * 如实报 interrupted —— 绝不吞信号,也绝不把没等到的任务写成完成。
+ *
+ * 结算的记账口径是**"这条任务还在不在 running 清单里"**,不是"某一条腿的返回值像不像
+ * 结论"。两条各有出处:`waitForTask` 的 `timed-out-unknown` 按定义不是结论
+ * (注册表注释:"超时不等于静默"),而注册表把 running 改掉的那一刻就是终态落定的那一刻。
+ * 反过来按返回值记账会漏掉真实等到过终态的任务 —— 一份账面报 0、实际等到 1 的排水,
+ * 与它要防的那一型(把没等到写成等到)只是方向相反的同一个错。
+ */
+export async function drainInFlightBackgroundTasks(input: {
+  facts: HeadlessDrainFacts;
+  signal?: AbortSignal;
+  legMs?: number;
+}): Promise<HeadlessDrainOutcome> {
+  const legMs = Math.max(input.legMs ?? HEADLESS_DRAIN_LEG_MS, HEADLESS_DRAIN_MIN_LEG_MS);
+  const aborted = (): boolean => input.signal?.aborted === true;
+  /** 只取 running 那一档,并保留注册表给出的顺序(报名时要能逐条对上)。 */
+  const collectRunningIds = (): string[] => runningTaskIds(input.facts);
+  const interrupted = (
+    outstanding: readonly string[],
+    settledCount: number,
+    legCount: number,
+  ): HeadlessDrainOutcome => ({
+    kind: 'interrupted',
+    settledCount,
+    legCount,
+    unsettledTaskIds: [...outstanding],
+    // 与"等了一阵才被取消"可分辨:前者一条腿都没迈过,后者至少真等过。
+    abortedBeforeFirstWait: legCount === 0,
+  });
+
+  const initial = collectRunningIds();
+  if (initial.length === 0) return { kind: 'drained', settledCount: 0, legCount: 0 };
+  if (aborted()) return interrupted(initial, 0, 0);
+
+  // 两条集合各有职责:outstanding = 还欠等待的(含本轮新冒出来的),
+  // drained = 已经结掉的(防止一个 id 被计两次)。
+  const outstanding = new Set<string>(initial);
+  const drained = new Set<string>();
+  let legCount = 0;
+
+  while (outstanding.size > 0) {
+    if (aborted()) {
+      return interrupted([...outstanding], drained.size, legCount);
+    }
+    for (const id of [...outstanding]) {
+      if (aborted()) break;
+      // 消费注册表那份既有出口:任务一落终态它就把这条腿叫醒,所以腿长只决定取消响应度。
+      await input.facts.waitForTask(id, legMs);
+      legCount += 1;
+    }
+    const runningNow = new Set(collectRunningIds());
+    for (const id of [...outstanding]) {
+      if (!runningNow.has(id)) {
+        outstanding.delete(id);
+        drained.add(id);
+      }
+    }
+    // 每轮**重新并入**清单:上一轮里由在飞任务新起的后台任务也要被等到
+    // (只等"进门时那一批"会漏掉"在飞派生在飞"这一型)。
+    for (const id of runningNow) {
+      if (!drained.has(id)) outstanding.add(id);
+    }
+  }
+  return { kind: 'drained', settledCount: drained.size, legCount };
+}
 
 // ==================== 公共函数 ====================
 
@@ -506,8 +673,6 @@ export interface RunToolLoopOptions {
   onBudget?: NonNullable<StreamChatOptions['onBudget']>;
   /** D19 终端实时输出增量(terminal_delta) — 透传 api-client 的 onTerminalDelta,未传时零开销(与 onPlanUpdate 同一条纪律) */
   onTerminalDelta?: NonNullable<StreamChatOptions['onTerminalDelta']>;
-  /** D151 命令等待键盘输入(terminal_interaction) — 透传 api-client 的 onTerminalInteraction,未传时零开销(同上) */
-  onTerminalInteraction?: NonNullable<StreamChatOptions['onTerminalInteraction']>;
   /** 模型上下文窗口大小(tokens)。达 85% 自动压缩到 60%,默认 128_000(与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致)。 */
   contextLimit?: number;
   /** 是否启用 plan 强制阻断(配合 planApproved 控制) */
@@ -1068,8 +1233,6 @@ interface SampleWithRetryOptions {
   onUsage?: NonNullable<StreamChatOptions['onUsage']>;
   /** D19 终端实时输出增量(terminal_delta)— 未传时零开销(与 onPlanUpdate 同一条纪律) */
   onTerminalDelta?: NonNullable<StreamChatOptions['onTerminalDelta']>;
-  /** D151 命令等待键盘输入(terminal_interaction)— 未传时零开销(与 onPlanUpdate 同一条纪律) */
-  onTerminalInteraction?: NonNullable<StreamChatOptions['onTerminalInteraction']>;
 }
 
 /**
@@ -1181,7 +1344,6 @@ async function sampleWithRetry(
         ...(opts.onBudget ? { onBudget: opts.onBudget } : {}),
         ...(opts.onUsage ? { onUsage: opts.onUsage } : {}),
         ...(opts.onTerminalDelta ? { onTerminalDelta: opts.onTerminalDelta } : {}),
-        ...(opts.onTerminalInteraction ? { onTerminalInteraction: opts.onTerminalInteraction } : {}),
         ...(opts.sampler ?? {}),
         onError: (msg, info) => { streamErr = msg; streamErrInfo = info; },
       } as Parameters<typeof streamChat>[0]);
@@ -1250,14 +1412,24 @@ export const COMPACTION_SUMMARY_PROMPT = [
 /**
  * createCompactionSampler:基于 streamChat 构造真实 LLM CompactionSampler。
  * 复用 packages/api-client 的 streamChat(流式 + onDelta 回调),不重新实现 LLM 调用。
- * 超时由 AbortController 触发,V2 的 classifyError 会分类为瞬态 → sampleWithRetry 重试。
+ *
+ * 超时(G-710 改):本函数自己按下的那把停止键由本函数**声明**成 `ToolError('timeout')`,
+ * 不再靠 V2 读错误文本去猜"这是不是瞬态"。改前的写法是把行为押在措辞上 —— AbortError 的
+ * message 由运行时决定(Node 给的是 "This operation was aborted",里面没有 'timeout' 字样),
+ * 于是"超时会重试"其实是兜底默认档(`unknown` 也重试)碰巧兜住的,不是判出来的;上游哪天换措辞、
+ * 换语言,这条重试就静默消失。现在读的是码,措辞怎么变都不影响结论。
  */
 export function createCompactionSampler(model: string): CompactionSampler {
   return {
     async sampleCompaction(messages, opts) {
       let response = '';
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
+      // 只有本函数知道这次 abort 是"我的计时器到点"还是"别人按了停止" —— 身份必须在这一刻盖章
+      let timedOut = false;
+      const timer = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, opts.timeoutMs);
       try {
         await streamChat({
           model,
@@ -1271,6 +1443,15 @@ export function createCompactionSampler(model: string): CompactionSampler {
           onDelta: (delta) => { response += delta; },
         });
         return { response };
+      } catch (err) {
+        if (timedOut) {
+          throw new ToolError(
+            'timeout',
+            `compaction sampling exceeded ${opts.timeoutMs}ms and was aborted`,
+            { cause: err },
+          );
+        }
+        throw err;
       } finally {
         clearTimeout(timer);
       }
@@ -1647,8 +1828,6 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         ...(opts.onBudget ? { onBudget: opts.onBudget } : {}),
         // D19 终端实时输出增量透传(terminal_delta):REPL 借此把命令 stdout/stderr 逐行打进终端
         ...(opts.onTerminalDelta ? { onTerminalDelta: opts.onTerminalDelta } : {}),
-        // D151 命令等待键盘输入透传(terminal_interaction):REPL 借此在终端交代"命令在等你敲一行"
-        ...(opts.onTerminalInteraction ? { onTerminalInteraction: opts.onTerminalInteraction } : {}),
             sampler: opts.sampler,
             ...(withTools && nativeExtraBody ? { extraBody: nativeExtraBody } : {}),
             ...(withTools
@@ -2475,10 +2654,29 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     }
   }
 
-  /** P1-5 统一 emit:按 outputFormat 切换序列化方式,流式输出到 stdout */
+  /**
+   * P1-5 统一 emit —— 票B(2026-09-29)起它不再是"一个函数",而是**唯一写者**。
+   *
+   * 迁移前这里自己做序列化再直接 `process.stdout.write`,于是任何一段后处理代码
+   * (现在只有 mermaid 那一格)都能在同一根流上插一行,而"结果行之后不能再有事件行"
+   * 这条纪律只能靠人记得排序。现在写入权与停订阅时刻都由 sink 持有:落结果行之前
+   * `detach()`,之后到的一切一律被挡下并**报出来**(静默丢弃等于伪造完整性,AGENTS §30)。
+   *
+   * 注意:本文件不再直接调用序列化出口 —— 那条约束由
+   * `tests/headless-drain-and-single-writer.test.ts` 的源码形状锁钉住。
+   */
+  const sink: HeadlessEventSink = createHeadlessEventSink({
+    write: (line) => process.stdout.write(line),
+    format: outputFormat,
+    onDrop: ({ event, reason, droppedCount }) => {
+      // 刻意走 stderr:stdout 是事件流,任何"交代"都不许成为终止符之后的事件行。
+      process.stderr.write(
+        `[ihui] headless event dropped (${reason}, total=${droppedCount}): ${event.type}\n`,
+      );
+    },
+  });
   const emit = (event: HeadlessEvent): void => {
-    const line = formatHeadlessEvent(event, outputFormat);
-    if (line) process.stdout.write(line);
+    sink.emit(event);
   };
 
   const spinner = isStructured ? null : ora({ text: '准备中...', color: 'cyan' }).start();
@@ -2561,6 +2759,19 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       sampler: opts.sampler,
       plugins: pluginRegistry,
       fsEventSource,
+      // ==================== 票B:per-turn 事件 sink 的**二选一**接线 ====================
+      // 拿到写入权 ⇒ 装这组回调;没拿到(已有常驻订阅在写,或已停写)⇒ 展开成空对象,
+      // 一个回调都不装。判据住在 `perTurnSinkArgs` 里而不是这里的 `if`,是因为这里的 `if`
+      // 能写反,而那个函数没有"两条都装"这条分支 —— 同一条事件恰好出现一次于是成为
+      // 结构事实,不是去重的结果(机制与其出处都写在 `headless-format.ts` 的票B 那一段)。
+      // 显式类型参数不是装饰:少了它,下面这些箭头函数的形参拿不到上下文类型 ⇒ 隐式 any。
+      //
+      // ⚠️ 下面这段回调的**缩进列位是钉住的**,与迁移前逐字同形(键在 6 空格、
+      // `name: fact.toolName` 在 12 空格)。原因:`tests/tool-delta-three-faces.test.ts`
+      // 的反例 4c 拿一条硬编码 12 空格的 substring 做变异 —— 顺手"格式化对齐"会把那条
+      // 反例判成"变异未生效"而红。要动列位,同批改那条反例为空白不敏感的判据(它自己的
+      // D3 锁就是 `\s*` 形态,只有 4c 这一处是写死的),不要只改这边。
+      ...perTurnSinkArgs<HeadlessPerTurnSinkArgs>(sink, {
       onDelta: (delta) => {
         if (isStructured) emit({ type: 'message_delta', text: delta });
         else {
@@ -2629,8 +2840,33 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
           console.error(chalk.red(`\n❌ ${message}`));
         }
       },
+    }),
     });
-    sessionResult = result;
+    // ==================== 票A:等完在飞后台任务,再落结果行 ====================
+    // 挂在 `complete` **之前**(上游 prompt-command 把等待挂在提交结果之前,
+    // 同一条理由):等待本身不该往这条流上产出任何行,而它一旦排在结果行之后,
+    // 期间结算的任务就只剩"结果行下面又多了几行"这一种表现。
+    const drain = await drainInFlightBackgroundTasks({
+      facts: { listTasks: listBackgroundTasks, waitForTask: waitForBackgroundTask },
+      signal: opts.signal,
+    });
+
+    // 被取消就是被取消 —— 没等到终态的在飞任务不得读成"跑完了"(AGENTS §30)。
+    // 'cancelled' 是本端既有档名:`stopReasonToExitCode` 退 130,而 finally 仍把 messages
+    // 落进 session ⇒ 可 --resume。它对应的正是上游那句 stopped(interrupted) ——
+    // 刻意不新增一档名:状态词汇是对外契约(§30),新增一档要五语言同批补齐。
+    const finalStopReason: AgentStopReason = drain.kind === 'interrupted' ? 'cancelled' : result.stopReason;
+    if (drain.kind === 'interrupted') {
+      // 走 stderr:stdout 是事件流,而"有多少任务被丢下"必须**报名**、又绝不能成为
+      // 结果行之后的事件行。
+      process.stderr.write(
+        `[ihui] headless drain aborted: ${drain.unsettledTaskIds.length} background task(s) still running ` +
+          `(${drain.unsettledTaskIds.join(', ')})` +
+          `${drain.abortedBeforeFirstWait ? ' [aborted before first wait]' : ''}\n`,
+      );
+    }
+    const finalResult: AgentResult = { ...result, stopReason: finalStopReason };
+    sessionResult = finalResult;
 
     if (spinner?.isSpinning) spinner.stop();
     // W10 flush 残留 markdown(未闭合代码块/无换行残片)
@@ -2640,31 +2876,46 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       // WP-8③:自宣完成不再等于"完成"。校验未过 / 判不了时,终端上那句"✨ 完成"
       // 必须是假的 —— 它会把一次未达标的运行读成成功。
       const v = result.verification;
-      if (v && result.stopReason !== 'end_turn') {
-        const failed = v.criteria.filter((c) => c.verdict !== 'met');
-        console.info(chalk.red(`\n❌ ${t('cli.goalNotAchieved')}`));
-        console.info(
-          chalk.dim(
-            `   status=${v.goal_status} treat_as_complete=${v.treat_as_complete} ` +
-              `independent_request=${v.independent_request_made} ` +
-              `criteria=${v.criteria.length}/${failed.length ? `unmet ${failed.length}` : 'all met'}`,
-          ),
-        );
-        if (v.unavailable_reason) console.info(chalk.yellow(`   ${v.unavailable_reason}`));
-        for (const c of failed.slice(0, 10)) {
-          console.info(chalk.dim(`   - [${c.verdict}/${c.basis}] ${c.criterion_id}: ${c.reason}`));
+      // 票A:排水被取消时**整块终态行都不打**(不是换成另一句中文):
+      //  - "✨ 完成"在这一支是假的,不许出现;
+      //  - 中断的那句人读文案由 `index.ts` 的 SIGINT 处理点打(它才是"用户按下了什么"的
+      //    那一方),这里再打一行就是同一句话出现两次;
+      //  - 被丢下的任务逐个报名走 stderr(见上),退出码 130,session 照常在 finally 落库
+      //    ⇒ `--resume` 接得上。三条合起来才是"没伪装完成"的完整形态。
+      if (drain.kind !== 'interrupted') {
+        if (v && finalStopReason !== 'end_turn') {
+          const failed = v.criteria.filter((c) => c.verdict !== 'met');
+          console.info(chalk.red(`\n❌ ${t('cli.goalNotAchieved')}`));
+          console.info(
+            chalk.dim(
+              `   status=${v.goal_status} treat_as_complete=${v.treat_as_complete} ` +
+                `independent_request=${v.independent_request_made} ` +
+                `criteria=${v.criteria.length}/${failed.length ? `unmet ${failed.length}` : 'all met'}`,
+            ),
+          );
+          if (v.unavailable_reason) console.info(chalk.yellow(`   ${v.unavailable_reason}`));
+          for (const c of failed.slice(0, 10)) {
+            console.info(chalk.dim(`   - [${c.verdict}/${c.basis}] ${c.criterion_id}: ${c.reason}`));
+          }
+        } else {
+          console.info(chalk.green(`\n✨ 完成 (${result.iterations} 轮迭代, ${finalStopReason})`));
         }
-      } else {
-        console.info(chalk.green(`\n✨ 完成 (${result.iterations} 轮迭代, ${result.stopReason})`));
       }
       const u = result.usage;
       const cost = u.estimatedCostUsd > 0 ? `$${u.estimatedCostUsd.toFixed(4)}` : 'plan 套餐';
       console.info(chalk.dim(`📊 tokens: ${u.totalTokens} (prompt ${u.promptTokens} + completion ${u.completionTokens}) — ${cost}\n`));
     }
-    emit({ type: 'complete', stopReason: result.stopReason, iterations: result.iterations, usage: result.usage });
 
     // P3-1 Mermaid 渲染:feature flag 启用时,LLM 输出包含 ```mermaid 块则自动渲染为图片
     // 失败不阻塞主流程(只打印警告)
+    //
+    // 票B(2026-09-29)把整块**移到结果行之前**:它原先挂在落结果行那句之后,于是结构化
+    // 模式下 `complete` 后面还会冒出一行 tool_result(mermaid_render)——
+    // "结果行是终止符"这一条被这一格亲手破掉,而消费方(子代理 worker-pool 按行 parse)
+    // 无从分辨"终止符之后的行"该怎么读。搬上来之后,终止符后面出现任何事件行都只剩
+    // 一种可能:有人忘了停订阅,而那由下面的 detach 结构性挡死。
+    // (注:此处刻意不写出被搬走那一行的调用形态 —— 形状锁判的就是"那种调用不得再出现",
+    //  说明性文字里带执行性字符会把锁自己钉红;本仓记过同型。)
     if (codegraphSettings.mermaid?.enabled === true && result.assistantText) {
       const mermaidBlocks = extractMermaidBlocks(result.assistantText);
       if (mermaidBlocks.length > 0) {
@@ -2691,8 +2942,20 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       }
     }
 
-    return result;
+    // ==================== 票B:先停订阅,再落结果行 ====================
+    // 顺序照上游 headless-workflow(`stopObservingEvents()` 排在打印结果行之前):
+    // `detach()` 停的是**来源**,结果行本身还要靠它之后那一次 `emitTerminal` 落笔。
+    // 停过之后任何 emit 一律挡下 + stderr 交代,而 `emitTerminal` 一条流只认第一次 ——
+    // "结果行之后绝不能再冒出事件行"到这里才第一次不依赖谁记得排序。
+    sink.detach();
+    sink.emitTerminal({ type: 'complete', stopReason: finalStopReason, iterations: result.iterations, usage: result.usage });
+
+    return finalResult;
   } finally {
+    // 票B:异常路径也要停订阅。这一支原本就不落结果行(与迁移前逐字同形),
+    // 但"没落结果行"不等于"任何来源都还可以往这条流上插行" —— 停过之后 sink
+    // 不再接受任何 emit,后来的收尾代码想写也会被挡下并喊出来。
+    sink.detach();
     // W10 异常路径也 flush 残留 markdown(重复调用幂等:pending 清空后 flush 返回空)
     flushMdStream();
     runSessionEndHooks(hooksConfig, sessionHookCtx);
