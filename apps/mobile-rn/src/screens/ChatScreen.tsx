@@ -111,6 +111,9 @@ import {
   type MyCreationItem,
   type MyCreationType,
 } from '@ihui/api-client'
+// D136(2026-10-01 立,承 V4 #94/D84):高危工具审批 —— 面板 + 常驻待审批胶囊,
+// 三档 once/session/always 逐档对齐 web(tool-approval-dialog.tsx),默认 once 最小特权。
+import { useToolApprovalQueue } from '../components/ai/ToolApprovalSheet'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
 import type { ChatMessage } from '@ihui/shared'
@@ -129,11 +132,17 @@ import {
 import { NavBar } from '../components/NavBar'
 // G-166:交代区(RN 端共享组件)—— 引用来源 + 本轮上下文注入,与 N8n 屏同一实现
 import { CitationList, InjectionDisclosure, SteerNoticeList } from '../components/ChatDisclosure'
+// D135(承 V4 #93):任务进度状态条 —— 执行帧折叠结果的可读出口,与 N8n 屏同一组件
+import { TaskStatusBar } from '../components/ai/TaskStatusBar'
 import {
   appendCitationFrames,
+  applyAssistantExecutionFrame,
   applyInjectionFrame,
   appendSteerFrames,
+  formatDurationMs,
   readSteerAppliedFromMetadata,
+  type AssistantExecutionFrame,
+  type AssistantExecutionViz,
   type MessageCitation,
   type MessageInjection,
   type SteerNotice,
@@ -164,6 +173,8 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { uiControlToolsFor } from '../lib/ui-control-tools'
 import { useUiTextField } from '../lib/use-ui-text-field'
+// D135:额度分档告警一行措辞(两屏共用同一份,键挂 common.*)
+import { budgetNoteText } from '../utils/budget-note'
 import { useI18n } from '../i18n'
 import { rpx } from '../utils/rpx'
 // 消息富内容解析(代码块/图片/文本分段,对齐 ai_index2 agent_content_list;独立模块供单测共用)
@@ -233,6 +244,25 @@ interface PanelItem {
 // steerNotices 是端内瞬时态:@ihui/shared ChatMessage 无此字段(types 包只读不扩),
 // 交集类型承载(live 由 onSteer 累积,历史由 metadata.steerApplied 读回)
 type ChatMessageWithSteer = ChatMessage & { steerNotices?: SteerNotice[] }
+
+/**
+ * D135(承 V4 #93)交互帧的最小承接形状(契约见 api-client StreamChatOptions.onQuestion /
+ * FormRequestEvent)。完整弹窗 + 作答/填报续流属后续票面(D136 族),本票先保证
+ * 帧到屏可见(列表条目),刻意不做假可交互控件。
+ */
+interface PendingQuestionEntry {
+  questionId: string
+  prompt: string
+  options: Array<{ id: string; label: string }>
+  allowCustom: boolean
+  allowMultiple: boolean
+}
+
+interface PendingFormEntry {
+  requestId: string
+  kind: string
+  fieldCount: number
+}
 
 const toChatScreenMessage = (m: ChatMessageWithSteer): ChatScreenMessageWithReasoning => ({
   id: m.id,
@@ -502,6 +532,10 @@ export function ChatScreen() {
   // 手动压缩上下文请求进行中(✂ 按钮 loading + 防重复点击)
   const [compacting, setCompacting] = useState(false)
 
+  // D136(承 V4 #94/D84):高危工具审批。host = 审批面板 + 常驻待审批胶囊(AGENTS §30:
+  // 关闭 ≠ 决策,被拒/收起后仍留人工放行入口);onToolApproval 挂进 streamChat 回调表。
+  const toolApproval = useToolApprovalQueue()
+
   const abortRef = useRef<AbortController | null>(null)
   const idCounter = useRef(0)
   const listRef = useRef<FlatList<ChatMessage> | null>(null)
@@ -525,6 +559,27 @@ export function ChatScreen() {
     [setToastType, setToastMessage, setToastVisible],
   )
   const hideToast = useCallback((): void => setToastVisible(false), [])
+
+  // ── D135 执行帧接线状态(承 V4 #93) ──
+  // 本轮 assistant 消息 id → 折叠后的 tool/plan/terminal 快照。折叠实现唯一在
+  // chat-render-model.ts 的 applyAssistantExecutionFrame(组合三个/五个既有 reducer)。
+  const [executionVizById, setExecutionVizById] = useState<Record<string, AssistantExecutionViz>>(
+    {},
+  )
+  // D135 交互帧最小可视态(AI 提问 / 业务表单):先保证帧到屏可见,完整续流属后续票面
+  const [pendingQuestions, setPendingQuestions] = useState<PendingQuestionEntry[]>([])
+  const [pendingForms, setPendingForms] = useState<PendingFormEntry[]>([])
+  // 无渲染位帧的计数器(最小态 = 计数 + 日志行,不静默丢帧,也不给永不触发的帧造假 UI)
+  const streamDiagRef = useRef({
+    response: 0,
+    toolDelegate: 0,
+    terminalDelta: 0,
+    subagentSpawn: 0,
+    subagentProgress: 0,
+    subagentEnd: 0,
+    agentDelta: 0,
+    memoryUpdates: 0,
+  })
 
   /**
    * D153b / D154:per-user 广播接线。
@@ -684,6 +739,16 @@ export function ChatScreen() {
     const aiMsg: ChatMessage = { id: nextId(), role: 'assistant', content: '' }
     const history = [...(baseHistory ?? messages), userMsg]
     setMessages([...history, aiMsg])
+    // D135:折叠键在 send() 里就锁到本轮那条 assistant 消息(不在回调里现算"最后一条",
+    // 否则流式期间再来一条消息,帧就会折到错误的卡上)
+    const turnAssistantId = aiMsg.id
+    /** 本轮执行帧的唯一折叠出口(实现唯一在 chat-render-model,屏内不做第二份折叠) */
+    const foldExecutionFrame = (frame: AssistantExecutionFrame): void => {
+      setExecutionVizById((prev) => ({
+        ...prev,
+        [turnAssistantId]: applyAssistantExecutionFrame(prev[turnAssistantId], frame),
+      }))
+    }
     setIsStreaming(true)
     const controller = new AbortController()
     abortRef.current = controller
@@ -725,6 +790,154 @@ export function ChatScreen() {
           }
           return next
         })
+      },
+      // ── D135(承 V4 #93):23 个缺失回调逐个接线。实现复用 chat-render-model 既有
+      // reducer / N8n 屏同款出口 / 本端既有组件,不在屏内复制任何折叠实现。 ──
+      // 工具调用可视化:tool-call-start/tool-result 折叠进本轮 viz(TaskStatusBar 渲染)
+      onToolCall: (event) => {
+        foldExecutionFrame({ kind: 'tool-call', event })
+      },
+      // D113 文件写类工具流中 diff 预览:覆盖写 partialDiff,tool-result 到达即清(同一出口)
+      onToolDelta: (event) => {
+        foldExecutionFrame({ kind: 'tool-delta', event })
+      },
+      // 工具调用汇总:主屏暂无摘要卡渲染位,最小态 = 落消息 meta(数据不静默丢)
+      onToolSummary: (summary) => {
+        setMessages((prev) => {
+          const next = [...prev]
+          const last = next[next.length - 1]
+          if (last && last.role === 'assistant') {
+            next[next.length - 1] = { ...last, meta: { ...last.meta, toolCallSummary: summary } }
+          }
+          return next
+        })
+      },
+      // 高危工具审批(交互帧):D136 四点手术已接(toolApproval.onToolApproval),此处不重复
+      // 工具委派(浏览器端 fs 执行族):RN 无工作区句柄,最小态 = 计数 + 日志行
+      onToolDelegate: (event) => {
+        streamDiagRef.current.toolDelegate += 1
+        console.info(
+          `[chat] tool-delegate #${streamDiagRef.current.toolDelegate} ${event.tool_name} iter=${event.iteration}`,
+        )
+      },
+      // 计划步骤可视化:plan 为权威快照整体替换(TaskStatusBar 渲染)
+      onPlanUpdate: (event) => {
+        foldExecutionFrame({ kind: 'plan-update', event })
+      },
+      // 终端任务生命周期:折叠进本轮 viz(气泡内最小可视态 = 命令 + 状态 + 耗时)
+      onTerminalStart: (event) => {
+        foldExecutionFrame({ kind: 'terminal-start', event })
+      },
+      // 终端实时输出增量:主屏无终端面板(N8n 屏才有),最小态 = 计数 + 日志行
+      onTerminalDelta: (event) => {
+        streamDiagRef.current.terminalDelta += 1
+        console.info(
+          `[chat] terminal-delta #${streamDiagRef.current.terminalDelta} id=${event.terminalId} len=${event.text?.length ?? 0}`,
+        )
+      },
+      // 终端任务收尾:终态/输出/退出码/耗时折叠进本轮 viz
+      onTerminalEnd: (event) => {
+        foldExecutionFrame({ kind: 'terminal-end', event })
+      },
+      // 子代理生命周期:主屏无 SubAgentActivityFeed 渲染位,最小态 = 计数 + 日志行
+      onSubagentSpawn: (event) => {
+        streamDiagRef.current.subagentSpawn += 1
+        console.info(
+          `[chat] subagent-spawn #${streamDiagRef.current.subagentSpawn} id=${event.id} task=${event.task}`,
+        )
+      },
+      onSubagentProgress: (event) => {
+        streamDiagRef.current.subagentProgress += 1
+        console.info(
+          `[chat] subagent-progress #${streamDiagRef.current.subagentProgress} id=${event.id} phase=${event.phase}`,
+        )
+      },
+      onSubagentEnd: (event) => {
+        streamDiagRef.current.subagentEnd += 1
+        console.info(
+          `[chat] subagent-end #${streamDiagRef.current.subagentEnd} id=${event.id} status=${event.status}`,
+        )
+      },
+      // token 用量:写进消息 meta.totalTokens(与 N8n 屏 totalTokens 同义,主屏渲染位另行票面)
+      onUsage: (usage) => {
+        if (usage.totalTokens <= 0) return
+        setMessages((prev) => {
+          const next = [...prev]
+          const last = next[next.length - 1]
+          if (last && last.role === 'assistant') {
+            next[next.length - 1] = {
+              ...last,
+              meta: { ...last.meta, totalTokens: usage.totalTokens },
+            }
+          }
+          return next
+        })
+      },
+      // 额度分档告警:复用两屏共用的一行措辞(utils/budget-note → @ihui/shared)
+      onBudget: (event) => {
+        showToast(event.level === 'critical' ? 'warning' : 'info', budgetNoteText(event, t))
+      },
+      // 上下文自动压缩提示:接入本屏既有提示条渲染阀门(renderListHeader 的 compactionInfo)
+      onCompaction: (info) => {
+        setCompactionInfo({
+          before: info.tokensBefore,
+          after: info.tokensAfter,
+          removed: info.removedCount,
+        })
+      },
+      // 模型降级(P4-2):本端无横幅位,FloatBox 是既有瞬时提示出口
+      onFallback: (event) => {
+        showToast('info', `模型降级:${event.primaryModel} → ${event.backupModel}`)
+      },
+      // D39 重试交代:与 N8n 屏同一句词包(否则用户在流上只看到"卡住")
+      onRetryScheduled: (event) => {
+        showToast(
+          'info',
+          t('aiAssistantN8n.gatewayRetry', {
+            attempt: event.attempt,
+            max: event.maxRetries,
+            seconds: Math.max(1, Math.round(event.retryInMs / 1000)),
+          }),
+        )
+      },
+      // AI 主动提问(交互帧):完整作答续流(/chat/answer)是另一条链路,先接最小可视态
+      onQuestion: (question) => {
+        setPendingQuestions((prev) =>
+          prev.some((q) => q.questionId === question.questionId) ? prev : [...prev, question],
+        )
+      },
+      // D77 业务表单请求(交互帧):BusinessFormCard 未搬到本端,最小可视态 = 列表条目
+      onFormRequest: (event) => {
+        setPendingForms((prev) =>
+          prev.some((f) => f.requestId === event.requestId)
+            ? prev
+            : [
+                ...prev,
+                { requestId: event.requestId, kind: event.kind, fieldCount: event.fields.length },
+              ],
+        )
+      },
+      // 断线重连:提示出口复用 FloatBox(与 web"网络波动,正在重连…"同族)
+      onReconnect: (attempt, delayMs) => {
+        showToast('info', `网络波动,正在第 ${attempt} 次重连(${Math.max(1, Math.round(delayMs / 1000))}s 后)`)
+      },
+      // response 已到达(冷启动 watchdog 信号):本端无该 watchdog,最小态 = 计数
+      onResponse: () => {
+        streamDiagRef.current.response += 1
+      },
+      // 多 agent 分路增量:主屏无 agent 运行时面板(web 专用),最小态 = 计数 + 日志行
+      onAgentDelta: (agentId, delta) => {
+        streamDiagRef.current.agentDelta += 1
+        console.info(
+          `[chat] agent-delta #${streamDiagRef.current.agentDelta} agent=${agentId} len=${delta.length}`,
+        )
+      },
+      // 记忆更新:主屏无「已记住」提示条,最小态 = 计数 + 日志行(条目数)
+      onMemoryUpdates: (event) => {
+        streamDiagRef.current.memoryUpdates += 1
+        console.info(
+          `[chat] memory-updates #${streamDiagRef.current.memoryUpdates} items=${event.items.length}`,
+        )
       },
       onError: (err, info) => {
         // info 透传:errorCode 是"厂商账号额度耗尽"等稳定码的唯一判据(HTTP 仍回落默认 502)
@@ -798,6 +1011,12 @@ export function ChatScreen() {
           }
           return next
         })
+      },
+      // D136(承 V4 #94/D84):高危工具审批帧 —— 载荷已由 streamChat 内置解析
+      // (api-client tryParseToolApproval,与 web 同一投影),这里只交给审批队列;
+      // 不注册回调 ⇒ 帧照旧静默丢弃(本票立因:手机上高危操作没有任何弹窗)。
+      onToolApproval: (event) => {
+        toolApproval.onToolApproval(event)
       },
       onDone: () => {
         setIsStreaming(false)
@@ -1639,6 +1858,22 @@ export function ChatScreen() {
                 items={(item as ChatScreenMessageWithReasoning).steerNotices ?? []}
               />
             )}
+            {/* D135 终端任务最小可视态:命令 + 状态 + 耗时(完整终端面板在 N8n 屏,不在此复制) */}
+            {isFailed ? null : (
+              executionVizById[item.id]?.terminalTasks?.length ? (
+                <View style={styles.execRows}>
+                  {(executionVizById[item.id]!.terminalTasks ?? []).map((task) => (
+                    <Text key={task.id} style={styles.execRowText} numberOfLines={1}>
+                      {`$ ${task.command} · ${task.status}${
+                        task.durationMs !== undefined
+                          ? ` · ${formatDurationMs(task.durationMs)}`
+                          : ''
+                      }`}
+                    </Text>
+                  ))}
+                </View>
+              ) : null
+            )}
           </View>
         </View>
       )
@@ -1648,6 +1883,7 @@ export function ChatScreen() {
       isStreaming,
       expandedCodeBlocks,
       expandedThinking,
+      executionVizById,
       maybeTriggerFirstShareReward,
       showToast,
       handleLongPressMessage,
@@ -1691,6 +1927,29 @@ export function ChatScreen() {
               removed: compactionInfo.removed,
             })}
           </Text>
+        </View>,
+      )
+    }
+    // D135 交互帧最小可视态(列表条目):AI 提问 / 业务表单请求帧到了就得看得见;
+    // 完整弹窗 + 作答/填报续流属后续票面,此处刻意只读不写(不造假可交互控件)
+    if (pendingQuestions.length > 0 || pendingForms.length > 0) {
+      nodes.push(
+        <View key="interaction-frames" style={styles.interactionCard}>
+          {pendingQuestions.map((q) => (
+            <View key={q.questionId} style={styles.interactionRow}>
+              <Text style={styles.interactionTitle}>{q.prompt}</Text>
+              {q.options.map((opt) => (
+                <Text key={opt.id} style={styles.interactionMeta}>
+                  {`· ${opt.label}`}
+                </Text>
+              ))}
+            </View>
+          ))}
+          {pendingForms.map((f) => (
+            <Text key={f.requestId} style={styles.interactionMeta}>
+              {`表单请求 ${f.kind}(字段 ${f.fieldCount} 项)待填`}
+            </Text>
+          ))}
         </View>,
       )
     }
@@ -1752,6 +2011,8 @@ export function ChatScreen() {
     inputFiles,
     removeImage,
     compactionInfo,
+    pendingQuestions,
+    pendingForms,
     t,
     tishiShow,
     tokenQuantity,
@@ -1935,6 +2196,8 @@ export function ChatScreen() {
     setPrompt('')
     setMaterialCards([])
     setCompactionInfo(null)
+    // D135:切新会话,本轮执行帧快照整体清(旧会话的折叠结果不挂到新会话上)
+    setExecutionVizById({})
     // 新会话无后端对话 id,收藏降级为本地 UI 状态
     setConversationId(null)
   }
@@ -1998,6 +2261,10 @@ export function ChatScreen() {
         setMessages(loaded)
         setPrompt('')
         setMaterialCards([])
+        // D135:切会话,执行帧快照整体清。历史回放缺口被点名,而不是被读成"已还原":
+        // 历史消息 metadata 里的 toolCalls/planSteps 落库读回(映射)目前是 N8n 屏私有实现,
+        // 本屏 executionVizById 只覆盖流式帧 —— 重进历史会话看不到执行卡,是已知缺口不是已接。
+        setExecutionVizById({})
         // 记录当前对话 DB id(供收藏 batchOperateConversations 使用)
         setConversationId(id)
         requestAnimationFrame(() => {
@@ -2192,6 +2459,18 @@ export function ChatScreen() {
   // BottomActionBar 已切换到 prompt 模式(模型条 + 开关 + 输入 + 发送 + 辅助行 + 图标组)
   // bottomActions 旧 API 已移除,所有交互通过 prompt 模式 props 传入
 
+  // 任务进度状态条数据源(对齐 web / N8n 那条口径):plan_updated 权威快照写在
+  // "那一条 assistant 消息"上,取最后一条带 planSteps 的 assistant 消息(倒序扫描)。
+  const planViz = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m?.role !== 'assistant') continue
+      const viz = executionVizById[m.id]
+      if ((viz?.planSteps?.length ?? 0) > 0) return viz
+    }
+    return undefined
+  }, [messages, executionVizById])
+
   // ── 共享组件数据准备 ──
   const sharedModels: ChatScreenModel[] = models.map(toChatScreenModel)
   const sharedMessages: ChatScreenMessageWithReasoning[] = messages
@@ -2282,6 +2561,12 @@ export function ChatScreen() {
           onInputVoiceEnd={() => {}}
           colorScheme={resolvedTheme}
         />
+        {/* D135:任务进度状态条(plan/tool 执行帧折叠结果的可读出口,对齐 web / N8n 位置:输入区上方) */}
+        <TaskStatusBar
+          planSteps={planViz?.planSteps ?? []}
+          toolCalls={planViz?.toolCalls}
+          isStreaming={isStreaming}
+        />
         {/*
           D154(2026-10-01 收口渲染面):MCP 连接状态行,位置与小程序端一致(输入条上方)。
           数据源是共享层那一份 `mcpStatusLedger`(帧进表由 ../lib/user-broadcast 的唯一接线负责,
@@ -2336,6 +2621,10 @@ export function ChatScreen() {
           isShowIcon={inputPanelVisible}
         />
       </KeyboardAvoidingView>
+
+      {/* D136(承 V4 #94/D84):审批面板(RN Modal,置顶)+ 常驻待审批胶囊。
+          关闭/被拒后胶囊仍在,人工放行入口不随面板消失(AGENTS §30)。 */}
+      {toolApproval.host}
 
       {/* 素材库弹窗(sck 点击,对齐 Uniapp showMaterialList + MaterialList 组件) */}
       {showMaterialList ? (
@@ -2946,6 +3235,34 @@ const styles = StyleSheet.create({
     marginBottom: rpx(4),
   },
   compactionMessage: {
+    fontSize: rpx(12),
+    color: tokens.text.secondary,
+  },
+  // ── D135 执行/交互帧最小可视态 ──
+  execRows: {
+    marginTop: rpx(8),
+    gap: rpx(4),
+  },
+  execRowText: {
+    fontSize: rpx(12),
+    color: tokens.text.tertiary,
+  },
+  interactionCard: {
+    marginBottom: rpx(16),
+    padding: rpx(12),
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.surface.card,
+    gap: rpx(8),
+  },
+  interactionRow: {
+    gap: rpx(4),
+  },
+  interactionTitle: {
+    fontSize: rpx(13),
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  interactionMeta: {
     fontSize: rpx(12),
     color: tokens.text.secondary,
   },
