@@ -376,6 +376,54 @@ export function applyTerminalEnd(
   return prev
 }
 
+/** D135 执行帧折叠的判别式入参:主聊天屏把 SSE 执行族帧统一喂进这一个出口 */
+export type AssistantExecutionFrame =
+  | { kind: 'tool-call'; event: ToolCallEvent }
+  | { kind: 'tool-delta'; event: Pick<ToolDeltaEvent, 'toolCallId' | 'partialText'> }
+  | { kind: 'plan-update'; event: PlanUpdateEvent }
+  | { kind: 'terminal-start'; event: TerminalStartEvent }
+  | { kind: 'terminal-end'; event: TerminalEndEvent }
+
+/** 一轮 assistant 消息折叠后的执行可视化快照(各键由各自的 reducer 独占写入,互不覆盖) */
+export interface AssistantExecutionViz {
+  toolCalls?: ToolCallItem[]
+  planSteps?: PlanStepItem[]
+  planExplanation?: string
+  terminalTasks?: TerminalTaskItem[]
+}
+
+/**
+ * D135(承 V4 #93)主聊天屏接线出口:**只做组合,不承载第二份折叠实现**。
+ * tool / delta / plan / terminal 各帧仍由上面五个既有 reducer 唯一折叠
+ * (定向测试逐字等值锁定:同帧喂本出口与直喂 reducer 结果全等)。
+ * 没折过帧返回空档;start 未到的 delta / 终端帧沿用各自 reducer 的守卫(不凭空造条目)。
+ */
+export function applyAssistantExecutionFrame(
+  viz: AssistantExecutionViz | undefined,
+  frame: AssistantExecutionFrame,
+  nowMs: number = Date.now(),
+): AssistantExecutionViz {
+  switch (frame.kind) {
+    case 'tool-call':
+      return { ...viz, toolCalls: applyToolCallEvent(viz?.toolCalls, frame.event, nowMs) }
+    case 'tool-delta':
+      return { ...viz, toolCalls: applyToolDelta(viz?.toolCalls, frame.event) }
+    case 'plan-update': {
+      const reduced = applyPlanUpdate(frame.event)
+      return {
+        ...viz,
+        planSteps: reduced.steps,
+        // plan 为权威快照,整体替换:载荷没给 explanation 就连旧值一并清掉,不沿用
+        planExplanation: reduced.explanation,
+      }
+    }
+    case 'terminal-start':
+      return { ...viz, terminalTasks: applyTerminalStart(viz?.terminalTasks, frame.event, nowMs) }
+    case 'terminal-end':
+      return { ...viz, terminalTasks: applyTerminalEnd(viz?.terminalTasks, frame.event, nowMs) }
+  }
+}
+
 /** 格式化耗时:缺失/非法 → '';<1000ms → 'Nms';否则 'N.Ns' */
 export function formatDurationMs(durationMs: number | undefined): string {
   if (durationMs === undefined || !Number.isFinite(durationMs) || durationMs < 0) return ''
