@@ -62,6 +62,16 @@ const createSchema = z
   .refine((v) => (v.scheduleType === 'recurring' ? v.rrule !== undefined : true), {
     message: '重复计划必须提供 rrule',
   })
+  // b76-12e(G-998161):互斥的调度 carrier 在协议边界直接拒,不靠读取优先级兜底
+  // (computeNextRunAt 里"带 rrule 就忽略 scheduledAt"的兜底仍保留,但矛盾组合
+  // 不应再流到读取侧)。以下两条反向 refine 与上面两条正向 refine 配对:
+  // 一次性/周期性两种 carrier 互斥,多字段矛盾组合一律 400。
+  .refine((v) => (v.scheduleType === 'once' ? v.rrule === undefined : true), {
+    message: '周期与一次性互斥:一次性计划不得携带 rrule',
+  })
+  .refine((v) => (v.scheduleType === 'recurring' ? v.scheduledAt === undefined : true), {
+    message: '周期与一次性互斥:重复计划不得携带 scheduledAt',
+  })
 
 const updateSchema = z
   .object({
@@ -75,6 +85,11 @@ const updateSchema = z
     conversationId: z.string().uuid().nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: '至少提供一个更新字段' })
+  // b76-12e(G-998161):一个 PATCH 只允许改一种调度 carrier —— rrule 与 scheduledAt
+  // 同传即是矛盾组合(行上 scheduleType 只会是两者之一),协议边界直接拒。
+  .refine((v) => !(v.rrule !== undefined && v.scheduledAt !== undefined), {
+    message: '周期与一次性互斥:rrule 与 scheduledAt 不得同传',
+  })
 
 const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
@@ -320,6 +335,15 @@ const automationsRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(userAutomations.id, parsedParams.data.id), eq(userAutomations.userId, userId)))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '自动化不存在'))
+
+    // b76-12e(G-998161):互斥的调度 carrier 在协议边界直接拒 —— 往一次性行上挂
+    // rrule / 往周期行上挂 scheduledAt 都是矛盾组合,不靠"读取侧优先级兜底"消化。
+    if (existing.scheduleType === 'once' && input.rrule !== undefined) {
+      return reply.status(400).send(error(400, '周期与一次性互斥:一次性计划不得设置 rrule'))
+    }
+    if (existing.scheduleType === 'recurring' && input.scheduledAt !== undefined) {
+      return reply.status(400).send(error(400, '周期与一次性互斥:重复计划不得设置 scheduledAt'))
+    }
 
     // D12:绑定/解绑会话时校验归属
     if (!(await assertConversationOwnership(userId, input.conversationId))) {

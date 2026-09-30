@@ -47,6 +47,10 @@
       "types": "./dist/permission-mode.d.ts",
       "import": "./dist/permission-mode.js"
     },
+    "./knowledge-team": {
+      "types": "./dist/knowledge-team.d.ts",
+      "import": "./dist/knowledge-team.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [

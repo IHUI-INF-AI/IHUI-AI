@@ -8,7 +8,7 @@
  * 路由注册:需在 app.config.ts pages 追加 'pages/ai-assistant/index'。
  */
 import { useTt, useI18n, t } from '@/i18n'
-import { View, Text, ScrollView, Image, Input, Video } from '@tarojs/components'
+import { View, Text, ScrollView, Image, Video } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { chatStream, type ChatMessage } from '@/api'
@@ -16,6 +16,7 @@ import { getToken, getUserInfo } from '@/utils/auth'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 import BackChevron from '@/components/BackChevron'
+import { FocusInput } from '@/components/FocusField'
 
 interface QAItem {
   question: string
@@ -399,7 +400,7 @@ export default function AiAssistantPage() {
       </View>
       {/* 对齐 RN InputArea:row 底对齐 / px12 py8 dp=24/16 rpx / card 底 + 上边框;输入框 minHeight 48dp=96rpx / 12dp=24rpx 圆角 / root 底描边;发送钮 44dp=88rpx brand 底 */}
       <View className="flex flex-row items-end bg-card border-t border-border px-[24rpx] py-[16rpx]">
-        <Input
+        <FocusInput
           className="flex-1 h-[96rpx] px-[24rpx] bg-background border border-border rounded-sm text-[length:28rpx] text-foreground"
           placeholder={tt('tail.9', '请输入描述')}
           value={prompt}
