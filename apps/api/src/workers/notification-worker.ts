@@ -8,7 +8,6 @@ import { createWorker, QUEUE_NAMES, type NotificationJobData, type Job } from '.
 import { sendEmail } from '../services/email-service.js'
 import { renderNoticeEmail, renderSystemAlertEmail } from '../services/email-templates.js'
 import { createNotification } from '../db/notification-queries.js'
-import { flattenUntrustedText, sanitizeAlertMessage } from '../utils/alert-text.js'
 
 /**
  * Notification Worker — 通知处理队列消费者。
@@ -43,15 +42,6 @@ export function startNotificationWorker(server: FastifyInstance): Worker {
             data && typeof data === 'object' && 'severity' in data
               ? (data as { severity?: unknown }).severity
               : undefined
-          /**
-           * 这条通道**不经 `pushAlertWithResult`** —— 它是 `queue.add` 直连的邮件出口,
-           * 而 `title` / `content` 来自任意入队方(含 `notifications` 表的自由文本列)。
-           * 闸门只装在 pushAlert 那个出口上时,这一支就是裸奔(2026-09-27 独立复核抓到,
-           * 且当时的提交信息把它算作"已封" —— 声称与实态分叉比缺口本身更糟)。
-           * 只归一化**寄出去的那一份**:库里仍存原文,不因发信而损毁数据。
-           */
-          const mailTitle = flattenUntrustedText(title)
-          const mailContent = sanitizeAlertMessage(content ?? '')
           const rendered =
             type === 'BUDGET_ALERT'
               ? renderSystemAlertEmail({
@@ -64,14 +54,14 @@ export function startNotificationWorker(server: FastifyInstance): Worker {
                     timeZone: 'Asia/Shanghai',
                     hour12: false,
                   }),
-                  title: mailTitle,
-                  message: mailContent,
+                  title,
+                  message: content ?? '',
                 })
               : renderNoticeEmail({
                   tag: 'SYSTEM // NOTICE',
-                  title: mailTitle,
-                  userName: flattenUntrustedText(userName ?? ''),
-                  content: mailContent,
+                  title,
+                  userName,
+                  content: content ?? '',
                 })
           await sendEmail({
             to: email,
