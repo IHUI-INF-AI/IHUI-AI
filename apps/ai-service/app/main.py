@@ -91,6 +91,9 @@ from app.routers import recap as recap_router
 # D193 任务决策收件箱(2026-09-30 用户拍板,小切口):「我的待决策」聚合查询
 from app.routers import decisions as decisions_router
 
+# D179 会话/新对话 Issue 绑定流(2026-09-30 用户拍板立项):MCP Issue 搜索端点
+from app.routers import issue_search as issue_search_router
+
 # Harness 能力补齐:Prompt 版本管理(2026-08-11 立)
 from app.routers import prompts as prompts_router
 
@@ -864,6 +867,8 @@ def create_app() -> FastAPI:
     app.include_router(recap_router.router, prefix="/api", tags=["recap"])
     # D193(2026-09-30 用户拍板,小切口):「我的待决策」聚合查询(GET /api/agent/decisions/pending)
     app.include_router(decisions_router.router, prefix="/api", tags=["decisions"])
+    # D179(2026-09-30 用户拍板立项):MCP Issue 搜索(POST /api/agent/issues/search)
+    app.include_router(issue_search_router.router, prefix="/api", tags=["issue-search"])
     # O11 A2A 标准化(2026-09-20 立):A2A 发现文档,规范规定为根路径,不带 /api 前缀
     app.include_router(agent_wellknown.router, tags=["a2a"])
     app.include_router(personas.router, prefix="/api", tags=["personas"])
