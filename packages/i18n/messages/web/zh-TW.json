@@ -10582,6 +10582,8 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "attachRetry": "重試上傳",
+    "attachRetryExhausted": "重試次數已達上限,請刪除後重新新增",
     "mentionEngine": {
       "tabFile": "檔案",
       "tabFolder": "資料夾",
@@ -12497,6 +12499,9 @@
     "title": "課程中心"
   },
   "cronEditor": {
+    "customFallback": "自訂表達式",
+    "customHint": "該表達式無法由視覺化編輯器無損表達,以下原文逐字保留:",
+    "switchToVisual": "切換至視覺化編輯",
     "everyField": "每{field}",
     "recentRuns": "最近 5 次執行",
     "specificPlaceholder": "{min}-{max}, 逗號分隔",
