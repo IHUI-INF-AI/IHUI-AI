@@ -14,6 +14,7 @@ import { PortalPanel } from '@/components/feedback/portal-panel'
 // D178:分支切换未提交改动保护(确认弹层走通用 ConfirmDialog)
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { getFileIcon, getFileColor } from './file-icons'
+import { HostGitSection } from './host-git-section'
 import {
   GitBranch,
   RefreshCw,
@@ -287,7 +288,7 @@ export function SourceControlPanel() {
     return (
       <div
         key={file.id}
-        className="group flex items-center gap-1.5 rounded-xl px-2 py-1 text-xs hover:bg-muted/30"
+        className="group flex items-center gap-1.5 rounded px-2 py-1 text-xs hover:bg-muted/30"
       >
         <Icon className={cn('h-3.5 w-3.5 shrink-0', getFileColor(file.filename))} />
         <span className="truncate">{file.filename.split('/').pop()}</span>
@@ -308,12 +309,15 @@ export function SourceControlPanel() {
 
   return (
     <div className="flex w-72 shrink-0 flex-col bg-muted/20">
+      {/* V3 #72:桌面宿主的 git 通道(授权 workspace → 列本地变更)。
+          浏览器里这个组件自己返回 null,不占版面;它走的不是下面的 runCommand 那条服务端路径。 */}
+      <HostGitSection />
       <div className="flex items-center gap-2 px-2 py-1.5">
         <div ref={branchRef} className="relative">
           <button
             onClick={() => setBranchOpen(!branchOpen)}
             disabled={switchingBranch}
-            className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
+            className="flex items-center gap-1 rounded px-1 py-0.5 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
           >
             <GitBranch
               className={cn('h-3.5 w-3.5 text-muted-foreground', switchingBranch && 'animate-spin')}
@@ -333,7 +337,7 @@ export function SourceControlPanel() {
             side="bottom"
             align="start"
             gap={4}
-            className="min-w-[160px] rounded-xl border border-border bg-popover p-1 shadow-md"
+            className="min-w-[160px] rounded-md border border-border bg-popover p-1 shadow-md"
           >
             {gitBranches.map((b) => (
               <button
@@ -341,7 +345,7 @@ export function SourceControlPanel() {
                 onClick={() => handleBranchCheckout(b)}
                 disabled={switchingBranch}
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-sm px-2 py-1 text-xs transition-colors disabled:opacity-50',
+                  'flex w-full items-center gap-2 rounded px-2 py-1 text-xs transition-colors disabled:opacity-50',
                   b === branch
                     ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
@@ -368,7 +372,7 @@ export function SourceControlPanel() {
           <button
             onClick={handlePull}
             disabled={pulling}
-            className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-50"
+            className="rounded p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-50"
             aria-label={t('sourceControl.pull')}
           >
             <Download className={cn('h-3.5 w-3.5', pulling && 'animate-spin')} />
@@ -376,20 +380,20 @@ export function SourceControlPanel() {
           <button
             onClick={handlePush}
             disabled={pushing}
-            className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-50"
+            className="rounded p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-50"
             aria-label={t('sourceControl.push')}
           >
             <Upload className={cn('h-3.5 w-3.5', pushing && 'animate-spin')} />
           </button>
           <button
             onClick={handleRefresh}
-            className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50"
+            className="rounded p-1 text-muted-foreground hover:bg-muted/50"
             aria-label={t('sourceControl.refresh')}
           >
             <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
           </button>
           <button
-            className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50"
+            className="rounded p-1 text-muted-foreground hover:bg-muted/50"
             aria-label={t('sourceControl.more')}
           >
             <MoreHorizontal className="h-3.5 w-3.5" />
@@ -403,14 +407,14 @@ export function SourceControlPanel() {
           onChange={(e) => setCommitMessage(e.target.value)}
           placeholder={t('sourceControl.commitPlaceholder')}
           rows={2}
-          className="w-full resize-none rounded-sm border border-border bg-background px-2 py-1 text-xs focus:outline-none"
+          className="w-full resize-none rounded-md border border-border bg-background px-2 py-1 text-xs focus:outline-none"
         />
         <button
           onClick={handleCommit}
           disabled={committing || !commitMessage.trim()}
           aria-busy={committing}
           aria-label={t('sourceControl.commit')}
-          className="mt-1 flex w-full items-center justify-center gap-1 rounded-sm bg-foreground py-1 text-xs text-background hover:bg-foreground/90 disabled:opacity-50"
+          className="mt-1 flex w-full items-center justify-center gap-1 rounded-md bg-foreground py-1 text-xs text-background hover:bg-foreground/90 disabled:opacity-50"
         >
           {committing ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -429,7 +433,7 @@ export function SourceControlPanel() {
             <span className="text-red-600 dark:text-red-400">-{totalDel}</span>
           </span>
         </div>
-        <div className="flex h-1.5 overflow-hidden rounded-xs bg-muted">
+        <div className="flex h-1.5 overflow-hidden rounded bg-muted">
           <div className="h-full bg-green-500" style={{ width: `${addPct}%` }} />
           <div className="h-full bg-red-500" style={{ width: `${100 - addPct}%` }} />
         </div>
