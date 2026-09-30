@@ -10572,6 +10572,17 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "selectionAnnotations": {
+      "hoverHint": "ホバーで注釈を表示",
+      "selectedText": "{{index}}. 選択したテキスト",
+      "noComment": "コメントはまだありません",
+      "commentPlaceholder": "任意のコメントを追加…",
+      "commentAriaLabel": "選択範囲注釈のコメント",
+      "addComment": "コメントを追加",
+      "removeOne": "注釈 {{index}} を削除",
+      "removeAll": "選択範囲の注釈をすべて削除",
+      "add": "注釈を追加"
+    },
     "attachRetry": "アップロードを再試行",
     "attachRetryExhausted": "再試行回数の上限に達しました。削除してから再度追加してください。",
     "attachRejectType": "形式がサポートされていないため、{count} 個のファイルをスキップしました：{names}",
