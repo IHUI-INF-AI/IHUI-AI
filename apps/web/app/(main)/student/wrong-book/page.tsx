@@ -5,9 +5,9 @@
 'use client'
 
 import * as React from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { XCircle, Loader2, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
+import { XCircle, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -28,8 +28,8 @@ interface WrongBookData {
 
 const PAGE_SIZE = 20
 
-async function api<T>(url: string, opts?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, opts)
+async function api<T>(url: string): Promise<T> {
+  const r = await fetchApi<T>(url)
   if (!r.success) throw new Error(r.error)
   return r.data
 }
@@ -46,16 +46,6 @@ export default function WrongBookPage() {
   const list = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-
-  // AI 讲解(与 /exam/wrong-questions 同一端点,结果持久化在错题行,G-978072)
-  const [explain, setExplain] = React.useState<{ questionId: string; text: string } | null>(null)
-  const explainMut = useMutation({
-    mutationFn: (questionId: string) =>
-      api<{ explanation: string }>(`/api/exam/wrong-questions/${questionId}/explain`, {
-        method: 'POST',
-      }),
-    onSuccess: (d, questionId) => setExplain({ questionId, text: d.explanation }),
-  })
 
   return (
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
@@ -113,29 +103,6 @@ export default function WrongBookPage() {
                       </p>
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full"
-                    disabled={explainMut.isPending}
-                    onClick={() =>
-                      explain?.questionId === item.questionId
-                        ? setExplain(null)
-                        : explainMut.mutate(item.questionId)
-                    }
-                  >
-                    {explainMut.isPending && explainMut.variables === item.questionId ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-4 w-4" />
-                    )}
-                    {t('aiExplain')}
-                  </Button>
-                  {explain?.questionId === item.questionId && (
-                    <p className="whitespace-pre-wrap rounded-md bg-muted/50 px-2 py-1.5 text-xs leading-relaxed text-muted-foreground">
-                      {explain.text}
-                    </p>
-                  )}
                 </CardContent>
               </Card>
             ))}
