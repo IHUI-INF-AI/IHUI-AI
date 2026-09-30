@@ -85,6 +85,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { auditOne } from './check-merge-addition-loss.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { resolveRemoteHead, catBatch } from './lib/face-reader.mjs'
+import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
+import { recordBypassLanding } from './lib/commit-attestation.mjs'
 import {
   auditPlan,
   malformedLine,
@@ -125,6 +127,10 @@ function git(args, cwd = ROOT, input) {
     cwd,
     input,
     encoding: 'utf8',
+    // 根治(2026-09-30):本机交互会话下 Node 给子进程建 stdin 管道会 EBUSY(与父进程自身
+    // stdin 形态无关,managed/system 两个 node 都中;stdout/stderr 管道正常)。git 绝大多数
+    // 调用不消费 stdin ⇒ 无 input 时 stdin 设 ignore;带 input(--stdin 类)必须保住管道。
+    stdio: input ? ['pipe', 'pipe', 'pipe'] : ['ignore', 'pipe', 'pipe'],
     windowsHide: true, // §5b:漏此参数在守护/钩子派生下必弹控制台窗
     timeout: GIT_TIMEOUT,
     maxBuffer: 512 * 1048576,
@@ -167,6 +173,8 @@ function gitBuf(args, cwd = ROOT) {
   return execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...args], {
     cwd,
     encoding: 'buffer',
+    // 根治:同 git() —— 无 input,stdin 设 ignore 避开本会话子进程 stdin 管道 EBUSY。
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
     timeout: GIT_TIMEOUT,
     maxBuffer: 512 * 1048576,
@@ -215,6 +223,8 @@ function writeBlob(content, p, cwd) {
       cwd,
       input: content,
       encoding: 'utf8',
+      // ⚠️ 此处经 --stdin 传内容,stdin 必须是管道,不能学 git()/gitBuf() 设 ignore;
+      // 本会话 Node 建子进程 stdin 管道 EBUSY 时此函数会挂 —— 真遇上了再改临时文件通道。
       windowsHide: true,
       timeout: GIT_TIMEOUT,
       maxBuffer: 512 * 1048576,
@@ -836,6 +846,8 @@ export function buildUnion(
         cwd,
         env,
         windowsHide: true,
+        // 根治:同 git() —— 无 input,stdin 设 ignore 避开本会话子进程 stdin 管道 EBUSY。
+        stdio: ['ignore', 'pipe', 'pipe'],
         timeout: GIT_TIMEOUT,
         encoding: 'utf8',
         maxBuffer: 512 * 1048576,
@@ -1322,6 +1334,8 @@ export function hasCommit(sha, cwd = ROOT) {
     spawnSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'cat-file', '-e', `${sha}^{commit}`], {
       cwd,
       windowsHide: true,
+      // 根治:同 git-sync-converge.mjs —— 本会话 Node 建子进程 stdin 管道会 EBUSY,git 不吃 stdin。
+      stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 60000,
       encoding: 'utf8',
     }).status === 0
@@ -1455,6 +1469,8 @@ function isAncestor(a, b, cwd) {
     spawnSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'merge-base', '--is-ancestor', a, b], {
       cwd,
       windowsHide: true,
+      // 根治:本会话 Node 建子进程 stdin 管道会 EBUSY,git 不吃 stdin。
+      stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 120000,
       encoding: 'utf8',
     }).status === 0
@@ -2689,6 +2705,19 @@ async function main() {
   if (p.bad.length) {
     console.log(`❌ 落地闸不过 ${p.bad.length} 处:`)
     for (const b of p.bad.slice(0, 15)) console.log(`   ${b}`)
+    // F9 判红时必须给出**可执行的出路**,只喊"需人工"的结局本仓写死了(§12e/§12f):每台每次跳钩子。
+    // 只打印出路,不碰判据本体;出路里插的是**当次那枚远端 sha**,不是占位文案。
+    if (p.bad.some((b) => String(b).includes('F9 归并新增撞号组')))
+      console.log(
+        `  ➜ F9 出路(可执行,缺省档零副作用,从不写工作树):\n` +
+          `     node scripts/plan-collide-renumber.mjs ${t.theirs}\n` +
+          `     —— 它用台账那一份键位口径(编号/标题/畸形号全在 lib/plan-task-index.mjs)算出本次归并会新增的撞号组,` +
+          `只让未推的本地一侧改号;\n` +
+          `     并把**改前整行原文**逐字追加进已入库的归档件(门 71 的归档豁免因此当场成立,而不是等 60 枚提交窗口过去)。` +
+          `让号有效性按 own + max(0, 对侧 − max(基底, own)) 现读,该式子的唯一实现就是本器 import 的 liveDocExpectedCounts。\n` +
+          `     核对报告后加 --apply 产出 blob(仍不写工作树、从不 commit);判不出的组一律点名拒绝构造。\n` +
+          `     禁止的出路:放宽 F9、删任一侧的行、把注记插进编号位(那会改掉复合主键,反而造出新的撞号组)。`,
+      )
     process.exit(1)
   }
   if (!apply) {
@@ -2728,6 +2757,8 @@ async function main() {
     {
       cwd: ROOT,
       windowsHide: true,
+      // 根治:本会话 Node 建子进程 stdin 管道会 EBUSY,git 不吃 stdin。
+      stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 120000,
       encoding: 'utf8',
     },
@@ -2753,6 +2784,20 @@ async function main() {
   console.log(
     `✅ 合并落地 ${sha.slice(0, 12)}${lost.lost.length ? ` —— ⚠️ A1 复核仍报 ${lost.lost.length} 处` : ',A1 复核 0 丢失'}`,
   )
+  // 旁路合并不跑 post-commit ⇒ 守门 71 的登记行自愈永不触发;而 commit-tree + CAS 也不写钩子链那本
+  // 跳门台账 ⇒ 这枚提交在总量统计里会永远落进 unknown(AGENTS §12f 那条"两个来源合起来才是总量")。
+  // 两条都在落地这一刻补上,且**都不改本轮结论**:自愈失败只喊一行,留痕按 lib 契约永不抛。
+  recordBypassLanding({
+    root: ROOT,
+    source: 'union-converge --apply',
+    landedSha: sha,
+    headBefore: t.head,
+    declaredFiles: [...new Set([...LIVE_DOCS, ...p.tookTheirs])],
+    reason:
+      '旁路合并落地(commit-tree + CAS)不触发钩子 ⇒ 提交链上的门禁对本枚未执行;' +
+      '声明路径 = 本器构造出内容的那些(活文档 ∪ 取对侧版本的路径)',
+  })
+  postMergeLedgerSync({ root: ROOT })
   process.exit(lost.lost.length ? 1 : 0)
 }
 
