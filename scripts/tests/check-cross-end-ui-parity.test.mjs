@@ -695,3 +695,49 @@ test('T25 同侧多候选不得只查一侧;选腿比较器与出口链只许一
     '连字符属性不再整体取键 ⇒ line-height 会被读成 height、max-width 会被跳掉(两个方向都错过)',
   )
 })
+
+/**
+ * T26 盲区披露的**交集域**必须在真仓上生效(2026-09-30)。
+ *
+ * 判据独立于实现的取法:本测试**不 import 也不调用** `unresolvedClassNames`,而是
+ * ① 用 `git show HEAD:` 真读全仓样式表,自己建"真定义过的类名"集合;
+ * ② 跑一次真仓 `collect()`,取它**点名**的类名;
+ * ③ 断言"被点名的每一个类名,都能在全仓某份样式表里找到定义"。
+ * —— 这条是**形态无关**的:实现是"传集合进来"还是"自己去扫"还是"换个正则"都不影响它,
+ * 所以它不是复读实现(§22c 那型);反过来,只要交集域不生效,③ 立刻红。
+ *
+ * 立票理由:披露头写着"盒档落在 app.css / 某页 css",而 collect 早就把 70 份表扫成
+ * `globalDefined` 传了进去 —— 唯独函数体从不读它。实测被点名的 48 个类名里有 **16 个
+ * 全仓零定义**(`max-w-md` / `min-w-0` / `line-clamp-1` 这类 Tailwind 刻度档由 `readGeometry`
+ * 直接读,`ui-card` / `ui-panel` / `carousel-fallback` 连 tailwind preset 都没有),
+ * 对它们说"盒档落在全局表"是**假陈述**;而会喊错的披露和没有披露一样没人信。
+ */
+test('T26 盲区披露只许点名"全仓真的定义过"的类名(交集域必须生效,形态无关)', () => {
+  const list = git(['ls-tree', '-r', '--name-only', 'HEAD']).stdout
+  const cssFiles = list.split('\n').filter((f) => /\.(css|scss|less)$/i.test(f))
+  assert.ok(cssFiles.length > 10, '样式表清单取不到 ⇒ 本对照在真仓上恒空(夹具化会失明)')
+  const defined = new Set()
+  for (const f of cssFiles) {
+    const t = git(['show', `HEAD:${f}`])
+    if (t.status !== 0) continue
+    for (const m of t.stdout.matchAll(/\.([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\s*[{,:]/gi)) defined.add(m[1])
+  }
+  const collected = src.collect(ROOT, 'head', { pairAll: true })
+  const named = collected.blindClasses.flatMap((b) => b.classes)
+  assert.ok(named.length > 0, '真仓零盲区 ⇒ 本对照恒空,得换现役站点而不是删测试')
+  // 阳性对照:确实存在"落在全局表里"的类名(否则③ 可能因为交集域收得太狠而恒真)。
+  assert.ok(
+    named.some((c) => defined.has(c)),
+    '被点名的类名一个都不在全局表里 ⇒ 交集域可能收过头,把真盲区也剔掉了',
+  )
+  const ghosts = [...new Set(named.filter((c) => !defined.has(c)))]
+  assert.deepEqual(
+    ghosts,
+    [],
+    `披露把"全仓没有任何定义"的类名说成"盒档落在 app.css / 某页 css":${ghosts.join(' ')}(假陈述)`,
+  )
+  // 死代码锁:collect 扫出的那份集合必须真的被消费。**只锁"算了"不锁"用了"** 正是本条
+  // 长期零红的原因(扫 70 份表的代价一直在付,收益为零)。
+  const gate = flat(readFileSync(SELF, 'utf8'))
+  assert.match(gate, /unresolvedClassNames\(text\[f\], styles\[f\] \?\? '', globalDefined\)/)
+})
