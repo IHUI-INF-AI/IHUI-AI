@@ -1,0 +1,34 @@
+{
+  "_comment": "盘根卫生白名单(2026-09-30 立,配 scripts/check-disk-root-hygiene.mjs)。声明式封闭集合:新增合法条目必须显式改本文件并随 commit 提交(= 显式审批),禁止以'看起来无害'为由口头豁免。未列入的条目会被巡检点名;点名本身是 warn(warn 尺子不判红),但它是'项目产物不外流'纪律的常驻提醒。",
+  "_transitionalNote": "DevEnv 与 tmp-probe 是过渡性白名单条目:DevEnv 待任务 9(G-盘根9)搬入 IHUI-AI\\.DevEnv 后摘除;tmp-probe 待在飞会话 scratch 收口后摘除。摘除动作必须随说明 commit。",
+  "roots": {
+    "G:\\": {
+      "allow": [
+        "IHUI-AI",
+        "DevEnv",
+        "tmp-probe",
+        "workbuddy",
+        "$RECYCLE.BIN",
+        "System Volume Information",
+        "Qoder CN",
+        "Qoder CN IDE",
+        "Qoderwork",
+        "Trae",
+        "Trae CN",
+        "TRAE SOLO CN",
+        "MiniMax Code",
+        "ZCode",
+        "Deepseek harness",
+        "微信web开发者工具",
+        "支付宝小程序开发工具",
+        "WeixinGameData"
+      ],
+      "note": "IHUI-AI=项目主仓;workbuddy=WorkBuddy 应用本体;其余=第三方 IDE/工具(盘根物理上不可能只剩项目,现实目标是'项目产物不外流',第三方安装目录按声明放行)"
+    }
+  },
+  "worktreePolicy": {
+    "sanctionedPrefixes": ["G:\\IHUI-AI\\.worktrees\\", "G:/IHUI-AI/.worktrees/"],
+    "exemptPaths": ["G:\\IHUI-AI", "G:/IHUI-AI"],
+    "note": "2026-09-30 起 worktree 落点收进项目内 .worktrees/(AGENTS §12d);登记面里落在前缀之外的 worktree 一律点名待回收(主工作树豁免)"
+  }
+}
