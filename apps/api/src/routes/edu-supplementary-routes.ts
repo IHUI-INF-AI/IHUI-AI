@@ -165,11 +165,29 @@ export const eduSupplementaryRoutes: FastifyPluginAsync = async (server) => {
     let persisted = false
     if (userId && isUuid(courseId) && isUuid(chapterId)) {
       try {
+        // signUpId 必须是真实的报名记录 id(原实现误填 userId,数据语义错误,G-978075);
+        // 无报名记录时如实返回 persisted:false,不伪造学习记录。
+        const [signup] = await db
+          .select({ id: lessonSignUps.id })
+          .from(lessonSignUps)
+          .where(and(eq(lessonSignUps.userId, userId), eq(lessonSignUps.lessonId, courseId)))
+          .orderBy(desc(lessonSignUps.createdAt))
+          .limit(1)
+        if (!signup) {
+          return reply.send(
+            success({
+              received: true,
+              persisted: false,
+              reason: '未找到该课程报名记录',
+              ...parsed.data,
+            }),
+          )
+        }
         await db.insert(learnRecord).values({
           memberId: userId,
           lessonId: courseId,
           lessonChapterSectionId: chapterId,
-          signUpId: userId,
+          signUpId: signup.id,
           learnTime: duration ?? 0,
           maxProgressTime: currentTime ?? 0,
           status: 'progressing',

@@ -156,6 +156,36 @@
       "keys": ["accounts.selectPlatform"],
       "reason": "枚 19af1cce6c 把扫码弹窗的平台选择改成 pill 网格,删掉了唯一引用 t('accounts.selectPlatform')(该枚 ScanLoginDialog.tsx 的差分里就是那一行 -),键留在五个 web 语言包 ⇒ pre-commit 批外步骤「i18n 死 key 扫描」判红并挡住每一次提交(§12f:红在干净 HEAD 上须先修,否则各会话合法 --no-verify、该枚提交上全部守门作废)。引用面复验口径:该键在 HEAD 的代码面零命中(除语言包自身),且无 t(`accounts.${…}`) / useTranslations('accounts') 动态拼接;同叶名的 publish.accounts.selectPlatform 与 publish.preview.selectPlatform 两档仍在位(有人用),只摘顶层 accounts 这一条。",
       "until": "2027-09-30"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-CN.json",
+      "keys": ["eduPoints.totalChannels"],
+      "reason": "eduPoints 总览卡「渠道总数」与「启用渠道」同值冒充(G-978077):/api/edu-points/channels 只返回启用渠道,两卡读数恒等是假数据,已删重复卡 — 该键零消费者,按门 121 出口②删键。回潮判据:若引入真实的全量渠道数据源,须连卡片一起恢复。",
+      "until": "2027-09-30"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-TW.json",
+      "keys": ["eduPoints.totalChannels"],
+      "reason": "eduPoints 总览卡「渠道总数」与「启用渠道」同值冒充(G-978077):/api/edu-points/channels 只返回启用渠道,两卡读数恒等是假数据,已删重复卡 — 该键零消费者,按门 121 出口②删键。回潮判据:若引入真实的全量渠道数据源,须连卡片一起恢复。",
+      "until": "2027-09-30"
+    },
+    {
+      "file": "packages/i18n/messages/web/en.json",
+      "keys": ["eduPoints.totalChannels"],
+      "reason": "eduPoints 总览卡「渠道总数」与「启用渠道」同值冒充(G-978077):/api/edu-points/channels 只返回启用渠道,两卡读数恒等是假数据,已删重复卡 — 该键零消费者,按门 121 出口②删键。回潮判据:若引入真实的全量渠道数据源,须连卡片一起恢复。",
+      "until": "2027-09-30"
+    },
+    {
+      "file": "packages/i18n/messages/web/ja.json",
+      "keys": ["eduPoints.totalChannels"],
+      "reason": "eduPoints 总览卡「渠道总数」与「启用渠道」同值冒充(G-978077):/api/edu-points/channels 只返回启用渠道,两卡读数恒等是假数据,已删重复卡 — 该键零消费者,按门 121 出口②删键。回潮判据:若引入真实的全量渠道数据源,须连卡片一起恢复。",
+      "until": "2027-09-30"
+    },
+    {
+      "file": "packages/i18n/messages/web/ko.json",
+      "keys": ["eduPoints.totalChannels"],
+      "reason": "eduPoints 总览卡「渠道总数」与「启用渠道」同值冒充(G-978077):/api/edu-points/channels 只返回启用渠道,两卡读数恒等是假数据,已删重复卡 — 该键零消费者,按门 121 出口②删键。回潮判据:若引入真实的全量渠道数据源,须连卡片一起恢复。",
+      "until": "2027-09-30"
     }
   ]
 }

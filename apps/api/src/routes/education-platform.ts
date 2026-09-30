@@ -165,22 +165,20 @@ export const educationPlatformRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(educationPlatform.id, pid))
       .limit(1)
     if (!platform) return reply.status(404).send(error(404, '平台不存在'))
-    const [log] = await db
-      .insert(educationSyncLog)
-      .values({
-        platformCode: platform.code,
-        type: parsed.data.type ?? 'course',
-        syncType: parsed.data.syncType ?? 'pull',
-        success: true,
-        recordCount: 0,
-      })
-      .returning()
-    if (!log) return reply.status(500).send(error(500, '创建同步日志失败'))
-    await db
-      .update(educationPlatform)
-      .set({ lastSyncTime: new Date(), updatedAt: new Date() })
-      .where(eq(educationPlatform.id, pid))
-    return reply.send(success({ id: log.id, platformCode: platform.code }))
+    // 诚实化(G-978075):平台同步通道从未接通任何第三方 API,原实现直接落一条
+    // success:true/recordCount:0 的假成功日志。现在把失败如实记入同步日志
+    // (success:false),并以 501 明示"未接入",不再让运维把假成功当已同步。
+    await db.insert(educationSyncLog).values({
+      platformCode: platform.code,
+      type: parsed.data.type ?? 'course',
+      syncType: parsed.data.syncType ?? 'pull',
+      success: false,
+      recordCount: 0,
+      errorMsg: '同步通道未接入:该平台类型的拉取/推送适配器尚未实现',
+    })
+    return reply
+      .status(501)
+      .send(error(501, '平台同步通道未接入:请先实现该平台的适配器(拉取/推送),当前不做任何数据同步'))
   })
 
   // GET /sync/log - 同步日志
