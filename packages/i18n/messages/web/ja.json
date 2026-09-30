@@ -14168,6 +14168,7 @@
       "verifyCode": "6桁の認証コードを入力"
     },
     "shop": {
+      "payNow": "支払う",
       "buy": "購入",
       "buying": "注文中...",
       "cancel": "取消",
@@ -14478,8 +14479,7 @@
     "loading": "読み込み中...",
     "myPoints": "のポイント",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "title": "APIテスト",
-    "totalChannels": "チャネル"
+    "title": "APIテスト"
   },
   "eduProgressPage": {
     "categoryProgress": "カテゴリー別進捗",
@@ -14882,6 +14882,7 @@
     "title": "評価管理"
   },
   "exam": {
+    "pageInfo": "{page} / {total} ページ",
     "back": "戻る",
     "duration": "{minutes} 分",
     "empty": "がありません",
@@ -14911,6 +14912,7 @@
     "title": "オンライン",
     "totalScore": "総分 {score}",
     "wrongQuestions": {
+      "aiExplain": "AI解説",
       "colActions": "操作",
       "colQuestion": "問題内容",
       "colSource": "出典試験",
@@ -16255,6 +16257,8 @@
     "metaOgDescription": "ドキュメント分割 + ベクトル化 + ハイブリッド検索 + 引用追跡"
   },
   "learn": {
+    "startLearning": "学習を始める",
+    "buyNow": "今すぐ購入",
     "allCategories": "All categories",
     "category": "カテゴリ",
     "chapters": "コース",
@@ -16298,6 +16302,7 @@
     "paymentConfirm": "支払い確認",
     "review": "評価",
     "tutor": {
+      "history": "最近の質問",
       "title": "AI 講師",
       "subject": "教科",
       "mode": "モード",
@@ -19059,7 +19064,7 @@
     "repoWiki": "Repo Wiki",
     "resources": "リソース",
     "restore": "元に戻す",
-    "schedule": "スケジュール",
+    "schedule": "タスクスケジューラ",
     "search": "検索",
     "selfMediaAutomation": "自動化",
     "selfMediaKoubo": "口播動画",
@@ -22043,6 +22048,7 @@
     "warning": "警告"
   },
   "student": {
+    "aiExplain": "AI解説",
     "avgProgress": "平均進捗",
     "avgScore": "平均分",
     "certNo": "証明書番号",
