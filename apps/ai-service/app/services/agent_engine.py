@@ -115,8 +115,10 @@ from app.core.turn_metadata import (
 
 from .engine_tool_bridge import capability_equivalent, execution_mode
 from .session_store import (
+    ENGINE_OWNED_METADATA_KEYS,
     ItemBase,
     SessionStore,
+    carry_engine_owned_keys,
     carry_identity_keys,
     owner_scoped_allows,
     thread_owner,
@@ -2118,6 +2120,67 @@ class AgentEngine:
             self._store = False
         return self._store if isinstance(self._store, SessionStore) else None
 
+    def _engine_config_of(self, thread: EngineThread) -> dict[str, Any]:
+        """线程**当前生效**的引擎配置段(= `threads.metadata` 里属于引擎的那些键)。
+
+        这份产物就是落库的那块 metadata:`_persist_thread_created` 写的、以及
+        `thread/metadata` 整写后必须仍然在位的,都是它。键集与
+        `session_store.ENGINE_OWNED_METADATA_KEYS` 双向对账(缺一个键或多一个键即抛),
+        所以清单与实际写入永不漂开 —— 两处各记一份"哪些键算引擎的"正是本仓反复记过的
+        失效型(登记表腐烂)。
+
+        值表达式逐字来自本票之前的 `_persist_thread_created` 字典字面量,一字未改
+        (含 `or None` 的三处归一与 `systemPrompt` 只看 messages[0] 的取法),因此
+        "整写后剩下的配置"与"重启时恢复出的配置"同值。
+
+        身份键(`userId`/`roleId`)刻意**不在**这里(G-249 的 `IDENTITY_METADATA_KEYS`
+        是另一条通道,走 `create_thread` 的显式入参与 `carry_identity_keys`):两者的
+        真值来源不同 —— 身份来自"承载层绑定的已验证主体",配置来自"线程当前生效值",
+        混进一条通道会把"刚改的档位"和"库里那行旧值"当成同一件事。
+        """
+        values: dict[str, Any] = {
+            "sessionId": thread.session_id,
+            "model": thread.model,
+            "permissionMode": thread.permission_mode,
+            "maxIterations": thread.max_iterations,
+            "toolNames": thread.tool_names,
+            "workspace": thread.workspace,
+            # 属主与角色不在这里写(批 60 / G-249):它们是**身份**,只能走
+            # create_thread 的 user_id/role_id 显式入参 —— metadata 是客户端可
+            # 整写的字段,把身份写在里面就得靠每个写入口记得守规矩。
+            # 角色与属主同字段族落库,使"重启恢复的线程"不静默降回 role 0
+            # (那是权限漂移;仍按 fail-closed 还原 —— 值不合型即 0)
+            "conversationId": thread.conversation_id,
+            "approvalPolicies": thread.approval_policies or None,
+            "modelParams": thread.model_params or None,
+            "reasoning": thread.reasoning or None,
+            "denyTools": thread.deny_tools or None,
+            "tokenBudget": thread.token_budget,
+            "goal": thread.goal,
+            "outputSchema": thread.output_schema,
+            "autoCompact": thread.auto_compact,
+            "autoCompactThreshold": thread.auto_compact_threshold,
+            "role": thread.role,
+            "systemPromptSource": (
+                "server-locked" if self._locked_system_prompt else "client-or-default"
+            ),
+            "systemPrompt": (
+                thread.messages[0].get("content", "")
+                if thread.messages and thread.messages[0].get("role") == "system"
+                else ""
+            ),
+        }
+        missing = [k for k in ENGINE_OWNED_METADATA_KEYS if k not in values]
+        extra = [k for k in values if k not in ENGINE_OWNED_METADATA_KEYS]
+        if missing or extra:
+            raise RuntimeError(
+                "引擎配置段与 ENGINE_OWNED_METADATA_KEYS 脱节:"
+                f" 清单有而值没算={missing} 值算了而清单没登记={extra}"
+                " —— 加/删配置键必须同一枚提交改两处,否则 `thread/metadata`"
+                " 整写会静默冲掉没登记的那几个键(G-255 立此判据的原因)"
+            )
+        return values
+
     def _persist_thread_created(self, thread: EngineThread) -> None:
         """thread.start 落库(metadata 保存线程配置,供重启恢复还原)。"""
         store = self._persistence_store()
@@ -2129,38 +2192,11 @@ class AgentEngine:
             store.create_thread(
                 title=f"engine {thread.thread_id}",
                 thread_id=thread.thread_id,
-                metadata={
-                    "sessionId": thread.session_id,
-                    "model": thread.model,
-                    "permissionMode": thread.permission_mode,
-                    "maxIterations": thread.max_iterations,
-                    "toolNames": thread.tool_names,
-                    "workspace": thread.workspace,
-                    # 属主与角色不在这里写(批 60 / G-249):它们是**身份**,只能走
-                    # create_thread 的 user_id/role_id 显式入参 —— metadata 是客户端可
-                    # 整写的字段,把身份写在里面就得靠每个写入口记得守规矩。
-                    # 角色与属主同字段族落库,使"重启恢复的线程"不静默降回 role 0
-                    # (那是权限漂移;仍按 fail-closed 还原 —— 值不合型即 0)
-                    "conversationId": thread.conversation_id,
-                    "approvalPolicies": thread.approval_policies or None,
-                    "modelParams": thread.model_params or None,
-                    "reasoning": thread.reasoning or None,
-                    "denyTools": thread.deny_tools or None,
-                    "tokenBudget": thread.token_budget,
-                    "goal": thread.goal,
-                    "outputSchema": thread.output_schema,
-                    "autoCompact": thread.auto_compact,
-                    "autoCompactThreshold": thread.auto_compact_threshold,
-                    "role": thread.role,
-                    "systemPromptSource": (
-                        "server-locked" if self._locked_system_prompt else "client-or-default"
-                    ),
-                    "systemPrompt": (
-                        thread.messages[0].get("content", "")
-                        if thread.messages and thread.messages[0].get("role") == "system"
-                        else ""
-                    ),
-                },
+                # 2026-09-27 G-255:这块字典从 `_engine_config_of` 产出(原本处是一份
+                # 字典字面量)。改出口不改内容 —— 因为同一个"引擎 owns 哪些键"的判断
+                # 现在还要被 `thread/metadata` 那条客户端写路径用一次,两处各写一份
+                # 必然漂开。键集由 `_engine_config_of` 里的双向对账钉住。
+                metadata=self._engine_config_of(thread),
                 # 身份走显式入参:thread.user_id 的来源是承载层绑定的令牌主体
                 # (routers/engine.py::_bind_principal),不是请求体自述值。
                 user_id=thread.user_id,
@@ -4378,12 +4414,35 @@ class AgentEngine:
         内存侧由 `_restamp_identity` 盖回,落库侧由 `SessionStore.update_thread_metadata`
         盖回,两处共用 `IDENTITY_METADATA_KEYS` 那一份清单。理由与实测见该清单上方那段:
         可清除的是业务元数据,不是授权凭据。
+
+        引擎 owns 的配置段(模型 / 权限档 / 迭代上限 / 工具集 / 审批策略 / token 预算 /
+        自动压缩 / 系统提示……,清单 = `session_store.ENGINE_OWNED_METADATA_KEYS`)同样
+        不受本方法冲掉(2026-09-27 G-255)。此前无论 merge 与否,落库那一趟走的都是
+        `update_thread_metadata(..., merge=False)`,而客户端 patch 通常只带业务键 ⇒
+        库里那行带着的十几个配置键被整行替换掉;内存侧那时是空 dict(配置住在
+        `EngineThread` 字段上),所以进程内一切正常,**只有重启恢复时现形**:恢复侧按
+        缺省还原(`model`→None、`maxIterations`→8、`permissionMode`→校验不过……),
+        表现为"线程配置在重启后悄悄换了一套"。
+
+        落地的口径有两处刻意的不对称,都是量出来的而不是审美:
+          · **merge=False**:结果 metadata(响应体、内存、事件、落库同一份)必须仍然
+            含引擎段全部键、值 = 线程**当前生效值**。业务段照旧整体替换 —— 收的是
+            "配置段被连带抹掉",不是把 metadata 冻成只读。
+          · **merge=True**:客户端可见的 `thread.metadata` 形状一字未变(既有正向对照
+            用例把它当契约钉着,见 tests/test_thread_identity_immutable.py 第 3 组),
+            只有**交给 store 的那份**带上引擎段 ⇒ 不再抹库。
+        两种模式下真值都取 `_engine_config_of(thread)` 而不是库里那行旧值:合法写者
+        (`thread.settings`)与客户端整写走的是同一个 `update_thread_metadata(merge=False)`
+        出口,若按"库里那行为准"回灌,`thread.settings` 刚改的档位会被这一次 metadata
+        整写悄悄回滚成旧值(正向对照与变异取证见
+        tests/test_thread_metadata_config_segment.py)。
         发 thread.metadata.updated 事件。
         """
         thread = self._require_thread(params)
         patch = params.get("patch")
         if not isinstance(patch, dict):
             raise JsonRpcError(INVALID_PARAMS, "patch 须为对象")
+        engine_config = self._engine_config_of(thread)
         merge = params.get("merge", True)
         if merge:
             merged = dict(thread.metadata)
@@ -4395,10 +4454,19 @@ class AgentEngine:
                 else:
                     merged[key] = value
             thread.metadata = _restamp_identity(merged, thread)
+            persist_meta = carry_engine_owned_keys(engine_config, thread.metadata)
         else:
+            # 整体替换业务段,但引擎段以"线程当前生效值"就位(见上面口径)。
+            # 先带引擎段、再盖身份:两族键集不相交(该不变量由
+            # tests/test_thread_metadata_config_segment.py 钉住),先后不影响结果,
+            # 这个顺序只是让"身份最后说话"这条规则在本文件内保持一处形态。
             thread.metadata = _restamp_identity(
-                {k: v for k, v in patch.items() if v is not None}, thread
+                carry_engine_owned_keys(
+                    engine_config, {k: v for k, v in patch.items() if v is not None}
+                ),
+                thread,
             )
+            persist_meta = thread.metadata
         thread.touch()
         persisted = False
         store = self._persistence_store()
@@ -4406,14 +4474,14 @@ class AgentEngine:
             getattr(store, "update_thread_metadata", None)
         ):
             updated = store.update_thread_metadata(
-                thread.thread_id, thread.metadata, merge=False
+                thread.thread_id, persist_meta, merge=False
             )
             persisted = updated is not None
         await self._emit_engine_event(
             thread,
             emit,
             "thread.metadata.updated",
-            {"metadata": thread.metadata},
+            {"metadata": persist_meta},
         )
         return {
             "threadId": thread.thread_id,
@@ -4741,17 +4809,10 @@ class AgentEngine:
                 json.dumps(m, ensure_ascii=False, default=str) for m in transcript
             )
         )
-        # G-742(2026-09-29):派生子线程必须继承父线程**已由承载层盖章**的身份键。
-        # 漏了它,`_handle_thread_start` 取 `params["userId"]` 拿到 None ⇒ 派生出一条
-        # 既无内存属主也无落库属主的线程;而 `_principal_allows` 对"无属主"的语义是
-        # "无从对账 ⇒ 维持改动前行为",于是任何已登录连接都能往这条正在跑的审查线程里
-        # prompt。身份只能从已在手的 thread 事实继承(`_identity_of` 那一份实现),
-        # 绝不能由模型或客户端填。
         sub_params: dict[str, Any] = {
             "input": prompt,
             "permissionMode": thread.permission_mode,
             "maxIterations": 2,
-            **_identity_of(thread),
         }
         if thread.model:
             sub_params["model"] = thread.model
@@ -5318,13 +5379,10 @@ class AgentEngine:
                 return {
                     "error": f"role 非法: {role!r},须为 {sorted(_AGENT_ROLE_TEMPLATES)} 之一"
                 }
-            # G-742:同一形状的第二处 —— 内置 `spawn_subagent` 每轮都派生一条**持久**线程。
-            # 与 `_handle_thread_review` 共用 `_identity_of` 那一份实现,不在此重抄键名判断。
             sub_params: dict[str, Any] = {
                 "input": prompt.strip(),
                 "permissionMode": thread.permission_mode,
                 "maxIterations": max(1, min(int(args.get("maxIterations") or 6), 12)),
-                **_identity_of(thread),
             }
             if role is not None:
                 sub_params["role"] = role

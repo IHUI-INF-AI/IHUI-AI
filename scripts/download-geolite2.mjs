@@ -26,7 +26,8 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, renameSync, rmSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { tmpdir } from 'node:os'
+// §26:临时落点唯一出口(不落 os.tmpdir、不落仓库树内)
+import { mkScratch } from './lib/scratch-dir.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const TARGET_DIR = join(__dirname, '..', 'apps', 'api', 'data')
@@ -67,9 +68,9 @@ if (tarCheck.status !== 0) {
 
 mkdirSync(TARGET_DIR, { recursive: true })
 
-// 临时文件:下载 tar.gz 到 os.tmpdir
-const tmpDir = join(tmpdir(), `geolite2-${Date.now()}`)
-mkdirSync(tmpDir, { recursive: true })
+// 临时文件:下载 tar.gz 落 §26 唯一夹具出口(工作树同盘 DevEnv/Temp/ihui-scratch;
+// 活进程的 os.tmpdir() 可能仍钉在 C 盘,不得用作临时落点)
+const tmpDir = mkScratch('geolite2-')
 const tarGzPath = join(tmpDir, 'GeoLite2-City.tar.gz')
 
 log(C.cyan, '⬇ 下载 GeoLite2-City.tar.gz ...')
