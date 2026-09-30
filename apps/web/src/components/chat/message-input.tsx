@@ -985,6 +985,8 @@ export function MessageInput({
           onRemoveMention={mentionWiring.removeSelection}
           pastePreviews={pastedRefPreviews}
           onDismissPastePreviews={() => setPastedRefPreviews([])}
+          // D185:模拟预览编辑器一键发送,走 composer 既有 submit(overrideValue) 通道
+          onSendPastePreview={(text) => void submit(text)}
           queueItems={pendingMessages}
           onQueueRemove={handleQueueRemove}
         />
@@ -1416,9 +1418,7 @@ export function MessageInput({
         {/* AI 免责提示行放输入卡片外(2026-09-30 用户指定:对标 ChatGPT "can make mistakes" 在框外,
             不进圆角描边卡内;字号 text-[9px] + muted;上下间距对称各 1px:上方 mt-px(卡→字),
             下方由 wrapper pb-px 承担(字→底),2026-09-30 用户指定 6px→1px) */}
-        <p className="mt-px text-center text-[9px] text-muted-foreground">
-          {t('aiDisclaimer')}
-        </p>
+        <p className="mt-px text-center text-[9px] text-muted-foreground">{t('aiDisclaimer')}</p>
         {/* 2026-07-28 用户规则调整:删除外层 hint 行,字符数已迁移至输入框内右下角,
             整体更紧凑、外层不再留空条;Enter 发送 · Shift+Enter 换行 用 textarea placeholder 承担(已有)。 */}
       </div>
