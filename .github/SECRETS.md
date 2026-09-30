@@ -129,7 +129,7 @@
 | visual-regression.yml     | （无）                                                                                               |
 | blue-green-deploy.yml     | （无，当前通过 `environment` 选择 staging/production，部署步骤未引用 secrets）                       |
 | migration-tests.yml       | （无，使用本地 postgres 服务容器 + 硬编码测试凭据 `postgresql://postgres:test@localhost:8810/test`） |
-| observability-drills.yml  | （无，依赖运行中的服务）                                                                             |
+| observability-drills.yml  | （无，只读仓库内监控配置做静态校验，不连任何运行中的服务）                                           |
 | s3-lifecycle-drift.yml    | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`                              |
 | ws-loadtest.yml           | （无，依赖运行中的服务）                                                                             |
 | smoke-new-modules.yml     | （无）                                                                                               |

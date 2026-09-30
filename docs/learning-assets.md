@@ -70,7 +70,7 @@
 | ------ | -------- | -------- |
 | `s3-lifecycle-drift.yml` | 存储漂移检测 | 生命周期策略漂移规律 |
 | `weekly-cleanup.yml` | 资源清理 | 资源堆积模式、清理豁免规则 |
-| `observability-drills.yml` | 可观测演练 | 监控盲区、告警有效性 |
+| `observability-drills.yml` | 监控配置静态校验 | 规则文件不可加载、告警选择器指向未抓取的 job |
 | `mirror-to-cn.yml` | 镜像同步 | 镜像同步失败模式(网络/凭据) |
 
 ### loop / community — 学习闭环与社区(4)
