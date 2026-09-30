@@ -4312,6 +4312,24 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 退出码归因(1 项,blocking)---
+  {
+    id: '175',
+    label:
+      '进程退出码归因守门(b76-08a票1配套):进程 exit 1/非零退出必须可归因到显式 failure kind/错误码,禁止无归因的裸退出,自检 --self-test 内嵌红绿对照',
+    script: 'check-process-exit-attribution.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PROCESS_EXIT_ATTRIBUTION',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-process-exit-attribution.mjs',
+      '自检:node scripts/check-process-exit-attribution.mjs --self-test',
+      '应急放行:HUSKY_SKIP_PROCESS_EXIT_ATTRIBUTION=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
