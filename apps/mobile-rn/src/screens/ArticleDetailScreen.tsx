@@ -22,7 +22,6 @@ import {
   Share,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   type TextStyle,
@@ -34,6 +33,7 @@ import { createComment, fetchApi, getComments, type CommentItem } from '@ihui/ap
 import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import {
+  TextField,
   ArticleDetailScreen as SharedArticleDetailScreen,
   type ArticleDetailItem,
 } from '@ihui/rn-app'
@@ -245,7 +245,8 @@ export function ArticleDetailScreen() {
               />
             )}
             <View style={styles.commentInputRow}>
-              <TextInput
+              <TextField
+                colorScheme={resolvedTheme}
                 value={commentText}
                 onChangeText={setCommentText}
                 placeholder="写下你的评论..."
@@ -419,7 +420,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 38,
     maxHeight: 80,
-    borderRadius: rnRadius.sm, // 输入框是控件 ⇒ control 档 sm(项目不允许胶囊)
+    borderRadius: 18, // radius-exempt: 胶囊输入框=最小高度 38 的一半
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.bg,
@@ -431,7 +432,7 @@ const styles = StyleSheet.create({
   commentSendBtn: {
     height: 38,
     paddingHorizontal: 18,
-    borderRadius: rnRadius.sm, // 发送按钮是控件 ⇒ control 档 sm(项目不允许胶囊)
+    borderRadius: 19, // radius-exempt: 发送按钮胶囊端=高度 38 的一半
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',

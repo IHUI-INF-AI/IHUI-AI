@@ -13,7 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { ChevronLeft, Play, Check } from 'lucide-react-native'
+import { Play, Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type {
   LiveDetailChatStatus,
@@ -23,16 +23,9 @@ import type {
 } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
-/**
- * 直播详情共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API)。
- *
- * 页头归属(2026-09-27,双层页头收敛,同 SettingsScreen 先例):本组件**不渲染内置页头/返回键**,
- * 页头(标题 + 返回)由宿主 NavBar 提供 —— RN 端生产页(apps/mobile-rn/src/screens/LiveDetailScreen.tsx)
- * 渲染 NavBar(标题取直播名,加载期就有返回键)。此前组件自带 BackChevron + 标题,与宿主 NavBar
- * 同屏两条返回键两个标题(守门 102 GA7 / 守门 145 DH2 判定型)。
- * onBack 仍留在 props 契约中(错误态按钮「返回」在用)。
- */
+/** 直播详情共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { LiveDetailItem, LiveDetailChatMessage, LiveDetailChatStatus, LiveDetailScreenProps }
 
 /** 状态标签 i18n key 映射:connecting=连接中 / open=已连接 / reconnecting=重连中 / error=错误 / closed/idle=已断开 */
@@ -104,12 +97,9 @@ export function LiveDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{error || t('liveDetail.empty')}</Text>
-        <TouchableOpacity
-          style={styles.btnPrimary}
-          onPress={onBack}
-          accessibilityLabel={t('common.back')}
-        >
-          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
+        <TouchableOpacity style={styles.btnPrimary} onPress={onBack}>
+          <Text style={styles.btnPrimaryText}>{t('common.back')}</Text>
         </TouchableOpacity>
       </View>
     )
@@ -125,6 +115,10 @@ export function LiveDetailScreen({
       keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
     >
       <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title} numberOfLines={2}>
+          {live.title}
+        </Text>
         <View style={styles.badgeRow}>
           <View style={[styles.badge, live.isLive ? styles.badgeLive : styles.badgeUpcoming]}>
             <Text style={styles.badgeText}>
@@ -265,7 +259,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     btnPrimaryText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
     btnDisabled: { opacity: 0.5 },
-    header: { paddingHorizontal: 10, paddingTop: 10, paddingBottom: 8 },
+    header: { paddingHorizontal: 10, paddingBottom: 8 },
+    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
     badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.md },
     badgeLive: { backgroundColor: tk.danger.DEFAULT },
