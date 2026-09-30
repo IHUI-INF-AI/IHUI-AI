@@ -9,6 +9,7 @@ import { createWorker } from '../plugins/queue.js'
 import {
   SCHEDULER_QUEUE_NAME,
   SCHEDULED_JOBS,
+  runOutboxDrain,
   type ScheduledJobName,
 } from '../plugins/scheduler.js'
 import {
