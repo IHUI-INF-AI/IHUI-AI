@@ -4,9 +4,6 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { eq, sql } from 'drizzle-orm'
-import { db } from '../db/index.js'
-import { signInRecords } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import {
   ensureUserPoints,
@@ -155,43 +152,6 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /sign-in - 签到（检查今日是否已签到、计算连续天数、发放奖励、记录流水）
-  // handler 提取为具名函数:/checkin 是同一逻辑的历史别名(小程序 pkg-user/check-in 与
-  // RN CheckInScreen 都打 /checkin,三端共用 CheckInScreen 形状,见 G-978070)。
-  const signInHandler = async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = request.userId!
-    const today = todayString()
-    const existing = await findTodaySignIn(userId, today)
-    if (existing) {
-      return reply.status(409).send(error(409, '今日已签到'))
-    }
-    const consecutiveDays = await calculateConsecutiveDays(userId, today)
-    const rewardPoints = calcSignInReward(consecutiveDays)
-    try {
-      // 签到记录 + 发积分写入同一事务（signInWithPoints 内部 db.transaction）：
-      // 发积分失败则签到一并回滚，避免"已签到但永久丢积分"
-      const { record, points } = await signInWithPoints(
-        {
-          userId,
-          signInDate: today,
-          consecutiveDays,
-          rewardPoints,
-        },
-        '每日签到奖励',
-      )
-      return reply.status(201).send(success({ record, points }))
-    } catch (err) {
-      // 并发双击时 (userId, signInDate) 唯一约束兜底：唯一冲突转 409，而非 500
-      const code =
-        typeof (err as { code?: unknown })?.code === 'string'
-          ? (err as { code?: string }).code
-          : undefined
-      if (code === '23505' || /unique|duplicate/i.test(String((err as Error)?.message ?? ''))) {
-        return reply.status(409).send(error(409, '今日已签到'))
-      }
-      throw err
-    }
-  }
-
   server.post(
     '/sign-in',
     {
@@ -218,54 +178,43 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
         },
       },
     },
-    signInHandler,
+    async (request, reply) => {
+      const userId = request.userId!
+      const today = todayString()
+      const existing = await findTodaySignIn(userId, today)
+      if (existing) {
+        return reply.status(409).send(error(409, '今日已签到'))
+      }
+      const consecutiveDays = await calculateConsecutiveDays(userId, today)
+      const rewardPoints = calcSignInReward(consecutiveDays)
+      try {
+        // 签到记录 + 发积分写入同一事务（signInWithPoints 内部 db.transaction）：
+        // 发积分失败则签到一并回滚，避免"已签到但永久丢积分"
+        const { record, points } = await signInWithPoints(
+          {
+            userId,
+            signInDate: today,
+            consecutiveDays,
+            rewardPoints,
+          },
+          '每日签到奖励',
+        )
+        return reply.status(201).send(success({ record, points }))
+      } catch (err) {
+        // 并发双击时 (userId, signInDate) 唯一约束兜底：唯一冲突转 409，而非 500
+        const code =
+          typeof (err as { code?: unknown })?.code === 'string'
+            ? (err as { code?: string }).code
+            : undefined
+        if (code === '23505' || /unique|duplicate/i.test(String((err as Error)?.message ?? ''))) {
+          return reply.status(409).send(error(409, '今日已签到'))
+        }
+        throw err
+      }
+    },
   )
 
-  // POST /checkin - 签到别名(与 /sign-in 完全同逻辑;CheckInScreen 端点名)
-  server.post('/checkin', signInHandler)
-
-  // GET /sign-in/today - 今日签到状态(handler 共享给 /checkin/today 投影)
-  const signInTodayHandler = async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = request.userId!
-    const today = todayString()
-    const record = await findTodaySignIn(userId, today)
-    const signedIn = !!record
-
-    // 连续天数：已签到取 record，否则查昨日记录判断当前连续
-    let consecutiveDays = 0
-    if (record) {
-      consecutiveDays = record.consecutiveDays
-    } else {
-      const yesterday = shiftDate(today, -1)
-      const yesterdayRecord = await findSignInRecord(userId, yesterday)
-      consecutiveDays = yesterdayRecord?.consecutiveDays ?? 0
-    }
-
-    // 今日奖励：已签到取 record.rewardPoints，否则按签到后连续天数预计算
-    const todayReward = signedIn ? record!.rewardPoints : calcSignInReward(consecutiveDays + 1)
-
-    // 周历：最近 7 天（今天往前 6 天 ~ 今天）
-    const weekStart = shiftDate(today, -6)
-    const weekEnd = shiftDate(today, 1) // 不含明天
-    const recentRecords = await findRecentSignInRecords(userId, weekStart, weekEnd)
-    const recordMap = new Map(recentRecords.map((r) => [r.signInDate, r]))
-    const week = Array.from({ length: 7 }, (_, i) => {
-      const date = shiftDate(weekStart, i)
-      const r = recordMap.get(date)
-      const d = new Date(date + 'T00:00:00Z')
-      return {
-        date,
-        day: d.getUTCDay(),
-        reward:
-          r?.rewardPoints ??
-          calcSignInReward(consecutiveDays - (6 - i) > 0 ? consecutiveDays - (6 - i) : 1),
-        signed: !!r,
-      }
-    })
-
-    return reply.send(success({ signedIn, consecutiveDays, todayReward, week, record }))
-  }
-
+  // GET /sign-in/today - 今日签到状态
   server.get(
     '/sign-in/today',
     {
@@ -275,58 +224,47 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
         response: buildResponseSchema(401),
       },
     },
-    signInTodayHandler,
-  )
+    async (request, reply) => {
+      const userId = request.userId!
+      const today = todayString()
+      const record = await findTodaySignIn(userId, today)
+      const signedIn = !!record
 
-  // GET /checkin/today - 今日签到状态别名(CheckInScreen CheckInInfo 形状)
-  // {todaySigned, streak, totalDays, monthlyDays, todayReward, calendar} — 形状定义
-  // 在 packages/types CheckInInfo,两端消费方(mobile-rn / miniapp)按它渲染。
-  server.get('/checkin/today', async (request, reply) => {
-    const userId = request.userId!
-    const today = todayString()
-    const record = await findTodaySignIn(userId, today)
-    const signedIn = !!record
-    let consecutiveDays = 0
-    if (record) {
-      consecutiveDays = record.consecutiveDays
-    } else {
-      const yesterday = shiftDate(today, -1)
-      const yesterdayRecord = await findSignInRecord(userId, yesterday)
-      consecutiveDays = yesterdayRecord?.consecutiveDays ?? 0
-    }
-    const todayReward = signedIn ? record!.rewardPoints : calcSignInReward(consecutiveDays + 1)
-    const [totals] = await db
-      .select({
-        totalDays: sql<number>`count(*)::int`,
-        monthlyDays: sql<number>`(count(*) filter (where cast(${signInRecords.signInDate} as text) like ${today.slice(0, 7) + '%'}))::int`,
-      })
-      .from(signInRecords)
-      .where(eq(signInRecords.userId, userId))
-    const weekStart = shiftDate(today, -6)
-    const recentRecords = await findRecentSignInRecords(userId, weekStart, today)
-    const recordMap = new Map(recentRecords.map((r) => [r.signInDate, r]))
-    const calendar = Array.from({ length: 7 }, (_, i) => {
-      const date = shiftDate(weekStart, i)
-      const r = recordMap.get(date)
-      return {
-        date,
-        signed: !!r,
-        reward:
-          r?.rewardPoints ??
-          calcSignInReward(consecutiveDays - (6 - i) > 0 ? consecutiveDays - (6 - i) : 1),
+      // 连续天数：已签到取 record，否则查昨日记录判断当前连续
+      let consecutiveDays = 0
+      if (record) {
+        consecutiveDays = record.consecutiveDays
+      } else {
+        const yesterday = shiftDate(today, -1)
+        const yesterdayRecord = await findSignInRecord(userId, yesterday)
+        consecutiveDays = yesterdayRecord?.consecutiveDays ?? 0
       }
-    })
-    return reply.send(
-      success({
-        todaySigned: signedIn,
-        streak: consecutiveDays,
-        totalDays: totals?.totalDays ?? 0,
-        monthlyDays: totals?.monthlyDays ?? 0,
-        todayReward,
-        calendar,
-      }),
-    )
-  })
+
+      // 今日奖励：已签到取 record.rewardPoints，否则按签到后连续天数预计算
+      const todayReward = signedIn ? record!.rewardPoints : calcSignInReward(consecutiveDays + 1)
+
+      // 周历：最近 7 天（今天往前 6 天 ~ 今天）
+      const weekStart = shiftDate(today, -6)
+      const weekEnd = shiftDate(today, 1) // 不含明天
+      const recentRecords = await findRecentSignInRecords(userId, weekStart, weekEnd)
+      const recordMap = new Map(recentRecords.map((r) => [r.signInDate, r]))
+      const week = Array.from({ length: 7 }, (_, i) => {
+        const date = shiftDate(weekStart, i)
+        const r = recordMap.get(date)
+        const d = new Date(date + 'T00:00:00Z')
+        return {
+          date,
+          day: d.getUTCDay(),
+          reward:
+            r?.rewardPoints ??
+            calcSignInReward(consecutiveDays - (6 - i) > 0 ? consecutiveDays - (6 - i) : 1),
+          signed: !!r,
+        }
+      })
+
+      return reply.send(success({ signedIn, consecutiveDays, todayReward, week, record }))
+    },
+  )
 
   // GET /sign-in/history - 签到历史（分页，按月查询）
   server.get('/sign-in/history', async (request, reply) => {

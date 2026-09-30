@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi } from '@/lib/api' // AI 助教已统一切到同源 /api 代理(G-978072)
+import { fetchApi, fetchAiServiceJson } from '@/lib/api'
 
 /** SRS 复习题目 */
 export interface ReviewQuestion {
@@ -67,9 +67,9 @@ export async function getReviewStats(): Promise<ReviewStats> {
   return srsGet<ReviewStats>('/api/srs-review/stats')
 }
 
-// ===== AI 助教(经 apps/api 同源代理 /api/ai-tutor/*,2026-09-30 弃直连 8803,G-978072)=====
-// 直连的问题:浏览器必须可达 ai-service 端口,生产不暴露即假死;且问答不落库、
-// 学-练-测-评不可回收。代理侧(apps/api/src/routes/ai-tutor-routes.ts)统一信封并落 ai_tutor_logs。
+// ===== AI 助教(直连 ai-service 8803 端口)=====
+
+const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:8803'
 
 export interface ExplainResult {
   answer: string
@@ -92,62 +92,49 @@ export interface QuizItem {
 export interface QuizResult {
   quizzes: QuizItem[]
 }
-/** AI 助教历史问答(ai_tutor_logs 投影) */
-export interface TutorHistoryItem {
-  id: string
-  mode: 'explain' | 'hint' | 'quiz'
-  subject?: string | null
-  question: string
-  answer: unknown
-  createdAt: string
-}
-
-/** 上下文注入:章节 + 知识点(渲染进 ai-service 学科 persona prompt) */
-export interface TutorContext {
-  chapter?: string
-  knowledge_points?: string[]
-  difficulty?: string
-}
 
 async function aiPost<T>(path: string, body: unknown): Promise<T> {
-  const r = await fetchApi<T>(`/api/ai-tutor${path}`, {
+  // 2026-08-31 修复:ai-service 全局 JWT 中间件强制鉴权,不带 token 直连 8803 → 401。
+  // 2026-09-09 0-5 迁移:统一走 fetchAiServiceJson(共享层 tokenProvider 注入 Bearer,
+  // 附带 X-Requested-With CSRF / 设备指纹 / 30s 超时),AI_SERVICE_URL 为绝对 URL 直通。
+  const res = await fetchAiServiceJson<unknown>(`${AI_SERVICE_URL}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!r.success) throw new Error(r.error)
-  return r.data
+  if (!res.success) throw new Error(res.error ?? `AI 助教请求失败`)
+  // 兼容两种响应:标准 {code,data} 包装取 data,非标准直接整体返回(与旧 json?.data ?? json 语义一致)
+  const json = res.data
+  return (isRecord(json) ? (json.data ?? json) : json) as T
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
 /** 概念讲解 */
 export async function explainConcept(
   subject: string,
   question: string,
-  context?: TutorContext,
+  context?: unknown,
 ): Promise<ExplainResult> {
-  return aiPost<ExplainResult>('/explain', { subject, question, context })
+  return aiPost<ExplainResult>('/api/ai-tutor/explain', { subject, question, context }) // method: POST
 }
 
 /** 提示引导 */
 export async function getHint(
   subject: string,
   question: string,
-  context?: TutorContext,
+  context?: unknown,
 ): Promise<HintResult> {
-  return aiPost<HintResult>('/hint', { subject, question, context })
+  return aiPost<HintResult>('/api/ai-tutor/hint', { subject, question, context }) // method: POST
 }
 
 /** 生成练习题 */
 export async function generateQuiz(
   subject: string,
-  context?: TutorContext,
+  context?: unknown,
   count = 1,
 ): Promise<QuizResult> {
-  return aiPost<QuizResult>('/quiz', { subject, context, count })
-}
-
-/** 当前用户最近问答(倒序) */
-export async function getAiTutorHistory(limit = 5): Promise<{ list: TutorHistoryItem[] }> {
-  return srsGet<{ list: TutorHistoryItem[] }>(`/api/ai-tutor/history?limit=${limit}`)
+  return aiPost<QuizResult>('/api/ai-tutor/quiz', { subject, context, count }) // method: POST
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
