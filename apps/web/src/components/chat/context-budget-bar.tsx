@@ -62,13 +62,14 @@ export function ContextBudgetBar() {
   const percent = budgetBarPercent(event)
   const resetText = event.resetAt ? formatResetTime(event.resetAt, locale) : null
 
+  // 间距由唯一挂载点 InputStatusSlot 统一接管(2026-09-30),不再自带 mx-4 mb-2
   return (
     <div
       role="status"
       data-testid="context-budget-bar"
       data-level={event.level}
       className={cn(
-        'mx-4 mb-2 ui-card rounded-lg px-3 py-2 text-xs',
+        'ui-card rounded-lg px-3 py-2 text-xs',
         critical
           ? 'bg-red-500/10 text-red-700 dark:text-red-400'
           : 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
