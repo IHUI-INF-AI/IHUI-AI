@@ -115,10 +115,12 @@
  */
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveGitBin } from './lib/gitdir.mjs'
+// §26:临时夹具唯一落点(不落 os.tmpdir、不落仓库树内)
+import { mkScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -907,11 +909,9 @@ function selfTestRun() {
   check('24 棘轮:基线 key 实发归零 → 收缩提示不判红', stC.baselineShrinkKeys.length === 1)
 
   // ── 临时仓:--staged / 全量 / 空暂存退化 ──
-  // 落点仍是仓内 .ihui-agent/tmp(AGENTS §15),但干净 checkout / CI runner 上该目录不存在,
-  // mkdtempSync 会直接 ENOENT —— recursive mkdir 幂等,已存在不报错。
-  const tmpRoot = join(ROOT, '.ihui-agent', 'tmp')
-  mkdirSync(tmpRoot, { recursive: true })
-  const root = mkdtempSync(join(tmpRoot, 'brand-mail-drill-'))
+  // 落点 = §26 唯一夹具出口 mkScratch(此前落仓内 .ihui-agent/tmp:仓树内夹具不受
+  // gitdir 的 scratch 嵌套闸保护,且会被 post-commit 的 --auto-clean 波及)。
+  const root = mkScratch('brand-mail-drill-')
   const repo = join(root, 'repo')
   mkdirSync(repo, { recursive: true })
   const g = (args) => git(['-C', repo, ...args])
