@@ -12211,6 +12211,7 @@
     "unpin": "고정 해제",
     "unsaved": "저장되지 않음",
     "update": {
+      "revoked": "이 버전은 더 이상 제공되지 않습니다.",
       "autoRestartIn": "{countdown}초 후 자동 재시작...",
       "autoRetrying": "업데이트 실패, 자동 재시도 중...",
       "available": "새 버전이 있습니다",
@@ -15021,6 +15022,8 @@
     "title": "오픈 플랫폼 Feature Center"
   },
   "feedback": {
+    "unsupportedImage": "PNG, JPG, GIF, WebP 이미지만 지원합니다.",
+    "requestIdSuffix": "피드백 번호: {requestId}.",
     "backToList": "목록으로 돌아가기",
     "contactPlaceholder": "선택, 연락처",
     "contentPlaceholder": "질문 내용을 상세히 작성하세요 (10-2000자)",

@@ -12221,6 +12221,7 @@
     "unpin": "Unpin",
     "unsaved": "Unsaved",
     "update": {
+      "revoked": "This version is no longer available.",
       "autoRestartIn": "Auto-restarting in {countdown}s...",
       "autoRetrying": "Update failed, auto-retrying...",
       "available": "New Version Available",
@@ -15031,6 +15032,8 @@
     "title": "Feature Center"
   },
   "feedback": {
+    "unsupportedImage": "Only PNG, JPG, GIF and WebP images are supported.",
+    "requestIdSuffix": "Feedback ID: {requestId}.",
     "backToList": "Back to feedback",
     "contactPlaceholder": "Optional, so we can reach you",
     "contentPlaceholder": "Describe your issue or suggestion...",
