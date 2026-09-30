@@ -15876,6 +15876,8 @@
       "unsynced": "Unsynced"
     },
     "terminalPanel": {
+      "switchToDark": "Switch to dark terminal",
+      "switchToLight": "Switch to light terminal",
       "aiDiagnoseTitle": "AI error diagnosis",
       "aiServiceUnavailable": "AI service is temporarily unavailable, please try again later",
       "aiSuggestTitle": "AI command suggestions",
