@@ -141,8 +141,7 @@
     "orUseAccount": "또는 계정으로 로그인",
     "ssoCancelled": "SSO 로그인이 취소되었습니다",
     "ssoLoading": "SSO 인증 중...",
-    "ssoLogin": "SSO 원클릭 로그인",
-    "ssoFailed": "SSO 로그인 실패"
+    "ssoLogin": "SSO 원클릭 로그인"
   },
   "popup": {
     "copyFailed": "복사 실패",
@@ -166,13 +165,14 @@
     "emptyHint": "단어장이 비어 있습니다, 단어를 조회하고 저장하세요"
   },
   "chat": {
+    "retryMessage": "재시도",
+    "citationTitle": "참조 출처",
+    "retryScheduled": "업스트림을 일시적으로 사용할 수 없습니다 — {attempt}/{max}회 재시도, {seconds}초 후 계속",
+    "retryScheduledNow": "업스트림 채널 전환 중 — {attempt}/{max}회 즉시 재시도",
     "history": "기록",
     "title": "AI 채팅",
     "exit": "종료",
     "selectModel": "모델 선택",
-    "selectWorkspace": "작업 폴더 선택",
-    "workspaceNotWritable": "해당 폴더에 쓰기 권한이 없어 AI가 파일을 수정할 수 없습니다",
-    "approveForSession": "이 세션에서는 항상 허용",
     "emptyHint": "메시지를 입력하여 시작",
     "inputPlaceholder": "무언가 입력하세요...",
     "compactionNotice": "컨텍스트 자동 압축:{before} → {after}({removed}개 기록 제거)",
@@ -189,25 +189,10 @@
     "toolStatusError": "실패",
     "toolDetail": "호출 상세",
     "terminal": "터미널",
+    "terminalIsolation": "명령은 격리된 샌드박스에서 실행되며 기본적으로 네트워크에 접근하지 않습니다",
     "terminalStatusRunning": "실행 중",
     "terminalStatusCompleted": "완료",
     "terminalStatusFailed": "실패",
-    "planStatusPending": "대기 중",
-    "planStatusInProgress": "진행 중",
-    "planStatusCompleted": "완료",
-    "subagentTools": "하위 에이전트 도구 ×{count}",
-    "usage": "사용량",
-    "retryMessage": "재시도",
-    "branchFromHere": "여기에서 분기",
-    "branchDone": "새 대화로 분기했습니다",
-    "branchFailed": "분기 실패:{reason}(서비스 상태 {status})",
-    "conversationCreateFailed": "대화 생성 실패:{reason}(서비스 상태 {status})",
-    "messageSaveFailed": "메시지를 대화에 저장하지 못했습니다:{reason}(서비스 상태 {status})",
-    "citationTitle": "참조 출처",
-    "steerNoticeTitle": "{count}회 유도됨",
-    "retryScheduled": "업스트림을 일시적으로 사용할 수 없습니다 — {attempt}/{max}회 재시도, {seconds}초 후 계속",
-    "retryScheduledNow": "업스트림 채널 전환 중 — {attempt}/{max}회 즉시 재시도",
-    "terminalIsolation": "명령은 격리된 샌드박스에서 실행되며 기본적으로 네트워크에 접근하지 않습니다",
     "terminalTruncated": "…(잘림, 전체 {total}자)",
     "injectionTitle": "이번 컨텍스트: {count}개",
     "injectionExpand": "나머지 {count}개 펼치기",
@@ -216,6 +201,11 @@
     "injectionKindWorkspace": "워크스페이스 메모리 / AGENTS.md를 주입했습니다",
     "injectionKindRepoWiki": "Repo Wiki 프로젝트 백과를 주입했습니다",
     "injectionKindAutoContext": "{count, plural, other {자동 검색한 코드 컨텍스트 {count}개를 주입했습니다}}",
+    "planStatusPending": "대기 중",
+    "planStatusInProgress": "진행 중",
+    "planStatusCompleted": "완료",
+    "subagentTools": "하위 에이전트 도구 ×{count}",
+    "usage": "사용량",
     "subagentRoleValidator": "검증자",
     "subagentRoleReviewer": "검토자",
     "subagentRoleExplorer": "탐색자",
@@ -225,19 +215,7 @@
     "subagentRoleResearcher": "연구원",
     "subagentRoleOptimizer": "최적화자",
     "subagentRoleDebugger": "디버거",
-    "subagentRoleRefactorer": "리팩터링자",
-    "modelCategoryChat": "대화·추론",
-    "modelCategoryVision": "비전 이해",
-    "modelCategoryEmbedding": "임베딩",
-    "modelCategoryRerank": "리랭크",
-    "modelCategoryTts": "음성 합성",
-    "modelCategoryAsr": "음성 인식",
-    "modelCategoryImage": "이미지 생성",
-    "modelCategoryVideo": "비디오 생성",
-    "modelCategoryGuard": "안전 필터",
-    "modelCategoryOcr": "문자 인식",
-    "modelCategoryOther": "기타",
-    "modelHistoryToggle": "이전 모델"
+    "subagentRoleRefactorer": "리팩터링자"
   },
   "settings": {
     "language": "인터페이스 언어",
@@ -291,6 +269,9 @@
     "approvalSent": "제출됨",
     "approvalFailed": "제출 실패",
     "approvalUnavailable": "이 채널은 온라인 승인을 지원하지 않습니다",
+    "decisionAllow": "허용됨",
+    "decisionAsk": "승인 대기",
+    "decisionDeny": "차단됨",
     "levelRead": "읽기 전용",
     "levelWrite": "쓰기",
     "levelDangerous": "위험함",
@@ -456,10 +437,6 @@
       "benefitsTitle": "포함된 혜택",
       "note": "가격과 혜택은 웹 버전의 실제 표시를 따릅니다.",
       "open": "웹 버전에서 개통"
-    },
-    "topics": {
-      "discussions": "{count}개 토론",
-      "followers": "{count}명 팔로워"
     }
   },
   "permissionTier": {
@@ -604,17 +581,5 @@
       }
     },
     "vividTail": ", 금방 끝납니다"
-  },
-  "ai": {
-    "pane": {
-      "inputNotices": {
-        "queue": {
-          "denied": {
-            "reorder": "대기열 순서를 변경할 수 없습니다",
-            "undo": "대기 중인 메시지를 취소할 수 없습니다"
-          }
-        }
-      }
-    }
   }
 }

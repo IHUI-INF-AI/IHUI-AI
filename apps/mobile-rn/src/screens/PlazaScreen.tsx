@@ -65,7 +65,7 @@ import { navigateDrawerTab } from '../navigation/tab-utils'
 import { rpx } from '../utils/rpx'
 import { Search, User, Menu, FolderOpen, X } from 'lucide-react-native'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 340,
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadiusFor.panel,
+    borderRadius: rnRadius.xl,
     padding: rpx(48),
     alignItems: 'center',
   } as ViewStyle,
@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
   identityAvatar: {
     width: 56,
     height: 56,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: 56 / 2, // radius-exempt: 身份弹窗头像几何正圆(56dp 直径/2)
     backgroundColor: tokens.surface.muted,
     overflow: 'hidden',
   } as ImageStyle,
