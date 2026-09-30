@@ -55,6 +55,7 @@ export async function completeExportTask(
   const rows = await db
     .update(exportTasks)
     .set({ status: 1, fileUrl, completedAt: new Date() })
+  // status-guard-exempt: 入向终态(导出完成置 1),非出向
     .where(eq(exportTasks.id, id))
     .returning()
   return rows[0]
