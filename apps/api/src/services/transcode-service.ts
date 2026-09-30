@@ -44,6 +44,14 @@ export interface TranscodeJob {
   completedAt?: Date
   /** 转码结果文件大小（字节） */
   outputSize?: number
+  /**
+   * G-998115(b76-08a):退出归因三态 —— 宿主主动回收(cancel)写 expected 且首因锁定;
+   * close 时没有归因记录 ⇒ unexpected(判据不接受"非零 code 即异常"的反面:被我们
+   * 杀掉的进程不该被记成异常,反之 agent 自行退出也算 unexpected)。
+   */
+  terminationKind?: 'expected' | 'unexpected'
+  /** 首因锁定:首次 cleanup 写入后,后续幂等回收不得改写。 */
+  terminationKindLocked?: boolean
 }
 
 export interface TranscodeInput {
@@ -160,6 +168,26 @@ function evictOldestJob(): void {
   }
 }
 
+/**
+ * G-998115(b76-08a):子进程 stderr 尾巴采集口 —— 三类凭据形状先脱敏再限长
+ * (与 apps/cli/src/subagents/worker-pool.ts 的 boundedRedactedTail 同纪律;
+ * apps 间不跨包引用,故此处按同一判据落一份,由守门 check-diagnostic-redaction 统一盯)。
+ */
+const REDACT_TAIL_MAX_CHARS = 500
+function redactTail(stderr: string, cap: number = REDACT_TAIL_MAX_CHARS): string {
+  let text = String(stderr ?? '')
+  // 顺序即判据:Bearer/Basic 先于赋值式(否则 'Bearer' 被当值吃掉,真凭据裸奔)
+  text = text.replace(/\b(bearer|basic)\s+(\S+)/gi, (_m, scheme: string) => `${scheme} [REDACTED]`)
+  text = text.replace(
+    /\b(api[-_]?key|authorization|cookie|credential|password|secret|token)\b["']?(\s*[=:]\s*)(\S+)/gi,
+    (_m, key: string, sep: string) => `${key}${sep}[REDACTED]`,
+  )
+  text = text.replace(/\bsk-[A-Za-z0-9_-]{8,}/g, '[REDACTED]')
+  const trimmed = text.trim()
+  if (trimmed.length <= cap) return trimmed
+  return `${trimmed.slice(-cap)}…[truncated:true]`
+}
+
 export async function createTranscodeJob(input: TranscodeInput): Promise<TranscodeJob> {
   // P1 修复:内存泄露防护 — 超过 MAX_JOBS 时淘汰最旧任务
   if (jobs.size >= MAX_JOBS) {
@@ -230,6 +258,11 @@ export async function startTranscodeJob(jobId: string): Promise<TranscodeJob> {
     // error 时 reject(不再 resolve),让调用方能捕获 spawn 失败。
     child.once('close', async (code) => {
       childProcesses.delete(jobId)
+      // G-998115:没有宿主归因记录 ⇒ unexpected(首因锁定,后续不得改写)
+      if (!job.terminationKindLocked) {
+        job.terminationKind = 'unexpected'
+        job.terminationKindLocked = true
+      }
       // 已取消:保持 cancelled 状态,不改写
       if (job.status === 'cancelled') {
         resolve(job)
@@ -248,7 +281,8 @@ export async function startTranscodeJob(jobId: string): Promise<TranscodeJob> {
         }
       } else {
         job.status = 'failed'
-        job.error = `FFmpeg 退出码 ${code}: ${stderrBuffer.slice(-500)}`
+        // G-998115:stderr 尾巴先脱敏再限长(boundedRedactedTail 同纪律),带 truncated 标记
+        job.error = `FFmpeg 退出码 ${code}(attribution=${job.terminationKind}): ${redactTail(stderrBuffer, 500)}`
       }
       resolve(job)
     })
@@ -281,6 +315,11 @@ export async function cancelTranscodeJob(jobId: string): Promise<TranscodeJob | 
   // 防止 startTranscodeJob 的 close 回调把 cancelled 覆盖为 failed + 避免僵尸进程。
   job.status = 'cancelled'
   job.completedAt = new Date()
+  // G-998115:宿主主动回收 ⇒ 写归因 expected(首因锁定:后续幂等 cancel 不得改写)
+  if (!job.terminationKindLocked) {
+    job.terminationKind = 'expected'
+    job.terminationKindLocked = true
+  }
   if (child) {
     child.kill('SIGKILL')
     // 等 close 事件再继续,避免僵尸进程;5s 超时兜底防卡死
@@ -313,11 +352,21 @@ export async function deleteTranscodeJob(jobId: string): Promise<boolean> {
 }
 
 /** 检查 ffmpeg 是否可用。 */
+// b76-12f 票3:在飞启动收敛 —— 并发探测共享同一次 ffmpeg spawn(按 promise identity 清表)。
+let ffmpegProbeInFlight: Promise<boolean> | null = null
+
 export async function isFfmpegAvailable(): Promise<boolean> {
-  return new Promise((resolve) => {
+  // 恢复点复查:在飞探测已在 ⇒ 不再 spawn 第二个 ffmpeg -version
+  if (ffmpegProbeInFlight) return ffmpegProbeInFlight
+  const probe = new Promise<boolean>((resolve) => {
     const child = spawn('ffmpeg', ['-version'], { stdio: 'ignore', windowsHide: true })
     child.on('close', (code) => resolve(code === 0))
     child.on('error', () => resolve(false))
+  }).finally(() => {
+    // 按 promise identity 清表项(防换代误删)
+    if (ffmpegProbeInFlight === probe) ffmpegProbeInFlight = null
   })
+  ffmpegProbeInFlight = probe
+  return probe
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
