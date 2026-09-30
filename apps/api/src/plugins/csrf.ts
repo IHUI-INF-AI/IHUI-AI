@@ -194,7 +194,9 @@ const csrfPlugin: FastifyPluginAsync<CsrfPluginOptions> = async (
     reply.setCookie(CSRF_COOKIE_NAME, cookieValue, {
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV !== 'development',
+      // G-998138:档位经 config 的唯一出口(生产 config 恒带 isDevelopmentRuntime,
+      // 缺省 fail-safe 为 secure;旧测试 mock 的 config 形状缺该字段 ⇒ 按旧判据回退)
+      secure: !(config.isDevelopmentRuntime ?? config.NODE_ENV === 'development'),
       path: '/',
       maxAge: CSRF_TOKEN_TTL,
     })
