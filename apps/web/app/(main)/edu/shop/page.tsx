@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ShoppingCart, Loader2, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
@@ -304,15 +305,26 @@ export default function EduShopPage() {
                         >
                           {t(order.status) ?? order.status}
                         </span>
+                        {/* pending 订单此前只能取消不能支付(订单堆积无法闭环,G-978073);
+                            edu 订单经 createOrder 双写通用 orders 表,orderNo 可直连支付确认页 */}
                         {order.status === 'pending' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={cancelMutation.isPending}
-                            onClick={() => setCancelId(order.id)}
-                          >
-                            {t('cancelOrder')}
-                          </Button>
+                          <>
+                            <Button size="sm" asChild>
+                              <Link
+                                href={`/learn/payment/confirm?orderNo=${encodeURIComponent(order.orderNo)}`}
+                              >
+                                {t('payNow')}
+                              </Link>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={cancelMutation.isPending}
+                              onClick={() => setCancelId(order.id)}
+                            >
+                              {t('cancelOrder')}
+                            </Button>
+                          </>
                         )}
                       </div>
                     </CardContent>
