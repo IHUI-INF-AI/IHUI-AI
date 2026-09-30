@@ -499,7 +499,11 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/learn', labelKey: 'learn', icon: GraduationCap },
       { href: '/live', labelKey: 'live', icon: PlayCircle },
       { href: '/exam', labelKey: 'exam', icon: ScrollText },
+      // 错题本/今日复习此前实现完整但全站无入口(只能手敲 URL,G-978073)
+      { href: '/exam/wrong-questions', labelKey: 'exam.wrongQuestions.title', icon: NotebookPen },
+      { href: '/learn/review', labelKey: 'learn.dailyReview.title', icon: RefreshCw },
       { href: '/lecturers', labelKey: 'lecturers', icon: Users },
+      // /schedule 实为定时任务管理页(label 已从「课表」改为「任务调度」,学生课表在 /edu/schedule)
       { href: '/schedule', labelKey: 'schedule', icon: Calendar },
       { href: '/topics', labelKey: 'topics', icon: FileText },
       { href: '/asks', labelKey: 'asks', icon: MessageSquare },
