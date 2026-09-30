@@ -10,8 +10,14 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { executeAgentStream, cancelAgent } from '@ihui/api-client'
-import type { AgentExecuteRequest, AgentStreamEvent, AgentStreamCallbacks } from '@ihui/api-client'
+import type {
+  AgentExecuteRequest,
+  AgentResumeResult,
+  AgentStreamEvent,
+  AgentStreamCallbacks,
+} from '@ihui/api-client'
 import type { AgentToolCall, AgentChange, TerminalTask, PlanStep } from '@/hooks/use-agent-progress'
+import { useAgentRunPause } from '@/hooks/use-agent-run-pause'
 import { AgentInputArea } from './AgentInputArea'
 import { AgentProgressArea } from './AgentProgressArea'
 import { AgentResultFooter } from './AgentResultFooter'
@@ -68,6 +74,28 @@ export function AgentPane() {
   const [currentNode, setCurrentNode] = React.useState<string | null>(null)
   /** done 帧带来的闸门结论;null = 本轮还没跑完 */
   const [goalView, setGoalView] = React.useState<GoalVerificationView | null>(null)
+  /**
+   * 本轮运行的会话标识,**一律取服务端帧里带回的那一份**(`start` 帧只回显请求值,
+   * 实际来自 hook 帧 / `done` 帧的 `session_id`)。端内刻意不自造一个 id 再发出去:
+   * pause / resume 的属主判定就建立在"这个 session 是谁的"上,浏览器自报等于让
+   * 调用方声明归属(§5「身份不得由模型/客户端决定」同一取向)。
+   * 拿到它之前暂停/继续按钮一律置灰 —— "还不知道能不能暂停"不写成"可以暂停"。
+   */
+  const [sessionId, setSessionId] = React.useState<string | null>(null)
+
+  // 续跑**不在原 SSE 流上**(那条流随本轮循环结束就关了),终态只在这条 HTTP 响应里回来,
+  // 所以这里直接落结果区;不做"假装还在流式"的观感补丁。
+  const handleResumed = React.useCallback((payload: AgentResumeResult) => {
+    const inner = payload.result
+    if (!inner || typeof inner !== 'object') return
+    const rec = inner as Record<string, unknown>
+    if (typeof rec.final_response === 'string' && rec.final_response) {
+      setResult(rec.final_response)
+    }
+    if (typeof rec.error === 'string' && rec.error) setError(rec.error)
+  }, [])
+
+  const runPause = useAgentRunPause({ sessionId, onResumed: handleResumed })
 
   // refs
   const abortRef = React.useRef<AbortController | null>(null)
@@ -103,7 +131,9 @@ export function AgentPane() {
     setTaskId(null)
     setCurrentNode(null)
     setGoalView(null)
-  }, [])
+    setSessionId(null)
+    runPause.reset()
+  }, [runPause.reset])
 
   // 停止执行(abort SSE + 调 cancelAgent)
   const stop = React.useCallback(async () => {
@@ -119,13 +149,23 @@ export function AgentPane() {
         // 取消失败忽略(本地 abort 已停止 SSE 流)
       }
     }
+    // 停止 = 这轮结束了,暂停态随之作废(留着它界面会挂着一个永远点不动的「继续」)
+    runPause.reset()
     setIsRunning(false)
-  }, [taskId])
+  }, [taskId, runPause.reset])
 
   // 处理 SSE 事件(onEvent 兜底,处理 tool_result/terminal/plan_updated/node 等)
   // 仅用 setter 函数式更新 + 纯函数,引用稳定,空依赖安全
   const handleStreamEvent = React.useCallback((event: AgentStreamEvent) => {
     const type = event.type
+
+    // V3 #65:任何带回 session_id 的帧都把那份标识落下来(hook 帧与 done 帧携带的是
+    // **服务端解析后**的值,而 start 帧只回显请求里的那一份 —— 我们不发,所以只能等前者)。
+    // 必须放在下面 tool_call / plan 的早退**之前**:一轮只发工具调用的运行如果拿不到
+    // 会话标识,暂停按钮就永远点不动,而账面看起来"接了"。
+    if (typeof event.session_id === 'string' && event.session_id) {
+      setSessionId(event.session_id)
+    }
 
     // tool_call 由 onToolCall 回调处理,此处跳过避免重复
     if (type === 'tool_call') return
@@ -264,6 +304,9 @@ export function AgentPane() {
     setTaskId(null)
     setCurrentNode(null)
     setGoalView(null)
+    // 新一轮 = 新会话标识 + 清掉上一轮的暂停态(否则"继续"会打到已结束的旧 session 上)
+    setSessionId(null)
+    runPause.reset()
     setIsRunning(true)
     toolIdCounter.current = 0
     terminalIdCounter.current = 0
@@ -342,7 +385,7 @@ export function AgentPane() {
       setIsRunning(false)
       abortRef.current = null
     }
-  }, [goal, model, criteriaDraft, isRunning, handleStreamEvent, t])
+  }, [goal, model, criteriaDraft, isRunning, handleStreamEvent, runPause.reset, t])
 
   // 卸载时取消进行中的 SSE
   React.useEffect(() => {
@@ -403,6 +446,12 @@ export function AgentPane() {
         tone={resultToneFromGoalKind(goalView ? goalView.kind : null)}
         onStop={() => void stop()}
         onClear={clear}
+        isPaused={runPause.isPaused}
+        pending={runPause.pending}
+        pauseAvailable={runPause.available}
+        onPause={() => void runPause.pause()}
+        onResume={() => void runPause.resume()}
+        controlFailure={runPause.failure}
       />
     </div>
   )

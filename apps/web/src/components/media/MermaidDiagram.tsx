@@ -311,11 +311,7 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
           className={zoomToolBtnClass}
           aria-label={imageCopied ? t('mermaidImageCopied') : t('mermaidCopyImage')}
         >
-          {imageCopied ? (
-            <Check className="h-3.5 w-3.5 text-green-600" />
-          ) : (
-            <ImageDown className="h-3.5 w-3.5" />
-          )}
+          {imageCopied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <ImageDown className="h-3.5 w-3.5" />}
         </button>
       </div>
       {/* transform 缩放:scrollable overflow 含被变换内容的包围盒,缩放后横/纵滚动可达;
@@ -323,9 +319,7 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
       <div ref={scrollRef} className="overflow-auto" data-testid="mermaid-scroll">
         <div
           ref={zoomedRef}
-          style={
-            zoom === 1 ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'top left' }
-          }
+          style={zoom === 1 ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'top left' }}
           dangerouslySetInnerHTML={{ __html: svg }}
         />
       </div>

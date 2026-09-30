@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useCallback } from 'react'
 import { getProfile, sendSmsCode, bindPhone, pwdExist } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import { useFieldFocus } from '@/hooks/use-field-focus'
 
 export default function Phone() {
   const { t } = useI18n()
@@ -24,6 +25,10 @@ export default function Phone() {
   const [submitting, setSubmitting] = useState(false)
   const oldTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const newTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // 聚焦态描边:描边画在外层输入行容器上(端内唯一可行形态,取色唯一出处见 hook)
+  const oldCodeFocus = useFieldFocus()
+  const newPhoneFocus = useFieldFocus()
+  const newCodeFocus = useFieldFocus()
 
   const tt = useCallback(
     (k: string, fb: string) => {
@@ -182,7 +187,10 @@ export default function Phone() {
               {tt('user.phone.currentLabel', '当前手机号')}: {maskedPhone}
             </Text>
             <View className="mb-[32rpx]">
-              <View className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]">
+              <View
+                className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]"
+                style={oldCodeFocus.focusStyle}
+              >
                 <Input
                   className="h-full flex-1 text-[length:32rpx] text-foreground"
                   type="number"
@@ -190,6 +198,8 @@ export default function Phone() {
                   placeholder={tt('user.phone.codePlaceholder', '请输入验证码')}
                   value={oldCode}
                   onInput={(e) => setOldCode(e.detail.value)}
+                  onFocus={oldCodeFocus.onFocus}
+                  onBlur={oldCodeFocus.onBlur}
                 />
                 <Text
                   className={`shrink-0 pl-[24rpx] text-[length:28rpx] ${
@@ -228,7 +238,10 @@ export default function Phone() {
                 : tt('user.phone.bindDesc', '绑定后可用于登录、找回密码、接收通知')}
             </Text>
             <View className="mb-[32rpx]">
-              <View className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]">
+              <View
+                className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]"
+                style={newPhoneFocus.focusStyle}
+              >
                 <Input
                   className="h-full flex-1 text-[length:32rpx] text-foreground"
                   type="number"
@@ -236,11 +249,16 @@ export default function Phone() {
                   placeholder={tt('user.phone.newPhonePlaceholder', '请输入新手机号')}
                   value={newPhone}
                   onInput={(e) => setNewPhone(e.detail.value)}
+                  onFocus={newPhoneFocus.onFocus}
+                  onBlur={newPhoneFocus.onBlur}
                 />
               </View>
             </View>
             <View className="mb-[32rpx]">
-              <View className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]">
+              <View
+                className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]"
+                style={newCodeFocus.focusStyle}
+              >
                 <Input
                   className="h-full flex-1 text-[length:32rpx] text-foreground"
                   type="number"
@@ -248,6 +266,8 @@ export default function Phone() {
                   placeholder={tt('user.phone.codePlaceholder', '请输入验证码')}
                   value={newCode}
                   onInput={(e) => setNewCode(e.detail.value)}
+                  onFocus={newCodeFocus.onFocus}
+                  onBlur={newCodeFocus.onBlur}
                 />
                 <Text
                   className={`shrink-0 pl-[24rpx] text-[length:28rpx] ${
