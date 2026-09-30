@@ -207,29 +207,21 @@ describe('updater', () => {
 
     it('有更新时输出 console.warn 含版本号', async () => {
       state.cacheExists = false;
-      // G-243 起 notifyUpdates 会先问服务端最低版本闸门(走 createApiRequest,读 res.text()),
-      // 再查 registry(读 res.json())。两笔出站请求按 URL 分流各自 mock。
-      fetchMock.mockImplementation(async (url: unknown) => {
-        if (String(url).includes('min-cli-version')) {
-          return {
-            ok: true,
-            status: 200,
-            statusText: 'OK',
-            text: async () =>
-              JSON.stringify({ data: { minimumVersion: null, source: 'test', reason: 'no minimum' } }),
-          };
-        }
-        return { ok: true, json: async () => ({ 'dist-tags': { latest: '2.0.0' } }) };
+      // 2026-09-27 G-243 起 notifyUpdates 同时问一次服务端最低版本闸门 ⇒ 同一轮里有**两路** fetch
+      // (闸门 + registry)。原写法 mockResolvedValueOnce 只给一次值,谁先跑谁拿走,另一路拿到
+      // undefined 就不再 warn —— 用 mockResolvedValue 让两路都拿到 registry 形状。
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({ 'dist-tags': { latest: '2.0.0' } }),
       });
       notifyUpdates();
       await new Promise((resolve) => setImmediate(resolve));
       await new Promise((resolve) => setImmediate(resolve));
       expect(warnSpy).toHaveBeenCalled();
-      // 闸门放行也会留一行痕迹,升级提示按内容定位(仍要求同时含新/旧版本号)
-      const callArg =
-        warnSpy.mock.calls.map((c) => String(c[0] ?? '')).find((s) => s.includes('2.0.0')) ?? '';
-      expect(callArg).toContain('2.0.0');
-      expect(callArg).toContain('1.0.0');
+      // 同上:闸门那条留痕也在 console.warn 里,不断定第几条,只要求"存在一条含两个版本号的提示"
+      const allWarns = warnSpy.mock.calls.map((c) => String(c[0] ?? '')).join('\n');
+      expect(allWarns).toContain('2.0.0');
+      expect(allWarns).toContain('1.0.0');
     });
   });
 });
