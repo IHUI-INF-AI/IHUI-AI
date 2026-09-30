@@ -21089,3 +21089,14 @@ services 归档/分享/HTTP 层)判"值得抄"的 **26 条**逐条立项(每条�
 - **环境与工具**:IDE 内置浏览器 openExternalUrl 在 web 端走 window.open 新 tab(非系统浏览器);TRAE 内置浏览器 UA=`TraeCN/1.107.1 Chrome/142.0.7444.235 Electron/39.2.7`。pre-commit 被 D:\caches\Temp 历史残留散落文件挡(环境问题非本批代码),按多 agent 边界规则 --no-verify 提交,push 前 branch -vv 复核 origin/main 同步。
 - **台账落法**:PROJECT_PLAN.md 在飞改动 +9335/-12232(他人大规模重写),按 G-280 教训不在飞文件上追加,本批台账以本块文件为准,待持有人落库后并入。
 - **一次性探测脚本留存**(收尾可删):.ihui-agent/tmp/scanlogin/probe-toutiao-{expire,refresh,ua142}.py 及 toutiao-expire-state.png、tt*.png;apps/web/e2e/open-scan-for-user.cjs(已被 IDE 内置浏览器方案取代)。
+
+### 第七十批·发布线:oschina 微信码接入 + 站点故障用户可读化(2026-09-30)
+
+接上一会话停在"oschina 微信图标逆向探针(坐标级点击)"与"people 故障可读化未落地"两格,本轮全部收口。代码 `dc48213784`(2 文件 +173/-3,`--no-verify` 提交,归因写进正文:pre-commit 门 4/30c/84 连续两轮判红点全在他人 in-flight 文件)。
+
+- **oschina"打不开登录页"的真因双重定性**:① 旧 `login_url` `/action/user/hash_login` 已废弃(curl 直连 403 / 带 referer 404);② 即便打开首页,该站 WAF 会把无指纹的 Playwright 请求挂起到 30s 超时。真入口是首页「登录/注册」指向的 `https://www.oschina.net/home/login`(逐链接枚举实测,SVG 图标标识 `#icon-wx`/`#icon-qq_a`/`#icon-github`——图标不是 weixin/wechat class 命名,第一版探针 0 命中即栽在这里)。
+- **微信码三重门槛逐个实证并修**:① **必须先勾协议**——未勾时前端直接吞掉微信图标点击(0 请求 0 跳转,popup 监听 + 网络嗅探双确认),与今日头条那一轮同型;② **协议步只能点视觉盒 `label.login-agreement span.ant-checkbox`**——点 `input.ant-checkbox-input` 被 antd 覆盖层挡住(Playwright 命中检测失败,`_click_selector_anywhere` 返回 False),点整条 label 会落在中心的《服务条例》链接上(实测 clicked=True 而 checked 不变,还弹出新页)——**点击"成功"不等于勾上了,判据要验状态**,候选甄别四选一实测只有视觉盒既点得中又真翻勾;③ 点微信图标后主页**整页跳转** `open.weixin.qq.com/connect/qrconnect?appid=wx00dc77dadaf54f3b`,码就在主页 DOM 的 `img` 里(160px,与头条纯 HTTP 通道落点同形态)。
+- **统一"码图直接获取"补最后一格**:`qr_image_selectors = ('img[src*="connect/qrcode"]',)` 服务端直取微信官方原图;`_extract_qr_image` 的 http src 分支原只认 PNG 魔数,而微信官方码下发的是 **JPEG**——放宽为 PNG ∨ `FF D8 FF`,并保留"根本不是图"的拒绝(反向对照测试钉死:WAF 拦截页不得被当二维码投给用户)。
+- **people(人民网)用户可读化落地**(用户明确要求:"平台挂了要告诉用户不是我们的问题"):抽 `_login_page_open_failure_message` 唯一出口,连接类故障(ERR_CONNECTION/DNS/超时族)转译为"该平台登录页当前无法访问(平台侧故障或网络受限),非本系统问题,请稍后重试…"并**隐去原始错误码**;非连接类异常保留类型名与原文(不替自己的缺陷遮责)。真任务实测:people 起任务 → failed 态消息即该文案,无 `ERR_CONNECTION_CLOSED` 泄漏。
+- **验证(全部实跑)**:① 生产入口 `start_scan_task` 端到端:oschina 点击计划两步命中(日志 `切换扫码: ['label.login-agreement span.ant-checkbox', "svg:has(use[*|href*='icon-wx'])"]`),真 HTTP 服务链(8802 登录 → 8803 start/status/qr/cancel)`/qr` 下发 **47531 字节 `image/jpeg`**,魔数 `FF D8 FF`,目检为纯二维码;② `pytest tests/test_scan_login.py` 28 passed(新增 oschina 配置不变量含"协议步不得点裸 input/不得点整条 label"两条实测教训锁、JPEG 直取正反例、可读化正反例);③ mypy --strict 0 错、ruff 0 错。
+- **服务面**:ai-service 8803 已带新代码重启(此前掉线,web 8801 / api 8802 全程在线)。**遗留口径不变**:oschina 登录成功判定 `success_cookies: ["_user_token","osc"]` 沿用旧配置,真实扫码回环(login→cookie 入库)需用户手机扫一次才能终验;people 等站点恢复后用 `.ihui-agent/tmp/scanlogin` 探针复测。
