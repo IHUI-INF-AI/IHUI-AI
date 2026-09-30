@@ -153,9 +153,25 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
     },
     "oschina": {
         "name": "开源中国",
-        "login_url": "https://www.oschina.net/action/user/hash_login",
+        # 2026-09-30 实测:旧 /action/user/hash_login 已废弃(curl 直连 403/带 referer 404),
+        # 且 WAF 会把无指纹的 Playwright 请求挂到 30s 超时 —— 这就是该平台"打不开登录页"的真因。
+        # 首页「登录/注册」按钮现指向 /home/login,直达它。
+        "login_url": "https://www.oschina.net/home/login",
         "success_cookies": ["_user_token", "osc"],
         "success_url_pattern": r"oschina\.net/u/\d+|my\.oschina\.net",
+        # 2026-09-30 探针实锤:该页有微信登录(第三方图标行 #icon-wx),但**必须先勾协议**,
+        # 否则前端直接吞掉微信图标的点击(0 请求 0 跳转)。顺序点击计划两步:
+        #   ① 勾协议 —— 只能点视觉盒 `label.login-agreement span.ant-checkbox`:
+        #      点 `input.ant-checkbox-input` 被 antd 覆盖层挡住(Playwright 命中检测失败),
+        #      点整条 label 会落在中心的《服务条例》链接上(弹出新页而不翻勾,实测 clicked=True
+        #      而 checked 不变)—— 点击"成功"不等于勾上了,判据要验状态。
+        #   ② 点微信图标 —— 主页随即整页跳到 open.weixin.qq.com/connect/qrconnect,
+        #      码就在主页 DOM 的 img 里(与头条纯 HTTP 通道同一形态)。
+        "scan_tab_selectors": (
+            ("label.login-agreement span.ant-checkbox", "svg:has(use[*|href*='icon-wx'])"),
+        ),
+        # 微信官方码原图(服务端拉取,和头条同款"直接获取"),不再给登录页截图。
+        "qr_image_selectors": ('img[src*="connect/qrcode"]',),
     },
     "jianshu": {
         "name": "简书",
@@ -1205,6 +1221,32 @@ def _run_toutiao_wechat_flow(task: ScanTask) -> None:
             _persist_task(task)
 
 
+# 连接类故障指纹(2026-09-30):站点宕机 / DNS 失败 / 地址不可达 / 断网 / 超时。
+_NET_UNREACHABLE_RE = re.compile(
+    r"ERR_CONNECTION|ERR_NAME_NOT_RESOLVED|ERR_ADDRESS_UNREACHABLE"
+    r"|ERR_INTERNET_DISCONNECTED|ERR_TIMED_OUT|TimeoutError"
+)
+
+
+def _login_page_open_failure_message(exc: BaseException) -> str:
+    """把"打不开登录页"的异常转成用户可读文案。
+
+    立因(2026-09-30 用户要求):人民网登录域对本机网络完全不可达(站点级故障),
+    而界面把 `Page.goto: net::ERR_CONNECTION_CLOSED ...` 原样抛给用户 —— 用户
+    无从分辨"平台坏了"和"我们坏了",只能来报"程序不好使"。这一类必须明说
+    平台侧问题。oschina 旧登录路径废弃 + WAF 挂起到超时同属这一族。
+    非连接类(选择器/脚本/渲染异常)保留类型名与原文 —— 那才是我们该修的,
+    把它也糊成"平台故障"就是替自己的缺陷遮责。
+    """
+    raw = f"{type(exc).__name__}: {str(exc)[:200]}"
+    if _NET_UNREACHABLE_RE.search(raw):
+        return (
+            "该平台登录页当前无法访问(平台侧故障或网络受限),非本系统问题,"
+            "请稍后重试;若持续不可用请到该平台官网确认登录入口是否变更。"
+        )
+    return f"打开登录页失败:{raw}"
+
+
 # ---------------------------------------------------------------------------
 # 后台扫码登录任务
 # ---------------------------------------------------------------------------
@@ -1290,7 +1332,7 @@ def _run_scan_task(task: ScanTask) -> None:
                 page.goto(config["login_url"], wait_until="domcontentloaded", timeout=30000)
             except Exception as e:
                 task.status = "failed"
-                task.message = f"打开登录页失败:{type(e).__name__}: {str(e)[:200]}"
+                task.message = _login_page_open_failure_message(e)
                 task.completed_at = time.time()
                 _persist_task(task)  # P2 修复(2026-08-06): 终态同步到 Redis
                 return
@@ -1634,7 +1676,11 @@ def _extract_qr_image(page: Any, selectors: Sequence[str]) -> str | None:
                     import httpx
 
                     r = httpx.get(data_url, timeout=10.0, follow_redirects=True)
-                    if r.status_code == 200 and r.content[:8].startswith(b"\x89PNG"):
+                    # 2026-09-30:微信官方码(connect/qrcode)下发的是 **JPEG**,
+                    # 只认 PNG 魔数会把 oschina 这类"能直取原图"的平台白退回截图。
+                    if r.status_code == 200 and (
+                        r.content[:8].startswith(b"\x89PNG") or r.content[:3] == b"\xff\xd8\xff"
+                    ):
                         return base64.b64encode(r.content).decode("ascii")
         except Exception as e:  # noqa: BLE001 — 单个候选失败继续下一个
             logger.debug(f"[scan_login] 码图提取候选失败 {sel}:{e}")
