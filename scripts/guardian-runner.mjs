@@ -4457,6 +4457,24 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 分片上传聚合预算(1 项,blocking)---
+  {
+    id: '183',
+    label:
+      '分片上传聚合预算棘轮门(b76-12c票3配套):chunked-upload.ts 的 begin 新建装配检(isPerUserSessionBudgetExceeded)与每片落盘追加检(wouldStagedBudgetOverflow)各 ≥1,两档常量须在 PROTOCOL_UPLOAD_LIMITS 登记,防死表回潮',
+    script: 'check-upload-budget.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_UPLOAD_BUDGET',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-upload-budget.mjs',
+      '自检:node scripts/check-upload-budget.mjs --self-test(4 例)',
+      '应急放行:HUSKY_SKIP_UPLOAD_BUDGET=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
