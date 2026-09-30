@@ -4330,6 +4330,24 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 能力位客户端自供(1 项,blocking)---
+  {
+    id: '176',
+    label:
+      '能力位不得客户端自供守门(b76-08a票2配套):客户端不得自报 capability 字段(connectionId/clientMode/deliveryProfile/subscriberScope/workflowRunDeltas 名单),能力位只准服务端下发,自检 --self-test',
+    script: 'check-capability-field-not-client-supplied.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CAPABILITY_FIELD_NOT_CLIENT_SUPPLIED',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-capability-field-not-client-supplied.mjs',
+      '自检:node scripts/check-capability-field-not-client-supplied.mjs --self-test',
+      '应急放行:HUSKY_SKIP_CAPABILITY_FIELD_NOT_CLIENT_SUPPLIED=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
