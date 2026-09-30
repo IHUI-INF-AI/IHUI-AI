@@ -100,7 +100,7 @@ node scripts/gen-doc-numbers.mjs --markdown           # 重新生成下面这个
 node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 ```
 
-对外关键数字声明(与本页生成块同源,均现算):**589 张表 · 4386 API 路由 · 25 个 WebSocket 端点 ·
+对外关键数字声明(与本页生成块同源,均现算):**590 张表 · 4386 API 路由 · 25 个 WebSocket 端点 ·
 118 入库模型 · 38 平台自动发布 · 2432 测试文件 · 203 道工程守门 · 46 CI workflows ·
 5 语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
 
