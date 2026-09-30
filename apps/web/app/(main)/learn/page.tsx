@@ -64,6 +64,7 @@ function fetchLessons(params: {
 
 export default function LearnPage() {
   const t = useTranslations('learn')
+  const tEdu = useTranslations('eduCoursesPage')
   const locale = useLocale()
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
@@ -132,6 +133,13 @@ export default function LearnPage() {
           </div>
         </div>
       </Card>
+
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2">
+        <p className="text-sm text-muted-foreground">{tEdu('subtitle')}</p>
+        <Button asChild variant="outline" size="sm" className="shrink-0">
+          <a href="/edu/courses">{tEdu('title')}</a>
+        </Button>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-xs">
