@@ -533,6 +533,7 @@ export async function markWebhookTriggerProcessed(
   await db
     .update(registryWebhookTriggers)
     .set({ status, resultMessage, processedAt: new Date() })
+  // status-guard-exempt: webhook 触发一次性结果回写(processed/failed/ignored),非出向
     .where(eq(registryWebhookTriggers.id, id))
 }
 
