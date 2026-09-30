@@ -7,7 +7,6 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Check } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/feedback'
@@ -33,16 +32,6 @@ export default function FeedbackPage() {
   const [contact, setContact] = React.useState('')
   const [images, setImages] = React.useState<string[]>([])
   const [formError, setFormError] = React.useState<string | null>(null)
-  /**
-   * D192:提交成功回执的反馈编号。
-   * 真源:POST /api/feedbacks → `reply.status(201).send(success({ feedback }))`
-   * (apps/api/src/routes/comments.ts),`createFeedback()` 用 `.returning()` 取回整行,
-   * 而 `feedbacks.id` 是 `uuid('id').defaultRandom().primaryKey()`
-   * (packages/database/src/schema/comments.ts)—— 服务端生成的编号,不是前端造的。
-   * web 侧 `api<{ feedback: FeedbackItem }>()` 已把 envelope 的 data 解出来,
-   * 所以这里拿得到 `data.feedback.id`。
-   */
-  const [submittedRequestId, setSubmittedRequestId] = React.useState<string | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['feedbacks'],
@@ -61,8 +50,7 @@ export default function FeedbackPage() {
         method: 'POST',
         body: JSON.stringify(input),
       }),
-    onSuccess: (d) => {
-      setSubmittedRequestId(d.feedback?.id ?? null)
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['feedbacks'] })
       setTab('list')
       setType('bug')
@@ -78,7 +66,6 @@ export default function FeedbackPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setFormError(null)
-    setSubmittedRequestId(null)
     if (!title.trim() || !content.trim()) {
       setFormError(t('required'))
       return
@@ -101,21 +88,6 @@ export default function FeedbackPage() {
         <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
-
-      {/* D192:提交成功回执 —— 编号来自服务端 .returning() 的 feedbacks.id(uuid),可直接对账 */}
-      {submittedRequestId && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="flex items-center gap-2 rounded-lg bg-cta/10 px-3 py-2 text-sm min-w-0"
-        >
-          <Check className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-          <span className="shrink-0 font-medium text-foreground">{t('success')}</span>
-          <span className="min-w-0 break-all text-muted-foreground">
-            {t('requestIdSuffix', { requestId: submittedRequestId })}
-          </span>
-        </div>
-      )}
 
       <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/30 p-1">
         {(['list', 'new'] as const).map((v) => (

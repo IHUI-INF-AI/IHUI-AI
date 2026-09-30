@@ -92,8 +92,7 @@ function run(cmd, allowFail = false) {
   try {
     return execSync(cmd, {
       encoding: 'utf8',
-      // 根治(2026-09-30):本会话 Node 建子进程 stdin 管道会 EBUSY;run() 无 input 调用,stdin 设 ignore。
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
     }).trim()
   } catch (e) {
@@ -411,8 +410,7 @@ function cleanStaleIndexLocks({ gitRoot, alive = isPidAlive, hasGitProcessProbe 
     try {
       const out = execSync('tasklist /FI "IMAGENAME eq git.exe" /NH', {
         encoding: 'utf8',
-        // 根治:同 run() —— tasklist 不吃 stdin。
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true,
       })
       hasGitProcess = /git\.exe/i.test(out)
@@ -533,8 +531,6 @@ function scanCommand() {
       // encoding 必须是 buffer:GBK 码页下 utf8 解码会把"没有运行的任务"读成乱码(见 lib 头注)
       execSync('tasklist /FI "IMAGENAME eq git.exe" /NH', {
         encoding: 'buffer',
-        // 根治:同 run() —— 默认 stdio 的 stdin 是管道会 EBUSY,tasklist 不吃 stdin。
-        stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
         timeout: 30_000,
       }),
