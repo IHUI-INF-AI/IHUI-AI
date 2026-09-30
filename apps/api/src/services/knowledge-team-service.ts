@@ -550,31 +550,16 @@ export interface ReviseItemInput {
   expectedRevision?: number
 }
 
-/**
- * 乐观并发冲突(b76-09b 票1)。除 code/errorCode 外必须携带"裁决时事实":
- * 调用方读 `currentRevision` 字段当下一次 expectedRevision 收敛重试,
- * 不解析 message 文案 —— 文案只给人看,字段才给机器读。
- */
-export class RevisionConflictError extends AppError {
-  /** 服务端裁决那一刻条目的真值 revision */
-  readonly currentRevision: number
-  /** 调用方本次请求所基于的版本号(回显,便于诊断收敛过程) */
-  readonly expectedRevision: number
-
-  constructor(currentRevision: number, expectedRevision: number) {
-    super(`版本冲突:当前是 ${currentRevision},你基于 ${expectedRevision} 修改`, 409, 'REVISION_CONFLICT')
-    this.name = 'RevisionConflictError'
-    this.currentRevision = currentRevision
-    this.expectedRevision = expectedRevision
-  }
-}
-
 /** 成员修正:改内容 + 版本 +1 + 落审计,三者要么全成要么不写。 */
 export async function reviseItem(actor: Actor, input: ReviseItemInput): Promise<ItemDTO> {
   const { item, access } = await requireItemAccess(actor.userId, input.itemId, 'editor')
 
   if (input.expectedRevision !== undefined && input.expectedRevision !== item.revision) {
-    throw new RevisionConflictError(item.revision, input.expectedRevision)
+    throw new AppError(
+      `版本冲突:当前是 ${item.revision},你基于 ${input.expectedRevision} 修改`,
+      409,
+      'REVISION_CONFLICT',
+    )
   }
 
   const before = summarize(item.title, item.status, item.content)
