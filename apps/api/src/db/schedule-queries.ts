@@ -145,13 +145,11 @@ export async function setScheduleTaskEnabled(
 }
 
 /**
- * 立即触发任务执行：更新 lastRun 信息并写入一条执行日志。
- * status 由调用方给定:'running'(仅记账)或 'queued'(已真实入队 BullMQ,G-978075)。
+ * 立即触发任务执行：更新 lastRun 信息并写入一条 running 日志。
  * 返回更新后的任务与新建的日志。
  */
 export async function runScheduleTaskNow(
   id: string,
-  status: 'running' | 'queued' = 'running',
 ): Promise<{ task: ScheduleTask; log: ScheduleLog } | undefined> {
   const task = await findScheduleTaskById(id)
   if (!task) return undefined
@@ -160,7 +158,7 @@ export async function runScheduleTaskNow(
     .update(scheduleTasks)
     .set({
       lastRunTime: now,
-      lastRunStatus: status,
+      lastRunStatus: 'running',
       lastRunMessage: '手动触发执行',
       updatedAt: now,
     })
@@ -171,7 +169,7 @@ export async function runScheduleTaskNow(
     .values({
       taskId: task.id,
       taskName: task.name,
-      status,
+      status: 'running',
       startTime: now,
       message: '手动触发执行',
     })
