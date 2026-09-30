@@ -23,6 +23,8 @@ import {
   getAigcList,
   getAgentDetail,
   getAgentList,
+  // D136:审批决策回传的唯一出口(经 @ihui/api-client,端内不再写第二条传输层)
+  postToolApprovalResponse,
 } from '@/api'
 import {
   formatSSEError,
@@ -47,6 +49,17 @@ import {
 import { useUserStore } from '@/stores/user'
 import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import ChatMessageItem from './ChatMessageItem'
+// D136(2026-10-01 立):主对话流高危工具的审批请求帧(tool-approval)在本端的呈现位 ——
+// 页内确认卡 + 判档/载荷纯逻辑层(三档 once/session/always 与 web 逐档同值)。
+import ToolApprovalCard, { type ApprovalDecisionPayload } from './tool-approval-card'
+import {
+  appendApprovalRecord,
+  dequeueApprovalRequest,
+  enqueueApprovalRequest,
+  type ApprovalOutcome,
+  type ApprovalRecord,
+  type ApprovalRequestView,
+} from './tool-approval-text'
 import ContextUsageStrip from './context-usage-strip'
 import McpStatusStrip from './mcp-status-strip'
 import { resolvePermissionTierText } from './permission-tier-text'
@@ -124,6 +137,64 @@ export default function ChatPage() {
   // 声明排在 resetEarlierPaging **之前**:下面那个收口要在会话切换时清掉它,顺序倒了就是
   // "用了还没声明的绑定"。
   const [goalNotice, setGoalNotice] = useState<GoalNotice | null>(null)
+  // ───────────────────────── D136(2026-10-01 立):主对话流高危工具审批的页内落位 ─────────────────────────
+  // 帧怎么到端:src/lib/sse.ts 的整行旁路 → src/lib/tool-approval-frame.ts 认领 →
+  //           src/api/index.ts 的 StreamEventCallbacks.onToolApproval → 这里入队。
+  // 为什么队列与记录都住在页级而不是卡里:记录若只住在卡里,关掉卡就什么痕迹都不剩,
+  // 用户仍然不知道发生过一次授权决策(RN 那一版正是被测试逼着把记录搬出面板的)。
+  const [approvalQueue, setApprovalQueue] = useState<readonly ApprovalRequestView[]>([])
+  const [approvalRecords, setApprovalRecords] = useState<readonly ApprovalRecord[]>([])
+  const [approvalSending, setApprovalSending] = useState(false)
+  /** approvalId → toolName:回传载荷必须保持线格式的形状,展示字段不进载荷,另存一份 */
+  const approvalToolNamesRef = useRef<Record<string, string>>({})
+
+  /** 会话切换/清空时收掉审批态 —— 上一会话待批的条目不能挂到下一会话头上(与 goalNotice 同一条理由) */
+  const resetApprovalSurface = useCallback(() => {
+    setApprovalQueue([])
+    setApprovalRecords([])
+    setApprovalSending(false)
+    approvalToolNamesRef.current = {}
+  }, [])
+
+  /**
+   * 决策送出:三档批准带 scope、拒绝恒不带 scope(档位形状由 tool-approval-text.ts 保证)。
+   * 失败**不抛**、不静默:写成 send-failed 记录留在卡外那一行,因为服务端那一侧会走 120s
+   * 超时按拒绝兜底 —— 把"没送出"显示成"已处理"就是拿假事实替用户做完决策。
+   */
+  const handleApprovalDecision = useCallback(
+    async (payload: ApprovalDecisionPayload) => {
+      if (approvalSending) return
+      setApprovalSending(true)
+      let outcome: ApprovalOutcome = 'send-failed'
+      try {
+        await postToolApprovalResponse({
+          sessionId: payload.sessionId,
+          approvalId: payload.approvalId,
+          decision: payload.decision,
+          ...(payload.scope !== undefined ? { scope: payload.scope } : {}),
+          ...(payload.reason !== undefined ? { reason: payload.reason } : {}),
+        })
+        outcome = payload.decision === 'approve' ? 'approved' : 'rejected'
+      } catch {
+        outcome = 'send-failed'
+      }
+      setApprovalQueue((prev) => dequeueApprovalRequest(prev, payload.approvalId))
+      setApprovalRecords((prev) =>
+        appendApprovalRecord(prev, {
+          approvalId: payload.approvalId,
+          sessionId: payload.sessionId,
+          toolName: approvalToolNamesRef.current[payload.approvalId] ?? '',
+          decision: payload.decision,
+          scope: payload.scope,
+          outcome,
+          // 同一条第二次送出 = 走过人工放行出口(§30),计数进记录 key 以便重渲染那一行
+          overrideCount: prev.some((r) => r.approvalId === payload.approvalId) ? 1 : 0,
+        }),
+      )
+      setApprovalSending(false)
+    },
+    [approvalSending],
+  )
   /** 会话切换/清空/本机快照恢复时重置向前翻页态 —— 防旧会话游标把别的会话的消息前插进来 */
   const resetEarlierPaging = useCallback(() => {
     setEarlierHasMore(false)
@@ -132,7 +203,10 @@ export default function ChatPage() {
     // 会挂在下一会话头上,而那正是本票要消灭的分叉形态(声明见 goalNotice 上方注释)。
     setGoalNotice(null)
     earlierCursorRef.current = null
-  }, [])
+    // D136:审批面同样会话级 —— 旧会话待批的条目不得挂到新会话头上(否则"批准"会送进
+    // 一条用户已经不在看的流里);已处理记录也随会话收口,与 goalNotice 同一条理由。
+    resetApprovalSurface()
+  }, [resetApprovalSurface])
   const [currentModel, setCurrentModel] = useState('')
   const [currentModelName, setCurrentModelName] = useState('')
   const [modelDrawerVisible, setModelDrawerVisible] = useState(false)
@@ -851,6 +925,24 @@ export default function ChatPage() {
             // D152(2026-09-29 立):会话目标的服务端主副本变了 ⇒ 一行活动 + 一行胶囊。
             // 取词/判档全在 cards/goal-line.ts(六档词汇取自 @ihui/types,认不出的档 ⇒ 不上屏);
             // 本端**不给输入口、不给操作按钮** —— 手机上没有 /goal 的发起面,给了就是假 affordance。
+            // D136(2026-10-01 立):主对话流高危工具的审批请求帧 —— 这一行就是本端从
+            // "帧到设备即静默丢弃"变成"页内确认卡"的那一格(台账 V3 #58 登记的缺位)。
+            // 渲染位 = 本页下方 <ToolApprovalCard/>(输入框上方,与 TaskStatusBar 同一带)。
+            onToolApproval: (evt) => {
+              const view: ApprovalRequestView = {
+                approvalId: evt.approvalId,
+                toolName: evt.toolName,
+                toolCallId: evt.toolCallId,
+                argsPreview: evt.argsPreview,
+                dangerLevel: evt.dangerLevel,
+                ...(typeof evt.sessionId === 'string' && evt.sessionId !== ''
+                  ? { sessionId: evt.sessionId }
+                  : {}),
+              }
+              approvalToolNamesRef.current[view.approvalId] = view.toolName
+              setApprovalQueue((prev) => enqueueApprovalRequest(prev, view))
+              pushStreamActivity(`${view.toolName} · 等待你决策`)
+            },
             onGoalUpdate: (evt) => {
               const notice = describeGoalNotice(evt, t)
               setGoalNotice(notice)
@@ -1507,6 +1599,22 @@ export default function ChatPage() {
         空表 ⇒ 组件返回 null、零占位(连上不是要提示的事,与 TaskStatusBar 同一纪律)。
       */}
       <McpStatusStrip />
+
+      {/*
+        D136(2026-10-01 立)· 小程序半边:tool-approval 帧的**页内确认卡**。
+        三档授权 once / session / always 逐档对齐 web(`apps/web/src/components/ai/tool-approval-dialog.tsx`),
+        取词复用同一把共享键 `editor.toolApproval.scope*`;拒绝不带 scope;决策送出失败或用户拒绝后
+        仍留「人工放行」出口(§30「代理被机器拒批后必须留人工放行入口」)。
+        已处理记录渲染在卡体外、由页级 state 持有 —— 关掉卡也必须看得见"这里发生过一次授权决策"。
+      */}
+      <ToolApprovalCard
+        request={approvalQueue[0] ?? null}
+        queueCount={Math.max(0, approvalQueue.length - 1)}
+        records={approvalRecords}
+        sending={approvalSending}
+        tt={tt}
+        onDecision={(payload) => void handleApprovalDecision(payload)}
+      />
 
       {/*
         D152(2026-09-29 立):会话目标(goal)的服务端主副本经下行帧 `goal_updated` 到达后,
