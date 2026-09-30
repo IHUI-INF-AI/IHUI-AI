@@ -10582,6 +10582,17 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "selectionAnnotations": {
+      "hoverHint": "懸停查看批註",
+      "selectedText": "{{index}}. 選中文字",
+      "noComment": "未新增評論",
+      "commentPlaceholder": "新增可選評論…",
+      "commentAriaLabel": "劃詞批註評論",
+      "addComment": "新增評論",
+      "removeOne": "移除批註 {{index}}",
+      "removeAll": "移除全部劃詞批註",
+      "add": "新增批註"
+    },
     "attachRetry": "重試上傳",
     "attachRetryExhausted": "重試次數已達上限,請刪除後重新新增",
     "mentionEngine": {
