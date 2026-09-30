@@ -13,7 +13,8 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface RelayKey {
   id: string
@@ -83,6 +84,9 @@ export default function RelayOverviewPage() {
   const dateFmt = new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' })
   const num = new Intl.NumberFormat(locale)
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const {
     data: keysData,
     isLoading: keysLoading,
@@ -91,11 +95,27 @@ export default function RelayOverviewPage() {
     queryKey: ['developer', 'relay', 'keys'],
     queryFn: () =>
       api<KeysData>('/api/developer/relay/keys').catch(() => ({ list: [] }) as KeysData),
+    enabled: allow,
   })
   const { data: usageData, isLoading: usageLoading } = useQuery({
     queryKey: ['developer', 'relay', 'usage', 'overview'],
     queryFn: () => api<UsageSummary>('/api/developer/relay/usage?groupBy=model').catch(() => null),
+    enabled: allow,
   })
+
+  // 2026-09-30 登录态门:未登录时用登录引导替换数据区
+  if (!allow) {
+    return (
+      <div className="px-4 py-4 space-y-4">
+        <BackButton />
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <Zap className="h-6 w-6 text-primary" />
+          中转站概览
+        </h1>
+        <AuthGatePrompt message="请先登录后查看中转站概览" />
+      </div>
+    )
+  }
 
   const list = keysData?.list ?? []
   const summary = usageData?.summary
