@@ -35,6 +35,38 @@ const git = (args, cwd) =>
     ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', ...args],
     { cwd, encoding: 'utf8', windowsHide: true, timeout: 60000 },
   )
+/**
+ * 受控索引(GIT_INDEX_FILE)那一档 —— 回退判定的端到端**只能**拿它验:共享索引此刻有没有 .tsx
+ * 由并发会话决定(拿它做断言 = 把仓库瞬时状态当尺子,门 103 的 T12 同课),而真提交链用的正是
+ * `GIT_INDEX_FILE=<tmp> git read-tree …` 那条隔离通道(G-978044 现场即此型:非 UI 提交的私有
+ * 索引里结构上没有射程内文件)。全程只写夹具仓自己的副本索引,共享 `.git/index` 与工作树不碰。
+ */
+const gitIdx = (args, cwd, idx) =>
+  execFileSync('git', ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', ...args], {
+    cwd,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60000,
+    env: { ...process.env, GIT_INDEX_FILE: idx },
+  })
+/** 把 HEAD 上**已存在**的 blob 登记进受控索引:`--cacheinfo` 只写索引条目,不写对象库、不写工作树。 */
+const putInIndex = (cwd, idx, rel) =>
+  gitIdx(
+    ['update-index', '--add', '--cacheinfo', `100644,${git(['rev-parse', `HEAD:${rel}`], cwd).trim()},${rel}`],
+    cwd,
+    idx,
+  )
+/** 在受控索引面上跑一次门(main 内部走 execFileSync ⇒ 继承 process.env,换面只在这段里生效)。 */
+async function captureOnIndex(argv, root, idx) {
+  const prev = process.env.GIT_INDEX_FILE
+  process.env.GIT_INDEX_FILE = idx
+  try {
+    return await capture(argv, root)
+  } finally {
+    if (prev === undefined) delete process.env.GIT_INDEX_FILE
+    else process.env.GIT_INDEX_FILE = prev
+  }
+}
 /** 真仓阳性对照按**出处**取 —— 账还完那天 HEAD 上就不再有这条违规,钉 HEAD 的对照会在清偿当天集体失效(票㉗ T18 同一条)。 */
 const PROBE_REF = process.env.IHUI_RADIUS_PROBE_REF || 'acf1927e96'
 const probeBlob = (rel) =>
@@ -573,4 +605,309 @@ test('T27 真仓台账装车证明:必须可解析、字段齐备,且至少一�
   assert.ok(hits.length >= 1, '台账与门量到的弱证据零交集 ⇒ 这是一张死表(条目要么早该删、要么键写歪了)')
 })
 
+
+/**
+ * T28–T32 单参长度包裹器与盒形量算(2026-09-29 续票:把门 150 现读唯一那格「未判定」判成结论)。
+ *
+ * 现场:`apps/miniapp-taro/src/components/ModelList.tsx:271` 的勾选框把边长写成
+ * `width: toUnit(MODEL_LIST_CHECK_BOX_PX)`,半径写成 `MODEL_LIST_CHECK_BOX_PX / 2` ——
+ * 语义上是"正方盒 + 半径 = 半边长"的**几何真圆装饰件**(§4 的 C6 档,不再需要任何标记),
+ * 但尺子量不到被函数包住的边长,于是它报成 `off-scale 10px` 的未判定。
+ * **仓库里没有缺陷,缺的是尺子**,所以这一组用例锁的是"尺子怎么长回去、以及它不许顺手多判什么":
+ *  - T28 真仓逐字成对(带系数 ⇒ 真圆 / 去掉系数 ⇒ 必须退回未判定,不得"按名字当恒等");
+ *  - T29 两族写法各自成立(小程序 `rpx(p * 系数)` / RN `p => p`),未注册的名字一律不剥;
+ *  - T30 包裹器不得把胶囊洗成圆(非正方盒 ⇒ 判红),与"量不到"成对;
+ *  - T31 倍率诚实性(系数=3 ⇒ 折 30,不是 20);
+ *  - T32 单份实现反向锁(折算算术只住 length-units;门 150 的两个取面必须走同一个建表出口)。
+ */
+const WRAPPER_SRC = [
+  "import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'",
+  "import { rpx } from '@/utils/rpx'",
+  'const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)',
+  'const BOX_PX = 20',
+].join('\n')
+
+test('T28 真仓逐字成对:ModelList 的包裹边长配 `X / 2` ⇒ 判真圆;把系数抽掉 ⇒ 必须退回未判定', async () => {
+  const { auditFileText, baseConstsOf } = await import(pathToFileURL(SRC).href)
+  const table = radiusLookup(headBlob('packages/design-tokens/src/radius.js'))
+  const rel = 'apps/miniapp-taro/src/components/ModelList.tsx'
+  const src = headBlob(rel)
+  // 与门自己的取数口径同形:系数与具名档都从**被审面**的那两份源里导出来,不在测试里抄数字。
+  const tierSources = {
+    'packages/design-tokens/src/geometry.js': headBlob('packages/design-tokens/src/geometry.js'),
+    'packages/shared/src/ui/model-list-spec.ts': headBlob(
+      'packages/shared/src/ui/model-list-spec.ts',
+    ),
+  }
+  const withCoef = baseConstsOf(tierSources)
+  assert.equal(withCoef.get('TARO_RPX_PER_PX'), '2', '系数没进表 ⇒ 下面那一臂的"通过"就是空的')
+  const hitRow = (r) => r.undetermined.filter((u) => u.line === 271)
+
+  const a = auditFileText(rel, src, table, withCoef)
+  assert.equal(hitRow(a).length, 0, '带系数那一臂:271 行不得还停在未判定(尺子仍量不到)')
+  assert.ok(a.trueCircle >= 1, '带系数那一臂:这一格必须落 C6 真圆(§4:该形状不再需要任何标记)')
+  assert.equal(a.capsule, 0, '正方盒不得被判成胶囊')
+
+  // 反臂:把系数从表里抽掉(等价于"这条 import 解不到")⇒ 结论必须**退回**未判定,
+  // 而不是"按 toUnit 这个名字假定恒等"。名字不携带语义,这是本票唯一可能的失效方向。
+  const noCoef = new Map([...withCoef].filter(([k]) => k !== 'TARO_RPX_PER_PX'))
+  assert.ok(!noCoef.has('TARO_RPX_PER_PX'))
+  const b = auditFileText(rel, src, table, noCoef)
+  assert.equal(b.trueCircle, 0, '解不到系数却判出真圆 ⇒ 尺子在按名字猜,合格证作废')
+  assert.equal(b.capsule, 0)
+  assert.equal(hitRow(b).length, 1, '反臂必须回到"未判定"并逐条报名(不冒红也不记绿)')
+})
+
+test('T29 两族包裹写法都成立,未注册的名字一律不剥(成对)', async () => {
+  const { constantMapOf, constExprPx, pxWrappersOf } = await import(
+    pathToFileURL(join(import.meta.dirname, '..', 'lib', 'length-units.mjs')).href
+  )
+  const { dimsFromText } = await import(
+    pathToFileURL(join(import.meta.dirname, '..', 'lib', 'box-geometry.mjs')).href
+  )
+  const merged = (extra) => new Map([...Object.entries(extra), ...constantMapOf(WRAPPER_SRC)])
+  // ① 小程序族:rpx(p * 系数) —— 只有系数折回来等于 RPX_PER_PX 才是 px 保形
+  assert.equal(constExprPx('toUnit(BOX_PX)', merged({ TARO_RPX_PER_PX: '2' })), 20)
+  // ② RN 族:恒等(逐字取自 apps/mobile-rn/src/components/Menu.tsx:98),不需要系数
+  const rn = ['const toUnit = (px: number) => px', 'const BOX_PX = 20'].join('\n')
+  assert.equal(constExprPx('toUnit(BOX_PX)', constantMapOf(rn)), 20)
+  // ③ 未注册的名字**不得**被剥:同名同形但不是长度包裹器 ⇒ 维持"量不到"(= 改动前结论)
+  assert.equal(constExprPx('maybeWrap(BOX_PX)', merged({ TARO_RPX_PER_PX: '2' })), null)
+  assert.equal(
+    pxWrappersOf('const maybeWrap = (px: number) => px * 2').size,
+    0,
+    '乘完不返回长度的一律不注册',
+  )
+  assert.equal(
+    pxWrappersOf('// const toUnit = (px: number) => px').size,
+    0,
+    '注释行不得注册(否则门给自己发合格证)',
+  )
+  // ④ 模板字面量式(`toRpx` 那一族)刻意不在射程内 —— 登记为边界,不得"顺手也认了"
+  assert.equal(
+    pxWrappersOf('const toRpx = (px: number): string => `${px * 2}rpx`').size,
+    0,
+    '模板字面量式属另一票(先清存量再收紧),本支必须判"不注册"',
+  )
+  // ⑤ 盒形侧同样只多这一口:注册了才量得到,没注册与改动前逐字同
+  const win = 'width: toUnit(BOX_PX), height: toUnit(BOX_PX), borderRadius: BOX_PX / 2,'
+  const ok = dimsFromText(win, merged({ TARO_RPX_PER_PX: '2' }))
+  assert.ok(ok.w === 20 && ok.h === 20 && ok.shape === 'square', '包裹写法量得出 20×20 方盒')
+  const bad = dimsFromText(win.replace(/toUnit/g, 'unknownWrap'), merged({ TARO_RPX_PER_PX: '2' }))
+  assert.ok(bad.w === 0 && bad.h === 0, '未注册的名字不得被剥成数值(宁漏不误判)')
+})
+
+test('T30 包裹器不得把胶囊洗成圆:非正方盒必须判红,与"量不到"成对', async () => {
+  const { auditFileText } = await import(pathToFileURL(SRC).href)
+  const table = radiusLookup(headBlob('packages/design-tokens/src/radius.js'))
+  const src = [
+    WRAPPER_SRC,
+    'export const s = {',
+    '  card: {',
+    '    width: toUnit(WIDE_PX),',
+    '    height: toUnit(TALL_PX),',
+    '    borderRadius: TALL_PX / 2,',
+    '  },',
+    '}',
+  ].join('\n')
+  const base = new Map([
+    ['WIDE_PX', '40'],
+    ['TALL_PX', '20'],
+    ['TARO_RPX_PER_PX', '2'],
+  ])
+  const r = auditFileText('x/WrapperPill.tsx', src, table, base)
+  assert.equal(r.trueCircle, 0, '40×20 的盒配 10 的半径不是圆')
+  assert.equal(r.capsule, 1, '短边 20 ≥ 下限且半径=半边 ⇒ 必须落胶囊判红(项目不允许,且不吃豁免)')
+  assert.equal(r.violations.filter((v) => v.reason === 'capsule').length, 1)
+  // 反臂:同一个形状,把系数拿掉 ⇒ 退回改动前的"量不到/未判定",既不得判红也不得判绿
+  const noCoef = new Map([...base].filter(([k]) => k !== 'TARO_RPX_PER_PX'))
+  const r2 = auditFileText('x/WrapperPill.tsx', src, table, noCoef)
+  assert.equal(r2.capsule, 0, '解不到系数却判红 = 拿猜出来的盒形当证据')
+  assert.equal(r2.trueCircle, 0)
+  assert.ok(r2.undetermined.length >= 1, '量不到必须留在"未判定/报名"那一格里,不得静默算通过')
+})
+
+test('T31 倍率诚实性:系数不是 rpx-per-px 时按倍率折算,绝不按名字假定恒等', async () => {
+  const L = await import(
+    pathToFileURL(join(import.meta.dirname, '..', 'lib', 'length-units.mjs')).href
+  )
+  assert.equal(L.RPX_PER_PX, 2, '尺子自己的 rpx↔px 口径(改了它就要重看折算)')
+  const constsWith = (coef) =>
+    new Map([['BOX_PX', '20'], ['TARO_RPX_PER_PX', coef], ...L.constantMapOf(WRAPPER_SRC)])
+  // 有人把系数改成 3 ⇒ 落地是 `60rpx` = 30px,不是 20。按倍率折算,而不是"认名字"。
+  assert.equal(L.constExprPx('toUnit(BOX_PX)', constsWith('3')), 30)
+  assert.equal(L.constExprPx('toUnit(BOX_PX)', constsWith('2')), 20)
+  // 系数写成解不到的东西 ⇒ 整体 null(不得退化成"当作 2"或"当作恒等")
+  assert.equal(
+    L.constExprPx('toUnit(BOX_PX)', new Map([['BOX_PX', '20'], ...L.constantMapOf(WRAPPER_SRC)])),
+    null,
+  )
+})
+
+test('T32 单份实现反向锁:折算算术只住 length-units,建表出口只有一个且两个取面同口径', () => {
+  const geo = readFileSync(join(import.meta.dirname, '..', 'lib', 'box-geometry.mjs'), 'utf8')
+  assert.ok(
+    !/PX_WRAPPERS|pxWrappersOf|RPX_PER_PX/.test(geo),
+    '盒形层自己解析包裹器或抄倍率 = 第二份真相(半径侧认得、盒形侧不认那一型)',
+  )
+  assert.match(
+    geo,
+    /constExprPx\(m\[2\], consts\)/,
+    '新增那支必须把右值交回 constExprPx 那一份求值',
+  )
+  const gate = readFileSync(SRC, 'utf8')
+  assert.match(gate, /unitCoefficientsOfSources/, '系数必须从被审面的 geometry.js 现读')
+  assert.equal(
+    (gate.match(/= baseConstsOf\(tierSources\)/g) || []).length,
+    2,
+    'HEAD 档与索引/工作树档必须同口径(只有一处喂系数 = 另一面看不见包裹器)',
+  )
+  assert.ok(
+    !/TARO_RPX_PER_PX\s*=\s*2/.test(gate),
+    '门里写死系数值 = 改了源头它还在按旧值判(空支票)',
+  )
+})
+
+/**
+ * T33 回退判定端到端(G-978044)。
+ *
+ * 修前实测:本门 `--staged` 在"索引面上枚举到 0 个在射程文件"时判 `无法判定 ⇒ exit 2`,而只改
+ * 文档/语言包/后端的提交**结构上**不带 .tsx/.css ⇒ 每一枚无关提交都被它挡(取证件
+ * `A2-pre-doc-only-staged.txt`,complete/RC=2)。恒挡的唯一出路是各会话走 `--no-verify`,连带
+ * 废掉链上约 197 道对账(§12e)—— 所以这一格必须**照判**,而不是"跳过",也不是"无法判定"。
+ *
+ * 这一例走的是夹具仓 + 私有索引(受控面),不是共享索引:共享索引此刻 stage 了什么由并发会话决定。
+ */
+test('T33 暂存档无射程内文件 ⇒ 回退 HEAD 全量并喊出来(照判:超锚点仍红,HEAD 合规仍绿)', async () => {
+  const dir = mkScratch('radius-role-retreat')
+  try {
+    const put = (rel, text) => {
+      const abs = join(dir, rel)
+      mkdirSync(dirname(abs), { recursive: true })
+      writeFileSync(abs, text)
+    }
+    const tableSrc = headBlob('packages/design-tokens/src/radius.js')
+    git(['init', '-q', '-b', 'main'], dir)
+    put('packages/design-tokens/src/radius.js', tableSrc)
+    put('apps/web/src/a.tsx', 'const s = { card: { borderRadius: rnRadius.xl } }\nexport { s }\n')
+    put('scripts/radius-role-conformance-baseline.json', JSON.stringify({ anchors: {} }))
+    put('docs/notes.md', '一次只改文档的提交\n')
+    git(['add', '-A'], dir)
+    git(['commit', '-q', '-m', 'seed'], dir)
+
+    const idx = join(dir, 'priv-retreat.idx')
+    gitIdx(['read-tree', '--empty'], dir, idx)
+    putInIndex(dir, idx, 'docs/notes.md')
+    assert.deepEqual(
+      gitIdx(['ls-files'], dir, idx).trim().split('\n'),
+      ['docs/notes.md'],
+      '受控索引里必须只有文档 —— 这正是非 UI 提交的结构形态',
+    )
+
+    const red = await captureOnIndex(['--staged'], dir, idx)
+    assert.equal(red.code, 1, '回退=照判:HEAD 全量面自己超锚点就得报红,不得被读成"跳过"')
+    assert.match(red.out, /本次无射程内文件，已回退 HEAD 全量/, '换面必须大声喊出来(静默换面与"没判"同形,§12f)')
+    assert.match(red.out, /判定面 HEAD blob:扫 1 个在射程文件/, '喊完还得给出真的判定面与判定量,否则"回退"只是措辞')
+    assert.doesNotMatch(red.out, /无法判定/, '无射程内文件不是"取不到",不得判成未判定挡掉无关提交')
+    const j = JSON.parse((await captureOnIndex(['--staged', '--json'], dir, idx)).out)
+    assert.equal(j.requestedFace, 'staged', '请求的面要留痕,否则没人看得出换了面')
+    assert.equal(j.face, 'head')
+    assert.ok(j.retreatReason, '机器读面上同样必须看得见这次回退')
+
+    // 配对臂:台账套住 HEAD 自身存量后,回退判完就是 0 —— 回退不是"换面必红",判据一字未宽。
+    put('scripts/radius-role-conformance-baseline.json', JSON.stringify({ anchors: { 'apps/web/src/a.tsx|card': 1 } }))
+    git(['add', '-A'], dir)
+    git(['commit', '-q', '-m', 'anchor'], dir)
+    const clean = await captureOnIndex(['--staged'], dir, idx)
+    assert.equal(clean.code, 0, 'HEAD 全量自身合规 ⇒ 回退判完给 0(锚点仍取该文件 HEAD 自身,没放宽判据)')
+    assert.match(clean.out, /本次无射程内文件，已回退 HEAD 全量/, '绿的那一趟同样必须喊出来')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * T34 「回退判定」与「空扫判死」是两件事,各由各自的用例命中 —— 把它们并成一格,要么每次无关
+ * 提交被挡(修前),要么判据失明伪装成通过(把空扫改成静默绿)。
+ */
+test('T34 两维各归各:有射程内文件而内容取不到 ⇒ 仍 exit 2 且不换面;回退后仍枚举到 0 ⇒ 仍判死', async () => {
+  // —— 臂 A:索引面上**有**射程内文件,但它的内容读不到 ⇒ 未判定(这一格是"失明不得当通过"那把闸)
+  const dir = mkScratch('radius-role-unreadable')
+  try {
+    const put = (rel, text) => {
+      const abs = join(dir, rel)
+      mkdirSync(dirname(abs), { recursive: true })
+      writeFileSync(abs, text)
+    }
+    git(['init', '-q', '-b', 'main'], dir)
+    put('packages/design-tokens/src/radius.js', headBlob('packages/design-tokens/src/radius.js'))
+    put('apps/web/src/a.tsx', 'const s = { card: { borderRadius: rnRadius.xl } }\n')
+    put('scripts/radius-role-conformance-baseline.json', JSON.stringify({ anchors: {} }))
+    git(['add', '-A'], dir)
+    git(['commit', '-q', '-m', 'seed'], dir)
+    const idx = join(dir, 'priv-ghost.idx')
+    gitIdx(['read-tree', '--empty'], dir, idx)
+    putInIndex(dir, idx, 'packages/design-tokens/src/radius.js')
+    putInIndex(dir, idx, 'scripts/radius-role-conformance-baseline.json')
+    // 一个在射程内、内容取不到的条目(索引登记了 40 位 OID,而对象库里没有那个对象)
+    gitIdx(
+      ['update-index', '--add', '--cacheinfo', '100644,0000000000000000000000000000000000000001,apps/web/src/ghost.tsx'],
+      dir,
+      idx,
+    )
+    const a = await captureOnIndex(['--staged'], dir, idx)
+    assert.equal(a.code, 2, '有射程内文件而内容取不到 ⇒ 仍必须是"无法判定"(exit 2),既不冒红也不记绿')
+    assert.match(a.out, /无法判定/)
+    assert.match(a.out, /ghost\.tsx/, '取不到哪一个必须点名')
+    assert.doesNotMatch(a.out, /已回退 HEAD 全量/, '有射程内文件时回退 = 把本次改动放过去')
+  } finally {
+    rmScratch(dir)
+  }
+
+  // —— 臂 B:回退之后**仍然**枚举到 0 个在射程文件 ⇒ 判死。回退不得吃掉这一维。
+  const dir2 = mkScratch('radius-role-retreat-empty')
+  try {
+    const put = (rel, text) => {
+      const abs = join(dir2, rel)
+      mkdirSync(dirname(abs), { recursive: true })
+      writeFileSync(abs, text)
+    }
+    git(['init', '-q', '-b', 'main'], dir2)
+    put('packages/design-tokens/src/radius.js', headBlob('packages/design-tokens/src/radius.js'))
+    put('docs/notes.md', 'HEAD 上就没有 UI 源码的仓\n')
+    git(['add', '-A'], dir2)
+    git(['commit', '-q', '-m', 'seed'], dir2)
+    const idx2 = join(dir2, 'priv-empty.idx')
+    gitIdx(['read-tree', '--empty'], dir2, idx2)
+    putInIndex(dir2, idx2, 'docs/notes.md')
+    const b = await captureOnIndex(['--staged'], dir2, idx2)
+    assert.equal(b.code, 2, '回退后仍空扫 ⇒ 判死("什么都没扫到"永远不得写成"通过")')
+    assert.match(b.out, /无法判定/, '这一格报的是未判定,不是 ✅')
+    assert.doesNotMatch(b.out, /未发现|✅/, '空扫不得被回退通道洗成合格证')
+  } finally {
+    rmScratch(dir2)
+  }
+})
+
+/**
+ * T35 回退判读只有一份(G-978044 的修法约束):必须 import 门 135 那份导出的纯函数,
+ * 本门里不得出现第二个 `shouldRetreatToHead` —— "两处算同一件事必漂移"是本仓记过最多次的失败型,
+ * 而这里的漂移症状是**某一扇门悄悄不再回退**,每一次非 UI 提交又被挡回去。
+ */
+test('T35 回退判据必须是门 135 那一份 import,不得复制第二份;135 的出口被摘线时本门等于没有判据', async () => {
+  const src = readFileSync(SRC, 'utf8')
+  assert.match(
+    src,
+    /import \{ shouldRetreatToHead \} from '\.\/check-api-failure-throw\.mjs'/,
+    '回退判定没引共用出口 —— 本门就是第二份真相',
+  )
+  assert.doesNotMatch(src, /function shouldRetreatToHead/, '本门里又写了一份 shouldRetreatToHead(两处必漂移)')
+  assert.match(src, /retreatReason/, '回退必须留可读证据行,不得静默换面')
+  const g135 = await import(pathToFileURL(join(REPO, 'scripts', 'check-api-failure-throw.mjs')).href)
+  assert.equal(typeof g135.shouldRetreatToHead, 'function', '没 export 的出口等于不存在(门 135 T6 同课)')
+  assert.equal(g135.shouldRetreatToHead({ face: 'staged', hasOnlyFiles: false, stagedInScopeCount: 0 }), true)
+  assert.equal(g135.shouldRetreatToHead({ face: 'staged', hasOnlyFiles: false, stagedInScopeCount: 1 }), false)
+  assert.equal(T.retreatFacePlan({ face: 'head', hasOnlyFiles: false, inScopeCount: 0 }).effFace, 'head')
+  assert.equal(T.retreatFacePlan({ face: 'head', hasOnlyFiles: false, inScopeCount: 0 }).retreatReason, null)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
