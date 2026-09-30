@@ -12,6 +12,8 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Calendar, Check, Flame, Gift, Loader2, ArrowLeft } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -50,15 +52,19 @@ export default function SignInPage() {
   const t = useTranslations('points.signIn')
   const locale = useLocale()
   const qc = useQueryClient()
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
 
   const todayQ = useQuery({
     queryKey: ['sign-in', 'today'],
     queryFn: () => api<SignInToday>('/api/sign-in/today'),
+    enabled: allow,
   })
   const historyQ = useQuery({
     queryKey: ['sign-in', 'history'],
     queryFn: () =>
       api<{ list: SignInHistoryItem[] }>('/api/sign-in/history').then((d) => d.list ?? []),
+    enabled: allow,
   })
 
   const signMut = useMutation({
@@ -72,6 +78,16 @@ export default function SignInPage() {
       qc.invalidateQueries({ queryKey: ['leaderboard'] })
     },
   })
+
+  // 2026-09-30 登录态门
+  if (!allow) {
+    return (
+      <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
+        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
+        <AuthGatePrompt message="请先登录后签到并查看记录" />
+      </div>
+    )
+  }
 
   const dateFmt = new Intl.DateTimeFormat(locale, { month: '2-digit', day: '2-digit' })
   const fullFmt = new Intl.DateTimeFormat(locale, {

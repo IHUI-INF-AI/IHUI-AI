@@ -12,7 +12,8 @@ import { CheckCircle2, Loader2, RotateCw, UserPlus } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { toast } from '@/components/common/Toaster'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface ReferrerInfo {
   referrerName: string | null
@@ -31,9 +32,12 @@ export default function ReferrerPage() {
   const qc = useQueryClient()
   const [code, setCode] = React.useState('')
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
   const q = useQuery({
     queryKey: ['user', 'referrer'],
     queryFn: () => api<ReferrerInfo>('/user/referrer'),
+    enabled: allow,
   })
 
   const bindQ = useMutation({
@@ -62,7 +66,10 @@ export default function ReferrerPage() {
         <div className="w-10" />
       </div>
 
-      {q.isLoading ? (
+      {/* 2026-09-30 登录态门 */}
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看推荐人信息" />
+      ) : q.isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
           <span>{t('loading')}</span>
