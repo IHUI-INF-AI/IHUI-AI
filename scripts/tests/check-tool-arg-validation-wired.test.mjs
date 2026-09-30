@@ -127,6 +127,12 @@ test('6 判据失效不得记绿:空仓 ⇒ exit 2;两面旗同给 ⇒ exit 2;--
   try {
     writeFileSync(join(dir, 'README.md'), 'no validator here\n')
     gitRaw(['init', '-q'], dir)
+    // 夹具自带提交身份:仓外的临时 repo 读不到本仓 local config,而本机 global user.email 未设,
+    // git 的自动兜底要拼 `user@host` —— 主机名含中文时它在 GBK 代码页下拼出乱码并**拒绝**
+    // (`fatal: unable to auto-detect email address`),于是这条用例在任何干净检出上都恒红,
+    // 而红的不是判据。仓里其余建仓夹具一律自带身份,本文件是唯一漏掉的一处。
+    gitRaw(['config', 'user.email', 'gate-fixture@invalid'], dir)
+    gitRaw(['config', 'user.name', 'gate-fixture'], dir)
     gitRaw(['add', '-A'], dir)
     gitRaw(['commit', '-q', '-m', 'blank fixture'], dir)
     const blank = runGuard(['--root', dir])
