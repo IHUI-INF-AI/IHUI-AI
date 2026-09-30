@@ -2,77 +2,62 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * 会话内输入历史栈(纯逻辑,平台无关)。
- *
- * 行为对标 Codex prompt-history:
- * - 按会话分桶(由调用方决定 localStorage key,本模块只操作字符串数组)
- * - 每条用户发送文本入栈;与栈顶连续相同则视为重复,不入栈
- * - 上限 50 条,超出淘汰最旧(数组头部)
- * - 游标导航:cursor = 从「实时草稿」向后回退的步数(0 = 草稿,length = 最旧)
- *
- * 本模块不触碰 localStorage / DOM,纯函数便于单测与多端复用。
- * web 端接线见 apps/web/src/hooks/use-prompt-history.ts。
- */
+// D36 会话内输入历史栈(纯逻辑:push/去重/50 上限/游标导航;平台无关,web 接线在 use-prompt-history)。
+// 语义对齐 Codex 输入历史:最新在队尾,cursor=0 表示草稿,↑ 向更旧前进,↓ 向更新后退。
 
+/** 历史栈上限:超限淘汰最旧一条(淘汰发生在写入路径 pushPromptEntry)。 */
 export const PROMPT_HISTORY_LIMIT = 50
 
-export type HistoryDirection = 'prev' | 'next'
+/** 历史翻页方向:prev=向上(更旧),next=向下(更新)。 */
+export type PromptHistoryDirection = 'prev' | 'next'
 
 /**
- * 入栈一条用户发送文本。
- * - 空文本(仅空白)不入栈
- * - 与栈顶连续相同则视为重复,不入栈
- * - 超过上限时淘汰最旧(数组头部),保留最近 PROMPT_HISTORY_LIMIT 条
+ * 追加一条已发送输入到历史栈(最新在队尾)。
+ * - 空白文本不入栈(原数组原样返回);
+ * - 与栈顶(最近一条)连续重复不入栈(Codex 语义),非连续相同可再次入栈;
+ * - 超过 PROMPT_HISTORY_LIMIT 时淘汰最旧,保留最近 N 条。
  */
 export function pushPromptEntry(entries: readonly string[], text: string): string[] {
-  const value = text
-  if (!value.trim()) return [...entries]
-  const top = entries[entries.length - 1]
-  if (top !== undefined && top === value) return [...entries]
-  const next = [...entries, value]
-  if (next.length > PROMPT_HISTORY_LIMIT) {
-    return next.slice(next.length - PROMPT_HISTORY_LIMIT)
-  }
-  return next
+  const trimmed = text.trim()
+  if (!trimmed) return [...entries]
+  if (entries.length > 0 && entries[entries.length - 1] === trimmed) return [...entries]
+  const next = [...entries, trimmed]
+  return next.length > PROMPT_HISTORY_LIMIT ? next.slice(next.length - PROMPT_HISTORY_LIMIT) : next
 }
 
 /**
- * 游标前进 / 后退。
- * - prev(↑,更旧):cursor + 1,上限 = 栈长(指向最旧)
- * - next(↓,更新):cursor - 1,下限 = 0(指向草稿)
+ * 移动历史游标。cursor=0 表示草稿,1..stackLength 依次指向最新→最旧。
+ * prev 向上前进且在 stackLength 封顶;next 向下后退且在 0(草稿)封底。
  */
-export function navigateCursor(cursor: number, dir: HistoryDirection, length: number): number {
-  const max = Math.max(0, length)
-  if (dir === 'prev') return Math.min(cursor + 1, max)
+export function navigateCursor(
+  cursor: number,
+  direction: PromptHistoryDirection,
+  stackLength: number,
+): number {
+  if (direction === 'prev') return Math.min(cursor + 1, Math.max(stackLength, 0))
   return Math.max(cursor - 1, 0)
 }
 
 /**
- * 解析某游标对应的展示文本。
- * - cursor <= 0:返回草稿(draft)
- * - 否则返回 entries[length - cursor](cursor=1 → 最新,cursor=length → 最旧)
+ * 解析当前游标对应的文本:cursor=0 返回草稿,否则取队尾倒数第 cursor 条
+ * (cursor=1 → 最新,cursor=栈长 → 最旧)。
  */
 export function resolveHistoryText(
   entries: readonly string[],
   cursor: number,
   draft: string,
 ): string {
-  if (cursor <= 0) return draft
-  const idx = entries.length - cursor
-  if (idx < 0) return entries[0] ?? draft
-  return entries[idx] ?? draft
+  if (cursor <= 0 || cursor > entries.length) return draft
+  return entries[entries.length - cursor] ?? draft
 }
 
-/** 安全解析 localStorage 中的历史 JSON(损坏 / 缺失 / 非字符串数组均返回空数组)。 */
-export function parsePromptHistory(raw: string | null): string[] {
+/** 从持久化 JSON 字符串读回历史栈:合法 JSON 数组只保留字符串项;损坏/非数组返回空数组。 */
+export function parsePromptHistory(raw: string | null | undefined): string[] {
   if (!raw) return []
   try {
     const parsed: unknown = JSON.parse(raw)
-    if (Array.isArray(parsed)) {
-      return parsed.filter((item): item is string => typeof item === 'string')
-    }
-    return []
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((item): item is string => typeof item === 'string')
   } catch {
     return []
   }
