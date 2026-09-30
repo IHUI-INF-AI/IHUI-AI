@@ -113,6 +113,15 @@ import {
  * 另一边判未判定。门 128 带 §22d 的 isDirectRun 守卫,引它不会连带触发 CLI 主流程。
  */
 import { specTiers } from './check-cross-end-ui-parity.mjs'
+/**
+ * 「暂存档在**本次没有射程内文件**时回退 HEAD 全量」这一条判读**只有门 135 那一份** —— 它是
+ * `export function` 的纯函数,而 135 带 §22d 的 `isDirectRun` 守卫,引它不会连带触发它的 CLI。
+ * 之所以 import 而不是在本门里再写一个同名函数:两处算同一件事必漂移是本仓记过最多次的失败型
+ * (135 镜像 T7 钉遮罩、128 与本门的 `specTiers` 同一课),而这一条漂移的症状不是报错而是
+ * **某一扇门悄悄不再回退** ⇒ 每一枚非 UI 提交被它挡 ⇒ 各会话走 `--no-verify`、连带链上约 197 道
+ * 对账全部作废(§12e,实测同型 `ffdb860744` / 台账 G-978044)。
+ */
+import { shouldRetreatToHead } from './check-api-failure-throw.mjs'
 
 /**
  * 具名档的来源文件:几何表本体 + 共享 spec 目录。它们**不在本门射程内**(`SPEC_RE` 把它们排除
@@ -810,29 +819,62 @@ export function isInScope(rel) {
 }
 
 /**
+ * 「这次要不要换面、换成哪一面、要喊哪一句」的一张表 —— 判读本身**不在这里**(那是门 135 的
+ * `shouldRetreatToHead`,见上面的 import 那条理由),这里只补本门要喊出来的那句话。
+ *
+ * 抽成导出的纯函数,是为了让自检能用构造面同时命中"该回退"与"三种不该回退":端到端那一例
+ * 取决于**共享索引此刻有什么**(并发会话随时在 stage .tsx),拿它做断言就是把瞬时状态当尺子
+ * (门 103 的 T12 同课)。受控索引的端到端证明在镜像 T33。
+ */
+export function retreatFacePlan({ face, hasOnlyFiles, inScopeCount }) {
+  if (!shouldRetreatToHead({ face, hasOnlyFiles, stagedInScopeCount: inScopeCount }))
+    return { effFace: face, retreatReason: null }
+  return {
+    effFace: 'head',
+    // 这句话必须含"已回退 HEAD 全量"且**不得**写成"跳过/无需判定":回退是照判,静默换面等于
+    // 把"门换了个面判"与"门什么都没判"在人读面上做成同一个东西(§12f)。
+    retreatReason: '本次无射程内文件，已回退 HEAD 全量(索引 blob 上射程内 0 个 ⇒ 改按 HEAD blob 全量面判,不是跳过)',
+  }
+}
+
+/**
  * 全量/暂存档的取数与判定:一次 `cat-file --batch` 把**内容 + 档位表 + 台账**同面同轮读满。
  * 任一份取不到 ⇒ 抛 Undetermined(不冒红也不记绿);档位表解析成空 ⇒ 判失明。
+ *
+ * `--staged` 在"本次暂存集里一个射程内文件都没有"时**回退 HEAD 全量面照判**(见下面 retreatReason
+ * 那条),而不是判"无法判定" —— 只改文档/语言包/后端的提交结构上不带 .tsx/.css,把它判成空扫
+ * 就是替**每一次**无关提交挡路。回退**不是跳过**:换面之后判序、锚点、退出码一概不变。
  */
 export function runAudit(repoRoot, face, { only } = {}) {
-  let files = listTracked(repoRoot, face).filter(isInScope)
-  if (only && only.length) {
-    const want = new Set(only.map((p) => p.replaceAll('\\', '/').replace(/^\.?\//, '')))
+  const onlyList = only && only.length ? only : null
+  const listed = listTracked(repoRoot, face)
+  const inScopeOnFace = listed.filter(isInScope)
+  let files = inScopeOnFace
+  if (onlyList) {
+    const want = new Set(onlyList.map((p) => p.replaceAll('\\', '/').replace(/^\.?\//, '')))
     files = files.filter((f) => want.has(f))
     if (!files.length) throw new Undetermined(`--files 指定的路径一个都不在被审面里:${[...want].join(' ')}`)
   }
-  if (!files.length) throw new Undetermined(`${FACE_TXT[face]}上枚举到 0 个在射程文件 —— 空扫不记绿`)
+  const plan = retreatFacePlan({ face, hasOnlyFiles: !!onlyList, inScopeCount: inScopeOnFace.length })
+  const effFace = plan.effFace
+  const retreatReason = plan.retreatReason
+  if (retreatReason) files = listTracked(repoRoot, effFace).filter(isInScope)
+  // 这一条是"空枚举判死不记绿"那一维,**不得因为上面能回退就删**:回退之后仍然枚举到 0 个
+  // 在射程文件(HEAD 面上真的没有 UI 源码,或清单被换成空的)⇒ 判"无法判定"。
+  // 回退判定与空扫判死是两件事,各由各自的用例命中(镜像 T33/T34)。
+  if (!files.length) throw new Undetermined(`${FACE_TXT[effFace]}上枚举到 0 个在射程文件 —— 空扫不记绿`)
   // 具名档来源与正文**同面同轮**取:表读盘、内容读 HEAD 会产出自洽却错位的尺子(门 83/101 同条)。
-  const tierFiles = listTracked(repoRoot, face).filter((p) => TIER_SOURCE_RE.test(p))
-  const specAt = (p) => (face === 'staged' ? `:${p}` : `HEAD:${p}`)
+  const tierFiles = listTracked(repoRoot, effFace).filter((p) => TIER_SOURCE_RE.test(p))
+  const specAt = (p) => (effFace === 'staged' ? `:${p}` : `HEAD:${p}`)
   const specs = [...files, ...tierFiles, RADIUS_TABLE_REL, BASELINE_REL, ADJUDICATIONS_REL].map(specAt)
   const got = catBatch(repoRoot, specs, { maxBuffer: 1 << 29, timeout: 180000 })
-  const tableSrc = got.get(face === 'staged' ? `:${RADIUS_TABLE_REL}` : `HEAD:${RADIUS_TABLE_REL}`)
+  const tableSrc = got.get(effFace === 'staged' ? `:${RADIUS_TABLE_REL}` : `HEAD:${RADIUS_TABLE_REL}`)
   if (tableSrc === null || tableSrc === undefined)
-    throw new Undetermined(`${FACE_TXT[face]}取不到档位表 ${RADIUS_TABLE_REL} ⇒ 本门判据失明`)
+    throw new Undetermined(`${FACE_TXT[effFace]}取不到档位表 ${RADIUS_TABLE_REL} ⇒ 本门判据失明`)
   const table = radiusLookup(tableSrc)
   if (!table)
-    throw new Undetermined(`${RADIUS_TABLE_REL} 在 ${FACE_TXT[face]} 上解析不出档位表(空表不等于零违规)`)
-  const baseSpec = face === 'staged' ? `:${BASELINE_REL}` : `HEAD:${BASELINE_REL}`
+    throw new Undetermined(`${RADIUS_TABLE_REL} 在 ${FACE_TXT[effFace]} 上解析不出档位表(空表不等于零违规)`)
+  const baseSpec = effFace === 'staged' ? `:${BASELINE_REL}` : `HEAD:${BASELINE_REL}`
   const baselineSrc = got.get(baseSpec)
   const baseline =
     baselineSrc === null || baselineSrc === undefined
@@ -843,7 +885,7 @@ export function runAudit(repoRoot, face, { only } = {}) {
    * 弱证据全部留在队列里 —— 那比"没账就当没有债"诚实,也因为缺账不会让任何站点被静默放行。
    */
   const adjudications = parseAdjudications(
-    got.get(face === 'staged' ? `:${ADJUDICATIONS_REL}` : `HEAD:${ADJUDICATIONS_REL}`),
+    got.get(effFace === 'staged' ? `:${ADJUDICATIONS_REL}` : `HEAD:${ADJUDICATIONS_REL}`),
     ADJUDICATIONS_REL,
   )
   /**
@@ -878,9 +920,9 @@ export function runAudit(repoRoot, face, { only } = {}) {
   let dimsUndetermined = 0
   let exemptionIgnored = 0
   for (const rel of files) {
-    const src = got.get(face === 'staged' ? `:${rel}` : `HEAD:${rel}`)
+    const src = got.get(specAt(rel))
     if (src === null || src === undefined)
-      throw new Undetermined(`${FACE_TXT[face]}取不到 ${rel}(清单与内容必须同面同轮)`)
+      throw new Undetermined(`${FACE_TXT[effFace]}取不到 ${rel}(清单与内容必须同面同轮)`)
     const r = auditFileText(rel, src, table, baseConsts)
     usages += r.usages
     marked += r.marked
@@ -905,7 +947,10 @@ export function runAudit(repoRoot, face, { only } = {}) {
     weakFindings.push(...r.weakFindings)
   }
   return {
-    face,
+    face: effFace,
+    /** 请求的面与真正判定用的面必须都留痕:只留 effFace,"门换了面"就没人看得见。 */
+    requestedFace: face,
+    retreatReason,
     files,
     scopeNarrowed: !!(only && only.length),
     table,
@@ -1133,6 +1178,8 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
     console.log(
       JSON.stringify({
         face: res.face,
+        requestedFace: res.requestedFace ?? res.face,
+        retreatReason: res.retreatReason ?? null,
         scannedFiles: res.files.length,
         usages: res.usages,
         marked: res.marked,
@@ -1168,6 +1215,12 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
       }),
     )
   } else {
+    /**
+     * 回退必须**喊在结论之前**,不是藏在注释里:一次静默换面,"本门按 HEAD 全量判过了"与
+     * "本门什么都没判"在人读面上完全同形(§12f)。这句话也刻意不写成"跳过"或"无需判定"。
+     */
+    if (res.retreatReason)
+      console.log(`↩️ ${res.retreatReason} —— 判序、锚点、退出码一概不变,超锚点照样判红`)
     if (res.face === 'worktree')
       console.log('⚠️⚠️ 正在按**磁盘**判(工作树档):共享工作树常年滞后 HEAD,本档只供人工排查,不得作为结论 ⚠️⚠️')
     console.log(
@@ -2172,6 +2225,41 @@ export default function P() {
       }
     })(),
   )
+  // —— 换面纪律(G-978044:非 UI 提交不得被判"空扫无法判定",而空扫判死那一维不得被顺手删)
+  t(
+    '114 回退判定只认"暂存档 + 无 --files + 射程内 0 个"(判读引自门 135,四路构造面)',
+    retreatFacePlan({ face: 'staged', hasOnlyFiles: false, inScopeCount: 0 }).effFace === 'head' &&
+      retreatFacePlan({ face: 'staged', hasOnlyFiles: false, inScopeCount: 1 }).effFace === 'staged' &&
+      retreatFacePlan({ face: 'staged', hasOnlyFiles: true, inScopeCount: 0 }).effFace === 'staged' &&
+      retreatFacePlan({ face: 'head', hasOnlyFiles: false, inScopeCount: 0 }).effFace === 'head',
+  )
+  t(
+    '115 回退必须留可打印的理由,不回退时必须是 null(静默换面 = "换个面判过"与"没判"同形,§12f)',
+    (() => {
+      const r = retreatFacePlan({ face: 'staged', hasOnlyFiles: false, inScopeCount: 0 }).retreatReason
+      // 判的是"这句话有没有把换面说成判过",不是抠字眼:允许"不是跳过"这种澄清句,禁的是
+      // 把这一格写成"无需判定/不适用/跳过检查"那类**结论措辞**(那才是把没判写成判过)。
+      return (
+        typeof r === 'string' &&
+        /本次无射程内文件，已回退 HEAD 全量/.test(r) &&
+        !/无需判定|不适用|跳过检查/.test(r) &&
+        retreatFacePlan({ face: 'head', hasOnlyFiles: false, inScopeCount: 999 }).retreatReason === null
+      )
+    })(),
+  )
+  t(
+    '116 面本身取不到 ⇒ 抛"无法判定",绝不换到别的面冒充判过(回退只认"无射程内文件"这一种)',
+    (() => {
+      try {
+        runAudit(join(repoRoot, '..', 'ihui-no-such-repo-g978044'), 'staged')
+        return false
+      } catch (e) {
+        return e instanceof Undetermined
+      }
+    })(),
+  )
+  // "两处算同一件事必漂移"是本仓记过最多次的失败型:回退判定只有一份(门 135 的
+  // `shouldRetreatToHead`),本门不得再写一个 —— 那条反向源码锁由镜像 T35 钉。
   const bad = results.filter((r) => !r.ok)
   for (const r of results) console.log(`${r.ok ? '✅' : '❌'} ${r.name}${r.extra ? ` —— ${r.extra}` : ''}`)
   console.log(`--self-test: ${results.length} 条,失败 ${bad.length} 条`)
@@ -2209,6 +2297,7 @@ export const __test__ = {
   adjudicationKey,
   applyAdjudications,
   faceFromArgv,
+  retreatFacePlan,
   runAudit,
   roleTableProblems,
   selfTest,
