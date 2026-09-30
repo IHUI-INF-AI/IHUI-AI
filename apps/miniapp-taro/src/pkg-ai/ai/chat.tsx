@@ -18,6 +18,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { rnRadius } from '@ihui/design-tokens'
 import {
   chatStream,
+  postToolApprovalResponse,
   type ChatMessage,
   fetchModels,
   getAigcList,
@@ -50,6 +51,16 @@ import ChatMessageItem from './ChatMessageItem'
 import ContextUsageStrip from './context-usage-strip'
 import McpStatusStrip from './mcp-status-strip'
 import { resolvePermissionTierText } from './permission-tier-text'
+// D136(2026-10-01 立,承 V4 #94/D84):高危工具审批 —— 卡片(三档/批准/拒绝/人工放行)
+// 与纯逻辑层(队列/记录/决议载荷)都在端内同目录,三档口径逐档对齐 web。
+import ToolApprovalCard, { type ApprovalDecisionPayload } from './tool-approval-card'
+import {
+  appendApprovalRecord,
+  dequeueApprovalRequest,
+  enqueueApprovalRequest,
+  type ApprovalRecord,
+  type ApprovalRequestView,
+} from './tool-approval-text'
 import TaskStatusBar from './task-status-bar'
 import {
   applyToolCallStart,
@@ -124,6 +135,63 @@ export default function ChatPage() {
   // 声明排在 resetEarlierPaging **之前**:下面那个收口要在会话切换时清掉它,顺序倒了就是
   // "用了还没声明的绑定"。
   const [goalNotice, setGoalNotice] = useState<GoalNotice | null>(null)
+  // ── D136(2026-10-01 立,承 V4 #94/D84):高危工具审批状态 ──
+  // 队列:待决策请求(同 approvalId 去重,上限在 enqueueApprovalRequest);当前展示 [0]。
+  // 记录:本轮已处理的审批,**住在页级 state** —— 卡片随队列清空而消失,记录必须留在卡外
+  //(关掉卡什么痕迹都不剩 = 用户不知道发生过一次决策,RN 那一版同一条教训)。
+  const [approvalQueue, setApprovalQueue] = useState<readonly ApprovalRequestView[]>([])
+  const [approvalRecords, setApprovalRecords] = useState<readonly ApprovalRecord[]>([])
+  const [approvalSending, setApprovalSending] = useState(false)
+
+  /**
+   * D136:审批决议回传(卡片 onDecision 的唯一出口)。
+   * 载荷已由卡层按三档构造好(批准必带 scope,拒绝不带),这里只补齐寻址信息并送出:
+   *  - 人工放行出口的载荷只带 approvalId(卡层没有 sessionId),从队列/记录补 sessionId;
+   *  - 成功:写记录(approved/rejected)+ 出队;
+   *  - 失败:写 send-failed 记录,**条目留在队列**可重试(不静默当"已处理",§30 出口仍在)。
+   */
+  const handleApprovalDecision = useCallback(
+    async (payload: ApprovalDecisionPayload) => {
+      const approvalId = payload.approvalId
+      if (!approvalId || approvalSending) return
+      const queued = approvalQueue.find((r) => r.approvalId === approvalId)
+      const record = approvalRecords.find((r) => r.approvalId === approvalId)
+      const sessionId = payload.sessionId || queued?.sessionId || record?.sessionId || ''
+      const toolName = queued?.toolName ?? record?.toolName ?? ''
+      const recordBase = {
+        approvalId,
+        ...(sessionId ? { sessionId } : {}),
+        toolName,
+        overrideCount: record ? record.overrideCount + 1 : 0,
+      }
+      setApprovalSending(true)
+      try {
+        await postToolApprovalResponse({ ...payload, sessionId })
+        setApprovalRecords((prev) =>
+          appendApprovalRecord(prev, {
+            ...recordBase,
+            decision: payload.decision,
+            ...(payload.decision === 'approve' && payload.scope
+              ? { scope: payload.scope }
+              : {}),
+            outcome: payload.decision === 'approve' ? 'approved' : 'rejected',
+          }),
+        )
+        setApprovalQueue((prev) => dequeueApprovalRequest(prev, approvalId))
+      } catch {
+        setApprovalRecords((prev) =>
+          appendApprovalRecord(prev, {
+            ...recordBase,
+            decision: payload.decision,
+            outcome: 'send-failed',
+          }),
+        )
+      } finally {
+        setApprovalSending(false)
+      }
+    },
+    [approvalSending, approvalQueue, approvalRecords],
+  )
   /** 会话切换/清空/本机快照恢复时重置向前翻页态 —— 防旧会话游标把别的会话的消息前插进来 */
   const resetEarlierPaging = useCallback(() => {
     setEarlierHasMore(false)
@@ -859,6 +927,20 @@ export default function ChatPage() {
                 notice.objective ? `${notice.objective} · ${notice.label}` : notice.label,
               )
             },
+            // D136(2026-10-01 立,承 V4 #94/D84):高危工具审批请求帧。载荷已在 api/index.ts
+            // 的认领层(parseToolApprovalLine)按 api-client 口径解析好,这里只入队去重;
+            // 卡片渲染/三档/决议回传见 ToolApprovalCard(tool-approval-card.tsx)。
+            onToolApproval: (evt) => {
+              const view: ApprovalRequestView = {
+                approvalId: evt.approvalId,
+                toolName: evt.toolName,
+                toolCallId: evt.toolCallId,
+                argsPreview: evt.argsPreview,
+                dangerLevel: evt.dangerLevel,
+                ...(evt.sessionId ? { sessionId: evt.sessionId } : {}),
+              }
+              setApprovalQueue((prev) => enqueueApprovalRequest(prev, view))
+            },
             onRetryScheduled: (evt) =>
               pushStreamActivity(
                 t('ai.stream.gatewayRetry', {
@@ -1530,6 +1612,21 @@ export default function ChatPage() {
           ) : null}
         </View>
       ) : null}
+
+      {/*
+        D136(2026-10-01 立,承 V4 #94/D84):高危工具审批确认卡(渲染位)。
+        三档 once/session/always 逐档对齐 web,默认 once 最小特权;拒绝不带 scope;
+        卡上没有"关闭"出口(审批不能被关掉绕过)。已处理记录渲染在卡体外(records),
+        被拒/未生效的条目留人工放行出口(§30)。队列空且无记录 ⇒ 组件返回 null、零占位。
+      */}
+      <ToolApprovalCard
+        request={approvalQueue[0] ?? null}
+        queueCount={Math.max(0, approvalQueue.length - 1)}
+        records={approvalRecords}
+        sending={approvalSending}
+        tt={tt}
+        onDecision={(payload) => void handleApprovalDecision(payload)}
+      />
 
       <View className="input-box-content safe-area-bottom">
         <View className="tool-icons">
