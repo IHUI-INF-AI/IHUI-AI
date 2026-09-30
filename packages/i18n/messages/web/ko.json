@@ -9145,6 +9145,12 @@
       "purposePlaceholder": "인계 목적",
       "revealFile": "파일 표시",
       "createSession": "새 작업 만들기",
+      "phase": {
+        "generating": "모델이 인계 내용을 생성하는 중…",
+        "done": "인계 문서가 생성되었습니다."
+      },
+      "creating": "새 작업을 만드는 중…",
+      "createFailed": "새 작업을 만들지 못했습니다. 다시 시도해 주세요.",
       "handoffUnavailable": "의존하는 인계 문서 생성 출구가 아직 제공되지 않아 인계 내용을 생성할 수 없습니다."
     },
     "renameDialog": {
