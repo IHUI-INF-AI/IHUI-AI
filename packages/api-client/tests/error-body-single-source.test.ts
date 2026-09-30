@@ -71,6 +71,32 @@ describe('① 唯一出口的行为契约', () => {
       '<html>502 Bad Gateway</html>',
     )
   })
+
+  it('FastAPI 的 dict 型 detail 必须取出 message/errorCode —— 多结论端点靠它分辨是哪一格', () => {
+    // 形态取自 /agents/{sid}/pause 的 409 格(HTTPException(detail={errorCode,message}))。
+    // 旧实现在这里两个键都取不到 ⇒ error 落回整段 JSON 文本,端上"暂停失败"与
+    // "会话不属于你"长成同一格 —— 正是 §5「响应必须可分辨」禁止的形态。
+    const r = deriveFailureFromBody(
+      JSON.stringify({
+        detail: { errorCode: 'AGENT_PAUSE_NOT_RUNNING', message: '该会话当前不在运行' },
+      }),
+      409,
+    )
+    expect(r.message).toBe('该会话当前不在运行')
+    expect(r.errorCode).toBe('AGENT_PAUSE_NOT_RUNNING')
+  })
+
+  it('顶层 message 仍优先于 dict detail(不得把补位档提到主档前面)', () => {
+    const r = deriveFailureFromBody(
+      JSON.stringify({
+        message: '自家文案',
+        detail: { errorCode: 'X', message: '透传文案' },
+      }),
+      400,
+    )
+    expect(r.message).toBe('自家文案')
+    expect(r.errorCode).toBe('X')
+  })
 })
 
 describe('② 三条腿必须给出同一个答案', () => {
