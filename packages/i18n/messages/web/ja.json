@@ -9134,6 +9134,19 @@
     "noHistory": "なしチャット",
     "noRecentWorkspaces": "最近のワークスペースがありません",
     "openTerminal": "ターミナルを開く",
+    "recap": {
+      "title": "タスク振り返り",
+      "handoff": {
+        "menuItem": "新しいタスクへ引き継ぐ",
+        "title": "新しいタスクへ引き継ぐ"
+      },
+      "previewDescription": "引き継ぎ内容を確認した後、ファイルの場所で表示するか、新しいタスクを作成して作業を続けられます。",
+      "purposeLabel": "引き継ぎ目的",
+      "purposePlaceholder": "引き継ぎ目的",
+      "revealFile": "ファイルを表示",
+      "createSession": "新しいタスクを作成",
+      "handoffUnavailable": "依存する引き継ぎ文書の生成出口がまだ提供されていないため、引き継ぎ内容を生成できません。"
+    },
     "renameDialog": {
       "cancel": "キャンセル",
       "description": "短く識別しやすい名前にします",
@@ -10572,6 +10585,17 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "selectionAnnotations": {
+      "hoverHint": "ホバーで注釈を表示",
+      "selectedText": "{{index}}. 選択したテキスト",
+      "noComment": "コメントはまだありません",
+      "commentPlaceholder": "任意のコメントを追加…",
+      "commentAriaLabel": "選択範囲注釈のコメント",
+      "addComment": "コメントを追加",
+      "removeOne": "注釈 {{index}} を削除",
+      "removeAll": "選択範囲の注釈をすべて削除",
+      "add": "注釈を追加"
+    },
     "attachRetry": "アップロードを再試行",
     "attachRetryExhausted": "再試行回数の上限に達しました。削除してから再度追加してください。",
     "attachRejectType": "形式がサポートされていないため、{count} 個のファイルをスキップしました：{names}",
@@ -12211,6 +12235,7 @@
     "unpin": "ピン留め解除",
     "unsaved": "未保存",
     "update": {
+      "revoked": "このバージョンは現在提供されていません。",
       "autoRestartIn": "{countdown} 秒後に自動再起動...",
       "autoRetrying": "アップデート失敗、自動リトライ中...",
       "available": "新バージョンがあります",
@@ -15021,6 +15046,8 @@
     "title": "オープンプラットフォーム Feature Center"
   },
   "feedback": {
+    "unsupportedImage": "PNG、JPG、GIF、WebP 画像のみ対応しています。",
+    "requestIdSuffix": "フィードバック番号：{requestId}。",
     "backToList": "フィードバックセンターへ戻る",
     "contactPlaceholder": "任意、ご連絡のため",
     "contentPlaceholder": "をに（10-2000）",
@@ -15852,6 +15879,8 @@
       "unsynced": "未同期"
     },
     "terminalPanel": {
+      "switchToDark": "ダークターミナルに切替",
+      "switchToLight": "ライトターミナルに切替",
       "aiDiagnoseTitle": "AI エラー診断",
       "aiServiceUnavailable": "AIサービスは一時的に利用できません。後でもう一度お試しください",
       "aiSuggestTitle": "AI コマンド提案",
@@ -26541,6 +26570,7 @@
     "noUrlField": "応答に利用可能な URL フィールドが見つかりません",
     "networkError": "ネットワークエラー",
     "uploadCancelled": "アップロードがキャンセルされました",
+    "imageAltText": "フィードバック添付画像 {index}",
     "imagePlaceholder": "クリックまたはここに画像をドラッグしてアップロード"
   },
   "eduScheduling": {
