@@ -758,10 +758,10 @@ pnpm dev                                       # 启动所有服务(web + api + 
 - **触发背景**(真实事故链,同日三连):① 多会话共享 working tree,某会话 `git stash push/pop` 冲突导致另一会话已完成的 llm_gateway.py 拦截代码在提交中丢失(提交 diff 只剩 63+/58- 格式化差异);② 守门第 8 项 check-api-routes 全量扫描工作区,104 处"前端调用无后端路由"全部来自其他会话未完成文件,正常提交被阻塞;③ push 门全量 typecheck 报上千 TS 错误全部来自其他会话工作区噪音,推送反复被阻;④ 2026-08-31 补充事故:d22d233091 的 commit message 声称含 §12d 规范但 AGENTS.md 实际 diff 仅 1 行——§12d 本体在提交前被并行会话覆盖工作区而丢失,**commit message 声称的规范条目必须与实际 diff 一致**。根因:**多会话共享同一 working tree + 同一 git index**。
 - **第一优先:单写者原则**——同一时刻只允许一个会话写 working tree;并行会话开工前先确认其他会话已收尾(无未提交改动、无进行中 stash)。
 - **确需并行写时必须用 worktree 隔离**(与 §9b 单分支规则协同):
-  - `git worktree add --detach ../IHUI-AI-wt-<任务名>`(detached HEAD,不占分支名,不违反 §9b)
+  - **落点(2026-09-30 改,用户拍板"项目产物不外流"):`git worktree add --detach .worktrees/wt-<任务名>`**(项目内 `.worktrees/`,已 gitignore;旧落点 `../IHUI-AI-wt-<任务名>` 即盘根散落目录,2026-09-30 已清理 13 个残留并立盘根卫生守门 `check-disk-root-hygiene.mjs` 防回潮)。detached HEAD,不占分支名,不违反 §9b
   - worktree 内正常开发 + commit(本地 sha 可引用;worktree 无 node_modules,hook 必败,可 `--no-verify`)
   - 完成后回主 worktree `git cherry-pick <sha>` 收编,随主 worktree push
-  - 收编后立即 `git worktree remove ../IHUI-AI-wt-<任务名>` + `git worktree prune`
+  - 收编后立即 `git worktree remove .worktrees/wt-<任务名>` + `git worktree prune`
 - **worktree 内约束**:venv/node_modules 各自安装;端口不得冲突(docs/port-management.md 注册表);共享 DB/Redis 时 schema 迁移互斥。
 - **守门兜底(2026-08-31 已落地)**:即使未用 worktree,守门已支持 staged-scope 降级防误伤——① `check-api-routes.mjs`(pre-commit 第 8 项)仅收集暂存区前端文件调用点,暂存区无前端文件→跳过,暂存区为空(手动跑)→保持全量;② 新增 `scripts/check-typecheck.mjs` 包装 push 门全量 typecheck(**判据 = 本次改动范围**:优先 `PUSH_SCOPE_FILES`(pre-push 依 git 传入的 remote_sha..local_sha 计算),暂存区仅兜底;报错文件均不在改动范围内→降级警告放行;解析不到报错文件=tsc 未真正运行→按失败,宁误拦不放过);③ `.husky/pre-push` 第 2 段接入 `node scripts/guardian-runner.mjs --push-gate` 编排。自检:`node scripts/check-typecheck.mjs --self-test`(新增样例 8-12 覆盖 refspec push 与 Next.js 路由组括号路径)。
   - **2026-09-03 push-scope 修复(必读,曾致 push 反复被硬拦)**:原判据只用暂存区,而 `git push <sha>:<ref>` 这类 refspec 推送**不产生暂存区**,若此刻他人也没 staged 文件,降级直接失效 → 他人并行会话的半编辑态报错(实测 miniapp-taro TS1005、web TS2345,单独复验均 0 错误)会硬拦本次 push。故 pre-push 先缓冲 stdin(`PUSH_REFS="$(cat)"`)再回喂 git-lfs,并据 `remote_sha..local_sha` 计算改动文件导出 `PUSH_SCOPE_FILES`;改动文件 >300 时清空该变量退回暂存区兜底(env 有长度上限,截断会漏判→宁可不降级)。同修一处不安全缺陷:tsc 报错正则原排除括号,把 `app/(main)/xxx.tsx` 截断成 `/xxx.tsx`,导致范围内文件匹配不上而**误放行**,现改为「扩展名 + `(\d+,\d+):`」双锚定。
