@@ -13,7 +13,8 @@ import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface Certificate {
   id: string
@@ -47,9 +48,13 @@ const STATUS_STYLE: Record<number, string> = {
 export default function MyCertificatesPage() {
   const t = useTranslations('student')
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['student', 'my-certificates'],
     queryFn: () => api<CertsData>(`/api/edu/my-certificates?page=1&pageSize=${PAGE_SIZE}`),
+    enabled: allow,
   })
 
   const list = data?.list ?? []
@@ -64,7 +69,9 @@ export default function MyCertificatesPage() {
         </h1>
       </header>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看我的证书" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
