@@ -24,12 +24,23 @@
  * 并且带缓存与超时;派生一律 `windowsHide`(§5b 弹窗根治)与 `timeout`(守门 52 / 80)。
  */
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { hostname } from 'node:os'
 
 /** 同一 pid 的现测结果缓存时长:心跳与巡检会反复问同一个进程。 */
 const CACHE_MS = 5000
 /** 时间戳量化容差:记录与现测之间允许 clock rounding 造成的小差(秒级)。 */
 export const START_TOLERANCE_SEC = 2
+
+/**
+ * 高精度可选档(机制对标上游 processTreeSnapshot.ts:146-184):
+ * 秒级容差 `delta <= 2` 把"同一秒内被复用"这一档从未证伪过 —— 上游恰是为这一档
+ * 把量纲抬到 tick/微秒:Windows 用 CreationDate.Ticks 换算微秒串
+ * `windows-utc-us:<µs>`,Linux 用 /proc/<pid>/stat 第 22 字段 boot-tick 覆盖
+ * 秒级 lstart(PID 同秒复用也不会被误认成旧 runtime 成员)。
+ * 高精度值一律是**带前缀的字符串**(.NET ticks ≈ 6.4e17,超出 JS 安全整数),
+ * 判定时按字符串全等比对,不做数值减法。
+ */
 
 const cache = new Map()
 
@@ -52,22 +63,57 @@ export function parseStartEpoch(raw) {
 }
 
 /**
+ * 从高精度档的输出里解出带前缀的微秒/tick 串;解不出 ⇒ null。
+ * 只认两种形态:`windows-utc-us:<µs>`(Windows CreationDate.Ticks 归一)与
+ * `boot-ticks:<n>`(Linux /proc/<pid>/stat field 22)。其他输出(含报错噪音)
+ * 一律 null —— 高精度值解不出就走秒级档,**不得猜**。
+ */
+export function parsePreciseStart(raw) {
+  const s = String(raw ?? '').trim()
+  for (const line of s.split(/\r?\n/)) {
+    const l = line.trim()
+    const m = l.match(/^(windows-utc-us|boot-ticks):(\d+)$/)
+    if (m) return `${m[1]}:${m[2]}`
+  }
+  return null
+}
+
+/**
+ * 从 /proc/<pid>/stat 内容里解出第 22 字段(starttime,boot 后的 clock tick 数)。
+ * comm 字段(第 2 字段)可含空格与括号 ⇒ 以**最后一个** ')' 为界,其后的 token
+ * 从第 3 字段(state)起算,starttime 是其后第 20 个 token(0-based 19)。
+ * 解不出 ⇒ null。
+ */
+export function parseStatStartTicks(text) {
+  const s = String(text ?? '')
+  const close = s.lastIndexOf(')')
+  if (close < 0) return null
+  const rest = s.slice(close + 1).trim().split(/\s+/)
+  const v = rest[19]
+  if (!v || !/^\d+$/.test(v) || Number(v) <= 0) return null
+  return `boot-ticks:${v}`
+}
+
+/**
  * 现测某 pid 的启动时间(epoch 秒)。量不到 ⇒ null,并带回原因。
  * `run` 可注入,供镜像测试证真/证伪两条路径而不真的派生 PowerShell。
+ * `highPrecision: true` 走高精度档(默认 run 换成 CIM Ticks/stat field 22 的
+ * 带前缀取值);返回值多带 `precise`(字符串,量不到为 null)。
  */
-export function processStartEpoch(pid, { run = defaultRun, now = Date.now() } = {}) {
+export function processStartEpoch(pid, { run = defaultRun, highPrecision = false, now = Date.now() } = {}) {
   const n = Number(pid)
-  if (!Number.isFinite(n) || n <= 0) return { epoch: null, why: `pid 不可用(${pid})` }
+  if (!Number.isFinite(n) || n <= 0) return { epoch: null, why: `pid 不可用(${pid})`, precise: null }
   // 缓存**只服务真实测量**:键里带上"哪一次注入"结构上做不对(注入的 run 是调用方的桩),
   // 而把桩的结果留在按 pid 建的缓存里,下一个拿不同桩来的调用方会读到**别人的**答案 ——
   // 表现是"判据按夹具给的结论走",比报错更难查。真测才缓存,注入一律现测。
-  const cacheable = run === defaultRun
-  const key = `${n}`
+  // 高精度档与秒级档的答案形状不同 ⇒ 缓存键必须分档,否则两档互相顶掉。
+  const cacheable = run === defaultRun || run === defaultPreciseRun
+  const key = `${n}|${highPrecision ? 'precise' : 'sec'}`
   if (cacheable) {
     const hit = cache.get(key)
     if (hit && now - hit.at < CACHE_MS) return hit.res
   }
-  const res = measure(n, run)
+  const res = highPrecision ? measurePrecise(n, run) : measure(n, run)
   if (cacheable) cache.set(key, { at: now, res })
   return res
 }
@@ -76,10 +122,30 @@ function measure(pid, run) {
   try {
     const out = run(pid)
     const epoch = parseStartEpoch(out)
-    return epoch === null ? { epoch: null, why: '输出里没有可用的启动时间' } : { epoch, why: null }
+    return epoch === null ? { epoch: null, why: '输出里没有可用的启动时间', precise: null } : { epoch, why: null, precise: null }
   } catch (e) {
     // 进程不存在 / 无权限 / PowerShell 不在,全落 unverifiable —— 三种都不授权抢占
-    return { epoch: null, why: `取启动时间失败:${e?.code ?? e?.message ?? e}` }
+    return { epoch: null, why: `取启动时间失败:${e?.code ?? e?.message ?? e}`, precise: null }
+  }
+}
+
+function measurePrecise(pid, run) {
+  try {
+    const out = run(pid)
+    const precise = parsePreciseStart(out)
+    const epoch = parseStartEpoch(out)
+    if (precise === null) {
+      // 高精度取值失败不装成功:epoch 即便有值也只当秒级档用(precise 留 null)
+      return epoch === null
+        ? { epoch: null, why: '高精度输出里没有可用值', precise: null }
+        : { epoch, why: '高精度取值失败,退回秒级量纲', precise: null }
+    }
+    return epoch === null
+      ? { epoch: null, why: '高精度值在但秒级值解析失败', precise }
+      : { epoch, why: null, precise }
+  } catch (e) {
+    // 进程不存在 / CIM 报错 ⇒ 全落 unverifiable —— 高精度档不得把三态收窄
+    return { epoch: null, why: `取启动时间失败:${e?.code ?? e?.message ?? e}`, precise: null }
   }
 }
 
@@ -97,13 +163,57 @@ function defaultRun(pid) {
   })
 }
 
+/** .NET DateTime(0001-01-01)与 Unix 纪元之间的 Ticks 差(100ns 单位)。 */
+const NET_TICKS_TO_UNIX = 621_355_968_000_000_000
+
+function defaultPreciseRun(pid) {
+  if (process.platform === 'win32') {
+    // CreationDate.Ticks(100ns,自 0001-01-01)归一成 Unix 微秒串:
+    // µs = (Ticks − 621355968000000000) / 10。整串留在 PowerShell 侧算好,
+    // 以 `windows-utc-us:<µs>` 原样回传 —— 6.4e17 量级超出 JS 安全整数,不得进 JS 数值域。
+    const script =
+      `$ErrorActionPreference='Stop';` +
+      `$p=Get-CimInstance Win32_Process -Filter "ProcessId=${pid}";` +
+      `if($null -eq $p){throw New-Object System.Exception('no such process')}` +
+      `$t=[long]$p.CreationDate.Ticks - ${NET_TICKS_TO_UNIX};` +
+      `'windows-utc-us:'+([long]($t/10));` +
+      `[string][long]($t/10000000)`
+    return execFileSync(powershellBin(), ['-NoProfile', '-NonInteractive', '-Command', script], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 15_000,
+      maxBuffer: 1 << 20,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+  }
+  // Linux:field 22(starttime,boot tick)精度高于 ps lstart 的秒级时间。
+  const stat = readFileSync(`/proc/${pid}/stat`, 'utf8')
+  return parseStatStartTicks(stat) ?? ''
+}
+
 /**
  * 三态判定(纯函数):给记录侧与现测侧两个 epoch,返回结论。
  * 任一侧缺值 ⇒ `unverifiable`,**绝不折成 match 或 mismatch**。
+ *
+ * 高精度可选档(同秒可分辨):两侧都带 precise 串时,字符串全等才 match,
+ * 不等 ⇒ mismatch —— **即便秒级 delta 在容差内**(这正是本档要钉住的
+ * "同一秒内被复用"档,秒级量纲对它结构性失明)。只一侧带 precise ⇒
+ * 量纲不对齐,按秒级档判(退回旧结论,不得单侧凭空翻案)。
  */
-export function judgeIdentity({ recorded, observed }) {
+export function judgeIdentity({ recorded, observed, recordedPrecise, observedPrecise }) {
   if (!Number.isFinite(recorded) || recorded <= 0) return { kind: 'unverifiable', why: '锁里没记录启动时间' }
   if (!Number.isFinite(observed) || observed <= 0) return { kind: 'unverifiable', why: '现测取不到启动时间' }
+  const bothPrecise = typeof recordedPrecise === 'string' && recordedPrecise !== '' && typeof observedPrecise === 'string' && observedPrecise !== ''
+  if (bothPrecise) {
+    if (recordedPrecise === observedPrecise) return { kind: 'match', delta: 0, precise: true }
+    const delta = Math.abs(recorded - observed)
+    return {
+      kind: 'mismatch',
+      delta,
+      precise: true,
+      why: `高精度身份不符(记录 ${recordedPrecise} vs 现测 ${observedPrecise},秒级差 ${Math.round(delta)}s)⇒ 该 pid 已被复用`,
+    }
+  }
   const delta = Math.abs(recorded - observed)
   if (delta <= START_TOLERANCE_SEC) return { kind: 'match', delta }
   return { kind: 'mismatch', delta, why: `记录 ${recorded} vs 现测 ${observed}(差 ${Math.round(delta)}s)⇒ 该 pid 已被复用` }
@@ -118,8 +228,17 @@ export function selfStartEpoch(opts = {}) {
  * 把身份三元组装进 meta 记录(与 pid / ts 并列的第三要素 + 主机名)。
  * 主机名是**故意**的:meta 只在本机有效,但共享工作区可能被别的机器 checkout,
  * 跨机比对 pid 毫无意义 —— 主机名不等时一律 unverifiable,而不是判"pid 被复用"。
+ * `highPrecision: true` 时量纲抬到 tick/微秒并落 `pidStartPrecise`(量不到不落键)。
  */
-export function identityFields({ run, now = Date.now(), host = hostname() } = {}) {
+export function identityFields({ run, now = Date.now(), host = hostname(), highPrecision = false } = {}) {
+  if (highPrecision) {
+    const res = processStartEpoch(process.pid, { run, now, highPrecision })
+    return {
+      host,
+      pidStart: res.epoch ?? undefined,
+      ...(res.precise ? { pidStartPrecise: res.precise } : {}),
+    }
+  }
   return { host, pidStart: selfStartEpoch({ run, now }) ?? undefined }
 }
 
@@ -141,11 +260,20 @@ export function verifyHolder(meta, opts = {}) {
   }
   const recorded = Number(meta.pidStart)
   const hasRecorded = Number.isFinite(recorded) && recorded > 0
-  const obs = hasRecorded ? processStartEpoch(meta.pid, opts) : { epoch: null, why: null }
-  const verdict = judgeIdentity({ recorded: hasRecorded ? recorded : undefined, observed: obs.epoch })
+  // meta 带高精度凭据 ⇒ 现测也走高精度档(量纲对齐才可比;meta 没有 ⇒ 秒级档,旧行为)
+  const metaPrecise = typeof meta.pidStartPrecise === 'string' && meta.pidStartPrecise !== '' ? meta.pidStartPrecise : undefined
+  const obs = hasRecorded
+    ? processStartEpoch(meta.pid, { ...opts, highPrecision: metaPrecise !== undefined })
+    : { epoch: null, why: null, precise: null }
+  const verdict = judgeIdentity({
+    recorded: hasRecorded ? recorded : undefined,
+    observed: obs.epoch,
+    recordedPrecise: metaPrecise,
+    observedPrecise: obs.precise,
+  })
   if (verdict.kind === 'unverifiable' && obs.why) return { ...verdict, why: `${verdict.why}:${obs.why}` }
   return verdict
 }
 
-export const __test__ = { parseStartEpoch, judgeIdentity, processStartEpoch, identityFields, verifyHolder, CACHE_MS, clearCache: () => cache.clear() }
+export const __test__ = { parseStartEpoch, parsePreciseStart, parseStatStartTicks, judgeIdentity, processStartEpoch, identityFields, verifyHolder, CACHE_MS, clearCache: () => cache.clear() }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
