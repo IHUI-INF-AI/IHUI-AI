@@ -18,7 +18,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AiGroupItem, AiGroupScreenProps, AiGroupTab } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 
 /** AI 群组共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AiGroupItem, AiGroupScreenProps, AiGroupTab }
@@ -375,7 +375,7 @@ function createStyles(tk: AppThemeTokens) {
     roleBadgeText: { fontSize: 11, color: tk.text.primary },
     previewBubble: {
       padding: 10,
-      borderRadius: rnRadiusFor.bubble,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
       marginBottom: 8,
     },
