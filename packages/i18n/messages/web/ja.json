@@ -9134,6 +9134,19 @@
     "noHistory": "なしチャット",
     "noRecentWorkspaces": "最近のワークスペースがありません",
     "openTerminal": "ターミナルを開く",
+    "recap": {
+      "title": "タスク振り返り",
+      "handoff": {
+        "menuItem": "新しいタスクへ引き継ぐ",
+        "title": "新しいタスクへ引き継ぐ"
+      },
+      "previewDescription": "引き継ぎ内容を確認した後、ファイルの場所で表示するか、新しいタスクを作成して作業を続けられます。",
+      "purposeLabel": "引き継ぎ目的",
+      "purposePlaceholder": "引き継ぎ目的",
+      "revealFile": "ファイルを表示",
+      "createSession": "新しいタスクを作成",
+      "handoffUnavailable": "依存する引き継ぎ文書の生成出口がまだ提供されていないため、引き継ぎ内容を生成できません。"
+    },
     "renameDialog": {
       "cancel": "キャンセル",
       "description": "短く識別しやすい名前にします",
