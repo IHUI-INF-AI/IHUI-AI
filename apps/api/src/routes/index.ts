@@ -34,6 +34,7 @@ import { gamificationRoutes } from './gamification.js'
 import { creditsUsageRoutes } from './credits-usage.js'
 import { desktopPrefsRoutes } from './desktop-prefs.js'
 import { pointsTasksRoutes } from './points-tasks.js'
+import { pointsMallUserRoutes } from './points-mall-user.js'
 import { userExtraRoutes } from './user-extras.js'
 import { aiSkillsProxyRoutes } from './ai-skills-proxy.js'
 import { contentRoutes, adminContentRoutes } from './content.js'
@@ -568,6 +569,8 @@ export function registerRoutes(server: FastifyInstance) {
   // 桌面端偏好跨设备漫游（需登录，整棵子树强制鉴权）：/api/desktop/prefs
   server.register(desktopPrefsRoutes, { prefix: '/api' })
   server.register(pointsTasksRoutes, { prefix: '/api' })
+  // 积分商城用户端(2026-09-30 立):GET/POST /api/points/mall/redeem*(读 points_mall_products、写 points_mall_orders+积分流水)
+  server.register(pointsMallUserRoutes, { prefix: '/api' })
   server.register(userExtraRoutes, { prefix: '/api/user' })
   server.register(aiSkillsProxyRoutes, { prefix: '/api/ai-skills' })
   // 系统配置 / 集成 / API 日志 / 系统事件：/api/configs + /api/admin/configs /api/admin/integrations /api/admin/logs /api/admin/events
