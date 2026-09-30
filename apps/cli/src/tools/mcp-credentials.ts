@@ -974,7 +974,7 @@ function describeStoreFailure(snap: McpCredentialStoreSnapshot): string {
     snap.state !== 'corrupt'
       ? snap.evidencePath
         ? `; evidence copy at ${snap.evidencePath}`
-        : '; no evidence file written (store file itself is intact)'
+        : `; no evidence copy written (state=${snap.state}: not the "bytes are broken" tier)`
       : snap.evidencePath
         ? `; original bytes copied to ${snap.evidencePath}`
         : '; evidence copy FAILED — the unreadable file is still in place, do not overwrite it';
