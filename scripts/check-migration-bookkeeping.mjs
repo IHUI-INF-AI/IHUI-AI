@@ -45,12 +45,36 @@
  *     B3 when 严格递增且唯一
  *     B4 idx 唯一(idx 断号仅告警 —— drizzle 按 tag 配对 SQL、按 when 排序,idx 只是元数据)
  *     B5 journal 结构完整(version / dialect / entries 数组,entry 必含 idx/tag/when)
- *   在线(--db):
+ *   在线(--db 或 --db-ledger 快照通道):
  *     B6 库内行数 == journal 条目数
  *     B7 库内 created_at 集合 == journal when 集合(严格双射)
  *     B8 max(created_at) == max(when)(migrate「不空转」的充要条件)
  *     B9 库内每行 hash 均为合法 sha256(64 位十六进制)且唯一 —— 防再现 2026-09-13 的
  *        污染形态(453 行中含 153 个重复 hash 与 `NOFILE:` / `manual_` 伪值)
+ *     B11 **已应用迁移的内容 ↔ 账本 hash 逐条对账**(2026-09-28 立,本票新增)——
+ *        对 journal 里每一个「库内已有账本行(账本 created_at == 条目 when)」的 tag,
+ *        按 drizzle 那把算法现算被审面上 .sql 内容的 sha256,与账本 hash 比对,不等即红。
+ *        · 立项凭据(实测,不是推测):`drizzle-orm/pg-core/dialect.js:44-71` 的 migrate()
+ *          只问 `Number(lastDbMigration.created_at) < migration.folderMillis`,**从不读回 hash**
+ *          —— hash 只在插入时写一次(`migrator.js:23` 的
+ *          `createHash("sha256").update(整份 .sql 原文).digest("hex")`)。
+ *          ⇒ 改一枚**已应用**迁移的一个字符 = **静默分叉**(P1:既不重跑也不报错,库里永远是旧结构,
+ *            而 git 里那份 .sql 从此没人执行过),不是「按 hash 判未应用而重跑」(P0)。
+ *            既然运行时永远不会自己发现这一格,这道对账就是唯一的尺子 ⇒ **在 --db 档直接判红**。
+ *          本门头注第 2 条记过的旧事故(「迁移文件被注入零宽溯源水印后内容改变,旧 hash 全失效」)
+ *          当时的处置是**躲开水印器**,没留尺子 —— B11 补的就是那一格。
+ *        · 离线档(不给 --db / --db-ledger)**判「未判定」并给原因,绝不记绿**:没有账本就没人能
+ *          说"内容没被改过"。本机无 PG 时这是常态(AGENTS §5b:凡"要不要怕影响生产"先实测端口)。
+ *        · **未应用的新迁移不判红** —— 它的内容当然还可以改;判据只认"账本里已有那一行"。
+ *        · 禁止的处置:**改 .sql 去凑 hash、或"重算并覆盖账本 hash"**(那是给分叉发通行证)。
+ *          唯一出路是把改动挪成一枚**新迁移**。
+ *        · `--db-ledger <快照>` 是**取证/无库通道**:喂 `psql -t -A -F'|' -c
+ *          'SELECT created_at, hash FROM drizzle.__drizzle_migrations ORDER BY created_at'`
+ *          的**原样输出**落盘件,只供 B11 比对;B6~B9 判的是库内实时状态,该通道下如实报
+ *          「未判定」,不得拿快照冒充"连过库"。与 `--db` 同给 ⇒ 两个账本来源互斥 ⇒ exit 2。
+ *        · 定级:提交链(runner id 49 的 `args: []`)**不带 --db**,所以 B11 的红不会变成每台每次的
+ *          恒红门(AGENTS §12e);它只在被明确要求的库内对账里说话。`--strict` 另把「未判定」
+ *          也升为判红(问责档拒绝出合格证)。
  *   旁路(warn 级,**不并入 B1-B5 的判红面**,也不改它们的退出码):
  *     B10 journal 登记表当前是否「无人 in flight」—— 报五路径( journal / 两张 schema /
  *        api 的 chat 路由与查询 )的 git 状态(已暂存 / 仅工作树脏 / 干净),以及
@@ -67,7 +91,9 @@
  *   node scripts/check-migration-bookkeeping.mjs --staged      # pre-commit(判索引面,同面同轮)
  *   node scripts/check-migration-bookkeeping.mjs --worktree    # 磁盘逃生舱(人工 / 验生成器写回)
  *   node scripts/check-migration-bookkeeping.mjs --require-idle # B10 由「只报」升为「判红」(CI / 巡检)
- *   node scripts/check-migration-bookkeeping.mjs --db          # 追加库校验
+ *   node scripts/check-migration-bookkeeping.mjs --strict       # B11 的「未判定」升为判死(问责档)
+ *   node scripts/check-migration-bookkeeping.mjs --db-ledger f  # B11 用落盘账本快照(不连库;B6~B9 未判定)
+ *   node scripts/check-migration-bookkeeping.mjs --db          # 追加库校验(B11 也用它)
  *       (DSN 取自 $DATABASE_URL,否则读 apps/api/.env 的 DATABASE_URL;
  *        psql 取自 $IHUI_PSQL,否则 D:\DevEnv\runtimes\pgsql\bin\psql.exe,否则 PATH 上的 psql)
  *       说明:B6~B9 比对的是**库内实时状态**(那是被审对象本身,不是"取哪个面的仓库正文"),
@@ -79,6 +105,7 @@
  */
 import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveGitBin } from './lib/gitdir.mjs'
@@ -118,6 +145,36 @@ const ROOT = resolveRoot(args)
 const wantDb = args.includes('--db')
 // B10 定级开关:默认 warn(只报不改退出码);--require-idle 才升成判红(供 CI / 巡检问责)
 const requireIdle = args.includes('--require-idle')
+// B11 的问责档:默认把「没账本可比」如实报成未判定而**不改退出码**(提交链不带 --db,
+// 但巡检/CI 可能带别的档;与改动无关的恒红只会逼人 --no-verify,AGENTS §12e 同型)。
+// `--strict` 才把「未判定」也升成判死 —— 它是"拒绝出具合格证",不是"仓库有罪"。
+const strict = args.includes('--strict')
+
+/**
+ * 纯函数:argv → `--db-ledger <快照文件>` 的解析结果。
+ *
+ * 为什么要有这一档(它**不是**后门):B11 比的是「.sql 内容 ↔ 库内账本 hash」,而本机无 PG 时
+ * (AGENTS §5b:凡"要不要怕影响生产"先实测端口)这一格永远判不到 —— 那既不该被记成通过,
+ * 也不该让这张票的成对取证只能靠连生产库来做(§5 测试隔离铁律)。快照通道的输入是
+ * `psql -t -A -F'|' -c 'SELECT created_at, hash FROM drizzle.__drizzle_migrations ORDER BY created_at'`
+ * 的**原样输出**(部署机落盘件),用它跑出来的结论**必须在输出里自报"来源是快照文件,没连库"**,
+ * 免得下一个人把这一格读成"B6~B9 也对照过"。
+ * 与 `--db` 同给 ⇒ 两个账本来源(实时库 / 落盘快照)互斥,判死而不是猜用哪个(与两面旗同给同一规矩)。
+ * @returns {{file:string|null, error:string|null}}
+ */
+export function ledgerFileFromArgv(argv) {
+  const list = argv || []
+  const i = list.findIndex((a) => a === '--db-ledger' || String(a).startsWith('--db-ledger='))
+  if (i < 0) return { file: null, error: null }
+  const a = String(list[i])
+  const p = a.includes('=') ? a.slice(a.indexOf('=') + 1) : list[i + 1]
+  if (!p || String(p).startsWith('--'))
+    return { file: null, error: '--db-ledger 需要一个文件参数(psql 原样输出,不加注释行)' }
+  return { file: p, error: null }
+}
+
+const LEDGER_ARG = ledgerFileFromArgv(args)
+const LEDGER_FILE = LEDGER_ARG.file
 
 /**
  * 纯函数:argv → 判定面。**默认 `head`**(全量审计判 HEAD blob)。
@@ -385,6 +442,138 @@ export function faceSelfProof(root, face, faceSqls) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// B11 —— 已应用迁移的内容不可变性对账(2026-09-28 立)。
+// 这一族的三个出口都必须是**单一实现**:算法、账本解析、比对判据各住一处,
+// 不得在别处再抄一遍(两处算同一件事必漂移,本仓记过多次)。
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * drizzle 写进 `drizzle.__drizzle_migrations.hash` 的那把 hash 的**唯一算法**。
+ * 出处(逐字,2026-09-28 现读):
+ *   `packages/database/node_modules/drizzle-orm/migrator.js:15,23`
+ *     const query = fs.readFileSync(`${folder}/${entry.tag}.sql`).toString()
+ *     hash: crypto.createHash("sha256").update(query).digest("hex")
+ * 两个不能改的细节:
+ *   ① 是对**整份原文**算的,在按 `--> statement-breakpoint` 切句**之前**;
+ *   ② **不得 .trim() / 不得归一换行** —— 账本里的字节就是磁盘当时的字节,
+ *      归一化等于替"内容被改过"发通行证(本票明令禁止的处置)。
+ * @param {string} text 被审面上的 .sql 正文(与 journal **同面同轮**取的那一份)
+ */
+export function migrationSqlHash(text) {
+  return createHash('sha256').update(String(text), 'utf8').digest('hex')
+}
+
+/** 纯函数:判定面 + tag → 该 .sql 的 `cat-file --batch` 规格(`--worktree` 给 null,由磁盘面自己读)。 */
+export function faceSqlBlobSpec(face, tag) {
+  const rel = `${MIG_DIR_REL}/${tag}.sql`
+  if (face === 'staged') return `:${rel}`
+  if (face === 'head') return `HEAD:${rel}`
+  return null
+}
+
+/**
+ * 纯函数:账本行的解析(**一份实现同时供 psql 实时输出与 --db-ledger 快照文件用**)。
+ * 输入是 `psql -t -A -F'|'` 的原样文本,行形状 `created_at|hash`;空行跳过。
+ * 刻意保留旧内联实现的怪癖而不"顺手修":`created_at` 取 `Number(...)`,非数字 ⇒ NaN,
+ * 由调用方的 `Number.isFinite` 滤掉(B6 的既有语义一字不动)。
+ * @returns {Array<{createdAt:number, hash:string}>}
+ */
+export function parseLedgerRows(text) {
+  const rows = []
+  for (const l of String(text ?? '').split(/\r?\n/)) {
+    if (l.trim() === '') continue
+    const i = l.indexOf('|')
+    rows.push({ createdAt: Number(l.slice(0, i).trim()), hash: l.slice(i + 1).trim() })
+  }
+  return rows
+}
+
+/**
+ * 纯判据:B11 的内容比对。
+ * @param {Array<{tag?:string, when?:number}>} entries  journal 条目(与被比对正文**同面同轮**)
+ * @param {Map<string,string|null>} bodies              tag → .sql 正文;`null`/缺键 = 该面取不到正文
+ * @param {Array<{createdAt:number, hash:string}>} rows 库内(或快照)账本行
+ * @returns {{applied:number, compared:number, ok:number,
+ *            mismatch:Array<{tag:string, when:number, ledgerHash:string, computedHash:string, eolOnly:boolean}>,
+ *            notApplied:string[], unreadable:string[], noTag:number}}
+ * 三态**绝不并桶**(这是本判据的全部价值):
+ *   · applied 且正文取得到 → 比;等则 ok,不等则 mismatch(**含仅行尾差异,照样计红**,
+ *     只在诊断里标 `eolOnly` 免得下一个人把编码问题当成 SQL 改动去查)。
+ *   · applied 而正文取不到 → `unreadable`(未判定):既不是分叉也不是通过。
+ *   · 账本里没有那一行(未应用的新迁移)→ `notApplied`,**不判红** —— 它的内容当然还可以改。
+ */
+export function compareAppliedHashes(entries, bodies, rows) {
+  const byWhen = new Map()
+  for (const r of rows || []) {
+    if (Number.isFinite(r && r.createdAt) && typeof r.hash === 'string') byWhen.set(r.createdAt, r.hash)
+  }
+  const mismatch = []
+  const notApplied = []
+  const unreadable = []
+  let applied = 0
+  let ok = 0
+  let noTag = 0
+  for (const e of entries || []) {
+    const when = Number(e && e.when)
+    const ledgerHash = Number.isFinite(when) ? byWhen.get(when) : undefined
+    const tag = e && typeof e.tag === 'string' ? e.tag : null
+    if (!tag) {
+      // entry 缺 tag:结构问题归 B5 判红,这里只如实计数,不替 B11 造出一条假分叉。
+      noTag++
+      continue
+    }
+    if (typeof ledgerHash !== 'string') {
+      notApplied.push(tag)
+      continue
+    }
+    applied++
+    const body = bodies && bodies.get(tag)
+    if (typeof body !== 'string') {
+      unreadable.push(tag)
+      continue
+    }
+    const computedHash = migrationSqlHash(body)
+    if (computedHash === ledgerHash) {
+      ok++
+      continue
+    }
+    mismatch.push({
+      tag,
+      when,
+      ledgerHash,
+      computedHash,
+      // 诊断位而非豁免通道:归一后相等 ⇒ 差异**看起来**只是换行,但仍算 mismatch(见上)。
+      eolOnly: migrationSqlHash(body.replace(/\r\n/g, '\n')) === ledgerHash,
+    })
+  }
+  return { applied, compared: applied - unreadable.length, ok, mismatch, notApplied, unreadable, noTag }
+}
+
+/** B11 判红时给的人话出口(上游同形措辞 + 唯一修法)。 */
+export const MIGRATION_IMMUTABLE_HINT =
+  '历史迁移不可变,请新增一枚迁移(Historical migrations are immutable; add a new migration instead.)'
+
+/**
+ * 按判定面读一批 .sql 正文(与 journal **同面同轮**,不混面)。
+ * 单枚取不到 ⇒ Map 里给 null,由 `compareAppliedHashes` 归入 `unreadable`(未判定)——
+ * 不冒红(那可能是 B1 已经点名的缺失),也绝不静默算通过。
+ * 整批派生失败 ⇒ 抛 `Undetermined`,由调用方折成"B11 未判定 + 原因"。
+ */
+export function readSqlBodies(root, face, tags) {
+  const list = [...(tags || [])]
+  const out = new Map()
+  if (list.length === 0) return out
+  if (face === 'worktree') {
+    for (const t of list) out.set(t, readWorktreeFile(root, `${MIG_DIR_REL}/${t}.sql`))
+    return out
+  }
+  const specs = list.map((t) => faceSqlBlobSpec(face, t))
+  const got = catBatch(root, specs)
+  list.forEach((t, i) => out.set(t, got.get(specs[i]) ?? null))
+  return out
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // 取证夹具(2026-09-28 立)。**唯一一份实现**:`--self-test` 与 §22c 镜像测试都用它,
 // 不得在测试里再抄一遍(§22c:镜像常量漂移 = 测试从防线变成缺陷的掩体)。
 // 落点一律 `scripts/lib/scratch-dir.mjs` 的 mkScratch —— 两个禁止理由都由实测固化:
@@ -411,7 +600,7 @@ export function writeGateFixture(root, n, { withSql = true } = {}) {
     join(drizzle, 'meta/_journal.json'),
     `${JSON.stringify({ version: 7, dialect: 'postgresql', entries }, null, 2)}\n`,
   )
-  if (withSql) for (const e of entries) writeFileSync(join(drizzle, `${e.tag}.sql`), 'SELECT 1;\n')
+  if (withSql) for (const e of entries) writeFileSync(join(drizzle, `${e.tag}.sql`), FIXTURE_SQL)
   for (const p of FIXTURE_WATCH_OTHERS) {
     mkdirSync(dirname(join(root, p)), { recursive: true })
     writeFileSync(join(root, p), 'export {}\n')
@@ -426,6 +615,38 @@ export const FIXTURE_WATCH_OTHERS = [
   'apps/api/src/routes/chat.ts',
   'apps/api/src/db/chat-queries.ts',
 ]
+
+/** 夹具 .sql 的正文(与 `writeGateFixture` 同源;改它两处一起改)。 */
+export const FIXTURE_SQL = 'SELECT 1;\n'
+/** 夹具里用来构造"已应用迁移被改一个字符"的那一份正文。 */
+export const FIXTURE_SQL_TAMPERED = 'SELECT 2;\n'
+/** 账本快照在夹具仓里的落点(放在 drizzle/ **之外**:B1 的枚举与 B10 的未跟踪面都按目录收窄)。 */
+export const FIXTURE_LEDGER_REL = '.ledger/snapshot.txt'
+
+/**
+ * 造一份账本快照(形状 = `psql -t -A -F'|' -c 'SELECT created_at, hash …'` 的原样输出)。
+ *
+ * 它是 `--self-test` 与 §22c 镜像测试**共用**的唯一一份实现(§22c),因为 B11 的取证不能靠连库
+ * (AGENTS §5 测试隔离铁律 + 本机 8810/8811 零监听实测),而"手工在测试里抄一遍 hash 拼接"
+ * 会和这里的 psql 形状漂开 —— 漂开的后果不是红,是**永远不相等**或**永远相等**的假结论。
+ *
+ * @param {Array<{tag:string, when:number}>} entries 夹具 journal 条目(用**同一份** entries,别重造)
+ * @param {{content?:Record<string,string>, notApplied?:string[], dropAll?:boolean}} [o]
+ *   · `content[tag]` —— 该 tag 在"库里当年执行的那一份"的正文(默认 = 夹具当前正文)
+ *   · `notApplied`   —— 这些 tag 不出现在快照里(= 尚未应用,内容可以随便改,B11 不得判红)
+ *   · `dropAll`      —— 产出**空**快照(用来证"0 行账本 ⇒ 未判定,不等于通过")
+ */
+export function ledgerSnapshotOf(entries, o = {}) {
+  if (o.dropAll) return ''
+  const skip = new Set(o.notApplied || [])
+  const rows = []
+  for (const e of entries) {
+    if (skip.has(e.tag)) continue
+    const body = (o.content && o.content[e.tag]) || FIXTURE_SQL
+    rows.push(`${e.when}|${migrationSqlHash(body)}`)
+  }
+  return `${rows.join('\n')}\n`
+}
 
 /** 夹具仓里跑 git:绝对路径 + safe.directory + 身份 + timeout + windowsHide(§5b / 守门 52/80)。 */
 export function gitIn(dir, gitArgs, { expectOk = true } = {}) {
@@ -461,6 +682,18 @@ export function mkFixtureRepo(prefix, n = 2) {
   gitIn(dir, ['add', '-A'])
   gitIn(dir, ['commit', '-q', '--no-verify', '-m', 'gate49 fixture'])
   return dir
+}
+
+/**
+ * 夹具的账本快照落点(**唯一一份实现**):把 `ledgerSnapshotOf` 的文本写到
+ * `<root>/.ledger/snapshot.txt`,返回可直接喂 `--db-ledger` 的**相对路径**。
+ * 相对 `--root` 解析 ⇒ 与门自己的 `resolve(ROOT, LEDGER_FILE)` 同一套基准,不会双根分裂。
+ */
+export function writeLedgerSnapshot(dir, text) {
+  const abs = join(dir, FIXTURE_LEDGER_REL)
+  mkdirSync(dirname(abs), { recursive: true })
+  writeFileSync(abs, text)
+  return FIXTURE_LEDGER_REL
 }
 
 /** 以 `--root <dir>` 跑本门自身(退出码与逐字输出才是守门对外的形状)。 */
@@ -737,6 +970,177 @@ export function runSelfTest() {
       'E9c 不带 --db 时汇总行不得出现库内那一维(无中生有也是谎)',
       !/库内双射/.test(runGateAt(d9).out),
     )
+
+    // ══ B11(2026-09-28 立):已应用迁移的内容 ↔ 账本 hash 对账 ══════════════
+    // 票面要求的四条成对取证,全部走 `--db-ledger` 快照通道 —— **不连库**(§5 测试隔离铁律)。
+    // ① 构造"已应用迁移被改一个字符"⇒ 必点名;② 同一迁移未应用 ⇒ 不红;
+    // ③ 离线无账本 ⇒ "未判定"且**不记绿**;④ 纯判据层的正反例(可构造,不靠仓库瞬时状态)。
+
+    // ④ 纯判据层
+    {
+      const ents = [
+        { tag: 'a', when: 10 },
+        { tag: 'b', when: 20 },
+      ]
+      const bodies = new Map([
+        ['a', 'SELECT 1;\n'],
+        ['b', 'SELECT 1;\n'],
+      ])
+      const rowsOk = [
+        { createdAt: 10, hash: migrationSqlHash('SELECT 1;\n') },
+        { createdAt: 20, hash: migrationSqlHash('SELECT 1;\n') },
+      ]
+      const p0 = compareAppliedHashes(ents, bodies, rowsOk)
+      eq('P7a 账本相符 ⇒ 0 分叉 / 2 已比对', `${p0.mismatch.length}/${p0.compared}`, '0/2')
+      const rowsBad = [
+        { createdAt: 10, hash: migrationSqlHash('SELECT 2;\n') },
+        rowsOk[1],
+      ]
+      const p1 = compareAppliedHashes(ents, bodies, rowsBad)
+      eq(
+        'P7b 已应用但内容被改 ⇒ 恰 1 枚分叉且点名 tag',
+        `${p1.mismatch.length}/${p1.mismatch[0]?.tag}`,
+        '1/a',
+      )
+      // ② 未应用的同一枚 ⇒ 不得判红
+      const p2 = compareAppliedHashes(ents, bodies, [rowsOk[1]])
+      eq('P7c 未应用(账本里没有那一行)⇒ 0 分叉,计入 notApplied', `${p2.mismatch.length}/${p2.notApplied.join(',')}`, '0/a')
+      // 正文取不到 ⇒ 未判定,既不是分叉也不是通过
+      // 正文取不到 ⇒ 未判定,既不是分叉也不是通过('a' 根本不在 Map 里、'b' 显式 null ⇒ 两枚都算取不到)
+      const p3 = compareAppliedHashes(ents, new Map([['b', null]]), rowsOk)
+      eq('P7d 正文取不到 ⇒ 进 unreadable 而非 mismatch', `${p3.mismatch.length}/${p3.unreadable.join(',')}`, '0/a,b')
+      eq('P7d2 取不到的枚数必须从 compared 里扣掉(不得混进"已比对")', `${p3.applied}/${p3.compared}`, '2/0')
+      eq('P7e 空账本 ⇒ 全条落 notApplied,applied 0(不得读成"全对")', compareAppliedHashes(ents, bodies, []).applied, 0)
+      eq('P7f 缺 tag 的条目 ⇒ 不造分叉,落 noTag 计数', compareAppliedHashes([{ when: 10 }], bodies, rowsOk).noTag, 1)
+      // hash 配方必须逐字等于 drizzle 的那一把(用已知向量,而不是"自己算自己比")
+      eq(
+        'P7g migrationSqlHash 对已知向量的十六进制长度/值(sha256("SELECT 1;\\n") 前缀)',
+        `${migrationSqlHash('SELECT 1;\n').length}/${migrationSqlHash('SELECT 1;\n').slice(0, 8)}`,
+        `64/${createHash('sha256').update('SELECT 1;\n', 'utf8').digest('hex').slice(0, 8)}`,
+      )
+      eq('P7h 一个字符之差必须换掉整把 hash(判据有牙的最低要求)', String(migrationSqlHash('SELECT 1;\n') === migrationSqlHash('SELECT 2;\n')), 'false')
+      eq('P7i 三面各取哪一份 .sql 规格互不相同', [faceSqlBlobSpec('head', 'x'), faceSqlBlobSpec('staged', 'x'), faceSqlBlobSpec('worktree', 'x')].map((v) => v ?? 'null').join('|'), `HEAD:${MIG_DIR_REL}/x.sql|:${MIG_DIR_REL}/x.sql|null`)
+      eq(
+        'P7j 账本行解析:同一形状供 psql 与快照文件用(缺 | 的行保留旧形状,不静默丢)',
+        JSON.stringify(parseLedgerRows('10|abc\n\n20|def\n')),
+        JSON.stringify([
+          { createdAt: 10, hash: 'abc' },
+          { createdAt: 20, hash: 'def' },
+        ]),
+      )
+      eq('P7k --db-ledger 缺文件参数 ⇒ error(不猜路径)', ledgerFileFromArgv(['--db-ledger']).error !== null, 'true')
+      eq('P7l --db-ledger=x 等号形态同样被认', ledgerFileFromArgv(['--db-ledger=x.txt']).file, 'x.txt')
+    }
+
+    // 端到端:先造一份**账本与盘面一致**的快照 ⇒ B11 必须绿(否则上面那条红可能是夹具坏了)
+    const dB = keep(mkFixtureRepo('g49-b11-clean'))
+    const cleanSnap = ledgerSnapshotOf(
+      JSON.parse(readFileSync(join(dB, JOURNAL_REL), 'utf8')).entries,
+    )
+    const ledB = writeLedgerSnapshot(dB, cleanSnap)
+    const b0 = runGateAt(dB, ['--db-ledger', ledB])
+    eq('E10a 账本与内容一致 ⇒ exit 0', String(b0.code), '0')
+    ok(
+      'E10b 且必须逐枚报"已比对 2 枚相符"(不是只说没违规)',
+      /✓ B11 2 枚已应用迁移的内容与账本 hash 逐枚相符\(2 枚等值\)/.test(b0.out),
+      (b0.out.match(/B11 [^\n]*/) || ['<无>'])[0],
+    )
+    ok(
+      'E10c 快照通道必须自报"没连库",不得让 B6~B9 混进通过结论',
+      /B6~B9 未判定:--db-ledger 快照通道未连实时库/.test(b0.out) && !/库内双射已对照/.test(b0.out),
+    )
+
+    // ① 已应用迁移被改一个字符 ⇒ 必点名 + 给出"新增一枚迁移"的出口
+    const dM = keep(mkFixtureRepo('g49-b11-modified'))
+    const mEntries = JSON.parse(readFileSync(join(dM, JOURNAL_REL), 'utf8')).entries
+    writeFileSync(join(dM, MIG_DIR_REL, `${fixtureTagOf(1)}.sql`), FIXTURE_SQL_TAMPERED)
+    gitIn(dM, ['add', '-A', '--', MIG_DIR_REL])
+    gitIn(dM, ['commit', '-q', '--no-verify', '-m', 'edit an APPLIED migration in place'])
+    const ledM = writeLedgerSnapshot(dM, ledgerSnapshotOf(mEntries))
+    const m1 = runGateAt(dM, ['--db-ledger', ledM])
+    eq('E11a 改一枚已应用迁移的一个字符 ⇒ exit 1', String(m1.code), '1')
+    ok('E11b 且点名那一枚 tag', m1.err.includes(fixtureTagOf(1)) || m1.out.includes(fixtureTagOf(1)))
+    ok(
+      'E11c 且给出唯一修法那句(历史迁移不可变,请新增一枚迁移)',
+      /历史迁移不可变,请新增一枚迁移/.test(m1.out + m1.err) &&
+        /Historical migrations are immutable; add a new migration instead\./.test(m1.out + m1.err),
+    )
+    ok(
+      'E11d 只有那一枚被计分叉(计数恰为 1,未动的条目不被牵连)',
+      /B11 有 1 枚\*\*已应用\*\*迁移的内容与账本 hash 不符:/.test(m1.out) &&
+        !new RegExp(`不符:[^\\n]*${fixtureTagOf(0)}`).test(m1.out),
+      (m1.out.match(/B11 有[^\n]*/) || ['<无该行>'])[0],
+    )
+    // ② 同一枚内容被改,但账本里**没有**它(= 尚未应用)⇒ 不红
+    const dN = keep(mkFixtureRepo('g49-b11-notapplied'))
+    const nEntries = JSON.parse(readFileSync(join(dN, JOURNAL_REL), 'utf8')).entries
+    writeFileSync(join(dN, MIG_DIR_REL, `${fixtureTagOf(1)}.sql`), FIXTURE_SQL_TAMPERED)
+    gitIn(dN, ['add', '-A', '--', MIG_DIR_REL])
+    gitIn(dN, ['commit', '-q', '--no-verify', '-m', 'edit a NOT-YET-APPLIED migration'])
+    const ledN = writeLedgerSnapshot(
+      dN,
+      ledgerSnapshotOf(nEntries, { notApplied: [fixtureTagOf(1)] }),
+    )
+    const n1 = runGateAt(dN, ['--db-ledger', ledN])
+    eq('E12a 未应用的新迁移被改内容 ⇒ exit 0(它的内容当然还可以改)', String(n1.code), '0')
+    ok(
+      'E12b 而它必须被**报名**(点名 tag,不是被静默吃掉)',
+      /账本里没有其 when 的 journal 条目 1 条\(未应用的新迁移:/.test(n1.out) &&
+        n1.out.includes(fixtureTagOf(1)),
+      (n1.out.match(/账本里没有其 when[^\n]*/) || ['<无该行>'])[0],
+    )
+    // 同一夹具但账本一行都没有(= 空库,`check-migration-from-zero` 的真实形态)⇒ 未判定,不记绿
+    const ledE = writeLedgerSnapshot(dN, ledgerSnapshotOf(nEntries, { dropAll: true }))
+    const n2 = runGateAt(dN, ['--db-ledger', ledE])
+    eq('E12c 空账本 ⇒ exit 0(不新增恒红门)', String(n2.code), '0')
+    ok('E12d 但 B11 必须喊未判定,不得读成"已比对"', /B11 \*\*未判定\*\*/.test(n2.out) && !/已比对/.test(n2.out))
+    // 反向:账本**非空**而没有一行对得上 ⇒ 那一格是"没判过",不是"判过且干净",也不是分叉
+    const ledZ = writeLedgerSnapshot(
+      dN,
+      '999999|0000000000000000000000000000000000000000000000000000000000000000\n',
+    )
+    const n3 = runGateAt(dN, ['--db-ledger', ledZ])
+    eq('E12e 账本有行而无一对得上 ⇒ 默认档 exit 0 但报名"一枚都没比过"', String(n3.code), '0')
+    ok(
+      'E12f 措辞必须是"没判过"(不得伪装成分叉计数,也不得读成通过)',
+      /一枚都没比过/.test(n3.out) && !/B11 有 \d+ 枚/.test(n3.out),
+      (n3.out.match(/B11 \*\*未判定\*\*[^\n]*/) || ['<无该行>'])[0],
+    )
+    eq('E12g 同一夹具 --strict ⇒ exit 1(问责档拒绝为"没判过"出合格证)', String(runGateAt(dN, ['--db-ledger', ledZ, '--strict']).code), '1')
+
+    // ③ 离线档(不给 --db / --db-ledgder)⇒ 未判定 + 原因 + 不改退出码;--strict 才判死
+    const dO = keep(mkFixtureRepo('g49-b11-offline'))
+    const o1 = runGateAt(dO)
+    eq('E13a 离线档 exit 0(提交链不带 --db ⇒ 不得新增恒红门)', String(o1.code), '0')
+    ok('E13b 但 B11 必须喊"未判定"并给原因', /B11 \*\*未判定\*\* —— 原因:离线档/.test(o1.out), (o1.out.match(/B11 [^\n]*/) || ['<无该行>'])[0])
+    ok('E13c 且汇总行带着那一维(不得读起来像全绿)', /B11 未判定/.test(o1.out) && !/B11 已比对/.test(o1.out))
+    eq('E13d 同一夹具 --strict ⇒ exit 1(问责档拒绝出合格证)', String(runGateAt(dO, ['--strict']).code), '1')
+    ok('E13e --strict 的红必须点名 B11', /B11 --strict/.test(runGateAt(dO, ['--strict']).err))
+
+    // ④ 两个账本来源同给 ⇒ 判死,不猜用哪一份
+    const dX = keep(mkFixtureRepo('g49-b11-twosources'))
+    const ledX = writeLedgerSnapshot(
+      dX,
+      ledgerSnapshotOf(JSON.parse(readFileSync(join(dX, JOURNAL_REL), 'utf8')).entries),
+    )
+    eq(
+      'E14 --db 与 --db-ledger 同给 ⇒ exit 2(两个账本来源互斥)',
+      String(runGateAt(dX, ['--db', '--db-ledger', ledX], { DATABASE_URL: '' }).code),
+      '2',
+    )
+    // ⑤ 缺文件参数的 --db-ledger ⇒ 判死而不是拿 undefined 当路径
+    eq(
+      'E14b --db-ledger 后面没给文件 ⇒ exit 2 并点名用法',
+      String(runGateAt(dX, ['--db-ledger']).code),
+      '2',
+    )
+
+    // ⑥ 真仓的离线形态在本机就是常态:上面 E13 已覆盖"无账本 ⇒ 未判定",这里补一条
+    //    **反向锁**:未判定不得被打印成"已比对 N 枚"(那是把没判写成判过了)。
+    ok(
+      'E15 反向锁:离线档里不得出现"已比对"字样',
+      !/已比对/.test(o1.out),
+    )
   } catch (e) {
     results.push(`❌ 端到面夹具建立失败:${String(e?.message ?? e).split(/\r?\n/)[0]}`)
   } finally {
@@ -924,12 +1328,26 @@ if (isDirectRun) {
   }
 
   // ---------- B6~B8: 库内记账双射(可选) ----------
+  // 账本来源只能有一个:`--db` 问实时库,`--db-ledger` 喂落盘快照。同给 ⇒ 两个来源可能互异,
+  // 猜哪一个都会产出一张自洽却错位的合格证(与 `--staged`/`--worktree` 同给判死同一条规矩)。
+  if (LEDGER_ARG.error) undetermined(`--db-ledger 用法错:${LEDGER_ARG.error}`)
+  if (wantDb && LEDGER_FILE)
+    undetermined(
+      '--db(实时库)与 --db-ledger(落盘快照)不得同用(两个账本来源互斥,判死而不是猜用哪一份)',
+    )
   /**
    * 库内这一维**是否真的判过**。汇总行据此说话:此前它无条件写"+ 库内双射",
    * 而 psql 不可用时 B6~B9 一条都没判 ⇒ 那句是在替"没判"背书(本仓最高频失效型:
    * 把没判写成判过了)。判据一条未改,只把结论行的措辞与实态对齐。
    */
   let dbVerdict = null
+  /**
+   * B11 需要的账本行(`[{createdAt, hash}]`)与"没拿到"的原因。**刻意分成两个变量而不是一个 null**:
+   * 拿不到时必须能说出**为什么**拿不到(离线档 / 无 DSN / psql 失败 / 快照文件读不到)——
+   * "B11 未判定"若不给原因,读报告的人会以为它判过且没事(把没判写成判过了,本仓最高频失效型)。
+   */
+  let ledgerRows = null
+  let ledgerWhyNot = '离线档未连库(默认判定面里没有账本 hash 这一维)'
   if (wantDb) {
     console.log(`${C.bold}[迁移记账] 库内 drizzle.__drizzle_migrations 双射${C.reset}`)
     let dsn = process.env.DATABASE_URL || ''
@@ -949,6 +1367,7 @@ if (isDirectRun) {
     if (!dsn) {
       wa('B6~B8 跳过:未找到 DATABASE_URL(env 或 apps/api/.env)')
       dbVerdict = '没有 DATABASE_URL 可连(env 与 apps/api/.env 都没给)'
+      ledgerWhyNot = dbVerdict
     } else {
       const psqlCandidates = [
         process.env.IHUI_PSQL,
@@ -979,14 +1398,13 @@ if (isDirectRun) {
             maxBuffer: 16 << 20,
           },
         )
-        const rows = out
-          .trim()
-          .split(/\r?\n/)
-          .filter((l) => l.trim() !== '')
-          .map((l) => {
-            const i = l.indexOf('|')
-            return { createdAt: Number(l.slice(0, i).trim()), hash: l.slice(i + 1).trim() }
-          })
+        const rows = parseLedgerRows(out)
+        // 账本行为空 ⇒ 没有一枚迁移被记成"已应用",B11 无从比对。
+        // 这一格**不得**被读成"B11 通过":空账本的通过样子与"全对"逐字同形(三态不并桶)。
+        if (rows.length === 0)
+          ledgerWhyNot =
+            '库内账本为空(0 行)⇒ 没有任何一枚迁移被记为"已应用",B11 无从比对 —— 不等于内容没被改过'
+        else ledgerRows = rows
         dbVerdict = 'judged'
         const dbWhens = rows.map((r) => r.createdAt).filter((n) => Number.isFinite(n))
         if (dbWhens.length !== whens.length)
@@ -1034,7 +1452,133 @@ if (isDirectRun) {
       } catch (e) {
         wa(`B6~B8 跳过:psql 执行失败(${String(e.message).split('\n')[0]})`)
         dbVerdict = `psql 执行失败(${String(e.message).split('\n')[0]})`
+        ledgerWhyNot = dbVerdict
       }
+    }
+  }
+
+  // ---------- 快照通道:--db-ledger <psql 原样输出落盘件>(B11 专用,B6~B9 不判) ----------
+  // 为什么允许它存在(它不是"伪造通过"的后门):① 本仓 §5 测试隔离铁律禁止取证连生产库,而本机
+  // 无 PG(8810/8811 零监听实测)⇒ 没有这一档,B11 的成对取证就只能"永远判不到";② 落盘件是
+  // 部署机 psql 的原样输出,拿它比对与拿实时库比对**是同一把判据、同一份解析实现**(parseLedgerRows),
+  // 差别只在时效。差别必须在输出里喊出来,所以这一段自报"来源 = 快照文件,没有连库"。
+  if (LEDGER_FILE) {
+    console.log(`${C.bold}[迁移记账] 库内账本来源 = --db-ledger 快照文件${C.reset}`)
+    // B6~B9 判的是**库内实时状态**,快照通道没连库 ⇒ 那两维一律未判定(汇总行据此说话,
+    // 不得让它读起来像"实时双射也对照过")。
+    dbVerdict = '走 --db-ledger 快照通道,未连实时库'
+    wa('B6~B9 未判定:--db-ledger 快照通道未连实时库(只有 B11 用这份账本)')
+    let snapText = null
+    let snapErr = ''
+    try {
+      snapText = readFileSync(resolve(ROOT, LEDGER_FILE), 'utf8')
+    } catch (e) {
+      snapErr = String(e.message).split('\n')[0]
+    }
+    if (typeof snapText !== 'string') {
+      ledgerWhyNot = `快照文件读不到(${LEDGER_FILE}):${snapErr}`
+      wa(`B11 未判定:账本快照文件读不到(${LEDGER_FILE})`)
+    } else {
+      const rows = parseLedgerRows(snapText)
+      console.log(
+        `  ${C.dim}取自 ${LEDGER_FILE}:${rows.length} 行账本(格式 = psql -t -A -F'|' 的 SELECT created_at, hash 输出)` +
+          `;B6~B9 判的是**库内实时状态**,本通道未连库 ⇒ 那两维**未判定**,不得读成"已对照"。${C.reset}`,
+      )
+      if (rows.length === 0)
+        ledgerWhyNot =
+          '快照文件里 0 行账本 ⇒ 没有任何一枚迁移被记为"已应用",B11 无从比对 —— 不等于内容没被改过'
+      else ledgerRows = rows
+    }
+  }
+
+  // ---------- B11: 已应用迁移的「.sql 内容 ↔ 账本 hash」对账 ----------
+  // 这一格此前**没有任何尺子**(2026-09-28 现读:本门 B9 只看库内 hash 的形状与唯一性,从不读
+  // `drizzle/*.sql` 的正文;`check-migration-from-zero.mjs` 里 `hash|checksum|sha256` 命中 0)。
+  // 而 drizzle 自己永远不会发现它 —— `pg-core/dialect.js:62` 只比 `created_at`,hash 写进去就没人读回来,
+  // 所以"改一枚已应用 .sql 的一个字符"是 **P1 静默分叉**:库里永远是旧结构,git 里那份永远没人执行。
+  // 判据三条刻意的选择:
+  //   ① 只对**账本里有那一行**的 tag 比(未应用的新迁移内容当然还可以改 ⇒ 不得判红);
+  //   ② 正文与 journal **同面同轮**取(默认 HEAD blob / `--staged` 索引 blob / `--worktree` 磁盘),
+  //      不另开一次磁盘读 —— 混面会产出自洽却错位的尺子(守门 101/118 各记过同型);
+  //   ③ 没有账本 ⇒ **未判定 + 原因**,绝不记绿;`--strict` 才把"未判定"升成判死。
+  console.log(`${C.bold}[迁移记账] B11 已应用迁移内容 ↔ 账本 hash 对账${C.reset}`)
+  let b11Summary = ''
+  if (!ledgerRows) {
+    b11Summary = `未判定:${ledgerWhyNot}`
+    console.log(`  ${C.yellow}!${C.reset} B11 **未判定** —— 原因:${ledgerWhyNot}`)
+    console.log(
+      `  ${C.dim}这一格不代表"迁移内容没被改过":没有账本可比,就没人知道有没有人动过已应用的 .sql。` +
+        `问责出口:pnpm migration:check:db(在线)或 --db-ledger <部署机 psql 落盘件>(离线取证)。${C.reset}`,
+    )
+    if (strict) bad(`B11 --strict:库内账本对账未判定 —— ${ledgerWhyNot}`)
+  } else {
+    let bodies = null
+    try {
+      // 只读"账本里已存在那一行"的 tag(在线时是几百枚,一次 cat-file --batch 读完,层按字节装箱)
+      const appliedTags = journal.entries
+        .filter((e) => ledgerRows.some((r) => Number(r.createdAt) === Number(e.when)))
+        .map((e) => e.tag)
+        .filter((t) => typeof t === 'string')
+      bodies = readSqlBodies(ROOT, FACE, appliedTags)
+    } catch (e) {
+      bodies = null
+      b11Summary = '未判定:正文取材失败'
+      console.log(
+        `  ${C.yellow}!${C.reset} B11 **未判定** —— ${FACE_TXT[FACE]} 的 .sql 正文取不到:${faceErrText(e)}`,
+      )
+      if (strict) bad(`B11 --strict:正文取材失败 ⇒ 这一格没判(${faceErrText(e)})`)
+    }
+    if (bodies) {
+      const r = compareAppliedHashes(journal.entries, bodies, ledgerRows)
+      b11Summary = `已比对 ${r.compared} / 账本内 ${r.applied} / 未应用 ${r.notApplied.length} / 未判定 ${r.unreadable.length}`
+      if (r.mismatch.length) {
+        bad(
+          `B11 有 ${r.mismatch.length} 枚**已应用**迁移的内容与账本 hash 不符:` +
+            r.mismatch
+              .slice(0, 8)
+              .map((m) => m.tag)
+              .join(', ') +
+            (r.mismatch.length > 8 ? ' …' : ''),
+        )
+        for (const m of r.mismatch.slice(0, 8)) {
+          const eolNote = m.eolOnly
+            ? ` ${C.yellow}(差异看起来只出在行尾:换行归一后同值 —— 但账本是对当时磁盘字节算的,仍按分叉计)${C.reset}`
+            : ''
+          console.log(
+            `    ${C.red}${m.tag}${C.reset} when=${m.when} 账本=${m.ledgerHash.slice(0, 16)}… 现算=${m.computedHash.slice(0, 16)}…${eolNote}`,
+          )
+        }
+        console.log(
+          `  ${C.red}${MIGRATION_IMMUTABLE_HINT}${C.reset}\n` +
+            `  ${C.dim}禁止的处置:改 .sql 去凑 hash、或"重算并覆盖账本 hash"(那是给分叉发通行证)。` +
+            `运行时也不会替你发现它 —— drizzle 只比 created_at,hash 从不读回(${C.reset}` +
+            `${C.dim}packages/database/node_modules/drizzle-orm/pg-core/dialect.js:62)。\n` +
+            `  把改动挪成一枚**新迁移**,或确认账本本身可信后用 --db 复核库内实时状态。${C.reset}`,
+        )
+      } else if (r.compared === 0) {
+        // 账本非空而一枚都没可比 ⇒ 那一格仍然是"没判",不得读成通过(三态不并桶)
+        b11Summary = '未判定:账本里没有与 journal when 对应的行'
+        console.log(
+          `  ${C.yellow}!${C.reset} B11 **未判定** —— 账本 ${ledgerRows.length} 行而 journal 里没有任何一条的 when 能对上,` +
+            `一枚都没比过(这是 B7 双射破裂的下游症状,别把它读成"B11 干净")`,
+        )
+        if (strict) bad('B11 --strict:账本与 journal 无一对应 ⇒ 内容不可变性这一格没判')
+      } else {
+        ok(`B11 ${r.compared} 枚已应用迁移的内容与账本 hash 逐枚相符(${r.ok} 枚等值)`)
+      }
+      if (r.unreadable.length) {
+        wa(
+          `B11 另有 ${r.unreadable.length} 枚已应用迁移的 .sql 正文在${FACE}面取不到(未判定,不等于通过):` +
+            r.unreadable.slice(0, 5).join(', '),
+        )
+        if (strict) bad(`B11 --strict:${r.unreadable.length} 枚正文取不到 ⇒ 这一格没判`)
+      }
+      if (r.notApplied.length)
+        console.log(
+          `  ${C.dim}账本里没有其 when 的 journal 条目 ${r.notApplied.length} 条(未应用的新迁移:` +
+            `${r.notApplied.slice(0, 5).join(', ')}${r.notApplied.length > 5 ? ' …' : ''})` +
+            `—— 内容可以改,**B11 一律不判红**;下一轮 migrate 会应用它们。${C.reset}`,
+        )
     }
   }
 
@@ -1205,11 +1749,14 @@ if (isDirectRun) {
   }
   console.log(
     `${C.green}${C.bold}[迁移记账] ✓ 全部通过(${tags.length} 条迁移,离线,判定面=${FACE}` +
-      (wantDb
+      (wantDb || LEDGER_FILE
         ? dbVerdict === 'judged'
           ? ',库内双射已对照'
           : `,库内双射**未判定**:${dbVerdict || '原因未记录'} —— 该行不代表 B6~B9 通过`
         : '') +
+      // B11 的结论**必须出现在汇总行里**:它默认是"没判"的那一格,只在段里喊一句而汇总行读起来像
+      // 全绿,就是替"没判"背书(把没判写成判过了 —— 与本门 B6~B9 那格同年修掉的是同一型)。
+      `,B11 ${b11Summary}` +
       `)${C.reset}`,
   )
 
@@ -1222,6 +1769,21 @@ if (isDirectRun) {
     )
     console.error(
       `${C.dim}  开工前置未满足:等对方的迁移落地/暂存完毕,或把本次动作让给该票持有者。${C.reset}`,
+    )
+    process.exit(1)
+  }
+
+  // ---------- --strict:B11 的「未判定」在问责档下不等于通过 ----------
+  // 与上面 B10 的 --require-idle 完全同一条设计:**默认档不改退出码**(否则本机无 PG 的每台
+  // 每次提交都被逼 --no-verify,连带废掉全部守门,AGENTS §12e);问责档才拒绝出合格证。
+  // 判红只在 fail 计数为 0 时才走到这里 —— 本枚真有红的话上面已经 exit 1,不会被这一格盖过。
+  if (strict && !ledgerRows) {
+    console.error(
+      `${C.red}${C.bold}[迁移记账] ✗ B11 --strict:已应用迁移的内容不可变性这一格**未判定** —— ${ledgerWhyNot}${C.reset}`,
+    )
+    console.error(
+      `${C.dim}  "未判定"不是"没问题":没有账本,就没人能证明没有一枚已应用的 .sql 被改过。` +
+        `问责出口:pnpm migration:check:db(在线),或 --db-ledger <部署机 psql 落盘件>(离线取证)。${C.reset}`,
     )
     process.exit(1)
   }
@@ -1250,5 +1812,18 @@ export const __test__ = {
   FACE_TXT,
   MIG_DIR_REL,
   JOURNAL_REL,
+  // B11(2026-09-28):判据三出口 + 快照通道解析,全部由镜像测试**直接 import**,不得再抄第二份(§22c)
+  migrationSqlHash,
+  faceSqlBlobSpec,
+  parseLedgerRows,
+  compareAppliedHashes,
+  readSqlBodies,
+  ledgerFileFromArgv,
+  MIGRATION_IMMUTABLE_HINT,
+  ledgerSnapshotOf,
+  writeLedgerSnapshot,
+  FIXTURE_SQL,
+  FIXTURE_SQL_TAMPERED,
+  FIXTURE_LEDGER_REL,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
