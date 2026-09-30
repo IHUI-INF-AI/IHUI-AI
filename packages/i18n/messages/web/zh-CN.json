@@ -12347,6 +12347,7 @@
     "unpin": "取消固定",
     "unsaved": "未保存",
     "update": {
+      "revoked": "这个版本已不再提供。",
       "autoRestartIn": "即将自动重启...({countdown} 秒后)",
       "autoRetrying": "更新失败，自动重试中...",
       "available": "发现新版本",
@@ -15181,6 +15182,8 @@
     "title": "开放平台 Feature Center"
   },
   "feedback": {
+    "unsupportedImage": "仅支持 PNG、JPG、GIF 和 WebP 图片。",
+    "requestIdSuffix": "反馈编号：{requestId}。",
     "backToList": "返回反馈",
     "contactPlaceholder": "选填，方便我们联系您",
     "contentPlaceholder": "请描述您遇到的问题或建议...",
