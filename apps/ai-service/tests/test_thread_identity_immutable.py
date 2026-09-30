@@ -31,6 +31,7 @@ from app.services.agent_engine import (
     AgentEngine,
 )
 from app.services.session_store import (
+    ENGINE_OWNED_METADATA_KEYS,
     IDENTITY_METADATA_KEYS,
     SessionStore,
     UserMessageItem,
@@ -154,8 +155,19 @@ async def test_merge_false_patch_keeps_owner_across_restart(tmp_path) -> None:
         principal="alice",
     )
     assert "error" not in response, response
-    assert response["result"]["metadata"] == {"biz": "order", "userId": "alice"}
-    assert store.get_thread(tid).metadata == {"biz": "order", "userId": "alice"}
+    # 2026-09-27 G-255 翻转此断言(两处):本票之后 merge=False 的结果**必须仍然含**
+    # 引擎写过的配置段(模型/权限档/迭代上限/工具集/…),被整体替换的是业务段。
+    # 旧断言 `== {"biz","userId"}` 等于把缺陷本身当契约钉着 —— 那次整写会把库里十几个
+    # 配置键抹成 patch,重启恢复按缺省还原。
+    # 本用例真正要守的东西一字未动:剥掉引擎段之后仍是 `{"biz": "order",
+    # "userId": "alice"}`(身份没被冲掉、外来 patch 没塞进别的键),且下面那段
+    # "重启后 bob 拿不到、alice 拿得到" 完全没碰。
+    engine_segment = set(ENGINE_OWNED_METADATA_KEYS)
+    assert set(response["result"]["metadata"]) >= engine_segment
+    assert {
+        k: v for k, v in response["result"]["metadata"].items() if k not in engine_segment
+    } == {"biz": "order", "userId": "alice"}
+    assert store.get_thread(tid).metadata == response["result"]["metadata"]
 
     engine._threads.clear()  # 进程重启:内存线程全丢,只剩库里的 metadata
     foreign = await _rpc(
@@ -181,7 +193,15 @@ async def test_patch_cannot_claim_another_users_thread(tmp_path) -> None:
     # thread.start 的角色是 0 ⇒ 引擎侧"未落键",伪造的 7 一并被摘掉(见
     # _identity_of 的"缺席比 null 更难被读成真实身份")
     assert response["result"]["metadata"] == {"userId": "alice"}, response["result"]
-    assert store.get_thread(tid).metadata == {"userId": "alice"}
+    # 2026-09-27 G-255 翻转此断言:merge=True 那一支的**客户端可见形状**一字未动
+    # (上一行仍然逐字成立),被翻的只是"库里那一行等于什么"—— 旧写法等于把"一次
+    # merge=True 的 metadata 写入也会顺带抹掉整个引擎配置段"当契约钉着(它落库走的
+    # 就是 merge=False 出口)。伪造的身份键照旧不许出现在任何一侧。
+    row = dict(store.get_thread(tid).metadata)
+    assert {k: v for k, v in row.items() if k not in ENGINE_OWNED_METADATA_KEYS} == {
+        "userId": "alice"
+    }
+    assert "roleId" not in row and row["userId"] != "bob"
     engine._threads.clear()
     # bob 仍然拿不到这条(伪造没生效)
     assert (
@@ -204,8 +224,23 @@ async def test_unowned_thread_patch_still_fully_replaces(tmp_path) -> None:
         {"threadId": tid, "patch": {"only": True}, "merge": False},
         principal=None,
     )
-    assert second["result"]["metadata"] == {"only": True}, second["result"]
-    assert store.get_thread(tid).metadata == {"only": True}
+    # 2026-09-27 G-255 翻转此断言:无属主线程的"业务段整体替换"语义逐字仍成立
+    # (剥掉引擎段后就是这个形状),但 merge=False 之后**结果与库里都必须仍带引擎写过
+    # 的配置段** —— 旧写法把"整写连带抹掉十几个配置键、重启后按缺省还原"当契约钉着。
+    # "没有身份可绑"不再等于"配置段也没人守"。
+    assert {
+        k: v
+        for k, v in second["result"]["metadata"].items()
+        if k not in ENGINE_OWNED_METADATA_KEYS
+    } == {"only": True}, second["result"]
+    # 2026-09-27 G-255 翻转此断言:同上一条 —— 无属主线程的**客户端可见**整写语义
+    # (上一行)一字未动;翻的是"库里那一行是否也该被抹掉整个引擎配置段",那正是本票
+    # 修的缺陷。"没有身份可绑"不再等于"配置段也没人守"。
+    assert {
+        k: v
+        for k, v in store.get_thread(tid).metadata.items()
+        if k not in ENGINE_OWNED_METADATA_KEYS
+    } == {"only": True}
 
 
 # ---------------------------------------------------------------------------
