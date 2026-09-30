@@ -430,4 +430,44 @@ test('T8 覆盖面自证:窗口没走全时不得把枚数当全量(三态)', ()
     rmScratch(dir)
   }
 })
+
+test('T9 引用事务见证的取材三态:读到 / 坏行不吞 / 文件不在位不得读成"全部无见证"', () => {
+  const dir = mkScratch('witness-read')
+  try {
+    const wdir = join(dir, '.workbuddy')
+    mkdirSync(wdir, { recursive: true })
+    const good = 'a'.repeat(40)
+    const good2 = 'b'.repeat(40)
+    writeFileSync(
+      join(wdir, 'commit-witness.log'),
+      `${good}\trefs/heads/main\n${good2}\t refs/heads/other \n不是sha\trefs/heads/x\n\n`,
+      'utf8',
+    )
+    const w = report.readWitness(dir)
+    assert.equal(w.ok, true)
+    assert.equal(w.state, 'read')
+    assert.equal(w.shas.has(good), true, '制表符分隔的第一列必须认成 sha')
+    assert.equal(w.shas.has(good2), true, '空格分隔与首尾空白不得影响判定')
+    assert.equal(w.badLines, 1, '解不出的行必须点名计数,不得静默跳(静默跳 = 漏记一次见证)')
+    assert.equal(w.records, 2)
+    // 文件不在位 ⇒ ok=false + state=missing;分类必须落 unsplittable,不得落 unwitnessed
+    const miss = report.readWitness(join(dir, 'nope'))
+    assert.equal(miss.ok, false)
+    assert.equal(miss.state, 'missing')
+    const commits = [
+      { sha: good, parent: 'p', iso: '2026-09-30T00:00:00.000Z', ms: T0, day: '2026-09-30', files: ['x.ts'] },
+    ]
+    const split = report.classifyAll({
+      commits,
+      index: report.indexLedger([]),
+      rounds: [],
+      ledgerReadable: true,
+      witness: miss,
+    })
+    assert.equal(split.rows[0].unknownUnsplittable, 1, '取不到 = 无从分')
+    assert.equal(split.rows[0].unknownUnwitnessed, 0, '不得把"这台机没记"写成"这台机没发生过"')
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
