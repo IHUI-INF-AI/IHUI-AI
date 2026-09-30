@@ -183,4 +183,36 @@ test('T10 跨文件锁:行内豁免族必须进守门 108 的存活期表(30 天
   )
   assert.equal(m[1], '30', '该族是待偿的裁决债(补验真或改台账带复核日),取 30 天;改档要走 108 表旁注释,不得就地放宽')
 })
+
+test('T11 台账腐烂必须限定在审查面内(面外条目不判,否则不带 csrf.ts 的提交恒红)', () => {
+  const ledger = new Map([
+    [
+      'apps/api/src/plugins/csrf.ts#request.headers',
+      {
+        file: 'apps/api/src/plugins/csrf.ts',
+        anchor: 'request.headers',
+        reason: 'x',
+        reviewBy: '2099-01-01',
+      },
+    ],
+  ])
+  const outOfScope = gate.decide({
+    findings: [],
+    ledger,
+    today: '2026-09-30',
+    absent: false,
+    scanned: new Set(['apps/api/src/routes/agents.ts']),
+  })
+  assert.equal(outOfScope.stale.length, 0, '面外条目不得判腐烂')
+  const inScope = gate.decide({
+    findings: [],
+    ledger,
+    today: '2026-09-30',
+    absent: false,
+    scanned: new Set(['apps/api/src/plugins/csrf.ts']),
+  })
+  assert.equal(inScope.stale.length, 1, '面内无命中仍必红')
+  const full = gate.decide({ findings: [], ledger, today: '2026-09-30', absent: false })
+  assert.equal(full.stale.length, 1, '全量档(缺省 null)保持原判据')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
