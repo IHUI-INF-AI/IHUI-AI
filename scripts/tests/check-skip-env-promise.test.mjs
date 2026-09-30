@@ -99,7 +99,7 @@ test('S 形状锁:门体接线声明与 runner 注册块必须同面一致(HEAD)
   const [runner, gate] = [...catBatch(ROOT, ['HEAD:scripts/guardian-runner.mjs', 'HEAD:scripts/check-skip-env-promise.mjs']).values()]
   assert.equal(typeof runner, 'string', 'guardian-runner.mjs 在 HEAD 面取不到')
   assert.equal(typeof gate, 'string', 'check-skip-env-promise.mjs 在 HEAD 面取不到')
-  const claimedWired = !/尚未接线/.test(gate)
+  const claimedWired = /已接线\(2026-09-30\)/.test(gate)
   const registered = runner.includes("script: 'check-skip-env-promise.mjs'")
   assert.ok(
     claimedWired === registered,
