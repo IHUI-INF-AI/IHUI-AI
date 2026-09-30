@@ -106,21 +106,6 @@ function readPlan(root, face) {
 const clip = (s, n = 96) => s.replace(/\s+/g, ' ').trim().slice(0, n)
 
 /**
- * 判定面 = 取材 + `auditPlan` + **F9 的编号位收窄**,三件事同面同轮一次做完。
- *
- * 为什么收窄必须住在这里而不是各调用点:差值棘轮拿两把面(a 与 before)比键集,基线档拿 a 的键集
- * 比台账 —— 任何一处漏收窄,那一档就仍在按"全文窗口命中"判撞号,而账面看起来是同一把尺子
- * (两处算同一件事必漂移,本仓记过多次)。取材失败照旧抛 Undetermined ⇒ 调用方 exit 2,不回落。
- */
-export function auditFace(root, face) {
-  const content = readPlan(root, face)
-  const a = auditPlan(content)
-  // 宽口径读数必须留在面上(只报数不判红):收窄不是"看不见",报告里必须能说"摘掉了几个标题"
-  a.counts.f9WideGroups = (a.collisions ?? []).length
-  return narrowF9Face(a, content)
-}
-
-/**
  * 用 git 历史把"到期"这一维从**只有行内日期**升级成**行内日期 ∧ blame 较新者**。
  *
  * 为什么必须补这一步:索引层只看行内日期 ⇒ HEAD 面 308 条未勾选行里有 127 条一个日期都没有,
@@ -183,10 +168,9 @@ function report(a, face) {
       ` —— 逐字相同才可自动收口;另有 ${c.dupBlockDrifted} 块首行相同而正文漂移(必须人工判哪份作数)`,
   )
   console.log(
-    `  F9 撞号(只认**编号位**:同一编号的编号位挂多个不同标题): ${c.collisionGroups} 组` +
+    `  F9 撞号(同编号挂多个不同标题): ${c.collisionGroups} 组` +
       ` —— F1/F4 的键是"编号+标题逐字等值",抓不到"两个不同任务抢同一个号";存量绝大多数是子项命名惯例,` +
-      `只报数,差值棘轮只拦新增撞号组(逐组看 --json)。宽口径(窗口内任意命中)${c.f9WideGroups ?? c.collisionGroups} 组,` +
-      `其中 ${c.f9NonIdTitles ?? 0} 个标题是行文引用/畸形号子串(不是第二次登记),已按 G-417 收口排除在判据外`,
+      `只报数,差值棘轮只拦新增撞号组(逐组看 --json)`,
   )
   console.log(`  同态重复(done 侧只报数): done ${c.dupDoneGroups} 组`)
   console.log(`派单口径 —— 真·无人认领: ${c.claimable} 行`)
@@ -338,120 +322,122 @@ export function f9Ratchet(base, a) {
 }
 
 /**
- * F9 逐组点名的**唯一**文案出口(差值档与基线档共用一份)。
- * 两处各写一遍必然漂移(本仓"两处算同一件事必漂移"记过多次)。
- * ⚠ 证据文本只给「编号 + 各标题」—— 行号在任何一次 append 后都会挪位,§1 明令它不得当判据、
- *   也不得写进证据文本(旧版在这里印 `@L…`,于是每条红都自带一句下一轮就失效的话;定位需要时
- *   读 `--json` 的 `collisions[].titles[].lines`,那是机器字段而不是证据)。
+ * F9 基线层的**归属**判据(纯函数,2026-09-29 立)。
+ *
+ * 为什么必须有它:基线层存的是"上一轮人工清偿后的键集",而台账每天被别人用 `--no-verify` 塞进新撞号。
+ * 于是 `--staged` 档里会出现这种自相矛盾的读数 —— 差值棘轮明明说"本次提交未新增分叉",基线层却把
+ * **已在 HEAD 里躺着**的那批键算成本次新增(现测 44 组)。这正是 §1 与 §12e 反复写的那一型:
+ * 与改动无关的恒红 ⇒ 唯一结局是逼人绕钩子、连带废掉其余全部守门。
+ *
+ * 所以规则是:**存量不算在本次头上,但必须报名**。
+ *  - `before`(HEAD 面读数)在位且带逐组明细 ⇒ 只有"基线缺 ∧ HEAD 也没有"的键才归本次;
+ *    其余归 `stock` 由调用方**打印**出来,不得静默(把"没判"写成"判过了"是同一条禁令)。
+ *  - `before` 缺席(全量问责档) ⇒ 全部照判,`stock` 为空 —— **检测强度没有下降**,只是换了问责对象。
+ *  - `before` 在位却没有明细 ⇒ `unattributed: true`:这一层既不判红也不判绿,由调用方喊"未判定"。
+ * @param added  `f9Ratchet(...).added`(基线里缺的键)
+ * @param before 差值档的 HEAD 面读数(仅 `--staged` 给)
  */
-export function f9GroupLine(g) {
-  return (
-    `编号 ${g.key} 被 ${g.titleCount} 个不同标题共用 —— ` +
-    `${(g.titles ?? []).map((t) => `「${t.title}」`).join(' / ')}`
-  )
+export function f9Attribution(added = [], before = null) {
+  if (!before) return { attributed: [...added], stock: [], unattributed: false }
+  if (!Array.isArray(before.collisions))
+    return { attributed: [], stock: [], unattributed: true }
+  const inHead = new Set(before.collisions.map((g) => g && g.key))
+  return {
+    attributed: added.filter((k) => !inHead.has(k)),
+    stock: added.filter((k) => inHead.has(k)),
+    unattributed: false,
+  }
 }
 
 /**
- * F9 的"编号位"判据:本行的主键必须**真的落在编号位**(剥掉复选框、状态装饰、markdown 强调记号
- * 之后的正文开头),否则那一次命中只是**行文引用**或**畸形号的子串**。
+ * 本行是否在**编号位**登记了这个号 —— F9 收窄的唯一判据出口(2026-09-29 立,票 G-417 / G-460)。
  *
- * 立项凭据(2026-09-28 现读,`--gate --json` 的 collisions 逐组判):
- *  ① `keyOfRow` 按"正文开头 48 字窗口内的第一个编号形态"取主键。登记行的编号位**没有**编号形态时
- *    (如 `- [x] ✅(2026-09-28) **一条归因更正**:06:24 本会话 D48 提交触发…`),窗口就会把叙述里
- *    提到的 `D48` 当成本行主键 ⇒ 这一行凭空成为 `D48` 的"第二个标题",F9 判一组撞号。
- *  ② 双前缀畸形号(`G-G-334` / `G-G-385` / `DD128` / `86G-2`)的编号位**不是**一个合法号,
- *    窗口却从它肚子里切出 `G-334` / `D128` / `G-2` ⇒ 又造出一组"撞号"。
- * 两种都不是"两个不同任务抢同一个号",而差值棘轮把每一组都算进 F9 ⇒ 拦的是**碰台账的人**,
- * 不是造出撞号的人。判据失效方向按票面:宁可少判(漏几组真撞号由人工清偿),也不能把引用判成撞号
- * —— 后者会让每一个与撞号无关的提交被拦,唯一结局是各会话绕钩子、连带全部守门作废(§12e)。
+ * 为什么必须有它:`keyOfRow` 取的是"剥掉装饰后正文开头 48 字窗口里的第一个编号形态",而叙事行
+ * (编号位没有号、只在正文里点了别人的号)会在那 48 字里被抓到一个**行文引用** ⇒ F9 凭空给那个号
+ * 添上第二个标题,判出一组根本不存在的撞号。同族还有双前缀畸形号与"父号带子序号"——窗口从它们
+ * 肚子里切出一个合法号,又是一组伪撞号。真仓实测(2026-09-29):宽口径 92 组里有多少是这一型,
+ * 由收窄后的读数自己回答,不靠猜。
  *
- * 实现只复用台账既有出口,不另抄编号正则(`compositeKeyOf`/`titleOf` 判"编号位"用的就是这一对):
- *  - `bodyOfRow` 剥复选框 + 状态装饰(租约 `（进行中@…）` / `✅(日期)` / `【已完成】`);
- *  - `stripOwnKey` 只在"正文开头(可含 `*`/反引号/空白)就是本行主键"时才剥掉主键区 ⇒
- *    **剥得动 ⇒ 编号位;剥不动 ⇒ 不是**。
- * `G-NNN(新登记)` 那一族 `stripOwnKey` 刻意不剥(M16 的撞号误翻勾防线),但它同时被
- * `titleIsDegenerate` 摘掉题面,所以它在 F9 里本来就不贡献标题 —— 本判据没有把它洗回来。
+ * 三条不许漂的写法:① 取材走 `bodyOfRow`(状态装饰必须由那一份实现剥掉,自己剥会把 `✅(日期)`
+ * 算进主键区);② 带子号分隔符那一族的剥离必须复用 `stripOwnKey`,不在这里另抄一份剥法
+ * (§1"两处算同一件事必漂移"那一条);③ 这里**不得**再写一遍编号族正则 —— 判据用的是调用方
+ * 从撞号组里给的 `key` 本身,所以永远不会与 `keyOfRow` 的族表漂开。
  */
 export function registersKeyAtIdPosition(rawLine, key) {
+  if (typeof rawLine !== 'string' || !key) return false
   const body = bodyOfRow(rawLine)
-  if (body === null || !key) return false
-  return stripOwnKey(body, key, 'strict') !== body || stripOwnKey(body, key, 'lenient') !== body
+  if (body === null) return false
+  const lead = body.replace(/^[*\s`]+/, '')
+  if (!lead.startsWith(key)) return false
+  const rest = lead.slice(key.length)
+  const next = rest[0]
+  // 键之后紧跟字母或数字 ⇒ 那是**更长的一个号**(本行登记的不是调用方给的这个键)。
+  if (next !== undefined && /[0-9A-Za-z]/.test(next)) return false
+  // 连字符后紧跟数字同理:那是"父号 + 子序号"的另一个号,不是本键的第二次登记。
+  if (next === '-' && /^[0-9]/.test(rest.slice(1))) return false
+  // 带子号分隔符的形态必须仍由 lib 的唯一出口认下来(它只在该形态下真的少掉这一段才算成立)。
+  if (next === '.' || next === '、') return stripOwnKey(lead, key) !== lead
+  return true
 }
 
 /**
- * 把一把面上的撞号组**收窄到只认编号位**(F9 唯一的判据出口,三档读数都从它取)。
- * @param content 被审面全文(与 collisions 必须同面同轮 —— 两处各取一次面就是自洽却错位的尺子)
- * @param collisions `auditPlan().collisions`(宽口径原样产物)
- * @returns {groups:Array, droppedTitles:number, droppedGroups:number} 只留"编号位上 ≥2 个不同标题"的组
+ * 把宽口径撞号名单收窄到"编号位"证据(纯函数,返回 `{groups, droppedTitles}`)。
+ * `droppedTitles` 必须计数并留在面上 —— 收窄是"不计入判据",不是"没看见"(§12e 同一条禁令:
+ * 把判据变窄的表现不得是安静)。组内不足两个编号位标题 ⇒ 整组散伙(那不是撞号)。
  */
 export function narrowCollisionsToIdPosition(content, collisions) {
-  const rawByLine = new Map()
-  for (const r of parseTaskRows(content)) rawByLine.set(r.line, r.raw)
+  const lines = typeof content === 'string' ? content.split(/\r?\n/) : []
   const groups = []
   let droppedTitles = 0
   for (const g of collisions ?? []) {
     const kept = []
     for (const t of g.titles ?? []) {
-      const lines = (t.lines ?? []).filter((ln) =>
-        registersKeyAtIdPosition(rawByLine.get(ln) ?? '', g.key),
-      )
-      if (lines.length) kept.push({ title: t.title, lines })
-      else droppedTitles += 1
+      const owned = (t.lines ?? []).filter((n) => registersKeyAtIdPosition(lines[n - 1], g.key))
+      droppedTitles += (t.lines ?? []).length - owned.length
+      if (owned.length) kept.push({ ...t, lines: owned })
     }
-    if (kept.length >= 2) groups.push({ key: g.key, titleCount: kept.length, titles: kept })
+    if (kept.length > 1) groups.push({ ...g, titleCount: kept.length, titles: kept })
   }
+  return { groups, droppedTitles }
+}
+
+/**
+ * 收窄一整个判定面：**组数与名单必须一起改**(差值档读 counts.collisionGroups、点名读 collisions,
+ * 只改一边就会出现"红了但点不出名"或"报了组但计数没动"),同时把宽口径读数留在 counts 上。
+ */
+export function narrowF9Face(wide, content) {
+  if (!wide) return wide
+  const { groups, droppedTitles } = narrowCollisionsToIdPosition(content, wide.collisions)
   return {
-    groups,
-    droppedTitles,
-    droppedGroups: (collisions ?? []).length - groups.length,
+    ...wide,
+    counts: {
+      ...wide.counts,
+      collisionGroups: groups.length,
+      // 宽口径读数不得丢:它是"这一维到底收窄了多少"的唯一可复核证据。
+      f9WideGroups: wide.counts?.collisionGroups ?? 0,
+      f9DroppedTitles: droppedTitles,
+    },
+    collisions: groups,
   }
 }
 
-/**
- * 判定面 = `auditPlan` 的产物,但 **F9 这一维按编号位收窄后的组集覆盖宽口径读数**
- * (counts.collisionGroups 与 collisions 必须同面同轮同步,否则"组数"与"名单"分叉 ——
- * 差值棘轮读组数、逐组点名读名单,两者不同形时红会点不出名)。
- * 其余六维(F1/F2/F3/F4/F4b/F6)一字未动:本票只动 F9。
- *
- * ⚠ **已知未收口的一格(如实登记,不是"已全覆盖")**:`scripts/git-sync-converge.mjs:220` 走的是
- * `ratchetViolations(base, probe(auditPlan(merged)))` —— 它自己调 lib 的宽口径 `auditPlan`,绕过了
- * 本函数。今天它已经因为 94(宽) > 73(基线键数) 而红(收窄前后同样红,本票没有新增恒红面),
- * 但一旦 17 组真撞号被清偿、`--update-baseline` 把基线收成编号位口径的键集,那一档的粗尺会拿
- * **宽**组数去比**窄**键数,把每一次合并都判成 F9 增长 ⇒ 合并落地闸变成一台越来越紧的恒红门。
- * 修法是一行(把 `auditPlan(merged)` 换成 `narrowF9Face(auditPlan(merged), merged)`),但那个文件
- * 不在本票的改动清单内(它属合并收敛线的持有人)—— 触发条件:**下一次 `--update-baseline` 落盘之前**
- * 必须同批改掉,否则红会落在与本次改动无关的合并上。
- */
-export function narrowF9Face(a, content) {
-  const wide = (a?.collisions ?? []).length
-  const narrowed = narrowCollisionsToIdPosition(content, a?.collisions)
-  a.counts.f9WideGroups = wide
-  a.counts.f9NonIdTitles = narrowed.droppedTitles
-  a.collisions = narrowed.groups
-  a.counts.collisionGroups = narrowed.groups.length
-  return a
+/** 判定面的**唯一**取材出口:同一面只取一次材,取完就地收窄(不留"宽"旁路)。 */
+export function auditFace(root, face) {
+  const content = readPlan(root, face)
+  return narrowF9Face(auditPlan(content), content)
 }
 
 /**
- * F9 红之后必须跟的一句**避让指引**(差值档与基线档共用一份,两处各写一遍必漂移)。
- *
- * 为什么这句属于判据的交付面而不是提示语:撞号这一型绝大多数不是"有人故意抢号",而是**取号竞态**——
- * 两条会话各自在**自己那侧的当下 HEAD** 上按 max+1 取号,分叉时两个号都合法,合到同一份账面才第一次
- * 相遇(本会话 2026-09-28 实测一次合并带进 5 组)。所以拦下红的人必须知道"下一次怎么不撞",
- * 否则他会做两件更糟的事:批量改号(G-312 明令禁止)或跳门。
- * 三句都是可执行动作,且都指向仓里真存在的出口(不写跑不通的出路 —— §1 登记过同型教训)。
+ * F9 逐组点名的**唯一**文案出口(差值档与基线档共用一份)。
+ * 两处各写一遍必然漂移(本仓"两处算同一件事必漂移"记过多次);行号只当定位诊断用,
+ * 复核判据一律是"编号 + 标题"逐字对照 —— 每次 append 都会挪位(§1 第三条禁令)。
  */
-export function f9AvoidGuidance() {
-  return [
-    '   避让(撞号的成因几乎都是"取号竞态",不是有人抢号):',
-    '   ① 取号面必须含 **HEAD ∪ FETCH_HEAD ∪ 归档件** —— 只看工作树/只看本地 HEAD 都会把已推未合的号段、',
-    '      以及"取过又让出"的号当成空闲。现读出口:`node scripts/plan-tasks.mjs --next-id <族>`(按被审面算),',
-    '      归档件的占用面由 `scripts/live-doc-edit.mjs` 那一路并入(台账 ⊕ .ihui-agent/archive/PROJECT_PLAN*)。',
-    '   ② 登记新条目一律经 `node scripts/live-doc-edit.mjs` 的 `{{NEXT_ID:<族>}}` 令牌:它在**每次 CAS 尝试**里',
-    '      按当下底稿重算,所以"查号"与"写行"之间的竞态窗口被消掉 —— 手工 max+1 抄进正文必撞。',
-    '   ③ 令牌展开值本身已含族名,正文不得再手写字面值(`G-` + `{{NEXT_ID:G}}` 产出 `G-G-334` 这一型,',
-    '      本仓实测两次)—— 畸形号还会被 F9 的窗口口径读成撞号,虽已不计判据,但它是台账里的脏号。',
-  ].join('\n')
+export function f9GroupLine(g) {
+  return (
+    `编号 ${g.key} 被 ${g.titleCount} 个不同标题共用 —— ` +
+    // §1 第三条禁令:行号在任何一次 append 后都会挪位,**不得**进证据文本(要定位请跑 `--json` 的 collisions)。
+    `${(g.titles ?? []).map((t) => `「${t.title}」`).join(' / ')}`
+  )
 }
 
 /**
@@ -462,7 +448,7 @@ export function f9AvoidGuidance() {
  * `probe()` 的组数)⇒ 退化成粗尺"组数 > 基线键数",并在文案里明写自己是粗尺、点名去哪拿名单。
  * 粗尺只可能漏"等量换键"那一型,而提交链走的是精确档 ⇒ 这次改动没有新增任何漏报面。
  */
-export function ratchetViolations(base, items, a) {
+export function ratchetViolations(base, items, a, f9Attributed = null) {
   if (!base) return []
   const f9IsKeySet = Array.isArray(base.F9)
   const out = items
@@ -474,10 +460,18 @@ export function ratchetViolations(base, items, a) {
   if (!f9IsKeySet) return out
   if (a) {
     const f = f9Ratchet(base, a)
-    if (f.kind === 'red')
-      out.push(
-        `F9 撞号:出现基线键集里没有的编号 ${f.added.join(' ')}(共 ${f.added.length} 组)`,
-      )
+    if (f.kind === 'red') {
+      // `f9Attributed` 为 null ⇒ 全量问责档,基线缺项一律判(检测强度不变);
+      // 给了 Set ⇒ 提交链档,只判本次带进来的那几组(见 f9Attribution 头注)。
+      const keys = f9Attributed ? f.added.filter((k) => f9Attributed.has(k)) : f.added
+      const stock = f.added.length - keys.length
+      if (keys.length)
+        out.push(
+          `F9 撞号:本次带入基线键集里没有的编号 ${keys.join(' ')}(共 ${keys.length} 组` +
+            (stock > 0 ? `;另有 ${stock} 组基线缺项已在 HEAD 面 ⇒ 不记在本次头上,名单见全量档` : '') +
+            ')'
+        )
+    }
     return out
   }
   const n = items.find(([k]) => k === 'F9')?.[2] ?? 0
@@ -597,20 +591,6 @@ function readBaseline(root) {
  * @param before 差值棘轮的基准面读数(仅 `--staged` 档给:索引面 vs HEAD 面同轮各算一次)
  *               取不到基准面 ⇒ **不判差值**并喊出来(把"没判"写成"判过了"是本仓最高频失效型)
  */
-/**
- * 绝对层(基线棘轮 / 存续性棘轮)在**哪一种档**里才参与退出码 —— 定级判据只留这一份。
- *
- * 两层比的是"当次面的存量 vs 基线文件",与本次提交改了什么无关:别人跳门塞进 HEAD 的增长,
- * 会让**每一次无关提交**都变红,而红门的唯一结局是各会话 --no-verify、连带链上全部守门作废
- * (§12f;AGENTS §1 也早已写明"提交链上跑的是差值棘轮,存量永不拦")。所以:
- *  - 提交链(有 `before` ⇒ 差值档)⇒ **不拦**,但必须逐维打印 + 给问责出口,不得静默;
- *  - 全量档 / `--strict`(人工与 CI 问责)⇒ 照常判红。
- * 差值棘轮(`grewViolations`)不在此函数管辖内 —— 它才是链上的拦点,一行没被放宽。
- */
-export function absoluteLayerBlocks({ strict, before }) {
-  return Boolean(strict) || !before
-}
-
 /** 导出给自检与镜像测试用(§22c):判据的红/绿两向都必须能拿构造面证明,不能只靠 CLI 跑真仓。 */
 export function gate(a, strict, root, before, beforeErr) {
   const items = probe(a)
@@ -627,7 +607,21 @@ export function gate(a, strict, root, before, beforeErr) {
   }
   // F9 基线锚点必须是键集合(G-312)。旧形状 = 这一维关着 —— 静默放行等于把它写成"判过了且没问题",
   // 而它恰恰是那层"别人跳门把增长塞进 HEAD"唯一的看守者,所以这里按**无法判定**处理(exit 2)。
+  // ⚠ 传进来的面必须是 auditFace 的产物(已按编号位收窄)—— 宽口径面在这里会让叙述引用冒充撞号。
   const f9b = f9Ratchet(base, a)
+  // 基线层的**归属**:提交链档(--staged,手里有 HEAD 面)只把"基线缺 ∧ HEAD 也没有"的键算在本次头上,
+  // 存量那批改为**点名报出**而不判红 —— 否则一台把别人跳门塞进来的 44 组存量记在每个人头上的门,
+  // 结局就是每次提交都合法跳钩子(§1 / §12e / §12f 同一条禁令)。全量问责档不过滤,强度不变。
+  const f9att = f9Attribution(f9b.kind === 'red' ? f9b.added : [], before)
+  if (f9att.unattributed) {
+    console.log('⚠️ 无法判定 —— F9 基线层的归属:差值档的 HEAD 面没带逐组明细 ⇒ 这一维既不判红也不记绿')
+    console.log('   出路:调用方必须把 auditPlan(HEAD 面)的完整产物传给 gate(),不要自己拼半个面。')
+    return 2
+  }
+  if (f9att.stock.length)
+    console.log(
+      `ℹ F9 基线缺项里有 ${f9att.stock.length} 组此刻已在 HEAD 面(别人跳门塞进来的存量)⇒ 不记在本次提交头上;逐组清偿的问责入口:\`node scripts/plan-tasks.mjs --gate\`(全量档)`,
+    )
   if (before) {
     const grew = grewViolations(a, before)
     if (grew.length) {
@@ -637,7 +631,6 @@ export function gate(a, strict, root, before, beforeErr) {
       for (const g of newCollisionGroups(a, before))
         console.log(`   F9 新增撞号:${f9GroupLine(g)}`)
       console.log('   归并掉新增的那几条(把副本行翻勾或改成内容锚点),别调基线、别削判据。')
-      console.log(f9AvoidGuidance())
       return 1
     }
     console.log(
@@ -655,33 +648,29 @@ export function gate(a, strict, root, before, beforeErr) {
     )
     return 2
   }
-  const vsBase = ratchetViolations(base, items, a)
+  const vsBase = ratchetViolations(base, items, a, before ? new Set(f9att.attributed) : null)
   if (vsBase.length) {
     console.log(`❌ 基线棘轮:${vsBase.join(';')}`)
-    console.log(`   差值判据看不见"别人跳门把增长塞进 HEAD"那一型,这一层就是为它留的。`)
+    console.log(
+      before
+        ? `   这一层在提交链档只拦"本次带进来的"增长;"别人跳门把增长塞进 HEAD"那一型由全量问责档点名(见上一行 ℹ),不在这里记给无关的提交。`
+        : `   差值判据看不见"别人跳门把增长塞进 HEAD"那一型,这一层就是为它留的。`,
+    )
     // F9 红必须**逐组点名**(键 / 两侧标题 / 行号)—— "只报数不报名"等于让改的人再跑一遍全量档,
     // 而这一维的存量按设计不判红,所以红只可能是新键:名单就是可执行出口本身。
-    const addedKeys = f9b.kind === 'red' ? new Set(f9b.added) : new Set()
+    const addedKeys = f9b.kind === 'red' ? new Set(f9att.attributed) : new Set()
     for (const g of a?.collisions ?? [])
       if (addedKeys.has(g.key)) console.log(`   F9 基线新增撞号:${f9GroupLine(g)}`)
     if (addedKeys.size)
       console.log(
-        '   (行号只当定位用,每次 append 都会挪位、不得当判据,也不写进本条证据;复核请用"编号 + 标题"逐字对照 `--json` 的 collisions 清单)',
+        '   (行号只当定位用,每次 append 都会挪位、不得当判据;复核请用"编号 + 标题"逐字对照 `--json` 的 collisions 清单)',
       )
-    if (addedKeys.size) console.log(f9AvoidGuidance())
     console.log(
       addedKeys.size
         ? `   出路:逐组判"哪侧是后来者"并归并(G-312 明令不得批量改号)。清偿后人工跑 \`node scripts/plan-tasks.mjs --update-baseline\` —— 它只允许**收窄**键集,把新键写进基线等于关掉这一维。`
         : `   出路:清偿后人工跑 \`node scripts/plan-tasks.mjs --update-baseline\` 并说明为什么 —— 调高基线等于关掉这一维。`,
     )
-    if (absoluteLayerBlocks({ strict, before })) return 1
-    console.log(
-      '   ↑ 本层比的是"HEAD 当下存量 vs 基线",与本次提交改了什么无关 ⇒ 在提交链(差值档)只报数不拦提交。',
-    )
-    console.log(
-      '     定级理由见函数 absoluteLayerBlocks 头注(§12f:与提交无关的恒红门 = 全队跳钩子 = 全部守门作废);',
-    )
-    console.log('     问责口径不变:`pnpm check:plan-task-state`(= --gate --strict)照判红;差值棘轮照旧 blocking。')
+    return 1
   }
   // F5 与上面同层但方向相反:基线记的是"至少要有这么多条落账注记",**掉了**才判红。
   // 这一维专治"四条状态判据全绿而内容已被旧副本顶掉"(2026-09-26 一小时内实测发生两次)。
@@ -690,8 +679,7 @@ export function gate(a, strict, root, before, beforeErr) {
     console.log(
       '   成因只会是"按内存里那份旧计划文档整文件提交"或跳门回写;出路是重放那批注记,不是下调基线。',
     )
-    if (absoluteLayerBlocks({ strict, before })) return 1
-    console.log('   ↑ 同上:绝对层在提交链只报数,问责档 --strict 判红。')
+    return 1
   }
   // ── F8b 到期清单 ─────────────────────────────────────────────
   // 默认档**只报数并报名**,`--strict` 才判红。理由是这一维与其余六条不同:
@@ -1113,55 +1101,6 @@ function selfTest() {
       '- [x] ✅(2026-09-27) **【归并】** 本行与已完成登记同题 ⇒ 只落状态、不删行。 **D99 复合主键正例**:旧副本。',
   )
   ok(healForm.counts.collisionGroups === 0, `F1 归并产物不得算撞号,实测 ${healForm.counts.collisionGroups}`)
-  // ── F9 的"编号位"收窄(2026-09-28 G-417):行文引用与畸形号子串**不是**第二次登记 ──
-  // 三条各守一个方向,且都自带"旧口径(全文窗口命中)一定会判红"的对照 —— 那才是变异自证:
-  // 反向用例绿了,必须绿在"只看编号位"这一条上,而不是绿在"这一型本来就没被扫到"。
-  const f9TruePair = '- [ ] **G-300 真撞号甲**:第一件事。\n- [ ] **G-300 真撞号乙**:另一件事。'
-  const f9Ref =
-    '- [ ] **G-300 交叉引用甲**:第一件事。\n' +
-    '- [x] ✅(2026-09-28) 本行只是回顾 G-300 已收口,没有登记新任务,不得算第二次登记。'
-  const f9Malformed =
-    '- [ ] G-302 **真登记行**:一件事。\n- [ ] G-G-302 **畸形号行**:取号令牌已含族名、正文又手填了一个 G-。'
-  const f9Archived =
-    '<!-- 已归档(2026-09-20):G-303 任务,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-20.md -->\n' +
-    '- [ ] **G-303 真登记**:一件事。\n' +
-    '- [x] ✅(2026-09-20) 归档说明:本条 G-303 的正文已搬入 .ihui-agent/archive/PROJECT_PLAN_2026-09-20.md。'
-  const narrowOf = (content) =>
-    narrowCollisionsToIdPosition(content, auditPlan(content).collisions)
-  ok(
-    narrowOf(f9TruePair).groups.length === 1 &&
-      narrowOf(f9TruePair).groups[0].titleCount === 2,
-    `两行编号位同号必须**仍然**判撞号(收窄不是放松),实测 ${JSON.stringify(narrowOf(f9TruePair).groups.map((g) => [g.key, g.titleCount]))}`,
-  )
-  ok(
-    auditPlan(f9Ref).counts.collisionGroups === 1,
-    '变异自证:旧口径(窗口内任意命中)必须仍把这条叙述引用判成撞号,否则"收窄"这一笔没有牙',
-  )
-  ok(
-    narrowOf(f9Ref).groups.length === 0,
-    `行文引用不得算第二次登记(编号位给不出本行主键),实测 ${JSON.stringify(narrowOf(f9Ref).groups)}`,
-  )
-  ok(
-    auditPlan(f9Malformed).counts.collisionGroups === 1,
-    '变异自证:畸形双前缀号在旧口径下确实被切成主键并造出撞号组',
-  )
-  ok(
-    narrowOf(f9Malformed).groups.length === 0,
-    `G-G-302 里的「G-302」是子串命中而非编号位 ⇒ 不得计入,实测 ${JSON.stringify(narrowOf(f9Malformed).groups)}`,
-  )
-  ok(
-    narrowOf(f9Archived).groups.length === 0 && narrowOf(f9Archived).droppedTitles === 1,
-    `归档占位/说明行里的历史号不得计入(非条目行不入面 + 条目行的编号位没有号),实测 ${JSON.stringify(narrowOf(f9Archived))}`,
-  )
-  // 判据与读数必须同步收窄:probe / 键集 / 差值三处都从同一把面取,不得一处宽一处窄。
-  const narrowFace = narrowF9Face(auditPlan(f9Ref), f9Ref)
-  ok(
-    narrowFace.counts.collisionGroups === 0 &&
-      narrowFace.collisions.length === 0 &&
-      narrowFace.counts.f9WideGroups === 1,
-    `narrowF9Face 必须同时改 counts.collisionGroups 与 collisions(组数与名单分叉时,红会点不出名),实测 ${JSON.stringify([narrowFace.counts.collisionGroups, narrowFace.collisions.length, narrowFace.counts.f9WideGroups])}`,
-  )
-  ok(f9KeySetOf(narrowFace).length === 0, '收窄后的键集不得再把叙述引用号喂给基线棘轮')
   // 成套性 + 方向:进 probe ⇒ 走同一套差值棘轮;涨点名、平不点名;存量(含 --strict)不判红。
   ok(
     probe(f9).some(([k, , n]) => k === 'F9' && n === 1),
@@ -1307,14 +1246,18 @@ function selfTest() {
     kl.length === 1 && kl[0].reason === '行号指针即使还指得准也不许存在(§1 要求内容锚点)',
     '收紧资格不得让这条指针从账上消失 —— 它仍须被点名交人工(否则"不判红"就是"没判")',
   )
-  // 无主键**但确有逐字孪生**:出口那句"与本行正文逐字相同,可按正文检索"就是可核验的事实 ⇒ 必须允许。
-  // 这一条同时是"上面收紧没有把自动档关掉"的反向对照(2026-09-28 由 --heal 收掉 21 行的正是这一型)。
+  // 无主键**但有逐字孪生**:那句锚点此时是真话,可本维相对 HEAD **只减不增**(§12f)——
+  // 给它开自动出口实测一次把 21 行拉进判红面,那是扩大判红面而不是修缺陷,故这一型仍归该行持有人。
   const twinLine = '- [ ] 无主键行:存活于 L2 的同编号登记。〔孪生〕'
-  const twinFixture = ['# 计划', '- [x] ✅(2026-09-26) **D91 权威登记**:正文。', twinLine, twinLine].join('\n')
-  const tw = auditPlan(twinFixture).rotated
+  const tw = auditPlan(['# 计划', '- [x] ✅(2026-09-26) **D91 权威登记**:正文。', twinLine, twinLine].join('\n'))
+    .rotated
   ok(
-    tw.length === 2 && tw.every((x) => x.autoFixable === true),
-    `有逐字孪生的无主键行必须可自动收口(实测 ${JSON.stringify(tw.map((x) => x.autoFixable))})`,
+    tw.length === 2 && tw.every((x) => x.autoFixable === false),
+    `无主键行即便有逐字孪生也不得进自动档(相对 HEAD 只减不增),实测 ${JSON.stringify(tw.map((x) => x.autoFixable))}`,
+  )
+  ok(
+    tw.length === 2,
+    '但这两条仍须留在 F3 总数里被点名 —— 自动档收窄 ≠ 判据闭眼(否则"0"就是把没判写成判过了)',
   )
   console.log(`\n自检:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
