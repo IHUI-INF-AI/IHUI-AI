@@ -192,6 +192,32 @@ export function BatchScanLoginDialog({
   const [platMapReady, setPlatMapReady] = React.useState(false)
   // 2026-09-16:默认改为"你自己的浏览器"——带上用户日常登录态,已登录平台无需再扫码
   const [mode, setMode] = React.useState<BrowserMode>('external')
+  /**
+   * 会话复用(2026-09-30,用户拍板,与单平台弹窗同一份偏好):
+   * 内置档下该平台已有有效登录态时直接复用、免扫码;关掉 = 强制重新扫码。
+   * 队列闭包读 state 会拿旧值,镜像 modeRef 的做法走 reuseRef。
+   */
+  const [reuseSession, setReuseSession] = React.useState<boolean>(() => {
+    if (typeof window === 'undefined') return true
+    try {
+      return window.localStorage.getItem('ihui:scan-login:reuse-session') !== '0'
+    } catch {
+      return true
+    }
+  })
+  const reuseRef = React.useRef(reuseSession)
+  function toggleReuseSession() {
+    setReuseSession((prev) => {
+      const next = !prev
+      reuseRef.current = next
+      try {
+        window.localStorage.setItem('ihui:scan-login:reuse-session', next ? '1' : '0')
+      } catch {
+        /* 隐私模式等 localStorage 不可用场景:仅本次会话内生效 */
+      }
+      return next
+    })
+  }
   /** 是否成功读到用户浏览器的登录态(由检测响应回报,决定提示文案) */
   const [profileAvailable, setProfileAvailable] = React.useState<boolean | null>(null)
   /** 浏览器拦截了新标签页(外部模式在 web 端可能发生):需提示用户允许弹出窗口 */
@@ -512,7 +538,7 @@ export function BatchScanLoginDialog({
             }
           }
           if (!tid) {
-            const r = await startScanLogin(item.platform)
+            const r = await startScanLogin(item.platform, { reuseSession: reuseRef.current })
             if (cancelRef.current) {
               if (r.success && r.data?.task_id) {
                 void cancelScanLogin(r.data.task_id).catch(() => undefined)
@@ -531,7 +557,9 @@ export function BatchScanLoginDialog({
           if (nxt && platMapRef.current.get(nxt.platform)?.login_url) {
             nextPrewarmRef.current = {
               platform: nxt.platform,
-              promise: startScanLogin(nxt.platform).catch(() => undefined),
+              promise: startScanLogin(nxt.platform, {
+                reuseSession: reuseRef.current,
+              }).catch(() => undefined),
             }
           }
         }
@@ -686,6 +714,21 @@ export function BatchScanLoginDialog({
                   <span className="text-xs">{t('accounts.batchScanModeExternal')}</span>
                 </Button>
               </div>
+              {/* 2026-09-30 会话复用开关:仅内置档消费(外部档走用户真实浏览器,无此概念) */}
+              {mode === 'internal' && (
+                <button
+                  type="button"
+                  onClick={toggleReuseSession}
+                  className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent/40"
+                >
+                  <span>{t('accounts.scanLoginReuseLabel')}</span>
+                  <span className={reuseSession ? 'font-medium text-foreground' : ''}>
+                    {reuseSession
+                      ? t('accounts.scanLoginReuseOn')
+                      : t('accounts.scanLoginReuseOff')}
+                  </span>
+                </button>
+              )}
             </div>
           )}
 
