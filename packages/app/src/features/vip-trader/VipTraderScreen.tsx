@@ -227,7 +227,7 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: 16,
       marginTop: 8,
       padding: 14,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.dark,
     },
     heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
