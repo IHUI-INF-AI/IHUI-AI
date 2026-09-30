@@ -140,4 +140,176 @@ export function formatHeadlessEvent(event: HeadlessEvent, format: OutputFormat):
   if (format === 'yaml') return '---\n' + toYaml(event) + '\n'
   return '' // text
 }
+
+// ==================== 票B:事件流的单一写者(2026-09-29 立)====================
+
+/**
+ * 谁持有这条事件流的写入权。
+ *
+ * 立论(机制出处:上游 ZCode CLI 的 prompt-command —— 它在提交结果之前先停订阅,
+ * 于是"要么有常驻订阅、要么有 per-turn 回调,二者取其一;取证件不在版本控制里,
+ * 所以这里只留机制不留路径,别让后来人去一个已经不存在的地方找证据):
+ * 常驻订阅跨回合存活,所以"完成通知驱动的回合"的事件也在内;per-turn 回调只在那一次
+ * 提交的范围里活着。两者**同时装**时,同一条事件被两个 sink 各写一次 = 一行重复的
+ * NDJSON,而按 id 去重要求"两个 sink 的调用顺序可预期" —— 那是运行时约定,不是结构事实。
+ * 上游因此用"二选一"而不是"双装 + 去重",本端照抄同一个形状:
+ * **恰好一次由"谁拿到了写入权"决定,不由 sink 的先后决定。**
+ */
+export type HeadlessEventWriterSource = 'resident-subscription' | 'per-turn-callbacks'
+
+/** 一条事件被挡下的原因。两档必须可分辨 —— "没人能写了"与"终止符已经落笔"是两件事。 */
+export type HeadlessEventDropReason = 'detached' | 'after-terminal'
+
+export interface HeadlessEventDropInfo {
+  event: HeadlessEvent
+  reason: HeadlessEventDropReason
+  /** 累计被挡下的条数(含本条)。 */
+  droppedCount: number
+}
+
+export interface HeadlessEventSinkOptions {
+  /** 唯一的落笔出口(通常是 `process.stdout.write`)。写不写、写几条由 sink 决定,不由调用方决定。 */
+  write: (line: string) => void
+  format: OutputFormat
+  /**
+   * 事件被挡下时的交代出口(每条都喊,不合并 —— 条数本身就是"有多少东西被挡在终止符之外")。
+   *
+   * 为什么必须有这一格:AGENTS §30"静默变短等于伪造完整性"与守门 118"绝不静默成
+   * 看起来全绿"是同一条禁令。一个挡下事件却什么都不说的 sink,比一个不挡的 sink 更难查 ——
+   * 后者症状看得见,前者把"丢了哪几条"整块从观测面抹掉。
+   * 调用方应把它写到 **stderr**:stdout 是事件流,交代不能成为"结果行之后的事件行"。
+   */
+  onDrop?: (info: HeadlessEventDropInfo) => void
+}
+
+export interface HeadlessEventSink {
+  readonly format: OutputFormat
+  /**
+   * 当前持有写入权的来源;没人 claim 过时为 null。
+   * `start` / `complete` 这类**回合外**事件不需要 claim —— claim 管的是"哪一路回合事件源在写",
+   * 不是"谁能落笔"。
+   */
+  readonly claimedBy: HeadlessEventWriterSource | null
+  /** 是否已停订阅(停过就不再回到未停)。 */
+  readonly detached: boolean
+  /** 是否已落结果行。真值一旦为 true,这条流上就再没有第二次终止符。 */
+  readonly terminalWritten: boolean
+  /** 实际落笔的事件数(序列化出空串的不计,与迁移前 `if (line) write(line)` 逐字同形)。 */
+  readonly writtenCount: number
+  /** 被挡下的事件数。非零就说明有人想在终止符后面插行 —— 该报出来,不该吞。 */
+  readonly droppedCount: number
+  /**
+   * 先到先得地取得写入权。
+   *  - 同一来源重复 claim ⇒ true(幂等,调用方可以在两处问同一个问题);
+   *  - 已被**另一路**持有 ⇒ false ⇒ 调用方**不得**再装自己的 sink;
+   *  - 已停订阅或已落结果行 ⇒ false(任何一路都不再是写者)。
+   */
+  claim(source: HeadlessEventWriterSource): boolean
+  /** 回合事件出口:停订阅之后一律挡下并交代。 */
+  emit(event: HeadlessEvent): void
+  /**
+   * 落**结果行**(终止符)并关闭这条流。
+   *
+   * 与 `detach()` 的分工是这张表的全部要点:`detach()` 停的是**来源**(订阅),
+   * 结果行本身还要靠它之后那一次落笔。上游 headless-workflow 也是这个顺序 ——
+   * 先 `stopObservingEvents()` 再打结果行。第二条结果行按"挡下"处理:一条流只能有一个终止符。
+   */
+  emitTerminal(event: HeadlessEvent): void
+  /** 停订阅:必须在落结果行**之前**调用(见 `commands/agent.ts` runAgent 里的那一处)。 */
+  detach(): void
+}
+
+/**
+ * 建一个单一写者出口。刻意不做全局单例 —— 一次运行一个,由 `runAgent` 持有,
+ * 这样测试与并发调用方各自拿到自己的 sink(全局态会把"恰好一次"变成"恰好一次每次运行",
+ * 而后者的边界从来没人定义)。
+ */
+export function createHeadlessEventSink(options: HeadlessEventSinkOptions): HeadlessEventSink {
+  const { write, format, onDrop } = options
+  let claimedBy: HeadlessEventWriterSource | null = null
+  let detached = false
+  let terminalWritten = false
+  let writtenCount = 0
+  let droppedCount = 0
+
+  const drop = (event: HeadlessEvent, reason: HeadlessEventDropReason): void => {
+    droppedCount += 1
+    onDrop?.({ event, reason, droppedCount })
+  }
+  /** 唯一的落笔通道:序列化 + 计数,空串不写(与迁移前 `if (line)` 同形)。 */
+  const writeEvent = (event: HeadlessEvent): boolean => {
+    const line = formatHeadlessEvent(event, format)
+    if (!line) return false
+    writtenCount += 1
+    write(line)
+    return true
+  }
+
+  return {
+    get format() {
+      return format
+    },
+    get claimedBy() {
+      return claimedBy
+    },
+    get detached() {
+      return detached
+    },
+    get terminalWritten() {
+      return terminalWritten
+    },
+    get writtenCount() {
+      return writtenCount
+    },
+    get droppedCount() {
+      return droppedCount
+    },
+    claim(source) {
+      if (detached || terminalWritten) return false
+      if (claimedBy === null || claimedBy === source) {
+        claimedBy = source
+        return true
+      }
+      return false
+    },
+    emit(event) {
+      // 判序刻意是"终止符优先于停订阅":流已经结束 是比 某个来源被停掉 更强的事实,
+      // 报告里读到 after-terminal 的人不必再去猜"是不是只是没人订阅了"。
+      if (terminalWritten) {
+        drop(event, 'after-terminal')
+        return
+      }
+      if (detached) {
+        drop(event, 'detached')
+        return
+      }
+      writeEvent(event)
+    },
+    emitTerminal(event) {
+      if (terminalWritten) {
+        drop(event, 'after-terminal')
+        return
+      }
+      terminalWritten = true
+      writeEvent(event)
+    },
+    detach() {
+      detached = true
+    },
+  }
+}
+
+/**
+ * "二选一"的接线判据(把上游那句 `...(detachEvents?{}:{onEvent})` 抽成可测出口)。
+ *
+ * 拿到写入权 ⇒ 返回这组 per-turn 回调;没拿到(常驻订阅已在写,或已停订阅)⇒ 返回空对象,
+ * 展开出去就是**一个回调都不装**。判据住在这里而不是调用方的 `if` 里,是因为调用方的 `if`
+ * 能写错方向,而这个函数**没有"两个都装"那条分支**。
+ */
+export function perTurnSinkArgs<TSinkArgs extends object>(
+  sink: HeadlessEventSink,
+  perTurnArgs: TSinkArgs,
+): TSinkArgs | Record<never, never> {
+  return sink.claim('per-turn-callbacks') ? perTurnArgs : {}
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
