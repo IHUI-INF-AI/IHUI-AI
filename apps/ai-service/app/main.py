@@ -85,6 +85,9 @@ from app.routers import (
 # Harness 能力补齐:评估/评测框架(2026-08-11 立)
 from app.routers import eval as eval_router
 
+# D176 任务回顾→移交新任务(2026-09-30 用户拍板立项):交接文档生成出口
+from app.routers import recap as recap_router
+
 # Harness 能力补齐:Prompt 版本管理(2026-08-11 立)
 from app.routers import prompts as prompts_router
 
@@ -854,6 +857,8 @@ def create_app() -> FastAPI:
     app.include_router(connectors.router, prefix="/api", tags=["connectors"])
     app.include_router(agents.router, prefix="/api", tags=["agents"])
     app.include_router(a2a.router, prefix="/api", tags=["a2a"])
+    # D176(2026-09-30 用户拍板立项):交接文档生成出口
+    app.include_router(recap_router.router, prefix="/api", tags=["recap"])
     # O11 A2A 标准化(2026-09-20 立):A2A 发现文档,规范规定为根路径,不带 /api 前缀
     app.include_router(agent_wellknown.router, tags=["a2a"])
     app.include_router(personas.router, prefix="/api", tags=["personas"])
