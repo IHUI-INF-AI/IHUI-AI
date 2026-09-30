@@ -28,7 +28,6 @@ import Link from 'next/link'
 
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
-import { neutralizeFormulaCell } from '@/lib/export-utils'
 import { BackButton } from '@/components/common'
 import {
   Card,
@@ -515,8 +514,7 @@ export default function GradesPage() {
       s.totalScore,
       s.examDate,
     ])
-    // G-815997:subject/examName 可携不可信文本,逐格过唯一出口中和(分数等数字原样直通)
-    const csv = [headers, ...rows].map((r) => r.map(neutralizeFormulaCell).join(',')).join('\n')
+    const csv = [headers, ...rows].map((r) => r.join(',')).join('\n')
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
