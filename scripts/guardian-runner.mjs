@@ -4402,6 +4402,24 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 嵌套闭集声明(1 项,blocking)---
+  {
+    id: '180',
+    label:
+      '嵌套 additionalProperties 闭集守门(b76-14票2配套):嵌套层 schema 的闭集声明不得被摘(嵌套三态在位 + 类型面收编 ≥2),取不到按 UNDETERMINED 不记绿,自检 --self-test 3 例',
+    script: 'check-nested-additional-properties.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_NESTED_ADDITIONAL_PROPERTIES',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-nested-additional-properties.mjs',
+      '自检:node scripts/check-nested-additional-properties.mjs --self-test(3 例)',
+      '应急放行:HUSKY_SKIP_NESTED_ADDITIONAL_PROPERTIES=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
