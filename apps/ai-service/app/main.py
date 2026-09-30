@@ -88,6 +88,9 @@ from app.routers import eval as eval_router
 # D176 任务回顾→移交新任务(2026-09-30 用户拍板立项):交接文档生成出口
 from app.routers import recap as recap_router
 
+# D193 任务决策收件箱(2026-09-30 用户拍板,小切口):「我的待决策」聚合查询
+from app.routers import decisions as decisions_router
+
 # Harness 能力补齐:Prompt 版本管理(2026-08-11 立)
 from app.routers import prompts as prompts_router
 
@@ -859,6 +862,8 @@ def create_app() -> FastAPI:
     app.include_router(a2a.router, prefix="/api", tags=["a2a"])
     # D176(2026-09-30 用户拍板立项):交接文档生成出口
     app.include_router(recap_router.router, prefix="/api", tags=["recap"])
+    # D193(2026-09-30 用户拍板,小切口):「我的待决策」聚合查询(GET /api/agent/decisions/pending)
+    app.include_router(decisions_router.router, prefix="/api", tags=["decisions"])
     # O11 A2A 标准化(2026-09-20 立):A2A 发现文档,规范规定为根路径,不带 /api 前缀
     app.include_router(agent_wellknown.router, tags=["a2a"])
     app.include_router(personas.router, prefix="/api", tags=["personas"])
