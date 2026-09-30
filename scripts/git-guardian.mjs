@@ -1482,6 +1482,86 @@ function auditHostTimezone() {
   }
 }
 
+/**
+ * 盘根卫生巡检(2026-09-30 立,尺子本体 = `scripts/check-disk-root-hygiene.mjs`)。
+ *
+ * 为什么必须挂在这一格:用户拍板"项目产物不外流"(盘根除声明白名单外不允许有项目产物)。
+ * 提交链上的门只判仓库根一级(check-root-dir-clean),盘根与 worktree 登记面无人看守
+ * ⇒ 清完必回潮(2026-09-30 实测:刚删净的 .pytest_tmp_runs 数小时内被重建)。
+ * 判的是磁盘/机器状态 ⇒ 出口只能是守护 tick(warn 尺子,绝不进提交链,§12e)。
+ *
+ * 三条不可漂的写法(与 auditHostTimezone 同源):
+ *  ① 挂点带 `!CHECK_ONLY` —— 挂进 CHECK_ONLY 路径等于永不执行;
+ *  ② 节流(默认 30 分钟)且**未判定不发信**:量不到 ≠ 外流,把"没判"寄成告警是制造噪声;
+ *  ③ 发信只经 notifyGuardRed(),不得在本文件自拼 SMTP(守门 81 硬拦)。
+ */
+const DISK_ROOT_AUDIT_TICK = join(WORKTREE, '.workbuddy', 'disk-root-hygiene-audit-tick.ts')
+const DISK_ROOT_AUDIT_INTERVAL_MS = 30 * 60 * 1000
+
+function auditDiskRootHygiene() {
+  try {
+    let last = 0
+    try {
+      last = Number(readFileSync(DISK_ROOT_AUDIT_TICK, 'utf8')) || 0
+    } catch {
+      /* 首次:没有 tick 就是该跑 */
+    }
+    if (Date.now() - last < DISK_ROOT_AUDIT_INTERVAL_MS) return
+    try {
+      mkdirSync(dirname(DISK_ROOT_AUDIT_TICK), { recursive: true })
+      writeFileSync(DISK_ROOT_AUDIT_TICK, String(Date.now()))
+    } catch {
+      /* tick 写不下去也要判一次:否则一次盘错就永久失明 */
+    }
+    const script = join(dirname(fileURLToPath(import.meta.url)), 'check-disk-root-hygiene.mjs')
+    if (!existsSync(script)) {
+      logger('ℹ️ 盘根卫生:尺子脚本不在位(scripts/check-disk-root-hygiene.mjs)⇒ 本轮跳过,不记为已判')
+      return
+    }
+    let parsed = null
+    try {
+      const out = execFileSync(process.execPath, [script, '--json'], {
+        cwd: WORKTREE,
+        windowsHide: true,
+        timeout: 90_000,
+        maxBuffer: 8 * 1024 * 1024,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      parsed = JSON.parse(String(out).trim())
+    } catch (e) {
+      const body = e && e.stdout ? String(e.stdout).trim() : ''
+      try {
+        parsed = JSON.parse(body)
+      } catch {
+        logger(`ℹ️ 盘根卫生:未判定(派生失败或载荷不可 parse:${String(e && e.message).slice(0, 120)})—— 不寄信,也别当已判过`)
+        return
+      }
+    }
+    if (!parsed || parsed.verdict === 'undetermined') {
+      logger(`ℹ️ 盘根卫生:未判定(${(parsed && parsed.counts && `worktree 维度未判定=${parsed.counts.worktreeUndetermined}`) || '载荷缺 verdict'})`)
+      return
+    }
+    if (parsed.verdict === 'red') {
+      const lines = (parsed.violations || [])
+        .map((v) => (v.kind === 'stray-root-entry' ? `盘根外流: ${v.root}${v.entry}` : `worktree 落点外: ${v.path}${v.prunable ? '(prunable)' : ''}`))
+        .join('\n')
+      notifyGuardRed(
+        '盘根外流:项目产物出现在声明白名单之外',
+        `${lines}\n\n白名单:config/disk-root-allowlist.json(封闭集合,新增合法条目必须显式改配置并随 commit 提交)\n` +
+          `worktree 合法落点:G:\\IHUI-AI\\.worktrees\\(AGENTS §12d);回收:git worktree remove + prune\n` +
+          `手动问责:node scripts/check-disk-root-hygiene.mjs --strict`,
+        { severity: 'warning' },
+      )
+      logger(`⚠️ 盘根卫生判红:外流 ${parsed.counts.diskRootStray} / worktree 落点外 ${parsed.counts.worktreeOutside}`)
+      return
+    }
+    logger(`✅ 盘根卫生:0 违规(白名单对账 + worktree 落点全在 .worktrees)`)
+  } catch (e) {
+    logger(`⚠️ 盘根卫生自身异常(不改自愈与退出码):${String(e && e.message).slice(0, 160)}`)
+  }
+}
+
 function auditMergeAdditionLoss() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'check-merge-addition-loss.mjs')
   if (!existsSync(script)) return
@@ -3076,6 +3156,8 @@ function main() {
     // 主机时区漂移问责:必须与上面同格(健康轮次早退之前 + !CHECK_ONLY)—— 挂进 CHECK_ONLY 路径
     // 等于永不执行,本文件已踩过两次(工作区自愈层、根封口层)。
     if (!CHECK_ONLY) auditHostTimezone()
+    // 盘根卫生巡检(G 盘清理收口 2026-09-30):同一挂点语义 —— 健康轮次早退之前 + !CHECK_ONLY。
+    if (!CHECK_ONLY) auditDiskRootHygiene()
     // 开工前基线新鲜度:只报数的一层(③轴绝不进提交链,故这里既不判红也不喊人)。
     if (!CHECK_ONLY) reportBaselineFreshness()
     // §5b 的"唯一空白层":恢复源刷新原本挂在计划任务上,而那个任务已实测消失 ⇒ 并入 tick。
