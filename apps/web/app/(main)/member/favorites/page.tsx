@@ -11,7 +11,8 @@ import { Heart, Loader2, Trash2, Folder, FileText } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
@@ -51,6 +52,9 @@ export default function MemberFavoritesPage() {
   const qc = useQueryClient()
   const [tab, setTab] = React.useState<'all' | ResourceType>('all')
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'favorites', tab],
     queryFn: () =>
@@ -59,6 +63,7 @@ export default function MemberFavoritesPage() {
       )
         .then((d) => d.list ?? [])
         .catch(() => [] as Favorite[]),
+    enabled: allow,
   })
 
   const removeMut = useMutation({
@@ -105,7 +110,9 @@ export default function MemberFavoritesPage() {
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看收藏" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...

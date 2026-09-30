@@ -11,7 +11,8 @@ import { Bell, BellOff, User, Folder, Tag, FolderTree, Loader2 } from 'lucide-re
 
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
@@ -71,12 +72,16 @@ export default function SubscriptionsPage() {
   const qc = useQueryClient()
   const [tab, setTab] = React.useState<'all' | TargetType>('all')
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['subscriptions', tab],
     queryFn: () =>
       api<{ list: Subscription[] }>(
         `/api/subscriptions?pageSize=100${tab !== 'all' ? `&targetType=${tab}` : ''}`,
       ).then((d) => d.list ?? []),
+    enabled: allow,
   })
 
   const cancelMut = useMutation({
@@ -116,7 +121,9 @@ export default function SubscriptionsPage() {
         ))}
       </div>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看我的订阅" />
+      ) : isLoading ? (
         <div className="py-10 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
           {t('loading')}
