@@ -469,10 +469,12 @@ export async function handleRefund(
       await tx
         .update(eduOrders)
         .set({ status: 'refunded', refundTime: new Date(), updatedAt: new Date() })
+  // status-guard-exempt: 退款事务内同步订单为 refunded(入向);出向守卫在退款单状态推进处
         .where(eq(eduOrders.id, refund.orderId))
       await tx
         .update(orders)
         .set({ status: 'refunded', refundTime: new Date(), updatedAt: new Date() })
+  // status-guard-exempt: 退款事务内同步订单为 refunded(入向);出向守卫在退款单状态推进处
         .where(eq(orders.id, refund.orderId))
     }
     return refund

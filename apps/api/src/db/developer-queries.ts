@@ -56,6 +56,7 @@ export async function updateDeveloperApplicationStatus(
   const rows = await db
     .update(developerApplications)
     .set({ status, updatedAt: new Date() })
+  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(developerApplications.id, id))
     .returning()
   return rows[0]
