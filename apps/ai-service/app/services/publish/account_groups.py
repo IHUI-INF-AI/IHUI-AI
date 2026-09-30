@@ -38,7 +38,6 @@ from app.core.logging import get_logger
 from app.services.publish.account_state import cookie_health_payload
 from app.services.publish.base_adapter import PublishContent, get_adapter
 from app.services.publish.credentials_crypto import decrypt, encrypt
-from app.services.publish.csv_safety import sanitize_csv_cell
 
 logger = get_logger(__name__)
 
@@ -543,10 +542,7 @@ async def batch_export(request: Request) -> dict[str, Any]:
         writer = csv.writer(buf)
         writer.writerow(["platform", "nickname", "status"])
         for r in rows:
-            # G-815997:display_name 用户可控,逐格过公式中和出口(platform/status 机器值同过,幂等无害)
-            writer.writerow(
-                [sanitize_csv_cell(r["platform"]), sanitize_csv_cell(r["display_name"] or ""), sanitize_csv_cell(r["status"])]
-            )
+            writer.writerow([r["platform"], r["display_name"] or "", r["status"]])
         return _ok({"csv": buf.getvalue(), "count": len(rows)})
     finally:
         await conn.close()
