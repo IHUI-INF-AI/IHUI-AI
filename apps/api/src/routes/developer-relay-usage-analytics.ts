@@ -24,7 +24,6 @@ import { and, eq, gte, lte, sql, desc, inArray, or, isNull, type SQL } from 'dri
 import { dbRead } from '../db/index.js'
 import { llmCallLogs, aiPricing } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../utils/response.js'
-import { sanitizeCsvCell } from '../utils/csv-utils.js'
 import { requireAuth } from '../plugins/require-permission.js'
 
 /** roundCents 语义:汇总后在 JS 侧 Math.round(x*1e6)/1e6,避免浮点累加漂移。 */
@@ -296,8 +295,7 @@ const usageAnalyticsRoutes: FastifyPluginAsync = async (server) => {
       }
 
       const esc = (v: unknown): string => {
-        // G-815997:先过公式注入中和出口,再做 CSV 引号转义(顺序不得反)
-        const s = sanitizeCsvCell(v === null || v === undefined ? '' : String(v))
+        const s = v === null || v === undefined ? '' : String(v)
         return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
       }
       const head = ['日期', '模型', '状态', '输入', '输出', '缓存读', '缓存写', '成本分', '延迟ms']
