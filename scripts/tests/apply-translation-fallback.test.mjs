@@ -26,7 +26,8 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import os from 'node:os'
+// §26:临时夹具唯一落点(活进程 os.tmpdir() 可能仍钉在 C 盘,禁用)
+import { mkScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -35,7 +36,7 @@ const SCRIPT_PATH = path.join(__dirname, '..', 'apply-translation-fallback.mjs')
 
 // ─── 辅助:创建临时项目根目录(含 packages/i18n/messages/web/ 结构) ───
 function createTempProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-translation-fallback-'))
+  const root = mkScratch('ihui-translation-fallback-')
   fs.mkdirSync(path.join(root, 'packages', 'i18n', 'messages', 'web'), { recursive: true })
   return root
 }
