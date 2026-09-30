@@ -24,6 +24,7 @@
  * 在两条流上各自生产)。
  */
 
+import { z } from 'zod'
 import {
   projectToolApprovalEnvFacts,
   type ToolApprovalExecEnvironment as ApiToolApprovalExecEnvironment,
@@ -183,6 +184,286 @@ export interface ToolApprovalWirePayload {
 }
 
 // ============================================================================
+// 字段级判据(单一字段表 + 边界宽松候选 + 严格投影 typed fault)(b76-05 票1)
+// ============================================================================
+
+/**
+ * 此前本模块只有事件名面(AGENT_TASK_EVENTS + G-816042 计数),字段面全靠逐解析器
+ * 手搓 typeof 守卫 —— "任一字段 typeof 不符 ⇒ 整个事件丢弃(return null)",字段被
+ * 静默吞掉与"流断了"在消费端完全同形,而 typecheck/lint/其余守门全都不响。本节把
+ * 字段面立成三件可指认的事实:
+ *
+ * 1. **单一字段表**(SELF_HEAL_FIELDS 等九张 zod 全型表):每个 wire 事件一张,
+ *    是"payload 上有哪些键、各是什么型"的唯一运行时真相。各解析器的路由闸用
+ *    `.pick().shape` 从同一张表派生(looseObject 包一层 = 未知键放行),不另画第二份
+ *    (两处算同一件事必漂移)。
+ * 2. **边界宽松候选**(*_ROUTE):路由层只验"可安全路由/可计量"的最小外形状 ——
+ *    未知键照常放行(交给 auditUnknownFields 计数),只查路由必需字段。完整校验
+ *    推迟到严格投影:边界直接丢弃会把内容问题伪装成网络问题(store 永久等待)。
+ * 3. **严格投影 typed fault**(parseAgentTaskEventStrict):逐字段全型校验,违规返回
+ *    带 code 的 SseFieldFault(不是 null、不是可跳过的 console.warn 形状);
+ *    未知键(payload 带、字段表没有)进 unknownSseFieldCounts 计数并一次性报名,
+ *    与 G-816042 的名称面同构。
+ *
+ * 与主解析器的返回契约关系:parseXxxEvent / parseAgentTaskEvent 的返回形状**不变**
+ * (事件对象或 null)—— apps/web use-agent-runtime 等消费点按 `if (!evt) return`
+ * 接线,fault 对象若从主通道返回会伪装成事件对象污染下游状态(消费端不在本票
+ * 受影响文件清单里,不得被顺手改语义)。因此 typed fault 走严格工厂通道;主解析器
+ * 保留"返回 null"的 wire 兼容行为,但每次丢弃都落账(recordSseFieldFault 计数)——
+ * "没读全"与"读不懂"在账面上从此不同形。
+ */
+
+/** 字段级 typed fault 的稳定码。判定侧只认这个字符串,不认 message 文本。 */
+export const SSE_FIELD_FAULT_CODE = 'fault.sse.fieldRejected' as const
+
+/** 严格投影的违规形状:一行 code + 事件名 + 字段路径 + expected/got。 */
+export interface SseFieldFault {
+  readonly code: typeof SSE_FIELD_FAULT_CODE
+  readonly eventName: string
+  readonly field: string
+  readonly expected: string
+  readonly got: string
+}
+
+/** 判型守卫:严格工厂的返回结果里,事件对象与 fault 靠这一谓词分辨。 */
+export function isSseFieldFault(value: unknown): value is SseFieldFault {
+  if (typeof value !== 'object' || value === null) return false
+  const v = value as Record<string, unknown>
+  return v.code === SSE_FIELD_FAULT_CODE && typeof v.eventName === 'string' && typeof v.field === 'string'
+}
+
+/**
+ * 最小结构化的 zod 判定面(避免本文件依赖 zod 泛型内部拼写):
+ * 只要 safeParse 的返回形状对得上就够了,换 zod 大版本时只动这里。
+ */
+interface FieldIssueLike {
+  readonly path?: readonly PropertyKey[]
+  readonly code?: string
+  readonly expected?: string
+  readonly input?: unknown
+}
+interface FieldResultLike {
+  readonly success: boolean
+  readonly error?: { readonly issues: readonly FieldIssueLike[] }
+}
+type FieldSchemaLike = { safeParse(input: unknown): FieldResultLike }
+
+/** 非法值的可读描述(不装原值,与 unknown_field 的 describeType 口径一致)。 */
+function describeGot(value: unknown): string {
+  if (value === null) return 'null'
+  if (Array.isArray(value)) return 'array'
+  return typeof value
+}
+
+/** 按 issue 的 path 从原 payload 取实得值(zod v4 的 issue 不携带 input)。 */
+function valueAtPath(p: unknown, path: readonly PropertyKey[]): unknown {
+  let cur: unknown = p
+  for (const key of path) {
+    if (typeof cur !== 'object' || cur === null) return undefined
+    cur = (cur as Record<string, unknown>)[String(key)]
+  }
+  return cur
+}
+
+function faultFromIssue(eventName: string, issue: FieldIssueLike, payload: unknown): SseFieldFault {
+  const path = issue.path ?? []
+  return {
+    code: SSE_FIELD_FAULT_CODE,
+    eventName,
+    field: path.length > 0 ? path.map(String).join('.') : '(payload)',
+    expected: typeof issue.expected === 'string' ? issue.expected : (issue.code ?? 'invalid'),
+    got: describeGot(valueAtPath(payload, path)),
+  }
+}
+
+// ---- 字段面遥测(与 unknown-event-telemetry 的名称面同构) --------------------
+
+export type UnknownSseFieldKind = 'unknown-field' | 'field-rejected'
+
+/** 一次字段面报名携带的事实:事件名、字段名、种类与累计次数。 */
+export interface UnknownSseFieldNotice {
+  readonly eventName: string
+  readonly field: string
+  readonly kind: UnknownSseFieldKind
+  readonly count: number
+}
+
+export type UnknownSseFieldReporter = (notice: UnknownSseFieldNotice) => void
+
+const unknownFieldCounts = new Map<string, Map<string, number>>()
+const fieldFaultCounts = new Map<string, Map<string, number>>()
+
+function defaultFieldReporter(notice: UnknownSseFieldNotice): void {
+  // 英文运行时串:packages/shared/src 在守门 70(硬编码中文)射程内,中文只能留在注释里。
+  const what = notice.kind === 'unknown-field' ? 'unrecognized payload field' : 'payload field rejected'
+  console.warn(
+    `[sse] ${what} on agent-stream event ${notice.eventName}: ${notice.field} (seen ${notice.count}x; reported once per field)`,
+  )
+}
+
+let fieldReporter: UnknownSseFieldReporter = defaultFieldReporter
+
+/** 换字段面报名出口;传 null 恢复默认控制台报名。 */
+export function setUnknownSseFieldReporter(next: UnknownSseFieldReporter | null): void {
+  fieldReporter = next ?? defaultFieldReporter
+}
+
+function bumpFieldCount(map: Map<string, Map<string, number>>, eventName: string, field: string): number {
+  let perEvent = map.get(eventName)
+  if (!perEvent) {
+    perEvent = new Map()
+    map.set(eventName, perEvent)
+  }
+  const next = (perEvent.get(field) ?? 0) + 1
+  perEvent.set(field, next)
+  return next
+}
+
+/** 记一次"未知 payload 字段"(首次报名,计数随时可查)。 */
+function recordUnknownSseField(eventName: string, field: string): void {
+  const count = bumpFieldCount(unknownFieldCounts, eventName, field)
+  if (count === 1) fieldReporter({ eventName, field, kind: 'unknown-field', count })
+}
+
+/** 记一次"声明字段被严格投影拒绝"(首次报名,计数随时可查)。 */
+function recordSseFieldFault(eventName: string, field: string): void {
+  const count = bumpFieldCount(fieldFaultCounts, eventName, field)
+  if (count === 1) fieldReporter({ eventName, field, kind: 'field-rejected', count })
+}
+
+/** 未知字段计数快照:{[事件名]: {[字段名]: 次数}}(拷贝,调用方改了不影响内部状态)。 */
+export function unknownSseFieldCounts(): Record<string, Record<string, number>> {
+  const out: Record<string, Record<string, number>> = {}
+  for (const [eventName, perField] of unknownFieldCounts) {
+    out[eventName] = {}
+    for (const [field, count] of perField) out[eventName]![field] = count
+  }
+  return out
+}
+
+/** 声明字段被拒计数快照(形状同 unknownSseFieldCounts)。 */
+export function sseFieldFaultCounts(): Record<string, Record<string, number>> {
+  const out: Record<string, Record<string, number>> = {}
+  for (const [eventName, perField] of fieldFaultCounts) {
+    out[eventName] = {}
+    for (const [field, count] of perField) out[eventName]![field] = count
+  }
+  return out
+}
+
+/** 清空字段面计数与报名状态(测试隔离用;宿主一般不需要)。 */
+export function resetSseFieldTelemetry(): void {
+  unknownFieldCounts.clear()
+  fieldFaultCounts.clear()
+  fieldReporter = defaultFieldReporter
+}
+
+// ---- 单一字段表(九张全型表)+ 路由候选(.pick 派生) --------------------------
+
+const SELF_HEAL_FIELDS = z.object({
+  session_id: z.string().optional(),
+  iteration: z.number().nullable().optional(),
+  phase: z.enum(['started', 'finished']),
+  command: z.string().optional(),
+  failed: z.number().nullable().optional(),
+  ok: z.boolean().nullable().optional(),
+  attempts: z.number().nullable().optional(),
+  rollbacks: z.number().optional(),
+})
+const SELF_HEAL_ROUTE = z.looseObject(SELF_HEAL_FIELDS.pick({ phase: true }).shape)
+
+const THINKING_FIELDS = z.object({
+  run_id: z.string().optional(),
+  content: z.string().min(1),
+  iteration: z.number().nullable().optional(),
+  is_final: z.boolean().optional(),
+})
+const THINKING_ROUTE = z.looseObject(THINKING_FIELDS.pick({ content: true }).shape)
+
+const PLAN_STEP_FIELDS = z.object({
+  run_id: z.string().optional(),
+  step_index: z.number(),
+  tool_name: z.string(),
+  status: z.enum(['started', 'completed', 'blocked']),
+  decision: z.string().nullable().optional(),
+  reason: z.string().nullable().optional(),
+})
+const PLAN_STEP_ROUTE = z.looseObject(
+  PLAN_STEP_FIELDS.pick({ step_index: true, tool_name: true, status: true }).shape,
+)
+
+const SESSION_END_FIELDS = z.object({
+  session_id: z.string().optional(),
+  user_id: z.string().optional(),
+  success: z.boolean().optional(),
+  stop_reason: z.string().optional(),
+  total_iterations: z.number().optional(),
+  total_duration_ms: z.number().optional(),
+})
+const SESSION_END_ROUTE = z.looseObject(SESSION_END_FIELDS.pick({}).shape)
+
+const PERMISSION_MODE_FIELDS = z.object({
+  mode: z.string().optional(),
+  tool: z.string().optional(),
+  decision: z.string().optional(),
+  session_id: z.string().optional(),
+})
+const PERMISSION_MODE_ROUTE = z.looseObject(PERMISSION_MODE_FIELDS.pick({}).shape)
+
+const TERMINAL_DELTA_FIELDS = z.object({
+  session_id: z.string().optional(),
+  run_id: z.string().optional(),
+  command: z.string().optional(),
+  stream: z.enum(['stdout', 'stderr']),
+  text: z.string(),
+  iteration: z.number().nullable().optional(),
+  tool_call_id: z.string().nullable().optional(),
+})
+const TERMINAL_DELTA_ROUTE = z.looseObject(
+  TERMINAL_DELTA_FIELDS.pick({ text: true, stream: true }).shape,
+)
+
+const AGENT_STATUS_FIELDS = z.object({
+  session_id: z.string().optional(),
+  status: z.enum(['resuming', 'pausing', 'cancelling']),
+})
+const AGENT_STATUS_ROUTE = z.looseObject(AGENT_STATUS_FIELDS.pick({ status: true }).shape)
+
+const MESSAGE_SEND_FIELDS = z.object({
+  session_id: z.string().optional(),
+  iteration: z.number(),
+  messages_count: z.number().optional(),
+})
+const MESSAGE_SEND_ROUTE = z.looseObject(MESSAGE_SEND_FIELDS.pick({ iteration: true }).shape)
+
+const TOOL_APPROVAL_FIELDS = z.object({
+  approval_id: z.union([z.string(), z.number()]).optional(),
+  tool_name: z.string().optional(),
+  tool_call_id: z.union([z.string(), z.number()]).optional(),
+  args_preview: z.string().optional(),
+  danger_level: z.string().optional(),
+  session_id: z.string().optional(),
+  exec_environment: z.record(z.string(), z.unknown()).optional(),
+  network_target: z.record(z.string(), z.unknown()).optional(),
+  blocked_network_targets: z.array(z.record(z.string(), z.unknown())).optional(),
+})
+const TOOL_APPROVAL_ROUTE = z.looseObject(TOOL_APPROVAL_FIELDS.pick({}).shape)
+
+/** 未知键审计:payload 带、字段表没声明的键,计数 + 首次报名(不丢弃事件)。 */
+function auditUnknownFields(eventName: string, declared: Record<string, unknown>, p: object): void {
+  for (const key of Object.keys(p as Record<string, unknown>)) {
+    if (!(key in declared)) recordUnknownSseField(eventName, key)
+  }
+}
+
+/** 路由闸失败落账:每次"读不懂"都进 field-rejected 计数,而不是静默 null。 */
+function recordRouteRejections(eventName: string, result: FieldResultLike, payload: unknown): void {
+  for (const issue of result.error?.issues ?? []) {
+    recordSseFieldFault(eventName, faultFromIssue(eventName, issue, payload).field)
+  }
+}
+
+// ============================================================================
 // 视图事件形态(camelCase,前端消费层的稳定接口)
 // ============================================================================
 
@@ -200,7 +481,8 @@ export interface SelfHealEvent {
   ok: boolean | null
   attempts: number | null
   rollbackCount: number
-  ts: number
+  /** wire 原值(timestamp/ts),缺席即整个键不在(G-998099:客户端禁止拿本地时钟造事件时间)。 */
+  ts?: number
 }
 
 /** thinking 增量事件(P0-5):同一 run 多次事件拼接累积,is_final 收尾。 */
@@ -222,7 +504,8 @@ export interface AgentPlanStepEvent {
   status: 'started' | 'completed' | 'blocked'
   decision: string | null
   reason: string | null
-  ts: number
+  /** wire 原值(timestamp/ts),缺席即整个键不在(G-998099)。 */
+  ts?: number
 }
 
 /** session 结束摘要(P1,2026-09-19)。 */
@@ -232,7 +515,8 @@ export interface AgentSessionEndEvent {
   stopReason: string
   totalIterations: number
   totalDurationMs: number
-  ts: number
+  /** wire 原值(timestamp/ts),缺席即整个键不在(G-998099)。 */
+  ts?: number
 }
 
 /** 权限模式切换(P1,2026-09-19):高危工具审批门模式/决策变化。 */
@@ -240,7 +524,8 @@ export interface AgentPermissionModeEvent {
   mode: string
   tool: string
   decision: string
-  ts: number
+  /** wire 原值(timestamp/ts),缺席即整个键不在(G-998099)。 */
+  ts?: number
 }
 
 /** 运行时终端增量输出(P1,2026-09-19):run_command 逐行 stdout/stderr(4 行/帧节流)。 */
@@ -250,21 +535,24 @@ export interface AgentTerminalDeltaEvent {
   stream: 'stdout' | 'stderr'
   text: string
   iteration: number | null
-  ts: number
+  /** wire 原值(timestamp/ts),缺席即整个键不在(G-998099)。 */
+  ts?: number
 }
 
 /** agent 瞬态状态(P1,2026-09-19):pause/cancel 过渡。 */
 export interface AgentTransientStatusEvent {
   sessionId: string
   status: 'resuming' | 'pausing' | 'cancelling'
-  ts: number
+  /** wire 原值(timestamp/ts),缺席即整个键不在(G-998099)。 */
+  ts?: number
 }
 
 /** 本轮 LLM 请求发出通知(P1,2026-09-19)。 */
 export interface AgentMessageSendEvent {
   iteration: number
   messagesCount: number
-  ts: number
+  /** wire 原值(timestamp/ts),缺席即整个键不在(G-998099)。 */
+  ts?: number
 }
 
 /** 审批请求视图形态(与 @ihui/types ToolApprovalRequest 字段对齐)。 */
@@ -288,7 +576,8 @@ export interface ToolApprovalEvent {
 }
 
 // ============================================================================
-// 逐事件解析器(JSON.parse + 守卫校验 + snake→camel 格式化,无效载荷返回 null)
+// 逐事件解析器(JSON.parse + 字段表路由闸 + snake→camel 格式化,无效载荷返回 null;
+// 字段面判据见上方"字段级判据"节:未知键计数报名,声明字段被拒走严格工厂 typed fault)
 // ============================================================================
 
 /** 安全 JSON.parse:非 JSON/非对象一律返回 null(替代各消费点重复的 try/catch 模板)。 */
@@ -303,14 +592,34 @@ function parseEnvelope(raw: unknown): AgentTaskWireEnvelope | null {
   }
 }
 
-/** self-heal 解析:phase 仅接受 started/finished,其余丢弃。 */
+/**
+ * G-998099(2026-09-30 立):视图 ts 只允许来自 wire 原值(`timestamp`/`ts`),缺席即整个键不在。
+ * 协议时间戳一律 Unix ms 且一律 CLI 时钟;客户端拿本地时钟造事件时间,会让"同一 payload
+ * 重复解析"逐字节不同 —— 重放/合并后状态不可复现,去重与合并的权威坐标(id/ts)因此失稳。
+ */
+function wireTs(p: object): number | undefined {
+  const rec = p as Record<string, unknown>
+  if (typeof rec['timestamp'] === 'number') return rec['timestamp']
+  if (typeof rec['ts'] === 'number') return rec['ts']
+  return undefined
+}
+
+/** self-heal 解析:phase 仅接受 started/finished(路由闸),其余丢弃(落账后 null)。 */
 export function parseSelfHealEvent(raw: unknown): SelfHealEvent | null {
   const data = parseEnvelope(raw)
   const p = data?.payload as SelfHealWirePayload | undefined
-  const phase = p?.phase
-  if (!p || (phase !== 'started' && phase !== 'finished')) return null
+  const gate = SELF_HEAL_ROUTE.safeParse(p)
+  if (!p || !gate.success) {
+    if (p) recordRouteRejections(AGENT_TASK_EVENTS.SELF_HEAL, gate, p)
+    return null
+  }
+  auditUnknownFields(AGENT_TASK_EVENTS.SELF_HEAL, SELF_HEAL_FIELDS.shape, p)
+  const phase = gate.data.phase
+  const ts = wireTs(p)
   return {
-    id: `${p.session_id ?? 'unknown'}-${phase}-${p.iteration ?? 0}-${Date.now()}`,
+    // G-998099:id 只由线上稳定字段拼出(session/phase/iteration),同一 payload 重复解析逐字节同值。
+    // (session_id ?? 'unknown') 的缺席折叠是既有形态,收敛它需先改视图接口与消费点(不在本票清单)。
+    id: `${p.session_id ?? 'unknown'}-${phase}-${p.iteration ?? 0}`,
     sessionId: p.session_id ?? '',
     iteration: p.iteration ?? null,
     phase,
@@ -319,7 +628,7 @@ export function parseSelfHealEvent(raw: unknown): SelfHealEvent | null {
     ok: phase === 'finished' ? (p.ok ?? null) : null,
     attempts: phase === 'finished' ? (p.attempts ?? null) : null,
     rollbackCount: p.rollbacks ?? 0,
-    ts: Date.now(),
+    ...(ts !== undefined ? { ts } : {}),
   }
 }
 
@@ -327,30 +636,40 @@ export function parseSelfHealEvent(raw: unknown): SelfHealEvent | null {
 export function parseThinkingEvent(raw: unknown): ThinkingDeltaEvent | null {
   const data = parseEnvelope(raw)
   const p = data?.payload as ThinkingWirePayload | undefined
-  if (!p || typeof p.content !== 'string' || p.content.length === 0) return null
+  const gate = THINKING_ROUTE.safeParse(p)
+  if (!p || !gate.success) {
+    if (p) recordRouteRejections(AGENT_TASK_EVENTS.THINKING, gate, p)
+    return null
+  }
+  auditUnknownFields(AGENT_TASK_EVENTS.THINKING, THINKING_FIELDS.shape, p)
   return {
     runId: p.run_id ?? '',
-    content: p.content,
+    content: gate.data.content,
     iteration: typeof p.iteration === 'number' ? p.iteration : null,
     isFinal: p.is_final === true,
   }
 }
 
-/** plan-step 解析:step_index/tool_name 必填,status 仅 started/completed/blocked。 */
+/** plan-step 解析:step_index/tool_name 必填,status 白名单(路由闸)。 */
 export function parsePlanStepEvent(raw: unknown): AgentPlanStepEvent | null {
   const data = parseEnvelope(raw)
   const p = data?.payload as PlanStepWirePayload | undefined
-  const status = p?.status
-  if (!p || typeof p.step_index !== 'number' || typeof p.tool_name !== 'string') return null
-  if (status !== 'started' && status !== 'completed' && status !== 'blocked') return null
+  const gate = PLAN_STEP_ROUTE.safeParse(p)
+  if (!p || !gate.success) {
+    if (p) recordRouteRejections(AGENT_TASK_EVENTS.PLAN_STEP, gate, p)
+    return null
+  }
+  auditUnknownFields(AGENT_TASK_EVENTS.PLAN_STEP, PLAN_STEP_FIELDS.shape, p)
+  const status = gate.data.status
+  const ts = wireTs(p)
   return {
     runId: p.run_id ?? '',
-    stepIndex: p.step_index,
-    toolName: p.tool_name,
+    stepIndex: gate.data.step_index,
+    toolName: gate.data.tool_name,
     status,
     decision: typeof p.decision === 'string' ? p.decision : null,
     reason: typeof p.reason === 'string' ? p.reason : null,
-    ts: Date.now(),
+    ...(ts !== undefined ? { ts } : {}),
   }
 }
 
@@ -358,14 +677,20 @@ export function parsePlanStepEvent(raw: unknown): AgentPlanStepEvent | null {
 export function parseSessionEndEvent(raw: unknown): AgentSessionEndEvent | null {
   const data = parseEnvelope(raw)
   const p = data?.payload as SessionEndWirePayload | undefined
-  if (!p) return null
+  const gate = SESSION_END_ROUTE.safeParse(p)
+  if (!p || !gate.success) {
+    if (p) recordRouteRejections(AGENT_TASK_EVENTS.SESSION_END, gate, p)
+    return null
+  }
+  auditUnknownFields(AGENT_TASK_EVENTS.SESSION_END, SESSION_END_FIELDS.shape, p)
+  const ts = wireTs(p)
   return {
     sessionId: p.session_id ?? '',
     success: Boolean(p.success),
     stopReason: p.stop_reason ?? '',
     totalIterations: p.total_iterations ?? 0,
     totalDurationMs: p.total_duration_ms ?? 0,
-    ts: Date.now(),
+    ...(ts !== undefined ? { ts } : {}),
   }
 }
 
@@ -373,53 +698,74 @@ export function parseSessionEndEvent(raw: unknown): AgentSessionEndEvent | null 
 export function parsePermissionModeEvent(raw: unknown): AgentPermissionModeEvent | null {
   const data = parseEnvelope(raw)
   const p = data?.payload as PermissionModeWirePayload | undefined
-  if (!p) return null
+  const gate = PERMISSION_MODE_ROUTE.safeParse(p)
+  if (!p || !gate.success) {
+    if (p) recordRouteRejections(AGENT_TASK_EVENTS.PERMISSION_MODE, gate, p)
+    return null
+  }
+  auditUnknownFields(AGENT_TASK_EVENTS.PERMISSION_MODE, PERMISSION_MODE_FIELDS.shape, p)
+  const ts = wireTs(p)
   return {
     mode: p.mode ?? '',
     tool: p.tool ?? '',
     decision: p.decision ?? '',
-    ts: Date.now(),
+    ...(ts !== undefined ? { ts } : {}),
   }
 }
 
-/** terminal-delta 解析:text 必填,stream 仅 stdout/stderr。 */
+/** terminal-delta 解析:text 必填,stream 仅 stdout/stderr(路由闸)。 */
 export function parseTerminalDeltaEvent(raw: unknown): AgentTerminalDeltaEvent | null {
   const data = parseEnvelope(raw)
   const p = data?.payload as TerminalDeltaWirePayload | undefined
-  const stream = p?.stream
-  if (!p || typeof p.text !== 'string' || (stream !== 'stdout' && stream !== 'stderr')) {
+  const gate = TERMINAL_DELTA_ROUTE.safeParse(p)
+  if (!p || !gate.success) {
+    if (p) recordRouteRejections(AGENT_TASK_EVENTS.TERMINAL_DELTA, gate, p)
     return null
   }
+  auditUnknownFields(AGENT_TASK_EVENTS.TERMINAL_DELTA, TERMINAL_DELTA_FIELDS.shape, p)
+  const stream = gate.data.stream
+  const ts = wireTs(p)
   return {
-    id: `${p.tool_call_id ?? p.run_id ?? 'unknown'}-${Date.now()}`,
+    // G-998099:id 只由线上稳定字段拼出(tool_call_id/run_id + iteration),不再掺本地时钟。
+    id: `${p.tool_call_id ?? p.run_id ?? 'unknown'}-${p.iteration ?? 0}`,
     command: p.command ?? '',
     stream,
-    text: p.text,
+    text: gate.data.text,
     iteration: typeof p.iteration === 'number' ? p.iteration : null,
-    ts: Date.now(),
+    ...(ts !== undefined ? { ts } : {}),
   }
 }
 
-/** agent-status 解析:status 仅 resuming/pausing/cancelling。 */
+/** agent-status 解析:status 仅 resuming/pausing/cancelling(路由闸)。 */
 export function parseAgentStatusEvent(raw: unknown): AgentTransientStatusEvent | null {
   const data = parseEnvelope(raw)
   const p = data?.payload as AgentStatusWirePayload | undefined
-  const status = p?.status
-  if (!p || (status !== 'resuming' && status !== 'pausing' && status !== 'cancelling')) {
+  const gate = AGENT_STATUS_ROUTE.safeParse(p)
+  if (!p || !gate.success) {
+    if (p) recordRouteRejections(AGENT_TASK_EVENTS.AGENT_STATUS, gate, p)
     return null
   }
-  return { sessionId: p.session_id ?? '', status, ts: Date.now() }
+  auditUnknownFields(AGENT_TASK_EVENTS.AGENT_STATUS, AGENT_STATUS_FIELDS.shape, p)
+  const status = gate.data.status
+  const ts = wireTs(p)
+  return { sessionId: p.session_id ?? '', status, ...(ts !== undefined ? { ts } : {}) }
 }
 
-/** message_send 解析:iteration 必填(number)。 */
+/** message_send 解析:iteration 必填(number,路由闸)。 */
 export function parseMessageSendEvent(raw: unknown): AgentMessageSendEvent | null {
   const data = parseEnvelope(raw)
   const p = data?.payload as MessageSendWirePayload | undefined
-  if (!p || typeof p.iteration !== 'number') return null
+  const gate = MESSAGE_SEND_ROUTE.safeParse(p)
+  if (!p || !gate.success) {
+    if (p) recordRouteRejections(AGENT_TASK_EVENTS.MESSAGE_SEND, gate, p)
+    return null
+  }
+  auditUnknownFields(AGENT_TASK_EVENTS.MESSAGE_SEND, MESSAGE_SEND_FIELDS.shape, p)
+  const ts = wireTs(p)
   return {
-    iteration: p.iteration,
+    iteration: gate.data.iteration,
     messagesCount: p.messages_count ?? 0,
-    ts: Date.now(),
+    ...(ts !== undefined ? { ts } : {}),
   }
 }
 
@@ -428,7 +774,12 @@ export function parseToolApprovalEvent(raw: unknown): ToolApprovalEvent | null {
   const data = parseEnvelope(raw)
   if (!data || data.type !== AGENT_TASK_EVENTS.TOOL_APPROVAL) return null
   const p = data.payload as ToolApprovalWirePayload | undefined
-  if (!p) return null
+  const gate = TOOL_APPROVAL_ROUTE.safeParse(p)
+  if (!p || !gate.success) {
+    if (p) recordRouteRejections(AGENT_TASK_EVENTS.TOOL_APPROVAL, gate, p)
+    return null
+  }
+  auditUnknownFields(AGENT_TASK_EVENTS.TOOL_APPROVAL, TOOL_APPROVAL_FIELDS.shape, p)
   return {
     approvalId: String(p.approval_id ?? ''),
     toolName: String(p.tool_name ?? ''),
@@ -440,6 +791,52 @@ export function parseToolApprovalEvent(raw: unknown): ToolApprovalEvent | null {
     // 两条流各自"认哪些字段算环境事实"不可能漂开。
     ...projectToolApprovalEnvFacts(p),
   }
+}
+
+/**
+ * 严格投影工厂(b76-05 票1):路由闸通过后,对整张字段表逐字段全型校验。
+ * 声明字段违规 ⇒ 返回带 `fault.sse.fieldRejected` 码的 SseFieldFault(**不是 null**)——
+ * 这一形状就是"读不懂"在账面上的样子;未知键照常进 unknownSseFieldCounts。
+ * 全型通过 ⇒ 交回主工厂拿同一份事件对象(路由闸是字段表的 .pick 派生,严格通过
+ * 则路由必通过,此处不会出现"严格绿而路由红")。
+ * 字段表之外的事件名交回主工厂(含未知名计数),不造第二份路由判据。
+ */
+export function parseAgentTaskEventStrict(
+  name: string,
+  raw: unknown,
+): AgentTaskEvent | SseFieldFault | null {
+  const data = parseEnvelope(raw)
+  if (!data) return null
+  const p = data.payload
+  if (!p) return null
+  const strictByEvent: Record<string, FieldSchemaLike> = {
+    [AGENT_TASK_EVENTS.SELF_HEAL]: SELF_HEAL_FIELDS,
+    [AGENT_TASK_EVENTS.THINKING]: THINKING_FIELDS,
+    [AGENT_TASK_EVENTS.PLAN_STEP]: PLAN_STEP_FIELDS,
+    [AGENT_TASK_EVENTS.SESSION_END]: SESSION_END_FIELDS,
+    [AGENT_TASK_EVENTS.PERMISSION_MODE]: PERMISSION_MODE_FIELDS,
+    [AGENT_TASK_EVENTS.TERMINAL_DELTA]: TERMINAL_DELTA_FIELDS,
+    [AGENT_TASK_EVENTS.AGENT_STATUS]: AGENT_STATUS_FIELDS,
+    [AGENT_TASK_EVENTS.MESSAGE_SEND]: MESSAGE_SEND_FIELDS,
+    [AGENT_TASK_EVENTS.TOOL_APPROVAL]: TOOL_APPROVAL_FIELDS,
+  }
+  const schema = strictByEvent[name]
+  if (!schema) return parseAgentTaskEvent(name, raw)
+  if (name === AGENT_TASK_EVENTS.TOOL_APPROVAL && data.type !== AGENT_TASK_EVENTS.TOOL_APPROVAL) {
+    return null
+  }
+  const strict = schema.safeParse(p)
+  if (!strict.success) {
+    const issues = strict.error?.issues ?? []
+    let first: SseFieldFault | null = null
+    for (const issue of issues) {
+      const fault = faultFromIssue(name, issue, p)
+      recordSseFieldFault(name, fault.field)
+      if (!first) first = fault
+    }
+    if (first) return first
+  }
+  return parseAgentTaskEvent(name, raw)
 }
 
 // ============================================================================
@@ -509,5 +906,114 @@ export function parseAgentTaskEvent(name: string, raw: unknown): AgentTaskEvent 
       if (!isAgentTaskEventName(name)) recordUnknownSseEventName(name)
       return null
   }
+}
+
+// ============================================================================
+// b76-13 票1(2026-09-30 立):帧水位与纪元(logEpoch + (fromSeq,toSeq] + gap 判据)
+// ============================================================================
+//
+// 机制(照上游 zcode controller/transport 的尺子改写到我方词汇):
+//   · 每帧可携带 `(fromSeq, toSeq]` 区间与 `subscriptionId` 代际;snapshot 帧
+//     fromSeq 恒 0,且信封纪元必须等于载荷纪元;
+//   · 消费侧用一个纯函数判 gap = **换代 ∨ 纪元变 ∷ cursor.seq !== frame.fromSeq**
+//     (三条件取或,`isFrameGap`);
+//   · 只读结果另带 `atSeq/atLogEpoch` 做陈旧读防护,读端契约"epoch 不符 ⇒ 整结果丢弃"。
+//
+// 为什么必须有:Last-Event-ID 只回答"服务端接着哪儿发",不回答"客户端手上的状态
+// 属于哪个纪元"。会话重建/fork/rewind 后裸 id 游标仍能对上而内容属于另一个纪元,
+// 消费端会**静默拼接两个纪元的状态** —— 正是"快照说完成、增量还在跑"那一型。
+//
+// 本出口是消费侧唯一判据(纯函数,不做 I/O、不持状态);线格式键名同时收
+// camelCase 与 snake_case(生产侧 apps/ai-service/app/core/sse_contract.py 的
+// StreamWatermark/apply_frame 是出站判定的同一张判例表)。api-client 因零依赖
+// 包边界(package.json 只声明 @ihui/types)不得 import 本出口,其读环内的
+// 同形移植由 packages/api-client/tests/frame-watermark-parity-b76-13.test.ts
+// 的判例表对账钉住(先例:error-serialize / stream-trace-id)。
+
+/** 帧水位字段(线格式;snapshot 帧 fromSeq 恒 0)。 */
+export interface FrameWatermark {
+  /** 订阅代际;换代 ⇒ 旧代状态整体作废 */
+  subscriptionId: string
+  /** 日志纪元;纪元变 ⇒ 手上状态属于另一个纪元,整结果丢弃 */
+  logEpoch: number
+  /** 本帧覆盖区间的开(不含);连续性要求 cursor.seq === fromSeq */
+  fromSeq: number
+  /** 本帧覆盖区间的闭(含);apply 后 cursor.seq 推进到 toSeq */
+  toSeq: number
+}
+
+/** 消费侧手上的水位游标(apply 成功后的状态归属证明)。 */
+export interface FrameWatermarkCursor {
+  subscriptionId: string
+  logEpoch: number
+  seq: number
+}
+
+/** gap 三条件(判到哪条报哪条;多条同犯时报第一条)。 */
+export type FrameGapKind = 'generation-change' | 'epoch-change' | 'seq-discontinuity'
+
+/** readFrameWatermark 的三态结论:**不得**把"未判定"伪装成 `{}` 或部分字段。 */
+export type FrameWatermarkRead =
+  | { verdict: 'ok'; watermark: FrameWatermark }
+  /** 帧上根本没有(完整)水位字段 —— 生产端未下发/旧帧,消费方原样放行 */
+  | { verdict: 'undetermined' }
+  /** 判死:toSeq < fromSeq(区间倒挂)或非有限数,任何情况下不得应用 */
+  | { verdict: 'invalid'; reason: string }
+
+function isFiniteInt(v: unknown): v is number {
+  return typeof v === 'number' && Number.isSafeInteger(v)
+}
+
+function readWatermarkField(frame: Record<string, unknown>, camel: string, snake: string): unknown {
+  const v = frame[camel]
+  return v !== undefined ? v : frame[snake]
+}
+
+/**
+ * 从一帧(已解析的 data JSON)读水位:四字段**全部**读得出且合法 ⇒ ok;
+ * 任一缺席/类型不对 ⇒ undetermined(不猜、不补默认值);区间倒挂 ⇒ invalid(判死)。
+ * 兼容 camelCase(`subscriptionId/logEpoch/fromSeq/toSeq`)与 snake_case
+ * (`subscription_id/log_epoch/from_seq/to_seq`)两族线格式键。
+ */
+export function readFrameWatermark(frame: unknown): FrameWatermarkRead {
+  if (frame === null || typeof frame !== 'object' || Array.isArray(frame)) {
+    return { verdict: 'undetermined' }
+  }
+  const f = frame as Record<string, unknown>
+  const subscriptionId = readWatermarkField(f, 'subscriptionId', 'subscription_id')
+  const logEpoch = readWatermarkField(f, 'logEpoch', 'log_epoch')
+  const fromSeq = readWatermarkField(f, 'fromSeq', 'from_seq')
+  const toSeq = readWatermarkField(f, 'toSeq', 'to_seq')
+  // 四字段必须**全部在场**:只有部分 ⇒ "未判定"(absence ≠ 合法零值,不得混同)
+  if (
+    typeof subscriptionId !== 'string' ||
+    subscriptionId.length === 0 ||
+    !isFiniteInt(logEpoch) ||
+    !isFiniteInt(fromSeq) ||
+    !isFiniteInt(toSeq)
+  ) {
+    return { verdict: 'undetermined' }
+  }
+  if (logEpoch < 0 || fromSeq < 0 || toSeq < 0) {
+    return { verdict: 'invalid', reason: '水位字段出现负值,不是合法的 (fromSeq, toSeq] 区间' }
+  }
+  if (toSeq < fromSeq) {
+    return { verdict: 'invalid', reason: '区间倒挂(toSeq < fromSeq),判死,任何情况下不得应用' }
+  }
+  return { verdict: 'ok', watermark: { subscriptionId, logEpoch, fromSeq, toSeq } }
+}
+
+/**
+ * gap 判据(纯函数,三条件取或):换代 ∨ 纪元变 ∷ cursor.seq !== frame.fromSeq。
+ * 返回命中的第一条;三条件全不中 ⇒ null(连续帧,可 apply 并推进到 toSeq)。
+ */
+export function isFrameGap(
+  cursor: FrameWatermarkCursor,
+  watermark: FrameWatermark,
+): FrameGapKind | null {
+  if (cursor.subscriptionId !== watermark.subscriptionId) return 'generation-change'
+  if (cursor.logEpoch !== watermark.logEpoch) return 'epoch-change'
+  if (cursor.seq !== watermark.fromSeq) return 'seq-discontinuity'
+  return null
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
