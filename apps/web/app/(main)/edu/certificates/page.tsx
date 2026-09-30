@@ -6,123 +6,14 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
-import { useLocale, useTranslations } from 'next-intl'
-import { Award, Loader2, Download } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
-import { Card, CardContent } from '@ihui/ui-react'
-import { Alert } from '@/components/feedback'
-import { cn } from '@/lib/utils'
-import { BackButton } from '@/components/common'
-
-interface Certificate {
-  id: string
-  name: string
-  certificateNo: string
-  courseName?: string
-  issuedAt: string
-  status: number
-}
-interface CertsData {
-  list: Certificate[]
-  total: number
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
+// Canonical merge: /certificate is the single certificate hub (list/download/detail/verify).
+// This legacy route is retained (no deletion) and redirects to canonical, preserving bookmarks.
 export default function EduCertificatesPage() {
   const router = useRouter()
-  const locale = useLocale()
-  const t = useTranslations('eduCertificates')
-  const tc = useTranslations('common')
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['edu', 'certificates'],
-    queryFn: () => api<CertsData>('/api/edu/certificates'),
-  })
-
-  const dateFmt = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
-  const fmt = (v: string) => {
-    const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? '-' : dateFmt.format(d)
-  }
-
-  const certs = data?.list ?? []
-
-  return (
-    <div className="space-y-4 px-4 py-4">
-      <BackButton />
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Award className="h-7 w-7 text-primary" />
-          <span>{t('title')}</span>
-        </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
-      </header>
-
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          <span>{tc('loading')}</span>
-        </div>
-      ) : error ? (
-        <Alert variant="danger" description={(error as Error).message} />
-      ) : certs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
-          <Award className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
-          {certs.map((cert) => (
-            <Card
-              key={cert.id}
-              className="cursor-pointer transition-colors hover:bg-accent"
-              onClick={() => router.push(`/edu/certificates/${cert.id}`)}
-            >
-              <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
-                    <Award className="h-5 w-5 text-primary" />
-                  </div>
-                  <span
-                    className={cn(
-                      'shrink-0 rounded-md px-2 py-0.5 text-xs',
-                      cert.status === 1
-                        ? 'bg-emerald-500/10 text-emerald-600'
-                        : 'bg-muted text-muted-foreground',
-                    )}
-                  >
-                    {cert.status === 1 ? t('statusValid') : t('statusRevoked')}
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <p className="line-clamp-1 font-medium">{cert.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {t('certificateNo', { no: cert.certificateNo })}
-                  </p>
-                </div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{fmt(cert.issuedAt)}</span>
-                  <span className="flex items-center gap-1">
-                    <Download className="h-3 w-3" />
-                    <span>{t('view')}</span>
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
-  )
+  React.useEffect(() => {
+    router.replace('/certificate')
+  }, [router])
+  return null
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
