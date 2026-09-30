@@ -26,9 +26,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { writeFileSync, readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// 遮噪的唯一实现(与守门 131/135 同一份):测试里不得再写第二个剥注释器。
+import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 import {
   __test__ as GATE49,
   sqlBasenamesFromListing,
@@ -44,6 +47,19 @@ import {
   gitIn,
   fixtureTagOf,
   FIXTURE_WATCH_OTHERS,
+  // B11(2026-09-28 立):判据三出口 + 账本快照夹具,一律**直接 import 源脚本那一份**(§22c)
+  migrationSqlHash,
+  faceSqlBlobSpec,
+  parseLedgerRows,
+  compareAppliedHashes,
+  readSqlBodies,
+  ledgerFileFromArgv,
+  ledgerSnapshotOf,
+  writeLedgerSnapshot,
+  readAuditFace,
+  MIGRATION_IMMUTABLE_HINT,
+  FIXTURE_SQL,
+  FIXTURE_SQL_TAMPERED,
 } from '../check-migration-bookkeeping.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -459,5 +475,254 @@ test('W4 两面旗同给 ⇒ exit 2(端到面,不只是纯函数层)', () => {
   } finally {
     rmScratch(dir)
   }
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// H 族:B11「已应用迁移的内容 ↔ 账本 hash 对账」(2026-09-28 立)
+//
+// 立项凭据(实测,不是推测):`drizzle-orm/pg-core/dialect.js:44-71` 的 migrate() 只问
+//   `Number(lastDbMigration.created_at) < migration.folderMillis`,**从不读回 hash**;
+//   hash 只在插入时写一次(`drizzle-orm/migrator.js:15,23`)。
+// ⇒ 改一枚**已应用** .sql 的一个字符 = **静默分叉**(P1:既不重跑也不报错),运行时永远发现不了,
+//   这一格此前**没有任何尺子**(B9 只验库内 hash 的形状与唯一性,从不读 .sql 正文)。
+//
+// H1 = 配方锁:本门的 hash 必须逐字等于 drizzle 写账本时用的那一把(用真仓 HEAD 的 blob 验);
+// H2 = 端到端正反成对(票面要求的 ①②③):分叉必点名 / 未应用不红 / 离线不记绿;
+// H3 = 反向锁:**没账本可比时默认档绝不判红**(提交链不带 --db ⇒ 不得新增恒红门,§12e);
+// H4 = 两个账本来源同给判死 + `--db-ledger` 用法缺失判死(不猜路径);
+// H5 = 装车锁:B11 判据必须真挂在 CLI 主流程上(守门 70/76/81 同型:"函数在、自检过、没人调");
+// H6 = 禁止的处置不得被实现进来(重算并覆盖账本 hash = 给分叉发通行证);
+// H7 = 三态不并桶的纯判据层(取不到正文 ≠ 分叉 ≠ 通过)。
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** 夹具仓 + 账本快照:一步到位(快照落在 drizzle/ 之外,不进 B1 的枚举面)。 */
+function mkLedgerRepo(prefix, n = 2, opts = {}) {
+  const dir = mkFixtureRepo(prefix, n)
+  const entries = JSON.parse(readFileSync(join(dir, JOURNAL_REL), 'utf8')).entries
+  const rel = writeLedgerSnapshot(dir, ledgerSnapshotOf(entries, opts))
+  return { dir, entries, rel }
+}
+
+test('H1 配方锁:hash 逐字等于 drizzle 写账本那一把(真仓 HEAD blob + 同把独立现算)', () => {
+  // 判据的对象是"某个真实文件的形态"⇒ 至少一条用例的输入必须逐字取自那个真实文件(§22c)。
+  // 这里取真仓 HEAD 里**真的一枚迁移 .sql**,而不是自造夹具。
+  const audit = readAuditFace(REPO, 'head')
+  const tag = audit.sqls[0]
+  assert.ok(tag, '真仓 HEAD 里一枚 .sql 都枚举不到 —— 本例无从取证(不是"没问题")')
+  const bodies = readSqlBodies(REPO, 'head', [tag])
+  const text = bodies.get(tag)
+  assert.equal(typeof text, 'string', `HEAD blob 取不到 ${tag}`)
+  // ① 与 Node crypto 现算逐字同形(用同一份原文,不预先 trim)
+  assert.equal(
+    migrationSqlHash(text),
+    createHash('sha256').update(text, 'utf8').digest('hex'),
+    'hash 配方必须与 drizzle-orm/migrator.js:23 一致',
+  )
+  // ② 真仓迁移正文**带着溯源横幅**(零宽载荷那一族)⇒ 现算的 hash 必然把横幅算进去。
+  //    这正是 2026-09-13 旧通道"0 命中"的成因,所以它是本判据必须覆盖的形态,而不是要绕开的噪声。
+  assert.match(text.slice(0, 200), /© \d{4} IHUI AI/, '夹具外的真实形态:正文开头应有版权横幅')
+  // ③ 反向锁:一个字符之差必须换掉整把 hash(判据有牙的最低要求)
+  assert.notEqual(migrationSqlHash(text), migrationSqlHash(`${text} `), '尾随一个空格必须改变 hash(= 不得 trim)')
+  assert.equal(
+    [faceSqlBlobSpec('head', tag), faceSqlBlobSpec('staged', tag), faceSqlBlobSpec('worktree', tag)]
+      .map((v) => v ?? 'null')
+      .join('|'),
+    `HEAD:${MIG_DIR_REL}/${tag}.sql|:${MIG_DIR_REL}/${tag}.sql|null`,
+    '三面各取哪一份 .sql 必须互不相同(不混面)',
+  )
+})
+
+test('H2 端到端①:已应用迁移被改一个字符 ⇒ exit 1 并点名 tag + 唯一修法', () => {
+  const { dir, rel } = mkLedgerRepo('gate49-b11-h2')
+  try {
+    const before = runGate(dir, ['--db-ledger', rel])
+    assert.equal(before.code, 0, `改动前必须绿(否则下面的红可能是夹具坏了):\n${before.out}`)
+    assert.match(
+      before.out,
+      /✓ B11 2 枚已应用迁移的内容与账本 hash 逐枚相符\(2 枚等值\)/,
+      before.out.match(/B11 [^\n]*/g)?.join(' | '),
+    )
+
+    writeFileSync(join(dir, MIG_DIR_REL, `${fixtureTagOf(1)}.sql`), FIXTURE_SQL_TAMPERED)
+    gitIn(dir, ['add', '-A', '--', MIG_DIR_REL])
+    gitIn(dir, ['commit', '-q', '--no-verify', '-m', 'edit an APPLIED migration in place'])
+    const r = runGate(dir, ['--db-ledger', rel])
+    assert.equal(r.code, 1, `改一枚已应用迁移必须判红,实得 ${r.code}:\n${r.out}${r.err}`)
+    assert.match(r.out, /B11 有 1 枚\*\*已应用\*\*迁移的内容与账本 hash 不符:/)
+    assert.ok(r.out.includes(fixtureTagOf(1)), '必须点名那一枚被改的 tag')
+    assert.ok(!r.out.includes(`${fixtureTagOf(0)} when=`), '未被动过的那一枚不得被牵连计账')
+    assert.match(r.out + r.err, new RegExp(MIGRATION_IMMUTABLE_HINT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('H2b 端到端②:同一枚内容被改,但它尚未应用 ⇒ 不红(且必须报名,不是静默)', () => {
+  const { dir, rel } = mkLedgerRepo('gate49-b11-h2b', 2, { notApplied: [fixtureTagOf(1)] })
+  try {
+    writeFileSync(join(dir, MIG_DIR_REL, `${fixtureTagOf(1)}.sql`), FIXTURE_SQL_TAMPERED)
+    gitIn(dir, ['add', '-A', '--', MIG_DIR_REL])
+    gitIn(dir, ['commit', '-q', '--no-verify', '-m', 'edit a NOT-YET-APPLIED migration'])
+    const r = runGate(dir, ['--db-ledger', rel])
+    assert.equal(r.code, 0, `未应用的迁移内容可以改:\n${r.out}${r.err}`)
+    assert.match(
+      r.out,
+      /账本里没有其 when 的 journal 条目 1 条\(未应用的新迁移:/,
+      r.out.match(/账本里没有其 when[^\n]*/)?.[0],
+    )
+    assert.ok(r.out.includes(fixtureTagOf(1)), '"报数不报名"会让下一个人不知道是哪一条')
+    assert.ok(!/不符/.test(r.out), '未应用的那一枚不得出现在分叉清单里')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('H3 反向锁③:离线档没账本 ⇒ "未判定" + 不改退出码(不得新增恒红门)', () => {
+  const { dir } = mkLedgerRepo('gate49-b11-h3')
+  try {
+    // 故意造一条**真实分叉**(改了已应用的 .sql)而此刻没有账本可比:
+    // 提交链(runner id 49 的 args: [])走的正是这一档 ⇒ 判红会把每台每次提交逼成 --no-verify。
+    writeFileSync(join(dir, MIG_DIR_REL, `${fixtureTagOf(1)}.sql`), FIXTURE_SQL_TAMPERED)
+    gitIn(dir, ['add', '-A', '--', MIG_DIR_REL])
+    gitIn(dir, ['commit', '-q', '--no-verify', '-m', 'applied migration edited, no ledger here'])
+    const r = runGate(dir)
+    assert.equal(r.code, 0, `离线档必须不判红(实得 ${r.code}):\n${r.out}${r.err}`)
+    assert.match(r.out, /B11 \*\*未判定\*\* —— 原因:离线档/)
+    assert.ok(!/已比对/.test(r.out), '没判过就不许出现"已比对 N 枚"(把没判写成判过了)')
+    assert.match(r.out, /全部通过[^\n]*B11 未判定/, '汇总行必须带着这一维,不得读起来像全绿')
+    // 问责档才拒绝出合格证
+    const s = runGate(dir, ['--strict'])
+    assert.equal(s.code, 1, '--strict 下"未判定"必须判死,实得 ' + s.code)
+    assert.match(s.err, /B11 --strict/)
+    // --db 连不上库(本机无 PG,且取证一律不碰 8810)⇒ 同样"未判定 + 不改退出码"
+    const d = runGateAt(dir, ['--db'], { DATABASE_URL: '' })
+    assert.equal(d.code, 0, `--db 无库时既有语义一字未动:\n${d.out}${d.err}`)
+    assert.match(d.out, /B11 \*\*未判定\*\* —— 原因:没有 DATABASE_URL/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('H4 两个账本来源同给 / --db-ledger 缺参数 ⇒ exit 2(判死不猜)', () => {
+  const { dir, rel } = mkLedgerRepo('gate49-b11-h4')
+  try {
+    const both = runGate(dir, ['--db', '--db-ledger', rel])
+    assert.equal(both.code, 2, `实时库与落盘快照互斥:\n${both.out}${both.err}`)
+    assert.match(both.err, /不得同用/)
+    const miss = runGate(dir, ['--db-ledger'])
+    assert.equal(miss.code, 2, '--db-ledger 后面没给文件必须判死,不得拿 undefined 当路径')
+    assert.match(miss.err, /--db-ledger 需要一个文件参数/)
+    assert.deepEqual(ledgerFileFromArgv(['--db-ledger=x.txt']), { file: 'x.txt', error: null })
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('H5 装车锁:B11 判据必须真挂在 CLI 主流程上(不是"函数在、自检过、没人调")', () => {
+  const src = readFileSync(GATE, 'utf8')
+  const at = src.indexOf('if (isDirectRun) {')
+  assert.ok(at > 0, '源脚本必须有 isDirectRun 守卫(§22d)')
+  const cli = src.slice(at)
+  for (const needed of ['compareAppliedHashes(', 'readSqlBodies(', 'parseLedgerRows(']) {
+    assert.ok(cli.includes(needed), `CLI 主流程里没有出现 ${needed} —— 门对该形态全盲(守门 70/76/81 同型)`)
+  }
+  // 唯一实现:hash 与账本解析都只许有一处定义。sha256 的**生产调用点**在 `runSelfTest` 之前必须恰好一处
+  // (自检里再算一遍是**独立 oracle**,故意允许 —— 它不参与判定,只用来证明判据没算错)。
+  const prodPart = src.slice(0, src.indexOf('export function runSelfTest'))
+  assert.ok(src.includes('export function runSelfTest'), '自检入口必须还在(否则下面这条锁是空的)')
+  const defs = prodPart.match(/function migrationSqlHash\(/g) || []
+  assert.equal(defs.length, 1, 'migrationSqlHash 在生产面出现第二份定义 = 两处算同一件事必漂移')
+  assert.equal((prodPart.match(/function parseLedgerRows\(/g) || []).length, 1)
+  assert.equal(
+    // 数的是**代码面上的调用点**:遮掉注释与字符串之后必须恰好一处。按裸文本数会把头注里两处
+    // **引用 drizzle 原文**的说明文字也算成调用点 ⇒ 一条对合法代码恒红的锁(说明性文字带执行性
+    // 字符,本仓记过同型:守门 127 的 stripJsonc、门 103 的 T12b)。遮噪只用 `lib/code-mask.mjs`
+    // 那一份实现 —— 测试里再写一个剥注释器就是第二份真相(§22c)。
+    (maskCommentsAndStrings(prodPart).match(/createHash\(/g) || []).length,
+    1,
+    '生产面 sha256 的调用点必须只有一处(否则改一处忘另一处,hash 配方与 drizzle 分叉)',
+  )
+  // 自检里再算一遍是**独立 oracle**(故意允许:它不参与判定,只用来证明判据没算错)。
+  // 这条同时把"自检只是在复读判据"那一型挡住 —— 若独立现算被删,P7g 就退化成同义反复。
+  assert.ok(
+    /createHash\(/.test(src.slice(src.indexOf('export function runSelfTest'))),
+    '自检必须自带一份独立现算,否则 P7g 只是在复读判据自己',
+  )
+})
+
+test('H6 禁止的处置不得被实现进来:重算并覆盖账本 hash 是给分叉发通行证', () => {
+  const src = readFileSync(GATE, 'utf8')
+  for (const banned of [
+    /update\s+drizzle\.__drizzle_migrations/i,
+    /UPDATE\s+"?\w*\.?__drizzle_migrations/i,
+    /--(update-hash|rehash|fix-ledger)/i,
+  ]) {
+    assert.ok(!banned.test(src), `本门不得写库/不得"重算并覆盖账本 hash":${banned}`)
+  }
+})
+
+test('H7 三态不并桶(纯判据层):分叉 / 未应用 / 取不到正文 各归各,都不算通过', () => {
+  const entries = [
+    { tag: 'a', when: 10 },
+    { tag: 'b', when: 20 },
+    { tag: 'c', when: 30 },
+  ]
+  const bodies = new Map([
+    ['a', FIXTURE_SQL],
+    ['b', FIXTURE_SQL_TAMPERED],
+    ['c', null], // 该面取不到正文
+  ])
+  const rows = [
+    { createdAt: 10, hash: migrationSqlHash(FIXTURE_SQL) }, // 相符
+    { createdAt: 20, hash: migrationSqlHash(FIXTURE_SQL) }, // 被改 ⇒ 分叉
+    { createdAt: 30, hash: migrationSqlHash(FIXTURE_SQL) }, // 正文取不到 ⇒ 未判定
+  ]
+  const r = compareAppliedHashes(entries, bodies, rows)
+  assert.deepEqual(
+    r.mismatch.map((m) => m.tag),
+    ['b'],
+    '只有真被改的那一枚进分叉桶',
+  )
+  assert.deepEqual(r.unreadable, ['c'], '取不到正文的落未判定桶,既不是分叉也不是通过')
+  assert.deepEqual(r.notApplied, [], '账本里有行的都不算未应用')
+  assert.equal(r.compared, 2, 'compared 只算真比过的(2 = 相符 + 分叉),不得把未判定混进分母')
+  // 未应用的独立成桶
+  const r2 = compareAppliedHashes(entries, bodies, rows.slice(0, 2).concat([{ createdAt: 999, hash: 'x' }]))
+  assert.deepEqual(r2.notApplied, ['c'], '账本里的行对不上任何 when ⇒ 该条目算未应用')
+  assert.equal(r2.mismatch.length, 1)
+  // 空账本:一条都不算 applied(不得读成"全对")
+  const r3 = compareAppliedHashes(entries, bodies, [])
+  assert.equal(r3.applied, 0)
+  assert.equal(r3.compared, 0)
+  // 坏行(无 | 的 psql 输出)不得被静默当成一行有效账本
+  const bad = parseLedgerRows('not-a-row\n')
+  assert.equal(bad.length, 1, '原样交给 Number() ⇒ NaN,由调用方按"非有限值"滤掉(不静默丢行)')
+  assert.ok(!Number.isFinite(bad[0].createdAt))
+  assert.equal(parseLedgerRows('').length, 0)
+  assert.equal(parseLedgerRows(null).length, 0)
+})
+
+test('H9 §22c 身份锁:测试 import 的 B11 判据就是源脚本那一份(不得抄第二份)', () => {
+  assert.equal(GATE49.migrationSqlHash, migrationSqlHash)
+  assert.equal(GATE49.compareAppliedHashes, compareAppliedHashes)
+  assert.equal(GATE49.parseLedgerRows, parseLedgerRows)
+  assert.equal(GATE49.readSqlBodies, readSqlBodies)
+  assert.equal(GATE49.faceSqlBlobSpec, faceSqlBlobSpec)
+  assert.equal(GATE49.ledgerFileFromArgv, ledgerFileFromArgv)
+  assert.equal(GATE49.ledgerSnapshotOf, ledgerSnapshotOf)
+  assert.equal(GATE49.MIGRATION_IMMUTABLE_HINT, MIGRATION_IMMUTABLE_HINT)
+  // 夹具的两份正文必须与门自己写盘的那一份同值 —— 否则"账本相符"的绿是在比两份不同的夹具文本
+  assert.equal(GATE49.FIXTURE_SQL, FIXTURE_SQL)
+  assert.notEqual(FIXTURE_SQL, FIXTURE_SQL_TAMPERED, '篡改档必须真的与被篡改前不同')
+})
+
+test('H8 eolOnly 是诊断位而不是豁免通道:仅换行不同照样计分叉', () => {
+  const entries = [{ tag: 'a', when: 1 }]
+  const crlf = 'SELECT 1;\r\n'
+  const bodies = new Map([['a', crlf]])
+  const rows = [{ createdAt: 1, hash: migrationSqlHash('SELECT 1;\n') }]
+  const r = compareAppliedHashes(entries, bodies, rows)
+  assert.equal(r.mismatch.length, 1, '归一后同值也必须计分叉(账本是对当时字节算的)')
+  assert.equal(r.mismatch[0].eolOnly, true, '但必须标出"差异看起来只出在行尾",免得下一个人去查 SQL')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
