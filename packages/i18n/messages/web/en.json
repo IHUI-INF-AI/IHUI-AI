@@ -20263,6 +20263,8 @@
       "passwordHint": "Normal users should use scan login. This field is for developers only.",
       "platform": "Platform",
       "saveCookies": "Save account",
+      "preparingQr": "Generating QR code…",
+      "regenerateQr": "New QR code",
       "scan": "Scan",
       "scanLogin": "Scan Login",
       "scanLoginDescription": "Select a platform. The backend opens the platform login page and captures a QR code. Scan with the app to auto-save cookies.",
