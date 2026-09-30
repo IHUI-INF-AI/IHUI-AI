@@ -370,7 +370,7 @@ const createStyles = (tk: RnThemeTokens) =>
     checkbox: {
       width: rpx(40),
       height: rpx(40),
-      borderRadius: rnRadius.sm,
+      borderRadius: rpx(40) / 2, // radius-exempt: 见方勾选圈(20dp),半径=边长一半为真圆
       borderWidth: 1.5,
       borderColor: tk.border.medium,
       alignItems: 'center',
@@ -469,7 +469,7 @@ const createStyles = (tk: RnThemeTokens) =>
     checkoutBtn: {
       paddingHorizontal: rpx(36),
       height: rpx(72),
-      borderRadius: rnRadius.sm, // 结算按钮是控件 ⇒ control 档 sm(项目不允许胶囊)
+      borderRadius: rpx(72) / 2, // radius-exempt: 结算按钮为胶囊(半径=高度一半),改方档会破坏形状
       backgroundColor: tk.success.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
