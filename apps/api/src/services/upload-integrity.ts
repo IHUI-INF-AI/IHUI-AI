@@ -16,7 +16,7 @@
  *     挂进既有调度入口(scheduler.ts / scheduler-worker.ts)。
  */
 import { createHash } from 'node:crypto'
-import { existsSync, readdirSync, rmSync, createReadStream } from 'node:fs'
+import { existsSync, readdirSync, rmSync, createReadStream, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -43,7 +43,51 @@ export const PROTOCOL_UPLOAD_LIMITS = {
    *  打满,再多合并只增排队不增吞吐。第 3 路起**排队等待,不拒绝**(拒绝 = 把正常用户挡在门外)。
    *  env 出口 UPLOAD_MERGE_MAX_CONCURRENCY 只调数值,0 = 显式不限(台账必须喊出来),非法值回落本档。 */
   maxConcurrentUploads: 2,
+  /**
+   * 单用户并发活跃分片会话上限(2026-09-30,跨会话聚合预算第一档)。
+   * 三依据(写法样板:apps/ai-service/app/services/command_streamer.py「下界/上界/取值」):
+   *  - 下界:正常用户一次大文件上传只需 1 个会话;相册/多文件并行的极端正常形态 4 个也够 ——
+   *    档位必须落在正常流量上界之下才在防守,否则等于没档。
+   *  - 上界:`ttlMs = 24h` 意味着每个会话的占盘窗口是一整天;单用户档若无限,一个账号
+   *    就能把全局暂存预算(maxStagedBytesGlobal)整档独占,聚合预算形同虚设。
+   *  - 取值:5 = 覆盖"多文件并行 + 1 个重试余量"的正常形态,同时把单账号最坏占盘
+   *    压在全局预算的约 1/4 以内;超档 429(可重试)且**不建目录不建行**,零资源占用。
+   *  消费点:routes/chunked-upload.ts 的 begin 处(新建装配检,对齐上游两处检的"新建"半边)。
+   */
+  maxActiveSessionsPerUser: 5,
+  /**
+   * 进程级全局暂存字节预算(uploads/chunks 下全部 .part 的总和,2026-09-30 立)。
+   * 三依据:
+   *  - 下界:单会话最大合法占用 = fileSize(声明值,init 处已按 maxChunkBytes 与
+   *    totalChunks 的自洽性钳过),预算若装不下"数个正常大文件并行暂存"就没有业务价值;
+   *    挡量不挡功能,档位必须高于正常业务的最坏并行形态。
+   *  - 上界:API 是同机单实例(nssm),uploads/ 与业务库、日志同盘 —— 占满磁盘等于整站故障,
+   *    本档必须远小于部署盘的最小剩余空间承诺(现部署 ≥ 20GiB 余量)。
+   *  - 取值:2GiB ≈ 8 个 256MiB 或 2 个 1GiB 大文件的并行暂存余量;超档即**拒收新片**(429),
+   *    既有会话一律不清(清存量 = 把无辜用户的在途上传打掉,fail closed 只挡增量)。
+   *  消费点:routes/chunked-upload.ts 的每片落盘处(追加分片检,对齐上游"追加"半边)。
+   */
+  maxStagedBytesGlobal: 2 * 1024 * 1024 * 1024,
 } as const
+
+/**
+ * 上限钳制器(2026-09-30,语义照 zcode-protocol-v4 wire-assembler 的 hardBound):
+ * 调用方传入的上限**只可收紧、不可放宽** —— 取 `Math.min(Math.floor(incoming), 协议档)`;
+ * 非有限或非正直接抛(0 = 关闸不是合法"收紧",NaN/负数是 bug 不是配置)。
+ * `PROTOCOL_UPLOAD_LIMITS` 的每个读取口都应经过它:任何"spread 后改大"的常量表
+ * 在这里都会被钳回协议档,任何想绕过档位的调用在这里当场红。
+ */
+export function clampUploadLimit<K extends keyof typeof PROTOCOL_UPLOAD_LIMITS>(
+  name: K,
+  incoming: number,
+): (typeof PROTOCOL_UPLOAD_LIMITS)[K] {
+  if (!Number.isFinite(incoming) || incoming <= 0) {
+    throw new Error(
+      `clampUploadLimit(${String(name)}): 非有限或非正的传入值 ${String(incoming)} 直接抛(上限只可收紧不可放宽,0/NaN/负数均不合法)`,
+    )
+  }
+  return Math.min(Math.floor(incoming), PROTOCOL_UPLOAD_LIMITS[name]) as (typeof PROTOCOL_UPLOAD_LIMITS)[K]
+}
 
 /** 本仓 uploadId 由服务端 randomUUID() 生成;reaper 用它做"只删自己产的目录"的守卫。 */
 const UPLOAD_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -73,6 +117,58 @@ export function countUniqueReceivedChunks(received: Iterable<number>, totalChunk
   const set = new Set<number>()
   for (const n of received) if (Number.isInteger(n) && n >= 1 && n <= totalChunks) set.add(n)
   return set.size
+}
+
+// =============================================================================
+// 跨会话聚合预算(2026-09-30):单会话三档之外的两条全局档
+// =============================================================================
+
+/**
+ * 全局暂存字节:遍历 `<chunksRoot>/<uploadId>/<n>.part` 实测字节总和。
+ * 只认 uuid 形态目录与 `<正整数>.part` 文件(与 reaper 的删目录护栏同一口径,
+ * 非本链产物不计入,也不能被它们撑爆预算);目录不存在 = 0,读不动 = 0(空集语义)。
+ */
+export function measureStagedBytes(chunksRoot: string = CHUNKS_ROOT): number {
+  let sessionDirs: string[]
+  try {
+    sessionDirs = readdirSync(chunksRoot)
+  } catch { return 0 }
+  let total = 0
+  for (const dir of sessionDirs) {
+    if (!isUploadSessionId(dir)) continue
+    let names: string[]
+    try {
+      names = readdirSync(join(chunksRoot, dir))
+    } catch {
+      continue // 并发窗口内目录被 reaper 收走 = 该会话贡献 0,不是错误
+    }
+    for (const name of names) {
+      if (!/^(\d+)\.part$/.test(name)) continue
+      try {
+        total += statSync(join(chunksRoot, dir, name)).size
+     } catch {
+        // 并发窗口内分片被合并/回收 = 贡献 0;宁可低估也不让度量本身把上传链打挂
+      }
+    }
+  }
+  return total
+}
+
+/** 纯判据:单用户活跃会话数是否超档(超 = begin 处 4xx/429 且不得建目录建行)。 */
+export function isPerUserSessionBudgetExceeded(
+  activeSessions: number,
+  limit: number = PROTOCOL_UPLOAD_LIMITS.maxActiveSessionsPerUser,
+): boolean {
+  return activeSessions >= limit
+}
+
+/** 纯判据:收下这一片后全局暂存是否突破预算(超 = 拒收**新片**,既有会话一律不清)。 */
+export function wouldStagedBudgetOverflow(
+  currentStagedBytes: number,
+  incomingChunkBytes: number,
+  budget: number = PROTOCOL_UPLOAD_LIMITS.maxStagedBytesGlobal,
+): boolean {
+  return currentStagedBytes + incomingChunkBytes > budget
 }
 
 /** 缺失分片编号(升序)。空数组 = 1..totalChunks 每一片都真的在磁盘上。 */
@@ -155,24 +251,28 @@ export const dbUploadReapPort: UploadReapPort = {
  *  checksum_mismatch 是合并校验失败后的终态(清单取自 `@ihui/database`,不在这里重列)。 */
 const TERMINAL_STATUSES = new Set<string>(UPLOAD_SESSION_TERMINAL_STATUSES)
 
-/** 单个会话是否该被回收。expiresAt 缺失的行(本票之前建的旧数据)退回 updatedAt + ttl。 */
+/** 单个会话是否该被回收。expiresAt 缺失的行(本票之前建的旧数据)退回 updatedAt + ttl。
+ *  ttl 走钳制器:调用方传入值只可收紧,试图放宽(或传入 0/NaN)当场抛。 */
 export function isUploadSessionExpired(
   row: ExpirableUploadSession,
   now: Date = new Date(),
   ttlMs: number = PROTOCOL_UPLOAD_LIMITS.ttlMs,
 ): boolean {
+  const effectiveTtl = clampUploadLimit('ttlMs', ttlMs)
   if (TERMINAL_STATUSES.has(row.status)) return false
-  const deadline = row.expiresAt ?? new Date(row.updatedAt.getTime() + ttlMs)
+  const deadline = row.expiresAt ?? new Date(row.updatedAt.getTime() + effectiveTtl)
   return deadline.getTime() <= now.getTime()
 }
 
-/** 待回收的 uploadId 清单(纯判据,不碰 IO)。 */
+/** 待回收的 uploadId 清单(纯判据,不碰 IO)。ttl 同走钳制器(只可收紧)。 */
 export function selectReapableUploadIds(
   rows: readonly ExpirableUploadSession[],
   now: Date = new Date(),
   ttlMs: number = PROTOCOL_UPLOAD_LIMITS.ttlMs,
 ): string[] {
-  return rows.filter((r) => isUploadSessionExpired(r, now, ttlMs)).map((r) => r.uploadId)
+  return rows
+    .filter((r) => isUploadSessionExpired(r, now, clampUploadLimit('ttlMs', ttlMs)))
+    .map((r) => r.uploadId)
 }
 
 export interface UploadReapResult {
