@@ -1055,7 +1055,7 @@ class _FakePlaywright:
         self.persistent_raises = persistent_raises
 
     @property
-    def chromium(self) -> "_FakePlaywright":
+    def chromium(self) -> _FakePlaywright:
         return self
 
     def launch_persistent_context(self, user_data_dir: str, **kw: object) -> _FakeLeaseContext:
@@ -1091,3 +1091,34 @@ def test_start_scan_request_reuse_session_field():
     assert req.reuse_session is True
     req2 = StartScanRequest(platform="zhihu", reuse_session=False)
     assert req2.reuse_session is False
+
+
+def test_session_snapshot_roundtrip_and_empty_guard(monkeypatch, tmp_path):
+    """登录态快照往返:storage_state 内存 jar → 盘边 JSON → add_cookies 原样回种。
+    钉三件事:① 原子写不留 .tmp 残file;② 空 jar 不写文件;③ 无快照恢复返回 0 不炸。
+    这条是 Chromium cookie 落盘惰性(close 即丢)缺陷的行为锁 —— 快照必须显式落盘。"""
+    monkeypatch.setenv("SCAN_LOGIN_PROFILE_DIR", str(tmp_path))
+
+    class FakeCtx:
+        restored: object = None
+
+        def storage_state(self):
+            return {"cookies": [{"name": "SUB", "value": "v", "domain": ".weibo.com", "path": "/"}]}
+
+        def add_cookies(self, cookies):
+            self.restored = cookies
+
+    ctx = FakeCtx()
+    scan_login_mod._save_session_cookies("weibo", ctx)
+    assert (tmp_path / "weibo" / "session-cookies.json").exists()
+    assert not (tmp_path / "weibo" / "session-cookies.json.tmp").exists()
+    n = scan_login_mod._restore_session_cookies("weibo", ctx)
+    assert n == 1 and ctx.restored[0]["name"] == "SUB"
+
+    class EmptyCtx:
+        def storage_state(self):
+            return {"cookies": []}
+
+    scan_login_mod._save_session_cookies("empty", EmptyCtx())
+    assert not (tmp_path / "empty" / "session-cookies.json").exists()
+    assert scan_login_mod._restore_session_cookies("never-scanned", FakeCtx()) == 0
