@@ -9144,6 +9144,19 @@
     "noHistory": "暫無任務",
     "noRecentWorkspaces": "暫無最近工作區",
     "openTerminal": "開啟終端",
+    "recap": {
+      "title": "任務回顧",
+      "handoff": {
+        "menuItem": "移交到新任務",
+        "title": "移交到新任務"
+      },
+      "previewDescription": "檢查交接內容後,可以在檔案位置查看,或直接建立一個新任務繼續工作。",
+      "purposeLabel": "交接目的",
+      "purposePlaceholder": "交接目的",
+      "revealFile": "顯示檔案",
+      "createSession": "建立新任務",
+      "handoffUnavailable": "依賴的交接文件產生出口尚未提供,無法產生交接內容。"
+    },
     "renameDialog": {
       "cancel": "取消",
       "description": "保持簡短且易於識別",
@@ -10582,6 +10595,17 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "selectionAnnotations": {
+      "hoverHint": "懸停查看批註",
+      "selectedText": "{{index}}. 選中文字",
+      "noComment": "未新增評論",
+      "commentPlaceholder": "新增可選評論…",
+      "commentAriaLabel": "劃詞批註評論",
+      "addComment": "新增評論",
+      "removeOne": "移除批註 {{index}}",
+      "removeAll": "移除全部劃詞批註",
+      "add": "新增批註"
+    },
     "attachRetry": "重試上傳",
     "attachRetryExhausted": "重試次數已達上限,請刪除後重新新增",
     "mentionEngine": {
@@ -12347,6 +12371,7 @@
     "unpin": "取消固定",
     "unsaved": "未保存",
     "update": {
+      "revoked": "這個版本已不再提供。",
       "autoRestartIn": "即將自動重啟...({countdown} 秒後)",
       "autoRetrying": "更新失敗，自動重試中...",
       "available": "發現新版本",
@@ -15181,6 +15206,8 @@
     "title": "開放平臺 Feature Center"
   },
   "feedback": {
+    "unsupportedImage": "僅支援 PNG、JPG、GIF 與 WebP 圖片。",
+    "requestIdSuffix": "回饋編號：{requestId}。",
     "backToList": "返回反饋",
     "contactPlaceholder": "選填，方便我們聯系您",
     "contentPlaceholder": "請描述您遇到的問題或建議...",
@@ -16012,6 +16039,8 @@
       "unsynced": "未同步"
     },
     "terminalPanel": {
+      "switchToDark": "切換為暗色終端",
+      "switchToLight": "切換為亮色終端",
       "aiDiagnoseTitle": "AI 錯誤診斷",
       "aiServiceUnavailable": "AI 服務暫不可用,請稍後重試",
       "aiSuggestTitle": "AI 命令建議",
@@ -26714,6 +26743,7 @@
     "noUrlField": "回應中未找到可用的 URL 欄位",
     "networkError": "網路錯誤",
     "uploadCancelled": "上傳已取消",
+    "imageAltText": "回饋截圖 {index}",
     "imagePlaceholder": "點選或拖拽上傳圖片"
   },
   "eduScheduling": {
