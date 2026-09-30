@@ -49,6 +49,7 @@ export function fromDag(dag: CanvasDag): { nodes: CanvasNode[]; edges: CanvasEdg
       params: { ...createDefaultParams(n.type), ...n.params },
       status: 'idle',
       logs: [],
+      dropped: 0,
     },
   }))
   const edges: CanvasEdge[] = dag.edges.map((e) => ({
