@@ -119,59 +119,94 @@ class TestIndexCodebaseTool:
 
 
 class TestLazyIndexAndResearch:
-    """_lazy_index_and_research:护栏(目录校验/文件数上限/冷却)与重搜。"""
+    """_lazy_index_and_research:护栏(目录校验/成本上限/冷却)与重搜。
+
+    2026-09-27(V3 #75 后半)改契约:返回 `LazyIndexOutcome` 而不是裸 list。
+    旧契约把"没找到 / 没建 / 建坏了 / 在冷却"四件事全塌缩成 `[]`,本类的断言因此
+    同时看 `results` 与 `status`/`reason` —— 比原来更严,不是更松。
+    阈值本身的派生与判定分支矩阵在 `tests/test_lazy_index_guardrail_v75.py`。
+    """
 
     @pytest.mark.asyncio
     async def test_nonexistent_dir_returns_empty(self):
         idx = _make_indexer()
         out = await mcp_server._lazy_index_and_research(idx, "q", "Z:/no/such/dir", 5)
-        assert out == []
+        assert out.results == []
+        assert out.status == "skipped-not-a-dir"
+        assert out.reason, "路径不可读也必须说清为什么没有结果(旧实现这里静默 return [])"
 
     @pytest.mark.asyncio
     async def test_indexes_then_researches(self, tmp_path, monkeypatch):
         (tmp_path / "a.py").write_text("def f():\n    pass\n")
         idx = _make_indexer()
-        idx._collect_code_files = lambda root: [("a.py", "python")]
         idx.index_repository = AsyncMock(return_value=SimpleNamespace(errors=[]))
         idx.search = AsyncMock(return_value=[{"filePath": "a.py", "score": 0.9}])
         monkeypatch.setattr(mcp_server, "_LAZY_INDEX_LAST_RUN", {})
         out = await mcp_server._lazy_index_and_research(idx, "query", str(tmp_path), 5)
-        assert out == [{"filePath": "a.py", "score": 0.9}]
+        assert out.results == [{"filePath": "a.py", "score": 0.9}]
+        assert out.status == "searched"
         idx.index_repository.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_cooldown_skips_reindex(self, tmp_path, monkeypatch):
         (tmp_path / "a.py").write_text("def f():\n    pass\n")
         idx = _make_indexer()
-        idx._collect_code_files = lambda root: [("a.py", "python")]
         idx.index_repository = AsyncMock(return_value=SimpleNamespace(errors=[]))
-        idx.search = AsyncMock(return_value=[])
+        idx.search = AsyncMock(return_value=[{"filePath": "a.py"}])
         monkeypatch.setattr(mcp_server, "_LAZY_INDEX_LAST_RUN", {})
-        await mcp_server._lazy_index_and_research(idx, "q1", str(tmp_path), 5)
-        await mcp_server._lazy_index_and_research(idx, "q2", str(tmp_path), 5)
+        first = await mcp_server._lazy_index_and_research(idx, "q1", str(tmp_path), 5)
+        second = await mcp_server._lazy_index_and_research(idx, "q2", str(tmp_path), 5)
         # 冷却期内第二次不触发索引
         assert idx.index_repository.await_count == 1
+        assert first.status == "searched" and second.results == []
+        assert second.status == "skipped-cooldown" and second.reason
 
     @pytest.mark.asyncio
     async def test_oversized_repo_skipped(self, tmp_path, monkeypatch):
-        (tmp_path / "a.py").write_text("pass\n")
+        """规模超过索引硬上限 ⇒ 不索引,且**把理由交回去**(不再静默空表)。
+
+        旧实现靠 `idx._collect_code_files` 返回一个假列表来过这一格;新护栏读的是
+        **有界探测**的规模(旧列表长度被 MAX_FILES_PER_INDEX 截断,是个饱和值,
+        用它等于什么都没判 —— 见 test_lazy_index_guardrail_v75 的同名反向对照),
+        所以这里改成就把硬上限设成 3,真实 6 个文件必然撞下界。
+        """
+        for i in range(6):
+            (tmp_path / f"f{i}.py").write_text("pass\n", encoding="utf-8")
         idx = _make_indexer()
-        idx._collect_code_files = lambda root: [(f"f{i}.py", "python") for i in range(mcp_server._LAZY_INDEX_MAX_FILES + 1)]
         idx.index_repository = AsyncMock()
         monkeypatch.setattr(mcp_server, "_LAZY_INDEX_LAST_RUN", {})
+        monkeypatch.setattr(
+            mcp_server,
+            "lazy_index_file_limits",
+            lambda **_kw: mcp_server.LazyIndexLimits(
+                by_local_wall=10**6,
+                by_embedding_batches=10**6,
+                by_index_hard_cap=3,
+                per_file_ms=1.0,
+                embedding_batches_per_file=0.343,
+                local_budget_seconds=30.0,
+                embed_batch_budget=300,
+            ),
+        )
         out = await mcp_server._lazy_index_and_research(idx, "q", str(tmp_path), 5)
-        assert out == []
+        assert out.results == []
+        assert out.status == "skipped-over-limit"
+        assert out.reason and "上限" in out.reason
         idx.index_repository.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_index_failure_silent(self, tmp_path, monkeypatch):
+    async def test_index_failure_is_reported_not_swallowed(self, tmp_path, monkeypatch):
+        """旧用例名叫 `_silent` —— 静默正是被修掉的东西:失败必须能追溯。"""
         (tmp_path / "a.py").write_text("def f():\n    pass\n")
         idx = _make_indexer()
-        idx._collect_code_files = lambda root: [("a.py", "python")]
         idx.index_repository = AsyncMock(side_effect=RuntimeError("embed down"))
         monkeypatch.setattr(mcp_server, "_LAZY_INDEX_LAST_RUN", {})
         out = await mcp_server._lazy_index_and_research(idx, "q", str(tmp_path), 5)
-        assert out == []
+        assert out.results == []
+        assert out.status == "failed"
+        assert out.reason and "embed down" in out.reason, "异常原文要进 reason,不得只留一个空表"
+        field = out.as_response_field()
+        assert field["status"] == "failed" and field["reason"]
 
 
 class TestRegistryConsistency:
