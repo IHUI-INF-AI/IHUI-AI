@@ -5,7 +5,8 @@
 import { useTt } from '@/i18n'
 import { useState } from 'react'
 import Taro from '@tarojs/taro'
-import { View, Text, Image, Input, Button } from '@tarojs/components'
+import { View, Text, Image, Button } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import { rpx } from '@/utils/rpx'
 import {
@@ -197,7 +198,7 @@ export default function LoginPopUp({
 
         {/* 昵称输入 */}
         <View style={{ marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX) }}>
-          <Input
+          <FocusInput
             value={nickname}
             placeholder={tt('user.profile.nicknamePlaceholder', '请输入用户名')}
             maxlength={20}
