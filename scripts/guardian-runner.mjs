@@ -4496,6 +4496,22 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 迁移内容不可变性对账(已入库 drizzle 迁移不得被改写;IM1 与"该 tag 首次入库的 blob"逐字节比,存量只报数;IM2 判本次改写面;枚举 0 判死不记绿)(1 项,blocking)---
+  {
+    id: '185',
+    label:
+      '迁移内容不可变性对账(已入库 drizzle 迁移不得被改写;IM1 与"该 tag 首次入库的 blob"逐字节比,存量只报数;IM2 判本次改写面;枚举 0 判死不记绿)',
+    script: 'check-migration-immutable.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MIGRATION_IMMUTABLE',
+    stagedTriggers: ['packages/database/', 'apps/api/src/'],
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
