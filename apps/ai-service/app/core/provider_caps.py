@@ -121,15 +121,19 @@ PROVIDER_CAPS: dict[str, ProviderCap] = {
             "X-Title": "OPENROUTER_APP_TITLE",
         },
     ),
-    # Gemini / Google:支持 vision + gemini_generate_content 协议,长上下文
+    # Gemini / Google:支持 vision,长上下文。
+    # 2026-10-01(D150 运行时对账实锤):本仓对 gemini 的实际调用走 OpenAI 兼容端点
+    # (litellm 日志 provider=openai),该端**拒绝 stream_usage 字段** ——
+    # Google 400: Unknown name "stream_usage": Cannot find field.(traceId 033814da8ef65844d163a638fe0add38)
+    # 故与 NVIDIA/StepFun 同型:supports_stream_usage=False,usage 由 token_counter 估算兜底。
     "gemini": ProviderCap(
-        supports_stream_usage=True,
+        supports_stream_usage=False,
         supports_vision=True,
         protocol="gemini_generate_content",
         max_context=1000000,
     ),
     "google": ProviderCap(
-        supports_stream_usage=True,
+        supports_stream_usage=False,
         supports_vision=True,
         protocol="gemini_generate_content",
         max_context=1000000,
