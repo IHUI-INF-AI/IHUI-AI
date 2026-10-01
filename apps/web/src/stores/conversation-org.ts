@@ -22,7 +22,7 @@ import {
   folderNameById,
   useOrgServerStore,
   type OrgFailureReason,
-} from './conversation-org-server'
+} from '@ihui/shared/chat/conversation-org-server'
 
 interface ConversationOrgState {
   /** userId → conversationId → 组织元数据 */
