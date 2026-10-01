@@ -63,6 +63,19 @@ export { WithdrawScreen } from '../../../../packages/app/src/features/withdraw/W
 // D28 多端同步(2026-09-21):外部会话导入共享屏直连真实实现(与上方 Settings/Order 同款做法),
 // 便于 wrapper 测试覆盖「注入的 picker/parse/commit」与共享 UI 的联动。
 export { ConversationImportScreen } from '../../../../packages/app/src/features/conversation-import/ConversationImportScreen'
+// InputArea(端内)以 <TextField> 渲染三处参数变量行;ChatScreen(端内)自 @ihui/rn-app
+// 取共享 ChatScreen 整屏复用(D137 纠偏后恢复的消费面)。两者此前不在替身导出面里 ⇒
+// 渲染到即 "Element type is invalid: got: undefined"(use-ui-text-field 那条正是这么红的)。
+// 同上方纪律:补的是替身(re-export 真实组件),不是逐套件 vi.mock。
+export { TextField } from '../../../../packages/app/src/components/TextField'
+export type { TextFieldProps } from '../../../../packages/app/src/components/TextField'
+export { ChatScreen } from '../../../../packages/app/src/features/chat/ChatScreen'
+export type {
+  ChatScreenMessage,
+  ChatScreenModel,
+  ChatScreenNavItem,
+  ChatScreenProps,
+} from '../../../../packages/app/src/features/chat/ChatScreen'
 
 // WalletBalance / WalletScreenProps / WithdrawScreenProps re-exported for type compatibility
 export type {

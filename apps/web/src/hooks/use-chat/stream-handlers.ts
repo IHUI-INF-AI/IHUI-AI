@@ -38,10 +38,41 @@ export function clearCompactionPreview(): void {
   if (store.compactionStatus?.phase === 'compacting') store.setCompactionStatus(null)
 }
 
+/** 工具耗时的结算形状(source 标记值从哪来,供对账与测试断言) */
+export interface ResolvedToolDuration {
+  durationMs: number
+  source: 'server' | 'client'
+}
+
+/**
+ * 工具耗时来源的唯一判点(D49②/G-61②,2026-09-24 立)。
+ *
+ * 修复前:只在 tool-call-start 记本地时钟、result 到达时相减 ⇒ 断线/刷新/回放
+ * (只回放 result 帧)拿不到耗时。修复后两条分支:
+ * ① 后端下发且合法(有限数且 ≥0,**0 是合法值** —— 去重跳过的工具耗时≈0)⇒ 用后端值;
+ * ② 否则回退本地时钟(startedAt 在手才可回退);两者都没有 ⇒ null(不给卡片假耗时)。
+ */
+export function resolveToolDurationMs(input: {
+  serverDurationMs?: number
+  startedAt?: number
+  now: number
+}): ResolvedToolDuration | null {
+  const server = input.serverDurationMs
+  if (typeof server === 'number' && Number.isFinite(server) && server >= 0) {
+    return { durationMs: server, source: 'server' }
+  }
+  if (input.startedAt !== undefined) {
+    return { durationMs: Math.max(0, input.now - input.startedAt), source: 'client' }
+  }
+  return null
+}
+
 export function createToolCallHandler(assistantMessageId: string) {
   // 2026-09-01 立,工具调用过程流式可视化:SSE tool-result 事件不携带耗时字段,
   // 需在 tool-call-start 时记录本地起点,result 到达时计算 durationMs 补写,
   // 驱动 ToolCallCard 显示真实耗时(toolCallId 后端全局唯一,跨消息不冲突)。
+  // D49②/G-61②(2026-09-24):后端 durationMs 优先,缺省才回退本地时钟 —— 判点
+  // 收敛在 resolveToolDurationMs 单一函数(两条分支各有用例钉住)。
   const startTimes = new Map<string, number>()
 
   return (event: {
@@ -65,6 +96,8 @@ export function createToolCallHandler(assistantMessageId: string) {
     task_id?: string
     // L5-8 工具瞬时失败自动重试次数(后端 tool-call-start/result 透传;未下发则 undefined)
     retryCount?: number
+    // D49②:后端实测耗时(去重跳过≈0 是合法值;断线/回放场景下它是唯一来源)
+    durationMs?: number
   }) => {
     if (event.type === 'tool-call-start') {
       // W28 Hooks 事件:tool.before(工具开始调用)
@@ -101,12 +134,17 @@ export function createToolCallHandler(assistantMessageId: string) {
         serverId: event.serverId,
         serverName: event.serverName,
       }
-      // 计算耗时(工具执行期间记录起点,result 到达时相减;起始点丢失时缺省 undefined)
-      const startedAt = startTimes.get(event.toolCallId)
-      if (startedAt !== undefined) {
-        updates.durationMs = Date.now() - startedAt
-        startTimes.delete(event.toolCallId)
+      // 计算耗时(D49②/G-61②):后端值优先,非法值(负数/NaN)按未下发回退本地时钟;
+      // 起点即释 —— 本帧结算后即删,同 id 的后续帧不得再回退到旧起点写第二次耗时。
+      const resolved = resolveToolDurationMs({
+        serverDurationMs: event.durationMs,
+        startedAt: startTimes.get(event.toolCallId),
+        now: Date.now(),
+      })
+      if (resolved !== null) {
+        updates.durationMs = resolved.durationMs
       }
+      startTimes.delete(event.toolCallId)
       if (event.args) updates.args = event.args
       if (event.iteration !== undefined) updates.iteration = event.iteration
       // 后端 repeated: true 标记(同 tool_name + 同 args 已执行过,跳过实际调用)
