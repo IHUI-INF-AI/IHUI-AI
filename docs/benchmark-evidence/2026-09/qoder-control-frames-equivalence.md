@@ -5,8 +5,6 @@
 -->
 
 # Qoder 控制帧 ↔ 我方能力 等价性判定表(票 D141 步 2/步 3)
-> ⚠️ **2026-10-01 D202 对账改判**:本表 4 处宽松判定已改判(reload_skills/reload_plugins/refresh_memory/mcp_clear_auth → 真缺,采信正本),另 7 帧「无距」改判等价(锚点经核验)。**正本 = `docs/benchmark-evidence/2026-10/d141-control-frame-parity.md`**,对账全录 = `docs/benchmark-evidence/2026-10/d202-frame-union-reconciliation.md`;本表保留为 S15-④ 取证物与帧原文索引,判定以正本为准。
-
 
 
 > 逐帧三态判定,帧全集与竞品侧原文见同目录 `qoder-control-frames.md`(步 1,版本钉 qoder-cn v0.4.3 +
@@ -32,7 +30,7 @@
 | `control_response` | 我方等价但另名 | 同上 | 同上 | 同上 |
 | `control_cancel_request` / `control_cancel` | 我方等价但另名 | dist x3 命中 | `apps/ai-service/app/routers/agent_runtime.py:356`(`POST /{session_id}/cancel`) | |
 | `status_event` | 竞品也无 / 不构成差距 | @125282(仅承载 `daemon.session_updated` 且 `state` 必须 `failed`) | — | daemon 存活状态管道;我方会话状态走 `agent_runtime.py:348`(`GET /{session_id}/status`) |
-| `keep_alive` / `keepalive` | ~~竞品也无 / 不构成差距~~ → **D202 改判:等价**(我方有审批等待期 SSE 注释帧 llm.py:230 `_APPROVAL_KEEPALIVE_INTERVAL=15`,见正本) | @122329 | — | 长连心跳;HTTP/SSE 形态无此帧 |
+| `keep_alive` / `keepalive` | 竞品也无 / 不构成差距 | @122329 | — | 长连心跳;HTTP/SSE 形态无此帧 |
 | `session_input` / `session_output` | 竞品也无(线层显式不可达) | @122329 逐字:`throw new w(\`${String(t.type)} is not supported on the v2 wire\`)` | — | 帧名存在 ≠ 能力存在 |
 
 ## 二、出站控制请求(34 名 + `initialize`/`get_models`)
@@ -54,10 +52,10 @@
 | `mcp_status` / `mcp_message` | 我方等价但另名 | dist | `mcp.py:275-280`(`client_status_visible` 判归属)、`:125,132`(tools) | |
 | `mcp_toggle` | 我方等价但另名 | dist(`enabled`) | `mcp.py:769-770`(`POST /mcp/store/{name}/enable`)、`:820-821`(disable) | |
 | `mcp_set_servers` | 我方等价但另名 | dist(`added/removed/errors` 回带) | `mcp.py:372`(POST external/servers)、`:423`(DELETE)、`:300`(register) | |
-| `mcp_authenticate` / `mcp_inject_token` / `mcp_oauth_callback_url` → **D202 改判:等价**(锚点 mcp-config.ts:17,50 / engine.py:347 reset_mcp_principal / mcp_client.py:43,83,见正本);~~mcp_clear_auth~~ → **D202 改判:真缺(刻意)**(该帧在本表 §二 34 名内,「竞品也无」自相矛盾;我方口径=不可清除,AGENTS §5,补齐须 §24) | dist(四帧组成 CLI 侧 OAuth 面) | 我方 MCP 凭据由服务端管理器持有(`mcp.py:18` jwt 鉴权面) | 竞品把 OAuth 放宿主-CLI 线上是因为进程分离;服务端形态无此线 |
-| `flush_memory` / `memory_should_generate` 等价另名;~~refresh_memory~~ → **D202 改判:真缺**(/memory/entries CRUD 是 REST 管理面,非运行时刷新帧;我方仅 agent_longterm_memory.py:278 内部 updated_at),见正本 | dist(宿主回调 + 两个触发帧) | `apps/ai-service/app/routers/agent_memory.py:7,11-15,122`(`/memory/entries` CRUD + 检索) | 我方记忆写入门控在服务端调度,无宿主回调线 |
+| `mcp_authenticate` / `mcp_inject_token` / `mcp_oauth_callback_url` / `mcp_clear_auth` | 竞品也无 / 不构成差距 | dist(四帧组成 CLI 侧 OAuth 面) | 我方 MCP 凭据由服务端管理器持有(`mcp.py:18` jwt 鉴权面) | 竞品把 OAuth 放宿主-CLI 线上是因为进程分离;服务端形态无此线 |
+| `flush_memory` / `refresh_memory` / `memory_should_generate` | 我方等价但另名 | dist(宿主回调 + 两个触发帧) | `apps/ai-service/app/routers/agent_memory.py:7,11-15,122`(`/memory/entries` CRUD + 检索) | 我方记忆写入门控在服务端调度,无宿主回调线 |
 | `skill_evolution_should_review` / `flush_skill_evolution` | 我方等价但另名 | dist @67412 | `apps/ai-service/app/core/capability_matrix.py:233-238`(`skill_evolution` → `skill_evolution_scheduler.py:89`) | 同名同义,少见的正撞 |
-| `reload_skills` / `reload_plugins` / `list_plugins` | ~~我方等价但另名~~ → **D202 改判:reload_skills/reload_plugins 真缺**(capability_matrix.py:246-247 经实核为 self_eval 项,锚点错配;capability 开关与调度器≠运行时重载口;services/skills.py:777 reload_auto 为 mtime 自动重载、非宿主可调口),见正本 | dist(capability `reload_skills_v1`) | `capability_matrix.py:246-247`(`skill_scheduler.py:200`);`mcp.py:190,200,205`(`/mcp/skills` + skill 实体) | "热重载"无独立帧,由服务端调度承担 |
+| `reload_skills` / `reload_plugins` / `list_plugins` | 我方等价但另名 | dist(capability `reload_skills_v1`) | `capability_matrix.py:246-247`(`skill_scheduler.py:200`);`mcp.py:190,200,205`(`/mcp/skills` + skill 实体) | "热重载"无独立帧,由服务端调度承担 |
 | `set_proxy` | 我方等价但另名 | dist(`proxy:e\|\|null`) | `apps/ai-service/app/core/config.py:199-206`(`llm_proxy_url`/`openrouter_proxy_url`);`apps/api/src/utils/proxy-dispatcher.ts` | 我方为部署级配置,非逐会话帧 |
 | `seed_read_state` | 竞品也无 / 不构成差距 | dist @83565(`path`+`mtime`) | — | rewind 的读态种子管道;我方 checkpoint 直接落盘(`checkpoint_rewind.py:133,155`) |
 | `apply_flag_settings` | 竞品也无 / 不构成差距 | dist | `capability_matrix.py`(env 门控面)/`config.py` | settings 透传管道 |
