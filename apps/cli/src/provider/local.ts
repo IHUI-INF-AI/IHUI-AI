@@ -18,6 +18,13 @@
  * 零依赖:仅用 node fetch(Node >=20),不引入 openai SDK。
  */
 
+import {
+  isModelStreamIdleError,
+  MODEL_STREAM_IDLE_CODE,
+  raceStreamRead,
+  resolveStreamIdleMs,
+} from '@ihui/shared/utils/stream-idle';
+
 import type { Settings } from '../commands/settings.js';
 
 /** Ollama 默认端点(OpenAI 兼容层挂在 /v1 下) */
@@ -111,6 +118,14 @@ export interface OpenAiStreamOptions {
   onToolCall?: (call: { id: string; name: string; arguments: Record<string, unknown> }) => void;
   /** 请求超时毫秒(默认 120_000,本地推理可能较慢) */
   timeoutMs?: number;
+  /**
+   * G-693(2026-10-01 立)流**空闲**上限:连续这么多毫秒没收到任何字节即判流已死,
+   * 抛 `code=MODEL_STREAM_IDLE`。与 `timeoutMs`(整条请求的**总**超时)分账,互不顶账 ——
+   * 修复前只有总超时,于是一条"连接还开着但不再出字"的死流要吊满 120s 才失败。
+   * 缺省 = `DEFAULT_STREAM_IDLE_MS`(120_000,与本仓 subagent 空闲档同值);
+   * 传 `0` = 显式关闭空闲判据(回到只有总超时的形态,供冷启动加载大模型的场合用)。
+   */
+  idleTimeoutMs?: number;
 }
 
 export interface OpenAiStreamResult {
@@ -192,9 +207,16 @@ export async function streamOpenAiCompatible(
     const decoder = new TextDecoder();
     let buffer = '';
     let streamEnded = false;
+    // G-693:空闲判据与总超时分离 —— 每次 read 各起一个期限(收到任何字节即重置),
+    // 总超时仍由上面的 controller.timer 管。0 = 关闭(逐字回退到改动前的"只等 read")。
+    const idleMs = resolveStreamIdleMs(opts.idleTimeoutMs);
     // 防御:mock/异常实现下 read() 可能返回 { value: undefined, done: false },避免死循环撑爆内存
     for (;;) {
-      const { value, done: streamDone } = await reader.read();
+      const { value, done: streamDone } = await raceStreamRead(reader.read(), {
+        idleMs,
+        signal: opts.signal,
+        label: 'provider/local',
+      });
       if (streamDone || streamEnded) break;
       if (!value) break;
       buffer += decoder.decode(value, { stream: true });
@@ -257,6 +279,18 @@ export async function streamOpenAiCompatible(
     if (!acc.finishReason) acc.finishReason = toolCalls.length ? 'tool_calls' : 'stop';
     return { ...acc, text, toolCalls };
   } catch (e) {
+    if (isModelStreamIdleError(e)) {
+      // 空闲命中 = 连接"开着但不再送字节"。本函数按契约不抛错,统一以 { error } 返回,
+      // 但必须把可识别 code 递出(否则上层只能拿文案判分支);顺手断掉连接,
+      // 不让那条已经没指望的 reader 吊到总超时。取消命中不会走到这里(抛的是 signal.reason)。
+      controller.abort();
+      return {
+        ...acc,
+        text,
+        finishReason: 'error',
+        error: `${MODEL_STREAM_IDLE_CODE}: ${e.message}`,
+      };
+    }
     if (opts.signal?.aborted) return { ...acc, text, finishReason: 'abort', error: 'aborted' };
     if (controller.signal.aborted) return { ...acc, text, finishReason: 'abort', error: 'timeout' };
     return { ...acc, text, error: e instanceof Error ? e.message : String(e) };

@@ -8,6 +8,15 @@ import {
   fetchAiServiceJson,
   isAbortError,
 } from '../client.js'
+// G-693(2026-10-01 立):读环空闲判据 —— canonical 在 packages/shared/src/utils/stream-idle.ts,
+// 本包零依赖不得反向 import(会成环),故走包内逐字移植;漂移由
+// tests/g-693-stream-idle-parity.test.ts 钉住(先例:frame-watermark.js / error-serialize.js)。
+import {
+  isModelStreamIdleError,
+  MODEL_STREAM_IDLE_CODE,
+  raceStreamRead,
+  resolveStreamIdleMs,
+} from '../stream-idle.js'
 import type {
   ApiResult,
   ApiResponse,
@@ -310,7 +319,12 @@ export interface AgentStreamCallbacks {
   /** P0-5:工具步骤 started/completed/blocked */
   onPlanStep?: (data: AgentPlanStepEvent) => void
   onDone?: (event: AgentStreamEvent) => void
-  onError?: (error: string) => void
+  /**
+   * 第二个参数 `code` 由 G-693(2026-10-01)加:空闲超时命中时递出 'MODEL_STREAM_IDLE',
+   * 其余错误为 undefined。理由是"要不要重连"必须按**可识别码**判,不能按文案判
+   * (同守门 134/116 那条纪律:身份要随事实一起递出)。可选参数 ⇒ 既有单参调用方逐字不改。
+   */
+  onError?: (error: string, code?: string) => void
   onEvent?: (event: AgentStreamEvent) => void
 }
 
@@ -319,6 +333,14 @@ export interface AgentStreamOptions {
   lastEventId?: string
   baseUrl?: string
   headers?: Record<string, string>
+  /**
+   * G-693(2026-10-01 立)流**空闲**上限:连续这么多毫秒没收到任何字节即判流死,
+   * onError 递出 code='MODEL_STREAM_IDLE'。与取消(signal)分账,互不顶账。
+   * 缺省 = DEFAULT_STREAM_IDLE_MS(120_000),刻意大于 ai-service agent SSE 的 30s
+   * keep-alive 周期(实测 apps/ai-service/app/routers/agents.py:669-672),因此活连接不会
+   * 被误杀,只有"开着但不再送字节"的死连接才会命中;传 `0` = 显式关闭该判据。
+   */
+  streamIdleMs?: number
 }
 
 // ---- A2A ----
@@ -792,9 +814,16 @@ export async function executeAgentStream(
     const reader = resp.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+    // G-693:空闲判据与取消分账 —— 每次 read 各起一个期限(收到任何字节即重置)。
+    // 取消命中时抛的是 signal.reason 原物(不造 idle 错),两者在下面 catch 里各自定案。
+    const idleMs = resolveStreamIdleMs(options.streamIdleMs)
 
     for (;;) {
-      const { done, value } = await reader.read()
+      const { done, value } = await raceStreamRead(reader.read(), {
+        idleMs,
+        signal: options.signal,
+        label: 'agent-runtime',
+      })
       if (done) break
       buffer += decoder.decode(value, { stream: true })
       let boundary: number
@@ -806,7 +835,18 @@ export async function executeAgentStream(
     }
     if (buffer.trim()) parseSSEBlock(buffer, callbacks)
   } catch (err) {
-    if (isAbortError(err)) {
+    // G-693 分支①:空闲命中 —— 连接"开着但不再送字节"。必须按 code 认(不得拿文案判),
+    // 且不得伪装成 done(那等于把死流报成正常收尾)。
+    if (isModelStreamIdleError(err)) {
+      callbacks.onError?.(err.message, MODEL_STREAM_IDLE_CODE)
+      return
+    }
+    // G-693 分支②:取消命中。helper 抛的是 signal.reason 原物,而 reason 未必是
+    // DOMException(例如 controller.abort('用户切换会话') 给的是字符串)—— 旧写法只认
+    // isAbortError,那种取消会被读成"网络异常"。补 `options.signal?.aborted` 判据后,
+    // 取消一律走取消语义(与 AgentPane.tsx:339 注释所述"abort 由内部处理成 onDone"一致);
+    // 空闲命中时 signal 未 aborted,因此这条不会遮蔽分支①。
+    if (isAbortError(err) || options.signal?.aborted) {
       callbacks.onDone?.({ type: 'done' })
       return
     }
