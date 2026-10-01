@@ -91,9 +91,14 @@ def test_default_redis_url(monkeypatch):
 
 
 def test_default_litellm_model(monkeypatch):
-    """litellm_model 默认为 stepfun/step-router-v1(2026-07-24 从 step-3.7-flash 升级;隔离 env)。"""
+    """litellm_model 默认为 gemini/gemini-3.8-flash(D208 2026-10-01 从 step-router-v1 更换;
+    D150 探针实证原默认链对普通用户断裂,新默认为当轮实测健康档;隔离 env)。"""
     monkeypatch.delenv("LITELLM_MODEL", raising=False)
-    assert Settings(_env_file=None).litellm_model == "stepfun/step-router-v1"
+    monkeypatch.delenv("LITELLM_FALLBACK_MODEL", raising=False)
+    s = Settings(_env_file=None)
+    assert s.litellm_model == "gemini/gemini-3.8-flash"
+    # 默认链同族兜底(D208):同为 D150 轨 B 实测健康档
+    assert s.litellm_fallback_model == "@cf/zai-org/glm-4.7-flash"
 
 
 def test_default_chat_history_window():
