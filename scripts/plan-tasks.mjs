@@ -34,12 +34,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import {
   auditPlan,
-  bodyOfRow,
   compositeKeyOf,
   dispositionOf,
+  isDeclarationRow,
   nextTaskIdLabel,
   parseTaskRows,
-  stripOwnKey,
   usedIdsOfPrefix,
   LEDGER_TTL_DAYS,
 } from './lib/plan-task-index.mjs'
@@ -183,12 +182,31 @@ function report(a, face) {
       ` —— 逐字相同才可自动收口;另有 ${c.dupBlockDrifted} 块首行相同而正文漂移(必须人工判哪份作数)`,
   )
   console.log(
-    `  F9 撞号(只认**编号位**:同一编号的编号位挂多个不同标题): ${c.collisionGroups} 组` +
+    `  F9 撞号(只认**声明位**:同一编号的声明位挂多个不同标题): ${c.collisionGroups} 组` +
       ` —— F1/F4 的键是"编号+标题逐字等值",抓不到"两个不同任务抢同一个号";存量绝大多数是子项命名惯例,` +
       `只报数,差值棘轮只拦新增撞号组(逐组看 --json)。宽口径(窗口内任意命中)${c.f9WideGroups ?? c.collisionGroups} 组,` +
-      `其中 ${c.f9NonIdTitles ?? 0} 个标题是行文引用/畸形号子串(不是第二次登记),已按 G-417 收口排除在判据外`,
+      `其中 ${(c.f9WideGroups ?? 0) - c.collisionGroups} 组整组是行文引用/畸形号子串造成的伪组(不是第二次登记),` +
+      `已按 G-417 收窄、自 G-460 起分组输入根本不造它们`,
   )
   console.log(`  同态重复(done 侧只报数): done ${c.dupDoneGroups} 组`)
+  // ── F9 另外两档:被从判据里挪出来的东西必须**报名**,否则"挪到报数档"与"没人看过"同形 ──
+  const f9Refs = a.f9References ?? []
+  console.log(
+    `  F9 引用图(别人的正文里点了我的号 ⇒ 只报数、永不判红): ${c.f9ReferenceIds ?? f9Refs.length} 个编号 / ${c.f9NonIdTitles ?? 0} 处非声明位标题` +
+      (f9Refs.length
+        ? ` —— 逐条:${f9Refs.slice(0, 6).map(f9ReferenceLine).join(' / ')}` +
+          (f9Refs.length > 6 ? ` (另 ${f9Refs.length - 6} 个编号见 --json 的 references)` : '')
+        : ' —— 本面没有非声明位命中(这一句是"量到了 0",不是"没量")'),
+  )
+  const f9Mal = a.f9MalformedMasquerade ?? []
+  console.log(
+    `  F9 畸形号挂到正常号(前缀重复那族,单独点名、不与正常号同组): ${c.f9MalformedMasqueradeIds ?? f9Mal.length} 个编号` +
+      (f9Mal.length
+        ? ` —— ${f9Mal.slice(0, 6).map((m) => m.key).join(' / ')}` +
+          (f9Mal.length > 6 ? ` (另 ${f9Mal.length - 6} 个见 --json 的 malformedMasquerade)` : '') +
+          `;逐行原文与修复出口见 F9b(counts.malformedIds)`
+        : ''),
+  )
   console.log(`派单口径 —— 真·无人认领: ${c.claimable} 行`)
   console.log(
     `  分解(逐层互斥,可直接相加):未勾选 ${c.open} = 已认领 ${c.claimed} + 其余排除 ${c.unclaimed - c.claimable} + 真待办 ${c.claimable}`,
@@ -373,9 +391,7 @@ export function f9GroupLine(g) {
  * `titleIsDegenerate` 摘掉题面,所以它在 F9 里本来就不贡献标题 —— 本判据没有把它洗回来。
  */
 export function registersKeyAtIdPosition(rawLine, key) {
-  const body = bodyOfRow(rawLine)
-  if (body === null || !key) return false
-  return stripOwnKey(body, key, 'strict') !== body || stripOwnKey(body, key, 'lenient') !== body
+  return isDeclarationRow(rawLine, key)
 }
 
 /**
@@ -424,12 +440,34 @@ export function narrowCollisionsToIdPosition(content, collisions) {
  */
 export function narrowF9Face(a, content) {
   const wide = (a?.collisions ?? []).length
-  const narrowed = narrowCollisionsToIdPosition(content, a?.collisions)
+  // 台账层(G-460)已经按声明位分好三档 ⇒ 判定面优先取那一份现成的,不再本地重筛一遍:
+  // 两处各算一次"什么算声明行"就是第二个真相,而它漂开时的表现是引用又被打回判据。
+  const narrowed =
+    Array.isArray(a?.f9Declared) && a?.counts?.f9NonIdTitles !== undefined
+      ? {
+          groups: a.f9Declared,
+          droppedTitles: a.counts.f9NonIdTitles,
+          droppedGroups: wide - a.f9Declared.length,
+        }
+      : narrowCollisionsToIdPosition(content, a?.collisions)
   a.counts.f9WideGroups = wide
   a.counts.f9NonIdTitles = narrowed.droppedTitles
   a.collisions = narrowed.groups
   a.counts.collisionGroups = narrowed.groups.length
   return a
+}
+
+/**
+ * F9「引用图」的一行点名文案(只报数档唯一的出口,人读面与 `--json` 都从它取)。
+ * 为什么必须报名而不是报数:被正文引用的号**改不掉** —— 换号只会让旧号继续挂在别人的句子
+ * 里(票面后果②),所以这一档存在的意义就是让人看得见"哪些号被谁点了多少次"。
+ * ⚠ 与 `f9GroupLine` 同一条禁令:行号不进证据文本,定位读 `--json` 的 `references[].lines`。
+ */
+export function f9ReferenceLine(g) {
+  return (
+    `编号 ${g.key} 被 ${g.titleCount} 处正文引用挂到非声明位 —— ` +
+    `${(g.titles ?? []).map((t) => `「${t.title}」`).join(' / ')}`
+  )
 }
 
 /**
@@ -1494,6 +1532,19 @@ function main() {
             titleCount: g.titleCount,
             titles: g.titles.map((t) => ({ title: t.title, lines: t.lines })),
           })),
+          // F9 引用图 / 畸形号两档(只报数,但必须逐条可定位 —— 判据挪出红路不等于事情消失)
+          references: (a.f9References ?? []).map((g) => ({
+            key: g.key,
+            titleCount: g.titleCount,
+            titles: g.titles.map((t) => ({ title: t.title, lines: t.lines })),
+          })),
+          malformedMasquerade: (a.f9MalformedMasquerade ?? []).map((m) => ({
+            key: m.key,
+            lines: m.lines,
+          })),
+          // 宽口径(窗口内任意命中)读数在 `counts.f9WideGroups`,名单本身不进 json:
+          // 它是诊断量,任何判据都不吃它 —— 喂给判据的只有上面的 collisions(声明位)与
+          // 下面两档(引用图 / 畸形号),它们各自的名单都已逐条在场。
         },
         null,
         2,
