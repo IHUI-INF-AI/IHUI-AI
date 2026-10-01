@@ -249,6 +249,23 @@ function Test-IhuiDeployLockHeld {
     $mk = { param($verdict, $reason, $failed)
         [pscustomobject]@{ Verdict = $verdict; Reason = $reason; Failed = $failed; Checks = ($checks -join ' ') } }
 
+    # ── 绝对上限收口(G-779):任何"未判定"都必须仍过这道闸 ──────────────────
+    #    锁龄锚点优先级:writtenAt → 文件 mtime → now。负锁龄(时间戳在未来)不清零重计:
+    #    上限在时钟追到(声明写锁时刻 + 上限)那一刻照常触发,"未来时间戳 ⇒ 锁龄恒 0 ⇒ 永生锁"
+    #    在结构上不成立。C0 分支先行返回且自带同形闸,不受此块影响。
+    $overCap = {
+        $stamp = if ($null -ne $written) { $written }
+                 elseif ($null -ne $o.FallbackAgeUtc) { ConvertTo-IhuiLockUtc $o.FallbackAgeUtc }
+                 else { $now }
+        if ($null -eq $stamp) { return $false }
+        $ageMin = ($now - $stamp).TotalMinutes
+        if ($ageMin -gt $capMax) {
+            $checks.Add("CAP=$([math]::Round($ageMin,1))")
+            return $true
+        }
+        return $false
+    }
+
     # ── C0 内容可用性:读不出元数据时**四条都无从量起**。
     #     不得把"读不懂"读成"没人持锁"(那是本仓最贵的一型),也不得傻等不给出路:
     #     唯一自动出路是按文件时间的绝对上限。
@@ -277,7 +294,10 @@ function Test-IhuiDeployLockHeld {
     $start   = $null
     if ($null -ne $o.ProcessStartUtc) { $start = ConvertTo-IhuiLockUtc $o.ProcessStartUtc }
     if ($null -eq $written) {
-        $checks.Add('C2=no-writtenAt')
+        $checks.Add('C2=no-written-at')
+        if (& $overCap) {
+            return & $mk 'stale' "锁没写下 writtenAt 且锁龄已超绝对上限 $capMax 分钟 ⇒ 抢占(缺失不得当永生锁)" 'C5-over-hard-cap'
+        }
         return & $mk 'undetermined' '锁没写下 writtenAt,无法核对进程启动时刻先后,本轮让路' 'C2-no-written-at'
     }
     if ($null -eq $start) {
@@ -315,6 +335,9 @@ function Test-IhuiDeployLockHeld {
     if ($null -ne $o.HeartbeatAtUtc) { $beat = ConvertTo-IhuiLockUtc $o.HeartbeatAtUtc }
     if ($null -eq $beat) {
         $checks.Add('C4=no-heartbeat')
+        if (& $overCap) {
+            return & $mk 'stale' "锁没写下 heartbeatAt 且锁龄已超绝对上限 $capMax 分钟 ⇒ 抢占" 'C5-over-hard-cap'
+        }
         return & $mk 'undetermined' '锁没写下 heartbeatAt,心跳判据无从量起,本轮让路' 'C4-no-heartbeat'
     }
     $beatAgeMin = ($now - $beat).TotalMinutes
@@ -324,8 +347,11 @@ function Test-IhuiDeployLockHeld {
     }
     if ($beatAgeMin -lt -($tolSec / 60.0) - 1) {
         # 心跳在未来 = 时钟被调过或内容被手改。它不能证明持有,也不能证明不持有:
-        # 判不出(让路),由 C4 上限之外的绝对上限兜住。
+        # 判不出(让路),但仍受 writtenAt 起算的绝对上限约束 —— 时钟跳变不享受永生锁。
         $checks.Add('C4=future')
+        if (& $overCap) {
+            return & $mk 'stale' "心跳时间戳在未来且锁龄已超绝对上限 $capMax 分钟 ⇒ 抢占" 'C5-over-hard-cap'
+        }
         return & $mk 'undetermined' "心跳时间戳在未来($([math]::Round($beatAgeMin,1)) 分钟),疑似时钟跳变,本轮让路" 'C4-heartbeat-future'
     }
     $checks.Add('C4=ok')
