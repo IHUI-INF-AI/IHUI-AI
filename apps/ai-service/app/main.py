@@ -229,6 +229,53 @@ async def _run_shutdown_steps(
         logger.warning("[shutdown] 非正常完成 %d 项: %s", len(bad), ", ".join(bad))
 
 
+def seed_provider_capability_snapshot() -> dict[str, Any]:
+    """G-649 开机播种:注册账号上游源 + 首发布一轮 + 把 fail-closed 投影喊出来。
+
+    为什么必须在启动时装载(而不是等第一次调用):board 造好时 ``snapshot is None``,
+    生产面既零生产者也零消费者 ⇒ 消费口
+    ``provider_caps.get_published_capability_snapshot()`` 永远拿到 None,而
+    "未初始化"在下游被读成"照旧当有权限";账号上游源此前更是只有测试注册过。
+
+    三条约束:① 全程只读 env(不查 DB,§5 测试隔离铁律);② 栅栏一字不绕,
+    播种轮被弃即如实报"仍未初始化";③ 任何异常只 warning 不阻塞启动(与其
+    余开机步骤同档),但**必须报名**,静默失败的播种比不播种更坏。
+    """
+    from app.core import provider_capability_snapshot, provider_caps
+
+    try:
+        source_name = provider_capability_snapshot.register_account_source()
+        outcome = provider_capability_snapshot.seed_uninitialized()
+        snapshot = provider_caps.get_published_capability_snapshot()
+        if snapshot is None:
+            logger.warning(
+                "[provider_caps_snapshot] 首发布未落地(status=%s)⇒ 快照仍是未初始化,"
+                "entitlement 投影本轮不可消费",
+                outcome.get("status"),
+            )
+            return {"seeded": False, "outcome": outcome, "account_source": source_name}
+        not_entitled = provider_caps.not_entitled_provider_codes()
+        board = provider_capability_snapshot.get_snapshot_board()
+        logger.info(
+            "[provider_caps_snapshot] 快照已播种:account_source=%s generation=%d"
+            " provider=%d entitled:false 投影=%s degraded_stats=%s",
+            source_name,
+            board.generation,
+            len(snapshot.get("provider_caps") or {}),
+            ",".join(not_entitled) if not_entitled else "无",
+            provider_capability_snapshot.degraded_stats(),
+        )
+        return {
+            "seeded": True,
+            "outcome": outcome,
+            "account_source": source_name,
+            "not_entitled": not_entitled,
+        }
+    except Exception as e:  # noqa: BLE001 - 播种失败不得阻塞启动,但必须点名
+        logger.warning("[provider_caps_snapshot] 开机播种异常(忽略,快照未初始化): %s", e)
+        return {"seeded": False, "error": str(e)}
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> Any:
     """应用生命周期。
@@ -246,6 +293,11 @@ async def lifespan(app: FastAPI) -> Any:
     from app.core.capability_matrix import log_capability_matrix
 
     log_capability_matrix()
+
+    # G-649(2026-10-01 立):供应商能力/entitlement 快照开机播种 —— 账号上游源的
+    # 生产面唯一注册点 + 首发布一轮,让"snapshot 恒为 None"不再是合法稳态。
+    # 刻意排在 DB 相关步骤之前:整条链只读 env,库没起来也必须能播种。
+    seed_provider_capability_snapshot()
 
     # 媒体任务统一落库建表(2026-09-09 立;此前 ensure_table 从未被调用,
     # media_tasks 表不存在导致对话内媒体工具落库静默失败。失败仅告警不阻塞启动)
@@ -361,8 +413,26 @@ async def lifespan(app: FastAPI) -> Any:
             "triggerOnError": ["timeout", "overloaded", "rate_limited", "llm_error"],
         },
     )
+    # 默认链故障转移(D208 2026-10-01):默认链首选 gemini/gemini-3.8-flash 与同族兜底
+    # @cf/zai-org/glm-4.7-flash 互备(两档均为 D150 当轮实测健康档)。原默认链
+    # step-router-v1 经 auto-route 落 llm7 上游 500,对普通用户断裂,已退役为非首选。
+    fallback_router.configure(
+        "gemini/gemini-3.8-flash",
+        {
+            "fallbacks": ["@cf/zai-org/glm-4.7-flash"],
+            "triggerOnError": ["timeout", "overloaded", "rate_limited", "llm_error"],
+        },
+    )
+    fallback_router.configure(
+        "@cf/zai-org/glm-4.7-flash",
+        {
+            "fallbacks": ["gemini/gemini-3.8-flash"],
+            "triggerOnError": ["timeout", "overloaded", "rate_limited", "llm_error"],
+        },
+    )
     logger.info(
         "[fallback_router] configured: stepfun 双模型互备 + gpt-4o -> stepfun/step-3.7-flash"
+        " + 默认链 gemini-3.8-flash <-> @cf/glm-4.7-flash 互备(D208)"
     )
 
     # 启动时从 Redis 加载历史向量记忆(进程重启不丢)
