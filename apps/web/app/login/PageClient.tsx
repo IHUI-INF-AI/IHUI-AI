@@ -12,6 +12,7 @@ import { QrTab } from '@ihui/ui-react'
 import type { ThirdPartyPlatform } from '@ihui/types'
 import { QrCodeLogin } from '@/components/login/QrCodeLogin'
 import { QR_PLATFORMS } from '@/components/login/LoginFormContent'
+import { resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
 
 /**
  * /login 软路由客户端(2026-07-31 立,2026-08-04 加嵌入式二维码模式)。
@@ -79,7 +80,15 @@ export default function LoginPageClient() {
       if (typeof window !== 'undefined' && window.history.length > 1) {
         router.back()
       } else {
-        router.replace(redirect || '/')
+        // G-413②:`redirect` 是客户端可整写的查询参数,裸喂 router 会把 `/\evil.com`(WHATWG
+        // 解析成外站)、`javascript:` 与跨站绝对地址送进导航。这里判"只认本站 origin 或站内
+        // 相对路径",用的是 sso-redirect-guard 的 allowedOrigins 档(与 /sso/* 同一份判据、
+        // 同一份实现),而不是端内再写一条 origin 比对(AGENTS §3)。
+        router.replace(
+          resolveSafeRedirectTarget(redirect || '/', {
+            allowedOrigins: [window.location.origin],
+          }),
+        )
       }
     })
     return () => cancelAnimationFrame(raf)

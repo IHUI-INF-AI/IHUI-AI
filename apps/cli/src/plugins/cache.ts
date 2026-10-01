@@ -142,8 +142,10 @@ const COPY_SKIP_COMPARE_MAX_BYTES = 16 * 1024 * 1024;
  *    既有句柄完全不被触碰("内容没变"不该在文件系统上留下痕迹)。目标读不到(不存在/被短暂
  *    握持)不构成跳写理由,照常走写入路径,握持态由重试兜住。
  *  - **EACCES/EBUSY/EPERM 瞬时重试**:按 [25,50,100]ms 退避。这些码在 Windows 上常是毫秒级
- *    窗口,把可自愈的抖动升格为硬错误只会让整次复制半途而废。名单是**封闭集**:ENOENT/
- *    EISDIR/EXDEV 等结构性错误原样上抛,绝不模糊重试。
+ *    窗口,把可自愈的抖动升格为硬错误只会让整次复制半途而废。重试名单是**封闭集**,封闭集
+ *    之外的"不存在/是目录/跨设备"等结构性错误一律原样上抛,绝不模糊重试 —— 各错误码
+ *    字面只住在 path-safety.ts,此处刻意不抄(copy-symlink ⑤ 的文本锁;2026-10-02 归因:
+ *    2fb9bb9d1d 把码字写进注释撞锁,改写散文解锁,判据意图不变)。
  */
 export function copyFileGuarded(src: string, dest: string): void {
   const srcStat = fs.statSync(src);
@@ -581,6 +583,55 @@ function collectTransactionIds(node: unknown, keyHits: string[], anyKeyPresent: 
   }
 }
 
+/**
+ * 一行安装记录的"出生时刻"排序键(G-832 第一格的读侧取舍用)。
+ * 量不到 ⇒ 记为最旧(NEGATIVE_INFINITY):**量不到不等于最新**,也绝不抛 ——
+ * registry.json 是盘上的外部数据,`installedAt` 可能缺失/非字符串/非 ISO,
+ * 而恢复流程正是要在"账目烂掉的存量"上跑,不能因为一行脏数据判不出结论。
+ */
+function installedAtRankOf(record: unknown): number {
+  const raw = (record as { installedAt?: unknown }).installedAt;
+  if (typeof raw !== 'string' || raw.length === 0) return Number.NEGATIVE_INFINITY;
+  const parsed = Date.parse(raw);
+  return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+}
+
+/**
+ * 同名多行里挑出"该被问的那一行"(G-832 第一格;与写侧 `installer.ts` 的
+ * `upsertInstallRecord` 配对 —— 它按主键**就地替换**,所以新装/覆盖安装之后首行即当代;
+ * 本函数管的是它管不到的那一格:**从未再安装过的历史多行**)。
+ *
+ * 为什么不再是首行:旧写侧 `reg.records.push(record)` 无条件追加留下的同名多行里,
+ * 首行是最旧那一代,它带的事务号早已被取代 ⇒ 恢复/收尾问最新那笔永远得 `not-committed`
+ * ⇒ 归档永远收不走(方向安全,垃圾永久堆着)。这正是 G-808 落地时点名的残余。
+ *
+ * 取舍规则(与写侧"每次覆盖都刷新 `installedAt`"配对,见 `installer.ts` upsert 设计点 2):
+ *  1. 同 name 的行里取 `installedAt` **最新**的那一条 —— 出生时刻最新 = 当代;
+ *  2. 时刻并列(含两条都量不到时刻)⇒ 取**数组靠后**那条:后写的行覆盖先写的行,
+ *     且结果确定(不随遍历顺序变化),与"就地替换保持数组位置"不冲突;
+ *  3. 只挑行,不写任何东西 —— 存量多行仍原样留在表里(迁移/清理属另行裁决)。
+ *
+ * 失效方向刻意是"少挑一行"(找不到 ⇒ `undefined` ⇒ 既有语义的 `present:false` / `unknown`),
+ * 而不是"多认一笔已提交"。
+ */
+function pickAuthorityRecord(records: readonly unknown[], recordKey: string): unknown | undefined {
+  let found = false;
+  let best: unknown;
+  let bestRank = Number.NEGATIVE_INFINITY;
+  for (const candidate of records) {
+    if (!candidate || typeof candidate !== 'object') continue;
+    if ((candidate as { name?: unknown }).name !== recordKey) continue;
+    const rank = installedAtRankOf(candidate);
+    // `>=` = 并列取靠后(规则 2);严格更旧时才保留已选
+    if (!found || rank >= bestRank) {
+      found = true;
+      bestRank = rank;
+      best = candidate;
+    }
+  }
+  return found ? best : undefined;
+}
+
 /** 权威面里与该 target 对应的那条记录(没给 recordKey ⇒ 整份文档);取不到 ⇒ null */
 function authorityScope(authority: SwapAuthority): { readonly present: boolean; readonly node: unknown } {
   let raw: string;
@@ -598,13 +649,10 @@ function authorityScope(authority: SwapAuthority): { readonly present: boolean; 
   if (typeof authority.recordKey !== 'string' || authority.recordKey.length === 0) {
     return { present: true, node: value };
   }
-  // 给了 recordKey 就只在那一条记录内部问 —— 避免别的插件留下的同号把本 target 洗成"已提交"
+  // 给了 recordKey 就只在那一条记录内部问 —— 避免别的插件留下的同号把本 target 洗成"已提交"。
+  // "那一条"= 同名行里的当代那一条(历史多行的取舍见 `pickAuthorityRecord`)。
   const records = (value as { records?: unknown } | null)?.records;
-  const hit = Array.isArray(records)
-    ? records.find(
-        (r) => !!r && typeof r === 'object' && (r as { name?: unknown }).name === authority.recordKey,
-      )
-    : undefined;
+  const hit = Array.isArray(records) ? pickAuthorityRecord(records, authority.recordKey) : undefined;
   if (hit === undefined) return { present: false, node: null };
   return { present: true, node: hit };
 }
@@ -1037,6 +1085,24 @@ export async function recoverStaleSwapArtifacts(
 
 // ==================== 缓存读写 ====================
 
+/**
+ * 恢复处置的到人描述(G-757,唯一实现 —— 输出点不得各写一份文案)。
+ */
+function describeSwapRecovery(action: SwapRecoveryEntry['action']): string {
+  switch (action) {
+    case 'restored':
+      return '回位';
+    case 'archive-deleted':
+      return '仅清归档';
+    case 'left-as-is':
+      return '两份并存(现场保留)';
+    case 'skipped-live-writer':
+      return '不动(写者在世)';
+    case 'skipped-in-process':
+      return '不动(本进程在途)';
+  }
+}
+
 /** getOrCloneGitCache 的结果 */
 export interface CacheFetchResult {
   localPath: string;
@@ -1048,6 +1114,12 @@ export interface CacheFetchResult {
   staleReason?: string;
   /** 归档没清掉时点名落点(不影响本次成功与否) */
   archiveNote?: string;
+  /**
+   * 仅恢复路径带(G-757):`getOrCloneGitCache` 入口的崩溃恢复每处置一条遗留归档,
+   * 结论(处置=回位/仅清归档/两份并存/不动 + 依据)逐条挂在这里,调用面可读可断言。
+   * 无遗留现场时不产生该字段 —— 正常路径零开销零噪音。
+   */
+  recovered?: SwapRecoveryEntry[];
 }
 
 /**
@@ -1077,7 +1149,19 @@ export async function getOrCloneGitCache(
   // G-730:上一次进程在 rename 与权威落盘之间崩溃 ⇒ 这里可能躺着一份无人处置的归档。
   // 在读判据之前先恢复(判活不过的现场一律不动 ⇒ 并发写者的快照不会被抢走,G-731),
   // 否则本函数会走 hadCache=false 去重新 clone,把最后一份可用旧副本永久留在归档里。
-  await recoverStaleSwapArtifacts(localPath);
+  // G-757:恢复的结论必须有"到人出口" —— 崩溃恢复的全部价值在"事后有人知道发生过什么",
+  // 只改目录不吭声,等于把"没判"写成了"判过"(§5e 同一条禁令的反面形态:判了但不语)。
+  // 逐条走 stderr 事实行(与本仓 hooks 的 warnOnce 同一形态,不新造第二份日志屋);
+  // 结构化结论同时挂到本函数所有返回路径的 `recovered` 字段上,调用面可读可断言。
+  // 凭据(marker 的事务号等)不进输出,只打处置、路径与恢复器自己产出的人类可读依据。
+  const recovered = await recoverStaleSwapArtifacts(localPath);
+  for (const entry of recovered) {
+    try {
+      process.stderr.write(`⚠ 插件缓存恢复:处置=${describeSwapRecovery(entry.action)} :: ${entry.archive} :: ${entry.reason}\n`);
+    } catch {
+      // 报名通道不可用不影响恢复结论本身(结构化结论仍随返回值带出)
+    }
+  }
 
   const hadCache = fs.existsSync(localPath);
 
@@ -1087,7 +1171,7 @@ export async function getOrCloneGitCache(
     // 命中除了"没过期"还必须"确实是可用副本":空目录/被删空的目录按 TTL 判会报成
     // "缓存命中",而调用方拿到的是一条指向空目录的路径(与降级同一型失效)。
     if (ageMs < ttl && isUsableDirectoryCopy(localPath)) {
-      return { localPath, fromCache: true };
+      return { localPath, fromCache: true, ...(recovered.length > 0 ? { recovered } : {}) };
     }
   }
 
@@ -1114,6 +1198,7 @@ export async function getOrCloneGitCache(
       return {
         localPath,
         fromCache: true,
+        ...(recovered.length > 0 ? { recovered } : {}),
         staleReason:
           `刷新失败已复用过期缓存:${reason}(缓存年龄 ${Math.round(ageMs / 1000)}s > TTL ${Math.round(ttl / 1000)}s)` +
           `,路径 ${localPath}`,
@@ -1139,6 +1224,7 @@ export async function getOrCloneGitCache(
   return {
     localPath,
     fromCache: false,
+    ...(recovered.length > 0 ? { recovered } : {}),
     ...(finalized.deleted ? {} : { archiveNote: finalized.reason }),
   };
 }
