@@ -4,12 +4,12 @@
 
 import { useTt, t } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import LineIcon from '@/components/LineIcon'
 import { icon } from '@/constants/remote-icons'
 import { useState, useEffect, useCallback } from 'react'
 import type { TitleSwitchTypeBarItem, TitleSwitchTypeBarProps } from '@ihui/types'
 import './TitleSwitchTypeBar.css'
-import { FocusInput } from '@/components/FocusField'
 
 // 共享类型 TitleSwitchTypeBarItem / TitleSwitchTypeBarProps 已下沉到 packages/types,两端复用。
 // 重新导出以维持本模块公开 API(原文件 export 这些类型)。
