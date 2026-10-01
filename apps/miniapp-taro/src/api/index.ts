@@ -8,10 +8,12 @@
 import { BASE_URL } from '../utils/api-config'
 import { type UserInfo, type LoginResult } from '../utils/auth'
 import type { SSEEvent } from '../utils/sse-parse'
-// #12 小程序 AI 增强:传输层收敛到 src/lib/sse.ts 的 streamSSE(单一可测试真源),
-// 仅本端保留读超时常量;重试上限 / 指数退避退避常量已下沉到 sse.ts。
+// #12 小程序 AI 增强,D138(承 V4 #96)收口:传输层收敛到 src/lib/sse.ts 薄壳 +
+// @ihui/api-client 的 runResumableSSEStream(重连/退避/读超时/续传游标的唯一实现);
+// 仅本端保留读超时常量传参。
 import { STREAM_READ_TIMEOUT_MS } from '@ihui/shared/constants'
-// W5:chatStream 传输层收敛到 src/lib/sse.ts(enableChunked + H5 fetch + 断点续传 + 指数退避 + 读超时 + AbortSignal)
+// W5:chatStream 传输层经 src/lib/sse.ts 薄壳接入共享 runner(传输介质:
+// weapp enableChunked / H5 fetch,由 utils/taro-stream-transport.ts 注入 api-client)
 import { streamSSE } from '@/lib/sse'
 import { resolveAgentTools } from '@/lib/ui-control-tools'
 import type {
@@ -591,9 +593,10 @@ export const chatStream = async (
     tool_choice: options.tool_choice,
   })
 
-  // #12 小程序 AI 增强:传输层收敛到 src/lib/sse.ts 的 streamSSE(单一可测试真源)。
-  // streamSSE 内部完成 enableChunked / H5 fetch ReadableStream 双通道、Last-Event-ID 断点续传、
-  // 指数退避重连、读超时、AbortSignal 取消;本端仅保留事件分发(dispatch)与内容前缀去重(dedupe)。
+  // #12 小程序 AI 增强,D138(承 V4 #96)收口:传输层收敛到 src/lib/sse.ts 薄壳 +
+  // @ihui/api-client 的 runResumableSSEStream(重连/指数退避/读超时/断点续传游标的
+  // 唯一实现,与 web 端 streamChat 同源;传输介质经 utils/taro-stream-transport.ts 注入)。
+  // 本端仅保留事件分发(dispatch)与内容前缀去重(dedupe)。
   await streamSSE({
     url: BASE_URL + '/ai/chat/stream',
     body: buildBody(),
