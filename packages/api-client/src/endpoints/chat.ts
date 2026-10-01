@@ -169,6 +169,68 @@ export function listPendingDecisions() {
   )
 }
 
+/**
+ * D165 会话分组(2026-10-01 立)。服务端能力链已入库;UI 入口另计(见台账 D165 行的归属说明)。
+ * 路径全部走 `/api/chat/conversations/groups*` 静态段,与参数路由 `/api/chat/conversations/:id`
+ * 不同段数 —— 不得为省一条路由把静态段并进参数路由(那会让静态子路由被当成游客详情放行)。
+ */
+export interface ConversationGroup {
+  id: string
+  name: string
+  pinned: boolean
+  pinnedAt: string | null
+  conversationCount: number
+}
+
+/** 移动结果:affected 是**库确认数**,missedIds 逐条点名没动成的那些。 */
+export interface MoveConversationsResult {
+  requested: number
+  affected: number
+  missedIds: string[]
+  groupId: string | null
+}
+
+export function listConversationGroups() {
+  return fetchApi<{ groups: ConversationGroup[] }>('/api/chat/conversations/groups')
+}
+
+/** 会话 → 分组归属表(会话列表本身的投影是既有白名单,不含 groupId,所以另给一张表)。 */
+export function listConversationGroupAssignments() {
+  return fetchApi<{ assignments: { conversationId: string; groupId: string | null }[] }>(
+    '/api/chat/conversations/groups/assignments',
+  )
+}
+
+export function createConversationGroup(name: string) {
+  return fetchApi<{ group: { id: string; name: string; pinned: boolean }; reused: boolean }>(
+    '/api/chat/conversations/groups',
+    { method: 'POST', body: JSON.stringify({ name }) },
+  )
+}
+
+/** 改名与置顶共用一条 PATCH;两者都不给时服务端拒 400,不会静默无操作。 */
+export function updateConversationGroup(id: string, patch: { name?: string; pinned?: boolean }) {
+  return fetchApi<{ id: string; renamed: boolean; pinned: boolean | null }>(
+    `/api/chat/conversations/groups/${encodeURIComponent(id)}`,
+    { method: 'PATCH', body: JSON.stringify(patch) },
+  )
+}
+
+export function deleteConversationGroup(id: string) {
+  return fetchApi<{ id: string; deleted: boolean }>(
+    `/api/chat/conversations/groups/${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
+  )
+}
+
+/** 单条移动与批量移动是同一条出口(1..n 个 id)。groupId=null 表示移出分组、回未分组。 */
+export function moveConversationsToGroup(conversationIds: string[], groupId: string | null) {
+  return fetchApi<MoveConversationsResult>('/api/chat/conversations/groups/move', {
+    method: 'POST',
+    body: JSON.stringify({ conversationIds, groupId }),
+  })
+}
+
 /** 对话列表查询参数 */
 export interface ListConversationsParams {
   page?: number

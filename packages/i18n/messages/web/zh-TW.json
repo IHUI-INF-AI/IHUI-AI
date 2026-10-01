@@ -9218,7 +9218,27 @@
       "removeTagAria": "移除標籤 {tag}",
       "filterLabel": "依資料夾篩選",
       "filterAll": "全部",
-      "folderNone": "未分類"
+      "folderNone": "未分類",
+      "adminTitle": "分組管理",
+      "adminEmpty": "還沒有分組",
+      "adminPending": "分組清單正在從伺服器同步，稍後可在此管理。",
+      "adminDeleteHint": "刪除分組只會取消歸類，不會刪除會話。",
+      "retry": "重試",
+      "folderCount": "{count} 條",
+      "pinAria": "置頂分組",
+      "unpinAria": "取消置頂分組",
+      "renameAria": "重新命名分組",
+      "deleteAria": "刪除分組",
+      "confirmRenameAria": "確認重新命名",
+      "cancelRenameAria": "取消重新命名",
+      "reasonOffline": "網路不通，請檢查連線後重試",
+      "reasonNameTooLong": "分組名稱過長或為空",
+      "reasonDuplicateName": "已有同名分組",
+      "reasonNotFound": "分組不存在或已被刪除",
+      "reasonForbidden": "您沒有這個分組的操作權限",
+      "reasonUnauthorized": "登入已過期，請重新登入",
+      "reasonServer": "伺服器出現問題，請稍後重試",
+      "reasonUnknown": "操作失敗，請稍後重試"
     }
   },
   "aiCost": {

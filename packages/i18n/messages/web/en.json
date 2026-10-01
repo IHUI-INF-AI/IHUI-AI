@@ -9228,7 +9228,27 @@
       "removeTagAria": "Remove tag {tag}",
       "filterLabel": "Filter by folder",
       "filterAll": "All",
-      "folderNone": "Unfiled"
+      "folderNone": "Unfiled",
+      "adminTitle": "Manage folders",
+      "adminEmpty": "No folders yet",
+      "adminPending": "The folder list is syncing from the server — you can manage folders here shortly.",
+      "adminDeleteHint": "Deleting a folder only unfiles its conversations; nothing is deleted.",
+      "retry": "Retry",
+      "folderCount": "{count} conversations",
+      "pinAria": "Pin folder",
+      "unpinAria": "Unpin folder",
+      "renameAria": "Rename folder",
+      "deleteAria": "Delete folder",
+      "confirmRenameAria": "Confirm rename",
+      "cancelRenameAria": "Cancel rename",
+      "reasonOffline": "Network unreachable — check your connection and try again",
+      "reasonNameTooLong": "Folder name is too long or empty",
+      "reasonDuplicateName": "A folder with that name already exists",
+      "reasonNotFound": "Folder does not exist or was deleted",
+      "reasonForbidden": "You do not have permission to change this folder",
+      "reasonUnauthorized": "Your session expired — sign in again",
+      "reasonServer": "The server had a problem. Try again shortly.",
+      "reasonUnknown": "The action failed. Try again shortly."
     }
   },
   "aiCost": {
