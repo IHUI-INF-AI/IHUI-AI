@@ -7,7 +7,7 @@
 // 2026-09-09 0-6 组件拆分:底部结果 + 控制区从 agent-pane.tsx 抽出
 import { useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
-import { Trash2, AlertCircle, CheckCircle2, Square, XCircle, HelpCircle } from 'lucide-react'
+import { Trash2, AlertCircle, CheckCircle2, Square, XCircle, HelpCircle, Pause, Play } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ResultTone } from './model'
 
@@ -36,6 +36,21 @@ export interface AgentResultFooterProps {
   tone?: ResultTone
   onStop: () => void
   onClear: () => void
+  /** 后端已确认的暂停态 —— 只能由 props 驱动,组件不得把"点过暂停"读成"已经停了" */
+  isPaused?: boolean
+  /** 已拿到 session_id(暂停通道可寻址);缺省 false ⇒ 暂停钮在位但不可点 */
+  pauseAvailable?: boolean
+  /** 暂停/继续请求在途的那个动作(另一态是后端确认,不经这里) */
+  pending?: 'pause' | 'resume' | null
+  onPause?: () => void
+  onResume?: () => void
+  /** 暂停/继续的失败单独成行(带状态码与 errorCode),不得折进 error 那一格 */
+  controlFailure?: {
+    action: 'pause' | 'resume'
+    status: number
+    errorCode: string
+    message: string
+  } | null
 }
 
 export function AgentResultFooter({
@@ -46,9 +61,17 @@ export function AgentResultFooter({
   tone = 'success',
   onStop,
   onClear,
+  isPaused = false,
+  pauseAvailable = false,
+  pending = null,
+  onPause,
+  onResume,
+  controlFailure = null,
 }: AgentResultFooterProps) {
   const t = useTranslations('ide')
   const ToneIcon = TONE_ICON[tone]
+  const showPause = isRunning && !isPaused && onPause !== undefined
+  const showResume = isRunning && isPaused && onResume !== undefined
   return (
     <div className="shrink-0 space-y-2 bg-card p-2">
       {error && (
@@ -59,6 +82,19 @@ export function AgentResultFooter({
         >
           <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
           <span className="flex-1 break-all">{error}</span>
+        </div>
+      )}
+      {controlFailure && (
+        <div
+          className="flex items-start gap-1.5 rounded-md bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
+          role="alert"
+          data-testid="agent-pane-control-error"
+          data-action={controlFailure.action}
+          data-status={String(controlFailure.status)}
+          data-error-code={controlFailure.errorCode}
+        >
+          <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+          <span className="flex-1 break-all">{controlFailure.message}</span>
         </div>
       )}
       {!error && result && (
@@ -77,6 +113,15 @@ export function AgentResultFooter({
         </div>
       )}
       <div className="flex items-center gap-1.5">
+        {(isRunning || isPaused) && (
+          <span
+            className="inline-flex h-6 items-center rounded-sm bg-muted px-2 text-[10px] font-medium text-muted-foreground"
+            data-testid="agent-pane-phase"
+            data-phase={isPaused ? 'paused' : 'running'}
+          >
+            {isPaused ? t('agentPane.paused') : t('agentPane.running')}
+          </span>
+        )}
         <button
           type="button"
           onClick={onStop}
@@ -87,6 +132,32 @@ export function AgentResultFooter({
           <Square className="h-3 w-3" aria-hidden />
           <span>{t('agentPane.stop')}</span>
         </button>
+        {showPause && (
+          <button
+            type="button"
+            onClick={onPause}
+            disabled={!pauseAvailable || pending !== null}
+            aria-busy={pending === 'pause' || undefined}
+            className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            data-testid="agent-pane-pause-btn"
+          >
+            <Pause className="h-3 w-3" aria-hidden />
+            <span>{t('agentPane.pause')}</span>
+          </button>
+        )}
+        {showResume && (
+          <button
+            type="button"
+            onClick={onResume}
+            disabled={pending !== null}
+            aria-busy={pending === 'resume' || undefined}
+            className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            data-testid="agent-pane-resume-btn"
+          >
+            <Play className="h-3 w-3" aria-hidden />
+            <span>{t('agentPane.resume')}</span>
+          </button>
+        )}
         <button
           type="button"
           onClick={onClear}
