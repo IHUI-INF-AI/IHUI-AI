@@ -883,30 +883,107 @@ export function findDupBlocks(content) {
  * 逐条看绝大多数是本仓子项命名惯例(D30①/D30②/O81票㉑ 一族),不是真撞号 ——
  * 所以本维**只进差值/基线棘轮(只拦新增撞号组),存量只报数、`--strict` 也不判红**;
  * 当场判红就是与任何提交无关的恒红门(§12e),而为变绿给编号加豁免清单同样禁止(§4)。
+ *
+ * ⚠ 自 G-460 起本函数返回的是 **宽口径(`f9Faces().wide`)** —— 它是诊断读数,**不是判据输入**。
+ *   F9 的判据输入是 `f9Faces(content).collisions`(只由声明行分组),由 `auditPlan` 直接取,
+ *   再经 `plan-tasks.mjs` 的 `narrowF9Face` 覆盖到判定面上。留宽口径在这个出口是有原因的:
+ *   取号改号工具(`plan-collide-renumber-plan`)与既有镜像测试都要问"窗口口径下这一族有没有撞",
+ *   而那一条问句的答案必须与判据的实际口径成对出现,否则"看不见引用"会被读成"没有引用"。
  * @returns {Array<{key:string,titleCount:number,titles:Array<{title:string,lines:number[]}>}>} 按编号首现顺序
  */
 export function findIdCollisions(content) {
-  const byKey = new Map()
-  for (const r of parseTaskRows(content)) {
-    if (!r.key) continue
-    const title = titleOf(r.raw)
-    if (!title) continue
-    if (titleIsDegenerate(r.raw, title)) continue
-    if (!byKey.has(r.key)) byKey.set(r.key, new Map())
-    const titles = byKey.get(r.key)
-    if (!titles.has(title)) titles.set(title, [])
-    titles.get(title).push(r.line)
-  }
-  const groups = []
-  for (const [key, titles] of byKey) {
+  return f9Faces(content).wide
+}
+
+/**
+ * F9 的**声明位**判据(2026-09-28 G-417 定的那条判据,自 G-460 起住在台账层这一份)。
+ *
+ * 一行算不算"该编号的一次登记",问的是**编号落没落在编号位上**:剥掉复选框与状态装饰后的正文
+ * 开头(可含 `*`/反引号/空白)就是本行主键 ⇒ 声明行;否则那一次命中只是行文引用,或者是畸形号
+ * 肚子里被窗口切出来的子串。
+ * 实现只复用台账既有出口(`bodyOfRow` + `stripOwnKey` 的 strict/lenient 两档),不另抄编号正则。
+ */
+export function isDeclarationRow(rawLine, key) {
+  const body = bodyOfRow(rawLine)
+  if (body === null || !key) return false
+  return stripOwnKey(body, key, 'strict') !== body || stripOwnKey(body, key, 'lenient') !== body
+}
+
+/** 把 `Map<key, Map<title, lines[]>>` 收成 ≥2 标题的组(按首现顺序,与旧实现同形)。 */
+function f9GroupsOf(bag) {
+  const out = []
+  for (const [key, titles] of bag) {
     if (titles.size < 2) continue
-    groups.push({
+    out.push({
       key,
       titleCount: titles.size,
       titles: [...titles.entries()].map(([title, lines]) => ({ title, lines })),
     })
   }
-  return groups
+  return out
+}
+
+/** 往一把袋子里记一次命中(同标题多行只并 lines,不另开一标题)。 */
+function f9Bump(bag, key, title, line) {
+  if (!bag.has(key)) bag.set(key, new Map())
+  const titles = bag.get(key)
+  if (!titles.has(title)) titles.set(title, [])
+  titles.get(title).push(line)
+}
+
+/**
+ * F9 的**三档**读数(2026-09-30 G-460 立;此前只有下面第一档,另两档混在"已排除"里不给名字)。
+ *
+ * 为什么必须一次扫完再分档,而不是"先算宽口径、再逐组筛掉非声明位":
+ *  - 判据的分组输入按票面口径就是**声明行**(行首状态位 + 编号 + 标题的复合形态);"先造出伪组再筛"
+ *    在结论上等价,在语义上不等价 —— 伪组一旦被造出来,任何后来读 `collisions` 的消费者
+ *    (`plan-collide-renumber-plan` 的取号判据、收敛落地闸)拿到的都是含引用与脏号的名单,
+ *    而账面看不出它筛过。三档各归各位之后,宽口径只作**读数**用,不再是任何判据的输入。
+ *  - 行文引用要能**报名**:它只报数不判红,但"某个号被别人正文里点了多少次"是取号与归并的输入
+ *    (改号出口对这一型不成立 —— 旧号会继续挂在别人的引用里),不报名就只有下一个人重新发现一遍。
+ *  - 畸形号(`G-G-334` 这类前缀重复)的子串恰好是别人的正常号,过去会顶替那一组的"第二个标题"。
+ *    自本档起它**永不进任何分组**,单独落在 `malformed` 档,与 F9b(`findMalformedRows`)同源一份
+ *    判据(`malformedFamilyOf`),不另抄形状。
+ *
+ * 三态不并桶:`declared`(判据输入)/ `references`(只报数)/ `wide`(诊断读数)/ `malformed`。
+ * 退化标题行(`titleIsDegenerate`)按 M16 那条防线**不贡献标题**,三档都不记 —— 与收窄前逐字同形。
+ *
+ * @param content 被审面全文(必须是**同一个面**;两处各取一次面就是自洽却错位的尺子)
+ * @returns {{collisions:Array, references:Array, wide:Array, malformed:Array, droppedTitles:number}}
+ *   `collisions` = 声明位撞号组(F9 判据唯一输入);`references` = 每个编号被非声明行挂到的标题;
+ *   `malformed` = 畸形号行被窗口切出的"正常号"与其原文行;`droppedTitles` = 宽口径里非声明位的标题数
+ */
+export function f9Faces(content) {
+  const declared = new Map()
+  const referenced = new Map()
+  const wide = new Map()
+  const malformed = new Map()
+  let droppedTitles = 0
+  for (const r of parseTaskRows(content)) {
+    if (!r.key) continue
+    const title = titleOf(r.raw)
+    if (!title) continue
+    if (titleIsDegenerate(r.raw, title)) continue
+    f9Bump(wide, r.key, title, r.line)
+    // 畸形号:族名在编号段里出现两次 ⇒ 本行的"编号位"根本不是一个合法号,单独点名
+    if (malformedFamilyOf(r.raw)) {
+      if (!malformed.has(r.key)) malformed.set(r.key, [])
+      malformed.get(r.key).push(r.line)
+      continue
+    }
+    if (isDeclarationRow(r.raw, r.key)) f9Bump(declared, r.key, title, r.line)
+    else {
+      f9Bump(referenced, r.key, title, r.line)
+      droppedTitles += 1
+    }
+  }
+  return {
+    collisions: f9GroupsOf(declared),
+    references: f9GroupsOf(referenced),
+    wide: f9GroupsOf(wide),
+    malformed: [...malformed.entries()].map(([key, lines]) => ({ key, lines })),
+    droppedTitles,
+  }
 }
 
 /**
@@ -1196,7 +1273,12 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
   const dupCopies = findDupOpenCopies(dupOpen)
   const verbatimDups = findVerbatimDupOpenRows(content)
   const dupBlocks = findDupBlocks(content)
-  const collisions = findIdCollisions(content)
+  // F9 三档一次扫完(G-460):`f9.collisions` 是判据唯一输入(只由声明行分组),`f9.wide` 是诊断读数,
+  // `f9.references` / `f9.malformed` 是两档**只报数并报名**的名单 —— 把误判挪到报数档时必须同时报名,
+  // 否则下一个人只能重新发现一遍(本仓"报数不报名"记过多次:守门 70/76/81/128 同族)。
+  const f9 = f9Faces(content)
+  const collisions = f9.wide
+  const f9Declared = f9.collisions
   // F9b:与上面几条同一遍 parseTaskRows 的结果上算(不得为它再解析一次文档 —— 两处解析必漂移),
   // 判据本体是 `malformedFamilyOf` 那一份,生产者(live-doc-edit)与本层读的是同一个出口。
   const malformedRows = findMalformedRows(content)
@@ -1242,6 +1324,10 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
     verbatimDups,
     dupBlocks,
     collisions,
+    // F9 三档(G-460):判据输入 / 只报数的引用图 / 单独点名的畸形号
+    f9Declared: f9.collisions,
+    f9References: f9.references,
+    f9MalformedMasquerade: f9.malformed,
     malformedRows,
     dispBuckets,
     undisposed,
@@ -1294,7 +1380,16 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
       dupBlockDrifted: dupBlocks.drifted.length,
       dupDoneGroups: dupDone.length,
       // F9 撞号(见 findIdCollisions 头注定级理由):存量只报数,提交链只拦新增撞号组。
+      // 本项是**宽口径**组数(与 `collisions` 同形,两者必须一起动 —— 差值档读组数、点名读名单);
+      // 判据真正吃的是声明位口径 `f9DeclaredGroups`,由 plan-tasks 的 narrowF9Face 覆盖到判定面上。
       collisionGroups: collisions.length,
+      f9WideGroups: f9.wide.length,
+      f9DeclaredGroups: f9.collisions.length,
+      // 被摘出判据的标题数必须同时报名(名单见 f9References / f9MalformedMasquerade)—— 只给计数
+      // 会把"这一格没人看过"读成"这一格没有问题"。
+      f9NonIdTitles: f9.droppedTitles,
+      f9ReferenceIds: f9.references.length,
+      f9MalformedMasqueradeIds: f9.malformed.length,
       // F9b 畸形登记号(见 findMalformedRows 头注):判据与取号器的生产者侧同源一份实现。
       // 同 F9 定级 —— 存量只报数,红路只有差值棘轮与基线天花板两层(§12e)。
       malformedIds: malformedRows.length,
