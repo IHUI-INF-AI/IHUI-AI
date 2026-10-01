@@ -390,6 +390,102 @@ export interface ToolResultBudgetContract {
   artifactRetention?: ToolArtifactRetention
 }
 
+/**
+ * 「这次结果被截断了」的类型化账目(G-720,2026-09-30 立)。
+ *
+ * 为什么要它:此前"截断"只活在两处散文里 ——
+ *  ① `apps/cli/src/tools/builtins.ts` read_file 字节闸的 `...(truncated: file is N bytes, only the first M bytes were read…)`;
+ *  ② `apps/cli/src/tools/index.ts::applyToolResultBudget` 的 `[tool-result-budget] output truncated: original N bytes, showing M bytes…`。
+ * 散文能让模型知道"看到的是部分视图",但**没有任何一层能判定**这次到底截了多少、按哪档策略截的:
+ * 上层要判断只能去正则匹配第三方英文短句(AGENTS「错误码文本判分支」记过的同型失效)。
+ * 本记录把那两个量落成**可判字段**,散文注记原样保留(它对模型仍有必要,两处既有测试也当契约钉着)。
+ *
+ * 三条口径:
+ *  - `truncated` 只可能是 `true`,且**只由边界从两条字节数推导**(缺席 = 未截,等价上游
+ *    `z.literal(true).optional()` 那一档 ⇒ **绝不产 `false` 噪音**)。谁自述"截了"都不算数。
+ *  - `originalBytes` / `returnedBytes` 记的是**源内容**字节数,不含渲染侧拼上的标注与行号前缀
+ *    —— 掺进装饰字节的两枚数彼此不可对账,也就不再是账。
+ *  - `budgetStrategy` 记**实际施加**的策略,不是声明的策略:本仓 artifact 存储尚未接线
+ *    (`tools/index.ts:630` 那段注释即此),声明 `artifact` 时运行期降级为 `truncate`,那一次就记
+ *    `truncate` —— 记 `artifact` 等于声称产出了一个并不存在的文件。
+ *  - `artifactPath` 只在 `budgetStrategy === 'artifact'` 时有意义且必填;存储设施落地前该档取不到值。
+ *
+ * 已知表达力边界(如实登记,不得读成"两事实已覆盖"):上游 `interfaces/execution.port.ts:173-180`
+ * 把"内联截了"与"artifact 也截了"记成**两枚事实**,而本形状一条结果只带一枚记录。一次调用同时发生
+ * 两事时的出路是拆成两条账(属新字段设计,另计一票),不是把两件事压进一枚冒充完整。
+ */
+export interface ToolResultTruncationRecord {
+  /** 缺席 = 未截(唯一合法值是 true;false 一律不产出) */
+  readonly truncated?: true
+  readonly originalBytes: number
+  readonly returnedBytes: number
+  readonly budgetStrategy: ToolResultPolicy
+  readonly artifactPath?: string
+}
+
+/**
+ * handler 侧能说的只有**事实**(两枚字节数 + 策略 [+ artifact 路径]),结论归执行器边界。
+ * 刻意不含 `truncated` ⇒ 谎报"截了"在类型层就无处落脚。
+ */
+export type ToolResultTruncationFacts = Omit<ToolResultTruncationRecord, 'truncated'>
+
+/** 非负安全整数才当字节数用(NaN / Infinity / 小数 / 负数一律算不出这笔账)。 */
+function isByteCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+}
+
+function isResultPolicy(value: unknown): value is ToolResultPolicy {
+  return typeof value === 'string' && (TOOL_RESULT_POLICIES as readonly string[]).includes(value)
+}
+
+/**
+ * 把一份截断事实推导成类型化账目 —— **唯一构造点**。
+ * 调用点只有执行器边界两处(`executeWithinExecBudget` 收 handler 事实、`applyToolResultBudget`
+ * 记自己施加的裁剪),别处不得再拼这个对象(拼得出第二份就是第二个真相)。
+ *
+ * 返回 `null` 表示"这笔账算不出来",两种情形都不允许用一条自相矛盾的记录冒充结论:
+ *  ① 字节数不是非负安全整数,或 `returnedBytes > originalBytes`(返回得比源还多 ⇒ 两条事实里
+ *     至少一条是编的);
+ *  ② `budgetStrategy` 不在值域上,或 `artifact` 档给不出路径,或非 `artifact` 档却带着路径
+ *     (那就是"两枚事实塞进一枚记录",见上方的表达力边界)。
+ *
+ * `truncated` 由 `returnedBytes < originalBytes` 现场推导;传进来的自述值一律丢弃(参数是 `unknown`,
+ * 它本来就不在被允许的形状里)。结果 `Object.freeze` —— 边界产出的结论不得被下游改写回去。
+ */
+export function buildToolResultTruncationRecord(facts: unknown): ToolResultTruncationRecord | null {
+  if (typeof facts !== 'object' || facts === null) return null
+  const raw = facts as Record<string, unknown>
+  const originalBytes = raw.originalBytes
+  const returnedBytes = raw.returnedBytes
+  const budgetStrategy = raw.budgetStrategy
+  const artifactPath = raw.artifactPath
+  if (!isByteCount(originalBytes) || !isByteCount(returnedBytes)) return null
+  if (returnedBytes > originalBytes) return null
+  if (!isResultPolicy(budgetStrategy)) return null
+  if (budgetStrategy === 'artifact') {
+    if (typeof artifactPath !== 'string' || artifactPath === '') return null
+  } else if (artifactPath !== undefined) {
+    return null
+  }
+  const wasTruncated = returnedBytes < originalBytes
+  const record: ToolResultTruncationRecord =
+    budgetStrategy === 'artifact'
+      ? {
+          ...(wasTruncated ? { truncated: true as const } : {}),
+          originalBytes,
+          returnedBytes,
+          budgetStrategy,
+          artifactPath,
+        }
+      : {
+          ...(wasTruncated ? { truncated: true as const } : {}),
+          originalBytes,
+          returnedBytes,
+          budgetStrategy,
+        }
+  return Object.freeze(record)
+}
+
 // ==================== 契约与挂载位 ====================
 
 /**
