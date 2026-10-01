@@ -6,12 +6,14 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
-import { History, Loader2, Trash2, FileText, Folder } from 'lucide-react'
+import { History, Loader2, LogIn, Trash2, FileText, Folder } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
+import { useAuthStore } from '@/stores/auth'
+import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 
 type ResourceType = 'project' | 'file' | 'doc' | 'post'
 
@@ -39,6 +41,10 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 export default function MemberHistoryPage() {
   const locale = useLocale()
   const qc = useQueryClient()
+  // 2026-09-30 登录态门:与 /chat/history 同型修复。此前匿名访问也发注定 401 的请求
+  // (queryFn 静默吞错返回 [],界面显示「暂无浏览记录」而非登录引导)。
+  const { ready } = useAuthBootstrap()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'history'],
@@ -46,6 +52,7 @@ export default function MemberHistoryPage() {
       api<{ list: HistoryItem[] }>('/api/history')
         .then((d) => d.list ?? [])
         .catch(() => [] as HistoryItem[]),
+    enabled: ready && isAuthenticated,
   })
 
   const clearMut = useMutation({
@@ -92,7 +99,12 @@ export default function MemberHistoryPage() {
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
-      {isLoading ? (
+      {!ready || !isAuthenticated ? (
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
+          <LogIn className="h-8 w-8 opacity-40" />
+          <p className="text-sm">请先登录后查看浏览历史</p>
+        </div>
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
           <span className="whitespace-nowrap">加载中...</span>

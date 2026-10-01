@@ -74,6 +74,7 @@ import {
 import { success, error } from '../utils/response.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { isAppError } from '../errors/AppError.js'
+import { contentEqual } from '@ihui/shared'
 
 const QUESTION_TYPES = [
   'single_choice',
@@ -904,11 +905,11 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       }
       let isCorrect = false
       if (q.type === 'single_choice' || q.type === 'judgment') {
-        isCorrect = JSON.stringify(a.answer) === JSON.stringify(q.answer)
+        isCorrect = contentEqual(a.answer, q.answer)
       } else if (q.type === 'multi_choice') {
         const ans = Array.isArray(a.answer) ? [...a.answer].sort() : []
         const correct = Array.isArray(q.answer) ? [...q.answer].sort() : []
-        isCorrect = JSON.stringify(ans) === JSON.stringify(correct)
+        isCorrect = contentEqual(ans, correct)
       } else if (q.type === 'fill_blank') {
         const ans = Array.isArray(a.answer) ? a.answer : [a.answer]
         const correct = Array.isArray(q.answer) ? q.answer : [q.answer]
@@ -993,11 +994,11 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       }
       let isCorrect = false
       if (q.type === 'single_choice' || q.type === 'judgment') {
-        isCorrect = JSON.stringify(a.userAnswer) === JSON.stringify(q.answer)
+        isCorrect = contentEqual(a.userAnswer, q.answer)
       } else if (q.type === 'multi_choice') {
         const ans = Array.isArray(a.userAnswer) ? [...a.userAnswer].sort() : []
         const correct = Array.isArray(q.answer) ? [...q.answer].sort() : []
-        isCorrect = JSON.stringify(ans) === JSON.stringify(correct)
+        isCorrect = contentEqual(ans, correct)
       } else if (q.type === 'fill_blank') {
         const ans = Array.isArray(a.userAnswer) ? a.userAnswer : [a.userAnswer]
         const correct = Array.isArray(q.answer) ? q.answer : [q.answer]
@@ -1938,11 +1939,11 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       let score = 0
       if (a) {
         if (q.type === 'single_choice' || q.type === 'judgment') {
-          isCorrect = JSON.stringify(a.answer) === JSON.stringify(q.answer)
+          isCorrect = contentEqual(a.answer, q.answer)
         } else if (q.type === 'multi_choice') {
           const ans = Array.isArray(a.answer) ? [...a.answer].sort() : []
           const correct = Array.isArray(q.answer) ? [...q.answer].sort() : []
-          isCorrect = JSON.stringify(ans) === JSON.stringify(correct)
+          isCorrect = contentEqual(ans, correct)
         } else if (q.type === 'fill_blank') {
           const ans = Array.isArray(a.answer) ? a.answer : [a.answer]
           const correct = Array.isArray(q.answer) ? q.answer : [q.answer]

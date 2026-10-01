@@ -825,6 +825,7 @@ export async function updateSignupStatus(
   const rows = await db
     .update(lessonSignUps)
     .set({ status })
+  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(lessonSignUps.id, id))
     .returning()
   return rows[0]

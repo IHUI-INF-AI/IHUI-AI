@@ -21,7 +21,8 @@ import {
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface Paper {
   id: string
@@ -51,9 +52,13 @@ export default function ExamPage() {
   const t = useTranslations('exam')
   const [page, setPage] = React.useState(1)
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['exam', 'papers', page],
     queryFn: () => api<PapersData>(`/api/exam/papers?page=${page}&pageSize=${PAGE_SIZE}`),
+    enabled: allow,
   })
 
   const papers = data?.list ?? []
@@ -69,7 +74,9 @@ export default function ExamPage() {
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看考试试卷" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}

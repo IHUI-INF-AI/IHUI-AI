@@ -40,6 +40,8 @@ export interface CanvasNodeData extends Record<string, unknown> {
   params: CanvasNodeParams
   status: CanvasRunStatus
   logs: CanvasLogEntry[]
+  /** G-641:节点日志因上限(100 条)溢出被丢弃的累计条数(0 = 从未丢;静默变短 = 伪造完整性) */
+  dropped: number
 }
 
 /** 单个节点定义(DAG 持久化格式) */

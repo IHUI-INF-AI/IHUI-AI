@@ -61,7 +61,8 @@ const GIT_BIN = resolveGitBin()
 // 于是该项按"权威源缺失"判 unknown(不判红)。换机后若表在别的盘,这里会自动跟上。
 const SECRETS_DIR =
   process.env.IHUI_SECRETS_DIR ||
-  firstExisting(['D:/DevEnv/secrets', 'F:/DevEnv/secrets', 'G:/DevEnv/secrets', 'E:/DevEnv/secrets']) ||
+  // 项目内形态(G-814433 DevEnv 搬入 .DevEnv 后)优先;搬迁前老机器走盘符表,行为不变。
+  firstExisting([join(REPO, '.DevEnv', 'secrets'), 'D:/DevEnv/secrets', 'F:/DevEnv/secrets', 'G:/DevEnv/secrets', 'E:/DevEnv/secrets']) ||
   'D:/DevEnv/secrets'
 // 盘符按"存在即真"解析(见 scripts/lib/key-dir.mjs):本机真实库在 F 盘,写死 D 盘会让
 // 镜像活性探测读不到 key ⇒ 报成"国内镜像停摆",把"路径过期"误诊成"凭据失效"。

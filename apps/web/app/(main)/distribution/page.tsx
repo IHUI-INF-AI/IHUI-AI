@@ -21,7 +21,8 @@ import {
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Card, CardContent } from '@ihui/ui-react'
 import { StatCard } from '@/components/data'
 
@@ -60,21 +61,27 @@ export default function DistributionHomePage() {
   const t = useTranslations('distribution')
   const tc = useTranslations('common')
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
   const teamQ = useQuery({
     queryKey: ['distribution', 'team-center'],
     queryFn: () => api<TeamCenterData>('/api/finance/distribution/team/center'),
+    enabled: allow,
   })
   const summaryQ = useQuery({
     queryKey: ['distribution', 'commission-summary'],
     queryFn: () => api<CommissionSummaryData>('/api/finance/commission/summary'),
+    enabled: allow,
   })
   const availableQ = useQuery({
     queryKey: ['distribution', 'withdrawal-available'],
     queryFn: () => api<AvailableData>('/api/finance/withdrawal/available'),
+    enabled: allow,
   })
   const inviteeQ = useQuery({
     queryKey: ['distribution', 'invitee-stats'],
     queryFn: () => api<InviteeStatsData>('/api/finance/distribution/invitee-stats'),
+    enabled: allow,
   })
 
   const stats = [
@@ -139,6 +146,11 @@ export default function DistributionHomePage() {
         </CardContent>
       </Card>
 
+      {/* 2026-09-30 登录态门 */}
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看分销中心" />
+      ) : (
+        <>
       <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
         {stats.map((s) => (
           <StatCard key={s.label} title={s.label} value={s.value} icon={s.icon} loading={loading} />
@@ -196,6 +208,8 @@ export default function DistributionHomePage() {
           </div>
         </CardContent>
       </Card>
+        </>
+      )}
     </div>
   )
 }

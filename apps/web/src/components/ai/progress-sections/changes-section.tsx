@@ -7,6 +7,9 @@
 import * as React from 'react'
 import { FileEdit, FilePlus, ChevronRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+// b76-13 票7(2026-09-30 立):消费侧集合裁尾唯一出口 —— 裁尾与"少列了多少"原子产出,
+// 淘汰的条数必须渲染成「N more」露出,不许静默截断(判据见 scripts/check-list-cap-honesty.mjs)。
+import { tailWithOmittedCount } from '@ihui/api-client/client'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { FoldableSection } from './foldable-section'
@@ -149,7 +152,8 @@ export const ChangesSection = React.memo(function ChangesSection({ changes }: Ch
   if (modifyCount > 0) summaryParts.push(t('changes.modified', { n: modifyCount }))
   const summary = summaryParts.join(' · ')
 
-  const recentChanges = changes.slice(-10)
+  // b76-13 票7:裁尾走唯一出口,omittedCount 是「还有 N 项」的唯一事实来源(0 时无占位)
+  const { items: recentChanges, omittedCount } = tailWithOmittedCount(changes)
 
   return (
     <FoldableSection
@@ -163,9 +167,9 @@ export const ChangesSection = React.memo(function ChangesSection({ changes }: Ch
         {recentChanges.map((change) => (
           <ChangeItem key={change.id} change={change} />
         ))}
-        {changes.length > 10 && (
+        {omittedCount > 0 && (
           <div className="text-[10px] text-muted-foreground/60">
-            {t('changes.moreItems', { n: changes.length - 10 })}
+            {t('changes.moreItems', { n: omittedCount })}
           </div>
         )}
       </div>
