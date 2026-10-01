@@ -9237,7 +9237,28 @@
       "removeTagAria": "タグ {tag} を削除",
       "filterLabel": "フォルダで絞り込み",
       "filterAll": "全て",
-      "folderNone": "未分類"
+      "folderNone": "未分類",
+      "adminPending": "グループを同期中です。同期後にここで管理できます",
+      "retry": "再試行",
+      "adminTitle": "グループ管理",
+      "adminEmpty": "グループはまだありません",
+      "confirmRenameAria": "名前の変更を確定",
+      "cancelRenameAria": "名前の変更をキャンセル",
+      "folderCount": "{count} 件の会話",
+      "unpinAria": "グループのピン留めを解除",
+      "pinAria": "グループをピン留め",
+      "renameAria": "グループ名を変更",
+      "deleteAria": "グループを削除",
+      "adminDeleteHint": "グループを削除しても、中の会話は削除されません。",
+      "reasonOffline": "オフラインのため操作が送信されませんでした",
+      "reasonNameTooLong": "グループ名が長すぎます",
+      "reasonDuplicateName": "同じ名前のグループが既に存在します",
+      "reasonNotFound": "このグループは既に存在しません",
+      "reasonForbidden": "この操作を行う権限がありません",
+      "reasonUnauthorized": "ログインの有効期限が切れました。再度サインインしてください",
+      "reasonServer": "サーバーが一時的に利用できません。後でもう一度お試しください",
+      "reasonUnknown": "不明な理由で操作に失敗しました"
+
     }
   },
   "aiCost": {
