@@ -1,0 +1,34 @@
+{
+  "component": "postgres_exporter",
+  "service": "ihui-pg-exporter",
+  "hostForm": "windows-nssm",
+  "listenAddress": "127.0.0.1:9187",
+  "scrapeIntervalSeconds": 15,
+  "ledgerTicket": "G-471",
+  "declaredOn": "2026-10-02",
+  "purpose": "本文件是 postgres_exporter 采集器开关的**入库真相源**。处置(关掉 wal 采集器)原先只存在于本机 nssm 服务配置里,换机/重装会静默回潮成每 15 秒一次 `pq: permission denied for function pg_ls_waldir`;把它写进仓里,再由 scripts/check-wal-collector-state.mjs 按同一份声明与机器实际状态对账。",
+  "reconciledBy": "scripts/check-wal-collector-state.mjs",
+  "expectedAppParameters": ["--web.listen-address=127.0.0.1:9187", "--no-collector.wal"],
+  "disabledCollectors": [
+    {
+      "name": "wal",
+      "disableTokens": ["--no-collector.wal"],
+      "why": "exporter 连库用的角色是 ihui,而 ihui 同时是 apps/api 的应用角色;它没有 pg_ls_waldir 的执行权限,所以 wal 采集器每 15 秒被库拒一次,24 小时约 5800 条 ERROR。关掉采集器是**可逆的采集侧开关**,而给应用角色提权是扩大应用侧可读面 —— 后者不是本票的出路。",
+      "evidence": "① Loki `{job=\"applogs\"} |~ \"collector failed\"` 命中原文固定为 `source=collector.go msg=\"collector failed\" name=wal err=\"pq: permission denied for function pg_ls_waldir\"`;② `/metrics` 的 `pg_scrape_collector_success{collector=\"wal\"} 0` 而其余采集器全 1;③ 消费方查全:grafana 面板对 `pg_wal*` / `pg_current_wal*` 零命中,`monitoring/prometheus/*.yml` 不引用任何 `pg_` 指标 ⇒ 没有任何面板或告警在用 WAL 指标。",
+      "notChosenInstead": "不给 ihui `GRANT pg_monitor`/`pg_read_all_stats`(库里此前没有任何角色被授过这两项,该笔会成为第一个例外)。要 WAL 指标时的正确做法:建**专用监控角色**并 `GRANT pg_monitor TO <它>`,再把 exporter 的 DATA_SOURCE_NAME 换成该角色。",
+      "undoCommand": "nssm set ihui-pg-exporter AppParameters \"--web.listen-address=127.0.0.1:9187\"",
+      "undoNote": "撤销 = 把 --no-collector.wal 从 AppParameters 去掉(改前原值就是 expectedAppParameters 里除它以外的那些)。**改完必须重启该服务才生效**:nssm 在服务启动时把参数读进进程,改注册表不动运行中的进程;重启后等一个采集周期(15 秒)+ 一个抓取周期即可复验。本仓约定由监控面持有人执行重启,尺子只读不动服务。",
+      "appliedOnMachineBy": "PROJECT_PLAN G-471 记录的一手处置(nssm set + Restart-Service ihui-pg-exporter);本文件把那条只活在机器上的改动补成可复核记录(§5e「落进部署形态而没有入库源的脚本等于写进盲区」同型)。"
+    }
+  ],
+  "metricsExpectation": {
+    "family": "pg_scrape_collector_success",
+    "collectorLabelKey": "collector",
+    "path": "/metrics",
+    "absentMeans": "disabled",
+    "presentValueZeroMeans": "enabled-and-failing",
+    "presentValueOneMeans": "enabled-and-healthy",
+    "why": "机器实际状态的**第二条通道**:注册表/nssm 读的是「声明给进程的旗标」,而 /metrics 读的是「进程今天真的在采谁」。两条都是只读,任一条量不到都落「未判定」而不是「没开」。"
+  },
+  "scopeNote": "本文件只管 wal 这一条采集器,不是 postgres_exporter 全部采集器的清单;其余采集器今天照常启用、也照常成功,把它们写进来就等于在没有判据的情况下许诺一份没人核的表(§4 对 RN_ONLY_BRAND_KEYS 那类登记表腐烂的教训)。新增条目必须同笔让 check-wal-collector-state 能判到它。"
+}
