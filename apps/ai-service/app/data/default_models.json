@@ -1,7 +1,8 @@
 {
   "_comment": "AI-service 兜底模型清单(仅在 DB ai_model_config_models 表无数据时使用;与前端 apps/web/src/components/chat/fallback-models.ts FALLBACK_MODELS 保持一致)",
   "_doc_2026_07_31": "本文件是兜底模型清单,仅在 DB(ai_model_config_models 表)无数据时使用。实际模型清单由 ModelSyncService(apps/ai-service/app/services/model_sync.py)每 6 小时从厂商 /v1/models 端点自动同步到 DB。新增 provider 只需在 free_provider_registry.py 登记 + 配置 api_key,模型清单会自动同步,无需手动改本文件。",
-  "_note": "运行时由 llm.py 按需加载,按 id 去重;修改本文件无需重启 Python 进程。每个 provider 仅保留 1-2 个推荐模型作为兜底(用户首次启动时能看到模型,不会被空列表吓到),完整模型清单由 ModelSyncService 从 DB 动态提供。默认主力 step-router-v1(智能路由,适合 tool calling)。",
+  "_note": "运行时由 llm.py 按需加载,按 id 去重;修改本文件无需重启 Python 进程。每个 provider 仅保留 1-2 个推荐模型作为兜底(用户首次启动时能看到模型,不会被空列表吓到),完整模型清单由 ModelSyncService 从 DB 动态提供。默认主力 gemini/gemini-3.8-flash(D208 2026-10-01,原 step-router-v1 经 auto-route 落 llm7 上游 500,对普通用户断裂)。",
+  "_doc_d208_2026_10_01": "退役档处理(D150 真机探针取证):gemini/gemini-2.5-flash 对新账号 Google 404(no longer available to new users),已替换为 gemini-3.8-flash;gemini-2.0-flash / gemini-2.0-flash-lite 同型探针确证 404,名称标⚠️;llm7/gpt-oss:20b 上游 InternalServerError,条目保留但名称标⚠️并从 auto-route 候选集排除(_AUTO_ROUTE_EXCLUDED)。其余条目无当轮探针证据,不做静默清理;DB 同步面(ModelSyncService)仍会列出 Google /v1/models 广告的退役档,属同步层盲区,本票不动。",
   "models": [
     {
       "id": "stepfun/step-router-v1",
@@ -318,8 +319,9 @@
       "model_tier": "latest"
     },
     {
-      "id": "gemini/gemini-2.5-flash",
-      "name": "Gemini 2.5 Flash (Google AI Studio,1M 上下文)",
+      "_note_d208_2026_10_01": "gemini/gemini-2.5-flash 已于 2026-10-01 替换为本条目:D150 真机探针实证 2.5-flash 对新账号 Google 404(no longer available to new users,上游建议 gemini-3.8-flash);caps 沿用 gemini provider 口径(stream_usage=false 走 token_counter 兜底,见 provider_caps.py)。",
+      "id": "gemini/gemini-3.8-flash",
+      "name": "Gemini 3.8 Flash (Google AI Studio,1M 上下文)",
       "provider": "gemini",
       "context_length": 1048576,
       "input_price": 0,
@@ -333,8 +335,9 @@
       "model_tier": "standard"
     },
     {
+      "_note_d208_2026_10_01": "同型排查确证退役(2026-10-01 真机探针,全新账号):Google 404 'models/gemini-2.0-flash is no longer available… use models/gemini-3.8-flash'。条目保留供老账号兼容,新账号不可用。",
       "id": "gemini/gemini-2.0-flash",
-      "name": "Gemini 2.0 Flash (Google AI Studio,稳定版)",
+      "name": "Gemini 2.0 Flash (⚠️ 上游已退役 2026-10-01,新账号 404)",
       "provider": "gemini",
       "context_length": 1048576,
       "input_price": 0,
@@ -347,8 +350,9 @@
       }
     },
     {
+      "_note_d208_2026_10_01": "同型排查确证退役(2026-10-01 真机探针,全新账号):Google 404 'models/gemini-2.0-flash-lite is no longer available…'。条目保留供老账号兼容,新账号不可用。",
       "id": "gemini/gemini-2.0-flash-lite",
-      "name": "Gemini 2.0 Flash Lite (Google AI Studio,轻量)",
+      "name": "Gemini 2.0 Flash Lite (⚠️ 上游已退役 2026-10-01,新账号 404)",
       "provider": "gemini",
       "context_length": 1048576,
       "input_price": 0,
@@ -1584,8 +1588,9 @@
       }
     },
     {
+      "_note_d208_2026_10_01": "D150 真机探针实证该模型上游 InternalServerError(llm7 不可用),已从 auto-route 候选集排除(_AUTO_ROUTE_EXCLUDED);条目保留供手工选择,选中即自担上游风险。",
       "id": "llm7/gpt-oss:20b",
-      "name": "GPT-OSS 20B",
+      "name": "GPT-OSS 20B (⚠️ 上游 500/D150 实证,默认链不可用)",
       "provider": "llm7",
       "context_length": 128000,
       "input_price": 0,
