@@ -53,6 +53,11 @@ export interface PluginManifest {
   hooks?: string[];
   /** 扩展的 slash command 名 */
   commands?: string[];
+  /**
+   * 依赖的其他插件名(G-682):注册前校验依赖闭包 —— 声明的依赖必须在册(或在同一批注册集合内),
+   * 否则该插件注册被拒。依赖闭包在安装期一次定型,运行期只做"在不在"查询,不决定谁先谁后。
+   */
+  dependencies?: string[];
   // P2-4 agent-lifecycle 扩展点(声明式,实际调度由集成方实现)
   /** turnInputContributors:在 turnStart 时贡献额外输入上下文的扩展名(如注入额外文档/状态) */
   turnInputContributors?: string[];
@@ -133,7 +138,8 @@ export interface LoadPluginsOptions {
  * `plugin-dependency-cycle` 是 G-684 点名要求的「环依赖专属判别码」:
  * 它与 `plugin_ambiguous_name` **语义不同、文案不得复用** ——
  * 前者是"依赖图成环"(需要拆开环),后者是"两份清单抢同一个名字"(需要改名或删一份)。
- * `dependencies` 字段本身由 G-682 引入,引入后由装载器产出该码;现阶段无产出方。
+ * `dependencies` 字段已由 G-682 引入(见 PluginManifest);注册侧的拒绝行为落在
+ * registry(register/registerAll 的依赖闭包校验),该码本身现阶段仍无产出方。
  */
 export const PLUGIN_DIAGNOSTIC_CODES = [
   /** 清单文件读不出来(EISDIR / EACCES / 竞态消失等) */
