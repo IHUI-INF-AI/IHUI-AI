@@ -4475,6 +4475,27 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 活文档点名路径存续性对账(1 项,blocking)---
+  {
+    id: '184',
+    label:
+      '📚 活文档点名路径存续性对账(blocking,正文反引号点名的仓内路径必须在被审面在位;索引缺而 HEAD 在 ⇒ 红,HEAD 缺席只 warning,2026-09-30 D169 立)',
+    script: 'check-live-doc-references.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_LIVE_DOC_REFERENCES',
+    stagedTriggers: ['PROJECT_PLAN.md', 'AGENTS.md', 'README', 'docs/', 'scripts/', 'apps/', 'packages/', 'config/'],
+    onFailHint: [
+      '',
+      '红 = 这次提交面上,活文档正文反引号点名的仓内路径在索引里没了(HEAD 在位)—— 本次提交正把被点名的文件弄丢(D169 事故格)。',
+      '1) 误删 ⇒ \`git restore --staged <path>\` 找回;确属下线 ⇒ 同步更新点名它的活文档(两条路,本门只读不代恢复);',
+      '2) 单复验:node scripts/check-live-doc-references.mjs --staged(提交链档)/ 不带旗 = 三面审计档;自检:--self-test(11 例);',
+      '3) HEAD 本就没有的点名只 warning(笔误档),不构成红 —— 禁止用改判据/加豁免消红(§12e);',
+      '4) 紧急跳过(不推荐):HUSKY_SKIP_LIVE_DOC_REFERENCES=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
