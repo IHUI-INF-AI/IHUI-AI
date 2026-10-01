@@ -979,3 +979,106 @@ test('G-412·break-stale 人工出口成对:空理由 ⇒ 拒绝且字节一字�
   }
 })
 
+
+// ─────────────────────  心跳(2026-10-01 补 §12 那格空白)  ─────────────────────
+// 这把尺子判的是"锁的持有者活着时谁来刷新 ts、死了谁来交还"。dev 侧此前没有答案:
+// predev 那条生命周期脚本在 dev server 起来之前就退了,它写下的 owner 一落地就是死的,
+// 于是那把锁从第一步起就是可被立即抢占的悬挂锁(见 dev-with-warmup.mjs 第 0 步头注)。
+const HB = { mode: 'dev', token: 't'.repeat(32), ownerPid: 4242 }
+const hbMeta = (over = {}) =>
+  JSON.stringify({ mode: 'dev', pid: 4242, ownerPid: 4242, ts: 1_700_000_000_000, token: HB.token, ...over })
+const hbArgs = (over = {}) => ({
+  state: { kind: 'ok', meta: JSON.parse(hbMeta(over.meta)) },
+  mode: 'dev',
+  token: HB.token,
+  watchPid: 4242,
+  watchAlive: true,
+  ...over,
+})
+
+test('HB-M1 五档处置互斥:凭据/归属/存活/身份/寿命各管一头,不得互相顶', () => {
+  const A = L.heartbeatAction
+  assert.equal(A(hbArgs()).action, 'renew', '全对时不续期 = 这台心跳根本没在动')
+  assert.equal(A(hbArgs({ watchAlive: false })).action, 'release')
+  assert.equal(A(hbArgs({ identityKind: 'mismatch' })).action, 'release')
+  assert.equal(A(hbArgs({ identityKind: 'unverifiable' })).action, 'renew', '量不到身份不得多删一把锁')
+  assert.equal(A(hbArgs({ token: 'x'.repeat(32) })).action, 'stop')
+  const noCred = { kind: 'ok', meta: JSON.parse(hbMeta({ token: undefined })) }
+  assert.equal(A(hbArgs({ state: noCred })).action, 'stop')
+  assert.equal(A(hbArgs({ watchPid: 9999 })).action, 'stop')
+  assert.equal(A(hbArgs({ state: { kind: 'absent', reason: 'x' } })).action, 'stop')
+  assert.equal(A(hbArgs({ mode: 'build' })).action, 'stop')
+  // 寿命到 ⇒ 只停手,不删(dev 还活着时删锁 = 自己撤保护)
+  assert.equal(A(hbArgs({ ageMs: L.HEARTBEAT_DEFAULTS.maxLifetimeMs + 1 })).action, 'stop')
+})
+
+test('HB-M2 端到端真 CLI:活着就续、死了就交还,且只动夹具里的锁目录', async () => {
+  const base = mkScratch('deploy-lock-hb-mirror-')
+  let child = null
+  try {
+    const dir = join(base, 'lock')
+    child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore', windowsHide: true })
+    await new Promise((r) => setTimeout(r, 700))
+    const cli = (args) => spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', windowsHide: true, timeout: 30_000 })
+    const ac = cli(['acquire', '--mode', 'dev', '--lock-dir', dir, '--owner-pid', String(child.pid), '--token', HB.token])
+    assert.equal(ac.status, 0, `acquire 失败:${ac.stderr}`)
+    const before = JSON.parse(readFileSync(join(dir, 'meta.json'), 'utf8'))
+    assert.equal(before.pidStart > 0, true, 'owner 是真 pid ⇒ 必须留下身份锚点(否则下一轮无从判断是不是同一个进程)')
+    const hb1 = cli(['heartbeat', '--mode', 'dev', '--lock-dir', dir, '--token', HB.token, '--watch-pid', String(child.pid), '--once'])
+    assert.equal(hb1.status, 0, `心跳第一轮失败:${hb1.stdout}${hb1.stderr}`)
+    const after = JSON.parse(readFileSync(join(dir, 'meta.json'), 'utf8'))
+    assert.ok(after.ts >= before.ts, '续期没推进 ts')
+    assert.equal(after.token, before.token, '续期换了凭据 ⇒ 下一轮自己都不认自己')
+    assert.equal(after.ownerPid, before.ownerPid, '续期动了 owner = 心跳在改归属而不是在续期')
+    // 交还的前提是"心跳盯的就是那个刚退场的主人":watch-pid 必须与 meta.ownerPid 同值,
+    // 否则 heartbeatAction 会先落在"ownerPid 已漂 ⇒ 已被别人接管 → stop"那一档,
+    // 测到的是接管判据而不是存活判据(生产代码没错,是这一格夹具曾错过)。
+    const victim = child.pid
+    child.kill()
+    child = null
+    await new Promise((r) => setTimeout(r, 700))
+    const hb2 = cli(['heartbeat', '--mode', 'dev', '--lock-dir', dir, '--token', HB.token, '--watch-pid', String(victim), '--once'])
+    assert.equal(hb2.status, 0, `主人退场后的收口失败:${hb2.stdout}${hb2.stderr}`)
+    assert.equal(existsSync(dir), false, '主人已退出而锁还挂着 ⇒ 交还动作没发生')
+  } finally {
+    if (child) child.kill()
+    rmScratch(base)
+  }
+})
+
+test('HB-M3 接线锁:dev 启动器必须 acquire→派心跳→退出走 quit 交还', () => {
+  const warm = readFileSync(resolve(HERE, '..', 'dev-with-warmup.mjs'), 'utf8')
+  assert.match(warm, /import \{ acquire, release, lockOwnedBy \} from '\.\/deploy-lock\.mjs'/, '启动器自己拼锁路径 = 第二份归属判据')
+  assert.match(warm, /await acquire\(\{[\s\S]{0,240}mode: 'dev'[\s\S]{0,240}token: LOCK_TOKEN/, '没在起 dev 之前拿锁')
+  assert.match(warm, /lockOwnedBy\(LOCK_TOKEN\)/, 'acquire 在共存档也返回 true ⇒ 不核归属就派心跳会替别人的锁永久续期')
+  assert.match(warm, /'heartbeat'[\s\S]{0,420}--watch-pid[\s\S]{0,90}String\(process\.pid\)/, '心跳没盯启动器自己')
+  assert.match(warm, /windowsHide: true/, 'detached 派生控制台程序不带 windowsHide ⇒ 用户桌面反复弹窗(§5b)')
+  assert.match(warm, /dev\.on\('exit',\s*\(code\)\s*=>\s*quit\(/, 'dev 退出没走 quit ⇒ 锁留在原地等着被抢')
+  assert.match(warm, /const quit = \(code\)/, 'quit 出口不见了')
+})
+
+test('HB-M4 反向锁:裸 process.exit 与"predev 再拿一次锁"都必须被读出', () => {
+  const warm = readFileSync(resolve(HERE, '..', 'dev-with-warmup.mjs'), 'utf8')
+  // 判"接线在位"的断言必须有牙:把 quit 换回裸 process.exit,上面那条就该不成立
+  assert.doesNotMatch(warm.replace(/dev\.on\('exit',\s*\(code\)\s*=>\s*quit\(/, "dev.on('exit', (code) => process.exit("), /dev\.on\('exit',\s*\(code\)\s*=>\s*quit\(/)
+  // predev 不得再 acquire:它的 shell 在 dev 起来前就退,留下的是一副可被立即抢占的悬挂锁,
+  // 而 warmup 会去抢它 ⇒ 每次起 dev 都刷一条"抢占悬挂锁"的假事故。
+  const pkg = JSON.parse(readFileSync(resolve(HERE, '..', '..', 'apps', 'web', 'package.json'), 'utf8'))
+  assert.doesNotMatch(String(pkg.scripts?.predev ?? ''), /deploy-lock\.mjs acquire/, 'predev 又拿了一次锁(与启动器的锁互抢)')
+  // 但另两条不经启动器的入口必须自己拿 —— 它们的 shell 与 next dev 同生死,是有效持有者
+  assert.match(String(pkg.scripts?.['dev:clean'] ?? ''), /deploy-lock\.mjs acquire --mode dev/, 'dev:clean 丢了锁')
+  assert.match(String(pkg.scripts?.['dev:stable'] ?? ''), /deploy-lock\.mjs acquire --mode dev/, 'dev:stable 丢了锁')
+})
+
+test('HB-M5 装车证明:deploy-lock --self-test 必须真跑得过(镜像绿而自检没接=没验过)', async () => {
+  const r = await new Promise((res) => {
+    const c = spawn(process.execPath, [SCRIPT, '--self-test'], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
+    let out = ''
+    c.stdout.on('data', (d) => (out += d))
+    c.stderr.on('data', (d) => (out += d))
+    c.on('exit', (code) => res({ code, out }))
+  })
+  assert.equal(r.code, 0, `自检没通过:\n${r.out.slice(-800)}`)
+  assert.match(r.out, /HB1\b.*⇒ 续期/s, 'HB 那一族没被跑到(名字不在输出里)= 判据写出来无人调')
+  assert.match(r.out, /HB15d[^\n]*✅|✅ HB15d/, '接线共存档那一档没落地')
+})
