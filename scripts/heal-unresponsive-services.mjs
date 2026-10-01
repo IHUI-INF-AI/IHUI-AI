@@ -241,6 +241,18 @@ const defaultDeps = {
   },
 }
 
+/**
+ * stdout/stderr 分配(判据派发侧的读法决定它必须长这样)。
+ * `--json` 档的 stdout **只能是纯 JSON** —— 派发方(`git-guardian` 的 `healUnresponsiveServices`)判的就是
+ * `JSON.parse(stdout)`;把"动作器完 …"这种人读行拼在 JSON 前面,派发方每一轮都会记成"未拿到可解析结论",
+ * 于是真发生了重启或失败也**永远不会到人**(§1 水印门那条"--json 面必须是可 JSON.parse 的纯 JSON"同型)。
+ * 人读行不退场,退到 stderr:人工跑 `--json` 时仍看得见结论,而两个流各自语义单一。
+ */
+export function renderExit(r) {
+  if (r && r.json) return { stdout: r.json, stderr: r.text || '' }
+  return { stdout: (r && r.text) || '', stderr: '' }
+}
+
 export async function main({ argv = process.argv.slice(2), deps = defaultDeps, now = Date.now, configFile = null, stateFile = null } = {}) {
   const opts = { json: false, apply: false, selfTest: false }
   for (const a of argv) {
@@ -467,6 +479,34 @@ async function selfTest() {
   ok('V4 门的报告里一个服务都没有 ⇒ 判"判据失明"并 exit 2,不得读成"都健康"', r4.exit === 2 && /失明/.test(r4.text || ''))
   const r5 = await main({ argv: [], now: () => NOW, deps: { gate: () => ({ ok: false, why: 'spawn ENOENT' }), restart: () => ({ ok: true }), sleep: () => {} } })
   ok('V5 取不到门的报告 ⇒ 同样 exit 2(未判定不是"没有故障")', r5.exit === 2 && /不行动/.test(r5.text || ''))
+  // V6/V6b/V7:--json 档的 stdout 必须是**可直接 JSON.parse 的那一份**(派发侧判的就是它)。
+  // 这一族是本文件真实犯过的错的锁:人读行拼在 JSON 前面 ⇒ 守护每一轮记"未拿到可解析结论",
+  // 于是"拉起 / 失败"永远不会到人 —— 判据在跑,结论却没人读得到。
+  // 判据用构造面而不是真跑一遍 main():main 要读真台账,那条"绿"就取决于仓库此刻有什么,不是判据。
+  const o6 = renderExit({ json: '{"at":"2026-10-01T00:00:00.000Z","counts":{"checked":1}}', text: '动作器完 … | APPLY | 在册 1 台', exit: 0 })
+  ok(
+    'V6 --json 档:stdout 逐字可 JSON.parse(不掺任何人读行)',
+    (() => {
+      try {
+        const p = JSON.parse(o6.stdout)
+        return !!p.counts && typeof p.at === 'string'
+      } catch {
+        return false
+      }
+    })(),
+  )
+  ok('V6b --json 档:人读行没退场,只是改走 stderr(两流各判一件事)', o6.stderr.startsWith('动作器完') && !o6.stdout.includes('动作器完'))
+  const o7 = renderExit({ text: '动作器完 … | 只读', exit: 0 })
+  ok('V7 非 --json 档:人读面留在 stdout,stderr 为空(不得把两档做成同一个形状)', o7.stdout.includes('动作器完') && o7.stderr === '')
+  ok('V8 接线锁:CLI 入口必须走 renderExit 那一份分配判据,不得在入口里另写一遍打印顺序', (() => {
+    const src = readFileSync(path.join(ROOT, 'scripts', 'heal-unresponsive-services.mjs'), 'utf8')
+    const entry = src.slice(src.indexOf('if (process.argv[1] && import.meta.url'))
+    return /renderExit\(r\)/.test(entry) && !/if \(r\.text\) console\.info\(r\.text\)\s*\n\s*if \(r\.json\) console\.info\(r\.json\)/.test(entry)
+  })())
+  ok('V9 派发侧读法同源:git-guardian 判的是 JSON.parse(stdout),不得改成 stdout⊕stderr 拼接', (() => {
+    const src = readFileSync(path.join(ROOT, 'scripts', 'git-guardian.mjs'), 'utf8')
+    return /JSON\.parse\(String\(r\.stdout \|\| ''\)\)/.test(src) && !/JSON\.parse\(String\(`\$\{r\.stdout\}/.test(src)
+  })())
   const text = out.join('\n')
   return { text: `${text}\n自检 ${out.length} 条,失败 ${fail} 条`, exit: fail === 0 ? 0 : 1 }
 }
@@ -474,8 +514,10 @@ async function selfTest() {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().then(
     (r) => {
-      if (r.text) console.info(r.text)
-      if (r.json) console.info(r.json)
+      // 走 renderExit 那一份分配判据,不在这里另写一遍 console.info 的顺序(两处算同一件事必漂移)。
+      const { stdout, stderr } = renderExit(r)
+      if (stdout) console.log(stdout)
+      if (stderr) console.error(stderr)
       process.exitCode = r.exit ?? 0
     },
     (e) => {
@@ -485,5 +527,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   )
 }
 
-export const __test__ = { parseConfig, verdictOf, decideRound, readState, writeState, resolveNssm, buildGateArgs, main, selfTest, CONFIG_REL, STATE_REL, GATE_REL, DAY_MS }
+export const __test__ = { parseConfig, verdictOf, decideRound, readState, writeState, resolveNssm, buildGateArgs, main, selfTest, renderExit, CONFIG_REL, STATE_REL, GATE_REL, DAY_MS }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
