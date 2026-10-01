@@ -4,6 +4,7 @@
 
 import { useI18n } from '@/i18n'
 import { View, Text, Button, Picker } from '@tarojs/components'
+import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import { logger } from '@/utils/logger'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -11,7 +12,6 @@ import { useUiField } from '@/lib/ui-field-registry'
 import { post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
-import { FocusInput, FocusTextarea } from '@/components/FocusField'
 
 export default function StudyPublish() {
   const { t, tList } = useI18n()

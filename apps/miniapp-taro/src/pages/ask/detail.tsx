@@ -5,11 +5,11 @@
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Button } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { getAskDetail, type Ask } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import { FocusInput } from '@/components/FocusField'
 
 interface AnswerItem {
   author: string
