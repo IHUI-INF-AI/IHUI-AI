@@ -4,7 +4,8 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Input } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect, type CSSProperties } from 'react'
 import * as api from '@/api'
@@ -249,7 +250,9 @@ export default function AccountCancel() {
     <ThemeRoot>
       <View className="min-h-screen bg-background">
         <View className="px-[20rpx] pt-[24rpx] pb-[24rpx]">
-          <Text className="text-[length:40rpx] font-bold text-foreground">{t('accountCancel.title')}</Text>
+          <Text className="text-[length:40rpx] font-bold text-foreground">
+            {t('accountCancel.title')}
+          </Text>
         </View>
         <View className="p-[28rpx] pb-[64rpx]">
           {loading ? (
@@ -276,7 +279,7 @@ export default function AccountCancel() {
 
               <Text style={SECTION_TITLE_STYLE}>{t('accountCancel.codeLabel')}</Text>
               <View style={CODE_BLOCK_STYLE}>
-                <Input
+                <FocusInput
                   style={CODE_INPUT_STYLE}
                   type="number"
                   maxlength={6}
@@ -293,7 +296,7 @@ export default function AccountCancel() {
               </View>
 
               <Text style={SECTION_TITLE_STYLE}>{t('accountCancel.confirmLabel')}</Text>
-              <Input
+              <FocusInput
                 style={INPUT_STYLE}
                 placeholder={t('accountCancel.confirmPlaceholder')}
                 value={confirmText}
