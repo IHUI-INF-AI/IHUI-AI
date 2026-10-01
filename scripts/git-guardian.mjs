@@ -2337,6 +2337,99 @@ const PUBLIC_PROBE_TIMEOUT_MS = Number(process.env.IHUI_PUBLIC_PROBE_TIMEOUT_MS 
  * 两个执行体(2 分钟计划任务 + 常驻 daemon)**共用这一个戳**,谁先到谁干活。
  */
 const OPS_PATROL_TICK = join(WORKTREE, '.workbuddy', 'ops-patrol-tick.ts')
+const SERVICE_HEAL_INTERVAL_MS = Number(process.env.IHUI_SERVICE_HEAL_INTERVAL_MS || 30 * 60 * 1000)
+const SERVICE_HEAL_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_HEAL_TIMEOUT_MS || 420_000)
+
+/**
+ * 不响应服务的自愈派发点(动作器 = `scripts/heal-unresponsive-services.mjs`,白名单台账在
+ * `scripts/data/service-auto-restart.json`)。三层重启方案的第三层,2026-10-01 机主拍板(台账 G-978121)。
+ *
+ * 为什么这一层只能挂在这里、且必须挂两次调用点之一都不行:本机 22 个服务里 21 个是 nssm 包装的,
+ * SCM 的恢复动作对它们**结构上不会触发**(死的是子进程,nssm.exe 自己还活着 ⇒ 服务永远 Running);
+ * nssm 的退出重启又只覆盖"子进程退出"那一型。真实发生过的两次事故 —— 路径烂掉导致子进程根本起不来
+ * (RSSHub 静默停 3 天)、进程在而端口不应答 —— 两种都表现为"Running + 不通",没有任何日志行会红。
+ * "判某件事没发生"的尺子按设计不能进提交链(判机器状态 ⇒ 每台每次被逼 --no-verify,连带全部守门作废),
+ * 所以唯一调度器就是这个守护。
+ *
+ * 三条不可漂的执行细节(与 auditOpsPatrol 同规矩):
+ *  - 节流戳与 `--apply` 一起交给动作器;它内部还另有每台冷却与全局窗口上限(防重启风暴);
+ *  - **未判定只写日志不喊人**,但必须报名(取不到报告 ⇒ exit 2,不是"都没事");
+ *  - 真重启过或重启失败才发信,沿用"身份 + 内容指纹 4h 去重、无总量封顶"。
+ */
+export function healUnresponsiveServices(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = SERVICE_HEAL_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.workbuddy', 'service-heal-tick.iso'),
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'heal-unresponsive-services.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 服务自愈:动作器不在位(scripts/heal-unresponsive-services.mjs)⇒ 本轮跳过,不记为已巡检')
+    return { ran: false, why: '动作器不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      runner ||
+      (() => {
+        try {
+          const stdout = execFileSync(process.execPath, [script, '--json', '--apply'], {
+            cwd: WORKTREE,
+            windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+            timeout: SERVICE_HEAL_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+            maxBuffer: 1 << 22,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            encoding: 'utf8',
+          })
+          return { status: 0, stdout: String(stdout || ''), stderr: '' }
+        } catch (e) {
+          return { status: typeof e.status === 'number' ? e.status : 2, stdout: String(e.stdout || ''), stderr: String(e.stderr || e.message || '') }
+        }
+      })
+    const r = call()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(r.stdout || ''))
+    } catch {
+      /* 落到下面的未判定分支 */
+    }
+    if (!parsed || !parsed.counts) {
+      logger(`⚠️ 服务自愈未拿到可解析结论(rc=${r.status}):${(r.stderr || r.stdout || '(无输出)').split(/\r?\n/).slice(0, 2).join(' | ')}`)
+      return { ran: true, ok: false, why: '结论不可解析' }
+    }
+    const c = parsed.counts
+    const acted = (parsed.results || []).filter((x) => String(x.kind).startsWith('restarted'))
+    const failed = (parsed.results || []).filter((x) => x.kind === 'restart-failed')
+    if (acted.length > 0 || failed.length > 0) {
+      const body = [...acted, ...failed].map((x) => `· ${x.name} ${x.kind} — ${x.why}`).join('\n')
+      notify(
+        `服务自愈动作(${acted.length} 拉起 / ${failed.length} 失败)`,
+        `${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`,
+        { alertName: `service-heal-${acted.map((x) => x.name).join(',') || 'fail'}` },
+      )
+    }
+    if (c.undetermined > 0 || c.planned > 0) {
+      logger(`ℹ️ 服务自愈:未判定 ${c.undetermined ?? 0} 台 / 计划未执行 ${c.planned ?? 0} 台(只读档才会留在"计划";只写日志不喊人)`)
+    }
+    logger(`✅ 服务自愈:在册 ${c.checked ?? 0} 台,应答 ${c.answering ?? 0},拉起 ${acted.length},失败 ${failed.length}`)
+    return { ran: true, ok: failed.length === 0, checked: c.checked, acted: acted.length, failed: failed.length, undetermined: c.undetermined ?? 0 }
+  } catch (e) {
+    logger(`⚠️ 服务自愈异常:${String(e?.message || e).slice(0, 200)}`)
+    return { ran: true, ok: false, why: String(e?.message || e) }
+  }
+}
+
 const OPS_PATROL_INTERVAL_MS = Number(process.env.IHUI_OPS_PATROL_INTERVAL_MS || 15 * 60 * 1000)
 const OPS_PATROL_TIMEOUT_MS = Number(process.env.IHUI_OPS_PATROL_TIMEOUT_MS || 180_000)
 
@@ -3173,6 +3266,9 @@ function main() {
     // 元运维巡检(尺子 = scripts/check-ops-patrol.mjs):判"没发生"的那一族。它按设计不能进提交链
     // (判机器状态 ⇒ 恒红 ⇒ 每台每次 --no-verify),而本行就是它唯一的调度器。
     if (!CHECK_ONLY) auditOpsPatrol()
+    // 不响应服务的自愈(三层方案第三层,台账 G-978121):nssm 包装的服务 SCM 看不死,
+    // 这一层是"进程在但端口不应答 / 子进程起不来"唯一的动作器。节流与发信见函数头注。
+    if (!CHECK_ONLY) healUnresponsiveServices()
     // 公网路径与换流窗口的常驻探测(票 G-301):两条序列互不顶账,节流 30 分钟,
     // 判"未判定"只写日志不喊人;它不改本守护退出码 —— 探测失败不等于 .git 失败。
     if (!CHECK_ONLY) auditPublicPathProbe()
@@ -3251,6 +3347,9 @@ function startDaemon() {
         // 元运维巡检:与 main() 单轮路径同一挂点语义,共用 .workbuddy/ops-patrol-tick.ts 节流戳
         // ⇒ 双执行体并存时只有先到那一个真跑,不会翻倍发信。
         auditOpsPatrol()
+        // 同一挂点语义:与 main() 单轮路径共用 .workbuddy/service-heal-tick.iso 节流戳
+        // ⇒ 双执行体并存时只有先到那一个真跑,不会把同一台服务重启两遍。
+        healUnresponsiveServices()
       }
     } catch (e) {
       log('巡检异常(忽略): ' + String(e.message || e))
