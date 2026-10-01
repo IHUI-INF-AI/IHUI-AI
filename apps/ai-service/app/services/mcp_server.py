@@ -411,6 +411,79 @@ def _get_workspace_roots() -> list[str]:
     raw = os.environ.get("MCP_WORKSPACE_ROOTS", os.getcwd())
     return [os.path.abspath(r) for r in raw.split(os.pathsep) if r.strip()]
 
+
+# ---------------------------------------------------------------------------
+# D201 多根工作区:会话级附加目录(2026-10-02 立,票 D201;对标 Qoder/Codex/Trae
+# 的 add_directories 控制帧 —— 会话中途追加目录,追加后该目录内文件可被会话读写,
+# 移除即失效)。
+#
+# 进程级白名单 MCP_WORKSPACE_ROOTS 是启动期一次性设定;本节补**会话级覆盖层**:
+# 键 = 会话 ID(llm.py 主对话链 = conversationId,engine 链 = EngineThread.session_id),
+# 值 = 该会话追加的绝对目录元组。
+#
+# 注入方式:call_tool 在派发 handler 前把当前会话的附加目录写进 ContextVar,
+# _validate_path_in_workspace 在进程级白名单之外兜底查它(handler 与其 await 链
+# 同处一个 asyncio task,ContextVar 天然传播;不同会话并发互不可见)。
+# 两态纪律:deny-by-default 不变 —— 不在白名单、也不在该会话附加集内的路径照旧拒绝;
+# 附加集只做"扩",不做"收"(白名单内的路径不因附加集而变严)。
+_SESSION_EXTRA_ROOTS: dict[str, tuple[str, ...]] = {}
+_ACTIVE_SESSION_EXTRA_ROOTS: contextvars.ContextVar[tuple[str, ...]] = (
+    contextvars.ContextVar("active_session_extra_roots", default=())
+)
+
+
+def _validate_extra_directory(path: str) -> tuple[bool, str]:
+    """附加目录准入校验:非空、绝对路径、真实存在且是目录、resolve 归一。"""
+    if not path or not path.strip():
+        return False, "附加目录路径为空"
+    p = Path(path)
+    if not p.is_absolute():
+        return False, f"附加目录必须是绝对路径: {path}"
+    resolved = p.resolve(strict=False)
+    if not resolved.exists():
+        return False, f"附加目录不存在: {path}"
+    if not resolved.is_dir():
+        return False, f"附加目录不是目录: {path}"
+    return True, str(resolved)
+
+
+def set_session_extra_roots(session_id: str, dirs: list[str]) -> tuple[str, ...]:
+    """**整表替换**某会话的附加目录集(空列表 = 清空)。返回生效集(resolve 归一后)。
+
+    逐个过准入校验,任一非法整表拒绝(ValueError)—— 不做"合法的留下、非法的丢弃"
+    的部分生效(那会把"少追加了"伪装成成功)。移除语义 = 用不含该目录的新表替换。
+    """
+    resolved: list[str] = []
+    for d in dirs:
+        ok, info = _validate_extra_directory(d)
+        if not ok:
+            raise ValueError(f"附加目录准入被拒: {info}")
+        if info not in resolved:
+            resolved.append(info)
+    key = (session_id or "").strip()
+    if not key:
+        raise ValueError("session_id 为空,无法登记附加目录")
+    if resolved:
+        _SESSION_EXTRA_ROOTS[key] = tuple(resolved)
+    else:
+        _SESSION_EXTRA_ROOTS.pop(key, None)
+    return tuple(resolved)
+
+
+def clear_session_extra_roots(session_id: str) -> None:
+    """移除会话的全部附加目录(移除即失效,不留残根)。"""
+    _SESSION_EXTRA_ROOTS.pop((session_id or "").strip(), None)
+
+
+def get_session_extra_roots(session_id: str | None) -> tuple[str, ...]:
+    """读某会话的附加目录集(未登记返回空元组)。"""
+    return _SESSION_EXTRA_ROOTS.get((session_id or "").strip(), ())
+
+
+def _active_extra_roots() -> tuple[str, ...]:
+    """当前工具调用生效的附加目录集(call_tool 按会话注入 ContextVar)。"""
+    return _ACTIVE_SESSION_EXTRA_ROOTS.get()
+
 # 工具权限矩阵:admin 专属工具(role >= 1),其他工具所有用户可用
 # 危险工具:写文件 / 执行命令 / 数据库查询 / git 操作 / 自动化配置 / 电脑控制 / 截图(SSRF 入口)
 _ADMIN_ONLY_TOOLS: set[str] = {
@@ -493,8 +566,15 @@ def _reset_file_base_store() -> None:
     _FILE_BASE_CONTENT.clear()
 
 
-def _validate_path_in_workspace(path: str) -> tuple[bool, str]:
+def _validate_path_in_workspace(
+    path: str, extra_roots: tuple[str, ...] | None = None
+) -> tuple[bool, str]:
     """校验路径在工作区白名单内,防 symlink 穿越。
+
+    extra_roots:D201 会话级附加目录集。None(缺省)= 取 ContextVar 里 call_tool
+    注入的当前会话附加集;显式传元组 = 调用方自备(call_tool 之外直接调用校验的
+    面,如 agent_loop_v2 自愈链,其执行点不在 call_tool 的 ContextVar 作用域内)。
+    空元组 = 无附加集,行为与 D201 之前逐字节一致。
 
     Returns:
         (ok, resolved_path) 或 (False, error_message)
@@ -510,7 +590,11 @@ def _validate_path_in_workspace(path: str) -> tuple[bool, str]:
         # 修复策略:相对路径优先在所有 _WORKSPACE_ROOTS 下查找存在的文件,
         # 命中即用;都找不到才退回到 cwd resolve(保留原行为兼容绝对路径)。
         p = Path(path)
-        roots = _get_workspace_roots()
+        # D201:白名单根 ⊕ 当前会话附加目录集 —— 两个集合对读路径完全同权
+        # (相对路径探测与绝对路径包含性判定都用同一份合并集)。
+        roots = _get_workspace_roots() + list(
+            _active_extra_roots() if extra_roots is None else extra_roots
+        )
         if not p.is_absolute():
             for root in roots:
                 candidate = (Path(root) / path).resolve(strict=False)
@@ -535,7 +619,9 @@ def _validate_path_in_workspace(path: str) -> tuple[bool, str]:
         return False, f"路径解析失败: {e}"
 
 
-def _validate_write_path_in_workspace(path: str) -> tuple[bool, str]:
+def _validate_write_path_in_workspace(
+    path: str, extra_roots: tuple[str, ...] | None = None
+) -> tuple[bool, str]:
     """**写工具专用**路径校验:白名单根 + symlink 解析 + 敏感目录黑名单。
 
     与 ``_validate_path_in_workspace`` 的差别只有最后一层:本函数额外拒绝落在
@@ -559,7 +645,7 @@ def _validate_write_path_in_workspace(path: str) -> tuple[bool, str]:
     Returns:
         (True, resolved_path) 或 (False, error_message)
     """
-    ok, info = _validate_path_in_workspace(path)
+    ok, info = _validate_path_in_workspace(path, extra_roots)
     if not ok:
         return False, info
     # 对**解析后**路径判定:这样 symlink 指向 .git 的情况同样被拦住。
@@ -10847,10 +10933,19 @@ class MCPServer:
             args_with_role["__user_role"] = user_role
             args_with_role["__user_id"] = user_id
             args_with_role["__session_id"] = session_id
-            # 2026-07-22 P1 鲁棒性加固:全局超时,防 handler 无限挂起
-            result = await asyncio.wait_for(
-                handler(args_with_role), timeout=MCP_GLOBAL_TIMEOUT
+            # D201:会话级附加目录注入 —— handler 与其 await 链同处一个 asyncio task,
+            # ContextVar 对整个 handler 执行期生效;finally 复位防异常路径泄漏到复用
+            # 该 task 的后续协程(漏复位 = A 会话的附加根污染 B 会话的校验)。
+            _extra_roots_token = _ACTIVE_SESSION_EXTRA_ROOTS.set(
+                get_session_extra_roots(session_id)
             )
+            # 2026-07-22 P1 鲁棒性加固:全局超时,防 handler 无限挂起
+            try:
+                result = await asyncio.wait_for(
+                    handler(args_with_role), timeout=MCP_GLOBAL_TIMEOUT
+                )
+            finally:
+                _ACTIVE_SESSION_EXTRA_ROOTS.reset(_extra_roots_token)
             # 2026-09-09 媒体任务统一落库:对话内媒体工具(video/music/tts/image/改图)
             # 提交即持久化到 media_tasks,支撑"我的媒体任务"查询/取消;DB 异常仅告警,
             # 绝不阻断对话主流程(与 video_generation_tasks 并存:该表是 REST 视频任务队列)。
