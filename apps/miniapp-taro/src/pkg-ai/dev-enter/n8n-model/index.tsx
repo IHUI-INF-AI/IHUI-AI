@@ -5,6 +5,7 @@
 import { useTt, useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
+import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
@@ -12,7 +13,6 @@ import { get, post } from '@/api'
 import { chooseImages, uploadImage } from '@/utils/upload-image'
 import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
-import { FocusInput, FocusTextarea } from '@/components/FocusField'
 
 type ParamType = 'string' | 'number' | 'boolean' | 'file' | 'select' | 'json'
 
