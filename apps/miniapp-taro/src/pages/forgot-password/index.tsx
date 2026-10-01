@@ -4,6 +4,7 @@
 
 import { useTt, useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { sendSmsCode, post } from '@/api'
@@ -13,7 +14,6 @@ import AuthButton from '@/components/AuthButton'
 import ThemeRoot from '@/components/ThemeRoot'
 import BackChevron from '@/components/BackChevron'
 import './index.css'
-import { FocusInput } from '@/components/FocusField'
 
 /**
  * 找回密码页 — 视觉对齐 RN SharedChangePwdScreen(2026-09-08 样式迁移)
