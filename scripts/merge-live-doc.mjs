@@ -301,6 +301,35 @@ function selfTest() {
     assert(v.get(trim(head)) !== 'stale', `HEAD 侧未翻勾时不得判 stale,实判 ${v.get(trim(head))}`)
     return true
   })
+  // ⑰e/⑰f 是 2026-10-01 D209 补的一对:D203 翻勾(c1bb06a84b)被整文件 --no-verify 提交
+  // (1405976722)静默退回 —— 同正文异勾选态在剥态后 bare 相等,被容器短路吞进 superseded
+  // ("以工作树文字落地"),而那正是"把 HEAD 已勾行退回未勾旧态"。⑰e 必须绿、⑰f 必须仍然
+  // 不走 stale 通道 —— 缺一侧就是拿判据洗地。
+  ck('⑰e 同正文异勾选态(HEAD 已勾/工作树唯一未勾同正文)⇒ 判 stale,不得被容器短路吞成 superseded', () => {
+    const body = '一条长到足以进入判据集合的登记行正文,工作树里它只落后一个勾选态,其余字符逐字相同'
+    const head = `- [x] ✅(2026-10-01) ${body}`
+    const wt = `- [ ] ${body}`
+    const v = classifyMissing(['anchor', head, 'tail'], ['anchor', wt, 'tail'])
+    assert(v.get(trim(head)) === 'stale', `同正文未勾旧态应判 stale,实判 ${v.get(trim(head))}`)
+    assert(
+      mergeByAnchors(['anchor', head, 'tail'], ['anchor', wt, 'tail'], v).lines === 0,
+      'stale 不得被 --apply 插回(那会造新旧并存)',
+    )
+    return true
+  })
+  ck('⑰f 反向对照四:同正文未勾候选不止一条 ⇒ 不猜,退回容器短路判 superseded(唯一性是生命线)', () => {
+    const body = '同正文孪生未勾候选有两条时,HEAD 已勾行不得走 stale 通道,维持容器短路原判据'
+    const head = `- [x] ✅(2026-10-01) ${body}`
+    const v = classifyMissing(
+      ['anchor', head, 'tail'],
+      ['anchor', `- [ ] ${body}`, `- [ ] ${body}`, 'tail'],
+    )
+    assert(
+      v.get(trim(head)) === 'superseded',
+      `双候选必须退回原判据 superseded,实判 ${v.get(trim(head))}`,
+    )
+    return true
+  })
   ck('⑱ README 守门表行被就地改写 ⇒ 判 superseded(没有表格锚点时它会伪装成"真丢失")', () => {
     const oldRow =
       '| 13c | check-project-plan-archive.mjs | **旧的一句话描述**                    |'
