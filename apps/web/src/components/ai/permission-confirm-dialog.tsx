@@ -9,9 +9,18 @@ import { useTranslations } from 'next-intl'
 import { Edit, Monitor, FileText, AlertTriangle, X, Check } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@ihui/ui-react'
 import { Button, Checkbox } from '@ihui/ui-react'
+import { buildToolPermissionPreview, type PermissionFileChangeKind } from '@ihui/shared'
 
 import { cn } from '@/lib/utils'
 import type { PendingToolCall } from './types'
+
+/** 变更类别的图形记号(diff 惯例,语言中性,不新造 i18n 文案)。 */
+const CHANGE_KIND_MARKS: Record<PermissionFileChangeKind, string> = {
+  create: '+',
+  modify: '~',
+  delete: '-',
+  unknown: '?',
+}
 
 interface PermissionConfirmDialogProps {
   open: boolean
@@ -53,21 +62,16 @@ export function PermissionConfirmDialog({
   onDeny,
 }: PermissionConfirmDialogProps) {
   const t = useTranslations('ai.permissionConfirm')
+  const tCommon = useTranslations('common')
   const [allowAll, setAllowAll] = React.useState(false)
 
   React.useEffect(() => {
     if (open) setAllowAll(false)
   }, [open])
 
-  const hasInput = !!toolCall?.input && Object.keys(toolCall.input).length > 0
-  const formattedInput = React.useMemo(() => {
-    if (!toolCall?.input || !hasInput) return ''
-    try {
-      return JSON.stringify(toolCall.input, null, 2)
-    } catch {
-      return String(toolCall.input)
-    }
-  }, [toolCall, hasInput])
+  // G-673:预览判据住在 @ihui/shared(键别名族 + input/rawInput 双承载层 + 显示预算),
+  // 端内只做渲染 —— 审批弹窗不得再直接 JSON.stringify(input)。
+  const preview = React.useMemo(() => buildToolPermissionPreview(toolCall), [toolCall])
 
   const handleAllow = () => {
     if (!toolCall) return
@@ -111,16 +115,56 @@ export function PermissionConfirmDialog({
               )}
             </div>
 
-            {hasInput && (
-              <div>
-                <div className="mb-1 text-xs font-medium text-muted-foreground">
-                  {t('inputParams')}
-                </div>
-                <pre className="max-h-48 overflow-auto rounded-md border bg-zinc-950 p-3 text-xs text-zinc-100">
-                  <code>{formattedInput}</code>
-                </pre>
+            <div>
+              <div className="mb-1 text-xs font-medium text-muted-foreground">
+                {t('inputParams')}
               </div>
-            )}
+              {preview.hasContent ? (
+                <div className="max-h-48 space-y-1 overflow-auto rounded-md border bg-zinc-950 p-3 text-xs text-zinc-100">
+                  {preview.command !== null && (
+                    <div className="font-mono">
+                      <span className="text-zinc-400">$ </span>
+                      <span className="break-all whitespace-pre-wrap">
+                        {preview.command}
+                        {preview.commandTruncated ? ' …' : ''}
+                      </span>
+                    </div>
+                  )}
+                  {preview.filePaths.length > 0 && (
+                    <ul className="space-y-0.5">
+                      {preview.filePaths.map((p) => (
+                        <li key={p} className="break-all font-mono">
+                          {p}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {preview.fileChanges.length > 0 && (
+                    <ul className="space-y-0.5">
+                      {preview.fileChanges.map((c, i) => (
+                        <li key={i} className="break-all font-mono">
+                          <span className="text-zinc-400">{CHANGE_KIND_MARKS[c.kind]} </span>
+                          {c.path ?? '—'}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {preview.scope !== null && (
+                    <div className="font-mono text-zinc-300">{preview.scope}</div>
+                  )}
+                  {preview.hiddenFileCount + preview.hiddenChangeCount > 0 && (
+                    <div className="font-mono text-zinc-400">
+                      +{preview.hiddenFileCount + preview.hiddenChangeCount}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // 反例验收:全维空 ⇒ 明确"无可预览内容"(复用既有 common.noData),而不是渲染空白标题。
+                <p className="rounded-md bg-muted/40 p-2 text-xs text-muted-foreground">
+                  {tCommon('noData')}
+                </p>
+              )}
+            </div>
 
             {toolCall.reason && (
               <div>
