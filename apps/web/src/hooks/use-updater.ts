@@ -208,10 +208,7 @@ export function useUpdater() {
     try {
       await session.downloadAndInstall((p: UpdateProgress) => {
         // G-698:进度分片只接受当前世代,旧世代迟到分片丢弃
-        if (
-          !mountedRef.current ||
-          isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
-        )
+        if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
           return
         const ratio = p.total > 0 ? p.downloaded / p.total : 0
         setState((prev) => ({
@@ -225,24 +222,13 @@ export function useUpdater() {
     } catch (e) {
       installInFlightRef.current = false
       // G-698:失败收尾同样只接受当前世代
-      if (
-        !mountedRef.current ||
-        isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
-      )
+      if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
         return
-      const message = e instanceof Error ? e.message : String(e)
-      // 主动取消不是一次「失败」:不得进入 error(否则会拉起 3 次自动重试,把下载再拉一遍),
-      // 也不得清掉 session —— 留在 available,用户随时可再点更新。
-      if (message === 'install_cancelled') {
-        setState((prev) => ({
-          ...prev,
-          status: prev.session ? 'available' : 'idle',
-          error: null,
-          progress: 0,
-        }))
-        return
-      }
-      setState((prev) => ({ ...prev, status: 'error', error: message }))
+      setState((prev) => ({
+        ...prev,
+        status: 'error',
+        error: e instanceof Error ? e.message : String(e),
+      }))
       return
     }
     installInFlightRef.current = false
@@ -269,10 +255,7 @@ export function useUpdater() {
         if (new URLSearchParams(window.location.search).get('dev-update') === '0') {
           setState({ ...INITIAL_STATE, status: 'checking' })
           await new Promise((r) => setTimeout(r, 800))
-          if (
-            !mountedRef.current ||
-            isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
-          )
+          if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
             return
           setAvailableUpdateSession(null)
           setState({ ...INITIAL_STATE, status: silent ? 'idle' : 'up-to-date' })
@@ -280,10 +263,7 @@ export function useUpdater() {
         }
         setState({ ...INITIAL_STATE, status: 'checking' })
         await new Promise((r) => setTimeout(r, 800))
-        if (
-          !mountedRef.current ||
-          isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
-        )
+        if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
           return
         const mockSession = createMockSession()
         if (autoInstall) {
@@ -306,10 +286,7 @@ export function useUpdater() {
         session = await checkForUpdates()
       } catch (e) {
         // G-698:失败结果只接受当前世代,旧世代的迟到失败不得覆盖新状态
-        if (
-          !mountedRef.current ||
-          isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
-        )
+        if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
           return
         setState({
           ...INITIAL_STATE,
@@ -320,10 +297,7 @@ export function useUpdater() {
       }
       // G-698:检查结果只接受当前世代 —— await 期间若另一条链(托盘检查/重试)
       // 已发起新检查,本次即成旧世代,迟到结果(含"无更新"与"发现新版")丢弃。
-      if (
-        !mountedRef.current ||
-        isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
-      )
+      if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
         return
       if (!session) {
         // 已是最新
@@ -352,13 +326,6 @@ export function useUpdater() {
     if (!state.session) return
     await startDownload(state.session)
   }, [state.session, startDownload])
-
-  /** 主动取消当前下载(开发态模拟会话没有可取消的底层资源,句柄缺省时为 no-op)。 */
-  const cancelDownload = async (): Promise<void> => {
-    const session = state.session
-    if (!session?.cancel) return
-    await session.cancel()
-  }
 
   /** 重启应用(安装完成后调用)。 */
   const restart = React.useCallback(async () => {
@@ -447,8 +414,6 @@ export function useUpdater() {
   // 更新失败自动重试(强制更新:最多重试 3 次,每次间隔 5 秒)
   React.useEffect(() => {
     if (state.status !== 'error') return
-    // 用户主动取消是一次决定,不是待重试的失败 —— 自动重发等于把 15MB 下载再拉一遍
-    if (state.error === 'install_cancelled') return
     if (retryCount >= 3) return
     const timer = setTimeout(() => {
       setRetryCount((c) => c + 1)
@@ -482,7 +447,6 @@ export function useUpdater() {
     restartCountdown,
     checkForUpdate,
     downloadAndInstall,
-    cancelDownload,
     restart,
     restartNow,
     postponeRestart,
