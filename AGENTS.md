@@ -862,7 +862,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
    静默失效且无告警(与同日生产部署冻结同属"凭据/路径过期只以下游门禁失败形态出现")。
 2. `F:\BaiduSyncdisk\密钥\`(盘符按 §5d 由 `scripts/lib/key-dir.mjs` 探测,不得写死)——模型密钥唯一权威源(§5d),不入仓、不入聊天记录。
 3. 第三方 IDE/agent 自管家目录的**运行态**(`~/.workbuddy\binaries\PortableGit` 是
-   `scripts/lib/gitdir.mjs:36-37` 解析 git 二进制的首选;`.qoder-cn` 承载本项目记忆与工作区状态)。
+   `scripts/lib/gitdir.mjs` 的 `resolvePortableGitCandidates()`(候选序 = 环境变量 > versions 目录扫描 > 旧 1.2.0 兜底)解析 git 二进制的首选;`.qoder-cn` 承载本项目记忆与工作区状态)。
    这类不属"我们的产物",只登记、不搬动。
 4. `~/.ihui`(1.2MB / 693 文件)—— 我们 CLI 的全局状态,**2026-09-23 已按 §26 的 junction 机制改道**
    到 `D:\DevEnv\cache\userhome\.ihui`(复制后逐文件校验 0 差异 → 删源 → `mklink /J`,**未改一行业务代码、未设任何环境变量**)。
@@ -1769,10 +1769,10 @@ nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C
 `D:\DevEnv\backups\env\ollama-service-env-original.txt`。
 
 **剩余客观阻碍(不是遗漏)**:`~/.workbuddy` 3.1GB 内含 `binaries\PortableGit`
-(被 `scripts/lib/gitdir.mjs:36-37` 当 git 二进制首选解析)不得搬,其 `logs`/`traces` 约 2GB 属该 IDE
+(被 `scripts/lib/gitdir.mjs` 的 `resolvePortableGitCandidates()` 当 git 二进制首选解析)不得搬,其 `logs`/`traces` 约 2GB 属该 IDE
 自管;`.qoder-cn`/`.qoder` 是本会话宿主状态,改道即丢记忆。`scripts/kill-git-selector-hidden.vbs`
 已改为随自身目录定位目标脚本,但其包装的 `kill-git-selector.ps1` **在仓库里并不存在**(死代码);
-`scripts/release-desktop-local.mjs:67,74` 需要 `%USERPROFILE%\.tauri\ihui-updater.key`,本机无 `.tauri`
+`scripts/release-desktop-local.mjs` 需要 `%USERPROFILE%\.tauri\ihui-updater.key`,而**旧句"本机无 `.tauri` ⇒ 桌面发布在此机必 `exit 1`"已于 2026-10-01 实测作废**:`.tauri\ihui-updater.key` 348 B、`ihui-updater-password.txt` 33 B **都在位**,mtime 2026-09-07(早于该句登记日 09-23 三周)⇒ 登记当时就不成立;那句还写着 `:67,74` 的行号指针,而 §1 明令证据指针禁写行号(任何一次 append 后都会挪位)。桌面端能否发布在本机的真判据是"跑一次取签名密钥的那条路径并看它报什么",不是这条散文
 → 桌面端发布在此机必 `exit 1`(需发布机或补生成密钥)。
 
 ### 守门(已实现,guardian-runner 第 45 项)
