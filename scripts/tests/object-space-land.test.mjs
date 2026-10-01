@@ -753,11 +753,20 @@ test('T-G801-3 commitFacePresence 三态闭合:非 ASCII 路径不得被静默�
  * T-G801-4 形状锁:存在性判据必须问 git 的结论,不得再拿 --name-only 的输出字节当路径身份;
  * 辅助清单维必须带 core.quotePath=false(否则它自己重演 G-801 那一型)。
  */
-test('T-G801-4 形状锁:回读走 cat-file -e 探针且 --name-only 只作混提辅助并带 quotePath=false', () => {
+test('T-G801-4 形状锁:回读走 cat-file -e 探针且 --name-only 只作混提辅助(D171 起走 lib 的 -z 出口关转写)', () => {
   const src = readFileSync(TOOL, 'utf8')
   assert.match(src, /commitFacePresence\(\{ root, commit: landed, paths \}\)/, 'main 必须真调用探针(判据在而无人调 = 判据不存在,守门 70/76/81 同型)')
   assert.match(src, /'cat-file', '-e'/, '探针必须问 git 的存在性结论')
-  assert.match(src, /'-c', 'core\.quotePath=false', 'show', '--name-only'/, '混提辅助清单必须显式关转写')
+  // D171(2026-09-30):混提辅助清单从"show --name-only + -c core.quotePath=false"统一到
+  // lib/git-paths 的 diff-tree -z 出口(-z 分帧在 git 侧本就不做 quotePath 转写),与
+  // safe-commit Step 5 共用同一份实现。锁的意图不变:清单维必须取真路径,不得被转写变形。
+  assert.match(
+    src,
+    /gitCommitPaths\(\{ root, sha: landed, allowFail: false \}\)/,
+    '混提辅助清单必须走 lib/git-paths 的 -z 出口(quotePath 转写形态不得回来)',
+  )
+  const libSrc = readFileSync(join(HERE, '..', 'lib', 'git-paths.mjs'), 'utf8')
+  assert.match(libSrc, /'diff-tree', '-r', '--root', '--no-commit-id', '--name-only', '--no-renames', '-z'/, 'lib 出口必须用 diff-tree -z NUL 分帧取真路径')
   assert.ok(
     !/paths\.filter\(\(p\) => !inCommit\.has\(p\)\)/.test(src),
     '旧的"输出文本逐字比对"判据不得回来:那正是 G-801 的事故形态',
