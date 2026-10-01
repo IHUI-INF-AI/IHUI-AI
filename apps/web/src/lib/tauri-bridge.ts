@@ -487,6 +487,7 @@ export async function quitApp(): Promise<void> {
   await invoke('quit_app')
 }
 
+
 /**
  * 发送系统原生通知(标题 + 正文)。
  * 自动处理权限请求(首次调用时请求,已授权则直接发送)。
@@ -750,12 +751,8 @@ export interface UpdateProgress {
  */
 export interface UpdateSession {
   info: UpdateInfo
-  /** 下载并安装更新。onProgress 回调下载进度(Started/Progress/Finished 三阶段)。
-   *  被取消时抛 `install_cancelled`,事件停摆被判超时上抛 `install_timeout`。 */
+  /** 下载并安装更新。onProgress 回调下载进度(Started/Progress/Finished 三阶段)。 */
   downloadAndInstall: (onProgress?: (p: UpdateProgress) => void) => Promise<void>
-  /** 主动取消(走插件的 Resource.close(),与事件停摆看门狗同一条取消通道)。
-   *  可选:开发态模拟会话没有可关闭的底层资源,不提供该句柄。 */
-  cancel?: () => Promise<void>
 }
 
 /**
@@ -773,14 +770,6 @@ export interface UpdateSession {
  * 返回 null 并告警,前端据此退出转圈进入"检查失败"提示。
  */
 const CHECK_UPDATE_TIMEOUT_MS = 15_000
-
-// 下载/安装用插件自带的请求级总超时(真接口 DownloadOptions.timeout),不再手搓一层总时长 race;
-// 另配一个"事件停摆"看门狗:大包在慢网下合法耗时可远超总超时阈值,真正异常是长时间没有任何 Progress 事件。
-const DOWNLOAD_INSTALL_TIMEOUT_MS = 10 * 60_000
-const DOWNLOAD_INSTALL_IDLE_TIMEOUT_MS = 60_000
-
-/** 超时哨兵与取消原因共用一份标记:决定上抛 install_cancelled 还是 install_timeout。 */
-type DownloadAbortReason = 'cancelled' | 'idle_timeout'
 
 /** withTimeout 超时哨兵:与「Promise 正常返回 null」(updater 无更新)区分。 */
 const TIMEOUT_SENTINEL = Symbol('withTimeoutTimeout')
@@ -823,80 +812,34 @@ export async function checkForUpdates(): Promise<UpdateSession | null> {
     throw new Error('check_failed')
   }
   if (!update) return null
-  let abortReason: DownloadAbortReason | null = null
-  let idleTimer: ReturnType<typeof setTimeout> | undefined
-  const clearIdleTimer = () => {
-    if (idleTimer) {
-      clearTimeout(idleTimer)
-      idleTimer = undefined
-    }
-  }
-  const abortDownload = (reason: DownloadAbortReason): void => {
-    abortReason = reason
-    clearIdleTimer()
-    void update.close().catch(() => {
-      // 已结算的资源重复 close 无意义;失败也不得掩盖原本的取消/超时结论
-    })
-  }
-  const armIdleTimer = () => {
-    clearIdleTimer()
-    idleTimer = setTimeout(() => abortDownload('idle_timeout'), DOWNLOAD_INSTALL_IDLE_TIMEOUT_MS)
-  }
   return {
     info: {
       version: update.version,
       date: update.date,
       notes: update.body,
     },
-    cancel: async () => {
-      abortDownload('cancelled')
-      await update.close().catch(() => {})
-    },
     downloadAndInstall: async (onProgress) => {
       let downloaded = 0
       let total = 0
-      armIdleTimer()
-      try {
-        await update.downloadAndInstall(
-          (event) => {
-            armIdleTimer()
-            switch (event.event) {
-              case 'Started': {
-                const d = event.data as { contentLength?: number }
-                total = d.contentLength ?? 0
-                onProgress?.({ downloaded: 0, total })
-                break
-              }
-              case 'Progress': {
-                const d = event.data as { chunkLength?: number }
-                downloaded += d.chunkLength ?? 0
-                onProgress?.({ downloaded, total })
-                break
-              }
-              case 'Finished':
-                onProgress?.({ downloaded: total || downloaded, total })
-                break
-            }
-          },
-          { timeout: DOWNLOAD_INSTALL_TIMEOUT_MS },
-        )
-      } catch (e) {
-        if (abortReason === 'cancelled') {
-          console.warn(
-            `[updater] ${DOWNLOAD_INSTALL_TIMEOUT_MS}ms 总超时外的主动取消:已关闭下载会话`,
-          )
-          throw new Error('install_cancelled')
+      await update.downloadAndInstall((event) => {
+        switch (event.event) {
+          case 'Started': {
+            const d = event.data as { contentLength?: number }
+            total = d.contentLength ?? 0
+            onProgress?.({ downloaded: 0, total })
+            break
+          }
+          case 'Progress': {
+            const d = event.data as { chunkLength?: number }
+            downloaded += d.chunkLength ?? 0
+            onProgress?.({ downloaded, total })
+            break
+          }
+          case 'Finished':
+            onProgress?.({ downloaded: total || downloaded, total })
+            break
         }
-        if (abortReason === 'idle_timeout') {
-          console.warn(
-            `[updater] 连续 ${DOWNLOAD_INSTALL_IDLE_TIMEOUT_MS}ms 无下载事件,判定网络停摆并已关闭会话`,
-          )
-          throw new Error('install_timeout')
-        }
-        throw e
-      } finally {
-        clearIdleTimer()
-      }
+      })
     },
   }
 }
