@@ -450,6 +450,321 @@
       ],
       "reason": "这四条是恢复链旧文案族,消费者 CheckpointRewindPanel 已把整条恢复/回滚链改名为 undoPreparing/undoSucceeded/undoFailed/undoConfirm 族(2026-10-01 在飞改造现读),四键在全仓零引用(git grep 现读,唯一命中是语言包自身);留词即留无人渲染的死文案,且五语言一致缩水横向 parity 看不见,故按 KR 出口②显式声明。回潮判据:若恢复「还原中/确认标题/还原成功/还原失败」这组旧措辞,须连同组件一起恢复并按当次文案重写,不得只补词。",
       "until": "2027-10-01"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-CN.json",
+      "keys": [
+        "chromeImportBtn",
+        "chromeImportLaunching",
+        "chromeImportHint",
+        "chromeImportFailed",
+        "scanLoginReuseLabel",
+        "scanLoginReuseOn",
+        "scanLoginReuseOff"
+      ],
+      "reason": "这 7 枚是**重复副本**:同值已在 publish.accounts.<key>,而代码全部走 useTranslations('publish') + t('accounts.<key>'),解析不到顶层这一份(HEAD 面 git grep:无 useTranslations('accounts')/getTranslations('accounts')/namespace=\"accounts\";唯一动态前缀 t(`accounts.loadingStage.${…}`) 所在文件 ScanLoginDialog.tsx:921 的 namespace 同样是 publish)。删除不改变任何一行屏幕文字;登记在案的目的是让下一次\"这份顶层块整体是不是孤儿\"的排查有出处,而不是靠记忆。",
+      "until": "2026-12-31"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-TW.json",
+      "keys": [
+        "chromeImportBtn",
+        "chromeImportLaunching",
+        "chromeImportHint",
+        "chromeImportFailed",
+        "scanLoginReuseLabel",
+        "scanLoginReuseOn",
+        "scanLoginReuseOff"
+      ],
+      "reason": "这 7 枚是**重复副本**:同值已在 publish.accounts.<key>,而代码全部走 useTranslations('publish') + t('accounts.<key>'),解析不到顶层这一份(HEAD 面 git grep:无 useTranslations('accounts')/getTranslations('accounts')/namespace=\"accounts\";唯一动态前缀 t(`accounts.loadingStage.${…}`) 所在文件 ScanLoginDialog.tsx:921 的 namespace 同样是 publish)。删除不改变任何一行屏幕文字;登记在案的目的是让下一次\"这份顶层块整体是不是孤儿\"的排查有出处,而不是靠记忆。",
+      "until": "2026-12-31"
+    },
+    {
+      "file": "packages/i18n/messages/web/ja.json",
+      "keys": [
+        "chromeImportBtn",
+        "chromeImportLaunching",
+        "chromeImportHint",
+        "chromeImportFailed",
+        "scanLoginReuseLabel",
+        "scanLoginReuseOn",
+        "scanLoginReuseOff"
+      ],
+      "reason": "这 7 枚是**重复副本**:同值已在 publish.accounts.<key>,而代码全部走 useTranslations('publish') + t('accounts.<key>'),解析不到顶层这一份(HEAD 面 git grep:无 useTranslations('accounts')/getTranslations('accounts')/namespace=\"accounts\";唯一动态前缀 t(`accounts.loadingStage.${…}`) 所在文件 ScanLoginDialog.tsx:921 的 namespace 同样是 publish)。删除不改变任何一行屏幕文字;登记在案的目的是让下一次\"这份顶层块整体是不是孤儿\"的排查有出处,而不是靠记忆。",
+      "until": "2026-12-31"
+    },
+    {
+      "file": "packages/i18n/messages/web/ko.json",
+      "keys": [
+        "chromeImportBtn",
+        "chromeImportLaunching",
+        "chromeImportHint",
+        "chromeImportFailed",
+        "scanLoginReuseLabel",
+        "scanLoginReuseOn",
+        "scanLoginReuseOff"
+      ],
+      "reason": "这 7 枚是**重复副本**:同值已在 publish.accounts.<key>,而代码全部走 useTranslations('publish') + t('accounts.<key>'),解析不到顶层这一份(HEAD 面 git grep:无 useTranslations('accounts')/getTranslations('accounts')/namespace=\"accounts\";唯一动态前缀 t(`accounts.loadingStage.${…}`) 所在文件 ScanLoginDialog.tsx:921 的 namespace 同样是 publish)。删除不改变任何一行屏幕文字;登记在案的目的是让下一次\"这份顶层块整体是不是孤儿\"的排查有出处,而不是靠记忆。",
+      "until": "2026-12-31"
+    },
+    {
+      "file": "packages/i18n/messages/web/en.json",
+      "keys": [
+        "chromeImportBtn",
+        "chromeImportLaunching",
+        "chromeImportHint",
+        "chromeImportFailed",
+        "scanLoginReuseLabel",
+        "scanLoginReuseOn",
+        "scanLoginReuseOff"
+      ],
+      "reason": "这 7 枚是**重复副本**:同值已在 publish.accounts.<key>,而代码全部走 useTranslations('publish') + t('accounts.<key>'),解析不到顶层这一份(HEAD 面 git grep:无 useTranslations('accounts')/getTranslations('accounts')/namespace=\"accounts\";唯一动态前缀 t(`accounts.loadingStage.${…}`) 所在文件 ScanLoginDialog.tsx:921 的 namespace 同样是 publish)。删除不改变任何一行屏幕文字;登记在案的目的是让下一次\"这份顶层块整体是不是孤儿\"的排查有出处,而不是靠记忆。",
+      "until": "2026-12-31"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-CN.json",
+      "keys": [
+        "accounts.add",
+        "accounts.batchImport",
+        "accounts.batchVerify",
+        "accounts.cancelScan",
+        "accounts.credentials",
+        "accounts.delete",
+        "accounts.deleteConfirm",
+        "accounts.edit",
+        "accounts.externalBrowserHint",
+        "accounts.nickname",
+        "accounts.noAccounts",
+        "accounts.openExternalBrowser",
+        "accounts.orDivider",
+        "accounts.platform",
+        "accounts.scan",
+        "accounts.scanLogin",
+        "accounts.scanLoginDescription",
+        "accounts.scanLoginFailed",
+        "accounts.scanLoginHint",
+        "accounts.scanLoginSucceeded",
+        "accounts.scanLoginSuccess",
+        "accounts.scanLoginTimeout",
+        "accounts.scanLoginTitle",
+        "accounts.scanWithPhoneHint",
+        "accounts.startScanLogin",
+        "accounts.subtitle",
+        "accounts.title",
+        "accounts.verify"
+      ],
+      "reason": "根级 `accounts` 整块 28 枚叶全部删除。两条独立取证:① **不可达** —— 命名空间感知判据(把 `useTranslations(ns)`/无参根级/JSX `namespace=`/动态前缀都算进去)在 HEAD 面扫 apps/web+packages 生产面,\"能解析到根级 accounts 的键位 = 0 枚\";该判据的阳性对照:`useTranslations('aiChat.org') + t('adminTitle')` 同一型被认出 1 个文件(对照不过就拒绝出结论)。② **无独有内容** —— 28 枚叶逐条在 `publish.accounts.<同名路径>` 里都在(顶层独有 = 0 枚),其中 14–15 枚措辞已漂,即两份真相;留着它,下一次\"改了 publish 忘改根级\"就会以\"某端文案变了\"的形态回来(本批 7 枚 chromeImport* 的错位就是同一因)。值本身不丢:代码读的那一份(publish.accounts)一字未动,构建器删前按路径逐条断言过。",
+      "until": "2026-12-31"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-TW.json",
+      "keys": [
+        "accounts.add",
+        "accounts.batchImport",
+        "accounts.batchVerify",
+        "accounts.cancelScan",
+        "accounts.credentials",
+        "accounts.delete",
+        "accounts.deleteConfirm",
+        "accounts.edit",
+        "accounts.externalBrowserHint",
+        "accounts.nickname",
+        "accounts.noAccounts",
+        "accounts.openExternalBrowser",
+        "accounts.orDivider",
+        "accounts.platform",
+        "accounts.scan",
+        "accounts.scanLogin",
+        "accounts.scanLoginDescription",
+        "accounts.scanLoginFailed",
+        "accounts.scanLoginHint",
+        "accounts.scanLoginSucceeded",
+        "accounts.scanLoginSuccess",
+        "accounts.scanLoginTimeout",
+        "accounts.scanLoginTitle",
+        "accounts.scanWithPhoneHint",
+        "accounts.startScanLogin",
+        "accounts.subtitle",
+        "accounts.title",
+        "accounts.verify"
+      ],
+      "reason": "根级 `accounts` 整块 28 枚叶全部删除。两条独立取证:① **不可达** —— 命名空间感知判据(把 `useTranslations(ns)`/无参根级/JSX `namespace=`/动态前缀都算进去)在 HEAD 面扫 apps/web+packages 生产面,\"能解析到根级 accounts 的键位 = 0 枚\";该判据的阳性对照:`useTranslations('aiChat.org') + t('adminTitle')` 同一型被认出 1 个文件(对照不过就拒绝出结论)。② **无独有内容** —— 28 枚叶逐条在 `publish.accounts.<同名路径>` 里都在(顶层独有 = 0 枚),其中 14–15 枚措辞已漂,即两份真相;留着它,下一次\"改了 publish 忘改根级\"就会以\"某端文案变了\"的形态回来(本批 7 枚 chromeImport* 的错位就是同一因)。值本身不丢:代码读的那一份(publish.accounts)一字未动,构建器删前按路径逐条断言过。",
+      "until": "2026-12-31"
+    },
+    {
+      "file": "packages/i18n/messages/web/ja.json",
+      "keys": [
+        "accounts.add",
+        "accounts.batchImport",
+        "accounts.batchVerify",
+        "accounts.cancelScan",
+        "accounts.credentials",
+        "accounts.delete",
+        "accounts.deleteConfirm",
+        "accounts.edit",
+        "accounts.externalBrowserHint",
+        "accounts.nickname",
+        "accounts.noAccounts",
+        "accounts.openExternalBrowser",
+        "accounts.orDivider",
+        "accounts.platform",
+        "accounts.scan",
+        "accounts.scanLogin",
+        "accounts.scanLoginDescription",
+        "accounts.scanLoginFailed",
+        "accounts.scanLoginHint",
+        "accounts.scanLoginSucceeded",
+        "accounts.scanLoginSuccess",
+        "accounts.scanLoginTimeout",
+        "accounts.scanLoginTitle",
+        "accounts.scanWithPhoneHint",
+        "accounts.startScanLogin",
+        "accounts.subtitle",
+        "accounts.title",
+        "accounts.verify"
+      ],
+      "reason": "根级 `accounts` 整块 28 枚叶全部删除。两条独立取证:① **不可达** —— 命名空间感知判据(把 `useTranslations(ns)`/无参根级/JSX `namespace=`/动态前缀都算进去)在 HEAD 面扫 apps/web+packages 生产面,\"能解析到根级 accounts 的键位 = 0 枚\";该判据的阳性对照:`useTranslations('aiChat.org') + t('adminTitle')` 同一型被认出 1 个文件(对照不过就拒绝出结论)。② **无独有内容** —— 28 枚叶逐条在 `publish.accounts.<同名路径>` 里都在(顶层独有 = 0 枚),其中 14–15 枚措辞已漂,即两份真相;留着它,下一次\"改了 publish 忘改根级\"就会以\"某端文案变了\"的形态回来(本批 7 枚 chromeImport* 的错位就是同一因)。值本身不丢:代码读的那一份(publish.accounts)一字未动,构建器删前按路径逐条断言过。",
+      "until": "2026-12-31"
+    },
+    {
+      "file": "packages/i18n/messages/web/ko.json",
+      "keys": [
+        "accounts.add",
+        "accounts.batchImport",
+        "accounts.batchVerify",
+        "accounts.cancelScan",
+        "accounts.credentials",
+        "accounts.delete",
+        "accounts.deleteConfirm",
+        "accounts.edit",
+        "accounts.externalBrowserHint",
+        "accounts.nickname",
+        "accounts.noAccounts",
+        "accounts.openExternalBrowser",
+        "accounts.orDivider",
+        "accounts.platform",
+        "accounts.scan",
+        "accounts.scanLogin",
+        "accounts.scanLoginDescription",
+        "accounts.scanLoginFailed",
+        "accounts.scanLoginHint",
+        "accounts.scanLoginSucceeded",
+        "accounts.scanLoginSuccess",
+        "accounts.scanLoginTimeout",
+        "accounts.scanLoginTitle",
+        "accounts.scanWithPhoneHint",
+        "accounts.startScanLogin",
+        "accounts.subtitle",
+        "accounts.title",
+        "accounts.verify"
+      ],
+      "reason": "根级 `accounts` 整块 28 枚叶全部删除。两条独立取证:① **不可达** —— 命名空间感知判据(把 `useTranslations(ns)`/无参根级/JSX `namespace=`/动态前缀都算进去)在 HEAD 面扫 apps/web+packages 生产面,\"能解析到根级 accounts 的键位 = 0 枚\";该判据的阳性对照:`useTranslations('aiChat.org') + t('adminTitle')` 同一型被认出 1 个文件(对照不过就拒绝出结论)。② **无独有内容** —— 28 枚叶逐条在 `publish.accounts.<同名路径>` 里都在(顶层独有 = 0 枚),其中 14–15 枚措辞已漂,即两份真相;留着它,下一次\"改了 publish 忘改根级\"就会以\"某端文案变了\"的形态回来(本批 7 枚 chromeImport* 的错位就是同一因)。值本身不丢:代码读的那一份(publish.accounts)一字未动,构建器删前按路径逐条断言过。",
+      "until": "2026-12-31"
+    },
+    {
+      "file": "packages/i18n/messages/web/en.json",
+      "keys": [
+        "accounts.add",
+        "accounts.batchImport",
+        "accounts.batchVerify",
+        "accounts.cancelScan",
+        "accounts.credentials",
+        "accounts.delete",
+        "accounts.deleteConfirm",
+        "accounts.edit",
+        "accounts.externalBrowserHint",
+        "accounts.nickname",
+        "accounts.noAccounts",
+        "accounts.openExternalBrowser",
+        "accounts.orDivider",
+        "accounts.platform",
+        "accounts.scan",
+        "accounts.scanLogin",
+        "accounts.scanLoginDescription",
+        "accounts.scanLoginFailed",
+        "accounts.scanLoginHint",
+        "accounts.scanLoginSucceeded",
+        "accounts.scanLoginSuccess",
+        "accounts.scanLoginTimeout",
+        "accounts.scanLoginTitle",
+        "accounts.scanWithPhoneHint",
+        "accounts.startScanLogin",
+        "accounts.subtitle",
+        "accounts.title",
+        "accounts.verify"
+      ],
+      "reason": "根级 `accounts` 整块 28 枚叶全部删除。两条独立取证:① **不可达** —— 命名空间感知判据(把 `useTranslations(ns)`/无参根级/JSX `namespace=`/动态前缀都算进去)在 HEAD 面扫 apps/web+packages 生产面,\"能解析到根级 accounts 的键位 = 0 枚\";该判据的阳性对照:`useTranslations('aiChat.org') + t('adminTitle')` 同一型被认出 1 个文件(对照不过就拒绝出结论)。② **无独有内容** —— 28 枚叶逐条在 `publish.accounts.<同名路径>` 里都在(顶层独有 = 0 枚),其中 14–15 枚措辞已漂,即两份真相;留着它,下一次\"改了 publish 忘改根级\"就会以\"某端文案变了\"的形态回来(本批 7 枚 chromeImport* 的错位就是同一因)。值本身不丢:代码读的那一份(publish.accounts)一字未动,构建器删前按路径逐条断言过。",
+      "until": "2026-12-31"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-CN.json",
+      "keys": [
+        "accounts.chromeImportBtn",
+        "accounts.chromeImportLaunching",
+        "accounts.chromeImportHint",
+        "accounts.chromeImportFailed",
+        "accounts.scanLoginReuseLabel",
+        "accounts.scanLoginReuseOn",
+        "accounts.scanLoginReuseOff"
+      ],
+      "reason": "这 7 枚是**重复副本**:同值已在 publish.accounts.<key>,而代码全部走 useTranslations('publish') + t('accounts.<key>'),解析不到顶层这一份(HEAD 面 git grep:无 useTranslations('accounts')/getTranslations('accounts')/namespace=\"accounts\";唯一动态前缀 t(`accounts.loadingStage.${…}`) 所在文件 ScanLoginDialog.tsx:921 的 namespace 同样是 publish)。删除不改变任何一行屏幕文字;登记在案的目的是让下一次\"这份顶层块整体是不是孤儿\"的排查有出处,而不是靠记忆。",
+      "until": "2026-12-31"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-TW.json",
+      "keys": [
+        "accounts.chromeImportBtn",
+        "accounts.chromeImportLaunching",
+        "accounts.chromeImportHint",
+        "accounts.chromeImportFailed",
+        "accounts.scanLoginReuseLabel",
+        "accounts.scanLoginReuseOn",
+        "accounts.scanLoginReuseOff"
+      ],
+      "reason": "这 7 枚是**重复副本**:同值已在 publish.accounts.<key>,而代码全部走 useTranslations('publish') + t('accounts.<key>'),解析不到顶层这一份(HEAD 面 git grep:无 useTranslations('accounts')/getTranslations('accounts')/namespace=\"accounts\";唯一动态前缀 t(`accounts.loadingStage.${…}`) 所在文件 ScanLoginDialog.tsx:921 的 namespace 同样是 publish)。删除不改变任何一行屏幕文字;登记在案的目的是让下一次\"这份顶层块整体是不是孤儿\"的排查有出处,而不是靠记忆。",
+      "until": "2026-12-31"
+    },
+    {
+      "file": "packages/i18n/messages/web/ja.json",
+      "keys": [
+        "accounts.chromeImportBtn",
+        "accounts.chromeImportLaunching",
+        "accounts.chromeImportHint",
+        "accounts.chromeImportFailed",
+        "accounts.scanLoginReuseLabel",
+        "accounts.scanLoginReuseOn",
+        "accounts.scanLoginReuseOff"
+      ],
+      "reason": "这 7 枚是**重复副本**:同值已在 publish.accounts.<key>,而代码全部走 useTranslations('publish') + t('accounts.<key>'),解析不到顶层这一份(HEAD 面 git grep:无 useTranslations('accounts')/getTranslations('accounts')/namespace=\"accounts\";唯一动态前缀 t(`accounts.loadingStage.${…}`) 所在文件 ScanLoginDialog.tsx:921 的 namespace 同样是 publish)。删除不改变任何一行屏幕文字;登记在案的目的是让下一次\"这份顶层块整体是不是孤儿\"的排查有出处,而不是靠记忆。",
+      "until": "2026-12-31"
+    },
+    {
+      "file": "packages/i18n/messages/web/ko.json",
+      "keys": [
+        "accounts.chromeImportBtn",
+        "accounts.chromeImportLaunching",
+        "accounts.chromeImportHint",
+        "accounts.chromeImportFailed",
+        "accounts.scanLoginReuseLabel",
+        "accounts.scanLoginReuseOn",
+        "accounts.scanLoginReuseOff"
+      ],
+      "reason": "这 7 枚是**重复副本**:同值已在 publish.accounts.<key>,而代码全部走 useTranslations('publish') + t('accounts.<key>'),解析不到顶层这一份(HEAD 面 git grep:无 useTranslations('accounts')/getTranslations('accounts')/namespace=\"accounts\";唯一动态前缀 t(`accounts.loadingStage.${…}`) 所在文件 ScanLoginDialog.tsx:921 的 namespace 同样是 publish)。删除不改变任何一行屏幕文字;登记在案的目的是让下一次\"这份顶层块整体是不是孤儿\"的排查有出处,而不是靠记忆。",
+      "until": "2026-12-31"
+    },
+    {
+      "file": "packages/i18n/messages/web/en.json",
+      "keys": [
+        "accounts.chromeImportBtn",
+        "accounts.chromeImportLaunching",
+        "accounts.chromeImportHint",
+        "accounts.chromeImportFailed",
+        "accounts.scanLoginReuseLabel",
+        "accounts.scanLoginReuseOn",
+        "accounts.scanLoginReuseOff"
+      ],
+      "reason": "这 7 枚是**重复副本**:同值已在 publish.accounts.<key>,而代码全部走 useTranslations('publish') + t('accounts.<key>'),解析不到顶层这一份(HEAD 面 git grep:无 useTranslations('accounts')/getTranslations('accounts')/namespace=\"accounts\";唯一动态前缀 t(`accounts.loadingStage.${…}`) 所在文件 ScanLoginDialog.tsx:921 的 namespace 同样是 publish)。删除不改变任何一行屏幕文字;登记在案的目的是让下一次\"这份顶层块整体是不是孤儿\"的排查有出处,而不是靠记忆。",
+      "until": "2026-12-31"
     }
   ]
 }
