@@ -4,7 +4,8 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Input } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { updatePassword } from '@/api'
@@ -83,7 +84,7 @@ export default function Password() {
               {tt('user.password.oldPassword', '原密码')}
             </Text>
             <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
-              <Input
+              <FocusInput
                 className="box-border h-full w-full bg-transparent pr-[120rpx] text-[length:32rpx] text-foreground"
                 password={!showOld}
                 maxlength={20}
@@ -104,7 +105,7 @@ export default function Password() {
               {tt('user.password.newPassword', '新密码')}
             </Text>
             <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
-              <Input
+              <FocusInput
                 className="box-border h-full w-full bg-transparent pr-[120rpx] text-[length:32rpx] text-foreground"
                 password={!showNew}
                 maxlength={20}
@@ -130,7 +131,7 @@ export default function Password() {
               {tt('user.password.confirmPassword', '确认密码')}
             </Text>
             <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
-              <Input
+              <FocusInput
                 className="box-border h-full w-full bg-transparent pr-[120rpx] text-[length:32rpx] text-foreground"
                 password={!showConfirm}
                 maxlength={20}
