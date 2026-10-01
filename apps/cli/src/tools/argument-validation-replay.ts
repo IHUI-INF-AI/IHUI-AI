@@ -21,8 +21,13 @@
  * 之后逐条修描述,而不是让一个自动回填程序替模型猜语义。
  */
 
-import type { Tool, ToolParameter, ToolSchema } from './index.js';
-import { validateToolArguments, type ValidationError } from './argument-validator.js';
+import type { Tool, ToolParameter } from './index.js';
+import {
+  isSchemaMissingError,
+  resolveSchemaOrThrow,
+  validateToolArguments,
+  type ValidationError,
+} from './argument-validator.js';
 
 /** 一条来自审计日志的最小视图(与 `AuditEntry` 兼容,但只取回放需要的三字段) */
 export interface ReplayRecord {
@@ -60,6 +65,12 @@ export interface ReplayTotals {
   coercionOnly: number;
   /** 校验器自身抛异常的记录数(坏 schema,不能拖垮回放) */
   validatorThrew: number;
+  /**
+   * schema 解析不到(`SchemaMissing`,G-712)的记录数 —— **单独一档**。
+   * 改前这一型被兜成空属性表后计入 `valid`,离线台账于是替一个从没被校验过的工具
+   * 出了"参数没问题"的合格证;现在它既不进 `valid` 也不进 `invalid`,只报名。
+   */
+  schemaMissing: number;
   /** 偏差行总数 */
   rows: number;
 }
@@ -69,6 +80,8 @@ export interface ReplayResult {
   rows: DeviationRow[];
   /** 被回放过的工具名(排序)—— 用于"覆盖面"读数,别把没跑到的工具算进来 */
   toolsCovered: string[];
+  /** 参数面解析不到的工具名(排序,G-712)—— 未判定必须逐条点名,不得只给一个计数 */
+  schemaMissingTools: string[];
 }
 
 /**
@@ -104,24 +117,11 @@ function valueAt(root: unknown, fieldPath: string): unknown {
   return cur;
 }
 
-/**
- * 把 `Tool` 的扁平形状拼成校验器要的 `ToolSchema`。
- * 与 `argument-validation-telemetry.ts` 的 `buildShadowSchema` **同形**是刻意的:
- * 两条路径必须看到同一份描述,否则影子档与离线台账会各自报出不同的偏差集。
- */
-function toSchema(tool: Tool): ToolSchema {
-  const rawParams = tool.parameters as unknown;
-  const properties: Record<string, ToolParameter> =
-    rawParams !== null && typeof rawParams === 'object' && !Array.isArray(rawParams)
-      ? (rawParams as Record<string, ToolParameter>)
-      : {};
-  const required = Array.isArray(tool.required) ? tool.required : [];
-  return {
-    name: tool.name,
-    description: typeof tool.description === 'string' ? tool.description : '',
-    parameters: { type: 'object', properties, required },
-  };
-}
+// G-712:本文件原有的一份 `toSchema(tool)`(与 telemetry 的 `buildShadowSchema` 逐字同形的第二份)
+// 已删除 —— 参数面的解析出口只有 `argument-validator.ts::resolveSchemaOrThrow` 一处。
+// 为什么必须删而不是"再抄一份加抛错":两条路径(影子与离线)要看到**同一份**描述,
+// 各自解析就会各自降级;旧的第二份正是"取不到就兜空表"的复制点,兜出来的空表在这里
+// 被计入 `totals.valid`,读报表的人于是以为"这条历史调用被验过"。
 
 /**
  * 沿字段路径取**声明侧**的类型名(`todos[0].summary` → `todos.items.properties.summary.type`)。
@@ -160,10 +160,12 @@ export function replayArgumentDeviations(
     invalid: 0,
     coercionOnly: 0,
     validatorThrew: 0,
+    schemaMissing: 0,
     rows: 0,
   };
   const agg = new Map<string, DeviationRow>();
   const covered = new Set<string>();
+  const missingSchemaTools = new Set<string>();
 
   /** 同一 (工具, 字段, 类别) 只占一行,累计次数与首末时间 */
   function bump(key: string, row: DeviationRow, rec: ReplayRecord): void {
@@ -185,10 +187,27 @@ export function replayArgumentDeviations(
       continue;
     }
     totals.matched += 1;
+    // G-712:参数面解析不到 ⇒ 落 `schemaMissing` 一档并逐条点名工具名。
+    // 刻意**不**计进 valid/invalid,也**不**进 `toolsCovered` —— 校验器对它一次都没跑,
+    // "这条历史调用被回放过"这句话对它不成立(改前它被兜成空表后计进 valid,那是合格证)。
+    let schema: ReturnType<typeof resolveSchemaOrThrow>;
+    try {
+      schema = resolveSchemaOrThrow(tool);
+    } catch (e) {
+      if (isSchemaMissingError(e)) {
+        totals.schemaMissing += 1;
+        missingSchemaTools.add(tool.name);
+      } else {
+        // 描述**有毒**(取 parameters 就抛)仍归既有那一档:与"缺席"是两件事,修法不同。
+        totals.validatorThrew += 1;
+        covered.add(tool.name);
+      }
+      continue;
+    }
     covered.add(tool.name);
     let result;
     try {
-      result = validateToolArguments(rec.input, toSchema(tool));
+      result = validateToolArguments(rec.input, schema);
     } catch {
       totals.validatorThrew += 1;
       continue;
@@ -240,6 +259,11 @@ export function replayArgumentDeviations(
 
   const rows = [...agg.values()].sort((a, b) => b.count - a.count || a.tool.localeCompare(b.tool) || a.field.localeCompare(b.field));
   totals.rows = rows.length;
-  return { totals, rows, toolsCovered: [...covered].sort() };
+  return {
+    totals,
+    rows,
+    toolsCovered: [...covered].sort(),
+    schemaMissingTools: [...missingSchemaTools].sort(),
+  };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

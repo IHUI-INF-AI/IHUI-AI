@@ -565,7 +565,20 @@ export type SSEEventPayload =
         promptTokens: number | null
         completionTokens: number | null
         totalTokens: number | null
-        /** 思考链用量;不支持该档的模型下发 null,老帧缺席按 null 处理 */
+        /**
+         * 思考链用量。G-721(2026-10-01 立)—— 两态分工逐字写明,不许消费端各猜:
+         *  · **显式 null** = 发射处(llm.py 流收尾的 `_usage_frame`)写了这个键、而上游 usage 里
+         *    没有该档(`.get()` 取空)⇒ 报的是"这一轮没有推理用量可交代"(非推理模型 / provider 不报);
+         *  · **缺席**(JSON 里没有这个键)⇒ 帧代际差:该字段是后加的,**旧帧与旧 OpenAI 无名帧不发它**,
+         *    读作"未知",不是"清除"。
+         *  两态在类型层是三值(`number | null | undefined`),**必须保持可分** —— api-client 的
+         *  `UsageEvent.reasoningTokens` 同为可选,折叠只许发生在渲染位,不许发生在解析位。
+         *  共同禁止项:折成 `0`(0 = "确实一个推理 token 都没花"的肯定结论)、或读成"把已累计的
+         *  推理用量抹掉"(清除由消息级重建/回退语义承载,从来不靠这个键缺席表达)。
+         *  ⚠️ 两态在真消费端**曾被各猜一次**(实测,归各自票,本票不改它们):
+         *  `apps/web/src/hooks/use-chat/history-message.ts` 的 `nullable()` 把 undefined/null 同折 null
+         *  (正确形态);`apps/web/src/hooks/use-chat/stream-handlers.ts` 的 `!== null ? Number(x) : null`
+         *  只挡 null,缺席会算出 **NaN** 并被徽章直接渲染 —— 这就是本票立项要的"由消费端各猜"的后果样本。 */
         reasoningTokens?: number | null
       }
       timing: {

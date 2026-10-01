@@ -24,4 +24,30 @@ export {
   type SubagentLifecycleStatus,
   type SubagentTerminalStatus,
 } from './types.js';
+// G-687 孤儿收敛(挂在构造时刻)+ G-688 三态查询面 / 观察汇。
+// 判据本体全在 state-store.ts,这里只转发,不得在桶里写第二份实现或第二份名单。
+export {
+  SUBAGENT_INTERRUPT_CODE,
+  SUBAGENT_ORPHAN_TERMINAL_STATUS,
+  SUBAGENT_OBSERVATION_KIND_ORPHAN_RECONCILED,
+  reconcileOrphans,
+  openSubagentStateStore,
+  readSubagentState,
+  querySubagentStates,
+  createSubagentObservationSink,
+  type SubagentInterruptCode,
+  type SubagentStateReadResult,
+  type SubagentStatesQueryResult,
+  type SubagentReadFailure,
+  type SubagentStatesQueryFailure,
+  type SubagentObservation,
+  type SubagentObservationOutcome,
+  type SubagentObservationRejection,
+  type SubagentObservationSink,
+  type SubagentObservationSinkDeps,
+  type OrphanReconcileReport,
+  type OrphanReconciledRow,
+  type OrphanReconcileDeps,
+  type SubagentStateStoreHandle,
+} from './state-store.js';
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
