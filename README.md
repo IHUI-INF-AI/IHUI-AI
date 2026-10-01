@@ -698,6 +698,21 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 #### 类型契约扩展(packages/types + packages/api-client)
 
 - `ToolCallSource = 'builtin' | 'plugin' | 'mcp'`:工具来源三态枚举
+- **会话分组(D165,2026-10-01 立)**:web 侧栏的"文件夹"从本日起是**服务端一等实体**而不是本机 localStorage ——
+  库面新增 `chat_conversation_groups`(每人 `(user_id, name)` 唯一)+ `chat_conversations.group_id`
+  (`ON DELETE SET NULL`:删分组只取消归类,绝不连带删会话);服务端新增六条端点
+  `GET/POST/PATCH/DELETE /api/chat/conversations/groups*` 与 `POST /api/chat/conversations/groups/move`。
+  批量移动的回报取**库确认集**(`affected` + `missedIds` 逐条点名),不把请求数组长度当结果;
+  归属条件写进被发出的那条 SQL(AGENTS §5「已登录不等于可以动这条数据」)。
+  跨端单一源 = `@ihui/shared/chat/conversation-org-server`(子路径消费,不进根桶),
+  失败分八类原因(offline / name-too-long / duplicate-name / not-found / forbidden / unauthorized / server / unknown),
+  判据优先读 `ApiResult` 的 `status`/`errorCode` 而不是文案(守门 135 那条纪律)。
+  **移动端与小程序的降级形态(票面验收③,按 AGENTS §9 写清)**:两端今日**不提供**分组 UI ——
+  它们已有会话置顶/归档(`apps/miniapp-taro/src/pkg-ai/ai/history.tsx` 的 `togglePinnedItem`、
+  `apps/mobile-rn/src/screens/MessageCenterScreen.tsx`),但没有分组入口,也不读上面那张归属表;
+  因此小程序/RN 的会话列表在分组存在时按"全部会话"展示(不做隐藏式过滤,避免"会话凭空消失")。
+  要接上时**不需要新增服务端能力**:同一子路径 store + 同一批端点即可,只差两端各自的入口文案与
+  语言包落笔(miniapp 的离线语言包是派生产物,须按 §19/守门 105 的生成链重生成,不得手改)。
 - `ToolCallSummary`:6 项指标接口(`filesSearched` / `webSearched` / `filesModified` / `linesAdded` / `linesDeleted` / `totalCalls` + 可选 `toolsByCategory` / `totalDurationMs`)
 - `streamChat` 新增 `onToolSummary` 回调 + `tool-summary` SSE 事件解析(兼容 snake_case / camelCase 字段)
 - `ChatMessage` 扩展 `toolCallSummary?: ToolCallSummary` + `totalDurationMs?: number` 字段
