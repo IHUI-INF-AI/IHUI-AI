@@ -31,18 +31,17 @@
  * (验收"摘掉一个回调必须红"只能在磁盘面演示 —— 摘工作区文件对 HEAD 面不可见)。
  *
  * 病窗兜底(2026-09-30 实证):本会话 Node 给子进程创建 stdin 管道必 EBUSY,
- * `cat-file --batch`(请求靠 stdin 喂)全灭。兜底链:
- *   catBatch → 请求清单写临时文件、子进程 stdio[0] 指向该文件的 fd(fd 不是管道,
- *   病窗实测可活;50 文件 1.5s)→ 逐文件 `cat-file blob`(无 stdin,gitRaw 的
- *   input===undefined 那一支)。三条通道读的是同一批 HEAD blob,取材语义零漂移;
- *   喂内容一律走临时文件,不经 input/--stdin(D139 红线 4)。
+ * `cat-file --batch`(请求靠 stdin 喂)全灭。兜底链(2026-10-02 收编,原中段
+ * "本文件自带临时 fd 批"已进层,判据同源、自拼出口删除):
+ *   catBatch(层内已带临时文件 fd 兜底,9dcaf345b1)→ 逐文件 `cat-file blob`
+ *   (无 stdin,gitRaw 的 input===undefined 那一支)。
+ *   两条通道读的是同一批 HEAD blob,取材语义零漂移;喂内容一律走临时文件,
+ *   不经 input/--stdin(D139 红线 4)。
  */
 
-import { spawnSync } from 'node:child_process';
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
-import { catBatch, gitRaw, parseBatch, Undetermined } from './face-reader.mjs';
-import { resolveGitBin } from './gitdir.mjs';
+import { catBatch, gitRaw, Undetermined } from './face-reader.mjs';
 
 /** 端目录表:七端(第一轮六端 + apps/web/src —— 摘掉 web 一个回调也必须红)。 */
 export const END_CAPABILITY_DIRS = {
@@ -61,9 +60,6 @@ export const PROFILE_REL = 'config/agent-event-end-capability.json';
 /** t4 单源常量文件(AGENT_TASK_EVENTS 常量 → wire 事件名,消费扫描解析用)。 */
 const AGENT_EVENTS_REL = 'packages/shared/src/sse/agent-events.ts';
 
-/** 单文件兜底批的字节数上限参照(face-reader 同源)。 */
-const FALLBACK_CHUNK = 400;
-
 const firstLine = (e) => String(e?.message ?? e).split('\n')[0];
 
 function escapeRe(s) {
@@ -79,42 +75,9 @@ export function stripTsComments(src) {
     .join('\n');
 }
 
-/**
- * 一次(分块)`cat-file --batch`,但请求清单**不走 stdin**:写进临时文件,
- * 子进程 stdio[0] 直接指向该文件的 fd。fd 不是管道,EBUSY 病窗(只杀 Node 建
- * stdin 管道)实测不发病;病窗内 stdin 管道"假成功产空对象"的事故形态也一并绕开
- * —— 内容躺在文件里,git 爱读不读都得读对。返回 Map<rev, text|null>。
- */
-function catBatchViaTempStdinFile(root, revs) {
-  const GIT = resolveGitBin() || 'git';
-  const tmpDir = path.join(root, '.ihui-agent', 'tmp');
-  mkdirSync(tmpDir, { recursive: true });
-  const out = new Map();
-  for (let i = 0; i < revs.length; i += FALLBACK_CHUNK) {
-    const part = revs.slice(i, i + FALLBACK_CHUNK);
-    const tmp = path.join(tmpDir, `parity-catbatch-${process.pid}-${Date.now()}-${i}.txt`);
-    let fd = -1;
-    try {
-      writeFileSync(tmp, part.join('\n') + '\n', 'utf8');
-      fd = openSync(tmp, 'r');
-      const r = spawnSync(
-        GIT,
-        ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', root, 'cat-file', '--batch'],
-        { stdio: [fd, 'pipe', 'pipe'], windowsHide: true, maxBuffer: 256 << 20, timeout: 120000, encoding: 'buffer' },
-      );
-      if (r.error) throw new Undetermined(`cat-file --batch(临时文件 stdin)失败: ${firstLine(r.error)}`);
-      if (r.status !== 0) throw new Undetermined(`cat-file --batch(临时文件 stdin)退出码 ${r.status}: ${String(r.stderr).split('\n')[0]}`);
-      for (const [k, v] of parseBatch(r.stdout, part)) out.set(k, v);
-    } finally {
-      if (fd >= 0) { try { closeSync(fd); } catch {} }
-      try { unlinkSync(tmp); } catch {}
-    }
-  }
-  return out;
-}
 
 /**
- * 按面读一批文件文本。face='head' 走三条兜底链(语义同为 HEAD blob);
+ * 按面读一批文件文本。face='head' 走两条兜底链(语义同为 HEAD blob);
  * face='worktree' 读磁盘(人工逃生舱:盘上可能是并行会话的半编辑态,只作验收演示)。
  * 返回 Map<rev, string|null>,null = 该面取不到(调用方跳过,不算消费)。
  */
@@ -132,26 +95,24 @@ export function readFaceTexts(root, revs, { face = 'head', paths = null } = {}) 
     });
     return out;
   }
-  // face = 'head':catBatch → 临时文件 stdin 批 → 逐文件。三链读同一批 HEAD blob。
+  // face = 'head':catBatch(层内已带 EBUSY 临时文件 fd 兜底,2026-10-01 9dcaf345b1)→ 逐文件。
+  // 两链读同一批 HEAD blob;原中段"本文件自带临时 fd 批"已收编进层(判据同源,自拼出口删除,
+  // face-reader.test 的 selfBatch 棘轮因此从 1 归 0)。喂内容一律走临时文件,不经 input/--stdin(D139 红线 4)。
   try {
     return catBatch(root, revs, { maxBuffer: 512e6 });
   } catch (batchErr) {
     try {
-      return catBatchViaTempStdinFile(root, revs);
-    } catch (tmpErr) {
-      try {
-        const out = new Map();
-        for (const rev of revs) {
-          try {
-            out.set(rev, gitRaw(['cat-file', 'blob', rev], root));
-          } catch {
-            out.set(rev, null); // 单个取不到 ≠ 整门失明;由调用方对 null 记"未消费"
-          }
+      const out = new Map();
+      for (const rev of revs) {
+        try {
+          out.set(rev, gitRaw(['cat-file', 'blob', rev], root));
+        } catch {
+          out.set(rev, null); // 单个取不到 ≠ 整门失明;由调用方对 null 记"未消费"
         }
-        return out;
-      } catch (e) {
-        throw new Undetermined(`HEAD 面三条兜底链全失败: batch=${firstLine(batchErr)}; tmpfd=${firstLine(tmpErr)}; perfile=${firstLine(e)}`);
       }
+      return out;
+    } catch (e) {
+      throw new Undetermined(`HEAD 面两条兜底链全失败: batch=${firstLine(batchErr)}; perfile=${firstLine(e)}`);
     }
   }
 }
