@@ -2788,3 +2788,4 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
   - 收编后立即 `git worktree remove ../IHUI-AI-wt-<任务名>` + `git worktree prune`
 - **错误码文本判分支对账**〔scripts/check-error-code-not-text-matching.mjs · scripts/lib/code-mask.mjs · 手动档,**尚未接提交链**(2026-09-30 曾一度接进 runner,复跑后已摘出;重新接线由台账"解阻前置"管)〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190
 - **图片占位内容对账**〔scripts/check-image-placeholders.mjs · 手动问责档 warn,刻意不接提交链(问责入口 `pnpm check:image-placeholders`)〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L519–L519
+  - **落点(2026-09-30 改,用户拍板"项目产物不外流"):`git worktree add --detach .worktrees/wt-<任务名>`**(项目内 `.worktrees/`,已 gitignore;旧落点 `../IHUI-AI-wt-<任务名>` 即盘根散落目录,2026-09-30 已清理 13 个残留并立盘根卫生守门 `check-disk-root-hygiene.mjs` 防回潮)。detached HEAD,不占分支名,不违反 §9b
