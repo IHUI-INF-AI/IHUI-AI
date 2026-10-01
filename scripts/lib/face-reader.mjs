@@ -446,6 +446,22 @@ export function packByBytes(specs, sizeOf, opts = {}) {
  * @returns {Map<string,string|null>}
  */
 export function parseBatch(out, revs) {
+  const map = parseBatchBuffers(out, revs)
+  for (const [k, v] of map) {
+    if (v !== null) map.set(k, v.toString('utf8'))
+  }
+  return map
+}
+
+/**
+ * parseBatch 的**字节保真**核心(G-467,2026-10-01 落地):返回 `Map<rev, Buffer|null>`,
+ * 绝不 `toString('utf8')` —— `E4 B8 3F 41` 这类字节经 utf8 解码会变成 `\uFFFD?A`,
+ * 偏移、字节值、"第 3 字节是 0x3F"全部销毁。"判字节/判哈希"的门(如 UTF-8 完整性)
+ * 只能用本出口或 `catBatchBinary`,走 utf8 出口等于把门做瞎。
+ * 判据分支与 `parseBatch` 逐字同构:截断先填满剩余 null 再抛,绝不静默少扫。
+ * @returns {Map<string,Buffer|null>}
+ */
+export function parseBatchBuffers(out, revs) {
   const map = new Map()
   let pos = 0
   for (let i = 0; i < revs.length; i++) {
@@ -471,7 +487,7 @@ export function parseBatch(out, revs) {
       continue
     }
     const size = Number(m[2])
-    map.set(rev, out.subarray(pos, pos + size).toString('utf8'))
+    map.set(rev, out.subarray(pos, pos + size))
     pos += size + 1
   }
   return map
@@ -528,6 +544,27 @@ export function catBatchSizes(root, specs, opts = {}) {
  * 那会被下游读成"没有违规",是一道假绿。
  */
 export function catBatch(root, revs, opts = {}) {
+  const raw = catBatchRaw(root, revs, opts)
+  for (const [k, v] of raw) {
+    if (v !== null) raw.set(k, v.toString('utf8'))
+  }
+  return raw
+}
+
+/**
+ * **二进制安全的批量读取出口**(G-467,2026-10-01 落地):与 `catBatch` 同档同轮同装箱
+ * (字节装箱 / maxBuffer floor / 超限抛),唯一区别是返回 `Map<rev, Buffer|null>` ——
+ * 不做任何字符解码。任何"判字节/判哈希"的门(如 check-api-client-utf8 的 UTF-8 完整性)
+ * 必须走它:走 `catBatch` 等于把门做瞎(`E4 B8 3F 41` → `\uFFFD?A`),不走层会被守门 118
+ * 判 half-wired —— 本出口就是那一档的 sanctioned 通路。
+ * @returns {Map<string,Buffer|null>}
+ */
+export function catBatchBinary(root, revs, opts = {}) {
+  return catBatchRaw(root, revs, opts)
+}
+
+/** `catBatch` / `catBatchBinary` 共用的派生与装箱实现;返回字节面,解码交给出口。 */
+function catBatchRaw(root, revs, opts = {}) {
   const list = [...revs]
   if (list.length === 0) return new Map()
   const maxBuffer = opts.maxBuffer ?? GIT_MAX_BUFFER
@@ -562,16 +599,16 @@ export function catBatch(root, revs, opts = {}) {
         `git cat-file --batch 失败,${root} 的判定面无法取材(第 ${c + 1}/${blocks.length} 块,${part.length} 个规格): ${spawnCauseText(e, budget, `块 ${c + 1}/${blocks.length}`)}`,
       )
     }
-    for (const [k, v] of parseBatchWithOffset(raw, part, seen)) out.set(k, v)
+    for (const [k, v] of parseBatchBuffersWithOffset(raw, part, seen)) out.set(k, v)
     seen += part.length
   }
   return out
 }
 
-/** 复用纯解析器 `parseBatch`,只把"第几块"补进截断消息,便于定位是哪一段没读完。 */
-function parseBatchWithOffset(out, revs, offset) {
+/** 复用纯解析器 `parseBatchBuffers`(字节保真),只把"第几块"补进截断消息,便于定位是哪一段没读完。 */
+function parseBatchBuffersWithOffset(out, revs, offset) {
   try {
-    return parseBatch(out, revs)
+    return parseBatchBuffers(out, revs)
   } catch (e) {
     if (e instanceof Undetermined)
       throw new Undetermined(`${e.message}(规格起点 ${offset},块长 ${revs.length})`)
