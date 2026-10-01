@@ -51,6 +51,7 @@ describe('conversation-import 端点', () => {
   it('parse:multipart 组装 source/file 字段且不覆盖 Content-Type', async () => {
     const transport = okTransport({
       code: 0,
+      message: 'ok',
       data: { conversations: [], truncated: false, warnings: [] },
     })
     setTransport(transport)
@@ -99,6 +100,7 @@ describe('conversation-import 端点', () => {
     }
     const transport = okTransport({
       code: 0,
+      message: 'ok',
       data: { importId: 'imp-1', conversationId: 'conv-1', importedMessages: 1 },
     })
     setTransport(transport)
@@ -120,7 +122,7 @@ describe('conversation-import 端点', () => {
   })
 
   it('history:GET 请求且无 body、无 Content-Type', async () => {
-    const transport = okTransport({ code: 0, data: { list: [], total: 0 } })
+    const transport = okTransport({ code: 0, message: 'ok', data: { list: [], total: 0 } })
     setTransport(transport)
 
     const result = await getConversationImportHistory()

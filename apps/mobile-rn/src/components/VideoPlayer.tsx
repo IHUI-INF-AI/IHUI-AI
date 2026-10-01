@@ -23,6 +23,7 @@
  */
 import { tokens } from '../theme/active-tokens'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { acquireVideoImmersive, releaseVideoImmersive } from '../lib/video-immersive'
 import {
   Pressable,
   StyleSheet,
@@ -94,6 +95,24 @@ export function VideoPlayer({
   const [containerWidth, setContainerWidth] = useState(0)
   const lastProgressEmit = useRef(0)
 
+  /**
+   * 全屏播放器窗口的「沉浸态」上报(原因与三条不许漂的写法见 src/lib/video-immersive.ts 头注)。
+   * 本组件只报布尔,不取色、不碰顶距 —— 带位仍由 App 根 View 那一处单点绘制(守门 97 S1)。
+   * 令牌按实例持有并**在卸载时释放**:路由被弹出、播放器随树卸载而原生窗口还没收回时,
+   * 若不释放,带色会停在黑色再也没人把它翻回来(那等于把一处缺陷换成另一处更隐蔽的缺陷)。
+   */
+  const immersiveToken = useRef<string | null>(null)
+  const holdImmersive = useCallback(() => {
+    if (immersiveToken.current === null) immersiveToken.current = acquireVideoImmersive()
+  }, [])
+  const dropImmersive = useCallback(() => {
+    if (immersiveToken.current !== null) {
+      releaseVideoImmersive(immersiveToken.current)
+      immersiveToken.current = null
+    }
+  }, [])
+  useEffect(() => dropImmersive, [dropImmersive])
+
   // 重置到新的视频时清空内部状态
   useEffect(() => {
     setCurrentTime(startPosition)
@@ -154,6 +173,21 @@ export function VideoPlayer({
     setFullscreen((f) => !f)
   }, [fullscreen])
 
+  /**
+   * 上面那次乐观翻转只负责让按钮文案立刻响应;窗口的真实生命周期由原生侧报回来,这里把状态
+   * 拉回事实 —— 带色只在**全屏窗口真的在**时才转黑,原生没呈现成功就不该染色(否则非全屏页面
+   * 的外观会被一次没发生的"全屏"改掉,那是本票明令禁止的顺手改动)。
+   */
+  const handleFullscreenDidPresent = useCallback(() => {
+    holdImmersive()
+    setFullscreen(true)
+  }, [holdImmersive])
+
+  const handleFullscreenDidDismiss = useCallback(() => {
+    dropImmersive()
+    setFullscreen(false)
+  }, [dropImmersive])
+
   const seekTo = useCallback(
     (ratio: number) => {
       if (!duration) return
@@ -198,6 +232,8 @@ export function VideoPlayer({
         onProgress={handleProgress}
         onEnd={handleEnd}
         onError={handleVideoError}
+        onFullscreenPlayerDidPresent={handleFullscreenDidPresent}
+        onFullscreenPlayerDidDismiss={handleFullscreenDidDismiss}
         resizeMode="contain"
         controls={false}
         style={StyleSheet.absoluteFill}

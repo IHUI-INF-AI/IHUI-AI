@@ -30,6 +30,58 @@ import {
   resultToneFromGoalKind,
 } from './model'
 
+/** 耗时合法性:有限数且 ≥0(0 是合法值 —— 去重跳过的命令耗时≈0) */
+function isValidDurationMs(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+}
+
+/**
+ * 从 tool_result 帧挑出"这一条工具调用"的后端实测耗时(D49②/G-61②,2026-09-24 立)。
+ * 优先级:顶层 camel durationMs(对话流契约形态)> payload.tool_results[] 按 id 配对
+ * > 按工具名配对(面板本地 id 与后端 id 对不上时的兜底)。帧级 payload.duration_ms 是
+ * 整轮批量耗时,绝不能摊给单条卡;明细缺 duration 或值非法(NaN/负数/字符串)→ null,
+ * 交给 resolveDurationMs 走本地时钟回退。
+ */
+export function pickToolServerDurationMs(
+  event: AgentStreamEvent,
+  localToolId: string,
+  toolName: string,
+): number | null {
+  if (isValidDurationMs(event.durationMs)) return event.durationMs
+  const payload = event.payload
+  if (typeof payload !== 'object' || payload === null) return null
+  const details = (payload as { tool_results?: unknown }).tool_results
+  if (!Array.isArray(details)) return null
+  let byName: number | null = null
+  for (const item of details) {
+    if (typeof item !== 'object' || item === null) continue
+    const detail = item as { id?: unknown; name?: unknown; duration_ms?: unknown }
+    if (detail.id === localToolId) {
+      // id 命中优先于名字命中:同名并行工具按 id 取到的是本条而非首条同名
+      if (isValidDurationMs(detail.duration_ms)) return detail.duration_ms
+    } else if (byName === null && detail.name === toolName && isValidDurationMs(detail.duration_ms)) {
+      byName = detail.duration_ms
+    }
+  }
+  return byName
+}
+
+/**
+ * 耗时结算判点(D49②/G-61②):后端值优先(合法即用,0 合法),未下发/非法回退
+ * 本地时钟差;起点不可解析且后端无值 → null(不给卡片假耗时)。
+ */
+export function resolveDurationMs(
+  serverDurationMs: number | null | undefined,
+  startedAtIso: string | undefined,
+  now: number,
+): number | null {
+  if (isValidDurationMs(serverDurationMs)) return serverDurationMs
+  if (startedAtIso === undefined) return null
+  const startMs = Date.parse(startedAtIso)
+  if (Number.isNaN(startMs)) return null
+  return Math.max(0, now - startMs)
+}
+
 /**
  * AgentPane — IDE Agent 面板(对标 Claude Code 的 AI 自主编码)
  *
@@ -162,10 +214,13 @@ export function AgentPane() {
           error: td.error,
           endedAt: new Date().toISOString(),
         }
-        const startMs = Date.parse(target.startedAt)
-        if (!Number.isNaN(startMs)) {
-          updated.durationMs = Math.max(0, Date.now() - startMs)
-        }
+        // D49②/G-61②:后端下发优先(pickToolServerDurationMs),缺省回退本地时钟差
+        const resolved = resolveDurationMs(
+          pickToolServerDurationMs(event, target.id, target.toolName),
+          target.startedAt,
+          Date.now(),
+        )
+        if (resolved !== null) updated.durationMs = resolved
         next[targetIdx] = updated
         return next
       })
@@ -204,10 +259,14 @@ export function AgentPane() {
           endedAt: new Date().toISOString(),
         }
         if (td.exitCode !== undefined) updated.exitCode = td.exitCode
-        const startMs = Date.parse(target.startedAt)
-        if (!Number.isNaN(startMs)) {
-          updated.durationMs = Math.max(0, Date.now() - startMs)
-        }
+        // D49②/G-61②:terminal_end 耗时契约必填(snake 为类型化字段,camel 为透传形态)
+        const serverMs = isValidDurationMs(event.durationMs)
+          ? event.durationMs
+          : isValidDurationMs(event.duration_ms)
+            ? event.duration_ms
+            : null
+        const resolved = resolveDurationMs(serverMs, target.startedAt, Date.now())
+        if (resolved !== null) updated.durationMs = resolved
         next[idx] = updated
         return next
       })

@@ -83,8 +83,15 @@ export async function sendUnified(
     return handle.core.sendMessage(text, onEvent, opts);
   }
   // remote 模式:WebSocket client
-  handle.client.on('event', onEvent);
-  await handle.client.send(text);
+  // G-814408 单一写者:这里**必须**走 per-turn sink(装钩 → send → finally 摘钩),不得再用
+  // 裸 `client.on('event', onEvent)` —— 旧写法把每次 send 的 sink 永久留在同一条流上,
+  // 第二次 send 起同一条事件就被两个写者各写一次(且第一次的 sink 还在收后面所有回合的事件)。
+  // 现在第二条写者(含常驻渲染器)存在时,这次 attach 会被判据拒掉并点名对方。
+  // client 先落成局部常量:闭包里读联合类型的判别属性不会被 TS 保留收窄。
+  const client = handle.client;
+  await client.runWithPerTurnSink(onEvent, () => client.send(text), {
+    label: 'sendUnified:remote',
+  });
   // remote 模式无法同步返回 SendMessageResult(client 通过 done event 传递),
   // 这里返回一个占位结果,实际结果通过 onEvent 的 done 事件获取
   return {

@@ -385,6 +385,8 @@ import { messageBusRoutes } from './message-bus.js'
 import { specRoutes } from './spec.js'
 // Context Engineering(对标 Qoder,多维 @ 提及 file/database/symbol/folder/web)
 import { contextMentionRoutes } from './context-mentions.js'
+// D166(承 V4 §9.4③):链接预览轻量探测(发送前"能不能读、读到什么标题")
+import { urlPreviewRoutes } from './url-preview.js'
 // Subagent 派单 UI(落地 AGENTS.md §11 派单格式)
 import { subagentDispatchRoutes } from './subagent-dispatch.js'
 // 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
@@ -1147,6 +1149,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(specRoutes, { prefix: '/api' })
   // Context Engineering(多维 @ 提及 file/database/symbol/folder/web + LRU 缓存)
   server.register(contextMentionRoutes, { prefix: '/api/context' })
+  // D166:链接预览轻量探测(三态封闭:ok/unavailable/undetermined,绝不缓存正文)
+  server.register(urlPreviewRoutes, { prefix: '/api/url-preview' })
   // Subagent 派单 UI(AGENTS.md §11 派单格式 + mesh 拓扑可视化)
   server.register(subagentDispatchRoutes, { prefix: '/api' })
   // 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
