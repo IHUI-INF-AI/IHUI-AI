@@ -104,6 +104,8 @@ function normalizeManifest(raw: PluginManifest, source: string): PluginDefinitio
   if (Array.isArray(raw.tools)) def.tools = raw.tools.filter((t) => typeof t === 'string');
   if (Array.isArray(raw.hooks)) def.hooks = raw.hooks.filter((h) => typeof h === 'string');
   if (Array.isArray(raw.commands)) def.commands = raw.commands.filter((c) => typeof c === 'string');
+  // G-682:dependencies 必须透传,否则 JSON 清单声明的依赖到不了 registry 的注册前闭包校验
+  if (Array.isArray(raw.dependencies)) def.dependencies = raw.dependencies.filter((d) => typeof d === 'string');
   return def;
 }
 
