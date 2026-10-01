@@ -44,8 +44,17 @@ const OUTLET_MARKERS = [
   "verdict: 'invalid'",
 ]
 const READLOOP_MARKERS = ["from './frame-watermark.js'"]
-/** 读环闸标记:1 处定义 + 主循环与尾部残留两处调用 ⇒ 出现次数 ≥ 3 */
+/**
+ * 读环闸标记:1 处定义 + 读环真调(判"生产了 ≠ 到端了")。
+ * D138(fa309a4908)前读环内联在 streamChat:1 定义 + 主循环/尾部残留两处调用 ⇒ ≥3;
+ * D138 起读环下沉 runResumableSSEStream,主循环与尾部残留都汇入同一个 processLine
+ * 闭包 ⇒ 1 定义 + 1 调用即两路全覆盖。收敛形(≥2)必须同时见到 onLine 接线
+ * (与 packages/api-client/tests/frame-watermark-parity-b76-13.test.ts「通路锁」同一条
+ * 判据,意图不变、形状跟随 D138),否则"定义了没人调/读环绕过闸"照样绿。
+ */
 const READLOOP_GATE_MARKER = 'shouldDropByWatermark'
+/** D138 收敛形的通路锁:带水位闸的行处理必须真接进 runResumableSSEStream 的 onLine。 */
+const READLOOP_WIRING_PATTERN = 'onLine: (line) => processLine(line)'
 
 function countOccurrences(haystack, needle) {
   let n = 0
@@ -88,8 +97,13 @@ function checkRealRepo() {
         problems.push(`读环未接线(缺 ${marker})`)
       }
     }
-    if (countOccurrences(loop, READLOOP_GATE_MARKER) < 3) {
-      problems.push(`读环未接线:${READLOOP_GATE_MARKER} 定义+两处调用应出现 ≥3 次`)
+    const gateHits = countOccurrences(loop, READLOOP_GATE_MARKER)
+    // D138 前形:≥3(1 定义 + 两处调用)直接过;D138 收敛形:≥2 且 onLine 真接线
+    const d138ShapeOk = gateHits >= 2 && loop.includes(READLOOP_WIRING_PATTERN)
+    if (gateHits < 3 && !d138ShapeOk) {
+      problems.push(
+        `读环未接线:${READLOOP_GATE_MARKER} 定义+读环调用不足(≥3;或 D138 收敛形 ≥2 且 onLine 真接线)`,
+      )
     }
   }
   // 阳性对照:落地前 grep 'fromSeq' = 0 ⇒ "看不见";落地后必须 ≥1
