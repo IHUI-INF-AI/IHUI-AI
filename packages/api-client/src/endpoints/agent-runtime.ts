@@ -2,7 +2,12 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi, fetchAiServiceJson, isAbortError } from '../client.js'
+import {
+  appendResumeEventIdHeader,
+  fetchApi,
+  fetchAiServiceJson,
+  isAbortError,
+} from '../client.js'
 import type {
   ApiResult,
   ApiResponse,
@@ -767,7 +772,8 @@ export async function executeAgentStream(
     Accept: 'text/event-stream',
     ...(options.headers ?? {}),
   }
-  if (options.lastEventId) headers['Last-Event-ID'] = options.lastEventId
+  // D138(承 V4 #96):续传头的写入收敛到 client.ts 的唯一出口(本文件不再直写该头)
+  appendResumeEventIdHeader(headers, options.lastEventId)
 
   try {
     const resp = await fetch(url, {
@@ -955,7 +961,8 @@ export async function executeAgentRuntimeStream(
     Accept: 'text/event-stream',
     ...(options.headers ?? {}),
   }
-  if (options.lastEventId) headers['Last-Event-ID'] = options.lastEventId
+  // D138(承 V4 #96):续传头的写入收敛到 client.ts 的唯一出口(本文件不再直写该头)
+  appendResumeEventIdHeader(headers, options.lastEventId)
 
   try {
     const resp = await fetch(url, {

@@ -124,6 +124,9 @@ import {
   SAMPLE_LINES,
   SAMPLE_COL,
 } from './lib/stale-content-analysis.mjs'
+// D171(2026-09-30):混提辅助清单统一走 lib/git-paths 的 -z 出口(NUL 分帧不经
+// core.quotePath 转写),与 safe-commit Step 5 共用同一份实现 —— 两处算同一件事必漂移。
+import { gitCommitPaths } from './lib/git-paths.mjs'
 // G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
 
@@ -1610,16 +1613,13 @@ async function main() {
     console.error(`❌ 提交面回读缺路径(消息声称的改动没真进树;git 逐路径答"不在 ${landed.slice(0, 9)} 的树里"):\n  ${notProven.join('\n  ')}`)
     process.exit(1)
   }
-  // `--name-only` 清单只留作"是否混提"的辅助提醒,且**必须**带 -c core.quotePath=false ——
-  // 否则非 ASCII 路径会被转写成引号形态,辅助判据自己重演 G-801 那一型。它不参与存在性结论。
+  // 混提核查(D171 起统一走 lib/git-paths 的 -z 出口:diff-tree NUL 分帧取真路径,
+  // 与当年 G-801 的"-c core.quotePath=false"同效但不依赖文本行分帧;与 safe-commit
+  // Step 5 共用一份实现)。它只留作"是否混提"的辅助提醒,**不参与存在性结论** ——
+  // 存在性仍由上面的 commitFacePresence(cat-file -e 逐路径问 git 的结论)判定。
   let listed = null
   try {
-    listed = new Set(
-      git(['-c', 'core.quotePath=false', 'show', '--name-only', '--format=', landed], { root })
-        .split('\n')
-        .map((x) => x.trim())
-        .filter(Boolean),
-    )
+    listed = new Set(gitCommitPaths({ root, sha: landed, allowFail: false }))
   } catch (e) {
     console.log(
       `⚠️ 混提核查问不到(辅助提醒维,不参与存在性结论):${e && e.message ? e.message : e}`,
