@@ -40,6 +40,10 @@ import {
 } from './config/credentials.js';
 import { startREPL } from './commands/repl.js';
 import { runAgent, stopReasonToExitCode, parseOutputFormat, setupAgentTools } from './commands/agent.js';
+// G-814406:无头(--json / 非 TTY)退出前的有界排水 —— 结论五档可分辨,预算必有界。
+// 后台任务事实只读 HEAD 既有出口(listTasks/settleAllInFlight),本端不新增注册表语义。
+import { drainHeadlessBeforeExit } from './headless-drain.js';
+import { listTasks, settleAllInFlight } from './tools/background-registry.js';
 import { loadSkills, findSkill } from './skills/index.js';
 import {
   loadSession,
@@ -475,6 +479,58 @@ async function runAgentAndExit(
           error: cloudStatus === 'error' ? cloudOutput : undefined,
           apiKey: cfg.apiKey,
         });
+      }
+      // G-814406:无头退出前有界排水 —— runAgent 返回不等于在飞后台任务收工。
+      // 窄触发(没有在飞工作 ⇒ idle,零轮)+ 宽谓词每轮重评(覆盖"在飞派生在飞")+
+      // 有限预算(缺省 60s,见 headless-drain.ts 的钳制);abort ⇒ interrupted,
+      // 预算耗尽 ⇒ timed-out,两档都逐名报名并**抬升退出码**(仅在原码为 0/未设时),
+      // 把"活没干完却退 0"从静默变成可判定。交互 REPL 不走这一条(反向 guard:
+      // isHeadless=false ⇒ interactive-skipped,一个谓词都不问)。
+      // 通知回合/钩子尾巴一维的接线缺口如实登记于交付报告(未闭环清单②)。
+      try {
+        const drainReport = await drainHeadlessBeforeExit({
+          isHeadless: jsonMode,
+          hasInFlightWork: () => listTasks().some((task) => task.status === 'running'),
+          settleWindow: (windowMs) => settleAllInFlight(windowMs),
+          listInFlightTaskIds: () =>
+            listTasks().filter((task) => task.status === 'running').map((task) => task.id),
+          signal: abort.signal,
+        });
+        if (
+          drainReport.conclusion === 'timed-out' ||
+          drainReport.conclusion === 'interrupted'
+        ) {
+          // 播报只走 NDJSON(stdout 单流,此刻运行事件已全部发出,不存在双写者竞争)与
+          // stderr 两路;ASCII 英文串 —— 理由同 utils/tool-denial.ts(守门 70 新中文基线)。
+          const payload = JSON.stringify({
+            type: 'background_drain',
+            conclusion: drainReport.conclusion,
+            unsettledTaskIds: [...drainReport.unsettledTaskIds],
+            rounds: drainReport.rounds,
+            settled: drainReport.settledTotal,
+            waitedMs: drainReport.waitedMs,
+          });
+          if (jsonMode) {
+            process.stdout.write(`${payload}\n`);
+          }
+          console.error(
+            `[background-drain] ${drainReport.conclusion}: ${drainReport.unsettledTaskIds.length} ` +
+              `task(s) still in flight at exit (${drainReport.unsettledTaskIds.join(', ') || 'ids unenumerable'}).`,
+          );
+          if (!process.exitCode) {
+            process.exitCode = 1;
+          }
+        }
+      } catch (drainErr) {
+        // 排水自身异常不许静默 —— 它意味着"没等到结论就退了",比 timed-out 更响。
+        console.error(
+          `[background-drain] failed to obtain a drain conclusion: ${
+            drainErr instanceof Error ? drainErr.message : String(drainErr)
+          }. Unsettled background work must be assumed at exit.`,
+        );
+        if (!process.exitCode) {
+          process.exitCode = 1;
+        }
       }
     }
   } finally {
