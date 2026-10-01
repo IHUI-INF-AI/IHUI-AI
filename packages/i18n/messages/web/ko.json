@@ -468,6 +468,11 @@
     "run": "실행"
   },
   "a11y": {
+    "previewLoadFailed": "미리 보기를 로드하지 못했습니다.",
+    "previewRetryAction": "재시도",
+    "previewExpired": "미리 보기가 만료되었습니다.",
+    "previewOpenSourceAction": "원본 열기",
+    "previewTooLarge": "파일이 너무 커서 미리 볼 수 없습니다.",
     "download": "다운로드",
     "downloadFile": "파일 다운로드",
     "exitFullscreen": "전체 화면 종료",
@@ -621,6 +626,10 @@
     "nickname": "닉네임",
     "noAccounts": "계정 없음",
     "openExternalBrowser": "외부 브라우저에서 열기",
+    "chromeImportBtn": "내 Chrome에서 가져오기",
+    "chromeImportLaunching": "Chrome 로그인 창을 여는 중...",
+    "chromeImportHint": "{platform} 로그인 페이지를 별도 창으로 열었습니다. 그 창에서 로그인하면 Cookie를 붙여넣지 않아도 계정이 자동 저장됩니다.",
+    "chromeImportFailed": "Chrome 가져오기가 완료되지 않았습니다",
     "orDivider": "또는",
     "platform": "플랫폼",
     "scan": "QR 로그인",
@@ -630,6 +639,9 @@
     "scanLoginHint": "QR 코드는 1분마다 자동 새로고침됩니다",
     "scanLoginSucceeded": "QR 로그인 성공",
     "scanLoginSuccess": "스캔 성공",
+    "scanLoginReuseLabel": "로그인 방식",
+    "scanLoginReuseOn": "기존 세션 재사용(스캔 불필요)",
+    "scanLoginReuseOff": "매번 새로 스캔",
     "scanLoginTimeout": "스캔 시간 초과. 다시 시도하세요.",
     "scanLoginTitle": "QR 로그인",
     "scanWithPhoneHint": "휴대폰으로 QR 코드를 스캔하여 로그인하세요.",
@@ -8147,6 +8159,18 @@
         }
       },
       "errorCatalog": {
+        "102": {
+          "title": "요청 시간 검증 실패",
+          "action": "시스템 시계를 동기화한 후 다시 시도"
+        },
+        "121": {
+          "title": "조직 데이터를 이전하는 중입니다",
+          "action": "이전이 완료된 후 다시 시도"
+        },
+        "47902": {
+          "title": "이 세션의 턴 수가 한도에 도달했습니다",
+          "action": "잠시 후 다시 시도하거나 플랜을 업그레이드"
+        },
         "ACCOUNT_RESTRICTED": {
           "title": "계정이 제한되었습니다",
           "action": "관리자에게 문의"
@@ -8639,18 +8663,6 @@
           "title": "세션 기록이 없습니다",
           "action": "세션을 다시 연 후 다시 시도"
         },
-        "47902": {
-          "title": "이 세션의 턴 수가 한도에 도달했습니다",
-          "action": "잠시 후 다시 시도하거나 플랜을 업그레이드"
-        },
-        "121": {
-          "title": "조직 데이터를 이전하는 중입니다",
-          "action": "이전이 완료된 후 다시 시도"
-        },
-        "102": {
-          "title": "요청 시간 검증 실패",
-          "action": "시스템 시계를 동기화한 후 다시 시도"
-        },
         "speaking_banned": {
           "title": "현재 발언이 제한되어 있습니다",
           "action": "자세한 내용은 관리자에게 문의"
@@ -8964,7 +8976,12 @@
       "targetPlaceholder": "예:명문 고등학교, 985대학"
     },
     "options": {
-      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
+      "classLevel": [
+        "우수(학급 상위 10%)",
+        "양호(10-30%)",
+        "보통(30-70%)",
+        "미흡(하위 30%)"
+      ],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -8981,7 +8998,12 @@
         "시험 불안",
         "가정 환경 영향"
       ],
-      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"]
+      "school": [
+        "주요 중학교",
+        "일반 중학교",
+        "국제 학교",
+        "사립 학교"
+      ]
     },
     "result": {
       "failed": "AI 분석 실패",
@@ -9016,11 +9038,19 @@
       "refresh": "새로고침",
       "empty": "체크포인트가 없습니다",
       "item": "반복 #{iteration} · {status} · 메시지 {count}개",
-      "restoring": "복원 중…",
+      "undoPreparing": "되돌리기를 준비하는 중…",
       "rollback": "되돌리기",
-      "confirmTitle": "되돌리시겠습니까?",
+      "undoConfirm": "이 체크포인트로 되돌리시겠습니까?",
       "confirmDescription": "되돌리면 해당 체크포인트의 대화와 파일 상태로 복원됩니다. 이 작업은 취소할 수 없습니다.",
       "confirmText": "되돌리기",
+      "undoSucceeded": "{count}개 파일을 복원했습니다. 작업 기록은 유지됩니다",
+      "undoUnavailable": "체크포인트를 사용할 수 없습니다. 작업 공간은 변경되지 않았습니다",
+      "undoFailed": "일시적으로 사용할 수 없습니다. 작업 공간은 변경되지 않았습니다",
+      "undoFailedChanged": "일시적으로 사용할 수 없습니다. 작업 공간이 변경되었습니다",
+      "undoFailedUnverifiable": "일시적으로 사용할 수 없습니다. 작업 공간 상태를 확인할 수 없습니다. 확인 후 다시 시도하세요",
+      "undoPartialWarning": "일부 파일을 되돌리지 못했습니다. 작업 기록은 유지됩니다",
+      "restoring": "복원 중…",
+      "confirmTitle": "되돌리시겠습니까?",
       "restoreSuccess": "체크포인트로 되돌렸습니다",
       "restoreFailed": "되돌리기에 실패했습니다"
     },
@@ -10616,13 +10646,19 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
+    "linkPreview": {
+      "loading": "링크 미리보기를 불러오는 중...",
+      "unavailable": "링크 미리보기를 읽을 수 없습니다",
+      "undetermined": "이 링크를 판별할 수 없습니다(로그인이 필요하거나 시간 초과일 수 있음). 전송 후에도 읽기를 시도합니다",
+      "dismiss": "미리보기 닫기"
+    },
     "referencePreview": {
-      "available": "시뮬레이션 기능 사용 가능",
-      "editor": "기능 참조 입력칸",
-      "placeholder": "전체 참조를 붙여넣거나 @로 기능을 입력하세요…",
-      "source": "원래 입력 본문",
+      "available": "모의 기능 사용 가능",
+      "editor": "기능 참조 입력창",
+      "placeholder": "전체 참조를 붙여넣거나 @이름 입력…",
+      "source": "원본 입력 본문",
       "select": "예시 기능 선택",
-      "clear": "새로 입력",
+      "clear": "새 입력",
       "send": "미리보기 보내기"
     },
     "bindIssue": "이슈 연결",
@@ -11798,6 +11834,21 @@
     "reasoningEffortFallback": "추론 강도가 서버에서 조정되었습니다: {requested} → {effective}"
   },
   "chatHistory": {
+    "moveToGroup": "그룹으로 이동",
+    "moveSelectedToGroup": "선택 항목을 그룹으로 이동",
+    "moveSuccess": "{count}개 항목을 \"{folder}\"(으)로 이동했습니다",
+    "moveFailFolderMissing": "이동 실패: 대상 그룹 \"{folder}\"이(가) 이미 삭제되었습니다. 다른 그룹을 선택한 후 다시 시도하세요",
+    "moveFailUnauthorized": "이동 실패: 로그인 상태가 만료되었습니다. 다시 로그인한 후 시도하세요",
+    "moveFailConflict": "선택한 대화가 모두 \"{folder}\" 그룹에 이미 있습니다. 다른 그룹을 선택하세요",
+    "groupPin": "그룹 고정",
+    "groupUnpin": "그룹 고정 해제",
+    "moveDialog": {
+      "title": "그룹으로 이동",
+      "none": "그룹 없음",
+      "newPlaceholder": "새 그룹 이름 입력(비우면 선택한 그룹 사용)",
+      "confirm": "이동",
+      "cancel": "취소"
+    },
     "selectModeAriaLabel": "작업 다중 선택 모드 전환",
     "backToHistory": "기록으로 돌아가기",
     "batchArchive": "보관",
@@ -11998,151 +12049,276 @@
       "slashDiff": {
         "label": "세션 변경 요약",
         "description": "이 세션에서 AI가 변경한 파일 확인",
-        "keywords": ["diff", "변경", "검토"]
+        "keywords": [
+          "diff",
+          "변경",
+          "검토"
+        ]
       },
       "slashStatus": {
         "label": "세션 상태",
         "description": "모델, 컨텍스트, 권한 모드, 사용량 표시",
-        "keywords": ["status", "상태", "컨텍스트"]
+        "keywords": [
+          "status",
+          "상태",
+          "컨텍스트"
+        ]
       },
       "slashModel": {
         "label": "모델 전환",
         "description": "모델 선택기 열기",
-        "keywords": ["model", "모델", "전환"]
+        "keywords": [
+          "model",
+          "모델",
+          "전환"
+        ]
       },
       "slashMcp": {
         "label": "MCP 마켓",
         "description": "MCP 서버 마켓 열기",
-        "keywords": ["mcp", "마켓"]
+        "keywords": [
+          "mcp",
+          "마켓"
+        ]
       },
       "slashCompact": {
         "label": "컨텍스트 압축",
         "description": "세션 기록을 압축해 컨텍스트 확보",
-        "keywords": ["compact", "압축", "컨텍스트"]
+        "keywords": [
+          "compact",
+          "압축",
+          "컨텍스트"
+        ]
       },
       "steerPrompt": {
         "label": "프롬프트 스티어",
         "description": "실행 중인 답변에 현재 입력을 가이드로 주입합니다",
-        "keywords": ["스티어", "가이드", "steer"]
+        "keywords": [
+          "스티어",
+          "가이드",
+          "steer"
+        ]
       },
       "queuePrompt": {
         "label": "프롬프트를 대기열에 추가",
         "description": "현재 입력을 대기열에 추가하여 현재 답변이 끝나면 자동으로 전송합니다",
-        "keywords": ["대기열", "큐", "queue"]
+        "keywords": [
+          "대기열",
+          "큐",
+          "queue"
+        ]
       },
       "agent": {
         "description": "AI 에이전트 관리 및 디스패치",
-        "keywords": ["에이전트", "agent", "bot"],
+        "keywords": [
+          "에이전트",
+          "agent",
+          "bot"
+        ],
         "label": "AI 에이전트"
       },
       "browser": {
         "description": "작업 공간에서 웹 탐색",
-        "keywords": ["브라우저", "웹", "browser"],
+        "keywords": [
+          "브라우저",
+          "웹",
+          "browser"
+        ],
         "label": "내장 브라우저"
       },
       "capabilityMarket": {
         "description": "기능 팩 탐색 및 설치",
-        "keywords": ["기능", "마켓", "market", "플러그인"],
+        "keywords": [
+          "기능",
+          "마켓",
+          "market",
+          "플러그인"
+        ],
         "label": "기능 마켓"
       },
       "codeChanges": {
         "description": "작업 공간 코드 변경 확인",
-        "keywords": ["코드", "변경", "diff", "수정"],
+        "keywords": [
+          "코드",
+          "변경",
+          "diff",
+          "수정"
+        ],
         "label": "코드 변경"
       },
       "connectors": {
         "description": "외부 서비스 연결 관리",
-        "keywords": ["커넥터", "연결", "connector"],
+        "keywords": [
+          "커넥터",
+          "연결",
+          "connector"
+        ],
         "label": "커넥터"
       },
       "document": {
         "description": "작업 공간 문서 편집",
-        "keywords": ["문서", "편집", "doc"],
+        "keywords": [
+          "문서",
+          "편집",
+          "doc"
+        ],
         "label": "문서"
       },
       "editor": {
         "description": "코드 에디터 열기",
-        "keywords": ["에디터", "코드", "editor"],
+        "keywords": [
+          "에디터",
+          "코드",
+          "editor"
+        ],
         "label": "에디터"
       },
       "mcp": {
         "description": "MCP 서버 및 도구 관리",
-        "keywords": ["MCP", "서버", "도구"],
+        "keywords": [
+          "MCP",
+          "서버",
+          "도구"
+        ],
         "label": "MCP 관리"
       },
       "mcpStore": {
         "description": "MCP 서비스 탐색 및 설치",
-        "keywords": ["MCP", "스토어", "store", "설치"],
+        "keywords": [
+          "MCP",
+          "스토어",
+          "store",
+          "설치"
+        ],
         "label": "MCP 스토어"
       },
       "modeAsk": {
         "description": "질문 모드로 전환(도구 비활성)",
-        "keywords": ["질문", "ask", "모드"],
+        "keywords": [
+          "질문",
+          "ask",
+          "모드"
+        ],
         "label": "질문 모드"
       },
       "modeBuild": {
         "description": "AI가 직접 빌드하고 수정",
-        "keywords": ["빌드", "모드", "build"],
+        "keywords": [
+          "빌드",
+          "모드",
+          "build"
+        ],
         "label": "빌드 모드"
       },
       "modePlan": {
         "description": "계획 수립 후 실행",
-        "keywords": ["계획", "모드", "plan"],
+        "keywords": [
+          "계획",
+          "모드",
+          "plan"
+        ],
         "label": "계획 모드"
       },
       "modeReview": {
         "description": "기존 코드 검토",
-        "keywords": ["리뷰", "모드", "review"],
+        "keywords": [
+          "리뷰",
+          "모드",
+          "review"
+        ],
         "label": "리뷰 모드"
       },
       "modeSpec": {
         "description": "스펙에서 구현 생성",
-        "keywords": ["스펙", "모드", "spec"],
+        "keywords": [
+          "스펙",
+          "모드",
+          "spec"
+        ],
         "label": "스펙 모드"
       },
       "skill": {
         "description": "AI 스킬 관리 및 호출",
-        "keywords": ["스킬", "skill", "능력"],
+        "keywords": [
+          "스킬",
+          "skill",
+          "능력"
+        ],
         "label": "스킬"
       },
       "terminal": {
         "description": "통합 터미널 열기",
-        "keywords": ["터미널", "콘솔", "terminal"],
+        "keywords": [
+          "터미널",
+          "콘솔",
+          "terminal"
+        ],
         "label": "터미널"
       },
       "ai-world": {
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": ["AI", "월드", "앱"],
+        "keywords": [
+          "AI",
+          "월드",
+          "앱"
+        ],
         "label": "AI 월드"
       },
       "chat": {
         "description": "AI 어시스턴트와 대화",
-        "keywords": ["채팅", "대화", "AI", "chat"],
+        "keywords": [
+          "채팅",
+          "대화",
+          "AI",
+          "chat"
+        ],
         "label": "AI 채팅"
       },
       "drama": {
         "description": "AI 생성 단편 드라마",
-        "keywords": ["드라마", "비디오", "AI", "drama"],
+        "keywords": [
+          "드라마",
+          "비디오",
+          "AI",
+          "drama"
+        ],
         "label": "AI 드라마"
       },
       "profile": {
         "description": "프로필 및 설정 관리",
-        "keywords": ["프로필", "사용자", "설정"],
+        "keywords": [
+          "프로필",
+          "사용자",
+          "설정"
+        ],
         "label": "프로필"
       },
       "search": {
         "description": "전역 콘텐츠 검색",
-        "keywords": ["검색", "찾기", "search"],
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ],
         "label": "검색"
       },
       "settings": {
         "description": "시스템 환경 설정 및 구성",
-        "keywords": ["설정", "환경설정", "구성"],
+        "keywords": [
+          "설정",
+          "환경설정",
+          "구성"
+        ],
         "label": "설정"
       },
       "skillsMarket": {
         "description": "자가 진화 스킬 탐색 및 설치",
-        "keywords": ["skill", "스킬", "마켓", "market"],
+        "keywords": [
+          "skill",
+          "스킬",
+          "마켓",
+          "market"
+        ],
         "label": "스킬 마켓"
       }
     },
@@ -14605,25 +14781,37 @@
       "quadrants": [
         {
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"],
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ],
           "tag": "Q1",
           "title": "효율적 어시스턴트"
         },
         {
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"],
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ],
           "tag": "Q2",
           "title": "스마트 어드바이저"
         },
         {
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"],
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ],
           "tag": "Q3",
           "title": "실행 전문가"
         },
         {
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"],
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ],
           "tag": "Q4",
           "title": "올라운드 전문가"
         }
@@ -14757,19 +14945,31 @@
       "items": [
         {
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"],
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ],
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티"
         },
         {
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"],
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ],
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티"
         },
         {
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"],
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ],
           "tag": "MODULE 03",
           "title": "AI 전문 서비스"
         }
@@ -15707,9 +15907,13 @@
       "goalWarnings": "독립성 경고",
       "modelDefault": "기본",
       "modelSelect": "모델 선택",
+      "pause": "일시정지",
+      "paused": "일시정지됨",
       "placeholder": "AI가 완료할 코딩 작업을 설명하세요...",
       "plan": "계획",
       "result": "결과",
+      "resume": "재개",
+      "running": "실행 중",
       "stop": "중지",
       "taskId": "작업 ID",
       "unknownFile": "(알 수 없는 파일)"
@@ -15757,6 +15961,33 @@
     },
     "diffFileList": {
       "noMatch": "일치하는 파일 없음"
+    },
+    "diffReview": {
+      "copyGitApplyUnreadable": "내용을 읽지 못한 파일 {count}개를 건너뛰었습니다",
+      "copyGitApply": "git apply 복사",
+      "copyGitApplyToast": "git apply 명령을 클립보드에 복사했습니다",
+      "copyGitApplyFailed": "git apply 명령 복사 실패",
+      "copyGitApplyEmpty": "내보낼 변경 사항 없음",
+      "markAsViewed": "검토 완료로 표시",
+      "markAsUnviewed": "미검토로 표시",
+      "markedAsViewed": "검토 완료",
+      "markAllViewed": "전부 검토 완료로 표시",
+      "unmarkAll": "표시 전부 해제",
+      "reviewedCount": "검토 완료 {viewed}/{total}",
+      "jumpToFile": "파일로 이동",
+      "jumpToFileEmpty": "일치하는 파일 없음",
+      "renderError": "파일 행을 표시할 수 없습니다",
+      "retry": "재시도",
+      "loading": "로딩 중...",
+      "loadFailedAfterRetrying": "재시도 후에도 로드 실패",
+      "fullContentLoadFailed": "전체 내용 로드 실패",
+      "hideGenerated": "생성 파일 숨기기",
+      "copyPath": "경로 복사",
+      "pathCopied": "경로를 복사했습니다",
+      "openWithSplit": "분할로 열기",
+      "openWithUnified": "통합으로 열기",
+      "openInEditor": "에디터에서 열기",
+      "viewPullRequest": "풀 리퀘스트 보기"
     },
     "diffStats": {
       "commit": "변경 커밋",
@@ -15854,6 +16085,20 @@
       "open": "열기",
       "rename": "이름 변경",
       "renamed": "이름 변경됨"
+    },
+    "hostGit": {
+      "authorize": "권한 부여",
+      "binary": "git:{path}",
+      "binaryMissing": "git 실행 파일을 찾을 수 없음",
+      "clean": "호스트 작업 공간이 깨끗함, 커밋되지 않은 변경 없음",
+      "commandFailed": "git 명령 실패({reason}), 판정:{verdict}",
+      "dirty": "호스트에 커밋되지 않은 변경 {count}건",
+      "hostRejected": "호스트 거부:{reason}",
+      "noVerdict": "작업 공간 판정 없음",
+      "noWorkspace": "호스트 작업 공간에 연결되지 않음",
+      "refresh": "새로 고침",
+      "title": "호스트 Git",
+      "undetermined": "판정 불가:{reason}"
     },
     "layout": {
       "agentView": "에이전트 보기",
@@ -16062,33 +16307,6 @@
       "groupView": "보기",
       "noMatch": "일치 항목 없음",
       "searchPlaceholder": "보기 검색..."
-    },
-    "diffReview": {
-      "copyGitApplyUnreadable": "내용을 읽지 못한 파일 {count}개를 건너뛰었습니다",
-      "copyGitApply": "git apply 복사",
-      "copyGitApplyToast": "git apply 명령을 클립보드에 복사했습니다",
-      "copyGitApplyFailed": "git apply 명령 복사 실패",
-      "copyGitApplyEmpty": "내보낼 변경 사항 없음",
-      "markAsViewed": "검토 완료로 표시",
-      "markAsUnviewed": "미검토로 표시",
-      "markedAsViewed": "검토 완료",
-      "markAllViewed": "전부 검토 완료로 표시",
-      "unmarkAll": "표시 전부 해제",
-      "reviewedCount": "검토 완료 {viewed}/{total}",
-      "jumpToFile": "파일로 이동",
-      "jumpToFileEmpty": "일치하는 파일 없음",
-      "renderError": "파일 행을 표시할 수 없습니다",
-      "retry": "재시도",
-      "loading": "로딩 중...",
-      "loadFailedAfterRetrying": "재시도 후에도 로드 실패",
-      "fullContentLoadFailed": "전체 내용 로드 실패",
-      "hideGenerated": "생성 파일 숨기기",
-      "copyPath": "경로 복사",
-      "pathCopied": "경로를 복사했습니다",
-      "openWithSplit": "분할로 열기",
-      "openWithUnified": "통합으로 열기",
-      "openInEditor": "에디터에서 열기",
-      "viewPullRequest": "풀 리퀘스트 보기"
     }
   },
   "imageGenPage": {
@@ -17656,7 +17874,15 @@
       "title": "Top 5 페이지",
       "visitsHeader": "방문수"
     },
-    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ]
   },
   "models": {
     "relay": {
@@ -18404,7 +18630,12 @@
         ]
       },
       "starter": {
-        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
+        "features": [
+          "1M 토큰 한도",
+          "기본 모델 사용 가능",
+          "5개 API 토큰",
+          "커뮤니티 지원"
+        ]
       }
     },
     "productSchema": {
@@ -19651,7 +19882,13 @@
       "enterprise": {
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"],
+        "features": [
+          "무제한 크레딧",
+          "사설 배포",
+          "SSO/SAML 2.0",
+          "감사 로그",
+          "전담 기술 지원"
+        ],
         "name": "기업판"
       },
       "free": {
@@ -20271,6 +20508,10 @@
       "nickname": "닉네임",
       "noAccounts": "계정이 없습니다. 먼저 추가하세요.",
       "openExternalBrowser": "외부 브라우저에서 열기",
+      "chromeImportBtn": "내 Chrome에서 가져오기",
+      "chromeImportLaunching": "Chrome 로그인 창을 여는 중...",
+      "chromeImportHint": "{platform} 로그인 페이지를 별도 창으로 열었습니다. 그 창에서 로그인하면 Cookie를 붙여넣지 않아도 계정이 자동 저장됩니다.",
+      "chromeImportFailed": "Chrome 가져오기가 완료되지 않았습니다",
       "orDivider": "또는",
       "passwordPlaceholder": "비밀번호 입력",
       "passwordHint": "일반 사용자는 QR 로그인을 사용하세요. 이 필드는 개발자 전용입니다.",
@@ -20295,6 +20536,9 @@
       "scanLoginQrAlt": "로그인 QR 코드",
       "scanLoginSucceeded": "로그인 성공, 계정에 저장됨",
       "scanLoginSuccess": "QR 로그인 성공",
+      "scanLoginReuseLabel": "로그인 방식",
+      "scanLoginReuseOn": "기존 세션 재사용(스캔 불필요)",
+      "scanLoginReuseOff": "매번 새로 스캔",
       "scanLoginTimeout": "스캔 시간 초과, 재시도하세요",
       "scanLoginTitle": "QR 로그인",
       "scanWithPhoneHint": "QR코드는 휴대폰으로 스캔하세요 — 페이지 클릭 불필요; 로그인 감지 후 계정이 자동 저장됩니다",
@@ -20348,14 +20592,7 @@
       "batchScanPopupBlocked": "브라우저가 새 탭을 차단했습니다. 주소 표시줄 오른쪽 아이콘에서 이 사이트의 팝업을 허용한 뒤 다시 시작하세요(또는 내장 브라우저 모드 사용).",
       "batchScanPopupBlockedToast": "새 탭이 차단되어 대기열을 중지했습니다. 팝업을 허용한 뒤 다시 시도하세요",
       "batchScanWindowClosedToast": "브라우저 창이 닫혀 대기열을 중지했습니다",
-      "batchScanWaitingHint": "아래 QR 코드를 휴대폰으로 스캔하여 해당 플랫폼에 로그인해 주세요. 시간 초과(2분) 시 자동으로 건너뛰며, 수동으로 건너뛸 수도 있습니다",
-      "chromeImportBtn": "내 Chrome에서 가져오기",
-      "chromeImportLaunching": "Chrome 로그인 창을 여는 중...",
-      "chromeImportHint": "{platform} 로그인 페이지를 별도 창으로 열었습니다. 그 창에서 로그인하면 Cookie를 붙여넣지 않아도 계정이 자동 저장됩니다.",
-      "chromeImportFailed": "Chrome 가져오기가 완료되지 않았습니다",
-      "scanLoginReuseLabel": "로그인 방식",
-      "scanLoginReuseOn": "기존 세션 재사용(스캔 불필요)",
-      "scanLoginReuseOff": "매번 새로 스캔"
+      "batchScanWaitingHint": "아래 QR 코드를 휴대폰으로 스캔하여 해당 플랫폼에 로그인해 주세요. 시간 초과(2분) 시 자동으로 건너뛰며, 수동으로 건너뛸 수도 있습니다"
     },
     "ai": {
       "analyzeAll": "일괄 분석",
