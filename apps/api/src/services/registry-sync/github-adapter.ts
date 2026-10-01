@@ -50,10 +50,29 @@ interface GitHubFileContent {
   encoding: string
 }
 
+// G-978074:死 token 闩 —— 任一带 token 的请求被 GitHub 拒 401(Bad credentials)⇒ 记住该值,
+// 本进程内此后不再携带 Authorization(匿名 60 次/时;限流下 README 元数据优雅降级为 null,
+// 列表 403 会以明确的 rate limit 错误收场),当场以匿名头重试一次。
+// 旧行为:token 过期后每轮同步必 401 整轮失败,报错只有 "Bad credentials" 不含"凭据失效"线索。
+// 恢复全保真:更新 apps/api/.env 的 GITHUB_TOKEN 并重启 api(闩随进程重生)。
+let deadToken: string | null = null
+
 function authHeaders(token?: string): Record<string, string> {
   const h: Record<string, string> = { Accept: 'application/vnd.github+json' }
-  if (token) h.Authorization = `Bearer ${token}`
+  if (token && token !== deadToken) h.Authorization = `Bearer ${token}`
   return h
+}
+
+/** 401 且带着 token ⇒ 闩住并提示;返回 true 表示调用方应以匿名头重试一次。 */
+function latchDeadToken(res: { status: number }, token: string | undefined, what: string): boolean {
+  if (res.status !== 401 || !token || token === deadToken) return false
+  deadToken = token
+  console.warn(
+    `[registry-sync][github] ${what} 返回 401(Bad credentials)—— GITHUB_TOKEN 已失效,` +
+      '本进程降级为匿名请求(60 次/时,README 元数据限流下可缺);' +
+      '更新 apps/api/.env 的 GITHUB_TOKEN 并重启 api 恢复全保真',
+  )
+  return true
 }
 
 /** 从 README 提取 name/description/categories/tags(frontmatter 优先,回退 H1 + 首段) */
@@ -122,6 +141,7 @@ async function fetchRepoInfo(
       { headers: authHeaders(token) },
       timeoutMs,
     )
+    latchDeadToken(res, token, 'repo info')
     if (!res.ok) return null
     return (await res.json()) as GitHubRepoInfo
   } catch {
@@ -142,6 +162,7 @@ async function fetchReadme(
       { headers: authHeaders(token) },
       timeoutMs,
     )
+    latchDeadToken(res, token, 'README')
     if (!res.ok) return null
     const data = (await res.json()) as GitHubFileContent
     return data.encoding === 'base64'
@@ -184,11 +205,18 @@ async function fetchFromContentsRepo(
   const timeoutMs = options?.timeoutMs ?? 30000
   const { owner, repo } = REPO_MAP[sourceType]
 
-  const listRes = await fetchWithTimeout(
+  let listRes = await fetchWithTimeout(
     `${GITHUB_API}/repos/${owner}/${repo}/contents`,
     { headers: authHeaders(token) },
     timeoutMs,
   )
+  if (latchDeadToken(listRes, token, 'contents API')) {
+    listRes = await fetchWithTimeout(
+      `${GITHUB_API}/repos/${owner}/${repo}/contents`,
+      { headers: authHeaders(token) },
+      timeoutMs,
+    )
+  }
   if (listRes.status === 403) {
     throw new RegistryAdapterError(
       'GitHub API rate limit exceeded, set githubToken to increase limit',
@@ -279,11 +307,18 @@ async function fetchPlugins(options?: SyncOptions): Promise<RawRegistryItem[]> {
   const allItems: RawRegistryItem[] = []
 
   for (let page = 1; page <= MAX_PAGES; page++) {
-    const res = await fetchWithTimeout(
+    let res = await fetchWithTimeout(
       `${GITHUB_API}/search/repositories?q=topic:ihui-plugin&per_page=${PER_PAGE}&page=${page}`,
       { headers: authHeaders(token) },
       timeoutMs,
     )
+    if (latchDeadToken(res, token, 'search API')) {
+      res = await fetchWithTimeout(
+        `${GITHUB_API}/search/repositories?q=topic:ihui-plugin&per_page=${PER_PAGE}&page=${page}`,
+        { headers: authHeaders(token) },
+        timeoutMs,
+      )
+    }
     if (res.status === 403) {
       throw new RegistryAdapterError(
         'GitHub API rate limit exceeded, set githubToken to increase limit',
