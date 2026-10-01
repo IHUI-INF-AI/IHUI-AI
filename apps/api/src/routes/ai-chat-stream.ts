@@ -23,8 +23,10 @@ import { error, success } from '../utils/response.js'
 import {
   bindConversationWorkspace,
   createMessage,
+  findConversationById,
   patchConversationMetadata,
   replaceMessages,
+  setConversationAdditionalDirectories,
 } from '../db/chat-queries.js'
 import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
 import {
@@ -1280,6 +1282,59 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(resp.status).send(data)
     } catch (e) {
       request.log.error({ err: e, conversationId, messageId }, 'steer proxy failed')
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
+
+  // POST /chat/conversations/:id/directories — D201 多根工作区(2026-10-02):
+  // 会话中途追加/移除目录(**整表替换**,空数组 = 清空,对标 Qoder add_directories
+  // 控制帧)。顺序:auth → 属主 → 转发 ai-service(准入校验在那一侧:绝对路径/
+  // 存在/是目录,任一非法整表拒绝 422,metadata 不写)→ 成功后才落会话 metadata
+  // (additionalDirectories 键,空集删键)。运行时生效面 = ai-service 进程内
+  // 注册表(mcp_server.set_session_extra_roots,键 = conversationId),工具路径
+  // 校验层立即生效;重启后须重新下发(与 thread.settings 热更项同生命周期)。
+  const directoriesSchema = z.object({
+    paths: z.array(z.string().min(1)).max(16),
+  })
+
+  server.post('/chat/conversations/:id/directories', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    if (!request.userId) return
+    const { id } = request.params as { id: string }
+    const parsed = directoriesSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const conversation = await findConversationById(id)
+    if (!conversation || conversation.userId !== request.userId) {
+      return reply.status(404).send(error(404, '会话不存在或无权操作'))
+    }
+    try {
+      const resp = await aiServiceFetch(
+        request,
+        `/api/llm/conversations/${encodeURIComponent(id)}/directories`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: request.headers.authorization ?? '',
+          },
+          body: JSON.stringify({ paths: parsed.data.paths }),
+        },
+      )
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) {
+        // 透传 ai-service 422(准入拒绝),metadata 保持原样(不部分生效)
+        return reply.status(resp.status).send(data)
+      }
+      await setConversationAdditionalDirectories(request.userId, id, parsed.data.paths)
+      request.log.info(
+        { conversationId: id, count: parsed.data.paths.length },
+        '[ChatDirectories] additional directories applied',
+      )
+      return reply.status(resp.status).send(data)
+    } catch (e) {
+      request.log.error({ err: e, conversationId: id }, 'directories proxy failed')
       return reply.status(502).send(error(502, (e as Error).message))
     }
   })

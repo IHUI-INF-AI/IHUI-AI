@@ -602,6 +602,12 @@ class EngineThread:
     # 工具级审批策略(2026-09-18 立,对标 Codex per-tool approval_policy;
     # "*" 为全局档,per-tool 显式值优先)
     approval_policies: dict[str, str] = field(default_factory=dict)
+    # D201 多根工作区(2026-10-02):会话级附加目录集(thread.settings 的
+    # additionalDirectories 整表替换;空列表 = 清空)。生效点在 mcp_server 的
+    # 会话覆盖层(set_session_extra_roots,键 = session_id);本字段是引擎侧
+    # 快照,供 thread.state / settings.updated 回读。生命周期 = 线程内存态
+    # (与 model_params 等其余热更项一致,重启后须重新下发)。
+    additional_directories: tuple[str, ...] = ()
     # Turn Context 冻结(2026-09-18 立,对标 Codex harness TurnContext):每轮 prompt
     # 开始时快照本轮生效配置;thread.resume(checkpoint 续跑)强制用冻结副本,防
     # 「interrupt → 客户端改配置 → resume」状态串台。非 checkpoint 路径每轮刷新。
@@ -4531,6 +4537,18 @@ class AgentEngine:
         model_params = settings.get("modelParams")
         if model_params is not None and not isinstance(model_params, dict):
             raise JsonRpcError(INVALID_PARAMS, "modelParams 须为对象")
+        # D201:additionalDirectories —— 字符串数组,**整表替换**语义(空数组 = 清空,
+        # 对标 Qoder add_directories 的"追加/移除都走同一帧");任一目录准入失败整表拒绝。
+        additional_dirs_raw = settings.get("additionalDirectories")
+        additional_dirs: list[str] | None = None
+        if additional_dirs_raw is not None:
+            if not isinstance(additional_dirs_raw, list) or not all(
+                isinstance(x, str) for x in additional_dirs_raw
+            ):
+                raise JsonRpcError(
+                    INVALID_PARAMS, "additionalDirectories 须为字符串数组(空数组 = 清空)"
+                )
+            additional_dirs = additional_dirs_raw
         # 统一赋值(校验已全过)
         applied: list[str] = []
         if model is not None:
@@ -4554,6 +4572,16 @@ class AgentEngine:
         if model_params is not None:
             thread.model_params = {**thread.model_params, **model_params}
             applied.append("modelParams")
+        if additional_dirs is not None:
+            from .mcp_server import set_session_extra_roots
+
+            try:
+                thread.additional_directories = set_session_extra_roots(
+                    thread.session_id, additional_dirs
+                )
+            except ValueError as e:
+                raise JsonRpcError(INVALID_PARAMS, str(e))
+            applied.append("additionalDirectories")
         thread.touch()
         await self._emit_engine_event(
             thread,
@@ -4572,6 +4600,7 @@ class AgentEngine:
                 "autoCompactThreshold": thread.auto_compact_threshold,
                 "permissionMode": thread.permission_mode,
                 "modelParams": thread.model_params,
+                "additionalDirectories": list(thread.additional_directories),
             },
         }
 
