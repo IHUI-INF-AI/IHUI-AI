@@ -30,10 +30,24 @@
  * 分层:第一层 findOrphanedDeletions+heal(` D` 外部删除)、第二/三层 refreshStaleIndex+alignDrifts
  * (` M ` 落后索引与幻影漂移)、第四层 restoreBypassOrphans(2026-09-26 补:HEAD 有 / 索引无 / 盘无,
  * 前三层判据都从"索引里的 blob"出发,这一型索引里根本没有 blob,结构上永不成立 —— 只在 --align-drift 档执行)。
+ *
+ * 两条 2026-09-30 的收口(票面 G-794 / G-742,读这两段再改本文件):
+ *  ① **锁不是崩溃的理由**。`index.lock` 由并行会话持有时,写索引那条路一律"本层跳过 + 一行原因"
+ *     并按三态分档(被持有 / 疑似悬挂 / 此刻已解除 / 判不出),四种措辞的处置不同;非锁故障照旧上抛,
+ *     **绝不伪装成让路**。旧行为是 refreshStaleIndex 末尾一条裸奔的 `update-index` 把异常冒到
+ *     main() ⇒ exit 2 ⇒ 那一轮三层连带不执行,而守护"健康时不写行"把崩溃与平静写成同一件事。
+ *     本层永不代删、也不抢别人的锁(§12 铁律);`--check`/`--dry-run` 结构上进不到写循环。
+ *  ② **祖先窗口只许有一份**,住在守门 84(`windowFor`/`ancestorWindow`);本器原先自带 30 枚的浅窗口
+ *     并且只给布尔,于是"窗外还有更早版本"与"不是回写"同形,账面写成"无需对齐"。现四态判定
+ *     (proven / absent / beyond-window / undetermined),后两态一律**不动 + 逐条点名**。
+ *     本层刻意**不**为补这一格跑无界遍历:现测真仓一次全深度 `git log -- <热档>` >120s
+ *     (2026-09-30 现读:58 个可判定路径全深度问一遍约 4 分钟),而本层每 2 分钟一轮 —— 出口是
+ *     逐条 `git log --find-object=<blob> -- <path>` 人工定性,不是把门弄绿。
  */
 import {
   copyFileSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -47,10 +61,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // `safe.directory` + `core.quotepath=false` + windowsHide + 显式接管 stdio(钩子/计划任务
 // 派生下裸 'git' 依赖 PATH 会直接找不到二进制,而"自愈静默失效"正是本层要防的那一类)。
 // 判据复用守门 84(§22d 已把 CLI 入口与导出分离,import 不会触发副作用)
-import { analyze } from './check-stale-revert.mjs'
+// G-742(2026-09-30 接):祖先窗口**只许有一份**,住在守门 84。本器原先自带 `--max-count=30`,
+// 比 84 的 40/活档 400 更浅 —— 两条尺子量同一件事却各留一个上限,于是 84 判得出"把历史版本写回
+// 来了"而自愈层看不见,账面表现为"无需对齐"(实测 .github/workflows/ci.yml 与 apps/api/src/index.ts)。
+// `ancestorWindow` 同时把"窗口确证用尽"这一维带回来,本器才可能把"没看到"与"没有"分成两件事说。
+import { analyze, ancestorWindow, windowFor } from './check-stale-revert.mjs'
 // ②′ 通道要读两面内容(索引 blob 与 HEAD blob)—— 一律走 face-reader 那一份取材层,
 // 不在本器里自拼 `git show`(守门 118:引了层却自己读内容 = 半接线)。
-import { catBatch, catBatchSizes, gitRaw } from './lib/face-reader.mjs'
+import { catBatch, catBatchOids, catBatchSizes, gitRaw } from './lib/face-reader.mjs'
 // §26:新增临时夹具唯一落点(mkScratch 不落 os.tmpdir、不落仓库树内)。第四层取证用。
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
@@ -67,6 +85,192 @@ export const SKIP_ENV = 'IHUI_SKIP_WORKTREE_HEAL'
  */
 function makeGit(repoRoot) {
   return (args, opts = {}) => gitRaw(args, repoRoot, { timeout: 0, maxBuffer: 1 << 28, ...opts })
+}
+
+/* ------------------------------------------------------------------ *
+ * G-794(2026-09-30 立)—— 索引锁三态与"本层跳过"出口。
+ *
+ * 立因是实测,不是假想:`node scripts/heal-worktree-tracked.mjs --align-drift` 在 2026-09-29
+ * 05:2x/05:4x 两次以 **exit 2** 崩掉,栈为 `gitRaw ← makeGit ← refreshStaleIndex ← alignDrifts
+ * ← main` —— 抛出点是 refreshStaleIndex 末尾那条**裸奔的** `update-index --cacheinfo` 写循环
+ * (写索引需要 index.lock,而锁由并行会话持有)。后果不是一次没跑成,而是**那一轮里三层全部
+ * 连带不执行**(工作区存续恢复 / 幻影漂移对齐 / 陈旧索引刷新),而 §5b 的守护"健康时不写行"
+ * 让崩溃与平静在日志里长得一样 —— 判据失效的表现永远是安静。
+ *
+ * 三态必须分开,因为它们该做的事不同(题面第 3 条):
+ *   ① 锁不存在(`absent`)而 git 报了锁文本 ⇒ 竞争**已解除**(取用与判读之间别人放锁了),
+ *      或根本不是锁故障 ⇒ 本层跳过并如实说"此刻无锁",下一轮自动重试;绝不因此把故障说成"没故障";
+ *   ② 锁在位且年轻/带内容(`held-live`)⇒ 正常竞争,本层跳过 + 一行原因,exit 0,不自旋不抢锁;
+ *   ③ 锁在位但已超龄且空(`dangling-suspected`)⇒ 同样跳过,但措辞必须点出"**每一轮都会跳过**",
+ *      因为悬挂锁意味着这一层被永久关闭而账面只是安静。
+ *   ④ 问不到锁状态(`undetermined`)⇒ 按"少做一件事"处理并点名,绝不折进 ①/②/③。
+ * 四种结论下本层都不写盘,也**都不代删别人的锁**(§12 铁律 + §5b:锁的处置属持有人)。
+ *
+ * 为什么不顺手加 `--no-optional-locks`:实测(git 2.55,临时仓造 stale index + 持锁)
+ * `git status` / `git diff` / `git ls-files` 这些只读派生**并不因锁失败**(git 自己跳过可选回写),
+ * 真正抛出的只有写动词 —— 所以这里修的是"写失败要归因并让路",不去给共用出口加一把
+ * 当前无人需要的旗(那会同时改到写命令的语义,属于"顺手改行为",本文件头注已记过同一条纪律)。
+ * ------------------------------------------------------------------ */
+
+/** 锁龄超过这个值就判"疑似悬挂"(与 git-lock 的 staleMs 同量级)。只用于**判读与措辞**,不作为删锁依据。 */
+const INDEX_LOCK_LIVE_MS = 300_000
+const LOCK_PROBE_TIMEOUT_MS = 20_000
+/** git 关于索引锁的两种措辞(builtin/lock.c):命中其一才有资格说"让路"。 */
+const LOCK_TEXT_RE = /index\.lock|Another git process/i
+
+/**
+ * 问 git 要锁的真实落点。**不得自己拼 `<root>/.git/index.lock`** —— 本仓真 gitdir 在工作区外
+ * (题面那次的报错原文就是 `D:/IHUI-AI-git-repo/index.lock`),linked worktree / `--separate-git-dir`
+ * 两种形态拼出来的路径都不存在,那样探到的"absent"是一次假阴性(把有锁读成没锁 = 反过来骗人抢写)。
+ */
+export function indexLockPath(repoRoot, g = makeGit(repoRoot)) {
+  let out = ''
+  try {
+    // 这是路径不是 blob 内容 ⇒ trim 安全(取内容才禁止 trim)
+    out = g(['rev-parse', '--git-path', 'index.lock'], { timeout: LOCK_PROBE_TIMEOUT_MS }).trim()
+  } catch (e) {
+    return { ok: false, reason: `问不到 index.lock 落点:${String(e?.message ?? e).slice(0, 160)}` }
+  }
+  if (!out) return { ok: false, reason: 'git 没给出 index.lock 路径' }
+  const abs = /^[A-Za-z]:[\\/]/.test(out) || out.startsWith('/') ? out : resolve(repoRoot, out)
+  return { ok: true, path: abs }
+}
+
+/**
+ * 锁的现读探针(只读:一次 rev-parse + 一次 lstat,不建不删不抢)。
+ * @returns {{state:'absent'|'held-live'|'dangling-suspected'|'undetermined',lockPath:string,ageMs:number,sizeBytes:number,reason:string}}
+ */
+export function probeIndexLock(repoRoot, g = makeGit(repoRoot)) {
+  const p = indexLockPath(repoRoot, g)
+  if (!p.ok)
+    return { state: 'undetermined', lockPath: '', ageMs: 0, sizeBytes: 0, reason: p.reason }
+  let st = null
+  try {
+    st = lstatSync(p.path)
+  } catch (e) {
+    if (e?.code === 'ENOENT')
+      return {
+        state: 'absent',
+        lockPath: p.path,
+        ageMs: 0,
+        sizeBytes: 0,
+        reason: `此刻无 index.lock(${p.path})`,
+      }
+    // EPERM/EACCES/… 一律"判不出"——"量不到"与"没有"不并桶(本仓最高频失效型)
+    return {
+      state: 'undetermined',
+      lockPath: p.path,
+      ageMs: 0,
+      sizeBytes: 0,
+      reason: `量不到 index.lock(${p.path},${String(e?.code ?? e)} ⇒ 不判为无锁)`,
+    }
+  }
+  const ageMs = Math.max(0, Date.now() - st.mtimeMs)
+  const detail = `${Math.round(ageMs / 1000)}s/${st.size}B@${p.path}`
+  if (ageMs <= INDEX_LOCK_LIVE_MS)
+    return {
+      state: 'held-live',
+      lockPath: p.path,
+      ageMs,
+      sizeBytes: st.size,
+      reason: `锁在位 ${detail}`,
+    }
+  return {
+    state: 'dangling-suspected',
+    lockPath: p.path,
+    ageMs,
+    sizeBytes: st.size,
+    reason: `锁在位 ${detail},已超 ${Math.round(INDEX_LOCK_LIVE_MS / 1000)}s ⇒ 疑似悬挂`,
+  }
+}
+
+/** 锁状态的投影(单一映射):探针状态 → 结论种类 + 该说什么。classify 与预探共用这一份。 */
+function skipFromProbe(probe) {
+  switch (probe?.state) {
+    case 'held-live':
+      return { kind: 'held', reason: `本层跳过(锁被持有)—— ${probe.reason}` }
+    case 'dangling-suspected':
+      return { kind: 'dangling', reason: `本层跳过(疑似悬挂锁)—— ${probe.reason}` }
+    case 'absent':
+      return {
+        kind: 'cleared',
+        reason: `本层跳过(报锁但此刻锁已不在位 ⇒ 竞争在取用与判读之间解除)—— ${probe.reason}`,
+      }
+    default:
+      return {
+        kind: 'undetermined',
+        reason: `本层跳过(锁状态判不出,按"少做一件事"处理)—— ${probe?.reason ?? '未取到探针结论'}`,
+      }
+  }
+}
+
+/**
+ * 一次派生失败的归因。四条结论,其中三条是"让路"、一条是"这跟锁无关,照旧抛":
+ * **非锁故障绝不伪装成让路** —— 那等于把 exit 2 换成一句"没事",而真故障从此静默。
+ */
+export function classifyLockFailure(message, probe) {
+  const msg = String(message ?? '')
+  if (!LOCK_TEXT_RE.test(msg)) return { kind: 'not-lock', reason: msg.slice(0, 240) }
+  return skipFromProbe(probe)
+}
+
+/** 让人类读者知道"跳过之后会发生什么":四种措辞各不同,不得合成一句"本轮没跑"。 */
+export function lockSkipAdvice(kind) {
+  switch (kind) {
+    case 'held':
+      return '并行会话正持有索引锁;本层每 2 分钟一轮,锁释放即自动补上,不代删、不自旋抢写(§12 铁律)。'
+    case 'dangling':
+      return '锁龄已超阈值 ⇒ **每一轮都会跳过**,直到有人确认无 git 写进程并处置该锁;本层不代删(处置属锁的持有人)。'
+    case 'cleared':
+      return '竞争已解除 ⇒ 下一轮自动重试;若反复出现这一行,查的是持锁方而不是本层。'
+    case 'undetermined':
+      return '锁状态判不出 ⇒ 本轮结论不算"已判定",也不写盘;先修取材(git 可执行/仓库可达)。'
+    default:
+      return ''
+  }
+}
+
+/** 探针状态 → 建议档位(absent 与"未知"不给建议 —— 它们不是锁故障,不得跟着喊"等锁释放")。 */
+export function adviceKindForState(state) {
+  if (state === 'held-live') return 'held'
+  if (state === 'dangling-suspected') return 'dangling'
+  if (state === 'undetermined') return 'undetermined'
+  return ''
+}
+
+/**
+ * 逐路径 `update-index --cacheinfo`(写索引 ⇒ 需要 index.lock)。
+ * 三条不可漂:① **动手前先探锁**,锁在位就一条都不试(省下 N 次注定失败的派生,也避免把
+ * 同一把锁撞 N 遍);② 真撞上了按 `classifyLockFailure` 归因 —— 非锁文本原样上抛;
+ * ③ 只把**写成的**计进 done,延后的逐路径点名(不得把没做的记成做过的)。
+ */
+export function writeIndexCacheInfos(g, repoRoot, entries) {
+  const done = []
+  const deferred = []
+  if (!entries.length) return { done, deferred, lockSkip: null }
+  const pre = probeIndexLock(repoRoot, g)
+  if (pre.state === 'held-live' || pre.state === 'dangling-suspected') {
+    return {
+      done,
+      deferred: entries.map(([p]) => p),
+      lockSkip: skipFromProbe(pre),
+    }
+  }
+  for (let i = 0; i < entries.length; i++) {
+    const [p, hb] = entries[i]
+    try {
+      // 写动词:刻意不带 timeout(本文件头注 —— 写操作中途被 SIGTERM 可能留下 index.lock,
+      // 把一次挂起换成全局阻塞)
+      g(['update-index', '--cacheinfo', `100644,${hb},${p}`])
+      done.push(p)
+    } catch (e) {
+      const verdict = classifyLockFailure(e?.message ?? e, probeIndexLock(repoRoot, g))
+      if (verdict.kind === 'not-lock') throw e
+      for (let k = i; k < entries.length; k++) deferred.push(entries[k][0])
+      return { done, deferred, lockSkip: verdict }
+    }
+  }
+  return { done, deferred, lockSkip: null }
 }
 
 /**
@@ -247,26 +451,73 @@ export function findOrphanedDeletions(repoRoot) {
   return { safe, held, orphanIndex }
 }
 
-/** 该 blob 是否出现在此路径的历史版本里(祖先判定) */
-function isAncestorBlob(g, path, blob) {
-  if (!blob) return false
-  try {
-    const anc = g(['log', '--max-count=30', '--format=%H', 'HEAD', '--', path])
-      .split('\n')
-      .filter(Boolean)
-    for (const c of anc) {
-      let v = ''
-      try {
-        v = g(['rev-parse', `${c}:${path}`]).trim()
-      } catch {
-        v = ''
-      }
-      if (v === blob) return true
+/**
+ * 该 blob 是否出现在此路径的历史版本里 —— **四态**,不再是一个布尔(G-742 收口)。
+ *
+ * 旧实现是 `git log --max-count=30` 的布尔版:窗口用尽而窗外还有更早版本时,它和"历史就到
+ * 这里"给出同一个 `false`,于是自愈层的**深度上限就是它的失明上限**,而账面只写"无需对齐"。
+ * 现窗口取自守门 84 的 `windowFor`/`ancestorWindow`(同一件事只许有一份实现:84 判得出的回写,
+ * 本层必须同样看得见),并把"确证用尽"单独成一档:
+ *   'proven'          窗内命中 ⇒ 可证零独有数据,允许动;
+ *   'absent'          历史就到这里且没命中 ⇒ 那是真新内容,不动也**不必点名**;
+ *   'beyond-window'   窗口用尽而没命中 ⇒ **判不出**(窗外可能有更早版本),不动 + 逐条点名;
+ *   'undetermined'    祖先清单或正文取不到 ⇒ 不动 + 逐条点名(与"没有"不同形)。
+ * 失效方向一致是"少做一件事 + 大声点名",绝不为把门弄绿去覆写别人的现场。
+ */
+export function blobInAncestry(repoRoot, path, blob) {
+  const win = windowFor(path)
+  if (!blob)
+    return {
+      verdict: 'undetermined',
+      window: win,
+      seen: 0,
+      reason: '待判的 blob 取不到 ⇒ 不判为"不是祖先"',
     }
-  } catch {
-    return false
+  let aw
+  try {
+    aw = ancestorWindow(repoRoot, path)
+  } catch (e) {
+    return {
+      verdict: 'undetermined',
+      window: win,
+      seen: 0,
+      reason: `祖先清单取不到:${String(e?.message ?? e).slice(0, 160)}`,
+    }
   }
-  return false
+  if (!aw.shas.length)
+    return aw.truncated
+      ? {
+          verdict: 'beyond-window',
+          window: aw.window,
+          seen: 0,
+          reason: `窗口 ${aw.window} 内一枚"动过该路径"的提交都取不到`,
+        }
+      : { verdict: 'absent', window: aw.window, seen: 0 }
+  let oids
+  try {
+    oids = catBatchOids(
+      repoRoot,
+      aw.shas.map((c) => `${c}:${path}`),
+    )
+  } catch (e) {
+    return {
+      verdict: 'undetermined',
+      window: aw.window,
+      seen: aw.shas.length,
+      reason: `历史正文对象取不到:${String(e?.message ?? e).slice(0, 160)}`,
+    }
+  }
+  for (const c of aw.shas)
+    if (oids.get(`${c}:${path}`) === blob)
+      return { verdict: 'proven', window: aw.window, seen: aw.shas.length, commit: c.slice(0, 9) }
+  return aw.truncated
+    ? {
+        verdict: 'beyond-window',
+        window: aw.window,
+        seen: aw.shas.length,
+        reason: `祖先窗口 ${aw.window} 确证用尽(窗外还有更早"动过它"的提交)而窗内未命中`,
+      }
+    : { verdict: 'absent', window: aw.window, seen: aw.shas.length }
 }
 
 /**
@@ -328,7 +579,7 @@ const MODULE_TAKE_LINE = /^\s*(?:import|export)\b/
 export function compositeDriftPaths(
   repoRoot,
   paths,
-  { lookback = 30, maxBytes = 512 * 1024, maxFiles = 80 } = {},
+  { maxBytes = 512 * 1024, maxFiles = 80, windowLoss = null } = {},
 ) {
   const g = makeGit(repoRoot)
   const hits = []
@@ -364,23 +615,59 @@ export function compositeDriftPaths(
     if (cur && cur.length) groups.push(cur)
     if (!allTakeLines || !groups.length) continue
     const joined = groups.map((ls) => ls.join('\n'))
-    let anc = []
+    // 窗口与整块通道**同源**(守门 84 的 ancestorWindow),不再自带第二个上限(G-742)。
+    // 旧写法是 `--max-count=30` + 逐条 `git show`:同一件事两套深度 ⇒ 84 判得出的回写本层看不见,
+    // 而"窗内没命中"与"窗外还有更早版本"在旧返回里都是 `continue`,账面同样安静。
+    let aw
     try {
-      anc = g(['log', `--max-count=${lookback}`, '--format=%H', 'HEAD', '--', p])
-        .split('\n')
-        .filter(Boolean)
-    } catch {
+      aw = ancestorWindow(repoRoot, p)
+    } catch (e) {
+      if (windowLoss)
+        windowLoss.push({
+          path: p,
+          window: windowFor(p),
+          seen: 0,
+          channel: 'composite',
+          reason: `祖先清单取不到:${String(e?.message ?? e).slice(0, 120)}`,
+        })
       continue
     }
     const texts = []
-    for (const c of anc) {
+    if (aw.shas.length) {
+      let got = null
       try {
-        texts.push(g(['show', `${c}:${p}`]))
-      } catch {
-        /* 该版本无此路径:跳过 */
+        got = catBatch(
+          repoRoot,
+          aw.shas.map((c) => `${c}:${p}`),
+        )
+      } catch (e) {
+        if (windowLoss)
+          windowLoss.push({
+            path: p,
+            window: aw.window,
+            seen: aw.shas.length,
+            channel: 'composite',
+            reason: `历史正文取不到:${String(e?.message ?? e).slice(0, 120)}`,
+          })
+        continue
+      }
+      // 该版本无此路径 ⇒ map 里没有这条规格(与旧 `git show` 抛错后跳过同义)
+      for (const c of aw.shas) {
+        const t = got.get(`${c}:${p}`)
+        if (typeof t === 'string') texts.push(t)
       }
     }
-    if (!texts.length) continue
+    if (!texts.length) {
+      if (aw.truncated && windowLoss)
+        windowLoss.push({
+          path: p,
+          window: aw.window,
+          seen: 0,
+          channel: 'composite',
+          reason: `窗口 ${aw.window} 用尽而窗内一条历史正文都没取到 ⇒ 判不出`,
+        })
+      continue
+    }
     // 只做"内容回潮"的收口:**纯重排**(同一批行换了位置,典型是 import 排序)不在此列 ——
     // 它不携带任何回退风险,而把它写回 HEAD 会和 lint-staged 的格式化器来回打架。
     const norm = (s) =>
@@ -393,6 +680,15 @@ export function compositeDriftPaths(
     if (norm(g(['show', `HEAD:${p}`])) === norm(readFileSync(resolve(repoRoot, p), 'utf8')))
       continue
     if (joined.every((grp) => texts.some((t) => t.includes(grp)))) hits.push(p)
+    else if (aw.truncated && windowLoss)
+      // 没命中 + 窗口确证用尽 ⇒ "没抓到"不等于"没有回写",必须点名(不得跟着旧写法安静地跳过)
+      windowLoss.push({
+        path: p,
+        window: aw.window,
+        seen: aw.shas.length,
+        channel: 'composite',
+        reason: `拼合通道窗口 ${aw.window} 确证用尽而未命中`,
+      })
   }
   return hits
 }
@@ -406,6 +702,12 @@ export function compositeDriftPaths(
  * 连带 unstage 他人真正的暂存):
  *   ① 索引 blob != HEAD blob;
  *   ② 索引 blob 确为该路径的某个**历史版本**(⇒ 不是新做的暂存);
+ *      该"历史版本"判定自 2026-09-30 起走守门 84 的**同一份**窗口实现(`blobInAncestry`),
+ *      并给出四态(命中/历史就到这里/窗口确证用尽/取不到)。后两态一律**不刷新**且逐条点名
+ *      进 `ancestryUndetermined` —— 旧写法自带 `--max-count=30` 的布尔判据把"窗外还有更早版本"
+ *      与"不是回写"读成同一个 false,那是把没判写成判过了(G-742 ①)。
+ *      本层**刻意不去跑无界遍历**补这一格:现测真仓一次全深度 `git log -- <热档>` >120s,
+ *      而这一层每 2 分钟一轮;出口写在报告里(逐条 `git log --find-object` 人工定性)。
  *   ③ 该路径上没有"现场":工作区 == 索引(无未暂存改动),**或**工作区 == HEAD
  *      (旁路提交后工作区已跟上 HEAD,刷索引只是把 index 补齐 —— 不覆盖任何东西)。
  *   ③ 的后一形态是 CAS/`commit-tree` 提交后最常见的残留(本仓 2026-09-23 实测 4 个路径),
@@ -432,7 +734,18 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
   const staged = g(['diff', '--name-only', 'HEAD', '--cached', '--no-renames'])
     .split('\n')
     .filter(Boolean)
-  if (!staged.length) return { refreshed: 0, paths: [], held: 0 }
+  if (!staged.length)
+    return {
+      refreshed: 0,
+      paths: [],
+      deferred: [],
+      held: 0,
+      subsetRefreshed: 0,
+      subsetPaths: [],
+      lockSkip: null,
+      ancestryUndetermined: [],
+      subsetUndetermined: [],
+    }
   const idxBlob = new Map()
   for (const l of lsStageChunked(g, staged)) {
     const meta = l.split('\t')[0].split(' ')
@@ -468,6 +781,8 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
   const refreshable = []
   /** ②′ 通道的候选:③ 不成立,但索引内容逐行是 HEAD 的子集(证明见 subsetRefreshable 头注) */
   const subsetHeld = []
+  /** 判据②"整块祖先"这一维**判不出**的路径(G-742):窗口用尽 / 取不到 ⇒ 逐条点名,不折进 held 也不折进"不是回写" */
+  const ancestryUndetermined = []
   let held = 0
   for (const p of staged) {
     const ib = idxBlob.get(p)
@@ -479,32 +794,68 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
     // ③ 无现场:工作区==索引(无未暂存改动)或 工作区==HEAD(旁路提交后工作区已跟上)
     const wt = wtBlob.get(p)
     const noLocalState = !wtBlob.size || wt === ib || wt === hb
-    if (noLocalState && isAncestorBlob(g, p, ib)) refreshable.push([p, hb])
-    else subsetHeld.push(p) // 交给 ②′:能证明"索引没有一行比 HEAD 新"就刷新,否则才算 held
+    if (noLocalState) {
+      // 只在"确实没有现场"时才付那次祖先取材(旧写法靠 && 短路,这条懒求值保持不变)
+      const anc = blobInAncestry(repoRoot, p, ib)
+      if (anc.verdict === 'proven') {
+        refreshable.push([p, hb])
+        continue
+      }
+      if (anc.verdict !== 'absent')
+        ancestryUndetermined.push({
+          path: p,
+          verdict: anc.verdict,
+          window: anc.window,
+          seen: anc.seen,
+          reason: anc.reason,
+        })
+      // 整块判据给不出结论 ⇒ 仍让 ②′ 用"行子集"那一维再证一次(它是另一种无损证明)
+    }
+    subsetHeld.push(p) // 交给 ②′:能证明"索引没有一行比 HEAD 新"就刷新,否则才算 held
   }
-  const viaSubset = subsetRefreshable(repoRoot, subsetHeld, idxBlob, headBlob)
+  const subsetLoss = []
+  const viaSubset = subsetRefreshable(repoRoot, subsetHeld, idxBlob, headBlob, subsetLoss)
   const refreshedPaths = [...refreshable, ...viaSubset]
   held += subsetHeld.length - viaSubset.length
   if (!refreshedPaths.length)
-    return { refreshed: 0, paths: [], held, subsetRefreshed: 0, subsetPaths: [] }
+    return {
+      refreshed: 0,
+      paths: [],
+      deferred: [],
+      held,
+      subsetRefreshed: 0,
+      subsetPaths: [],
+      lockSkip: null,
+      ancestryUndetermined,
+      subsetUndetermined: subsetLoss,
+    }
   if (dryRun)
     return {
       refreshed: 0,
       paths: refreshable.map(([p]) => p),
+      deferred: [],
       held,
       subsetRefreshed: 0,
       subsetPaths: viaSubset.map(([p]) => p),
+      // 零副作用档结构上碰不到写循环 ⇒ G-794 那句"同一异常在 --check 口径下根本不该出现"
+      // 在这里是**定义**而不是一句承诺:lockSkip 恒为 null,由镜像 T5 钉住。
+      lockSkip: null,
+      ancestryUndetermined,
+      subsetUndetermined: subsetLoss,
       dryRun: true,
     }
-  for (const [p, hb] of refreshedPaths) {
-    g(['update-index', '--cacheinfo', `100644,${hb},${p}`])
-  }
+  const { done, deferred, lockSkip } = writeIndexCacheInfos(g, repoRoot, refreshedPaths)
   return {
-    refreshed: refreshedPaths.length,
-    paths: refreshedPaths.map(([p]) => p),
+    // 只把**真写进去的**计成 refreshed;撞锁延后的逐路径点名(不得把没做的记成做过的)
+    refreshed: done.length,
+    paths: done,
+    deferred,
     held,
     subsetRefreshed: viaSubset.length,
     subsetPaths: viaSubset.map(([p]) => p),
+    lockSkip,
+    ancestryUndetermined,
+    subsetUndetermined: subsetLoss,
   }
 }
 
@@ -518,9 +869,11 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
  *  - **不碰超过 SUBSET_MAX_BYTES 的路径**:巨型活文档(PROJECT_PLAN.md 实测 15 MB)每 2 分钟
  *    做一次全量行判定不划算,而那一格恰恰最该走人工归并(§12 的活文档纪律)。
  *  - **取不到内容一律不算通过**:任何一侧读不出来 ⇒ held(判不出 ≠ 无损),
- *    并把条数带进返回值,免得"这一族没判"被读成"这一族干净"。
+ *    并把条数带进返回值,免得"这一族没判"被读成"这一族干净" —— 自 2026-09-30 起这些"没判"
+ *    不再只是折进 held 一个总数:`loss` 收集口(第 5 参)逐批点名路径与原因,由
+ *    `refreshStaleIndex` 带到 `subsetUndetermined` 输出面(G-742 的"不得把没判写成判过了")。
  */
-export function subsetRefreshable(repoRoot, candidates, idxBlob, headBlob) {
+export function subsetRefreshable(repoRoot, candidates, idxBlob, headBlob, loss = null) {
   if (!candidates.length) return []
   const specs = []
   const sized = []
@@ -535,27 +888,45 @@ export function subsetRefreshable(repoRoot, candidates, idxBlob, headBlob) {
   let sizes
   try {
     sizes = catBatchSizes(repoRoot, specs)
-  } catch {
+  } catch (e) {
+    if (loss)
+      loss.push({ paths: sized, reason: `尺寸问不到:${String(e?.message ?? e).slice(0, 120)}` })
     return [] // 问不到尺寸 ⇒ 一条都不动
   }
   const keep = sized.filter((p) => (sizes.get(`:${p}`) ?? 1 << 30) <= (sizes.get(`HEAD:${p}`) ?? 0))
   const readable = keep.filter(
-    (p) => (sizes.get(`:${p}`) ?? 1 << 30) <= SUBSET_MAX_BYTES && (sizes.get(`HEAD:${p}`) ?? 1 << 30) <= SUBSET_MAX_BYTES,
+    (p) =>
+      (sizes.get(`:${p}`) ?? 1 << 30) <= SUBSET_MAX_BYTES &&
+      (sizes.get(`HEAD:${p}`) ?? 1 << 30) <= SUBSET_MAX_BYTES,
   )
+  // 超护栏的一族是**刻意不动**(活文档走人工归并),但它必须被点名 —— 否则"没判"与"判过"同形
+  const oversized = sized.filter((p) => !readable.includes(p) && !keep.includes(p))
+  const tooBig = keep.filter((p) => !readable.includes(p))
+  if (loss && (oversized.length || tooBig.length))
+    loss.push({
+      paths: [...oversized, ...tooBig],
+      reason: `超尺寸护栏(${SUBSET_MAX_BYTES} B)⇒ 本层刻意不判,交人工归并`,
+      bucket: 'oversized',
+    })
   if (!readable.length) return []
   const want = []
   for (const p of readable) want.push(`:${p}`, `HEAD:${p}`)
   let texts
   try {
     texts = catBatch(repoRoot, want)
-  } catch {
+  } catch (e) {
+    if (loss)
+      loss.push({ paths: readable, reason: `正文取不到:${String(e?.message ?? e).slice(0, 120)}` })
     return [] // 取不到 ⇒ held,不猜
   }
   const out = []
   for (const p of readable) {
     const a = texts.get(`:${p}`)
     const b = texts.get(`HEAD:${p}`)
-    if (typeof a !== 'string' || typeof b !== 'string') continue
+    if (typeof a !== 'string' || typeof b !== 'string') {
+      if (loss) loss.push({ paths: [p], reason: '索引侧或 HEAD 侧正文读不到 ⇒ 判不出(不算无损)' })
+      continue
+    }
     if (linesAreSubMultiset(a, b)) out.push([p, headBlob.get(p)])
   }
   return out
@@ -592,12 +963,43 @@ function linesAreSubMultiset(a, b) {
  */
 export function alignDrifts(repoRoot, { dryRun = false } = {}) {
   const g = makeGit(repoRoot)
+  /**
+   * G-794:各层**独立让路**。任何一层撞上"索引锁被他人持有"都只关自己那一层,
+   * 不得把异常冒到 main() —— 旧行为是一次抛穿让整轮三层(存续恢复 / 漂移对齐 / 索引刷新)
+   * 连带不执行,而守护的"健康时不写行"把崩溃与平静写成同一件事。
+   * 非锁故障照旧上抛:把真故障伪装成"本轮让路"比崩掉更糟(那才是真的安静)。
+   */
+  const layerSkips = []
+  const noteSkip = (layer, e) => {
+    const verdict = classifyLockFailure(e?.message ?? e, probeIndexLock(repoRoot, g))
+    if (verdict.kind === 'not-lock') throw e
+    layerSkips.push({ layer, ...verdict })
+    return verdict
+  }
   // 先刷新"落后索引"(CAS/converge 只推进 HEAD 的后遗症),否则下面判据①会把它们全部误挡掉
-  const refreshed = refreshStaleIndex(repoRoot, { dryRun })
+  let refreshed = {
+    refreshed: 0,
+    paths: [],
+    deferred: [],
+    held: 0,
+    subsetPaths: [],
+    lockSkip: null,
+    ancestryUndetermined: [],
+    subsetUndetermined: [],
+  }
+  try {
+    refreshed = refreshStaleIndex(repoRoot, { dryRun })
+  } catch (e) {
+    noteSkip('陈旧索引刷新', e)
+  }
+  // 写循环内部已把撞锁折成 lockSkip(不抛穿)⇒ 这里把它并进本层的点名清单,
+  // 否则"让了路"这件事只剩一个 refreshed:0,与"本来无事"同形(G-794 的正身)。
+  if (refreshed.lockSkip) layerSkips.push({ layer: '陈旧索引刷新', ...refreshed.lockSkip })
   // 第四层:旁路提交孤儿路径(HEAD 有 / 索引无 / 盘无)。跑在 dirty 计算之前 —— 恢复完的
   // 路径已不再是"工作区 vs HEAD"的差集;若排在后面,它们会以"缺失"混进漂移判定并被
   // skippedStaged 错计。判据与恢复动作见 restoreBypassOrphans 头注(四判据全成立才动手)。
   const bypass = restoreBypassOrphans(repoRoot, { dryRun })
+  if (bypass.lockSkip) layerSkips.push({ layer: '旁路孤儿恢复', ...bypass.lockSkip })
   const bp = {
     bypassRestored: bypass.restored,
     bypassPaths: bypass.paths,
@@ -611,8 +1013,21 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
       ? { bypassReason: bypass.reason }
       : {}),
   }
-  const dirty = g(['diff', '--name-only', 'HEAD', '--no-renames']).split('\n').filter(Boolean)
-  if (!dirty.length) return { aligned: 0, paths: [], refreshed: refreshed.refreshed, ...bp }
+  const head = () => ({
+    refreshed: refreshed.refreshed,
+    refreshDeferred: refreshed.deferred || [],
+    ancestryUndetermined: refreshed.ancestryUndetermined || [],
+    subsetUndetermined: refreshed.subsetUndetermined || [],
+    layerSkips,
+  })
+  let dirty = []
+  try {
+    dirty = g(['diff', '--name-only', 'HEAD', '--no-renames']).split('\n').filter(Boolean)
+  } catch (e) {
+    noteSkip('幻影漂移判定', e)
+    return { aligned: 0, paths: [], driftUndetermined: [], ...head(), ...bp }
+  }
+  if (!dirty.length) return { aligned: 0, paths: [], driftUndetermined: [], ...head(), ...bp }
   // ① 索引 == HEAD 的路径才可对齐
   const indexLines = lsStageChunked(g, dirty)
   const indexBlob = new Map()
@@ -633,14 +1048,33 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     const ib = indexBlob.get(p)
     return ib && ib === headBlob.get(p)
   })
-  if (!eligible.length) return { aligned: 0, paths: [], skippedStaged: dirty.length, ...bp }
-  const hits = analyze(repoRoot, eligible, { source: 'worktree' })
+  if (!eligible.length)
+    return {
+      aligned: 0,
+      paths: [],
+      skippedStaged: dirty.length,
+      driftUndetermined: [],
+      ...head(),
+      ...bp,
+    }
+  // G-742:两条通道共用一个 windowLoss 收集口 —— "窗口用尽而没命中"必须逐条点名,
+  // 不得和"真新工作"一起被读成"无需对齐"(旧账面就是这句)。
+  const windowLoss = []
+  const hits = analyze(repoRoot, eligible, { source: 'worktree', windowLoss })
   const whole = new Set(hits.map((h) => h.path))
   // 第二条通道:整块不等于任何祖先、但逐块都能对上(索引层重建的拼合旧基线)
   const composite = compositeDriftPaths(
     repoRoot,
     eligible.filter((p) => !whole.has(p)),
+    { windowLoss },
   )
+  // 同一路径可能由两条通道各点名一次 ⇒ 按路径只留第一条(计数与名单同源)
+  const seenLoss = new Set()
+  const driftUndetermined = windowLoss.filter((u) => {
+    if (seenLoss.has(u.path)) return false
+    seenLoss.add(u.path)
+    return true
+  })
   const paths = [...whole, ...composite]
   if (!paths.length || dryRun) {
     return {
@@ -649,12 +1083,32 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
       composite: composite.length,
       dryRun: true,
       skippedStaged: dirty.length - eligible.length,
+      driftUndetermined,
+      ...head(),
       ...bp,
     }
   }
   // 护栏④:拼合通道覆盖前留现场快照(整块通道命中的工作区内容本就 == 某历史版本,无独有数据)
   const snapshots = snapshotWorktreeBytes(repoRoot, composite)
   const { done, deferred } = restoreToHead(g, paths)
+  if (deferred.length) {
+    // "延后"要能说清是**哪一种**延后:锁在位 ⇒ 下一轮自动补;此刻无锁 ⇒ 是前提复核不成立
+    // (别人刚暂存过该路径),不是锁问题 —— 两种措辞混成一句"本轮没跑"就是把没判写成判过了。
+    const probe = probeIndexLock(repoRoot, g)
+    const isLockState = probe.state === 'held-live' || probe.state === 'dangling-suspected'
+    layerSkips.push({
+      layer: '幻影漂移对齐',
+      ...(isLockState
+        ? skipFromProbe(probe)
+        : probe.state === 'undetermined'
+          ? skipFromProbe(probe)
+          : {
+              kind: 'deferred-no-lock',
+              reason: `${deferred.length} 个延后与 index.lock 无关(此刻判不到锁 ⇒ 多为前提复核不成立)`,
+            }),
+      deferred,
+    })
+  }
   return {
     aligned: done.length,
     paths: done,
@@ -662,6 +1116,8 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     snapshots: snapshots.length,
     deferred,
     skippedStaged: dirty.length - eligible.length,
+    driftUndetermined,
+    ...head(),
     ...bp,
   }
 }
@@ -686,10 +1142,16 @@ export function reconcileStaleIndexOrphans(repoRoot, { dryRun = false } = {}) {
   } catch (e) {
     // 共享仓里 git 随时可能被别人的写操作占住索引;守护每 2 分钟跑一轮 ⇒ **让路**比报错正确,
     // 但必须把让路的原因如实带出来(静默 skip 与"无事发生"是两回事)。
-    const msg = String(e?.message ?? e)
-    if (/lock|Another git process/i.test(msg))
-      return { reconciled: 0, paths: [], reason: 'git 索引被占用,本轮让路' }
-    throw e
+    // G-794:原因按锁三态分档(被持有 / 疑似悬挂 / 此刻已解除 / 判不出),措辞不同 ⇒ 处置不同。
+    const verdict = classifyLockFailure(e?.message ?? e, probeIndexLock(repoRoot, g))
+    if (verdict.kind === 'not-lock') throw e
+    return {
+      reconciled: 0,
+      paths: [],
+      deferred: [],
+      reason: 'git 索引被占用,本轮让路',
+      lockSkip: verdict,
+    }
   }
 }
 function reconcileStaleIndexOrphansInner(g, repoRoot, dryRun) {
@@ -875,20 +1337,20 @@ export function restoreBypassOrphans(repoRoot, { dryRun = false } = {}) {
     return restoreBypassOrphansInner(g, repoRoot, dryRun)
   } catch (e) {
     // 与 reconcileStaleIndexOrphans 同一让路规矩:锁竞争延到下一轮,但原因必须带出来,
-    // 不得静默成"无事发生"。
-    const msg = String(e?.message ?? e)
-    if (/lock|Another git process/i.test(msg))
-      return {
-        restored: 0,
-        paths: [],
-        heldOnDisk: 0,
-        heldUnproven: 0,
-        unprovenPaths: [],
-        skippedNotBlob: 0,
-        deferred: [],
-        reason: 'git 索引被占用,本轮让路',
-      }
-    throw e
+    // 不得静默成"无事发生"。G-794 起原因按锁三态分档,并带 `lockSkip` 供上层聚合点名。
+    const verdict = classifyLockFailure(e?.message ?? e, probeIndexLock(repoRoot, g))
+    if (verdict.kind === 'not-lock') throw e
+    return {
+      restored: 0,
+      paths: [],
+      heldOnDisk: 0,
+      heldUnproven: 0,
+      unprovenPaths: [],
+      skippedNotBlob: 0,
+      deferred: [],
+      reason: 'git 索引被占用,本轮让路',
+      lockSkip: verdict,
+    }
   }
 }
 
@@ -974,6 +1436,9 @@ function restoreBypassOrphansInner(g, repoRoot, dryRun) {
 export function heal(repoRoot, { dryRun = false } = {}) {
   const { safe, held, orphanIndex } = findOrphanedDeletions(repoRoot)
   const rec = reconcileStaleIndexOrphans(repoRoot, { dryRun })
+  // 让路原因必须随返回值走:reconcile 跳过 ≠ 无事发生(G-794 —— 旧形状里这一层的跳过只剩
+  // 一个 reconciled:0,读报告的人无从知道它是"被锁挡了"还是"本来就没有"。)
+  const layerSkips = rec.lockSkip ? [{ layer: '陈旧索引孤儿对齐', ...rec.lockSkip }] : []
   if (!safe.length)
     return {
       restored: 0,
@@ -981,6 +1446,7 @@ export function heal(repoRoot, { dryRun = false } = {}) {
       reconciled: rec.reconciled,
       orphanIndex: orphanIndex.length,
       paths: [],
+      layerSkips,
     }
   if (dryRun)
     return {
@@ -990,6 +1456,7 @@ export function heal(repoRoot, { dryRun = false } = {}) {
       orphanIndex: orphanIndex.length,
       paths: safe,
       dryRun: true,
+      layerSkips,
     }
   const g = makeGit(repoRoot)
   const { done, deferred, viaIndex } = restoreToHead(g, safe)
@@ -1004,6 +1471,9 @@ export function heal(repoRoot, { dryRun = false } = {}) {
     // 常态下这个数是 0。只报总数会让下一次读日志的人以为锁是通的。
     restoreViaIndex: viaIndex.length,
     orphanIndex: orphanIndex.length,
+    layerSkips,
+    // 延后的原因不能只留一个数字:锁在位 / 疑似悬挂 / 此刻无锁(⇒ 前提复核不成立)是三种结论
+    ...(deferred.length ? { lockStateAtReport: probeIndexLock(repoRoot, g) } : {}),
   }
 }
 
@@ -1286,7 +1756,12 @@ function selfTestRun() {
       '⑧‖ 暂存删除永不走 ②′(删除可能是有意意图,不是"没有行")',
       !rDel.paths.includes('sub.ts') && !rDel.subsetPaths.includes('sub.ts'),
     )
-    g(['update-index', '--add', '--cacheinfo', `100644,${g(['rev-parse', 'HEAD:sub.ts']).trim()},sub.ts`])
+    g([
+      'update-index',
+      '--add',
+      '--cacheinfo',
+      `100644,${g(['rev-parse', 'HEAD:sub.ts']).trim()},sub.ts`,
+    ])
     writeFileSync(join(tmp, 'sub.ts'), 'k1\nk2\nk3\n')
     writeFileSync(join(tmp, 'sub2.ts'), 'c1\nc2\n')
     g(['add', 'sub2.ts']) // 复位到 HEAD 形态即止(不额外造提交,`commit -a` 在无差异时会直接失败)
@@ -1483,6 +1958,219 @@ function selfTestRun() {
       }
     }
 
+    /* ------------------------------------------------------------------ *
+     * G-794 ㉚/㉛ —— 锁被他人持有时的正确结论是"本层跳过 + 一行原因",不是把异常冒到 main()。
+     * 造**真** index.lock(不是模拟抛错):模拟只能证明"不崩",证明不了"三层照跑、一条都没写成"。
+     * 实测崩点(2026-09-29 05:2x/05:4x,exit 2)就是 refreshStaleIndex 末尾那条裸奔的
+     * `update-index --cacheinfo` 写循环。
+     * ------------------------------------------------------------------ */
+    {
+      const t6 = mkScratch('wt-heal-g794-')
+      try {
+        const q = makeGit(t6)
+        q(['init', '-q', '--initial-branch=main'])
+        q(['config', 'user.email', 't@t'])
+        q(['config', 'user.name', 't'])
+        q(['config', 'core.autocrlf', 'false'])
+        writeFileSync(join(t6, 'r.ts'), 'v1\n')
+        q(['add', '-A'])
+        q(['commit', '-qm', 'R1 v1'])
+        writeFileSync(join(t6, 'r.ts'), 'v2\n')
+        q(['add', '-A'])
+        q(['commit', '-qm', 'R2(HEAD) v2'])
+        const v1oid = q(['rev-parse', 'HEAD~1:r.ts']).trim()
+        const headOid = q(['rev-parse', 'HEAD:r.ts']).trim()
+        // 落后索引现场:索引停在祖先 v1、工作区==HEAD ⇒ 判据①②③全成立,正要走那条写循环
+        q(['update-index', '--cacheinfo', `100644,${v1oid},r.ts`])
+        writeFileSync(join(t6, '.git', 'index.lock'), '')
+        const pre = probeIndexLock(t6, q)
+        check(
+          '㉚a 锁在位 ⇒ 探针判 held-live(绝不读成"无锁")',
+          pre.state === 'held-live' && pre.lockPath.includes('index.lock'),
+        )
+        let threw = false
+        let d30 = null
+        try {
+          d30 = alignDrifts(t6)
+        } catch {
+          threw = true
+        }
+        check('㉚b 锁被持有时 alignDrifts 不抛穿(旧行为 exit 2 ⇒ 三层连带不执行)', !threw && !!d30)
+        check(
+          '㉚c 报告点名"本层跳过(锁被持有)"',
+          !!d30 &&
+            d30.layerSkips.some((s) => s.kind === 'held' && /本层跳过\(锁被持有\)/.test(s.reason)),
+        )
+        check(
+          '㉚d 一条都没写成:refreshed=0 且延后逐路径点名',
+          !!d30 && d30.refreshed === 0 && d30.refreshDeferred.includes('r.ts'),
+        )
+        check(
+          '㉚e 让路 = 少做一件事,不是做一半(索引仍是祖先 blob)',
+          q(['ls-files', '-s', '--', 'r.ts']).split(/\s+/)[1] === v1oid,
+        )
+        // ㉚f 反向对照:锁没了就真补上 —— "跳过"不得变成一句永久托辞
+        rmSync(join(t6, '.git', 'index.lock'))
+        const d30b = alignDrifts(t6)
+        check(
+          '㉚f 锁释放后同一现场被刷新(跳过 ≠ 永久 no-op)',
+          d30b.refreshed === 1 &&
+            q(['ls-files', '-s', '--', 'r.ts']).split(/\s+/)[1] === headOid &&
+            d30b.layerSkips.length === 0,
+        )
+        // ㉚g --check(零副作用档)结构上进不到写循环 ⇒ "同一异常在 --check 口径下根本不该出现"
+        q(['update-index', '--cacheinfo', `100644,${v1oid},r.ts`])
+        writeFileSync(join(t6, '.git', 'index.lock'), '')
+        const chk = refreshStaleIndex(t6, { dryRun: true })
+        check(
+          '㉚g --check 档带锁:不抛、lockSkip 恒 null、索引未动',
+          chk.dryRun === true &&
+            chk.refreshed === 0 &&
+            chk.lockSkip === null &&
+            q(['ls-files', '-s', '--', 'r.ts']).split(/\s+/)[1] === v1oid,
+        )
+        rmSync(join(t6, '.git', 'index.lock'))
+      } finally {
+        rmScratch(t6)
+      }
+    }
+    // ㉛ 锁归因四态(纯构造面,不依赖仓库瞬时状态):非锁故障**绝不**伪装成"让路"
+    {
+      const mkProbe = (state) => ({
+        state,
+        lockPath: '/x/.git/index.lock',
+        ageMs: 10,
+        sizeBytes: 0,
+        reason: `r(${state})`,
+      })
+      const LOCKMSG = "fatal: Unable to create '/x/.git/index.lock': File exists."
+      const a = classifyLockFailure(LOCKMSG, mkProbe('held-live'))
+      const b = classifyLockFailure(LOCKMSG, mkProbe('absent'))
+      const c = classifyLockFailure(LOCKMSG, mkProbe('dangling-suspected'))
+      const d = classifyLockFailure(LOCKMSG, mkProbe('undetermined'))
+      const e = classifyLockFailure('fatal: bad object deadbeefdeadbeef', mkProbe('held-live'))
+      check('㉛a 锁文本 + 锁在位 ⇒ held', a.kind === 'held' && /锁被持有/.test(a.reason))
+      check(
+        '㉛b 锁文本 + 此刻无锁 ⇒ cleared(既不读成"有锁",也不读成"没故障")',
+        b.kind === 'cleared',
+      )
+      check(
+        '㉛c 锁文本 + 超龄空锁 ⇒ dangling,建议必须点出"每一轮都会跳过"',
+        c.kind === 'dangling' && /每一轮都会跳过/.test(lockSkipAdvice('dangling')),
+      )
+      check(
+        '㉛d 锁文本 + 判不出 ⇒ undetermined(按"少做一件事"处理)',
+        d.kind === 'undetermined' && /判不出/.test(d.reason),
+      )
+      check('㉛e 非锁故障 ⇒ not-lock(照旧上抛,不换措辞)', e.kind === 'not-lock')
+      check(
+        '㉛f held-live 的建议不得教人去删锁(§12 铁律)',
+        !/rm .*index\.lock|删除.*index\.lock/.test(lockSkipAdvice('held')),
+      )
+    }
+    /* ------------------------------------------------------------------ *
+     * G-742 ㉜/㉝ —— 祖先窗口用尽必须**点名"判不出"**,不得写成"无需对齐"。
+     * 本层刻意不跑无界遍历补这一格:现测真仓一次全深度 `git log -- <热档>` >120s,
+     * 而这一层每 2 分钟一轮(2026-09-30 现读:58 个可判定路径全深度问一遍跑了 ~4 分钟)。
+     * ------------------------------------------------------------------ */
+    {
+      const t7 = mkScratch('wt-heal-window-')
+      try {
+        const q = makeGit(t7)
+        q(['init', '-q', '--initial-branch=main'])
+        q(['config', 'user.email', 't@t'])
+        q(['config', 'user.name', 't'])
+        q(['config', 'core.autocrlf', 'false'])
+        writeFileSync(join(t7, 'deep.ts'), 'L0\n')
+        q(['add', '-A'])
+        q(['commit', '-qm', 'D0'])
+        const firstOid = q(['rev-parse', 'HEAD:deep.ts']).trim()
+        for (let i = 1; i <= 45; i++) {
+          writeFileSync(join(t7, 'deep.ts'), `L${i}\n`)
+          q(['commit', '-qam', 'D' + i])
+        }
+        const win = windowFor('deep.ts')
+        const depth = q(['log', '--format=%H', 'HEAD', '--', 'deep.ts'])
+          .split('\n')
+          .filter(Boolean).length
+        check(`㉜0 夹具确实把该路径历史做深到窗口之外(共 ${depth} 枚 > 窗口 ${win})`, depth > win)
+        // 工作树回到**最老**那一版(深度 46,窗内取不到)
+        writeFileSync(join(t7, 'deep.ts'), 'L0\n')
+        const d32 = alignDrifts(t7)
+        check(
+          '㉜a 窗外祖先复归 ⇒ 保守不动(不覆写别人的现场优先于把门弄绿)',
+          d32.aligned === 0 && readFileSync(join(t7, 'deep.ts'), 'utf8') === 'L0\n',
+        )
+        check(
+          `㉜b 但必须点名"窗口 ${win} 用尽未判定"(旧账面在这里只写"无需对齐")`,
+          d32.driftUndetermined.some(
+            (u) => u.path === 'deep.ts' && u.window === win && u.seen >= win,
+          ),
+        )
+        // ㉜c 反例(点名不是放过):窗内祖先版本 ⇒ 照旧被识别并回到 HEAD
+        writeFileSync(join(t7, 'deep.ts'), 'L40\n') // 深度 6,窗内
+        const d32c = alignDrifts(t7)
+        check(
+          '㉜c 窗内祖先复归 ⇒ 仍被对齐,且不进未判定名单',
+          d32c.aligned === 1 &&
+            readFileSync(join(t7, 'deep.ts'), 'utf8') === 'L45\n' &&
+            !d32c.driftUndetermined.some((u) => u.path === 'deep.ts'),
+        )
+        // ㉜d 第三态:既不是滞后也谈不上"已判定"——真新内容同样落在窗内没命中,而窗口用尽时
+        //    本层无从区分它和窗外复归 ⇒ 一律点名(把"没抓到"写成"没有回写"才是原缺陷)
+        writeFileSync(join(t7, 'deep.ts'), 'X 从未在任何版本出现过的一行\n')
+        const d32d = alignDrifts(t7)
+        check(
+          '㉜d 真新内容 ⇒ 不动,且同样按"未判定"点名(不冒红也不记绿)',
+          d32d.aligned === 0 &&
+            readFileSync(join(t7, 'deep.ts'), 'utf8') === 'X 从未在任何版本出现过的一行\n' &&
+            d32d.driftUndetermined.some((u) => u.path === 'deep.ts'),
+        )
+        // ㉝ 同一件事在 refreshStaleIndex 那一维:索引停在**窗外**祖先 ⇒ 不刷新 + 点名 verdict
+        writeFileSync(join(t7, 'deep.ts'), 'L45\n') // 工作树 == HEAD,排除别的通道
+        q(['update-index', '--cacheinfo', `100644,${firstOid},deep.ts`])
+        const r33 = refreshStaleIndex(t7)
+        check(
+          '㉝a 索引停在窗外祖先 ⇒ 不刷新(旧布尔判据在这里静默读成"不是祖先")',
+          r33.refreshed === 0 &&
+            q(['ls-files', '-s', '--', 'deep.ts']).split(/\s+/)[1] === firstOid,
+        )
+        check(
+          '㉝b 且逐条点名 verdict=beyond-window 带窗口与已见枚数',
+          r33.ancestryUndetermined.some(
+            (u) => u.path === 'deep.ts' && u.verdict === 'beyond-window' && u.window === win,
+          ),
+        )
+        // ㉝c 反例:窗内祖先(HEAD~3)⇒ proven ⇒ 照旧刷新
+        const inWindow = q(['rev-parse', 'HEAD~3:deep.ts']).trim()
+        q(['update-index', '--cacheinfo', `100644,${inWindow},deep.ts`])
+        const r33c = refreshStaleIndex(t7)
+        check(
+          '㉝c 窗内祖先 ⇒ 照旧刷新且不点名(收口不是放过)',
+          r33c.refreshed === 1 &&
+            !r33c.ancestryUndetermined.some((u) => u.path === 'deep.ts') &&
+            q(['ls-files', '-s', '--', 'deep.ts']).split(/\s+/)[1] ===
+              q(['rev-parse', 'HEAD:deep.ts']).trim(),
+        )
+        // ㉝d 窗口只许有一份实现:取自守门 84,而那个"只给布尔、把判不出折成 false"的旧helper
+        //     不得回来(形状锁按**函数名**判,不写含 `--max-count=30` 的整串 —— 那会让断言匹配到
+        //     自己的源码,AGENTS §117 记过的"说明性文字也带执行性字符"同型)
+        const srcText = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+        check(
+          '㉝d 祖先窗口取自守门 84,单一布尔判据不得回来(形状锁)',
+          /from '\.\/check-stale-revert\.mjs'/.test(srcText) &&
+            /ancestorWindow\(/.test(srcText) &&
+            /blobInAncestry\(/.test(srcText) &&
+            // 用 \s+ 而不是空格写这个正则:整串"函数名 + 空格 + 旧 helper 名"若原样出现在
+            // 本文件任何位置(包括注释),这条断言就会匹配到自己的源码而恒红
+            // (说明性文字也带执行性字符,AGENTS 记过同型)
+            !/function\s+isAncestorBlob\b/.test(srcText),
+        )
+      } finally {
+        rmScratch(t7)
+      }
+    }
+
     let threw = false
     try {
       refreshStaleIndex(tmp)
@@ -1513,6 +2201,52 @@ function selfTestRun() {
     return fail ? 1 : 0
   } finally {
     rmSync(tmp, { recursive: true, force: true })
+  }
+}
+
+/**
+ * 人类档共用出口:把"哪一层因什么跳过"与"哪一格判不出"逐条点名。
+ * 立规理由:§5b 明写守护"健康时不写行",所以**安静不是绿的同义词** —— 一次跳过或一格判不出
+ * 若在账面上与"无事发生"长得一样,它就是本仓记过最多次的那一型(判据失效的表现永远是安静)。
+ */
+function printSkipsAndLoss(o) {
+  for (const s of o.layerSkips || []) {
+    const more = s.deferred?.length
+      ? `|本层延后 ${s.deferred.length} 个:${s.deferred.slice(0, 10).join(', ')}`
+      : ''
+    const advice = lockSkipAdvice(s.kind)
+    console.log(`⚠️ [${s.layer}] ${s.reason}${advice ? ' —— ' + advice : ''}${more}`)
+  }
+  const lost = o.driftUndetermined || []
+  if (lost.length) {
+    console.log(
+      `⚠️ ${lost.length} 个路径工作树内容与 HEAD 不等、祖先窗口**确证用尽**而窗内未命中 ⇒ 本轮判不出是否陈旧回写(既不覆写别人的现场,也不得被读成"无需对齐"):`,
+    )
+    for (const u of lost.slice(0, 10))
+      console.log(
+        `   ⚠ 未判定 ${u.path}(窗口 ${u.window},窗内已取 ${u.seen} 枚${u.channel ? ',通道 ' + u.channel : ''})`,
+      )
+    console.log(
+      '   出口:逐条 `git log --format=%H --find-object=<工作树 blob> -- <path>` 问全深度后人工定性(本层刻意不跑无界遍历 —— 现测真仓热档一次全深度 log >120s,而本层每 2 分钟一轮);确属回写由归属会话 `git checkout HEAD -- <path>`',
+    )
+  }
+  const anc = o.ancestryUndetermined || []
+  if (anc.length) {
+    console.log(
+      `⚠️ ${anc.length} 个路径的索引 blob 落在祖先窗口之外或取不到 ⇒ 不刷新(单独一档,不折进 held 总数):`,
+    )
+    for (const u of anc.slice(0, 10))
+      console.log(`   ⚠ 未判定 ${u.path}(${u.verdict},窗口 ${u.window}/已看 ${u.seen})`)
+    console.log(
+      '   出口:同上 `git log --find-object=<索引 blob> -- <path>`;确属落后索引则由归属会话逐路径 update-index',
+    )
+  }
+  for (const s of o.subsetUndetermined || []) {
+    const n = (s.paths || []).length
+    console.log(
+      `⚠️ ${n} 个路径的 ②′ 行子集判据**未判定**(${s.reason}${s.bucket ? ',档位 ' + s.bucket : ''}):` +
+        (s.paths || []).slice(0, 10).join(', '),
+    )
   }
 }
 
@@ -1554,17 +2288,30 @@ async function main() {
       for (const p of (d.bypassUnprovenPaths || []).slice(0, 10)) console.log('   ⚠ 未判定 ' + p)
       if (d.bypassDeferred?.length)
         console.log(
-          `⚠️ ${d.bypassDeferred.length} 个旁路孤儿本轮未恢复(git 写锁竞争,已延后):` +
+          `⚠️ ${d.bypassDeferred.length} 个旁路孤儿本轮未恢复(已延后,原因见下面 [旁路孤儿恢复] 那一行的锁状态归因):` +
             (d.bypassDeferred || []).slice(0, 10).join(', '),
         )
+      // G-794 / G-742:跳过与判不出必须在人类档点名(守护 --json 档由字段带,converge 读末行)
+      printSkipsAndLoss(d)
       if (d.aligned)
         console.log(
-          `${dryRun ? '[check] 可对齐' : '✅ 幻影漂移对齐'} ${d.aligned} 个文件(索引==HEAD 且内容==祖先版本)`,
+          `${dryRun ? '[check] 可对齐' : '✅ 幻影漂移对齐'} ${d.aligned} 个文件(索引==HEAD 且内容==祖先版本)` +
+            (d.refreshed ? `;落后索引已刷新 ${d.refreshed} 个路径(工作树未动)` : ''),
         )
-      else
+      else {
+        // "无需对齐"这句必须自带它**没**判到的部分,否则读起来像"全部判过且干净"(G-742 账面)
+        const caveats = []
+        if (d.layerSkips?.length) caveats.push(`${d.layerSkips.length} 层本轮因锁跳过`)
+        if (d.driftUndetermined?.length)
+          caveats.push(`${d.driftUndetermined.length} 处窗口用尽未判定`)
+        if (d.ancestryUndetermined?.length)
+          caveats.push(`${d.ancestryUndetermined.length} 处索引祖先判不出`)
+        if (d.refreshDeferred?.length) caveats.push(`${d.refreshDeferred.length} 个索引刷新延后`)
         console.log(
-          `✅ 无需对齐(可判定 ${d.paths ? d.paths.length : 0} 个,已跳过有暂存的 ${d.skippedStaged || 0} 个)`,
+          `✅ 无需对齐(可判定 ${d.paths ? d.paths.length : 0} 个,已跳过有暂存的 ${d.skippedStaged || 0} 个)` +
+            (caveats.length ? ` —— ⚠️ 这句不等于"全部判过且干净":${caveats.join(';')}` : ''),
         )
+      }
     }
     return d.aligned && checkOnly ? 1 : 0
   }
@@ -1578,25 +2325,34 @@ async function main() {
     !res.paths.length &&
     !res.held &&
     !res.orphanIndex &&
-    !res.deferred?.length
+    !res.deferred?.length &&
+    !res.layerSkips?.length
   ) {
     console.log('✅ 工作区已跟踪文件存续正常')
     return 0
   }
+  // G-794:默认档的让路也要点名(旧形状里 reconcile 被锁挡下只剩 reconciled:0,读不出原因)
+  printSkipsAndLoss(res)
   /**
    * 延后 ≠ 正常。2026-09-26 实测:10 个跟踪文件(含 8 张 tabbar 位图 + 两份测试)被外部删除,
    * `restoreToHead()` 因 native `index.lock` 被并发会话长期持有而把它们记成 deferred,
    * 而普通档那句"✅ 工作区已跟踪文件存续正常"照样打印 —— 判据失效的表现又是安静,与 §22c
    * 记过的"门报 0 而其实没跑"同型。故此处必须点名"未恢复"并给出出口,不得回平安。
    * 退出码仍取 0:持锁不是本脚本的故障,而非零退出会让 git-guardian 每 2 分钟对同一件事重复喊人。
+   * **原因按锁三态现读给出**(G-794),不再把"索引写锁失败"当既定事实写死 —— 此刻无锁时它是
+   * 前提复核不成立(别人刚暂存),措辞错了会把人带去修一个不存在的东西。
    */
   if (!res.restored && !res.paths.length && res.deferred?.length) {
+    const why = res.lockStateAtReport
+      ? `此刻锁判读:${res.lockStateAtReport.state} —— ${res.lockStateAtReport.reason}`
+      : '此刻未探锁(降级通道成功过,原因不在锁)'
     console.log(
       `⚠️ ${res.deferred.length} 个被外部删除的跟踪文件**本轮未恢复**:` +
-        'restore 因索引写锁失败,降级通道(checkout-index,不需要锁)也没走通 —— ' +
+        'restore 未成功,降级通道(checkout-index,不需要锁)也没走通 —— ' +
         '要么这些路径此刻索引 blob 已不等于 HEAD(别人刚暂存过,本层按纪律不碰),' +
         '要么 git 本身不可用。下一次不带 pathspec 的普通提交就会把它们从版本树里抹掉。',
     )
+    console.log(`   ${why} ${lockSkipAdvice(adviceKindForState(res.lockStateAtReport?.state))}`)
     for (const p of res.deferred.slice(0, 10)) console.log('   - 待恢复 ' + p)
     console.log(
       '   出口:等锁释放后重跑本脚本,或直接 `git cat-file blob HEAD:<path> > <path>`(回写工作树不需要索引)',
@@ -1649,6 +2405,16 @@ export const __test__ = {
   compositeDriftPaths,
   restoreToHead,
   restoreBypassOrphans,
+  // G-794 的三态出口与写索引出口(镜像测按行为断言,不在测试里重抄判据 —— §22c)
+  probeIndexLock,
+  indexLockPath,
+  classifyLockFailure,
+  lockSkipAdvice,
+  adviceKindForState,
+  writeIndexCacheInfos,
+  // G-742 的四态祖先判定
+  blobInAncestry,
+  INDEX_LOCK_LIVE_MS,
   SKIP_ENV,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
