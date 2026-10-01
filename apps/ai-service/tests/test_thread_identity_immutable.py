@@ -254,10 +254,29 @@ def test_relay_continue_inherits_owner(tmp_path) -> None:
     store = SessionStore(str(tmp_path / "relay.db"))
     source_id = _thread_with_one_item(store)
     before = {t.thread_id for t in store.list_threads(limit=100).threads}
-    out = relay_router.continue_thread(source_id, store=store)
+    out = relay_router.continue_thread(source_id, user_id="alice", store=store)
     assert "error" not in str(out)[:80].lower(), out
     new_ids = [t.thread_id for t in store.list_threads(limit=100).threads if t.thread_id not in before]
     assert len(new_ids) == 1, new_ids
     metadata = store.get_thread(new_ids[0]).metadata
     assert metadata.get("userId") == "alice", "「继续上次会话」新造了一条无属主线程"
+
+
+def test_relay_continue_rejects_foreign_principal_without_side_effect(tmp_path) -> None:
+    """身份只能从承载层显式入参进来:别人的 principal 不得借「继续上次」读到或派生他人的线程。
+
+    断言的是"没建出新线程",不是只断错误码 —— 先改了再抛 403 的写法在本仓同样判红。
+    """
+    from app.routers import relay as relay_router
+
+    store = SessionStore(str(tmp_path / "relay.db"))
+    source_id = _thread_with_one_item(store)
+    before = {t.thread_id for t in store.list_threads(limit=100).threads}
+    try:
+        out = relay_router.continue_thread(source_id, user_id="mallory", store=store)
+    except Exception as exc:  # 拒绝口径允许 403/404 同形,但不得新建任何东西
+        out = exc
+    assert not isinstance(out, dict) or "error" in str(out)[:80].lower(), out
+    after = {t.thread_id for t in store.list_threads(limit=100).threads}
+    assert after == before, f"越权调用仍然派生了新线程:{after - before}"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
