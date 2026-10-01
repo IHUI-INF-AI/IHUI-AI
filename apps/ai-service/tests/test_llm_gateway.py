@@ -31,8 +31,14 @@ def _isolate_auto_model_routing(monkeypatch):
     opencode/big-pickle 等无 key provider → 提前 MODEL_NOT_CONFIGURED,
     导致 mock litellm 永不生效。本 fixture 把 auto 路由固定为 settings.litellm_model,
     让测试聚焦 litellm 调用行为本身(auto 路由属集成逻辑,由集成测试覆盖)。
+
+    D208(2026-10-01)补:默认链首选已从 step-router-v1 换成 gemini-3.8-flash,
+    而本文件 real-mode 用例的 llm_providers 只配 stepfun key → 把 litellm_model
+    一并钉在 stepfun/step-3.7-flash,测试与仓库默认/本地 .env 的默认链选择解耦。
     """
     from app.core.config import settings
+
+    monkeypatch.setattr(settings, "litellm_model", "stepfun/step-3.7-flash")
 
     async def _fake_auto_model(has_tools: bool = False, messages=None) -> str:
         return settings.litellm_model
