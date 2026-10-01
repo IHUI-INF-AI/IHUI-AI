@@ -2405,7 +2405,7 @@ export function healUnresponsiveServices(opts = {}) {
       /* 落到下面的未判定分支 */
     }
     if (!parsed || !parsed.counts) {
-      logger(`⚠️ 服务自愈未拿到可解析结论(rc=${r.status}):${(r.stderr || r.stdout || '(无输出)').split(/\r?\n/).slice(0, 2).join(' | ')}`)
+      logger(`⚠️ 服务自愈未拿到可解析结论(rc=${r.status}):${([r.stderr, r.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').split(/\r?\n/).slice(0, 2).join(' | ')}`)
       return { ran: true, ok: false, why: '结论不可解析' }
     }
     const c = parsed.counts
@@ -2507,7 +2507,7 @@ export function auditOpsPatrol(opts = {}) {
       /* 落到下面的未判定分支 */
     }
     if (!parsed || !parsed.counts) {
-      logger(`⚠️ 元运维巡检未拿到可解析结论(rc=${r.status}):${(r.stderr || r.stdout || '(无输出)').split(/\r?\n/).slice(0, 2).join(' | ')}`)
+      logger(`⚠️ 元运维巡检未拿到可解析结论(rc=${r.status}):${([r.stderr, r.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').split(/\r?\n/).slice(0, 2).join(' | ')}`)
       return { ran: true, ok: false, why: '结论不可解析' }
     }
     const findings = parsed.findings || []
