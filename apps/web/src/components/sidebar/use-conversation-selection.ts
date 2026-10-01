@@ -27,7 +27,7 @@ type MutableSelection = Set<string>
  * 勾选/取消单个会话(纯函数,不改动入参)。
  * checked 省略时按"未勾即勾、已勾即取消"取反 —— 复选框受控时传显式值。
  */
-function toggleConversationSelection(
+export function toggleConversationSelection(
   selected: ConversationSelection,
   id: string,
   checked?: boolean,
@@ -40,12 +40,12 @@ function toggleConversationSelection(
 }
 
 /** 全选 / 全不选:集合来自"当前可见列表"的顺序数组,不含已被筛掉的项 */
-function selectAllConversationSelection(orderedIds: readonly string[]): MutableSelection {
+export function selectAllConversationSelection(orderedIds: readonly string[]): MutableSelection {
   return new Set(orderedIds)
 }
 
 /** 反选:可见集合内取补集;集合外的历史 id 一并丢弃(与 restrict 同一语义) */
-function invertConversationSelection(
+export function invertConversationSelection(
   selected: ConversationSelection,
   orderedIds: readonly string[],
 ): MutableSelection {
@@ -63,7 +63,7 @@ function invertConversationSelection(
  * 空气里(后端只会回 missedIds,前端却是无声的)。这里在派生层裁,不写回 state,
  * 因此清空关键词恢复完整列表时勾过的项仍在。
  */
-function restrictConversationSelection(
+export function restrictConversationSelection(
   selected: ConversationSelection,
   orderedIds: readonly string[],
 ): MutableSelection {
