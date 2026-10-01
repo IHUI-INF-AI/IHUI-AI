@@ -16,7 +16,7 @@
 | 产品 | 版本实测值 | 取证载体 | 产物 |
 | --- | --- | --- | --- |
 | Codex / ChatGPT 桌面 | `codex-cli 0.137.0`（`AppData\Local\Programs\codex\codex.exe --version`） | `C:\Program Files\WindowsApps\OpenAI.Codex_26.917.9434.0_x64__2p2nqsd0c76g0\app\resources\app.asar` 373MB / 15,596 条目；协议来自 `codex app-server generate-json-schema --experimental`（45 文件） | `codex/chat-stream-inventory.md` |
-| Qoder CN | `qoder-cn v0.4.3`（asar 内 `/package.json`） | `G:\Qoder CN\resources\app.asar`；对话流实现实测在 `/out/renderer/assets/index-nRmb_3VI.js`（20.7MB）与 `/node_modules/@qoder-ai/qoder-cn-agent-sdk/dist/index.js` | `qoder/chat-stream-inventory.md` |
+| Qoder CN | `qoder-cn v0.4.3`（asar 内 `/package.json`；SDK dist 版本常量 `1.0.50`） | `G:\Qoder CN\resources\app.asar`；对话流实现实测在 `/out/renderer/assets/index-nRmb_3VI.js`（20.7MB）与 `/node_modules/@qoder-ai/qoder-cn-agent-sdk/dist/index.js` | `qoder/chat-stream-inventory.md`（对话流）；**控制面另见 `qoder-control-frames.md`（封套+34 出站请求+反向 RPC 逐帧原文）与 `qoder-control-frames-equivalence.md`（三态判定表，verdict=真缺 仅多根工作区 1 行，D141/2026-10-01）** |
 | Trae CN / TRAE SOLO CN | `appVersion 3.3.104`/`tronBuildVersion 2.3.87416`；SOLO `0.1.69`/`2.3.87413` | 两者均为**解包目录形态**（`resources/app/`），对话流在 npm 包 `@byted-icube/ai-modules-chat/dist/index.mjs`（14MB），**两侧 md5 同为 `2a57dccf422a0165507cc4b8f9598452`**；中文文案在内嵌 `dist/273.*.mjs` | `trae/chat-stream-inventory.md` |
 | 腾讯 WorkBuddy | **本机无取证物** | `~/.workbuddy/IDENTITY.md` 自述「阿汇，活在 IHUI-AI 仓库里的开发搭档」= 我方自建体，非该竞品 | 不参与有/无判定，仅 E5 方向参考 |
 
@@ -32,6 +32,9 @@
 export MSYS_NO_PATHCONV=1
 node scripts/benchmark-asar-read.mjs "G:/Qoder CN/resources/app.asar" --list "^/out/"
 node scripts/benchmark-asar-read.mjs "G:/Qoder CN/resources/app.asar" --get /package.json
+# Qoder 控制帧穷举（D141，票面判据：对单行压缩 dist 整串跑正则，严禁按行）：
+node scripts/benchmark-asar-read.mjs "G:/Qoder CN/resources/app.asar" \
+  --get /node_modules/@qoder-ai/qoder-cn-agent-sdk/dist/index.js > .ihui-agent/tmp/qoder-sdk-index.js
 # Codex 协议面（最硬的一层：机器可读的能力清单）
 "C:/Users/<user>/AppData/Local/Programs/codex/codex.exe" app-server generate-json-schema --experimental
 # 三份清单 + 我方侧数据并排（本器不下结论，只归一并标零条目类）
