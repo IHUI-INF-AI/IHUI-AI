@@ -40,6 +40,34 @@ import {
 import { basename, dirname, join, parse, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { countScratchSegments } from './lib/scratch-dir.mjs'
+/**
+ * pwsh 的唯一取径。§27/§5b 实测:本机 `pwsh` 常只在绝对路径(C:/Program Files/PowerShell/7),
+ * 不在会话 PATH —— 裸 `pwsh.exe` 会 ENOENT,而 setLinkHidden 的 catch 把它与"PowerShell 报错"
+ * 折成同一个 false ⇒ 隐藏机制静默失效(Explorer 里那些 junction 又露出来),账面什么都没有。
+ * 候选序:env IHUI_PWSH → PS7 标准安装路径 → 裸命令名(有 PATH 的机器/CI 走这条)。
+ */
+const PWSH_CANDIDATES = [
+  ...(process.env.IHUI_PWSH ? [process.env.IHUI_PWSH] : []),
+  'C:/Program Files/PowerShell/7/pwsh.exe',
+  'pwsh.exe',
+]
+let pwshBinResolved = null
+function pwshBin() {
+  if (pwshBinResolved) return pwshBinResolved
+  for (const c of PWSH_CANDIDATES) {
+    try {
+      execFileSync(c, ['-NoProfile', '-NonInteractive', '-Command', 'exit 0'], {
+        windowsHide: true,
+        timeout: 15000,
+        stdio: 'ignore',
+      })
+      pwshBinResolved = c
+      return c
+    } catch {}
+  }
+  pwshBinResolved = PWSH_CANDIDATES[PWSH_CANDIDATES.length - 1]
+  return pwshBinResolved
+}
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..')
@@ -146,7 +174,7 @@ function setLinkHidden(link, wantHidden) {
     `$i.Attributes = $i.Attributes -band (-bnot [System.IO.FileAttributes]::Hidden)`
   try {
     execFileSync(
-      'pwsh.exe',
+      pwshBin(),
       [
         '-NoProfile',
         '-NonInteractive',
@@ -157,7 +185,7 @@ function setLinkHidden(link, wantHidden) {
     )
     // 用自己的视角复核一遍(父目录枚举),不采信"没抛错"
     const listed = execFileSync(
-      'pwsh.exe',
+      pwshBin(),
       [
         '-NoProfile',
         '-NonInteractive',
@@ -175,7 +203,7 @@ function setLinkHidden(link, wantHidden) {
 /** 父目录枚举(`名字=属性`)—— Explorer 读的就是这份,故作为隐藏与否的唯一 oracle。 */
 function parentListing(dir) {
   return execFileSync(
-    'pwsh.exe',
+    pwshBin(),
     [
       '-NoProfile',
       '-NonInteractive',
