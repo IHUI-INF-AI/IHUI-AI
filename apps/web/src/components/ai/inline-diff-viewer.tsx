@@ -115,7 +115,7 @@ function RowCommentButton({
       type="button"
       onClick={() => onComment(lineNo, text)}
       aria-label={label}
-      className="ml-auto mr-1 shrink-0 self-center rounded-sm p-0.5 text-muted-foreground/60 opacity-0 transition-opacity hover:bg-muted/70 hover:text-foreground group-hover:opacity-100 touch-reveal focus-visible:opacity-100"
+      className="ml-auto mr-1 shrink-0 self-center rounded-sm p-0.5 text-muted-foreground/60 opacity-0 transition-opacity hover:bg-muted/70 hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
       data-testid={`diff-row-comment-${lineNo}`}
     >
       <MessageSquarePlus className="h-3 w-3" aria-hidden />

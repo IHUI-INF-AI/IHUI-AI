@@ -16,11 +16,8 @@ import { useCanvasStore } from '@/stores/canvas-store'
 import { useChatStore } from '@/stores/chat'
 import { parseChartTemplateJson } from '@ihui/design-tokens'
 import { ChartTemplateCard } from '@/components/ai/chart-template-card'
-import {
-  ArtifactKindBadge,
-  ArtifactTurnBadge,
-  assistantTurnOf,
-} from '@/components/media/artifact-turn-badge'
+import { assistantTurnOf } from '@ihui/shared/chat/artifact-turn'
+import { ArtifactKindBadge, ArtifactTurnBadge } from '@/components/media/artifact-turn-badge'
 import { CanvasVersionMenu } from './canvas-overlay'
 
 /**
@@ -77,8 +74,8 @@ type TabKey = 'preview' | 'code'
 
 interface ArtifactCanvasProps {
   artifact: Artifact
-  /** D76 挂载:该产物挂在哪条 assistant 消息下(MessageItem 传 m.id),
-   *  用于派生"第 N 轮"徽章;缺省不渲染徽章。 */
+  /** D76 挂载(2026-09-24):产物所属的 assistant 消息 id(派生"第 N 轮");
+   *  不传则不渲染轮次徽章(既有调用方零破坏)。 */
   turnMessageId?: string
 }
 
@@ -95,13 +92,14 @@ export function ArtifactCanvas({ artifact, turnMessageId }: ArtifactCanvasProps)
   const [tab, setTab] = React.useState<TabKey>('preview')
   const content = typeof artifact.content === 'string' ? artifact.content : ''
 
-  // D76 挂载:第 N 轮 = 该 assistant 消息在消息流中的序号(store 订阅式派生,
-  // 旧消息 turn 不随后续消息 append 漂移);无 messageId 上下文时徽章不渲染
-  const turn = useChatStore((s) =>
-    turnMessageId ? assistantTurnOf(s.messages, turnMessageId) : null,
+  // D76 挂载:产物所属 turn(= 截至(含)该消息的 assistant 计数,共享层派生);
+  // 分型锚点与产物面板聚焦通道([data-artifact-path])同源:path 优先于 name。
+  const messages = useChatStore((s) => s.messages)
+  const turn = React.useMemo(
+    () => (turnMessageId ? assistantTurnOf(messages, turnMessageId) : null),
+    [messages, turnMessageId],
   )
-  // 反向定位锚(MessageList 容器的 ihui:focus-artifact 监听按此查询)
-  const artifactAnchor = artifact.path ?? artifact.name ?? undefined
+  const artifactAnchor = artifact.path ?? artifact.name
 
   // 本地「已应用」内容(预览渲染源)与「草稿」(textarea 编辑源)
   const [applied, setApplied] = React.useState(content)
@@ -169,11 +167,11 @@ export function ArtifactCanvas({ artifact, turnMessageId }: ArtifactCanvasProps)
     >
       <div className="flex items-center justify-between gap-2 bg-muted/30 px-2 py-1">
         <div className="flex items-center gap-1">
-          {/* D76 挂载:轮次徽章(点击跳回产生它的消息)+ 分型徽章(判据唯一真相源) */}
-          {turn !== null && turnMessageId && (
+          {/* D76 挂载:轮次徽章(点击跳回产生它的消息)+ 分型徽章 */}
+          {turn !== null && turnMessageId ? (
             <ArtifactTurnBadge turn={turn} messageId={turnMessageId} />
-          )}
-          {artifactAnchor && <ArtifactKindBadge nameOrPath={artifactAnchor} />}
+          ) : null}
+          {artifactAnchor ? <ArtifactKindBadge nameOrPath={artifactAnchor} /> : null}
           {showTabs ? (
             <>
               <ArtifactTabButton
@@ -229,10 +227,6 @@ export function ArtifactCanvas({ artifact, turnMessageId }: ArtifactCanvasProps)
         ) : (
           <iframe
             title={artifact.name ?? 'artifact-preview'}
-            /* iframe-sandbox-relax: srcDoc 是模型产出、且用户可在同屏改写的 artifact 正文,
-               不给 allow-scripts 预览就是一片空白。档值 = MODEL_CONTENT_SANDBOX
-               (packages/ui-react/src/components/webview-frame.tsx 的唯一实现),
-               刻意**不含** allow-same-origin ⇒ 帧内 opaque origin,读不到本站 Cookie/存储。 */
             sandbox="allow-scripts"
             srcDoc={applied}
             className={cn(PREVIEW_HEIGHT, 'w-full bg-background')}

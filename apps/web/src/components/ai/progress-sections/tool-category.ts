@@ -248,8 +248,9 @@ export interface ToolNameCount {
 /** 聚合后的一个类目 run(一张卡) */
 export interface CategoryRun {
   categoryKey: CategoryKey
-  /** b75-5#3:流式稳定分组 key —— 锚定组内首行工具名,
-   *  同类目被其他类目打断后再次出现时 key 不冲突(原用 categoryKey 会撞 key)。 */
+  /** React key 用的分段锚定键:`${categoryKey}::${首行工具名}::${段序号}`。
+   *  段序号 = 该工具名在输入序列中的调用序号(b75-5#3:同类目被打断后两段 key 不冲突,
+   *  且流式追加不改变首段 key → 展开态不丢)。埋点 group_key 与 testid 仍用 categoryKey。 */
   groupKey: string
   labelKey: string
   order: number
@@ -261,26 +262,22 @@ export interface CategoryRun {
   tools: ToolNameCount[]
 }
 
-function makeRun(categoryKey: CategoryKey, tools: ToolNameCount[]): CategoryRun {
+function makeRun(
+  categoryKey: CategoryKey,
+  first: ToolNameCount,
+  segmentIndex: number,
+): CategoryRun {
   const def = CATEGORY_TABLE_BY_KEY[categoryKey]
-  // groupKey 锚定首行工具名:同类目多段时各段首工具通常不同,避免 React key 冲突
-  const anchor = tools[0]?.toolName ?? ''
   return {
     categoryKey,
-    groupKey: `${categoryKey}::${anchor}`,
+    groupKey: `${categoryKey}::${first.toolName}::${segmentIndex}`,
     labelKey: def.labelKey,
     order: def.order,
     countable: def.countable,
     expandStrategy: def.expandStrategy,
-    totalCount: tools.reduce((s, t) => s + t.count, 0),
-    tools,
+    totalCount: first.count,
+    tools: [first],
   }
-}
-
-/** 给 run 列表的 groupKey 追加段序号,确保同类目多段(含同首工具)的 key 全局唯一。
- *  流式末尾追加时,已有段的序号不变 → groupKey 稳定 → 展开态不丢。 */
-function withSegmentIndex(runs: CategoryRun[]): CategoryRun[] {
-  return runs.map((r, i) => ({ ...r, groupKey: `${r.groupKey}::${i}` }))
 }
 
 /** run 列表按类目 order 稳定排序,便于渲染顺序与断言 */
@@ -301,6 +298,9 @@ export function sortRuns(runs: CategoryRun[]): CategoryRun[] {
  */
 export function aggregateCategoryRuns(ordered: ToolNameCount[]): CategoryRun[] {
   const runs: CategoryRun[] = []
+  // 每个工具名已出现的调用累计数(按 count 加权):新段的段序号取此值,
+  // 保证"同类目被打断后的两段"groupKey 必不相同(b75-5#3)
+  const seenCalls = new Map<string, number>()
   for (const item of ordered) {
     const cat = resolveToolCategory(item.toolName)
     const last = runs[runs.length - 1]
@@ -309,10 +309,11 @@ export function aggregateCategoryRuns(ordered: ToolNameCount[]): CategoryRun[] {
       last.tools.push(item)
       last.totalCount += item.count
     } else {
-      runs.push(makeRun(cat, [item]))
+      runs.push(makeRun(cat, item, seenCalls.get(item.toolName) ?? 0))
     }
+    seenCalls.set(item.toolName, (seenCalls.get(item.toolName) ?? 0) + item.count)
   }
-  return withSegmentIndex(runs)
+  return runs
 }
 
 /**
@@ -330,11 +331,14 @@ export function summarizeCategoriesByTool(toolsByCategory: Record<string, number
   }
   const runs: CategoryRun[] = []
   for (const [cat, tools] of byCat) {
-    // byCat 的每个键都是在推入至少一个元素后紧接着 set 的(见上方循环),
-    // 故 tools 恒非空;totalCount / tools 直接由 makeRun 从数组派生,
-    // 不再经数组下标取值(noUncheckedIndexedAccess 下 `tools[0]` 类型为可空)。
-    runs.push(makeRun(cat, tools))
+    const total = tools.reduce((s, t) => s + t.count, 0)
+    const first = tools[0]
+    if (!first) continue // noUncheckedIndexedAccess:空数组不可能(Map 值均至少一条),防御性跳过
+    const run = makeRun(cat, first, 0)
+    run.totalCount = total
+    run.tools = tools
+    runs.push(run)
   }
-  return withSegmentIndex(sortRuns(runs))
+  return sortRuns(runs)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

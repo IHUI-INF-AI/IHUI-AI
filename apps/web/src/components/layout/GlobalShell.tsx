@@ -10,17 +10,13 @@ import { useTranslations } from 'next-intl'
 import { usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
-import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Sidebar } from '@/components/sidebar'
-import { Skeleton } from '@/components/ui/skeleton'
 import { TooltipProvider } from '@/components/feedback'
-
-/** 层栈 id(见 @/lib/overlay-stack):移动端菜单的 Esc 只在栈顶时被消费 */
-const MOBILE_MENU_OVERLAY_ID = 'global-shell-mobile-menu'
 import {
   PWAInstallPrompt,
   PWAUpdatePrompt,
   UpdatePrompt,
+  QuitUpdateOverlay,
   NavigationProgress,
   VisitTracker,
   AnalyticsCapture,
@@ -79,61 +75,12 @@ const GlobalTopBarMemo = React.memo(GlobalTopBar)
 // 占位几何与真实容器对齐:width 引用 layout.tsx inline script 预设的 --ai-panel-width
 // (读 localStorage ihui-ai-panel state.width,范围 320-720,fallback 380),
 // hidden + min-[768px]:block 复制真实容器响应式显隐,mr-1.5 py-2 shrink-0 对齐展开态。
-/**
- * AI 面板加载占位(2026-09-30 升级为骨架屏)
- *
- * 为什么需要:next/dynamic({ ssr:false }) 的 loading 插槽在**首帧**渲染,直到面板
- * 客户端分包到位才被替换。此前它是一个纯空白 div —— 几何对(所以不产生 CLS),
- * 但用户看到的是"右侧一块空白,过一会突然冒出面板",体感像没加载出来。
- *
- * 升级为骨架屏:外层几何**一字不动**(见下方 CLS 注释),只在内部画同构骨架
- * (header 条 + 消息区 + 输入区),让用户一眼看出"面板正在加载"。
- *
- * 几何约束(改动前必读,破一条就回归历史 bug):
- * - width: var(--ai-panel-width) —— 与真实容器同一变量,挂载时不跳变
- * - hidden + min-[768px]:block  —— <768px 不占 flex 空间(老 bug:占位把 work-area 推出视口)
- * - shrink-0 / mr-1.5 / py-2 / h-full —— 与真实容器 class 逐项对齐(mr-1.5 对应 --ai-panel-occupy = width+6)
- * - aria-hidden —— 骨架不得被读屏/a11y 断言命中
- */
 const AiPanelPlaceholder = () => (
   <div
     aria-hidden
     className="relative hidden h-full shrink-0 mr-1.5 py-2 min-[768px]:block"
     style={{ width: 'var(--ai-panel-width, 380px)' }}
-  >
-    {/* 骨架同构(2026-09-30):header 条 + 消息流 + 输入区,版式对齐真实面板。
-        只做视觉示意、不承担几何 —— 外层几何 class/宽度一字不能动(见上方 CLS 注释),
-        动了就是历史 0.21 CLS bug 复发。防回潮:global-shell-ai-panel-skeleton.test.tsx
-        (S1 几何 / S2 ≥5 骨架块带底色 / S3 非空节点)+ check-ai-panel-mount-guards.mjs R1。 */}
-    <div className="flex h-full min-h-0 flex-col gap-2 rounded-xl border bg-background/40 p-3">
-      {/* header:图标 + 标题 + 操作按钮组 */}
-      <div className="flex items-center gap-2">
-        <Skeleton className="h-7 w-7 rounded-md" />
-        <Skeleton className="h-4 w-24" />
-        <div className="flex-1" />
-        <Skeleton className="h-7 w-7 rounded-md" />
-        <Skeleton className="h-7 w-7 rounded-md" />
-        <Skeleton className="h-7 w-7 rounded-md" />
-      </div>
-      {/* 消息流:交替左右的消息块 */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden pt-1">
-        <div className="flex flex-col gap-1.5">
-          <Skeleton className="h-3 w-3/4" />
-          <Skeleton className="h-3 w-2/3" />
-        </div>
-        <div className="flex flex-col items-end gap-1.5">
-          <Skeleton className="h-3 w-2/3" />
-          <Skeleton className="h-3 w-1/2" />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Skeleton className="h-3 w-5/6" />
-          <Skeleton className="h-3 w-1/3" />
-        </div>
-      </div>
-      {/* 输入区 */}
-      <Skeleton className="h-14 w-full rounded-lg" />
-    </div>
-  </div>
+  />
 )
 
 const AISidePanel = React.memo(
@@ -286,20 +233,11 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (!mobileOpen) return
-    // 层栈注册:mobileOpen → 入栈(成为栈顶);close/unmount → 出栈。
-    pushOverlay(MOBILE_MENU_OVERLAY_ID)
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
-        if (!isTopOverlay(MOBILE_MENU_OVERLAY_ID)) return
-        setMobileOpen(false)
-      }
+      if (e.key === 'Escape') setMobileOpen(false)
     }
     document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      popOverlay(MOBILE_MENU_OVERLAY_ID)
-    }
+    return () => document.removeEventListener('keydown', onKey)
   }, [mobileOpen])
 
   // 移动端菜单按钮节点(2026-09-13 从 <GlobalTopBar mobileMenu={...}> 内联 JSX 提取):
@@ -406,10 +344,13 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
               // - mr-1.5 py-2 shrink-0 与真实容器(展开态)class 一致,占位与实体几何对齐
               // - open 恒为 true(store merge 强制)、floatMode/workAreaCollapsed 恒为默认 false
               //   (不持久化),首帧占位宽度与挂载后真实宽度必然一致
-              // 2026-09-30:改为复用 AiPanelPlaceholder 组件本体(此前是内联复制的一份
-              // 同形 div,两份几何会各自漂移)。注:next/dynamic 自带内层 Suspense 边界,
-              // 真正渲染的是 dynamic 的 loading 插槽;此处保留只为语义兜底与几何一致。
-              fallback={<AiPanelPlaceholder />}
+              fallback={
+                <div
+                  aria-hidden
+                  className="relative hidden h-full shrink-0 mr-1.5 py-2 min-[768px]:block"
+                  style={{ width: 'var(--ai-panel-width, 380px)' }}
+                />
+              }
             >
               <AISidePanel />
             </React.Suspense>
@@ -487,6 +428,9 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
         {/* 桌面端应用更新下拉提示(平台独占:仅 Tauri 环境渲染,浏览器端 no-op)。
           内部调用 useUpdater hook,启动静默检查 + 监听托盘菜单 desktop-check-update 事件。 */}
         <UpdatePrompt />
+        {/* 桌面端退出时自动更新遮罩(平台独占:仅 Tauri 环境渲染,浏览器端 no-op)。
+          拦截退出流程(Ctrl+Q / 托盘退出),自动检查+下载+安装+重启,显示全屏进度遮罩。 */}
+        <QuitUpdateOverlay />
         {/* 页面访问埋点(2026-08-10 立):全局挂载,pathname 变化自动上报 visit_logs */}
         <VisitTracker />
         {/* 全局行为埋点(2026-08-10 立):自动采集点击/搜索/下载/表单提交 → analytics_events */}
