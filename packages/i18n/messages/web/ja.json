@@ -468,6 +468,11 @@
     "run": "実行"
   },
   "a11y": {
+    "previewLoadFailed": "プレビューの読み込みに失敗しました。",
+    "previewRetryAction": "再試行",
+    "previewExpired": "プレビューの有効期限が切れました。",
+    "previewOpenSourceAction": "原文を開く",
+    "previewTooLarge": "ファイルが大きすぎてプレビューできません。",
     "download": "ダウンロード",
     "downloadFile": "ファイルをダウンロード",
     "exitFullscreen": "全画面を終了",
@@ -621,6 +626,10 @@
     "nickname": "ニックネーム",
     "noAccounts": "アカウントがありません",
     "openExternalBrowser": "外部ブラウザで開く",
+    "chromeImportBtn": "自分の Chrome から取り込み",
+    "chromeImportLaunching": "Chrome のログインウィンドウを開いています...",
+    "chromeImportHint": "{platform} のログインページを別ウィンドウで開きました。そのウィンドウでログインすると、Cookie を貼り付けなくても自動的にアカウントが保存されます。",
+    "chromeImportFailed": "Chrome からの取り込みが完了しませんでした",
     "orDivider": "または",
     "platform": "プラットフォーム",
     "scan": "スキャンログイン",
@@ -630,6 +639,9 @@
     "scanLoginHint": "QRコードは1分ごとに自動更新されます",
     "scanLoginSucceeded": "スキャンログインに成功しました",
     "scanLoginSuccess": "スキャン成功",
+    "scanLoginReuseLabel": "ログイン方式",
+    "scanLoginReuseOn": "既存セッションを再利用(スキャン不要)",
+    "scanLoginReuseOff": "毎回新しくスキャン",
     "scanLoginTimeout": "スキャンタイムアウトです。もう一度お試しください。",
     "scanLoginTitle": "スキャンログイン",
     "scanWithPhoneHint": "スマートフォンでQRコードをスキャンしてください。",
@@ -8147,6 +8159,18 @@
         }
       },
       "errorCatalog": {
+        "102": {
+          "title": "リクエスト時刻の検証に失敗しました",
+          "action": "システム時計を同期してから再試行"
+        },
+        "121": {
+          "title": "組織データを移行中です",
+          "action": "移行が完了してから再試行"
+        },
+        "47902": {
+          "title": "このセッションのターン数が上限に達しました",
+          "action": "しばらく待つかプランをアップグレード"
+        },
         "ACCOUNT_RESTRICTED": {
           "title": "アカウントが制限されています",
           "action": "管理者に連絡"
@@ -8639,18 +8663,6 @@
           "title": "セッション履歴が見つかりません",
           "action": "セッションを開き直してから再試行"
         },
-        "47902": {
-          "title": "このセッションのターン数が上限に達しました",
-          "action": "しばらく待つかプランをアップグレード"
-        },
-        "121": {
-          "title": "組織データを移行中です",
-          "action": "移行が完了してから再試行"
-        },
-        "102": {
-          "title": "リクエスト時刻の検証に失敗しました",
-          "action": "システム時計を同期してから再試行"
-        },
         "speaking_banned": {
           "title": "現在発言が制限されています",
           "action": "詳細は管理者に連絡"
@@ -8964,7 +8976,12 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -8981,7 +8998,12 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -9016,11 +9038,19 @@
       "refresh": "更新",
       "empty": "チェックポイントがありません",
       "item": "イテレーション #{iteration} · {status} · {count} 件のメッセージ",
-      "restoring": "復元中…",
+      "undoPreparing": "ロールバックを準備中…",
       "rollback": "復元",
-      "confirmTitle": "復元しますか？",
+      "undoConfirm": "このチェックポイントにロールバックしますか？",
       "confirmDescription": "復元すると、このチェックポイントの会話とファイル状態に戻ります。この操作は取り消せません。",
       "confirmText": "復元",
+      "undoSucceeded": "{count} 個のファイルを復元しました。タスク履歴は保持されます",
+      "undoUnavailable": "チェックポイントを利用できません。ワークスペースは変更されていません",
+      "undoFailed": "一時的に利用できません。ワークスペースは変更されていません",
+      "undoFailedChanged": "一時的に利用できません。ワークスペースが変更されています",
+      "undoFailedUnverifiable": "一時的に利用できません。ワークスペースの状態を確認できませんでした。確認してから再試行してください",
+      "undoPartialWarning": "一部のファイルがロールバックできませんでした。タスク履歴は保持されます",
+      "restoring": "復元中…",
+      "confirmTitle": "復元しますか？",
       "restoreSuccess": "チェックポイントに復元しました",
       "restoreFailed": "復元に失敗しました"
     },
@@ -10616,12 +10646,18 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "linkPreview": {
+      "loading": "リンクのプレビューを読み込み中...",
+      "unavailable": "リンクのプレビューを読み取れません",
+      "undetermined": "このリンクは判定できません（ログインが必要か、タイムアウトの可能性）。送信後も読み取りを試みます",
+      "dismiss": "プレビューを閉じる"
+    },
     "referencePreview": {
-      "available": "模擬機能が利用できます",
-      "editor": "能力参照入力欄",
-      "placeholder": "完全な参照を貼り付けるか、@ で能力を入力…",
+      "available": "モック機能が利用可能",
+      "editor": "機能参照入力欄",
+      "placeholder": "完全な参照を貼り付けるか @名前 を入力…",
       "source": "元の入力本文",
-      "select": "サンプル能力を選ぶ",
+      "select": "サンプル機能を選択",
       "clear": "新しく入力",
       "send": "プレビューを送信"
     },
@@ -11798,6 +11834,21 @@
     "reasoningEffortFallback": "推論の深さはサーバー側で調整されました: {requested} → {effective}"
   },
   "chatHistory": {
+    "moveToGroup": "グループへ移動",
+    "moveSelectedToGroup": "選択項をグループへ移動",
+    "moveSuccess": "{count}件を「{folder}」へ移動しました",
+    "moveFailFolderMissing": "移動に失敗しました:移動先のグループ「{folder}」は既に削除されています。別のグループを選び直して再試行してください",
+    "moveFailUnauthorized": "移動に失敗しました:ログイン状態が無効です。再ログイン後に再試行してください",
+    "moveFailConflict": "選択した会話はすべて「{folder}」グループに既に存在します。別のグループを選択してください",
+    "groupPin": "グループをピン留め",
+    "groupUnpin": "グループのピン留めを解除",
+    "moveDialog": {
+      "title": "グループへ移動",
+      "none": "未分類",
+      "newPlaceholder": "新しいグループ名を入力(空欄なら選択中のグループを使用)",
+      "confirm": "移動",
+      "cancel": "キャンセル"
+    },
     "selectModeAriaLabel": "タスクの複数選択モードを切り替え",
     "backToHistory": "にる",
     "batchArchive": "アーカイブ",
@@ -11998,151 +12049,276 @@
       "slashDiff": {
         "label": "セッション変更一覧",
         "description": "このセッションで AI が変更したファイルを確認",
-        "keywords": ["diff", "変更", "確認"]
+        "keywords": [
+          "diff",
+          "変更",
+          "確認"
+        ]
       },
       "slashStatus": {
         "label": "セッション状態",
         "description": "モデル・コンテキスト・権限モード・使用量を表示",
-        "keywords": ["status", "状態", "コンテキスト"]
+        "keywords": [
+          "status",
+          "状態",
+          "コンテキスト"
+        ]
       },
       "slashModel": {
         "label": "モデル切替",
         "description": "モデルセレクターを開く",
-        "keywords": ["model", "モデル", "切替"]
+        "keywords": [
+          "model",
+          "モデル",
+          "切替"
+        ]
       },
       "slashMcp": {
         "label": "MCP マーケット",
         "description": "MCP サーバーマーケットを開く",
-        "keywords": ["mcp", "マーケット"]
+        "keywords": [
+          "mcp",
+          "マーケット"
+        ]
       },
       "slashCompact": {
         "label": "コンテキスト圧縮",
         "description": "セッション履歴を圧縮してコンテキストを解放",
-        "keywords": ["compact", "圧縮", "コンテキスト"]
+        "keywords": [
+          "compact",
+          "圧縮",
+          "コンテキスト"
+        ]
       },
       "steerPrompt": {
         "label": "プロンプトをステア",
         "description": "実行中の回答に現在の入力をガイドとして注入します",
-        "keywords": ["ステア", "ガイド", "steer"]
+        "keywords": [
+          "ステア",
+          "ガイド",
+          "steer"
+        ]
       },
       "queuePrompt": {
         "label": "プロンプトをキューに追加",
         "description": "実行中の回答の終了後、現在の入力を自動送信するためにキューに追加します",
-        "keywords": ["キュー", "待機", "queue"]
+        "keywords": [
+          "キュー",
+          "待機",
+          "queue"
+        ]
       },
       "agent": {
         "description": "AI エージェントの管理とディスパッチ",
-        "keywords": ["エージェント", "agent", "bot"],
+        "keywords": [
+          "エージェント",
+          "agent",
+          "bot"
+        ],
         "label": "AI エージェント"
       },
       "browser": {
         "description": "ワークスペース内でウェブを閲覧",
-        "keywords": ["ブラウザ", "ウェブ", "browser"],
+        "keywords": [
+          "ブラウザ",
+          "ウェブ",
+          "browser"
+        ],
         "label": "組み込みブラウザ"
       },
       "capabilityMarket": {
         "description": "ケイパビリティパックの発見とインストール",
-        "keywords": ["ケイパビリティ", "マーケット", "market", "プラグイン"],
+        "keywords": [
+          "ケイパビリティ",
+          "マーケット",
+          "market",
+          "プラグイン"
+        ],
         "label": "ケイパビリティマーケット"
       },
       "codeChanges": {
         "description": "ワークスペースのコード変更を確認",
-        "keywords": ["コード", "変更", "diff", "修正"],
+        "keywords": [
+          "コード",
+          "変更",
+          "diff",
+          "修正"
+        ],
         "label": "コード変更"
       },
       "connectors": {
         "description": "外部サービス接続を管理",
-        "keywords": ["コネクタ", "接続", "connector"],
+        "keywords": [
+          "コネクタ",
+          "接続",
+          "connector"
+        ],
         "label": "コネクタ"
       },
       "document": {
         "description": "ワークスペースのドキュメントを編集",
-        "keywords": ["ドキュメント", "編集", "doc"],
+        "keywords": [
+          "ドキュメント",
+          "編集",
+          "doc"
+        ],
         "label": "ドキュメント"
       },
       "editor": {
         "description": "コードエディタを開く",
-        "keywords": ["エディタ", "コード", "editor"],
+        "keywords": [
+          "エディタ",
+          "コード",
+          "editor"
+        ],
         "label": "エディタ"
       },
       "mcp": {
         "description": "MCP サーバーとツールを管理",
-        "keywords": ["MCP", "サーバー", "ツール"],
+        "keywords": [
+          "MCP",
+          "サーバー",
+          "ツール"
+        ],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "MCP サービスの閲覧とインストール",
-        "keywords": ["MCP", "ストア", "store", "インストール"],
+        "keywords": [
+          "MCP",
+          "ストア",
+          "store",
+          "インストール"
+        ],
         "label": "MCP ストア"
       },
       "modeAsk": {
         "description": "質問モードへ切替(ツール無効)",
-        "keywords": ["質問", "ask", "モード"],
+        "keywords": [
+          "質問",
+          "ask",
+          "モード"
+        ],
         "label": "質問モード"
       },
       "modeBuild": {
         "description": "AI に直接構築・修正させる",
-        "keywords": ["ビルド", "モード", "build"],
+        "keywords": [
+          "ビルド",
+          "モード",
+          "build"
+        ],
         "label": "ビルドモード"
       },
       "modePlan": {
         "description": "計画を立ててから実行",
-        "keywords": ["計画", "モード", "plan"],
+        "keywords": [
+          "計画",
+          "モード",
+          "plan"
+        ],
         "label": "計画モード"
       },
       "modeReview": {
         "description": "既存コードをレビュー",
-        "keywords": ["レビュー", "モード", "review"],
+        "keywords": [
+          "レビュー",
+          "モード",
+          "review"
+        ],
         "label": "レビューモード"
       },
       "modeSpec": {
         "description": "仕様から実装を生成",
-        "keywords": ["仕様", "モード", "spec"],
+        "keywords": [
+          "仕様",
+          "モード",
+          "spec"
+        ],
         "label": "仕様モード"
       },
       "skill": {
         "description": "AI スキルの管理と呼び出し",
-        "keywords": ["スキル", "skill", "機能"],
+        "keywords": [
+          "スキル",
+          "skill",
+          "機能"
+        ],
         "label": "スキル"
       },
       "terminal": {
         "description": "統合ターミナルを開く",
-        "keywords": ["ターミナル", "端末", "terminal"],
+        "keywords": [
+          "ターミナル",
+          "端末",
+          "terminal"
+        ],
         "label": "ターミナル"
       },
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"],
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI", "chat"],
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI",
+          "chat"
+        ],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI",
+          "drama"
+        ],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"],
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search", "search"],
+        "keywords": [
+          "検索",
+          "search",
+          "search"
+        ],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"],
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ],
         "label": "設定"
       },
       "skillsMarket": {
         "description": "自己進化スキルの閲覧と導入",
-        "keywords": ["skill", "スキル", "マーケット", "market"],
+        "keywords": [
+          "skill",
+          "スキル",
+          "マーケット",
+          "market"
+        ],
         "label": "Skill マーケット"
       }
     },
@@ -14605,25 +14781,37 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"],
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"],
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"],
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"],
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -14757,19 +14945,31 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -15707,9 +15907,13 @@
       "goalWarnings": "独立性に関する警告",
       "modelDefault": "デフォルト",
       "modelSelect": "モデル選択",
+      "pause": "一時停止",
+      "paused": "一時停止中",
       "placeholder": "AIに完了させたいコーディングタスクを記述...",
       "plan": "計画",
       "result": "結果",
+      "resume": "再開",
+      "running": "実行中",
       "stop": "停止",
       "taskId": "タスクID",
       "unknownFile": "(不明なファイル)"
@@ -15757,6 +15961,33 @@
     },
     "diffFileList": {
       "noMatch": "一致するファイルなし"
+    },
+    "diffReview": {
+      "copyGitApplyUnreadable": "内容を読み込めなかった {count} 件のファイルをスキップしました",
+      "copyGitApply": "git apply をコピー",
+      "copyGitApplyToast": "git apply コマンドをクリップボードにコピーしました",
+      "copyGitApplyFailed": "git apply コマンドをコピーできませんでした",
+      "copyGitApplyEmpty": "エクスポートできる変更がありません",
+      "markAsViewed": "レビュー済みとしてマーク",
+      "markAsUnviewed": "未レビューとしてマーク",
+      "markedAsViewed": "レビュー済み",
+      "markAllViewed": "すべてをレビュー済みとしてマーク",
+      "unmarkAll": "マークをすべて解除",
+      "reviewedCount": "レビュー済み {viewed}/{total}",
+      "jumpToFile": "ファイルへ移動",
+      "jumpToFileEmpty": "一致するファイルなし",
+      "renderError": "このファイル行を表示できません",
+      "retry": "再試行",
+      "loading": "読み込み中...",
+      "loadFailedAfterRetrying": "再試行後も読み込みに失敗しています",
+      "fullContentLoadFailed": "全文の読み込みに失敗しました",
+      "hideGenerated": "生成ファイルを非表示",
+      "copyPath": "パスをコピー",
+      "pathCopied": "パスをコピーしました",
+      "openWithSplit": "分割で開く",
+      "openWithUnified": "統合で開く",
+      "openInEditor": "エディタで開く",
+      "viewPullRequest": "プルリクエストを表示"
     },
     "diffStats": {
       "commit": "変更をコミット",
@@ -15854,6 +16085,20 @@
       "open": "開く",
       "rename": "名前変更",
       "renamed": "名前を変更しました"
+    },
+    "hostGit": {
+      "authorize": "許可",
+      "binary": "git:{path}",
+      "binaryMissing": "git バイナリが見つかりません",
+      "clean": "ホスト作業区はクリーン、未コミットの変更なし",
+      "commandFailed": "git コマンド失敗({reason})、判定:{verdict}",
+      "dirty": "ホストに未コミットの変更 {count} 件",
+      "hostRejected": "ホストに拒否されました:{reason}",
+      "noVerdict": "作業区の判定はまだありません",
+      "noWorkspace": "ホスト作業区に未接続",
+      "refresh": "更新",
+      "title": "ホスト Git",
+      "undetermined": "判定不能:{reason}"
     },
     "layout": {
       "agentView": "エージェントビュー",
@@ -16062,33 +16307,6 @@
       "groupView": "ビュー",
       "noMatch": "一致なし",
       "searchPlaceholder": "ビューを検索..."
-    },
-    "diffReview": {
-      "copyGitApplyUnreadable": "内容を読み込めなかった {count} 件のファイルをスキップしました",
-      "copyGitApply": "git apply をコピー",
-      "copyGitApplyToast": "git apply コマンドをクリップボードにコピーしました",
-      "copyGitApplyFailed": "git apply コマンドをコピーできませんでした",
-      "copyGitApplyEmpty": "エクスポートできる変更がありません",
-      "markAsViewed": "レビュー済みとしてマーク",
-      "markAsUnviewed": "未レビューとしてマーク",
-      "markedAsViewed": "レビュー済み",
-      "markAllViewed": "すべてをレビュー済みとしてマーク",
-      "unmarkAll": "マークをすべて解除",
-      "reviewedCount": "レビュー済み {viewed}/{total}",
-      "jumpToFile": "ファイルへ移動",
-      "jumpToFileEmpty": "一致するファイルなし",
-      "renderError": "このファイル行を表示できません",
-      "retry": "再試行",
-      "loading": "読み込み中...",
-      "loadFailedAfterRetrying": "再試行後も読み込みに失敗しています",
-      "fullContentLoadFailed": "全文の読み込みに失敗しました",
-      "hideGenerated": "生成ファイルを非表示",
-      "copyPath": "パスをコピー",
-      "pathCopied": "パスをコピーしました",
-      "openWithSplit": "分割で開く",
-      "openWithUnified": "統合で開く",
-      "openInEditor": "エディタで開く",
-      "viewPullRequest": "プルリクエストを表示"
     }
   },
   "imageGenPage": {
@@ -16901,7 +17119,12 @@
         "step5": "呼び出し時は自動的にあなたの Key が優先されます",
         "gotIt": "了解"
       },
-      "health": { "degraded": "低下", "down": "利用不可", "healthy": "正常", "unknown": "不明" }
+      "health": {
+        "degraded": "低下",
+        "down": "利用不可",
+        "healthy": "正常",
+        "unknown": "不明"
+      }
     }
   },
   "market": {
@@ -17651,7 +17874,15 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ]
   },
   "models": {
     "relay": {
@@ -20277,6 +20508,10 @@
       "nickname": "ニックネーム",
       "noAccounts": "アカウントがありません、先に追加してください",
       "openExternalBrowser": "外部ブラウザで開く",
+      "chromeImportBtn": "自分の Chrome から取り込み",
+      "chromeImportLaunching": "Chrome のログインウィンドウを開いています...",
+      "chromeImportHint": "{platform} のログインページを別ウィンドウで開きました。そのウィンドウでログインすると、Cookie を貼り付けなくても自動的にアカウントが保存されます。",
+      "chromeImportFailed": "Chrome からの取り込みが完了しませんでした",
       "orDivider": "または",
       "passwordPlaceholder": "パスワードを入力",
       "passwordHint": "一般ユーザーはQRログインを使ってください。この項目は開発者向けです。",
@@ -20301,6 +20536,9 @@
       "scanLoginQrAlt": "ログインQRコード",
       "scanLoginSucceeded": "ログイン成功、アカウントに保存しました",
       "scanLoginSuccess": "QRコードログイン成功",
+      "scanLoginReuseLabel": "ログイン方式",
+      "scanLoginReuseOn": "既存セッションを再利用(スキャン不要)",
+      "scanLoginReuseOff": "毎回新しくスキャン",
       "scanLoginTimeout": "スキャンタイムアウト、再試行してください",
       "scanLoginTitle": "QRコードログイン",
       "scanWithPhoneHint": "QRコードはスマホでスキャンしてください — ページ操作は不要;ログイン検出後、自動でアカウントが保存されます",
@@ -20354,14 +20592,7 @@
       "batchScanPopupBlocked": "ブラウザが新しいタブをブロックしました。アドレスバー右側のアイコンからこのサイトのポップアップを許可して再開してください(または内蔵ブラウザモードをご利用ください)。",
       "batchScanPopupBlockedToast": "新しいタブがブロックされたためキューを停止しました。ポップアップを許可して再試行してください",
       "batchScanWindowClosedToast": "ブラウザウィンドウが閉じられたため、キューを停止しました",
-      "batchScanWaitingHint": "下の QR コードをスマホでスキャンして該プラットフォームにログインしてください。2 分でタイムアウト自動スキップします(手動スキップも可能)。",
-      "chromeImportBtn": "自分の Chrome から取り込み",
-      "chromeImportLaunching": "Chrome のログインウィンドウを開いています...",
-      "chromeImportHint": "{platform} のログインページを別ウィンドウで開きました。そのウィンドウでログインすると、Cookie を貼り付けなくても自動的にアカウントが保存されます。",
-      "chromeImportFailed": "Chrome からの取り込みが完了しませんでした",
-      "scanLoginReuseLabel": "ログイン方式",
-      "scanLoginReuseOn": "既存セッションを再利用(スキャン不要)",
-      "scanLoginReuseOff": "毎回新しくスキャン"
+      "batchScanWaitingHint": "下の QR コードをスマホでスキャンして該プラットフォームにログインしてください。2 分でタイムアウト自動スキップします(手動スキップも可能)。"
     },
     "ai": {
       "analyzeAll": "一括分析",
