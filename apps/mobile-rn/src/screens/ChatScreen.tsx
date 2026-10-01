@@ -80,6 +80,8 @@ import {
   Share2,
   Sparkles,
   Star,
+  ThumbsDown,
+  ThumbsUp,
   Trash2,
   Video,
   Volume2,
@@ -101,13 +103,16 @@ import {
   getMyCreationDetail,
   getShareFirstStatus,
   getTokenBalance,
+  getWorkspacePermissionDefault,
   listConversations,
+  rateChatMessage,
   resolveFileUrl,
   streamChat,
   uploadFileMultipart,
   type Agent,
   type ConversationDetail,
   type LlmModel,
+  type MessageRating,
   type MyCreationItem,
   type MyCreationType,
 } from '@ihui/api-client'
@@ -131,7 +136,7 @@ import {
 } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 // G-166:交代区(RN 端共享组件)—— 引用来源 + 本轮上下文注入,与 N8n 屏同一实现
-import { CitationList, InjectionDisclosure, SteerNoticeList } from '../components/ChatDisclosure'
+import { CitationList, InjectionDisclosure, PermissionTierRow, SteerNoticeList } from '../components/ChatDisclosure'
 // D135(承 V4 #93):任务进度状态条 —— 执行帧折叠结果的可读出口,与 N8n 屏同一组件
 import { TaskStatusBar } from '../components/ai/TaskStatusBar'
 import {
@@ -562,7 +567,9 @@ export function ChatScreen() {
 
   // ── D135 执行帧接线状态(承 V4 #93) ──
   // 本轮 assistant 消息 id → 折叠后的 tool/plan/terminal 快照。折叠实现唯一在
-  // chat-render-model.ts 的 applyAssistantExecutionFrame(组合三个/五个既有 reducer)。
+  // chat-render-model.ts 的 applyAssistantExecutionFrame(组合三个/五个既有 reducer):
+  // tool-result 到达由 applyToolCallEvent 清掉 pending、增量走 applyToolDelta、
+  // 计划走 applyPlanUpdate —— 屏内不自折,没有第二份真相。
   const [executionVizById, setExecutionVizById] = useState<Record<string, AssistantExecutionViz>>(
     {},
   )
@@ -1630,6 +1637,34 @@ export function ChatScreen() {
     [t],
   )
 
+  // D111:工作区权限档(null = 尚未取到/取数失败 → 整行隐藏,不假装知道档位;与 N8n 屏同一取数)。
+  const [workspaceTier, setWorkspaceTier] = useState<string | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    getWorkspacePermissionDefault()
+      .then((res) => {
+        if (!cancelled && res.success && res.data) setWorkspaceTier(res.data.mode)
+      })
+      .catch(() => {
+        // 取数失败:保持 null,该行隐藏
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // D111 消息反馈:点赞/点踩走 @ihui/api-client 唯一出口(rateChatMessage),不裸 fetch。
+  const rateMessage = useCallback(
+    async (messageId: string, next: MessageRating): Promise<void> => {
+      try {
+        await rateChatMessage({ messageId, rating: next })
+      } catch {
+        // 反馈提交失败不打断阅读流(与 web 端点赞失败静默同口径)
+      }
+    },
+    [],
+  )
+
   const renderMessage = useCallback(
     (item: ChatScreenMessage, _index: number): React.ReactNode => {
       const isUser = item.role === 'user'
@@ -1841,6 +1876,28 @@ export function ChatScreen() {
                     <Text style={styles.msgActionText}>分享</Text>
                   </TouchableOpacity>
                 )}
+                {isFailed ? null : (
+                  <TouchableOpacity
+                    style={styles.msgActionBtn}
+                    hitSlop={8}
+                    onPress={() => void rateMessage(item.id, 'like')}
+                    accessibilityRole="button"
+                    accessibilityLabel="赞同"
+                  >
+                    <ThumbsUp size={16} color={tokens.text.secondary} />
+                  </TouchableOpacity>
+                )}
+                {isFailed ? null : (
+                  <TouchableOpacity
+                    style={styles.msgActionBtn}
+                    hitSlop={8}
+                    onPress={() => void rateMessage(item.id, 'dislike')}
+                    accessibilityRole="button"
+                    accessibilityLabel="反对"
+                  >
+                    <ThumbsDown size={16} color={tokens.text.secondary} />
+                  </TouchableOpacity>
+                )}
               </View>
             ) : null}
             {/* G-166 交代区:本轮引用来源 + 带了哪些上下文(与 N8n 屏同一共享组件) */}
@@ -1858,6 +1915,8 @@ export function ChatScreen() {
                 items={(item as ChatScreenMessageWithReasoning).steerNotices ?? []}
               />
             )}
+            {/* D111 权限档交代行:档名 + 该档后果(与 N8n 屏同一共享组件;null 不渲染) */}
+            {isFailed ? null : <PermissionTierRow key="permission-tier-row" mode={workspaceTier} />}
             {/* D135 终端任务最小可视态:命令 + 状态 + 耗时(完整终端面板在 N8n 屏,不在此复制) */}
             {isFailed ? null : (
               executionVizById[item.id]?.terminalTasks?.length ? (
@@ -1887,6 +1946,7 @@ export function ChatScreen() {
       maybeTriggerFirstShareReward,
       showToast,
       handleLongPressMessage,
+      rateMessage,
       retryLastTurn,
       t,
     ],
