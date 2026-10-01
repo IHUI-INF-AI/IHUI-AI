@@ -147,6 +147,23 @@ export default defineConfig(async (merge) => {
     },
     mini: {
       es5: true,
+      // 2026-10-01 react 双实例白屏修复:workspace 同时存在 react@18.3.1(miniapp)与
+      // react@19.2.8(shared 自带依赖)。@ihui/shared 的 TS 源码经 compile.include 编入
+      // 小程序包,其 `import 'react'` 从 packages/shared 目录解析到 react@19,而 Taro
+      // 小程序渲染器是 react@18 —— 18 的渲染器不会向 19 的 internals 注入 hooks
+      // dispatcher ⇒ 所有 import @ihui/shared/hooks 的页面(login/register)渲染即抛
+      // "Cannot read properties of null (reading 'useState')" ⇒ 整页白屏(index/about
+      // 等不用 shared 的页面正常,故此前未暴露)。此处把 mini 端全部 react/react-dom
+      // 解析强制收敛到 app 自己的 react@18;h5 端走 vite 自己的 dedupe(222 行),不受影响。
+      alias: {
+        // 注意:Taro 的平台段 alias 是整体替换、不与顶层 alias 合并 —— mini 段一旦
+        // 声明 alias,必须把顶层 '@' 一并带齐(2026-10-01 实测:漏带时 '@/i18n' 会被
+        // 当成 scoped 包 '@i18n' 解析而编译失败)。
+        // react-dom 不能 alias:Taro 渲染器内部把 react-dom 指到 @tarojs/runtime-dom,
+        // 强 alias 到物理包会打断这条链(2026-10-01 实测:含 react-dom 时全页白屏)。
+        '@': path.resolve(__dirname, '..', 'src'),
+        react: path.resolve(__dirname, '..', 'node_modules', 'react'),
+      },
       // 2026-09-10 主包 2MB 硬上限治理:把仅被分包引用的公共 chunk 自动
       // 下沉到分包,避免 common.js 整体压在主包(webpack5 编译器专属能力)
       optimizeMainPackage: { enable: true },
