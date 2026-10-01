@@ -87,13 +87,13 @@ const FACE_IMPORT_RE = /from\s*['"][^'"]*lib\/face-reader\.mjs['"]/
  * 层而不走层读内容。命名空间形态(`face.catBatch(`)同视,否则新判据会对合法写法产假阳。
  */
 const LAYER_READ_RE =
-  /(?:^|[^.\w$])(?:catBatch|readWorktreeFile)\s*\(|[A-Za-z_$][\w$.]*\.(?:catBatch|readWorktreeFile)\s*\(/
+  /(?:^|[^.\w$])(?:catBatchBinary|catBatch|readWorktreeFile)\s*\(|[A-Za-z_$][\w$.]*\.(?:catBatchBinary|catBatch|readWorktreeFile)\s*\(/
 /**
  * 层的读取入口。**必须解析 import 子句里的局部名** —— 只认字面 `catBatch(` 会把合法写法误伤:
  * `import { catBatch as readBlobs }` 之后调 `readBlobs(` 同样是走层(别名与多行导入是 ESM 常见形态,
  * 而"判据看不见门自己允许的写法"本仓记过多次:77 B6 只认点号、门 74 只认对象词表)。
  */
-const LAYER_READ_ENTRIES = ['catBatch', 'readWorktreeFile']
+const LAYER_READ_ENTRIES = ['catBatchBinary', 'catBatch', 'readWorktreeFile']
 const LAYER_CLAUSE_RE = /import\s*\{([^}]*)\}\s*from\s*['"][^'"]*lib\/face-reader\.mjs['"]/gs
 const LAYER_NS_RE =
   /import\s*\*\s*as\s*([A-Za-z_$][\w$]*)\s*from\s*['"][^'"]*lib\/face-reader\.mjs['"]/g
@@ -368,7 +368,7 @@ export function classify(rel, src) {
     if (names.size) constReads = readsPrejoinedConst(noStrings, names)
   }
   if (usesLayer)
-    return { kind: 'face', why: '调用取材层的读取入口(catBatch / readWorktreeFile)取内容' }
+    return { kind: 'face', why: '调用取材层的读取入口(catBatchBinary / catBatch / readWorktreeFile)取内容' }
   if (FACE_IMPORT_RE.test(code) && (selfServesGit || looseFs || constReads.length))
     return {
       kind: 'half-wired',
@@ -639,6 +639,8 @@ function selfTest() {
   }
   const OK =
     "import { catBatch } from './lib/face-reader.mjs'\nconst t = catBatch(ROOT, ['HEAD:a.ts'])\n"
+  const OK_BIN =
+    "import { catBatchBinary } from './lib/face-reader.mjs'\nconst t = catBatchBinary(ROOT, ['HEAD:a.ts'])\n"
   const NS =
     "import * as face from './lib/face-reader.mjs'\nconst t = face.catBatch(ROOT, ['HEAD:a.ts'])\n"
   const HALF =
@@ -656,6 +658,11 @@ function selfTest() {
     "import { readFileSync } from 'node:fs'\nreadFileSync(join(dir, 'x.json'), 'utf8')\n"
   const PURE = 'export function f(x) { return x + 1 }\n'
   eq('F1 经取材层 ⇒ face', classify('scripts/check-a.mjs', OK).kind, 'face')
+  eq(
+    'F1b 二进制读取出口 catBatchBinary ⇒ 同样算 face(G-467,判字节门的 sanctioned 通路)',
+    classify('scripts/check-a.mjs', OK_BIN).kind,
+    'face',
+  )
   // G1–G6:2026-09-26 两处收紧的反向锁。"读内容"与"枚举"不分,报告里的数字就失去含义;
   // 锚点只认大写 ROOT,最常见的小写模块根写法就会掉进不判红的 unknown ⇒ 免检票。
   eq(
