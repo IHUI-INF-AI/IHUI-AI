@@ -257,6 +257,17 @@ export const WIRING_POINTS = {
     },
     { id: 'husky', label: '.husky/ 其余钩子(含退化薄壳 pre-commit)', paths: ['.husky'] },
     { id: 'package-json', label: '根 package.json scripts', paths: ['package.json'] },
+    {
+      // 2026-10-01 补的第六处:守护巡检也是**真调度器**(每 2 分钟一轮),不是"没接线"。
+      // 立因:`check-disk-root-hygiene.mjs` 由 `git-guardian` 现调度(其 :1516 直接 spawn 该尺子,
+      // 取不到还写"不记为已判"),而本门的权威点清单里没有这一处 ⇒ R2 把"已由守护调度"判成
+      // "声称已接线而零命中",于是一台 blocking 门对**每一次提交**恒红,唯一出路是各会话
+      // `--no-verify` 连带链上全部守门作废(§12f/§12e 同型)。这一条是**加证据**,不是放宽:
+      // 它只会把"真在跑"的门从红里摘出去,同时让 R4(已接线而未点名)多管一段真实调度面。
+      id: 'git-guardian',
+      label: 'scripts/git-guardian.mjs(守护巡检调度器)',
+      paths: ['scripts/git-guardian.mjs'],
+    },
   ],
   weak: [
     {
