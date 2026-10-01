@@ -72,6 +72,9 @@ import { parseMentionTrigger } from '@ihui/shared/chat/mention-engine'
 import { ContextSelectorPopover } from '@/components/ai/context-selector-popover'
 import { useAgentMdReference, AGENT_REF_PREFIX } from '@/hooks/use-agent-md-reference'
 import { useMessageSend } from '@/hooks/use-message-send'
+// D166 链接预览(承 V4 §9.4③):粘贴 http(s) 链接的发送前可达性提示卡
+import { useLinkPreview } from '@/hooks/use-link-preview'
+import { LinkPreviewCard } from './link-preview-card'
 import { usePromptDrafts } from '@/hooks/use-prompt-drafts'
 import { usePromptHistory } from '@/hooks/use-prompt-history'
 import { useMentionFiles, useAiSkills } from '@/hooks/use-lazy-resource-hooks'
@@ -276,6 +279,11 @@ export function MessageInput({
   // 本挂载周期(切会话会重挂)不再自动出现;点任一 chip 填入内容后行自然消失。
   const [followupDismissed, setFollowupDismissed] = React.useState(false)
   const [pastedRefPreviews, setPastedRefPreviews] = React.useState<PastedReferencePreview[]>([])
+  // D166 链接预览(2026-10-02 接线):粘贴文本带 http(s) 链接时轻量探测一次(同 URL
+  // 单实例只发一次,后端 3s 时限),输入区上方三态卡呈现 —— 读到了(标题/摘要)/
+  // 读不到(404/410/5xx)/未判定(需登录/超时/内网,未判定 ≠ 读不到)。
+  // fire-and-forget:预览失败绝不阻断发送(票面显式断言,探测侧已自证)。
+  const linkPreview = useLinkPreview()
   const unifiedAddedIdsRef = React.useRef<Set<string>>(new Set())
   // V3 第 61 票(2026-09-27):`@` 与 `#` 的提及状态与正文落点都收进 useMentionWiring(下方,
   // 需在 inputCoreRef 之后构造)—— 这里原先是一份 contextChips 局部 state + addContextChip +
@@ -388,6 +396,15 @@ export function MessageInput({
     draftKey,
     onSent: promptHistory.pushSent,
   })
+  // D166:发送即收卡 —— 包装保持 submit 原签名 `(overrideValue?: string) => Promise<void>`,
+  // 发送动作与结果零变更,仅在发送链启动后关闭链接预览卡(探测失败本就不阻断发送)。
+  const submitAndDismissLinkPreview = (overrideValue?: string): Promise<void> => {
+    const result = submit(overrideValue)
+    result
+      .catch(() => {})
+      .finally(() => linkPreview.reset())
+    return result
+  }
   // W20 九类 # 上下文选择器(键盘导航在 textarea 层拦截);
   // V3 第 61 票:选中结果的落点从局部 chip state 改成那份唯一的 mention engine store。
   const contextSelector = useContextSelector({
@@ -648,7 +665,7 @@ export function MessageInput({
       if (draftAutoSend) {
         // 自动发送:显式传 draftInput 文本绕开 value state 异步更新的闭包旧值问题
         clearDraftAutoSend()
-        void submit(draftInput)
+        void submitAndDismissLinkPreview(draftInput)
         requestAnimationFrame(() => inputCoreRef.current?.focus())
         return
       }
@@ -741,6 +758,8 @@ export function MessageInput({
       labels: mentionFiles.map((f) => f.name),
     })
     if (previews.length > 0) setPastedRefPreviews(previews)
+    // D166:粘贴文本带链接时探测可达性(同 URL 只发一次;粘贴行为本身零变更)
+    linkPreview.probeFromPaste(text)
     handlePaste(e)
   }
 
@@ -883,7 +902,7 @@ export function MessageInput({
     if (contextSelector.handleKeyDown(e)) return
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
-      submit()
+      submitAndDismissLinkPreview()
       return
     }
     // D36 会话内输入历史上翻(对标 Codex prompt-history):
@@ -986,10 +1005,14 @@ export function MessageInput({
           pastePreviews={pastedRefPreviews}
           onDismissPastePreviews={() => setPastedRefPreviews([])}
           // D185:模拟预览编辑器一键发送,走 composer 既有 submit(overrideValue) 通道
-          onSendPastePreview={(text) => void submit(text)}
+          onSendPastePreview={(text) => void submitAndDismissLinkPreview(text)}
           queueItems={pendingMessages}
           onQueueRemove={handleQueueRemove}
         />
+        {/* D166 链接预览卡(2026-10-02 接线):粘贴 URL 的可达性三态提示 —— 竞品
+            previewLoading / previewUnavailable 之外补"未判定"态(需登录/超时/内网,
+            未判定 ≠ 读不到)。未探测/已关闭时零占位;发送或点 × 关闭。 */}
+        <LinkPreviewCard preview={linkPreview.preview} onDismiss={linkPreview.reset} />
         {/* D38(G-42)接管 D28 侧问队列渲染:五动词交互条(重排/撤回/编辑/打断并执行/模式切换)。
             许可判定复用 D69 queueInteractionPerms(与 InputNoticeBanner 同一函数,不另立第二套);
             runtimeSupportsInterjection 暂恒 false —— 全仓尚无该能力协商的生产者(D69 banner 亦未挂载),
@@ -1148,7 +1171,7 @@ export function MessageInput({
               placeholder={effectivePlaceholder}
               isStreaming={isStreaming}
               onTextChange={setValue}
-              onSend={submit}
+              onSend={submitAndDismissLinkPreview}
               onStop={onStop}
               onClear={() => setValue('')}
               t={t}
@@ -1395,7 +1418,7 @@ export function MessageInput({
                       <button
                         type="button"
                         // 包一层避免把 MouseEvent 传成 submit 的 overrideValue(TS2322)
-                        onClick={() => void submit()}
+                        onClick={() => void submitAndDismissLinkPreview()}
                         disabled={!canSend}
                         className={cn(
                           'inline-flex h-9 w-9 items-center justify-center rounded-sm transition-colors',
