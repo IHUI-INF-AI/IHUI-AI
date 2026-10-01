@@ -58,9 +58,14 @@ class Settings(BaseSettings):
     # 资讯板块每日自动刷新(2026-08-12 立,每天 8:00 UTC+8 自动生成+发布新闻)
     news_cron_enabled: bool = False
 
-    # 默认主力模型:step-router-v1(StepFun 智能路由,自动选 plan 套餐内最优模型,
-    # 比 step-3.7-flash 更适合复杂 tool calling 决策;两者均已实测连通)
-    litellm_model: str = "stepfun/step-router-v1"
+    # 默认主力模型(D208 修复,2026-10-01):stepfun/step-router-v1 退役为默认链首选。
+    # D150 真机探针实证:step-router-v1 经 auto-route 落到 llm7/gpt-oss:20b → 上游
+    # InternalServerError,新注册用户首条消息直接报错;gemini/gemini-3.8-flash 对全新
+    # 账号全轨成功(见 docs/benchmark-evidence/2026-10/d150-runtime-reconciliation.md 轨 A)。
+    litellm_model: str = "gemini/gemini-3.8-flash"
+    # 默认链同族兜底(D208):首选不可用时(auto-route 降级/候选池为空)退到该模型,
+    # 同为 D150 当轮实测健康档(轨 B @cf/zai-org/glm-4.7-flash 全轨成功)。
+    litellm_fallback_model: str = "@cf/zai-org/glm-4.7-flash"
     # Agent tool loop 最大轮数(被 llm.py /llm/complete/stream 读取,2026-07-24 修复硬编码 3 的 bug)
     # 8 轮可覆盖"截图→识别→点击→再截图→输入→提交"等多步操作,同时留 2 轮余量防失控
     max_agent_iterations: int = 8
