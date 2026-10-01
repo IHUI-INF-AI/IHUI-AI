@@ -17,9 +17,16 @@ export const PREVIEW_SIZE = 6
  * 只能落到参数类正则 `/invalid|missing|required/`,用户看到「提交的信息有误,请检查后重试」
  * (即 PROJECT_PLAN 实拍「广场 tab 一进即弹错误框」那一型)。RN 侧同一处已按该出口收口
  * (`apps/mobile-rn/src/screens/PlazaScreen.tsx`),web 侧此前仍是被丢身份的形态。
+ *
+ * 2026-10-01 补:该出口同时承载 POST(发布页 `/plaza/new` 提交)。立因是本页族里曾另有一份
+ * 手搓的 `api()`(见 `new/page.tsx` 旧第 25 行 `throw new Error(r.error)`),POST 与 GET 各走
+ * 一份 ⇒ 修一处留一处;真机实测(本机 8801/8802 起服务后 Playwright 打 /plaza/new 提交)
+ * 上屏的是服务端原文 "CSRF 令牌缺失或无效" / 会话过期时是英文 "Authentication required",
+ * 而带 status 的身份在这一步被丢掉,再走文案判序就没有第二档可救。故 GET/POST 合并为本文件
+ * 唯一一份 `api()`,调用方只传 options,不再各自手搓。
  */
-export async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
+export async function api<T>(url: string, options?: RequestInit): Promise<T> {
+  const r = await fetchApi<T>(url, options)
   if (!r.success) throw apiFailureToError(r)
   return r.data
 }
