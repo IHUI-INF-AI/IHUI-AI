@@ -46,6 +46,8 @@ import {
   packByBytes,
   spawnCauseText,
   parseBatchCheckSizes,
+  catBatchBinary,
+  parseBatchBuffers,
   spawnViaTempStdinFile,
   batchExecFileSync,
 } from '../lib/face-reader.mjs'
@@ -946,6 +948,58 @@ test('batchExecFileSync:EBUSY 分流真实存在(短路判据 + fd 通道调用�
   assert.match(src, /export function batchExecFileSync/, '包装器出口缺失')
   assert.match(src, /export function spawnViaTempStdinFile/, 'fd 通道出口缺失')
   assert.match(src, /stdio:\s*\[\s*fd,\s*'pipe',\s*'pipe'\s*\]/, 'fd 通道的 stdio 形态漂了')
+})
+
+/* ── 2026-10-01 G-467:二进制安全读取出口 ─────────────────────────────────────────
+ * 成因:层的读取出口全做 toString('utf8'),`E4 B8 3F 41` 经 catBatch 取回成 `\uFFFD?A`
+ * —— 偏移、字节值全部销毁,"判字节/判哈希"的门只能走它等于被做瞎;不走层又被守门 118
+ * 判 half-wired。本组两条:真仓字节保真 + 纯函数面同构;阳性对照证明 utf8 出口确实有损。 */
+
+test('catBatchBinary:字节保真(真 git 对象)—— 非法 UTF-8 序列原样返回,utf8 出口同对象产 U+FFFD(对照)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'face-reader-bin-'))
+  try {
+    const init = spawnSync(GIT, ['init', '--quiet'], { cwd: root, encoding: 'utf8', windowsHide: true })
+    assert.equal(init.status, 0, `git init 失败: ${init.stderr}`)
+    const bytes = Buffer.from([0x31, 0xe4, 0xb8, 0x3f, 0x41, 0xff, 0x41, 0x0a])
+    writeFileSync(join(root, 'bytes.bin'), bytes)
+    const ho = spawnSync(GIT, ['hash-object', '-w', 'bytes.bin'], {
+      cwd: root,
+      encoding: 'utf8',
+      windowsHide: true,
+    })
+    assert.equal(ho.status, 0, `hash-object 失败: ${ho.stderr}`)
+    const oid = ho.stdout.trim()
+    const missing = 'f'.repeat(40)
+    const m = catBatchBinary(root, [oid, missing])
+    const v = m.get(oid)
+    assert.ok(Buffer.isBuffer(v), `二进制出口返回了 ${typeof v} —— 不是 Buffer`)
+    assert.ok(v.equals(bytes), `字节被改写: got ${v.toString('hex')} want ${bytes.toString('hex')}`)
+    assert.equal(m.get(missing), null, 'missing 未归 null(与 catBatch 同档)')
+    // 阳性对照:同一对象走 utf8 出口,非法序列被折成 U+FFFD —— G-467 登记的事故形态,必须可复现
+    const utf = catBatch(root, [oid]).get(oid)
+    assert.ok(utf.includes('\uFFFD'), 'utf8 出口居然无损 —— 对照失效,字节保真证明不成立')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('parseBatchBuffers:与 parseBatch 同构(值=Buffer/missing=null/截断抛),catBatch 仍逐字回原 utf8', () => {
+  const oid = '0123456789abcdef0123456789abcdef01234567'
+  const body = Buffer.from('abc')
+  const head = Buffer.from(`${oid} blob 3\n`)
+  const ok = Buffer.concat([head, body, Buffer.from('\n')])
+  const m = parseBatchBuffers(ok, [oid])
+  assert.ok(Buffer.isBuffer(m.get(oid)) && m.get(oid).equals(body), 'Buffer 值面漂了')
+  assert.equal(parseBatchBuffers(Buffer.from(`${oid} missing\n`), [oid]).get(oid), null, 'missing 未归 null')
+  // 截断构造:两条规格只回一条头 —— 读第二条 needing header 时越界,必须抛(绝不静默少扫)
+  const oid2 = 'fedcba9876543210fedcba9876543210fedcba98'
+  assert.throws(
+    () => parseBatchBuffers(head, [oid, oid2]),
+    /截断/,
+    '截断必须抛(绝不静默少扫)',
+  )
+  // 同输入走 utf8 纯函数:值必须是等值字符串 —— 两出口的唯一差异就是解码这一步
+  assert.equal(parseBatch(ok, [oid]).get(oid), 'abc')
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
