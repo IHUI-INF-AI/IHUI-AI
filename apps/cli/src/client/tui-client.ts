@@ -21,6 +21,13 @@ import { createMarkdownRenderer } from '../commands/markdown-renderer.js';
 import { formatToolResultForCard } from '../commands/ui-tool-cards.js';
 // G-701:工具入参回显必须走键名档出口(裸 slice(0,100) 会原样带出 {"api_key":"…"} 这类明文凭据)
 import { redactObjectDeepKeyed } from '../redact.js';
+// G-814408:事件流的单一写者判定 —— 装写者只能经这一处出口,角色与并存声明都在这里对账。
+import {
+  claimResidentWriter,
+  releaseStreamWriters,
+  runPerTurnSink,
+  type CoexistenceDeclaration,
+} from '../event-stream-ownership.js';
 
 const dynamicRequire = createRequire(import.meta.url);
 
@@ -41,10 +48,50 @@ export interface TuiClientOptions {
   token?: string;
 }
 
+/**
+ * G-814408:客户端事件流的**写者接口**。
+ *
+ * 旧形态只有一个 `on('event', cb)`:只加不减、也不问"谁已经在写这条流" —— 于是
+ * `remote-adapter.ts` 的 per-turn sink 被永久装进同一个 fan-out 集合,第二次 send
+ * 就有两个写者各写一遍同一条事件,而账面看不出装了几份。
+ *
+ * 现在把"装写者"这一步交给唯一出口 `event-stream-ownership`:
+ *  - `attachResidentWriter` = 跨回合存活的常驻写者(交互渲染用这一条);
+ *  - `runWithPerTurnSink`   = 只活过一次调用的 per-turn sink(sendUnified 用这一条,
+ *    finally 里必定摘钩 —— 上游 `submitPrompt` 的那一条纪律)。
+ * 两者对同一条流**二选一**:第二条写者接入必须带 `coexist{reason, with}` 显式声明,
+ * 否则当场抛 `StreamWriterConflictError`(而不是静默并存,也不是装完再去重)。
+ */
+export interface StreamWriterAttachOptions {
+  /** 调用点自述:报告与冲突信息里点名"是谁在写" */
+  label: string;
+  /** 并存声明 —— 只有确实需要第二条写者时才带,且必须指向当前在位的写者 label */
+  coexist?: CoexistenceDeclaration;
+}
+
 export interface TuiClient {
+  /** 这条事件流的稳定标识(单一写者判定的作用域) */
+  readonly streamId: string;
   send(text: string): Promise<void>;
-  on(event: 'event', cb: (event: AgentEvent) => void): void;
+  /** 装常驻写者;返回摘钩函数(幂等)。第二条未声明的写者会被拒。 */
+  attachResidentWriter(
+    cb: (event: AgentEvent) => void,
+    opts: StreamWriterAttachOptions,
+  ): () => void;
+  /** 在一次调用内装 per-turn sink,并在 finally 摘钩 + 释放租约。 */
+  runWithPerTurnSink<T>(
+    cb: (event: AgentEvent) => void,
+    body: () => Promise<T>,
+    opts: StreamWriterAttachOptions,
+  ): Promise<T>;
   close(): void;
+}
+
+/** 流标识计数:每条连接一条流,`remote-client#<n>` 稳定可查。 */
+let streamSeq = 0;
+function nextStreamId(): string {
+  streamSeq += 1;
+  return `remote-client#${streamSeq}`;
 }
 
 function loadWsClient(): WsClientCtor | null {
@@ -70,21 +117,62 @@ export async function connectToServer(opts: TuiClientOptions): Promise<TuiClient
   }
 
   const ws = new WsCtor(wsUrl.toString());
-  const handlers = new Set<(event: AgentEvent) => void>();
+  const streamId = nextStreamId();
+  /**
+   * 写者槽(不是 Set)。用 Set 装回调会把"同一函数第二次 attach"静默折成一份,
+   * 于是登记面写着两个写者、投递面只投一次 —— 声明与事实又分叉了。数组让每一份
+   * 声明都对应一次真实投递,`attachCount` 才是可核的账。
+   */
+  const slots: Array<{ cb: (event: AgentEvent) => void }> = [];
+  const attachSlot = (cb: (event: AgentEvent) => void): (() => void) => {
+    const slot = { cb };
+    slots.push(slot);
+    return () => {
+      const i = slots.indexOf(slot);
+      if (i >= 0) slots.splice(i, 1);
+    };
+  };
   const pendingResolvers: Array<() => void> = [];
 
   return new Promise<TuiClient>((resolve, reject) => {
     ws.on('open', () => {
       resolve({
+        streamId,
         send: (text: string) =>
           new Promise<void>((res) => {
             pendingResolvers.push(res);
             ws.send(JSON.stringify({ type: 'message', text }));
           }),
-        on: (_event: 'event', cb: (event: AgentEvent) => void) => {
-          handlers.add(cb);
+        attachResidentWriter: (cb, writerOpts) => {
+          // 先判定再装钩:被拒的 attach 必须在投递面上也没痕迹(否则"判红但已装上")。
+          const lease = claimResidentWriter(streamId, writerOpts.label, writerOpts.coexist);
+          const detach = attachSlot(cb);
+          return () => {
+            detach();
+            lease.release();
+          };
+        },
+        runWithPerTurnSink: (cb, body, writerOpts) => {
+          let detach: (() => void) | null = null;
+          return runPerTurnSink({
+            streamId,
+            label: writerOpts.label,
+            coexist: writerOpts.coexist,
+            attach: () => {
+              detach = attachSlot(cb);
+            },
+            detach: () => {
+              const d = detach;
+              detach = null;
+              if (d) d();
+            },
+            body,
+          });
         },
         close: () => {
+          // 断开连接 = 这条流不再有人写:槽位整片清空,租约整片释放(两侧同摘,不留僵尸账)。
+          slots.length = 0;
+          releaseStreamWriters(streamId);
           try {
             ws.close();
           } catch {
@@ -102,7 +190,8 @@ export async function connectToServer(opts: TuiClientOptions): Promise<TuiClient
       const raw = tryParseJson(data.toString('utf-8'));
       if (!isRecord(raw) || typeof raw.type !== 'string') return;
       const event = raw as unknown as AgentEvent;
-      for (const cb of handlers) cb(event);
+      // 复制一份再投递:写者在回调里摘钩(sendUnified 的 finally)会让 splice 影响正被遍历的数组。
+      for (const slot of [...slots]) slot.cb(event);
       if (raw.type === 'done' || raw.type === 'error' || raw.type === 'result') {
         const r = pendingResolvers.shift();
         if (r) r();
@@ -127,7 +216,10 @@ export async function startTuiInteractive(opts: TuiClientOptions): Promise<void>
   const mdRenderer = createMarkdownRenderer();
   let mdPending = '';
 
-  client.on('event', (event) => {
+  // G-814408:这一条是**常驻写者**(整个交互会话期间都在渲染同一条流),所以走
+  // attachResidentWriter 而不是旧的裸 `on('event', …)` —— 第二个写者(例如有人再拿同一个
+  // client 去走 per-turn sink)会被单一写者判据当场拒掉,而不是静默并存。
+  const renderEvent = (event: AgentEvent): void => {
     switch (event.type) {
       case 'token': {
         // W13:token 流经 markdown 渲染器(与 REPL 同源,五色语法高亮/代码块/表格)
@@ -176,7 +268,8 @@ export async function startTuiInteractive(opts: TuiClientOptions): Promise<void>
         );
         break;
     }
-  });
+  };
+  client.attachResidentWriter(renderEvent, { label: 'tui-interactive-render' });
 
   process.stdout.write(chalk.dim(`🤖 IHUI TUI Client → ${opts.url}\n`));
   process.stdout.write(chalk.dim('输入消息发送,/quit 退出\n'));
