@@ -24,13 +24,15 @@
  */
 
 import * as React from 'react'
-import { Loader2, QrCode, CheckCircle2, XCircle, ExternalLink, RefreshCw } from 'lucide-react'
+import { Loader2, QrCode, CheckCircle2, XCircle, ExternalLink, RefreshCw, Import as ImportIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
   cancelScanLogin,
   fetchScanLoginQr,
   getScanLoginStatus,
+  importChromeFromCdp,
   importCookiesManually,
+  launchChromeForImport,
   listScanLoginPlatforms,
   startScanLogin,
   type ScanLoginPlatform,
@@ -87,7 +89,7 @@ const SLOW_HINT_AFTER_SECONDS = 5
 const TIMEOUT_MS = 5 * 60 * 1000
 const TIMEOUT_SECONDS = 300
 
-type Phase = 'idle' | 'starting' | 'polling' | 'manual-import' | 'success' | 'failed'
+type Phase = 'idle' | 'starting' | 'polling' | 'manual-import' | 'chrome-import' | 'success' | 'failed'
 
 /** 连续多少次"根本没拿到应答"(网络层失败)才判失败。有状态码的应答一律当场点名,不拖到超时。 */
 const MAX_NETWORK_RETRIES = 3
@@ -323,11 +325,14 @@ export function ScanLoginDialog({
     return () => {
       stopPolling()
       releaseQr()
+      stopChromePolling()
+      chromeActiveRef.current = false
       // 卸载即取消:后端任务不取消会占着一个 Chromium 直到 10 分钟超时。
       // 但仅限还没扫上码的任务 —— 扫码后的绑定会话必须活到它自己终态(见 cancelTaskIfNotScanned)。
       cancelTaskIfNotScanned()
       cancelPrewarm()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   React.useEffect(() => {
@@ -345,7 +350,7 @@ export function ScanLoginDialog({
    * 而代价只是两帧文本重渲染。
    */
   React.useEffect(() => {
-    if (!open || (phase !== 'polling' && phase !== 'starting')) return
+    if (!open || (phase !== 'polling' && phase !== 'starting' && phase !== 'chrome-import')) return
     const from = startTimeRef.current || Date.now()
     const tick = () => setElapsedSeconds((Date.now() - from) / 1000)
     tick()
@@ -401,6 +406,9 @@ export function ScanLoginDialog({
   function failTask(msg: string) {
     stopPolling()
     releaseQr()
+    // Chrome 导入轮询一并停摆(倒计时到点走这条路径)
+    chromeActiveRef.current = false
+    stopChromePolling()
     // 后端任务可能还在跑(它自己也要等到 10 分钟才收),这里必须显式取消,
     // 否则每次失败都留一个 Chromium 挂在服务器上。
     // 2026-09-30:已扫码的绑定会话除外 —— 同 cancelTaskIfNotScanned 的口径。
@@ -627,6 +635,101 @@ export function ScanLoginDialog({
   const platformName = platforms.find((p) => p.platform === platform)?.name ?? platform
   const isBusy = phase === 'starting'
 
+  // ===========================================================================
+  // 「从我的 Chrome 导入」模式(2026-09-30 新增,chrome_import 消费端闭环)
+  //
+  // 与"手动粘贴"互补:后端用临时 profile 拉起一个带 CDP 调试端口的 Chrome/Edge
+  // (规避 Chrome 136+ 默认 profile 禁 CDP 的限制),用户在**那个独立窗口**里正常
+  // 登录,前端每 3s 轮询 import-chrome → 后端经 CDP 提 cookie/检测/自动入库,
+  // 全程无需粘贴 Cookie。
+  // ===========================================================================
+  const [chromeLaunching, setChromeLaunching] = React.useState<boolean>(false)
+  /** 本轮导入用的 CDP 端口与平台(handleChromeImport 成功时盖章,轮询闭包读 ref 不读 state) */
+  const chromePortRef = React.useRef<number>(0)
+  const chromePlatformRef = React.useRef<string>('')
+  /** 轮询活动开关:返回/取消/成功/超时都要先翻 false,再清计时器,闭包自然停摆 */
+  const chromeActiveRef = React.useRef<boolean>(false)
+  const chromeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const chromeStartRef = React.useRef<number>(0)
+  /** Chrome 导入模式的轮询间隔:登录动作发生在用户那边,3s 足够跟手且不压后端 */
+  const CHROME_POLL_INTERVAL_MS = 3000
+
+  function stopChromePolling() {
+    if (chromeTimerRef.current) {
+      clearTimeout(chromeTimerRef.current)
+      chromeTimerRef.current = null
+    }
+  }
+
+  async function handleChromeImport() {
+    if (!platform || chromeLaunching) return
+    setChromeLaunching(true)
+    setErrorMsg('')
+    try {
+      const r = await launchChromeForImport(platform)
+      if (!r.success) throw apiFailureToError(r, t('accounts.chromeImportFailed'))
+      const d = r.data
+      if (!d?.launched || !d.port) throw new Error(d?.error || t('accounts.chromeImportFailed'))
+      chromePortRef.current = d.port
+      chromePlatformRef.current = platform
+      chromeStartRef.current = Date.now()
+      startTimeRef.current = Date.now()
+      setElapsedSeconds(0)
+      setCountdownSeconds(TIMEOUT_SECONDS)
+      setPhase('chrome-import')
+      chromeActiveRef.current = true
+      startChromePolling()
+    } catch (e) {
+      const msg = (e as Error).message
+      setErrorMsg(msg)
+      toast.error(msg)
+    } finally {
+      setChromeLaunching(false)
+    }
+  }
+
+  function cancelChromeImport() {
+    chromeActiveRef.current = false
+    stopChromePolling()
+    chromePortRef.current = 0
+    setPhase('idle')
+  }
+
+  function startChromePolling() {
+    stopChromePolling()
+    const tick = async () => {
+      chromeTimerRef.current = null
+      if (!chromeActiveRef.current || !chromePortRef.current) return
+      const plat = chromePlatformRef.current
+      if (Date.now() - chromeStartRef.current > TIMEOUT_MS) {
+        chromeActiveRef.current = false
+        failTask(t('accounts.scanLoginTimeout'))
+        return
+      }
+      try {
+        const r = await importChromeFromCdp(chromePortRef.current, plat)
+        if (!chromeActiveRef.current) return
+        if (r.success && r.data?.detected) {
+          chromeActiveRef.current = false
+          setPhase('success')
+          toast.success(
+            `${t('accounts.scanLoginSuccess')}${r.data.cookies_count ? ` (${r.data.cookies_count})` : ''}`,
+          )
+          onSuccess?.()
+          return
+        }
+        // detected=false(error=null 未登录 / error 非空 端口未就绪等)都继续轮询,
+        // 由总超时兜底——用户登录动作耗时不可控,不该把一次探测失败当成失败。
+        chromeTimerRef.current = setTimeout(() => void tick(), CHROME_POLL_INTERVAL_MS)
+      } catch {
+        // 网络层异常同样只重试,不提前终止(与扫码轮询口径一致)
+        if (!chromeActiveRef.current) return
+        chromeTimerRef.current = setTimeout(() => void tick(), CHROME_POLL_INTERVAL_MS)
+      }
+    }
+    chromeTimerRef.current = setTimeout(() => void tick(), 0)
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="min-[640px]:max-w-md">
@@ -751,6 +854,23 @@ export function ScanLoginDialog({
               <p className="text-center text-xs text-muted-foreground">
                 {t('accounts.externalBrowserHint')}
               </p>
+              {/* 2026-09-30 新增:Chrome 导入模式 —— 后端拉起带调试端口的独立 Chrome 窗口,
+                  用户在里面登录后自动经 CDP 收 cookie 入库,免去手动粘贴。 */}
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={!platform || isBusy || chromeLaunching}
+                onClick={() => void handleChromeImport()}
+              >
+                {chromeLaunching ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ImportIcon className="h-4 w-4" />
+                )}
+                {chromeLaunching
+                  ? t('accounts.chromeImportLaunching')
+                  : t('accounts.chromeImportBtn')}
+              </Button>
             </>
           )}
 
@@ -864,6 +984,23 @@ export function ScanLoginDialog({
             </div>
           )}
 
+          {phase === 'chrome-import' && (
+            <div className="flex flex-col items-center gap-3 rounded-lg border bg-muted/30 p-3">
+              <ImportIcon className="h-10 w-10 text-primary" />
+              <p className="max-w-[18rem] text-center text-sm text-foreground">
+                {t('accounts.chromeImportHint', { platform: platformName })}
+              </p>
+              <p className="text-xs tabular-nums text-muted-foreground">
+                {t('accounts.elapsedSeconds', { seconds: elapsedSeconds.toFixed(1) })}
+              </p>
+              <CountdownTimer
+                totalSeconds={countdownSeconds}
+                onExpire={handleCountdownExpire}
+                variant="danger"
+              />
+            </div>
+          )}
+
           {phase === 'success' && (
             <div className="flex flex-col items-center gap-2 py-4 text-emerald-600">
               <CheckCircle2 className="h-12 w-12" />
@@ -919,6 +1056,11 @@ export function ScanLoginDialog({
                 {t('accounts.saveCookies')}
               </Button>
             </>
+          )}
+          {phase === 'chrome-import' && (
+            <Button variant="outline" onClick={cancelChromeImport}>
+              {t('accounts.cancelScan')}
+            </Button>
           )}
           {(phase === 'success' || phase === 'failed') && (
             <Button
