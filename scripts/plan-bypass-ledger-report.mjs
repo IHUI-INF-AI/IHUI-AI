@@ -195,14 +195,17 @@ export function classifyAll({
         cand.sort((a, b) => Math.abs(a.ms - c.ms) - Math.abs(b.ms - c.ms))
         state = 'skipped'
         why = `同父 ${index.skip.get(c.parent).length} 条留痕,按时刻取最近一条`
-      } else if (matchFirstPartyRound(c, firstParty?.rounds ?? [])) {
-        // 一方记录(钩子自报)排在回显之前:它是钩子当场写下的,而回显要过"逐字等值"这道脆条件。
-        state = 'normal'
-        proof = 'round-record'
-      } else if (matchNormalRound(c, rounds)) {
-        state = 'normal'
-        proof = 'hook-echo'
       } else {
+        const matched = matchFirstPartyRound(c, firstParty?.rounds ?? [])
+        if (matched) {
+          // 一方记录(钩子自报)排在回显之前:它是钩子当场写下的,而回显要过"逐字等值"这道脆条件。
+          // G-978004 ②:声明集与落地面多重集等值的轮带 strongDeclared,比 ⊆ 弱证高一档,两档分开计数。
+          state = 'normal'
+          proof = matched.strongDeclared ? 'round-record-declared' : 'round-record'
+        } else if (matchNormalRound(c, rounds)) {
+          state = 'normal'
+          proof = 'hook-echo'
+        } else {
         state = 'unknown'
         why = !ledgerReadable
           ? `台账取不到(${ledgerState})`
@@ -221,6 +224,7 @@ export function classifyAll({
         } else if (witness) {
           sub = 'unsplittable'
           why += `;见证文件取不到(${witness.state})⇒ 本机/别机这一维**无从分**,不得读成"全部无见证"`
+        }
         }
       }
     }
@@ -422,6 +426,11 @@ export function readFirstPartyRounds(root) {
     rounds.push({
       headBefore: r.headBefore,
       files: new Set(r.stagedFiles.map((f) => String(f).trim()).filter(Boolean)),
+      // G-978004 ②:声明集(safe-commit 经 IHUI_DECLARED_FILES 传入,pre-commit-hook 落账);
+      // 普通直 git commit 的记录没有该字段 ⇒ 空数组,匹配器维持 ⊆ 弱证。
+      declaredFiles: Array.isArray(r.declaredFiles)
+        ? r.declaredFiles.map((f) => String(f).trim()).filter(Boolean)
+        : [],
       gatesRan: r.gatesRan === true,
       gatesPassed: r.gatesPassed === true,
       exitCode: Number.isFinite(r.exitCode) ? r.exitCode : null,
@@ -444,6 +453,17 @@ export function matchFirstPartyRound(commit, rounds = []) {
     if (r.headBefore !== commit.parent) continue
     if (commit.files.length === 0) continue
     if (!commit.files.every((f) => r.files.has(f))) continue
+    // G-978004 ②:声明集与提交文件面**多重集等值** ⇒ 强证(门看的就是声明要落地的面);
+    // 否则维持 ⊆ 弱证(lint-staged 派生文件让落地面 ⊋ 声明集,失效方向是少发强证不是发假证)。
+    if (Array.isArray(r.declaredFiles) && r.declaredFiles.length > 0) {
+      const declared = [...r.declaredFiles].sort()
+      const landed = [...commit.files].sort()
+      if (declared.length === landed.length && declared.every((f, i) => f === landed[i])) {
+        r.consumed = true
+        r.strongDeclared = true
+        return r
+      }
+    }
     r.consumed = true
     return r
   }

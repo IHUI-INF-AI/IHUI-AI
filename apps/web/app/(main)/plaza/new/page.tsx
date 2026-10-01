@@ -9,21 +9,16 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Loader2, Send } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { Textarea } from '@/components/form'
 import { toast } from '@/components/common/Toaster'
 import { BackButton } from '@/components/common'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
+import { api } from '../helpers'
 
 interface PlazaItem {
   id: string
   title: string
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 export default function PlazaNewPage() {
@@ -53,7 +48,14 @@ export default function PlazaNewPage() {
       toast.success(t('success'))
       router.push('/plaza')
     } catch (e) {
-      toast.error((e as Error).message || t('failed'))
+      // 守门 135 的"第二半":helpers.api() 交出的 Error 已带 status/errorCode,这里若直读
+      // `(e as Error).message`,就等于把服务端原文(实测 "CSRF 令牌缺失或无效"、会话过期时
+      // 是英文 "Authentication required")摊给中文用户 —— 身份档(该去登录 / 没权限)又丢一次。
+      // 判序唯一出口 = toUserFriendlyMessage(与 CirclesPanel / AsksPanel / RN PlazaScreen 同一份)。
+      // 刻意不写 `toUserFriendlyMessage(e) || t('failed')`:该函数恒非空,`||` 那一臂是死代码
+      // (packages/shared/src/utils/error-messages.ts 头注已钉),所以先判错误是否真带了信息。
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      toast.error(detail.trim() ? toUserFriendlyMessage(e) : t('failed'))
     } finally {
       setSubmitting(false)
     }
