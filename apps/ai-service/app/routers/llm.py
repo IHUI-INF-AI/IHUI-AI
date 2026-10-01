@@ -5556,6 +5556,43 @@ async def post_steer_message(session_id: str, body: dict[str, Any] = Body(...)) 
     return {"ok": True, "queued": len(queue)}
 
 
+# =============================================================================
+# D201 多根工作区(2026-10-02 立):会话级附加目录控制端点
+# =============================================================================
+# 对标 Qoder/Codex/Trae 的 add_directories 控制帧:会话中途追加/移除目录。
+# 键 = conversationId(与工具执行链 call_tool 的 session_id 同源 —— 流会话 ID
+# 每轮新生成,工具校验层认的是 conversationId),注册表在 mcp_server 模块级。
+# **整表替换**语义:paths=[] 即清空(移除即失效,不留残根);任一目录准入失败
+# 整表拒绝(422,不做部分生效)。生命周期 = ai-service 进程内存态(与 thread.settings
+# 热更项一致,重启后须重新下发;持久化面由网关侧写会话 metadata)。
+# 准入校验(绝对路径/存在/是目录)在 set_session_extra_roots 内。
+@router.post("/llm/conversations/{conversation_id}/directories")
+async def post_conversation_directories(
+    conversation_id: str, body: dict[str, Any] = Body(...)
+) -> Any:
+    if not conversation_id.strip():
+        return JSONResponse(
+            status_code=422,
+            content={"ok": False, "error": "conversation_id required"},
+        )
+    paths = body.get("paths")
+    if not isinstance(paths, list) or not all(isinstance(x, str) for x in paths):
+        return JSONResponse(
+            status_code=422,
+            content={
+                "ok": False,
+                "error": "paths must be a list of strings (empty list = clear)",
+            },
+        )
+    from ..services.mcp_server import set_session_extra_roots
+
+    try:
+        effective = set_session_extra_roots(conversation_id, paths)
+    except ValueError as e:
+        return JSONResponse(status_code=422, content={"ok": False, "error": str(e)})
+    return {"ok": True, "additionalDirectories": list(effective)}
+
+
 # D24(2026-09-19 立):工具调用/终端任务持久化 —— metadata 体积护栏。
 # chat_messages.metadata 为 jsonb 列,工具 result 可能是整文件内容/长命令输出,
 # 不截断会把 metadata 撑到 MB 级拖垮会话列表查询。量级与 SSE 事件对齐:

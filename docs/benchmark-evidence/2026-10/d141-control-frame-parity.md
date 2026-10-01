@@ -75,7 +75,7 @@
 | `generate_session_title` | 等价 | `apps/api/src/routes/chat.ts:621,650` `POST /conversations/:id/auto-title`(票面否证锚点,有效) |
 | `resolve_session_artifacts` | 等价(部分) | 会话工件由产物预览面承载(`packages/ui-react/src/lib/artifact-preview.ts` + 消息文件卡);无「会话级工件解析」专用帧 |
 | `side_question` | 等价(部分) | 旁路提问语义由子代理帧族(`apps/ai-service/app/core/turn_metadata.py:16` subagent header/kind)与分屏面板承载;无专用 side_question 帧 |
-| `add_directories` | **真缺**(票面已确证,本轮复核维持) | 否证(2026-10-01 复跑):`git grep -inE "addDirector\|extraDir\|additionalDir\|multiRoot\|addFolder" -- apps packages` → 仅 `apps/api/src/config/open-capability-registry.ts:50` 注释「尚未附加目录派生字段」1 处,非能力。D202 吸收表 A 判据精化(测试文件 extraDirs 4 命中为局部变量,非能力面)与 `--add-dir` 预填方案指针(V4 §747),立票 D201 不受影响。多根工作区(往当前会话追加目录)四别名零命中 |
+| `add_directories` | **等价(部分)**(2026-10-02 D201 落地,原「真缺」销缺) | 复跑否证(2026-10-02):`git grep -inE "addDirector\|extraDir\|additionalDir\|multiRoot\|addFolder" -- apps packages` → 能力命中 4 文件:`agent_engine.py`(thread.settings 的 `additionalDirectories` 整表替换控制帧,对标 add_directories 语义:追加/移除同帧,空数组=清空)+ `mcp_server.py` 会话级覆盖层(`set_session_extra_roots`/`_validate_path_in_workspace` 的 extra_roots 兜底,deny-by-default 不变)+ `llm.py`(POST /llm/conversations/{id}/directories 控制端点)+ api 侧 `ai-chat-stream.ts`/`chat-queries.ts`(属主校验+会话 metadata 持久化);pytest 钉 `tests/test_d201_additional_directories.py` 11 例。**部分**的残余(如实登记):① engine 自带工具 apply_patch/unified_exec 仍以 thread.workspace 为唯一基,未消费附加集;② 索引/检索范围(CodebaseIndexer/pgvector)未扩附加目录;③ CLI `--add-dir` 与 web/RN 设置面未接线(预填方案 V4 §747 保持指针,web/RN 标平台独占);④ 附加集生命周期=进程内存态,重启须重新下发 |
 
 ### 1.6 MCP 族
 
@@ -116,12 +116,12 @@
 | `seed_read_state` | 等价(部分) | 已读/未读态由会话已读管理承载;无 seed 帧 |
 | `initialize` | 等价 | 引擎启动握手 + capability 声明(`agent_engine.py:2440`) |
 
-## 2 真缺汇总(4 项,全部附否证)
+## 2 真缺汇总(在账 3 项,全部附否证;刻意档 1 项;`add_directories` 已于 2026-10-02 由票 D201 落地销缺,行保留作去向记录)
 
 | 帧 | 一句话差距 | 依赖/去向 |
 | --- | --- | --- |
 | `resume_goal` | 已清/已完成目标无恢复口 | 并入 D152 目标族产品化时一并拍板 |
-| `add_directories` | 多根工作区(会话中途追加目录),Codex/Qoder/Trae 三家都有 | 立新票(跨端,涉及 workspace 模型) |
+| `add_directories` | 多根工作区(会话中途追加目录),Codex/Qoder/Trae 三家都有 | **已落地(2026-10-02,票 D201)**:thread.settings additionalDirectories 控制帧 + 会话级路径校验覆盖层 + 控制端点,见 §1.5 该行;残余(CLI/web/索引面)见该行注记 |
 | `reload_plugins` / `reload_skills` | 插件/技能无运行时热重载口 | 并入插件面/技能面产品化 |
 | `refresh_memory` | 记忆无运行时刷新帧(仅内部 updated_at) | 并入长期记忆产品化 |
 | `mcp_clear_auth` | MCP 凭据无运行时清除口(**刻意**,AGENTS §5 口径) | 如需补齐先过 §24 拍板,不得顺手开 |
