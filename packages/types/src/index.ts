@@ -33,6 +33,7 @@ export * from './api-contracts.js'
 export { type PermissionMode, type PermissionDecision } from './agent-runtime.js'
 // 权限模式唯一真源(G-161):跨端/跨语言注册表 + 别名归一,详见 permission-mode.ts 头注
 export * from './permission-mode.js'
+export * from './permission-axis.js'
 // 推理强度档位封闭集合(D130,2026-09-30 立):跨端 wire 值域第四落点,由守门 C5/C6 与既有三处对账。
 export * from './reasoning-effort.js'
 
