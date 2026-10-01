@@ -74,7 +74,7 @@ export function LinkedIssueBadge({ binding }: { binding: IssueBinding }) {
     <span
       data-testid="conversation-linked-issue"
       aria-label={`${t('issueBinding')}: ${binding.title}`}
-      className="inline-flex min-w-0 max-w-[96px] shrink-0 items-center gap-0.5 rounded-sm bg-primary/10 px-1 text-[9px] leading-4 text-primary"
+      className="inline-flex min-w-0 max-w-[96px] shrink-0 items-center gap-0.5 rounded-md bg-primary/10 px-1 text-[9px] leading-4 text-primary"
     >
       <Link2 className="h-2.5 w-2.5 shrink-0" aria-hidden />
       <span className="min-w-0 truncate">{binding.title}</span>
