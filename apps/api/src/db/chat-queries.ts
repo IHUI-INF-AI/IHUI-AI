@@ -279,6 +279,34 @@ export async function bindConversationWorkspace(
   return true
 }
 
+/**
+ * D201 多根工作区(2026-10-02):会话附加目录集**整表替换**写入口。
+ * dirs 为空数组 = 清空(删键,不落空数组 —— 与 workspacePath 同款"无则键不存"口径)。
+ * 返回 false = 会话不存在或非属主(调用方据此回 404,不做越权写)。
+ */
+export async function setConversationAdditionalDirectories(
+  id: string,
+  userId: string,
+  dirs: string[],
+): Promise<boolean> {
+  const rows = await db
+    .select({ metadata: chatConversations.metadata, owner: chatConversations.userId })
+    .from(chatConversations)
+    .where(eq(chatConversations.id, id))
+    .limit(1)
+  const row = rows[0]
+  if (!row || row.owner !== userId) return false
+  const meta = (row.metadata as Record<string, unknown> | null) ?? {}
+  const next: Record<string, unknown> = { ...meta }
+  if (dirs.length > 0) next.additionalDirectories = dirs
+  else delete next.additionalDirectories
+  await db
+    .update(chatConversations)
+    .set({ metadata: next, updatedAt: new Date() })
+    .where(eq(chatConversations.id, id))
+  return true
+}
+
 export async function patchConversationMetadata(
   id: string,
   userId: string,

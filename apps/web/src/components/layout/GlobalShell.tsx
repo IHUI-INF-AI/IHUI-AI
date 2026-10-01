@@ -227,7 +227,14 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // 因为 NativeTopBar 已删除,窗口控制按钮跟随 TagsView 一起搬到 MainShell 内部)
   // - 全局路由都能响应 Ctrl+R / F12 / Ctrl+Q
   // - 走 dispatchMenuAction 单一逻辑源
-  useNativeShortcuts((id) => void dispatchMenuAction(id))
+  // L5782(2026-10-02):此前写成 `void dispatchMenuAction(id)`,把 IPC 的 rejection 整块吞掉
+  // —— "按了毫无反应"与"按了但原生侧拒绝(窗口没了 / 权限被拒 / 契约漂了)"在账面上同形。
+  // 派发语义一字未改,只把失败喊出来(与本仓"失败必须响 / 不得把没判写成判过了"同一条禁令)。
+  useNativeShortcuts((id) => {
+    void dispatchMenuAction(id).catch((e: unknown) => {
+      console.warn('[desktop-shortcut] dispatchMenuAction failed:', id, e instanceof Error ? e.message : String(e))
+    })
+  })
 
   // 运行时同步 CSS 变量(跟随用户拖拽 AI 面板宽度 / 关闭面板)
   // +6:AI 面板右边缘与工作区卡片之间固定 6px 间距(用户强制要求,不可更改)
