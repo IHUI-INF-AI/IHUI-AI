@@ -3250,7 +3250,7 @@ const styles = StyleSheet.create({
   interactionCard: {
     marginBottom: rpx(16),
     padding: rpx(12),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
     gap: rpx(8),
   },
