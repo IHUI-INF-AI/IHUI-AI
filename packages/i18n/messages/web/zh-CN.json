@@ -9048,11 +9048,11 @@
       "undoFailed": "暂时不可用，工作区未发生变化",
       "undoFailedChanged": "暂时不可用，工作区已发生变化",
       "undoFailedUnverifiable": "暂时不可用，无法确认工作区状态，请检查后重试",
-      "undoPartialWarning": "部分文件未能回退，任务记录保留",
       "restoring": "恢复中…",
       "confirmTitle": "确认回退？",
       "restoreSuccess": "已回退到该检查点",
-      "restoreFailed": "回退失败"
+      "restoreFailed": "回退失败",
+      "undoPartialWarning": "部分文件未能回退，任务记录保留"
     },
     "addWorkspace": "添加工作区",
     "assistant": "助手",
@@ -9241,7 +9241,6 @@
       "removeTagAria": "移除标签 {tag}",
       "filterLabel": "按文件夹筛选",
       "filterAll": "全部",
-      "folderNone": "未分类",
       "adminTitle": "分组管理",
       "adminEmpty": "还没有分组",
       "adminPending": "分组清单正在从服务器同步，稍后可在这里管理。",
@@ -9261,7 +9260,8 @@
       "reasonForbidden": "你没有这个分组的操作权限",
       "reasonUnauthorized": "登录已过期，请重新登录",
       "reasonServer": "服务端出现问题，请稍后重试",
-      "reasonUnknown": "操作失败，请稍后重试"
+      "reasonUnknown": "操作失败，请稍后重试",
+      "folderNone": "未分类"
     }
   },
   "aiCost": {
