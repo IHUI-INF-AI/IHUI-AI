@@ -319,6 +319,9 @@ modules:
       - './api-contracts'
       - './orchestration'
       - './permission-mode'
+      # 2026-10-01 补登:package.json exports 已有 ./knowledge-team(:50),而本表漏登,
+      # D3 把 HEAD 在用消费方(apps/api/src/routes/knowledge-team.ts:50)判红 —— 表与 exports 对齐。
+      - './knowledge-team'
 
   - id: 'packages/design-tokens'
     package: '@ihui/design-tokens'
