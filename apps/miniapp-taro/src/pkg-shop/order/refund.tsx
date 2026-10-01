@@ -4,12 +4,12 @@
 
 import { useTt, type TtFn, t } from '@/i18n'
 import { View, Text, Button, RadioGroup, Radio } from '@tarojs/components'
+import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { refund, getOrderDetail, type Order } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import { FocusInput, FocusTextarea } from '@/components/FocusField'
 
 const REASONS = (tt: TtFn): Array<{ key: string; fb: string }> => [
   { key: 'orderRefund.d1', fb: tt('orderRefund.d1', '不想要了') },
