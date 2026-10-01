@@ -13,6 +13,7 @@ import { useState } from 'react'
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { ChevronDown, ChevronRight, Zap } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { sendToolApprovalResponse } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import { rpx } from '../utils/rpx'
 import type { MessageCitation, MessageInjection, SteerNotice } from '../utils/chat-render-model'
@@ -178,15 +179,73 @@ export function SteerNoticeList({
  * `mode === null` 表示"消息未盖章且工作区默认档取数失败" —— 整行不渲染,
  * 不假装知道档位(认不出具体档位时由共享层归到 unknown,不会静默显示成默认档)。
  */
-export function PermissionTierRow({ mode }: { mode: string | null }): React.JSX.Element | null {
+export function PermissionTierRow({
+  mode,
+}: {
+  mode: string | null | undefined
+}): React.JSX.Element | null {
   const { t } = useI18n()
-  if (mode === null) return null
+  if (mode === null || mode === undefined) return null
   const text = permissionTierWordKeys(mode)
   return (
     <View style={disclosureStyles.tierRow}>
       <Text style={disclosureStyles.tierLabel}>{t('permissionTier.label')}</Text>
       <Text style={disclosureStyles.tierTitle}>{t(text.title)}</Text>
       <Text style={disclosureStyles.tierDesc}>{t(text.desc)}</Text>
+    </View>
+  )
+}
+
+/**
+ * 审批三键 => 决策载荷的唯一映射(D111 残余)。
+ * 单独立一张导出表并用测试钉死,防的是"改按钮文案时顺手改掉语义":
+ * 拒绝不带 scope 键(拒绝不落任何授权,与 ToolApprovalSheet/web handleDecision 同形)。
+ */
+export const APPROVAL_ACTION_WIRE = {
+  allowOnce: { decision: 'approve', scope: 'once' },
+  alwaysAllow: { decision: 'approve', scope: 'always' },
+  reject: { decision: 'reject' },
+} as const
+
+type ApprovalActionWire = (typeof APPROVAL_ACTION_WIRE)[keyof typeof APPROVAL_ACTION_WIRE]
+
+/**
+ * 工具审批三键行(D136 面板的行内同语义出口):
+ * `request === null` 或该条已回传成功 ⇒ 整行不渲染(不给重复提交的机会);
+ * 回传失败 ⇒ 留在原地,绝不静默当"已处理"。取词走既有 `toolApproval.*` / `common.cancel`,
+ * 端内不新增第二份文案源。
+ */
+export function ToolApprovalRow({
+  request,
+  onResolved,
+}: {
+  request: { approvalId: string } | null
+  onResolved?: (approvalId: string) => void
+}): React.JSX.Element | null {
+  const { t } = useI18n()
+  const [resolvedId, setResolvedId] = useState<string | null>(null)
+  if (request === null || resolvedId === request.approvalId) return null
+  const respond = (wire: ApprovalActionWire): void => {
+    void sendToolApprovalResponse({ approvalId: request.approvalId, ...wire })
+      .then(() => {
+        setResolvedId(request.approvalId)
+        onResolved?.(request.approvalId)
+      })
+      .catch(() => {
+        // 决策未能送出:行保持三键可重试(与 toolApproval.sendFailed 同一取向)
+      })
+  }
+  return (
+    <View style={disclosureStyles.approvalRow}>
+      <Pressable style={disclosureStyles.approvalBtn} onPress={() => respond(APPROVAL_ACTION_WIRE.allowOnce)}>
+        <Text style={disclosureStyles.approvalText}>{t('toolApproval.scopeOnce')}</Text>
+      </Pressable>
+      <Pressable style={disclosureStyles.approvalBtn} onPress={() => respond(APPROVAL_ACTION_WIRE.alwaysAllow)}>
+        <Text style={disclosureStyles.approvalText}>{t('toolApproval.scopeAlways')}</Text>
+      </Pressable>
+      <Pressable style={disclosureStyles.approvalBtn} onPress={() => respond(APPROVAL_ACTION_WIRE.reject)}>
+        <Text style={disclosureStyles.approvalText}>{t('common.cancel')}</Text>
+      </Pressable>
     </View>
   )
 }
@@ -236,6 +295,23 @@ const disclosureStyles = StyleSheet.create({
   tierLabel: { fontSize: 11, fontWeight: '600', color: tokens.text.tertiary },
   tierTitle: { fontSize: 11, color: tokens.text.secondary },
   tierDesc: { fontSize: 11, color: tokens.text.tertiary },
+  approvalRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: rpx(8),
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(6),
+  },
+  approvalBtn: {
+    paddingHorizontal: rpx(12),
+    paddingVertical: rpx(6),
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.muted,
+  },
+  approvalText: { fontSize: 11, color: tokens.text.primary },
   text: { flex: 1, fontSize: 12, lineHeight: 18, color: tokens.text.primary },
   meta: { fontSize: 10, color: tokens.text.tertiary },
 })
