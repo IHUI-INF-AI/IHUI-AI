@@ -7490,6 +7490,13 @@ def _parse_unified_diff(diff_text: str) -> list[dict[str, Any]]:
 
     每项: {filename, patch(原始 diff 行), additions, deletions}
     以 '+++ b/<path>' 行作为文件边界。
+
+    口径归属(G-415 A9):下面这对 `+`/`-` 前缀判据与 `routers.llm.calculate_added_lines` /
+    `calculate_deleted_lines` 是**同一个量纲**(改动行数,`+++`/`---` 头都不计入),但输入不同
+    (这里吃 patch 文本、那里吃 tool_call.args),因此它是那份口径的**第二处实现**,不是巧合相似。
+    `scripts/check-line-split-parity.mjs` 目前只把 llm.py 那两个函数当对照本体 —— 这一处尚未进
+    语料(要进就得先给门一份"patch 文本 → 期望数"的语料,那是另一票)。**改这里的判据必须同批
+    改 llm.py 那两处**,否则同一个 PR 在两个界面上会报出两个行数。
     """
     files: list[dict[str, Any]] = []
     current: dict[str, Any] | None = None
