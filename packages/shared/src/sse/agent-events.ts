@@ -83,6 +83,17 @@ export function isAgentTaskEventName(value: string): value is AgentTaskEventName
 // ============================================================================
 // wire payload 形态(snake_case,agents.py _format_sse 序列化输出)
 // ============================================================================
+//
+// G-721(2026-10-01 立)—— 下面这些"可选 + 可空"字段(票面计 10 处)的两态词汇表,逐字段写在各自行上:
+//   · **缺席**(JSON 里没有这个键 ⇒ TS 侧 `undefined`)= 发这帧的代码**没报**这个指标;
+//   · **显式 null**(键在、值为 null)= 发这帧的代码**报了"没有值"**。
+//   下面这些解析器把两者都折叠成视图的 `null`,所以"折叠后同形"是**视图层的事实**,
+//   推论是:**要区分只能读 wire,不得从视图对象反推**。
+//   两态的共同禁止项(这才是本票要钉的东西):
+//   ① 不得把任何一种读成**显式清除**指令 —— 相变/清除在 agent 任务流上一律由**显式判别字段**
+//      承载(self-heal 的 `phase`、plan-step 的 `status`),永远不由"键缺席"承载;
+//   ② 不得把 null 折成 `0` / `''` / `false` 这类**肯定结论** —— 0 = "确实没有失败项"、
+//      '' = "确实有一条空决策"、false = "确实修复失败",都是报了值,不是没报值。
 
 /** wire 通用信封:命名事件的 data JSON,载荷挂在 payload 下,顶层带 type 与 session_id。 */
 export interface AgentTaskWireEnvelope<TPayload = Record<string, unknown>> {
@@ -94,11 +105,19 @@ export interface AgentTaskWireEnvelope<TPayload = Record<string, unknown>> {
 /** self-heal wire 载荷。 */
 export interface SelfHealWirePayload {
   session_id?: string
+  /**
+   * 两个发射点(agent_loop_v2._maybe_self_heal 的 started / finished 帧)都写整数。
+   * 缺席 = 这帧没报轮次;null = 同上(他方发射点)。**两者都不是"第 0 轮"**,也不是"轮次已被清零"。
+   */
   iteration?: number | null
+  /** 唯一的相变载体:started/finished 决定 failed·ok·attempts 三档该不该有值(见上 G-721 ①)。 */
   phase?: 'started' | 'finished'
   command?: string
+  /** started 相写(number,**0 是合法肯定值**"确无失败项");finished 相整键缺席 = 该相不报此指标。缺席 ≠ 0,也 ≠ 清除。 */
   failed?: number | null
+  /** 仅 finished 相写,且取 `outcome.get("ok")` ⇒ 键可在而值为 null = "结果读不到";started 相整键缺席 = 该相不适用。**两态都 ≠ false**(false = "修复失败"的肯定结论)。 */
   ok?: boolean | null
+  /** 同 `ok`:仅 finished 相写、值可 null = "尝试次数读不到";缺席 = 该相不适用;**不得折成 0**(0 = "一次都没试")。 */
   attempts?: number | null
   rollbacks?: number
 }
@@ -107,6 +126,7 @@ export interface SelfHealWirePayload {
 export interface ThinkingWirePayload {
   run_id?: string
   content?: string
+  /** 发射点(emit_thinking)恒写整数;缺席/null 只来自他方或旧帧 ⇒ 视图折 null,**不得折 0**。 */
   iteration?: number | null
   is_final?: boolean
 }
@@ -117,7 +137,9 @@ export interface PlanStepWirePayload {
   step_index?: number
   tool_name?: string
   status?: string
+  /** emit_plan_step 形参默认 None ⇒ **键恒发、值可 null** = "本步此刻没有决策"(started 帧就是这一态);缺席 = 非该发射器(旧帧/他方)。**两态都 ≠ ''**('' 会被读成"有一条空决策")。 */
   decision?: string | null
+  /** 同 `decision`:null = 未给出原因(键在);缺席 = 旧帧/他方;**不得折成 ''**('' 是"清空了但仍有一条原因")。 */
   reason?: string | null
 }
 
@@ -146,7 +168,16 @@ export interface TerminalDeltaWirePayload {
   command?: string
   stream?: string
   text?: string
+  /** hook 通道恒写 `ctx.get("iteration")` ⇒ 键在、值可 null(contextvar 没注入轮次);缺席 = 进程内 push 通道(那一侧不写这组 snake 键)。两者都不得折成 0。 */
   iteration?: number | null
+  /**
+   * **本字段是十处里唯一"两态语义不同"的一格**,诚实登记如下:
+   *   · null = 发射方**显式报"这行输出没有工具调用归属"**(工具直调、contextvar 未 set 的降级路径,实测存在);
+   *   · 缺席 = 这条通道**根本不用 snake 键承载归属**(push 通道用 camelCase `terminalId` 写自己的 id)。
+   * 所以"缺席"**不等于**"无归属" —— 它是"归属住在别的键里"。视图层把两者一起折进
+   * `id = `${p.tool_call_id ?? p.run_id ?? 'unknown'}-…``,**这一格的区分在视图上不可恢复,只能读 wire**;
+   * 而两态都**不得**折成 ''('' 会让 id 以 '-' 开头,把"没键"读成"有一条空归属"这种肯定结论)。
+   */
   tool_call_id?: string | null
 }
 
