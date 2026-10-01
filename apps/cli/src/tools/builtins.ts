@@ -439,7 +439,14 @@ export const read_file: Tool = {
         notes.push(`\n...(仅显示前 ${MAX_READ_LINES} 行)`);
       }
       recordReadState(true);
-      return { success: true, output: output + notes.join('') };
+      // G-720:同样的两个量落成**事实字段**(散文照留 —— 上面那句是给人的口径,字段是给判定用的)。
+      // 这里只报事实、不写 `truncated`:结论由执行器边界从两条字节数推导(见 tools/index.ts 的
+      // `normalizeToolResultTruncation`)。字节口径 = 源内容字节,不含行号前缀与注记。
+      return {
+        success: true,
+        output: output + notes.join(''),
+        truncationFacts: { originalBytes: totalBytes, returnedBytes: bytesRead, budgetStrategy: 'truncate' },
+      };
     }
 
     // G-937972:token 预算。range 读超限 ⇒ 硬错(点名窗口被静默改小等于改答);
