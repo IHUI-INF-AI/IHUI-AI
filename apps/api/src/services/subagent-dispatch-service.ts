@@ -33,7 +33,7 @@ import { db } from '../db/index.js'
 import { agentTasks } from '@ihui/database'
 import { logger } from '../utils/logger.js'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
-import { releaseTaskLockByTaskId } from './workspace-lock-heartbeat.js'
+import { releaseTaskLockByTaskId, toLockReleaseOutcome } from './workspace-lock-heartbeat.js'
 import { broadcastSSEEvent } from './agent-sse-bus.js'
 import type {
   SubagentDispatch,
@@ -1355,16 +1355,12 @@ class SubagentDispatchService {
   private async _syncAgentTask(runtime: DispatchRuntime): Promise<void> {
     const taskId = runtime.agentTaskId
     if (!taskId) return
-    // quota_exceeded / preempted 为代码内 as 强转态,不在 DispatchStatus 联合中,用 string 集合判断
-    const TERMINAL_STATUSES: ReadonlySet<string> = new Set([
-      'completed',
-      'failed',
-      'quota_exceeded',
-      'cancelled',
-      'preempted',
-    ])
+    // quota_exceeded / preempted 为代码内 as 强转态,不在 DispatchStatus 联合中。
+    // G-672(2026-10-01):终态判定从手写 string 集合换成带谓词的收窄 —— 命中即产出
+    // 类型化 outcome,非终态结构上进不了释放原语;未命中语义与旧集合完全一致。
     const status = String(runtime.dispatch.status)
-    if (!TERMINAL_STATUSES.has(status)) return
+    const releaseOutcome = toLockReleaseOutcome(status)
+    if (releaseOutcome === null || releaseOutcome === 'deleted') return
     try {
       const terminalStatus = status === 'preempted' ? 'cancelled' : status
       // 步骤明细(2026-08-06 增补):completed 时把 runtime.steps 写入 result,
@@ -1379,7 +1375,7 @@ class SubagentDispatchService {
       }))
       // P0-2(2026-09-11):终态前统一释放工作区锁(停心跳 + 凭 token 释放 +
       // 清 lockedBy 审计字段 + 广播 workspace_lock_released),防止锁悬挂
-      await releaseTaskLockByTaskId(taskId)
+      await releaseTaskLockByTaskId(taskId, releaseOutcome)
       const [taskRow] = await db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).limit(1)
       // D27(2026-09-20):completed 时聚合交付清单(deliverables)合并进 result ——
       // 保留既有 result 中的其他键,不破坏 output/steps;deliverables 为 null 时不加该键
