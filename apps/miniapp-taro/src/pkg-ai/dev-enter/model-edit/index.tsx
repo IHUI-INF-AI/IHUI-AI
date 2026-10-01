@@ -4,13 +4,13 @@
 
 import { useTt, useI18n, t } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Input, Picker, ScrollView, Image } from '@tarojs/components'
+import { View, Text, Picker, ScrollView, Image } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import { useFieldFocus } from '@/hooks/use-field-focus'
 
 const CATEGORIES = [
   t('deventerModeledit.r1'),
@@ -79,8 +79,6 @@ export default function ModelEdit() {
   const [targetGroup, setTargetGroup] = useState<TargetGroup>('individual')
   const [discount, setDiscount] = useState<Discount>('none')
   const [price, setPrice] = useState('')
-  // 聚焦态描边:描边画在外层价格行容器上(端内唯一可行形态,取色唯一出处见 hook)
-  const priceFocus = useFieldFocus()
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -321,24 +319,19 @@ export default function ModelEdit() {
                       {tt('devEnter.modelEdit.priceLabel', '价格')}
                     </Text>
                     {/* RN priceRow:row/center + border.border.light + r12 + px12 + surface.bg(白底浮出 muted 卡) */}
-                    <View
-                      className="flex items-center border border-border rounded-xl px-[24rpx] bg-background"
-                      style={priceFocus.focusStyle}
-                    >
+                    <View className="flex items-center border border-border rounded-xl px-[24rpx] bg-background">
                       {/* RN priceUnit:18dp→36rpx、600、brand.DEFAULT、mr8→16rpx */}
                       <Text className="text-[length:36rpx] font-semibold text-primary mr-[16rpx]">
                         ¥
                       </Text>
                       {/* RN priceInput:flex1/py14/16dp;placeholder 用 text.tertiary */}
-                      <Input
+                      <FocusInput
                         className="flex-1 h-[96rpx] text-[length:32rpx] text-foreground"
                         type="digit"
                         value={price}
                         placeholder={tt('devEnter.modelEdit.pricePlaceholder', '请输入价格')}
                         placeholderStyle="color: var(--color-text-tertiary)"
                         onInput={(e) => setPrice(e.detail.value)}
-                        onFocus={priceFocus.onFocus}
-                        onBlur={priceFocus.onBlur}
                       />
                     </View>
                   </>

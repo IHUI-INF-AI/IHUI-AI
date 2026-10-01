@@ -3,12 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
-import { View, Text, Input, Button } from '@tarojs/components'
+import { View, Text, Button } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import { getDistributionInfo, withdraw } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import { useFieldFocus } from '@/hooks/use-field-focus'
 
 export default function DistributionWithdraw() {
   const { t } = useI18n()
@@ -16,8 +16,6 @@ export default function DistributionWithdraw() {
   const [amount, setAmount] = useState('')
   const [payType, setPayType] = useState('wechat')
   const [submitting, setSubmitting] = useState(false)
-  // 聚焦态描边:描边画在外层输入行容器上(端内唯一可行形态,取色唯一出处见 hook)
-  const amountFocus = useFieldFocus()
   const availableRef = useRef(0)
 
   const payTypes = [
@@ -80,18 +78,13 @@ export default function DistributionWithdraw() {
       </View>
       {/* 对齐 RN card:白卡 + 描边 + 输入框(muted 底 + 描边圆角) */}
       <View className="mx-[20rpx] mt-[24rpx] bg-card border border-border rounded-lg p-[24rpx]">
-        <View
-          className="flex items-center h-[100rpx] px-[28rpx] rounded-xl border border-border bg-[var(--color-muted)]"
-          style={amountFocus.focusStyle}
-        >
+        <View className="flex items-center h-[100rpx] px-[28rpx] rounded-xl border border-border bg-[var(--color-muted)]">
           <Text className="text-[length:32rpx] font-semibold text-foreground">¥</Text>
-          <Input
+          <FocusInput
             className="flex-1 ml-[16rpx] text-[length:32rpx] text-foreground"
             type="digit"
             value={amount}
             onInput={(e) => setAmount(e.detail.value)}
-            onFocus={amountFocus.onFocus}
-            onBlur={amountFocus.onBlur}
             placeholder={t('distribution.withdraw.amountPlaceholder')}
             placeholder-style="color: var(--color-text-tertiary)"
           />
