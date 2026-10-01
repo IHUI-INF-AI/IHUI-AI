@@ -111,7 +111,7 @@
   flex: 1;
   padding: 10rpx 8rpx;
   border: 1rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--color-background);
   text-align: center;
   font-size: 22rpx;
