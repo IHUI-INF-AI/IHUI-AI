@@ -20252,7 +20252,7 @@
       "regenerateQr": "重新出碼",
       "scan": "掃碼",
       "elapsedSeconds": "已等待 {seconds} 秒",
-      "loadingSlowHint": "首次出碼要現起瀏覽器並打開平台登錄頁,通常 3~8 秒;二維碼一就緒會立即顯示",
+      "loadingSlowHint": "首次出碼要現起瀏覽器並打開平臺登錄頁,通常 3~8 秒;二維碼一就緒會立即顯示",
       "loadingStage": {
         "booting": "啟動瀏覽器",
         "opening": "打開登錄頁",
@@ -20274,7 +20274,7 @@
       "startScanLogin": "開始掃碼登錄",
       "statusActive": "正常",
       "statusCleared": "待重新掃碼登入",
-      "statusClearedTip": "該帳號的登入憑證已被清除(安全處置),重新掃碼登入即可恢復,並非平台停用",
+      "statusClearedTip": "該帳號的登入憑證已被清除(安全處置),重新掃碼登入即可恢復,並非平臺停用",
       "statusDisabled": "已禁用",
       "statusExpired": "已過期",
       "statusUnknown": "未知",
@@ -24741,7 +24741,6 @@
     "recording": "錄音中",
     "voiceHint": "語音輸入",
     "placeholder": "輸入訊息...",
-    "stop": "停止",
     "send": "發送"
   },
   "checkIn": {
