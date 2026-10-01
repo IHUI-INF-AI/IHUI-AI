@@ -11,7 +11,8 @@ import { toast } from 'sonner'
 import { Loader2, Link2, Unlink } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { ConfirmDialog } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
 
@@ -47,8 +48,12 @@ export default function ConnectedAccountsPage() {
     [locale],
   )
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['settings', 'connected-accounts'],
+    enabled: allow,
     queryFn: async () => {
       const res = await fetchApi<{ items?: Binding[] }>('/auth/bindings')
       if (!res.success) throw new Error(res.error)
@@ -138,7 +143,9 @@ export default function ConnectedAccountsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {isLoading ? (
+          {!allow ? (
+            <AuthGatePrompt message="请先登录后查看账号绑定" />
+          ) : isLoading ? (
             <div className="py-10 text-center text-sm text-muted-foreground">
               <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
               {t('connectedAccountsLoading')}

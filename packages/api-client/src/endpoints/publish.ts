@@ -155,6 +155,12 @@ export interface ScanLoginTask {
   platform: string
   status: 'pending' | 'waiting_scan' | 'scanned' | 'success' | 'failed' | 'timeout' | 'cancelled'
   message: string
+  /**
+   * 进度阶梯(2026-09-30 新增,后端只给机器可读的值,文案由前端映射 i18n):
+   * booting 启动浏览器 → opening 打开登录页 → switching 切到扫码 → rendering 等码渲染
+   * → ready 码已就绪。前端用它显示"走到哪一步",避免用户对着一个不动的转圈以为卡死。
+   */
+  stage?: 'booting' | 'opening' | 'switching' | 'rendering' | 'ready'
   has_qr: boolean
   qr_updated_at: number
   cookies_count: number
@@ -171,12 +177,18 @@ export async function listScanLoginPlatforms(): Promise<
 
 export async function startScanLogin(
   platform: string,
+  options?: { reuseSession?: boolean },
 ): Promise<
   ApiResult<{ task_id: string; platform: string; status: string; snapshot: ScanLoginTask }>
 > {
   return fetchApi('/api/publish/scan-login/start', {
     method: 'POST',
-    body: JSON.stringify({ platform }),
+    body: JSON.stringify({
+      platform,
+      // 会话复用(2026-09-30):该平台已有有效登录态时直接复用、免扫码;
+      // false=强制全新扫码(后端清登录态出码)。默认 true,老调用方零改动即得复用语义。
+      reuse_session: options?.reuseSession ?? true,
+    }),
   })
 }
 
@@ -304,6 +316,53 @@ export async function importCookiesManually(
     '/api/publish/scan-login/import-cookies',
     { method: 'POST', body: JSON.stringify({ platform, cookies_raw: cookiesRaw }) },
   )
+}
+
+// =============================================================================
+// 外部 Chrome 导入登录(2026-09-30 新增)
+// =============================================================================
+
+/** launch-chrome 返回体(data 段)。error 非空 = 失败或就绪偏慢的如实提示。 */
+export interface ChromeLaunchResult {
+  launched: boolean
+  /** 后端为这次拉起分配的 CDP 调试端口(轮询 importChromeFromCdp 要带上) */
+  port: number | null
+  login_url: string | null
+  /** 实际拉起的浏览器:chrome / edge */
+  browser: string | null
+  error: string | null
+}
+
+/** import-chrome 返回体(data 段),字段语义与 CdpDetectResult 一致。 */
+export type ChromeImportResult = CdpDetectResult
+
+/**
+ * 拉起带 CDP 调试端口的 Chrome/Edge 并打开平台登录页(后端负责找浏览器、
+ * 申请端口、建临时 profile)。前端拿到 port 后,让用户在新窗口里登录,再轮询
+ * `importChromeFromCdp(port, platform)` 直到 detected=true。
+ */
+export async function launchChromeForImport(
+  platform: string,
+): Promise<ApiResult<ChromeLaunchResult>> {
+  return fetchApi<ChromeLaunchResult>('/api/publish/browser/launch-chrome', {
+    method: 'POST',
+    body: JSON.stringify({ platform }),
+  })
+}
+
+/**
+ * 从外部 Chrome CDP 调试端口提取 Cookie、检测登录并自动入库(轮询调用)。
+ * detected=false 且 error=null = 还没登录成功,继续轮询;error 非空 = 这轮探测
+ * 失败(如调试端口未就绪),可继续重试到总超时。
+ */
+export async function importChromeFromCdp(
+  port: number,
+  platform: string,
+): Promise<ApiResult<ChromeImportResult>> {
+  return fetchApi<ChromeImportResult>('/api/publish/browser/import-chrome', {
+    method: 'POST',
+    body: JSON.stringify({ port, platform }),
+  })
 }
 
 // =============================================================================

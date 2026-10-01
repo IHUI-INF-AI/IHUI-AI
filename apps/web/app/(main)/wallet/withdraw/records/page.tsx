@@ -23,7 +23,8 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface SummaryData {
   total: number
@@ -82,13 +83,17 @@ export default function WithdrawRecordsPage() {
   const locale = useLocale()
   const [page, setPage] = React.useState(1)
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
   const summaryQ = useQuery({
     queryKey: ['wallet', 'withdrawal', 'summary'],
     queryFn: () => api<SummaryData>('/api/finance/withdrawal/summary'),
+    enabled: allow,
   })
   const listQ = useQuery({
     queryKey: ['wallet', 'withdrawal', 'list', page],
     queryFn: () => api<ListData>(`/api/finance/withdrawal/list?page=${page}&limit=${PAGE_SIZE}`),
+    enabled: allow,
   })
 
   const total = listQ.data?.total ?? 0
@@ -124,6 +129,11 @@ export default function WithdrawRecordsPage() {
         </h1>
       </header>
 
+      {/* 2026-09-30 登录态门 */}
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看提现记录" />
+      ) : (
+        <>
       <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
         {stats.map((s) => (
           <Card key={s.label}>
@@ -238,6 +248,8 @@ export default function WithdrawRecordsPage() {
           <Button variant="outline">{t('backToWallet')}</Button>
         </Link>
       </div>
+        </>
+      )}
     </div>
   )
 }

@@ -267,17 +267,25 @@ export function collect(
   }
 
   // ── 轴② 主线 ──
-  const main = { state: 'ok', behind: 0, own: 0, source: null }
+  const main = { state: 'ok', behind: 0, own: 0, source: null, admission: null }
   if (!remote.fetched && !noFetch) {
     main.state = 'undetermined'
     main.reason = `fetch 未成功(远端态未知):${remote.fetchError || '未知原因'} ⇒ 不记绿`
   } else {
-    const authoritative =
-      (remote.fetched && resolveRef(root, 'FETCH_HEAD')) ||
-      resolveRef(root, 'refs/remotes/origin/main')
-    main.source = remote.fetched
+    // b76-12a(2026-09-30):主线位置由两条见证合并,准入方式必须参与定档 ——
+    // FETCH_HEAD 是本轮 fetch 刚发出的(issued);refs/remotes/origin/main 是
+    // **旧一轮发出的存根**(repetition):它说 behind=0 只证明"上次同步时没落后",
+    // 不证明"现在没落后"。source 标签按**实际取材**标注(旧代码 fetched 时恒标
+    // FETCH_HEAD,哪怕实际取的是本地 refs —— 那正是"标签诚实、取值不诚实"的格)。
+    const fromFetch = remote.fetched ? resolveRef(root, 'FETCH_HEAD') : null
+    const fromLocal = resolveRef(root, 'refs/remotes/origin/main')
+    const authoritative = fromFetch || fromLocal
+    main.admission = fromFetch ? 'issued' : fromLocal ? 'repetition' : null
+    main.source = fromFetch
       ? 'FETCH_HEAD(fetch 后权威值)'
-      : 'refs/remotes/origin/main(本地 refs,未刷新)'
+      : fromLocal
+        ? 'refs/remotes/origin/main(本地 refs,未刷新)'
+        : null
     if (!authoritative) {
       const f = flap()
       main.state = 'undetermined'
@@ -316,6 +324,50 @@ export function collect(
 }
 
 /**
+ * b76-12a(2026-09-30):多条见证合并出一个结论时,**准入方式必须参与合并**,
+ * 且筛除发生在定档之前。每条见证带 `admission`(三值,不是布尔):
+ *   - 'issued'     本轮刚发出、锚点可证的见证 —— 唯一能出**确定**结论的准入方式;
+ *   - 'repetition' 旧一轮发出的存根见证 —— 即使是单例 exact 也永不"确定"落定
+ *                  (它最多证明"发出那一刻",不证明"现在");
+ *   - 其他/缺省    幽灵见证(此刻尚未发出/无锚点可证)—— 在定档**之前**就筛掉。
+ * 这个顺序是承重的:先判后筛会把幽灵票留在账上,把本可判绿的账拖成假红/假未判定
+ * (与上游 causality-order-settle 的 admit-before-singleton 同一纪律)。
+ * 误差方向:判不出/降级一律归"未判定"(既不冒红也不记绿),绝不并进红绿。
+ */
+export function mergeAttestedWitnesses(witnesses) {
+  const admitted = (witnesses ?? []).filter(
+    (w) => w && (w.admission === 'issued' || w.admission === 'repetition'),
+  )
+  const ghosts = (witnesses ?? []).length - admitted.length
+  if (admitted.length === 0)
+    return {
+      verdict: 'undetermined',
+      ghosts,
+      admitted: 0,
+      repetition: 0,
+      reason: '没有可准入的见证(全为幽灵见证/空账)—— 筛除发生在定档之前,不拿幽灵票定档',
+    }
+  const issued = admitted.filter((w) => w.admission === 'issued')
+  const repetition = admitted.length - issued.length
+  if (issued.length === 0)
+    return {
+      verdict: 'undetermined',
+      ghosts,
+      admitted: admitted.length,
+      repetition,
+      reason: `仅剩 ${repetition} 条 repetition 准入的见证(旧一轮发出)—— 永不"确定"落定,降级未判定`,
+    }
+  const red = issued.some((w) => w.verdict === 'red')
+  return {
+    verdict: red ? 'red' : 'pass',
+    ghosts,
+    admitted: admitted.length,
+    repetition,
+    reason: null,
+  }
+}
+
+/**
  * 纯判定。输入是 `collect()` 的形状(测试可直接构造),输出 {code, lines, axes}。
  * 退出码优先级:undetermined(2) > red(1) > pass(0)。
  */
@@ -347,32 +399,46 @@ export function decide(m, lim = {}) {
     lines.push(`⚠️  轴① **无法判定**:${m.upstream.reason}`)
   }
 
-  // ②
+  // ② —— b76-12a:主线结论是"多条见证合并"的产出,准入方式参与定档。
+  // collect() 恒标 admission;构造面输入(测试夹具)未标准入时按 issued 视作
+  // 既有行为(存量夹具不因本票集体翻未判定)。
   if (m.main.state === 'ok') {
-    const over = m.main.behind > maxBehind
-    const pureStale = over && m.main.own === 0
-    axes.main = {
-      status: pureStale ? 'red' : over ? 'report' : 'pass',
-      behind: m.main.behind,
-      own: m.main.own,
+    const merged = mergeAttestedWitnesses([
+      {
+        admission: m.main.admission ?? 'issued',
+        verdict: m.main.behind > maxBehind && m.main.own === 0 ? 'red' : 'pass',
+      },
+    ])
+    if (merged.verdict === 'undetermined') {
+      axes.main = { status: 'undetermined', reason: merged.reason, admission: m.main.admission ?? null }
+      anyUndetermined = true
+      lines.push(`⚠️  轴② **无法判定**:${merged.reason}(取材=${m.main.source ?? '无'})`)
+    } else {
+      const over = m.main.behind > maxBehind
+      const pureStale = over && m.main.own === 0
+      axes.main = {
+        status: pureStale ? 'red' : over ? 'report' : 'pass',
+        behind: m.main.behind,
+        own: m.main.own,
+      }
+      if (pureStale) {
+        anyRed = true
+        lines.push(
+          `❌ 轴② 落后主线 **${m.main.behind} 个提交**(>阈值 ${maxBehind})且本地**零独有提交**`,
+        )
+        lines.push(
+          '     ⇒ 这是纯过期,不是分叉。继续开工就是照旧实现写新东西(上游立因:落后 140 提交的窗口里',
+        )
+        lines.push('        有人重写了已消失的问题)。先 ff 对齐。')
+      } else if (over) {
+        lines.push(
+          `ℹ️  轴② 落后主线 ${m.main.behind} 个提交(>阈值 ${maxBehind}),但本地有 ${m.main.own} 枚独有提交`,
+        )
+        lines.push('     ⇒ 分叉正常,只报数不判红(替人判"该丢哪边"才是事故)。要不要收敛由你定:')
+        lines.push('        node scripts/git-sync-converge.mjs')
+      } else
+        lines.push(`✅ 轴② 落后主线 ${m.main.behind}(独有提交 ${m.main.own};取材=${m.main.source})`)
     }
-    if (pureStale) {
-      anyRed = true
-      lines.push(
-        `❌ 轴② 落后主线 **${m.main.behind} 个提交**(>阈值 ${maxBehind})且本地**零独有提交**`,
-      )
-      lines.push(
-        '     ⇒ 这是纯过期,不是分叉。继续开工就是照旧实现写新东西(上游立因:落后 140 提交的窗口里',
-      )
-      lines.push('        有人重写了已消失的问题)。先 ff 对齐。')
-    } else if (over) {
-      lines.push(
-        `ℹ️  轴② 落后主线 ${m.main.behind} 个提交(>阈值 ${maxBehind}),但本地有 ${m.main.own} 枚独有提交`,
-      )
-      lines.push('     ⇒ 分叉正常,只报数不判红(替人判"该丢哪边"才是事故)。要不要收敛由你定:')
-      lines.push('        node scripts/git-sync-converge.mjs')
-    } else
-      lines.push(`✅ 轴② 落后主线 ${m.main.behind}(独有提交 ${m.main.own};取材=${m.main.source})`)
   } else {
     axes.main = { status: 'undetermined', reason: m.main.reason }
     anyUndetermined = true
@@ -509,6 +575,61 @@ function selfTestRun() {
       }).code === 2,
     )
 
+    // ── b76-12a:准入方式参与合并 + 筛除先于定档(正反成对,同数据两序必分叉) ──
+    const FIXTURE = [
+      { admission: 'issued', verdict: 'pass' }, // 可证见证:本轮刚发出
+      { admission: undefined, verdict: 'pass' }, // 幽灵见证:此刻尚未发出/无锚点可证
+    ]
+    const fxMergeA = mergeAttestedWitnesses(FIXTURE)
+    check(
+      'b76-12a 夹具A:1 issued + 1 幽灵,先筛后判 ⇒ 通过',
+      fxMergeA.verdict === 'pass' && fxMergeA.ghosts === 1,
+    )
+    // 反面稻草人(先判后筛):同一份数据,幽灵票留在账上一并算数 ⇒ 必须红或降级未判定。
+    const judgeFirstThenFilter = (ws) =>
+      ws.every((w) => w && w.admission === 'issued' && w.verdict === 'pass')
+        ? 'pass'
+        : 'undetermined'
+    const fxMergeB = judgeFirstThenFilter(FIXTURE)
+    check(
+      'b76-12a 夹具B:同一份数据先判后筛 ⇒ 降级未判定(只有 B 红才算判据有牙)',
+      fxMergeB === 'undetermined',
+    )
+    check(
+      'b76-12a A/B 不同形:两序结论必分叉(同形 ⇒ 判据根本没跑)',
+      fxMergeA.verdict !== fxMergeB,
+    )
+    check(
+      'b76-12a 全幽灵账 ⇒ 未判定,不冒红也不记绿',
+      mergeAttestedWitnesses([{ admission: undefined, verdict: 'red' }]).verdict === 'undetermined',
+    )
+    check(
+      'b76-12a 仅 repetition(单例 exact)⇒ 永不确定落定,降级未判定',
+      mergeAttestedWitnesses([{ admission: 'repetition', verdict: 'pass' }]).verdict ===
+        'undetermined',
+    )
+    check(
+      'b76-12a issued 与 repetition 同账 ⇒ issued 定档,不被 repetition 传染降级',
+      mergeAttestedWitnesses([
+        { admission: 'issued', verdict: 'pass' },
+        { admission: 'repetition', verdict: 'red' },
+      ]).verdict === 'pass',
+    )
+    check(
+      'b76-12a decide() 级:主线见证为 repetition ⇒ 轴②降级未判定(exit 2)',
+      decide({
+        ...base,
+        main: { state: 'ok', behind: 0, own: 0, source: '本地 refs(未刷新)', admission: 'repetition' },
+      }).code === 2,
+    )
+    check(
+      'b76-12a decide() 级:同值 issued ⇒ 确定绿(exit 0,准入方式真的在参与定档)',
+      decide({
+        ...base,
+        main: { state: 'ok', behind: 0, own: 0, source: 'test', admission: 'issued' },
+      }).code === 0,
+    )
+
     // ── ③轴边界:同一份数据,strictDrift 两种取值 ⇒ 退出码必须不同 ──
     const drifted = {
       ...base,
@@ -639,6 +760,9 @@ export function makeGitRepo() {
         encoding: 'utf8',
         windowsHide: true,
         timeout: 60000,
+        // 本会话环境病(EBUSY):spawnSync 缺省给子进程建 stdin 管道会 EBUSY。
+        // 夹具从不喂 stdin ⇒ 显式 ignore;stdout/stderr 照常回收。
+        stdio: ['ignore', 'pipe', 'pipe'],
       },
     )
     if (r.status !== 0) throw new Error(`git ${a.join(' ')} 失败:${String(r.stderr || '').trim()}`)

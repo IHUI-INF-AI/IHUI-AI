@@ -14,7 +14,8 @@ import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface Exam {
   id: string
@@ -41,9 +42,12 @@ async function api<T>(url: string): Promise<T> {
 
 export default function EduExamPage() {
   const t = useTranslations('eduExamListPage')
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'exams'],
     queryFn: () => api<ExamsData>('/api/edu/exam'),
+    enabled: allow,
   })
 
   const exams = data?.list ?? []
@@ -59,7 +63,9 @@ export default function EduExamPage() {
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看考试列表" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}

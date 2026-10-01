@@ -2115,6 +2115,13 @@
       "when": 1790769600000,
       "tag": "20260930120000_edu_study_loops",
       "breakpoints": true
+    },
+    {
+      "idx": 303,
+      "version": "7",
+      "when": 1790773200000,
+      "tag": "20260930130000_points_mall_orders",
+      "breakpoints": true
     }
   ]
 }

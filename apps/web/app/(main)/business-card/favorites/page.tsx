@@ -13,6 +13,8 @@ import { Star, Loader2, ArrowLeft, Trash2, Share2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { getInitials } from '@/components/data/Avatar'
 
 interface BusinessCard {
@@ -49,9 +51,13 @@ export default function CardFavoritesPage() {
   const locale = useLocale()
   const qc = useQueryClient()
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['business-card', 'favorites', 'list'],
     queryFn: () => api<FavListData>(`/api/business-card/favorites`).then((d) => d.list ?? []),
+    enabled: allow,
   })
 
   const removeMut = useMutation({
@@ -87,7 +93,9 @@ export default function CardFavoritesPage() {
         <p className="text-xs text-muted-foreground">共收藏 {items.length} 张名片</p>
       </header>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看收藏的名片" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...

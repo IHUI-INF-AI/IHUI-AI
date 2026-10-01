@@ -9,7 +9,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { KeyRound, Plus } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Container } from '@/components/layout'
 import { ApiKeyListCard } from './ApiKeyListCard'
 import { CreateKeyDialog } from './CreateKeyDialog'
@@ -24,7 +25,10 @@ export default function ApiKeysSettingsPage() {
   const [secret, setSecret] = React.useState('')
   const [secretTitle, setSecretTitle] = React.useState('密钥已创建')
 
-  const keysQuery = useQuery({ queryKey: ['user-api-keys'], queryFn: fetchApiKeys })
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
+  const keysQuery = useQuery({ queryKey: ['user-api-keys'], queryFn: fetchApiKeys, enabled: allow })
   const list = keysQuery.data ?? []
 
   const createMut = useMutation({
@@ -85,7 +89,8 @@ export default function ApiKeysSettingsPage() {
       </header>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
-        <ApiKeyListCard
+        {allow ? (
+          <ApiKeyListCard
           list={list}
           isLoading={keysQuery.isLoading}
           error={keysQuery.error as Error | null}
@@ -99,7 +104,10 @@ export default function ApiKeysSettingsPage() {
           }}
           pendingDelete={deleteMut.isPending}
           pendingRotate={rotateMut.isPending}
-        />
+          />
+        ) : (
+          <AuthGatePrompt message="请先登录后查看 API 密钥" />
+        )}
 
         <CreateKeyDialog
           open={dialog === 'create'}

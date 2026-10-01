@@ -59,7 +59,8 @@ function HealItem({ evt, isLast }: { evt: SelfHealEvent; isLast: boolean }) {
             </span>
           )}
           <span className="ml-auto shrink-0 tabular-nums text-[10px] text-muted-foreground">
-            {timeFmt.format(new Date(evt.ts))}
+            {/* G-998099:ts 缺席即 wire 没带时间,禁止拿本地时钟兜底,缺席就不渲染 */}
+            {evt.ts !== undefined && timeFmt.format(new Date(evt.ts))}
           </span>
         </div>
         <Tooltip content={evt.command}>

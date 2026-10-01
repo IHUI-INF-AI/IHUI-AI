@@ -13,6 +13,8 @@ import { ArrowLeft, Star, Loader2, MessageSquare } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { formatDate } from '@/lib/date-utils'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Avatar } from '@/components/data/Avatar'
 
@@ -43,9 +45,13 @@ export default function CourseRatePage() {
   const router = useRouter()
   const qc = useQueryClient()
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['learn', 'rate', id],
     queryFn: () => api<RateListData>(`/api/learn/${id}/rates`),
+    enabled: allow,
   })
 
   const [rating, setRating] = React.useState(5)
@@ -72,6 +78,20 @@ export default function CourseRatePage() {
     if (!content.trim()) return
     submitMut.mutate()
   }
+
+  if (!allow)
+    return (
+      <div className="mx-auto w-full max-w-4xl space-y-4">
+        <Link
+          href={`/learn/${id}`}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t('backToCourse')}
+        </Link>
+        <AuthGatePrompt message="请先登录后查看课程评价" />
+      </div>
+    )
 
   if (isLoading)
     return (

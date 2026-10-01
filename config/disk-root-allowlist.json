@@ -1,0 +1,35 @@
+{
+  "_comment": "盘根卫生白名单(2026-09-30 立,配 scripts/check-disk-root-hygiene.mjs)。声明式封闭集合:新增合法条目必须显式改本文件并随 commit 提交(= 显式审批),禁止以'看起来无害'为由口头豁免。未列入的条目会被巡检点名;点名本身是 warn(warn 尺子不判红),但它是'项目产物不外流'纪律的常驻提醒。",
+  "_transitionalNote": "2026-09-30 G-814433 主体完成:DevEnv 实体已迁入 IHUI-AI\\.DevEnv(11.3GB,15/16 junction 已切新址),盘根 G:\\DevEnv 仅剩薄壳(Temp/ihui-scratch 活跃会话句柄 + cache/userhome/.trae-cn Trae IDE 句柄)待实体释放后删除并摘条目。tmp-probe 已清 340MB 探针产物,剩 web-direct.log 一文件被空闲进程句柄锁死,进程退出后删目录摘条目。摘除动作必须随说明 commit。",
+  "roots": {
+    "G:\\": {
+      "allow": [
+        "IHUI-AI",
+        "DevEnv",
+        "tmp-probe",
+        "tmp",
+        "workbuddy",
+        "$RECYCLE.BIN",
+        "System Volume Information",
+        "Qoder CN",
+        "Qoder CN IDE",
+        "Qoderwork",
+        "Trae",
+        "Trae CN",
+        "TRAE SOLO CN",
+        "MiniMax Code",
+        "ZCode",
+        "Deepseek harness",
+        "微信web开发者工具",
+        "支付宝小程序开发工具",
+        "WeixinGameData"
+      ],
+      "note": "IHUI-AI=项目主仓;workbuddy=WorkBuddy 应用本体;tmp=WorkBuddy mcp/ext 运行日志活跃写入点(2026-09-30 实证 mcp.log 一小时内持续写,292K);其余=第三方 IDE/工具(盘根物理上不可能只剩项目,现实目标是'项目产物不外流',第三方安装目录按声明放行)"
+    }
+  },
+  "worktreePolicy": {
+    "sanctionedPrefixes": ["G:\\IHUI-AI\\.worktrees\\", "G:/IHUI-AI/.worktrees/"],
+    "exemptPaths": ["G:\\IHUI-AI", "G:/IHUI-AI"],
+    "note": "2026-09-30 起 worktree 落点收进项目内 .worktrees/(AGENTS §12d);登记面里落在前缀之外的 worktree 一律点名待回收(主工作树豁免)"
+  }
+}

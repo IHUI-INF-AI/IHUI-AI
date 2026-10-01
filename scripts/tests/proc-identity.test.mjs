@@ -61,6 +61,108 @@ function fixture(t, name) {
 
 // ═════════════════ 一、库层:三态与解析(纯函数,零 IO) ═════════════════
 
+test('parsePreciseStart / parseStatStartTicks:只认带前缀的高精度形态,其他一律 null', () => {
+  // 正例:两种带前缀形态
+  assert.equal(P.parsePreciseStart('windows-utc-us:1780000000123456'), 'windows-utc-us:1780000000123456')
+  assert.equal(P.parsePreciseStart('boot-ticks:9532'), 'boot-ticks:9532')
+  // profile 噪音前缀不碍事
+  assert.equal(P.parsePreciseStart(`noise line\r\nwindows-utc-us:42`), 'windows-utc-us:42')
+  // 反例:裸数字 / 报错文本 / 空值 ⇒ null(解不出就走秒级档,不得猜)
+  assert.equal(P.parsePreciseStart('1780000000123456'), null)
+  assert.equal(P.parsePreciseStart('Get-CimInstance : no such process'), null)
+  assert.equal(P.parsePreciseStart(''), null)
+  assert.equal(P.parsePreciseStart(null), null)
+  assert.equal(P.parsePreciseStart('windows-utc-us:'), null)
+  // /proc stat field 22:comm 可含空格与括号 ⇒ 以最后一个 ')' 为界
+  const stat = `816 (cat) S 1 1 1 0 -1 4194560 1 0 0 0 0 0 0 0 20 0 1 0 9532 1 18446744073709551615`
+  assert.equal(P.parseStatStartTicks(stat), 'boot-ticks:9532')
+  const paren = `816 (a cat) S 1 1 1 0 -1 4194560 1 0 0 0 0 0 0 0 20 0 1 0 9532 1 18446744073709551615`
+  assert.equal(P.parseStatStartTicks(paren), 'boot-ticks:9532')
+  assert.equal(P.parseStatStartTicks('garbage'), null, 'comm 后括号都没有 ⇒ null')
+  assert.equal(P.parseStatStartTicks('816 (cat) S 1 2 3'), null, '字段不够 ⇒ null')
+  assert.equal(P.parseStatStartTicks(''), null)
+})
+
+test('高精度镜像(同一夹具跑两版):同秒不同 ticks ⇒ 旧判 match、新判 mismatch', () => {
+  const SEC = SELF_START
+  const oldP = 'windows-utc-us:1780000000123456'
+  const newP = 'windows-utc-us:1780000000654321'
+  // 旧实现(只看秒):同一 epoch 秒 ⇒ match —— 正是它结构性失明的复用档
+  const legacy = P.judgeIdentity({ recorded: SEC, observed: SEC })
+  assert.equal(legacy.kind, 'match', '旧量纲必须判 match(先钉住它确实看不见)')
+  // 新实现(两侧都带 precise):同秒不同 ticks ⇒ mismatch,且 why 自己说清凭据
+  const v = P.judgeIdentity({ recorded: SEC, observed: SEC, recordedPrecise: oldP, observedPrecise: newP })
+  assert.equal(v.kind, 'mismatch', '同秒不同 tick 就是复用,不得被 2s 容差吞掉')
+  assert.match(v.why, /已被复用/)
+  assert.match(v.why, /windows-utc-us:/)
+  // 同一夹具反向:precise 全等 ⇒ 即便秒级有 ±1s 量化差也 match(不因高精度档变严)
+  const same = P.judgeIdentity({ recorded: SEC, observed: SEC + 1, recordedPrecise: oldP, observedPrecise: oldP })
+  assert.equal(same.kind, 'match')
+})
+
+test('高精度镜像(端到端取值):注入 run 走高精度档,三态不得收窄', () => {
+  const SEC = SELF_START
+  // 高精度档输出 = 带前缀串 + 末行裸秒(与 defaultPreciseRun 同形)
+  const preciseRun = (us, sec) => () => `windows-utc-us:${us}\n${sec}`
+  // 取值面:高精度 run 回带前缀串 ⇒ epoch 与 precise 都有
+  const ok = P.processStartEpoch(7001, { run: preciseRun('1780000000123456', SEC), highPrecision: true })
+  assert.equal(ok.epoch, SEC)
+  assert.equal(ok.precise, 'windows-utc-us:1780000000123456')
+  // 镜像:同一夹具,"旧进程"与"新进程"同秒不同 ticks ⇒ mismatch
+  const verdict = P.judgeIdentity({
+    recorded: SEC,
+    observed: SEC,
+    recordedPrecise: 'windows-utc-us:1780000000123456',
+    observedPrecise: 'windows-utc-us:1780000000999999',
+  })
+  assert.equal(verdict.kind, 'mismatch')
+  // 反例 1:PowerShell 报错/进程不存在 ⇒ 仍 unverifiable(三态不得收窄)
+  const boom = P.processStartEpoch(7002, { run: () => { throw new Error('Get-Process : Cannot find process') } })
+  assert.equal(boom.epoch, null)
+  assert.equal(boom.precise, null)
+  const v1 = P.judgeIdentity({ recorded: SEC, observed: boom.epoch, recordedPrecise: 'windows-utc-us:1', observedPrecise: boom.precise })
+  assert.equal(v1.kind, 'unverifiable')
+  // 反例 2:输出是报错噪音 ⇒ 同样 unverifiable,不得翻成 mismatch
+  const noise = P.processStartEpoch(7003, { run: () => 'Get-CimInstance : no such process' })
+  assert.equal(noise.epoch, null)
+  assert.equal(noise.precise, null)
+  const v2 = P.judgeIdentity({ recorded: SEC, observed: noise.epoch })
+  assert.equal(v2.kind, 'unverifiable')
+  // 反例 3:只一侧带 precise(量纲不对齐)⇒ 退回秒级档判,不得单侧凭空翻案
+  const oneSide = P.judgeIdentity({ recorded: SEC, observed: SEC, recordedPrecise: 'windows-utc-us:1' })
+  assert.equal(oneSide.kind, 'match')
+})
+
+test('verifyHolder:meta 带 pidStartPrecise ⇒ 现测走高精度档对账;同秒复用 ⇒ mismatch', () => {
+  const meta = { pid: 7004, pidStart: SELF_START, pidStartPrecise: 'windows-utc-us:1780000000123456' }
+  const hit = P.verifyHolder(meta, {
+    run: () => `windows-utc-us:1780000000999999\n${SELF_START}`,
+  })
+  assert.equal(hit.kind, 'mismatch', `同秒不同 ticks 必须被现测抓到:${hit.why ?? ''}`)
+  assert.match(hit.why, /已被复用/)
+  const same = P.verifyHolder(meta, { run: () => `windows-utc-us:1780000000123456\n${SELF_START}` })
+  assert.equal(same.kind, 'match')
+  // 反例:meta 没带 precise ⇒ 走秒级档(旧 meta 行为逐字不变)
+  const legacyMeta = { pid: 7005, pidStart: SELF_START }
+  const legacy = P.verifyHolder(legacyMeta, { run: fakeRun(SELF_START) })
+  assert.equal(legacy.kind, 'match')
+  assert.equal(legacy.precise, undefined, '秒级档不得凭空产出 precise 维')
+})
+
+test('identityFields:highPrecision 档落 pidStartPrecise,量不到时不落键(旧行为不变)', () => {
+  const okId = P.identityFields({ run: () => `windows-utc-us:1780000000123456\n${SELF_START}`, host: 'H1', highPrecision: true })
+  assert.equal(okId.host, 'H1')
+  assert.equal(okId.pidStartPrecise, 'windows-utc-us:1780000000123456')
+  assert.equal(okId.pidStart, SELF_START)
+  // 量不到 ⇒ precise 整键不留(与秒级档的 pidStart 同一纪律)
+  const badId = P.identityFields({ run: () => { throw new Error('夹具:取不到') }, host: 'H1', highPrecision: true })
+  assert.equal('pidStartPrecise' in badId, false)
+  // 默认档(不传 highPrecision)形态逐字不变
+  const legacyId = P.identityFields({ run: fakeRun(SELF_START), host: 'H1' })
+  assert.deepEqual(Object.keys(legacyId).sort(), ['host', 'pidStart'])
+})
+
+
 test('parseStartEpoch 三形态:空串 / 非数字 / profile 噪音前缀(只有最后一种能出值)', () => {
   // 正例:带 profile 噪音前缀(真实 PowerShell 常见形态)⇒ 取最后一段纯数字
   assert.equal(P.parseStartEpoch(`loaded personal profile\r\n${SELF_START}\r\n`), SELF_START)

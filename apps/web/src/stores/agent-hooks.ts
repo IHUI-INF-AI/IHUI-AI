@@ -8,6 +8,7 @@ import { persist } from 'zustand/middleware'
 import { toast } from '@/components/common'
 import { forwardToChannels } from '@/stores/integrations'
 import { createPersistConfig } from '@/stores/persist-helpers'
+import { boundedAppend } from '@/lib/bounded-append'
 
 /**
  * Agent Hooks 事件系统(W28,2026-09-14 立,对标 CodeBuddy Hooks):
@@ -64,10 +65,15 @@ export interface AgentHookConfig {
   createdAt: number
 }
 
+/** 事件日志保留上限(最近 50 条,供面板展示) */
+const MAX_EVENTS = 50
+
 interface AgentHooksState {
   hooks: AgentHookConfig[]
   /** 发出事件日志(最近 50 条,供面板展示) */
   events: { id: string; event: AgentHookEvent; summary: string; at: number }[]
+  /** G-641:事件日志因上限溢出被丢弃的累计条数(0 = 从未丢;静默变短 = 伪造完整性) */
+  droppedEvents: number
   addHook: (event: AgentHookEvent, action: AgentHookAction, matchTool?: string) => void
   removeHook: (id: string) => void
   toggleHook: (id: string) => void
@@ -148,6 +154,7 @@ export const useAgentHooksStore = create<AgentHooksState>()(
     (set) => ({
       hooks: [],
       events: [],
+      droppedEvents: 0,
       addHook: (event, action, matchTool) =>
         set((s) => ({
           hooks: [
@@ -168,10 +175,16 @@ export const useAgentHooksStore = create<AgentHooksState>()(
           hooks: s.hooks.map((h) => (h.id === id ? { ...h, enabled: !h.enabled } : h)),
         })),
       recordEvent: (event, summary) =>
-        set((s) => ({
-          events: [...s.events, { id: genEventId(), event, summary, at: Date.now() }].slice(-50),
-        })),
-      clearEvents: () => set({ events: [] }),
+        set((s) => {
+          // G-641:溢出丢最旧但丢弃条数必须入账,面板据 droppedEvents 渲染计数行
+          const { items, dropped } = boundedAppend(
+            s.events,
+            { id: genEventId(), event, summary, at: Date.now() },
+            MAX_EVENTS,
+          )
+          return { events: items, droppedEvents: s.droppedEvents + dropped }
+        }),
+      clearEvents: () => set({ events: [], droppedEvents: 0 }),
     }),
     createPersistConfig<AgentHooksState>('ihui-agent-hooks', (s) => ({ hooks: s.hooks })),
   ),

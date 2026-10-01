@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Clock, Loader2, Plus, Star } from 'lucide-react'
+import { Clock, Loader2, LogIn, Plus, Star } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { sortPinnedFirst } from '@ihui/shared'
@@ -17,6 +17,9 @@ import { BackButton } from '@/components/common'
 import { Button, SearchInput } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { ConversationList, type Conversation } from '@/components/chat/conversation-list'
+import { useAuthStore } from '@/stores/auth'
+import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
+import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
 
 interface ConversationsResponse {
   conversations: Conversation[]
@@ -36,9 +39,18 @@ export default function ChatHistoryPage() {
   const router = useRouter()
   const [q, setQ] = useState('')
 
+  // 2026-09-30:登录态门。此前 useQuery 无 enabled 门,未登录/会话过期时照样发请求:
+  // 401 → TanStack 重试三轮(「加载中...」空转约 8s)→ 落到「操作失败,请稍后重试」,
+  // 未登录用户全程得不到任何登录引导。改为 ready+isAuthenticated 双门,
+  // 未登录直接渲染登录提示(与 ModelsMarketplace enabled 门、sidebar-chat-history
+  // 登录早退同一模式);会话过期 = isAuthenticated=false 同样吃到该分支。
+  const { ready } = useAuthBootstrap()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['chat', 'conversations'],
     queryFn: fetchConversations,
+    enabled: ready && isAuthenticated,
   })
 
   const keyword = q.trim().toLowerCase()
@@ -86,7 +98,19 @@ export default function ChatHistoryPage() {
         placeholder={t('searchPlaceholder')}
       />
 
-      {isLoading ? (
+      {!ready || !isAuthenticated ? (
+        // 未登录/会话过期:登录引导,而非发注定 401 的请求再报「操作失败」
+        <div className="flex flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
+          <LogIn className="h-8 w-8 opacity-40" />
+          <p className="text-sm">{t('loginRequired')}</p>
+          <Button
+            size="sm"
+            onClick={() => openLoginDialogOnce('/chat/history')}
+          >
+            {t('loginRequired')}
+          </Button>
+        </div>
+      ) : isLoading ? (
         <div className="py-10 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
           {t('loading')}

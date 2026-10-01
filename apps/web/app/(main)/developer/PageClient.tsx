@@ -29,7 +29,8 @@ import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { fetchUserSubscriptionStatus } from '@/lib/api-client-subscriptions'
 
 interface DevSummary {
@@ -86,9 +87,14 @@ export default function DeveloperHomePageClient() {
   const tPricing = useTranslations('developerPricingPage')
   const tByok = useTranslations('byokGuide')
   const locale = useLocale()
+
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const summaryQ = useQuery({
     queryKey: ['developer', 'summary'],
     queryFn: () => api<DevSummary>('/api/developer/summary').catch(() => ({}) as DevSummary),
+    enabled: allow,
   })
 
   const summary = summaryQ.data ?? {}
@@ -118,6 +124,7 @@ export default function DeveloperHomePageClient() {
       api<DashboardUsage>(`/api/developer/relay/usage?groupBy=day&startDate=${today}`).catch(
         () => null,
       ),
+    enabled: allow,
   })
   const todayCostCents = todayUsageQ.data?.summary?.totalCostCents ?? 0
 
@@ -125,7 +132,19 @@ export default function DeveloperHomePageClient() {
   const subQ = useQuery({
     queryKey: ['developer', 'dashboard', 'subscription'],
     queryFn: () => fetchUserSubscriptionStatus().then((r) => (r.success ? r.data : null)),
+    enabled: allow,
   })
+
+  // 2026-09-30 登录态门:未登录时用登录引导替换数据区
+  if (!allow) {
+    return (
+      <div className="px-4 py-4 space-y-4">
+        <BackButton />
+        <AuthGatePrompt message="请先登录后查看开发者控制台" />
+      </div>
+    )
+  }
+
   const windows = subQ.data?.windows ?? []
 
   const stats = [
