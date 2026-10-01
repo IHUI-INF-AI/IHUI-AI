@@ -361,6 +361,74 @@ function Get-BackupArtifacts([string]$dir) {
 $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $failures = @()
 
+# ── PG 就绪门(2026-10-01 实测开机竞态,不是假想)────────────────────────────
+# 时间线(当日现读):OS 09:08:22 启动 → postmaster 09:08:26 可用(pg_postmaster_start_time())
+# → 调度器 09:08:27 就派生 pg_dump ⇒ ihui_dev 与 keycloak 双双 exit=1,错误形态是
+# `FATAL: the database system is starting up`;09-30 13:40 那一轮同型,只是更早一步(8810 拒连)。
+# 同一窗口里"备份失败"的告警也寄不出去(DNS 首服务器是 link-local fe80::1、路由尚未就绪),
+# 于是一台机器重启 = 当晚 03:00 的档没了 + 唯一的补偿档必败 + 补偿失败的通报必哑。
+# 口令链**不是**这一型的原因:当日 13:52 用同一套 beifen 凭据手跑 pg_dump rc=0 / 132,843,313 B。
+# 调度器 14:16 起的 30 分钟重试只治"等到下一轮",不治"本轮必败且必发一条假故障告警"。
+# 本门的价值在两处:① 不拿"库还没起来"去冒充"口令/权限坏了";② 未就绪时**不跑任何导出**,
+# 因此日志里出现的失败原因与 pg_dump 的退出码不再同形(旧形态只有一句 exit=1)。
+$pgIsReady = Join-Path $DevEnvRoot 'runtimes\pgsql\bin\pg_isready.exe'
+# 预算默认 120s,可用 IHUI_PG_READY_TIMEOUT_SEC 覆写。解析不出正整数一律回落 120 **并喊出来** ——
+# 绝不回落成"当作已就绪",那等于把门换成一条注释(与本文件头注那条"静默是这类事故唯一的传播方式"同一条禁令)。
+$readyBudgetSec = 120
+if ($env:IHUI_PG_READY_TIMEOUT_SEC) {
+    $parsedReadyBudget = 0
+    if ([int]::TryParse([string]$env:IHUI_PG_READY_TIMEOUT_SEC, [ref]$parsedReadyBudget) -and $parsedReadyBudget -gt 0) {
+        $readyBudgetSec = $parsedReadyBudget
+    } else {
+        Write-Host "[WARN] IHUI_PG_READY_TIMEOUT_SEC='$env:IHUI_PG_READY_TIMEOUT_SEC' 不是正整数,按默认 ${readyBudgetSec}s 等就绪" -ForegroundColor Yellow
+    }
+}
+if (-not (Test-Path -LiteralPath $pgIsReady)) {
+    # 尺子缺件 ≠ 库没起来。这里刻意 fail-open 继续导出(不比今天差),但必须大声说出跳过了什么 ——
+    # 静默跳过会让下一个人以为门一直在生效。
+    Write-Host "[WARN] 就绪门跳过:$pgIsReady 不在位(本轮未做 pg_isready 探测,直接尝试导出)" -ForegroundColor Yellow
+} else {
+    $readyStart = Get-Date
+    $readyDeadline = $readyStart.AddSeconds($readyBudgetSec)
+    $readyOk = $false
+    $readyPolls = 0
+    $readyLastCode = $null
+    $readyLastOut = ''
+    while ((Get-Date) -lt $readyDeadline) {
+        $readyPolls++
+        # 原生程序的 stderr 在 EAP=Stop 下会被升成终止错误(本文件 176-182 行已有同一处置惯例),
+        # 那会把"库还在恢复"伪装成"脚本自身出错"——正是本门要消灭的同形。
+        $prevReadyEap = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'Continue'
+            $readyLastOut = (& $pgIsReady -h localhost -p $dbPort 2>&1 | Out-String).Trim()
+            $readyLastCode = $LASTEXITCODE
+        } catch {
+            $readyLastOut = "pg_isready 派生异常: $($_.Exception.Message)"
+            $readyLastCode = -1
+        } finally {
+            $ErrorActionPreference = $prevReadyEap
+        }
+        if ($readyLastCode -eq 0) { $readyOk = $true; break }
+        Start-Sleep -Seconds 5
+    }
+    $readyElapsed = [int]((Get-Date) - $readyStart).TotalSeconds
+    if ($readyOk) {
+        Write-Host "[OK] 就绪门:数据库可用(第 ${readyPolls} 次探测,耗时 ${readyElapsed}s,port $dbPort)" -ForegroundColor Green
+    } else {
+        Write-Host "[ERROR] 就绪门:${readyBudgetSec}s 内数据库未就绪(探测 ${readyPolls} 次,最后一次 exit=$readyLastCode)⇒ 本轮不跑任何导出" -ForegroundColor Red
+        Send-FailureAlert -Reason "数据库在 ${readyBudgetSec} 秒内未就绪,本轮未跑任何导出" -Details @(
+            "pg_isready 最后一次输出: $readyLastOut",
+            "pg_isready 退出码: $readyLastCode | 探测次数: $readyPolls | 目标: localhost:$dbPort",
+            '定性:这一型不是口令/权限问题 —— 真凭据问题由 pg_dump 与随后的逐库复核点名,两者在日志里形态不同',
+            '出路一:调度器会按 30 分钟重试(最多 4 次),库恢复后自动补上本轮',
+            '出路二:IHUI_PG_READY_TIMEOUT_SEC=<正整数秒> 调大预算(注意 nssm 服务环境块是整块覆盖语义,按 §5e 事务式做法改)',
+            '出路三:查服务 IHUI-PG 是否在跑、其 postmaster 是否卡在恢复(本门用的端口来自 .env 的 DB_PORT)'
+        )
+        exit 1
+    }
+}
+
 foreach ($db in $backupDatabases) {
     $outFile = Join-Path $backupDir "$($db)_$stamp.dump"
     Write-Host "[备份] $db @ localhost:$dbPort(角色 $dbUser)→ $outFile" -ForegroundColor Cyan
