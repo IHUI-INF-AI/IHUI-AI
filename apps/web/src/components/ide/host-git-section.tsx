@@ -18,7 +18,14 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { GitBranch, RefreshCw, ShieldCheck, CircleSlash, TriangleAlert, FileDiff } from 'lucide-react'
+import {
+  GitBranch,
+  RefreshCw,
+  ShieldCheck,
+  CircleSlash,
+  TriangleAlert,
+  FileDiff,
+} from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
@@ -43,7 +50,15 @@ const STATE_ICON: Record<StateKey, typeof GitBranch> = {
   pending: CircleSlash,
 }
 
-function StateLine({ state, testId, children }: { state: StateKey; testId: string; children: React.ReactNode }) {
+function StateLine({
+  state,
+  testId,
+  children,
+}: {
+  state: StateKey
+  testId: string
+  children: React.ReactNode
+}) {
   const Icon = STATE_ICON[state]
   return (
     <div
@@ -80,7 +95,7 @@ export function HostGitSection() {
           type="button"
           onClick={() => void authorize(root)}
           disabled={!root || busy !== null}
-          className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="host-git-authorize-btn"
           data-has-root={root ? 'true' : 'false'}
         >
@@ -91,7 +106,7 @@ export function HostGitSection() {
           type="button"
           onClick={() => void refresh()}
           disabled={busy !== null}
-          className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="host-git-refresh-btn"
         >
           <RefreshCw className="h-3 w-3" aria-hidden />
@@ -154,7 +169,10 @@ export function HostGitSection() {
 
       {commandFailed && (
         <StateLine state="command_failed" testId="host-git-line">
-          {t('hostGit.commandFailed', { reason: commandFailed.reason, verdict: commandFailed.verdict })}
+          {t('hostGit.commandFailed', {
+            reason: commandFailed.reason,
+            verdict: commandFailed.verdict,
+          })}
         </StateLine>
       )}
 
