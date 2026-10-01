@@ -5,13 +5,13 @@
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
+import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { getHelp, submitFeedback } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
-import { FocusInput, FocusTextarea } from '@/components/FocusField'
 
 interface HelpItem {
   id: string
