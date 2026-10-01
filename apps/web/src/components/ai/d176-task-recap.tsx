@@ -86,13 +86,8 @@ export function TaskRecapEntry() {
         threadId: conversationId,
         purpose: purpose.trim() || undefined,
       })
-      if (!res.success) {
-        setErrorMsg(res.error)
-        setPhase('error')
-        return
-      }
-      setSummary(res.data.summary)
-      setNextAction(res.data.nextAction)
+      setSummary(res.summary)
+      setNextAction(res.nextAction)
       setPhase('done')
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : String(e))
@@ -106,11 +101,7 @@ export function TaskRecapEntry() {
     setCreateFailed(false)
     try {
       const res = await createConversation({ title: summary.slice(0, 120) })
-      if (!res.success) {
-        setCreateFailed(true)
-        return
-      }
-      setConversationId(res.data.conversation.id)
+      setConversationId(res.conversation.id)
       // D176 残余②(2026-09-30 收口):交接正文作为新会话首条用户消息自动发出。
       // 通道:chat store 的待发草稿队列 draftInput + draftAutoSend —— MessageInput
       // 挂载态 effect 消费(draftInput 填入输入框,draftAutoSend 置位时直接 submit)。
@@ -188,7 +179,7 @@ export function TaskRecapEntry() {
                   value={purpose}
                   onChange={(e) => setPurpose(e.target.value)}
                   disabled={unavailable || generating}
-                  aria-disabled={unavailable || generating || undefined}
+                  aria-disabled={(unavailable || generating) || undefined}
                 />
               </div>
 
@@ -257,7 +248,7 @@ export function TaskRecapEntry() {
                     size="sm"
                     data-testid="recap-generate-submit"
                     disabled={unavailable || generating || !conversationId}
-                    aria-disabled={unavailable || generating || !conversationId || undefined}
+                    aria-disabled={(unavailable || generating || !conversationId) || undefined}
                     onClick={() => void handleGenerate()}
                   >
                     {tc('recap.handoff.title')}
