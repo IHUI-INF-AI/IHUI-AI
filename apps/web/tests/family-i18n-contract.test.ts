@@ -210,21 +210,11 @@ const FAMILIES: Family[] = [
     ],
     minReferenced: 80,
   },
-  // certificate.detail(canonical): /edu/certificates list+detail redirect to /certificate
-  // (/certificate/[id] preserves the id). The edu pages no longer reference any i18n keys,
-  // so this entry governs the canonical detail ns instead: CertificateDetailClient +
-  // CertificateTemplate (its only two consumers) reference all 24 detail leaves.
-  // Key migration: eduCertificates.* (7 leaves) / eduCertificatesPage.* (12 leaves) locale keys
-  // are retained untouched (zero deletion); new UI text comes from certificate.detail.*.
-  // minReferenced stays 6 (referenced is 24); the entry is repointed, never deleted.
   {
-    name: 'certificate.detail(canonical)',
-    nsLiteral: 'certificate.detail',
-    nsPath: ['certificate', 'detail'],
-    sources: [
-      'app/(main)/certificate/[id]/CertificateDetailClient.tsx',
-      'src/components/certificate/CertificateTemplate.tsx',
-    ],
+    name: 'eduCertificates',
+    nsLiteral: 'eduCertificates',
+    nsPath: ['eduCertificates'],
+    sources: ['app/(main)/edu/certificates/page.tsx'],
     minReferenced: 6,
   },
   {
@@ -404,113 +394,6 @@ const FAMILIES: Family[] = [
     minReferenced: 3,
     onlyKeys: ['rollbackAdded', 'rollbackModified', 'rollbackDeleted'],
     capFromLedger: true,
-  },
-  {
-    name: 'agentWorkbench(b12)',
-    nsLiteral: 'agentWorkbench',
-    nsPath: ['agentWorkbench'],
-    sources: [
-      'app/(main)/agent-workbench/components/AgentCard.tsx',
-      'src/components/automations/automation-form-dialog.tsx',
-    ],
-    minReferenced: 13,
-    // HEAD 里该块已有 39 枚他人叶子 ⇒ 只治本票新增的 13 枚
-    onlyKeys: [
-      'card.roleResearcher',
-      'card.roleCoder',
-      'card.roleReviewer',
-      'card.roleTester',
-      'card.roleCustom',
-      'card.unnamed',
-      'card.lastActive',
-      'card.actionStart',
-      'card.actionPause',
-      'card.actionStop',
-      'card.actionCopyConfig',
-      'card.permissionMode',
-      'card.maxIterations',
-    ],
-  },
-  {
-    name: 'llmSettings(b12)',
-    nsLiteral: 'llmSettings',
-    nsPath: ['llmSettings'],
-    sources: ['app/(main)/settings/llm/PageClient.tsx'],
-    minReferenced: 29,
-    // HEAD 里该块已有 286 枚他人叶子 ⇒ 只治本票新增的 29 枚
-    onlyKeys: [
-      'v2.byok.modeLabel',
-      'v2.byok.modeDesc',
-      'v2.byok.viewGuide',
-      'v2.byok.welcomeTitle',
-      'v2.byok.welcomeDesc',
-      'v2.byok.whyTitle',
-      'v2.byok.whyDesc',
-      'v2.byok.freeProvidersTitle',
-      'v2.byok.cfDesc',
-      'v2.byok.githubDesc',
-      'v2.byok.hfDesc',
-      'v2.byok.pollinationsDesc',
-      'v2.byok.llm7Desc',
-      'v2.byok.freeNote',
-      'v2.byok.stepsTitle',
-      'v2.byok.step1',
-      'v2.byok.step2',
-      'v2.byok.step3',
-      'v2.byok.step4',
-      'v2.byok.step5',
-      'v2.byok.gotIt',
-      'v2.modelParams.presetPrecise',
-      'v2.modelParams.presetPreciseDesc',
-      'v2.modelParams.presetBalanced',
-      'v2.modelParams.presetBalancedDesc',
-      'v2.modelParams.presetCreative',
-      'v2.modelParams.presetCreativeDesc',
-      'v2.modelParams.presetJson',
-      'v2.modelParams.presetJsonDesc',
-    ],
-  },
-  {
-    name: 'knowledgeList(b12)',
-    nsLiteral: 'knowledgeList',
-    nsPath: ['knowledgeList'],
-    sources: ['src/components/knowledge/KnowledgeList.tsx', 'app/(main)/knowledge/page.tsx'],
-    minReferenced: 7,
-  },
-  {
-    name: 'knowledgeBase(b12)',
-    nsLiteral: 'knowledgeBase',
-    nsPath: ['knowledgeBase'],
-    sources: [
-      'app/(main)/knowledge-base/page.tsx',
-      'app/(main)/knowledge-base/PageClient.tsx',
-      'app/(main)/knowledge-base/[id]/PageClient.tsx',
-      'app/(main)/knowledge-base/search/PageClient.tsx',
-      'app/(main)/knowledge-base/edit/page.tsx',
-      'app/(main)/knowledge-base/edit/TagInput.tsx',
-    ],
-    minReferenced: 23,
-  },
-  {
-    name: 'knowledgeRag(b12)',
-    nsLiteral: 'knowledgeRag',
-    nsPath: ['knowledgeRag'],
-    sources: ['app/(main)/knowledge-rag/page.tsx'],
-    minReferenced: 4,
-    // HEAD 里该块已有 62 枚他人叶子 ⇒ 只治本票新增的 4 枚
-    onlyKeys: ['metaTitle', 'metaDescription', 'metaOgTitle', 'metaOgDescription'],
-  },
-  {
-    name: 'kbArticleForm(b12)',
-    nsLiteral: 'kbArticleForm',
-    nsPath: ['kbArticleForm'],
-    sources: [
-      'app/(main)/knowledge-base/edit/page.tsx',
-      'app/(main)/knowledge-base/edit/TagInput.tsx',
-    ],
-    minReferenced: 2,
-    // HEAD 里该块已有 12 枚他人叶子 ⇒ 只治本票新增的 2 枚
-    onlyKeys: ['tagInputPlaceholder', 'add'],
   },
 ]
 
@@ -765,9 +648,7 @@ describe.each(FAMILIES)('家族 $name 取词契约', (fam: Family) => {
     expect(bad, `硬编码中文越过额度:${bad.map((b) => `${b.f}=${b.n}>${b.cap}`).join(' ')}`).toEqual(
       [],
     )
-  }, // 本用例逐族 spawn 权威守门脚本(跨进程 node 冷启动),CI 冷 runner 上单族可超默认 5s
-  // (PR#65 run 36350697722 'rules' 族超时红;本地热盘 0ms)。判据不变,仅预算 30s。
-  30_000)
+  })
 })
 
 describe('跨族卫生', () => {

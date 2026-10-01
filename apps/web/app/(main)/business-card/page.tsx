@@ -12,8 +12,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { CreditCard, Plus, Star, Share2, Loader2, Pencil, Trash2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { BackButton, AuthGatePrompt } from '@/components/common'
-import { useAuthGate } from '@/hooks/use-auth-gate'
+import { BackButton } from '@/components/common'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { getInitials } from '@/components/data/Avatar'
@@ -57,10 +56,14 @@ function CardItem({ card, footer }: { card: BusinessCard; footer?: React.ReactNo
             alt={card.name}
             width={48}
             height={48}
-            className="h-12 w-12 shrink-0 rounded-lg object-cover"
+            // radius-role-exempt: 48px 头像图(rounded-xl=圆角头像观感),属头像豁免族而非卡片容器,不得按 card 方档化 until 2026-11-26
+            className="h-12 w-12 shrink-0 rounded-xl object-cover"
           />
         ) : (
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
+          <div
+            // radius-role-exempt: 48px 首字母头像占位(与上方 Image 同档),属头像豁免族而非卡片容器 until 2026-11-26
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary"
+          >
             {getInitials(card.name)}
           </div>
         )}
@@ -85,9 +88,6 @@ export default function BusinessCardPage() {
   const t = useTranslations('businessCardPage')
   const qc = useQueryClient()
 
-  // 2026-09-30 登录态门:未登录不发注定 401 的请求
-  const { allow } = useAuthGate()
-
   const {
     data: mine,
     isLoading: mineLoading,
@@ -95,7 +95,6 @@ export default function BusinessCardPage() {
   } = useQuery({
     queryKey: ['business-card', 'mine'],
     queryFn: () => api<CardListData>(`/api/business-card`).then((d) => d.list ?? []),
-    enabled: allow, // 2026-09-30 登录态门
   })
 
   const {
@@ -105,7 +104,6 @@ export default function BusinessCardPage() {
   } = useQuery({
     queryKey: ['business-card', 'favorites'],
     queryFn: () => api<FavCardListData>(`/api/business-card/favorites`).then((d) => d.list ?? []),
-    enabled: allow, // 2026-09-30 登录态门
   })
 
   const removeMut = useMutation({
@@ -145,10 +143,7 @@ export default function BusinessCardPage() {
           {t('myCards')}
           <span className="text-sm font-normal text-muted-foreground">{(mine ?? []).length}</span>
         </h2>
-        {!allow ? (
-          // 2026-09-30 登录态门
-          <AuthGatePrompt message="请先登录后查看我的名片" />
-        ) : mineLoading ? (
+        {mineLoading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {t('loading')}
@@ -219,10 +214,7 @@ export default function BusinessCardPage() {
             {t('viewAll')}
           </Link>
         </div>
-        {!allow ? (
-          // 2026-09-30 登录态门
-          <AuthGatePrompt message="请先登录后查看收藏的名片" />
-        ) : favLoading ? (
+        {favLoading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {t('loading')}

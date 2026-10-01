@@ -24,6 +24,68 @@ import { cn } from '../lib/utils'
  * desktop / extension / mobile-rn / miniapp-taro / ai-service / api / cli 当前未
  * 引用此组件,本任务豁免同步(仅 web + packages/ui,见 PROJECT_PLAN.md 同步标注)。
  */
+/**
+ * Upload 组件文案契约(2026-09-30 补齐):`@ihui/ui-react` 不引 next-intl(被多端共用),
+ * 组件内只留 DEFAULT_UPLOAD_LABELS 中文兜底;非中文界面由消费端经
+ * `useUploadLabels()`(apps/web/src/hooks/use-upload-labels.ts)注入 labels,
+ * 键集合与该 hook 逐键对齐 —— 两边必须同步增删,否则类型层即红。
+ */
+export interface UploadLabels {
+  /** 拖拽区占位文案 */
+  placeholder: string
+  /** 单条上传完成状态文案 */
+  done: string
+  /** 取消全部在途上传按钮文案 */
+  cancelUpload: string
+  /** 删除已上传 URL 按钮的 aria-label */
+  removeUploadedAriaLabel: string
+  /** 移除在途上传条目的 aria-label */
+  removeItemAriaLabel: string
+  /** 单文件大小上限提示(完整文案,尺寸已由调用方插值) */
+  sizeLimitHint: string
+  /** 达到文件数上限的错误文案 */
+  maxCountReached: string
+  /** 文件超限的错误文案(文件名清单已由调用方拼好) */
+  oversizeFiles: string
+  /** 通用上传失败文案 */
+  uploadFailed: string
+  /** 带 HTTP 状态码的上传失败文案(状态码已由调用方插值) */
+  uploadFailedWithStatus: string
+  /** 响应非合法 JSON 的错误文案 */
+  invalidJsonResponse: string
+  /** 响应中无 URL 字段的错误文案 */
+  noUrlField: string
+  /** 网络错误文案 */
+  networkError: string
+  /** 上传被取消文案 */
+  uploadCancelled: string
+}
+
+/** 中文兜底文案(组件默认档;消费端本地化时整体覆盖)。
+ *  注:带运行时插值的四条(sizeLimitHint/maxCountReached/oversizeFiles/
+ *  uploadFailedWithStatus)默认值由使用点内联拼接 —— labels 注入的是**已插值的完整文案**。 */
+export const DEFAULT_UPLOAD_LABELS: UploadLabels = {
+  placeholder: '点击或拖拽文件到此处上传',
+  done: '已完成',
+  cancelUpload: '取消上传',
+  removeUploadedAriaLabel: '删除已上传文件',
+  removeItemAriaLabel: '移除上传项',
+  sizeLimitHint: '单文件大小超限',
+  maxCountReached: '已达文件数上限',
+  oversizeFiles: '部分文件超过大小上限',
+  uploadFailed: '上传失败',
+  uploadFailedWithStatus: '上传失败',
+  invalidJsonResponse: '响应不是合法 JSON',
+  noUrlField: '响应中未找到可用的 URL 字段',
+  networkError: '网络错误',
+  uploadCancelled: '上传已取消',
+}
+
+/** 把 Partial labels 合并到中文兜底档(未覆盖的键回退默认)。 */
+function mergeLabels(labels?: Partial<UploadLabels>): UploadLabels {
+  return { ...DEFAULT_UPLOAD_LABELS, ...labels }
+}
+
 export interface UploadProps {
   /** 已上传的 URL 列表(受控) */
   value?: string[]
@@ -43,8 +105,10 @@ export interface UploadProps {
   fieldName?: string
   /** 自定义请求头(用于携带 token 等) */
   headers?: Record<string, string>
-  /** 占位文案 */
+  /** 占位文案(单实例覆盖;多语言走 labels.placeholder) */
   placeholder?: string
+  /** 界面文案注入(消费端本地化用;未传的键回退中文兜底档) */
+  labels?: Partial<UploadLabels>
   /** 自定义类 */
   className?: string
   /** 错误回调(上传失败 / 文件超限) */
@@ -62,54 +126,6 @@ export interface UploadProps {
    * 无法匹配时返回 null,该文件上传视为失败
    */
   resolveUrl?: (response: unknown) => string | null
-  /** 界面文案注入(不传的键回退 DEFAULT_UPLOAD_LABELS 简体中文 — 不注入即不本地化) */
-  labels?: Partial<UploadLabels>
-}
-
-/** Upload 界面文案(占位/状态/错误提示/无障碍标签),由消费端注入 */
-export interface UploadLabels {
-  placeholder: string
-  done: string
-  cancelUpload: string
-  removeUploadedAriaLabel: string
-  removeItemAriaLabel: string
-  sizeLimitHint: string
-  maxCountReached: string
-  oversizeFiles: string
-  uploadFailed: string
-  uploadFailedWithStatus: string
-  invalidJsonResponse: string
-  noUrlField: string
-  networkError: string
-  uploadCancelled: string
-  /** D192(2026-09-30 立):已上传图片的逐图 alt 模板,{index} 从 1 起;缺省中文兜底由消费端注入本地化 */
-  imageAltText: string
-}
-
-/** i18n 默认值(不传 labels 时回退到简体中文) */
-const DEFAULT_UPLOAD_LABELS: UploadLabels = {
-  placeholder: '点击或拖拽文件到此处上传',
-  done: '已完成',
-  cancelUpload: '取消上传',
-  removeUploadedAriaLabel: '删除已上传文件',
-  removeItemAriaLabel: '移除上传项',
-  sizeLimitHint: '单文件不超过 {size}',
-  maxCountReached: '已达上限 {max} 个文件',
-  oversizeFiles: '以下文件超过 {size}: {files}',
-  uploadFailed: '上传失败',
-  uploadFailedWithStatus: '上传失败:HTTP {status}',
-  invalidJsonResponse: '响应不是合法 JSON',
-  noUrlField: '响应中未找到可用的 URL 字段',
-  networkError: '网络错误',
-  uploadCancelled: '上传已取消',
-  imageAltText: '反馈截图 {index}',
-}
-
-/** 轻量 {var} 占位插值(不引 i18n 框架):消费端 t() 返回的模板在此填值(与 data-table.tsx 同形态) */
-function fillTemplate(template: string, values: Record<string, string | number>): string {
-  return template.replace(/\{(\w+)\}/g, (_m, key: string) =>
-    values[key] === undefined ? `{${key}}` : String(values[key]),
-  )
 }
 
 const DEFAULT_MAX_COUNT = 5
@@ -185,19 +201,18 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
     fieldName = 'file',
     headers,
     placeholder,
+    labels,
     className,
     onError,
     onProgress,
     onRemove,
     resolveUrl = defaultResolveUrl,
-    labels: labelsProp,
   },
   ref,
 ) {
-  const labels = React.useMemo<UploadLabels>(
-    () => ({ ...DEFAULT_UPLOAD_LABELS, ...labelsProp }),
-    [labelsProp],
-  )
+  // 文案档:与 labels 引用稳定绑定,避免回调依赖每渲染变化
+  const t = React.useMemo(() => mergeLabels(labels), [labels])
+  const effectivePlaceholder = placeholder ?? t.placeholder
   const inputRef = React.useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = React.useState(false)
   const [items, setItems] = React.useState<FileItem[]>([])
@@ -229,33 +244,33 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
 
         xhr.onload = () => {
           if (xhr.status < 200 || xhr.status >= 300) {
-            reject(new Error(fillTemplate(labels.uploadFailedWithStatus, { status: xhr.status })))
+            reject(new Error(t.uploadFailedWithStatus.replace('{status}', String(xhr.status))))
             return
           }
           let parsed: unknown
           try {
             parsed = JSON.parse(xhr.responseText)
           } catch {
-            reject(new Error(labels.invalidJsonResponse))
+            reject(new Error(t.invalidJsonResponse))
             return
           }
           const url = resolveUrl(parsed)
           if (!url) {
-            reject(new Error(labels.noUrlField))
+            reject(new Error(t.noUrlField))
             return
           }
           resolve(url)
         }
 
-        xhr.onerror = () => reject(new Error(labels.networkError))
-        xhr.onabort = () => reject(new Error(labels.uploadCancelled))
+        xhr.onerror = () => reject(new Error(t.networkError))
+        xhr.onabort = () => reject(new Error(t.uploadCancelled))
 
         const formData = new FormData()
         formData.append(fieldName, file)
         xhr.send(formData)
       })
     },
-    [endpoint, fieldName, headers, labels, onProgress, resolveUrl],
+    [endpoint, fieldName, headers, onProgress, resolveUrl, t],
   )
 
   /** 处理待上传文件列表(校验 + 实际发起) */
@@ -268,7 +283,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
       const slots = remaining > 0 ? remaining : 0
       const accepted = incoming.slice(0, slots)
       if (accepted.length === 0) {
-        onError?.(new Error(fillTemplate(labels.maxCountReached, { max: maxCount })))
+        onError?.(new Error(t.maxCountReached.replace('{maxCount}', String(maxCount))))
         return
       }
 
@@ -277,10 +292,9 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
       if (oversize.length > 0) {
         onError?.(
           new Error(
-            fillTemplate(labels.oversizeFiles, {
-              size: formatSize(maxSize),
-              files: oversize.map((f) => f.name).join(', '),
-            }),
+            t.oversizeFiles
+              .replace('{maxSize}', formatSize(maxSize))
+              .replace('{names}', oversize.map((f) => f.name).join(', ')),
           ),
         )
       }
@@ -311,7 +325,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
             ),
           )
         } catch (err) {
-          const msg = err instanceof Error ? err.message : labels.uploadFailed
+          const msg = err instanceof Error ? err.message : t.uploadFailed
           setItems((prev) =>
             prev.map((it) => (it.key === item.key ? { ...it, status: 'error', error: msg } : it)),
           )
@@ -328,7 +342,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
         }
       }
     },
-    [labels, maxCount, maxSize, multiple, onChange, onError, remaining, uploadOne, value],
+    [maxCount, maxSize, multiple, onChange, onError, remaining, t, uploadOne, value],
   )
 
   // 已上传 URL 列表(去重保序)
@@ -373,12 +387,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
                 className="group relative h-20 w-20 overflow-hidden rounded-md border bg-muted"
               >
                 {isImg ? (
-                  <img
-                    src={url}
-                    alt={fillTemplate(labels.imageAltText, { index: idx + 1 })}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                  />
+                  <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                     <FileIcon className="h-7 w-7" />
@@ -387,8 +396,8 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
                 <button
                   type="button"
                   onClick={() => handleRemoveUrl(idx)}
-                  aria-label={labels.removeUploadedAriaLabel}
-                  className="absolute right-0 top-0 flex h-5 w-5 items-center justify-center rounded-bl-sm bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                  aria-label={t.removeUploadedAriaLabel}
+                  className="absolute right-0 top-0 flex h-5 w-5 items-center justify-center rounded-bl-md bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -418,7 +427,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
             void handleFiles(e.dataTransfer.files)
           }}
           className={cn(
-            'flex w-full flex-col items-center justify-center gap-2 rounded-sm border-2 border-dashed px-4 py-8 text-center transition-colors',
+            'flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors',
             dragging
               ? 'border-brand-accent-deep bg-primary/5'
               : 'border-border hover:border-primary/50 hover:bg-accent/30',
@@ -430,10 +439,10 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
           ) : (
             <UploadCloud className="h-8 w-8 text-muted-foreground" />
           )}
-          <p className="text-sm text-muted-foreground">{placeholder ?? labels.placeholder}</p>
+          <p className="text-sm text-muted-foreground">{effectivePlaceholder}</p>
           {maxSize !== DEFAULT_MAX_SIZE && (
             <p className="text-xs text-muted-foreground">
-              {fillTemplate(labels.sizeLimitHint, { size: formatSize(maxSize) })}
+              {t.sizeLimitHint.replace('{size}', formatSize(maxSize))}
             </p>
           )}
         </button>
@@ -459,7 +468,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
                     {item.status === 'error' ? (
                       <span className="text-destructive">{item.error}</span>
                     ) : item.status === 'done' ? (
-                      labels.done
+                      t.done
                     ) : (
                       `${item.progress}%`
                     )}
@@ -484,7 +493,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
               <button
                 type="button"
                 onClick={() => handleRemoveItem(item.key)}
-                aria-label={labels.removeItemAriaLabel}
+                aria-label={t.removeItemAriaLabel}
                 className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
               >
                 <X className="h-3 w-3" />
@@ -498,7 +507,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
                 onClick={handleCancelAll}
                 className="text-xs text-muted-foreground transition-colors hover:text-destructive"
               >
-                {labels.cancelUpload}
+                {t.cancelUpload}
               </button>
             </li>
           )}

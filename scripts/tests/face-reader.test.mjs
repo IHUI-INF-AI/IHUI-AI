@@ -46,14 +46,11 @@ import {
   packByBytes,
   spawnCauseText,
   parseBatchCheckSizes,
-  spawnViaTempStdinFile,
-  batchExecFileSync,
 } from '../lib/face-reader.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const scriptsDir = join(here, '..')
 const GIT = gitBinary()
-const read = (f) => readFileSync(join(scriptsDir, f), 'utf8')
 
 /** 已收敛到共用层的门(91 主题接线 / 94 错误码覆盖 / 101 锁与清单对账 / 93 跨端色值对账)。
  *  条数不写进任何断言文案 —— 它是会过期的数字,用例只按 `GATES.length` 说话。 */
@@ -65,6 +62,42 @@ const GATES = [
   // 清单长度不写进断言文案(会过期),用例一律按 `GATES.length` 说话。
   'check-cross-end-tokens.mjs',
 ]
+
+/**
+ * 形态锁一律判**被审的那一枚提交**,不判这台机此刻的盘 —— 由实测逼出:
+ * 本仓 `scripts/check-theme-prop-wiring.mjs` 的工作树副本停在 09-24 的旧草稿(既没 import 层、
+ * 又自带绑裸 `'git'` 的常量),而 HEAD 早已收口进层。按磁盘读时,「已收口的门必须 0 处裸 git」
+ * 与「4 道门必须真的 import 这一层」两条断言在**任何时刻**都红,而红的不是判据 —— 是别人
+ * 未提交的滞后副本被记成了本仓的债(§12e / 守门 77/83/118 同型:恒红门的唯一结局是逼人
+ * `--no-verify`,一次绕过约等于全部守门作废)。
+ *
+ * 面:默认 **HEAD blob**;`--staged` 判索引 blob;`--worktree` 只是人工逃生舱。
+ * 枚举与内容**同面同轮**(一次 `cat-file --batch` 读满本文件所需全部目标)。
+ * 取不到 ⇒ 抛 `Undetermined` 并点名 —— 不回落另一个面、不拿磁盘凑结论。
+ */
+const FACE = process.argv.includes('--staged') ? 'staged' : process.argv.includes('--worktree') ? 'worktree' : 'head'
+const READ_TARGETS = ['lib/face-reader.mjs', ...GATES]
+const FACE_TEXTS = (() => {
+  if (FACE === 'worktree') {
+    const m = new Map()
+    for (const f of READ_TARGETS) m.set(f, existsSync(join(scriptsDir, f)) ? readFileSync(join(scriptsDir, f), 'utf8') : null)
+    return m
+  }
+  const prefix = FACE === 'staged' ? ':' : 'HEAD:'
+  const specs = READ_TARGETS.map((f) => `${prefix}scripts/${f}`)
+  const got = catBatch(scriptsDir, specs, { maxBuffer: 1 << 26 })
+  const m = new Map()
+  READ_TARGETS.forEach((f, i) => m.set(f, got.get(specs[i]) ?? null))
+  return m
+})()
+console.log(`  [取材面] ${FACE_LABEL[FACE]} —— 形态锁读的是这一面,不是共享工作树(目标 ${READ_TARGETS.length} 个,一轮批量读)`)
+
+function read(f) {
+  if (!FACE_TEXTS.has(f)) throw new Error(`判据想读 ${f},但它不在本文件的取材清单里 ⇒ 面会随调用悄悄变化,拒绝猜测`)
+  const t = FACE_TEXTS.get(f)
+  if (typeof t !== 'string') throw new Undetermined(`无法判定:${FACE_LABEL[FACE]} 面取不到 scripts/${f}(不回落磁盘凑结论)`)
+  return t
+}
 
 test('层自身:绝对路径 git(裸 "git" 会让服务账户/GUI 宿主下的取数静默失败)', () => {
   const bin = gitBinary()
@@ -228,8 +261,14 @@ test('判据本身不恒真:同一把尺子必须能抓住违规样本、而对�
 
 test(`装车证明:${GATES.length} 道门都必须真的 import 这一层`, (t) => {
   for (const f of GATES) {
-    if (!existsSync(join(scriptsDir, f))) {
-      t.skip(`${f} 不在盘上 ⇒ 未判定,不计为通过`)
+    // 判"在不在"也按**被审面**,不按盘 —— 一条被并行会话刚从 HEAD 摘掉的路径不该因为
+    // 盘上还留着就被记成"已装车";反过来盘上没有而面上有,也不该记成缺失。
+    if (FACE_TEXTS.get(f) === undefined) {
+      t.skip(`${f} 不在取材面名单里 ⇒ 未判定,不计为通过`)
+      continue
+    }
+    if (FACE_TEXTS.get(f) === null) {
+      t.skip(`${f} 在 ${FACE_LABEL[FACE]} 面上取不到 ⇒ 未判定,不计为通过`)
       continue
     }
     const src = read(f)
@@ -889,63 +928,6 @@ test('判"远端在哪"只许走层:生产文件不得拿会被清理层删掉�
     return typeof src === 'string' && violates(src)
   })
   assert.deepEqual(bad, [], `这些文件仍在拿跟踪 ref 判远端位置:${bad.join(', ')}`)
-})
-
-/* ── 2026-10-01 EBUSY 病窗兜底:临时文件 fd 喂 stdin ─────────────────────────────
- * 成因:交互会话进程树里 Node 建 stdin 管道 100% EBUSY(2026-10-01 风暴,矩阵 6/6),
- * 所有 batch 出口随之整门「无法判定」。修复:主路径照旧(pipe),仅 e.code==='EBUSY' 时
- * 改走 spawnViaTempStdinFile 的 fd 通道(fd 不是管道,病窗不发病;先例
- * scripts/lib/agent-event-coverage.mjs 的 catBatchViaTempStdinFile,矩阵 6/6 绕开实证)。
- * 本组三条:fd 通道功能等价 / 非零退出与错误形状不因包装器漂移 / EBUSY 分流真实存在。 */
-
-test('spawnViaTempStdinFile:fd 喂 stdin 与管道同结果(fd 不是管道,EBUSY 病窗不发病)', () => {
-  const root = join(here, '..', '..')
-  const spec = 'HEAD:scripts/lib/face-reader.mjs'
-  const r = spawnViaTempStdinFile(
-    GIT,
-    ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch'],
-    { cwd: root, input: Buffer.from(spec + '\n', 'utf8'), maxBuffer: 64 << 20, encoding: 'buffer' },
-  )
-  assert.equal(r.error, undefined, `fd 通道派生失败: ${r.error}`)
-  assert.equal(r.status, 0, `fd 通道退出码 ${r.status}: ${String(r.stderr)}`)
-  const text = r.stdout.toString('utf8')
-  const header = text.split('\n', 1)[0]
-  assert.match(header, /^[0-9a-f]{40} blob \d+$/, `fd 通道回的不是 batch 头: ${header}`)
-  // 阳性对照:内容必须是真 blob 正文,不是空输入产的零输出(空 stdin 假成功那一型的反面)
-  assert.ok(
-    text.includes('判定面取材的共用底层'),
-    'fd 通道拿到的不是 face-reader.mjs 正文 —— 临时文件没被 git 读到',
-  )
-})
-
-test('batchExecFileSync:非零退出照 execFileSync 形状抛(带 status),非 EBUSY 错误原样穿透', () => {
-  const root = join(here, '..', '..')
-  // 非零退出:rev-parse 一个不存在的 ref,git 回 128 —— 包装器必须把 status 带上来,
-  // 调用方的 catch(区分"git 说没有"与"git 没跑成")才不会退化成 parse 字符串。
-  assert.throws(
-    () => batchExecFileSync(GIT, ['-C', root, 'rev-parse', '--verify', 'definitely-not-a-ref-815981'], { cwd: root }),
-    (e) => {
-      assert.equal(e.status, 128, `非零退出的 status 没带上: ${e.status}`)
-      return true
-    },
-  )
-  // 非 EBUSY 的派生故障必须原样抛(绝不吞成一次"重试过了"):ENOENT 是最可控的一支。
-  assert.throws(
-    () => batchExecFileSync('definitely-no-such-binary-815981', ['x'], { cwd: root, input: 'y' }),
-    (e) => {
-      assert.equal(e.code, 'ENOENT', `非 EBUSY 错误被改型: ${e.code}`)
-      return true
-    },
-  )
-})
-
-test('batchExecFileSync:EBUSY 分流真实存在(短路判据 + fd 通道调用点在场)', () => {
-  const src = read('lib/face-reader.mjs')
-  // 判据只认 EBUSY:这条短路必须逐字在场 —— 少了它,ENOBUFS/ENOENT 等真故障也会被吞成重试。
-  assert.match(src, /e\?\.code !== 'EBUSY'/, 'EBUSY 短路判据缺失 —— 兜底会吞掉真故障')
-  assert.match(src, /export function batchExecFileSync/, '包装器出口缺失')
-  assert.match(src, /export function spawnViaTempStdinFile/, 'fd 通道出口缺失')
-  assert.match(src, /stdio:\s*\[\s*fd,\s*'pipe',\s*'pipe'\s*\]/, 'fd 通道的 stdio 形态漂了')
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

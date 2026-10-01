@@ -119,19 +119,16 @@ export function ConversationAttentionBadges({
         </span>
       )}
       {unread && (
-        // §4 禁原生提示窗:title 属性交回项目 Tooltip(与同文件收藏钮同款用法);
-        // aria-label 保留 —— 它是无障碍朗读,不是原生 tooltip。
-        <Tooltip content={t('attentionUnread', { count: unreadCount })}>
-          <span
-            data-testid="attention-badge-unread"
-            role="status"
-            aria-label={t('attentionUnread', { count: unreadCount })}
-            className="inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/10 px-1 text-[10px] font-semibold leading-none tabular-nums text-primary"
-          >
-            <Bell className="mr-0.5 h-3 w-3" />
-            {formatUnreadCount(unreadCount)}
-          </span>
-        </Tooltip>
+        <span
+          data-testid="attention-badge-unread"
+          role="status"
+          aria-label={t('attentionUnread', { count: unreadCount })}
+          title={t('attentionUnread', { count: unreadCount })}
+          className="inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/10 px-1 text-[10px] font-semibold leading-none tabular-nums text-primary"
+        >
+          <Bell className="mr-0.5 h-3 w-3" />
+          {formatUnreadCount(unreadCount)}
+        </span>
       )}
     </span>
   )

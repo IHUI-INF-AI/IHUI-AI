@@ -94,12 +94,12 @@ describe('D180 划词批注 store', () => {
 
     const raw = localStorage.getItem(PERSIST_KEY)
     expect(raw).not.toBeNull()
-    const parsed = JSON.parse(raw!) as {
+    const parsed = JSON.parse(raw as string) as {
       state: { annotationsByMessage: Record<string, { text: string; comment: string }[]> }
     }
-    expect(parsed.state.annotationsByMessage[selectionAnnotationKey('c1', 'm1')]![0]).toMatchObject(
-      { text: '刷新后仍要在', comment: '刷新后的评论' },
-    )
+    expect(
+      parsed.state.annotationsByMessage[selectionAnnotationKey('c1', 'm1')]![0]!,
+    ).toMatchObject({ text: '刷新后仍要在', comment: '刷新后的评论' })
 
     // 刷新仿真:重建模块图 ⇒ 新 store 实例从 localStorage 同步 rehydrate
     vi.resetModules()

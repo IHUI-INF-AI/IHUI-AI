@@ -30,7 +30,6 @@ import {
   useArtifactTurnNav,
   useFocusArtifactScroll,
   emitFocusArtifact,
-  tryFocusArtifactFromLink,
   FOCUS_ARTIFACT_EVENT,
   SCROLL_TO_MESSAGE_EVENT,
 } from '@/components/media/artifact-turn-badge'
@@ -247,10 +246,9 @@ describe('useFocusArtifactScroll 反向监听(④)', () => {
     const scrollSpy = vi.spyOn(card, 'scrollIntoView').mockImplementation(() => {})
     emitFocusArtifact('tmp/artifacts/report.docx')
     expect(scrollSpy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
-    // 9974db249 起高亮写法为 '2px solid var(--color-primary)';jsdom/cssstyle 无法解析
-    // var() 分量,会把整串原样落到 outline 三个子属性,序列化后不含 "solid"。
-    // 判据跟到 DOM 实际形态:描边已挂上且取的是 --color-primary 令牌本体。
-    expect(card.style.outline).toContain('var(--color-primary)')
+    // jsdom 的 CSSOM 解析不了 shorthand + var()(longhand 全被塞成 var() 值),
+    // 这里只断言"描边已写上内联样式"(浏览器端由 outline: 2px solid var(--color-primary) 呈现)
+    expect(card.getAttribute('style')).toContain('outline')
     scrollSpy.mockRestore()
   })
 
@@ -264,202 +262,6 @@ describe('useFocusArtifactScroll 反向监听(④)', () => {
     unmount()
     expect(() => emitFocusArtifact('tmp/artifacts/report.docx')).not.toThrow()
     scrollSpy.mockRestore()
-  })
-})
-
-// ------------- 残余①(2026-09-25):同轮多产物按产物 id 精确聚焦 ----------------
-//
-// 反向对照:本票前 useArtifactTurnNav **没有** focusArtifact(只有 turn 粒度的
-// onChangeIndex,反向聚焦恒取该轮 artifacts[0])。旧实现在这组用例上必红:
-// 点击"第 2 个产物"要么 TypeError(API 不存在),要么 detail.path 落回第 1 个。
-
-function FocusArtifactHarness() {
-  const messages = useChatStore((s) => s.messages)
-  const nav = useArtifactTurnNav(messages)
-  return (
-    <div>
-      <button
-        type="button"
-        data-testid="focus-first"
-        onClick={() => nav.focusArtifact('tmp/artifacts/one.docx')}
-      />
-      <button
-        type="button"
-        data-testid="focus-second"
-        onClick={() => nav.focusArtifact('tmp/artifacts/two.csv')}
-      />
-      <button
-        type="button"
-        data-testid="focus-unknown"
-        onClick={() => nav.focusArtifact('tmp/absent.pptx')}
-      />
-      <span data-testid="nav-position">{nav.activeIndex}</span>
-    </div>
-  )
-}
-
-describe('useArtifactTurnNav.focusArtifact 残余①(按产物 id 精确聚焦)', () => {
-  it('同轮 2 产物分别点第 1 / 第 2 个 → 聚焦目标不同(不恒等于轮内首个),activeIndex 同步', () => {
-    useChatStore.setState({
-      messages: [
-        msg({
-          id: 'a1',
-          role: 'assistant',
-          content: '',
-          createdAt: 1,
-          toolCalls: [
-            {
-              id: 't1',
-              toolName: 'summarize_artifacts',
-              status: 'success',
-              summary_data: {
-                artifacts: [
-                  { type: 'file', path: 'tmp/artifacts/one.docx' },
-                  { type: 'file', path: 'tmp/artifacts/two.csv' },
-                ],
-              },
-            },
-          ],
-        }),
-        msg({
-          id: 'a2',
-          role: 'assistant',
-          content: '',
-          createdAt: 2,
-          toolCalls: [
-            {
-              id: 't2',
-              toolName: 'summarize_artifacts',
-              status: 'success',
-              summary_data: { artifacts: [{ type: 'file', path: 'tmp/deck.pptx' }] },
-            },
-          ],
-        }),
-      ],
-    })
-    render(
-      withProviders(
-        <div>
-          <div data-message-id="a1" />
-          <div data-message-id="a2" />
-          <FocusArtifactHarness />
-        </div>,
-      ),
-    )
-    const spyA1 = vi
-      .spyOn(document.querySelector('[data-message-id="a1"]') as HTMLElement, 'scrollIntoView')
-      .mockImplementation(() => {})
-    const spyA2 = vi
-      .spyOn(document.querySelector('[data-message-id="a2"]') as HTMLElement, 'scrollIntoView')
-      .mockImplementation(() => {})
-    const emitted: unknown[] = []
-    const onFocus = (e: Event) => emitted.push((e as CustomEvent<{ path?: string }>).detail?.path)
-    window.addEventListener(FOCUS_ARTIFACT_EVENT, onFocus)
-
-    // 点第 2 个 → 聚焦的是它本身(旧实现唯一可表达的是轮内第 1 个 → 此断言必红)
-    fireEvent.click(screen.getByTestId('focus-second'))
-    // 点第 1 个 → 目标与上一步不同
-    fireEvent.click(screen.getByTestId('focus-first'))
-    // 未知产物 → 不派发(派发到空气防回归)
-    fireEvent.click(screen.getByTestId('focus-unknown'))
-    window.removeEventListener(FOCUS_ARTIFACT_EVENT, onFocus)
-
-    expect(emitted).toEqual(['tmp/artifacts/two.csv', 'tmp/artifacts/one.docx'])
-    // 两次都滚回同一 origin 消息(a1),activeIndex 随聚焦轮次落位(未知产物不动)
-    expect(spyA1).toHaveBeenCalledTimes(2)
-    expect(spyA2).not.toHaveBeenCalled()
-    expect(screen.getByTestId('nav-position').textContent).toBe('0')
-    spyA1.mockRestore()
-    spyA2.mockRestore()
-  })
-
-  it('聚焦第 2 轮的产物 → 滚回第 2 轮消息且 detail 即被点锚点', () => {
-    useChatStore.setState({
-      messages: [
-        msg({
-          id: 'a1',
-          role: 'assistant',
-          content: '',
-          createdAt: 1,
-          toolCalls: [
-            {
-              id: 't1',
-              toolName: 'summarize_artifacts',
-              status: 'success',
-              summary_data: { artifacts: [{ type: 'file', path: 'tmp/deck.pptx' }] },
-            },
-          ],
-        }),
-        msg({
-          id: 'a2',
-          role: 'assistant',
-          content: '',
-          createdAt: 2,
-          toolCalls: [
-            {
-              id: 't2',
-              toolName: 'summarize_artifacts',
-              status: 'success',
-              summary_data: {
-                artifacts: [
-                  { type: 'file', path: 'tmp/artifacts/one.docx' },
-                  { type: 'file', path: 'tmp/artifacts/two.csv' },
-                ],
-              },
-            },
-          ],
-        }),
-      ],
-    })
-    render(
-      withProviders(
-        <div>
-          <div data-message-id="a1" />
-          <div data-message-id="a2" />
-          <FocusArtifactHarness />
-        </div>,
-      ),
-    )
-    const spyA1 = vi
-      .spyOn(document.querySelector('[data-message-id="a1"]') as HTMLElement, 'scrollIntoView')
-      .mockImplementation(() => {})
-    const spyA2 = vi
-      .spyOn(document.querySelector('[data-message-id="a2"]') as HTMLElement, 'scrollIntoView')
-      .mockImplementation(() => {})
-    const onFocus = vi.fn()
-    window.addEventListener(FOCUS_ARTIFACT_EVENT, onFocus)
-    fireEvent.click(screen.getByTestId('focus-second'))
-    window.removeEventListener(FOCUS_ARTIFACT_EVENT, onFocus)
-    expect((onFocus.mock.calls[0]?.[0] as CustomEvent).detail?.path).toBe('tmp/artifacts/two.csv')
-    expect(spyA2).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
-    expect(spyA1).not.toHaveBeenCalled()
-    expect(screen.getByTestId('nav-position').textContent).toBe('1')
-    spyA1.mockRestore()
-    spyA2.mockRestore()
-  })
-})
-
-// ------------- 残余②(2026-09-25):链接发起端接管判据(通道级) ------------------
-
-describe('tryFocusArtifactFromLink 残余②(有卡接管 / 无卡放行)', () => {
-  it('页面上有同锚点产物卡 → 接管(true)+派发既有事件+监听端定位高亮', () => {
-    render(<FocusHarness />)
-    const card = screen.getByTestId('artifact-card')
-    const scrollSpy = vi.spyOn(card, 'scrollIntoView').mockImplementation(() => {})
-    expect(tryFocusArtifactFromLink('tmp/artifacts/report.docx')).toBe(true)
-    expect(scrollSpy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
-    // 同④:jsdom 下 '2px solid var(--color-primary)' 序列化为三个 var 分量,判据锁令牌本体。
-    expect(card.style.outline).toContain('var(--color-primary)')
-    scrollSpy.mockRestore()
-  })
-
-  it('无对应卡 → false 且不派发(调用方保持原下载 / 打开面板行为)', () => {
-    render(<FocusHarness />)
-    const onFocus = vi.fn()
-    window.addEventListener(FOCUS_ARTIFACT_EVENT, onFocus)
-    expect(tryFocusArtifactFromLink('https://example.com/loose.docx')).toBe(false)
-    expect(onFocus).not.toHaveBeenCalled()
-    window.removeEventListener(FOCUS_ARTIFACT_EVENT, onFocus)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -4,13 +4,13 @@
 
 import { useTt, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Textarea, Image, Button, ScrollView, Switch } from '@tarojs/components'
+import { View, Text, Image, Button, ScrollView, Switch } from '@tarojs/components'
+import { FocusTextarea } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { get, post, getTopicList } from '@/api'
 import { TOPIC_EVENT } from '@/constants/events'
 import ThemeRoot from '@/components/ThemeRoot'
-import { useFieldFocus } from '@/hooks/use-field-focus'
 import LineIcon, { type IconName } from '@/components/LineIcon'
 import './create.css'
 
@@ -75,8 +75,6 @@ export default function CircleCreatePage() {
   const [aigcWorks, setAigcWorks] = useState<AigcWork[]>([])
   const [aigcOpen, setAigcOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  // 聚焦态描边:描边画在外层 cc-card 容器上(端内唯一可行形态,取色唯一出处见 hook)
-  const contentFocus = useFieldFocus()
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const loadHotTopics = useCallback(async () => {
@@ -216,15 +214,13 @@ export default function CircleCreatePage() {
   return (
     <ThemeRoot>
       <View className="cc-page">
-        <View className="cc-card cc-main" style={contentFocus.focusStyle}>
-          <Textarea
+        <View className="cc-card cc-main">
+          <FocusTextarea
             className="cc-content"
             value={form.content}
             placeholder={tt('circle.createForm.contentPlaceholder', '分享你的想法…')}
             maxlength={MAX_CONTENT}
             onInput={(e) => setForm((f) => ({ ...f, content: e.detail.value }))}
-            onFocus={contentFocus.onFocus}
-            onBlur={contentFocus.onBlur}
           />
           <View className="cc-counter">
             <Text className="cc-counter-num">{form.content.length}</Text>

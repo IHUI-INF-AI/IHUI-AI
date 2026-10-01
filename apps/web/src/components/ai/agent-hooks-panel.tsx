@@ -9,7 +9,6 @@ import { useTranslations } from 'next-intl'
 import { Bell, Plus, Trash2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { droppedNotice } from '@/lib/bounded-append'
 import {
   AGENT_HOOK_ACTIONS,
   AGENT_HOOK_EVENTS,
@@ -33,7 +32,6 @@ export function AgentHooksPanel() {
   const t = useTranslations('agentHooks')
   const hooks = useAgentHooksStore((s) => s.hooks)
   const events = useAgentHooksStore((s) => s.events)
-  const droppedEvents = useAgentHooksStore((s) => s.droppedEvents)
   const addHook = useAgentHooksStore((s) => s.addHook)
   const removeHook = useAgentHooksStore((s) => s.removeHook)
   const toggleHook = useAgentHooksStore((s) => s.toggleHook)
@@ -105,7 +103,7 @@ export function AgentHooksPanel() {
             type="button"
             data-testid="agent-hooks-add"
             onClick={handleAdd}
-            className="flex flex-1 items-center justify-center gap-1 rounded-sm bg-cta px-2 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+            className="flex flex-1 items-center justify-center gap-1 rounded-md bg-cta px-2 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
           >
             <Plus className="h-3 w-3" />
             {t('add')}
@@ -114,7 +112,7 @@ export function AgentHooksPanel() {
             type="button"
             data-testid="agent-hooks-test"
             onClick={handleTest}
-            className="rounded-sm border border-border px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-accent/50"
+            className="rounded-md border border-border px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-accent/50"
           >
             {t('test')}
           </button>
@@ -139,7 +137,7 @@ export function AgentHooksPanel() {
                 onClick={() => toggleHook(h.id)}
                 // @allow-rounded-full 自制 Switch 开关轨道(16x28 胶囊,豁免 2 Switch 语义)
                 className={cn(
-                  'h-4 w-7 shrink-0 rounded-sm transition-colors',
+                  'h-4 w-7 shrink-0 rounded-md transition-colors',
                   h.enabled ? 'bg-primary' : 'bg-muted-foreground/40',
                 )}
               >
@@ -187,12 +185,6 @@ export function AgentHooksPanel() {
             </button>
           )}
         </div>
-        {droppedEvents > 0 ? (
-          // G-641:溢出丢弃必须可见 —— 残缺的事件日志不得伪装成完整
-          <p data-testid="agent-hooks-events-dropped" className="text-[11px] text-muted-foreground">
-            {droppedNotice(droppedEvents)}
-          </p>
-        ) : null}
         <div data-testid="agent-hooks-events" className="max-h-40 space-y-1 overflow-y-auto">
           {events.length === 0 ? (
             <p className="py-2 text-center text-xs text-muted-foreground">{t('noEvents')}</p>

@@ -188,19 +188,13 @@ def test_fingerprint_stable_and_sensitive():
 
 
 def test_get_published_capability_snapshot_wiring():
-    # G-649(2026-10-01)改断言:原样「未发布过 ⇒ None」把 None 钉成了契约,而
-    # None 恰恰是本票要拆掉的病灶 —— "未初始化"只能是"还没播种"这一次,不能是
-    # 生产稳态。播种出口(seed_uninitialized)必须让消费口拿到可判的快照。
+    # 未发布过 ⇒ None(消费方须回退静态 PROVIDER_CAPS)
+    assert provider_caps.get_published_capability_snapshot() is None
+
     board = pcs.get_snapshot_board()
-    outcome = pcs.seed_uninitialized(board)
-    assert outcome["status"] in ("published", "already_seeded")
-    assert board.snapshot is not None
+    round = board.solve_round_sync()
+    assert board.publish_round(round)["status"] == "published"
 
     snapshot = provider_caps.get_published_capability_snapshot()
     assert snapshot is not None
     assert set(snapshot["provider_caps"]) == set(provider_caps.PROVIDER_CAPS)
-
-    # 第二次播种是幂等空操作:不重播、不推进代数(否则"播种"会变成周期性重装配)
-    generation_before = board.generation
-    assert pcs.seed_uninitialized(board)["status"] == "already_seeded"
-    assert board.generation == generation_before

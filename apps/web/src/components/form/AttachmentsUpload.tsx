@@ -10,10 +10,6 @@ import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
-// G-815967:异步回调回来时复核"我等的还是不是原来那个作业"。判据(代次戳 + 作业 id)
-// 只有 `@ihui/shared/utils/job-scope` 那一份,本文件只做注入 —— 不在端内另写一个 mounted 位,
-// 因为 mounted 只回答"组件还在不在",答不了"用户已切到另一批上传"(那才是本型事故)。
-import { useJobScope } from '@ihui/shared/hooks/use-job-scope'
 
 /**
  * 附件项(与后端 AttachmentItem 一致)。
@@ -83,14 +79,6 @@ export function AttachmentsUpload({
   const [uploading, setUploading] = React.useState(false)
   const [dragOver, setDragOver] = React.useState(false)
   const inputRef = React.useRef<HTMLInputElement>(null)
-  const jobScope = useJobScope()
-  /**
-   * 合并基准取"当前列表"而不是发起时冻结的闭包:上传期间用户删掉某一项时,
-   * 按旧闭包 `[...value, ...ok]` 会把已删的项**复活** —— 那与"迟到的旧批次落进新作业"
-   * 是同一件事的两半(一半是身份,一半是基准),只修一半等于没修。
-   */
-  const valueRef = React.useRef(value)
-  valueRef.current = value
 
   const uploadOne = React.useCallback(
     async (file: File): Promise<AttachmentItem | null> => {
@@ -147,29 +135,18 @@ export function AttachmentsUpload({
         return
       }
       const files = Array.from(fileList).slice(0, remaining)
-      // 身份标记:按批次内容命名(**不是时间戳** —— 同毫秒连点两次会判成同一个作业)。
-      const token = jobScope.begin(`batch:${files.map((f) => `${f.name}:${f.size}`).join('|')}`)
       setUploading(true)
-      let stillCurrent = true
       try {
         const results = await Promise.all(files.map(uploadOne))
-        stillCurrent = jobScope.isCurrent(token)
-        if (!stillCurrent) {
-          // 迟到批次被拦这件事必须留痕,不许静默:摘要里 stale / unknown 分列计数,不并桶。
-          const summary = jobScope.droppedSummary()
-          if (summary) console.warn(`[AttachmentsUpload] 迟到的上传批次已丢弃 ${summary}`)
-          return
-        }
         const ok = results.filter((r): r is AttachmentItem => r !== null)
         if (ok.length > 0) {
-          onChange?.([...valueRef.current, ...ok])
+          onChange?.([...value, ...ok])
         }
       } finally {
-        // 只有"仍在位的批次"才熄 spinner:迟到的那一批发熄会把新批次的加载态一起吞掉
-        if (stillCurrent) setUploading(false)
+        setUploading(false)
       }
     },
-    [jobScope, maxCount, onChange, onError, tu, uploadOne, value],
+    [maxCount, onChange, onError, tu, uploadOne, value],
   )
 
   const handleRemove = React.useCallback(

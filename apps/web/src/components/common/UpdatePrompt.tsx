@@ -15,40 +15,25 @@ import { formatFileSize } from '@/lib/tauri-bridge'
 const RING_R = 15.915
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R
 
-/** 更新失败的分档:撤回态有独立文案,其余保持既有「检查失败 / 通用失败」两档。 */
+/** D194 错误分型(2026-09-30 立):revoked = 版本已撤回/资产 404,check-failed = 检查失败,其余通用 */
 export type UpdateErrorKind = 'revoked' | 'check-failed' | 'generic'
 
 /**
- * D194:判定一条更新错误串是否属于「这个版本已不再提供」(撤回/下架态)。
- *
- * 接的是真实信号,不是猜的字符串,两条都有本仓的出处:
- *  ① 平台键从 feed 消失 → Tauri 对当前 target 报 "Unsupported target <triple>"。
- *     feed 的 platforms 由 `apps/web/src/config/desktop-feed-payload.ts` 拼装,而
- *     平台键的取舍(该文件注释原文:"空签名不出现、dmg 不当 darwin、host 白名单")
- *     全在生成侧 `scripts/lib/tauri-updater-platforms.mjs` 判定 —— 某版本的某平台包
- *     一旦撤下/未签名,该键就不在 feed 里。
- *  ② 资产或 feed 本身 404 → 错误串带 404 / Not Found。本站 feed 路由在快照无资产时
- *     就回 404(`apps/web/app/desktop-feed.json/route.ts`:no windows asset in snapshot),
- *     GitHub release 资产被删(下架)时下载安装同样回 404。
- *
- * 未接上的一格(不得读成已收口):检查阶段的失败到不了这里。
- * `apps/web/src/lib/tauri-bridge.ts` 的 checkForUpdates() 把所有非超时错误压成
- * `new Error('check_failed')`,原始串只进 console.warn —— 该文件此刻由他人持有在飞
- * (git status 输出 `M `),本票不动它,故 check 链按既有 checkFailed 文案走。
+ * D194 更新错误判据(纯函数):feed/资产 404、平台键缺失、"包已下架"都判 revoked ——
+ * 这类错误重试永远失败,界面必须如实说"这个版本已不再提供",不得并显"网络失败请重试"。
+ * check_failed / check_timeout 是 useUpdater 的内部检查失败码,单独分型。
  */
-const REVOKED_ERROR_PATTERNS = [
-  /\b404\b/i,
-  /not\s*found/i,
-  /no\s*longer/i,
-  /unsupported\s*target/i,
-  /target\s+\S+\s+is\s+not\s+supported/i,
-]
-
-/** 纯函数(不碰 state),便于单测;入参是 useUpdater 的 error 串或 null。 */
-export function classifyUpdateError(error: string | null): UpdateErrorKind {
+export function classifyUpdateError(error: string | null | undefined): UpdateErrorKind {
   if (!error) return 'generic'
   if (error === 'check_failed' || error === 'check_timeout') return 'check-failed'
-  if (REVOKED_ERROR_PATTERNS.some((re) => re.test(error))) return 'revoked'
+  const lowered = error.toLowerCase()
+  if (
+    lowered.includes('404') ||
+    lowered.includes('no longer available') ||
+    lowered.startsWith('unsupported target ')
+  ) {
+    return 'revoked'
+  }
   return 'generic'
 }
 
@@ -95,17 +80,19 @@ export function UpdatePrompt() {
   const notes = session?.info.notes ?? ''
   const percent = Math.round(progress * 100)
   const dashOffset = RING_CIRCUMFERENCE * (1 - progress)
-  /** D194:撤回/下架态走独立文案(t('revoked')),其余保持 checkFailed / errorDesc 两档。 */
-  const errorKind = status === 'error' ? classifyUpdateError(error) : 'generic'
+
+  // 是否显示持续性动效(available 状态时整卡+按钮+图标都有动效)
+  const isAnimated = status === 'available'
+
+  // D194:错误分型 —— revoked 显示"这个版本已不再提供。",check-failed 显示检查失败,
+  // 两者都不得并显通用失败文案("更新过程中出现错误,请重试"计数必须为 0)
+  const errorKind = classifyUpdateError(error)
   const errorText =
     errorKind === 'revoked'
       ? t('revoked')
       : errorKind === 'check-failed'
         ? t('checkFailed')
         : t('errorDesc')
-
-  // 是否显示持续性动效(available 状态时整卡+按钮+图标都有动效)
-  const isAnimated = status === 'available'
 
   return (
     <div
@@ -168,7 +155,7 @@ export function UpdatePrompt() {
             </p>
           )}
 
-          {/* 错误信息(撤回态有独立文案) */}
+          {/* 错误信息(D194:按 classifyUpdateError 分型取词,撤回态不并显通用失败) */}
           {status === 'error' && (
             <p className="mt-2.5 text-xs leading-relaxed text-red-500/80">{errorText}</p>
           )}

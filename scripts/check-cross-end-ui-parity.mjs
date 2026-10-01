@@ -2011,7 +2011,7 @@ export function usedClassNames(src) {
  * (与本次"阴影半径被当盒档"同一型,那枚是靠既有锚点才拦住的)。
  * 所以这里只把"用了全局类名"这件事如实报出来;要真去接全局表,前置是先解决**归属**问题。
  */
-export function unresolvedClassNames(src, ownCssText, globalDefined = null) {
+export function unresolvedClassNames(src, ownCssText, _globalDefined = null) {
   const used = usedClassNames(src)
   if (!used.size) return []
   const defined = new Set()
