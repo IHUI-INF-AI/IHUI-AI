@@ -25,7 +25,8 @@ const ADMIN_WILDCARD_PERMISSIONS = ['*:*:*']
 
 /**
  * redirectUri 校验(2026-08-01 扩展:支持 localhost + 配置化 origins + Chrome 扩展 chromiumapp.org + deep-link custom scheme):
- * - 相对路径:必须以 "/" 开头(站内路径,防 open redirect),不允许以 "//" 开头
+ * - 相对路径:必须以 "/" 开头(站内路径,防 open redirect),第二字符不允许是 "/" 或 "\"
+ *   (`//evil.com` 与 `/\evil.com` 在浏览器里都落到外站;2026-10-01 G-413① 补反斜杠这一族)
  * - localhost:http://localhost:NNNN/* 或 http://127.0.0.1:NNNN/*(CLI 本地回调服务器)
  * - 配置化 origins:env SSO_ALLOWED_ORIGINS(逗号分隔,如 http://localhost:8801,https://aizhs.top)
  * - Chrome 扩展 redirect:https://<extension-id>.chromiumapp.org/(chrome.identity.launchWebAuthFlow 固定域)
@@ -122,7 +123,14 @@ const isSafeRedirectUri = (s: string): boolean => {
   if (!s || s.length > 2048) return false
   if (/[\r\n\t]/.test(s)) return false
   // 1. 相对路径(站内重定向)
-  if (s.startsWith('/') && !s.startsWith('//')) return true
+  //    第二字符既不得是 "/" 也不得是 "\\":WHATWG 在 special-scheme 的
+  //    "special authority ignore slashes" 状态里把 "\" 与 "/" 等值处理,`/\evil.com`
+  //    实测解析成 https://evil.com —— 而这一跳带着刚签发的 sso_code,是 code 泄露不是跳转偏好。
+  //    与 apps/web/src/lib/sso-redirect-guard.ts 的 isSameOriginRelative 同一条形状判据(两份实现待下沉)。
+  if (s.startsWith('/')) {
+    const second = s.charAt(1)
+    return second !== '/' && second !== '\\'
+  }
   // 2. localhost(cli 本地回调服务器)
   if (isLocalhostUrl(s)) return true
   // 3. 配置化 origins(env SSO_ALLOWED_ORIGINS)

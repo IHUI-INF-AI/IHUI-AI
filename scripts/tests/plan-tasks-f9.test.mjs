@@ -19,7 +19,7 @@
  * §5c 溯源水印:本文件受 `scripts/watermark.mjs` 管理。
  */
 import path from 'node:path'
-import { mkdirSync, cpSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { mkdirSync, readdirSync, cpSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -162,13 +162,23 @@ test('装车证明:main() 的两把面都经 auditFace(=同一次取材里收窄
     !/auditPlan\(readPlan\(/.test(src),
     '残留 auditPlan(readPlan(…) 的宽旁路 ⇒ 那一档仍在按全文窗口判撞号',
   )
-  // 编号位判据必须复用台账既有出口,不得另抄一份"什么算一个号"(§1 行首编号那条同一条禁令)
+  // 编号位判据必须复用台账既有出口,不得另抄一份"什么算一个号"(§1 行首编号那条同一条禁令)。
+  // G-460 起那份实现住在 `lib/plan-task-index.mjs` 的 `isDeclarationRow`(F9 三档与判据共用一份),
+  // CLI 侧只剩投影 —— 所以本锁的方向反过来:seam 里**不得**再出现 bodyOfRow/stripOwnKey,
+  // 出现就意味着 CLI 又自己算了一遍"什么算声明行"(两处算同一件事必漂移)。
   const seam = src.slice(
     src.indexOf('export function registersKeyAtIdPosition'),
     src.indexOf('export function narrowCollisionsToIdPosition'),
   )
-  assert.match(seam, /bodyOfRow\(/, '编号位判据没走 bodyOfRow ⇒ 状态装饰会被算进主键区')
-  assert.match(seam, /stripOwnKey\(/, '编号位判据没走 stripOwnKey ⇒ 必然另抄了编号正则')
+  assert.match(
+    seam,
+    /isDeclarationRow\(/,
+    '编号位判据没走台账层的 isDeclarationRow ⇒ 判据有了第二份实现',
+  )
+  assert.ok(
+    !/bodyOfRow\(|stripOwnKey\(/.test(seam),
+    'CLI 层不得再自己剥状态装饰/主键 —— 那 F9 的声明位口径就有两份,收窄前后各一份',
+  )
   assert.ok(
     !/G-\\d|D\\d|TASK_ID_PATTERN/.test(seam),
     '编号位判据里不得再写一遍编号族 ⇒ 两处算同一件事必漂移',
@@ -216,13 +226,28 @@ test('真变异:把 registersKeyAtIdPosition 改成恒真(=退回全文匹配口
      */
     const queue = ['plan-tasks.mjs', 'check-plan-line-loss.mjs']
     const seen = new Set(queue)
+    // `scripts/lib` 是**整目录**拷进夹具的,队列按名字跳过了 lib 依赖(避免逐个 walk),于是 lib 里
+    // 任何 `from '../x.mjs'` 反向依赖(实测 `lib/gitdir.mjs` → `seal-c-root-stray.mjs`)永远进不了
+    // 拷贝名单 ⇒ 变异夹具在 `import` 阶段就 ERR_MODULE_NOT_FOUND。那不是"判据没牙",是**夹具缺件**
+    // —— 症状与 §12f 记过的"门体不在 ⇒ 注册指向空"同型(取证链断在结论之前,却长得像结论)。
+    // 所以 seeding 阶段按 lib 的真实 import 现取,不手写第二份名单(手写名单必然腐烂,同上方注释那条禁令)。
+    for (const f of readdirSync(path.join(ROOT, 'scripts', 'lib'))) {
+      if (!f.endsWith('.mjs')) continue
+      const t = readFileSync(path.join(ROOT, 'scripts', 'lib', f), 'utf8')
+      for (const m of t.matchAll(/from\s+['"]\.\.\/([A-Za-z0-9._-]+\.mjs)['"]/g)) {
+        const dep = m[1]
+        if (seen.has(dep)) continue
+        seen.add(dep)
+        queue.push(dep)
+      }
+    }
     while (queue.length) {
       const rel = queue.shift()
       const abs = path.join(ROOT, 'scripts', rel)
       if (!existsSync(abs)) continue // 取不到就交给 node 自己报,不在夹具里猜
       const txt = readFileSync(abs, 'utf8')
-      for (const m of txt.matchAll(/from\s+['"](\.\/[^'"]+)['"]/g)) {
-        const dep = m[1].replace(/^\.\//, '')
+      for (const m of txt.matchAll(/from\s+['"](\.\.?\/[^'"]+)['"]/g)) {
+        const dep = m[1].replace(/^\.\.?\//, '')
         if (dep.startsWith('lib/') || seen.has(dep)) continue
         seen.add(dep)
         queue.push(dep)

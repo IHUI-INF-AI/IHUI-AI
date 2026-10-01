@@ -651,16 +651,28 @@ test('M17 F9 撞号:同编号不同标题必须点名;同题副本/退化标题/
       `真实三行应点名为 G-267 被 3 个标题共用,实测 ${JSON.stringify(real.map((g) => [g.key, g.titleCount]))}`,
     )
   // ⑥ 反向锁:判据必须走 titleOf/keyOfRow 同一出口,不得另抄归一化(§1"窄版自伤"同一条禁令)。
+  //    G-460 起分组循环住在 `f9Faces`(一次扫出声明位/引用图/畸形号三档),`findIdCollisions`
+  //    降为它的宽口径投影 —— 本锁的对象随判据搬走而重指(锁自己的注释就写了"本锁须同批改"),
+  //    同时新增一条投影锁:名单只能有一份实现,否则 CLI/取号器与判据各算一遍"什么算撞号"。
   const libSrc = readFileSync(new URL('../lib/plan-task-index.mjs', import.meta.url), 'utf8')
-  const fnStart = libSrc.indexOf('export function findIdCollisions')
-  if (fnStart < 0) throw new Error('lib 里找不到 findIdCollisions ⇒ 判据被搬走或改名,本锁须同批改')
+  const fnStart = libSrc.indexOf('export function f9Faces')
+  if (fnStart < 0) throw new Error('lib 里找不到 f9Faces ⇒ 分组判据被搬走或改名,本锁须同批改')
   const fn = libSrc.slice(fnStart, libSrc.indexOf('\n}', fnStart))
   if (!fn.includes('titleOf('))
-    throw new Error('findIdCollisions 没走 titleOf ⇒ 必然另抄了一份标题归一化')
+    throw new Error('f9Faces 没走 titleOf ⇒ 必然另抄了一份标题归一化')
   if (!fn.includes('titleIsDegenerate('))
-    throw new Error('findIdCollisions 没走 titleIsDegenerate ⇒ 退化标题会被算成第二个标题')
+    throw new Error('f9Faces 没走 titleIsDegenerate ⇒ 退化标题会被算成第二个标题')
+  if (!fn.includes('isDeclarationRow('))
+    throw new Error('f9Faces 没走声明位判据 ⇒ 分组输入仍是"窗口内任意命中"(G-460 要收的那一型)')
+  if (!fn.includes('malformedFamilyOf('))
+    throw new Error('f9Faces 没把畸形号单列一档 ⇒ 前缀重复号的子串还会顶替别人的第二个标题')
   if (/\.replace\(/.test(fn))
-    throw new Error('findIdCollisions 内部不得再写归一化正则(标题处理唯一出口=titleOf)')
+    throw new Error('f9Faces 内部不得再写归一化正则(标题处理唯一出口=titleOf)')
+  const projStart = libSrc.indexOf('export function findIdCollisions')
+  if (projStart < 0) throw new Error('findIdCollisions 不见了 ⇒ 消费者(取号器/本锁)须同批改')
+  const proj = libSrc.slice(projStart, projStart + 200)
+  if (!proj.includes('f9Faces('))
+    throw new Error('findIdCollisions 不再是 f9Faces 的投影 ⇒ 撞号有了第二份分组实现(必漂移)')
   // 行为侧同锁:只差装饰(租约标记/强调记号)的两行是同一标题 —— 抄窄版会把它们误判成两个。
   const deco =
     '- [ ] **G-9 同一议题**:正文一。\n- [ ]（进行中@2026-09-27/乙）**G-9 同一议题**:正文二。'
