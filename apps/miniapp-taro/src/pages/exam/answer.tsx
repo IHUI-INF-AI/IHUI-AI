@@ -5,6 +5,7 @@
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
+import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
@@ -16,7 +17,6 @@ import {
   startExamRecord,
   type QuestionType,
 } from '@/api'
-import { FocusInput, FocusTextarea } from '@/components/FocusField'
 
 interface Question {
   id: string
