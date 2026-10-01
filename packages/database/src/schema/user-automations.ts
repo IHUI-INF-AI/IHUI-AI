@@ -9,7 +9,7 @@
  * agent → 用户在 /automations 页面查看结果/暂停/恢复/立即运行/删除。
  * 调度器实现在 apps/api/src/services/agent-automation-scheduler.ts(60s tick 轮询)。
  */
-import { pgTable, uuid, varchar, text, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, text, integer, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
 
 /** lastResult jsonb 结构:执行完成后由调度器写入 */
 export interface AutomationLastResult {
@@ -40,6 +40,14 @@ export const userAutomations = pgTable(
     /** recurring 下次执行时间(调度器每次执行后重算) */
     nextRunAt: timestamp('next_run_at', { withTimezone: true }),
     lastResult: jsonb('last_result').$type<AutomationLastResult>(),
+    /** G-669(2026-10-01 立)transient 连续重试计数。
+     *  语义:成功结算即归零;>0 同时是"这一行在重试队列里"的**唯一标记** ——
+     *  tick 的一次性重试分支必须带 `attempt > 0`,否则历史 once 行里那条
+     *  `nextRunAt = scheduledAt`(见 routes/automations.ts 的 computeNextRunAt)
+     *  会被当成重试位反复捞起,把一个"已成功的一次性任务"重放成周期任务。 */
+    attempt: integer('attempt').default(0).notNull(),
+    /** G-669:最后一次失败的可读原因(含分类档位与命中判据);成功时置 null。 */
+    lastError: text('last_error'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
