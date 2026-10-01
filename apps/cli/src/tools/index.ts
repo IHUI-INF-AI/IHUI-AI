@@ -51,8 +51,11 @@ import {
 } from './hub/index.js';
 import {
   projectToolInputSchema,
+  buildToolResultTruncationRecord,
   type ToolContractMount,
   type ToolResultBudgetContract,
+  type ToolResultTruncationFacts,
+  type ToolResultTruncationRecord,
 } from '@ihui/types';
 
 export interface ToolParameter {
@@ -113,6 +116,20 @@ export interface ToolResult {
   terminalState?: 'timed_out';
   /** 副作用不确定的盖章:与 `terminalState` 成对出现,单独一枚不产出(`mapTerminalState` 是唯一种它的出口)。 */
   interrupted?: true;
+  /**
+   * handler 的**自述事实**(G-720):这次读取/输出相对源内容截到哪了、按哪档策略。
+   * 只有两枚字节数与策略,没有 `truncated` 结论位 —— 结论不由被截的那一方宣布。
+   * 本字段在结果离开执行器边界时**被移除**(见 `normalizeToolResultTruncation`),
+   * 所以下游没有读到它的机会,也就没有"半条账被当成结论读"的形态。
+   */
+  truncationFacts?: ToolResultTruncationFacts;
+  /**
+   * 「被截断」的类型化账目(G-720),**只由执行器边界产出**:
+   * `executeWithinExecBudget` 把 handler 事实推导成它,`applyToolResultBudget` 产出/归并自己施加的裁剪。
+   * 缺席 = 这条结果没有可证的截断;不得由渲染侧从散文里猜(与 `terminalState`/`interrupted` 同一条纪律)。
+   * 三条口径见 `packages/types/src/tool-contract.ts` 的 `ToolResultTruncationRecord`。
+   */
+  truncation?: ToolResultTruncationRecord;
 }
 
 /**
@@ -288,6 +305,27 @@ function execBudgetResult(
 }
 
 /**
+ * 「被截断」账目的**唯一推导点**(G-720):把 handler 自述的 `truncationFacts` 换成结论字段
+ * `truncation`,并把事实字段摘干净(结果离开本边界后不该再带着半条账)。
+ *
+ * 为什么推导住在这里而不是让 handler 自己写 `truncated`:那枚布尔是**结论**,而结论只能由
+ * 两条字节数的大小关系得出 —— 由被截的那一方宣布,谎报与漏报在账面同形且无从复核。
+ *
+ * 三条不变量(各有测试钉住):
+ *  1. 没有 `truncationFacts` ⇒ **返回同一对象引用**(零回归;既有"逐字节原样返回"的承诺不被动);
+ *  2. 事实算不出这笔账(字节数非法 / 自相矛盾 / 策略不在值域)⇒ 只摘掉事实字段,**不产任何断言**;
+ *  3. 算得出 ⇒ `truncated` 仅当 `returnedBytes < originalBytes` 时为 `true`,未截时该键**整块缺席**
+ *     (绝不写 `false` 噪音)。
+ */
+export function normalizeToolResultTruncation(result: ToolResult): ToolResult {
+  if (result.truncationFacts === undefined) return result;
+  const stripped: ToolResult = { ...result };
+  delete stripped.truncationFacts;
+  const record = buildToolResultTruncationRecord(result.truncationFacts);
+  return record ? { ...stripped, truncation: record } : stripped;
+}
+
+/**
  * 工具执行的**唯一**墙钟/取消应用点。
  *
  * @param tool 只需 name + execBudget(hub 路径拿不到本地 Tool 对象,按默认档走)
@@ -309,8 +347,9 @@ export async function executeWithinExecBudget(
   }
   const budgetMs = resolveToolExecBudgetMs(tool);
   if (budgetMs === undefined && !parentSignal) {
-    // 零回归路径:结构性豁免且无外层信号 ⇒ 与改前逐字同形(不建 controller、不建 timer)
-    return run(undefined);
+    // 零回归路径:结构性豁免且无外层信号 ⇒ 与改前逐字同形(不建 controller、不建 timer)。
+    // 截断账目仍要推导 —— 但 normalize 在无事实时返回**同一对象引用**,所以"原样返回"没有被削弱。
+    return normalizeToolResultTruncation(await run(undefined));
   }
 
   const controller = new AbortController();
@@ -325,7 +364,9 @@ export async function executeWithinExecBudget(
       const settle = (r: ToolResult): void => {
         if (settled) return;
         settled = true;
-        resolve(r);
+        // 结算口 = 截断账目的推导口(G-720):handler 事实与边界代偿结果都只从这里出去,
+        // 所以"离开本边界的结果一律不带半条账"这一条只有一个落点,不必在每条分支各写一遍。
+        resolve(normalizeToolResultTruncation(r));
       };
       // handler **自己抛的错原样冒泡**(不代偿成 ToolResult):`executeToolCall` 的 hub 分支靠
       // `err instanceof ToolNotFoundError` 决定要不要回落到本地注册表,把它包成结果会让那条
@@ -705,7 +746,19 @@ export function applyToolResultBudget(
     `[tool-result-budget] output truncated: original ${totalBytes} bytes, showing ${keptBytes} bytes ` +
     `(policy: ${policyNote}, preview from ${budget.preview.from}). ` +
     `This is a partial view, not the complete tool output.`;
-  return { ...result, output: `${note}\n${text}` };
+  // G-720:同一次裁剪的两个量落成可判字段。散文注记**原样保留** —— 它对模型仍是第一眼的事实,
+  // 且 `tool-result-budget-contract-wiring.test.ts` 把它当契约钉着(动它属改别人的验收面)。
+  // 记的是**实际施加**的策略:本仓 artifact 存储未接线 ⇒ 声明 artifact 时运行期降级为裁剪,
+  // 那一笔就记 'truncate'(记 artifact 等于声称产出了一个并不存在的文件)。
+  // 若 handler 侧已有一笔账(read_file 字节闸就是),两枚源字节取较大者归并 —— 本次的 output 尺寸
+  // 不得把"文件本来多大"改小;回传字节取本次裁剪后的值。一次结果只留一枚可判事实。
+  const account = buildToolResultTruncationRecord({
+    originalBytes: Math.max(result.truncation?.originalBytes ?? totalBytes, totalBytes),
+    returnedBytes: keptBytes,
+    budgetStrategy: 'truncate',
+  });
+  const next: ToolResult = { ...result, output: `${note}\n${text}` };
+  return account ? { ...next, truncation: account } : next;
 }
 
 /**

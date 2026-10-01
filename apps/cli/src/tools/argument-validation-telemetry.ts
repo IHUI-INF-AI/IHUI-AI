@@ -29,9 +29,11 @@
  *    属对话面而非遥测面,与计数器是两条通道,互不借道。)
  */
 
-import type { Tool, ToolParameter, ToolSchema } from './index.js';
+import type { Tool, ToolSchema } from './index.js';
 import {
+  isSchemaMissingError,
   normalizeToolArguments,
+  resolveSchemaOrThrow,
   validateToolArguments,
   type ValidationError,
 } from './argument-validator.js';
@@ -115,6 +117,12 @@ export interface ToolArgShadowStats {
   undeterminedRequired: number;
   /** 校验器自身抛异常的次数(坏描述不能拖垮调用,单测③) */
   validatorThrew: number;
+  /**
+   * schema 解析不到 ⇒ 抛 `SchemaMissing` 的次数(G-712)。
+   * **独立一档**:这一型既没进 `shadowRuns`(校验器一次都没跑)也没进 `invalidRuns`
+   * (没有"通过"可言)。改前它会被兜成的空属性表判成"通过",那是本票要消灭的形态。
+   */
+  schemaMissing: number;
   /** 影子档"若真拦就会改写 args"的次数 —— enforce 那一票的爆炸半径预估值 */
   coercedRuns: number;
 }
@@ -149,6 +157,7 @@ function bucketFor(toolName: string): ToolArgShadowStats {
     firstErrorField: null,
     undeterminedRequired: 0,
     validatorThrew: 0,
+    schemaMissing: 0,
     coercedRuns: 0,
   };
   buckets.set(toolName, fresh);
@@ -178,9 +187,24 @@ export function shadowValidateToolArguments(
   }
 
   const b = bucketFor(tool.name);
+  // G-712:schema 解析必须**先于**任何计数落地。解析不到 ⇒ 单列 `schemaMissing` 一档并就此返回 ——
+  // 这一型下校验器一次都没跑,把它计进 shadowRuns(更不算 invalidRuns)就是把"没判"写成"判过了"。
+  // 与下方 validatorThrew 的分工:描述**有毒**(取值即抛)照旧算 validatorThrew,
+  // 描述**缺席**(parameters 没写 / 不是属性表)算 schemaMissing —— 两档的修法不同,不得合并。
+  let schema: ToolSchema;
+  try {
+    schema = buildShadowSchema(tool);
+  } catch (e) {
+    if (isSchemaMissingError(e)) {
+      b.schemaMissing += 1;
+      return;
+    }
+    b.shadowRuns += 1;
+    b.validatorThrew += 1;
+    return;
+  }
   b.shadowRuns += 1;
   try {
-    const schema = buildShadowSchema(tool);
     const result = validateToolArguments(args, schema);
     if (!Array.isArray(tool.required)) b.undeterminedRequired += 1;
     if (!result.valid) {
@@ -208,21 +232,17 @@ function fieldOf(err: ValidationError | undefined): string | null {
 }
 
 /**
- * 把 Tool 的扁平形状(`parameters: Record<…>` + 顶层 `required`)拼成校验器要的 ToolSchema。
- * 只做防御性归一,不做推断:类型不对就交给上面的 try/catch 记成 validatorThrew。
+ * 把 Tool 的扁平形状拼成校验器要的 ToolSchema。
+ *
+ * G-712 之后它只是 `resolveSchemaOrThrow` 的一层投影,**不再是"防御性归一"** ——
+ * 旧写法在参数面取不到时兜一张 `properties: {}` 的空表,于是任何入参都判通过、
+ * 这一格被计进 `valid`;现在解析不到即抛 `SchemaMissing`,由调用方落进未判定档
+ * (见 `shadowValidateToolArguments` 与 `enforceValidateToolArguments`)。
+ * 保留这个函数名是为了让影子/enforce 两条路径仍共用**同一份**解析:
+ * 与 `argument-validation-replay.ts` 各写一遍必然漂开(两处算同一件事的本仓通例)。
  */
 function buildShadowSchema(tool: Tool): ToolSchema {
-  const rawParams = tool.parameters as unknown;
-  const properties: Record<string, ToolParameter> =
-    rawParams !== null && typeof rawParams === 'object' && !Array.isArray(rawParams)
-      ? (rawParams as Record<string, ToolParameter>)
-      : {};
-  const required = Array.isArray(tool.required) ? tool.required : [];
-  return {
-    name: tool.name,
-    description: typeof tool.description === 'string' ? tool.description : '',
-    parameters: { type: 'object', properties, required },
-  };
+  return resolveSchemaOrThrow(tool);
 }
 
 // ==================== enforce 档(A36 第③步:容错复验 → 拒绝 → 有界 repair)====================
@@ -241,6 +261,12 @@ export interface ToolArgEnforceStats {
   validatorThrew: number;
   /** 工具描述缺 required(非数组)的次数 —— 这些样本不得当作准确度证据 */
   undeterminedRequired: number;
+  /**
+   * schema 解析不到(`SchemaMissing`)的次数(G-712)。**独立一档,不计进 passedPlain/rejected**:
+   * 描述面拿不出属性表时,"通过"和"拒绝"两个结论都没有依据,唯一诚实的读数是"这一格没判"。
+   * 执行行为不变:仍走既有 `status:'undetermined'` 的 fail-open 分支(executor 只认 `reject`)。
+   */
+  schemaMissing: number;
   /** 被 repair 窗记下的连续拒绝次数总和 */
   repairRejections: number;
   /** 其中超出回喂上限、以硬失败收场的次数 */
@@ -254,6 +280,7 @@ const enforceStats: ToolArgEnforceStats = {
   rejected: 0,
   validatorThrew: 0,
   undeterminedRequired: 0,
+  schemaMissing: 0,
   repairRejections: 0,
   repairExhausted: 0,
 };
@@ -291,8 +318,21 @@ export function enforceValidateToolArguments(
   enforceStats.runs += 1;
   enforceRequested += 1;
   announceEnforceOnce();
+  // G-712:schema 先解析,解析不到 ⇒ 单列 schemaMissing 一档并返回 undetermined(fail-open)。
+  // 刻意**不**动 repairStreaks —— 一条没判定的样本既不是"通过"(不该清零回喂窗)
+  // 也不是"拒绝"(不该加计数);改前它被兜成空表算 pass 并清了窗,那是拿未判定冒充证据。
+  let schema: ToolSchema;
   try {
-    const schema = buildShadowSchema(tool);
+    schema = buildShadowSchema(tool);
+  } catch (e) {
+    if (isSchemaMissingError(e)) {
+      enforceStats.schemaMissing += 1;
+      return { status: 'undetermined', args, errors: [], normalizedFields: [] };
+    }
+    enforceStats.validatorThrew += 1;
+    return { status: 'undetermined', args, errors: [], normalizedFields: [] };
+  }
+  try {
     if (!Array.isArray(tool.required)) enforceStats.undeterminedRequired += 1;
     const norm = normalizeToolArguments(args, schema);
     if (norm.result.valid) {
@@ -351,7 +391,9 @@ export function snapshotToolArgShadow(
     };
     tools.push(copy);
     totalShadowRuns += b.shadowRuns;
-    if (b.errorCount > 0 || b.validatorThrew > 0) totalToolsWithErrors += 1;
+    // schemaMissing 也计入"这工具有事要看":一台把未判定读成"没问题"的报表,
+    // 正是本票要消灭的那一型(改前它连一行痕迹都不留)。
+    if (b.errorCount > 0 || b.validatorThrew > 0 || b.schemaMissing > 0) totalToolsWithErrors += 1;
   }
   return {
     mode: resolveToolArgValidationMode(env),
@@ -364,10 +406,15 @@ export function snapshotToolArgShadow(
   };
 }
 
-/** 只问"影子跑过没有" —— 单测①用它证明默认档一次都没调用校验器。 */
+/**
+ * 只问"影子路径进过没有" —— 单测①用它证明默认档一次都没进校验分支。
+ * 口径含**没跑成校验**的两种进入:描述有毒(validatorThrew)与 schema 缺席(schemaMissing)。
+ * 为什么把它们算进来:一整会话全是 schema 缺席时,读数若为 0 就会被读成"影子没跑",
+ * 而影子明明跑了、只是判不出 —— 那正是本票要修的形态(把没判写成没跑/写成跑过都不对)。
+ */
 export function totalToolArgShadowRuns(): number {
   let n = 0;
-  for (const b of buckets.values()) n += b.shadowRuns + b.validatorThrew;
+  for (const b of buckets.values()) n += b.shadowRuns + b.validatorThrew + b.schemaMissing;
   return n;
 }
 

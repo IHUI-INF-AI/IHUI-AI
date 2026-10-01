@@ -100,6 +100,7 @@ const ROUND = {
   ts: new Date().toISOString(),
   headBefore: '',
   stagedFiles: [],
+  declaredFiles: [],
   gatesRan: false,
   gatesPassed: null,
 }
@@ -328,7 +329,12 @@ if (process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
 // 索引可能已被它改写过(取早了会把"门其实没看过的文件"也算进合格证)。
 try {
   const gitOut = (args) =>
-    execSync(args, { cwd: process.cwd(), windowsHide: true, encoding: 'utf8', timeout: 30_000 }).trim()
+    execSync(args, {
+      cwd: process.cwd(),
+      windowsHide: true,
+      encoding: 'utf8',
+      timeout: 30_000,
+    }).trim()
   ROUND.headBefore = gitOut('git rev-parse HEAD')
   ROUND.stagedFiles = gitOut('git diff --cached --name-only')
     .split(/\r?\n/)
@@ -336,6 +342,16 @@ try {
     .filter(Boolean)
 } catch {
   /* 取不到就留空 ⇒ 这条记录对统计器等于"无从证",不会被误用 */
+}
+try {
+  // G-978004 ②:safe-commit 派生时经 env 传入的声明集(整链继承)。普通直 git commit
+  // 没有这个 env ⇒ 留空,统计器对该枚维持 ⊆ 弱证,两档分开计数。
+  ROUND.declaredFiles = String(process.env.IHUI_DECLARED_FILES ?? '')
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+} catch {
+  /* 同上:留空不冒充实证 */
 }
 const gatesOk = run('🛡️ 运行守门脚本批量检查...', 'node scripts/guardian-runner.mjs --staged')
 ROUND.gatesRan = true
