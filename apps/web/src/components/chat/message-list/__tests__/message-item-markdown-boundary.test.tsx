@@ -199,14 +199,15 @@ describe('G-825 消息级 markdown 边界', () => {
     expect(JSON.stringify(warns[0])).not.toContain('marker-should-not-appear')
   })
 
-  it('用户消息路径逐字未变:正文仍是 <p> 纯文本,不经过 markdown 边界(负例防越界改动)', () => {
-    // 事实来源:MessageItem 的用户支走 <p className="whitespace-pre-wrap">(不渲染 MarkdownStream),
-    // 所以本票的边界只加在 assistant 内容区 —— 这条钉住"没把边界顺手搬到用户气泡上"。
-    mdState.throwOn = true
+  it('用户消息正文也走同一渲染件(2026-10-01 拍板翻转旧负例);G-825 边界仍只加在助手内容区', () => {
+    // 事实来源:MessageItem 用户支把正文交给 UserMessageBody → MarkdownStream(与助手同一渲染件)。
+    // 边界只包助手支 ⇒ 用户支走 mock 渲染件正常出内容、无降级节点、无 guard warn。
+    // (不设 throwOn:用户支刻意不加这层边界 —— 拍板口径是"一处改动",完成态渲染走的是
+    // 助手侧全量稳定路径,渲染器内部另有代码块级错误边界兜底。)
     renderItem(assistantMessage(BODY, { role: 'user' }))
+    expect(renderedEl()?.textContent).toBe(BODY)
     expect(fallbackEl()).toBeNull()
-    expect(renderedEl()).toBeNull()
-    expect(screen.getByText(BODY).tagName).toBe('P')
+    expect(guardWarns()).toHaveLength(0)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -7,9 +7,9 @@
 // 两条防自伤的写法约定:
 //  ① 每条用例只查**自己的 container** —— RTL 共用 document.body 时,上一条留下的 <video> 会让
 //     下一条"应当没有 video 元素"的断言假红(第一版就是这么红了 4 条)。
-//  ② 最后一条是**源码级边界锁**:本组件不得 import 任何 markdown 渲染器。理由不是审美 ——
-//     已入库的 G-825「消息级 markdown 边界」靠"用户正文不进 markdown"这条负例撑着,
-//     而"把正文塞回 markdown 让它顺便好看一点"看起来永远是进步,只有这条锁会在有人这么做时响。
+//  ② 边界锁(2026-10-01 S15 随 V4 #87 拍板翻转):用户正文**必须**走与助手侧同一套 MarkdownStream,
+//     且该渲染器**不得挂 rehype-raw** —— 锁在渲染器源码上,用户/助手两侧共用,锁一处锁两侧;
+//     被拒行(协议不安全/判不出)由共享层摘进 `rejectedLines`、组件按字面渲染,不许就地猜。
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -76,41 +76,58 @@ describe('D129 用户气泡:四类拍平形态都不显示成源码', () => {
     expect(container.textContent).toContain('正文')
   })
 
-  it('⑤ 正文仍是纯文本 `<p class="whitespace-pre-wrap">`(用户打的 `*` 不被重新解释)', () => {
+  it('⑤ 正文走与助手侧同一套 MarkdownStream(2026-10-01 拍板翻转:`*` 与助手侧同保真地解释为强调)', () => {
     const { container } = render(<UserMessageBody content={EMPHASIS_WITH_REF} />)
-    const p = container.querySelector('p')
-    expect(p).not.toBeNull()
-    expect(p?.getAttribute('class') ?? '').toContain('whitespace-pre-wrap')
-    expect(p?.textContent).toContain('这是 *重点* 加一行')
-    expect(container.querySelector('em')).toBeNull()
+    // 与助手侧同渲染器 ⇒ 用户写的 markdown 同样生效(强调),这正是拍板要的"同一屏一种保真度"
+    expect(container.querySelector('em')?.textContent).toBe('重点')
+    // 危险项关闭:裸 HTML 永远不出元素(该渲染器不挂 rehype-raw,由边界锁用例钉在源码层)
+    expect(container.querySelector('video')).toBeNull()
   })
 
-  it('⑥ 协议不安全的形态:原文留在屏幕上 + rejected 记号(绝不静默消失)', () => {
+  it('⑥ 协议不安全的形态:字面可见(不进 markdown、不被静默丢弃)+ rejected 记号', () => {
     const evil = VIDEO_LINE('javascript:alert(1)')
     const { container } = render(<UserMessageBody content={`正文\n\n${evil}`} />)
     expect(container.querySelector('[data-testid="user-message-attachment-rejected"]')?.textContent).toBe('1')
+    // 字面渲染块:react-markdown 会把裸 HTML 静默丢掉,所以共享层把被拒行摘进 rejectedLines,
+    // 由组件按字面显示 —— 原文照样看得见(2026-10-01 起,可见性由这条通道兑现)
+    const rejected = container.querySelector('[data-testid="user-message-rejected"]')
+    expect(rejected?.textContent).toBe(evil)
     expect(container.textContent).toContain('javascript:alert(1)')
     expect(container.querySelector('video')).toBeNull()
   })
 
-  it('⑦ 用户正文里讨论这些写法的散文一字不改', () => {
+  it('⑦ 用户正文里讨论这些写法的散文:不命中确切形态(不被摘),随正文走同一渲染件(裸 HTML 片段与助手侧同行为)', () => {
     const prose = `请按 ${VIDEO_LINE('x')} 这个写法改代码`
     const { container } = render(<UserMessageBody content={prose} />)
+    // 永远不出元素
     expect(container.querySelector('video')).toBeNull()
-    expect(container.querySelector('p')?.textContent).toBe(prose)
+    // 散文没有被摘走(不命中整行确切形态):文字骨架还在,只是经过了与助手侧相同的 markdown 渲染
+    expect(container.textContent).toContain('请按')
+    expect(container.textContent).toContain('这个写法改代码')
+    expect(container.querySelector('[data-testid="user-message-rejected"]')).toBeNull()
   })
 })
 
-describe('D129 边界锁:用户气泡不得走 markdown 渲染器', () => {
-  it('组件源码里不得 import markdown 渲染器(G-825 的用户侧边界)', () => {
+describe('D129 边界锁:用户气泡走助手侧同一渲染件,但危险项必须关着', () => {
+  it('组件源码必须 import MarkdownStream(与助手侧同一渲染件,2026-10-01 拍板),且仍走共享拆分出口', () => {
     const src = readFileSync(
       join(resolve(dirname(fileURLToPath(import.meta.url)), '..'), 'message-list', 'user-message-body.tsx'),
       'utf8',
     )
-    expect(src).not.toMatch(/markdown-stream|MarkdownStream/)
+    expect(src).toMatch(/MarkdownStream/)
     // 附件拆分只有一份实现:组件必须走共享出口,不在端内再解一遍正则
     expect(src).toMatch(/splitUserMessageParts/)
+    // 被拒行必须来自共享层的新通道,不许组件就地猜
+    expect(src).toMatch(/rejectedLines/)
     expect(src).not.toMatch(/!\[\\\[|<video src=/)
+  })
+
+  it('渲染器源码不得挂 rehype-raw(危险项关闭的唯一判据 —— 用户与助手两侧共用,锁一处锁两侧)', () => {
+    const rendererSrc = readFileSync(
+      join(here, '..', '..', 'ai', 'markdown-stream.tsx'),
+      'utf8',
+    )
+    expect(rendererSrc).not.toMatch(/rehype-raw|rehypeRaw/)
   })
 })
 
