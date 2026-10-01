@@ -20,6 +20,7 @@ import {
 } from '@ihui/shared'
 
 import { cn } from '@/lib/utils'
+import { ConversationFolderAdmin } from '@/components/chat/conversation-folder-admin'
 import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input } from '@ihui/ui-react'
 
 export interface ConversationOrgSubmitValue {
@@ -157,6 +158,10 @@ export function ConversationOrgDialog({
               </div>
             )}
           </div>
+
+          {/* D165:分组本身是一等实体,它的重命名/置顶/删除放在这里(容器组件自带 store 订阅),
+              会话级归属仍走本对话框的 onSubmit —— 两条写路径写的是同一个服务端 store。 */}
+          <ConversationFolderAdmin />
         </div>
         <DialogFooter>
           <Button variant="ghost" className="bg-muted" onClick={() => onOpenChange(false)}>
