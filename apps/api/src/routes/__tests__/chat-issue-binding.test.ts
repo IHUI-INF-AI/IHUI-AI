@@ -97,6 +97,7 @@ const CONVERSATION_A = {
   pinnedAt: null,
   shareToken: null,
   historyProjectionState: null,
+  groupId: null,
 }
 
 const BINDING_BODY = {
@@ -268,7 +269,10 @@ describe('DELETE /api/chat/conversations/:id/issue — 解绑(改为独立任务
     })
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toEqual({ unbound: true })
-    const mergeArg = vi.mocked(patchConversationMetadata).mock.calls[0]?.[2] as Record<string, unknown>
+    const mergeArg = vi.mocked(patchConversationMetadata).mock.calls[0]?.[2] as Record<
+      string,
+      unknown
+    >
     expect('issueBinding' in mergeArg).toBe(true)
     expect(mergeArg.issueBinding).toBeNull()
   })
