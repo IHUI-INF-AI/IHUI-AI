@@ -20,9 +20,22 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
-import { tryParseJson, isRecord } from '../util/json.js';
+import { isRecord } from '../util/json.js';
+import { readManifestChecked, type CorruptManifestEntry } from './manifest-integrity.js';
 
 export * from './hunk-tracker.js';
+
+/** G-671:manifest 形状校验 —— 缺关键字段/档值非法/schemaVersion 不识别 ⇒ 不算合法 meta。 */
+export function isCheckpointMeta(v: unknown): v is CheckpointMeta {
+  if (!isRecord(v)) return false;
+  if (typeof v.id !== 'string' || v.id.length === 0) return false;
+  if (typeof v.sessionId !== 'string') return false;
+  if (typeof v.createdAt !== 'string' || Number.isNaN(Date.parse(v.createdAt))) return false;
+  if (typeof v.reason !== 'string') return false;
+  if (!isRecord(v.files)) return false;
+  if (v.schemaVersion !== undefined && v.schemaVersion !== 1) return false;
+  return Object.values(v.files).every((k) => k === 'snap' || k === 'added');
+}
 
 export interface CheckpointMeta {
   id: string;
@@ -41,6 +54,8 @@ export interface CheckpointManagerOptions {
   sessionId: string;
   workspacePath: string;
   maxCheckpoints?: number;
+  /** G-671:manifest 损坏被隔离时的到人出口;缺省 console.warn 点名路径 */
+  onCorruptManifest?: (entry: CorruptManifestEntry) => void;
 }
 
 const DEFAULT_MAX_CHECKPOINTS = 20;
@@ -50,12 +65,31 @@ export class CheckpointManager {
   private readonly workspacePath: string;
   private readonly maxCheckpoints: number;
   private readonly baseDir: string;
+  private readonly onCorrupt: (entry: CorruptManifestEntry) => void;
+  /** 最近一次 list() 扫描隔离出的损坏 manifest(账面必须有名字) */
+  private lastQuarantined: CorruptManifestEntry[] = [];
 
   constructor(opts: CheckpointManagerOptions) {
     this.sessionId = opts.sessionId;
     this.workspacePath = path.resolve(opts.workspacePath);
     this.maxCheckpoints = opts.maxCheckpoints ?? DEFAULT_MAX_CHECKPOINTS;
     this.baseDir = path.join(os.homedir(), '.ihui', 'checkpoints', this.sessionId);
+    this.onCorrupt =
+      opts.onCorruptManifest ??
+      ((entry) => {
+        console.warn(
+          `[checkpoints] manifest 损坏已隔离(${entry.reason}): ${entry.manifestPath} → ${entry.quarantinePath ?? '(改名失败,原位保留)'}`,
+        );
+      });
+  }
+
+  /** 最近一次 list()/get() 隔离出的损坏 manifest 清单;清空请显式调 resetQuarantine() */
+  getQuarantinedManifests(): CorruptManifestEntry[] {
+    return [...this.lastQuarantined];
+  }
+
+  resetQuarantine(): void {
+    this.lastQuarantined = [];
   }
 
   private ensureDir(dir: string): void {
@@ -122,29 +156,24 @@ export class CheckpointManager {
     if (!fs.existsSync(this.baseDir)) return [];
     const entries = fs.readdirSync(this.baseDir, { withFileTypes: true });
     const metas: CheckpointMeta[] = [];
+    this.lastQuarantined = [];
     for (const e of entries) {
       if (!e.isDirectory()) continue;
       const manifestPath = path.join(this.baseDir, e.name, 'manifest.json');
-      if (!fs.existsSync(manifestPath)) continue;
-      try {
-        const parsed = tryParseJson(fs.readFileSync(manifestPath, 'utf-8'));
-        if (isRecord(parsed)) metas.push(parsed as unknown as CheckpointMeta);
-      } catch {
-        /* skip corrupted */
-      }
+      // G-671:manifest 不存在 = 目录半成品(不算损坏);读不了/解析不了/形状不对 = 损坏,隔离并报名
+      const result = readManifestChecked(manifestPath, e.name, isCheckpointMeta, (entry) => {
+        this.lastQuarantined.push(entry);
+        this.onCorrupt(entry);
+      });
+      if (result.status === 'ok') metas.push(result.meta);
     }
     return metas.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   get(checkpointId: string): CheckpointMeta | null {
     const manifestPath = path.join(this.baseDir, checkpointId, 'manifest.json');
-    if (!fs.existsSync(manifestPath)) return null;
-    try {
-      const parsed = tryParseJson(fs.readFileSync(manifestPath, 'utf-8'));
-      return isRecord(parsed) ? (parsed as unknown as CheckpointMeta) : null;
-    } catch {
-      return null;
-    }
+    const result = readManifestChecked(manifestPath, checkpointId, isCheckpointMeta, this.onCorrupt);
+    return result.status === 'ok' ? result.meta : null;
   }
 
   async restore(checkpointId: string): Promise<{ restored: string[]; removed: string[] }> {
