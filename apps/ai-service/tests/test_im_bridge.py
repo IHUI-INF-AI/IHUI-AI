@@ -86,81 +86,125 @@ def _patch_api_client(monkeypatch: pytest.MonkeyPatch, impl) -> None:
 
 
 # =============================================================================
-# _pop_last_message
+# _peek_last_message / _commit_removal
+# (G-815414 改:旧的 `_pop_last_message` 已**整体删除** —— 它是"移除发生在业务之前"的
+#  错误语义本体,留着同名旧入口等于给下一次丢消息留入口。原 8 条用例逐条迁到新契约,
+#  断言的语义一格不减:缺键/坏 JSON/非数组/空数组/单条/多条/尾元素非对象/Redis 抛错)
 # =============================================================================
 
 
-async def test_pop_last_message_missing_key_returns_none():
+async def test_peek_missing_key_returns_empty():
+    from app.services.im_bridge import QueueStatus
+
     svc = _make_service(_FakeRedis())
-    assert await svc._pop_last_message("im:inbound:u-123:wechat") is None
+    peeked = await svc._peek_last_message("im:inbound:u-123:wechat")
+    assert peeked.status is QueueStatus.EMPTY
+    assert peeked.message is None
 
 
-async def test_pop_last_message_invalid_json_returns_none():
+async def test_peek_invalid_json_returns_invalid_and_preserves_raw():
+    from app.services.im_bridge import QueueStatus
+
     fake = _FakeRedis()
     key = _queue_key()
     fake._data[key] = "not-json{{{"
     svc = _make_service(fake)
-    assert await svc._pop_last_message(key) is None
+    peeked = await svc._peek_last_message(key)
+    assert peeked.status is QueueStatus.INVALID
+    assert peeked.message is None
     # 不破坏原始数据
     assert fake._data[key] == "not-json{{{"
+    # G-815414:这一格必须可观测,不得与"队列为空"同形
+    assert svc.metrics_snapshot()["parse_failures"] == 1
 
 
-async def test_pop_last_message_not_list_returns_none():
+async def test_peek_not_list_returns_invalid():
+    from app.services.im_bridge import QueueStatus
+
     fake = _FakeRedis()
     key = _queue_key()
     fake._data[key] = json.dumps({"text": "x"})
     svc = _make_service(fake)
-    assert await svc._pop_last_message(key) is None
+    peeked = await svc._peek_last_message(key)
+    assert peeked.status is QueueStatus.INVALID
+    assert svc.metrics_snapshot()["invalid_payloads"] == 1
 
 
-async def test_pop_last_message_empty_list_deletes_key():
-    """空列表脏数据:返回 None,key 被删除(2026-08-12 对齐 docstring 意图修复)。"""
+async def test_peek_empty_list_deletes_key():
+    """空列表脏数据:返回 EMPTY,key 被删除(2026-08-12 对齐 docstring 意图修复,语义未变)。"""
+    from app.services.im_bridge import QueueStatus
+
     fake = _FakeRedis()
     key = _queue_key()
     fake._data[key] = json.dumps([])
     svc = _make_service(fake)
-    assert await svc._pop_last_message(key) is None
+    peeked = await svc._peek_last_message(key)
+    assert peeked.status is QueueStatus.EMPTY
     assert key not in fake._data
 
 
-async def test_pop_last_message_single_item_deletes_key():
+async def test_peek_single_item_leaves_queue_untouched_and_commit_deletes():
+    """G-815414 的核心改动:peek 阶段**不再**提前摘走(旧用例断言的是丢消息的那一步)。"""
+    from app.services.im_bridge import QueueStatus
+
     fake = _FakeRedis()
     key = _queue_key()
     fake._data[key] = json.dumps([_inbound()])
     svc = _make_service(fake)
-    msg = await svc._pop_last_message(key)
-    assert msg == _inbound()
+    peeked = await svc._peek_last_message(key)
+    assert peeked.status is QueueStatus.READY
+    assert peeked.message == _inbound()
+    assert json.loads(fake._data[key]) == [_inbound()]
+
+    # 业务成功后才提交移除
+    assert await svc._commit_removal(key, peeked.message or {}) is True
     assert key not in fake._data
 
 
-async def test_pop_last_message_multiple_items_pops_last_and_keeps_rest():
+async def test_peek_multiple_items_returns_last_and_commit_keeps_rest():
+    from app.services.im_bridge import QueueStatus
+
     fake = _FakeRedis()
     key = _queue_key()
     fake._data[key] = json.dumps([_inbound("a"), _inbound("b")])
     svc = _make_service(fake)
-    msg = await svc._pop_last_message(key)
-    assert msg == _inbound("b")
+    peeked = await svc._peek_last_message(key)
+    assert peeked.status is QueueStatus.READY
+    assert peeked.message == _inbound("b")
+    # 未提交前两条都在
+    assert json.loads(fake._data[key]) == [_inbound("a"), _inbound("b")]
+
+    assert await svc._commit_removal(key, _inbound("b")) is True
     remaining = json.loads(fake._data[key])
     assert remaining == [_inbound("a")]
 
 
-async def test_pop_last_message_last_not_dict_returns_none_and_keeps_rest():
+async def test_peek_last_not_dict_returns_invalid_and_keeps_rest():
+    """尾部元素不是对象 ⇒ INVALID(旧语义的"返回 None 且摘掉毒丸"保留),但新增计数。"""
+    from app.services.im_bridge import QueueStatus
+
     fake = _FakeRedis()
     key = _queue_key()
     fake._data[key] = json.dumps([_inbound("a"), "not-a-dict"])
     svc = _make_service(fake)
-    assert await svc._pop_last_message(key) is None
+    peeked = await svc._peek_last_message(key)
+    assert peeked.status is QueueStatus.INVALID
     remaining = json.loads(fake._data[key])
     assert remaining == [_inbound("a")]
+    assert svc.metrics_snapshot()["invalid_items"] == 1
 
 
-async def test_pop_last_message_redis_error_returns_none():
+async def test_peek_redis_error_returns_error_not_empty():
+    from app.services.im_bridge import QueueStatus
+
     class _BrokenRedis(_FakeRedis):
         async def get(self, key: str) -> str | None:
             raise ConnectionError("boom")
 
     svc = _make_service(_BrokenRedis())
-    assert await svc._pop_last_message(_queue_key()) is None
+    peeked = await svc._peek_last_message(_queue_key())
+    assert peeked.status is QueueStatus.ERROR
+    assert svc.metrics_snapshot()["read_errors"] == 1
 
 
 # =============================================================================
