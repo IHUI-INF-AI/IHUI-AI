@@ -51,7 +51,7 @@ import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
 // 那份 lib 一旦被在飞改动改得少一个导出,静态 import 会让本器**在任何一条分支打出字之前**就死,
 // 账面只剩一截 Node 堆栈 —— 既不归因(看不出断在谁的依赖上)也不降级(连与台账闸门无关的
 // 快路径一起陪着死)。改成异步装载后,装载失败只会让**第①把尺子**落"未判定"并点名原因。
-import { probe, ratchetViolations } from './plan-tasks.mjs'
+import { probe, ratchetViolations, narrowF9Face } from './plan-tasks.mjs'
 import { auditPlan } from './lib/plan-task-index.mjs'
 
 /** 装载状态:mod 为 null 时 error 必为非空一句话 ⇒ 调用方不得把它读成"闸门通过"。 */
@@ -551,7 +551,11 @@ export function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) 
   } catch {
     return [...out, '基线 JSON 解析失败 ⇒ 第②把尺子未判定(不记为通过)']
   }
-  out.push(...ratchetViolations(base, probe(auditPlan(merged))))
+  // 第②把尺子的 F9 一维必须吃**声明位口径**的面(G-460 之后):`auditPlan` 的 `collisions` 已是
+  // 声明位档,但 `probe()` 里还带着宽口径 `wide` 的组数读数,拿它比只含声明位键的基线 ⇒
+  // 现读 129 vs 112 这类"量纲不同"的红会在**每一次有台账变化的合并**上拦住自动收敛
+  // (lib 头注写的触发条件已被 G-460 落锚踩响)。收口 = 同一份 narrowF9Face,不在本器另算一遍。
+  out.push(...ratchetViolations(base, probe(narrowF9Face(auditPlan(merged), merged))))
   return out
 }
 
