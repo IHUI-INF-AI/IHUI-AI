@@ -38,11 +38,6 @@ import { AnnotationStylePanel, type PickedVisualElement } from './annotation-sty
 
 import { buildBrowserWsUrl, setBrowserWsToken } from '@ihui/api-client'
 import { useAuthStore } from '@/stores/auth'
-import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
-import { boundedAppend, droppedNotice } from '@/lib/bounded-append'
-
-/** 层栈 id(见 @/lib/overlay-stack):画布右键菜单浮层 */
-const CDP_CTX_MENU_OVERLAY_ID = 'cdp-browser-view-ctx-menu'
 
 export interface CdpBrowserViewProps {
   /** Browser Hub 会话 ID(后端 createBrowserSession 返回) */
@@ -110,9 +105,7 @@ const PICK_INSTALL_SCRIPT = `(() => {
   w.__ihuiPickInstalled = true
   const style = document.createElement('style')
   style.id = 'ihui-pick-style'
-  // 该样式表注入的是**用户正在浏览的外部页面**,站方自己的 cursor/outline 规则
-  // 特异度不可知,不加 !important 则点选态高亮会被静默吃掉(功能不可用而非样式微差)。
-  style.textContent = '*{cursor:crosshair!important;/*!ihui-allow-important:压过被点选外部页面自带的cursor*/}.ihui-pick-hl{outline:2px solid #6366f1!important;outline-offset:-1px!important;/*!ihui-allow-important:压过被点选外部页面自带的outline*/}' // -- ihui-allow-important: 注入外部页面的点选态高亮,必须压过站方自带 cursor/outline
+  style.textContent = '*{cursor:crosshair!important}.ihui-pick-hl{outline:2px solid #6366f1!important;outline-offset:-1px!important}'
   document.head.appendChild(style)
   let prev = null
   const clearHl = () => { if (prev) { prev.classList.remove('ihui-pick-hl'); prev = null } }
@@ -291,12 +284,7 @@ export function CdpBrowserView({
   const [devToolsOpen, setDevToolsOpen] = React.useState(false)
   const [jsCode, setJsCode] = React.useState('')
   const [jsResult, setJsResult] = React.useState('')
-  const [consoleBuf, setConsoleBuf] = React.useState<{ logs: string[]; dropped: number }>({
-    logs: [],
-    dropped: 0,
-  })
-  const consoleLogs = consoleBuf.logs
-  const droppedLogs = consoleBuf.dropped
+  const [consoleLogs, setConsoleLogs] = React.useState<string[]>([])
   const runJs = React.useCallback(() => {
     const ws = wsRef.current
     if (!ws || !jsCode.trim()) return
@@ -472,12 +460,7 @@ export function CdpBrowserView({
       // 2026-08-17 调试:扫码登录"点不了按钮"排查 — 记录点击坐标与 WS 状态(控制台可见)
       const log = `[cdp-browser-view] ${eventType} client=(${Math.round(e.clientX)},${Math.round(e.clientY)}) device=(${Math.round(x)},${Math.round(y)}) ws=${wsRef.current ? 'connected' : 'NULL'}`
       console.info(log)
-      // G-641:控制台日志上限 60 条,溢出丢最旧的条数必须入账(静默变短 = 伪造完整性),
-      // 渲染面在 droppedLogs>0 时追加 "…(dropped N)" 计数行。
-      setConsoleBuf((prev) => {
-        const { items, dropped } = boundedAppend(prev.logs, log, 60)
-        return { logs: items, dropped: prev.dropped + dropped }
-      })
+      setConsoleLogs((prev) => [...prev, log].slice(-60))
       wsRef.current?.send(
         JSON.stringify({
           type: 'mouse',
@@ -594,17 +577,12 @@ export function CdpBrowserView({
   React.useEffect(() => {
     if (!ctxMenu) return
     const close = () => setCtxMenu(null)
-    pushOverlay(CDP_CTX_MENU_OVERLAY_ID)
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (!isTopOverlay(CDP_CTX_MENU_OVERLAY_ID)) return
-        setCtxMenu(null)
-      }
+      if (e.key === 'Escape') setCtxMenu(null)
     }
     document.addEventListener('mousedown', close)
     document.addEventListener('keydown', onKey)
     return () => {
-      popOverlay(CDP_CTX_MENU_OVERLAY_ID)
       document.removeEventListener('mousedown', close)
       document.removeEventListener('keydown', onKey)
     }
@@ -731,7 +709,7 @@ export function CdpBrowserView({
       <button
         type="button"
         onClick={() => setDevToolsOpen((o) => !o)}
-        className="absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-sm border border-border bg-background/90 px-2 py-1 text-[10px] text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
+        className="absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-md border border-border bg-background/90 px-2 py-1 text-[10px] text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
         aria-label={t('devTools')}
       >
         <span className="font-mono font-semibold">{'</>'}</span>
@@ -743,7 +721,7 @@ export function CdpBrowserView({
         onClick={() => setPickMode((o) => !o)}
         aria-pressed={pickMode}
         data-testid="pick-element-toggle"
-        className={`absolute right-2 top-9 z-20 inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-[10px] shadow-sm transition-colors ${
+        className={`absolute right-2 top-9 z-20 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] shadow-sm transition-colors ${
           pickMode
             ? 'border-primary/40 bg-cta text-cta-foreground'
             : 'border-border bg-background/90 text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -779,12 +757,6 @@ export function CdpBrowserView({
             <pre className="thin-scroll max-h-32 overflow-auto rounded bg-muted/40 p-1.5 font-mono text-[9px] leading-relaxed text-muted-foreground">
               {consoleLogs.length === 0 ? t('noLogsHint') : consoleLogs.join('\n')}
             </pre>
-            {droppedLogs > 0 ? (
-              // G-641:溢出丢弃必须可见 —— 残缺的控制台日志不得伪装成完整
-              <div data-testid="cdp-console-dropped" className="text-[9px] text-muted-foreground">
-                {droppedNotice(droppedLogs)}
-              </div>
-            ) : null}
             <div className="mb-1 mt-2 text-[10px] font-medium text-muted-foreground">
               {t('runJs')}
             </div>
@@ -799,7 +771,7 @@ export function CdpBrowserView({
               type="button"
               onClick={runJs}
               disabled={!jsCode.trim()}
-              className="mt-1 rounded-sm bg-cta px-2 py-1 text-[10px] font-medium text-cta-foreground disabled:opacity-50"
+              className="mt-1 rounded-md bg-cta px-2 py-1 text-[10px] font-medium text-cta-foreground disabled:opacity-50"
             >
               {t('run')}
             </button>

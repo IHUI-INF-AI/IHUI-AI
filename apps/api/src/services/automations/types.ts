@@ -63,23 +63,6 @@ export interface FixExecutor {
   execute(task: FixTask): Promise<FixResult>
 }
 
-/**
- * G-669(2026-10-01 立):本轮"认领了但没结算成功"的条目点名结构。
- *
- * 为什么必须有这一格:此前 ok=false 既不释放认领也不单独统计,条目从此静默消失在账本里
- * ——"永久丢弃"和"这轮没做完"在 TickReport 上长得一模一样。dropped 把两者分开并逐条报名。
- */
-export interface DroppedEntry {
-  /** 与 ScanItem.key 同值的条目键 */
-  key: string
-  /** 人读原因:档位 + 命中判据 + 释放/保留结果 */
-  reason: string
-  /** true = 已释放认领,下一轮可重新认领(transient 回队);false = 保留认领(终态,不再重投) */
-  released: boolean
-  /** 失败档位(与 failure-class 同枚举,写字符串避免测试面反向依赖实现细节) */
-  kind: 'permanent' | 'transient'
-}
-
 /** 单轮 tick 报告(审计用) */
 export interface TickReport {
   /** 本次扫描到的条目总数(三源之和) */
@@ -90,9 +73,4 @@ export interface TickReport {
   fixed: number
   /** 修复任务执行失败数 */
   failed: number
-  /**
-   * G-669:failed 里每一条的下场(逐条点名,不得静默丢)。
-   * 长度恒等于 failed —— 失败条目要么回队,要么按终态保留,不允许第三种"看不见"。
-   */
-  dropped: DroppedEntry[]
 }

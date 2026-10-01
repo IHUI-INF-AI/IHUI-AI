@@ -8,7 +8,6 @@ import {
   Text,
   TouchableOpacity,
   View,
-  TextInput,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native'
@@ -17,6 +16,7 @@ import type { SettingsAccountScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** 账号设置共享屏 — props 注入式跨端组件(wrapper 负责 GET/PUT /account) */
 export type { SettingsAccountScreenProps }
@@ -52,14 +52,16 @@ export function SettingsAccountScreen({
       <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
       <Text style={styles.title}>{t('settingsAccount.title')}</Text>
       <Text style={styles.label}>{t('settingsAccount.name')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={styles.input}
         value={account.name}
         onChangeText={onNameChange}
         placeholderTextColor={tk.text.tertiary}
       />
       <Text style={styles.label}>{t('settingsAccount.email')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={styles.input}
         value={account.email}
         onChangeText={onEmailChange}
@@ -68,7 +70,8 @@ export function SettingsAccountScreen({
         placeholderTextColor={tk.text.tertiary}
       />
       <Text style={styles.label}>{t('settingsAccount.phone')}</Text>
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={styles.input}
         value={account.phone}
         onChangeText={onPhoneChange}

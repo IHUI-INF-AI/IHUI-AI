@@ -16,8 +16,6 @@ import {
   ListTodo,
   ChevronsUpDown,
   ChevronsDownUp,
-  ChevronDown,
-  ChevronRight,
   ArrowDown,
   Sparkles,
   HelpCircle,
@@ -31,16 +29,7 @@ import {
   Package,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
-
-/**
- * 层栈 id(见 @/lib/overlay-stack):
- * - AGENT_TASK_PANE_ID:面板本身(unpin 状态下 Esc 关闭)
- * - AGENT_TASK_HELP_ID:帮助浮层(打开时 Esc 优先关帮助,是内层/栈顶)
- */
-const AGENT_TASK_PANE_ID = 'agent-task-progress-pane'
-const AGENT_TASK_HELP_ID = 'agent-task-progress-pane-help'
-import { stepDecisionLabel, stepDecisionState } from '@ihui/shared/chat'
+import { stepDecisionLabel, stepDecisionState, type StepDecisionState } from '@ihui/shared/chat'
 import { IconButton } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { TruncatedText } from '@/components/common'
@@ -50,8 +39,6 @@ import {
   hydrateAgentProgressPaneFromStorage,
 } from '@/stores/agent-progress-pane'
 import { useChatStore } from '@/stores/chat'
-// 上下文占用的分母唯一出口(按模型 id 查真实容量);发送侧早已用它,resume-stream.ts:211 是同一条链
-import { getModelContextCapacity } from '@ihui/api-client'
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useTimelineStore } from '@/stores/timeline-store'
 import { useLoginDialogStore } from '@/stores/login-dialog'
@@ -82,6 +69,7 @@ import { SubAgentTaskTree } from './progress-sections/sub-agent-task-tree'
 import { NextStepsCard } from './progress-sections/next-steps-card'
 // D27(2026-09-20 立):交付审查视图 — 实时交付卡复用核心面板(agents 域组件,无循环依赖)
 import { DeliveryReviewPanel } from '@/components/agents/DeliveryReviewPanel'
+import { ChevronRight } from 'lucide-react'
 
 /**
  * AgentTaskProgressPane — AI 面板右上角的小 popover(2026-07-29 v18)
@@ -614,158 +602,6 @@ function RuntimeStepRow({ step }: { step: AgentPlanStepEvent }) {
   )
 }
 
-// ─── D85(G-116):自动审查统计聚合条 + 命令历史展开 ──────────────────────────
-// 与 D55 决策徽章同源(验收硬判据):统计与逐条徽章都从同一份 runtimePlanSteps 派生,
-// 分类复用 @ihui/shared/chat 的 stepDecisionState —— 组件内不存在第二份独立计数状态。
-// Trae 有代批无统计、Codex 有统计无逐条理由文案;本聚合条一次补齐「统计 + 逐条理由缺省」。
-
-/** 自动审查聚合摘要(纯函数,从 steps 派生,单一真相源) */
-export interface ReviewStatsSummary {
-  /** 含非空 decision 的步骤数(已发生自动审查) */
-  hasDecision: number
-  /** 决策态 = approved(已接受) */
-  accepted: number
-  /** 决策态 = rejected(已拒绝) */
-  rejected: number
-  /** 决策态 = needsUser(待用户) */
-  needsUser: number
-  /** 决策态 = unknown(未知/原样) */
-  unknown: number
-  /** 有决策但缺 reason 的步骤数(自动审查未提供理由) */
-  noReason: number
-}
-
-/** 同源派生:遍历 steps,复用 stepDecisionState 分类,与逐条徽章 stepDecisionLabel 同一套语义 */
-export function deriveReviewStats(steps: readonly AgentPlanStepEvent[]): ReviewStatsSummary {
-  const acc: ReviewStatsSummary = {
-    hasDecision: 0,
-    accepted: 0,
-    rejected: 0,
-    needsUser: 0,
-    unknown: 0,
-    noReason: 0,
-  }
-  for (const step of steps) {
-    if (typeof step.decision !== 'string' || step.decision === '') continue
-    acc.hasDecision += 1
-    const state = stepDecisionState(step.decision)
-    if (state === 'approved') acc.accepted += 1
-    else if (state === 'rejected') acc.rejected += 1
-    else if (state === 'needsUser') acc.needsUser += 1
-    else acc.unknown += 1
-    if (!step.reason || step.reason === '') acc.noReason += 1
-  }
-  return acc
-}
-
-/** D85 聚合条:决策区块顶部一行摘要 + 可展开的「命令历史」紧凑时间线 */
-export function ReviewStatsBar({ steps }: { steps: readonly AgentPlanStepEvent[] }) {
-  const t = useTranslations('ai.pane')
-  const tDecision = useTranslations('stepDecision')
-  const [expanded, setExpanded] = React.useState<boolean>(false)
-
-  // 同源:统计从同一份 steps 派生,无第二份计数状态
-  const stats = React.useMemo(() => deriveReviewStats(steps), [steps])
-  // 仅列出已发生自动审查(含非空 decision)的步骤,避免把 in_progress 噪声塞进时间线
-  const decided = React.useMemo(
-    () => steps.filter((s) => typeof s.decision === 'string' && s.decision !== ''),
-    [steps],
-  )
-
-  return (
-    <div
-      className="rounded-md border border-border bg-muted/30 px-2 py-1 text-[11px]"
-      data-testid="review-stats-bar"
-    >
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        aria-expanded={expanded}
-        aria-controls="review-stats-history"
-        aria-label={t('reviewStats.expandAria')}
-        className="flex w-full items-center gap-1.5 rounded-sm text-left transition-colors hover:bg-accent/30"
-        data-testid="review-stats-toggle"
-      >
-        <span className="font-medium text-foreground/80">{t('reviewStats.title')}</span>
-        <span className="text-muted-foreground/50">·</span>
-        {stats.hasDecision === 0 ? (
-          <span className="text-muted-foreground/60">{t('reviewStats.noDecision')}</span>
-        ) : (
-          <>
-            <span className="font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
-              {t('reviewStats.accepted', { n: stats.accepted })}
-            </span>
-            <span className="text-muted-foreground/40">/</span>
-            <span className="font-medium tabular-nums text-red-600 dark:text-red-400">
-              {t('reviewStats.rejected', { n: stats.rejected })}
-            </span>
-            {stats.noReason > 0 && (
-              <span className="font-medium tabular-nums text-amber-600 dark:text-amber-400">
-                {t('reviewStats.noReason', { n: stats.noReason })}
-              </span>
-            )}
-          </>
-        )}
-        <span className="ml-auto flex shrink-0 items-center gap-0.5 text-muted-foreground/50">
-          <span>{t('reviewStats.commandHistory')}</span>
-          {expanded ? (
-            <ChevronDown className="h-3 w-3" aria-hidden />
-          ) : (
-            <ChevronRight className="h-3 w-3" aria-hidden />
-          )}
-        </span>
-      </button>
-      {expanded && (
-        <div
-          id="review-stats-history"
-          role="list"
-          className="mt-1 space-y-0.5 border-t border-border/60 pt-1"
-          data-testid="review-stats-history"
-        >
-          {decided.length === 0 ? (
-            <div className="text-muted-foreground/50">{t('reviewStats.noDecision')}</div>
-          ) : (
-            decided.map((step) => {
-              const view = stepDecisionLabel(step.decision, tDecision)
-              return (
-                <div
-                  key={`${step.runId}-${step.stepIndex}`}
-                  role="listitem"
-                  className="flex items-center gap-1.5"
-                >
-                  <span
-                    className={cn(
-                      'shrink-0 rounded-sm px-1 text-[10px] font-medium',
-                      view.state === 'approved' &&
-                        'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-                      view.state === 'rejected' && 'bg-red-500/10 text-red-600 dark:text-red-400',
-                      view.state === 'needsUser' &&
-                        'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-                      view.state === 'unknown' && 'bg-muted text-muted-foreground/70',
-                    )}
-                    data-decision-state={view.state}
-                  >
-                    {view.text}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate font-mono text-foreground/70">
-                    {step.toolName}
-                  </span>
-                  {/* 决策无 reason → 显式缺省文案(非空白、非"-") */}
-                  <span className="max-w-[45%] shrink-0 truncate text-muted-foreground/60">
-                    {step.reason && step.reason !== ''
-                      ? step.reason
-                      : t('reviewStats.noReasonText')}
-                  </span>
-                </div>
-              )
-            })
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export function AgentTaskProgressPane() {
   const t = useTranslations('ai.pane')
   const open = useAgentProgressPaneStore((s) => s.open)
@@ -904,21 +740,7 @@ export function AgentTaskProgressPane() {
     return remaining > 0 ? Math.round(avgMs * remaining) : null
   }, [planSteps])
 
-  /**
-   * 上下文占用百分比的分母**必须取模型真实容量出口** `getModelContextCapacity`,不能写死 128000:
-   * 此前这里是"除以一个写死的容量字面量"(正是 `apps/web/tests/agent-pane-context-denominator.test.ts`
-   * 禁止的形态),而全站只有 `gpt-4o` 等少数模型真的是 128K ——
-   * 换成 32K 的模型就把 100% 显示成 39%,换成 200K 的显示成 64%,而且数字看着"很合理",
-   * 用户没有任何线索去怀疑它。同一件事在发送侧早就走这个出口了(`resume-stream.ts` 的
-   * `contextLimit: getModelContextCapacity(store.currentModel)`),两处算同一个分母必漂,
-   * 所以这里改成引用同一份出口。
-   * 已知残留(如实登记):这里取的是**会话当前选中模型**;若这一轮被后端自动路由到了别的厂商
-   * (`model=='auto'` 分支),真实容量仍以用量帧回带的 model 为准 —— 那一半需要 usage 帧的 model
-   * 进到本面板的状态里,已在台账另立一票,不在本次修范围内。
-   */
-  const currentModel = useChatStore((s) => s.currentModel)
-  const capacity = getModelContextCapacity(currentModel)
-  const contextUsage = totalTokens > 0 && capacity > 0 ? Math.min(100, (totalTokens / capacity) * 100) : 0
+  const contextUsage = totalTokens > 0 ? Math.min(100, (totalTokens / 128000) * 100) : 0
 
   // v10: completedCount + progressPct 用 useMemo 缓存
   const { completedCount, progressPct } = React.useMemo(() => {
@@ -1128,20 +950,6 @@ export function AgentTaskProgressPane() {
     [hoveredPlanStepId, hoveredMessageId],
   )
 
-  // 层栈注册:面板 open → 入栈;帮助 showHelp → 入栈(成为栈顶,内层)。
-  // close/unmount → 出栈。pushOverlay 幂等,StrictMode 双跑 effect 不会产生重复项。
-  React.useEffect(() => {
-    if (!open) return
-    pushOverlay(AGENT_TASK_PANE_ID)
-    return () => popOverlay(AGENT_TASK_PANE_ID)
-  }, [open])
-
-  React.useEffect(() => {
-    if (!open || !showHelp) return
-    pushOverlay(AGENT_TASK_HELP_ID)
-    return () => popOverlay(AGENT_TASK_HELP_ID)
-  }, [open, showHelp])
-
   // Esc 关闭(unpin 状态下生效) + 帮助面板关闭
   React.useEffect(() => {
     if (!open) return
@@ -1153,17 +961,14 @@ export function AgentTaskProgressPane() {
           return
         }
       }
-      // 帮助面板打开时,Esc 优先关帮助(帮助是栈顶内层)
+      // 帮助面板打开时,Esc 优先关帮助,避免冒泡到外层 closePane
       if (e.key === 'Escape' && showHelp) {
-        // 只让栈顶那一层消费 Esc:帮助是栈顶时才关帮助
-        if (!isTopOverlay(AGENT_TASK_HELP_ID)) return
         e.preventDefault()
+        e.stopPropagation()
         setShowHelp(false)
         return
       }
       if (e.key === 'Escape' && !pinned) {
-        // 只让栈顶那一层消费 Esc:面板是栈顶时才关面板(帮助关闭后面板成为栈顶)
-        if (!isTopOverlay(AGENT_TASK_PANE_ID)) return
         e.preventDefault()
         closePane()
       }
@@ -1792,14 +1597,15 @@ export function AgentTaskProgressPane() {
           {/* P0-5(2026-09-13):workbench plan-step 时间线(命名 SSE 事件,step_index 幂等);
               仅当运行时链路有步骤时渲染,复用 planListLabel 文案 */}
           {runtimePlanSteps.length > 0 && (
-            <div className="mx-2 mt-1.5 space-y-1" data-testid="pane-runtime-steps">
-              {/* D85(G-116):聚合条位于决策区块顶部,与逐条徽章同源(runtimePlanSteps 派生) */}
-              <ReviewStatsBar steps={runtimePlanSteps} />
-              <div role="list" aria-label={t('planListLabel')}>
-                {runtimePlanSteps.map((step) => (
-                  <RuntimeStepRow key={`${step.runId}-${step.stepIndex}`} step={step} />
-                ))}
-              </div>
+            <div
+              className="mx-2 mt-1.5"
+              role="list"
+              aria-label={t('planListLabel')}
+              data-testid="pane-runtime-steps"
+            >
+              {runtimePlanSteps.map((step) => (
+                <RuntimeStepRow key={`${step.runId}-${step.stepIndex}`} step={step} />
+              ))}
             </div>
           )}
 
@@ -1944,6 +1750,9 @@ export function AgentTaskProgressPane() {
                   </div>
                 )}
                 {/* 2026-09-19 v2:传入 planSteps 供工具卡显示"所属步骤" chip */}
+                {/* D85(G-116)自动审查统计条:与展开区逐条徽章共吃同一份 runtimePlanSteps,
+                    计数唯一真相源是 shared 的 stepDecisionState 分类(本组件内不判第二遍) */}
+                <ReviewStatsBar steps={runtimePlanSteps} />
                 <ToolCallsSection tools={tools} planSteps={planSteps} />
                 {/* Phase 19: BatchHeader 包装 subagents(默认折叠,展开后展示 SubAgentTaskTree) */}
                 {subagents.length > 0 && (
@@ -1995,7 +1804,7 @@ export function AgentTaskProgressPane() {
                 type="button"
                 onClick={jumpToLatest}
                 aria-label={t('followEvents')}
-                className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-sm border border-border bg-popover px-2 text-[10px] text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-accent-foreground"
+                className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-md border border-border bg-popover px-2 text-[10px] text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-accent-foreground"
                 data-testid="pane-jump-latest"
               >
                 <ArrowDown className="h-2.5 w-2.5" />
@@ -2006,6 +1815,104 @@ export function AgentTaskProgressPane() {
         </div>
       </div>
     </TooltipProvider>
+  )
+}
+
+// ------------------------------------------------ D85 自动审查统计条 ----
+
+/** D85 统计条派生结果(G-116,2026-09-30):计数与逐条徽章同源(shared stepDecisionState) */
+export interface ReviewStats {
+  /** 已出决策的步骤数(decision 非空串) */
+  hasDecision: number
+  accepted: number
+  rejected: number
+  needsUser: number
+  unknown: number
+  /** 已决策但未提供理由的条数 */
+  noReason: number
+}
+
+/** 纯函数派生:分类唯一真相源是 @ihui/shared/chat 的 stepDecisionState,此处不判第二遍 */
+export function deriveReviewStats(steps: readonly AgentPlanStepEvent[]): ReviewStats {
+  const decided = steps.filter((s) => typeof s.decision === 'string' && s.decision !== '')
+  const count = (state: StepDecisionState) =>
+    decided.filter((s) => stepDecisionState(s.decision) === state).length
+  return {
+    hasDecision: decided.length,
+    accepted: count('approved'),
+    rejected: count('rejected'),
+    needsUser: count('needsUser'),
+    unknown: count('unknown'),
+    noReason: decided.filter((s) => !s.reason).length,
+  }
+}
+
+/**
+ * D85(G-116)自动审查统计条:摘要计数常显,点击展开逐条决策徽章(含缺省理由文案)。
+ * 决策项无 reason 时显式落到词表 `reviewStats.noReasonText` 取值,不留空、不吐键名。
+ */
+export function ReviewStatsBar({ steps }: { steps: readonly AgentPlanStepEvent[] }) {
+  const t = useTranslations('ai.pane')
+  const tDecision = useTranslations('stepDecision')
+  const [open, setOpen] = React.useState(false)
+  const stats = React.useMemo(() => deriveReviewStats(steps), [steps])
+  // 展开区逐条徽章与统计计数同源:只列**已决策**的步骤(未过闸门 decision 为 null/空串
+  // 的步骤不进历史,与 deriveReviewStats 的 decided 过滤保持同一判据)
+  const decidedSteps = React.useMemo(
+    () => steps.filter((s) => typeof s.decision === 'string' && s.decision !== ''),
+    [steps],
+  )
+  const hasDecision = stats.hasDecision > 0
+  return (
+    <div className="mx-1.5 mt-1.5">
+      <div
+        data-testid="review-stats-bar"
+        className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-foreground/80"
+      >
+        <span className="shrink-0 font-medium">{t('reviewStats.title')}</span>
+        {hasDecision ? (
+          <>
+            <span className="tabular-nums">{t('reviewStats.accepted', { n: stats.accepted })}</span>
+            <span className="tabular-nums">{t('reviewStats.rejected', { n: stats.rejected })}</span>
+            <span className="tabular-nums">{t('reviewStats.noReason', { n: stats.noReason })}</span>
+          </>
+        ) : (
+          // 完全没发生自动审查 → 不吐任何计数,显式显示空态文案
+          <span>{t('reviewStats.noDecision')}</span>
+        )}
+        <button
+          type="button"
+          data-testid="review-stats-toggle"
+          aria-label={t('reviewStats.expandAria')}
+          onClick={() => setOpen((v) => !v)}
+          className="ml-auto shrink-0 rounded-sm px-1 text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+        >
+          {open ? '▾' : '▸'}
+        </button>
+      </div>
+      {open && hasDecision && (
+        <div data-testid="review-stats-history" className="mt-1 px-1">
+          <ul className="space-y-0.5">
+            {decidedSteps.map((s, i) => {
+              const label = stepDecisionLabel(s.decision, tDecision)
+              const reason =
+                s.reason && s.reason.trim().length > 0 ? s.reason : t('reviewStats.noReasonText')
+              return (
+                <li key={i} className="flex items-center gap-1.5 text-[11px]">
+                  <span
+                    data-decision-state={label.state}
+                    className="shrink-0 rounded-sm bg-muted/60 px-1 py-px text-[10px] text-muted-foreground"
+                  >
+                    {label.text}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{reason}</span>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
   )
 }
 

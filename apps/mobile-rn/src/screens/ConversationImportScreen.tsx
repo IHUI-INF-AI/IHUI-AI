@@ -27,6 +27,7 @@ import type {
   ImportPreviewRow,
   PickedImportFile,
 } from '@ihui/rn-app'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -45,10 +46,26 @@ const IMPORT_SOURCES: ReadonlyArray<{
   labelKey: string
   hintKey: string
 }> = [
-  { value: 'claude_code', labelKey: 'conversationImport.sourceClaudeCode', hintKey: 'conversationImport.sourceClaudeCodeHint' },
-  { value: 'codex', labelKey: 'conversationImport.sourceCodex', hintKey: 'conversationImport.sourceCodexHint' },
-  { value: 'cursor', labelKey: 'conversationImport.sourceCursor', hintKey: 'conversationImport.sourceCursorHint' },
-  { value: 'aider', labelKey: 'conversationImport.sourceAider', hintKey: 'conversationImport.sourceAiderHint' },
+  {
+    value: 'claude_code',
+    labelKey: 'conversationImport.sourceClaudeCode',
+    hintKey: 'conversationImport.sourceClaudeCodeHint',
+  },
+  {
+    value: 'codex',
+    labelKey: 'conversationImport.sourceCodex',
+    hintKey: 'conversationImport.sourceCodexHint',
+  },
+  {
+    value: 'cursor',
+    labelKey: 'conversationImport.sourceCursor',
+    hintKey: 'conversationImport.sourceCursorHint',
+  },
+  {
+    value: 'aider',
+    labelKey: 'conversationImport.sourceAider',
+    hintKey: 'conversationImport.sourceAiderHint',
+  },
 ]
 
 /**
@@ -160,13 +177,20 @@ export function ConversationImportScreen() {
       formData.append('source', source)
       // RN FormData 的文件部分为 { uri, type, name } 对象(既有 RN 上传链路同形态);
       // 标准库 append 签名不含该形态,用 as never 绕过(平台特性,非 any 兜底)。
-      formData.append('file', { uri: picked.uri, type: picked.mimeType, name: picked.name } as never)
+      formData.append('file', {
+        uri: picked.uri,
+        type: picked.mimeType,
+        name: picked.name,
+      } as never)
 
       const res = await fetchApi<ConversationImportParseResult>(
         '/api/user/conversation-import/parse',
         { method: 'POST', body: formData, timeoutMs: PARSE_TIMEOUT_MS },
       )
-      if (!res.success) return { ok: false, error: res.error }
+      // 走唯一出口按 errorCode → status → 文案 定身份:共享渲染器把 parsed.error **原样**显示
+      // (packages/app ConversationImportScreen `setError(parsed.error)`),直取 res.error 会让
+      // 401 以「Invalid or expired token / 操作失败,请稍后重试」裸串落在页面上,登录身份丢失。
+      if (!res.success) return { ok: false, error: apiFailureToText(res) }
 
       const rows: ImportPreviewRow[] = []
       const parsed = new Map<number, ParsedImportConversation>()
@@ -241,7 +265,11 @@ export function ConversationImportScreen() {
 
   const onLoadHistory = useCallback(async (): Promise<ConversationImportHistoryRow[]> => {
     const res = await getConversationImportHistory()
-    if (!res.success) throw new Error(res.error)
+    // 刻意用 apiFailureToText 而不是 apiFailureToError:消费侧(共享渲染器)的 catch 只取
+    // `e.message`(packages/app ConversationImportScreen 的 toMessage),Error 上挂的
+    // status/errorCode 结构上到不了屏幕 —— 换 apiFailureToError 会产出"看起来改了、实际没好"。
+    // 故在抛出前就把 errorCode → status → 文案 判序走完,消息本身即最终文案。
+    if (!res.success) throw new Error(apiFailureToText(res))
     return res.data.list.map((item) => {
       const status = toHistoryStatus(item.status)
       const statusKey =
@@ -266,10 +294,7 @@ export function ConversationImportScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <NavBar
-        title={t('conversationImport.pageTitle')}
-        onBack={() => navigation.goBack()}
-      />
+      <NavBar title={t('conversationImport.pageTitle')} onBack={() => navigation.goBack()} />
       <SharedConversationImportScreen
         t={t}
         colorScheme={resolvedTheme}

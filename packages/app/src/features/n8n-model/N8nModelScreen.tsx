@@ -8,7 +8,6 @@ import {
   Text,
   TouchableOpacity,
   FlatList,
-  TextInput,
   StyleSheet,
   RefreshControl,
   ActivityIndicator,
@@ -18,6 +17,7 @@ import type { N8nModelItem, N8nModelScreenProps, N8nModelTab } from '../../types
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** n8n 模型管理共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { N8nModelItem, N8nModelScreenProps }
@@ -67,7 +67,8 @@ export function N8nModelScreen({
       </View>
 
       <View style={styles.searchRow}>
-        <TextInput
+        <TextField
+          colorScheme={colorScheme}
           style={styles.searchInput}
           value={keyword}
           onChangeText={onKeywordChange}
@@ -263,7 +264,13 @@ function createStyles(tk: AppThemeTokens) {
     card: { padding: 12, borderRadius: rnRadius.lg, borderWidth: 1, borderColor: tk.border.light },
     cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     cardTitleRow: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-    dot: { width: 8, height: 8, borderRadius: rnRadius.xs, marginRight: 8 },
+    dot: {
+      width: 8,
+      height: 8,
+      // radius-role-exempt: 8dp 状态点须整圆(半径=直径一半),取 xs 会变方角 until 2026-11-26
+      borderRadius: rnRadius.sm,
+      marginRight: 8,
+    },
     dotRun: { backgroundColor: tk.success.DEFAULT },
     dotStop: { backgroundColor: tk.text.tertiary },
     cardName: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },

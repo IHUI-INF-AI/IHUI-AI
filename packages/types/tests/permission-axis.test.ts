@@ -1,3 +1,7 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -48,16 +52,34 @@ describe('permission-axis(79 号双轴注册表)', () => {
 
   it('Codex 三档预设与 2026-10-01 取证逐字一致', () => {
     expect([...APPROVAL_PRESET_IDS]).toEqual(['readOnly', 'auto', 'fullAccess'])
-    expect(APPROVAL_PRESETS.readOnly).toEqual({ sandboxMode: 'read-only', approvalPolicy: 'on-request' })
-    expect(APPROVAL_PRESETS.auto).toEqual({ sandboxMode: 'workspace-write', approvalPolicy: 'on-request' })
-    expect(APPROVAL_PRESETS.fullAccess).toEqual({ sandboxMode: 'danger-full-access', approvalPolicy: 'never' })
+    expect(APPROVAL_PRESETS.readOnly).toEqual({
+      sandboxMode: 'read-only',
+      approvalPolicy: 'on-request',
+    })
+    expect(APPROVAL_PRESETS.auto).toEqual({
+      sandboxMode: 'workspace-write',
+      approvalPolicy: 'on-request',
+    })
+    expect(APPROVAL_PRESETS.fullAccess).toEqual({
+      sandboxMode: 'danger-full-access',
+      approvalPolicy: 'never',
+    })
   })
 
   it('Legacy 单轴→双轴映射:三档精确等价,两档 fail-closed 置 null', () => {
     expect(Object.keys(PERMISSION_MODE_TO_AXIS).sort()).toEqual([...PERMISSION_MODES].sort())
-    expect(PERMISSION_MODE_TO_AXIS.plan).toEqual({ sandboxMode: 'read-only', approvalPolicy: 'on-request' })
-    expect(PERMISSION_MODE_TO_AXIS.default).toEqual({ sandboxMode: 'workspace-write', approvalPolicy: 'on-request' })
-    expect(PERMISSION_MODE_TO_AXIS.bypassPermissions).toEqual({ sandboxMode: 'danger-full-access', approvalPolicy: 'never' })
+    expect(PERMISSION_MODE_TO_AXIS.plan).toEqual({
+      sandboxMode: 'read-only',
+      approvalPolicy: 'on-request',
+    })
+    expect(PERMISSION_MODE_TO_AXIS.default).toEqual({
+      sandboxMode: 'workspace-write',
+      approvalPolicy: 'on-request',
+    })
+    expect(PERMISSION_MODE_TO_AXIS.bypassPermissions).toEqual({
+      sandboxMode: 'danger-full-access',
+      approvalPolicy: 'never',
+    })
     // 伪造等价的防线:这两档的双轴表达不存在,必须保持 null
     expect(PERMISSION_MODE_TO_AXIS.acceptEdits).toBeNull()
     expect(PERMISSION_MODE_TO_AXIS.manual).toBeNull()
@@ -74,3 +96,4 @@ describe('permission-axis(79 号双轴注册表)', () => {
     for (const k of GRANULAR_APPROVAL_KEYS) expect(APPROVAL_POLICIES).not.toContain(k)
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

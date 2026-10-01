@@ -19,14 +19,10 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { SearchInput } from '@ihui/ui-react'
-// b76-13 票7(2026-09-30 立):消费侧集合裁尾唯一出口 —— 裁尾与"少列了多少"原子产出,
-// 淘汰的条数必须渲染成「N more」露出,不许静默截断(判据见 scripts/check-list-cap-honesty.mjs)。
-import { tailWithOmittedCount } from '@ihui/api-client/client'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
-import { FoldableSection } from './foldable-section'
+import { FoldableSection, formatDuration } from './foldable-section'
 import { describeToolActivityByStatus } from '@ihui/shared/chat'
-import { formatDuration } from './foldable-section'
 import { CopyButton } from './copy-button'
 import type { AgentToolCall, PlanStep } from '@/hooks/use-agent-progress'
 
@@ -415,8 +411,8 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
   }, [tools, searchQuery, statusFilter])
 
   // v10: 分类计数 + 摘要用 useMemo 缓存(避免每次 render 重新计算)
-  const { summary, recentTools, omittedToolCount } = React.useMemo(() => {
-    if (tools.length === 0) return { summary: '', recentTools: [], omittedToolCount: 0 }
+  const { summary, recentTools } = React.useMemo(() => {
+    if (tools.length === 0) return { summary: '', recentTools: [] }
     const categoryCounts: Record<ToolCategory, number> = {
       read: 0,
       search: 0,
@@ -433,12 +429,9 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
         summaryParts.push(`${t(CATEGORY_TKEY[cat])} ${categoryCounts[cat]}`)
       }
     }
-    // b76-13 票7:裁尾走唯一出口,omittedToolCount 是「还有 N 项」的唯一事实来源(0 时无占位)
-    const { items: recentItems, omittedCount } = tailWithOmittedCount(filteredTools)
     return {
       summary: summaryParts.join(' · '),
-      recentTools: recentItems,
-      omittedToolCount: omittedCount,
+      recentTools: filteredTools.slice(-10),
     }
   }, [tools, filteredTools, t])
 
@@ -509,9 +502,9 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
         {recentTools.map((tool) => (
           <ToolCallItem key={tool.id} tool={tool} stepLabel={stepLabelByToolId.get(tool.id)} />
         ))}
-        {omittedToolCount > 0 && (
+        {filteredTools.length > 10 && (
           <div className="text-[11px] text-muted-foreground/60">
-            {t('tools.moreItems', { n: omittedToolCount })}
+            {t('tools.moreItems', { n: filteredTools.length - 10 })}
           </div>
         )}
         {searchQuery && filteredTools.length === 0 && (

@@ -3,139 +3,131 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // @vitest-environment jsdom
-// D176 交接生成流装车证明(2026-09-30 拍板立项,后端三段同枚落地后的 UI 侧判据):
-// ① 生成相位 generating → done(摘要上屏,提交挂真回调);② 生成失败落 error 位(服务端原文);
-// ③ revealFile 因桌面壳出口缺失仍渲染但禁用(禁而不藏);
-// ④ 残余②收口(2026-09-30):创建会话成功后,交接正文经 chat store 待发草稿队列
-//    draftInput + draftAutoSend 注入(MessageInput 消费后成为新会话首条用户消息),
-//    正文必须含摘要与下一步(可选交接目的);⑤ 创建失败时不注入(误发进旧会话比不发更糟)。
-import { describe, it, expect, vi, afterEach } from 'vitest'
+// D176 任务回顾与「移交到新任务」(2026-09-30 立,对标竞品 chatSession.highlights.recap.*)。
+//
+// 这一票的判据核心不是"界面能不能打开",而是**界面有没有如实报出可达性**:
+// 交接文档的生成出口在现有链路里不存在(取证四条出处见 d176-task-recap.tsx 文件头),
+// 所以 UI 必须落在"依赖的生成出口不存在"这一真实状态 —— 表单在位、下游动作禁用并给禁因,
+// 绝不做成"点了会假装生成"的按钮,也不拿 waitingPreview / phase.* 的进度文案冒充能力在线。
+//
+// 三层合围:
+//   渲染层:回顾入口 → 交接菜单项 → 交接表单两级视图,禁因与禁用态逐条断言;
+//   缺席层:生成态文案(waitingPreview / phase.generating / phase.finalizing / phase.done /
+//           creating / createFailed)在不可达状态下**一个字都不许出现**;
+//   装车层:宿主 ai-side-panel.tsx 确实 import 并挂载 <TaskRecapEntry />(头部动作簇内)。
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import React from 'react'
-import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react'
+import { resolve } from 'node:path'
 
-vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }))
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { render, cleanup, screen, fireEvent } from '@testing-library/react'
 
-const {
-  generateRecapHandoff,
-  createConversation,
-  setConversationId,
-  chatStoreSetState,
-} = vi.hoisted(() => ({
-  generateRecapHandoff: vi.fn(),
-  createConversation: vi.fn(),
-  setConversationId: vi.fn(),
-  chatStoreSetState: vi.fn(),
-}))
-vi.mock('@ihui/api-client', () => ({ generateRecapHandoff, createConversation }))
-vi.mock('@/stores/chat', () => ({
-  // zustand store 既是 hook 又带静态 setState(草稿待发通道经 useChatStore.setState 写入,
-  // 同 goal-card / next-steps-card 的既有生产者写法)—— 用 Object.assign 补静态面。
-  useChatStore: Object.assign(
-    (selector: (s: Record<string, unknown>) => unknown) =>
-      selector({ conversationId: 'conv-1', setConversationId }),
-    { setState: chatStoreSetState },
-  ),
+vi.mock('next-intl', () => ({
+  // 词包五语言由主会话落地后另立锁;这里 echo 键名,断言"取了哪个键"与"没取哪些键"
+  useTranslations: () => (key: string) => key,
 }))
 
-import { TaskRecapEntry } from '../d176-task-recap'
+import { TaskRecapEntry } from '@/components/ai/d176-task-recap'
+
+function readRepo(relPath: string): string {
+  return readFileSync(resolve(process.cwd(), relPath), 'utf-8')
+}
+
+const host = readRepo('src/components/ai/ai-side-panel.tsx')
+const component = readRepo('src/components/ai/d176-task-recap.tsx')
 
 afterEach(cleanup)
 
-function openHandoff() {
-  render(<TaskRecapEntry />)
-  fireEvent.click(screen.getByTestId('ai-panel-recap-entry'))
-  fireEvent.click(screen.getByTestId('recap-handoff-menu-item'))
-}
-
-describe('D176 交接生成流(出口翻真后)', () => {
-  it('生成相位 generating → done,摘要与 next_action 上屏;提交挂真回调', async () => {
-    // 组件收窄 ApiResult(成功分支 = { success: true, data }),mock 返回值须同形
-    generateRecapHandoff.mockResolvedValue({
-      success: true,
-      data: { summary: '已完成 A 与 B', nextAction: '跑验证' },
-    })
-    openHandoff()
-    expect((screen.getByTestId('recap-purpose-input') as HTMLInputElement).disabled).toBe(false)
-    expect(screen.queryByTestId('recap-generation-unavailable')).toBeNull()
-    fireEvent.click(screen.getByTestId('recap-generate-submit'))
-    await waitFor(() => expect(screen.getByTestId('recap-preview')).toBeTruthy())
-    expect(generateRecapHandoff).toHaveBeenCalledWith({ threadId: 'conv-1', purpose: undefined })
-    expect(screen.getByTestId('recap-preview').textContent).toContain('已完成 A 与 B')
-    expect(screen.getByTestId('recap-preview').textContent).toContain('跑验证')
+describe('D176 渲染层:回顾两级视图在位', () => {
+  it('头部入口:aria-label 取 recap.title,点击开 Dialog', () => {
+    render(<TaskRecapEntry />)
+    const entry = screen.getByTestId('ai-panel-recap-entry')
+    expect(entry.getAttribute('aria-label')).toBe('recap.title')
+    fireEvent.click(entry)
+    expect(screen.getByTestId('recap-dialog-title').textContent).toBe('recap.title')
+    expect(screen.getByTestId('recap-handoff-menu-item').textContent).toBe('recap.handoff.menuItem')
   })
 
-  it('生成失败落 error 位并展示服务端原文', async () => {
-    generateRecapHandoff.mockRejectedValue(new Error('交接内容生成失败: 502'))
-    openHandoff()
-    fireEvent.click(screen.getByTestId('recap-generate-submit'))
-    await waitFor(() => expect(screen.getByTestId('recap-generation-error')).toBeTruthy())
-    expect(screen.getByTestId('recap-generation-error').textContent).toContain('502')
-  })
-
-  it('revealFile 无桌面壳出口:渲染但禁用(禁而不藏)', () => {
-    openHandoff()
-    expect((screen.getByTestId('recap-reveal-file') as HTMLButtonElement).disabled).toBe(true)
-  })
-
-  it('创建会话成功后,交接正文经 draftInput+draftAutoSend 待发通道注入(含摘要/下一步/交接目的)', async () => {
-    generateRecapHandoff.mockResolvedValue({
-      success: true,
-      data: { summary: '已完成 A 与 B', nextAction: '跑验证' },
-    })
-    createConversation.mockResolvedValue({
-      success: true,
-      data: { conversation: { id: 'conv-new' } },
-    })
-    openHandoff()
-    fireEvent.change(screen.getByTestId('recap-purpose-input'), {
-      target: { value: '带上下文继续' },
-    })
-    fireEvent.click(screen.getByTestId('recap-generate-submit'))
-    await waitFor(() => expect(screen.getByTestId('recap-preview')).toBeTruthy())
-    fireEvent.click(screen.getByTestId('recap-create-session'))
-    await waitFor(() => expect(setConversationId).toHaveBeenCalledWith('conv-new'))
-    expect(chatStoreSetState).toHaveBeenCalledTimes(1)
-    // noUncheckedIndexedAccess:calls[0] 为 T|undefined,上一行已断言调用次数为 1,非空断言安全
-    const payload = chatStoreSetState.mock.calls[0]![0] as {
-      draftInput: string
-      draftAutoSend: boolean
-    }
-    // MessageInput 消费该草稿后直接 submit —— 这三个内容段缺一不可,否则新会话首条丢了交接关键信息
-    expect(payload.draftAutoSend).toBe(true)
-    expect(payload.draftInput).toContain('【任务交接】已完成 A 与 B')
-    expect(payload.draftInput).toContain('下一步:跑验证')
-    expect(payload.draftInput).toContain('交接目的:带上下文继续')
-  })
-
-  it('创建会话失败时不注入草稿(误把交接正文发进旧会话比不发更糟)', async () => {
-    generateRecapHandoff.mockResolvedValue({
-      success: true,
-      data: { summary: '已完成 A 与 B', nextAction: '跑验证' },
-    })
-    createConversation.mockRejectedValue(new Error('创建会话失败: 500'))
-    openHandoff()
-    fireEvent.click(screen.getByTestId('recap-generate-submit'))
-    await waitFor(() => expect(screen.getByTestId('recap-preview')).toBeTruthy())
-    // hoisted mock 跨用例共享调用账:先清掉前一用例的 setConversationId 记录,
-    // 否则负断言会把上例的 'conv-new' 调用记到本例头上
-    setConversationId.mockClear()
-    chatStoreSetState.mockClear()
-    fireEvent.click(screen.getByTestId('recap-create-session'))
-    await waitFor(() => expect(screen.getByTestId('recap-create-failed')).toBeTruthy())
-    expect(setConversationId).not.toHaveBeenCalled()
-    expect(chatStoreSetState).not.toHaveBeenCalled()
-  })
-
-  it('装车层:入口确实挂在 AI 面板头部按钮组(dynamic import,不进主 chunk)', () => {
-    // 与 D175 装车断言同一模式:读宿主源码验挂载,不重复渲染整个面板
-    const host = readFileSync(
-      join(__dirname, '..', 'ai-side-panel.tsx'),
-      'utf8',
+  it('菜单项进入交接视图:标题取 recap.handoff.title,说明取 recap.previewDescription', () => {
+    render(<TaskRecapEntry />)
+    fireEvent.click(screen.getByTestId('ai-panel-recap-entry'))
+    fireEvent.click(screen.getByTestId('recap-handoff-menu-item'))
+    expect(screen.getByTestId('recap-dialog-title').textContent).toBe('recap.handoff.title')
+    expect(screen.getByText('recap.previewDescription')).toBeTruthy()
+    expect(screen.getByText('recap.purposeLabel')).toBeTruthy()
+    expect(screen.getByTestId('recap-purpose-input').getAttribute('placeholder')).toBe(
+      'recap.purposePlaceholder',
     )
-    expect(host).toContain("import('@/components/ai/d176-task-recap').then((m) => m.TaskRecapEntry)")
+  })
+
+  it('返回:交接视图的 recap.title 按钮退回菜单视图(两级视图各自可达,不是单向死路)', () => {
+    render(<TaskRecapEntry />)
+    fireEvent.click(screen.getByTestId('ai-panel-recap-entry'))
+    fireEvent.click(screen.getByTestId('recap-handoff-menu-item'))
+    fireEvent.click(screen.getByTestId('recap-back-to-list'))
+    expect(screen.getByTestId('recap-dialog-title').textContent).toBe('recap.title')
+    expect(screen.getByTestId('recap-handoff-menu-item')).toBeTruthy()
+  })
+})
+
+describe('D176 缺席层:生成出口不可达 ⇒ 如实禁用,不冒充进度', () => {
+  it('交接视图:目的输入与两个下游动作(显示文件/创建新任务)一律禁用并给禁因', () => {
+    render(<TaskRecapEntry />)
+    fireEvent.click(screen.getByTestId('ai-panel-recap-entry'))
+    fireEvent.click(screen.getByTestId('recap-handoff-menu-item'))
+    expect(screen.getByTestId('recap-purpose-input').hasAttribute('disabled')).toBe(true)
+    const reveal = screen.getByTestId('recap-reveal-file') as HTMLButtonElement
+    const create = screen.getByTestId('recap-create-session') as HTMLButtonElement
+    expect(reveal.disabled).toBe(true)
+    expect(create.disabled).toBe(true)
+    expect(reveal.getAttribute('aria-disabled')).toBe('true')
+    expect(create.getAttribute('aria-disabled')).toBe('true')
+    // 键位刻意平铺成 recap.handoffUnavailable(而非 recap.handoff.generationUnavailable):
+    // 五语包内 `      "handoff": {` 锚点各命中 2 处(aiChat.recap.handoff 与 ai 命名空间内的
+    // 同名块),按"锚点必须恰好命中 1 次"的插入规矩不可用;`    "recap": {` 在五语包内各恰好 1 处。
+    expect(screen.getByTestId('recap-generation-unavailable').textContent).toBe(
+      'recap.handoffUnavailable',
+    )
+  })
+
+  it('点击禁用的动作不产生任何"已生成/已创建"的假象(无成功态、无进度文案)', () => {
+    render(<TaskRecapEntry />)
+    fireEvent.click(screen.getByTestId('ai-panel-recap-entry'))
+    fireEvent.click(screen.getByTestId('recap-handoff-menu-item'))
+    fireEvent.click(screen.getByTestId('recap-create-session'))
+    fireEvent.click(screen.getByTestId('recap-reveal-file'))
+    for (const fake of [
+      'recap.waitingPreview',
+      'recap.phase.generating',
+      'recap.phase.finalizing',
+      'recap.phase.done',
+      'recap.creating',
+      'recap.createFailed',
+    ]) {
+      expect(screen.queryByText(fake)).toBeNull()
+    }
+    // 禁因仍在(点击不会把状态洗成"可用")
+    expect(screen.getByTestId('recap-generation-unavailable')).toBeTruthy()
+  })
+
+  it('组件里那条可达性常量确实是 false(状态登记,不是待翻的默认值)', () => {
+    expect(component).toContain('const RECAP_HANDOFF_GENERATION_AVAILABLE = false')
+    expect(component).toContain('const unavailable = !RECAP_HANDOFF_GENERATION_AVAILABLE')
+  })
+})
+
+describe('D176 装车层:入口真挂在面板头部动作簇里', () => {
+  it('宿主 ai-side-panel.tsx 含 import 与 <TaskRecapEntry />(造好必须装车)', () => {
+    expect(host).toContain("import { TaskRecapEntry } from '@/components/ai/d176-task-recap'")
     expect(host).toContain('<TaskRecapEntry />')
+  })
+
+  it('挂载点落在 D182 头部动作组(role=group)之后、工作面全屏按钮之前(同一簇内)', () => {
+    const groupAt = host.indexOf('data-testid="ai-panel-header-actions-group"')
+    const entryAt = host.indexOf('<TaskRecapEntry />')
+    const fullscreenAt = host.indexOf('data-testid="ai-panel-workspace-fullscreen"')
+    expect(groupAt).toBeGreaterThan(-1)
+    expect(entryAt).toBeGreaterThan(groupAt)
+    expect(entryAt).toBeLessThan(fullscreenAt)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

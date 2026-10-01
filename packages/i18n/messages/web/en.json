@@ -621,10 +621,6 @@
     "nickname": "Nickname",
     "noAccounts": "No accounts",
     "openExternalBrowser": "Open in external browser",
-    "chromeImportBtn": "Import from my Chrome",
-    "chromeImportLaunching": "Opening Chrome sign-in window...",
-    "chromeImportHint": "Opened the {platform} sign-in page in a separate window. Sign in there — the account is saved automatically once you are logged in, no cookie pasting needed.",
-    "chromeImportFailed": "Chrome import not completed",
     "orDivider": "OR",
     "platform": "Platform",
     "scan": "Scan Login",
@@ -634,9 +630,6 @@
     "scanLoginHint": "QR code refreshes every minute",
     "scanLoginSucceeded": "Scan login successful",
     "scanLoginSuccess": "Scan Successful",
-    "scanLoginReuseLabel": "Sign-in mode",
-    "scanLoginReuseOn": "Reuse existing session (no scan)",
-    "scanLoginReuseOff": "Scan fresh every time",
     "scanLoginTimeout": "Scan timed out. Please try again.",
     "scanLoginTitle": "Scan Login",
     "scanWithPhoneHint": "Please scan the QR code with your phone to log in.",
@@ -8654,10 +8647,6 @@
           "title": "Organization data is being migrated",
           "action": "Retry after the migration completes"
         },
-        "102": {
-          "title": "Request time validation failed",
-          "action": "Sync your system clock and retry"
-        },
         "speaking_banned": {
           "title": "You are currently muted",
           "action": "Contact your administrator for details"
@@ -9228,27 +9217,7 @@
       "removeTagAria": "Remove tag {tag}",
       "filterLabel": "Filter by folder",
       "filterAll": "All",
-      "folderNone": "Unfiled",
-      "adminTitle": "Manage folders",
-      "adminEmpty": "No folders yet",
-      "adminPending": "The folder list is syncing from the server — you can manage folders here shortly.",
-      "adminDeleteHint": "Deleting a folder only unfiles its conversations; nothing is deleted.",
-      "retry": "Retry",
-      "folderCount": "{count} conversations",
-      "pinAria": "Pin folder",
-      "unpinAria": "Unpin folder",
-      "renameAria": "Rename folder",
-      "deleteAria": "Delete folder",
-      "confirmRenameAria": "Confirm rename",
-      "cancelRenameAria": "Cancel rename",
-      "reasonOffline": "Network unreachable — check your connection and try again",
-      "reasonNameTooLong": "Folder name is too long or empty",
-      "reasonDuplicateName": "A folder with that name already exists",
-      "reasonNotFound": "Folder does not exist or was deleted",
-      "reasonForbidden": "You do not have permission to change this folder",
-      "reasonUnauthorized": "Your session expired — sign in again",
-      "reasonServer": "The server had a problem. Try again shortly.",
-      "reasonUnknown": "The action failed. Try again shortly."
+      "folderNone": "Unfiled"
     }
   },
   "aiCost": {
@@ -11262,7 +11231,6 @@
     "permissionUnknownError": "Unknown error",
     "placeholder": "Describe your request; type / for skills, plugins, MCP (e.g. /goal /loop /plan)",
     "placeholderPlan": "Plan mode: type your request, AI only makes plans without executing tools (/act to switch back, Alt+P to toggle)",
-    "aiDisclaimer": "Content is AI-generated. Please verify important information.",
     "plan": {
       "ariaLabel": "Execution plan steps",
       "collapseReasoning": "Collapse reasoning",
@@ -14533,7 +14501,8 @@
     "loading": "Loading...",
     "myPoints": "My Points",
     "subtitle": "Learning points reward system",
-    "title": "Education Points"
+    "title": "Education Points",
+    "totalChannels": "Total channels"
   },
   "eduProgressPage": {
     "categoryProgress": "Progress by category",
@@ -20295,18 +20264,7 @@
       "passwordHint": "Normal users should use scan login. This field is for developers only.",
       "platform": "Platform",
       "saveCookies": "Save account",
-      "preparingQr": "Generating QR code…",
-      "regenerateQr": "New QR code",
       "scan": "Scan",
-      "elapsedSeconds": "Waiting {seconds}s",
-      "loadingSlowHint": "The first QR code needs a fresh browser and the platform login page — usually 3–8s. It appears the moment it is ready.",
-      "loadingStage": {
-        "booting": "Starting browser",
-        "opening": "Opening login page",
-        "rendering": "Generating QR code",
-        "ready": "QR code ready",
-        "switching": "Switching to scan tab"
-      },
       "scanLogin": "Scan Login",
       "scanLoginDescription": "Select a platform. The backend opens the platform login page and captures a QR code. Scan with the app to auto-save cookies.",
       "scanLoginFailed": "Scan login failed",
@@ -20320,8 +20278,6 @@
       "selectPlatform": "Select platform",
       "startScanLogin": "Start Scan Login",
       "statusActive": "Active",
-      "statusCleared": "Re-login required",
-      "statusClearedTip": "This account's saved credentials were cleared (security cleanup). Scan to log in again to restore it — it is not disabled by the platform.",
       "statusDisabled": "Disabled",
       "statusExpired": "Expired",
       "statusUnknown": "Unknown",
@@ -24794,6 +24750,7 @@
     "recording": "Recording",
     "voiceHint": "Voice input",
     "placeholder": "Type a message...",
+    "stop": "Stop",
     "send": "Send"
   },
   "checkIn": {

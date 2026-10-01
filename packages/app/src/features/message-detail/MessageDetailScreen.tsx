@@ -4,7 +4,6 @@
 
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { MessageDetailData, MessageDetailScreenProps } from '@ihui/types'
 
@@ -55,13 +54,13 @@ export function MessageDetailScreen({
       ) : error || !message ? (
         <View style={styles.center}>
           <Text style={styles.errorText}>{error || t('messageDetail.notFound')}</Text>
+          {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
           <TouchableOpacity
             onPress={onBack}
             style={styles.backBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityLabel={t('common.back')}
           >
-            <ChevronLeft size={16} color={tk.text.primary} />
+            <Text style={styles.backBtnText}>{t('common.back')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -108,6 +107,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
+    backBtnText: { fontSize: 14, color: tk.text.primary },
     body: { padding: 10, paddingBottom: 32 },
     subject: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     metaRow: {

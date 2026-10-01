@@ -6,7 +6,6 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../../utils/response.js'
 import { parseNum, parseStr } from './_shared.js'
-import { guardBatchTargets } from '../../utils/batch-outcome.js'
 import {
   findNoticeList,
   findNoticeById,
@@ -85,24 +84,12 @@ export const noticeRoutes: FastifyPluginAsync = async (s) => {
   // DELETE /notice/:noticeIds - 删除公告(逗号分隔)
   s.delete('/:noticeIds', async (request, reply) => {
     const { noticeIds } = z.object({ noticeIds: z.string() }).parse(request.params)
-    const requested = noticeIds
+    const ids = noticeIds
       .split(',')
       .filter(Boolean)
       .map(Number)
       .filter((n) => !Number.isNaN(n))
-    // G-815986(2026-09-30):**空集合参数必须在任何 IO 之前拒绝**。
-    // 这里的"空"不是"客户端传了空串"那么罕见 —— `DELETE /notice/abc`(非数字、纯逗号、
-    // 全是 NaN)经上面两步过滤后就是**空数组**,旧写法带着它直接发出
-    // `DELETE ... WHERE notice_id inArray([])`;实测 drizzle 把空 inArray 渲染成合法 SQL 里的
-    // `false`(不报错、命中 0 行),于是这次请求:① 为一个根本不存在的目标付了一次写 round-trip,
-    // ② 回 `deleted: 0` 与"确有目标但目标都不在库里"**完全同形**,调用方读不出"没做成"与"没目标"。
-    // 判据只许住在 utils/batch-outcome.ts 那一个纯函数出口(它结构上发不出查询),
-    // 不得在本文件再抄一份 `if (ids.length === 0)` —— 两处算同一件事必漂移。
-    const guard = guardBatchTargets(requested, 'noticeIds')
-    if (!guard.ok) {
-      return reply.status(400).send({ ...error(400, guard.message), errorCode: guard.code })
-    }
-    const deleted = await deleteNoticesBatch(guard.ids)
+    const deleted = await deleteNoticesBatch(ids)
     return reply.send(success({ deleted }))
   })
 }

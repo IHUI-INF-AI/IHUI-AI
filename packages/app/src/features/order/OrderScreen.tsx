@@ -6,7 +6,6 @@ import { useMemo, useState } from 'react'
 import {
   View,
   Text,
-  TextInput,
   Image,
   TouchableOpacity,
   FlatList,
@@ -19,6 +18,7 @@ import type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab } from '../.
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** 订单/Tab/Props 类型 re-export(单一来源 @ihui/types) */
 export type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab }
@@ -113,7 +113,8 @@ export function OrderScreen({
         itemGap={8}
       />
 
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={styles.searchInput}
         value={keyword}
         onChangeText={setKeyword}

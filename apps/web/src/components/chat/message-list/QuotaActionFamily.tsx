@@ -76,18 +76,16 @@ export function QuotaActionFamily({
       {onRetry && (
         <Button size="xs" variant="outline" data-testid={retryTestId} onClick={onRetry}>
           <RotateCcw className="h-3 w-3" aria-hidden="true" />
-          {t('quotaAction.retry')}
+          {/* 复用 `chat.retry`(本命名空间已有的「重试」按钮文案,五语言齐备)——
+              不另立 `quotaAction.retry`,避免同一个词在 chat 下出现第二份真相 */}
+          {t('retry')}
         </Button>
       )}
 
       {/* 免费档可用:不渲染付费诱导(补积分/升级套餐) —— D39 心智边界显式判据 */}
       {!freeTierAvailable && (
         <>
-          <Button
-            size="xs"
-            data-testid="quota-action-add-points"
-            onClick={() => go(addPointsHref)}
-          >
+          <Button size="xs" data-testid="quota-action-add-points" onClick={() => go(addPointsHref)}>
             <Coins className="h-3 w-3" aria-hidden="true" />
             {t('quotaAction.addPoints')}
           </Button>
@@ -124,12 +122,7 @@ export function QuotaActionFamily({
         {t('quotaAction.viewUsage')}
       </Button>
 
-      <Button
-        size="xs"
-        variant="outline"
-        data-testid="quota-action-relogin"
-        onClick={doReLogin}
-      >
+      <Button size="xs" variant="outline" data-testid="quota-action-relogin" onClick={doReLogin}>
         <LogIn className="h-3 w-3" aria-hidden="true" />
         {t('quotaAction.relogin')}
       </Button>

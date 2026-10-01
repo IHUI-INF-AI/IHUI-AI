@@ -621,10 +621,6 @@
     "nickname": "ニックネーム",
     "noAccounts": "アカウントがありません",
     "openExternalBrowser": "外部ブラウザで開く",
-    "chromeImportBtn": "自分の Chrome から取り込み",
-    "chromeImportLaunching": "Chrome のログインウィンドウを開いています...",
-    "chromeImportHint": "{platform} のログインページを別ウィンドウで開きました。そのウィンドウでログインすると、Cookie を貼り付けなくても自動的にアカウントが保存されます。",
-    "chromeImportFailed": "Chrome からの取り込みが完了しませんでした",
     "orDivider": "または",
     "platform": "プラットフォーム",
     "scan": "スキャンログイン",
@@ -634,9 +630,6 @@
     "scanLoginHint": "QRコードは1分ごとに自動更新されます",
     "scanLoginSucceeded": "スキャンログインに成功しました",
     "scanLoginSuccess": "スキャン成功",
-    "scanLoginReuseLabel": "ログイン方式",
-    "scanLoginReuseOn": "既存セッションを再利用(スキャン不要)",
-    "scanLoginReuseOff": "毎回新しくスキャン",
     "scanLoginTimeout": "スキャンタイムアウトです。もう一度お試しください。",
     "scanLoginTitle": "スキャンログイン",
     "scanWithPhoneHint": "スマートフォンでQRコードをスキャンしてください。",
@@ -8654,10 +8647,6 @@
           "title": "組織データを移行中です",
           "action": "移行が完了してから再試行"
         },
-        "102": {
-          "title": "リクエスト時刻の検証に失敗しました",
-          "action": "システム時計を同期してから再試行"
-        },
         "speaking_banned": {
           "title": "現在発言が制限されています",
           "action": "詳細は管理者に連絡"
@@ -9218,27 +9207,7 @@
       "removeTagAria": "タグ {tag} を削除",
       "filterLabel": "フォルダで絞り込み",
       "filterAll": "全て",
-      "folderNone": "未分類",
-      "adminTitle": "グループ管理",
-      "adminEmpty": "グループはまだありません",
-      "adminPending": "グループ一覧をサーバーから同期中です。少ししてからここで管理できます。",
-      "adminDeleteHint": "グループを削除しても分類が解除されるだけで、会話は削除されません。",
-      "retry": "再試行",
-      "folderCount": "{count} 件",
-      "pinAria": "グループを固定",
-      "unpinAria": "グループの固定を解除",
-      "renameAria": "グループ名を変更",
-      "deleteAria": "グループを削除",
-      "confirmRenameAria": "変更を確定",
-      "cancelRenameAria": "変更を取り消す",
-      "reasonOffline": "ネットワークに接続できません。接続を確認して再試行してください。",
-      "reasonNameTooLong": "グループ名が長すぎるか空です",
-      "reasonDuplicateName": "同じ名前のグループが既にあります",
-      "reasonNotFound": "グループが存在しないか削除されました",
-      "reasonForbidden": "このグループを操作する権限がありません",
-      "reasonUnauthorized": "ログインの有効期限が切れました。再度ログインしてください。",
-      "reasonServer": "サーバー側で問題が発生しました。しばらくしてから再試行してください。",
-      "reasonUnknown": "操作に失敗しました。しばらくしてから再試行してください。"
+      "folderNone": "未分類"
     }
   },
   "aiCost": {
@@ -11252,7 +11221,6 @@
     "permissionUnknownError": "不明なエラー",
     "placeholder": "要件を詳細に入力、/ でスキル・プラグイン・MCP を呼び出し（例 /goal /loop /plan）",
     "placeholderPlan": "計画モード：要件を入力、AIは計画のみ立案しツールを実行しません（/act で戻る、Alt+P で切替）",
-    "aiDisclaimer": "内容はAI生成です。重要な情報はご確認ください。",
     "plan": {
       "ariaLabel": "実行プランステップ",
       "collapseReasoning": "推論を折りたたむ",
@@ -14523,7 +14491,8 @@
     "loading": "読み込み中...",
     "myPoints": "のポイント",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "title": "APIテスト"
+    "title": "APIテスト",
+    "totalChannels": "チャネル総数"
   },
   "eduProgressPage": {
     "categoryProgress": "カテゴリー別進捗",
@@ -20280,18 +20249,7 @@
       "passwordHint": "一般ユーザーはQRログインを使ってください。この項目は開発者向けです。",
       "platform": "プラットフォーム",
       "saveCookies": "アカウントを保存",
-      "preparingQr": "QRコードを生成中…",
-      "regenerateQr": "QRコードを再生成",
       "scan": "スキャン",
-      "elapsedSeconds": "待機 {seconds} 秒",
-      "loadingSlowHint": "初回のQRコードはブラウザ起動とログインページの読み込みが必要で、通常 3~8 秒かかります。準備でき次第すぐ表示されます。",
-      "loadingStage": {
-        "booting": "ブラウザを起動中",
-        "opening": "ログインページを開いています",
-        "rendering": "QRコードを生成中",
-        "ready": "QRコード準備完了",
-        "switching": "スキャンに切替中"
-      },
       "scanLogin": "QRコードログイン",
       "scanLoginDescription": "プラットフォームを選択すると、バックエンドがログイン画面を開きQRコードをキャプチャします。アプリでスキャンしてcookieを自動保存。",
       "scanLoginFailed": "QRコードログイン失敗",
@@ -20305,8 +20263,6 @@
       "selectPlatform": "プラットフォーム選択",
       "startScanLogin": "QRコードログイン開始",
       "statusActive": "有効",
-      "statusCleared": "再ログインが必要",
-      "statusClearedTip": "このアカウントのログイン情報は(安全処置により)削除されました。QRコードで再ログインすれば復元できます。プラットフォームによる無効化ではありません。",
       "statusDisabled": "無効",
       "statusExpired": "期限切れ",
       "statusUnknown": "不明",
@@ -24779,6 +24735,7 @@
     "recording": "録音中",
     "voiceHint": "音声入力",
     "placeholder": "メッセージを入力...",
+    "stop": "停止",
     "send": "送信"
   },
   "checkIn": {

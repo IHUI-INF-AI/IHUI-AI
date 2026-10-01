@@ -621,10 +621,6 @@
     "nickname": "暱稱",
     "noAccounts": "暫無帳號",
     "openExternalBrowser": "在外部瀏覽器開啟",
-    "chromeImportBtn": "從我的 Chrome 匯入",
-    "chromeImportLaunching": "正在開啟 Chrome 登入視窗...",
-    "chromeImportHint": "已開啟 {platform} 登入頁(獨立視窗)。請在那個視窗完成登入,登入成功後會自動儲存帳號,無需貼上 Cookie。",
-    "chromeImportFailed": "Chrome 匯入未完成",
     "orDivider": "或",
     "platform": "平臺",
     "scan": "掃碼登入",
@@ -634,9 +630,6 @@
     "scanLoginHint": "二維碼每分鐘自動刷新",
     "scanLoginSucceeded": "掃碼登入成功",
     "scanLoginSuccess": "掃碼成功",
-    "scanLoginReuseLabel": "登入方式",
-    "scanLoginReuseOn": "重用已有登入(免掃碼)",
-    "scanLoginReuseOff": "每次重新掃碼",
     "scanLoginTimeout": "掃碼超時,請重試",
     "scanLoginTitle": "掃碼登入",
     "scanWithPhoneHint": "請使用手機掃描二維碼登入",
@@ -8654,10 +8647,6 @@
           "title": "組織資料正在遷移",
           "action": "遷移完成後重試"
         },
-        "102": {
-          "title": "請求時間驗證失敗",
-          "action": "校準系統時間後重試"
-        },
         "speaking_banned": {
           "title": "目前處於禁言狀態",
           "action": "聯絡管理員瞭解詳情"
@@ -9000,7 +8989,6 @@
     "title": "AI 生涯指導"
   },
   "aiChat": {
-    "bindIssue": "綁定 Issue",
     "actions": {
       "archive": "歸檔",
       "compressTo1m": "壓縮到 100 萬字符",
@@ -9146,25 +9134,6 @@
     "noHistory": "暫無任務",
     "noRecentWorkspaces": "暫無最近工作區",
     "openTerminal": "開啟終端",
-    "recap": {
-      "title": "任務回顧",
-      "handoff": {
-        "menuItem": "移交到新任務",
-        "title": "移交到新任務"
-      },
-      "previewDescription": "檢查交接內容後,可以在檔案位置查看,或直接建立一個新任務繼續工作。",
-      "purposeLabel": "交接目的",
-      "purposePlaceholder": "交接目的",
-      "revealFile": "顯示檔案",
-      "createSession": "建立新任務",
-      "phase": {
-        "generating": "模型正在產生交接內容…",
-        "done": "交接文件已產生。"
-      },
-      "creating": "正在建立新任務…",
-      "createFailed": "建立新任務失敗,請重試。",
-      "handoffUnavailable": "依賴的交接文件產生出口尚未提供,無法產生交接內容。"
-    },
     "renameDialog": {
       "cancel": "取消",
       "description": "保持簡短且易於識別",
@@ -9218,27 +9187,7 @@
       "removeTagAria": "移除標籤 {tag}",
       "filterLabel": "依資料夾篩選",
       "filterAll": "全部",
-      "folderNone": "未分類",
-      "adminTitle": "分組管理",
-      "adminEmpty": "還沒有分組",
-      "adminPending": "分組清單正在從伺服器同步，稍後可在此管理。",
-      "adminDeleteHint": "刪除分組只會取消歸類，不會刪除會話。",
-      "retry": "重試",
-      "folderCount": "{count} 條",
-      "pinAria": "置頂分組",
-      "unpinAria": "取消置頂分組",
-      "renameAria": "重新命名分組",
-      "deleteAria": "刪除分組",
-      "confirmRenameAria": "確認重新命名",
-      "cancelRenameAria": "取消重新命名",
-      "reasonOffline": "網路不通，請檢查連線後重試",
-      "reasonNameTooLong": "分組名稱過長或為空",
-      "reasonDuplicateName": "已有同名分組",
-      "reasonNotFound": "分組不存在或已被刪除",
-      "reasonForbidden": "您沒有這個分組的操作權限",
-      "reasonUnauthorized": "登入已過期，請重新登入",
-      "reasonServer": "伺服器出現問題，請稍後重試",
-      "reasonUnknown": "操作失敗，請稍後重試"
+      "folderNone": "未分類"
     }
   },
   "aiCost": {
@@ -10623,17 +10572,6 @@
     "expiryDate": "到期日期"
   },
   "chat": {
-    "bindIssue": "綁定 Issue",
-    "unbindIssue": "改為獨立任務",
-    "issueBinding": "關聯 Issue",
-    "searchIssues": "搜尋 Issue 標識、標題或專案",
-    "noIssues": "還沒有可以綁定的 Issue",
-    "noMatchingIssues": "沒有符合的 Issue",
-    "issueNotConfigured": "該來源尚未連接,請先在設定中連接 GitHub 或 Linear",
-    "issueBindSuccess": "Issue 已綁定",
-    "issueBindFailed": "Issue 綁定失敗",
-    "issueUnbindSuccess": "已解綁,該會話已改為獨立任務",
-    "issueUnbindFailed": "解綁失敗",
     "selectionAnnotations": {
       "hoverHint": "懸停查看批註",
       "selectedText": "{{index}}. 選中文字",
@@ -11252,7 +11190,6 @@
     "permissionUnknownError": "未知錯誤",
     "placeholder": "詳細描述需求，輸入 / 調用技能、插件、MCP（如 /goal /loop /plan）",
     "placeholderPlan": "規劃模式：輸入需求，AI 只制定計劃不執行工具（/act 切回執行，Alt+P 切換）",
-    "aiDisclaimer": "內容由AI生成，請核實重要信息",
     "plan": {
       "ariaLabel": "執行計劃步驟",
       "collapseReasoning": "折疊推理過程",
@@ -14212,7 +14149,6 @@
       "verifyCode": "輸入 6 位驗證碼"
     },
     "shop": {
-      "payNow": "去付款",
       "buy": "購買",
       "buying": "下單中...",
       "cancel": "取消",
@@ -14523,7 +14459,8 @@
     "loading": "加載中...",
     "myPoints": "我的積分",
     "subtitle": "學習積分獎勵系統",
-    "title": "教育積分"
+    "title": "教育積分",
+    "totalChannels": "渠道總數"
   },
   "eduProgressPage": {
     "categoryProgress": "分類進度",
@@ -14926,7 +14863,6 @@
     "title": "評測管理"
   },
   "exam": {
-    "pageInfo": "第 {page} / {total} 頁",
     "back": "返回考試列表",
     "duration": "{minutes} 分鐘",
     "empty": "暫無試卷",
@@ -14956,7 +14892,6 @@
     "title": "在線考試",
     "totalScore": "總分 {score}",
     "wrongQuestions": {
-      "aiExplain": "AI 講解",
       "colActions": "操作",
       "colQuestion": "題目內容",
       "colSource": "來源試卷",
@@ -16301,8 +16236,6 @@
     "metaOgDescription": "文檔分塊 + 向量化 + 混合檢索 + 引用追溯"
   },
   "learn": {
-    "startLearning": "開始學習",
-    "buyNow": "立即購買",
     "allCategories": "全部分類",
     "category": "分類",
     "chapters": "課程章節",
@@ -16346,7 +16279,6 @@
     "paymentConfirm": "支付確認",
     "review": "評價",
     "tutor": {
-      "history": "最近問答",
       "title": "AI 助教",
       "subject": "學科",
       "mode": "模式",
@@ -19054,11 +18986,6 @@
     "members": "會員列表",
     "memory": "記憶系統",
     "messages": "站內消息",
-    "myPendingDecisions": "待我決策",
-    "pendingDecisionsEmpty": "暫無待決策",
-    "decisionTypeToolApproval": "工具審批",
-    "decisionTypePermissions": "權限提升請求",
-    "decisionTypeElicitation": "等你回答",
     "messagesComment": "評論",
     "messagesFans": "新粉絲",
     "messagesFavorite": "收藏消息",
@@ -19108,7 +19035,7 @@
     "repoWiki": "Repo Wiki",
     "resources": "資源",
     "restore": "還原",
-    "schedule": "任務排程",
+    "schedule": "課表",
     "search": "搜索",
     "selfMediaAutomation": "自動化",
     "selfMediaKoubo": "口播視頻",
@@ -20268,18 +20195,7 @@
       "passwordHint": "普通用戶建議使用掃碼登錄,此處僅開發者備用。",
       "platform": "平臺",
       "saveCookies": "儲存帳號",
-      "preparingQr": "正在生成二維碼…",
-      "regenerateQr": "重新出碼",
       "scan": "掃碼",
-      "elapsedSeconds": "已等待 {seconds} 秒",
-      "loadingSlowHint": "首次出碼要現起瀏覽器並打開平臺登錄頁,通常 3~8 秒;二維碼一就緒會立即顯示",
-      "loadingStage": {
-        "booting": "啟動瀏覽器",
-        "opening": "打開登錄頁",
-        "rendering": "生成二維碼",
-        "ready": "二維碼就緒",
-        "switching": "切換到掃碼"
-      },
       "scanLogin": "掃碼登錄",
       "scanLoginDescription": "選擇平臺後,後端會打開該平臺登錄頁並截取二維碼;用對應 App 掃碼即可自動保存 cookies。",
       "scanLoginFailed": "掃碼登錄失敗",
@@ -20293,8 +20209,6 @@
       "selectPlatform": "選擇平臺",
       "startScanLogin": "開始掃碼登錄",
       "statusActive": "正常",
-      "statusCleared": "待重新掃碼登入",
-      "statusClearedTip": "該帳號的登入憑證已被清除(安全處置),重新掃碼登入即可恢復,並非平臺停用",
       "statusDisabled": "已禁用",
       "statusExpired": "已過期",
       "statusUnknown": "未知",
@@ -22087,7 +22001,6 @@
     "warning": "警告"
   },
   "student": {
-    "aiExplain": "AI 講解",
     "avgProgress": "平均進度",
     "avgScore": "平均分",
     "certNo": "證書編號",
@@ -24761,6 +24674,7 @@
     "recording": "錄音中",
     "voiceHint": "語音輸入",
     "placeholder": "輸入訊息...",
+    "stop": "停止",
     "send": "發送"
   },
   "checkIn": {
@@ -26625,7 +26539,6 @@
     "noUrlField": "回應中未找到可用的 URL 欄位",
     "networkError": "網路錯誤",
     "uploadCancelled": "上傳已取消",
-    "imageAltText": "回饋截圖 {index}",
     "imagePlaceholder": "點選或拖拽上傳圖片"
   },
   "eduScheduling": {

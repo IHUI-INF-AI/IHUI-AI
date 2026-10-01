@@ -4,7 +4,8 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Input, Button, Textarea, Image } from '@tarojs/components'
+import { View, Text, Button, Image } from '@tarojs/components'
+import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
@@ -132,7 +133,7 @@ export default function Feedback() {
             <Text className="mt-[16rpx] block text-[length:28rpx] text-muted-foreground">
               {tt('feedback.content', '内容')}
             </Text>
-            <Textarea
+            <FocusTextarea
               className="mt-[16rpx] box-border w-full min-h-[188rpx] rounded-sm bg-muted p-[24rpx] text-[length:28rpx] text-foreground"
               placeholder={tt('feedback.contentPlaceholder', '请输入反馈详情')}
               value={content}
@@ -143,7 +144,7 @@ export default function Feedback() {
             <Text className="mt-[16rpx] block text-[length:28rpx] text-muted-foreground">
               {tt('feedback.contact', '联系方式')}
             </Text>
-            <Input
+            <FocusInput
               className="mt-[16rpx] box-border h-[100rpx] w-full rounded-sm bg-muted px-[24rpx] text-[length:28rpx] text-foreground"
               type="text"
               placeholder={tt('feedback.contactPlaceholder', '请输入联系方式(选填)')}

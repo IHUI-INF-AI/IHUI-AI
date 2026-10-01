@@ -4,6 +4,7 @@
 
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import Taro from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { register, sendSmsCode } from '@/api'
@@ -20,7 +21,6 @@ import ThemeRoot from '@/components/ThemeRoot'
 import BackChevron from '@/components/BackChevron'
 import LineIcon from '@/components/LineIcon'
 import './index.css'
-import { FocusInput } from '@/components/FocusField'
 
 /** 把共享 hook 返回的通用错误 key(auth.*)映射到本页 register.* 文案(仅本页面用) */
 function mapRegisterErrorKey(e: string, phone: string): { key: string; fb: string } | null {
