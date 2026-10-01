@@ -12,7 +12,9 @@
  *   - 校验通过时返回 coerced 参数(number 字符串自动转 number 等)
  *
  * 设计原则:
- *   - 纯函数:不抛异常,所有错误以 ValidationError 形式返回
+ *   - 纯函数:判定本体不抛异常,所有错误以 ValidationError 形式返回
+ *     (唯一例外是 schema 解析出口 `resolveSchemaOrThrow`,G-712:schema 推不出必须硬失败,
+ *      不得返回一张空表冒充"已经校验过")
  *   - 容错优先:coercion 优先(LLM 经常 number 传成 string,自动转)
  *   - 早失败:required 缺失/类型不匹配 → valid=false,不让坏参数穿透到工具执行
  *
@@ -22,7 +24,7 @@
  *   - 错误反馈:formatValidationErrors() 生成 LLM 可读的提示文本
  */
 
-import type { ToolParameter, ToolSchema } from './index.js';
+import type { Tool, ToolParameter, ToolSchema } from './index.js';
 import { appendArgRejectionLedger } from './argument-validation-report.js';
 
 // ==================== 类型定义 ====================
@@ -55,6 +57,111 @@ export interface ValidationResult {
   errors: ValidationError[];
   /** Coercion 应用情况(给埋点用):key 列表 */
   coercedFields: string[];
+}
+
+// ==================== schema 缺席 ⇒ 硬失败(G-712)====================
+
+/**
+ * 票面指定的错误码。三个消费点(影子计数 / enforce 决策 / 离线回放)都按这枚码认账,
+ * 所以它是导出的常量而不是散落的字面量 —— 文案会被改写,码不会。
+ */
+export const SCHEMA_MISSING_CODE = 'SchemaMissing' as const;
+
+/** 为什么推不出(三态各有不同处置,所以逐条点名,不给一句"schema 有问题")。 */
+export type SchemaMissingReason =
+  /** 传进来的根本不是 Tool 对象 —— 连"这是哪个工具的参数"都答不出 */
+  | 'tool-not-an-object'
+  /** `parameters` 整块缺席:描述面根本没写 */
+  | 'parameters-not-declared'
+  /** `parameters` 在场但不是属性表(null / 数组 / 字符串 / 函数……) */
+  | 'parameters-not-a-property-table';
+
+/**
+ * schema 缺席时抛的错误。
+ *
+ * 立因(G-712):把 `Tool` 的扁平描述拼成 `ToolSchema` 的那两处
+ * (`argument-validation-telemetry.ts` 的 `buildShadowSchema` 与
+ * `argument-validation-replay.ts` 的旧 `toSchema`)此前对"参数面取不到"的处理是
+ * **兜一张空表** —— `properties: {}` + `required: []` ⇒ 任何入参都判"通过",于是
+ * 影子计数落进 `shadowRuns/invalidRuns` 的通过侧、enforce 落进 `passedPlain`、
+ * 离线回放落进 `totals.valid`。三处读报表的人都会以为"这个工具的参数被验过了",
+ * 而实际上校验整块消失了 —— 与上游那句"查不到就当 untyped 的兜底会把 typed 静默降级"同形。
+ *
+ * 为什么它不改今天的执行行为:
+ *   ① 默认档 `off` 根本不进这三个消费点(telemetry 在 `mode === 'off'` 处就 return);
+ *   ② shadow / enforce / 回放都把这枚错误落进**独立的未判定档**,既不计通过也不计违规;
+ *   ③ enforce 沿用**既有**的 `status:'undetermined'` fail-open 语义,executor 那一条
+ *      分支(只有 `reject` 才拒)一字未动 ⇒ 同一条调用的返回值、`call.arguments` 的引用
+ *      与改前逐字相同(由 `tests/g-712-schema-missing.test.ts` 的 off/enforce 对照钉住)。
+ */
+export class SchemaResolutionError extends Error {
+  readonly code: typeof SCHEMA_MISSING_CODE = SCHEMA_MISSING_CODE;
+  /** 缺席发生在哪个工具身上(只带名字,不带任何入参值) */
+  readonly tool: string;
+  readonly reason: SchemaMissingReason;
+
+  constructor(tool: string, reason: SchemaMissingReason) {
+    // 输出面一律 ASCII:这枚 message 会进日志与影子台账,中文串会让守门 70 把本文件判成新增硬编码中文。
+    super(`SchemaMissing: tool "${tool}" has no resolvable parameters declaration (reason=${reason})`);
+    this.name = 'SchemaResolutionError';
+    this.tool = tool;
+    this.reason = reason;
+  }
+}
+
+/**
+ * 认这枚错误**按码**判,`instanceof` 只是快路径。
+ * 为什么不能只靠 instanceof:跨模块热重载 / 台账 JSON 回读时构造身份会失效,而
+ * "认不出就当别的异常"的表现为这条未判定档静默归零 —— 正是本票要消灭的那个形态。
+ */
+export function isSchemaMissingError(err: unknown): err is SchemaResolutionError {
+  if (err instanceof SchemaResolutionError) return true;
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    (err as { code?: unknown }).code === SCHEMA_MISSING_CODE
+  );
+}
+
+/**
+ * `Tool` ⇒ `ToolSchema` 的**唯一**解析出口:解析不到即抛 `SchemaMissing`,绝不返回空表冒充已校验。
+ *
+ * 判"缺席"的口径(刻意窄,宁漏不误判 —— 假阳会指使人去修没坏的描述):
+ *   红:`parameters` 整块没写,或写的根本不是属性表 ⇒ 类型/枚举/嵌套约束这一族**全部**无从判定;
+ *   不红:`parameters: {}`(空表)。今天有 8 个内建工具**如实**声明零参数
+ *         (`browser_close` / `list_background_tasks` / `memory_dream` / `git_stash_list` 等),
+ *         静态上无法把"这工具确实不收参数"和"参数面丢了"分开 —— 把它判成缺席就是一台会喊错的尺子。
+ *         这一格因此**留作已知盲区并在报告里点名**,不得读成"已确认没有"。
+ *   不红:`required` 不是数组。属性表(类型/枚举/嵌套)仍然是真的,校验仍有意义;
+ *         而"必填这一维判不了"早有具名档 `undeterminedRequired`(`argument-validation-report.ts`
+ *         用它剔证)。把它并进缺席会让那一档静默归零 —— 那是移动别人的读数,不是补判据。
+ *
+ * 另注:描述面本身是"一取就抛的 getter"(坏对象/恶意插件)时,异常**原样上抛**,由消费点
+ * 落进既有的 `validatorThrew` 档。"有毒"与"缺席"是两件事,处置动作也不同,不得在这里合并。
+ */
+export function resolveSchemaOrThrow(tool: Tool): ToolSchema {
+  if (tool === null || tool === undefined || typeof tool !== 'object') {
+    throw new SchemaResolutionError('(not-a-tool)', 'tool-not-an-object');
+  }
+  const name = typeof tool.name === 'string' && tool.name !== '' ? tool.name : '(unnamed)';
+  // 这一行读取本身可能抛(见上方 getter 注):不 try 它,让它原样冒到消费点去。
+  const rawParams: unknown = tool.parameters;
+  if (rawParams === undefined) {
+    throw new SchemaResolutionError(name, 'parameters-not-declared');
+  }
+  if (rawParams === null || typeof rawParams !== 'object' || Array.isArray(rawParams)) {
+    throw new SchemaResolutionError(name, 'parameters-not-a-property-table');
+  }
+  const required = Array.isArray(tool.required) ? tool.required : [];
+  return {
+    name,
+    description: typeof tool.description === 'string' ? tool.description : '',
+    parameters: {
+      type: 'object',
+      properties: rawParams as Record<string, ToolParameter>,
+      required,
+    },
+  };
 }
 
 // ==================== 主入口 ====================
