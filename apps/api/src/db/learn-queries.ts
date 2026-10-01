@@ -4,6 +4,9 @@
 
 import { eq, and, or, not, lte, desc, asc, sql, ilike } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
+// G-815966:百分比裁剪的具名唯一出口(子路径导入,与 @ihui/shared/utils/redact 同形;
+// HEAD 的 utils barrel 尚未递出该行,不得依赖它)。
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 // 价格轴档位与客户端 / 路由 Zod 校验**共用这一份定义**(两处各写一遍同一组字面量,
 // 是本仓记过最多次的漂移型)。难度轴的权威在 @ihui/database 的 LESSON_DIFFICULTIES ——
 // 它是列的取值域,服务端写入校验用的就是那个常量。
@@ -699,7 +702,9 @@ export async function updateProgress(
   userId: string,
   progress: number,
 ): Promise<LessonSignUp | undefined> {
-  const clamped = Math.max(0, Math.min(100, Math.floor(progress)))
+  // G-815966:裁剪走具名唯一出口(旧形态 Math.max(0, Math.min(100, …)) 逐处手搓)。
+  // 语义差一处如实登记:NaN 旧形态会算出 NaN 再交给 DB,现出口按"非数值 ⇒ 0"落 0。
+  const clamped = clampPercent(Math.floor(progress))
   // 完成进度时同步状态为已完成
   const status = clamped >= 100 ? 2 : 1
   const rows = await db
@@ -735,7 +740,8 @@ export async function updateSignUpById(
 ): Promise<LessonSignUp | undefined> {
   const set: { progress?: number; status?: number } = {}
   if (data.progress !== undefined) {
-    const clamped = Math.max(0, Math.min(100, Math.floor(data.progress)))
+    // G-815966:同一出口的第二个站点(裁剪语义只许有一份)
+    const clamped = clampPercent(Math.floor(data.progress))
     set.progress = clamped
     set.status = clamped >= 100 ? 2 : (data.status ?? 1)
   } else if (data.status !== undefined) {
