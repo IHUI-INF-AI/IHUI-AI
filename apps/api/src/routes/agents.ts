@@ -630,6 +630,10 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // GET /categories/:categoryId - 分类详情
   server.get('/categories/:categoryId', async (request, reply) => {
     const { categoryId } = categoryIdParam.parse(request.params)
+    // G-816017 形状闸(与 G-803 同族同病):畸形段喂给 `eq(agent_categories.category_id, …)`
+    // 会让 Postgres 抛 22P02 打成 500。口径按**读侧**回 404,文案照读本 handler 自己的
+    // not-found 分支 —— "格式不对"与"不存在"在响应上同形,不做存在性预言机。
+    if (!isUuidString(categoryId)) return reply.status(404).send(error(404, '分类不存在'))
     const category = await findCategoryById(categoryId)
     if (!category) return reply.status(404).send(error(404, '分类不存在'))
     return reply.send(success(category))
@@ -757,6 +761,13 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // GET /categories/cache/agent/:agentId - Agent 分类(缓存优先)
   server.get('/categories/cache/agent/:agentId', async (request, reply) => {
     const { agentId } = agentIdParam.parse(request.params)
+    // G-816017 形状闸,且**必须排在 Redis 可用性判断之前**:形状是否合法与基础设施在不在无关,
+    // 放后面会让同一畸形请求的答案取决于 Redis 状态(且本机没 redis 时该分支永远测不到)。
+    // 缓存未命中时本路由照样裸调 findCategoryByAgentId ⇒ 畸形段 22P02→500(票面"走 Redis
+    // 不碰 SQL"的前提已实测推翻)。本路由**没有** not-found 分支(合法 uuid 查不到回 200
+    // {category:undefined}),改成 404 属对外契约变更需另拍 ⇒ 畸形按本文件既有 400 文案
+    // (cf. GET /:agentId/details 的 'agentId 参数错误')回 400,查询层一次都不被调用。
+    if (!isUuidString(agentId)) return reply.status(400).send(error(400, 'agentId 参数错误'))
     const redis = request.server.redis
     if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
     const key = `${CACHE_PREFIX}agent:${agentId}`
@@ -778,6 +789,10 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // GET /categories/cache/category/:categoryId - 分类详情(缓存优先)
   server.get('/categories/cache/category/:categoryId', async (request, reply) => {
     const { categoryId } = categoryIdParam.parse(request.params)
+    // G-816017 形状闸,位置同上一站:**先判形状、后判 Redis**(见上一处注释)。
+    // 本 handler 自带 not-found 404 '分类不存在' ⇒ 畸形段照读该文案回 404,
+    // 与 GET /categories/:categoryId 真查不到的 404 同形(G-803 口径:两态不同形即预言机)。
+    if (!isUuidString(categoryId)) return reply.status(404).send(error(404, '分类不存在'))
     const redis = request.server.redis
     if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
     const key = `${CACHE_PREFIX}category:${categoryId}`
@@ -2440,6 +2455,10 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, 'agentId 参数错误'))
     }
     const { agentId } = parsed.data
+    // G-816017:`agentIdParam` 是 `z.string()`(:346),safeParse 对任意非空串必过,随后
+    // getAgentDetail→findAgentById 打在 uuid 列上 ⇒ 同型 22P02→500。照读本 handler 自己的
+    // not-found 文案(:2436 '智能体不存在')按**读侧**回 404,两态同形。
+    if (!isUuidString(agentId)) return reply.status(404).send(error(404, '智能体不存在'))
     const detail = await getAgentDetail(agentId)
     if (!detail) return reply.status(404).send(error(404, '智能体不存在'))
     // 统计信息: 该智能体的计费记录数与 token 总量
