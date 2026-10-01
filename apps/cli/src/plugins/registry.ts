@@ -43,15 +43,42 @@ export class PluginRegistry {
   register(plugin: PluginDefinition, opts: RegisterOptions = {}): boolean {
     const existing = this.plugins.get(plugin.name);
     if (existing && !opts.force) return false;
+    // G-682:注册前校验依赖闭包 —— 声明的依赖必须已在册,B 未装而 A 声明依赖 B ⇒ A 注册被拒
+    // (fail-closed,与同名歧义 G-684 同型:缺依赖时"碰巧装上"不是任何人声明过的意图)。
+    if (plugin.dependencies) {
+      for (const dep of plugin.dependencies) {
+        if (!this.plugins.has(dep)) return false;
+      }
+    }
     this.plugins.set(plugin.name, { ...plugin });
     return true;
   }
 
-  /** 批量注册,返回成功注册的数量(同名冲突按 force 处理) */
+  /**
+   * 批量注册,返回成功注册的数量(同名冲突按 force 处理)。
+   *
+   * G-682:依赖闭包在**安装期**一次定型 —— 每轮只注册"依赖全部已满足"的插件,反复迭代直到
+   * 无进展;剩余(依赖缺失或成环)全部拒绝。运行期只做"在不在"查询,谁先谁后在这里定完就不再变。
+   */
   registerAll(plugins: PluginDefinition[], opts: RegisterOptions = {}): number {
     let count = 0;
-    for (const p of plugins) {
-      if (this.register(p, opts)) count++;
+    const pending = [...plugins];
+    const enrolled = new Set(this.plugins.keys());
+    let progressed = true;
+    while (pending.length > 0 && progressed) {
+      progressed = false;
+      for (let i = 0; i < pending.length; ) {
+        const p = pending[i]!;
+        const deps = p.dependencies ?? [];
+        if (!deps.every((d) => enrolled.has(d))) {
+          i++;
+          continue;
+        }
+        if (this.register(p, opts)) count++;
+        enrolled.add(p.name);
+        pending.splice(i, 1);
+        progressed = true;
+      }
     }
     return count;
   }
