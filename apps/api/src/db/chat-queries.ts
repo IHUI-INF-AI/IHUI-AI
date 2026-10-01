@@ -102,6 +102,7 @@ export async function findConversationsByUser(
         shareToken: chatConversations.shareToken,
         pinned: chatConversations.pinned,
         pinnedAt: chatConversations.pinnedAt,
+        groupId: chatConversations.groupId,
         historyProjectionState: chatConversations.historyProjectionState,
       })
       .from(chatConversations)
@@ -1639,6 +1640,7 @@ export async function findFavoriteConversations(
         shareToken: chatConversations.shareToken,
         pinned: chatConversations.pinned,
         pinnedAt: chatConversations.pinnedAt,
+        groupId: chatConversations.groupId,
         historyProjectionState: chatConversations.historyProjectionState,
         favorite: sql<boolean>`TRUE`,
         favoriteId: chatFavorites.id,
