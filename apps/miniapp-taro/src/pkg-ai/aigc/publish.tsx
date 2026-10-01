@@ -4,12 +4,12 @@
 
 import { useI18n } from '@/i18n'
 import { View, Text, Button, Image, ScrollView } from '@tarojs/components'
+import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { publishAigc, uploadByBase64 } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import { FocusInput, FocusTextarea } from '@/components/FocusField'
 
 interface UpFile {
   url: string
