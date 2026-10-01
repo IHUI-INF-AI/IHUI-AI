@@ -151,6 +151,10 @@ def _serialize_account(row: asyncpg.Record, include_credentials: bool = False) -
         "platform": row["platform"],
         "displayName": row["display_name"],
         "status": row["status"],
+        # hasCredentials:凭证是否仍在。status='disabled' 且 hasCredentials=False
+        # 表示"凭证已被清除、等重新扫码"(如 2026-09-27 混包凭证处置),
+        # 与用户主动删除(软删除,凭证仍在)在前端显示上区分开,避免误解为"平台禁用"。
+        "hasCredentials": bool(row["credentials_enc"]),
         "lastVerifiedAt": row["last_verified_at"].isoformat() if row["last_verified_at"] else None,
         "lastVerifyMsg": row["last_verify_msg"],
         "createdAt": row["created_at"].isoformat() if row["created_at"] else None,

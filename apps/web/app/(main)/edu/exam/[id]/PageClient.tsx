@@ -14,6 +14,8 @@ import { ArrowLeft, Clock, Loader2, ChevronLeft, ChevronRight } from 'lucide-rea
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
 
 interface Question {
@@ -44,9 +46,13 @@ export default function EduExamTakePage() {
   const [answers, setAnswers] = React.useState<Record<string, string[]>>({})
   const [current, setCurrent] = React.useState(0)
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'exam', id],
     queryFn: () => api<{ exam: ExamDetail }>(`/api/edu/exam/${id}`).then((d) => d.exam),
+    enabled: allow,
   })
 
   const submitMut = useMutation({
@@ -62,6 +68,20 @@ export default function EduExamTakePage() {
     onSuccess: (r: { recordId: string }) =>
       router.push(`/edu/exam/${id}/result?recordId=${r.recordId}`),
   })
+
+  if (!allow)
+    return (
+      <div className="space-y-4">
+        <Link
+          href="/edu/exam"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t('backToList')}
+        </Link>
+        <AuthGatePrompt message="请先登录后开始考试" />
+      </div>
+    )
 
   if (isLoading)
     return (

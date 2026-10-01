@@ -37,8 +37,22 @@
  *   node scripts/check-egress-facts.mjs --update-baseline
  *   node scripts/check-egress-facts.mjs --self-test
  *   node scripts/check-egress-facts.mjs --json
+ *   node scripts/check-egress-facts.mjs --parity        # 跨进程等值对账(见下方 --parity 段)
+ *
+ * ── --parity:跨语言/跨进程的出口事实等值对账(G-998137,b76-09b 票2,2026-09-30)──
+ * 上面的绕档判据只看"api 进程内同一份判据有没有被两处各写一遍",它**结构上**看不见
+ * "两个进程各自算出的事实是否等值":ai-service(python)与 api(TS)对同一 URL、同一份 env
+ * 完全可能得出不同的代理/CA 结论而两侧同时"绿"。--parity 用固定的 URL 语料(白名单域/
+ * 内网 host/NO_PROXY 命中/不可解析各一)与固定 env,分别跑**生产判据本体**(TS:动态加载
+ * apps/api/src/utils/proxy-dispatcher.ts 的 collectEgressFacts;python:app/core/config.py
+ * 的 resolve_egress_facts),12 个字段逐字段对账。任何一侧跑不起来 ⇒ exit 2「无法判定」
+ * (不冒红也不记绿);字段分叉 ⇒ 红。语料与 apps/ai-service/tests/test_egress_facts_parity.py
+ * 保持同值 —— 那边是逐用例细账,这里是提交链上的对账尺子。
+ * 环境注意:TS 侧判据走 node 原生 type-stripping(node ≥ 22.18);python 侧 spawn 用
+ * `stdio:['ignore','pipe','pipe']` 显式不给 stdin 建管(本会话已知病:stdin 管道 EBUSY)。
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { assertRepoRoot, catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
@@ -361,6 +375,165 @@ function loadBaseline() {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// --parity:跨进程等值对账(判据与语料;纯部分供 --self-test 证明)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 语料 env(与 test_egress_facts_parity.py 的 PARITY_ENV 同值;全是虚构语料值,无真实凭据)。
+ *  刻意不喂 *_proxy 通用变量:Windows 上 node 的 process.env 查找大小写不敏感,大小写两档
+ *  的区分是平台语义不是判据语义,喂进语料会把平台差异误判成判据漂移。 */
+const PARITY_ENV = {
+  PROXY_URL: 'http://127.0.0.1:7897',
+  PROXY_DOMAINS: 'api.stepfun.com,api.openai.com',
+  NO_PROXY: 'api.openai.com',
+  NODE_EXTRA_CA_CERTS: '/etc/ssl/custom-ca.pem',
+}
+/** URL 语料:白名单域 / 内网 host / NO_PROXY 命中域(与白名单重叠成诊断指纹)/ 不可解析。 */
+const PARITY_URLS = [
+  'https://api.stepfun.com/step_plan/v1/models',
+  'http://10.0.0.1:8802/api',
+  'https://api.openai.com/v1/models',
+  'not a url',
+]
+/** 与 packages/types/src/egress-facts.ts 的 EGRESS_FACT_FIELDS 同名同序(唯一上游在那边)。 */
+const PARITY_FACT_FIELDS = [
+  'targetHostname',
+  'urlParseable',
+  'proxied',
+  'proxySource',
+  'proxyConfigVar',
+  'proxyDomainTable',
+  'proxyAppliedVia',
+  'envProxyVars',
+  'noProxyMatched',
+  'noProxyVar',
+  'customCa',
+  'policyDeclined',
+]
+/** 本语料涉及的变量在宿主 env 里都可能已存在 ⇒ 先逐条剥掉再灌语料,不得盲留。 */
+const PARITY_MANAGED_VARS = [
+  'PROXY_URL',
+  'PROXY_DOMAINS',
+  'NO_PROXY',
+  'no_proxy',
+  'HTTPS_PROXY',
+  'https_proxy',
+  'HTTP_PROXY',
+  'http_proxy',
+  'ALL_PROXY',
+  'all_proxy',
+  'NODE_EXTRA_CA_CERTS',
+  'NODE_TLS_CA_CERTS',
+]
+
+/** 等值判据:12 字段逐字段比(数组按 JSON 序列化比 —— 顺序本身是事实的一部分)。 */
+function egressFactsEqual(a, b) {
+  for (const field of PARITY_FACT_FIELDS) {
+    if (JSON.stringify(a[field]) !== JSON.stringify(b[field])) return false
+  }
+  return true
+}
+
+function findParityPython() {
+  const candidates = [
+    resolve(ROOT, 'apps/ai-service/.venv/Scripts/python.exe'),
+    resolve(ROOT, 'apps/ai-service/.venv/bin/python'),
+  ]
+  for (const p of candidates) if (existsSync(p)) return p
+  return null
+}
+
+/** python 侧:在 ai-service 目录里用生产 config 模块解析同一语料;跑不起来返回 null(无法判定)。 */
+function collectPythonParityFacts(reasons) {
+  const python = findParityPython()
+  if (!python) {
+    reasons.push('apps/ai-service 的 .venv python 找不到')
+    return null
+  }
+  // stdin 一律 ignore:不给子进程建 stdin 管道(本会话已知病:stdin 管道 EBUSY)
+  const proc = spawnSync(
+    python,
+    [
+      '-c',
+      'import json, sys\n' +
+        "sys.path.insert(0, '.')\n" +
+        'from app.core.config import resolve_egress_facts\n' +
+        "payload = json.loads(sys.argv[1])\n" +
+        "print(json.dumps([resolve_egress_facts(u, payload['env']) for u in payload['urls']], ensure_ascii=False))",
+      JSON.stringify({ env: PARITY_ENV, urls: PARITY_URLS }),
+    ],
+    {
+      cwd: resolve(ROOT, 'apps/ai-service'),
+      encoding: 'utf8',
+      timeout: 120_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
+  if (proc.error) {
+    reasons.push(`python spawn 失败:${proc.error.message}`)
+    return null
+  }
+  if (proc.status !== 0) {
+    reasons.push(`python 侧判据执行失败(exit=${proc.status}):${String(proc.stderr).slice(-400)}`)
+    return null
+  }
+  try {
+    const parsed = JSON.parse(proc.stdout)
+    if (!Array.isArray(parsed) || parsed.length !== PARITY_URLS.length)
+      throw new Error(`语料数不符(收到 ${Array.isArray(parsed) ? parsed.length : '非数组'})`)
+    return parsed
+  } catch (e) {
+    reasons.push(`python 侧输出不可解析:${e.message}`)
+    return null
+  }
+}
+
+/** TS 侧:动态加载生产判据本体(proxy-dispatcher.ts,node ≥ 22.18 原生 type-stripping)。 */
+async function collectTsParityFacts(reasons) {
+  const dispatcherPath = resolve(ROOT, 'apps/api/src/utils/proxy-dispatcher.ts')
+  try {
+    // 语料 env 先剥后灌:宿主壳里的同名变量不得混进对账
+    for (const name of PARITY_MANAGED_VARS) delete process.env[name]
+    for (const [name, value] of Object.entries(PARITY_ENV)) process.env[name] = value
+    const mod = await import(pathToFileURL(dispatcherPath).href)
+    if (typeof mod.collectEgressFacts !== 'function') throw new Error('collectEgressFacts 不是函数')
+    return PARITY_URLS.map((u) => JSON.parse(JSON.stringify(mod.collectEgressFacts(u))))
+  } catch (e) {
+    reasons.push(`TS 侧判据加载失败(${e?.message ?? e};node ${process.version} 是否支持 .ts type-stripping?)`)
+    return null
+  }
+}
+
+async function runParityMode() {
+  const reasons = []
+  const [tsFacts, pyFacts] = await Promise.all([
+    collectTsParityFacts(reasons),
+    Promise.resolve(collectPythonParityFacts(reasons)),
+  ])
+  if (tsFacts === null || pyFacts === null) {
+    console.error(`⚠️ 跨进程等值对账无法判定(不记绿也不冒红):${reasons.join(';')}`)
+    return 2
+  }
+  let mismatches = 0
+  PARITY_URLS.forEach((url, i) => {
+    const ts = tsFacts[i]
+    const py = pyFacts[i]
+    if (egressFactsEqual(ts, py)) return
+    mismatches += 1
+    for (const field of PARITY_FACT_FIELDS) {
+      if (JSON.stringify(ts[field]) !== JSON.stringify(py[field])) {
+        console.error(`❌ ${url} 的 ${field}:ts=${JSON.stringify(ts[field])} py=${JSON.stringify(py[field])}`)
+      }
+    }
+  })
+  if (mismatches > 0) {
+    console.error(`结论:${mismatches}/${PARITY_URLS.length} 条语料跨进程事实分叉 —— 两侧判据已经漂移,先对表再改代码。`)
+    return 1
+  }
+  console.log(`✅ 跨进程等值对账:${PARITY_URLS.length} URL × ${PARITY_FACT_FIELDS.length} 字段全等(ts=proxy-dispatcher.ts / py=config.py)`)
+  return 0
+}
+
 async function main(argv) {
   const staged = argv.includes('--staged')
   const worktree = argv.includes('--worktree')
@@ -514,13 +687,21 @@ if (process.argv[1] && SELF_URL === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) {
     process.exit(runSelfTest())
+  } else if (argv.includes('--parity')) {
+    runParityMode()
+      .then((code) => process.exit(code))
+      .catch((err) => {
+        console.error(`⚠️ 跨进程等值对账无法判定:${err?.message ?? err}`)
+        process.exit(2)
+      })
+  } else {
+    main(argv)
+      .then((code) => process.exit(code))
+      .catch((err) => {
+        console.error(`❌ ${err?.message ?? err}\n${err?.stack ?? ''}`)
+        process.exit(2)
+      })
   }
-  main(argv)
-    .then((code) => process.exit(code))
-    .catch((err) => {
-      console.error(`❌ ${err?.message ?? err}\n${err?.stack ?? ''}`)
-      process.exit(2)
-    })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -607,6 +788,28 @@ function runSelfTest() {
     ['api.x.ai', 'api.mistral.ai'].every((d) => prefilterArgs({ domains: [d], staged: true }).includes(d)),
   )
   ok('S7d 扫描面不为空(空面 = 门对整仓盲视)', __selfScanPrefixes().length > 0)
+
+  // ── S8 --parity 的纯部分:跨进程等值判据
+  const fact = (over) => ({
+    targetHostname: 'api.openai.com',
+    urlParseable: true,
+    proxied: true,
+    proxySource: 'app-env-var',
+    proxyConfigVar: 'PROXY_URL',
+    proxyDomainTable: 'env-override',
+    proxyAppliedVia: 'proxy-agent',
+    envProxyVars: [],
+    noProxyMatched: true,
+    noProxyVar: 'NO_PROXY',
+    customCa: 'none',
+    policyDeclined: null,
+    ...over,
+  })
+  ok('S8a 两侧逐字段全等 ⇒ 等值', egressFactsEqual(fact({}), fact({})) === true)
+  ok('S8b 任一字段分叉 ⇒ 不等值(proxied)', egressFactsEqual(fact({}), fact({ proxied: false })) === false)
+  ok('S8c 枚举字段分叉也算(noProxyVar 档位)', egressFactsEqual(fact({}), fact({ noProxyVar: 'no_proxy' })) === false)
+  ok('S8d 数组按序比(envProxyVars 次序是事实)', egressFactsEqual(fact({}), fact({ envProxyVars: ['http_proxy', 'HTTPS_PROXY'] })) === false)
+  ok('S8e 语料面自含四类必含档(白名单/内网/NO_PROXY 命中/不可解析)', PARITY_URLS.length === 4)
 
   console.log(`\n自检结束:通过 ${pass} 条,失败 ${fail} 条`)
   return fail === 0 ? 0 : 1

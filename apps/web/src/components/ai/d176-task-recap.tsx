@@ -86,8 +86,11 @@ export function TaskRecapEntry() {
         threadId: conversationId,
         purpose: purpose.trim() || undefined,
       })
-      setSummary(res.summary)
-      setNextAction(res.nextAction)
+      // ApiResult 判别联合收窄(同 ai-side-panel createDraftPR 惯例):失败把服务端
+      // error 原文抛给下方 catch → error 位展示,与网络异常同一出口
+      if (!res.success) throw new Error(res.error)
+      setSummary(res.data.summary)
+      setNextAction(res.data.nextAction)
       setPhase('done')
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : String(e))
@@ -101,7 +104,8 @@ export function TaskRecapEntry() {
     setCreateFailed(false)
     try {
       const res = await createConversation({ title: summary.slice(0, 120) })
-      setConversationId(res.conversation.id)
+      if (!res.success) throw new Error(res.error)
+      setConversationId(res.data.conversation.id)
       // D176 残余②(2026-09-30 收口):交接正文作为新会话首条用户消息自动发出。
       // 通道:chat store 的待发草稿队列 draftInput + draftAutoSend —— MessageInput
       // 挂载态 effect 消费(draftInput 填入输入框,draftAutoSend 置位时直接 submit)。

@@ -4,7 +4,6 @@
 
 import type {
   ApiResult,
-  ApiResponse,
   PlanUpdateEvent,
   TerminalStartEvent,
   TerminalEndEvent,
@@ -26,12 +25,19 @@ import {
   recordTraceIdFromResponse,
   type TransportInit,
 } from './transport.js'
+// D138(承 V4 #96):流式传输注入口(streamChat 的 fetch 腿改经此,小程序注入 Taro adapter)
+import { getStreamTransport } from './stream-transport.js'
 // D116 原始 SSE 全帧采集(默认关闭,零开销;展示端 stream-inspector 挂工具托盘)
 import { recordStreamFrame } from './stream-frame-log.js'
+// b76-13 票1:帧水位与纪元读环判据(唯一语义出口在 @ihui/shared 的 agent-events,
+// 本包零依赖不得反向 import,此为逐字同形移植,漂移由 frame-watermark-parity 测试钉住)
+import { isFrameGap, readFrameWatermark, type FrameWatermarkCursor } from './frame-watermark.js'
 import type { DeviceFingerprintCollector } from '@ihui/types'
 // D152(2026-09-29):goal 状态的合法值集是**运行时判据**(解析帧时要验 status),
 // 故按值导入而非 type-only —— 单一来源仍是 @ihui/types 的 GOAL_WIRE_STATUSES。
 import { GOAL_WIRE_STATUSES } from '@ihui/types'
+// b76-08a(2026-09-30 立):连接级能力位由宿主注入 —— 本包是 TS 侧唯一转发注入口的调用方。
+import { stripClientCapabilityFields } from '@ihui/types'
 // error 序列化唯一出口(2026-09-26 立)。上行 tool-result 帧的 error 字段若被调用方在
 // catch 里把 Error 本体(as 强转即可过 tsc)塞进来,JSON.stringify 会得 "{}" ——
 // ai-service 的 tool loop 唤醒时收到的是空对象事故现场。详见 postToolResult 上方 toWireError。
@@ -520,6 +526,102 @@ export function deriveFailureFromBody(
   return { message, errorCode }
 }
 
+// ===================== 响应体入站 strict 校验 + 读前 scrub(b76-01 票1) =====================
+// 权威 schema 面在 @ihui/types/api-contracts(ApiResponseEnvelopeSchema / scrubRevokedKeys /
+// ContractValidationError),本包按 error-serialize 收口先例(见文件头 2026-09-26 注)逐字移植
+// 运行时判据:@ihui/types 的 exports 指向 dist,运行时值导入会把本包重新钉回 workspace-only,
+// 故类型面沿用 ApiResponse 锚定(import type),判据在包内自持。三处语义对齐票面:
+//   ① strict:包络只认已声明字段,未知字段判失败 —— 新增字段一律先声明成 optional,
+//     让升级后打开的历史载荷不至于整块退化成纯文本失败;
+//   ② kind 定向读前 scrub:只删在场的键,不给缺席键补 undefined;
+//   ③ 未列出的兄弟 kind 原样通过 scrub,交由 strict 面统一裁决。
+// 已撤销字段不得在 strict 下"整块被拒",所以先 scrub 再 strict,两步成对,缺一即红。
+
+const INBOUND_ENVELOPE_REVOKED_KEYS: Readonly<Record<string, readonly string[]>> = {
+  // kind='envelope':历史载荷曾以布尔 `ok` 表达成功位,该字段已撤销 —— 读前剥掉,
+  // 历史载荷不至于在 strict 下整块退化为失败。
+  envelope: ['ok'],
+}
+
+const INBOUND_ENVELOPE_ALLOWED_KEYS: ReadonlySet<string> = new Set([
+  'kind',
+  'code',
+  'message',
+  'data',
+  'errorCode',
+])
+
+/** 包络入站契约校验失败(与 @ihui/types/api-contracts 的同名错误同形)。 */
+export class ContractValidationError extends Error {
+  readonly issues: readonly string[]
+  constructor(issues: readonly string[]) {
+    super(`响应契约校验失败(${issues.length} 条): ${issues.join(' | ')}`)
+    this.name = 'ContractValidationError'
+    this.issues = issues
+  }
+}
+
+/** 入站响应包络(strict 白面)。与 @ihui/types 的 ApiResponse 逐字段对齐。 */
+export interface InboundEnvelope {
+  code: number
+  message: string
+  data: unknown
+  errorCode?: string
+}
+
+export type EnvelopeInboundResult =
+  | { matched: true; envelope: InboundEnvelope }
+  | { matched: false }
+
+/**
+ * 响应体入站校验的唯一入口(fetchOnce 2xx 分支调用)。
+ *
+ * matched=false:不是包络 —— 非 JSON 对象,或无 `code` 包装的裸 JSON(ai-service 直返体)。
+ * 后者维持既有语义:整个响应视作 data 返回。
+ * matched=true:包络载荷 —— 先做 kind 定向读前 scrub,再做 strict 白名单裁决,
+ * 未知字段/类型不符抛 ContractValidationError(未知字段整包判失败,不静默剥掉重放)。
+ */
+export function validateEnvelopeInbound(raw: unknown): EnvelopeInboundResult {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return { matched: false }
+  const candidate = raw as Record<string, unknown>
+  if (candidate.code === undefined) return { matched: false }
+
+  // kind 定向读前 scrub:只删在场的键,不给缺席键补 undefined(undefined 也是值,
+  // 补进去等于把"字段缺席"篡改成"字段存在但不知道",strict 与下游都会误判)。
+  const kind = typeof candidate.kind === 'string' ? candidate.kind : undefined
+  if (kind !== undefined) {
+    const revoked = INBOUND_ENVELOPE_REVOKED_KEYS[kind]
+    if (revoked) {
+      for (const key of revoked) {
+        if (key in candidate) delete candidate[key]
+      }
+    }
+  }
+
+  const issues: string[] = []
+  const unknownKeys = Object.keys(candidate).filter((k) => !INBOUND_ENVELOPE_ALLOWED_KEYS.has(k))
+  if (unknownKeys.length > 0) issues.push(`未知字段: ${unknownKeys.join(', ')}`)
+  const codeValue: unknown = candidate.code
+  const messageValue: unknown = candidate.message
+  const errorCodeValue: unknown = candidate.errorCode
+  if (typeof codeValue !== 'number') issues.push('code 必须是 number')
+  if (typeof messageValue !== 'string') issues.push('message 必须是 string')
+  if (errorCodeValue !== undefined && typeof errorCodeValue !== 'string') {
+    issues.push('errorCode 必须是 string')
+  }
+  if (issues.length > 0) throw new ContractValidationError(issues)
+  // 上面 typeof 判据已把形态钉死,这里的 as 是把"已验证"翻给类型面看(非 any,无宽化)。
+  return {
+    matched: true,
+    envelope: {
+      code: codeValue as number,
+      message: messageValue as string,
+      data: candidate.data,
+      errorCode: typeof errorCodeValue === 'string' ? errorCodeValue : undefined,
+    },
+  }
+}
+
 /**
  * 内部:执行一次 fetch 并解析为 ApiResult。
  *
@@ -579,25 +681,26 @@ async function fetchOnce<T>(
     }
   }
 
-  const json = (await response.json()) as ApiResponse<T>
-
-  // 2026-08-12 修复:ai-service 端点(如 /api/admin/news/status)返回裸 JSON 对象,
-  // 没有 {code, message, data} 包装。code===undefined 时视整个响应为 data 返回。
-  if (json.code === undefined) {
+  // b76-01 票1:入站 strict 校验 + 读前 scrub(判据见 validateEnvelopeInbound 上方注)。
+  // 裸 JSON(ai-service 直返体,无 {code,message,data} 包装)不归包络管,维持原语义:
+  // 整个响应视作 data 返回;包络载荷则严格按白面裁决,未知字段整包判失败。
+  const rawJson: unknown = await response.json()
+  const inbound = validateEnvelopeInbound(rawJson)
+  if (!inbound.matched) {
     // 2026-09-09 0-5 迁移:成功分支携带 HTTP status(upsert 场景需区分 200/201)
-    return { success: true, data: json as unknown as T, status: response.status }
+    return { success: true, data: rawJson as T, status: response.status }
   }
 
-  if (json.code !== 0) {
+  if (inbound.envelope.code !== 0) {
     return {
       success: false,
-      error: json.message?.trim() || '请求失败',
+      error: inbound.envelope.message.trim() || '请求失败',
       status: response.status,
-      errorCode: json.errorCode,
+      errorCode: inbound.envelope.errorCode,
     }
   }
 
-  return { success: true, data: json.data, status: response.status }
+  return { success: true, data: inbound.envelope.data as T, status: response.status }
 }
 
 /** ApiResult 失败分支类型(用于错误归一化) */
@@ -645,7 +748,11 @@ export async function fetchApi<T>(
   options: FetchApiOptions = {},
 ): Promise<ApiResult<T>> {
   const token = tokenProvider.getToken()
-  const { params, ...restOptions } = options
+  const { params: rawParams, ...restOptions } = options
+  // b76-08a:转发前摘除连接级能力位(connectionId/clientMode/deliveryProfile/
+  // subscriberScope/workflowRunDeltas)—— 这些是连接事实,客户端自报一律不得出网;
+  // 宿主真值由服务端注入口(engine.py::_bind_principal)写。唯一出口见 @ihui/types。
+  const params = rawParams ? stripClientCapabilityFields(rawParams) : rawParams
   let normalizedUrl = normalizeUrl(url)
   if (params) {
     const qs = new URLSearchParams()
@@ -884,7 +991,9 @@ export async function fetchAiServiceJson<T>(
   options: FetchApiOptions = {},
 ): Promise<ApiResult<T>> {
   const token = tokenProvider.getToken()
-  const { params, ...restOptions } = options
+  const { params: rawParams, ...restOptions } = options
+  // b76-08a:同 fetchApi —— 转发前摘除连接级能力位,客户端自报不出网(唯一出口见 @ihui/types)。
+  const params = rawParams ? stripClientCapabilityFields(rawParams) : rawParams
   let normalizedUrl = normalizeUrl(url)
   if (params) {
     const qs = new URLSearchParams()
@@ -2337,6 +2446,53 @@ function detectSafetyViolation(message: string, errorCode?: string): string | nu
   return null
 }
 
+// ===========================================================================
+// b76-13 票3(2026-09-30 立):消费者绝不施加界 —— 有界表归生产者,
+// 且淘汰必须"说出来 + 继续可数"
+// ===========================================================================
+//
+// 上游禁令:客户端**绝不**自设 maxNodes/maxActors 一类界,只有生产者能淘汰,
+// 且淘汰必须随载荷声明(removed/truncated 位)。我方的失效型恰是票面点名那条:
+// UI 层悄悄取最后 10 条并把 10 当事实展示(changes/terminal/tool-calls 三个
+// progress-section 的 slice(-10)),既没有"少列了多少"的计数,也没有 truncated 位
+// —— 数字偏小且自洽,typecheck 全绿,现有守门(几何/字节预算/数据库写计数)全盲。
+//
+// 判据三条(照抄上游,落我方词汇):
+//   (a) 渲染裁尾必须**同时**产出被裁掉的条数(omittedCount),并渲染成「N more」;
+//   (b) 界与"为什么是这个数"只住在本处常量,注释区分**展示预算** vs **生产契约**;
+//   (c) 生产端要截尾必须在载荷里带 truncated 位;消费端不得自行加界 ——
+//       集合裁尾一律走 tailWithOmittedCount 本出口(对字符串/路径的 slice(-N) 不判)。
+// 常驻尺子:scripts/check-list-cap-honesty.mjs(--self-test;不接提交链,由主会话定)。
+
+/**
+ * **展示预算**(非生产契约):为什么是 10 —— 单屏可读密度,超过部分以
+ * 「N more」形态露出而不是消失。这个数不是引擎/协议约束,改它不需要同步后端;
+ * 生产契约类的界(如 fan-out 上限)不归本常量管,必须由载荷的 truncated 位声明。
+ */
+export const SSE_LIST_DISPLAY_BUDGET = 10
+
+export interface TailedResult<T> {
+  /** 保留的尾部条目(渲染直接用) */
+  items: T[]
+  /** 被裁掉的条目数 —— 消费方**必须**把它渲染出来(「N more」),不许吞掉 */
+  omittedCount: number
+}
+
+/**
+ * 消费侧集合裁尾的**唯一出口**:裁尾与"少列了多少"原子产出,
+ * 结构上杜绝"悄悄取最后 N 条并把 N 当事实"的那一型。
+ * 纯函数:不改入参;cap 非正整数 ⇒ 原样全量返回(omittedCount=0)。
+ */
+export function tailWithOmittedCount<T>(
+  items: readonly T[],
+  cap: number = SSE_LIST_DISPLAY_BUDGET,
+): TailedResult<T> {
+  if (!Number.isSafeInteger(cap) || cap <= 0 || items.length <= cap) {
+    return { items: [...items], omittedCount: 0 }
+  }
+  return { items: [...items.slice(items.length - cap)], omittedCount: items.length - cap }
+}
+
 const STREAM_MAX_RETRIES = 3
 const STREAM_INITIAL_RETRY_DELAY = 1000
 const STREAM_MAX_RETRY_DELAY = 30_000
@@ -2411,14 +2567,235 @@ export function readStreamTraceId(line: string): string | null {
   return normalized
 }
 
+// ===========================================================================
+// D138(承 V4 #96):可复用的 SSE 续传流 runner —— 重连 / 指数退避 / 读超时 /
+// 断点续传游标的**唯一实现**。
+//
+// 病灶(票面):小程序曾在 apps/miniapp-taro/src/lib/sse.ts 自养第二份
+// "重连/退避/超时/id: 游标"实现,与本文件 streamChat 的读环长期两处漂移。
+// 现在两端都喂给本 runner:streamChat 的逐行解析走 onLine 钩子;小程序薄壳
+// (apps/miniapp-taro/src/lib/sse.ts)把行喂回自己的事件分发层 —— 传输策略只有这一份,
+// 传输介质(fetch / Taro.request enableChunked)由 stream-transport.ts 的 adapter 注入口决定。
+// ===========================================================================
+
+/** D138:SSE 断点续传头的**唯一写入出口**(runner 重试时调用;agent-runtime 两条流同样走这里)。 */
+export function appendResumeEventIdHeader(
+  headers: Record<string, string>,
+  lastEventId: string | undefined,
+): void {
+  if (lastEventId) headers['Last-Event-ID'] = lastEventId
+}
+
+export interface ResumableSSEStreamOptions {
+  /** 完整请求地址 */
+  url: string
+  method?: string
+  /** 请求体(调用方 JSON.stringify 之后的字符串) */
+  body?: string
+  /** 基础请求头;续传头由 runner 注入,调用方不得预写 */
+  headers: Record<string, string>
+  signal?: AbortSignal
+  /** 自动重连上限(默认 STREAM_MAX_RETRIES)。业务错误(401/403/429 无 retryAfter)不重试 */
+  maxRetries?: number
+  /** 指数退避初值 ms(默认 STREAM_INITIAL_RETRY_DELAY) */
+  initialRetryDelayMs?: number
+  /** 指数退避上限 ms(默认 STREAM_MAX_RETRY_DELAY;Retry-After 消费同受此上限约束) */
+  maxRetryDelayMs?: number
+  /** 读超时 ms:单个 chunk 间空闲超过该值视为断线,取消本次尝试进入重连判定(缺省 30s) */
+  readTimeoutMs?: number
+  /** fetch credentials 模式(透传 stream transport;缺省不携带 = native fetch 默认) */
+  credentials?: 'include' | 'omit' | 'same-origin'
+  /** 响应到达且 ok 后触发一次(streamChat 的 onResponse 语义) */
+  onResponse?: () => void
+  /** 每次尝试开始(含首次,attempt 从 0 起):消费方在此复位 per-attempt 状态 */
+  onAttemptStart?: (attempt: number) => void
+  /**
+   * 每个完整 SSE 行(不含行尾换行,\r 已剥;空行 / 注释行 / event:/id:/retry: 控制行照常递出)。
+   * id: 行先被 runner 捕获为续传游标,再原样递出 —— 消费方无需(也不得)自持游标。
+   * 回调抛错视同本次尝试失败,交由 runner 按同一套业务错误口径判定是否重连。
+   */
+  onLine: (line: string) => void | Promise<void>
+  /** 重连前通知(指数退避,attempt 从 1 起) */
+  onReconnect?: (attempt: number, delayMs: number) => void
+}
+
+/**
+ * 跑一条可断点续传的 SSE 流(重连/退避/读超时/游标唯一的实现)。
+ *
+ * 正常结束 / abort / 业务错误 / 重试耗尽时返回或抛出;abort 原样上抛
+ * (streamChat 的既有 catch 语义:isAbortError ⇒ onDone + 静默收束)。
+ */
+export async function runResumableSSEStream(opts: ResumableSSEStreamOptions): Promise<void> {
+  const maxRetries = opts.maxRetries ?? STREAM_MAX_RETRIES
+  const initialRetryDelayMs = opts.initialRetryDelayMs ?? STREAM_INITIAL_RETRY_DELAY
+  const maxRetryDelayMs = opts.maxRetryDelayMs ?? STREAM_MAX_RETRY_DELAY
+  const readTimeoutMs = opts.readTimeoutMs ?? 30_000
+  // 断点续传游标:捕获 SSE id: 行,重连时经 appendResumeEventIdHeader 回传
+  let lastEventId = ''
+  let attempt = 0
+  for (;;) {
+    try {
+      opts.onAttemptStart?.(attempt)
+      if (opts.signal?.aborted) throw createAbortError()
+
+      const headers = { ...opts.headers }
+      appendResumeEventIdHeader(headers, lastEventId || undefined)
+      const resp = await getStreamTransport()(opts.url, {
+        method: opts.method ?? 'POST',
+        // D147(2026-09-29 立):traceparent 的出站装配走 transport 那份唯一出口
+        // (原 streamChat 内联 fetch 处的同一段判据,随读环一起搬进 runner)。
+        headers: applyTraceparentToHeaders(headers),
+        body: opts.body ?? null,
+        signal: opts.signal,
+        ...(opts.credentials !== undefined ? { credentials: opts.credentials } : {}),
+      })
+      // 回带:服务端若把编号写回响应头,记为"本轮排查编号"(编号不上 UI,只留读取出口)。
+      recordTraceIdFromResponse(resp.headers)
+      if (!resp.ok || !resp.body) {
+        const text = await resp.text().catch(() => '')
+        // 与另两条腿共用同一个派生出口(空白 body 走兜底、message 优先于 detail、errorCode 一并取出),
+        // 本腿只在出口之后追加 SSE 消费方约定的 `（status）` 后缀。
+        const derived = deriveFailureFromBody(text, resp.status)
+        const err = new Error(derived.message)
+        ;(err as Error & { name: string }).name = 'SSEError'
+        ;(err as Error & { code: number }).code = resp.status
+        if (derived.errorCode) {
+          ;(err as Error & { errorCode: string }).errorCode = derived.errorCode
+        }
+        // getSSEErrorInfo 会从文本里回捞 `[（(]\d{3}[)）]`,文本自带状态码时不再追加。
+        if (!/[（(]\d{3}[)）]/.test(err.message)) {
+          err.message = `${err.message}（${resp.status}）`
+        }
+        const retryAfterHeader = resp.headers.get('retry-after')
+        if (retryAfterHeader) {
+          const n = Number(retryAfterHeader)
+          if (Number.isFinite(n)) {
+            ;(err as Error & { retryAfter: number }).retryAfter = n
+          }
+        }
+        throw err
+      }
+
+      opts.onResponse?.()
+      const reader = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      // 2026-08-15 修复(原 streamChat 读环注释,随环搬入):reader.read() 在 fetch 完成后
+      // 无法被 AbortController 中断,若后端返回 200 但不发送数据,流会永久挂起。
+      // 为读操作加超时保护,超时后 cancel 并抛错,由外层 catch 做重连判定。
+      const readWithTimeout = async (): Promise<{ done: boolean; value?: Uint8Array }> => {
+        let timer: ReturnType<typeof setTimeout> | undefined
+        const readPromise = reader.read().catch(() => {
+          // reader.cancel() 导致的 reject 会被 Promise.race 忽略,避免未处理 rejection
+          return { done: true, value: new Uint8Array() }
+        })
+        const timeoutPromise = new Promise<{ done: boolean; value?: Uint8Array }>((_, reject) => {
+          timer = setTimeout(() => {
+            reader.cancel().catch(() => {})
+            reject(new Error('SSE read timeout'))
+          }, readTimeoutMs)
+        })
+        try {
+          return await Promise.race([readPromise, timeoutPromise])
+        } finally {
+          if (timer) clearTimeout(timer)
+        }
+      }
+
+      const consumeLine = async (raw: string): Promise<void> => {
+        const line = raw.replace(/\r$/, '')
+        // 捕获 SSE id: 行(断点续传游标;重连时经 appendResumeEventIdHeader 回传)
+        if (line.startsWith('id:')) lastEventId = line.slice(3).trim()
+        await opts.onLine(line)
+      }
+
+      for (;;) {
+        const { done, value } = await readWithTimeout()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        let nl: number
+        while ((nl = buffer.indexOf('\n')) !== -1) {
+          const line = buffer.slice(0, nl)
+          buffer = buffer.slice(nl + 1)
+          await consumeLine(line)
+        }
+      }
+      // 尾部残留(末帧无换行)同样递出,与原 streamChat 尾块对称
+      if (buffer.trim()) await consumeLine(buffer)
+      return
+    } catch (err) {
+      if (isAbortError(err)) throw err
+      const info = getSSEErrorInfo(err)
+      const code = info?.code
+      // P2-2 retry-after 协商:429 + retryAfter 视为可重试(走网络重试路径,按 retryAfter 等待);
+      // 429 无 retryAfter 仍视为业务错误(不重连);401/403 永远是业务错误
+      const isBusinessError =
+        code === 401 || code === 403 || (code === 429 && info?.retryAfter === undefined)
+      if (isBusinessError || attempt >= maxRetries) throw err
+      // P2-2 优先消费 Retry-After(秒转毫秒,上限 maxRetryDelayMs);
+      // 无 retryAfter 时走指数退避:1s, 2s, 4s, 8s... 上限 30s(与 useAgentSSE 重连模式一致)
+      const delay =
+        info?.retryAfter !== undefined
+          ? Math.min(info.retryAfter * 1000, maxRetryDelayMs)
+          : Math.min(initialRetryDelayMs * 2 ** attempt, maxRetryDelayMs)
+      attempt++
+      opts.onReconnect?.(attempt, delay)
+      await sleepWithAbort(delay, opts.signal)
+    }
+  }
+}
+
 export async function streamChat(opts: StreamChatOptions): Promise<void> {
   const maxRetries = opts.maxRetries ?? STREAM_MAX_RETRIES
-  // 跨重连尝试共享的状态:Last-Event-ID(断点续传)+ 已接收内容(dedupe)
-  const lastEventIdRef = { current: '' }
+  // 跨重连尝试共享的状态:已接收内容(dedupe)。D138 起续传游标(id: 捕获 + 重放头
+  // 注入)归 runResumableSSEStream 独有,调用方不再自持(消灭两端各持一份的那一型)。
   const receivedContentRef = { current: '' }
   const receivedAgentRef = { current: new Map<string, string>() }
-  let attempt = 0
-
+  // b76-13 票1:帧水位游标。Last-Event-ID 只答"服务端接着哪儿发",本游标答
+  // "手上状态属于哪个代际/纪元/位点" —— 没有它,会话重建/fork/rewind 后
+  // id 仍能对上而内容属于另一个纪元,消费端会静默拼接两个纪元的状态。
+  const frameWatermarkRef = { current: null as FrameWatermarkCursor | null }
+  let frameGapDropped = 0
+  // b76-13 票2:字段级结构不变量的 typed fault 计数(读环侧;shared 侧同表
+  // 判据见 SSE_FRAME_SCHEMAS —— 丢帧必须留痕,不冒充解析成功)
+  let sseFrameSchemaFaults = 0
+  // 水位闸:帧带**完整**水位字段时才判(读不出 ⇒ undetermined 原样放行,生产端
+  // 未下发水位的旧帧零行为变化);gap/死帧 ⇒ 丢弃且计数 —— 不进渲染、不推进游标,
+  // 重连后从服务端快照重建,绝不把残帧算成"已应用"。
+  const shouldDropByWatermark = (line: string): boolean => {
+    if (!line.startsWith('data:')) return false
+    const raw = line.slice(5).trim()
+    if (!raw || raw === '[DONE]') return false
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      return false
+    }
+    const read = readFrameWatermark(parsed)
+    if (read.verdict === 'undetermined') return false
+    if (read.verdict === 'invalid') {
+      frameGapDropped++
+      return true
+    }
+    const cursor = frameWatermarkRef.current
+    if (cursor === null) {
+      // 首个带水位的帧:手上没有可比状态,以服务端帧为基线(owned snapshot 语义)
+      frameWatermarkRef.current = {
+        subscriptionId: read.watermark.subscriptionId,
+        logEpoch: read.watermark.logEpoch,
+        seq: read.watermark.toSeq,
+      }
+      return false
+    }
+    const gap = isFrameGap(cursor, read.watermark)
+    if (gap !== null) {
+      frameGapDropped++
+      return true
+    }
+    frameWatermarkRef.current = { ...cursor, seq: read.watermark.toSeq }
+    return false
+  }
   const token = tokenProvider.getToken()
   // 2026-07-27 修复 SSE 流被 Next.js dev proxy 中断:
   // streamChat 用 streamBaseUrl(直连 API 服务器),绕过 Next.js dev proxy 的超时/缓冲。
@@ -2462,62 +2839,16 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // 默认 true,允许 extraBody 或显式 opts.stream 覆盖为 false。
   body.stream = opts.stream ?? true
 
-  while (true) {
-    const isRetry = attempt > 0
-    try {
-      // 断点续传:每次尝试携带 Last-Event-ID(SSE 标准 resume 头),服务端支持则跳过已发送事件
-      if (lastEventIdRef.current) headers['Last-Event-ID'] = lastEventIdRef.current
+  // ===== D138(承 V4 #96):重连/退避/读超时/续传游标收敛到 runResumableSSEStream(下方)=====
+  // 以下可变状态原在 while(true) 每次尝试内重建;runner 的 onAttemptStart 逐次复位,
+  // 语义与原"每 attempt 新建"逐字一致。续传游标归 runner 独有,经 appendResumeEventIdHeader 注入。
+  let isRetry = false
+  let dedupeActive = false
+  let dedupeBuffer = ''
+  const agentDedupeBuffer = new Map<string, string>()
+  let seenTraceId: string | null = null
+  try {
 
-      if (opts.signal?.aborted) {
-        opts.onDone?.()
-        return
-      }
-
-      const resp = await fetch(url, {
-        method: 'POST',
-        // D147(2026-09-29 立):这一腿用 native fetch,绕过了 transport 的出站装配点,
-        // 而它正是"一轮对话"的主路径 —— 不在这里带,trace id 的第一段就永远缺一条腿
-        // (普通 JSON 请求带、流式请求不带,两侧各自自洽)。判据仍住在 transport 那一份出口里。
-        headers: applyTraceparentToHeaders(headers),
-        body: JSON.stringify(body),
-        signal: opts.signal,
-        // 2026-07-27 跨域 SSE 直连:携带 credentials 让 CORS 允许凭证,
-        // Bearer token 在 Authorization header 中不受影响。
-        credentials: 'include',
-      })
-      // 回带:服务端若把编号写回响应头,记为"本轮排查编号"(编号不上 UI,只留读取出口)。
-      recordTraceIdFromResponse(resp.headers)
-      if (!resp.ok || !resp.body) {
-        const text = await resp.text().catch(() => '')
-        // 与另两条腿共用同一个派生出口(空白 body 走兜底、message 优先于 detail、errorCode 一并取出),
-        // 本腿只在出口之后追加 SSE 消费方约定的 `（status）` 后缀。
-        const derived = deriveFailureFromBody(text, resp.status)
-        const err = new Error(derived.message)
-        ;(err as Error & { name: string }).name = 'SSEError'
-        ;(err as Error & { code: number }).code = resp.status
-        if (derived.errorCode) {
-          ;(err as Error & { errorCode: string }).errorCode = derived.errorCode
-        }
-        // getSSEErrorInfo 会从文本里回捞 `[（(]\d{3}[)）]`,文本自带状态码时不再追加。
-        if (!/[（(]\d{3}[)）]/.test(err.message)) {
-          err.message = `${err.message}（${resp.status}）`
-        }
-        const retryAfterHeader = resp.headers.get('retry-after')
-        if (retryAfterHeader) {
-          const n = Number(retryAfterHeader)
-          if (Number.isFinite(n)) {
-            ;(err as Error & { retryAfter: number }).retryAfter = n
-          }
-        }
-        throw err
-      }
-
-      const reader = resp.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      // 2026-07-27 立:response 已到达,立即触发 onResponse 回调,
-      // 让前端清除"完全冷启动"超时(timeout15s),避免"response 到达但首 token 未到达"时误 abort。
-      opts.onResponse?.()
       const hasReasoning = typeof opts.onReasoning === 'function'
       const hasCompaction = typeof opts.onCompaction === 'function'
       const hasQuestion = typeof opts.onQuestion === 'function'
@@ -2571,34 +2902,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       // hasCitations 被 tryParseCitations 的守护读取(消除 TS6133:声明未使用)
       void hasCitations
 
-      // 2026-08-15 修复:reader.read() 在 fetch 完成后无法被 AbortController 中断,
-      // 若后端返回 200 但不发送数据,流会永久挂起,导致前端 isStreaming/sendInFlightRef 卡死。
-      // 为 reader.read() 添加 30s 超时保护,超时后 cancel reader 并抛出错误,由外层 catch 块处理重试/报错。
-      const readWithTimeout = async (): Promise<{ done: boolean; value?: Uint8Array }> => {
-        let timer: ReturnType<typeof setTimeout> | undefined
-        const readPromise = reader.read().catch(() => {
-          // reader.cancel() 导致的 reject 会被 Promise.race 忽略,避免未处理 rejection
-          return { done: true, value: new Uint8Array() }
-        })
-        const timeoutPromise = new Promise<{ done: boolean; value?: Uint8Array }>((_, reject) => {
-          timer = setTimeout(() => {
-            reader.cancel().catch(() => {})
-            reject(new Error('SSE read timeout'))
-          }, 30000)
-        })
-        try {
-          return await Promise.race([readPromise, timeoutPromise])
-        } finally {
-          if (timer) clearTimeout(timer)
-        }
-      }
-
       // ===== Dedupe 机制(isRetry 时启用) =====
-      // 重连后若服务端不支持 Last-Event-ID 续传会从头重发,前端用 receivedContent 前缀匹配
-      // 跳过已接收内容,仅追加新增部分;若服务端发送不同内容则放弃 dedupe 全量追加
-      let dedupeBuffer = ''
-      let dedupeActive = isRetry && receivedContentRef.current.length > 0
-      const agentDedupeBuffer = new Map<string, string>()
+      // 重连后若服务端不支持续传会从头重发,前端用 receivedContent 前缀匹配
+      // 跳过已接收内容,仅追加新增部分;若服务端发送不同内容则放弃 dedupe 全量追加。
+      // (D138:dedupeBuffer/dedupeActive/agentDedupeBuffer 声明上移,isRetry 由
+      // runResumableSSEStream 的 onAttemptStart 逐次复位;读超时同批搬入 runner。)
 
       const emitDelta = (delta: string): void => {
         if (!dedupeActive) {
@@ -3156,9 +3464,18 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           if (json?.type === 'terminal_end') {
             if (typeof json.terminalId !== 'string') return
             if (json.status !== 'completed' && json.status !== 'failed') return
+            // b76-13 票2:结构不变量(必要字段对)—— truncated=true 而 totalChars
+            // 缺席/坏型是"截断了却不知道截掉多少"的假话帧 ⇒ typed fault 丢弃且计数
+            // (不冒充解析成功,也不放行);对照:装饰字段(output,见下)坏了只降级。
+            if (json.truncated === true && typeof json.totalChars !== 'number') {
+              sseFrameSchemaFaults++
+              return
+            }
             const evt: TerminalEndEvent = {
               terminalId: json.terminalId,
               status: json.status,
+              // 装饰档(output):坏型 ⇒ 整字段按缺省处理,那张卡退化成纯文本,
+              // 不决定本帧生死(与 @ihui/shared SSE_DECORATIVE_FIELDS 同档登记)
               ...(typeof json.output === 'string' ? { output: json.output } : {}),
               ...(typeof json.exitCode === 'number' ? { exitCode: json.exitCode } : {}),
               ...(typeof json.endedAt === 'string' ? { endedAt: json.endedAt } : {}),
@@ -4047,7 +4364,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         : null
 
       // D174:帧级 trace 关联键首次出现即回调一次;不注册则完全不求值(与本包其余 per-field 回调同形)
-      let seenTraceId: string | null = null
+      // (D138:seenTraceId 声明上移,由 runResumableSSEStream 的 onAttemptStart 逐次复位)
       const noteFrameTraceId = (raw: string): void => {
         if (!opts.onTraceId || seenTraceId !== null) return
         const id = readStreamTraceId(raw)
@@ -4057,66 +4374,64 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
-      for (;;) {
-        const { done, value } = await readWithTimeout()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        let nl: number
-        while ((nl = buffer.indexOf('\n')) !== -1) {
-          const line = buffer.slice(0, nl).replace(/\r$/, '')
-          buffer = buffer.slice(nl + 1)
-          // D116:原始帧采集(关闭时零开销)
-          recordStreamFrame(line)
-          noteFrameTraceId(line)
-          // 捕获 SSE id: 行(用于 Last-Event-ID 断点续传)
-          if (line.startsWith('id:')) lastEventIdRef.current = line.slice(3).trim()
-          await dispatchTryParse(line)
-          // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
-          if (hasFallback) {
-            const fbEvt = parseFallbackEvent(line)
-            if (fbEvt) {
-              opts.onFallback!(fbEvt)
-              continue
-            }
-          }
-          const delta = parseStreamLine(line)
-          if (delta) {
-            const agentId = hasAgentDelta ? extractAgentId(line) : undefined
-            if (agentId) emitAgentDelta(agentId, delta)
-            else emitDelta(delta)
-            debugChunkTimer?.mark('delta', delta, line)
-          }
-          if (hasReasoning) {
-            const r = parseStreamLineReasoning(line)
-            if (r) {
-              opts.onReasoning!(r)
-              debugChunkTimer?.mark('reasoning', r, line)
-            }
-          }
-        }
-      }
-      if (buffer.trim()) {
-        if (buffer.startsWith('id:')) lastEventIdRef.current = buffer.slice(3).trim()
-        // 阶段 2:尾部 buffer 残留,与主循环对称
-        recordStreamFrame(buffer)
-        noteFrameTraceId(buffer)
-        await dispatchTryParse(buffer)
-        // P4-2: 优先检查 fallback 事件(尾部 buffer 残留);parseStreamLine 对 fallback 事件返回 null,无需跳过
+      // ===== D138(承 V4 #96):逐行处理体(原内联读环的行处理,原样搬为闭包)=====
+      // 读环、行缓冲、id: 游标捕获、读超时、重连/退避全部下沉 runResumableSSEStream;
+      // 本闭包只负责"一行已到"之后的解析与分发(id: 行由 runner 捕获游标后照常递出)。
+      const processLine = async (line: string): Promise<void> => {
+        // D116:原始帧采集(关闭时零开销)
+        recordStreamFrame(line)
+        noteFrameTraceId(line)
+        // b76-13 票1:水位闸 —— gap/死帧丢弃且计数,不进下游解析与渲染
+        if (shouldDropByWatermark(line)) return
+        await dispatchTryParse(line)
+        // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
         if (hasFallback) {
-          const fbEvt = parseFallbackEvent(buffer)
-          if (fbEvt) opts.onFallback!(fbEvt)
+          const fbEvt = parseFallbackEvent(line)
+          if (fbEvt) {
+            opts.onFallback!(fbEvt)
+            return
+          }
         }
-        const delta = parseStreamLine(buffer)
+        const delta = parseStreamLine(line)
         if (delta) {
-          const agentId = hasAgentDelta ? extractAgentId(buffer) : undefined
+          const agentId = hasAgentDelta ? extractAgentId(line) : undefined
           if (agentId) emitAgentDelta(agentId, delta)
           else emitDelta(delta)
+          debugChunkTimer?.mark('delta', delta, line)
         }
         if (hasReasoning) {
-          const r = parseStreamLineReasoning(buffer)
-          if (r) opts.onReasoning!(r)
+          const r = parseStreamLineReasoning(line)
+          if (r) {
+            opts.onReasoning!(r)
+            debugChunkTimer?.mark('reasoning', r, line)
+          }
         }
       }
+
+      await runResumableSSEStream({
+        url,
+        method: 'POST',
+        body: JSON.stringify(body),
+        headers,
+        signal: opts.signal,
+        maxRetries,
+        // 原 streamChat 读环的 30s 读超时,数值逐字保留
+        readTimeoutMs: 30_000,
+        // 2026-07-27 跨域 SSE 直连:携带 credentials 让 CORS 允许凭证,
+        // Bearer token 在 Authorization header 中不受影响。
+        credentials: 'include',
+        onResponse: () => opts.onResponse?.(),
+        onAttemptStart: (runnerAttempt) => {
+          isRetry = runnerAttempt > 0
+          dedupeActive = isRetry && receivedContentRef.current.length > 0
+          dedupeBuffer = ''
+          agentDedupeBuffer.clear()
+          seenTraceId = null
+          debugChunkTimer?.reset()
+        },
+        onLine: (line) => processLine(line),
+        onReconnect: (retryAttempt, delayMs) => opts.onReconnect?.(retryAttempt, delayMs),
+      })
       opts.onDone?.()
       return
     } catch (err) {
@@ -4124,37 +4439,26 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         opts.onDone?.()
         return
       }
+      // D138:重连判定/指数退避/Retry-After 消费已在 runResumableSSEStream 内做完,
+      // 走到这里都是终态(abort / 业务错误 / 自动重试耗尽)。
       const info = getSSEErrorInfo(err)
       const code = info?.code
-      // P2-2 retry-after 协商:429 + retryAfter 视为可重试(走网络重试路径,按 retryAfter 等待);
-      // 429 无 retryAfter 仍视为业务错误(不重连);401/403 永远是业务错误
+      // P2-2 口径保持:401/403/429 无 retryAfter 的业务错误分类,此处只影响
+      // recoverable 标记,不再驱动重试(重试已前移进 runner)。
       const isBusinessError =
         code === 401 || code === 403 || (code === 429 && info?.retryAfter === undefined)
-      const canRetry = !isBusinessError && attempt < maxRetries
-      if (!canRetry) {
-        const message = err instanceof Error ? err.message : '网络异常'
-        // 2026-09-04 吞错修复(Fix B):流内 SSE error 事件(如 provider 402 配额耗尽, errorCode: LLM_ERROR)
-        // 耗尽内部重试后,若调用方传了 onError 则保持原行为(回调后 return);
-        // 若未传 onError 则必须 throw err(reject),否则 Promise 会正常 resolve,
-        // 不传 onError 的调用方会把失败当成功(拿到空补全),错误被静默吞掉。
-        if (opts.onError) {
-          // recoverable=true 标记"网络可重试但已耗尽自动重连次数",前端可显示"网络不稳定,可手动重试"
-          opts.onError(message, { ...info, recoverable: !isBusinessError })
-          return
-        }
-        throw err
+      const message = err instanceof Error ? err.message : '网络异常'
+      // 2026-09-04 吞错修复(Fix B):流内 SSE error 事件(如 provider 402 配额耗尽, errorCode: LLM_ERROR)
+      // 耗尽内部重试后,若调用方传了 onError 则保持原行为(回调后 return);
+      // 若未传 onError 则必须 throw err(reject),否则 Promise 会正常 resolve,
+      // 不传 onError 的调用方会把失败当成功(拿到空补全),错误被静默吞掉。
+      if (opts.onError) {
+        // recoverable=true 标记"网络可重试但已耗尽自动重连次数",前端可显示"网络不稳定,可手动重试"
+        opts.onError(message, { ...info, recoverable: !isBusinessError })
+        return
       }
-      // P2-2 优先消费 Retry-After(秒转毫秒,上限 STREAM_MAX_RETRY_DELAY);
-      // 无 retryAfter 时走指数退避:1s, 2s, 4s, 8s... 上限 30s(与 useAgentSSE 重连模式一致)
-      const delay =
-        info?.retryAfter !== undefined
-          ? Math.min(info.retryAfter * 1000, STREAM_MAX_RETRY_DELAY)
-          : Math.min(STREAM_INITIAL_RETRY_DELAY * 2 ** attempt, STREAM_MAX_RETRY_DELAY)
-      attempt++
-      opts.onReconnect?.(attempt, delay)
-      await sleepWithAbort(delay, opts.signal)
+      throw err
     }
-  }
 }
 
 /**

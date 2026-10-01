@@ -499,3 +499,11 @@ Qoder CN/
 # 不得入库。它不忽略时会让守门 44(根目录整洁)对**每一次**提交返回 exit 2「无法判定」——
 # 而"无法判定"常驻提交链与恒红同罪:唯一结局是各会话跳钩子、连带其余全部对账一起作废。
 .superpowers/
+
+# worktree 合法落点(2026-09-30 起,AGENTS §12d):并行会话 worktree 一律检出在项目内
+# .worktrees/wt-<任务名>,替代旧的盘根 ../IHUI-AI-wt-* 散落形态(后者已清理并守门防回潮)。
+.worktrees/
+
+# DevEnv 机器级运行时/缓存目录(2026-09-30 G-814433 由盘根 G:\DevEnv 搬入,详见 PROJECT_PLAN 台账):
+# 含 PG 备份、c-root-stray 缓存、userhome 缓存、scratch Temp,11GB+ 纯机器态,永不入库。
+.DevEnv/

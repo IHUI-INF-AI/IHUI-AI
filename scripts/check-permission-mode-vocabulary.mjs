@@ -331,6 +331,145 @@ export function checkWireMirrors(read, wireValues) {
 }
 
 // ---------------------------------------------------------------------------
+// R6:权限双轴(sandbox_mode × approval_policy,79 号票)注册表的跨语言镜像对账。
+//
+// TS 侧 packages/types/src/permission-axis.ts ↔ Python 侧 app/core/permission_axis.py。
+// 与单轴 R1 同构:成员集、别名键与目标、Codex 三档预设、Legacy 单轴→双轴映射、
+// granular 细分键名单,五样逐字对齐。映射键集必须恰好等于单轴规范成员集
+// (新增第 6 档 permission mode 而忘登记双轴映射时,这里红)。
+// 刻意只对账数据面:双轴运行时接线(消费 sandbox/approval 的执行面)未实现前,
+// 不进 R3 消费点档案 —— 接线落地时随本票下一格补档案。
+// ---------------------------------------------------------------------------
+
+const TS_AXIS_REGISTRY = 'packages/types/src/permission-axis.ts'
+const PY_AXIS_REGISTRY = 'apps/ai-service/app/core/permission_axis.py'
+
+export function parseTsAxisRegistry(src) {
+  const tupleBlock = (name) => {
+    const m = new RegExp(`export const ${name}\\s*=\\s*\\[([\\s\\S]*?)\\]\\s*as const`).exec(src)
+    if (!m) throw new Error(`未找到 TS ${name} 数组声明`)
+    return [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1])
+  }
+  const aliasBlock = (name) => {
+    const m = new RegExp(`export const ${name}[^{]*\\{([\\s\\S]*?)\\n\\}`).exec(src)
+    if (!m) throw new Error(`未找到 TS ${name} 对象声明`)
+    const out = {}
+    for (const a of m[1].matchAll(/(?:'([^']+)'|([A-Za-z_][\w-]*))\s*:\s*'([^']+)'/g)) {
+      out[a[1] ?? a[2]] = a[3]
+    }
+    return out
+  }
+  // 预设/映射:两种值形态 —— { sandboxMode: 'x', approvalPolicy: 'y' } 或 null
+  const pairBlock = (name) => {
+    const m = new RegExp(`export const ${name}[^=]*=\\s*\\{([\\s\\S]*?)\\n\\}`).exec(src)
+    if (!m) throw new Error(`未找到 TS ${name} 对象声明`)
+    const out = {}
+    const entryRe = /([A-Za-z_][\w]*)\s*:\s*(null|\{[^}]*\})/g
+    for (const e of m[1].matchAll(entryRe)) {
+      if (e[2] === 'null') out[e[1]] = null
+      else {
+        const sm = /sandboxMode:\s*'([^']+)'/.exec(e[2])
+        const ap = /approvalPolicy:\s*'([^']+)'/.exec(e[2])
+        if (!sm || !ap) throw new Error(`TS ${name}.${e[1]} 缺 sandboxMode/approvalPolicy`)
+        out[e[1]] = [sm[1], ap[1]]
+      }
+    }
+    return out
+  }
+  return {
+    sandboxModes: tupleBlock('SANDBOX_MODES'),
+    approvalPolicies: tupleBlock('APPROVAL_POLICIES'),
+    sandboxAliases: aliasBlock('SANDBOX_MODE_ALIASES'),
+    approvalAliases: aliasBlock('APPROVAL_POLICY_ALIASES'),
+    presets: pairBlock('APPROVAL_PRESETS'),
+    toAxis: pairBlock('PERMISSION_MODE_TO_AXIS'),
+    granularKeys: tupleBlock('GRANULAR_APPROVAL_KEYS'),
+  }
+}
+
+export function parsePyAxisRegistry(src) {
+  const tupleBlock = (name) => {
+    const m = new RegExp(`${name}\\s*:\\s*Final[^=]*=\\s*\\(([\\s\\S]*?)\\)`).exec(src)
+    if (!m) throw new Error(`未找到 Python ${name} 元组声明`)
+    return [...m[1].matchAll(/["']([^"']+)["']/g)].map((x) => x[1])
+  }
+  const aliasBlock = (name) => {
+    const m = new RegExp(`${name}\\s*:\\s*Final[^=]*=\\s*\\{([\\s\\S]*?)\\n\\}`).exec(src)
+    if (!m) throw new Error(`未找到 Python ${name} 字典声明`)
+    const out = {}
+    for (const a of m[1].matchAll(/["']([^"']+)["']\s*:\s*["']([^"']+)["']/g)) out[a[1]] = a[2]
+    return out
+  }
+  const pairBlock = (name) => {
+    const m = new RegExp(`${name}\\s*:\\s*Final[^=]*=\\s*\\{([\\s\\S]*?)\\n\\}`).exec(src)
+    if (!m) throw new Error(`未找到 Python ${name} 字典声明`)
+    const out = {}
+    for (const e of m[1].matchAll(/["']([^"']+)["']\s*:\s*(None|\()/g)) {
+      if (e[2] === 'None') out[e[1]] = null
+      else {
+        const pair = /"([^"]+)"\s*,\s*"([^"]+)"/.exec(m[1].slice(e.index))
+        if (!pair) throw new Error(`Python ${name}.${e[1]} 缺二元组`)
+        out[e[1]] = [pair[1], pair[2]]
+      }
+    }
+    return out
+  }
+  return {
+    sandboxModes: tupleBlock('SANDBOX_MODES'),
+    approvalPolicies: tupleBlock('APPROVAL_POLICIES'),
+    sandboxAliases: aliasBlock('SANDBOX_MODE_ALIASES'),
+    approvalAliases: aliasBlock('APPROVAL_POLICY_ALIASES'),
+    presets: pairBlock('APPROVAL_PRESETS'),
+    toAxis: pairBlock('PERMISSION_MODE_TO_AXIS'),
+    granularKeys: tupleBlock('GRANULAR_APPROVAL_KEYS'),
+  }
+}
+
+const sortKeys = (o) => Object.keys(o).sort()
+
+export function checkAxisMirror(ts, py, permissionMembers) {
+  const problems = []
+  const eq = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort())
+  const dictEq = (da, db, label) => {
+    const tk = sortKeys(da)
+    const pk = sortKeys(db)
+    if (JSON.stringify(tk) !== JSON.stringify(pk)) {
+      problems.push(
+        `R6 ${label} 键集不一致 仅TS=[${tk.filter((k) => !pk.includes(k)).join(',')}] ` +
+          `仅Python=[${pk.filter((k) => !tk.includes(k)).join(',')}]`,
+      )
+      return
+    }
+    for (const k of tk) {
+      const tv = JSON.stringify(da[k])
+      const pv = JSON.stringify(db[k])
+      if (tv !== pv) problems.push(`R6 ${label}.${k} 取值不一致 TS=${tv} Python=${pv}`)
+    }
+  }
+  if (!eq(ts.sandboxModes, py.sandboxModes)) {
+    problems.push(`R6 沙箱轴成员集不一致 TS=[${ts.sandboxModes}] Python=[${py.sandboxModes}]`)
+  }
+  if (!eq(ts.approvalPolicies, py.approvalPolicies)) {
+    problems.push(`R6 审批轴成员集不一致 TS=[${ts.approvalPolicies}] Python=[${py.approvalPolicies}]`)
+  }
+  dictEq(ts.sandboxAliases, py.sandboxAliases, '沙箱别名')
+  dictEq(ts.approvalAliases, py.approvalAliases, '审批别名')
+  dictEq(ts.presets, py.presets, '预设')
+  dictEq(ts.toAxis, py.toAxis, 'Legacy 映射')
+  if (!eq(ts.granularKeys, py.granularKeys)) {
+    problems.push(`R6 granular 键名单不一致 TS=[${ts.granularKeys}] Python=[${py.granularKeys}]`)
+  }
+  const modeKeys = sortKeys(ts.toAxis)
+  if (JSON.stringify(modeKeys) !== JSON.stringify([...permissionMembers].sort())) {
+    problems.push(
+      `R6 Legacy 映射键集 ≠ 单轴规范成员集 仅映射=[${modeKeys.join(',')}] ` +
+        `单轴=[${[...permissionMembers].sort().join(',')}] —— 新增档位必须同步双轴映射`,
+    )
+  }
+  return problems
+}
+
+// ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
 
@@ -340,6 +479,8 @@ export function runChecks({ root = ROOT } = {}) {
   const wireValues = parseTsWireValues(read(TS_REGISTRY))
   const py = parsePyRegistry(read(PY_REGISTRY))
   const files = KNOWN_CONSUMERS.map((relPath) => ({ relPath, src: read(relPath) }))
+  const tsAxis = parseTsAxisRegistry(read(TS_AXIS_REGISTRY))
+  const pyAxis = parsePyAxisRegistry(read(PY_AXIS_REGISTRY))
   const problems = [
     ...checkMirror(ts, py),
     ...checkAliasClosure(ts),
@@ -347,12 +488,18 @@ export function runChecks({ root = ROOT } = {}) {
     ...checkConsumers(files, ts),
     ...checkNoSecondList(files, ts, wireValues),
     ...checkWireMirrors(read, wireValues),
+    ...checkAxisMirror(tsAxis, pyAxis, ts.members),
   ]
   return {
     problems,
     members: ts.members,
     aliasCount: Object.keys(ts.aliases).length,
     wireCount: wireValues.length,
+    axis: {
+      sandboxModes: tsAxis.sandboxModes.length,
+      approvalPolicies: tsAxis.approvalPolicies.length,
+      presets: Object.keys(tsAxis.presets).length,
+    },
   }
 }
 
@@ -557,6 +704,49 @@ function selfTest() {
       wireValues,
     ).length === 0,
   )
+  // R6 自证:TS↔Python 双轴注册表
+  const baseTsAxis = parseTsAxisRegistry(readFileSync(join(ROOT, TS_AXIS_REGISTRY), 'utf8'))
+  const basePyAxis = parsePyAxisRegistry(readFileSync(join(ROOT, PY_AXIS_REGISTRY), 'utf8'))
+  t(
+    'R6 咬住沙箱轴成员漂移',
+    checkAxisMirror(baseTsAxis, { ...basePyAxis, sandboxModes: [...basePyAxis.sandboxModes, 'unrestricted'] }, baseTs.members).some(
+      (p) => p.startsWith('R6 沙箱轴成员集'),
+    ),
+  )
+  t(
+    'R6 咬住审批轴别名漂移(只加在 Python 侧)',
+    checkAxisMirror(
+      baseTsAxis,
+      { ...basePyAxis, approvalAliases: { ...basePyAxis.approvalAliases, yolo: 'never' } },
+      baseTs.members,
+    ).some((p) => p.startsWith('R6 审批别名 键集')),
+  )
+  t(
+    'R6 咬住预设取值漂移(auto 预设被放宽成 fullAccess)',
+    checkAxisMirror(
+      baseTsAxis,
+      { ...basePyAxis, presets: { ...basePyAxis.presets, auto: ['danger-full-access', 'never'] } },
+      baseTs.members,
+    ).some((p) => p.startsWith('R6 预设.auto')),
+  )
+  t(
+    'R6 咬住 Legacy 映射漂移(acceptEdits 的 null 被伪造映射)',
+    checkAxisMirror(
+      baseTsAxis,
+      { ...basePyAxis, toAxis: { ...basePyAxis.toAxis, acceptEdits: ['workspace-write', 'on-request'] } },
+      baseTs.members,
+    ).some((p) => p.startsWith('R6 Legacy 映射.acceptEdits')),
+  )
+  t(
+    'R6 咬住映射键集 ≠ 单轴成员集(单轴加档而映射未跟)',
+    checkAxisMirror(baseTsAxis, basePyAxis, [...baseTs.members, 'yolo']).some((p) =>
+      p.startsWith('R6 Legacy 映射键集'),
+    ),
+  )
+  t(
+    'R6 两侧一致时放过(不是恒红判据)',
+    checkAxisMirror(baseTsAxis, basePyAxis, baseTs.members).length === 0,
+  )
   // 现状必须干净:否则本门一上去就红,等于给并发会话添堵
   const live = runChecks()
   if (live.problems.length > 0) {
@@ -571,11 +761,12 @@ function selfTest() {
 function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) process.exit(selfTest())
-  const { problems, members, aliasCount } = runChecks()
+  const { problems, members, aliasCount, axis } = runChecks()
   if (problems.length === 0) {
     console.log(
       `✅ 权限模式词汇对账通过:${members.length} 个规范档 / ${aliasCount} 个别名,` +
-        'TS↔Python 一致,消费侧无注册表外取值,无第二份清单(含 wire),wire 跨语言镜像已对账',
+        `TS↔Python 一致,消费侧无注册表外取值,无第二份清单(含 wire),wire 跨语言镜像已对账;` +
+        `双轴(sandbox×approval)注册表已对账:${axis.sandboxModes}×${axis.approvalPolicies} / ${axis.presets} 预设`,
     )
     return
   }
@@ -598,6 +789,11 @@ export const __test__ = {
   checkConsumers,
   checkNoSecondList,
   checkWireMirrors,
+  parseTsAxisRegistry,
+  parsePyAxisRegistry,
+  checkAxisMirror,
+  TS_AXIS_REGISTRY,
+  PY_AXIS_REGISTRY,
   parseTsWireValues,
   collectConsumerLiterals,
   modeKey,

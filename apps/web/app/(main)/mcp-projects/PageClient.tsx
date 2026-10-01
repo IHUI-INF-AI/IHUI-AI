@@ -27,7 +27,8 @@ import { McpUseManager } from '@/components/mcp/mcp-use-manager'
 import { McpPromptManager } from '@/components/mcp/mcp-prompt-manager'
 import { McpResourceViewer, type McpResource } from '@/components/mcp/mcp-resource-viewer'
 import { McpDataStructure } from '@/components/mcp/mcp-data-structure'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 export default function McpProjectsPageClient() {
   const t = useTranslations('common.mcp')
@@ -77,6 +78,9 @@ function McpResourceBrowser() {
   const tm = useTranslations('mcp')
   const [selectedUri, setSelectedUri] = useState('')
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data: resources = [], isLoading } = useQuery({
     queryKey: ['mcp', 'resources'],
     queryFn: async () => {
@@ -84,6 +88,7 @@ function McpResourceBrowser() {
       if (res.success && res.data) return res.data
       return []
     },
+    enabled: allow,
   })
 
   const selected = resources.find((r) => r.uri === selectedUri)
@@ -95,6 +100,11 @@ function McpResourceBrowser() {
     } catch {
       jsonData = undefined
     }
+  }
+
+  // 2026-09-30 登录态门:未登录时用登录引导替换个性化数据区
+  if (!allow) {
+    return <AuthGatePrompt message="请先登录后查看 MCP 资源" />
   }
 
   if (isLoading) {

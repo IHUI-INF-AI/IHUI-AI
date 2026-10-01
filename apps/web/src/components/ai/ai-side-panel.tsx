@@ -115,6 +115,11 @@ const EnvironmentInfoPopover = dynamic(
   () => import('@/components/ai/environment-info-popover').then((m) => m.EnvironmentInfoPopover),
   { ssr: false },
 )
+/** D176 任务回顾/移交到新任务入口(301 行 + Dialog):点击才展开,头部按钮组常驻入口 */
+const TaskRecapEntry = dynamic(
+  () => import('@/components/ai/d176-task-recap').then((m) => m.TaskRecapEntry),
+  { ssr: false },
+)
 /** 工具面板(818 行 + 15 个下游面板):默认折叠 */
 const AiSidePanelTools = dynamic(
   () => import('@/components/ai/ai-side-panel-tools').then((m) => m.AiSidePanelTools),
@@ -1623,6 +1628,9 @@ export function AISidePanel() {
                   </IconButton>
                 </Tooltip>
               )}
+              {/* D176 任务回顾/「移交到新任务」入口(对标竞品 chatSession.highlights.recap.*):
+                  会话级回顾动作,挂头部按钮组;对话框内生成交接内容并创建新任务(组件自带 Dialog) */}
+              <TaskRecapEntry />
               {/* 2026-08-17 三按钮组(用户需求,对标 Cursor 右上角):
                 ① 环境信息(齿轮+横线 → env info popover)
                 ② 终端(打开底部 PowerShell 终端停靠面板 → AiTerminalDock)

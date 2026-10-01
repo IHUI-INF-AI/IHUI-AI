@@ -63,9 +63,29 @@ import {
 // ───────────────────────────── 常量 ─────────────────────────────
 
 const HEARTBEAT_INTERVAL_MS = 5_000;
-const SHUTDOWN_GRACE_MS = 5_000;
 const DEFAULT_TASK_TIMEOUT_SECONDS = 300;
 const DEFAULT_MAX_QUEUE_SIZE = 100;
+
+/**
+ * b76-04 票3:worker 结果回灌 caps 常量表(数字即契约,必须住在有名字的表里;
+ * 照抄上游"执行侧不同就分表"的纪律 —— 下游判定侧与审计侧各立一名)。
+ */
+export const WORKER_RESULT_CAPS = {
+  /**
+   * 下游判定侧:回灌给调用方判定的结果 output 字节上限。
+   * 超限 ⇒ 结构化拒绝并点名恢复动作,断然不交半截结果
+   * ("截断把一份悄悄残缺的世界视图交给脚本,而脚本接下来会拿它去扇出")。
+   */
+  resultOutputMaxBytes: { cap: 8_192, enforcement: 'service 执行' },
+  /** 审计侧:error/stderr 尾巴字符上限;超 ⇒ 有界化 + truncated 标记,诚实说被截了。 */
+  errorTailMaxChars: { cap: 500, enforcement: 'service 执行' },
+} as const;
+/**
+ * G-998112(T3):kill 后等待 exit 事件的有界预算。
+ * 发起信号 ≠ 进程已退 —— kill 抛错(EPERM/ESRCH)或 exit 事件超预算未到 ⇒
+ * 记 `residualPid` 结构化残留记录,账面终态写 failed,不得静默当成功。
+ */
+const KILL_EXIT_BUDGET_MS = 5_000;
 // P0-3 修复:buffer 上限,防长跑多 subagent OOM 主进程
 const MAX_STDOUT_BUF_BYTES = 1_048_576; // 1MB
 const MAX_STDERR_BUF_BYTES = 1_048_576; // 1MB
@@ -102,6 +122,74 @@ export function resolveSubagentIdleTimeoutMs(raw?: string): number {
 }
 
 // ───────────────────────────── 类型 ─────────────────────────────
+
+/**
+ * G-998112(T3):一次未确认回收的结构化残留记录。
+ * 存在即回答"这个 pid 是否真的没了" ⇒ **没有确认它没了**(信号派发失败或 exit 超预算)。
+ * 出口:`getResidualKills()` / `getResidualPid(subagentId)`;同时以
+ * `residualPid=<pid>` 形态进 spawn/awaitResult 响应的 error 字段。
+ */
+export interface ResidualKillRecord {
+  subagentId: string
+  /** 信号派发失败或 exit 超预算时仍未确认退出的 pid */
+  pid: number
+  signal: NodeJS.Signals
+  /** 归因:heartbeat-watchdog / task-timeout / pool-shutdown / pool-shutdown-escalation */
+  reason: string
+  /** 结构化原因细节(报错原文或超预算描述) */
+  detail: string
+  at: string
+}
+
+/** 测试注入口:fork 派生出口与 kill 后 exit 预算(缺省走真 fork + KILL_EXIT_BUDGET_MS)。 */
+export interface WorkerPoolDeps {
+  forkImpl?: (entryPath: string, args: string[], options: ForkOptions) => ChildProcess
+  /** kill 后等待 exit 的预算 ms(测试用小值;生产缺省 KILL_EXIT_BUDGET_MS)。 */
+  killExitBudgetMs?: number
+}
+
+/** G-998115(b76-08a):子进程退出归因三态 —— 判据不接受"非零 code 即异常"。 */
+export type TerminationKind = 'expected' | 'watchdog_recycle' | 'unexpected'
+
+/** G-998115:诊断尾巴上限(先脱敏再限长;上限与上游 zcodeAgentProcessManager 同值)。 */
+export const DIAGNOSTIC_TAIL_MAX_LINES = 20
+export const DIAGNOSTIC_TAIL_MAX_LINE_CHARS = 1000
+
+/**
+ * 诊断文本脱敏唯一出口:三类凭据形状替换为 [REDACTED]。
+ * 调用方纪律:**先脱敏再限长**(脱敏占位符可能比原文长,限长必须在脱敏之后)。
+ */
+export function redactDiagnosticText(text: string): string {
+  let out = String(text ?? '')
+  // 顺序即判据:Bearer/Basic 形状必须先于赋值式 —— 否则 'Authorization: Bearer x'
+  // 的值会被赋值式吃成 'Bearer',真凭据反而裸奔。
+  out = out.replace(/\b(bearer|basic)\s+(\S+)/gi, (_m, scheme: string) => `${scheme} [REDACTED]`)
+  out = out.replace(
+    /\b(api[-_]?key|authorization|cookie|credential|password|secret|token)\b["']?(\s*[=:]\s*)(\S+)/gi,
+    (_m, key: string, sep: string) => `${key}${sep}[REDACTED]`,
+  )
+  out = out.replace(/\bsk-[A-Za-z0-9_-]{8,}/g, '[REDACTED]')
+  return out
+}
+
+/**
+ * 诊断尾巴唯一采集口:先脱敏、再取末 20 行、单行限 1000 字符,并带原始行数。
+ * 子代理 stderr/stdout 尾巴进 result.output / error 前必须走这里(禁平行采集)。
+ */
+export function boundedRedactedTail(
+  stderr: string,
+): { lines: string[]; lineCount: number } {
+  const redacted = redactDiagnosticText(String(stderr ?? ''))
+  const allLines = redacted.split(/\r?\n/)
+  const tail = allLines
+    .slice(-DIAGNOSTIC_TAIL_MAX_LINES)
+    .map((l) =>
+      l.length > DIAGNOSTIC_TAIL_MAX_LINE_CHARS
+        ? `${l.slice(0, DIAGNOSTIC_TAIL_MAX_LINE_CHARS)}…[truncated:true]`
+        : l,
+    )
+  return { lines: tail, lineCount: allLines.length }
+}
 
 /** 子进程 → 父进程 IPC 消息 */
 type WorkerIPCMessage =
@@ -156,6 +244,10 @@ interface WorkerEntry {
   stderrTruncated: boolean;
   stderrLastFlushAt: number;
   stderrLinesSinceFlush: number;
+  /** G-998115:退出归因(host 主动回收时写;exit 时按 terminationKind ?? unexpected 判)。 */
+  terminationKind?: TerminationKind;
+  /** G-998115:首因锁定 —— 首次 cleanup 写入归因后,后续幂等回收不得改写。 */
+  terminationKindLocked: boolean;
 }
 
 // ───────────────────────────── SubagentWorkerPool ─────────────────────────────
@@ -194,14 +286,136 @@ export class SubagentWorkerPool {
    * "本池任一生平管理过的 subagent"口径一致。值只有枚举字符串,上界 = 池生命周期内任务数。
    */
   private readonly finishedLifecycles = new Map<string, SubagentLifecycleStatus>();
+  /**
+   * G-998112:未确认回收的残留记录(subagentId → 证据)。有终态(exit 事件)那一半
+   * 仍是唯一收口点;这里只补"发信号了但 OS 退没退没有证据"的那一半。
+   */
+  private readonly residualKills = new Map<string, ResidualKillRecord>();
+  private readonly forkImpl: (entryPath: string, args: string[], options: ForkOptions) => ChildProcess;
+  private readonly killExitBudgetMs: number;
 
-  constructor(config: WorkerPoolConfig) {
+  constructor(config: WorkerPoolConfig, deps: WorkerPoolDeps = {}) {
     this.config = config;
     this.entryPath = resolveWorkerEntryPath();
+    this.forkImpl = deps.forkImpl ?? fork;
+    this.killExitBudgetMs = deps.killExitBudgetMs ?? KILL_EXIT_BUDGET_MS;
     this.heartbeatTimeoutMs = (config.heartbeatTimeoutSeconds ?? 60) * 1000;
     this.idleTimeoutMs = resolveSubagentIdleTimeoutMs(process.env[SUBAGENT_IDLE_TIMEOUT_ENV]);
     // 可观测:并发总量 = 各池 maxWorkers 之和,池数是那个"2×maxWorkers"放大倍数的来源
     notePoolCreated();
+  }
+
+  /**
+   * G-998112 残留证据出口:返回所有"信号已发但 OS 退出未确认"的记录。
+   * 空数组 = 本池每次回收都拿到了 exit 证据。
+   */
+  getResidualKills(): ResidualKillRecord[] {
+    return [...this.residualKills.values()];
+  }
+
+  /** 某个子代理是否存在未确认回收(有 ⇒ 返回残留 pid;无 ⇒ undefined)。 */
+  getResidualPid(subagentId: string): number | undefined {
+    return this.residualKills.get(subagentId)?.pid;
+  }
+
+  /**
+   * G-998112 kill 唯一出口:发起信号 + 有界等待 exit 事件。
+   * 两条失败路径都记 residualPid 并把该子代理终态写成 failed + 结构化原因:
+   *  1. 信号派发本身抛错(EPERM/ESRCH)⇒ pid 状态未知,不得当成功;
+   *  2. exit 事件超过预算未到 ⇒ 不装"已回收"。
+   * 返回值 = 是否在预算内观察到 exit 事件。
+   */
+  private signalWorker(w: WorkerEntry, signal: NodeJS.Signals, reason: string, budgetMs?: number): Promise<boolean> {
+    try {
+      w.proc.kill(signal);
+    } catch (e) {
+      this.recordResidualKill(w, signal, reason, `信号派发失败:${e instanceof Error ? e.message : String(e)}`);
+      return Promise.resolve(false);
+    }
+    if (w.proc.exitCode !== null || w.proc.signalCode !== null) return Promise.resolve(true);
+    return new Promise<boolean>((resolve) => {
+      const budget = budgetMs ?? this.killExitBudgetMs;
+      const timer = setTimeout(() => {
+        w.proc.removeListener('exit', onExit);
+        this.recordResidualKill(w, signal, reason, `exit 事件超过 ${budget}ms 未到`);
+        resolve(false);
+      }, budget);
+      const onExit = () => {
+        clearTimeout(timer);
+        resolve(true);
+      };
+      w.proc.once('exit', onExit);
+    });
+  }
+
+  /** 残留记录唯一写入点:结构化记录 + 终态写 failed(经既有收口面,exit 后到时以真终态为准)。 */
+  private recordResidualKill(w: WorkerEntry, signal: NodeJS.Signals, reason: string, detail: string): void {
+    const pid = w.proc.pid ?? 0;
+    this.residualKills.set(w.subagentId, {
+      subagentId: w.subagentId,
+      pid,
+      signal,
+      reason,
+      detail,
+      at: new Date().toISOString(),
+    });
+    const resp: SubagentSpawnResponse = {
+      subagentId: w.subagentId,
+      pid,
+      status: 'failed',
+      error: `residualPid=${pid} signal=${signal} (${reason}): ${detail}`,
+      durationMs: Date.now() - w.startedAt,
+    };
+    entryStateFailed(w);
+    if (w.idleDetached) {
+      this.detachedFinalResults.set(w.subagentId, resp);
+    }
+    if (w.resolver) {
+      w.resolver(resp);
+      w.resolver = undefined;
+    }
+    for (const resolveFinal of w.finalResolvers.splice(0)) {
+      resolveFinal(resp);
+    }
+    process.stderr.write(
+      `[subagent ${w.subagentId}] residualPid=${pid} signal=${signal} reason=${reason} detail=${detail}\n`,
+    );
+  }
+
+  /**
+   * G-998115 waitForStderrDrain 等价:exit 事件早于 stdio flush,归因 error 日志必须等
+   * stderr 流尽(end/close)或 200ms 预算到再发,保证尾巴采集完整;once 守卫保证恰 1 条。
+   */
+  private emitUnexpectedExitLog(
+    subagentId: string,
+    code: number | null,
+    signal: NodeJS.Signals | null,
+    entry: WorkerEntry,
+  ): void {
+    let done = false;
+    const emit = (): void => {
+      if (done) return;
+      done = true;
+      const tail = boundedRedactedTail(entry.stderrBuf);
+      process.stderr.write(
+        `[subagent ${subagentId}] [error] exit attribution=unexpected exitCode=${String(code)} signal=${String(signal)}; ` +
+          `stderr tail 已脱敏(取末 ${tail.lines.length}/${tail.lineCount} 行):\n${tail.lines.join('\n')}\n`,
+      );
+    };
+    const s = entry.proc.stderr;
+    if (!s || s.readableEnded) {
+      emit();
+      return;
+    }
+    const budget = setTimeout(emit, 200);
+    s.once('end', () => {
+      clearTimeout(budget);
+      emit();
+    });
+    s.once('close', () => {
+      clearTimeout(budget);
+      emit();
+    });
   }
 
   /**
@@ -330,27 +544,22 @@ export class SubagentWorkerPool {
     for (const w of entries) {
       if (w.timeoutTimer) clearTimeout(w.timeoutTimer);
       if (w.heartbeatTimer) clearInterval(w.heartbeatTimer);
-      try { w.proc.kill('SIGTERM'); } catch { /* ignore */ }
     }
-
-    if (entries.length > 0) {
-      await new Promise<void>((resolve) => {
-        const killTimer = setTimeout(() => {
-          for (const w of entries) {
-            try { w.proc.kill('SIGKILL'); } catch { /* ignore */ }
-          }
-          resolve();
-        }, SHUTDOWN_GRACE_MS);
-        Promise.all(
-          entries.map((w) =>
-            new Promise<void>((r) => w.proc.once('exit', () => r())),
-          ),
-        ).then(() => {
-          clearTimeout(killTimer);
-          resolve();
-        });
-      });
-    }
+    // G-998112:SIGTERM 一轮(有界等待 exit;超预算/派发失败 ⇒ 记 residualPid + 终态 failed),
+    // 未退者升级 SIGKILL 再等一轮 —— 两轮都拿到证据才静默,任何残留都留在 getResidualKills()。
+    // 预算缺省与 SHUTDOWN_GRACE_MS 同值(5s);deps.killExitBudgetMs 可注入缩小(测试)。
+    // G-998115:shutdown 属宿主主动回收 ⇒ 先写归因 expected(首因锁定)。
+    for (const w of entries) this.setTerminationKind(w, 'expected');
+    const ungraceful = new Set<WorkerEntry>();
+    await Promise.all(
+      entries.map(async (w) => {
+        const exited = await this.signalWorker(w, 'SIGTERM', 'pool-shutdown');
+        if (!exited) ungraceful.add(w);
+      }),
+    );
+    await Promise.all(
+      [...ungraceful].map((w) => this.signalWorker(w, 'SIGKILL', 'pool-shutdown-escalation')),
+    );
 
     // 清理 worktree
     for (const w of entries) {
@@ -428,7 +637,7 @@ export class SubagentWorkerPool {
         maxYoungGenerationSizeMb: this.config.resourceLimits.maxYoungGenerationSizeMb,
       };
     }
-    const proc = fork(this.entryPath, [], forkOptions);
+    const proc = this.forkImpl(this.entryPath, [], forkOptions);
 
     const entry: WorkerEntry = {
       subagentId,
@@ -458,6 +667,7 @@ export class SubagentWorkerPool {
       stderrTruncated: false,
       stderrLastFlushAt: startedAt,
       stderrLinesSinceFlush: 0,
+      terminationKindLocked: false,
     };
     this.workers.set(subagentId, entry);
 
@@ -606,6 +816,17 @@ export class SubagentWorkerPool {
   }
 
   /**
+   * G-998115 归因唯一写入点:首因锁定 —— 首次 cleanup 的原因不可被后续幂等回收改写。
+   * (上游 zcodeAgentProcessManager:672-687 同判据:重复 cleanup 不得把
+   * watchdog_recycle 洗成 expected。)
+   */
+  private setTerminationKind(w: WorkerEntry, kind: TerminationKind): void {
+    if (w.terminationKindLocked) return;
+    w.terminationKind = kind;
+    w.terminationKindLocked = true;
+  }
+
+  /**
    * 无活动超时 ⇒ 自动转后台(状态迁移,非杀死)。
    * 触发条件全部成立才迁移:阈值已设(>0)、未转过后台、未进终态、距最后一次真实
    * 任务事件超过 idleTimeoutMs。迁移动作:
@@ -645,16 +866,23 @@ export class SubagentWorkerPool {
 
   /** 心跳检查:超过 heartbeatTimeoutMs 无心跳 → 标记 dead,SIGKILL */
   private checkHeartbeat(entry: WorkerEntry): void {
+    if (entry.state.status === 'dead') return; // G-998112:残留确认只做一轮,不做每 5s 重复派发
     if (Date.now() - entry.lastHeartbeatAt > this.heartbeatTimeoutMs) {
       entry.state.status = 'dead';
-      try { entry.proc.kill('SIGKILL'); } catch { /* ignore */ }
+      // G-998115:watchdog 回收 ⇒ 先写归因(首因锁定),再发信号
+      this.setTerminationKind(entry, 'watchdog_recycle');
+      // G-998112:发信号后必须有界等待 exit;pid 没真的退 ⇒ 记 residualPid(账面不得只写 dead)
+      void this.signalWorker(entry, 'SIGKILL', 'heartbeat-watchdog');
     }
   }
 
   /** 超时处理:SIGTERM 子进程,resolve failed */
   private handleTimeout(subagentId: string, entry: WorkerEntry, timeoutSec: number): void {
     entry.timedOut = true;
-    try { entry.proc.kill('SIGTERM'); } catch { /* ignore */ }
+    // G-998115:超时属宿主 watchdog 回收 ⇒ 先写归因(首因锁定),再发信号
+    this.setTerminationKind(entry, 'watchdog_recycle');
+    // G-998112:有界等待 exit;超预算 ⇒ 记 residualPid + 终态 failed + 结构化原因
+    void this.signalWorker(entry, 'SIGTERM', 'task-timeout');
     // exit handler 会 resolve;但以防 exit 不触发,这里也 resolve 一次(幂等)
     if (entry.resolver) {
       const resp: SubagentSpawnResponse = {
@@ -680,6 +908,9 @@ export class SubagentWorkerPool {
     if (entry.heartbeatTimer) clearInterval(entry.heartbeatTimer);
 
     const durationMs = Date.now() - entry.startedAt;
+    // G-998115(b76-08a):退出归因 —— host 主动回收写过 terminationKind;没有 ⇒ unexpected
+    // (判据不接受"非零 code 即异常":signal crash 与 agent 自行 exit 0 都是非预期)。
+    const terminationKind: TerminationKind = entry.terminationKind ?? 'unexpected';
     const isTimeout = entry.timedOut || code === 2;
     // P2 修复:区分 exit 3(OOM)/ exit 4(CPU limit)语义,资源超限非代码 bug 可重试
     const isOOM = code === 3;
@@ -694,27 +925,40 @@ export class SubagentWorkerPool {
       else entry.state.completedCount++;
     }
 
+    // G-998115:归因 unexpected ⇒ stderr tail 升为 error 级日志(先脱敏再限长,
+    // waitForStderrDrain 等价:等 stderr 流尽再采);expected/watchdog_recycle 不升。
+    if (terminationKind === 'unexpected') {
+      this.emitUnexpectedExitLog(subagentId, code, signal, entry);
+    }
+
     // 解析 stdout NDJSON 提取结果
     const parsed = parseWorkerStdout(entry.stdoutBuf);
-    const output = parsed.assistantText || (entry.stderrBuf.trim().slice(-2000) || undefined);
+    // b76-04 票3(下游判定侧):回灌 output 超 cap ⇒ 结构化拒绝点名恢复动作,不交半截结果
+    const outputBytes = Buffer.byteLength(parsed.assistantText, 'utf8');
+    const outputOverCap = outputBytes > WORKER_RESULT_CAPS.resultOutputMaxBytes.cap;
+    // b76-04 票3(审计侧):error/stderr 尾巴有界化 + truncated 标记(不许静默夹半截)
+    const output = outputOverCap ? undefined : parsed.assistantText || boundedTail(entry.stderrBuf, WORKER_RESULT_CAPS.errorTailMaxChars.cap) || undefined;
 
     // 生命周期终态落档:'running' / 'detached_idle' 都只在此处收口为 completed/failed。
     // 已转后台的条目 spawn Promise 早以 'running' resolve 过,真终态只走
     // detachedFinalResults + finalResolvers(= awaitResult 的出口),不冒充、不丢失。
-    entry.lifecycle = isFailed ? 'failed' : 'completed';
+    entry.lifecycle = outputOverCap || isFailed ? 'failed' : 'completed';
     const resp: SubagentSpawnResponse = {
       subagentId,
       pid: entry.proc.pid ?? 0,
-      status: isFailed ? 'failed' : 'completed',
+      status: outputOverCap || isFailed ? 'failed' : 'completed',
       output,
-      error: isFailed
+      error: outputOverCap
+        ? `结果超上限(${outputBytes} 字节 > cap ${WORKER_RESULT_CAPS.resultOutputMaxBytes.cap});` +
+          `恢复动作:缩小任务范围或拆分子任务后重跑,不要要求本池静默截断结果`
+        : isFailed
         ? (isTimeout
             ? `timeout (exit code ${code})`
             : isOOM
-              ? `[OOM] worker self-OOM exit, stdout: ${entry.stdoutBuf.slice(-500)}`
+              ? `[OOM] worker self-OOM exit, stdout tail: ${boundedTail(entry.stdoutBuf, WORKER_RESULT_CAPS.errorTailMaxChars.cap)}`
               : isCpuLimit
-                ? `[CPU_LIMIT] worker CPU limit exit, stdout: ${entry.stdoutBuf.slice(-500)}`
-                : (entry.stderrBuf.trim().slice(-500) || `exit code ${code} signal ${signal}`))
+                ? `[CPU_LIMIT] worker CPU limit exit, stdout tail: ${boundedTail(entry.stdoutBuf, WORKER_RESULT_CAPS.errorTailMaxChars.cap)}`
+                : (boundedTail(entry.stderrBuf, WORKER_RESULT_CAPS.errorTailMaxChars.cap) || `exit code ${code} signal ${signal}`))
         : undefined,
       durationMs,
     };
@@ -765,6 +1009,25 @@ export class SubagentWorkerPool {
 /** 生成子 agent ID */
 function generateSubagentId(): string {
   return `sa_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * G-998112:残留路径的账面落点 —— 状态写 dead、生命周期落 failed(若未终态)。
+ * failedCount 不在此处增:exit 事件仍是唯一计数收口点(见 handleWorkerExit :691 守卫)。
+ */
+function entryStateFailed(w: WorkerEntry): void {
+  w.state.status = 'dead';
+  if (!isSubagentTerminalStatus(w.lifecycle)) w.lifecycle = 'failed';
+}
+
+/**
+ * b76-04 票3(审计侧):有界尾巴 —— 先脱敏、再限长 + truncated 标记,"宁可诚实地说被截了"。
+ * 只用于事后审计的诊断尾巴;喂给下游判定的数据不走这里(走 WORKER_RESULT_CAPS 拒绝)。
+ */
+function boundedTail(text: string, cap: number): string {
+  const trimmed = redactDiagnosticText(text).trim();
+  if (trimmed.length <= cap) return trimmed;
+  return `${trimmed.slice(-cap)}…[truncated:true 原长 ${trimmed.length}]`;
 }
 
 /**

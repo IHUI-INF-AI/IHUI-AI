@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl'
 import { Bell, Plus, Trash2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { droppedNotice } from '@/lib/bounded-append'
 import {
   AGENT_HOOK_ACTIONS,
   AGENT_HOOK_EVENTS,
@@ -32,6 +33,7 @@ export function AgentHooksPanel() {
   const t = useTranslations('agentHooks')
   const hooks = useAgentHooksStore((s) => s.hooks)
   const events = useAgentHooksStore((s) => s.events)
+  const droppedEvents = useAgentHooksStore((s) => s.droppedEvents)
   const addHook = useAgentHooksStore((s) => s.addHook)
   const removeHook = useAgentHooksStore((s) => s.removeHook)
   const toggleHook = useAgentHooksStore((s) => s.toggleHook)
@@ -185,6 +187,12 @@ export function AgentHooksPanel() {
             </button>
           )}
         </div>
+        {droppedEvents > 0 ? (
+          // G-641:溢出丢弃必须可见 —— 残缺的事件日志不得伪装成完整
+          <p data-testid="agent-hooks-events-dropped" className="text-[11px] text-muted-foreground">
+            {droppedNotice(droppedEvents)}
+          </p>
+        ) : null}
         <div data-testid="agent-hooks-events" className="max-h-40 space-y-1 overflow-y-auto">
           {events.length === 0 ? (
             <p className="py-2 text-center text-xs text-muted-foreground">{t('noEvents')}</p>

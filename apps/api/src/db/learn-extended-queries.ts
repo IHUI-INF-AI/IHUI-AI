@@ -279,6 +279,7 @@ export async function updateInvoiceApplicationStatus(
   const rows = await db
     .update(learnInvoiceApplications)
     .set({ status, updatedAt: new Date() })
+  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(learnInvoiceApplications.id, id))
     .returning()
   return rows[0]
@@ -980,6 +981,7 @@ export async function setTaskStatus(id: string, status: string): Promise<LessonT
   const rows = await db
     .update(lessonTask)
     .set({ status, updatedAt: new Date() })
+  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(lessonTask.id, id))
     .returning()
   return rows[0]
@@ -1145,6 +1147,7 @@ export async function auditHomeworkRecord(
   const rows = await db
     .update(learnHomeworkRecord)
     .set({ status, updatedAt: new Date() })
+  // status-guard-exempt: 审核决定写点(approved|rejected 闭集入向),状态机合法性由服务层裁决
     .where(eq(learnHomeworkRecord.id, id))
     .returning()
   return rows[0]

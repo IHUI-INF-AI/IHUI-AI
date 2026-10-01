@@ -12,7 +12,8 @@ import { ArrowRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { buildQs, type PageData } from '@/lib/edu'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 import { InvoicesTab } from '../settings/billing/InvoicesTab'
 import { PAGE_SIZE } from '../settings/billing/helpers'
@@ -23,6 +24,8 @@ export default function InvoicesPage() {
   const ti = useTranslations('admin.edu.finance.invoices')
   const locale = useLocale()
   const [page, setPage] = React.useState(1)
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
 
   const currencyFmt = React.useMemo(
     () => new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY' }),
@@ -49,6 +52,7 @@ export default function InvoicesPage() {
       if (!res.success) throw new Error(res.error)
       return res.data
     },
+    enabled: allow,
   })
 
   return (
@@ -58,18 +62,22 @@ export default function InvoicesPage() {
         <h1 className="text-xl font-semibold">{ti('title')}</h1>
         <p className="text-sm text-muted-foreground">{ti('subtitle')}</p>
       </header>
-      <InvoicesTab
-        t={t}
-        list={query.data?.list ?? []}
-        isLoading={query.isLoading}
-        error={query.error as Error | null}
-        page={page}
-        total={query.data?.total ?? 0}
-        pageSize={PAGE_SIZE}
-        currencyFmt={currencyFmt}
-        dateFmt={dateFmt}
-        onPageChange={setPage}
-      />
+      {allow ? (
+        <InvoicesTab
+          t={t}
+          list={query.data?.list ?? []}
+          isLoading={query.isLoading}
+          error={query.error as Error | null}
+          page={page}
+          total={query.data?.total ?? 0}
+          pageSize={PAGE_SIZE}
+          currencyFmt={currencyFmt}
+          dateFmt={dateFmt}
+          onPageChange={setPage}
+        />
+      ) : (
+        <AuthGatePrompt message="请先登录后查看发票申请" />
+      )}
       <div className="flex items-center gap-1 text-sm text-muted-foreground">
         <Link
           href="/settings/billing"

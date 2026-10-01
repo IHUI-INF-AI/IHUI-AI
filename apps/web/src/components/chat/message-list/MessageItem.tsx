@@ -934,8 +934,9 @@ const MessageItem = React.memo(function MessageItem({
           // D129(2026-09-29):此前这一行是 `<p className="whitespace-pre-wrap">{m.content}</p>`,
           // 不过任何解析 —— 而发送侧把附件拍平成 `![label](url)` / `<video …>` / fenced block /
           // `> 📎 label` 四种文本形态,于是用户自己上传的东西在他自己的气泡里显示成源码。
-          // 交给 UserMessageBody 拆附件渲染,**正文仍走纯文本 `<p>`**:G-825「消息级 markdown 边界」
-          // 有一条负例锁住"用户正文不进 markdown",所以不能图省事复用助手侧那个渲染器。
+          // 2026-10-01 S15 按 V4 #87 止血步翻转:交给 UserMessageBody 拆附件渲染,
+          // **正文与助手侧走同一套 MarkdownStream**(危险项天然关闭 —— 无 rehype-raw),
+          // 被拒不安全/判不出的行由共享层摘出、组件按字面渲染,绝不静默消失。
           <UserMessageBody content={m.content} testId={`user-message-body-${m.id}`} />
         ) : (
           <div

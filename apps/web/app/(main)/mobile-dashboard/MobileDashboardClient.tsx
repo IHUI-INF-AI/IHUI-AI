@@ -11,9 +11,10 @@ import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
-import { BackButton, Skeleton } from '@/components/common'
+import { BackButton, Skeleton, AuthGatePrompt } from '@/components/common'
 import { Container } from '@/components/layout'
 import { LineChart } from '@/components/charts/LineChart'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 /**
  * 移动端运营仪表盘(2026-08-06 起接入真实数据)。
@@ -50,6 +51,9 @@ function formatNumber(n: number): string {
 export function MobileDashboardClient() {
   const t = useTranslations('mobileDashboardPage')
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, isError, refetch, isFetching } = useQuery<MobileStatsData, Error>({
     queryKey: ['admin', 'mobile-stats'],
     queryFn: async () => {
@@ -59,6 +63,7 @@ export function MobileDashboardClient() {
     },
     refetchInterval: 60_000,
     staleTime: 30_000,
+    enabled: allow,
   })
 
   // DAU 相对昨日变化(基于近 7 日趋势的最近两个点,供卡片展示涨跌)
@@ -83,7 +88,9 @@ export function MobileDashboardClient() {
         </p>
       </header>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看移动端运营数据" />
+      ) : isLoading ? (
         <div className="space-y-4">
           <Skeleton variant="card" count={4} />
           <Skeleton variant="list" count={6} />
