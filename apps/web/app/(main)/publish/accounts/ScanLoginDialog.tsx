@@ -807,7 +807,7 @@ export function ScanLoginDialog({
                 type="button"
                 onClick={toggleReuseSession}
                 disabled={isBusy}
-                className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent/40"
+                className="flex w-full items-center justify-between rounded-sm border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent/40"
               >
                 <span>{t('accounts.scanLoginReuseLabel')}</span>
                 <span className={reuseSession ? 'font-medium text-foreground' : ''}>
