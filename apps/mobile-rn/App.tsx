@@ -27,6 +27,7 @@ import {
 } from './src/lib/oauth-deeplink'
 import { rnAuthStore } from './src/stores/auth-store'
 import { tokens } from './src/theme/active-tokens'
+import { isVideoImmersive, subscribeVideoImmersive } from './src/lib/video-immersive'
 import type { LoginResult } from '@ihui/api-client'
 import { GlobalFloatBox } from './src/components/GlobalFloatBox'
 import { PrivacyPolicyModal } from './src/components/PrivacyPolicyModal'
@@ -158,11 +159,19 @@ function AppContent() {
     setPrivacyVisible(false)
   }, [])
 
-  // ===== O57(2026-09-24):根背景按聚焦路由取 =====
+  // ===== O57(2026-09-24):根背景按聚焦路由取;L4006(2026-10-02):再叠一条「全屏播放器窗口在位」 =====
   // 全屏沉浸屏(VideoPlayer)的底色铺不进状态栏带 —— 那条带由本组件根 View 的
   // backgroundColor 绘制,屏幕内容在屏幕顶边被裁剪(真机量得带内 y=8..60 浅灰),
-  // 端内任何写法都够不到。修法在单点:聚焦路由为 VideoPlayer 时取 tokens.gray.black
-  // (与共享层 packages/app video-player 容器同源同值,不新增第二个色源),其余仍 surface.bg。
+  // 端内任何写法都够不到。修法在单点:聚焦路由为 VideoPlayer **或**播放器全屏窗口正盖着本窗口
+  // 时取 tokens.gray.black(与共享层 packages/app video-player 容器同源同值,不新增第二个色源),
+  // 其余仍 surface.bg。
+  // 第二条为什么必须有(2026-10-02 定位):react-native-video 在 Android 上的全屏不是本树的布局
+  // 变化,而是 `Dialog(context, Theme_Black_NoTitleBar)` 这个**另一个窗口**(见
+  // node_modules/react-native-video/android/src/main/java/com/brentvatne/exoplayer/FullScreenPlayerView.kt:27)
+  // —— 该主题不覆盖状态栏带,带位仍由下面这枚根 View 绘制。于是同一只播放器从**别的路由**发起全屏时
+  // (今天已知一站是 ProfileScreen 的 VideoPlayerModal,它挂 src/components/VideoPlayer.tsx 而不在
+  // VideoPlayer 路由上)仍露浅灰带。路由名不是这件事的因,「有全屏播放器窗口正盖着本窗口」才是,
+  // 所以第二个条件取 src/lib/video-immersive.ts 那份布尔(它只传布尔,不取色、不碰顶距)。
   // SafeAreaView edges=['top'] 单点注入不变(守门 97):这里只换底色,不碰顶距。
   const [focusedRoute, setFocusedRoute] = useState<string | null>(null)
   useEffect(() => {
@@ -179,7 +188,12 @@ function AppContent() {
       unsubState()
     }
   }, [])
-  const rootBackground = focusedRoute === 'VideoPlayer' ? tokens.gray.black : tokens.surface.bg
+  // 初始值现读一次:全屏可以在本组件挂载之前就已呈现(冷启动直达播放器的在飞窗口),
+  // 只等订阅回调会让首帧带色停在浅色。
+  const [videoImmersive, setVideoImmersive] = useState(isVideoImmersive)
+  useEffect(() => subscribeVideoImmersive(setVideoImmersive), [])
+  const rootBackground =
+    videoImmersive || focusedRoute === 'VideoPlayer' ? tokens.gray.black : tokens.surface.bg
 
   return (
     // backgroundColor 兜底:悬浮 TabBar 留边/根节点透明的屏(ProfileScreen 等 Fragment 根)

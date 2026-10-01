@@ -56,7 +56,7 @@ function makeTransport(payload: unknown): { transport: Transport; calls: Recorde
       status: 200,
       headers: { get: () => null },
       text: async () => '',
-      json: async () => ({ code: 0, data: payload }),
+      json: async () => ({ code: 0, message: 'ok', data: payload }),
     }
   }
   return { transport, calls }
