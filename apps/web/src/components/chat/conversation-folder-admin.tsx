@@ -29,7 +29,7 @@ import {
   useOrgServerStore,
   type ConversationFolder,
   type OrgFailureReason,
-} from '@/stores/conversation-org-server'
+} from '@ihui/shared/chat/conversation-org-server'
 
 /** reason → i18n key。表住在这一处:两处各写一遍必然有一处漏掉新增的分类。 */
 const REASON_KEY: Record<OrgFailureReason, string> = {
