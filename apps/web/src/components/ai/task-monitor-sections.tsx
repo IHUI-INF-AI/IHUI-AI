@@ -11,8 +11,6 @@ import { cn } from '@/lib/utils'
 import { useChatStore } from '@/stores/chat'
 import { TaskContentGroupsView } from './d175-task-content-groups'
 import type { ToolTabKey } from './ai-side-panel-tools'
-// D179:监控区「关联 Issue」条(新文件组件,与本文件同挂 results 区首先例)
-import { LinkedIssueStrip } from '@/components/chat/issue-bind-dialog'
 
 /** 任务监控四区标识(G-63 对标 Qoder「任务监控」分区原文) */
 export type TaskZone = 'progress' | 'activity' | 'results' | 'auxiliary'
@@ -79,8 +77,6 @@ export function TaskMonitorZonesView({
   const [collapsed, setCollapsed] = React.useState<ReadonlySet<TaskZone>>(() => new Set())
   // D175:任务内容聚合的取数面 = chat store 既有 messages(不新建采集链)
   const messages = useChatStore((s) => s.messages)
-  // D179:监控区「关联 Issue」条的取数面 = 当前会话 ID(条内自行取会话详情解析绑定)
-  const conversationId = useChatStore((s) => s.conversationId)
 
   const toggleZone = React.useCallback((zone: TaskZone) => {
     setCollapsed((prev) => {
@@ -123,9 +119,6 @@ export function TaskMonitorZonesView({
                 {/* D175 任务内容聚合:挂在 results「结果与来源」区首,区内 Tab 子导航之前。
                     三组清单(产出/网页查阅/来源)+ 各组空态 + 全空时的汇总描述,随任务持续更新 */}
                 {zone === 'results' && <TaskContentGroupsView messages={messages} />}
-                {/* D179:会话绑定的「关联 Issue」展示 + url 跳转挂载(竞品 highlights.linkedIssue;
-                    取数链:conversationId → getConversation → metadata.issueBinding,未绑定不渲染) */}
-                {zone === 'results' && <LinkedIssueStrip conversationId={conversationId} />}
                 <div
                   role="tablist"
                   aria-label={zoneLabel}

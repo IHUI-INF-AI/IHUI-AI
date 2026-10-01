@@ -6,13 +6,6 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-// 2026-09-30 AI 面板首屏根治:厂商代码清单与 inferVendor 已下沉到零依赖模块
-// vendor-infer.ts(详见其文件头)。本文件只保留图标组件映射,并 re-export inferVendor
-// 兼容既有调用方(model-selector 等)—— 但 AI 面板必须直接从 vendor-infer 导入,
-// 否则 95+ 个 @lobehub/icons 组件会被拖回面板主 chunk(守门 R2 断言此事)。
-import { type VendorCode } from './vendor-infer'
-
-export { inferVendor } from './vendor-infer'
 // 2026-09-12 路由提速改造(深路径导入):
 // 原写法 `import { ... } from '@lobehub/icons'` 会命中包的 barrel 入口
 // (es/index.js → es/icons.js,~300 条 re-export),被迫解析/编译 es/ 下 2231 个 js 模块,
@@ -162,16 +155,11 @@ import { cn } from '@/lib/utils'
  *   - 2026-07-31 兜底:Chrome / Remotion / Hyperframes(lobehub 无收录,lucide 同色兜底)
  */
 
-/** 图标组件类型(VENDOR_COMPONENTS 的值类型) */
-type VendorIconComponent = React.ComponentType<{
-  size?: number | string
-  style?: React.CSSProperties
-}>
-
-/** 厂商代码 → @lobehub/icons 组件映射
- *  satisfies Record<VendorCode, ...>:键集合被 vendor-infer.ts 的 VENDOR_CODES 编译期锁死,
- *  新增/删除厂商必须同步改 VENDOR_CODES,否则 tsc 报错(不会静默漂移)。 */
-const VENDOR_COMPONENTS = {
+/** 厂商代码 → @lobehub/icons 组件映射 */
+const VENDOR_COMPONENTS: Record<
+  string,
+  React.ComponentType<{ size?: number | string; style?: React.CSSProperties }>
+> = {
   // 国际原厂
   openai: OpenAI,
   anthropic: Anthropic,
@@ -313,9 +301,201 @@ const VENDOR_COMPONENTS = {
   ornith: Boxes, // Ornith(国内新势力,无公开 logo,用 Boxes 兜底)
   codebrain: Boxes, // CodeBrain(国内新势力,无公开 logo)
   mai: Boxes, // Mai(国内新势力,无公开 logo)
-} satisfies Record<VendorCode, VendorIconComponent>
+}
 
-
+/** 根据 model 字符串前缀推断厂商代码 */
+export function inferVendor(model: string | undefined | null): string | undefined {
+  if (!model) return undefined
+  const m = model.toLowerCase()
+  // 去掉 providerCode/ 前缀(如 'stepfun/step-3.7-flash' → 'step-3.7-flash')
+  const bare = m.includes('/') ? m.split('/').slice(1).join('/') : m
+  // === 国际原厂 ===
+  if (
+    bare.startsWith('gpt') ||
+    bare.startsWith('o1') ||
+    bare.startsWith('o3') ||
+    bare.startsWith('o4') ||
+    bare.startsWith('chatgpt')
+  )
+    return 'openai'
+  if (bare.startsWith('claude')) return 'anthropic'
+  if (bare.startsWith('gemini') || bare.startsWith('palm') || bare.startsWith('bard'))
+    return 'google'
+  if (bare.startsWith('deepseek')) return 'deepseek'
+  if (bare.startsWith('llama') || bare.startsWith('meta-llama')) return 'meta'
+  if (
+    bare.startsWith('mistral') ||
+    bare.startsWith('mixtral') ||
+    bare.startsWith('codestral') ||
+    bare.startsWith('pixtral') ||
+    bare.startsWith('open-mistral') ||
+    bare.startsWith('open-mixtral')
+  )
+    return 'mistral'
+  if (bare.startsWith('grok')) return 'xai'
+  if (
+    bare.startsWith('command-r') ||
+    bare.startsWith('command-a') ||
+    bare.startsWith('command-light') ||
+    bare.startsWith('command-nightly') ||
+    bare.startsWith('cohere')
+  )
+    return 'cohere'
+  if (bare.startsWith('nemotron') || bare.startsWith('llama-3.1-nemotron')) return 'nvidia'
+  if (bare.startsWith('jamba') || bare.startsWith('j2-')) return 'ai21'
+  if (bare.startsWith('phi-') || bare.startsWith('phi3') || bare.startsWith('phi4'))
+    return 'microsoft'
+  if (bare.startsWith('sonar') || bare.startsWith('pplx') || bare.startsWith('perplexity'))
+    return 'perplexity'
+  // === 国际云/平台/聚合(本次新增) ===
+  if (bare.startsWith('amazon') || bare.startsWith('aws') || bare.startsWith('titan-')) return 'aws'
+  if (
+    bare.startsWith('bedrock') ||
+    bare.startsWith('anthropic.claude') ||
+    bare.startsWith('amazon.nova') ||
+    bare.startsWith('meta.llama') ||
+    bare.startsWith('ai21.jamba')
+  )
+    return 'bedrock'
+  if (
+    bare.startsWith('azure') ||
+    bare.startsWith('azure-openai') ||
+    bare.startsWith('gpt-4o-azure') ||
+    bare.startsWith('azure-gpt')
+  )
+    return 'azure'
+  if (bare.startsWith('openrouter/') || bare.startsWith('openrouter')) return 'openrouter'
+  if (bare.startsWith('huggingface/') || bare.startsWith('hf/') || bare.startsWith('huggingface'))
+    return 'huggingface'
+  if (bare.startsWith('replicate/') || bare.startsWith('replicate')) return 'replicate'
+  if (
+    bare.startsWith('stable-') ||
+    bare.startsWith('stability') ||
+    bare.startsWith('sdxl') ||
+    bare.startsWith('sd3') ||
+    bare.startsWith('stable-diffusion')
+  )
+    return 'stability'
+  if (bare.startsWith('pi-') || bare.startsWith('inflection')) return 'inflection'
+  if (
+    bare.startsWith('watsonx') ||
+    bare.startsWith('ibm/') ||
+    bare.startsWith('ibm-') ||
+    bare.startsWith('granite')
+  )
+    return 'ibm'
+  if (bare.startsWith('cerebras') || bare.startsWith('cerebras-llama')) return 'cerebras'
+  if (bare.startsWith('sambanova') || bare.startsWith('samba-')) return 'sambanova'
+  if (bare.startsWith('snowflake') || bare.startsWith('arctic')) return 'snowflake'
+  if (bare.startsWith('deepinfra/') || bare.startsWith('deepinfra')) return 'deepinfra'
+  if (
+    bare.startsWith('aleph-alpha') ||
+    bare.startsWith('alephalpha') ||
+    bare.startsWith('luminous')
+  )
+    return 'alephalpha'
+  if (bare.startsWith('nous-') || bare.startsWith('nous/') || bare.startsWith('hermes'))
+    return 'nous'
+  if (bare.startsWith('vertex/') || bare.startsWith('vertex-ai')) return 'vertexai'
+  if (bare.startsWith('gemma')) return 'gemma'
+  if (bare.startsWith('palm') || bare.startsWith('bard')) return 'palm'
+  if (bare.startsWith('copilot') || bare.startsWith('microsoft-copilot')) return 'copilot'
+  if (bare.startsWith('bing') || bare.startsWith('bing-chat')) return 'bing'
+  // === 国际推理/云平台扩展 ===
+  if (bare.startsWith('novita/') || bare.startsWith('novita')) return 'novita'
+  if (bare.startsWith('lambda/') || bare.startsWith('lambda-')) return 'lambda'
+  if (bare.startsWith('baseten/') || bare.startsWith('baseten')) return 'baseten'
+  if (bare.startsWith('crusoe/') || bare.startsWith('crusoe-')) return 'crusoe'
+  if (bare.startsWith('targon/') || bare.startsWith('targon-')) return 'targon'
+  if (bare.startsWith('centml/') || bare.startsWith('centml-')) return 'centml'
+  if (bare.startsWith('nebius/') || bare.startsWith('nebius-')) return 'nebius'
+  if (
+    bare.startsWith('ollama/') ||
+    bare.startsWith('ollama-') ||
+    bare.startsWith('llama3.1:') ||
+    bare.startsWith('llama3:')
+  )
+    return 'ollama'
+  if (bare.startsWith('upstage/') || bare.startsWith('solar-')) return 'upstage'
+  if (bare.startsWith('leptonai/') || bare.startsWith('lepton-')) return 'leptonai'
+  if (bare.startsWith('hyperbolic/') || bare.startsWith('hyperbolic-')) return 'hyperbolic'
+  if (bare.startsWith('featherless/') || bare.startsWith('featherless-')) return 'featherless'
+  if (bare.startsWith('parasail/') || bare.startsWith('parasail-')) return 'parasail'
+  if (bare.startsWith('openwebui/') || bare.startsWith('open-webui-')) return 'openwebui'
+  if (bare.startsWith('lmstudio/') || bare.startsWith('lm-studio-')) return 'lmstudio'
+  if (bare.startsWith('friendli/') || bare.startsWith('friendli-')) return 'friendli'
+  if (bare.startsWith('anyscale/') || bare.startsWith('anyscale-')) return 'anyscale'
+  if (bare.startsWith('infermatic/') || bare.startsWith('infermatic-')) return 'infermatic'
+  if (bare.startsWith('replit/') || bare.startsWith('replit-') || bare.startsWith('replit-code-'))
+    return 'replit'
+  // === 国内推理/云平台扩展 ===
+  if (
+    bare.startsWith('siliconcloud/') ||
+    bare.startsWith('siliconflow/') ||
+    bare.startsWith('siliconcloud-')
+  )
+    return 'siliconcloud'
+  if (
+    bare.startsWith('modelscope/') ||
+    bare.startsWith('modelscope-') ||
+    bare.startsWith('dashscope/')
+  )
+    return 'modelscope'
+  if (bare.startsWith('ppio/') || bare.startsWith('ppio-')) return 'ppio'
+  if (bare.startsWith('volcengine/') || bare.startsWith('volc-') || bare.startsWith('ark/'))
+    return 'volcengine'
+  if (
+    bare.startsWith('bailian/') ||
+    bare.startsWith('bailian-') ||
+    bare.startsWith('dashscope/bailian')
+  )
+    return 'bailian'
+  if (bare.startsWith('baai/') || bare.startsWith('flag-') || bare.startsWith('aquila-'))
+    return 'baai'
+  if (
+    bare.startsWith('tii/') ||
+    bare.startsWith('falcon-') ||
+    bare.startsWith('falcon2-') ||
+    bare.startsWith('falcon3-')
+  )
+    return 'tii'
+  if (bare.startsWith('liquid/') || bare.startsWith('lfm-') || bare.startsWith('liquid-'))
+    return 'liquid'
+  if (
+    bare.startsWith('ai2/') ||
+    bare.startsWith('olmo-') ||
+    bare.startsWith('tulu-') ||
+    bare.startsWith('molmo-')
+  )
+    return 'ai2'
+  // === 国内厂商 ===
+  if (bare.startsWith('qwen') || bare.startsWith('wan') || bare.startsWith('tongyi')) return 'qwen'
+  if (bare.startsWith('glm') || bare.startsWith('chatglm')) return 'zhipu'
+  if (bare.startsWith('moonshot') || bare.startsWith('kimi')) return 'moonshot'
+  if (bare.startsWith('doubao')) return 'doubao'
+  if (bare.startsWith('agnes')) return 'agnes'
+  if (bare.startsWith('step') || bare.startsWith('stepfun')) return 'stepfun'
+  if (bare.startsWith('minimax') || bare.startsWith('abab') || bare.startsWith('hailuo'))
+    return 'minimax'
+  if (bare.startsWith('hunyuan')) return 'hunyuan'
+  if (bare.startsWith('ernie') || bare.startsWith('wenxin')) return 'wenxin'
+  if (bare.startsWith('baichuan')) return 'baichuan'
+  if (bare.startsWith('spark')) return 'spark'
+  if (bare.startsWith('yi-') || bare.startsWith('yi01')) return 'yi'
+  if (bare.startsWith('sensenova')) return 'sensenova'
+  if (bare.startsWith('skywork')) return 'skywork'
+  if (bare.startsWith('internlm')) return 'internlm'
+  // === 2026-07 国内新势力(无 lobehub 官方图标,fallback 项目 logo) ===
+  if (bare.startsWith('ornith')) return 'ornith'
+  if (bare.startsWith('codebrain')) return 'codebrain'
+  if (bare.startsWith('mai')) return 'mai'
+  // === 反查 providerCode 前缀(如 'openai/gpt-4o' → 'openai') ===
+  if (m.includes('/')) {
+    const providerCode = m.split('/')[0]
+    if (providerCode && VENDOR_COMPONENTS[providerCode]) return providerCode
+  }
+  return undefined
+}
 
 export interface BrandIconProps {
   /** 厂商代码(如 'openai'、'deepseek') */
@@ -344,9 +524,7 @@ export function BrandIcon({
   className,
   fallbackIcon: FallbackIcon,
 }: BrandIconProps) {
-  const VendorIcon = vendor
-    ? (VENDOR_COMPONENTS as Record<string, VendorIconComponent>)[vendor.toLowerCase()]
-    : undefined
+  const VendorIcon = vendor ? VENDOR_COMPONENTS[vendor.toLowerCase()] : undefined
 
   if (VendorIcon) {
     return (

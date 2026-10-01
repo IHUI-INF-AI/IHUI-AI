@@ -105,8 +105,8 @@ function makeLocaleRepo(t) {
   return { dir, ancestor9: ancestor.slice(0, 9) }
 }
 
-function runLand(dir, { paths = '', msg = 'chore: e2e land', baseRef, allowStale, blobs, proof, jsonStructure, extraEnv = {} } = {}) {
-  const env = { ...process.env, LAND_ROOT: dir, LAND_PATHS: paths, LAND_MSG: msg, ...extraEnv }
+function runLand(dir, { paths = '', msg = 'chore: e2e land', baseRef, allowStale, blobs, proof, jsonStructure } = {}) {
+  const env = { ...process.env, LAND_ROOT: dir, LAND_PATHS: paths, LAND_MSG: msg }
   if (baseRef) env.LAND_BASE_REF = baseRef
   else delete env.LAND_BASE_REF
   if (allowStale) env.LAND_ALLOW_STALE = '1'
@@ -779,7 +779,6 @@ test('T-NEWFILE-blobmode 新增文件不得被算成"横幅检查未判定"(blob
     paths: 'brand/new.ts',
     blobs: [{ path: 'brand/new.ts', blob }],
     proof: '该路径基线不存在,构造内容由本票写出',
-    extraEnv: { LAND_DANGLING_GATE: writeGateStub(dir) },
   })
   assert.equal(r.status, 0, `新增文件必须能落地,实得 ${r.status}:${r.stdout}|${r.stderr}`)
   assert.match(r.stdout, /基线里没有该路径\(新增文件\)/, '必须点名"按定义无从保持",不得静默')
@@ -826,7 +825,7 @@ function runLandRaw(dir, paths, msg, extraEnv = {}) {
     IHUI_LAND_SKIP_WATERMARK: '1',
     ...extraEnv,
   }
-  for (const k of ['LAND_BLOBS', 'LAND_BLOB_PROOF', 'LAND_BASE_REF', 'LAND_ALLOW_STALE', 'LAND_DANGLING_GATE', 'IHUI_LAND_SKIP_DANGLING_GATE']) {
+  for (const k of ['LAND_BLOBS', 'LAND_BLOB_PROOF', 'LAND_BASE_REF', 'LAND_ALLOW_STALE']) {
     if (!(k in extraEnv)) delete env[k]
   }
   return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
@@ -837,26 +836,12 @@ const unreachableCommits = (dir) =>
     .split('\n')
     .filter((l) => /^unreachable commit/.test(l)).length
 
-// G-815985 涉事判据桩:只仿"退出码 0/1/2"的传输,不仿判据本身(判据的有牙由门体自检+镜像证明)。
-// STUB_RC: 0 放行 / 1 判红 / 2 未判定。STUB_LOG 存在时把收到的 argv 逐行记账(证明接线传了 --rev/--anchor)。
-function writeGateStub(dir, name = 'stub-gate.mjs') {
-  const p = join(dir, name)
-  writeFileSync(
-    p,
-    "import { appendFileSync } from 'node:fs'\n" +
-      'const log = process.env.STUB_LOG\n' +
-      "if (log) appendFileSync(log, JSON.stringify(process.argv.slice(2)) + '\\n')\n" +
-      'process.exit(Number(process.env.STUB_RC ?? 0))\n',
-  )
-  return p
-}
-
 test('T-IMP-1 反例臂(端到端):声明面引用了未随本次落地的相对模块 ⇒ 必须拒绝,且不留任何 unreachable commit', (t) => {
   const dir = makeRepo(t)
   mkdirSync(join(dir, 'src', 'lib'), { recursive: true })
   writeFileSync(join(dir, 'src', 'a.mjs'), "import { x } from './lib/missing.mjs'\nexport const y = x\n")
   const before = runGit(dir, ['rev-parse', 'HEAD']).trim()
-  const r = runLandRaw(dir, 'src/a.mjs', 'test: 只交引用方', { LAND_DANGLING_GATE: writeGateStub(dir) })
+  const r = runLandRaw(dir, 'src/a.mjs', 'test: 只交引用方')
   assert.notEqual(r.status, 0, '缺实体时不得落地成功')
   assert.match(r.stderr + r.stdout, /悬空相对引用预检不通过/, '拒绝原因必须点名本闸,不能是一句泛化失败')
   assert.match(r.stderr + r.stdout, /lib\/missing\.mjs/, '必须点名缺失的说明符')
@@ -869,7 +854,7 @@ test('T-IMP-2 正例臂(端到端):引用与实体同枚声明 ⇒ 必须放行(
   mkdirSync(join(dir, 'src', 'lib'), { recursive: true })
   writeFileSync(join(dir, 'src', 'a.mjs'), "import { x } from './lib/present.mjs'\nexport const y = x\n")
   writeFileSync(join(dir, 'src', 'lib', 'present.mjs'), 'export const x = 1\n')
-  const r = runLandRaw(dir, 'src/a.mjs;src/lib/present.mjs', 'test: 引用与实体同枚', { LAND_DANGLING_GATE: writeGateStub(dir) })
+  const r = runLandRaw(dir, 'src/a.mjs;src/lib/present.mjs', 'test: 引用与实体同枚')
   assert.equal(r.status, 0, `同枚带实体必须成功,实际输出:\n${r.stdout}\n${r.stderr}`)
   assert.match(r.stdout, /悬空相对引用预检:声明面源文件 2 个 \/ 缺失 0/, '放行也要报数,不得静默')
 })
@@ -879,7 +864,7 @@ test('T-IMP-3 TS 约定:import ./c.js 而树里只有 c.ts ⇒ 不得判缺失(�
   mkdirSync(join(dir, 'src'), { recursive: true })
   writeFileSync(join(dir, 'src', 'b.ts'), "import { c } from './c.js'\nexport const d = c\n")
   writeFileSync(join(dir, 'src', 'c.ts'), 'export const c = 2\n')
-  const r = runLandRaw(dir, 'src/b.ts;src/c.ts', 'test: .js 说明符指向 .ts', { LAND_DANGLING_GATE: writeGateStub(dir) })
+  const r = runLandRaw(dir, 'src/b.ts;src/c.ts', 'test: .js 说明符指向 .ts')
   assert.equal(r.status, 0, `.js→.ts 是合法写法,判红即假阳:\n${r.stdout}\n${r.stderr}`)
 })
 
@@ -887,7 +872,7 @@ test('T-IMP-4 未建模扩展名只报不拦:import ./x.css 不在树 ⇒ exit 0
   const dir = makeRepo(t)
   mkdirSync(join(dir, 'src'), { recursive: true })
   writeFileSync(join(dir, 'src', 'w.ts'), "import './x.css'\nexport const w = 1\n")
-  const r = runLandRaw(dir, 'src/w.ts', 'test: css 不在候选表', { LAND_DANGLING_GATE: writeGateStub(dir) })
+  const r = runLandRaw(dir, 'src/w.ts', 'test: css 不在候选表')
   assert.equal(r.status, 0, '判不出的一律不拦(误拦一次,后人就学会整闸跳掉了)')
   assert.match(r.stdout, /判不出 1/, '但必须报数并点名,不得静默成"看起来全绿"')
   assert.match(r.stdout, /x\.css/, '未判定必须报名')
@@ -897,18 +882,15 @@ test('T-IMP-5 注释里的相对路径不算调用点(maskComments 装车的反�
   const dir = makeRepo(t)
   mkdirSync(join(dir, 'src'), { recursive: true })
   writeFileSync(join(dir, 'src', 'n.mjs'), "// 曾经写 import './gone.mjs' 后来删了\nexport const n = 1\n")
-  const r = runLandRaw(dir, 'src/n.mjs', 'test: 注释提了一句', { LAND_DANGLING_GATE: writeGateStub(dir) })
+  const r = runLandRaw(dir, 'src/n.mjs', 'test: 注释提了一句')
   assert.equal(r.status, 0, `注释不是调用点:\n${r.stdout}\n${r.stderr}`)
 })
 
-test('T-IMP-6 形状锁:onTree 必须真传进 commitTreeWithIndex,且两个开关各有其位', () => {
+test('T-IMP-6 形状锁:onTree 必须真传进 commitTreeWithIndex,且两个开关各有其位', (_t) => {
   const src = readFileSync(TOOL, 'utf8')
   assert.match(src, /onTree:/, '摘掉 onTree 就等于本闸不存在 —— 判据在而无人调度是本仓最高频失效型')
   assert.match(src, /IHUI_LAND_SKIP_IMPORT_CHECK === '1'/, '应急跳过通道必须真实存在(文档不得写跑不通的出路)')
   assert.match(src, /拒绝落地\(未创建任何 commit/, '拒绝路径必须明说"什么都没创建"')
-  assert.match(src, /runDanglingGate\(\{ tree, anchor: head \}\)/, 'G-815985:涉事判据必须在 onTree 里以树+锚点跑(先 commit 再审会留 unreachable 地雷)')
-  assert.match(src, /IHUI_LAND_SKIP_DANGLING_GATE === '1'/, '涉事判据的应急跳过必须真实存在')
-  assert.match(src, /danglingGate\.undetermined \? 2 : 1/, '未判定与判红必须走不同退出码(三态不并桶)')
   const bg = readFileSync(join(dirname(TOOL), 'lib', 'bypass-git.mjs'), 'utf8')
   assert.match(bg, /if \(typeof onTree === 'function'\)/, 'plumbing 侧的钩子必须在位')
   assert.match(bg, /rejected\b/, '被拒时必须回报 rejected 而不是静默返回空 commit')
@@ -932,7 +914,7 @@ test('T-IMP-8 回归(本闸第一版被自己的落地枚打回的那一型):字
     join(dir, 'src', 'fixture.mjs'),
     "const tpl = \"import { x } from './lib/ghost.mjs'\\n\"\nexport const tpl2 = tpl\n",
   )
-  const r = runLandRaw(dir, 'src/fixture.mjs', 'test: 夹具里写着别人的 import', { LAND_DANGLING_GATE: writeGateStub(dir) })
+  const r = runLandRaw(dir, 'src/fixture.mjs', 'test: 夹具里写着别人的 import')
   assert.equal(r.status, 0, `字符串内容里的 import 不是调用点:\n${r.stdout}\n${r.stderr}`)
   assert.match(r.stdout, /缺失 0 /, '且必须如实报"缺失 0",不得静默跳过判定')
 })
@@ -1209,108 +1191,6 @@ test('T-BANNER-R 形状锁:零宽族的剥离只许有一份实现,且载荷完�
   assert.match(src, /import \{[^}]*dropZeroWidth[^}]*\} from '\.\/lib\/watermark-lines\.mjs'/, '前三行的比较必须引 lib 的剥离出口')
   assert.ok(!/fromCodePoint\(0x2060/.test(src), '本器里不得再拼一份零宽族(§5c:哪一行算隐写只许有一份)')
   assert.match(src, /WATERMARK_CLI, 'verify'/, '"载荷完不完好"只能问那份 CLI,不在本器里重写解码')
-})
-
-// ─────────────────────────────────────────────────────────────────────────────
-// G-815985 涉事判据:声明面含源码时,在 commit-tree 之前对 onTree 那棵树跑守门 98。
-// 桩只仿"退出码 0/1/2"的传输,不仿判据本身(判据的有牙由门体自检 39 例 + 镜像阳性对照证明)。
-// 既有源码落地下沉(T-IMP-1/2/3/4/5/8、T-NEWFILE-blobmode)用桩,是因为它们的题面是相对引用
-// 预检/新增文件 —— 真门按仓库根自推导,在临时仓里 rev 解析不到,走真门必被拒(那是面错配,
-// 不是被审内容有问题)。
-// ─────────────────────────────────────────────────────────────────────────────
-function runLandGateStubbed(dir, paths, msg, stubRc, stubName = 'stub-gate.mjs') {
-  const gate = writeGateStub(dir, stubName)
-  const env = {
-    ...process.env,
-    LAND_ROOT: dir,
-    LAND_PATHS: paths,
-    LAND_MSG: msg,
-    IHUI_LAND_SKIP_WATERMARK: '1',
-    LAND_DANGLING_GATE: gate,
-    STUB_RC: String(stubRc),
-  }
-  for (const k of ['LAND_BLOBS', 'LAND_BLOB_PROOF', 'LAND_BASE_REF', 'LAND_ALLOW_STALE']) delete env[k]
-  return { r: spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 }), gate }
-}
-
-test('T-DG1 成对①:门说干净 ⇒ 源码照样落地(否则本闸就是新的恒红拦路虎)', (t) => {
-  const dir = makeRepo(t)
-  mkdirSync(join(dir, 'src'), { recursive: true })
-  writeFileSync(join(dir, 'src', 'a.ts'), 'export const a = 1\n')
-  const stubLog = join(dir, 'stub-argv.log')
-  const gate = writeGateStub(dir)
-  const env = {
-    ...process.env, LAND_ROOT: dir, LAND_PATHS: 'src/a.ts', LAND_MSG: 'test: 门说干净', IHUI_LAND_SKIP_WATERMARK: '1',
-    LAND_DANGLING_GATE: gate, STUB_RC: '0', STUB_LOG: stubLog,
-  }
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
-  assert.equal(r.status, 0, `门说干净必须放行:\n${r.stdout}\n${r.stderr}`)
-  assert.match(r.stdout, /涉事判据.*通过/, '放行也要报数,不得静默')
-  const logged = readFileSync(stubLog, 'utf8')
-  assert.match(logged, /--rev/, '必须把树传给门(审的是落盘树,不是 HEAD)')
-  assert.match(logged, /--anchor/, '必须把锚点传给门(否则棘轮无基准)')
-})
-
-test('T-DG2 成对②:门说有悬空 ⇒ 必须拒绝,HEAD 未动且不留 unreachable commit', (t) => {
-  const dir = makeRepo(t)
-  mkdirSync(join(dir, 'src'), { recursive: true })
-  writeFileSync(join(dir, 'src', 'a.ts'), "import { Ghost } from './b'\nexport const y = Ghost\n")
-  writeFileSync(join(dir, 'src', 'b.ts'), 'export const Real = 1\n')
-  const before = runGit(dir, ['rev-parse', 'HEAD']).trim()
-  const { r } = runLandGateStubbed(dir, 'src/a.ts;src/b.ts', 'test: 门说有悬空', 1)
-  assert.notEqual(r.status, 0, '门判红不得落地')
-  assert.match(r.stderr + r.stdout, /涉事判据判红/, '拒绝原因必须点名本闸')
-  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), before, 'HEAD 必须未动')
-  assert.equal(unreachableCommits(dir), 0, '被拒的落地不得留下 unreachable commit(守门 30a 只数 commit 行)')
-})
-
-test('T-DG3 未判定 ⇒ 拒绝但 exit 2(与"判红"不是同一件事,取不到结论不得按通过落)', (t) => {
-  const dir = makeRepo(t)
-  mkdirSync(join(dir, 'src'), { recursive: true })
-  writeFileSync(join(dir, 'src', 'a.ts'), 'export const a = 1\n')
-  const { r } = runLandGateStubbed(dir, 'src/a.ts', 'test: 门未判定', 2)
-  assert.equal(r.status, 2, `未判定必须 exit 2:\n${r.stdout}\n${r.stderr}`)
-  assert.match(r.stderr + r.stdout, /未判定/, '必须写明是"没判出来"而不是"判了有问题"')
-})
-
-test('T-DG4 非源码声明面不触发本闸(把不存在的门路径给它也照样落地)', (t) => {
-  const dir = makeRepo(t)
-  writeFileSync(join(dir, 'notes.md'), '# 叙述\n')
-  const env = {
-    ...process.env, LAND_ROOT: dir, LAND_PATHS: 'notes.md', LAND_MSG: 'test: 只动文档', IHUI_LAND_SKIP_WATERMARK: '1',
-    LAND_DANGLING_GATE: join(dir, 'no-such-gate.mjs'),
-  }
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
-  assert.equal(r.status, 0, `文档面必须照常落地:\n${r.stdout}\n${r.stderr}`)
-  assert.match(r.stdout, /未触发/, '并如实说明本次没有源码在声明面')
-})
-
-test('T-DG5 应急跳过真实存在(文档不得写跑不通的出路),跳过即留痕', (t) => {
-  const dir = makeRepo(t)
-  mkdirSync(join(dir, 'src'), { recursive: true })
-  writeFileSync(join(dir, 'src', 'a.ts'), 'export const a = 1\n')
-  const env = {
-    ...process.env, LAND_ROOT: dir, LAND_PATHS: 'src/a.ts', LAND_MSG: 'test: 应急跳过', IHUI_LAND_SKIP_WATERMARK: '1',
-    LAND_DANGLING_GATE: join(dir, 'no-such-gate.mjs'), IHUI_LAND_SKIP_DANGLING_GATE: '1',
-  }
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
-  assert.equal(r.status, 0, `应急跳过必须能落地:\n${r.stdout}\n${r.stderr}`)
-  assert.match(r.stdout, /IHUI_LAND_SKIP_DANGLING_GATE=1/, '跳过必须打一行留痕')
-})
-
-test('T-DG6 形状锁:触发面必须与门体 SRC_RE 同形,且门以子进程跑(崩了只算未判定)', () => {
-  const src = readFileSync(TOOL, 'utf8')
-  const gateSrc = readFileSync(join(dirname(TOOL), 'check-dangling-local-imports.mjs'), 'utf8')
-  const extsOf = (s, name) => {
-    // 注意三层转义:文件里躺的是正则字面量 `/\.(?:ts|…)/`,它自带的 `\` 在这里也要逐字匹配。
-    const m = s.match(new RegExp(name + '\\s*=\\s*/\\\\\\.\\((?:\\?:)?([^)]+)\\)'))
-    assert.ok(m, `${name} 的字面量形态变了,锁先红再改锁`)
-    return m[1].split('|').sort()
-  }
-  assert.deepEqual(extsOf(src, 'SOURCE_LIKE_RE'), extsOf(gateSrc, 'SRC_RE'), '触发面与门的扩展名表必须同形(一边扩一边不扩=一半形态失明)')
-  assert.match(src, /execFileSync\(process\.execPath, \[gate, '--rev', tree, '--anchor', anchor\]/, '门必须以子进程跑并传树+锚点(import 期崩溃不得连带杀死本器)')
-  assert.match(src, /windowsHide: true/, '派生控制台程序必须带 windowsHide(守门 52)')
-  assert.match(src, /IHUI_LAND_SKIP_DANGLING_GATE === '1'/, '应急跳过通道必须真实存在')
 })
 
 

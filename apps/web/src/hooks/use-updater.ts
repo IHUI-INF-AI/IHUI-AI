@@ -224,11 +224,19 @@ export function useUpdater() {
       // G-698:失败收尾同样只接受当前世代
       if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
         return
-      setState((prev) => ({
-        ...prev,
-        status: 'error',
-        error: e instanceof Error ? e.message : String(e),
-      }))
+      const message = e instanceof Error ? e.message : String(e)
+      // 主动取消不是一次「失败」:不得进入 error(否则会拉起 3 次自动重试,把下载再拉一遍),
+      // 也不得清掉 session —— 留在 available,用户随时可再点更新。
+      if (message === 'install_cancelled') {
+        setState((prev) => ({
+          ...prev,
+          status: prev.session ? 'available' : 'idle',
+          error: null,
+          progress: 0,
+        }))
+        return
+      }
+      setState((prev) => ({ ...prev, status: 'error', error: message }))
       return
     }
     installInFlightRef.current = false
@@ -327,6 +335,12 @@ export function useUpdater() {
     await startDownload(state.session)
   }, [state.session, startDownload])
 
+  /** 主动取消当前下载(开发态模拟会话没有可取消的底层资源,句柄缺省时为 no-op)。 */
+  const cancelDownload = React.useCallback(async () => {
+    if (!state.session?.cancel) return
+    await state.session.cancel()
+  }, [state.session])
+
   /** 重启应用(安装完成后调用)。 */
   const restart = React.useCallback(async () => {
     if (isDevUpdateTest()) {
@@ -414,6 +428,8 @@ export function useUpdater() {
   // 更新失败自动重试(强制更新:最多重试 3 次,每次间隔 5 秒)
   React.useEffect(() => {
     if (state.status !== 'error') return
+    // 用户主动取消是一次决定,不是待重试的失败 —— 自动重发等于把 15MB 下载再拉一遍
+    if (state.error === 'install_cancelled') return
     if (retryCount >= 3) return
     const timer = setTimeout(() => {
       setRetryCount((c) => c + 1)
