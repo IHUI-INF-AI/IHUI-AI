@@ -4,6 +4,7 @@
 
 import { useTt } from '@/i18n'
 import { View, Text, Image, Button } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
@@ -15,7 +16,6 @@ import DistributionStats, { type ColumnItem } from '@/components/DistributionSta
 import CustomerServiceFloat from '@/components/CustomerServiceFloat'
 import './index.css'
 import ThemeRoot from '@/components/ThemeRoot'
-import { FocusInput } from '@/components/FocusField'
 
 interface OperatorStats {
   dayEarnings?: number
