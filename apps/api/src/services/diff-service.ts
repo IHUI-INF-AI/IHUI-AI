@@ -58,6 +58,13 @@ export function readFileContent(filePath: string): { lines: string[]; content: s
 
 /**
  * 基于 LCS 计算两段文本的逐行 diff。
+ *
+ * 口径归属(G-415 A9):这一处的切行**刻意与后端 Python `str.splitlines()` 不同**,不要"顺手对齐":
+ * `split(/\r?\n/)` **保留**末尾空行(`'a\n'` → 2 行),因为 LCS 需要把"文件以换行结尾"本身
+ * 当成一个可比条目 —— 换成 Python 口径(摘掉尾空段)会丢掉这一维,diff 结果就不报"末尾多了换行"。
+ * 它量的也不是"改了几行"这个用户可见统计量(那个住在 `apps/web/src/lib/py-line-count.ts`,
+ * 由 `scripts/check-line-split-parity.mjs` 跨语言对账),所以不参与那条尺子的语料。
+ * 只认 `\r?\n` 也是有意:`\v`/`\f`/`\x1c` 在这里是行内字符,切开会产出假 hunk。
  */
 export function computeTextDiff(fromText: string, toText: string): DiffLine[] {
   const fromLines = fromText.split(/\r?\n/)
