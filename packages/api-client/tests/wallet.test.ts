@@ -18,7 +18,7 @@ describe('getDailyCreditsUsage(GET /api/credits/usage/daily)', () => {
       status: 200,
       headers: { get: () => null },
       text: async () => '',
-      json: async () => ({ code: 0, data: payload }),
+      json: async () => ({ code: 0, message: 'ok', data: payload }),
     })) as unknown as Transport
   }
 

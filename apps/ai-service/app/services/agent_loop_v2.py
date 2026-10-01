@@ -2535,9 +2535,15 @@ class AgentLoopV2:
         })
 
         # 工作区白名单校验(与 MCP 同一套根,防 heal 目标越界)
-        from .mcp_server import _validate_path_in_workspace
+        # D201(2026-10-02):显式带本会话附加目录集 —— 本执行点不在 call_tool 的
+        # ContextVar 作用域内,须自备(get_session_extra_roots 键与 engine 工具链
+        # 同源 = thread.session_id;None 会话键 → 空集,行为与 D201 之前一致)。
+        from .mcp_server import _validate_path_in_workspace, get_session_extra_roots
 
-        ok, info = _validate_path_in_workspace(signal["target"])
+        ok, info = _validate_path_in_workspace(
+            signal["target"],
+            extra_roots=get_session_extra_roots(self._session_id),
+        )
         if not ok:
             logger.warning("[self_heal] 目标不在工作区白名单,跳过 heal: %s", info)
             return
