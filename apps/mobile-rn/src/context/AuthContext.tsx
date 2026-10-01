@@ -6,6 +6,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { loginByAccount, logout as apiLogout, type AuthUser } from '@ihui/api-client'
 import { initApi, getRefreshToken } from '../lib/token'
 import { getInitialSsoCode, subscribeSsoDeepLink, exchangeSsoCode } from '../lib/sso'
+import { exchangeSsoCodeOnce } from '../lib/sso-exchange-once'
 import { rnAuthStore, useAuthStore, hydrateAuth } from '../stores/auth-store'
 
 export type { AuthUser }
@@ -69,14 +70,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * 用 sso_code 换 token 并写入 auth-store(同步镜像 tokenStore)
    */
   async function applySsoCode(code: string): Promise<boolean> {
-    const data = await exchangeSsoCode(code)
-    if (!data) return false
-    await rnAuthStore.getState().setAuth({
-      token: data.accessToken,
-      refreshToken: data.refreshToken,
-      user: data.user,
+    return exchangeSsoCodeOnce(code, exchangeSsoCode, async (data) => {
+      await rnAuthStore.getState().setAuth({
+        token: data.accessToken,
+        refreshToken: data.refreshToken,
+        user: data.user,
+      })
     })
-    return true
   }
 
   const login = async (account: string, password: string): Promise<LoginResult> => {
