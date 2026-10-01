@@ -97,8 +97,9 @@ export const agentTaskRoutes: FastifyPluginAsync = async (server) => {
         }
       }
       // P0-2:离开 in_progress → 统一释放原语(停心跳+释放+清审计字段+广播)
+      // G-672:分支条件把 to 收窄到 ≠ in_progress,合法 outcome。
       if (from === 'in_progress' && to !== 'in_progress') {
-        await releaseTaskLockFromRow(current)
+        await releaseTaskLockFromRow(current, to)
       }
     }
 
@@ -131,7 +132,8 @@ export const agentTaskRoutes: FastifyPluginAsync = async (server) => {
     if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     // P0-2:删除前统一释放锁(停心跳 + 凭 token 释放 + 清审计字段 + 广播),
     // 防止 payload 里的 workspaceLockToken 随行删除而锁悬挂
-    await releaseTaskLockByTaskId(id)
+    // G-672:删除即结算,行移除本身是 outcome(不属于任何状态词汇表)。
+    await releaseTaskLockByTaskId(id, 'deleted')
     const [row] = await db.delete(agentTasks).where(eq(agentTasks.id, id)).returning()
     if (!row) return reply.status(404).send(error(404, '任务不存在'))
     return reply.send(success({ id, deleted: Boolean(row) }))
