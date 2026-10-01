@@ -583,6 +583,55 @@ function collectTransactionIds(node: unknown, keyHits: string[], anyKeyPresent: 
   }
 }
 
+/**
+ * 一行安装记录的"出生时刻"排序键(G-832 第一格的读侧取舍用)。
+ * 量不到 ⇒ 记为最旧(NEGATIVE_INFINITY):**量不到不等于最新**,也绝不抛 ——
+ * registry.json 是盘上的外部数据,`installedAt` 可能缺失/非字符串/非 ISO,
+ * 而恢复流程正是要在"账目烂掉的存量"上跑,不能因为一行脏数据判不出结论。
+ */
+function installedAtRankOf(record: unknown): number {
+  const raw = (record as { installedAt?: unknown }).installedAt;
+  if (typeof raw !== 'string' || raw.length === 0) return Number.NEGATIVE_INFINITY;
+  const parsed = Date.parse(raw);
+  return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+}
+
+/**
+ * 同名多行里挑出"该被问的那一行"(G-832 第一格;与写侧 `installer.ts` 的
+ * `upsertInstallRecord` 配对 —— 它按主键**就地替换**,所以新装/覆盖安装之后首行即当代;
+ * 本函数管的是它管不到的那一格:**从未再安装过的历史多行**)。
+ *
+ * 为什么不再是首行:旧写侧 `reg.records.push(record)` 无条件追加留下的同名多行里,
+ * 首行是最旧那一代,它带的事务号早已被取代 ⇒ 恢复/收尾问最新那笔永远得 `not-committed`
+ * ⇒ 归档永远收不走(方向安全,垃圾永久堆着)。这正是 G-808 落地时点名的残余。
+ *
+ * 取舍规则(与写侧"每次覆盖都刷新 `installedAt`"配对,见 `installer.ts` upsert 设计点 2):
+ *  1. 同 name 的行里取 `installedAt` **最新**的那一条 —— 出生时刻最新 = 当代;
+ *  2. 时刻并列(含两条都量不到时刻)⇒ 取**数组靠后**那条:后写的行覆盖先写的行,
+ *     且结果确定(不随遍历顺序变化),与"就地替换保持数组位置"不冲突;
+ *  3. 只挑行,不写任何东西 —— 存量多行仍原样留在表里(迁移/清理属另行裁决)。
+ *
+ * 失效方向刻意是"少挑一行"(找不到 ⇒ `undefined` ⇒ 既有语义的 `present:false` / `unknown`),
+ * 而不是"多认一笔已提交"。
+ */
+function pickAuthorityRecord(records: readonly unknown[], recordKey: string): unknown | undefined {
+  let found = false;
+  let best: unknown;
+  let bestRank = Number.NEGATIVE_INFINITY;
+  for (const candidate of records) {
+    if (!candidate || typeof candidate !== 'object') continue;
+    if ((candidate as { name?: unknown }).name !== recordKey) continue;
+    const rank = installedAtRankOf(candidate);
+    // `>=` = 并列取靠后(规则 2);严格更旧时才保留已选
+    if (!found || rank >= bestRank) {
+      found = true;
+      bestRank = rank;
+      best = candidate;
+    }
+  }
+  return found ? best : undefined;
+}
+
 /** 权威面里与该 target 对应的那条记录(没给 recordKey ⇒ 整份文档);取不到 ⇒ null */
 function authorityScope(authority: SwapAuthority): { readonly present: boolean; readonly node: unknown } {
   let raw: string;
@@ -600,13 +649,10 @@ function authorityScope(authority: SwapAuthority): { readonly present: boolean; 
   if (typeof authority.recordKey !== 'string' || authority.recordKey.length === 0) {
     return { present: true, node: value };
   }
-  // 给了 recordKey 就只在那一条记录内部问 —— 避免别的插件留下的同号把本 target 洗成"已提交"
+  // 给了 recordKey 就只在那一条记录内部问 —— 避免别的插件留下的同号把本 target 洗成"已提交"。
+  // "那一条"= 同名行里的当代那一条(历史多行的取舍见 `pickAuthorityRecord`)。
   const records = (value as { records?: unknown } | null)?.records;
-  const hit = Array.isArray(records)
-    ? records.find(
-        (r) => !!r && typeof r === 'object' && (r as { name?: unknown }).name === authority.recordKey,
-      )
-    : undefined;
+  const hit = Array.isArray(records) ? pickAuthorityRecord(records, authority.recordKey) : undefined;
   if (hit === undefined) return { present: false, node: null };
   return { present: true, node: hit };
 }
