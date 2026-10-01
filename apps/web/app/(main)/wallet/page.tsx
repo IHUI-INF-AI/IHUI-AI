@@ -22,7 +22,8 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { AnimatedNumber, BackButton } from '@/components/common'
+import { AnimatedNumber, AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface BalanceData {
   balance: number
@@ -63,13 +64,17 @@ export default function WalletPage() {
   const locale = useLocale()
   const [page, setPage] = React.useState(1)
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
   const balanceQ = useQuery({
     queryKey: ['wallet', 'balance'],
     queryFn: () => api<BalanceData>('/api/finance/margin/balance'),
+    enabled: allow,
   })
   const flowsQ = useQuery({
     queryKey: ['wallet', 'flows', page],
     queryFn: () => api<FlowsData>(`/api/finance/margin/flows?page=${page}&limit=${PAGE_SIZE}`),
+    enabled: allow,
   })
 
   const total = flowsQ.data?.total ?? 0
@@ -98,7 +103,10 @@ export default function WalletPage() {
         </h1>
       </header>
 
-      {balanceQ.error ? (
+      {/* 2026-09-30 登录态门 */}
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看钱包" />
+      ) : balanceQ.error ? (
         <div className="rounded-lg border bg-destructive/10 p-3 text-sm text-destructive">
           {(balanceQ.error as Error).message}
         </div>
@@ -144,6 +152,7 @@ export default function WalletPage() {
         </div>
       )}
 
+      {allow && (
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">{t('flows')}</h2>
         <div className="overflow-hidden rounded-lg border">
@@ -243,6 +252,7 @@ export default function WalletPage() {
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }

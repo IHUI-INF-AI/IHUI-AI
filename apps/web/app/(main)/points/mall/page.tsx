@@ -12,7 +12,8 @@ import { Gift, Loader2, RotateCw } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { toast } from '@/components/common/Toaster'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface RedeemItem {
   id: string
@@ -32,10 +33,13 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 export default function PointsMallPage() {
   const t = useTranslations('points')
   const qc = useQueryClient()
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
 
   const mallQ = useQuery({
     queryKey: ['points', 'redeem'],
     queryFn: () => api<{ list: RedeemItem[]; total: number; balance?: number }>('/points/redeem'),
+    enabled: allow,
   })
   const balance = mallQ.data?.balance
 
@@ -62,14 +66,18 @@ export default function PointsMallPage() {
         <div className="w-10" />
       </div>
 
-      <div className="mb-4 flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
-        <span className="text-sm text-muted-foreground">{t('balance')}</span>
-        <span className="text-base font-medium">
-          {balance === undefined ? '—' : `${balance} ${t('pointsUnit')}`}
-        </span>
-      </div>
+      {allow && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
+          <span className="text-sm text-muted-foreground">{t('balance')}</span>
+          <span className="text-base font-medium">
+            {balance === undefined ? '—' : `${balance} ${t('pointsUnit')}`}
+          </span>
+        </div>
+      )}
 
-      {mallQ.isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看积分余额与兑换商品" />
+      ) : mallQ.isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
           <span>{t('loading')}</span>

@@ -79,10 +79,23 @@ export function registerCheckpointCommand(program: Command): void {
       const sessionId = opts.session ?? 'cli_default';
       const mgr = new CheckpointManager({ sessionId, workspacePath: ws });
       const list = mgr.list();
-      if (list.length === 0) {
+      // G-671:损坏 manifest 已被隔离,账面必须点名(隔离件路径 + 原因),不允许静默消失
+      const corrupted = mgr.getQuarantinedManifests();
+      if (list.length === 0 && corrupted.length === 0) {
         console.info(chalk.dim('暂无检查点'));
         return;
       }
+      if (corrupted.length > 0) {
+        console.warn(chalk.yellow(`⚠ ${corrupted.length} 个损坏 manifest 已隔离(原文件改名保留证据):`));
+        for (const c of corrupted) {
+          console.warn(
+            chalk.yellow(
+              `  - ${c.checkpointId}  原因: ${c.reason}  隔离件: ${c.quarantinePath ?? c.manifestPath + '(改名失败,原位保留)'}`,
+            ),
+          );
+        }
+      }
+      if (list.length === 0) return;
       console.info(chalk.cyan(`\n检查点列表 (会话: ${sessionId}):`));
       for (const m of list) {
         const time = new Date(m.createdAt).toLocaleString();
@@ -188,10 +201,23 @@ export function registerCheckpointCommand(program: Command): void {
       const sessionId = opts.session ?? 'cli_default';
       const mgr = new HunkCheckpointManager({ sessionId, workspacePath: ws });
       const list = mgr.list();
-      if (list.length === 0) {
+      // G-671:同 CheckpointManager —— 损坏 manifest 隔离后账面点名
+      const corrupted = mgr.getQuarantinedManifests();
+      if (list.length === 0 && corrupted.length === 0) {
         console.info(chalk.dim('暂无 hunk 检查点'));
         return;
       }
+      if (corrupted.length > 0) {
+        console.warn(chalk.yellow(`⚠ ${corrupted.length} 个损坏 hunk manifest 已隔离(原文件改名保留证据):`));
+        for (const c of corrupted) {
+          console.warn(
+            chalk.yellow(
+              `  - ${c.checkpointId}  原因: ${c.reason}  隔离件: ${c.quarantinePath ?? c.manifestPath + '(改名失败,原位保留)'}`,
+            ),
+          );
+        }
+      }
+      if (list.length === 0) return;
       console.info(chalk.cyan(`\nHunk 检查点列表 (会话: ${sessionId}):`));
       for (const m of list) {
         const time = new Date(m.createdAt).toLocaleString();

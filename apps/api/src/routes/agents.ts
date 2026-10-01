@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { randomUUID, randomBytes, createHmac, timingSafeEqual } from 'crypto'
 import { eq, and, desc, sql, inArray, gte } from 'drizzle-orm'
 import { authenticate, checkAuth } from '../plugins/auth.js'
+import { config } from '../config/index.js'
 import { requireAdmin, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { sanitizeCsvCell } from '../utils/csv-utils.js'
@@ -296,6 +297,13 @@ const AGENTS_PROTECTED_STATIC_SEGMENTS = new Set([
   'manage',
 ])
 
+// G-536:进 uuid 列的路径参数先验形状(否则 Postgres 22P02 ⇒ 500;非法形状走全局 ZodError→400)。
+// 具名导出供用例直接断言;调用点行为逐字不变。覆盖:recordId→agent_examines.id、
+// id→agent_settlements.id/agents.agentId、buyRecordId→buy_record_id/zhs_agent_buy.id。
+export const recordIdParam = z.object({ recordId: z.string().uuid() })
+export const idParam = z.object({ id: z.string().uuid() })
+export const buyRecordIdParam = z.object({ buyRecordId: z.string().uuid() })
+
 export const agentsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     // 2026-07-21 安全审计加固:/callback/* 走 HMAC 签名校验,不走 JWT 鉴权
@@ -337,9 +345,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   const agentIdParam = z.object({ agentId: z.string() })
   const categoryIdParam = z.object({ categoryId: z.string() })
-  const recordIdParam = z.object({ recordId: z.string() })
   const clientIdParam = z.object({ clientId: z.string() })
-  const idParam = z.object({ id: z.string() })
   const needTaskIdParam = z.object({ id: z.coerce.number() })
   // D27:会话级交付清单(deliverables)代理端点的路径参数
   const sessionIdParam = z.object({ sessionId: z.string().min(1) })
@@ -948,8 +954,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   server.post('/settlement/create', async (request, reply) => {
     const body = z
       .object({
-        agentId: z.string().nullable().optional(),
-        buyRecordId: z.string().nullable().optional(),
+        agentId: z.string().uuid().nullable().optional(),
+        buyRecordId: z.string().uuid().nullable().optional(),
         orderNo: z.string().nullable().optional(),
         amount: z.number().optional(),
         commissionRate: z.number().optional(),
@@ -998,7 +1004,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /settlement/sync-single/:buyRecordId - 同步单条购买记录到结算表
   server.post('/settlement/sync-single/:buyRecordId', async (request, reply) => {
-    const { buyRecordId } = z.object({ buyRecordId: z.string() }).parse(request.params)
+    const { buyRecordId } = buyRecordIdParam.parse(request.params)
 
     const already = await dbRead
       .select({ id: agentSettlements.id })
@@ -2021,7 +2027,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // 1. 移除弱默认 'your_webhook_secret_here' — 攻击者可枚举 → 必须强制配置
   // 2. POST 端点要求 admin 权限 — 防止普通用户篡改运行时密钥绕过 webhook 验签
   let runtimeWebhookSecret = process.env.COZE_WEBHOOK_SECRET ?? ''
-  if (!runtimeWebhookSecret && process.env.NODE_ENV === 'production') {
+  // G-998138:生产守卫档位经 config 唯一出口(fail-safe:部署链漏设 NODE_ENV 时旧写法把
+  // 这道"未配密钥拒绝启动"静默跳过;旧测试 mock 的 config 缺 isProductionGuard ⇒ 旧判据回退)
+  if (!runtimeWebhookSecret && (config.isProductionGuard ?? config.NODE_ENV === 'production')) {
     throw new Error(
       'CRITICAL: COZE_WEBHOOK_SECRET 未配置,生产环境禁止使用默认值,系统拒绝启动以防 webhook 伪造',
     )

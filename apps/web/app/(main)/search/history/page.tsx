@@ -12,7 +12,8 @@ import { History, Trash2, Clock, Loader2, Search } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Tooltip } from '@/components/feedback'
 
 interface HistoryItem {
@@ -34,9 +35,13 @@ export default function HistoryPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['search', 'history'],
     queryFn: fetchHistory,
+    enabled: allow,
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -90,7 +95,9 @@ export default function HistoryPage() {
         )}
       </div>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看搜索历史" />
+      ) : isLoading ? (
         <div className="py-10 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
           {t('loading')}

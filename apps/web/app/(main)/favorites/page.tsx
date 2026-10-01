@@ -13,7 +13,8 @@ import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 type ResourceType = 'project' | 'file' | 'doc' | 'post' | 'comment'
 
@@ -58,12 +59,16 @@ export default function FavoritesPage() {
   const qc = useQueryClient()
   const [tab, setTab] = React.useState<'all' | ResourceType>('all')
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['favorites', tab],
     queryFn: () =>
       api<{ list: Favorite[] }>(
         `/api/favorites?pageSize=100${tab !== 'all' ? `&resourceType=${tab}` : ''}`,
       ).then((d) => d.list ?? []),
+    enabled: allow,
   })
 
   const removeMut = useMutation({
@@ -108,7 +113,9 @@ export default function FavoritesPage() {
         ))}
       </div>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看收藏" />
+      ) : isLoading ? (
         <div className="py-10 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
           {t('loading')}

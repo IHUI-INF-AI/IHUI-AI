@@ -31,6 +31,8 @@ import {
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 
 import type { ComboChain, ComboStrategy } from './types'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 const STRATEGIES: ComboStrategy[] = ['priority', 'cheapest', 'fusion']
 
@@ -44,9 +46,13 @@ export function CombosTab() {
   const t = useTranslations('settings.gateway.combos')
   const qc = useQueryClient()
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading } = useQuery({
     queryKey: ['gateway-combos'],
     queryFn: fetchCombos,
+    enabled: allow,
   })
   const combos: ComboChain[] = data?.combos ?? []
 
@@ -82,55 +88,61 @@ export function CombosTab() {
         </Button>
       </div>
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-8 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-        </div>
-      )}
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看我的网关 Combo 链" />
+      ) : (
+        <>
+          {isLoading && (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+            </div>
+          )}
 
-      {!isLoading && combos.length === 0 && (
-        <p className="py-8 text-center text-xs text-muted-foreground">{t('empty')}</p>
-      )}
+          {!isLoading && combos.length === 0 && (
+            <p className="py-8 text-center text-xs text-muted-foreground">{t('empty')}</p>
+          )}
 
-      <div className="space-y-2">
-        {combos.map((c) => (
-          <Card key={c.name}>
-            <CardContent className="min-[640px]:p-3 p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium">{c.name}</p>
-                    <Badge className={STRATEGY_BADGE[c.strategy]}>{c.strategy}</Badge>
+          <div className="space-y-2">
+            {combos.map((c) => (
+              <Card key={c.name}>
+                <CardContent className="min-[640px]:p-3 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{c.name}</p>
+                        <Badge className={STRATEGY_BADGE[c.strategy]}>{c.strategy}</Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {c.chain.map((m) => (
+                          <Badge key={m} variant="secondary" className="text-[11px]">
+                            {m}
+                          </Badge>
+                        ))}
+                      </div>
+                      {c.strategy === 'fusion' && c.judge && (
+                        <p className="text-[11px] text-muted-foreground">
+                          judge: <span className="text-foreground">{c.judge}</span>
+                        </p>
+                      )}
+                      {c.description && (
+                        <p className="text-[11px] text-muted-foreground">{c.description}</p>
+                      )}
+                    </div>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      className="shrink-0 px-2 text-xs text-muted-foreground hover:text-red-600"
+                      onClick={() => setDeleteTarget(c)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    {c.chain.map((m) => (
-                      <Badge key={m} variant="secondary" className="text-[11px]">
-                        {m}
-                      </Badge>
-                    ))}
-                  </div>
-                  {c.strategy === 'fusion' && c.judge && (
-                    <p className="text-[11px] text-muted-foreground">
-                      judge: <span className="text-foreground">{c.judge}</span>
-                    </p>
-                  )}
-                  {c.description && (
-                    <p className="text-[11px] text-muted-foreground">{c.description}</p>
-                  )}
-                </div>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  className="shrink-0 px-2 text-xs text-muted-foreground hover:text-red-600"
-                  onClick={() => setDeleteTarget(c)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
 
       <CreateComboDialog
         open={createOpen}

@@ -39,6 +39,7 @@ import { AnnotationStylePanel, type PickedVisualElement } from './annotation-sty
 import { buildBrowserWsUrl, setBrowserWsToken } from '@ihui/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+import { boundedAppend, droppedNotice } from '@/lib/bounded-append'
 
 /** 层栈 id(见 @/lib/overlay-stack):画布右键菜单浮层 */
 const CDP_CTX_MENU_OVERLAY_ID = 'cdp-browser-view-ctx-menu'
@@ -290,7 +291,12 @@ export function CdpBrowserView({
   const [devToolsOpen, setDevToolsOpen] = React.useState(false)
   const [jsCode, setJsCode] = React.useState('')
   const [jsResult, setJsResult] = React.useState('')
-  const [consoleLogs, setConsoleLogs] = React.useState<string[]>([])
+  const [consoleBuf, setConsoleBuf] = React.useState<{ logs: string[]; dropped: number }>({
+    logs: [],
+    dropped: 0,
+  })
+  const consoleLogs = consoleBuf.logs
+  const droppedLogs = consoleBuf.dropped
   const runJs = React.useCallback(() => {
     const ws = wsRef.current
     if (!ws || !jsCode.trim()) return
@@ -466,7 +472,12 @@ export function CdpBrowserView({
       // 2026-08-17 调试:扫码登录"点不了按钮"排查 — 记录点击坐标与 WS 状态(控制台可见)
       const log = `[cdp-browser-view] ${eventType} client=(${Math.round(e.clientX)},${Math.round(e.clientY)}) device=(${Math.round(x)},${Math.round(y)}) ws=${wsRef.current ? 'connected' : 'NULL'}`
       console.info(log)
-      setConsoleLogs((prev) => [...prev, log].slice(-60))
+      // G-641:控制台日志上限 60 条,溢出丢最旧的条数必须入账(静默变短 = 伪造完整性),
+      // 渲染面在 droppedLogs>0 时追加 "…(dropped N)" 计数行。
+      setConsoleBuf((prev) => {
+        const { items, dropped } = boundedAppend(prev.logs, log, 60)
+        return { logs: items, dropped: prev.dropped + dropped }
+      })
       wsRef.current?.send(
         JSON.stringify({
           type: 'mouse',
@@ -768,6 +779,12 @@ export function CdpBrowserView({
             <pre className="thin-scroll max-h-32 overflow-auto rounded bg-muted/40 p-1.5 font-mono text-[9px] leading-relaxed text-muted-foreground">
               {consoleLogs.length === 0 ? t('noLogsHint') : consoleLogs.join('\n')}
             </pre>
+            {droppedLogs > 0 ? (
+              // G-641:溢出丢弃必须可见 —— 残缺的控制台日志不得伪装成完整
+              <div data-testid="cdp-console-dropped" className="text-[9px] text-muted-foreground">
+                {droppedNotice(droppedLogs)}
+              </div>
+            ) : null}
             <div className="mb-1 mt-2 text-[10px] font-medium text-muted-foreground">
               {t('runJs')}
             </div>

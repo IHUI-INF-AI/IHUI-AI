@@ -100,7 +100,11 @@ class RestoreRequest(BaseModel):
 
 
 class RestoreResponse(BaseModel):
-    """restore 响应(含还原后的消息数与文件变更数)。"""
+    """restore 响应(含还原后的消息数与文件变更数)。
+
+    G-815936:missed_paths 逐条点名回滚失败的文件(服务端确认的未命中),
+    不再让调用方拿"请求侧清单 - 成功数"自己猜;全部成功时为空列表。
+    """
 
     checkpoint_id: str
     session_id: str
@@ -108,6 +112,7 @@ class RestoreResponse(BaseModel):
     status: str
     restored_message_count: int
     file_changes: int = 0
+    missed_paths: list[dict[str, str]] = []
     file_versions: list[dict[str, Any]] = []
     message: str = ""
 
@@ -135,14 +140,28 @@ def _sync_session_messages(
 
 def _rollback_files(
     session_id: str, file_versions: list[dict[str, Any]]
-) -> int:
-    """按 checkpoint 记录的文件版本引用批量回滚,返回成功变更数。"""
-    changes = 0
+) -> dict[str, Any]:
+    """按 checkpoint 记录的文件版本引用批量回滚。
+
+    返回 batch-outcome 形状(与 apps/api/src/utils/batch-outcome.ts 的字段语义对齐:
+    requested 先按 path 去重保序,affected = 库侧确认改动数,missed 逐条点名):
+        {"requested_paths": [...], "affected": int, "missed_paths": [{"path", "reason"}]}
+    affected 必须由逐文件 rollback 的真实结果推出;失败逐条进 missed_paths 并留
+    warning,不再只喊一个没人听的日志行。
+    """
+    requested_paths: list[str] = []
+    seen: set[str] = set()
+    affected = 0
+    missed_paths: list[dict[str, str]] = []
     for fv in file_versions or []:
         path = fv.get("path")
         version_id = fv.get("version_id")
         if not path or not version_id:
             continue
+        if path in seen:
+            continue
+        seen.add(path)
+        requested_paths.append(path)
         try:
             result = file_editor.rollback_file(
                 session_id=session_id,
@@ -150,10 +169,35 @@ def _rollback_files(
                 version_id=version_id,
             )
             if result.get("ok"):
-                changes += 1
+                affected += 1
+            else:
+                missed_paths.append(
+                    {"path": path, "reason": str(result.get("error") or "rollback_not_ok")}
+                )
         except Exception as e:  # pragma: no cover - 防御性异常
+            missed_paths.append({"path": path, "reason": str(e)})
             logger.warning("checkpoint_rewind 文件回滚失败 %s: %s", path, e)
-    return changes
+    return {
+        "requested_paths": requested_paths,
+        "affected": affected,
+        "missed_paths": missed_paths,
+    }
+
+
+def _record_restore_unavailable(
+    session_id: str, checkpoint_id: str, reason: str
+) -> None:
+    """"尝试过但没做成"也要留一份可查事实(G-815936;对齐上游 RewindTriggered
+    {strategy: Unavailable, reason} 的意图):恢复不可用走 HTTP 404/400 之前,
+    先以稳定事件键落一条结构化记录,审计面可按 `checkpoint_rewind.unavailable` 检索。
+    持久 journal 形态需会话事件存储,归该面持有人;此处不新造第二份存储。
+    """
+    logger.warning(
+        "checkpoint_rewind.unavailable session_id=%s checkpoint_id=%s reason=%s",
+        session_id,
+        checkpoint_id,
+        reason,
+    )
 
 
 @router.get("", response_model=dict[str, Any])
@@ -187,8 +231,11 @@ async def restore_checkpoint(
     try:
         restored = await manager.restore(session_id=session_id, checkpoint_id=checkpoint_id)
     except CheckpointNotFoundError as e:
+        # G-815936:不可用也落记录 —— 先留"尝试过且为何没做成"的事件,再回 HTTP
+        _record_restore_unavailable(session_id, checkpoint_id, str(e))
         raise HTTPException(status_code=404, detail=str(e)) from None
     except CheckpointSessionMismatchError as e:
+        _record_restore_unavailable(session_id, checkpoint_id, str(e))
         raise HTTPException(status_code=400, detail=str(e)) from None
 
     # 按 scope 决定回退范围:
@@ -200,8 +247,11 @@ async def restore_checkpoint(
 
     file_versions = restored.get("file_versions", [])
     file_changes = 0
+    missed_paths: list[dict[str, str]] = []
     if scope in ("code", "both") and file_versions:
-        file_changes = _rollback_files(session_id, file_versions)
+        outcome = _rollback_files(session_id, file_versions)
+        file_changes = outcome["affected"]
+        missed_paths = outcome["missed_paths"]
 
     return RestoreResponse(
         checkpoint_id=restored["checkpoint_id"],
@@ -210,6 +260,7 @@ async def restore_checkpoint(
         status=restored["status"],
         restored_message_count=restored["restored_message_count"],
         file_changes=file_changes,
+        missed_paths=missed_paths,
         file_versions=file_versions,
         message=f"已恢复到迭代 {restored['iteration']} 的 checkpoint"
         f"(消息 {restored['restored_message_count']} 条,文件变更 {file_changes} 项)",

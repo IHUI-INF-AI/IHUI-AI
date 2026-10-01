@@ -17,8 +17,8 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface ProductPage {
   list: PointsMallItem[]
-  total: number
-  balance: number
+  total?: number
+  balance?: number
 }
 
 const PAGE_SIZE = 20
@@ -31,7 +31,7 @@ export function PointsMallScreen() {
   const [redeemingId, setRedeemingId] = useState<string | null>(null)
 
   const fetcher = useCallback(async () => {
-    const res = await fetchApi<ProductPage>('/points/redeem')
+    const res = await fetchApi<ProductPage>('/points/mall/redeem')
     if (!res.success) return { success: false as const, error: t('pointsMall.loadFailed') }
     const page0 = res.data
     const list = page0?.list ?? []
@@ -50,9 +50,12 @@ export function PointsMallScreen() {
       return
     }
     setRedeemingId(item.id)
-    const res = await fetchApi<{ redeemed: number }>(`/points/redeem/${item.id}`, {
-      method: 'POST',
-    })
+    const res = await fetchApi<{ orderId?: string; points?: number }>(
+      `/points/mall/redeem/${item.id}`,
+      {
+        method: 'POST',
+      },
+    )
     setRedeemingId(null)
     if (res.success) {
       Alert.alert(t('pointsMall.redeemSuccess'), `${item.name}`)

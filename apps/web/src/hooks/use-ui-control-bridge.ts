@@ -20,6 +20,7 @@ import { useTranslations } from 'next-intl'
 import { createNotificationClient } from '@ihui/api-client'
 import {
   createAssignmentTokenLedger,
+  createReplayWatermark,
   isAgentActionAssignedToInstance,
   unassignedAgentActionLogMessage,
   withRespondedIdentity,
@@ -66,6 +67,15 @@ const UI_ACTIONS: UiControlActionType[] = [
 
 /** requestId 去重:WS 重连后服务端可能重推同一指令,重复执行会双击/双提交 */
 const processedIds = new Set<string>()
+
+/**
+ * 重放水位(2026-09-30,与 use-agent-control.ts 同一共享原语):键 = 本实例身份,
+ * 判序早于判体 —— 低于水位静默丢、同序号同 id 幂等忽略、同序号不同 id 记 typed fault,
+ * 水位只升不降。协议序号下发前以端内到达计数作 provisional ordinal,去重仍由
+ * processedIds 承担;判定语义与测试已就位(见 createReplayWatermark 注释)。
+ */
+const replayWatermark = createReplayWatermark()
+let arrivalOrdinal = 0
 
 /**
  * 定址投递(2026-09-26,与 extension / 桌面 webview 桥同一套共享判据):api 的 WS 按用户
@@ -173,6 +183,13 @@ function handleWsMessage(msg: WSNotification): void {
       '[web-ui]',
       unassignedAgentActionLogMessage(req.requestId, assignment, selfIdentity()),
     )
+    return
+  }
+  // 重放水位判定(2026-09-30):判序早于判体,四条处置路径见 createReplayWatermark 注释
+  const replayVerdict = replayWatermark.observe(getInstanceId(), ++arrivalOrdinal, req.requestId)
+  if (replayVerdict.kind === 'stale' || replayVerdict.kind === 'duplicate') return
+  if (replayVerdict.kind === 'conflict') {
+    console.warn('[web-ui]', replayVerdict.message)
     return
   }
   if (processedIds.has(req.requestId)) return

@@ -21,7 +21,8 @@ import {
   SelectItem,
 } from '@ihui/ui-react'
 import { Alert, Tooltip } from '@/components/feedback'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 // ===================== 既有基础用量展示(保留) =====================
 
@@ -186,12 +187,16 @@ export default function RelayUsagePage() {
   const [apiKeyId, setApiKeyId] = React.useState('')
   const [exporting, setExporting] = React.useState(false)
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   // --- 基础用量 ---
   const baseQs = new URLSearchParams({ groupBy, mode })
   if (startDate) baseQs.set('startDate', startDate)
   const { data, isLoading, error } = useQuery({
     queryKey: ['developer', 'relay', 'usage', groupBy, mode, startDate],
     queryFn: () => api<UsageData>(`/api/developer/relay/usage?${baseQs.toString()}`),
+    enabled: allow,
   })
   const rows = data?.rows ?? []
   const summary = data?.summary
@@ -200,6 +205,7 @@ export default function RelayUsagePage() {
   const { data: keysData } = useQuery({
     queryKey: ['developer', 'relay', 'keys'],
     queryFn: () => api<{ list: ApiKeyOption[] }>('/api/developer/relay/keys'),
+    enabled: allow,
   })
   const keyOptions = keysData?.list ?? []
 
@@ -212,6 +218,7 @@ export default function RelayUsagePage() {
   const { data: analytics, isLoading: anaLoading } = useQuery({
     queryKey: ['developer', 'relay', 'usage', 'analytics', startDate, endDate, model, apiKeyId],
     queryFn: () => api<AnalyticsData>(`/api/developer/relay/usage/analytics?${anaQs.toString()}`),
+    enabled: allow,
   })
 
   const maxEndpointCalls = analytics ? Math.max(1, ...analytics.endpoints.map((e) => e.calls)) : 1
@@ -255,6 +262,20 @@ export default function RelayUsagePage() {
     } finally {
       setExporting(false)
     }
+  }
+
+  // 2026-09-30 登录态门:未登录时用登录引导替换数据区
+  if (!allow) {
+    return (
+      <div className="px-4 py-4 space-y-4">
+        <BackButton />
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <Activity className="h-6 w-6 text-primary" aria-hidden />
+          {tu('title')}
+        </h1>
+        <AuthGatePrompt message="请先登录后查看用量明细与分析" />
+      </div>
+    )
   }
 
   return (

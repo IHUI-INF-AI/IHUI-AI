@@ -121,4 +121,312 @@ export function concurrencyBudgetSnapshot(): ConcurrencyBudgetSnapshot {
     cpuDerivedDefault: resolveMaxConcurrency(),
   }
 }
+
+// ───────────────── provider-key 级 AIMD 并发治理器(替掉静态并发档) ─────────────────
+//
+// 机制来源(上游对照面,只读):src/engine/concurrency.ts — 纯 AIMD:
+//   - epoch 批次阻尼:每完成一个 epoch 批次才抬一次 cap,单次成功不抬(防抖)
+//   - 两档减 cap:429/timeout 各自减档;cap 高于 lastGood 时直接退回 lastGood(不按系数减),
+//     cap 已不高于 lastGood 时按系数乘法减并清空 lastGood
+//   - lastGood 只由完成 streak 设:连续成功达标才记"已知良好档",失败永不写
+//   - Retry-After cooldown:对端带了就排定退避,期间新请求按 backoff 因果被拒
+//   - 空闲惰性重置 + 幂等守卫:闲置超阈值后惰性抬回天花板;已在天花板且状态干净
+//     ⇒ 0 条 change、不翻 epoch(幂等)
+//   - stale 事件:旧 epoch 的 429 只清 streak 不动 cap
+//
+// 两条界刻意不混(上游 types.ts/engine.ts 同形):
+//   - 进程级观察 `onConcurrencyChanged`(对应进程级 'concurrency-changed'):只读遥测,
+//     不参与决策,任何一侧都不改行为
+//   - run 级命令 `applyRunCapCommand`(对应 run 级 'run-caps-changed'):就地抬/调本 run 上界,
+//     同 runId 同值重复 ⇒ 幂等 no-op、不铸后继;在飞一个不丢(调低不召回,只收紧新闸门);
+//     抬高多调一次 pumpAll,调低不调
+//
+// 本区是并发档位字面量的唯一真相源:AIMD 五常量 + MAX/MIN,守门测试断言
+// 本文件其余裸数字只能是结构性的 0/1/-1(见 tests/concurrency-aimd-guard.test.ts)。
+
+/** cap 调整原因(5 值;change 载荷见 ConcurrencyChange)。 */
+export type ConcurrencyChangeReason =
+  | 'throttle-429'
+  | 'timeout'
+  | 'retry-after'
+  | 'recovery'
+  | 'manual'
+
+export interface ConcurrencyChange {
+  providerKey: string
+  reason: ConcurrencyChangeReason
+  /** 调整前 cap */
+  from: number
+  /** 调整后 cap */
+  to: number
+  /** 调整发生时的 epoch 代次 */
+  epoch: number
+  /** 仅 reason='retry-after':冷却截止时刻(epoch ms) */
+  cooldownUntilMs?: number
+}
+
+/**
+ * "在等"的两种因果(上游 AskWaitInfo.cause 同形):
+ * - 'slot':闸门外排队(cap 满,取决于他人释放,无确定时刻)
+ * - 'backoff':已排定退避(Retry-After cooldown 生效中,有确定截止时刻)
+ */
+export interface AskWaitInfo {
+  cause: 'slot' | 'backoff'
+  /** 预计可重试时刻(epoch ms);slot 因果时为 0 */
+  retryAtMs: number
+}
+
+// AIMD 五常量(唯一真相源)
+/** epoch 批次大小:每完成 N 个成功才翻一次 epoch(批次阻尼)。 */
+export const AIMD_EPOCH_BATCH = 8
+/** additive 抬升步长:epoch 翻代且有等待者时 cap + 1。 */
+export const AIMD_ADDITIVE_STEP = 1
+/** 连续成功 streak 达标才设 lastGood(已知良好档)。 */
+export const AIMD_LASTGOOD_STREAK = 8
+/** cap 已不高于 lastGood 时的乘法减档系数。 */
+export const AIMD_DECREASE_FACTOR = 0.75
+/** 空闲惰性重置阈值(ms):闲置超过它,下一次 ask 时抬回天花板。 */
+export const AIMD_IDLE_RESET_MS = 300_000
+
+interface ProviderAimdState {
+  cap: number
+  inflight: number
+  /** 闸门外排队者计数(ask 被拒 +1,ask 放行归 0:"能放行即非饱和"口径) */
+  waiting: number
+  successStreak: number
+  epochProgress: number
+  epoch: number
+  lastGood: number
+  cooldownUntilMs: number
+  lastActivityMs: number
+}
+
+/** release 的事件:outcome + 事件发生时的 epoch(判 stale)+ 对端 Retry-After(ms)。 */
+export interface AimdReleaseEvent {
+  outcome: 'success' | 'throttled' | 'timeout'
+  /** 事件发生时的 epoch;低于当前 epoch ⇒ stale:只清 streak 不动 cap */
+  eventEpoch?: number
+  /** 对端 Retry-After 头(ms):带 ⇒ 即便 cap 减无可减也广播一条冷却 */
+  retryAfterMs?: number
+}
+
+export interface ProviderAimdSnapshot {
+  cap: number
+  inflight: number
+  waiting: number
+  successStreak: number
+  epoch: number
+  epochProgress: number
+  lastGood: number
+  cooldownUntilMs: number
+}
+
+export class ProviderAimdGovernor {
+  private readonly states = new Map<string, ProviderAimdState>()
+  private readonly runCommands = new Map<string, { providerKey: string; target: number }>()
+  private observers: Array<(change: ConcurrencyChange) => void> = []
+  private pumpAllCb: (() => void) | null = null
+  private readonly now: () => number
+
+  constructor(now: () => number = () => Date.now()) {
+    this.now = now
+  }
+
+  /** 进程级观察界('concurrency-changed'):只读遥测,返回退订函数。 */
+  onConcurrencyChanged(cb: (change: ConcurrencyChange) => void): () => void {
+    this.observers.push(cb)
+    return () => {
+      const idx = this.observers.indexOf(cb)
+      if (idx >= 0) this.observers.splice(idx, 1)
+    }
+  }
+
+  /** run 级泵闸回调:cap 抬高时调用一次(抬高多一次 pumpAll;调低不调)。 */
+  setPumpAll(cb: (() => void) | null): void {
+    this.pumpAllCb = cb
+  }
+
+  private emit(change: ConcurrencyChange): void {
+    for (const cb of this.observers) cb(change)
+  }
+
+  private pump(): void {
+    const cb = this.pumpAllCb
+    if (cb) cb()
+  }
+
+  private state(key: string): ProviderAimdState {
+    let s = this.states.get(key)
+    if (!s) {
+      s = {
+        cap: MAX_CONCURRENCY,
+        inflight: 0,
+        waiting: 0,
+        successStreak: 0,
+        epochProgress: 0,
+        epoch: 0,
+        lastGood: MAX_CONCURRENCY,
+        cooldownUntilMs: 0,
+        lastActivityMs: this.now(),
+      }
+      this.states.set(key, s)
+    }
+    return s
+  }
+
+  /** 只读:当前 cap。 */
+  capOf(key: string): number {
+    return this.state(key).cap
+  }
+
+  /** 只读:单 key 诊断快照。 */
+  snapshot(key: string): ProviderAimdSnapshot {
+    const s = this.state(key)
+    return {
+      cap: s.cap,
+      inflight: s.inflight,
+      waiting: s.waiting,
+      successStreak: s.successStreak,
+      epoch: s.epoch,
+      epochProgress: s.epochProgress,
+      lastGood: s.lastGood,
+      cooldownUntilMs: s.cooldownUntilMs,
+    }
+  }
+
+  /**
+   * 空闲惰性重置(在 ask 里惰性触发):闲置超过阈值 ⇒ 抬回天花板 + 状态归零。
+   * 幂等守卫:已在天花板且状态干净 ⇒ 0 条 change、不翻 epoch、不 pump。
+   */
+  private idleResetIfNeeded(key: string, s: ProviderAimdState, t: number): void {
+    if (t - s.lastActivityMs <= AIMD_IDLE_RESET_MS) return
+    const clean =
+      s.cap === MAX_CONCURRENCY &&
+      s.successStreak === 0 &&
+      s.epochProgress === 0 &&
+      s.lastGood === MAX_CONCURRENCY &&
+      s.cooldownUntilMs === 0
+    s.successStreak = 0
+    s.epochProgress = 0
+    s.lastGood = MAX_CONCURRENCY
+    s.cooldownUntilMs = 0
+    if (clean) return
+    const from = s.cap
+    s.cap = MAX_CONCURRENCY
+    this.emit({ providerKey: key, reason: 'recovery', from, to: s.cap, epoch: s.epoch })
+    this.pump()
+  }
+
+  /** 申请一个槽位;拒绝时给"在等"的因果(闸门外排队 slot / 已排定退避 backoff)。 */
+  ask(key: string): { ok: true } | { ok: false; wait: AskWaitInfo } {
+    const s = this.state(key)
+    const t = this.now()
+    this.idleResetIfNeeded(key, s, t)
+    s.lastActivityMs = t
+    if (s.cooldownUntilMs > t) {
+      s.waiting += 1
+      return { ok: false, wait: { cause: 'backoff', retryAtMs: s.cooldownUntilMs } }
+    }
+    if (s.inflight >= s.cap) {
+      s.waiting += 1
+      return { ok: false, wait: { cause: 'slot', retryAtMs: 0 } }
+    }
+    s.inflight += 1
+    s.waiting = 0
+    return { ok: true }
+  }
+
+  /** 归还槽位并上报结果;返回本次产生的 change 列表(cap 减档/recovery/冷却广播)。 */
+  release(key: string, ev: AimdReleaseEvent): ConcurrencyChange[] {
+    const s = this.state(key)
+    const t = this.now()
+    s.lastActivityMs = t
+    if (s.inflight > 0) s.inflight -= 1
+    const changes: ConcurrencyChange[] = []
+
+    if (ev.outcome === 'success') {
+      s.successStreak += 1
+      s.epochProgress += 1
+      let batchBoundary = false
+      if (s.epochProgress >= AIMD_EPOCH_BATCH) {
+        s.epochProgress = 0
+        s.epoch += 1
+        batchBoundary = true
+      }
+      if (s.successStreak >= AIMD_LASTGOOD_STREAK) {
+        s.lastGood = s.cap
+        // 有等待者才抬 cap;无等待者只设 lastGood、cap 不变
+        if (batchBoundary && s.waiting > 0 && s.cap < MAX_CONCURRENCY) {
+          const from = s.cap
+          s.cap = Math.min(MAX_CONCURRENCY, s.cap + AIMD_ADDITIVE_STEP)
+          changes.push({ providerKey: key, reason: 'recovery', from, to: s.cap, epoch: s.epoch })
+          this.pump()
+        }
+      }
+    } else {
+      // 减档分支:throttled(429)/ timeout
+      const stale = typeof ev.eventEpoch === 'number' && ev.eventEpoch < s.epoch
+      s.successStreak = 0
+      if (!stale) {
+        // 旧 epoch 的事件只清 streak 不动 cap
+        const from = s.cap
+        let to = from
+        if (from > s.lastGood) {
+          // 高于已知良好档:直接退回 lastGood,不按系数减
+          to = Math.max(MIN_CONCURRENCY, s.lastGood)
+        } else {
+          to = Math.max(MIN_CONCURRENCY, Math.floor(from * AIMD_DECREASE_FACTOR))
+          s.lastGood = 0
+        }
+        if (to < from) {
+          s.cap = to
+          changes.push({
+            providerKey: key,
+            reason: ev.outcome === 'throttled' ? 'throttle-429' : 'timeout',
+            from,
+            to,
+            epoch: s.epoch,
+          })
+        }
+        const ra = ev.retryAfterMs
+        if (typeof ra === 'number' && ra > 0) {
+          s.cooldownUntilMs = t + ra
+          changes.push({
+            providerKey: key,
+            reason: 'retry-after',
+            from: s.cap,
+            to: s.cap,
+            epoch: s.epoch,
+            cooldownUntilMs: s.cooldownUntilMs,
+          })
+        }
+      }
+    }
+    // 本票 release 产生的所有 change 统一走进程级观察界(只读遥测)
+    for (const c of changes) this.emit(c)
+    return changes
+  }
+
+  /**
+   * run 级命令('run-caps-changed'):就地抬/调本 run 上界。
+   * - 同 runId 同值重复 ⇒ 幂等 no-op(不铸后继、不发 change)
+   * - 在飞一个不丢:调低只收紧新闸门,不召回在飞(inflight 可暂高于 cap)
+   * - 抬高 ⇒ 调一次 pumpAll;调低 ⇒ 不调
+   */
+  applyRunCapCommand(runId: string, providerKey: string, target: number): ConcurrencyChange | null {
+    const prior = this.runCommands.get(runId)
+    const to = Math.min(MAX_CONCURRENCY, Math.max(MIN_CONCURRENCY, Math.floor(target)))
+    if (prior && prior.providerKey === providerKey && prior.target === to) return null
+    this.runCommands.set(runId, { providerKey, target: to })
+    const s = this.state(providerKey)
+    s.lastActivityMs = this.now()
+    const from = s.cap
+    if (to === from) return null
+    s.cap = to
+    const change: ConcurrencyChange = { providerKey, reason: 'manual', from, to, epoch: s.epoch }
+    this.emit(change)
+    if (to > from) this.pump()
+    return change
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

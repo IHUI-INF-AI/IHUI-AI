@@ -181,10 +181,9 @@ function runValidation(
   //    "声明了哪些参数就收哪些"那一格),此时未声明字段**一律违规**,并且与缺失/类型
   //    错误**收集齐再一次返回** —— 模型拿到「缺了 b,还多了 zz」能一次改对,拿到
   //    「缺了 b」只会改一次再撞一次(收集式,绝不遇首错即停)。
-  //    注意这不是递归档:只看顶层 parameters;嵌套对象的未知键仍按原有规则放行。
-  if (
-    (schema.parameters as { additionalProperties?: boolean }).additionalProperties === false
-  ) {
+  //    嵌套层同律由 checkObject 递归执行(b76-14 G-998176):闭集声明**递归到每一层**,
+  //    本格只管顶层 parameters(第 0 层)。
+  if (schema.parameters.additionalProperties === false) {
     for (const key of Object.keys(argObj)) {
       if (key in schema.parameters.properties) continue;
       errors.push({
@@ -373,6 +372,30 @@ function checkObject(
       // 只豁免**不在本层 required 里**的属性;required 属性传 null 照旧违规。
       if (obj[k] === null && !(param.required ?? []).includes(k)) continue;
       obj[k] = coerceAndCheck(`${field}.${k}`, obj[k], subSchema, errors);
+    }
+  }
+  // —— 嵌套层闭集(b76-14 G-998176):闭合声明必须**递归到每一层**,补齐本函数当年在
+  // 顶层格注释里点名留下的"嵌套对象的未知键仍按原有规则放行"那一格。三态与上游同形:
+  //   声明 `false` ⇒ 未声明键记一条 unknown_field(field 用 `${field}.${k}`,沿用既有
+  //   键路径约定,不新造分隔符),并与缺失/类型错收集齐再一次返回;
+  //   声明子 schema ⇒ **按值类型判**而不是按未知键判(undeclared 键走 coerceAndCheck
+  //   递归,受值约束;值类型对 ⇒ 放行,不合 ⇒ type_mismatch);
+  //   缺席 ⇒ 放过(默认档"多传字段照旧忽略"不翻,argument-validator.test.ts:491-503)。
+  // 隐私口径与顶层同一条线:actual 只装 describeType 形态类别,绝不装原值。
+  const additional = param.additionalProperties;
+  if (additional !== undefined) {
+    for (const k of Object.keys(obj)) {
+      if (param.properties && k in param.properties) continue;
+      if (additional === false) {
+        errors.push({
+          field: `${field}.${k}`,
+          reason: 'unknown_field',
+          expected: '(not declared)',
+          actual: describeType(obj[k]),
+        });
+      } else if (typeof additional === 'object') {
+        obj[k] = coerceAndCheck(`${field}.${k}`, obj[k], additional, errors);
+      }
     }
   }
   return obj;

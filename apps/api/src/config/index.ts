@@ -6,6 +6,43 @@ import { z } from 'zod'
 import { logger } from '../utils/logger.js'
 import { booleanFromString } from '../utils/parse-boolean.js'
 
+// ── 运行档位唯一出口(G-998138,b76-09b 票3,2026-09-30)────────────────────────
+//
+// 为什么需要一个自己的档位出口:NODE_ENV 是用户 shell 和 Node 生态都会使用的通用变量,
+// 不能直接作为运行时判据 —— Bash/登录 shell 里的 NODE_ENV 会泄漏进 host/agent runtime;
+// 而部署链任一环没设它时,旧默认档直接落到 development,cookie `secure` 静默变 false、
+// 生产专属守卫静默跳过(typecheck/lint/其余门全都不响)。所以:
+//   1. 安全分支**不得**直接读 `process.env.NODE_ENV`(守门语义;本文件是唯一例外,
+//      因为它就是那份出口) —— 一律经这里导出的 `isProductionGuard` / `runtimeEnv`;
+//   2. `ZCODE_RUNTIME_ENV` 是 app 显式注入的档位口,优先级最高;
+//   3. `NODE_ENV` 只作过渡期兼容:仅在**显式设置**且取值在声明表内时才被认;
+//   4. 两者都没有 ⇒ 缺省 `production`(fail-safe 方向):守卫宁可误开,不可静默跳过。
+//
+// 声明表对账:`RUNTIME_ENV_VALUES` 是档位的闭集声明,z.enum 与解析器共用同一份,
+// tests/runtime-env-guard.test.ts 钉"解析器产出 ⊆ 声明表 + 缺省方向"。
+export const RUNTIME_ENV_VALUES = ['development', 'production', 'test'] as const
+export type RuntimeEnvValue = (typeof RUNTIME_ENV_VALUES)[number]
+
+const isDeclaredRuntimeEnv = (v: string | undefined): v is RuntimeEnvValue =>
+  (RUNTIME_ENV_VALUES as readonly string[]).includes(v ?? '')
+
+export function resolveEffectiveNodeEnv(
+  env: Record<string, string | undefined> = process.env,
+): RuntimeEnvValue {
+  const explicit = env.ZCODE_RUNTIME_ENV?.trim()
+  if (isDeclaredRuntimeEnv(explicit)) return explicit
+  // 过渡期兼容:只有显式设置才认,未设置/空串/声明表外的值一律不认(fail-safe 兜底)
+  const legacy = env.NODE_ENV?.trim()
+  if (isDeclaredRuntimeEnv(legacy)) return legacy
+  return 'production'
+}
+
+export const runtimeEnv: RuntimeEnvValue = resolveEffectiveNodeEnv()
+/** 安全分支的档位判据:**这一份**。原 `process.env.NODE_ENV === 'production'` 分支一律改读它。 */
+export const isProductionGuard: boolean = runtimeEnv === 'production'
+/** dev 专属放行(如 csrf cookie 的 secure 关档):只在**显式声明**的 development 档才成立。 */
+export const isDevelopmentRuntime: boolean = runtimeEnv === 'development'
+
 const optionalUrl = (def: string) =>
   z
     .string()
@@ -15,6 +52,9 @@ const optionalUrl = (def: string) =>
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  // G-998138:运行档位的显式注入口(判据见文件头 resolveEffectiveNodeEnv;
+  // 取值合法性在那里按声明表闭集判,声明表外的值不认 → 落 fail-safe 兜底档)。
+  ZCODE_RUNTIME_ENV: z.string().optional(),
   PORT: z.coerce.number().default(8802),
   HOST: z.string().default('0.0.0.0'),
   LOG_LEVEL: z.string().default('info'),
@@ -67,9 +107,10 @@ const envSchema = z.object({
     .min(32, 'JWT_SECRET 必须至少 32 字符')
     .refine(
       (v) => {
-        // 仅在生产环境拒绝弱默认值/已知占位符(2026-07-21 安全审计加固)
+        // 仅在生产档拒绝弱默认值/已知占位符(2026-07-21 安全审计加固)
         // 测试环境允许弱密钥(测试套件历史使用 'test-jwt-secret-...' 占位)
-        if (process.env.NODE_ENV !== 'production') return true
+        // G-998138:档位经本文件唯一出口(fail-safe:未显式声明 ⇒ 按生产档拒)
+        if (!isProductionGuard) return true
         if (v === 'a'.repeat(32)) return false
         if (/^(.)\1+$/.test(v)) return false // 全相同字符
         if (v.toLowerCase() === 'change-me' || v.toLowerCase() === 'changeme') return false
@@ -91,9 +132,10 @@ const envSchema = z.object({
     .min(32, 'CREDENTIALS_ENCRYPTION_KEY 必须至少 32 字符')
     .refine(
       (v) => {
-        // 仅在生产环境拒绝弱默认值/已知占位符(2026-07-21 安全审计加固)
+        // 仅在生产档拒绝弱默认值/已知占位符(2026-07-21 安全审计加固)
         // 测试环境允许弱密钥(测试套件历史使用 'a'.repeat(32) 占位)
-        if (process.env.NODE_ENV !== 'production') return true
+        // G-998138:档位经本文件唯一出口(fail-safe:未显式声明 ⇒ 按生产档拒)
+        if (!isProductionGuard) return true
         if (v === 'a'.repeat(32)) return false
         if (/^(.)\1+$/.test(v)) return false // 全相同字符(如 aaaa...)
         if (v.toLowerCase() === 'change-me' || v.toLowerCase() === 'changeme') return false
@@ -276,6 +318,19 @@ if (!parsed.success) {
   process.exit(1)
 }
 
-export const config = parsed.data
-export type Config = typeof config
+export const config = Object.assign(parsed.data, {
+  // G-998138:运行档位守卫挂进 config 本体 —— 消费方(以及它们的测试 mock)只依赖
+  // config 一份形状,不必新增模块级命名导出。注意:旧测试 mock 的 config 对象缺这两个
+  // 字段 ⇒ undefined(嵌套对象缺属性返回 undefined,不像模块命名空间那样取值即抛),
+  // 消费方据此按旧判据回退(见 csrf/agents/auth-extended 消费点);生产侧 config 恒带
+  // 这两个字段,恒走 resolveEffectiveNodeEnv 的唯一出口(缺省 fail-safe)。
+  isProductionGuard,
+  isDevelopmentRuntime,
+})
+export type Config = z.infer<typeof envSchema> & {
+  /** 生产守卫档位(resolveEffectiveNodeEnv 产出;旧测试 mock 缺省 ⇒ 消费方回退旧判据)。 */
+  isProductionGuard?: boolean
+  /** 显式 development 档才为 true(旧测试 mock 缺省 ⇒ 消费方回退旧判据)。 */
+  isDevelopmentRuntime?: boolean
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

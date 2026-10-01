@@ -64,6 +64,11 @@ export function devEnvRoot(repoRoot = REPO) {
       `devEnvRoot 拒绝推导:仓库根本身位于 scratch 夹具内(${repoRoot})—— ` +
         `此时"盘根 + DevEnv"会落在夹具里,而 §26 批准的临时物落点与真外置根是两回事。先修调用方的 ROOT 推导,别换路径继续跑。`,
     )
+  // 双形态推导(2026-09-30,G-814433 搬迁前置):DevEnv 搬入项目内(<repoRoot>/.DevEnv)后
+  // 外置根换了地方;搬迁前老机器仍是 <盘根>/DevEnv。优先项目内形态(存在才选),
+  // 否则回落盘根形态 —— 搬迁前后两条机器都不改行为,搬迁本身成为纯 fs 操作。
+  const inRepo = join(repoRoot, '.DevEnv')
+  if (existsSync(inRepo)) return inRepo
   return join(parse(repoRoot).root, 'DevEnv')
 }
 

@@ -281,6 +281,8 @@ export * from './test-verify-code-bypass.js'
 export * from './patrol.js'
 // 运营控制台模块(2026-09-17 立,4-4-12):lottery/points-mall/promotion-rules/tax
 export * from './admin-console.js'
+// 积分商城兑换订单(2026-09-30 立):用户端 points-mall-user.ts 经 drizzle 读写本表，禁止再抄 raw SQL 第二份列名
+export * from './points-mall.js'
 // 教育食堂采购记账(2026-09-19 立):供应商/采购单/AI 多轮核对台账
 export * from './edu-canteen.js'
 // 任务消息表(2026-09-19 立,D25 统一任务运行时看板:@任务引用跨任务发消息)

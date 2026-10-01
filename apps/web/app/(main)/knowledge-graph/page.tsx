@@ -25,6 +25,8 @@ import { ArrowLeft, Loader2, Network, Sparkles, Trash2, AlertCircle } from 'luci
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardHeader, CardTitle, CardContent, CardFooter } from '@ihui/ui-react'
 import { Textarea } from '@/components/form'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
 
 interface GraphEntity {
@@ -89,10 +91,14 @@ export default function KnowledgeGraphPage() {
     null,
   )
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const graphQuery = useQuery({
     queryKey: ['knowledgeGraph', 'data'],
     queryFn: () => api<GraphData>('/api/ai/knowledge-graph/data'),
     refetchOnWindowFocus: false,
+    enabled: allow,
   })
 
   const buildMutation = useMutation({
@@ -241,104 +247,109 @@ export default function KnowledgeGraphPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t('graphSection')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {graphQuery.isLoading ? (
-            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {tCommon('loading')}
-            </div>
-          ) : graphQuery.isError ? (
-            <div className="py-8 text-center text-sm text-destructive">{tCommon('error')}</div>
-          ) : entities.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">{t('emptyState')}</div>
-          ) : (
-            <div className="overflow-auto rounded-md border bg-muted/30">
-              <svg
-                viewBox="0 0 800 600"
-                className="h-[420px] min-[768px]:h-[600px] w-full"
-                role="img"
-                aria-label={t('graphAriaLabel')}
-              >
-                {/* 边 */}
-                {relations.map((r) => {
-                  const src = positions.get(r.source_entity_id)
-                  const tgt = positions.get(r.target_entity_id)
-                  if (!src || !tgt) return null
-                  const isHighlighted = relatedEdgeIds.has(r.id) || highlightId === null
-                  const strokeWidth = Math.max(1, Math.min(4, Number(r.weight)))
-                  return (
-                    <g key={r.id}>
-                      <line
-                        x1={src.x}
-                        y1={src.y}
-                        x2={tgt.x}
-                        y2={tgt.y}
-                        stroke="currentColor"
-                        strokeOpacity={isHighlighted ? 0.5 : 0.15}
-                        strokeWidth={strokeWidth}
-                        className="text-muted-foreground"
-                      />
-                      <text
-                        x={(src.x + tgt.x) / 2}
-                        y={(src.y + tgt.y) / 2 - 4}
-                        textAnchor="middle"
-                        className="fill-muted-foreground text-[10px]"
-                        opacity={isHighlighted ? 0.8 : 0.3}
+      {/* 2026-09-30 登录态门:未登录时用登录引导替换图谱数据区 */}
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看个人知识图谱" />
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t('graphSection')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {graphQuery.isLoading ? (
+              <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {tCommon('loading')}
+              </div>
+            ) : graphQuery.isError ? (
+              <div className="py-8 text-center text-sm text-destructive">{tCommon('error')}</div>
+            ) : entities.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">{t('emptyState')}</div>
+            ) : (
+              <div className="overflow-auto rounded-md border bg-muted/30">
+                <svg
+                  viewBox="0 0 800 600"
+                  className="h-[420px] min-[768px]:h-[600px] w-full"
+                  role="img"
+                  aria-label={t('graphAriaLabel')}
+                >
+                  {/* 边 */}
+                  {relations.map((r) => {
+                    const src = positions.get(r.source_entity_id)
+                    const tgt = positions.get(r.target_entity_id)
+                    if (!src || !tgt) return null
+                    const isHighlighted = relatedEdgeIds.has(r.id) || highlightId === null
+                    const strokeWidth = Math.max(1, Math.min(4, Number(r.weight)))
+                    return (
+                      <g key={r.id}>
+                        <line
+                          x1={src.x}
+                          y1={src.y}
+                          x2={tgt.x}
+                          y2={tgt.y}
+                          stroke="currentColor"
+                          strokeOpacity={isHighlighted ? 0.5 : 0.15}
+                          strokeWidth={strokeWidth}
+                          className="text-muted-foreground"
+                        />
+                        <text
+                          x={(src.x + tgt.x) / 2}
+                          y={(src.y + tgt.y) / 2 - 4}
+                          textAnchor="middle"
+                          className="fill-muted-foreground text-[10px]"
+                          opacity={isHighlighted ? 0.8 : 0.3}
+                        >
+                          {r.relation_type}
+                        </text>
+                      </g>
+                    )
+                  })}
+                  {/* 节点 */}
+                  {entities.map((e) => {
+                    const pos = positions.get(e.id)
+                    if (!pos) return null
+                    const r = Math.max(18, Math.min(48, 18 + e.frequency * 6))
+                    const isHighlighted =
+                      highlightId === null || e.id === highlightId || relatedEdgeIds.size > 0
+                    return (
+                      <g
+                        key={e.id}
+                        onMouseEnter={() => setHighlightId(e.id)}
+                        onMouseLeave={() => setHighlightId(null)}
+                        className="cursor-pointer"
                       >
-                        {r.relation_type}
-                      </text>
-                    </g>
-                  )
-                })}
-                {/* 节点 */}
-                {entities.map((e) => {
-                  const pos = positions.get(e.id)
-                  if (!pos) return null
-                  const r = Math.max(18, Math.min(48, 18 + e.frequency * 6))
-                  const isHighlighted =
-                    highlightId === null || e.id === highlightId || relatedEdgeIds.size > 0
-                  return (
-                    <g
-                      key={e.id}
-                      onMouseEnter={() => setHighlightId(e.id)}
-                      onMouseLeave={() => setHighlightId(null)}
-                      className="cursor-pointer"
-                    >
-                      <circle
-                        cx={pos.x}
-                        cy={pos.y}
-                        r={r}
-                        fill="var(--primary)"
-                        fillOpacity={isHighlighted ? 0.85 : 0.35}
-                        stroke="var(--primary)"
-                        strokeWidth={2}
-                      />
-                      <text
-                        x={pos.x}
-                        y={pos.y + 4}
-                        textAnchor="middle"
-                        className="fill-primary-foreground text-[12px] font-medium pointer-events-none"
-                      >
-                        {e.name.length > 6 ? e.name.slice(0, 6) + '…' : e.name}
-                      </text>
-                      <title>
-                        {e.name} ({e.type}) · {t('frequencyLabel', { count: e.frequency })}
-                      </title>
-                    </g>
-                  )
-                })}
-              </svg>
-            </div>
+                        <circle
+                          cx={pos.x}
+                          cy={pos.y}
+                          r={r}
+                          fill="var(--primary)"
+                          fillOpacity={isHighlighted ? 0.85 : 0.35}
+                          stroke="var(--primary)"
+                          strokeWidth={2}
+                        />
+                        <text
+                          x={pos.x}
+                          y={pos.y + 4}
+                          textAnchor="middle"
+                          className="fill-primary-foreground text-[12px] font-medium pointer-events-none"
+                        >
+                          {e.name.length > 6 ? e.name.slice(0, 6) + '…' : e.name}
+                        </text>
+                        <title>
+                          {e.name} ({e.type}) · {t('frequencyLabel', { count: e.frequency })}
+                        </title>
+                      </g>
+                    )
+                  })}
+                </svg>
+              </div>
+            )}
+          </CardContent>
+          {entities.length > 0 && (
+            <CardFooter className="text-xs text-muted-foreground">{t('legendHint')}</CardFooter>
           )}
-        </CardContent>
-        {entities.length > 0 && (
-          <CardFooter className="text-xs text-muted-foreground">{t('legendHint')}</CardFooter>
-        )}
-      </Card>
+        </Card>
+      )}
     </div>
   )
 }

@@ -23,6 +23,8 @@ import {
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AiTutorPanel } from '@/components/learn/ai-tutor-panel'
 import { cn } from '@/lib/utils'
 
@@ -57,14 +59,19 @@ export default function EduCourseLearnPage() {
   const [noteText, setNoteText] = React.useState('')
   const [qaText, setQaText] = React.useState('')
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'course', id, 'learn'],
     queryFn: () => api<{ sections: Section[]; title: string }>(`/api/edu/courses/${id}/sections`),
+    enabled: allow,
   })
 
   const { data: qaList } = useQuery({
     queryKey: ['edu', 'course', id, 'qa'],
     queryFn: () => api<{ list: QAItem[] }>(`/api/edu/courses/${id}/qa`).then((d) => d.list ?? []),
+    enabled: allow,
   })
 
   const noteMut = useMutation({
@@ -101,6 +108,20 @@ export default function EduCourseLearnPage() {
     const d = new Date(v)
     return Number.isNaN(d.getTime()) ? '-' : dateFmt.format(d)
   }
+
+  if (!allow)
+    return (
+      <div className="space-y-4">
+        <Link
+          href={`/edu/courses/${id}`}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t('backToDetail')}
+        </Link>
+        <AuthGatePrompt message="请先登录后继续学习" />
+      </div>
+    )
 
   if (isLoading)
     return (

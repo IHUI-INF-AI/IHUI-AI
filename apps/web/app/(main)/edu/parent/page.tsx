@@ -34,7 +34,8 @@ import {
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { CHART_BLUE } from '@ihui/design-tokens'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   Card,
   CardContent,
@@ -224,10 +225,15 @@ export default function ParentPortalPage() {
   const [selectedChildId, setSelectedChildId] = React.useState<string | null>(null)
   const [childSubTab, setChildSubTab] = React.useState('courses')
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  // (主查询加 enabled;子视图查询随 Tabs 不渲染而不会挂载,同样被门住)
+  const { allow } = useAuthGate()
+
   /* ── Children Query ── */
   const childrenQuery = useQuery({
     queryKey: ['parent', 'children'],
     queryFn: () => api<{ children: ChildInfo[] }>('/api/edu-ai-management/parent/children'),
+    enabled: allow,
   })
 
   const children = childrenQuery.data?.children ?? []
@@ -247,42 +253,46 @@ export default function ParentPortalPage() {
         <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
       </header>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="children">
-            <Users className="mr-1.5 h-4 w-4" />
-            {t('tabMyChildren')}
-          </TabsTrigger>
-          <TabsTrigger value="bindings">
-            <Link2 className="mr-1.5 h-4 w-4" />
-            {t('tabBindings')}
-          </TabsTrigger>
-        </TabsList>
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看家长端" />
+      ) : (
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="children">
+              <Users className="mr-1.5 h-4 w-4" />
+              {t('tabMyChildren')}
+            </TabsTrigger>
+            <TabsTrigger value="bindings">
+              <Link2 className="mr-1.5 h-4 w-4" />
+              {t('tabBindings')}
+            </TabsTrigger>
+          </TabsList>
 
-        {/* ════════════════ Tab: 我的孩子 ════════════════ */}
-        <TabsContent value="children" className="space-y-4">
-          {selectedChildId && selectedChild ? (
-            <ChildDetailView
-              child={selectedChild}
-              childSubTab={childSubTab}
-              onSubTabChange={setChildSubTab}
-              onBack={handleBackToChildren}
-            />
-          ) : (
-            <ChildrenListView
-              items={confirmedChildren}
-              isLoading={childrenQuery.isLoading}
-              error={childrenQuery.error}
-              onSelectChild={(id) => setSelectedChildId(id)}
-            />
-          )}
-        </TabsContent>
+          {/* ════════════════ Tab: 我的孩子 ════════════════ */}
+          <TabsContent value="children" className="space-y-4">
+            {selectedChildId && selectedChild ? (
+              <ChildDetailView
+                child={selectedChild}
+                childSubTab={childSubTab}
+                onSubTabChange={setChildSubTab}
+                onBack={handleBackToChildren}
+              />
+            ) : (
+              <ChildrenListView
+                items={confirmedChildren}
+                isLoading={childrenQuery.isLoading}
+                error={childrenQuery.error}
+                onSelectChild={(id) => setSelectedChildId(id)}
+              />
+            )}
+          </TabsContent>
 
-        {/* ════════════════ Tab: 绑定管理 ════════════════ */}
-        <TabsContent value="bindings" className="space-y-4">
-          <BindingsManagement />
-        </TabsContent>
-      </Tabs>
+          {/* ════════════════ Tab: 绑定管理 ════════════════ */}
+          <TabsContent value="bindings" className="space-y-4">
+            <BindingsManagement />
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   )
 }

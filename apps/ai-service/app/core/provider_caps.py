@@ -121,15 +121,19 @@ PROVIDER_CAPS: dict[str, ProviderCap] = {
             "X-Title": "OPENROUTER_APP_TITLE",
         },
     ),
-    # Gemini / Google:支持 vision + gemini_generate_content 协议,长上下文
+    # Gemini / Google:支持 vision,长上下文。
+    # 2026-10-01(D150 运行时对账实锤):本仓对 gemini 的实际调用走 OpenAI 兼容端点
+    # (litellm 日志 provider=openai),该端**拒绝 stream_usage 字段** ——
+    # Google 400: Unknown name "stream_usage": Cannot find field.(traceId 033814da8ef65844d163a638fe0add38)
+    # 故与 NVIDIA/StepFun 同型:supports_stream_usage=False,usage 由 token_counter 估算兜底。
     "gemini": ProviderCap(
-        supports_stream_usage=True,
+        supports_stream_usage=False,
         supports_vision=True,
         protocol="gemini_generate_content",
         max_context=1000000,
     ),
     "google": ProviderCap(
-        supports_stream_usage=True,
+        supports_stream_usage=False,
         supports_vision=True,
         protocol="gemini_generate_content",
         max_context=1000000,
@@ -299,3 +303,21 @@ def apply_provider_headers(
     merged = dict(headers)
     merged.update(call_kwargs.get("extra_headers") or {})
     call_kwargs["extra_headers"] = merged
+
+
+# ---------------------------------------------------------------------------
+# G-648(2026-09-30):快照装配出口 —— 已发布能力/entitlement 快照消费口
+# ---------------------------------------------------------------------------
+
+
+def get_published_capability_snapshot() -> dict[str, Any] | None:
+    """返回最近一次通过栅栏发布的供应商能力/entitlement 快照(未发布过为 None)。
+
+    llm_gateway 等消费方在需要「整份一致」的能力视图时改读这里:发布出口
+    (provider_capability_snapshot.ProviderCapabilitySnapshotBoard.publish_round)
+    在写入前复读上游版本,解算期间上游变了或仍有 pending 的更新 ⇒ 本轮
+    整份丢弃(superseded)、快照保持旧值,绝不"先发布再修正"。
+    """
+    from app.core.provider_capability_snapshot import get_snapshot_board
+
+    return get_snapshot_board().snapshot
