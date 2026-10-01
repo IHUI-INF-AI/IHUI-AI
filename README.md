@@ -5570,3 +5570,18 @@ RC2 全量档判 HEAD 并逐文件点名存量,RC3 取不到计「未判定」�
 - **活文档写回对账已进门**(guardian id 166,blocking):`scripts/check-live-doc-pathspec.mjs` —— 三份多会话共写的活文档(`PROJECT_PLAN.md` / `AGENTS.md` / `README.md`)工作树副本在这台机常年滞后 HEAD,而 `git commit -- <文档>` 取的就是工作树字节 ⇒ "我只加 4 行"的规范提交会把别人已入库的行整批写回旧态,而 `git status`、diff 行数、typecheck、守门 71 全都不响。AGENTS §12 那条对账规矩此前只有散文、没有尺子,现在有了:被提交的那份必须逐字含住 HEAD 已有非空行;三态 lost/superseded/stale **只有 lost 判红**;逐字存在于 `.ihui-agent/archive/**` 的行按 §1 归档两步走豁免(归档面按被审面枚举,不读磁盘)。提交链 `--staged` 只判"本次真改掉的那份文档",索引==HEAD 记跳过而**不记通过**;全量档审 `HEAD^→HEAD`(旁路落地那一型)只报数,`--strict` 才问责;`--worktree` 仅人工。修复出口只有一条 `merge-live-doc.mjs --file <文档> --apply`,刻意不给行内豁免。取证:门体 `--self-test` 11 条、§22c 镜像 10 例(含"同一行只因归档面有没有它而一绿一红"的成对锁与端到端双向锁);三态判据从归并器下沉成 `lib/live-doc-classify.mjs` 那一份实现,搬动用同一份夹具对 HEAD 版与工作树版做**逐字同形的 A/B**(同义证明,不是自检)。
 - **组件层的共享真值源(2026-09-29 O92 立;同日按用户拍板改成「基座 + 追加」)**:跨端 Button 的共享档位值收口到 `packages/design-tokens/src/button-variants.ts`,两端 `buttonVariants` 先 spread 基座、**只在基座之外追加**平台修饰,**共享键不得被任何一端整档写成字面量**(那会让共享值只约束另一端)。这是本节"改一端另一端自动生效"的交付标准在**组件层**的第一处落地(此前两端只共享档位的**键名类型**,值各写一份)。覆盖范围仍要按档读,不要读成"整个 Button 已同源":表里每档只放两端共同持有的原子,`outline` 基座 = `border border-input`,而 `ghost` / `size lg` 的共同集合为空 ⇒ 共享值是空串(受管的只有键名与不许整档另写,取值未跨端绑定);把这两档并成同值属全端观感决策。常驻锁:`scripts/tests/shared-button-tier-base.test.mjs`(读 HEAD 面,整档另写即红)。约束正文见 AGENTS.md §4「跨端 Button 共享档位值的唯一源」。
 | 168        | check-merge-deletion-resurrection.mjs                                    | **合并复活已删文件对账(blocking,2026-09-30 立)**:守门 100 的另一半 —— 100 拦「合并吞掉对侧独有新增」,本门拦「**本侧显式删除的路径被合并整批写回**」(立项实测定型两次:`apps/miniapp-taro/src/components/SectionHeader.tsx` 显式删除被并集合并写回两次)。**DR1**:P ∈ tree(共同基底) ∧ ∈ 对侧父 ∧ ∉ 本侧父 ∧ ∈ 结果 ⇒ 判红;**DR2** 补多轮「删除→复活」上 DR1 的结构性失明(第一轮复活后分叉点已推进,下一枚合并的基底里已没有它):P ∉ 本侧父 ∧ ∈ 结果 ∧ 本侧可达范围内存在一笔非合并提交删掉了它 ⇒ 判红;同一路径两条取证只计一条。正当豁免两条且都带证据:删除提交信息含 `intentional-delete:`,或 `scripts/data/deletion-survival-allowlist.json` 带 `path+reason+reviewBy` 且未过期。默认只判未入 origin/main 的合并,增量台账让每枚合并只判一次;`--strict` 下有未判定即拒绝出合格证。取证 `--self-test` 43 例 + 镜像 11 例(含 T1 方向锁);紧急跳过 `HUSKY_SKIP_MERGE_DELETION_RESURRECTION=1` |
+- **会话分组(D165,2026-10-01 立)**:web 侧栏的"文件夹"从本日起是**服务端一等实体**而不是本机 localStorage ——
+  库面新增 `chat_conversation_groups`(每人 `(user_id, name)` 唯一)+ `chat_conversations.group_id`
+  (`ON DELETE SET NULL`:删分组只取消归类,绝不连带删会话);服务端新增六条端点
+  `GET/POST/PATCH/DELETE /api/chat/conversations/groups*` 与 `POST /api/chat/conversations/groups/move`。
+  批量移动的回报取**库确认集**(`affected` + `missedIds` 逐条点名),不把请求数组长度当结果;
+  归属条件写进被发出的那条 SQL(AGENTS §5「已登录不等于可以动这条数据」)。
+  跨端单一源 = `@ihui/shared/chat/conversation-org-server`(子路径消费,不进根桶),
+  失败分八类原因(offline / name-too-long / duplicate-name / not-found / forbidden / unauthorized / server / unknown),
+  判据优先读 `ApiResult` 的 `status`/`errorCode` 而不是文案(守门 135 那条纪律)。
+  **移动端与小程序的降级形态(票面验收③,按 AGENTS §9 写清)**:两端今日**不提供**分组 UI ——
+  它们已有会话置顶/归档(`apps/miniapp-taro/src/pkg-ai/ai/history.tsx` 的 `togglePinnedItem`、
+  `apps/mobile-rn/src/screens/MessageCenterScreen.tsx`),但没有分组入口,也不读上面那张归属表;
+  因此小程序/RN 的会话列表在分组存在时按"全部会话"展示(不做隐藏式过滤,避免"会话凭空消失")。
+  要接上时**不需要新增服务端能力**:同一子路径 store + 同一批端点即可,只差两端各自的入口文案与
+  语言包落笔(miniapp 的离线语言包是派生产物,须按 §19/守门 105 的生成链重生成,不得手改)。

@@ -3316,7 +3316,7 @@
       "status": "windowed",
       "files": 232,
       "read": 61,
-      "remaining": "W6-A 本轮整文件读到体 13 枚,但上轮那 13 枚未留文件名 ⇒ 两批重叠不可计算 ⇒ read 取 max(13) 不取和(真实区间 [13,26])。本轮 13 枚点名:auth-login-polling / auth-login-abort / telemetry-bootstrap / startup-logging / tool-call-product-visibility / zcode-protocol-entrypoint / app-config-options / runtime-config / embedded-search-backend / script-workflow-child-runtime / startup-resource / runtime-cleanup / process-child-processes。未读 219,最大块:product-projection 5477、server-operations 4057、v4-gateway 3454、transcript-hydration 1953、session-mapper 1530、plugins 1457、create-app 1290、conversation-topic-publisher 1131。 ｜09-29 第二十轮回填:本轮具名整读到体 16 枚,指针 5 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜09-29 第六十六批具名回填:本区 +11 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。",
+      "remaining": "W6-A 本轮整文件读到体 13 枚,但上轮那 13 枚未留文件名 ⇒ 两批重叠不可计算 ⇒ read 取 max(13) 不取和(真实区间 [13,26])。本轮 13 枚点名:auth-login-polling / auth-login-abort / telemetry-bootstrap / startup-logging / tool-call-product-visibility / zcode-protocol-entrypoint / app-config-options / runtime-config / embedded-search-backend / script-workflow-child-runtime / startup-resource / runtime-cleanup / process-child-processes。未读 219,最大块:product-projection 5477、server-operations 4057、v4-gateway 3454、transcript-hydration 1953、session-mapper 1530、plugins 1457、create-app 1290、conversation-topic-publisher 1131。 ｜09-29 第二十轮回填:本轮具名整读到体 16 枚,指针 5 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜09-29 第六十六批具名回填:本区 +11 份逐份 wc -l 兑现(该区历史 readFiles 为空 ⇒ 之前只存计数);剩余按\"份数/行数\"双单位报,不再混单位。 ｜G-815988 具名化回填(2026-10-01):把上面\"本轮 13 枚点名\"中此前只活在散文、未进结构化清单的 7 枚补进 readFiles;每条按 basename 在克隆面**唯一**解析(命中数≠1 一律不补),再逐份以 git show HEAD:<path> 的换行数兑现行数。另 6 枚(auth-login-abort / telemetry-bootstrap / startup-logging / tool-call-product-visibility / zcode-protocol/startup-resource / zcode-protocol/runtime-cleanup)此前已在清单 ⇒ 不重复计。read 一字未改(这 13 枚本就在 61 的自报口径内,补名不新增读量),具名可复核由 30 升至 37、仅计数差额由 31 降至 24。",
       "evidence": [
         "apps/zcode-cli/packages/bootstrap/src/zcode-protocol/runtime-cleanup.ts:25",
         "apps/zcode-cli/packages/bootstrap/src/zcode-protocol/startup-resource.ts:24",
@@ -3460,6 +3460,34 @@
         {
           "p": "apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4/attachment-upload-registry.ts",
           "lines": 284
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/auth-login-polling.ts",
+          "lines": 68
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/zcode-protocol-entrypoint.ts",
+          "lines": 386
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/app/app-config-options.ts",
+          "lines": 87
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/app/runtime-config.ts",
+          "lines": 297
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/app/embedded-search-backend.ts",
+          "lines": 29
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/app/script-workflow-child-runtime.ts",
+          "lines": 236
+        },
+        {
+          "p": "apps/zcode-cli/packages/bootstrap/src/zcode-protocol/process-child-processes.ts",
+          "lines": 27
         }
       ]
     },
