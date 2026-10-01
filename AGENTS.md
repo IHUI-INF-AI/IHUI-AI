@@ -758,7 +758,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 - **触发背景**(真实事故链,同日三连):① 多会话共享 working tree,某会话 `git stash push/pop` 冲突导致另一会话已完成的 llm_gateway.py 拦截代码在提交中丢失(提交 diff 只剩 63+/58- 格式化差异);② 守门第 8 项 check-api-routes 全量扫描工作区,104 处"前端调用无后端路由"全部来自其他会话未完成文件,正常提交被阻塞;③ push 门全量 typecheck 报上千 TS 错误全部来自其他会话工作区噪音,推送反复被阻;④ 2026-08-31 补充事故:d22d233091 的 commit message 声称含 §12d 规范但 AGENTS.md 实际 diff 仅 1 行——§12d 本体在提交前被并行会话覆盖工作区而丢失,**commit message 声称的规范条目必须与实际 diff 一致**。根因:**多会话共享同一 working tree + 同一 git index**。
 - **第一优先:单写者原则**——同一时刻只允许一个会话写 working tree;并行会话开工前先确认其他会话已收尾(无未提交改动、无进行中 stash)。
 - **确需并行写时必须用 worktree 隔离**(与 §9b 单分支规则协同):
-  - **落点(2026-09-30 改,用户拍板"项目产物不外流"):`git worktree add --detach .worktrees/wt-<任务名>`**(项目内 `.worktrees/`,已 gitignore;旧落点 `../IHUI-AI-wt-<任务名>` 即盘根散落目录,2026-09-30 已清理 13 个残留并立盘根卫生守门 `check-disk-root-hygiene.mjs` 防回潮)。detached HEAD,不占分支名,不违反 §9b
+  - **落点(2026-09-30 改,用户拍板"项目产物不外流"):`git worktree add --detach .worktrees/wt-<任务名>`**(项目内 `.worktrees/`,已 gitignore;旧落点 `../IHUI-AI-wt-<任务名>` 即盘根散落目录,2026-09-30 已清理 13 个残留,并立盘根卫生巡检档 `check-disk-root-hygiene.mjs`(warn,判"项目产物是否外流到盘根"与"worktree 落点是否合法"两维;出口 = git-guardian 每 30 分钟巡检 + `node scripts/check-disk-root-hygiene.mjs --strict` 手动问责,刻意不接提交链 —— 判的是机器/磁盘状态,提交者结构上满足不了)防回潮)。detached HEAD,不占分支名,不违反 §9b
   - worktree 内正常开发 + commit(本地 sha 可引用;worktree 无 node_modules,hook 必败,可 `--no-verify`)
   - 完成后回主 worktree `git cherry-pick <sha>` 收编,随主 worktree push
   - 收编后立即 `git worktree remove .worktrees/wt-<任务名>` + `git worktree prune`
@@ -1550,6 +1550,60 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
   - 同批登记两条实测事实,免得下一个人重新猜:(a) 备份脚本靠什么凭据认证**至今没答上** —— 脚本显式 `$dbPw = ""`、注释写"pg_hba 本地 trust 免密",而实测机器级与用户级都没有 `PGPASSWORD`、`systemprofile` 与 Administrator 下都没有 `pgpass.conf`、`postgres` 对错误口令回 `password authentication failed`、空口令被拒;任何**带控制台上下文**的 `pg_dump`/`psql` 会阻塞在口令提示(`stdin` 重定向也拦不住,libpq 走 ReadConsoleW)。兜底不是没有:`apps/api/src/services/alert-check-service.ts` 巡检两条备份链目录,判"备份缺失 / 0 字节"并走邮件。(b) 调度器 `Run-Backup` 用 `& script.ps1` 调子脚本,而 PowerShell 的 `&` **不因被调脚本 `exit 1` 抛异常** ⇒ `catch` 永不触发;实测一次真实失败(日志先打 `[ERROR] 备份失败`)之后仍打"备份完成"。修它要改生产 runner 并重启服务(该服务"启动即备份"),与凭据问题一并处理。
 - **按凭据存在性豁免对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 本枚落地取到 **157**,blocking,`stagedTriggers=apps/api/src/plugins/` + `apps/api/src/routes/` + `apps/api/src/utils/`,紧急跳过 `HUSKY_SKIP_CREDENTIAL_PRESENCE_BYPASS`,问责档 `pnpm check:credential-presence`):`scripts/check-credential-presence-bypass.mjs` 拦的是**"看见凭据头名在场就跳过安全判定"** —— `if (request.headers['x-anything']) return` 把防线换成了客户端可以自填的一个字符串。它没有编译期症状,typecheck / lint / 其余门全绿,只有"别人机器上少了一次 401"才看得见(与 §5「认证不等于授权」同族,那一族在 TS 侧此前只有 Python 那把尺子 117)。**判据一条**:红 = 安全面内 `if (条件) return` 的条件**整体就是**一个 `request.headers[...]` / `request.cookies.…` 引用(既无比较也无验真调用)**且** 该 if 之后同一函数体内仍有执行动作(throw / 4xx / verify)。**两条放过通道各由自检钉住**:① 条件带 `===` / `!==` / `secretsEqual` / `timingSafeEqual` / `isVerified…(` / `verify…(` —— 判据必须认下 #23 那轮真实修法产出的形态,否则按规矩写就红,唯一结局是逼人 `--no-verify` 连带全部守门作废(§12e);② if 之后**没有** enforcement 的是控制流短路(实测 `mapGeminiAuth` 正是这一形),把它判红就是假阳 —— **假阳比漏报更贵**,它指使人去修没坏的东西,还会把口径说歪成"问题很多"。**出路只有两条**:行内 `credential-presence-exempt: <原因>`(须带原因、只救本行或紧邻上行,**已同笔登记进守门 108 的 30 天存活期档**,跨文件锁在镜像 T10 —— 不登记就会被邻居 E4 判成"新引入的未登记豁免族",即这道门自己的合法出口被钉红),或台账 `scripts/data/credential-presence-exemptions.json` 的 `file + anchor + reason + reviewBy` 四字段(**锚点用内容不用行号**,§1 第 3 条);缺字段 / 复核日过期 / 登记了而被审面没命中(清单腐烂)三种都判红 —— 登记表必然腐烂,所以腐烂必须是红而不是安静。立项现读:候选 2 处全在 `plugins/csrf.ts`,其中 `request.cookies.auth_token` 是 #23 那轮**从没任何人登记过**的豁免、由本门第一次点出来(靠 sameSite=lax 三处实测 + 路由侧仍验 JWT),另 3 处括号配平 / 取不出名字如实报未判定。**口径同 70/77/83/98/101/103/118**:全量判 HEAD blob、`--staged` 判索引 blob 且**收窄到本次暂存集**(刻意不学守门 150 判整张索引面 —— 那会让任何触及射程的提交拿到一道自己清不掉的红,已登记 G-458)、`--worktree` 仅人工且仍走 `readWorktreeFile`(不在门里留磁盘读)、两面旗同给 exit 2、取不到不回落、全量枚举到 0 判死、`--strict` 下有未判定即 exit 2 拒绝出合格证;遮罩只引 `scripts/lib/code-mask.mjs` 那一份实现且判据面**只遮注释、保留字符串**(头名住在字符串字面量里,连字符串一起抹会让门对自己立项那一型失明 —— 第一版就错在这里,由"真仓必须看得见存量"那条自检抓出;同批还修了 `readCondition` 把外层括号留在条件文本里、导致所有命中被自己放行的失明)。取证 `--self-test` 与 §22c 镜像各以命令末行现读为准(镜像 T1/T2 的**装车证明读 HEAD 面的 runner 而非磁盘** —— 磁盘那份常年滞后,会把刚经对象空间落地的注册判成"未装";另有摘线方向锁、台账缺席端到端必红并点名站点、取材面形状锁、暂存档收窄锁、遮罩单份锁、豁免族存活期锁)。
 
+- **守门脚本速查补登(2026-10-01,守门 89 `check-gate-wiring.mjs` 接线层对账 R4 收口:以下 52 枚在五处权威接线点(scripts/guardian-runner.mjs / scripts/lib/pre-commit-hook.js / .husky/ / package.json / CI)已接线,而本速查此前通篇未点名 —— "文档看不见的门会被重复造或绕过",现按主题归堆补齐;mode 与跳过变量一律以 runner 注册条目与 pre-commit-hook 现值为准,编号勿照抄本节)**
+
+  - **API key 泄露**〔scripts/check-api-key-leak.mjs · blocking〕—— 扫描面硬编码密钥/令牌(基础面 id 1)。
+  - **schema drift**〔scripts/check-db-schema-drift.mjs · blocking〕—— 数据库 schema 漂移对账(基础面 id 3)。
+  - **packages 陈旧 dist**〔scripts/check-stale-dist.mjs · blocking〕—— 源码改动后 dist 未重建(基础面 id 4)。
+  - **dist UTF-8 BOM**〔scripts/check-dist-encoding.mjs · blocking〕—— 产物编码完整性(基础面 id 4b)。
+  - **api-client UTF-8 完整性**〔scripts/check-api-client-utf8.mjs · blocking〕—— 跨端 API 客户端编码对账(基础面 id 4c)。
+  - **skipResponseSanitization 裸响应泄露**〔scripts/check-sanitizer-bypass.mjs · blocking〕—— 关闭脱敏的旁路(基础面 id 6;修此类红禁止加 skipResponseSanitization 消红)。
+  - **依赖碎片化**〔scripts/check-dedupe.mjs · blocking〕—— 重复依赖对账(基础面 id 7)。
+  - **safeParse 静默忽略**〔scripts/check-safe-parse.mjs · blocking〕—— Zod safeParse 吞错(基础面 id 9)。
+  - **CSS 颜色 token 嵌套**〔scripts/check-input-border-var.mjs · blocking〕—— 样式面颜色必须走 token(UI/样式 id 17)。
+  - **原生 title tooltip 违规**〔scripts/check-native-title-tooltip.mjs · blocking〕—— §4「禁用原生提示窗」配套(UI/样式 id 18)。
+  - **Tailwind class 冲突**〔scripts/check-tailwind-class-conflict.mjs · blocking〕—— 类名冲突对账(UI/样式 id 20)。
+  - **侧边栏宽度一致性**〔scripts/check-sidebar-width-consistency.mjs · blocking〕—— 侧边栏宽度 + 端口注册表(UI/样式 id 24a)。
+  - **z-index 层叠防护**〔scripts/check-z-index-guard.mjs · blocking · HUSKY_SKIP_Z_INDEX_GUARD〕—— 第三方 IDE 注入/遮罩 fade-in/窗口按钮等效压暗(UI/样式 id 27,详见上方速查 27/28 条)。
+  - **全屏遮罩 z-index 层级**〔scripts/check-overlay-zindex.mjs · blocking · HUSKY_SKIP_OVERLAY_ZINDEX〕—— 防 fixed inset-0 + z-50 复发(UI/样式 id 28)。
+  - **button 文字换行**〔scripts/check-shrinkable-text-button.mjs · warn-only(pre-commit-hook.js 直挂 · HUSKY_SKIP_BUTTON_WRAP_CHECK)〕—— flex 父容器下 button 文字缺 shrink-0/whitespace-nowrap 被压缩换行(UI/样式)。
+  - **ui-react 组件复用对账**〔scripts/check-ui-react-usage.mjs · blocking · HUSKY_SKIP_UI_REACT_USAGE〕—— 端内自实现 Dialog/Card/Form 即提示(UI/样式 id 88)。
+  - **迁移完整性(7 大类 29 子项)**〔scripts/check-api-migration-completeness.mjs · blocking〕—— API 迁移清单对账(工程约束 id 15)。
+  - **mypy 类型检查**〔scripts/check-mypy.mjs · blocking〕—— ai-service Python 类型回退防护(工程约束 id 35,详见上方「Python 类型」条)。
+  - **mobile-rn screen 迁移完整性**〔scripts/check-rn-app-migration.mjs · blocking〕—— 防独立实现回升(工程约束 id 39)。
+  - **PROJECT_PLAN.md 体积**〔scripts/check-project-plan-size.mjs · warn〕—— 计划文档体积与防误删(工程约束 id 13b)。
+  - **整树删除拦截**〔scripts/check-mass-deletion.mjs · blocking · HUSKY_SKIP_MASS_DELETION_GUARD〕—— 索引 vs HEAD 文件存续性,大规模删除即拦(工程约束 id 65)。
+  - **活文档点名路径存续性对账**〔scripts/check-live-doc-references.mjs · blocking · HUSKY_SKIP_LIVE_DOC_REFERENCES〕—— 正文反引号点名的仓内路径必须在被审面在位(工程约束 id 184)。
+  - **中文术语机翻残留**〔scripts/check-zh-term-quality.mjs · blocking〕—— 竞品 zh 包机翻残留实测教训(i18n id 58)。
+  - **ICU 语法跨端可用性**〔scripts/check-icu-locale-support.mjs · blocking〕—— 非 web 端取词引擎只支持四形子集(i18n id 59)。
+  - **语言包文件存在性与合法性对账**〔scripts/check-i18n-messages-exist.mjs · blocking · HUSKY_SKIP_I18N_MESSAGES_EXIST〕—— 40 项语言包清单(i18n id 87)。
+  - **miniapp-taro 端 i18n 死 key**〔scripts/scan-miniapp-taro-dead-i18n-keys.mjs · warn-only(pre-commit-hook.js 四端循环 · HUSKY_SKIP_I18N_DEAD_KEY_OTHER)〕—— 判定面=索引 blob,死 key 逐端报数(i18n)。
+  - **mobile-rn 端 i18n 死 key**〔scripts/scan-mobile-rn-dead-i18n-keys.mjs · warn-only(同上四端循环 · HUSKY_SKIP_I18N_DEAD_KEY_OTHER)〕—— 同上(i18n)。
+  - **extension 端 i18n 死 key**〔scripts/scan-extension-dead-i18n-keys.mjs · warn-only(同上四端循环 · HUSKY_SKIP_I18N_DEAD_KEY_OTHER)〕—— 同上(i18n)。
+  - **desktop 端 i18n 死 key**〔scripts/scan-desktop-dead-i18n-keys.mjs〕—— 薄壳,委托统一入口 `scan-dead-i18n-keys.mjs --target=desktop`;desktop 无 JS i18n,统一入口自动跳过(exit 0);接线对账按 `${target}` 模板形态计入,而 pre-commit 循环实为 miniapp-taro/mobile-rn/extension 三端(web 端另有独立段),desktop 并不在循环内 —— 如实登记,待归属会话裁决(i18n)。
+  - **design-tokens 同步对账**〔scripts/check-design-tokens-sync.mjs · 仅 CI 接线(弱一档)〕—— 由 `.github/workflows/8end-consistency-cert.yml` 与 `scripts/run-8end-consistency-cert.mjs` 调用,不在提交链,无跳过变量(i18n/tokens)。
+  - **对话流元素覆盖守门**〔scripts/check-chat-element-coverage.mjs · blocking〕—— 锚点漂移/契约事件两端不齐/清单条目倒退等五判据(对话流 id 57,详见上方速查 57 条)。
+  - **工具活动行双时态覆盖**〔scripts/check-tool-activity-coverage.mjs · blocking〕—— 键形合规 + 覆盖率 ratchet(工具面 id 60)。
+  - **工具注册表完整性守门**〔scripts/check-tool-registry-integrity.mjs · blocking(pre-commit-hook.js 直挂 · HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY)〕—— 工具可达面 ↔ 本地注册表 ↔ 前端委托实现三面对齐(工具面)。
+  - **桌面安装器资产三方对账**〔scripts/check-installer-assets.mjs · blocking · HUSKY_SKIP_INSTALLER_ASSETS_GUARD〕—— 安装器资产引用 ↔ 打包清单 ↔ 5 档落盘三方对齐(桌面端 id 61)。
+  - **SSE 双解析器漏接对账**〔scripts/check-sse-parser-parity.mjs · blocking · HUSKY_SKIP_SSE_PARSER_PARITY〕—— 帧覆盖 ratchet + 未接帧须交代归属(SSE id 63)。
+  - **水印载荷/横幅行语法对账**〔scripts/check-watermark-syntax.mjs · blocking · HUSKY_SKIP_WATERMARK_SYNTAX〕—— 零宽字符必须被注释包裹(溯源水印 id 95)。
+  - **工具 schema 投影完整性**〔scripts/check-tool-schema-projection.mjs · blocking · HUSKY_SKIP_TOOL_SCHEMA_PROJECTION〕—— 工具描述符 JSON schema 投影键序 canonical/拒绝通道在位/A-B 两面一致(工具面 id 179)。
+  - **admin 面特权判定一致性**〔scripts/check-admin-gate-consistency.mjs · blocking · HUSKY_SKIP_ADMIN_GATE_GUARD〕—— O13b roleId>=1 收敛,裸 roleId 判定/本地重定义 requireAdmin 即红(能力面 id 53)。
+  - **配置表名存在性**〔scripts/check-config-table-existence.mjs · blocking · HUSKY_SKIP_CONFIG_TABLE_GUARD〕—— COMPUTE_ALLOWED_TABLES 必须与 drizzle schema 对齐(能力面 id 75)。
+  - **迁移账本带外对象防回潮**〔scripts/check-migration-ledger-drift.mjs · warn · HUSKY_SKIP_MIGRATION_LEDGER_GUARD〕—— journal 序号全集 vs 账本行全集(能力面 id 76)。
+  - **跨端 storage-adapter parity**〔scripts/check-cross-store-parity.mjs · blocking(pre-commit-hook.js 直挂,无跳过变量)〕—— 五份 storage/auth-store 输入一致性,判定面=索引 blob(能力面)。
+  - **能力矩阵对账守门**〔scripts/check-capability-matrix.mjs · blocking(pre-commit-hook.js 直挂 · HUSKY_SKIP_CAPABILITY_MATRIX)〕—— 默认关 feature env 必须登记 capability_matrix.py 台账,判定面=索引 blob(能力面)。
+  - **能力位不得客户端自供守门**〔scripts/check-capability-field-not-client-supplied.mjs · blocking · HUSKY_SKIP_CAPABILITY_FIELD_NOT_CLIENT_SUPPLIED〕—— 客户端不得自报 capability 字段,能力位只准服务端下发(能力面 id 176)。
+  - **诊断面脱敏守门**〔scripts/check-diagnostic-redaction.mjs · blocking · HUSKY_SKIP_DIAGNOSTIC_REDACTION〕—— 诊断/错误上报面不得携带未脱敏敏感串(b76 系 id 174)。
+  - **进程退出码归因守门**〔scripts/check-process-exit-attribution.mjs · blocking · HUSKY_SKIP_PROCESS_EXIT_ATTRIBUTION〕—— exit 1/非零退出必须可归因到显式 failure kind/错误码(b76 系 id 175)。
+  - **SSE 帧水印守门**〔scripts/check-sse-frame-watermark.mjs · blocking · HUSKY_SKIP_SSE_FRAME_WATERMARK〕—— SSE 流消费环必须带 fromSeq>=1 帧水印接线,摘线即红(b76 系 id 177)。
+  - **列表截断诚实守门**〔scripts/check-list-cap-honesty.mjs · blocking · HUSKY_SKIP_LIST_CAP_HONESTY〕—— UI 列表截断必须如实交代截断帽(b76 系 id 178)。
+  - **嵌套 additionalProperties 闭集守门**〔scripts/check-nested-additional-properties.mjs · blocking · HUSKY_SKIP_NESTED_ADDITIONAL_PROPERTIES〕—— 嵌套层 schema 闭集声明不得被摘(b76 系 id 180)。
+  - **错误文案有界化守门**〔scripts/check-error-message-bounded.mjs · blocking · HUSKY_SKIP_ERROR_MESSAGE_BOUNDED〕—— 错误文案出边界的 JSON.stringify 内插必须有界或带 ref= 基线(b76 系 id 181)。
+  - **控制面 strict 棘轮门**〔scripts/check-wire-strictness.mjs · blocking · HUSKY_SKIP_WIRE_STRICTNESS〕—— z.object+.strict+.catch 总和只减不增,禁 passthrough 降红(b76 系 id 182)。
+  - **分片上传聚合预算棘轮门**〔scripts/check-upload-budget.mjs · blocking · HUSKY_SKIP_UPLOAD_BUDGET〕—— 装配检与落盘追加检各 >=1 且常量在 PROTOCOL_UPLOAD_LIMITS 登记,防死表回潮(b76 系 id 183)。
+
 ### 守门手动触发 / 紧急跳过抽查
 
 - **手动触发全量守门**:`node scripts/guardian-runner.mjs --staged`(pre-commit 模式,传给所有脚本);不带 `--staged` 为全量扫描。
@@ -2085,7 +2139,7 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **门脚本取材面纪律对账**〔scripts/check-gate-face-discipline.mjs · blocking · HUSKY_SKIP_GATE_FACE_DISCIPLINE〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L187–L187
 - **子代理权限继承对账**〔scripts/check-subagent-permission-inherited.mjs · blocking · HUSKY_SKIP_SUBAGENT_PERMISSION_INHERITED〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L188–L188
 - **名单类判据正向证明对账**〔scripts/check-list-predicate-has-positive-proof.mjs · blocking · HUSKY_SKIP_LIST_POSITIVE_PROOF〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L189–L189
-- **错误码文本判分支对账**〔scripts/guardian-runner.mjs · scripts/check-error-code-not-text-matching.mjs · scripts/lib/code-mask.mjs · blocking · HUSKY_SKIP_ERROR_CODE_TEXT_MATCHING〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190
+- **错误码文本判分支对账**〔scripts/check-error-code-not-text-matching.mjs · scripts/lib/code-mask.mjs · 手动档,**尚未接提交链**(2026-09-30 曾一度接进 runner,复跑后已摘出;重新接线由台账"解阻前置"管,现行定级与取材口径见下方完整原文条;重新接线时才随条目声明应急跳过变量)〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190
 - **声明策略消费者对账**〔scripts/check-declared-policy-has-consumer.mjs · blocking · HUSKY_SKIP_DECLARED_POLICY_CONSUMER〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L191–L191
 - **文件写盘安全对账**〔scripts/check-file-write-safety.mjs · blocking · HUSKY_SKIP_FILE_WRITE_SAFETY〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L192–L192
 - **工具族注册对账**〔scripts/check-tool-family-registered.mjs · blocking · HUSKY_SKIP_TOOL_FAMILY_REGISTERED〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L193–L193
@@ -2297,7 +2351,7 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **RN 包装器双层页头对账**〔scripts/guardian-runner.mjs · scripts/check-rn-double-header.mjs · scripts/gate-registry-insert.mjs · scripts/heal-worktree-tracked.mjs · blocking · HUSKY_SKIP_RN_DOUBLE_HEADER〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L516–L516
 - **旁路落地/跳门留痕的写入者有四家,合起来才是总量:`.workbuddy/safe-commit-attestation.jsonl`**〔scripts/plan-bypass-ledger-report.mjs · scripts/alert-volume-report.mjs〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L517–L517
 - **跨端 Button 共享档位值的唯一源(2026-09-29 O92 立)**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L518–L518
-- **图片占位内容对账**〔scripts/check-image-placeholders.mjs · blocking〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L519–L519
+- **图片占位内容对账**〔scripts/check-image-placeholders.mjs · 手动问责档 warn,刻意不接提交链(判的是部署机上 gitignored 目录的内容,提交者结构上满足不了;问责入口 `pnpm check:image-placeholders` / `--list`,现行定级与判据见下方完整原文条)〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L519–L519
 - **活文档「按旧副本提交会写回他人已入库行」对账**〔scripts/guardian-runner.mjs · scripts/check-live-doc-pathspec.mjs · scripts/lib/live-doc-classify.mjs · blocking · HUSKY_SKIP_LIVE_DOC_PATHSPEC〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L520–L520
 - **turn 序号分配点上锁对账**〔scripts/guardian-runner.mjs · scripts/check-turn-ordinal-lock.mjs · scripts/lib/code-mask.mjs · scripts/tests/check-turn-ordinal-lock.test.mjs · blocking · HUSKY_SKIP_TURN_ORDINAL_LOCK〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L521–L521
 - **唯一例外位:输入框/选择控件的聚焦态描边取墨档(2026-09-30 用户定档)**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L522–L522
