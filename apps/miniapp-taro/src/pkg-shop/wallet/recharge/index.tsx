@@ -4,6 +4,7 @@
 
 import { useTt, useI18n } from '@/i18n'
 import { View, Text, Button, Image } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import {
@@ -17,7 +18,6 @@ import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import './index.css'
-import { FocusInput } from '@/components/FocusField'
 
 const PRESET_AMOUNTS = [10, 50, 100, 500, 1000]
 const TOKEN_RATE = 10
