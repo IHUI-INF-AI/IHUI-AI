@@ -1073,6 +1073,13 @@ def resolve_tool_source(tool_name: str) -> tuple[str, str | None, str | None]:
 
 # ===== tool-summary SSE 事件聚合统计(2026-07-31 立,A2 任务:AI 对话可视化深度接入)=====
 
+# 口径归属(G-415 A9,2026-10-01):下面这两个函数是「行改动统计」的**权威实现**,
+# 前端 `apps/web/src/lib/py-line-count.ts` 复刻它们(签名差一层:本侧收 tool_call,
+# 前端收 args)。此前那句"复刻"只有注释在担保,现读量到过真漂移(JS 侧漏抄
+# \x1c \x1d \x1e 三枚行边界,同一串两侧行数不等)。常驻尺子 =
+# `scripts/check-line-split-parity.mjs`(两侧都真求值,逐例并排),问责档
+# `--strict`。**改这里的分支次序或 splitlines 用法,必须同笔改那份 TS 实现并跑该门**
+# —— 只改一侧不会有任何编译期症状,只会让前后端在同一个位置显示两个数。
 def calculate_added_lines(tool_call: dict[str, Any]) -> int:
     """从 tool_call 的 args 中提取新增行数(用于 tool-summary 的 linesAdded 统计)。
 
