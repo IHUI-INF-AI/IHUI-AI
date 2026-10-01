@@ -752,7 +752,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(500).send(error(500, '验证码发送失败'))
       }
       // dev stub 模式下回传验证码,便于本地联调(生产环境 stub 不会触发,因为生产应配置真实 provider)
-      const isDev = process.env.NODE_ENV !== 'production'
+      // G-998138:档位经 config 唯一出口(旧写法在部署链漏设 NODE_ENV 时把 devCode 静默放给生产;
+      // 旧测试 mock 的 config 缺 isProductionGuard ⇒ 旧判据回退)
+      const isDev = !(config.isProductionGuard ?? config.NODE_ENV === 'production')
       return reply.send(
         success(isDev && result.stub ? { sent: true, devCode: code } : { sent: true }),
       )
@@ -2279,7 +2281,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /oauth/debug/callback — 调试回调（生产环境禁止）
   server.post('/oauth/debug/callback', async (request, reply) => {
-    if (process.env.NODE_ENV === 'production')
+    // G-998138:档位经 config 唯一出口(旧写法在部署链漏设 NODE_ENV 时调试端点静默放行;
+    // 旧测试 mock 的 config 缺 isProductionGuard ⇒ 旧判据回退)
+    if (config.isProductionGuard ?? config.NODE_ENV === 'production')
       return reply.status(403).send(error(403, '生产环境禁止调试端点'))
     const body = request.body as Record<string, unknown>
     await createAuditLog({
@@ -2309,7 +2313,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /oauth/debug/create-test-session — 创建测试会话
   server.post('/oauth/debug/create-test-session', async (request, reply) => {
-    if (process.env.NODE_ENV === 'production')
+    // G-998138:档位经 config 唯一出口(同上,漏设变量不得静默放行)
+    if (config.isProductionGuard ?? config.NODE_ENV === 'production')
       return reply.status(403).send(error(403, '生产环境禁止调试端点'))
     await authenticate(request)
     const { client_id } = z.object({ client_id: z.string().optional() }).parse(request.body)

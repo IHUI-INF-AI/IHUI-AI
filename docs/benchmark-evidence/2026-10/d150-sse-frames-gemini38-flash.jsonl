@@ -1,0 +1,5 @@
+{"i":0,"t_ms":10131,"event":"chunk","data":{"type":"chunk","content":"我是由 Google 训练","traceId":"b326769a4a47b38467d919e0d1a25c00"}}
+{"i":1,"t_ms":13946,"event":"chunk","data":{"type":"chunk","content":"的大型语言模型 Gemini。我","traceId":"b326769a4a47b38467d919e0d1a25c00"}}
+{"i":2,"t_ms":14114,"event":"chunk","data":{"type":"chunk","content":"擅长处理自然语言，能够协助你进行编程、写作、回答问题以及","traceId":"b326769a4a47b38467d919e0d1a25c00"}}
+{"i":3,"t_ms":14307,"event":"chunk","data":{"type":"chunk","content":"分析复杂信息。\n\n这是一个示例代码块：\n\n```python\nprint(\"hi\")\n```","traceId":"b326769a4a47b38467d919e0d1a25c00"}}
+{"i":4,"t_ms":14383,"event":"done","data":{"type":"done","model":"gemini-3.8-flash","usage":{"prompt_tokens":43,"completion_tokens":73,"total_tokens":116,"estimated":true},"stub":false,"metadata":{"userId":"f4f40c02-49be-4b93-bb52-d32aa5a16352"},"traceId":"b326769a4a47b38467d919e0d1a25c00"}}

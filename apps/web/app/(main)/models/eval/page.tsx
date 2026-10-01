@@ -38,8 +38,9 @@ import {
   TabsContent,
   Label,
 } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 /* ---------- types ---------- */
 
@@ -132,16 +133,21 @@ export default function EvalPage() {
   const [createRunOpen, setCreateRunOpen] = React.useState(false)
   const [viewRun, setViewRun] = React.useState<EvalRun | null>(null)
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   /* ---------- queries ---------- */
 
   const datasetsQ = useQuery({
     queryKey: ['eval', 'datasets'],
     queryFn: fetchDatasets,
+    enabled: allow,
   })
 
   const runsQ = useQuery({
     queryKey: ['eval', 'runs'],
     queryFn: fetchRuns,
+    enabled: allow,
   })
 
   const invalidate = () => {
@@ -179,6 +185,10 @@ export default function EvalPage() {
         <p className="text-xs text-muted-foreground">{t('eval.subtitle')}</p>
       </header>
 
+      {/* 2026-09-30 登录态门:未登录时用登录引导替换个性化数据区 */}
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看评测数据" />
+      ) : (
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="datasets" className="gap-1.5">
@@ -398,6 +408,7 @@ export default function EvalPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      )}
 
       {/* ========== CREATE DATASET DIALOG ========== */}
       <CreateDatasetDialog open={createOpen} onOpenChange={setCreateOpen} onSuccess={invalidate} />

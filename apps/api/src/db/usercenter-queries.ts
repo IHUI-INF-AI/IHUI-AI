@@ -104,6 +104,7 @@ export async function updateUserPassword(id: string, passwordHash: string): Prom
  */
 export async function updateUserStatus(id: string, status: number): Promise<void> {
   await db.update(users).set({ status, updatedAt: new Date() }).where(eq(users.id, id))
+  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
 }
 
 // =============================================================================

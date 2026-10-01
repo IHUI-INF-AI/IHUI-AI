@@ -12,6 +12,8 @@
  * 4. DELETE /relay/alert-rules/:id       — 删除规则
  * 5. GET    /relay/alert-rules/events    — 最近告警事件流(默认 50 条)
  * 6. POST   /relay/alert-rules/evaluate  — 立即评估(返回 evaluated/triggered/skipped)
+ * 7. GET    /relay/alert-silences        — 告警静默列表
+ * 8. POST   /relay/alert-silences/batch-delete — 批量删除静默(支持 expectedIds 执行前复验)
  *
  * 注册由主会话接线到 routes/index.ts(prefix /api/admin)。
  */
@@ -53,6 +55,22 @@ const silenceBodySchema = z.object({
   reason: z.string().max(255).optional(),
   endsAt: z.string().min(1),
   createdBy: z.string().max(64).optional(),
+})
+
+/**
+ * 批量处置静默的"确认集合"入参(票2,G-998148,出处 b76-12b)。
+ *
+ * `expectedIds` = **确认框打开时看到的静默 id 集合**。CLI/服务端在执行批量删除**前**复验:
+ * 当前存量集合必须与它完全一致(只比集合、不比顺序),否则整体拒绝、一条都不删 ——
+ * 防止确认框打开后桌面/手机并发增删,把用户没确认过的新静默一并处置、或对已消失的静默空删。
+ *
+ * 缺省(不携带)= 迁移期放行,行为与旧单条删除一致;显式携带 = 复验。
+ * 复验失败回 409 + 独立错误码 `EXPECTED_IDS_CHANGED`(不复用容量/权限码),
+ * 响应体回带 `addedIds`(新增未确认的)/ `removedIds`(已消失的)/ `currentIds`(现存全集)。
+ */
+const batchSilenceDeleteSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1),
+  expectedIds: z.array(z.string().uuid()).optional(),
 })
 
 const adminRelayAlertRulesRoutes: FastifyPluginAsync = async (server) => {
@@ -211,6 +229,51 @@ const adminRelayAlertRulesRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除告警静默失败'))
+    }
+  })
+
+  // 8. 批量删除静默(票2,G-998148):expectedIds 缺省=迁移期放行;显式携带=执行前复验集合一致性。
+  server.post('/relay/alert-silences/batch-delete', async (request, reply) => {
+    const parsed = batchSilenceDeleteSchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数不合法'))
+    }
+    // 去重:重复 id 只处置一次,计数不得虚增(与 batchWriteOutcome 的库确认口径同精神)。
+    const targetIds = [...new Set(parsed.data.ids)]
+    try {
+      if (parsed.data.expectedIds) {
+        // 执行前复验:当前存量集合必须与确认窗集合完全一致,不一致则整体拒绝、一条不动。
+        const currentRows = await listAlertSilences(false)
+        const currentIds = currentRows.map((r) => r.id)
+        const currentSet = new Set(currentIds)
+        const expectedSet = new Set(parsed.data.expectedIds)
+        const addedIds = currentIds.filter((id) => !expectedSet.has(id))
+        const removedIds = [...new Set(parsed.data.expectedIds)].filter((id) => !currentSet.has(id))
+        if (addedIds.length > 0 || removedIds.length > 0) {
+          const detail = [
+            addedIds.length > 0 ? `新增未确认的 ${addedIds.join(', ')}` : '',
+            removedIds.length > 0 ? `已消失的 ${removedIds.join(', ')}` : '',
+          ]
+            .filter(Boolean)
+            .join('；')
+          return reply.status(409).send({
+            code: 409,
+            message: `告警静默集合已变化（${detail}），请刷新确认窗后重试`,
+            errorCode: 'EXPECTED_IDS_CHANGED',
+            data: { addedIds, removedIds, currentIds },
+          })
+        }
+      }
+      const deletedIds: string[] = []
+      const missedIds: string[] = []
+      for (const id of targetIds) {
+        if (await deleteAlertSilence(id)) deletedIds.push(id)
+        else missedIds.push(id)
+      }
+      return reply.send(success({ deleted: deletedIds.length, deletedIds, missedIds }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '批量删除告警静默失败'))
     }
   })
 }

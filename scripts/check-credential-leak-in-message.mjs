@@ -771,6 +771,9 @@ export function readHeadBlob(file) {
       maxBuffer: 64 * 1024 * 1024,
       timeout: 20_000,
       windowsHide: true,
+      // EBUSY 病窗纪律(见 .workbuddy 技能):不消费 stdin 的子进程 stdio 一律 ['ignore','pipe','pipe'],
+      // 默认全管道会在病窗内死于 stdin 管道创建。git show 只读不喂,ignore 安全。
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   } catch {
     return null // 取不到(新文件/改名/异常)⇒ null,调用方按"HEAD 无存量"处理并如实报出
@@ -813,6 +816,8 @@ function gitLines(args) {
     encoding: 'utf8',
     maxBuffer: 256 * 1024 * 1024,
     windowsHide: true,
+    // EBUSY 病窗纪律:ls-files/diff --cached 均不消费 stdin,stdio ignore 建管道只留出/错两侧
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
     .split('\n')
     .map((s) => s.trim())

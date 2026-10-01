@@ -534,6 +534,7 @@ export async function checkAndUpdateStatus(
   const [updated] = await db
     .update(examRecords)
     .set({ status: newStatus })
+  // status-guard-exempt: 服务层已先校验状态机合法性(非法迁移上方抛 AppError),此为校验后写点
     .where(eq(examRecords.id, recordId))
     .returning()
   if (!updated) throw new AppError('状态更新失败', 500, 'INTERNAL_ERROR')

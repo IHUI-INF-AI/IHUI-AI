@@ -291,8 +291,12 @@ export function readLedger(raw) {
 /**
  * 判定核心(纯函数,可用构造面证明"豁免不得静默、腐烂必红、过期必红")。
  * `absent` 时不做腐烂判定 —— 台账不在被审面上是"零豁免",不是"清单腐烂"。
+ * `scanned`(G-815985 补):实际被审查的文件集。腐烂只能判"看了却没命中",
+ * 不能判"没看" —— 否则 --staged 下任何不带 csrf.ts 的提交都恒红(本门自述
+ * "只判本次带进来的路径",恒红门的唯一结局是逼人 --no-verify,§12e)。
+ * 传 null = 整面已审(全量/HEAD 档,真腐烂仍必红)。
  */
-export function decide({ findings, ledger, today, absent }) {
+export function decide({ findings, ledger, today, absent, scanned = null }) {
   const violations = []
   const expired = []
   let exempted = 0
@@ -317,7 +321,13 @@ export function decide({ findings, ledger, today, absent }) {
   }
   const stale = []
   if (!absent) {
-    for (const key of ledger.keys()) if (!hit.has(key) && !expired.some((s) => s.startsWith(key))) stale.push(key)
+    for (const [key, e] of ledger)
+      if (
+        !hit.has(key) &&
+        !expired.some((s) => s.startsWith(key)) &&
+        (scanned === null || scanned.has(e.file))
+      )
+        stale.push(key)
   }
   return { violations, exempted, stale, expired }
 }
@@ -420,7 +430,14 @@ export function analyze({ face, root = ROOT }) {
   const ledger = readLedger(ledgerRaw)
   if (ledger.broken) throw new Error(ledger.broken)
   const today = new Date().toISOString().slice(0, 10)
-  const res = decide({ findings, ledger: ledger.byKey, today, absent: ledger.absent })
+  // --staged 只把"暂存 ∩ 候选"当审查面:台账条目若落在面外,判腐烂就是逼每次提交都带 csrf.ts。
+  const res = decide({
+    findings,
+    ledger: ledger.byKey,
+    today,
+    absent: ledger.absent,
+    scanned: face === 'staged' ? new Set(files) : null,
+  })
   return { files, findings, undetermined, unreadable, ledgerLoaded: !ledger.absent, ...res }
 }
 
@@ -503,7 +520,8 @@ function selfTest() {
   t('CB12 台账齐备 ⇒ 豁免且不销案', decide({ findings: [f0], ledger: new Map([[key, { file: 'a.ts', anchor: f0.ref, reason: '另有验真', reviewBy: '2026-12-31' }]]), today: '2026-09-28', absent: false }).violations.length === 0)
   t('CB13 台账缺原因/复核日 ⇒ 不得放过', decide({ findings: [f0], ledger: new Map([[key, { file: 'a.ts', anchor: f0.ref, reason: '', reviewBy: '' }]]), today: '2026-09-28', absent: false }).violations.length === 1)
   t('CB14 复核日过期 ⇒ 仍判(红或过期,绝不静默放过)', decide({ findings: [f0], ledger: new Map([[key, { file: 'a.ts', anchor: f0.ref, reason: 'x', reviewBy: '2026-01-01' }]]), today: '2026-09-28', absent: false }).expired.length === 1)
-  t('CB15 台账腐烂(登记了而面上没命中)必红', decide({ findings: [], ledger: new Map([[key, { file: 'a.ts', anchor: f0.ref, reason: 'x', reviewBy: '2026-12-31' }]]), today: '2026-09-28', absent: false }).stale.length === 1)
+  t('CB15 台账腐烂(登记了而面上没命中)必红', decide({ findings: [], ledger: new Map([[key, { file: 'a.ts', anchor: f0.ref, reason: 'x', reviewBy: '2026-12-31' }]]), today: '2026-09-28', absent: false, scanned: new Set(['a.ts']) }).stale.length === 1)
+  t('CB15b 台账条目落在审查面外 ⇒ 不判腐烂(否则 --staged 下不带 csrf.ts 的提交恒红)', decide({ findings: [], ledger: new Map([[key, { file: 'a.ts', anchor: f0.ref, reason: 'x', reviewBy: '2026-12-31' }]]), today: '2026-09-28', absent: false, scanned: new Set(['b.ts']) }).stale.length === 0)
   t('CB16 台账缺席按零豁免判,不把腐烂当结论', decide({ findings: [], ledger: new Map([[key, { file: 'a.ts', anchor: f0.ref, reason: 'x', reviewBy: '2026-12-31' }]]), today: '2026-09-28', absent: true }).stale.length === 0)
   t('CB17 坏台账不得被当成空台账放行', readLedger('{ not json').broken !== null)
   t('CB18 条目字段不齐 ⇒  broken(不静默当空表)', readLedger('{"exemptions":[{"file":"a.ts","anchor":"x"}]}').broken !== null)

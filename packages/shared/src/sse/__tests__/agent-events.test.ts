@@ -107,7 +107,8 @@ describe('parseSelfHealEvent', () => {
     expect(evt!.ok).toBeNull()
     expect(evt!.attempts).toBeNull()
     expect(evt!.rollbackCount).toBe(0)
-    expect(typeof evt!.ts).toBe('number')
+    // G-998099:客户端禁本地时钟造 ts——wire 未带则键整个不存在;带 wire ts 的透传用例见 tests/event-id-stability
+    expect(evt!.ts).toBeUndefined()
   })
 
   it('finished 载荷:ok/attempts/rollbacks 透传,failed 为 null', () => {
@@ -225,7 +226,8 @@ describe('parsePermissionModeEvent', () => {
     expect(evt!.mode).toBe('default')
     expect(evt!.tool).toBe('write_file')
     expect(evt!.decision).toBe('ask')
-    expect(typeof evt!.ts).toBe('number')
+    // G-998099:同上——wire 未带 ts 则键不存在,不再由客户端补本地时钟
+    expect(evt!.ts).toBeUndefined()
     // 载荷字段全缺省:空串兜底(payload 存在即不返回 null)
     expect(parsePermissionModeEvent(JSON.stringify({ payload: {} }))!.mode).toBe('')
   })

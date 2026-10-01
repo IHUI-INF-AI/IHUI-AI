@@ -38,22 +38,69 @@ interface CsConnMeta {
 // 2026-08-02 P1 安全审计:WebSocket 消息 Zod schema 校验
 // 风险:客户端可发任意类型 content(对象/超长字符串)→ 注入/资源耗尽
 // 防护:cs_message / cs_typing 必须通过 schema,失败直接丢弃
-const csMessageSchema = z.object({
-  type: z.literal('cs_message'),
-  data: z.object({
+//
+// 2026-09-30 控制面 strict 化(票 b76-12c-2):入站边界收成 .strict() —— zod 默认剥离
+// 未声明键,「生产者加了字段、消费者没登记」会**无声**失效(协议文档承诺的 kind 就被
+// 这样剥过)。判定单点 judgeCsInboundMessage:未登记键 → 拒 + 计数 + 告警(不静默);
+// 文档承诺的合法键 → 必须真登记进 schema,不得靠放宽边界"顺手通过"。
+// 禁止为降红把 .strict() 换成 .passthrough()/looseObject(那等于把剥离改成放行),
+// 禁止把装饰字段塞进控制面 schema 来绕过本门。
+const csMessageDataSchema = z
+  .object({
     sessionId: z.string().max(128).optional(),
-    content: z.string().max(8000).optional(),
-  }),
-})
+    // 2026-09-30:按协议文档(:69) `data: { content, kind? }` 收紧 —— content 不带 ?,
+    // 是必填承诺,缺 content 即拒;此前登记成 optional 与文档脱节
+    content: z.string().max(8000),
+    // 2026-09-30:协议文档早已承诺的合法键,此前未登记 → 送来即被剥离且无人报错
+    kind: z.string().max(32).optional(),
+  })
+  .strict()
 
-const csTypingSchema = z.object({
-  type: z.literal('cs_typing'),
-  data: z.object({
-    isTyping: z.boolean().optional(),
-  }),
-})
+const csMessageSchema = z
+  .object({
+    type: z.literal('cs_message'),
+    data: csMessageDataSchema,
+  })
+  .strict()
+
+const csTypingSchema = z
+  .object({
+    type: z.literal('cs_typing'),
+    data: z
+      .object({
+        isTyping: z.boolean().optional(),
+      })
+      .strict(),
+  })
+  .strict()
 
 const csMessageSchemas = z.discriminatedUnion('type', [csMessageSchema, csTypingSchema])
+
+/** 入站控制面判定结论:通过 → 放行 zod 解析结果;拒绝 → 带可诊断原因 */
+export type CsInboundVerdict =
+  | { ok: true; data: { type: 'cs_message'; data: { sessionId?: string; content: string; kind?: string } } | { type: 'cs_typing'; data: { isTyping?: boolean } } }
+  | { ok: false; reason: 'unrecognized_key' | 'malformed' }
+
+/** strict 边界拒绝计数(排障与测试观测面:被丢弃的非法入站消息条数) */
+let strictRejectionCount = 0
+
+export function getCsStrictRejectionCount(): number {
+  return strictRejectionCount
+}
+
+/**
+ * 入站消息判定单点(坐席与客户两条 handler 共用):strict schema 判定 + 拒绝计数。
+ * 拒绝时区分「未登记键」与「形状非法」两类原因,调用方一律丢弃并告警,不得静默。
+ */
+export function judgeCsInboundMessage(msgObj: unknown): CsInboundVerdict {
+  const parsed = csMessageSchemas.safeParse(msgObj)
+  if (!parsed.success) {
+    strictRejectionCount++
+    const unrecognized = parsed.error.issues.some((i) => i.code === 'unrecognized_keys')
+    return { ok: false, reason: unrecognized ? 'unrecognized_key' : 'malformed' }
+  }
+  return { ok: true, data: parsed.data }
+}
 
 /**
  * 客服实时会话 WebSocket 插件。
@@ -196,19 +243,25 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
           }
           const rawMsg = msgObj as { type?: string }
           if (rawMsg.type !== 'cs_message') return
-          const parsed = csMessageSchema.safeParse(msgObj)
-          if (!parsed.success) {
+          // 2026-09-30 strict 化:判定走共享单点,拒绝一律计数 + 告警(不静默剥键)
+          const verdict = judgeCsInboundMessage(msgObj)
+          if (!verdict.ok) {
+            server.log.warn(
+              { userId, reason: verdict.reason },
+              'ws-customer-service(坐席)消息被 strict 边界拒绝',
+            )
             socket.send(JSON.stringify({ type: 'error', data: { message: '消息格式非法' } }))
             return
           }
-          const sessionId = parsed.data.data.sessionId
+          if (verdict.data.type !== 'cs_message') return
+          const sessionId = verdict.data.data.sessionId
           if (!sessionId) return
           const targetSession = String(sessionId)
           broadcast(targetSession, {
             type: 'cs_message',
             data: {
               id: `${targetSession}_${Date.now()}`,
-              content: parsed.data.data.content ?? '',
+              content: verdict.data.data.content,
               senderId: agent.id,
               senderName: agent.nickname,
               senderRole: 'agent',
@@ -296,14 +349,19 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
           return
         }
         // 2026-08-02 P1 安全审计:Zod schema 校验消息结构
-        const parsed = csMessageSchemas.safeParse(msgObj)
-        if (!parsed.success) {
+        // 2026-09-30 strict 化:判定走共享单点,未登记键/形状非法 → 计数 + 告警 + 丢弃
+        const verdict = judgeCsInboundMessage(msgObj)
+        if (!verdict.ok) {
+          server.log.warn(
+            { userId, reason: verdict.reason },
+            'ws-customer-service(客户)消息被 strict 边界拒绝',
+          )
           socket.send(JSON.stringify({ type: 'error', data: { message: '消息格式非法' } }))
           return
         }
-        const msg = parsed.data
+        const msg = verdict.data
         if (msg.type === 'cs_message') {
-          const content = (msg.data.content ?? '').trim()
+          const content = msg.data.content.trim()
           if (!content) return
           broadcast(sessionId, {
             type: 'cs_message',

@@ -12,7 +12,8 @@ import { Copy, Loader2, Play, Square, Video } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { toast } from '@/components/common/Toaster'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { useAuthStore } from '@/stores/auth'
 
 interface StreamItem {
@@ -40,10 +41,14 @@ export default function LiveHostPage() {
   const [title, setTitle] = React.useState('')
   const [created, setCreated] = React.useState<StreamItem | null>(null)
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const myStreamsQ = useQuery({
     queryKey: ['srs', 'streams'],
     queryFn: () => api<{ list: StreamItem[] }>('/srs/streams?page=1&pageSize=50'),
     select: (d) => d.list.filter((s) => (s.userId ? s.userId === currentUserId : false)),
+    enabled: allow,
   })
 
   const createQ = useMutation({
@@ -143,6 +148,11 @@ export default function LiveHostPage() {
         </Card>
       ) : null}
 
+      {/* 2026-09-30 登录态门:未登录时用登录引导替换个性化数据区 */}
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看我的直播" />
+      ) : (
+        <>
       <h3 className="mb-3 text-sm font-medium">{t('myStreams')}</h3>
 
       {myStreamsQ.isLoading ? (
@@ -191,6 +201,8 @@ export default function LiveHostPage() {
             </Card>
           ))}
         </div>
+      )}
+        </>
       )}
     </div>
   )

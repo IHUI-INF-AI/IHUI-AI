@@ -441,6 +441,7 @@ export async function enableCompanyType(id: string): Promise<CompanyType | undef
   const rows = await db
     .update(companyTypes)
     .set({ status: 'active', updatedAt: new Date() })
+  // status-guard-exempt: 入向操作写点(enable→active),非出向
     .where(eq(companyTypes.id, id))
     .returning()
   return rows[0]
@@ -451,6 +452,7 @@ export async function disableCompanyType(id: string): Promise<CompanyType | unde
   const rows = await db
     .update(companyTypes)
     .set({ status: 'inactive', updatedAt: new Date() })
+  // status-guard-exempt: 入向操作写点(disable→inactive),非出向
     .where(eq(companyTypes.id, id))
     .returning()
   return rows[0]

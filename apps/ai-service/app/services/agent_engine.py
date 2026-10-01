@@ -99,6 +99,7 @@ from app.core.installation_id import INSTALLATION_ID_FILENAME
 from app.core.output_cleaning import strip_ansi as _strip_ansi
 from app.core.permission_mode import normalize_permission_mode, permission_mode_error
 from app.core.queue_items import build_queue_items
+from app.core.queue_ledger import get_queue_ledger
 from app.core.retained_context import (  # 批58:宿主事实账本(对标 codex retained_context.rs)
     RetainedContext,
     RetainedUserMessage,
@@ -2669,6 +2670,12 @@ class AgentEngine:
             and result.get("success")
             and drained < _MAX_QUEUE_DRAIN_PER_PROMPT
         ):
+            # G-659:pop 即 ACK —— 账本先落 promoted_pending(fsync 后才 pop 续跑),
+            # kill 落在 ACK 之后也能凭账本对账出 discarded,孤儿窗不再无据可查。
+            with contextlib.suppress(Exception):
+                get_queue_ledger().record_ack(
+                    thread.thread_id, str(thread.queue[0].get("id") or "")
+                )
             nxt = thread.queue.pop(0)
             drained += 1
             with contextlib.suppress(Exception):
@@ -2681,6 +2688,22 @@ class AgentEngine:
             result = await self._run_prompt_turn(
                 thread, str(nxt.get("input") or ""), emit
             )
+            # G-659:已 ACK 项跑失败 → failed(终态);重启对账不得把它改写成
+            # discarded(failed 是既成事实,与孤儿 discard 是两种事故)。
+            if not result.get("success"):
+                with contextlib.suppress(Exception):
+                    get_queue_ledger().record_fail(
+                        thread.thread_id, str(nxt.get("id") or "")
+                    )
+            else:
+                # G-659 补线(2026-09-30):成功 ⇒ confirm → promoted(终态)。
+                # 缺这一步,成功项永远滞留 promoted_pending,重启 recover() 会把
+                # 它们错判成 discarded 假账(promoted_pending 无确认即孤儿)。
+                # confirm 与 turn 成功同刻落账;账本失败不阻断主流程(与 ACK 同约定)。
+                with contextlib.suppress(Exception):
+                    get_queue_ledger().record_confirmed(
+                        thread.thread_id, str(nxt.get("id") or "")
+                    )
         return result
 
     async def _run_prompt_turn(
@@ -3979,14 +4002,21 @@ class AgentEngine:
         text = _coerce_input_text(params.get("input"))
         # 批 45:队列项带 id(对标 codex QueuedItem{id,input},供 queue.list/
         # delete/reorder 管理面按 id 操作)
-        thread.queue.append(
-            {
-                "id": f"q_{uuid.uuid4().hex[:12]}",
-                "input": text,
-                "enqueuedAt": time.time(),
-            }
-        )
+        item: dict[str, Any] = {
+            "id": f"q_{uuid.uuid4().hex[:12]}",
+            "input": text,
+            "enqueuedAt": time.time(),
+        }
+        thread.queue.append(item)
         thread.touch()
+        # G-659:admit 先落账(durable admission),重启后未 ACK 项有据可对。
+        with contextlib.suppress(Exception):
+            get_queue_ledger().record_admit(
+                thread.thread_id,
+                item["id"],
+                text=text,
+                created_at=int(time.time() * 1000),
+            )
         await self._emit_engine_event(
             thread,
             emit,
@@ -4152,6 +4182,10 @@ class AgentEngine:
         before = len(thread.queue)
         thread.queue = [q for q in thread.queue if q.get("id") != qid]
         deleted = len(thread.queue) < before
+        if deleted:
+            # G-659:管理面删除 → cancelled(终态,不可逆)。
+            with contextlib.suppress(Exception):
+                get_queue_ledger().record_cancel(thread.thread_id, str(qid))
         if deleted:
             thread.touch()
             with contextlib.suppress(Exception):

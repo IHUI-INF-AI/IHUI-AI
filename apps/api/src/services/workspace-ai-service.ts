@@ -1521,6 +1521,7 @@ class BackgroundAgentManager {
     this.agents.set(agentId, agent)
 
     const task = (async () => {
+      let outcome: { ok: boolean; result?: unknown; message?: string }
       try {
         const result = await agentLoop.run({
           goal: params.prompt,
@@ -1528,13 +1529,41 @@ class BackgroundAgentManager {
           model: params.modelId,
           maxIterations: params.maxIterations,
         })
-        agent.result = result.result
-        agent.status = 'completed'
-        agent.events.push({ ts: nowSec(), type: 'done', data: result })
+        outcome = { ok: true, result }
       } catch (e) {
+        outcome = { ok: false, message: (e as Error).message }
+      }
+      // G-998166(b76-12g):await 后对象身份复核 —— 迟到的结果只能结算**自己那一代**:
+      //  1. 表项已被换代/删除 ⇒ 旧 agent 的迟到清理必须放弃,绝不触碰现表项;
+      //  2. 运行中被 cancel(status 已非 running)⇒ 迟到的成功不得把 cancelled
+      //     洗成 completed(stale success 会让 consumer 把旧结果当新账)。
+      if (this.agents.get(agentId) !== agent) {
+        console.warn(
+          `[workspace-ai] background agent ${agentId} 迟到结果被弃(表项已换代/删除)`,
+        )
+        return
+      }
+      if (agent.status !== 'running') {
+        agent.events.push({
+          ts: nowSec(),
+          type: 'late-result-discarded',
+          data: { ok: outcome.ok, status: agent.status },
+        })
+        this.persist(agent)
+        return
+      }
+      if (outcome.ok) {
+        agent.result = (outcome.result as { result: unknown }).result as string | null
+        agent.status = 'completed'
+        agent.events.push({ ts: nowSec(), type: 'done', data: outcome.result })
+      } else {
         agent.status = 'failed'
-        agent.result = (e as Error).message
-        agent.events.push({ ts: nowSec(), type: 'error', data: { message: (e as Error).message } })
+        agent.result = outcome.message ?? 'unknown error'
+        agent.events.push({
+          ts: nowSec(),
+          type: 'error',
+          data: { message: outcome.message ?? 'unknown error' },
+        })
       }
       this.persist(agent)
     })()

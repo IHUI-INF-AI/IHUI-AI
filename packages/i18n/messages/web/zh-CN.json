@@ -621,6 +621,10 @@
     "nickname": "昵称",
     "noAccounts": "暂无账号",
     "openExternalBrowser": "在外部浏览器打开",
+    "chromeImportBtn": "从我的 Chrome 导入",
+    "chromeImportLaunching": "正在打开 Chrome 登录窗口...",
+    "chromeImportHint": "已打开 {platform} 登录页(独立窗口)。请在那个窗口完成登录,登录成功后会自动保存账号,无需粘贴 Cookie。",
+    "chromeImportFailed": "Chrome 导入未完成",
     "orDivider": "或",
     "platform": "平台",
     "scan": "扫码登录",
@@ -630,6 +634,9 @@
     "scanLoginHint": "二维码每分钟自动刷新",
     "scanLoginSucceeded": "扫码登录成功",
     "scanLoginSuccess": "扫码成功",
+    "scanLoginReuseLabel": "登录方式",
+    "scanLoginReuseOn": "复用已有登录(免扫码)",
+    "scanLoginReuseOff": "每次重新扫码",
     "scanLoginTimeout": "扫码超时,请重试",
     "scanLoginTitle": "扫码登录",
     "scanWithPhoneHint": "请使用手机扫描二维码登录",
@@ -8647,6 +8654,10 @@
           "title": "组织数据正在迁移",
           "action": "迁移完成后重试"
         },
+        "102": {
+          "title": "请求时间校验失败",
+          "action": "校准系统时间后重试"
+        },
         "speaking_banned": {
           "title": "当前处于禁言状态",
           "action": "联系管理员了解详情"
@@ -11221,6 +11232,7 @@
     "permissionUnknownError": "未知错误",
     "placeholder": "详细描述需求，输入 / 调用技能、插件、MCP（如 /goal /loop /plan）",
     "placeholderPlan": "规划模式：输入需求，AI 只制定计划不执行工具（/act 切回执行，Alt+P 切换）",
+    "aiDisclaimer": "内容由AI生成，请核实重要信息",
     "plan": {
       "ariaLabel": "执行计划步骤",
       "collapseReasoning": "折叠推理过程",
@@ -20236,7 +20248,18 @@
       "passwordHint": "普通用户建议使用扫码登录,此处仅开发者备用。",
       "platform": "平台",
       "saveCookies": "保存账号",
+      "preparingQr": "正在生成二维码…",
+      "regenerateQr": "重新出码",
       "scan": "扫码",
+      "elapsedSeconds": "已等待 {seconds} 秒",
+      "loadingSlowHint": "首次出码要现起浏览器并打开平台登录页,通常 3~8 秒;二维码一就绪会立即显示",
+      "loadingStage": {
+        "booting": "启动浏览器",
+        "opening": "打开登录页",
+        "rendering": "生成二维码",
+        "ready": "二维码就绪",
+        "switching": "切换到扫码"
+      },
       "scanLogin": "扫码登录",
       "scanLoginDescription": "选择平台后,后端会打开该平台登录页并截取二维码;用对应 App 扫码即可自动保存 cookies。",
       "scanLoginFailed": "扫码登录失败",
@@ -20250,6 +20273,8 @@
       "selectPlatform": "选择平台",
       "startScanLogin": "开始扫码登录",
       "statusActive": "正常",
+      "statusCleared": "待重新扫码登录",
+      "statusClearedTip": "该账号的登录凭证已被清除(安全处置),重新扫码登录即可恢复,并非平台禁用",
       "statusDisabled": "已禁用",
       "statusExpired": "已过期",
       "statusUnknown": "未知",
@@ -24716,7 +24741,6 @@
     "recording": "录音中",
     "voiceHint": "语音输入",
     "placeholder": "输入消息...",
-    "stop": "停止",
     "send": "发送"
   },
   "checkIn": {

@@ -5,6 +5,7 @@
 import { PERMISSION_TIER_WORD_KEYS } from '@ihui/shared/chat'
 import type { PermissionTierDisplayKey } from '@ihui/shared/chat'
 import { permissionModeDisplayKey } from '@ihui/types/permission-mode'
+import type { ToolApprovalScope } from '@ihui/types'
 
 // D111:小程序端权限档行文案解析(档名 + 后果说明)。
 //
@@ -58,5 +59,63 @@ export function resolvePermissionTierText(
     title: translate(keys.title, fallback.title),
     desc: translate(keys.desc, fallback.desc),
   }
+}
+
+// ---------------------------------------------------------------------------
+// D111 残余(2026-10-01 补齐纯逻辑层,由 D136 会话顺手落):ChatMessageItem 审批三键的
+// 取词/wire 值层。**只有这一层** —— 消息行上的渲染接线(ChatMessageItem 三键 + 回传)
+// 属 D111 票面本部,本票不代做;这一层先落是为了让常驻测试的纯逻辑块可跑、tsc 可归零。
+// 三键 wire 值与 D136/tool-approval-card 同一口径:批准必带 scope,拒绝不带 scope
+//(拒绝是一次判定,不落任何授权)。
+// ---------------------------------------------------------------------------
+
+/** 审批三键(允许一次 / 始终允许 / 拒绝)的 wire 值与取词键。 */
+export interface ApprovalAction {
+  id: 'allowOnce' | 'alwaysAllow' | 'reject'
+  decision: 'approve' | 'reject'
+  /** 仅 approve 有值;reject 恒 undefined(拒绝不落任何授权) */
+  scope?: ToolApprovalScope
+  /** 共享词包键(editor.toolApproval.*,与 web/D136 同一把) */
+  key: string
+  /** 词包缺键时的端内中文兜底 */
+  fallback: string
+}
+
+export const APPROVAL_ACTIONS: readonly ApprovalAction[] = [
+  {
+    id: 'allowOnce',
+    decision: 'approve',
+    scope: 'once',
+    key: 'editor.toolApproval.scopeOnce',
+    fallback: '允许一次',
+  },
+  {
+    id: 'alwaysAllow',
+    decision: 'approve',
+    scope: 'always',
+    key: 'editor.toolApproval.scopeAlways',
+    fallback: '始终允许',
+  },
+  {
+    id: 'reject',
+    decision: 'reject',
+    key: 'editor.toolApproval.reject',
+    fallback: '拒绝',
+  },
+]
+
+/** 三键取词:词表完备走本地化值,缺键回落端内中文,绝不吐 raw key。 */
+export function resolveApprovalActionLabels(
+  translate: TranslateWithFallback,
+): Array<{ id: ApprovalAction['id']; decision: ApprovalAction['decision']; scope?: ToolApprovalScope; label: string }> {
+  return APPROVAL_ACTIONS.map((action) => {
+    const label = translate(action.key, action.fallback)
+    return {
+      id: action.id,
+      decision: action.decision,
+      ...(action.scope !== undefined ? { scope: action.scope } : {}),
+      label: label === action.key ? action.fallback : label,
+    }
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

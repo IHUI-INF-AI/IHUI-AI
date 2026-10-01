@@ -13,7 +13,8 @@ import { ClipboardList, Loader2, CalendarDays, Clock } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Badge } from '@/components/data'
 
 interface StudyPlanItem {
@@ -62,12 +63,16 @@ export default function ChildStudyPlansPage() {
   const params = useParams()
   const childId = params.childId as string
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'study-plans'],
     queryFn: () =>
       api<{ list: StudyPlanItem[] }>(
         `/api/edu-ai-management/parent/children/${childId}/study-plans`,
       ),
+    enabled: allow,
   })
 
   const plans = data?.list ?? []
@@ -80,7 +85,9 @@ export default function ChildStudyPlansPage() {
         <p className="text-xs text-muted-foreground">{t('child.studyPlansHint')}</p>
       </header>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看学习计划" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {tc('loading')}

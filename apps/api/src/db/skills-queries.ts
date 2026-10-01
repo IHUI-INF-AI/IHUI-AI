@@ -118,12 +118,21 @@ export async function updateSkill(
 /**
  * 软删除 skill(tombstone):不物理删除,仅设 deletedAt = NOW()
  * 多端同步时 CLI 据此删本地文件
+ *
+ * G-815962(2026-10-01)写后必须回读:更新完成后按 id 重读(不带活行过滤,
+ * tombstone 本身就是要确认的状态),行不存在或 deletedAt 未落上 ⇒ 当场抛错,
+ * 不把"写了个寂寞"当成功留给同步链。返回回读到的行(软删后的快照)。
  */
-export async function deleteSkill(id: string): Promise<void> {
+export async function deleteSkill(id: string): Promise<Skill> {
   await db
     .update(skills)
     .set({ deletedAt: new Date(), updatedAt: new Date() })
     .where(and(eq(skills.id, id), isNull(skills.deletedAt)))
+  const [readBack] = await db.select().from(skills).where(eq(skills.id, id)).limit(1)
+  if (!readBack || readBack.deletedAt === null) {
+    throw new Error(`Skill not found after delete: ${id}`)
+  }
+  return readBack
 }
 
 // ==================== 同步相关查询 ====================
@@ -195,7 +204,20 @@ export async function upsertSkillBySlug(data: SyncUpsertInput): Promise<{
       .returning()
     const updated = rows[0]
     if (!updated) throw new Error('更新技能失败')
-    return { skill: updated, action: 'updated' }
+    // G-815962 写后必须回读:复活声明(deletedAt=null)要按活行面重读确认 ——
+    // "写成功但活行面看不见"(软删未清干净)从下次同步丢内容提前到本次即抛。
+    // 返回回读到的记录,不是 update().returning() 的输入面回声。
+    const [readBack] = await db
+      .select()
+      .from(skills)
+      .where(and(eq(skills.id, existing.id), isNull(skills.deletedAt)))
+      .limit(1)
+    if (!readBack) {
+      throw new Error(
+        `Skill not found after upsert (软删复活未生效): authorId=${data.authorId} slug=${data.slug}`,
+      )
+    }
+    return { skill: readBack, action: 'updated' }
   }
 
   const rows = await db
