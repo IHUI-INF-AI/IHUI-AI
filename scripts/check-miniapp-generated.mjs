@@ -31,6 +31,9 @@
  *   G4 动态路径:模板字符串拼出来的资源路径结构上判不了,**如实计数**(unreproducible 之外再报 undetermined),
  *        绝不静默成「看起来全绿」。
  *   G5 (G-680) 生成物自述钉:离线包头部带一段由**输入字节**算出的 sha256 钉(lib/generated-input-pin.mjs)。
+ *   G6 (G-415 A8) LineIcon 调用点「值 → 键」:字面量 name 必须在 icons.ts 键集里 —— 组件取不到素材时
+ *        return null(界面空白且不报错),而 L1/G3 只看 svg↔注册表两面,这一格过去零看守。动态拼接与标签
+ *        配不平静默算**未判定**并逐条点名(不计通过,也不判红:真仓 HEAD 现读动态 35 处,当场判红就是恒红门)。
  *        钉 ≠ 现算哈希 ⇒ 判「陈旧」并点名是哪几份输入变了(blocking);
  *        钉 absent / malformed ⇒ 判「未判定」,只报数点名,既不记绿也不冒红 ——
  *        HEAD 面上现存那份产物还没有钉,当场 blocking 就是恒红门(§12e);
@@ -84,6 +87,7 @@ import {
   PIN_BEGIN,
   PIN_END,
 } from './lib/generated-input-pin.mjs'
+import { maskComments } from './lib/code-mask.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -422,8 +426,37 @@ function registryKeys(text) {
   return out
 }
 
-/** gen-tabbar-icons.mjs 自己声明的输出表(键名即 tab-<name>),用于「生成器说有、产物没有」 */
-function generatorTabbarNames(text) {
+/**
+ * G6(G-415 A8)的取点:调用点 `<LineIcon … name=…>` 里写死的图标名必须落在注册表键集。
+ * 组件取不到素材时 `return null`(界面只是空白、不报错),而 L1/G3 只看 svg↔注册表两面,
+ * "调用点引用了一个不存在的键"这一格过去零看守。
+ * 只认字面量;模板串 / 三元 / 标识符一律算未判定(把"看不见"写成"确信没有"是本仓最高频失效型)。
+ * 输入必须是**已遮注释**的代码面 —— 注释里逐字写出的 `<LineIcon name="…">` 不是调用点。
+ */
+function lineIconCallSites(code) {
+  const sites = []
+  let i = 0
+  for (;;) {
+    const at = code.indexOf('<LineIcon', i)
+    if (at < 0) break
+    const gt = code.indexOf('>', at)
+    // 闭不上就整段算判不了(不猜、也不静默丢弃):交给调用方计未判定
+    if (gt < 0) {
+      sites.push({ kind: 'undetermined', snippet: code.slice(at, at + 60).replace(/\s+/g, ' ') })
+      break
+    }
+    const tag = code.slice(at, gt)
+    const m = /\bname\s*=\s*(?:"([^"]*)"|'([^']*)'|\{\s*"([^"]*)"\s*\}|\{([\s\S]+)\})/.exec(tag)
+    if (m) {
+      if (m[1] || m[2] || m[3]) sites.push({ kind: 'literal', key: m[1] ?? m[2] ?? m[3] })
+      else sites.push({ kind: 'dynamic', snippet: `${m[4].replace(/\s+/g, ' ').slice(0, 48)}` })
+    }
+    i = gt + 1
+  }
+  return sites
+}
+
+/** gen-tabbar-icons.mjs 自己声明的输出表(键名即 tab-<name>),用于「生成器说有、产物没有」 */function generatorTabbarNames(text) {
   const block = /const ICONS\s*=\s*\{([\s\S]*?)\n\}/m.exec(text)
   if (!block) throw new Undetermined(`${TABBAR_GENERATOR} 里解析不到 ICONS 表,无法判定生成器输出清单`)
   const names = [...block[1].matchAll(/^\s*([A-Za-z0-9_-]+)\s*:/gm)].map((m) => m[1])
@@ -448,8 +481,12 @@ function runCheck({ face, root, strict, group }) {
     // 前两态是「未判定」,不得被读成"内容是新的";后两态由 report/JSON 原样带出。
     pinState: 'not-run',
     pinDetail: '',
+    // G6:动态 / 闭不上标签的调用点结构上判不了 ⇒ 只计数并逐条点名,绝不静默算通过
+    lineIconDynamic: 0,
+    lineIconUnparsable: 0,
+    lineIconUndeterminedList: [],
   }
-  const counts = { bundleLocales: 0, sourceFilesScanned: 0, artifactFiles: 0, registryKeys: 0 }
+  const counts = { bundleLocales: 0, sourceFilesScanned: 0, artifactFiles: 0, registryKeys: 0, lineIconLiteral: 0 }
 
   const push = (code, dir, blocking, file, detail) => findings.push({ code, dir, blocking, file, detail })
 
@@ -564,6 +601,46 @@ function runCheck({ face, root, strict, group }) {
     }
   }
 
+  /* —— G6(G-415 A8)LineIcon 调用点「值 → 键」—— */
+  if (!group || group === 'icons') {
+    // 键集在本块内自取:上面那个 icons 块的 keys 是块级作用域,跨块引用会在 import 期就炸
+    // (blocking 门崩溃比判红更糟 —— 它让整条 pre-commit 中止,只留一截堆栈)
+    if (!reader.has(ICON_REGISTRY)) throw new Undetermined(`${reader.label} 取不到 ${ICON_REGISTRY},G6 无从判定`)
+    const keys = registryKeys(reader.read(ICON_REGISTRY))
+    const callFiles = allFiles
+      .filter((p) => p.startsWith(`${APP}/src/`) && /\.(tsx|jsx)$/.test(p))
+      .filter((p) => !p.includes('/__tests__/') && !p.includes('/tests/') && !/\.test\.[tx]sx?$/.test(p))
+    for (const rel of callFiles) {
+      if (!reader.has(rel)) {
+        undetermined.unreadableSourceFiles += 1
+        continue
+      }
+      const judged = maskComments(reader.read(rel))
+      for (const s of lineIconCallSites(judged)) {
+        if (s.kind === 'literal') {
+          counts.lineIconLiteral += 1
+          if (!keys.has(s.key)) {
+            push(
+              'K1',
+              'missing',
+              true,
+              rel,
+              `<LineIcon name="${s.key}"> 不在 ${ICON_REGISTRY} 的键集里 —— 组件取不到素材时 return null,` +
+                `界面只是空白且不报错(过去这一格零看守:L1/G3 只看 svg↔注册表两面)`,
+            )
+          }
+        } else if (s.kind === 'dynamic') {
+          undetermined.lineIconDynamic += 1
+        } else {
+          undetermined.lineIconUnparsable += 1
+        }
+        if (s.kind !== 'literal' && undetermined.lineIconUndeterminedList.length < 12) {
+          undetermined.lineIconUndeterminedList.push(`${rel}: ${s.snippet}`)
+        }
+      }
+    }
+  }
+
   /* —— G1 生成器声明的输出表 ⊂ 产物 —— */
   if (!group || group === 'tabbar') {
     if (reader.has(TABBAR_GENERATOR)) {
@@ -601,6 +678,12 @@ function formatReport(result, face, opts) {
     `  ◽ 判不了但如实计数:动态资源路径 ${result.undetermined.dynamicAssetPaths} 处` +
       (result.undetermined.unreadableSourceFiles ? ` / 读不到的源文件 ${result.undetermined.unreadableSourceFiles} 个` : ''),
   )
+  lines.push(
+    `  🔎 G6 LineIcon 调用点「值→键」:字面量站点 ${result.counts.lineIconLiteral} 处(不在注册表键集即判红)` +
+      ` / 动态拼接 ${result.undetermined.lineIconDynamic} 处 / 标签配不平 ${result.undetermined.lineIconUnparsable} 处` +
+      ' —— 后两档是**未判定**,不计通过;逐条点名见下',
+  )
+  for (const d of result.undetermined.lineIconUndeterminedList) lines.push(`     ◽ ${d}`)
   if (result.undetermined.pinState === 'absent' || result.undetermined.pinState === 'malformed') {
     lines.push(
       `  📌 离线包自述钉(G-680):${result.undetermined.pinState} —— ${result.undetermined.pinDetail}`,

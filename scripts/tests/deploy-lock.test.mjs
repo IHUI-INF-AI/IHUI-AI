@@ -21,7 +21,8 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs'
+// G-386:utimesSync 用于造"未来 mtime 的锁目录"(构造面取证;数值按**秒**解释,传 ms 会 EINVAL —— 本机实测)
+import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -974,6 +975,124 @@ test('G-412·break-stale 人工出口成对:空理由 ⇒ 拒绝且字节一字�
     assert.ok(!existsSync(dir), '断锁 = 原子改名到归档面,原路径必须消失(不是 removeLock 的直删)')
     const scene = readdirSync(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR).filter((n) => n.includes('break-stale'))
     assert.ok(scene.length >= 1, '现场必须落进归档面(改名后的目录本身就带现场说明)')
+  } finally {
+    rmScratch(base)
+  }
+})
+
+// ─────────  八、G-386(孪生 G-779):不可判定三态的"时钟倒挂"必须单独成档  ─────────
+//
+// 票面症状原话:「meta.ts(mtime/记录时刻)晚于当前时刻 ⇒ `Date.now() - ts` 为负 ⇒ 判据形如
+// `age > staleMs` 恒 false ⇒ 锁永远活着」。G-412(上一节)修的是 **ok 态** 的未来 ts;
+// 而 `age > staleMs` 这个谓词形状**只剩住在不可判定分支** —— 那面的年龄降级取锁目录 mtime,
+// mtime 超容差落在未来 ⇒ `ageMs` 钳成 0 ⇒ `0 > staleMs` 恒假 ⇒ 该面无限 wait 到超时,
+// 且旧文案把"超 stale"称作唯一自动出路(该形态下是撒谎)。
+// 本节成对钉:①未来 mtime ⇒ 落进新档并**点名**(独立旗标 clockAnomalous,不与活着/已退出/等待并桶);
+// ②正常新建 ⇒ 仍 wait;③正常陈旧 ⇒ 仍走原 stale 档且 why 不冒出倒挂措辞;④容差内 ⇒ 不记异常。
+// 真实时钟倒挂事件未在本机复现,取证是**构造面**(utimesSync 造未来 mtime + 注入固定 now),不冒充实测。
+const G386_NOW = 1_800_000_000_000
+/** utimesSync 数值按秒解释(本机 Node v24 实测 ms 会 EINVAL)—— 统一在这里换算,调用方只给 ms 偏移 */
+function setMtimeMs(dir, ms) {
+  const sec = Math.round(ms / 1000)
+  utimesSync(dir, sec, sec)
+}
+/** 不可判定面夹具:metaText=null ⇒ absent(不写 meta);deltaMs 相对 G386_NOW 的 mtime 偏移。
+ *  ⚠️ 用 null 而不是 undefined 当哨兵:JS 默认参数对 undefined 生效,拿 undefined 传"absent"会
+ *  被默认值吃掉、静默把 absent 臂写成 invalid(断言照绿,测的却是别的态)。 */
+function undeterminedLock(base, deltaMs, metaText = '{"mode":"build","pid":') {
+  const dir = lockFixture(base, metaText === null ? undefined : metaText)
+  setMtimeMs(dir, G386_NOW + deltaMs)
+  return dir
+}
+
+test('G-386·正向:不可判定(invalid/empty/absent)× 未来 mtime ⇒ 时钟倒挂独立档 steal+immediate:false,点名档位/态名/无锚点/人工出口', () => {
+  const base = mkScratch('dl-g386-future-')
+  try {
+    for (const [label, text] of [
+      ['invalid(半截 JSON)', '{"mode":"build","pid":'],
+      ['invalid(空文件)', ''],
+      ['absent(meta 从未写下)', null],
+    ]) {
+      const dir = undeterminedLock(base, L.FUTURE_TS_TOLERANCE_MS + 120_000, text)
+      const d = L.decideSteal({ dir, mode: 'build', staleMs: 600_000, hardCapMs: L.HARD_CAP_MS, now: G386_NOW })
+      assert.equal(d.action, 'steal', `${label}:年龄维被钉成恒假后不得无限 wait(这正是冻结 11h50m 那一型的另一面)。实得 ${d.action} / ${d.why}`)
+      assert.equal(d.immediate, false, `${label}:必须"先归档现场再抢",不走秒抢通道`)
+      assert.equal(d.clockAnomalous, true, `${label}:独立档必须自带旗标,不得与"活着/已退出/不可判定即等待"并桶`)
+      assert.ok(Math.abs(d.futureMs - (L.FUTURE_TS_TOLERANCE_MS + 120_000)) < 2_000, `${label}:futureMs 是量出来的数,不是文案 —— 实得 ${d.futureMs}`)
+      assert.match(d.why, /时钟倒挂档/, label)
+      assert.match(d.why, /单调对账=无锚点/, `${label}:不可判定面没有 ts/host/bootMs,必须如实写无锚点,不硬凑`)
+      assert.match(d.why, /break-stale/, `${label}:结论要带人工出口,不止"判不出来"`)
+      assert.match(d.why, new RegExp(label.split('(')[0]), `${label}:why 必须点名到底是哪一态`)
+    }
+    // ok 态那一半(G-412 已修)顺带复验一次:本票说"可立即修"的前提是它没被回退 —— 回退即红。
+    const okFuture = lockFixture(base, okMeta({ pid: process.pid, ownerPid: process.pid, ts: G386_NOW + 10 * 60_000 }))
+    const dOk = L.decideSteal({ dir: okFuture, mode: 'build', staleMs: 600_000, hardCapMs: L.HARD_CAP_MS, now: G386_NOW })
+    assert.equal(dOk.action, 'steal', 'ok 态未来 ts 若被改回 wait,G-412 的修复即被本票回退 —— 这条是防回退的对照')
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('G-386·反向对照三支:正常新建 wait / 正常陈旧走 stale 档且无倒挂措辞 / 容差内不记异常(新档不得变成秒抢判据)', () => {
+  const base = mkScratch('dl-g386-control-')
+  try {
+    // ① 正常新建(mtime 比 now 早 1s)⇒ wait,文案与改动前同形
+    const w = L.decideSteal({ dir: undeterminedLock(base, -1000), mode: 'build', staleMs: 600_000, now: G386_NOW })
+    assert.equal(w.action, 'wait', `正常新建的坏锁不该被动它 —— 为什么别人可能正崩在两步之间:${w.why}`)
+    assert.equal(w.clockAnomalous, undefined, '不异常就不带异常旗标(否则"已核过"与"没核"在账面同形)')
+    assert.match(w.why, /未超 stale/, `wait 文案保持原形:${w.why}`)
+    // ② 正常陈旧(超 stale 1 分钟)⇒ 仍走**原 stale 档**,why 里不得冒出"时钟倒挂档"(两档各归各的措辞)
+    const s = L.decideSteal({ dir: undeterminedLock(base, -(600_000 + 60_000)), mode: 'build', staleMs: 600_000, now: G386_NOW })
+    assert.equal(s.action, 'steal', s.why)
+    assert.match(s.why, /stale 阈值/, s.why)
+    assert.doesNotMatch(s.why, /时钟倒挂档/, `旧出路不得被新档顶名(顶了 S63b 与本案就分不出是谁的红):${s.why}`)
+    assert.equal(s.clockAnomalous, undefined)
+    // ③ 未来但在容差内(半容差,如 NTP 微步进)⇒ 不记异常 ⇒ wait(容差语义一字未放宽)
+    const within = L.decideSteal({ dir: undeterminedLock(base, Math.floor(L.FUTURE_TS_TOLERANCE_MS / 2)), mode: 'build', staleMs: 600_000, now: G386_NOW })
+    assert.equal(within.action, 'wait', `容差内的未来读数不得升格成抢占:${within.why}`)
+    assert.equal(within.clockAnomalous, undefined, within.why)
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('G-386·端到端:acquire 经时钟倒挂档拿到锁并先按原字节归档现场(改前该形态只会 wait 到超时抛错)', async () => {
+  const base = mkScratch('dl-g386-e2e-')
+  try {
+    const dir = lockFixture(base, '{"mode":"build","pid":')
+    const raw = readFileSync(join(dir, 'meta.json'), 'utf8')
+    // acquire 内部 now=Date.now() 不可注入 ⇒ 这一臂按真实时钟造未来 mtime(超容差 + 120s 余量)
+    setMtimeMs(dir, Date.now() + L.FUTURE_TS_TOLERANCE_MS + 120_000)
+    assert.equal(await L.acquire({ mode: 'build', timeoutMs: 5000, staleMs: 600_000, dir }), true)
+    assert.equal(L.readMeta(dir).meta.pid, process.pid, '取得后锁必须是本次调用自己的')
+    const sceneRoot = process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR
+    const hit = readdirSync(sceneRoot).some((n) => {
+      try {
+        return readFileSync(join(sceneRoot, n, 'meta.json'), 'utf8') === raw
+      } catch {
+        return false
+      }
+    })
+    assert.ok(hit, `抢占前必须按原字节归档现场(${sceneRoot}) —— immediate:false 的"先归档"不许被顺手削掉`)
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('G-386·check 文案对账:异常面点名"时钟倒挂档"+人工出口;正常不可判定面不得被印成倒挂(防 S-正向恒真)', () => {
+  const base = mkScratch('dl-g386-check-')
+  try {
+    let outA = ''
+    assert.equal(
+      L.check({ dir: undeterminedLock(base, L.FUTURE_TS_TOLERANCE_MS + 120_000), log: (s) => (outA += s), now: G386_NOW }),
+      1,
+    )
+    assert.match(outA, /时钟倒挂档/, outA)
+    assert.match(outA, /break-stale/, outA)
+    let outB = ''
+    L.check({ dir: undeterminedLock(base, -1000), log: (s) => (outB += s), now: G386_NOW })
+    assert.doesNotMatch(outB, /时钟倒挂档/, `正常不可判定面被印成倒挂档 ⇒ 上面那条正向断言恒真,等于没有:${outB}`)
+    assert.match(outB, /无法判定/, `基础三态如实打印不得被本票改动:${outB}`)
   } finally {
     rmScratch(base)
   }
