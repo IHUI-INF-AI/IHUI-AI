@@ -2240,6 +2240,8 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 
 
 
+- **迁移正文不可变对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 本枚注册取到 **185**,并发会话可能挪号;blocking,`stagedTriggers=packages/database/ + apps/api/src/`,紧急跳过 `HUSKY_SKIP_MIGRATION_IMMUTABLE=1`):`scripts/check-migration-immutable.mjs` 拦的是"**一条已进 journal、已在别人库上跑过的 .sql 被就地改正文**"—— 同一版本号于是有两份 schema,旧库不会重放、新库拿到另一份,而账面仍然"迁移都跑成功"(drizzle 只按 journal 的 `when` 与库内 hash 记账,**从不回看 .sql 正文**)。此前本仓只有散文约定;而且不是假想:`215d4c1e10`(2026-09-26)就改掉过 `20260927100000_tenant_rls_policies_batch1.sql` 首次入库时的正文,那次改动本身有理,但它证明的是"这条路真会走到",走到之后没有任何东西会红。两条判据对照面不同、**不得互相顶账**:**IM1** 被审面正文与该路径历史上第一次以 `A` 出现时的 blob 比,**存量只报数**(`--strict` 才问责 —— 与本次提交无关的恒红门只会逼人跳门)/ **IM2** 索引面 vs HEAD 面,本次把已入库正文改了 ⇒ 判红(这条不需要基线清单,也不会因存量恒红)。**归一化三条口径**是"只改水印/空白必绿、加一行注释必红"的前提:① 先剥水印结构行(唯一实现 `scripts/lib/watermark-lines.mjs` 的 `stripWatermarkStructure`,本门不得再抄一份正则)② 逐行 `trim` ③ 丢掉归一后为空的行。**守门 49 在飞的 B11 与本门是两问**:B11 问"库内 `__drizzle_migrations.hash` 与当前正文配不配"(要连库,本机长期未判定),本门问"当前正文与 git 里首次入库那次提交配不配"(只需对象库,提交链跑得动)—— 两边都判红**不是重复计账**,接线时不得摘掉其中一条。取材同 70/77/83/98/101/118:全量判 HEAD blob、`--staged` 判索引、`--worktree` 仅人工、两面旗同给 exit 2、清单与内容同面同轮、取不到判"未判定"**不回落**、**枚举到 0 判死不记绿**。阳性对照**钉出处不钉 HEAD**:显式 SHA `0f94717464` vs `215d4c1e10` 从对象库现取喂同一判据必红、同 SHA 自比必绿(T4)—— 账还清那天"HEAD 上还能量到存量"这句话当场失效。取证 `--self-test` 21 条 + §22c 镜像 `node --test scripts/tests/check-migration-immutable.test.mjs` 10 例(主会话现跑复验:自检 RC=0 / 镜像 pass 10 fail 0 / `--check`、全量与 `--staged` 三面均 RC=0,两旗同给 RC=2)。
+
 ### 内部机器调用的豁免必须"验过才免"(强制,2026-09-28 立)
 - **规矩**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L420–L420
 - **唯一出口**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L421–L421
