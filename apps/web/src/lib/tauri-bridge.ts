@@ -1368,4 +1368,61 @@ export async function clipboardSet(content: string, format?: 'text' | 'image'): 
   requireTauri()
   return await invoke<OkResult>('clipboard_set', { content, format: format ?? null })
 }
+
+// ================== 桌面宿主 git 通道(2026-09-28 V3 #72) ==================
+
+/**
+ * git_channel_ipc.rs `StatusReply` 的 TS 投影(字段名 snake_case 原样 —— serde 默认
+ * 命名,前端不做二次转写,免得两份字段表漂移)。三态语义见该文件头注:
+ * `facts`(结论成立)/ `command_failed`(git 命令失败)/ `undetermined`(判不了;
+ * 此时 entries 恒为空 —— **空 entries ≠ 干净**,渲染侧必须按 state 分格)。
+ */
+export interface GitWorkspaceStatusEntry {
+  kind: string
+  index_status: string
+  worktree_status: string
+  path: string
+  old_path: string | null
+}
+
+export interface GitWorkspaceStatusReply {
+  state: 'facts' | 'command_failed' | 'undetermined'
+  /** facts:clean|dirty;undetermined:失明名;command_failed:exit=<code|none> */
+  verdict: string
+  reason: string
+  root: string
+  git_binary: string
+  scope: string | null
+  total: number
+  by_kind: Array<[string, number]>
+  entries: GitWorkspaceStatusEntry[]
+}
+
+/** git_channel_info 的回包(camelCase,与 Rust json! 键原样对齐)。 */
+export interface GitChannelInfoReply {
+  authorizedRoot: string | null
+  gitBinary: string | null
+  candidates: string[]
+  bases: string[]
+  timeoutMs: number
+  boundary: string
+}
+
+/** 授权一个工作区根(幂等;root 由宿主 bases + rev-parse 双证,前端无从越界)。 */
+export async function gitAuthorizeWorkspace(root: string): Promise<GitWorkspaceStatusReply> {
+  requireTauri()
+  return await invokeIpc<GitWorkspaceStatusReply>('git_authorize_workspace', { root })
+}
+
+/** 取已授权根的本地仓库状态(未授权时宿主回 undetermined,不抛错)。 */
+export async function gitWorkspaceStatus(scope?: string): Promise<GitWorkspaceStatusReply> {
+  requireTauri()
+  return await invokeIpc<GitWorkspaceStatusReply>('git_workspace_status', { scope: scope ?? null })
+}
+
+/** 通道自述(git 二进制解析结果 / 允许 base / 边界说明),无需授权即可取。 */
+export async function gitChannelInfo(): Promise<GitChannelInfoReply> {
+  requireTauri()
+  return await invokeIpc<GitChannelInfoReply>('git_channel_info')
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

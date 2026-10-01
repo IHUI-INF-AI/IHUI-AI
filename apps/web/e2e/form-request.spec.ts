@@ -135,7 +135,7 @@ async function mockStreamAndCaptureResponse(page: Page): Promise<void> {
     const body = JSON.parse(route.request().postData() ?? '{}') as Record<string, unknown>
     await page.evaluate((payload: unknown) => {
       const sink = (window as unknown as Record<string, unknown[]>).__e2eFormResponses
-      sink.push(payload as Record<string, unknown>)
+      sink?.push(payload as Record<string, unknown>)
     }, body)
     await route.fulfill({
       status: 200,
@@ -148,7 +148,9 @@ async function mockStreamAndCaptureResponse(page: Page): Promise<void> {
 /** 读取捕获到的 form_response body 列表 */
 async function capturedResponses(page: Page): Promise<Array<Record<string, unknown>>> {
   return page.evaluate(
-    () => (window as unknown as Record<string, unknown[]>).__e2eFormResponses ?? [],
+    () =>
+      ((window as unknown as Record<string, unknown[]>).__e2eFormResponses ??
+        []) as Array<Record<string, unknown>>,
   )
 }
 

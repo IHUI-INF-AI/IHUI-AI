@@ -242,8 +242,13 @@ describe('换档入口必须真的可达(不只是机制就绪)', () => {
   const input = readInput('../../../components/chat/message-input.tsx')
 
   it('流式中不得再禁用模型选择器', () => {
-    const block = input.slice(input.indexOf('<ModelSelector'), input.indexOf('/>', input.indexOf('<ModelSelector')))
-    expect(block).not.toMatch(/disabled=\{isStreaming\}/)
+    // 切片只取 <ModelSelector 自身的开标签段(到 footer={ 为止):footer 里的
+    // ReasoningEffortInputAxis/SamplingParamsButton 自带 disabled={isStreaming} 是
+    // 合理禁用(不是选择器本身),原贪婪切片(到第一个 />)会被 footer 撑破而误判。
+    const start = input.indexOf('<ModelSelector')
+    const openTag = input.slice(start, input.indexOf('footer={', start))
+    expect(openTag).not.toMatch(/disabled=\{isStreaming\}/)
+    expect(openTag).toContain('onChange={onModelChange}')
   })
 
   it('选择器仍被渲染(不得用"删掉整块"来糊上一条断言)', () => {
