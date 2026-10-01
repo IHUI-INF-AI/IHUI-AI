@@ -4,11 +4,11 @@
 
 import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { sendSmsCode, loginBySms, register, bindPhone, type UserInfo } from '@/api'
 import { useCountdown } from '@ihui/shared/hooks'
-import { FocusInput } from '@/components/FocusField'
 
 export type VerifyCodeType = 'register' | 'login' | 'changePhone'
 
