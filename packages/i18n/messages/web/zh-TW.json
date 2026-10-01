@@ -621,10 +621,6 @@
     "nickname": "暱稱",
     "noAccounts": "暫無帳號",
     "openExternalBrowser": "在外部瀏覽器開啟",
-    "chromeImportBtn": "從我的 Chrome 匯入",
-    "chromeImportLaunching": "正在開啟 Chrome 登入視窗...",
-    "chromeImportHint": "已開啟 {platform} 登入頁(獨立視窗)。請在那個視窗完成登入,登入成功後會自動儲存帳號,無需貼上 Cookie。",
-    "chromeImportFailed": "Chrome 匯入未完成",
     "orDivider": "或",
     "platform": "平臺",
     "scan": "掃碼登入",
@@ -634,9 +630,6 @@
     "scanLoginHint": "二維碼每分鐘自動刷新",
     "scanLoginSucceeded": "掃碼登入成功",
     "scanLoginSuccess": "掃碼成功",
-    "scanLoginReuseLabel": "登入方式",
-    "scanLoginReuseOn": "重用已有登入(免掃碼)",
-    "scanLoginReuseOff": "每次重新掃碼",
     "scanLoginTimeout": "掃碼超時,請重試",
     "scanLoginTitle": "掃碼登入",
     "scanWithPhoneHint": "請使用手機掃描二維碼登入",
@@ -10623,6 +10616,15 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "referencePreview": {
+      "available": "模擬能力可用",
+      "editor": "能力引用輸入框",
+      "placeholder": "貼上完整引用，或輸入 @ 選擇能力…",
+      "source": "原始輸入正文",
+      "select": "選擇範例能力",
+      "clear": "新建輸入",
+      "send": "發送預覽"
+    },
     "bindIssue": "綁定 Issue",
     "unbindIssue": "改為獨立任務",
     "issueBinding": "關聯 Issue",
@@ -20340,7 +20342,14 @@
       "batchScanStoppedToast": "已停止掃碼佇列",
       "batchScanPopupBlocked": "瀏覽器攔截了新分頁:請點網址列右側的攔截圖示允許本站彈出視窗,然後重新開始(或改用內建瀏覽器模式)。",
       "batchScanPopupBlockedToast": "瀏覽器攔截了新分頁,佇列已停止;請允許本站彈出視窗後重試",
-      "batchScanWindowClosedToast": "偵測到瀏覽器視窗已關閉,已停止佇列"
+      "batchScanWindowClosedToast": "偵測到瀏覽器視窗已關閉,已停止佇列",
+      "chromeImportBtn": "從我的 Chrome 匯入",
+      "chromeImportLaunching": "正在開啟 Chrome 登入視窗...",
+      "chromeImportHint": "已開啟 {platform} 登入頁(獨立視窗)。請在那個視窗完成登入,登入成功後會自動儲存帳號,無需貼上 Cookie。",
+      "chromeImportFailed": "Chrome 匯入未完成",
+      "scanLoginReuseLabel": "登入方式",
+      "scanLoginReuseOn": "重用已有登入(免掃碼)",
+      "scanLoginReuseOff": "每次重新掃碼"
     },
     "ai": {
       "analyzeAll": "批量分析",
