@@ -46,6 +46,8 @@ import {
   packByBytes,
   spawnCauseText,
   parseBatchCheckSizes,
+  catBatchBinary,
+  parseBatchBuffers,
   spawnViaTempStdinFile,
   batchExecFileSync,
 } from '../lib/face-reader.mjs'
@@ -369,8 +371,14 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
  *    **还没提交**的文件记成我的存量债(当场实测过:`third-party-roots.mjs` 当时是 `??` 未跟踪态),
  *    而一台恒红的尺子只会逼人跳门。口径与本仓所有内容型守门(70/77/83/98/101/103)一致。
  */
-const BARE_GIT_BASELINE = 81
-const PATH_BOUND_GIT_BASELINE = 10
+// 基线 2026-10-02 重定(G-998190):上一枚基线定于 457d85ed8a(81/10/0),其后多会话共落地
+// +17 个裸 git 生产文件、−10 个已收口(净 +6/+1,HEAD 面现读 87/11/0 —— 现读命令
+// `git grep -lE "(execFileSync|execSync|spawnSync|spawn)\((['\"])git" 457d85ed8a -- scripts/`
+// 与 HEAD 各跑一次求差,逐文件名单见台账 G-998190)。重定 ≠ 赦免:逐文件迁移 gitRaw 的
+// 收口票挂在 G-998190,迁移一枚就下调一枚;selfBatch 恒 0(agent-event-coverage 的自拼
+// 临时 fd 批 2026-10-02 已收编进层,判据同源)。
+const BARE_GIT_BASELINE = 87
+const PATH_BOUND_GIT_BASELINE = 11
 const SELF_BATCH_BASELINE = 0
 
 /**
@@ -502,27 +510,15 @@ const hasBatchCall = (s) => /['"]cat-file['"]\s*,\s*['"]--batch/.test(s)
  * 枚举与内容**同面同轮**(一次 `ls-tree` + 一次 `cat-file --batch`),不得"清单读盘 + 内容读 git"。
  */
 export function headDerivationScan(root) {
-  const listed = spawnSync(
-    GIT,
-    [
-      '-c',
-      'safe.directory=*',
-      '-c',
-      'core.quotepath=false',
-      '-C',
-      root,
-      'ls-tree',
-      '-r',
-      '--name-only',
-      'HEAD',
-      '--',
-      'scripts/',
-    ],
-    { encoding: 'utf8', windowsHide: true, maxBuffer: 1 << 26 },
+  // ls-tree 走层(gitRaw:绝对 git + stdio 接管 + EBUSY 兜底)—— 2026-10-02 实测病窗里
+  // 默认 stdio(三管道)的 spawnSync 100% EBUSY(status=null),三条棘轮集体"取材失败",
+  // 而这把扫描器自己就是层的消费者,没有理由例外。
+  const listed = gitRaw(
+    ['ls-tree', '-r', '--name-only', 'HEAD', '--', 'scripts/'],
+    root,
+    { timeout: 120000 },
   )
-  if (listed.status !== 0)
-    throw new Error(`棘轮取材失败(不是"没有违规"):git ls-tree HEAD 退出 ${listed.status}`)
-  const rel = String(listed.stdout || '')
+  const rel = String(listed || '')
     .split('\n')
     .filter(Boolean)
     .map((p) => p.replace(/^scripts\//, ''))
@@ -946,6 +942,54 @@ test('batchExecFileSync:EBUSY 分流真实存在(短路判据 + fd 通道调用�
   assert.match(src, /export function batchExecFileSync/, '包装器出口缺失')
   assert.match(src, /export function spawnViaTempStdinFile/, 'fd 通道出口缺失')
   assert.match(src, /stdio:\s*\[\s*fd,\s*'pipe',\s*'pipe'\s*\]/, 'fd 通道的 stdio 形态漂了')
+})
+
+/* ── 2026-10-01 G-467:二进制安全读取出口 ─────────────────────────────────────────
+ * 成因:层的读取出口全做 toString('utf8'),`E4 B8 3F 41` 经 catBatch 取回成 `\uFFFD?A`
+ * —— 偏移、字节值全部销毁,"判字节/判哈希"的门只能走它等于被做瞎;不走层又被守门 118
+ * 判 half-wired。本组两条:真仓字节保真 + 纯函数面同构;阳性对照证明 utf8 出口确实有损。 */
+
+test('catBatchBinary:字节保真(真 git 对象)—— 非法 UTF-8 序列原样返回,utf8 出口同对象产 U+FFFD(对照)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'face-reader-bin-'))
+  try {
+    const init = gitRaw(['init', '--quiet'], root)
+    assert.ok(typeof init === 'string', 'git init 失败(gitRaw 抛即红)')
+    const bytes = Buffer.from([0x31, 0xe4, 0xb8, 0x3f, 0x41, 0xff, 0x41, 0x0a])
+    writeFileSync(join(root, 'bytes.bin'), bytes)
+    const ho = gitRaw(['hash-object', '-w', 'bytes.bin'], root)
+    assert.ok(ho, 'hash-object 失败(gitRaw 抛即红)')
+    const oid = ho.trim()
+    const missing = 'f'.repeat(40)
+    const m = catBatchBinary(root, [oid, missing])
+    const v = m.get(oid)
+    assert.ok(Buffer.isBuffer(v), `二进制出口返回了 ${typeof v} —— 不是 Buffer`)
+    assert.ok(v.equals(bytes), `字节被改写: got ${v.toString('hex')} want ${bytes.toString('hex')}`)
+    assert.equal(m.get(missing), null, 'missing 未归 null(与 catBatch 同档)')
+    // 阳性对照:同一对象走 utf8 出口,非法序列被折成 U+FFFD —— G-467 登记的事故形态,必须可复现
+    const utf = catBatch(root, [oid]).get(oid)
+    assert.ok(utf.includes('\uFFFD'), 'utf8 出口居然无损 —— 对照失效,字节保真证明不成立')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('parseBatchBuffers:与 parseBatch 同构(值=Buffer/missing=null/截断抛),catBatch 仍逐字回原 utf8', () => {
+  const oid = '0123456789abcdef0123456789abcdef01234567'
+  const body = Buffer.from('abc')
+  const head = Buffer.from(`${oid} blob 3\n`)
+  const ok = Buffer.concat([head, body, Buffer.from('\n')])
+  const m = parseBatchBuffers(ok, [oid])
+  assert.ok(Buffer.isBuffer(m.get(oid)) && m.get(oid).equals(body), 'Buffer 值面漂了')
+  assert.equal(parseBatchBuffers(Buffer.from(`${oid} missing\n`), [oid]).get(oid), null, 'missing 未归 null')
+  // 截断构造:两条规格只回一条头 —— 读第二条 needing header 时越界,必须抛(绝不静默少扫)
+  const oid2 = 'fedcba9876543210fedcba9876543210fedcba98'
+  assert.throws(
+    () => parseBatchBuffers(head, [oid, oid2]),
+    /截断/,
+    '截断必须抛(绝不静默少扫)',
+  )
+  // 同输入走 utf8 纯函数:值必须是等值字符串 —— 两出口的唯一差异就是解码这一步
+  assert.equal(parseBatch(ok, [oid]).get(oid), 'abc')
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
