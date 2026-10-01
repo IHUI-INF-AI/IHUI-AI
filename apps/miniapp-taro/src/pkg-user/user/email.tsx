@@ -4,13 +4,13 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Input } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { getProfile, bindEmail, post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import { useFieldFocus } from '@/hooks/use-field-focus'
 import './email.css'
 
 export default function Email() {
@@ -31,9 +31,6 @@ export default function Email() {
   const [count, setCount] = useState(60)
   const [submitting, setSubmitting] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  // 聚焦态描边:描边画在外层 email-input-box 容器上(端内唯一可行形态,取色唯一出处见 hook)
-  const emailFocus = useFieldFocus()
-  const codeFocus = useFieldFocus()
 
   const tt = useCallback(
     (k: string, fb: string) => {
@@ -152,22 +149,20 @@ export default function Email() {
           </View>
         )}
         <View className="email-field">
-          <View className="email-input-box" style={emailFocus.focusStyle}>
-            <Input
+          <View className="email-input-box">
+            <FocusInput
               className="email-input"
               type="text"
               placeholder={tt('user.email.emailPlaceholder', '请输入邮箱')}
               placeholderClass="email-placeholder"
               value={email}
               onInput={(e) => setEmail(e.detail.value)}
-              onFocus={emailFocus.onFocus}
-              onBlur={emailFocus.onBlur}
             />
           </View>
         </View>
         <View className="email-field">
-          <View className="email-input-box" style={codeFocus.focusStyle}>
-            <Input
+          <View className="email-input-box">
+            <FocusInput
               className="email-input"
               type="number"
               maxlength={6}
@@ -175,8 +170,6 @@ export default function Email() {
               placeholderClass="email-placeholder"
               value={code}
               onInput={(e) => setCode(e.detail.value)}
-              onFocus={codeFocus.onFocus}
-              onBlur={codeFocus.onBlur}
             />
             <Text className={`email-code-btn ${counting ? 'disabled' : ''}`} onClick={sendCode}>
               {counting ? `${count}s` : tt('user.email.getCode', '获取验证码')}
