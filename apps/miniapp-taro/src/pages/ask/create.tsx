@@ -5,6 +5,7 @@
 import { useTt, t } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Button, Image, Switch, ScrollView } from '@tarojs/components'
+import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -12,7 +13,6 @@ import { createAsk } from '@/api'
 import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
 import './create.css'
-import { FocusInput, FocusTextarea } from '@/components/FocusField'
 
 interface FormState {
   title: string
