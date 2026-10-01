@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 'use client'
 
 /**
@@ -41,7 +40,12 @@ function hostnameOf(url: string): string {
   }
 }
 
-export function LinkPreviewCard({ preview, onDismiss, className, 'data-testid': testId }: LinkPreviewCardProps) {
+export function LinkPreviewCard({
+  preview,
+  onDismiss,
+  className,
+  'data-testid': testId,
+}: LinkPreviewCardProps) {
   const t = useTranslations('chat.linkPreview')
 
   if (!preview) return null
@@ -76,7 +80,9 @@ export function LinkPreviewCard({ preview, onDismiss, className, 'data-testid': 
           {preview.title ?? hostnameOf(preview.url)}
         </span>
         {preview.description ? (
-          <span className="mt-0.5 line-clamp-2 block text-muted-foreground">{preview.description}</span>
+          <span className="mt-0.5 line-clamp-2 block text-muted-foreground">
+            {preview.description}
+          </span>
         ) : null}
       </span>
     )
@@ -88,7 +94,7 @@ export function LinkPreviewCard({ preview, onDismiss, className, 'data-testid': 
       data-preview-status={preview.status}
       role="status"
       className={cn(
-        'mx-1 mb-1 flex items-start gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-xs',
+        'mx-1 mb-1 flex items-start gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-xs',
         className,
       )}
     >

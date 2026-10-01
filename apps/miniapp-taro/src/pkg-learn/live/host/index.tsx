@@ -4,13 +4,13 @@
 
 import { useTt, type TtFn } from '@/i18n'
 import { View, Text } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { createSrsStream, updateSrsStream, type SrsStream } from '@ihui/api-client'
 import { unwrapApi } from '@/utils/api-bridge'
 import { formatDuration } from '@ihui/shared/utils'
 import ThemeRoot from '@/components/ThemeRoot'
-import { FocusInput } from '@/components/FocusField'
 
 type StreamStatus = 'idle' | 'active' | 'inactive'
 
@@ -135,7 +135,9 @@ export default function LiveHost() {
         {/* header:状态徽章(11dp → 22rpx,radius 12 → 24rpx) */}
         <View className="flex items-center px-[20rpx] pt-[16rpx] pb-[16rpx]">
           <View className={`px-[16rpx] py-[4rpx] rounded-xl ${badgeCls}`}>
-            <Text className="text-[length:22rpx] text-[var(--color-primary-foreground)]">{badgeText}</Text>
+            <Text className="text-[length:22rpx] text-[var(--color-primary-foreground)]">
+              {badgeText}
+            </Text>
           </View>
         </View>
 
@@ -227,7 +229,9 @@ export default function LiveHost() {
           <View className="flex flex-wrap">
             {stats.map((s) => (
               <View key={s.label} className="w-1/2 mb-[16rpx]">
-                <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">{s.label}</Text>
+                <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
+                  {s.label}
+                </Text>
                 <Text className="text-[length:32rpx] font-semibold text-foreground">{s.value}</Text>
               </View>
             ))}
@@ -262,7 +266,9 @@ export default function LiveHost() {
           ) : (
             MOCK_PRODUCTS(tt).map((item) => (
               <View key={item.id} className="flex items-center justify-between py-[16rpx]">
-                <Text className="flex-1 mr-[16rpx] text-[length:32rpx] text-foreground">{item.name}</Text>
+                <Text className="flex-1 mr-[16rpx] text-[length:32rpx] text-foreground">
+                  {item.name}
+                </Text>
                 <Text className="text-[length:32rpx] font-semibold text-[var(--color-danger)]">
                   ¥{item.price}
                 </Text>
