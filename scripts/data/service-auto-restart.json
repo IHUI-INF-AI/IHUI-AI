@@ -1,0 +1,82 @@
+{
+  "$comment": "不响应服务自愈的白名单台账(动作器 = scripts/heal-unresponsive-services.mjs)。判据不在这张表里:表只登记『允许谁被自动拉起 + 为什么 + 谁负责 + 什么时候前回看』。是否应答一律取 scripts/check-service-binary-paths.mjs 的 --json 输出(同一把尺子,不得在动作器里再写一遍端口探测)。",
+  "limits": {
+    "consecutiveRounds": 2,
+    "cooldownMinutes": 60,
+    "maxRestartsPerWindow": 2,
+    "windowMinutes": 60,
+    "_comment": "连续 N 轮才动(单轮抖动不算故障);每台每小时最多 1 次、每窗口全局最多 K 次 —— 防重启风暴(本仓 fork 风暴实测 24.6 万 cmd/2min,同一条教训)。"
+  },
+  "services": [
+    {
+      "name": "IHUI-API",
+      "reason": "业务 API 主入口(8802)。不应答 = 所有端全红,重启代价是一次 ~10s 的进程拉起,远小于继续停摆。",
+      "owner": "机主(2026-10-01 三层重启方案拍板)",
+      "reviewBy": "2027-01-01"
+    },
+    {
+      "name": "IHUI-WEB",
+      "reason": "网站(8801)。同上,用户直接可见。",
+      "owner": "机主(2026-10-01 三层重启方案拍板)",
+      "reviewBy": "2027-01-01"
+    },
+    {
+      "name": "IHUI-AI-SERVICE",
+      "reason": "对话/工具后端(8803)。挂了就是一整条 AI 能力不可用。",
+      "owner": "机主(2026-10-01 三层重启方案拍板)",
+      "reviewBy": "2027-01-01"
+    },
+    {
+      "name": "Keycloak",
+      "reason": "登录/SSO(7800)。挂了 = 没人登得进来,重启比等人工快得多。",
+      "owner": "机主(2026-10-01 三层重启方案拍板)",
+      "reviewBy": "2027-01-01"
+    },
+    {
+      "name": "IHUI-IMAGE-CDN",
+      "reason": "图片源站(80)。它回 0 字节/404 时前端是灰块且不报错,重启可解进程假死。",
+      "owner": "机主(2026-10-01 三层重启方案拍板)",
+      "reviewBy": "2027-01-01"
+    },
+    {
+      "name": "ihui-alertmanager",
+      "reason": "告警路由(9093)。它停了 = 后面所有告警都到不了人,属于『掩盖其它故障的故障』。",
+      "owner": "机主(2026-10-01 三层重启方案拍板)",
+      "reviewBy": "2027-01-01"
+    },
+    {
+      "name": "ihui-alert-bridge",
+      "reason": "告警→邮件的唯一中转(9096)。同上;实测 09-30 那轮到人断链就发生在这条腿附近。",
+      "owner": "机主(2026-10-01 三层重启方案拍板)",
+      "reviewBy": "2027-01-01"
+    }
+  ],
+  "excluded": [
+    {
+      "name": "IHUI-PG",
+      "reason": "数据库。一次 checkpoint/短暂停就能被判『不应答』,而重启 PG = 全站读写中断 + 恢复期长。风险与判据强度不成比例,交人。"
+    },
+    { "name": "IHUI-REDIS", "reason": "同上,缓存/会话存储。且蓝绿换流窗口本就有秒级不可达。" },
+    {
+      "name": "IHUI-PG-BACKUP",
+      "reason": "『启动即备份』:由拉起策略决定时机 = 随机时刻跑一份 126MB 全量。它的健康由备份节拍尺子判,不重启。"
+    },
+    {
+      "name": "IHUI-GIT-GUARD",
+      "reason": "动作器就跑在这个执行体里 —— 让它重启自己是自我杀进程。"
+    },
+    {
+      "name": "IHUI-DEPLOYLOOP",
+      "reason": "无监听端口(任务型),应答维按设计给不出结论;它的健康用日志心跳判,已在巡检 P5,处置交人。"
+    },
+    { "name": "IHUI-MONITOR", "reason": "同上:无端口,巡检 P5 管心跳。" },
+    {
+      "name": "ihui-prometheus / ihui-loki / ihui-grafana / ihui-promtail",
+      "reason": "B 档存储与采集:崩了影响『看得见』不影响业务,自动重启会在数据目录未刷盘时反复拉起;只喊人。"
+    },
+    {
+      "name": "ihui-pg-exporter / ihui-redis-exporter / ihui-windows-exporter / IHUI-RSSHUB / IHUI-OLLAMA",
+      "reason": "B 档外围:缺指标/缺资讯,不自动重启。"
+    }
+  ]
+}
