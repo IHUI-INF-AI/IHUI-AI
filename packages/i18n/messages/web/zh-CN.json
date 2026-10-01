@@ -9218,7 +9218,27 @@
       "removeTagAria": "移除标签 {tag}",
       "filterLabel": "按文件夹筛选",
       "filterAll": "全部",
-      "folderNone": "未分类"
+      "folderNone": "未分类",
+      "adminTitle": "分组管理",
+      "adminEmpty": "还没有分组",
+      "adminPending": "分组清单正在从服务器同步，稍后可在这里管理。",
+      "adminDeleteHint": "删除分组只会取消归类，不会删除会话。",
+      "retry": "重试",
+      "folderCount": "{count} 条",
+      "pinAria": "置顶分组",
+      "unpinAria": "取消置顶分组",
+      "renameAria": "重命名分组",
+      "deleteAria": "删除分组",
+      "confirmRenameAria": "确认重命名",
+      "cancelRenameAria": "取消重命名",
+      "reasonOffline": "网络不通，请检查连接后重试",
+      "reasonNameTooLong": "分组名过长或为空",
+      "reasonDuplicateName": "已有同名分组",
+      "reasonNotFound": "分组不存在或已被删除",
+      "reasonForbidden": "你没有这个分组的操作权限",
+      "reasonUnauthorized": "登录已过期，请重新登录",
+      "reasonServer": "服务端出现问题，请稍后重试",
+      "reasonUnknown": "操作失败，请稍后重试"
     }
   },
   "aiCost": {
