@@ -318,7 +318,10 @@ def _supertool_tools_from_pool(
 
 
 async def _build_loop_v2_tools(
-    tool_names: list[str] | None, user_role: int = 0, user_id: str = ""
+    tool_names: list[str] | None,
+    user_role: int = 0,
+    user_id: str = "",
+    session_key: str = "",
 ) -> list[Any]:
     """把 MCP 工具包装为 AgentLoopV2 的 ToolDefinition 列表(白名单过滤)。
 
@@ -361,7 +364,12 @@ async def _build_loop_v2_tools(
 
         async def _exec(args: dict[str, Any], _name: str = mt.name) -> Any:
             # 角色是宿主事实,随工具定义一起固化(与聚合支路 _invoke 同一形态)
-            return await mcp_server.call_tool(_name, args, user_role=user_role)
+            # D201(2026-10-02):session_key 一并过桥 —— mcp_server.call_tool 用它
+            # 注入该会话的附加目录覆盖层(多根工作区);缺省 None = 无会话覆盖层,
+            # 行为与历史逐字节一致(fail-closed 不受影响)。
+            return await mcp_server.call_tool(
+                _name, args, user_role=user_role, session_id=session_key or None
+            )
 
         if defer and mt.name != "get_tool_schema":
             short = _shorten_description(
