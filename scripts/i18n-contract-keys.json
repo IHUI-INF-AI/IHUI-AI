@@ -12,5 +12,113 @@
     "硬约束四:条目过期(键已被本端静态引用,或键不在本端语言包里)同样判红,防止清单腐烂。",
     "不得登记 desktop:该端无 JS 扫描面,声明永远不会被读到。"
   ],
-  "targets": {}
+  "targets": {
+    "web": {
+      "eduCertificates.certificateNo": {
+        "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 217,
+            "contains": "eduCertificates.* (7 leaves)"
+          },
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 219,
+            "contains": "the entry is repointed, never deleted"
+          }
+        ]
+      },
+      "eduCertificates.empty": {
+        "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 217,
+            "contains": "eduCertificates.* (7 leaves)"
+          },
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 219,
+            "contains": "the entry is repointed, never deleted"
+          }
+        ]
+      },
+      "eduCertificates.statusRevoked": {
+        "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 217,
+            "contains": "eduCertificates.* (7 leaves)"
+          },
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 219,
+            "contains": "the entry is repointed, never deleted"
+          }
+        ]
+      },
+      "eduCertificates.statusValid": {
+        "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 217,
+            "contains": "eduCertificates.* (7 leaves)"
+          },
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 219,
+            "contains": "the entry is repointed, never deleted"
+          }
+        ]
+      },
+      "eduCertificates.subtitle": {
+        "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 217,
+            "contains": "eduCertificates.* (7 leaves)"
+          },
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 219,
+            "contains": "the entry is repointed, never deleted"
+          }
+        ]
+      },
+      "eduCertificates.title": {
+        "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 217,
+            "contains": "eduCertificates.* (7 leaves)"
+          },
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 219,
+            "contains": "the entry is repointed, never deleted"
+          }
+        ]
+      },
+      "eduCertificates.view": {
+        "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 217,
+            "contains": "eduCertificates.* (7 leaves)"
+          },
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 219,
+            "contains": "the entry is repointed, never deleted"
+          }
+        ]
+      }
+    }
+  }
 }
