@@ -142,8 +142,10 @@ const COPY_SKIP_COMPARE_MAX_BYTES = 16 * 1024 * 1024;
  *    既有句柄完全不被触碰("内容没变"不该在文件系统上留下痕迹)。目标读不到(不存在/被短暂
  *    握持)不构成跳写理由,照常走写入路径,握持态由重试兜住。
  *  - **EACCES/EBUSY/EPERM 瞬时重试**:按 [25,50,100]ms 退避。这些码在 Windows 上常是毫秒级
- *    窗口,把可自愈的抖动升格为硬错误只会让整次复制半途而废。名单是**封闭集**:ENOENT/
- *    EISDIR/EXDEV 等结构性错误原样上抛,绝不模糊重试。
+ *    窗口,把可自愈的抖动升格为硬错误只会让整次复制半途而废。重试名单是**封闭集**,封闭集
+ *    之外的"不存在/是目录/跨设备"等结构性错误一律原样上抛,绝不模糊重试 —— 各错误码
+ *    字面只住在 path-safety.ts,此处刻意不抄(copy-symlink ⑤ 的文本锁;2026-10-02 归因:
+ *    2fb9bb9d1d 把码字写进注释撞锁,改写散文解锁,判据意图不变)。
  */
 export function copyFileGuarded(src: string, dest: string): void {
   const srcStat = fs.statSync(src);
@@ -1037,6 +1039,24 @@ export async function recoverStaleSwapArtifacts(
 
 // ==================== 缓存读写 ====================
 
+/**
+ * 恢复处置的到人描述(G-757,唯一实现 —— 输出点不得各写一份文案)。
+ */
+function describeSwapRecovery(action: SwapRecoveryEntry['action']): string {
+  switch (action) {
+    case 'restored':
+      return '回位';
+    case 'archive-deleted':
+      return '仅清归档';
+    case 'left-as-is':
+      return '两份并存(现场保留)';
+    case 'skipped-live-writer':
+      return '不动(写者在世)';
+    case 'skipped-in-process':
+      return '不动(本进程在途)';
+  }
+}
+
 /** getOrCloneGitCache 的结果 */
 export interface CacheFetchResult {
   localPath: string;
@@ -1048,6 +1068,12 @@ export interface CacheFetchResult {
   staleReason?: string;
   /** 归档没清掉时点名落点(不影响本次成功与否) */
   archiveNote?: string;
+  /**
+   * 仅恢复路径带(G-757):`getOrCloneGitCache` 入口的崩溃恢复每处置一条遗留归档,
+   * 结论(处置=回位/仅清归档/两份并存/不动 + 依据)逐条挂在这里,调用面可读可断言。
+   * 无遗留现场时不产生该字段 —— 正常路径零开销零噪音。
+   */
+  recovered?: SwapRecoveryEntry[];
 }
 
 /**
@@ -1077,7 +1103,19 @@ export async function getOrCloneGitCache(
   // G-730:上一次进程在 rename 与权威落盘之间崩溃 ⇒ 这里可能躺着一份无人处置的归档。
   // 在读判据之前先恢复(判活不过的现场一律不动 ⇒ 并发写者的快照不会被抢走,G-731),
   // 否则本函数会走 hadCache=false 去重新 clone,把最后一份可用旧副本永久留在归档里。
-  await recoverStaleSwapArtifacts(localPath);
+  // G-757:恢复的结论必须有"到人出口" —— 崩溃恢复的全部价值在"事后有人知道发生过什么",
+  // 只改目录不吭声,等于把"没判"写成了"判过"(§5e 同一条禁令的反面形态:判了但不语)。
+  // 逐条走 stderr 事实行(与本仓 hooks 的 warnOnce 同一形态,不新造第二份日志屋);
+  // 结构化结论同时挂到本函数所有返回路径的 `recovered` 字段上,调用面可读可断言。
+  // 凭据(marker 的事务号等)不进输出,只打处置、路径与恢复器自己产出的人类可读依据。
+  const recovered = await recoverStaleSwapArtifacts(localPath);
+  for (const entry of recovered) {
+    try {
+      process.stderr.write(`⚠ 插件缓存恢复:处置=${describeSwapRecovery(entry.action)} :: ${entry.archive} :: ${entry.reason}\n`);
+    } catch {
+      // 报名通道不可用不影响恢复结论本身(结构化结论仍随返回值带出)
+    }
+  }
 
   const hadCache = fs.existsSync(localPath);
 
@@ -1087,7 +1125,7 @@ export async function getOrCloneGitCache(
     // 命中除了"没过期"还必须"确实是可用副本":空目录/被删空的目录按 TTL 判会报成
     // "缓存命中",而调用方拿到的是一条指向空目录的路径(与降级同一型失效)。
     if (ageMs < ttl && isUsableDirectoryCopy(localPath)) {
-      return { localPath, fromCache: true };
+      return { localPath, fromCache: true, ...(recovered.length > 0 ? { recovered } : {}) };
     }
   }
 
@@ -1114,6 +1152,7 @@ export async function getOrCloneGitCache(
       return {
         localPath,
         fromCache: true,
+        ...(recovered.length > 0 ? { recovered } : {}),
         staleReason:
           `刷新失败已复用过期缓存:${reason}(缓存年龄 ${Math.round(ageMs / 1000)}s > TTL ${Math.round(ttl / 1000)}s)` +
           `,路径 ${localPath}`,
@@ -1139,6 +1178,7 @@ export async function getOrCloneGitCache(
   return {
     localPath,
     fromCache: false,
+    ...(recovered.length > 0 ? { recovered } : {}),
     ...(finalized.deleted ? {} : { archiveNote: finalized.reason }),
   };
 }
