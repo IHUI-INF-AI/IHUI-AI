@@ -24,8 +24,17 @@
  * 91 要 `.tsx` 枚举)—— 强行统一对外形状会让三门的镜像测试一起改语义,那是重构事故不是收口。
  */
 
-import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, realpathSync } from 'node:fs'
+import { execFileSync, spawnSync } from 'node:child_process'
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  realpathSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import path from 'node:path'
 
 import { resolveGitBin } from './gitdir.mjs'
@@ -84,7 +93,7 @@ export function gitRaw(args, root, opts = {}) {
   // 两态都写死,不给调用方留"顺手删掉 stdio"的空间。
   const stdio = opts.input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
   try {
-    return execFileSync(
+    return batchExecFileSync(
       GIT,
       ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', root, ...args],
       {
@@ -125,7 +134,7 @@ export function catBatchCheck(root, oids) {
   if (list.length === 0) return { missing: new Set(), total: 0 }
   let out
   try {
-    out = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch-check'], {
+    out = batchExecFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch-check'], {
       input: Buffer.from(list.join('\n') + '\n', 'utf8'),
       encoding: 'utf8',
       windowsHide: true,
@@ -162,7 +171,7 @@ export function catBatchOids(root, specs, opts = {}) {
   if (list.length === 0) return map
   let out
   try {
-    out = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch-check'], {
+    out = batchExecFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch-check'], {
       cwd: root,
       input: Buffer.from(list.join('\n') + '\n', 'utf8'),
       encoding: 'utf8',
@@ -196,6 +205,67 @@ export function gitErrText(e) {
   const raw = e?.stderr ?? e?.stdout ?? e?.message ?? String(e)
   const text = String(typeof raw === 'string' ? raw : Buffer.from(raw).toString('utf8')).trim()
   return text.split(/\r?\n/)[0] || '(git 无输出)'
+}
+
+/**
+ * EBUSY 病窗兜底(2026-10-01 立):把 `input` 写进临时文件,子进程 stdio[0] 直接指向该文件的
+ * **fd**。fd 不是管道,病窗(只杀 Node 建 stdin 管道,与父 stdin 形态无关)实测不发病;病窗内
+ * "stdin 管道假成功产空输出"的事故形态也一并绕开 —— 内容躺在文件里,git 读到的必然是全文。
+ * 先例:`scripts/lib/agent-event-coverage.mjs` 的 `catBatchViaTempStdinFile`(矩阵 6/6 验证)。
+ * 返回 spawnSync 的原始结果;**不抛** —— 由 `batchExecFileSync` 翻译成 execFileSync 的错误形状。
+ */
+export function spawnViaTempStdinFile(file, args, opts) {
+  const tmpDir = path.join(opts.cwd ?? '.', '.ihui-agent', 'tmp')
+  mkdirSync(tmpDir, { recursive: true })
+  const tmp = path.join(
+    tmpDir,
+    `face-reader-stdin-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`,
+  )
+  let fd = -1
+  try {
+    writeFileSync(tmp, opts.input)
+    fd = openSync(tmp, 'r')
+    const { input: _dropped, stdio: _stdio, ...rest } = opts
+    return spawnSync(file, args, { ...rest, stdio: [fd, 'pipe', 'pipe'] })
+  } finally {
+    if (fd >= 0) {
+      try { closeSync(fd) } catch {}
+    }
+    try { unlinkSync(tmp) } catch {}
+  }
+}
+
+/**
+ * batch 出口的统一派生包装:**主路径仍是带 input 的 execFileSync(stdio[0]='pipe')**,
+ * 形态锁判据(`scripts/tests/face-reader.test.mjs` 的 stdio[0]=pipe / input: Buffer.from( /
+ * timeout / maxBuffer floor 四项)照旧在调用点逐字可见;唯一的行为变化是 —— 派生层报 **EBUSY**
+ * 时,换 `spawnViaTempStdinFile` 的临时文件 fd 通道重试一次。判断条件只认 `e.code === 'EBUSY'`:
+ * ENOENT(git 二进制/根不可达)、ENOBUFS(maxBuffer 命中)等其它派生故障**原样抛**,绝不把
+ * 真故障吞成一次"重试过了"。
+ */
+export function batchExecFileSync(file, args, opts = {}) {
+  try {
+    return execFileSync(file, args, opts)
+  } catch (e) {
+    if (e?.code !== 'EBUSY') throw e
+    const r = spawnViaTempStdinFile(file, args, opts)
+    if (r.error) {
+      const err = new Error(`${r.error.message} (EBUSY 兜底通道重试仍失败)`)
+      err.code = r.error.code
+      err.cause = r.error
+      throw err
+    }
+    if (r.status !== 0) {
+      const err = new Error(`Command failed: ${args.join(' ')}\n${String(r.stderr ?? '')}`)
+      err.status = r.status
+      err.signal = r.signal
+      err.stdout = r.stdout
+      err.stderr = r.stderr
+      err.output = [r.stdout, r.stderr]
+      throw err
+    }
+    return r.stdout
+  }
 }
 
 /**
@@ -260,7 +330,7 @@ export function parseBatchCheckStates(stdout, specs) {
  */
 function runBatchCheck(root, input, opts = {}) {
   try {
-    return execFileSync(
+    return batchExecFileSync(
       GIT,
       ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', root, 'cat-file', '--batch-check'],
       {
@@ -427,7 +497,7 @@ export function catBatchSizes(root, specs, opts = {}) {
   if (list.length === 0) return new Map()
   let out
   try {
-    out = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch-check'], {
+    out = batchExecFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch-check'], {
       cwd: root,
       input: Buffer.from(list.join('\n') + '\n', 'utf8'),
       encoding: 'utf8',
@@ -479,7 +549,7 @@ export function catBatch(root, revs, opts = {}) {
     const budget = Math.max(maxBuffer, part.reduce((a, s) => a + bytesOf(s), 0) + (1 << 20))
     let raw
     try {
-      raw = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch'], {
+      raw = batchExecFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch'], {
         cwd: root,
         input: Buffer.from(part.join('\n') + '\n', 'utf8'),
         windowsHide: true,
