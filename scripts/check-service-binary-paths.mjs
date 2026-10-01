@@ -416,11 +416,20 @@ export function buildProcessListScript() {
     '} catch { Write-Error $_; exit 9 }',
     'try {',
     '  $sc = 0',
+    '  $svStart = 0',
     '  foreach ($s in @(Get-CimInstance -ClassName Win32_Service -ErrorAction Stop)) {',
     '    $sc = $sc + 1',
-    "    Write-Output ('SV|' + $s.Name + '|' + [string]$s.ProcessId)",
+    "    $tk = 'NA'",
+    '    if ($s.ProcessId -gt 0) {',
+    '      try {',
+    '        $pr = Get-Process -Id $s.ProcessId -ErrorAction Stop',
+    '        if ($pr) { $tk = [string]$pr.StartTime.ToUniversalTime().Ticks; $svStart = $svStart + 1 } else { $tk = \'GONE\' }',
+    '      } catch { $tk = \'ERR\' }',
+    '    }',
+    "    Write-Output ('SV|' + $s.Name + '|' + [string]$s.ProcessId + '|' + $tk)",
     '  }',
     "  Write-Output ('SSUM|' + $sc)",
+    "  Write-Output ('SVSUM|' + $svStart)",
     '} catch { Write-Error $_; exit 9 }',
     `Write-Output '${PROC_TAIL}'`,
     'exit 0',
@@ -436,6 +445,8 @@ export function interpretProcessList(text) {
     return unmeasured(`取不到值:进程枚举输出缺首尾哨兵(head=${head !== -1}, tail=${tail !== -1})⇒ 无法区分"没有进程"与"没跑到"`)
   const procs = []
   const svcPid = new Map()
+  const svcStart = new Map()
+  let startSum = null
   const unparsed = []
   let procSum = null
   let svcSum = null
@@ -471,7 +482,21 @@ export function interpretProcessList(text) {
       const parts = t.split('|')
       const name = parts[1]
       const pid = Number(parts[2])
-      if (parts.length === 3 && name && Number.isInteger(pid)) svcPid.set(name.toLowerCase(), { name, pid })
+      // 第 4 段 = 该服务进程的启动时刻(.NET ticks,UTC)。2026-10-01 加,给"运行中的进程比它加载的脚本旧"
+      // 那一维取材。**刻意允许三段旧版式**:既有夹具与旧解释器都给三段,缺它只能让那一维落「未判定」,
+      // 不得把整条通道判成"解不出"而连带打死监听归并(那维今天还指着它)。
+      if ((parts.length === 3 || parts.length === 4) && name && Number.isInteger(pid)) {
+        svcPid.set(name.toLowerCase(), { name, pid })
+        const tk = parts.length === 4 ? parts[3].trim() : ''
+        if (/^\d+$/.test(tk)) svcStart.set(name.toLowerCase(), { kind: 'ticks', ticks: tk })
+        else if (tk === 'NA' || tk === 'ERR' || tk === 'GONE' || tk === '') svcStart.set(name.toLowerCase(), { kind: tk === '' ? 'absent' : tk.toLowerCase() })
+        else unparsed.push(t)
+      } else unparsed.push(t)
+      continue
+    }
+    if (t.startsWith('SVSUM|')) {
+      const n = Number(t.slice(6).trim())
+      if (Number.isFinite(n)) startSum = n
       else unparsed.push(t)
       continue
     }
@@ -482,7 +507,7 @@ export function interpretProcessList(text) {
   if (procSum !== procs.length || svcSum !== svcPid.size)
     return unmeasured(`取不到值:计数行与行数不符(PSUM=${procSum} 实收 ${procs.length};SSUM=${svcSum} 实收 ${svcPid.size})⇒ 输出被截断`)
   if (unparsed.length > 0) return unmeasured(`取不到值:有 ${unparsed.length} 行形态解不出(首条:${String(unparsed[0]).slice(0, 160)})⇒ 宁可整维未判定,也不把丢行读成"没有"`)
-  return measured({ procs, svcPid, procSum, svcSum })
+  return measured({ procs, svcPid, procSum, svcSum, svcStart, startSum })
 }
 
 /** 服务 pid → 自身 + 全部后代。**深度上限 + 节点上限 + visited 环保护**三条都必须有:实测最长的一条
@@ -762,6 +787,13 @@ export function judgeService(rec) {
   const managed = rec.nssmManaged
   if (managed.kind === 'unmeasured') hard('nssm 托管性', managed.reason)
 
+  // 运行时代码新鲜度:只有"进程比它加载的脚本旧"才是红(线上在跑旧代码,而账面已修);
+  // 其余一律 excuseable —— 服务停着、非 nssm 托管、读不到启动时刻、加载目标不是脚本,都是"没判",
+  // 不是"判过且没问题"。这一维刻意不做硬失明:它依赖进程取样时刻,天生会在重启窗口里落未判定。
+  const runtime = rec.runtime ?? unmeasured('运行时代码新鲜度维没有值(调用方未提供)')
+  if (runtime.kind === 'unmeasured') excuseable('运行时代码新鲜度', runtime.reason)
+  else if (runtime.value.verdict === 'stale') problems.push(`运行时代码新鲜度:${runtime.value.detail}`)
+
   let level
   if (problems.length > 0) level = 'issue'
   else if (hardBlind.length > 0) level = 'unattested'
@@ -855,6 +887,17 @@ const defaultDeps = {
       return 'missing'
     }
   },
+  /** 脚本 mtime(运行时代码新鲜度维用)。取不到必须带原因返回 ok:false ⇒ 上层落「未判定」,
+   *  绝不能返回一个 0 或 undefined 让比较式自己编结论。 */
+  statFile: (p) => {
+    try {
+      const st = statSync(p)
+      if (!st.isFile()) return { ok: false, why: '该路径存在但不是文件' }
+      return { ok: true, mtimeMs: st.mtimeMs }
+    } catch (e) {
+      return { ok: false, why: e?.code ?? e?.message ?? 'statSync 抛错' }
+    }
+  },
   /** netstat -ano:一次派生、只读;SystemRoot 推导的绝对路径优先,不依赖 PATH。 */
   netstatSnapshot: () => {
     const bin = NETSTAT_CANDIDATES.find((p) => existsSync(p)) ?? null
@@ -905,6 +948,82 @@ export function computeObservedListening({ servicePid, netstat, procs }) {
   const endpoints = attributeListening(netstat.value.rows, tree.pids)
   return measured({ endpoints, treeSize: tree.pids.size, truncated: tree.truncated, listenerPids: [...new Set(endpoints.map((e) => e.pid))].sort((a, b) => a - b) })
 }
+
+/** .NET ticks(100ns 自 **0001-01-01** UTC)→ epoch ms。
+ *  ⚠️ 两个坑都由真机现读抓出来,不是推演出来的:
+ *  ① 差值必须是 0001 纪元(62135596800000 ms),**不是** FILETIME 的 1601 纪元
+ *     (11644473600000)—— 用错那个常数年份会整体 +1600(本机第一跑就打出了 3626-10-01)。
+ *  ② 必须走 BigInt:2026 年的 ticks ≈ 6.2e18,而 float64 的整数安全上限是 9.007e15,
+ *     用 Number 承接会静默丢到低 128 ticks —— 对"差几分钟"无所谓,但任何等值比较都会偶然失败。
+ *  自检里那条"年份必须落在当次.now() 前后一年内"的量级哨兵就是为 ① 设的:
+ *  拿同一个常数正反各算一遍是恒真式,抓不到 ① 这一型。 */
+export const TICKS_EPOCH_DIFF_MS = 62135596800000
+export function ticksToMs(ticks) {
+  const s = String(ticks ?? '').trim()
+  if (!/^\d+$/.test(s)) return null
+  try {
+    const ms = Number(BigInt(s) / 10000n - BigInt(TICKS_EPOCH_DIFF_MS))
+    return Number.isFinite(ms) && ms >= 0 ? ms : null
+  } catch {
+    return null
+  }
+}
+
+/** 从服务的 AppParameters 里抠出"进程启动时真正加载的那一份脚本"。
+ *  刻意只做两种肯定形态:`-File <路径>.ps1` 与绝对路径的 `.mjs/.cjs/.js/.ps1` 词元 ——
+ *  模糊匹配会把参数里的日志路径/配置路径当成加载目标,那产出的不是"少判",而是**假 stale**。 */
+export function resolveLoadedScript(paramsTexts) {
+  const texts = (Array.isArray(paramsTexts) ? paramsTexts : [paramsTexts])
+    .filter((t) => typeof t === 'string' && t.trim() !== '')
+    .map((t) => t.trim())
+  if (texts.length === 0) return unmeasured('AppParameters 没有可读的值(空或未量到)⇒ 判不出加载目标,这不是"没有脚本"')
+  for (const raw of texts) {
+    const m = /-File\s+"([^"]+\.ps1)"/i.exec(raw) ?? /-File\s+([^\s"]+\.ps1)/i.exec(raw)
+    if (m) return measured(m[1])
+  }
+  for (const raw of texts) {
+    const m = /(?:^|\s)"([A-Za-z]:[^"]+\.(?:mjs|cjs|js))"(?=$|\s)/i.exec(raw) ?? /(?:^|\s)([A-Za-z]:[^\s"]+\.(?:mjs|cjs|js))(?=$|\s)/i.exec(raw)
+    if (m) return measured(m[1])
+  }
+  return unmeasured(`AppParameters 里没有判得出的加载目标(既无 -File <脚本>,也无绝对路径的 .mjs/.cjs/.js 词元):${texts.join(' ⎯ ').slice(0, 200)}`)
+}
+
+/** 运行时代码新鲜度:进程启动时刻 vs 它加载的那份脚本的 mtime。
+ *  立因(2026-10-01 实测):改完生产脚本、镜像了运行副本、**没重启服务** ⇒ 线上仍跑旧版式;
+ *  当天 09:08 那班备份失败后没触发重试,正是因为那个进程 09:08 启动时读到的还是重试层落地
+ *  (`43a0b7c01c`,14:16)之前的旧副本 —— 账面"已修",线上跑的却是没修的代码,而全链没有任何一处会喊。
+ *  射程边界(必须写进结论,否则下一个人去修不存在的东西):**只判进程启动时 -File 加载的那一份**。
+ *  那份脚本运行时用 `&` 调用的子脚本按调用时刻读取,改了立刻生效,不属本维、也不该被算成 stale。 */
+export function judgeRuntimeFreshness({ state, start, paramsTexts, paramsUnmeasuredReason, statFile }) {
+  if (state !== 'RUNNING') return unmeasured(`服务态=${state ?? '(未量到)'},非 RUNNING ⇒ 没有活进程可与脚本比(它停着这件事由 STATE 维负责,本维不重复计账)`)
+  if (!start) return unmeasured('进程枚举里没有这个服务的启动时刻条目 ⇒ 无从比较')
+  if (start.kind === 'na') return unmeasured('服务 pid=0(未运行或非进程型)⇒ 读不到启动时刻')
+  if (start.kind === 'err') return unmeasured('读不到进程启动时刻(权限不足或进程在读取得已退出)')
+  if (start.kind === 'gone') return unmeasured('pid>0 但已查不到该进程(取样与读取之间进程替换)⇒ 这一轮不判')
+  if (start.kind !== 'ticks') return unmeasured('进程枚举给的是旧版式三段 SV 行,启动时刻未采集(是"没采",不是"没有")')
+  const startMs = ticksToMs(start.ticks)
+  if (startMs === null) return unmeasured(`启动时刻 ticks 解不出(${start.ticks})⇒ 不猜`)
+  const target = paramsTexts === undefined || paramsTexts === null || (Array.isArray(paramsTexts) && paramsTexts.length === 0)
+    ? unmeasured(paramsUnmeasuredReason ?? 'AppParameters 未量到 ⇒ 判不出加载目标')
+    : resolveLoadedScript(paramsTexts)
+  if (target.kind === 'unmeasured') return target
+  const path = target.value
+  if (!/^[A-Za-z]:[\\/]/.test(path)) return unmeasured(`加载目标不是绝对路径(${path})⇒ 落点由工作目录决定,本维不判`)
+  const st = typeof statFile === 'function' ? statFile(path) : { ok: false, why: '调用方未提供 statFile 出口' }
+  if (!st.ok) return unmeasured(`读不到脚本 mtime(${path}):${st.why ?? '未知原因'}`)
+  const deltaMs = st.mtimeMs - startMs
+  const mins = Math.round(deltaMs / 60000)
+  const stamp = (ms) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ')
+  if (deltaMs > 0)
+    return measured({
+      verdict: 'stale',
+      path,
+      detail: `运行中的进程比它加载的脚本旧 ${mins} 分钟 ⇒ 线上跑的是旧代码(${path}:进程启动 ${stamp(startMs)} / 脚本改写 ${stamp(st.mtimeMs)};` +
+        `判的仅是启动时加载的那一份,它运行中用 & 调的子脚本按调用时刻生效,不在本维)`,
+    })
+  return measured({ verdict: 'fresh', path, detail: `${path}:进程启动(${stamp(startMs)})晚于或等于脚本改写(${stamp(st.mtimeMs)})⇒ 加载的就是这份内容` })
+}
+
 
 async function inspectService({ name, stateValue, regRow, regChannelMeasured, inStateRows, deps, nssmPath, listen }) {
   const get = (param) => (nssmPath ? interpretNssmGet(deps.nssmGet(nssmPath, name, param)) : unmeasured(`取不到值:nssm 不在位(候选 ${NSSM_CANDIDATES.join(', ')} 都不存在)`))
@@ -966,6 +1085,14 @@ async function inspectService({ name, stateValue, regRow, regChannelMeasured, in
     probe,
     nssmManaged,
     agreement: disagreement,
+    // 运行时代码新鲜度(2026-10-01 加):进程启动时刻 vs 它 -File 加载的那份脚本的 mtime。
+    runtime: judgeRuntimeFreshness({
+      state: stateValue,
+      start: listen?.svcStart instanceof Map ? listen.svcStart.get(name.toLowerCase()) : null,
+      paramsTexts: nssmParameters.kind === 'measured' ? nssmParameters.value : null,
+      paramsUnmeasuredReason: nssmParameters.kind === 'unmeasured' ? nssmParameters.reason : null,
+      statFile: deps.statFile,
+    }),
   }
   const verdict = judgeService(rec)
   return { name, rec, ...verdict }
@@ -993,11 +1120,15 @@ async function collectListeningSnapshot(deps, meta) {
     netstatMalformed: netstat.kind === 'measured' ? netstat.value.malformed : null,
     processCount: procs.kind === 'measured' ? procs.value.procSum : null,
     servicePidCount: procs.kind === 'measured' ? procs.value.svcSum : null,
+    // 覆盖面自证:启动时刻这一维**采到几条**。0 条不得被读成"所有服务都新鲜"——
+    // 那正是本仓记过多次的"把没判写成判过了"(§"判据失效的表现永远是安静")。
+    serviceStartSampled: procs.kind === 'measured' ? procs.value.startSum : null,
   }
   return {
     netstat,
     procs,
     svcPid: procs.kind === 'measured' ? procs.value.svcPid : null,
+    svcStart: procs.kind === 'measured' ? procs.value.svcStart : null,
   }
 }
 
@@ -1182,7 +1313,7 @@ export function renderText(meta) {
     L.push(
       meta.channels.listen.kind === 'unmeasured'
         ? `通道 监听观察:未判定 —— ${meta.channels.listen.reason}`
-        : `通道 监听观察:量到 netstat TCP 监听 ${meta.listen?.netstatEndpoints ?? '未判定'} 个端点(ASCII TCP 行 ${meta.listen?.netstatTcpLines ?? '?'} 行、非监听态 ${meta.listen?.netstatNotListening ?? 0} 行、形态不符 ${meta.listen?.netstatMalformed ?? 0} 行)、进程 ${meta.listen?.processCount ?? '?'} 个 / 服务 pid ${meta.listen?.servicePidCount ?? '?'} 个`,
+        : `通道 监听观察:量到 netstat TCP 监听 ${meta.listen?.netstatEndpoints ?? '未判定'} 个端点(ASCII TCP 行 ${meta.listen?.netstatTcpLines ?? '?'} 行、非监听态 ${meta.listen?.netstatNotListening ?? 0} 行、形态不符 ${meta.listen?.netstatMalformed ?? 0} 行)、进程 ${meta.listen?.processCount ?? '?'} 个 / 服务 pid ${meta.listen?.servicePidCount ?? '?'} 个 / 其中启动时刻采到 ${meta.listen?.serviceStartSampled ?? '?'} 个`,
     )
   if (meta.enumeration) {
     L.push(`入审 ${meta.enumeration.matched} 个(其中仅由注册表带入、不在过滤器命中集内的:${meta.enumeration.registryAlwaysIn.join(', ') || '无'})`)
@@ -1257,6 +1388,9 @@ function selfTest(opts) {
     appDirectoryExists: dim('m', 'dir'),
     ports: dim('m', [8802]),
     probe: dim('m', { listening: true, ports: [8802] }),
+    // 夹具代表"一份完整的记录",所以运行时代码新鲜度也给它已判过的值;缺维按未判定处理是对的,
+    // 但让全部既有 ok 断言集体翻成 unattested 就不是 —— 那会把"新增一维"变成"推翻所有旧结论"。
+    runtime: dim('m', { verdict: 'fresh', detail: '夹具:进程启动晚于脚本改写' }),
     nssmManaged: dim('m', true),
     agreement: dim('m', false),
     ...over,
@@ -1297,6 +1431,103 @@ function selfTest(opts) {
   ok('S10b STATE 非 RUNNING 而其余全好 ⇒ issue(只看路径会把"停着"读成健康)', judge({ state: dim('m', 'STOPPED') }).level === 'issue')
   ok('S11 Application 值为空(取到了但内容是空)⇒ issue,与"取不到"不同态',
     judge({ application: dim('m', null), appExists: dim('u', '没有可判的存在性') }).level === 'issue')
+
+  // ── 运行时代码新鲜度(2026-10-01 新增维):成对正反例,缺一不可 ─────────────────────────────
+  ok('RF-1 进程比它加载的脚本旧 ⇒ issue,且问题行里点名脚本与差值', (() => {
+    const r = judge({ runtime: dim('m', { verdict: 'stale', path: 'D:\\r\\deploy\\prod-bundle\\pg-backup-scheduler.ps1', detail: '运行中的进程比它加载的脚本旧 437 分钟' }) })
+    return r.level === 'issue' && r.problems.some((p) => /运行时代码新鲜度/.test(p) && /437 分钟/.test(p))
+  })())
+  ok('RF-2 同一位置改成 fresh ⇒ 必须 ok(证明 F1 不是"只要给了 runtime 就红"的恒真式)',
+    judge({ runtime: dim('m', { verdict: 'fresh', detail: '夹具' }) }).level === 'ok')
+  ok('RF-3 该维未判定 ⇒ 不得发合格证,也不得冒红(unattested 与 issue 是两件事)',
+    judge({ runtime: dim('u', '读不到进程启动时刻') }).level === 'unattested')
+  ok('RF-4 调用方整维没给值 ⇒ 落未判定而不是抛错(判据对部分构造必须是全函数)',
+    judgeService({ name: 'X', ...(() => { const h = { ...healthy() }; delete h.runtime; return h })() }).level === 'unattested')
+  ok('RF-5 ticks→ms 用权威字面量验(不是拿同一个常数正反各算一遍):Unix 纪元必须给 0,坏输入给 null,年份错 1600 必须当场现形', (() => {
+    // '621355968000000000' 是 .NET 文档里 1970-01-01 的 Ticks 权威值(与实现里的常数无关)。
+    // 上一版这条断言是拿 TICKS_EPOCH_DIFF_MS 造 ticks 再解回来 —— 那是恒真式,
+    // 正因如此它放过了"把 0001 纪元错用成 FILETIME 1601 纪元"这个真实写错的版本(真机打出 3626 年)。
+    const unixEpoch = ticksToMs('621355968000000000')
+    const nowish = ticksToMs(String(BigInt(621355968000000000) + BigInt(Math.floor(Date.now())) * 10000n))
+    const ONE_YEAR_MS = 365 * 86400000
+    return (
+      unixEpoch === 0 &&
+      nowish !== null && Math.abs(nowish - Date.now()) < ONE_YEAR_MS &&
+      ticksToMs('abc') === null && ticksToMs('') === null && ticksToMs('62135596800000000x') === null
+    )
+  })())
+  ok('RF-6 加载目标:PowerShell 的 -File 与 node 的绝对 .mjs 都认;相对路径/参数里的日志路径一律不认(防假 stale)', (() => {
+    const ps = resolveLoadedScript(['-NoProfile -ExecutionPolicy Bypass -File D:\\r\\deploy\\prod-bundle\\pg-backup-scheduler.ps1'])
+    const mjs = resolveLoadedScript(['D:\\DevEnv\\runtimes\\node\\node.exe D:\\r\\scripts\\git-guardian.mjs --daemon'])
+    const quoted = resolveLoadedScript(['-File "D:\\a b\\x.ps1"'])
+    const none = resolveLoadedScript(['--config D:\\logs\\run.log'])
+    const rel = resolveLoadedScript(['-File scripts/foo.ps1'])
+    const empty = resolveLoadedScript([])
+    return (
+      ps.kind === 'measured' && /prod-bundle\\pg-backup-scheduler\.ps1$/.test(ps.value) &&
+      mjs.kind === 'measured' && /\.mjs$/.test(mjs.value) &&
+      quoted.kind === 'measured' && quoted.value === 'D:\\a b\\x.ps1' &&
+      none.kind === 'unmeasured' && empty.kind === 'unmeasured' &&
+      // 相对路径**抽得出目标**,但由 judgeRuntimeFreshness 拒判(工作目录不同结论就不同);
+      // 把拒绝写在抽取层会让"抽得出而不判"与"抽不出"同形,那正是本仓最贵的假绿。
+      rel.kind === 'measured' && rel.value === 'scripts/foo.ps1' &&
+      judgeRuntimeFreshness({
+        state: 'RUNNING',
+        start: { kind: 'ticks', ticks: String((BigInt(Date.parse('2026-10-01T09:00:00Z')) + BigInt(TICKS_EPOCH_DIFF_MS)) * 10000n) },
+        paramsTexts: ['-File scripts/foo.ps1'],
+        statFile: () => ({ ok: true, mtimeMs: Date.parse('2026-10-01T10:00:00Z') }),
+      }).kind === 'unmeasured'
+    )
+  })())
+  ok('RF-7 judgeRuntimeFreshness 的四档入口各给各的话:非 RUNNING / 无启动时刻 / 无加载目标 / 读不到 mtime ⇒ 四种未判定措辞都不同,且不得被读成 fresh', (() => {
+    const st = { kind: 'ticks', ticks: String((BigInt(Date.parse('2026-10-01T09:00:00Z')) + BigInt(TICKS_EPOCH_DIFF_MS)) * 10000n) }
+    const statOk = { ok: true, mtimeMs: Date.parse('2026-10-01T08:00:00Z') }
+    const a = judgeRuntimeFreshness({ state: 'STOPPED', start: st, paramsTexts: ['D:\\a.mjs'], statFile: () => statOk })
+    const b = judgeRuntimeFreshness({ state: 'RUNNING', start: null, paramsTexts: ['D:\\a.mjs'], statFile: () => statOk })
+    const c = judgeRuntimeFreshness({ state: 'RUNNING', start: { kind: 'err' }, paramsTexts: ['D:\\a.mjs'], statFile: () => statOk })
+    const d = judgeRuntimeFreshness({ state: 'RUNNING', start: st, paramsTexts: null, paramsUnmeasuredReason: 'REG 未判定', statFile: () => statOk })
+    const e = judgeRuntimeFreshness({ state: 'RUNNING', start: st, paramsTexts: ['-File D:\\x\\gone.ps1'], statFile: () => ({ ok: false, why: 'ENOENT' }) })
+    const fresh = judgeRuntimeFreshness({ state: 'RUNNING', start: st, paramsTexts: ['D:\\x\\a.mjs'], statFile: () => statOk })
+    const stale = judgeRuntimeFreshness({ state: 'RUNNING', start: st, paramsTexts: ['D:\\x\\a.mjs'], statFile: () => ({ ok: true, mtimeMs: Date.parse('2026-10-01T10:00:00Z') }) })
+    const distinct = new Set([a.reason, b.reason, c.reason, d.reason, e.reason]).size
+    return (
+      [a, b, c, d, e].every((x) => x.kind === 'unmeasured') && distinct === 5 &&
+      fresh.kind === 'measured' && fresh.value.verdict === 'fresh' &&
+      stale.kind === 'measured' && stale.value.verdict === 'stale' && /60 分钟/.test(stale.value.detail)
+    )
+  })())
+  ok('RF-8 进程通道第 4 段各形态都收:数字 ticks / NA / ERR / GONE / 缺省三段旧版式 ⇒ 均不得进 unparsed(否则整维打死监听归并)', (() => {
+    const mkSv = (n, pid, tk) => `SV|${n}|${pid}${tk === undefined ? '' : '|' + tk}`
+    const lines = [
+      PROC_HEAD,
+      'PS|700|1188', 'PSUM|1',
+      mkSv('A', 700, '638000000000000000'),
+      mkSv('B', 0, 'NA'),
+      mkSv('C', 701, 'ERR'),
+      mkSv('D', 702, 'GONE'),
+      mkSv('E', 703),
+      'SSUM|5', 'SVSUM|1',
+      PROC_TAIL,
+    ]
+    const r = interpretProcessList(lines.join('\n'))
+    return (
+      r.kind === 'measured' && r.value.svcStart.get('a').kind === 'ticks' &&
+      r.value.svcStart.get('b').kind === 'na' && r.value.svcStart.get('c').kind === 'err' &&
+      r.value.svcStart.get('d').kind === 'gone' && r.value.svcStart.get('e').kind === 'absent' &&
+      r.value.startSum === 1 && r.value.svcPid.size === 5
+    )
+  })())
+  ok('RF-9 反向对照:SVSUM 缺失(旧版式产出)⇒ 通道仍 measured,但新鲜度维必须落 absent 一档(不是"全 fresh")', (() => {
+    const legacy = [PROC_HEAD, 'PS|700|1188', 'PSUM|1', 'SV|A|700', 'SSUM|1', PROC_TAIL].join('\n')
+    const r = interpretProcessList(legacy)
+    return r.kind === 'measured' && r.value.startSum === null && r.value.svcStart.get('a').kind === 'absent'
+  })())
+  ok('RF-10 生成器真把第 4 段与 SVSUM 写进了执行面(形状锁:退回三段 ⇒ 本维静默归零,必须能被发现)', (() => {
+    const ps = buildProcessListScript()
+    return /\$tk = \[string\]\$pr\.StartTime\.ToUniversalTime\(\)\.Ticks/.test(ps) &&
+      /'SV\|' \+ \$s\.Name \+ '\|' \+ \[string\]\$s\.ProcessId \+ '\|' \+ \$tk/.test(ps) &&
+      /Write-Output \('SVSUM\|' \+ \$svStart\)/.test(ps)
+  })())
 
   ok('S2c 多值参数保留全部行:OLLAMA 型(port 在第 2 行)不得被读成"没声明";反向对照单行值不受影响', (() => {
     const multi = interpretNssmGetMultiline({ code: 0, stdoutBuf: u16Lines(['OLLAMA_KEEP_ALIVE=24h', 'OLLAMA_HOST=127.0.0.1:11434']), stderrBuf: Buffer.alloc(0) })
@@ -1686,6 +1917,7 @@ export const __test__ = {
   resolvePorts, existenceOf, judgeService, computeExitCode, parseArgs, renderText, main, selfTest,
   interpretNetstatListening, splitHostPort, buildProcessListScript, interpretProcessList, buildProcessTree,
   attributeListening, probeHostForBind, buildProbeTargets, foldProbeOutcome, computeObservedListening,
+  ticksToMs, resolveLoadedScript, judgeRuntimeFreshness, TICKS_EPOCH_DIFF_MS,
   ENUM_HEAD, ENUM_TAIL, PROC_HEAD, PROC_TAIL, REG_NO_PARAMS, REG_ENCODE_ERROR, PS_CANDIDATES, NSSM_CANDIDATES,
   NETSTAT_CANDIDATES, LOOPBACK_PROBE_HOST, SYSTEM_PID_FLOOR, MAX_PROBE_PORTS, TREE_MAX_DEPTH, TREE_MAX_NODES,
   NSSM_TIMEOUT_MS, TCP_TIMEOUT_MS, NETSTAT_TIMEOUT_MS, PROC_TIMEOUT_MS, defaultDeps,
