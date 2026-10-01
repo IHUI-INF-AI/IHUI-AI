@@ -5,8 +5,8 @@
 'use client'
 
 import * as React from 'react'
+import { Bell, X, CheckCheck } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Bell, X, CheckCheck, ListTodo } from 'lucide-react'
 
 import { Button } from '@ihui/ui-react'
 import { formatDate } from '@/lib/date-utils'
@@ -20,11 +20,12 @@ export interface NoticeItem {
   createdAt: string
 }
 
-/** D193:待决策条目(与 api-client 的 PendingDecisionItem 同形,本组件保持展示层零耦合) */
+/** D193 决策收件箱条目视图(2026-09-30 立):listPendingDecisions 数据的渲染面元素。
+ *  createdAt 为 null 表示服务端未落时间;threadId 为 null 表示无法跳会话(仍可开面板)。 */
 export interface PendingDecisionView {
   id: string
   threadId: string | null
-  type: 'tool_approval' | 'permissions' | 'elicitation' | string
+  type: string
   summary: string
   createdAt: string | null
 }
@@ -34,8 +35,9 @@ export interface NotificationCenterProps {
   onMarkAllRead?: () => void
   onClose?: () => void
   onItemClick?: (item: NoticeItem) => void
-  /** D193:「我的待决策」聚合(传 undefined = 整区隐藏;传数组 = 展示,含空态) */
+  /** D193:待我决策条目;**不传**(未取数/游客)整区隐藏,传空数组渲染空态 */
   pendingDecisions?: PendingDecisionView[]
+  /** D193:点击待决策条目(装车链据此切会话 + 开面板) */
   onDecisionItemClick?: (item: PendingDecisionView) => void
 }
 
@@ -44,6 +46,16 @@ const TYPE_COLORS: Record<NoticeItem['type'], string> = {
   success: 'bg-green-500',
   warning: 'bg-yellow-500',
   error: 'bg-red-500',
+}
+
+/** 类型 → 词表键后缀(elicitation → decisionTypeElicitation;未知类型原样兜底) */
+function decisionTypeKey(type: string): string {
+  const suffix = type
+    .split('_')
+    .filter(Boolean)
+    .map((seg) => seg.charAt(0).toUpperCase() + seg.slice(1))
+    .join('')
+  return suffix ? `decisionType${suffix}` : type
 }
 
 /** 通知中心组件,展示通知列表并提供全部已读与关闭操作。
@@ -56,14 +68,8 @@ export function NotificationCenter({
   pendingDecisions,
   onDecisionItemClick,
 }: NotificationCenterProps) {
-  const t = useTranslations('nav')
+  const t = useTranslations('featureCenter')
   const unreadCount = items.filter((n) => !n.read).length
-
-  const decisionTypeLabel = (type: string) => {
-    if (type === 'permissions') return t('decisionTypePermissions')
-    if (type === 'elicitation') return t('decisionTypeElicitation')
-    return t('decisionTypeToolApproval')
-  }
 
   return (
     <div className="flex w-full flex-col">
@@ -91,60 +97,51 @@ export function NotificationCenter({
           )}
         </div>
       </div>
-      {pendingDecisions && (
-        <div className="px-3 pb-2" data-testid="decision-inbox-section">
-          <div className="flex items-center gap-2 py-1">
-            <ListTodo className="h-4 w-4 text-primary" />
-            <span className="text-xs font-medium text-muted-foreground">
-              {t('myPendingDecisions')}
-            </span>
-            {pendingDecisions.length > 0 && (
-              <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-cta px-1 text-[10px] font-semibold leading-none tabular-nums text-cta-foreground">
+      <div className="max-h-[60vh] flex-1 overflow-auto">
+        {/* D193 决策收件箱区:prop 缺席即整区隐藏(未取数/游客不打扰) */}
+        {pendingDecisions && (
+          <div data-testid="decision-inbox-section" className="border-b border-border/60 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold">{t('myPendingDecisions')}</span>
+              <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] tabular-nums text-amber-600 dark:text-amber-400">
                 {pendingDecisions.length}
               </span>
-            )}
-          </div>
-          {pendingDecisions.length === 0 ? (
-            <p className="py-1.5 text-xs text-muted-foreground" data-testid="decision-inbox-empty">
-              {t('pendingDecisionsEmpty')}
-            </p>
-          ) : (
-            <div className="space-y-1">
-              {pendingDecisions.map((item) => (
-                <div
-                  key={item.id}
-                  role="button"
-                  tabIndex={0}
-                  data-testid="decision-inbox-item"
-                  data-thread-id={item.threadId ?? ''}
-                  onClick={() => onDecisionItemClick?.(item)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      onDecisionItemClick?.(item)
-                    }
-                  }}
-                  className="flex cursor-pointer gap-2 rounded-sm p-2 transition-colors hover:bg-muted/50"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      {item.summary || decisionTypeLabel(item.type)}
+            </div>
+            {pendingDecisions.length === 0 ? (
+              <p data-testid="decision-inbox-empty" className="py-3 text-xs text-muted-foreground">
+                {t('pendingDecisionsEmpty')}
+              </p>
+            ) : (
+              <div className="mt-1.5 space-y-1">
+                {pendingDecisions.map((item) => (
+                  <div
+                    key={item.id}
+                    data-testid="decision-inbox-item"
+                    data-thread-id={item.threadId ?? undefined}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onDecisionItemClick?.(item)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onDecisionItemClick?.(item)
+                      }
+                    }}
+                    className="cursor-pointer rounded-md p-1.5 transition-colors hover:bg-muted/50"
+                  >
+                    <p className="break-words text-xs font-medium">
+                      {item.summary || t(decisionTypeKey(item.type))}
                     </p>
-                    {item.threadId && (
-                      <p className="truncate text-xs text-muted-foreground">{item.threadId}</p>
-                    )}
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {decisionTypeLabel(item.type)}
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">
+                      {item.threadId ? `#${item.threadId}` : t(decisionTypeKey(item.type))}
                       {item.createdAt ? ` · ${formatDate(item.createdAt)}` : ''}
                     </p>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      <div className="max-h-[60vh] flex-1 overflow-auto">
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {items.length === 0 ? (
           <div className="flex h-full items-center justify-center py-12 text-sm text-muted-foreground">
             暂无通知

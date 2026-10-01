@@ -17,7 +17,6 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -37,8 +36,6 @@ from ..services.scan_login import (
     detect_login_from_profile,
     get_qr_image,
     get_task,
-    list_live_scan_tasks,
-    request_interaction,
     should_overwrite_existing_credentials,
     start_scan_task,
     verify_login_candidate,
@@ -132,43 +129,6 @@ async def get_task_qr(task_id: str, request: Request) -> Response:
             "X-Task-Status": task.status,
         },
     )
-
-
-@router.post("/{task_id}/interact")
-async def interact_task(task_id: str, request: Request) -> dict[str, Any]:
-    """对进行中的扫码任务做一次页面交互(多步验证:短信验证码等)。
-
-    body: {"action": "screenshot|fill|click|text", "selector"?: str, "value"?: str}
-    sync Playwright 非线程安全 ⇒ 动作经队列投递进任务线程执行,这里只等结果。
-    """
-    user_id = await get_current_user_id(request)
-    task = get_task(task_id)
-    if not task or task.user_id != user_id:
-        raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="body 必须是 JSON")
-    action = str(body.get("action") or "")
-    if not action:
-        raise HTTPException(status_code=400, detail="action 必填(screenshot/fill/click/text)")
-    result = await run_in_threadpool(
-        request_interaction,
-        task_id,
-        action,
-        body.get("selector"),
-        body.get("value"),
-        15.0,
-    )
-    return {"code": 0 if result.get("ok") else 1, "message": "ok" if result.get("ok") else "interaction failed", "data": result}
-
-
-@router.get("/tasks/live")
-async def list_live_tasks(request: Request) -> dict[str, Any]:
-    """列本实例的进行中任务(页面句柄仅实例内可用,Redis 快照不在列)。"""
-    await get_current_user_id(request)  # 仅鉴权;列表不含他人信息字段
-    items = list_live_scan_tasks()
-    return {"code": 0, "message": "ok", "data": {"items": items}}
 
 
 @router.post("/{task_id}/cancel")

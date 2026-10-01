@@ -8649,7 +8649,7 @@
         },
         "speaking_banned": {
           "title": "目前處於禁言狀態",
-          "action": "聯絡管理員瞭解詳情"
+          "action": "聯絡管理員了解詳情"
         },
         "member_capacity_exceeded": {
           "title": "成員數量已達上限",
@@ -8989,7 +8989,6 @@
     "title": "AI 生涯指導"
   },
   "aiChat": {
-    "bindIssue": "綁定 Issue",
     "actions": {
       "archive": "歸檔",
       "compressTo1m": "壓縮到 100 萬字符",
@@ -9135,25 +9134,6 @@
     "noHistory": "暫無任務",
     "noRecentWorkspaces": "暫無最近工作區",
     "openTerminal": "開啟終端",
-    "recap": {
-      "title": "任務回顧",
-      "handoff": {
-        "menuItem": "移交到新任務",
-        "title": "移交到新任務"
-      },
-      "previewDescription": "檢查交接內容後,可以在檔案位置查看,或直接建立一個新任務繼續工作。",
-      "purposeLabel": "交接目的",
-      "purposePlaceholder": "交接目的",
-      "revealFile": "顯示檔案",
-      "createSession": "建立新任務",
-      "phase": {
-        "generating": "模型正在產生交接內容…",
-        "done": "交接文件已產生。"
-      },
-      "creating": "正在建立新任務…",
-      "createFailed": "建立新任務失敗,請重試。",
-      "handoffUnavailable": "依賴的交接文件產生出口尚未提供,無法產生交接內容。"
-    },
     "renameDialog": {
       "cancel": "取消",
       "description": "保持簡短且易於識別",
@@ -10592,17 +10572,6 @@
     "expiryDate": "到期日期"
   },
   "chat": {
-    "bindIssue": "綁定 Issue",
-    "unbindIssue": "改為獨立任務",
-    "issueBinding": "關聯 Issue",
-    "searchIssues": "搜尋 Issue 標識、標題或專案",
-    "noIssues": "還沒有可以綁定的 Issue",
-    "noMatchingIssues": "沒有符合的 Issue",
-    "issueNotConfigured": "該來源尚未連接,請先在設定中連接 GitHub 或 Linear",
-    "issueBindSuccess": "Issue 已綁定",
-    "issueBindFailed": "Issue 綁定失敗",
-    "issueUnbindSuccess": "已解綁,該會話已改為獨立任務",
-    "issueUnbindFailed": "解綁失敗",
     "selectionAnnotations": {
       "hoverHint": "懸停查看批註",
       "selectedText": "{{index}}. 選中文字",
@@ -14180,7 +14149,6 @@
       "verifyCode": "輸入 6 位驗證碼"
     },
     "shop": {
-      "payNow": "去付款",
       "buy": "購買",
       "buying": "下單中...",
       "cancel": "取消",
@@ -14491,7 +14459,8 @@
     "loading": "加載中...",
     "myPoints": "我的積分",
     "subtitle": "學習積分獎勵系統",
-    "title": "教育積分"
+    "title": "教育積分",
+    "totalChannels": "渠道總數"
   },
   "eduProgressPage": {
     "categoryProgress": "分類進度",
@@ -14894,7 +14863,6 @@
     "title": "評測管理"
   },
   "exam": {
-    "pageInfo": "第 {page} / {total} 頁",
     "back": "返回考試列表",
     "duration": "{minutes} 分鐘",
     "empty": "暫無試卷",
@@ -14924,7 +14892,6 @@
     "title": "在線考試",
     "totalScore": "總分 {score}",
     "wrongQuestions": {
-      "aiExplain": "AI 講解",
       "colActions": "操作",
       "colQuestion": "題目內容",
       "colSource": "來源試卷",
@@ -16269,8 +16236,6 @@
     "metaOgDescription": "文檔分塊 + 向量化 + 混合檢索 + 引用追溯"
   },
   "learn": {
-    "startLearning": "開始學習",
-    "buyNow": "立即購買",
     "allCategories": "全部分類",
     "category": "分類",
     "chapters": "課程章節",
@@ -16314,7 +16279,6 @@
     "paymentConfirm": "支付確認",
     "review": "評價",
     "tutor": {
-      "history": "最近問答",
       "title": "AI 助教",
       "subject": "學科",
       "mode": "模式",
@@ -19022,11 +18986,6 @@
     "members": "會員列表",
     "memory": "記憶系統",
     "messages": "站內消息",
-    "myPendingDecisions": "待我決策",
-    "pendingDecisionsEmpty": "暫無待決策",
-    "decisionTypeToolApproval": "工具審批",
-    "decisionTypePermissions": "權限提升請求",
-    "decisionTypeElicitation": "等你回答",
     "messagesComment": "評論",
     "messagesFans": "新粉絲",
     "messagesFavorite": "收藏消息",
@@ -19076,7 +19035,7 @@
     "repoWiki": "Repo Wiki",
     "resources": "資源",
     "restore": "還原",
-    "schedule": "任務排程",
+    "schedule": "課表",
     "search": "搜索",
     "selfMediaAutomation": "自動化",
     "selfMediaKoubo": "口播視頻",
@@ -20256,7 +20215,7 @@
       "subtitle": "配置各平臺的登錄憑證(加密存儲)",
       "switchToAppQr": "切換為App掃碼",
       "switchToWechatQr": "切換為微信掃碼",
-      "morePlatforms": "更多平臺",
+      "morePlatforms": "更多平台",
       "taskId": "任務",
       "title": "平臺賬號管理",
       "verify": "測試連接",
@@ -22042,7 +22001,6 @@
     "warning": "警告"
   },
   "student": {
-    "aiExplain": "AI 講解",
     "avgProgress": "平均進度",
     "avgScore": "平均分",
     "certNo": "證書編號",
@@ -26581,7 +26539,6 @@
     "noUrlField": "回應中未找到可用的 URL 欄位",
     "networkError": "網路錯誤",
     "uploadCancelled": "上傳已取消",
-    "imageAltText": "回饋截圖 {index}",
     "imagePlaceholder": "點選或拖拽上傳圖片"
   },
   "eduScheduling": {

@@ -153,7 +153,9 @@ export function UnifiedDiffBody({
     }
     const { row } = entry
     const header =
-      entry.hunkId !== null && entry.hunkId !== prevHunkId ? renderHunkHeader?.(entry.hunkId) : undefined
+      entry.hunkId !== null && entry.hunkId !== prevHunkId
+        ? renderHunkHeader?.(entry.hunkId)
+        : undefined
     prevHunkId = entry.hunkId
     const isAdd = row.op === 'insert'
     const isDel = row.op === 'delete'
@@ -306,7 +308,9 @@ export function SplitDiffBody({
       return
     }
     const header =
-      entry.hunkId !== null && entry.hunkId !== prevHunkId ? renderHunkHeader?.(entry.hunkId) : undefined
+      entry.hunkId !== null && entry.hunkId !== prevHunkId
+        ? renderHunkHeader?.(entry.hunkId)
+        : undefined
     prevHunkId = entry.hunkId
     if (header) {
       rendered.push(
@@ -505,7 +509,12 @@ function ConflictPanel({
   labels: ThreeWayLabels
   onChoose: (blockId: number, choice: MergeChoice) => void
 }): React.JSX.Element {
-  const sections: Array<{ key: 'base' | 'ours' | 'theirs'; label: string; lines: string[]; cls: string }> = [
+  const sections: Array<{
+    key: 'base' | 'ours' | 'theirs'
+    label: string
+    lines: string[]
+    cls: string
+  }> = [
     { key: 'base', label: labels.base, lines: sideText(block.base), cls: 'bg-muted/30' },
     { key: 'ours', label: labels.ours, lines: sideText(block.ours), cls: ADD_BG },
     { key: 'theirs', label: labels.theirs, lines: sideText(block.theirs), cls: DEL_BG },
@@ -531,7 +540,10 @@ function ConflictPanel({
               <span>{sec.label}</span>
             </div>
             {sec.lines.length === 0 ? (
-              <div className="text-[11px] text-muted-foreground/60" data-testid={`diff-3way-${sec.key}-empty-${block.id}`}>
+              <div
+                className="text-[11px] text-muted-foreground/60"
+                data-testid={`diff-3way-${sec.key}-empty-${block.id}`}
+              >
                 <span>{labels.empty}</span>
               </div>
             ) : (
@@ -634,7 +646,10 @@ export function ThreeWayMergeView({
     [onChoicesChange],
   )
 
-  const merge = React.useMemo<ThreeWayMerge>(() => computeThreeWay(base, ours, theirs), [base, ours, theirs])
+  const merge = React.useMemo<ThreeWayMerge>(
+    () => computeThreeWay(base, ours, theirs),
+    [base, ours, theirs],
+  )
   const summary = React.useMemo(() => summarizeMerge(merge), [merge])
   const unresolvedCount = React.useMemo(
     () => mergeResolutions(merge, choices).unresolvedIds.length,
@@ -688,7 +703,9 @@ export function ThreeWayMergeView({
         <span data-testid="diff-3way-conflict-count">
           {t('diffViewer.conflictCount', { count: conflictTotal })}
         </span>
-        <span data-testid="diff-3way-ours-count">{t('diffViewer.oursOnlyCount', { count: summary.ours })}</span>
+        <span data-testid="diff-3way-ours-count">
+          {t('diffViewer.oursOnlyCount', { count: summary.ours })}
+        </span>
         <span data-testid="diff-3way-theirs-count">
           {t('diffViewer.theirsOnlyCount', { count: summary.theirs })}
         </span>

@@ -5,7 +5,7 @@
 import { View, Text, Pressable, ScrollView } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import { Check, X } from 'lucide-react-native'
-import { permissionDecisionWord, useAgentRuntime, toolDisplayKey } from '@ihui/shared'
+import { useAgentRuntime, toolDisplayKey, permissionDecisionWord } from '@ihui/shared'
 // D111:审批面板的档名与首屏交代行同源取词(permissionTierWordKeys → @ihui/types 唯一真源),
 // 认不出的档位落 unknown,绝不静默显示成 default。
 import { permissionTierWordKeys } from '@ihui/shared/chat'
@@ -39,11 +39,16 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
     : 'unknown'
 
   return (
-    <View className="flex-1 bg-white dark:bg-neutral-900">
-      <View className="flex-row items-center border-b border-gray-100 dark:border-neutral-700 px-3 py-2">
-        <Text className="text-sm font-semibold text-gray-800 dark:text-neutral-100">{t('agent.runtimeTitle')}</Text>
+    <View className="flex-1" style={{ backgroundColor: tokens.surface.card }}>
+      <View
+        className="flex-row items-center border-b px-3 py-2"
+        style={{ borderColor: tokens.border.light }}
+      >
+        <Text className="text-sm font-semibold" style={{ color: tokens.text.secondary }}>
+          {t('agent.runtimeTitle')}
+        </Text>
         {sessionId ? (
-          <Text className="ml-2 text-xs text-gray-400 dark:text-neutral-500" numberOfLines={1}>
+          <Text className="ml-2 text-xs" style={{ color: tokens.text.tertiary }} numberOfLines={1}>
             #{sessionId.slice(0, 8)}
           </Text>
         ) : null}
@@ -54,29 +59,43 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
         <Pressable
           onPress={handleClear}
           disabled={status === 'running'}
-          className="rounded-md bg-gray-50 dark:bg-neutral-800 px-2 py-1"
+          className="rounded-md px-2 py-1"
+          style={{ backgroundColor: tokens.surface.muted }}
         >
-          <Text className="text-xs text-gray-500 dark:text-neutral-400">{t('agent.runtimeClear')}</Text>
+          <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
+            {t('agent.runtimeClear')}
+          </Text>
         </Pressable>
       </View>
 
       <ScrollView className="flex-1 px-3 py-3">
         {plan ? (
-          <View className="mb-3 rounded-md border border-gray-100 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 p-3">
-            <Text className="mb-1.5 text-xs font-medium text-gray-500 dark:text-neutral-400">
+          <View
+            className="mb-3 rounded-md border p-3"
+            style={{ borderColor: tokens.border.light, backgroundColor: tokens.surface.muted }}
+          >
+            <Text className="mb-1.5 text-xs font-medium" style={{ color: tokens.text.tertiary }}>
               {t('agent.runtimePlan')}
             </Text>
-            <Text className="text-xs leading-relaxed text-gray-700 dark:text-neutral-300">{plan}</Text>
+            <Text className="text-xs leading-relaxed" style={{ color: tokens.text.secondary }}>
+              {plan}
+            </Text>
           </View>
         ) : null}
 
         {permission ? (
-          <View className="mb-3 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900 p-3">
-            <Text className="mb-1.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+          <View
+            className="mb-3 rounded-md border border-amber-200 p-3"
+            style={{ backgroundColor: tokens.warning.amberLight }}
+          >
+            <Text
+              className="mb-1.5 text-xs font-medium"
+              style={{ color: tokens.warning.amberText }}
+            >
               {t('agent.runtimePermission')}:{' '}
               {permissionDecisionWord(permission.decision, (k) => t(`stepDecision.${k}`))}
             </Text>
-            <Text className="text-xs text-gray-600 dark:text-neutral-300">
+            <Text className="text-xs" style={{ color: tokens.text.secondary }}>
               {t('agent.runtimePermissionTool')}: {permToolLabel} ·{' '}
               {t('agent.runtimePermissionLevel')}: {permission.dangerLevel ?? 'read'} ·{' '}
               {t('agent.runtimePermissionMode')}: {t(permissionTierWordKeys(permission.mode).title)}
@@ -86,28 +105,39 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
 
         {output ? (
           <View className="mb-3">
-            <Text className="mb-1.5 text-xs font-medium text-gray-500 dark:text-neutral-400">
+            <Text className="mb-1.5 text-xs font-medium" style={{ color: tokens.text.tertiary }}>
               {t('agent.runtimeOutput')}
             </Text>
-            <Text className="text-sm leading-relaxed text-gray-800 dark:text-neutral-100">{output}</Text>
+            <Text className="text-sm leading-relaxed" style={{ color: tokens.text.secondary }}>
+              {output}
+            </Text>
           </View>
         ) : null}
 
         {error ? (
-          <View className="mb-3 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900 p-3">
-            <Text className="mb-1 text-xs font-medium text-red-700 dark:text-red-300">{t('agent.runtimeError')}</Text>
-            <Text className="text-xs text-red-600 dark:text-red-300">{error}</Text>
+          <View
+            className="mb-3 rounded-md border p-3"
+            style={{ borderColor: tokens.danger.light, backgroundColor: tokens.error.bg }}
+          >
+            <Text className="mb-1 text-xs font-medium" style={{ color: tokens.error.text }}>
+              {t('agent.runtimeError')}
+            </Text>
+            <Text className="text-xs" style={{ color: tokens.error.text }}>
+              {error}
+            </Text>
           </View>
         ) : null}
 
         {!plan && !output && !error && !permission ? (
           <View className="items-center py-8">
-            <Text className="text-sm text-gray-400 dark:text-neutral-500">{t('agent.runtimeEmpty')}</Text>
+            <Text className="text-sm" style={{ color: tokens.text.tertiary }}>
+              {t('agent.runtimeEmpty')}
+            </Text>
           </View>
         ) : null}
       </ScrollView>
 
-      <View className="border-t border-gray-100 dark:border-neutral-700 p-3">
+      <View className="border-t p-3" style={{ borderColor: tokens.border.light }}>
         <View className="flex-row items-end">
           <Input
             value={input}
@@ -115,7 +145,12 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
             placeholder={t('agent.runtimeInputPlaceholder')}
             editable={status !== 'running'}
             multiline
-            className="h-auto min-h-[120px] min-h-[60px] flex-1 rounded-sm border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 text-sm text-gray-900 dark:text-neutral-100"
+            className="h-auto min-h-[120px] min-h-[60px] flex-1 rounded-md border p-2 text-sm"
+            style={{
+              borderColor: tokens.border.light,
+              backgroundColor: tokens.surface.card,
+              color: tokens.text.primary,
+            }}
           />
           {status === 'running' ? (
             <Pressable

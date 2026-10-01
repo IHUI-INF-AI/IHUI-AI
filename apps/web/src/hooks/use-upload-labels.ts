@@ -30,7 +30,6 @@ export function useUploadLabels(): UploadLabels {
       noUrlField: t('noUrlField'),
       networkError: t('networkError'),
       uploadCancelled: t('uploadCancelled'),
-      imageAltText: t('imageAltText'),
     }),
     [t],
   )

@@ -344,7 +344,7 @@ function createStyles(tk: AppThemeTokens) {
     cardAvatar: {
       width: 44,
       height: 44,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: 22, // radius-exempt: 44dp 圆形账单头像,取边长一半
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -388,7 +388,7 @@ function createStyles(tk: AppThemeTokens) {
     payRadio: {
       width: 18,
       height: 18,
-      borderRadius: 9,
+      borderRadius: 9, // radius-exempt: 18dp 圆形单选(radio)指示器,取边长一半
       borderWidth: 2,
       borderColor: tk.brandAccent.deep,
       backgroundColor: tk.brand.cta,

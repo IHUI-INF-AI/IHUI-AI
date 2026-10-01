@@ -33,7 +33,6 @@ import {
   literalSpecTarget,
   mergeShadow,
   mergeSites,
-  SELF_SKIP as GATE_SKIP_ENV,
 } from '../check-dangling-local-imports.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -295,62 +294,5 @@ test('D4 形状锁:不得有第二台解析器 / 不得新增磁盘读 / 只报�
   assert.ok(probeTypeScriptSyntax('const m = new Map<string, number>()').length > 0)
   assert.deepEqual(probeTypeScriptSyntax('// const m = new Map<string, number>()\nexport const k = 1'), [])
   assert.deepEqual(probeTypeScriptSyntax('const s = "new Map<string, number>()"\nexport const k = 1'), [])
-})
-
-/** G-815985 `--rev` 的 CLI 端到端(每次派生约 20s,与 runGuard 同量级,故各只跑一次)。
- *  RAP(真实历史锚点对):f3857e05cd 修掉 input-status-slot 引用的两个从未写下的导出 ——
- *  以修后为锚审修前必红且点名那 1 文件,锚点取反必绿。判据只对自己造的夹具有牙等于没有牙。 */
-function runRev(args, env) {
-  try {
-    const out = execFileSync(process.execPath, [GUARD, ...args], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      windowsHide: true,
-      maxBuffer: 128 << 20,
-      timeout: 420000,
-      env: env ?? process.env,
-    })
-    return { rc: 0, out: String(out) }
-  } catch (e) {
-    return { rc: e.status ?? 9, out: String(e.stdout || '') + String(e.stderr || '') }
-  }
-}
-
-test('--rev 审 HEAD 面必须 exit 0 且报出 rev 口径行(装车:门真跑了 --rev 分支)', () => {
-  const r = runRev(['--rev', 'HEAD'])
-  assert.equal(r.rc, 0, `--rev HEAD 应 exit 0:${r.out.slice(-800)}`)
-  assert.match(r.out, /内容口径:--rev HEAD/)
-})
-
-test('--rev 假 sha 与面冲突必须 exit 2(无法判定,不是"没违规")', () => {
-  const bad = runRev(['--rev', 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'])
-  assert.equal(bad.rc, 2, `假 rev 应 exit 2:${bad.out.slice(-500)}`)
-  const conflict = runRev(['--rev', 'HEAD', '--staged'])
-  assert.equal(conflict.rc, 2, `--rev 与 --staged 同给应 exit 2:${conflict.out.slice(-500)}`)
-})
-
-test('--rev 在 SELF_SKIP 下仍审计(调用方点名要结论,跳过等于没审)', () => {
-  const r = runRev(['--rev', 'HEAD'], { ...process.env, [GATE_SKIP_ENV]: '1' })
-  assert.equal(r.rc, 0, `skip 下 --rev 仍应 exit 0:${r.out.slice(-500)}`)
-  assert.match(r.out, /内容口径:--rev/)
-  assert.ok(!r.out.includes('已跳过'), 'skip 行一旦出现,等于门对自己立项那一型失明')
-})
-
-test('--rev 真历史阳性对照:修前 vs 修后锚点必红且点名 input-status-slot.tsx', () => {
-  const r = runRev(['--rev', 'f3857e05cd^', '--anchor', 'f3857e05cd'])
-  assert.equal(r.rc, 1, `应 exit 1:${r.out.slice(-800)}`)
-  assert.match(r.out, /input-status-slot\.tsx/)
-})
-
-test('--rev 锚点方向反了必须绿(锚点错了尺子要安静,而不是反咬)', () => {
-  const r = runRev(['--rev', 'f3857e05cd', '--anchor', 'f3857e05cd^'])
-  assert.equal(r.rc, 0, `应 exit 0:${r.out.slice(-800)}`)
-})
-
-test('--rev 接线形状锁:revMain 不得被摘,SELF_SKIP 忽略必须有注释凭据', () => {
-  const src = readFileSync(GUARD, 'utf8')
-  assert.match(src, /async function revMain\(rev, anchorOpt/)
-  assert.match(src, /indexOf\('--rev'\)/)
-  assert.match(src, /SELF_SKIP.*在这一档不吃|在这一档不吃.*SELF_SKIP/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -189,6 +189,14 @@ function report(a, face) {
       `其中 ${c.f9NonIdTitles ?? 0} 个标题是行文引用/畸形号子串(不是第二次登记),已按 G-417 收口排除在判据外`,
   )
   console.log(`  同态重复(done 侧只报数): done ${c.dupDoneGroups} 组`)
+  // ── G-455:撞号判据里"按定义不可清偿"的三族只报数、分组报名(不判红、不进基线)──
+  const ro = a.f9ReportOnly
+  if (ro)
+    console.log(
+      `  F9 只报数三族(G-455:不判红、不进基线,逐组看 --json 的 f9ReportOnly):` +
+        `仅已完成行 ${ro.doneOnly.length} 组 / 未完成+已完成同键 ${ro.mixedState.length} 组 / ` +
+        `行文引用·畸形号(编号位给不出第二次登记)${ro.crossRef.length} 组`,
+    )
   console.log(`派单口径 —— 真·无人认领: ${c.claimable} 行`)
   console.log(
     `  分解(逐层互斥,可直接相加):未勾选 ${c.open} = 已认领 ${c.claimed} + 其余排除 ${c.unclaimed - c.claimable} + 真待办 ${c.claimable}`,
@@ -379,31 +387,141 @@ export function registersKeyAtIdPosition(rawLine, key) {
 }
 
 /**
- * 把一把面上的撞号组**收窄到只认编号位**(F9 唯一的判据出口,三档读数都从它取)。
+ * F9 的**标题归一化**(2026-09-30 G-815426):剥掉行尾注记族再比标题,**只动 F9 这一把尺子**。
+ *
+ * 立项凭据(HEAD 面实测):`74.` 一组 3 个"不同标题"(`CLI全屏TUI决策` / `CLI全屏TUI决策〔` /
+ * `CLI全屏TUI决策〔第四份同主键副本`)实为同一个任务的 10 行副本,差别全在行尾那条 `〔…〕`
+ * 归并/副本注记上 —— `titleOf` 在注记内部的 `.`/`、`/`【` 处截断,而 `〔`/`〕` 不在截断集里,
+ * 于是注记进了标题 ⇒ 每多一份带不同措辞注记的副本就多一个"标题",差值棘轮把它当"新撞号"判红。
+ * `F1/F4` 用的复合主键那份判据**一字不动**(lib 的 `titleOf`/`compositeKeyOf` 照旧):
+ * 注记进标题恰是"逐字等值"把副本认成同题的机制,两套口径各判各的事,不互相顶。
+ *
+ * 剥的形状(两档,都只在**行尾**生效,不碰题面中段的同类括号):
+ *  - **完整括注** `〔…〕` / `（…）`:内容含归并/进展/副本声明标记才剥 —— `部署〔含金丝雀〕`
+ *    这类题面自带的括注必须留下;无条件剥会把两个真不同题合并成假同题(反向失效,比误报更贵)。
+ *  - **悬挂开口** `〔…` / `（…`(`titleOf` 截断的产物;真实题面不会以未闭合的开口结尾):
+ *    内容为空**或**含标记才剥 —— 标记常落在截断点之后(`〔【归并】…〕` 的标题只剩 `…〔`),
+ *    所以"空悬挂"也剥;有实质内容且无标记的悬挂(如题面自带括注被截断)不剥。
+ *  标记词表取自本仓注记家族的实写形态(`【归并】` / `【进展】` / 副本与漂移声明);
+ *  新增注记族时这里与写出那一侧同批扩,漏一处就是"同任务副本再次被判成撞号"。
+ */
+const F9_ANNOTATION_MARK_RE = /【归并】|【进展】|归并|进展|副本|漂移/
+const F9_TAIL_CLOSED_RE = /(〔([^〕]*)〕|（([^）]*)）)\s*$/
+const F9_TAIL_DANGLING_RE = /(〔|（)([^〔（]*)$/
+
+export function normalizeF9Title(title) {
+  let s = String(title ?? '').trim()
+  for (;;) {
+    const m = F9_TAIL_CLOSED_RE.exec(s)
+    if (!m) break
+    const content = (m[2] ?? m[3] ?? '').trim()
+    if (!F9_ANNOTATION_MARK_RE.test(content)) break
+    s = s.slice(0, m.index).trimEnd()
+  }
+  const d = F9_TAIL_DANGLING_RE.exec(s)
+  if (d) {
+    const content = (d[2] ?? '').trim()
+    if (content === '' || F9_ANNOTATION_MARK_RE.test(content)) s = s.slice(0, d.index).trimEnd()
+  }
+  return s
+}
+
+/**
+ * F9 的**登记子集**谓词(2026-09-30 G-455):「未完成 ∧ 编号位」。
+ *
+ * 编号位那一半是 G-417 的既有判据(`registersKeyAtIdPosition`,一字不动);G-455 补的是状态维:
+ * 已完成行必须留在账面(§1 禁止无声删除),「一条 09-25 的已完成登记 + 一条今天的未完成登记」
+ * 按定义无法靠改号消除(删历史被禁、改号牵动对已完成号的引用链)⇒ 仅已完成行组成的组与
+ * "未完成+已完成同键"的组都不是债,只报数、分组报名、不判红、**不进 F9 基线**。
+ * 单独成谓词而不是内联进 narrowCollisionsToIdPosition:变异测试要有**单一靶点** ——
+ * 把这一个谓词改成恒真 = 退回"任意状态 ∧ 全文窗口命中"的旧口径,反向用例必须全部翻红。
+ */
+export function countsAsF9Registration(rawLine, key, state) {
+  return state === 'open' && registersKeyAtIdPosition(rawLine, key)
+}
+
+/**
+ * 把一把面上的撞号组**收窄到只认「未完成 ∧ 编号位」**(F9 唯一的判据出口,三档读数都从它取)。
+ *
+ * 管线三步,每步的落选者都各有去处(收窄是"不计判据",不是"看不见"):
+ *  ① G-815426 标题归一化:按 `normalizeF9Title` 合并行尾注记漂移的副本(行号取并集)。
+ *     归一化后只剩一个标题 ⇒ 同一任务的副本族(F1/F4 的病人),整组从撞号面消失。
+ *  ②+③ G-417 ∧ G-455 的**登记子集**(未完成 ∧ 编号位)经同一份谓词 `countsAsF9Registration`
+ *     判定(单一靶点,变异测试只改它):编号位给不出本行主键的命中(行文引用/畸形号子串/归档说明)
+ *     不计登记,编号位标题 <2 的组进 `crossRefGroups`(G-455 报名,只报数);编号位标题 ≥2 后,
+ *     ≥2 个**未完成**标题才是真撞号,0 个进 `doneOnlyGroups`(仅已完成行)、1 个进
+ *     `mixedStateGroups`(未完成+已完成同键)。
  * @param content 被审面全文(与 collisions 必须同面同轮 —— 两处各取一次面就是自洽却错位的尺子)
  * @param collisions `auditPlan().collisions`(宽口径原样产物)
- * @returns {groups:Array, droppedTitles:number, droppedGroups:number} 只留"编号位上 ≥2 个不同标题"的组
+ * @returns {groups:Array, droppedTitles:number, droppedGroups:number, doneOnlyGroups:Array, mixedStateGroups:Array, crossRefGroups:Array}
+ *   `groups` 是唯一判红/进基线的子集;三个 *Groups 桶只报数、分组报名,消费方不得把它们并回 groups。
  */
 export function narrowCollisionsToIdPosition(content, collisions) {
   const rawByLine = new Map()
-  for (const r of parseTaskRows(content)) rawByLine.set(r.line, r.raw)
+  const stateByLine = new Map()
+  for (const r of parseTaskRows(content)) {
+    rawByLine.set(r.line, r.raw)
+    stateByLine.set(r.line, r.state)
+  }
   const groups = []
+  const doneOnlyGroups = []
+  const mixedStateGroups = []
+  const crossRefGroups = []
   let droppedTitles = 0
   for (const g of collisions ?? []) {
-    const kept = []
+    // ① 归一化合并:同任务副本的行尾注记漂移(G-815426)先并成同一标题,行号取并集。
+    const merged = new Map()
     for (const t of g.titles ?? []) {
-      const lines = (t.lines ?? []).filter((ln) =>
-        registersKeyAtIdPosition(rawByLine.get(ln) ?? '', g.key),
-      )
-      if (lines.length) kept.push({ title: t.title, lines })
-      else droppedTitles += 1
+      const norm = normalizeF9Title(t.title)
+      if (!merged.has(norm)) merged.set(norm, [])
+      merged.get(norm).push(...(t.lines ?? []))
     }
-    if (kept.length >= 2) groups.push({ key: g.key, titleCount: kept.length, titles: kept })
+    if (merged.size < 2) continue // 归一化后同题 ⇒ 副本族不是撞号(组从宽口径读数里消失,droppedGroups 吸收)
+    // ②+③ 判据子集(G-417 编号位 ∧ G-455 未完成)必须**只**经同一份谓词 `countsAsF9Registration`
+    // 判定 —— 它是变异测试的单一靶点(把谓词改成恒真 = 退回"任意状态 ∧ 全文窗口"旧口径,
+    // 反向用例必须全部翻红)。`keptReport` 单留一份"编号位 ∧ 任意状态"的行号,只喂只报数桶,
+    // 不参与判红路径(变异面下红档照常翻红,与报名桶互不相干)。
+    const kept = []
+    const keptReport = []
+    for (const [title, lines] of merged) {
+      const regLines = lines.filter((ln) =>
+        countsAsF9Registration(rawByLine.get(ln) ?? '', g.key, stateByLine.get(ln)),
+      )
+      if (regLines.length) kept.push({ title, lines: regLines })
+      const idposAll = lines.filter((ln) => registersKeyAtIdPosition(rawByLine.get(ln) ?? '', g.key))
+      if (idposAll.length) keptReport.push({ title, lines: idposAll })
+      else if (!regLines.length) droppedTitles += 1
+    }
+    if (kept.length >= 2) {
+      groups.push({ key: g.key, titleCount: kept.length, titles: kept })
+      continue
+    }
+    // 未进判据子集 ⇒ 只报数,按"编号位 ∧ 状态"给三族各归各位(G-455 分组报名)。
+    if (keptReport.length < 2) {
+      crossRefGroups.push({
+        key: g.key,
+        titleCount: g.titleCount ?? (g.titles ?? []).length,
+        titles: g.titles ?? [],
+      })
+      continue
+    }
+    const openCount = keptReport.filter((t) =>
+      t.lines.some((ln) => stateByLine.get(ln) === 'open'),
+    ).length
+    if (openCount === 0) {
+      doneOnlyGroups.push({ key: g.key, titleCount: keptReport.length, titles: keptReport })
+    } else {
+      // openCount === 1:恰好一个未完成标题 + 其余已完成 ⇒ "未完成+已完成同键"。
+      mixedStateGroups.push({ key: g.key, titleCount: keptReport.length, titles: keptReport })
+    }
   }
   return {
     groups,
     droppedTitles,
     droppedGroups: (collisions ?? []).length - groups.length,
+    doneOnlyGroups,
+    mixedStateGroups,
+    crossRefGroups,
   }
 }
 
@@ -429,6 +547,16 @@ export function narrowF9Face(a, content) {
   a.counts.f9NonIdTitles = narrowed.droppedTitles
   a.collisions = narrowed.groups
   a.counts.collisionGroups = narrowed.groups.length
+  // G-455:不判红的三族只报数、分组报名。刻意**不进 probe**(不进任何棘轮)、
+  // 不在 a.collisions 里(f9KeySetOf 读它 ⇒ 不进基线)—— "不许进 F9 基线"由构造保证。
+  a.counts.f9DoneOnlyGroups = narrowed.doneOnlyGroups.length
+  a.counts.f9MixedStateGroups = narrowed.mixedStateGroups.length
+  a.counts.f9CrossRefGroups = narrowed.crossRefGroups.length
+  a.f9ReportOnly = {
+    doneOnly: narrowed.doneOnlyGroups,
+    mixedState: narrowed.mixedStateGroups,
+    crossRef: narrowed.crossRefGroups,
+  }
   return a
 }
 
@@ -628,6 +756,13 @@ export function gate(a, strict, root, before, beforeErr) {
   // F9 基线锚点必须是键集合(G-312)。旧形状 = 这一维关着 —— 静默放行等于把它写成"判过了且没问题",
   // 而它恰恰是那层"别人跳门把增长塞进 HEAD"唯一的看守者,所以这里按**无法判定**处理(exit 2)。
   const f9b = f9Ratchet(base, a)
+  // ── G-681(2026-09-30 落):F9 基线层的**归属过滤** —— 只改归属、不改强度 ──
+  // 差值档(--staged)手里有 HEAD 基准面 ⇒ 基线缺项里"HEAD 面此刻已有了"的键是**存量**
+  // (别人跳门塞进 HEAD 的;差值判据看不见它,但归属也不在本次提交头上),只打印不判红;
+  // 只把"基线缺 ∧ HEAD 也没有"的键记在本次提交头上。全量档没有基准面 ⇒ **不过滤**
+  // (存量照旧红、逐组名单照旧给);`--update-baseline` 的"只许收窄"一字不松。
+  let f9AttributedKeys = []
+  let f9StockKeys = []
   if (before) {
     const grew = grewViolations(a, before)
     if (grew.length) {
@@ -643,6 +778,29 @@ export function gate(a, strict, root, before, beforeErr) {
     console.log(
       `✅ 差值棘轮:相对 HEAD,本次提交未新增状态分叉(${items.map(([k, , n]) => `${k}=${n}`).join(' ')})`,
     )
+    // 反向锁 B(G-681):基准面**声称有撞号组**却没带逐组明细 ⇒ "哪些键已在 HEAD 面"无从判定
+    // ⇒ 整个归属过滤判**未判定**(exit 2),既不冒红也不记绿 —— 把"没判"读成"全归本次提交"
+    // 与读成"全归存量"是同一个失效型的两个方向。与 f9Ratchet 的 blind 同一条形状判据:
+    // 只拦"有组数声明而无明细"的半张面;对 F9 只字未提的面(如只比 F8 的构造面)不拦。
+    if ((before?.counts?.collisionGroups ?? 0) > 0 && !Array.isArray(before?.collisions)) {
+      console.log(
+        '⚠️ 无法判定 —— F9 基线层:差值基准面给了撞号组数却没带逐组明细(collisions)⇒ "哪些撞号键已在 HEAD 面"无从判定(不冒红也不记绿)',
+      )
+      console.log(
+        '   出路:基准面必须带逐组明细(auditFace 的产物本来就有 ⇒ 这一格只会是调用方自己拼了半个面)。',
+      )
+      return 2
+    }
+    const f9HeadKeys = new Set(f9KeySetOf(before))
+    if (f9b.kind === 'red') {
+      f9StockKeys = f9b.added.filter((k) => f9HeadKeys.has(k))
+      f9AttributedKeys = f9b.added.filter((k) => !f9HeadKeys.has(k))
+    }
+    // 反向锁 A 的"绿"侧就靠这一行:存量键点名必须可见(静默等于放行),但不进 vsBase 的红。
+    if (f9StockKeys.length)
+      console.log(
+        `ℹ F9 基线缺项 ${f9StockKeys.length} 组此刻已在 HEAD 面 ⇒ 不记在本次提交头上:${f9StockKeys.join(' ')}`,
+      )
   } else if (beforeErr) {
     console.log(`⚠️ 差值棘轮未判定 —— ${beforeErr}`)
   }
@@ -655,13 +813,28 @@ export function gate(a, strict, root, before, beforeErr) {
     )
     return 2
   }
-  const vsBase = ratchetViolations(base, items, a)
+  // G-681 落点②:差值档把**按归属过滤后的面**喂给同一份 ratchetViolations —— 存量键被滤出
+  // collisions ⇒ f9Ratchet 看不见它们 ⇒ 不产生 F9 红。签名与两参调用方(git-sync-converge,
+  // 镜像 M20 钉着)一字不动;全量档(before 缺位)传原面,存量照旧红。
+  const f9AttributedSet = new Set(f9AttributedKeys)
+  const vsBase = ratchetViolations(
+    base,
+    items,
+    before
+      ? { ...a, collisions: (a.collisions ?? []).filter((g) => f9AttributedSet.has(g.key)) }
+      : a,
+  )
   if (vsBase.length) {
     console.log(`❌ 基线棘轮:${vsBase.join(';')}`)
     console.log(`   差值判据看不见"别人跳门把增长塞进 HEAD"那一型,这一层就是为它留的。`)
     // F9 红必须**逐组点名**(键 / 两侧标题 / 行号)—— "只报数不报名"等于让改的人再跑一遍全量档,
     // 而这一维的存量按设计不判红,所以红只可能是新键:名单就是可执行出口本身。
-    const addedKeys = f9b.kind === 'red' ? new Set(f9b.added) : new Set()
+    // G-681 落点③:差值档点名**归属后的键**(存量键已在上面那行 ℹ 报过名,不得混进红档名单)。
+    const addedKeys = before
+      ? f9AttributedSet
+      : f9b.kind === 'red'
+        ? new Set(f9b.added)
+        : new Set()
     for (const g of a?.collisions ?? [])
       if (addedKeys.has(g.key)) console.log(`   F9 基线新增撞号:${f9GroupLine(g)}`)
     if (addedKeys.size)
@@ -1162,6 +1335,89 @@ function selfTest() {
     `narrowF9Face 必须同时改 counts.collisionGroups 与 collisions(组数与名单分叉时,红会点不出名),实测 ${JSON.stringify([narrowFace.counts.collisionGroups, narrowFace.collisions.length, narrowFace.counts.f9WideGroups])}`,
   )
   ok(f9KeySetOf(narrowFace).length === 0, '收窄后的键集不得再把叙述引用号喂给基线棘轮')
+  // ── G-815426(2026-09-30 落):F9 的标题归一化剥行尾注记族;F1/F4 的复合主键一字不动 ──
+  // 形态取自 HEAD 面实测(`74.` 组:`CLI全屏TUI决策` / `CLI全屏TUI决策〔` / `CLI全屏TUI决策〔第四份同主键副本`):
+  // 同一任务的副本各带不同措辞的 `〔…〕` 注记,`titleOf` 截断集里没有 `〔` ⇒ 注记进标题 ⇒
+  // 旧口径把它们判成"3 个不同标题"的撞号,差值棘轮再判成"新增"拦人。
+  const annotPair =
+    '- [ ] **G-815428 同任务副本主行**:正文。\n' +
+    '- [ ] **G-815428 同任务副本主行 〔【归并】重复登记副本:同主键另一条,派单以那条为准〕**:副本。\n' +
+    '- [ ] **G-815428 同任务副本主行〔第四份同主键副本**:另一份。'
+  ok(
+    auditPlan(annotPair).counts.collisionGroups === 1,
+    '变异自证:宽口径必须仍把注记漂移的 3 份副本算成撞号(否则归一化这一笔没有牙)',
+  )
+  const annotNarrow = narrowCollisionsToIdPosition(annotPair, auditPlan(annotPair).collisions)
+  ok(
+    annotNarrow.groups.length === 0 && annotNarrow.droppedGroups === 1,
+    `G-815426:行尾注记归一化后,同一任务的副本族不得再算撞号(整组从判据面消失),实测 ${JSON.stringify(annotNarrow.groups)}`,
+  )
+  ok(
+    normalizeF9Title('CLI全屏TUI决策〔') === 'CLI全屏TUI决策' &&
+      normalizeF9Title('CLI全屏TUI决策〔第四份同主键副本') === 'CLI全屏TUI决策' &&
+      normalizeF9Title('CLI全屏TUI决策') === 'CLI全屏TUI决策',
+    '完整注记族与悬挂开口(含截断致空)都必须剥干净并收敛到同一标题',
+  )
+  ok(
+    normalizeF9Title('部署〔含金丝雀、灰度〕') === '部署〔含金丝雀、灰度〕' &&
+      normalizeF9Title('部署〔含金丝雀') === '部署〔含金丝雀',
+    '题面自带的括注(内容无注记标记)不得被剥 —— 无条件剥会把真不同题合并成假同题(反向失效)',
+  )
+  ok(
+    compositeKeyOf(annotPair.split('\n')[0]) !== compositeKeyOf(annotPair.split('\n')[1]),
+    'F1/F4 的复合主键不受影响(注记进标题恰是它把副本认成同题的机制)—— 两套口径各判各的事',
+  )
+  // 反向:两个**真不同任务**(标题差异不在行尾注记上)同号 ⇒ 归一化不得把它们洗成同题。
+  const g815True =
+    '- [ ] **G-815427 真撞号甲任务**:第一件事。\n- [ ] **G-815427 真撞号乙任务**:另一件事。'
+  ok(
+    narrowCollisionsToIdPosition(g815True, auditPlan(g815True).collisions).groups.length === 1,
+    '真撞号不得被标题归一化洗绿(归一化只剥行尾注记,不碰题面主体)',
+  )
+  // ── G-455(2026-09-30 落):撞号只判「未完成 ∧ 编号位」子集;done-only / 交叉引用组只报数 ──
+  const doneOnlyPair =
+    '- [x] ✅(2026-09-25) **G-815429 历史已完成甲**:已落账。\n' +
+    '- [x] ✅(2026-09-28) **G-815429 历史已完成乙**:另一件已落账的事,同号。'
+  ok(
+    auditPlan(doneOnlyPair).counts.collisionGroups === 1,
+    '变异自证:宽口径必须仍把两条已完成行算成撞号(否则"未完成∧编号位"这一维没有牙)',
+  )
+  const doneNarrow = narrowCollisionsToIdPosition(doneOnlyPair, auditPlan(doneOnlyPair).collisions)
+  ok(
+    doneNarrow.groups.length === 0 &&
+      doneNarrow.doneOnlyGroups.length === 1 &&
+      doneNarrow.doneOnlyGroups[0].key === 'G-815429',
+    `仅已完成行组成的组必须移出判据、进入只报数桶(按定义不可清偿),实测 ${JSON.stringify([doneNarrow.groups.map((g) => g.key), doneNarrow.doneOnlyGroups.map((g) => g.key)])}`,
+  )
+  const doneFace = narrowF9Face(auditPlan(doneOnlyPair), doneOnlyPair)
+  ok(
+    doneFace.counts.collisionGroups === 0 &&
+      f9KeySetOf(doneFace).length === 0 &&
+      doneFace.counts.f9DoneOnlyGroups === 1,
+    'narrowF9Face 必须把 done-only 组移出 collisions(⇒ 基线键集与差值棘轮都看不见它),只留计数与名单',
+  )
+  const mixedPair =
+    '- [ ] **G-815430 今天的未完成登记**:真活。\n' +
+    '- [x] ✅(2026-09-25) **G-815430 历史已完成**:另一件事,同号且已落账。'
+  const mixedNarrow = narrowCollisionsToIdPosition(mixedPair, auditPlan(mixedPair).collisions)
+  ok(
+    mixedNarrow.groups.length === 0 && mixedNarrow.mixedStateGroups.length === 1,
+    `未完成+已完成同键的组不得判红(删历史被禁、改号牵动已完成号引用链),实测 ${JSON.stringify([mixedNarrow.groups.map((g) => g.key), mixedNarrow.mixedStateGroups.map((g) => g.key)])}`,
+  )
+  // 反向:两条**未完成**的编号位同号 ⇒ 必须仍然判红(收窄不得把真撞号洗绿)。
+  const openTruePair =
+    '- [ ] **G-815431 未完成甲任务**:第一件事。\n- [ ] **G-815431 未完成乙任务**:另一件事。'
+  const openNarrow = narrowCollisionsToIdPosition(openTruePair, auditPlan(openTruePair).collisions)
+  ok(
+    openNarrow.groups.length === 1 && openNarrow.groups[0].titleCount === 2,
+    `两条未完成同号必须仍判撞号,实测 ${JSON.stringify(openNarrow.groups.map((g) => [g.key, g.titleCount]))}`,
+  )
+  // 登记子集谓词:done 行在编号位上也不再计登记(G-455 的状态维;编号位维由上面 f9TruePair 钉着)。
+  ok(
+    countsAsF9Registration(doneOnlyPair.split('\n')[0], 'G-815429', 'done') === false &&
+      countsAsF9Registration(doneOnlyPair.split('\n')[0], 'G-815429', 'open') === true,
+    'countsAsF9Registration 必须同时判状态与编号位 —— 只判一半,变异测试就没有单一靶点',
+  )
   // 成套性 + 方向:进 probe ⇒ 走同一套差值棘轮;涨点名、平不点名;存量(含 --strict)不判红。
   ok(
     probe(f9).some(([k, , n]) => k === 'F9' && n === 1),
@@ -1276,6 +1532,71 @@ function selfTest() {
   ok(
     !ratchetViolations({ F9: KEYS }, probe(kface(KEYS.map(grp)))).length,
     '粗尺:组数没超过基线键数时不得判红(恒红门)',
+  )
+  // ── G-681(2026-09-30 落):F9 基线层**归属过滤** —— 存量键(HEAD 已有)不记在本次提交头上 ──
+  // 锁 A(成对,构造面):同一份"存量键在 HEAD 已有、基线没有"的面,--staged 档必须绿而全量档必须红。
+  // 键刻意用真基线里不存在的合成号(现读自盘上基线,不抄第二份名单)。
+  const capOfGate = (face, strict, root, before, beforeErr) => {
+    const cap = []
+    const log = console.log
+    console.log = (s) => cap.push(String(s))
+    try {
+      return { rc: gate(face, strict, root, before, beforeErr), cap }
+    } finally {
+      console.log = log
+    }
+  }
+  const stockKey = 'Z-G681STOCK'
+  const realBase = readBaseline(ROOT)
+  ok(
+    Array.isArray(realBase?.F9) && !realBase.F9.includes(stockKey),
+    '夹具前提:真基线是键集形状且不含合成存量键(前提破了本组断言须同批换键)',
+  )
+  const stockGroups = [grp(stockKey)]
+  const staged = capOfGate(f9face(1, stockGroups), false, ROOT, f9face(1, stockGroups), null)
+  ok(
+    staged.rc === 0,
+    `锁A:存量键已在 HEAD 面 ⇒ --staged 档必须绿(不记在本次提交头上),实测 exit ${staged.rc}:${JSON.stringify(staged.cap.slice(0, 3))}`,
+  )
+  ok(
+    staged.cap.some((x) => x.includes('ℹ F9 基线缺项') && x.includes(stockKey)),
+    `锁A:存量键必须打 ℹ 报名(静默等于放行),实测 ${JSON.stringify(staged.cap)}`,
+  )
+  const full = capOfGate(f9face(1, stockGroups), false, ROOT, null, null)
+  ok(
+    full.rc === 1 && full.cap.some((x) => x.includes('❌ 基线棘轮') && x.includes(stockKey)),
+    `锁A:同一份面在全量档(无基准面 ⇒ 不过滤)必须仍红并点名该键,实测 exit ${full.rc}:${JSON.stringify(full.cap.slice(0, 2))}`,
+  )
+  // 归属后的键才进红档:等量换键面(组数不变 ⇒ 差值绿)上,存量键走 ℹ、HEAD 没有的新键走 ❌。
+  const freshKey = 'Z-G681FRESH'
+  const swapStaged = capOfGate(
+    f9face(2, [grp(stockKey), grp(freshKey)]),
+    false,
+    ROOT,
+    f9face(2, [grp(stockKey), grp('Z-G681OLD')]),
+    null,
+  )
+  ok(
+    swapStaged.rc === 0 &&
+      swapStaged.cap.some((x) => x.includes('❌ 基线棘轮') && x.includes(freshKey)) &&
+      swapStaged.cap.some((x) => x.includes('ℹ F9 基线缺项') && x.includes(stockKey)) &&
+      !swapStaged.cap.some((x) => x.includes('基线新增撞号') && x.includes(stockKey)),
+    `归属过滤只滤存量:HEAD 没有的新键仍进红档名单,存量键只走 ℹ,实测 ${JSON.stringify(swapStaged.cap)}`,
+  )
+  ok(
+    capOfGate(f9face(2, [grp(stockKey), grp(freshKey)]), true, ROOT, f9face(2, [grp(stockKey), grp('Z-G681OLD')]), null)
+      .rc === 1,
+    '问责档(--strict)在差值档下仍对归属后的新键判红 —— 归属过滤不改强度',
+  )
+  // 反向锁 B:差值基准面没带逐组明细 ⇒ 基线层判"未判定"(exit 2),不冒红也不记绿。
+  const halfBefore = {
+    counts: { ...f9face(0, []).counts, collisionGroups: 2 },
+    staleRows: [],
+  }
+  const undet = capOfGate(f9face(1, stockGroups), false, ROOT, halfBefore, null)
+  ok(
+    undet.rc === 2 && undet.cap.some((x) => x.includes('无法判定') && x.includes('逐组明细')),
+    `锁B:基准面缺逐组明细 ⇒ 未判定 exit 2(不冒红也不记绿),实测 exit ${undet.rc}:${JSON.stringify(undet.cap.slice(0, 2))}`,
   )
   // ── F3 的"可自动收口"资格(2026-09-28 立):它决定的是**归并器能不能落笔**,不是"这条烂没烂" ──
   // 判据必须与"改上去那句锚点说什么"逐字同形,否则:
@@ -1494,6 +1815,24 @@ function main() {
             titleCount: g.titleCount,
             titles: g.titles.map((t) => ({ title: t.title, lines: t.lines })),
           })),
+          // G-455:只报数三族的分组报名(不判红、不进基线;键集 = f9KeySetOf 不含它们)
+          f9ReportOnly: {
+            doneOnly: (a.f9ReportOnly?.doneOnly ?? []).map((g) => ({
+              key: g.key,
+              titleCount: g.titleCount,
+              titles: g.titles.map((t) => ({ title: t.title, lines: t.lines })),
+            })),
+            mixedState: (a.f9ReportOnly?.mixedState ?? []).map((g) => ({
+              key: g.key,
+              titleCount: g.titleCount,
+              titles: g.titles.map((t) => ({ title: t.title, lines: t.lines })),
+            })),
+            crossRef: (a.f9ReportOnly?.crossRef ?? []).map((g) => ({
+              key: g.key,
+              titleCount: g.titleCount,
+              titles: g.titles.map((t) => ({ title: t.title, lines: t.lines })),
+            })),
+          },
         },
         null,
         2,
