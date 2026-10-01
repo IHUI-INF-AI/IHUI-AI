@@ -745,14 +745,39 @@ export interface UpdateProgress {
   total: number
 }
 
+/** downloadAndInstall 的可选控制项(2026-09-29 立,P1 残余①:第二条卡死路径)。 */
+export interface DownloadInstallOptions {
+  /**
+   * 主动取消信号。注意:updater 插件的 `downloadAndInstall()` **不接受** signal,
+   * 所以取消的语义是「调用方不再等这个结论」—— 本函数立刻以
+   * `UPDATE_DOWNLOAD_CANCELLED_REASON` 拒绝,让 UI 拿到终态;底层那次下载仍会自己
+   * 跑完或失败(它已挂到 Promise.race 上,迟到的 rejection 不会变成 unhandled)。
+   * 不谎称"能中断字节流"。
+   */
+  signal?: AbortSignal
+  /** 本次等待的超时预算(ms),缺省 = DOWNLOAD_INSTALL_TIMEOUT_MS。 */
+  timeoutMs?: number
+}
+
 /**
  * 更新会话:checkForUpdates 返回的对象,持有 update 句柄用于后续下载安装。
  * 一次检查对应一个会话,downloadAndInstall 只能调用一次。
  */
 export interface UpdateSession {
   info: UpdateInfo
-  /** 下载并安装更新。onProgress 回调下载进度(Started/Progress/Finished 三阶段)。 */
-  downloadAndInstall: (onProgress?: (p: UpdateProgress) => void) => Promise<void>
+  /**
+   * 下载并安装更新。onProgress 回调下载进度(Started/Progress/Finished 三阶段)。
+   *
+   * 必有终态(2026-09-29,P1 残余①):到点未返回即 reject
+   * `Error(UPDATE_DOWNLOAD_TIMEOUT_REASON)`;传入的 signal 被 abort 即 reject
+   * `Error(UPDATE_DOWNLOAD_CANCELLED_REASON)`。两者都是**拒绝**,不是"悄悄返回"——
+   * 因为消费方(useUpdater.startDownload / quitAndUpdateIfNeeded)靠 catch 分支退出
+   * "正在更新…"的进行中态,而一个永悬的 promise 让 catch 结构上无从触发。
+   */
+  downloadAndInstall: (
+    onProgress?: (p: UpdateProgress) => void,
+    opts?: DownloadInstallOptions,
+  ) => Promise<void>
 }
 
 /**
@@ -771,17 +796,84 @@ export interface UpdateSession {
  */
 const CHECK_UPDATE_TIMEOUT_MS = 15_000
 
+/**
+ * 后台「下载并安装」的超时预算(P1 残余①,2026-09-29 立)。
+ *
+ * 数字依据(现读,不是拍的):`docs/RELEASE.md:699` 写明桌面安装包 **~230MB**,
+ * 20 分钟对应 ~196 KB/s ≈ 1.6 Mbps 的下行地板 —— 低于这个速率的 GitHub 直连
+ * 就是本次要防的那种挂起(feed 指向 GitHub,国内 TCP 层黑洞,同 CHECK 那条根因)。
+ * 这一档刻意取宽:走这一档的是 useUpdater 的**后台自动安装**,误杀一次只是一轮重试
+ * (use-updater 自带最多 3 次),而把真在慢慢下的包判死等于用户永远更不上。
+ */
+const DOWNLOAD_INSTALL_TIMEOUT_MS = 20 * 60_000
+
+/**
+ * 退出链上的下载预算(quitAndUpdateIfNeeded 专用)。
+ *
+ * 与上一档不同形是**因为阻塞方不同**:走这一档时用户已经被全屏遮罩挡住(点不动、
+ * 退不出),20 分钟的"必然收口"仍然等于一次长卡死。既有契约写明该链
+ * "任何错误 → quitApp(不阻塞退出)",所以 90s 到点就放弃更新、照常退出,
+ * 是把"退不掉"这条 bug 收口成"这次没更新上"。
+ */
+const QUIT_DOWNLOAD_INSTALL_TIMEOUT_MS = 90_000
+
+/** 超时终态的原因串(导出给消费方做区分,不得在端内重拼字面量)。 */
+export const UPDATE_DOWNLOAD_TIMEOUT_REASON = 'update_download_timeout'
+
+/** 取消终态的原因串(与「失败」分开,UI 才能说"已取消"而不是"更新失败")。 */
+export const UPDATE_DOWNLOAD_CANCELLED_REASON = 'update_download_cancelled'
+
 /** withTimeout 超时哨兵:与「Promise 正常返回 null」(updater 无更新)区分。 */
 const TIMEOUT_SENTINEL = Symbol('withTimeoutTimeout')
 
-/** 给 Promise 加超时:超时返回 TIMEOUT_SENTINEL 哨兵(不抛异常),settle 后清理计时器。 */
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | typeof TIMEOUT_SENTINEL> {
+/** withTimeout 取消哨兵:与超时、与正常 settle 三者都区分(三种终态不同义)。 */
+const ABORT_SENTINEL = Symbol('withTimeoutAborted')
+
+/**
+ * 给 Promise 加超时(不抛异常,靠哨兵区分终态),settle 后清理计时器。
+ *
+ * 2026-09-29 加可选 `signal` 一档(P1 残余①)。**两档签名分开是刻意的**:
+ * 只把返回类型放宽成含 ABORT_SENTINEL 的话,`checkForUpdates()` 里
+ * `const result = await withTimeout(check(), …)` 之后 `result` 会带着
+ * ABORT_SENTINEL 这个不可能的分支,赋值给 `Update | null` 直接 TS2322 ——
+ * 也就是"为了加取消而被迫改动 check() 那一档"。用重载把两档的返回类型
+ * 钉死,check() 的调用形态与类型**逐字不变**(由测试 §check 行为不变 钉住)。
+ *
+ * 不新造第二套超时:超时、取消共用这一个出口,差别只在多一个哨兵。
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | typeof TIMEOUT_SENTINEL>
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  signal: AbortSignal | undefined,
+): Promise<T | typeof TIMEOUT_SENTINEL | typeof ABORT_SENTINEL>
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  signal?: AbortSignal,
+): Promise<T | typeof TIMEOUT_SENTINEL | typeof ABORT_SENTINEL> {
   let timer: ReturnType<typeof setTimeout> | undefined
+  let onAbort: (() => void) | undefined
   const timeout = new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
     timer = setTimeout(() => resolve(TIMEOUT_SENTINEL), ms)
   })
-  return Promise.race([promise, timeout]).finally(() => {
+  // 竞速集合按 signal 有无分档:没传 signal 时,race 的输入数组与加 signal 之前
+  // **逐项相同**([promise, timeout]),不往 check() 那条既有路径里塞第三个 promise。
+  const racers: Array<Promise<T | typeof TIMEOUT_SENTINEL | typeof ABORT_SENTINEL>> = [
+    promise,
+    timeout,
+  ]
+  if (signal) {
+    const aborted = new Promise<typeof ABORT_SENTINEL>((resolve) => {
+      onAbort = () => resolve(ABORT_SENTINEL)
+      if (signal.aborted) onAbort()
+      else signal.addEventListener('abort', onAbort, { once: true })
+    })
+    racers.push(aborted)
+  }
+  return Promise.race(racers).finally(() => {
     if (timer) clearTimeout(timer)
+    if (signal && onAbort) signal.removeEventListener('abort', onAbort)
   })
 }
 
@@ -818,10 +910,14 @@ export async function checkForUpdates(): Promise<UpdateSession | null> {
       date: update.date,
       notes: update.body,
     },
-    downloadAndInstall: async (onProgress) => {
+    downloadAndInstall: async (onProgress, opts) => {
       let downloaded = 0
       let total = 0
-      await update.downloadAndInstall((event) => {
+      // 全仓唯一一次真下载在这一行(两个消费方都经由它:useUpdater.startDownload
+      // 调 session.downloadAndInstall、quitAndUpdateIfNeeded 也调同一个 session)。
+      // 所以超时/取消**只加在这里一处**就够了 —— 在 quit 链那一侧再包一层,等于给同一件
+      // 事写第二份超时(两处实现必漂移,本仓记过最多次的失效型)。
+      const install = update.downloadAndInstall((event) => {
         switch (event.event) {
           case 'Started': {
             const d = event.data as { contentLength?: number }
@@ -840,6 +936,32 @@ export async function checkForUpdates(): Promise<UpdateSession | null> {
             break
         }
       })
+      // 必有终态(P1 残余①):此前这一句是 `await update.downloadAndInstall(…)`,
+      // 挂起时**既不 reject 也不 resolve** —— useUpdater 停在 downloading、
+      // quit 链停在 downloading 遮罩,账面零错误。现在三种结局各自有名:
+      //   正常 resolve → 原样返回(返回值/时序与修前逐字同形,见测试 ②);
+      //   插件自身失败 → 原样上抛(不折叠、不改写 message,见测试 ②b);
+      //   到点未返回 / signal 被 abort → 各抛一条**可诊断**的具名 reason(①/③)。
+      const outcome = await withTimeout(
+        install,
+        opts?.timeoutMs ?? DOWNLOAD_INSTALL_TIMEOUT_MS,
+        opts?.signal,
+      )
+      if (outcome === TIMEOUT_SENTINEL) {
+        console.warn(
+          `[updater] downloadAndInstall 超过 ${opts?.timeoutMs ?? DOWNLOAD_INSTALL_TIMEOUT_MS}ms ` +
+            `未返回(GitHub feed 下载挂起),按 ${UPDATE_DOWNLOAD_TIMEOUT_REASON} 收口`,
+        )
+        throw new Error(UPDATE_DOWNLOAD_TIMEOUT_REASON)
+      }
+      if (outcome === ABORT_SENTINEL) {
+        // 取消不是失败:UI/退出链据此说"已取消",不得与人话里的"更新失败"混成一档。
+        console.warn(
+          `[updater] downloadAndInstall 被调用方取消(${UPDATE_DOWNLOAD_CANCELLED_REASON});` +
+            `底层那次下载仍在继续(插件无 cancel 语义),但本次调用已交出终态`,
+        )
+        throw new Error(UPDATE_DOWNLOAD_CANCELLED_REASON)
+      }
     },
   }
 }
@@ -890,12 +1012,21 @@ export type QuitUpdateStatus = 'checking' | 'downloading' | 'restarting' | 'quit
  * 3. 无更新 → quitApp(正常退出)
  * 任何错误 → quitApp(不阻塞退出)
  *
+ * 2026-09-29(P1 残余①):第 2 步的那次下载此前**既无超时也无取消**,挂起时全屏遮罩
+ * 停在 downloading、账面零错误 —— 即"quitting 之外的第二条卡死路径"。现在它走同一个
+ * `withTimeout` 出口(不新造第二套超时),预算用 QUIT_DOWNLOAD_INSTALL_TIMEOUT_MS
+ * (被遮罩阻塞的一方不能拿后台那 20 分钟当兜底),超时/取消都落到既有 catch → 'quitting'。
+ *
  * @param onProgress 下载进度回调
  * @param onStatus 状态变化回调(checking/downloading/restarting/quitting)
+ * @param signal 取消本次"等更新"的信号。abort 之后仍会照常 quitApp —— 在这一条链上
+ *               "取消"只可能是"别等了,直接退",所以取消的终态是 quitting 而不是卡住;
+ *               区分依据是 `UPDATE_DOWNLOAD_CANCELLED_REASON`(已被 onStatus 序列测出)。
  */
 export async function quitAndUpdateIfNeeded(
   onProgress?: (p: UpdateProgress) => void,
   onStatus?: (status: QuitUpdateStatus) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   if (!isTauri()) return
 
@@ -914,10 +1045,15 @@ export async function quitAndUpdateIfNeeded(
 
     if (session) {
       onStatus?.('downloading')
-      await session.downloadAndInstall((p) => {
-        _updateInstalledPendingRestart = true
-        onProgress?.(p)
-      })
+      // 不在这里再包一层超时:唯一一份超时实现住在 session 里(见 checkForUpdates 的
+      // downloadAndInstall)。这里只声明**本条链**的预算与取消信号。
+      await session.downloadAndInstall(
+        (p) => {
+          _updateInstalledPendingRestart = true
+          onProgress?.(p)
+        },
+        { signal, timeoutMs: QUIT_DOWNLOAD_INSTALL_TIMEOUT_MS },
+      )
       _updateInstalledPendingRestart = true
       onStatus?.('restarting')
       await restartApp()
