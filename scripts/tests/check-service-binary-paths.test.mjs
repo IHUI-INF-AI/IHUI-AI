@@ -39,6 +39,10 @@ const {
   buildProcessTree,
   attributeListening,
   splitHostPort,
+  ticksToMs,
+  resolveLoadedScript,
+  judgeRuntimeFreshness,
+  TICKS_EPOCH_DIFF_MS,
   LOOPBACK_PROBE_HOST,
   PROC_HEAD,
   PROC_TAIL,
@@ -125,16 +129,27 @@ const failNssm = (code = 1) => ({ code, stdoutBuf: Buffer.alloc(0), stderrBuf: u
 const TEST_LISTEN_ROW = '  TCP    127.0.0.1:8802         0.0.0.0:0              LISTENING        4242'
 
 /** 真机父子链 → PROC 通道的输出文本(首尾哨兵 + PSUM/SSUM 计数行,与生产档同一版式)。
- *  计数行必须与行数严格相等 —— interpretProcessList 就是靠这条把"被截断"和"确实没有"分开的。 */
+ *  计数行必须与行数严格相等 —— interpretProcessList 就是靠这条把"被截断"和"确实没有"分开的。
+ *  2026-10-01 起第 4 段是进程启动时刻 ticks:夹具默认给"晚于脚本 mtime"的那一档(fresh),
+ *  需要 stale / 旧版式三段的用例各自覆写,不得靠"缺维恰好被读成没问题"过。 */
+function ticksOf(iso) {
+  return String((BigInt(Date.parse(iso)) + BigInt(TICKS_EPOCH_DIFF_MS)) * 10000n)
+}
+const FIX_START_ISO = '2026-10-01T09:00:00Z'
+const FIX_SCRIPT_WRITE_ISO = '2026-10-01T08:00:00Z'
+
 function processListText(services) {
   const procs = new Map()
   const svcs = []
+  let sampled = 0
   for (const [name, spec] of Object.entries(services)) {
-    svcs.push(`SV|${name}|${spec.servicePid}`)
+    const tk = spec.serviceStart === undefined ? ticksOf(FIX_START_ISO) : spec.serviceStart
+    if (/^\d+$/.test(tk)) sampled++
+    svcs.push(`SV|${name}|${spec.servicePid}|${tk}`)
     for (const p of spec.chain) if (!procs.has(p.pid)) procs.set(p.pid, `PS|${p.pid}|${p.ppid}`)
   }
   const procLines = [...procs.values()]
-  return [PROC_HEAD, ...procLines, `PSUM|${procLines.length}`, ...svcs, `SSUM|${svcs.length}`, PROC_TAIL].join('\n')
+  return [PROC_HEAD, ...procLines, `PSUM|${procLines.length}`, ...svcs, `SSUM|${svcs.length}`, `SVSUM|${sampled}`, PROC_TAIL].join('\n')
 }
 
 const DEFAULT_APP = 'C:\\node\\node.exe'
@@ -172,7 +187,14 @@ function healthyDeps(over = {}) {
     nssmGet:
       over.nssmGet ??
       ((p, svc, param) => {
-        const table = { Application: appOf(svc), AppDirectory: dirOf(svc), AppParameters: '', AppEnvironmentExtra: extraOf(svc) }
+        // AppParameters 默认给一份"能判得出加载目标"的真机版式:运行时代码新鲜度这一维要的是
+        // -File 的那份脚本,不是日志路径。刻意不含端口数字,免得端口维顺带被它喂出声明。
+        const table = {
+          Application: appOf(svc),
+          AppDirectory: dirOf(svc),
+          AppParameters: over.params?.[svc] ?? '-NoProfile -ExecutionPolicy Bypass -File C:\\app\\run.ps1',
+          AppEnvironmentExtra: extraOf(svc),
+        }
         if (!(param in table)) return failNssm() // 其余参数不在本门射程 ⇒ 如实"取不到",不得装作读到空值
         const v = table[param]
         return v === '' ? { code: 0, stdoutBuf: u16('\r\n'), stderrBuf: Buffer.alloc(0) } : okNssm(v)
@@ -184,6 +206,15 @@ function healthyDeps(over = {}) {
         : () => ({ code: 0, stdoutBuf: Buffer.from(netstatText, 'latin1'), stderrBuf: Buffer.alloc(0) })),
     psProcesses: over.psProcesses ?? (() => utf8(processListText(services))),
     fileKind: over.fileKind ?? ((p) => kinds[p] ?? 'missing'),
+    /** 脚本 mtime:默认"进程启动(09:00)晚于脚本改写(08:00)"⇒ fresh。
+     *  要造 stale 只需 over.statFile 给一个晚于启动的时刻;要造未判定给 {ok:false}。 */
+    statFile:
+      over.statFile ??
+      ((p) => {
+        const iso = over.scriptWrites?.[p]
+        if (iso === null) return { ok: false, why: '夹具:ENOENT' }
+        return { ok: true, mtimeMs: Date.parse(iso ?? FIX_SCRIPT_WRITE_ISO) }
+      }),
     // 探针**必须按传进来的 host 判** —— 这正是缺陷②:写死回环就把只绑网卡的端口报成失败。
     tcpProbe: over.tcpProbe ?? (async (port, host = LOOPBACK_PROBE_HOST) => (answers.has(`${host}:${port}`) ? { status: 'open' } : { status: 'closed' })),
   }
@@ -198,6 +229,9 @@ const healthyRec = (over = {}) => ({
   appDirectory: measured(DEFAULT_DIR),
   appDirectoryExists: measured('dir'),
   ports: measured([8802]),
+  // 夹具代表"每一维都量到了"的完整记录;新增维若不在此给值,所有 ok 断言会集体翻成 unattested ——
+  // 那不是判据变严,是夹具与生产 rec 不同形。
+  runtime: measured({ verdict: 'fresh', path: 'C:\\app\\run.ps1', detail: '夹具:进程启动晚于脚本改写' }),
   observed: measured({ endpoints: [{ address: '127.0.0.1', port: 8802, pid: 4242 }], treeSize: 2, listenerPids: [4242] }),
   probe: measured({ listening: true, ports: [8802], openPorts: [8802], labels: ['127.0.0.1:8802'] }),
   nssmManaged: measured(true),
@@ -654,5 +688,114 @@ test('P6 netstat 形态判据:Localized 表头与 UDP 行不算"解不出";LISTE
   assert.equal(idle.value.procs.length, 2)
   assert.equal(idle.value.procs[0].pid, 0)
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 运行时代码新鲜度(2026-10-01 新增维)。立因是真事故,不是设想:改完生产脚本、镜像了运行副本、
+// 没重启服务 ⇒ 线上仍跑旧代码。当天 09:08 那班备份失败后没有触发重试,就是因为那个进程启动时读到的
+// 还是重试层(`43a0b7c01c`,14:16 落地)之前的旧副本 —— 账面"已修",全链没有一道门会喊。
+// 四档各有成对用例:fresh / stale / 旧版式三段(没采) / 读不到 mtime。少一档就是"把没判写成判过了"。
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('RF-1 端到端阳性对照:脚本改写晚于进程启动 ⇒ level=issue、exit=1,并点名是哪份脚本差了多少分钟', async () => {
+  const svc = { 'IHUI-TEST': { servicePid: 4242, chain: [{ pid: 4242, ppid: 1188 }] } }
+  const stale = await main({
+    argv: ['--json'],
+    deps: healthyDeps({ services: svc, scriptWrites: { 'C:\\app\\run.ps1': '2026-10-01T14:00:00Z' } }),
+  })
+  const pj = JSON.parse(stale.json)
+  assert.equal(pj.services[0].level, 'issue', '进程 09:00 启动、脚本 14:00 改写 ⇒ 线上跑的是 09:00 那份旧内容,必须红')
+  assert.equal(stale.exitCode, 1)
+  assert.ok(pj.services[0].problems.some((p) => /运行时代码新鲜度/.test(p) && /run\.ps1/.test(p)), '红话必须点名被改的那份脚本,否则下一个人无从下手')
+  assert.ok(pj.services[0].problems.some((p) => /300 分钟/.test(p)), '差值要写出来(分钟),只说"旧"不给量就没法判断是不是自己刚改的')
+
+  // 同一判据的另一臂:进程在脚本改写之后启动 ⇒ 加载的就是这份内容 ⇒ 不得红。
+  // 没有这一臂,上面那条就只是"给了 runtime 就红"的恒真式。
+  const fresh = await main({ argv: ['--json'], deps: healthyDeps({ services: svc }) })
+  const fj = JSON.parse(fresh.json)
+  assert.equal(fj.services[0].level, 'ok', '夹具默认:启动 09:00 晚于脚本改写 08:00 ⇒ fresh')
+  assert.equal(fresh.exitCode, 0)
+})
+
+test('RF-2 旧版式三段 SV 行(启动时刻根本没采)⇒ 这一维必须是未判定并打死合格证,不得冒绿', () => {
+  const legacy = [PROC_HEAD, 'PS|4242|1188', 'PSUM|1', 'SV|IHUI-TEST|4242', 'SSUM|1', PROC_TAIL].join('\n')
+  const r = interpretProcessList(legacy)
+  assert.equal(r.kind, 'measured', '三段是旧版式,通道本身仍算跑到(否则会把监听归并一起打死)')
+  assert.equal(r.value.startSum, null, '没有 SVSUM 计数行 ⇒ 采集次数无从对账,只能如实报没采')
+  assert.equal(r.value.svcStart.get('ihui-test').kind, 'absent')
+  const j = judgeService({
+    name: 'X',
+    state: measured('RUNNING'),
+    application: measured(DEFAULT_APP),
+    appExists: measured('file'),
+    appDirectory: measured(DEFAULT_DIR),
+    appDirectoryExists: measured('dir'),
+    ports: measured([]),
+    probe: measured({ listening: true, ports: [] }),
+    nssmManaged: measured(true),
+    runtime: unmeasured('进程枚举给的是旧版式三段 SV 行,启动时刻未采集(是"没采",不是"没有")'),
+  })
+  assert.equal(j.level, 'unattested', '没采到 ≠ 都新鲜:这一维失明时整面不得发合格证')
+})
+
+test('RF-3 读不到脚本 mtime / 读不到启动时刻 / 服务停着 ⇒ 三档措辞各不相同且都不冒红', () => {
+  const arms = [
+    ['statFile 给 ENOENT', healthyDeps({ statFile: () => ({ ok: false, why: 'ENOENT' }) })],
+    ['pid=0(未运行型服务)', healthyDeps({ services: { 'IHUI-TEST': { servicePid: 4242, serviceStart: 'NA', chain: [{ pid: 4242, ppid: 1188 }] } } })],
+    ['Get-Process 抛错(权限/已退出)', healthyDeps({ services: { 'IHUI-TEST': { servicePid: 4242, serviceStart: 'ERR', chain: [{ pid: 4242, ppid: 1188 }] } } })],
+  ]
+  const reasons = []
+  for (const [label, deps] of arms) {
+    const r = judgeService({
+      name: 'X',
+      state: measured('RUNNING'),
+      application: measured(DEFAULT_APP),
+      appExists: measured('file'),
+      appDirectory: measured(DEFAULT_DIR),
+      appDirectoryExists: measured('dir'),
+      ports: measured([]),
+      probe: measured({ listening: true, ports: [] }),
+      nssmManaged: measured(true),
+      runtime: judgeRuntimeFreshness({
+        state: 'RUNNING',
+        start: label.startsWith('pid=0') ? { kind: 'na' } : label.startsWith('Get-Process') ? { kind: 'err' } : { kind: 'ticks', ticks: ticksOf(FIX_START_ISO) },
+        paramsTexts: ['-File C:\\app\\run.ps1'],
+        statFile: deps.statFile,
+      }),
+    })
+    assert.equal(r.level, 'unattested', `${label}:未判定不得升成 issue,也不得降成 ok`)
+    assert.equal(r.problems.length, 0, `${label}:没判成的事不能写成仓库的债`)
+    reasons.push(r.blind[0])
+  }
+  assert.equal(new Set(reasons).size, 3, `三档必须各有各的措辞(并桶就等于把"没看清"说成"有问题"):${reasons.join(' || ')}`)
+})
+
+test('RF-4 形状锁:生成器必须真的产出第 4 段与 SVSUM —— 退回三段时本维会静默归零,只能靠这把锁发现', () => {
+  const ps = buildProcessListScript()
+  assert.ok(/\$tk = \[string\]\$pr\.StartTime\.ToUniversalTime\(\)\.Ticks/.test(ps), '不再取 StartTime ⇒ 启动时刻整维没采')
+  assert.ok(/'SV\|' \+ \$s\.Name \+ '\|' \+ \[string\]\$s\.ProcessId \+ '\|' \+ \$tk/.test(ps), 'SV 行退回三段 ⇒ 既有测试仍绿而新鲜度维已经瞎了')
+  assert.ok(/Write-Output \('SVSUM\|' \+ \$svStart\)/.test(ps), '没有 SVSUM ⇒ 采集覆盖面无从自证(0 条会被读成 0 个 stale)')
+  assert.ok(!/Restart-Service|Stop-Service|Set-ItemProperty/.test(ps), '新增取材不得顺手带上写动作 ⇒ 只读承诺')
+})
+
+test('RF-5 ticks 换算用权威字面量核(拿实现里的常数正反算 = 恒真式,抓不到纪元差写错那一型)', () => {
+  // .NET 文档:1970-01-01 的 DateTime.Ticks = 621355968000000000。
+  // 本机真跑第一把就是把 0001 纪元错用成 FILETIME 的 1601 纪元,于是所有服务打印成 3626 年,
+  // 而旧写法(用同一个常数造 ticks 再解回来)一路报绿。
+  assert.equal(ticksToMs('621355968000000000'), 0, 'Unix 纪元必须解成 0 —— 纪元差写错就在这里红')
+  const nowTicks = String(BigInt(621355968000000000) + BigInt(Math.floor(Date.now())) * 10000n)
+  const back = ticksToMs(nowTicks)
+  assert.ok(back !== null && Math.abs(back - Date.now()) < 365 * 86400000, '量级哨兵:当次时刻的 ticks 解回来必须还在今年,偏 1600 年即红')
+  assert.ok(Number(nowTicks) > Number.MAX_SAFE_INTEGER, '前提自证:2026 年的 ticks 确已在 float64 整数安全范围之外,走 BigInt 不是装饰')
+  assert.equal(ticksToMs('63800000000000000abc'), null)
+  assert.equal(ticksToMs(''), null)
+})
+
+test('RF-6 加载目标抽取:带空格的引号路径与 node 绝对路径都认;参数里的日志路径一律不认(防假 stale)', () => {
+  assert.equal(resolveLoadedScript(['-NoProfile -File "D:\\a b\\x.ps1"']).value, 'D:\\a b\\x.ps1')
+  assert.match(resolveLoadedScript(['D:\\DevEnv\\runtimes\\node\\node.exe D:\\r\\scripts\\git-guardian.mjs --daemon']).value, /git-guardian\.mjs$/)
+  assert.equal(resolveLoadedScript(['--config D:\\logs\\run.log']).kind, 'unmeasured', '把日志/配置路径当加载目标会凭空造出 stale 红')
+  assert.equal(resolveLoadedScript([]).kind, 'unmeasured', '"空值"与"没量到"都不许被读成"这台机没有脚本"')
+})
+
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
