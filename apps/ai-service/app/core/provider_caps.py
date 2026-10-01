@@ -321,3 +321,53 @@ def get_published_capability_snapshot() -> dict[str, Any] | None:
     from app.core.provider_capability_snapshot import get_snapshot_board
 
     return get_snapshot_board().snapshot
+
+
+# ---------------------------------------------------------------------------
+# G-649(2026-10-01):entitlement 投影消费口 —— 快照在场时,账号层解析失败的
+# provider 必须显式判"无权限",不得把"读不到"当成"有权限"。
+# ---------------------------------------------------------------------------
+
+
+def is_provider_entitled(provider_code: str | None) -> bool | None:
+    """按**已发布快照**判该 provider 的 entitlement(三态,绝不并桶)。
+
+    - ``False``:快照显式带了 ``entitled:false``(账号/entitlement 层解析失败的
+      fail-closed 投影)⇒ 调用方**不得**把它当有权限;
+    - ``True``:快照在场且该 provider 未被标记 ⇒ 照快照口径可用;
+    - ``None``:尚无已发布快照 ⇒ **无从判**。调用方须按"未判定"处置(回退实时
+      env 判定并在日志里留痕),不得把 None 折成 True —— 那正是本票的病灶。
+
+    键名只从 ``provider_capability_snapshot.ENTITLEMENT_FAIL_CLOSED_KEY`` 那一份
+    实现取,此处不得写字面量第二份(两处算同一件事必漂移)。
+    """
+    from app.core.provider_capability_snapshot import ENTITLEMENT_FAIL_CLOSED_KEY
+
+    snapshot = get_published_capability_snapshot()
+    if snapshot is None:
+        return None
+    ent = (snapshot.get("entitlements") or {}).get(provider_code or "")
+    marked_fail_closed = isinstance(ent, dict) and ent.get(ENTITLEMENT_FAIL_CLOSED_KEY) is False
+    return not marked_fail_closed
+
+
+def not_entitled_provider_codes() -> tuple[str, ...]:
+    """当前快照里被显式标记 ``entitled:false`` 的 provider 码(开机/巡检台账用)。
+
+    返回空元组有两种成因 —— "快照在场且没有降级" 与 "还没有快照(无从判)",
+    调用方要区分就先看 :func:`get_published_capability_snapshot` 是不是 None;
+    本函数刻意不返回 None 冒充"确认没有",也不替调用方下这个结论。
+    """
+    from app.core.provider_capability_snapshot import ENTITLEMENT_FAIL_CLOSED_KEY
+
+    snapshot = get_published_capability_snapshot()
+    if snapshot is None:
+        return ()
+    entitlements = snapshot.get("entitlements") or {}
+    return tuple(
+        sorted(
+            code
+            for code, ent in entitlements.items()
+            if isinstance(ent, dict) and ent.get(ENTITLEMENT_FAIL_CLOSED_KEY) is False
+        )
+    )
