@@ -10,6 +10,9 @@
 # 日志: D:\DevEnv\logs\pg-backup-scheduler.log(NSSM AppStdout 捕获)
 # =============================================================================
 $ErrorActionPreference = "Continue"
+# G-385(2026-10-01):NSSM 重定向 stdout 时 PS5.1 默认按 GBK 写 ⇒ 日志里中文全是乱码,
+# 全仓无机读方因此没人修。显式声明 UTF-8,让 pg-backup-scheduler.log 可被脚本/人直接读。
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # 成功即清零;失败走 30 分钟重试通道。2026-10-01 事故:09:08 定时轮撞上部署环重启
 # PG(8810 拒连/"database system is starting up"),旧结构等到次日 03:00 才重试 ——
@@ -27,14 +30,14 @@ function Run-Backup {
         if ($LASTEXITCODE -eq 0) {
             $script:BackupOk = $true
             $script:RetryCount = 0
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 备份完成"
+            [Console]::Out.WriteLine("[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 备份完成")
         } else {
             $script:BackupOk = $false
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 备份失败:子脚本 exit=$LASTEXITCODE(见上一行 [ERROR])"
+            [Console]::Out.WriteLine("[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 备份失败:子脚本 exit=$LASTEXITCODE(见上一行 [ERROR])")
         }
     } catch {
         $script:BackupOk = $false
-        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 备份失败: $_"
+        [Console]::Out.WriteLine("[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 备份失败: $_")
     }
     # 2026-09-06 WAL 归档清理: 每次备份后清掉超过 7 天的归档(与 7 天全量轮转对齐, 防无限累积)。
     # 归档来自 PG archive_command → D:\DevEnv\pg_archives\（24 位十六进制 WAL 段名）。
@@ -43,10 +46,10 @@ function Run-Backup {
     $cutoff = (Get-Date).AddDays(-7)
     $removed = $archives | Where-Object { $_.LastWriteTime -lt $cutoff }
     foreach ($f in $removed) { Remove-Item $f.FullName -Force -ErrorAction SilentlyContinue }
-    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] WAL 归档:清理 $($removed.Count) 份, 保留 $($archives.Count - $removed.Count) 份"
+    [Console]::Out.WriteLine("[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] WAL 归档:清理 $($removed.Count) 份, 保留 $($archives.Count - $removed.Count) 份")
 }
 
-Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 备份调度器启动,先执行一次备份"
+[Console]::Out.WriteLine("[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 备份调度器启动,先执行一次备份")
 Run-Backup
 
 while ($true) {
@@ -58,17 +61,17 @@ while ($true) {
     } elseif ($script:RetryCount -lt 4) {
         $script:RetryCount++
         $next = $now.AddMinutes(30)
-        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 上轮备份失败,30 分钟后重试(第 $script:RetryCount/4 次)"
+        [Console]::Out.WriteLine("[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 上轮备份失败,30 分钟后重试(第 $script:RetryCount/4 次)")
     } else {
         # 连续 4 次重试仍失败:放弃本轮,回常规节奏(失败告警由 pg-backup.ps1 内部发出)
         $script:RetryCount = 0
         $script:BackupOk = $true
         $next = Get-Date -Year $now.Year -Month $now.Month -Day $now.Day -Hour 3 -Minute 0 -Second 0
         if ($next -le $now) { $next = $next.AddDays(1) }
-        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 连续 4 次重试仍失败,放弃本轮重试,等下一班定时备份"
+        [Console]::Out.WriteLine("[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 连续 4 次重试仍失败,放弃本轮重试,等下一班定时备份")
     }
     $waitSec = [math]::Round(($next - $now).TotalSeconds)
-    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 下次备份: $($next.ToString('yyyy-MM-dd HH:mm:ss'))(等待 ${waitSec}s)"
+    [Console]::Out.WriteLine("[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 下次备份: $($next.ToString('yyyy-MM-dd HH:mm:ss'))(等待 ${waitSec}s)")
     Start-Sleep -Seconds $waitSec
     Run-Backup
 }
