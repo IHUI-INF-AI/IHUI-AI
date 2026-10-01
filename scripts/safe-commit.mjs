@@ -18,7 +18,9 @@
  *   3. 校验                  git diff --cached --name-only --no-renames 必须 === 用户预期
  *                            (--no-renames 根治:默认 rename 探测会把"删 A + 加 B"折叠成一条
  *                             R 记录且不列旧路径 A,校验恒报"A 未暂存";显式禁用后删除/新增
- *                             各自成行列出,删除类提交不再恒误报。Step 5 的 git show 同理。)
+ *                             各自成行列出,删除类提交不再恒误报。Step 5 的 git show 同理。
+ *                             D171 起取路径走 lib/git-paths 的 -z 形态:中文名不被
+ *                             core.quotePath 八进制转写,声明侧与 git 侧判同值。)
  *   4. git commit -- <path>   git 原生 -- pathspec 终极兜底
  *   5. 不触发 push(让 post-commit hook 处理)
  *
@@ -49,6 +51,10 @@ import {
   needsBatchSelfRun,
   verdictLine,
 } from './lib/commit-gate-attribution.mjs'
+// D171(2026-09-30):取路径一律走 lib/git-paths 的 -z 出口 —— git 默认按 core.quotePath
+// 把非 ASCII 路径八进制转写并加引号,按换行 split 的旧写法把 5 个中文名文件判成
+// 「暂存区出现非预期文件 ⇒ 中止提交」(Step 3)与污染事故(Step 5)。
+import { gitCommitPaths, gitStagedPaths, gitUntrackedPaths } from './lib/git-paths.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 // 本脚本所在仓的根(AGENTS §15:由自身位置推导,不得写死盘符)
@@ -243,8 +249,9 @@ if (addResult.status !== 0) {
 
 // ─── 3. 校验 staged 内容是否 == 预期 ───────────────────────
 log('info', 'Step 3/5: 校验 staged 内容与预期一致')
-const stagedRaw = run('git diff --cached --name-only --no-renames', { allowFail: true })
-const stagedFiles = stagedRaw ? stagedRaw.split('\n').filter(Boolean) : []
+// D171:清单走 lib 的 -z 形态(NUL 分帧、不经 core.quotePath 转写),声明侧与 git 侧
+// 比的都是真路径;比对严格度不变 —— 意外文件照旧中止,缺失文件照旧中止。
+const stagedFiles = gitStagedPaths({ root: repoRoot })
 
 // 规范化:统一正斜杠(Windows 路径兼容)
 const normalize = (f) => f.replace(/\\/g, '/').replace(/^\.\//, '')
@@ -588,13 +595,9 @@ if (hookFailed && commitResult.status !== 0) {
    *   构建产物、别人刻意留在忽略路径里的东西会被当成"现场",把这一档撑成常态 —— 那等于
    *   给"任何未跟踪文件引发的红"开了免责通道,是与"多放一次跳门"同罪的放宽。
    */
-  const splitPaths = (raw) =>
-    (raw || '')
-      .split(/[\r\n]+/)
-      .map((l) => l.trim())
-      .filter((l) => l !== '')
-  const stagedNow = splitPaths(run('git diff --cached --name-only --no-renames', { allowFail: true }))
-  const untrackedNow = splitPaths(run('git ls-files --others --exclude-standard', { allowFail: true }))
+  // D171:两份清单同样走 -z 出口(索引/未跟踪面上的中文路径不得被 quotePath 转写变形)。
+  const stagedNow = gitStagedPaths({ root: repoRoot })
+  const untrackedNow = gitUntrackedPaths({ root: repoRoot })
   const foreignStaged = [...stagedNow, ...untrackedNow].filter((p) => !expectedFiles.includes(p))
   if (foreignStaged.length > 0)
     log(
@@ -740,8 +743,8 @@ if (hookFailed && commitResult.status !== 0) {
     )
   }
   {
-    const reRaw = run('git diff --cached --name-only --no-renames', { allowFail: true })
-    const reStaged = new Set((reRaw ? reRaw.split('\n') : []).filter(Boolean).map(normalize))
+    // D171:重暂存后的精确性校验同样走 -z 出口(与本步骤第一次校验同一把尺)。
+    const reStaged = new Set(gitStagedPaths({ root: repoRoot }).map(normalize))
     const reUnexpected = [...reStaged].filter((f) => !expectedNorm.has(f))
     const reMissing = [...expectedNorm].filter((f) => !reStaged.has(f))
     // **只拒"缺失",不拒"多余"** —— 第一版这里对多余也 exit 1,实测判得过严且把自己卡死:
@@ -798,11 +801,8 @@ if (commitResult.status !== 0) {
 // 现改为:在 beforeSha..HEAD 区间内按「文件集 ⊆ 预期集」定位本次提交,再校验其内容。
 log('info', 'Step 5/5: 验证 commit 内容只包含预期文件')
 
-/** 取指定提交的文件清单(已归一化)。 */
-const filesOfCommit = (sha) => {
-  const raw = run(`git show --name-only --no-renames --pretty=format: ${sha}`, { allowFail: true })
-  return raw ? raw.split('\n').filter(Boolean).map(normalize) : []
-}
+/** 取指定提交的文件清单(D171:走 lib 的 diff-tree -z 出口,中文名不被八进制转写)。 */
+const filesOfCommit = (sha) => gitCommitPaths({ root: repoRoot, sha }).map(normalize)
 
 // 本次提交候选:beforeSha 之后的全部新提交(正常情况下恰好 1 个)
 const newShas = (run(`git rev-list ${beforeSha}..HEAD`, { allowFail: true }) || '')

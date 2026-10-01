@@ -174,8 +174,21 @@ test('态①c 的取材面:未跟踪清单必须排除忽略项,且两路都要�
   // 这一条锁的是"输入怎么来",不是"结论怎么出"(后者由上面四臂锁)。
   // 不加 --exclude-standard 的话 node_modules / 构建产物会整批进"他人现场",态①c 就从
   // "别替我背锅"退化成"任何未跟踪文件引发的红都不找我" —— 那是放宽判据,不是修判据。
-  assert.match(safeCommitSource, /ls-files\s+--others\s+--exclude-standard/, '未跟踪清单必须排除被忽略项')
-  assert.match(safeCommitSource, /git diff --cached --name-only --no-renames/, '索引面清单必须现读,不得用流程早期那份快照')
+  // D171(2026-09-30):清单字面量统一迁到 lib/git-paths.mjs 的 -z 出口(中文名不被
+  // quotePath 八进制转写)。锁的意图不变,实现位置跟到 lib —— 与本文件 A12 注释同例:
+  // "行为还在、断言先红"时改的是锁的位置,不是判据的松紧。
+  const gitPathsSource = readFileSync(join(here, '..', 'lib', 'git-paths.mjs'), 'utf8')
+  assert.match(safeCommitSource, /gitUntrackedPaths\(\{ root: repoRoot \}\)/, '未跟踪清单必须走 lib 的 -z 出口')
+  assert.match(
+    gitPathsSource,
+    /'ls-files', '--others', '--exclude-standard', '-z'/,
+    '未跟踪清单必须排除被忽略项(--exclude-standard 现住 lib,不得摘掉)',
+  )
+  assert.match(
+    gitPathsSource,
+    /'diff', '--cached', '--name-only', '--no-renames', '-z'/,
+    '索引面清单必须现读,不得用流程早期那份快照',
+  )
   const m = safeCommitSource.match(/const foreignStaged = ([^\n]+)/)
   assert.ok(m, '找不到 foreignStaged 的计算 ⇒ 归因层拿不到这份输入,态①c 就是死档')
   assert.match(m[1], /!expectedFiles\.includes\(p\)/, '两路清单都必须扣掉本票声明的文件(我自己的在飞文件仍要算我的红)')
@@ -296,10 +309,12 @@ test('A12 跳门重试前必须重新暂存(否则"含新文件 + 归因允许�
   // `git add (retry: 在场文件)` / `(retry: 删除态)` —— **行为还在、断言先红**,属测试侧陈旧而非功能缺陷。
   // 现放宽到前缀:本断言要钉的是"重试前重跑了 Step 2 的 add",不是那条日志的措辞。
   assert.match(window, /git add \(retry/, '重试前必须重跑 Step 2 的 add —— 缺了就等于没有应急路径')
+  // D171(2026-09-30):Step 3 重校验的取路径字面量迁到 lib/git-paths 的 -z 出口,
+  // 锁跟到新形状(意图不变:重试前必须重跑精确性校验)。
   assert.match(
     window,
-    /git diff --cached --name-only --no-renames/,
-    '重试前必须重跑 Step 3 的暂存集校验：不校验就重试，等于放弃"只提交自己声明的文件"这条根约束',
+    /gitStagedPaths\(\{ root: repoRoot \}\)/,
+    '重试前必须重跑 Step 3 的暂存集校验(lib 的 -z 出口)：不校验就重试，等于放弃"只提交自己声明的文件"这条根约束',
   )
   // 收窄的那一半同样要钉住：只拒"缺失"，**不拒"多余"**。
   // 第一版对多余也 exit 1，结果把自己锁死了 —— `git commit -- <pathspec>` 按定义只交声明过的路径，
