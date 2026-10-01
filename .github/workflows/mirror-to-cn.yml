@@ -74,7 +74,20 @@ jobs:
           fi
           echo "GITEE_OWNER 长度: ${#GITEE_OWNER}（应非 0）"
           set -o pipefail
-          REMOTE="https://${GITEE_OWNER}:${GITEE_TOKEN}@gitee.com/${GITEE_OWNER}/IHUI-AI.git"
+          # ── G-815951 收口:token 不进 git argv(2026-10-01)─────────────────────────
+          # 旧形态 REMOTE="https://${OWNER}:${TOKEN}@host/…" 把 token 拼进 URL ⇒ 明文进
+          # git argv(ps/日志可见)。现改为:① 凭据经一次性 helper 脚本文件提供(文件里只有
+          # **变量名**,值在 helper 被 git 调起时才从 env 展开);② 输出脱敏改 sed -f 脚本
+          # 文件(0600、runner 本地即弃),token 同样不进 sed 的 argv。REMOTE 保持不带
+          # userinfo 的净 URL,git 报错/日志里的 URL 天然无凭据。
+          CRED_DIR=$(mktemp -d /tmp/ihui-mirror-cred.XXXXXX)
+          printf '#!/bin/sh\necho "username=${GITEE_OWNER}"\necho "password=${GITEE_TOKEN}"\n' > "$CRED_DIR/cred-gitee.sh"
+          chmod 700 "$CRED_DIR/cred-gitee.sh"
+          umask 077
+          printf 's|%s|***|g\n' "$GITEE_TOKEN" > "$CRED_DIR/redact-gitee.sed"
+          REDACT_GITEE="$CRED_DIR/redact-gitee.sed"
+          GITC=(git -c credential.helper= -c "credential.helper=$CRED_DIR/cred-gitee.sh")
+          REMOTE="https://gitee.com/${GITEE_OWNER}/IHUI-AI.git"
           # ── 推送前先释放配额:删掉远端上的**内部备份标签** ─────────────────────────
           # 2026-09-23 实测:Gitee 服务端硬配额 `Repo size 1156MB > 1024MB` 会以 pre-receive
           # 拒绝**整个 push(含 main)**,当天一轮镜像跑 69 分钟后失败就在这一步。
@@ -93,7 +106,7 @@ jobs:
           #      字面 `t`),对 `sha<TAB>refs/tags/...` 恒 0 命中,于是"零损失删除"整步静默跳过。
           #      现改为先 `cut -f2` 取列再匹配,判据不依赖不可见的转义语义。
           INTERNAL_TAG_RE='^refs/tags/(lost-commit|nightly|backup)'
-          git ls-remote "$REMOTE" 'refs/tags/*' > /tmp/gitee-tags.tsv 2>/dev/null || true
+          "${GITC[@]}" ls-remote "$REMOTE" 'refs/tags/*' > /tmp/gitee-tags.tsv 2>/dev/null || true
           # ls-remote 对**附注标签**会额外输出一行 `refs/tags/<名>^{}`(指向被注解对象 peel 后的
           # commit)。它不是可推送的 ref:混进 `git push --delete` 会让**整批 300 条**以
           # `fatal: invalid refspec` 全批作废(2026-09-23 实测:797 条里 2 批因此没删掉,
@@ -145,17 +158,17 @@ jobs:
               CHUNK=("${DEL[@]:$i:300}")
               # 输出先落盘再判:失败时要能点名**是哪一条**让整批作废(上一版只报"失败批次 2",
               # 真正的 fatal: invalid refspec 埋在 300 行里没人看见,于是一修就修到了隔天)
-              if git push --delete "$REMOTE" "${CHUNK[@]}" > /tmp/gitee-del.out 2>&1; then
+              if "${GITC[@]}" push --delete "$REMOTE" "${CHUNK[@]}" > /tmp/gitee-del.out 2>&1; then
                 :
               else
                 FAILB=$((FAILB + 1))
-                echo "::warning::删除批次(起点 $i)失败,前 2 行原因:$(sed "s|${GITEE_TOKEN}|***|g" /tmp/gitee-del.out | grep -iE 'fatal|error|rejected' | head -2 | tr '\n' ' ')"
+                echo "::warning::删除批次(起点 $i)失败,前 2 行原因:$(sed -f "$REDACT_GITEE" /tmp/gitee-del.out | grep -iE 'fatal|error|rejected' | head -2 | tr '\n' ' ')"
               fi
               DELETED=$((DELETED + $(grep -cF '[deleted]' /tmp/gitee-del.out || true)))
               i=$((i + 300))
             done
             # 删完立刻回读远端**真值**,而不是相信上面打印的数字
-            REMAIN_INTERNAL=$(git ls-remote "$REMOTE" 'refs/tags/*' 2>/dev/null | cut -f2 | grep -vF '^{}' | grep -Ec "$INTERNAL_TAG_RE" || true)
+            REMAIN_INTERNAL=$("${GITC[@]}" ls-remote "$REMOTE" 'refs/tags/*' 2>/dev/null | cut -f2 | grep -vF '^{}' | grep -Ec "$INTERNAL_TAG_RE" || true)
             echo "✅ 内部备份标签删除:清单 ${#DEL[@]} 个 / 实际 [deleted] ${DELETED} 个 / 失败批次 ${FAILB} / 远端剩余内部标签 ${REMAIN_INTERNAL} 个"
             if [ "${REMAIN_INTERNAL}" -gt 0 ]; then
               echo "::warning::远端仍有 ${REMAIN_INTERNAL} 个内部备份标签未删净(体积不会降到配额以下),下一轮会重试"
@@ -198,8 +211,8 @@ jobs:
           PUSH_RC=0
           # `|| PUSH_RC=$?` 不是风格问题:本步跑在 `bash -e {0}` 下,裸写一行失败命令会让脚本
           # 当场退出,下面的结论分支永远走不到(＝把"自解释的失败"又变回一句红 X)。
-          GIT_LFS_SKIP_PUSH=1 git push --force --prune "$REMOTE" "refs/heads/*:refs/heads/*" "${SPEC[@]}" > "$PUSH_OUT" 2>&1 || PUSH_RC=$?
-          sed "s|${GITEE_TOKEN}|***|g" "$PUSH_OUT"
+          GIT_LFS_SKIP_PUSH=1 "${GITC[@]}" push --force --prune "$REMOTE" "refs/heads/*:refs/heads/*" "${SPEC[@]}" > "$PUSH_OUT" 2>&1 || PUSH_RC=$?
+          sed -f "$REDACT_GITEE" "$PUSH_OUT"
           if [ "$PUSH_RC" -ne 0 ]; then
             if grep -qE 'exceeds quota|size exceeds limit' "$PUSH_OUT"; then
               # 判词取服务端自己打的那一行原文(含实测 MB),不转述不猜;它没打就如实写"未给出"。
@@ -230,24 +243,32 @@ jobs:
           fi
           echo "GITCODE_OWNER 长度: ${#GITCODE_OWNER}（应非 0）"
           set -o pipefail
-          REMOTE="https://${GITCODE_OWNER}:${GITCODE_TOKEN}@gitcode.com/${GITCODE_OWNER}/IHUI-AI.git"
+          # ── G-815951 收口(GitCode 同型):token 不进 git/sed argv,见 Gitee 段说明 ──
+          CRED_DIR=$(mktemp -d /tmp/ihui-mirror-cred.XXXXXX)
+          printf '#!/bin/sh\necho "username=${GITCODE_OWNER}"\necho "password=${GITCODE_TOKEN}"\n' > "$CRED_DIR/cred-gitcode.sh"
+          chmod 700 "$CRED_DIR/cred-gitcode.sh"
+          umask 077
+          printf 's|%s|***|g\n' "$GITCODE_TOKEN" > "$CRED_DIR/redact-gitcode.sed"
+          REDACT_GITCODE="$CRED_DIR/redact-gitcode.sed"
+          GITC=(git -c credential.helper= -c "credential.helper=$CRED_DIR/cred-gitcode.sh")
+          REMOTE="https://gitcode.com/${GITCODE_OWNER}/IHUI-AI.git"
           # GitCode 服务端 pre-receive hook 要求 LFS 对象必须存在，先推 LFS 对象
           # 限定 main:--all 不带 ref 会扫描全部分支+tag 历史的 LFS 对象,是超时根因
-          git lfs push --all "$REMOTE" main 2>&1 | sed "s|${GITCODE_TOKEN}|***|g" || true
+          "${GITC[@]}" lfs push --all "$REMOTE" main 2>&1 | sed -f "$REDACT_GITCODE" || true
           # 2026-09-05 根治(三层):
           # ① GitCode 网关对大包 push 返回 HTTP 504 断连——main 先单推(增量小)
           # ② tags 有 5000+ 个,全量 refspec 一次推必 504——分批(每批 200 个)推送,失败重试(增量递减)
           # ③ 管道后退出码曾是 sed 的,失败被吞成 success——pipefail + 显式判定
           GITCODE_FAILED=0
-          if ! OUT=$(GIT_LFS_SKIP_PUSH=1 git push --force "$REMOTE" main 2>&1); then
-            echo "❌ GitCode main 单推失败:"; echo "$OUT" | sed "s|${GITCODE_TOKEN}|***|g"
+          if ! OUT=$(GIT_LFS_SKIP_PUSH=1 "${GITC[@]}" push --force "$REMOTE" main 2>&1); then
+            echo "❌ GitCode main 单推失败:"; echo "$OUT" | sed -f "$REDACT_GITCODE"
             GITCODE_FAILED=1
           else
-            echo "$OUT" | sed "s|${GITCODE_TOKEN}|***|g"
+            echo "$OUT" | sed -f "$REDACT_GITCODE"
           fi
           TAGS_FAILED=0
           for ATTEMPT in 1 2; do
-            if git for-each-ref --format='%(refname)' refs/tags | xargs -n 200 git push --force "$REMOTE" 2>&1 | sed "s|${GITCODE_TOKEN}|***|g"; then
+            if git for-each-ref --format='%(refname)' refs/tags | xargs -n 200 "${GITC[@]}" push --force "$REMOTE" 2>&1 | sed -f "$REDACT_GITCODE"; then
               echo "✅ GitCode tags 分批推送完成(第 $ATTEMPT 轮)"
               TAGS_FAILED=0
               break
