@@ -39,6 +39,9 @@ node scripts/benchmark-asar-read.mjs "G:/Qoder CN/resources/app.asar" \
 "C:/Users/<user>/AppData/Local/Programs/codex/codex.exe" app-server generate-json-schema --experimental
 # 三份清单 + 我方侧数据并排（本器不下结论，只归一并标零条目类）
 node scripts/benchmark-diff-matrix.mjs
+# 逐类目对账矩阵（D207，2026-10-01）：我方 4 张清单(g1-g4) ∪ 帧面 × 三份竞品，16 类并排；
+# 产物 `../2026-10/per-class-matrix.md`，机器生成，**任何一格不得手工改**：
+node scripts/benchmark-diff-matrix.mjs --per-class
 # 两件工具各自的自检（改过它们必须跑这两个）
 node scripts/benchmark-asar-read.mjs --self-test
 node scripts/benchmark-diff-matrix.mjs --self-test
@@ -55,15 +58,18 @@ JSON 起于 16，**数据区起于 `8 + headerSize`**。用错的 offset 表现�
 
 ## 这批证据的已知边界（不得读成"已核完"）
 
-1. **我方侧同类清单：第一件已交付（帧 × 端矩阵），其余仍未交付**。派出的第 4 路取证在 155 次工具调用后撞轮次上限，主清单没写盘，只留下
-   `web-bind2.tsv`（组件 + 行号 + i18n 键 + 中文原文四列）与 `_callbacks.txt` 两份中间产物（已随本目录
-   入库，可续用）。2026-09-29 由票 D160 补上第一件：**`ours/frame-by-end-matrix.md`**（31 个帧名 × 9 个端的
+1. **我方侧同类清单：帧 × 端矩阵与逐类目四张清单均已交付**。（历史:最初派出的第 4 路取证在 155 次工具调用后撞轮次上限，主清单没写盘，只留下
+   `web-bind2.tsv`（组件 + 行号 + i18n 键 + 中文原文四列）与 `_callbacks.txt` 两份中间产物，已随本目录
+   入库，并被 D203-D206 四张清单收编。）2026-09-29 由票 D160 补上第一件：**`ours/frame-by-end-matrix.md`**（31 个帧名 × 9 个端的
    消费面对账，四态：有·switch/table/compare、仅测试面、判不出、无字面量）。它由
    `node scripts/benchmark-frame-end-matrix.mjs` 生成，**表里任何一格都不该手工改**；工具不变量由
    `--self-test`（11 条）与 §22c 镜像 `scripts/tests/benchmark-frame-end-matrix.test.mjs`（11 例）钉住，
    且刻意不接提交链（它判清单与代码是否一致，与提交内容无关 ⇒ blocking 即恒红门）。
-   **仍未覆盖的**：各端渲染层（帧 → 用户看得见的东西）、端内回调 prop 层的映射面、
-   以及 `web-bind2.tsv` 那份 UI 元素穷举 —— 逐类目对账矩阵仍缺一整侧，不得把这份矩阵读成"D160 已完成"。
+   2026-10-01 由票 D203-D206 交付**我方侧对话流四张清单** `../2026-10/ours-inventory-g{1..4}.md`
+   （web 端，16 类全覆盖：98/206/208/197 条，解析面合计 709 条），并由票 D207 收口**逐类目对账矩阵**
+   `../2026-10/per-class-matrix.md`（`node scripts/benchmark-diff-matrix.mjs --per-class` 生成；
+   现读 16 类全部「两侧都有」，无单侧空判）。三份竞品清单条目为表格/反引号裸行形态，逐类目档解析器
+   三形态通吃（bullet/表格数据行/反引号裸行），表头·分隔行·```栅栏不计。
 2. 三份清单各自的「未取证到」小节是交付的一部分，**不得跳过正文直接引用结论**：例如 Qoder 侧实测
    没有逐条时间戳、思考块不显示 token 数、工具卡内无全文搜索（只有事件流分类筛选）；Codex 客户端
    两个文本面里 `conversation_detail_mode`、`thread_history_projection_state`、`followUpQueueMode`、
