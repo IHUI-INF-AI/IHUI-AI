@@ -420,17 +420,24 @@ async def stream_command(
     deadline = start + timeout
     timed_out = False
     sentinels = 2
+    # G-998115(b76-08a):退出归因三态 —— 宿主 watchdog 回收写 watchdog_recycle(首因锁定);
+    # 进程自行退出且无宿主归因 ⇒ unexpected(signal crash 与自行 exit 0 都算非预期)。
+    termination_kind: str | None = None
 
     try:
         while sentinels > 0:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 timed_out = True
+                if termination_kind is None:
+                    termination_kind = "watchdog_recycle"
                 break
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=remaining)
             except TimeoutError:
                 timed_out = True
+                if termination_kind is None:
+                    termination_kind = "watchdog_recycle"
                 break
             if event is None:
                 sentinels -= 1
@@ -445,12 +452,15 @@ async def stream_command(
             "type": "timeout",
             "message": f"命令超时({timeout}s),进程已终止",
             "duration_ms": duration_ms,
+            "terminationKind": termination_kind or "unexpected",
         }
     else:
         yield {
             "type": "exit",
             "returncode": proc.returncode if proc.returncode is not None else -1,
             "duration_ms": duration_ms,
+            # 归因不可被后续幂等回收改写:此处已落定,再来的 cleanup 不改这一位
+            "terminationKind": termination_kind or "unexpected",
         }
 
 

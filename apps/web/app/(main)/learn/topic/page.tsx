@@ -21,7 +21,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 type TopicType = 'lesson' | 'premium'
 
@@ -121,6 +122,9 @@ export default function LearnTopicPage() {
   const t = useTranslations('learn.topic')
   const tTip = useTranslations('learnTopicPage')
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求(仅门付费专题,公开课程列表不受影响)
+  const { allow } = useAuthGate()
+
   const lessonQ = useQuery({
     queryKey: ['learn', 'topics', 'lesson'],
     queryFn: () => api<LessonTopicListData>(`/api/topics`),
@@ -128,6 +132,7 @@ export default function LearnTopicPage() {
   const premiumQ = useQuery({
     queryKey: ['learn', 'topics', 'premium'],
     queryFn: () => api<PremiumTopicListData>(`/api/learn/topics`),
+    enabled: allow, // 2026-09-30 登录态门
   })
 
   const isLoading = lessonQ.isLoading || premiumQ.isLoading
@@ -252,6 +257,9 @@ export default function LearnTopicPage() {
           ))}
         </div>
       )}
+
+      {/* 2026-09-30 登录态门:付费专题并入上方列表渲染,未登录时在此提示(公开课程照常显示) */}
+      {!allow && <AuthGatePrompt message="请先登录后查看我的付费专题" />}
     </div>
   )
 }

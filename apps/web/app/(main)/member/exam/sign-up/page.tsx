@@ -20,7 +20,8 @@ import {
 
 import { getMySignUps, cancelSignUp, submitSignUp } from '@ihui/api-client'
 import { Button } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
@@ -69,6 +70,9 @@ export default function MemberExamSignUpPage() {
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'exam', 'signups', page],
     queryFn: async () => {
@@ -81,6 +85,7 @@ export default function MemberExamSignUpPage() {
       }
       return r.data as SignUpsData
     },
+    enabled: allow,
     // 403 是永久结论而非抖动,重试只会把同一个拒绝打四遍
     retry: (failureCount, err) =>
       (err as ForbiddenAwareError).status === FORBIDDEN_STATUS ? false : failureCount < 3,
@@ -163,7 +168,9 @@ export default function MemberExamSignUpPage() {
 
       {queryError && !denied && <Alert variant="danger" description={queryError.message} />}
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看我的考试报名" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}

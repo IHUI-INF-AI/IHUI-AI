@@ -227,7 +227,13 @@ export function diagnoseMailTransport(): MailTransportDiagnosis {
 // "两条路都 stub" 是全局性故障,此前只以每封邮件一行静默 stub 的形态存在
 // (无人看 console.info)—— 进程加载时响一次。克制原则:非测试环境才跑、
 // 只 logger.warn 一行、不抛错、不联网、不读文件(全部判据来自已加载的 config)。
-if (config.NODE_ENV !== 'test') {
+// G-998138:档位经 config 唯一出口 —— 生产或显式开发档才跑启动体检,显式 test 档豁免
+// (豁免属放宽分支,缺省 fail-safe 方向 = 两个档位旗都缺 ⇒ 回退旧判据 `NODE_ENV !== 'test'`,
+// 旧测试 mock 的 config 缺 isProductionGuard / isDevelopmentRuntime 时行为逐字不变)。
+if (
+  (config.isProductionGuard ?? config.NODE_ENV === 'production') ||
+  (config.isDevelopmentRuntime ?? config.NODE_ENV === 'development')
+) {
   const startup = diagnoseMailTransport()
   if (startup.providerForDomestic === 'stub' && startup.providerForOverseas === 'stub') {
     logger.warn(

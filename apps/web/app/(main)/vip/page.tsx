@@ -14,7 +14,8 @@ import { fetchApi } from '@/lib/api'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Badge } from '@/components/data'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
 
 interface VipLevel {
@@ -60,6 +61,9 @@ export default function VipPage() {
   const locale = useLocale()
   const { track } = useAnalytics()
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const {
     data: levelsData,
     isLoading,
@@ -71,6 +75,7 @@ export default function VipPage() {
   const { data: myData } = useQuery({
     queryKey: ['vip-my'],
     queryFn: () => api<{ vip: MyVip | null }>('/api/vip/my'),
+    enabled: allow, // 2026-09-30 登录态门
   })
   const { data: plansData } = useQuery({
     queryKey: ['billing-plans'],
@@ -129,7 +134,10 @@ export default function VipPage() {
         </div>
       )}
 
-      {myVip ? (
+      {!allow ? (
+        // 2026-09-30 登录态门
+        <AuthGatePrompt message="请先登录后查看我的会员" />
+      ) : myVip ? (
         <Card className="border-amber-500/40 bg-amber-50/40">
           <CardContent className="min-[640px]:p-3 flex flex-col gap-2 p-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
             <div className="space-y-1">

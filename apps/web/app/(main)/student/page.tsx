@@ -34,7 +34,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
 import { useReportGenerator } from '@/hooks/use-report-generator'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface Report {
   lessons: { total: number; completed: number; inProgress: number; avgProgress: number }
@@ -52,6 +53,9 @@ export default function StudentCenterPage() {
   const t = useTranslations('student')
   const { exportReport, generating } = useReportGenerator()
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const {
     data: report,
     isLoading,
@@ -59,6 +63,7 @@ export default function StudentCenterPage() {
   } = useQuery({
     queryKey: ['student', 'report'],
     queryFn: () => api<Report>('/api/edu/my-report'),
+    enabled: allow,
   })
 
   const handleExport = async (format: 'pdf' | 'excel' | 'json') => {
@@ -122,7 +127,9 @@ export default function StudentCenterPage() {
         </DropdownMenu>
       </header>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看学习报告" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}

@@ -62,6 +62,12 @@ export interface ToolParameter {
   items?: ToolParameter;
   properties?: Record<string, ToolParameter>;
   required?: string[];
+  /**
+   * 闭合声明(b76-14 G-998176):`false` = 该层只收已声明键(未声明键判 unknown_field);
+   * 子 schema 形 = 未声明键按值类型判。**递归语义**:每一层各自声明,嵌套层由
+   * argument-validator 的 checkObject 逐层执行 —— 闭集不再只是顶层那一格。
+   */
+  additionalProperties?: boolean | ToolParameter;
 }
 
 export interface ToolSchema {
@@ -71,6 +77,8 @@ export interface ToolSchema {
     type: 'object';
     properties: Record<string, ToolParameter>;
     required: string[];
+    /** 顶层闭合声明(G-937978 起收编;嵌套层在 ToolParameter 各自声明) */
+    additionalProperties?: boolean;
   };
 }
 

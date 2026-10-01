@@ -15,7 +15,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // i18n mock 只回键名:断言挂在 aria-label/文案的键位与结构位上,不依赖具体语言文案。
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string): string => `[${key}]`,
+  useTranslations:
+    () =>
+    (key: string): string =>
+      `[${key}]`,
   useLocale: () => 'zh-CN',
 }))
 
@@ -58,7 +61,12 @@ describe('D180 批注条(独立渲染)', () => {
     expect(empty.container.firstChild).toBeNull()
     empty.unmount()
 
-    seed({ [selectionAnnotationKey('c1', 'm1')]: [annotation('a', '甲段'), annotation('b', '乙段', '既有评论')] })
+    seed({
+      [selectionAnnotationKey('c1', 'm1')]: [
+        annotation('a', '甲段'),
+        annotation('b', '乙段', '既有评论'),
+      ],
+    })
     const { container } = render(<SelectionAnnotationBar conversationId="c1" messageId="m1" />)
     const trigger = container.querySelector(
       '[data-testid="selection-annotation-trigger-m1"]',
@@ -67,17 +75,24 @@ describe('D180 批注条(独立渲染)', () => {
     expect(trigger.getAttribute('aria-label')).toBe('[selectionAnnotations.hoverHint]')
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
     expect(trigger.textContent).toContain('2')
-    expect(container.querySelector('[data-testid="selection-annotation-remove-all-m1"]')).not.toBeNull()
+    expect(
+      container.querySelector('[data-testid="selection-annotation-remove-all-m1"]'),
+    ).not.toBeNull()
     // 未悬停:清单不出现在 DOM(悬停查看判据)
     expect(container.querySelector('[data-testid="selection-annotation-panel-m1"]')).toBeNull()
   })
 
   it('悬停展开 → 「{index}. 选中文字」清单:选段原文/评论或「未添加评论」/输入框/添加评论/单条移除诸键位齐备', () => {
     seed({
-      [selectionAnnotationKey('c1', 'm1')]: [annotation('a', '甲段'), annotation('b', '乙段', '既有评论')],
+      [selectionAnnotationKey('c1', 'm1')]: [
+        annotation('a', '甲段'),
+        annotation('b', '乙段', '既有评论'),
+      ],
     })
     const { container } = render(<SelectionAnnotationBar conversationId="c1" messageId="m1" />)
-    const bar = container.querySelector('[data-testid="selection-annotation-bar-m1"]') as HTMLElement
+    const bar = container.querySelector(
+      '[data-testid="selection-annotation-bar-m1"]',
+    ) as HTMLElement
     act(() => {
       fireEvent.mouseEnter(bar)
     })
@@ -115,7 +130,9 @@ describe('D180 批注条(独立渲染)', () => {
     })
     const { container } = render(<SelectionAnnotationBar conversationId="c1" messageId="m1" />)
     act(() => {
-      fireEvent.mouseEnter(container.querySelector('[data-testid="selection-annotation-bar-m1"]') as Element)
+      fireEvent.mouseEnter(
+        container.querySelector('[data-testid="selection-annotation-bar-m1"]') as Element,
+      )
     })
     const input = container.querySelector(
       '[data-testid="selection-annotation-comment-input-m1-1"]',
@@ -133,8 +150,8 @@ describe('D180 批注条(独立渲染)', () => {
     const list = () =>
       useSelectionAnnotationsStore.getState().annotationsByMessage[
         selectionAnnotationKey('c1', 'm1')
-      ]
-    expect(list()[0].comment).toBe('新加的评论')
+      ]!
+    expect(list()[0]!.comment).toBe('新加的评论')
     // 评论入 store 后立刻回显在行内(store→渲染单向)
     expect(
       container.querySelector('[data-testid="selection-annotation-item-m1-1"]')?.textContent,
@@ -142,18 +159,25 @@ describe('D180 批注条(独立渲染)', () => {
 
     act(() => {
       fireEvent.click(
-        container.querySelector('[data-testid="selection-annotation-remove-m1-2"]') as HTMLButtonElement,
+        container.querySelector(
+          '[data-testid="selection-annotation-remove-m1-2"]',
+        ) as HTMLButtonElement,
       )
     })
     expect(list()).toHaveLength(1)
-    expect(list()[0].id).toBe('a')
+    expect(list()[0]!.id).toBe('a')
 
     act(() => {
       fireEvent.click(
-        container.querySelector('[data-testid="selection-annotation-remove-all-m1"]') as HTMLButtonElement,
+        container.querySelector(
+          '[data-testid="selection-annotation-remove-all-m1"]',
+        ) as HTMLButtonElement,
       )
     })
-    expect(selectionAnnotationKey('c1', 'm1') in useSelectionAnnotationsStore.getState().annotationsByMessage).toBe(false)
+    expect(
+      selectionAnnotationKey('c1', 'm1') in
+        useSelectionAnnotationsStore.getState().annotationsByMessage,
+    ).toBe(false)
     expect(container.querySelector('[data-testid="selection-annotation-bar-m1"]')).toBeNull()
   })
 })
@@ -215,11 +239,12 @@ describe('D180 MessageItem 接线(选区动作组第三出口)', () => {
     act(() => {
       fireEvent.click(annotate)
     })
-    const stored = useSelectionAnnotationsStore.getState().annotationsByMessage[
-      selectionAnnotationKey('c1', 's1')
-    ]
+    const stored =
+      useSelectionAnnotationsStore.getState().annotationsByMessage[
+        selectionAnnotationKey('c1', 's1')
+      ]!
     expect(stored).toHaveLength(1)
-    expect(stored[0].text).toBe(SELECTED)
+    expect(stored[0]!.text).toBe(SELECTED)
     expect(sel.removeAllRanges).toHaveBeenCalledTimes(1)
     // 批注条常驻浮现(不依赖当前选区)
     expect(container.querySelector('[data-testid="selection-annotation-bar-s1"]')).not.toBeNull()

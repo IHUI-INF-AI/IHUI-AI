@@ -18,6 +18,8 @@ import {
 } from '@ihui/api-client'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { StatCard } from '@/components/data'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
 
 const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
@@ -50,10 +52,18 @@ export default function CommissionPlanPage() {
   const t = useTranslations('commissionPlan')
   const [copied, setCopied] = React.useState(false)
 
-  const overviewQ = useQuery({ queryKey: ['commission', 'plan', 'overview'], queryFn: apiOverview })
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
+  const overviewQ = useQuery({
+    queryKey: ['commission', 'plan', 'overview'],
+    queryFn: apiOverview,
+    enabled: allow,
+  })
   const inviteQ = useQuery({
     queryKey: ['commission', 'plan', 'invite-info'],
     queryFn: apiInviteInfo,
+    enabled: allow,
   })
 
   const loading = overviewQ.isLoading || inviteQ.isLoading
@@ -99,39 +109,51 @@ export default function CommissionPlanPage() {
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
-        {stats.map((s) => (
-          <StatCard key={s.label} title={s.label} value={s.value} icon={s.icon} loading={loading} />
-        ))}
-      </div>
+      {allow ? (
+        <>
+          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
+            {stats.map((s) => (
+              <StatCard
+                key={s.label}
+                title={s.label}
+                value={s.value}
+                icon={s.icon}
+                loading={loading}
+              />
+            ))}
+          </div>
 
-      <Card>
-        <CardContent className="min-[640px]:p-3 space-y-4 p-3">
-          <div className="flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-base font-semibold">
-              <Gift className="h-4 w-4 text-primary" />
-              {t('inviteTitle')}
-            </h2>
-            {inviteCode && (
-              <span className="rounded-md bg-cta/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                {t('inviteCode')}: {inviteCode}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              readOnly
-              value={inviteUrl}
-              placeholder={t('inviteLinkPlaceholder')}
-              className="h-9 flex-1 rounded-sm border bg-muted/40 px-3 text-sm text-muted-foreground"
-            />
-            <Button onClick={handleCopy} disabled={!inviteUrl}>
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              {copied ? t('copied') : t('copy')}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          <Card>
+            <CardContent className="min-[640px]:p-3 space-y-4 p-3">
+              <div className="flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-base font-semibold">
+                  <Gift className="h-4 w-4 text-primary" />
+                  {t('inviteTitle')}
+                </h2>
+                {inviteCode && (
+                  <span className="rounded-md bg-cta/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                    {t('inviteCode')}: {inviteCode}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={inviteUrl}
+                  placeholder={t('inviteLinkPlaceholder')}
+                  className="h-9 flex-1 rounded-sm border bg-muted/40 px-3 text-sm text-muted-foreground"
+                />
+                <Button onClick={handleCopy} disabled={!inviteUrl}>
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {copied ? t('copied') : t('copy')}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <AuthGatePrompt message="请先登录后查看我的分销数据" />
+      )}
 
       <Card>
         <CardHeader className="pb-3">
