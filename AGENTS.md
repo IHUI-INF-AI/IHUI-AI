@@ -2085,7 +2085,7 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **门脚本取材面纪律对账**〔scripts/check-gate-face-discipline.mjs · blocking · HUSKY_SKIP_GATE_FACE_DISCIPLINE〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L187–L187
 - **子代理权限继承对账**〔scripts/check-subagent-permission-inherited.mjs · blocking · HUSKY_SKIP_SUBAGENT_PERMISSION_INHERITED〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L188–L188
 - **名单类判据正向证明对账**〔scripts/check-list-predicate-has-positive-proof.mjs · blocking · HUSKY_SKIP_LIST_POSITIVE_PROOF〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L189–L189
-- **错误码文本判分支对账**〔scripts/check-error-code-not-text-matching.mjs · scripts/lib/code-mask.mjs · 手动档,**尚未接提交链**(2026-09-30 曾一度接进 runner,复跑整轮守门后已摘出;重新接线由台账那条"解阻前置"管,届时才随条目声明应急跳过变量 `HUSKY_SKIP_ERROR_CODE_TEXT_MATCHING`)〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190
+- **错误码文本判分支对账**〔scripts/check-error-code-not-text-matching.mjs · scripts/lib/code-mask.mjs · 手动档,当前不在提交链上(2026-09-30 曾一度注册,复跑整轮检查后已撤下;要重新挂上,先清台账那条"解阻前置"并同枚声明应急跳过变量)〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190
 - **声明策略消费者对账**〔scripts/check-declared-policy-has-consumer.mjs · blocking · HUSKY_SKIP_DECLARED_POLICY_CONSUMER〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L191–L191
 - **文件写盘安全对账**〔scripts/check-file-write-safety.mjs · blocking · HUSKY_SKIP_FILE_WRITE_SAFETY〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L192–L192
 - **工具族注册对账**〔scripts/check-tool-family-registered.mjs · blocking · HUSKY_SKIP_TOOL_FAMILY_REGISTERED〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L193–L193
