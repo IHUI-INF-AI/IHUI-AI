@@ -83,6 +83,10 @@ import { resolveSecretsRoot } from './lib/key-dir.mjs'
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 // HEAD 行文本 / 工作树脏态的唯一实现层(P5b 构建失败归因用;守门 118 的取材面口径)。
 import { catBatch, gitRaw } from './lib/face-reader.mjs'
+// 被审库清单与"本链产物"的命名式**只有一份实现**(住在节拍审计里)。在巡检里再抄一遍
+// `ihui_dev_*.dump` 就是第二个真相 —— 两处必然随每一次命名演进漂开,而漂开的表现不是报错,
+// 是"最新文件"被读成"我们的链产出的"(2026-10-01 那次假绿正是这个形态)。
+import { classifyFileName, dumpNameReFor, EXEC_CANDIDATES, resolveDatabases } from './pg-backup-cadence-audit.mjs'
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(SELF_DIR, '..')
@@ -301,10 +305,78 @@ export async function checkRulesLoaded({ alertsFile, baseUrl = 'http://127.0.0.1
 }
 
 /**
+ * P8 投递失败标记对账(2026-10-01 立)。生产者寄不出信时会留一份
+ * `.workbuddy/<类>-alert-UNDELIVERED.json`(§5e「失败必须响」的落地形态)。
+ * 立因是当日实测:备份失败的通报**自己也没寄出去**(开机窗口里 SMTP 与 Resend 双双失败),
+ * 而这枚标记除了一条"源码里必须出现该文件名"的断言外**没有任何生产消费者** ——
+ * 于是"有一件事从来没人知道"这件事本身也没人知道。判据失效的表现永远是安静。
+ * 三条判读,三态不并桶:
+ *   ① 有标记 ⇒ finding,逐条点名 生产者/身份/标题/未送达时刻/原因(原因截断,永不外传正文);
+ *   ② 目录或文件读不到、JSON 坏了 ⇒ **未判定**并点名(不得被"没有标记"的措辞顺带洗成通过);
+ *   ③ 没有标记 **不等于** 通道可用 —— 只证明"没有生产者记录过投递失败",这半句必须印出来。
+ * 结论串刻意只用标记里记录的 `at`,不用"几分钟前":守护按"身份 + 内容指纹"去重,
+ * 每轮变动的文案会每轮生成一封新信 —— 重复告警本身就是缺陷(机主明令)。
+ */
+export function checkUndeliveredAlertMarkers({ repoRoot = REPO } = {}) {
+  const id = 'P8·投递失败标记'
+  const dir = join(repoRoot, '.workbuddy')
+  if (!existsSync(dir)) return { id, state: 'undetermined', detail: `取不到标记目录:${dir}(非本机 / 尚无生产者 ⇒ 未判定,不读成"无未送达")` }
+  let files
+  try {
+    files = readdirSync(dir).filter((n) => /UNDELIVERED.*\.json$/i.test(n))
+  } catch (e) {
+    return { id, state: 'undetermined', detail: `标记目录读不到:${e?.code || e?.message || '未知'}` }
+  }
+  if (files.length === 0) {
+    return { id, state: 'ok', detail: '无未送达标记(只证明"没有生产者记录过投递失败",**不证明邮件通道可用**)' }
+  }
+  // 两形字段都要认:pg-backup 那族写 `producer/alertId/title/reason/at`(at 是字符串时刻),
+  // 守护那族写 `name/fp/why/ts`(ts 是 epoch 毫秒)。写死任意一族的键名,另一族的标记
+  // 就会以"(缺字段)"报上去 —— 红档说胡话与判据沉默同样贵,而这一刻是真实发生的(2026-10-01 实测)。
+  const pick = (o, keys) => {
+    for (const k of keys) {
+      const v = o?.[k]
+      if (v !== undefined && v !== null && String(v).trim() !== '') return v
+    }
+    return null
+  }
+  const cap = (v, n = 90) => (v === null ? '(未记)' : String(v).replace(/[\r\n]+/g, ' ').slice(0, n))
+  const items = []
+  const broken = []
+  for (const f of files) {
+    let parsed = null
+    try {
+      parsed = JSON.parse(readFileSync(join(dir, f), 'utf8'))
+    } catch (e) {
+      broken.push(`${f}:${e?.code || e?.message || '解析失败'}`)
+      continue
+    }
+    const rawTs = parsed?.ts
+    const at = pick(parsed, ['at']) ?? (typeof rawTs === 'number' && Number.isFinite(rawTs) ? new Date(rawTs).toISOString() : null)
+    items.push(
+      [
+        f,
+        `生产者=${cap(pick(parsed, ['producer', 'source']))}`,
+        `身份=${cap(pick(parsed, ['alertId', 'name']), 64)}`,
+        `标题=${cap(pick(parsed, ['title', 'name']))}`,
+        `未送达时刻=${cap(at, 40)}`,
+        `原因=${cap(pick(parsed, ['reason', 'why']))}`,
+      ].join(' | '),
+    )
+  }
+  if (items.length === 0) return { id, state: 'undetermined', detail: `标记全部解析不出(未判定,不算已判):${broken.join(' ; ')}` }
+  const parts = [`${items.length} 枚未送达标记 —— 有故障从未被人看见:${items.join(' ;; ')}`]
+  if (broken.length) parts.push(`另有 ${broken.length} 枚解析不出(未判定,不算已判):${broken.join(' ; ')}`)
+  return { id, state: 'finding', detail: parts.join(' | ') }
+}
+
+/**
  * P5 心跳表:每一项是"某个执行体最近一次产出证据的时刻"。
  * 文件不存在一律 undetermined(它可能是别人那台机才有的形态),**不计为通过也不计为红**。
+ * `databases` / `execCands` 是**测试通道**(镜像测试要能造"清单里有第二个库"与"清单解析不出"
+ * 两种现场,又不必为此改动真仓 runner);生产调用不传,语义不变 —— 与节拍审计同一个约定。
  */
-export function heartbeatRows({ now, devEnv }) {
+export function heartbeatRows({ now, devEnv, databases, execCands = EXEC_CANDIDATES }) {
   const rows = []
   const push = (label, path, maxAgeMinutes, note) => {
     let ageMs = null
@@ -326,13 +398,89 @@ export function heartbeatRows({ now, devEnv }) {
     }
   }
   push('部署环迭代', join(REPO, 'deploy/win/deploy-loop.log'), LIMITS.deployLoopLogMin, 'IHUI-DEPLOYLOOP 60s 一轮')
-  const dump = newestMatching(join(devEnv, 'backups/pg'), /\.dump$/)
-  push(
-    '数据库备份产出',
-    dump ? join(devEnv, 'backups/pg', dump.name) : join(devEnv, 'backups/pg/__none__'),
-    LIMITS.pgDumpMaxAgeHours * 60,
-    dump ? `最新 ${dump.name}` : '目录里没有 .dump',
-  )
+  // ── 数据库备份产出(2026-10-01 起:逐库、只认本链产物)─────────────────────
+  // 旧判据是"取目录里最新的一个 .dump"。当日实测证明它会把**别人链的产物**读成本链的合格证:
+  // 本链(IHUI-PG-BACKUP,命名 `ihui_dev_<日期>_<时刻>.dump`)最新一份停在 09-30 03:00,
+  // 已越过 26h 阈值;而目录里同时躺着 `ihui-dev-20260930-1830.dump` —— 那是旁生产者
+  // `scripts/backup-pg-local.ps1` 的短横线命名。旧巡检因此打印"最新 …1830.dump / 1113 分钟前"
+  // 并报绿,而节拍审计同一时刻现读结论是 `broken —— 两库 20261001 MISSING`。
+  // 三条改动:① 被审库清单读自**真正在执行的那份 runner**(与节拍审计共用一份解析实现,
+  //           不在这里抄第二个名字 —— 两处实现必漂移,是本仓记过最多次的失效型);
+  //         ② 逐库只认本链命名,取**最坏**的那一库出头(一库齐备不得替另一库作证);
+  //         ③ 旁族文件只点名、绝不作为证据 —— 它更新于本链之后时必须说清,否则下一个人还会去读它。
+  const pgDir = join(devEnv, 'backups/pg')
+  const dbs = resolveDatabases(databases === undefined ? {} : { databases }, execCands)
+  if (!dbs.parsed) {
+    rows.push({
+      label: '数据库备份产出',
+      state: 'undetermined',
+      detail: `未判定:被审库清单解析不出(${dbs.reason})⇒ 不读成"备份齐备"`,
+      note: `阈值 ${LIMITS.pgDumpMaxAgeHours * 60} 秒级`,
+    })
+  } else {
+    let names = []
+    try {
+      names = existsSync(pgDir) ? readdirSync(pgDir) : []
+    } catch {
+      names = []
+    }
+    const mtimeOf = (n) => {
+      try {
+        const st = statSync(join(pgDir, n))
+        return st.isFile() ? st.mtimeMs : null
+      } catch {
+        return null
+      }
+    }
+    let worst = null
+    const perDb = []
+    for (const db of dbs.databases) {
+      const re = dumpNameReFor(db)
+      const owned = names
+        .filter((n) => re.test(n))
+        .map((n) => ({ name: n, mtime: mtimeOf(n) }))
+        .filter((f) => f.mtime !== null)
+        .sort((a, b) => b.mtime - a.mtime)
+      if (owned.length === 0) {
+        perDb.push(`${db}=无本链产物`)
+        // "这一库没有任何本链档"是**缺账**,不是"没判" —— 判 finding,不得落 undetermined 蒙过去
+        if (!worst || worst.mtime !== null) worst = { db, name: null, mtime: null }
+        continue
+      }
+      perDb.push(`${db}→${owned[0].name}`)
+      if (!worst || owned[0].mtime < worst.mtime) worst = { db, name: owned[0].name, mtime: owned[0].mtime }
+    }
+    const dirNewest = newestMatching(pgDir, /\.dump$/)
+    // 归属交给那一份分类器判(它区分 'dump'=本链 / 'dump-foreign'=旁族 / 'sqlgz' / 'unrelated'),
+    // 巡检不再自己回答"这名字算不算我们链产的" —— 那正是本行要防的第二处实现
+    const isChainOwn = (n) => !!n && classifyFileName(n, dbs.databases).family === 'dump'
+    const foreignNote =
+      dirNewest && !isChainOwn(dirNewest.name) && worst && (worst.mtime === null || dirNewest.mtimeMs > worst.mtime)
+        ? `旁族文件 ${dirNewest.name}(命名不属本链,疑为 scripts/backup-pg-local.ps1 一类)更新于这之后 —— 未当作本链证据`
+        : null
+    const limitMin = LIMITS.pgDumpMaxAgeHours * 60
+    const note = `清单来源 ${dbs.source || '(未知)'};逐库:${perDb.join(' / ')}`
+    if (!names.length) {
+      rows.push({ label: '数据库备份产出', state: 'undetermined', detail: `目录取不到或为空:${pgDir}`, note })
+    } else if (worst.mtime === null) {
+      rows.push({
+        label: `数据库备份产出·${worst.db}`,
+        state: 'finding',
+        detail: `${worst.db} 在本目录内没有任何本链产物(其余库:${perDb.filter((p) => !p.startsWith(`${worst.db}=`)).join(' / ') || '无'})`,
+        note: [note, foreignNote].filter(Boolean).join(' | '),
+      })
+    } else {
+      const ageMs = now - worst.mtime
+      rows.push({
+        label: `数据库备份产出·${worst.db}`,
+        state: ageVerdict(ageMs, limitMin),
+        ageMin: Math.round(ageMs / 60000),
+        limitMin,
+        detail: `本链最坏库 ${worst.db} 的最新档 ${worst.name} 距今 ${Math.round(ageMs / 60000)} 分钟 | 阈 ${limitMin * 60} 秒级`,
+        note: [note, foreignNote].filter(Boolean).join(' | '),
+      })
+    }
+  }
   push('凭据活性巡检', join(REPO, '.workbuddy/credential-health-last.json'), LIMITS.credentialHealthMaxAgeHours * 60, '计划任务 6h')
   push('公网路径探测', join(REPO, '.workbuddy/public-path-probe-last.json'), LIMITS.publicProbeMaxAgeHours * 60, '守护 30min 派一次')
   return rows
@@ -1153,6 +1301,9 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
   // P7:副本在位/新鲜/同哈希三维。"网盘客户端在不在跑"这一维**留在上面 P5 那一行**,
   // 这里只量副本本身 —— 同一条债不在两个判据各计一次(机主明令)。
   ;(await checkBackupReplicaPresence({ now, devEnv })).forEach(add)
+  // P8:投递失败标记。放在 P7 之后是刻意的 —— P7 量"副本在不在",P8 量"上一轮故障有没有人知道",
+  // 两问不同,不得合并成一条(合并后任一侧变绿都会替另一侧作证)。
+  add(checkUndeliveredAlertMarkers())
 
   /**
    * 裁决台账:把"机主已裁、且只有他能解除"的那条红挪出红档(照旧逐轮打印,只是不再触发发信),
@@ -1285,6 +1436,108 @@ async function main(argv) {
  * 自检全部走**构造面**与纯函数,零副作用、不派生任何外部进程:
  * 每条判据都配"它应当红"与"它应当绿"两个输入 —— 只留一条,尺子就可能只是把实现复读一遍。
  */
+/**
+ * P8 投递失败标记的四态成对夹具(2026-10-01 立)。每条都配"应红"与"应绿"两面,
+ * 再加一条**稳定性**面:同一枚标记连判两次,结论串必须逐字相同 ——
+ * 守护按"身份 + 内容指纹"去重,文案每轮变动就等于每轮生成一封新信(重复告警即缺陷)。
+ */
+function undeliveredMarkerFixture() {
+  const root = scratchRoot()
+  mkdirSync(root, { recursive: true })
+  const base = mkdtempSync(join(root, 'ops-p8-'))
+  try {
+    const repo = join(base, 'repo')
+    const wb = join(repo, '.workbuddy')
+    mkdirSync(wb, { recursive: true })
+    const marker = join(wb, 'pg-backup-alert-UNDELIVERED.json')
+    const at = '2026-10-01 09:08:29 +08:00'
+    writeFileSync(
+      marker,
+      JSON.stringify({ producer: 'deploy/win/ihui-pg-backup.ps1', alertId: 'pg-backup-failure', title: '数据库备份失败', reason: '品牌与降级两条通道均未送达', at }),
+      'utf8',
+    )
+    const red = checkUndeliveredAlertMarkers({ repoRoot: repo })
+    if (red.state !== 'finding') return { ok: false, why: '有标记却没判红' }
+    if (!red.detail.includes('pg-backup-failure') || !red.detail.includes(at)) return { ok: false, why: '红档没点名身份或未送达时刻' }
+    const again = checkUndeliveredAlertMarkers({ repoRoot: repo })
+    if (again.detail !== red.detail) return { ok: false, why: '同一枚标记两次结论不同形 ⇒ 会逐轮生成新告警' }
+    rmSync(marker, { force: true })
+    const green = checkUndeliveredAlertMarkers({ repoRoot: repo })
+    // 没有标记这一面**不得**被写成"通道可用"—— 那正是本票要防的把没判写成判过了
+    if (green.state !== 'ok' || !green.detail.includes('不证明邮件通道可用')) return { ok: false, why: '空档措辞放弃了能力边界' }
+    writeFileSync(marker, '{不是 JSON', 'utf8')
+    const broken = checkUndeliveredAlertMarkers({ repoRoot: repo })
+    if (broken.state !== 'undetermined' || !broken.detail.includes('pg-backup-alert-UNDELIVERED.json')) return { ok: false, why: '坏 JSON 未落未判定或未点名文件' }
+    rmSync(marker, { force: true })
+    const absent = checkUndeliveredAlertMarkers({ repoRoot: join(base, 'no-such-repo') })
+    if (absent.state !== 'undetermined') return { ok: false, why: '目录取不到应判未判定' }
+    return { ok: true, why: '' }
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+}
+
+/**
+ * P5「数据库备份产出」改为逐库、只认本链产物的成对夹具(2026-10-01)。
+ * 立因现场:目录里同时有本链 35h 前的档与**旁生产者**1h 前的档 —— 旧判据(目录最新文件)
+ * 会判绿,新判据必须判红并且**说出为什么没用那个更新的文件**。这里两臂都跑,
+ * 旧规则那一臂用同目录现算一次,证明"不是巧合红,而是规则换了才有牙"。
+ */
+function backupPerDbFixture() {
+  const root = scratchRoot()
+  mkdirSync(root, { recursive: true })
+  const base = mkdtempSync(join(root, 'ops-p5-dump-'))
+  try {
+    const pg = join(base, 'backups', 'pg')
+    mkdirSync(pg, { recursive: true })
+    const now = Date.now()
+    const touch = (name, ageHours) => {
+      const p = join(pg, name)
+      writeFileSync(p, 'x', 'utf8')
+      const ts = new Date(now - ageHours * 3600 * 1000)
+      utimesSync(p, ts, ts)
+    }
+    touch('ihui_dev_20260930_030001.dump', 35) // 本链,已越 26h
+    touch('keycloak_20261001_150000.dump', 1) // 本链,新鲜
+    touch('ihui-dev-20261001-143000.dump', 0.5) // 旁生产者(短横线命名),最新
+    const dbs = ['ihui_dev', 'keycloak']
+    const rows = heartbeatRows({ now, devEnv: base, databases: dbs })
+    const row = rows.find((r) => r.label.startsWith('数据库备份产出'))
+    if (!row) return { ok: false, why: '没有产出备份那一行' }
+    if (row.state !== 'finding') return { ok: false, why: `本链最坏库 35h 却判成 ${row.state}` }
+    if (!row.label.endsWith('ihui_dev')) return { ok: false, why: `出头的是 ${row.label},应为最坏库 ihui_dev(一库齐备不得替另一库作证)` }
+    if (!String(row.note).includes('旁族文件')) return { ok: false, why: '没有点名旁族文件未当证据' }
+    // 阳性对照:旧规则(目录里最新 .dump)在同一份夹具上会判绿 ⇒ 证明新规则确实咬住了那一型
+    const oldNewest = newestMatching(pg, /\.dump$/)
+    const oldAgeMin = Math.round((now - oldNewest.mtimeMs) / 60000)
+    if (!(oldNewest.name === 'ihui-dev-20261001-143000.dump' && oldAgeMin < LIMITS.pgDumpMaxAgeHours * 60)) {
+      return { ok: false, why: '对照面失效:旧规则这次并没有被蒙住,本夹具无牙' }
+    }
+    // 两库都新鲜 ⇒ 必须绿(反向对照:新判据不是"逢旁族即红"也不是恒红)
+    touch('ihui_dev_20261001_152000.dump', 0.2)
+    const ok2 = heartbeatRows({ now, devEnv: base, databases: dbs }).find((r) => r.label.startsWith('数据库备份产出'))
+    if (ok2.state !== 'ok') return { ok: false, why: `两库都新鲜时应判绿,实际 ${ok2.state}` }
+    // 某库完全没有本链产物 ⇒ 缺账必须 finding,不得落 undetermined 蒙过去
+    const pg2 = join(base, 'empty', 'backups', 'pg')
+    mkdirSync(pg2, { recursive: true })
+    touch2(join(pg2, 'ihui_dev_20261001_152000.dump'), now - 60000)
+    const missing = heartbeatRows({ now, devEnv: join(base, 'empty'), databases: ['ihui_dev', 'keycloak'] }).find((r) => r.label.startsWith('数据库备份产出'))
+    if (missing.state !== 'finding' || !String(missing.detail).includes('keycloak')) return { ok: false, why: '缺账库没判红或没点名' }
+    // 清单解析不出 ⇒ 未判定并写原因(不得读成"备份齐备")
+    const unparsed = heartbeatRows({ now, devEnv: base, databases: { parsed: false, reason: '夹具注入' } }).find((r) => r.label.startsWith('数据库备份产出'))
+    if (unparsed.state !== 'undetermined' || !String(unparsed.detail).includes('夹具注入')) return { ok: false, why: '清单解析不出没落未判定' }
+    return { ok: true, why: '' }
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+}
+
+function touch2(p, ms) {
+  writeFileSync(p, 'x', 'utf8')
+  const ts = new Date(ms)
+  utimesSync(p, ts, ts)
+}
+
 /**
  * 真造一个重解析点来证明"不跟随":目标目录里放一个 1000 B 的文件,链接目录里除链接外再放一个
  * 10 B 的文件 —— 若跟随了链接,字节数会 ≥1010;不跟随则恰为 10。
@@ -1495,6 +1748,12 @@ export async function selfTest() {
   t('重解析点不得被跟随(真造 junction 测)', junctionNotFollowed())
   t('不存在的目录量不到(返回 null 而非 0)', measureDir(join(REPO, '__no_such_dir__')) === null)
   t('P5b 三态成对(exit=1 红 / exit=0 绿 / 正在构建 未判定)', p5bThreeStates())
+  // 2026-10-01 补的两条:失败通报的下游可见性(P8)与备份产出的**归属**(P5 逐库、只认本链)。
+  // 各自的旧形态都在同一份夹具上现算对照 —— 只测新规则那一臂,等于把实现复读一遍。
+  const p8fix = undeliveredMarkerFixture()
+  t(`P8 未送达标记四态成对(有标记红 / 空档不吹"通道可用" / 坏 JSON 未判定 / 结论串逐字稳定)${p8fix.ok ? '' : ` —— ${p8fix.why}`}`, p8fix.ok === true)
+  const p5fix = backupPerDbFixture()
+  t(`P5 备份产出逐库且只认本链(旧规则同夹具判绿做对照)${p5fix.ok ? '' : ` —— ${p5fix.why}`}`, p5fix.ok === true)
   // ── P6(2026-09-29 补):规则引用的指标序列在不在。以下**全部是构造面** —— 自己造 YAML 文本、
   //    自己造指标名集合、自己造台账数组,既不读 monitoring/prometheus/alerts.yml 也不连 Prometheus。
   //    核心四对成对喂:同一段文本换台账/换日期/换锚点,结论必须翻(只测一态 = 把实现复读一遍)。
@@ -1729,5 +1988,8 @@ export const __test__ = {
   // 裁决台账同一条理由:降级动作与它的四条分支都由这里那一份实现判,测试不得再抄一份。
   loadAdjudications,
   applyAdjudications,
+  // P5 备份产出(逐库)与 P8 未送达标记同此规矩:镜像测试用这里的实现判,不得在测试里重写一遍。
+  heartbeatRows,
+  checkUndeliveredAlertMarkers,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
