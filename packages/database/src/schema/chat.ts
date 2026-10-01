@@ -17,6 +17,35 @@ import {
 import { users } from './users.js'
 
 /**
+ * 会话分组表(D165,2026-10-01 立)。
+ *
+ * 分组是**用户持有的一等实体**,不是会话上的一个字符串标签 —— 因为票面要的第三个动作
+ * 是「分组置顶」,置顶需要一个可被置顶、可被改名、可被删除的宿主行;把分组塞进
+ * `chat_conversations.metadata`(任意键值)会让同一用户的三件事(改名 / 置顶 / 空组)
+ * 全靠扫会话行去推,并产出第二份"什么算一个分组"。
+ * (user_id, name) 唯一:重名会让"移动到分组"的选择器出现两条无法区分的项。
+ */
+export const chatConversationGroups = pgTable(
+  'chat_conversation_groups',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    name: varchar('name', { length: 64 }).notNull(),
+    // 与会话置顶同形:pinned=true 时按 pinnedAt 倒序排在分组列表最前,取消置顶置 null。
+    pinned: boolean('pinned').default(false).notNull(),
+    pinnedAt: timestamp('pinned_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userNameUniq: unique('uq_chat_conv_groups_user_name').on(t.userId, t.name),
+    userPinnedIdx: index('ix_chat_conv_groups_user_pinned').on(t.userId, t.pinned),
+  }),
+)
+
+/**
  * AI 对话表。
  * 一个用户可拥有多个对话；model 默认 gpt-4o-mini；metadata 用于扩展字段。
  */
@@ -41,6 +70,11 @@ export const chatConversations = pgTable(
     // 2026-08-30 立:会话置顶。pinned=true 时按 pinnedAt 倒序排在列表最前;取消置顶置回 null。
     pinned: boolean('pinned').default(false).notNull(),
     pinnedAt: timestamp('pinned_at', { withTimezone: true }),
+    // D165(2026-10-01 立):所属分组。null = 未分组(侧栏的 "Unfiled" 一档)。
+    // 分组行被删除时置 null 而不是级联删会话 —— 删分组的语义是"取消归类",不是删内容。
+    groupId: uuid('group_id').references(() => chatConversationGroups.id, {
+      onDelete: 'set null',
+    }),
     // 2026-08-17 修复:drizzle-orm 0.45.2(patch 版)的 PgColumnBuilder 无 nullable/notNull 方法
     // (varchar 默认 nullable),用 .nullable() 会 TypeError 阻断 api 启动。仅用 .unique()。
     shareToken: varchar('share_token', { length: 32 }).unique(),
@@ -53,6 +87,8 @@ export const chatConversations = pgTable(
   (t) => ({
     // 2026-09-06 P0:会话列表按 (user_id + last_message_at DESC) 排序+分页,缺索引全表扫描
     userLastMsgIdx: index('ix_chat_conversations_user_last_message').on(t.userId, t.lastMessageAt),
+    // D165:分组视图按 (user_id + group_id) 取整组会话,移动动作也按这两列判归属
+    userGroupIdx: index('ix_chat_conversations_user_group').on(t.userId, t.groupId),
   }),
 )
 
