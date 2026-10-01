@@ -114,7 +114,14 @@ import type { Session } from './session.js';
 import { saveSession } from './session.js';
 // G-632:异步解算启动时捕获分支代数 —— 解算期间分支被切换则本轮结果在落地口作废
 import { captureBranchGeneration } from './branch-generation.js';
-import { PluginRegistry, loadPlugins, type PluginHookContext } from '../plugins/index.js';
+// G-728:装载调用点改走诊断出口(loadPluginsWithDiagnostics),数组薄封装 loadPlugins 会把诊断丢进垃圾桶
+import {
+  PluginRegistry,
+  loadPluginsWithDiagnostics,
+  type PluginDiagnostic,
+  type PluginHookContext,
+  type PluginLogger,
+} from '../plugins/index.js';
 import type { PlanMachine } from '../plan/index.js';
 import {
   DoomLoopDetector,
@@ -320,6 +327,28 @@ export interface SetupAgentToolsResult {
   pluginRegistry?: PluginRegistry;
 }
 
+/**
+ * G-728 — 插件装载诊断的唯一派发出口:按 severity 分档送进 logger。
+ *
+ * 装载器(G-683/G-684)早已把"某份清单为什么没生效"编码成数据,但生产调用点长期走
+ * 数组薄封装 loadPlugins() —— 诊断被整块丢弃,坏清单 / 同名弃权对用户不可见,
+ * 即守门 64/70/81/115/138 记过的「出口在位而无人调用」那一型。本函数就是"调用"这一半:
+ *   - severity === 'error'   ⇒ logger.error(有清单没被装载)
+ *   - severity === 'warning' ⇒ logger.warn (装载了,但有内容被优先级忽略)
+ * 日志行逐条点名 code + 清单绝对路径(只转述 message 会让路径信息随文案改版而丢)。
+ * 单条派发不得抛穿:logger 实现若抖,由调用点的 try 兜 —— 诊断失败不得拖垮 agent 启动。
+ */
+export function reportPluginDiagnostics(diagnostics: readonly PluginDiagnostic[], logger: PluginLogger): void {
+  for (const d of diagnostics) {
+    // relatedFiles 必须随行进日志:歧义弃权(G-684)的"对方那一份"只住在这个结构化字段里,
+    // 不拼进去则人前只看到自己那份路径,裁决"改名还是删一份"的人拿不到另一半证据。
+    const related = d.relatedFiles && d.relatedFiles.length > 0 ? ` | related: ${d.relatedFiles.join(', ')}` : '';
+    const line = `  [plugin:${d.code}] ${d.file}${d.pluginName ? ` (${d.pluginName})` : ''} — ${d.message}${related}`;
+    if (d.severity === 'error') logger.error(line);
+    else logger.warn(line);
+  }
+}
+
 /** 注册工具 + 构建 system prompt(含 AGENTS.md + skills + memory 注入) */
 export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<SetupAgentToolsResult> {
   clearTools();
@@ -403,13 +432,24 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   }
 
   // Plugins 集成:settings.plugins.enabled === true 或外部注入 registry 时,
-  // loadPlugins + registerAll + runSetups(真实接入,消除死代码)。
+  // loadPluginsWithDiagnostics + registerAll + runSetups(真实接入,消除死代码)。
   // flag 关闭且未注入时,pluginRegistry=undefined,runToolLoop 内 runPluginHooks 直接 return(零回归)
   let pluginRegistry: PluginRegistry | undefined = opts.pluginRegistry;
   if (!pluginRegistry && settings.plugins?.enabled === true) {
     try {
       const pluginsDir = settings.plugins.pluginsDir ?? path.join(opts.workspacePath, '.ihui', 'plugins');
-      const defs = loadPlugins({ pluginsDir });
+      // G-728:改调诊断出口。薄封装 loadPlugins() 只把 plugins 递出来,diagnostics 整块丢弃,
+      // 坏清单 / 同名弃权今天仍然不会报到人前 —— 与守门 64/70/81/115/138 同型。
+      const { plugins: defs, diagnostics } = loadPluginsWithDiagnostics({ pluginsDir });
+      // 派发放在 defs.length 判据**之前**:全部清单都坏时 defs 为空,旧形态下"一个都没装上"
+      // 反而零行日志,那正是本票要消灭的静默。装载继续(永不抛穿),诊断逐条点名到 logger。
+      if (!opts.silent) {
+        reportPluginDiagnostics(diagnostics, {
+          info: (msg, ...rest) => console.info(msg, ...rest),
+          warn: (msg, ...rest) => console.warn(msg, ...rest),
+          error: (msg, ...rest) => console.error(msg, ...rest),
+        });
+      }
       if (defs.length > 0) {
         pluginRegistry = new PluginRegistry({ workingDir: opts.workspacePath });
         const registered = pluginRegistry.registerAll(defs);
