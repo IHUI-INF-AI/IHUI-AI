@@ -6,6 +6,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SSEEvent, SSEEventType } from '@ihui/types'
+// G-815939:切帧与"尾帧账目"的唯一出口(不在端内自己写 buffer 的收口分支 ——
+// 各端各写一遍必然漂开,而漂开的表现是"静默变短":半帧丢了、账面全绿、没人知道少了什么)。
+import {
+  createSseFrameAccumulator,
+  summarizeSseTailAccount,
+  type SseFrameAccumulator,
+  type SseTailAccount,
+} from '@ihui/shared/utils/sse-frame-accumulator'
 import { getStreamBaseUrl, getToken } from '@/lib/api'
 
 /**
@@ -65,6 +73,13 @@ export interface UseAgentStreamReturn {
   error: string | null
   /** 当前重连尝试次数(0=未重连,>0=正在重连第 N 次) */
   reconnectAttempt: number
+  /**
+   * G-815939:本轮流的尾帧账目(完整帧数 / 已排空 / 已丢弃 / 未判定,四态分列)。
+   *
+   * `null` = **还没收口或压根没建流**(未判定),不得读成"没有残帧"—— 与本仓
+   * "不得把 undefined 解释成清除"(G-721)是同一条口径。
+   */
+  tailAccount: SseTailAccount | null
   /** 启动流(input 将 JSON 编码到 query) */
   start: (input?: Record<string, unknown>) => void
   /** 主动中断流 */
@@ -139,12 +154,37 @@ function parseSseFrame(frame: string): SSEEvent | null {
   }
 }
 
+/**
+ * G-815939:这条尾段能不能"排空解析"。
+ *
+ * 判的是一件与"解析成哪种事件"**不同的事** —— 这里只问"这半截自身是不是一条完整的
+ * data 帧"(服务端最后少发一个空行是常态,那条帧不该丢)。半截 JSON 必须判不可排空:
+ * 交给 parseSseFrame 会走上面那条 catch 分支,把残片包成 `custom` 事件塞进 events,
+ * 那是"用错误的方式排空"——比静默丢弃更难查(界面上会出现一段凭空多出的乱码)。
+ * 不复用 parseSseFrame 的判型逻辑,正是为了避免两处对同一帧各给一次结论。
+ */
+function isSalvageableFrame(frame: string): boolean {
+  const dataLines = frame
+    .split('\n')
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trimStart())
+  if (dataLines.length === 0) return false
+  try {
+    JSON.parse(dataLines.join('\n'))
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamReturn {
   const { threadId, onEvent, onInterrupt, onDone, onError, autoReconnect = false } = options
 
   const [state, setState] = useState<StreamState>(initialState)
   const [isStreaming, setIsStreaming] = useState(false)
   const [reconnectAttempt, setReconnectAttempt] = useState(0)
+  // G-815939:尾帧账目。null 的含义见 UseAgentStreamReturn.tailAccount 注释(未判定 ≠ 没有)。
+  const [tailAccount, setTailAccount] = useState<SseTailAccount | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
   const streamRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null)
@@ -244,6 +284,9 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
         }))
       }
       setIsStreaming(true)
+      // G-815939:全新一次 start 才清账(重连那轮沿用上轮读数,直到它自己 close)。
+      // 清成 null 的含义是"**未判定**",不是"本轮没有残帧"—— 两者必须分型(G-721 同一条口径)。
+      if (reconnectAttemptRef.current === 0) setTailAccount(null)
 
       const dispatch = (evt: SSEEvent) => {
         receivedAnyEventRef.current = true
@@ -336,6 +379,9 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       }
 
       ;(async () => {
+        // G-815939:累加器在 try 外声明 —— 收账必须发生在**所有**出口(正常收尾 / 主动
+        // stop / 异常),否则"半途断掉的流"恰好是尾帧最常见的那一型,反而没有账。
+        let accumulator: SseFrameAccumulator | null = null
         try {
           // 2026-09-09 0-5-f 豁免确认:SSE 流式直接消费 res.body reader 逐行解析,
           // fetchApi 是一次性 JSON 解析通道,不适用流式;自实现指数退避重连。
@@ -369,24 +415,34 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
           }
 
           const decoder = new TextDecoder()
-          let buffer = ''
+          // G-815939:切帧交给带账目的累加器。原先这里是自己写的 buffer 循环,
+          // 而 `done` 一到就 break —— 缓冲区里剩下的那半帧**既不解析也不报**,永久消失且零痕迹。
+          accumulator = createSseFrameAccumulator({
+            onFrame: (frame) => {
+              const evt = parseSseFrame(frame)
+              if (evt) dispatch(evt)
+            },
+            // 排空通道:只在尾段自身已是一条完整 JSON data 帧时才认领
+            // (服务端最后少发一个空行是常态,那条帧不该丢;半截 JSON 一律计丢弃,
+            // 因为把它硬喂给 parseSseFrame 会折成 custom 事件 —— 那是用错误的方式排空)
+            salvage: (tail) => {
+              if (!isSalvageableFrame(tail)) return false
+              const evt = parseSseFrame(tail)
+              if (!evt) return false
+              dispatch(evt)
+              return true
+            },
+          })
 
           // SSE 流式响应的标准模式:while(true) 持续读取直到 done
           while (true) {
             const { done, value } = await reader.read()
             if (done) break
-            buffer += decoder.decode(value, { stream: true })
-
-            // SSE 帧以空行(\n\n)分隔
-            let idx = buffer.indexOf('\n\n')
-            while (idx !== -1) {
-              const frame = buffer.slice(0, idx)
-              buffer = buffer.slice(idx + 2)
-              const evt = parseSseFrame(frame)
-              if (evt) dispatch(evt)
-              idx = buffer.indexOf('\n\n')
-            }
+            accumulator.push(decoder.decode(value, { stream: true }))
           }
+          // 解码器里还可能压着跨 chunk 的多字节残片:先请它吐完再收口,
+          // 否则那半截连"被丢弃"都算不上 —— 它根本没进过账。
+          accumulator.push(decoder.decode())
           // 2026-08-02 修复 Bug #12:stream 正常结束但未收到 done event
           // 只在完全没收到任何事件时才重连(真正的连接问题),
           // 收到过事件但无 done → 视为服务端正常关闭流(忘记发 done),不重连
@@ -407,6 +463,21 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
           setIsStreaming(false)
           streamRef.current = null
           abortRef.current = null
+          // G-815939:无论走到哪个出口都要结一次尾帧账。
+          // 没建流(例如 HTTP 直接失败 / 还没读到第一块就 abort)时 accumulator 为 null ⇒
+          // 账目显式回落到 null,即"**未判定**",不得留上一轮的旧账在这里冒充"本轮已结清"。
+          if (accumulator) {
+            const account = accumulator.close()
+            setTailAccount(account)
+            const summary = summarizeSseTailAccount(account)
+            if (summary) {
+              // 丢弃/判不出必须"响":这一行就是 §5e 那条禁令要的可诊断痕迹,且逐条点名内容预览。
+              // 走 console 而不是界面文案 —— 新增用户可见提示要补 i18n 五语言,不属本票范围。
+              console.warn(`[use-agent-stream] 尾帧账目 thread=${threadId} ${summary}`)
+            }
+          } else {
+            setTailAccount(null)
+          }
         }
       })()
     },
@@ -441,6 +512,8 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
     lastPlan: state.lastPlan,
     error: state.error,
     reconnectAttempt,
+    // G-815939:最近一次收口的尾帧账目(null = 未判定,详见接口注释)
+    tailAccount,
     start,
     stop,
     clear,
