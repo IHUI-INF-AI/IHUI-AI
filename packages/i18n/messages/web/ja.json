@@ -621,10 +621,6 @@
     "nickname": "ニックネーム",
     "noAccounts": "アカウントがありません",
     "openExternalBrowser": "外部ブラウザで開く",
-    "chromeImportBtn": "自分の Chrome から取り込み",
-    "chromeImportLaunching": "Chrome のログインウィンドウを開いています...",
-    "chromeImportHint": "{platform} のログインページを別ウィンドウで開きました。そのウィンドウでログインすると、Cookie を貼り付けなくても自動的にアカウントが保存されます。",
-    "chromeImportFailed": "Chrome からの取り込みが完了しませんでした",
     "orDivider": "または",
     "platform": "プラットフォーム",
     "scan": "スキャンログイン",
@@ -634,9 +630,6 @@
     "scanLoginHint": "QRコードは1分ごとに自動更新されます",
     "scanLoginSucceeded": "スキャンログインに成功しました",
     "scanLoginSuccess": "スキャン成功",
-    "scanLoginReuseLabel": "ログイン方式",
-    "scanLoginReuseOn": "既存セッションを再利用(スキャン不要)",
-    "scanLoginReuseOff": "毎回新しくスキャン",
     "scanLoginTimeout": "スキャンタイムアウトです。もう一度お試しください。",
     "scanLoginTitle": "スキャンログイン",
     "scanWithPhoneHint": "スマートフォンでQRコードをスキャンしてください。",
@@ -10623,6 +10616,15 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "referencePreview": {
+      "available": "模擬機能が利用できます",
+      "editor": "能力参照入力欄",
+      "placeholder": "完全な参照を貼り付けるか、@ で能力を入力…",
+      "source": "元の入力本文",
+      "select": "サンプル能力を選ぶ",
+      "clear": "新しく入力",
+      "send": "プレビューを送信"
+    },
     "bindIssue": "Issueを紐付け",
     "unbindIssue": "独立タスクにする",
     "issueBinding": "関連Issue",
@@ -20352,7 +20354,14 @@
       "batchScanPopupBlocked": "ブラウザが新しいタブをブロックしました。アドレスバー右側のアイコンからこのサイトのポップアップを許可して再開してください(または内蔵ブラウザモードをご利用ください)。",
       "batchScanPopupBlockedToast": "新しいタブがブロックされたためキューを停止しました。ポップアップを許可して再試行してください",
       "batchScanWindowClosedToast": "ブラウザウィンドウが閉じられたため、キューを停止しました",
-      "batchScanWaitingHint": "下の QR コードをスマホでスキャンして該プラットフォームにログインしてください。2 分でタイムアウト自動スキップします(手動スキップも可能)。"
+      "batchScanWaitingHint": "下の QR コードをスマホでスキャンして該プラットフォームにログインしてください。2 分でタイムアウト自動スキップします(手動スキップも可能)。",
+      "chromeImportBtn": "自分の Chrome から取り込み",
+      "chromeImportLaunching": "Chrome のログインウィンドウを開いています...",
+      "chromeImportHint": "{platform} のログインページを別ウィンドウで開きました。そのウィンドウでログインすると、Cookie を貼り付けなくても自動的にアカウントが保存されます。",
+      "chromeImportFailed": "Chrome からの取り込みが完了しませんでした",
+      "scanLoginReuseLabel": "ログイン方式",
+      "scanLoginReuseOn": "既存セッションを再利用(スキャン不要)",
+      "scanLoginReuseOff": "毎回新しくスキャン"
     },
     "ai": {
       "analyzeAll": "一括分析",

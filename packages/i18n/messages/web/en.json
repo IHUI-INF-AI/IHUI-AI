@@ -621,10 +621,6 @@
     "nickname": "Nickname",
     "noAccounts": "No accounts",
     "openExternalBrowser": "Open in external browser",
-    "chromeImportBtn": "Import from my Chrome",
-    "chromeImportLaunching": "Opening Chrome sign-in window...",
-    "chromeImportHint": "Opened the {platform} sign-in page in a separate window. Sign in there — the account is saved automatically once you are logged in, no cookie pasting needed.",
-    "chromeImportFailed": "Chrome import not completed",
     "orDivider": "OR",
     "platform": "Platform",
     "scan": "Scan Login",
@@ -634,9 +630,6 @@
     "scanLoginHint": "QR code refreshes every minute",
     "scanLoginSucceeded": "Scan login successful",
     "scanLoginSuccess": "Scan Successful",
-    "scanLoginReuseLabel": "Sign-in mode",
-    "scanLoginReuseOn": "Reuse existing session (no scan)",
-    "scanLoginReuseOff": "Scan fresh every time",
     "scanLoginTimeout": "Scan timed out. Please try again.",
     "scanLoginTitle": "Scan Login",
     "scanWithPhoneHint": "Please scan the QR code with your phone to log in.",
@@ -10633,6 +10626,15 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "referencePreview": {
+      "available": "Simulated capability available",
+      "editor": "Capability reference input",
+      "placeholder": "Paste a full reference, or type @ to pick a capability…",
+      "source": "Original input",
+      "select": "Choose an example capability",
+      "clear": "Start a new input",
+      "send": "Send preview"
+    },
     "bindIssue": "Bind issue",
     "unbindIssue": "Make standalone task",
     "issueBinding": "Linked issue",
@@ -20367,7 +20369,14 @@
       "batchScanPopupBlocked": "Your browser blocked the new tab: click the blocked-popup icon in the address bar to allow pop-ups for this site, then start again (or use the built-in browser mode).",
       "batchScanPopupBlockedToast": "A new tab was blocked — queue stopped; allow pop-ups for this site and retry",
       "batchScanWindowClosedToast": "Browser window closed — queue stopped",
-      "batchScanWaitingHint": "Scan the QR code below with your phone to sign in to this platform. Each platform times out after 2 minutes and is skipped automatically; you can also skip manually."
+      "batchScanWaitingHint": "Scan the QR code below with your phone to sign in to this platform. Each platform times out after 2 minutes and is skipped automatically; you can also skip manually.",
+      "chromeImportBtn": "Import from my Chrome",
+      "chromeImportLaunching": "Opening Chrome sign-in window...",
+      "chromeImportHint": "Opened the {platform} sign-in page in a separate window. Sign in there — the account is saved automatically once you are logged in, no cookie pasting needed.",
+      "chromeImportFailed": "Chrome import not completed",
+      "scanLoginReuseLabel": "Sign-in mode",
+      "scanLoginReuseOn": "Reuse existing session (no scan)",
+      "scanLoginReuseOff": "Scan fresh every time"
     },
     "ai": {
       "analyzeAll": "Batch Analysis",
