@@ -62,6 +62,18 @@
  *   11h50m 学费的那一型。`check` 只读快路径**不派生 PowerShell**(S48 纪律不变),但会现读
  *   `os.uptime()`(进程内调用)把同一结论打印出来。
  *
+ * 不可判定三态的时钟倒挂独立档(2026-10-02 立,G-386;孪生登记同号题面亦见 G-779;G-412 未覆盖的那一半):
+ *   G-412 治的是 **ok 态** 的未来 ts;本票点名的那个谓词形状 `age > staleMs` 恰好只剩住在**不可判定**分支 ——
+ *   该面的锁龄降级取**锁目录 mtime**(见 lockAgeMs 注释),mtime 超容差落在未来时 `ageMs` 钳成 0 ⇒
+ *   `0 > staleMs` 恒假 ⇒ 这一格无限 wait 到超时,而文案还写着"唯一自动出路是超 stale"(该形态下是假的,
+ *   与 A9-3 登记的旧撒谎同型)。现补第三条独立档(不与"活着/已退出/不可判定即等待"并桶):
+ *   `clockAnomalous ⇒ steal + immediate:false` —— 与 ok 面/硬上限同形,**先归档现场再抢**,绝不变秒抢;
+ *   容差内(默认 5 分钟)的未来 mtime 仍按读数正常处理(NTP 微步进不得读成倒挂);单调对账在这一面
+ *   **无锚点**(不可判定 ⇒ 拿不到 ts/host/bootMs),结论里如实写"无锚点",不硬凑、也不因此回落成无限等。
+ *   失效方向照 §5b/G-193 那条规矩:宁可抢一把判不出年龄的锁并先归档现场,不可把"没人能说清"变成
+ *   "部署环一直不更新"。真实时钟倒挂事件未在本机复现,该档由构造面(`utimesSync` 造未来 mtime +
+ *   注入固定 now)成对证明,不自称"实测抓到过"。
+ *
  * 锁的状态认识论(2026-09-26 立,第九轮 ZCode 吸收 A9-3):
  *   `readMeta()` 返回**穷尽四态**,因为"读不到"与"确实没有"是两件不同的事,
  *   把它们混成一态(null)会产出本仓最贵的一类故障——**判不出来就当没人持锁**:
@@ -75,8 +87,9 @@
  *   release 一侧的两个 `meta &&` 守卫同时短路 ⇒ **坏锁 = 白拿**,直接删掉别人正在用的锁。
  *   现口径:
  *     1. 不可判定三态**绝不等价于"无人持锁"**,不得凭猜测删锁;
- *     2. 但也不得傻等到超时不给出路 —— 唯一出路是**锁龄超 stale 阈值**才抢占,
- *        且抢占前必须把现场**原样归档**(不得静默覆盖);
+ *     2. 但也不得傻等到超时不给出路 —— 自动出路现为两档(G-386 起):① **锁龄超 stale 阈值**才抢占;
+ *        ② 年龄读数被时钟倒挂钉死(`0 > staleMs` 恒假)时走**时钟倒挂档**,与硬上限同档先归档再抢。
+ *        两档抢占前都必须把现场**原样归档**(不得静默覆盖);
  *     3. 超时报错文案必须与实际判据一致,不同形态给不同出路;
  *     4. `check` 如实打印"无法判定 + 原因",禁止打印成空字段
  *        (读报告的人会把"读不出"当成"没进程持锁")。
@@ -104,6 +117,8 @@ import {
   statSync,
   readdirSync,
   copyFileSync,
+  // G-386:自检/夹具用它**造一个未来 mtime 的锁目录**(构造面取证,绝不真改系统时钟)。
+  utimesSync,
 } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { hostname, uptime } from 'node:os'
@@ -851,13 +866,39 @@ function decideSteal({
   }
 
   // —— 不可判定三态:绝不等价于"无人持锁"(A9-3),也不许傻等到超时不给出路
+  /**
+   * G-386(孪生 G-779):**时钟倒挂在不可判定面必须单独成档**,不得与"活着/已退出/不可判定即等待"并桶。
+   * 本票点名的谓词形状 `age > staleMs` 在这一格的结构:不可判定面的锁龄降级取锁目录 mtime,
+   * mtime 超容差落在未来 ⇒ `lockAgeMs` 报 `ageMs=0` + `clockAnomalous`(G-412 已把读数标出来,
+   * 但 ok 面之外没人消费它)⇒ `0 > staleMs` 恒假 ⇒ 无限 wait 到超时,出路文案还是那句已被钉死的
+   * "超 stale 才抢占"。现按 ok 面 clockAnomalous 档与硬上限档的同一条形状处置:`steal + immediate:false`
+   * —— **先归档现场再抢**,不是秒抢;失败方向照 §5b/G-193:宁可抢一把年龄判不出而现场有档的锁,
+   * 不可让"没人能说清"变成"部署环一直不更新"。单调对账在这一面**无锚点**(拿不到 ts/host/bootMs),
+   * 如实写进结论,不硬凑一个"已核过"。容差语义不变:容差内的未来 mtime(NTP 微步进)不进这一档。
+   */
+  if (age.clockAnomalous) {
+    return {
+      action: 'steal',
+      immediate: false,
+      holderAlive: null,
+      ...info,
+      clockAnomalous: true,
+      futureMs: age.futureMs,
+      why:
+        `元数据不可判定(${state.kind}:${state.reason})且 ${age.source}` +
+        ' ⇒ **时钟倒挂档**(与"活着/已退出/不可判定即等待"不同的独立一档):墙钟回拨把下面那条 stale 年龄出路钉成恒假' +
+        `(年龄读数被钳在 ${age.ageMs}ms),不得因此无限 wait;单调对账=无锚点(不可判定面拿不到 ts/host/bootMs,` +
+        '不硬凑结论)⇒ 出路:与硬上限同档 —— 先归档现场再抢占(非秒抢),二次确认与原子改名照旧;' +
+        '人工出口 `deploy-lock.mjs break-stale --reason "<理由>"`',
+    }
+  }
   if (age.ageMs > staleMs) {
     return {
       action: 'steal',
       immediate: false,
       holderAlive: null,
       ...info,
-      why: `元数据不可判定(${state.kind}:${state.reason})且锁龄 ${age.ageMs}ms 已超 stale 阈值 ${staleMs}ms —— 这是唯一自动出路`,
+      why: `元数据不可判定(${state.kind}:${state.reason})且锁龄 ${age.ageMs}ms 已超 stale 阈值 ${staleMs}ms —— 这是 stale 年龄档的出路(年龄读数被钉死那一档本例未触发)`,
     }
   }
   return {
@@ -894,8 +935,14 @@ function lockTimeoutMessage({ timeoutMs, decision, staleMs, dir, mkdirErr }) {
     // 身份对账的实测结论必须跟着超时文案走:"我等了一把活锁"与"我等了一把**没身份凭据**的锁"
     // 是两句不同的话 —— 后者才是"这一格为什么没出路"的真实答案(判据原文里带身份那一维)。
     route += `;判据原文:${decision.why}`
+  } else if (decision.clockAnomalous) {
+    // G-386:不可判定面 + 年龄读数被倒挂钉死 ⇒ 走到超时说明**时钟倒挂档**试过而没成(归档失败/改名瞬间被换),
+    // 文案不得再复读"唯一出路是超 stale"—— 那句话在本档恒不成立(与旧撒谎文案同一型,只是换了触发面)。
+    route =
+      `元数据不可判定且年龄读数被时钟倒挂钉死(来源 ${ageSource})⇒ 本格走**时钟倒挂档**自动出路(先归档现场再抢占,与硬上限同档,非秒抢);` +
+      '等到超时说明归档未成或改名瞬间锁已被替换 —— 本工具不凭猜测删锁,人工出口:deploy-lock.mjs break-stale --reason "<理由>"'
   } else {
-    route = `元数据不可判定,本工具不会凭猜测删锁;唯一自动出路是锁龄超 stale=${staleMs}ms 后归档并抢占(当前 ${ageMs}ms,来源 ${ageSource})`
+    route = `元数据不可判定,本工具不会凭猜测删锁;stale 年龄档的自动出路是锁龄超 stale=${staleMs}ms 后归档并抢占(当前 ${ageMs}ms,来源 ${ageSource});年龄读数被倒挂钉死时另走时钟倒挂档`
   }
   const mkdirNote =
     mkdirErr && mkdirErr.code !== 'EEXIST' ? `(另:创建锁目录返回 ${mkdirErr.code})` : ''
@@ -1239,9 +1286,9 @@ function check({
     `locked: 无法判定(${state.kind})——原因:${state.reason}。` +
       `锁龄 ${age.ageMs}ms(来源:${age.source})。` +
       `注意:这不是"没有进程持锁",也不是"持锁进程已退出";` +
-      'acquire 侧只会等锁龄超 stale 阈值后归档并抢占,不会凭猜测删锁。' +
+      'acquire 侧不会凭猜测删锁;自动出路:锁龄超 stale 阈值后归档并抢占(年龄读数被倒挂钉死时另走独立档,同样先归档再抢)。' +
       (age.clockAnomalous
-        ? `另:锁目录 mtime 的读数本身异常(${age.source})——年龄兜底这一维此刻也判不出来,人工出口 \`deploy-lock.mjs break-stale --reason "<理由>"\`。`
+        ? `另:锁目录 mtime 的读数本身异常(${age.source})——年龄维被**时钟倒挂档**接管而非无限 wait:下一次 acquire 会先归档现场再抢占;人工出口 \`deploy-lock.mjs break-stale --reason "<理由>"\`。`
         : ''),
   )
   return 1
@@ -2129,6 +2176,152 @@ async function runSelfTest() {
       'S61 已存在的空锁目录(absent 态)未被 rename 替换、未被删 ⇒ 仍走既有"等 stale"判据',
       !!err61 && existsSync(d61) && readdirSync(d61).length === 0,
       err61?.message ?? '未抛错',
+    )
+
+    // —— 62..66) G-386(孪生 G-779):**不可判定三态**的时钟倒挂必须单独成档(G-412 只修了 ok 面)。
+    // 本票点名的谓词形状 `age > staleMs` 只剩住在这里:不可判定面的年龄降级取锁目录 mtime,
+    // mtime 超容差落在未来 ⇒ ageMs 钳成 0 ⇒ `0 > staleMs` 恒假 ⇒ 旧行为是无限 wait 到超时。
+    // 取证一律用 utimesSync 造未来 mtime + 注入固定 now —— **绝不真改系统时钟**(那是拿生产当夹具)。
+    const FUTURE_10MIN = 10 * MIN
+    // ⚠️ 本机实测(Windows 10.0.26200 / Node v24.19.0)的坑:`utimesSync` 的数值参数按**秒**(epoch
+    //   seconds)解释,传 ms 会被换算成远超 FILETIME 上限的时刻 ⇒ 文件和目录一律 EINVAL,报错形状
+    //   像"这台机不许设时间"而实际是单位错(错误形状≠原因,G-412 取证那一轮的同一条禁令)。这里显式换算。
+    const utimesSec = (d, ms) => {
+      const sec = Math.round(ms / 1000)
+      utimesSync(d, sec, sec)
+    }
+    const mkUndeterminedWithMtime = (metaText, deltaMs) => {
+      const d = freshDir()
+      if (metaText !== null) putMeta(d, metaText)
+      utimesSec(d, NOW_FIX + deltaMs)
+      return d
+    }
+    const d62 = mkUndeterminedWithMtime('{"mode":"build","pid":', FUTURE_10MIN)
+    const age62 = lockAgeMs(d62, readMeta(d62), NOW_FIX)
+    t(
+      'S62a 不可判定面未来 mtime ⇒ clockAnomalous 且 ageMs 被钳 0(正是本票点名的"锁龄恒 0"形状)',
+      age62.clockAnomalous === true &&
+        age62.ageMs === 0 &&
+        Math.abs(age62.futureMs - FUTURE_10MIN) < 1_000 &&
+        /mtime 在未来/.test(age62.source),
+      JSON.stringify(age62),
+    )
+    const dec62 = decideSteal({
+      dir: d62,
+      mode: 'build',
+      staleMs: 600_000,
+      hardCapMs: HARD_CAP_MS,
+      now: NOW_FIX,
+    })
+    t(
+      'S62b 不可判定面时钟倒挂 ⇒ 独立档:steal + immediate:false(归档后抢非秒抢),why 点名档位/态名/无锚点/人工出口',
+      dec62.action === 'steal' &&
+        dec62.immediate === false &&
+        dec62.clockAnomalous === true &&
+        /时钟倒挂档/.test(dec62.why) &&
+        /break-stale/.test(dec62.why) &&
+        /invalid/.test(dec62.why) &&
+        /单调对账=无锚点/.test(dec62.why),
+      `${dec62.action} / ${dec62.why}`,
+    )
+    // —— 63) 成对反向对照(只有正向没有反向的断言等于没有断言):三种正常形态一律按原判据
+    const dec63w = decideSteal({
+      dir: mkUndeterminedWithMtime('{"mode":"build","pid":', -1000),
+      mode: 'build',
+      staleMs: 600_000,
+      hardCapMs: HARD_CAP_MS,
+      now: NOW_FIX,
+    })
+    t(
+      'S63a mtime 刚刚(正常新建)⇒ 仍 wait 且文案"未超 stale"(新档不得触达;改动前语义原样)',
+      dec63w.action === 'wait' && /未超 stale/.test(dec63w.why) && !dec63w.clockAnomalous,
+      `${dec63w.action} / ${dec63w.why}`,
+    )
+    const dec63s = decideSteal({
+      dir: mkUndeterminedWithMtime('{"mode":"build","pid":', -(600_000 + 60_000)),
+      mode: 'build',
+      staleMs: 600_000,
+      hardCapMs: HARD_CAP_MS,
+      now: NOW_FIX,
+    })
+    t(
+      'S63b mtime 已超 stale(正常陈旧)⇒ 仍走原 stale 档且 why 不出现"时钟倒挂档"(新档不得顶掉旧出路)',
+      dec63s.action === 'steal' &&
+        /stale 阈值/.test(dec63s.why) &&
+        !/时钟倒挂档/.test(dec63s.why) &&
+        !dec63s.clockAnomalous,
+      `${dec63s.action} / ${dec63s.why}`,
+    )
+    const dec63t = decideSteal({
+      dir: mkUndeterminedWithMtime('{"mode":"build","pid":', Math.floor(FUTURE_TS_TOLERANCE_MS / 2)),
+      mode: 'build',
+      staleMs: 600_000,
+      hardCapMs: HARD_CAP_MS,
+      now: NOW_FIX,
+    })
+    t(
+      'S63c 未来 mtime 在容差之内(半容差,如 NTP 微步进)⇒ 不记异常仍 wait(容差语义未放宽)',
+      dec63t.action === 'wait' && !dec63t.clockAnomalous,
+      `${dec63t.action} / ${dec63t.why}`,
+    )
+    // —— 64) absent 面同档:三态都覆盖,且"先归档再抢"对 absent 同样是底线(不得折成秒抢)
+    const dec64 = decideSteal({
+      dir: mkUndeterminedWithMtime(null, FUTURE_10MIN),
+      mode: 'build',
+      staleMs: 600_000,
+      hardCapMs: HARD_CAP_MS,
+      now: NOW_FIX,
+    })
+    t(
+      'S64 absent + 未来 mtime ⇒ 同一时钟倒挂档(steal + immediate:false)并点名 absent',
+      dec64.action === 'steal' &&
+        dec64.immediate === false &&
+        /absent/.test(dec64.why) &&
+        /时钟倒挂档/.test(dec64.why),
+      `${dec64.action} / ${dec64.why}`,
+    )
+    // —— 65) 端到端:acquire 真的走出这一格(改前该形态必在 600s 后抛错,现场还会被归档保住)
+    const d65 = mkUndeterminedWithMtime('{"mode":"build","pid":', 0)
+    const raw65 = readFileSync(metaFile(d65), 'utf8')
+    // acquire 内部的 now=Date.now() 不可注入 ⇒ 这一臂按**真实时钟**造未来 mtime(仍走秒语义)。
+    utimesSec(d65, Date.now() + FUTURE_TS_TOLERANCE_MS + 120_000)
+    const r65 = await acquire({ mode: 'build', timeoutMs: 5000, staleMs: 600_000, dir: d65 })
+    t(
+      'S65 端到端:不可判定 + 未来 mtime ⇒ acquire 经时钟倒挂档成功(有出路,而不是 wait 到超时)',
+      r65 === true,
+      String(r65),
+    )
+    const scene65 = (() => {
+      try {
+        return readdirSync(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR).some((n) => {
+          try {
+            return readFileSync(join(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR, n, 'meta.json'), 'utf8') === raw65
+          } catch {
+            return false
+          }
+        })
+      } catch {
+        return false
+      }
+    })()
+    t(
+      'S65b 端到端现场按**原字节**归档(immediate:false 的"先归档"契约没有被顺手削掉)',
+      scene65,
+    )
+    // —— 66) check 文案:异常面点名"时钟倒挂档"+人工出口;正常不可判定面**不得**出现这句
+    let out66a = ''
+    check({ dir: d62, log: (s) => (out66a += s), now: NOW_FIX })
+    let out66b = ''
+    check({ dir: mkUndeterminedWithMtime('{"mode":"build","pid":', -1000), log: (s) => (out66b += s), now: NOW_FIX })
+    t(
+      'S66a check:不可判定 + 未来 mtime ⇒ 喊"时钟倒挂档"并给自动+人工两条出路',
+      /时钟倒挂档/.test(out66a) && /break-stale/.test(out66a),
+      out66a,
+    )
+    t(
+      'S66b check 反向对照:正常不可判定面不得被印成倒挂档(否则 S66a 是恒真断言)',
+      !/时钟倒挂档/.test(out66b),
+      out66b,
     )
   } finally {
     rmScratch(base)
