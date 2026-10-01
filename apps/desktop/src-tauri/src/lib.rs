@@ -33,6 +33,176 @@ use base64::Engine;
 use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings};
 use screenshots::Screen;
 
+// ================== 桌面 IPC 错误契约(G-715,2026-09-30 立)==================
+
+/// 跨进程错误体的**身份档**。渲染层按这一档分派处置。
+///
+/// 为什么要它:此前命令一律 `map_err(|e| format!("…: {e}"))` 把失败压成纯字符串,渲染层
+/// 只能拿文案猜;而本仓的错误判序是 `errorCode → HTTP status → 文案正则`,桌面端第一档
+/// 永远为空 ⇒ 判序整条退化成文案正则。四档由**发送方显式给出**,不得由文案反推。
+///
+/// 词汇与 `packages/types/src/api.ts` 的 `ApiFailure.errorCode` 同族但**刻意不合并**:
+/// HTTP 面还带 `status/retryAfter`,IPC 面没有传输层状态码可言,两面含义不同形。
+/// 档名的对端契约在 `apps/web/src/lib/tauri-bridge.ts` 的 `IPC_ERROR_CODES`,
+/// 由 `apps/web/tests/g-715-ipc-error-contract.test.ts` 逐档对账(两侧任一处漂了就红)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IpcErrorCode {
+    /// 目标不存在:文件/窗口/可执行程序。
+    NotFound,
+    /// 宿主按策略拒绝:路径越出应用数据目录、窗口状态不允许(最大化/全屏)、配额超限。
+    Permission,
+    /// 网络栈失败:端口分配、连接。
+    Network,
+    /// 其余一律 internal。这一档的含义是"宿主没能给出身份",不是"没事"——不许拿来兜好消息。
+    Internal,
+}
+
+impl IpcErrorCode {
+    /// wire 上的字面量(与 serde 的 `rename_all = "snake_case"` 逐字同形,由契约测试钉住)。
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::NotFound => "not_found",
+            Self::Permission => "permission",
+            Self::Network => "network",
+            Self::Internal => "internal",
+        }
+    }
+}
+
+/// 桌面 IPC 命令的失败分支。序列化后的 wire 形状是 `{ "code": "<档>", "message": "<原因>" }`。
+#[derive(Debug, Clone, Serialize)]
+pub struct IpcError {
+    pub code: IpcErrorCode,
+    pub message: String,
+}
+
+impl IpcError {
+    pub fn new(code: IpcErrorCode, message: impl Into<String>) -> Self {
+        Self { code, message: message.into() }
+    }
+
+    pub fn not_found(message: impl Into<String>) -> Self {
+        Self::new(IpcErrorCode::NotFound, message)
+    }
+
+    pub fn permission(message: impl Into<String>) -> Self {
+        Self::new(IpcErrorCode::Permission, message)
+    }
+
+    pub fn network(message: impl Into<String>) -> Self {
+        Self::new(IpcErrorCode::Network, message)
+    }
+
+    pub fn internal(message: impl Into<String>) -> Self {
+        Self::new(IpcErrorCode::Internal, message)
+    }
+
+    /// io 失败 → IpcError,并把"是哪个动作/哪条路径"补进 message。
+    /// 归类只看 `ErrorKind`(`From<io::Error>` 那一条),**不碰 `to_string()` 的文案** ——
+    /// 按文案猜档正是本票要消灭的形态。
+    pub fn from_io(action: &str, target: &std::path::Path, e: std::io::Error) -> Self {
+        let mut err = Self::from(e);
+        err.message = format!("{} {}: {}", action, target.display(), err.message);
+        err
+    }
+}
+
+impl std::fmt::Display for IpcError {
+    /// 日志面保留档位名:落盘失败只写"permission: …"才答得出是谁拒的、为什么拒的。
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.code.as_str(), self.message)
+    }
+}
+
+impl std::error::Error for IpcError {}
+
+impl From<std::io::Error> for IpcError {
+    fn from(e: std::io::Error) -> Self {
+        let code = match e.kind() {
+            std::io::ErrorKind::NotFound => IpcErrorCode::NotFound,
+            std::io::ErrorKind::PermissionDenied => IpcErrorCode::Permission,
+            std::io::ErrorKind::ConnectionRefused
+            | std::io::ErrorKind::ConnectionReset
+            | std::io::ErrorKind::ConnectionAborted
+            | std::io::ErrorKind::AddrInUse
+            | std::io::ErrorKind::AddrNotAvailable
+            | std::io::ErrorKind::TimedOut
+            | std::io::ErrorKind::UnexpectedEof => IpcErrorCode::Network,
+            // 判不出来就明说判不出来:这一档是"未归类",不是"没问题"。
+            _ => IpcErrorCode::Internal,
+        };
+        Self::new(code, e.to_string())
+    }
+}
+
+#[cfg(test)]
+mod ipc_error_contract_tests {
+    use super::*;
+
+    /// 1. wire 形状必须是 `{ "code": "<档>", "message": "<原因>" }` —— 渲染层就是按这个字段取档的。
+    ///    这条断言是"身份到端"的正证:若 Serialize 漂移(比如退化成 Display 的字符串),
+    ///    前端拿到的就只有文案,本票的病灶原样复活。
+    #[test]
+    fn serializes_as_object_with_code_and_message() {
+        let err = IpcError::permission("路径不在应用数据目录内(拒绝): C:\\Windows\\x");
+        let json = serde_json::to_value(&err).expect("serialize IpcError");
+        assert_eq!(json["code"].as_str(), Some("permission"));
+        assert!(json["message"].as_str().unwrap().contains("拒绝"));
+        // 反向对照:序列化结果不得是字符串(那正是改之前的形态)。
+        assert!(json.is_object(), "wire 必须是对象,实际是 {:?}", json);
+    }
+
+    /// 2. `as_str()` 与 serde 的 snake_case 必须同形 —— 前端 IPC_ERROR_CODES 拿字面量比对,
+    ///    两处任改其一就会对不上(档名漂了而两侧各自都自洽)。
+    #[test]
+    fn code_literals_match_serde_output() {
+        for (code, wire) in [
+            (IpcErrorCode::NotFound, "not_found"),
+            (IpcErrorCode::Permission, "permission"),
+            (IpcErrorCode::Network, "network"),
+            (IpcErrorCode::Internal, "internal"),
+        ] {
+            assert_eq!(code.as_str(), wire);
+            assert_eq!(
+                serde_json::to_value(code).unwrap().as_str(),
+                Some(wire),
+                "档名与 serde 输出分叉:{}",
+                wire
+            );
+        }
+    }
+
+    /// 3. io 失败按 **ErrorKind** 归类,不按 to_string() 的文案。
+    ///    (Windows/中文系统的 io 文案措辞不稳,按文案猜档就是本票要消灭的形态。)
+    #[test]
+    fn io_error_is_classified_by_kind_not_by_text() {
+        // 同一句话、不同 kind ⇒ 档必须不同 ⇒ 证明归类看的不是文案。
+        let denied = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "boom");
+        let missing = std::io::Error::new(std::io::ErrorKind::NotFound, "boom");
+        let other = std::io::Error::new(std::io::ErrorKind::Other, "boom");
+        assert_eq!(IpcError::from(denied).code, IpcErrorCode::Permission);
+        assert_eq!(IpcError::from(missing).code, IpcErrorCode::NotFound);
+        assert_eq!(IpcError::from(other).code, IpcErrorCode::Internal);
+        let refused = std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "boom");
+        assert_eq!(IpcError::from(refused).code, IpcErrorCode::Network);
+    }
+
+    /// 4. from_io 保留"是哪个动作/哪条路径"的量级信息,同时不改变档位。
+    #[test]
+    fn from_io_keeps_context_and_code() {
+        let e = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "拒绝访问。");
+        let err = IpcError::from_io("write", std::path::Path::new("C:\\Users\\x\\a.json"), e);
+        assert_eq!(err.code, IpcErrorCode::Permission);
+        assert!(err.message.starts_with("write C:\\Users\\x\\a.json: "));
+        // 日志面(Display)必须带档名,否则"落盘失败(拒绝访问。)"这种行答不出是谁拒的。
+        assert_eq!(
+            format!("{}", err),
+            format!("permission: {}", err.message)
+        );
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct AppInfo {
     name: String,
@@ -174,10 +344,11 @@ fn pick_free_port() -> std::io::Result<u16> {
 /// - Chrome 常见安装路径探测,找不到返回错误(前端提示安装 Chrome)。
 /// - 仅允许 http/https URL(防参数注入)。
 #[tauri::command]
-fn open_in_chrome(url: String) -> Result<u16, String> {
+fn open_in_chrome(url: String) -> Result<u16, IpcError> {
     let trimmed = url.trim();
     if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
-        return Err("仅支持 http/https URL".into());
+        // 宿主拒发 = permission 档(不是 internal:这是有意的策略拒绝,不是判不出)。
+        return Err(IpcError::permission("仅支持 http/https URL"));
     }
     let candidates = [
         std::env::var_os("LOCALAPPDATA")
@@ -195,16 +366,18 @@ fn open_in_chrome(url: String) -> Result<u16, String> {
     ];
     let chrome = candidates.into_iter().flatten().find(|p| p.exists());
     let Some(chrome) = chrome else {
-        return Err("未找到 Google Chrome,请先安装 Chrome 浏览器".into());
+        return Err(IpcError::not_found("未找到 Google Chrome,请先安装 Chrome 浏览器"));
     };
 
-    let port = pick_free_port().map_err(|e| format!("分配调试端口失败: {}", e))?;
+    // 端口分配是网络栈动作,失败归 network 档(不按 io 文案反猜:Windows 的 bind 报错措辞并不稳定)。
+    let port = pick_free_port().map_err(|e| IpcError::network(format!("分配调试端口失败: {}", e)))?;
     let mut cmd = std::process::Command::new(&chrome);
     cmd.arg(format!("--app={}", trimmed))
         .arg("--new-window")
         .arg(format!("--remote-debugging-port={}", port))
         .arg("--user-data-dir=/tmp/ihui-chrome-profile");
-    let _child = cmd.spawn().map_err(|e| format!("启动 Chrome 失败: {}", e))?;
+    // spawn 的失败按 ErrorKind 归类(可执行文件被拒 → permission;找不到 → not_found)。
+    let _child = cmd.spawn().map_err(IpcError::from)?;
     Ok(port)
 }
 
@@ -219,7 +392,7 @@ fn start_resize(
     direction: String,
     label: Option<String>,
     app: tauri::AppHandle,
-) -> Result<(), String> {
+) -> Result<(), IpcError> {
     let dir_name = match direction.as_str() {
         "n" => "North",
         "s" => "South",
@@ -229,42 +402,47 @@ fn start_resize(
         "nw" => "NorthWest",
         "se" => "SouthEast",
         "sw" => "SouthWest",
-        _ => return Err(format!("unknown direction: {}", direction)),
+        // 调用方给的档位不在登记表里 = 前端与宿主的契约漂了,属内部缺陷而非策略拒绝。
+        _ => return Err(IpcError::internal(format!("unknown direction: {}", direction))),
     };
     let label = label.as_deref().unwrap_or("main");
     let webview = app
         .get_webview_window(label)
-        .ok_or_else(|| format!("window {} not found", label))?;
+        .ok_or_else(|| IpcError::not_found(format!("window {} not found", label)))?;
     let win = webview.as_ref().window();
     // 2026-07-28 立:最大化/全屏状态下拒绝 resize(Windows 原生行为)
+    // G-715:这一拒绝此前只能靠前端"整块静默吞掉",现在有档 ⇒ 前端按 permission 分派。
     if win.is_maximized().unwrap_or(false) {
-        return Err("window is maximized".to_string());
+        return Err(IpcError::permission("window is maximized"));
     }
     if win.is_fullscreen().unwrap_or(false) {
-        return Err("window is fullscreen".to_string());
+        return Err(IpcError::permission("window is fullscreen"));
     }
     let dir = serde_json::from_value(serde_json::Value::String(dir_name.to_string()))
-        .map_err(|e| e.to_string())?;
-    win.start_resize_dragging(dir).map_err(|e| e.to_string())
+        .map_err(|e| IpcError::internal(format!("resize direction: {e}")))?;
+    win.start_resize_dragging(dir)
+        .map_err(|e| IpcError::internal(format!("start_resize_dragging: {e}")))
 }
 
 /// 切换窗口全屏状态(P2:桌面端标配,2026-07-27 立)。
 /// 返回切换后的全屏状态(true=全屏,false=窗口模式)。
 #[tauri::command]
-fn toggle_fullscreen(window: tauri::WebviewWindow) -> Result<bool, String> {
+fn toggle_fullscreen(window: tauri::WebviewWindow) -> Result<bool, IpcError> {
     let fs = window.is_fullscreen().unwrap_or(false);
-    window.set_fullscreen(!fs).map_err(|e| e.to_string())?;
+    window
+        .set_fullscreen(!fs)
+        .map_err(|e| IpcError::internal(format!("set_fullscreen: {e}")))?;
     Ok(!fs)
 }
 
 /// 切换窗口置顶状态(P2:AI 对话悬浮场景,2026-07-27 立)。
 /// 返回切换后的置顶状态(true=置顶,false=普通)。
 #[tauri::command]
-fn toggle_always_on_top(window: tauri::WebviewWindow) -> Result<bool, String> {
+fn toggle_always_on_top(window: tauri::WebviewWindow) -> Result<bool, IpcError> {
     let current = window.is_always_on_top().unwrap_or(false);
     window
         .set_always_on_top(!current)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| IpcError::internal(format!("set_always_on_top: {e}")))?;
     Ok(!current)
 }
 
@@ -1148,30 +1326,36 @@ fn normalize_path(p: &std::path::Path) -> std::path::PathBuf {
 fn ensure_in_app_data(
     app: &tauri::AppHandle,
     path: &str,
-) -> Result<std::path::PathBuf, String> {
+) -> Result<std::path::PathBuf, IpcError> {
     let app_data = app
         .path()
         .app_data_dir()
-        .map_err(|e| format!("app_data_dir 解析失败: {}", e))?;
+        .map_err(|e| IpcError::internal(format!("app_data_dir 解析失败: {}", e)))?;
     let p = std::path::Path::new(path);
     if !p.is_absolute() {
-        return Err(format!("路径必须是绝对路径(拒绝): {}", path));
+        // 这两支都是宿主的策略拒绝(安全边界),归 permission 而不是 internal:
+        // 前端据此才能区分"这条路径被沙箱挡了"与"宿主坏了"。
+        return Err(IpcError::permission(format!("路径必须是绝对路径(拒绝): {}", path)));
     }
     let p_norm = normalize_path(p);
     let app_data_norm = normalize_path(&app_data);
     if !p_norm.starts_with(&app_data_norm) {
-        return Err(format!("路径不在应用数据目录内(拒绝): {}", path));
+        return Err(IpcError::permission(format!(
+            "路径不在应用数据目录内(拒绝): {}",
+            path
+        )));
     }
     Ok(p_norm)
 }
 
 /// 读取文本文件(UTF-8)。路径仅允许 app_data_dir 内。
 #[tauri::command]
-async fn read_text_file(app: tauri::AppHandle, path: String) -> Result<ReadTextResult, String> {
+async fn read_text_file(app: tauri::AppHandle, path: String) -> Result<ReadTextResult, IpcError> {
     let path = ensure_in_app_data(&app, &path)?;
-    let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
+    let metadata = std::fs::metadata(&path).map_err(|e| IpcError::from_io("metadata", &path, e))?;
     let size = metadata.len();
-    let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    let content =
+        std::fs::read_to_string(&path).map_err(|e| IpcError::from_io("read_to_string", &path, e))?;
     Ok(ReadTextResult { content, size })
 }
 
@@ -1181,17 +1365,18 @@ async fn read_text_file(app: tauri::AppHandle, path: String) -> Result<ReadTextR
 const MAX_BINARY_FILE_SIZE: u64 = 50 * 1024 * 1024;
 
 #[tauri::command]
-async fn read_binary_file(app: tauri::AppHandle, path: String) -> Result<ReadBinaryResult, String> {
+async fn read_binary_file(app: tauri::AppHandle, path: String) -> Result<ReadBinaryResult, IpcError> {
     let path = ensure_in_app_data(&app, &path)?;
-    let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
+    let metadata = std::fs::metadata(&path).map_err(|e| IpcError::from_io("metadata", &path, e))?;
     let size = metadata.len();
     if size > MAX_BINARY_FILE_SIZE {
-        return Err(format!(
+        // 配额拒绝也是宿主拒的,不是宿主坏 ⇒ permission。
+        return Err(IpcError::permission(format!(
             "file too large: max 50MB ({} bytes), got {} bytes",
             MAX_BINARY_FILE_SIZE, size
-        ));
+        )));
     }
-    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    let bytes = std::fs::read(&path).map_err(|e| IpcError::from_io("read", &path, e))?;
     let base64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
     let mime = mime_from_extension(&path.to_string_lossy());
     Ok(ReadBinaryResult { base64, size, mime })
@@ -1199,24 +1384,30 @@ async fn read_binary_file(app: tauri::AppHandle, path: String) -> Result<ReadBin
 
 /// 写入文本文件(覆盖)。父目录不存在时自动创建。路径仅允许 app_data_dir 内。
 #[tauri::command]
-async fn write_text_file(app: tauri::AppHandle, path: String, content: String) -> Result<OkResult, String> {
+async fn write_text_file(
+    app: tauri::AppHandle,
+    path: String,
+    content: String,
+) -> Result<OkResult, IpcError> {
     let path = ensure_in_app_data(&app, &path)?;
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(parent).map_err(|e| IpcError::from_io("create_dir_all", parent, e))?;
     }
-    std::fs::write(&path, content).map_err(|e| e.to_string())?;
+    std::fs::write(&path, content).map_err(|e| IpcError::from_io("write", &path, e))?;
     Ok(OkResult { ok: true })
 }
 
 /// 列出目录下的文件/子目录(非递归)。路径仅允许 app_data_dir 内。
 #[tauri::command]
-async fn list_dir(app: tauri::AppHandle, path: String) -> Result<DirListResult, String> {
+async fn list_dir(app: tauri::AppHandle, path: String) -> Result<DirListResult, IpcError> {
     let path = ensure_in_app_data(&app, &path)?;
     let mut entries = Vec::new();
-    let dir = std::fs::read_dir(&path).map_err(|e| e.to_string())?;
+    let dir = std::fs::read_dir(&path).map_err(|e| IpcError::from_io("read_dir", &path, e))?;
     for entry in dir {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let metadata = entry.metadata().map_err(|e| e.to_string())?;
+        let entry = entry.map_err(|e| IpcError::from_io("read_dir entry", &path, e))?;
+        let metadata = entry
+            .metadata()
+            .map_err(|e| IpcError::from_io("entry metadata", &entry.path(), e))?;
         let path_str = entry.path().to_string_lossy().to_string();
         let name = entry.file_name().to_string_lossy().to_string();
         let extension = entry
@@ -1244,9 +1435,9 @@ async fn list_dir(app: tauri::AppHandle, path: String) -> Result<DirListResult, 
 
 /// 获取单个文件/目录的元信息。路径仅允许 app_data_dir 内。
 #[tauri::command]
-async fn stat_file(app: tauri::AppHandle, path: String) -> Result<FileInfo, String> {
+async fn stat_file(app: tauri::AppHandle, path: String) -> Result<FileInfo, IpcError> {
     let path = ensure_in_app_data(&app, &path)?;
-    let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
+    let metadata = std::fs::metadata(&path).map_err(|e| IpcError::from_io("metadata", &path, e))?;
     let path_obj = std::path::Path::new(&path);
     let name = path_obj
         .file_name()
