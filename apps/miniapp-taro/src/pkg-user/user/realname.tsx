@@ -5,6 +5,7 @@
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Button, Image } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -12,7 +13,6 @@ import { getProfile, post } from '@/api'
 import { uploadImage } from '@/utils/upload-image'
 import ThemeRoot from '@/components/ThemeRoot'
 import './realname.css'
-import { FocusInput } from '@/components/FocusField'
 
 const ID_CARD_REGEX = /^\d{17}[\dXx]$/
 

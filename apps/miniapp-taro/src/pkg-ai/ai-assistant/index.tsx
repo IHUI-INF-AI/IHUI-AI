@@ -9,6 +9,7 @@
  */
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, ScrollView, Image, Video } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import Taro, { useRouter, useShareAppMessage, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { chatStream, type ChatMessage } from '@/api'
@@ -16,7 +17,6 @@ import { getToken, getUserInfo } from '@/utils/auth'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 import BackChevron from '@/components/BackChevron'
-import { FocusInput } from '@/components/FocusField'
 
 interface QAItem {
   question: string
