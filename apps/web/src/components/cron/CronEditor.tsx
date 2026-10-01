@@ -148,7 +148,7 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
               <Button
                 size="xs"
                 variant="ghost"
-                className="h-7 px-2 text-xs"
+                className="px-2 text-xs"
                 onClick={trySwitchToVisual}
               >
                 {t('switchToVisual', { defaultValue: '切换到可视化编辑' })}
