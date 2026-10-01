@@ -14,6 +14,11 @@
 // 名字仍按原样保留(消费面对它们有桩语义依赖)。
 export * from '../../../../packages/types/src/traceparent.js'
 export * from '../../../../packages/types/src/agent-runtime.js'
+// G-815963(2026-10-01):enum-coerce(coerceKnownOr/narrowKnown)同上转传真源。共享
+// PaymentScreen 的 resolvePaymentOrderStatus **按值**取 coerceKnownOr,本替身漏转发 ⇒
+// payment.test.tsx 9 条用例在 renderItem 内炸 "coerceKnownOr is not a function",
+// 订单列表永远渲染不出来(错误/空态用例却绿,极具迷惑性)。同条纪律:不抄第二份实现。
+export * from '../../../../packages/types/src/enum-coerce.js'
 export const API_KEY_PERMISSIONS = {} as const
 export const PILLARS = [] as const
 export const PILLAR_EVENT_TYPES = [] as const
