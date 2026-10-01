@@ -468,6 +468,11 @@
     "run": "执行"
   },
   "a11y": {
+    "previewLoadFailed": "预览加载失败。",
+    "previewRetryAction": "重试",
+    "previewExpired": "预览已过期，内容可能已失效。",
+    "previewOpenSourceAction": "打开原文",
+    "previewTooLarge": "文件过大，无法预览。",
     "download": "下载",
     "downloadFile": "下载文件",
     "exitFullscreen": "退出全屏",
@@ -621,6 +626,10 @@
     "nickname": "昵称",
     "noAccounts": "暂无账号",
     "openExternalBrowser": "在外部浏览器打开",
+    "chromeImportBtn": "从我的 Chrome 导入",
+    "chromeImportLaunching": "正在打开 Chrome 登录窗口...",
+    "chromeImportHint": "已打开 {platform} 登录页(独立窗口)。请在那个窗口完成登录,登录成功后会自动保存账号,无需粘贴 Cookie。",
+    "chromeImportFailed": "Chrome 导入未完成",
     "orDivider": "或",
     "platform": "平台",
     "scan": "扫码登录",
@@ -630,6 +639,9 @@
     "scanLoginHint": "二维码每分钟自动刷新",
     "scanLoginSucceeded": "扫码登录成功",
     "scanLoginSuccess": "扫码成功",
+    "scanLoginReuseLabel": "登录方式",
+    "scanLoginReuseOn": "复用已有登录(免扫码)",
+    "scanLoginReuseOff": "每次重新扫码",
     "scanLoginTimeout": "扫码超时,请重试",
     "scanLoginTitle": "扫码登录",
     "scanWithPhoneHint": "请使用手机扫描二维码登录",
@@ -8147,6 +8159,18 @@
         }
       },
       "errorCatalog": {
+        "102": {
+          "title": "请求时间校验失败",
+          "action": "校准系统时间后重试"
+        },
+        "121": {
+          "title": "组织数据正在迁移",
+          "action": "迁移完成后重试"
+        },
+        "47902": {
+          "title": "本轮对话次数已达上限",
+          "action": "稍后再试或升级套餐"
+        },
         "ACCOUNT_RESTRICTED": {
           "title": "账户受限",
           "action": "联系管理员"
@@ -8639,18 +8663,6 @@
           "title": "会话历史缺失",
           "action": "重新打开会话后重试"
         },
-        "47902": {
-          "title": "本轮对话次数已达上限",
-          "action": "稍后再试或升级套餐"
-        },
-        "121": {
-          "title": "组织数据正在迁移",
-          "action": "迁移完成后重试"
-        },
-        "102": {
-          "title": "请求时间校验失败",
-          "action": "校准系统时间后重试"
-        },
         "speaking_banned": {
           "title": "当前处于禁言状态",
           "action": "联系管理员了解详情"
@@ -8964,7 +8976,12 @@
       "targetPlaceholder": "如:重点高中、985大学"
     },
     "options": {
-      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
+      "classLevel": [
+        "优秀(班级前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(后 30%)"
+      ],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -8981,7 +8998,12 @@
         "考试焦虑",
         "家庭环境影响"
       ],
-      "school": ["重点中学", "普通中学", "国际学校", "私立学校"]
+      "school": [
+        "重点中学",
+        "普通中学",
+        "国际学校",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析失败",
@@ -9016,11 +9038,19 @@
       "refresh": "刷新",
       "empty": "暂无检查点",
       "item": "迭代 #{iteration} · {status} · {count} 条消息",
-      "restoring": "恢复中…",
+      "undoPreparing": "正在准备回退…",
       "rollback": "回退",
-      "confirmTitle": "确认回退？",
+      "undoConfirm": "确认回退到该检查点？",
       "confirmDescription": "回退后将恢复到该检查点的对话与文件状态，此操作不可撤销。",
       "confirmText": "回退",
+      "undoSucceeded": "已恢复 {count} 个文件；任务记录保留",
+      "undoUnavailable": "检查点不可用，工作区未发生变化",
+      "undoFailed": "暂时不可用，工作区未发生变化",
+      "undoFailedChanged": "暂时不可用，工作区已发生变化",
+      "undoFailedUnverifiable": "暂时不可用，无法确认工作区状态，请检查后重试",
+      "undoPartialWarning": "部分文件未能回退，任务记录保留",
+      "restoring": "恢复中…",
+      "confirmTitle": "确认回退？",
       "restoreSuccess": "已回退到该检查点",
       "restoreFailed": "回退失败"
     },
@@ -10616,10 +10646,16 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "linkPreview": {
+      "loading": "正在加载链接预览...",
+      "unavailable": "无法读取链接预览",
+      "undetermined": "暂时无法判定该链接（可能需要登录或响应超时），发送后仍会尝试读取",
+      "dismiss": "关闭预览"
+    },
     "referencePreview": {
       "available": "模拟能力可用",
       "editor": "能力引用输入框",
-      "placeholder": "粘贴完整引用，或输入 @ 选择能力…",
+      "placeholder": "粘贴完整引用或输入 @名称…",
       "source": "原始输入正文",
       "select": "选择示例能力",
       "clear": "新建输入",
@@ -11798,6 +11834,21 @@
     "reasoningEffortFallback": "推理强度已由后端调整为 {requested} → {effective}"
   },
   "chatHistory": {
+    "moveToGroup": "移动到分组",
+    "moveSelectedToGroup": "移动所选到分组",
+    "moveSuccess": "已移动 {count} 项到「{folder}」",
+    "moveFailFolderMissing": "移动失败:目标分组「{folder}」已被删除,请重新选择分组后重试",
+    "moveFailUnauthorized": "移动失败:登录状态已失效,请重新登录后重试",
+    "moveFailConflict": "所选会话已全部在「{folder}」分组中,请换一个分组",
+    "groupPin": "分组置顶",
+    "groupUnpin": "取消分组置顶",
+    "moveDialog": {
+      "title": "移动到分组",
+      "none": "未分组",
+      "newPlaceholder": "输入新分组名(留空则用所选分组)",
+      "confirm": "移动",
+      "cancel": "取消"
+    },
     "selectModeAriaLabel": "切换任务多选模式",
     "backToHistory": "返回任务列表",
     "batchArchive": "批量归档",
@@ -11998,151 +12049,277 @@
       "slashDiff": {
         "label": "会话改动总览",
         "description": "查看本次会话 AI 改动的文件(diff 总览)",
-        "keywords": ["diff", "改动", "审查"]
+        "keywords": [
+          "diff",
+          "改动",
+          "审查"
+        ]
       },
       "slashStatus": {
         "label": "会话状态",
         "description": "查看当前模型、上下文占用、权限模式与用量",
-        "keywords": ["status", "状态", "上下文"]
+        "keywords": [
+          "status",
+          "状态",
+          "上下文"
+        ]
       },
       "slashModel": {
         "label": "切换模型",
         "description": "打开模型选择器",
-        "keywords": ["model", "模型", "切换"]
+        "keywords": [
+          "model",
+          "模型",
+          "切换"
+        ]
       },
       "slashMcp": {
         "label": "MCP 市场",
         "description": "打开 MCP 服务器市场",
-        "keywords": ["mcp", "插件", "市场"]
+        "keywords": [
+          "mcp",
+          "插件",
+          "市场"
+        ]
       },
       "slashCompact": {
         "label": "压缩上下文",
         "description": "压缩当前会话历史,释放上下文窗口",
-        "keywords": ["compact", "压缩", "上下文"]
+        "keywords": [
+          "compact",
+          "压缩",
+          "上下文"
+        ]
       },
       "steerPrompt": {
         "label": "引导提示",
         "description": "向正在运行的回复中途插入引导，无需等待当前轮完成",
-        "keywords": ["引导", "插话", "steer"]
+        "keywords": [
+          "引导",
+          "插话",
+          "steer"
+        ]
       },
       "queuePrompt": {
         "label": "将提示加入队列",
         "description": "把当前输入加入 W27 预备消息队列，流式结束后自动依次发送",
-        "keywords": ["队列", "排队", "queue"]
+        "keywords": [
+          "队列",
+          "排队",
+          "queue"
+        ]
       },
       "agent": {
         "description": "管理并调度 AI 智能体",
-        "keywords": ["智能体", "调度", "agent"],
+        "keywords": [
+          "智能体",
+          "调度",
+          "agent"
+        ],
         "label": "AI 智能体"
       },
       "browser": {
         "description": "在工作区内浏览网页",
-        "keywords": ["浏览器", "网页", "browser"],
+        "keywords": [
+          "浏览器",
+          "网页",
+          "browser"
+        ],
         "label": "内置浏览器"
       },
       "capabilityMarket": {
         "description": "发现并安装能力包",
-        "keywords": ["能力", "市场", "插件", "market"],
+        "keywords": [
+          "能力",
+          "市场",
+          "插件",
+          "market"
+        ],
         "label": "能力市场"
       },
       "codeChanges": {
         "description": "查看工作区代码改动",
-        "keywords": ["代码", "变更", "改动", "diff"],
+        "keywords": [
+          "代码",
+          "变更",
+          "改动",
+          "diff"
+        ],
         "label": "代码变更"
       },
       "connectors": {
         "description": "管理外部服务连接",
-        "keywords": ["连接", "外部服务", "connector"],
+        "keywords": [
+          "连接",
+          "外部服务",
+          "connector"
+        ],
         "label": "连接器"
       },
       "document": {
         "description": "编辑工作区文档",
-        "keywords": ["文档", "编辑", "doc"],
+        "keywords": [
+          "文档",
+          "编辑",
+          "doc"
+        ],
         "label": "文档"
       },
       "editor": {
         "description": "打开代码编辑器",
-        "keywords": ["编辑器", "代码", "code"],
+        "keywords": [
+          "编辑器",
+          "代码",
+          "code"
+        ],
         "label": "编辑器"
       },
       "mcp": {
         "description": "管理 MCP 服务器与工具",
-        "keywords": ["MCP", "服务器", "工具"],
+        "keywords": [
+          "MCP",
+          "服务器",
+          "工具"
+        ],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "浏览与安装 MCP 服务",
-        "keywords": ["MCP", "广场", "市场", "store"],
+        "keywords": [
+          "MCP",
+          "广场",
+          "市场",
+          "store"
+        ],
         "label": "MCP 广场"
       },
       "modeAsk": {
         "description": "切换到纯问答模式,禁用工具",
-        "keywords": ["问答", "ask", "模式"],
+        "keywords": [
+          "问答",
+          "ask",
+          "模式"
+        ],
         "label": "问答模式"
       },
       "modeBuild": {
         "description": "让 AI 直接构建与修改",
-        "keywords": ["构建", "模式", "build"],
+        "keywords": [
+          "构建",
+          "模式",
+          "build"
+        ],
         "label": "构建模式"
       },
       "modePlan": {
         "description": "先制定计划再执行",
-        "keywords": ["规划", "计划", "plan"],
+        "keywords": [
+          "规划",
+          "计划",
+          "plan"
+        ],
         "label": "规划模式"
       },
       "modeReview": {
         "description": "审查与评审现有代码",
-        "keywords": ["审查", "评审", "review"],
+        "keywords": [
+          "审查",
+          "评审",
+          "review"
+        ],
         "label": "审查模式"
       },
       "modeSpec": {
         "description": "从规格生成实现",
-        "keywords": ["规格", "spec", "模式"],
+        "keywords": [
+          "规格",
+          "spec",
+          "模式"
+        ],
         "label": "规格模式"
       },
       "skill": {
         "description": "管理与调用 AI 技能",
-        "keywords": ["技能", "skill", "能力"],
+        "keywords": [
+          "技能",
+          "skill",
+          "能力"
+        ],
         "label": "技能"
       },
       "terminal": {
         "description": "打开集成终端",
-        "keywords": ["终端", "命令行", "terminal"],
+        "keywords": [
+          "终端",
+          "命令行",
+          "terminal"
+        ],
         "label": "终端"
       },
       "ai-world": {
         "description": "探索 AI 应用世界",
-        "keywords": ["AI", "世界", "应用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "应用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "与 AI 助手开始对话",
-        "keywords": ["对话", "聊天", "AI", "chat"],
+        "keywords": [
+          "对话",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 对话"
       },
       "drama": {
         "description": "AI 生成的精彩短剧",
-        "keywords": ["短剧", "视频", "AI", "drama"],
+        "keywords": [
+          "短剧",
+          "视频",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短剧"
       },
       "profile": {
         "description": "管理个人资料和设置",
-        "keywords": ["个人", "资料", "设置"],
+        "keywords": [
+          "个人",
+          "资料",
+          "设置"
+        ],
         "label": "个人中心"
       },
       "search": {
         "description": "全局内容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系统偏好与配置",
-        "keywords": ["设置", "偏好", "配置"],
+        "keywords": [
+          "设置",
+          "偏好",
+          "配置"
+        ],
         "label": "系统设置"
       },
       "skillsMarket": {
         "description": "浏览并安装自进化 Skill",
-        "keywords": ["skill", "技能", "市场", "market"],
+        "keywords": [
+          "skill",
+          "技能",
+          "市场",
+          "market"
+        ],
         "label": "Skill 市场"
       }
     },
@@ -14605,25 +14782,37 @@
       "quadrants": [
         {
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"],
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"],
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顾问"
         },
         {
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"],
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ],
           "tag": "Q3",
           "title": "执行专家"
         },
         {
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"],
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ],
           "tag": "Q4",
           "title": "全能专家"
         }
@@ -14757,19 +14946,31 @@
       "items": [
         {
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"],
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"],
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ],
           "tag": "MODULE 02",
           "title": "线上社群"
         },
         {
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"],
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ],
           "tag": "MODULE 03",
           "title": "AI专业服务"
         }
@@ -15707,9 +15908,13 @@
       "goalWarnings": "独立性告警",
       "modelDefault": "默认",
       "modelSelect": "选择模型",
+      "pause": "暂停",
+      "paused": "已暂停",
       "placeholder": "描述你想让 AI 完成的编码任务...",
       "plan": "计划",
       "result": "结果",
+      "resume": "继续",
+      "running": "运行中",
       "stop": "停止",
       "taskId": "任务 ID",
       "unknownFile": "(未知文件)"
@@ -15757,6 +15962,33 @@
     },
     "diffFileList": {
       "noMatch": "无匹配文件"
+    },
+    "diffReview": {
+      "copyGitApply": "复制 git apply",
+      "copyGitApplyToast": "git apply 命令已复制到剪贴板",
+      "copyGitApplyFailed": "git apply 命令复制失败",
+      "copyGitApplyEmpty": "没有可导出的改动",
+      "copyGitApplyUnreadable": "已跳过 {count} 个内容读取失败的文件",
+      "markAsViewed": "标记为已审阅",
+      "markAsUnviewed": "标记为未审阅",
+      "markedAsViewed": "已审阅",
+      "markAllViewed": "全部标记为已审阅",
+      "unmarkAll": "取消全部标记",
+      "reviewedCount": "已审阅 {viewed}/{total}",
+      "jumpToFile": "跳转到文件",
+      "jumpToFileEmpty": "无匹配文件",
+      "renderError": "文件行渲染失败",
+      "retry": "重试",
+      "loading": "加载中...",
+      "loadFailedAfterRetrying": "重试后仍加载失败",
+      "fullContentLoadFailed": "完整内容加载失败",
+      "hideGenerated": "隐藏生成文件",
+      "copyPath": "复制路径",
+      "pathCopied": "路径已复制",
+      "openWithSplit": "对比视图打开",
+      "openWithUnified": "合并视图打开",
+      "openInEditor": "在编辑器中打开",
+      "viewPullRequest": "查看拉取请求"
     },
     "diffStats": {
       "commit": "提交变更",
@@ -15854,6 +16086,20 @@
       "open": "打开",
       "rename": "重命名",
       "renamed": "已重命名"
+    },
+    "hostGit": {
+      "authorize": "授权",
+      "binary": "git:{path}",
+      "binaryMissing": "未找到 git 可执行文件",
+      "clean": "主机工作区干净,无未提交改动",
+      "commandFailed": "git 命令失败({reason}),判定:{verdict}",
+      "dirty": "主机工作区有 {count} 处未提交改动",
+      "hostRejected": "宿主拒绝:{reason}",
+      "noVerdict": "尚未取得工作区判定",
+      "noWorkspace": "未连接主机工作区",
+      "refresh": "刷新",
+      "title": "主机 Git",
+      "undetermined": "无法判定:{reason}"
     },
     "layout": {
       "agentView": "智能体视图",
@@ -16062,33 +16308,6 @@
       "groupView": "视图",
       "noMatch": "无匹配项",
       "searchPlaceholder": "搜索视图..."
-    },
-    "diffReview": {
-      "copyGitApply": "复制 git apply",
-      "copyGitApplyToast": "git apply 命令已复制到剪贴板",
-      "copyGitApplyFailed": "git apply 命令复制失败",
-      "copyGitApplyEmpty": "没有可导出的改动",
-      "copyGitApplyUnreadable": "已跳过 {count} 个内容读取失败的文件",
-      "markAsViewed": "标记为已审阅",
-      "markAsUnviewed": "标记为未审阅",
-      "markedAsViewed": "已审阅",
-      "markAllViewed": "全部标记为已审阅",
-      "unmarkAll": "取消全部标记",
-      "reviewedCount": "已审阅 {viewed}/{total}",
-      "jumpToFile": "跳转到文件",
-      "jumpToFileEmpty": "无匹配文件",
-      "renderError": "文件行渲染失败",
-      "retry": "重试",
-      "loading": "加载中...",
-      "loadFailedAfterRetrying": "重试后仍加载失败",
-      "fullContentLoadFailed": "完整内容加载失败",
-      "hideGenerated": "隐藏生成文件",
-      "copyPath": "复制路径",
-      "pathCopied": "路径已复制",
-      "openWithSplit": "对比视图打开",
-      "openWithUnified": "合并视图打开",
-      "openInEditor": "在编辑器中打开",
-      "viewPullRequest": "查看拉取请求"
     }
   },
   "imageGenPage": {
@@ -17656,7 +17875,15 @@
       "title": "Top 5 页面",
       "visitsHeader": "访问数"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ]
   },
   "models": {
     "relay": {
@@ -18404,7 +18631,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
       }
     },
     "productSchema": {
@@ -19651,12 +19883,24 @@
       "enterprise": {
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"],
+        "features": [
+          "不限积分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "审计日志",
+          "专属技术支持"
+        ],
         "name": "企业版"
       },
       "free": {
         "cta": "立即开始",
-        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"],
+        "features": [
+          "每月 1000 积分",
+          "所有 AI 模型",
+          "所有 6 个客户端",
+          "API 访问",
+          "社区支持"
+        ],
         "name": "免费版"
       },
       "pro": {
@@ -20265,6 +20509,10 @@
       "nickname": "昵称",
       "noAccounts": "暂无账号,请先添加",
       "openExternalBrowser": "在外部浏览器打开",
+      "chromeImportBtn": "从我的 Chrome 导入",
+      "chromeImportLaunching": "正在打开 Chrome 登录窗口...",
+      "chromeImportHint": "已打开 {platform} 登录页(独立窗口)。请在那个窗口完成登录,登录成功后会自动保存账号,无需粘贴 Cookie。",
+      "chromeImportFailed": "Chrome 导入未完成",
       "orDivider": "或",
       "passwordPlaceholder": "请输入密码",
       "passwordHint": "普通用户建议使用扫码登录,此处仅开发者备用。",
@@ -20289,6 +20537,9 @@
       "scanLoginQrAlt": "登录二维码",
       "scanLoginSucceeded": "登录成功,已自动保存到账号",
       "scanLoginSuccess": "扫码登录成功",
+      "scanLoginReuseLabel": "登录方式",
+      "scanLoginReuseOn": "复用已有登录(免扫码)",
+      "scanLoginReuseOff": "每次重新扫码",
       "scanLoginTimeout": "扫码超时,请重试",
       "scanLoginTitle": "扫码登录平台",
       "scanWithPhoneHint": "打开后请用手机扫二维码,页面无需点击;检测到登录后自动保存账号",
@@ -20342,14 +20593,7 @@
       "batchScanStoppedToast": "已停止扫码队列",
       "batchScanPopupBlocked": "浏览器拦截了新标签页:请点地址栏右侧的拦截图标允许本站弹出窗口,然后重新开始(或改用内置浏览器模式)。",
       "batchScanPopupBlockedToast": "浏览器拦截了新标签页,队列已停止;请允许本站弹出窗口后重试",
-      "batchScanWindowClosedToast": "检测到浏览器窗口已关闭,已停止队列",
-      "chromeImportBtn": "从我的 Chrome 导入",
-      "chromeImportLaunching": "正在打开 Chrome 登录窗口...",
-      "chromeImportHint": "已打开 {platform} 登录页(独立窗口)。请在那个窗口完成登录,登录成功后会自动保存账号,无需粘贴 Cookie。",
-      "chromeImportFailed": "Chrome 导入未完成",
-      "scanLoginReuseLabel": "登录方式",
-      "scanLoginReuseOn": "复用已有登录(免扫码)",
-      "scanLoginReuseOff": "每次重新扫码"
+      "batchScanWindowClosedToast": "检测到浏览器窗口已关闭,已停止队列"
     },
     "ai": {
       "analyzeAll": "批量分析",
@@ -21076,7 +21320,13 @@
     "cards": {
       "consulting": {
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"],
+        "features": [
+          "视频会议 / 远程桌面",
+          "2 小时起",
+          "故障排查",
+          "增值税发票",
+          "响应 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技术咨询",
         "unit": "/小时"
