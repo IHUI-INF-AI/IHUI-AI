@@ -7,7 +7,8 @@
 import { useCallback, useState } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import type { CSSProperties } from 'react'
-import { View, Text, Input, Textarea, ScrollView } from '@tarojs/components'
+import { View, Text, ScrollView } from '@tarojs/components'
+import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import Taro from '@tarojs/taro'
 import { useTt } from '@/i18n'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
@@ -192,7 +193,7 @@ export default function CommunityCreate() {
             <Text style={textStyles.title(tk)}>{tt('postCreate.title', '发布帖子')}</Text>
             {error ? <Text style={textStyles.error(tk)}>{error}</Text> : null}
             <Text style={textStyles.label(tk)}>{tt('postCreate.titleLabel', '标题')}</Text>
-            <Input
+            <FocusInput
               style={viewStyles.input(tk)}
               value={title}
               placeholder={tt('postCreate.titlePlaceholder', '给帖子起个标题')}
@@ -201,7 +202,7 @@ export default function CommunityCreate() {
               onInput={(e) => setTitle(e.detail.value)}
             />
             <Text style={textStyles.label(tk)}>{tt('postCreate.contentLabel', '内容')}</Text>
-            <Textarea
+            <FocusTextarea
               style={viewStyles.textarea(tk)}
               value={content}
               placeholder={tt('postCreate.contentPlaceholder', '分享你的想法...')}
@@ -210,7 +211,7 @@ export default function CommunityCreate() {
               onInput={(e) => setContent(e.detail.value)}
             />
             <Text style={textStyles.label(tk)}>{tt('postCreate.tagsLabel', '标签')}</Text>
-            <Input
+            <FocusInput
               style={viewStyles.input(tk)}
               value={tags}
               placeholder={tt('postCreate.tagsPlaceholder', '多个标签用逗号分隔')}
