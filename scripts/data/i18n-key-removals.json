@@ -454,13 +454,13 @@
     {
       "file": "packages/i18n/messages/web/zh-CN.json",
       "keys": [
-        "chromeImportBtn",
-        "chromeImportLaunching",
-        "chromeImportHint",
-        "chromeImportFailed",
-        "scanLoginReuseLabel",
-        "scanLoginReuseOn",
-        "scanLoginReuseOff"
+        "accounts.chromeImportBtn",
+        "accounts.chromeImportLaunching",
+        "accounts.chromeImportHint",
+        "accounts.chromeImportFailed",
+        "accounts.scanLoginReuseLabel",
+        "accounts.scanLoginReuseOn",
+        "accounts.scanLoginReuseOff"
       ],
       "reason": "这 7 枚是**重复副本**:同值已在 publish.accounts.<key>,而代码全部走 useTranslations('publish') + t('accounts.<key>'),解析不到顶层这一份(HEAD 面 git grep:无 useTranslations('accounts')/getTranslations('accounts')/namespace=\"accounts\";唯一动态前缀 t(`accounts.loadingStage.${…}`) 所在文件 ScanLoginDialog.tsx:921 的 namespace 同样是 publish)。删除不改变任何一行屏幕文字;登记在案的目的是让下一次\"这份顶层块整体是不是孤儿\"的排查有出处,而不是靠记忆。",
       "until": "2026-12-31"
@@ -468,13 +468,13 @@
     {
       "file": "packages/i18n/messages/web/zh-TW.json",
       "keys": [
-        "chromeImportBtn",
-        "chromeImportLaunching",
-        "chromeImportHint",
-        "chromeImportFailed",
-        "scanLoginReuseLabel",
-        "scanLoginReuseOn",
-        "scanLoginReuseOff"
+        "accounts.chromeImportBtn",
+        "accounts.chromeImportLaunching",
+        "accounts.chromeImportHint",
+        "accounts.chromeImportFailed",
+        "accounts.scanLoginReuseLabel",
+        "accounts.scanLoginReuseOn",
+        "accounts.scanLoginReuseOff"
       ],
       "reason": "这 7 枚是**重复副本**:同值已在 publish.accounts.<key>,而代码全部走 useTranslations('publish') + t('accounts.<key>'),解析不到顶层这一份(HEAD 面 git grep:无 useTranslations('accounts')/getTranslations('accounts')/namespace=\"accounts\";唯一动态前缀 t(`accounts.loadingStage.${…}`) 所在文件 ScanLoginDialog.tsx:921 的 namespace 同样是 publish)。删除不改变任何一行屏幕文字;登记在案的目的是让下一次\"这份顶层块整体是不是孤儿\"的排查有出处,而不是靠记忆。",
       "until": "2026-12-31"
@@ -482,13 +482,13 @@
     {
       "file": "packages/i18n/messages/web/ja.json",
       "keys": [
-        "chromeImportBtn",
-        "chromeImportLaunching",
-        "chromeImportHint",
-        "chromeImportFailed",
-        "scanLoginReuseLabel",
-        "scanLoginReuseOn",
-        "scanLoginReuseOff"
+        "accounts.chromeImportBtn",
+        "accounts.chromeImportLaunching",
+        "accounts.chromeImportHint",
+        "accounts.chromeImportFailed",
+        "accounts.scanLoginReuseLabel",
+        "accounts.scanLoginReuseOn",
+        "accounts.scanLoginReuseOff"
       ],
       "reason": "这 7 枚是**重复副本**:同值已在 publish.accounts.<key>,而代码全部走 useTranslations('publish') + t('accounts.<key>'),解析不到顶层这一份(HEAD 面 git grep:无 useTranslations('accounts')/getTranslations('accounts')/namespace=\"accounts\";唯一动态前缀 t(`accounts.loadingStage.${…}`) 所在文件 ScanLoginDialog.tsx:921 的 namespace 同样是 publish)。删除不改变任何一行屏幕文字;登记在案的目的是让下一次\"这份顶层块整体是不是孤儿\"的排查有出处,而不是靠记忆。",
       "until": "2026-12-31"
@@ -496,13 +496,13 @@
     {
       "file": "packages/i18n/messages/web/ko.json",
       "keys": [
-        "chromeImportBtn",
-        "chromeImportLaunching",
-        "chromeImportHint",
-        "chromeImportFailed",
-        "scanLoginReuseLabel",
-        "scanLoginReuseOn",
-        "scanLoginReuseOff"
+        "accounts.chromeImportBtn",
+        "accounts.chromeImportLaunching",
+        "accounts.chromeImportHint",
+        "accounts.chromeImportFailed",
+        "accounts.scanLoginReuseLabel",
+        "accounts.scanLoginReuseOn",
+        "accounts.scanLoginReuseOff"
       ],
       "reason": "这 7 枚是**重复副本**:同值已在 publish.accounts.<key>,而代码全部走 useTranslations('publish') + t('accounts.<key>'),解析不到顶层这一份(HEAD 面 git grep:无 useTranslations('accounts')/getTranslations('accounts')/namespace=\"accounts\";唯一动态前缀 t(`accounts.loadingStage.${…}`) 所在文件 ScanLoginDialog.tsx:921 的 namespace 同样是 publish)。删除不改变任何一行屏幕文字;登记在案的目的是让下一次\"这份顶层块整体是不是孤儿\"的排查有出处,而不是靠记忆。",
       "until": "2026-12-31"
@@ -510,13 +510,13 @@
     {
       "file": "packages/i18n/messages/web/en.json",
       "keys": [
-        "chromeImportBtn",
-        "chromeImportLaunching",
-        "chromeImportHint",
-        "chromeImportFailed",
-        "scanLoginReuseLabel",
-        "scanLoginReuseOn",
-        "scanLoginReuseOff"
+        "accounts.chromeImportBtn",
+        "accounts.chromeImportLaunching",
+        "accounts.chromeImportHint",
+        "accounts.chromeImportFailed",
+        "accounts.scanLoginReuseLabel",
+        "accounts.scanLoginReuseOn",
+        "accounts.scanLoginReuseOff"
       ],
       "reason": "这 7 枚是**重复副本**:同值已在 publish.accounts.<key>,而代码全部走 useTranslations('publish') + t('accounts.<key>'),解析不到顶层这一份(HEAD 面 git grep:无 useTranslations('accounts')/getTranslations('accounts')/namespace=\"accounts\";唯一动态前缀 t(`accounts.loadingStage.${…}`) 所在文件 ScanLoginDialog.tsx:921 的 namespace 同样是 publish)。删除不改变任何一行屏幕文字;登记在案的目的是让下一次\"这份顶层块整体是不是孤儿\"的排查有出处,而不是靠记忆。",
       "until": "2026-12-31"
