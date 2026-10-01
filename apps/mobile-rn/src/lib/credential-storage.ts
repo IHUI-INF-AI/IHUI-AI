@@ -76,19 +76,60 @@ async function hydrate(): Promise<void> {
     } else {
       cachedRemembered = null
     }
-    // 把盘上那份明文抹掉:账号留 AsyncStorage,密码只留 Keychain(没有就不留)
-    if (legacyPassword || !storedPassword) {
-      await persistAccount(account)
-      if (legacyPassword) {
-        if (await isSecureBackendEncrypted()) await setSecureItem(PASSWORD_KEY, legacyPassword)
-        else await deleteSecureItem(PASSWORD_KEY)
-      }
-    }
     cachedAutoLogin = autoRaw === '1'
     cachedHistory = normalizeLoginHistory(historyRaw)
-  } catch {
-    // AsyncStorage 不可用时静默失败,保持默认空值
+
+    // 迁移顺序是这条链的红线:**先把口令落进 Keychain 并回读确证,确证成了才抹盘上那份明文**。
+    // 反过来(先抹再写)只要 Keychain 写入失败,口令就两处都不存在了 —— 那正是票面明令禁止的
+    // 「已勾选用户的记住密码静默失效」。失败时旧档原样留着(本轮内存仍可用),下次冷启动自然重试;
+    // 所以这里必须**喊出来**而不是 catch 掉:静默 = 用户下次发现密码没了,而日志里什么都查不到。
+    if (legacyPassword) {
+      if (await isSecureBackendEncrypted()) {
+        if (await migrateLegacyPasswordToSecureStore(legacyPassword)) await persistAccount(account)
+        else warnPasswordMigrationDeferred()
+      } else {
+        // 没有安全落点 ⇒ 宁可不记密码(刻意的失效方向,见文件头):两份都抹,不写回可读存储
+        await deleteSecureItem(PASSWORD_KEY)
+        await persistAccount(account)
+      }
+    } else if (!storedPassword) {
+      // 盘上本来就没有口令(或已是只含账号的形态)⇒ 顺手把记录归一,不触发任何删除
+      await persistAccount(account)
+    }
+  } catch (e) {
+    // 存储整体不可用(冷启动极端情况):保持默认空值,但必须留痕 —— 静默会把"没读到"
+    // 读成"用户没勾",与 lib/token.ts 的 readLogoutMarker 同一条口径。日志走 ASCII(守门 70)。
+    console.warn(
+      `[rn-auth] credential hydrate failed (remembered credentials fall back to empty for this ` +
+        `session, nothing on disk was modified): ${e instanceof Error ? e.message : 'unknown error'}`,
+    )
   }
+}
+
+/**
+ * 把盘上那条明文口令迁进 Keychain,并**回读确证**落成了才算成功。
+ *
+ * 为什么判成功要回读而不是只看 setSecureItem 没抛:Keychain 写入失败在部分机型上表现为
+ * 静默丢弃(不抛),只看"没报错"就等于给一次没落地的迁移发了合格证,而紧接着的
+ * persistAccount 会把唯一那份明文抹掉。回报口径取存储侧确认集,与守门 134「计数取库确认集」
+ * 是同一条纪律的另一半。
+ */
+async function migrateLegacyPasswordToSecureStore(legacyPassword: string): Promise<boolean> {
+  try {
+    await setSecureItem(PASSWORD_KEY, legacyPassword)
+    return (await getSecureItem(PASSWORD_KEY)) === legacyPassword
+  } catch {
+    return false
+  }
+}
+
+/** 迁移没做成时唯一正确的动作是"保留旧档 + 喊出来",所以这句话必须是吼的而不是返回值。 */
+function warnPasswordMigrationDeferred(): void {
+  console.warn(
+    '[rn-auth] remembered password could not be written to the encrypted store; the legacy ' +
+      'record on disk was LEFT UNTOUCHED on purpose (credentials are never silently destroyed). ' +
+      'The plaintext entry will be retried on the next cold start.',
+  )
 }
 
 /** 账号记录:只可能含 account,永远不含 password —— 这条是本票的判据对象。 */

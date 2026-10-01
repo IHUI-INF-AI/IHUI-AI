@@ -446,7 +446,7 @@ function backupPgDir() {
   return process.env.IHUI_BACKUP_PG_DIR || join(devEnvRoot(), 'backups', 'pg')
 }
 
-const EXEC_CANDIDATES = ['deploy/prod-bundle/pg-backup.ps1', 'deploy/win/ihui-pg-backup.ps1']
+export const EXEC_CANDIDATES = ['deploy/prod-bundle/pg-backup.ps1', 'deploy/win/ihui-pg-backup.ps1']
 const SCHED_CANDIDATES = ['deploy/prod-bundle/pg-backup-scheduler.ps1', 'deploy/win/ihui-pg-backup-scheduler.ps1']
 
 /** 先读"服务实际执行的那份",再退入库源;两处都没有才算读不到(§5e:按实际执行体取径) */
@@ -469,7 +469,7 @@ function readConfigFrom(first, second, pick) {
  * "清单解析不出"两种现场,又不必为此改动真仓 runner);生产调用不传,语义不变。
  * 传入数组 ⇒ 视为已解析清单;传入 {parsed:false,reason} ⇒ 模拟一份读不出清单的 runner。
  */
-function resolveDatabases(deps, execCands) {
+export function resolveDatabases(deps, execCands) {
   if (deps.databases !== undefined) {
     if (Array.isArray(deps.databases)) {
       const injected = normalizeDatabases(deps.databases)

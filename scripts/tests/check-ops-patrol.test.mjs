@@ -498,4 +498,82 @@ test('P5b 构建失败归因:三态不并桶,undetermined 不得冒充 landed/in
   assert.doesNotMatch(none, /不会自愈/)
   assert.doesNotMatch(none, /疑似在飞/)
 })
+
+// ── 2026-10-01 补:备份产出的「归属」与失败通报的「下游可见性」 ────────────────
+const { heartbeatRows, checkUndeliveredAlertMarkers } = mod.__test__
+const cadence = await import(pathToFileURL(join(REPO, 'scripts', 'pg-backup-cadence-audit.mjs')).href)
+
+test('复用锁:P5 的库清单与命名式只准有一份实现(抄第二份 = 把"最新文件"读成"我们链产的")', () => {
+  const patrolSrc = src(join('scripts', 'check-ops-patrol.mjs'))
+  assert.match(patrolSrc, /from '\.\/pg-backup-cadence-audit\.mjs'/, '巡检不再引节拍审计 ⇒ 那份清单解析成了第二处实现')
+  assert.match(patrolSrc, /resolveDatabases/, '清单解析必须调共用出口')
+  assert.match(patrolSrc, /dumpNameReFor/, '本链命名式必须调共用出口,不得在巡检里再写一遍 ihui_dev_\\d')
+  assert.match(patrolSrc, /classifyFileName\(/, '「这名字算不算我们链产的」必须交给那一份分类器判,不得在巡检里重答一遍')
+  // 反向锁:巡检自己重新解析 $backupDatabases = 第二处实现(两处必漂移是本仓最贵的失效型)。
+  // 用整串字面量比,不用正则 —— 拿正则去找别人的正则,只会造出一台"看不清就当没有"的尺子。
+  assert.ok(!patrolSrc.includes('$backupDatabases\\s*=\\s*@'), '巡检里出现了第二份 $backupDatabases 解析式')
+  // 复用要两侧都在,少一侧就是"管子断了而账面照绿"
+  for (const k of ['resolveDatabases', 'dumpNameReFor']) {
+    assert.equal(typeof cadence[k], 'function', `节拍审计不再导出 ${k}(巡检的复用会退化成缺件)`)
+  }
+  assert.ok(Array.isArray(cadence.EXEC_CANDIDATES) && cadence.EXEC_CANDIDATES.length === 2, '候选序(先执行体后入库源)不在位 ⇒ 复用读不到清单')
+})
+
+test('P8 未送达标记:四态不并桶 + 结论串逐字稳定 + 正文不外传(镜像 import 源实现)', () => {
+  const base = mkdtempSync(join(scratchRoot(), 'ops-p8-mirror-'))
+  try {
+    const repo = join(base, 'repo')
+    const wb = join(repo, '.workbuddy')
+    mkdirSync(wb, { recursive: true })
+    const marker = join(wb, 'pg-backup-alert-UNDELIVERED.json')
+    const at = '2026-10-01 09:08:29 +08:00'
+    const long = '泄' * 5000
+    writeFileSync(marker, JSON.stringify({ producer: 'deploy/win/ihui-pg-backup.ps1', alertId: 'pg-backup-failure', title: '数据库备份失败', reason: long, at }), 'utf8')
+    const red = checkUndeliveredAlertMarkers({ repoRoot: repo })
+    assert.equal(red.state, 'finding', '有标记却没判红')
+    assert.match(red.detail, /pg-backup-failure/)
+    assert.ok(red.detail.includes(at), '红档未点名未送达时刻')
+    assert.ok(red.detail.length < 800, `结论串 ${red.detail.length} 字 ⇒ 长正文被整段带进告警(标记里只该留原因,不该带正文)`)
+    assert.equal(checkUndeliveredAlertMarkers({ repoRoot: repo }).detail, red.detail, '两次结论不同形 ⇒ 每轮都会生成一封新信')
+    rmSync(marker, { force: true })
+    const green = checkUndeliveredAlertMarkers({ repoRoot: repo })
+    assert.equal(green.state, 'ok')
+    assert.match(green.detail, /不证明邮件通道可用/, '空档被写成"通道可用"= 把没判写成判过了')
+    writeFileSync(marker, '{坏 JSON', 'utf8')
+    assert.match(checkUndeliveredAlertMarkers({ repoRoot: repo }).state, /^undetermined$/, '坏标记被当成"没有标记"')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+test('P5 备份产出:逐库出头,一库齐备不得替另一库作证(注入清单造现场)', () => {
+  const base = mkdtempSync(join(scratchRoot(), 'ops-p5-mirror-'))
+  try {
+    const pg = join(base, 'backups', 'pg')
+    mkdirSync(pg, { recursive: true })
+    const now = Date.now()
+    const touch = (name, ageHours) => {
+      const p = join(pg, name)
+      writeFileSync(p, 'x', 'utf8')
+      const ts = new Date(now - ageHours * 3600 * 1000)
+      utimesSync(p, ts, ts)
+    }
+    touch('ihui_dev_20261001_150000.dump', 0.3) // 本链新鲜
+    touch('ihui-dev-20261001-151000.dump', 0.1) // 旁族最新
+    // keycloak 一格本链产物都没有 ⇒ 必须点名它,而不是被"另一库新鲜"洗绿
+    const rows = heartbeatRows({ now, devEnv: base, databases: ['ihui_dev', 'keycloak'] })
+    const row = rows.find((r) => r.label.startsWith('数据库备份产出'))
+    assert.ok(row, '没有产出备份那一行')
+    assert.equal(row.state, 'finding', `缺账库被新鲜库顶掉了:${row.state}`)
+    assert.match(row.label, /keycloak/, '出头的必须是缺账那一库')
+    // 只锁"这句话点明了缺的是本链产物"这一语义,不锁整句措辞(锁措辞会让下一次改文案变成假红)
+    assert.match(row.detail, /本链产物/)
+    // 反向对照:两库都有且都新鲜 ⇒ 判绿(新判据不是"逢旁族即红"的恒红尺子)
+    touch('keycloak_20261001_150000.dump', 0.2)
+    const ok2 = heartbeatRows({ now, devEnv: base, databases: ['ihui_dev', 'keycloak'] }).find((r) => r.label.startsWith('数据库备份产出'))
+    assert.equal(ok2.state, 'ok', `两库新鲜仍判红 ⇒ 变成一台恒红尺子:${ok2.detail}`)
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
