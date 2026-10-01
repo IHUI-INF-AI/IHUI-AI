@@ -101,12 +101,16 @@ describe('api-client 侧帧水位判据 = 共享判例表', () => {
     }
   })
 
-  it('通路锁:client.ts 的 SSE 读环真调水位闸(主循环 + 尾部残留两处)', () => {
+  it('通路锁:client.ts 的 SSE 行处理真调水位闸,且真接进共享续传 runner(D138 改形)', () => {
     const src = readFileSync(resolve(REPO, 'packages/api-client/src/client.ts'), 'utf8')
     const calls = src.match(/shouldDropByWatermark/g) ?? []
-    // 1 处定义 + 主循环与尾部两处调用
-    expect(calls.length).toBeGreaterThanOrEqual(3)
+    // D138 前是 1 定义 + 主循环/尾部残留两处调用;D138 起读环下沉 runResumableSSEStream,
+    // 主循环与尾部残留都汇入同一个 processLine 闭包 ⇒ 1 定义 + 1 调用即两路全覆盖。
+    expect(calls.length).toBeGreaterThanOrEqual(2)
     expect(src).toContain("from './frame-watermark.js'")
+    // 通路锁补强(意图不变,形状跟随 D138):带水位闸的 processLine 必须真接进
+    // runResumableSSEStream 的 onLine —— 摘线(读环绕过水位闸)本用例必红。
+    expect(src).toMatch(/onLine: \(line\) => processLine\(line\)/u)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
