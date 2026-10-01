@@ -225,13 +225,8 @@ export default function EduCourseLearnPage() {
             </CardContent>
           </Card>
 
-          {/* 2026-08-07 AI 助教:接入学习页侧栏(讲解/提示/出题);2026-09-30 起把课程/章节
-              标题作为 context 注入 persona prompt(此前无 props 挂载,上下文注入形同虚设) */}
-          <AiTutorPanel
-            chapterTitle={
-              data ? (currentSec ? `${data.title} · ${currentSec.title}` : data.title) : undefined
-            }
-          />
+          {/* 2026-08-07 AI 助教:接入学习页侧栏(讲解/提示/出题) */}
+          <AiTutorPanel />
 
           <Card>
             <CardHeader className="pb-2">

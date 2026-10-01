@@ -117,8 +117,6 @@ import { useConversationSelection } from '@/components/sidebar/use-conversation-
 import { ConversationBatchBar } from '@/components/sidebar/conversation-batch-bar'
 // D186:归档「不再提示」偏好(勾选后持久化到 localStorage,后续归档跳过二次确认)
 import { useArchivePrefsStore } from '@/stores/archive-prefs'
-// D179:会话绑定 Issue(搜索对话框 + 行徽章 + metadata.issueBinding 解析)
-import { IssueBindDialog, LinkedIssueBadge, resolveIssueBinding } from '@/components/chat/issue-bind-dialog'
 
 interface ConversationItem {
   id: string
@@ -133,8 +131,6 @@ interface ConversationItem {
   unreadCount?: number
   /** D53:该行显式等待态(备用通道,主链路走 attentionById + pendingQuestion 联动) */
   hasPendingQuestion?: boolean
-  /** D179:会话业务元数据原样透传(绑定 Issue 走 metadata.issueBinding,经 resolveIssueBinding 解析) */
-  metadata?: unknown
 }
 
 interface ConversationsResponse {
@@ -269,8 +265,6 @@ export function SidebarChatHistory({
   // D189:排序方式(pinnedFirst=置顶优先=既有默认行为;byTime=后端返回序=按时间)
   const [sortMode, setSortMode] = React.useState<'pinnedFirst' | 'byTime'>('pinnedFirst')
   const [pendingOrgItem, setPendingOrgItem] = React.useState<ConversationItem | null>(null)
-  // D179:「绑定 Issue」对话框宿主行(绑定/换绑/解绑都在对话框内完成)
-  const [issueDialogFor, setIssueDialogFor] = React.useState<ConversationItem | null>(null)
 
   // V3 #62:侧栏会话搜索(收起态=放大镜按钮,展开态=SearchInput;纯本地过滤,无后端接口)
   const [searchOpen, setSearchOpen] = React.useState(false)
@@ -714,8 +708,6 @@ export function SidebarChatHistory({
     // D20 会话组织(G-11):行内展示所属文件夹与标签(最多 2 枚,余量计 +N)
     const orgMeta = getOrgMeta(orgMap, item.id)
     const orgTags = orgMeta.tags ?? []
-    // D179:该行绑定的 Issue(业务元数据 metadata.issueBinding;未绑定 = null 不渲染)
-    const issueBinding = resolveIssueBinding(item.metadata)
     // D53:每行注意力态独立派生,pendingQuestion 只联动当前会话行
     const unreadRaw = attentionById?.[item.id]?.unread ?? item.unreadCount ?? 0
     const unread = Number.isFinite(unreadRaw) && unreadRaw > 0 ? Math.floor(unreadRaw) : 0
@@ -785,8 +777,6 @@ export function SidebarChatHistory({
             {item.pinned && (
               <Pin className="h-3 w-3 shrink-0 fill-current text-primary" aria-hidden />
             )}
-            {/* D179:已绑定 Issue 的行内徽章(竞品 highlights.linkedIssue;跳转挂载在监控区条与对话框) */}
-            {issueBinding && <LinkedIssueBadge binding={issueBinding} />}
             {orgMeta.folder && (
               <span className="inline-flex min-w-0 max-w-[72px] shrink-0 items-center gap-0.5 rounded-sm bg-muted px-1 text-[9px] leading-4 text-muted-foreground">
                 <FolderOpen className="h-2.5 w-2.5 shrink-0" />
@@ -855,7 +845,7 @@ export function SidebarChatHistory({
               data-testid="conversation-more-menu"
               className={cn(
                 'absolute right-0.5 top-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm transition-all',
-                'text-muted-foreground opacity-0 group-hover:opacity-100 touch-reveal',
+                'text-muted-foreground opacity-0 group-hover:opacity-100',
                 'hover:bg-accent hover:text-accent-foreground',
                 'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                 'data-[state=open]:opacity-100 data-[state=open]:bg-accent',
@@ -923,18 +913,6 @@ export function SidebarChatHistory({
             >
               <Tags className="mr-2 h-3.5 w-3.5" />
               <span>{tc('org.title')}</span>
-            </DropdownMenuItem>
-            {/* D179:「绑定 Issue」(竞品 bindIssue;已绑定时同入口可换绑,解绑在对话框内) */}
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                setIssueDialogFor(item)
-              }}
-              disabled={busyId === item.id}
-              data-testid="conversation-issue-bind-action"
-            >
-              <Link2 className="mr-2 h-3.5 w-3.5" />
-              <span>{tc('bindIssue')}</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => {
@@ -1379,16 +1357,6 @@ export function SidebarChatHistory({
         meta={pendingOrgItem ? getOrgMeta(orgMap, pendingOrgItem.id) : {}}
         folders={orgFolders}
         onSubmit={handleOrgSubmit}
-      />
-
-      {/* D179:「绑定 Issue」对话框(搜索→选中绑定/换绑;已绑定时展示+解绑「改为独立任务」) */}
-      <IssueBindDialog
-        conversationId={issueDialogFor?.id ?? null}
-        open={issueDialogFor !== null}
-        onOpenChange={(open) => {
-          if (!open) setIssueDialogFor(null)
-        }}
-        binding={issueDialogFor ? resolveIssueBinding(issueDialogFor.metadata) : null}
       />
     </>
   )

@@ -27,7 +27,7 @@
  * - onLogout?:登出回调(待接后端:清缓存 + reLaunch)
  * - onUpgrade? / onUpgradeTrader?:升级入口回调(跳会员/操盘手介绍弹窗)
  */
-import { tokens } from '../theme/active-tokens'
+import { currentRnTheme, tokens } from '../theme/active-tokens'
 import { withAlpha, rnRadius } from '@ihui/design-tokens'
 import {
   LOGIN_POPUP_AVATAR_BOX_PX,
@@ -76,12 +76,12 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type ViewStyle,
 } from 'react-native'
 import { useState } from 'react'
 import { CarrierOneClickError, carrierLogin, getRecentPhone } from '../lib/carrier-one-click'
+import { TextField } from '@ihui/rn-app'
 
 export type LoginPopUpRole = 'normal' | 'vip' | 'trader'
 
@@ -392,7 +392,8 @@ function ProfileForm({
         <View style={styles.iconBadge}>
           <User size={LOGIN_POPUP_ICON_GLYPH_FONT_PX} color={tokens.text.secondary} />
         </View>
-        <TextInput
+        <TextField
+          colorScheme={currentRnTheme()}
           style={styles.input}
           value={nickname}
           onChangeText={handleNicknameChange}
@@ -433,7 +434,8 @@ function ProfileForm({
         <View style={styles.iconBadge}>
           <Phone size={LOGIN_POPUP_ICON_GLYPH_FONT_PX} color={tokens.text.secondary} />
         </View>
-        <TextInput
+        <TextField
+          colorScheme={currentRnTheme()}
           style={styles.input}
           value={phone}
           onChangeText={handlePhoneChange}
@@ -505,6 +507,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     backgroundColor: tokens.surface.card,
+    // 弹层体 = 角色档 panel → xl(12);此前取 2xl(16),守门 150 判"panel 取 2xl 应为 xl"
     borderTopLeftRadius: rnRadius.xl,
     borderTopRightRadius: rnRadius.xl,
     paddingTop: LOGIN_POPUP_SHEET_PADDING_TOP_PX,
@@ -515,7 +518,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: LOGIN_POPUP_DRAG_BAR_WIDTH_PX,
     height: LOGIN_POPUP_DRAG_BAR_HEIGHT_PX,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: LOGIN_POPUP_DRAG_BAR_HEIGHT_PX / 2,
     backgroundColor: tokens.border.light,
     marginBottom: LOGIN_POPUP_DRAG_BAR_MARGIN_BOTTOM_PX,
   },
@@ -525,7 +528,7 @@ const styles = StyleSheet.create({
     right: LOGIN_POPUP_CLOSE_INSET_PX,
     width: LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX,
     height: LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -639,7 +642,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: LOGIN_POPUP_AVATAR_BOX_PX,
     height: LOGIN_POPUP_AVATAR_BOX_PX,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: LOGIN_POPUP_AVATAR_BOX_PX / 2,
     borderWidth: AVATAR_BORDER_WIDTH,
     borderColor: tokens.border.medium,
     backgroundColor: tokens.surface.card,
@@ -681,7 +684,7 @@ const styles = StyleSheet.create({
   iconBadge: {
     width: LOGIN_POPUP_ICON_BADGE_SIZE_PX,
     height: LOGIN_POPUP_ICON_BADGE_SIZE_PX,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: LOGIN_POPUP_ICON_BADGE_SIZE_PX / 2,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.medium,
