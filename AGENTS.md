@@ -2818,3 +2818,4 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
     第 ① 条的由来:宽窗口 `elementWindow` 从开标签向下取 6 行,会把子节点的 `h-4 w-4` 算进父盒
     (`w-40` 下拉被量成 160×10、`h-9 px-4` 按钮被量成 16×36)⇒ 现由 `boxDimsOwn` 单独承担,判不出闭合即**只报名不判红**。
     第 ③ 条是装饰族的物理下限:细于 16px 的进度条 / 骨架行 / 指示点仍**只开队列**(§4 明令不得方档化,判红等于逼设计改方角)。
+  - **落点(2026-09-30 改,用户拍板"项目产物不外流"):`git worktree add --detach .worktrees/wt-<任务名>`**(项目内 `.worktrees/`,已 gitignore;旧落点 `../IHUI-AI-wt-<任务名>` 即盘根散落目录,2026-09-30 已清理 13 个残留并立盘根卫生守门 `check-disk-root-hygiene.mjs` 防回潮)。detached HEAD,不占分支名,不违反 §9b
