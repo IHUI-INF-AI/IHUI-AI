@@ -100,21 +100,54 @@ test('T11 R11(G-665)解析判据:两面输出形态都认、content 冒号不干
   assert.equal(G.R11_CI_DIR, '.github/workflows')
 })
 
-test('T5 五处权威接线点结构:pre-commit 真实逻辑必须在强接线集合内', () => {
+test('T5 权威接线点结构:pre-commit 真实逻辑与守护巡检都必须在强接线集合内(判不变量,不判裸计数)', () => {
   const strongIds = G.WIRING_POINTS.strong.map((p) => p.id)
-  assert.equal(G.WIRING_POINTS.strong.length, 4, '强接线点应为 4 处')
-  assert.equal(G.WIRING_POINTS.weak.length, 2, '弱接线点应为 2 处(合起来五处)')
+  // 计数锁会挡掉正当扩面(2026-10-01 加 git-guardian 那一次就是被"应为 4 处"绊住),
+  // 而本条真正在乎的是**这些调度器不能掉**:把它们写成"必须包含"的子集判据,少一个即红,
+  // 多一个不挡 —— 与"会过期的豁免清单不得当断言"是同一条规矩。
+  const REQUIRED_STRONG = [
+    'runner',
+    'pre-commit-hook',
+    'husky',
+    'package-json',
+    'git-guardian',
+  ]
+  for (const id of REQUIRED_STRONG)
+    assert.ok(strongIds.includes(id), `强接线集合缺调度器 ${id}(摘掉它 = 该通道调度的门被判 R2 恒红)`)
+  assert.equal(
+    new Set(strongIds).size,
+    strongIds.length,
+    `强接线 id 不得重复:${JSON.stringify(strongIds)}(重复会让失败归属与 skipEnv 串门)`,
+  )
+  const weakPointIds = G.WIRING_POINTS.weak.map((p) => p.id)
+  for (const id of ['ci-workflows', 'cert-runner'])
+    assert.ok(weakPointIds.includes(id), `弱接线集合缺 ${id}`)
+  assert.equal(new Set(weakPointIds).size, weakPointIds.length, '弱接线 id 不得重复')
   // 结构事实:2026-09-22 起 .husky/pre-commit 已退化成薄壳,判据必须以 pre-commit-hook.js 为准
-  assert.ok(strongIds.includes('pre-commit-hook'))
   assert.ok(
     G.WIRING_POINTS.strong
       .find((p) => p.id === 'pre-commit-hook')
       .paths.includes('scripts/lib/pre-commit-hook.js'),
   )
+  // 守护巡检必须是"真读取该路径"的一条,而不是挂着名字的装饰
   assert.ok(
-    strongIds.includes('runner') &&
-      strongIds.includes('husky') &&
-      strongIds.includes('package-json'),
+    G.WIRING_POINTS.strong
+      .find((p) => p.id === 'git-guardian')
+      .paths.includes('scripts/git-guardian.mjs'),
+    'git-guardian 点的 paths 必须真指 scripts/git-guardian.mjs',
+  )
+  // 有牙证明①:由 git-guardian 单点调度的门 ⇒ 归类为 wired(不是 R2/R3)。
+  assert.equal(
+    G.classifyGate({
+      name: 'check-disk-root-hygiene.mjs',
+      strongPoints: ['git-guardian'],
+      weakPoints: [],
+      headerClaims: [],
+      agentsClaims: ['- 立盘根卫生守门 `check-disk-root-hygiene.mjs`'],
+      allowEntry: null,
+    }).status,
+    'wired',
+    '守护巡检调度未被认成已接线 ⇒ R2 会把每一次提交钉红(恒红门,§12f)',
   )
 })
 
