@@ -8,13 +8,43 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 
 import {
+  getCheckpointImpact,
   listCheckpoints,
   restoreCheckpoint,
   type CheckpointMeta,
   type CheckpointScope,
 } from '@/api/checkpoint-api'
+import {
+  buildUndoSnapshot,
+  classifyUndoWorkspace,
+  isUndoPartial,
+  resolveUndoFailureKey,
+  type UndoWorkspaceSnapshot,
+} from '@/lib/undo-fact-check'
 import { useConfirm } from '@/hooks/use-confirm'
 import { toast } from '@/components/common'
+
+/**
+ * D163:采集工作区快照(以影响预览里"磁盘侧恢复前内容"为指纹源)。
+ * 取不到快照(接口失败 / 读失败文件被剔除)返回 null —— 调用方据此落
+ * "无法确认",绝不许在没事实的情况下说"工作区未发生变化"。
+ */
+async function captureImpactSnapshot(
+  checkpointId: string,
+  sessionId: string,
+  scope: CheckpointScope,
+): Promise<UndoWorkspaceSnapshot | null> {
+  try {
+    const impact = await getCheckpointImpact(checkpointId, sessionId, scope)
+    return buildUndoSnapshot(
+      impact.files
+        .filter((f) => !f.readError && !f.snapshotError)
+        .map((f) => ({ path: f.path, content: f.oldContent })),
+    )
+  } catch {
+    return null
+  }
+}
 
 /**
  * Checkpoint / Rewind 撤销面板(独立组件,2026-09-03 立)。
@@ -53,6 +83,9 @@ export default function CheckpointRewindPanel({
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
       setCheckpoints([])
+      // D163:conversation 面板从不触碰工作区文件,检查点服务不可用 ≠ 文件被动过
+      // —— 这一事实成立才允许用基准键("工作区未发生变化");否则透传原始错误。
+      if (scope === 'conversation') setError(t('checkpoint.undoUnavailable'))
     } finally {
       setLoading(false)
     }
@@ -66,7 +99,7 @@ export default function CheckpointRewindPanel({
     async (checkpointId: string) => {
       // 2026-09-12 立:回退不可撤销,复用项目既有 useConfirm 做二次确认
       const ok = await confirm({
-        title: t('checkpoint.confirmTitle'),
+        title: t('checkpoint.undoConfirm'),
         description: t('checkpoint.confirmDescription'),
         confirmText: t('checkpoint.confirmText'),
         variant: 'destructive',
@@ -74,13 +107,31 @@ export default function CheckpointRewindPanel({
       if (!ok) return
       setRestoring(true)
       setError('')
+      // D163:撤销前记快照 —— conversation 范围不碰文件("未发生变化"是事实);
+      // code/both 真碰文件,必须拿快照留底,失败后才有得比对。
+      const before =
+        scope === 'conversation' ? null : await captureImpactSnapshot(checkpointId, sessionId, scope)
       try {
-        await restoreCheckpoint(checkpointId, sessionId, scope)
-        toast.success(t('checkpoint.restoreSuccess'))
+        const result = await restoreCheckpoint(checkpointId, sessionId, scope)
+        if (isUndoPartial(result.file_versions)) {
+          toast.warning(t('checkpoint.undoPartialWarning'))
+        } else {
+          toast.success(t('checkpoint.undoSucceeded', { count: result.file_changes }))
+        }
         await load()
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
-        toast.error(t('checkpoint.restoreFailed'))
+        // D163:失败后重取快照比对 —— 比对成立才说"未发生变化",
+        // 文件集变了明说"已变化",没有快照只能说"无法确认"。
+        const after =
+          scope === 'conversation'
+            ? null
+            : await captureImpactSnapshot(checkpointId, sessionId, scope)
+        const verdict =
+          scope === 'conversation'
+            ? 'unchanged'
+            : classifyUndoWorkspace(before, after)
+        toast.error(t(`checkpoint.${resolveUndoFailureKey('restore-failed', verdict)}`))
       } finally {
         setRestoring(false)
       }
@@ -114,7 +165,7 @@ export default function CheckpointRewindPanel({
                 onClick={() => void onRestore(cp.checkpoint_id)}
                 disabled={restoring}
               >
-                {restoring ? t('checkpoint.restoring') : t('checkpoint.rollback')}
+                {restoring ? t('checkpoint.undoPreparing') : t('checkpoint.rollback')}
               </button>
             </li>
           ))}
