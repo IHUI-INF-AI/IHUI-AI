@@ -36,6 +36,7 @@ import {
 } from '@ihui/database'
 
 import { db } from '../db/index.js'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { logger } from '../utils/logger.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { getSystemAccessToken } from '../utils/system-access-token.js'
@@ -2365,7 +2366,7 @@ async function fetchGithubRepoMetrics(
 /** 纯计算降级热度分(stars + forks → 0-100),LLM 不可用时用 */
 function computeTrendingScoreFallback(stars: number, forks: number): number {
   const score = Math.log10(stars + 1) * 10 + Math.log10(forks + 1) * 5
-  return Math.min(100, Math.max(0, Math.round(score)))
+  return clampPercent(Math.round(score))
 }
 
 /**
