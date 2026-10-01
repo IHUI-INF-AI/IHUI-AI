@@ -148,6 +148,26 @@ try {
         Pid = $youngPid; ProcessExists = $true; ProcessStartUtc = $null
         WrittenAtUtc = $now.AddHours(-6); HeartbeatAtUtc = $now.AddMinutes(-1)
     }))
+    # ── G-779 收口:其余三处"未判定"早退(C2-no-writtenAt / C4-no-heartbeat /
+    #    C4-heartbeat-future)同样不得绕过绝对上限 —— 未来时间戳不享受永生锁 ──
+    Add-Case 'c2_no_written_at_over_cap' (Test-IhuiDeployLockHeld -Observation (New-Obs @{
+        Pid = $PID; ProcessExists = $true; ProcessStartUtc = $selfFacts.ProcessStartUtc
+        WrittenAtUtc = $null; HeartbeatAtUtc = $now.AddMinutes(-1)
+        FallbackAgeUtc = $now.AddHours(-6)
+    }))
+    Add-Case 'c4_no_heartbeat_over_cap' (Test-IhuiDeployLockHeld -Observation (New-Obs @{
+        Pid = $PID; ProcessExists = $true; ProcessStartUtc = $null
+        WrittenAtUtc = $now.AddHours(-6); HeartbeatAtUtc = $null
+    }))
+    Add-Case 'c4_heartbeat_future_over_cap' (Test-IhuiDeployLockHeld -Observation (New-Obs @{
+        Pid = $PID; ProcessExists = $true; ProcessStartUtc = $null
+        WrittenAtUtc = $now.AddHours(-6); HeartbeatAtUtc = $now.AddMinutes(30)
+    }))
+    # 反向对照:同形但未超上限 ⇒ 仍须让路(不得把"可清理"改成" Always 抢")
+    Add-Case 'c4_heartbeat_future_under_cap' (Test-IhuiDeployLockHeld -Observation (New-Obs @{
+        Pid = $PID; ProcessExists = $true; ProcessStartUtc = $null
+        WrittenAtUtc = $now.AddMinutes(-30); HeartbeatAtUtc = $now.AddMinutes(30)
+    }))
     # ── C3 无从比对(锁侧没有 bootId)⇒ 只算跳过,不得判陈旧、也不得降级成未判定 ──
     Add-Case 'c3_missing_skips_not_stale' (Test-IhuiDeployLockHeld -Observation (New-Obs @{
         Pid = $PID; ProcessExists = $true; ProcessStartUtc = $selfFacts.ProcessStartUtc
