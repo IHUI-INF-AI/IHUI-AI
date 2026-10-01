@@ -93,6 +93,13 @@ class DeliverablesCollector:
             before_lines = len(before_text.splitlines()) if before_text else 0
             after_lines = len(after_text.splitlines()) if after_text else 0
             # 粗粒度行数差:净增行记 additions,净减行记 deletions
+            #
+            # 口径归属(G-415 A9):这一处量的不是"改了几行",而是**文件尺寸的净变化**
+            # (`max(0, after_lines - before_lines)`)—— 改 10 行而文件不变长,这里两个数都是 0。
+            # 所以它**不参与** `scripts/check-line-split-parity.mjs` 的语料,也不得与
+            # `routers.llm.calculate_added_lines`(按 diff 前缀数改动行)对齐:那两个是不同的
+            # 量,合在一起会同时毁掉"这文件变大了几行"和"这次改了几行"两个用户可见数字。
+            # 这里用 splitlines() 只是为了**数行**,与那条尺子守的口径不冲突。
             delta_add = max(0, after_lines - before_lines)
             delta_del = max(0, before_lines - after_lines)
             is_delete = name in ("delete_file", "file_delete") or name.startswith("delete_")
