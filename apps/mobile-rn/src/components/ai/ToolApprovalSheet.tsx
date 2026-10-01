@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(20),
     paddingVertical: rpx(12),
     backgroundColor: tokens.brand.cta,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   openPillText: {
     fontSize: 12,
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.xl,
     padding: rpx(32),
     gap: rpx(16),
   },

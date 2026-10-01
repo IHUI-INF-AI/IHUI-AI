@@ -152,6 +152,27 @@ test('但"判不出"必须有出路:超绝对上限才抢占(不得永久占着)
   assert.equal(b.failed, 'C5-over-hard-cap')
 })
 
+test('G-779:全部"未判定"早退都受绝对上限约束,未来时间戳不享受永生锁', () => {
+  // 三处早退(C2-no-writtenAt / C4-no-heartbeat / C4-heartbeat-future)在锁龄超上限时必须判陈旧
+  for (const name of [
+    'c2_no_written_at_over_cap',
+    'c4_no_heartbeat_over_cap',
+    'c4_heartbeat_future_over_cap',
+  ]) {
+    const c = RUN.cases[name]
+    assert.equal(c.verdict, 'stale', `${name} 超绝对上限应可抢占,实得 ${c.verdict}(${c.reason})`)
+    assert.equal(c.failed, 'C5-over-hard-cap', `${name} 的出口必须是 C5-over-hard-cap,实得 ${c.failed}`)
+  }
+  // 反向对照:同形但未超上限 ⇒ 仍让路,不得把"可清理"改成"永远抢锁"
+  const u = RUN.cases.c4_heartbeat_future_under_cap
+  assert.equal(
+    u.verdict,
+    'undetermined',
+    `未超上限的心跳在未来仍应让路,实得 ${u.verdict}(${u.reason})`,
+  )
+  assert.equal(u.failed, 'C4-heartbeat-future')
+})
+
 test('端到端:真文件 + 真 mtime 的现场(可重放今早那次冻结)', () => {
   const absent = RUN.cases.file_absent
   assert.equal(absent.lockExists, false)
