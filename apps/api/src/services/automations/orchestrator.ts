@@ -11,6 +11,11 @@
  *
  * 韧性约定:单条目/单步骤失败只记审计、不影响其余条目;单源扫描失败降级为空集。
  * PAT 绝不落日志:所有日志走注入的 audit(实现侧已 redact),错误消息再过一次 redact 兜底。
+ *
+ * G-669(2026-10-01 补)改了"失败条目的下场":此前 ok=false 只 `report.failed++`,认领
+ * 永不释放 ⇒ transient 失败被永久静默丢弃。现在失败条目按 failure-class 分流 ——
+ * transient 且未超上限 ⇒ `ledger.release` 回队(本轮不向 issue 发"失败"公告,那不是终态);
+ * permanent 或超上限 ⇒ 保留认领为终态。两种下场都逐条进 `report.dropped` 点名。
  */
 
 import type { AuditLogger, FixExecutor, FixTask, ScanItem, TickReport } from './types.js'
@@ -18,6 +23,7 @@ import type { GitHubClient } from './github-client.js'
 import type { ClaimLedger } from './ledger.js'
 import type { AutomationsConfig } from './config.js'
 import { redactSecrets } from './redact.js'
+import { describeAutomationFailure } from './failure-class.js'
 
 const GOAL_LIMIT = 4000
 const TITLE_LIMIT = 60
@@ -164,10 +170,26 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
     }
     audit?.info('[automations] 修复任务执行完成', { key: item.key, ok, summary: summary.slice(0, 300) })
 
+    // ---- G-669:失败条目必须有"下场",并且逐条点名 ----
+    // 改造前这里只有 report.failed++:认领永不释放 ⇒ transient 失败(上游重启/网络抖动)
+    // 被永久静默丢弃,而 dropped 名单一片空白,读报告的人以为"这一条已经被想过了"。
+    let released = false
+    let dropReason = ''
     if (ok) {
       report.fixed++
     } else {
       report.failed++
+      const verdict = describeAutomationFailure({ message: summary })
+      if (verdict.kind === 'permanent') {
+        // permanent ⇒ **保留认领**就是终态:下一轮 claim 返回 false,不再对同一条 issue 反复动作。
+        dropReason = `permanent 失败(重试不会变好,判据 ${verdict.reason}),保留认领为终态`
+      } else {
+        released = ledger.release(item.key, `${verdict.reason}:${summary.slice(0, 120)}`)
+        dropReason = released
+          ? `transient 失败(判据 ${verdict.reason}),已释放认领待下一轮重试`
+          : `transient 失败(判据 ${verdict.reason})但释放次数已达上限,保留认领为终态`
+      }
+      report.dropped.push({ key: item.key, reason: dropReason, released, kind: verdict.kind })
     }
 
     // ---- PR + 回帖(stub 模式也走完整链路,便于用注入 transport 验证)----
@@ -200,18 +222,23 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
     }
 
     // ---- 原 issue 回帖结果 ----
-    if (item.issueNumber !== null) {
+    // G-669 的一条推论:**回队重试的条目不回帖**。它不是终态,而 release 之后下一轮还会
+    // 再执行一次 —— 每轮都发一条"❌ 执行失败"就是把一次抖动刷成 N 条公告。
+    // 终态(成功 / permanent / transient 超上限)照旧逐条回帖。
+    if (item.issueNumber !== null && !released) {
       try {
         await github.addIssueComment(item.issueNumber, resultCommentBody(item, ok, summary, prUrl))
       } catch (err) {
         audit?.warn('[automations] 结果回帖失败', { key: item.key, err: safe(String(err)) })
       }
+    } else if (item.issueNumber !== null) {
+      audit?.info('[automations] 条目已回队,本轮不发结果回帖', { key: item.key, reason: dropReason })
     }
   }
 
   return {
     async runOnce(): Promise<TickReport> {
-      const report: TickReport = { scanned: 0, claimed: 0, fixed: 0, failed: 0 }
+      const report: TickReport = { scanned: 0, claimed: 0, fixed: 0, failed: 0, dropped: [] }
       const items = await scanAll()
       audit?.info('[automations] 扫描完成', { scanned: items.length })
       // 批次上限:单轮最多认领 batchLimit 条新条目,防突发风暴
