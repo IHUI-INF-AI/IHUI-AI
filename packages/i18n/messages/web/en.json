@@ -9048,11 +9048,11 @@
       "undoFailed": "Temporarily unavailable; the workspace is unchanged",
       "undoFailedChanged": "Temporarily unavailable; the workspace has changed",
       "undoFailedUnverifiable": "Temporarily unavailable; workspace state could not be verified. Please check and retry",
-      "undoPartialWarning": "Some files were not rolled back; task history preserved",
       "restoring": "Restoring…",
       "confirmTitle": "Rollback?",
       "restoreSuccess": "Rolled back to the checkpoint",
-      "restoreFailed": "Rollback failed"
+      "restoreFailed": "Rollback failed",
+      "undoPartialWarning": "Some files were not rolled back; task history preserved"
     },
     "addWorkspace": "Add Workspace",
     "assistant": "Assistant",
@@ -9241,7 +9241,6 @@
       "removeTagAria": "Remove tag {tag}",
       "filterLabel": "Filter by folder",
       "filterAll": "All",
-      "folderNone": "Unfiled",
       "adminTitle": "Manage folders",
       "adminEmpty": "No folders yet",
       "adminPending": "The folder list is syncing from the server — you can manage folders here shortly.",
@@ -9261,7 +9260,8 @@
       "reasonForbidden": "You do not have permission to change this folder",
       "reasonUnauthorized": "Your session expired — sign in again",
       "reasonServer": "The server had a problem. Try again shortly.",
-      "reasonUnknown": "The action failed. Try again shortly."
+      "reasonUnknown": "The action failed. Try again shortly.",
+      "folderNone": "Unfiled"
     }
   },
   "aiCost": {
