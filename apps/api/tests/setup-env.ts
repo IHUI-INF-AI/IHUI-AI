@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { config as dotenvConfig } from 'dotenv'
+import { randomBytes } from 'node:crypto'
 import { resolve } from 'node:path'
 import { existsSync } from 'node:fs'
 
@@ -16,10 +17,15 @@ dotenvConfig({ path: envTestPath })
 
 // 测试专用 DB URL 兜底:防止 .env.test 加载失败时连接到开发库
 process.env.DATABASE_URL ??= 'postgresql://postgres:postgres@localhost:8810/ihui_test'
-process.env.JWT_SECRET ??= 'test-jwt-secret-at-least-32-characters-long!!'
-// 2026-07-21 安全审计加固:生产环境拒绝 'a'.repeat(32) 弱密钥;
-// 测试环境仍允许,确保现有测试套件通过
-process.env.CREDENTIALS_ENCRYPTION_KEY ??= 'a'.repeat(32)
+// 密钥兜底必须是强随机值:config 的弱密钥加固(2026-07-21)拒绝 'test-' 前缀/全同字符/已知占位符,
+// 弱兜底会让导入真 config 的零连接测试在干净检出上 import 即崩(config 进程 exit(1))。
+// 每次进程内随机生成,不落盘 —— 零连接测试不依赖具体值。
+process.env.JWT_SECRET ??= randomBytes(32).toString('hex')
+process.env.CREDENTIALS_ENCRYPTION_KEY ??= randomBytes(32).toString('hex')
 process.env.REDIS_URL ??= 'redis://localhost:8811/1'
+// 测试档必须显式钉死:ZCODE_RUNTIME_ENV 优先级高于 NODE_ENV(config 唯一出口的解析顺序),
+// 宿主 shell 若导出了 production(真机现测存在),真 config 的"生产守卫"会在测试里误开
+// (如 agents.ts 的 COZE_WEBHOOK_SECRET 拒绝启动)。与下面 NODE_ENV 同性质:强制,非补缺。
+process.env.ZCODE_RUNTIME_ENV = 'test'
 process.env.NODE_ENV = 'test'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
