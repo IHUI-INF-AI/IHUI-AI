@@ -828,6 +828,10 @@ const defaultSendSmtp: SmtpSendFn = async (opts, mail) => {
     port: opts.port,
     secure: opts.secure,
     auth: opts.pass ? { user: opts.user, pass: opts.pass } : undefined,
+    // 2026-10-01 实测:本机到 smtp.qq.com 的 IPv6(2408:8756::/32,587 端口)ENETUNREACH,
+    // autoSelectFamily 拿到 AAAA 就先撞死在 v6 上 ⇒ 告警整链静默失败(备份失败无人知晓)。
+    // 强制 v4;若未来某台机 v4 不通 v6 通,再把这一格改成环境可配,而不是两头猜。
+    family: 4,
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 10_000,
