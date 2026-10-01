@@ -9237,7 +9237,28 @@
       "removeTagAria": "Remove tag {tag}",
       "filterLabel": "Filter by folder",
       "filterAll": "All",
-      "folderNone": "Unfiled"
+      "folderNone": "Unfiled",
+      "adminPending": "Syncing groups — management opens once the server takes over",
+      "retry": "Retry",
+      "adminTitle": "Group management",
+      "adminEmpty": "No groups yet",
+      "confirmRenameAria": "Confirm rename",
+      "cancelRenameAria": "Cancel rename",
+      "folderCount": "{count} conversations",
+      "unpinAria": "Unpin group",
+      "pinAria": "Pin group",
+      "renameAria": "Rename group",
+      "deleteAria": "Delete group",
+      "adminDeleteHint": "Deleting a group never deletes the conversations inside.",
+      "reasonOffline": "You appear offline — the change wasn't sent",
+      "reasonNameTooLong": "Group name is too long",
+      "reasonDuplicateName": "A group with this name already exists",
+      "reasonNotFound": "This group no longer exists",
+      "reasonForbidden": "You don't have permission for this action",
+      "reasonUnauthorized": "Session expired — please sign in again",
+      "reasonServer": "Server temporarily unavailable — try again later",
+      "reasonUnknown": "The operation failed for an unknown reason"
+
     }
   },
   "aiCost": {
