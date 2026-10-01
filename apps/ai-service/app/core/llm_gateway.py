@@ -872,7 +872,7 @@ async def _find_quota_equivalent_channels(
 # 模型名关键词 → 推断该模型是否支持 function calling
 _TOOL_CALLING_KEYWORDS = (
     "gpt-", "o1", "o3", "claude-3", "claude-3.5", "claude-3.7", "claude-sonnet-4",
-    "gemini-1.5", "gemini-2", "qwen2", "qwen3", "deepseek", "glm-4", "kimi",
+    "gemini-1.5", "gemini-2", "gemini-3", "qwen2", "qwen3", "deepseek", "glm-4", "kimi",
     "step-2", "step-3", "mistral", "llama-3.1", "llama-3.2", "llama-3.3",
     "command-r", "phi-3", "phi-4", "gemma-2",
 )
@@ -906,7 +906,24 @@ _LOCAL_PREFIXES = ("ollama/", "lmstudio/", "llamacpp/", "vllm/")
 # (Connection error / No available channel)。auto-route 直接选 stepfun 稳定模型即可,
 # 避免无效升级 + 兜底重试浪费。仅影响 auto 路由候选;显式指定 gpt-4o 的请求仍走
 # FallbackRouter(gpt-4o -> stepfun/step-3.7-flash 兜底)。
-_AUTO_ROUTE_EXCLUDED = ("gpt-4o", "openai/gpt-4o")
+# D208(2026-10-01)补:llm7/gpt-oss:20b 上游 InternalServerError(D150 真机探针实证,
+# 新注册用户默认链被 auto-route 重排选中后首条消息直接报错),从 auto 候选集排除;
+# 显式指定仍可走(手工选择行为不变)。
+_AUTO_ROUTE_EXCLUDED = ("gpt-4o", "openai/gpt-4o", "llm7/gpt-oss:20b")
+
+
+def _default_model_chain() -> list[str]:
+    """默认模型链(首选 + 同族兜底,D208 2026-10-01)。
+
+    首选 settings.litellm_model(运维预设,D150 实测健康档 gemini/gemini-3.8-flash),
+    兜底 settings.litellm_fallback_model(同轮实测健康档 @cf/zai-org/glm-4.7-flash),
+    去重去空;两者均未配置时回退历史硬编码档。
+    """
+    chain: list[str] = []
+    for m in (settings.litellm_model, settings.litellm_fallback_model):
+        if m and m not in chain:
+            chain.append(m)
+    return chain or ["stepfun/step-3.7-flash"]
 
 
 def _infer_tier_from_model_id(model_id: str) -> int:
@@ -1079,7 +1096,7 @@ async def _resolve_auto_model(
 
     行为日志:返回前 logger.info 记录「auto → X」便于审计,生产环境可观测路由决策。
     """
-    fallback = settings.litellm_model or "stepfun/step-3.7-flash"
+    fallback = _default_model_chain()[0]
     try:
         # 延迟导入避免循环(llm_gateway ↔ model_availability)
         from ..services.model_availability import model_availability
@@ -1139,15 +1156,15 @@ async def _resolve_auto_model(
         # 默认优先使用运维预设的可靠模型(settings.litellm_model),避免 auto 路由误选
         # 不可达 / 未配置 key 的社区免费 provider(opencode_zen/llm7/pollinations/aihorde/@cf 等,
         # 本部署均不在 LLM_PROVIDERS 配置,选中即 MODEL_NOT_CONFIGURED)。免费模型仍可在 UI 手动选择。
-        # 优先级:运维预设默认 > free > cheap tier 1 > cheap tier 3 > premium
-        candidates: list[str] = []
-        if settings.litellm_model:
-            candidates.append(settings.litellm_model)
+        # 优先级:默认链(首选+同族兜底,D208) > free > cheap tier 1 > cheap tier 3 > premium
+        candidates: list[str] = list(_default_model_chain())
         candidates.extend(free_pool)
         candidates.extend(x["id"] for x in sorted(cheap_pool, key=lambda x: x["tier"])[:5])
         # 高级模型保留 1 个作为最后兜底(用于前面 cheap/free 全部失败的极端场景)
         if premium_pool:
             candidates.append(min(premium_pool, key=lambda x: x["tier"])["id"])
+        # 链兜底可能与 free 池成员重合(如 @cf/ 前缀),去重保序
+        candidates = list(dict.fromkeys(candidates))
 
         # L5-6(2026-08-12):任务复杂度感知路由——复杂/专家任务跳过免费与廉价模型,
         # 直接给高级模型(能力匹配),简单任务维持免费优先(成本优先)。
@@ -1767,10 +1784,17 @@ class LLMGateway:
         # 2026-08-06 立:'auto' 或空 model 走跨厂商自动路由(用户反馈"应该是自动切换所有可使用的模型")
         # 修复历史:之前 fallback 到 settings.litellm_model(默认 stepfun/step-router-v1),
         # step-router-v1 是 Step 厂家路由只路由 Step 内部模型,违背"全模型智能路由"语义。
+        # D208 更正(2026-10-01):默认链首选已换 gemini/gemini-3.8-flash、同族兜底
+        # @cf/zai-org/glm-4.7-flash(D150 真机探针实证原默认链对普通用户断裂,见
+        # d150-runtime-reconciliation.md §六①);本处占位值同步走 _default_model_chain()。
         # 注:_resolve_provider 是 sync staticmethod,真正的 auto 解析在
         # LLMGateway.complete() / astream() 入口处执行,解析完成后再调 _resolve_provider。
         if model == "auto" or not model:
-            real_model = settings.litellm_model or "stepfun/step-3.7-flash"
+            real_model = (
+                settings.litellm_model
+                or settings.litellm_fallback_model
+                or "stepfun/step-3.7-flash"
+            )
             logger.info("[llm_gateway] model=%r 占位(实际路由在 complete() 入口处理),占位模型 %r",
                        model, real_model)
             model = real_model
@@ -2153,6 +2177,9 @@ class LLMGateway:
         #       step-router-v1 只在 Step 厂家内部路由,不跨厂商,违背"全模型智能路由"语义。
         # 修复:调 _resolve_auto_model 从 model_availability 全量可用模型池选最优,
         #       优先 zero_cost / LOCAL → cheap plan → premium,tool calling 场景额外筛 function calling 支持。
+        # D208 更正(2026-10-01):候选池头部改种默认链(首选 gemini/gemini-3.8-flash +
+        #       同族兜底 @cf/zai-org/glm-4.7-flash),llm7/gpt-oss:20b 因上游
+        #       InternalServerError(D150 实证)进入 _AUTO_ROUTE_EXCLUDED,不再参与 auto。
         if not model or model == "auto":
             used_model = await _resolve_auto_model(
                 has_tools=bool(kwargs.get("tools")),
@@ -2758,6 +2785,8 @@ class LLMGateway:
         #       step-router-v1 只在 Step 厂家内部路由,不跨厂商,违背"全模型智能路由"语义。
         # 修复:调 _resolve_auto_model 从 model_availability 全量可用模型池选最优,
         #       优先 zero_cost / LOCAL → cheap plan → premium,tool calling 场景额外筛 function calling 支持。
+        # D208 更正(2026-10-01):与 complete() 同源,候选池头部改种默认链
+        #       (gemini/gemini-3.8-flash + @cf/zai-org/glm-4.7-flash 兜底),llm7 已排除。
         if not model or model == "auto":
             used_model = await _resolve_auto_model(
                 has_tools=bool(kwargs.get("tools")),

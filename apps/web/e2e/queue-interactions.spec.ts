@@ -291,7 +291,7 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
     const idsStreaming = await queueSnapshot(page)
     expect(idsStreaming.map((i) => i.text)).toEqual(['侧问甲', '侧问乙', '侧问丙'])
     await page
-      .locator(`[data-queue-op="reorderHandle"][data-item-id="${idsStreaming[1].id}"]`)
+      .locator(`[data-queue-op="reorderHandle"][data-item-id="${idsStreaming[1]!.id}"]`)
       .press('ArrowUp')
     await expect
       .poll(() => queueSnapshot(page).then((s) => s.map((x) => x.id)))
@@ -307,27 +307,27 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
 
     // 第二条 ↑ 一位 ⇒ 逐位 id 序列翻转
     await page
-      .locator(`[data-queue-op="reorderHandle"][data-item-id="${before[1].id}"]`)
+      .locator(`[data-queue-op="reorderHandle"][data-item-id="${before[1]!.id}"]`)
       .press('ArrowUp')
     await expect
       .poll(() => queueSnapshot(page).then((s) => s.map((x) => x.id)))
-      .toEqual([before[1].id, before[0].id])
+      .toEqual([before[1]!.id, before[0]!.id])
     // 再 ↓ 回原位
     await page
-      .locator(`[data-queue-op="reorderHandle"][data-item-id="${before[1].id}"]`)
+      .locator(`[data-queue-op="reorderHandle"][data-item-id="${before[1]!.id}"]`)
       .press('ArrowDown')
     await expect
       .poll(() => queueSnapshot(page).then((s) => s.map((x) => x.id)))
-      .toEqual([before[0].id, before[1].id])
+      .toEqual([before[0]!.id, before[1]!.id])
 
     // —— 重排后发送顺序断言(验收口径):把 丙 提到队首,触发第二轮主流;流结束
     //    自动补答消费新队首 丙(best-of-n 请求正文 = 被消费侧问原文),而非入队最早的 乙。
     await page
-      .locator(`[data-queue-op="reorderHandle"][data-item-id="${before[1].id}"]`)
+      .locator(`[data-queue-op="reorderHandle"][data-item-id="${before[1]!.id}"]`)
       .press('ArrowUp')
     await expect
       .poll(() => queueSnapshot(page).then((s) => s.map((x) => x.id)))
-      .toEqual([before[1].id, before[0].id])
+      .toEqual([before[1]!.id, before[0]!.id])
     const ta2 = asideTextarea(page).first()
     await ta2.fill('E2E D38:第二轮主消息(验证重排后消费顺序)')
     await ta2.press('Enter')
@@ -350,13 +350,13 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
 
     const snap = await queueSnapshot(page)
     // 按钮取词是译文而非裸键
-    const undoBtn = page.locator(`[data-queue-op="undo"][data-item-id="${snap[0].id}"]`)
+    const undoBtn = page.locator(`[data-queue-op="undo"][data-item-id="${snap[0]!.id}"]`)
     await expect(undoBtn).toHaveText(L.undo)
     await undoBtn.click()
 
     await expect(queuedItems(page)).toHaveCount(1)
     const after = await queueSnapshot(page)
-    expect(after).toEqual([{ id: snap[1].id, text: '保留项' }])
+    expect(after).toEqual([{ id: snap[1]!.id, text: '保留项' }])
     held.release()
   })
 
@@ -367,10 +367,10 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
     const held = await mockHeldStream(page)
     await openStreamWithSideQueue(page, held, ['原始问题', '另一条'])
     const snap = await queueSnapshot(page)
-    const target = page.locator(`[data-queued-item="${snap[0].id}"]`)
+    const target = page.locator(`[data-queued-item="${snap[0]!.id}"]`)
 
     // —— 正常编辑:行内输入带原稿,保存后文本出现在同一 id 上
-    await target.locator(`[data-queue-op="edit"][data-item-id="${snap[0].id}"]`).click()
+    await target.locator(`[data-queue-op="edit"][data-item-id="${snap[0]!.id}"]`).click()
     const input = bar(page).locator('[data-queue-op="editInput"]')
     await expect(input).toBeVisible()
     await expect(input).toHaveValue('原始问题')
@@ -378,16 +378,16 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
     await target.locator('[data-queue-op="editConfirm"]').click()
     await expect(input).toBeHidden()
     await expect(target.locator('[data-queued-text="编辑后的问题"]')).toBeVisible()
-    expect((await queueSnapshot(page))[0]).toEqual({ id: snap[0].id, text: '编辑后的问题' })
+    expect((await queueSnapshot(page))[0]!).toEqual({ id: snap[0]!.id, text: '编辑后的问题' })
 
     // —— 空文本被拒:清空后保存 ⇒ 退出编辑态,项不消失、不产生空项、原文本保留
-    await target.locator(`[data-queue-op="edit"][data-item-id="${snap[0].id}"]`).click()
+    await target.locator(`[data-queue-op="edit"][data-item-id="${snap[0]!.id}"]`).click()
     await expect(input).toBeVisible()
     await input.fill('   ')
     await target.locator('[data-queue-op="editCancel"]').click() // 先验证取消不写回
     await expect(target.locator('[data-queued-text="编辑后的问题"]')).toBeVisible()
 
-    await target.locator(`[data-queue-op="edit"][data-item-id="${snap[0].id}"]`).click()
+    await target.locator(`[data-queue-op="edit"][data-item-id="${snap[0]!.id}"]`).click()
     await input.fill('   ')
     await target.locator('[data-queue-op="editConfirm"]').click()
     await expect(input).toBeHidden()
