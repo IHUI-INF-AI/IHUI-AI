@@ -5,7 +5,8 @@
 import { useTt } from '@/i18n'
 import { useState } from 'react'
 import Taro from '@tarojs/taro'
-import { View, Text, Image, Input, Button } from '@tarojs/components'
+import { View, Text, Image, Button } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import { rpx } from '@/utils/rpx'
 import {
@@ -127,7 +128,7 @@ export default function LoginPopUp({
           并按 bubble 档取 rounded-2xl(16) —— 它是登录弹窗,不是会话流里的消息气泡,
           两端同一元素因此一档之差(守门 150 对 panel 取 2xl 判红,依据见 radius.js RADIUS_ROLES)。 */}
       <View
-        className="relative bg-card rounded-xl w-[85%]"
+        className="relative bg-card ui-panel rounded-xl w-[85%]"
         style={{
           paddingTop: toUnit(LOGIN_POPUP_DIALOG_PADDING_TOP_PX),
           paddingLeft: toUnit(LOGIN_POPUP_CARD_PADDING_X_PX),
@@ -197,7 +198,7 @@ export default function LoginPopUp({
 
         {/* 昵称输入 */}
         <View style={{ marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX) }}>
-          <Input
+          <FocusInput
             value={nickname}
             placeholder={tt('user.profile.nicknamePlaceholder', '请输入用户名')}
             maxlength={20}
