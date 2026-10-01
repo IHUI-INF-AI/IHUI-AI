@@ -9048,11 +9048,11 @@
       "undoFailed": "一時的に利用できません。ワークスペースは変更されていません",
       "undoFailedChanged": "一時的に利用できません。ワークスペースが変更されています",
       "undoFailedUnverifiable": "一時的に利用できません。ワークスペースの状態を確認できませんでした。確認してから再試行してください",
-      "undoPartialWarning": "一部のファイルがロールバックできませんでした。タスク履歴は保持されます",
       "restoring": "復元中…",
       "confirmTitle": "復元しますか？",
       "restoreSuccess": "チェックポイントに復元しました",
-      "restoreFailed": "復元に失敗しました"
+      "restoreFailed": "復元に失敗しました",
+      "undoPartialWarning": "一部のファイルがロールバックできませんでした。タスク履歴は保持されます"
     },
     "addWorkspace": "ワークスペースを追加",
     "assistant": "アシスタント",
@@ -9241,7 +9241,6 @@
       "removeTagAria": "タグ {tag} を削除",
       "filterLabel": "フォルダで絞り込み",
       "filterAll": "全て",
-      "folderNone": "未分類",
       "adminTitle": "グループ管理",
       "adminEmpty": "グループはまだありません",
       "adminPending": "グループ一覧をサーバーから同期中です。少ししてからここで管理できます。",
@@ -9261,7 +9260,8 @@
       "reasonForbidden": "このグループを操作する権限がありません",
       "reasonUnauthorized": "ログインの有効期限が切れました。再度ログインしてください。",
       "reasonServer": "サーバー側で問題が発生しました。しばらくしてから再試行してください。",
-      "reasonUnknown": "操作に失敗しました。しばらくしてから再試行してください。"
+      "reasonUnknown": "操作に失敗しました。しばらくしてから再試行してください。",
+      "folderNone": "未分類"
     }
   },
   "aiCost": {
