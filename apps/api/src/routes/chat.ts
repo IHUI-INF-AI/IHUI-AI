@@ -8,10 +8,7 @@ import { sql, and, eq, inArray } from 'drizzle-orm'
 // D153(2026-09-29 立):会话元数据变更的 per-user 下行广播。
 // 事件形态与构造的唯一出口在 @ihui/types(三个消费面共用一份描述),
 // 路由内不得手拼 `{event,data}` 字面量,也不得把"哪些字段真的变了"照抄请求体键名。
-import {
-  conversationUpdatedEvent,
-  type ConversationMetaField,
-} from '@ihui/types'
+import { conversationUpdatedEvent, type ConversationMetaField } from '@ihui/types'
 import {
   compressContextIfNeeded,
   estimateMessagesTokens,
@@ -22,6 +19,15 @@ import { db } from '../db/index.js'
 import { dedupeIds, batchWriteOutcome } from '../utils/batch-outcome.js'
 // 批量操作的"哪些 id 根本没被写"对账需要直接按 (userId, ids) 查一次归属(见 POST /conversations/batch)
 import { chatConversations } from '@ihui/database'
+import {
+  createConversationGroup,
+  deleteConversationGroup,
+  listConversationGroupIds,
+  listConversationGroups,
+  moveConversationsToGroup,
+  renameConversationGroup,
+  setConversationGroupPinned,
+} from '../db/chat-group-queries.js'
 import {
   createConversation,
   findConversationsByUser,
@@ -147,6 +153,30 @@ const updateConversationSchema = z.object({
   metadata: z.unknown().optional(),
   pinned: z.boolean().optional(),
 })
+
+// D165 会话分组(2026-10-01 立)。名字长度上限只在这里出现一次,与库面 varchar(64) 对齐;
+// 分组名同时受 (user_id, name) 唯一约束,重名走"复用已有分组"的幂等出口而不是报错。
+const GROUP_NAME_MAX = 64
+const groupNameSchema = z
+  .string()
+  .trim()
+  .min(1, '分组名不能为空')
+  .max(GROUP_NAME_MAX, `分组名最长 ${GROUP_NAME_MAX} 个字符`)
+const createGroupSchema = z.object({ name: groupNameSchema }).strict()
+// 改名与置顶共用一条 PATCH(两个动作都是"改这一行",失败原因同形:404 不存在/无权)
+const updateGroupSchema = z
+  .object({ name: groupNameSchema.optional(), pinned: z.boolean().optional() })
+  .strict()
+  .refine((v) => v.name !== undefined || v.pinned !== undefined, {
+    message: 'name 与 pinned 至少要给一个',
+  })
+const moveConversationsSchema = z
+  .object({
+    conversationIds: z.array(z.string().uuid()).min(1, '请至少选择一条会话').max(200),
+    // null = 移出分组(回未分组);非 null = 移入该分组,归属由数据层验
+    groupId: z.string().uuid().nullable(),
+  })
+  .strict()
 
 const createMessageSchema = z
   .object({
@@ -418,7 +448,13 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
   ): void => {
     if (fields.length === 0) return
     try {
-      const evt = conversationUpdatedEvent({ conversationId, fields, changedBy: userId, at, values })
+      const evt = conversationUpdatedEvent({
+        conversationId,
+        fields,
+        changedBy: userId,
+        at,
+        values,
+      })
       server.broadcastToUser(userId, evt.event, evt.data)
     } catch (err) {
       request.log.warn(
@@ -455,6 +491,180 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     if (Boolean(before.archivedAt) !== Boolean(after.archivedAt)) fields.push('archive')
     return fields
   }
+
+  // ===========================================================================
+  // 会话分组(D165,2026-10-01 立)
+  //   三个动作分别是:移动到分组 / 移动所选(同一条 move 出口,1..n 条) / 分组置顶。
+  //   失败必须给原因:分组不存在或不属于本人 = 404;批量移动回报取**库确认集**
+  //   (affected + missedIds 逐条点名),不把请求数组长度当结果(AGENTS §5「计数要取库确认集」)。
+  //   路径静态段 `/conversations/groups` 与参数路由 `/conversations/:id` 不同段数,
+  //   且全部经 requireAuth + 属主过滤 —— 不存在"游客可读到别人的分组"那一格。
+  // ===========================================================================
+
+  server.get(
+    '/conversations/groups',
+    { schema: { summary: '分组清单', tags: ['chat'], response: buildResponseSchema(401) } },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const groups = await listConversationGroups(request.userId)
+      return reply.send(success({ groups }))
+    },
+  )
+
+  // 分组归属表:会话列表本身的投影是既有的白名单序列化(不属本票射程,不扩列),
+  // 所以这里单独给一张 (conversationId → groupId) 表,让侧栏能渲染"哪些在组里"。
+  server.get(
+    '/conversations/groups/assignments',
+    { schema: { summary: '分组归属表', tags: ['chat'], response: buildResponseSchema(401) } },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const map = await listConversationGroupIds(request.userId)
+      const assignments = [...map.entries()].map(([conversationId, groupId]) => ({
+        conversationId,
+        groupId,
+      }))
+      return reply.send(success({ assignments }))
+    },
+  )
+
+  server.post(
+    '/conversations/groups',
+    {
+      schema: {
+        summary: '新建分组',
+        tags: ['chat'],
+        body: { type: 'object', required: ['name'] },
+        response: buildResponseSchema(400, 401),
+      },
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const parsed = createGroupSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      try {
+        const group = await createConversationGroup(request.userId, parsed.data.name)
+        // 同名不报错:回已有那条并标 reused,让 UI 能把"已在这个组里"如实说出来
+        return reply.status(group.created ? 201 : 200).send(
+          success({
+            group: { id: group.id, name: group.name, pinned: group.pinned },
+            reused: !group.created,
+          }),
+        )
+      } catch (e) {
+        if (e instanceof Error && e.message === 'group_create_race') {
+          return reply.status(409).send(error(409, '分组刚被并发修改,请重试'))
+        }
+        throw e
+      }
+    },
+  )
+
+  server.patch(
+    '/conversations/groups/:id',
+    {
+      schema: {
+        summary: '改名 / 分组置顶',
+        tags: ['chat'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string', format: 'uuid' } },
+          required: ['id'],
+        },
+        response: buildResponseSchema(400, 401, 404),
+      },
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const { id } = request.params as { id: string }
+      const parsed = updateGroupSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      if (parsed.data.name !== undefined) {
+        const renamed = await renameConversationGroup(request.userId, id, parsed.data.name)
+        if (!renamed.ok) return reply.status(404).send(error(404, '分组不存在或无权修改'))
+      }
+      if (parsed.data.pinned !== undefined) {
+        const pinned = await setConversationGroupPinned(request.userId, id, parsed.data.pinned)
+        if (!pinned.ok) return reply.status(404).send(error(404, '分组不存在或无权修改'))
+      }
+      return reply.send(
+        success({
+          id,
+          renamed: parsed.data.name !== undefined,
+          pinned: parsed.data.pinned ?? null,
+        }),
+      )
+    },
+  )
+
+  server.delete(
+    '/conversations/groups/:id',
+    {
+      schema: {
+        summary: '删除分组(只清归类,不删会话)',
+        tags: ['chat'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string', format: 'uuid' } },
+          required: ['id'],
+        },
+        response: buildResponseSchema(401, 404),
+      },
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const { id } = request.params as { id: string }
+      const result = await deleteConversationGroup(request.userId, id)
+      if (!result.ok) return reply.status(404).send(error(404, '分组不存在或无权删除'))
+      return reply.send(success({ id, deleted: true }))
+    },
+  )
+
+  server.post(
+    '/conversations/groups/move',
+    {
+      schema: {
+        summary: '移动会话到分组 / 移出分组',
+        tags: ['chat'],
+        body: { type: 'object', required: ['conversationIds', 'groupId'] },
+        response: buildResponseSchema(400, 401, 404),
+      },
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const parsed = moveConversationsSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const requested = dedupeIds(parsed.data.conversationIds)
+      try {
+        const moved = await moveConversationsToGroup(request.userId, requested, parsed.data.groupId)
+        return reply.send(
+          success({
+            requested: moved.requestedIds.length,
+            affected: moved.affected,
+            // 逐条点名"没动成的那些",UI 才能说"3 条里有 1 条已不存在",而不是整批报成功
+            missedIds: moved.missedIds,
+            groupId: parsed.data.groupId,
+          }),
+        )
+      } catch (e) {
+        if (e instanceof Error && e.message === 'group_not_owned') {
+          return reply.status(404).send(error(404, '目标分组不存在或无权使用'))
+        }
+        throw e
+      }
+    },
+  )
 
   // POST /conversations - 创建对话
   server.post(
@@ -738,14 +948,9 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       // 时机:写在 switch 之后 ⇒ 五个 action 的写链都已 await 完成。
       if (action === 'archive' || action === 'unarchive') {
         for (const row of ownedRows) {
-          broadcastConversationMeta(
-            request,
-            userId,
-            row.id,
-            ['archive'],
-            new Date(),
-            { archive: action === 'archive' },
-          )
+          broadcastConversationMeta(request, userId, row.id, ['archive'], new Date(), {
+            archive: action === 'archive',
+          })
         }
       }
       return reply.send(success({ action, affected, missedIds }))
