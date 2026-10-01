@@ -405,7 +405,10 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
   const r = spawnSync('git', commitArgs(false), {
     encoding: 'utf8',
     cwd: repoRoot,
-    env: process.env,
+    // G-978004 ②:把本枚声明的提交面传给钩子链(整链继承)。pre-commit-hook 写进
+    // rounds.jsonl 的 declaredFiles,让统计器能按"声明集 == 落地面"发强证;
+    // 普通直 git commit 不带此 env ⇒ 维持 ⊆ 弱证,失效方向是少发强证不是发假证。
+    env: { ...process.env, IHUI_DECLARED_FILES: expectedFiles.join('\n') },
     windowsHide: true,
   })
   const out = pump(r)
