@@ -341,7 +341,9 @@ import { loadPlugins, loadPluginsWithDiagnostics, PluginRegistry } from './plugi
 const { plugins: defs, diagnostics } = loadPluginsWithDiagnostics({ pluginsDir: './plugins' })
 for (const d of diagnostics) {
   const report = d.severity === 'error' ? console.error : console.warn
-  report(`  [plugin:${d.code}] ${d.file}${d.pluginName ? ` (${d.pluginName})` : ''} — ${d.message}`)
+  // related 段不可省:歧义弃权(G-684)的"对方那一份"只住在 relatedFiles 结构化字段里
+  const related = d.relatedFiles?.length ? ` | related: ${d.relatedFiles.join(', ')}` : ''
+  report(`  [plugin:${d.code}] ${d.file}${d.pluginName ? ` (${d.pluginName})` : ''} — ${d.message}${related}`)
 }
 // loadPlugins() 仍是旧的数组契约(等价于 loadPluginsWithDiagnostics().plugins,丢弃 diagnostics)
 const registry = new PluginRegistry()
@@ -351,6 +353,11 @@ const tools = registry.getToolExtensions()
 // 退出时
 await registry.runTeardowns()
 ```
+
+> **G-728**:agent 的真实装载点(`src/commands/agent.ts` 的 `setupAgentTools`)已从数组薄封装
+> `loadPlugins()` 改走上面的诊断出口,并经 `reportPluginDiagnostics(defs 判据之前)` 按 severity
+> 逐条派发(`error` ⇒ `console.error`,即"有清单没被装载";`warning` ⇒ `console.warn`,即"装载了但有内容被忽略")。
+> 派发不依赖是否装上任何插件——全部清单都坏时同样逐条点名到日志(`--silent` 时抑制人读输出)。
 
 ---
 
