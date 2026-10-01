@@ -27,6 +27,8 @@
 import { execFile, spawn, type ChildProcess, type StdioOptions } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import * as os from 'node:os'
+// G-695:等 close 的站点必须走补发器 —— once('close') 挂在已 fire 的 EventEmitter 上永不触发。
+import { createCloseEventController, type CloseEvent } from './close-event.js'
 
 /** 子进程执行失败原因 */
 export type SubprocessFailureReason =
@@ -420,18 +422,29 @@ export async function killProcessTreeVerified(
 /**
  * 等 child 退出(最多 reapTimeoutMs),未退出则强制 SIGKILL。
  * 跨平台兼容:Node 的 child.exit / close 事件已封装 reap,只需 await。
+ *
+ * G-695:closeEvent 是"这一件事有没有发生过"的补发面。调用点若晚于真实 close
+ * (成功路径就是这样 —— close 已被上面的 exitPromise 观察到),只挂 once('close')
+ * 会永不触发,只能白等满 reapTimeoutMs;补发面让晚订阅者在微任务内立即结算。
+ * 传不传都保留 exit/close 两个原生订阅(判据只加不减:早订阅者的行为逐字不变)。
  */
-function awaitReap(child: ChildProcess, reapTimeoutMs: number): Promise<void> {
+function awaitReap(
+  child: ChildProcess,
+  reapTimeoutMs: number,
+  closeEvent?: CloseEvent<number | null>,
+): Promise<void> {
   return new Promise<void>((resolve) => {
     let done = false
     const finish = (): void => {
       if (done) return
       done = true
       clearTimeout(timer)
+      subscription?.dispose()
       resolve()
     }
     child.once('exit', finish)
     child.once('close', finish)
+    const subscription = closeEvent?.(finish)
     // 兜底:即便没收到 exit/close(极端情况),reapTimeoutMs 后强制 resolve
     const timer = setTimeout(finish, reapTimeoutMs)
   })
@@ -624,6 +637,15 @@ export async function spawnIsolated(
   child.stdout?.on('data', (chunk: Buffer) => stdoutChunks.push(chunk))
   child.stderr?.on('data', (chunk: Buffer) => stderrChunks.push(chunk))
 
+  // G-695:close 的唯一权威观察点 —— 订阅发生在拿到 child 的同一帧,必然赶得上真正的事件;
+  // 之后每一个"等 close"的站点(含 await 之后的晚订阅)都走这份补发器。
+  // 不这么做的后果是实测的:成功路径上 close 已被 exitPromise 消费,兜底的 awaitReap
+  // 只能等满整段 reap 预算(一次 `node -e void 0` 的 spawnIsolated 耗时 2073ms)。
+  const closeEvt = createCloseEventController<number | null>()
+  child.once('close', (code: number | null) => {
+    closeEvt.fire(code)
+  })
+
   // G-998130:生前抓 root 创建标识快照(fire-and-forget,探针自身不 reject,失败静默)。
   // 快照落在生前登记表,供 killProcessTreeVerified 在回收前做身份对账 —— 防 PID 复用误认。
   void captureRootCreationIdentity(child).catch(() => {})
@@ -686,7 +708,7 @@ export async function spawnIsolated(
     const err = e as Error
     // 幂等:若超时已先触发过 requestStop,这里是 no-op,不会二次杀
     stopMachine.requestStop()
-    await awaitReap(child, reapTimeoutMs)
+    await awaitReap(child, reapTimeoutMs, closeEvt.event)
     throw makeError('wait', `等待子进程退出失败: ${err.message}`, {
       command,
       args,
@@ -701,7 +723,7 @@ export async function spawnIsolated(
   if (timedOut) {
     // requestStop 已在超时回调里 killTree,这里只等 reap。若 reap 超时仍未死,
     // FORCE_EXIT 定时器(5s)会在后台升级强杀 + 毁流;close 后 finalize 收尾。
-    await awaitReap(child, reapTimeoutMs)
+    await awaitReap(child, reapTimeoutMs, closeEvt.event)
     throw makeError('timeout', `子进程超时(${timeoutMs}ms): ${command}`, {
       command,
       args,
@@ -716,7 +738,7 @@ export async function spawnIsolated(
   stopMachine.finalize()
 
   // 正常退出 — 但为防 'close' 不触发(罕见),再 awaitReap 兜底
-  await awaitReap(child, reapTimeoutMs)
+  await awaitReap(child, reapTimeoutMs, closeEvt.event)
 
   const stdout = Buffer.concat(stdoutChunks)
   const stderr = Buffer.concat(stderrChunks)
