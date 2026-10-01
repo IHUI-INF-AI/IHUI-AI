@@ -18,6 +18,8 @@
 //! 是**两件事**:那一条说的是 Windows 通知区「图标是否常驻(注册表 IsPromoted)」,
 //! 本字段说的是「托盘图标到底存不存在」。不得合并、不得改名互相顶替。
 
+// G-715:桌面 IPC 的错误身份档定义在 crate 根(lib.rs),这里只引它,不开第二份档位表。
+use crate::IpcError;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tauri::Manager;
@@ -258,13 +260,18 @@ pub fn load_prefs_from(path: &Path) -> DesktopPrefs {
     }
 }
 
-/// 写盘(目录不存在则创建)。失败返回原因,由调用方决定喊多大声 —— 不得吞。
-pub fn save_prefs_to(path: &Path, prefs: &DesktopPrefs) -> Result<(), String> {
+/// 写盘(目录不存在则创建)。失败返回**带身份档**的原因,由调用方决定喊多大声 —— 不得吞。
+///
+/// G-715(2026-09-30):此前返回 `String`,于是"目录不可写(权限)"与"序列化失败(内部缺陷)"
+/// 在日志与任何上游出口上完全同形。现在档名由 `IpcError::from_io` 按 `ErrorKind` 给出 ——
+/// 归类只看 kind,不看 io 的文案(Windows 的报错措辞随系统语言变,按文案猜档就是本票要消灭的形态)。
+pub fn save_prefs_to(path: &Path, prefs: &DesktopPrefs) -> Result<(), IpcError> {
     if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| format!("create_dir_all {}: {e}", dir.display()))?;
+        std::fs::create_dir_all(dir).map_err(|e| IpcError::from_io("create_dir_all", dir, e))?;
     }
-    let bytes = serde_json::to_vec_pretty(prefs).map_err(|e| format!("serialize: {e}"))?;
-    std::fs::write(path, bytes).map_err(|e| format!("write {}: {e}", path.display()))
+    let bytes =
+        serde_json::to_vec_pretty(prefs).map_err(|e| IpcError::internal(format!("serialize: {e}")))?;
+    std::fs::write(path, bytes).map_err(|e| IpcError::from_io("write", path, e))
 }
 
 // ================== 老用户迁移判据(纯函数)==================
@@ -304,8 +311,10 @@ pub fn load_desktop_prefs(app: &tauri::AppHandle) -> DesktopPrefs {
     }
 }
 
-pub fn save_desktop_prefs(app: &tauri::AppHandle, prefs: &DesktopPrefs) -> Result<(), String> {
-    let path = desktop_prefs_path(app).ok_or("app_config_dir unavailable")?;
+/// `app_config_dir` 取不到属宿主内部缺陷(不是策略拒绝)⇒ internal 档,与 io 失败分得开。
+pub fn save_desktop_prefs(app: &tauri::AppHandle, prefs: &DesktopPrefs) -> Result<(), IpcError> {
+    let path = desktop_prefs_path(app)
+        .ok_or_else(|| IpcError::internal("app_config_dir unavailable"))?;
     save_prefs_to(&path, prefs)
 }
 
