@@ -25,6 +25,8 @@ import {
   Info,
 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   Button,
   Input,
@@ -91,9 +93,13 @@ export default function WorkflowDetailPage() {
   const [instPage, setInstPage] = React.useState(1)
   const INST_PAGE_SIZE = 10
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const wfQ = useQuery({
     queryKey: ['workflows', id],
     queryFn: () => api<{ workflow: Workflow }>(`/api/workflows/${id}`).then((d) => d.workflow),
+    enabled: allow,
   })
 
   const instQ = useQuery({
@@ -102,6 +108,7 @@ export default function WorkflowDetailPage() {
       api<{ list: Instance[]; total: number }>(
         `/api/workflows/instances?workflowId=${id}&page=${instPage}&pageSize=${INST_PAGE_SIZE}`,
       ).then((d) => d),
+    enabled: allow,
   })
 
   const insts = instQ.data?.list ?? []
@@ -202,6 +209,14 @@ export default function WorkflowDetailPage() {
     const d = new Date(v)
     return Number.isNaN(d.getTime()) ? '-' : dateFmt.format(d)
   }
+
+  // 2026-09-30 登录态门:未登录时用最简外壳 + 登录引导
+  if (!allow)
+    return (
+      <div className="space-y-4 px-4 py-4">
+        <AuthGatePrompt message="请先登录后查看工作流" />
+      </div>
+    )
 
   if (wfQ.isLoading)
     return (

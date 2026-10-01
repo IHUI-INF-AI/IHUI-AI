@@ -15,7 +15,8 @@ import { AddressForm } from './AddressForm'
 import { AddressesList } from './AddressesList'
 import { EMPTY_ADDRESS } from './types'
 import type { Address, AddressInput } from './types'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
@@ -28,12 +29,16 @@ export default function MemberAddressesPage() {
   const [editing, setEditing] = React.useState<AddressInput | null>(null)
   const [editId, setEditId] = React.useState<string | null>(null)
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'addresses'],
     queryFn: () =>
       api<{ list: Address[] }>('/api/addresses')
         .then((d) => d.list ?? [])
         .catch(() => [] as Address[]),
+    enabled: allow,
   })
 
   const saveMut = useMutation({
@@ -104,7 +109,9 @@ export default function MemberAddressesPage() {
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后管理收货地址" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...

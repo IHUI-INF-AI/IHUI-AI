@@ -98,7 +98,7 @@ vi.mock('@/components/publish/CountdownTimer', () => ({
 
 vi.mock('@ihui/api-client', () => ({
   listScanLoginPlatforms: () => listScanLoginPlatforms(),
-  startScanLogin: (platform: string) => startScanLogin(platform),
+  startScanLogin: (...args: unknown[]) => startScanLogin(...args),
   getScanLoginStatus: (taskId: string) => getScanLoginStatus(taskId),
   fetchScanLoginQr: (taskId: string) => fetchScanLoginQr(taskId),
   cancelScanLogin: (taskId: string) => cancelScanLogin(taskId),
@@ -165,6 +165,7 @@ describe('单平台扫码登录弹窗 —— 必须走纯 HTTP 那条通的腿',
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.setSystemTime(new Date('2026-09-29T00:00:00Z'))
+    window.localStorage.clear() // 会话复用偏好跨用例必须复位,否则开关用例会污染相邻用例
     globalThis.URL.createObjectURL = vi.fn(() => 'blob:mock-qr')
     globalThis.URL.revokeObjectURL = vi.fn()
     for (const m of [
@@ -196,7 +197,7 @@ describe('单平台扫码登录弹窗 —— 必须走纯 HTTP 那条通的腿',
 
   it('A1 发起走 startScanLogin,绝不走线上 404 的 createBrowserSession', async () => {
     await openAndStart()
-    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('zhihu'))
+    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('zhihu', { reuseSession: true }))
     expect(createBrowserSession).not.toHaveBeenCalled()
     expect(detectLoginFromCdp).not.toHaveBeenCalled()
   })
@@ -247,5 +248,101 @@ describe('单平台扫码登录弹窗 —— 必须走纯 HTTP 那条通的腿',
     await waitFor(() => expect(cancelScanLogin).toHaveBeenCalledWith('task-1'))
     expect(onOpenChange).toBeDefined()
   })
+
+  /**
+   * 2026-09-30 提速档:A6/A7 钉住"用户点按钮之前二维码就已经在路上"。
+   *
+   * 立因(本机实测,platform=toutiao_app):固定等待(goto 后 3s + 切 tab 后 1.5s +
+   * 截图前 2s)曾占满 7.8s 里的大头,现在后端已改成"条件一到就走";前端这一侧剩下的
+   * 就是"点按钮才点火"本身 —— 后端起浏览器 + 打开登录页要 1.2s,纯属可提前的等待。
+   * 所以弹窗一打开(带 defaultPlatform 的入口)就点火,点击时直接**接管**那枚任务:
+   * 不再发第二次 startScanLogin(否则等于把刚跑掉的那 1.2s 又白等一遍)。
+   */
+  it('A6 带默认平台的入口一打开就预热(startScanLogin 在点击前已发出)', async () => {
+    render(<ScanLoginDialog open onOpenChange={vi.fn()} defaultPlatform="zhihu" />)
+    await screen.findByText('accounts.startScanLogin')
+    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('zhihu', { reuseSession: true }))
+    // 预热只发一次:此时用户还没点任何东西
+    expect(startScanLogin).toHaveBeenCalledTimes(1)
+  })
+
+  it('A6b 预热不等于自动开扫:二维码不进入轮询,用户仍看到「开始扫码登录」', async () => {
+    render(<ScanLoginDialog open onOpenChange={vi.fn()} defaultPlatform="zhihu" />)
+    await screen.findByText('accounts.startScanLogin')
+    await waitFor(() => expect(startScanLogin).toHaveBeenCalledWith('zhihu', { reuseSession: true }))
+    // 预热只是把后端任务点起来:界面停在 idle,没有轮询、没有二维码
+    expect(getScanLoginStatus).not.toHaveBeenCalled()
+    expect(fetchScanLoginQr).not.toHaveBeenCalled()
+    expect(screen.getByText('accounts.startScanLogin')).toBeTruthy()
+  })
+
+  it('A7 点击时接管预热任务,不再重复发起(冷启动 1.2s 被提前掉)', async () => {
+    await openAndStart()
+    await waitFor(() => expect(getScanLoginStatus).toHaveBeenCalledWith('task-1'))
+    // 关键判据:整场只有 A6 那一次预热调用,点击没有又发一遍
+    expect(startScanLogin).toHaveBeenCalledTimes(1)
+    expect(fetchScanLoginQr).toHaveBeenCalledWith('task-1')
+  })
+
+  it('A8 关闭弹窗必须取消预热任务,不给后端留空转的浏览器', async () => {
+    render(<ScanLoginDialog open onOpenChange={vi.fn()} defaultPlatform="zhihu" />)
+    await screen.findByText('accounts.startScanLogin')
+    await waitFor(() => expect(startScanLogin).toHaveBeenCalledTimes(1))
+    cleanup()
+    await waitFor(() => expect(cancelScanLogin).toHaveBeenCalledWith('task-1'))
+  })
+
+  /**
+   * 2026-09-30 第二档提速:用户原话「别让用户以为卡住了,一点变化都没有」。
+   *
+   * 上面那批把"出码时刻"提前了;这一批管的是**出码之前那几秒屏幕上有没有变化**。
+   * 三条断言各自对应一种"看着像卡死"的形态:
+   *  A9 出码前必须有与二维码同尺寸的占位骨架(位置不跳,码一好就地替换)
+   *  A10 后端 stage 必须驱动五级进度阶梯(不是前端编的假进度)
+   *  A11 已等待秒数必须在跳(最直接的"页面还活着"证据)
+   */
+  it('A9 出码前显示占位骨架,不再是一行静止文字', async () => {
+    getScanLoginStatus.mockResolvedValue(ok(snapshot({ has_qr: false, qr_updated_at: 0 })))
+    await openAndStart()
+    expect(await screen.findByTestId('qr-placeholder')).toBeTruthy()
+    // 当前档位出现在两处:主文案 + 阶梯里的高亮项(故用 getAllByText 而非唯一性断言)
+    expect(screen.getAllByText('accounts.loadingStage.booting').length).toBeGreaterThan(0)
+  })
+
+  it('A10 进度阶梯由后端 stage 驱动:stage=rendering 时该档高亮', async () => {
+    getScanLoginStatus.mockResolvedValue(
+      ok(snapshot({ has_qr: false, qr_updated_at: 0, stage: 'rendering' })),
+    )
+    await openAndStart()
+    // 主文案切到 rendering 那一档(阶梯里其余档位仍以文字列出,故用主文案唯一性判)
+    await waitFor(() => {
+      const nodes = screen.getAllByText('accounts.loadingStage.rendering')
+      expect(nodes.length).toBeGreaterThan(0)
+    })
+    expect(screen.getByText('accounts.loadingStage.opening')).toBeTruthy()
+  })
+
+  it('A11 等待期间「已等待秒数」在跳字', async () => {
+    getScanLoginStatus.mockResolvedValue(ok(snapshot({ has_qr: false, qr_updated_at: 0 })))
+    await openAndStart()
+    await screen.findByTestId('qr-placeholder')
+    const first = screen.getAllByText(/^accounts\.elapsedSeconds$/).length
+    expect(first).toBeGreaterThan(0)
+    // 计时器每 100ms 一跳(fake timers 已 shouldAdvanceTime),等两跳后仍应存在(未抛错/未卸载)
+    await new Promise((r) => setTimeout(r, 350))
+    expect(screen.getByTestId('qr-placeholder')).toBeTruthy()
+  })
+  it('A12 会话复用开关:关掉后发起带 reuseSession:false,并持久化到 localStorage', async () => {
+    listScanLoginPlatforms.mockResolvedValue(ok({ platforms }))
+    render(<ScanLoginDialog open onOpenChange={vi.fn()} defaultPlatform="zhihu" />)
+    await screen.findByText('accounts.startScanLogin')
+    fireEvent.click(screen.getByText('accounts.scanLoginReuseLabel'))
+    fireEvent.click(screen.getByText('accounts.startScanLogin'))
+    await waitFor(() =>
+      expect(startScanLogin).toHaveBeenCalledWith('zhihu', { reuseSession: false }),
+    )
+    expect(window.localStorage.getItem('ihui:scan-login:reuse-session')).toBe('0')
+  })
+
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

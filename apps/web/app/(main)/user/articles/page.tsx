@@ -17,7 +17,8 @@ import { pushError } from '@/stores/error-banner'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import type { ArticleItem, MyArticlesData } from '../../articles/types'
 import { formatDateOnly } from '@/lib/date-utils'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
@@ -41,9 +42,13 @@ export default function MyArticlesPage() {
   }
   const [page, setPage] = React.useState(1)
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['articles', 'my', page],
     queryFn: () => api<MyArticlesData>(`/api/article/my?page=${page}&pageSize=20`),
+    enabled: allow,
   })
 
   // 2026-08-01 错误推送全局 banner(常驻 + 顶部滑下),替代 inline 英文错误显示
@@ -80,7 +85,9 @@ export default function MyArticlesPage() {
         </Link>
       </header>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看我的文章" />
+      ) : isLoading ? (
         <div className="flex justify-center py-8">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>

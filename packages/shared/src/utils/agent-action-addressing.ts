@@ -103,4 +103,80 @@ export function withRespondedIdentity(
   if (!token) return response
   return { ...response, responded: { instanceId: self.instanceId, assignmentToken: token } }
 }
+
+// ================== 重放水位(2026-09-30,吸收 zcode-protocol-v4 settledByRoute)==================
+
+/**
+ * 为什么不继续用「有界 id 集合 + 淘汰最早」做去重:投递保证是"至少一次",断线重连会把
+ * 同一条指令再送一次;容量满按插入序丢最旧 ⇒ 被淘汰的旧 id 在重放时**结构上必然复活**
+ * (对桌面是再点一次鼠标/再敲一次键盘),且整条路径没有任何一行日志会说真因。
+ *
+ * 上游的答案是把**水位(单调序号)**与**身份(id)**分成两件事,判定顺序**判序早于判体**:
+ *  - ordinal < lastOrdinal:低于水位的迟到帧(旧连接残帧)静默丢,且**不污染水位**;
+ *  - ordinal == lastOrdinal && id == lastId:同序号同身份 = 重放,幂等忽略、不进故障;
+ *  - ordinal == lastOrdinal && id != lastId:同序号不同身份 = 语义冲突,记 typed fault;
+ *  - ordinal > lastOrdinal:水位推进(**只升不降**),放行执行。
+ *
+ * 复杂度:每路由一条 {lastOrdinal, lastId} 墓碑,O(1) 常量内存,不随条目数增长 ——
+ * 与 id 集合的 O(capacity) 且「淘汰即复活」形成对照。
+ *
+ * 序号来源:上游协议帧自带 ordinal;我方载荷暂无序号字段,接线端先以端内到达计数作
+ * provisional ordinal(此时水位器恒判 fresh,去重由既有 id 集承担),协议一旦下发序号,
+ * 只需替换取值来源,判定语义与测试已就位 —— 已淘汰 id 的重放与新指令在纯端内计数下
+ * 字节同构,这是信息边界,不是实现缺口。
+ */
+
+/** 每路由 settled 墓碑:单调水位 + 该序号上的身份 */
+export interface ReplayWatermarkRecord {
+  lastOrdinal: number
+  lastId: string
+}
+
+/** 水位判定结论(接线端据此走四条处置路径:执行 / 幂等忽略 / 静默丢 / 记故障) */
+export type ReplayVerdict =
+  | { kind: 'fresh' }
+  | { kind: 'duplicate' }
+  | { kind: 'stale' }
+  | { kind: 'conflict'; message: string }
+
+export interface ReplayWatermark {
+  observe(route: string, ordinal: number, id: string): ReplayVerdict
+  peek(route: string): ReplayWatermarkRecord | undefined
+}
+
+/**
+ * 每路由单调重放水位:键 = 连接/实例身份(路由),值 = {lastOrdinal, lastId} 墓碑。
+ * conflict 的 message 刻意 ASCII(本模块在硬编码中文棘轮门扫描面内)。
+ */
+export function createReplayWatermark(): ReplayWatermark {
+  const settled = new Map<string, ReplayWatermarkRecord>()
+  return {
+    observe(route: string, ordinal: number, id: string): ReplayVerdict {
+      const rec = settled.get(route)
+      if (!rec) {
+        settled.set(route, { lastOrdinal: ordinal, lastId: id })
+        return { kind: 'fresh' }
+      }
+      // 判序早于判体:低于水位的迟到片静默丢,不得回头改写水位
+      if (ordinal < rec.lastOrdinal) return { kind: 'stale' }
+      if (ordinal === rec.lastOrdinal) {
+        // 同序号同身份 = 幂等重放;同序号不同身份 = 冲突,不得静默
+        if (id === rec.lastId) return { kind: 'duplicate' }
+        return {
+          kind: 'conflict',
+          message:
+            `agent-control: replay watermark conflict at route=${route} ordinal=${ordinal} ` +
+            `(settledId=${rec.lastId}, incomingId=${id})`,
+        }
+      }
+      // 水位只升不降
+      rec.lastOrdinal = ordinal
+      rec.lastId = id
+      return { kind: 'fresh' }
+    },
+    peek(route: string): ReplayWatermarkRecord | undefined {
+      return settled.get(route)
+    },
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

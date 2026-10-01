@@ -17,18 +17,23 @@ import {
   createReadStream,
 } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
 import { uploadSessions, UPLOAD_SESSION_STATUS, type UploadSessionStatus } from '@ihui/database'
 import {
+  CHUNKS_ROOT,
   PROTOCOL_UPLOAD_LIMITS,
+  clampUploadLimit,
   countUniqueReceivedChunks,
   findMissingChunkNumbers,
   hashFile,
   digestMatches,
+  isPerUserSessionBudgetExceeded,
   listReceivedChunkNumbers,
+  measureStagedBytes,
+  wouldStagedBudgetOverflow,
 } from '../services/upload-integrity.js'
 import { withUploadMergeSlot } from '../services/upload-merge-gate.js'
 
@@ -38,7 +43,8 @@ import { withUploadMergeSlot } from '../services/upload-merge-gate.js'
 const STATUS_CHECKSUM_MISMATCH: UploadSessionStatus = UPLOAD_SESSION_STATUS.checksumMismatch
 
 function expiresAtFrom(now: Date): Date {
-  return new Date(now.getTime() + PROTOCOL_UPLOAD_LIMITS.ttlMs)
+  // ttl 读取口走钳制器(只可收紧):常量表被 spread 改大也在这里被钳回协议档
+  return new Date(now.getTime() + clampUploadLimit('ttlMs', PROTOCOL_UPLOAD_LIMITS.ttlMs))
 }
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
@@ -109,8 +115,9 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     const { fileName, fileSize, totalChunks, fileMd5, mimeType, chunkSize } = parsed.data
 
     // 参数自洽性(2026-09-26):声明的字节数装不进声明的分片数 = 客户端把参数写错了,
-    // 当场拒比等全部数据传完才在 merge 处失败便宜得多。chunkSize 亦不得超过协议档。
-    if (chunkSize > PROTOCOL_UPLOAD_LIMITS.maxChunkBytes) {
+    // 当场拒比等全部数据传完才在 merge 处失败便宜得多。chunkSize 亦不得超过协议档
+    // (读取口走钳制器:传入值只可收紧,超出协议档即被钳回 → 差值即判超)。
+    if (chunkSize > clampUploadLimit('maxChunkBytes', chunkSize)) {
       return reply
         .status(400)
         .send(error(400, `chunkSize 不得超过 ${PROTOCOL_UPLOAD_LIMITS.maxChunkBytes} 字节`))
@@ -119,6 +126,34 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
       return reply
         .status(400)
         .send(error(400, `fileSize(${fileSize}) 与 totalChunks(${totalChunks}) 不自洽`))
+    }
+
+    // 跨会话聚合预算·begin 处检(2026-09-30,票 b76-12c-3,对齐上游「新建装配检」半边):
+    // 单用户活跃 uploading 会话超档 = 429 且**不建目录不建行**(零资源占用,可重试)。
+    // 此前会话创建面没有任何一档在管 —— 单会话寿命内能开多少 uploadId 无上限,
+    // 而 ttlMs=24h 意味着每条僵尸会话的占盘窗口是一整天。
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const activeRows = await db
+      .select({ uploadId: uploadSessions.uploadId })
+      .from(uploadSessions)
+      .where(
+        and(
+          eq(uploadSessions.userId, userId),
+          eq(uploadSessions.status, UPLOAD_SESSION_STATUS.uploading),
+        ),
+      )
+    if (isPerUserSessionBudgetExceeded(activeRows.length)) {
+      request.log.warn(
+        { userId, active: activeRows.length },
+        'chunked-upload begin 拒绝:单用户活跃会话预算超档',
+      )
+      return reply.status(429).send(
+        error(
+          429,
+          `并发上传会话数已达上限(${PROTOCOL_UPLOAD_LIMITS.maxActiveSessionsPerUser}),请等既有上传完成或取消后重试`,
+        ),
+      )
     }
 
     const uploadId = randomUUID()
@@ -207,10 +242,24 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
         .status(400)
         .send(error(400, `x-chunk-number 超出 totalChunks(${session.totalChunks})`))
     }
-    if (buffer.byteLength > PROTOCOL_UPLOAD_LIMITS.maxChunkBytes) {
+    if (buffer.byteLength > clampUploadLimit('maxChunkBytes', buffer.byteLength)) {
       return reply
         .status(413)
         .send(error(413, `单片不得超过 ${PROTOCOL_UPLOAD_LIMITS.maxChunkBytes} 字节`))
+    }
+
+    // 跨会话聚合预算·每片落盘处检(2026-09-30,票 b76-12c-3,对齐上游「追加分片检」半边):
+    // 全局暂存字节超预算 = 429 拒收**新片**,fail closed 只挡增量 —— 既有会话一律不清
+    // (清存量 = 把无辜用户的在途上传打掉,不误伤)。
+    const stagedBytes = measureStagedBytes(CHUNKS_ROOT)
+    if (wouldStagedBudgetOverflow(stagedBytes, buffer.byteLength)) {
+      request.log.warn(
+        { uploadId: uploadIdStr, stagedBytes, incoming: buffer.byteLength },
+        'chunked-upload 拒收新片:全局暂存字节预算超档',
+      )
+      return reply
+        .status(429)
+        .send(error(429, '服务端上传暂存预算已满,请稍后重试(既有分片不受影响)'))
     }
 
     // 将分片写入 uploads/chunks/{uploadId}/{chunkNumber}.part

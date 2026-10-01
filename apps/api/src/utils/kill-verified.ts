@@ -16,9 +16,16 @@
  *  - 判定(judgeKillIdentity)与执行(本文件 spawn 终止命令)只在这一处 ——
  *    "两处算同一件事必漂移"是本仓记过最多次的失败型,调用方不得自行比对后再杀。
  *
- * 可注入:deps.inspect / deps.runKill,测试成对钉死判据时不派生任何真实进程。
+ * 可注入:deps.inspect / deps.runKill / deps.isAlive,测试成对钉死判据时不派生任何真实进程。
  * Windows 上没有 ps:经 `Get-CimInstance Win32_Process -Filter "ProcessId=<pid>"` 取身份;
  * 派生一律 windowsHide + timeout(AGENTS §5b / 守门 52、80)。
+ *
+ * G-998132(2026-09-30 立项):杀完的终态按 OS 事实判 —— 命令派发成功 ≠ killed:true。
+ * 上游判据(processTreeTerminator.ts:165-176):终止命令报错**且**存活复核确认在场才算真失败;
+ * 命令非零但进程确实没了 = 不误报失败;进程还在但命令成功 = 也不装成功。
+ * 终止命令的派生出口返回 { ok, output }(ok=命令是否派发成功),不再把 err 折进输出字符串
+ * (调用方拿不到"命令失败"这一维是本票点名的病灶);旧形注入(裸字符串)按未报失败处理,
+ * 终局一律以 OS 存活复核结算。存活复核口异常 ⇒ 保守按"仍在"处理,不装成功。
  */
 import { execFile } from 'node:child_process'
 import { readFileSync, readlinkSync } from 'node:fs'
@@ -27,6 +34,13 @@ import { platform } from 'node:os'
 export interface ProcIdentitySnapshot {
   executablePath: string | null
   commandLine: string | null
+  /**
+   * G-998126:进程创建时刻的微秒串(`windows-utc-us:<µs>`,由 Win32 CreationDate.Ticks
+   * 归一)。机制对标上游 processTreeSnapshot.ts:146-184 —— 秒级 StartTime 在
+   * "同一秒内被复用"这一档结构性失明,tick/微秒量纲才可分辨。取不到 ⇒ null(可选:
+   * 旧快照构造方与 linux 探针不带该维)。
+   */
+  creationUtcUs?: string | null
 }
 
 /** 现测某 pid 的身份;进程不存在或取不到 ⇒ null(⇒ 未判定)。 */
@@ -37,22 +51,60 @@ export interface KillIdentityExpectation {
   executablePathIncludes?: string
   /** commandLine 须命中至少一个(不区分大小写);空/不给 ⇒ 不判这一维。 */
   commandLineAnyOf?: string[]
+  /**
+   * G-998126:创建时刻微秒串须**全等**(字符串比对,ticks 量级超出 JS 安全整数故不进数值域)。
+   * 不给 ⇒ 不判这一维;给了而实得缺位 ⇒ 不成立(同 exe+cmdline 的同秒复用进程照样拒杀)。
+   */
+  creationUtcUs?: string
 }
 
 /** 派生终止命令的出口由本文件选定(bin/argv 不由调用方注入,防"注入命令"的第二真相)。 */
-export type KillExecutor = (bin: string, argv: string[]) => Promise<string>
+export interface KillCommandResult {
+  /** 命令是否派发成功(非零退出/异常 = false);真终态另由 OS 存活复核结算。 */
+  ok: boolean
+  /** 可诊断输出。 */
+  output: string
+}
+
+/** 旧形注入返回裸字符串 ⇒ 按"未报失败"处理;终局以 OS 存活复核结算(G-998132)。 */
+export type KillExecutor = (bin: string, argv: string[]) => Promise<string | KillCommandResult>
+
+/** 存活复核口:该 pid 现测是否仍在场(信号 0 探测,不杀伤)。 */
+export type PidLivenessProbe = (pid: number) => Promise<boolean>
+
+/**
+ * 默认存活复核:`process.kill(pid, 0)` 只探存在性不发信号;EPERM = 在场但无权发信号
+ * ⇒ 按在场处理(保守:无权确认消失 ≠ 消失)。其余错误(ESRCH 等)⇒ 不在场。
+ */
+export const defaultPidLivenessProbe: PidLivenessProbe = async (pid) => {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
 
 export interface KillVerifiedDeps {
   inspect?: ProcIdentityInspector
   runKill?: KillExecutor
+  /** 杀后 OS 事实复核口(缺省 defaultPidLivenessProbe);终态结算以此为准,不信命令回执。 */
+  isAlive?: PidLivenessProbe
 }
 
 export type KillVerifiedOutcome =
-  | { killed: true; pid: number; command: string; output: string }
+  | {
+      killed: true
+      pid: number
+      command: string
+      output: string
+      /** G-998132:命令回执与 OS 事实冲突时的可诊断说明(命令报失败但 OS 复核确认已不在)。 */
+      observation?: string
+    }
   | {
       killed: false
       pid: number
-      reason: 'invalid-pid' | 'identity-mismatch' | 'undetermined'
+      reason: 'invalid-pid' | 'identity-mismatch' | 'undetermined' | 'kill-verify-failed'
       /** 可诊断记录:点名 pid、期望特征、实得特征。 */
       record: string
     }
@@ -63,6 +115,7 @@ function describeExpectation(e: KillIdentityExpectation): string {
   if (e.commandLineAnyOf && e.commandLineAnyOf.length > 0) {
     parts.push(`commandLine 须命中 ${JSON.stringify(e.commandLineAnyOf)} 之一`)
   }
+  if (e.creationUtcUs !== undefined) parts.push(`creationUtcUs 须全等 "${e.creationUtcUs}"`)
   return parts.length > 0 ? parts.join(' ∧ ') : '(未设特征 ⇒ 仅要求进程在场)'
 }
 
@@ -90,6 +143,15 @@ export function judgeKillIdentity(
       )
     }
   }
+  if (expectation.creationUtcUs !== undefined) {
+    // G-998126:同 exe + 同 cmdline 的"同秒复用"进程,只有这一维能分辨。
+    // 字符串全等比对;实得缺位(null)= 量纲取不到 ⇒ 不成立,不得放行。
+    if (snapshot.creationUtcUs !== expectation.creationUtcUs) {
+      misses.push(
+        `creationUtcUs 实得 ${JSON.stringify(snapshot.creationUtcUs)} 须全等 ${JSON.stringify(expectation.creationUtcUs)}`,
+      )
+    }
+  }
   return misses.length > 0 ? { ok: false, why: misses.join(';') } : { ok: true }
 }
 
@@ -99,6 +161,7 @@ const WIN_PROBE_NONE = 'IHUI-PROC-NONE'
 export function parseProcProbeOutput(raw: string): ProcIdentitySnapshot | null {
   let executablePath: string | null = null
   let commandLine: string | null = null
+  let creationUtcUs: string | null = null
   let seen = false
   for (const line of String(raw ?? '').split(/\r?\n/)) {
     const l = line.trim()
@@ -111,17 +174,29 @@ export function parseProcProbeOutput(raw: string): ProcIdentitySnapshot | null {
       seen = true
       const v = l.slice('IHUI-CL='.length).trim()
       commandLine = v === '' ? null : v
+    } else if (l.startsWith('IHUI-CU=')) {
+      // G-998126:CreationDate.Ticks 归一的微秒串(格式 windows-utc-us:<µs>);缺位/噪音 ⇒ null
+      seen = true
+      const v = l.slice('IHUI-CU='.length).trim()
+      creationUtcUs = /^windows-utc-us:\d+$/.test(v) ? v : null
     }
   }
-  return seen ? { executablePath, commandLine } : null
+  return seen ? { executablePath, commandLine, creationUtcUs } : null
 }
 
 function runPowerShellProbe(pid: number): Promise<string> {
+  // G-998126:补一发 CreationDate.Ticks 归一的微秒串 —— 秒级 StartTime 分辨不了
+  // "同一秒内被复用"的进程,tick/微秒量纲才可分辨(机制对标上游 processTreeSnapshot.ts)。
+  // .NET Ticks(100ns,自 0001-01-01)减去纪元差后整串留在 PowerShell 侧算,
+  // 6.4e17 量级不进 JS 数值域。
+  const NET_TICKS_TO_UNIX = '621355968000000000'
   const script =
     `$ErrorActionPreference='Stop';` +
     `$p=Get-CimInstance Win32_Process -Filter "ProcessId=${pid}";` +
     `if($null -eq $p){'${WIN_PROBE_NONE}'}else{` +
-    `'IHUI-EP='+[string]$p.ExecutablePath;'IHUI-CL='+[string]$p.CommandLine}`
+    `'IHUI-EP='+[string]$p.ExecutablePath;` +
+    `'IHUI-CL='+[string]$p.CommandLine;` +
+    `if($null -ne $p.CreationDate){'IHUI-CU=windows-utc-us:'+([long](([long]$p.CreationDate.Ticks - ${NET_TICKS_TO_UNIX})/10))}}`
   return new Promise((resolvePromise, rejectPromise) => {
     execFile(
       'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
@@ -154,7 +229,12 @@ export const defaultProcInspector: ProcIdentityInspector = async (pid) => {
         .replace(/\0+$/, '')
         .split('\0')
         .join(' ')
-      return { executablePath, commandLine: commandLine === '' ? null : commandLine }
+      return {
+        executablePath,
+        commandLine: commandLine === '' ? null : commandLine,
+        // linux 侧 /proc/<pid>/stat field 22(boot-tick)量纲不同,不在本探针归一 ⇒ null
+        creationUtcUs: null,
+      }
     } catch {
       return null
     }
@@ -169,11 +249,13 @@ const defaultKillExecutor: KillExecutor = (bin, argv) =>
       argv,
       { timeout: 15_000, shell: false, windowsHide: true },
       (err, out, errOut) => {
-        resolvePromise(
+        const text = (
           err
-            ? `${String(err.message)}\n${String(out)}\n${String(errOut)}`.trim().slice(-1000)
-            : String(out || errOut || 'done').slice(-1000),
-        )
+            ? `${String(err.message)}\n${String(out)}\n${String(errOut)}`
+            : String(out || errOut || 'done')
+        ).trim().slice(-1000)
+        // G-998132:err 不再折进输出字符串 —— ok 维必须显式交给结算层
+        resolvePromise({ ok: !err, output: text })
       },
     )
   })
@@ -216,7 +298,7 @@ export async function killProcessVerified(
       record:
         `pid ${pid} 身份复核不成立 ⇒ 拒杀(未派生任何终止命令)。` +
         `期望:${describeExpectation(expectation)};` +
-        `实得:executablePath=${JSON.stringify(snapshot.executablePath)} commandLine=${JSON.stringify(snapshot.commandLine)};` +
+        `实得:executablePath=${JSON.stringify(snapshot.executablePath)} commandLine=${JSON.stringify(snapshot.commandLine)} creationUtcUs=${JSON.stringify(snapshot.creationUtcUs)};` +
         verdict.why,
     }
   }
@@ -224,12 +306,44 @@ export async function killProcessVerified(
   const bin = isWin ? 'taskkill' : 'kill'
   const argv = isWin ? ['/PID', String(pid), '/F'] : ['-9', String(pid)]
   const runKill = deps.runKill ?? defaultKillExecutor
-  const output = await runKill(bin, argv)
+  const isAlive = deps.isAlive ?? defaultPidLivenessProbe
+  const dispatched = await runKill(bin, argv)
+  // G-998132:命令回执只算"派发维度",终态一律按 OS 存活复核结算 ——
+  // 命令非零但进程确实没了 = 不误报失败;进程还在但命令成功 = 也不装成功。
+  const commandOk =
+    typeof dispatched === 'object' && dispatched !== null && typeof dispatched.ok === 'boolean'
+      ? dispatched.ok
+      : true // 旧形(裸字符串)未报失败维度 ⇒ 按"未报失败"处理,终局仍看 OS 复核
+  const output = typeof dispatched === 'string' ? dispatched : dispatched.output
+  let alive: boolean
+  let probeNote = ''
+  try {
+    alive = await isAlive(pid)
+  } catch (e) {
+    // 复核口自身异常 ⇒ 未判定 ⇒ 保守按"仍在"处理,不装成功
+    alive = true
+    probeNote = `;存活复核口异常(${e instanceof Error ? e.message : String(e)})⇒ 按仍在处理`
+  }
+  if (!alive) {
+    return {
+      killed: true,
+      pid,
+      command: isWin ? `taskkill /PID ${pid} /F` : `kill -9 ${pid}`,
+      output,
+      ...(commandOk
+        ? {}
+        : {
+            observation: `pid ${pid} 终止命令报失败(${output})但 OS 存活复核确认已不在 ⇒ 结算为已不在,不误报失败`,
+          }),
+    }
+  }
   return {
-    killed: true,
+    killed: false,
     pid,
-    command: isWin ? `taskkill /PID ${pid} /F` : `kill -9 ${pid}`,
-    output,
+    reason: 'kill-verify-failed',
+    record:
+      `pid ${pid} 终止命令已派发(命令${commandOk ? '报成功' : '报失败'})但 OS 存活复核仍确认在场${probeNote} ⇒ 不装成功。` +
+      `命令输出:${output}`,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

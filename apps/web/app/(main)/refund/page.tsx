@@ -10,7 +10,8 @@ import { Loader2, RotateCcw, Clock, CheckCircle, XCircle, Wallet } from 'lucide-
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
 
 type RefundStatus = 'pending' | 'approved' | 'rejected' | 'completed'
@@ -50,6 +51,8 @@ const STATUS_CONFIG: Record<RefundStatus, { icon: typeof Clock; cls: string; lab
 export default function RefundPage() {
   const t = useTranslations('refund')
   const locale = useLocale()
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['refund'],
     queryFn: async () => {
@@ -57,6 +60,7 @@ export default function RefundPage() {
       if (r.success && r.data) return r.data.list ?? []
       return []
     },
+    enabled: allow,
   })
 
   const items = data ?? []
@@ -86,7 +90,9 @@ export default function RefundPage() {
         </Button>
       </header>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看退款记录" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('listLoading')}

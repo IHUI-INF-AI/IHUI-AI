@@ -315,4 +315,298 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     # 只查了 ai-service 的 llm_gateway 没查 apps/api 网关层,教训:**跨端事件先查网关**。
     SSEEventContract("budget", ("level", "percent", "usedTokens", "limitTokens", "tier", "resetAt")),
 )
+
+
+# ── b76-08a 票3(2026-09-30 立):流式摄入的"ACK≠base"与缺口恢复分级 ────────────
+#
+# 上游机制(zcode zcodeTaskIndexSyncer):
+#   · ACK 只证明 admission,epoch/seq 必须等**首个 logical frame 原子 apply** 后才当
+#     resume base(`has_applied_base`)—— "ACK 已到但首帧未齐"期间任何 delta 都不得
+#     被当成基线;
+#   · 无 base 时 delta 一律不得建立 cold baseline(只有 owned snapshot 能证明完整状态);
+#   · gap 三档处置:同代订阅连续性断 ⇒ resync;纪元/代际变 ⇒ 升级 force-snapshot;
+#     订阅换代 ⇒ resubscribe(新代订阅);
+#   · 恢复 flight 期间的 online delta **不计水位**,只记 `post_recovery_gap_pending`;
+#   · 恢复有 assembly_timeout 截止(由调用方带 deadline 调 `begin_recovery`)。
+#
+# 本段是生产侧(出站组装/水位判定)的唯一判据出口;消费侧(TS)按同一张判例表对齐
+# (packages/shared/src/sse 的 readFrameWatermark / isFrameGap,b76-13 票1)。
+# 纯数据 + 纯函数,不承担序列化职责,不引入 I/O —— 与本模块零行为纪律同族。
+
+#: snapshot 帧 fromSeq 恒 0(与上游 controller 一致;非 0 即畸形帧)
+WATERMARK_SNAPSHOT_SEQ: int = 0
+
+#: 逻辑帧种类(snapshot / delta)
+FRAME_KIND_SNAPSHOT: str = "snapshot"
+FRAME_KIND_DELTA: str = "delta"
+
+#: gap 三档处置动作(与 resync/forceSnapshot/resubscribe 一一对应)
+ACTION_APPLY: str = "apply"
+ACTION_RESYNC: str = "resync"
+ACTION_FORCE_SNAPSHOT: str = "force-snapshot"
+ACTION_RESUBSCRIBE: str = "resubscribe"
+ACTION_REJECT_NO_BASE: str = "reject-no-base"
+ACTION_DEFER_RECOVERY: str = "defer-recovery"
+ACTION_REJECT_INVALID_FRAME: str = "reject-invalid-frame"
+
+
+@dataclass
+class StreamWatermark:
+    """一条订阅流的水位/纪元状态(生产侧唯一状态承载)。
+
+    `has_applied_base=False` 期间,**任何** delta 都只是 admission 后的候选,
+    不得建立基线 —— ACK 与 base 是两件事,把它们合成一件事就是"账面绿而没人
+    知道那一步发生了什么"那一型。
+    """
+
+    subscription_id: str | None = None
+    has_applied_base: bool = False
+    log_epoch: int | None = None
+    last_seq: int | None = None
+    admission_acked: bool = False
+    recovering: bool = False
+    post_recovery_gap_pending: bool = False
+    #: 恢复 flight 的 assembly_timeout 截止(epoch ms);None = 调用方未设(自有守时)
+    assembly_deadline_ms: float | None = None
+
+
+@dataclass(frozen=True)
+class WatermarkDecision:
+    """单帧处置结论(字段级,调用方按 action 分流,不再读文案猜)。"""
+
+    action: str
+    applied: bool
+    reason: str
+    has_applied_base: bool
+    log_epoch: int | None
+    last_seq: int | None
+    post_recovery_gap_pending: bool = False
+
+
+def mark_admission_acked(state: StreamWatermark) -> None:
+    """ACK 到达:只登记 admission,**不建立 base**(ACK≠base 是本票第一格)。"""
+    state.admission_acked = True
+
+
+def begin_recovery(state: StreamWatermark, *, deadline_ms: float | None = None) -> None:
+    """进入恢复 flight(deadline_ms 为 assembly_timeout 截止,由调用方守时)。
+
+    恢复期间到达的 online delta 走 defer 分支:不计水位、不推进 seq,只置
+    `post_recovery_gap_pending` —— 否则恢复面与增量面互相污染,水位就是假话。
+    """
+    state.recovering = True
+    state.assembly_deadline_ms = deadline_ms
+
+
+
+def end_recovery(state: StreamWatermark) -> None:
+    state.recovering = False
+
+
+def apply_frame(
+    state: StreamWatermark,
+    *,
+    frame_kind: str,
+    log_epoch: int,
+    from_seq: int,
+    to_seq: int,
+    subscription_id: str | None = None,
+) -> WatermarkDecision:
+    """对一帧做原子判定:返回处置结论;状态只在该帧确实可 apply 时推进。
+
+    判序(逐条短路,与票面机制同序):
+      ① 恢复 flight 中的 online delta ⇒ defer(只记 pending,不碰水位);
+      ② snapshot:fromSeq 恒 0,否则畸形帧整帧拒绝;合法 snapshot 原子 apply
+         (base/epoch/seq 一次写入 —— 半 apply 就是"有 base 没数据"的假基线);
+      ③ 无 base 的 delta ⇒ reject-no-base(**不得**建立 cold baseline);
+      ④ 纪元变 ⇒ force-snapshot(升级档);
+      ⑤ 订阅代际变 ⇒ resubscribe(新代订阅);
+      ⑥ `cursor.seq !== frame.from_seq` ⇒ resync(同代重同步,该帧不落水位);
+      ⑦ 其余 ⇒ apply,水位推进到 `to_seq`。
+    """
+    if state.recovering and frame_kind == FRAME_KIND_DELTA:
+        # 记 pending 必须落在状态上(不是只在结论里带过):恢复结束后要凭这一位
+        # 知道"flight 期间漏了哪些增量",只写在结论里等于没记。
+        state.post_recovery_gap_pending = True
+        return WatermarkDecision(
+            action=ACTION_DEFER_RECOVERY,
+            applied=False,
+            reason="恢复 flight 期间的 online delta 不计水位,只记 postRecoveryGapPending",
+            has_applied_base=state.has_applied_base,
+            log_epoch=state.log_epoch,
+            last_seq=state.last_seq,
+            post_recovery_gap_pending=True,
+        )
+
+    if frame_kind == FRAME_KIND_SNAPSHOT:
+        if from_seq != WATERMARK_SNAPSHOT_SEQ:
+            return WatermarkDecision(
+                action=ACTION_REJECT_INVALID_FRAME,
+                applied=False,
+                reason="snapshot 帧 fromSeq 恒 0,非 0 即畸形帧,不得当基线",
+                has_applied_base=state.has_applied_base,
+                log_epoch=state.log_epoch,
+                last_seq=state.last_seq,
+            )
+        # 原子 apply:base、纪元、水位一次写入
+        state.has_applied_base = True
+        state.log_epoch = log_epoch
+        state.last_seq = to_seq
+        if subscription_id is not None:
+            state.subscription_id = subscription_id
+        state.recovering = False
+        return WatermarkDecision(
+            action=ACTION_APPLY,
+            applied=True,
+            reason="owned snapshot 原子 apply,成为 resume base",
+            has_applied_base=True,
+            log_epoch=state.log_epoch,
+            last_seq=state.last_seq,
+        )
+
+    # delta 路径
+    if not state.has_applied_base:
+        return WatermarkDecision(
+            action=ACTION_REJECT_NO_BASE,
+            applied=False,
+            reason="ACK≠base:首个 logical frame 尚未原子 apply,delta 不得建立 cold baseline",
+            has_applied_base=False,
+            log_epoch=state.log_epoch,
+            last_seq=state.last_seq,
+        )
+    if state.log_epoch != log_epoch:
+        return WatermarkDecision(
+            action=ACTION_FORCE_SNAPSHOT,
+            applied=False,
+            reason="纪元变:旧纪元 delta 不得续写,升级 forceSnapshot",
+            has_applied_base=state.has_applied_base,
+            log_epoch=state.log_epoch,
+            last_seq=state.last_seq,
+        )
+    if (
+        subscription_id is not None
+        and state.subscription_id is not None
+        and subscription_id != state.subscription_id
+    ):
+        return WatermarkDecision(
+            action=ACTION_RESUBSCRIBE,
+            applied=False,
+            reason="订阅代际变:当前订阅作废,按新代重新订阅",
+            has_applied_base=state.has_applied_base,
+            log_epoch=state.log_epoch,
+            last_seq=state.last_seq,
+        )
+    if state.last_seq != from_seq:
+        return WatermarkDecision(
+            action=ACTION_RESYNC,
+            applied=False,
+            reason="连续性证明断(cursor.seq != frame.fromSeq),该 delta 不写入 summaries/水位",
+            has_applied_base=state.has_applied_base,
+            log_epoch=state.log_epoch,
+            last_seq=state.last_seq,
+        )
+    state.last_seq = to_seq
+    if subscription_id is not None:
+        state.subscription_id = subscription_id
+    return WatermarkDecision(
+        action=ACTION_APPLY,
+        applied=True,
+        reason="连续帧,水位推进到 toSeq",
+        has_applied_base=state.has_applied_base,
+        log_epoch=state.log_epoch,
+        last_seq=state.last_seq,
+    )
+
+
+# ── b76-13 票2(2026-09-30 立):帧的字段级 schema + 装饰载荷的降级隔离 ─────────
+#
+# 出站侧的**结构不变量**判据(纯函数,不承担序列化):枚举闭合、必要字段对、
+# 跨字段成对判据。校验失败 ⇒ 产 typed fault 信息(调用方据此拒发/告警),
+# 不是静默丢帧、更不是放行。**装饰性**字段(output/args_preview 等展示数据)
+# 坏型只降级那一档展示,不进入 fault 判据 —— 展示数据坏了只让那张卡退化成
+# 纯文本,不决定 row/帧/订阅的生死。
+#
+# 与 TS 侧同表:`packages/shared/src/sse/contract.ts` 的 SSE_FRAME_SCHEMAS /
+# SSE_DECORATIVE_FIELDS(两侧清单逐字同族,漂移由两侧测试钉住,先例:D174)。
+# 出站组装点(`app/routers/llm.py::_sse()` 族)接入本判据属 llm.py 现场,不在
+# 本票文件射程;判据先落唯一出口,接线由主会话统一排期。
+
+#: 装饰性字段登记(点号路径 frame.field):坏型只降级展示,不杀帧
+SSE_DECORATIVE_FIELDS: frozenset[str] = frozenset(
+    {
+        "terminal_end.output",
+        "terminal_end.totalChars",
+        "injection_applied.collapsed",
+        "injection_applied.fullText",
+        "tool-approval.args_preview",
+    }
+)
+
+#: 枚举闭合判据:frame -> (字段, 合法值集)
+SSE_FRAME_ENUMS: dict[str, tuple[str, tuple[str, ...]]] = {
+    "terminal_end": ("status", ("completed", "failed")),
+}
+
+#: 必要字段对判据:frame -> (条件字段, 条件成立时必须同时在场的字段, 该字段的合法型)
+SSE_FRAME_REQUIRED_PAIRS: dict[str, tuple[str, str, type]] = {
+    # truncated=true 而 totalChars 缺席/坏型 = "截断了却不知道截掉多少"的假话帧
+    "terminal_end": ("truncated", "totalChars", int),
+}
+
+#: 跨字段成对判据(上行 form_response,与 contract.ts FormResponseWireBody 逐字同族):
+#: approve 带 values 不带理由;reject 带理由不带 values(拒绝零副作用)。
+_SSE_FORM_ACTION_PAIRS: dict[str, tuple[bool, bool]] = {
+    # action -> (values 必须在场, reject_reason 必须在场)
+    "approve": (True, False),
+    "reject": (False, True),
+}
+
+
+def sse_frame_schema_fault(event: str, payload: object) -> list[str]:
+    """出站帧的字段级校验唯一出口:返回 fault 清单(空 = 通过)。
+
+    判序:载荷必须是 dict(表内帧非 dict 直接 fault)→ 枚举闭合 → 必要字段对 →
+    跨字段成对。装饰性字段不判(SSE_DECORATIVE_FIELDS,坏型由序列化处按缺省处理)。
+    表外事件名返回空清单 —— 不在本尺子射程,不冒充判过。
+    """
+    if event not in SSE_FRAME_ENUMS and event not in SSE_FRAME_REQUIRED_PAIRS:
+        # form_response 的成对判据只对含 action 键的载荷生效(它没有独立枚举登记)
+        if event != "form_response":
+            return []
+    if not isinstance(payload, dict):
+        return [f"{event}: 帧载荷必须是 dict,实得 {type(payload).__name__}"]
+    issues: list[str] = []
+
+    enum_rule = SSE_FRAME_ENUMS.get(event)
+    if enum_rule is not None:
+        field, allowed = enum_rule
+        value = payload.get(field)
+        if value not in allowed:
+            issues.append(f"{event}.{field}: 枚举闭合破坏,实得 {value!r},合法档 {allowed}")
+
+    pair_rule = SSE_FRAME_REQUIRED_PAIRS.get(event)
+    if pair_rule is not None:
+        cond_field, required_field, expected_type = pair_rule
+        if payload.get(cond_field) is True and not isinstance(payload.get(required_field), expected_type):
+            issues.append(
+                f"{event}.{cond_field}=true 必须携带 {required_field}(必要字段对)"
+            )
+
+    if event == "form_response":
+        action = payload.get("action")
+        pair = _SSE_FORM_ACTION_PAIRS.get(action) if isinstance(action, str) else None
+        if pair is None:
+            issues.append(f"form_response.action: 枚举闭合破坏,实得 {action!r}")
+        else:
+            want_values, want_reason = pair
+            if want_values and "values" not in payload:
+                issues.append("form_response: action=approve 必须带 values")
+            if not want_values and "values" in payload:
+                issues.append("form_response: action=reject 不得带 values(拒绝零副作用)")
+            if want_reason and "reject_reason" not in payload:
+                issues.append("form_response: action=reject 必须带 reject_reason")
+            if not want_reason and "reject_reason" in payload:
+                issues.append("form_response: action=approve 不得带 reject_reason")
+
+    return issues
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

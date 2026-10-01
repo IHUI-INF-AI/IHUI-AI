@@ -901,6 +901,10 @@ def create_app() -> FastAPI:
     # 2026-08-01 新增:Cookie 自动保活守护进程(Playwright headless 每 6 小时刷新)
     from app.services.publish.cookie_refresh_daemon import router as cookie_refresh_router
     app.include_router(cookie_refresh_router, prefix="/api", tags=["publish-cookie-refresh"])
+    # 2026-09-30 挂载:外部 Chrome CDP 导入登录 Cookie(2026-08-17 写好但一直没 include,
+    # 前端/桌面端也尚未接线 —— 先把能力面补齐,消费端接入时即可用)
+    from app.routers import chrome_import as chrome_import_router
+    app.include_router(chrome_import_router.router, prefix="/api", tags=["publish-chrome-import"])
 
     # 数据库同步调度器端点 /api/db-sync/{status,trigger,drift}
     from app.services.db_sync_scheduler import router as db_sync_router

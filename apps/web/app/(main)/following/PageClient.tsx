@@ -11,7 +11,8 @@ import { useTranslations } from 'next-intl'
 import { Users, UserPlus, UserMinus, Loader2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { UserCard } from '@/components/business'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface FollowUser {
   id: string
@@ -49,16 +50,21 @@ function FollowingContent() {
   const initialTab = searchParams.get('tab') === 'followers' ? 'followers' : 'following'
   const [tab, setTab] = React.useState<'following' | 'followers'>(initialTab)
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['follows', tab],
     queryFn: () =>
       api<{ list: FollowUser[] }>(`/api/follows/${tab}?pageSize=100`).then((d) => d.list ?? []),
+    enabled: allow,
   })
 
   const { data: myFollowing } = useQuery({
     queryKey: ['follows', 'following'],
     queryFn: () =>
       api<{ list: FollowUser[] }>(`/api/follows/following?pageSize=100`).then((d) => d.list ?? []),
+    enabled: allow,
   })
 
   const followedIds = React.useMemo(
@@ -106,7 +112,9 @@ function FollowingContent() {
       </div>
 
       <div key={tab} className="animate-in fade-in-0 duration-(--duration-unified) ease-unified">
-        {isLoading ? (
+        {!allow ? (
+          <AuthGatePrompt message="请先登录后查看关注与粉丝" />
+        ) : isLoading ? (
           <div className="py-10 text-center text-muted-foreground">
             <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
             {t('loading')}

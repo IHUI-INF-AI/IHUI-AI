@@ -144,10 +144,25 @@ interface PTYEntry {
   scrollbackBytes: number
   /** P2 修复:1 小时硬超时定时器,防止 PTY 进程异常退出(not trigger exit 事件)导致 scrollbackTimer 永久运行 */
   sessionTimeout: ReturnType<typeof setTimeout> | null
+  /**
+   * G-998115(b76-08a):退出归因 —— 宿主主动回收(closeSession/killAllSessions)写
+   * expected 且**首因锁定**;handlePtyExit 时没有归因记录 ⇒ unexpected
+   * (signal crash 与 shell 自行 exit 0 都算非预期)。
+   */
+  terminationKind?: 'expected' | 'unexpected'
+  /** 首因锁定:首次 cleanup 写入后,后续幂等回收不得改写。 */
+  terminationKindLocked?: boolean
 }
 
 /** 单用户最大并发终端数 */
 const MAX_SESSIONS_PER_USER = 5
+
+/**
+ * b76-12f 票3:服务级 disposed 旗标(恢复点复查的对照物)。
+ * killAllSessions(进程退出清理)后置位;createSession 在每个 await/恢复点复查,
+ * disposed 后一律拒绝再 spawn 新 PTY(否则退出清理后又冒出新进程 = 僵尸温床)。
+ */
+let terminalServiceDisposed = false
 
 /** 默认终端尺寸 */
 const DEFAULT_COLS = 80
@@ -401,8 +416,20 @@ function flushScrollback(entry: PTYEntry): void {
   void pushScrollback(entry.sessionId, chunk)
 }
 
+/** G-998115 归因唯一写入点:首因锁定 —— 首次 cleanup 的原因不可被后续幂等回收改写。 */
+function markTerminationKind(
+  entry: PTYEntry,
+  kind: 'expected' | 'unexpected',
+): void {
+  if (entry.terminationKindLocked) return
+  entry.terminationKind = kind
+  entry.terminationKindLocked = true
+}
+
 /** 统一处理 PTY/SSH 退出 */
 function handlePtyExit(entry: PTYEntry, e: { exitCode: number; signal?: number }): void {
+  // G-998115:退出时归因落定 —— 没有宿主回收记录 ⇒ unexpected(不可被改写)
+  markTerminationKind(entry, entry.terminationKind ?? 'unexpected')
   // P2 修复:清理硬超时定时器(防止 PTY 异常退出导致 scrollbackTimer 永久运行)
   if (entry.sessionTimeout) {
     clearTimeout(entry.sessionTimeout)
@@ -472,6 +499,11 @@ export function createSession(
     throw new Error(
       'node-pty 未安装,终端功能不可用。请在服务端执行:pnpm --filter @ihui/api add node-pty',
     )
+  }
+
+  // b76-12f 票3:恢复点复查 —— 全局清理(killAllSessions)之后不得再 spawn 新 PTY
+  if (terminalServiceDisposed) {
+    throw new Error('终端服务已进入退出清理(全局回收完成),拒绝再创建新会话')
   }
 
   let pty: IPty
@@ -779,6 +811,8 @@ export function resizeSession(
 export function closeSession(sessionId: string, userId: string): boolean {
   const entry = getSession(sessionId, userId)
   if (!entry) return false
+  // G-998115:宿主主动回收 ⇒ 写归因 expected(首因锁定)
+  markTerminationKind(entry, 'expected')
   // P2 修复:清理硬超时定时器
   if (entry.sessionTimeout) {
     clearTimeout(entry.sessionTimeout)
@@ -819,11 +853,19 @@ export function closeSession(sessionId: string, userId: string): boolean {
  */
 export function onData(sessionId: string, cb: (data: string) => void): (() => void) | null {
   const entry = sessions.get(sessionId)
-  if (!entry) return null
+  // G-998166:按 key 取句柄后必须先过「是否已 disposed/退出」复核 ——
+  // 已退出/已清理的会话不得复用(不得再挂监听、不得回放),也不得误当成功
+  if (!entry || entry.status !== 'active') return null
   entry.dataListeners.add(cb)
   // 异步回放历史 scrollback(不阻塞 onData 返回)
   void replayScrollbackToListener(sessionId, cb)
-  return () => entry.dataListeners.delete(cb)
+  // G-998166:dispose 带**对象身份复核** —— 只有表里仍是本 entry 才动它的监听集合;
+  // 旧句柄的迟到 dispose 绝不能触碰同 sessionId(理论上不复用)/同槽位的新表项
+  return () => {
+    if (sessions.get(sessionId) === entry) {
+      entry.dataListeners.delete(cb)
+    }
+  }
 }
 
 /** 异步回放历史 scrollback 到新注册的监听器 */
@@ -937,6 +979,8 @@ export async function getScrollback(
 /** 杀死所有 PTY/SSH(进程退出时调用,防僵尸) */
 export function killAllSessions(): void {
   for (const [, entry] of sessions) {
+    // G-998115:进程退出时的全局回收 ⇒ 写归因 expected(首因锁定)
+    markTerminationKind(entry, 'expected')
     // P2 修复:清理硬超时定时器
     if (entry.sessionTimeout) {
       clearTimeout(entry.sessionTimeout)
@@ -965,6 +1009,8 @@ export function killAllSessions(): void {
   }
   sessions.clear()
   userSessions.clear()
+  // b76-12f 票3:disposed 旗标置位 ⇒ 后续 createSession 在恢复点被拒
+  terminalServiceDisposed = true
 }
 
 /** 获取活跃 session 总数(监控用) */

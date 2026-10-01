@@ -29,6 +29,7 @@ import * as React from 'react'
 import { createNotificationClient } from '@ihui/api-client'
 import {
   createAssignmentTokenLedger,
+  createReplayWatermark,
   isAgentActionAssignedToInstance,
   unassignedAgentActionLogMessage,
   withRespondedIdentity,
@@ -87,6 +88,16 @@ const COMPUTER_ACTIONS: ComputerControlActionType[] = [
 
 /** requestId 去重集,防止 WS 重连后重复推送导致同一操作执行两次(与 extension bridge 一致)。 */
 const processedIds = new Set<string>()
+
+/**
+ * 重放水位(2026-09-30,吸收 zcode-protocol-v4 settledByRoute):键 = 本实例身份,
+ * 墓碑 {lastOrdinal, lastId} O(1) —— 判序早于判体:低于水位静默丢、同序号同 id 幂等
+ * 忽略、同序号不同 id 记 typed fault,水位只升不降。治「有界 id 集合淘汰后重放复活」。
+ * 协议尚未下发单调序号,以端内到达计数作 provisional ordinal(恒 fresh,去重仍由
+ * processedIds 承担);协议序号下发后只需替换 observe 的取值来源,判定语义已就位。
+ */
+const replayWatermark = createReplayWatermark()
+let arrivalOrdinal = 0
 
 /**
  * 稳定的实例 ID:hook 生命周期内固定(首次生成后缓存)。
@@ -332,7 +343,14 @@ function handleWsMessage(msg: WSNotification): void {
     )
     return
   }
-  // requestId 去重,防止 WS 重连后重复执行同一指令
+  // 重放水位判定(2026-09-30):判序早于判体,四条处置路径见 createReplayWatermark 注释
+  const replayVerdict = replayWatermark.observe(getInstanceId(), ++arrivalOrdinal, req.requestId)
+  if (replayVerdict.kind === 'stale' || replayVerdict.kind === 'duplicate') return
+  if (replayVerdict.kind === 'conflict') {
+    console.warn('[desktop] agent-control:', replayVerdict.message)
+    return
+  }
+  // requestId 去重,防止 WS 重连后重复执行同一指令(id 集保留作同序号内的对照防线)
   if (processedIds.has(req.requestId)) return
   processedIds.add(req.requestId)
   if (processedIds.size > PROCESSED_IDS_MAX) {

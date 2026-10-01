@@ -4276,6 +4276,226 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 文档数字对账(1 项,blocking)---
+  {
+    id: '173',
+    label:
+      '对外文档数字对账(README/README.en 的生成块与散文声称必须等于 gen-doc-numbers 现算值;判责时机=改动被审文档的那枚,未触及只报漂移数 —— 防恒红)',
+    script: 'check-doc-numbers.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DOC_NUMBERS',
+    stagedTriggers: ['README.md', 'README.en.md'],
+    onFailHint: [
+      '',
+      '刷新块: node scripts/gen-doc-numbers.mjs --markdown 替换 README 的 GENERATED NUMBERS 块(务必在 README 已在被审面上的那份面生成,否则 trackedFiles 天生差数);逐数来源: node scripts/gen-doc-numbers.mjs;连仓库简介一起问责: node scripts/check-doc-numbers.mjs --strict --description -',
+      '本门只在触及 README.md/README.en.md 的轮次判红;未触及轮次打印的"漂移只报数"是"下次改 README 必须重跑生成块"的前置提醒,不构成跳门理由。',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 诊断面脱敏(1 项,blocking)---
+  {
+    id: '174',
+    label:
+      '诊断面脱敏守门(b76-08a票1配套):诊断/错误上报面不得携带未脱敏的密钥/令牌/邮箱/路径等敏感串,自检 --self-test 内嵌红绿对照',
+    script: 'check-diagnostic-redaction.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DIAGNOSTIC_REDACTION',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-diagnostic-redaction.mjs',
+      '自检:node scripts/check-diagnostic-redaction.mjs --self-test',
+      '应急放行:HUSKY_SKIP_DIAGNOSTIC_REDACTION=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 退出码归因(1 项,blocking)---
+  {
+    id: '175',
+    label:
+      '进程退出码归因守门(b76-08a票1配套):进程 exit 1/非零退出必须可归因到显式 failure kind/错误码,禁止无归因的裸退出,自检 --self-test 内嵌红绿对照',
+    script: 'check-process-exit-attribution.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PROCESS_EXIT_ATTRIBUTION',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-process-exit-attribution.mjs',
+      '自检:node scripts/check-process-exit-attribution.mjs --self-test',
+      '应急放行:HUSKY_SKIP_PROCESS_EXIT_ATTRIBUTION=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 能力位客户端自供(1 项,blocking)---
+  {
+    id: '176',
+    label:
+      '能力位不得客户端自供守门(b76-08a票2配套):客户端不得自报 capability 字段(connectionId/clientMode/deliveryProfile/subscriberScope/workflowRunDeltas 名单),能力位只准服务端下发,自检 --self-test',
+    script: 'check-capability-field-not-client-supplied.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CAPABILITY_FIELD_NOT_CLIENT_SUPPLIED',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-capability-field-not-client-supplied.mjs',
+      '自检:node scripts/check-capability-field-not-client-supplied.mjs --self-test',
+      '应急放行:HUSKY_SKIP_CAPABILITY_FIELD_NOT_CLIENT_SUPPLIED=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
+  // --- SSE 帧水印(1 项,blocking)---
+  {
+    id: '177',
+    label:
+      'SSE 帧水印守门(b76-13票1配套):SSE 流消费环必须带 fromSeq≥1 帧水印接线(唯一出口 + 读环接线 + 阳性对照),摘线即红,自检 --self-test 红绿对照',
+    script: 'check-sse-frame-watermark.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_SSE_FRAME_WATERMARK',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-sse-frame-watermark.mjs',
+      '自检:node scripts/check-sse-frame-watermark.mjs --self-test',
+      '应急放行:HUSKY_SKIP_SSE_FRAME_WATERMARK=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 列表截断诚实(1 项,blocking)---
+  {
+    id: '178',
+    label:
+      '列表截断诚实守门(b76-13票7配套):UI 列表截断必须如实交代截断帽(不得假装展示全量),三处 UI 命中已清偿;1 处字符串尾截(terminal-section.tsx)属票面不判面(未判定不判红)',
+    script: 'check-list-cap-honesty.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_LIST_CAP_HONESTY',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-list-cap-honesty.mjs',
+      '自检:node scripts/check-list-cap-honesty.mjs --self-test',
+      '应急放行:HUSKY_SKIP_LIST_CAP_HONESTY=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 工具schema投影(1 项,blocking)---
+  {
+    id: '179',
+    label:
+      '工具 schema 投影完整性守门(b76-05票2配套):工具描述符 JSON schema 投影必须键序 canonical/拒绝通道在位/A-B 两面一致/缓存中性,99 个可判工具全过才绿,自检 --self-test 4 例',
+    script: 'check-tool-schema-projection.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TOOL_SCHEMA_PROJECTION',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-tool-schema-projection.mjs',
+      '自检:node scripts/check-tool-schema-projection.mjs --self-test(4 例)',
+      '应急放行:HUSKY_SKIP_TOOL_SCHEMA_PROJECTION=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 嵌套闭集声明(1 项,blocking)---
+  {
+    id: '180',
+    label:
+      '嵌套 additionalProperties 闭集守门(b76-14票2配套):嵌套层 schema 的闭集声明不得被摘(嵌套三态在位 + 类型面收编 ≥2),取不到按 UNDETERMINED 不记绿,自检 --self-test 3 例',
+    script: 'check-nested-additional-properties.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_NESTED_ADDITIONAL_PROPERTIES',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-nested-additional-properties.mjs',
+      '自检:node scripts/check-nested-additional-properties.mjs --self-test(3 例)',
+      '应急放行:HUSKY_SKIP_NESTED_ADDITIONAL_PROPERTIES=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 错误文案有界化(1 项,blocking)---
+  {
+    id: '181',
+    label:
+      '错误文案有界化守门(b76-12b票1配套):错误文案出边界(PERSISTENT sink)的 JSON.stringify 内插必须有界或带 ref= 基线;测试面/CLI 面/stdout-only 豁免,基线棘轮只减不增',
+    script: 'check-error-message-bounded.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_ERROR_MESSAGE_BOUNDED',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-error-message-bounded.mjs',
+      '自检:node scripts/check-error-message-bounded.mjs --self-test(12 例)',
+      '应急放行:HUSKY_SKIP_ERROR_MESSAGE_BOUNDED=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 控制面strict棘轮(1 项,blocking)---
+  {
+    id: '182',
+    label:
+      '控制面 strict 棘轮门(b76-12c票2配套):扫描面(apps/api/src/plugins + packages/shared/src)的 z.object+.strict+.catch 总和只减不增(基线 91);禁 passthrough 降红/禁装饰字段塞控制面',
+    script: 'check-wire-strictness.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_WIRE_STRICTNESS',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-wire-strictness.mjs',
+      '自检:node scripts/check-wire-strictness.mjs --self-test(8 例)',
+      '基线吸收记录:立门读数 68 取自 strict 化落盘前工作树,与立门提交 be6da32e6b 树统计(91)不符;超出的 23 处经逐行核对全部来自 wave-2 W3 提交 ac63a7084a 帧 schema 票对 contract.ts 的落库(5 .object + 6 .strict + 12 .catch,控制面收紧+装饰载荷 .optional().catch 降级的正当形态),2026-09-30 接链时按当次真值吸收至 91,无未清偿红',
+      '应急放行:HUSKY_SKIP_WIRE_STRICTNESS=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 分片上传聚合预算(1 项,blocking)---
+  {
+    id: '183',
+    label:
+      '分片上传聚合预算棘轮门(b76-12c票3配套):chunked-upload.ts 的 begin 新建装配检(isPerUserSessionBudgetExceeded)与每片落盘追加检(wouldStagedBudgetOverflow)各 ≥1,两档常量须在 PROTOCOL_UPLOAD_LIMITS 登记,防死表回潮',
+    script: 'check-upload-budget.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_UPLOAD_BUDGET',
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-upload-budget.mjs',
+      '自检:node scripts/check-upload-budget.mjs --self-test(4 例)',
+      '应急放行:HUSKY_SKIP_UPLOAD_BUDGET=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 活文档点名路径存续性对账(1 项,blocking)---
+  {
+    id: '184',
+    label:
+      '📚 活文档点名路径存续性对账(blocking,正文反引号点名的仓内路径必须在被审面在位;索引缺而 HEAD 在 ⇒ 红,HEAD 缺席只 warning,2026-09-30 D169 立)',
+    script: 'check-live-doc-references.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_LIVE_DOC_REFERENCES',
+    stagedTriggers: ['PROJECT_PLAN.md', 'AGENTS.md', 'README', 'docs/', 'scripts/', 'apps/', 'packages/', 'config/'],
+    onFailHint: [
+      '',
+      '红 = 这次提交面上,活文档正文反引号点名的仓内路径在索引里没了(HEAD 在位)—— 本次提交正把被点名的文件弄丢(D169 事故格)。',
+      '1) 误删 ⇒ \`git restore --staged <path>\` 找回;确属下线 ⇒ 同步更新点名它的活文档(两条路,本门只读不代恢复);',
+      '2) 单复验:node scripts/check-live-doc-references.mjs --staged(提交链档)/ 不带旗 = 三面审计档;自检:--self-test(11 例);',
+      '3) HEAD 本就没有的点名只 warning(笔误档),不构成红 —— 禁止用改判据/加豁免消红(§12e);',
+      '4) 紧急跳过(不推荐):HUSKY_SKIP_LIVE_DOC_REFERENCES=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
