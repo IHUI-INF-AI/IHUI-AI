@@ -223,7 +223,10 @@ export function spawnViaTempStdinFile(file, args, opts) {
   )
   let fd = -1
   try {
-    writeFileSync(tmp, opts.input)
+    // input 缺省(不带 stdin 的派生)写空文件:fd 指向空文件与 stdio[0]='ignore' 语义等价
+    //(命令不读 stdin 就无所谓),换来的是**无 input 的派生在 EBUSY 病窗同样有兜底** ——
+    // 否则 writeFileSync(tmp, undefined) 会抛 TypeError,把"兜底"变成第二个故障点(2026-10-02 补)。
+    writeFileSync(tmp, opts.input ?? Buffer.alloc(0))
     fd = openSync(tmp, 'r')
     const { input: _dropped, stdio: _stdio, ...rest } = opts
     return spawnSync(file, args, { ...rest, stdio: [fd, 'pipe', 'pipe'] })
