@@ -65,6 +65,136 @@ function requireTauri(): void {
   }
 }
 
+// ================== 桌面 IPC 错误契约(G-715,2026-09-30 立)==================
+
+/**
+ * 桌面 IPC 错误身份档的**闭集**。
+ *
+ * 立因:此前 Rust 侧命令一律把失败压成纯字符串(`map_err(|e| format!("…: {e}"))`),
+ * 渲染层只能拿文案猜;而本仓的错误判序是 `errorCode → HTTP status → 文案正则`,
+ * 桌面端第一档永远为空 ⇒ 判序整条退化成文案正则。现在档由**发送方显式给出**。
+ *
+ * 与 `apps/desktop/src-tauri/src/lib.rs` 的 `IpcErrorCode`(serde `snake_case`)逐档同形,
+ * 对账由 `apps/web/tests/g-715-ipc-error-contract.test.ts` 完成(逐名比对,不是相似度)。
+ * 后续应把这对类型提到 `packages/types`(与 `ApiFailure.errorCode` 并列而不合并),
+ * 本轮 `packages/types/src/desktop-stability.ts` 由并行会话持有,故契约暂住本模块。
+ */
+export const IPC_ERROR_CODES = ['not_found', 'permission', 'network', 'internal'] as const
+
+/** 桌面 IPC 错误身份档(闭集的字面量联合)。 */
+export type IpcErrorCode = (typeof IPC_ERROR_CODES)[number]
+
+/** wire 上 Rust 侧 `IpcError` 的序列化形状:`{ code, message }`。 */
+export interface IpcErrorWire {
+  code: IpcErrorCode
+  message: string
+}
+
+/**
+ * 归一后的桌面 IPC 错误。`code` 是渲染层唯一该读的判据输入。
+ *
+ * 用 Error 子类而不是裸对象:bridge 各出口此前抛出去的就是字符串(rejection),
+ * 消费方普遍写 `e.message` / `String(e)` —— 抛对象会让这些读数变成 `[object Object]`。
+ */
+export class DesktopIpcError extends Error {
+  /** 身份档。宿主没给档时恒为 `'internal'`(见 `codeSource`)。 */
+  readonly code: IpcErrorCode
+  /**
+   * `'wire'` = 宿主显式给了这一档;`'fallback'` = 该命令还没接入 `IpcError`,
+   * 只回了一段文案,档是**兜底填的**而非量出来的。
+   *
+   * 这一维不能省:把"没判"写成"判过了"是本仓最高频的失效型。调用方若要区分
+   * "宿主说 internal"与"宿主什么都没说",读 `codeSource` 而不是读 `code`。
+   */
+  readonly codeSource: 'wire' | 'fallback'
+  /** 原始 rejection(仅用于排查与日志,不得参与判据、不得渲染给用户)。 */
+  readonly raw: unknown
+
+  constructor(
+    code: IpcErrorCode,
+    message: string,
+    codeSource: 'wire' | 'fallback',
+    raw: unknown,
+  ) {
+    super(message)
+    this.name = 'DesktopIpcError'
+    this.code = code
+    this.codeSource = codeSource
+    this.raw = raw
+  }
+}
+
+/** 档位是不是闭集里的一个(逐字等值,不做大小写/前缀放宽)。 */
+export function isIpcErrorCode(value: unknown): value is IpcErrorCode {
+  return typeof value === 'string' && (IPC_ERROR_CODES as readonly string[]).includes(value)
+}
+
+/** 取 rejection 的可读文案。不看内容、只搬运,不参与档位判定。 */
+function ipcRejectionText(rejected: unknown): string {
+  if (typeof rejected === 'string') return rejected
+  if (rejected instanceof Error) return rejected.message
+  if (rejected !== null && typeof rejected === 'object') {
+    const rec = rejected as Record<string, unknown>
+    if (typeof rec.message === 'string') return rec.message
+    try {
+      return JSON.stringify(rejected)
+    } catch {
+      return String(rejected)
+    }
+  }
+  return String(rejected)
+}
+
+/**
+ * 把 `invoke()` 的 rejection 归一成 `DesktopIpcError`。
+ *
+ * 判档**只看** `code` 字段是否在闭集里,绝不看 message 文案 ——
+ * 按文案猜档正是本票要消灭的形态(Windows 的 io 报错措辞还随系统语言变)。
+ * 认不出档的一律 `internal` + `codeSource:'fallback'`,并保留原文可查。
+ */
+export function toDesktopIpcError(rejected: unknown): DesktopIpcError {
+  if (rejected !== null && typeof rejected === 'object' && !Array.isArray(rejected)) {
+    const rec = rejected as Record<string, unknown>
+    if (isIpcErrorCode(rec.code)) {
+      const message = typeof rec.message === 'string' ? rec.message : ''
+      return new DesktopIpcError(
+        rec.code,
+        // 宿主给了档却没给文案:文案留空会比"编一段"更诚实,但 Error.message 不能空着不可读。
+        message !== '' ? message : `ipc error (${rec.code})`,
+        'wire',
+        rejected,
+      )
+    }
+  }
+  return new DesktopIpcError('internal', ipcRejectionText(rejected), 'fallback', rejected)
+}
+
+/**
+ * 按码分派:只有 `err.code` 参与,handler 缺失时返回 `undefined`(不猜默认行为)。
+ * 刻意不接收 `unknown` —— 归一这一步必须显式做过,免得有人把原始 rejection 直接喂进来。
+ */
+export function dispatchByIpcCode<T>(
+  err: DesktopIpcError,
+  handlers: Partial<Record<IpcErrorCode, (e: DesktopIpcError) => T>>,
+): T | undefined {
+  const handler = handlers[err.code]
+  return handler ? handler(err) : undefined
+}
+
+/**
+ * `invoke` 的结构化失败出口:任何 rejection 先过 `toDesktopIpcError` 再抛。
+ *
+ * 为什么必须包这一层:Rust 侧改成返回 `IpcError` 之后,wire 上的失败就是**对象**了。
+ * 未包一层的地方 `String(e)` 会变成 `[object Object]`,用户看到的是"报错比不报更糟"。
+ */
+async function invokeIpc<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  try {
+    return await invoke<T>(cmd, args)
+  } catch (e) {
+    throw toDesktopIpcError(e)
+  }
+}
+
 // ================== 自动启动 ==================
 
 /** 启用开机自启(参数 --minimized 已在 Rust 端 plugin init 配置)。 */
@@ -189,7 +319,11 @@ export async function startWindowDrag(): Promise<void> {
 /**
  * 启动窗口 resize(P0-1:8 方向边缘缩放,2026-07-27 立)。
  * direction: n/s/e/w/ne/nw/se/sw
- * 非桌面端静默忽略。失败静默忽略(窗口最大化时 Rust 端会拒绝,不污染控制台)。
+ * 非桌面端静默忽略。
+ *
+ * G-715(2026-09-30):此前是"整块静默吞掉"——最大化/全屏的合理拒绝与真故障(窗口没了、
+ * 契约漂了)在账面上同形。现在**按码分派**:`permission` 是宿主有意的策略拒绝 ⇒ 仍静默;
+ * 其余档 ⇒ 大声 warn(不抛,免得 pointer 事件里冒出未处理 rejection)。
  */
 export async function startResize(
   direction: 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw',
@@ -197,9 +331,15 @@ export async function startResize(
   if (!isTauri()) return
   const label = getCurrentWindow().label
   try {
-    await invoke('start_resize', { direction, label })
-  } catch {
-    // 窗口最大化/最小化时 start_resize 会失败,静默忽略
+    await invokeIpc('start_resize', { direction, label })
+  } catch (e) {
+    // instanceof 只当快路径:模块被打包成两份副本时它会假负 ⇒ 一律还有 toDesktopIpcError 兜底,
+    // 而兜底读的是同一个 code 字段(不是文案),分档方向不会 fail-open。
+    const err = e instanceof DesktopIpcError ? e : toDesktopIpcError(e)
+    const intentionallyRefused = dispatchByIpcCode(err, { permission: () => true }) === true
+    if (!intentionallyRefused) {
+      console.warn('[window] start_resize 失败:', err.code, err.message)
+    }
   }
 }
 
@@ -209,7 +349,7 @@ export async function startResize(
  */
 export async function toggleFullscreen(): Promise<boolean> {
   if (!isTauri()) return false
-  return invoke<boolean>('toggle_fullscreen')
+  return invokeIpc<boolean>('toggle_fullscreen')
 }
 
 /**
@@ -218,7 +358,7 @@ export async function toggleFullscreen(): Promise<boolean> {
  */
 export async function toggleAlwaysOnTop(): Promise<boolean> {
   if (!isTauri()) return false
-  return invoke<boolean>('toggle_always_on_top')
+  return invokeIpc<boolean>('toggle_always_on_top')
 }
 
 /**
@@ -449,11 +589,12 @@ export async function openInGoogleChrome(url: string): Promise<number | string |
     return null
   }
   try {
-    return await invoke<number>('open_in_chrome', { url })
+    return await invokeIpc<number>('open_in_chrome', { url })
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    console.warn('[chrome] open_in_chrome failed:', msg)
-    return msg
+    const err = e instanceof DesktopIpcError ? e : toDesktopIpcError(e)
+    // 带上档名再喊:Chrome 没装(not_found)/ 端口没抢到(network)/ 别的(internal)是三种处置。
+    console.warn('[chrome] open_in_chrome failed:', err.code, err.message)
+    return err.message
   }
 }
 
@@ -545,34 +686,34 @@ export const FILE_FILTERS = {
   all: { name: '所有文件', extensions: ['*'] },
 } as const
 
-/** 读取文本文件(UTF-8)。非 Tauri 环境抛错。 */
+/** 读取文本文件(UTF-8)。非 Tauri 环境抛错。失败抛 `DesktopIpcError`(档由宿主给出)。 */
 export async function readTextFile(path: string): Promise<ReadTextResult> {
   requireTauri()
-  return await invoke<ReadTextResult>('read_text_file', { path })
+  return await invokeIpc<ReadTextResult>('read_text_file', { path })
 }
 
 /** 读取二进制文件,返回 base64 + MIME(用于图片/附件预览)。非 Tauri 环境抛错。 */
 export async function readBinaryFile(path: string): Promise<ReadBinaryResult> {
   requireTauri()
-  return await invoke<ReadBinaryResult>('read_binary_file', { path })
+  return await invokeIpc<ReadBinaryResult>('read_binary_file', { path })
 }
 
 /** 写入文本文件(覆盖)。父目录不存在时自动创建。非 Tauri 环境抛错。 */
 export async function writeTextFile(path: string, content: string): Promise<void> {
   requireTauri()
-  await invoke('write_text_file', { path, content })
+  await invokeIpc('write_text_file', { path, content })
 }
 
 /** 列出目录下的文件/子目录(非递归,文件在前目录在后)。非 Tauri 环境返回空列表。 */
 export async function listDir(path: string): Promise<DirListResult> {
   if (!isTauri()) return { entries: [] }
-  return await invoke<DirListResult>('list_dir', { path })
+  return await invokeIpc<DirListResult>('list_dir', { path })
 }
 
 /** 获取单个文件/目录的元信息。非 Tauri 环境抛错。 */
 export async function statFile(path: string): Promise<FileInfo> {
   requireTauri()
-  return await invoke<FileInfo>('stat_file', { path })
+  return await invokeIpc<FileInfo>('stat_file', { path })
 }
 
 /**
