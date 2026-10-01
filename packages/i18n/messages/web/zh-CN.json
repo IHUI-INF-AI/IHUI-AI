@@ -621,10 +621,6 @@
     "nickname": "昵称",
     "noAccounts": "暂无账号",
     "openExternalBrowser": "在外部浏览器打开",
-    "chromeImportBtn": "从我的 Chrome 导入",
-    "chromeImportLaunching": "正在打开 Chrome 登录窗口...",
-    "chromeImportHint": "已打开 {platform} 登录页(独立窗口)。请在那个窗口完成登录,登录成功后会自动保存账号,无需粘贴 Cookie。",
-    "chromeImportFailed": "Chrome 导入未完成",
     "orDivider": "或",
     "platform": "平台",
     "scan": "扫码登录",
@@ -634,9 +630,6 @@
     "scanLoginHint": "二维码每分钟自动刷新",
     "scanLoginSucceeded": "扫码登录成功",
     "scanLoginSuccess": "扫码成功",
-    "scanLoginReuseLabel": "登录方式",
-    "scanLoginReuseOn": "复用已有登录(免扫码)",
-    "scanLoginReuseOff": "每次重新扫码",
     "scanLoginTimeout": "扫码超时,请重试",
     "scanLoginTitle": "扫码登录",
     "scanWithPhoneHint": "请使用手机扫描二维码登录",
@@ -10623,6 +10616,15 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "referencePreview": {
+      "available": "模拟能力可用",
+      "editor": "能力引用输入框",
+      "placeholder": "粘贴完整引用，或输入 @ 选择能力…",
+      "source": "原始输入正文",
+      "select": "选择示例能力",
+      "clear": "新建输入",
+      "send": "发送预览"
+    },
     "bindIssue": "绑定 Issue",
     "unbindIssue": "改为独立任务",
     "issueBinding": "关联 Issue",
@@ -20340,7 +20342,14 @@
       "batchScanStoppedToast": "已停止扫码队列",
       "batchScanPopupBlocked": "浏览器拦截了新标签页:请点地址栏右侧的拦截图标允许本站弹出窗口,然后重新开始(或改用内置浏览器模式)。",
       "batchScanPopupBlockedToast": "浏览器拦截了新标签页,队列已停止;请允许本站弹出窗口后重试",
-      "batchScanWindowClosedToast": "检测到浏览器窗口已关闭,已停止队列"
+      "batchScanWindowClosedToast": "检测到浏览器窗口已关闭,已停止队列",
+      "chromeImportBtn": "从我的 Chrome 导入",
+      "chromeImportLaunching": "正在打开 Chrome 登录窗口...",
+      "chromeImportHint": "已打开 {platform} 登录页(独立窗口)。请在那个窗口完成登录,登录成功后会自动保存账号,无需粘贴 Cookie。",
+      "chromeImportFailed": "Chrome 导入未完成",
+      "scanLoginReuseLabel": "登录方式",
+      "scanLoginReuseOn": "复用已有登录(免扫码)",
+      "scanLoginReuseOff": "每次重新扫码"
     },
     "ai": {
       "analyzeAll": "批量分析",
