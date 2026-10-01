@@ -13,7 +13,8 @@ import { CalendarCheck, Loader2, Clock, LogOut } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Badge } from '@/components/data'
 
 interface AttendanceRecord {
@@ -64,12 +65,16 @@ export default function ChildAttendancePage() {
   const params = useParams()
   const childId = params.childId as string
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'attendance'],
     queryFn: () =>
       api<{ list: AttendanceRecord[] }>(
         `/api/edu-ai-management/parent/children/${childId}/attendance`,
       ),
+    enabled: allow,
   })
 
   const records = data?.list ?? []
@@ -91,7 +96,9 @@ export default function ChildAttendancePage() {
         <p className="text-xs text-muted-foreground">{t('child.attendanceHint')}</p>
       </header>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看考勤记录" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {tc('loading')}

@@ -16,10 +16,17 @@ import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { getUserStatistics, getBalance } from '@ihui/api-client'
+import { aggregateUsageFaces, toUsageFaceOutcome } from '@/lib/usage-face-semantics'
 
-function unwrap<T>(r: { success: boolean; data?: T; error?: string }): T {
-  if (!r.success) throw new Error(r.error)
-  return r.data as T
+/** 首页用量卡读到的最小字段面(聚合分区渲染用) */
+interface HomeUserStats {
+  points: number
+  followingCount: number
+  fansCount: number
+}
+
+interface HomeWalletBalance {
+  balance: number
 }
 
 export function MemberCard() {
@@ -28,19 +35,41 @@ export function MemberCard() {
   const user = useAuthStore((s) => s.user)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
-  const { data: stats } = useQuery({
+  // G-652 首页用量聚合出口:stats=必须面(身份用量核心),wallet=可选面。
+  // 查询层只做双语义分类(toUsageFaceOutcome),不吞错:transport 失败(429/网络/超时)
+  // 与 HTTP200 信封失败(code!=0,后端报错)分开携带,由 aggregateUsageFaces 裁决。
+  const { data: statsOutcome } = useQuery({
     queryKey: ['home', 'user-stats'],
-    queryFn: async () => unwrap(await getUserStatistics()),
+    queryFn: async () => toUsageFaceOutcome(await getUserStatistics()),
     enabled: isAuthenticated,
     retry: false,
   })
 
-  const { data: wallet } = useQuery({
+  const { data: walletOutcome } = useQuery({
     queryKey: ['home', 'wallet-balance'],
-    queryFn: async () => unwrap(await getBalance()),
+    queryFn: async () => toUsageFaceOutcome(await getBalance()),
     enabled: isAuthenticated,
     retry: false,
   })
+
+  // 可选面 wallet 的累计 transport 失败计数由本组件持有(纯函数不藏状态)
+  const walletFailureCountRef = React.useRef(0)
+  const usageAggregate = React.useMemo(
+    () =>
+      aggregateUsageFaces(
+        [
+          { id: 'user-stats', mandatory: true, outcome: statsOutcome },
+          { id: 'wallet-balance', mandatory: false, outcome: walletOutcome },
+        ],
+        { 'wallet-balance': walletFailureCountRef.current },
+      ),
+    [statsOutcome, walletOutcome],
+  )
+  React.useEffect(() => {
+    if (usageAggregate.shape === 'aggregate') {
+      walletFailureCountRef.current = usageAggregate.failureCounts['wallet-balance'] ?? 0
+    }
+  }, [usageAggregate])
 
   // 签到状态统一走 react-query,与 stats/wallet 同缓存源,避免独立 fetch 不同步
   const { data: checkInStatus } = useQuery({
@@ -68,12 +97,37 @@ export function MemberCard() {
     onError: (e: Error) => toast.error(t('checkInFailed'), { description: e.message }),
   })
 
-  const statItems = [
-    { label: t('points'), value: stats?.points ?? 0, href: '/settings' },
-    { label: t('balance'), value: wallet?.balance ?? 0, href: '/wallet' },
-    { label: t('following'), value: stats?.followingCount ?? 0, href: '/settings' },
-    { label: t('fans'), value: stats?.fansCount ?? 0, href: '/settings' },
-  ]
+  // G-652 聚合出口分区渲染:fatal=整体红(整块替换,绝不渲染数字面);
+  // aggregate=分区渲染,可选面 transport 失败的区显示"暂不可用 + 失败 N 次",绝不显示 0。
+  const usageCells =
+    usageAggregate.shape === 'aggregate'
+      ? (() => {
+          const statsSection = usageAggregate.sections.find((s) => s.faceId === 'user-stats')
+          const walletSection = usageAggregate.sections.find((s) => s.faceId === 'wallet-balance')
+          const walletDropped = usageAggregate.dropped.find((d) => d.faceId === 'wallet-balance')
+          const stats =
+            statsSection && statsSection.status === 'ready'
+              ? (statsSection.data as HomeUserStats)
+              : null
+          const wallet =
+            walletSection && walletSection.status === 'ready'
+              ? (walletSection.data as HomeWalletBalance)
+              : null
+          return [
+            { key: 'points', label: t('points'), href: '/settings', value: stats ? String(stats.points) : '—', unavailable: false, droppedCount: 0 },
+            {
+              key: 'balance',
+              label: t('balance'),
+              href: '/wallet',
+              value: wallet ? String(wallet.balance) : '—',
+              unavailable: walletSection?.status === 'unavailable',
+              droppedCount: walletDropped?.count ?? 0,
+            },
+            { key: 'following', label: t('following'), href: '/settings', value: stats ? String(stats.followingCount) : '—', unavailable: false, droppedCount: 0 },
+            { key: 'fans', label: t('fans'), href: '/settings', value: stats ? String(stats.fansCount) : '—', unavailable: false, droppedCount: 0 },
+          ]
+        })()
+      : null
 
   const quickLinks = [
     { label: t('allCourses'), href: '/learn' },
@@ -110,18 +164,43 @@ export function MemberCard() {
                 {checkedIn ? t('signedIn') : t('signIn')}
               </button>
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border">
-              {statItems.map((s) => (
-                <Link
-                  key={s.label}
-                  href={s.href}
-                  className="flex flex-col items-center gap-0.5 bg-card py-3 transition-colors hover:bg-cta/5"
-                >
-                  <strong className="text-lg font-semibold text-primary">{s.value}</strong>
-                  <span className="text-xs text-muted-foreground">{s.label}</span>
-                </Link>
-              ))}
-            </div>
+            {usageAggregate.shape === 'fatal' ? (
+              // G-652 (b) 整体红:后端报错(HTTP200 信封失败)或必须面失败,不渲染任何数字面
+              <div
+                role="alert"
+                className="mt-5 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-4 text-center text-xs text-destructive"
+              >
+                用量数据加载失败:{usageAggregate.message}
+              </div>
+            ) : (
+              usageCells && (
+                <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border">
+                  {usageCells.map((s) => (
+                    <Link
+                      key={s.key}
+                      href={s.href}
+                      className="flex flex-col items-center gap-0.5 bg-card py-3 transition-colors hover:bg-cta/5"
+                    >
+                      {s.unavailable ? (
+                        // G-652 (a) 可选面 transport 失败:该区清空 + 计数行(绝不显示 0)
+                        <>
+                          <strong className="text-lg font-semibold text-muted-foreground">
+                            暂不可用
+                          </strong>
+                          <span className="text-xs text-muted-foreground">{s.label}</span>
+                          <span className="text-xs text-destructive">失败 {s.droppedCount} 次</span>
+                        </>
+                      ) : (
+                        <>
+                          <strong className="text-lg font-semibold text-primary">{s.value}</strong>
+                          <span className="text-xs text-muted-foreground">{s.label}</span>
+                        </>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              )
+            )}
           </>
         ) : (
           <>

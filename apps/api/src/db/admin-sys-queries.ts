@@ -399,6 +399,7 @@ export async function updateJobStatus(id: number, status: string): Promise<SysJo
   const rows = await db
     .update(sysJobs)
     .set({ status, updatedAt: new Date() })
+  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(sysJobs.jobId, id))
     .returning()
   return rows[0]
@@ -985,6 +986,7 @@ export async function updateAdminRoleStatus(
   const rows = await db
     .update(adminRole)
     .set({ status, updateTime: new Date() })
+  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(adminRole.roleId, roleId))
     .returning()
   return rows[0]

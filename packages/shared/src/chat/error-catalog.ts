@@ -626,7 +626,11 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
   // 码尚未在我方生产端产出时,本表先行登记 + 五语言词包就位,等后端真正产出时零改动可用。
   // 8 条 UNDETERMINED(102 / issue_execution_active / origin_not_allowed / organization_mismatch /
   // project_member_removed / organization_unavailable / FILE_IDENTITY_CHANGED /
-  // AGENT_TOOL_RULE_CONFLICT)按裁定挂起待探,不入表。
+  // AGENT_TOOL_RULE_CONFLICT)已于 2026-09-30 逐条探针收口(判定文件与探针命令全文:
+  // .ihui-agent/tmp/zcode-wave/d200-adjudication.md):仅 102「请求时间校验失败」判真入表
+  // (见文末 UNDETERMINED 收口块),其余 7 条判 FALSE —— 语义槽位同族在位(重入互斥
+  // 「会话正在执行中」/ 403 权限·归属族 / SERVICE_UNAVAILABLE 族 / 身份族 TOKEN_EXPIRED /
+  // 工具策略阻止族),码名差异非文案差距,不入目录。
   // 键即产出方原始码(不改名、不归一):小写蛇形与数字码原样入表,排障时 grep 不断链。
   // 域1 文件安全扫描(7)
   FILE_SCAN_PENDING: {
@@ -726,6 +730,16 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
   invalid_arguments: {
     titleKey: 'invalid_arguments.title',
     actionKey: 'invalid_arguments.action',
+    category: 'invalidResponse',
+  },
+  // —— D200 UNDETERMINED 探针收口(2026-09-30,8 探 1 真 7 FALSE)——
+  // 102「请求时间校验失败」:探针(时间戳|时间窗|时钟偏移|时间校验|请求时间|签名|replay|nonce)
+  // 我方四端 src 零用户文案位、零校验机制(「签名」命中全是文件魔数 / HMAC 回调 / SQL 结构
+  // 注释,与请求时间校验无关);与 invalid 族「提交的信息有误」补救动作不同(要校准系统时钟),
+  // 按 47902 同口径(专属语义 + 专属动作 = 不落通用族)契约先行登记。
+  102: {
+    titleKey: '102.title',
+    actionKey: '102.action',
     category: 'invalidResponse',
   },
 })

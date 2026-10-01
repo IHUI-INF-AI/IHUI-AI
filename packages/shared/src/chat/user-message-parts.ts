@@ -10,11 +10,12 @@
  * 而用户气泡一直是 `<p className="whitespace-pre-wrap">{m.content}</p>` 纯文本渲染
  * ⇒ 用户自己上传的图片在他自己的气泡里显示成一行 `![photo.png](/uploads/…)` 源码。
  *
- * **为什么不"复用助手侧那个 markdown 渲染器"(票面原本写的止血步)**:本仓另一条已入库的不变量
- * G-825「消息级 markdown 边界」用一条负例用例钉死了"用户消息正文不经过 markdown 边界"
- * (markdown 渲染炸了不得带走一整轮消息)。把用户正文整个塞进 MarkdownStream 会**直接踩掉那条锁**,
- * 也并非必要 —— 要渲染的只是附件那几行,正文一个字都不该被重新解释(用户打 `*` 不该变斜体)。
- * 所以这里走票面**根治方向**的前端子集:四类形态从正文拆出来各自渲染,正文保持纯文本原样。
+ * **2026-10-01 S15 拍板翻转**(承 V4 #87 止血步,取代上面"正文一律纯文本"的旧立场):
+ * 正文(text)改走与助手侧**同一套 MarkdownStream**,但危险项天然关闭(该渲染器本就不用 rehype-raw,
+ * 裸 HTML 不执行)。代价是 react-markdown 会**静默丢弃**裸 HTML —— 因此"判不出/不安全"的行
+ * **不能再留在 text 里**(它们多是 `<video …>` 形态,留在 text 里等于消失):拆分层把它们
+ * 收进 `rejectedLines` 返回,由调用方以**字面文本**渲染,"绝不静默消失"由这条新通道兑现。
+ * 附件四类形态照旧从正文拆出各自渲染 —— 本层的职责没有变,变的是 text 的去向。
  *
  * 三条不可漂的判据:
  *  ① **只认整行的确切形态** —— 用户正文里讨论 `<video src="x" controls></video>` 写法的那段散文
@@ -67,6 +68,13 @@ export interface UserMessageParts {
    * 必须"看得见",不得被读成"没有附件"。
    */
   rejected: number
+  /**
+   * 上面那些被拒行的**字面原文**(与 `rejected` 一一对应,顺序保留)。
+   * 2026-10-01 S15 起它们**不再留在 `text` 里**:text 要交给 MarkdownStream 渲染,
+   * 而裸 HTML 会被 react-markdown 静默丢弃 —— 原文可见性改由调用方对本数组按字面渲染兑现。
+   * (未命中任何确切形态的散文**不进**这里,照旧留在 `text`。)
+   */
+  rejectedLines: string[]
 }
 
 /** 只放行 `blob:`、同源绝对路径、http(s);其余一律不渲染成元素(原文留作可见文本)。 */
@@ -84,6 +92,7 @@ export function splitUserMessageParts(content: string): UserMessageParts {
   const videos: string[] = []
   const codeBlocks: string[] = []
   const fileRefs: string[] = []
+  const rejectedLines: string[] = []
   let quote: UserMessageQuote | undefined
   let rejected = 0
 
@@ -98,9 +107,9 @@ export function splitUserMessageParts(content: string): UserMessageParts {
     if (FENCE.test(line)) {
       const closeIdx = lines.findIndex((l, k) => k > i && FENCE.test(l))
       if (closeIdx < 0) {
-        // 不配对的围栏不猜它到哪儿结束 ⇒ 原样留着(可见),只记一笔未摘
+        // 不配对的围栏不猜它到哪儿结束 ⇒ 摘出待字面渲染(可见),只记一笔未摘
         rejected += 1
-        kept.push(line)
+        rejectedLines.push(line)
         i += 1
         continue
       }
@@ -114,7 +123,7 @@ export function splitUserMessageParts(content: string): UserMessageParts {
       const url = safeMediaUrl(img[2] ?? '')
       if (!url) {
         rejected += 1
-        kept.push(line)
+        rejectedLines.push(line)
       } else images.push({ alt: (img[1] ?? '').trim(), url })
       i += 1
       continue
@@ -125,7 +134,7 @@ export function splitUserMessageParts(content: string): UserMessageParts {
       const url = safeMediaUrl(vid[1] ?? '')
       if (!url) {
         rejected += 1
-        kept.push(line)
+        rejectedLines.push(line)
       } else videos.push(url)
       i += 1
       continue
@@ -163,7 +172,7 @@ export function splitUserMessageParts(content: string): UserMessageParts {
       const label = (ref[1] ?? '').trim()
       if (label.length === 0) {
         rejected += 1
-        kept.push(line)
+        rejectedLines.push(line)
       } else fileRefs.push(label)
       i += 1
       continue
@@ -174,7 +183,9 @@ export function splitUserMessageParts(content: string): UserMessageParts {
   }
 
   const extractedSomething =
-    images.length + videos.length + codeBlocks.length + fileRefs.length > 0 || quote !== undefined
+    images.length + videos.length + codeBlocks.length + fileRefs.length > 0 ||
+    rejectedLines.length > 0 ||
+    quote !== undefined
   // 摘走行会留下连续空行;只在确实摘走过时收敛,不碰用户自己写的空行。
   const text = extractedSomething
     ? kept
@@ -184,6 +195,6 @@ export function splitUserMessageParts(content: string): UserMessageParts {
         .replace(/\n+$/, '')
     : content
 
-  return { text, images, videos, codeBlocks, fileRefs, quote, rejected }
+  return { text, images, videos, codeBlocks, fileRefs, quote, rejected, rejectedLines }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

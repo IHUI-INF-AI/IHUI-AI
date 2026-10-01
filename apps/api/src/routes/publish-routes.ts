@@ -592,6 +592,16 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
     await proxyToAiService(request, reply, '/scan-login/import-cookies')
   })
 
+  // 外部 Chrome 导入登录(2026-09-30 新增):launch-chrome 拉起带 CDP 调试端口的
+  // Chrome/Edge(临时 profile + --app 登录页)并返回端口;import-chrome 轮询提取
+  // cookie/检测登录/自动入库。两条都走 proxyToAiService(转发 JWT,与 scan-login 同鉴权面)。
+  server.post('/publish/browser/launch-chrome', async (request, reply) => {
+    await proxyToAiService(request, reply, '/browser/launch-chrome')
+  })
+  server.post('/publish/browser/import-chrome', async (request, reply) => {
+    await proxyToAiService(request, reply, '/browser/import-chrome')
+  })
+
   // ===== 账号分组管理(2026-08-01 新增)=====
 
   server.get('/publish/groups', async (request, reply) => {

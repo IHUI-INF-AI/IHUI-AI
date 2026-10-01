@@ -13,7 +13,8 @@ import { Plus } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { TeamList } from './TeamList'
 import { TeamDialog } from './TeamDialog'
 import type { TeamMember } from './types'
@@ -38,6 +39,9 @@ export default function TeamPage() {
     day: '2-digit',
   })
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const {
     data: list = [],
     isLoading,
@@ -45,6 +49,7 @@ export default function TeamPage() {
   } = useQuery({
     queryKey: ['developer', 'team'],
     queryFn: () => api<TeamMember[]>('/api/developer/team').catch(() => [] as TeamMember[]),
+    enabled: allow,
   })
 
   const inviteMut = useMutation({
@@ -105,6 +110,16 @@ export default function TeamPage() {
     } else {
       inviteMut.mutate()
     }
+  }
+
+  // 2026-09-30 登录态门:未登录时用登录引导替换数据区
+  if (!allow) {
+    return (
+      <div className="px-4 py-4 space-y-4">
+        <BackButton />
+        <AuthGatePrompt message="请先登录后管理团队成员" />
+      </div>
+    )
   }
 
   return (

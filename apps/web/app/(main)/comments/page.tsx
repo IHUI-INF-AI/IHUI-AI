@@ -23,7 +23,8 @@ import { Button } from '@ihui/ui-react'
 import { ConfirmDialog } from '@/components/feedback'
 import { CommentItem } from '@/components/business'
 import { useAuthStore } from '@/stores/auth'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface MyComment {
   id: string
@@ -82,9 +83,13 @@ export default function MyCommentsPage() {
   const [page, setPage] = React.useState(1)
   const [deleteTarget, setDeleteTarget] = React.useState<MyComment | null>(null)
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['comments', 'mine', page],
     queryFn: () => api<CommentsData>(`/api/comments/mine?page=${page}&pageSize=${PAGE_SIZE}`),
+    enabled: allow,
   })
 
   const delMut = useMutation({
@@ -119,7 +124,9 @@ export default function MyCommentsPage() {
         <p className="text-xs text-muted-foreground">{t('myCommentsSubtitle')}</p>
       </header>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看我的评论" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {tc('loading')}

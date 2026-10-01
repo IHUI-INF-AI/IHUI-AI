@@ -214,6 +214,9 @@ function attemptUnionConverge(freshRemote, repoRoot) {
         cwd: repoRoot,
         encoding: 'utf8',
         windowsHide: true, // §5b:漏此参数在钩子/守护派生下必弹控制台窗
+        // 根治(2026-09-30):stdin 设 ignore,避开交互会话 Node 建子进程 stdin 管道 EBUSY
+        // (union-converge 经 argv 吃参数、经临时文件通道写 blob,不吃 stdin;同 git() 助手修法)。
+        stdio: ['ignore', 'pipe', 'pipe'],
         // 300s 在这台机上跑不完一次归并:实测一次 --apply(取对侧 9 路径 + 活文档并集 + 台账
         // 逐行解析)要 2–13 分钟 ⇒ 超时等于自动收敛永不成功。与"落地闸不可满足"是同一次停摆的
         // 两半,只修判据不修这里的封顶,部署环仍会每轮白等。守门 80 的"热路径一律封顶"保留。
@@ -706,6 +709,9 @@ function collectTreeEntries(treeish, cwd) {
     encoding: 'buffer',
     cwd,
     windowsHide: true,
+    // 根治(2026-09-30):stdin 设 ignore,避开交互会话 Node 建子进程 stdin 管道 EBUSY(git 不吃 stdin;
+    // 同 git() 助手 176 行的修法——本函数在 assertNoSilentRevert 零丢失闸上,病会话里它一挂整条收敛就"未判定")。
+    stdio: ['ignore', 'pipe', 'pipe'],
     // 只读枚举,可封顶(真仓整树 ls-tree 正常在秒级;无 timeout 时一旦撞上
     // 病态挂起就是把整条收敛/守门链拖死)
     timeout: 300_000,
@@ -1405,6 +1411,8 @@ function main() {
         const out = execFileSync('git', ['merge-tree', '--write-tree', freshLocal, freshRemote], {
           encoding: 'utf8',
           windowsHide: true,
+          // EBUSY 免疫(ihui-spawn-ebusy-fix):本调用不吃 stdin,绕开坏管道路径
+          stdio: ['ignore', 'pipe', 'pipe'],
         })
         tree = out.trim().split('\n')[0].trim()
         if (!/^[0-9a-f]{40}$/.test(tree)) throw new Error(out)

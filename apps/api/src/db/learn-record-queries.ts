@@ -166,6 +166,7 @@ export async function checkAutoComplete(recordId: string): Promise<LessonRecord 
     const updated = await db
       .update(lessonRecords)
       .set({ status: 2, completedAt: new Date(), updatedAt: new Date() })
+  // status-guard-exempt: 入向终态(完成置 2),前置 meetProgress/meetDuration 判定后才写
       .where(eq(lessonRecords.id, recordId))
       .returning()
     return updated[0]

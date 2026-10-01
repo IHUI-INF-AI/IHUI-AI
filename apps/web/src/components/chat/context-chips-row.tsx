@@ -52,6 +52,12 @@ export interface ContextChipsRowProps {
   /** D68 粘贴引用有效性预览(空数组不渲染) */
   pastePreviews: PastedReferencePreview[]
   onDismissPastePreviews: () => void
+  /**
+   * D185(2026-09-30 立,对标竞品 composer.referencePreview.*):一键发送。
+   * 传入后粘贴引用预览条升级为可编辑模拟预览编辑器;发送走 composer 既有
+   * submit(overrideValue) 通道,本容器只透传不持有文本。
+   */
+  onSendPastePreview?: (text: string) => void
   /** W27 输入队列(流式期间排队的待发消息) */
   queueItems: readonly { text: string }[]
   onQueueRemove: (index: number) => void
@@ -69,6 +75,7 @@ export function ContextChipsRow({
   onRemoveMention,
   pastePreviews,
   onDismissPastePreviews,
+  onSendPastePreview,
   queueItems,
   onQueueRemove,
 }: ContextChipsRowProps) {
@@ -121,8 +128,12 @@ export function ContextChipsRow({
       )}
       {/* 多维提及 chips(V3 第 61 票收口):`@` / `#` 共用这一面,摘 chip 同步删正文 */}
       <MentionChips onRemove={onRemoveMention} />
-      {/* D68 粘贴引用有效性预览条(空集自渲染 null) */}
-      <UnifiedPasteReferencePreview previews={pastePreviews} onDismiss={onDismissPastePreviews} />
+      {/* D68 粘贴引用有效性预览条(空集自渲染 null);D185:传入 onSend 升级为可编辑模拟预览 */}
+      <UnifiedPasteReferencePreview
+        previews={pastePreviews}
+        onDismiss={onDismissPastePreviews}
+        onSend={onSendPastePreview}
+      />
       {/* W27 输入队列(虚线琥珀样式保留) */}
       {queueItems.length > 0 && (
         <div data-testid="input-queue" className="space-y-1">

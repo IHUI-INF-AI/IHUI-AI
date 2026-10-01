@@ -333,7 +333,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
             const missed = takeoverStream(liveSession, lastSeq, raw)
             for (const e of missed) raw.write(`id: ${e.id}\n${e.rawLine}\n\n`)
             // 新连接断开同样走宽限 detach(重复断线/重连安全)
-            request.raw.on('close', () => detachOnClose(liveSession))
+            // G-998166:迟到清理带对象身份复核 —— 只有注册表里仍是本 session 才 detach;
+            // 旧 session 的迟到 close 不得对同 key 已换代的新 session 触发宽限/释放
+            request.raw.on('close', () => {
+              if (findSession(replayKey) === liveSession) detachOnClose(liveSession)
+            })
             request.log.warn(
               { replayKey, lastSeq, replayed: missed.length },
               '[SSEReplay] stream takeover',

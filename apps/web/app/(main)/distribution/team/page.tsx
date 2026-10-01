@@ -12,6 +12,8 @@ import { Users, Loader2, ChevronLeft, ChevronRight, ArrowLeft, Crown } from 'luc
 import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import {
   Button,
   Card,
@@ -61,15 +63,19 @@ export default function DistributionTeamPage() {
   const tc = useTranslations('common')
   const locale = useLocale()
   const [page, setPage] = React.useState(1)
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
 
   const teamQ = useQuery({
     queryKey: ['distribution', 'team-center'],
     queryFn: () => api<TeamCenterData>('/api/finance/distribution/team/center'),
+    enabled: allow,
   })
   const listQ = useQuery({
     queryKey: ['distribution', 'subordinates', page],
     queryFn: () =>
       api<ListData>(`/api/finance/distribution/subordinates?page=${page}&limit=${PAGE_SIZE}`),
+    enabled: allow,
   })
 
   const total = listQ.data?.total ?? 0
@@ -112,6 +118,9 @@ export default function DistributionTeamPage() {
         </h1>
       </header>
 
+      {/* 2026-09-30 登录态门 */}
+      {allow ? (
+        <>
       <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
         {stats.map((s) => {
           const Icon = s.icon
@@ -236,7 +245,11 @@ export default function DistributionTeamPage() {
             </div>
           </div>
         )}
-      </div>
+          </div>
+        </>
+      ) : (
+        <AuthGatePrompt message="请先登录后查看分销团队" />
+      )}
     </div>
   )
 }

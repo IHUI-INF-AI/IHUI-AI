@@ -24,6 +24,8 @@ export interface PublishAccount {
   platform: string
   displayName: string
   status: PublishAccountStatus
+  /** 凭证是否仍在:false + status='disabled' = 凭证已清除,等重新扫码登录 */
+  hasCredentials?: boolean
   lastVerifiedAt?: string | null
   credentials?: Record<string, unknown>
 }

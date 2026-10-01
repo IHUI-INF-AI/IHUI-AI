@@ -34,6 +34,7 @@ import time
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -159,7 +160,20 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         # 首页「登录/注册」按钮现指向 /home/login,直达它。
         "login_url": "https://www.oschina.net/home/login",
         "success_cookies": ["_user_token", "osc"],
-        "success_url_pattern": r"oschina\.net/u/\d+|my\.oschina\.net",
+        # 2026-09-30 补首页特征:wx 扫码确认后回调落地页是 www.oschina.net/ 首页,
+        # 旧特征(oschina.net/u/N | my.oschina.net)永远匹配不到它。
+        "success_url_pattern": (
+            r"oschina\.net/u/\d+|my\.oschina\.net|^https?://(www\.)?oschina\.net/?($|#|\?)"
+        ),
+        # 2026-09-30 自适应登录检测(名单过时自愈)。实证:页面已登录(oschina 首页+
+        # 头像)而 _user_token/osc 双双不命中,publish_accounts 里 oschina 账号历史 0 ——
+        # 检测循环活着(截图持续更新)却永不翻 success,唯一存活解释是名单过时。
+        # 判据:整页跳过授权页 → 回本域非登录页 → cookie 罐出现基线之外的新名字。
+        # 落库走 _collect_platform_relevant 的域名归属表,不依赖 success_cookies 名单。
+        "adaptive_oauth": {
+            "oauth_url_pattern": r"^https?://open\.weixin\.qq\.com/",
+            "site_url_pattern": r"^https?://([^/?#]+\.)?oschina\.net(:\d+)?(/|$|\?)",
+        },
         # 2026-09-30 探针实锤:该页有微信登录(第三方图标行 #icon-wx),但**必须先勾协议**,
         # 否则前端直接吞掉微信图标的点击(0 请求 0 跳转)。顺序点击计划两步:
         #   ① 勾协议 —— 只能点视觉盒 `label.login-agreement span.ant-checkbox`:
@@ -596,6 +610,13 @@ class ScanTask:
     platform: str
     status: str = "pending"  # pending | waiting_scan | scanned | success | failed | timeout | cancelled | expired
     message: str = ""
+    # 2026-09-30 进度阶梯:让前端能显示"走到哪一步",而不是一个不动的转圈。
+    # booting 启动浏览器 → opening 打开登录页 → switching 切到扫码 → rendering 等码渲染
+    # → ready 码已就绪。前端按值映射文案,后端只给机器可读的值。
+    stage: str = "booting"
+    # 2026-09-30 会话复用:True=优先复用上一次登录态(命中则免扫码直接成功);
+    # False=强制全新扫码(clear_cookies,出码语义)。默认 True 由前端开关下发。
+    reuse_session: bool = True
     qr_image_b64: str = ""  # base64 PNG 截图
     qr_image_updated_at: float = 0.0
     cookies: dict[str, str] = field(default_factory=dict)
@@ -629,6 +650,7 @@ class ScanTask:
             "platform": self.platform,
             "status": self.status,
             "message": self.message,
+            "stage": self.stage,
             "has_qr": bool(self.qr_image_b64),
             "qr_updated_at": self.qr_image_updated_at,
             "cookies_count": len(self.all_relevant_cookies),
@@ -643,7 +665,53 @@ class ScanTask:
 # sync Playwright 非线程安全:API 协程只入队,真正摸 page 的动作在任务线程的
 # 等待循环里由 _drain_interactions 执行,结果按关联 id 回填。
 # ---------------------------------------------------------------------------
-_INTERACT_ACTIONS = ("screenshot", "fill", "click", "text")
+_INTERACT_ACTIONS = ("screenshot", "fill", "click", "text", "drag", "eval", "drag_hold", "drag_move", "drop")
+
+# 按住中的拖拽会话:task_id -> {"x":..,"y":..}(当前鼠标位置,仅任务线程读写)
+_DRAG_SESSIONS: dict[str, dict[str, float]] = {}
+
+
+def _drag_parse(value: str | None) -> tuple[float, float]:
+    raw = (value or "0").replace(" ", "")
+    parts = [float(x) for x in raw.split(",") if x != ""]
+    return (parts[0] if parts else 0.0, parts[1] if len(parts) > 1 else 0.0)
+
+
+def _drag_steps(page: Any, sx: float, sy: float, dx: float, dy: float) -> None:
+    """缓入缓出分步移动(行为检测友好)。终点 = (sx+dx, sy+dy)。"""
+    steps = max(14, min(70, int(abs(dx) / 5) or 14))
+    for i in range(1, steps + 1):
+        u = i / steps
+        e = u * u * (3 - 2 * u)
+        wobble = ((i % 4) - 1.5) * 0.7
+        page.mouse.move(sx + dx * e, sy + dy * e + wobble)
+        delay = 0.005
+        if i < steps * 0.2:
+            delay += 0.018
+        elif i > steps * 0.85:
+            delay += 0.01
+        time.sleep(delay)
+    time.sleep(0.12)
+
+
+def _resolve_locator(page: Any, selector: str) -> Any:
+    """主框架找不到时自动穿透所有 iframe(验证码类组件普遍 iframe 化)。"""
+    loc = page.locator(selector).first
+    try:
+        loc.wait_for(state="attached", timeout=1200)
+        return loc
+    except Exception:  # noqa: BLE001
+        pass
+    for fr in page.frames:
+        if fr is page.main_frame:
+            continue
+        try:
+            cand = fr.locator(selector).first
+            cand.wait_for(state="attached", timeout=800)
+            return cand
+        except Exception:  # noqa: BLE001
+            continue
+    raise RuntimeError(f"元素未找到(已穿透全部 iframe): {selector}")
 
 
 def _drain_interactions(task: ScanTask, page: Any) -> None:
@@ -664,13 +732,80 @@ def _drain_interactions(task: ScanTask, page: Any) -> None:
                 result["screenshot_b64"] = base64.b64encode(shot).decode("ascii")
                 result["ok"] = True
             elif action == "fill":
-                page.fill(selector, value or "", timeout=5000)
+                _resolve_locator(page, selector or "").fill(value or "", timeout=5000)
                 result["ok"] = True
             elif action == "click":
-                page.click(selector, timeout=5000)
+                _resolve_locator(page, selector or "").click(timeout=5000)
                 result["ok"] = True
             elif action == "text":
-                result["text"] = page.inner_text(selector, timeout=5000) if selector else page.title()
+                if selector:
+                    result["text"] = _resolve_locator(page, selector).inner_text(timeout=5000)
+                else:
+                    result["text"] = page.title()
+                result["ok"] = True
+            elif action == "drag":
+                # 滑块验证码:value="dx[,dy]"(像素,相对起点中心);selector 为拖动起点(滑块手柄)。
+                dx, dy = _drag_parse(value)
+                box = _resolve_locator(page, selector or "").bounding_box()
+                if not box:
+                    raise RuntimeError(f"拖动起点 bounding_box 为空: {selector}")
+                sx = box["x"] + box["width"] / 2
+                sy = box["y"] + box["height"] / 2
+                page.mouse.move(sx, sy)
+                page.mouse.down()
+                _drag_steps(page, sx, sy, dx, dy)
+                page.mouse.up()
+                _DRAG_SESSIONS.pop(task.task_id, None)
+                result["ok"] = True
+                result["drag"] = {"dx": dx, "dy": dy}
+            elif action == "drag_hold":
+                # 按下并拖到偏移处保持按住(不松开),供调用方截图观察后 drag_move/drop 续接。
+                dx, dy = _drag_parse(value)
+                box = _resolve_locator(page, selector or "").bounding_box()
+                if not box:
+                    raise RuntimeError(f"拖动起点 bounding_box 为空: {selector}")
+                sx = box["x"] + box["width"] / 2
+                sy = box["y"] + box["height"] / 2
+                page.mouse.move(sx, sy)
+                page.mouse.down()
+                _drag_steps(page, sx, sy, dx, dy)
+                _DRAG_SESSIONS[task.task_id] = {"x": sx + dx, "y": sy + dy}
+                result["ok"] = True
+                result["held"] = {"x": sx + dx, "y": sy + dy}
+            elif action == "drag_move":
+                # 按住状态下继续位移 dx,dy(相对当前位置)。
+                pos = _DRAG_SESSIONS.get(task.task_id)
+                if not pos:
+                    raise RuntimeError("无按住中的拖拽会话(先 drag_hold)")
+                dx, dy = _drag_parse(value)
+                _drag_steps(page, pos["x"], pos["y"], dx, dy)
+                pos["x"] += dx
+                pos["y"] += dy
+                result["ok"] = True
+                result["held"] = dict(pos)
+            elif action == "drop":
+                # 松开(提交验证)。可选 value 为松开前最后一次微移。
+                pos = _DRAG_SESSIONS.get(task.task_id)
+                if not pos:
+                    raise RuntimeError("无按住中的拖拽会话(先 drag_hold)")
+                dx, dy = _drag_parse(value)
+                if dx or dy:
+                    _drag_steps(page, pos["x"], pos["y"], dx, dy)
+                    pos["x"] += dx
+                    pos["y"] += dy
+                page.mouse.up()
+                _DRAG_SESSIONS.pop(task.task_id, None)
+                result["ok"] = True
+            elif action == "eval":
+                # 页面内执行 JS(返回须可 JSON 序列化)。selector 可选:指定 frame url/name 子串定位目标 iframe。
+                js = value or ""
+                target_frame = page.main_frame
+                if selector:
+                    for fr in page.frames:
+                        if selector in (fr.url or "") or selector in (fr.name or ""):
+                            target_frame = fr
+                            break
+                result["eval"] = target_frame.evaluate(js)
                 result["ok"] = True
             else:
                 result["error"] = f"未知 action: {action}(合法集 {_INTERACT_ACTIONS})"
@@ -745,6 +880,7 @@ _TERMINAL_STATUSES = ("success", "failed", "timeout", "cancelled", "expired")
 
 _TASK_TTL_SECONDS = 5 * 60  # 完成后保留 5 分钟
 _QR_VALIDITY_SECONDS = 5 * 60  # 二维码有效/轮询超时窗口(与线程内 5 分钟超时一致)
+_BIND_VALIDITY_SECONDS = 15 * 60  # 扫码后的绑定/短信阶段宽限(2026-09-30:短信往返+人工输码曾卡死在 5 分钟总限)
 _REDIS_KEY_TTL_SECONDS = 10 * 60  # Redis key TTL:覆盖二维码有效期 + 结果保留期
 
 
@@ -814,6 +950,7 @@ def _task_to_dict(task: ScanTask) -> dict[str, Any]:
         "platform": task.platform,
         "status": task.status,
         "message": task.message,
+        "stage": task.stage,
         "qr_image_b64": task.qr_image_b64,
         "qr_image_updated_at": task.qr_image_updated_at,
         "cookies": dict(task.cookies),
@@ -832,6 +969,7 @@ def _task_from_dict(data: dict[str, Any]) -> ScanTask:
         platform=str(data.get("platform", "")),
         status=str(data.get("status", "pending")),
         message=str(data.get("message", "")),
+        stage=str(data.get("stage", "booting") or "booting"),
         qr_image_b64=str(data.get("qr_image_b64", "")),
         qr_image_updated_at=float(data.get("qr_image_updated_at", 0.0) or 0.0),
         cookies=dict(data.get("cookies") or {}),
@@ -922,7 +1060,12 @@ def get_task(task_id: str) -> ScanTask | None:
             return None
 
     # P2 修复(2026-08-06): 超过二维码有效期且未到终态 → 一次性标记 expired,前端轮询得到明确过期状态
-    if not task.is_terminal() and task.completed_at is None and time.time() - task.created_at > _QR_VALIDITY_SECONDS:
+    # 2026-09-30: 本实例已有页面句柄(用户已扫码进入绑定/短信阶段)放宽到 _BIND_VALIDITY_SECONDS,
+    # 否则短信往返+人工输码会在 5 分钟总限上撞死(实测在「绑定」前 3 秒过期)。
+    _validity = _QR_VALIDITY_SECONDS
+    if getattr(task, "_page", None) is not None:
+        _validity = _BIND_VALIDITY_SECONDS
+    if not task.is_terminal() and task.completed_at is None and time.time() - task.created_at > _validity:
         task.status = "expired"
         task.message = "二维码已过期,请重新发起扫码登录"
         task.completed_at = time.time()
@@ -958,7 +1101,7 @@ def list_tasks(user_id: str | None = None) -> list[ScanTask]:
     return tasks
 
 
-def create_task(user_id: str, platform: str) -> ScanTask:
+def create_task(user_id: str, platform: str, reuse_session: bool = True) -> ScanTask:
     """创建任务:写入本地工作副本 + Redis(带 TTL)。"""
     if platform not in PLATFORM_SCAN_CONFIG:
         raise ValueError(f"不支持的平台: {platform},可用: {list(PLATFORM_SCAN_CONFIG.keys())}")
@@ -966,6 +1109,7 @@ def create_task(user_id: str, platform: str) -> ScanTask:
         task_id=str(uuid.uuid4()),
         user_id=user_id,
         platform=platform,
+        reuse_session=bool(reuse_session),
     )
     _TASK_STORE.put_local(task)
     _persist_task(task)
@@ -988,8 +1132,12 @@ def remove_task(task_id: str) -> None:
 # ---------------------------------------------------------------------------
 # Chromium 可执行文件查找(2026-07-30 立,解决 PLAYWRIGHT_BROWSERS_PATH 指向 D 盘但浏览器在 C 盘的问题)
 # ---------------------------------------------------------------------------
+_chromium_path_cache: str | None | None = None  # 第二层 None=未缓存;str|None=缓存结果
+
+
 def _find_chromium_executable() -> str | None:
-    """查找可用的 Chromium 可执行文件路径。
+    """查找可用的 Chromium 可执行文件路径(结果按进程缓存:每任务起一枚浏览器,
+    磁盘探测不必每次重跑 —— 慢机冷 FS 缓存下这一串 stat 可达几十 ms)。
 
     优先级:
     1. PLAYWRIGHT_BROWSERS_PATH 环境变量指向的路径(D 盘)
@@ -998,12 +1146,17 @@ def _find_chromium_executable() -> str | None:
     """
     from pathlib import Path
 
+    global _chromium_path_cache
+    if _chromium_path_cache is not None:
+        return _chromium_path_cache or None
+
     # 1. 检查环境变量指定的路径
     env_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
     if env_path:
         # chromium (完整版,支持 headless + headed)
         candidate = Path(env_path) / "chromium-1228" / "chrome-win64" / "chrome.exe"
         if candidate.exists():
+            _chromium_path_cache = str(candidate)
             return str(candidate)
         # headless shell
         candidate = (
@@ -1013,15 +1166,18 @@ def _find_chromium_executable() -> str | None:
             / "chrome-headless-shell.exe"
         )
         if candidate.exists():
+            _chromium_path_cache = str(candidate)
             return str(candidate)
 
     # 2. 检查 Windows 默认路径
     home = Path.home()
     candidate = home / "AppData" / "Local" / "ms-playwright" / "chromium-1228" / "chrome-win64" / "chrome.exe"
     if candidate.exists():
+        _chromium_path_cache = str(candidate)
         return str(candidate)
 
-    # 3. 让 Playwright 自己找
+    # 3. 让 Playwright 自己找(缓存"无"这个结论,同样是每任务重跑不得的)
+    _chromium_path_cache = ""
     return None
 
 
@@ -1139,6 +1295,9 @@ def _toutiao_wx_fetch_new_qr_once(client: Any, task: Any) -> tuple[str, str]:
     with task._lock:
         task.qr_image_b64 = base64.b64encode(r3.content).decode("ascii")
         task.qr_image_updated_at = time.time()
+    # 进度阶梯:纯 HTTP 通道(头条微信码)同样要给出 ready —— 前端靠它把"正在生成"换成码
+    task.stage = "ready"
+    task.message = "请用微信扫描二维码"
     _persist_task(task)
     return state, qr_uuid
 
@@ -1326,6 +1485,30 @@ _NET_UNREACHABLE_RE = re.compile(
     r"|ERR_INTERNET_DISCONNECTED|ERR_TIMED_OUT|TimeoutError"
 )
 
+# 资源拦截的第三方统计/广告域名指纹(2026-09-30)。只收窄到"对出码零贡献且业界公认
+# 是埋点"的域,不放大到任何含 track/stat/ad 的宽泛子串 —— 宽泛子串会误杀
+# （如 stat Being 出现在正常静态资源路径里）。命中即 abort,判不了就放行。
+_TRACKER_URL_NEEDLES: tuple[str, ...] = (
+    "hm.baidu.com",
+    "google-analytics.com",
+    "googletagmanager.com",
+    "doubleclick.net",
+    "googlesyndication.com",
+    "cnzz.com",
+    "umeng.com",
+    "clarity.ms",
+    "scorecardresearch.com",
+)
+
+
+def _should_trim_request(resource_type: str, url: str) -> bool:
+    """判一个请求是否该拦(2026-09-30 资源减负)。抽成纯函数以便单测钉住判据:
+    媒体/字体与第三方埋点拦,**图片绝不能拦**(码本身就是图),接口类一律放行。
+    """
+    if resource_type in ("media", "font"):
+        return True
+    return any(needle in (url or "") for needle in _TRACKER_URL_NEEDLES)
+
 
 def _login_page_open_failure_message(exc: BaseException) -> str:
     """把"打不开登录页"的异常转成用户可读文案。
@@ -1349,6 +1532,134 @@ def _login_page_open_failure_message(exc: BaseException) -> str:
 # ---------------------------------------------------------------------------
 # 后台扫码登录任务
 # ---------------------------------------------------------------------------
+def _platform_profile_dir(platform: str) -> Path:
+    """常驻登录档的 user_data_dir(2026-09-30 会话复用票):每平台一份,放在 ai-service
+    的 data/ 下(已被 .gitignore 覆盖)。承载上一次扫码的登录态 —— 复用档靠它在
+    goto 一回来就能探到 success cookies,整个扫码环节直接跳过;强制新扫码档同样用
+    它(拿到 HTTP 缓存),只是登录态被 clear_cookies 抹掉。env SCAN_LOGIN_PROFILE_DIR
+    可整体改存放位置。平台名做文件名净化。
+    """
+    base = os.environ.get("SCAN_LOGIN_PROFILE_DIR")
+    root = Path(base) if base else Path(__file__).resolve().parents[2] / "data" / "scan-profiles"
+    safe = re.sub(r"[^A-Za-z0-9_-]", "_", platform)[:64] or "default"
+    return root / safe
+
+
+def _session_store_path(platform: str) -> Path:
+    """登录态快照的盘边 JSON(与 profile 同目录,gitignored)。"""
+    return _platform_profile_dir(platform) / "session-cookies.json"
+
+
+def _save_session_cookies(platform: str, context: Any) -> None:
+    """把当前登录态(cookie 全集)显式写到盘边 JSON(2026-09-30 会话复用票)。
+
+    为什么不指望 Chromium 自己落盘:**实测** add_cookies/浏览期 cookie 在
+    context.close() 后并不保证刷进 user_data_dir —— Chromium 的 cookie 提交是惰性的
+    (定时批量 commit,提前关进程就丢),本机最小复现:种 1 枚 cookie → close → 重开
+    = 0 枚。storage_state() 读的是内存 jar,显式写文件 + 下次任务 add_cookies 原样
+    回种,才是确定性的。tmp+replace 保证半截文件不会被读到。
+
+    落盘内容经 credentials_crypto.encrypt 加密(AES-256-GCM,与账号凭据同一把密钥):
+    cookie 是能直接冒用身份的凭据,明文落盘不符合本仓凭据卫生口径。
+    """
+    try:
+        state = context.storage_state()
+        cookies = state.get("cookies") or []
+        if not cookies:
+            return
+        from .publish.credentials_crypto import encrypt
+
+        enc = encrypt({"cookies": cookies})
+        path = _session_store_path(platform)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(enc, encoding="utf-8")
+        tmp.replace(path)
+        logger.info(f"[scan_login] 登录态快照已保存(密文): {path.name}({len(cookies)} 枚 cookie)")
+    except Exception as e:  # noqa: BLE001 — 快照失败绝不影响任务本身
+        logger.info(f"[scan_login] 会话快照保存失败(不影响任务): {e}")
+
+
+def _restore_session_cookies(platform: str, context: Any) -> int:
+    """把上一次成功登录的 cookie 快照回种进当前 context。返回回种枚数(仅日志用)。"""
+    try:
+        path = _session_store_path(platform)
+        if not path.exists():
+            return 0
+        from .publish.credentials_crypto import decrypt
+
+        data = decrypt(path.read_text(encoding="utf-8").strip())
+        cookies = data.get("cookies") if isinstance(data, dict) else None
+        if not isinstance(cookies, list) or not cookies:
+            return 0
+        context.add_cookies(cookies)
+        logger.info(f"[scan_login] 已回种上次登录态: {len(cookies)} 枚 cookie")
+        return len(cookies)
+    except Exception as e:  # noqa: BLE001 — 解不开(明文旧格式/密钥轮换/损坏)一律按无登录态继续
+        logger.info(f"[scan_login] 会话快照恢复失败(按无登录态继续): {e}")
+        return 0
+
+
+class _BrowserLease:
+    """常规档与常驻档的统一清理口:常驻档没有独立 browser 对象(context.close() 即关)。"""
+
+    def __init__(self, context: Any, browser: Any = None) -> None:
+        self.context = context
+        self._browser = browser
+
+    def close(self) -> None:
+        with contextlib.suppress(Exception):
+            self.context.close()
+        if self._browser is not None:
+            with contextlib.suppress(Exception):
+                self._browser.close()
+
+
+_LAUNCH_ARGS = [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--disable-blink-features=AutomationControlled",  # 反检测
+]
+
+_CTX_KWARGS: dict[str, Any] = {
+    "viewport": {"width": 1280, "height": 800},
+    "locale": "zh-CN",
+    "timezone_id": "Asia/Shanghai",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+}
+
+
+def _open_browser_and_lease(p: Any, platform: str, chromium_path: str | None) -> _BrowserLease:
+    """开浏览器+上下文。优先常驻登录档(每平台一份 user_data_dir:登录态跨任务存活
+    的载体,顺带复用 HTTP 缓存);目录被同平台并发任务占用等场景启动失败时,静默退回
+    临时档 —— 提速/复用档绝不能变成故障档。**这里不清 cookie**:登录态去留由调用方
+    按 reuse_session 决定。
+    """
+    if os.environ.get("SCAN_LOGIN_PERSISTENT_PROFILE", "1") not in ("0", "false", "False"):
+        profile_dir = _platform_profile_dir(platform)
+        try:
+            profile_dir.mkdir(parents=True, exist_ok=True)
+            context = p.chromium.launch_persistent_context(
+                str(profile_dir),
+                executable_path=chromium_path,
+                headless=True,
+                args=_LAUNCH_ARGS,
+                **_CTX_KWARGS,
+            )
+            logger.info(f"[scan_login] 常驻登录档启用: {profile_dir}")
+            return _BrowserLease(context)
+        except Exception as e:  # noqa: BLE001 — 占用/损坏等一律退回临时档
+            logger.info(f"[scan_login] 常驻登录档不可用,退回临时档: {e}")
+    browser = p.chromium.launch(
+        executable_path=chromium_path,
+        headless=True,
+        args=_LAUNCH_ARGS,
+    )
+    return _BrowserLease(browser.new_context(**_CTX_KWARGS), browser)
+
+
 def _run_scan_task(task: ScanTask) -> None:
     """在后台线程中执行扫码登录流程。"""
     config = PLATFORM_SCAN_CONFIG[task.platform]
@@ -1373,23 +1684,41 @@ def _run_scan_task(task: ScanTask) -> None:
             # 启动浏览器(2026-07-30:指定 executable_path 解决 PLAYWRIGHT_BROWSERS_PATH 指向 D 盘但浏览器在 C 盘的问题)
             chromium_path = _find_chromium_executable()
             logger.info(f"[scan_login] Chromium 路径: {chromium_path or '(Playwright 默认)'}")
-            browser = p.chromium.launch(
-                executable_path=chromium_path,  # None 时 Playwright 用默认解析
-                headless=True,  # 后端 headless,前端通过截图看
-                args=[
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--disable-blink-features=AutomationControlled",  # 反检测
-                ],
-            )
-            context = browser.new_context(
-                viewport={"width": 1280, "height": 800},
-                locale="zh-CN",
-                timezone_id="Asia/Shanghai",
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            )
+            # 2026-09-30 会话复用票:登录态唯一可信来源是盘边 JSON 快照(见
+            # _save_session_cookies 的注释 —— Chromium 自身落盘惰性,不可依赖)。
+            # 两档统一先清空 context cookie,再按档回种:复用档回种上次登录态;
+            # 强制新扫码档不回种(等价 clear_cookies),保证出全新二维码。
+            lease = _open_browser_and_lease(p, task.platform, chromium_path)
+            context = lease.context
+            with contextlib.suppress(Exception):
+                context.clear_cookies()
+            if task.reuse_session:
+                _restore_session_cookies(task.platform, context)
+
+            # 2026-09-30 四次提速(资源减负):登录页外链的视频/音频/字体/第三方埋点
+            # 对"出码"零贡献,却和码接口抢同一台机器的带宽与 CPU(实测本机 CPU 饱和时
+            # 同一平台从 1.2s 涨到 7s —— 慢机上省下的绝对时间最多)。
+            # 拦截面刻意收窄:图片绝不能拦(码本身就是图),xhr/fetch/document/script
+            # 一律放行(登录层与码接口都靠它们),websocket 不经此路但同样不影响。
+            def _route_trim(route: Any) -> None:
+                try:
+                    req = route.request
+                    if _should_trim_request(req.resource_type or "", req.url or ""):
+                        route.abort()
+                        return
+                except Exception:  # noqa: BLE001 — 判不了类型就放行,绝不能把页面拦死
+                    pass
+                route.continue_()
+
+            try:
+                # 开关(2026-09-30 A/B 实测用):路由拦截在 sync API 下每请求一次
+                # 用户线程往返,重站(抖音数百请求)可能得不偿失。默认开,可用
+                # SCAN_LOGIN_RESOURCE_TRIM=0 关掉回退全量加载。
+                if os.environ.get("SCAN_LOGIN_RESOURCE_TRIM", "1") not in ("0", "false", "False"):
+                    context.route("**/*", _route_trim)
+            except Exception:  # noqa: BLE001 — 拦截不可用只回退到"全量加载",不拦任务
+                logger.info("[scan_login] 资源拦截不可用,按全量加载继续")
+
             task._context = context
 
             page = context.new_page()
@@ -1424,11 +1753,17 @@ def _run_scan_task(task: ScanTask) -> None:
 
             # 1. 打开登录页
             task.status = "waiting_scan"
+            task.stage = "opening"
             task.message = f"正在打开 {config['name']} 登录页..."
             logger.info(f"[scan_login] 打开 {config['login_url']}")
             _persist_task(task)  # P2 修复(2026-08-06): 状态变更同步到 Redis
             try:
-                page.goto(config["login_url"], wait_until="domcontentloaded", timeout=30000)
+                # 2026-09-30 四次提速:goto 从 domcontentloaded 提前到 commit。
+                # 下一句 _wait_for_page_ready 本来就在以 150ms 轮询"码载体/登录层痕迹",
+                # HTML 解析完成的信号是重复的 —— commit 一到就开轮询,首字节慢的站点
+                # (微博/搜狐这类大 HTML)省下的是解析期整段。连接类故障在 commit 前就会抛,
+                # 故障语义不变。
+                page.goto(config["login_url"], wait_until="commit", timeout=30000)
             except Exception as e:
                 task.status = "failed"
                 task.message = _login_page_open_failure_message(e)
@@ -1436,7 +1771,52 @@ def _run_scan_task(task: ScanTask) -> None:
                 _persist_task(task)  # P2 修复(2026-08-06): 终态同步到 Redis
                 return
 
-            page.wait_for_timeout(3000)
+            # 2026-09-30 会话复用(用户拍板):goto 一回来就探测已有登录态 —— 常驻档里
+            # 上一次扫码种下的 success cookies 若仍有效,此刻就在 context.cookies() 里,
+            # 一次读取(~10ms)即可判定,命中则走与扫码成功**完全相同**的保存链路
+            # (collect → schedule_account_save → persist),整个扫码环节直接跳过。
+            # 未命中(首次登录/已过期/强制新扫码)连一次额外等待都没有,原 QR 流程照走。
+            # require_url_match 平台(people 等用通用会话 cookie 的)沿用循环里同一条
+            # 复合判据:cookie 命中还须 URL 匹配,防登录页即存在的会话 cookie 误报。
+            if task.reuse_session:
+                try:
+                    _reuse_cookies = context.cookies()
+                    _reuse_dict = {c["name"]: c["value"] for c in _reuse_cookies if c.get("value")}
+                    _reuse_matched = [
+                        t
+                        for t in _cookie_hits(config, _reuse_dict)
+                        if _url_matches_success(config, page.url) or not config.get("require_url_match")
+                    ]
+                except Exception:  # noqa: BLE001 — 探测失败绝不影响主流程
+                    _reuse_matched = []
+                if _reuse_matched:
+                    logger.info(
+                        f"[scan_login] 任务 {task.task_id} 检测到已有登录状态,直接复用(免扫码): {_reuse_matched[0]}"
+                    )
+                    task.cookies = {k: v for k, v in _reuse_dict.items() if k in _reuse_matched}
+                    task.all_relevant_cookies = _collect_platform_relevant(
+                        _account_platform_of(task.platform), _reuse_dict, _reuse_cookies, config
+                    )
+                    task.status = "success"
+                    task.message = "检测到该平台已有登录状态,已直接复用(未出码)"
+                    task.completed_at = time.time()
+                    with contextlib.suppress(Exception):
+                        _update_qr_screenshot(task, page)
+                    # 站点在 goto 期间可能已刷新 cookie:按最新 jar 重写快照
+                    _save_session_cookies(task.platform, context)
+                    _schedule_account_save(task)
+                    _persist_task(task)
+                    lease.close()
+                    return
+
+            _qr_wait_sels = _qr_ready_selectors(config)
+            # 2026-09-30 三次提速:goto 之后的 `wait_for_timeout(3000)` 是第三块大固定等待。
+            # 它原本的用途是"等页面渲染出登录入口",但实测各平台渲染完的时刻差得很远
+            # (头条 3.8s、掘金 1.5s、小红书 <1.5s),固定 3s 对谁都既不够也不快。
+            # 现在改成"等任一码载体或登录层痕迹出现,上限 3s"(一出现立刻往下走),
+            # 等满的情况与旧行为等价 —— 纯赚不亏。
+            _pre_wait_sels = (*_qr_wait_sels, '[class*="login"]', '[id*="login"]', '[class*="mask"]')
+            _wait_for_page_ready(page, _pre_wait_sels, timeout_s=3.0, poll_ms=150)
 
             # 2. 尝试切换到扫码登录 tab(2026-09-29:平台可用 scan_tab_selectors 前置
             #    自己的入口;每项可以是选择器串,也可以是"顺序点击计划"(元组/列表:
@@ -1444,6 +1824,8 @@ def _run_scan_task(task: ScanTask) -> None:
             #    搜狐号 点"登录"弹层 → 点"其他方式"微信圆标)。通用文案清单作兜底。
             #    点击跨页兜底:sohu 登录层极少数情况开新窗,主页找不到就到上下文
             #    其它页(新→旧)找同选择器点掉。
+            # 2026-09-30 提速:计划的第一项就是"登录入口"选择器,先等它渲染出来再点,
+            # 点完立刻等码渲染 —— 省掉原本雷打不动的 3s(点击前)+ 1.5s(点击后)。
             scan_plans: list[Any] = [
                 *config.get("scan_tab_selectors", ()),
                 'text=扫码登录',
@@ -1458,32 +1840,144 @@ def _run_scan_task(task: ScanTask) -> None:
                 '[class*="scan"]',
                 '[class*="qrcode-tab"]',
             ]
-            for plan in scan_plans:
-                steps = list(plan) if isinstance(plan, (list, tuple)) else [plan]
-                clicked_any = False
-                for sel in steps:
-                    if _click_selector_anywhere(context, sel):
-                        clicked_any = True
-                        page.wait_for_timeout(1500)
-                if clicked_any:
-                    logger.info(f"[scan_login] 切换扫码: {steps}")
-                    break
+            _first_plan = scan_plans[0] if scan_plans else None
+            _is_configured_entry = bool(config.get("scan_tab_selectors"))
+            _entry_sels = (
+                tuple(str(s) for s in _first_plan)
+                if isinstance(_first_plan, (list, tuple))
+                else ((str(_first_plan),) if _first_plan else ())
+            )
+            _qr_wait_sels = _qr_ready_selectors(config)
+            task.stage = "switching"
+            task.message = f"正在切换到 {config['name']} 扫码…"
+            _persist_task(task)
 
-            page.wait_for_timeout(2000)
+            def _log_click(clicked: list[str]) -> None:
+                logger.info(f"[scan_login] 切换扫码: {clicked}")
+
+            # 有些平台(抖音实测)打开首页后会**自己**弹出登录/扫码层,只是慢:
+            # 实测 2.9s 骨架就绪 → 7.7s 出现登录层 → 8.3s 码容器 180x180。
+            # 这种页面上任何"先点入口"的动作都是纯亏:既花掉点击预算,又可能把页自己
+            # 弹好的层点掉。判据:页面里已经有"登录层痕迹"(登录类容器 / canvas / 大位图)。
+            _auto_layer_sels = (
+                '[class*="login"]',
+                '[class*="Login"]',
+                '[id*="login"]',
+                '[class*="mask"]',
+                'canvas',
+            )
+
+            def _auto_layer_started() -> bool:
+                return _ready_probe(page, _auto_layer_sels, min_side=80)
+
+            # 2026-09-30 二次提速(用户实测"最快的开源中国还要十几秒"):
+            # 旧写法在点入口之前无条件 sleep(配了点名入口 4s 探测 + 1.2s 兜底 / 没配则固定
+            # 1.2s),点完还要再固定等一轮 —— 于是**所有平台**的 switching 阶段都被钉在
+            # 3.5~8s,而实测入口最早 1.5s 就可点。现在分段各有上限、命中即走:
+            #   ① 码已在页面上 → 跳过入口(掘金/知乎/B站/快手/小红书/CSDN/微实测全命中)
+            #   ② 简短预算内试配置的入口选择器(探针实锤过的那几个,最准最省)
+            #   ③ 页面自己弹层 → 不再点任何东西,专心等码(抖音/搜狐实测是这一型)
+            #   ④ 都不成立 → 回到通用文案清单,按原语义点入口
+            _qr_already_there = _ready_probe(page, _qr_wait_sels)
+            _auto_layer = False
+            if _qr_already_there:
+                logger.info("[scan_login] 登录页已自带二维码(无需点入口)")
+            elif (config.get("scan_tab_selectors") or ()) and _entry_sels:
+                _hit = _entry_plan(
+                    page,
+                    context,
+                    [_entry_sels],
+                    wait_s=2.0,
+                    qr_sels=_qr_wait_sels,
+                    on_click=_log_click,
+                )
+                if not _hit and not _auto_layer_started():
+                    # 同下:把"等页面水合"的固定等待折进预算(原来是 wait_for_timeout(1000))
+                    _entry_plan(
+                        page,
+                        context,
+                        [
+                            *scan_plans,
+                            'text=扫码登录',
+                            'text=二维码登录',
+                            'text=微信登录',
+                            'text=登录',
+                        ],
+                        wait_s=3.5,
+                        qr_sels=_qr_wait_sels,
+                        on_click=_log_click,
+                    )
+                _auto_layer = _auto_layer_started()
+            elif not _auto_layer_started():
+                # 2026-09-30 三次提速:这里原本还有一句 `wait_for_timeout(800/1000)` 的
+                # "等页面水合"固定等待。它与"预算内轮询可点候选"是同一件事的两种写法,
+                # 而固定等待在慢机上只会叠加(页面没渲染完就白等,渲染完了也已经过去)。
+                # 现在把它折进预算:`_entry_plan` 每 120ms 就重新问一次"有候选可点吗",
+                # 候选一出现立刻点 —— 省下的是纯等待,慢平台收益最大(博客园/简书这类)。
+                _entry_plan(
+                    page,
+                    context,
+                    [*scan_plans, 'text=扫码登录', 'text=二维码登录', 'text=微信登录', 'text=登录'],
+                    wait_s=3.5,
+                    qr_sels=_qr_wait_sels,
+                    on_click=_log_click,
+                )
+                _auto_layer = _auto_layer_started()
+            else:
+                _auto_layer = True
+                logger.info("[scan_login] 登录层由页面自行弹出,跳过点击入口")
 
             # 3. 截图初始登录页(含二维码)
+            # 2026-09-30 提速:码没渲染出来先等到渲染(上限 2s = 旧固定值,命中即走)。
+            # 等不到也不影响出码 —— _update_qr_screenshot 自己会按"提取原图 → 码容器截图
+            # → 定位裁剪 → 整屏"四级兜底,与旧实现同一出口。
+            # 页面自行弹层的平台(抖音)给更长的等待:它的码由自己的动画组件合成,实测 8s 才
+            # 到 180x180 —— 但这不是"卡住",进度阶梯会如实显示"生成二维码"。
+            task.stage = "rendering"
+            task.message = "正在生成二维码…"
+            _persist_task(task)
+            # 页面自己弹层的(抖音):码由它的动画组件合成,实测 8.3s 才到 180x180 ——
+            # 这一段是平台自己的渲染节奏,给足预算但一直轮询(一就绪立刻取,不等满)。
+            _wait_for_page_ready(page, _qr_wait_sels, timeout_s=10.0 if _auto_layer else 2.0)
             _update_qr_screenshot(task, page)
+            task.stage = "ready"
 
             task.message = f"请用 {config['name']} App 扫描二维码"
             logger.info(f"[scan_login] 任务 {task.task_id} 进入等待扫码状态")
             _persist_task(task)  # P2 修复(2026-08-06): 状态变更同步到 Redis
+
+            # 自适应检测状态初始化(2026-09-30):oschina 这类点微信图标后**整页跳**
+            # open.weixin.qq.com 的平台,授权页跳转发生在进入主循环之前 ——
+            # 这里按当前 URL 补一次授权页判定,并记下扫码前的 cookie 名基线。
+            _adaptive_cfg = config.get("adaptive_oauth")
+            _saw_oauth = bool(
+                _adaptive_cfg and re.search(_adaptive_cfg["oauth_url_pattern"], page.url)
+            )
+            _cookie_baseline: set[str] = set()
+            if _adaptive_cfg:
+                try:
+                    _cookie_baseline = {
+                        c["name"] for c in context.cookies() if c.get("value")
+                    }
+                except Exception:
+                    _cookie_baseline = set()
+            if _saw_oauth:
+                logger.info(
+                    f"[scan_login] 任务 {task.task_id} 自适应检测:进入主循环时已在授权页, "
+                    f"cookie 基线 {len(_cookie_baseline)} 个名字"
+                )
 
             # 4. 轮询检测登录成功
             # 2026-09-30:5→10 分钟。多步验证(扫码后短信码往来)需要余量,5 分钟
             # 实测不够人在环上往返;二维码自身 2 分钟过期与此窗口独立。
             timeout_seconds = 10 * 60
             start_time = time.time()
-            last_screenshot_time = 0.0
+            # 2026-09-30 提速:旧值 0.0 配合"每 2 秒才更新一次"的节流,会让**刚出好的第一
+            # 帧**被最多推迟 2 秒才截(循环第一轮就在节流窗口里)。这里改成"允许立刻截",
+            # 首帧紧跟出码,后续仍按 2 秒节流 —— 行为不变,只是不再白等。
+            last_screenshot_time = start_time - 2.0
+            # 见下方"每 2 秒更新一次截图"处:首轮只截图、不做过期刷新判定
+            qr_settled = False
 
             while not task._stop_event.is_set():
                 # 2026-09-30 任务交互:短信验证码等多步验证由 API 端点投递,此处消费。
@@ -1520,41 +2014,49 @@ def _run_scan_task(task: ScanTask) -> None:
 
                 # 每 2 秒更新一次截图
                 if time.time() - last_screenshot_time >= 2.0:
-                    # 2026-09-29:二维码有有效期(头条 ~140s 实测),过期后码区变
-                    # "点击刷新"提示图,弹窗里的截图用户根本没法扫(用户实际踩坑,
-                    # 首次扫码失败即此因——码本身是真的,只是过期没人刷)。
-                    # 平台可配 qr_refresh_selectors,项为二选一:
-                    #   字符串 sel            → 检测+点击同一元素
-                    #   (detect_sel, click_sel) → 检测 A(如过期提示覆盖层)、点击 B(刷新按钮,
-                    #     可能常驻可见,绝不能凭"可见"就点,必须由 detect 态守门)
-                    # 探测轻量(is_visible 立即返回);click 用 JS click 绕弹层 mask
-                    # (头条 ttp-modal-mask 会拦普通 click 的 actionability)。
-                    _refresh_hit = False
-                    for _item in config.get("qr_refresh_selectors", ()):
-                        _det, _clk = (
-                            _item if isinstance(_item, (tuple, list)) else (_item, _item)
-                        )
-                        try:
-                            _el = page.locator(_det).first
-                            if not _el.is_visible():
-                                continue
+                    # 2026-09-30 提速:第一轮只截图、不做"过期刷新"判定。实测(头条 App 码)
+                    # 码区刚进 DOM 时会先挂上 `qrcode-tip` 提示类,此时码并没渲染 ——
+                    # 判定这时候跑会**误报过期**,点一次刷新再多等 2s,而这一轮本来就是
+                    # 用户等得最久的那一眼。判定从第二轮起照旧。
+                    if qr_settled:
+                        # 2026-09-29:二维码有有效期(头条 ~140s 实测),过期后码区变
+                        # "点击刷新"提示图,弹窗里的截图用户根本没法扫(用户实际踩坑,
+                        # 首次扫码失败即此因——码本身是真的,只是过期没人刷)。
+                        # 平台可配 qr_refresh_selectors,项为二选一:
+                        #   字符串 sel            → 检测+点击同一元素
+                        #   (detect_sel, click_sel) → 检测 A(如过期提示覆盖层)、点击 B(刷新按钮,
+                        #     可能常驻可见,绝不能凭"可见"就点,必须由 detect 态守门)
+                        # 探测轻量(is_visible 立即返回);click 用 JS click 绕弹层 mask
+                        # (头条 ttp-modal-mask 会拦普通 click 的 actionability)。
+                        _refresh_hit = False
+                        for _item in config.get("qr_refresh_selectors", ()):
+                            _det, _clk = (
+                                _item if isinstance(_item, (tuple, list)) else (_item, _item)
+                            )
                             try:
-                                page.evaluate(
-                                    "s => document.querySelector(s)?.click()", _clk
-                                )
+                                _el = page.locator(_det).first
+                                if not _el.is_visible():
+                                    continue
+                                try:
+                                    page.evaluate(
+                                        "s => document.querySelector(s)?.click()", _clk
+                                    )
+                                except Exception:
+                                    page.locator(_clk).first.click(timeout=2000, force=True)
+                                _refresh_hit = True
+                                break
                             except Exception:
-                                page.locator(_clk).first.click(timeout=2000, force=True)
-                            _refresh_hit = True
-                            break
-                        except Exception:
-                            continue
-                    if _refresh_hit:
-                        logger.info(
-                            f"[scan_login] 任务 {task.task_id} 检测到二维码过期,已点击刷新出新码"
-                        )
-                        page.wait_for_timeout(2000)
+                                continue
+                        if _refresh_hit:
+                            logger.info(
+                                f"[scan_login] 任务 {task.task_id} 检测到二维码过期,已点击刷新出新码"
+                            )
+                            # 点完不再固定等 2s:等码重新渲染出来就走(等不到才等满)。
+                            if not _wait_for_page_ready(page, _qr_wait_sels, timeout_s=2.0):
+                                page.wait_for_timeout(500)
                     _update_qr_screenshot(task, page)
                     last_screenshot_time = time.time()
+                    qr_settled = True
 
                 # 检查 cookies
                 cookies = context.cookies()
@@ -1584,6 +2086,9 @@ def _run_scan_task(task: ScanTask) -> None:
                     # 截图最终状态
                     _update_qr_screenshot(task, page)
 
+                    # 登录态快照:给下一次"会话复用"用(Chromium 自身落盘不可依赖,见快照函数注释)
+                    _save_session_cookies(task.platform, context)
+
                     # 异步保存到后端账号
                     _schedule_account_save(task)
                     _persist_task(task)  # P2 修复(2026-08-06): 成功终态同步到 Redis
@@ -1607,17 +2112,95 @@ def _run_scan_task(task: ScanTask) -> None:
                         task.message = f"登录成功(URL 跳转),获取到 {len(task.all_relevant_cookies)} 个 cookies"
                         task.completed_at = time.time()
                         _update_qr_screenshot(task, page)
+                        # 登录态快照:给下一次"会话复用"用
+                        _save_session_cookies(task.platform, context)
                         _schedule_account_save(task)
                         _persist_task(task)  # P2 修复(2026-08-06): 成功终态同步到 Redis
                         break
 
+                # 自适应登录检测(2026-09-30,adaptive_oauth 配置门控):
+                # success_cookies 名单过时的平台自愈通道。实证(oschina):页面已登录而
+                # _user_token/osc 双双不命中、URL 也不在旧特征里 —— 上面两条主检测永远哑火。
+                # 判据:页面去过授权页 → 现在回到本域且不在登录页 → cookie 罐出现基线之外
+                # 的新名字。落库走 _collect_platform_relevant 的域名归属表,不依赖名单名。
+                if _adaptive_cfg and task.status in ("waiting_scan", "scanned"):
+                    _now_url = page.url
+                    if re.search(_adaptive_cfg["oauth_url_pattern"], _now_url):
+                        # 还停在授权页:基线持续取"扫码前最后时刻"的名字集
+                        _saw_oauth = True
+                        _cookie_baseline = set(cookies_dict)
+                    elif _saw_oauth and re.search(
+                        _adaptive_cfg["site_url_pattern"], _now_url
+                    ) and not _url_is_login_page(_now_url):
+                        # 页面离开授权页回到本站 = 用户已扫码确认(通用 Playwright 流
+                        # 原本从不设 scanned,弹窗防误杀与免倒计时都认这个状态)。
+                        if task.status == "waiting_scan":
+                            task.status = "scanned"
+                            task.message = "已扫码,授权回调中…"
+                            _persist_task(task)
+                        _new_names = {k for k in cookies_dict if k not in _cookie_baseline}
+                        if _new_names:
+                            _dbg_dom = {c["name"]: c.get("domain", "") for c in cookies}
+                            logger.info(
+                                f"[scan_login] 任务 {task.task_id} 自适应命中(授权回调回站): "
+                                f"url={_now_url[:120]}, 新cookie={sorted(_new_names)}, "
+                                f"domains={_dbg_dom}"
+                            )
+                            task.cookies = {
+                                k: v for k, v in cookies_dict.items() if k in _new_names
+                            }
+                            task.all_relevant_cookies = _collect_platform_relevant(
+                                _account_platform_of(task.platform),
+                                cookies_dict, cookies, config,
+                            )
+                            task.status = "success"
+                            task.message = (
+                                f"登录成功(自适应检测),获取到 {len(task.all_relevant_cookies)} 个 cookies"
+                            )
+                            task.completed_at = time.time()
+                            _update_qr_screenshot(task, page)
+                            _schedule_account_save(task)
+                            _persist_task(task)
+                            break
+                        elif task.message != "已回到站点,等待登录 cookie 落地…":
+                            task.message = "已回到站点,等待登录 cookie 落地…"
+                            _persist_task(task)
+
+                # 诊断转储(2026-09-30,SCAN_LOGIN_DEBUG_DIR 门控;取证用,取值只记长度)
+                _debug_dir = os.environ.get("SCAN_LOGIN_DEBUG_DIR")
+                if _debug_dir and task.status in ("waiting_scan", "scanned"):
+                    try:
+                        os.makedirs(_debug_dir, exist_ok=True)
+                        with open(
+                            os.path.join(_debug_dir, f"{task.task_id}.json"),
+                            "w", encoding="utf-8",
+                        ) as _df:
+                            json.dump(
+                                {
+                                    "ts": time.time(),
+                                    "url": page.url,
+                                    "status": task.status,
+                                    "saw_oauth": _saw_oauth,
+                                    "baseline_n": len(_cookie_baseline),
+                                    "cookies": [
+                                        {
+                                            "name": c["name"],
+                                            "domain": c.get("domain", ""),
+                                            "len": len(c.get("value") or ""),
+                                        }
+                                        for c in cookies
+                                        if c.get("value")
+                                    ],
+                                },
+                                _df, ensure_ascii=False, indent=1,
+                            )
+                    except Exception:
+                        pass
+
                 page.wait_for_timeout(1500)
 
-            # 清理
-            with contextlib.suppress(Exception):
-                context.close()
-            with contextlib.suppress(Exception):
-                browser.close()
+            # 清理(2026-09-30 会话复用票:常驻档 context.close() 即关浏览器,统一走 lease)
+            lease.close()
 
     except Exception as e:
         logger.exception(f"[scan_login] 任务 {task.task_id} 异常")
@@ -1742,6 +2325,239 @@ def _find_qr_clip(pg: Any, vp_w: int, vp_h: int) -> dict[str, float] | None:
             except Exception:  # noqa: BLE001 — 单源读不到就试下一个
                 continue
     return None
+
+
+# ---------------------------------------------------------------------------
+# 页面就绪就往下走(2026-09-30 提速):把"固定等 N 秒"换成"条件一到立刻走"。
+#
+# 起因(本机实测,platform=toutiao_app,同一台机器):
+#   sync_playwright + launch + new_context + goto 合计 ≈ 1.25s,
+#   而固定等待 goto 后 3s + 切 tab 后 1.5s + 截图前 2s = 6.5s ⇒ 首个二维码 7.8s 才可用。
+#   即用户等的那 7.8 秒里**八成是空等** —— 页面早就渲染好了,代码还在 sleep。
+#
+# 二次提速(同日,用户实测"最快的开源中国还要十几秒"):上面那三处只是第一层。真正把
+# **所有**平台钉在 3.5~8s 的是"点入口之前那两段固定等待"(配了点名入口时 4s 就绪探测
+# + 1.2s 兜底,点完再固定 1.5s)。改成分段各有上限、命中即走之后,23 个平台实测:
+#   掘金 1.2s / B站 1.4s / 快手 1.5s / 知乎 1.5s / 小红书 1.9s / CSDN 2.2s /
+#   思否 2.7s / 开源中国 3.7s / 头条App 4.3s / 微博 4.4s(其余平台 1.0~11.4s)
+# 唯一的硬约束是抖音(10~16s):它的登录层与二维码都由站点自己的动画组件合成,实测
+# 8.3s 才到 180x180 —— 这是目标站点自身的节奏,不是我们的等待。
+#
+# 判据与固定等待**不等价但更严**(固定等待失败时照样往下走,这里也不会把任务判失败):
+#   选择器全部落空 ⇒ 等满 fallback 秒数后返回,后面照样截图,与旧行为逐字一致;
+#   任一选择器命中有尺寸元素 ⇒ 立刻返回,省掉的是纯等待。
+# 为什么不用 page.wait_for_selector:它只认一个选择器、抛异常,而这里要"多个候选里任一"
+# 且失败必须静默降级;批量 evaluate 一次往返就把全部候选问完(逐个 is_visible 是 N 次往返,
+# 反而把省下的时间又还回去)。
+# ---------------------------------------------------------------------------
+_QR_READY_PROBE_JS = """(arg) => {
+  const min = arg.min;
+  for (const sel of arg.sels) {
+    let els;
+    try { els = document.querySelectorAll(sel); } catch (e) { continue; }
+    for (const el of els) {
+      const r = el.getBoundingClientRect();
+      const w = r.width || el.width || 0;
+      const h = r.height || el.height || 0;
+      if (w >= min && h >= min) return true;
+    }
+  }
+  for (const c of document.querySelectorAll('canvas')) {
+    const ow = c.width || 0;
+    const oh = c.height || 0;
+    if (Math.min(ow, oh) < min) continue;
+    const r = c.getBoundingClientRect();
+    if (r.width >= min && r.height >= min) return true;
+  }
+  return false;
+}"""
+
+# Playwright 专有语法(text=xxx / :has-text())在 document.querySelectorAll 里是 SyntaxError。
+# 这一族出现在**通用兜底清单**里,直接丢给浏览器只会白跑往返(每个候选都要 reject 一次),
+# 所以送进浏览器前先滤掉;它们仍由 _click_selector_anywhere 按 Playwright 语义去点。
+_PW_ONLY_SELECTOR_RE = re.compile(r"text=|:has-text\(")
+
+
+def _browser_safe(selectors: Sequence[str]) -> list[str]:
+    """只留浏览器 DOM 能直接吃的选择器(text= / :has-text() 是 Playwright 专有语法,
+    丢进 querySelectorAll 只会白跑一次往返去 reject 它)。
+    """
+    return [s for s in selectors if s and not _PW_ONLY_SELECTOR_RE.search(str(s))]
+
+
+# 兼容旧调用名(与 _browser_safe 同一份实现,禁止各写一遍)
+_browser_safe_selectors = _browser_safe
+
+
+# 默认候选:码语义容器 / 通用位图载体 / 码 iframe。刻意不写裸 "img"(登录页 logo 也是 img,
+# 等一个必然出现的元素等于没等)。平台配置的 qr_image_selectors 与 qr_element_screenshot
+# 由调用方前置拼进来 —— 那是已经过探针实锤的选择器,比这里的通用猜测更早命中。
+_DEFAULT_QR_READY_SELECTORS: tuple[str, ...] = (
+    '[class*="qrcode"] img',
+    '[id*="qrcode"] img',
+    '[class*="qr-code"] img',
+    '[class*="qrcode"] canvas',
+    '[class*="qrCode"] canvas',
+    '[class*="qrcode"]',
+    '[id*="qrcode"]',
+    'img[src^="data:image"]',
+    'iframe[src*="qrconnect"]',
+)
+
+
+def _ready_probe(page: Any, selectors: Sequence[str], min_side: int = 120) -> bool:
+    """一次往返问完所有候选:页面里是否已有"够大的码载体"。任何异常都当未就绪。"""
+    sels = _browser_safe_selectors(selectors)
+    if not sels:
+        return False
+    try:
+        return bool(page.evaluate(_QR_READY_PROBE_JS, {"sels": sels, "min": min_side}))
+    except Exception:  # noqa: BLE001 — 探测失败绝不能影响主流程
+        return False
+
+
+def _entry_probe(page: Any, selectors: Sequence[str]) -> bool:
+    """入口元素就绪(可点位置已量到)。判据是 bounding_box 而非 is_visible,理由同码容器截图。"""
+    for sel in selectors:
+        try:
+            box = page.locator(sel).first.bounding_box()
+            if box and box.get("width", 0) >= 4 and box.get("height", 0) >= 4:
+                return True
+        except Exception:  # noqa: BLE001 — 单个候选失败换下一个
+            continue
+    return False
+
+
+def _wait_for_page_ready(
+    page: Any,
+    selectors: Sequence[str],
+    *,
+    timeout_s: float,
+    poll_ms: int = 120,
+    probe: Any = None,
+) -> bool:
+    """轮询到"至少一个候选就绪"或超时。返回是否命中就绪(仅用于日志)。
+
+    注意不要写 time.sleep:探针/测试要能把等待压缩掉,统一走 page.wait_for_timeout。
+    """
+    check = probe or _ready_probe
+    deadline = time.monotonic() + max(0.0, timeout_s)
+    while True:
+        if check(page, selectors):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        page.wait_for_timeout(poll_ms)
+
+
+def _qr_ready_selectors(config: Mapping[str, Any]) -> tuple[str, ...]:
+    """等"码渲染出来"的候选集:平台点名的选择器在前(更准),通用默认兜底。"""
+    out: list[str] = []
+    for key in ("qr_image_selectors", "qr_element_screenshot"):
+        v = config.get(key)
+        if isinstance(v, str):
+            out.append(v)
+        elif isinstance(v, (list, tuple)):
+            out.extend(str(x) for x in v)
+    out.extend(_DEFAULT_QR_READY_SELECTORS)
+    # 去重保序(同一选择器重复问一遍只是白跑一次浏览器往返)
+    return tuple(dict.fromkeys(out))
+
+
+# 登录入口的"可点"判据见 `_sel_clickable_now`:必须走 Playwright 自己的可见性语义,
+# 自写 `querySelector` + `elementFromPoint` 会被 SSR 骨架里的同名隐藏兄弟节点骗到
+# (头条/掘金实测初版就这么恒判 false,一次都点不中)。
+
+
+def _browser_safe(selectors: Sequence[str]) -> list[str]:
+    """只留浏览器 DOM 能直接吃的选择器(text= / :has-text() 是 Playwright 专有语法,
+    丢进 querySelectorAll 只会白跑一次往返去 reject 它)。
+    """
+    return [s for s in selectors if s and not _PW_ONLY_SELECTOR_RE.search(str(s))]
+
+
+def _sel_clickable_now(pg: Any, selector: str) -> bool:
+    """**不等待**地判"这个选择器现在有没有可点的元素"。
+
+    必须用 Playwright 的 `is_visible()` 而不是自己写 `querySelector` + `elementFromPoint`:
+    实测头条/掘金的登录入口在 SSR 骨架里有一份 display:none 的同名兄弟节点,
+    `querySelector` 拿到的正是它,于是自写判据恒 false、真正的可见按钮一次也点不到
+    —— 表现就是"点了但没反应",比不点更慢(白等一轮预算)。该节点由 Playwright 的
+    可见性语义天然跳过(`locator(sel).first` 取的是**可见**的那个)。
+    """
+    try:
+        if pg.locator(selector).count() == 0:
+            return False
+    except Exception:  # noqa: BLE001 — 选择器非法/页面已导航:当未就绪
+        return False
+    try:
+        return bool(pg.locator(selector).first.is_visible())
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _click_selector_any_page(context: Any, selector: str) -> bool:
+    """在上下文任一页面里点掉选择器(可见性判据同 `_click_selector_anywhere`)。
+
+    与 `_click_selector_anywhere` 的差别只有一个:调用方已经确认过"主页面现在可点",
+    所以这里不再重复判可见,而是直接点(省一次往返)。
+    """
+    pages = list(getattr(context, "pages", []) or [])
+    for pg in pages[:1] + list(reversed(pages[1:])):
+        try:
+            loc = pg.locator(selector).first
+            if loc.count() == 0 or not loc.is_visible():
+                continue
+            loc.click(timeout=1500)
+            return True
+        except Exception:  # noqa: BLE001 — 单页失败换下一页
+            continue
+    return False
+
+
+def _entry_plan(
+    page: Any,
+    context: Any,
+    plans: Sequence[Any],
+    *,
+    wait_s: float,
+    qr_sels: Sequence[str],
+    on_click: Any = None,
+) -> bool:
+    """等"某个候选入口可点"→ 点它 → 等码出现;命中返回 True。
+
+    与旧写法的差别(这是各平台 opening 阶段 3~8s 的真正来源):
+    旧:先无条件 sleep(3s / 4s / 1.2s)再逐个 `is_visible` + 原生 click + 固定 sleep(1.5s),
+        而且"没点中"也要把整段 sleep 走完。
+    新:**一个总预算** `wait_s` 内轮询"现在有没有可点的候选" —— 逐个候选只做一次
+        `is_visible`(不等待),一命中立刻点、点完立刻等码;命中即返回。
+    预算耗尽返回 False,调用方按原固定等待兜底,行为不会比旧版差。
+    """
+    deadline = time.monotonic() + max(0.0, wait_s)
+    clicked_once = False
+    while True:
+        for plan in plans:
+            steps = list(plan) if isinstance(plan, (list, tuple)) else [plan]
+            clicked: list[str] = []
+            for sel in steps:
+                sel_s = str(sel)
+                if not _sel_clickable_now(page, sel_s):
+                    continue
+                if _click_selector_any_page(context, sel_s):
+                    clicked.append(sel_s)
+            if not clicked:
+                continue
+            clicked_once = True
+            if on_click is not None:
+                on_click(clicked)
+            # 点完立刻等码(命中即走);还没出码就按剩余预算继续试下一个候选
+            if _wait_for_page_ready(page, qr_sels, timeout_s=1.6):
+                return True
+            break  # 这一轮命中过就不在同一轮里继续点别的候选
+        if time.monotonic() >= deadline:
+            # 点到过但码还没出:也返回 True —— 调用方不该再"补点一次"(那会打乱页面形态)
+            return clicked_once
+        page.wait_for_timeout(120)
 
 
 def _extract_qr_image(page: Any, selectors: Sequence[str]) -> str | None:
@@ -2303,10 +3119,10 @@ async def detect_login_from_cdp_session(
 # ---------------------------------------------------------------------------
 # 公共 API
 # ---------------------------------------------------------------------------
-def start_scan_task(user_id: str, platform: str) -> ScanTask:
+def start_scan_task(user_id: str, platform: str, reuse_session: bool = True) -> ScanTask:
     """启动后台扫码登录任务(立即返回 task_id)。"""
     _cleanup_expired_tasks()
-    task = create_task(user_id, platform)
+    task = create_task(user_id, platform, reuse_session=reuse_session)
     thread = threading.Thread(
         target=_run_scan_task,
         args=(task,),

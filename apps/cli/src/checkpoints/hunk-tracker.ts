@@ -39,6 +39,8 @@ export interface HunkTrackerStats {
   agentHunks: number;
   externalHunks: number;
   conflictFiles: number;
+  /** G-641:各文件因 maxHistoryPerFile 溢出被丢弃的 hunk 累计条数(0 = 从未丢) */
+  droppedHunks: number;
 }
 
 const DEFAULT_OPTIONS: HunkTrackerOptions = {
@@ -51,6 +53,9 @@ const CONTENT_PREVIEW_LEN = 200;
 export class HunkTracker {
   private readonly options: HunkTrackerOptions;
   private readonly history: Map<string, HunkRecord[]> = new Map();
+  // G-641:溢出丢弃必须可见 —— 丢最旧不是静默变短,丢弃数按文件累计并可经
+  // getDroppedHunks()/getStats().droppedHunks 读到,每次真丢还写一条 console.warn。
+  private readonly droppedHunksByFile: Map<string, number> = new Map();
 
   constructor(options?: Partial<HunkTrackerOptions>) {
     this.options = { ...DEFAULT_OPTIONS, ...options };
@@ -81,7 +86,8 @@ export class HunkTracker {
       content: this.preview(content),
     };
     list.push(record);
-    this.pruneList(list);
+    const dropped = this.pruneList(list);
+    this.accountDropped(filePath, dropped);
   }
 
   recordExternalChange(
@@ -104,7 +110,23 @@ export class HunkTracker {
       content: this.preview(content),
     };
     list.push(record);
-    this.pruneList(list);
+    const dropped = this.pruneList(list);
+    this.accountDropped(filePath, dropped);
+  }
+
+  /** G-641:丢弃入账 + 输出面(日志)计数行;dropped=0 时什么都不说。 */
+  private accountDropped(filePath: string, dropped: number): void {
+    if (dropped <= 0) return;
+    const total = (this.droppedHunksByFile.get(filePath) ?? 0) + dropped;
+    this.droppedHunksByFile.set(filePath, total);
+    console.warn(
+      `[hunk-tracker] ${filePath} 历史超上限丢弃最旧 ${dropped} 条 hunk(累计 dropped ${total})`,
+    );
+  }
+
+  /** 该文件自创建起被上限丢弃的 hunk 累计条数(0 = 从未丢)。 */
+  getDroppedHunks(filePath: string): number {
+    return this.droppedHunksByFile.get(filePath) ?? 0;
   }
 
   detectConflict(
@@ -135,6 +157,7 @@ export class HunkTracker {
     let agentHunks = 0;
     let externalHunks = 0;
     let conflictFiles = 0;
+    let droppedHunks = 0;
 
     for (const [, list] of this.history) {
       totalHunks += list.length;
@@ -144,16 +167,19 @@ export class HunkTracker {
       }
       if (this.fileHasConflict(list)) conflictFiles++;
     }
+    for (const n of this.droppedHunksByFile.values()) droppedHunks += n;
 
-    return { totalHunks, agentHunks, externalHunks, conflictFiles };
+    return { totalHunks, agentHunks, externalHunks, conflictFiles, droppedHunks };
   }
 
   clear(filePath?: string): void {
     if (filePath === undefined) {
       this.history.clear();
+      this.droppedHunksByFile.clear();
       return;
     }
     this.history.delete(filePath);
+    this.droppedHunksByFile.delete(filePath);
   }
 
   private getOrCreateList(filePath: string): HunkRecord[] {
@@ -212,11 +238,13 @@ export class HunkTracker {
     return e1 + 1 === s2 || e2 + 1 === s1;
   }
 
-  private pruneList(list: HunkRecord[]): void {
+  /** 按上限从最旧端丢弃,返回本次丢弃条数(G-641:返回值交由调用方入账并告警)。 */
+  private pruneList(list: HunkRecord[]): number {
     const max = this.options.maxHistoryPerFile;
-    if (list.length <= max) return;
+    if (list.length <= max) return 0;
     const drop = list.length - max;
     list.splice(0, drop);
+    return drop;
   }
 
   private validateRange(start: number, end: number): void {

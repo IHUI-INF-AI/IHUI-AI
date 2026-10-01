@@ -8,6 +8,9 @@ import * as React from 'react'
 import { Keyboard, TerminalSquare } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { postTerminalInput } from '@ihui/api-client'
+// b76-13 票7(2026-09-30 立):消费侧集合裁尾唯一出口 —— 裁尾与"少列了多少"原子产出,
+// 淘汰的条数必须渲染成「N more」露出,不许静默截断(判据见 scripts/check-list-cap-honesty.mjs)。
+import { tailWithOmittedCount } from '@ihui/api-client/client'
 import { Button, Input } from '@ihui/ui-react'
 import { FoldableSection } from './foldable-section'
 import { CopyButton } from './copy-button'
@@ -373,7 +376,8 @@ export const TerminalSection = React.memo(function TerminalSection({
   const failedCount = terminals.filter(
     (term) => toStreamStatus(term.status, term.exitCode) === 'error',
   ).length
-  const recentTerminals = terminals.slice(-10)
+  // b76-13 票7:裁尾走唯一出口,omittedCount 是「还有 N 项」的唯一事实来源(0 时无占位)
+  const { items: recentTerminals, omittedCount } = tailWithOmittedCount(terminals)
 
   return (
     <FoldableSection
@@ -399,9 +403,9 @@ export const TerminalSection = React.memo(function TerminalSection({
         {recentTerminals.map((term) => (
           <TerminalItem key={term.id} term={term} />
         ))}
-        {terminals.length > 10 && (
+        {omittedCount > 0 && (
           <div className="px-1 text-[11px] text-muted-foreground/60">
-            {t('terminal.moreItems', { n: terminals.length - 10 })}
+            {t('terminal.moreItems', { n: omittedCount })}
           </div>
         )}
       </div>

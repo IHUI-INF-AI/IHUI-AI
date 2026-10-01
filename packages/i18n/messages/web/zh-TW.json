@@ -621,6 +621,10 @@
     "nickname": "暱稱",
     "noAccounts": "暫無帳號",
     "openExternalBrowser": "在外部瀏覽器開啟",
+    "chromeImportBtn": "從我的 Chrome 匯入",
+    "chromeImportLaunching": "正在開啟 Chrome 登入視窗...",
+    "chromeImportHint": "已開啟 {platform} 登入頁(獨立視窗)。請在那個視窗完成登入,登入成功後會自動儲存帳號,無需貼上 Cookie。",
+    "chromeImportFailed": "Chrome 匯入未完成",
     "orDivider": "或",
     "platform": "平臺",
     "scan": "掃碼登入",
@@ -630,6 +634,9 @@
     "scanLoginHint": "二維碼每分鐘自動刷新",
     "scanLoginSucceeded": "掃碼登入成功",
     "scanLoginSuccess": "掃碼成功",
+    "scanLoginReuseLabel": "登入方式",
+    "scanLoginReuseOn": "重用已有登入(免掃碼)",
+    "scanLoginReuseOff": "每次重新掃碼",
     "scanLoginTimeout": "掃碼超時,請重試",
     "scanLoginTitle": "掃碼登入",
     "scanWithPhoneHint": "請使用手機掃描二維碼登入",
@@ -8647,6 +8654,10 @@
           "title": "組織資料正在遷移",
           "action": "遷移完成後重試"
         },
+        "102": {
+          "title": "請求時間驗證失敗",
+          "action": "校準系統時間後重試"
+        },
         "speaking_banned": {
           "title": "目前處於禁言狀態",
           "action": "聯絡管理員瞭解詳情"
@@ -11221,6 +11232,7 @@
     "permissionUnknownError": "未知錯誤",
     "placeholder": "詳細描述需求，輸入 / 調用技能、插件、MCP（如 /goal /loop /plan）",
     "placeholderPlan": "規劃模式：輸入需求，AI 只制定計劃不執行工具（/act 切回執行，Alt+P 切換）",
+    "aiDisclaimer": "內容由AI生成，請核實重要信息",
     "plan": {
       "ariaLabel": "執行計劃步驟",
       "collapseReasoning": "折疊推理過程",
@@ -20236,7 +20248,18 @@
       "passwordHint": "普通用戶建議使用掃碼登錄,此處僅開發者備用。",
       "platform": "平臺",
       "saveCookies": "儲存帳號",
+      "preparingQr": "正在生成二維碼…",
+      "regenerateQr": "重新出碼",
       "scan": "掃碼",
+      "elapsedSeconds": "已等待 {seconds} 秒",
+      "loadingSlowHint": "首次出碼要現起瀏覽器並打開平臺登錄頁,通常 3~8 秒;二維碼一就緒會立即顯示",
+      "loadingStage": {
+        "booting": "啟動瀏覽器",
+        "opening": "打開登錄頁",
+        "rendering": "生成二維碼",
+        "ready": "二維碼就緒",
+        "switching": "切換到掃碼"
+      },
       "scanLogin": "掃碼登錄",
       "scanLoginDescription": "選擇平臺後,後端會打開該平臺登錄頁並截取二維碼;用對應 App 掃碼即可自動保存 cookies。",
       "scanLoginFailed": "掃碼登錄失敗",
@@ -20250,6 +20273,8 @@
       "selectPlatform": "選擇平臺",
       "startScanLogin": "開始掃碼登錄",
       "statusActive": "正常",
+      "statusCleared": "待重新掃碼登入",
+      "statusClearedTip": "該帳號的登入憑證已被清除(安全處置),重新掃碼登入即可恢復,並非平臺停用",
       "statusDisabled": "已禁用",
       "statusExpired": "已過期",
       "statusUnknown": "未知",
@@ -24716,7 +24741,6 @@
     "recording": "錄音中",
     "voiceHint": "語音輸入",
     "placeholder": "輸入訊息...",
-    "stop": "停止",
     "send": "發送"
   },
   "checkIn": {

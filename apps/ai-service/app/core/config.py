@@ -11,8 +11,10 @@ Pydantic Settings 默认大小写不敏感匹配环境变量,因此小写字段�
 
 import json
 import os
+import re
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Mapping
+from urllib.parse import urlparse
 
 from pydantic_settings import BaseSettings
 
@@ -409,4 +411,146 @@ def _sync_env_file_to_os() -> None:
 
 
 _sync_env_file_to_os()
+
+
+# ── 出口事实解析(G-998137,b76-09b 票2,2026-09-30)────────────────────────────
+# 为什么本文件需要自己的出口解析器:守门 116 钉住的"决策与事实同源"只覆盖 api 进程内
+# 那一趟 fetch(apps/api/src/utils/proxy-dispatcher.ts 的 collectEgressFacts 是 TS 侧
+# 唯一判据);跨进程一侧(本服务的 httpx/LiteLLM/provider 出网)读的是各自 env ——
+# 两侧可同时"绿"而对同一 URL 得出不同的代理/CA 结论:实现同源救不了输入分叉
+# (上游修掉前正是这个形态)。因此把本侧出口判据收成**这一个可调用出口**:本进程内
+# 任何要回答"这趟走不走代理 / CA 从哪来 / NO_PROXY 命没命中"的代码一律调它,
+# 不得再各写一遍。双面等值由 tests/test_egress_facts_parity.py 钉住(与 TS 侧逐字段全等)。
+#
+# 判据逐条镜像 apps/api/src/utils/proxy-dispatcher.ts 的 collectEgressFacts。
+# 注意:内置白名单的唯一上游表在那边 —— 那边改表,这边必须同步,等值测试会红;
+# 这是刻意设计(强制两侧对账),不是重复实现的许可。
+#
+# 凭据卫生(守门 67 / AGENTS §5e 口径):返回值只含变量**名字**与状态枚举,
+# 永不外带任何取值 —— 没有 CA 文件内容,没有带凭据的代理 URL userinfo。
+#
+# env 形参是给测试与"下发给子进程前先按同一判据预演"用的:生产直接调
+# resolve_egress_facts(url) 即按本进程 os.environ 判。
+# 闭集常量:与 packages/types/src/egress-facts.ts 同序同名(对账面的一部分,不许自造)
+_EGRESS_ENV_PROXY_VAR_NAMES = (
+    "HTTP_PROXY",
+    "http_proxy",
+    "HTTPS_PROXY",
+    "https_proxy",
+    "ALL_PROXY",
+    "all_proxy",
+)
+_EGRESS_NO_PROXY_VAR_NAMES = ("NO_PROXY", "no_proxy")
+# 与 TS 侧 EGRESS_CA_STATES 同闭集:'undetermined' 档本判据不产出(判不出时宁可少一档)
+_EGRESS_CA_STATES = ("node-extra-ca-certs", "node-tls-ca-certs", "none", "undetermined")
+# 内网/本机判据(与 TS 侧 isInternalHostname 逐条等值)
+_EGRESS_INTERNAL_HOSTNAME_RE = re.compile(r"^(?:10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)")
+# 内置白名单:**唯一上游表**在 apps/api/src/utils/proxy-dispatcher.ts 的 DEFAULT_PROXY_DOMAINS,
+# 此处是镜像 —— 那边改表必须同步过来,双面等值测试会在不一致时变红(刻意设计)。
+_EGRESS_DEFAULT_PROXY_DOMAINS = (
+    "api.openai.com",
+    "generativelanguage.googleapis.com",
+    "api.groq.com",
+    "api.anthropic.com",
+    "api.x.ai",
+    "api.mistral.ai",
+    "api.cohere.com",
+    "api.together.xyz",
+    "api.fireworks.ai",
+    "api.perplexity.ai",
+    "integrate.api.nvidia.com",
+    "openrouter.ai",
+)
+
+
+def resolve_egress_facts(url: str, env: "Mapping[str, str] | None" = None) -> dict[str, object]:
+    """按本侧判据解析一趟出站请求的**出口事实**(与 TS 侧 EgressFacts 逐字段同形)。"""
+    values = os.environ if env is None else env
+
+    # hostname:解析不出为空串(与 TS 侧 new URL 失败同档),不得被读成"没走代理"
+    try:
+        hostname = (urlparse(url).hostname or "").lower()
+    except ValueError:
+        hostname = ""
+    parseable = hostname != ""
+
+    # 代理配置:只看有没有配、配得对不对,值永不外带
+    raw_proxy = (values.get("PROXY_URL") or "").strip()
+    configured = raw_proxy.startswith("http://") or raw_proxy.startswith("https://")
+
+    # 内网/本机地址永不走代理(与 TS 侧 isInternalHostname 逐条等值)
+    internal = parseable and (
+        hostname in ("localhost", "127.0.0.1", "::1")
+        or hostname.endswith(".local")
+        or _EGRESS_INTERNAL_HOSTNAME_RE.match(hostname) is not None
+    )
+
+    # 域名白名单:PROXY_DOMAINS 覆盖内置表(表出处本身是事实之一)
+    raw_domains = (values.get("PROXY_DOMAINS") or "").strip()
+    if raw_domains:
+        domains = [s.strip().lower() for s in raw_domains.split(",") if s.strip()]
+        table_origin = "env-override"
+    else:
+        domains = list(_EGRESS_DEFAULT_PROXY_DOMAINS)
+        table_origin = "builtin-default"
+    allowlisted = parseable and any(
+        hostname == d or hostname.endswith("." + d) for d in domains
+    )
+
+    # NO_PROXY 命中判定:只作为**事实**回来,不改变代理决策(改路由是另一张票)。
+    # 第一个"已设置"的变量名即定案(大小写两档在部分客户端语义不同,名字本身是事实)。
+    no_proxy_matched = False
+    no_proxy_var: str | None = None
+    if parseable:
+        for name in _EGRESS_NO_PROXY_VAR_NAMES:
+            raw_no_proxy = values.get(name)
+            if raw_no_proxy is None or not raw_no_proxy.strip():
+                continue
+            no_proxy_var = name
+            entries = [s.strip().lower() for s in raw_no_proxy.split(",") if s.strip()]
+            if "*" in entries or any(
+                hostname == e or hostname.endswith("." + e.lstrip(".")) for e in entries
+            ):
+                no_proxy_matched = True
+            break
+
+    proxied = bool(configured and parseable and not internal and allowlisted)
+    if proxied:
+        policy_declined: str | None = None
+    elif not parseable:
+        policy_declined = "url-unparseable"
+    elif not configured:
+        policy_declined = "proxy-unconfigured"
+    elif internal:
+        policy_declined = "internal-host"
+    else:
+        policy_declined = "domain-not-in-table"
+
+    # 自定义 CA 状态(单独一档;排查"TLS 握手在代理后失败"时必答)
+    if (values.get("NODE_EXTRA_CA_CERTS") or "").strip():
+        custom_ca = "node-extra-ca-certs"
+    elif (values.get("NODE_TLS_CA_CERTS") or "").strip():
+        custom_ca = "node-tls-ca-certs"
+    else:
+        custom_ca = "none"
+
+    return {
+        "targetHostname": hostname if parseable else None,
+        "urlParseable": parseable,
+        "proxied": proxied,
+        "proxySource": "app-env-var" if configured else "none",
+        "proxyConfigVar": "PROXY_URL" if configured else None,
+        "proxyDomainTable": table_origin if parseable else "not-evaluated",
+        "proxyAppliedVia": "proxy-agent" if proxied else "no-explicit-dispatcher",
+        # 环境里存在的通用代理变量**名字**(逐个名字,值一律不外带)
+        "envProxyVars": [
+            n for n in _EGRESS_ENV_PROXY_VAR_NAMES if (values.get(n) or "").strip()
+        ],
+        "noProxyMatched": no_proxy_matched,
+        "noProxyVar": no_proxy_var,
+        "customCa": custom_ca,
+        "policyDeclined": policy_declined,
+    }
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

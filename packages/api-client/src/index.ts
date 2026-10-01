@@ -117,6 +117,23 @@ export type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihu
 export { ApiError, isNotFound, isErrorCode } from './api-error.js'
 export { setTransport, getTransport } from './transport.js'
 export type { Transport, TransportResponse, TransportInit } from './transport.js'
+// D138(承 V4 #96):流式(SSE)传输注入口 + 可复用续传流 runner。
+// 小程序端经 setStreamTransport 注入 Taro.request enableChunked 适配器,
+// 并经 runResumableSSEStream 消费共享的重连/退避/读超时/断点续传实现
+// (端内不再自写第二份,见 apps/miniapp-taro/src/lib/sse.ts 薄壳)。
+export {
+  setStreamTransport,
+  getStreamTransport,
+  createFetchStreamTransport,
+} from './stream-transport.js'
+export type {
+  StreamTransport,
+  StreamTransportInit,
+  StreamTransportResponse,
+  StreamBodyReader,
+} from './stream-transport.js'
+export { runResumableSSEStream, appendResumeEventIdHeader } from './client.js'
+export type { ResumableSSEStreamOptions } from './client.js'
 
 // 模型上下文容量映射(跨端共享:web/desktop/extension/mobile-rn/miniapp-taro)
 export {

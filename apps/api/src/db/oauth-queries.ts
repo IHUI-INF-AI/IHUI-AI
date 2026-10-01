@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { eq, and, desc, sql, isNull } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   oauthApps,
@@ -273,8 +273,10 @@ export async function removeBinding(id: string, userId: string): Promise<string[
  * 解绑指定平台的全部第三方账号(软删),回报**库侧确认改动的那批 id**(2026-09-27)。
  * 旧形态返回 Promise<void> —— 调用方无从区分"真的改了行"与"where 没命中",
  * 于是 `/auth/bindings/remove` 把常量 true 当解绑结果回给前端。
- * 如实登记:where 只有 (userId, platform) 而无 `deletedAt IS NULL` 过滤,
- * 重复解绑同一平台仍会软删同一行并回报其 id(软删时间被刷新)。
+ * G-815962(2026-10-01)写后回读收口两格:
+ *  ① where 补 `deletedAt IS NULL` —— 已软删的行不再被重复软删并回报其 id(旧账如实登记过的缺陷);
+ *  ② 写后必须回读:更新完成后按活行面重读一次,若该平台仍有活绑定 = 写入静默落空,
+ *    当场抛错而不是把"半解绑"当成功留给下一次用户报障。
  */
 export async function removeBindingByPlatform(
   userId: string,
@@ -284,9 +286,29 @@ export async function removeBindingByPlatform(
     .update(userThirdPartyAccounts)
     .set({ deletedAt: new Date() })
     .where(
-      and(eq(userThirdPartyAccounts.userId, userId), eq(userThirdPartyAccounts.platform, platform)),
+      and(
+        eq(userThirdPartyAccounts.userId, userId),
+        eq(userThirdPartyAccounts.platform, platform),
+        isNull(userThirdPartyAccounts.deletedAt),
+      ),
     )
     .returning({ id: userThirdPartyAccounts.id })
+  // 写后回读(not found after write 的反向:"仍 found after delete" 必须是显式断言)
+  const stillLive = await db
+    .select({ id: userThirdPartyAccounts.id })
+    .from(userThirdPartyAccounts)
+    .where(
+      and(
+        eq(userThirdPartyAccounts.userId, userId),
+        eq(userThirdPartyAccounts.platform, platform),
+        isNull(userThirdPartyAccounts.deletedAt),
+      ),
+    )
+  if (stillLive.length > 0) {
+    throw new Error(
+      `OAuth binding still live after unbind: userId=${userId} platform=${platform} leftover=${stillLive.map((r) => r.id).join(',')}`,
+    )
+  }
   return rows.map((r) => r.id)
 }
 
@@ -320,6 +342,7 @@ export async function updateUserSk(id: string, userId: string, status: number) {
   await db
     .update(userSk)
     .set({ status, updatedAt: new Date() })
+  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(and(eq(userSk.id, id), eq(userSk.userId, userId)))
 }
 

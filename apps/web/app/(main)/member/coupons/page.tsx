@@ -12,7 +12,8 @@ import { Ticket, Loader2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Tooltip } from '@/components/feedback'
 
 type CouponStatus = 'unused' | 'used' | 'expired'
@@ -52,12 +53,16 @@ export default function MemberCouponsPage() {
   const t = useTranslations('memberCouponsPage')
   const [tab, setTab] = React.useState<CouponStatus>('unused')
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'coupons', tab],
     queryFn: () =>
       api<{ list: Coupon[] }>(`/api/coupons?status=${tab}`)
         .then((d) => d.list ?? [])
         .catch(() => [] as Coupon[]),
+    enabled: allow,
   })
 
   const coupons = data ?? []
@@ -101,7 +106,9 @@ export default function MemberCouponsPage() {
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看我的优惠券" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           <span className="whitespace-nowrap">{t('loading')}</span>

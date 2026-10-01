@@ -11,7 +11,8 @@ import { CreditCard, Loader2, CheckCircle, XCircle } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
@@ -49,12 +50,16 @@ export default function MemberSubscriptionPage() {
   const router = useRouter()
   const qc = useQueryClient()
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'subscription'],
     queryFn: () =>
       api<{ subscription: Subscription | null }>('/api/subscriptions')
         .then((d) => d.subscription)
         .catch(() => null),
+    enabled: allow,
   })
 
   const cancelMut = useMutation({
@@ -90,7 +95,9 @@ export default function MemberSubscriptionPage() {
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看我的订阅" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}

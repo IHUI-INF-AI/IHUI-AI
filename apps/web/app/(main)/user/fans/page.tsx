@@ -32,7 +32,8 @@ import { fetchApi } from '@/lib/api'
 import { Avatar } from '@/components/data'
 import { Button } from '@ihui/ui-react'
 import { pushError } from '@/stores/error-banner'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface FanUser {
   id: string
@@ -54,6 +55,9 @@ export default function FansPage() {
   const locale = useLocale()
   const qc = useQueryClient()
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['user', 'fans'],
     queryFn: async (): Promise<FanUser[]> => {
@@ -64,6 +68,7 @@ export default function FansPage() {
       }
       return r.data.list ?? []
     },
+    enabled: allow,
   })
 
   // 2026-08-01 错误推送全局 banner(常驻 + 顶部滑下),替代 inline 英文错误显示
@@ -77,6 +82,7 @@ export default function FansPage() {
       api<{ list: { userId: string }[] }>(`/api/follows/following?pageSize=200`).then(
         (d) => d.list ?? [],
       ),
+    enabled: allow,
   })
 
   const followedIds = React.useMemo(
@@ -108,7 +114,9 @@ export default function FansPage() {
   return (
     <div className="px-4 space-y-4 py-4">
       <BackButton />
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看粉丝" />
+      ) : isLoading ? (
         <div className="py-10 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
           {t('loading')}

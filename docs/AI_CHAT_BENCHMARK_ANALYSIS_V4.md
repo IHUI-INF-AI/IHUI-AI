@@ -747,6 +747,7 @@
 6. **验收判据**：`git grep -F "add_directories" -- docs/benchmark-evidence/2026-09/` 命中（证明一手帧表已入库）；判定表内 verdict=真缺 的行数 = 1（现读只有多根工作区），且该行带可粘贴执行的否证命令；反向对照：任取一条已否证的等价项（`rewind`→`checkpoint_rewind.py:85`），删掉两侧 file:line 后由 D140 尺子跑，必须落"判不出"而不是"已交付"。
 7. **依赖与顺序**：**被 D157 残余挡**（控制帧提取物未入库）；前置 = 先跑步 1。与 D139/D140 可并行（D140 建议在前，复用其判据口径）。
 8. **风险与回退**：风险是按帧名直译造重复实现（我方 `checkpoint_rewind` 已覆盖 rewind 两帧）——故"等价但另名"必须写进表而非新写代码。回退 = 删两份新 md（纯登记，零下游）。**需 §24 拍板**：唯一真缺"往当前工作区追加目录（多根工作区）"是新增对外能力，预填方案：`apps/cli` 侧加 `--add-dir <path>`（可重复）+ `ToolContext.additionalDirectories: readonly string[]`，权限档默认 **deny-by-default**（追加目录须逐次批准，理由：越过工作区边界即越过 §5 的授权面）；web/RN 端本轮**不做**并标"平台独占：桌面/终端语义"。
+9. **交付注记（2026-10-01，S15-④）**：步 1/步 2 已落地——`docs/benchmark-evidence/2026-09/qoder-control-frames.md`（线层封套 6 帧 + 出站控制请求 34 名 + 反向 RPC 逐帧原文，版本钉 qoder-cn v0.4.3 + SDK dist 常量 `1.0.50`）与 `qoder-control-frames-equivalence.md`（逐帧三态判定，**verdict=真缺 仅"多根工作区追加目录" 1 行**，别名集 + 否证命令齐备）。验收：`git grep -F "add_directories" -- docs/benchmark-evidence/2026-09/` 命中 ∧ 真缺行数 = 1。两处**票面数字过期，就地更正**：①票面否证判据（含 `extraDir`）现读 4 命中——全部是 `apps/cli/tests/skills-scan-link.test.ts:51,75,82,96` 的测试局部临时目录变量，不是会话级能力；精化判据（去 `extraDir` + 钉 `--add-dir`）现读零命中，真缺结论不变。②等价锚点行号漂移：`auto-title` :544→:621/:631、`rewind scope` :85-88→:85-87、`mcp reconnect` :84-85→:86-87，形态一致不翻判定。步 3（尺子②强制别名集列）随 D140 接线已具备（`check:benchmark-delivery` 进 check:all 尾列，2026-10-01）。§24 拍板仍未做：真缺行保持登记态，未开工。
 
 ### D150 运行时对账未做(如实登记,不得读成"已验证"):本机无 PG/Redis 端口,对话链跑不通(取证 2026-09-28)
 
