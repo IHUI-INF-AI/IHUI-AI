@@ -490,7 +490,8 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
           typeof payload.workspaceLockToken === 'string' ? payload.workspaceLockToken : undefined
         if (token) {
           // P0-2:统一释放原语(停心跳 + 凭 token 释放 + 广播含释放结果)
-          await releaseLockToken(id, workspace, token, current.teamId)
+          // G-672:此分支已由 leavingInProgress 别名条件收窄 toStatus ≠ in_progress
+          await releaseLockToken(id, workspace, token, current.teamId, toStatus)
           const { workspaceLockToken: _removed, ...rest } = payload
           nextPayload = rest
         } else {
@@ -602,7 +603,8 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
 
       // P0-2:删除前统一释放残留锁(停心跳 + 凭 token 释放 + 清审计字段 + 广播)。
       // dispatch 写入的终态行可能残留 lockedBy/payload token;无锁时仅停心跳,幂等。
-      await releaseTaskLockByTaskId(id)
+      // G-672:上方 409 守卫已把 status 收窄到 triage/done,合法 outcome。
+      await releaseTaskLockByTaskId(id, status)
 
       const removed = await db
         .delete(agentTasks)
