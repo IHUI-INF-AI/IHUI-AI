@@ -17,8 +17,10 @@
  * 三态语义(与 merge-live-doc 自测的 ⑰/⑰b/⑰c/⑰d 四组夹具逐字同形,断言方向未改):
  *   lost       = 整行在候选面里真的不见了 ⇒ 唯一参与判红的一档(要归并/回补)
  *   superseded = 有人把这一行就地改写了   ⇒ **不得**插回,也不判红
- *   stale      = 候选面停在**更旧的前缀**(HEAD 侧翻了勾并追加了注记)⇒ 不判红、不插回,
- *                但必须喊出来:提交会把这一行退回旧形态,处置动作是人工取 HEAD 形态。
+ *   stale      = 候选面停在**更旧的前缀**(HEAD 侧翻了勾并追加了注记),或停在**同一正文的
+ *                未勾旧态**(HEAD 已勾/工作树未勾同正文;2026-10-01 D209 补,D203 实证整文件
+ *                提交会把翻勾静默退回)⇒ 不判红、不插回,但必须喊出来:提交会把这一行退回
+ *                旧形态,处置动作是人工取 HEAD 形态。
  * `classifyMissing` 只吃两侧的行数组,不碰 git、不碰磁盘 —— 取哪一面是调用方的事(见 face-reader)。
  */
 import {
@@ -92,6 +94,25 @@ export function classifyMissing(headLines, candidateLines, threshold = SIM_THRES
     const tt = tokenize(t)
     const sq = squash(t)
     const bare = squash(stripState(t))
+    /**
+     * 第四种「不是丢」的形态(D209,2026-10-01 D203 实证):工作树停在**同一正文的未勾旧态**
+     * (HEAD 侧已翻勾,正文剥态后逐字相同,只差行首勾选态)。bare 相等会让下面的容器短路把它
+     * 吞进 superseded —— 而 superseded 的语义是「别人改写了,以工作树文字落地」,对这一形态
+     * 意味着整文件 pathspec 提交会把 HEAD 的翻勾**静默退回**(实测链 1405976722 回退
+     * c1bb06a84b,守门 130 自愈层也没接住)。处置与 stale 同向:人工取 HEAD 形态。
+     * 判据同样保守到每一条:HEAD 已勾 + 候选未勾 + bare 逐字相等 + 唯一候选 + 长度门槛;
+     * 孪生候选不止一条 ⇒ 不猜,退回容器短路(唯一性是生命线,与 ⑰c 同向)。
+     */
+    if (/^- \[x\]/i.test(t) && bare.length >= CONTAIN_MIN) {
+      let eq = 0
+      for (let i = 0; i < localOnly.length; i++) {
+        if (/^- \[ \]/.test(localOnly[i]) && localBare[i] === bare && ++eq > 1) break
+      }
+      if (eq === 1) {
+        verdict.set(t, 'stale')
+        continue
+      }
+    }
     if (
       (sq.length >= CONTAIN_MIN && localSquashed.some((w) => w.includes(sq))) ||
       (bare.length >= CONTAIN_MIN && localBare.some((w) => w.includes(bare)))

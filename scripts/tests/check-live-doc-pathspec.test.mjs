@@ -13,7 +13,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, cpSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs'
+import { copyFileSync, cpSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -48,6 +48,13 @@ const git = (args, cwd = REPO) =>
 function seedGateRepo(dir, { commitSeed = true } = {}) {
   mkdirSync(join(dir, 'scripts'), { recursive: true })
   cpSync(join(REPO, 'scripts', 'lib'), join(dir, 'scripts', 'lib'), { recursive: true })
+  // lib 之外的 scripts **顶层** .mjs 也整层拷(2026-10-01 补):lib/gitdir.mjs 现职 import 了
+  // `../seal-c-root-stray.mjs`(G-814433 引入)⇒ "lib 只内聚、门体单拷即够"的假设被打破,
+  // 五条端到端用例全在收集期 MODULE_NOT_FOUND、账面读起来像"判据判红"。按名字补清单必然
+  // 随每一次 import 演进再漂一遍,故与上面 lib 同理按目录拷:非递归、只取顶层 .mjs。
+  for (const f of readdirSync(join(REPO, 'scripts'))) {
+    if (f.endsWith('.mjs')) copyFileSync(join(REPO, 'scripts', f), join(dir, 'scripts', f))
+  }
   copyFileSync(GATE, join(dir, 'scripts/check-live-doc-pathspec.mjs'))
   /**
    * 归档面必须有内容可枚举,否则门对"缺失行"只能报**未判定**(它没有资格证明那一行是随 §1
