@@ -25,12 +25,16 @@ import { KEEP_KEYS_ON_CLEAR, IHUI_KEY_PREFIX } from './constants/storage'
 import {
   setBaseUrl,
   setTransport,
+  setStreamTransport,
   setDeviceFingerprintProvider,
   setUnauthorizedHandler,
 } from '@ihui/api-client'
 import { bindTokenStoreToApiClient } from '@ihui/shared/auth'
 import { canSilentlyReLogin } from '@ihui/shared/auth/auto-login-policy'
 import { createTaroTransport } from './utils/api-client-transport'
+// D138(承 V4 #96):流式(SSE)传输介质注入 —— chatStream 的重连/退避/读超时/续传
+// 全部走 @ihui/api-client 的共享 runner,这里只把 Taro 的传输介质接进同一套逻辑
+import { createTaroStreamTransport } from './utils/taro-stream-transport'
 import { useUiControlBridge } from './hooks/use-ui-control-bridge'
 import { useUserBroadcastSync } from './hooks/use-user-broadcast-sync'
 import { BASE_URL } from './utils/api-config'
@@ -50,6 +54,7 @@ bindTokenStoreToApiClient(tokenStore, { refreshAccessToken })
 setUnauthorizedHandler(onUnrecoverableUnauthorized)
 setBaseUrl(BASE_URL.replace(/\/api$/, ''))
 setTransport(createTaroTransport())
+setStreamTransport(createTaroStreamTransport())
 setDeviceFingerprintProvider(taroDeviceFingerprintCollector)
 
 // 2026-08-06: 全局崩溃捕获上报(onError + onUnhandledRejection → /api/crash-reports)
