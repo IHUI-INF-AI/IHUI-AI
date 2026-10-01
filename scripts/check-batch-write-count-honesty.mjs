@@ -241,7 +241,7 @@
  * 是显式测试通道(换根后清单与内容仍同面,故无双根分裂)。
  *
  * 用法:node scripts/check-batch-write-count-honesty.mjs
- *   [--staged|--worktree] [--strict] [--explain] [--json] [--files a,b] [--root <dir>] [--self-test]
+ *   [--staged|--worktree] [--strict] [--explain] [--json] [--files a,b 或 --files a b] [--root <dir>] [--self-test]
  * 退出码:0 = 通过(或全量档只报数);1 = 判红;2 = 无法判定(不冒红也不记绿)。
  * **V1/V2 两份惯例存量计数不参与任何一档退出码**(含 --strict);--explain 会逐条点名它们的 file:line,
  * --json 在 counts 里追加 booleanAckSites/booleanAckFiles/readQueryCountSites/readQueryCountFiles
@@ -1962,9 +1962,12 @@ export function analyze(root, face, opts = {}) {
   const texts = readCandidates(root, face, paths)
   const only = opts.onlyFiles && opts.onlyFiles.length ? new Set(opts.onlyFiles) : null
   const scanned = only ? paths.filter((p) => only.has(p)) : paths
+  // 名单里落不到覆盖面的那些必须**点名**报出来:只把 scanned 缩短,调用方分不清"这一项被审过且干净"
+  // 与"这一项根本没进审"(§"把没判写成判过了"同一条禁令)。全落空才判死,部分落空报数并点名。
+  const outsideScopePaths = only ? [...only].filter((p) => !paths.includes(p)) : []
   if (only && scanned.length === 0)
     throw new Undetermined(
-      `--files 指定的路径没有一个落在本门覆盖面(${SCAN_DIRS.join(' / ')} · ${face} 面)⇒ 判据失效,不计通过`,
+      `--files 指定的路径没有一个落在本门覆盖面(${SCAN_DIRS.join(' / ')} · ${face} 面)⇒ 判据失效,不计通过(名单:${[...only].join(', ')})`,
     )
   const per = scanFaceBundle(root, face, scanned, texts, listFacePaths(root, face))
   const violations = per.flatMap((r) => r.violations)
@@ -2035,6 +2038,12 @@ export function analyze(root, face, opts = {}) {
       },
       Object.fromEntries(BOOL_ACK_KEYS.map((k) => [k, 0])),
     ),
+    // 2026-10-01 追加在**最末尾**:`--files` 名单的可见性三键(既有各数一字不并入)。
+    // 立因:旧 CLI 只取 `--files` 后面**一个** token,空格分隔的第二/第三个路径被静默丢掉,
+    // 而名单里落覆盖面外的项也静默不计 ⇒ "报了 1/581" 与"审了调用方心里那两个文件"在账面同形。
+    requestedFiles: only ? only.size : 0,
+    outsideScopeFiles: outsideScopePaths.length,
+    outsideScopePaths,
   }
   // 棘轮锚点:只在这一档才回读 HEAD 面(全量档本来就是 HEAD)。新文件不在 HEAD ⇒ 锚点 0,
   // 这是"第一个端点第一次就写错"必须判红的那一格;锚点文件取不到则判死,不拿 0 顶替。
@@ -2401,6 +2410,11 @@ export function formatReport(out) {
     `候选 ${c.candidates} / 违规 ${c.violations} / 未判定 ${c.undetermined} / 豁免 ${c.exempt}` +
       `(库确认·链 ${out.exempt.returning} / 库确认·预查询 ${out.exempt.db} / 唯一出口 ${out.exempt.outlet} / 行内标记 ${out.exempt.marker})` +
       `  [裸标记不计 ${c.bareExempt};文件 ${c.files}/${c.enumerated};取材面:${FACE_TXT[out.face] || out.face}]` +
+      // `--files` 名单里落覆盖面外的项必须**报名**,不能只把"文件 N/M"缩短当无事发生:
+      // 调用方递进来的路径没被审,与"审了且干净",在只报 N/M 的措辞下完全同形。
+      (c.outsideScopeFiles
+        ? `;⚠️ --files 名单 ${c.requestedFiles} 项里有 ${c.outsideScopeFiles} 项落在覆盖面外(本门**未判**):${(c.outsideScopePaths || []).join(', ')}`
+        : '') +
       // 结论行必须**点名**两份惯例存量:放着一个不喊出的数,读报告的人就会以为覆盖面内没有这两种形状
       // ("判据失效的表现永远是安静"同型)。它们不参与退出码 —— 措辞里"不计红"是这一句的约束力所在。
       ` 布尔 ack 惯例(不计红,仅现读计数): ${c.booleanAckSites} 处 / ${c.booleanAckFiles} 文件` +
@@ -2481,13 +2495,20 @@ function main(argv) {
   const ri = argv.indexOf('--root')
   const root = ri >= 0 && argv[ri + 1] ? resolve(argv[ri + 1]) : ROOT
   const fi = argv.includes('--files') ? argv.indexOf('--files') : -1
-  const onlyFiles =
-    fi >= 0 && argv[fi + 1]
-      ? argv[fi + 1]
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : null
+  // `--files a,b` 与 `--files a b` **都得算**。旧写法只取 argv[fi+1] 那一个 token:空格分隔的
+  // 第二个及之后的路径被静默丢掉(2026-10-01 实测:传 batch-outcome.ts + notice-routes.ts 时,
+  // 留在名单里的是第一个,而它不在覆盖面 ⇒ 整跑 exit 2,而调用方以为两文件都在审)。
+  // 读到下一个 `--` 旗标为止;`--files` 不带值仍按"未收窄"处理(既有语义一字不动)。
+  const onlyFiles = (() => {
+    if (fi < 0) return null
+    const list = []
+    for (let i = fi + 1; i < argv.length; i++) {
+      if (argv[i].startsWith('--')) break
+      list.push(...argv[i].split(','))
+    }
+    const cleaned = list.map((s) => s.trim()).filter(Boolean)
+    return cleaned.length ? cleaned : null
+  })()
   let out
   try {
     out = analyze(root, face, { strict: argv.includes('--strict'), onlyFiles })
