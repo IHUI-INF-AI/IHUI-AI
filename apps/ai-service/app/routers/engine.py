@@ -83,6 +83,8 @@ def _make_loop_factory() -> Any:
             spec.get("tool_names"),
             user_role=user_role,
             user_id=str(spec.get("user_id") or ""),
+            # D201(2026-10-02):会话键过桥,工具执行期注入该线程的附加目录覆盖层
+            session_key=str(spec.get("session_id") or ""),
         )
         # 负向工具过滤(2026-09-18 第二批,对标 Codex per-app omit_tools_from)
         deny = spec.get("deny_tools") or []
