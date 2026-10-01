@@ -232,6 +232,13 @@ describe('evaluateGitUrl — 前导横杠与 scheme 白名单', () => {
       ['https://', 'urlMalformed'],
       ['ssh:///a/b.git', 'urlHostMissing'],
       ['https://example.test/a b.git', 'urlWhitespace'],
+      // G-786 题面点名的"设备路径"形态:既不是 URL 也不是 scp-like ⇒ 必须落到 malformed 而不是被当成
+      // "本地路径顺手放行"(`file://` 那一支在上面已经拒,裸 `/dev/…` 走的是同一道形状关)。
+      ['/dev/stdin', 'urlMalformed'],
+      // 控制字符注入的两型:WHATWG 解析会**剥掉** LF/TAB 并返回一个"看起来合法"的 URL,
+      // 所以判据必须打在**原文**上 —— 这两条就是钉住那一格的(剥掉原文判据会一路放行)。
+      ['https://ok.test/a.git\n--upload-pack=/bin/sh', 'urlWhitespace'],
+      ['https://ok.test/a\tb.git', 'urlWhitespace'],
     ];
     for (const [input, expected] of cases) {
       const v = evaluateGitUrl(input);
@@ -381,6 +388,92 @@ describe('getOrCloneGitCache → performClone — 判据先于任何派生', () 
     expect(err).toBeInstanceOf(GitCloneInputRejectedError);
     expect(err.reasonCode).toBe('urlSchemeUnsupported');
     expect(execFileSyncMock).not.toHaveBeenCalled();
+  });
+});
+
+// ==================== ④c 本轮复验的五型(题面验收:坏者必须"根本没派生",好者必须"真派生一次") ====================
+
+/**
+ * 这组用例的存在理由:上面 ④ 那一组钉的是"两条形态"(upload-pack / ext::),
+ * 而题面把验收口径写成五型各一条 —— 缺的正是 `-u` 短选项、控制字符注入,
+ * 以及"ssh 带端口"这一档**放行**的反例(只有拒绝例的判据,过窄与过宽在账面上同形)。
+ *
+ * 坏例一律读 `execFileSync` 的**调用次数**(本文件的 fakeSpawner 就是记账面):
+ * 只断言"抛错"会放过"先把 git 跑起来、再抛错"那种写法 —— 那在这条链上等于已经执行了外部 transport。
+ */
+describe('G-786 复验 — ext:: / -u 短选项 / 换行注入 / 合法 https / 合法 scp+ssh(带端口)', () => {
+  const spawnCount = (): number => execFileSyncMock.mock.calls.length;
+
+  it('R1 `-u<something>` 短选项:咽喉点必拒(urlLeadingDash),且 fakeSpawner 零调用', async () => {
+    for (const bad of ['-u', '-uhttp://evil.test/x.git'] as const) {
+      execFileSyncMock.mockClear();
+      const err = await getOrCloneGitCache(bad).catch((e: unknown) => e as GitCloneInputRejectedError);
+      expect(err, bad).toBeInstanceOf(GitCloneInputRejectedError);
+      expect((err as GitCloneInputRejectedError).field, bad).toBe('url');
+      expect((err as GitCloneInputRejectedError).reasonCode, bad).toBe('urlLeadingDash');
+      expect(spawnCount(), `拒绝路径不得派生 git:${bad}`).toBe(0);
+    }
+  });
+
+  it('R2 换行/制表符注入:合法 https 前缀 + 控制字符 + 第二个选项串 ⇒ 必拒且不派生', async () => {
+    const injected = [
+      'https://github.com/openclarity/demo.git\n--upload-pack=/bin/sh',
+      'https://github.com/openclarity/demo.git\t--upload-pack=/bin/sh',
+    ] as const;
+    for (const raw of injected) {
+      execFileSyncMock.mockClear();
+      // 纯函数档:WHATWG 会把 LF/TAB **剥掉**并给出一个 hostname 合法的 URL,
+      // 所以"parsed 成功"不构成放行 —— 这一条钉住判据取的是原文。
+      const verdict = evaluateGitUrl(raw);
+      expect(verdict.ok, JSON.stringify(raw)).toBe(false);
+      if (!verdict.ok) expect(verdict.reasonCode, JSON.stringify(raw)).toBe('urlWhitespace');
+
+      const err = await getOrCloneGitCache(raw).catch((e: unknown) => e as GitCloneInputRejectedError);
+      expect(err, JSON.stringify(raw)).toBeInstanceOf(GitCloneInputRejectedError);
+      expect((err as GitCloneInputRejectedError).reasonCode).toBe('urlWhitespace');
+      expect(spawnCount(), `拒绝路径不得派生 git:${JSON.stringify(raw)}`).toBe(0);
+      // 缓存目录同样不得留下任何东西(降级分支不得把"没拿到"写成"拿到了")
+      expect(fs.existsSync(getCachePath(raw))).toBe(false);
+    }
+  });
+
+  it('R3 `ext::` 外部 transport:咽喉点必拒(urlSchemeUnsupported)且零派生、零落盘', async () => {
+    const url = "ext::sh -c 'id'";
+    execFileSyncMock.mockClear();
+    const err = await getOrCloneGitCache(url).catch((e: unknown) => e as GitCloneInputRejectedError);
+    expect(err).toBeInstanceOf(GitCloneInputRejectedError);
+    expect((err as GitCloneInputRejectedError).field).toBe('url');
+    expect((err as GitCloneInputRejectedError).reasonCode).toBe('urlSchemeUnsupported');
+    expect(spawnCount(), 'ext:: 一律不得走到派生那一步').toBe(0);
+    expect(fs.existsSync(getCachePath(url))).toBe(false);
+  });
+
+  it('R4 合法 https:放行且**恰**派生一次,位置参数前有 `--` 分隔', async () => {
+    const url = 'https://github.com/openclarity/valid-https.git';
+    execFileSyncMock.mockClear();
+    const result = await getOrCloneGitCache(url, { ref: 'main' });
+    expect(result.fromCache).toBe(false);
+    expect(spawnCount(), '合法 URL 必须真的走到派生(否则"放行"是假的)').toBe(1);
+    const args = execFileSyncMock.mock.calls[0]?.[1] as readonly string[];
+    const sep = args.indexOf('--');
+    expect(sep).toBeGreaterThan(0);
+    expect(args.slice(0, sep)).toEqual(['clone', '--depth', '1', '--branch', 'main']);
+    expect(args[sep + 1]).toBe(url);
+    expect(args.indexOf(url)).toBeGreaterThan(sep);
+  });
+
+  it('R5 合法 scp 形态与 `ssh://git@host:443/…`:两者都放行(白名单不得只认 https 而误伤 SSH)', async () => {
+    for (const url of ['git@github.com:open-org/repo-name.git', 'ssh://git@github.com:443/open-org/repo-name.git'] as const) {
+      expect(evaluateGitUrl(url).ok, url).toBe(true);
+      execFileSyncMock.mockClear();
+      const result = await getOrCloneGitCache(url);
+      expect(result.fromCache, url).toBe(false);
+      const args = execFileSyncMock.mock.calls[0]?.[1] as readonly string[];
+      expect(spawnCount(), `合法 SSH 形态必须真派生一次:${url}`).toBe(1);
+      const sep = args.indexOf('--');
+      expect(sep, `分隔符必须在位:${url}`).toBeGreaterThan(0);
+      expect(args.indexOf(url, sep), `URL 必须落在 -- 之后:${url}`).toBeGreaterThan(sep);
+    }
   });
 });
 
