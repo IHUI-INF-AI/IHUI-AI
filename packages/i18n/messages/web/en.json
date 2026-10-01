@@ -468,6 +468,11 @@
     "run": "Run"
   },
   "a11y": {
+    "previewLoadFailed": "Preview failed to load.",
+    "previewRetryAction": "Retry",
+    "previewExpired": "This preview has expired and may be stale.",
+    "previewOpenSourceAction": "Open original",
+    "previewTooLarge": "File is too large to preview.",
     "download": "Download",
     "downloadFile": "Download file",
     "exitFullscreen": "Exit fullscreen",
@@ -8154,6 +8159,18 @@
         }
       },
       "errorCatalog": {
+        "102": {
+          "title": "Request time validation failed",
+          "action": "Sync your system clock and retry"
+        },
+        "121": {
+          "title": "Organization data is being migrated",
+          "action": "Retry after the migration completes"
+        },
+        "47902": {
+          "title": "You have reached the turn limit for this session",
+          "action": "Try again later or upgrade your plan"
+        },
         "ACCOUNT_RESTRICTED": {
           "title": "Account is restricted",
           "action": "Contact the administrator"
@@ -8646,18 +8663,6 @@
           "title": "Session history is missing",
           "action": "Reopen the session and retry"
         },
-        "47902": {
-          "title": "You have reached the turn limit for this session",
-          "action": "Try again later or upgrade your plan"
-        },
-        "121": {
-          "title": "Organization data is being migrated",
-          "action": "Retry after the migration completes"
-        },
-        "102": {
-          "title": "Request time validation failed",
-          "action": "Sync your system clock and retry"
-        },
         "speaking_banned": {
           "title": "You are currently muted",
           "action": "Contact your administrator for details"
@@ -9033,13 +9038,17 @@
       "refresh": "Refresh",
       "empty": "No checkpoints yet",
       "item": "Iteration #{iteration} · {status} · {count} messages",
-      "restoring": "Restoring…",
+      "undoPreparing": "Preparing rollback…",
       "rollback": "Rollback",
-      "confirmTitle": "Rollback?",
+      "undoConfirm": "Roll back to this checkpoint?",
       "confirmDescription": "Rolling back restores the conversation and file state of this checkpoint. This cannot be undone.",
       "confirmText": "Rollback",
-      "restoreSuccess": "Rolled back to the checkpoint",
-      "restoreFailed": "Rollback failed"
+      "undoSucceeded": "Restored {count} files; task history preserved",
+      "undoUnavailable": "Checkpoint unavailable; the workspace is unchanged",
+      "undoFailed": "Temporarily unavailable; the workspace is unchanged",
+      "undoFailedChanged": "Temporarily unavailable; the workspace has changed",
+      "undoFailedUnverifiable": "Temporarily unavailable; workspace state could not be verified. Please check and retry",
+      "undoPartialWarning": "Some files were not rolled back; task history preserved"
     },
     "addWorkspace": "Add Workspace",
     "assistant": "Assistant",
@@ -9228,27 +9237,7 @@
       "removeTagAria": "Remove tag {tag}",
       "filterLabel": "Filter by folder",
       "filterAll": "All",
-      "folderNone": "Unfiled",
-      "adminTitle": "Manage folders",
-      "adminEmpty": "No folders yet",
-      "adminPending": "The folder list is syncing from the server — you can manage folders here shortly.",
-      "adminDeleteHint": "Deleting a folder only unfiles its conversations; nothing is deleted.",
-      "retry": "Retry",
-      "folderCount": "{count} conversations",
-      "pinAria": "Pin folder",
-      "unpinAria": "Unpin folder",
-      "renameAria": "Rename folder",
-      "deleteAria": "Delete folder",
-      "confirmRenameAria": "Confirm rename",
-      "cancelRenameAria": "Cancel rename",
-      "reasonOffline": "Network unreachable — check your connection and try again",
-      "reasonNameTooLong": "Folder name is too long or empty",
-      "reasonDuplicateName": "A folder with that name already exists",
-      "reasonNotFound": "Folder does not exist or was deleted",
-      "reasonForbidden": "You do not have permission to change this folder",
-      "reasonUnauthorized": "Your session expired — sign in again",
-      "reasonServer": "The server had a problem. Try again shortly.",
-      "reasonUnknown": "The action failed. Try again shortly."
+      "folderNone": "Unfiled"
     }
   },
   "aiCost": {
@@ -10633,6 +10622,21 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "linkPreview": {
+      "loading": "Loading link preview...",
+      "unavailable": "Unable to read link preview",
+      "undetermined": "Could not determine this link (it may require sign-in or timed out); it will still be read after sending",
+      "dismiss": "Dismiss preview"
+    },
+    "referencePreview": {
+      "available": "Mock capability available",
+      "editor": "Capability reference editor",
+      "placeholder": "Paste a full reference or type @name…",
+      "source": "Original input text",
+      "select": "Pick a sample capability",
+      "clear": "New input",
+      "send": "Send preview"
+    },
     "bindIssue": "Bind issue",
     "unbindIssue": "Make standalone task",
     "issueBinding": "Linked issue",
@@ -11806,6 +11810,21 @@
     "reasoningEffortFallback": "Reasoning depth adjusted by the server: {requested} → {effective}"
   },
   "chatHistory": {
+    "moveToGroup": "Move to group",
+    "moveSelectedToGroup": "Move selected to group",
+    "moveSuccess": "Moved {count} item(s) to \"{folder}\"",
+    "moveFailFolderMissing": "Move failed: the target group \"{folder}\" no longer exists. Pick another group and retry.",
+    "moveFailUnauthorized": "Move failed: your session has expired. Sign in again and retry.",
+    "moveFailConflict": "The selected conversations are already in \"{folder}\". Choose a different group.",
+    "groupPin": "Pin group",
+    "groupUnpin": "Unpin group",
+    "moveDialog": {
+      "title": "Move to group",
+      "none": "No group",
+      "newPlaceholder": "Type a new group name (leave empty to use the selected group)",
+      "confirm": "Move",
+      "cancel": "Cancel"
+    },
     "selectModeAriaLabel": "Toggle task multi-select mode",
     "backToHistory": "Back to History",
     "batchArchive": "Archive",
@@ -12006,151 +12025,273 @@
       "slashDiff": {
         "label": "Session changes",
         "description": "Review files the AI changed in this conversation",
-        "keywords": ["diff", "changes", "review"]
+        "keywords": [
+          "diff",
+          "changes",
+          "review"
+        ]
       },
       "slashStatus": {
         "label": "Session status",
         "description": "Show model, context usage, permission mode and spend",
-        "keywords": ["status", "context", "usage"]
+        "keywords": [
+          "status",
+          "context",
+          "usage"
+        ]
       },
       "slashModel": {
         "label": "Switch model",
         "description": "Open the model selector",
-        "keywords": ["model", "switch"]
+        "keywords": [
+          "model",
+          "switch"
+        ]
       },
       "slashMcp": {
         "label": "MCP marketplace",
         "description": "Open the MCP server marketplace",
-        "keywords": ["mcp", "marketplace"]
+        "keywords": [
+          "mcp",
+          "marketplace"
+        ]
       },
       "slashCompact": {
         "label": "Compact context",
         "description": "Compact this conversation's history to free context window",
-        "keywords": ["compact", "context"]
+        "keywords": [
+          "compact",
+          "context"
+        ]
       },
       "steerPrompt": {
         "label": "Steer prompt",
         "description": "Inject the current input as guidance into the running answer",
-        "keywords": ["steer", "guide", "redirect"]
+        "keywords": [
+          "steer",
+          "guide",
+          "redirect"
+        ]
       },
       "queuePrompt": {
         "label": "Queue prompt",
         "description": "Queue the current input; it sends automatically after the current answer finishes",
-        "keywords": ["queue", "pending", "send later"]
+        "keywords": [
+          "queue",
+          "pending",
+          "send later"
+        ]
       },
       "agent": {
         "description": "Manage and dispatch AI agents",
-        "keywords": ["agent", "bot", "dispatch"],
+        "keywords": [
+          "agent",
+          "bot",
+          "dispatch"
+        ],
         "label": "AI Agents"
       },
       "browser": {
         "description": "Browse the web inside the workspace",
-        "keywords": ["browser", "web", "preview"],
+        "keywords": [
+          "browser",
+          "web",
+          "preview"
+        ],
         "label": "Built-in Browser"
       },
       "capabilityMarket": {
         "description": "Discover and install capability packs",
-        "keywords": ["capability", "market", "pack", "install"],
+        "keywords": [
+          "capability",
+          "market",
+          "pack",
+          "install"
+        ],
         "label": "Capability Market"
       },
       "codeChanges": {
         "description": "Review workspace code changes",
-        "keywords": ["changes", "diff", "git", "code"],
+        "keywords": [
+          "changes",
+          "diff",
+          "git",
+          "code"
+        ],
         "label": "Code Changes"
       },
       "connectors": {
         "description": "Manage external service connections",
-        "keywords": ["connector", "integration", "service"],
+        "keywords": [
+          "connector",
+          "integration",
+          "service"
+        ],
         "label": "Connectors"
       },
       "document": {
         "description": "Edit workspace documents",
-        "keywords": ["document", "docs", "edit"],
+        "keywords": [
+          "document",
+          "docs",
+          "edit"
+        ],
         "label": "Documents"
       },
       "editor": {
         "description": "Open the code editor",
-        "keywords": ["editor", "code", "monaco"],
+        "keywords": [
+          "editor",
+          "code",
+          "monaco"
+        ],
         "label": "Editor"
       },
       "mcp": {
         "description": "Manage MCP servers and tools",
-        "keywords": ["mcp", "server", "tools"],
+        "keywords": [
+          "mcp",
+          "server",
+          "tools"
+        ],
         "label": "MCP Manager"
       },
       "mcpStore": {
         "description": "Browse and install MCP services",
-        "keywords": ["mcp", "store", "market", "install"],
+        "keywords": [
+          "mcp",
+          "store",
+          "market",
+          "install"
+        ],
         "label": "MCP Store"
       },
       "modeAsk": {
         "description": "Switch to Ask mode with tools disabled",
-        "keywords": ["ask", "question", "mode"],
+        "keywords": [
+          "ask",
+          "question",
+          "mode"
+        ],
         "label": "Ask mode"
       },
       "modeBuild": {
         "description": "Let the AI build and modify directly",
-        "keywords": ["build", "mode", "generate"],
+        "keywords": [
+          "build",
+          "mode",
+          "generate"
+        ],
         "label": "Build Mode"
       },
       "modePlan": {
         "description": "Plan first, then execute",
-        "keywords": ["plan", "mode", "todo"],
+        "keywords": [
+          "plan",
+          "mode",
+          "todo"
+        ],
         "label": "Plan Mode"
       },
       "modeReview": {
         "description": "Review and assess existing code",
-        "keywords": ["review", "mode", "audit"],
+        "keywords": [
+          "review",
+          "mode",
+          "audit"
+        ],
         "label": "Review Mode"
       },
       "modeSpec": {
         "description": "Generate implementations from specs",
-        "keywords": ["spec", "mode", "generate"],
+        "keywords": [
+          "spec",
+          "mode",
+          "generate"
+        ],
         "label": "Spec Mode"
       },
       "skill": {
         "description": "Manage and invoke AI skills",
-        "keywords": ["skill", "ability", "plugin"],
+        "keywords": [
+          "skill",
+          "ability",
+          "plugin"
+        ],
         "label": "Skills"
       },
       "terminal": {
         "description": "Open the integrated terminal",
-        "keywords": ["terminal", "shell", "console"],
+        "keywords": [
+          "terminal",
+          "shell",
+          "console"
+        ],
         "label": "Terminal"
       },
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"],
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"],
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"],
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"],
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": ["search", "find", "query"],
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"],
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ],
         "label": "Settings"
       },
       "skillsMarket": {
         "description": "Browse and install self-evolving skills",
-        "keywords": ["skill", "market", "plugin"],
+        "keywords": [
+          "skill",
+          "market",
+          "plugin"
+        ],
         "label": "Skill Market"
       }
     },
@@ -14613,25 +14754,37 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"],
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"],
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"],
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"],
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -14765,19 +14918,31 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"],
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"],
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -15715,9 +15880,13 @@
       "goalWarnings": "Independence warnings",
       "modelDefault": "Default",
       "modelSelect": "Select model",
+      "pause": "Pause",
+      "paused": "Paused",
       "placeholder": "Describe the coding task you want AI to complete...",
       "plan": "Plan",
       "result": "Result",
+      "resume": "Resume",
+      "running": "Running",
       "stop": "Stop",
       "taskId": "Task ID",
       "unknownFile": "(unknown file)"
@@ -15765,6 +15934,33 @@
     },
     "diffFileList": {
       "noMatch": "No matching files"
+    },
+    "diffReview": {
+      "copyGitApplyUnreadable": "Skipped {count} file(s) whose content could not be read",
+      "copyGitApply": "Copy git apply",
+      "copyGitApplyToast": "git apply command copied to clipboard",
+      "copyGitApplyFailed": "Failed to copy the git apply command",
+      "copyGitApplyEmpty": "Nothing to export",
+      "markAsViewed": "Mark as viewed",
+      "markAsUnviewed": "Mark as unviewed",
+      "markedAsViewed": "Viewed",
+      "markAllViewed": "Mark all as viewed",
+      "unmarkAll": "Clear all marks",
+      "reviewedCount": "Viewed {viewed}/{total}",
+      "jumpToFile": "Jump to file",
+      "jumpToFileEmpty": "No matching files",
+      "renderError": "Failed to render this file row",
+      "retry": "Retry",
+      "loading": "Loading...",
+      "loadFailedAfterRetrying": "Still failing to load after retries",
+      "fullContentLoadFailed": "Failed to load full content",
+      "hideGenerated": "Hide generated files",
+      "copyPath": "Copy Path",
+      "pathCopied": "Path copied",
+      "openWithSplit": "Open in Split",
+      "openWithUnified": "Open in Unified",
+      "openInEditor": "Open in Editor",
+      "viewPullRequest": "View Pull Request"
     },
     "diffStats": {
       "commit": "Commit Changes",
@@ -15862,6 +16058,20 @@
       "open": "Open",
       "rename": "Rename",
       "renamed": "Renamed"
+    },
+    "hostGit": {
+      "authorize": "Authorize",
+      "binary": "git: {path}",
+      "binaryMissing": "git binary not found",
+      "clean": "Host workspace clean, no uncommitted changes",
+      "commandFailed": "git command failed ({reason}), verdict: {verdict}",
+      "dirty": "{count} uncommitted change(s) on host",
+      "hostRejected": "Host rejected: {reason}",
+      "noVerdict": "No workspace verdict yet",
+      "noWorkspace": "No host workspace connected",
+      "refresh": "Refresh",
+      "title": "Host Git",
+      "undetermined": "Undetermined: {reason}"
     },
     "layout": {
       "agentView": "Agent View",
@@ -16070,33 +16280,6 @@
       "groupView": "View",
       "noMatch": "No match",
       "searchPlaceholder": "Search views..."
-    },
-    "diffReview": {
-      "copyGitApplyUnreadable": "Skipped {count} file(s) whose content could not be read",
-      "copyGitApply": "Copy git apply",
-      "copyGitApplyToast": "git apply command copied to clipboard",
-      "copyGitApplyFailed": "Failed to copy the git apply command",
-      "copyGitApplyEmpty": "Nothing to export",
-      "markAsViewed": "Mark as viewed",
-      "markAsUnviewed": "Mark as unviewed",
-      "markedAsViewed": "Viewed",
-      "markAllViewed": "Mark all as viewed",
-      "unmarkAll": "Clear all marks",
-      "reviewedCount": "Viewed {viewed}/{total}",
-      "jumpToFile": "Jump to file",
-      "jumpToFileEmpty": "No matching files",
-      "renderError": "Failed to render this file row",
-      "retry": "Retry",
-      "loading": "Loading...",
-      "loadFailedAfterRetrying": "Still failing to load after retries",
-      "fullContentLoadFailed": "Failed to load full content",
-      "hideGenerated": "Hide generated files",
-      "copyPath": "Copy Path",
-      "pathCopied": "Path copied",
-      "openWithSplit": "Open in Split",
-      "openWithUnified": "Open in Unified",
-      "openInEditor": "Open in Editor",
-      "viewPullRequest": "View Pull Request"
     }
   },
   "imageGenPage": {
@@ -17664,7 +17847,15 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "models": {
     "relay": {
@@ -20290,6 +20481,10 @@
       "nickname": "Nickname",
       "noAccounts": "No accounts yet, please add one first",
       "openExternalBrowser": "Open in external browser",
+      "chromeImportBtn": "Import from my Chrome",
+      "chromeImportLaunching": "Opening Chrome sign-in window...",
+      "chromeImportHint": "Opened the {platform} sign-in page in a separate window. Sign in there — the account is saved automatically once you are logged in, no cookie pasting needed.",
+      "chromeImportFailed": "Chrome import not completed",
       "orDivider": "or",
       "passwordPlaceholder": "Enter password",
       "passwordHint": "Normal users should use scan login. This field is for developers only.",
@@ -20314,6 +20509,9 @@
       "scanLoginQrAlt": "Login QR code",
       "scanLoginSucceeded": "Login successful, saved to account",
       "scanLoginSuccess": "Scan login successful",
+      "scanLoginReuseLabel": "Sign-in mode",
+      "scanLoginReuseOn": "Reuse existing session (no scan)",
+      "scanLoginReuseOff": "Scan fresh every time",
       "scanLoginTimeout": "Scan timeout, please retry",
       "scanLoginTitle": "Scan to Login",
       "scanWithPhoneHint": "Scan the QR code with your phone — no clicking needed; the account is saved automatically once login is detected",
