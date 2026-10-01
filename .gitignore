@@ -460,6 +460,9 @@ apps/ai-service/.mcp-linear-token.json
 # GITHUB-SECRETS-填写指南.md 也含凭据填写指引,整目录一律忽略。
 # ============================================================================
 outputs/
+# 例外(2026-10-02,D122):压缩评测基线报告入库;该目录只产 .md 报告,不得存放任何凭据/私钥
+!apps/ai-service/scripts/compaction_eval/outputs/
+!apps/ai-service/scripts/compaction_eval/outputs/**
 
 # 商业产出物不入库(2026-09-11 泄密审计):BP/商业计划书等仅本地留存
 output/
