@@ -9048,11 +9048,11 @@
       "undoFailed": "暫時不可用，工作區未發生變化",
       "undoFailedChanged": "暫時不可用，工作區已發生變化",
       "undoFailedUnverifiable": "暫時不可用，無法確認工作區狀態，請檢查後重試",
-      "undoPartialWarning": "部分檔案未能回退，任務記錄保留",
       "restoring": "恢復中…",
       "confirmTitle": "確認回退？",
       "restoreSuccess": "已回退到該檢查點",
-      "restoreFailed": "回退失敗"
+      "restoreFailed": "回退失敗",
+      "undoPartialWarning": "部分檔案未能回退，任務記錄保留"
     },
     "addWorkspace": "添加工作區",
     "assistant": "助手",
@@ -9241,7 +9241,6 @@
       "removeTagAria": "移除標籤 {tag}",
       "filterLabel": "依資料夾篩選",
       "filterAll": "全部",
-      "folderNone": "未分類",
       "adminTitle": "分組管理",
       "adminEmpty": "還沒有分組",
       "adminPending": "分組清單正在從伺服器同步，稍後可在此管理。",
@@ -9261,7 +9260,8 @@
       "reasonForbidden": "您沒有這個分組的操作權限",
       "reasonUnauthorized": "登入已過期，請重新登入",
       "reasonServer": "伺服器出現問題，請稍後重試",
-      "reasonUnknown": "操作失敗，請稍後重試"
+      "reasonUnknown": "操作失敗，請稍後重試",
+      "folderNone": "未分類"
     }
   },
   "aiCost": {
