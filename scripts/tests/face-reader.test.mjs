@@ -46,6 +46,8 @@ import {
   packByBytes,
   spawnCauseText,
   parseBatchCheckSizes,
+  spawnViaTempStdinFile,
+  batchExecFileSync,
 } from '../lib/face-reader.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -887,6 +889,63 @@ test('判"远端在哪"只许走层:生产文件不得拿会被清理层删掉�
     return typeof src === 'string' && violates(src)
   })
   assert.deepEqual(bad, [], `这些文件仍在拿跟踪 ref 判远端位置:${bad.join(', ')}`)
+})
+
+/* ── 2026-10-01 EBUSY 病窗兜底:临时文件 fd 喂 stdin ─────────────────────────────
+ * 成因:交互会话进程树里 Node 建 stdin 管道 100% EBUSY(2026-10-01 风暴,矩阵 6/6),
+ * 所有 batch 出口随之整门「无法判定」。修复:主路径照旧(pipe),仅 e.code==='EBUSY' 时
+ * 改走 spawnViaTempStdinFile 的 fd 通道(fd 不是管道,病窗不发病;先例
+ * scripts/lib/agent-event-coverage.mjs 的 catBatchViaTempStdinFile,矩阵 6/6 绕开实证)。
+ * 本组三条:fd 通道功能等价 / 非零退出与错误形状不因包装器漂移 / EBUSY 分流真实存在。 */
+
+test('spawnViaTempStdinFile:fd 喂 stdin 与管道同结果(fd 不是管道,EBUSY 病窗不发病)', () => {
+  const root = join(here, '..', '..')
+  const spec = 'HEAD:scripts/lib/face-reader.mjs'
+  const r = spawnViaTempStdinFile(
+    GIT,
+    ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch'],
+    { cwd: root, input: Buffer.from(spec + '\n', 'utf8'), maxBuffer: 64 << 20, encoding: 'buffer' },
+  )
+  assert.equal(r.error, undefined, `fd 通道派生失败: ${r.error}`)
+  assert.equal(r.status, 0, `fd 通道退出码 ${r.status}: ${String(r.stderr)}`)
+  const text = r.stdout.toString('utf8')
+  const header = text.split('\n', 1)[0]
+  assert.match(header, /^[0-9a-f]{40} blob \d+$/, `fd 通道回的不是 batch 头: ${header}`)
+  // 阳性对照:内容必须是真 blob 正文,不是空输入产的零输出(空 stdin 假成功那一型的反面)
+  assert.ok(
+    text.includes('判定面取材的共用底层'),
+    'fd 通道拿到的不是 face-reader.mjs 正文 —— 临时文件没被 git 读到',
+  )
+})
+
+test('batchExecFileSync:非零退出照 execFileSync 形状抛(带 status),非 EBUSY 错误原样穿透', () => {
+  const root = join(here, '..', '..')
+  // 非零退出:rev-parse 一个不存在的 ref,git 回 128 —— 包装器必须把 status 带上来,
+  // 调用方的 catch(区分"git 说没有"与"git 没跑成")才不会退化成 parse 字符串。
+  assert.throws(
+    () => batchExecFileSync(GIT, ['-C', root, 'rev-parse', '--verify', 'definitely-not-a-ref-815981'], { cwd: root }),
+    (e) => {
+      assert.equal(e.status, 128, `非零退出的 status 没带上: ${e.status}`)
+      return true
+    },
+  )
+  // 非 EBUSY 的派生故障必须原样抛(绝不吞成一次"重试过了"):ENOENT 是最可控的一支。
+  assert.throws(
+    () => batchExecFileSync('definitely-no-such-binary-815981', ['x'], { cwd: root, input: 'y' }),
+    (e) => {
+      assert.equal(e.code, 'ENOENT', `非 EBUSY 错误被改型: ${e.code}`)
+      return true
+    },
+  )
+})
+
+test('batchExecFileSync:EBUSY 分流真实存在(短路判据 + fd 通道调用点在场)', () => {
+  const src = read('lib/face-reader.mjs')
+  // 判据只认 EBUSY:这条短路必须逐字在场 —— 少了它,ENOBUFS/ENOENT 等真故障也会被吞成重试。
+  assert.match(src, /e\?\.code !== 'EBUSY'/, 'EBUSY 短路判据缺失 —— 兜底会吞掉真故障')
+  assert.match(src, /export function batchExecFileSync/, '包装器出口缺失')
+  assert.match(src, /export function spawnViaTempStdinFile/, 'fd 通道出口缺失')
+  assert.match(src, /stdio:\s*\[\s*fd,\s*'pipe',\s*'pipe'\s*\]/, 'fd 通道的 stdio 形态漂了')
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

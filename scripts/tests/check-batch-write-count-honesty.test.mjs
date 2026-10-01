@@ -891,6 +891,61 @@ test('M21 端到面变异(新键族):把 removed 那一处诚实端点写回布�
   }
 })
 
+test('M25 --files 名单的两格静默:空格分隔的第二项不得被丢,落覆盖面外的项必须报名(2026-10-01 立)', () => {
+  // 立项读数:旧 CLI 只取 `--files` 后**一个** token,`--files a b` 里的 b 被静默丢掉;
+  // 而名单里落在覆盖面(SCAN_DIRS)外的项也从不出现在任何一格里。两格的表现都不是报错,
+  // 是"文件 1/581 ✅ 通过" —— 调用方以为两文件都在审,实际只审了第一个(甚至一个都没审到)。
+  const dir = mkScratch('bch-files-')
+  try {
+    writeRepo(dir)
+    const Y = 'apps/api/src/routes/y.ts'
+    put(dir, Y, 'export const nothingHere = 1\n')
+    gitIn(dir, ['add', '-A'])
+    gitIn(dir, ['commit', '-q', '-m', 'two-in-scope-files'])
+    // ① 空格分隔的两个覆盖面内路径 ⇒ 两个都要被审(旧写法在此只审 1 个,是变异对照)。
+    const two = parse(run(dir, ['--root', dir, '--worktree', '--files', REL, Y, '--json']))
+    if (two.code === 2) throw new Error(`两项都落在覆盖面内却判成 exit 2:${two.out ?? ''}`)
+    if (two.j.counts.files !== 2)
+      throw new Error(
+        `--files 空格分隔必须审满两项,实得 files=${two.j.counts.files}(旧写法只取第一个 token ⇒ 第二项被静默丢掉)`,
+      )
+    if (two.j.counts.requestedFiles !== 2 || two.j.counts.outsideScopeFiles !== 0)
+      throw new Error(
+        `名单可见性两键必须现读为 2/0,实得 ${two.j.counts.requestedFiles}/${two.j.counts.outsideScopeFiles}`,
+      )
+    // ② 名单里混一项覆盖面外的 ⇒ 能判的照判(不得 exit 2 挡路),但那一项必须**点名**报出。
+    // 注意这一臂**不带 --json**:报名住在人读结论行里,JSON 档只有计数。
+    const GHOST = 'apps/api/src/utils/ghost.ts'
+    const mixed = run(dir, ['--root', dir, '--worktree', '--files', REL, GHOST])
+    if (mixed.code === 2)
+      throw new Error(`部分落空应当照判并报名,不得整跑 exit 2(实得 ${mixed.code}:${mixed.out})`)
+    if (!mixed.out.includes('ghost.ts') || !/落在覆盖面外/.test(mixed.out))
+      throw new Error(
+        `结论行必须点名覆盖面外的名单项,实得:${String(mixed.out).split('\n').slice(-2).join(' | ')}`,
+      )
+    // ②b 同一跑的机读档:两个计数键必须现读为 2/1(报表与人名同源,不得一处有一处无)。
+    const mixedJson = parse(
+      run(dir, ['--root', dir, '--worktree', '--files', REL, GHOST, '--json']),
+    )
+    if (
+      mixedJson.j.counts.requestedFiles !== 2 ||
+      mixedJson.j.counts.outsideScopeFiles !== 1 ||
+      !(mixedJson.j.counts.outsideScopePaths || []).includes(GHOST)
+    )
+      throw new Error(
+        `--json 三键必须 2/1 且点名 ${GHOST},实得 ${JSON.stringify(mixedJson.j.counts)}`,
+      )
+    // ③ 全部落空 ⇒ 仍判死(这是既有语义,不得被②的放宽一起吃掉)。
+    const allOut = run(dir, ['--root', dir, '--worktree', '--files', GHOST])
+    if (allOut.code !== 2)
+      throw new Error(`名单全落覆盖面外必须 exit 2,实得 ${allOut.code}:${allOut.out}`)
+    if (!allOut.out.includes('ghost.ts'))
+      throw new Error(`判死那一支也必须报出是哪一项(否则下一个人无从收窄名单):${allOut.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 test('M22 反向锁:键族只有一份真相、动词筛选只在 B2 那一侧、decide 仍看不见任何一族键名', () => {
   // ① 判据正则与按键分组的报表都必须派生自 BOOL_ACK_KEYS(下游再抄一份硬编码名单就是第二真相)。
   const uses = (SRC.match(/BOOL_ACK_KEYS/g) || []).length
