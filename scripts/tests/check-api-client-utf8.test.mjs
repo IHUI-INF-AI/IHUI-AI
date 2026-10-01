@@ -2,51 +2,71 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+/**
+ * `scripts/check-api-client-utf8.mjs` 的镜像测试(2026-10-01 随判定面迁移重写)。
+ *
+ * 门体自 2026-10-01 起**判被审面 blob**(HEAD / 索引),不再读磁盘工作树 —— 所以本镜像
+ * 的现场全部是**真 git 临时仓**(旧版"临时目录写盘即测"的现场结构上测不到面语义):
+ *  - 纯函数面:scanBuffer 逐型构造(与旧磁盘版同一套字节判据,载体从文件换成 Buffer);
+ *  - 真仓面:提交/暂存不同字节序列,断言门在 HEAD 面与索引面**各判各的** ——
+ *    尤其"HEAD 干净 + 索引损坏"这一格:面分离错了,门就会把别人暂存的半成品判成本次的债,
+ *    或者反过来把已入库的损坏放行。
+ */
+
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { writeFileSync, mkdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
-// ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
-const __dirname = fileURLToPath(new URL('.', import.meta.url))
+const __dirname = dirname(fileURLToPath(import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-api-client-utf8.mjs')
-
-// 目标目录(相对项目根):packages/api-client/src/endpoints
 const ENDPOINTS_REL = join('packages', 'api-client', 'src', 'endpoints')
 
-// ─── 辅助:创建临时项目根目录 ─────────────────────────────
-function createTempRoot() {
-  return mkScratch('ihui-api-cli-utf8-')
+// ─── 真 git 临时仓现场 ───────────────────────────────────────
+function gitIn(root, args) {
+  const r = spawnSync('git', ['-c', 'core.autocrlf=false', ...args], {
+    cwd: root,
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  assert.equal(r.status, 0, `git ${args.join(' ')} 失败: ${r.stderr}`)
+  return r.stdout
 }
 
-// 辅助:在临时项目下创建 endpoints 目录,并写入指定文件
-// files: [{ name, content: string|Buffer }]
-function createEndpoints(root, files) {
+function createGitRoot() {
+  const root = mkScratch('ihui-api-cli-utf8-')
+  gitIn(root, ['init', '--quiet'])
+  gitIn(root, ['config', 'user.email', 'gate-test@example.invalid'])
+  gitIn(root, ['config', 'user.name', 'gate-test'])
+  return root
+}
+
+/** 在临时仓写入 endpoints 文件;staged=true 则只 add 不 commit(进索引面)。 */
+function putFiles(root, files, { staged = false } = {}) {
   const dir = join(root, ENDPOINTS_REL)
   mkdirSync(dir, { recursive: true })
   for (const f of files || []) {
     const target = join(dir, f.name)
-    mkdirSync(join(target, '..'), { recursive: true })
-    if (Buffer.isBuffer(f.content)) {
-      writeFileSync(target, f.content)
-    } else {
-      writeFileSync(target, f.content, 'utf8')
-    }
+    mkdirSync(dirname(target), { recursive: true })
+    writeFileSync(target, Buffer.isBuffer(f.content) ? f.content : f.content, { flag: 'w' })
   }
-  return dir
+  gitIn(root, ['add', '-A', '--', ENDPOINTS_REL])
+  if (!staged) gitIn(root, ['commit', '--quiet', '-m', 'gate-test'])
 }
 
-// 辅助:运行脚本(去除 ANSI 颜色码,便于正则断言)
-// 源脚本全部用 console.log → stdout;提供 out(stdout)、err(stderr)、all(合并)
 const ANSI_RE = /\x1b\[[0-9;]*m/g
-function runScript(cwd) {
-  const r = spawnSync('node', [SCRIPT_PATH], {
+function runGate(args = [], cwd, extra = []) {
+  const fullArgs = [...args, '--root', cwd].concat(extra)
+  const r = spawnSync(process.execPath, [SCRIPT_PATH, ...fullArgs], {
     cwd: cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 16 << 20,
   })
   if (r.stdout) r.stdout = r.stdout.replace(ANSI_RE, '')
   if (r.stderr) r.stderr = r.stderr.replace(ANSI_RE, '')
@@ -55,241 +75,112 @@ function runScript(cwd) {
 }
 
 // ─── 字节常量 ─────────────────────────────────────────────
-// "中":U+4E2D → E4 B8 AD(合法 3 字节 UTF-8)
-const ZHONG = Buffer.from([0xe4, 0xb8, 0xad])
-// "😀":U+1F600 → F0 9F 98 80(合法 4 字节 UTF-8)
-const GRIN = Buffer.from([0xf0, 0x9f, 0x98, 0x80])
+// "中":U+4E2D → E4 B8 AD(合法 3 字节 UTF-8);E4 B8 3F = 票面登记的损坏形态
+const ZHONG_OK = Buffer.from('export const name = "\xe4\xb8\xad"\n', 'latin1')
+const RULE_A = Buffer.from([0xe4, 0xb8, 0x3f])
+const CLEAN_ASCII = Buffer.from('export const foo = 1\n')
 
-// ─── 1. CLI: 空项目根不崩溃(脚本未实现 --help,走默认扫描) ───
-test('CLI: 空项目根不崩溃(无 packages/api-client/src/endpoints)', () => {
-  const root = createTempRoot()
-  try {
-    const r = runScript(root)
-    assert.ok(
-      r.status === 0 || r.status === 1,
-      `不应 crash,实际 exit ${r.status}\nstderr: ${r.stderr}`,
-    )
-    assert.ok(!r.stderr.includes('Error:'), `不应产生未捕获 Error`)
-  } finally {
-    rmScratch(root)
-  }
+// ─── 纯函数面:scanBuffer 逐型构造(旧磁盘版同一套判据,载体换 Buffer) ──
+test('self-test:门体自检 12 条全过', () => {
+  const r = runGate(['--self-test'])
+  assert.equal(r.status, 0, `self-test 应 exit 0\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+  assert.match(r.stdout, /❌ 0 条/)
 })
 
-// ─── 2. 无 packages/api-client/src/endpoints 目录 → exit 0 + 警告 ───
-test('无 packages/api-client/src/endpoints 目录 → exit 0 + 警告"未找到 ... 跳过"', () => {
-  const root = createTempRoot()
-  try {
-    const r = runScript(root)
-    assert.equal(r.status, 0, `目录不存在应 exit 0\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /未找到/)
-    assert.match(r.stdout, /跳过/)
-  } finally {
-    rmScratch(root)
-  }
+test('scanBuffer:合法序列不报 / 损坏逐型点名', async () => {
+  const { scanBuffer } = await import(pathToFileURL(SCRIPT_PATH).href)
+  assert.equal(scanBuffer(Buffer.alloc(0)).violations.length, 0, '空文件不误报')
+  assert.equal(scanBuffer(ZHONG_OK).violations.length, 0, '合法 3 字节中文不报')
+  assert.equal(scanBuffer(Buffer.from([0xf0, 0x9f, 0x98, 0x80])).violations.length, 0, '合法 4 字节 emoji 不报')
+  const a = scanBuffer(RULE_A).violations
+  assert.equal(a.length, 1)
+  assert.match(a[0].type, /3rd byte replaced by 0x3F/)
+  assert.equal(a[0].bytes.join(','), '228,184,63', 'bytes 必须是原字节值(G-467:不能是 utf8 解码后的 U+FFFD)')
+  assert.match(scanBuffer(Buffer.from([0xc2, 0x00])).violations[0].type, /2-byte UTF-8 invalid continuation/)
+  assert.match(scanBuffer(Buffer.from([0xf0, 0x00, 0x80, 0x80])).violations[0].type, /4-byte UTF-8 invalid continuation/)
+  assert.match(scanBuffer(Buffer.from([0x80])).violations[0].type, /invalid UTF-8 leading byte 0x80/)
+  assert.equal(scanBuffer(Buffer.from([0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80])).violations.length, 7, '计数不丢')
 })
 
-// ─── 3. endpoints 目录存在但为空 → exit 0 + 警告"无 .ts 文件" ───
-test('endpoints 目录存在但为空 → exit 0 + 警告"无 .ts 文件"', () => {
-  const root = createTempRoot()
+// ─── 真仓面:HEAD / 索引各判各的 ──────────────────────────
+test('HEAD 面:干净提交 → exit 0 + 报面名', () => {
+  const root = createGitRoot()
   try {
-    createEndpoints(root, [])
-    const r = runScript(root)
-    assert.equal(r.status, 0, `空目录应 exit 0\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /无 \.ts 文件/)
-    assert.match(r.stdout, /跳过/)
-  } finally {
-    rmScratch(root)
-  }
-})
-
-// ─── 4. 仅有非 .ts 文件(.js/.json)→ exit 0 + 警告"无 .ts 文件" ───
-test('仅有非 .ts 文件(.js/.json)→ exit 0 + 警告"无 .ts 文件"', () => {
-  const root = createTempRoot()
-  try {
-    createEndpoints(root, [
-      { name: 'foo.js', content: 'export const a = 1\n' },
-      { name: 'bar.json', content: '{"x":1}' },
+    putFiles(root, [
+      { name: 'clean.ts', content: CLEAN_ASCII },
+      { name: 'zhong.ts', content: ZHONG_OK },
     ])
-    const r = runScript(root)
-    assert.equal(r.status, 0, `非 .ts 应跳过 → exit 0\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /无 \.ts 文件/)
+    const r = runGate([], root)
+    assert.equal(r.status, 0, `应 exit 0\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+    assert.match(r.stdout, /head 面/)
+    assert.match(r.stdout, /UTF-8 干净: 2 个文件/)
+    assert.match(r.stdout, /字节级 UTF-8 完整/)
   } finally {
     rmScratch(root)
   }
 })
 
-// ─── 5. 纯 ASCII .ts 文件 → exit 0 + "UTF-8 干净" + 成功消息 ───
-test('纯 ASCII .ts 文件 → exit 0 + "UTF-8 干净: 1 个文件" + 成功消息', () => {
-  const root = createTempRoot()
+test('HEAD 面:已提交损坏(E4 B8 3F)→ exit 1 + 规则 A 报告 + bytes hex', () => {
+  const root = createGitRoot()
   try {
-    createEndpoints(root, [
-      { name: 'developer.ts', content: 'export const foo = 1\n' },
+    putFiles(root, [
+      { name: 'clean.ts', content: CLEAN_ASCII },
+      { name: 'broken.ts', content: RULE_A },
     ])
-    const r = runScript(root)
-    assert.equal(r.status, 0, `纯 ASCII 应 exit 0\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /扫描 1 个/)
+    const r = runGate([], root)
+    assert.equal(r.status, 1, `应 exit 1\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /UTF-8 干净: 1 个文件/)
-    assert.match(r.stdout, /所有 1 个 api-client 源文件字节级 UTF-8 完整/)
-    assert.match(r.stdout, /可安全被 tsc 编译/)
-  } finally {
-    rmScratch(root)
-  }
-})
-
-// ─── 6. 合法中文(3 字节 UTF-8)→ exit 0 ───────────────────
-test('合法中文(3 字节 UTF-8)→ exit 0 + 干净', () => {
-  const root = createTempRoot()
-  try {
-    const content = Buffer.concat([
-      Buffer.from('export const name = "'),
-      ZHONG,
-      Buffer.from('"\n'),
-    ])
-    createEndpoints(root, [{ name: 'misc.ts', content }])
-    const r = runScript(root)
-    assert.equal(r.status, 0, `合法中文应 exit 0\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /UTF-8 干净: 1 个文件/)
-  } finally {
-    rmScratch(root)
-  }
-})
-
-// ─── 7. 合法 emoji(4 字节 UTF-8)→ exit 0 ──────────────────
-test('合法 emoji(4 字节 UTF-8)→ exit 0 + 干净', () => {
-  const root = createTempRoot()
-  try {
-    const content = Buffer.concat([
-      Buffer.from('export const emoji = "'),
-      GRIN,
-      Buffer.from('"\n'),
-    ])
-    createEndpoints(root, [{ name: 'share.ts', content }])
-    const r = runScript(root)
-    assert.equal(r.status, 0, `合法 emoji 应 exit 0\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /UTF-8 干净: 1 个文件/)
-  } finally {
-    rmScratch(root)
-  }
-})
-
-// ─── 8. 空 .ts 文件(0 字节)→ exit 0 + 不误报 ───────────────
-test('空 .ts 文件(0 字节)→ exit 0 + 不误报', () => {
-  const root = createTempRoot()
-  try {
-    createEndpoints(root, [
-      { name: 'empty.ts', content: Buffer.alloc(0) },
-    ])
-    const r = runScript(root)
-    assert.equal(r.status, 0, `空文件应 exit 0\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /UTF-8 干净: 1 个文件/)
-  } finally {
-    rmScratch(root)
-  }
-})
-
-// ─── 9. 规则 A:3 字节 UTF-8 第 3 字节为 0x3F → exit 1 ────────
-test('规则 A:3 字节 UTF-8 第 3 字节为 0x3F(?) → exit 1 + 报告"3rd byte replaced by 0x3F" + bytes hex', () => {
-  const root = createTempRoot()
-  try {
-    // 0xE4 0xB8 0x3F:0xE4 是中文 3 字节起始,0xB8 合法续字节,0x3F 是损坏
-    const corrupted = Buffer.from([0xe4, 0xb8, 0x3f])
-    const content = Buffer.concat([
-      Buffer.from('export const x = "'),
-      corrupted,
-      Buffer.from('"\n'),
-    ])
-    createEndpoints(root, [{ name: 'developer.ts', content }])
-    const r = runScript(root)
-    assert.equal(r.status, 1, `损坏应 exit 1\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /发现 1 处损坏字节序列/)
     assert.match(r.stdout, /3rd byte replaced by 0x3F/)
     assert.match(r.stdout, /0xe4 0xb8 0x3f/)
-  } finally {
-    rmScratch(root)
-  }
-})
-
-// ─── 10. 规则 B:2 字节 UTF-8 非法续字节 → exit 1 ────────────
-test('规则 B:2 字节 UTF-8 (0xC0-0xDF) 非法续字节 → exit 1 + "2-byte UTF-8 invalid continuation"', () => {
-  const root = createTempRoot()
-  try {
-    // 0xC2 0x00:0xC2 是 2 字节起始,0x00 不是合法续字节(需 0x80-0xBF)
-    const content = Buffer.from([0xc2, 0x00])
-    createEndpoints(root, [{ name: 'misc.ts', content }])
-    const r = runScript(root)
-    assert.equal(r.status, 1, `2 字节非法续字节应 exit 1\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /2-byte UTF-8 invalid continuation/)
-  } finally {
-    rmScratch(root)
-  }
-})
-
-// ─── 11. 规则 B:4 字节 UTF-8 非法续字节 → exit 1 ────────────
-test('规则 B:4 字节 UTF-8 (0xF0-0xF7) 非法续字节 → exit 1 + "4-byte UTF-8 invalid continuation"', () => {
-  const root = createTempRoot()
-  try {
-    // 0xF0 0x00 0x80 0x80:0xF0 是 4 字节起始,0x00 不是合法续字节
-    const content = Buffer.from([0xf0, 0x00, 0x80, 0x80])
-    createEndpoints(root, [{ name: 'payment.ts', content }])
-    const r = runScript(root)
-    assert.equal(r.status, 1, `4 字节非法续字节应 exit 1\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /4-byte UTF-8 invalid continuation/)
-  } finally {
-    rmScratch(root)
-  }
-})
-
-// ─── 12. 单独续字节(0x80-0xBF)→ exit 1 + "invalid UTF-8 leading byte" ─
-test('单独续字节(0x80)→ exit 1 + "invalid UTF-8 leading byte 0x80"', () => {
-  const root = createTempRoot()
-  try {
-    // 0x80 单独出现,无起始字节
-    const content = Buffer.from([0x80])
-    createEndpoints(root, [{ name: 'system.ts', content }])
-    const r = runScript(root)
-    assert.equal(r.status, 1, `单独续字节应 exit 1\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /invalid UTF-8 leading byte 0x80/)
-  } finally {
-    rmScratch(root)
-  }
-})
-
-// ─── 13. 单文件 >5 处违规 → 截断显示"还有 N 处" ─────────────
-test('单文件 7 处违规 → 显示前 5 处 + "还有 2 处"截断', () => {
-  const root = createTempRoot()
-  try {
-    // 构造 7 处损坏:7 个 0x80 单独字节
-    const content = Buffer.from([0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80])
-    createEndpoints(root, [{ name: 'multi.ts', content }])
-    const r = runScript(root)
-    assert.equal(r.status, 1, `多违规应 exit 1\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /发现 7 处损坏字节序列/)
-    assert.match(r.stdout, /还有 2 处/)
-  } finally {
-    rmScratch(root)
-  }
-})
-
-// ─── 14. 混合:1 干净 + 1 损坏 → exit 1 + 报告路径 + 修复脚本 + 根因 ─
-test('混合:1 干净 + 1 损坏 → exit 1 + 报告损坏文件路径 + 修复脚本 + 根因说明(Turbopack/PowerShell)', () => {
-  const root = createTempRoot()
-  try {
-    createEndpoints(root, [
-      { name: 'clean.ts', content: 'export const ok = 1\n' },
-      { name: 'broken.ts', content: Buffer.from([0xe4, 0xb8, 0x3f]) },
-    ])
-    const r = runScript(root)
-    assert.equal(r.status, 1, `有损坏应 exit 1\nstdout: ${r.stdout}`)
-    // 干净文件计入 okCount
-    assert.match(r.stdout, /UTF-8 干净: 1 个文件/)
-    // 损坏文件路径被报告(含完整相对路径)
-    assert.match(r.stdout, /packages[\\/]api-client[\\/]src[\\/]endpoints[\\/]broken\.ts/)
-    // 修复脚本含 node -e 和 0x3F 逻辑
-    assert.match(r.stdout, /node -e/)
-    assert.match(r.stdout, /0x3F/)
-    // 根因说明
     assert.match(r.stdout, /Turbopack/)
-    assert.match(r.stdout, /PowerShell/)
+    assert.match(r.stdout, /node -e/)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('面分离:HEAD 干净 + 索引损坏 → 默认 exit 0、--staged exit 1(各判各的面)', () => {
+  const root = createGitRoot()
+  try {
+    putFiles(root, [{ name: 'developer.ts', content: CLEAN_ASCII }])
+    // 只进索引、不提交:索引面损坏,HEAD 面仍干净
+    putFiles(root, [{ name: 'developer.ts', content: RULE_A }], { staged: true })
+    const head = runGate([], root)
+    assert.equal(head.status, 0, `HEAD 面应 exit 0(损坏只在索引)\nstdout: ${head.stdout}`)
+    assert.match(head.stdout, /head 面/)
+    const staged = runGate(['--staged'], root)
+    assert.equal(staged.status, 1, `索引面应 exit 1\nstdout: ${staged.stdout}`)
+    assert.match(staged.stdout, /staged 面/)
+    assert.match(staged.stdout, /3rd byte replaced by 0x3F/)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('尺子空转:被审面 0 个 .ts → exit 2(不得读成通过)', () => {
+  const root = createGitRoot()
+  try {
+    gitIn(root, ['commit', '--quiet', '--allow-empty', '-m', 'empty'])
+    const r = runGate([], root)
+    assert.equal(r.status, 2, `空面应 exit 2\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+    assert.match(r.all, /尺子空转/)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('非 .ts 文件不进分母(门枚举只认 .ts)', () => {
+  const root = createGitRoot()
+  try {
+    putFiles(root, [
+      { name: 'foo.js', content: CLEAN_ASCII },
+      { name: 'bar.json', content: Buffer.from('{"x":1}') },
+      { name: 'keep.ts', content: CLEAN_ASCII },
+    ])
+    const r = runGate([], root)
+    assert.equal(r.status, 0, `应 exit 0\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /扫描 1 个/)
   } finally {
     rmScratch(root)
   }
