@@ -16,7 +16,8 @@ import { useTranslations } from 'next-intl'
 import { fetchApi } from '@/lib/api'
 import { pushError } from '@/stores/error-banner'
 import { formatDate } from '@/lib/date-utils'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   Button,
   Input,
@@ -68,9 +69,13 @@ export default function RealnamePage() {
     [t],
   )
 
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const { data: info, isLoading } = useQuery({
     queryKey: ['auth', 'realname', 'my'],
     queryFn: () => api<RealnameInfo>('/api/auth/realname/my'),
+    enabled: allow,
   })
 
   const {
@@ -110,7 +115,9 @@ export default function RealnamePage() {
   return (
     <div className="px-4 space-y-4 py-4">
       <BackButton />
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看实名信息" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('realname.loading')}

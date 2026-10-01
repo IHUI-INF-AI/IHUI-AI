@@ -11,6 +11,7 @@ import { Bell, Copy, GitBranch, MessageSquare, Trash2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { toast } from '@/components/common'
 import { cn } from '@/lib/utils'
+import { droppedNotice } from '@/lib/bounded-append'
 import { AGENT_HOOK_EVENTS, type AgentHookEvent } from '@/stores/agent-hooks'
 import {
   INTEGRATION_CHANNELS,
@@ -38,6 +39,7 @@ export function IntegrationsPanel() {
   const t = useTranslations('integrations')
   const channels = useIntegrationsStore((s) => s.channels)
   const log = useIntegrationsStore((s) => s.log)
+  const droppedLog = useIntegrationsStore((s) => s.droppedLog)
   const updateChannel = useIntegrationsStore((s) => s.updateChannel)
   const toggleChannelEvent = useIntegrationsStore((s) => s.toggleChannelEvent)
   const clearLog = useIntegrationsStore((s) => s.clearLog)
@@ -146,7 +148,7 @@ export function IntegrationsPanel() {
       <div
         key={ch}
         data-testid={`integrations-channel-${ch}`}
-        className="space-y-1.5 rounded-md border px-2 py-2 text-xs"
+        className="space-y-1.5 rounded-xl border px-2 py-2 text-xs"
       >
         <div className="flex items-center gap-1.5">
           <Icon className="h-3.5 w-3.5" />
@@ -294,6 +296,12 @@ export function IntegrationsPanel() {
             {t('clearLog')}
           </button>
         </div>
+        {droppedLog > 0 ? (
+          // G-641:溢出丢弃必须可见 —— 残缺的转发日志不得伪装成完整
+          <p data-testid="integrations-log-dropped" className="text-[10px] text-muted-foreground">
+            {droppedNotice(droppedLog)}
+          </p>
+        ) : null}
         <div data-testid="integrations-log" className="space-y-1">
           {log.length === 0 ? (
             <p

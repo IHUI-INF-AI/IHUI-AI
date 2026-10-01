@@ -34,6 +34,7 @@ import { gamificationRoutes } from './gamification.js'
 import { creditsUsageRoutes } from './credits-usage.js'
 import { desktopPrefsRoutes } from './desktop-prefs.js'
 import { pointsTasksRoutes } from './points-tasks.js'
+import { pointsMallUserRoutes } from './points-mall-user.js'
 import { userExtraRoutes } from './user-extras.js'
 import { aiSkillsProxyRoutes } from './ai-skills-proxy.js'
 import { contentRoutes, adminContentRoutes } from './content.js'
@@ -488,6 +489,8 @@ import traderStatsRoutes from './trader-stats.js'
 import { subagentsExtendedRoutes } from './subagents-extended-routes.js'
 // AI 助教路由代理(把 /api/ai-tutor/* 透传到 ai-service,避免前端直连 CORS)
 import { aiTutorRoutes } from './ai-tutor-routes.js'
+// AI 批改 thin 代理(只转发到 ai-service /api/ai-marking/grade,不落库)
+import { aiMarkingProxyRoutes } from './ai-marking-proxy.js'
 // Newsletter 订阅路由(定价页转化率优化配套,lead capture)
 import newsletterRoutes from './newsletter.js'
 // 挣钱中心仪表盘后端(P0 挣钱核心,4 端点:overview/byok-trend/referral/funnel)
@@ -566,6 +569,8 @@ export function registerRoutes(server: FastifyInstance) {
   // 桌面端偏好跨设备漫游（需登录，整棵子树强制鉴权）：/api/desktop/prefs
   server.register(desktopPrefsRoutes, { prefix: '/api' })
   server.register(pointsTasksRoutes, { prefix: '/api' })
+  // 积分商城用户端(2026-09-30 立):GET/POST /api/points/mall/redeem*(读 points_mall_products、写 points_mall_orders+积分流水)
+  server.register(pointsMallUserRoutes, { prefix: '/api' })
   server.register(userExtraRoutes, { prefix: '/api/user' })
   server.register(aiSkillsProxyRoutes, { prefix: '/api/ai-skills' })
   // 系统配置 / 集成 / API 日志 / 系统事件：/api/configs + /api/admin/configs /api/admin/integrations /api/admin/logs /api/admin/events
@@ -1186,6 +1191,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(subagentsExtendedRoutes, { prefix: '/api' })
   // AI 助教路由代理(/api/ai-tutor/*:explain/hint/quiz → 透传到 ai-service)
   server.register(aiTutorRoutes, { prefix: '/api' })
+  // AI 批改 thin 代理(/api/ai-marking/grade → 透传到 ai-service,不落库)
+  server.register(aiMarkingProxyRoutes, { prefix: '/api' })
   // Newsletter 订阅(定价页转化率优化配套:subscribe/unsubscribe + admin list/send)
   server.register(newsletterRoutes, { prefix: '/api/newsletter' })
   // 挣钱中心仪表盘后端(P0 挣钱核心,4 端点:overview/byok-trend/referral/funnel)

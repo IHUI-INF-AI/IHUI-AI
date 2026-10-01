@@ -11,7 +11,8 @@ import { Loader2, Plus, AlertCircle, RefreshCw } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, CloseButton, Input, Label } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   Dialog,
   DialogTrigger,
@@ -51,9 +52,13 @@ export default function WorkspacePage() {
   const tc = useTranslations('common')
   const queryClient = useQueryClient()
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['workspace', 'projects'],
     queryFn: fetchProjects,
+    enabled: allow,
   })
 
   const [dialogOpen, setDialogOpen] = React.useState(false)
@@ -167,7 +172,9 @@ export default function WorkspacePage() {
         </div>
       </div>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看我的项目" />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}

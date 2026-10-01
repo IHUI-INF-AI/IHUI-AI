@@ -599,6 +599,18 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "reason_if_off": "并发 reasoning 摘要默认关,显式开启后生效",
     },
     {
+        # G-648:供应商能力/entitlement 快照发布前复读栅栏(门控类,默认开)。
+        # 关闭即退回无栅栏 legacy 发布(解算中途上游变更会被发布出去,"先发布
+        # 再修正"),仅排障用;关闭时发布路径打 warning 留痕。
+        "key": "provider_cap_snapshot_fence",
+        "env": "PROVIDER_CAP_SNAPSHOT_FENCE_ENABLED",
+        "default": "true",
+        "category": "门控类",
+        "owner_module": "app.core.provider_capability_snapshot",
+        "doc_ref": "app/core/provider_capability_snapshot.py:56",
+        "reason_if_off": "",
+    },
+    {
         "key": "remote_compact_v2",
         "env": "REMOTE_COMPACT_V2_ENABLED",
         "default": "false",

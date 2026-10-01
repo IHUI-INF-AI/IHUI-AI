@@ -140,6 +140,7 @@ export async function updateUserStatus(id: string, status: number): Promise<Admi
   const rows = await db
     .update(users)
     .set({ status, updatedAt: new Date() })
+  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(users.id, id))
     .returning(userPublicFields)
   return rows[0]

@@ -26,6 +26,8 @@ import {
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 // P3 #31(2026-09-16 立):类型/徽章/状态集提取到共享模块(列表与看板双视图同源,防漂移)
 import {
   PAGE_SIZE,
@@ -69,6 +71,9 @@ export default function MediaTasksPage() {
   const [error, setError] = React.useState<string | null>(null)
   const [clearInfo, setClearInfo] = React.useState<string | null>(null)
 
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
   const listQuery = useQuery({
     queryKey: ['media-tasks', statusFilter, kindFilter, page],
     queryFn: () =>
@@ -79,6 +84,7 @@ export default function MediaTasksPage() {
       const items = q.state.data?.data?.items ?? []
       return items.some((task) => isInFlight(task.status)) ? 5000 : false
     },
+    enabled: allow,
   })
 
   // 2026-09-09 F8:统计概览卡片(总数/在途/已完成/失败/已取消,按 kind 明细)。
@@ -86,6 +92,7 @@ export default function MediaTasksPage() {
     queryKey: ['media-tasks-stats'],
     queryFn: () => api<{ ok: boolean; data: MediaTaskStats }>('/media/tasks/stats'),
     refetchInterval: (q) => ((q.state.data?.data?.inflight ?? 0) > 0 ? 5000 : false),
+    enabled: allow,
   })
 
   const tasks = listQuery.data?.data?.items ?? []
@@ -265,6 +272,11 @@ export default function MediaTasksPage() {
         </div>
       </header>
 
+      {/* 2026-09-30 登录态门:未登录时用登录引导替换个性化数据区 */}
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看媒体任务" />
+      ) : (
+        <>
       {/* 2026-09-09 F8:统计概览卡片(总数/在途/已完成/失败/已取消);第五轮:卡片可点击直达对应状态过滤 */}
       <section className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {(
@@ -586,6 +598,8 @@ export default function MediaTasksPage() {
             </Button>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   )

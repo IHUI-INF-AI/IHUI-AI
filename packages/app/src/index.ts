@@ -232,6 +232,13 @@ export type {
 export { Selecter, SearchInput } from './components'
 export type { SelecterProps, SelecterType, SelecterOption, SearchInputProps } from './components'
 
+/**
+ * 带聚焦描边的输入框 —— RN/共享屏的唯一实现(§4"描边不得取墨档"的唯一例外位是聚焦态)。
+ * 新增输入框不得在端内再手写一份 `useState(focused)`:那会让"两端取同一档"这件事退回散文约束。
+ */
+export { TextField } from './components'
+export type { TextFieldProps } from './components'
+
 /** 区块头「更多」入口:RN 端唯一实现,箭头走 lucide 矢量(勿在端内再用 `›` 字符自拼) */
 export { MoreLink } from './components'
 export type { MoreLinkProps } from './components'
@@ -676,8 +683,7 @@ export type {
   ChatRoomItem,
   ChatRoomScreenProps,
 } from './features/chat-room/ChatRoomScreen'
-/** 批次 29(2026-07-29):AI 主聊天 + 开发者入口(2 屏迁移自 mobile-rn) */
-export { ChatScreen } from './features/chat/ChatScreen'
+/** 批次 29(2026-07-29):开发者入口(原 2 屏迁移自 mobile-rn;AI 主聊天屏 ChatScreen 为零消费方,已按 D137 决议于 2026-10-01 删除,类型契约 ChatScreen* 在 @ihui/types 保留) */
 export { DeveloperScreen } from './features/developer/DeveloperScreen'
 /**
  * D78 连接器授权卡(G-107):对话流内渲染件。五态/四动词与

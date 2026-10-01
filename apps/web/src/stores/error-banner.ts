@@ -6,6 +6,8 @@ import { create } from 'zustand'
 
 import { toUserFriendlyMessage } from '@ihui/shared'
 
+import { boundedAppend } from '@/lib/bounded-append'
+
 /**
  * 全局错误通知 store(2026-08-01 立)。
  *
@@ -25,8 +27,13 @@ export interface ErrorItem {
   timestamp: number
 }
 
+/** 最多保留条数,避免无限堆积 */
+const MAX_ERRORS = 5
+
 interface ErrorBannerState {
   errors: ErrorItem[]
+  /** G-641:因上限溢出被丢弃的错误累计条数(0 = 从未丢;静默变短 = 伪造完整性) */
+  dropped: number
   /** 推入错误(自动中文化),返回 id 便于后续清除 */
   pushError: (error: unknown) => string
   /** 清除指定错误 */
@@ -44,20 +51,23 @@ function genId(): string {
 
 export const useErrorBannerStore = create<ErrorBannerState>((set) => ({
   errors: [],
+  dropped: 0,
 
   pushError: (error) => {
     const id = genId()
     const message = toUserFriendlyMessage(error)
-    set((s) => ({
-      // 最多保留 5 条,避免无限堆积
-      errors: [...s.errors, { id, message, timestamp: Date.now() }].slice(-5),
-    }))
+    set((s) => {
+      // G-641:溢出丢最旧但丢弃条数必须入账,消费面(GlobalErrorBanner)据 dropped
+      // 渲染 "…(dropped N)" 计数行,不许残缺被读成完整。
+      const { items, dropped } = boundedAppend(s.errors, { id, message, timestamp: Date.now() }, MAX_ERRORS)
+      return { errors: items, dropped: s.dropped + dropped }
+    })
     return id
   },
 
   clearError: (id) => set((s) => ({ errors: s.errors.filter((e) => e.id !== id) })),
 
-  clearAll: () => set({ errors: [] }),
+  clearAll: () => set({ errors: [], dropped: 0 }),
 }))
 
 /** 非 hook 场景便捷函数 */

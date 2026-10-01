@@ -203,9 +203,9 @@ const USER_CHILDREN: NavItem[] = [
 const EDU_ITEMS: NavItem[] = [
   // 学习模块
   { href: '/edu/dashboard', labelKey: 'eduDashboard', icon: LayoutDashboard },
-  { href: '/edu/courses', labelKey: 'eduCourses', icon: BookOpen },
+  { href: '/learn', labelKey: 'eduCourses', icon: BookOpen },
   { href: '/edu/exam', labelKey: 'eduExam', icon: FileCheck },
-  { href: '/edu/certificates', labelKey: 'eduCertificates', icon: Award },
+  { href: '/certificate', labelKey: 'eduCertificates', icon: Award },
   // 课程表
   { href: '/edu/schedule', labelKey: 'eduSchedule', icon: CalendarDays },
   // 管理功能(2026-08-30 教师角色 RBAC 接入):后端 edu-ai-management 守卫已从 requireAdmin

@@ -1835,4 +1835,51 @@ export interface CodeActionResult {
   command?: { title: string; command: string; arguments?: unknown[] }
   isPreferred?: boolean
 }
+
+// ============================================================================
+// b76-08a(2026-09-30 立):连接级能力位 —— 宿主注入,客户端不得自报
+// ============================================================================
+
+/**
+ * 五个**连接级能力位**字段名(对照上游 zcode zcodeAgentConnectionScope 的清单,逐字):
+ * `connectionId` / `clientMode` / `deliveryProfile` / `subscriberScope` / `workflowRunDeltas`。
+ *
+ * 为什么它们不得出现在客户端自报的入参里:"认不认得键级增量""订阅可见性档位"
+ * "投递档"是**连接**的事实,只可能来自连接握手(clientHello)与宿主的会话状态;
+ * 订阅入参自选这些档,等于让调用方自己给自己授权(AGENTS §5 同型:身份/档位只能
+ * 从承载层显式入参进来)。所以**转发前**一律先 delete 这五个键,再由宿主写真值;
+ * 宿主暂无等值生产点的档(我方现无 clientMode 等的生产点),"摘除即终局"——
+ * 客户端自报值消失,且没有第二来源把它补回来。
+ *
+ * 唯一注入口(两侧各一份是跨语言的必然,漂移由守门对账):
+ *  - TS:`stripClientCapabilityFields`(本文件下方;api-client 的 fetchApi /
+ *    fetchAiServiceJson 转发面调用);
+ *  - Python:`apps/ai-service/app/routers/engine.py::_bind_principal`
+ *    (JSON-RPC 四入口 HTTP 单发/批量/SSE/WS 共用的身份注入点)。
+ * 守门:`node scripts/check-capability-field-not-client-supplied.mjs --self-test`。
+ */
+export const CONNECTION_CAPABILITY_FIELDS = [
+  'connectionId',
+  'clientMode',
+  'deliveryProfile',
+  'subscriberScope',
+  'workflowRunDeltas',
+] as const
+
+export type ConnectionCapabilityField = (typeof CONNECTION_CAPABILITY_FIELDS)[number]
+
+/**
+ * 宿主注入口(TS 侧唯一出口):从客户端自报的参数对象里**摘除**全部连接级能力位。
+ *
+ * 返回浅拷贝而不改入参(调用方可能还持着原对象做展示);键被摘除后**不会**留下
+ * `key: undefined` 残影 —— "字段不存在"与"字段为空"必须可分(与 D174 traceId
+ * 的"缺席 ≠ 空值"同一条纪律)。
+ */
+export function stripClientCapabilityFields<T extends Record<string, unknown>>(params: T): T {
+  const out: Record<string, unknown> = { ...params }
+  for (const field of CONNECTION_CAPABILITY_FIELDS) {
+    delete out[field]
+  }
+  return out as T
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

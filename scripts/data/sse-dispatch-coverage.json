@@ -1,13 +1,17 @@
 {
   "$comment": "SSE 帧端内 dispatch 覆盖台账(守门 scripts/check-sse-dispatch-parity.mjs 读取,D107)。帧清单**不写在这里** —— 由守门每次从 packages/api-client/src/client.ts 的 onXxx 成员自动提取并减去 toolCallbacks,故本文件不可能与代码脱节。baseline[端] = 该端命中数下限(ratchet,只挡倒退不挡增长;新增接入后请同步上调);missing[端] = 该端**未命中**的帧,键集合必须**精确等于**实测未命中集合,值直接写理由或指向 groups 里的复用分组。口径:帧回调名在该端源码出现即算已处理(不按写法区分,精度靠'精确等于'兜)。",
   "toolCallbacks": [
-    "onAbort"
+    "onAbort",
+    "onAttemptStart",
+    "onLine"
   ],
+  "$commentFieldLevel": "字段级台账(b76-05 票1,守门 scripts/check-agent-event-parity.mjs [5/5] 读取)。fieldBaseline[事件名][键] = 该键'生产点写出、前端解析面不读'的豁免理由;键清单本身不写在这里 —— 由守门每次从生产侧(sse_contract.py 声明 / agents.py 与 apps/api/src/services 写出点)与解析侧(agent-events.ts parse*Event 读取点)现读,故本文件不可能与代码脱节。未登记的缺口 = 错误阻断。",
+  "fieldBaseline": {},
   "baseline": {
     "web": 36,
     "extension": 21,
-    "miniapp-taro": 25,
-    "mobile-rn": 21,
+    "miniapp-taro": 26,
+    "mobile-rn": 31,
     "cli": 16
   },
   "endpoints": {
@@ -77,22 +81,11 @@
       "onDelta": "该端聊天渲染按 tokens 概览驱动,未逐 delta 消费;seed 现状,若后续接入逐字流请删除本项并上调 baseline。",
       "onMemoryUpdates": "no-memory-update-ui",
       "onQuestion": "no-question-ui",
-      "onFormRequest": "D77 业务表单帧:api-client 已暴露 onFormRequest(HEAD 实测),但 ① 生产者侧(Python sse_contract.py / llm.py 发 form_request)未入库,② web 宿主(contract.ts + send-message.ts + stores/business-forms.ts + business-form-section.tsx)在途且与并行会话的脏文件同面,③ 其余四端无表单渲染位。⇒ 五端一律显式登记而非静默丢弃。解阻判据:sse_contract.py 与 llm.py 工作树==HEAD 后,同一票内落地「Python 发帧 + TS 契约 + web 宿主 + 本项从 missing 删除 + baseline 上调」,四端按 H18 端覆盖矩阵补渲染位。",
-      "onToolApproval": "V3 #58(2026-09-26 立)当日只落了两侧:api-client 的解析开关(`onToolApproval 注册才解析`)+ web 宿主(send-message.ts:1004)。本端源码里没有该回调名 ⇒ 帧到本端会被**静默丢弃**,故按 D107 口径显式登记而非不写。解阻判据:该端把工具审批落到已有批准面上(mobile-rn/共享屏层走工具确认弹窗、miniapp-taro 走页内确认卡、extension 走 sidepanel 审批位、cli 走 REPL 内联批准提示),接上后从本 missing 删除并把该端 baseline 上调 —— 四端各自的渲染位是否存在,须在接的那一票里当场证,不得凭此条推断\"该端本就不该有\"。"
+      "onFormRequest": "D77 业务表单帧:api-client 已暴露 onFormRequest(HEAD 实测),但 ① 生产者侧(Python sse_contract.py / llm.py 发 form_request)未入库,② web 宿主(contract.ts + send-message.ts + stores/business-forms.ts + business-form-section.tsx)在途且与并行会话的脏文件同面,③ 其余四端无表单渲染位。⇒ 五端一律显式登记而非静默丢弃。解阻判据:sse_contract.py 与 llm.py 工作树==HEAD 后,同一票内落地「Python 发帧 + TS 契约 + web 宿主 + 本项从 missing 删除 + baseline 上调」,四端按 H18 端覆盖矩阵补渲染位。"
     },
     "mobile-rn": {
       "onReasoningEffortNotice": "D130 批准的口径是「web 输入区加第三轴」(用户 2026-09-29 预填确认),本端输入区没有推理强度控件 ⇒ 没有可展示的回落通知位。刻意不退化成\"收到就 console 一下\":那会把一个用户看不见的档位变化写成一条只有开发者能发现的痕迹,而票第 8 栏点名的正是\"选了档而什么都没发生\"这一型静默失效。解阻判据:该端补出档位控件(需自带控件 ×5 语言词表)后,删除本项并接 onReasoningEffortNotice 回调。",
       "onGoalUpdate": "D152(2026-09-29)立:本端没有目标卡位(GoalCard 只在 web `components/ai/ai-side-panel-tools.tsx:525` 挂载,现读),且 `/goal` 斜杠命令的拦截点在 web 的 slash-commands.ts —— 本端今天连**发起**目标都没有,接一条只读状态帧会造出「看得见不能改」的假 affordance(与本端 onTerminalInteraction 拒绝代答的同一口径)。解阻判据:端内先有 goal 发起入口(另计一票),再同笔接 onGoalUpdate + `chat.goal.status.*` 五语言;接入后删本行并把该端 baseline 由 21 上调。",
-      "onAgentDelta": "no-agent-delta-ui",
-      "onMemoryUpdates": "no-memory-update-ui",
-      "onReconnect": "no-reconnect-ui",
-      "onSubagentEnd": "no-subagent-ui",
-      "onSubagentProgress": "no-subagent-ui",
-      "onSubagentSpawn": "no-subagent-ui",
-      "onToolDelegate": "no-tool-delegate-ui",
-      "onToolSummary": "no-tool-summary-ui",
-      "onFormRequest": "D77 业务表单帧:api-client 已暴露 onFormRequest(HEAD 实测),但 ① 生产者侧(Python sse_contract.py / llm.py 发 form_request)未入库,② web 宿主(contract.ts + send-message.ts + stores/business-forms.ts + business-form-section.tsx)在途且与并行会话的脏文件同面,③ 其余四端无表单渲染位。⇒ 五端一律显式登记而非静默丢弃。解阻判据:sse_contract.py 与 llm.py 工作树==HEAD 后,同一票内落地「Python 发帧 + TS 契约 + web 宿主 + 本项从 missing 删除 + baseline 上调」,四端按 H18 端覆盖矩阵补渲染位。",
-      "onToolApproval": "V3 #58(2026-09-26 立)当日只落了两侧:api-client 的解析开关(`onToolApproval 注册才解析`)+ web 宿主(send-message.ts:1004)。本端源码里没有该回调名 ⇒ 帧到本端会被**静默丢弃**,故按 D107 口径显式登记而非不写。解阻判据:该端把工具审批落到已有批准面上(mobile-rn/共享屏层走工具确认弹窗、miniapp-taro 走页内确认卡、extension 走 sidepanel 审批位、cli 走 REPL 内联批准提示),接上后从本 missing 删除并把该端 baseline 上调 —— 四端各自的渲染位是否存在,须在接的那一票里当场证,不得凭此条推断\"该端本就不该有\"。",
       "onConfigWarning": "no-stream-alert-producer",
       "onDeprecationNotice": "no-stream-alert-producer",
       "onGuardianWarning": "no-stream-alert-producer",
@@ -123,6 +116,7 @@
     }
   },
   "notes": {
+    "sseRunnerHooksNotFrames": "2026-10-01(onAttemptStart/onLine 判红收口):两名字不是协议帧,是 packages/api-client/src/client.ts 可复用 SSE 续传 runner 的**传输层选项**(`ResumableSSEStreamOptions`,L2589-L2620:onAttemptStart=每次尝试开始复位 per-attempt 状态,onLine=逐原始行递出给行解析 —— 帧解析发生在 onLine 递出的行**之后**),服务端零生产点(sse_contract.py / apps/api 现读无 attempt_start / line 帧名),故按「非帧成员」(onAbort 同类)登记进 toolCallbacks 从帧清单剔除,而非按帧逐端声明 missing(那等于谎称服务端生产了不存在的帧)。消费方只有传输层两处:client.ts streamChat 自接线(L4424/L4432)与小程序薄壳 apps/miniapp-taro/src/lib/sse.ts(L148/L151,D138 起共用该 runner);端内 dispatch 回调表结构上接不到它们。另:onLine 作子串与 negotiationLine(web cost-estimate-bar.tsx:38)/ textDecorationLine(mobile-rn 多屏)/ skillDescriptionLine、optionLine(cli)撞车 —— web/mobile-rn/cli 三端各多出的 1 次「增长」全是这种假命中,剔除后一并消失,三端 baseline 维持 36/31/16 不动。同笔:miniapp-taro 的 missing.onToolApproval 删除(HEAD 实况已注册:src/api/index.ts:609-610 的 D136 帧认领 + pkg-ai/ai/chat.tsx:933 handler,③「精确等于」判据),baseline.miniapp-taro 25→26(+1 = onToolApproval 真实注册;onLine/onAttemptStart 已从清单剔除不计入)。",
     "cliTerminalInteractionReason": "2026-09-29(onTerminalInteraction 四端收口票):cli 的该行原指向分组 no-terminal-stream-ui,而分组首句「该端无终端流展示位」与 repl.ts:2673(D19 起 terminal_delta 打进 noteLine)实测冲突 —— 按守门 90 口径理由必须能被复核,故改为就地精确理由(含 file:line 证据与解阻判据);分组本体不动,仍只被同端 onTerminalStart/onTerminalEnd 引用(那两帧的「无任务生命周期展示位」对本端为真)。missing 键集合与 baseline 一字未动,③「精确等于」判据不受影响。",
     "extensionToolDelegate": "2026-09-28 票㉑:扩展侧栏接上 workspaceContext 上行 + onToolDelegate 执行回传 + onToolApproval 审批横幅,baseline.extension 18→20;两条 missing 同日删除。组 no-tool-delegate-ui 仍被 mobile-rn 引用,不删。",
     "d152GoalUpdateWired": "2026-09-29 D152 端消费面重落:web 接 send-message.ts 的 onGoalUpdate + stores/goal.ts 主副本化(六态取自 @ihui/types)+ slash-commands.ts 乐观更新+上行 postSessionGoal + goal-card.tsx 两档徽章;miniapp-taro 接 api/index.ts 的 goal_updated dispatch + chat.tsx 胶囊(只呈现不可操作,无输入口)。两端 missing 同笔删除、baseline 31→32 / 24→25(现读命令:node scripts/check-sse-dispatch-parity.mjs --report --worktree)。extension / mobile-rn / cli 三端的 onGoalUpdate 仍留在 missing,理由逐条在那三行里(不是\"没接\",是\"接了会造假 affordance / 属另一域\")。"

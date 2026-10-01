@@ -11,7 +11,8 @@ import { Loader2, RotateCw, Share2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { toast } from '@/components/common/Toaster'
 
 interface QrCodeItem {
@@ -50,9 +51,14 @@ function QrPlaceholder({ content }: { content: string }) {
 
 export default function QrCodePage() {
   const t = useTranslations('qrCode')
+
+  // 2026-09-30 登录态门
+  const { allow } = useAuthGate()
+
   const q = useQuery({
     queryKey: ['user', 'qr-code'],
     queryFn: () => api<QrCodeItem>('/user/qr-code'),
+    enabled: allow,
   })
 
   const onShare = async () => {
@@ -74,7 +80,9 @@ export default function QrCodePage() {
         <div className="w-10" />
       </div>
 
-      {q.isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message="请先登录后查看二维码" />
+      ) : q.isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
           <span>{t('loading')}</span>
