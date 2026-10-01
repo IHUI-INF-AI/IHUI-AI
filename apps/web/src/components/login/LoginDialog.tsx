@@ -12,6 +12,7 @@ import { useTranslations } from 'next-intl'
 import { ExternalLink } from 'lucide-react'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { AuthShell } from '@/components/auth/AuthShell'
+import { resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
 import { openExternalUrl } from '@/lib/tauri-bridge'
 import { buildSsoLoginUrl, SSO_CLIENT_IDS, WEB_BASE } from '@ihui/shared'
 import { useDesktop } from '@/hooks/use-desktop'
@@ -64,15 +65,22 @@ export function LoginDialog() {
   const handleLoginSuccess = React.useCallback(() => {
     const redirectUrl = useLoginDialogStore.getState().redirectUrl
     close()
+    if (!redirectUrl) return
+    // G-413②:redirectUrl 的来源是 `?redirect=`(客户端可整写的查询参数),裸喂 router.push 会让
+    // `/\evil.com`(WHATWG 解析成外站)、`javascript:` 一族与跨站绝对地址在"会话刚落地"那一刻
+    // 被执行。判据走 sso-redirect-guard 的 allowedOrigins 档(与 /sso/* 同一份实现,端内不再写
+    // 一条 origin 比对),不安全的值在这里已被换成站内 '/',下面比较与跳转拿到的都是判据认过的值。
+    const target = resolveSafeRedirectTarget(redirectUrl, {
+      allowedOrigins: [window.location.origin],
+    })
+    if (target === window.location.pathname + window.location.search) return
     // 2026-09-18:路由跳转推迟到弹窗遮罩淡出(~150ms)结束后(250ms 余量),
     // 根治"登录成功后灰→亮渐渐显示且卡顿"(用户反馈):router.push 触发的
     // RSC 拉取 + 新页面树渲染是主线程长任务,原实现与遮罩淡出同窗口执行,
     // 淡出动画逐帧掉队。token 写入与弹窗关闭不受影响,仅延后跳转本身。
-    if (redirectUrl && redirectUrl !== window.location.pathname + window.location.search) {
-      setTimeout(() => {
-        router.push(redirectUrl)
-      }, 250)
-    }
+    setTimeout(() => {
+      router.push(target)
+    }, 250)
   }, [close, router])
 
   const title =
