@@ -2,21 +2,21 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 用户气泡的正文渲染(D129,2026-09-29 立)。
+// 用户气泡的正文渲染(D129,2026-09-29 立;2026-10-01 S15 按 V4 #87 止血步翻转)。
 //
 // 病灶:发送侧把附件拍平成四种文本形态,而用户气泡是 `<p>{m.content}</p>` 纯文本
 // ⇒ 用户自己上传的图在自己的气泡里显示成 `![photo.png](/uploads/…)` 源码。
 //
-// 为什么不用助手侧那个 markdown 渲染器(票面的"止血"写法):已入库的 G-825「消息级 markdown 边界」
-// 有一条负例用例钉死"用户消息正文不经过 markdown 边界"(markdown 渲染异常不得带走整轮消息)。
-// 这里因此**只渲染拆出来的附件**,正文一律保持纯文本原样 —— 既不再出现源码,也不把用户写的
-// `*`/`_`/`#` 重新解释一遍。拆分逻辑在 `@ihui/shared/chat` 的 `splitUserMessageParts`(单一实现,
-// RN/小程序将来接同一份,不在端内各算一遍)。
+// 2026-10-01 拍板(V4 #87 止血步):正文改走与助手侧**同一套** MarkdownStream ——
+// 同一屏不再有两种保真度。危险项天然关闭:MarkdownStream 本就不挂 rehype-raw,
+// 用户贴的裸 HTML 不执行、不渲染。拆分逻辑仍在 `@ihui/shared/chat` 的
+// `splitUserMessageParts`(单一实现,RN/小程序将来接同一份,不在端内各算一遍)。
 //
-// 安全边界:URL 协议白名单在共享层判;白名单外的形态**不摘**,原文留在下面那个 `<p>` 里
-// 照样看得见(计一个 `user-message-attachment-rejected` 记号供用例断言"没有被吞")。
-// 本组件不 import 任何 markdown 渲染器 —— 这一条由 d129 用例的源码级锁钉住,防止有人"顺手"
-// 把正文塞回 markdown 而把 G-825 的边界拆掉。
+// 安全边界:URL 协议白名单在共享层判;**被判不安全的行由共享层摘进 `rejectedLines`**、
+// 不再留在 text 里 —— 因为 react-markdown 会静默丢弃裸 HTML,留在 text 里等于消失。
+// 这里把它们按字面文本渲染(可见、不解释、不可执行),并保留 `user-message-attachment-rejected`
+// 记号供用例断言"没有被吞"。正文里"讨论这些写法"的散文不命中确切形态,随 text 一起
+// 进 MarkdownStream —— 裸 HTML 片段在散文里的显示行为与助手侧完全一致(同渲染器)。
 //
 // 剩余半格(另票,已写在台账 D129 行):图片点开设 `onPreviewImage` 复用 D41 预览器 —— 目前
 // 预览器宿主状态在 MessageItem 内按工具调用记账,还没有"用户附件"这一路;先渲染成可见图片,
@@ -25,6 +25,7 @@
 
 import { useMemo } from 'react'
 
+import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { splitUserMessageParts } from '@ihui/shared/chat'
 
 // 点开图片的唯一出口(与助手侧共用一份"外链开新窗 / 其余进面板"的判断)
@@ -51,8 +52,9 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
   return (
     <div className="space-y-2" data-testid={testId}>
       {hasBody ? (
-        // 与 G-825 的边界一致:这一行仍是纯文本 `<p>`,不经过任何 markdown 解析。
-        <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{parts.text}</p>
+        // 2026-10-01 拍板:与助手侧同一渲染件(危险项天然关闭 —— 无 rehype-raw,裸 HTML 不执行)。
+        // 完成态渲染,无流式;代码折叠沿用助手侧默认阈值,长粘贴不撑爆气泡。
+        <MarkdownStream content={parts.text} />
       ) : null}
 
       {parts.quote ? (
@@ -119,7 +121,19 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
         </span>
       ))}
 
-      {/* 命中了附件形态但被判不安全/判不出:原文仍在上面那个 `<p>` 里可见,这里只留可判定记号 */}
+      {/* 命中了附件形态但被判不安全/判不出:共享层已把它们摘出 text(否则 MarkdownStream 会把
+          裸 HTML 静默丢掉),这里按**字面文本**渲染 —— 可见、不解释、不可执行。 */}
+      {parts.rejectedLines.map((line, i) => (
+        <p
+          key={`rejected-${i}`}
+          data-testid="user-message-rejected"
+          className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-muted-foreground"
+        >
+          {line}
+        </p>
+      ))}
+
+      {/* 记号供用例断言"没有被吞" */}
       {parts.rejected > 0 ? (
         <span data-testid="user-message-attachment-rejected" className="sr-only">
           {String(parts.rejected)}
