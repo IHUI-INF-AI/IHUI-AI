@@ -5,13 +5,13 @@
 import { useI18n, t } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { updateUserNickname, getProfile } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import './nickname.css'
-import { FocusInput } from '@/components/FocusField'
 
 const MIN_LENGTH = 2
 const MAX_LENGTH = 20
