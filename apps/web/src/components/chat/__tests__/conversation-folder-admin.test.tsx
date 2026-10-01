@@ -26,7 +26,7 @@ const store = vi.hoisted(() => ({ current: null as unknown }))
 
 // 两个 store 都替换成"读同一份手写状态"的 shim:被测对象是**映射与渲染分支**,
 // 不是 zustand 自身;真 store 走网络 mock 反而会把要证的失败分支挡在门外。
-vi.mock('@/stores/conversation-org-server', () => ({
+vi.mock('@ihui/shared/chat/conversation-org-server', () => ({
   useOrgServerStore: Object.assign(
     (sel: (s: Record<string, unknown>) => unknown) => sel(store.current as Record<string, unknown>),
     { getState: () => store.current },
