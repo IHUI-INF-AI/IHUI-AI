@@ -68,8 +68,10 @@ const PRIORITY_OPTIONS = [
   { value: '0', labelKey: 'low' },
 ] as const
 
-/** i18n 静态映射表 — 用于消除 `t(\`kanban.${var}\`)` 动态拼接 */
-const KANBAN_LABEL_KEY: Record<string, string> = {
+/** i18n 静态映射表 — 用于消除 `t(\`kanban.${var}\`)` 动态拼接。
+ *  键集闭集于 PRIORITY_OPTIONS 的 labelKey(G-415/A7):开放 Record<string,string>
+ *  下新增档会静默落 unknown 兜底,闭集让 tsc 在两侧任一侧加档时强制表态。 */
+const KANBAN_LABEL_KEY: Record<(typeof PRIORITY_OPTIONS)[number]['labelKey'], string> = {
   high: 'kanban.high',
   medium: 'kanban.medium',
   low: 'kanban.low',
@@ -298,7 +300,9 @@ export function KanbanBoard() {
                       <SelectContent>
                         {PRIORITY_OPTIONS.map((opt) => (
                           <SelectItem key={opt.value} value={opt.value}>
-                            {t(KANBAN_LABEL_KEY[opt.labelKey] ?? 'kanban.unknown')}
+                            {/* labelKey 是闭集,KANBAN_LABEL_KEY 全键覆盖:不再需要
+                                unknown 兜底(原兜底键 'kanban.unknown' 在语言包里本就不存在) */}
+                            {t(KANBAN_LABEL_KEY[opt.labelKey])}
                           </SelectItem>
                         ))}
                       </SelectContent>
