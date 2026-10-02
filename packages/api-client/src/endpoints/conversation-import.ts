@@ -22,7 +22,7 @@ import { fetchApi } from '../client.js'
 // =============================================================================
 
 /** 外部工具来源枚举(与 api z.enum 一致) */
-export type ConversationImportSource = 'claude_code' | 'codex' | 'cursor' | 'aider'
+export type ConversationImportSource = 'claude_code' | 'codex' | 'cursor' | 'aider' | 'wechat'
 
 /** 单条待导入消息(commit 请求体;与 api importedMessageSchema 一致) */
 export interface ConversationImportMessage {
