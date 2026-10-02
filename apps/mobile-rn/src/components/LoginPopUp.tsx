@@ -507,6 +507,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     backgroundColor: tokens.surface.card,
+    // 弹层体 = 角色档 panel → xl(12);此前取 2xl(16),守门 150 判"panel 取 2xl 应为 xl"
     borderTopLeftRadius: rnRadius.xl,
     borderTopRightRadius: rnRadius.xl,
     paddingTop: LOGIN_POPUP_SHEET_PADDING_TOP_PX,
