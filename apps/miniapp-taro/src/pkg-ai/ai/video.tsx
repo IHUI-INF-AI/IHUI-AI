@@ -4,6 +4,7 @@
 
 import { useI18n } from '@/i18n'
 import { View, Text, Button, ScrollView } from '@tarojs/components'
+import { FocusTextarea } from '@/components/FocusField'
 import Taro, { useDidShow, useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import {
@@ -18,7 +19,6 @@ import EmptyState from '@/components/EmptyState'
 import ErrorView from '@/components/ErrorView'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
-import { FocusTextarea } from '@/components/FocusField'
 
 type Vendor = 'sora2' | 'kling' | 'doubao' | 'dashscope'
 type Status = 'idle' | 'pending' | 'running' | 'succeeded' | 'failed'
@@ -301,7 +301,9 @@ export default function VideoPage() {
               <VideoPlayer src={resultUrl} />
             ) : (
               <View className="h-[420rpx] flex items-center justify-center bg-[var(--color-black-90)] rounded-md">
-                <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">{statusText}</Text>
+                <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
+                  {statusText}
+                </Text>
               </View>
             )}
             {resultUrl ? (
@@ -343,7 +345,9 @@ export default function VideoPage() {
                   onClick={() => replayHistory(h)}
                   hoverClass="opacity-60"
                 >
-                  <Text className="flex-1 text-[length:24rpx] text-foreground truncate">{h.prompt}</Text>
+                  <Text className="flex-1 text-[length:24rpx] text-foreground truncate">
+                    {h.prompt}
+                  </Text>
                   <Text className="text-[length:20rpx] text-[var(--color-text-tertiary)] ml-[16rpx]">
                     {t(VENDORS.find((v) => v.key === h.vendor)?.nameKey ?? '')} ·{' '}
                     {fmtTime(h.createdAt)}
