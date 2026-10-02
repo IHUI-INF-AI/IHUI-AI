@@ -15,6 +15,9 @@
  *   → web 预览 → 逐会话调 /commit → 落 chat_conversations/chat_messages(保留原始时间戳)
  *   → 写 conversation_imports 批次记录 → 用户聊天侧栏立即可见新会话
  *
+ * 支持的来源(source):claude_code | codex | cursor | aider | wechat
+ * (微信聊天记录导出同样走这条管道,/parse 的格式识别在 ai-service 侧)
+ *
  * 设计要点:
  * - 所有端点都要求登录(preHandler authenticate)
  * - /parse 只做转发:重建 multipart 原样传给 ai-service,不手动设置 Content-Type
@@ -41,7 +44,7 @@ import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 // =============================================================================
 
 /** 外部工具来源枚举 */
-const importSourceSchema = z.enum(['claude_code', 'codex', 'cursor', 'aider'])
+const importSourceSchema = z.enum(['claude_code', 'codex', 'cursor', 'aider', 'wechat'])
 
 /** 单条待导入消息(时间戳为 ISO 字符串,宽松校验,落库前统一解析) */
 const importedMessageSchema = z.object({

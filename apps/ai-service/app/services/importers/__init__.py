@@ -9,6 +9,10 @@
 
     parsed, warnings, truncated = parse_conversation_file("codex", "rollout.jsonl", raw)
 
+五个来源:Claude Code(`.jsonl`/`.json`)、Codex(rollout `.jsonl`)、Cursor
+(`state.vscdb`/agent 转写)、Aider(`.md`/`.json`)、微信(`聊天记录.txt` 或含它的
+`.zip`)。
+
 约定:
 - `source` 不在 `SOURCES` 内 → 抛 `ValueError`(路由映射为 400)
 - `parsed` 只含 `conversations` 一个键;单条会话形如
@@ -26,7 +30,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from . import aider, claude_code, codex, cursor
+from . import aider, claude_code, codex, cursor, wechat
 from .ir import ParseResult, finalize
 
 __all__ = ["SOURCES", "parse_conversation_file"]
@@ -38,6 +42,7 @@ _SOURCES: dict[str, _Parser] = {
     "codex": codex.parse,
     "cursor": cursor.parse,
     "aider": aider.parse,
+    "wechat": wechat.parse,
 }
 
 SOURCES: tuple[str, ...] = tuple(_SOURCES)
