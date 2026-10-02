@@ -71,10 +71,15 @@ const FILE_MODIFY_TOOLS = new Set([
 
 /**
  * 按 Python str.splitlines() 口径切分行(W11 修复:对齐后端 llm.py 的算法,
- * 覆盖 \r\n / \r / \n / \v / \f / \u0085 / \u2028 / \u2029,并去除末尾空行)
+ * 覆盖 \r\n / \r / \n / \v / \f / \u001c / \u001d / \u001e / \u0085 / \u2028 / \u2029,
+ * 并去除末尾空行)。
+ * G-415/A9 修复(2026-10-02):补 \u001c\u001d\u001e 三个行边界码位 —— Python 把
+ * FS/GS/RS 当行边界而旧正则不认,实测 venv py 对 'a\x1cb' 得 2 行、本函数得 1 行。
+ * 快照表钉在 __tests__/tool-call-summary-line-stats.test.tsx(Python 侧同表:
+ * apps/ai-service/tests/test_splitlines_parity.py),一侧改动另一侧必红。
  */
-function pySplitLines(s: string): string[] {
-  const parts = s.split(/\r\n|\r|\n|\u000B|\u000C|\u0085|\u2028|\u2029/)
+export function pySplitLines(s: string): string[] {
+  const parts = s.split(/\r\n|\r|\n|\u000B|\u000C|\u001C|\u001D|\u001E|\u0085|\u2028|\u2029/)
   if (parts.length > 0 && parts[parts.length - 1] === '') parts.pop()
   return parts
 }
@@ -86,7 +91,7 @@ function pySplitLines(s: string): string[] {
  * - content 字符串:整体写入,全部算 added(write_file)
  * - new_string 字符串:统计行数(file_edit)
  */
-function calculateAddedLines(args: Record<string, unknown> | undefined): number {
+export function calculateAddedLines(args: Record<string, unknown> | undefined): number {
   if (!args) return 0
   const diff = args['diff']
   if (typeof diff === 'string' && diff) {
@@ -105,7 +110,7 @@ function calculateAddedLines(args: Record<string, unknown> | undefined): number 
  * - old_string 字符串:统计行数(file_edit)
  * - content 整体写入无删除 → 0
  */
-function calculateDeletedLines(args: Record<string, unknown> | undefined): number {
+export function calculateDeletedLines(args: Record<string, unknown> | undefined): number {
   if (!args) return 0
   const diff = args['diff']
   if (typeof diff === 'string' && diff) {

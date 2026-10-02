@@ -2780,10 +2780,12 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_MINIAPP_GENERATED',
     onFailHint: [
       '',
-      '  💡 判据四组:',
+      '  💡 判据五组:',
       '     R1 漏生成/引用断链 —— 源码引用的产物文件面上查无 ⇒ 报出引用方;',
       '     R2 孤儿/死资源 —— 产物目录里没有任何静态引用(默认只报数,--strict 判红;删文件属 §7 须人工确认);',
       '     G3 图标词表与 svg 目录的对账(图标源已外置,77/78 键无同名 svg 是**既有事实**,本条永不判红);',
+      '     I2 LineIcon 调用点「值→键」(G-415/A8):name 值位字面量不在 icons.ts 注册表 ⇒ 判红(各面同权);',
+      '        逃逸写法(as 断言/尾部 !)按该文件 HEAD 存量套棘轮,只在 --staged 拦新增,HEAD/worktree 只报数;',
       '     动态拼接的资源路径一律计入「判不了但如实数」,绝不静默当零违规。',
       '',
       '     重新生成:node apps/miniapp-taro/scripts/gen-line-icons.mjs / gen-tabbar-icons.mjs',

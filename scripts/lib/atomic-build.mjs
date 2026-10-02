@@ -78,6 +78,7 @@ function main(argv) {
     cwd: pkgRoot,
     stdio: 'inherit',
     shell: process.platform === 'win32',
+    windowsHide: true,
   })
   if (r.status !== 0) {
     console.error(`[atomic-build] tsc 失败 (exit=${r.status})，旧 dist 保持原样`)
@@ -170,7 +171,7 @@ function listStaleTmp(pkgRoot) {
 function removeDirSys(dir) {
   const win = process.platform === 'win32'
   const r = win
-    ? spawnSync('cmd', ['/c', 'rmdir', '/s', '/q', dir], { stdio: 'ignore' })
+    ? spawnSync('cmd', ['/c', 'rmdir', '/s', '/q', dir], { stdio: 'ignore', windowsHide: true })
     : spawnSync('rm', ['-rf', dir], { stdio: 'ignore' })
   if ((r.status ?? 1) !== 0 && existsSync(dir)) {
     // 系统删除也失败(句柄锁),退回 fs 层尽力而为
