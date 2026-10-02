@@ -5,6 +5,7 @@
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Button, Image } from '@tarojs/components'
+import { FocusTextarea } from '@/components/FocusField'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -12,7 +13,6 @@ import { generateImage } from '@/api'
 import EmptyState from '@/components/EmptyState'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
-import { FocusTextarea } from '@/components/FocusField'
 
 interface HistoryItem {
   id: string
@@ -158,11 +158,7 @@ export default function ImagePage() {
     <ThemeRoot className="min-h-screen bg-[var(--color-screen-canvas)] flex flex-col">
       {result ? (
         <View className="flex-1 flex items-center justify-center p-[32rpx]">
-          <Image
-            className="max-w-full max-h-[600rpx] rounded-lg"
-            src={result}
-            mode="aspectFit"
-          />
+          <Image className="max-w-full max-h-[600rpx] rounded-lg" src={result} mode="aspectFit" />
         </View>
       ) : (
         <View className="flex-1 flex flex-col items-center justify-center">
@@ -200,7 +196,9 @@ export default function ImagePage() {
       ) : null}
       {!result ? (
         <View className="px-[32rpx] pb-[24rpx]">
-          <Text className="text-[length:24rpx] text-muted-foreground">{t('ai.image.tryThese')}</Text>
+          <Text className="text-[length:24rpx] text-muted-foreground">
+            {t('ai.image.tryThese')}
+          </Text>
           <View className="flex flex-wrap gap-[16rpx] mt-[16rpx]">
             {examples.map((ex) => (
               <Text
@@ -283,7 +281,9 @@ export default function ImagePage() {
                   src={h.url}
                   mode="aspectFill"
                 />
-                <Text className="flex-1 text-[length:24rpx] text-foreground truncate">{h.prompt}</Text>
+                <Text className="flex-1 text-[length:24rpx] text-foreground truncate">
+                  {h.prompt}
+                </Text>
                 <Text className="text-[length:20rpx] text-[var(--color-text-tertiary)] ml-[16rpx]">
                   {fmtTime(h.createdAt)}
                 </Text>
