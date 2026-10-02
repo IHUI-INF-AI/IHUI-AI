@@ -32,8 +32,16 @@ jobs:
           mkdir -p out .chunks
           REPO="${{ github.repository }}"
           fetch() {
-            gh api "repos/$REPO/git/blobs/$1" --jq '.content' | base64 -d > "$2"
-            echo "fetched $2 ($(stat -c%s "$2") bytes)"
+            local sha="$1" dest="$2" n=1
+            while [ "$n" -le 5 ]; do
+              if gh api "repos/$REPO/git/blobs/$sha" --jq '.content' | base64 -d > "$dest"; then
+                echo "fetched $dest ($(stat -c%s "$dest") bytes) attempt $n"
+                return 0
+              fi
+              echo "retry $n failed for $dest, waiting..."
+              n=$((n+1)); sleep 5
+            done
+            echo "PERMANENT FAIL: $dest"; return 1
           }
           fetch c571c9b635f5cc64cf80d7cb384d2e7d50854946 .chunks/msi-01
           fetch 59d224957c990aa6008cfd6c5c23cbbcb231c106 .chunks/msi-02
