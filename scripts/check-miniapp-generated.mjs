@@ -46,6 +46,18 @@
  *        本仓实录过「产物存在但内容是旧的」两次(离线包只有 release 才发现 / 生成器读了 dist)。
  *        幂等性:时刻行 generatedAt 不参与判据也不参与逐字节比对(出口 maskGeneratedAt),
  *        其余字节两次生成必须全等 —— 断言在 --self-test 与镜像测试里各钉一条。
+ *   G5/U1 (G-816040, 2026-10-02) 四端「AI 可导航路由」派生产物:web / mobile-rn / miniapp-taro /
+ *        extension 四份 ui-routes.generated.ts 同挂本门(--group ui-routes)。此前它们零对账
+ *        (生成器无门判、无名集对账,extension 甚至自称「生成常量」却没有写它的脚本)。每份产物头
+ *        带自述钉(lib/generated-input-pin.mjs 同一实现):
+ *        · 钉 ≠ 现算输入哈希 ⇒ G5 判「陈旧」并点名是哪几份输入变了(blocking);
+ *        · 钉 absent / malformed / 产物缺文件 ⇒ 判「未判定」,只报数点名,既不记绿也不冒红(同 G5 口径);
+ *        · 钉 matched ⇒ 再做名集对账 U1:源侧派生路由集(web=page.tsx 扫描 / taro=app.config.ts 求值 /
+ *          extension=SidepanelApp 的 <Route path> 清单)与产物解析集不等 ⇒ 判红逐条报名。
+ *          RN 不镜像派生(分支感知的 TSX 扫描器太重)⇒ 只判钉。
+ *        名集只在钉 matched 后判:absent 钉时名集红可能是存量漂移,当场 blocking 就是恒红门(§12e)。
+ *        源侧派生逻辑与各生成器是 mergeMessages 同型的"刻意双份"(generate-ui-routes.mjs 等),
+ *        改语义必须两处同批 —— 否则名集对账开始说谎。
  *
  * 口径(与守门 70/77/83/98/101 一致,这一层由 scripts/lib/face-reader.mjs 单点持有):
  *   全量判 **HEAD blob** / `--staged` 判**索引 blob** / `--worktree` 仅作人工与 dev 链的逃生舱。
@@ -57,6 +69,7 @@
  *   node scripts/check-miniapp-generated.mjs --staged     # 索引面,pre-commit 用
  *   node scripts/check-miniapp-generated.mjs --worktree   # 磁盘面(dev 链自查用,不作提交门禁)
  *   node scripts/check-miniapp-generated.mjs --group i18n # 只算离线包(dev 冷启的快速路径)
+ *   node scripts/check-miniapp-generated.mjs --group ui-routes # 只算四端 AI 可导航路由(G-816040)
  *   node scripts/check-miniapp-generated.mjs --json       # 机器可读结论(dev 链消费,单一实现)
  *   node scripts/check-miniapp-generated.mjs --strict     # 把 G2 孤儿也判红
  *   node scripts/check-miniapp-generated.mjs --self-test  # 逻辑自检(成对正反例,零副作用)
@@ -102,6 +115,12 @@ const TABBAR_ASSET_DIR = `${APP}/src/assets/tabbar`
 const TABBAR_GENERATOR = `${APP}/scripts/gen-tabbar-icons.mjs`
 const MESSAGE_ROOT = 'packages/i18n/messages'
 const REMOTE_LOCALES = ['en', 'ja', 'ko', 'zh-TW']
+
+/* ── G-816040:四端「AI 可导航路由」产物的生成器直接输入 ── */
+const TARO_APP_CONFIG = `${APP}/src/app.config.ts`
+const RN_NAVIGATOR = 'apps/mobile-rn/src/navigation/RootNavigator.tsx'
+const RN_LINKING = 'apps/mobile-rn/src/navigation/linking.ts'
+const EXT_SIDEPANEL = 'apps/extension/entrypoints/sidepanel/SidepanelApp.tsx'
 
 /** 参与引用扫描的源文件后缀(资源字面量可能出现在这些地方) */
 const SCAN_EXT_RE = /\.(ts|tsx|js|jsx|mjs|cjs|json|css|scss|html|wxml)$/
@@ -174,15 +193,27 @@ function makeReader(face, root) {
     has(rel) {
       return loadTracked().has(rel)
     },
-    /** 一次 cat-file --batch 读完一批(逐文件派生 git 在真仓是上千次进程创建,属禁止形态) */
+    /** 一次 cat-file --batch 读完一批(逐文件派生 git 在真仓是上千次进程创建,属禁止形态)。
+     * 可合并(G-816040):taro 的输入集要两阶段(app.config 求值后才知道页面 config 清单),
+     * 四端 ui-routes 也要按产物分批补清单 —— 增量键并进既有 batch,不得整体作废重读。 */
     prefetch(rels) {
-      if (batch) return
       const uniq = [...new Set(rels)]
-      batch = catBatch(
+      if (!batch) {
+        batch = catBatch(
+          root,
+          uniq.map((r) => `${refPrefix}${r}`),
+        )
+        batch.__keys = new Set(uniq)
+        return
+      }
+      const newly = uniq.filter((r) => !batch.__keys.has(r))
+      if (newly.length === 0) return
+      const extra = catBatch(
         root,
-        uniq.map((r) => `${refPrefix}${r}`),
+        newly.map((r) => `${refPrefix}${r}`),
       )
-      batch.__keys = new Set(uniq)
+      for (const [k, v] of extra) batch.set(k, v)
+      for (const k of newly) batch.__keys.add(k)
     },
     read(rel) {
       if (!batch) throw new Undetermined(`${label} 未 prefetch 就 read(${rel}) —— 取材层被绕开了`)
@@ -675,6 +706,177 @@ function countLineIconEscapeHatches(strippedText) {
   return extractLineIconNameExprs(strippedText).filter((s) => isLineIconEscapeHatch(s.expr)).length
 }
 
+/* ───────── G-816040 四端 ui-routes:源侧派生 / 产物解析(名集对账的两侧) ───────── */
+
+const WEB_APP_PREFIX = 'apps/web/app/'
+// 与 apps/web/scripts/generate-ui-routes.mjs 的 EXCLUDED_TOP_SEGMENTS 同表(mergeMessages 同型:
+// 刻意双份并点名,改语义必须两处同批,否则 web 名集对账开始说谎)
+const WEB_EXCLUDED_TOP = new Set(['sso', 'h5', 'api'])
+
+/** web 源侧名集:app/**\/page.tsx → 路由路径(与 generate-ui-routes.mjs:toRoute 同规则) */
+function deriveWebRoutes(reader) {
+  const pages = reader.list([WEB_APP_PREFIX]).filter((p) => p.endsWith('/page.tsx'))
+  if (pages.length === 0) {
+    throw new Undetermined(`${reader.label} 在 ${WEB_APP_PREFIX} 下枚举不到 page.tsx,无法判定 web 名集`)
+  }
+  const paths = new Set()
+  for (const rel of pages) {
+    const segs = rel.slice(WEB_APP_PREFIX.length).split('/').slice(0, -1) // 去掉 page.tsx
+    const out = []
+    for (const seg of segs) {
+      if (seg.startsWith('(') && seg.endsWith(')')) continue // 分组段不参与 URL
+      out.push(seg.startsWith('[') && seg.endsWith(']') ? `:${seg.slice(1, -1)}` : seg)
+    }
+    if (out.length > 0 && WEB_EXCLUDED_TOP.has(out[0])) continue
+    paths.add(out.length === 0 ? '/' : `/${out.join('/')}`)
+  }
+  return paths
+}
+
+/** web 产物侧名集:路由行 `  { path: '…', param, group }`(接口声明的 `path: string` 无引号不会误中) */
+function parseWebRoutes(text) {
+  return new Set([...text.matchAll(/\{\s*path:\s*'([^']+)'/g)].map((m) => m[1]))
+}
+
+/**
+ * taro app.config.ts 的求值(与 apps/miniapp-taro/scripts/generate-ui-routes.mjs:evalConfigText 同规则:
+ * 只做「剥 TS 断言 + export default → return」两处改写,其余交给 JS 引擎 —— 刻意双份,同批改)。
+ */
+function evalTaroConfigText(raw) {
+  const js = String(raw).replace(/\s+as\s+[^,;}\]\n]+/g, '').replace(/^export default\s+/m, 'return ')
+  return new Function('defineAppConfig', 'definePageConfig', js)((c) => c, (c) => c)
+}
+
+/** taro 页面全路径清单:pages + subPackages 拼 root(与生成器 buildRoutes 的 flat 同规则) */
+function taroPageList(cfg) {
+  const mainPages = cfg.pages
+  const subPackages = cfg.subPackages ?? []
+  if (!Array.isArray(mainPages) || mainPages.length === 0) {
+    throw new Undetermined('app.config.ts 未解析出 pages 数组,无法判定 taro 名集/输入集')
+  }
+  return [
+    ...mainPages,
+    ...subPackages.flatMap((sp) => (sp.pages ?? []).map((page) => `${sp.root}/${page}`)),
+  ]
+}
+
+/** 求 app.config:面上取不到 / 求值失败都必须是 Undetermined(判不出 ≠ 不陈旧) */
+function readTaroAppConfig(reader) {
+  const raw = reader.has(TARO_APP_CONFIG) ? reader.read(TARO_APP_CONFIG) : null
+  if (raw === null) return null
+  try {
+    return evalTaroConfigText(raw)
+  } catch (e) {
+    throw new Undetermined(
+      `${TARO_APP_CONFIG} 在判定面上求值失败,无法判定 taro 输入集/名集:${String(e.message).split('\n')[0]}`,
+    )
+  }
+}
+
+/** taro 生成器扫描集(与 collectSourceFiles 同规则,但枚举自判定面而非磁盘) */
+function listTaroScanFiles(reader) {
+  return reader.list([`${APP}/src/`]).filter((p) => {
+    if (!/\.(ts|tsx)$/.test(p)) return false
+    if (p.endsWith('.d.ts') || p.endsWith('.generated.ts') || p.endsWith('.config.ts')) return false
+    if (/\.(test|spec)\.(ts|tsx)$/.test(p)) return false
+    if (/(^|\/)(generated|__tests__)\//.test(p)) return false
+    return true
+  })
+}
+
+/** taro 钉输入清单 = app.config 原文 + 存在的页面 config + 参数探测扫描集(与生成器逐字同集) */
+function taroInputRels(reader) {
+  const rels = [TARO_APP_CONFIG]
+  const cfg = readTaroAppConfig(reader)
+  if (cfg) {
+    for (const page of taroPageList(cfg)) {
+      const rel = `${APP}/src/${page}.config.ts`
+      if (reader.has(rel)) rels.push(rel)
+    }
+  }
+  rels.push(...listTaroScanFiles(reader))
+  return rels
+}
+
+/** taro 源侧名集:app.config.ts 求值 → 页面全路径(前导斜杠) */
+function deriveTaroRoutes(reader) {
+  const cfg = readTaroAppConfig(reader)
+  if (!cfg) throw new Undetermined(`${reader.label} 取不到 ${TARO_APP_CONFIG},无法判定 taro 名集`)
+  return new Set(taroPageList(cfg).map((p) => `/${p}`))
+}
+
+/** taro 产物侧名集:条目行 `path: '…'`(接口声明 `path: string` 无引号不会误中) */
+function parseTaroRoutes(text) {
+  return new Set([...text.matchAll(/\bpath:\s*'([^']+)'/g)].map((m) => m[1]))
+}
+
+/** extension 源侧名集:SidepanelApp 的 <Route path="…">(与 generate-ext-ui-routes.mjs:extractRoutes 同规则) */
+function deriveExtensionRoutes(reader) {
+  const raw = reader.has(EXT_SIDEPANEL) ? reader.read(EXT_SIDEPANEL) : null
+  if (raw === null) throw new Undetermined(`${reader.label} 取不到 ${EXT_SIDEPANEL},无法判定 extension 名集`)
+  const stripped = stripJsComments(raw)
+  const paths = new Set()
+  for (const m of stripped.matchAll(/<Route\s+path="([^"]*)"/g)) {
+    const p = m[1]
+    if (p === '*' || p.includes('${')) continue // 通配/动态:生成器同样排除(skipped 自述行计数)
+    if (paths.has(p)) throw new Undetermined(`${EXT_SIDEPANEL} 出现重复路由 ${p},无法判定名集`)
+    paths.add(p)
+  }
+  if (paths.size === 0) {
+    throw new Undetermined(`${EXT_SIDEPANEL} 未解析到任何 <Route path>,无法判定 extension 名集`)
+  }
+  return paths
+}
+
+/** extension 产物侧名集:字符串数组行 `  '/path',`(头注里的 <Route path="…"> 不是独立引号行,不会误中) */
+function parseExtensionRoutes(text) {
+  return new Set([...text.matchAll(/^[ \t]*'([^']+)',[ \t]*$/gm)].map((m) => m[1]))
+}
+
+/**
+ * 四份 ui-routes 派生产物的对账规格(G-816040)。
+ * inputRels(reader):生成器实际读的全部输入(逐字同集)—— 先列清单统一 prefetch,再逐份读;
+ * derive(reader):源侧名集;parse(text):产物侧名集。
+ * RN 不镜像派生(分支感知 TSX 扫描器太重)⇒ derive/parse 为 null,只判钉。
+ * 名集对账只在钉 matched 后跑(见文件头 G5/U1 条)。
+ */
+const UI_ROUTES_ARTIFACTS = [
+  {
+    rel: 'apps/web/src/lib/ui-routes.generated.ts',
+    generator: 'apps/web/scripts/generate-ui-routes.mjs',
+    inputRels(reader) {
+      const pages = reader.list([WEB_APP_PREFIX]).filter((p) => p.endsWith('/page.tsx'))
+      if (pages.length === 0) {
+        throw new Undetermined(`${reader.label} 在 ${WEB_APP_PREFIX} 下枚举不到 page.tsx,无法判定 web 输入集`)
+      }
+      return pages
+    },
+    derive: deriveWebRoutes,
+    parse: parseWebRoutes,
+  },
+  {
+    rel: 'apps/mobile-rn/src/constants/ui-routes.generated.ts',
+    generator: 'apps/mobile-rn/scripts/generate-ui-routes.mjs',
+    inputRels: () => [RN_NAVIGATOR, RN_LINKING],
+    derive: null,
+    parse: null,
+  },
+  {
+    rel: 'apps/miniapp-taro/src/constants/ui-routes.generated.ts',
+    generator: 'apps/miniapp-taro/scripts/generate-ui-routes.mjs',
+    inputRels: taroInputRels,
+    derive: deriveTaroRoutes,
+    parse: parseTaroRoutes,
+  },
+  {
+    rel: 'apps/extension/lib/ext-ui-routes.generated.ts',
+    generator: 'apps/extension/scripts/generate-ext-ui-routes.mjs',
+    inputRels: () => [EXT_SIDEPANEL],
+    derive: deriveExtensionRoutes,
+    parse: parseExtensionRoutes,
+  },
+]
+
 /* ─────────────────────────── 主判定 ─────────────────────────── */
 
 /**
@@ -694,6 +896,8 @@ function runCheck({ face, root, strict, group }) {
     // 前两态是「未判定」,不得被读成"内容是新的";后两态由 report/JSON 原样带出。
     pinState: 'not-run',
     pinDetail: '',
+    // G-816040 四端 ui-routes 的逐产物钉态(file-absent/absent/malformed/matched/stale),report/JSON 原样带出
+    uiRoutesPins: [],
   }
   const counts = { bundleLocales: 0, sourceFilesScanned: 0, artifactFiles: 0, registryKeys: 0, lineIconCallSites: 0 }
 
@@ -703,9 +907,15 @@ function runCheck({ face, root, strict, group }) {
    * 枚举与内容必须来自**同一个面**、且在**同一轮**里读:清单读磁盘而内容读 git 会产出一把
    * 自洽但基准错位的尺子(守门 101/91 同型)。
    * --group i18n 刻意不读那 500+ 个源文件:dev 冷启只需要"包是否过期"这一格,读全盘会把
-   * 一次便宜的对账变成一次全端扫描。 */
-  const allFiles = reader.list([`${APP}/`])
-  if (allFiles.length === 0) throw new Undetermined(`${reader.label} 在 ${APP}/ 下列出 0 个文件,无法判定`)
+   * 一次便宜的对账变成一次全端扫描。
+   * --group ui-routes 同理只走四端产物自己的枚举(apps/web/app、taro src 扫描集、侧边栏),
+   * 不做 miniapp 全盘枚举(本组不用它),四端清单在 ui-routes 块里自行 prefetch(可合并)。 */
+  const uiRoutesOnly = group === 'ui-routes'
+  let allFiles = []
+  if (!uiRoutesOnly) {
+    allFiles = reader.list([`${APP}/`])
+    if (allFiles.length === 0) throw new Undetermined(`${reader.label} 在 ${APP}/ 下列出 0 个文件,无法判定`)
+  }
   const needSourceRead = !group || group === 'assets' || group === 'icons'
   const sourceFiles = needSourceRead
     ? allFiles.filter((p) => {
@@ -718,20 +928,22 @@ function runCheck({ face, root, strict, group }) {
   const artifactRels = needSourceRead
     ? allFiles.filter((p) => ARTIFACT_DIRS.some((d) => p.startsWith(`${d}/`)))
     : []
-  const localeRels = REMOTE_LOCALES.flatMap((l) => [
-    `${MESSAGE_ROOT}/shared/${l}.json`,
-    `${MESSAGE_ROOT}/miniapp-taro/${l}.json`,
-  ])
-  const singletonRels = [...new Set([I18N_BUNDLE, ICON_REGISTRY, TABBAR_GENERATOR])].filter((p) =>
-    reader.has(p),
-  )
-  reader.prefetch([
-    ...localeRels,
-    ...sourceFiles,
-    ...artifactRels,
-    ...new Set(singletonRels.filter((p) => reader.has(p))),
-  ])
-  counts.sourceFilesScanned = sourceFiles.length
+  if (!uiRoutesOnly) {
+    const localeRels = REMOTE_LOCALES.flatMap((l) => [
+      `${MESSAGE_ROOT}/shared/${l}.json`,
+      `${MESSAGE_ROOT}/miniapp-taro/${l}.json`,
+    ])
+    const singletonRels = [...new Set([I18N_BUNDLE, ICON_REGISTRY, TABBAR_GENERATOR])].filter((p) =>
+      reader.has(p),
+    )
+    reader.prefetch([
+      ...localeRels,
+      ...sourceFiles,
+      ...artifactRels,
+      ...new Set(singletonRels.filter((p) => reader.has(p))),
+    ])
+    counts.sourceFilesScanned = sourceFiles.length
+  }
 
   /* —— G1/G2 i18n 离线包 —— */
   if (!group || group === 'i18n') {
@@ -878,6 +1090,87 @@ function runCheck({ face, root, strict, group }) {
     }
   }
 
+  /* —— G5/U1 (G-816040) 四端「AI 可导航路由」:自述钉 + 名集对账 —— */
+  if (!group || group === 'ui-routes') {
+    // 两段式取材:先取「四份产物 + 各生成器的直接输入」;taro 的输入集要 app.config 求值后
+    // 才能补齐(页面 config 清单 + 扫描集)⇒ 由 inputRels(reader) 二段补列。prefetch 可合并,
+    // 两段并进同一批,不会重复读键。
+    reader.prefetch([
+      ...UI_ROUTES_ARTIFACTS.map((a) => a.rel),
+      RN_NAVIGATOR,
+      RN_LINKING,
+      EXT_SIDEPANEL,
+      TARO_APP_CONFIG,
+    ])
+    const uiInputRels = new Set()
+    for (const art of UI_ROUTES_ARTIFACTS) {
+      for (const rel of art.inputRels(reader)) uiInputRels.add(rel)
+    }
+    reader.prefetch([...uiInputRels])
+
+    for (const art of UI_ROUTES_ARTIFACTS) {
+      const state = { rel: art.rel, state: 'matched', detail: '' }
+      undetermined.uiRoutesPins.push(state)
+      const text = reader.has(art.rel) ? reader.read(art.rel) : null
+      if (text === null) {
+        state.state = 'file-absent'
+        state.detail = `${reader.label} 面上没有该产物 —— 名集与钉都判不了(消费方 import 会先炸,构建面另行兜底)`
+        continue
+      }
+      const pin = parsePin(text)
+      if (!pin.present) {
+        state.state = 'absent'
+        state.detail = '产物里没有自述钉(IHUI-GEN-PIN-BEGIN 整块不见)⇒ 无法判断是否按当前输入生成'
+        continue
+      }
+      if (pin.malformed) {
+        state.state = 'malformed'
+        state.detail = `钉读不出来:${pin.reason}`
+        continue
+      }
+      const computed = digestInputs(
+        art.inputRels(reader).map((rel) => ({ rel, text: reader.has(rel) ? reader.read(rel) : null })),
+      )
+      if (computed.digest !== pin.digest) {
+        state.state = 'stale'
+        const diffs = differingInputs(pin, computed.perInput)
+        const named = diffs.length
+          ? diffs
+              .map((d) => `${d.rel}(钉 ${String(d.pinned).slice(0, 8)}… vs ${face}面 ${String(d.actual).slice(0, 8)}…)`)
+              .join(', ')
+          : '逐条输入哈希都相同而聚合哈希不等 ⇒ 钉的清单与现算集合不同(输入文件多了/少了/顺序无关)'
+        push(
+          'G5',
+          'missing',
+          true,
+          art.rel,
+          `产物自述钉的 inputsSha256=${pin.digest.slice(0, 12)}… 与 ${face}面现算=${computed.digest.slice(0, 12)}… 不等 ⇒ 产物陈旧(生成器:${art.generator})。不一致的输入:${named}`,
+        )
+        continue
+      }
+      state.detail = `${pin.digest.slice(0, 12)}…(commit ${pin.sourceCommit || 'unknown'})`
+      // 名集对账只在钉 matched 时跑:absent 钉时名集红可能是存量漂移 ⇒ 恒红门(§12e)。
+      // RN 不镜像派生(分支感知 TSX 扫描器太重)⇒ derive/parse 为 null,只判钉。
+      if (!art.derive || !art.parse) continue
+      const want = art.derive(reader) // 派生不出 ⇒ 抛 Undetermined(exit 2),绝不冒充名集
+      const got = art.parse(text)
+      const missing = [...want].filter((p) => !got.has(p)).sort()
+      const extra = [...got].filter((p) => !want.has(p)).sort()
+      if (missing.length || extra.length) {
+        state.detail += ' + 名集不等(U1 判红,见上)'
+        push(
+          'U1',
+          'missing',
+          true,
+          art.rel,
+          `钉 matched(输入同步)但名集与源对不上:源有产无 ${missing.length} 条` +
+            `${missing.length ? `(如 ${missing.slice(0, 3).join(', ')})` : ''};产有源无 ${extra.length} 条` +
+            `${extra.length ? `(如 ${extra.slice(0, 3).join(', ')})` : ''} —— 手改产物或生成器漏跑都会落在这里,重跑 ${art.generator} 即收敛`,
+        )
+      }
+    }
+  }
+
   return { findings, undetermined, counts }
 }
 
@@ -916,6 +1209,14 @@ function formatReport(result, face, opts) {
     lines.push('     ⚠️ 未判定 ≠ 通过:产物没记自己从哪份输入生成,陈旧与否无从现算。')
   } else {
     lines.push(`  📌 离线包自述钉(G-680):${result.undetermined.pinState} —— ${result.undetermined.pinDetail}`)
+  }
+  for (const s of result.undetermined.uiRoutesPins) {
+    lines.push(`  📌 四端 ui-routes 自述钉(G-816040) ${s.rel}: ${s.state} —— ${s.detail}`)
+    if (s.state !== 'matched' && s.state !== 'stale') {
+      // 未判定三态(产物缺/钉缺/钉读不出)一律点名,绝不静默成"看起来全绿"。
+      // 现在就判红 = 一台与任何提交都无关的恒红门(HEAD 面上这些产物还没有钉,§12e)。
+      lines.push('     ⚠️ 未判定 ≠ 通过:按生成器重跑一次并把带钉产物入库,才进入「陈旧/名集」判定。')
+    }
   }
   if (!opts.strict) {
 
@@ -962,8 +1263,8 @@ function main(argv) {
     console.error(`❌ ${error}`)
     return 2
   }
-  if (opts.group && !['i18n', 'assets', 'icons', 'tabbar'].includes(opts.group)) {
-    console.error(`❌ --group 只认 i18n / assets / icons / tabbar,给了 "${opts.group}"`)
+  if (opts.group && !['i18n', 'assets', 'icons', 'tabbar', 'ui-routes'].includes(opts.group)) {
+    console.error(`❌ --group 只认 i18n / assets / icons / tabbar / ui-routes,给了 "${opts.group}"`)
     return 2
   }
   try {
@@ -1289,6 +1590,83 @@ function selfTest() {
     eq(digestInputs(lf).digest, digestInputs(bom).digest, 'BOM 归一')
   })
 
+  /* ── G-816040 四端 ui-routes(成对正反例,web 磁盘面夹具) ── */
+  const WEB_PAGE_REL = 'apps/web/app/(main)/x/page.tsx'
+  const WEB_ART_REL = 'apps/web/src/lib/ui-routes.generated.ts'
+  const webPageText = () => 'export default function XPage() {\n  return null\n}\n'
+  /** web 单产物夹具:钉默认按盘面输入现算(withPin=false 出 absent 态;pinInputs 换成旧输入出 stale 态) */
+  const webFixture = (dir, { routes, pinInputs, pageText, withPin = true } = {}) => {
+    const onDisk = pageText ?? webPageText()
+    put(dir, WEB_PAGE_REL, onDisk)
+    const pinText = withPin
+      ? renderPin({
+          generator: 'apps/web/scripts/generate-ui-routes.mjs',
+          sourceCommit: 'deadbeef',
+          inputs: pinInputs ?? [{ rel: WEB_PAGE_REL, text: onDisk }],
+          generatedAt: '2026-01-01T00:00:00.000Z',
+        }).join('\n')
+      : ''
+    const routeLines = routes ?? [`  { path: '/x', param: false, group: 'x' },`]
+    put(
+      dir,
+      WEB_ART_REL,
+      `// GENERATED\n${pinText ? `${pinText}\n` : ''}export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [\n${routeLines.join('\n')}\n]\n`,
+    )
+  }
+  const webStateOf = (r) => r.undetermined.uiRoutesPins.find((s) => s.rel === WEB_ART_REL)
+
+  t('G-816040 web:钉 matched 且名集相等 ⇒ 全绿(阳性对照,防本门自己恒红)', () => {
+    withScratch((dir) => {
+      webFixture(dir)
+      const r = runCheck({ face: 'worktree', root: dir, strict: false, group: 'ui-routes' })
+      eq(webStateOf(r)?.state, 'matched', `web 产物应判 matched,实际 ${JSON.stringify(r.undetermined.uiRoutesPins)}`)
+      eq(r.findings.filter((f) => f.code === 'U1' || f.code === 'G5').length, 0, '齐全时不该有红')
+    })
+  })
+  t('G-816040 web:手改产物路由 ⇒ 钉仍 matched 但 U1 判红并点名两侧差(验收例「手改一字节必红」)', () => {
+    withScratch((dir) => {
+      webFixture(dir, { routes: [`  { path: '/y', param: false, group: 'x' },`] })
+      const r = runCheck({ face: 'worktree', root: dir, strict: false, group: 'ui-routes' })
+      const u1 = r.findings.filter((f) => f.code === 'U1')
+      eq(u1.length, 1, `应恰好一条 U1,实际 ${JSON.stringify(r.findings)}`)
+      eq(u1[0].blocking, true, 'U1 必须 blocking(它就是「产物被手改」的判据)')
+      if (!u1[0].detail.includes('/x') || !u1[0].detail.includes('/y')) {
+        throw new Error(`必须点名两侧名集差,实际:${u1[0].detail}`)
+      }
+    })
+  })
+  t('G-816040 web:输入 page.tsx 变了而钉没重算 ⇒ G5 判红并点名该输入', () => {
+    withScratch((dir) => {
+      // 钉按旧文本烘(生成器当时跑过),盘面输入换成新文本 = 「源改了产物没跟上」
+      webFixture(dir, {
+        pageText: 'export default function CHANGED() {\n  return null\n}\n',
+        pinInputs: [{ rel: WEB_PAGE_REL, text: webPageText() }],
+      })
+      const r = runCheck({ face: 'worktree', root: dir, strict: false, group: 'ui-routes' })
+      const g5 = r.findings.filter((f) => f.code === 'G5')
+      eq(g5.length, 1, `应恰好一条 G5,实际 ${JSON.stringify(r.findings)}`)
+      eq(g5[0].blocking, true, 'G5 必须 blocking')
+      if (!g5[0].detail.includes(WEB_PAGE_REL)) throw new Error(`必须点名变了的输入,实际:${g5[0].detail}`)
+      eq(webStateOf(r)?.state, 'stale', `应判 stale,实际 ${webStateOf(r)?.state}`)
+    })
+  })
+  t('G-816040 web:没有钉 ⇒ 未判定(absent),不冒红也不记绿(HEAD 面正是这一态)', () => {
+    withScratch((dir) => {
+      webFixture(dir, { withPin: false })
+      const r = runCheck({ face: 'worktree', root: dir, strict: false, group: 'ui-routes' })
+      eq(webStateOf(r)?.state, 'absent', `应判 absent,实际 ${webStateOf(r)?.state}`)
+      eq(r.findings.length, 0, 'absent 不得判红')
+    })
+  })
+  t('evalTaroConfigText:defineAppConfig 形态求值出 pages/subPackages(与 taro 生成器同规则)', () => {
+    const cfg = evalTaroConfigText(
+      "export default defineAppConfig({\n  pages: ['pages/index'],\n  subPackages: [{ root: 'pkg-ai', pages: ['ai/chat'] }],\n})\n",
+    )
+    eq(cfg.pages.join(','), 'pages/index', '主包页')
+    eq(cfg.subPackages[0].root, 'pkg-ai', '分包 root')
+    eq(taroPageList(cfg).join(','), 'pages/index,pkg-ai/ai/chat', '分包页拼 root')
+  })
+
   console.log(results.join('\n'))
   const bad = results.filter((r) => r.startsWith('❌')).length
   console.log(`\n自检:${results.length} 例,失败 ${bad}`)
@@ -1340,5 +1718,9 @@ export const __test__ = {
   I18N_BUNDLE,
   ICON_REGISTRY,
   TABBAR_GENERATOR,
+  // G-816040:四端 ui-routes 对账规格与其源侧派生件(镜像测试锁形状用)
+  UI_ROUTES_ARTIFACTS,
+  evalTaroConfigText,
+  taroPageList,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
