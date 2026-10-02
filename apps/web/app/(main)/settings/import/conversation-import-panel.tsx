@@ -9,9 +9,15 @@
  *
  * 四步流:选来源 → 上传文件(20MB 客户端预校验) → 解析预览(多选,默认全选) → 逐会话串行 commit。
  * commit 逐会话调用 api-client 的 commitConversationImport,单个失败不中断其余导入;
- * 全部完成后失效会话列表 query(['chat','conversations']),侧栏立即可见新会话。
+ * 全部完成后失效会话列表 query(['chat','conversations']),侧栏立即可见新会话,
+ * 并跳到首个成功落库的会话(见 jumpToConversation)。
+ *
+ * 覆盖全部 5 个来源(2026-10-03 补齐微信):claude_code / codex / cursor / aider / wechat。
+ * 错误一律诚实上屏:解析失败带服务端原文、truncated 与 warnings 在预览区逐条列出、
+ * 逐会话 commit 失败原因去重后展示 —— 不做静默吞掉。
  */
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -30,6 +36,8 @@ import {
 import { Alert } from '@/components/feedback'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import { useAiPanelStore } from '@/stores/ai-panel'
+import { useChatStore } from '@/stores/chat'
 import { formatSize } from './helpers'
 
 /** 会话导入来源卡片配置(accept 供文件选择器按来源过滤,hint 为典型导出文件路径) */
@@ -64,6 +72,14 @@ const IMPORT_SOURCES: Array<{
     hintKey: 'sourceAiderHint',
     accept: '.md,.json,.jsonl',
   },
+  {
+    // 微信导出物是归档包/纯文本,与其余四源的 jsonl/sqlite 家族完全不同。
+    // 与 CLI(SESSION_SOURCE_CONFIG)/RN(ALLOWED_EXTENSIONS)同口径。
+    value: 'wechat',
+    labelKey: 'sourceWechat',
+    hintKey: 'sourceWechatHint',
+    accept: '.zip,.txt',
+  },
 ]
 
 /** 客户端预校验的文件大小上限:20MB */
@@ -79,6 +95,7 @@ const HISTORY_STATUS_KEY: Record<string, string> = {
 export function ConversationImportPanel() {
   const t = useTranslations('conversationImport')
   const qc = useQueryClient()
+  const router = useRouter()
 
   const [source, setSource] = React.useState<ConversationImportSource | ''>('')
   const [file, setFile] = React.useState<File | null>(null)
@@ -124,6 +141,11 @@ export function ConversationImportPanel() {
       let done = 0
       let imported = 0
       let failed = 0
+      // 首个成功落库的会话:导入完成后据此跳到该会话(串行下即用户勾选顺序的第一个)
+      let firstConversationId: string | null = null
+      // 失败原因不吞:单条失败只计数不中断其余,但原因要带回 UI 展示,
+      // 否则用户只看到一个 failed 数字,无法判断是自己的文件问题还是服务端故障
+      const failureReasons: string[] = []
       setProgress({ done: 0, total: convs.length })
       for (const conv of convs) {
         // api 校验 content 非空:过滤空消息,过滤后无消息的会话直接记失败
@@ -132,6 +154,7 @@ export function ConversationImportPanel() {
           .map((m) => ({ role: m.role, content: m.content, createdAt: m.createdAt }))
         if (messages.length === 0) {
           failed += 1
+          failureReasons.push(t('noValidContent'))
           done += 1
           setProgress({ done, total: convs.length })
           continue
@@ -148,27 +171,60 @@ export function ConversationImportPanel() {
         }
         try {
           const r = await commitConversationImport(payload)
-          if (r.success) imported += 1
-          else failed += 1
-        } catch {
+          if (r.success) {
+            imported += 1
+            if (!firstConversationId) firstConversationId = r.data.conversationId
+          } else {
+            failed += 1
+            failureReasons.push(r.error)
+          }
+        } catch (e) {
           failed += 1
+          failureReasons.push(e instanceof Error ? e.message : String(e))
         }
         done += 1
         setProgress({ done, total: convs.length })
       }
-      return { imported, failed }
+      return { imported, failed, firstConversationId, failureReasons }
     },
     onSuccess: (res) => {
-      toast.success(t('commitDone', { imported: res.imported, failed: res.failed }))
+      if (res.failed > 0) {
+        // 部分/全部失败:走 error 通道,逐条列出原因(去重后最多 3 条,避免刷屏)
+        const unique = [...new Set(res.failureReasons)].slice(0, 3)
+        toast.error(t('commitFailed', { error: unique.join('; ') }))
+        if (res.imported > 0) {
+          toast.success(t('commitDone', { imported: res.imported, failed: res.failed }))
+        }
+      } else {
+        toast.success(t('commitDone', { imported: res.imported, failed: res.failed }))
+      }
       setPreview(null)
       setFile(null)
       setSource('')
       setSelected(new Set())
       qc.invalidateQueries({ queryKey: ['chat', 'conversations'] })
       qc.invalidateQueries({ queryKey: ['conversation-import-history'] })
+      // 至少一条落库成功才跳转:全失败时留在本页,让用户对着历史/错误处理,
+      // 不把用户丢到一个并不存在的会话上
+      if (res.imported > 0 && res.firstConversationId) {
+        jumpToConversation(res.firstConversationId)
+      }
     },
     onError: (e: Error) => toast.error(t('commitFailed', { error: e.message })),
   })
+
+  /**
+   * 导入成功后跳到该会话。
+   *
+   * 与 conversation-list.tsx 的历史项点击同款三步:写 store 当前会话 → 打开
+   * AI docked 面板 → 回 `/`(首页右侧面板即对话入口)。setConversationId 先行,
+   * ai-side-panel 的 effect 下一帧才拉历史,顺序反了会先用旧 id 触发一次请求。
+   */
+  function jumpToConversation(conversationId: string) {
+    useChatStore.getState().setConversationId(conversationId)
+    useAiPanelStore.getState().openPanel()
+    router.push('/')
+  }
 
   function handleFileChange(f: File | null) {
     if (f && f.size > MAX_FILE_SIZE) {
@@ -223,7 +279,7 @@ export function ConversationImportPanel() {
       <Card>
         <CardContent className="space-y-3 p-3 min-[640px]:p-3">
           <p className="text-sm font-medium">{t('sourcesTitle')}</p>
-          <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3 min-[1024px]:grid-cols-5">
             {IMPORT_SOURCES.map((s) => {
               const active = source === s.value
               return (

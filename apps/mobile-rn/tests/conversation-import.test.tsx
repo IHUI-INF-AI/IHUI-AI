@@ -7,7 +7,8 @@
  * 外部会话导入(RN 端)测试 — D28 多端同步补齐(2026-09-21)
  *
  * 覆盖:
- * - 初始:拉取导入历史 + 渲染 4 个来源(不自动解析)
+ * - 初始:拉取导入历史 + 渲染 5 个来源(不自动解析)
+ * - 微信来源:zip 走 RN multipart 解析 → commit 带 source=wechat;.txt 放行 / 别家后缀本地拦截
  * - 平台 adapter:expo-document-picker 选文件 → fetchApi 拼 RN multipart(source 字段 + {uri,type,name} 文件部分)
  * - 隐私:预览只渲染会话元信息,消息正文不进 DOM
  * - 串行提交:逐会话 commit,单个失败不中断其余,完成后重拉历史
@@ -155,7 +156,7 @@ beforeEach(() => {
 })
 
 describe('ConversationImportScreen(RN)', () => {
-  it('初始只拉导入历史并渲染 4 个来源', async () => {
+  it('初始只拉导入历史并渲染 5 个来源', async () => {
     render(<ConversationImportScreen />)
 
     await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalledTimes(1))
@@ -164,6 +165,8 @@ describe('ConversationImportScreen(RN)', () => {
     expect(screen.getByText('conversationImport.sourceCodex')).toBeTruthy()
     expect(screen.getByText('conversationImport.sourceCursor')).toBeTruthy()
     expect(screen.getByText('conversationImport.sourceAider')).toBeTruthy()
+    expect(screen.getByText('conversationImport.sourceWechat')).toBeTruthy()
+    expect(screen.getByText('conversationImport.sourceWechatHint')).toBeTruthy()
     // 历史渲染:批次文件名 + 计数
     expect(screen.getByText('export.jsonl')).toBeTruthy()
     expect(screen.getByText(/2026-09-18/)).toBeTruthy()
@@ -172,6 +175,102 @@ describe('ConversationImportScreen(RN)', () => {
     expect(rnMocks.getDocumentAsync).not.toHaveBeenCalled()
     expect(rnMocks.fetchApi).not.toHaveBeenCalled()
     expect(screen.getByText('conversationImport.errorNoSource')).toBeTruthy()
+  })
+
+  it('微信来源:选 zip 走 RN multipart 解析,commit 带 source=wechat', async () => {
+    rnMocks.getDocumentAsync.mockResolvedValue({
+      canceled: false,
+      assets: [
+        {
+          uri: 'file:///cache/chat.zip',
+          name: 'chat.zip',
+          mimeType: 'application/zip',
+          size: 4096,
+        },
+      ],
+    })
+    rnMocks.fetchApi.mockResolvedValue({
+      success: true as const,
+      data: {
+        conversations: [
+          {
+            title: '张三',
+            source: 'wechat' as const,
+            sourceCreatedAt: '2026-09-19T08:00:00.000Z',
+            messages: [
+              { role: 'user' as const, content: 'WECHAT-BODY-ALPHA' },
+              { role: 'assistant' as const, content: 'WECHAT-BODY-BETA' },
+            ],
+          },
+        ],
+        truncated: false,
+        warnings: [],
+      },
+    })
+    rnMocks.commitConversationImport.mockResolvedValue({
+      success: true,
+      data: { importId: 'iw1', conversationId: 'cw1', importedMessages: 2 },
+    })
+    const appendSpy = vi.spyOn(FormData.prototype, 'append')
+
+    render(<ConversationImportScreen />)
+    await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalled())
+
+    fireEvent.click(screen.getByText('conversationImport.sourceWechat'))
+    fireEvent.click(screen.getByText('conversationImport.pickFile'))
+
+    await waitFor(() => expect(rnMocks.fetchApi).toHaveBeenCalledTimes(1))
+    expect(appendSpy.mock.calls.filter(([field]) => field === 'source')).toEqual([
+      ['source', 'wechat'],
+    ])
+    expect(appendSpy.mock.calls.find(([field]) => field === 'file')?.[1]).toEqual({
+      uri: 'file:///cache/chat.zip',
+      type: 'application/zip',
+      name: 'chat.zip',
+    })
+    appendSpy.mockRestore()
+
+    await waitFor(() => expect(screen.getByText('张三')).toBeTruthy())
+    // 隐私口径与其它来源一致:正文不进 DOM
+    expect(screen.queryByText(/WECHAT-BODY-ALPHA/)).toBeNull()
+
+    fireEvent.click(screen.getByText('conversationImport.commit'))
+    await waitFor(() => expect(rnMocks.commitConversationImport).toHaveBeenCalledTimes(1))
+    expect(commitPayloadAt(0).source).toBe('wechat')
+    expect(commitPayloadAt(0).fileName).toBe('chat.zip')
+    expect(commitPayloadAt(0).messages).toHaveLength(2)
+  })
+
+  it('微信来源:.txt 放行,zip 家族以外的后缀本地拦截', async () => {
+    rnMocks.fetchApi.mockResolvedValue(PARSE_RESULT)
+
+    // .txt 属微信白名单 → 允许发出请求
+    rnMocks.getDocumentAsync.mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: 'file:///cache/chat.txt', name: 'chat.txt', mimeType: 'text/plain', size: 64 }],
+    })
+    render(<ConversationImportScreen />)
+    await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalled())
+    fireEvent.click(screen.getByText('conversationImport.sourceWechat'))
+    fireEvent.click(screen.getByText('conversationImport.pickFile'))
+    await waitFor(() => expect(rnMocks.fetchApi).toHaveBeenCalledTimes(1))
+
+    // .jsonl 是别家来源的后缀,对微信必须本地拦下
+    rnMocks.fetchApi.mockClear()
+    rnMocks.getDocumentAsync.mockResolvedValue({
+      canceled: false,
+      assets: [
+        {
+          uri: 'file:///cache/export.jsonl',
+          name: 'export.jsonl',
+          mimeType: 'application/jsonl',
+          size: 64,
+        },
+      ],
+    })
+    fireEvent.click(screen.getByText('conversationImport.pickFile'))
+    await waitFor(() => expect(screen.getByText('conversationImport.errorFileType')).toBeTruthy())
+    expect(rnMocks.fetchApi).not.toHaveBeenCalled()
   })
 
   it('选文件后以 RN multipart 形态调 parse 端点,预览不含消息正文', async () => {

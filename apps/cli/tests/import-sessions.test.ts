@@ -124,11 +124,12 @@ afterAll(async () => {
 });
 
 describe('来源与参数解析', () => {
-  it('isSessionSource 只认后端枚举的四个来源', () => {
+  it('isSessionSource 只认后端枚举的五个来源', () => {
     expect(isSessionSource('claude_code')).toBe(true);
     expect(isSessionSource('codex')).toBe(true);
     expect(isSessionSource('cursor')).toBe(true);
     expect(isSessionSource('aider')).toBe(true);
+    expect(isSessionSource('wechat')).toBe(true);
     expect(isSessionSource('claude-cli')).toBe(false);
     expect(isSessionSource('')).toBe(false);
   });
@@ -256,6 +257,24 @@ describe('本地导出文件自动发现', () => {
   it('目录不存在时返回空数组(不抛异常)', async () => {
     expect(await discoverSessionFiles('cursor', path.join(tmpRoot, 'ghost'), 10)).toEqual([]);
   });
+
+  it('微信:roots 为空时无 --path 必然扫不到,但不抛异常且不误捡无关文件', async () => {
+    // 微信导出目录不可预测 ⇒ 默认扫描恒为空。这是刻意的:猜「下载/文件接收」目录
+    // 会把同后缀(.txt)的图片/安装包清单塞进候选,比扫不到更有害。
+    expect(await discoverSessionFiles('wechat', undefined, 10)).toEqual([]);
+    // 即便当前工作目录里真有 .txt,默认扫描也不该把它当微信导出物捡起来
+    await makeFixture('wechat-noise/notes.txt', '随便一篇笔记');
+    expect(await discoverSessionFiles('wechat', undefined, 10)).toEqual([]);
+    // 显式给路径仍可发现 —— 这是微信唯一可行的入口
+    const dir = path.join(tmpRoot, 'wechat-noise');
+    const found = await discoverSessionFiles('wechat', dir, 10);
+    expect(found.map((f) => path.basename(f))).toEqual(['notes.txt']);
+    // 后缀家族与其余四源不同:jsonl 不该被微信接受
+    const jsonl = await makeFixture('wechat-jsonl/export.jsonl');
+    expect(await discoverSessionFiles('wechat', jsonl, 10)).toEqual([]);
+    const zip = await makeFixture('wechat-export/chat.zip', 'PK');
+    expect(await discoverSessionFiles('wechat', zip, 10)).toEqual([zip]);
+  });
 });
 
 describe('文件定位与候选选择', () => {
@@ -291,18 +310,35 @@ describe('文件定位与候选选择', () => {
     expect(out).toContain('未找到可导入的导出文件');
     expect(out).toContain('.jsonl');
   });
+
+  it('微信省略路径:提示无固定导出目录 + zip/txt 后缀,而不是打一条空的已扫描', async () => {
+    const spy = captureConsole();
+    expect(await resolveExportFile('wechat', undefined)).toBeNull();
+    const out = spy.error.join('\n');
+    expect(out).toContain('未找到可导入的导出文件');
+    // 关键:不能出现「已扫描: 」后面什么都没有 —— 那读起来像命令没跑
+    expect(out).toContain('无固定导出目录');
+    expect(out).toMatch(/已扫描: \S/);
+    expect(out).toContain('.zip');
+    expect(out).toContain('.txt');
+    // 明确告诉用户下一步怎么走
+    expect(out).toContain('ihui import sessions parse wechat <文件路径>');
+  });
 });
 
 describe('sessions sources / discover', () => {
-  it('sources 列出四个来源与各自可接受后缀', async () => {
+  it('sources 列出五个来源与各自可接受后缀', async () => {
     const spy = captureConsole();
     expect(await runSessionsSources()).toBe(true);
     const out = spy.info.join('\n');
-    for (const s of ['claude_code', 'codex', 'cursor', 'aider']) expect(out).toContain(s);
+    for (const s of ['claude_code', 'codex', 'cursor', 'aider', 'wechat']) expect(out).toContain(s);
     expect(out).toContain('.jsonl');
     expect(out).toContain('.vscdb');
     expect(out).toContain('.md');
     expect(out).toContain(path.join('.claude', 'projects'));
+    // 微信无固定导出目录:sources 必须显式说明「用 --path 指定」,不能打一个空目录列表
+    expect(out).toContain('.zip');
+    expect(out).toContain('无固定导出目录');
   });
 
   it('discover 指定来源时只扫该来源', async () => {
@@ -386,6 +422,38 @@ describe('sessions parse', () => {
     const spy = captureConsole();
     expect(await runSessionsParse('cursor', file)).toBe(false);
     expect(spy.error.join('\n')).toContain('解析失败: unsupported format');
+  });
+
+  it('微信:上传 zip 并以 source=wechat 落库(后缀与来源透传正确)', async () => {
+    const file = await makeFixture('wechat-parse/chat.zip', 'PK');
+    // commit 会再走一次 parse,两次都得给出解析结果
+    parseMock.mockResolvedValue(
+      buildParseResult([
+        {
+          title: '张三',
+          sourceCreatedAt: '2026-09-19T08:00:00.000Z',
+          messages: [
+            { role: 'user', content: '在吗' },
+            { role: 'assistant', content: '在的' },
+          ],
+        },
+      ]),
+    );
+    const spy = captureConsole();
+    expect(await runSessionsParse('wechat', file)).toBe(true);
+    expect(parseMock).toHaveBeenCalledTimes(1);
+    const uploaded = parseMock.mock.calls[0]?.[0];
+    expect(uploaded?.name).toBe('chat.zip');
+    expect(parseMock.mock.calls[0]?.[1]).toBe('wechat');
+    expect(spy.info.join('\n')).toContain('1. 张三');
+
+    commitMock.mockResolvedValueOnce(okCommit(2));
+    expect(await runSessionsCommit('wechat', file, { all: true })).toBe(true);
+    expect(commitMock.mock.calls[0]?.[0]).toMatchObject({
+      source: 'wechat',
+      fileName: 'chat.zip',
+      title: '张三',
+    });
   });
 
   it('未解析到会话时给出空态', async () => {
