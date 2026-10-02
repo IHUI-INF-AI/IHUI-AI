@@ -530,6 +530,7 @@ tail -20 .workbuddy/git-guardian.log        # 自愈审计流水(健康时不写
 - agent 侧长任务完成/阻塞待决策等**交互回复走会话本身**;需要"手机也收到"的事件统一走上述邮件通道。
 - **"这条通道是否已摘干净"必须按"服务实际执行的是哪份文件"取径,不得按 `git ls-files`**。判据:`nssm get <svc> AppParameters`(逐个服务),顺着那个路径看内容 —— `deploy/prod-bundle/` 被 `.gitignore:383` 整目录忽略,里面的运行副本**可以完全没有入库源**,对跟踪文件做的 grep 对它零覆盖。实测教训(2026-09-24):两票按跟踪文件做出的"零残留"证明都成立,而 `IHUI-MONITOR` 跑的 `deploy/prod-bundle/monitor.ps1` 仍内联着第三方推送凭据常量与三条纯文本推送通道,其唯一通道当日已被对端配额打死(`monitor-alerts.log` 累计 55338 行推送失败),期间它判出的 `api(8802) 未监听`/公网 500 一封都没到人。现该文件已改为**入库源的转发器**(与 bridge 同一收敛法),真身 `deploy/win/ihui-monitor.ps1`。新写运维脚本若落在 `deploy/prod-bundle/`,必须同时落一份入库源 + 转发壳,否则等于写进盲区。
 - 到人链路的**现役生产者清单**(改通道要逐个覆盖,缺一不可):`ihui-alert-bridge`(→`monitoring/alertbridge/alert-webhook-bridge.cjs`)、`IHUI-DEPLOYLOOP`(→`deploy/win/ihui-deploy.ps1`)、`IHUI-MONITOR`(→`deploy/prod-bundle/monitor.ps1` 转发 `deploy/win/ihui-monitor.ps1`)、`scripts/check-credential-health.mjs`、`scripts/git-guardian.mjs`、`.github/workflows/blue-green-deploy.yml`。**改完必须重启对应服务**才生效:PowerShell/Node 都在启动时把脚本读进内存,改文件不动运行中的进程 —— 只 commit 不重启 = 线上仍跑旧逻辑(旧版含每日封顶),而本地一切看上去已修好。
+  - **`scripts/git-guardian.mjs` 这一行此前是"设计意图",不是现状**(2026-09-24 补齐):实测该文件里 `mail|smtp|resend|notify|alert` **零命中** —— 它每 2 分钟巡检、判红只落 `.workbuddy/git-guardian.log`,所以"守护发现问题 = 到人"从来不成立。现已接上派发出口(经 `notify-deploy-failure.ts`,不自拼 SMTP,受守门 81 管),按 alert 身份 + 内容指纹 4h 去重、未送达 30min 退避、**无每日总量封顶**,发信失败不改自愈与退出码;核验入口 `--notify-dry-run` / `--notify-test <名>` / `--status` 的 `.notify` 字段。**教训同 §26**:清单里写"某生产者会喊人",必须实测它真有一条到人的出口,否则记账与事实分叉,而分叉形态永远是"安静"。
 - **通道"可用"必须被量到,不能靠"没人记下失败"(2026-10-02 立,补 §5e 唯一无人答的那一维)**:
   告警寄不出去最坏的形态不是响亮地报错,而是**安静地少一封**。旧判据链只能回答"有没有生产者写下过投递失败标记",
   而 `check-credential-health` 那份 UNDELIVERED 标记**会被下一次任意成功投递清掉** ⇒ "某条告警从来没寄出去过"
@@ -550,7 +551,6 @@ tail -20 .workbuddy/git-guardian.log        # 自愈审计流水(健康时不写
   「重复告警就是缺陷」是新噪声而不是清偿;要补发的只有"故障仍在"的那种,而判据只负责把它摆到人前。
   **(b) 裁决账的 owner 必须写真实裁决人**:值守会话能复验、能落证据,但"这件事我不需要补发"是机主的决定,
   代理不得替他签这个字(本机首跑的 2 条欠账因此把 owner 写成值守会话并附复验命令,到期自动回红)。
-  - **`scripts/git-guardian.mjs` 这一行此前是"设计意图",不是现状**(2026-09-24 补齐):实测该文件里 `mail|smtp|resend|notify|alert` **零命中** —— 它每 2 分钟巡检、判红只落 `.workbuddy/git-guardian.log`,所以"守护发现问题 = 到人"从来不成立。现已接上派发出口(经 `notify-deploy-failure.ts`,不自拼 SMTP,受守门 81 管),按 alert 身份 + 内容指纹 4h 去重、未送达 30min 退避、**无每日总量封顶**,发信失败不改自愈与退出码;核验入口 `--notify-dry-run` / `--notify-test <名>` / `--status` 的 `.notify` 字段。**教训同 §26**:清单里写"某生产者会喊人",必须实测它真有一条到人的出口,否则记账与事实分叉,而分叉形态永远是"安静"。
 
 ---
 
