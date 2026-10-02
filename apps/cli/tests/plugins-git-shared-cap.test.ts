@@ -11,6 +11,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { execGit, formatGitResult } from '../src/tools/git-shared.js';
 
 const PROBE = 'IHUI-SECRET-PROBE';
@@ -140,15 +141,36 @@ describe('git-shared 封顶出口(G-998107)', () => {
     expect(out.output).toContain(sha);
   });
 
-  it('源码形状锁:复用唯一出口 + 既有脱敏,无第二张预算表', () => {
-    const src = fs.readFileSync(new URL('../src/tools/git-shared.ts', import.meta.url), 'utf-8');
-    expect(src).toContain('execGitCapped');
-    expect(src).toContain('sanitizeEvidenceText');
-    expect(src).not.toContain("spawnSync('git'");
-    expect(src).not.toContain('spawnSync("git"');
-    expect(src).not.toContain('node:child_process');
-    expect(src).not.toContain('30_000');
-    expect(src).not.toContain('1024 * 1024');
+  it('源码形状锁:预算/封顶唯一出口在 git-runner,git-shared 复用、不自立第二份', () => {
+    const shared = fs.readFileSync(new URL('../src/tools/git-shared.ts', import.meta.url), 'utf-8');
+    const runner = fs.readFileSync(new URL('../src/plugins/git-runner.ts', import.meta.url), 'utf-8');
+    // 唯一封顶出口的定义只在 git-runner(b76 wave-2 W4 搬家后的新落点)
+    expect(runner).toContain('export function execGitCapped');
+    // git-shared 复用唯一出口解析 + 共享层既有脱敏,不自立预算表/第二份脱敏
+    expect(shared).toContain('resolveGitSpawnOptions');
+    expect(shared).toContain('sanitizeEvidenceText');
+    expect(shared).not.toContain("spawnSync('git'");
+    expect(shared).not.toContain('spawnSync("git"');
+    // 预算字面量不得回流本文件(档位表住在 git-runner)
+    expect(shared).not.toContain('30_000');
+    expect(shared).not.toContain('90_000');
+    expect(shared).not.toContain('120_000');
+    expect(shared).not.toContain('1024 * 1024');
+    // 全仓唯一性:execGitCapped 的定义恰好 1 处(票面验收判据)
+    const cliSrcRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+    const definers: string[] = [];
+    const walk = (dir: string): void => {
+      for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, ent.name);
+        if (ent.isDirectory()) walk(p);
+        else if (/\.(ts|tsx|mts|mjs|js)$/.test(ent.name)) {
+          if (fs.readFileSync(p, 'utf-8').includes('export function execGitCapped')) definers.push(p);
+        }
+      }
+    };
+    walk(cliSrcRoot);
+    expect(definers).toHaveLength(1);
+    expect(definers[0] ?? '').toContain('git-runner.ts');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
