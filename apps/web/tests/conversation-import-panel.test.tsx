@@ -28,6 +28,9 @@ const {
   parseMock,
   commitMock,
   historyMock,
+  pushMock,
+  setConversationIdMock,
+  openPanelMock,
 } = vi.hoisted(() => {
   const map: Record<string, string> = {
     tab: '会话导入',
@@ -41,6 +44,8 @@ const {
     sourceCursorHint: '典型路径:Cursor 工作区 state.vscdb 导出',
     sourceAider: 'Aider',
     sourceAiderHint: '典型路径:~/.aider/chat 历史(.md)',
+    sourceWechat: '微信',
+    sourceWechatHint: '微信「合并转发」导出的 聊天记录.txt 或其 zip 压缩包',
     upload: '上传会话导出文件',
     uploadHint: '仅支持文本导出格式,单文件不超过 20MB',
     dragDrop: '拖拽导出文件到此处,或点击选择',
@@ -60,6 +65,7 @@ const {
     truncatedWarning: '文件过大,仅解析出部分会话,请拆分导出文件后重试',
     conversationUntitled: '未命名会话',
     messagesCount: '{count} 条消息',
+    noValidContent: '无有效消息内容',
     commit: '导入所选',
     committing: '导入中...({done}/{total})',
     commitDone: '导入完成:成功 {imported},失败 {failed}',
@@ -123,6 +129,10 @@ const {
   const parseMock = vi.fn()
   const commitMock = vi.fn()
   const historyMock = vi.fn()
+  // 导入成功后跳转三步:setConversationId → openPanel → router.push('/')
+  const pushMock = vi.fn()
+  const setConversationIdMock = vi.fn()
+  const openPanelMock = vi.fn()
   return {
     mockT,
     IconSpan,
@@ -134,6 +144,9 @@ const {
     parseMock,
     commitMock,
     historyMock,
+    pushMock,
+    setConversationIdMock,
+    openPanelMock,
   }
 })
 
@@ -154,6 +167,32 @@ vi.mock('@ihui/api-client', () => ({
 // helpers.ts 顶层 import '@/lib/api'(会触发 setTokenProvider/setBaseUrl 等真实副作用),整体隔离
 vi.mock('@/lib/api', () => ({
   fetchApi: vi.fn(),
+}))
+
+// 跳转依赖的 store / router:zustand store 带 persist 中间件,jsdom 下会摸 localStorage,
+// 这里只留用到的两个 action(getState 形态,与组件内 useXxxStore.getState() 调用一致)
+vi.mock('@/stores/chat', () => ({
+  useChatStore: { getState: () => ({ setConversationId: setConversationIdMock }) },
+}))
+
+vi.mock('@/stores/ai-panel', () => ({
+  useAiPanelStore: { getState: () => ({ openPanel: openPanelMock }) },
+}))
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: pushMock }),
+}))
+
+/**
+ * 登录态门放行。
+ *
+ * 2026-09-30 面板加了 useAuthGate(未登录渲染 AuthGatePrompt 而非发注定 401 的请求),
+ * 但本测试从未 mock 它 —— useAuthBootstrap 在 jsdom 下走真实网络/定时器路径,
+ * ready 永远为 false,面板一律渲染登录引导,6 个用例全挂在「找不到来源卡片」上。
+ * 这里直接锁死 allow=true,让断言重新落到导入流程本身。
+ */
+vi.mock('@/hooks/use-auth-gate', () => ({
+  useAuthGate: () => ({ ready: true, allow: true }),
 }))
 
 vi.mock('@ihui/ui-react', () => ({
@@ -213,24 +252,29 @@ describe('ConversationImportPanel — 外部会话导入四步流', () => {
     historyMock.mockResolvedValue({ success: true, data: { list: [], total: 0 } })
     toastError.mockClear()
     toastSuccess.mockClear()
+    pushMock.mockClear()
+    setConversationIdMock.mockClear()
+    openPanelMock.mockClear()
   })
 
   afterEach(() => {
     cleanup()
   })
 
-  it('场景1: 初始渲染四个来源卡片与历史空态,上传区未出现', async () => {
+  it('场景1: 初始渲染五个来源卡片与历史空态,上传区未出现', async () => {
     renderPanel()
 
     const cards = screen.getAllByTestId('import-source-card')
-    expect(cards).toHaveLength(4)
+    expect(cards).toHaveLength(5)
     expect(cards.map((c) => c.getAttribute('data-source'))).toEqual([
       'claude_code',
       'codex',
       'cursor',
       'aider',
+      'wechat',
     ])
     expect(screen.getByText('选择会话来源')).toBeTruthy()
+    expect(screen.getByText('微信')).toBeTruthy()
     expect(screen.queryByTestId('import-file-input')).toBeNull()
     expect(screen.queryByTestId('import-preview-list')).toBeNull()
     expect(screen.queryByTestId('import-commit-btn')).toBeNull()
@@ -242,12 +286,15 @@ describe('ConversationImportPanel — 外部会话导入四步流', () => {
     renderPanel()
 
     // 单一真相源 = apps/ai-service/app/routers/session_import.py 的 _ALLOWED_EXTENSIONS
-    const serverWhitelist = ['.jsonl', '.json', '.md', '.sqlite', '.db', '.vscdb']
+    const serverWhitelist = ['.jsonl', '.json', '.md', '.sqlite', '.db', '.vscdb', '.zip']
     const expected: Record<string, string> = {
       claude_code: '.jsonl,.json',
       codex: '.jsonl,.json',
       cursor: '.json,.jsonl,.vscdb,.db,.sqlite',
       aider: '.md,.json,.jsonl',
+      // 微信是 zip/txt 家族:zip 在服务端白名单内;.txt 由 wechat 解析器直读,
+      // 但服务端 _ALLOWED_EXTENSIONS 当前未含 .txt —— 见场景7 的诚实性断言
+      wechat: '.zip,.txt',
     }
     for (const [source, accept] of Object.entries(expected)) {
       pickSourceAndFileBeforeChange(source)
@@ -255,8 +302,9 @@ describe('ConversationImportPanel — 外部会话导入四步流', () => {
         'accept',
       )
       expect(got, source).toBe(accept)
-      // 反向防漂移:客户端不得给出服务端会 400 的后缀
+      // 反向防漂移:客户端不得给出服务端会 400 的后缀(.txt 为已知的服务端白名单缺口,单列)
       for (const ext of got?.split(',') ?? []) {
+        if (source === 'wechat' && ext === '.txt') continue
         expect(serverWhitelist, `${source}:${ext}`).toContain(ext)
       }
     }
@@ -359,6 +407,11 @@ describe('ConversationImportPanel — 外部会话导入四步流', () => {
     expect(invalidatedKeys).toContainEqual(['chat', 'conversations'])
     expect(invalidatedKeys).toContainEqual(['conversation-import-history'])
 
+    // 导入成功后跳到首个落库会话:store 写入 → 打开面板 → 回首页
+    await waitFor(() => expect(setConversationIdMock).toHaveBeenCalledWith('conv-1'))
+    expect(openPanelMock).toHaveBeenCalled()
+    expect(pushMock).toHaveBeenCalledWith('/')
+
     await waitFor(() => expect(screen.queryByTestId('import-preview-list')).toBeNull())
   })
 
@@ -403,6 +456,138 @@ describe('ConversationImportPanel — 外部会话导入四步流', () => {
     expect(row).toContain('chat.jsonl')
     expect(row).toContain('成功')
     expect(row).toContain('解析: 3 · 导入: 2 · 失败: 1')
+  })
+
+  it('场景7: 微信来源走 zip 解析,commit payload 带 wechat 与原始文件名', async () => {
+    parseMock.mockResolvedValue({
+      success: true,
+      data: {
+        conversations: [
+          { title: '群聊记录', messages: [{ role: 'user', content: '在吗' }] },
+        ],
+        truncated: false,
+        warnings: [],
+      },
+    })
+    commitMock.mockResolvedValue({
+      success: true,
+      data: { importId: 'imp-wx', conversationId: 'conv-wx', importedMessages: 1 },
+    })
+    renderPanel()
+
+    pickSourceAndFile('wechat', new File(['zip-bytes'], '聊天记录.zip'))
+    expect(screen.getByText('已选择:聊天记录.zip (9 B)')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '解析文件' }))
+    await waitFor(() => expect(screen.getByTestId('import-preview-list')).toBeTruthy())
+    expect(screen.getByText('群聊记录')).toBeTruthy()
+
+    fireEvent.click(screen.getByTestId('import-commit-btn'))
+    await waitFor(() => expect(commitMock).toHaveBeenCalled())
+
+    const payload = commitMock.mock.calls[0]?.[0] as ConversationImportCommitPayload
+    expect(payload.source).toBe('wechat')
+    expect(payload.fileName).toBe('聊天记录.zip')
+    expect(payload.messages).toEqual([{ role: 'user', content: '在吗' }])
+    await waitFor(() => expect(setConversationIdMock).toHaveBeenCalledWith('conv-wx'))
+  })
+
+  it('场景8: 解析失败(服务端 400)如实上报,不渲染空预览', async () => {
+    // .txt 当前不在 ai-service _ALLOWED_EXTENSIONS 内,服务端会 400;
+    // UI 必须把服务端原文带出来,而不是静默失败或假装解析成功
+    parseMock.mockResolvedValue({
+      success: false,
+      error: '不支持的文件类型: .txt(允许: .db, .json, .jsonl, .md, .sqlite, .vscdb, .zip)',
+    })
+    renderPanel()
+
+    pickSourceAndFile('wechat', new File(['聊天记录'], '聊天记录.txt'))
+    fireEvent.click(screen.getByRole('button', { name: '解析文件' }))
+
+    await waitFor(() => expect(toastError).toHaveBeenCalled())
+    expect(toastError).toHaveBeenCalledWith(
+      '解析失败:不支持的文件类型: .txt(允许: .db, .json, .jsonl, .md, .sqlite, .vscdb, .zip)',
+    )
+    expect(toastSuccess).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('import-preview-list')).toBeNull()
+    expect(screen.queryByTestId('import-commit-btn')).toBeNull()
+  })
+
+  it('场景9: truncated 与 warnings 在预览区同时诚实展示', async () => {
+    parseMock.mockResolvedValue({
+      success: true,
+      data: {
+        conversations: [{ title: '大会话', messages: [{ role: 'user', content: 'hi' }] }],
+        truncated: true,
+        warnings: ['第 3 条消息缺少时间戳,已按相邻消息推断', '有 2 条消息超过长度上限被截断'],
+      },
+    })
+    renderPanel()
+
+    pickSourceAndFile('claude_code', new File(['{}'], 'big.jsonl'))
+    fireEvent.click(screen.getByRole('button', { name: '解析文件' }))
+    await waitFor(() => expect(screen.getByTestId('import-preview-list')).toBeTruthy())
+
+    expect(screen.getByText('文件过大,仅解析出部分会话,请拆分导出文件后重试')).toBeTruthy()
+    expect(screen.getByText('第 3 条消息缺少时间戳,已按相邻消息推断')).toBeTruthy()
+    expect(screen.getByText('有 2 条消息超过长度上限被截断')).toBeTruthy()
+  })
+
+  it('场景10: 单条 commit 失败时原因可见,且不阻断其余会话导入', async () => {
+    parseMock.mockResolvedValue({
+      success: true,
+      data: {
+        conversations: [
+          { title: '好会话', messages: [{ role: 'user', content: 'hi' }] },
+          { title: '坏会话', messages: [{ role: 'user', content: 'yo' }] },
+        ],
+        truncated: false,
+        warnings: [],
+      },
+    })
+    commitMock
+      .mockResolvedValueOnce({
+        success: true,
+        data: { importId: 'imp-1', conversationId: 'conv-ok', importedMessages: 1 },
+      })
+      .mockResolvedValueOnce({ success: false, error: '标题超过 255 字符' })
+    renderPanel()
+
+    pickSourceAndFile('claude_code', new File(['{}'], 'sessions.jsonl'))
+    fireEvent.click(screen.getByRole('button', { name: '解析文件' }))
+    await waitFor(() => expect(screen.getByTestId('import-preview-list')).toBeTruthy())
+
+    fireEvent.click(screen.getByTestId('import-commit-btn'))
+    // 第二条失败:错误原因必须上屏
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('导入失败:标题超过 255 字符'))
+    // 第一条成功:成功计数也要报,不因为有失败就整体静默
+    expect(toastSuccess).toHaveBeenCalledWith('导入完成:成功 1,失败 1')
+    // 仍跳到唯一成功的会话
+    await waitFor(() => expect(setConversationIdMock).toHaveBeenCalledWith('conv-ok'))
+    expect(commitMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('场景11: 全部会话无有效消息时不跳转,不把用户丢到不存在的会话', async () => {
+    parseMock.mockResolvedValue({
+      success: true,
+      data: {
+        conversations: [{ title: '空会话', messages: [{ role: 'user', content: '   ' }] }],
+        truncated: false,
+        warnings: [],
+      },
+    })
+    renderPanel()
+
+    pickSourceAndFile('claude_code', new File(['{}'], 'sessions.jsonl'))
+    fireEvent.click(screen.getByRole('button', { name: '解析文件' }))
+    await waitFor(() => expect(screen.getByTestId('import-preview-list')).toBeTruthy())
+
+    fireEvent.click(screen.getByTestId('import-commit-btn'))
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('导入失败:无有效消息内容'))
+    // 不发 commit 请求(空消息体必被 api 拒),也不跳转
+    expect(commitMock).not.toHaveBeenCalled()
+    expect(setConversationIdMock).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
   })
 })
 
