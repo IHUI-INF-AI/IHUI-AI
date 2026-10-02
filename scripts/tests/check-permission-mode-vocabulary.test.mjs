@@ -147,6 +147,42 @@ test('R5 咬住 Python wire 镜像缺档(该镜像无人消费,不查就永远�
   assert.ok(problems.some((p) => p.startsWith('R5') && p.includes('api_client.py:')), problems.join('\n'))
 })
 
+test('R7 咬住决策位手写旧集合(注册表新增档后它必然漏接)', () => {
+  const wire = gate.parseTsWireValues(read(gate.TS_REGISTRY))
+  const problems = gate.checkDerivedDecisions(
+    [
+      {
+        relPath: 'apps/cli/src/tools/permissions.ts',
+        src: "if (!['default', 'plan'].includes(permissionMode)) throw new Error()\n",
+      },
+    ],
+    ts,
+    wire,
+  )
+  assert.ok(problems.some((p) => p.startsWith('R7')), problems.join('\n'))
+})
+
+test('R7 放过从表投影的决策写法(读常量/映射 —— 否则门会对自家要求的写法失明)', () => {
+  const wire = gate.parseTsWireValues(read(gate.TS_REGISTRY))
+  const ok = gate.checkDerivedDecisions(
+    [
+      { relPath: 'apps/cli/src/tools/permissions.ts', src: 'if (!PERMISSION_MODES.includes(permissionMode)) throw new Error()\n' },
+      { relPath: 'apps/ai-service/app/services/agent_loop_v2.py', src: 'if permission_mode not in PERMISSION_MODES:\n    raise ValueError()\n' },
+      { relPath: 'apps/cli/src/tools/permissions.ts', src: 'if (mode in (PERMISSION_MODES)) apply(mode)\n' },
+    ],
+    ts,
+    wire,
+  )
+  assert.deepEqual(ok, [])
+})
+
+test('R7 未判定档:登记面外的信号文件只报不红,--strict 判据 fail-closed', () => {
+  const unjudged = gate.collectUnjudged(['apps/other/pkg/x.ts', ...gate.KNOWN_CONSUMERS])
+  assert.deepEqual(unjudged, ['apps/other/pkg/x.ts'])
+  assert.equal(gate.strictVerdict([], ['apps/other/x.ts']).ok, false)
+  assert.equal(gate.strictVerdict([], []).ok, true)
+})
+
 test('当前工作区零违规(本门上去后不能给别人制造恒红)', () => {
   const { problems } = gate.runChecks({ root: ROOT })
   assert.deepEqual(problems, [])
