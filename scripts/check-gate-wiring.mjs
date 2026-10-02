@@ -506,6 +506,13 @@ export function findAgentsClaims(clauses, gateName) {
     for (const sent of String(clause).split(AGENTS_SENTENCE_SPLIT_RE)) {
       if (!sent.includes(gateName)) continue
       if (!AGENTS_CLAIM_RE.test(sent)) continue
+      // 与 R1 同一条否定词判据(复用 CLAIM_NEGATION_RE 那一份实现,禁止在此另写词表):
+      // AGENTS_CLAIM_RE 含「守门」「blocking」这类词,而在 AGENTS.md 里**描述**一道门几乎
+      // 必然撞上它们 —— 于是"刻意不接线"的门只要在文档里被如实记录,R2 就无任何合法措辞可走
+      // (实测:一道未接线的门使 89 在**每次**提交上恒红,唯一出路是各会话跳钩子、连带链上
+      // 其余全部对账对该提交作废,§12e/§12f 同型)。R1 认这 14 个否定词而 R2 不认,是同一问题
+      // 的两把尺子;这里补的是**对称性**,不是放松 —— 肯定式声称照旧判红。
+      if (CLAIM_NEGATION_RE.test(sent)) continue
       claimed = sent.trim().slice(0, 160)
       break
     }
