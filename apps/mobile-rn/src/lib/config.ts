@@ -22,7 +22,7 @@ export const APP_VERSION = PKG_VERSION
  * 字符串刻意不含任何 curl-like / bot 关键字。
  */
 export const APP_USER_AGENT = `IHUIAI-App/${APP_VERSION} (${Platform.OS}/${
-  typeof Platform.Version === 'number' ? Platform.Version : Platform.Version ?? 'unknown'
+  typeof Platform.Version === 'number' ? Platform.Version : (Platform.Version ?? 'unknown')
 })`
 
 const ENV_API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8802'
