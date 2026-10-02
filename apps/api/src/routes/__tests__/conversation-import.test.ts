@@ -446,6 +446,38 @@ describe('外部会话导入路由(D28)', () => {
       expect(historyValues.ownerUuid).toBe('user-1')
     })
 
+    it('source=wechat → 201,批次记录与 metadata 落 wechat(第 5 个数据源)', async () => {
+      store.insertQueue.push([{ id: CONV_ID }])
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/conversation-import/commit',
+        payload: makeCommitBody({
+          source: 'wechat',
+          fileName: 'wechat-export.zip',
+          title: '微信群聊记录',
+        }),
+      })
+      expect(res.statusCode).toBe(201)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data.conversationId).toBe(CONV_ID)
+      expect(body.data.importedMessages).toBe(2)
+
+      const convValues = store.insertValues[0] as Record<string, unknown>
+      expect(convValues.title).toBe('微信群聊记录')
+      expect(convValues.metadata).toEqual({
+        importedFrom: 'wechat',
+        importedVia: 'conversation-import',
+        fileName: 'wechat-export.zip',
+      })
+
+      // 批次记录 source 同样为 wechat(varchar(32) 容得下,无需迁移)
+      const historyValues = store.insertValues[2] as Record<string, unknown>
+      expect(historyValues.source).toBe('wechat')
+      expect(historyValues.status).toBe('success')
+      expect(historyValues.fileName).toBe('wechat-export.zip')
+    })
+
     it('时间戳缺省 → 回退导入时刻(Date 实例)', async () => {
       store.insertQueue.push([{ id: CONV_ID }])
       const before = new Date()

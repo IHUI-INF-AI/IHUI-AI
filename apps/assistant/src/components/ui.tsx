@@ -2,18 +2,11 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { type ReactNode, useEffect } from 'react';
-import { X } from 'lucide-react';
-import { cn } from '../lib/cn';
+import { type ReactNode, useEffect } from 'react'
+import { X } from 'lucide-react'
+import { cn } from '../lib/cn'
 
-type Tone =
-  | 'slate'
-  | 'brand'
-  | 'green'
-  | 'amber'
-  | 'red'
-  | 'blue'
-  | 'violet';
+type Tone = 'slate' | 'brand' | 'green' | 'amber' | 'red' | 'blue' | 'violet'
 
 const toneMap: Record<Tone, string> = {
   slate: 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300',
@@ -23,7 +16,7 @@ const toneMap: Record<Tone, string> = {
   red: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
   blue: 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
   violet: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
-};
+}
 
 const accentMap: Record<Tone, string> = {
   slate: 'bg-slate-400',
@@ -33,7 +26,7 @@ const accentMap: Record<Tone, string> = {
   red: 'bg-rose-500',
   blue: 'bg-sky-500',
   violet: 'bg-violet-500',
-};
+}
 
 const valueToneMap: Record<Tone, string> = {
   slate: 'text-slate-800 dark:text-zinc-100',
@@ -43,18 +36,18 @@ const valueToneMap: Record<Tone, string> = {
   red: 'text-rose-600 dark:text-rose-400',
   blue: 'text-sky-600 dark:text-sky-400',
   violet: 'text-violet-600 dark:text-violet-400',
-};
+}
 
 export function Badge({
   children,
   tone = 'slate',
   className,
 }: {
-  children: ReactNode;
-  tone?: Tone;
-  className?: string;
+  children: ReactNode
+  tone?: Tone
+  className?: string
 }) {
-  return <span className={cn('chip', toneMap[tone], className)}>{children}</span>;
+  return <span className={cn('chip', toneMap[tone], className)}>{children}</span>
 }
 
 export function Spinner({ className }: { className?: string }) {
@@ -67,7 +60,7 @@ export function Spinner({ className }: { className?: string }) {
       role="status"
       aria-label="loading"
     />
-  );
+  )
 }
 
 export function Progress({
@@ -75,19 +68,24 @@ export function Progress({
   max = 100,
   className,
 }: {
-  value: number;
-  max?: number;
-  className?: string;
+  value: number
+  max?: number
+  className?: string
 }) {
-  const pct = max <= 0 ? 0 : Math.min(100, Math.round((value / max) * 100));
+  const pct = max <= 0 ? 0 : Math.min(100, Math.round((value / max) * 100))
   return (
-    <div className={cn('h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-zinc-800', className)}>
+    <div
+      className={cn(
+        'h-2 w-full overflow-hidden rounded-sm bg-slate-200 dark:bg-zinc-800',
+        className,
+      )}
+    >
       <div
         className="h-full rounded-full bg-zinc-800 dark:bg-zinc-200 transition-all"
         style={{ width: `${pct}%` }}
       />
     </div>
-  );
+  )
 }
 
 export function Modal({
@@ -98,31 +96,35 @@ export function Modal({
   footer,
   size,
 }: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: ReactNode;
-  footer?: ReactNode;
-  size?: 'lg' | 'xl';
+  open: boolean
+  onClose: () => void
+  title: string
+  children: ReactNode
+  footer?: ReactNode
+  size?: 'lg' | 'xl'
 }) {
   useEffect(() => {
-    if (!open) return;
+    if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
     return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [open, onClose]);
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [open, onClose])
 
-  if (!open) return null;
+  if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className={`card relative z-10 w-full ${size === 'xl' ? 'max-w-4xl' : size === 'lg' ? 'max-w-2xl' : 'max-w-lg'} animate-fade-in p-5 shadow-xl`} role="dialog" aria-modal="true">
+      <div
+        className={`card relative z-10 w-full ${size === 'xl' ? 'max-w-4xl' : size === 'lg' ? 'max-w-2xl' : 'max-w-lg'} animate-fade-in p-5 shadow-xl`}
+        role="dialog"
+        aria-modal="true"
+      >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-base font-semibold text-slate-800 dark:text-zinc-100">{title}</h3>
           <button className="btn-ghost h-8 w-8 !p-0" onClick={onClose} aria-label="关闭">
@@ -133,7 +135,7 @@ export function Modal({
         {footer && <div className="mt-5 flex justify-end gap-2">{footer}</div>}
       </div>
     </div>
-  );
+  )
 }
 
 export function EmptyState({
@@ -141,9 +143,9 @@ export function EmptyState({
   title,
   hint,
 }: {
-  icon?: ReactNode;
-  title: string;
-  hint?: string;
+  icon?: ReactNode
+  title: string
+  hint?: string
 }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 py-12 text-center dark:border-zinc-700">
@@ -155,7 +157,7 @@ export function EmptyState({
       <p className="text-sm font-medium text-slate-600 dark:text-zinc-300">{title}</p>
       {hint && <p className="mt-1 max-w-sm text-xs text-slate-400">{hint}</p>}
     </div>
-  );
+  )
 }
 
 export function StatCard({
@@ -164,20 +166,49 @@ export function StatCard({
   hint,
   tone = 'slate',
 }: {
-  label: string;
-  value: ReactNode;
-  hint?: string;
-  tone?: Tone;
+  label: string
+  value: ReactNode
+  hint?: string
+  tone?: Tone
 }) {
   return (
     <div className="card relative overflow-hidden p-4">
       <div className={cn('absolute inset-x-0 top-0 h-0.5', accentMap[tone])} />
       <div className="text-xs font-medium text-slate-500 dark:text-zinc-400">{label}</div>
-      <div className={cn('mt-1 text-2xl font-semibold tracking-tight tabular-nums', valueToneMap[tone])}>
+      <div
+        className={cn(
+          'mt-1 text-2xl font-semibold tracking-tight tabular-nums',
+          valueToneMap[tone],
+        )}
+      >
         {value}
       </div>
       {hint && <div className="mt-1 text-xs text-slate-400">{hint}</div>}
     </div>
-  );
+  )
+}
+
+/** 悬停/聚焦显示的提示气泡(替代原生 title 属性,守门 18 的落点) */
+export function Tooltip({ content, children }: { content: string; children: ReactNode }) {
+  return (
+    <span className="group relative inline-flex">
+      {children}
+      <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-sm bg-zinc-900 px-2 py-1 text-xs text-white group-hover:block group-focus-within:block dark:bg-zinc-100 dark:text-zinc-900">
+        {content}
+      </span>
+    </span>
+  )
+}
+
+/** 截断文本:溢出省略,悬停/聚焦浮出全文(替代 <td title>,守门 18 的落点) */
+export function TruncatedText({ value, className }: { value: string; className?: string }) {
+  return (
+    <span className={cn('group relative inline-block max-w-full align-bottom', className)}>
+      <span className="block truncate">{value}</span>
+      <span className="pointer-events-none absolute bottom-full left-0 z-50 mb-1 hidden whitespace-pre-wrap break-all rounded-sm bg-zinc-900 px-2 py-1 text-xs text-white group-hover:block group-focus-within:block dark:bg-zinc-100 dark:text-zinc-900">
+        {value}
+      </span>
+    </span>
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
