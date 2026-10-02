@@ -1401,10 +1401,13 @@ export function lockOwnedBy(token, dir = lockDir()) {
  * ── 心跳派生的唯一出口(2026-10-02 立,补齐部署锁机制票)──────────────────────────────
  *
  * 2026-10-01 那一轮把"自己持锁 → 派心跳 → 退出交还"整套落在了 `scripts/dev-with-warmup.mjs`
- * (它是 `pnpm dev` 的入口)。本票把**同一套**补到剩下两个入口:`apps/web` 的 `build`(生产构建的
- * npm 入口)与 `dev:clean` / `dev:stable`(手工 dev 逃生档)。派生逻辑只许有这一份 ——
+ * (它是 `pnpm dev` 的入口)。本票把**同一套**补到剩下的生产入口:`apps/web` 的 `build`
+ * (生产构建的 npm 入口)。派生逻辑只许有这一份 ——
  * 在两个入口各写一遍 spawn 就是本仓记过最多次的"两处算同一件事必漂移"(§22c),而漂移的形态
  * 不是报错,是**其中一个入口的心跳静默没起来、账面却写着"已加心跳"**。
+ * (2026-10-02 补:`dev:clean` / `dev:stable` 原先各挂一把一次性 CLI 的 acquire,现统一改走
+ * `dev-with-warmup.mjs` —— 启动器本身就是那个活着的持有人,不必再复制一套锁;顺带把
+ * `rimraf .next` 从锁外搬进锁内。三条入口的接线由自检 RU6b/RU6d 与镜像 HB-M8/HB-M10 钉住。)
  *
  * 三条不可漂的判读,每条各由自检的一档钉住:
  *  ① **`--watch-pid` 取落盘 meta 里的 ownerPid(现读)**,不是 CLI 自己的 pid、也不是猜的。
@@ -3069,15 +3072,35 @@ async function runSelfTest() {
       /deploy-lock\.mjs run --mode build/.test(sBuild) && !/deploy-lock\.mjs acquire/.test(sPre),
       JSON.stringify({ build: sBuild.slice(0, 64), prebuild: sPre.slice(0, 64) }),
     )
+    // 三条 dev 入口的合格形状:唯一一条命令是启动器(它自己持锁、派心跳、退出交还),
+    // 不再用 `&&` 串第二步 —— 串在启动器之前的任何一步都发生在**锁还不存在**的时候。
+    const devEntryOk = (s) =>
+      /node \.\.\/\.\.\/scripts\/dev-with-warmup\.mjs/.test(s) &&
+      !s.includes('&&') &&
+      !/deploy-lock\.mjs acquire/.test(s) &&
+      !/rimraf \.next/.test(s)
     t(
-      'RU6b 接线锁:dev:clean / dev:stable 的 acquire 必须带 --with-heartbeat(它们的 shell 与 next dev 同生死,是有效持有者)',
-      /--with-heartbeat/.test(String(pkg.scripts?.['dev:clean'] ?? '')) &&
-        /--with-heartbeat/.test(String(pkg.scripts?.['dev:stable'] ?? '')),
+      'RU6b 接线锁:三条 dev 入口必须只经启动器(它是"活着的主人"那一档),且不得在锁外 rimraf .next',
+      ['dev', 'dev:clean', 'dev:stable'].every((k) =>
+        devEntryOk(String(pkg.scripts?.[k] ?? '')),
+      ),
+      JSON.stringify({
+        dev: String(pkg.scripts?.dev ?? '').slice(0, 56),
+        clean: String(pkg.scripts?.['dev:clean'] ?? '').slice(0, 56),
+        stable: String(pkg.scripts?.['dev:stable'] ?? '').slice(0, 56),
+      }),
     )
-    // 反向对照:上面两条必须有牙 —— 把 build 换回裸命令,断言就该读不出来。
+    // 反向对照:上面这些断言必须有牙 —— 把 build 换回裸命令、把 dev 换回旧形态,都该读不出来。
     t(
       'RU6c 反向对照:build 退回"裸 next build"时 RU6 必须读得出(否则那条接线锁是恒真断言)',
       !/deploy-lock\.mjs run/.test(sBuild.replace('deploy-lock.mjs run', 'node')),
+    )
+    t(
+      'RU6d 反向对照:dev:clean 退回"锁外 rimraf + 一次性 CLI acquire"时 RU6b 必须读得出',
+      !devEntryOk(
+        'node ../../scripts/unlock-dev-prefetch.mjs && rimraf .next .dev.lock && ' +
+          'node ../../scripts/deploy-lock.mjs acquire --mode dev --with-heartbeat && next dev -p 8801',
+      ),
     )
   }
 
