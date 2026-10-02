@@ -720,6 +720,27 @@ test('TP6 P10 三态与出口:挂账红 / 逐条裁过绿且报名 / 台账坏 J
     assert.equal(loadDebtAcks(join(base, 'no-such.json')).readError, null, '文件不在位应是"零裁决"而非错误')
     writeFileSync(join(base, 'bad.json'), '{', 'utf8')
     assert.match(String(loadDebtAcks(join(base, 'bad.json')).readError), /解析失败|Cannot|JSON/, '坏台账必须带回原因')
+
+/**
+ * P11(2026-10-02 补):promtool 规则单测 —— 判据写完没人跑 = 造好没装车。
+ * 与 P1/P2 同族:promtool 是本机工具,取不到一律未判定、绝不判红(机器态)。
+ */
+test('TP7 P11 promtool:必须真住在 patrol 装配里,且 promtool/用例取不到不得判红', () => {
+  const body = src('scripts/check-ops-patrol.mjs')
+  const inPatrol = body.slice(
+    body.indexOf('export async function patrol'),
+    body.indexOf('export function loadAdjudications'),
+  )
+  assert.match(inPatrol, /checkPromtoolRules\(/, 'P11 写了没接线 = 没有这台尺子')
+  const { checkPromtoolRules } = mod.__test__
+  const noTool = checkPromtoolRules({
+    devEnv: join(REPO, '__no_dev_env__'),
+    repoRoot: join(REPO, '__no_repo__'),
+    promtool: null,
+  })
+  assert.equal(noTool.state, 'undetermined', `promtool/用例目录取不到时必须未判定,实得 ${noTool.state}:${noTool.detail}`)
+  assert.notEqual(noTool.state, 'finding', '机器态缺失不得判红')
+})
   } finally {
     rmSync(base, { recursive: true, force: true })
   }
