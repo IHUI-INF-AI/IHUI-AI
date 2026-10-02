@@ -567,3 +567,57 @@ test('T19 形状锁:证据文件的标记与行序未被本次改动触碰(改�
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('T20 CLI 层:`--cwd <值>`(空格形式)必须 exit 2 且不写证据 —— 它过去被静默忽略,于是"在端目录跑"的取证其实跑在仓根', () => {
+  const file = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-space-cwd.txt')
+  rmSync(file, { force: true })
+  let status = null
+  let out = ''
+  try {
+    execFileSync(
+      process.execPath,
+      [TOOL, file, '--cwd', ROOT, '--', process.execPath, '-e', 'console.log(1)'],
+      {
+        cwd: ROOT,
+        windowsHide: true,
+        encoding: 'utf8',
+        timeout: 120_000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    status = 0
+  } catch (e) {
+    status = e.status
+    out = `${String(e.stderr ?? '')}${String(e.stdout ?? '')}`
+  }
+  const wrote = existsSync(file)
+  rmSync(file, { force: true })
+  assert.equal(
+    status,
+    2,
+    `空格形式 --cwd 必须判用法错误(exit 2),实得 ${status};输出:${out.slice(-220)}`,
+  )
+  assert.match(out, /--cwd=<值>/, '报错必须给出正确写法,否则人只会再猜一次形式')
+  assert.equal(wrote, false, '判死前就把证据建出来 ⇒ 拒绝成了装饰(读侧仍拿到一份 incomplete 证据)')
+})
+
+test('T21 CLI 层正向对照:等值形态 --cwd= 必须真的换到那个目录(证明 V 档不是"一律拒绝")', () => {
+  const target = resolve(ROOT, 'packages', 'shared')
+  const file = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-eq-cwd.txt')
+  rmSync(file, { force: true })
+  execFileSync(
+    process.execPath,
+    [TOOL, file, `--cwd=${target}`, '--', process.execPath, '-p', 'process.cwd()'],
+    {
+      cwd: ROOT,
+      windowsHide: true,
+      encoding: 'utf8',
+      timeout: 120_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
+  const txt = readFileSync(file, 'utf8')
+  rmSync(file, { force: true })
+  assert.ok(txt.includes(target), '被包装命令必须跑在指定目录')
+  assert.match(txt, /#EVIDENCE-CWD=/, '证据里必须留下 cwd 行,否则读侧无从知道跑在哪一面')
+})
