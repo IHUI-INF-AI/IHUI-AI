@@ -70,6 +70,10 @@ interface CliArgs {
   forceAlert: boolean
   strict: boolean
   dryRun: boolean
+  /** 通道活性探针:默认**零投递**(只做连接 + 认证握手,不发一封信、不占收件人)。 */
+  probe: boolean
+  /** 配合 --probe:确证到端要真发一封(唯一会真占收件人的档,调用方自己承担频次)。 */
+  probeDeliver: boolean
   help: boolean
 }
 
@@ -96,6 +100,13 @@ const HELP_TEXT = [
   '  --dedupe-hours <n>         配合 --alert-id 用,窗口小时数;0 = 关闭去重。默认 4。',
   '  --force-alert              即使同标识在窗口内已寄过也照寄(升级/复发确认用),不改窗口状态以外的行为。',
   '  --dry-run                  渲染并打印通道判定/收件人脱敏/subject/html 字节数,不发任何网络请求',
+  '  --probe                    通道活性探针:对 SMTP 做**连接 + 认证握手**后立即断开 —— 零投递,',
+  '                             不发信、不占收件人、不进任何告警台账。回答的是"通道此刻可用吗",',
+  '                             而 --dry-run 只回答"配置齐不齐"(齐备的密码过期/端口被封照样寄不出去)。',
+  '                             退出码:0=至少一条通道确证可用 / 1=确证失败 / 2=无法判定(没有一条被确证过,',
+  '                             含"配置缺失"与"Resend 无零投递出口"两种,二者都不得被读成"通道坏了")。',
+  '  --probe-deliver            配合 --probe:真发一封"通道活性自测(不是故障)"到告警收件人,',
+  '                             走同一品牌模板与同一去重身份(默认 4h 窗),用于验收 Resend 那一腿。',
   '  --help                     打印本用法',
 ].join('\n')
 
@@ -105,7 +116,14 @@ const HELP_TEXT = [
  * 否则带 --strict 的空收件人演练会意外命中真实告警邮箱。
  */
 function parseCliArgs(argv: readonly string[]): CliArgs {
-  const args: CliArgs = { plain: false, strict: false, dryRun: false, help: false }
+  const args: CliArgs = {
+    plain: false,
+    strict: false,
+    dryRun: false,
+    probe: false,
+    probeDeliver: false,
+    help: false,
+  }
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i]
     switch (token) {
@@ -117,6 +135,12 @@ function parseCliArgs(argv: readonly string[]): CliArgs {
         break
       case '--dry-run':
         args.dryRun = true
+        break
+      case '--probe':
+        args.probe = true
+        break
+      case '--probe-deliver':
+        args.probeDeliver = true
         break
       case '--help':
       case '-h':
@@ -362,6 +386,12 @@ interface SmtpSendOpts {
 
 type SmtpSendFn = (opts: SmtpSendOpts, mail: MailPayload) => Promise<void>
 
+/**
+ * 零投递的通道活性核验:只做连接 + 认证握手,不进入 MAIL FROM/RCPT/DATA。
+ * 与 SmtpSendFn 分开是因为它们的**后果**不同 —— 一个会占收件人,一个不会。
+ */
+type SmtpVerifyFn = (opts: SmtpSendOpts) => Promise<void>
+
 interface FetchResponseLike {
   ok: boolean
   status: number
@@ -480,6 +510,8 @@ interface RunDeps {
   nowMs?: () => number
   /** 只写状态文件;失败不改变发送结论(告警链路不得因记账失败而少寄一封)。同上可选。 */
   writeStateFile?: (p: string, text: string) => void
+  /** --probe 的零投递握手出口。可选:只有探针档会用到,不传即按 defaultVerifySmtp。 */
+  verifySmtp?: SmtpVerifyFn
 }
 
 interface RunOutcome {
@@ -499,6 +531,8 @@ interface RunOutcome {
   reasons: string[]
   warnings: string[]
   htmlHasDispatchBanner: boolean
+  /** --probe 档才有;缺省 = 本次不是探针(既有调用方与测试夹具一字不改) */
+  probe?: ProbeReport
 }
 
 /** 默认 env-file 从脚本自身位置推导(§15 禁硬编码盘符):apps/api/scripts → apps/api/.env */
@@ -628,6 +662,186 @@ function resolveWindowMs(raw: string | undefined): number {
   return Math.floor(n * HOUR_MS)
 }
 
+interface ResolvedChannels {
+  effective: EnvLike
+  to: string[]
+  cfg: SendConfig
+}
+
+/**
+ * 通道配置解析的**唯一**出口:env-file 补齐 → 收件人优先级 → planChannels → SendConfig。
+ *
+ * 为什么要抽出来:`--probe` 与正式发信必须读同一份配置、走同一套优先级、同一条
+ * "空串按缺失处理"的规矩。两处各解析一遍必然漂开,而漂开的表现不是报错 ——
+ * 是"探针绿而真发信红"(或反过来),两种都比没有探针更坏(AGENTS §5e「失败必须响」)。
+ *
+ * `warnings` 由调用方传入并就地追加,不返回新数组:让"读不到 env-file"这类告警
+ * 仍按调用方的顺序出现在同一条输出流里(既有 --message-file 告警就是这个位置)。
+ */
+function resolveChannels(
+  args: CliArgs,
+  env: EnvLike,
+  readTextFile: (p: string) => string,
+  warnings: string[],
+): ResolvedChannels {
+  let fileVars: Record<string, string> = {}
+  const envFilePath = args.envFile || defaultEnvFilePath()
+  try {
+    fileVars = parseDotenv(readTextFile(envFilePath))
+  } catch (e) {
+    // 默认路径缺失是常态(干净 checkout / CI 只有进程 env),不值得噪音;显式传了却读不到必须说
+    if (args.envFile !== undefined) {
+      warnings.push(`--env-file 读取失败,仅用进程环境变量: ${errText(e)}`)
+    }
+  }
+  const effective = fillMissingEnv(env, fileVars)
+  const to = resolveTo(args.to, effective)
+  const host = (effective.SMTP_HOST ?? '').trim()
+  const user = (effective.SMTP_USER ?? '').trim()
+  // pass 不 trim:授权码/口令可能含首尾空白
+  const pass = effective.SMTP_PASS ?? ''
+  const port = Number.parseInt(effective.SMTP_PORT ?? '', 10) || 465
+  const resendKey = (effective.RESEND_API_KEY ?? '').trim()
+  const plan = planChannels({ host, user, pass, toCount: to.length, resendKey })
+  return {
+    effective,
+    to,
+    cfg: {
+      to,
+      smtp: {
+        host,
+        port,
+        user,
+        pass,
+        from: resolveSmtpFrom(effective.SMTP_FROM, user),
+        available: plan.smtp.available,
+        missing: plan.smtp.missing,
+      },
+      resend: {
+        apiKey: resendKey,
+        from: resolveResendFrom(effective),
+        available: plan.resend.available,
+        missing: plan.resend.missing,
+      },
+    },
+  }
+}
+
+type ProbeVerdict = 'ok' | 'fail' | 'unconfigured' | 'undetermined'
+
+interface ChannelProbe {
+  channel: 'smtp' | 'resend'
+  verdict: ProbeVerdict
+  why: string
+}
+
+interface ProbeReport {
+  /** 只有 --probe-deliver 才会真投递;默认档恒 false(零投递) */
+  delivered: boolean
+  channels: ChannelProbe[]
+  /** 0=至少一条确证可用 / 1=有确证失败 / 2=一条都没确证过(未判定,不得读成"通道坏了") */
+  rc: 0 | 1 | 2
+}
+
+/**
+ * 报错原文里可能带着账号与授权码(nodemailer 的 535 行会回显登录名),而本脚本的
+ * 输出会进部署日志与告警台账 —— 一律先遮再打印(§5d「任何输出不得回显密钥值」)。
+ */
+function redactSecrets(text: string, secrets: readonly string[]): string {
+  let out = text
+  for (const s of secrets) {
+    if (s.length >= 3) out = out.split(s).join('***')
+  }
+  return out
+}
+
+/**
+ * 通道活性探针。**默认零投递**:SMTP 走连接 + 认证握手后立刻断开,Resend 则如实报
+ * "未判定"—— 它是 REST 直发,没有不发消息就能核验的出口,而把"没判"写成"判过了"
+ * 是本仓最高频的失效型,所以这一格宁可空着。
+ *
+ * 它回答的是"通道此刻可用吗";--dry-run 回答的是"配置齐不齐"。齐备的授权码过期、
+ * 端口被封、域名被拒,三者都会在 --dry-run 上绿而实际寄不出 —— 而唯一会暴露它们的
+ * 时刻,恰好是一次真故障发生、正需要那封信的时候。
+ */
+async function probeChannels(
+  cfg: SendConfig,
+  deps: { verifySmtp: SmtpVerifyFn; fetchResend: FetchLike; sendSmtp: SmtpSendFn },
+  opts: { deliver: boolean; probeMail: RenderedMail },
+): Promise<ProbeReport> {
+  const channels: ChannelProbe[] = []
+
+  if (!cfg.smtp.available) {
+    channels.push({
+      channel: 'smtp',
+      verdict: 'unconfigured',
+      why: `缺 ${cfg.smtp.missing.join('、')}(未判定,不是"坏了")`,
+    })
+  } else {
+    try {
+      await deps.verifySmtp({
+        host: cfg.smtp.host,
+        port: cfg.smtp.port,
+        secure: cfg.smtp.port === 465,
+        user: cfg.smtp.user,
+        pass: cfg.smtp.pass,
+      })
+      channels.push({
+        channel: 'smtp',
+        verdict: 'ok',
+        why: `握手与认证通过(${cfg.smtp.host}:${cfg.smtp.port})`,
+      })
+    } catch (e) {
+      channels.push({
+        channel: 'smtp',
+        verdict: 'fail',
+        why: redactSecrets(errText(e), [cfg.smtp.pass, cfg.smtp.user]),
+      })
+    }
+  }
+
+  if (!cfg.resend.available) {
+    channels.push({
+      channel: 'resend',
+      verdict: 'unconfigured',
+      why: `缺 ${cfg.resend.missing.join('、')}(未判定,不是"坏了")`,
+    })
+  } else if (!opts.deliver) {
+    channels.push({
+      channel: 'resend',
+      verdict: 'undetermined',
+      why: '该通道没有零投递的核验出口 —— 要确证需 --probe-deliver 真发一封',
+    })
+  }
+
+  let delivered = false
+  if (opts.deliver) {
+    const r = await dispatchMail(cfg, opts.probeMail, {
+      sendSmtp: deps.sendSmtp,
+      fetchResend: deps.fetchResend,
+    })
+    delivered = r.ok
+    if (r.channel) {
+      const prev = channels.findIndex((c) => c.channel === r.channel)
+      const why = r.ok ? '真投递成功(--probe-deliver)' : r.reasons.join(' / ') || '投递失败'
+      const v: ProbeVerdict = r.ok ? 'ok' : 'fail'
+      if (prev >= 0) channels[prev] = { channel: r.channel, verdict: v, why }
+      else channels.push({ channel: r.channel, verdict: v, why })
+    }
+  }
+
+  const rc: 0 | 1 | 2 = delivered
+    ? 0
+    : opts.deliver
+      ? 1
+      : channels.some((c) => c.verdict === 'ok')
+        ? 0
+        : channels.some((c) => c.verdict === 'fail')
+          ? 1
+          : 2
+  return { delivered, channels, rc }
+}
+
 async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Promise<RunOutcome> {
   const args = parseCliArgs(argv)
   const warnings: string[] = []
@@ -651,19 +865,9 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
     }
   }
 
-  let fileVars: Record<string, string> = {}
-  const envFilePath = args.envFile || defaultEnvFilePath()
-  try {
-    fileVars = parseDotenv(deps.readTextFile(envFilePath))
-  } catch (e) {
-    // 默认路径缺失是常态(干净 checkout / CI 只有进程 env),不值得噪音;显式传了却读不到必须说
-    if (args.envFile !== undefined) {
-      warnings.push(`--env-file 读取失败,仅用进程环境变量: ${errText(e)}`)
-    }
-  }
-  const effective = fillMissingEnv(env, fileVars)
+  // 通道配置的唯一解析点(与 --probe 共用同一份):见 resolveChannels 的头注。
+  const { to, cfg } = resolveChannels(args, env, deps.readTextFile, warnings)
 
-  const to = resolveTo(args.to, effective)
   const severity = normalizeSeverity(args.severity)
   const environment = args.environment || 'production'
   const source = args.source || DEFAULT_SOURCE
@@ -693,32 +897,6 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
     time: deps.now(),
   })
 
-  const host = (effective.SMTP_HOST ?? '').trim()
-  const user = (effective.SMTP_USER ?? '').trim()
-  // pass 不 trim:授权码/口令可能含首尾空白
-  const pass = effective.SMTP_PASS ?? ''
-  const port = Number.parseInt(effective.SMTP_PORT ?? '', 10) || 465
-  const resendKey = (effective.RESEND_API_KEY ?? '').trim()
-  const plan = planChannels({ host, user, pass, toCount: to.length, resendKey })
-  const cfg: SendConfig = {
-    to,
-    smtp: {
-      host,
-      port,
-      user,
-      pass,
-      from: resolveSmtpFrom(effective.SMTP_FROM, user),
-      available: plan.smtp.available,
-      missing: plan.smtp.missing,
-    },
-    resend: {
-      apiKey: resendKey,
-      from: resolveResendFrom(effective),
-      available: plan.resend.available,
-      missing: plan.resend.missing,
-    },
-  }
-
   const base: Omit<RunOutcome, 'sent' | 'channel' | 'reasons' | 'suppressed' | 'dedupeWhy'> = {
     help: false,
     dryRun: args.dryRun,
@@ -730,6 +908,45 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
     resend: { available: cfg.resend.available, missing: cfg.resend.missing, from: cfg.resend.from },
     warnings,
     htmlHasDispatchBanner: rendered.html.includes('MECHANICAL'),
+  }
+
+  /**
+   * --probe 分支:在**任何去重读盘与告警发信之前**返回。
+   * 探针不查也不写去重状态 —— 它的身份不是"某条告警",而是"通道今天验过没有";
+   * 把它接进同一本台账会让一次探针成功把真告警的窗口顶掉(= 吞掉一封,禁令在头注)。
+   */
+  if (args.probe) {
+    const report = await probeChannels(
+      cfg,
+      {
+        verifySmtp: deps.verifySmtp ?? defaultVerifySmtp,
+        sendSmtp: deps.sendSmtp,
+        fetchResend: deps.fetchResend,
+      },
+      {
+        deliver: args.probeDeliver,
+        probeMail: renderAlertEmail({
+          severity: 'info',
+          source: args.source || 'mail-channel-probe',
+          title: '告警邮件通道活性自测(不是故障)',
+          message:
+            '本信由 apps/api/scripts/notify-deploy-failure.ts 的 --probe --probe-deliver 发出,' +
+            '用于确证"运维到人"这条唯一通道端到端可用。收到它说明通道正常,无需任何处置。',
+          plain: args.plain,
+          time: deps.now(),
+        }),
+      },
+    )
+    const okChannel = report.channels.find((c) => c.verdict === 'ok')?.channel ?? null
+    return {
+      ...base,
+      probe: report,
+      sent: report.rc === 0,
+      suppressed: false,
+      dedupeWhy: '',
+      channel: okChannel,
+      reasons: report.channels.map((c) => `${c.channel}=${c.verdict}:${c.why}`),
+    }
   }
 
   // 判定顺序有意在通道探测之后、真正发信之前:读状态是本地动作,不因 SMTP/Resend
@@ -822,8 +1039,12 @@ function computeExitCode(o: {
   return o.strict && !o.sent && !o.dryRun && !o.help ? 1 : 0
 }
 
-const defaultSendSmtp: SmtpSendFn = async (opts, mail) => {
-  const transporter = nodemailer.createTransport({
+/**
+ * SMTP 传输构造的**唯一**一份。发信与探针必须走同一个连接参数集 —— 两处各写一遍,
+ * 迟早出现"探针连上了而真发信连不上"(或反过来),而那种分叉的唯一成因就是参数漂移。
+ */
+function makeSmtpTransport(opts: SmtpSendOpts): nodemailer.Transporter {
+  return nodemailer.createTransport({
     host: opts.host,
     port: opts.port,
     secure: opts.secure,
@@ -836,8 +1057,25 @@ const defaultSendSmtp: SmtpSendFn = async (opts, mail) => {
     greetingTimeout: 10_000,
     socketTimeout: 10_000,
   })
+}
+
+const defaultSendSmtp: SmtpSendFn = async (opts, mail) => {
+  const transporter = makeSmtpTransport(opts)
   try {
     await transporter.sendMail(mail)
+  } finally {
+    transporter.close()
+  }
+}
+
+/**
+ * 零投递的活性核验:握手 + 认证,然后断开。verify() 走完 EHLO/AUTH 全过程,
+ * 因此授权码过期、端口被封、账号被拒都在这一格里现形,而**一封信都不产生**。
+ */
+const defaultVerifySmtp: SmtpVerifyFn = async (opts) => {
+  const transporter = makeSmtpTransport(opts)
+  try {
+    await transporter.verify()
   } finally {
     transporter.close()
   }
@@ -868,6 +1106,20 @@ async function main(
     if (outcome.help) {
       console.log(HELP_TEXT)
       return 0
+    }
+    if (outcome.probe) {
+      const p = outcome.probe
+      for (const c of p.channels) console.log(`[probe] ${c.channel}=${c.verdict} ${c.why}`)
+      console.log(
+        `[probe] 结论:${
+          p.rc === 0
+            ? '至少一条通道确证可用'
+            : p.rc === 1
+              ? '有通道确证不可用'
+              : '无法判定(没有一条通道被确证过 —— 这不等于"通道坏了")'
+        };${p.delivered ? '本次真投递了一封(占收件人)' : '零投递,未占用收件人'}`,
+      )
+      return p.rc
     }
     if (outcome.dryRun) {
       console.log(
@@ -957,6 +1209,10 @@ export const __test__ = {
   planChannels,
   renderAlertEmail,
   dispatchMail,
+  // 探针三件套必须可被测试直接 import(§22c:镜像不得再抄一份判据 —— 包括"怎么算未判定")
+  resolveChannels,
+  probeChannels,
+  redactSecrets,
   runCore,
   computeExitCode,
   defaultEnvFilePath,
