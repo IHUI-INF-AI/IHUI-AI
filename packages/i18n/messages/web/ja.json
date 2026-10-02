@@ -8398,6 +8398,10 @@
           "title": "現在のモデルがこのリクエストを拒否しました",
           "action": "モデルを変更"
         },
+        "MODEL_STREAM_IDLE": {
+          "title": "応答がタイムアウトしました",
+          "action": "再試行"
+        },
         "MULTIPLE_MATCHES": {
           "title": "パラメータが不完全または無効です",
           "action": "修正して再試行"
