@@ -14,9 +14,12 @@
 // 故解析对象是 TSX/TS 而非 JSON 配置;幂等性与产物水印注入两处约定保持一致。
 
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+// 自述钉唯一实现(G-816040):inputsSha256 烘进产物头,门侧同面重算同集输入判陈旧
+import { renderPin } from '../../../scripts/lib/generated-input-pin.mjs'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const appRoot = resolve(scriptDir, '..')
@@ -25,6 +28,7 @@ const navDir = join(appRoot, 'src', 'navigation')
 const navigatorFile = join(navDir, 'RootNavigator.tsx')
 const linkingFile = join(navDir, 'linking.ts')
 const outFile = join(appRoot, 'src', 'constants', 'ui-routes.generated.ts')
+const consumerFile = join(appRoot, 'src', 'lib', 'ui-action-registry.ts')
 
 /**
  * 剥掉注释只留代码(单遍字符扫描:字符串/模板字面量内的双斜杠与块注释起点不算注释)。
@@ -132,6 +136,27 @@ function collectNames(text, pattern) {
 }
 
 /**
+ * 未登录分支(else 段)的 JSX 片段:从 `) : (` 的 `(` 起做括号配平到它的收口 `)`。
+ * 只用来数「被排除的 Screen」—— skipped 计数进产物自述钉,哪些没搬进来不靠人记。
+ */
+function extractUnauthedBranch(src) {
+  const open = /\{\s*token\s*\?\s*\(/.exec(src)
+  if (!open) return ''
+  const close = /\)\s*:\s*\(/.exec(src.slice(open.index))
+  if (!close) return ''
+  const elseOpen = open.index + close.index + close[0].length - 1
+  let depth = 0
+  for (let i = elseOpen; i < src.length; i += 1) {
+    if (src[i] === '(') depth += 1
+    else if (src[i] === ')') {
+      depth -= 1
+      if (depth === 0) return src.slice(elseOpen + 1, i)
+    }
+  }
+  return ''
+}
+
+/**
  * RootStackParamList → 每个 Screen 的必填参数键。
  * 条目按"深度 0 换行"切分:值里的嵌套 `{}` / `()` 会抬升深度,所以跨行对象不会被切散。
  * 刻意不跟踪尖括号 —— `NavigatorScreenParams<MainStackParamList>` 与 `=> void` 里的
@@ -231,10 +256,30 @@ function buildRoutes() {
     ],
     stackCount: stackNames.length,
     tabCount: tabNames.length,
+    unauthedCount: collectNames(extractUnauthedBranch(src), /<RootStack\.Screen\s+name="([^"]+)"/g).length,
   }
 }
 
-function emitFile({ entries, stackCount, tabCount }) {
+/** FIG_VERSION 同型断言(G-816040):消费方契约必须在位,否则产物是孤儿 */
+function assertConsumerContract() {
+  if (!existsSync(consumerFile)) {
+    throw new Error(`消费方不在位:${consumerFile} —— 拒绝生成无人消费的产物`)
+  }
+  if (!readFileSync(consumerFile, 'utf8').includes('ui-routes.generated')) {
+    throw new Error(`消费方 ${consumerFile} 已不引用本产物(ui-routes.generated)—— 契约漂移,拒绝生成`)
+  }
+}
+
+/** 生成时 HEAD 的 sha(取不到写 unknown,钉里的字段不因此缺位) */
+function sourceCommit() {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim()
+  } catch {
+    return 'unknown'
+  }
+}
+
+function emitFile({ entries, stackCount, tabCount, pinLines }) {
   const lines = [
     '// GENERATED FILE — DO NOT EDIT. 由 apps/mobile-rn/scripts/generate-ui-routes.mjs 生成(pnpm gen:ui-routes)',
     '// 数据源:RootNavigator.tsx 已登录分支的 <RootStack.Screen name/> + <MainTabs.Screen name/>',
@@ -256,16 +301,35 @@ function emitFile({ entries, stackCount, tabCount }) {
     `/** 全量白名单:前 ${stackCount} 条是已登录分支 RootStack.Screen,后 ${tabCount} 条是 Main Tab */`,
     'export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [',
   ]
+  // 自述钉紧跟数据源头注:「产物按哪份输入生成」与「数据源是谁」同块自述
+  lines.splice(4, 0, ...pinLines, '')
   for (const entry of entries) lines.push(...emitEntry(entry))
   lines.push(']', '')
   return `${lines.join('\n')}\n`
 }
 
 function main() {
-  const { entries, stackCount, tabCount } = buildRoutes()
+  const { entries, stackCount, tabCount, unauthedCount } = buildRoutes()
   const paramRoutes = entries.filter((r) => r.requiresParams).length
 
-  const content = emitFile({ entries, stackCount, tabCount })
+  assertConsumerContract()
+
+  // 钉输入清单 = 生成器实际读的两份,逐字同集;门侧从同一面重算同集输入判陈旧(G-680 同款口径)
+  const inputs = [
+    { rel: 'apps/mobile-rn/src/navigation/RootNavigator.tsx', text: readFileSync(navigatorFile, 'utf8') },
+    { rel: 'apps/mobile-rn/src/navigation/linking.ts', text: readFileSync(linkingFile, 'utf8') },
+  ]
+  const pinLines = renderPin({
+    generator: 'apps/mobile-rn/scripts/generate-ui-routes.mjs',
+    sourceCommit: sourceCommit(),
+    inputs,
+    generatedAt: new Date().toISOString(),
+    extraLines: [
+      `skipped: unauthedBranchScreens=${unauthedCount}(未登录分支 Screen 不入白名单,桥接挂载时不存在)`,
+    ],
+  })
+
+  const content = emitFile({ entries, stackCount, tabCount, pinLines })
   mkdirSync(dirname(outFile), { recursive: true })
   writeFileSync(outFile, content, 'utf8')
 
