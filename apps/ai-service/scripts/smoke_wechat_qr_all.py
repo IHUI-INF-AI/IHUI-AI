@@ -16,8 +16,10 @@ import base64
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
-sys.path.insert(0, r"G:\IHUI-AI\apps\ai-service")
+# 以脚本自身位置定位 ai-service 根(不硬编码盘符,任意检出路径均可跑)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.services.scan_login import (  # noqa: E402
     cancel_scan_task,
