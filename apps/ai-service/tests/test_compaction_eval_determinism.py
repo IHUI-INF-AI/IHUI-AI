@@ -84,11 +84,39 @@ def test_1_rerun_is_byte_identical(tmp_path: Path) -> None:
     assert a == b, "两次重跑产出的报告不同形:报告里混进了与评测内容无关的不确定量(时刻/随机/排序)"
 
 
+def _prettier_file_info_ignored(path: Path) -> bool | None:
+    """问 prettier 自己"这份被 .prettierignore 命中吗";取不到返回 None(不猜)。
+
+    必须有这一维:被忽略的输入 ``--check`` 也回 0,单看退出码会把"没判"读成"判过了"。
+    """
+    args = [str(PRETTIER)]
+    if PRETTIER_CONFIG.exists():
+        args += ["--config", str(PRETTIER_CONFIG)]
+    proc = subprocess.run(
+        [*args, "--file-info", str(path)],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=300,
+        creationflags=NO_WINDOW,
+    )
+    if proc.returncode != 0:
+        return None
+    return '"ignored": true' in (proc.stdout or "")
+
+
 def test_2_tracked_report_needs_no_further_formatting() -> None:
     """入库那份报告已经就是提交链会产出的排版 ⇒ 重跑不会让它挂 `` M``。"""
     tracked = sorted(OUTPUT_DIR.glob("compaction-eval-baseline-*.md"))
     assert tracked, f"入库报告不在位({OUTPUT_DIR})—— 交付已丢,不是「这次没得比」"
     for path in tracked:
+        ignored = _prettier_file_info_ignored(path)
+        assert ignored is False, (
+            f"{path.name} 的「是否被 prettier 忽略」判不出或被忽略(实得 {ignored}):"
+            "被忽略时 --check 恒回 0,本条会退化成空判据。出路是把它移出 .prettierignore 射程,"
+            "不是放宽本断言。"
+        )
         assert _prettier_check(path) == 0, (
             f"{path.name} 仍需 prettier 重排:提交链会改它而生成器不产这个形态,"
             "于是每次提交与每次重跑互相顶,报告永久挂 M。修法只有一条:生成器自带同一把格式化器。"
@@ -108,4 +136,59 @@ def test_3_check_arm_has_teeth(tmp_path: Path) -> None:
         "把排版压扁后 prettier --check 仍回 0 ⇒ 这条判据看不见排版差异"
         "(被 .prettierignore 命中或配置没生效时就是这个形状)"
     )
+
+
+def test_4_live_with_dead_channel_exits_undetermined(tmp_path: Path) -> None:
+    """``--live`` 一次回答都没拿到时必须退出码 2(未判定),不得回 0 冒充"出数了"。
+
+    通道指向本机 9 号端口(discard,连接被拒)⇒ 零外呼、零花费,只验退出码分流。
+    这条是本会话实测逼出来的:keyless 免费通道今天回 402,而旧行为是"报告照写、RC=0"——
+    读报告的人会把它登记成"当期数字已出"。
+    """
+    import os
+
+    import json
+
+    os.makedirs(tmp_path / "live-dead", exist_ok=True)
+    # 只取评测集第一题:本题要证的是"零回答 ⇒ 退出码 2",与题量无关;
+    # 拿全 10 题打一个必拒端口会让这条常驻用例白跑 40 次网络往返。
+    full = json.loads((OUTPUT_DIR.parent / "tasks.json").read_text(encoding="utf-8"))
+    subset = [full["tasks"][0]] if isinstance(full, dict) and full.get("tasks") else [full[0]]
+    tasks_file = tmp_path / "one-task.json"
+    tasks_file.write_text(json.dumps({"tasks": subset}, ensure_ascii=False), encoding="utf-8")
+
+    env = {
+        **os.environ,
+        "EVAL_LLM_API_BASE": "http://127.0.0.1:9/v1/chat/completions",
+        "EVAL_LLM_API_KEY": "probe-key-not-used",
+        "EVAL_LLM_MODEL": "probe-model",
+    }
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-X",
+            "utf8",
+            str(EVAL_SCRIPT),
+            "--live",
+            "--tasks",
+            str(tasks_file),
+            "--output-dir",
+            str(tmp_path / "live-dead"),
+            "--llm-timeout",
+            "5",
+        ],
+        cwd=AI_SERVICE_ROOT,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=900,
+        creationflags=NO_WINDOW,
+        env=env,
+    )
+    blob = proc.stdout + proc.stderr
+    assert proc.returncode == 2, (
+        f"--live 零回答却回了 rc={proc.returncode}(期望 2=未判定)。"
+        "把'没跑到'读成'跑过了'是本仓最贵的失效型\n---8<---\n" + blob[-1200:]
+    )
+    assert "未判定" in blob, f"rc=2 却没点名'未判定',调用方无法区分它与其他失败:\n{blob[-800:]}"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
