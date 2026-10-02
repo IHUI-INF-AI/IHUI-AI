@@ -52,7 +52,11 @@ export function CookieAutoRefreshChip() {
       <RefreshCw className="h-3 w-3" aria-hidden />
       <span>{t('on', { hours: stats.interval_hours })}</span>
       <span aria-hidden>·</span>
-      <span>{stats.last_run_at ? t('lastRun', { time: formatLastRun(stats.last_run_at) }) : t('pending')}</span>
+      <span>
+        {stats.last_run_at
+          ? t('lastRun', { time: formatLastRun(stats.last_run_at) })
+          : t('pending')}
+      </span>
     </p>
   )
 }
