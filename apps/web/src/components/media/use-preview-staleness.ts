@@ -24,8 +24,19 @@ import * as React from 'react'
  * 切回"这一主场景,不承诺实时。
  */
 
-/** 降级提示种类:`cannot-read` = L2,`incomplete` = L3,`no-content` = L4。 */
-export type PreviewNoticeKind = 'cannot-read' | 'incomplete' | 'no-content' | null
+/** 降级提示种类:`cannot-read` = L2,`incomplete` = L3,`no-content` = L4;
+ *  D163 五态补格:`expired` = 已过期(快照/记录失效,如签名地址 403/410),
+ *  `too-large` = 过大(超出预览尺寸硬阈值)。 */
+export type PreviewNoticeKind =
+  | 'cannot-read'
+  | 'incomplete'
+  | 'no-content'
+  | 'expired'
+  | 'too-large'
+  | null
+
+/** D163:预览正文的字节硬阈值 —— 超过即落"过大"态,不给正文,给"打开原文"出口。 */
+export const PREVIEW_MAX_BYTES = 2 * 1024 * 1024
 
 export interface FeedState {
   readonly loading: boolean
@@ -46,6 +57,10 @@ export type ReadOutcome =
     }
   | { readonly kind: 'failed' }
   | { readonly kind: 'aborted' }
+  /** D163:资源地址失效(签名过期 403 / 已删除 410)—— 与"读不到"分开说 */
+  | { readonly kind: 'expired' }
+  /** D163:内容超出 PREVIEW_MAX_BYTES —— 重试无意义,给"打开原文"出口 */
+  | { readonly kind: 'too-large' }
 
 type PreviewFeedAction =
   | {
@@ -105,6 +120,11 @@ export function reducePreviewFeed(prev: FeedState, action: PreviewFeedAction): F
     case 'read': {
       const { outcome, mode } = action
       if (outcome.kind === 'aborted') return prev
+      // D163 五态:过期 / 过大是独立终态(各自的动作出口在渲染层),不与"读不到"混说
+      if (outcome.kind === 'expired')
+        return { ...INITIAL_FEED_STATE, loading: false, notice: 'expired' }
+      if (outcome.kind === 'too-large')
+        return { ...INITIAL_FEED_STATE, loading: false, notice: 'too-large' }
       const hasRecord = prev.content !== ''
 
       if (outcome.kind === 'failed') {
@@ -134,6 +154,11 @@ export function reducePreviewFeed(prev: FeedState, action: PreviewFeedAction): F
   }
 }
 
+/** UTF-8 字节数(阈值按字节说话,不按字符数 —— 中文场景两者差 3 倍) */
+function byteLength(text: string): number {
+  return new TextEncoder().encode(text).length
+}
+
 /** 2026-09-09 0-5-f 豁免确认:预览的 url 可能是外部 OSS 地址,裸 fetch 仅取纯文本;
  *  fetchApi 会向第三方注入鉴权头并按统一包装解析,不适用。 */
 async function readRemoteResource(
@@ -143,8 +168,19 @@ async function readRemoteResource(
 ): Promise<ReadOutcome> {
   try {
     const res = await fetch(url, { signal })
-    if (!res.ok) return { kind: 'failed' }
+    if (!res.ok) {
+      // D163:签名地址失效(403)与资源已删除(410)是"已过期",不是笼统的"读不到"
+      if (res.status === 403 || res.status === 410) return { kind: 'expired' }
+      return { kind: 'failed' }
+    }
+    // D163:声明侧先拦 —— content-length 超硬阈值直接落"过大",不白拉正文
+    const declaredLength = Number(res.headers.get('content-length') ?? '')
+    if (Number.isFinite(declaredLength) && declaredLength > PREVIEW_MAX_BYTES) {
+      return { kind: 'too-large' }
+    }
     const text = wantBody ? await res.text() : ''
+    // 声明侧骗不过真实字节侧(与 image-save 闸同一立场):真字节超限同样落"过大"
+    if (wantBody && byteLength(text) > PREVIEW_MAX_BYTES) return { kind: 'too-large' }
     const version = res.headers.get('etag') ?? res.headers.get('last-modified') ?? ''
     return { kind: 'ok', text, at: Date.now(), version }
   } catch {
