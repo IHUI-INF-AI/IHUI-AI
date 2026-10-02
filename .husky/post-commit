@@ -24,6 +24,20 @@ const { execSync, spawnSync } = require('child_process')
 const { mkdirSync, appendFileSync, readFileSync, existsSync } = require('fs')
 const { join } = require('path')
 
+// ─── GIT_DIR 去污(2026-10-01,同 pre-commit-hook.js 同款病理根治)───
+// IDE(Trae)git 扩展注入的 GIT_DIR 指向 worktree 之外的 gitdir,会让本钩子
+// 派生的守门子 git 丢 work-tree 上下文。delete 后经 cwd 发现同一仓库。
+for (const k of [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_QUARANTINE_PATH',
+]) {
+  delete process.env[k]
+}
+
 const ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf8', windowsHide: true }).trim()
 process.chdir(ROOT)
 const LOG_DIR = join(ROOT, '.workbuddy', 'hook-logs')
