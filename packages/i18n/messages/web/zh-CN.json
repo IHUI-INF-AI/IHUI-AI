@@ -8394,6 +8394,10 @@
           "title": "当前模型拒绝了本次请求",
           "action": "换模型"
         },
+        "MODEL_STREAM_IDLE": {
+          "title": "连接超时,响应已中断",
+          "action": "重试"
+        },
         "MULTIPLE_MATCHES": {
           "title": "参数不完整或无效",
           "action": "修改后重试"
