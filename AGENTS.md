@@ -2889,3 +2889,5 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **错误码文本判分支对账**〔注册表· scripts/check-error-code-not-text-matching.mjs · scripts/lib/code-mask.mjs · 判红档 · 该条目声明的应急变量〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190
 - **错误码文本判分支对账**〔门体 scripts/check-error-code-not-text-matching.mjs · 遮罩 lib/code-mask.mjs · **尚未挂上提交链**(本行旧副本原先写有调度器文件名、阻塞级标记与一个应急跳过变量,那是 2026-09-30 一度注册、复跑整轮后已撤下的那条声称;撤下后三者均不成立,而 89 的 R2 会因这句谎对**每一次**提交判红 ⇒ 恒红门,§12e/§12f。按现状改写、不删行,现行条目见本节标着「尚未接提交链」的那几条;要不要重新挂上由台账"解阻前置"管)〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190
 - ⚠️ 本行是「错误码文本判分支对账」的**重复副本**(2026-10-02 union 合并把本侧已就地改写的旧文本带回,与本节内同门现行条目逐字同源);旧元数据不再逐字复存(避免与 R2 判据词表撞形);不删行(§1),正文以现行条目为准。
+IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),9 端清单(2026-10-02 增 apps/assistant):
+- `apps/assistant`(智汇助手:独立 Tauri 2 桌面端,2026-10-02 整合自 MIT 开源项目 Trae-workbuddyAssistant,自带 Python/PS sidecar,数据目录独立)
