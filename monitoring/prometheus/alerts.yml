@@ -126,25 +126,34 @@ groups:
           summary: '磁盘空间不足'
           description: 'Windows 卷 {{ $labels.volume }} 剩余空间不足 15%(当前 {{ $value | humanizePercentage }})'
 
+      # 实例 down —— 判据必须问"引擎自己答不答",不能只问 exporter 有没有指标。
+      #   立因(2026-10-02 凌晨实测):IHUI-REDIS 于 03:54–03:57 停机,api 错误日志刷满
+      #   `connect ECONNREFUSED 127.0.0.1:8811`,而这两条 Down 规则一条都没进 pending ——
+      #   exporter 进程好着,所以 `up{job="redis"}` 全程为 1;真正把"引擎不答"报出来的是
+      #   exporter 自报的 `redis_up`(同窗口实测 0)。回放取证(窗口 03:50–04:00,step=30):
+      #   旧式 `up{job="redis"} == 0` 命中 0 个序列;新式补上 `redis_up == 0` 后 03:54:00–03:57:00
+      #   连续 7 个点命中(≥3.5 分钟,足够过 for:1m)。Postgres 同型,`pg_up` 实测在采。
+      #   与上面 DiskSpaceLow/MemoryLow 那条是同一条禁令:"永不匹配的告警规则与没有规则等价,
+      #   却会在台账上读成'已有人看守'" —— 这里不是不匹配,是**匹配错了对象**。
       # PostgreSQL 实例 down
       - alert: PostgresDown
-        expr: up{job="postgres"} == 0
+        expr: up{job="postgres"} == 0 or pg_up == 0
         for: 1m
         labels:
           severity: critical
         annotations:
           summary: 'PostgreSQL 实例不可用'
-          description: 'Postgres exporter {{ $labels.instance }} 无指标,PostgreSQL 疑似宕机'
+          description: 'Postgres exporter {{ $labels.instance }} 无指标或 pg_up==0,PostgreSQL 疑似宕机'
 
       # Redis 实例 down
       - alert: RedisDown
-        expr: up{job="redis"} == 0
+        expr: up{job="redis"} == 0 or redis_up == 0
         for: 1m
         labels:
           severity: critical
         annotations:
           summary: 'Redis 实例不可用'
-          description: 'Redis exporter {{ $labels.instance }} 无指标,Redis 疑似宕机'
+          description: 'Redis exporter {{ $labels.instance }} 无指标或 redis_up==0,Redis 疑似宕机'
 
       # ⚠ 原 DiskSpaceLow / MemoryLow 两条已判"结构上永不响",2026-09-27 实测后收口 ——
       #   它们取的是 node_exporter 的 `node_filesystem_*` / `node_memory_*`,而本机 prometheus.yml
