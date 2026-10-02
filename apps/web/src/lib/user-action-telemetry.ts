@@ -23,20 +23,10 @@
 
 export type ActionTraceGroup = 'core' | 'settings'
 
-export type ActionOutcome =
-  | 'completed'
-  | 'failed'
-  | 'rejected'
-  | 'cancelled'
-  | 'abandoned'
-  | 'noop'
+export type ActionOutcome = 'completed' | 'failed' | 'rejected' | 'cancelled' | 'abandoned' | 'noop'
 
 export type ActionOperationKind =
-  | 'navigation'
-  | 'preference'
-  | 'command'
-  | 'management'
-  | 'destructive'
+  'navigation' | 'preference' | 'command' | 'management' | 'destructive'
 
 export type ActionTrigger = 'pointer' | 'keyboard' | 'programmatic'
 
@@ -74,7 +64,10 @@ function operationKindFor(featureId: string, action: string): ActionOperationKin
 
 type CatalogDefinition = Readonly<Record<string, readonly string[]>>
 
-function entriesFrom(definitions: CatalogDefinition, group: ActionTraceGroup): ActionCatalogEntry[] {
+function entriesFrom(
+  definitions: CatalogDefinition,
+  group: ActionTraceGroup,
+): ActionCatalogEntry[] {
   return Object.entries(definitions).flatMap(([featureId, actions]) =>
     actions.map((action) => ({
       featureId,
