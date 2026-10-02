@@ -232,6 +232,8 @@ monitoring/alertmanager/alertmanager.rendered.yml
 *.html
 # 例外: miniapp-taro H5 模板文件(构建时 webpack 处理,源文件需 git 追踪)
 !apps/miniapp-taro/src/index.html
+# 例外: assistant(Tauri 2) 的 vite 入口 —— 无它 CI 上 rollup 报 Could not resolve entry module
+!apps/assistant/index.html
 i18n-report*.json
 openapi.json
 # O8(2026-09-21):apps/api 的契约产物**必须入库** —— 它此前被上面这条全局规则顺手
