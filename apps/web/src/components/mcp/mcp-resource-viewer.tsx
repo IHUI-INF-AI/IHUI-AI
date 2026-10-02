@@ -89,7 +89,7 @@ export function McpResourceViewer({ resource }: McpResourceViewerProps) {
       ) : isMarkdown && content ? (
         <div className="max-h-[400px] overflow-auto rounded-lg border bg-muted/30 p-3 text-sm">
           <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={[[remarkGfm, { singleTilde: false }]]}
             components={{
               code({ className: cls, children, ...props }) {
                 const match = /language-(\w+)/.exec(cls || '')

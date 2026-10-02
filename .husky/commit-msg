@@ -1,4 +1,6 @@
 #!/bin/sh
+# ─── GIT_DIR 去污(2026-10-01,同 .husky/pre-commit 同款病理根治)───
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_QUARANTINE_PATH
 # ─── 弹窗根治(2026-09-22,统一经 wscript 隐藏包装,详见 scripts/hook-run-hidden.vbs) ───
 # 原 2 处裸 node 在无 console 上下文触发 commit 时各弹一个可见控制台窗口。
 # 输出转入 .workbuddy/hook-logs/,每次调用后回显日志末尾,保证警告仍对用户可见。
