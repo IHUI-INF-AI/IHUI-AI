@@ -1,0 +1,937 @@
+{
+  "total": 30,
+  "passed": 30,
+  "pass_rate": 1.0,
+  "tasks": [
+    {
+      "id": "convo-qa-config-recall",
+      "title": "问答:配置键与端口跨文档回答",
+      "category": "convo-qa",
+      "fixture": "fixture_convo-qa-config-recall",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '答: 数据库连接池上限 47'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '答: Redis 端口 8811'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'docs.md'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-qa-config-recall"
+    },
+    {
+      "id": "convo-qa-version-matrix",
+      "title": "问答:版本兼容矩阵要点",
+      "category": "convo-qa",
+      "fixture": "fixture_convo-qa-version-matrix",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '结论: 最高 Node 版本 22'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '结论: 最低 Python 版本 3.10'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '结论: 已废弃的传输通道是 WebSocket'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-qa-version-matrix"
+    },
+    {
+      "id": "convo-qa-error-code",
+      "title": "问答:错误码语义查询",
+      "category": "convo-qa",
+      "fixture": "fixture_convo-qa-error-code",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '错误码 4021:会话已失效'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '错误码 5003:修复建议是重启 ai-service'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '错误码 4290'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-qa-error-code"
+    },
+    {
+      "id": "convo-qa-arch-decision",
+      "title": "问答:架构决策原因复盘",
+      "category": "convo-qa",
+      "fixture": "fixture_convo-qa-arch-decision",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'ADR: 选择分库分表'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'ADR: 否决了读写分离'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'ADR: 理由是单表容量'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-qa-arch-decision"
+    },
+    {
+      "id": "convo-qa-migration-order",
+      "title": "问答:迁移顺序与回滚点",
+      "category": "convo-qa",
+      "fixture": "fixture_convo-qa-migration-order",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '迁移: 第一步迁移 users 表'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '迁移: 最后迁移 audit_log'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '迁移: 回滚点保存在 tag'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-qa-migration-order"
+    },
+    {
+      "id": "convo-qa-quota-policy",
+      "title": "问答:配额策略边界条件",
+      "category": "convo-qa",
+      "fixture": "fixture_convo-qa-quota-policy",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '配额: 免费层每日 50 次'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '配额: 超额后降级'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '每日 00:00(UTC+8)'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-qa-quota-policy"
+    },
+    {
+      "id": "convo-tools-report-gen",
+      "title": "编排:读数据生成汇总报告",
+      "category": "convo-tools",
+      "fixture": "fixture_convo-tools-report-gen",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '\"total_files\": 2'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '\"total_items\": 3'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '\"generated_by\": \"agent\"'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-tools-report-gen"
+    },
+    {
+      "id": "convo-tools-refactor-split",
+      "title": "编排:批量重命名+清单",
+      "category": "convo-tools",
+      "fixture": "fixture_convo-tools-refactor-split",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'notes/a.txt -> notes/a.md'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'notes/b.txt -> notes/b.md'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'beta'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-tools-refactor-split"
+    },
+    {
+      "id": "convo-tools-env-audit",
+      "title": "编排:环境变量审计表",
+      "category": "convo-tools",
+      "fixture": "fixture_convo-tools-env-audit",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'PORT 设为 8811'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'LOG_LEVEL 设为 info'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '共 3 项'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-tools-env-audit"
+    },
+    {
+      "id": "convo-tools-test-scaffold",
+      "title": "编排:为纯函数生成测试骨架",
+      "category": "convo-tools",
+      "fixture": "fixture_convo-tools-test-scaffold",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'def test_add():'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'def test_mul():'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'assert add(1, 2) == 3'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-tools-test-scaffold"
+    },
+    {
+      "id": "convo-tools-changelog-merge",
+      "title": "编排:合并变更日志",
+      "category": "convo-tools",
+      "fixture": "fixture_convo-tools-changelog-merge",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '## v1'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '## v2'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '- 初始发布'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '- 修复登录'"
+        }
+      ],
+      "checks_passed": 4,
+      "checks_total": 4,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-tools-changelog-merge"
+    },
+    {
+      "id": "convo-tools-deps-extract",
+      "title": "编排:依赖清单提取",
+      "category": "convo-tools",
+      "fixture": "fixture_convo-tools-deps-extract",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '- fastapi'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '- sqlalchemy'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '合计 3 个'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-tools-deps-extract"
+    },
+    {
+      "id": "convo-long-plan-execute",
+      "title": "长任务:规划后执行",
+      "category": "convo-longtask",
+      "fixture": "fixture_convo-long-plan-execute",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '步骤一:读取 spec.md'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'ORION-77'"
+        }
+      ],
+      "checks_passed": 2,
+      "checks_total": 2,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-long-plan-execute"
+    },
+    {
+      "id": "convo-long-multi-round-calc",
+      "title": "长任务:三轮累计统计",
+      "category": "convo-longtask",
+      "fixture": "fixture_convo-long-multi-round-calc",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '第 1 轮: 11'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '第 3 轮: 33'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '总计: 66'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-long-multi-round-calc"
+    },
+    {
+      "id": "convo-long-state-machine",
+      "title": "长任务:状态机多步推演",
+      "category": "convo-longtask",
+      "fixture": "fixture_convo-long-state-machine",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'step 1: running'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'step 2: paused'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'step 4: done'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-long-state-machine"
+    },
+    {
+      "id": "convo-long-doc-chain",
+      "title": "长任务:文档链条改写",
+      "category": "convo-longtask",
+      "fixture": "fixture_convo-long-doc-chain",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '# 基础文档'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '新增: 附录 A'"
+        }
+      ],
+      "checks_passed": 2,
+      "checks_total": 2,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-long-doc-chain"
+    },
+    {
+      "id": "convo-long-iterative-refine",
+      "title": "长任务:两轮迭代精化",
+      "category": "convo-longtask",
+      "fixture": "fixture_convo-long-iterative-refine",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '基于草稿精化'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '季度'"
+        }
+      ],
+      "checks_passed": 2,
+      "checks_total": 2,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-long-iterative-refine"
+    },
+    {
+      "id": "convo-long-checkpoint-restore",
+      "title": "长任务:四步可回滚流程",
+      "category": "convo-longtask",
+      "fixture": "fixture_convo-long-checkpoint-restore",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'verify'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'publish'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '四步全部完成'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-long-checkpoint-restore"
+    },
+    {
+      "id": "convo-mm-alt-catalog",
+      "title": "多模态:图片清单与 alt 文本",
+      "category": "convo-multimodal",
+      "fixture": "fixture_convo-mm-alt-catalog",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'cover.png'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'banner.webp'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '首页封面,深蓝渐变'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '活动横幅,红底'"
+        }
+      ],
+      "checks_passed": 4,
+      "checks_total": 4,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-mm-alt-catalog"
+    },
+    {
+      "id": "convo-mm-dim-check",
+      "title": "多模态:尺寸规格核对",
+      "category": "convo-multimodal",
+      "fixture": "fixture_convo-mm-dim-check",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'hero.png 1200x400'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'wide.jpg 900x300'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '超标 2 张'"
+        },
+        {
+          "type": "file_not_contains",
+          "pass": true,
+          "detail": "不包含子串: 'thumb.png'"
+        }
+      ],
+      "checks_passed": 4,
+      "checks_total": 4,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-mm-dim-check"
+    },
+    {
+      "id": "convo-mm-format-convert",
+      "title": "多模态:素材清单格式转换",
+      "category": "convo-multimodal",
+      "fixture": "fixture_convo-mm-format-convert",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '- [video] intro.mp4 (12s)'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '- [video] trailer.webm (30s)'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '- [image] cover.png (-)'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-mm-format-convert"
+    },
+    {
+      "id": "convo-mm-caption-fix",
+      "title": "多模态:补全缺失 alt",
+      "category": "convo-multimodal",
+      "fixture": "fixture_convo-mm-caption-fix",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '![第一张演示图](one.png)'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '![第二张结果图](two.png)'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '正文段。'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-mm-caption-fix"
+    },
+    {
+      "id": "convo-mm-palette-extract",
+      "title": "多模态:配色方案提取",
+      "category": "convo-multimodal",
+      "fixture": "fixture_convo-mm-palette-extract",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'hsl(0 60% 80%)'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'hsl(180 50% 90%)'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '亮色 3 个'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-mm-palette-extract"
+    },
+    {
+      "id": "convo-mm-audio-index",
+      "title": "多模态:音频清单索引",
+      "category": "convo-multimodal",
+      "fixture": "fixture_convo-mm-audio-index",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '#1 synthcat - nightdrive'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '#2 windfield - aurora'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '共 2 首'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-mm-audio-index"
+    },
+    {
+      "id": "convo-review-code-smells",
+      "title": "审查:代码异味清单",
+      "category": "convo-review",
+      "fixture": "fixture_convo-review-code-smells",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '魔法数字'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '裸 except'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'docstring'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-review-code-smells"
+    },
+    {
+      "id": "convo-review-config-drift",
+      "title": "审查:配置漂移检测",
+      "category": "convo-review",
+      "fixture": "fixture_convo-review-config-drift",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'b: 2 -> 5'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'd: (新增) -> 9'"
+        },
+        {
+          "type": "file_not_contains",
+          "pass": true,
+          "detail": "不包含子串: '\"a\"'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-review-config-drift"
+    },
+    {
+      "id": "convo-review-log-triage",
+      "title": "审查:日志分级归类",
+      "category": "convo-review",
+      "fixture": "fixture_convo-review-log-triage",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'ERROR db timeout'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'ERROR cache miss'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'WARN slow query'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-review-log-triage"
+    },
+    {
+      "id": "convo-review-security-scan",
+      "title": "审查:安全项检查表",
+      "category": "convo-review",
+      "fixture": "fixture_convo-review-security-scan",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'sk-live-'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'ghp_1111'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '评估: 高危'"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-review-security-scan"
+    },
+    {
+      "id": "convo-review-api-contract",
+      "title": "审查:接口契约比对",
+      "category": "convo-review",
+      "fixture": "fixture_convo-review-api-contract",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '新增端点: POST /c'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '删除端点: GET /b'"
+        }
+      ],
+      "checks_passed": 2,
+      "checks_total": 2,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-review-api-contract"
+    },
+    {
+      "id": "convo-review-dead-code",
+      "title": "审查:死代码清理建议",
+      "category": "convo-review",
+      "fixture": "fixture_convo-review-dead-code",
+      "iterations": 0,
+      "duration_ms": 0.0,
+      "stop_reason": "golden",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '未引用: orphan_a'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '未引用: orphan_b'"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: '共 2 处'"
+        },
+        {
+          "type": "file_not_contains",
+          "pass": true,
+          "detail": "不包含子串: 'used_one'"
+        }
+      ],
+      "checks_passed": 4,
+      "checks_total": 4,
+      "pass": true,
+      "workdir": "D:\\tmp\\ihui_bench_zm_3i7yt\\task_convo-review-dead-code"
+    }
+  ]
+}
