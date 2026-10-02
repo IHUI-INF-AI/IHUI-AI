@@ -132,7 +132,11 @@ export class UiPerfTelemetry {
    * startedAt。哨兵两道:总时长异常(时钟跳变/挂起)整批丢弃;任一段为负
    * (跨进程时钟偏移/回拨)整批丢弃——否则 sum(6 段) != total,破坏看板恒等式。
    */
-  reportStartupStages(input: { sessionId: string; startedAt: number; stageEnds: StartupStageEnds }): void {
+  reportStartupStages(input: {
+    sessionId: string
+    startedAt: number
+    stageEnds: StartupStageEnds
+  }): void {
     const ends = STARTUP_STAGES.map((stage) => input.stageEnds[stage])
     const total = ends[ends.length - 1]! - input.startedAt
     if (!Number.isFinite(total) || total < 0 || total > STARTUP_MAX_SANE_MS) {
@@ -172,7 +176,10 @@ export class UiPerfTelemetry {
    * 流式停顿:per-task 记录正文 chunk 到达时刻,间隔超阈值上报真实间隔。
    * 首个 chunk 只记基线不上报。
    */
-  recordContentChunk(taskId: string, options?: { talkId?: string; model?: string; chunkType?: 'content' | 'thought'; now?: number }): void {
+  recordContentChunk(
+    taskId: string,
+    options?: { talkId?: string; model?: string; chunkType?: 'content' | 'thought'; now?: number },
+  ): void {
     const now = options?.now ?? this.nowFn()
     const last = this.lastContentChunkAtByTask.get(taskId)
     this.lastContentChunkAtByTask.set(taskId, now)
@@ -206,7 +213,13 @@ export class UiPerfTelemetry {
   }
 
   /** 输入卡顿:单次输入处理耗时(输入侧),与 stream_stall(输出侧)区分。 */
-  recordInputLag(params: { lagMs: number; textLength: number; isProgrammatic: boolean; isComposing: boolean; taskId?: string }): void {
+  recordInputLag(params: {
+    lagMs: number
+    textLength: number
+    isProgrammatic: boolean
+    isComposing: boolean
+    taskId?: string
+  }): void {
     if (
       !shouldReportInputLag({
         lagMs: params.lagMs,
