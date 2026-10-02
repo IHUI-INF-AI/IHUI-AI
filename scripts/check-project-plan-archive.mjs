@@ -837,16 +837,23 @@ export function selfTest() {
     })
     return r.red.length === 1 && r.red[0].startsWith('A1 台账腐烂') && r.baseline.length === 0
   })
-  t('A1 默认台账就是本仓现读的那一份:未入库的 AGENTS_dead-entries 必须落"只报数"而不是红', () => {
+  t('A1 台账已随存量清偿清空;清空之后未入库的归档件必须直接判红(台账不得变成永久出口)', () => {
+    // 2026-10-02 现读:那一条存量(AGENTS_dead-entries-2026-09-30.md)已由并发提交真入库,
+    // 按本门规矩「修好了仍挂台账 = 清单腐烂红」,台账行必须删 —— 但删行的同一枚提交必须
+    // 同步改掉这条断言"台账恰好 1 条"的用例,否则本门在**干净 HEAD** 上就恒红(实测 29/30,
+    // 与 §12f「红在已入库面上优先级最高」同一条;判据失效或自相矛盾的表现永远是安静)。
+    // 这里刻意不只断言"空"(那是删一行就能骗过的恒真式),同一例再喂一条未入库的同名形状
+    // 归档件:台账空 ⇒ 必须红。这一支才是"台账不是万能出口"的证明。
     const r = anchorVerdict({
-      diskAnchors: [...UNTRACKED_ARCHIVE_LEDGER],
+      diskAnchors: ['AGENTS_dead-entries-2026-09-30.md'],
       faceFiles: [],
       faceRelPaths: [],
       planText: '',
       ledger: [],
+      archiveLedger: UNTRACKED_ARCHIVE_LEDGER,
     })
     return (
-      UNTRACKED_ARCHIVE_LEDGER.length === 1 && r.red.length === 0 && r.baseline.length === 1
+      UNTRACKED_ARCHIVE_LEDGER.length === 0 && r.red.length === 1 && r.red[0].startsWith('A1 ')
     )
   })
   t('A2 占位点名的文件不在审面、且未登记 ⇒ 红', () => {
