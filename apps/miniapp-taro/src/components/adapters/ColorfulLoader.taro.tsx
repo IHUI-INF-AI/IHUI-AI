@@ -73,10 +73,8 @@ const dotStyle = (
   left: '50%',
   marginLeft: toRpx(-dotSize / 2),
   marginTop: toRpx(-dotSize / 2),
-  // 圆点半径 = 自己边长的一半,与 RN 端同一式(RN 写 `borderRadius: size / 2`)。
-  // 刻意不写档名:写 `rnRadius['2xl']` 会让"小程序这一端出现 16 档、RN 端只有动态式"
-  // 被跨端尺读成分叉,而两端等效半径本来就是同一个数(共享源给的 dotSize)。
-  borderRadius: '50%',
+  // 方点,不写 borderRadius(2026-09-30 用户定档:「不允许出现任何胶囊型」,加载彩点族收为方点)。
+  // 默认档 4px 彩点写任何档位半径都会变回全圆(最小档 xs=2px 恰为半边),方角是唯一非圆形态。
   backgroundColor: color,
   transform: `rotate(${angle}deg) translateY(-${toRpx(radius)})`,
 })
