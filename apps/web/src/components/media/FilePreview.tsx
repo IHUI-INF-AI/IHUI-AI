@@ -23,9 +23,11 @@ import { OfficeViewer } from './OfficeViewer'
 import { ThreeDViewer } from './ThreeDViewer'
 import { PDFViewer } from './PDFViewer'
 import {
+  PreviewExpiredState,
   PreviewFileUpdatedBar,
   PreviewNoContentState,
   PreviewSnapshotNotice,
+  PreviewTooLargeState,
   usePreviewCopy,
 } from './preview-degradation-banner'
 import { usePreviewMediaProbe, usePreviewTextFeed } from './use-preview-staleness'
@@ -108,8 +110,29 @@ function TextPreview({ url, className }: { url: string; className?: string }) {
   const t = useTranslations('a11y')
   const copy = usePreviewCopy(t)
   const feed = usePreviewTextFeed(url)
+  // D163:打开原文是 expired / too-large 两态共用的出口(新标签页,不带 opener)
+  const openSource = React.useCallback(() => {
+    window.open(url, '_blank', 'noopener')
+  }, [url])
 
   if (feed.loading) return <div className="p-3 text-sm text-muted-foreground">{t('loading')}</div>
+
+  // D163 五态·expired:地址/记录已失效 —— 给"重试 + 打开原文"
+  if (feed.notice === 'expired')
+    return (
+      <PreviewExpiredState
+        copy={copy}
+        onRetry={feed.refresh}
+        onOpenSource={openSource}
+        className={className}
+      />
+    )
+
+  // D163 五态·tooLarge:内容超 PREVIEW_MAX_BYTES —— 重试无意义,给"打开原文"
+  if (feed.notice === 'too-large')
+    return (
+      <PreviewTooLargeState copy={copy} onOpenSource={openSource} className={className} />
+    )
 
   // 什么都没读到、也没有任何历史记录可展示:明说"没有可预览内容"并给出刷新这一步
   if (feed.notice === 'no-content')
@@ -140,6 +163,7 @@ function TextPreview({ url, className }: { url: string; className?: string }) {
         notice={feed.notice}
         readAt={feed.readAt}
         copy={copy}
+        onRetry={feed.refresh}
       />
       <pre className="min-h-0 flex-1 overflow-auto p-3 text-sm">
         <code>{feed.content}</code>
@@ -191,6 +215,10 @@ function ImagePreview({
   const current = items[active] ?? { url, name }
   const counter = imageCounterView(active, total)
   const feed = usePreviewMediaProbe(current.url)
+  // D163:打开原文是 expired / too-large 两态共用的出口(新标签页,不带 opener)
+  const openSource = React.useCallback(() => {
+    window.open(current.url, '_blank', 'noopener')
+  }, [current.url])
 
   const go = React.useCallback(
     (delta: number) => {
@@ -249,6 +277,19 @@ function ImagePreview({
     }
   }, [current.url])
 
+  if (feed.notice === 'expired')
+    return (
+      <PreviewExpiredState
+        copy={copy}
+        onRetry={feed.refresh}
+        onOpenSource={openSource}
+        className={className}
+      />
+    )
+
+  if (feed.notice === 'too-large')
+    return <PreviewTooLargeState copy={copy} onOpenSource={openSource} className={className} />
+
   if (feed.notice === 'no-content')
     return (
       <PreviewNoContentState
@@ -274,6 +315,7 @@ function ImagePreview({
         notice={feed.notice}
         readAt={feed.readAt}
         copy={copy}
+        onRetry={feed.refresh}
       />
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
         <Image
