@@ -167,14 +167,11 @@ describe('组 B — 真实链路(useContextSelector × WebInputCore):有匹配�
       },
     })
 
-    // 逐字复刻 message-input.tsx(HEAD :825-835)的外部处理器结构
+    // 逐字复刻 message-input.tsx(G-816019 修后形态)的外部处理器结构:
+    // Enter 提交支已删 —— 提交完全由 WebInputCore 内部 shouldSubmitOnEnter 双腿裁决,
+    // 外部只留 contextSelector 拦截与 ↑↓/Shift+Tab/Esc(那些分支与本文件判据无关,故不列)。
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (contextSelector.handleKeyDown(e)) return
-      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-        e.preventDefault()
-        setSends((n) => n + 1)
-        return
-      }
     }
 
     return (
@@ -260,6 +257,48 @@ describe('组 B — 真实链路(useContextSelector × WebInputCore):有匹配�
     expect(screen.getByTestId('sends').textContent).toBe('0')
     // 高亮下移后 Enter 选中的是第二项(#Folder),不是第一项
     expect(ta().value).toBe('#Folder ')
+  })
+})
+
+describe('组 C — message-input 接线形态下的 IME 单腿对(G-816019)', () => {
+  // 复刻 G-816019 修后 message-input.tsx 的真实接线:外部处理器无 Enter 提交支,
+  // onSend 就是生产里那个 submit 出口(计数代替)。两条用例各置**一条** IME 腿 ——
+  // 拆成单腿必翻红:若 shouldSubmitOnEnter 退回事件腿单腿,第一条红;退回本地腿单腿,第二条红。
+  function Harness() {
+    const [text, setText] = React.useState('正在打的中文')
+    const [sends, setSends] = React.useState(0)
+    return (
+      <div>
+        <WebInputCore
+          text={text}
+          placeholder="请输入消息"
+          isStreaming={false}
+          t={(k) => k}
+          onTextChange={setText}
+          onSend={() => setSends((n) => n + 1)}
+          onStop={() => {}}
+          onClear={() => setText('')}
+        />
+        <span data-testid="sends">{sends}</span>
+      </div>
+    )
+  }
+
+  it('只置本地腿(compositionStart 已到、事件 isComposing=false)⇒ 不发送', () => {
+    render(<Harness />)
+    fireEvent.compositionStart(ta())
+    fireEvent.keyDown(ta(), { key: 'Enter', shiftKey: false, isComposing: false })
+    expect(Number(screen.getByTestId('sends').textContent)).toBe(0)
+    // compositionEnd 之后同一形状的 Enter 恢复发送(证明拦截是腿在起作用,不是键序坏了)
+    fireEvent.compositionEnd(ta())
+    fireEvent.keyDown(ta(), { key: 'Enter', shiftKey: false, isComposing: false })
+    expect(Number(screen.getByTestId('sends').textContent)).toBe(1)
+  })
+
+  it('只置事件腿(nativeEvent.isComposing=true、未触发 compositionStart)⇒ 不发送', () => {
+    render(<Harness />)
+    fireEvent.keyDown(ta(), { key: 'Enter', shiftKey: false, isComposing: true })
+    expect(Number(screen.getByTestId('sends').textContent)).toBe(0)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
