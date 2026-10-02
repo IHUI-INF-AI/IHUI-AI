@@ -531,4 +531,46 @@ test('T13 两件工具刻意不在提交链:注册表零命中,头注也不得�
     assert.ok(!/第 ?\d+ ?项/.test(text), `${name} 头注不得自称"第 N 项"`)
   }
 })
+
+// T14 机器产物头不得再是生成器自身源码(2026-10-03 夜间实测:旧 selfWatermark() 用
+//   self.indexOf('-->') 自切,而第一个 `-->` 就写在那一行里 ⇒ 产物 .md 前面贴了 342 行脚本源码,
+//   守门 95(水印横幅必须被"本文件类型的注释"包裹)因此在 HEAD 面恒红,而矩阵本体读起来仍是正常的。)
+test('T14 逐类目产物:头部是 .md 合法注释横幅,且不得含生成器自身源码', () => {
+  const product = matrixTool.PER_CLASS_DEFAULT_OUT
+  assert.ok(fs.existsSync(product), `产物不在位:${product} —— 缺件不得读成"这一维没问题"`)
+  const txt = fs.readFileSync(product, 'utf8')
+  for (const marker of ['#!/usr/bin/env node', 'export function renderPerClassMarkdown', "import fs from 'node:fs'"]) {
+    assert.ok(!txt.includes(marker), `产物含生成器源码片段 ${marker} —— selfWatermark 那一型回来了`)
+  }
+  assert.equal(txt.split('\n')[0].trim(), '<!--', '产物首行必须是 HTML 注释 opener(.md 的唯一合法横幅形态)')
+  // 反向锁:生成器不得再自带一份"读自己源码"的取头逻辑(横幅只许由 watermark 工具产)
+  assert.ok(
+    !/readFileSync\(fileURLToPath\(import\.meta\.url\)/.test(MATRIX_TOOL_SRC),
+    'benchmark-diff-matrix.mjs 又出现"读自身源码当产物头"的写法 —— 横幅唯一出口是 scripts/watermark.mjs inject',
+  )
+
+  // 构造面(不依赖仓库瞬时状态):纯函数渲染结果必须以标题起头,不含脚本源码片段
+  const m = {
+    rows: [
+      {
+        c: '1',
+        oursNames: ['g1'],
+        oursCell: ['1'],
+        oursTotal: 1,
+        framesN: 0,
+        rivalCell: { qoder: 1, trae: 0, codex: 0 },
+        verdict: '两侧都有',
+      },
+    ],
+    oursGrand: 1,
+    rivalGrand: { qoder: 1, trae: 0, codex: 0 },
+    framesAll: 0,
+    extraSections: [],
+    unmatchedFrames: [],
+    metaLines: [],
+  }
+  const rendered = matrixTool.renderPerClassMarkdown(m, { when: 'test', head: 'test' })
+  assert.ok(rendered.startsWith('# 逐类目对账矩阵'), '渲染阶段不得自带横幅(横幅只由 inject 写)')
+  assert.ok(!rendered.includes('#!/usr/bin/env node'), '构造面渲染结果混入了脚本源码')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
