@@ -35,6 +35,12 @@
  *      **不证明它已离开这台机器** —— 两者同在 D: 卷,真正的出机依赖第三方同步客户端在跑,
  *      而那是机主专属裁决,本判据不启动它、也不假装能验证它。" 同步客户端进程在不在位这一维
  *      继续由 P5 的「网盘同步客户端」行看守,**P7 不重复计账**(同一条债不得在两个判据各计一次)。
+ *   P11(2026-10-02 补这一格):告警规则的**语义**有没有人跑。规则文件被改坏、或用例与规则漂开时,
+ *      规则还能照常热加载(语法没坏),错的只是行为 —— 而"行为"此前只有人记得手跑。现行实况:
+ *      Redis 落盘三规则 + 正反用例在 `monitoring/prometheus/tests/`,promtool 是本机工具
+ *      (候选 `<DevEnv>/monitor/prometheus/<任意版本目录>/promtool.exe`,目录名带版本、不写死)。三态:
+ *      全过=ok / 任一文件失败=finding(点名文件与末行)/ promtool 或用例目录取不到=未判定
+ *      (机器态:别的机器没有 promtool 属常态,不判红、也不记绿)。
  *
  * 定级与接线:本脚本判的是**机器运行状态**,提交者结构上满足不了,所以它**不进提交链**
  * (挂 blocking 就是每台每次被逼 `--no-verify`、连带全部守门作废,AGENTS §12e 同型)。
@@ -957,6 +963,110 @@ export function checkClock({ now }) {
   }
 }
 
+/** promtool 发现:目录名带版本(<devEnv>/monitor/prometheus/prometheus-<ver>/promtool.exe),不写死版本号。 */
+function findPromtoolExe(devEnv) {
+  const base = join(devEnv, 'monitor', 'prometheus')
+  try {
+    const dirs = readdirSync(base).sort()
+    for (let i = dirs.length - 1; i >= 0; i -= 1) {
+      const p = join(base, dirs[i], 'promtool.exe')
+      if (existsSync(p)) return p
+    }
+  } catch {
+    /* 目录不存在 ⇒ 找不到 */
+  }
+  return null
+}
+
+function defaultPromtoolRunner(exe, absTestFile) {
+  try {
+    const stdout = execFileSync(exe, ['test', 'rules', absTestFile], {
+      cwd: REPO,
+      windowsHide: true,
+      timeout: 120000,
+      maxBuffer: 1 << 22,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8',
+    })
+    return { code: 0, out: String(stdout || '') }
+  } catch (e) {
+    return {
+      code: typeof e.status === 'number' ? e.status : 2,
+      out: String(e.stdout || ''),
+      err: String(e.stderr || e.message),
+    }
+  }
+}
+
+/**
+ * P11(2026-10-02 立):promtool 规则单测 —— "告警规则的**语义**"有没有人跑。
+ * 立因:本会话给 Redis 落盘加了三规则 + 正反用例,而用例写完**没有任何调度器跑它** = 本仓最忌的
+ * "造好没装车"(同 P1/P2 那一族)。三态:全过=ok / 任一失败=finding / promtool 或用例目录取不到=未判定。
+ * 取材口径(与 P1/P2 同族):被跑的规则文件与用例文件就是线上 prometheus 直接加载的那份
+ * (运行副本 rule_files 指回仓库路径)⇒ 读它们等于读"线上实际生效的规则",不是"按磁盘判被审内容"。
+ */
+export function checkPromtoolRules({ devEnv = devEnvRoot(REPO), repoRoot = REPO, runner, promtool } = {}) {
+  const testsDir = join(repoRoot, 'monitoring', 'prometheus', 'tests')
+  let files = []
+  try {
+    files = readdirSync(testsDir)
+      .filter((f) => f.endsWith('.test.yml'))
+      .sort()
+  } catch (e) {
+    return {
+      id: 'P11',
+      state: 'undetermined',
+      detail: `测试目录取不到(${testsDir}):${String(e?.message || e).slice(0, 120)} ⇒ 未判定,不读成"没有规则测试"`,
+    }
+  }
+  if (!files.length) {
+    return { id: 'P11', state: 'undetermined', detail: `${testsDir} 下没有 *.test.yml ⇒ 未判定(空扫不记绿也不判红)` }
+  }
+  const exe = promtool ?? findPromtoolExe(devEnv)
+  if (!exe) {
+    return {
+      id: 'P11',
+      state: 'undetermined',
+      detail: `在 ${join(devEnv, 'monitor', 'prometheus')}/*/ 下找不到 promtool.exe ⇒ 未判定(机器态;有了再判)`,
+    }
+  }
+  const call = runner || defaultPromtoolRunner
+  const passed = []
+  const failed = []
+  for (const f of files) {
+    let r
+    try {
+      r = call(exe, join(testsDir, f))
+    } catch (e) {
+      return { id: 'P11', state: 'undetermined', detail: `promtool 派生异常(${f}):${String(e?.message || e).slice(0, 120)} ⇒ 未判定` }
+    }
+    if (!r || typeof r.code !== 'number') {
+      return { id: 'P11', state: 'undetermined', detail: `promtool 结论取不到(${f}) ⇒ 未判定` }
+    }
+    if (r.code === 0) passed.push(f)
+    else failed.push({ f, r })
+  }
+  if (!failed.length) {
+    return {
+      id: 'P11',
+      state: 'ok',
+      detail: `${passed.length} 个用例文件全部 SUCCESS(${passed.join(', ')})—— 与线上 rule_files 指向的 alerts.yml 同批适用`,
+    }
+  }
+  const first = failed[0]
+  const tail =
+    `${first.r.out || ''}${first.r.err || ''}`
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(-1)[0] || '(无输出)'
+  return {
+    id: 'P11',
+    state: 'finding',
+    detail: `${failed.length}/${files.length} 个用例文件失败:${failed.map((x) => x.f).join(', ')};首个 ${first.f} rc=${first.r.code} 末行:${tail.slice(0, 160)}(出路:手跑 promtool test rules 看 diff —— 改规则/用例,别关判据)`,
+  }
+}
+
 export function checkGrowth({ devEnv }) {
   const out = []
   const one = (id, path, bytesLimit, entriesLimit) => {
@@ -1620,6 +1730,9 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
     }
   }
   add(rules)
+  // P11:规则**语义**的机器自证(promtool 正反用例)。写在 P1/P2 之后是刻意的 ——
+  // 前两条判"规则文件有没有上岗",这一条判"上岗的规则还对不对"(全过/点名失败/未判定三态)。
+  add(checkPromtoolRules({ devEnv }))
   // P6:规则引用的指标序列在不在。取不到一律未判定(机器态),不判红 —— 见该判据头注。
   const p6 = await checkInertAlertRules({ now })
   p6.rows.forEach(add)
@@ -2252,6 +2365,46 @@ async function p7BackupFixture() {
   }
 }
 
+/** P11 的构造面入口:注入 runner + 夹具目录 —— 三态与"promtool 缺失不判红"都在构造面上证明。 */
+function promtoolFixture() {
+  const root = scratchRoot()
+  mkdirSync(root, { recursive: true })
+  const base = mkdtempSync(join(root, 'ops-p11-'))
+  const why = (m) => ({ ok: false, why: m })
+  try {
+    const tdir = join(base, 'monitoring', 'prometheus', 'tests')
+    mkdirSync(tdir, { recursive: true })
+    writeFileSync(join(tdir, 'fixture.test.yml'), 'rule_files: []\ntests: []\n')
+    const okRow = checkPromtoolRules({
+      devEnv: base,
+      repoRoot: base,
+      promtool: 'PROMTOOL',
+      runner: () => ({ code: 0, out: 'SUCCESS' }),
+    })
+    if (okRow.state !== 'ok') return why(`全过档应为 ok,实得 ${okRow.state}:${okRow.detail}`)
+    const badRow = checkPromtoolRules({
+      devEnv: base,
+      repoRoot: base,
+      promtool: 'PROMTOOL',
+      runner: () => ({ code: 1, out: 'FAILED: something changed' }),
+    })
+    if (badRow.state !== 'finding') return why(`失败档应为 finding,实得 ${badRow.state}:${badRow.detail}`)
+    if (!badRow.detail.includes('fixture.test.yml')) return why('finding 必须点名失败文件')
+    const noDir = checkPromtoolRules({
+      devEnv: base,
+      repoRoot: join(base, '__none__'),
+      promtool: 'PROMTOOL',
+      runner: () => ({ code: 0 }),
+    })
+    if (noDir.state !== 'undetermined') return why(`用例目录取不到应为 undetermined,实得 ${noDir.state}`)
+    const noTool = checkPromtoolRules({ devEnv: base, repoRoot: base, promtool: null, runner: () => ({ code: 0 }) })
+    if (noTool.state !== 'undetermined') return why(`promtool 找不到应为 undetermined,实得 ${noTool.state}`)
+    return { ok: true }
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+}
+
 export async function selfTest() {
   const cases = []
   const t = (name, cond) => cases.push({ name, pass: (() => { if (typeof cond === 'function') throw new Error(`${name}: cond 是函数 ⇒ 断言从未求值`); return cond === true })() })
@@ -2284,6 +2437,14 @@ export async function selfTest() {
   t(`P9 通道活性四态成对(可用绿 / 失败红 / 双未配置未判定 / 输出解不出未判定)+ 节流派生与缓存复述${p9fix.ok ? '' : ` —— ${p9fix.why}`}`, p9fix.ok === true)
   const p10fix = undeliveredDebtFixture()
   t(`P10 未送达欠账五态成对(挂账红 / 宽限内绿 / 旧形态只报数 / 已清偿回绿 / 坏台账未判定)${p10fix.ok ? '' : ` —— ${p10fix.why}`}`, p10fix.ok === true)
+  // P11(2026-10-02 补):promtool 规则单测 —— "写完没人跑"那一格的尺子,三态与装车锁成对。
+  const p11fix = promtoolFixture()
+  t(`P11 promtool 三态成对(全过绿 / 任一失败红且点名文件 / promtool 或用例目录取不到未判定)${p11fix.ok ? '' : ` —— ${p11fix.why}`}`, p11fix.ok === true)
+  t('装车锁:patrol 必须真把 P11 接进巡检', (() => {
+    const selfSrc = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    const body = selfSrc.slice(selfSrc.indexOf('export async function patrol'), selfSrc.indexOf('export function loadAdjudications'))
+    return /checkPromtoolRules\(/.test(body)
+  })())
   // 装车锁(与本文件其它判据同一条理由):判据写出来而 patrol() 没接上 = 本仓最高频失效型。
   // 摘掉任意一行 add(...) 调用,这一条必须翻红 —— 所以它判的是**调用点**,不是函数存在性。
   t('装车锁:patrol 必须真把 P9/P10 两格接进巡检', (() => {
@@ -2548,5 +2709,7 @@ export const __test__ = {
   ackCoversDebt,
   debtAnchor,
   checkUndeliveredAlertDebt,
+  // P11 同一条规矩:镜像测试引这里的实现判"三态与不把未判定读成红",不得重抄。
+  checkPromtoolRules,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
