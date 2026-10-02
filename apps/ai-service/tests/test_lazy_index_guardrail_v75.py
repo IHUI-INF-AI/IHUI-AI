@@ -53,6 +53,15 @@ def _max_files_within_batch_budget(batch_budget: int, chunks_per_file: float = 6
     return n
 
 
+# 2026-10-03 数据出域合规整改:懒索引现在受"代码出域同意闸"约束(未授权 ⇒
+# skipped-not-consented,见 test_code_index_consent_gate.py)。本文件验的是**规模护栏**
+# 本身(阈值/探测/各分支结论),不是同意闸,故统一在此替身下放行,让各用例仍走
+# 它们本该走的那条护栏分支。同意闸自身的判定另有专项用例,不重复验一遍。
+@pytest.fixture(autouse=True)
+def _granted_code_index_egress(monkeypatch):
+    monkeypatch.setattr(mcp_server, "_code_index_egress_allowed", lambda *_a, **_kw: True)
+
+
 def _probe(count: int, *, lower_bound: bool = False, limit: int = 1_000) -> SizeProbe:
     return SizeProbe(
         count=count,
