@@ -22,7 +22,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
-import { renderPin } from '../../../scripts/lib/generated-input-pin.mjs'
+import { renderPin } from '../../../scripts/lib/generated-input-pin.mjs' // arch-exempt: ui-routes 派生码生成脚本属构建工具面(非运行时依赖边),须与守门 105 自述钉共用同一 renderPin 源;正解=「工具支持层」在策略表建档并降到 apps 之下 until 2026-12-28
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repoRoot = path.resolve(webRoot, '..', '..')
