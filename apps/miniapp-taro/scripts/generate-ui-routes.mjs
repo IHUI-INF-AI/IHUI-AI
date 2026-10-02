@@ -10,8 +10,11 @@
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+// 自述钉唯一实现(G-816040):inputsSha256 烘进产物头,门侧同面重算同集输入判陈旧
+import { renderPin } from '../../../scripts/lib/generated-input-pin.mjs'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const appRoot = resolve(scriptDir, '..')
@@ -19,6 +22,7 @@ const repoRoot = resolve(appRoot, '..', '..')
 const srcDir = join(appRoot, 'src')
 const appConfigPath = join(srcDir, 'app.config.ts')
 const outFile = join(srcDir, 'constants', 'ui-routes.generated.ts')
+const consumerFile = join(srcDir, 'lib', 'ui-action-registry.ts')
 
 /** 与 .prettierrc 的 printWidth 对齐,超出则按 prettier 习惯展开成多行(产物需 prettier --check 稳定) */
 const PRINT_WIDTH = 100
@@ -32,13 +36,17 @@ const PRINT_WIDTH = 100
  * ② `export default` → `return`。其余交给 JS 引擎自己解析,配置文件怎么写这里就怎么读。
  * 注:配置文件里的水印注释是合法 JS 注释,原样保留不影响求值。
  */
-function evalConfigModule(absPath) {
-  const raw = readFileSync(absPath, 'utf8')
+function evalConfigText(raw) {
   const js = raw.replace(/\s+as\s+[^,;}\]\n]+/g, '').replace(/^export default\s+/m, 'return ')
   return new Function('defineAppConfig', 'definePageConfig', js)(
     (c) => c,
     (c) => c,
   )
+}
+
+/** 同上,直接吃文件路径(app.config.ts / 页面 config 两类调用点) */
+function evalConfigModule(absPath) {
+  return evalConfigText(readFileSync(absPath, 'utf8'))
 }
 
 /** East Asian Wide/Fullwidth 字符按 2 列计,与 prettier getStringWidth 同规则 */
@@ -102,19 +110,26 @@ function stripComments(text) {
  */
 function detectParamRoutes(routePathSet) {
   const hits = new Set()
+  const scanned = []
   const re = /['"`]\/((?:pages|pkg-[a-z0-9-]+)\/[A-Za-z0-9_\-/]+)\?/g
   for (const file of collectSourceFiles(srcDir, [])) {
-    const text = stripComments(readFileSync(file, 'utf8'))
-    for (const m of text.matchAll(re)) {
+    const text = readFileSync(file, 'utf8')
+    scanned.push({
+      rel: `apps/miniapp-taro/src/${relative(srcDir, file).split('\\').join('/')}`,
+      text,
+    })
+    const stripped = stripComments(text)
+    for (const m of stripped.matchAll(re)) {
       const path = `/${m[1]}`
       if (routePathSet.has(path)) hits.add(path)
     }
   }
-  return hits
+  return { hits, scanned }
 }
 
 function buildRoutes() {
-  const appConfig = evalConfigModule(appConfigPath)
+  const appConfigRaw = readFileSync(appConfigPath, 'utf8')
+  const appConfig = evalConfigText(appConfigRaw)
   const mainPages = appConfig.pages
   const subPackages = appConfig.subPackages ?? []
   const tabList = appConfig.tabBar?.list ?? []
@@ -138,6 +153,7 @@ function buildRoutes() {
   }
 
   const seen = new Set()
+  const pageConfigInputs = []
   const routes = flat.map(({ page, root }) => {
     const path = `/${page}`
     if (seen.has(path)) throw new Error(`app.config.ts 出现重复页面: ${path}`)
@@ -146,7 +162,12 @@ function buildRoutes() {
     const configFile = join(srcDir, `${page}.config.ts`)
     let title = ''
     if (existsSync(configFile)) {
-      const pageConfig = evalConfigModule(configFile)
+      const configRaw = readFileSync(configFile, 'utf8')
+      pageConfigInputs.push({
+        rel: `apps/miniapp-taro/src/${page}.config.ts`,
+        text: configRaw,
+      })
+      const pageConfig = evalConfigText(configRaw)
       if (typeof pageConfig?.navigationBarTitleText === 'string') {
         title = pageConfig.navigationBarTitleText
       }
@@ -169,8 +190,15 @@ function buildRoutes() {
     if (!seen.has(tabPath)) throw new Error(`tabBar.pagePath 不在 pages 清单内: ${tabPath}`)
   }
 
-  const paramRoutes = detectParamRoutes(seen)
-  for (const route of routes) route.requiresParams = paramRoutes.has(route.path)
+  const { hits: paramRouteSet, scanned } = detectParamRoutes(seen)
+  for (const route of routes) route.requiresParams = paramRouteSet.has(route.path)
+
+  // 钉输入清单 = 生成器实际读的全部输入,逐字同集(app.config + 存在的页面 config + 参数探测扫描集)
+  const inputs = [
+    { rel: 'apps/miniapp-taro/src/app.config.ts', text: appConfigRaw },
+    ...pageConfigInputs,
+    ...scanned,
+  ]
 
   return {
     routes,
@@ -178,6 +206,8 @@ function buildRoutes() {
     subRootCount: subPackages.length,
     tabCount: tabPaths.size,
     windowTitle,
+    inputs,
+    scannedCount: scanned.length,
   }
 }
 
@@ -195,12 +225,16 @@ function emitEntry(entry, indent) {
   return [`${indent}{`, ...fields.map((f) => `${indent}  ${f},`), `${indent}},`]
 }
 
-function emitFile({ routes, windowTitle }) {
+function emitFile({ routes, windowTitle, pinLines }) {
   const lines = [
     '// GENERATED FILE — DO NOT EDIT. 由 apps/miniapp-taro/scripts/generate-ui-routes.mjs 生成(pnpm gen:ui-routes)',
     '// 数据源:src/app.config.ts(pages/subPackages/tabBar)+ 各页 *.config.ts 的 navigationBarTitleText;',
     '// requiresParams 由扫描源码 navigateTo url 是否带 query 得出。改页面请改 app.config.ts 后重新生成。',
     '',
+  ]
+  // 自述钉紧跟数据源头注:「产物按哪份输入生成」与「数据源是谁」同块自述
+  lines.push(...pinLines, '')
+  lines.push(
     '/** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */',
     'export interface TaroUiRouteEntry {',
     '  /** Taro 导航 url,如 /pkg-ai/ai/chat */',
@@ -220,18 +254,50 @@ function emitFile({ routes, windowTitle }) {
     '',
     '/** 全量页面白名单(顺序与 app.config.ts 一致,便于 diff 审查) */',
     'export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [',
-  ]
+  )
   for (const route of routes) lines.push(...emitEntry(route, '  '))
   lines.push(']', '')
   return `${lines.join('\n')}\n`
 }
 
+/** FIG_VERSION 同型断言(G-816040):消费方契约必须在位,否则产物是孤儿 */
+function assertConsumerContract() {
+  if (!existsSync(consumerFile)) {
+    throw new Error(`消费方不在位:${consumerFile} —— 拒绝生成无人消费的产物`)
+  }
+  if (!readFileSync(consumerFile, 'utf8').includes('ui-routes.generated')) {
+    throw new Error(`消费方 ${consumerFile} 已不引用本产物(ui-routes.generated)—— 契约漂移,拒绝生成`)
+  }
+}
+
+/** 生成时 HEAD 的 sha(取不到写 unknown,钉里的字段不因此缺位) */
+function sourceCommit() {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim()
+  } catch {
+    return 'unknown'
+  }
+}
+
 function main() {
-  const { routes, mainCount, subRootCount, tabCount, windowTitle } = buildRoutes()
+  const { routes, mainCount, subRootCount, tabCount, windowTitle, inputs, scannedCount } = buildRoutes()
   const withTitle = routes.filter((r) => r.hasOwnConfig).length
   const paramRoutes = routes.filter((r) => r.requiresParams).length
 
-  const content = emitFile({ routes, windowTitle })
+  assertConsumerContract()
+
+  const pinLines = renderPin({
+    generator: 'apps/miniapp-taro/scripts/generate-ui-routes.mjs',
+    sourceCommit: sourceCommit(),
+    inputs,
+    generatedAt: new Date().toISOString(),
+    extraLines: [
+      `scanned: ${scannedCount} source files(navigateTo url 参数探测,requiresParams 的依据)`,
+      `skipped: pagesWithoutOwnConfig=${routes.length - withTitle}(标题回落 app window / tabBar 文案)`,
+    ],
+  })
+
+  const content = emitFile({ routes, windowTitle, pinLines })
   mkdirSync(dirname(outFile), { recursive: true })
   writeFileSync(outFile, content, 'utf8')
 
