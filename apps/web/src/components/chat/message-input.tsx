@@ -400,9 +400,7 @@ export function MessageInput({
   // 发送动作与结果零变更,仅在发送链启动后关闭链接预览卡(探测失败本就不阻断发送)。
   const submitAndDismissLinkPreview = (overrideValue?: string): Promise<void> => {
     const result = submit(overrideValue)
-    result
-      .catch(() => {})
-      .finally(() => linkPreview.reset())
+    result.catch(() => {}).finally(() => linkPreview.reset())
     return result
   }
   // W20 九类 # 上下文选择器(键盘导航在 textarea 层拦截);
@@ -900,11 +898,11 @@ export function MessageInput({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // W20 九类 # 上下文选择器:键盘导航(↑/↓/Enter/Tab/Esc)前置拦截,消费则短路
     if (contextSelector.handleKeyDown(e)) return
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault()
-      submitAndDismissLinkPreview()
-      return
-    }
+    // G-816019:此处刻意**没有**外部 Enter 提交支 —— 本地 composition 腿住在 WebInputCore
+    // 的 state 里,外部 handler 取不到;外部若自判提交就是单腿判定,"候选窗已关、
+    // compositionend 未落"的边界会把半截中文发出去。Enter 提交完全交内部裁决
+    // (shouldSubmitOnEnter 双腿判据,经 onSend={submitAndDismissLinkPreview} 同一出口),
+    // 本 handler 只留 ↑↓ 历史 / Shift+Tab / Esc 三类与 Enter 无关的分支。
     // D36 会话内输入历史上翻(对标 Codex prompt-history):
     // ↑ 回填上一条发送文本 / ↓ 返回原始草稿;斜杠 / 提及面板打开时不抢(让面板用 ↑/↓)。
     // 未消费(草稿态 ↓ / 多行非首行 ↑)时不 preventDefault,交还 textarea 默认光标移动。
