@@ -27,6 +27,12 @@ export type PreviewCopyKey =
   | 'previewNoContent'
   | 'previewFileUpdated'
   | 'previewFileUpdatedAction'
+  // D163 五态补格:loadFailed(给重试)/ expired(已过期)/ tooLarge(过大)与各自动作出口
+  | 'previewLoadFailed'
+  | 'previewRetryAction'
+  | 'previewExpired'
+  | 'previewOpenSourceAction'
+  | 'previewTooLarge'
 
 export interface PreviewCopyEntry {
   readonly zh: string
@@ -55,6 +61,11 @@ export const PREVIEW_DEGRADATION_COPY: Record<PreviewCopyKey, PreviewCopyEntry> 
     zh: '刷新以查看最新内容', // next-intl 缺词兜底
     en: 'Refresh to view the latest content',
   },
+  previewLoadFailed: { zh: '预览加载失败。', en: 'Preview failed to load.' }, // next-intl 缺词兜底
+  previewRetryAction: { zh: '重试', en: 'Retry' }, // next-intl 缺词兜底
+  previewExpired: { zh: '预览已过期，内容可能已失效。', en: 'This preview has expired.' }, // next-intl 缺词兜底
+  previewOpenSourceAction: { zh: '打开原文', en: 'Open original' }, // next-intl 缺词兜底
+  previewTooLarge: { zh: '文件过大，无法预览。', en: 'File is too large to preview.' }, // next-intl 缺词兜底
 } as const
 
 export type PreviewValues = Record<string, string | number>
