@@ -27,7 +27,13 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { assertRepoRoot, gitRaw, readWorktreeFile, selectFace, Undetermined } from './lib/face-reader.mjs'
+import {
+  assertRepoRoot,
+  gitRaw,
+  readWorktreeFile,
+  selectFace,
+  Undetermined,
+} from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -182,12 +188,14 @@ export function auditModeSource(text) {
   const modes = modesMatch ? [...modesMatch[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : []
   if (!modesMatch) issues.push('读不到 TOOL_ARG_VALIDATION_MODES 档位清单(影子档必须被显式列出)')
   else {
-    if (!modes.includes('shadow')) issues.push(`档位清单缺 shadow(实得 ${modes.join('/') || '(空)'})`)
+    if (!modes.includes('shadow'))
+      issues.push(`档位清单缺 shadow(实得 ${modes.join('/') || '(空)'})`)
     if (!modes.includes('off')) issues.push(`档位清单缺 off(实得 ${modes.join('/')})`)
   }
   const defMatch = /DEFAULT_TOOL_ARG_VALIDATION_MODE[^=\n]*=\s*['"]([^'"]+)['"]/.exec(text)
   if (!defMatch) issues.push(`读不到 ${MODE_SOURCE_FILE} 里的默认档那一行(默认值不可考 ⇒ 不记绿)`)
-  else if (defMatch[1] === 'enforce') issues.push(`默认档是 enforce —— enforce 是第②③步的活,默认翻它等于把未实现的拒绝语义接进生产链`)
+  else if (defMatch[1] === 'enforce')
+    issues.push(`默认档是 enforce —— enforce 是第②③步的活,默认翻它等于把未实现的拒绝语义接进生产链`)
   return { issues, defaultMode: defMatch ? defMatch[1] : null, modes }
 }
 
@@ -288,12 +296,15 @@ export function analyze(root, face) {
 // ==================== CLI ====================
 
 function printVerdict(res, root) {
-  console.log(`工具入参校验器接线对账 · 判定面:${res.face} · 候选 ${res.scanned} 个文件 · ROOT ${root}`)
+  console.log(
+    `工具入参校验器接线对账 · 判定面:${res.face} · 候选 ${res.scanned} 个文件 · ROOT ${root}`,
+  )
   console.log(
     `  生产面调用:${res.callerFound ? '✅ 有' : '❌ 无'} | 定义 ${res.counts.definition} / 生产 ${res.counts.prod} / 测试面 ${res.counts.test} / 自豁免 ${res.counts.self} / 文档 ${res.counts.doc}`,
   )
   for (const v of res.violations) console.log(`  ❌ ${v}`)
-  if (res.violations.length === 0) console.log('  ✅ 校验器有生产调用方,且影子档在位、默认档不是 enforce')
+  if (res.violations.length === 0)
+    console.log('  ✅ 校验器有生产调用方,且影子档在位、默认档不是 enforce')
 }
 
 function runSelfTest() {
@@ -314,6 +325,10 @@ function runSelfTest() {
       writeFileSync(join(dir, rel), content)
     }
     gitRaw(['init', '-q'], dir)
+    // 夹具自带提交身份:临时仓在共享仓之外,读不到本仓的 local 身份,而 global 未设时 git 会
+    // 拿 `user@host` 兜底 —— 主机名含中文的机器上这一步直接 fatal,自检因此与判据无关地红。
+    gitRaw(['config', 'user.email', 'gate-fixture@invalid'], dir)
+    gitRaw(['config', 'user.name', 'gate-fixture'], dir)
     gitRaw(['add', '-A'], dir)
     gitRaw(['commit', '-q', '-m', 'fixture'], dir)
     return dir
@@ -341,11 +356,19 @@ function runSelfTest() {
       }),
       'head',
     )
-    ok('A2 摘掉调用方 ⇒ V1 判红', red.violations.some((v) => v.startsWith('V1')), JSON.stringify(red.violations))
+    ok(
+      'A2 摘掉调用方 ⇒ V1 判红',
+      red.violations.some((v) => v.startsWith('V1')),
+      JSON.stringify(red.violations),
+    )
 
     // ③反向对照:判据失效不得表现为"扫 0 记绿" ⇒ 空面必须被上层判成无法判定
     const empty = analyze(mk('e', { 'README.md': 'nothing here\n' }), 'head')
-    ok('A3 枚举到 0 个候选(扫描面判空)', empty.scanned === 0 && empty.violations.length > 0, `scanned=${empty.scanned}`)
+    ok(
+      'A3 枚举到 0 个候选(扫描面判空)',
+      empty.scanned === 0 && empty.violations.length > 0,
+      `scanned=${empty.scanned}`,
+    )
 
     // ④注释里的提及不算调用(否则定义文件自己的头注就能骗绿)
     const comment = analyze(
@@ -357,8 +380,15 @@ function runSelfTest() {
       }),
       'head',
     )
-    ok('A4 仅注释/字符串里提及 ⇒ V1 仍判红', comment.violations.some((v) => v.startsWith('V1')), JSON.stringify(comment.violations))
-    ok('A4b maskNoise 把注释与串都抹掉', findCallLines(COMMENT_ONLY).length === 0 && findCallLines(IN_STRING_ONLY).length === 0)
+    ok(
+      'A4 仅注释/字符串里提及 ⇒ V1 仍判红',
+      comment.violations.some((v) => v.startsWith('V1')),
+      JSON.stringify(comment.violations),
+    )
+    ok(
+      'A4b maskNoise 把注释与串都抹掉',
+      findCallLines(COMMENT_ONLY).length === 0 && findCallLines(IN_STRING_ONLY).length === 0,
+    )
     ok('A4c maskNoise 不抹真调用(判别力证明)', findCallLines(CALLER).length === 1)
 
     // ⑤测试面调用不构成"装车"
@@ -370,7 +400,11 @@ function runSelfTest() {
       }),
       'head',
     )
-    ok('A5 只有测试面调用 ⇒ V1 判红', testOnly.violations.some((v) => v.startsWith('V1')), JSON.stringify(testOnly.violations))
+    ok(
+      'A5 只有测试面调用 ⇒ V1 判红',
+      testOnly.violations.some((v) => v.startsWith('V1')),
+      JSON.stringify(testOnly.violations),
+    )
 
     // ⑥⑦⑧ V2 三态:默认 enforce / 缺 shadow / 模式源不在面
     const badDefault = analyze(
@@ -381,7 +415,11 @@ function runSelfTest() {
       }),
       'head',
     )
-    ok('A6 默认档 = enforce ⇒ V2 判红', badDefault.violations.some((v) => v.startsWith('V2')), JSON.stringify(badDefault.violations))
+    ok(
+      'A6 默认档 = enforce ⇒ V2 判红',
+      badDefault.violations.some((v) => v.startsWith('V2')),
+      JSON.stringify(badDefault.violations),
+    )
     const noShadow = analyze(
       mk('ns', {
         'apps/cli/src/tools/argument-validator.ts': DEFINITION,
@@ -390,7 +428,11 @@ function runSelfTest() {
       }),
       'head',
     )
-    ok('A7 档位清单缺 shadow ⇒ V2 判红', noShadow.violations.some((v) => v.includes('shadow')), JSON.stringify(noShadow.violations))
+    ok(
+      'A7 档位清单缺 shadow ⇒ V2 判红',
+      noShadow.violations.some((v) => v.includes('shadow')),
+      JSON.stringify(noShadow.violations),
+    )
     const noModeSrc = analyze(
       mk('nm', {
         'apps/cli/src/tools/argument-validator.ts': DEFINITION,
@@ -398,7 +440,11 @@ function runSelfTest() {
       }),
       'head',
     )
-    ok('A8 模式源不在该面 ⇒ V2 判红', noModeSrc.violations.some((v) => v.includes('影子档缺席')), JSON.stringify(noModeSrc.violations))
+    ok(
+      'A8 模式源不在该面 ⇒ V2 判红',
+      noModeSrc.violations.some((v) => v.includes('影子档缺席')),
+      JSON.stringify(noModeSrc.violations),
+    )
 
     // ⑨自豁免:本门自己的判据串不得把自己算成调用方
     const selfOnly = analyze(
@@ -409,7 +455,11 @@ function runSelfTest() {
       }),
       'head',
     )
-    ok('A9 门自身含判据串 ⇒ 不计生产调用方', selfOnly.violations.some((v) => v.startsWith('V1')), JSON.stringify(selfOnly.violations))
+    ok(
+      'A9 门自身含判据串 ⇒ 不计生产调用方',
+      selfOnly.violations.some((v) => v.startsWith('V1')),
+      JSON.stringify(selfOnly.violations),
+    )
 
     // ⑩口径:索引面与 HEAD 面各读各的(索引里摘掉调用方 ⇒ staged 判红而 head 判绿)
     const split = mk('sp', withProd())
@@ -417,8 +467,16 @@ function runSelfTest() {
     gitRaw(['add', '-A'], split)
     const staged = analyze(split, 'staged')
     const head = analyze(split, 'head')
-    ok('A10 索引面摘掉调用方 ⇒ staged 判红', staged.violations.some((v) => v.startsWith('V1')), JSON.stringify(staged.violations))
-    ok('A10b 同仓 HEAD 面仍判绿(两facet不互相洗白)', head.violations.length === 0, JSON.stringify(head.violations))
+    ok(
+      'A10 索引面摘掉调用方 ⇒ staged 判红',
+      staged.violations.some((v) => v.startsWith('V1')),
+      JSON.stringify(staged.violations),
+    )
+    ok(
+      'A10b 同仓 HEAD 面仍判绿(两facet不互相洗白)',
+      head.violations.length === 0,
+      JSON.stringify(head.violations),
+    )
 
     // ⑪声明行本身不算调用
     ok('A11 定义行不计 caller', findCallLines(DEFINITION).length === 0)
@@ -446,7 +504,10 @@ function main(argv) {
   if (flags.has('--self-test')) return runSelfTest()
   const rootIdx = argv.indexOf('--root')
   const root = rootIdx >= 0 ? resolve(argv[rootIdx + 1]) : DEFAULT_ROOT
-  const { face, error } = selectFace({ staged: flags.has('--staged'), worktree: flags.has('--worktree') })
+  const { face, error } = selectFace({
+    staged: flags.has('--staged'),
+    worktree: flags.has('--worktree'),
+  })
   if (error) {
     console.error(`❌ ${error}`)
     return 2
