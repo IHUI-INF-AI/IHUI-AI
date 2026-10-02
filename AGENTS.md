@@ -2879,7 +2879,7 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
     fork 风暴守卫同一条设计)。`--with-heartbeat` 缺省关闭,且关闭时**一次额外读盘、一次派生都不做**
     —— 现存调用方(build-next-prod.ps1 等)行为逐字不变,由自检 AH5 + 镜像钉住。
     **那一格已于 2026-10-02 收口**:`dev` / `dev:clean` / `dev:stable` 三条入口统一成"唯一一条命令 = 启动器",
-    改 next dist 的预取守卫、缓存治理与 `--purge` 整清全部排在 acquire 之后、spawn 之前 ⇒ 既在锁内
+    改 next dist 的预取守卫、缓存治理与 `--purge` 整清全部排在 acquire 之后、spawn 之前 ⇒ 既在锁内、又在 next dev 之前(不违反「严禁运行中清缓存」那条铁律)。
     而部署环走的是 `deploy/win/.deploy.lock` —— 与项目根 `.deploy.lock` 是**两把不同的锁**(别混),
     它自带的判活/心跳不受本票影响。取证:`node scripts/deploy-lock.mjs --self-test`(HB/AH/RU 三族,条数以末行为准)
     + `node --test scripts/tests/deploy-lock.test.mjs`(HB-M1…M10:M10 是"破坏性步骤必须在 acquire 之后、next dev 之前"的顺序形状锁,RU6d/HB-M8 各带"退回旧形态必读红"的反向对照)。
