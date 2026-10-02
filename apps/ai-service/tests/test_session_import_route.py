@@ -19,7 +19,10 @@ import pytest
 # app 挂载经 conftest 的 `from app.main import app` 导入链生效(client fixture 复用同一实例)
 
 PARSE_URL = "/api/session-import/parse"
-_VALID_SOURCES = {"claude_code", "codex", "cursor", "aider"}
+# 2026-10-03:wechat 与其余四源同列(此前此处只有 4 个,wechat 走 HTTP 会被本
+# fixture 的契约判成非法 source,与真实 SOURCES 不同源,已在 test_wechat_importer
+# 钉住 SOURCES 契约;这里同步,免得路由层测试对微信这一路完全失明)。
+_VALID_SOURCES = {"claude_code", "codex", "cursor", "aider", "wechat"}
 
 
 @pytest.fixture
@@ -73,14 +76,36 @@ async def test_invalid_source_returns_400(client, fake_parse_calls):
 
 
 async def test_bad_extension_returns_400(client, fake_parse_calls):
-    """扩展名不在白名单 → 400,且不进入解析层。"""
+    """扩展名不在白名单 → 400,且不进入解析层。
+
+    样本后缀从 .txt 换成 .exe:.txt 于 2026-10-03 入了白名单(微信聊天记录.txt
+    直读),继续拿它当反例会只证明「白名单非空」,不再证明「白名单真的在拦」。
+    """
     resp = await client.post(
         PARSE_URL,
-        files={"file": ("export.txt", b"data", "text/plain")},
+        files={"file": ("export.exe", b"data", "application/octet-stream")},
         data={"source": "claude_code"},
     )
     assert resp.status_code == 400
     assert fake_parse_calls == []
+
+
+async def test_wechat_txt_and_zip_pass_extension_gate(client, fake_parse_calls):
+    """微信两种载体都必须过白名单闸并进到解析层。
+
+    这是 2026-10-03 补 .txt 的钉子测试:此前 CLI/web/RN 三端都把 .txt 写进
+    宣称支持的后缀,而本白名单只有 .zip,用户在 UI 选 .txt 必然吃 400 ——
+    前后端口径不一致。两侧同源改齐后,用本测试把该事实钉住,防止再被删回去。
+    """
+    for filename, source in (("聊天记录.txt", "wechat"), ("合并转发.zip", "wechat")):
+        resp = await client.post(
+            PARSE_URL,
+            files={"file": (filename, b"data", "application/octet-stream")},
+            data={"source": source},
+        )
+        assert resp.status_code == 200, f"{filename} 过了扩展名闸之外还需能进解析层"
+    assert [c["filename"] for c in fake_parse_calls] == ["聊天记录.txt", "合并转发.zip"]
+    assert all(c["source"] == "wechat" for c in fake_parse_calls)
 
 
 async def test_oversize_returns_413(client, fake_parse_calls):
