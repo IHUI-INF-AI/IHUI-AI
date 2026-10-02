@@ -46,14 +46,14 @@ jobs:
           i=1
           while [ "$i" -le "${{ github.event.inputs.msi_parts }}" ]; do
             n=$(printf "%02d" "$i")
-            cat "chunks/msi.part$n" >> out/ihui-assistant_0.1.0_x64_zh-CN.msi
+            cat ".release-chunks/part-msi-$n.bin" >> out/ihui-assistant_0.1.0_x64_zh-CN.msi
             i=$((i+1))
           done
           : > out/ihui-assistant_0.1.0_x64-setup.exe
           i=1
           while [ "$i" -le "${{ github.event.inputs.nsis_parts }}" ]; do
             n=$(printf "%02d" "$i")
-            cat "chunks/nsis.part$n" >> out/ihui-assistant_0.1.0_x64-setup.exe
+            cat ".release-chunks/part-nsis-$n.bin" >> out/ihui-assistant_0.1.0_x64-setup.exe
             i=$((i+1))
           done
           ls -la out/
@@ -71,7 +71,6 @@ jobs:
           gh release view "${{ github.event.inputs.release_id }}" --repo "${{ github.repository }}" --json assets --jq '.assets[] | [.name, .size, .state] | @tsv'
 
       - name: Cleanup chunk branch
-        if: always()
         run: |
           git push origin --delete release-chunks-assistant || true
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
