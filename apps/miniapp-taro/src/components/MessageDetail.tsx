@@ -3,7 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt } from '@/i18n'
-import { View, Text, Image, Textarea } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
+import { FocusTextarea } from '@/components/FocusField'
 
 export interface MessageDetailItem {
   id: string
@@ -64,14 +65,16 @@ export default function MessageDetail({
               >
                 <Text className="text-sm">{msg.content}</Text>
               </View>
-              <Text className="text-[length:20rpx] text-muted-foreground mt-1">{msg.createdAt}</Text>
+              <Text className="text-[length:20rpx] text-muted-foreground mt-1">
+                {msg.createdAt}
+              </Text>
             </View>
           </View>
         ))}
       </View>
 
       <View className="flex items-center px-3 py-2 bg-card mt-2">
-        <Textarea
+        <FocusTextarea
           value={inputValue}
           onInput={(e) => onInput(e.detail.value)}
           placeholder={tt('message.inputPlaceholder', '输入消息...')}
@@ -81,9 +84,7 @@ export default function MessageDetail({
         />
         <View
           className={`ml-2 px-4 py-2 rounded-md text-sm ${
-            inputValue.trim()
-              ? 'bg-cta text-cta-foreground'
-              : 'bg-muted text-muted-foreground'
+            inputValue.trim() ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground'
           }`}
           onClick={() => inputValue.trim() && onSend()}
           hoverClass="opacity-60"
