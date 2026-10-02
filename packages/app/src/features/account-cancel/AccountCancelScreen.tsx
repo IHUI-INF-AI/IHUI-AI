@@ -3,20 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
-  Modal,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, Modal, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AccountCancelScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { TextField } from '../../components/TextField'
 
 /** AccountCancelScreen props re-export(单一来源 @ihui/types) */
 export type { AccountCancelScreenProps }
@@ -53,7 +46,8 @@ export function AccountCancelScreen({
 
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>手机号</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
             value={phone}
             onChangeText={onPhoneChange}
@@ -67,7 +61,8 @@ export function AccountCancelScreen({
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>短信验证码</Text>
           <View style={styles.smsRow}>
-            <TextInput
+            <TextField
+              colorScheme={colorScheme}
               style={[styles.input, styles.smsInput]}
               value={smsCode}
               onChangeText={onSmsCodeChange}
@@ -90,7 +85,8 @@ export function AccountCancelScreen({
 
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>确认注销</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
             value={confirmText}
             onChangeText={onConfirmTextChange}
