@@ -90,12 +90,38 @@ export type LifecycleFact = StepFact | CompletionFact
 
 /** 生命周期事件(本仓遥测协议的中性自命名,不携带上游字段)。 */
 export type LifecycleEvent =
-  | { type: 'model_request_started'; taskId: string; requestId: string; model?: string; inputId?: string }
-  | { type: 'chunk'; taskId: string; stream: 'reasoning' | 'content'; inputId?: string; belongsToTool?: boolean }
+  | {
+      type: 'model_request_started'
+      taskId: string
+      requestId: string
+      model?: string
+      inputId?: string
+    }
+  | {
+      type: 'chunk'
+      taskId: string
+      stream: 'reasoning' | 'content'
+      inputId?: string
+      belongsToTool?: boolean
+    }
   | { type: 'tool_start'; taskId: string; toolId: string; toolName?: string; inputId?: string }
   | { type: 'tool_progress'; taskId: string; toolId: string; toolName?: string; inputId?: string }
-  | { type: 'tool_end'; taskId: string; toolId: string; status: string; toolName?: string; error?: string; inputId?: string }
-  | { type: 'permission_requested'; taskId: string; requestId: string; toolId?: string; inputId?: string }
+  | {
+      type: 'tool_end'
+      taskId: string
+      toolId: string
+      status: string
+      toolName?: string
+      error?: string
+      inputId?: string
+    }
+  | {
+      type: 'permission_requested'
+      taskId: string
+      requestId: string
+      toolId?: string
+      inputId?: string
+    }
   | { type: 'permission_settled'; taskId: string; requestId: string; inputId?: string }
   | {
       type: 'model_usage'
@@ -118,7 +144,13 @@ export type LifecycleEvent =
       model?: string
       inputId?: string
     }
-  | { type: 'terminal'; taskId: string; result: 'success' | 'fail' | 'interrupted'; error?: { type?: string; msg?: string }; inputId?: string }
+  | {
+      type: 'terminal'
+      taskId: string
+      result: 'success' | 'fail' | 'interrupted'
+      error?: { type?: string; msg?: string }
+      inputId?: string
+    }
 
 interface StepModelInfo {
   requestId?: string
@@ -300,10 +332,7 @@ export class PromptLifecycleTelemetry {
    * 事件自带 inputId 且两者同时存在但不一致时,整体吞掉——迟到的旧输入流
    * chunk/tool 不得污染当前 message。
    */
-  handleEvent(
-    event: LifecycleEvent,
-    guard?: { activeInputId?: string },
-  ): LifecycleFact[] {
+  handleEvent(event: LifecycleEvent, guard?: { activeInputId?: string }): LifecycleFact[] {
     const prompt = this.activeByTask.get(event.taskId)
     if (!prompt) return []
     if (guard?.activeInputId && event.inputId && guard.activeInputId !== event.inputId) {
@@ -454,7 +483,10 @@ export class PromptLifecycleTelemetry {
     this.closeReasoning(prompt, now, facts, 'tool_start')
     this.closeGeneration(prompt, now, facts, 'success', 'tool_start')
     this.materializePendingUsageBeforeTool(prompt, now, facts)
-    const toolStep = this.createStep(steps, 'tool', now, { toolId, ...(toolName ? { toolName } : {}) })
+    const toolStep = this.createStep(steps, 'tool', now, {
+      toolId,
+      ...(toolName ? { toolName } : {}),
+    })
     this.applySettledWait(steps, toolStep)
     steps.toolStepsById.set(toolId, toolStep)
   }
@@ -720,9 +752,7 @@ export class PromptLifecycleTelemetry {
     this.closeGeneration(prompt, now, facts, stepStatus, 'terminal', event.error)
     for (const [toolId, toolStep] of [...steps.toolStepsById]) {
       this.settlePermissionWaitsForTool(prompt, steps, toolId, now)
-      facts.push(
-        this.finalizeStep(prompt, toolStep, now, stepStatus, 'terminal', event.error),
-      )
+      facts.push(this.finalizeStep(prompt, toolStep, now, stepStatus, 'terminal', event.error))
     }
     steps.toolStepsById.clear()
     this.activeByTask.delete(prompt.taskId)
