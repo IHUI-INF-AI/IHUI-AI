@@ -324,6 +324,21 @@ async def lifespan(app: FastAPI) -> Any:
     from app.services.news_scheduler import news_scheduler
     news_scheduler.start()
 
+    # 签到助手服务端化(2026-10-03 立):数据层幂等建表 + 每日 08:05 签到调度。
+    # 建表 fail-open(失败只告警);调度器由 CHECKIN_CRON_ENABLED 控制开关(默认 false)。
+    try:
+        from app.services.checkin_store import ensure_tables as _ensure_checkin_tables
+
+        await _ensure_checkin_tables()
+        logger.info("[checkin] checkin_* 表确认/创建完成")
+    except Exception as e:
+        logger.warning("[checkin] 建表异常(忽略,签到功能不可用): %s", e)
+    from app.services.checkin_scheduler import checkin_scheduler
+    try:
+        await checkin_scheduler.start()
+    except Exception as e:
+        logger.warning("[checkin_scheduler] 启动失败(忽略): %s", e)
+
     # 生产 ⇄ 开发 数据库全表自动同步调度器(2026-09-22 立)
     # 用户要求:所有表都要同步,且自动化跑在自己程序里(不再依赖外部调度器)。
     # 由 DB_SYNC_ENABLED 控制开关(默认 false);生产机缺 db-sync.local.json 时静默待机。
@@ -733,6 +748,11 @@ async def lifespan(app: FastAPI) -> Any:
 
         await db_sync_scheduler.stop()
 
+    async def _s_checkin_scheduler() -> None:
+        from app.services.checkin_scheduler import checkin_scheduler
+
+        await checkin_scheduler.stop()
+
     async def _s_video_worker() -> None:
         from app.services.video_generation import stop_video_worker
 
@@ -827,6 +847,7 @@ async def lifespan(app: FastAPI) -> Any:
         ("media_maintenance", _s_media_maintenance),
         ("news_scheduler", _s_news_scheduler),
         ("db_sync_scheduler", _s_db_sync_scheduler),
+        ("checkin_scheduler", _s_checkin_scheduler),
         ("video_worker", _s_video_worker),
         ("task_scheduler", _s_task_scheduler),
         ("screenshot_service", _s_screenshot),
@@ -1057,6 +1078,11 @@ def create_app() -> FastAPI:
     # + POST /api/admin/news/publish-recent
     from app.routers import news as news_router
     app.include_router(news_router.router, tags=["news-refresh"])
+
+    # 2026-10-03 立:签到助手服务端化(数据层 + 每日调度 + REST API)。
+    # router 自带 /api/checkin 前缀,鉴权用 require_request_user_id。
+    from app.routers import checkin as checkin_router
+    app.include_router(checkin_router.router, tags=["checkin"])
 
     # W4(Phase 0):Plan Mode 计划模式端点族(对标 Claude Code Plan Mode,全新端点 /api/agent-plan*)
     from app.routers import agent_plan as agent_plan_router

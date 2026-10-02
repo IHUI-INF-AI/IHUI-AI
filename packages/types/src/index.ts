@@ -69,6 +69,9 @@ export * from './message-bus.js'
 // 大模型排行榜跨端契约(2026-07-22 立,参考 arena.ai/leaderboard,6 类模型 + Agent + 总榜)
 export * from './leaderboard.js'
 
+// 签到助手跨端契约(2026-10-03 立,镜像 apps/ai-service/app/routers/checkin.py)
+export * from './checkin.js'
+
 // P3 Wave 11:6 大核心能力跨端契约(2026-07-22 立)
 // 终端集成(对标 Codex/OpenCode 内置终端)
 export * from './terminal.js'
