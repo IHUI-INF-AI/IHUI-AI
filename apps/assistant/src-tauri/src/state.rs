@@ -1,3 +1,7 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 use std::path::PathBuf;
 use std::os::windows::process::CommandExt;
 use std::process::Command;
@@ -113,14 +117,7 @@ impl AppState {
 
 /// 定位 python 脚本目录：覆盖安装版(MSI/NSIS)、便携版(zip 直接运行)、开发期三种布局。
 fn resolve_python_dir() -> PathBuf {
-    // 1) 运行期 Tauri 注入的资源目录：<RESOURCE_DIR>/python
-    if let Ok(res) = std::env::var("TAURI_RESOURCE_DIR") {
-        let p = PathBuf::from(res).join("python");
-        if p.exists() {
-            return p;
-        }
-    }
-    // 2) 可执行文件周边布局（便携版 sidecar / 安装版均可能命中）
+    // 1) 可执行文件周边布局（便携版 sidecar / 安装版均可能命中）
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             // dir/resources/python
@@ -142,7 +139,16 @@ fn resolve_python_dir() -> PathBuf {
             }
         }
     }
-    // 3) 开发期：仓库 src-python
+    // 3) 开发期：以编译期 manifest 目录锚定仓库 src-python（不依赖进程 cwd，
+    //    tauri dev 的 cwd 是 src-tauri，相对路径回退在该场景必然失效）
+    if let Some(p) = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .map(|d| d.join("src-python"))
+    {
+        if p.exists() {
+            return p;
+        }
+    }
     PathBuf::from("src-python")
 }
 
@@ -156,7 +162,15 @@ pub fn resolve_ps_dir() -> PathBuf {
             return ps;
         }
     }
-    // 开发期：python 在 src-python，ps 在 src-ps
+    // 开发期：python 在 src-python，ps 在 src-ps（编译期锚定，不依赖进程 cwd）
+    if let Some(p) = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .map(|d| d.join("src-ps"))
+    {
+        if p.exists() {
+            return p;
+        }
+    }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             let c = dir.join("resources").join("ps");
@@ -184,3 +198,4 @@ fn probe_python_exe() -> String {
     }
     "python3".to_string()
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
