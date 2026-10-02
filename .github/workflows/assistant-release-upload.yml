@@ -1,0 +1,77 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# Assistant Release 资产上传(分块 → runner 内网组装 → gh release upload)
+# 背景: 本机到 uploads.github.com 的大文件 PUT 会被网络层反复掐断(实测 3 次中途死亡),
+# 故本机只负责把分块以 git blob 推到临时分支, 由 runner 在 GitHub 内网完成最终上传.
+# 用法: workflow_dispatch 填 release_id / msi_parts / nsis_parts, 分支 release-chunks-assistant.
+name: assistant-release-upload
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_id:
+        description: "GitHub Release ID"
+        required: true
+        type: string
+      msi_parts:
+        description: "MSI 分块数"
+        required: true
+        type: string
+      nsis_parts:
+        description: "NSIS 分块数"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout chunk branch
+        uses: actions/checkout@v4
+        with:
+          ref: release-chunks-assistant
+          fetch-depth: 1
+
+      - name: Reassemble from chunks
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          : > out/ihui-assistant_0.1.0_x64_zh-CN.msi
+          i=1
+          while [ "$i" -le "${{ github.event.inputs.msi_parts }}" ]; do
+            n=$(printf "%02d" "$i")
+            cat "chunks/msi.part$n" >> out/ihui-assistant_0.1.0_x64_zh-CN.msi
+            i=$((i+1))
+          done
+          : > out/ihui-assistant_0.1.0_x64-setup.exe
+          i=1
+          while [ "$i" -le "${{ github.event.inputs.nsis_parts }}" ]; do
+            n=$(printf "%02d" "$i")
+            cat "chunks/nsis.part$n" >> out/ihui-assistant_0.1.0_x64-setup.exe
+            i=$((i+1))
+          done
+          ls -la out/
+          sha256sum out/ihui-assistant_0.1.0_x64_zh-CN.msi out/ihui-assistant_0.1.0_x64-setup.exe
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release upload "${{ github.event.inputs.release_id }}" \
+            out/ihui-assistant_0.1.0_x64_zh-CN.msi \
+            out/ihui-assistant_0.1.0_x64-setup.exe \
+            --repo "${{ github.repository }}" --clobber
+          gh release view "${{ github.event.inputs.release_id }}" --repo "${{ github.repository }}" --json assets --jq '.assets[] | [.name, .size, .state] | @tsv'
+
+      - name: Cleanup chunk branch
+        if: always()
+        run: |
+          git push origin --delete release-chunks-assistant || true
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
