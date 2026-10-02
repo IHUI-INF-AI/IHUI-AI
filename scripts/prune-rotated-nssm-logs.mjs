@@ -215,7 +215,7 @@ function main() {
     console.error(`⚠️ 未判定:读不到日志目录 ${a.dir} —— ${String(e.message || e).slice(0, 120)}`)
     return 2
   }
-  const plan = planPrune(entries, { keep: a.keep })
+  const plan = planPrune(entries, { keep: a.keep, allowMass: a.allowMass })
   const scope = resolve(a.dir) + '\\'
   const off = plan.candidate.filter((c) => !resolve(c.path).startsWith(scope))
   if (off.length) console.error(`❌ 剔除 ${off.length} 个解析后落在目录外的候选(防 junction 穿透),它们不会被删`)
