@@ -8398,6 +8398,10 @@
           "title": "The current model refused this request",
           "action": "Switch model"
         },
+        "MODEL_STREAM_IDLE": {
+          "title": "Response timed out before completion",
+          "action": "Retry"
+        },
         "MULTIPLE_MATCHES": {
           "title": "Parameters are incomplete or invalid",
           "action": "Fix and retry"
