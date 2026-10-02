@@ -50,6 +50,11 @@ from pathlib import Path
 from typing import Any
 
 from .browser_hub import _same_owner
+from .ttl_json_store import (
+    load_ttl_records,
+    resolve_retention_days,
+    write_json_atomic,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +87,28 @@ _VALID_EXPECT_TYPES = ("text_contains", "title_contains", "url_contains", "selec
 _DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 _TRACES_FILE = _DATA_DIR / "browser_traces.json"
 _SCREENSHOT_DIR = _DATA_DIR / "browser_traces"
+
+# ---------------------------------------------------------------------------
+# 保留期(2026-10-03 数据出域合规整改)
+# ---------------------------------------------------------------------------
+# 为什么是 14 天:trace 记的是浏览器自动化会话的**逐步操作轨迹** —— 点过哪个
+# selector、往哪个输入框输过什么文本、失败截图。这是本次审计里最敏感的一类:
+# 操作轨迹能反推出用户在整个站上看过什么、输入过什么,连同截图一起几乎是
+# 屏幕录像的替代品。它的排障价值集中在"刚刚那次" —— H9 的失败回放窗口是分钟级
+# 到天级,不是季度级,所以取操作痕迹档里最短的 14 天。
+# (兄弟模块里 step_records 是 30 天、audit_logs 是 90 天:越偏"行为凭证"留越久,
+#  越偏"屏幕录像"留越短。)
+#
+# ⚠ 截图目录不在本模块的清理范围内:``data/browser_traces/<trace_id>/`` 下的 PNG
+# 由本模块按需落盘,清理由 TTL 记录淘汰顺带触发不了(见交付说明的"未做"一节)。
+# 所以这里只保证"JSON 索引过期后不可读",PNG 文件本身仍需运维/后续任务清理。
+_RETENTION_ENV = "BROWSER_TRACES_RETENTION_DAYS"
+_DEFAULT_RETENTION_DAYS = 14
+_RETENTION_DAYS = resolve_retention_days(_RETENTION_ENV, _DEFAULT_RETENTION_DAYS)
+
+# trace 数量上限(环形,丢最旧)。单 trace 已有 MAX_STEPS_PER_TRACE 步数上限,
+# 但 trace 本身的数量此前无上限。
+_MAX_TRACES = 1_000
 
 
 def _now_iso() -> str:
@@ -213,32 +240,38 @@ class BrowserTraceStore:
     # ---------------- 内部 ----------------
 
     def _load(self) -> None:
-        """从 JSON 懒加载到内存(仅首次;损坏/缺失降级为空)。"""
+        """从 JSON 懒加载到内存(仅首次;损坏/缺失降级为空)。
+
+        2026-10-03 合规整改:加载时顺带按保留期做**存量清理**(见 ``_RETENTION_DAYS``)。
+
+        注意:属主(``OWNER_KEY``)与 TTL 是两件独立的事,互不替代 ——
+        过期清理删的是"太老的 trace",``_same_owner`` 拦的是"别人的 trace"。
+        存量里那些没有 owner 字段的历史 trace 依旧按 ``_same_owner`` 的三态不可见,
+        本次改动**不触碰**那条口径(见模块 docstring 末段)。
+        """
         if self._loaded:
             return
         try:
-            if self._file.exists():
-                raw = json.loads(self._file.read_text(encoding="utf-8"))
-                if isinstance(raw, dict):
-                    self._data = {
-                        tid: record
-                        for tid, record in raw.items()
-                        if isinstance(record, dict) and isinstance(record.get("steps"), list)
-                    }
+            data, dropped = load_ttl_records(
+                self._file,
+                retention_days=_RETENTION_DAYS,
+                shape="mapping",
+                max_items=_MAX_TRACES,
+                validate=lambda r: isinstance(r, dict) and isinstance(r.get("steps"), list),
+            )
+            if dropped:
+                logger.info("browser_trace_store 加载:清理过期/超限 trace %d 个", dropped)
+            self._data = data
         except Exception as e:
             logger.warning("browser_trace_store 读取失败(降级为空): %s", e)
+            self._data = {}
         finally:
             self._loaded = True
 
     def _persist(self) -> None:
         """把内存全量记录写回 JSON 文件(尽力,失败降级内存保留)。"""
-        try:
-            self._file.parent.mkdir(parents=True, exist_ok=True)
-            self._file.write_text(
-                json.dumps(self._data, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
-        except Exception as e:
-            logger.warning("browser_trace_store 写盘失败(内存保留): %s", e)
+        # 原子写(临时文件 + os.replace),避免半截 JSON 留在盘上
+        write_json_atomic(self._file, self._data, indent=2)
 
     def _trim(self, record: dict[str, Any]) -> None:
         """超出 max_steps 时删除最旧步骤。"""

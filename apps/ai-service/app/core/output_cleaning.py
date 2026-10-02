@@ -81,15 +81,31 @@ def fuzzy_score(pattern: str, text: str) -> int | None:
 # 设计取舍:
 # - 「尽力而为」而非穷举:只盖已知凭据形态,宁可漏(漏了还有其他层兜底)不可
 #   把正常文本改坏(改坏会让模型拿到错误上下文,比泄漏更难排查)。
-# - 顺序敏感:先盖「凭据头 + 值」(Bearer / Basic / PEM 块),再盖裸 key 形态
+# - 顺序敏感:先盖「凭据头 + 值」(HTTP 头 / Bearer / Basic / PEM 块),再盖裸 key 形态
 #   (sk-/AKIA/ghp_/AIza/JWT…),最后盖通用 k=v 赋值,避免二次处理。
 # - 通用赋值保留键名、分隔符与引号,只盖值,模型仍能看懂"这里有个密码"。
-# - 误伤防护:值为占位/引用形态(${VAR}、os.getenv、get_xxx()、settings.x)
-#   一律不盖 —— 这类不是真实凭据。
+#
+# 2026-10-03 出域合规整改(漏网形态):
+# 1) 头部形态独立成规则。通用 k=v 规则要求「敏感键名 + : / =」紧邻取值,而
+#    `Authorization: Bearer <tok>` 的键名 Authorization 不是敏感词、Bearer 后也没有
+#    分隔符,故原规则结构上覆盖不到;`Authorization: Basic <b64>` 更是完全裸奔。
+# 2) 原「负向前瞻」按**前缀**放行(见 _REF_NAME_MAX_LEN 处的说明),有两类漏网:
+#    真字面量恰好以前缀开头(`os.getsk-…` / `get_hunter2…`),以及被引用形态包住的
+#    真字面量(`settings.FOO` 引用没问题,`get_token() or "sk-real…"` 是有问题的)。
+#    改为对**整个取值**判定「是否看起来是变量引用」,见 _looks_like_reference。
 
 _REDACTED_SECRET = "[REDACTED_SECRET]"
 
-_SECRET_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+# 凭据头名(长的排前面,避免 x-api-key 被 api-key 分支先吃掉前缀)
+_AUTH_HEADER_NAMES = (
+    r"proxy-authorization|authorization|"
+    r"x-api-key|x-api_key|x-auth-token|x-access-token|x-secret-key|"
+    r"api-key|apikey|auth-token|access-token"
+)
+# RFC 7235 认证方案词:出现即说明后面跟的是凭据而非自由文本
+_AUTH_SCHEMES = r"bearer|basic|digest|token|apikey|api-key|oauth|oauth2|jwt|negotiate"
+
+_SECRET_PATTERNS: list[tuple[re.Pattern[str], str | re.Match[str] -> str]] = [
     # PEM 私钥块(整块盖掉,含中间内容)
     (
         re.compile(
@@ -97,6 +113,29 @@ _SECRET_PATTERNS: list[tuple[re.Pattern[str], str]] = [
             r"-----END [A-Z ]*PRIVATE KEY-----"
         ),
         _REDACTED_SECRET,
+    ),
+    # ---- HTTP 凭据头(2026-10-03 新增)----
+    # 排在通用 k=v 之前:头部形态的键名(Authorization / x-api-key)不是通用规则
+    # 的敏感词,且取值与键名之间隔着 scheme 词,通用规则结构上抓不到;
+    # 反过来若通用规则先跑,`Authorization: Token abc…` 里的 token 会被当成
+    # 「敏感键」而把 scheme 词当值盖掉、留下真正的凭据尾巴。
+    # (1) Authorization: <scheme> <credential> —— 保留 scheme 便于排障
+    (
+        re.compile(
+            r"(?i)\b(" + _AUTH_HEADER_NAMES + r")\b([ \t]*[:=][ \t]*)"
+            r"(?:" + _AUTH_SCHEMES + r")[ \t]+"
+            r"([A-Za-z0-9._~+/=-]{8,})"
+        ),
+        r"\1\2[REDACTED_SECRET]",
+    ),
+    # (2) x-api-key: <value> / Authorization: <credential>(无 scheme)
+    #     阈值 12 位:低于此长度无法与「值本来就短」区分,宁漏勿伤。
+    (
+        re.compile(
+            r"(?i)\b(" + _AUTH_HEADER_NAMES + r")\b([ \t]*[:=][ \t]*)"
+            r"([A-Za-z0-9._~+/=-]{12,})"
+        ),
+        r"\1\2[REDACTED_SECRET]",
     ),
     # Authorization: Bearer xxx(>=16 位,避免误伤 "bearer 短词")
     (

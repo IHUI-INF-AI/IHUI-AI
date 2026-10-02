@@ -32,6 +32,7 @@ export default defineAppConfig({
       pages: [
         'ai/chat',
         'ai/history',
+        'ai/conversation-import',
         'ai/image',
         'ai/voice',
         'ai/agent',

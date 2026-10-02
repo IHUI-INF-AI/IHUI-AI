@@ -18,6 +18,12 @@
   3. build_memory_context_block —— 把条目组装成可注入 system prompt 的摘要块
      (接入点说明见该函数 docstring,默认不接入 agent 主循环)
 
+2026-10-03 数据出域合规整改:本模块沉淀的是 user_preference / project_convention
+这类**用户偏好与项目内部信息**,落盘在 data/agent_longterm_memory.json。此前该文件
+**没有任何保留期限**,属"平台侧长期留存用户内容"。现按 ``_RETENTION_DAYS``
+(默认 180 天,可由 ``AGENT_LONGTERM_MEMORY_RETENTION_DAYS`` 调整)到期清理,
+并在每次加载时顺带清理存量。
+
 与既有 memory_service / long_term_memory 的关系:
   - memory_service 四层是 DB 持久化的向量/事实记忆(embedding/pgvector)
   - long_term_memory 是跨会话 RAG 检索会话摘要的门面
@@ -27,13 +33,18 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import threading
 import time
 import uuid
 from pathlib import Path
 from typing import Any
+
+from .ttl_json_store import (
+    load_ttl_records,
+    resolve_retention_days,
+    write_json_atomic,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +84,23 @@ IMPORTANCE_MAX = 5
 # JSON 持久化文件(ai-service 根下的 data/agent_longterm_memory.json)
 _DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 _MEMORY_FILE = _DATA_DIR / "agent_longterm_memory.json"
+
+# ---------------------------------------------------------------------------
+# 保留期(2026-10-03 数据出域合规整改)
+# ---------------------------------------------------------------------------
+# 为什么是 180 天:本模块沉淀的是 user_preference / project_convention /
+# lesson_learned —— **用户偏好与项目内部约定**,是"用户资产"而不是操作痕迹。
+# 按操作痕迹那一档(7~30 天)删,等于让用户每隔一个月被重新问一遍同样的偏好,
+# 恰好毁掉本模块存在的意义(文档开头写的"不再反复犯同样错误、不再重问同样偏好")。
+# 180 天与 apps/api 侧 relay_messages / IM messages 同档。
+# 注意它仍然**必须**有期限:"有价值的用户资产"不等于"永久保存"——
+# 过了保留期,重新提一次偏好比平台替他永久记着更符合知情同意。
+_RETENTION_ENV = "AGENT_LONGTERM_MEMORY_RETENTION_DAYS"
+_DEFAULT_RETENTION_DAYS = 180
+_RETENTION_DAYS = resolve_retention_days(_RETENTION_ENV, _DEFAULT_RETENTION_DAYS)
+
+# 条数上限(环形,丢最旧)。此前**没有任何条数上限**。
+_MAX_ENTRIES = 5_000
 
 # 抽取候选时强化模式标记(命中即认为"值得沉淀")
 _STRONG_MARKERS = (
@@ -207,33 +235,38 @@ class AgentLongTermMemory:
     # ---------------- 内部 ----------------
 
     def _load(self) -> None:
-        """从 JSON 懒加载到内存(仅首次;损坏/缺失降级为空)。"""
+        """从 JSON 懒加载到内存(仅首次;损坏/缺失降级为空)。
+
+        2026-10-03 合规整改:加载时顺带按保留期做**存量清理** —— TTL 代码上线前
+        磁盘上的旧条目是无期限的,这些用户偏好/项目约定没有机会自己过期。走一遍
+        ``_load`` 就清掉(内存 + 磁盘同时),不需要额外迁移脚本。
+        """
         if self._loaded:
             return
         try:
-            if self._file.exists():
-                raw = json.loads(self._file.read_text(encoding="utf-8"))
-                if isinstance(raw, dict):
-                    self._data = {
-                        mid: e
-                        for mid, e in raw.items()
-                        if isinstance(e, dict) and e.get("memory_id")
-                    }
+            data, dropped = load_ttl_records(
+                self._file,
+                retention_days=_RETENTION_DAYS,
+                shape="mapping",
+                max_items=_MAX_ENTRIES,
+                validate=lambda e: isinstance(e, dict) and bool(e.get("memory_id")),
+            )
+            if dropped:
+                logger.info("agent_longterm_memory 加载:清理过期/超限条目 %d 条", dropped)
+            self._data = data
         except Exception as e:
+            # load_ttl_records 内部已各自 fail-closed;到这里是意料之外的异常
+            # (例如 validate 抛错)。宁可空存储起,也不能让服务起不来。
             logger.warning("agent_longterm_memory 读取失败(降级为空): %s", e)
+            self._data = {}
         finally:
             self._loaded = True
 
     def _persist(self) -> None:
         """把内存全量记录写回 JSON 文件(尽力,失败降级内存保留)。"""
-        try:
-            self._file.parent.mkdir(parents=True, exist_ok=True)
-            self._file.write_text(
-                json.dumps(self._data, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-        except Exception as e:
-            logger.warning("agent_longterm_memory 写盘失败(内存保留): %s", e)
+        # 原子写(临时文件 + os.replace):与 code_index_consent 同一范式,
+        # 避免写一半崩溃在盘上留半截 JSON —— 那正是"读盘失败当空"的来源之一。
+        write_json_atomic(self._file, self._data, indent=2)
 
     def _find_duplicate(
         self, user_id: str, mem_type: str, content: str

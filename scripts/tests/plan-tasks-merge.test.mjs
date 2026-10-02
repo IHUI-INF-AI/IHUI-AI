@@ -48,6 +48,7 @@ import {
   restoreMergeNote,
   buildRestoreTerminals,
   verifyRestoreTerminals,
+  verifyMerge,
   pointerVisibilityRegression,
   __test__,
 } from '../plan-tasks-merge.mjs'
@@ -56,12 +57,23 @@ import { forkPreserved } from '../lib/plan-merge-annotation.mjs'
 import { headIdOf, headIdSet, lostMarkers, markerOf } from '../check-plan-line-loss.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+/**
+ * stdio 三元必须**显式接管**:本宿主上 `execFileSync` 走默认 stdio 继承时,派生 git
+ * 稳定 `spawnSync git EBUSY`(git 自己不被锁 —— 同一时刻 bash 里 git 正常,加上
+ * `stdio:['ignore','pipe','pipe']` 也正常)。这条与 face-reader.mjs 记的是同一个老陷阱的
+ * 另一副面孔(那边是 `stdio[0]='ignore'` 吞掉 `--batch` 清单,这边是继承式管道派生直接失败):
+ * 两种失效都表现为"安静地少数据/直接报错",账面只看得见测试红,看不出是宿主派生面。
+ * 顺带把 `maxBuffer` 一并写死:git 的告警文本走 stderr,默认 1MB 在本机足够,
+ * 但它与 stdio 同源,写死比留给默认值更省一次往返排查。
+ */
 const gitQ = (cwd, args) =>
   execFileSync('git', ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e', '-c', 'user.name=e2e', ...args], {
     cwd,
     encoding: 'utf8',
     windowsHide: true,
     timeout: 60000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 1 << 24,
   })
 const PLAN_A = ['# 计划', '', '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。', '- [ ] **D9 同一件事**:另一侧还挂着未勾。', '- [ ] **D8 真待办**:还没人做。', ''].join('\n')
 
@@ -105,6 +117,8 @@ const runHeal = (env) => {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 1 << 24,
     })
   } catch (e) {
     code = e.status ?? 1
@@ -462,6 +476,8 @@ function runCli(env, args) {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 1 << 24,
     })
   } catch (e) {
     code = e.status ?? 1
@@ -1055,4 +1071,152 @@ test('T25 stripMergeNotes:嵌套同种括号配平、尾随作者正文逐字保
   )
   if (verifyRestoreTerminals(bad.text, bad.text.replace('G-903. 活。', 'G-903. 活了'), bad.edits).problems.length === 0)
     throw new Error('零损失对账必须拒绝"顺手改正文"')
+})
+
+/**
+ * G-341:同一次运行里,F3「可自动收口」存在两处读数 —— 报告抬头一处、交付校验一处,
+ * 实测曾各说各话(抬头 2、拒落 4)。修法:交付校验自持底稿现读(与抬头同一个 `audit()`
+ * 出口、同一轮归档口径),抬头直接消费交付校验的那份;结论行把两个读数并排点名。
+ * 下面三条钉:同源同值 / 上涨必须单独点名 / 未归零必须两读数并排。
+ */
+test('G-341a 交付校验自持底稿现读,与 buildMerge 的现读同值;正当归并后归零且不报问题', () => {
+  const src = [
+    '# 计划',
+    '- [x] ✅(2026-09-20) **D96 指针**:同题的另一份登记。',
+    '- [ ] **D96 指针**:本行正题逐字存活于 L2 的同编号登记。',
+    '- [ ] **D98 真待办**:谁都没做过,不得被动。',
+  ].join('\n')
+  const r = buildMerge(src, '2026-10-02')
+  const v = verifyMerge(src, r.text, r.changed)
+  if (v.before.rotatedAuto !== r.before.rotatedAuto)
+    throw new Error(`同一次运行两处底稿现读不相等:verifyMerge=${v.before.rotatedAuto} buildMerge=${r.before.rotatedAuto}`)
+  if (v.before.rotatedAuto !== auditPlan(src).counts.rotatedAuto)
+    throw new Error('交付校验的底稿现读与判据层 auditPlan 不同值 ⇒ 运行内出现了第二把尺子')
+  if (v.before.rotatedAuto !== 1) throw new Error(`夹具应有 1 条可自动收口指针,实测 ${v.before.rotatedAuto}`)
+  if (v.problems.length) throw new Error(`正当归并不得报问题:${JSON.stringify(v.problems)}`)
+  if (v.after.rotatedAuto !== 0) throw new Error('F3 出口被消费后,归并后读数必须归零')
+})
+
+test('G-341b 归并让 F3(可自动收口)上涨(抬头 2 / 拒落 4 的同型)必须得到"不降反涨"单独点名,两个读数并排报出', () => {
+  // 夹具:底稿里无主键指针行的目标存在但全档只有一份(verbatimCount=1)⇒ 无出口;
+  // 归并文本凭空多出一份逐字孪生 ⇒ verbatimCount≥2 ⇒ 两条全翻成"可自动收口" —— 归并自造了出口。
+  const row = '- [ ] 无主键甲:本行正题存活于 L4 的同编号登记。'
+  const src = `# 计划\n${row}\n- [ ] **D98 真待办**:x。\n- [ ] 占位条目:随便一行,当指针目标。`
+  const merged = `# 计划\n${row}\n${row}\n- [ ] **D98 真待办**:x。\n- [ ] 占位条目:随便一行,当指针目标。`
+  const b4 = auditPlan(src).counts.rotatedAuto
+  const aft = auditPlan(merged).counts.rotatedAuto
+  if (b4 !== 0 || aft !== 2) throw new Error(`夹具失效:底稿 ${b4} / 归并后 ${aft},应为 0 → 2`)
+  const v = verifyMerge(src, merged, [])
+  const rise = v.problems.find((p) => p.includes('不降反涨'))
+  if (!rise) throw new Error(`归并自造可收口指针必须被单独点名:${JSON.stringify(v.problems)}`)
+  if (!rise.includes(`底稿现读 ${b4} 处`) || !rise.includes(`归并后 ${aft} 处`))
+    throw new Error(`结论行必须并排点名两个读数,实测:${rise}`)
+})
+
+test('G-341c 未归零但未上涨 ⇒ 结论行并排点名"底稿现读 N 处,归并后仍 N 处"(不得只报一个孤数)', () => {
+  const src = [
+    '# 计划',
+    '- [x] ✅(2026-09-20) **D96 指针**:同题的另一份登记。',
+    '- [ ] **D96 指针**:本行正题逐字存活于 L2 的同编号登记。',
+  ].join('\n')
+  const v = verifyMerge(src, src, [])
+  const p = v.problems.find((x) => x.includes('F3(可自动收口)未归零'))
+  if (!p) throw new Error(`什么都没改却不停手 ⇒ 会把"跑过一次"当成"修好了":${JSON.stringify(v.problems)}`)
+  if (!p.includes('底稿现读 1 处') || !p.includes('归并后仍 1 处'))
+    throw new Error(`两个读数必须并排点名,实测:${p}`)
+})
+
+/**
+ * G-815427:F1/F2 出口"拒得对"也必须说得清 —— 哪些行、为什么本次不消费、人工出路是什么。
+ * 2026-09-29 那次 8 行 F1+F3 拒写,落地闸只给一句不带行号的泛化判词,让人对着整批候选重新猜。
+ */
+test('G-815427a 报告闸:翻勾行正文判据不过 ⇒ 逐行点名并写明"本次不消费"与人工出路(并正文或让号)', () => {
+  const open = '- [ ] **D99 已收口**:做完了甲和乙。'
+  const src = ['# 计划', '- [x] ✅(2026-09-20) **D99 已收口**:做完了甲。', open, ''].join('\n')
+  // 模拟一个截掉漂开正文的翻勾产物(机器折半即有损的那一型)
+  const after =
+    '- [x] ✅(2026-10-02) **D99 已收口**:做完了甲。 （[归并] 本行与已完成登记同题(主键 「D99 · 已收口」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、正文逐字保留于前、不删行、不重复计账）'
+  const merged = src.replace(open, after)
+  const changed = [{ line: 3, kind: 'F1', before: open, after }]
+  const v = verifyMerge(src, merged, changed)
+  const p = v.problems.find((x) => x.includes('行 3(F1)翻勾把正文改了'))
+  if (!p) throw new Error(`截断正文的翻勾必须被点名:${JSON.stringify(v.problems)}`)
+  if (!p.includes('本次不消费')) throw new Error('拒绝必须说清"F1/F2 出口本次不消费"')
+  if (!p.includes('让号')) throw new Error('拒绝必须写明人工出路(并成一份权威正文,或写明是两件事并让号)')
+  // 零损失闸不放宽:该问题必须仍然构成拒落(报告路径 return 1 的输入)
+  if (!v.problems.length) throw new Error('判据被放宽了 ⇒ 这条测试本身就是假的')
+})
+
+test('G-815427b 落地闸:同一诊断必须点名具体行号与 kind;正当翻勾(正文逐字)不得触发', () => {
+  const open = '- [ ] **D99 已收口**:做完了甲和乙。'
+  const src = ['# 计划', '- [x] ✅(2026-09-20) **D99 已收口**:做完了甲。', open, ''].join('\n')
+  const after =
+    '- [x] ✅(2026-10-02) **D99 已收口**:做完了甲。 （[归并] 本行与已完成登记同题(主键 「D99 · 已收口」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、正文逐字保留于前、不删行、不重复计账）'
+  const merged = src.replace(open, after)
+  const changed = [{ line: 3, kind: 'F1+F3', before: open, after }]
+  const bad = healStopReasons(src, merged, changed, 0)
+  const hit = bad.find((x) => x.includes('L3(F1+F3)'))
+  if (!hit) throw new Error(`落地闸必须点名 L3(F1+F3),实测:${JSON.stringify(bad)}`)
+  if (!hit.includes('本次不消费')) throw new Error('落地闸的拒绝也必须说清"为什么本次不消费"')
+  // 正向对照:正当翻勾(正文逐字保留)不得触发该诊断 —— 只留拒绝臂,门就可能把功能改坏了
+  const good = buildMerge(src, '2026-10-02')
+  if (!good.changed.some((c) => c.line === 3)) throw new Error(`夹具失效:正当翻勾应产出 L3,实测 ${JSON.stringify(good.changed)}`)
+  const clean = healStopReasons(src, good.text, good.changed, 0)
+  if (clean.some((x) => x.includes('未逐字保留正文')))
+    throw new Error(`正当翻勾被误伤:${JSON.stringify(clean)}`)
+})
+
+/**
+ * G-815403:--dedupe-blocks 的可用性。票面记录的拒落(F3 由 0 涨到 8)发生在删除档还按
+ * "可自动收口"那一维判的年代 —— 现行判据(F_DIM_NO_RISE 的 F3=指针总数)对纯删行结构性免疫:
+ * 删行不新增指针文本,总数只减不增。两条各钉一端:
+ *  a) 票面同型(重复块 + 删除点之后一批行号指针)必须放行 —— 出口在解阻条件满足时可用;
+ *  b) 产物真多出指针(构建器坏了)必须拒落,且点名新造的指针与解阻条件 —— 判据一字未放宽。
+ */
+test('G-815403a 解阻条件满足:重复块 + 删除点之后的行号指针,块级收口零损失断言全过(出口可用)', () => {
+  const LP = (s) => s + '　'.repeat(Math.max(0, 46 - [...s].length))
+  const BLK = [
+    LP('- 块行一:整块登记被追加两遍,F6 是块级量纲'),
+    LP('- 块行二:第二行,过阈值'),
+    LP('- 块行三:第三行'),
+  ].join('\n')
+  const ptr = (n) => `- [ ] **D4${n} 收尾**:本行正题存活于 L${n + 4} 的同编号登记。`
+  const dup = [
+    '## 甲',
+    BLK,
+    '## 乙',
+    BLK,
+    // 标题隔开:块级判据按"连续 - 行"取段,紧跟的 - [x] 行会被并进同一段 ⇒ 两段不再逐字等值
+    '## 丙',
+    '- [x] ✅(2026-09-25) **D41 收尾**:目标条目一,在删除点之后。',
+    '- [x] ✅(2026-09-25) **D42 收尾**:目标条目二,在删除点之后。',
+    '- [x] ✅(2026-09-25) **D43 收尾**:目标条目三,在删除点之后。',
+    ptr(1),
+    ptr(2),
+    ptr(3),
+    '',
+  ].join('\n')
+  const r = buildBlockDedupe(dup)
+  if (r.deletedCount !== 3) throw new Error(`夹具失效:应删第 2 份的 3 行,实测 ${r.deletedCount}`)
+  const p = verifyBlockDedupe(dup, r.text, r.deletedCount)
+  if (p.length) throw new Error(`解阻条件满足时出口必须放行(指针总数对删行免疫):${JSON.stringify(p)}`)
+})
+
+test('G-815403b 产物真多出行号指针 ⇒ 拒落且点名新造的指针,并写明解阻条件(判据不放宽)', () => {
+  const LP = (s) => s + '　'.repeat(Math.max(0, 46 - [...s].length))
+  const BLK = [
+    LP('- 块行一:整块登记被追加两遍,F6 是块级量纲'),
+    LP('- 块行二:第二行,过阈值'),
+    LP('- 块行三:第三行'),
+  ].join('\n')
+  const dup = ['## 甲', BLK, '## 乙', BLK, ''].join('\n')
+  const r = buildBlockDedupe(dup)
+  // 构建器坏了的形态:删了 3 行,却又在尾部多写一条行号指针行(净删 2 行,行数差判据也会红)
+  const sabotaged = r.text + '- [ ] **D44 新造**:本行正题存活于 L2 的同编号登记。\n'
+  const p = verifyBlockDedupe(dup, sabotaged, r.deletedCount)
+  const f3 = p.find((x) => x.includes('多出 1 条腐烂行号指针'))
+  if (!f3) throw new Error(`产物新造指针必须被点名:${JSON.stringify(p)}`)
+  if (!f3.includes('解阻条件') || !f3.includes('内容锚点'))
+    throw new Error(`拒绝必须写明解阻条件,实测:${f3}`)
+  if (!f3.includes('D44 新造')) throw new Error('必须点名新造指针所在的行')
 })

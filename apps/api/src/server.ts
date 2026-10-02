@@ -49,6 +49,7 @@ import { redis } from './plugins/redis.js'
 import { sseRegistry } from './plugins/sse-registry.js'
 import { queue } from './plugins/queue.js'
 import { scheduler } from './plugins/scheduler.js'
+import { preloadRawRetentionOptOuts } from './services/raw-retention-optout.js'
 import { distributedRateLimit } from './plugins/distributed-rate-limit.js'
 import { paymentIdempotency } from './plugins/payment-idempotency.js'
 // O10 开放面通用幂等重放保护(Idempotency-Key + Redis SETNX)。与上面支付域那套是两套
@@ -497,6 +498,13 @@ async function registerPlugins(server: FastifyInstance) {
 
   // 定时任务调度器：BullMQ repeatable jobs（cron），由 scheduler-worker 消费
   await server.register(scheduler)
+
+  // 「不落 LLM 调用原文」用户选择的内存缓存预热（2026-10-03 数据出域合规整改）。
+  // 必须在 scheduler/计费相关注册**之前**:计费热路径的 buildRawTextColumns 读的是
+  // 这份缓存,预热未完成时一律按"默认留存"处理(方向选择见 raw-retention-optout.ts
+  // 文件头 —— 这个方向与本仓其它 fail-closed 闸门相反,是刻意的)。
+  // preload 内部已吞异常:预热失败只记 error,不让服务起不来。
+  await preloadRawRetentionOptOuts()
 
   // 分布式限流：Redis 滑动窗口 + 公平权重 + 自适应负载（多实例生效）
   await server.register(distributedRateLimit)

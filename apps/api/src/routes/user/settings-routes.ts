@@ -13,6 +13,7 @@ import { db } from '../../db/index.js'
 import { users, exportTasks } from '@ihui/database'
 import { isSystemAdminUser, findUserById } from '../../db/queries.js'
 import { purgeUserPii } from '../../services/purge-user-pii.js'
+import { setRawRetentionOptOut } from '../../services/raw-retention-optout.js'
 import {
   findUserPreferences,
   upsertUserPreference,
@@ -87,6 +88,15 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
         ),
       ),
     )
+    // 2026-10-03 数据出域合规整改:「不落 LLM 调用原文」这个键不只是存进偏好表,
+    // 还要同步进计费热路径读的那份内存缓存(setRawRetentionOptOut 内部会再落库,
+    // 所以上面那次 upsert 对这个键其实是重复的 —— 保留它是为了让本路由的
+    // "通用 KV"语义对所有键一致,不因某一个键有副作用就让调用方区别对待)。
+    // 不同步的后果:用户点了"不留存",库里有记录,但计费路径读的是另一个缓存,
+    // 于是**开关看起来生效了、实际仍在留存** —— 这类"装饰性开关"比没有更糟。
+    if ('llmRawRetentionOptOut' in body) {
+      await setRawRetentionOptOut(userId, String(body.llmRawRetentionOptOut) === 'true')
+    }
     return reply.send(success({ success: true }))
   })
 

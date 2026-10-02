@@ -27,7 +27,11 @@ Prompt 缓存计量(P0-①,2026-09-18 立,对标 Codex Harness 的缓存可观�
 存储:与 cloud_run_store / mcp_store 同款 —— 进程内 dict[run_id -> steps]
 + 每次变更全量写回 data/step_records.json(ai-service 数据目录),进程重启可恢复;
 文件缺失/损坏时静默降级为空。并发用 threading.Lock 保护原子性。
-上限:单 run 仅保留最近 MAX_STEPS_PER_RUN 步(超出丢最旧,防超长运行撑爆文件)。
+上限:单 run 仅保留最近 MAX_STEPS_PER_RUN 步(超出丢最旧,防超长运行撑爆文件);
+run 数量上限 _MAX_RUNS(环形)。
+保留期:2026-10-03 数据出域合规整改 —— step 里含工具入参与 diff 证据,属操作痕迹,
+按 _RETENTION_DAYS(默认 30 天)到期清理,加载时顺带清理存量。
+详见 _RETENTION_ENV 处的理由。
 """
 
 from __future__ import annotations
@@ -40,6 +44,12 @@ from pathlib import Path
 from typing import Any
 
 from app.core.tunables import MAX_STEPS_PER_RUN
+
+from .ttl_json_store import (
+    load_ttl_records,
+    resolve_retention_days,
+    write_json_atomic,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +77,25 @@ _VALID_STATUS = ("ok", "error")
 # JSON 持久化文件(ai-service 根下的 data/step_records.json)
 _DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 _STEPS_FILE = _DATA_DIR / "step_records.json"
+
+# ---------------------------------------------------------------------------
+# 保留期(2026-10-03 数据出域合规整改)
+# ---------------------------------------------------------------------------
+# 为什么是 30 天:step 记录里躺着**工具入参、结果摘要、diff/test/rollback 证据**
+# —— 是"发生过什么"的操作痕迹,不是用户资产。它的用途是排障与回放
+# (H9 失败可回放 / 成本归集),而排障窗口从不需要跨季度;按 180 天那档留着
+# 只是白占磁盘、白担数据出域风险。
+# 与 apps/api 侧 llm_call_logs 的 30 天同档(那份也是"只为排障存在的原文副本")。
+#
+# 判过期按**单个 run** 粒度(record 级 updated_at),不是按单 step:
+# 一次 run 的 steps 是一个整体,拆一半会让 replay 回放出一个断头序列。
+_RETENTION_ENV = "AGENT_STEP_RECORDS_RETENTION_DAYS"
+_DEFAULT_RETENTION_DAYS = 30
+_RETENTION_DAYS = resolve_retention_days(_RETENTION_ENV, _DEFAULT_RETENTION_DAYS)
+
+# run 数量上限(环形,丢最旧)。单 run 已有 MAX_STEPS_PER_RUN 步数上限,
+# 但**run 本身的数量此前没有上限** —— 一份只增不减的 run 清单同样是无期限留存。
+_MAX_RUNS = 1_000
 
 
 def _now_iso() -> str:
@@ -244,32 +273,33 @@ class AgentStepRecorder:
     # ---------------- 内部 ----------------
 
     def _load(self) -> None:
-        """从 JSON 懒加载到内存(仅首次;损坏/缺失降级为空)。"""
+        """从 JSON 懒加载到内存(仅首次;损坏/缺失降级为空)。
+
+        2026-10-03 合规整改:加载时顺带按保留期做**存量清理**(见 ``_RETENTION_DAYS``)。
+        """
         if self._loaded:
             return
         try:
-            if self._file.exists():
-                raw = json.loads(self._file.read_text(encoding="utf-8"))
-                if isinstance(raw, dict):
-                    self._data = {
-                        rid: record
-                        for rid, record in raw.items()
-                        if isinstance(record, dict) and isinstance(record.get("steps"), list)
-                    }
+            data, dropped = load_ttl_records(
+                self._file,
+                retention_days=_RETENTION_DAYS,
+                shape="mapping",
+                max_items=_MAX_RUNS,
+                validate=lambda r: isinstance(r, dict) and isinstance(r.get("steps"), list),
+            )
+            if dropped:
+                logger.info("agent_step_recorder 加载:清理过期/超限 run %d 个", dropped)
+            self._data = data
         except Exception as e:
             logger.warning("agent_step_recorder 读取失败(降级为空): %s", e)
+            self._data = {}
         finally:
             self._loaded = True
 
     def _persist(self) -> None:
         """把内存全量记录写回 JSON 文件(尽力,失败降级内存保留)。"""
-        try:
-            self._file.parent.mkdir(parents=True, exist_ok=True)
-            self._file.write_text(
-                json.dumps(self._data, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
-        except Exception as e:
-            logger.warning("agent_step_recorder 写盘失败(内存保留): %s", e)
+        # 原子写(临时文件 + os.replace),避免半截 JSON 留在盘上
+        write_json_atomic(self._file, self._data, indent=2)
 
     def _trim(self, record: dict[str, Any]) -> None:
         """超出 max_steps 时删除最旧步骤,保留最近 max_steps 步。"""

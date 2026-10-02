@@ -19,11 +19,18 @@
  *
  * 采样/防抖:同一元素 10s 内不重复上报,避免连点刷屏。
  * 失败静默:不上报错误,不打断用户。
+ * opt-out:全部事件经 emit 入口的 isAnalyticsEnabled() 闸门(Do Not Track 或
+ *   /settings/privacy 的 analyticsEnabled=false 时,连网络请求都不发),
+ *   与 useAnalytics 共用同一套判定,见 @/hooks/use-analytics。
  */
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { stripUrlCredentialSegments } from '@ihui/shared/utils/sanitize-url'
 import { useAuthStore } from '@/stores/auth'
+import {
+  isAnalyticsEnabled,
+  refreshAnalyticsConsent,
+} from '@/hooks/use-analytics'
 
 const REPORT_URL = '/api/analytics/track' // method: POST
 
@@ -77,6 +84,11 @@ export function AnalyticsCapture() {
 
   const flush = React.useCallback(async () => {
     if (bufferRef.current.length === 0) return
+    // 已 opt-out:丢弃缓冲,不发请求(与 use-analytics 的 flush 同一语义)
+    if (!isAnalyticsEnabled()) {
+      bufferRef.current.length = 0
+      return
+    }
     const batch = bufferRef.current.splice(0, bufferRef.current.length)
     try {
       // 2026-09-09 0-5-f 豁免确认:埋点批量上报需 keepalive(页面卸载仍送达),
@@ -111,12 +123,22 @@ export function AnalyticsCapture() {
     }
   }, [])
 
+  // opt-out 偏好拉取(2026-10-03 合规整改):挂载时拉一次。
+  // 组件是全局常驻的,这里拉一次即可覆盖 click/search/download/link_out/form_submit 全类别。
+  // 拉取失败按默认开启(不静默改变既有采集口径),判定逻辑在 use-analytics 内。
+  React.useEffect(() => {
+    void refreshAnalyticsConsent()
+  }, [])
+
   React.useEffect(() => {
     if (typeof window === 'undefined') return
     const sid = getSessionId()
     const path = pathname ?? window.location.pathname
 
     const emit = (name: string, label: string, extra: Record<string, unknown> = {}) => {
+      // opt-out 闸门:click / search / download / link_out / form_submit 全部经此收敛。
+      // 放在 emit 入口(而非各 handler 内)是为了不给后续新增事件留绕过口子。
+      if (!isAnalyticsEnabled()) return
       const key = `${name}:${label}`
       const now = Date.now()
       // 防抖:同元素 10s 内不重复
