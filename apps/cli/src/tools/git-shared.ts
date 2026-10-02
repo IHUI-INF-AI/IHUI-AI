@@ -19,16 +19,17 @@
  *   - 旧形态的 bare 命令名派生(直接 spawnSync "git" 字面量)、所有子命令共用一档 30s、
  *     maxBuffer 1MiB、无字节帽后 kill、无超时诊断,是同一纪律的两份实现里漂移的那一半;
  *   - 超时/超输出被杀时结果带 `killed` 诊断(elapsed/killAt/forceKill/orphaned);
- *   - stderr 进结果面前先过 `redactForPrint` 脱敏 —— push/fetch 失败时 git 会把
- *     `https://user:<token>@host` 原样打进 stderr,一旦进 transcript 就是守门 67 的对象。
+ *   - stderr 进结果面前一律过 `@ihui/shared` 的 `sanitizeEvidenceText` 脱敏 —— push/fetch 失败时 git 会把
+ *     `https://user:<token>@host` 原样打进 stderr,一旦进 transcript 就是守门 67 的对象
+ *     (G-998107 证据面脱敏契约恢复,wave-2 期间误换成错误文案出口 redactForPrint 已纠正)。
  */
 import { spawnSync } from 'node:child_process';
 import {
   GIT_NETWORK_TIMEOUT_MS,
   gitVerbOf,
-  redactForPrint,
   resolveGitSpawnOptions,
 } from '../plugins/git-runner.js';
+import { sanitizeEvidenceText } from '@ihui/shared/utils/redact';
 import type { ToolResult } from './index.js';
 
 /** 网络族动词:比本地操作慢一个量级,走独立一档(档位表住在 git-runner,这里只选档不立档) */
@@ -66,6 +67,15 @@ export interface GitExecOptions {
   extraEnv?: Record<string, string>;
 }
 
+/** killed 时的 stderr 形态:诊断行在前(四字段名是验收契约,不得改名),git 原始 stderr 脱敏在后 */
+function killedStderrText(killed: GitCappedDiagnostics, rawStderr: string): string {
+  const diag =
+    `[git-capped] ${killed.reason}: elapsed=${killed.elapsed}ms killAt=${killed.killAt}` +
+    ` forceKill=${killed.forceKill} orphaned=${killed.orphaned}(预算表见 plugins/git-runner.ts)`;
+  const clean = sanitizeEvidenceText(rawStderr).trim();
+  return clean ? `${diag}\n${clean}` : diag;
+}
+
 /**
  * git 派生唯一出口(工具面)。预算解析全部委托 git-runner,本文件零预算字面量。
  */
@@ -98,37 +108,41 @@ export function execGit(args: string[], cwd: string, opts: GitExecOptions | numb
   const rawError = result.error as (NodeJS.ErrnoException | undefined) | undefined;
   const errCode = rawError && typeof rawError === 'object' ? String(rawError.code ?? '') : '';
   if (errCode === 'ETIMEDOUT') {
+    const killed: GitCappedDiagnostics = {
+      elapsed: Date.now() - startedAt,
+      killAt: resolved.timeoutMs,
+      forceKill: false,
+      orphaned: false,
+      reason: 'timeout',
+    };
     return {
-      stdout: (result.stdout as string) ?? '',
-      stderr: redactForPrint((result.stderr as string) ?? ''),
+      // 结果已作废不返回半截内容(G-815/旧形态 execGitCapped 抛错路径同语义):被杀输出不可信
+      stdout: '',
+      stderr: killedStderrText(killed, (result.stderr as string) ?? ''),
       exitCode: null,
-      killed: {
-        elapsed: Date.now() - startedAt,
-        killAt: resolved.timeoutMs,
-        forceKill: false,
-        orphaned: false,
-        reason: 'timeout',
-      },
+      killed,
     };
   }
   if (errCode === 'ENOBUFS') {
+    const killed: GitCappedDiagnostics = {
+      elapsed: Date.now() - startedAt,
+      killAt: resolved.maxBufferBytes,
+      forceKill: false,
+      orphaned: false,
+      reason: 'output-too-large',
+    };
     return {
-      stdout: (result.stdout as string) ?? '',
-      stderr: redactForPrint((result.stderr as string) ?? ''),
+      // 同上:超帽结果已作废,不返回半截内容(半截大输出既泄内容又不可判完整)
+      stdout: '',
+      stderr: killedStderrText(killed, (result.stderr as string) ?? ''),
       exitCode: null,
-      killed: {
-        elapsed: Date.now() - startedAt,
-        killAt: resolved.maxBufferBytes,
-        forceKill: false,
-        orphaned: false,
-        reason: 'output-too-large',
-      },
+      killed,
     };
   }
   return {
     stdout: (result.stdout as string) ?? '',
     // stderr 先脱敏再进结果面:git 会把内嵌口令的远端 URL 原样打进 stderr
-    stderr: redactForPrint((result.stderr as string) ?? ''),
+    stderr: sanitizeEvidenceText((result.stderr as string) ?? ''),
     exitCode: result.status,
   };
 }
@@ -136,7 +150,9 @@ export function execGit(args: string[], cwd: string, opts: GitExecOptions | numb
 export function formatGitResult(r: GitExecResult, successOnZero = true): ToolResult {
   const parts: string[] = [];
   if (r.stdout.trim()) parts.push(r.stdout.trimEnd());
-  if (r.stderr.trim()) parts.push(`[stderr] ${r.stderr.trimEnd()}`);
+  // 进结果面前再过一次脱敏(幂等):GitExecResult 可能由调用方直接构造,入口脱敏不可赖
+  const cleanStderr = sanitizeEvidenceText(r.stderr);
+  if (cleanStderr.trim()) parts.push(`[stderr] ${cleanStderr.trimEnd()}`);
   if (r.killed) {
     parts.push(
       `[git-capped] ${r.killed.reason}: ${JSON.stringify(r.killed)} (预算表见 plugins/git-runner.ts)`,
@@ -144,7 +160,11 @@ export function formatGitResult(r: GitExecResult, successOnZero = true): ToolRes
   }
   let error: string | undefined;
   if (r.killed) {
-    error = `git ${r.killed.reason} 已被预算封顶(${r.killed.elapsed}ms)`;
+    // 判词与 git-runner 的 GitOutputTooLargeError 同族("已作废"),四诊断词在 JSON 里
+    error =
+      r.killed.reason === 'output-too-large'
+        ? `git 输出超过上限,本次结果已作废: ${JSON.stringify(r.killed)}`
+        : `git ${r.killed.reason} 已被预算封顶: ${JSON.stringify(r.killed)}`;
   } else if (r.exitCode !== null && r.exitCode !== 0) {
     error = `git 退出码 ${r.exitCode}`;
   }
