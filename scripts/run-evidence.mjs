@@ -382,6 +382,11 @@ function verify(outFile, expectCwd) {
   return { v, rcExit }
 }
 
+/** 本工具自己认识的**带值**开关 —— 一律只认 `--k=v` 形态。 */
+export const VALUE_FLAGS = ['cwd', 'timeout', 'label', 'expect-cwd']
+/** 本工具认识的**布尔**开关。 */
+export const BOOLEAN_FLAGS = ['verify', 'self-test']
+
 export const __test__ = {
   judgeEvidence,
   exitCodeForVerdict,
@@ -393,6 +398,49 @@ export const __test__ = {
   verify,
   runCapture,
   buildSpawnArgv,
+  validateHead,
+  VALUE_FLAGS,
+  BOOLEAN_FLAGS,
+}
+
+const USAGE_LINE =
+  'run-evidence.mjs <证据文件> [--timeout=毫秒|45000ms|180s|2m] [--label=…] [--cwd=绝对路径] -- <命令 …>;读侧 --verify <证据文件> [--expect-cwd=绝对路径]'
+
+/**
+ * 判 `--` 之前那段参数的形态,返回人类可读的错误列表(空数组 = 合法)。
+ *
+ * 为什么这是判据而不是洁癖:`opt()` 只解析 `--k=v`,于是
+ * `--cwd G:/x`(空格形式)会被**静默忽略** —— 被包装的判据跑在仓根,而证据里连
+ * `#EVIDENCE-CWD=` 行都不写,`--verify` 照样判 complete。实测代价:一次"在 apps/web
+ * 跑两个测试文件"的取证收成了 38 个文件(19 个失败全是 `.ihui-agent/tmp/**` 里的仓内副本),
+ * 差点把副本的失败登记成端内缺陷。工具把自己的失败伪装成"跑过了",比不跑更贵。
+ * 位置参数多出一个也在这里点名:那通常就是被吞掉的 flag 值。
+ */
+export function validateHead(head) {
+  const errors = []
+  for (const a of head) {
+    if (!a.startsWith('--')) continue
+    const eq = a.indexOf('=')
+    const name = eq < 0 ? a.slice(2) : a.slice(2, eq)
+    if (eq < 0) {
+      if (VALUE_FLAGS.includes(name))
+        errors.push(
+          `--${name} 必须写成 --${name}=<值>;空格形式会被静默忽略并改用默认值 ⇒ 取证面不是你要问的那一面`,
+        )
+      else if (!BOOLEAN_FLAGS.includes(name))
+        errors.push(
+          `不认识开关 --${name}(带值开关:${VALUE_FLAGS.join('/')};布尔开关:${BOOLEAN_FLAGS.join('/')})`,
+        )
+    } else if (!VALUE_FLAGS.includes(name)) {
+      errors.push(`不认识开关 --${name}=(本工具没有这个选项)`)
+    }
+  }
+  const positionals = head.filter((a) => !a.startsWith('--'))
+  if (positionals.length > 1)
+    errors.push(
+      `参数里多出 ${positionals.length - 1} 个位置参数(${positionals.slice(1).join(', ')})⇒ 像是某个 --flag 的值被空格形式吞掉了`,
+    )
+  return errors
 }
 
 async function main() {
@@ -400,6 +448,14 @@ async function main() {
   const dIdx = argv.indexOf('--')
   const head = dIdx >= 0 ? argv.slice(0, dIdx) : argv
   const cmd = dIdx >= 0 ? argv.slice(dIdx + 1) : []
+  // 先判参数形态,再动手:一个被静默忽略的 `--cwd` 会让整份证据落在错误的目录上,
+  // 而证据里连"CWD 没记录"这条痕迹都没有 ⇒ 判据从"没跑到"退化成"跑过且没问题"。
+  const headErrors = validateHead(head)
+  if (headErrors.length) {
+    for (const e of headErrors) console.error(`❌ ${e}`)
+    console.error(`   用法:${USAGE_LINE}`)
+    return 2
+  }
   const flags = new Set(
     head.filter((a) => !a.startsWith('--') === false && a.startsWith('--') && !a.includes('=')),
   )
@@ -725,11 +781,11 @@ async function runSelfTest() {
     'T22 输出末尾无换行 ⇒ RC 仍独占一行且判 complete(修复前必红)',
     (() => {
       if (c22.rc !== 0) return false
-      const rcLines = t22
-        .split(/\r?\n/)
-        .filter((l) => l.startsWith(RC_MARK))
+      const rcLines = t22.split(/\r?\n/).filter((l) => l.startsWith(RC_MARK))
       return (
-        rcLines.length === 1 && rcLines[0] === `${RC_MARK}0` && judgeEvidence(t22).kind === 'complete'
+        rcLines.length === 1 &&
+        rcLines[0] === `${RC_MARK}0` &&
+        judgeEvidence(t22).kind === 'complete'
       )
     })(),
   )
@@ -835,6 +891,42 @@ async function runSelfTest() {
       /* 自检自清,清不掉不影响结论 */
     }
   }
+  ok(
+    'V1 空格形式 --cwd 必须报错(它会被 opt() 静默忽略 ⇒ 证据落在仓根)',
+    (() => {
+      const e = validateHead(['ev.txt', '--cwd', 'G:/x'])
+      return (
+        e.length === 2 &&
+        e.some((x) => x.includes('--cwd 必须写成')) &&
+        e.some((x) => x.includes('多出 1 个位置参数'))
+      )
+    })(),
+  )
+  ok('V2 等值形态 --cwd=… 零错', (() => validateHead(['ev.txt', '--cwd=G:/x']).length === 0)())
+  ok(
+    'V3 未知带值开关报错(不得静默掉进默认分支)',
+    (() => {
+      const e = validateHead(['ev.txt', '--workig=1'])
+      return e.length === 1 && e[0].includes('不认识开关')
+    })(),
+  )
+  ok(
+    'V4 布尔开关不被误报为未知(--verify / --self-test)',
+    (() =>
+      validateHead(['--verify', 'ev.txt']).length === 0 &&
+      validateHead(['--self-test']).length === 0)(),
+  )
+  ok(
+    'V5 多出的位置参数点名(那是被吞掉的 flag 值的形状)',
+    (() => {
+      const e = validateHead(['ev.txt', 'G:/x'])
+      return e.length === 1 && e[0].includes('G:/x')
+    })(),
+  )
+  ok(
+    'V6 `--` 之后的开关不在射程内(那是被包装命令自己的参数)',
+    (() => validateHead(['ev.txt', '--timeout=1000']).length === 0)(),
+  )
   let pass = 0
   for (const [n, p] of cases) {
     console.log(`${p ? '  ✅' : '  ❌'} ${n}`)
