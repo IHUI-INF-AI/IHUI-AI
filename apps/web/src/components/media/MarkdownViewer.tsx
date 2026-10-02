@@ -62,7 +62,7 @@ export function MarkdownViewer({ content, className }: MarkdownViewerProps) {
   return (
     <div className={cn('prose prose-sm max-w-none dark:prose-invert', className)}>
       <ReactMarkdown
-        remarkPlugins={remarkGfm ? [remarkGfm] : []}
+        remarkPlugins={remarkGfm ? [[remarkGfm, { singleTilde: false }]] : []}
         components={{
           code({ node: _node, className: cls, children, ...props }) {
             const match = /language-(\w+)/.exec(cls || '')
